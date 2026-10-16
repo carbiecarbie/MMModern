@@ -251,13 +251,12 @@ void xeenValidateRegionalActors(const XeenMap &map, const XeenObjectFile &mob, c
 				throw std::invalid_argument("Noncanonical regional defeated actor");
 		} else if (a.lifecycle!=XeenActorLifecycle::Present || a.hp<1 || a.hp>a.statistics->baseHp() ||
 			// Sleeping movement can leave an unseen actor away from its spawn.
-			// Immutable identity, HP, accounting, occupancy and terrain closure
+			// Immutable identity, HP, accounting and terrain closure
 			// still validate it at every publication and restore boundary.
 			accounted.count(a.id) || !local(a.x,a.y) ||
 			!xeenActorClosure(map,a)[a.y*16+a.x]) throw std::invalid_argument("Invalid regional live actor value");
 	}
-	for (auto count:XeenActorApproach::occupancy(actors)) if (count>3)
-		throw std::invalid_argument("Regional occupancy exceeded");
+	// No per-cell cap; only movement refuses a destination holding three (0x1fc24).
 }
 }
 
@@ -276,8 +275,11 @@ XeenRegionalOpportunityCandidate::XeenRegionalOpportunityCandidate(XeenWorld &wo
 		if(tested[index] || !a.statistics || !a.statistics->raw[32])return;
 		tested[index]=true;
 		a.statistics->validateAttackCapabilities();
+		// DOS 0x1ff27..0x1ff38 admits a shared row or column, the party's own
+		// cell included; only the three front-slot identities are excluded
+		// (0x1ff7c..0x1ff98), so a hidden fourth monster there can fire.
 		if(a.lifecycle!=XeenActorLifecycle::Present || a.status!=XeenActorStatus::Physical ||
-			(a.x==c.x && a.y==c.y) || (a.x!=c.x && a.y!=c.y))return;
+			(a.x!=c.x && a.y!=c.y))return;
 		const auto contacts=XeenIndoorScene().classifyActors(world,c,current);
 		for(unsigned i=0;i<3;++i)if(contacts.slots[i]==a.id)return;
 		if(!xeenIndoorRangedRay(world,c,a))return;
@@ -300,9 +302,13 @@ XeenRegionalOpportunityCandidate::XeenRegionalOpportunityCandidate(const XeenMap
 		const auto &a=current[index];
 		if (tested[index] || (!a.activated && !context.sleeping) || a.lifecycle!=XeenActorLifecycle::Present ||
 			a.status!=XeenActorStatus::Physical || !a.statistics || !a.statistics->raw[32] ||
-			(a.x==c.x && a.y==c.y) || (a.x!=c.x && a.y!=c.y)) return;
+			(a.x!=c.x && a.y!=c.y)) return;
 		tested[index]=true;
 		a.statistics->validateAttackCapabilities();
+		// As indoors (DOS 0x1ff27..0x1ff98): the party's cell is admitted and
+		// only the three front-slot identities are excluded.
+		const auto contacts=XeenActorApproach::classify(current,c);
+		for (unsigned i=0;i<3;++i) if (contacts.slots[i]==a.id) return;
 		if (!xeenOutdoorRangedRay(map,c,a)) return;
 		auto &shot=shots.at(shotCount++);shot.source=a.id;shot.x=a.x;shot.y=a.y;
 		shot.distance=unsigned(std::abs(a.x-c.x)+std::abs(a.y-c.y));

@@ -118,8 +118,8 @@ void route(Inputs &in) {
  modal(revisit);
 }
 // M69: per-map state survives the Vertigo-F3-Vertigo loop, with a save,
-// encode, decode and restore at each stop. The exit script's Spawn creates
-// script slots 46..51 (50 and 51 spawned, MON type 0); an F3 defeat is kept.
+// encode, decode and restore at each stop. The exit script's Spawns of slots
+// 50 and 51 stay inert past the 46 MOB records; an F3 defeat is kept.
 XeenSaveSnapshot reload(const XeenSaveSnapshot &saved,Inputs &in,std::unique_ptr<Fixture> &next) {
  const auto bytes=XeenSaveFormat::encode(saved);
  next=std::make_unique<Fixture>(in,XeenSaveFormat::decode(bytes));
@@ -131,12 +131,8 @@ void checkLoop(const XeenSaveSnapshot &s,const char *stop) {
  const auto &f3=s.map(23).monsters->slots.at(5);
  check(f3.lifecycle==XeenActorLifecycle::Defeated && f3.accounted && f3.x==-128 && f3.y==-128,stop);
  const auto &city=*s.map(28).monsters;
- check(city.originalCount==46 && city.slots.size()==52,stop);
- for(unsigned slot=46;slot<52;++slot) {
-  const auto &a=city.slots[slot];
-  check(slot<50 ? a.lifecycle==XeenActorLifecycle::Unresolved && a.spawnedType==-1 :
-   a.lifecycle==XeenActorLifecycle::Present && a.spawnedType==0,stop);
- }
+ // The exit script's Spawns of slots 50 and 51 are past the MOB count: inert, unsaved.
+ check(city.originalCount==46 && city.slots.size()==46,stop);
 }
 void vertigoLoop(Inputs &in) {
  auto source=clearedCity(in);
@@ -151,7 +147,7 @@ void vertigoLoop(Inputs &in) {
  if(city->flow->presentationGeneration())city->act(YesAction{});quiet(*city);
  check(city->c.mapId==XeenMapIdentity(23),"Loop reaches the mainland");
  std::unique_ptr<Fixture> mainland;const auto atF3=reload(city->snapshot(),in,mainland);
- checkLoop(atF3,"F3 save lost the Vertigo script slots or the F3 defeat");
+ checkLoop(atF3,"F3 save gained Vertigo script slots or lost the F3 defeat");
  auto &f=*mainland;
  if(f.c.x!=10 || f.c.y!=13) {
   check(f.c.x==10 && f.c.y==12,"Original exit arrival location");
@@ -162,10 +158,8 @@ void vertigoLoop(Inputs &in) {
  f.act(InteractionAction{});if(f.flow->presentationGeneration())f.act(YesAction{});quiet(f);
  check(f.c.mapId==XeenMapIdentity(28),"Loop returns to Vertigo");
  std::unique_ptr<Fixture> back;const auto atVertigo=reload(f.snapshot(),in,back);
- checkLoop(atVertigo,"Vertigo save lost the script slots or the F3 defeat");
- const auto &spawned=back->w.sessionState().monsters(28)[50];
- check(spawned.statistics && spawned.hp==spawned.statistics->baseHp() && spawned.original.resourceId==0,
-  "A restored spawned slot binds its MON type and HP");
+ checkLoop(atVertigo,"Vertigo save gained script slots or lost the F3 defeat");
+ check(back->w.sessionState().monsters(28).size()==46,"A restored Vertigo table holds only its MOB records");
 }
 void combatMap(Inputs &in) {
  auto source=in.base();save_test::clearExplored(source);

@@ -194,7 +194,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
     nav(NavigationAction::TurnLeft);nav(NavigationAction::MoveForward);
     check(position->x==16&&position->y==2&&world->sessionState().regionalActors(28).at(selected).lifecycle==XeenActorLifecycle::Defeated,"M37 selected Slime defeat");
    };
-   const auto fromBToC=[&](unsigned expectedCount=52){
+   const auto fromBToC=[&](bool reset=true){
     nav(NavigationAction::MoveForward);nav(NavigationAction::MoveForward);
     nav(NavigationAction::TurnLeft);nav(NavigationAction::MoveForward);
     nav(NavigationAction::MoveForward);nav(NavigationAction::MoveForward);
@@ -207,7 +207,12 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
     check(position->mapId==XeenMapIdentity(28),"M37 exit No camera");
     input(InteractionAction{});deniedSave();input(YesAction{});settle();
     check(position->mapId==XeenMapIdentity(23)&&position->x==10&&position->y==12&&position->direction==XeenDirection::South,"M37 mainland return");
-    check(world->sessionState().regionalActors(28).size()==expectedCount,"M37 flag-9 reset predicate");
+    // The reset Spawns slots 0-40; its slots 50 and 51 are past the 46 MOB
+    // records and stay inert (DOS 0x9c59). Flag 9 skips the reset entirely.
+    const auto &city=world->sessionState().regionalActors(28);
+    bool revived=city.size()==46;
+    for(unsigned i=0;i<=40 && revived;++i)revived=city[i].lifecycle==XeenActorLifecycle::Present;
+    check(city.size()==46 && (reset ? revived : city[35].lifecycle==XeenActorLifecycle::Defeated),"M37 flag-9 reset predicate");
    };
    const auto fromCToD=[&]{
     nav(NavigationAction::TurnLeft);nav(NavigationAction::TurnLeft);nav(NavigationAction::MoveForward);
@@ -242,7 +247,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
     if(stage=="B9") {
      check(flags->isSet(9) && world->sessionState().regionalActors(28).size()==46,
       "M37 artificial flag-9-true fixture");
-     fromBToC(46);
+     fromBToC(false);
      input(SaveGameAction{});check(status().find("Saved")!=std::string::npos,"M37 flag-9-true save");
      std::cout<<"M37 FLAG9 SKIP RESET passed\n";
      return true;
@@ -323,9 +328,9 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
     check(position->mapId==XeenMapIdentity(28),"M37 exit No retained city");
     input(InteractionAction{});check(!flow->canSave(),"M37 exit Yes question");input(YesAction{});settle();
     check(position->mapId==XeenMapIdentity(23) && position->x==10 && position->y==12 && position->direction==XeenDirection::South,"M37 original mainland return");
-    check(world->sessionState().regionalActors(28).size()==52,"M37 original reset slot count");
+    check(world->sessionState().regionalActors(28).size()==46,"M37 original reset slot count");
     checkpoint('C');
-    check(XeenSaveFile::read(*target).camera.mapId==XeenMapIdentity(23) && XeenSaveFile::read(*target).map(28).monsters->slots.size()==52,"M37 checkpoint C F9 state");
+    check(XeenSaveFile::read(*target).camera.mapId==XeenMapIdentity(23) && XeenSaveFile::read(*target).map(28).monsters->slots.size()==46,"M37 checkpoint C F9 state");
     nav(NavigationAction::TurnLeft);nav(NavigationAction::TurnLeft);nav(NavigationAction::MoveForward);
     check(position->x==10 && position->y==13,"M37 revisit mainland entrance");
     input(InteractionAction{});input(YesAction{});settle();
@@ -334,7 +339,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
     nav(NavigationAction::TurnLeft);nav(NavigationAction::MoveForward);
     check(position->x==16 && position->y==2 && world->sessionState().regionalActors(28).at(36).lifecycle==XeenActorLifecycle::Defeated,"M37 reset entrance Slime 36");
     checkpoint('D');
-    check(XeenSaveFile::read(*target).camera.mapId==XeenMapIdentity(28) && XeenSaveFile::read(*target).map(28).monsters->slots.size()==52,"M37 checkpoint D F9 state");
+    check(XeenSaveFile::read(*target).camera.mapId==XeenMapIdentity(28) && XeenSaveFile::read(*target).map(28).monsters->slots.size()==46,"M37 checkpoint D F9 state");
     fromBToC();input(SaveGameAction{});check(status().find("Saved")!=std::string::npos,"M37 uninterrupted final F9");
    }
    std::cout<<"M37 CLI SMOKE "<<position->mapId.number<<','<<position->x<<','<<position->y<<" passed\n";

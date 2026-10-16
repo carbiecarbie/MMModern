@@ -478,7 +478,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
     route("DDDDDDDLUUUU");
     inspect([&]{check(position->x==15 && position->y==0 && position->direction==XeenDirection::South,"M38 city exit route");});
     action(InteractionAction{});action(YesAction{});settle();
-    inspect([&]{check(position->mapId==XeenMapIdentity(23) && world->sessionState().regionalActors(28).size()==52,
+    inspect([&]{check(position->mapId==XeenMapIdentity(23) && world->sessionState().regionalActors(28).size()==46,
      "M38 original city reset/return absent");});checkpoint('E');
    }
    if(stage!="detour-F" && stage!="detour-G") {

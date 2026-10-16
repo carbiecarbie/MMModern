@@ -368,8 +368,7 @@ XeenSaveMonsterTable mobTable(unsigned monsters) {
 }
 // M69 decision 5: capture, encode, decode, restore, capture again. Both the
 // mainland and the city hold state in every table restore accepts: monster
-// tables (a defeated, accounted record, an unresolved and a spawned script
-// slot), moved and removed objects, cells (indoor only; outdoor cells and
+// tables (a defeated, accounted record), moved and removed objects, cells (indoor only; outdoor cells and
 // surface flags have no producer), wall items, arbitrary Event opcodes, explored bits, the
 // head cache and a dormant treasure item's source identity.
 void genericRoundTrip(){
@@ -377,13 +376,12 @@ void genericRoundTrip(){
  auto &f3=s.map(23);
  auto &orc=f3.monsters->slots[2];orc.x=orc.y=-128;orc.lifecycle=XeenActorLifecycle::Defeated;orc.accounted=true;
  f3.objects={{0,-128,-128,false}};f3.events={{0,0},{1,0}};
+ f3.cells={{17,0x0906,0,1,0}}; // Outdoor surface plus an independent wall-word layer.
  f3.explored=std::array<std::uint8_t,32>{};(*f3.explored)[9]=0x10;
  s.journey->treasure->weapons[0]={0,{0,30,0,0}};s.journey->treasure->sources[0]={23,2};
  auto &city=s.map(28);
  city.monsters=mobTable(4);
  auto &slime=city.monsters->slots[1];slime.x=slime.y=-128;slime.lifecycle=XeenActorLifecycle::Defeated;slime.accounted=true;
- city.monsters->slots.push_back({0,0,XeenActorLifecycle::Unresolved,XeenActorStatus::Physical,false,-1});
- city.monsters->slots.push_back({7,7,XeenActorLifecycle::Present,XeenActorStatus::Physical,false,0});
  city.objects={{1,4,5,true},{2,-128,-128,false}};
  // A grate on the east face of (5,5) and the west face of (6,5), both unlocked.
  city.cells={{5*16+5,0x0900,0x80,0,0},{5*16+6,0x0009,0x80,0,0}};
@@ -399,14 +397,17 @@ void genericRoundTrip(){
  check(state.mapState(28)->cells.size()==2 && state.mapState(28)->cells[0].mask==2 && state.mapState(28)->cells[1].mask==8 &&
   state.mapState(28)->cells[0].unlocked && state.isObjectDisabled({28,2}) && !state.isObjectDisabled({28,1}) &&
   live.world.effectiveObject({28,1}).x==4 && live.world.effectiveObjectFlip({28,1}) && state.isEventDisabled({28,764}) &&
-  state.isEventDisabled({23,1}) && state.isObjectDisabled({23,0}) && state.monsters(28).size()==6 &&
-  state.monsters(28)[5].hp==state.monsters(28)[5].statistics->baseHp() && state.accountedMonsters().count({28,1}) &&
+  state.isEventDisabled({23,1}) && state.isObjectDisabled({23,0}) && state.monsters(28).size()==4 &&
+  state.accountedMonsters().count({28,1}) &&
   state.mapState(28)->originalMonsterCount==4 && live.party.monsterTreasure->weapons[0].source==2,
   "Restore distributes every table to its own map, with live record sources");
  check(live.world.effectiveWallItem({28,0}).x==-128 && live.world.effectiveWallItem({28,2}).y==10 &&
   live.world.effectiveWallItem({37,1}).y==-2 && live.world.effectiveEvent({28,763},indoorEvents(28).records[763]).opcode==42 &&
   live.world.effectiveEvent({37,1},indoorEvents(37).records[1]).opcode==255 && !state.mapState(37)->monsters,
   "Restored wall items and arbitrary opcodes use logical map and original record identities");
+ check(live.world.sampleCell(23,1,1)->cell->surfaceIndex==6 &&
+  xeenGet<XeenOutdoorLayers>(live.world.sampleCell(23,1,1)->cell->geometry).top==9,
+  "Outdoor v13 cells did not restore effective surface and wall-word layers");
  live.world.discardMapCache();
  check(live.world.effectiveWallItem({28,2}).x==9 && live.world.objectFile(28).entities.wallItems[2].x==6,
   "Resource cache reload keeps effective wall-item positions and immutable MOB preimages");
@@ -417,9 +418,39 @@ void genericRoundTrip(){
  const auto wire=XeenSaveFormat::encode(captured);check(wire==bytes,"Capture after restore writes the restored bytes");
  CurrentDestination again;usePerMapResources(again,4);again.restore(XeenSaveFormat::decode(wire));again.bind();
  check(XeenSaveFormat::encode(again.capture())==bytes,"Generic per-map round trip is exact");
- // A one-sided wall change has no matching opposite face.
+ // Older builds saved Spawn slots past the MOB count (v0.2.0 Vertigo 46-51).
+ // DOS never keeps them (writer 0x266e3..0x2671c, load 0x0f5be): drop them.
+ auto older=s;auto &extra=older.map(28).monsters->slots;
+ extra.push_back({0,0,XeenActorLifecycle::Unresolved,XeenActorStatus::Physical,false,-1});
+ extra.push_back({7,7,XeenActorLifecycle::Present,XeenActorStatus::Physical,false,0});
+ extra.push_back({-128,-128,XeenActorLifecycle::Defeated,XeenActorStatus::Physical,true,0});
+ CurrentDestination dropped;usePerMapResources(dropped,4);dropped.restore(XeenSaveFormat::decode(XeenSaveFormat::encode(older)));dropped.bind();
+ check(dropped.world.sessionState().monsters(28).size()==4 && !dropped.world.sessionState().accountedMonsters().count({28,6}) &&
+  XeenSaveFormat::encode(dropped.capture())==bytes,"Saved slots past the MOB count were not dropped on load");
+ // DOS saves and reloads stacked cells (no cap outside movement, 0x1fc24).
+ auto stacked=s;
+ for(auto &slot:stacked.map(28).monsters->slots){slot.x=5;slot.y=5;slot.lifecycle=XeenActorLifecycle::Present;slot.accounted=false;}
+ CurrentDestination four;usePerMapResources(four,4);four.restore(XeenSaveFormat::decode(XeenSaveFormat::encode(stacked)));four.bind();
+ check(XeenActorApproach::occupancy(four.world.sessionState().monsters(28))[5*32+5]==4 &&
+  XeenSaveFormat::encode(four.capture())==XeenSaveFormat::encode(stacked),"A stacked cell of four did not round-trip exactly");
+ // Treasure pending from the dropped, defeated slot 6 is discarded with it; the
+ // valid dormant weapon from F3 record 2 keeps its source and loads exactly.
+ auto pending=older;auto &t=*pending.journey->treasure;
+ t.sources[1]={28,6};t.pendingMask=2;t.pendingGold=10;t.armor[0]={1,{0,2,0,0}};
+ CurrentDestination discarded;usePerMapResources(discarded,4);
+ discarded.restore(XeenSaveFormat::decode(XeenSaveFormat::encode(pending)));discarded.bind();
+ const auto &kept=*discarded.party.monsterTreasure;
+ check(!kept.pendingMask && !kept.pendingGold && !kept.armor[0].item.id && kept.weapons[0].item.id==30 &&
+  XeenSaveFormat::encode(discarded.capture())==bytes,"Pending treasure from a slot past the MOB count was not discarded exactly");
+ // AlterMap deliberately writes just one selected cell, without mirroring.
  auto oneSided=s;oneSided.map(28).cells.pop_back();
- CurrentDestination bad;usePerMapResources(bad,4);rejects([&]{bad.restore(oneSided);},"opposite face");
+ CurrentDestination single;usePerMapResources(single,4);single.restore(oneSided);single.bind();
+ check(XeenSaveFormat::encode(single.capture())==XeenSaveFormat::encode(oneSided),"One-sided Event wall failed v13 round trip");
+ auto parking=s;parking.map(28).monsters->slots[2].x=100;parking.map(28).monsters->slots[2].y=100;
+ CurrentDestination parked;usePerMapResources(parked,4);
+ parked.objectProvider=[](auto id){auto o=indoorObjects(id,4);if(id==XeenMapIdentity(28))o.entities.monsters[2].x=o.entities.monsters[2].y=100;return o;};
+ parked.restore(XeenSaveFormat::decode(XeenSaveFormat::encode(parking)));parked.bind();
+ check(XeenSaveFormat::encode(parked.capture())==XeenSaveFormat::encode(parking),"Original Spawn parking coordinates failed exact v13 round trip");
 }
 // Restore an opcode whose source resource is None, execute the replacement,
 // suspend for its reward, then Remove its cell. Publication checks must retain
@@ -462,6 +493,91 @@ void replacedOpcodePublication(){
   for(const auto &item:live.party.roster.at(id).miscellaneous)if(item.id==37)++delivered;
  check(delivered==1,"The replaced GiveEnchanted opcode must grant exactly once across suspension and deletion");
 }
+// Each producer runs through the normal detached Event/publication flow,
+// leaves the indoor map, returns, then uses the real v13 serializer/restore.
+void mapEventRoundTrips(){
+ for(unsigned operation=0;operation<9;++operation) {
+  const XeenMapIdentity active=operation>=7?23:28,other=operation>=7?28:23;
+  auto initial=currentSnapshot();initial.camera={active,9,11,XeenDirection::North};
+  initial.map(28).monsters=mobTable(4);
+  if(operation==5) {auto &a=initial.map(28).monsters->slots[0];a.x=a.y=-128;a.lifecycle=XeenActorLifecycle::Defeated;a.accounted=true;}
+  auto city=XeenEventFile{active,"synthetic.evt",true,{}};
+  const auto add=[&](unsigned x,unsigned y,unsigned line,unsigned op,std::vector<std::uint8_t> p={}) {
+   auto r=record(x,y,line,op,std::move(p));r.direction=4;city.records.push_back(r);
+  };
+  switch(operation) {
+  case 0:add(9,11,0,34,{2,13,13});break;
+  case 1:add(9,11,0,25,{100,100,0});add(100,100,0,46);add(100,100,1,34,{2,13,13});add(100,100,2,26);break;
+  case 2:add(9,11,0,19,{25,5,4,8});break;
+  case 3:add(9,11,0,35,{25,5,6});break;
+  case 4:add(9,11,0,24,{3,34});break;
+  case 5:add(9,11,0,16,{0,7,11,0});break;
+  case 6:add(9,11,0,16,{7,5,6,0});break;
+  case 7:add(9,11,0,35,{3,4,6});add(9,11,1,19,{17,4,0,8});break;
+  case 8:add(9,11,0,16,{22,5,6,0});break;
+  }
+  // Called deletion clears the physical suffix: that case leaves/returns in
+  // a separate candidate below; all others use actual travel publication.
+  if(operation==1)add(9,11,1,18);else add(9,11,operation==7?2:1,7,{std::uint8_t(other.number),9,11});
+  add(9,11,3,0,{2,12,12});
+  if(operation>=7)add(9,11,99,5,{0,0,0,1,0});
+  auto mainland=regional_test::events(other);mainland.records.clear();
+  auto travel=record(9,11,0,7,{std::uint8_t(active.number),9,11});travel.direction=4;mainland.records.push_back(travel);
+  mainland.records.push_back(record(9,11,99,5,{0,0,0,1,0}));
+  const auto configure=[&](CurrentDestination &f) {
+   usePerMapResources(f,4);
+   f.mapProvider=[](auto id){auto m=id==XeenMapIdentity(24)?regional_test::map(id):indoorMap(id);
+    if(id==XeenMapIdentity(28))m.geometry.neighbors=std::array<std::uint16_t,4>{30,29,0,0};
+    if(id==XeenMapIdentity(30))m.geometry.neighbors[1]=31;
+    if(id==XeenMapIdentity(29))m.geometry.neighbors[0]=31;
+    if(id==XeenMapIdentity(23))m.geometry.neighbors[1]=24;return m;};
+   f.resources.loadEvents=[&](auto id){return id==active?city:id==other?mainland:indoorEvents(id);};
+   f.resources.loadRegionalText=[](auto id){auto t=regional_test::texts(id);if(id==XeenMapIdentity(23))t.strings.resize(44);return t;};
+  };
+  CurrentDestination live;configure(live);live.restore(XeenSaveFormat::decode(XeenSaveFormat::encode(initial)));
+  XeenEventSystem events([&](auto id){return XeenEventScript(live.resources.loadEvents(id));},live.resources.loadRegionalText);
+  const auto display=font();IndexedFrame image;image.width=320;image.height=200;image.pixels.resize(64000);
+  std::uint64_t now=0,cycle=0;
+  XeenEventFlow flow(live.world,events,live.party,live.camera,live.flags,display,
+   [&](auto){return XeenEventFlow::Composition{image,false};},{},[&]{return now;},{},nullptr,
+   [&](auto,auto){return XeenEventFlow::Composition{image,false};},nullptr,
+   [&](auto &,const auto &,const auto &,auto,auto){return XeenEventFlow::Composition{image,false};});
+  flow.dialogText=&dos_test::text();unsigned failures=0;
+  flow.reportManual=[&](const auto &r){if(const auto *e=std::get_if<XeenEventExecutionError>(&r)){
+   ++failures;std::cerr<<"Map round trip "<<operation<<": "<<e->message<<'\n';}};
+  const auto present=[&](const IndexedFrame &frame){if(frame.presentation())flow.framePresented(frame.presentation());};
+  const auto act=[&] {
+   present(flow.frame());flow.beginCycle(++cycle);
+   present(flow.handle(InteractionAction{},flow.displayedInput(),flow.frame().presentation()));
+   for(unsigned n=0;n<1000 && !flow.canSave();++n) {now+=125;flow.beginCycle(++cycle);
+    if(const auto frame=flow.updatePresentation())present(*frame);
+    present(flow.handle(AcknowledgeAction{},flow.displayedInput(),flow.frame().presentation()));}
+   check(!failures && flow.canSave(),"Persistent Event failed publication or quiet capture");
+  };
+  act();
+  if(operation!=1) {check(live.camera.mapId==other,"Event did not leave map");act();}
+  check(live.camera.mapId==active,"Event did not return to map");
+  auto revisit=live.world.transitionCandidate();revisit->leaveMap(active);revisit->discardMapCache();
+  const auto snapshot=live.capture();const auto bytes=XeenSaveFormat::encode(snapshot);
+  const auto *map=snapshot.find(28);check(map,"Persistent Event lost logical owner");
+  if(operation<2)check(revisit->effectiveWallItem({28,2}).x==13 && map->wallItems.size()==1,"Wall item lost after leave/return");
+  if(operation==1)check(map->events.size()==3 && !revisit->isEventDisabled({28,1}),"Called deletion did not retain physical-only identities");
+  if(operation==2)check(revisit->sampleCell(28,25,5)->cell->rawWord==0x8888 && snapshot.find(29)->cells.size()==1,"Wall change lost physical owner");
+  if(operation==3)check(revisit->sampleCell(28,25,5)->cell->surfaceIndex==6 && snapshot.find(29)->cells.size()==1,"Surface change lost physical owner");
+  if(operation==4)check(revisit->effectiveEvent({28,2},city.records[2]).opcode==34,"Nonzero replacement lost after leave/return");
+  if(operation==5)check(map->monsters->slots[0].lifecycle==XeenActorLifecycle::Present,"Spawn slot lost after leave/return");
+  if(operation==6)check(map->monsters->slots.size()==4 && revisit->sessionState().monsters(28).size()==4,
+   "Spawn past the MOB count materialized or persisted a slot");
+  if(operation==7)check(revisit->sampleCell(23,3,4)->cell->surfaceIndex==6 &&
+   revisit->sampleCell(24,1,4)->cell->rawWord==1 && !snapshot.find(24),"Outdoor surface or visit-only neighbour lifetime failed v13 capture");
+  if(operation==8)check(snapshot.find(23)->monsters->slots.size()==snapshot.find(23)->monsters->originalCount,
+   "Outdoor Spawn past the MOB count materialized or persisted a slot");
+  auto neutral=snapshot;neutral.maps=initial.maps;neutral.camera=initial.camera;
+  check(XeenSaveFormat::encode(neutral)==XeenSaveFormat::encode(initial),"Map Event replayed reward/time or consumed Journey RNG");
+  CurrentDestination loaded;configure(loaded);loaded.restore(XeenSaveFormat::decode(bytes));loaded.bind();
+  check(XeenSaveFormat::encode(loaded.capture())==bytes,"Persistent Event did not round-trip exactly through v13");
+ }
+}
 // Review finding 1: treasure sources keep their full identity. F3 and the city
 // both hold a defeated, accounted record 2; the saved source names one, the
 // other or both, with the city record a non-Orc (no Orc to prefer) or the only
@@ -498,7 +614,7 @@ void unsupportedMapState(){
   case 2:s.map(28).wallItems={{3,1,1}};message="wall-item identity does not exist";break;
   case 3:s.map(37).events={{4,0x2a}};message="Event identity does not exist";break;
   case 4:s.map(28).cells={{17,0,0x40,0,0}};message="cell flag change is not supported yet";break;
-  case 5:s.map(23).cells={{17,0x0901,0x80,1,0}};message="original resource mismatch";break; // Outdoor tile.
+  case 5:s.map(23).cells={{17,0x0901,0x80,2,0}};message="original resource mismatch";break; // Wrong outdoor preimage.
   }
   XeenSaveFormat::encode(s); // The format represents every one of them.
   CurrentDestination f;usePerMapResources(f,4);rejects([&]{f.restore(s);},message);
@@ -620,7 +736,7 @@ void invalidResourceAndState(){
 int main() {
 	try {
 		fullRestoration(); explicitItems(); invalidResourceAndState(); characterPreflight(); mutationPolicies(); journeyBorrowRefusal();
-		genericRoundTrip(); replacedOpcodePublication(); sourceIdentityCases(); unsupportedMapState(); warzoneLifetime(); allCloudsMaps();
+		genericRoundTrip(); replacedOpcodePublication(); mapEventRoundTrips(); sourceIdentityCases(); unsupportedMapState(); warzoneLifetime(); allCloudsMaps();
 		std::cout << "Current save state: atomic preparation, resource identities, rules and owner/flow lifetimes passed\n";
 		return 0;
 	} catch (const std::exception &error) {

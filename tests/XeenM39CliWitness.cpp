@@ -427,7 +427,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
             inspect([&]{check(position->mapId==XeenMapIdentity(28) && position->x==15 && position->y==0 && position->direction==XeenDirection::South,"M39 original city exit route");});
             action(InteractionAction{});deny();action(NoAction{});settle();
             action(InteractionAction{});deny();action(YesAction{});settle();
-            inspect([&]{check(position->mapId==XeenMapIdentity(23) && world->sessionState().regionalActors(28).size()==52 &&
+            inspect([&]{check(position->mapId==XeenMapIdentity(23) && world->sessionState().regionalActors(28).size()==46 &&
                 world->sessionState().accountedMonsters().count({23,9}) && world->sessionState().monsters(23)[9].hp==0 &&
                 party->roster.at(1).currentSp==20 && party->roster.at(6).currentSp==23,"M39 city reset changed mainland/SP");});
             checkpoint("reset");route("LLU");action(InteractionAction{});action(YesAction{});settle();route("URULU");

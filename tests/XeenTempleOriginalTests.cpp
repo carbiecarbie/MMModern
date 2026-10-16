@@ -37,16 +37,13 @@ int main(int argc,char **argv) {
         for(bool reset:{false,true}) {
             auto actors=original;auto source=base;
             if(reset) {
-                actors.resize(52);
-                for(unsigned n=46;n<52;++n) {auto &a=actors[n];a.id={28,n};a.original={};a.original.x=a.original.y=0;a.x=a.y=0;
-                    if(n>=50){a.original.resourceId=0;a.statistics=in.statistics[0];}}
-                for(const auto &record:in.city.records) {if(record.x!=100 || record.y!=100 || record.opcode!=0x10)continue;check(record.parameters.size()==4,"reset Spawn operand structure");const auto &p=record.parameters;auto &a=actors[p[0]];
+                // Reset Spawns of slots 50 and 51 are past the MOB count: inert (DOS 0x9c59).
+                for(const auto &record:in.city.records) {if(record.x!=100 || record.y!=100 || record.opcode!=0x10)continue;check(record.parameters.size()==4,"reset Spawn operand structure");const auto &p=record.parameters;if(p[0]>=actors.size())continue;auto &a=actors[p[0]];
                     a.x=p[1];a.y=p[2];a.hp=a.statistics->baseHp();a.activated=false;a.lifecycle=XeenActorLifecycle::Present;}
                 // CD maze0028.evt removes exit protection/self-disable at (15,0,South,4/5); reset creates no overlay.
             }
             source.map(28).monsters.emplace(XeenSaveMonsterTable{std::uint16_t(original.size()),{}});
-            for(const auto &a:actors)source.map(28).monsters->slots.push_back({a.x,a.y,a.lifecycle,a.status,false,
-                a.id.recordIndex>=original.size() && a.original.hasResource()?std::int16_t(0):std::int16_t(-1)});
+            for(const auto &a:actors)source.map(28).monsters->slots.push_back({a.x,a.y,a.lifecycle,a.status,false,-1});
             Fixture fixture(in,source);
             xeenValidateIndoorActors(fixture.w,28,actors);
             for(unsigned selected=0;selected<original.size();++selected) {

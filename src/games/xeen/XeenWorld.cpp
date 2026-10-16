@@ -84,8 +84,9 @@ std::vector<XeenExploredTile> XeenSessionWorldState::exploredTiles() const {
 }
 void XeenSessionWorldState::stageMonsters(XeenMapIdentity mapId, std::vector<XeenActor> actors,
 		std::size_t originalCount, bool outdoors) {
-	if (originalCount>actors.size() || originalCount>std::numeric_limits<std::uint16_t>::max())
-		throw std::invalid_argument("Staged monster table loses original records");
+	// The table is exactly the MOB records; Spawn never extends it (DOS 0x9c59).
+	if (originalCount!=actors.size() || originalCount>std::numeric_limits<std::uint16_t>::max())
+		throw std::invalid_argument("Staged monster table differs from its MOB records");
 	auto &state=_mapStates.state(mapId);
 	state.monsters.emplace(std::move(actors));
 	state.originalMonsterCount=static_cast<std::uint16_t>(originalCount);state.outdoors=outdoors;
@@ -348,7 +349,7 @@ void XeenWorld::disableObject(XeenObjectIdentity id) {
 }
 
 void XeenWorld::validateEventCell(const XeenCamera &physical, const XeenEventFile &events) {
-	if (!physical.mapId || physical.x < 0 || physical.x > 15 || physical.y < 0 || physical.y > 15 ||
+	if (!eventCameraAdmitted(physical) ||
 			events.mapId != physical.mapId)
 		throw std::invalid_argument("event mutation requires the physical map/cell");
 	static_cast<void>(map(physical.mapId));
@@ -450,12 +451,17 @@ std::optional<XeenCellSample> XeenWorld::sampleCell(
 		auto cell=std::make_shared<XeenMapCell>(*result.cell);
 		if(cell->rawWord!=v.originalWord || cell->rawAttributes!=v.originalAttributes)
 			throw std::logic_error("Barrier original resource preimage changed");
-		auto &walls=xeenGet<XeenIndoorWalls>(cell->geometry).walls;
-		for(unsigned d=0;d<4;++d)if(v.mask&(1u<<d)) {
-			walls[d]=v.walls[d];const auto shift=12-4*d;
-			cell->rawWord=(cell->rawWord&~(15u<<shift))|(unsigned(v.walls[d])<<shift);
+		cell->rawWord=v.word();cell->rawAttributes=v.attributes();cell->flags=cell->rawAttributes&0xf8;
+		if(result.geometry->isOutdoors()) {
+			const unsigned word=cell->rawWord;
+			cell->geometry=XeenOutdoorLayers{std::uint8_t(word&15),std::uint8_t((word>>4)&15),
+				std::uint8_t((word>>8)&15),std::uint8_t((word>>12)&15)};
+			cell->surfaceIndex=word&15;
+		} else {
+			auto &walls=xeenGet<XeenIndoorWalls>(cell->geometry).walls;
+			for(unsigned d=0;d<4;++d)walls[d]=(cell->rawWord>>(12-4*d))&15;
+			cell->surfaceIndex=cell->rawAttributes&7;
 		}
-		if(v.unlocked) {cell->rawAttributes|=0x80;cell->flags|=0x80;}
 		result.effectiveCell=std::move(cell);result.cell=result.effectiveCell.get();break;
 	}
 	const unsigned index=y*16+x;
@@ -530,28 +536,19 @@ void XeenWorld::restoreBarriers(const std::vector<XeenBarrierOverride> &values) 
 	// Each value binds to its own physical tile, whatever logical map reaches it.
 	for(unsigned n=0;n<values.size();++n) {
 		const auto &v=values[n];
-		if(!v.tile || v.tile.side!=XeenSide::Clouds || (!v.mask && !v.unlocked) || v.mask>15 ||
+		if(!v.tile || (!v.mask && !v.unlocked && !v.surfaceChanged) || v.mask>15 || v.visitMask || v.visitMap ||
+			(v.surfaceChanged ? v.surface>7 : v.surface!=0) ||
 			(n && !(values[n-1].tile<v.tile || (values[n-1].tile==v.tile && values[n-1].cell<v.cell))))
 			throw std::invalid_argument("Invalid barrier tile/cell/order");
 		const auto &tile=map(v.tile);const auto &base=tile.geometry.cells[v.cell];
-		if(tile.identity()!=v.tile || tile.geometry.isOutdoors() || base.rawWord!=v.originalWord || base.rawAttributes!=v.originalAttributes)
+		if(tile.identity()!=v.tile || (tile.geometry.isOutdoors() && v.surfaceChanged) || base.rawWord!=v.originalWord || base.rawAttributes!=v.originalAttributes)
 			throw std::invalid_argument("Saved barrier original resource mismatch");
 	}
-	// The effective wall of a face: its saved value, else the original nibble.
-	const auto wallOf=[&](XeenMapIdentity tile,unsigned cell,unsigned d)->unsigned {
-		const auto match=std::find_if(values.begin(),values.end(),[&](const auto &b){return b.tile==tile && b.cell==cell;});
-		if(match!=values.end() && (match->mask&(1u<<d)))return match->walls[d];
-		return (map(tile).geometry.cells[cell].rawWord>>(12-4*d))&15u;
-	};
 	for(const auto &v:values) {
-		constexpr int dx[]{0,1,0,-1},dy[]{1,0,-1,0};
 		for(unsigned d=0;d<4;++d) {
 			if(!(v.mask&(1u<<d))) {if(v.walls[d])throw std::invalid_argument("Noncanonical unused barrier face");continue;}
-			if(v.walls[d]!=1 && v.walls[d]!=3 && v.walls[d]!=6 && v.walls[d]!=9 && v.walls[d]!=13)
-				throw std::invalid_argument("Unsupported saved barrier wall");
-			const auto other=sampleCell(v.tile,v.cell%16+dx[d],v.cell/16+dy[d]);
-			if(!other || other->geometry->isOutdoors() || wallOf(other->mapId,other->y*16+other->x,d^2)!=v.walls[d])
-				throw std::invalid_argument("Saved barrier lacks matching opposite face");
+			if(v.walls[d]>15)throw std::invalid_argument("Invalid saved wall nibble");
+			if(v.visitWalls[d])throw std::invalid_argument("Saved visit-only wall");
 		}
 	}
 	XeenMutationWatch::write(this);_sessionState.assignCells(values);
@@ -595,21 +592,110 @@ void XeenWorld::copyEventParty(const XeenPartyState &source, XeenPartyState &can
 void XeenWorld::applyAlterEvent(const XeenCamera &physical, std::uint8_t line,
 		std::uint8_t replacement, const XeenEventFile &events) {
 	XeenMutationWatch::write(this);
-	if (!regionalJourney() || _sessionState._entry!=XeenEncounterEntry::Ordinary ||
-		physical.mapId!=events.mapId || replacement!=0)
+	if (!detachedEventCandidate() || !regionalJourney() || _sessionState._entry!=XeenEncounterEntry::Ordinary ||
+		physical.mapId!=events.mapId)
 		throw std::invalid_argument("AlterEvent replacement is unsupported");
+	validateEventCell(physical,events);
+	// DOS compares the sign-extended operand (0x2827f..0x28287) with the index
+	// line, stored zero-extended (0x21e75..0x21e7e): lines 128-255 never match.
+	if(line>=128)return;
 	auto &state=_sessionState._mapStates.state(physical.mapId);
-	bool found=false;
+	const auto replace=[&](std::size_t i) {
+		const XeenEventIdentity id{physical.mapId,i};
+		state.eventOverrides.erase(std::remove_if(state.eventOverrides.begin(),state.eventOverrides.end(),
+			[&](const auto &v){return v.id==id;}),state.eventOverrides.end());
+		state.disabledEvents.erase(id);
+		if(!replacement)state.disabledEvents.insert(id);
+		else state.eventOverrides.push_back({id,replacement});
+	};
 	for (std::size_t i=0;i<events.records.size();++i) {
 		const auto &r=events.records[i];
 		if (r.x==physical.x && r.y==physical.y && r.line==line &&
 			(r.direction==static_cast<std::uint8_t>(physical.direction) || r.direction==4)) {
-			state.disabledEvents.insert({physical.mapId,i});found=true;
+			// DOS also replaces the following physical record when the current
+			// effective opcode is PlayCD (0x282c0..0x28304).
+			if(effectiveEvent({physical.mapId,i},r).opcode==60 && i+1<events.records.size())replace(i+1);
+			replace(i);
 		}
 	}
-	if (!found) throw std::invalid_argument("AlterEvent physical line was not found");
-	state.eventOverrides.erase(std::remove_if(state.eventOverrides.begin(),state.eventOverrides.end(),
-		[&](const auto &v){return state.disabledEvents.count(v.id)!=0;}),state.eventOverrides.end());
+	// No matching physical line is a DOS no-op (0x28189..0x28356).
+	std::sort(state.eventOverrides.begin(),state.eventOverrides.end(),[](const auto &a,const auto &b){return a.id<b.id;});
+}
+
+void XeenWorld::applyMoveWallObject(XeenWallItemIdentity id,int x,int y) {
+	if(!detachedEventCandidate() || x<-128 || x>127 || y<-128 || y>127)
+		throw std::invalid_argument("MoveWallObj requires a detached Event and signed-byte coordinates");
+	static_cast<void>(effectiveWallItem(id));
+	auto &values=_sessionState._mapStates.state(id.mapId).wallItemOverrides;
+	auto at=std::lower_bound(values.begin(),values.end(),id,[](const auto &v,auto key){return v.id<key;});
+	XeenMutationWatch::write(this);
+	if(at!=values.end() && at->id==id)*at={id,x,y};
+	else {values.push_back({id,x,y});std::sort(values.begin(),values.end(),[](const auto &a,const auto &b){return a.id<b.id;});}
+}
+
+void XeenWorld::applyMakeNothingHere(const XeenCamera &physical,const XeenEventFile &events) {
+	if(!detachedEventCandidate())throw std::logic_error("MakeNothingHere requires a detached Event");
+	disableEventsAtCell(physical,events);
+}
+
+namespace {
+XeenBarrierOverride &eventCell(std::vector<XeenBarrierOverride> &values,const XeenCellSample &sample,const XeenMapCell &base) {
+	const unsigned cell=sample.y*16+sample.x;
+	auto at=std::lower_bound(values.begin(),values.end(),cell,[](const auto &v,unsigned n){return v.cell<n;});
+	if(at==values.end() || at->cell!=cell) {
+		XeenBarrierOverride value;value.tile=sample.mapId;value.cell=cell;
+		value.originalWord=base.rawWord;value.originalAttributes=base.rawAttributes;
+		at=values.insert(at,value);
+	}
+	return *at;
+}
+}
+
+void XeenWorld::applyAlterMap(XeenMapIdentity logical,int x,int y,unsigned direction,unsigned wall) {
+	if(!detachedEventCandidate() || direction>4 || wall>15)throw std::invalid_argument("Invalid AlterMap owner or operands");
+	auto sample=sampleCell(logical,x,y);
+	if(!sample && x>=-16 && x<32 && y>=-16 && y<32) {
+		// setWall ignores mazeLookup's missing-neighbour return. Its DAT index
+		// still names the last resolved tile, then x/y are masked (DOS
+		// 0x11db7..0x11def, 0x11e1e..0x11e3c, 0x234f5..0x23549).
+		auto physical=logical;
+		bool resolved=true;
+		if(y<0 || y>=16) {
+			const auto next=map(physical).geometry.neighbors[y<0?2:0];
+			if(next)physical={logical.side,next};else resolved=false;
+		}
+		if(resolved && (x<0 || x>=16)) {
+			const auto next=map(physical).geometry.neighbors[x<0?3:1];
+			if(next)physical={logical.side,next};
+		}
+		sample=sampleCell(physical,x&15,y&15);
+	}
+	if(!sample)throw std::invalid_argument("AlterMap has no physical DAT cell");
+	const bool visit=map(logical).geometry.isOutdoors() && sample->mapId!=logical;
+	const auto &base=map(sample->mapId).geometry.cells[sample->y*16+sample->x];
+	XeenMutationWatch::write(this);
+	auto &value=eventCell(_sessionState._mapStates.state(sample->mapId).cells,*sample,base);
+	for(unsigned d=0;d<4;++d)if(direction==4 || direction==d) {
+		if(visit) {value.visitMap=logical;value.visitMask|=1u<<d;value.visitWalls[d]=wall;}
+		else {value.mask|=1u<<d;value.walls[d]=wall;}
+	}
+}
+
+void XeenWorld::applyAlterCellFlag(XeenMapIdentity logical,int x,int y,unsigned surface) {
+	if(!detachedEventCandidate())throw std::logic_error("AlterCellFlag requires a detached Event");
+	const bool outdoor=map(logical).geometry.isOutdoors();
+	// DOS does not mask outdoor x/y after lookup. No valid original operand
+	// witness establishes neighbour writes; do not invent an aliased address.
+	if(outdoor && (x<0 || x>=16 || y<0 || y>=16))
+		throw std::invalid_argument("Outdoor AlterCellFlag neighbour operand is unverified");
+	if(surface>(outdoor?15u:7u))throw std::invalid_argument("AlterCellFlag surface is outside its cell encoding");
+	if(outdoor) {applyAlterMap(logical,x,y,3,surface);return;}
+	const auto sample=sampleCell(logical,x,y);
+	if(!sample)throw std::invalid_argument("AlterCellFlag has no physical DAT cell");
+	const auto &base=map(sample->mapId).geometry.cells[sample->y*16+sample->x];
+	XeenMutationWatch::write(this);
+	auto &value=eventCell(_sessionState._mapStates.state(sample->mapId).cells,*sample,base);
+	value.surfaceChanged=true;value.surface=surface;
 }
 
 void XeenWorld::publishTransition(XeenWorld &candidate) noexcept {

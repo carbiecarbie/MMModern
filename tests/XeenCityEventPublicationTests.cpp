@@ -74,11 +74,10 @@ int main(int argc,char **argv) {
 		f.act(CancelInteractionAction{});
 		check(f.flow->canSave() && before==XeenSaveFormat::encode(f.snapshot()),"WhoWill cancellation changed durable state");
 		f.act(InteractionAction{});select(f);
-		check(f.flow->canSave() && f.p.questFlags.isSet(3) && f.w.sessionState().regionalActors(28).size()==51 &&
+		check(f.flow->canSave() && f.p.questFlags.isSet(3) && f.w.sessionState().regionalActors(28).size()==46 &&
 			f.w.sessionState().disabledEvents().count({28,0})==1 && f.w.sessionState().journeyRandom()==random,
 			"Same-map guarded publication lost flags, Spawn, AfterEvent or RNG independence");
-		for(unsigned slot=46;slot<50;++slot)check(f.w.sessionState().regionalActors(28)[slot].lifecycle==XeenActorLifecycle::Unresolved,
-			"Same-map publication materialized a resize gap");
+		// Spawn slot 50 is past the 46 MOB records: inert, as in DOS (0x9c59).
 		const auto saved=f.snapshot();Fixture restored(inputs,saved,false,&city);
 		check(XeenSaveFormat::encode(restored.snapshot())==XeenSaveFormat::encode(saved),
 			"Same-map flags, Event overlay and scripted slots did not restore byte-identically");

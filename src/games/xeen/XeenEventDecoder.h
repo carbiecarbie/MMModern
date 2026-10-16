@@ -19,6 +19,8 @@ struct XeenEventDecodeContext {
 	std::optional<std::string> resourceName;
 	std::optional<std::size_t> recordIndex;
 	bool templeRecovery = false;
+	// AlterEvent changes the opcode, retaining its original operand storage.
+	bool replacedOpcode = false;
 };
 
 struct XeenEventSourceLocation {
@@ -108,6 +110,10 @@ struct XeenEventSoundCue { std::uint8_t index = 0; };
 struct XeenEventCdSpeech { std::uint8_t track = 0; std::uint16_t start = 0, finish = 0; };
 struct XeenEventSpawn { std::uint8_t slot=0; int x=0,y=0; std::uint8_t unused=0; };
 struct XeenEventAlterEvent { std::uint8_t line=0, replacement=0; };
+struct XeenEventMoveWallObject { std::uint8_t record=0; int x=0,y=0; };
+struct XeenEventMakeNothingHere {};
+struct XeenEventAlterMap { int x=0,y=0; std::uint8_t direction=0,wall=0; };
+struct XeenEventAlterCellFlag { int x=0,y=0; std::uint8_t surface=0; };
 struct XeenEventSetVar { std::uint8_t mode=0, value=0; };
 struct XeenEventProtectionCheck {};
 struct XeenEventAlterHeads { std::uint8_t left=0,right=0; };
@@ -150,6 +156,10 @@ using XeenDecodedEventOperation = std::variant<
 	XeenEventCdSpeech,
 	XeenEventSpawn,
 	XeenEventAlterEvent,
+	XeenEventMoveWallObject,
+	XeenEventMakeNothingHere,
+	XeenEventAlterMap,
+	XeenEventAlterCellFlag,
 	XeenEventSetVar,
 	XeenEventProtectionCheck,
 	XeenEventAlterHeads,

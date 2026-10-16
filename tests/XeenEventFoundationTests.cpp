@@ -137,7 +137,11 @@ void integrity() {
         "Startup published an activated monster outside the DAT footprint");
 }
 void originalSessions(const char *directory) {
-    for(const XeenCamera start:{XeenCamera{27,10,10,XeenDirection::North},XeenCamera{49,0,0,XeenDirection::North}}) {
+    const std::vector<XeenCamera> starts{{27,10,10,XeenDirection::North},{49,0,0,XeenDirection::North},
+        {47,13,13,XeenDirection::East},{79,2,13,XeenDirection::North},
+        {29,1,1,XeenDirection::North},{27,30,30,XeenDirection::North}};
+    for(unsigned scenario=0;scenario<starts.size();++scenario) {
+        const auto start=starts[scenario];
         combat_gameplay_test::Harness h{std::filesystem::path(directory)};auto s=h.services();
         XeenEventTextLoader texts([&](const std::string &name)->std::optional<regional_test::Bytes> {
             if(!h.assets->hasArchiveResource(name))return {};return h.assets->readArchiveResource(name);
@@ -152,10 +156,57 @@ void originalSessions(const char *directory) {
                 h.assets->readInitialResource("maze0023.mob"),h.assets->readInitialResource("maze0023.evt"));
         };
         s.eventFixture=start;s.saveUnavailable="disabled in the Event developer session";bool shown=false;
-        s.show=[&](const auto &frame,const auto &,const auto &,const auto &,const auto &) {
+        s.show=[&](const auto &frame,const auto &handler,const auto &,const auto &idle,const auto &) {
             shown=true;h.flow->prepareJourneySprites();
             check(frame.isValid() && h.camera->mapId==start.mapId && h.camera->x==start.x &&
-                !h.flow->canSave(),"Original-data Application fixture did not render its selected map");return true;
+                !h.flow->canSave(),"Original-data Application fixture did not render its selected map");
+            if(scenario<2)return true;
+            const auto random=h.world->sessionState().journeyRandom();
+            std::optional<XeenPresentationRequest> request;unsigned failures=0;
+            h.flow->reportManual=[&](const auto &result) {
+                request.reset();
+                if(const auto *p=std::get_if<XeenEventExecutionSuspended>(&result))request=p->request;
+                if(const auto *e=std::get_if<XeenEventExecutionError>(&result)) {
+                    ++failures;std::cerr<<"Original Part A map "<<start.mapId.number<<": "<<e->message<<'\n';
+                }
+            };
+            const auto press=[&](const PlayerAction &action) {
+                handler.framePresented(h.flow->frame().presentation());handler.completeInputHandoff(h.flow->frame().presentation());
+                handler.beginCycle(++h.cycle);handler.withDisplayedInput(action,*handler.displayedInput());
+                handler.framePresented(h.flow->frame().presentation());handler.completeInputHandoff(h.flow->frame().presentation());
+            };
+            for(unsigned repeat=0;repeat<(scenario==3?2u:1u);++repeat) {
+                press(InteractionAction{});
+                for(unsigned n=0;n<1000 && h.flow->blocksGameplay();++n) {
+                    if(scenario==4 && h.flow->encounter()->combat())break;
+                    h.now+=125;handler.beginCycle(++h.cycle);idle();
+                    handler.framePresented(h.flow->frame().presentation());handler.completeInputHandoff(h.flow->frame().presentation());
+                    if(request && request->response!=XeenPresentationResponseRequirement::Presented) {
+                        if(request->kind==XeenPresentationKind::CharacterSelection)press(SelectMemberAction{0});
+                        else if(request->response==XeenPresentationResponseRequirement::YesNo)press(YesAction{});
+                        else press(AcknowledgeAction{});
+                    }
+                }
+                check(!failures && (!h.flow->blocksGameplay() || (scenario==4 && h.flow->encounter()->combat())),
+                    "Original Part A Event did not return session input or enter Spawn combat");
+            }
+            if(scenario==2)check(h.world->effectiveWallItem({47,0}).x==-128 &&
+                h.world->effectiveWallItem({47,4}).x==13 && h.world->sampleCell(47,12,7)->cell->surfaceIndex==6,
+                "Original map-47 wall/floor switch was not published");
+            if(scenario==3)check(wallAt(*h.world->sampleCell(79,2,11)->cell,XeenDirection::South)==8,
+                "Original map-79 wall switch was not published");
+            if(scenario==4)check(h.world->sessionState().regionalActors(29)[22].x==1 &&
+                h.world->sessionState().regionalActors(29)[22].y==1,"Original map-29 Spawn was not published");
+            if(scenario==5) {
+                const auto file=h.eventLoader->load(27);unsigned cleared=0;
+                for(unsigned i=0;i<file.records.size();++i)if(file.records[i].x==30 && file.records[i].y==30) {
+                    check(h.world->isEventDisabled({27,i}),"Original map-27 physical Event survived MakeNothingHere");++cleared;
+                }
+                check(cleared==10,"Original MakeNothingHere witness no longer names its ten original records");
+            }
+            if(scenario!=4 || !h.flow->encounter()->combat())
+                check(h.world->sessionState().journeyRandom()==random,"Part A original script consumed a Journey draw");
+            return true;
         };
         check(Application().playGameplay(s,{}, {},false,XeenEncounterEntry::Journey,7)==0 && shown,
             "Original-data developer session startup failed");

@@ -98,6 +98,10 @@ map revisit and refused travel.
 6. **Generic Spawn** outside Vertigo: existing, revived and new slots,
    type and statistics binding, outdoor coordinates, accounting and
    publication, keeping the approved cosmetic Spawn-frame RNG policy.
+   *Amended (maintainer, 2026-10-15):* a slot at or beyond the MOB monster
+   count stays inert and unsaved, following DOS (`0x9c59`), including
+   Vertigo's exit-script slots 50 and 51. Saves holding such slots load
+   without them; v13 is unchanged.
 7. Lifetime rules from M69: outdoor neighbour DAT changes are not written
    back, indoor neighbours are, Clouds map 85 is visit-only.
 

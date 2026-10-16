@@ -3,6 +3,7 @@
 #include "games/xeen/XeenRegionalRules.h"
 #include "games/xeen/XeenIndoorScene.h"
 #include <bitset>
+#include <algorithm>
 #include <stdexcept>
 
 namespace mmodern {
@@ -38,6 +39,15 @@ void XeenWorld::reloadMapMonsters(XeenMapIdentity mapId) {
 
 void XeenWorld::leaveMap(XeenMapIdentity mapId) {
 	if (!_detachedEventCandidate) throw std::logic_error("Map exit requires a detached transition");
+	for(const auto &entry:_sessionState._mapStates) {
+		auto &cells=_sessionState._mapStates.find(entry.first)->cells;
+		for(auto &cell:cells)if(cell.visitMap==mapId) {
+			XeenMutationWatch::write(this);cell.visitMap={};cell.visitMask=0;cell.visitWalls.fill(0);
+		}
+		cells.erase(std::remove_if(cells.begin(),cells.end(),[](const auto &c){
+			return !c.mask && !c.unlocked && !c.surfaceChanged && !c.visitMask;
+		}),cells.end());
+	}
 	if (xeenRetainsMapState(mapId)) return;
 	XeenMutationWatch::write(this);
 	for (auto i=_sessionState._accountedMonsters.begin();i!=_sessionState._accountedMonsters.end();)
@@ -68,18 +78,18 @@ void XeenWorld::stageMapMonsters(const XeenObjectFile &mob,
 void XeenWorld::applySpawn(XeenMapIdentity mapId, std::uint8_t slot, int x, int y, std::uint8_t) {
 	XeenMutationWatch::write(this);
 	auto *state=_sessionState._mapStates.find(mapId);
-	if (_sessionState._entry!=XeenEncounterEntry::Ordinary ||
-		!state || !state->monsters || state->outdoors || !xeenIndoorCoordinate(x,y) ||
+	if (!_detachedEventCandidate || _sessionState._entry!=XeenEncounterEntry::Ordinary ||
+		!state || !state->monsters || x<-128 || x>127 || y<-128 || y>127 ||
 		slot>=XeenActorApproach::kCapacity || _cityStatistics.empty())
 		throw std::invalid_argument("Invalid Spawn operands or owner");
 	auto &actors=*state->monsters;
-	while(actors.size()<=slot) {
-		XeenActor a;a.id={mapId,actors.size()};a.original={};
-		actors.push_back(std::move(a));
-	}
-	auto &a=actors[slot];
-	// cmdSpawn reuses the sprite ID; newly constructed slots use type zero.
-	// Intermediate resize slots remain unresolved until explicitly spawned.
+	// DOS bounds every monster loop, the MOB writer and map load by the MOB
+	// record count, which Spawn never changes (WORLD/XEEN.DAT 0x27a59..0x27b1c,
+	// 0x0fb79..0x0fb84, 0x266e3..0x2671c). A slot at or beyond it is written
+	// but never drawn, moved, fought or saved, and the next map load clears it.
+	if(slot>=state->originalMonsterCount) return;
+	auto &a=actors.at(slot);
+	// cmdSpawn reuses the sprite ID; an unbound record uses type zero.
 	const auto type=a.original.hasResource()?int(a.original.resourceId):0;
 	if(unsigned(type)>=_cityStatistics.size()) throw std::invalid_argument("Spawn monster type is absent");
 	if(!a.original.hasResource()) a.original.resourceId=type;
@@ -105,31 +115,25 @@ void xeenValidateIndoorActors(XeenWorld &world,XeenMapIdentity mapId,const std::
 	const auto &mob=world.objectFile(mapId);
 	const auto &map=world.map(mapId);
 	if(!world.regionalJourney() || !mob.resourcePresent || mob.mapId!=mapId ||
-		actors.size()<mob.entities.monsters.size() || actors.size()>XeenActorApproach::kCapacity ||
+		actors.size()!=mob.entities.monsters.size() || actors.size()>XeenActorApproach::kCapacity ||
 		world._cityStatistics.empty()) throw std::invalid_argument("Invalid resource-bound city actor collection");
 	for(unsigned i=0;i<actors.size();++i) {
 		const auto &a=actors[i];
 		if(!(a.id==XeenMonsterIdentity{mapId,i}) || a.status!=XeenActorStatus::Physical)
 			throw std::invalid_argument("Vertigo actor identity/status changed");
-		if(i<mob.entities.monsters.size()) {
-			const auto &original=mob.entities.monsters[i];
-			if(a.original.x!=original.x || a.original.y!=original.y ||
-				a.original.direction!=original.direction || a.original.tableIndex!=original.tableIndex ||
-				a.original.resourceId!=original.resourceId)
-				throw std::invalid_argument("Original Vertigo actor identity changed");
-		} else if(a.original.x || a.original.y || a.original.direction || a.original.tableIndex ||
-			(a.original.resourceId!=-1 && a.original.resourceId!=0))
-			throw std::invalid_argument("Script-created city identity changed");
+		const auto &original=mob.entities.monsters[i];
+		if(a.original.x!=original.x || a.original.y!=original.y ||
+			a.original.direction!=original.direction || a.original.tableIndex!=original.tableIndex ||
+			a.original.resourceId!=original.resourceId)
+			throw std::invalid_argument("Original Vertigo actor identity changed");
 		if(a.lifecycle==XeenActorLifecycle::Unresolved) {
-			const bool position=i<mob.entities.monsters.size() ?
-				(a.x==a.original.x && a.y==a.original.y) : (!a.x && !a.y);
-			if(a.statistics || !position || a.hp || a.activated ||
+			if(a.statistics || a.x!=a.original.x || a.y!=a.original.y || a.hp || a.activated ||
 				a.original.hasResource() || world.sessionState().accountedMonsters().count(a.id))
 				throw std::invalid_argument("Vertigo gap slot is materialized");
 			continue;
 		}
 		if (a.lifecycle==XeenActorLifecycle::Disabled && !a.original.hasResource()) {
-			if (i>=mob.entities.monsters.size() || !a.original.isDisabled() || a.x!=a.original.x || a.y!=a.original.y ||
+			if (!a.original.isDisabled() || a.x!=a.original.x || a.y!=a.original.y ||
 				a.statistics || a.hp || a.activated || world.sessionState().accountedMonsters().count(a.id))
 				throw std::invalid_argument("Disabled original placeholder changed");
 			continue;
@@ -143,10 +147,11 @@ void xeenValidateIndoorActors(XeenWorld &world,XeenMapIdentity mapId,const std::
 			throw std::invalid_argument("City actor MON resource binding changed");
 		const bool accounted=world.sessionState().accountedMonsters().count(a.id)!=0;
 		// Original MOBs also contain off-map parking slots for later Spawn, and
-		// records beyond the available DAT footprint. Retain exact source values;
-		// this does not admit a moved actor outside valid geometry.
-		if (i<mob.entities.monsters.size() && a.lifecycle==XeenActorLifecycle::Present &&
-			a.x==a.original.x && a.y==a.original.y &&
+		// records beyond the available DAT footprint. Scripts park monsters the
+		// same way, by Spawn to (100,100) (Cave of Illusion, maps 42-45). Retain
+		// exact values; this does not admit a moved actor elsewhere off geometry.
+		if (a.lifecycle==XeenActorLifecycle::Present &&
+			((a.x==a.original.x && a.y==a.original.y) || (a.x==100 && a.y==100)) &&
 			(!xeenIndoorCoordinate(a.x,a.y) || !world.sampleCell(mapId,a.x,a.y)) &&
 			a.hp==a.statistics->baseHp() && !a.activated && !accounted) continue;
 		if(a.lifecycle==XeenActorLifecycle::Defeated) {
@@ -167,8 +172,8 @@ void xeenValidateIndoorActors(XeenWorld &world,XeenMapIdentity mapId,const std::
 		if(id.mapId==mapId && (id.recordIndex>=actors.size() ||
 			actors[id.recordIndex].lifecycle!=XeenActorLifecycle::Defeated))
 			throw std::invalid_argument("Vertigo accounting source changed");
-	for(const auto count:XeenActorApproach::occupancy(actors))if(count>3)
-		throw std::invalid_argument("Vertigo occupancy exceeded");
+	// No per-cell cap: DOS Spawn may stack four or more (Winterkill); only a
+	// moving monster refuses a destination holding three (0x1fc24).
 }
 
 } // namespace mmodern

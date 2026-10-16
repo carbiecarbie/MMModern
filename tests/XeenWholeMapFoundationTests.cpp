@@ -176,7 +176,7 @@ void cityEvents() {
 		XeenPresentationResponse::Presented,*world,party,camera,flags)),"Small sign must continue after its draw");
 
 	// No prefix of an incomplete effect group may change detached values.
-	file.records={record(0,0x0c,{0,0,20,12}),record(1,0x10,{50,7,6,0}),record(2,0x18,{0,0}),record(3,0x13,{})};
+	file.records={record(0,0x0c,{0,0,20,12}),record(1,0x10,{50,7,6,0}),record(2,0x18,{0,0}),record(3,0x17,{})};
 	XeenEventSystem unsupported([&](auto){return XeenEventScript(file);});
 	const auto random=world->sessionState().journeyRandom();
 	const auto refused=unsupported.runManualEvent(*world,party,camera,flags);
@@ -189,24 +189,17 @@ void cityEvents() {
 	check(std::holds_alternative<XeenManualEventCompleted>(supported.runManualEvent(*world,party,camera,flags)),
 		"Generic flag/Spawn/AfterEvent group must execute in a detached city candidate");
 	check(flags.isSet(12) && world->sessionState().disabledEvents().count({28,0})==1 &&
-		world->sessionState().regionalActors(28).size()==51 && world->sessionState().journeyRandom()==random,
+		world->sessionState().regionalActors(28).size()==46 && world->sessionState().journeyRandom()==random,
 		"Spawn/AfterEvent must retain generic effect identities without gameplay RNG draws");
-	for(unsigned slot=46;slot<50;++slot) {
-		const auto &gap=world->sessionState().regionalActors(28)[slot];
-		check(gap.lifecycle==XeenActorLifecycle::Unresolved && !gap.statistics && !gap.original.hasResource(),
-			"Resize gap slots 46-49 must stay unresolved");
-	}
-	const auto &spawned=world->sessionState().regionalActors(28)[50];
-	check(spawned.original.resourceId==0 && spawned.x==7 && spawned.y==6 && spawned.hp==10 && !spawned.activated,
-		"Explicit new Spawn slot must use the reference default type and full HP");
+	// Slot 50 is past the 46 MOB records: DOS leaves it inert (count 0x9c59).
 	world->applySpawn(28,1,9,8,0);
 	check(world->sessionState().regionalActors(28)[1].original.resourceId==2,
 		"Spawn must reuse an original slot's sprite type");
 	xeenValidateIndoorActors(*world,28,world->sessionState().regionalActors(28));
 	const auto presentation=source.prepareSpawnPresentation(*world);
-	check(presentation.animation({28,50}) && presentation.animation({28,50})->frame<8 &&
+	check(!presentation.animation({28,50}) &&
 		presentation.animation({28,1}) && presentation.animation({28,1})->frame<8,
-		"Prepared Spawn presentation must carry cosmetic frames for new and reused slots");
+		"Prepared Spawn presentation must carry cosmetic frames for reused slots only");
 	check(source.sessionState().journeyRandom()==random,"Spawn preparation must leave live gameplay RNG untouched");
 	// Known cosmetic cursor: one live initialization, then reference-ordered
 	// Spawn frame draws, including repeated writes to the same slot.
@@ -216,13 +209,13 @@ void cityEvents() {
 	frame(oracle);
 	auto first=source.transitionCandidate();first->stageIndoorMonsters(mob,statistics);
 	first->applySpawn(28,1,9,8,0);frame(oracle);
-	first->applySpawn(28,50,7,6,0);const auto expectedNew=frame(oracle);
+	first->applySpawn(28,50,7,6,0); // Inert: no cosmetic frame draw.
 	first->applySpawn(28,1,9,8,0);const auto expectedFirst=frame(oracle);
 	source.scenePresentation().advance(28);
 	const auto liveFrame=source.scenePresentation().animation({28,2})->frame;
 	source.scenePresentation()=source.prepareSpawnPresentation(*first);
 	check(source.scenePresentation().animation({28,1})->frame==expectedFirst &&
-		source.scenePresentation().animation({28,50})->frame==expectedNew &&
+		!source.scenePresentation().animation({28,50}) &&
 		source.scenePresentation().animation({28,2})->frame==liveFrame,
 		"Spawn publication must preserve live animation and reference-ordered frames");
 	auto second=source.transitionCandidate();second->stageIndoorMonsters(mob,statistics);

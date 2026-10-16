@@ -136,7 +136,7 @@ std::optional<XeenEventExecutionError> preflightCityEvent(XeenWorld &world,
 		if(!site)continue; // Runtime distinguishes natural closure from bad jumps.
 		const auto effective=world.effectiveEvent({camera.mapId,*site},script.records()[*site]);
 		const auto decoded=XeenEventDecoder::decode(effective,
-			{camera.mapId,script.file().resourceName,*site,true});
+			{camera.mapId,script.file().resourceName,*site,true,effective.opcode!=script.records()[*site].opcode});
 		const XeenEventExecutionAddress logical{camera.mapId,x,y,line};
 		if(const auto *bad=std::get_if<XeenEventDecodeError>(&decoded))
 			return error(executionKind(bad->kind),bad->message,0,logical,bad->source);
@@ -206,11 +206,8 @@ std::optional<XeenEventExecutionError> preflightCityEvent(XeenWorld &world,
 			catch(const std::exception &) {return unsupported("MoveObj original record is unavailable");}
 		}
 		if(const auto *spawn=std::get_if<XeenEventSpawn>(&op)) {
-			if(spawn->slot>=XeenActorApproach::kCapacity || !xeenIndoorCoordinate(spawn->x,spawn->y))
+			if(spawn->slot>=XeenActorApproach::kCapacity)
 				return unsupported("Spawn operands are not supported yet");
-		}
-		if(const auto *alter=std::get_if<XeenEventAlterEvent>(&op)) {
-			if(alter->replacement!=0)return unsupported("AfterEvent replacement is not supported yet");
 		}
 		if(const auto *set=std::get_if<XeenEventSetVar>(&op)) {
 			if(set->mode!=84 || set->value>3)return unsupported("SetVar mode is not supported yet");
@@ -515,7 +512,7 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 			{logical.mapId, *recordIndex}, script->records()[*recordIndex]);
 		const XeenEventDecodeResult decodedResult = XeenEventDecoder::decode(effective,
 			{logical.mapId, script->file().resourceName, *recordIndex,
-				world.regionalJourney()});
+				world.regionalJourney(),effective.opcode!=script->records()[*recordIndex].opcode});
 		// Town dispatch requires the Journey publication boundary.
 		if (effective.opcode==0x11 && !publication && !world.detachedEventCandidate()) {
             const auto source=std::visit([](const auto &value){return value.source;},decodedResult);
@@ -776,10 +773,23 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 			++logical.line;missingPolicy=MissingInstructionPolicy::NaturalCompletion;continue;
 		}
 		if (const auto *spawn=std::get_if<XeenEventSpawn>(&decoded.operation)) {
-			if (logical.mapId!=XeenMapIdentity(28))
-				return error(XeenEventExecutionErrorKind::UnsupportedExecutionContext,
-					"Spawn is outside Vertigo",instructionCount,logical,decoded.source);
 			world.applySpawn(logical.mapId,spawn->slot,spawn->x,spawn->y,spawn->unused);
+			++logical.line;missingPolicy=MissingInstructionPolicy::NaturalCompletion;continue;
+		}
+		if(const auto *move=std::get_if<XeenEventMoveWallObject>(&decoded.operation)) {
+			world.applyMoveWallObject({logical.mapId,move->record},move->x,move->y);
+			++logical.line;missingPolicy=MissingInstructionPolicy::NaturalCompletion;continue;
+		}
+		if(std::holds_alternative<XeenEventMakeNothingHere>(decoded.operation)) {
+			world.applyMakeNothingHere(workingCamera,script->file());
+			++logical.line;missingPolicy=MissingInstructionPolicy::NaturalCompletion;continue;
+		}
+		if(const auto *alter=std::get_if<XeenEventAlterMap>(&decoded.operation)) {
+			world.applyAlterMap(logical.mapId,alter->x,alter->y,alter->direction,alter->wall);
+			++logical.line;missingPolicy=MissingInstructionPolicy::NaturalCompletion;continue;
+		}
+		if(const auto *alter=std::get_if<XeenEventAlterCellFlag>(&decoded.operation)) {
+			world.applyAlterCellFlag(logical.mapId,alter->x,alter->y,alter->surface);
 			++logical.line;missingPolicy=MissingInstructionPolicy::NaturalCompletion;continue;
 		}
 		if (const auto *alter=std::get_if<XeenEventAlterEvent>(&decoded.operation)) {

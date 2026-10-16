@@ -34,26 +34,25 @@ void durableCheckpoints(const fs::path &route) {
   b.map(28).monsters->slots.at(36).x==22 && b.map(28).monsters->slots.at(36).y==9,
   "M37 B did not retain original slot 35 defeat and distant slot 36");
  child_test::require(c.camera.mapId==XeenMapIdentity(23) && c.camera.x==10 && c.camera.y==12 &&
-  c.map(28).monsters && c.map(28).monsters->slots.size()==52 &&
+  c.map(28).monsters && c.map(28).monsters->slots.size()==46 &&
   !c.gameFlags[9] && c.map(28).monsters->slots.at(36).x==15 && c.map(28).monsters->slots.at(36).y==4,
   "M37 C did not retain the flag-9-clear original reset");
- static constexpr std::array<std::array<int,2>,43> reset{{
+ static constexpr std::array<std::array<int,2>,41> reset{{
   {{1,11}},{{1,11}},{{2,9}},{{3,10}},{{3,11}},{{3,11}},{{3,13}},{{3,13}},
   {{3,27}},{{4,27}},{{4,26}},{{4,25}},{{4,12}},{{4,7}},{{4,7}},{{4,3}},
   {{4,3}},{{4,3}},{{5,12}},{{9,18}},{{25,14}},{{28,9}},{{30,9}},{{30,6}},
   {{29,15}},{{8,24}},{{8,24}},{{7,23}},{{7,23}},{{8,27}},{{8,27}},{{9,18}},
   {{6,2}},{{7,1}},{{6,6}},{{7,7}},{{15,4}},{{22,9}},{{21,1}},{{22,1}},
-  {{30,1}},{{7,24}},{{6,27}}
+  {{30,1}}
  }};
- for(unsigned i=0;i<52;++i) {
+ // Spawns of slots 50 and 51 at (7,24) and (6,27) are past the 46 MOB records:
+ // DOS leaves them inert and never saves them (0x9c59, 0x266e3..0x2671c).
+ for(unsigned i=0;i<46;++i) {
   const auto &actor=c.map(28).monsters->slots.at(i);
   child_test::require(actor.status==XeenActorStatus::Physical &&
-   actor.spawnedType==(i>=50?0:-1),"M37 reset actor status/type changed");
-  if(i>=46 && i<=49) {
-   child_test::require(actor.x==0 && actor.y==0 &&
-    actor.lifecycle==XeenActorLifecycle::Unresolved && !actor.accounted,"M37 script gap is materialized");
-  } else if(i<=40 || i>=50) {
-   const auto expected=reset[i>=50?i-9:i];
+   actor.spawnedType==-1,"M37 reset actor status/type changed");
+  if(i<=40) {
+   const auto expected=reset[i];
    child_test::require(actor.x==expected[0] && actor.y==expected[1] &&
     actor.lifecycle==XeenActorLifecycle::Present && !actor.accounted,
     "M37 original Spawn table was not fully applied");
@@ -63,7 +62,7 @@ void durableCheckpoints(const fs::path &route) {
   }
  }
  child_test::require(d.camera.mapId==XeenMapIdentity(28) && d.find(28) && d.map(28).monsters &&
-  d.map(28).monsters->slots.size()==52 &&
+  d.map(28).monsters->slots.size()==46 &&
   d.map(28).monsters->slots.at(36).lifecycle==XeenActorLifecycle::Defeated &&
   d.map(28).monsters->slots.at(36).accounted &&
   d.map(28).monsters->slots.at(35).x==7 && d.map(28).monsters->slots.at(35).y==7,
@@ -148,11 +147,8 @@ int main(int argc,char **argv) {
   contact.lifecycle=XeenActorLifecycle::Present;contact.x=forged.camera.x;contact.y=forged.camera.y;
   contact.accounted=false;
   rejectRestore("city-contact",forged);
-  forged=originalC;forged.map(28).monsters->slots.at(46).x=1;
-  rejectRestore("materialized-gap",forged);
-  // Generic Spawn can retain extra slots independently of the exit label;
-  // bind their original-record boundary to MOB instead of exit-only history.
-  forged=originalC;forged.map(28).monsters->originalCount=47;
+  // The saved original-record count binds to MOB, independently of history.
+  forged=originalC;forged.map(28).monsters->originalCount=45;
   rejectRestore("original-count-resource-mismatch",forged);
   forged=originalB;forged.camera.x=32;forged.camera.y=31;
   bool refusedCamera=false;

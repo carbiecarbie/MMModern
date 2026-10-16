@@ -96,9 +96,10 @@ void mapOverrideGuards() {
 		"Effective reads leave original resources immutable");
 	XeenPartyState party;XeenCamera camera{5,0,0,XeenDirection::North};XeenGameFlags flags;
 	auto &state=*const_cast<XeenMapState *>(world.sessionState().mapState(5));
+	XeenBarrierOverride cell;cell.tile=5;cell.mask=1;state.cells.push_back(cell);
 	// Aliases precede every guard; each byte changes and returns to its initial
 	// value without a guard refresh. Dynamic override storage must be watched.
-	for(unsigned field=0;field<11;++field) {
+	for(unsigned field=0;field<17;++field) {
 		XeenRestoreGuard guard(world,party,camera,flags);
 		auto &wall=state.wallItemOverrides[0];auto &event=state.eventOverrides[0];
 		switch(field) {
@@ -113,6 +114,12 @@ void mapOverrideGuards() {
 		case 8:event.id.mapId.side=XeenSide::Darkside;event.id.mapId.side=XeenSide::Clouds;break;
 		case 9:{const auto before=state.wallItemOverrides;state.wallItemOverrides.clear();state.wallItemOverrides=before;break;}
 		case 10:{const auto before=state.eventOverrides;state.eventOverrides.clear();state.eventOverrides=before;break;}
+		case 11:state.cells[0].surfaceChanged=true;state.cells[0].surfaceChanged=false;break;
+		case 12:++state.cells[0].surface;--state.cells[0].surface;break;
+		case 13:++state.cells[0].visitMap.number;--state.cells[0].visitMap.number;break;
+		case 14:state.cells[0].visitMap.side=XeenSide::Darkside;state.cells[0].visitMap.side=XeenSide::Clouds;break;
+		case 15:++state.cells[0].visitMask;--state.cells[0].visitMask;break;
+		case 16:++state.cells[0].visitWalls[0];--state.cells[0].visitWalls[0];break;
 		}
 		check(!guard.current(),"A reverted map override mutation must invalidate the guard");
 	}

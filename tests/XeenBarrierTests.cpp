@@ -150,7 +150,10 @@ void overrides() {
 		XeenRestoreGuard direct(*world,party,before,flags);
 		auto &face=const_cast<XeenBarrierOverride &>(world->sessionState().mapState(values[0].tile)->cells[0]);const auto mask=std::uint8_t(face.mask);
 		face.mask=15;face.mask=mask;check(!direct.current(),"Tracked barrier field ABA must invalidate retained tickets");
-		auto broken=values;broken.pop_back();XeenWorld bad(tile);rejects([&]{bad.restoreBarriers(broken);});
+		// A one-sided Event wall is valid in the same physical-cell owner.
+		auto broken=values;broken.pop_back();XeenWorld partial(tile);partial.restoreBarriers(broken);
+		check(partial.sessionState().barriers().size()==1,"One-sided Event wall must restore independently");
+		XeenWorld bad(tile);
 		broken=values;broken[0].originalWord^=1;rejects([&]{bad.restoreBarriers(broken);});
 		const auto toggle=source.transitionCandidate();toggle->setBarrier(camera,6,true);
 		XeenBarrierCandidate close(*toggle,camera,p.characters,p.inputs,{1,77,0},p.context,false);

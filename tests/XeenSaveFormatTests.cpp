@@ -751,6 +751,8 @@ void perMapWire() {
 	}
 	// A Darkside entry is representable at the format level (decision 6).
 	auto darkside=s;darkside.map({XeenSide::Darkside,28}).explored.emplace();roundTrip(darkside);
+	// The existing signed-byte fields also carry original Spawn parking slots.
+	auto parked=s;parked.map(28).monsters->slots[1].x=100;parked.map(28).monsters->slots[1].y=100;roundTrip(parked);
 }
 
 } // namespace

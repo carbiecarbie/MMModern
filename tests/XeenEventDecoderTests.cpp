@@ -265,11 +265,11 @@ void checkSource(const XeenEventSourceLocation &source, bool withContext,
 }
 
 void testErrorsMetadataAndPurity() {
-	const auto unsupportedKnown = XeenEventDecoder::decode(record(0x13, {1, 2}),
+	const auto unsupportedKnown = XeenEventDecoder::decode(record(0x17, {1, 2}),
 		{42, std::string("maze0042.evt")});
 	const auto &opcodeError = failure(unsupportedKnown,
 		XeenEventDecodeErrorKind::UnsupportedOpcode);
-	checkSource(opcodeError.source, true, 0x13);
+	checkSource(opcodeError.source, true, 0x17);
 	check(!opcodeError.expectedParameterSize && opcodeError.actualParameterSize == 2,
 		"unsupported opcode does not parse parameters");
 	checkSource(failure(XeenEventDecoder::decode(record(0xff)),
@@ -361,6 +361,20 @@ int main() {
   failure(XeenEventDecoder::decode(record(0x16,{5,0,7})),XeenEventDecodeErrorKind::UnsupportedOperand);
 
 		testCallEvent();
+		const auto wallMove=operation<XeenEventMoveWallObject>(XeenEventDecoder::decode(record(34,{4,128,255})));
+		check(wallMove.record==4 && wallMove.x==-128 && wallMove.y==-1,"MoveWallObj signed operands");
+		const auto walls=operation<XeenEventAlterMap>(XeenEventDecoder::decode(record(19,{25,5,4,8})));
+		check(walls.x==25 && walls.direction==4 && walls.wall==8,"AlterMap four-face operands");
+		operation<XeenEventMakeNothingHere>(XeenEventDecoder::decode(record(46,{})));
+		check(operation<XeenEventAlterCellFlag>(XeenEventDecoder::decode(record(35,{12,7,6}))).surface==6,"AlterCellFlag surface operand");
+		for(unsigned opcode:{34u,35u})for(unsigned size:{0u,1u,2u,4u})
+			failure(XeenEventDecoder::decode(record(opcode,std::vector<std::uint8_t>(size))),XeenEventDecodeErrorKind::MalformedInstruction);
+		for(unsigned size:{0u,1u,2u,3u,5u})failure(XeenEventDecoder::decode(record(19,std::vector<std::uint8_t>(size))),XeenEventDecodeErrorKind::MalformedInstruction);
+		failure(XeenEventDecoder::decode(record(19,{1,2,5,8})),XeenEventDecodeErrorKind::UnsupportedOperand);
+		failure(XeenEventDecoder::decode(record(46,{1})),XeenEventDecodeErrorKind::MalformedInstruction);
+		failure(XeenEventDecoder::decode(record(34,{4,12,12,0})),XeenEventDecodeErrorKind::MalformedInstruction);
+		check(operation<XeenEventMoveWallObject>(XeenEventDecoder::decode(record(34,{4,12,12,0}),
+			{47,{},0,false,true})).x==12,"AlterEvent replacement must ignore an unused original operand suffix");
 		testConditionals();
 		testTakeOrGive();
 		const auto move=operation<XeenEventMoveObject>(XeenEventDecoder::decode(record(0x0b,{255,128,255})));

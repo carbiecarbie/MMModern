@@ -554,6 +554,36 @@ void indoorOpportunity() {
  check(before[0].y==11 && c[0].currentHp==50 && rng.position()==3,
   "Unsupported indoor enemy attack mutated inputs or consumed RNG");
 }
+// DOS 0x1ff27..0x1ff98: a ranged monster on the party's own cell may fire
+// unless it holds one of the three front slots. With four stacked ranged
+// monsters there, only the hidden fourth queues a shot, indoors and outdoors.
+void stackedRangedOpportunity() {
+ auto c=characters();const auto in=inputs();
+ auto stacked=[](XeenMapIdentity map,int x,int y,unsigned resource,const XeenMonsterRecord &record) {
+  std::vector<XeenActor> actors;
+  for(unsigned n=0;n<4;++n) {
+   XeenActor a;a.id={map,n};a.original.resourceId=resource;a.x=x;a.y=y;a.original.x=x;a.original.y=y;
+   a.hp=25;a.activated=true;a.lifecycle=XeenActorLifecycle::Present;
+   a.statistics=record;a.statistics->raw[20]=25;a.statistics->raw[32]=1;
+   actors.push_back(a);
+  }
+  return actors;
+ };
+ XeenMap map;map.geometry.id=23;map.geometry.flags2=0x8000;map.geometry.surfaceTypes[2]=1;
+ for(auto &cell:map.geometry.cells)cell.geometry=XeenOutdoorLayers{2,0,0,0};
+ const XeenCamera outdoorCamera{23,8,8,XeenDirection::North};
+ const auto outdoorActors=stacked(23,8,8,6,profile());
+ XeenRegionalOpportunityCandidate outdoor(map,outdoorActors,outdoorCamera,c,in,610,0x3f);
+ check(outdoor.shotCount==1 && outdoor.shots[0].source==XeenMonsterIdentity{23,3} && outdoor.shots[0].distance==0,
+  "Outdoor hidden fourth ranged monster on the party cell did not fire, or a front-slot monster fired");
+ XeenWorld world([](auto id) {XeenMap m;m.geometry.id=id.number;m.geometry.difficulties[0]=7;
+  for(auto &cell:m.geometry.cells)cell.geometry=XeenIndoorWalls{};return m;});
+ const XeenCamera indoorCamera{33,8,8,XeenDirection::North};
+ const auto indoorActors=stacked(33,8,8,42,profile(3));
+ XeenRegionalOpportunityCandidate indoor(world,indoorActors,indoorCamera,c,in,610,63);
+ check(indoor.shotCount==1 && indoor.shots[0].source==XeenMonsterIdentity{33,3} && indoor.shots[0].distance==0,
+  "Indoor hidden fourth ranged monster on the party cell did not fire, or a front-slot monster fired");
+}
 void timeAndInputs() {
 	auto c=characters();auto i=inputs();XeenGameplayContext context;context.year=610;context.day=8;context.minutes=950;
 	std::vector<XeenCombatRandom::Draw> tape;
@@ -574,4 +604,4 @@ void timeAndInputs() {
 }
 }
 #include "XeenDailyTimeOracles.h"
-int main() { try { dailyTimeOracles();dailyConditionChecks();difficultyOracles();dormantTreasure();physical();targetingAndCounts();runAndParticipation();shootAndLoot();additionalTapes();completeWeaponRules();equippedContributions();missileClassAndZeroDamage();dosMonsterDelivery();rejectionBudgets();rangedOpportunity();indoorOpportunity();timeAndInputs();std::cout<<"Shared consequence pure-rule controls passed\n";return 0; } catch (const std::exception &e) { std::cerr<<e.what()<<'\n';return 1; } }
+int main() { try { dailyTimeOracles();dailyConditionChecks();difficultyOracles();dormantTreasure();physical();targetingAndCounts();runAndParticipation();shootAndLoot();additionalTapes();completeWeaponRules();equippedContributions();missileClassAndZeroDamage();dosMonsterDelivery();rejectionBudgets();rangedOpportunity();indoorOpportunity();stackedRangedOpportunity();timeAndInputs();std::cout<<"Shared consequence pure-rule controls passed\n";return 0; } catch (const std::exception &e) { std::cerr<<e.what()<<'\n';return 1; } }

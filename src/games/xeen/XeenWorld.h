@@ -180,6 +180,10 @@ public:
 	XeenMapEntity effectiveObject(XeenObjectIdentity id);
 	bool effectiveObjectFlip(XeenObjectIdentity id) const;
 	void applyMoveObject(XeenObjectIdentity id,int x,int y);
+	void applyMoveWallObject(XeenWallItemIdentity id,int x,int y);
+	void applyMakeNothingHere(const XeenCamera &physical,const XeenEventFile &events);
+	void applyAlterMap(XeenMapIdentity logical,int x,int y,unsigned direction,unsigned wall);
+	void applyAlterCellFlag(XeenMapIdentity logical,int x,int y,unsigned surface);
 	void restoreObjectOverrides(const std::vector<XeenObjectOverride> &);
 	XeenMapEntity effectiveWallItem(XeenWallItemIdentity);
 	// Complete startup-only replacement, bound to the original MOB/EVT records.

@@ -2,6 +2,7 @@
 #include "XeenCoverageScreens.h"
 #include "games/xeen/XeenEventDiagnostics.h"
 #include "games/xeen/XeenWorld.h"
+#include "games/xeen/XeenActorApproach.h"
 #include "games/xeen/XeenPartyLoader.h"
 #include "games/xeen/XeenLearnedSpellRules.h"
 #include "games/xeen/XeenItemServiceRules.h"
@@ -196,6 +197,27 @@ Support eventSupport(const XeenEventRecord &original,const XeenEventFile &origin
                 return {unsupported(bad->kind)?Status::Unsupported:Status::Partial,bad->message};
             }
             auto *pending=std::get_if<XeenEventExecutionSuspended>(&result);
+            // Play validates a Spawn's actor table at the next regional step,
+            // after the whole script. Scripts spawn in contiguous runs (Vertigo's
+            // reset, Winterkill's waves), so apply this record's run in line
+            // order, then run that same check.
+            if(!pending && std::holds_alternative<XeenEventSpawn>(operation) && world->sessionState().hasRegionalActors(id)) {
+                std::map<unsigned,XeenEventSpawn> run;
+                for(const auto &r:originalFile.records) {
+                    if(r.opcode!=0x10 || r.x!=original.x || r.y!=original.y || r.direction!=original.direction)continue;
+                    const auto result=XeenEventDecoder::decode(r,{id,{}, {},true});
+                    if(const auto *ins=std::get_if<XeenDecodedEventInstruction>(&result))
+                        if(const auto *spawn=std::get_if<XeenEventSpawn>(&ins->operation))run.emplace(r.line,*spawn);
+                }
+                unsigned first=original.line,last=original.line;
+                while(first && run.count(first-1))--first;
+                while(run.count(last+1))++last;
+                for(unsigned line=first;line<=last;++line) {
+                    const auto &spawn=run.at(line);
+                    world->applySpawn(id,spawn.slot,spawn.x,spawn.y,spawn.unused);
+                }
+                XeenActorApproach::validateEnvironment(*world,world->sessionState().regionalActors(id),originalFile);
+            }
             if(!pending)return {Status::Supported,source.developerEventMap()?
                 "Developer Event fixture candidate completes with original world, owners and Journey RNG":
                 "New Game Journey candidate completes with original world, owners and RNG"};

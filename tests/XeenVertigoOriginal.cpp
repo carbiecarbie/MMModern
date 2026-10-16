@@ -168,26 +168,23 @@ int main(int argc,char **argv) {
    *eventWorld,eventParty,exitCamera,eventFlags);
   check(std::holds_alternative<XeenManualEventCompleted>(exit) && exitCamera.mapId==23 &&
    exitCamera.x==10 && exitCamera.y==12 && exitCamera.direction==XeenDirection::South &&
-   eventWorld->sessionState().regionalActors(28).size()==52 &&
+   eventWorld->sessionState().regionalActors(28).size()==46 &&
    eventWorld->sessionState().journeyRandom()==randomBefore,
-   "Original reset must finish at the mainland with 52 city slots and unchanged gameplay RNG");
-  for(unsigned slot=46;slot<50;++slot) {
-   const auto &gap=eventWorld->sessionState().regionalActors(28)[slot];
-   check(gap.lifecycle==XeenActorLifecycle::Unresolved && !gap.statistics,
-    "Original exit must not invent gap actors in slots 46-49");
-  }
+   "Original reset must finish at the mainland with 46 city slots and unchanged gameplay RNG");
   unsigned resets=0;
   for(const auto &record:city.records)if(record.x==100 && record.y==100 && record.opcode==0x10) {
    const auto decoded=XeenEventDecoder::decode(record);
    const auto &spawn=std::get<XeenEventSpawn>(std::get<XeenDecodedEventInstruction>(decoded).operation);
+   ++resets;
+   // Slots 50 and 51 are past the 46 MOB records: inert in DOS (0x9c59).
+   if(spawn.slot>=46)continue;
    const auto &actor=eventWorld->sessionState().regionalActors(28)[spawn.slot];
    check(actor.x==spawn.x && actor.y==spawn.y && actor.hp==actor.statistics->baseHp() && !actor.activated,
     "Original reset slot/coordinates/HP/activation differ from Spawn resource operands");
-   ++resets;
   }
   check(resets==43,"Original exit reset inventory changed");
   xeenValidateIndoorActors(*eventWorld,28,eventWorld->sessionState().regionalActors(28));
-  std::cout<<"Original exit prelude, confirmation, 43 Spawn resets, AfterEvent and unresolved gaps passed\n";
+  std::cout<<"Original exit prelude, confirmation, 43 Spawn resets (two inert past the MOB count) and AfterEvent passed\n";
   check(actors.at(35).original.x==15 && actors.at(35).original.y==4 &&
    actors.at(35).original.resourceId==0,"original entrance Slime slot");
   check(actors.at(36).original.resourceId==0,"original reset target Slime type");

@@ -13,6 +13,7 @@
 #include "games/xeen/XeenIndoorScene.h"
 #include "games/xeen/XeenTraining.h"
 
+#include <iostream>
 #include <stdexcept>
 #include <algorithm>
 #include <type_traits>
@@ -29,19 +30,43 @@ bool XeenWorld::journeyCaptureEligible(const XeenPartyState &party, const XeenCa
 }
 
 namespace {
-// A barrier override as the generic effective word/attribute pair of its cell.
-XeenSaveCellOverride savedCell(const XeenBarrierOverride &v) {
-	std::uint16_t word = v.originalWord;
-	for (unsigned d = 0; d < 4; ++d) if (v.mask & (1u << d)) {
-		const auto shift = 12 - 4 * d;
-		word = static_cast<std::uint16_t>((word & ~(15u << shift)) | (unsigned(v.walls[d]) << shift));
+// Older builds kept Spawn slots past a map's MOB count, so their saves may hold
+// pending treasure from a monster DOS never had (count byte 0x9c59, which Spawn
+// never raises). Restoration drops those slots; drop what they left pending too.
+XeenMonsterTreasure withoutBeyondCountSources(const XeenSaveSnapshot &snapshot, XeenMonsterTreasure value) {
+	std::uint32_t dropped = 0;
+	for (unsigned k = 0; k < value.sources.size(); ++k) {
+		const auto id = value.sources[k];
+		const auto *map = id.mapId ? snapshot.find(id.mapId) : nullptr;
+		if (!map || !map->monsters || id.recordIndex < map->monsters->originalCount) continue;
+		if (!(value.referencedSources() & (1u << k))) continue;
+		dropped |= 1u << k;
+		std::cerr << "Warning: discarded pending monster treasure from "
+			<< (id.mapId.side == XeenSide::Clouds ? "Clouds" : "Darkside") << " map " << id.mapId.number
+			<< " slot " << id.recordIndex << ", past its MOB monster count\n";
 	}
-	const auto attributes = static_cast<std::uint8_t>(v.originalAttributes | (v.unlocked ? 0x80 : 0));
-	return {v.cell, word, attributes, v.originalWord, v.originalAttributes};
+	if (!dropped) return value;
+	for (unsigned k = 0; k < 12; ++k) if ((dropped & value.pendingMask) & (1u << k)) {
+		value.pendingMask = value.pendingMask & ~(1u << k);
+		value.pendingGold = value.pendingGold - 10;
+	}
+	for (auto *entries : {&value.weapons, &value.armor, &value.miscellaneous}) {
+		std::array<XeenMonsterTreasureItem,10> kept{};
+		unsigned n = 0;
+		for (const auto &entry : *entries)
+			if (entry.item.id && !(entry.source < 32 && (dropped & (1u << entry.source)))) kept[n++] = entry;
+		*entries = kept;
+	}
+	xeenPruneMonsterTreasureSources(value);
+	return value;
 }
 
-// The live barrier that produces a saved cell: changed wall faces and the
-// unlocked bit. Other cell changes have no producer before world Events.
+// A barrier override as the generic effective word/attribute pair of its cell.
+XeenSaveCellOverride savedCell(const XeenBarrierOverride &v) {
+	return {v.cell, v.word(false), v.attributes(), v.originalWord, v.originalAttributes};
+}
+
+// The live cell owner for doors and world Events. The wire remains v13.
 XeenBarrierOverride restoredBarrier(XeenMapIdentity tile, const XeenSaveCellOverride &v) {
 	XeenBarrierOverride result;
 	result.tile = tile; result.cell = v.cell; result.originalWord = v.originalWord; result.originalAttributes = v.originalAttributes;
@@ -51,9 +76,11 @@ XeenBarrierOverride restoredBarrier(XeenMapIdentity tile, const XeenSaveCellOver
 		if (wall != original) { result.mask = static_cast<std::uint8_t>(result.mask | (1u << d)); result.walls[d] = static_cast<std::uint8_t>(wall); }
 	}
 	if (v.attributes != v.originalAttributes) {
-		if (v.attributes != (v.originalAttributes | 0x80))
+		if ((v.attributes&0x78)!=(v.originalAttributes&0x78) || ((v.originalAttributes&0x80) && !(v.attributes&0x80)))
 			throw std::invalid_argument("Saved cell flag change is not supported yet");
-		result.unlocked = true;
+		result.unlocked=(v.attributes&0x80) && !(v.originalAttributes&0x80);
+		result.surfaceChanged=(v.attributes&7)!=(v.originalAttributes&7);
+		if(result.surfaceChanged)result.surface=v.attributes&7;
 	}
 	return result;
 }
@@ -125,7 +152,7 @@ void XeenSaveState::restoreJourney(const XeenSaveSnapshot &source, const Resourc
 	p.encounterContext = snapshot.journey->context;
 	// The saved treasure names its sources in identity order; the live owner
 	// keeps each in its production slot.
-	p.monsterTreasure=xeenLiveMonsterTreasure(*snapshot.journey->treasure);
+	p.monsterTreasure=xeenLiveMonsterTreasure(withoutBeyondCountSources(snapshot,*snapshot.journey->treasure));
 	p.serviceEconomy=snapshot.journey->serviceEconomy;
 	p.roster._combatMarked = true;
 	for (const auto &r : snapshot.journey->supplements) p.roster._combatInputs[r.owner] = r.inputs;
@@ -230,7 +257,7 @@ void XeenSaveState::restoreJourney(const XeenSaveSnapshot &source, const Resourc
 	s._skeletonSeed = snapshot.journey->skeletonSeed;
 	 s._journeyRandom=snapshot.journey->random;
 	adopt(); // Base Journey values are complete before the retained monster tables.
-	// Every retained monster table: its MOB records, then its script slots. HP
+	// Every retained monster table: its MOB records. HP
 	// and wake state are rebuilt as a map load does (decision 8). All provider
 	// calls precede the stores, so one adoption covers every staged table.
 	struct Loaded { const XeenSaveMapState *saved; XeenObjectFile mob; bool outdoors; };
@@ -245,15 +272,8 @@ void XeenSaveState::restoreJourney(const XeenSaveSnapshot &source, const Resourc
 		auto actors=XeenActorApproach::actorsFromResources(table.mob,statistics);
 		if (actors.size()!=m.monsters->originalCount)
 			throw std::invalid_argument("Saved original monster count differs from MOB");
-		while (actors.size()<m.monsters->slots.size()) {
-			XeenActor a;a.id={m.id,actors.size()};a.original={};
-			const auto type=m.monsters->slots[actors.size()].spawnedType;
-			if (type!=-1) {
-				if (std::size_t(type)>=statistics.size()) throw std::invalid_argument("Invalid saved script-slot MON binding");
-				a.original.resourceId=type;a.statistics=statistics.at(type);
-			}
-			actors.push_back(std::move(a));
-		}
+		// Slots past the MOB count never survive a DOS save or map load (writer
+		// 0x266e3..0x2671c, load 0x0f5be..0x0f5c7); drop any an older build saved.
 		for (std::size_t i=0;i<actors.size();++i) {
 			const auto &saved=m.monsters->slots[i];auto &a=actors[i];
 			a.x=saved.x;a.y=saved.y;a.lifecycle=saved.lifecycle;a.status=saved.status;a.activated=false;
@@ -271,7 +291,7 @@ void XeenSaveState::restoreJourney(const XeenSaveSnapshot &source, const Resourc
 	}
 	adopt();
 	// Each treasure source is a defeated, accounted monster of its own map.
-	for (const auto &id:snapshot.journey->treasure->sources) if (id.mapId) {
+	for (const auto &id:p.monsterTreasure->sources) if (id.mapId) {
 		const auto &a=s.mutableMonsters(id.mapId).at(id.recordIndex);
 		if (a.lifecycle!=XeenActorLifecycle::Defeated || !s._accountedMonsters.count(a.id))
 			throw std::invalid_argument("Noncanonical monster treasure source");
@@ -290,8 +310,6 @@ void XeenSaveState::restoreJourney(const XeenSaveSnapshot &source, const Resourc
 	adopt();
 	if(p.monsterTreasure && p.monsterTreasure->ready() && std::none_of(view.slots.begin(),view.slots.end(),[](const auto &v){return bool(v);})) throw std::invalid_argument("Quiet treasure is immediately collectable");
 	for (unsigned i=0;i<active.size();++i) if (view.activation[i] && !active[i].activated) throw std::invalid_argument("Quiet actor activation missing");
-	for (const auto &entry:s.mapStates()) if (entry.second.monsters)
-		for (auto n:XeenActorApproach::occupancy(*entry.second.monsters)) if (n>3) throw std::invalid_argument("Quiet actor occupancy exceeded");
 	try { presentation(w,p,c,f); }
 	catch (...) { destination.check(); prepared->check(); throw; }
 	destination.check(); prepared->check();
@@ -368,12 +386,10 @@ XeenSaveSnapshot XeenSaveState::captureImpl(const XeenSaveResourceSignature &res
 		};
 		if (live.monsters) {
 			XeenSaveMonsterTable table;table.originalCount=live.originalMonsterCount;
-			for (const auto &a:*live.monsters) {
-				XeenSaveMonster slot{a.x,a.y,a.lifecycle,a.status,state.accountedMonsters().count(a.id)!=0,-1};
-				if (a.id.recordIndex>=table.originalCount && a.original.hasResource())
-					slot.spawnedType=static_cast<std::int16_t>(a.original.resourceId);
-				table.slots.push_back(slot);
-			}
+			// Only MOB records persist, as the DOS writer stores; no script slots.
+			if (live.monsters->size()!=table.originalCount) throw std::logic_error("Monster table differs from its MOB records");
+			for (const auto &a:*live.monsters)
+				table.slots.push_back({a.x,a.y,a.lifecycle,a.status,state.accountedMonsters().count(a.id)!=0,-1});
 			saved.monsters=std::move(table);
 		}
 		std::map<std::size_t,XeenSaveObjectOverride> objects;

@@ -193,16 +193,32 @@
 // Services old: 7d66ab9efe5e6b52f58360c446bcc35f61e1beba602c44c3bd404a71bec69e7c
 // Temple old: 8725ee250ffeab5e2a015daebf2caf81af54a95b8d0048b75242ef8d49157503
 // Roundtrip old: 9347bfebf93974e807aeca0d641778bf690b3e2d71ded50278bd3b687b6c51b0
+// M70 Part A: maintainer approved the audit and replacements on 2026-10-15.
+// Preserved foundation baseline D:/M44-audits/m70a-bf49eb3 reproduced all four
+// digests. Cause: the Vertigo exit reset's Spawns of slots 50 and 51 are past the
+// city's 46 MOB records and stay inert, as in DOS (count byte 0x9c59, which Spawn
+// never changes; the .mob writer 0x266e3..0x2671c and map load 0x0f5be stop at
+// it), so no script slots 46-51 exist. Temple and roundtrip leave Vertigo
+// through that exit: their traces differ only by the six removed ACTOR 46-51
+// lines per city actor dump (first at lines 29,450 and 14,301); the filtered
+// old traces, including roundtrip resumes A and B, equal the new ones. Only
+// map 28's monster table shrinks from 52 to 46 slots (42 bytes); checkpoints
+// before the exit are byte-identical. Mainland and services are unchanged.
+// Native reload/re-save is exact in all four. Local audit:
+// build-rel/m70a-f-digest-comparison/digest-audit.json.
+// Evidence stays local; never commit original-data saves.
+// Temple old: 63807e54ffb79b4f34cfb5a7d3015425a4571f5cceb0a7311bfbba2c44de4947
+// Roundtrip old: 5ec76e2426b856f3cb94e78c4c1a88742b7ab1991abbce035e6ed4c747d55d91
 #include <array>
 #include <cstdint>
 namespace m44_baseline {
-inline constexpr const char *revision = "M69 B (save v13) on 417a1c0";
+inline constexpr const char *revision = "M70 Part A (save v13) on bf49eb3";
 struct Scenario { const char *name; std::uint32_t seed; const char *sha256; };
 inline constexpr std::array<Scenario,4> scenarios{{
     {"mainland-combat-myra-phirna",3626689381u,"bb913f87a17bac615e4a1eceb73563052872c77f1fa694f2d4706b292152a0f2"},
     {"vertigo-buy-repair-training",7u,"ea0809cdfa5bd1737526d353d769a076f76c9e8508e4c91ff08a94a83dea4f11"},
-    {"temple-recovery",3626689381u,"63807e54ffb79b4f34cfb5a7d3015425a4571f5cceb0a7311bfbba2c44de4947"},
-    {"vertigo-f3-roundtrip",3626689381u,"5ec76e2426b856f3cb94e78c4c1a88742b7ab1991abbce035e6ed4c747d55d91"}
+    {"temple-recovery",3626689381u,"40e75a244329a6ec63b83d1b4fd3c14fc4c5d6dce5ed987c93e45dee7aca1398"},
+    {"vertigo-f3-roundtrip",3626689381u,"c9839b73332bed3a4975651d3c26a615e51b09dab3a8779f412acaf3313fb9e1"}
 }};
 }
 #endif

@@ -240,7 +240,32 @@ XeenEventDecodeResult decodeTakeOrGive(const XeenEventRecord &record,
 
 XeenEventDecodeResult XeenEventDecoder::decode(const XeenEventRecord &record,
 		XeenEventDecodeContext context) {
+ if(context.replacedOpcode) {
+  context.replacedOpcode=false;
+  auto result=decode(record,context);
+  const auto *error=std::get_if<XeenEventDecodeError>(&result);
+  if(!error || error->kind!=XeenEventDecodeErrorKind::MalformedInstruction ||
+   !error->expectedParameterSize || record.parameters.size()<=*error->expectedParameterSize)return result;
+  auto consumed=record;consumed.parameters.resize(*error->expectedParameterSize);
+  return decode(consumed,context);
+ }
  switch (record.opcode) {
+ case 34:
+  if(record.parameters.size()!=3)return wrongSize(record,context,3);
+  return instruction(record,context,XeenEventMoveWallObject{record.parameters[0],
+   static_cast<std::int8_t>(record.parameters[1]),static_cast<std::int8_t>(record.parameters[2])});
+ case 46:
+  return decodeEmpty(record,context,XeenEventMakeNothingHere{});
+ case 19:
+  if(record.parameters.size()!=4)return wrongSize(record,context,4);
+  if(record.parameters[2]>4 || record.parameters[3]>15)
+   return makeError(record,context,XeenEventDecodeErrorKind::UnsupportedOperand,"AlterMap direction or wall is outside its cell encoding");
+  return instruction(record,context,XeenEventAlterMap{static_cast<std::int8_t>(record.parameters[0]),
+   static_cast<std::int8_t>(record.parameters[1]),record.parameters[2],record.parameters[3]});
+ case 35:
+  if(record.parameters.size()!=3)return wrongSize(record,context,3);
+  return instruction(record,context,XeenEventAlterCellFlag{static_cast<std::int8_t>(record.parameters[0]),
+   static_cast<std::int8_t>(record.parameters[1]),record.parameters[2]});
  case 0x24:
   if(record.parameters.size()!=2)return wrongSize(record,context,2);
   return instruction(record,context,XeenEventAlterHeads{record.parameters[0],record.parameters[1]});

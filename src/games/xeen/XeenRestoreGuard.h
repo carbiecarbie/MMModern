@@ -372,7 +372,7 @@ private:
 		// Event capabilities permit inventories, awards, skills, XP, purse, retained RNG, quest/camera/game flags
 		// and World overlays/Spawn. All other inputs retain their preimages.
 		if(candidate.membership!=membership || candidate.quests!=quests || candidate.marked!=marked ||
-			candidate.s.barriers()!=s.barriers() || candidate.s.exploredTiles()!=s.exploredTiles() ||
+			candidate.s.exploredTiles()!=s.exploredTiles() ||
 			bool(candidate.recovery)!=bool(recovery) || !(retainedContext==context) || retainedTreasure!=treasure ||
 			candidate.food!=food || candidate.economy!=economy || candidate.first!=first || candidate.effective!=effective ||
 			candidate.diagnostics!=diagnostics || bool(candidate.s._journeyRandom)!=bool(s._journeyRandom)) {
@@ -411,7 +411,7 @@ private:
 		// Allocate every anticipated value before changing the retained source
 		// preimage. Allocation failure remains a recoverable pre-commit failure.
 		auto nextMaps=maps;auto nextObjects=objects;
-		// The whole per-map table; its cells and explored bits are unchanged.
+		// The whole per-map table, including resource-bound Event cell writes.
 		auto mapStates=candidate.s._mapStates;
 		auto accounted=candidate.s._accountedMonsters;
 		auto statistics=candidate.cityStatistics;

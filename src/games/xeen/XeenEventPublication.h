@@ -280,7 +280,7 @@ private:
 		if(!currentSite || dispatchedRecords.empty() || dispatchedRecords.back().record!=*currentSite ||
 			guard.s.isEventDisabled({original.mapId,*currentSite}))integrity("Event effect has no dispatched source");
 		const auto result=XeenEventDecoder::decode(dispatchedRecord(*currentSite,dispatchedRecords.back().opcode),
-			{original.mapId,original.resourceName,*currentSite,true});
+			{original.mapId,original.resourceName,*currentSite,true,dispatchedRecords.back().opcode!=original.records.at(*currentSite).opcode});
 		const auto *decoded=std::get_if<XeenDecodedEventInstruction>(&result);
 		if(!decoded)integrity("Event effect source is unsupported");
 		return decoded->operation;
@@ -301,7 +301,8 @@ private:
 		for(std::size_t i=0;i<before;++i) {
 			const auto &dispatch=dispatchedRecords.at(i);const auto retained=dispatch.record;if(!retained)continue;
 			const auto site=*retained;
-			const auto result=XeenEventDecoder::decode(dispatchedRecord(site,dispatch.opcode),{original.mapId,original.resourceName,site,true});
+			const auto result=XeenEventDecoder::decode(dispatchedRecord(site,dispatch.opcode),
+				{original.mapId,original.resourceName,site,true,dispatch.opcode!=original.records.at(site).opcode});
 			const auto *instruction=std::get_if<XeenDecodedEventInstruction>(&result);if(!instruction)continue;
 			const auto *effect=std::get_if<XeenEventGiveEnchanted>(&instruction->operation);
 			const auto *give=std::get_if<XeenEventTakeOrGive>(&instruction->operation);

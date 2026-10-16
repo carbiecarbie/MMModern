@@ -26,7 +26,9 @@ void validateMap(XeenMapIdentity id) {
 		"invalid map identity");
 }
 
-bool monsterCoordinate(int value) { return value >= -128 && value <= 31; }
+// MOB and Spawn use signed-byte positions, including original (100,100)
+// parking slots. Resource-bound restore separately validates live geometry.
+bool monsterCoordinate(int value) { return value >= -128 && value <= 127; }
 bool signedByte(int value) { return value >= -128 && value <= 127; }
 
 void validateMonsters(const XeenSaveMonsterTable &table) {
@@ -38,7 +40,8 @@ void validateMonsters(const XeenSaveMonsterTable &table) {
 			(a.status == XeenActorStatus::Physical || a.status == XeenActorStatus::Unsupported),
 			"monster value outside wire bounds");
 		// A MOB record binds its own type (unresolved when its table entry is
-		// absent); a script slot stores the type it was spawned with.
+		// absent). Older builds also wrote script slots with their spawned type;
+		// restoration drops them because DOS never keeps slots past the MOB count.
 		const bool script = n >= table.originalCount;
 		if (!script) require(a.spawnedType == -1, "original monster type must bind to MOB");
 		else require(a.spawnedType == -1 ? a.lifecycle == XeenActorLifecycle::Unresolved : a.spawnedType >= 0 &&
