@@ -318,3 +318,11 @@ cells, monster spawns anywhere, conditions, values, rewards and random draws,
 Gold Vein tiers, teleports, the magic mirror and password prompts. A developer
 fixture starts an Event session on any Clouds cell. Save v13 is unchanged.
 [Plan](milestone-70-plan.md).
+
+**M71 - Original item generation** (`697385f` plan and its implementation).
+Shops, Event treasure, display cases and monster drops share one item
+generator with the original draws: categories from 1, the level-7 selector,
+weapon effectiveness and Misc charges 3 to 10. Monster drops lost their
+duplicate generator. Tests that remembered one stock or one combat were
+rewritten to check rules, with no growth in the suite; save v13 and v0.2.0
+saves are unchanged. [Plan](milestone-71-plan.md).

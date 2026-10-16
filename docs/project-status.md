@@ -1,7 +1,10 @@
 # MMModern - Project Status
 
-This describes what can be played and done now. **M70 is the latest completed
-and accepted milestone** ([plan](milestone-70-plan.md)): every Event operation
+This describes what can be played and done now. **M71 is the latest completed
+and accepted milestone** ([plan](milestone-71-plan.md)): shops, Event treasure,
+display cases and monster drops generate items with the original draws, so
+wands and other charged items come with 3 to 10 charges as in DOS. M70
+([plan](milestone-70-plan.md)) made every Event operation
 the Clouds scripts use runs as in the original, other than audio, town services
 and the ending, including moved walls and objects, monster spawns, conditions,
 rewards, random Events, teleports, the magic mirror and password prompts; most

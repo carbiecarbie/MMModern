@@ -1,6 +1,6 @@
 # MMModern - Roadmap
 
-**M70 is the latest completed and accepted milestone.**
+**M71 is the latest completed and accepted milestone.**
 [Project status](project-status.md) describes what is playable now;
 [project history](project-history.md) records completed milestones. Reference
 provenance belongs to [dependencies](dependencies.md).
@@ -59,9 +59,9 @@ regenerated each time, so progress is visible. Steps are direction, not
 approved plans, and the order may change when the census or play shows a
 better one.
 
-Before step 5, [M71](milestone-71-plan.md) (Tier A) makes item generation
-follow the original makeItem draws for every supported source, level-1
-monster drops included.
+Between steps 4 and 5, [M71](milestone-71-plan.md) made item generation
+follow the original makeItem draws for every supported source (completed and
+accepted).
 
 1. **Equipped item contributions**: completed and accepted in
    [M67](milestone-67-plan.md) (release v0.1.2).
