@@ -18,6 +18,9 @@ struct Harness {
  IndexedFrame base;
  XeenMonsterAppearance observedAppearance;
  std::optional<XeenCombatRandom> random;
+ std::vector<std::filesystem::path> runDirectories;
+ // An exception in flight means a failing check: keep its saves as evidence.
+ ~Harness(){if(!std::uncaught_exceptions())for(const auto &directory:runDirectories)child_test::removePassedRun(directory);}
  XeenGameplayServices services(unsigned value=1) {
   seed=value;
   XeenGameplayServices s{regional_test::resources(),[]{return XeenGameFlags{};},regional_test::map,regional_test::objects,
@@ -33,7 +36,8 @@ struct Harness {
  }
  int run(const XeenGameplayServices &s){
   auto saved=regional_combat_test::combatSnapshot(XeenCombatRandom(seed));
-  const auto path=savePath=child_test::freshDirectory(std::filesystem::current_path()/"regional-gameplay")/"synthetic.mmsave";
+  runDirectories.push_back(child_test::freshDirectory(std::filesystem::current_path()/"regional-gameplay"));
+  const auto path=savePath=runDirectories.back()/"synthetic.mmsave";
   XeenSaveFile::write(path,saved);
   struct Tape {XeenCombatRandom *old=regional_combat_test::tape;~Tape(){regional_combat_test::tape=old;}} scope;
   regional_combat_test::tape=random?&*random:nullptr;

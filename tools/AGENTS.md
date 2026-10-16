@@ -52,6 +52,9 @@ rerunning its failed tests, and when acting as its test runner. The root
   `ctest -L fast` itself, instead of another complete run. Such an
   explicitly requested rerun is the only rerun the runner performs.
 - Any production-code change requires another complete run.
+- A passing process test deletes its working directory; a failing one keeps
+  it for diagnosis, under the build directory or `%TEMP%` and named after the
+  test (for example `mmodern-m38-process-*` or `m42-process-*`).
 
 ## When delegation is unavailable
 

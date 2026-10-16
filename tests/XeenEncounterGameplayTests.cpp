@@ -94,6 +94,6 @@ void sprites(const fs::path &out) {
 }
 }
 int main(){try{
- const auto out=child_test::freshDirectory(fs::current_path()/"encounter-sprites");sprites(out);
+ const auto out=child_test::freshDirectory(fs::current_path()/"encounter-sprites");sprites(out);child_test::removePassedRun(out);
  std::cout<<"Shared monster sprite validation, ordering and clipping passed\n";return 0;
 }catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}

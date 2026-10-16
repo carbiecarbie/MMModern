@@ -19,7 +19,7 @@ int main(int argc,char **argv){try{
             if(result.exit!=0)std::cerr<<result.output;
             child_test::require(result.exit==0 && result.output.find("M39 PLAYERREADY INPUT PASSED "+control)!=std::string::npos,"M39 native PlayerReady input failed");
         }
-        std::cout<<"M39 PlayerReady input evidence "<<dir<<'\n';return 0;
+        std::cout<<"M39 PlayerReady input passed\n";child_test::removePassedRun(dir);return 0;
     }
     SetEnvironmentVariableW(L"SDL_VIDEODRIVER",L"dummy");SetEnvironmentVariableW(L"SDL_RENDER_DRIVER",L"software");
     if(selected.empty() || selected=="faults") {
@@ -89,5 +89,5 @@ int main(int argc,char **argv){try{
         if(result.exit!=0)std::cerr<<result.output;
         child_test::require(result.exit==0 && result.output.find("M39 NATIVE FAILURE PREFIX PASSED "+control)!=std::string::npos,"M39 native upload/copy prefix control failed");
     }
-    std::cout<<"M39 authority/failure evidence "<<dir<<'\n';return 0;
+    std::cout<<"M39 authority/failure controls passed\n";child_test::removePassedRun(dir);return 0;
 }catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}

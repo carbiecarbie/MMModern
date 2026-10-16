@@ -104,6 +104,6 @@ int main(int argc,char **argv) {
                 restored.find("M39 TOAD END HP=90")!=std::string::npos,"M39 resumed continuation did not rebuild the Toad at MON HP");
         }
         std::cout<<"M39 ORIGINAL-RESOURCE / QUIET / FULL EXIT / EXACT RESTORE / CONTINUATION PASSED\n";
-        return 0;
+        child_test::removePassedRun(dir);return 0;
     }catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}
 }

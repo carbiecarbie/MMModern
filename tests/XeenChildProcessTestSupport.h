@@ -26,6 +26,19 @@ inline fs::path freshDirectory(const fs::path &prefix) {
   if(fs::create_directory(path))return path;
  }
 }
+// Call only on success: a failing run throws or returns first and keeps its
+// working directory as evidence. Removal problems never fail a passed test.
+// Another process (a virus scanner, the search indexer) may briefly hold a
+// file the run has just written, so a sharing violation is retried for a while.
+inline void removePassedRun(const fs::path &directory) {
+ std::error_code error;
+ for (int attempt = 0; attempt < 20; ++attempt) {
+  error.clear(); fs::remove_all(directory, error);
+  if (!error) return;
+  Sleep(100);
+ }
+ std::cerr << "could not remove passed run " << directory.u8string() << ": " << error.message() << '\n';
+}
 struct Window { DWORD pid; HWND handle = nullptr; };
 inline BOOL CALLBACK findWindow(HWND window, LPARAM data) {
  auto &target = *reinterpret_cast<Window *>(data); DWORD pid = 0;

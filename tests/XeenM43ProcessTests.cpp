@@ -25,6 +25,6 @@ int main(int argc,char **argv){
             std::make_pair(first.pid,first.created)!=std::make_pair(refusal.pid,refusal.created),
             "M43 original A refusal process branch failed");
         std::cout<<"M43 original-resource unpaid quote cancellation and one-day departure passed\n";
-        return 0;
+        child_test::removePassedRun(dir);return 0;
     }catch(const std::exception &error){std::cerr<<error.what()<<'\n';return 1;}
 }

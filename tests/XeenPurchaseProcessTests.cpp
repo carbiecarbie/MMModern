@@ -42,7 +42,7 @@ int main(int argc,char **argv) {
         SetEnvironmentVariableW(L"SDL_VIDEODRIVER",L"dummy");SetEnvironmentVariableW(L"SDL_RENDER_DRIVER",L"software");
         SetEnvironmentVariableW(L"MMODERN_M42_STAGE",L"fresh");
         SetEnvironmentVariableW(L"MMODERN_M42_CONTROL",nullptr);
-        if(argc==4) { freshStartProcesses(executable,installation,directory); return 0; }
+        if(argc==4) { freshStartProcesses(executable,installation,directory); child_test::removePassedRun(directory); return 0; }
         const auto save=directory/"fresh.mmsave";
         const auto fresh=child_test::launch(executable,{L"--journey-region",L"--combat-seed",L"7",installation.wstring(),L"--save-file",save.wstring()},directory/"fresh.log",false,false,180000);
         check(fresh.exit==0 && fresh.output.find("M42 PRODUCTION WITNESS PASSED")!=std::string::npos,"M42 fresh application witness failed; inspect fresh.log");
@@ -89,6 +89,6 @@ int main(int argc,char **argv) {
         }
         SetEnvironmentVariableW(L"MMODERN_M42_CONTROL",nullptr);
         SetEnvironmentVariableW(L"MMODERN_M42_STAGE",nullptr);
-        std::cout<<"M42 actual seed7 earned Armor A/B/B1/C/D/E and successive Weapons integration; exact distinct-process restores and traces passed; evidence "<<directory.u8string()<<'\n';return 0;
+        std::cout<<"M42 actual seed7 earned Armor A/B/B1/C/D/E and successive Weapons integration; exact distinct-process restores and traces passed\n";child_test::removePassedRun(directory);return 0;
     }catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}
 }

@@ -480,6 +480,7 @@ int main(int argc,char **argv){try{
    const auto result=child_test::launch(std::filesystem::absolute(argv[2]),{mode,L"missing"},root/(std::to_string(sequence++)+".log"));
    check(result.exit==1&&result.output.find("Usage:")!=std::string::npos,"Removed mode prints usage before resources");
   }
+  child_test::removePassedRun(root);
  }else{panelCombat();appearance();criticalPresentation();delayed();failures();publicationFailures();callbacks();inventory();staleService();startup();liveSourceGuards();}
  std::cout<<"Regional combat production tests passed\n";return 0;
 }catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}

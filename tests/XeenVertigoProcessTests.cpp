@@ -209,7 +209,7 @@ int main(int argc,char **argv) {
     "M37 restore composer changed candidate before publication");
   }
   SetEnvironmentVariableW(L"MMODERN_M37_STAGE",nullptr);
-  std::cout<<"M37 A/B/C/D original-resource, five-process route passed; logs "<<dir.u8string()<<'\n';
-  return 0;
+  std::cout<<"M37 A/B/C/D original-resource, five-process route passed\n";
+  child_test::removePassedRun(dir);return 0;
  }catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}
 }

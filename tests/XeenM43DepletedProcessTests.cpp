@@ -65,6 +65,6 @@ int main(int argc,char **argv) {
         }
         SetEnvironmentVariableW(L"MMODERN_M43_STAGE",nullptr);
         std::cout<<"M43 production Buy depletion, fresh-process Temple and Training continuations passed\n";
-        return 0;
+        child_test::removePassedRun(dir);return 0;
     }catch(const std::exception &error){std::cerr<<error.what()<<'\n';return 1;}
 }

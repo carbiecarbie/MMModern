@@ -117,6 +117,7 @@ int main(int argc,char **argv) {
             if(generationLine.rfind("M40 CHECKPOINT A ",0)==0)generating=true;
             else if(generating && generationLine.rfind("DRAW ",0)==0)observedGeneration+=generationLine+'\n';
         }
+        generationLog.close();
         child_test::require(observedGeneration==restockOracle.trace,"M40 generation request/raw/value trace differs");
         independentTrace(drawsAfter(dir/"production.log","M40 CHECKPOINT D "));
         for(const std::string label:{"A","B","C","D","E"}) {
@@ -140,6 +141,6 @@ int main(int argc,char **argv) {
         }
         std::cout<<"M40 ORIGINAL-RESOURCE A-E / QUIET F9 / FULL EXIT / EXACT PRE-INPUT RESTORE / IDENTICAL CONTINUATION PASSED\n";
         std::cout<<"M40 SYNTHETIC FAILURE/RETRY AND NEW ECONOMY MUTATION/REVERSION CONTROLS PASSED\n";
-        return 0;
+        child_test::removePassedRun(dir);return 0;
     }catch(const std::exception &error){std::cerr<<error.what()<<'\n';return 1;}
 }

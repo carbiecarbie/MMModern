@@ -400,6 +400,6 @@ int main(int argc,char **argv) {
 		const auto before=replay_test::unexpected;
 		{replay_test::Scope scope;regional_journey_test::Fixture positive;positive.action(XeenEncounterAction::Right);positive.pulse();XeenCombatRandom rng(56);rng.draw(1,20);}
 		check(replay_test::unexpected>before && replay_test::draws,"probe positive control detects real work in scope");
-		std::cout<<"Journey persistence tests passed\n";return 0;
+		std::cout<<"Journey persistence tests passed\n";child_test::removePassedRun(directory);return 0;
 	} catch(const std::exception &e) {std::cerr<<e.what()<<'\n';return 1;}
 }

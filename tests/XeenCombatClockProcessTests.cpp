@@ -57,6 +57,6 @@ int main(int argc,char **argv) {
         for(const std::string field:{"bank-gold","bank-gems","stock","presence"})run("presentation-"+field);
         run("clock-scheduling-healthy",true);run("clock-cosmetic-recovery",true);
         std::cout<<"M40 BOTH CLOCK PATHS / FOUR ECONOMY ABAS / THROW / PRESENTATION / MONOTONIC FAILURE / POST-SERVICE FULL-EXIT RESTORE PASSED\n";
-        return 0;
+        child_test::removePassedRun(dir);return 0;
     }catch(const std::exception &error){std::cerr<<error.what()<<'\n';return 1;}
 }

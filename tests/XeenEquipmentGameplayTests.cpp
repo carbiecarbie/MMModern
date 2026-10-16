@@ -261,6 +261,7 @@ void persistenceRestart(const std::filesystem::path &exe) {
 	check(consumer.exit==0&&producer.pid!=consumer.pid,"fresh equipment consumer failed");
 	std::ifstream after(path,std::ios::binary);
 	check(bytes==std::string(std::istreambuf_iterator<char>(after),{}),"equipment consumer rewrote producer disk");
+	after.close();child_test::removePassedRun(dir);
 }
 }
 int main(int argc,char **argv){try{

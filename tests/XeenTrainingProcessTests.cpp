@@ -104,6 +104,6 @@ int main(int argc,char **argv) {
             equal(directory/"fresh-B.mmsave",file);
         }
         SetEnvironmentVariableW(L"MMODERN_M41_STAGE",nullptr);SetEnvironmentVariableW(L"MMODERN_M41_CONTROL",nullptr);
-        std::cout<<"M41 exact A/B full-process restore and continuation passed; evidence "<<directory.u8string()<<'\n';return 0;
+        std::cout<<"M41 exact A/B full-process restore and continuation passed\n";child_test::removePassedRun(directory);return 0;
     } catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}
 }

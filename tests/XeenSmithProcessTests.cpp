@@ -120,6 +120,6 @@ int main(int argc,char **argv) {
   for(const auto *control:{"immutable-art","aba-art-provider","aba-quote","aba-departure","aba-inactive","aba-mainland","aba-cache","aba-object-cache","aba-membership","aba-purse","aba-context","aba-city","aba-item","aba-after-repair","upload-admission","upload-repair","upload-departure","copy-admission","copy-repair","copy-departure"})
    run(control,"A",dir/"production-A.mmsave",control);
   std::cout<<"M38 original-resource/native-input/distinct-process acceptance passed\n";
-  return 0;
+  child_test::removePassedRun(dir);return 0;
  } catch(const std::exception &e) {std::cerr<<e.what()<<'\n';return 1;}
 }
