@@ -79,9 +79,11 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
         IndexedFrame::Presentation presented;
         bool shown=false,acted=false,earnArmor=false;unsigned blocks=0,iterations=0;
         auto repairedOwner=std::make_shared<unsigned>(0),repairedSlot=std::make_shared<unsigned>(0);
-        auto repairGold=std::make_shared<unsigned>(0);
+        auto repairGold=std::make_shared<unsigned>(0),repairPrice=std::make_shared<unsigned>(0);
         auto trainingMember=std::make_shared<unsigned>(0),trainingGold=std::make_shared<unsigned>(0);
+        auto templeExpected=std::make_shared<XeenTempleHealCandidate>();
         auto buyGold=std::make_shared<unsigned>(0),plainArmorBefore=std::make_shared<unsigned>(0);
+        auto buySlot=std::make_shared<unsigned>(0);
         unsigned openingAttacks=0;
         auto mainStockCursor=std::make_shared<XeenJourneyRandomState>();
         const auto inspect=[&](std::function<void()> fn){steps.push_back([fn]{fn();return true;});};
@@ -184,8 +186,20 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
             steps.push_back([&]{
                 if(!flow->canSave()) {
                     const auto *combat=flow->encounter()->combat();
-                    if(combat && combat->phase()==XeenCombatPhase::PlayerReady)
-                        act(combat->participant()==1 || combat->participant()==4 ? PlayerAction{AttackAction{}} : PlayerAction{RunAction{}});
+                    if(combat && combat->phase()==XeenCombatPhase::PlayerReady) {
+                        bool leaveCasualty=false;
+                        for(auto owner:kXeenCombatOwners) {
+                            const auto &c=party->roster.at(owner);
+                            const auto q=xeenQuoteTraining(c,*party->roster.combatInputs(owner),party->monsterTreasure->gold,*party->encounterContext);
+                            leaveCasualty=leaveCasualty || (q.levelBefore==3 && !q.missing &&
+                                (c.conditions[8] || c.conditions[12] || c.conditions[13]));
+                        }
+                        // Ordinary Run kills incapacitated members left behind.
+                        // Retain Services' paid resurrection obligation rather
+                        // than replacing it with a living learner's cheap Heal.
+                        act(leaveCasualty ? PlayerAction{RunAction{}} :
+                            combat->participant()==1 || combat->participant()==4 ? PlayerAction{AttackAction{}} : PlayerAction{RunAction{}});
+                    }
                     else if(world->sessionState().journeyActivity()==XeenJourneyActivity::Event ||
                             world->sessionState().journeyActivity()==XeenJourneyActivity::Reward)act(AcknowledgeAction{});
                     return false;
@@ -193,15 +207,19 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
                 bool eligible=false;for(unsigned member=0;member<6;++member) {
                     const auto owner=kXeenCombatOwners[member];const auto quote=xeenQuoteTraining(party->roster.at(owner),
                         *party->roster.combatInputs(owner),party->monsterTreasure->gold,*party->encounterContext);
-                    if(!quote.missing && quote.levelBefore==3) {*trainingMember=member;eligible=true;break;}
+                    if(!quote.missing && quote.levelBefore==3 && party->roster.at(owner).conditions[13]) {*trainingMember=member;eligible=true;break;}
                 }
                 int x=10,y=13;
                 if(!eligible) {
                     const XeenActor *selected=nullptr;int distance=1000;
-                    for(const auto &actor:world->sessionState().monsters(23))if(actor.lifecycle==XeenActorLifecycle::Present && actor.original.resourceId==6) {
-                        const int next=std::abs(actor.x-position->x)+std::abs(actor.y-position->y);
-                        if(next<distance){selected=&actor;distance=next;}
-                    }
+                    const auto walkable=XeenMovement::component(world->map(23),position->x,position->y,xeenJourneyContent().traversal);
+                    for(unsigned pass=0;pass<2 && !selected;++pass)
+                        for(const auto &actor:world->sessionState().monsters(23))if(actor.lifecycle==XeenActorLifecycle::Present &&
+                            actor.x>=0 && actor.y>=0 && actor.x<16 && actor.y<16 && walkable[actor.y*16+actor.x] &&
+                            (pass || actor.original.resourceId==6)) {
+                            const int next=std::abs(actor.x-position->x)+std::abs(actor.y-position->y);
+                            if(next<distance){selected=&actor;distance=next;}
+                        }
                     check(selected,"M49 reachable ordinary combat did not provide paid Training XP");x=selected->x;y=selected->y;
                 }
                 if(const auto input=m49_combat::toward(*world,*position,x,y,XeenDirection::North)){act(*input);return false;}
@@ -211,8 +229,11 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
             inspect([&]{check(position->mapId==28 && position->x==8 && position->y==4,"M44 Smith arrival");});
             action(InteractionAction{});steps.push_back([&]{return XeenPurchaseTestAccess::lobby(*flow);});action(DialogKeyAction{'b'});action(DialogKeyAction{'a'});
             inspect([&]{*buyGold=party->monsterTreasure->gold;for(const auto &armor:party->roster.at(0).armor)
-                *plainArmorBefore+=armor.material==0 && armor.id==3 && armor.state==0 && armor.frame==0;});
-            action(SelectInventorySlotAction{3});action(YesAction{});
+                *plainArmorBefore+=armor.material==0 && armor.id==3 && armor.state==0 && armor.frame==0;
+                bool found=false;const auto &offers=party->serviceEconomy->wares[0][0][1];
+                for(unsigned slot=0;slot<8;++slot)if(offers[slot].material==0 && offers[slot].id==3 && !offers[slot].state && !offers[slot].frame) {*buySlot=slot;found=true;break;}
+                check(found,"M44 original stock has no plain Armor3 offer");});
+            steps.push_back([&]{act(SelectInventorySlotAction{*buySlot});return true;});action(YesAction{});
             action(CancelInteractionAction{});action(CancelInteractionAction{});settle();
             inspect([&]{unsigned count=0;for(const auto &armor:party->roster.at(0).armor)
                 count+=armor.material==0 && armor.id==3 && armor.state==0 && armor.frame==0;
@@ -220,9 +241,16 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
             action(InteractionAction{});steps.push_back([&]{return XeenPurchaseTestAccess::lobby(*flow);});
             steps.push_back([&]{act(SelectMemberAction{*repairedOwner});return true;});action(DialogKeyAction{'b'});action(DialogKeyAction{'a'});action(DialogKeyAction{'f'});
             steps.push_back([&]{act(SelectInventorySlotAction{*repairedSlot});return true;});
-            inspect([&]{check(XeenPurchaseTestAccess::quote(*flow),"M44 Repair quote absent");*repairGold=party->monsterTreasure->gold;});action(YesAction{});
+            inspect([&]{check(XeenPurchaseTestAccess::quote(*flow),"M44 Repair quote absent");*repairGold=party->monsterTreasure->gold;
+                const auto &item=party->roster.at(kXeenCombatOwners[*repairedOwner]).armor[*repairedSlot];
+                // Independent base armor prices, pinned constants.cpp. This
+                // protects paid Fix against free repair and wrong-item prices.
+                constexpr unsigned base[]{0,20,100,200,400,600,1000,2000,100,60,40,250,200,100};
+                check(item.material==0 && item.id<std::size(base),"M44 earned repair requires ordinary armor");
+                *repairPrice=std::max(1u,base[item.id]/10);
+            });action(YesAction{});
             action(CancelInteractionAction{});action(CancelInteractionAction{});settle();
-            inspect([&]{check(party->monsterTreasure->gold<*repairGold &&
+            inspect([&]{check(party->monsterTreasure->gold==*repairGold-*repairPrice &&
                 party->roster.at(kXeenCombatOwners[*repairedOwner]).armor[*repairedSlot].state==0,"M44 paid Repair");});
             // A casualty can retain earned XP but cannot Train. Recover the
             // selected learner through the original paid Temple, never by a
@@ -234,13 +262,33 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
                 case 0:act(InteractionAction{});++*recoveryStage;return false;
                 case 1:if(!XeenTrainingTestAccess::templeLobby(*flow))return false;
                     act(SelectMemberAction{*trainingMember});++*recoveryStage;return false;
-                case 2:check(*trainingMember==1 && party->monsterTreasure->gold==648 && party->roster.at(18).currentHp==-3 &&
-                        party->roster.at(18).conditions[12]==1 && party->roster.at(18).conditions[13]==1,"Learner recovery literal preimage differs");
+                case 2:{
+                    // Independently apply TempleLocation::doOptions. Never
+                    // turn the operation's own quote into its expected result;
+                    // free/wrong-price recovery and lost resets must fail.
+                    const auto owner=kXeenCombatOwners[*trainingMember];
+                    auto &expected=*templeExpected;expected.character=party->roster.at(owner);
+                    check(expected.character.conditions[13],"M44 Services lost its ordinary paid resurrection preimage");
+                    expected.inputs=*party->roster.combatInputs(owner);
+                    auto &c=expected.character;auto &i=expected.inputs;
+                    const unsigned level=std::max(0,int(c.permanentLevel)+c.temporaryLevel);
+                    unsigned price=c.currentHp<XeenCharacterRules::maxHp(c,{party->encounterContext->year})?10*level:0;
+                    for(unsigned condition:{3u,4u,8u,12u})if(c.conditions[condition])price+=10*level;
+                    if(c.conditions[13])price+=100*level+50*c.conditions[13];
+                    expected.result.price=price;expected.result.goldBefore=party->monsterTreasure->gold;
+                    check(price>0 && price<=expected.result.goldBefore,"Learner recovery preimage differs");
+                    expected.result.goldAfter=expected.result.goldBefore-price;
+                    c.temporaryLevel=c.intellect.temporary=c.personality.temporary=c.endurance.temporary=0;
+                    i.might.temporary=i.speed.temporary=i.accuracy.temporary=i.temporaryAc=0;
+                    i.luck->temporary=i.resistances->coldTemporary=i.resistances->electricalTemporary=i.poisonResistance->temporary=0;
+                    c.currentHp=XeenCharacterRules::maxHp(c,{party->encounterContext->year});
+                    for(unsigned condition=1;condition<=15;++condition)c.conditions[condition]=0;
                     act(DialogKeyAction{'h'});++*recoveryStage;
-                    return false;
-                case 3:if(party->monsterTreasure->gold!=238)return false;
-                    check(party->roster.at(18).currentHp==48 && party->roster.at(18).currentSp==0 &&
-                        party->roster.at(18).conditions==std::array<std::uint8_t,16>{},"Temple literal 410-gold recovery differs");
+                    return false;}
+                case 3:if(party->monsterTreasure->gold!=templeExpected->result.goldAfter)return false;
+                    check(xeen_state::sameCharacter(party->roster.at(kXeenCombatOwners[*trainingMember]),templeExpected->character) &&
+                        xeen_state::sameInputs(*party->roster.combatInputs(kXeenCombatOwners[*trainingMember]),templeExpected->inputs),
+                        "Temple paid recovery differs");
                     act(CancelInteractionAction{});++*recoveryStage;return false;
                 default:return flow->canSave();
                 }

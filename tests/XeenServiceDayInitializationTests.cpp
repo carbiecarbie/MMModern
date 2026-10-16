@@ -130,12 +130,12 @@ void parserAndFresh(Inputs &i) {
 	}
 	Graph source(i);source.fresh(i.setup());const auto s=source.capture(i);
 	check(s.journey->schema==9 && s.journey->content==14 && s.journey->serviceEconomy &&
-		s.journey->random==std::optional<XeenJourneyRandomState>{{1,7,886}},"fresh post-generation world cursor differs from independent vector");
+		s.journey->random==std::optional<XeenJourneyRandomState>{{1,3372760030u,885}},"fresh post-generation world cursor differs from independent vector");
 	check(s.journey->context->year==610 && s.journey->context->day==8 && s.journey->context->minutes==480 &&
 		!s.journey->context->ctr24 && !s.journey->serviceEconomy->bank.gold && !s.journey->serviceEconomy->bank.gems,"fresh bank/calendar mismatch");
 	check(s.activeRosterIds==std::vector<std::uint8_t>{0,18,14,11,1,6},"fresh ordered membership");
-	const std::array<std::array<unsigned,4>,8> counts{{{{8,5,1,2}},{{8,8,2,1}},{{5,8,3,1}},{{8,6,3,1}},
-		{{7,8,1,3}},{{5,8,2,2}},{{7,8,1,2}},{{8,4,3,1}}}};
+	const std::array<std::array<unsigned,4>,8> counts{{{{5,8,2,3}},{{4,8,3,2}},{{4,8,3,4}},{{6,8,1,3}},
+		{{4,8,0,2}},{{8,8,0,2}},{{8,8,2,2}},{{8,6,3,2}}}};
 	for(unsigned shop=0;shop<8;++shop)for(unsigned category=0;category<4;++category) {
 		unsigned occupied=0;for(const auto &item:s.journey->serviceEconomy->wares[shop/4][shop%4][category])occupied+=item.id!=0;
 		check(occupied==counts[shop][category],"fresh complete eight-shop independent count vector");
@@ -181,7 +181,7 @@ void freshFailures(Inputs &i) {
 	setup.regionalManifest=[&](const auto &m,const auto &o,const auto &e,const auto &s) {
 		manifest(m,o,e,s);setup.bank->gold=199;setup.bank->gems=200;setup.seed=1;};
 	g.fresh(setup);check(!g.p.serviceEconomy->bank.gold && !g.p.serviceEconomy->bank.gems &&
-		g.world.sessionState().journeyRandom()==std::optional<XeenJourneyRandomState>{{1,7,886}},"fresh provider replaced detached initialization inputs");
+		g.world.sessionState().journeyRandom()==std::optional<XeenJourneyRandomState>{{1,3372760030u,885}},"fresh provider replaced detached initialization inputs");
 	std::cout<<"M40 SYNTHETIC fresh absent/nonzero bank, resource/allocation/ABA/post-stock faults and detached-input checks passed\n";
 }
 
@@ -224,7 +224,7 @@ void postPublicationFailure(Inputs &i) {
   setup.cityEventsProvider=[&]()->XeenEventFile{fail();return {};};
   rejects([&]{g.fresh(setup);});
   check(fired && g.p.serviceEconomy && g.p.encounterContext && !XeenSaveState::canCapture(g.p,g.c,g.world),"failed Training admission left save authority");
-  check(g.world.sessionState().journeyRandom()==std::optional<XeenJourneyRandomState>{{1,7,886}},"failed Training admission replayed fresh RNG");
+  check(g.world.sessionState().journeyRandom()==std::optional<XeenJourneyRandomState>{{1,3372760030u,885}},"failed Training admission replayed fresh RNG");
  }
 }
 void freshPublicationAllocationSweep(Inputs &i) {
@@ -242,7 +242,7 @@ void freshPublicationAllocationSweep(Inputs &i) {
 		allocation_test::countdown=-1;allocation_test::publication=nullptr;
 		if(!failed) {
 			check(!allocation_test::triggered && skipped>0,"allocation sweep did not cover failing preparation");
-			g.present();check(g.p.serviceEconomy && g.world.sessionState().journeyRandom()==std::optional<XeenJourneyRandomState>{{1,7,886}},"allocation-sweep final fresh state");
+			g.present();check(g.p.serviceEconomy && g.world.sessionState().journeyRandom()==std::optional<XeenJourneyRandomState>{{1,3372760030u,885}},"allocation-sweep final fresh state");
 			std::cout<<"M40 SYNTHETIC fresh publication allocation sweep passed "<<skipped<<" prepublication failure positions\n";return;
 		}
 		check(allocation_test::triggered && !g.p.serviceEconomy && !g.p.encounterContext &&

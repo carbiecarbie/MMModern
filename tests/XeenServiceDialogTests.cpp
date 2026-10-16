@@ -229,11 +229,11 @@ void dialogs(Inputs &in,bool mouse) {
     if(mouse)click(smith,235,65);else keyboard(smith,'b');
     smith.flow->reportText={};
     if(mouse)click(smith,47,110);else keyboard(smith,'a');
-    if(mouse)click(smith,20,48);else keyboard(smith,'4');
+    if(mouse)click(smith,20,21+9*smith.armorOffer());else keyboard(smith,'1'+smith.armorOffer());
     check(XeenPurchaseTestAccess::quote(*smith.flow),"row does not open original Confirm");
     keyboard(smith,InputKey::Enter);before.unchanged(smith);
     if(mouse)click(smith,186,113);else keyboard(smith,'n');before.unchanged(smith);
-    if(mouse)click(smith,20,48);else keyboard(smith,'4');
+    if(mouse)click(smith,20,21+9*smith.armorOffer());else keyboard(smith,'1'+smith.armorOffer());
     if(mouse)click(smith,130,113);else keyboard(smith,'y');armorPaid(smith);
     check(XeenPurchaseTestAccess::browse(*smith.flow),"Buy retained result screen");
     if(mouse)click(smith,251,110);else keyboard(smith,'f');

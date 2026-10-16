@@ -114,7 +114,7 @@ int main(){try{
  check(misc.journey->treasure->dormant(),"Restorable Misc retains dormant state");
  for(unsigned mode=0;mode<13;++mode){auto bad=misc;auto &entry=bad.journey->treasure->miscellaneous[0];
   switch(mode){case 0:entry.source=9;break;case 1:entry.source=12;break;case 2:entry.item.material=0;break;case 3:entry.item.material=10;break;
-   case 4:entry.item.id=0;break;case 5:entry.item.id=16;break;case 6:entry.item.state=0;break;case 7:entry.item.state=9;break;case 8:entry.item.frame=1;break;
+   case 4:entry.item.id=0;break;case 5:entry.item.id=16;break;case 6:entry.item.state=0;break;case 7:entry.item.state=11;break;case 8:entry.item.frame=1;break;
    case 9:entry={};break;case 10:bad.map(23).monsters->slots[1].accounted=false;break;
    case 11:bad.map(23).monsters->slots[1]={5,5,XeenActorLifecycle::Present,XeenActorStatus::Physical,false,-1};break; // A live source.
    case 12:bad.journey->treasure->miscellaneous[1].source=1;break;}
@@ -123,7 +123,9 @@ int main(){try{
  // the Misc count follows them, then each Misc record's source index.
  const auto miscWire=XeenSaveFormat::encode(withSources(misc));const auto miscAt=baseSize(misc)+1632+1+4*5+2+2*5;
  check(miscWire[miscAt]==2 && miscWire[miscAt+1]==0 && miscWire[miscAt+6]==1,"Literal Misc section extent/source order");
- for(const auto mutation:std::vector<std::pair<unsigned,unsigned>>{{0,11},{1,9},{1,12},{2,0},{2,10},{3,0},{3,16},{4,0},{4,9},{5,1},{6,0}}) {
+ // Stored charges 1..10 are valid; reject 11 on both encode and wire decode.
+ // Mutation: admitting charges above 10. save_format retains exact 1/2/9/10 roundtrips.
+ for(const auto mutation:std::vector<std::pair<unsigned,unsigned>>{{0,11},{1,9},{1,12},{2,0},{2,10},{3,0},{3,16},{4,0},{4,11},{5,1},{6,0}}) {
   auto bad=miscWire;bad[miscAt+mutation.first]=mutation.second;fixIndependentEnvelope(bad);rejects([&]{XeenSaveFormat::decode(bad);});
  }
  auto fullMisc=misc;auto &fm=*fullMisc.journey->treasure;fm.weapons={};fm.armor={};fm.miscellaneous={};

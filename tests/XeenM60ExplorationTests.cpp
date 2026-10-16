@@ -1,6 +1,7 @@
 #include "XeenTestInstallation.h"
 #include "formats/xeen/XeenVocDuration.h"
 #include "XeenTrainingTestSupport.h"
+#include "XeenM42Evidence.h"
 #include "games/xeen/XeenJumpRules.h"
 #include "games/xeen/XeenEventTrigger.h"
 #include <iostream>
@@ -122,7 +123,20 @@ void impacts(Inputs &in) {
     *XeenLearnedSpellRules::supported(spell),actor.statistics->physicalResistance());
    XeenConsequenceDraw draw{expected};check(candidate.service(draw) && candidate.damage>=1,"Live spell fixture must be lethal");
    xp+=actor.statistics->experience()/6;
-   if(actor.original.resourceId==6) {XeenMonsterDropCandidate drop(treasure,actor.id);check(drop.service(draw),"Live spell bounded drop");treasure=drop.treasure;}
+   if(actor.original.resourceId==6) {
+    // Checks the drop-chance draw and RNG continuation after an exploration
+    // spell kill. This kill fails the 10% chance, so it never reaches item
+    // generation; successful drops are covered only by the unit tapes in
+    // XeenConsequenceRulesTests (M71 review).
+    m42_test::StockOracle oracle{expected.state(),expected.position()};
+    const bool generated=oracle.draw(1,100)<=10;
+    std::optional<std::pair<unsigned,XeenItem>> item;
+    if(generated)item=oracle.item(1);
+    XeenMonsterDropCandidate drop(treasure,actor.id);check(drop.service(draw),"Live spell bounded drop");
+    check(expected.continuation()==XeenJourneyRandomState{1,oracle.state,oracle.count} &&
+     (item?xeenSameItem(drop.generated.item,item->second):drop.outcome==XeenMonsterDropOutcome::None),"Independent spell/drop generation and RNG differ");
+    treasure=drop.treasure;
+   }
   }
   std::array<unsigned,6> priorXp{};for(unsigned i=0;i<6;++i)priorXp[i]=f.p.roster.combatInputs(s.activeRosterIds[i])->experience;
   const auto gold=f.p.monsterTreasure->gold;begin(f);try{quiet(f);}catch(const std::exception &e){throw std::runtime_error("spell="+std::to_string(spell)+" distance="+std::to_string(distance)+" "+e.what());}

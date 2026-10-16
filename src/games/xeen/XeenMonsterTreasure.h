@@ -6,6 +6,7 @@
 #include <optional>
 #include "games/xeen/XeenMutation.h"
 #include "games/xeen/XeenRecordIdentity.h"
+#include "games/xeen/XeenItemGeneration.h"
 namespace mmodern {
 // Durable produced consequences. The party owns this value; runtime receipts
 // and partially executed delivery never belong here.
@@ -61,9 +62,9 @@ struct XeenMonsterDropCandidate {
 	XeenMonsterDropCandidate(const XeenMonsterTreasure &, XeenMonsterIdentity source);
 	bool service(XeenConsequenceDraw &);
 private:
-	enum class Step { Drop, Category, Subcategory, Id, Enchantment, Special, Charges, Store, Done };
+	enum class Step { Drop, Generate, Store, Done };
 	Step step = Step::Drop;
-	unsigned category = 0, subcategory = 0;
+	XeenItemCandidate item{1};
 };
 enum class XeenMonsterDeliveryLoss { None, GloballyFull };
 struct XeenMonsterDeliveryRecord {

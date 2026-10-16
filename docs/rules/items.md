@@ -218,19 +218,58 @@ algorithm or a promise of current MMModern support.
 
 ## Generation and reward delivery
 
-**Evidence: Reference only** for generic generation, with **DOS static, high
-confidence** for the staging and delivery rules below. Sources: [Character::makeItem][character],
+**Evidence: DOS static (2026-10-16), high confidence** for `makeItem` draws,
+selection and table ranges, with **DOS static, high confidence** for the staging
+and delivery rules below. Source program: `WORLD/XEEN.DAT` SHA-256
+`8bf78b4850d5973cbb063c7dd96b9aaef4e94791d748334187eef74acf528d27`,
+`makeItem` file `0x25ca8..0x26382`, random helper `0x45b9a..0x45bb4` calibrated
+against the Event currency draw `0x23770..0x23791`. Reference sources:
+[Character::makeItem][character],
 [Combat::attack2][combat], [Party::giveTreasure][party]. The exhaustive low-tier
 generation ranges are recorded in [M61's catalogue](../milestone-61-plan.md#reachable-catalogue-exhaustive-generation-table-ranges).
 
 Generation level 1 permits weapons 1-33, armor 1-7 and Misc containers 1-9;
 no accessories. Level 2 expands armor through 13 and includes accessories 1-10.
 Generated Misc powers are 1-15 at level 1 and 16-30 at level 2, with charges
-`R(1,8)`. Ordinary level-1 equipment has no material or state bonus. Level-2
+`R(1,8)+2`. Ordinary level-1 equipment has no material or state bonus. Level-2
 equipment may receive one of the material/effectiveness branches; generation
 does not simply draw uniformly over all material IDs. Generation consumes its
-draws before later capacity-related loss. The full high-tier generator and its
-complete conditional RNG trace remain outside this chapter's DOS coverage.
+draws before later capacity-related loss.
+
+`makeItem` first draws category `R(1,100)`, then subcategory `R(1,100)` at
+levels 1-5 or `R(1,80)` at levels 6-7 (`0x25cbc..0x25ce3`). At level 1,
+category rolls 1-40 select weapons, 41-85 armor, and 86-100 Misc. At higher
+levels, 1-35 select weapons, 36-60 armor, and 61-100 use subcategory thresholds
+to select armor, accessories or Misc. Weapon subcategory bands end at 30, 60
+and 85; the mixed branch ends at 10, 20, 35, 45, 55, 65, 75 and 80.
+The comparisons are inclusive (`0x25d45..0x25e38`), so Misc is unreachable
+through the ordinary random path at levels 6-7. An Event ItemType override
+still consumes both initial draws (`0x25ce5..0x25d45`).
+
+Every item then consumes an enchantment `R(1,100)` roll. Eligible equipment
+consumes a selector `R(1,100)` and a table-bounded value roll; level-7 material
+items consume the selector even though it does not change their fixed material
+row (`0x25e4a..0x26216`). Enchanted weapons test `R(1,20)==10` for an
+effectiveness roll `R(1,6)` (`0x262ae..0x262c6`). Misc items draw a
+level-bounded power and charges `R(1,8)+2` (`0x26218..0x2625a`). There is no
+curse draw in `makeItem`. The original interval tables at segments `0x47b4`,
+`0x47bb`, `0x47c5`, `0x47c8` and `0x47c9` match the shared numeric generation
+tables; the pin differs at the four draw rules recorded in
+[original quirks](../original-quirks.md).
+
+**DOS static (2026-10-16), high confidence; implemented (M71):** combat loads
+the monster drop field (record offset `0x2d`) at `0x2c36c..0x2c370`, checks
+its chance with `R(1,100)` at `0x2c38b..0x2c39a`, then reloads that same
+field at `0x2c3e2` and passes it as makeItem's level. The far call at
+`0x2c3e7` resolves to file `0x25ca8`. Staging capacity is checked afterward
+(`0x2c402` onward). All supported sources share `XeenItemCandidate`, including
+level-1 monster drops. Higher-level drops and accessory staging remain unsupported.
+
+Stored merchant and pending-loot Misc records accept 1-10 charges so existing
+v13/schema 9/content 14 saves keep their exact stock and loot. Generation produces
+3-10. Restore does not regenerate items, deliver rewards or move the RNG cursor;
+old stock changes only through normal purchases and restock. Party inventory's
+charge domain is unchanged.
 
 **DOS static (2026-10-12), high confidence: monsters stage Misc correctly.**
 The original category-3 branch copies the generated Misc container, power and
@@ -248,7 +287,7 @@ segment. The generator writes these fields and returns category 3. This rule
 is generic, not specific to the Orc witness or one map. **Implemented (M61
 Part C):** Misc monster drops use their own pending array and the existing
 shared delivery rules, preserving all generation draws. Pending Misc survives
-Run and v12 save/load. Part D implements DOS delivery as follows.
+Run and current v13 save/load. Part D implements DOS delivery as follows.
 
 **DOS static, high confidence; implemented (M61 Part D):** Event rewards and
 monster loot share one delivery rule, in staged category/slot order. Global

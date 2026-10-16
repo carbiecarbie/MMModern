@@ -548,6 +548,35 @@ void mainlandTopologyCounts() {
 }
 
 void serviceEconomyWireContract() {
+	// M71 mutations: reject old charges 1/2, truncate new 9/10, regenerate
+	// restored stock, replay pending rewards, or move the saved RNG cursor.
+	// Both legacy and corrected records use the same v13/schema9/content14 wire.
+	for(unsigned charges:{1u,2u,9u,10u})for(bool pending:{false,true}) {
+		auto state=currentWireSnapshot();
+		state.journey->serviceEconomy->wares[0][0][3][0]={1,1,std::uint8_t(charges),0};
+		auto &actor=state.map(23).monsters->slots[0];
+		actor.accounted=true;actor.lifecycle=XeenActorLifecycle::Defeated;actor.x=actor.y=-128;
+		auto &loot=*state.journey->treasure;
+		loot.sources[0]={23,0};loot.miscellaneous[0]={0,{9,15,std::uint8_t(charges),0}};
+		if(pending) {loot.pendingMask=1;loot.pendingGold=10;}
+		roundTrip(state);
+		const auto wire=XeenSaveFormat::encode(state);
+		// Literal v13 positions: stock's first Misc state and treasure's sole
+		// Misc state after its five-byte source identity and category counts.
+		const auto stockCharge=wire.size()-kMinimalEconomyTail+4+3*9*4+2;
+		const auto lootCharge=journeyOffset(state)+6+36+1230+13+331+16+1+5+2+1+3;
+		check(wire.at(stockCharge)==charges && wire.at(lootCharge)==charges,"v13 charge wire positions differ");
+		for(unsigned invalid:{0u,11u,64u,128u,255u}) {
+			auto bad=state;bad.journey->serviceEconomy->wares[0][0][3][0].state=invalid;
+			rejects([&]{XeenSaveFormat::encode(bad);});
+			bad=state;bad.journey->treasure->miscellaneous[0].item.state=invalid;
+			rejects([&]{XeenSaveFormat::encode(bad);});
+			for(auto offset:{stockCharge,lootCharge}) {
+				auto corrupt=wire;corrupt.at(offset)=invalid;fixIndependentEnvelope(corrupt);
+				rejects([&]{XeenSaveFormat::decode(corrupt);});
+			}
+		}
+	}
 	for(unsigned content:{14u}) {
 	auto s=currentWireSnapshot();
 	for(unsigned owner=0;owner<30;++owner) {

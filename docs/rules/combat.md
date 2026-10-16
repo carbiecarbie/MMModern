@@ -521,6 +521,19 @@ recipient gets 32. No XP remainder is distributed.
 Outside map 85, add the monster's fixed gold and gems to staged treasure. A zero
 item-drop field makes no drop-chance draw. A nonzero item-drop field selects a
 chance and also supplies the generation level to `Character::makeItem`.
+**DOS static (2026-10-16), high confidence:** the drop field at monster-record
+`+0x2d` is loaded at `0x2c36c..0x2c370`, the chance comparison is at
+`0x2c38b..0x2c39a`, and the field is passed again at `0x2c3e2..0x2c3ec`
+to makeItem (far target `1b98:4c68`, file `0x25ca8`). The same calibrated
+inclusive random helper supplies the chance and item draws. **Implemented
+(M71):** supported level-1 drops share `XeenItemCandidate` with shops and
+Events: category/subcategory `R(1,100)` and Misc charges `R(1,8)+2`.
+The existing 10% chance, source accounting, publication and delivery remain;
+higher-level drops and accessory staging remain unsupported (DOS stages
+accessories in their own array, `0x2c4a6`). Pending Misc charges 1-10 retain
+old and corrected v13 saves without regenerating loot. A successful level-1
+drop is covered by unit draw tapes only; no gameplay test reaches item
+generation yet, and adding one needs an ordinary-gameplay route.
 
 | Item-drop field | Chance from one `R(1,100)` |
 | --- | --- |

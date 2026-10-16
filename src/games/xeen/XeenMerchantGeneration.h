@@ -2,6 +2,7 @@
 #define MMODERN_XEEN_MERCHANT_GENERATION_H
 #include "games/xeen/XeenServiceEconomy.h"
 #include "games/xeen/XeenItemGeneration.h"
+#include "games/xeen/XeenCombatRules.h"
 #include <optional>
 namespace mmodern {
 // The merchant entry point shares the reason-0 generator with Event treasure.

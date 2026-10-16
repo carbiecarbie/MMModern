@@ -28,8 +28,8 @@ void freshState(Source &s,const XeenPartyState &p,const XeenCamera &c,const Xeen
   !p.monsterTreasure->pendingGold && !p.monsterTreasure->pendingMask,"Original calendar/food/purse");
  check(p.serviceEconomy && p.serviceEconomy->bank.gold==0 && p.serviceEconomy->bank.gems==0,"Original bank without interest");
  // M40's pinned controlled-seed stock oracle, covering both sides/four shops.
- check(m40_test::sha256(m40_test::stockBytes(*p.serviceEconomy))=="bd3799d8b453a2877656c87d4add0d513914ca7679afac20e9b87dae6e031d84" &&
-  w.sessionState().journeyRandom()==XeenJourneyRandomState{1,2477276124u,878},"First gameplay draws generate original stock exactly once");
+ check(m40_test::sha256(m40_test::stockBytes(*p.serviceEconomy))=="7983393dfd830dbe9eae696e6798025c477af13d4d9e64de085fbf0f94b40da2" &&
+  w.sessionState().journeyRandom()==XeenJourneyRandomState{1,795614091u,893},"First gameplay draws generate original stock exactly once");
  check(w.sessionState().disabledEventCount()==0 && w.sessionState().disabledObjectCount()==0 &&
   w.sessionState().accountedMonsters().empty() && w.sessionState().barriers().empty(),"Fresh resource overlays");
  for(bool flag:f.values())check(!flag,"Fresh Clouds game flags");

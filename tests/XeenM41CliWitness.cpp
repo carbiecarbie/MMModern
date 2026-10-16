@@ -169,6 +169,21 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
             }
             if(const auto c=combat()) {
                 check(c->phase()!=XeenCombatPhase::Failed && c->phase()!=XeenCombatPhase::Defeat && c->phase()!=XeenCombatPhase::SupportStopped,"M41 combat failed");
+                if(const auto cast=c->cast()) {
+                    if(cast->phase==XeenCombatCastPhase::PartyTarget) {
+                        unsigned portrait=0;for(unsigned member=0;member<4;++member)portrait+=bool(c->participants()&(1u<<member));
+                        act(SelectMemberAction{portrait});
+                    }
+                    else if(const auto input=m49_combat::finishSpell(*cast,*party,26u))act(*input);
+                    return false;
+                }
+                // Ordinary First Aid prevents the corrected drop stream from
+                // incapacitating one of the two earned Training candidates.
+                // Mutation: self-targeting must use the displayed portrait after runners leave.
+                if(!cityFight && c->phase()==XeenCombatPhase::PlayerReady && c->participant()==4 &&
+                    party->roster.at(1).currentHp<18 && party->roster.at(1).currentSp>0) {
+                    act(CastSpellAction{});return false;
+                }
                 if(c->phase()==XeenCombatPhase::PlayerReady)
                     act(cityFight || c->participant()==1 || c->participant()==4?PlayerAction{AttackAction{}}:PlayerAction{RunAction{}});
             } else if(world->sessionState().journeyActivity()==XeenJourneyActivity::Event || world->sessionState().journeyActivity()==XeenJourneyActivity::Reward)
@@ -245,7 +260,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
             inspect([&,beforeCharacters,beforeInputs]{for(unsigned id=0;id<30;++id){(*beforeCharacters)[id]=party->roster.at(id);(*beforeInputs)[id]=*party->roster.combatInputs(id);}});
             action(SelectMemberAction{member},true);inspect(deny);action(DialogKeyAction{'t'});inspect(deny);
             steps.push_back([&,owner,day,gold,hp,sp,beforeCharacters,beforeInputs]{deny();if(party->roster.at(owner).permanentLevel!=4)return false;
-                check(party->roster.combatInputs(owner)->experience==280 && party->monsterTreasure->gold==gold &&
+                check(party->roster.combatInputs(owner)->experience==348 && party->monsterTreasure->gold==gold &&
                     party->roster.at(owner).currentHp==hp && party->roster.at(owner).currentSp==sp && party->encounterContext->day==day,
                     "M41 paid level/reset/refill/day mismatch");
                 for(unsigned id=0;id<30;++id) {
@@ -270,32 +285,32 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
                 const auto actual=snapshot(),disk=XeenSaveFile::read(*target);m40_test::equalFields(actual,disk);
                 check(XeenSaveFormat::encode(actual)==XeenSaveFormat::encode(disk),"M41 pre-input restore not exact");
                 std::cout<<"RESTORE EXACT BEFORE INPUT\nMARK "<<stage<<'\n';
-            } else expect(8,480,800,1652828136,901);
+            } else expect(8,480,800,2000247898,875);
         });
         if(!resume) {
             route("RRRUUURUURRRU");for(unsigned member:{0u,1u,2u,3u,5u}) {action(InteractionAction{});action(SelectMemberAction{member});settle();}
             route("RRUUUU");route("URRRUU");route("UU");route("UURU");route("RRURRRUUUUUUUUURRRU");
-            inspect([&]{expect(8,781,870,2762662790u,1060);check(party->roster.combatInputs(18)->experience==3264 && party->roster.combatInputs(1)->experience==3264,"M41 earned XP prefix mismatch");});
+            inspect([&]{expect(8,786,870,4263475254u,1096);check(party->roster.combatInputs(18)->experience==3332 && party->roster.combatInputs(1)->experience==3332,"M41 earned XP prefix mismatch");});
             action(CastSpellAction{});action(SelectMemberAction{4});action(DialogKeyAction{'n'});action(DialogKeyAction{'2'});
             action(DialogKeyAction{'s'});action(DialogKeyAction{'c'});action(SelectMemberAction{4});settle();
-            inspect([&]{check(party->roster.at(1).currentHp==15 && party->roster.at(1).currentSp==20,"M41 genuine First Aid mismatch");cityFight=true;});
+            inspect([&]{check(party->roster.at(1).currentHp==21 && party->roster.at(1).currentSp==13,"M41 genuine First Aid mismatch");cityFight=true;});
             action(InteractionAction{});action(YesAction{});settle();route("UUUU");
             inspect([&] {
-                expect(8,796,870,4226505513u,1073);
-                constexpr int hp[]{61,69,61,65,15,36},sp[]{6,0,6,0,20,27};
-                constexpr unsigned xp[]{1016,3280,1016,1016,3280,1280};
+                expect(8,801,870,4180726993u,1109);
+                constexpr int hp[]{61,66,61,61,20,27},sp[]{6,0,6,0,13,27};
+                constexpr unsigned xp[]{1016,3348,1016,1016,3348,1148};
                 for(unsigned n=0;n<6;++n){const auto owner=kXeenCombatOwners[n];check(party->roster.at(owner).currentHp==hp[n] &&
                     party->roster.at(owner).currentSp==sp[n] && party->roster.combatInputs(owner)->experience==xp[n],"M41 Slime checkpoint mismatch");}
             // Decision 9: back up facing East from (15,7) to (10,7), so the view
             // West never wakes Slime #34 before the resumed checkpoints A and B.
-            });route("UUURDDDDDLUUUU");inspect([&]{expect(8,808,870,4226505513u,1073);});checkpoint("A");
+            });route("UUURDDDDDLUUUU");inspect([&]{expect(8,813,870,4180726993u,1109);});checkpoint("A");
         }
         if(!resume || stage=="A") {
             inspect(beginService);
             action(InteractionAction{});waitService();paid(1,18,9,780,64,0);paid(4,1,10,690,28,28);
-            action(SelectMemberAction{1});inspect([&]{deny();const auto oracle=serviceOracle(false);expect(10,808,690,oracle.state,oracle.count);});
+            action(SelectMemberAction{1});inspect([&]{deny();const auto oracle=serviceOracle(false);expect(10,813,690,oracle.state,oracle.count);});
             action(CancelInteractionAction{});settle();
-            inspect([&]{observeService=false;const auto oracle=serviceOracle(true);expect(11,808,690,oracle.state,oracle.count);check(interestCalls==1,"M41 stock/interest duplicated");});checkpoint("B");
+            inspect([&]{observeService=false;const auto oracle=serviceOracle(true);expect(11,813,690,oracle.state,oracle.count);check(interestCalls==1,"M41 stock/interest duplicated");});checkpoint("B");
         }
         // B -> C: reset exit, useful First Aid, lethal Magic Arrow, empty visit.
         route("DDDDRUUUUURUUUUUUU");action(InteractionAction{});action(YesAction{});settle();
@@ -395,7 +410,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
         if(!control.empty()) {
             check(nativeFailed && !ok && !flow->canSave(),"M41 native failure exposed Quiet");
             const bool admitted=control.find("admission")!=std::string::npos,departed=control.find("departure")!=std::string::npos;
-            check(party->roster.at(18).permanentLevel==(admitted?3:4) && party->roster.combatInputs(18)->experience==(admitted?3280:280) &&
+            check(party->roster.at(18).permanentLevel==(admitted?3:4) && party->roster.combatInputs(18)->experience==(admitted?3348:348) &&
                 party->monsterTreasure->gold==(admitted?870:departed?690:780) && party->encounterContext->day==(admitted?8:departed?11:9),
                 "M41 native failure lost committed prefix");
             deny();std::cout<<"M41 NATIVE FAILURE PRESERVATION PASSED\n";

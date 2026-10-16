@@ -91,7 +91,9 @@ bool purchaseDepletedShop(const XeenMerchantWares::Shop &stock) {
 bool xeenPossibleMerchantItem(unsigned level,unsigned category,const XeenItem &item) noexcept {
 	if(level<1 || level>6 || category>3 || item.frame || !item.id)return false;
 	if(category==3) {
-		return level<6 && item.material>=1 && item.material<=9 && item.state>=1 && item.state<=8 &&
+		// Stored v13 stock includes pre-correction 1..2 charges. Generation
+		// itself produces 3..10; restoring stock never regenerates it.
+		return level<6 && item.material>=1 && item.material<=9 && item.state>=1 && item.state<=10 &&
 			within(item.id,merchant::specials[level-1]);
 	}
 	if(category==2 && level==1)return false;

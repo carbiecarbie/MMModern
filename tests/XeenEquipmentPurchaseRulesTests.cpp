@@ -66,13 +66,13 @@ void preparedRules(training_test::Inputs &inputs) {
     training_test::Fixture fixture(inputs,source);
     auto &p=fixture.p;const auto initialEconomy=*p.serviceEconomy;
     const auto initialCharacters=p.roster.characters();const auto initialContext=*p.encounterContext;
-    constexpr XeenItemCategory literalWeapons{{{0,10,0,0},{0,6,0,0},{0,15,0,0},{0,10,0,0},{0,6,0,0},{0,4,0,0},{37,20,0,0},{40,16,0,0},{}}};
-    constexpr XeenItemCategory literalArmor{{{0,6,0,0},{0,4,0,0},{0,6,0,0},{0,3,0,0},{0,5,0,0},{40,8,0,0},{48,6,0,0},{},{}}};
+    constexpr XeenItemCategory literalWeapons{{{0,17,0,0},{0,10,0,0},{0,9,0,0},{0,6,0,0},{0,3,0,0},{0,29,0,0},{0,31,0,0},{},{}}};
+    constexpr XeenItemCategory literalArmor{{{0,6,0,0},{0,3,0,0},{0,5,0,0},{0,7,0,0},{0,1,0,0},{0,1,0,0},{0,5,0,0},{9,5,0,0},{}}};
     sameCategory(initialEconomy.wares[0][0][0],literalWeapons,"seed-7 literal weapons differ");
     sameCategory(initialEconomy.wares[0][0][1],literalArmor,"seed-7 literal armor differs");
-    check(source.journey->random==XeenJourneyRandomState{1,1652828136u,901},"seed-7 generation cursor differs");
+    check(source.journey->random==XeenJourneyRandomState{1,2000247898u,875},"seed-7 generation cursor differs");
     p.monsterTreasure->gold=10000;
-    for(unsigned c=0;c<2;++c)for(unsigned slot=0;slot<(c?7u:8u);++slot) {
+    for(unsigned c=0;c<2;++c)for(unsigned slot=0;slot<(c?8u:7u);++slot) {
         const auto category=static_cast<XeenInventoryCategory>(c);
         const auto record=initialEconomy.wares[0][0][c][slot];
         const auto candidate=xeenPrepareEquipmentPurchase(p,0,category,slot);
@@ -98,7 +98,7 @@ void preparedRules(training_test::Inputs &inputs) {
     for(unsigned price:{60u,200u})for(int delta:{-1,0,1}) {
         p.monsterTreasure->gold=price+delta;
         const auto category=price==60?XeenInventoryCategory::Weapons:XeenInventoryCategory::Armor;
-        const unsigned slot=price==60?1:3;
+        const unsigned slot=price==60?3:1;
         const auto quote=xeenQuoteEquipmentPurchase(p,0,category,slot);
         const auto candidate=xeenPrepareEquipmentPurchase(p,0,category,slot);
         check(quote.outcome==Outcome::Quoted && quote.price==price && quote.shortfall==(delta<0?1u:0u) &&
@@ -107,11 +107,11 @@ void preparedRules(training_test::Inputs &inputs) {
             candidate.result.goldAfter==(delta<0?price-1:unsigned(delta)),"59/60/61 or 199/200/201 funds differ");
     }
     p.monsterTreasure->gold=UINT32_MAX;
-    check(xeenPrepareEquipmentPurchase(p,0,XeenInventoryCategory::Weapons,1).result.goldAfter==4294967235u,"u32-high purse was narrowed");
+    check(xeenPrepareEquipmentPurchase(p,0,XeenInventoryCategory::Weapons,3).result.goldAfter==4294967235u,"u32-high purse was narrowed");
     p.monsterTreasure->gold=0;p.monsterTreasure->gems=UINT32_MAX;p.serviceEconomy->bank={UINT32_MAX,UINT32_MAX};
-    check(xeenPrepareEquipmentPurchase(p,0,XeenInventoryCategory::Weapons,1).result.outcome==Outcome::InsufficientGold,"gems/bank paid Buy");
+    check(xeenPrepareEquipmentPurchase(p,0,XeenInventoryCategory::Weapons,3).result.outcome==Outcome::InsufficientGold,"gems/bank paid Buy");
     p.monsterTreasure->gold=59;p.monsterTreasure->pendingGold=10;p.monsterTreasure->pendingMask=1;p.monsterTreasure->sources[0]={23,0};
-    check(xeenPrepareEquipmentPurchase(p,0,XeenInventoryCategory::Weapons,1).result.outcome==Outcome::InsufficientGold,"pending treasure paid Buy");
+    check(xeenPrepareEquipmentPurchase(p,0,XeenInventoryCategory::Weapons,3).result.outcome==Outcome::InsufficientGold,"pending treasure paid Buy");
     p.monsterTreasure->pendingGold=0;p.monsterTreasure->pendingMask=0;p.monsterTreasure->sources[0]={};
     p.monsterTreasure->gold=10000;
     auto &recipient=p.roster.at(0);recipient.weapons={};
@@ -122,7 +122,7 @@ void preparedRules(training_test::Inputs &inputs) {
     recipient.characterClass=XeenCharacterClass::Sorcerer;
     {
         XeenMutationWatch watch;watch.add(&p,sizeof(p));
-        const auto candidate=xeenPrepareEquipmentPurchase(p,0,XeenInventoryCategory::Weapons,1);
+        const auto candidate=xeenPrepareEquipmentPurchase(p,0,XeenInventoryCategory::Weapons,3);
         const XeenItemCategory expected{{{0,7,0,0},{0,12,0,0},{0,6,0,0},{},{},{},{},{},{}}};
         check(candidate.result.outcome==Outcome::Purchased && candidate.result.recipientSlot==2 && watch.current(),"condition/proficiency/above-maximum changed Buy or live owners");
         sameCategory(candidate.result.recipientAfter,expected,"free tail with holes did not compact/append exact bytes");
@@ -130,17 +130,19 @@ void preparedRules(training_test::Inputs &inputs) {
             "candidate normalized untouched metadata/current stats");
     }
     recipient.weapons[8]={0,15,0,0};p.monsterTreasure->gold=0;
-    const auto full=xeenQuoteEquipmentPurchase(p,0,XeenInventoryCategory::Weapons,1);
+    const auto full=xeenQuoteEquipmentPurchase(p,0,XeenInventoryCategory::Weapons,3);
     check(full.outcome==Outcome::DestinationFull && full.price==0 && full.goldAfter==0,"tail/full-before-funds precedence differs");
     // All pure operations above retain stock, all nonselected owners and time.
     check(*p.serviceEconomy==XeenServiceEconomy{initialEconomy.wares,{UINT32_MAX,UINT32_MAX}} && *p.encounterContext==initialContext,"pure candidate changed stock/context");
     for(unsigned id=1;id<30;++id)remove_test::checkSameCharacter(p.roster.at(id),initialCharacters[id]);
-    // Duplicate weapon-6 offers are separate physical quantities. After row 2
-    // purchase, original row 5 shifts to row 4; selecting row 2 would be ID15.
+    // A possible two-copy stock tests physical quantities even though seed 7
+    // no longer happens to contain duplicate weapon-6 offers.
+    p.serviceEconomy->wares[0][0][0][1]={0,6,0,0};
+    p.serviceEconomy->wares[0][0][0][4]={0,6,0,0};
     p.roster.at(0).weapons={};p.roster.at(0).conditions[8]=0;p.monsterTreasure->gold=120;
     const auto first=xeenPrepareEquipmentPurchase(p,0,XeenInventoryCategory::Weapons,1);
     p.serviceEconomy=first.economyAfter;p.roster.at(0).weapons=first.result.recipientAfter;p.monsterTreasure->gold=first.result.goldAfter;
-    check(p.serviceEconomy->wares[0][0][0][1].id==15 && p.serviceEconomy->wares[0][0][0][3].id==6,"duplicate physical shift differs");
+    check(p.serviceEconomy->wares[0][0][0][1].id==9 && p.serviceEconomy->wares[0][0][0][3].id==6,"duplicate physical shift differs");
     const auto second=xeenPrepareEquipmentPurchase(p,0,XeenInventoryCategory::Weapons,3);
     check(second.result.outcome==Outcome::Purchased && second.result.goldAfter==0 && second.result.recipientSlot==1,
         "second duplicate quantity failed");
@@ -156,7 +158,7 @@ void rebinds() {
     XeenGameplayContext context;context.year=610;context.minutes=803;context.ctr24=23;
     auto after=economy;after.wares[0][0][1]=removeOracle(economy.wares[0][0][1],3);
     const auto offer=economy.wares[0][0][1][3];
-    const XeenItemCategory expectedArmor{{{0,6,0,0},{0,4,0,0},{0,6,0,0},{0,5,0,0},{40,8,0,0},{48,6,0,0},{},{},{}}};
+    const XeenItemCategory expectedArmor{{{0,6,0,0},{0,3,0,0},{0,5,0,0},{0,1,0,0},{0,1,0,0},{0,5,0,0},{9,5,0,0},{},{}}};
     sameCategory(after.wares[0][0][1],expectedArmor,"literal seed-7 armor depletion differs");
     for(unsigned day:{8u,9u,10u,97u,98u}) {
         context.day=day;XeenServiceDayCandidate old(context,economy,cursor);
@@ -169,7 +171,7 @@ void rebinds() {
         check(rebound.complete() && rebound.triggered()==trigger && rebound.beforeEconomy()==after &&
             rebound.beforeContext()==context && rebound.beforeRandom()==cursor && rebound.context()==old.context(),"rebind lost complete candidate/preimages");
         check(rebound.context().day==day+1 && rebound.context().minutes==803 && rebound.context().ctr24==23,"purchase/rebind advanced ordinary time");
-        if(trigger)check(rebound.economy()==reservedEconomy && rebound.continuation()==XeenJourneyRandomState{1,2959920300u,2009} &&
+        if(trigger)check(rebound.economy()==reservedEconomy && rebound.continuation()==XeenJourneyRandomState{1,247205451u,1992} &&
             rebound.economy().bank==XeenBankBalances{200,0},"trigger rebind rerolled/restocked/repeated bank");
         else check(rebound.economy()==after && rebound.continuation()==cursor,"nontrigger rebind lost depletion");
         auto afterTwice=after;const auto second=afterTwice.wares[0][0][0][1];afterTwice.wares[0][0][0]=removeOracle(afterTwice.wares[0][0][0],1);

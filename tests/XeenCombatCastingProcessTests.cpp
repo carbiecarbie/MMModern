@@ -84,13 +84,13 @@ int main(int argc,char **argv) {
             const auto settled=XeenSaveFile::read(dir/(std::string(branch)+"-"+branch+".mmsave"));
             child_test::require(settled.journey->schema==schema && settled.journey->content==content &&
                 settled.camera.mapId==XeenMapIdentity(23) && settled.camera.x==10 && settled.camera.y==12 &&
-                settled.journey->context->minutes==(waking?593:591) && settled.journey->context->ctr24==16 &&
+                settled.journey->context->minutes==(waking?594:591) && settled.journey->context->ctr24==16 &&
                 settled.characters[1].currentSp==(waking?20:21) && settled.characters[6].currentSp==(waking?26:25) &&
-                settled.journey->random->state==(waking?1843076463u:2928686826u) && settled.journey->random->count==886+(waking?54u:42u) &&
+                settled.journey->random->state==(waking?551172653u:2593204823u) && settled.journey->random->count==885+(waking?57u:29u) &&
                 // Decision 8: the save holds no HP; the witness asserts the Toad's
-                // live wound (33 or 25) before this checkpoint.
+                // live wound (43 or 35) before this checkpoint.
                 settled.map(23).monsters->slots[15].lifecycle==XeenActorLifecycle::Present && !settled.map(23).monsters->slots[15].accounted,
-                "M49 unchanged seed7 inputs / corrected targeting checkpoint differs");
+                "M49 M71 ordinary Sleep/Arrow and Run checkpoint: catches wrong SP cost, draw publication, or combat accounting");
             // Decision 8 (M69): B and C save the Toad wounded and woken, which a
             // save cannot carry. The resumed run rebuilds it at MON HP, asleep,
             // and legitimately diverges from the uninterrupted one, so the two
@@ -98,7 +98,7 @@ int main(int argc,char **argv) {
             run(std::string(branch)+"-restore",branch,"continued",dir/(std::string(branch)+"-"+branch+".mmsave"));
             const auto log=[&](const std::string &name){std::ifstream in(dir/(name+".log"));return std::string{std::istreambuf_iterator<char>(in),{}};};
             const auto uninterrupted=log(branch),restored=log(std::string(branch)+"-restore");
-            child_test::require(uninterrupted.find(std::string("M39 TOAD END HP=")+(waking?"33":"25")+" woken=1")!=std::string::npos,
+            child_test::require(uninterrupted.find(std::string("M39 TOAD END HP=")+(waking?"43":"35")+" woken=1")!=std::string::npos,
                 "M39 uninterrupted continuation lost the Toad's wound");
             child_test::require(restored.find("M39 DECISION8 TOAD HP=90 woken=0")!=std::string::npos &&
                 restored.find("M39 TOAD END HP=90")!=std::string::npos,"M39 resumed continuation did not rebuild the Toad at MON HP");

@@ -29,14 +29,16 @@ std::unique_ptr<F> fixture(Inputs &in,bool smith) {
 }
 void enter(F &f,bool smith) {
     f.act(InteractionAction{});f.prepare();
-    if(smith) {f.act(DialogKeyAction{'b'});f.act(DialogKeyAction{'a'});f.act(DialogKeyAction{'4'});}
+    if(smith) {f.act(DialogKeyAction{'b'});f.act(DialogKeyAction{'a'});f.act(SelectInventorySlotAction{plainOffer(f.p.serviceEconomy->wares[0][0][1],3)});}
     else f.act(SelectMemberAction{1});
 }
 PlayerAction intent(bool smith) {return DialogKeyAction{static_cast<unsigned>(smith?'y':'t')};}
 void paid(const F &f,bool smith) {
     if(smith) {
-        check(f.p.monsterTreasure->gold==670 && f.p.roster.at(0).armor[4].id==3 &&
-            f.p.serviceEconomy->wares[0][0][1][3].id==5 && XeenPurchaseTestAccess::browse(*f.flow),"Buy payment/delivery/depletion/result removal differs");
+        // Mutation: stale concrete-frame input must never select a different
+        // offer, duplicate its independent 200-gold debit, or erase another row.
+        armorPaid(static_cast<const Fixture &>(f));
+        check(XeenPurchaseTestAccess::browse(*f.flow),"Buy payment/delivery/depletion/result removal differs");
     } else check(f.p.monsterTreasure->gold==710 && f.p.roster.at(18).permanentLevel==4 &&
         f.p.roster.combatInputs(18)->experience==6000 && f.p.encounterContext->day==9 &&
         XeenTrainingTestAccess::menu(*f.flow),"one-step Training payment/XP/member-day differs");
@@ -135,10 +137,10 @@ void controls(Inputs &in,bool smith) {
         check(context.dialog->key('b') && context.dialog->key('r'),"Browse/Repair lobby keys differ");
         f.act(DialogKeyAction{'r'});check(XeenPurchaseTestAccess::repairArmor(*f.flow),"Lobby R did not open Armor Repair");before.unchanged(f);
         f.act(DialogKeyAction{InputKey::Escape});before.unchanged(f);
-        f.act(DialogKeyAction{'b'});f.act(DialogKeyAction{'a'});f.act(DialogKeyAction{'4'});
+        f.act(DialogKeyAction{'b'});f.act(DialogKeyAction{'a'});f.act(DialogKeyAction{'2'});
         check(XeenPurchaseTestAccess::quote(*f.flow),"original row Confirm absent");
         f.act(AcknowledgeAction{});before.unchanged(f);f.act(DialogKeyAction{'n'});before.unchanged(f);
-        f.act(DialogKeyAction{'4'});f.act(DialogKeyAction{'y'});paid(f,true);
+        f.act(DialogKeyAction{'2'});f.act(DialogKeyAction{'y'});paid(f,true);
     } else {
         check(context.dialog->key('t') && !context.dialog->key(InputKey::Enter),"original T keys differ");
         // Arturius lacks the prepared XP; ineligible T is silent and unchanged.

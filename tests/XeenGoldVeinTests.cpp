@@ -112,17 +112,17 @@ int main(int argc,char **argv) {
 	try {
 		check(argc==2,"usage: gold-vein <installation>");
 		// Tiered vein: every seed steps 250 -> 100 -> last and then stops; cave-ins
-		// (JumpRnd 1..10 == 10) never change the tier. Seed 9 gives the recording's
+		// (JumpRnd 1..10 == 10) never change the tier. Seed 10 gives the recording's
 		// order: two tiers, a cave-in, the last tier, then a plain wall.
 		const Vein tiered{{34,14,14,XeenDirection::North},1,XeenDirection::North};
-		for(const std::uint32_t seed:{9u,33u,40u}) {
+		for(const std::uint32_t seed:{10u,30u,33u}) {
 			const auto run=mine(argv[1],tiered,seed,12);const auto gold=golds(run);
 			check(run.exhausted && gold.size()==3 && inTier(gold[0],250) && inTier(gold[1],100) && inTier(gold[2],0),
 				("Tiered vein did not step 250 -> 100 -> last: "+describe(run)).c_str());
 			check(run.drawnBefore && run.drawnAtStart && !run.drawnAfter,"Tiered vein wall item did not show, or stayed after exhaustion");
-			if(seed==9)check(run.attempts.size()==5 && run.attempts[2].outcome==Outcome::CaveIn,
-				("Seed 9 no longer reproduces the recording's order: "+describe(run)).c_str());
-			if(seed==40)check(run.attempts[1].outcome==Outcome::CaveIn && run.attempts[2].outcome==Outcome::CaveIn,
+			if(seed==10)check(run.attempts.size()==5 && run.attempts[2].outcome==Outcome::CaveIn,
+				("Seed 10 no longer reproduces the recording's order: "+describe(run)).c_str());
+			if(seed==30)check(run.attempts[1].outcome==Outcome::CaveIn && run.attempts[2].outcome==Outcome::CaveIn,
 				"Consecutive cave-ins changed the tier");
 		}
 		// One-tier vein: 1..100 once, then exhausted. Its wall item (MOB item 3) faces

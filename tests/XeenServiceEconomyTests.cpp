@@ -4,6 +4,7 @@
 #include "games/xeen/XeenMerchantTables.h"
 #include "games/xeen/XeenArmorRepair.h"
 #include "XeenM40Evidence.h"
+#include "XeenM42Evidence.h"
 #include <iostream>
 #include <limits>
 using namespace mmodern;
@@ -22,19 +23,44 @@ void itemTape(unsigned level,unsigned category,XeenItem expected,std::vector<D> 
 }
 void sharedGeneration() {
     for(const auto &tape:std::vector<std::vector<D>>{
-      {{0,100,35},{0,80,0},{1,6,1},{1,100,1},{13,13,13},{0,20,0}},
-      {{0,100,35},{0,80,0},{1,6,1},{1,100,71},{1,100,25},{8,8,8},{0,20,0}}}) {
+      {{1,100,35},{1,80,1},{1,6,1},{1,100,1},{1,100,1},{13,13,13},{1,20,1}},
+      {{1,100,35},{1,80,1},{1,6,1},{1,100,71},{1,100,25},{8,8,8},{1,20,1}}}) {
       XeenCombatRandom random(tape);XeenItemCandidate item(7);
       while(!item.complete()){XeenConsequenceDraw draw{random,1,{}};item.service(draw);}
-      check(item.item().material==(tape.size()==6?58:8) && item.item().id==1 && random.position()==tape.size(),"Shared level-7 conditional draw tape");
+      check(item.item().material==(tape[3].value==1?58:8) && item.item().id==1 && random.position()==tape.size(),"Shared level-7 conditional draw tape");
+    }
+}
+// Mutations: shift category/subcategory boundaries, skip constant-ID draws,
+// use a wrong level column, omit level-7 selector, or skip ItemType's first draws.
+void exhaustiveMapping() {
+    const auto compare=[](unsigned level,unsigned c,unsigned sub,std::optional<int> type) {
+        m42_test::StockOracle oracle{1,0};unsigned at=0;
+        oracle.scripted=[&](unsigned lo,unsigned hi) {++at;return at==1?c:at==2?sub:hi;};
+        const auto expected=oracle.item(level,type);
+        XeenCombatRandom random(oracle.requests);XeenItemCandidate actual(level,type);
+        while(!actual.complete()) {XeenConsequenceDraw draw{random,1,{}};actual.service(draw);}
+        check(actual.category()==expected.first && same(actual.item(),expected.second) && random.position()==oracle.requests.size(),
+            "M71 exhaustive independent category/item/request mapping differs");
+    };
+    for(unsigned level=1;level<=7;++level)
+        for(unsigned c=1;c<=100;++c)for(unsigned sub=1;sub<=(level>=6?80u:100u);++sub)compare(level,c,sub,std::nullopt);
+    for(unsigned level=1;level<=7;++level)for(int type:{1,34,35,48,49,59,60,69})
+        compare(level,100,level>=6?80:100,type);
+    for(unsigned level=1;level<=7;++level)for(unsigned invalid:{0u,101u}) {
+        rejects([&]{XeenCombatRandom r(std::vector<D>{{1,100,invalid}});XeenItemCandidate i(level);XeenConsequenceDraw d{r};i.service(d);});
+        rejects([&]{XeenCombatRandom r(std::vector<D>{{1,100,1},{1,level>=6?80u:100u,invalid}});XeenItemCandidate i(level);XeenConsequenceDraw d{r};i.service(d);});
     }
 }
 void branchTapes() {
-	itemTape(1,0,{0,1,0,0},{{0,100,0},{0,100,0},{1,6,1},{1,100,100}});
-	itemTape(2,1,{40,8,0,0},{{0,100,36},{0,100,71},{1,100,70},{1,100,70},{1,4,4}});
-	itemTape(2,0,{34,29,6,0},{{0,100,35},{0,100,85},{18,29,29},{1,100,98},{1,100,100},{1,1,1},{0,20,10},{1,6,6}});
-	itemTape(6,2,{130,10,0,0},{{0,100,100},{0,80,80},{8,10,10},{1,100,100},{1,100,100},{7,10,10}});
-	itemTape(5,3,{9,60,8,0},{{0,100,100},{0,100,100},{1,9,9},{1,100,1},{51,60,60},{1,8,8}});
+	// DOS 0x25cbc..0x25cdb: zero is unavailable in either initial draw;
+	// level 6 still admits category 100 but cannot draw subcategory 100.
+	rejects([]{XeenCombatRandom random(std::vector<D>{{1,100,0}});XeenItemCandidate item(1);XeenConsequenceDraw draw{random};item.service(draw);});
+	rejects([]{XeenCombatRandom random(std::vector<D>{{1,100,100},{1,80,100}});XeenItemCandidate item(6);XeenConsequenceDraw draw{random};item.service(draw);});
+	itemTape(1,0,{0,1,0,0},{{1,100,1},{1,100,1},{1,6,1},{1,100,100}});
+	itemTape(2,1,{40,8,0,0},{{1,100,36},{1,100,71},{1,100,70},{1,100,70},{1,4,4}});
+	itemTape(2,0,{34,29,6,0},{{1,100,35},{1,100,85},{18,29,29},{1,100,98},{1,100,100},{1,1,1},{1,20,10},{1,6,6}});
+	itemTape(6,2,{130,10,0,0},{{1,100,100},{1,80,80},{8,10,10},{1,100,100},{1,100,100},{7,10,10}});
+	itemTape(5,3,{9,60,10,0},{{1,100,100},{1,100,100},{1,9,9},{1,100,1},{51,60,60},{1,8,8}});
 	// Independent interval/offset literals from the accepted generation tables.
 	constexpr unsigned material[2][5][2]={{{1,4},{3,7},{4,8},{5,9},{8,9}},{{1,4},{2,6},{4,7},{6,10},{9,13}}};
 	constexpr unsigned element[6][5][2]={{{1,3},{2,5},{3,6},{4,7},{5,8}},{{1,3},{2,5},{3,6},{4,7},{6,7}},
@@ -48,44 +74,44 @@ void branchTapes() {
 	for(unsigned level=2;level<=6;++level)for(unsigned endpoint=0;endpoint<2;++endpoint) {
 		for(unsigned row=0;row<2;++row) {
 			const auto lo=material[row][level-2][0],hi=material[row][level-2][1],v=material[row][level-2][endpoint];
-			itemTape(level,1,{std::uint8_t(v+36+9*row),8,0,0},{{0,100,36},{0,level==6?80u:100u,71},{1,100,70},{1,100,row?(endpoint?100u:71u):(endpoint?70u:1u)},{lo,hi,v}});
+			itemTape(level,1,{std::uint8_t(v+36+9*row),8,0,0},{{1,100,36},{1,level==6?80u:100u,71},{1,100,70},{1,100,row?(endpoint?100u:71u):(endpoint?70u:1u)},{lo,hi,v}});
 		}
 		for(unsigned row=0;row<6;++row) {
 			const auto lo=element[row][level-2][0],hi=element[row][level-2][1],v=element[row][level-2][endpoint];
-			itemTape(level,1,{std::uint8_t(v+eo[row]),8,0,0},{{0,100,60},{0,level==6?80u:100u,80},{1,100,98},{1,100,endpoint?et[row]:row?et[row-1]+1:1},{lo,hi,v}});
+			itemTape(level,1,{std::uint8_t(v+eo[row]),8,0,0},{{1,100,60},{1,level==6?80u:100u,80},{1,100,98},{1,100,endpoint?et[row]:row?et[row-1]+1:1},{lo,hi,v}});
 		}
 		for(unsigned row=0;row<10;++row) {
 			const auto lo=attribute[row][level-2][0],hi=attribute[row][level-2][1],v=attribute[row][level-2][endpoint];
-			itemTape(level,2,{std::uint8_t(v+58+ao[row]),1,0,0},{{0,100,61},{0,level==6?80u:100u,35},{1,100,endpoint?100u:61u},{1,100,endpoint?at[row]:row?at[row-1]+1:1},{lo,hi,v}});
+			itemTape(level,2,{std::uint8_t(v+58+ao[row]),1,0,0},{{1,100,61},{1,level==6?80u:100u,35},{1,100,endpoint?100u:61u},{1,100,endpoint?at[row]:row?at[row-1]+1:1},{lo,hi,v}});
 		}
 	}
-	constexpr unsigned ws[]={0,30,31,60,61,85,86,100};
+	constexpr unsigned ws[]={1,30,31,60,61,85,86,100};
 	constexpr unsigned wl[]={1,1,7,7,18,18,30,30},wh[]={6,6,17,17,29,29,33,33};
 	for(unsigned i=0;i<8;++i)for(unsigned endpoint=0;endpoint<2;++endpoint) {
 		const auto id=endpoint?wh[i]:wl[i];
-		itemTape(1,0,{0,std::uint8_t(id),0,0},{{0,100,40},{0,100,ws[i]},{wl[i],wh[i],id},{1,100,1}});
+		itemTape(1,0,{0,std::uint8_t(id),0,0},{{1,100,40},{1,100,ws[i]},{wl[i],wh[i],id},{1,100,1}});
 	}
-	for(unsigned c:{41u,85u})itemTape(1,1,{0,7,0,0},{{0,100,c},{0,100,100},{1,7,7},{1,100,100}});
+	for(unsigned c:{41u,85u})itemTape(1,1,{0,7,0,0},{{1,100,c},{1,100,100},{1,7,7},{1,100,100}});
 	constexpr unsigned sl[][2]={{1,15},{16,30},{31,40},{41,50},{51,60}};
 	for(unsigned level=1;level<=5;++level)for(unsigned endpoint=0;endpoint<2;++endpoint) {
 		const auto special=sl[level-1][endpoint],charges=endpoint?8u:1u;
-		itemTape(level,3,{std::uint8_t(endpoint?9:1),std::uint8_t(special),std::uint8_t(charges),0},
-			{{0,100,level==1?86u:61u},{0,100,endpoint?100u:81u},{1,9,endpoint?9u:1u},{1,100,endpoint?100u:1u},{sl[level-1][0],sl[level-1][1],special},{1,8,unsigned(charges)}});
+		itemTape(level,3,{std::uint8_t(endpoint?9:1),std::uint8_t(special),std::uint8_t(charges+2),0},
+			{{1,100,level==1?86u:61u},{1,100,endpoint?100u:81u},{1,9,endpoint?9u:1u},{1,100,endpoint?100u:1u},{sl[level-1][0],sl[level-1][1],special},{1,8,unsigned(charges)}});
 	}
 	// All higher-level S branches, both sides of every boundary; constant IDs
 	// deliberately omit a request and thus independently lock the request count.
-	constexpr unsigned sub[]={0,10,11,20,21,35,36,45,46,55,56,65,66,75,76,80};
+	constexpr unsigned sub[]={1,10,11,20,21,35,36,45,46,55,56,65,66,75,76,80};
 	constexpr unsigned category[]={1,1,1,1,2,2,1,1,1,1,2,2,2,2,2,2};
 	constexpr unsigned ids[]={9,9,13,13,1,1,10,10,11,12,2,2,3,7,8,10};
 	for(unsigned i=0;i<16;++i) {
-		std::vector<D> tape{{0,100,100},{0,100,sub[i]}};
+		std::vector<D> tape{{1,100,100},{1,100,sub[i]}};
 		if(i==8 || i==9)tape.push_back({11,12,ids[i]});
 		if(i==12 || i==13)tape.push_back({3,7,ids[i]});
 		if(i==14 || i==15)tape.push_back({8,10,ids[i]});
 		tape.insert(tape.end(),{{1,100,20},{1,100,1},{1,4,1}});
 		itemTape(2,category[i],{37,std::uint8_t(ids[i]),0,0},std::move(tape));
 	}
-	itemTape(2,1,{37,7,0,0},{{0,100,36},{0,100,70},{1,7,7},{1,100,1},{1,100,1},{1,4,1}});
+	itemTape(2,1,{37,7,0,0},{{1,100,36},{1,100,70},{1,7,7},{1,100,1},{1,100,1},{1,4,1}});
 	rejects([]{XeenMerchantItemCandidate c(0);});rejects([]{XeenMerchantItemCandidate c(8);});
 }
 XeenServiceEconomy seeded(std::uint32_t seed,unsigned budget,std::uint32_t state,std::uint64_t count,const char *hash) {
@@ -96,8 +122,8 @@ XeenServiceEconomy seeded(std::uint32_t seed,unsigned budget,std::uint32_t state
 		const auto before=random.position();XeenConsequenceDraw draw{random,budget,{}};candidate.service(draw);
 		check(random.position()-before<=std::min(budget,64u),"stock exceeded raw servicing budget");
 		if(budget==1 && candidate.generatedItems()/20>observedShops && candidate.generatedItems()%20==0) {
-			constexpr unsigned freshCumulative[]={95,208,317,427,530,638,758,886};
-			constexpr unsigned restockCumulative[]={97,212,323,436,542,653,779,906};
+			constexpr unsigned freshCumulative[]={94,201,309,421,521,639,762,885};
+			constexpr unsigned restockCumulative[]={96,213,323,437,539,657,773,895};
 			const auto index=candidate.generatedItems()/20-1;
 			if(seed==3626689381u)check(random.position()==freshCumulative[index],"fresh independent shop raw-draw count mismatch");
 			if(seed==2732157854u)check(random.position()==restockCumulative[index],"restock independent shop raw-draw count mismatch");
@@ -106,19 +132,22 @@ XeenServiceEconomy seeded(std::uint32_t seed,unsigned budget,std::uint32_t state
 	}
 	check(candidate.generatedItems()==160 && random.state()==state && random.position()==count,"complete generation cursor/call oracle mismatch");
 	XeenServiceEconomy economy;economy.wares=candidate.wares();xeenValidateServiceEconomy(economy);
+	m42_test::StockOracle oracle{seed,0};const auto expected=oracle.generate();
+	check(economy==expected && random.continuation()==XeenJourneyRandomState{1,oracle.state,oracle.count},
+		"independent complete stock/draw continuation differs");
 	check(m40_test::sha256(m40_test::stockBytes(economy))==hash,"complete independent stock hash mismatch");
 	XeenConsequenceDraw repeat{random,64,{}};check(candidate.service(repeat) && random.position()==count,"completed stock consumed again");return economy;
 }
 void seededVectors() {
-	seeded(1,64,2477276124u,878,"bd3799d8b453a2877656c87d4add0d513914ca7679afac20e9b87dae6e031d84");
-	seeded(7,63,1652828136u,901,"4abf1666f71af84fbdd0a8acb10749dcf78350b8b746d946a7cf3f5b88253b65");
-	const auto fresh=seeded(3626689381u,1,7,886,"39cbe3234d1701fc7859afbb31a5e48f7d41407c75b4fa2364f3ee87c9143b18");
-	const auto second=seeded(3626689381u,64,7,886,"39cbe3234d1701fc7859afbb31a5e48f7d41407c75b4fa2364f3ee87c9143b18");
+	seeded(1,64,795614091u,893,"7983393dfd830dbe9eae696e6798025c477af13d4d9e64de085fbf0f94b40da2");
+	seeded(7,63,2000247898u,875,"57da748654a13215fe4e4f4cbb8c4719567b43a137030ff5c8f8a3e4539668c2");
+	const auto fresh=seeded(3626689381u,1,3372760030u,885,"c5dd4613660e1bb560d8d592974f96853d7368f0c52af6b65318e66747b4ad22");
+	const auto second=seeded(3626689381u,64,3372760030u,885,"c5dd4613660e1bb560d8d592974f96853d7368f0c52af6b65318e66747b4ad22");
 	check(fresh==second,"yield cadence changed generated bytes");
-	const auto restock=seeded(2732157854u,64,3686439625u,906,"b2d744b92079134a10dc16c73ef4ec90e738a5b7d46b8e90229c5f240b9d6cc9");
-	seeded(2732157854u,1,3686439625u,906,"b2d744b92079134a10dc16c73ef4ec90e738a5b7d46b8e90229c5f240b9d6cc9");
-	constexpr unsigned fc[8][4]={{8,5,1,2},{8,8,2,1},{5,8,3,1},{8,6,3,1},{7,8,1,3},{5,8,2,2},{7,8,1,2},{8,4,3,1}};
-	constexpr unsigned rc[8][4]={{4,8,0,3},{8,8,1,3},{7,8,3,2},{6,8,3,2},{8,7,1,1},{8,8,1,1},{8,8,2,0},{8,6,1,1}};
+	const auto restock=seeded(2732157854u,64,3856430767u,895,"bc3674445219431acd366b7b6eaedef64ba1af05aecb1ce96b80ac0e96432646");
+	seeded(2732157854u,1,3856430767u,895,"bc3674445219431acd366b7b6eaedef64ba1af05aecb1ce96b80ac0e96432646");
+	constexpr unsigned fc[8][4]={{5,8,2,3},{4,8,3,2},{4,8,3,4},{6,8,1,3},{4,8,0,2},{8,8,0,2},{8,8,2,2},{8,6,3,2}};
+	constexpr unsigned rc[8][4]={{8,7,1,3},{8,5,2,4},{6,8,5,1},{6,8,3,3},{5,8,3,1},{8,7,1,0},{4,8,2,0},{7,8,3,2}};
 	for(unsigned side=0;side<2;++side)for(unsigned shop=0;shop<4;++shop)for(unsigned category=0;category<4;++category) {
 		unsigned f=0,r=0;for(unsigned slot=0;slot<9;++slot){f+=fresh.wares[side][shop][category][slot].id!=0;r+=restock.wares[side][shop][category][slot].id!=0;}
 		check(f==fc[side*4+shop][category] && r==rc[side*4+shop][category],"independent per-shop stored counts mismatch");
@@ -132,8 +161,8 @@ void capacityDiscard() {
 	for(unsigned side=0;side<2;++side)for(unsigned shop=0;shop<4;++shop)for(unsigned band=0;band<4;++band) {
 		const unsigned level=band+(side==1 && shop>=2?3:1);
 		for(unsigned call=0;call<calls[side][band][shop];++call) {
-			if(level==1)tape.insert(tape.end(),{{0,100,41},{0,100,100},{1,7,1},{1,100,100}});
-			else tape.insert(tape.end(),{{0,100,36},{0,level==6?80u:100u,71},{1,100,70},{1,100,1},{commonMin[level-1],commonMax[level-1],commonMin[level-1]}});
+			if(level==1)tape.insert(tape.end(),{{1,100,41},{1,100,100},{1,7,1},{1,100,100}});
+			else tape.insert(tape.end(),{{1,100,36},{1,level==6?80u:100u,71},{1,100,70},{1,100,1},{commonMin[level-1],commonMax[level-1],commonMin[level-1]}});
 		}
 	}
 	check(tape.size()==755,"independent capacity tape count");XeenCombatRandom random(std::move(tape));XeenMerchantStockCandidate stock;
@@ -144,10 +173,10 @@ void capacityDiscard() {
 	for(unsigned slot=0;slot<9;++slot)check(bool(stock.wares()[side][shop][category][slot].id)==(category==1 && slot<8),"capacity inserted ninth slot or changed category");
 }
 void rejectionAndExhaustion() {
-	// Span 101 rejects 67 and accepts 68; >64 rejected attempts retain the
+	// Span 100 rejects raw 95 and accepts raw 140 (category 41); >64 attempts retain the
 	// same pending request and never advance the accepted item state machine.
-	std::vector<D> tape(130,D{0,100,67,true});
-	tape.insert(tape.end(),{{0,100,68,true},{0,100,100},{1,7,7},{1,100,100}});
+	std::vector<D> tape(130,D{1,100,95,true});
+	tape.insert(tape.end(),{{1,100,140,true},{1,100,50},{1,7,7},{1,100,100}});
 	XeenCombatRandom random(tape);XeenMerchantItemCandidate item(1);
 	for(unsigned n=0;n<2;++n){XeenConsequenceDraw draw{random,64,{}};check(!item.service(draw) && random.position()==(n+1)*64,"raw rejection failed budget/pending request");}
 	XeenConsequenceDraw draw{random,64,{}};check(item.service(draw) && random.position()==134 && item.category()==1 && same(item.item(),{0,7,0,0}),"rejected-prefix continuation wrong");
@@ -159,18 +188,18 @@ void rejectionAndExhaustion() {
 	rejects([&]{XeenConsequenceDraw fault{guarded,64,[&]{if(++checked==3)throw std::runtime_error("injected extension fault");}};candidate.service(fault);});
 	check(guarded.position()==3 && !candidate.complete(),"guard fault escaped retained preparation");
 	// Retry starts from the unchanged owner preimage, not the failed detached cursor.
-	seeded(7,64,1652828136u,901,"4abf1666f71af84fbdd0a8acb10749dcf78350b8b746d946a7cf3f5b88253b65");
+	seeded(7,64,2000247898u,875,"57da748654a13215fe4e4f4cbb8c4719567b43a137030ff5c8f8a3e4539668c2");
 	// Reject immediately before every reachable request whose conversion has a
 	// nonzero threshold. Singleton/power-of-two spans consume without rejection.
-	const std::vector<D> completeTape{{0,100,35},{0,100,85},{18,29,29},{1,100,98},{1,100,100},{1,1,1},{0,20,10},{1,6,6}};
+	const std::vector<D> completeTape{{1,100,35},{1,100,85},{18,29,29},{1,100,98},{1,100,100},{1,1,1},{1,20,10},{1,6,6}};
 	for(std::size_t phase=0;phase<completeTape.size();++phase) {
 		auto rejected=completeTape;const auto request=completeTape[phase];const unsigned span=request.hi-request.lo+1;
 		if((0u-span)%span) {rejected.insert(rejected.begin()+phase,{request.lo,request.hi,0,true});itemTape(2,0,{34,29,6,0},std::move(rejected));}
 	}
-	const std::vector<D> usableTape{{0,100,100},{0,100,100},{1,9,9},{1,100,1},{51,60,60},{1,8,8}};
+	const std::vector<D> usableTape{{1,100,100},{1,100,100},{1,9,9},{1,100,1},{51,60,60},{1,8,8}};
 	for(std::size_t phase=0;phase<usableTape.size();++phase) {
 		auto rejected=usableTape;const auto request=usableTape[phase];const unsigned span=request.hi-request.lo+1;
-		if((0u-span)%span){rejected.insert(rejected.begin()+phase,{request.lo,request.hi,0,true});itemTape(5,3,{9,60,8,0},std::move(rejected));}
+		if((0u-span)%span){rejected.insert(rejected.begin()+phase,{request.lo,request.hi,0,true});itemTape(5,3,{9,60,10,0},std::move(rejected));}
 	}
 }
 XeenMerchantWares literalValid() {
@@ -237,9 +266,9 @@ void independentDepletionOracle(const XeenServiceEconomy &baseline) {
 		auto current=baseline;auto &shop=current.wares[0][0];shop={};
 		for(unsigned category=0;category<4;++category) {
 			unsigned slot=0;
-			for(unsigned n=0;n<plain[category];++n)shop[category][slot++]=category==3?XeenItem{1,1,1,0}:XeenItem{0,1,0,0};
+			for(unsigned n=0;n<plain[category];++n)shop[category][slot++]=category==3?XeenItem{1,1,3,0}:XeenItem{0,1,0,0};
 			for(unsigned n=0;n<modified[category];++n)shop[category][slot++]=category==0?XeenItem{37,1,0,0}:
-				category==1?XeenItem{37,8,0,0}:category==2?XeenItem{37,1,0,0}:XeenItem{1,16,1,0};
+				category==1?XeenItem{37,8,0,0}:category==2?XeenItem{37,1,0,0}:XeenItem{1,16,3,0};
 		}
 		const bool expected=literalBandOracle(plain,modified);bool actual=true;
 		try{xeenValidateCurrentServiceEconomy(current);}catch(const std::invalid_argument &){actual=false;}
@@ -280,7 +309,7 @@ void currentDepletion() {
 		// the chosen X/M category. Every purchase subset retains a valid
 		// predecessor, including a completely depleted modified category.
 		auto stock=literal;for(unsigned i=0;i<5;++i)stock.wares[0][0][category][i]=
-			category==2?XeenItem{37,1,0,0}:XeenItem{1,16,1,0};
+			category==2?XeenItem{37,1,0,0}:XeenItem{1,16,3,0};
 		xeenValidateServiceEconomy(stock);xeenValidateCurrentServiceEconomy(stock);
         for(unsigned mask=0;mask<32;++mask) {
             auto depleted=stock;auto &items=depleted.wares[0][0][category];items={};unsigned kept=0;
@@ -292,14 +321,14 @@ void currentDepletion() {
 		stock.wares[0][0][category][4]={};stock.wares[0][0][0][0]={37,1,0,0};
 		xeenValidateCurrentServiceEconomy(stock);
 		for(unsigned i=0;i<6;++i)stock.wares[0][0][category][i]=
-			category==2?XeenItem{37,1,0,0}:XeenItem{1,16,1,0};
+			category==2?XeenItem{37,1,0,0}:XeenItem{1,16,3,0};
 		rejects([&]{xeenValidateCurrentServiceEconomy(stock);});
 	}
     auto reversed=emptyShop;reversed.wares[0][0][0][0]={37,1,0,0};reversed.wares[0][0][0][1]={0,1,0,0};
     rejects([&]{xeenValidateCurrentServiceEconomy(reversed);}); // L1 cannot follow retained L2.
     auto excessL1=emptyShop;
     for(unsigned slot=0;slot<6;++slot)for(unsigned category:{0u,1u})excessL1.wares[0][0][category][slot]={0,1,0,0};
-    for(unsigned slot=0;slot<4;++slot)excessL1.wares[0][0][3][slot]={1,1,1,0};
+    for(unsigned slot=0;slot<4;++slot)excessL1.wares[0][0][3][slot]={1,1,3,0};
     rejects([&]{xeenValidateCurrentServiceEconomy(excessL1);}); // Sixteen retained L1 records.
     auto excessL2=emptyShop;
     for(unsigned slot=0;slot<3;++slot)for(unsigned category:{1u,2u})excessL2.wares[0][0][category][slot]={37,1,0,0};
@@ -317,9 +346,9 @@ void currentDepletion() {
 		rejects([&]{xeenValidateCurrentServiceEconomy(broken);});
 	}
 	// Production seed-7 stock has independently recorded literal identity/order.
-	const auto original=seeded(7,64,1652828136u,901,"4abf1666f71af84fbdd0a8acb10749dcf78350b8b746d946a7cf3f5b88253b65");
-	const XeenItem armorBefore[7]={{0,6,0,0},{0,4,0,0},{0,6,0,0},{0,3,0,0},{0,5,0,0},{40,8,0,0},{48,6,0,0}};
-	for(unsigned slot=0;slot<7;++slot)check(same(original.wares[0][0][1][slot],armorBefore[slot]),"seed-7 literal Armor source mismatch");
+	const auto original=seeded(7,64,2000247898u,875,"57da748654a13215fe4e4f4cbb8c4719567b43a137030ff5c8f8a3e4539668c2");
+	const XeenItem armorBefore[8]={{0,6,0,0},{0,3,0,0},{0,5,0,0},{0,7,0,0},{0,1,0,0},{0,1,0,0},{0,5,0,0},{9,5,0,0}};
+	for(unsigned slot=0;slot<8;++slot)check(same(original.wares[0][0][1][slot],armorBefore[slot]),"seed-7 literal Armor source mismatch");
 	for(unsigned category=0;category<2;++category)for(unsigned slot=0;slot<9;++slot) {
 		const auto &offer=original.wares[0][0][category][slot];
 		if(!offer.id || offer.material || offer.state || offer.frame)continue;
@@ -371,19 +400,19 @@ void interestAndDates() {
 		auto expected=before;expected.day=day+1;check(candidate.context()==expected && before.day==day,"service changed ordinary time/context");
 		check(candidate.beforeContext()==before && candidate.beforeEconomy()==economy && candidate.beforeRandom()==cursor,"candidate lost exact original preimages");
 		if(trigger) {
-			check(candidate.continuation()==XeenJourneyRandomState{1,3686439625u,2109} && candidate.economy().bank==XeenBankBalances{200,0},"service replacement/interest cursor wrong");
-			check(m40_test::sha256(m40_test::stockBytes(candidate.economy()))=="b2d744b92079134a10dc16c73ef4ec90e738a5b7d46b8e90229c5f240b9d6cc9","service did not replace complete prior stock");
+			check(candidate.continuation()==XeenJourneyRandomState{1,3856430767u,2098} && candidate.economy().bank==XeenBankBalances{200,0},"service replacement/interest cursor wrong");
+			check(m40_test::sha256(m40_test::stockBytes(candidate.economy()))=="bc3674445219431acd366b7b6eaedef64ba1af05aecb1ce96b80ac0e96432646","service did not replace complete prior stock");
 		}else check(candidate.continuation()==cursor && candidate.economy()==economy,"non-generating service changed economy/RNG");
 		const auto final=candidate.continuation();const auto end=candidate.economy();check(candidate.service() && candidate.continuation()==final && candidate.economy()==end,"completed day repeated stock/interest/RNG");
 	}
 	XeenGameplayContext c;c.year=610;c.day=99;c.minutes=300;XeenServiceDayCandidate rollover(c,economy,{1,7,0});check(rollover.context().day==0 && rollover.context().year==611,"Script addTime year rollover");
 	for(unsigned day:{100u,65535u}){c.day=day;rejects([&]{XeenServiceDayCandidate candidate(c,economy,{1,7,0});});}
 	c.day=10;XeenServiceDayCandidate yielded(c,economy,{1,2732157854u,1203});check(!yielded.service(0) && yielded.continuation()==XeenJourneyRandomState{1,2732157854u,1203},"zero service budget changed detached cursor");
-	while(!yielded.complete())yielded.service(1);check(yielded.continuation()==XeenJourneyRandomState{1,3686439625u,2109},"one-raw service cadence changed result");
+	while(!yielded.complete())yielded.service(1);check(yielded.continuation()==XeenJourneyRandomState{1,3856430767u,2098},"one-raw service cadence changed result");
 	XeenServiceDayCandidate fault(c,economy,{1,2732157854u,1203});unsigned stockHooks=0,checks=0;
 	rejects([&]{while(!fault.complete())fault.service(64,[&]{++checks;},[&]{++stockHooks;throw std::runtime_error("stock boundary failure before bank");});});
-	check(stockHooks==1 && checks>0 && !fault.complete() && fault.continuation()==XeenJourneyRandomState{1,3686439625u,2109} && fault.economy()==economy,"post-stock fault prepared bank or repeated RNG");
-	check(fault.service(64,[&]{++checks;},[&]{++stockHooks;}) && stockHooks==2 && fault.economy().bank==XeenBankBalances{200,0} && fault.continuation()==XeenJourneyRandomState{1,3686439625u,2109},"post-stock retry repeated generation or missed bank");
+	check(stockHooks==1 && checks>0 && !fault.complete() && fault.continuation()==XeenJourneyRandomState{1,3856430767u,2098} && fault.economy()==economy,"post-stock fault prepared bank or repeated RNG");
+	check(fault.service(64,[&]{++checks;},[&]{++stockHooks;}) && stockHooks==2 && fault.economy().bank==XeenBankBalances{200,0} && fault.continuation()==XeenJourneyRandomState{1,3856430767u,2098},"post-stock retry repeated generation or missed bank");
 	// One 1440 charge only; this pure service candidate exposes no multi-day,
 	// interactive mode, rest or actor catch-up admission API.
 }
@@ -418,21 +447,22 @@ void deferredServiceRandom() {
     sample.stop();check(!sample.playing(0),"Sample stop retained busy status");
 }
 
-void legacyDropInterleaving() {
+void sharedDropInterleaving() {
+	// Mutation: using the old duplicate generator changes this interleaved item and request tape.
 	XeenCombatRandom random(XeenJourneyRandomState{1,3686439625u,2109});XeenConsequenceDraw draw{random,64,{}};
-	XeenMagicArrowCandidate arrow(6,0,0,6);check(arrow.service(draw) && arrow.damage==8 && random.continuation()==XeenJourneyRandomState{1,2493262264u,2110},"synthetic stock->Arrow continuation mismatch");
-	XeenMonsterDropCandidate drop({},XeenMonsterIdentity{23,9});check(drop.service(draw) && drop.outcome==XeenMonsterDropOutcome::Item && drop.armor &&
-		same(drop.generated.item,{0,3,0,0}) && drop.treasure.pendingGold==10 && drop.treasure.pendingMask==(1u<<9) &&
-		random.continuation()==XeenJourneyRandomState{1,1051044860u,2115},"synthetic stock->Arrow->legacy Orc drop semantics changed");
+	XeenMagicArrowCandidate arrow(6,0,0,6);check(arrow.service(draw) && arrow.damage==8 && random.continuation()==XeenJourneyRandomState{1,2493262264u,2110},"synthetic Arrow continuation mismatch");
+	XeenMonsterDropCandidate drop({},XeenMonsterIdentity{23,9});check(drop.service(draw) && drop.outcome==XeenMonsterDropOutcome::Item && !drop.armor &&
+		same(drop.generated.item,{0,5,0,0}) && drop.treasure.pendingGold==10 && drop.treasure.pendingMask==(1u<<9) &&
+		random.continuation()==XeenJourneyRandomState{1,1051044860u,2115},"synthetic Arrow->shared Orc drop semantics changed");
 	XeenCombatRandom raw(std::vector<D>{{1,56,2493262264u,true},{1,100,617549005u,true},
-		{0,100,1871643302u,true},{0,100,1957375019u,true},{1,7,887542588u,true},{1,100,1051044860u,true}});
+		{1,100,1871643302u,true},{1,100,1957375019u,true},{1,6,887542588u,true},{1,100,1051044860u,true}});
 	XeenConsequenceDraw trace{raw,64,{}};XeenMagicArrowCandidate tracedArrow(6,0,0,6);XeenMonsterDropCandidate tracedDrop({},XeenMonsterIdentity{23,9});
-	check(tracedArrow.service(trace) && tracedDrop.service(trace) && raw.position()==6 && tracedDrop.armor &&
-		same(tracedDrop.generated.item,{0,3,0,0}),"independent interleaved exact request/raw tape mismatch");
+	check(tracedArrow.service(trace) && tracedDrop.service(trace) && raw.position()==6 && !tracedDrop.armor &&
+		same(tracedDrop.generated.item,{0,5,0,0}),"independent interleaved exact request/raw tape mismatch");
 }
 }
 int main() {
-	try {branchTapes();sharedGeneration();seededVectors();capacityDiscard();rejectionAndExhaustion();canonicalAndMutation();currentDepletion();interestAndDates();deferredServiceRandom();legacyDropInterleaving();
+	try {branchTapes();sharedGeneration();exhaustiveMapping();seededVectors();capacityDiscard();rejectionAndExhaustion();canonicalAndMutation();currentDepletion();interestAndDates();deferredServiceRandom();sharedDropInterleaving();
 		std::cout<<"M40 exact merchant generation, finite canonical validator, bank and service-day candidates passed\n";return 0;
 	}catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}
 }

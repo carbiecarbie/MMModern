@@ -3,6 +3,7 @@
 #include "games/xeen/XeenItemServiceRules.h"
 #include "games/xeen/XeenJumpRules.h"
 #include "games/xeen/XeenItemGeneration.h"
+#include "XeenM42Evidence.h"
 #include <queue>
 #include <iostream>
 #include <sstream>
@@ -294,21 +295,19 @@ void walk(Fixture &f,int x,int y) {
 void found(Inputs &in) {
     auto s=source(in,1,true);s.camera={28,9,28,XeenDirection::North};
     for(auto owner:s.activeRosterIds)s.characters[owner].miscellaneous={};
-    // Choose a generation seed, then obtain the unchanged record through the
-    // original crate Event and normal reward delivery, never by granting a fixture.
-    XeenItem expected;bool seedFound=false;
-    for(unsigned seed=1;seed<10000;++seed) {
-        XeenCombatRandom random(seed);const auto initial=random.continuation();XeenConsequenceDraw draw{random};XeenItemCandidate candidate(1);
-        check(candidate.service(draw),"Found-item generation oracle incomplete");
-        if(candidate.category()==3 && xeenItemUseSupported(candidate.item()) && candidate.item().state>=2 && candidate.item().id!=16) {
-            expected=candidate.item();s.journey->random=initial;seedFound=true;break;
-        }
-    }
-    check(seedFound,"No supported found-item seed");
+    // Fixed original-crate vector; no production generator supplies expected
+    // bytes. Mutations: wrong charge offset/power/container, extra draw, or
+    // missing/duplicate Event RNG publication before normal delivery.
+    const XeenItem expected{8,4,10,0};
+    s.journey->random=XeenJourneyRandomState{1,10,0};
+    m42_test::StockOracle oracle{10,0};const auto item=oracle.item(1);
+    check(item.first==3 && xeenSameItem(item.second,expected) && xeenItemUseSupported(expected) &&
+        oracle.state==1794213167u && oracle.count==6,"Independent original-crate item vector differs");
     XeenWorld query(in.mapLoader());const auto cell=query.sampleCell(28,9,28);
     for(unsigned d=0;d<4;++d) {const auto wall=wallAt(*cell->cell,XeenDirection(d));if(wall!=1 && wall!=6 && wall!=9 && wall!=13){s.camera.direction=XeenDirection(d);break;}}
     Fixture f(in,s);f.flow->drawSmithArt=[&in](auto &image){in.assets.drawSmith(image);};
     f.act(InteractionAction{});check(f.flow->canCancelInteraction(),"Original crate selector absent");f.act(SelectMemberAction{0});quiet(f);
+    check(f.w.sessionState().journeyRandom()==XeenJourneyRandomState{1,oracle.state,oracle.count},"Original crate RNG publication differs");
     unsigned member=6,slot=0;
     for(unsigned m=0;m<6;++m)for(unsigned n=0;n<9;++n)if(xeenSameItem(f.p.party.member(f.p.roster,m).miscellaneous[n],expected)){member=m;slot=n;}
     check(member<6,"Original crate did not deliver the generated supported item");

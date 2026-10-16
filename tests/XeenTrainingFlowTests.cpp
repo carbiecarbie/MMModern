@@ -113,10 +113,12 @@ int main(int argc,char **argv) {
         {
             auto s=source;s.journey->content=14;s.journey->context->day=9;
             auto &stock=s.journey->serviceEconomy->wares[0][0][1];
-            for(unsigned slot=3;slot<8;++slot)stock[slot]=stock[slot+1];stock[8]={};
+            stock=purchase_test::removeOffer(stock,purchase_test::plainOffer(stock,3));
             s.characters[0].armor[4]={0,3,0,0};s.journey->treasure->gold=670;
-            const XeenItem literal[6]={{0,6,0,0},{0,4,0,0},{0,6,0,0},{0,5,0,0},{40,8,0,0},{48,6,0,0}};
-            for(unsigned slot=0;slot<6;++slot)check(xeenSameItem(stock[slot],literal[slot]),"Training depleted literal differs");
+            // Mutation: reject accidental regeneration/depletion loss before training.
+            m42_test::StockOracle initial{7,0,{}};const auto generated=initial.generate();
+            m42_test::sameCategory(stock,purchase_test::removeOffer(generated.wares[0][0][1],
+                purchase_test::plainOffer(generated.wares[0][0][1],3)));
             Fixture fixture(inputs,s);save_test::sameSnapshot(s,fixture.snapshot());
             check(xeenPrepareTraining(fixture.p,18,*fixture.p.encounterContext).result.outcome==XeenTrainingOutcome::Trained,
                 "actual successor Training candidate rejected depleted economy");
@@ -125,8 +127,12 @@ int main(int argc,char **argv) {
             check(fixture.p.encounterContext->day==10 && *fixture.p.serviceEconomy==before &&
                 *fixture.w.sessionState().journeyRandom()==cursor && fixture.p.monsterTreasure->gold==580 &&
                 xeenSameItem(fixture.p.roster.at(0).armor[4],{0,3,0,0}),"nontrigger successor Training changed depletion/delivery/RNG");
+            m42_test::StockOracle oracle{cursor.state,cursor.count,{}};
+            auto expected=oracle.generate();expected.bank=before.bank;
             fixture.act(CancelInteractionAction{});fixture.finishDeparture();
-            check(fixture.flow->canSave() && fixture.p.encounterContext->day==11 && fixture.p.serviceEconomy->wares!=before.wares &&
+            // Mutations: skipped/duplicate restock and an extra/premature RNG publication.
+            check(*fixture.w.sessionState().journeyRandom()==XeenJourneyRandomState{1,oracle.state,oracle.count},"Training restock RNG differs");
+            check(fixture.flow->canSave() && fixture.p.encounterContext->day==11 && *fixture.p.serviceEconomy==expected &&
                 fixture.p.serviceEconomy->bank==before.bank && fixture.p.monsterTreasure->gold==580 &&
                 xeenSameItem(fixture.p.roster.at(0).armor[4],{0,3,0,0}),"successor Training trigger missed restock or changed bought inventory");
             xeenValidateServiceEconomy(*fixture.p.serviceEconomy);
@@ -142,7 +148,7 @@ int main(int argc,char **argv) {
         {
             auto s=source;s.journey->content=14;s.journey->context->day=9;
             auto &stock=s.journey->serviceEconomy->wares[0][0][1];
-            for(unsigned slot=3;slot<8;++slot)stock[slot]=stock[slot+1];stock[8]={};
+            stock=purchase_test::removeOffer(stock,purchase_test::plainOffer(stock,3));
             s.characters[0].armor[4]={0,3,0,0};s.journey->treasure->gold=670;
             s.journey->serviceEconomy->bank={199,100};
             Fixture training(inputs,s);const auto depleted=*training.p.serviceEconomy;

@@ -55,9 +55,9 @@ int main(int argc,char **argv) {
   child_test::require(fresh.exit==0 && fresh.output.find("M38 PRODUCTION WITNESS PASSED")!=std::string::npos,"M38 production witness failed");
   const auto a=XeenSaveFile::read(dir/"production-A.mmsave");
   child_test::require(a.journey && a.journey->schema==9 && a.journey->content==14 &&
-   a.journey->context->day==8 && a.journey->context->minutes==805 &&
-   a.journey->treasure->gold==840 && a.characters[6].armor[0].state==128 &&
-   a.characters[6].armor[1].state==128,"M38 production-input checkpoint differs from content");
+   a.journey->context->day==8 && a.journey->context->minutes==1297 &&
+   a.journey->treasure->gold==840 && a.characters[1].armor[0].state==128 &&
+   a.characters[1].armor[1].state==128,"M38 production-input checkpoint differs from content");
   // Windows may recycle a terminated process PID; creation time identifies its incarnation.
   std::set<std::pair<DWORD,std::uint64_t>> processes{{fresh.pid,fresh.created}};
   const auto run=[&](const std::string &name,const std::string &stage,const fs::path &source,const std::string &control="") {
@@ -86,9 +86,9 @@ int main(int argc,char **argv) {
   }
   for(const auto gold:{0u,1u,0xffffffffu}) for(bool hole:{false,true}) {
    auto artificial=a;artificial.journey->treasure->gold=gold;
-   for(unsigned slot=2;slot<9;++slot)artificial.characters[6].armor[slot]={38,1,0xc5,0};
-   if(hole)artificial.characters[6].armor[2]={255,0,255,0};
-   artificial.characters[29].armor[8]=artificial.characters[6].armor[8];
+   for(unsigned slot=2;slot<9;++slot)artificial.characters[1].armor[slot]={38,1,0xc5,0};
+   if(hole)artificial.characters[1].armor[2]={255,0,255,0};
+   artificial.characters[29].armor[8]=artificial.characters[1].armor[8];
    bool source=false;
    // v13: the stored item's source indexes the saved monster identities.
    const auto &slots=artificial.map(23).monsters->slots;

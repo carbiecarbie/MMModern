@@ -136,6 +136,6 @@ void deathControl(const fs::path &path) {
 }
 int main(){try{
  projection();const auto dir=fs::current_path()/"expedition-gameplay-tests";fs::create_directories(dir);const auto path=dir/"regional.mmsave";
- auto initial=regional_test::snapshot();initial.journey->random=XeenJourneyRandomState{1,1,0};const auto bytes=combat_test::chr();initial.characters=XeenPartyLoader().loadFromResources(bytes,combat_test::pty()).roster.characters();for(unsigned i=0;i<30;++i){initial.characters[i].learnedSpells=XeenCharacterFormat::parseLearnedSpells(bytes,i);initial.journey->supplements[i]={static_cast<std::uint8_t>(i),XeenCharacterFormat::parseCombatInputs(bytes,i,true,true,true)};}XeenSaveFile::write(path,initial);controls(path);deathControl(path);
+ fs::remove(path);auto initial=regional_test::snapshot();initial.journey->random=XeenJourneyRandomState{1,1,0};const auto bytes=combat_test::chr();initial.characters=XeenPartyLoader().loadFromResources(bytes,combat_test::pty()).roster.characters();for(unsigned i=0;i<30;++i){initial.characters[i].learnedSpells=XeenCharacterFormat::parseLearnedSpells(bytes,i);initial.journey->supplements[i]={static_cast<std::uint8_t>(i),XeenCharacterFormat::parseCombatInputs(bytes,i,true,true,true)};}XeenSaveFile::write(path,initial);controls(path);deathControl(path);
  std::cout<<"Regional group projection, input, publication and death controls passed\n";return 0;
 }catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}

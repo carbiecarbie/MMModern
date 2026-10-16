@@ -11,6 +11,7 @@
 #include "games/xeen/XeenParty.h"
 #include "games/xeen/XeenItemRewards.h"
 #include "games/xeen/XeenItemGeneration.h"
+#include "games/xeen/XeenCombatRules.h"
 #include "games/xeen/XeenRecordIdentity.h"
 
 #include <cstddef>

@@ -10,6 +10,7 @@
 #include "games/xeen/XeenRestoreGuard.h"
 #include "XeenRestoreReplayProbe.h"
 #include "XeenMonsterTestAccess.h"
+#include "XeenM42Evidence.h"
 #define SDL_MAIN_HANDLED
 #include <SDL.h>
 #include <deque>
@@ -89,7 +90,8 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
     std::optional<std::uint32_t> seed) {probe_fired::hit("Application::playGameplay");if(!resume && !(std::getenv("MMODERN_M39_CONTROL") && *std::getenv("MMODERN_M39_CONTROL")))for(const char *probe:{"XEEN_REPLAY_COMMAND","XEEN_REPLAY_DRAW","XEEN_REPLAY_JOURNEY_CONSTRUCT","XEEN_REPLAY_REGIONAL_MOVE","XEEN_REPLAY_SERVICE","XEEN_REPLAY_TIME","SDL_RenderCopy","SDL_UpdateTexture","SDL_PollEvent","SDL_WaitEventTimeout","SDL_FilterEvents","XeenCombat::beginCast","XeenCombat::respondCast","XeenCombat::serviceCast"})probe_fired::expect(probe);
     const auto branch=env("MMODERN_M39_BRANCH","A"),stage=env("MMODERN_M39_STAGE","fresh"),control=env("MMODERN_M39_CONTROL");
     const bool seededControl=branch!="B" && branch!="C";
-    const unsigned rngOffset=seededControl?0:886;
+    m42_test::StockOracle fresh{3626689381u,0,{}};const auto expectedFresh=fresh.generate();
+    const auto rngOffset=seededControl?0:fresh.count;
     if(!resume && !seededControl)seed=3626689381u;
     if(resume) {
         castBegins=castResponses=castServices=0;
@@ -254,6 +256,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
             std::cout<<"M39 RESTORE EXACT BEFORE INPUT\n";
         }});
         if(!resume) {
+            if(!seededControl)inspect([&]{check(m40_test::stockBytes(*party->serviceEconomy)==m40_test::stockBytes(expectedFresh) && world->sessionState().journeyRandom()->state==fresh.state && world->sessionState().journeyRandom()->count==fresh.count,"M71 M39 fresh stock/RNG oracle: catches wrong item or extra draw before combat");});
             if(branch=="native-fault")checkpoint("prior");
             if(branch=="A" || branch=="controls" || branch=="native" || branch=="native-fault") {
                 route("UFU",false);untilActor(4,false);
@@ -370,24 +373,26 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
             }else {
                 route("LUUURUULURUULUUU",false);untilActor(5,true);
                 inspect([&]{std::cout<<"M49 MONSTER PREFIX HP="<<world->sessionState().monsters(23)[15].hp<<" RNG="<<world->sessionState().journeyRandom()->count<<" minute="<<party->encounterContext->minutes<<'\n';
-                    check(party->encounterContext->minutes==590 && world->sessionState().journeyRandom()->count==rngOffset+20 &&
-                    world->sessionState().monsters(23)[15].hp==33,"M49 corrected single-target monster first-cycle prefix");});
+                    check(party->encounterContext->minutes==590 && world->sessionState().journeyRandom()->count==rngOffset+19 &&
+                    world->sessionState().monsters(23)[15].hp==43,"M49 corrected single-target monster first-cycle prefix");});
                 if(branch=="C") {
-                    arrow(15);inspect([&]{check(world->sessionState().monsters(23)[15].hp==25 && party->roster.at(6).currentSp==25,"M39 C wound");std::cout<<"M49 C WOUND HP33->25 SP27->25\n";});
+                    arrow(15);inspect([&]{check(world->sessionState().monsters(23)[15].hp==35 && party->roster.at(6).currentSp==25,"M39 C wound");std::cout<<"M49 C WOUND HP43->35 SP27->25\n";});
                     action(AcknowledgeAction{});settle();checkpoint("C");
                 }else {
-                    action(AttackAction{});untilActor(5,false);
+                    // M71: perform the healthy paid First Aid before the ordinary Sleep attack
+                    // removes Rebecca from the turn order. Block until a real sleeper exists;
+                    // the exact prefix below detects altered targeting, damage, or extra draws.
+                    action(BlockAction{});untilActor(4,false);firstAid(4);
+                    inspect([&]{check(party->roster.at(1).currentHp==21 && party->roster.at(1).currentSp==20 && cast()->result.noop,"M71 paid healthy First Aid: catches healing a healthy target or omitted SP debit");});action(AcknowledgeAction{});
+                    steps.push_back([&]{const auto c=combat();check(c && c->phase()!=XeenCombatPhase::Defeat,"M71 sleep route lost combat");if(c->phase()!=XeenCombatPhase::PlayerReady)return false;bool sleeping=false;for(auto owner:kXeenCombatOwners)sleeping=sleeping || party->roster.at(owner).conditions[8];if(c->participant()==5 && sleeping)return true;act(BlockAction{});return false;});
                     inspect([&]{std::cout<<"M49 B PREFIX HP="<<world->sessionState().monsters(23)[15].hp<<" RNG="<<world->sessionState().journeyRandom()->count<<" minute="<<party->encounterContext->minutes<<" Rebecca="<<party->roster.at(1).currentHp<<" sleep="<<unsigned(party->roster.at(1).conditions[8])<<","<<unsigned(party->roster.at(14).conditions[8])<<","<<unsigned(party->roster.at(11).conditions[8])<<'\n';
-                        check(party->encounterContext->minutes==591 && world->sessionState().journeyRandom()->count==rngOffset+27 &&
-                        world->sessionState().monsters(23)[15].hp==33 && party->roster.at(11).conditions[8]==1 && party->roster.at(11).currentHp==9 &&
-                        !party->roster.at(14).conditions[8] && !party->roster.at(1).conditions[8] && party->roster.at(1).currentHp==21,"M49 B single-target Sleep prefix");});
+                        check(party->encounterContext->minutes==593 && world->sessionState().journeyRandom()->count==rngOffset+43 &&
+                        world->sessionState().monsters(23)[15].hp==43 && party->roster.at(1).conditions[8]==1 && party->roster.at(1).currentHp==0 &&
+                        !party->roster.at(14).conditions[8] && !party->roster.at(11).conditions[8],"M49 B single-target Sleep prefix");});
                     action(CastSpellAction{});selectSpell(1);castSelected();result();
-                    inspect([&]{check(party->roster.at(6).currentSp==26 && !party->roster.at(11).conditions[8] && party->roster.at(11).currentHp==9 &&
-                        !party->roster.at(14).conditions[8] && !party->roster.at(1).conditions[8] &&
-                        party->encounterContext->minutes==591 && world->sessionState().journeyRandom()->count==rngOffset+27,"M39 B Awaken");std::cout<<"M39 B AWAKEN Sleep1->0 unchanged RNG/time\n";});
-                    action(AcknowledgeAction{});untilActor(2,false);action(BlockAction{});untilActor(4,false);firstAid(4);
-                    inspect([&]{check(party->roster.at(1).currentHp==21 && party->roster.at(1).currentSp==20 && cast()->result.noop,
-                        "M39 B healthy self-target SP preservation");std::cout<<"M49 B FIRST AID HP21->21 SP21->20\n";});
+                    inspect([&]{check(party->roster.at(6).currentSp==26 && !party->roster.at(1).conditions[8] && party->roster.at(1).currentHp==0 &&
+                        !party->roster.at(14).conditions[8] && !party->roster.at(11).conditions[8] &&
+                        party->encounterContext->minutes==593 && world->sessionState().journeyRandom()->count==rngOffset+43,"M39 B Awaken");std::cout<<"M39 B AWAKEN Sleep1->0 unchanged RNG/time\n";});
                     action(AcknowledgeAction{});settle();checkpoint("B");
                 }
             }

@@ -133,6 +133,10 @@ void eligibilityAndEffects() {
 	check(first.failed && first.effects.empty(),"terminal First Aid failure");
 	caster.conditions[13]=0;caster.currentHp=-10;first=XeenLearnedSpellRules::prepareFirstAid(p,0,610);
 	check(first.effects[0].hp==-4 && first.effects[0].conditions[12]==1,"negative HP remains Unconscious");
+	// M71 route recovery uses Rest; retain the old earned First Aid crossing
+	// here. Mutation: clearing Unconscious only for exactly zero starting HP.
+	caster.currentHp=-2;first=XeenLearnedSpellRules::prepareFirstAid(p,0,610);
+	check(first.effects[0].hp==4 && !first.effects[0].conditions[12],"negative HP First Aid can recover");
 	caster.currentHp=0;first=XeenLearnedSpellRules::prepareFirstAid(p,0,610);
 	check(first.effects[0].hp==6 && !first.effects[0].conditions[12],"zero HP can recover");
 	caster.currentHp=maximum;first=XeenLearnedSpellRules::prepareFirstAid(p,0,610);

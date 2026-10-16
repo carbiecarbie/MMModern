@@ -72,8 +72,24 @@ using Inputs=training_test::Inputs;
 inline XeenSaveSnapshot service(Inputs &in,unsigned day=8,std::uint32_t gold=870) {
     auto s=in.service(day);s.journey->content=14;s.camera={28,8,4,XeenDirection::West};s.journey->treasure->gold=gold;return s;
 }
+// Select semantic offers, independent of makeItem's random physical order.
+// Mutations caught: wrong offer identity, skipped depletion/compaction, and a
+// duplicated payment or delivery during reserved-departure recovery.
+inline unsigned plainOffer(const XeenItemCategory &stock,unsigned id) {
+    for(unsigned slot=0;slot<stock.size();++slot)
+        if(xeenSameItem(stock[slot],{0,std::uint8_t(id),0,0}))return slot;
+    throw std::runtime_error("required plain stock offer absent");
+}
+inline XeenItemCategory removeOffer(const XeenItemCategory &stock,unsigned removed) {
+    XeenItemCategory result{};unsigned next=0;
+    for(unsigned slot=0;slot<stock.size();++slot)
+        if(slot!=removed && stock[slot].id)result[next++]=stock[slot];
+    return result;
+}
 struct Fixture:training_test::Fixture {
+    XeenItemCategory initialArmor;
     Fixture(Inputs &in,const XeenSaveSnapshot &s,bool animated=false,const XeenItemCatalog *catalog=nullptr):training_test::Fixture(in,s,animated,nullptr,{},{},{},catalog) {
+        initialArmor=p.serviceEconomy->wares[0][0][1];
         flow->drawSmithArt=[&in](auto &frame){in.assets.drawSmith(frame);};
     }
     void enter(){act(InteractionAction{});if(!flow->canSave())prepare();check(XeenPurchaseTestAccess::lobby(*flow),"synthetic Smith lobby absent");}
@@ -86,7 +102,9 @@ struct Fixture:training_test::Fixture {
     void quote(XeenInventoryCategory category,unsigned slot,std::size_t member=0) {
         buy();choose(category,slot,member);check(XeenPurchaseTestAccess::quote(*flow),"Buy quote absent");
     }
-    void purchaseArmor(){quote(XeenInventoryCategory::Armor,3);act(YesAction{});check(XeenPurchaseTestAccess::result(*flow),"Buy result absent");}
+    unsigned armorOffer() const {return plainOffer(p.serviceEconomy->wares[0][0][1],3);}
+    unsigned weaponOffer() const {return plainOffer(p.serviceEconomy->wares[0][0][0],6);}
+    void purchaseArmor(){quote(XeenInventoryCategory::Armor,armorOffer());act(YesAction{});check(XeenPurchaseTestAccess::result(*flow),"Buy result absent");}
     void leave(){
         for(unsigned n=0;n<40 && !flow->canSave();++n) {
             act(CancelInteractionAction{});
@@ -115,7 +133,7 @@ inline void armorDelivery(const Fixture &f) {
 }
 inline void armorPaid(const Fixture &f) {
     armorDelivery(f);check(
-        f.p.serviceEconomy->wares[0][0][1][3].id==5 && !f.p.serviceEconomy->wares[0][0][1][6].id,"Armor purchase publication missing/duplicated");
+        xeen_state::sameItemCategory(f.p.serviceEconomy->wares[0][0][1],removeOffer(f.initialArmor,plainOffer(f.initialArmor,3))),"Armor purchase publication missing/duplicated");
 }
 inline void denied(Fixture &f) {
     check(!f.flow->canSave() && f.flow->serviceSaveBlocked(),"active service exposes save authority");

@@ -209,16 +209,28 @@
 // Evidence stays local; never commit original-data saves.
 // Temple old: 63807e54ffb79b4f34cfb5a7d3015425a4571f5cceb0a7311bfbba2c44de4947
 // Roundtrip old: 5ec76e2426b856f3cb94e78c4c1a88742b7ab1991abbce035e6ed4c747d55d91
+// M71: maintainer approved the complete audit and all four replacements on
+// 2026-10-16. DOS makeItem corrections change category/subcategory bounds,
+// level-7 selector consumption, weapon effectiveness and Misc charges; level-1
+// drops now share makeItem. Ordinary gameplay route repairs preserve paid Fix,
+// Training, Heal and resurrection. All 4,713 changed checkpoint fields are
+// explained; no fields/checkpoints were added or removed, save v13/schema9/
+// content14 and lengths are unchanged. Native final reload/re-save is exact
+// in all four scenarios; Roundtrip resumes A and B equal the uninterrupted final.
+// Verified Preserve: D:/M44-audits/makeitem-e035c5c.
+// Local audit: build-rel/m71-digest-comparison-1/digest-audit.json and
+// field-explanations.tsv; approval/repair report: build-rel/m71-report.md.
+// Evidence stays local; never commit original-data saves.
 #include <array>
 #include <cstdint>
 namespace m44_baseline {
-inline constexpr const char *revision = "M70 Part A (save v13) on bf49eb3";
+inline constexpr const char *revision = "M71 (save v13) on 697385f";
 struct Scenario { const char *name; std::uint32_t seed; const char *sha256; };
 inline constexpr std::array<Scenario,4> scenarios{{
-    {"mainland-combat-myra-phirna",3626689381u,"bb913f87a17bac615e4a1eceb73563052872c77f1fa694f2d4706b292152a0f2"},
-    {"vertigo-buy-repair-training",7u,"ea0809cdfa5bd1737526d353d769a076f76c9e8508e4c91ff08a94a83dea4f11"},
-    {"temple-recovery",3626689381u,"40e75a244329a6ec63b83d1b4fd3c14fc4c5d6dce5ed987c93e45dee7aca1398"},
-    {"vertigo-f3-roundtrip",3626689381u,"c9839b73332bed3a4975651d3c26a615e51b09dab3a8779f412acaf3313fb9e1"}
+    {"mainland-combat-myra-phirna",3626689381u,"4e0a9cfffd793ea50532a31b916c7aa126f34429697e2a0267cd763bb5a9cb76"},
+    {"vertigo-buy-repair-training",7u,"f902b8f63391083bf592416b27653064d58ba3a56a6a9e1d3faf35a3780ae10f"},
+    {"temple-recovery",3626689381u,"7ee0e06f95e230647a14b7f4489cbe166f0a9c9f711b509030efb7d9bb52ccd8"},
+    {"vertigo-f3-roundtrip",3626689381u,"cdceb44457f4a569afb05129992bc1e9705c20cb9e92b0880a28c16bcf15fb32"}
 }};
 }
 #endif

@@ -140,6 +140,7 @@ void currentSaveBoundary(const fs::path &path){
  check(Application().playGameplay(resumed,{},path,true)==0&&diskBytes(path)==initial,"current restored startup changed file");
 }
 void developerTarget(const fs::path &path) {
+ fs::remove(path);
  regional_save_test::Fixture f;auto services=f.services();f.saved.name="Managed name";
  XeenSaveFile::write(path,f.saved);const auto original=diskBytes(path);
  const auto loose=path.parent_path()/"developer.mmsave";fs::remove(loose);

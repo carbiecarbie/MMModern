@@ -1,9 +1,10 @@
 #ifndef MMODERN_XEEN_ITEM_GENERATION_H
 #define MMODERN_XEEN_ITEM_GENERATION_H
 #include <optional>
-#include "games/xeen/XeenCombatRules.h"
+#include "games/xeen/XeenCharacter.h"
 #include <tuple>
 namespace mmodern {
+struct XeenConsequenceDraw;
 // Detached candidates have no publication or live-owner authority.
 class XeenItemCandidate {
 public:

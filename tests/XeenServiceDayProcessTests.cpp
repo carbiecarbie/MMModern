@@ -1,5 +1,6 @@
 #include "XeenChildProcessTestSupport.h"
 #include "XeenM40Evidence.h"
+#include "XeenM42Evidence.h"
 #include "platform/XeenSaveFile.h"
 #include "formats/xeen/XeenSaveFormat.h"
 #include <set>
@@ -21,18 +22,19 @@ void independentTrace(const std::vector<std::string> &actual) {
     // target, d2, the Physical-selector initial save 1..B(Luck)+L+20, then the
     // poison save 1..resistance+40 drawn once even at zero damage), independent of
     // production draw conversion/generation. Algorithm-1 steps reconstruct raw.
-    const unsigned lo[]{0,1,1,1,1,0,1,1,1,0,1,1,1,0,1,1,1,1};
-    const unsigned hi[]{5,2,23,47,47,5,2,24,40,5,2,24,40,5,2,27,60,50};
-    const unsigned value[]{0,2,6,1,37,1,1,11,23,1,1,21,9,3,1,6,33,34};
+    const unsigned lo[]{0,1,1,1,0,1,1,1,0,1,1,1,0,1,1,1,1,1};
+    const unsigned hi[]{5,2,22,42,5,2,23,47,5,2,27,60,5,2,27,60,60,50};
+    const unsigned value[]{2,1,7,40,0,1,11,10,3,1,20,8,3,2,23,17,27,28};
     static_assert(sizeof(hi)/sizeof(*hi)==18 && sizeof(value)/sizeof(*value)==18 && sizeof(lo)/sizeof(*lo)==18);
     child_test::require(actual.size()==18,"M40 post-stock trace raw-attempt count differs");
-    std::uint32_t raw=209451284u;std::string canonical;
+    std::uint32_t raw=1006382178u;std::string canonical;
     for(unsigned i=0;i<18;++i) {
         raw^=raw<<13;raw^=raw>>17;raw^=raw<<5;
-        const auto line="DRAW "+std::to_string(lo[i])+":"+std::to_string(hi[i])+":"+std::to_string(value[i])+":"+std::to_string(raw)+":"+std::to_string(2002+i);
+        const auto line="DRAW "+std::to_string(lo[i])+":"+std::to_string(hi[i])+":"+std::to_string(value[i])+":"+std::to_string(raw)+":"+std::to_string(2126+i);
         child_test::require(actual[i]==line,"M40 independent request/raw/value trace differs");canonical+=line+'\n';
     }
-    child_test::require(m40_test::sha256({canonical.begin(),canonical.end()})=="2fac7a99cfad4da289a289aed4e12efcf1b0b21956a4d062c6a755efb64d19cc","M40 independent trace digest differs");
+    // Every old secondary trace-hash mutation is caught by the complete
+    // independent request/value/raw-state comparison above.
 }
 }
 int main(int argc,char **argv) {
@@ -88,21 +90,34 @@ int main(int argc,char **argv) {
         const auto a=XeenSaveFile::read(dir/"production-A.mmsave"),b=XeenSaveFile::read(dir/"production-B.mmsave"),
             c=XeenSaveFile::read(dir/"production-C.mmsave"),d=XeenSaveFile::read(dir/"production-D.mmsave"),e=XeenSaveFile::read(dir/"production-E.mmsave");
         child_test::require(a.journey && a.journey->schema==9 && a.journey->content==14 && a.journey->serviceEconomy &&
-            a.journey->context->day==8 && a.journey->context->minutes==805 && a.journey->context->ctr24==14 &&
-            a.journey->treasure->gold==840 && a.characters[6].armor[0].state==128 && a.characters[6].armor[1].state==128 &&
-            a.journey->random->state==1554357486u && a.journey->random->count==1098,"M40 A original-resource checkpoint differs");
-        child_test::require(b.journey->context->day==11 && b.journey->context->minutes==805 && b.journey->treasure->gold==838 &&
-            b.characters[6].armor[0].state==0 && b.characters[6].armor[1].state==128 && b.journey->random->state==209451284u && b.journey->random->count==2001,"M40 B generating departure checkpoint differs");
-        child_test::require(c.journey->context->day==11 && c.journey->context->minutes==819 && c.journey->context->ctr24==4 &&
-            d.journey->context->day==12 && d.journey->context->minutes==819 && d.journey->treasure->gold==837 && d.characters[6].armor[1].state==0 &&
+            a.journey->context->day==8 && a.journey->context->minutes==1297 && a.journey->context->ctr24==14 &&
+            a.journey->treasure->gold==840 && a.characters[1].armor[0].state==128 && a.characters[1].armor[1].state==128 &&
+            a.journey->random->state==2232520509u && a.journey->random->count==1227,"M40 A original-resource checkpoint differs");
+        child_test::require(b.journey->context->day==11 && b.journey->context->minutes==1297 && b.journey->treasure->gold==830 &&
+            b.characters[1].armor[0].state==0 && b.characters[1].armor[1].state==128 && b.journey->random->state==1006382178u && b.journey->random->count==2125,"M40 B generating departure checkpoint differs");
+        child_test::require(c.journey->context->day==11 && c.journey->context->minutes==1311 && c.journey->context->ctr24==4 &&
+            d.journey->context->day==12 && d.journey->context->minutes==1311 && d.journey->treasure->gold==829 && d.characters[1].armor[1].state==0 &&
             c.journey->random==d.journey->random,"M40 C/D later navigation/repair checkpoint differs");
-        child_test::require(e.journey->context->day==12 && e.journey->context->minutes==849 && e.journey->context->ctr24==0 &&
-            e.journey->treasure->gold==837 && e.characters[1].currentSp==13 && e.characters[6].currentSp==24 &&
-            e.journey->random->state==1307383183u && e.journey->random->count==2019 && e.map(28).monsters->slots.size()==46 &&
+        child_test::require(e.journey->context->day==12 && e.journey->context->minutes==1341 && e.journey->context->ctr24==0 &&
+            e.journey->treasure->gold==829 && e.characters[1].currentSp==16 && e.characters[6].currentSp==24 &&
+            e.journey->random->state==2160414077u && e.journey->random->count==2143 && e.map(28).monsters->slots.size()==46 &&
             e.map(28).monsters->slots.at(36).lifecycle==XeenActorLifecycle::Defeated,"M40 E reset-Slime combat/casting checkpoint differs");
-        child_test::require(m40_test::sha256(m40_test::stockBytes(*a.journey->serviceEconomy))=="fa7ccbf983b0bd8ef1ecce7cd09b301cbbfe431996ee921f72d67d2546f260de" &&
-            m40_test::sha256(m40_test::stockBytes(*b.journey->serviceEconomy))=="29dc85d364a0c9c0fe1d8c496b51690a66215ae9672c0d104b71ed0fe987bb50" &&
-            b.journey->serviceEconomy==e.journey->serviceEconomy,"M40 independent stock hash/retention differs");
+        // Mutation: incorrect item/material/charges, extra/missing generation
+        // draws, duplicate restock or a partial RNG/stock publication.
+        m42_test::StockOracle freshOracle{1114u,0,{}};const auto initialStock=freshOracle.generate();
+        m42_test::StockOracle restockOracle{a.journey->random->state,a.journey->random->count,{}};
+        const auto restocked=restockOracle.generate();
+        child_test::require(m40_test::stockBytes(*a.journey->serviceEconomy)==m40_test::stockBytes(initialStock) &&
+            m40_test::stockBytes(*b.journey->serviceEconomy)==m40_test::stockBytes(restocked) &&
+            b.journey->random->state==restockOracle.state && b.journey->random->count==restockOracle.count &&
+            b.journey->serviceEconomy==e.journey->serviceEconomy,"M40 independent stock/RNG/retention differs");
+        std::ifstream generationLog(dir/"production.log");std::string generationLine,observedGeneration;bool generating=false;
+        while(std::getline(generationLog,generationLine)) {
+            if(generationLine.rfind("M40 CHECKPOINT B ",0)==0)break;
+            if(generationLine.rfind("M40 CHECKPOINT A ",0)==0)generating=true;
+            else if(generating && generationLine.rfind("DRAW ",0)==0)observedGeneration+=generationLine+'\n';
+        }
+        child_test::require(observedGeneration==restockOracle.trace,"M40 generation request/raw/value trace differs");
         independentTrace(drawsAfter(dir/"production.log","M40 CHECKPOINT D "));
         for(const std::string label:{"A","B","C","D","E"}) {
             const auto restored=run("restore-"+label,label,dir/("production-"+label+".mmsave"));equal(uninterrupted,restored);

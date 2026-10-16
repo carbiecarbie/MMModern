@@ -19,14 +19,14 @@ int main(int argc,char **argv) {
             dir/"buy.log",false,false,180000);
         child_test::require(buy.exit==0 &&
             buy.output.find("M43 DEPLETED BUY PREFIX PASSED")!=std::string::npos &&
-            buy.output.find("depletion7->6 stable")!=std::string::npos,
+            buy.output.find("depletion8->7 stable")!=std::string::npos,
             "fresh content-14 production Buy prefix failed");
         const auto b=dir/"bought-B.mmsave";
         const auto original=XeenSaveFile::read(b);
         child_test::require(original.journey && original.journey->schema==9 &&
             original.journey->content==14 && original.journey->context->day==9 &&
-            original.journey->treasure->gold==670 && original.journey->random->state==4226505513u &&
-            original.journey->random->count==1073,
+            original.journey->treasure->gold==670 && original.journey->random->state==4180726993u &&
+            original.journey->random->count==1109,
             "real bought checkpoint is not the exact content-14 depleted preimage");
         m42_test::sameCategory(original.journey->serviceEconomy->wares[0][0][1],m42_test::armorAfter());
         SetEnvironmentVariableW(L"MMODERN_M42_CONTENT14",nullptr);

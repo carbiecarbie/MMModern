@@ -28,7 +28,7 @@ void xeenValidateMonsterTreasure(const XeenMonsterTreasure &value) {
 			require(!empty && entry.source < 12 && entry.item.frame == 0);
 			if (category == 2)
 				require(entry.item.material >= 1 && entry.item.material <= 9 && entry.item.id <= 15 &&
-					entry.item.state >= 1 && entry.item.state <= 8);
+					entry.item.state >= 1 && entry.item.state <= 10);
 			else require(entry.item.id <= (category ? 7 : 33) && entry.item.material == 0 && entry.item.state == 0);
 			const auto bit = 1u << entry.source;
 			require(!(sources & bit));
@@ -108,24 +108,18 @@ XeenMonsterDropCandidate::XeenMonsterDropCandidate(const XeenMonsterTreasure &be
 }
 bool XeenMonsterDropCandidate::service(XeenConsequenceDraw &draw) {
 	while (step!=Step::Done && draw.remaining) switch (step) {
-	case Step::Drop: { const auto n=draw.draw(1,100);if (n) step=*n<=10 ? Step::Category : Step::Done;break; }
-	case Step::Category: { const auto n=draw.draw(0,100);if (n) { category=*n;step=Step::Subcategory; } break; }
-	case Step::Subcategory: { const auto n=draw.draw(0,100);if (n) { subcategory=*n;step=Step::Id; } break; }
-	case Step::Id: {
-		unsigned lo=1,hi=9;
-		if (category<=40) { lo=subcategory<=30 ? 1 : subcategory<=60 ? 7 : subcategory<=85 ? 18 : 30;hi=subcategory<=30 ? 6 : subcategory<=60 ? 17 : subcategory<=85 ? 29 : 33; }
-		else if (category<=85) { hi=7;armor=true; }
-		const auto n=draw.draw(lo,hi);if (!n) break;
-		if (category>85) generated.item.material=static_cast<std::uint8_t>(*n);else generated.item.id=static_cast<std::uint8_t>(*n);
-		step=Step::Enchantment;break;
-	}
-	case Step::Enchantment: { const auto n=draw.draw(1,100);if (n) step=category>85 ? Step::Special : Step::Store;break; }
-	case Step::Special: { const auto n=draw.draw(1,15);if (n) { generated.item.id=static_cast<std::uint8_t>(*n);step=Step::Charges; } break; }
-	case Step::Charges: { const auto n=draw.draw(1,8);if (n) { generated.item.state=static_cast<std::uint8_t>(*n);step=Step::Store; } break; }
+	case Step::Drop: { const auto n=draw.draw(1,100);if (n) step=*n<=10 ? Step::Generate : Step::Done;break; }
+	case Step::Generate:
+		// DOS 0x2c3e2..0x2c3ec passes the monster's drop level to makeItem
+		// before checking capacity. Current admitted drops are level 1 only.
+		if (item.service(draw)) {
+			generated.item=item.item();armor=item.category()==1;step=Step::Store;
+		}
+		break;
 	case Step::Store: {
 		outcome=XeenMonsterDropOutcome::CategoryCapacityLoss;
 		// DOS WORLD/XEEN.DAT 0x2c4f5..0x2c535 stages Misc in its own array.
-		for (auto &entry:category>85 ? treasure.miscellaneous : armor ? treasure.armor : treasure.weapons)
+		for (auto &entry:item.category()==3 ? treasure.miscellaneous : armor ? treasure.armor : treasure.weapons)
 			if (!entry.item.id) { entry=generated;outcome=XeenMonsterDropOutcome::Item;break; }
 		step=Step::Done;break;
 	}

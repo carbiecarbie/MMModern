@@ -1,4 +1,5 @@
 #include "games/xeen/XeenItemGeneration.h"
+#include "games/xeen/XeenCombatRules.h"
 #include "games/xeen/XeenMerchantTables.h"
 #include <algorithm>
 #include <stdexcept>
@@ -12,8 +13,8 @@ XeenItemCandidate::XeenItemCandidate(unsigned value,std::optional<int> itemType)
 bool XeenItemCandidate::service(XeenConsequenceDraw &draw) {
 	draw.remaining=std::min(draw.remaining,64u);
 	while(step!=Step::Done && draw.remaining) switch(step) {
-	case Step::Category: { const auto n=draw.draw(0,100);if(n) { categoryRoll=*n;step=Step::Subcategory; } break; }
-	case Step::Subcategory: { const auto n=draw.draw(0,level>=6?80:100);if(n) { subcategory=*n;step=Step::Resolve; } break; }
+	case Step::Category: { const auto n=draw.draw(1,100);if(n) { categoryRoll=*n;step=Step::Subcategory; } break; }
+	case Step::Subcategory: { const auto n=draw.draw(1,level>=6?80:100);if(n) { subcategory=*n;step=Step::Resolve; } break; }
 	case Step::Resolve:
 		if(special) {
 			const int type=*special;
@@ -48,25 +49,23 @@ bool XeenItemCandidate::service(XeenConsequenceDraw &draw) {
 		else {
 			enchantment=selectedCategory==2?(*n<=20?Enchantment::Material:*n<=60?Enchantment::Element:Enchantment::Attribute):
 				(*n<=70?Enchantment::Material:*n<=98?Enchantment::Element:Enchantment::Attribute);
-			if(enchantment==Enchantment::Material && level==7) {
-                const auto interval=merchant::material[1][5];lo=interval.lo;hi=interval.hi;offset=45;step=Step::Value;
-            } else step=Step::Selector;
+			step=Step::Selector;
 		}
 		break;
 	}
 	case Step::Selector: {
 		const auto n=draw.draw(1,100);if(!n)break;
 		merchant::Interval interval{};
-		if(enchantment==Enchantment::Material) { const unsigned row=*n<=70?0:1;interval=merchant::material[row][level-2];offset=36+(row?9:0); }
+		if(enchantment==Enchantment::Material) { const unsigned row=level==7?1:(*n<=70?0:1);interval=merchant::material[row][level-2];offset=36+(row?9:0); }
 		else if(enchantment==Enchantment::Element) { unsigned row=0;while(*n>merchant::elementThresholds[row])++row;interval=merchant::elements[row][level-2];offset=merchant::elementOffsets[row]; }
 		else { unsigned row=0;while(*n>merchant::attributeThresholds[row])++row;interval=merchant::attributes[row][level-2];offset=58+merchant::attributeOffsets[row]; }
 		lo=interval.lo;hi=interval.hi;step=Step::Value;break;
 	}
 	case Step::Value: { const auto n=draw.draw(lo,hi);if(n) { generated.material=static_cast<std::uint8_t>(*n+offset);step=selectedCategory==0?Step::Effectiveness:Step::Done; }break; }
-	case Step::Effectiveness: { const auto n=draw.draw(0,20);if(n)step=*n==10?Step::EffectivenessValue:Step::Done;break; }
+	case Step::Effectiveness: { const auto n=draw.draw(1,20);if(n)step=*n==10?Step::EffectivenessValue:Step::Done;break; }
 	case Step::EffectivenessValue: { const auto n=draw.draw(1,6);if(n) { generated.state=static_cast<std::uint8_t>(*n);step=Step::Done; }break; }
 	case Step::Special: { const auto interval=merchant::specials[level-1];const auto n=draw.draw(interval.lo,interval.hi);if(n) {generated.id=static_cast<std::uint8_t>(*n);step=Step::Charges;}break; }
-	case Step::Charges: { const auto n=draw.draw(1,8);if(n) {generated.state=static_cast<std::uint8_t>(*n);step=Step::Done;}break; }
+	case Step::Charges: { const auto n=draw.draw(1,8);if(n) {generated.state=static_cast<std::uint8_t>(*n+2);step=Step::Done;}break; }
 	case Step::Done: break;
 	}
 	return complete();
