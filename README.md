@@ -124,8 +124,7 @@ to view that member. The acting member and selected enemy use the original icons
   Suppress Poison can be bought but say "not supported yet" when cast. Item
   powers that rely on missing spells say the same.
 - World: terrain hazards on arrival (space, lava, sky, cloud, desert), the
-  fountains in F3, the magic mirror and locked-chest locks and traps are not
-  implemented.
+  fountains in F3 and locked-chest locks and traps are not implemented.
 - Combat: you cannot move, equip items or use the Use button during combat.
   The original allows equipping and Use.
 - Skills: only Cartography and the skills existing rules use (Thievery,
@@ -273,6 +272,7 @@ are unchanged.
 - [Project history](docs/project-history.md): completed milestones.
 - [Roadmap](docs/roadmap.md): next milestones and direction.
 - [Dependencies](docs/dependencies.md): toolchain, ScummVM setup and release packaging.
+- [ScummVM differences](docs/scummvm-differences.md): where MMModern behaves differently from ScummVM, and why.
 - [Agent instructions](AGENTS.md): development, documentation and Git rules.
 
 ## Disclaimer and license

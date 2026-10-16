@@ -15,6 +15,7 @@ workflow documents.
 | `docs/roadmap.md` | Next milestones and longer-term direction | ~100-150 lines |
 | `docs/milestone-N-plan.md` | That milestone's plan; condensed at closure | Closed: ~30-100 lines |
 | `docs/original-quirks.md` | Original DOS oddities kept on purpose, unconfirmed cases following the reference, and reference behavior not reproduced; QoL candidates | Grows by entry |
+| `docs/scummvm-differences.md` | Public list of where MMModern differs from ScummVM, one item per `**ScummVM:**`-tagged quirk entry, with the master revision checked | ~150-250 lines |
 | `docs/rules/` | Consultable game rules, formulas, evidence and explicit unknowns; playable coverage remains in project status | Grows by topic |
 | `docs/dependencies.md` | Toolchain, pinned ScummVM revision and configuration, build setup (authoritative) | - |
 | `docs/coverage.md` | Generated original-data mechanic census and per-map readiness; regenerate with `mmodern_census` whenever support changes; checked by `xeen_coverage_original_guard` and the Vertigo/mainland calibration gate `xeen_coverage_calibration` | Generated |

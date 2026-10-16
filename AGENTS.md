@@ -69,12 +69,10 @@ several apply, read all of them.
 - **Implement mechanics generically.** Follow the original semantics and
   implement each mechanic once, for every place the original game uses it,
   instead of for one selected address or witness.
-- **Reuse existing owners.** Preserve the party/roster, world/actor, combat,
-  Event, Service and Flow ownership already in place. Introduce a new owner or
-  coordinator only for a concrete reason, and say why.
-- **Faithful UI.** Use the original interface: main screen buttons, portraits
-  and original dialogs, operable by mouse and keyboard. Avoid project-specific
-  menus except as a temporary stopgap.
+- **Reuse existing owners.** Keep the party/roster, world/actor, combat, Event,
+  Service and Flow owners; add an owner or coordinator only for a stated reason.
+- **Faithful UI.** Use the original interface (buttons, portraits, dialogs) by
+  mouse and keyboard; project-specific menus only as a temporary stopgap.
 - Never modify or include original commercial Might and Magic game data.
 
 ## Save compatibility (0.x policy)
@@ -89,10 +87,9 @@ release's notes state this.
   `kJourneySchema`/`kJourneyContent` pair (`src/formats/xeen/XeenSaveFormat.h`)
   legitimately name the current format; older values are recognized only to
   reject them clearly.
-- When a save's layout or meaning changes, the milestone plan says so and the
-  envelope version is incremented (M50: v5, M51: v6); schema and content change
-  only when the plan requires it. Never change any of them otherwise; a plan
-  that retains the format (M52 retains v6) must be amended before a change.
+- When a save's layout or meaning changes, the plan says so and the envelope
+  version is incremented; schema and content change only when the plan requires
+  it, and never otherwise. A plan that retains the format is amended first.
 - Restoring must still be exact for the current format: no replayed events,
   rewards, time or RNG. A generic save/load round-trip test covers this.
 
@@ -156,12 +153,13 @@ closure rules. Do not create additional workflow or work-in-progress documents
 instructions). The only exception is the two specialized `AGENTS.md` files
 listed above.
 
-**Original quirks.** Whenever a task observes an oddity of the original game
-or of the pinned ScummVM reference and deliberately leaves it as is - an
-original bug reproduced on purpose, a case following the reference because DOS
-cannot be checked, or a reference behavior not followed - add an entry to
-`docs/original-quirks.md` in the same change, with its evidence and where it
-lives. This applies to observations made outside milestone scope too.
+**Original quirks.** When a task deliberately keeps an oddity of the original
+or of the pinned reference (an original bug kept on purpose, a case following
+the reference because DOS cannot be checked, or a reference behavior not
+followed), record it with evidence and location in `docs/original-quirks.md` in
+the same change, even outside milestone scope. Entries where MMModern differs
+from ScummVM, and approved deviations, also get an anchor, a `**ScummVM:**`
+tag and an item in `docs/scummvm-differences.md`.
 
 ## Git
 
