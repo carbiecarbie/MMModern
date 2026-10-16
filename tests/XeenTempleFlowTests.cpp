@@ -90,7 +90,7 @@ void revisionLimits(Inputs &in) {
             check(XeenTrainingTestAccess::templeRevision(*fixture.flow)==UINT64_MAX-room+1,
                 "Temple confirmation did not reserve the first UI revision");
             fixture.prepare();
-            check(fixture.p.monsterTreasure->gold==gold-(alreadyPaid?60u:410u) &&
+            check(fixture.p.monsterTreasure->gold==gold-(alreadyPaid?60u:380u) &&
                 XeenTrainingTestAccess::templeRevision(*fixture.flow)==UINT64_MAX-room+2,
                 "Temple paid Result revision wrapped or debit differed");
             fixture.act(AcknowledgeAction{});
@@ -125,7 +125,9 @@ void quotePreview(Inputs &in) {
         TempleFixture fixture(in,source);
         // Quote uses level4 before temporary reset. HP assignment uses level3:
         // Endurance13/Disease1 gives 6; Dead suppresses that modifier, giving9.
-        constexpr unsigned prices[]{80,40,570,160};
+        // Scenario 2 has HP -15, which the DOS unsigned comparison treats as
+        // above maximum: Disease 40 + Unconscious 40 + Dead 450, no HP term.
+        constexpr unsigned prices[]{80,40,530,160};
         constexpr int hp[]{6,6,9,6};
         fixture.enter();fixture.act(SelectMemberAction{5});
         check(XeenTrainingTestAccess::templeText(*fixture.flow).find(std::to_string(prices[scenario]))!=std::string::npos,
@@ -147,7 +149,7 @@ void refusedResult(Inputs &in,bool exhaustedRandom) {
     const auto inputs=*fixture.p.roster.combatInputs(6);
     const auto gold=fixture.p.monsterTreasure->gold;
     const auto maximum=XeenCharacterRules::maxHp(before,{610});
-    const auto expected=xeenPrepareTempleHeal(fixture.p,6,*fixture.p.encounterContext);
+    const auto expected=xeenPrepareTempleHeal(fixture.p,6,*fixture.p.encounterContext,XeenMapIdentity(28));
     fixture.enter();fixture.act(SelectMemberAction{5});fixture.act(DialogKeyAction{'h'});
     if(XeenTrainingTestAccess::templePending(*fixture.flow))fixture.prepare();
     if(!exhaustedRandom) {
@@ -191,25 +193,27 @@ int main(int argc,char **argv) {
         refusedResult(in,false);refusedResult(in,true);
         auto source=injured(in);
         TempleFixture f(in,source);
-        const auto quote=xeenQuoteTempleHeal(f.p.roster.at(6),f.p.monsterTreasure->gold,*f.p.encounterContext);
-        check(quote.outcome==XeenTempleHealOutcome::Quoted && quote.price==410,"Dead/Unconscious quote differs");
-        const auto selected=xeenPrepareTempleHeal(f.p,6,*f.p.encounterContext);
+        const auto quote=xeenQuoteTempleHeal(f.p.roster.at(6),f.p.monsterTreasure->gold,*f.p.encounterContext,XeenMapIdentity(28));
+        // Level 3, HP -15: no HP term (DOS unsigned comparison), Unconscious 30,
+        // Dead 300+50; Vertigo surcharges are zero.
+        check(quote.outcome==XeenTempleHealOutcome::Quoted && quote.price==380,"Dead/Unconscious quote differs");
+        const auto selected=xeenPrepareTempleHeal(f.p,6,*f.p.encounterContext,XeenMapIdentity(28));
         check(selected.result.outcome==XeenTempleHealOutcome::Healed && selected.result.hpAfter==15 &&
-            selected.result.spAfter==27 && selected.result.goldAfter==400 &&
+            selected.result.spAfter==27 && selected.result.goldAfter==430 &&
             !selected.character.conditions[12] && !selected.character.conditions[13],
             "selected resurrection result differs");
         f.enter();f.heal(5);
         check(f.p.roster.at(6).currentHp==15 && f.p.roster.at(6).currentSp==27 &&
-            !f.p.roster.at(6).conditions[13] && f.p.monsterTreasure->gold==400 &&
+            !f.p.roster.at(6).conditions[13] && f.p.monsterTreasure->gold==430 &&
             f.p.encounterContext->day==8,"first Heal mutated wrong owners or charged time early");
         f.heal(4);
         check(f.p.roster.at(1).currentHp==21 && f.p.roster.at(1).currentSp==21 &&
-            !f.p.roster.at(1).conditions[12] && f.p.monsterTreasure->gold==340,
+            !f.p.roster.at(1).conditions[12] && f.p.monsterTreasure->gold==370,
             "second Heal mutated wrong owner or price");
-        check(xeenQuoteTempleHeal(f.p.roster.at(6),f.p.monsterTreasure->gold,*f.p.encounterContext).outcome==
+        check(xeenQuoteTempleHeal(f.p.roster.at(6),f.p.monsterTreasure->gold,*f.p.encounterContext,XeenMapIdentity(28)).outcome==
             XeenTempleHealOutcome::NoCharge,"healthy recipient gained an extra paid quote");
         f.leave();
-        check(f.p.encounterContext->day==10 && f.p.monsterTreasure->gold==340,
+        check(f.p.encounterContext->day==10 && f.p.monsterTreasure->gold==370,
             "paid Temple visit did not make one two-day departure");
         const auto saved=f.snapshot();TempleFixture restored(in,saved);sameSnapshot(saved,restored.snapshot());
         {
@@ -283,7 +287,7 @@ int main(int argc,char **argv) {
             character.currentHp=XeenCharacterRules::maxHp(character,{610});
             character.currentSp=0;character.endurance.temporary=1;
             TempleFixture fixture(in,healthy);
-            const auto result=xeenPrepareTempleHeal(fixture.p,6,*fixture.p.encounterContext);
+            const auto result=xeenPrepareTempleHeal(fixture.p,6,*fixture.p.encounterContext,XeenMapIdentity(28));
             check(result.result.outcome==XeenTempleHealOutcome::NoCharge &&
                 xeen_state::sameCharacter(result.character,fixture.p.roster.at(6)) &&
                 fixture.p.roster.at(6).endurance.temporary==1,
@@ -333,7 +337,7 @@ int main(int argc,char **argv) {
             fixture.flow->beginCycle(++fixture.cycle);
             fixture.present(fixture.flow->handle(DialogKeyAction{'h'},semantic,current));
             fixture.prepare();
-            check(fixture.p.monsterTreasure->gold==400,
+            check(fixture.p.monsterTreasure->gold==430,
                 "current concrete Temple confirmation did not publish Heal");
             fixture.act(AcknowledgeAction{});fixture.leave();
             check(fixture.p.encounterContext->day==10,

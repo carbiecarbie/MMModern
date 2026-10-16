@@ -134,15 +134,20 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
             out.result.owner=owner;out.result.price=price;out.result.goldBefore=goldBefore;out.result.goldAfter=goldAfter;
             return out;
         };
-        // TempleLocation's tariff applied to the earned preimage, independently
+        // The DOS Temple tariff applied to the earned preimage, independently
         // of xeenQuoteTempleHeal. Mutation: free resurrection, wrong condition
         // surcharge, SP refill, missing condition/reset publication.
         const auto earnedTemple=[&](unsigned owner,int hp) {
             const auto &c=party->roster.at(owner);
             const unsigned level=std::max(0,int(c.permanentLevel)+c.temporaryLevel);
-            unsigned price=c.currentHp<XeenCharacterRules::maxHp(c,{party->encounterContext->year})?10*level:0;
-            for(unsigned condition:{3u,4u,8u,12u})if(c.conditions[condition])price+=10*level;
-            if(c.conditions[13])price+=100*level+50*c.conditions[13];
+            // DOS XEEN.DAT price routine 0x1c9ce: unsigned HP comparison, so
+            // negative HP pays no HP term; 10*L per condition 1..12; 100*L+50*n
+            // for Dead and Stoned. Vertigo surcharges are zero.
+            const auto maxHp=XeenCharacterRules::maxHp(c,{party->encounterContext->year});
+            unsigned price=std::uint16_t(c.currentHp)<std::uint16_t(maxHp)?10*level:0;
+            for(unsigned condition=1;condition<=12;++condition)if(c.conditions[condition])price+=10*level;
+            for(unsigned condition:{13u,14u})if(c.conditions[condition])price+=100*level+50*c.conditions[condition];
+            check(!c.conditions[15],"M43 Temple reached Eradicated");
             check(price>0 && price<=party->monsterTreasure->gold,"M43 earned paid Temple preimage absent");
             return expectedTemple(owner,price,hp,c.currentSp,party->monsterTreasure->gold,party->monsterTreasure->gold-price);
         };

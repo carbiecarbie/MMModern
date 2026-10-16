@@ -263,7 +263,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
                 case 1:if(!XeenTrainingTestAccess::templeLobby(*flow))return false;
                     act(SelectMemberAction{*trainingMember});++*recoveryStage;return false;
                 case 2:{
-                    // Independently apply TempleLocation::doOptions. Never
+                    // Independently apply the DOS Temple price and doOptions. Never
                     // turn the operation's own quote into its expected result;
                     // free/wrong-price recovery and lost resets must fail.
                     const auto owner=kXeenCombatOwners[*trainingMember];
@@ -272,9 +272,14 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
                     expected.inputs=*party->roster.combatInputs(owner);
                     auto &c=expected.character;auto &i=expected.inputs;
                     const unsigned level=std::max(0,int(c.permanentLevel)+c.temporaryLevel);
-                    unsigned price=c.currentHp<XeenCharacterRules::maxHp(c,{party->encounterContext->year})?10*level:0;
-                    for(unsigned condition:{3u,4u,8u,12u})if(c.conditions[condition])price+=10*level;
-                    if(c.conditions[13])price+=100*level+50*c.conditions[13];
+                    // DOS XEEN.DAT price routine 0x1c9ce: unsigned HP comparison,
+                    // 10*L per condition 1..12, 100*L+50*n for Dead and Stoned.
+                    // Vertigo surcharges are zero; Eradicated is unreachable here.
+                    const auto maxHp=XeenCharacterRules::maxHp(c,{party->encounterContext->year});
+                    unsigned price=std::uint16_t(c.currentHp)<std::uint16_t(maxHp)?10*level:0;
+                    for(unsigned condition=1;condition<=12;++condition)if(c.conditions[condition])price+=10*level;
+                    for(unsigned condition:{13u,14u})if(c.conditions[condition])price+=100*level+50*c.conditions[condition];
+                    check(!c.conditions[15],"M44 recovery reached Eradicated");
                     expected.result.price=price;expected.result.goldBefore=party->monsterTreasure->gold;
                     check(price>0 && price<=expected.result.goldBefore,"Learner recovery preimage differs");
                     expected.result.goldAfter=expected.result.goldBefore-price;

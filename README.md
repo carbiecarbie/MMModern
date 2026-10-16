@@ -257,8 +257,9 @@ enough XP/gold for one Training, an Unconscious member and a Dead member with
 four survivors, or Poison and a usable Misc antidote, respectively.
 
 ```powershell
-.\build-rel\mmodern_test_save.exe train-ready "F:/Games/gog/Might and Magic 4-5" "C:/Playtest/train-ready.mmsave"
-.\build-rel\mmodern.exe --load-game "F:/Games/gog/Might and Magic 4-5" "C:/Playtest/train-ready.mmsave"
+New-Item -ItemType Directory -Force D:/MModern-playtest
+.\build-rel\mmodern_test_save.exe train-ready "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/train-ready.mmsave"
+.\build-rel\mmodern.exe --load-game "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/train-ready.mmsave"
 ```
 
 Choose your own output path in an existing directory outside both this repository

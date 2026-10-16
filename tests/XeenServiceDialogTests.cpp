@@ -41,7 +41,7 @@ void layout(Inputs &in) {
         else if(location==XeenLocationDialog::Guild)in.assets.drawGuild(art);
         else in.assets.drawBank(art);
         for(unsigned member=0;member<6;++member) {
-            auto rendered=drawXeenLocation(in.assets.uiText(),base,art,in.font,location,f.p,member,draw);
+            auto rendered=drawXeenLocation(in.assets.uiText(),base,art,in.font,location,f.p,member,XeenMapIdentity(28),draw);
             for(int y=8;y<140;++y)for(int x=8;x<224;++x)
                 check(rendered.pixels[y*320+x]==art.pixels[y*320+x],"location panel covers town art");
             check(rendered.pixels[155*320+230]==77,"location overwrites party strip");
@@ -261,7 +261,8 @@ void dialogs(Inputs &in,bool mouse) {
         if(mouse)click(temple,235,55);else keyboard(temple,'h');temple.prepare();
         check(XeenTrainingTestAccess::templeLobby(*temple.flow),"Heal retained result screen");
     }
-    check(temple.p.monsterTreasure->gold==340 && temple.p.roster.at(6).currentHp==15 && !temple.p.roster.at(6).conditions[13] && temple.p.roster.at(1).currentHp==21,"one-step Heal/resurrection differs");
+    // DOS unsigned HP comparison: Seymour at HP -15 pays 380, Rebecca 60.
+    check(temple.p.monsterTreasure->gold==370 && temple.p.roster.at(6).currentHp==15 && !temple.p.roster.at(6).conditions[13] && temple.p.roster.at(1).currentHp==21,"one-step Heal/resurrection differs");
     if(mouse)click(temple,262,109);else keyboard(temple,InputKey::Escape);
     temple.finishDeparture();
     check(temple.flow->canSave() && temple.p.encounterContext->day==10,"paid Temple departure differs");

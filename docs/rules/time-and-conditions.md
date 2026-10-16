@@ -412,6 +412,43 @@ simulate all intervening days. DOS file offsets `0x2329c`, `0x21043`,
 jail observation. No invented daily rolls, merchant regeneration or bank
 interest belongs in this path. Temporary age and torch count survive.
 
+## Temple Heal price
+
+**DOS static (2026-10-16), high confidence.** Price routine
+`WORLD/XEEN.DAT` `0x1c9ce..0x1cd3e`, calibrated against the reference
+formula it shares and against the Vertigo prices of the original-data Temple
+tests. `L` is the permanent plus temporary level byte, never negative
+(`0x21fc9`). Totals are 32-bit. The Heal price is the sum of:
+
+| Term | Price | Offsets |
+| --- | --- | --- |
+| HP below maximum | `10*L + heal surcharge`; compared as unsigned words, so negative HP pays nothing | `0x1cab3..0x1cb02`, comparison `0x1cadb` |
+| Each of conditions 1..12 (Heart Broken through Unconscious) with a nonzero counter | `10*L` | `0x1cb08..0x1cb40` |
+| Dead, Stoned (each) | `100*L + 50*n + resurrect surcharge`, `n` the counter | `0x1cb4e`, `0x1cb93` |
+| Eradicated | `1000*L + 500*n + eradicate surcharge`; `500*n` is a signed 16-bit product | `0x1cbd8..0x1cc1e` |
+
+Cursed and cursed items enter only the Uncurse price (`20*L + uncurse
+surcharge`, `0x1cc22..0x1cce4`). Surcharges come from the current map
+(`0x1c9f5..0x1cab3`; Clouds switch table at file offset `0x1d187`):
+
+| Temple | Heal | Resurrect | Eradicate | Uncurse | Donation |
+| --- | --- | --- | --- | --- | --- |
+| Clouds 28 (Vertigo), Darkside 29 | 0 | 0 | 0 | 0 | 10 |
+| Clouds 30, Darkside 31 | 10 | 50 | 500 | 100 | 25 |
+| Clouds 73, Darkside 37 | 20 | 100 | 1000 | 200 | 50 |
+| Clouds 49, any other Darkside map | 100 | 500 | 5000 | 300 | 100 |
+
+A Clouds map outside the table keeps the previous temple's values in DOS;
+MMModern refuses to price it. Donation is 0 while the party is blessed
+(byte at `0x47ad:0`). The pinned reference agrees except for the signed HP
+comparison and the full-width Eradicated product; see
+[original quirks](../original-quirks.md). Worked examples: level 3 at HP -15,
+Unconscious and Dead 1 at Vertigo costs `30 + 350 = 380`; the same character
+at HP 0 costs 410. Implementation: `xeenTempleSurcharges` and
+`xeenQuoteTempleHeal` in
+[XeenTempleHeal.cpp](../../src/games/xeen/XeenTempleHeal.cpp), tested by
+[XeenTempleRulesTests.cpp](../../tests/XeenTempleRulesTests.cpp).
+
 ## Executable witnesses and limits
 
 Implementation evidence, not independent DOS proof:

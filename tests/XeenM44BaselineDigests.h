@@ -221,6 +221,18 @@
 // Local audit: build-rel/m71-digest-comparison-1/digest-audit.json and
 // field-explanations.tsv; approval/repair report: build-rel/m71-report.md.
 // Evidence stays local; never commit original-data saves.
+// Temple Heal price (maintenance): maintainer approved the audit and the
+// services replacement on 2026-10-16. The Heal price follows DOS XEEN.DAT
+// 0x1c9ce: HP is compared unsigned (0x1cadb), so the services learner,
+// resurrected from Dead at negative HP with level 3, no longer pays the 30-gold
+// HP term. The only differences: 137 trace TREASURE lines (210 -> 240,
+// 120 -> 150) and the gold field of both checkpoints (120 -> 150), with CRC.
+// Mainland, temple and roundtrip are unchanged; per-map views are equal and
+// native reload/re-save is exact. Verified Preserve:
+// D:/M44-audits/temple-59855e8. Local audit:
+// build-rel/digest-comparison-temple/digest-audit.json; report:
+// build-rel/temple-price-report.md. Evidence stays local.
+// Services old: f902b8f63391083bf592416b27653064d58ba3a56a6a9e1d3faf35a3780ae10f
 #include <array>
 #include <cstdint>
 namespace m44_baseline {
@@ -228,7 +240,7 @@ inline constexpr const char *revision = "M71 (save v13) on 697385f";
 struct Scenario { const char *name; std::uint32_t seed; const char *sha256; };
 inline constexpr std::array<Scenario,4> scenarios{{
     {"mainland-combat-myra-phirna",3626689381u,"4e0a9cfffd793ea50532a31b916c7aa126f34429697e2a0267cd763bb5a9cb76"},
-    {"vertigo-buy-repair-training",7u,"f902b8f63391083bf592416b27653064d58ba3a56a6a9e1d3faf35a3780ae10f"},
+    {"vertigo-buy-repair-training",7u,"fad236725369d0d418c89c80dd2eb34693ed6cd036b0068254773cfcdd0ba826"},
     {"temple-recovery",3626689381u,"7ee0e06f95e230647a14b7f4489cbe166f0a9c9f711b509030efb7d9bb52ccd8"},
     {"vertigo-f3-roundtrip",3626689381u,"cdceb44457f4a569afb05129992bc1e9705c20cb9e92b0880a28c16bcf15fb32"}
 }};

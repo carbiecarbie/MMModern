@@ -345,9 +345,9 @@ void XeenEncounterFlow::quoteTempleHeal(std::size_t member) {
 	xeenValidateJourneyParty(_party);
 	const auto owner=_party.party.activeRosterIds()[member];
 	auto quote=xeenQuoteTempleHeal(_party.roster.at(owner),_party.monsterTreasure->gold,
-		*_party.encounterContext);
+		*_party.encounterContext,_camera.mapId);
 	if(quote.outcome==XeenTempleHealOutcome::Quoted) {
-		quote=xeenPrepareTempleHeal(_party,owner,*_party.encounterContext).result;
+		quote=xeenPrepareTempleHeal(_party,owner,*_party.encounterContext,_camera.mapId).result;
 		quote.outcome=XeenTempleHealOutcome::Quoted;quote.goldAfter=quote.goldBefore;
 	}
 	_smith->owner=owner;_smith->healResult=quote;
@@ -363,7 +363,7 @@ bool XeenEncounterFlow::confirmTempleHeal() {
 	SmithBusy busy(_busy);_journeyPreimage->check();checkSmithReservation();
 	const auto &quoted=_smith->healResult;
 	const auto current=xeenQuoteTempleHeal(_party.roster.at(_smith->owner),
-		_party.monsterTreasure->gold,*_party.encounterContext);
+		_party.monsterTreasure->gold,*_party.encounterContext,_camera.mapId);
 	if(_smith->quoteOperation!=_smith->operation || _smith->quoteReservation!=_smith->reservation ||
 		quoted.owner!=current.owner || quoted.price!=current.price ||
 		quoted.goldBefore!=current.goldBefore || quoted.hpBefore!=current.hpBefore ||
@@ -378,7 +378,7 @@ bool XeenEncounterFlow::confirmTempleHeal() {
 		_smith->quoted=false;advanceSmith();return true;
 	}
 	auto delta=std::make_unique<XeenTempleHealCandidate>(
-		xeenPrepareTempleHeal(_party,_smith->owner,*_party.encounterContext));
+		xeenPrepareTempleHeal(_party,_smith->owner,*_party.encounterContext,_camera.mapId));
 	if(delta->result.outcome!=XeenTempleHealOutcome::Healed ||
 		delta->result.price!=quoted.price) {
 		_journeyPreimage->failed=true;
@@ -616,11 +616,11 @@ std::string XeenEventFlow::smithText() const {
             return ui.spellInfo?xeenDialogFormat(dosText().scalar("SPELL_INFO"),{name,ui.descriptions.at(id)}):
                 xeenDialogFormat(dosText().scalar("SPELL_PURCHASE"),{ui.descriptions.at(id),name,std::to_string(XeenLearnedSpellRules::purchasePrice(id,c.characterClass))});
         }
-        return xeenLocationText(dosText(),XeenLocationDialog::Guild,_party,ui.member);
+        return xeenLocationText(dosText(),XeenLocationDialog::Guild,_party,ui.member,_camera.mapId);
     }
-    if(ui.mode==SmithUi::Mode::Food) return ui.phase==SmithUi::Phase::Confirm?ui.foodOffer:xeenLocationText(dosText(),XeenLocationDialog::Tavern,_party,ui.member);
+    if(ui.mode==SmithUi::Mode::Food) return ui.phase==SmithUi::Phase::Confirm?ui.foodOffer:xeenLocationText(dosText(),XeenLocationDialog::Tavern,_party,ui.member,_camera.mapId);
     if(ui.mode==SmithUi::Mode::Bank) return ui.phase==SmithUi::Phase::Currency || ui.phase==SmithUi::Phase::Amount?
-        xeenBankText(dosText(),_party,ui.withdrawal,ui.bankRefreshed):xeenLocationText(dosText(),XeenLocationDialog::Bank,_party,ui.member);
+        xeenBankText(dosText(),_party,ui.withdrawal,ui.bankRefreshed):xeenLocationText(dosText(),XeenLocationDialog::Bank,_party,ui.member,_camera.mapId);
     if(ui.phase==SmithUi::Phase::Confirm) {
         const auto &visit=*_encounter->_smith;
         const auto &item=ui.mode==SmithUi::Mode::Buy?visit.purchase->result.offer:visit.result.before;
@@ -628,12 +628,12 @@ std::string XeenEventFlow::smithText() const {
             ui.catalog.describe(ui.category,item).displayName,
             ui.mode==SmithUi::Mode::Buy?visit.purchase->result.price:visit.result.price);
     }
-    return xeenLocationText(dosText(),ui.mode==SmithUi::Mode::Heal?XeenLocationDialog::Temple:XeenLocationDialog::Smith,_party,ui.member);
+    return xeenLocationText(dosText(),ui.mode==SmithUi::Mode::Heal?XeenLocationDialog::Temple:XeenLocationDialog::Smith,_party,ui.member,_camera.mapId);
 }
 IndexedFrame XeenEventFlow::drawSmith(const IndexedFrame &world) const {
     const auto &ui=*_smithUi;
     auto frame=drawXeenLocation(dosText(),world,ui.art,_inventoryFont,
-        ui.mode==SmithUi::Mode::Guild?XeenLocationDialog::Guild:ui.mode==SmithUi::Mode::Food?XeenLocationDialog::Tavern:ui.mode==SmithUi::Mode::Bank?XeenLocationDialog::Bank:ui.mode==SmithUi::Mode::Heal?XeenLocationDialog::Temple:XeenLocationDialog::Smith,_party,ui.member,drawDialogSprite);
+        ui.mode==SmithUi::Mode::Guild?XeenLocationDialog::Guild:ui.mode==SmithUi::Mode::Food?XeenLocationDialog::Tavern:ui.mode==SmithUi::Mode::Bank?XeenLocationDialog::Bank:ui.mode==SmithUi::Mode::Heal?XeenLocationDialog::Temple:XeenLocationDialog::Smith,_party,ui.member,_camera.mapId,drawDialogSprite);
     if(ui.mode==SmithUi::Mode::Guild && (ui.phase==SmithUi::Phase::Browse || ui.phase==SmithUi::Phase::Confirm)) {
         frame=drawXeenSpellList(dosText(),frame,_inventoryFont,_party.party.member(_party.roster,ui.member),
             *_encounter->journeySavePreimage().learnedNames,ui.spells,_party.monsterTreasure->gold,true,ui.spellInfo,drawDialogSprite,_party.encounterContext->year);

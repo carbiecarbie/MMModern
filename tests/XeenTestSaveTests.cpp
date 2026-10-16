@@ -76,8 +76,8 @@ void preset(const GameInstallation &installation,const std::string &name,const f
         check(member.currentHp==0 && member.worstCondition()==XeenCondition::Unconscious,"first member is not unconscious");
         check(dead.currentHp<=-XeenCharacterRules::maxHp(dead,{context.year}) && dead.worstCondition()==XeenCondition::Dead,
             "second member is not Dead");
-        check(xeenPrepareTempleHeal(party,first,context).result.outcome==XeenTempleHealOutcome::Healed,"Temple refuses unconscious member");
-        check(xeenPrepareTempleHeal(party,second,context).result.outcome==XeenTempleHealOutcome::Healed,"Temple refuses Dead member");
+        check(xeenPrepareTempleHeal(party,first,context,XeenMapIdentity(28)).result.outcome==XeenTempleHealOutcome::Healed,"Temple refuses unconscious member");
+        check(xeenPrepareTempleHeal(party,second,context,XeenMapIdentity(28)).result.outcome==XeenTempleHealOutcome::Healed,"Temple refuses Dead member");
         unsigned survivors=0;
         for (auto owner:party.party.activeRosterIds()) survivors+=party.roster.at(owner).canAct();
         check(survivors==4,"injury preset lacks four survivors");

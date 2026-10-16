@@ -217,11 +217,11 @@ void XeenEventFlow::prepareTraining() {
     }
 }
 std::string XeenEventFlow::trainingText() const {
-    return _trainingUi->feedback.empty()?xeenLocationText(dosText(),XeenLocationDialog::Training,_party,_trainingUi->member):_trainingUi->feedback;
+    return _trainingUi->feedback.empty()?xeenLocationText(dosText(),XeenLocationDialog::Training,_party,_trainingUi->member,_camera.mapId):_trainingUi->feedback;
 }
 IndexedFrame XeenEventFlow::drawTraining(const IndexedFrame &world) const {
     const auto &ui=*_trainingUi;
-    auto frame=drawXeenLocation(dosText(),world,ui.art,_inventoryFont,XeenLocationDialog::Training,_party,ui.member,drawDialogSprite);
+    auto frame=drawXeenLocation(dosText(),world,ui.art,_inventoryFont,XeenLocationDialog::Training,_party,ui.member,_camera.mapId,drawDialogSprite);
     if(!ui.feedback.empty()) frame=drawXeenErrorScroll(frame,_inventoryFont,ui.feedback);
     return frame;
 }

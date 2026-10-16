@@ -1,6 +1,7 @@
 #ifndef MMODERN_XEEN_DIALOG_VIEW_H
 #define MMODERN_XEEN_DIALOG_VIEW_H
 #include "games/xeen/XeenInventoryState.h"
+#include "games/xeen/XeenMapIdentity.h"
 #include "games/xeen/XeenTextRenderer.h"
 #include "core/DialogInput.h"
 #include "formats/xeen/XeenDosText.h"
@@ -88,7 +89,8 @@ IndexedFrame drawXeenBankAmount(const XeenDosText &,const IndexedFrame &,const X
 IndexedFrame drawXeenFoodOffer(const IndexedFrame &,const XeenFontFormat &,const std::string &offer,const XeenDialogSpriteDraw &);
 DialogInput xeenBuyInput(bool repair=false);
 DialogInput xeenBuyInput(XeenItemService);
-std::string xeenLocationText(const XeenDosText &text,XeenLocationDialog,const XeenPartyState &,std::size_t);
+std::string xeenLocationText(const XeenDosText &text,XeenLocationDialog,const XeenPartyState &,std::size_t,
+    XeenMapIdentity);
 std::uint32_t xeenTempleUncurseCost(const XeenCharacter &);
 std::string xeenNotEnoughGold(const XeenDosText &text);
 // Party::notEnough (0x1e8bb): consumable 0 gold, 1 gems, 2 food, in the party.
@@ -99,7 +101,7 @@ std::string xeenIdentifiedDetails(const XeenDosText &,const XeenCharacter &,Xeen
 IndexedFrame drawXeenIdentifiedDetails(const IndexedFrame &,const XeenFontFormat &,const std::string &);
 std::uint32_t xeenBuyDisplayCost(XeenInventoryCategory,const XeenItem &);
 IndexedFrame drawXeenLocation(const XeenDosText &text,const IndexedFrame &,const IndexedFrame &,const XeenFontFormat &,
-    XeenLocationDialog,const XeenPartyState &,std::size_t,const XeenDialogSpriteDraw &);
+    XeenLocationDialog,const XeenPartyState &,std::size_t,XeenMapIdentity,const XeenDialogSpriteDraw &);
 IndexedFrame drawXeenBuy(const XeenDosText &text,const IndexedFrame &,const XeenFontFormat &,const XeenItemCatalog &,
     const XeenPartyState &,const XeenInventorySelection &,bool repair,const XeenDialogSpriteDraw &);
 IndexedFrame drawXeenBuy(const XeenDosText &,const IndexedFrame &,const XeenFontFormat &,const XeenItemCatalog &,
