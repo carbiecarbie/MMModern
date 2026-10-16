@@ -578,6 +578,112 @@ void mapEventRoundTrips(){
   check(XeenSaveFormat::encode(loaded.capture())==bytes,"Persistent Event did not round-trip exactly through v13");
  }
 }
+// M70 Part C: every travel form reaches the normal quiet capture boundary.
+void travelRoundTrips() {
+ for(unsigned form=0;form<20;++form) {
+  const bool lateRefused=form>=16,publishedPrefix=lateRefused && form%2;
+  const bool refused=form>=12,continued=lateRefused || form%2;
+  const bool mirror=(form>=6 && form<12) || (form>=14 && form<16),run=(form>=2 && form<4) || (form>=8 && form<12);
+  const bool same=(form>=4 && form<6) || (form>=10 && form<12) || form>=18;
+  const XeenMapIdentity destination=refused && !lateRefused?29:same?28:23;
+  auto initial=currentSnapshot();initial.camera={28,9,11,XeenDirection::West};initial.map(28).monsters=mobTable(4);
+  XeenEventFile source{28,"synthetic.evt",true,{}};
+  const auto add=[&](unsigned x,unsigned y,unsigned line,unsigned op,Bytes args={}) {
+   auto r=record(x,y,line,op,std::move(args));r.direction=4;source.records.push_back(r);
+  };
+  unsigned entry=0;
+  if(refused && !lateRefused) {add(9,11,0,20,{100,5,0,0,0});add(9,11,1,34,{0,13,13});entry=2;}
+  if(mirror) {add(9,11,entry,21,{0,std::uint8_t(entry+2),0,0});add(9,11,entry+1,18);entry+=2;}
+  add(9,11,entry,continued?31:7,mirror?Bytes{0}:Bytes{std::uint8_t(destination.number),std::uint8_t(run?255:10),11});
+  // Continuing at the destination writes exactly once; Exit never runs it.
+  XeenEventFile target{destination,"synthetic.evt",true,{}};
+  // A destination suspension must retain that destination's complete script,
+  // rather than comparing it to the source Event after Continue.
+  auto message=record(10,11,0,1,{0});message.direction=4;target.records.push_back(message);
+  auto prompt=record(10,11,1,21,{1,3,0,0});prompt.direction=4;target.records.push_back(prompt);
+  auto wrong=record(10,11,2,18);wrong.direction=4;target.records.push_back(wrong);
+  auto write=lateRefused && !publishedPrefix?record(10,11,3,7,{29,1,1}):
+   record(10,11,3,12,publishedPrefix?Bytes{0,0,65,1}:Bytes{0,0,21,99});
+  write.direction=4;target.records.push_back(write);
+  auto exit=lateRefused && publishedPrefix?record(10,11,4,7,{29,1,1}):record(10,11,4,18);
+  exit.direction=4;target.records.push_back(exit);
+  if(same)source.records.insert(source.records.end(),target.records.begin(),target.records.end());
+  const auto configure=[&](CurrentDestination &f) {
+   usePerMapResources(f,4);
+   f.mapProvider=[](auto id){auto map=indoorMap(id);map.geometry.runX=10;map.geometry.runY=11;
+    if(id==XeenMapIdentity(28))map.geometry.neighbors=std::array<std::uint16_t,4>{30,29,0,0};
+    if(id==XeenMapIdentity(30))map.geometry.neighbors[1]=31;
+    if(id==XeenMapIdentity(29))map.geometry.neighbors[0]=31;return map;};
+   f.resources.loadEvents=[&](auto id){return id==XeenMapIdentity(28)?source:id==destination?target:indoorEvents(id);};
+   f.resources.loadRegionalText=[&](auto id){auto t=regional_test::texts(id);t.strings.resize(id==XeenMapIdentity(23)?44:64);t.strings[1]="Continue";
+    t.mirrors={{"Travel",std::uint8_t(destination.number),run?0:10,run?0:11,form>=10 && form<12?2:-1}};return t;};
+  };
+  CurrentDestination live;configure(live);live.restore(XeenSaveFormat::decode(XeenSaveFormat::encode(initial)));
+  XeenMonsterTestAccess::set(live.world,28,0,3,false);
+  const auto display=font();IndexedFrame image{320,200,Bytes(64000)};std::uint64_t now=0,cycle=0;
+  const XeenWorld *composedWorld=nullptr;XeenCamera composedCamera;unsigned destinationSuspensions=0;
+  bool wrongDestinationComposition=false,earlyTravelPublication=false;
+  const auto compose=[&](const XeenWorld &world,const XeenCamera &camera) {
+   composedWorld=&world;composedCamera=camera;return XeenEventFlow::Composition{image,false};
+  };
+  XeenEventSystem events([&](auto id){return XeenEventScript(live.resources.loadEvents(id));},live.resources.loadRegionalText);
+  XeenEventFlow flow(live.world,events,live.party,live.camera,live.flags,display,
+   [&](auto){return compose(live.world,live.camera);},{},[&]{return now;},{},nullptr,
+   [&](auto,auto){return compose(live.world,live.camera);},nullptr,
+   [&](auto &world,const auto &,const auto &camera,auto,auto){return compose(world,camera);});
+  flow.dialogText=&dos_test::text();unsigned failures=0;
+  bool destinationWord=false;
+  flow.reportManual=[&](const auto &r){destinationWord=false;
+   if(const auto *p=std::get_if<XeenEventExecutionSuspended>(&r)) {
+    if(p->request.source.x==10 && p->request.source.y==11 &&
+       (p->request.source.line==0 || p->request.kind==XeenPresentationKind::WordInput)) {
+     ++destinationSuspensions;destinationWord=p->request.kind==XeenPresentationKind::WordInput;
+     wrongDestinationComposition|=!composedWorld || composedWorld==&live.world || !xeen_state::sameCamera(composedCamera,p->state.workingCamera);
+     earlyTravelPublication|=!xeen_state::sameCamera(live.camera,initial.camera);
+    }
+   }
+   if(const auto *e=std::get_if<XeenEventExecutionError>(&r)) {
+    ++failures;std::cerr<<"Travel form "<<form<<": "<<e->message<<'\n';}};
+  const auto present=[&](const IndexedFrame &frame){if(frame.presentation()){flow.framePresented(frame.presentation());flow.completeInputHandoff(frame.presentation());}};
+  const auto send=[&](const PlayerAction &action){present(flow.frame());flow.beginCycle(++cycle);present(flow.handle(action,flow.displayedInput(),flow.frame().presentation()));};
+  send(InteractionAction{});
+  check(!wrongDestinationComposition,"Continue suspension composed the source instead of the destination candidate");
+  if(mirror) {send(TextInputAction{"travel"});send(DialogKeyAction{13});}
+  if(continued && (!refused || lateRefused)) {
+   present(flow.refresh(true));
+   check(composedWorld && composedWorld!=&live.world && composedCamera.mapId==destination &&
+    composedCamera.x==10 && composedCamera.y==11,"Destination input refresh composed the source");
+  }
+  for(unsigned n=0;n<1000 && !flow.canSave();++n) {
+   now+=125;flow.beginCycle(++cycle);if(const auto f=flow.updatePresentation())present(*f);
+   if(destinationWord){send(TextInputAction{"continue"});send(DialogKeyAction{13});}
+   else send(AcknowledgeAction{});
+  }
+  check(failures==unsigned(refused) && flow.canSave(),"Travel did not settle through the normal Journey publication boundary");
+  check(!wrongDestinationComposition && !earlyTravelPublication,"Destination suspension composition or deferred publication changed");
+  if(refused) {
+   auto expected=initial;if(publishedPrefix)++expected.food;
+   check(destinationSuspensions==(lateRefused?2u:0u),"Late refusal must follow destination message and input");
+   check(XeenSaveFormat::encode(live.capture())==XeenSaveFormat::encode(expected),
+    "Refused travel leaked a candidate or lost/replayed its published food prefix");
+   const auto bytes=XeenSaveFormat::encode(live.capture());CurrentDestination restored;configure(restored);
+   restored.restore(XeenSaveFormat::decode(bytes));restored.bind();
+   check(XeenSaveFormat::encode(restored.capture())==bytes,"Refused travel v13 round trip replayed an Event");continue;
+  }
+  check(live.camera.mapId==destination && live.camera.x==10 && live.camera.y==11 &&
+   live.camera.direction==(form>=10?XeenDirection::South:XeenDirection::West),"Travel camera/facing");
+  check(destinationSuspensions==(continued?2u:0u),"Continue must display both destination message and input; Exit must display neither");
+  check(live.party.questItems.at(17)==initial.questItems.at(17)+unsigned(continued),
+   "Continue must execute the destination counter exactly once; Exit must never execute it");
+  if(same)check(live.world.sessionState().monsters(28)[0].hp==3,"Same-map teleport reloaded monster HP");
+  const auto snapshot=live.capture();const auto bytes=XeenSaveFormat::encode(snapshot);
+  check(snapshot.journey->random==initial.journey->random && snapshot.journey->context==initial.journey->context &&
+   snapshot.journey->treasure==initial.journey->treasure,"Travel changed time, rewards or RNG");
+  CurrentDestination restored;configure(restored);restored.restore(XeenSaveFormat::decode(bytes));restored.bind();
+  check(XeenSaveFormat::encode(restored.capture())==bytes,"Travel v13 restore replayed Event, reward, time or draw");
+ }
+}
+
 // M70 Part B: the value operations publish through the city's detached
 // candidate (and one live mainland write), then round-trip exactly through
 // v13 without replaying any Event, reward, time or draw.
@@ -815,7 +921,7 @@ void invalidResourceAndState(){
 int main() {
 	try {
 		fullRestoration(); explicitItems(); invalidResourceAndState(); characterPreflight(); mutationPolicies(); journeyBorrowRefusal();
-		genericRoundTrip(); replacedOpcodePublication(); mapEventRoundTrips(); valueRoundTrips(); sourceIdentityCases(); unsupportedMapState(); warzoneLifetime(); allCloudsMaps();
+		genericRoundTrip(); replacedOpcodePublication(); mapEventRoundTrips(); travelRoundTrips(); valueRoundTrips(); sourceIdentityCases(); unsupportedMapState(); warzoneLifetime(); allCloudsMaps();
 		std::cout << "Current save state: atomic preparation, resource identities, rules and owner/flow lifetimes passed\n";
 		return 0;
 	} catch (const std::exception &error) {

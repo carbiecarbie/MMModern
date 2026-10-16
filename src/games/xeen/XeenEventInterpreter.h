@@ -60,18 +60,21 @@ enum class XeenPresentationKind {
 	GuildService,
 	DeferredAudio,
 	RewardGeneration,
-	PortraitEffect
+	PortraitEffect,
+	WordInput
 };
 
 enum class XeenPresentationResponseRequirement {
 	Presented,
 	Acknowledgment,
 	YesNo,
-	CharacterSelection
+	CharacterSelection,
+	WordInput
 };
 
 struct SelectedCharacter { std::size_t partyIndex; };
 struct CharacterSelectionCancelled {};
+struct XeenWordInput { std::string text; };
 
 struct XeenPresentationResponse {
 	enum Signal {
@@ -80,10 +83,11 @@ struct XeenPresentationResponse {
 		Yes,
 		No
 	};
-	std::variant<Signal, SelectedCharacter, CharacterSelectionCancelled> value;
+	std::variant<Signal, SelectedCharacter, CharacterSelectionCancelled, XeenWordInput> value;
 	XeenPresentationResponse(Signal signal) : value(signal) {}
 	XeenPresentationResponse(SelectedCharacter selection) : value(selection) {}
 	XeenPresentationResponse(CharacterSelectionCancelled cancel) : value(cancel) {}
+	XeenPresentationResponse(XeenWordInput input) : value(std::move(input)) {}
 	bool operator==(Signal signal) const {
 		const auto *actual = std::get_if<Signal>(&value);
 		return actual && *actual == signal;
@@ -136,6 +140,9 @@ struct XeenPresentationRequest {
 	std::optional<std::uint8_t> notEnough;
 	// giveExt's lock message (0x236b3, 0x236e9) for the member named in title.
 	std::optional<bool> lockPicked;
+	std::optional<XeenEventConfirmWord> word;
+	std::string alternate;
+	std::vector<XeenMirrorDestination> mirrors;
 };
 
 enum class XeenEventMissingInstructionPolicy {
@@ -152,7 +159,8 @@ enum class XeenEventPendingContinuation {
 	RewardFinalization,
 	GiveMulti,
 	PortraitEffect,
-	NpcChoice
+	NpcChoice,
+	ConfirmWord
 };
 
 struct XeenEventPendingPresentation {
@@ -210,11 +218,13 @@ struct XeenEventExecutionState {
 	XeenEventExecutionAddress logicalAddress;
 	XeenDirection lookupDirection = XeenDirection::North;
 	XeenCamera workingCamera;
+	bool continuedAtDestination=false; // DOS redraws before restarting destination Events.
 	std::optional<XeenObjectIdentity> selectedObject;
 	// Temporary active-party index; independent of roster IDs and call frames.
 	std::optional<std::size_t> activeCharacterIndex;
 	bool entireParty=false; // checkEvents starts at member 1; SetChar(0) selects all.
 	XeenEventScriptValues scriptValues;
+	std::optional<XeenMirrorDestination> mirrorDestination;
 	std::optional<XeenEventGiveTakeProgress> giveTake;
 	std::optional<XeenEventLockProgress> lock;
 	XeenGameFlags workingGameFlags;

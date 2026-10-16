@@ -1,5 +1,5 @@
-#ifndef MMODERN_APP_XEEN_TEXT_INPUT_H
-#define MMODERN_APP_XEEN_TEXT_INPUT_H
+#ifndef MMODERN_XEEN_TEXT_INPUT_H
+#define MMODERN_XEEN_TEXT_INPUT_H
 #include "games/xeen/XeenTextRenderer.h"
 #include "formats/xeen/XeenSaveFormat.h"
 #include <algorithm>
@@ -24,13 +24,20 @@ public:
   *_deadline=PresentationClock::afterMilliseconds(now,1);
   _phase=(_phase+5)%6;return true; // One observed wait, never catch up.
  }
- bool type(const std::string &packet,const XeenFontFormat &font) {
-  if(packet.empty() || packet.size()>20 || !std::all_of(packet.begin(),packet.end(),[](unsigned char c){return c>=0x20 && c<=0x7e;}))return false;
+ bool type(const std::string &packet,const XeenFontFormat &font,std::size_t limit=20,bool wordCase=false) {
+  if(packet.empty() || packet.size()>limit || !std::all_of(packet.begin(),packet.end(),[](unsigned char c){return c>=0x20 && c<=0x7f;}))return false;
   for(unsigned char c:packet)if(!font.advance(c,XeenFontSize::Normal))return false;
   // getString ignores spaces while the line is empty, including batched keys.
   const auto first=_value.empty()?packet.find_first_not_of(' '):0;
   if(first==std::string::npos)return false;
-  _value+=packet.substr(first,20-_value.size());return true;
+  for(unsigned char c:packet.substr(first,limit-_value.size())) {
+   if(wordCase && ((c>='a' && c<='z') || (c>='A' && c<='Z'))) {
+    if(_value.empty() || _value.back()==' ') {if(c>='a' && c<='z')c-=32;}
+    else if(c>='A' && c<='Z')c+=32;
+   }
+   _value+=char(c);
+  }
+  return true;
  }
  bool backspace() {if(_value.empty())return false;_value.pop_back();return true;}
  IndexedFrame render(const IndexedFrame &base,const XeenFontFormat &font,

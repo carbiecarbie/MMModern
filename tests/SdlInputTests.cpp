@@ -126,6 +126,7 @@ struct QueueHarness {
    else if(std::holds_alternative<MapAction>(action))kind='M';
    else if(std::holds_alternative<ToggleAutomapAction>(action))kind='=';
    else if(std::holds_alternative<AcknowledgeAction>(action))kind='K';
+   else if(std::holds_alternative<TextInputAction>(action))kind='t';
    else if(std::holds_alternative<SelectMemberAction>(action))kind='P';
    else if(const auto *key=std::get_if<DialogKeyAction>(&action))kind=key->key==InputKey::Escape?'E':char(key->key);
    check(!drawPaced || clock>=drawDeadline,"action bypassed draw cadence");
@@ -140,6 +141,22 @@ struct QueueHarness {
   fixedTicks=false;check(ok,"queue show failed");std::cout<<name<<" passed\n";
  }
 };
+void wordInputBoundaries() {
+ QueueHarness h;h.queueable=false;h.ready=true;h.screen=MainScreen::None;
+ DialogInput input;input.textEntry=true;input.keys={8,13,27};h.dialog=std::make_shared<const DialogInput>(input);
+ h.run("word-input-context-and-queue-boundaries",[](auto &h) {
+  const auto type=[](Uint32 stamp) {SDL_Event event{};event.type=SDL_TEXTINPUT;event.text.timestamp=stamp;
+   event.text.text[0]='w';event.text.text[1]=0;SDL_PeepEvents(&event,1,SDL_ADDEVENT,0,0);};
+  if(h.stage==0)type(99); // Older than the acquired prompt.
+  else if(h.stage==1) {h.check(h.delivered.empty(),"stale text entered prompt");type(100);h.tap(SDLK_UP,100);h.tap(SDLK_b,100);}
+  else if(h.stage==2) {h.check(h.delivered==std::vector<char>{'t'},"typed letters leaked to gameplay");h.click(60,170,SDL_BUTTON_LEFT,100);}
+  else if(h.stage==3) {h.check(h.delivered==std::vector<char>{'t'},"left click submitted text");h.click(60,170,SDL_BUTTON_RIGHT,100);}
+  else if(h.stage==4) {h.check(h.delivered==std::vector<char>{'t','E'},"right click did not cancel");
+   h.dialog.reset();h.queueable=true;h.screen=MainScreen::Exploration;++h.context;type(100);h.redraw=true;}
+  else if(h.stage==5) {h.check(h.delivered==std::vector<char>{'t','E'},"retired prompt text leaked into exploration");h.tap(SDLK_UP,100);}
+  else if(h.stage==7) {h.check(h.delivered==std::vector<char>{'t','E','W'},"exploration did not regain input");h.quit();}
+ });
+}
 void navigationWaitCompletesBeforeAnotherDraw() {
  for(bool held:{false,true}) {
   QueueHarness h;h.screen=MainScreen::Exploration;h.navigationDrawPending=true;
@@ -583,7 +600,7 @@ int main(int argc,char **) {
  boundedQueuePolicies();
  navigationObligations();
  navigationTypematic();
- navigationWaitCompletesBeforeAnotherDraw();
+ wordInputBoundaries();navigationWaitCompletesBeforeAnotherDraw();
 	std::atomic<bool> finished{false};
 	std::atomic<int> interactions{0};
 	std::atomic<int> navigation{0};

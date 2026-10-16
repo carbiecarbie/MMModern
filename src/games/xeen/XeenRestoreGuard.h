@@ -169,7 +169,7 @@ public:
 			throw std::invalid_argument("Developer map text resource identity changed");
 		}
 		if (developerText && (developerText->mapId!=value.mapId || developerText->resourceName!=value.resourceName ||
-			developerText->resourcePresent!=value.resourcePresent || developerText->strings!=value.strings)) {
+			developerText->resourcePresent!=value.resourcePresent || developerText->strings!=value.strings || developerText->mirrors!=value.mirrors)) {
 			failed=true;throw std::logic_error("Developer map text resource changed");
 		}
 		if (!developerText) developerText=value;
@@ -182,7 +182,7 @@ public:
 			throw std::invalid_argument("Regional event text is missing or incomplete");
 		}
 		if (regionalText && (regionalText->mapId!=value.mapId || regionalText->resourceName!=value.resourceName ||
-			regionalText->resourcePresent!=value.resourcePresent || regionalText->strings!=value.strings)) {
+			regionalText->resourcePresent!=value.resourcePresent || regionalText->strings!=value.strings || regionalText->mirrors!=value.mirrors)) {
 			failed=true; throw std::logic_error("Regional event text changed");
 		}
 		if (!regionalText) regionalText=value;
@@ -195,7 +195,7 @@ public:
 			throw std::invalid_argument("Vertigo event text is missing or incomplete");
 		}
 		if (vertigoText && (vertigoText->mapId!=value.mapId || vertigoText->resourceName!=value.resourceName ||
-			vertigoText->resourcePresent!=value.resourcePresent || vertigoText->strings!=value.strings)) {
+			vertigoText->resourcePresent!=value.resourcePresent || vertigoText->strings!=value.strings || vertigoText->mirrors!=value.mirrors)) {
 			failed=true;throw std::logic_error("Vertigo event text changed");
 		}
 		if (!vertigoText) vertigoText=value;
@@ -334,13 +334,13 @@ private:
 			(regionalText->mapId!=candidate.regionalText->mapId ||
 			 regionalText->resourceName!=candidate.regionalText->resourceName ||
 			 regionalText->resourcePresent!=candidate.regionalText->resourcePresent ||
-			 regionalText->strings!=candidate.regionalText->strings)) {
+			 regionalText->strings!=candidate.regionalText->strings || regionalText->mirrors!=candidate.regionalText->mirrors)) {
 			failed=true;
 			throw std::logic_error("Regional text changed at restore publication");
 		}
 		if (candidate.regionalText) regionalText=candidate.regionalText;
 		if (vertigoText && candidate.vertigoText &&
-			(vertigoText->mapId!=candidate.vertigoText->mapId || vertigoText->strings!=candidate.vertigoText->strings)) {
+			(vertigoText->mapId!=candidate.vertigoText->mapId || vertigoText->strings!=candidate.vertigoText->strings || vertigoText->mirrors!=candidate.vertigoText->mirrors)) {
 			failed=true;throw std::logic_error("Vertigo text changed at restore publication");
 		}
 		if (candidate.vertigoText) vertigoText=candidate.vertigoText;

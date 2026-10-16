@@ -7,6 +7,7 @@
 #include "games/xeen/XeenCombatRules.h"
 
 #include <limits>
+#include <algorithm>
 #include <set>
 #include <tuple>
 #include <stdexcept>
@@ -72,6 +73,8 @@ bool compare(std::uint32_t actual, std::uint32_t expected,
 bool responseMatches(XeenPresentationResponseRequirement requirement,
 		XeenPresentationResponse response) {
 	switch (requirement) {
+	case XeenPresentationResponseRequirement::WordInput:
+		return std::holds_alternative<XeenWordInput>(response.value);
 	case XeenPresentationResponseRequirement::CharacterSelection:
 		return std::holds_alternative<SelectedCharacter>(response.value) ||
 			std::holds_alternative<CharacterSelectionCancelled>(response.value);
@@ -152,17 +155,10 @@ std::optional<XeenEventExecutionError> preflightCityEvent(XeenWorld &world,
 				return unsupported("Dependent service effects are not supported yet");
 			continue;
 		}
-		if(const auto *teleport=std::get_if<XeenEventTeleportAndExit>(&op)) {
-			if(!world.prepareEventTransition({{camera.mapId.side,teleport->mapId},teleport->x,teleport->y,camera.direction}))
-				return unsupported("Teleport destination is not supported yet");
-			continue;
-		}
-		if(const auto *teleport=std::get_if<XeenEventTeleportAndContinue>(&op)) {
-   if(!path.empty())return unsupported("TeleportAndContinue with an active call stack is not supported yet");
-   if(teleport->mapId!=camera.mapId.number || !world.sampleCell(camera.mapId,teleport->x,teleport->y))
-    return unsupported("Teleport destination is not supported yet");
-   enqueue(teleport->x,teleport->y,0);continue;
-  }
+        // Travel resolves dynamically inside the detached candidate. Continue starts
+        // a fresh destination run, rather than a suffix of this logical script.
+        if(std::holds_alternative<XeenEventTeleportAndExit>(op) ||
+           std::holds_alternative<XeenEventTeleportAndContinue>(op))continue;
 		if(std::holds_alternative<XeenEventGiveEnchanted>(op) ||
 			std::holds_alternative<XeenEventRemove>(op))
 			return unsupported("Event effect is not supported yet in this context");
@@ -177,6 +173,7 @@ std::optional<XeenEventExecutionError> preflightCityEvent(XeenWorld &world,
 				return unsupported("Event condition operand is not supported yet");
 			enqueue(x,y,condition->targetLine);
 		}
+		if(const auto *word=std::get_if<XeenEventConfirmWord>(&op))enqueue(x,y,word->targetLine);
 		if(const auto *call=std::get_if<XeenEventCallEvent>(&op)) {
 			path.emplace_back(x,y,line+1);enqueue(call->x,call->y,call->line);continue;
 		}
@@ -431,6 +428,50 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 				instructionCount, logical, pending.request.source);
 		}
 		if (pending.continuation == XeenEventPendingContinuation::RewardFinalization) return finalize();
+        if(pending.continuation==XeenEventPendingContinuation::ConfirmWord) {
+            const auto &word=*pending.request.word;
+            const auto &input=std::get<XeenWordInput>(response->value).text;
+            if(input.size()>30 || !std::all_of(input.begin(),input.end(),[](unsigned char c){return c>=32 && c<=127;}))
+                return error(XeenEventExecutionErrorKind::InvalidPresentationResponse,"Invalid word input",instructionCount,logical,pending.request.source);
+            const auto equal=[](const std::string &a,const std::string &b) {
+                if(a.size()!=b.size())return false;
+                const auto upper=[](unsigned char c){return c>='a' && c<='z'?c-32:c;};
+                for(std::size_t i=0;i<a.size();++i)if(upper(a[i])!=upper(b[i]))return false;
+                return true;
+            };
+            unsigned result=0;
+            state.mirrorDestination.reset();
+            if(!input.empty()) {
+                // Maintainer decision, 2026-10-16: opcode 21 alternate-only
+                // matches take ordinary success. DOS passes an uninitialized
+                // scratch marker here; residue 55 instead selects operand 3.
+                // See docs/original-quirks.md (ConfirmWord marker).
+                if(word.inputType)result=equal(input,pending.request.text) || equal(input,pending.request.alternate);
+                else {
+                    const unsigned first=workingCamera.mapId.side==XeenSide::Clouds && workingCamera.mapId.number>32?0x26:0;
+                    const unsigned bound=std::min<unsigned>(pending.request.mirrors.size(),workingCamera.mapId.side==XeenSide::Clouds?63:pending.request.mirrors.size());
+                    for(unsigned i=first;i<bound;++i)if(equal(input,pending.request.mirrors[i].name)) {
+                        result=i+1;state.mirrorDestination=pending.request.mirrors[i];break;
+                    }
+                }
+            }
+            if(!word.inputType && workingCamera.mapId.side==XeenSide::Clouds &&
+                (result==40 || result==60 || result==61 || result==62))
+                return error(XeenEventExecutionErrorKind::UnsupportedOperand,"Ending mirror code is not supported yet",instructionCount,logical,pending.request.source);
+            if(!word.inputType && workingCamera.mapId.side==XeenSide::Clouds && result==59 &&
+                state.pendingRewards.count(XeenRewardCategory::Weapons)<XeenPendingRewards::kCapacity) {
+                state.pendingRewards.enqueue(XeenItem{0,34,0,0},XeenRewardCategory::Weapons);
+                return finalize();
+            }
+            state.pendingPresentation.reset();
+            if(result) {
+                logical.line=word.targetLine;missingPolicy=MissingInstructionPolicy::ExplicitJump;
+                pendingTransferSource=pending.request.source;
+            } else {
+                if(logical.line==255)return error(XeenEventExecutionErrorKind::LineOverflow,"ConfirmWord fallthrough line overflow",instructionCount,logical,pending.request.source);
+                ++logical.line;missingPolicy=MissingInstructionPolicy::NaturalCompletion;
+            }
+        }
 		if (pending.continuation == XeenEventPendingContinuation::WhoWill) {
 			if (std::holds_alternative<CharacterSelectionCancelled>(response->value))
 				return finalize();
@@ -579,6 +620,29 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 			state.pendingPresentation=XeenEventPendingPresentation{request,XeenEventPendingContinuation::Terminate,{}};
 			return XeenEventExecutionSuspended{state,request};
 		}
+
+        if(const auto *word=std::get_if<XeenEventConfirmWord>(&decoded.operation)) {
+            if(!textProvider)return error(XeenEventExecutionErrorKind::MissingTextResource,"Word input text provider is absent",instructionCount,logical,decoded.source);
+            const auto texts=textProvider(logical.mapId);
+            if(texts.mapId!=logical.mapId)return error(XeenEventExecutionErrorKind::TextMapMismatch,"Word input text identity changed",instructionCount,logical,decoded.source);
+            if(!texts.resourcePresent)return error(XeenEventExecutionErrorKind::MissingTextResource,"Word input text is missing",instructionCount,logical,decoded.source);
+            XeenPresentationRequest request;request.kind=XeenPresentationKind::WordInput;
+            request.response=XeenPresentationResponseRequirement::WordInput;request.mapId=logical.mapId;
+            request.source=decoded.source;request.word=*word;
+            // DOS clears all 280 offset slots before indexing the resource.
+            // An absent byte-indexed string aliases offset zero (text[0]).
+            const auto textAt=[&](unsigned index) {
+                const auto *text=texts.stringAt(index);
+                return text?*text:texts.strings.empty()?std::string{}:texts.strings.front();
+            };
+            request.text=textAt(word->inputType);
+            request.alternate=word->alternateText?textAt(word->alternateText):request.text;
+            if(word->titleText)request.title=textAt(word->titleText);
+            request.mirrors=texts.mirrors;
+            if(!word->inputType && request.mirrors.empty())return error(XeenEventExecutionErrorKind::MissingTextResource,"Mirror destination table is missing",instructionCount,logical,decoded.source);
+            state.pendingPresentation=XeenEventPendingPresentation{request,XeenEventPendingContinuation::ConfirmWord,{}};
+            return XeenEventExecutionSuspended{state,request};
+        }
 
 		const auto *who = std::get_if<XeenEventWhoWill>(&decoded.operation);
 		if (who) {
@@ -1587,34 +1651,30 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 			continue;
 		}
 
-		const auto executeTeleport = [&](std::uint8_t mapId, int x, int y,
-				bool continueExecution) -> std::optional<XeenEventExecutionError> {
-			XeenEventExecutionAddress target{{workingCamera.mapId.side, mapId}, x, y, 0};
-   if(continueExecution && !callStack.empty())return error(XeenEventExecutionErrorKind::UnsupportedExecutionContext,
-    "TeleportAndContinue with an active call stack is not supported yet",instructionCount,logical,decoded.source,target);
-   try {
-    const auto transition=world.prepareEventTransition({target.mapId,x,y,workingCamera.direction});
-    if(!transition)
-     return error(XeenEventExecutionErrorKind::UnsupportedTeleportDestination,transition.reason,instructionCount,logical,decoded.source,target);
-			} catch (const std::exception &exception) {
-				return error(XeenEventExecutionErrorKind::MapLoadFailed,
-					std::string("failed to load teleport destination: ") + exception.what(),
-					instructionCount, logical, decoded.source, target);
-			}
-   if(workingCamera.mapId!=target.mapId && world.detachedEventCandidate())world.reloadHeads(target.mapId);
-   state.selectedObject.reset();
-   workingCamera.mapId = target.mapId;
-			workingCamera.x = x;
-			workingCamera.y = y;
-			if (continueExecution) {
-				try { state.selectedObject = world.selectObject(workingCamera); }
-				catch (const std::exception &exception) {
-					return error(XeenEventExecutionErrorKind::ObjectLoadFailed,
-						exception.what(), instructionCount, logical, decoded.source, target);
-				}
-			}
-			return std::nullopt;
-		};
+        const auto executeTeleport = [&](std::uint8_t mapId,int x,int y,bool continueExecution) -> std::optional<XeenEventExecutionError> {
+            XeenCamera destination{{workingCamera.mapId.side,mapId},x,y,workingCamera.direction};
+            if(!mapId) {
+                if(!state.mirrorDestination)return error(XeenEventExecutionErrorKind::UnsupportedOperand,"Mirror teleport requires a ConfirmWord selection",instructionCount,logical,decoded.source);
+                const auto &mirror=*state.mirrorDestination;
+                destination.mapId.number=mirror.map;destination.x=mirror.x;destination.y=mirror.y;
+                if(mirror.direction!=-1)destination.direction=static_cast<XeenDirection>(mirror.direction);
+                if(!destination.x && !destination.y)destination.x=-1;
+            }
+            try {
+                const auto transition=world.prepareEventTransition(destination,destination.x==-1);
+                if(!transition)return error(XeenEventExecutionErrorKind::UnsupportedTeleportDestination,transition.reason,instructionCount,logical,decoded.source,
+                    XeenEventExecutionAddress{destination.mapId,destination.x,destination.y,0});
+                destination=transition.destination;
+                if(workingCamera.mapId!=destination.mapId && world.detachedEventCandidate())
+                    world.loadEventDestination(workingCamera.mapId,destination.mapId);
+                workingCamera=destination;
+                state.selectedObject.reset();
+                if(continueExecution)state.selectedObject=world.selectObject(workingCamera);
+            } catch(const std::exception &e) {
+                return error(XeenEventExecutionErrorKind::MapLoadFailed,std::string("Failed teleport destination: ")+e.what(),instructionCount,logical,decoded.source);
+            }
+            return {};
+        };
 
 		if (const auto *teleport =
 				std::get_if<XeenEventTeleportAndExit>(&decoded.operation)) {
@@ -1629,9 +1689,11 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 			if (const auto teleportError = executeTeleport(teleport->mapId,
 					teleport->x, teleport->y, true))
 				return *teleportError;
+   callStack.clear();state.scriptValues.damageType=0;
    state.entireParty=false;state.lookupDirection=workingCamera.direction;
    state.activeCharacterIndex = partyState.party.size() ? std::optional<std::size_t>{0} : std::nullopt;
-			logical = {workingCamera.mapId, teleport->x, teleport->y, 0};
+			state.continuedAtDestination=true; // DAT 0x2711f..0x27127: redraw, then restart.
+			logical = {workingCamera.mapId, workingCamera.x, workingCamera.y, 0};
 			try {
 				script.emplace(scriptProvider(logical.mapId));
 			} catch (const std::exception &exception) {

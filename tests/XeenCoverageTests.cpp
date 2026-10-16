@@ -72,12 +72,8 @@ void fixtureContexts(const char *directory) {
     continued.records={at(start,0,0x19,{100,100,0}),
         at({27,100,100,XeenDirection::North},0,0x1f,{27,destinationX,destinationY})};
     result=XeenEventInterpreter().begin(start,calledParty,{},*called,scripts,texts);
-    const auto *failure=std::get_if<XeenEventExecutionError>(&result);
-    check(failure && failure->kind==XeenEventExecutionErrorKind::UnsupportedExecutionContext &&
-            failure->message.find("active call stack")!=std::string::npos,
-        "TeleportAndContinue active-call refusal remains a distinct deferred Part C gap");
-    std::cout<<"Fixture map 27 at (10,10) North; destination object "<<selected->recordIndex
-        <<" at ("<<destination.x<<","<<destination.y<<"): selection supported, active-call refusal retained\n";
+    check(std::holds_alternative<XeenEventExecutionCompleted>(result),"Continue with active call discards caller and naturally closes at destination");
+
 }
 int main(int argc,char **argv) {
     try {

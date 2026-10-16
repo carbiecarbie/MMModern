@@ -166,6 +166,8 @@ int main(int argc,char **argv) {
   const auto randomBefore=eventWorld->sessionState().journeyRandom();
   exit=eventSystem.resumeManualEvent(confirmation->state,XeenPresentationResponse::Yes,
    *eventWorld,eventParty,exitCamera,eventFlags);
+  if(const auto *failure=std::get_if<XeenEventExecutionError>(&exit))
+   std::cerr<<"Original exit travel error: "<<failure->message<<'\n';
   check(std::holds_alternative<XeenManualEventCompleted>(exit) && exitCamera.mapId==23 &&
    exitCamera.x==10 && exitCamera.y==12 && exitCamera.direction==XeenDirection::South &&
    eventWorld->sessionState().regionalActors(28).size()==46 &&

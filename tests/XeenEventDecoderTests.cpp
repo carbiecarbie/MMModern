@@ -109,13 +109,9 @@ void testTeleports() {
 		failure(XeenEventDecoder::decode(record(0x07, payload)),
 			XeenEventDecodeErrorKind::MalformedInstruction);
 
-	const auto &mirrorShort = failure(XeenEventDecoder::decode(record(0x07, {0})),
-		XeenEventDecodeErrorKind::UnsupportedOperand);
-	const auto &mirrorLong = failure(XeenEventDecoder::decode(record(0x1f, {0, 1, 2, 3})),
-		XeenEventDecodeErrorKind::UnsupportedOperand);
-	check(!mirrorShort.expectedParameterSize && mirrorShort.actualParameterSize == 1 &&
-		!mirrorLong.expectedParameterSize && mirrorLong.actualParameterSize == 4,
-		"mirror is identified before direct-form size validation");
+    operation<XeenEventTeleportAndExit>(XeenEventDecoder::decode(record(7,{0})));
+    operation<XeenEventTeleportAndContinue>(XeenEventDecoder::decode(record(31,{0,1,2,3})));
+
 }
 
 void testCallEvent() {
@@ -276,8 +272,7 @@ void testErrorsMetadataAndPurity() {
 		XeenEventDecodeErrorKind::UnsupportedOpcode).source, false, 0xff);
 	checkSource(failure(XeenEventDecoder::decode(record(0x12, {1})),
 		XeenEventDecodeErrorKind::MalformedInstruction).source, false, 0x12);
-	checkSource(failure(XeenEventDecoder::decode(record(0x07, {0})),
-		XeenEventDecodeErrorKind::UnsupportedOperand).source, false, 0x07);
+	checkSource(success(XeenEventDecoder::decode(record(0x07, {0}))).source, false, 0x07);
 	checkSource(success(XeenEventDecoder::decode(record(0x12),
 		{42, std::string("maze0042.evt")})).source, true, 0x12);
 

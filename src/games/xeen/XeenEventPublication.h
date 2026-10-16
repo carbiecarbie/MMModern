@@ -86,9 +86,16 @@ public:
 				integrity("Journey event record changed");
 		}
 	}
-	void continuation(const XeenEventExecutionState &state,const XeenEventContinuation &retained) const {
-		check();
-		try {retained.check(state);script(state.currentScript->file());}
+	void continuation(const XeenEventExecutionState &state,const XeenEventContinuation &retained,bool detachedTravel=false) const {
+        check();
+        try {
+            retained.check(state);
+            // A detached Continue may suspend in its destination script. The
+            // interpreter-issued preimage binds that entire script and state;
+            // the live publication still validates its original entry resource.
+            if(!detachedTravel || state.currentScript->file().mapId==original.mapId)
+                script(state.currentScript->file());
+        }
 		catch(const std::logic_error &) {integrity("Event continuation or resource preimage changed");}
 		// Remove may hide the initially selected object before treasure is shown.
 		// Its identity belongs to the checked continuation, not a fresh selection.

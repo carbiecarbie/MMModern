@@ -23,8 +23,10 @@ OriginalContext::OriginalContext(const GameInstallation &installation, std::opti
     darkAssets(darkInstallation(installation)),
     events([this](const std::string &name)->std::optional<std::vector<std::uint8_t>> {
         if(!assets.hasInitialResource(name))return {};return assets.readInitialResource(name);
-    }),texts([this](const std::string &name)->std::optional<std::vector<std::uint8_t>> {
+     }),texts([this](const std::string &name)->std::optional<std::vector<std::uint8_t>> {
         if(!assets.hasArchiveResource(name))return {};return assets.readArchiveResource(name);
+    },[this](const std::string &name)->std::optional<std::vector<std::uint8_t>> {
+        return assets.readArchiveResource(name,XeenSceneArchive::DarksideOnly);
     }),world([this](auto id){
         if(id.side==XeenSide::Clouds)return maps.loadGeometryMap(assets,id);
         XeenMap map;map.side=id.side;

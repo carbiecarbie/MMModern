@@ -444,6 +444,8 @@ int Application::gameplay(const std::filesystem::path &gameDirectory, XeenCamera
         const XeenEventTextLoader texts([&](const std::string &name) -> std::optional<std::vector<std::uint8_t>> {
             if (!assets.hasArchiveResource(name)) return std::nullopt;
             return assets.readArchiveResource(name);
+        },[&](const std::string &name) -> std::optional<std::vector<std::uint8_t>> {
+            return assets.readArchiveResource(name,XeenSceneArchive::DarksideOnly);
         });
         if (!assets.hasArchiveResource("fnt")) throw std::runtime_error("Missing Xeen font resource 'fnt'");
         const XeenFontFormat font(assets.readArchiveResource("fnt"));

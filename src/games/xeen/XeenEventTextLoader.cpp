@@ -3,6 +3,7 @@
 #include "formats/xeen/XeenEventTextFormat.h"
 
 #include <iomanip>
+#include <algorithm>
 #include <sstream>
 #include <stdexcept>
 #include <utility>
@@ -15,10 +16,10 @@ const std::string *XeenEventTextFile::stringAt(std::size_t index) const {
 	return &strings[index];
 }
 
-XeenEventTextLoader::XeenEventTextLoader(ResourceReader resourceReader) :
-	_resourceReader(std::move(resourceReader)) {
+XeenEventTextLoader::XeenEventTextLoader(ResourceReader resourceReader,ResourceReader mirrorReader) :
+	_resourceReader(std::move(resourceReader)),_mirrorReader(std::move(mirrorReader)) {
 	if (!_resourceReader)
-		throw std::invalid_argument("leitor de recursos de texto ausente");
+		throw std::invalid_argument("Event text resource reader is absent");
 }
 
 std::string XeenEventTextLoader::resourceNameForMap(XeenMapIdentity mapId) {
@@ -38,7 +39,21 @@ XeenEventTextFile XeenEventTextLoader::load(XeenMapIdentity mapId) const {
 		return result;
 	result.resourcePresent = true;
 	result.strings = XeenEventTextFormat::parse(*bytes);
+    if (_mirrorReader) if (const auto mirrors=_mirrorReader(mapId.side==XeenSide::Clouds?"xeenmirr.txt":"darkmirr.txt"))
+        result.mirrors=parseMirrors(*mirrors);
 	return result;
+}
+
+std::vector<XeenMirrorDestination> XeenEventTextLoader::parseMirrors(const std::vector<std::uint8_t> &bytes) {
+    if(bytes.size()%32)throw std::invalid_argument("Malformed mirror destination table");
+    std::vector<XeenMirrorDestination> result;
+    for(std::size_t at=0;at<bytes.size();at+=32) {
+        const auto end=std::find(bytes.begin()+at,bytes.begin()+at+28,0);
+        if(end==bytes.begin()+at+28)throw std::invalid_argument("Unterminated mirror destination name");
+        result.push_back({std::string(bytes.begin()+at,end),bytes[at+28],
+            static_cast<std::int8_t>(bytes[at+29]),static_cast<std::int8_t>(bytes[at+30]),static_cast<std::int8_t>(bytes[at+31])});
+    }
+    return result;
 }
 
 } // namespace mmodern

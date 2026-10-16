@@ -79,6 +79,10 @@ struct XeenEventTeleportAndContinue {
 	int y = 0;
 };
 
+struct XeenEventConfirmWord {
+	std::uint8_t inputType=0, targetLine=0, alternateText=0, titleText=0;
+};
+
 struct XeenEventCallEvent {
 	int x = 0;
 	int y = 0;
@@ -159,6 +163,7 @@ using XeenDecodedEventOperation = std::variant<
 	XeenEventTeleportAndExit,
 	XeenEventTeleportAndContinue,
 	XeenEventCallEvent,
+	XeenEventConfirmWord,
 	XeenEventConditional,
 	XeenEventTakeOrGive,
 	XeenEventGiveMulti,

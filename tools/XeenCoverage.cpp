@@ -128,6 +128,7 @@ XeenEventFile isolatedEventProbe(const XeenEventRecord &original,XeenMapIdentity
     const auto &operation=std::get<XeenDecodedEventInstruction>(decoded).operation;
     if(const auto *condition=std::get_if<XeenEventConditional>(&operation))exitLines.insert(condition->targetLine);
     if(const auto *npc=std::get_if<XeenEventNpc>(&operation))exitLines.insert(npc->targetLine);
+    if(const auto *word=std::get_if<XeenEventConfirmWord>(&operation))exitLines.insert(word->targetLine);
     if(const auto *jump=std::get_if<XeenEventJumpRandom>(&operation))if(jump->line>=0)exitLines.insert(unsigned(jump->line));
     if(const auto *flag=std::get_if<XeenEventIfMapFlag>(&operation))if(flag->line>=0)exitLines.insert(unsigned(flag->line));
     if(const auto *call=std::get_if<XeenEventCallEvent>(&operation))
@@ -172,9 +173,26 @@ Support eventSupport(const XeenEventRecord &original,const XeenEventFile &origin
         // Isolate the operation using inert suffixes; this measures capabilities,
         // not path reachability. A call's continuation is measured by its own row.
         const auto record=original;
-        const XeenCamera camera=caller.value_or(XeenCamera{id,record.x,record.y,
+        XeenCamera camera=caller.value_or(XeenCamera{id,record.x,record.y,
             record.direction<4?XeenDirection(record.direction):XeenDirection::North});
-        const auto file=isolatedEventProbe(original,id,caller);
+        auto file=isolatedEventProbe(original,id,caller);
+        std::optional<XeenEventRecord> mirrorPrefix;
+        if((original.opcode==7 || original.opcode==31) && original.parameters[0]==0) {
+            for(const auto &r:originalFile.records)if(r.opcode==21 && r.x==original.x && r.y==original.y &&
+                r.parameters.size()==4 && r.parameters[0]==0 && r.parameters[1]<=original.line) {mirrorPrefix=r;break;}
+            if(!mirrorPrefix) {
+                for(const auto &r:originalFile.records)if(r.opcode==17 && r.x==original.x && r.y==original.y &&
+                    r.line<original.line && (r.direction==4 || r.direction==original.direction))
+                    return {Status::Unclassified,"Census limit: mirror transfer is a dead suffix after terminal DoTownEvent"};
+                return {Status::Unclassified,"Census limit: mirror selection has no local ConfirmWord prefix"};
+            }
+            if(mirrorPrefix->direction<4)camera.direction=XeenDirection(mirrorPrefix->direction);
+            file.records.push_back(*mirrorPrefix);
+            for(unsigned line=mirrorPrefix->parameters[1];line<original.line;++line) {
+                auto inert=original;inert.line=line;inert.opcode=0;inert.parameters.clear();inert.lengthField=5;
+                file.records.push_back(inert);
+            }
+        }
         const auto &operation=std::get<XeenDecodedEventInstruction>(decoded).operation;
         if(const auto *alter=std::get_if<XeenEventAlterEvent>(&operation)) {
             // This operation addresses another original physical record. Check
@@ -188,7 +206,7 @@ Support eventSupport(const XeenEventRecord &original,const XeenEventFile &origin
             return XeenEventScript(XeenEventFile{target,"census",true,{}});
         };
         // isolatedEventProbe appends the caller and its inert return line last.
-        const auto initialLine=caller?file.records[file.records.size()-2].line:record.line;
+        const auto initialLine=mirrorPrefix?mirrorPrefix->line:caller?file.records[file.records.size()-2].line:record.line;
         auto result=XeenEventInterpreter().begin(camera,party,{},*world,scripts,texts,initialLine);
         for(unsigned step=0;step<256;++step) {
             if(const auto *bad=std::get_if<XeenEventExecutionError>(&result)) {
@@ -237,9 +255,17 @@ Support eventSupport(const XeenEventRecord &original,const XeenEventFile &origin
                     kind==K::GuildService?L::Guild:L::Smith;
                 return {Status::Supported,"Original terminal Event-to-Service handoff admitted with Journey owners",location};
             }
+            if(mirrorPrefix && pending->request.response==XeenPresentationResponseRequirement::WordInput) {
+                const auto &mirrors=pending->request.mirrors;
+                const unsigned first=id.side==XeenSide::Clouds && id.number>32?38:0;
+                if(mirrors.size()<=first)return {Status::Unclassified,"Census limit: mirror resource has no searchable destination"};
+                result=XeenEventInterpreter().resume(std::move(pending->state),XeenWordInput{mirrors[first].name},party,*world,scripts,texts);
+                mirrorPrefix.reset();continue;
+            }
             // A legitimate question/selection is supported input, not absent ownership.
             if(pending->request.response==XeenPresentationResponseRequirement::YesNo ||
-                    pending->request.response==XeenPresentationResponseRequirement::CharacterSelection)
+                    pending->request.response==XeenPresentationResponseRequirement::CharacterSelection ||
+                    pending->request.response==XeenPresentationResponseRequirement::WordInput)
                 return {Status::Supported,"Original Event input admitted with Journey owners"};
             const auto response=pending->request.response==XeenPresentationResponseRequirement::Presented?
                 XeenPresentationResponse::Presented:XeenPresentationResponse::Acknowledged;
@@ -369,6 +395,34 @@ std::string largestGaps(const Census &c) {
     }
     return out.str()+"\n";
 }
+namespace {
+std::string cloudsEventScope(const Census &census) {
+    // Report exclusions separately without changing any interpreter support result.
+    const std::vector<std::string> labels{"Supported", "Audio excluded", "Town services excluded", "Ending excluded", "Destination admission", "Census limits", "Unresolved in-scope"};
+    std::array<std::size_t,7> rows{},uses{};
+    for(const auto &[key,row]:census.rows)if(row.dimension=="Events") {
+        const auto opcode=row.mechanic.substr(0,row.mechanic.find(' '));
+        const auto &reason=row.support.reason;unsigned group=6;
+        if(row.support.status==Status::Supported)group=0;
+        else if(opcode=="6" || opcode=="40" || opcode=="60")group=1;
+        else if(opcode=="17")group=2;
+        else if(opcode=="30")group=3;
+        else if(row.support.status==Status::Partial && (opcode=="7" || opcode=="31") &&
+            (reason=="Destination map is not admitted yet" || reason=="Destination is outside the admitted mainland"))group=4;
+        else if(row.support.status==Status::Unclassified &&
+            (reason=="Off-map subroutine has no physical caller in this resource" ||
+             reason=="Census limit: mirror transfer is a dead suffix after terminal DoTownEvent" ||
+             reason.rfind("Census limit: isolated original self-target;",0)==0))group=5;
+        ++rows[group];uses[group]+=row.uses;
+    }
+    std::ostringstream out;out<<"## Clouds Event scope\n\n| Classification | Mechanic/reason rows | Instructions |\n| --- | ---: | ---: |\n";
+    for(unsigned i=0;i<labels.size();++i)out<<"| "<<labels[i]<<" | "<<rows[i]<<" | "<<uses[i]<<" |\n";
+    out<<"\nThese classifications retain the support results below. Ending keywords inside ConfirmWord are excluded paths, not separate instruction rows. "
+        "Census limits are uncalled off-map records, the dead map-49 service suffix and any real isolated self-loop safety limit. "
+        "Destination admission remains separate from operation support. Darkside rows are outside this Clouds scope.\n\n";
+    return out.str();
+}
+}
 std::string report(const Census &clouds,const Census &darkside) {
     const auto a=clouds.markdown(),b=darkside.markdown();
     const auto ap=a.find("### Per-map readiness"),bp=b.find("### Per-map readiness");
@@ -382,7 +436,7 @@ std::string report(const Census &clouds,const Census &darkside) {
     }
     screenTotals+="shared checklist, not data-derived.\n\n";
     return "# Coverage census\n\nGenerated by `mmodern_census <game-dir> --write docs/coverage.md`. Check without writing: `--check docs/coverage.md`.\n\n"+
-        a.substr(0,ap)+b.substr(0,bp)+screenTotals+"## Largest gaps\n\nTop 20 unsupported mechanics per side, by distinct map impact across dimensions. Reasons are merged by mechanic. Species rows and duplicate service-admission rows are excluded. Journey map-entry restrictions are reported separately in readiness.\n\n"+largestGaps(clouds)+largestGaps(darkside)+"## Interpretation\n\n"+
+        a.substr(0,ap)+b.substr(0,bp)+screenTotals+cloudsEventScope(clouds)+"## Largest gaps\n\nTop 20 unsupported mechanics per side, by distinct map impact across dimensions. Reasons are merged by mechanic. Species rows and duplicate service-admission rows are excluded. Journey map-entry restrictions are reported separately in readiness.\n\n"+largestGaps(clouds)+largestGaps(darkside)+"## Interpretation\n\n"+
         "Read-only World of Xeen CD census. Original resources are never exported. The report retains only counts, identifiers and in-game names.\n\n"
         "Support comes from engine decoders and execution with original New Game owners or prepared Clouds developer Event-fixture owners, geometry, actors and Journey RNG (seed 7), "
         "initialized by XeenEncounterFlow. Each operation uses a fresh detached candidate; mutations never reach the retained source or disk. "
@@ -393,10 +447,14 @@ std::string report(const Census &clouds,const Census &darkside) {
         "Original quest-counter refusals, proficiency and equipment conflicts are gameplay rules, not missing implementation. "
         "When the same mechanic is admitted elsewhere, its engine refusal is partial in that context instead of a globally missing mechanic. "
         "Audio remains partial because its original timing/animation runs silently. Records rejected as malformed and evidence not classifiable by engine checks remain unclassified.\n\n"
+        "M70 Clouds Event exclusions: audio (6/40/60), town services (17, beyond current Vertigo actions), and the ending (30 plus ConfirmWord ending keywords). "
+        "Darkside-only operations and durable banks are outside Clouds scope. Destination-map admission is separate: shared travel refusals preserve candidate state and RNG. "
+        "Residual census limits are off-map records without a discovered physical caller, real isolated self-loops (1024 dispatches), and mirror transfers without a local ConfirmWord prefix. "
+        "No unresolved in-scope Clouds Event mechanic is accepted as an exclusion.\n\n"
         "Items measure Equip/Use. Equipment combat/Rest is separate: it asks the actual xeenValidateJourneyMelee guard, which since M67 admits every "
         "material, effectiveness counter and broken/cursed state the original accepts and refuses only records outside the generated tables. No predicate from the old diagnostic monster profile is used to judge current scene animation. "
-        "The calibration gate accepts only the documented mirror/word-input, audio and six service-action gaps in Vertigo; it never overrides a support result. "
-        "Calibration exceptions: ConfirmWord is the unsupported mirror destination input; PlayFX, PlayEventVoc and PlayCD preserve presentation but lack audio; "
+        "The calibration gate accepts only audio and six service-action gaps in Vertigo; mirror and password input run through the interpreter. "
+        "Calibration exceptions: PlayFX, PlayEventVoc and PlayCD preserve presentation but lack audio; "
         "four Event row types (Return, Display0x01, If2 mode 44 and WhoWill) remain unclassified because their off-map subroutines have no physical caller in the resource. "
         "No missing owner, RNG, publication or service provider is an allowed Vertigo exception. "
         "Generic arrival effects, object/wall behavior, resistance and drop rows still carry explicit unknowns; they do not certify a map as playable.\n\n"

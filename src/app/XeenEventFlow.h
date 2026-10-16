@@ -16,7 +16,7 @@
 #include "app/XeenEncounterFlow.h"
 #include <memory>
 #include "core/InputContext.h"
-#include "app/XeenTextInput.h"
+#include "games/xeen/XeenTextInput.h"
 #include "core/PresentationClock.h"
 #include "formats/xeen/XeenSpriteDrawOptions.h"
 
@@ -447,6 +447,7 @@ private:
 	bool updateOrdinaryPhase(OrdinaryCause cause, bool reset, std::uint64_t now);
 	bool advanceEncounterOrdinary(OrdinaryCause cause = OrdinaryCause::Idle);
 	bool refreshScene(bool reconstruct, OrdinaryCause cause, bool committedTransition = false);
+	Composition composeJourneyScene(bool reconstruct);
 	template<class Result> IndexedFrame drive(Result result, bool automatic, bool reconstruct = false,
 		OrdinaryCause cause = OrdinaryCause::None, bool committedTransition = false);
 	IndexedFrame presentationFailed(const std::exception &exception);

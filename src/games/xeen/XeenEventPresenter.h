@@ -2,6 +2,7 @@
 #define MMODERN_GAMES_XEEN_XEEN_EVENT_PRESENTER_H
 
 #include "core/PlayerAction.h"
+#include "games/xeen/XeenTextInput.h"
 #include "games/xeen/XeenEventInterpreter.h"
 #include "games/xeen/XeenTextRenderer.h"
 #include "games/xeen/XeenDialogView.h"
@@ -64,11 +65,17 @@ public:
 		_dosText=text; _spriteDraw=std::move(draw);
 	}
 	DialogInput input() const;
+    bool wordInputActive() const {return _active && _request.kind==XeenPresentationKind::WordInput;}
+    std::optional<std::uint64_t> wordDeadline() const {return _wordInput.deadline();}
+    bool animateWord(std::uint64_t now) {return wordInputActive() && _wordInput.animate(now);}
+
 
 private:
 	XeenTextRenderOptions optionsFor(const XeenPresentationRequest &request) const;
 	XeenTextRenderResult drawText(const IndexedFrame &, const XeenPresentationRequest &) const;
 	IndexedFrame overlayNotices(IndexedFrame) const;
+	IndexedFrame drawWord(const IndexedFrame &) const;
+	XeenTextInput _wordInput;
 	IndexedFrame drawConfirmation(const IndexedFrame &base) const;
 	XeenTextRenderResult drawSelection(const IndexedFrame &base,
 		const XeenPresentationRequest &request) const;

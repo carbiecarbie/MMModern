@@ -79,7 +79,7 @@ void testReaderErrorsAndValidation() {
 		XeenEventTextLoader loader({});
 		(void)loader;
 	});
-	check(message.find("ausente") != std::string::npos, "missing reader rejected");
+	check(message.find("absent") != std::string::npos, "missing reader rejected");
 
 	const std::string readFailure = rejectionMessage([] {
 		XeenEventTextLoader([](const std::string &) -> std::optional<Bytes> {

@@ -243,7 +243,7 @@ int main(int argc,char **argv) try {
   mirror[1980]==0 && mirror[1981]==0 && mirror[1982]==0 && mirror[1983]==0,
   "DARK.CC bounded Clouds mirror table appends only the zero-destination Bloopers keyword");
  XeenEventRecord teleport;teleport.opcode=7;teleport.parameters={0};
- check(std::holds_alternative<XeenEventDecodeError>(XeenEventDecoder::decode(teleport)),"Map-zero mirror remains unsupported");
+ check(std::holds_alternative<XeenDecodedEventInstruction>(XeenEventDecoder::decode(teleport)),"Map-zero mirror decodes without requesting another input");
  check(textMaps.size()==20 && fourOperand>0,"Complete changed-text and four-operand NPC inventory");
  std::cout<<"26 CD scripts, "<<records<<" parsed records, "<<speech<<" inserted speech records; 49 entries in 20 text resources verified\n";
  return 0;

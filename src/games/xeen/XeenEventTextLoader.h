@@ -11,12 +11,22 @@
 
 namespace mmodern {
 
+struct XeenMirrorDestination {
+    std::string name;
+    std::uint8_t map=0;
+    int x=0,y=0,direction=-1;
+    bool operator==(const XeenMirrorDestination &o) const {
+        return name==o.name && map==o.map && x==o.x && y==o.y && direction==o.direction;
+    }
+};
+
 struct XeenEventTextFile {
 	XeenMapIdentity mapId = 0;
 	std::string resourceName;
 	bool resourcePresent = false;
 	std::vector<std::string> strings;
 
+	std::vector<XeenMirrorDestination> mirrors;
 	const std::string *stringAt(std::size_t index) const;
 };
 
@@ -25,13 +35,14 @@ public:
 	using ResourceReader = std::function<std::optional<std::vector<std::uint8_t>>(
 		const std::string &resourceName)>;
 
-	explicit XeenEventTextLoader(ResourceReader resourceReader);
+	explicit XeenEventTextLoader(ResourceReader resourceReader,ResourceReader mirrorReader={});
 
 	static std::string resourceNameForMap(XeenMapIdentity mapId);
+	static std::vector<XeenMirrorDestination> parseMirrors(const std::vector<std::uint8_t> &);
 	XeenEventTextFile load(XeenMapIdentity mapId) const;
 
 private:
-	ResourceReader _resourceReader;
+	ResourceReader _resourceReader, _mirrorReader;
 };
 
 } // namespace mmodern

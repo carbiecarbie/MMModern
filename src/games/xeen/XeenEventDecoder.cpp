@@ -137,10 +137,10 @@ XeenEventDecodeResult decodeTeleport(const XeenEventRecord &record,
 	std::uint8_t mapId = 0;
 	reader.readUint8(mapId);
 	if (mapId == 0) {
-		return makeError(record, context,
-			XeenEventDecodeErrorKind::UnsupportedOperand,
-			"mirror teleport is outside the supported decoder subset");
-	}
+        // The mirror form reads only its map byte; original records may retain padding.
+        if (exits) return instruction(record,context,XeenEventTeleportAndExit{});
+        return instruction(record,context,XeenEventTeleportAndContinue{});
+    }
 	if (record.parameters.size() != 3)
 		return wrongSize(record, context, 3);
 
@@ -384,6 +384,9 @@ XeenEventDecodeResult XeenEventDecoder::decode(const XeenEventRecord &record,
 			return makeError(record,context,XeenEventDecodeErrorKind::UnsupportedOperand,
 				"Town service is not supported yet");
 		return instruction(record,context,XeenEventTownService{record.parameters[0]});
+	case 0x15:
+		if(record.parameters.size()!=4)return wrongSize(record,context,4);
+		return instruction(record,context,XeenEventConfirmWord{record.parameters[0],record.parameters[1],record.parameters[2],record.parameters[3]});
 	case 0x19:
 		return decodeCallEvent(record, context);
 	case 0x1a:

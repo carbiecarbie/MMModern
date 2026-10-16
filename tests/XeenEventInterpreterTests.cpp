@@ -403,8 +403,7 @@ void testTeleportsAndTransactionalResult() {
 		record(1, 1, 0, 0x19, {75, 75, 0}),
 		record(75, 75, 0, 0x1f, {2, 3, 4})
 	}));
-	failure(activeStack.execute(camera, party, flags),
-		XeenEventExecutionErrorKind::UnsupportedExecutionContext);
+	check(success(activeStack.execute(camera,party,flags)).finalCamera.mapId==XeenMapIdentity(2),"Continue discards active call stack");
 
 	Fixture mirror;
 	mirror.scripts.emplace(1, script(1, {record(1, 1, 0, 0x07, {0})}));

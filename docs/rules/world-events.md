@@ -1,4 +1,4 @@
-# World Events: map changes, Spawn and script values
+# World Events: map changes, script values, travel and input
 
 **Evidence: DOS static**, installed English CD `WORLD/XEEN.DAT`, SHA-256
 `8bf78b4850d5973cbb063c7dd96b9aaef4e94791d748334187eef74acf528d27`.
@@ -307,3 +307,110 @@ default case, which only advances the line (`0x26c50..0x26c61`,
 
 See [original quirks](../original-quirks.md) for deliberate reference differences
 and [evidence](evidence.md) for executable address mapping and research limits.
+
+## Travel and typed input
+
+**Evidence: calibrated DOS static**, the installed English CD executable and
+file-offset calibration above, checked 2026-10-16. The two residue/bounds
+choices below are explicit maintainer decisions, not DOSBox observations.
+
+TeleportAndExit (7) and TeleportAndContinue (31) read a byte map ID. A nonzero
+ID reads signed-byte x/y and keeps facing. Zero consumes the mirror record
+selected by ConfirmWord in this Event run, without another prompt. Mirror
+direction -1 keeps facing; other directions replace it. Mirror `(0,0)` becomes
+x=-1; explicit x=-1 also uses the destination map's run coordinates. Evidence:
+`0x27018..0x27025`, `0x2702b..0x270a1`, `0x27095..0x2710f`.
+
+Same-map travel skips map loading (`0x270be..0x270f9`), retaining wounds,
+wake state and temporary outdoor-neighbour changes. An actual map change uses
+the existing exit lifetime, clears that temporary layer, stages/reloads the
+destination monsters and reloads head indicators before destination Events.
+The foundation's shared transition result checks admission before candidate
+changes. Unavailable travel discards unpublished map, party, rewards and Journey
+RNG changes. An already published presentation/reward prefix remains authoritative
+under the foundation's publication rule.
+
+Exit terminates. Continue redraws/reselects destination objects and restarts at
+physical destination line 0 (`0x27117..0x27127`). It discards CallEvent frames
+and resets member selection to 1 (active index 0), all-party selection off,
+and damage type to physical: initializer `0x26a8e..0x26ab8`, Call/Return storage
+`0x28375..0x283f6`. It never returns to the old caller. Object selection is the
+ordinary redraw lookup (`0x170c1..0x171d4`, `0x156ee..0x15839`).
+Destination messages, input and other visible suspensions compose the retained
+destination world at the interpreter's working camera. Drawing does not publish
+the travel camera or candidate effects: a later refusal still discards them,
+while an already published reward/presentation prefix retains its authority.
+
+ConfirmWord (21) reads input type, success line, alternate text index and title
+index. Type 0 looks up a mirror; other values name primary map text (the
+dispatch message, `0x26c26..0x26c48`). Alternate index 0 reuses the primary;
+a nonzero index selects that resource string. Title index 0 uses the original
+password title; others select map text (`0x27f15..0x27fa6`). Strings are compared
+directly, case-insensitively, primary first, without the reference's Vowelless
+Knight rewrite (`0x24023..0x24067`, comparator `0xa39f..0xa3df`). A match jumps
+to the success line; wrong, empty or cancelled input advances normally.
+
+**Maintainer decision, 2026-10-16:** an alternate-only match also takes ordinary
+success. DOS passes an uninitialized local marker and can instead use operand 3
+when residue equals 55: `0x27f15` skips `0x27f09`'s assignment, `0x27fba` passes
+it, `0x2405e..0x24067` tests it and `0x280cc..0x280e6` branches. The only Clouds
+alternate-only use is map 69 `(9,15)` West line 0. See
+[original quirks](../original-quirks.md#approved-deviations).
+
+Missing byte-indexed primary, alternate or title text aliases text[0]: DOS clears
+all 280 offsets (`0x21d26..0x21d34`) before filling actual strings
+(`0x21d40..0x21d81`). An unused slot retains offset zero into the resource.
+Map 69's alternate 21 is such a slot; its primary is text 8. MMModern preserves
+this alias instead of the reference's empty missing alternate.
+
+Clouds mirror lookup starts at record index 0x26 on physical map numbers above
+32 (`0x2406c..0x2407c`), otherwise index 0; result is index+1. The CD
+`xeenmirr.txt` in DARK.CC has 62 records of 32 bytes. DOS's inclusive bound
+(`0x240d5..0x24118`) permits index 62, reading stale shared scratch beyond the
+table; loading does not clear the tail (`0x45ef8..0x45f33`). **Maintainer decision,
+2026-10-16:** MMModern bounds by actual records and the original list bound.
+Travel reads the selected record directly, including Dragon Tower's map 5
+`(10,12)` and preserved facing, without the reference's map-13 correction.
+
+Clouds mirror result 59 (`i lost it`) puts weapon 34, material/state zero, in
+the first free ten-slot treasure-weapon entry and exits (`0x28076..0x280ca`).
+A full category instead follows ordinary success. The existing reward owner
+delivers the sword. Ending/cinematic codes 40, 60, 61 and 62, opcode 30, audio
+and further town services remain excluded from M70; Darkside-only operations
+and durable banks remain separate.
+
+The shared text input uses original window 6, length 30 and width 200
+(`0x24008..0x24014`, `0x1e00f..0x1e179`). Width is formatting, not a character
+rejection threshold. It accepts original printable input, ignores leading
+spaces, capitalizes the first letter of each word and lowers later letters.
+Backspace/Delete removes a character; Enter accepts; Escape clears and returns
+an empty answer. Left clicks are consumed without editing/submitting
+(`0x1e01c..0x1e021`, `0xe315..0xe328`); right/both-button input maps to Escape
+and drains buttons (`0xe0d5..0xe0f6`). Original title/window text comes from the
+installed executable. While the prompt owns input, movement/other owners get
+no keys; M63's frame, context, focus and queue fences still apply. Cursor
+animation is presentation-only and consumes no Journey time or RNG.
+
+Worked original Clouds scripts:
+
+- `maze0028.evt`, `(14,10)` West: line 2 ConfirmWord, line 7 map-zero Exit.
+  `vertigo` uses map 28's run location `(18,4)` West; `toad meadow` goes to
+  map 23 `(7,2)` and `ever blossom orchard` to map 23 `(5,12)`, keeping facing.
+  `magic delta` names map 23 `(9,6)`, outside the admitted mainland component;
+  other nonzero-map names target unadmitted maps and refuse.
+- `maze0069.evt`, `(9,15)` West line 0: type 8, success line 4, alternate 21,
+  title 10. Primary `There wolf`; alternate 21 aliases text[0]. Either match
+  takes line 4 under the approved marker decision.
+- `maze0011.evt`, `(13,7)`, all directions: line 3 Continue to `(14,7)` on
+  map 11, line 4 Continue to `(12,7)`; restart destination scripts at line 0.
+- `maze0028.evt` jail paths, line 16 Continue to map 28 `(27,11)`, keep facing
+  and skip a map reload.
+- `maze0049.evt`, `(7,14)` North line 1 map-zero Exit is a dead suffix:
+  line 0 DoTownEvent(12) unconditionally exits (`0x27b1f..0x27b3b`). It does
+  not establish another prompt or a durable mirror selection. The census lists
+  it separately from missing mechanics, alongside caller/safety limits.
+
+Travel/input need no new durable fields: save v13/schema 9/content 14 remains.
+Prompt text, mirror selection, call frames and pending rewards are transient;
+saving is unavailable while those owners are active. Quiet capture and restore
+do not replay an Event, reward, elapsed time or draw.

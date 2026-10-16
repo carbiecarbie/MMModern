@@ -4,7 +4,7 @@
 #include "core/InputContext.h"
 #include "games/xeen/XeenDialogView.h"
 #include "platform/XeenSaveFile.h"
-#include "app/XeenTextInput.h"
+#include "games/xeen/XeenTextInput.h"
 #include "core/PresentationClock.h"
 namespace mmodern {
 class XeenAssetSource;

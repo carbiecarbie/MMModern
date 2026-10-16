@@ -223,7 +223,8 @@ public:
 	// Transient developer admission; never serialized or offered by the title.
 	std::optional<XeenMapIdentity> developerEventMap() const noexcept { return _developerEventMap; }
 	bool eventCameraAdmitted(const XeenCamera &) const noexcept;
-	XeenTransitionResult prepareEventTransition(const XeenCamera &);
+	XeenTransitionResult prepareEventTransition(const XeenCamera &,bool runLocation=false);
+	void loadEventDestination(XeenMapIdentity from,XeenMapIdentity to);
 	bool regionalJourney() const noexcept {
 		return (_sessionState.journey() || _detachedEventCandidate);
 	}

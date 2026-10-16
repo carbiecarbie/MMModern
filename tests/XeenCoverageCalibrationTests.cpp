@@ -12,15 +12,12 @@ std::string trim(std::string s) {
     return a==std::string::npos?"":s.substr(a,b-a+1);
 }
 bool documentedGap(const std::string &dimension,const std::string &mechanic,const std::string &status,const std::string &reason) {
-    // Expectations only, never classification inputs. docs/project-status.md:
-    // magic mirror, silent audio, Tavern/Temple actions. ConfirmWord belongs
-    // to the mirror's destination-name input, not an accepted town interaction.
+    // Expectations only, never classification inputs: audio and the six
+    // deferred service actions. Mirror/password input is implemented.
     if(dimension=="Events") {
         const std::map<std::string,std::string> audio{{"6 PlayFX","Sound effects not supported yet"},
             {"40 PlayEventVoc","Voice audio not supported yet"},{"60 PlayCD","CD speech not supported yet"}};
         if(const auto i=audio.find(mechanic);i!=audio.end())return status=="partial" && reason.find(i->second)!=std::string::npos;
-        if(mechanic=="7 TeleportAndExit destination=0")return status=="unsupported" && reason.find("mirror teleport")!=std::string::npos;
-        if(mechanic=="21 ConfirmWord inputType=0")return status=="unsupported" && reason.find("opcode 21")!=std::string::npos;
     }
     const std::set<std::string> actions{"Drink","Tip","Rumors","Sign In","Donation","Uncurse"};
     return dimension=="Services" && actions.count(mechanic) && status=="unsupported" &&
@@ -49,6 +46,7 @@ int main(int argc,char **argv) {
             while(std::getline(stream,column,'|'))columns.push_back(trim(column));
             if(columns.size()!=7)continue;
             const auto &mechanic=columns[1],&status=columns[2],&reason=columns[6];
+            if(status!="supported" && status!="partial" && status!="unsupported" && status!="unclassified")continue;
             // M68 Part B: every live monster moves (walkers, flyers, species 59).
             // The one exception is the zero-HP, zero-use dark.mon 0 record.
             const bool emptyRecord=darkside && reason.rfind("dark.mon 0 ;",0)==0;
@@ -63,6 +61,18 @@ int main(int argc,char **argv) {
                 if(darkside && mechanic.rfind("dark.mon 59 ",0)==0) {require(status=="supported","Vulture Roc species is not supported: "+reason);++vultureRoc;}
             }
             if(!clouds)continue;
+            if(dimension=="Events" && status!="supported") {
+                const auto opcode=mechanic.substr(0,mechanic.find(' '));
+                const bool excluded=opcode=="6" || opcode=="40" || opcode=="60" || opcode=="17" || opcode=="30";
+                const bool admission=status=="partial" && (opcode=="7" || opcode=="31") &&
+                    (reason.find("Destination map is not admitted yet")!=std::string::npos ||
+                     reason.find("Destination is outside the admitted mainland")!=std::string::npos);
+                const bool limit=status=="unclassified" &&
+                    (reason.find("Off-map subroutine has no physical caller in this resource")!=std::string::npos ||
+                     reason.find("Census limit: mirror transfer is a dead suffix after terminal DoTownEvent")!=std::string::npos ||
+                     reason.find("Census limit: isolated original self-target;")!=std::string::npos);
+                require(excluded || admission || limit,"Unresolved in-scope Clouds Event: "+mechanic+" / "+reason);
+            }
             std::set<unsigned> maps;std::stringstream ids(columns[5]);
             while(std::getline(ids,column,','))try {maps.insert(std::stoul(trim(column)));}catch(...){}
             if(maps.count(28)) {
@@ -84,7 +94,7 @@ int main(int argc,char **argv) {
             bool found=false;for(const auto &name:supported)found=found || name.rfind(prefix,0)==0;
             require(found,std::string("Accepted Vertigo mechanic missing: ")+prefix);
         }
-        require(gaps==11 && unused==4,"Vertigo documented gap/subroutine inventory changed; explain and recalibrate");
+        require(gaps==9 && unused==4,"Vertigo documented gap/subroutine inventory changed; explain and recalibrate");
         require(waterDragon==2 && vultureRoc==2,"Species 59 species and movement rows are missing from the census");
         require(movement>=4,"Monster movement rows are missing from the census");
         std::cout<<"Vertigo calibration: "<<gaps<<" documented gap rows; "<<unused<<" unresolved-subroutine exceptions; accepted effects and services supported\n";

@@ -194,6 +194,10 @@ std::uint64_t XeenEventFlow::presentationNow() {
 }
 std::optional<std::uint64_t> XeenEventFlow::nextPresentationDeadline() {
     const auto now=presentationNow();
+    if(_presenter.wordInputActive()) {
+        const auto deadline=_presenter.wordDeadline();
+        return deadline?PresentationClock::fromMilliseconds(*deadline):now;
+    }
     if(_portraitSequence)return _portraitSequence->acquired?_portraitSequence->deadline:now;
     if(_death)return _death->acquired?std::optional<std::uint64_t>{_death->deadline}:std::nullopt;
     if(_smithUi) {
@@ -727,8 +731,7 @@ IndexedFrame XeenEventFlow::renderEncounter(bool report, bool cosmeticInput, boo
 					_events.textForMap(_camera.mapId); validation.check();
 				}
 				_world.scenePresentation().appearance(_encounter->appearance());
-                _world.scenePresentation().composeFromRetained(reconstruct && !_sceneAdvancePending);
-				auto composed = _encounterCompose(_ordinary.phase,_encounter->appearance());
+				auto composed = composeJourneyScene(reconstruct);
 				if (!_encounter->current(t)) throw std::logic_error("Stale Journey composition");
 				if (!composed.frame.isValid()) throw std::runtime_error("Invalid Journey frame");
 				// Party updates belong to the base: bottom Event windows cover them.
@@ -914,11 +917,37 @@ IndexedFrame XeenEventFlow::refresh(bool reconstruct) {
 	return frameCopy();
 }
 
+XeenEventFlow::Composition XeenEventFlow::composeJourneyScene(bool reconstruct) {
+	if(_transition && _pending && _pending->state.continuedAtDestination) {
+		auto &work=*_transition;
+		const auto &state=_pending->state;
+		const auto checkRetained=[&] {
+			requireCurrentOwners();_encounter->journeySavePreimage().check();checkTransitionCandidate();
+			if(!work.continuation)throw std::logic_error("Destination drawing lost its Event continuation");
+			work.continuation->check(state);
+			if(_eventPublication)_eventPublication->continuation(state,*work.continuation,true);
+		};
+		checkRetained();
+		// DOS 0x2711f..0x27127 redraws before destination Events. Draw from the
+		// retained candidate, including idle/retry frames, without publishing its
+		// camera/effects or changing refusal and published-prefix ownership.
+		XeenRestoreGuard candidate(*work.world,work.party,state.workingCamera,work.flags);
+		candidate.retainResources(*work.guard);
+		XeenRestoreGuard::Providers providers(candidate,*work.world,checkRetained);
+		try {
+			work.world->scenePresentation().composeFromRetained(reconstruct && !_sceneAdvancePending);
+			auto frame=_transitionCompose(*work.world,work.party,state.workingCamera,_ordinary.phase,XeenMonsterAppearance{0});
+			candidate.check();checkRetained();return frame;
+		} catch(...) {candidate.check();checkRetained();throw;}
+	}
+	_world.scenePresentation().composeFromRetained(reconstruct && !_sceneAdvancePending);
+	return _encounterCompose(_ordinary.phase,_encounter->appearance());
+}
+
 bool XeenEventFlow::refreshScene(bool reconstruct, OrdinaryCause cause, bool committedTransition) {
 	requireCurrentOwners();
 	if (journey() && _eventPublication) {
-		_world.scenePresentation().composeFromRetained(reconstruct && !_sceneAdvancePending);
-		auto composition=_encounterCompose(_ordinary.phase,_encounter->appearance());
+		auto composition=composeJourneyScene(reconstruct);
 		requireCurrentOwners();
 		_frame=_presenter.rebase(composition.frame);
         drawPartyPresentation(_frame);
@@ -1138,7 +1167,7 @@ XeenManualEventResult XeenEventFlow::resumeVertigoEvent(XeenEventExecutionState 
 		_encounter->journeySavePreimage().failed=true;
 		throw std::logic_error("Detached Event resume has no retained suspension");
 	}
-	_eventPublication->continuation(state,*_transition->continuation);
+	_eventPublication->continuation(state,*_transition->continuation,true);
 	_transition->continuation.reset(); // Consume before invoking the interpreter.
 	if(_transition->cancelled)
 		return XeenManualEventCompleted{state.instructionCount,false,false};
@@ -1230,7 +1259,7 @@ void XeenEventFlow::prepareVertigoResult(const XeenManualEventResult &result) tr
 			_candidateResultRefused=true;
 			_transition.reset();return;
 		}
-		if (!_world.developerEventMap()) {
+		if (!_world.developerEventMap() && work.kind!=XeenRegionalInteraction::Event) {
 			const auto expected=work.kind==XeenRegionalInteraction::VertigoExit?XeenMapIdentity(23):XeenMapIdentity(28);
 			if(work.camera.mapId!=expected || (work.kind!=XeenRegionalInteraction::VertigoExit && work.kind!=XeenRegionalInteraction::VertigoEntrance))
 				throw std::logic_error("Event ended outside its resource-defined transition capability");
@@ -1252,8 +1281,7 @@ void XeenEventFlow::prepareVertigoResult(const XeenManualEventResult &result) tr
 		if(!sameMap) {
 			if (!work.world->sessionState().hasRegionalActors(work.camera.mapId))
 				work.world->stageMapMonsters(work.world->objectFile(work.camera.mapId),_encounter->_journeyStatistics);
-			work.world->leaveMap(work.initialCamera.mapId); // Decision 2: the Warzone is never retained.
-			work.world->reloadMapMonsters(work.camera.mapId); // Decision 8: map load.
+			// Teleport dispatch already applied map-load lifetimes before destination Events.
 		}
 		return work.world->prepareTransitionArrival(work.camera);
 	}();
@@ -1336,7 +1364,7 @@ IndexedFrame XeenEventFlow::journeyEventWork(const std::function<void()> &operat
 			if (!_dispatching || !_encounter->journeyEvent() || !_encounter->current(entry))
 				throw std::logic_error("Stale Journey event continuation");
 		},beforeRewardEnqueue,&_regionalExecutedRecords);
-		if(_pending)publication.continuation(_pending->state,*_regionalEventContinuation);
+		if(_pending)publication.continuation(_pending->state,*_regionalEventContinuation,bool(_transition));
 		XeenRestoreGuard::Providers providers(_encounter->journeySavePreimage(),_world,[&] { publication.check(); });
 		_eventPublication=&publication;
 		try { operation(); publication.check();
@@ -1561,7 +1589,7 @@ XeenPresentationUpdate XeenEventFlow::presentPendingEvent() {
 void XeenEventFlow::publishEventSequencePrefix(const XeenEventExecutionState &state) {
 	if(!_transition || !_eventPublication || !_transition->guard || !_transition->continuation)
 		throw std::logic_error("Event sequence prefix has no retained authority");
-	_eventPublication->continuation(state,*_transition->continuation);
+	_eventPublication->continuation(state,*_transition->continuation,true);
 	checkTransitionCandidate();
 	_eventPublication->publishSequencePrefix(_world,_party,*_transition->guard);
 	// Party/RNG stores do not swap the detached World. Its checked interpreter
@@ -1596,7 +1624,8 @@ bool XeenEventFlow::drawPendingHeads(IndexedFrame &frame) {
  const auto &party=_transition?_transition->party:_party;
  if(!drawDialogSprite || (request.kind!=XeenPresentationKind::CharacterSelection && request.response!=XeenPresentationResponseRequirement::YesNo) || !party.encounterContext || !party.encounterContext->effects[0])return false;
  auto &world=_transition?*_transition->world:_world;
- const auto &camera=_transition?_transition->camera:_camera;
+ const auto &camera=_transition && _pending->state.continuedAtDestination?_pending->state.workingCamera:
+  _transition?_transition->camera:_camera;
  const auto heads=world.headIndicators(camera);const unsigned phase=_ordinary.phase%4;
  drawDialogSprite(frame,"border.icn",heads.left==2?0:phase+(heads.left==0?4:0),0,32);
  drawDialogSprite(frame,"border.icn",heads.right==2?8:phase+(heads.right==0?9:12),215,32);
@@ -1782,7 +1811,11 @@ bool XeenEventFlow::pulseServiceArt(ServiceArtState &state, IndexedFrame &art) {
     return true;
 }
 std::optional<IndexedFrame> XeenEventFlow::updatePresentation() {
-	requireCurrentOwners();
+    requireCurrentOwners();
+    if(_presenter.wordInputActive() && !_dispatching && !_fatal && !_saving && !_handoffPending &&
+       _presenter.animateWord(_clock())) {
+        DispatchScope dispatch(_dispatching);return renderEncounter(false,true);
+    }
     if(!_portraitSequence && !_dispatching && !_fatal && !_saving && !_handoffPending && _world.scenePresentation().feedbackActive()) {
         DispatchScope dispatch(_dispatching);prepareStandalonePortrait();
         if(_portraitSequence)return renderEncounter(false,true);

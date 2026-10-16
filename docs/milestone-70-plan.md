@@ -143,6 +143,10 @@ map revisit and refused travel.
    width 200, `0x24008..0x24014`), keyboard and mouse, Escape and Enter,
    without leaking keys into movement (M63 input rules). The sword reward
    path is included; ending codes are excluded.
+   *Amended (maintainer, 2026-10-16):* opcode 21 alternate-only matches take
+   ordinary success, rather than modeling its uninitialized DOS marker. Mirror
+   lookup bounds by actual resource records instead of the stale scratch read
+   at index 62. Missing byte-indexed text aliases text[0], following DOS.
 
 ## Census limits versus gaps
 

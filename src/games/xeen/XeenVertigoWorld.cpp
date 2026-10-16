@@ -8,11 +8,13 @@
 
 namespace mmodern {
 
-XeenTransitionResult XeenWorld::prepareEventTransition(const XeenCamera &destination) {
+XeenTransitionResult XeenWorld::prepareEventTransition(const XeenCamera &requested,bool runLocation) {
+    auto destination=requested;
 	if (regionalJourney() && destination.mapId!=XeenMapIdentity(23) &&
 		destination.mapId!=XeenMapIdentity(28) && destination.mapId!=_developerEventMap)
 		return {XeenTransitionResult::Status::Unavailable,destination,"Destination map is not admitted yet"};
 	const auto &resource=map(destination.mapId);
+	if(runLocation) {destination.x=static_cast<std::int8_t>(static_cast<std::uint8_t>(resource.geometry.runX));destination.y=static_cast<std::int8_t>(static_cast<std::uint8_t>(resource.geometry.runY));}
 	const int limit=resource.geometry.isOutdoors()?16:32;
 	if (unsigned(destination.direction)>3 || destination.x<0 || destination.y<0 ||
 		destination.x>=limit || destination.y>=limit || !sampleCell(destination.mapId,destination.x,destination.y))
@@ -21,6 +23,14 @@ XeenTransitionResult XeenWorld::prepareEventTransition(const XeenCamera &destina
 		!XeenMovement::component(resource,9,11,xeenJourneyContent().traversal)[destination.y*16+destination.x])
 		return {XeenTransitionResult::Status::Unavailable,destination,"Destination is outside the admitted mainland"};
 	return {XeenTransitionResult::Status::Available,destination,{}};
+}
+
+void XeenWorld::loadEventDestination(XeenMapIdentity from,XeenMapIdentity to) {
+    if(!_detachedEventCandidate)throw std::logic_error("Event map load requires a detached candidate");
+    if(!sessionState().hasRegionalActors(to))stageMapMonsters(objectFile(to),_cityStatistics);
+    leaveMap(from);
+    reloadMapMonsters(to);
+    reloadHeads(to);
 }
 
 XeenActorView XeenWorld::prepareTransitionArrival(const XeenCamera &camera) {
@@ -73,7 +83,8 @@ void XeenWorld::stageMapMonsters(const XeenObjectFile &mob,
 	_cityStatistics=statistics;
 	xeenValidateIndoorActors(*this,mob.mapId,actors);
 	const bool outdoors=map(mob.mapId).geometry.isOutdoors();
-	if (outdoors && mob.mapId!=_developerEventMap) throw std::logic_error("Outdoor map is not the selected developer map");
+	if (outdoors && mob.mapId!=XeenMapIdentity(23) && mob.mapId!=_developerEventMap)
+		throw std::logic_error("Outdoor map is not admitted");
 	_sessionState.stageMonsters(mob.mapId,std::move(actors),mob.entities.monsters.size(),outdoors);
 }
 

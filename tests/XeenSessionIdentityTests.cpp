@@ -197,7 +197,7 @@ void rejectionAndRollback() {
 	check(std::get<XeenEventExecutionError>(badText).kind == XeenEventExecutionErrorKind::TextMapMismatch,
 		"direct interpreter accepted wrong-side text");
 	const auto badTarget = interpreter.execute(camera, party, flags, world,
-		[](XeenMapIdentity id) { return script(id, {record(1, 1, 0, 0x07, {2, 255, 1})}); });
+		[](XeenMapIdentity id) { return script(id, {record(1, 1, 0, 0x07, {2, 254, 1})}); });
 	check(std::get<XeenEventExecutionError>(badTarget).requestedTarget->mapId ==
 		XeenMapIdentity{XeenSide::Darkside, 2}, "requested target lost side");
 	XeenEventSystem commit([](XeenMapIdentity id) {

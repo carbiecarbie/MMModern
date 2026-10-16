@@ -33,8 +33,9 @@ public:
 			a.rewardPair==b.rewardPair && a.generatingReward==b.generatingReward &&
 			a.preferredRewardRecipient==b.preferredRewardRecipient && address(a.logicalAddress,b.logicalAddress) &&
 			a.lookupDirection==b.lookupDirection && xeen_state::sameCamera(a.workingCamera,b.workingCamera) &&
+			a.continuedAtDestination==b.continuedAtDestination &&
 			a.selectedObject==b.selectedObject && a.activeCharacterIndex==b.activeCharacterIndex && a.entireParty==b.entireParty &&
-			a.scriptValues==b.scriptValues && a.giveTake==b.giveTake && a.lock==b.lock &&
+			a.mirrorDestination==b.mirrorDestination && a.scriptValues==b.scriptValues && a.giveTake==b.giveTake && a.lock==b.lock &&
 			a.workingGameFlags.values()==b.workingGameFlags.values() &&
 			a.instructionCount==b.instructionCount && a.missingInstructionPolicy==b.missingInstructionPolicy &&
 			optional(a.pendingTransferSource,b.pendingTransferSource,source) &&
@@ -90,7 +91,7 @@ private:
 	}
 	static bool presentation(const XeenEventPendingPresentation &a,const XeenEventPendingPresentation &b) {
 		const auto &x=a.request;const auto &y=b.request;
-		if(a.continuation!=b.continuation || x.rewardWaitTicks!=y.rewardWaitTicks || !optional(x.portrait,y.portrait,[](const auto &p,const auto &q){return p==q;}) || !optional(a.conditional,b.conditional,conditional) ||
+		if(x.mirrors!=y.mirrors || x.alternate!=y.alternate || !optional(x.word,y.word,[](const auto &p,const auto &q){return std::tie(p.inputType,p.targetLine,p.alternateText,p.titleText)==std::tie(q.inputType,q.targetLine,q.alternateText,q.titleText);}) || a.continuation!=b.continuation || x.rewardWaitTicks!=y.rewardWaitTicks || !optional(x.portrait,y.portrait,[](const auto &p,const auto &q){return p==q;}) || !optional(a.conditional,b.conditional,conditional) ||
 			!optional(x.cdSpeech,y.cdSpeech,speech) ||
 			std::tie(x.kind,x.response,x.mapId,x.textIndex,x.text,x.layoutValue,x.verbIndex,x.refusal,x.title,x.notEnough,x.lockPicked)!=
 			std::tie(y.kind,y.response,y.mapId,y.textIndex,y.text,y.layoutValue,y.verbIndex,y.refusal,y.title,y.notEnough,y.lockPicked) ||

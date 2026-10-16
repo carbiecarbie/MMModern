@@ -38,6 +38,8 @@ const std::vector<XeenDosText::Field> &XeenDosText::layout() {
  // Bounds and far-pointer relationships were checked against the uncompressed
  // DOS module; no original strings or whole-file digest are compiled here.
  static const std::vector<Field> fields{
+  {"WHATS_THE_PASSWORD",0x53c0a,0x53c1f,1,false,""},
+  {"WORD_INPUT_WINDOW",0x539ce,0x539dc,1,false,"s"},
   {"CAST_SPELL_DETAILS",0x546da,0x54760,1,false,"s,s,u,u,u"},
   {"SPELL_FAILED",0x51867,0x51875,1,false,""},
   {"SPELL_GOLD_ROW",0x54a56,0x54a63,1,false,"s,u"},
