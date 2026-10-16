@@ -59,6 +59,10 @@ regenerated each time, so progress is visible. Steps are direction, not
 approved plans, and the order may change when the census or play shows a
 better one.
 
+Before step 5, [M71](milestone-71-plan.md) (Tier A) makes item generation
+follow the original makeItem draws for every supported source, level-1
+monster drops included.
+
 1. **Equipped item contributions**: completed and accepted in
    [M67](milestone-67-plan.md) (release v0.1.2).
 2. **Monster abilities**: completed and accepted in
@@ -78,8 +82,11 @@ better one.
    Awards and the others in the census checklist.
 8. **Inn, recruiting and character creation** (Tier A, high): attribute
    rolls, the creation screens and changes to the saved party.
-9. **Opening areas**: admit every Clouds map whose census readiness has no
-   unsupported mechanic, then play-test by sampling rather than map by map.
+9. **Monster treasure** (Tier A, changes the save): item drops for every
+   monster and drop levels 2 to 6, including accessories in staged treasure,
+   on the shared generator from [M71](milestone-71-plan.md).
+10. **Opening areas**: admit every Clouds map whose census readiness has no
+    unsupported mechanic, then play-test by sampling rather than map by map.
 
 Audio comes after this arc (Tier A: music, sounds and CD tracks on the
 existing clock); the original durations are already kept.
