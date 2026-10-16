@@ -1526,8 +1526,10 @@ XeenPresentationUpdate XeenEventFlow::presentPendingEvent() {
 		request.text=xeenDialogFormat(dosText().scalar("WHO_WILL"),
 			{request.text,dosText().table("WHO_ACTIONS").at(request.verbIndex.value_or(0)),std::to_string(request.members.size())});
 	}
-	if(request.kind==XeenPresentationKind::CenteredMessage && request.source.opcode==0x0c && request.text.empty())
-		request.text=xeenNotEnoughGold(dosText());
+	if(request.kind==XeenPresentationKind::CenteredMessage && request.notEnough && request.text.empty())
+		request.text=xeenNotEnough(dosText(),*request.notEnough);
+	if(request.kind==XeenPresentationKind::CenteredMessage && request.lockPicked && request.text.empty())
+		request.text=xeenDialogFormat(dosText().scalar(*request.lockPicked?"PICKS_THE_LOCK":"UNABLE_TO_PICK_LOCK"),{request.title});
 	const auto retainedPage=request.kind==XeenPresentationKind::NpcAcknowledgment && _npcSequence &&
         _npcSequence->generation==_pending->generation?_npcSequence->page:0;
 	auto presented=_presenter.present(_frame,request,retainedPage);

@@ -1,4 +1,5 @@
 #include "games/xeen/XeenWorld.h"
+#include "games/xeen/XeenEventValues.h"
 #include "games/xeen/XeenRestoreGuard.h"
 #include "games/xeen/XeenActorApproach.h"
 #include "games/xeen/XeenEventPublication.h"
@@ -180,6 +181,7 @@ void XeenWorld::swapPreparedState(XeenWorld &candidate) noexcept {
 	_sessionState._mapStates.swap(candidate._sessionState._mapStates);
 	_sessionState._headCache.swap(candidate._sessionState._headCache);
 	_scenePresentation.objectFlips.swap(candidate._scenePresentation.objectFlips);
+	_scenePresentation.objectFrames.swap(candidate._scenePresentation.objectFrames);
 	_maps.swap(candidate._maps);
 	_objects.swap(candidate._objects);
 	++_ownerRevision; ++candidate._ownerRevision;
@@ -716,58 +718,14 @@ void XeenWorld::retainEventRandom(const XeenJourneyRandomState &random) {
 	_sessionState._journeyRandom=random;
 }
 
-void XeenWorld::applyEventGrant(XeenPartyState &party,std::uint8_t mode,std::uint32_t value,
-		std::optional<std::size_t> member,bool entireParty,bool give,bool sparkle) {
-	if(!detachedEventCandidate() || party.party.size()==0 || (!entireParty && (!member || *member>=party.party.size())))
-		throw std::invalid_argument("Event recipient is unavailable");
-	if(mode==34 || mode==35) {
-		if(!party.monsterTreasure || (!give && mode!=34))throw std::invalid_argument("Event currency mode is unsupported");
-		auto &purse=*party.monsterTreasure;
-		if(!give) {
-			if(purse.gold<value)throw std::invalid_argument("Insufficient Event gold");
-			purse.gold-=value;
-		} else if(mode==34)purse.gold+=value;else purse.gems+=value;
-		return; // Party currency is granted once, independent of selector.
-	}
-	if(mode!=13 && mode!=15 && mode!=16)throw std::invalid_argument("Event character mode is unsupported");
-	if(mode==13 && !xeenSkillSupported(value))throw std::invalid_argument("Event skill: not supported yet");
-	if((mode==15 && value>=128) || (mode==16 && !give))throw std::invalid_argument("Event award/XP operand is unsupported");
-	for(std::size_t i=0;i<party.party.size();++i)if(entireParty || i==*member) {
-		const auto owner=party.party.activeRosterIds()[i];
-		if(mode==13) {
-			// follows the original byte storage; not confirmed in DOS
-			auto &character=party.roster._characters.at(owner);
-			if(give)xeenGrantSkill(character,value);else xeenRemoveSkill(character,value);
-		} else if(mode==15)party.roster._characters.at(owner).awards[XeenCharacter::awardIndex(value)]=give?1:0;
-		else {
-			if(!party.roster._combatInputs[owner])throw std::invalid_argument("Event XP owner is absent");
-			party.roster._combatInputs[owner]->experience+=value;
-		}
-		// Party::giveTake uses spellFX for skill, award and XP grants;
-		// Convicted Thief (award 8) deliberately has no sparkle.
-		if(sparkle && give && (mode!=15 || value!=8)) {
-			_scenePresentation.spellEffect(owner,0,true);
-			_scenePresentation.portraits[owner].spellDeadline=0; // Start only after publication.
-		}
-	}
-}
-
 void XeenWorld::publishEventParty(XeenPartyState &live,const XeenPartyState &candidate) noexcept {
 	for(unsigned owner=0;owner<30;++owner) {
-  auto &character=live.roster._characters[owner];const auto &after=candidate.roster._characters[owner];
-  character.currentHp=after.currentHp;character.conditions=after.conditions;
-  character.temporaryLevel=after.temporaryLevel;
-  character.intellect.temporary=after.intellect.temporary;character.personality.temporary=after.personality.temporary;
-  character.endurance.temporary=after.endurance.temporary;
-		live.roster._characters[owner].skills=candidate.roster._characters[owner].skills;
-		live.roster._characters[owner].awards=candidate.roster._characters[owner].awards;
-		live.roster._characters[owner].weapons=candidate.roster._characters[owner].weapons;
-		live.roster._characters[owner].armor=candidate.roster._characters[owner].armor;
-		live.roster._characters[owner].accessories=candidate.roster._characters[owner].accessories;
-		live.roster._characters[owner].miscellaneous=candidate.roster._characters[owner].miscellaneous;
+		xeenEventCopyOwnedCharacter(live.roster._characters[owner],candidate.roster._characters[owner]);
 		if(live.roster._combatInputs[owner])*live.roster._combatInputs[owner]=*candidate.roster._combatInputs[owner];
 	}
- live.encounterContext=candidate.encounterContext;live.worldFlags=candidate.worldFlags;
+	live.encounterContext=candidate.encounterContext;live.worldFlags=candidate.worldFlags;
+	live.food=candidate.food;live.questItems=candidate.questItems;
+	if(live.serviceEconomy && candidate.serviceEconomy)*live.serviceEconomy=*candidate.serviceEconomy;
 	if(live.monsterTreasure) {
 		live.monsterTreasure->gold=candidate.monsterTreasure->gold;
 		live.monsterTreasure->gems=candidate.monsterTreasure->gems;

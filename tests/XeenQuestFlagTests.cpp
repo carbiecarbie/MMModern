@@ -49,7 +49,7 @@ struct Fixture {
 		[](IndexedFrame&,std::uint8_t,std::size_t){},[&]{return now;},[]{return 0;});}
 };
 void error(const XeenEventExecutionStepResult&r,Kind kind){const auto*e=std::get_if<XeenEventExecutionError>(&r);
-	check(e && e->kind==kind,"incorrect quest-flag diagnostic");}
+	if(!e || e->kind!=kind)throw std::runtime_error("incorrect quest-flag diagnostic: "+(e?std::to_string(int(e->kind))+" "+e->message:std::string("no error")));}
 void complete(const XeenEventExecutionStepResult&r){check(std::holds_alternative<XeenEventExecutionCompleted>(r),"set did not complete");}
 
 void valuesAndLoading() {
@@ -97,10 +97,16 @@ void validation() {
 		check(partySnapshot(f.members)==chars && f.flags.isSet(2) && std::get<XeenEventExecutionCompleted>(result).instructionCount==2,
 			"set applied per member or changed unrelated state");
 	}
-	for(const Bytes bytes:std::vector<Bytes>{{0,1,104,2},{20,7,104,2},{104,2,0,1},{21,81,0,0},
-		{104,2,104,2},{0,0,104,2,0,1},{0,0,104,2,20,7},{0,0,104,2,104,3},{0,0,20,2,104,3}})for(bool initiallySet:{false,true}){
-		Fixture f;if(initiallySet)f.members.questFlags.set(2);const auto before=f.members.questFlags.values();f.scriptAt({record(1,1,0,0x0c,bytes)});
-		error(f.begin(),Kind::UnsupportedOperationMode);checkPartyQuestState(f.members,{},before);check(!f.flags.isSet(7),"mixed operation partially applied");}
+	// giveTake (0x2200c) applies the take, then the give; a TakeOrGive record's third pair is not read.
+	struct Mixed{Bytes bytes;bool flag2;bool gameFlag2;};
+	for(const Mixed &m:std::vector<Mixed>{{{0,1,104,2},true,false},{{20,7,104,2},true,false},{{104,2,0,1},false,false},
+		{{0,0,104,2,0,1},true,false},{{0,0,104,2,20,7},true,false},{{0,0,104,2,104,3},true,false},{{0,0,20,2,104,3},false,true}})
+		for(bool initiallySet:{false,true}){
+		Fixture f;f.flags.set(7);if(initiallySet)f.members.questFlags.set(2);f.scriptAt({record(1,1,0,0x0c,m.bytes)});
+		const auto r=f.begin();complete(r);const auto &flags=std::get<XeenEventExecutionCompleted>(r).finalGameFlags;
+		XeenCloudsQuestFlags::Values expected{};expected[2]=m.flag2||(initiallySet&&m.bytes[0]!=104);
+		checkPartyQuestState(f.members,{},expected);
+		check(flags.isSet(7)==(m.bytes[0]!=20) && flags.isSet(2)==m.gameFlag2,"mixed operation applied the wrong pair");}
 	for(int index:{30,31,255}){Fixture f;f.scriptAt({set(0,index)});auto r=f.begin();error(r,Kind::InvalidFlagIndex);
 		check(std::get<XeenEventExecutionError>(r).message.find("quest flag")!=std::string::npos,"ambiguous flag diagnostic");checkPartyQuestState(f.members,{},{});}
 	for(const Bytes bytes:std::vector<Bytes>{{0,0,104},{0,0,104,2,0},{0,0,104,2,0,0,0}}){Fixture f;f.scriptAt({record(1,1,0,12,bytes)});
@@ -113,7 +119,7 @@ void validation() {
 		if(fault==3){s.instructionCount=1024;kind=Kind::InstructionLimitExceeded;}
 		if(fault==4){s.logicalAddress.line=254;s.pendingPresentation->conditional->targetLine=255;s.currentScript=script(1,{set(255)});kind=Kind::LineOverflow;}
 		error(f.resume(s),kind);checkPartyQuestState(f.members,{},{});}
-	Fixture condition;condition.scriptAt({record(1,1,0,9,{105,2,1})});error(condition.begin(),Kind::UnsupportedConditionAction);
+	Fixture condition;condition.scriptAt({record(1,1,0,9,{107,2,1})});error(condition.begin(),Kind::UnsupportedConditionAction);
 	for(bool set:{false,true}) {
 		Fixture f;if(set)f.members.questFlags.set(2);
 		f.scriptAt({record(1,1,0,9,{104,2,3}),::set(1,3),record(1,1,2,0x12),record(1,1,3,0x12)});

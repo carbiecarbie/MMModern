@@ -179,8 +179,11 @@ void modalCosmeticOmissions(const fs::path &path,const XeenSaveSnapshot &saved) 
  });
 }
 void failures(const fs::path &path,const XeenSaveSnapshot &saved){
- auto maximum=saved;maximum.questItems[17]=std::numeric_limits<std::uint32_t>::max();
- run(path,maximum,[&](Harness &h,XeenGameplayServices &s){s.show=[&](const auto &,const auto &handler,const auto &,const auto &,const auto &){handler.framePresented(h.flow->frame().presentation());acknowledgment(h,handler);send(h,handler,AcknowledgeAction{});effects(h,std::numeric_limits<std::uint32_t>::max(),0,0);check(h.flow->canSave()&&XeenSaveFormat::encode(snapshot(h))==XeenSaveFormat::encode(maximum),"overflow preserves complete pregrant state and recovers");return true;};});
+ // The live grant follows the Event byte rule (0x22967..0x2296e): 255 wraps to 0.
+ auto maximum=saved;maximum.questItems[17]=255;
+ run(path,maximum,[&](Harness &h,XeenGameplayServices &s){s.show=[&](const auto &,const auto &handler,const auto &,const auto &,const auto &){handler.framePresented(h.flow->frame().presentation());acknowledgment(h,handler);send(h,handler,AcknowledgeAction{});questReceipt(h,handler);effects(h,0,1,11);
+  auto expected=maximum;expected.questItems[17]=0;save_test::setRemovedObjects(expected,{{23,13}});for(unsigned i=1;i<=11;++i)save_test::addDisabledEvent(expected,{23,124+i});
+  check(h.flow->canSave()&&XeenSaveFormat::encode(snapshot(h))==XeenSaveFormat::encode(expected),"live quest grant at 255 did not wrap to 0 exactly");return true;};});
  for(unsigned phase=0;phase<3;++phase)run(path,saved,[&](Harness &h,XeenGameplayServices &s){s.show=[&,phase](const auto &,const auto &handler,const auto &,const auto &,const auto &){
   handler.framePresented(h.flow->frame().presentation());bool injected=false;
   h.flow->reportManual=[&](const auto &r){const bool suspended=std::holds_alternative<XeenEventExecutionSuspended>(r);if(!injected&&((phase==0&&suspended)||(phase==1&&suspended&&!h.flow->canCancelInteraction())||(phase==2&&std::holds_alternative<XeenManualEventCompleted>(r)))){injected=true;throw std::runtime_error("one report fault");}};

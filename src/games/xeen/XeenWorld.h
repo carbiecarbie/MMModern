@@ -31,6 +31,7 @@ namespace mmodern {
 
 enum class XeenDamageType : std::uint8_t;
 struct XeenTypedDamageCandidate;
+struct XeenConditionTimeCandidate;
 class XeenEventPublication;
 enum class XeenJourneyActivity { Unbound, Quiet, Event, Approach, Attachment, Combat, Presentation, Saving, Shoot, Reward, ItemUse, Casting, Failed, SupportStopped, Service };
 class XeenGameFlags;
@@ -191,8 +192,11 @@ public:
 	void restoreEventOverrides(const std::vector<XeenEventOverride> &,const EventLoader &);
 	// drawScene resets flip from directional animation metadata on every draw.
 	void objectFlipDrawn(XeenObjectIdentity id,bool flipped) {_scenePresentation.objectFlips[id]=flipped;}
-	void applyEventGrant(XeenPartyState &,std::uint8_t mode,std::uint32_t value,
-		std::optional<std::size_t> member,bool entireParty,bool give,bool sparkle=true);
+	void objectFrameDrawn(XeenObjectIdentity id,unsigned frame) {_scenePresentation.objectFrames[id]=frame;}
+	std::optional<unsigned> objectFrame(XeenObjectIdentity id) const {
+		const auto found=_scenePresentation.objectFrames.find(id);
+		return found==_scenePresentation.objectFrames.end()?std::nullopt:std::optional<unsigned>(found->second);
+	}
 	XeenHeadIndicators headIndicators(const XeenCamera &);
 	void alterHeads(const XeenCamera &,XeenHeadIndicators);
 	void reloadHeads(XeenMapIdentity);
@@ -201,6 +205,8 @@ public:
     void publishEventDamagePrefix(XeenPartyState &,const XeenTypedDamageCandidate &,const XeenJourneyRandomState &,bool feedback=false);
 	void applyEventDamage(XeenPartyState &,unsigned,XeenDamageType,std::optional<std::size_t>,bool,bool feedback=true);
 	void applyEventYear(XeenPartyState &,XeenGameFlags &,unsigned);
+	// Script addTime results (characters, inputs, calendar, economy), detached only.
+	void publishEventTime(XeenPartyState &,const XeenConditionTimeCandidate &);
 	void retainEventRandom(const XeenJourneyRandomState &);
 	void publishEventParty(XeenPartyState &,const XeenPartyState &) noexcept;
 	bool isEventDisabled(XeenEventIdentity id) const { return _sessionState.isEventDisabled(id); }

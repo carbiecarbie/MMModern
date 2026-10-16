@@ -113,6 +113,18 @@ bool XeenCloudsQuestItems::decrement(std::size_t index) {
 	return true;
 }
 
+void XeenCloudsQuestItems::eventGrant(std::size_t index) {
+	auto &count = _counts.at(index);
+	XeenMutationWatch::write(this);
+	count = afterEventGrant(count);
+}
+
+void XeenCloudsQuestItems::eventTake(std::size_t index) {
+	auto &count = _counts.at(index);
+	XeenMutationWatch::write(this);
+	count = afterEventTake(count);
+}
+
 bool XeenCloudsQuestItems::increment(std::size_t index) {
 	auto &count = _counts.at(index);
 	if (count == std::numeric_limits<std::uint32_t>::max())

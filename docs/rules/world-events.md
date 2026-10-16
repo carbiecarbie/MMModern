@@ -1,4 +1,4 @@
-# World Events: map changes and Spawn
+# World Events: map changes, Spawn and script values
 
 **Evidence: DOS static**, installed English CD `WORLD/XEEN.DAT`, SHA-256
 `8bf78b4850d5973cbb063c7dd96b9aaef4e94791d748334187eef74acf528d27`.
@@ -102,6 +102,208 @@ Shared operations preserve the side in every logical and physical identity.
 - `maze0027.evt` offset 464 clears the ten Event records at physical `(30,30)`.
 - `maze0029.evt` offset 1572 spawns slot 22 at `(1,1)` after opening the crate.
   That slot uses its original MOB monster type, not the opcode's unused suffix.
+
+## Script values: conditions, writes and random draws
+
+**Evidence: DOS static**, same `WORLD/XEEN.DAT`, bounded 16-bit disassembly on
+2026-10-16 (work files outside the repository). The dispatch table at `0x29320`
+routes opcodes 8-10 to `0x2712d`, 12/28/29/38 to `0x27322`, 15 to `0x279ef`,
+20 to `0x27ba6`, 23 to `0x28131`, 27 to `0x283fc`, 33 to `0x285cc`, 42 to
+`0x28765`, 43 to `0x287d8`, 44 to `0x287ee` and 45 to `0x289d7`. The shared
+value routines are ifProc (`0x2162e..0x21bd8`, action table `0x21beb`),
+giveTake (`0x2200c..0x23315`, take table `0x23415`, give table `0x23331`),
+setValue (`0x23945..0x23c93`, table `0x23c95`) and giveExt
+(`0x2358e..0x23917`). The random helper `0x45b9a` returns `min..max`
+inclusive; MMModern draws the same range from the Journey generator at the
+same place. There is one stream: every Event draw, GiveMulti's included, comes
+from the current Journey state in program order, and a GiveMulti generator
+lives only while that instruction's generation is suspended. Code paths, not
+DOSBox observation.
+
+| Operation | Rule |
+| --- | --- |
+| If1/If2/If3 (8/9/10) | Operand width by mode: 32-bit for 16, 34, 100; 16-bit for 25, 35, 101, 106; a byte otherwise (table `0x29304`). Compare `>=`, `==`, `<=` as unsigned 32-bit values (`0x21b84..0x21bd8`). With the whole party selected (SetChar 0) every member is tested and the results are OR-ed, without stopping early (`0x2721c..0x2726e`); otherwise the selected member. Action 44 always asks once. A true test jumps to the target line. |
+| TakeOrGive (12) | `giveTake(mode1, value1, mode2, value2)` for the selected member, or for each member in turn when the whole party is selected (`0x27808..0x278d3`). A failure for one member ends the Event (`0x278ff`). In the party loop, a failure after taking gold, gems or food ends the Event, a success after giving an item, gold, gems or food ends the loop (the reward is given once), and take modes 8 and 82 are cleared after the first member (`0x27877`, `0x278b4`). |
+| TakeOrGive_2/_4 (28, 38) | Test pair 1 with `==` (28) or `<=` (38) for each selected member; on success give pair 2 with no take; stop after a give of mode 82 (`0x27602..0x276f2`). TakeOrGive_3 (29) tests pairs 1 and 2 and gives pair 3 (`0x2770d..0x277f3`); the reference gives pair 2's mode with pair 3's value. |
+| GiveMulti (20) | A locked chest is picked first (below). Then three pairs through giveExt: 34/35 add treasure gold/gems, 100/101 add a random amount of treasure gold/gems and 106 a random amount of food straight to the party (the operand's low word, below), 66 generates an item, anything else is `giveTake(0,0,mode,value)` for the selected member (or the first when the whole party is selected, `0x27e71`). A failed give ends the Event. |
+| SetVar (27) | setValue for the selected member or every member, same widths as If. Plain stores of the original byte, word or dword; modes 95 and above do nothing. |
+| SetChar (15) | Signed selector (`0x279ef`): 0 selects the whole party; 1..6 only name the combat target used by selection 8; 7 draws `1..party size` and selects that member; 8..127 open WhoWill (not supported yet). Member selection 8 (every member except the combat target) is not implemented generically either: no Clouds script produces it, so both wait for the Darkside arc. |
+| SelectRandomChar (43) | One `1..party size` draw selects that member; no reroll for a disabled member (`0x287d8..0x287eb`). |
+| JumpRnd (23) | Signed range, match and line. One `1..range` draw; jump only when it equals the match (`0x28131..0x2815d`). |
+| RndDamage (33) | One `1..maximum` draw, then ordinary typed damage of that amount to the selection, with its own draws (`0x285cc..0x2860b`). The third operand byte is not read. |
+| IfMapFlag (42) | A monster is present while both position bytes are below 32. Monster 255 tests every slot below the MOB count. Present continues; absent jumps (`0x28765..0x287d5`). |
+| ItemType (45) | Stores the special-event item type for the rest of the run (`0x289d7`, reset at `0x26789`). |
+| NPC (5) mode 0 | The NPC window with the Yes/No buttons of the confirmation (global sprite 7 at (232,74), confirm buttons at (235,75) and (260,75), `0x25950..0x259ac`) on its last page. Yes jumps to the target line; No or Escape continues. |
+
+**Selection and run-local values.** Each run starts with member 1 selected,
+combat target 1, damage type 0 and item type 0 (`0x26aaa..0x26ab3`,
+`0x26789`). These values belong to the run and are never saved.
+
+**Value modes.** ifProc reads, setValue stores, giveTake subtracts (take) and
+adds (give) the same fields:
+
+| Modes | Field |
+| --- | --- |
+| 3, 4, 5 | Sex, race, class bytes |
+| 8, 9 | HP and SP words (ifProc sign-extends) |
+| 10, 77 | AC bonus byte; ifProc 10 reads the computed armor class instead |
+| 11, 12, 64 | Level bonus, age bonus and level bytes; ifProc 12 reads the computed age |
+| 13 | Skill byte (`0x27 + skill`): take clears, give increments |
+| 15 | Award nibble; see below |
+| 16 | Experience dword |
+| 17, 70..73 | Party poison, light, fire, electricity and cold words |
+| 18 | Condition byte; see below |
+| 19 | Learned-spell flag of the class book |
+| 20, 103, 104 | Game, world and quest flags (Clouds banks on Clouds) |
+| 21 | Item by ID: weapons below 35, armor below 49, accessories below 60, Misc by material below 82; quest counters from 82 |
+| 25, 76, 85 | Minutes, day and year words |
+| 34, 35, 65 | Party gold, gems (dwords) and food (word) |
+| 37..43, 45..51 | Temporary, then permanent Might, Intellect, Personality, Endurance, Speed, Accuracy, Luck bytes |
+| 52..63 | Permanent, then temporary fire, electricity, cold, poison, energy, magic resistance bytes |
+| 69, 79, 94 | Levitate, Wizard Eye and Walk on Water bytes |
+| 74 | Every party effect above at once |
+| 78, 81 | ifProc: 1 when the maximum HP/SP is at least the current value, compared as unsigned words; give: refill |
+| 83, 84 | setValue: Event damage type and facing |
+| 86..92 | ifProc: the full attribute (sheet value) |
+| 93 | ifProc: the day modulo 10 |
+| 99, 102, 105 | ifProc: party skill, thievery, Megacredits counter |
+
+Byte grants of modes 37..64 saturate at 255; every take and the other grants
+wrap. Grants of 3..5, 9..11, 13, 15 (not award 8), 16, 19 (when the spell is in
+the book), 34, 35, 37..65, 77, 78 and 81 end with the member's portrait
+sparkle (`0x23278`), once per member per run; give 8 sparkles before adding
+the HP (`0x226c5`). Give 74 also activates Walk on Water (`0x231df..0x232b5`); the
+reference clears it. setValue 74 stores the low byte in every field. ifProc 69
+reads Levitate as 0 or 1 (`0x21a36`), and 93 the remainder of the day (`0x21ad1`).
+
+**Uninitialised test values.** A failed skill (13), award (15), condition (18)
+or spell (19) test, and every unhandled action, leave ifProc's local value
+unset (`0x216c0`, `0x216d3`, `0x21703`, `0x21729`, `0x21b84`). Before an
+instruction's first test the frame holds the interpreter's saved SI:DI from the
+per-instruction message copy (`0x26c26..0x26c4d`, `0xacd6..0xacda`): DI is the
+record's offset in the Event file, SI is unknown. In the party loop each later
+member sees the previous member's value. A give in between makes the value
+unknown. MMModern applies exactly this: a value that differs from the operand
+in its low word fails an `==` test, a `>=` operand at most the offset passes,
+and any outcome that would depend on SI refuses as not supported. All 91 Clouds
+uses are If2 `==` tests of skills 5/7 and awards whose record offsets differ
+from their operands, so they behave as plain failures.
+
+**Awards.** CHR byte `0x39 + n` holds award `n` in its low nibble and award
+`n + 64` in its high nibble; 73 and 81 use bytes 62 and 63 (`0x3ba44..0x3bb05`).
+A grant ORs 1 into the nibble. A removal ORs `0xf` into the *other* nibble
+instead of clearing (an original defect); no Clouds script removes an award.
+
+**Conditions.** setValue and give 18: 16 clears all sixteen, 6 (In Love) sets
+1, any other value increments; 13..15 also zero positive HP (`0x22782`,
+`0x239ed`). Take 18 clears the byte.
+
+**Items and treasure.** Give 21 queues a weapon, armor or accessory by ID in
+the treasure; a quest ID first increments its counter, then shows as a weapon
+(`0x22883..0x22967`). Take 21 removes the first matching item and sorts the
+category (`0x221fa..0x22343`). Quest counters are bytes in both directions on
+every execution path: give 21 (`0x22967..0x2296e`) and GiveEnchanted's quest
+branch (`0x289c2..0x289d1`) turn 255 into 0, take 21 (`0x22339..0x22340`) turns
+0 into 255, and If 21 reads the byte (`0x217ce..0x217db`). The save keeps its
+existing counter width.
+Give 66 generates an item; after ItemType it is a special-event item whose
+category and ID come from the type, still drawing the category and
+subcategory first (`0x25cbc..0x25d42`), and it needs a free Misc treasure slot
+(`0x2300e`). A full category fails the give.
+
+**Locked chests.** When the selected object is not object 0, its sprite is
+16, 58 or 73 (15 too on Darkside, table `0x235c2`) and no lock was picked yet
+this run, giveExt opens the chest (frame 1), then draws `1..4`; on 1 it draws a
+type `0..6` and deals the map's trap damage to the recipient as ordinary typed
+damage (`0x23618..0x23644`). It then draws `1..20`: thievery plus the draw at
+least the map's box difficulty picks the lock, adds level x difficulty x 10
+experience (a 16-bit product) and shows "picks the lock"; otherwise the chest
+closes, "was unable to pick the lock" is shown and the Event ends
+(`0x23647..0x23726`). A test against 20 that follows the sprite table reads
+the same sprite byte and so never skips the lock; the reference reads it as
+the object's x position. The open frame lasts until the map is loaded again,
+as in DOS, and is not saved. The original lock sounds (10 and 21) are part of
+the deferred audio.
+
+**Taking gold, gems or food.** Party::subtract (`0x1e941`) refuses a shortfall
+with the original "not enough" message for that consumable and ends the Event.
+
+**Time.** Give 76 calls addTime with `days * 1440` minutes as a 16-bit
+argument (`0x23218`, `0x263b3`): the script clock advances, the weekly
+merchant/bank step runs when it crosses its day, and the dawn rest step is
+skipped and cleared while a script runs (`0x26425..0x2648a`).
+
+**Random draw inventory.** JumpRnd, RndDamage, SelectRandomChar and SetChar 7
+draw once each at the instruction. A locked chest draws `1..4`, a trap type
+`0..6` with the trap's damage draws, then `1..20`. giveTake draws `1..value` when its two
+modes and values are equal (the value then becomes the take, `0x22089`), give
+100 draws party gold, GiveMulti 100/101/106 draw treasure gold, gems and food,
+give 66 runs the item generator, give 76 runs the time step's merchant
+regeneration, and typed damage keeps its own draws. No other value mode draws.
+Draws with a word argument (giveTake's equal-pair draw `0x22091`, give 100
+`0x232bc`, GiveMulti 100/101/106 `0x23770..0x237de`) pass only the operand's low
+word, also for 32-bit operands: GiveMulti 100 with 65537 draws `1..1`. The
+helper divides by that word as a signed value (`0x45ba3..0x45bac`), so a word
+from `0x8000` draws `1..(0x10000 - word)`, and the result is sign-extended
+before a 32-bit addition (`0x232c9`, `0x23791`, `0x237e6`): 32768 subtracts.
+A zero word divides by zero in DOS; MMModern refuses it before drawing.
+
+**Not supported yet.** These refuse with a notice rather than being guessed:
+HowMuch (a take of value 0), give 8/82 damage and take 8, take 25/76 and give
+25 (time going back), Misc item grants by give 21, a non-caster's spell test,
+grant or removal (DOS uses whichever book the program selected last,
+global `0xf604`), SetChar 8..127 (WhoWill), Darkside character flags (107)
+and GiveMulti 67. Every skill grant and removal is supported: it only writes
+the skill byte, which the save keeps. Arms Master, Direction Sense, Merchant,
+Mountaineer, Swimmer, Tracker, Spot Secret Doors and Danger Sense are granted
+and saved, but their passive effects are not implemented yet.
+The live mainland path also refuses item, gold, food, flag, time and random
+writes outside its existing capabilities.
+
+### Part B worked examples
+
+- `maze0050.evt` @574/@595: If1 gold `>= 2000` (32-bit) and gems `>= 20` (16-bit).
+- `maze0029.evt` @4112: If1 minutes `>= 301` (16-bit).
+- `maze0082.evt` @790: If1 mode 37 reads temporary Might, also on map 82.
+- `maze0035.evt` @2109: JumpRnd `1..10`, jump to line 10 on 10.
+- `maze0034.evt` @2720: RndDamage type 5, `1..20`.
+- `maze0080.evt` @3183: SelectRandomChar.
+- `maze0079.evt` @2746: SetChar 2 names the combat target only.
+- `maze0032.evt` @180 and `maze0050.evt` @566: IfMapFlag any monster / monster 0.
+- `maze0025.evt` @1516: ItemType 3 before GiveMulti level 4 (a special-event Club).
+- `maze0055.evt` @335: SetVar 74 value 0 clears every party effect.
+- `maze0073.evt` @39: TakeOrGive_2 `(77,0)` then give `(77,20)`.
+- `maze0030.evt` @2292: TakeOrGive give 18 value 3 poisons the selected member.
+- `maze0027.evt` @3096: NPC mode 0, Yes jumps to line 12.
+
+### Gold Veins (Dwarf and Deep Mines)
+
+The 58 Gold Vein scripts on maps 33-41 share one mechanism; their tiers are
+lines that AlterEvent turns off. Each attempt asks WhoWill, draws JumpRnd
+`1..10` (10 is a cave-in: damage, "A cave in!", no tier change), and otherwise
+runs If1 SP `>= 0` (always true: CHR word +0x158 sign-extended, `0x21685`,
+`0x21b46`) chains to the first tier line still active. A tier is a GiveMulti
+of `1..100` gold (mode 100; `1..1000` in the 5000 tier) plus a fixed 5000,
+1000, 250 or 100 (mode 34), followed by AlterEvent(tier line, 0). The last tier gives `1..100`, disables
+line 0 with AlterEvent(0, 0), so later attempts exit at line 1, and moves the
+vein wall item to (-128,-128) with MoveWallObj. Veins start at different tiers:
+a single tier (for example map 33 (2,30), map 34 (1,12), map 35 (11,6)) up to
+the 5000 tier (maps 39-41).
+
+- `maze0034.evt` @3403, (14,14), all directions: tiers 250, 100, last. The
+  recording of the original shows 255, 135, a cave-in, then 17 and a plain wall.
+- `maze0035.evt` @2073, (11,6) North: a single tier; its wall item 3 faces West
+  (see [original quirks](../original-quirks.md)).
+- `maze0035.evt` @2226 and @3665: two copies of the (12,2) West script. Each
+  line runs its first match in file order (the search restarts for every line,
+  `0x26afa..0x26bf9`, `0x28d37..0x28d3a`), so copy one's 100 tier is followed by
+  copy two's line 23, which disables line 0: one payout of 101..200.
+
+A disabled line keeps its record and operands; opcode 0 dispatches to the
+default case, which only advances the line (`0x26c50..0x26c61`,
+`0x28d30..0x28d3a`). GiveMulti reads each pair's operand as 4 bytes for modes
+16, 34, 100, 2 bytes for 25, 35, 101, 106 and 1 byte otherwise (table
+`0x2924c`, handlers `0x27bd1`, `0x27c40`).
 
 See [original quirks](../original-quirks.md) for deliberate reference differences
 and [evidence](evidence.md) for executable address mapping and research limits.

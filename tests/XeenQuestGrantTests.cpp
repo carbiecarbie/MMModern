@@ -59,7 +59,7 @@ struct Fixture {
 };
 void error(const XeenEventExecutionStepResult &r,XeenEventExecutionErrorKind kind) {
 	const auto *e=std::get_if<XeenEventExecutionError>(&r);
-	check(e && e->kind==kind,"wrong grant error");
+	if(!e || e->kind!=kind)throw std::runtime_error("wrong grant error: "+(e?std::to_string(int(e->kind))+" "+e->message:std::string("no error")));
 }
 void complete(const XeenEventExecutionStepResult &r) {
 	check(std::holds_alternative<XeenEventExecutionCompleted>(r),"grant did not complete");
@@ -82,17 +82,21 @@ void operandsAndCounts() {
 		Fixture f;f.set({record(1,1,0,0x0c,bytes)});error(f.begin(),XeenEventExecutionErrorKind::MalformedInstruction);
 		check(f.members.questItems.at(17)==0,"malformed grant mutated");
 	}
-	for(const Bytes bytes:std::vector<Bytes>{{0,1,21,99},{20,7,21,99},{21,81},{21,99,21,99},
-		{0,0,21,99,0,1},{0,0,21,99,20,7},{0,0,22,99},{0,0,21,81},{0,0,21,117},{0,0,21,255}}){
+	// giveTake (0x2200c) runs any take with any give; a TakeOrGive record's third pair is not read.
+	{Fixture f;f.flags.set(7);f.set({record(1,1,0,0x0c,{20,7,21,99})});complete(f.finishRewards(f.begin()));
+		check(f.members.questItems.at(17)==1,"take-and-give grant lost its quest count");}
+	for(const Bytes bytes:std::vector<Bytes>{{0,0,21,81},{0,0,21,117},{0,0,21,255}}){
 		Fixture f;f.set({record(1,1,0,0x0c,bytes)});error(f.begin(),XeenEventExecutionErrorKind::UnsupportedOperationMode);
 		check(f.members.questItems.counts()==XeenCloudsQuestItems::Counts{} && !f.flags.isSet(7),"invalid combination mutated");
 	}
-	for(std::uint32_t start:{255u,std::numeric_limits<std::uint32_t>::max()-1,std::numeric_limits<std::uint32_t>::max()}){
+	// The counter is a byte (give 0x22967..0x2296e): 254 -> 255 -> 0, and If 21 then reads it as absent.
+	for(std::uint32_t start:{254u,255u}){
 		Fixture f;XeenCloudsQuestItems::Counts counts{};counts[17]=start;counts[0]=8;
-		f.members.questItems=XeenCloudsQuestItems(counts);f.set({record(1,1,0,0x0c,{0,0,21,99})});
-		if(start==std::numeric_limits<std::uint32_t>::max())error(f.begin(),XeenEventExecutionErrorKind::QuestItemOverflow);
-		else{complete(f.finishRewards(f.begin()));++counts[17];}
-		check(f.members.questItems.counts()==counts,"wide count or overflow");
+		f.members.questItems=XeenCloudsQuestItems(counts);
+		f.set({record(1,1,0,0x0c,{0,0,21,99}),record(1,1,1,0x09,{21,99,3}),record(1,1,2,0x12),record(1,1,3,0x0c,{0,0,20,7})});
+		const auto r=f.finishRewards(f.begin());complete(r);counts[17]=start==254?255:0;
+		check(f.members.questItems.counts()==counts,"quest grant is not byte arithmetic");
+		check(std::get<XeenEventExecutionCompleted>(r).finalGameFlags.isSet(7)==(start==254),"If 21 disagrees with the granted byte");
 	}
 	auto first=party(),second=party();check(first.questItems.increment(17),"increment failed");
 	check(first.questItems.at(17)==1 && second.questItems.at(17)==0,"party instances share counters");
@@ -110,17 +114,14 @@ void consumption() {
 		Bytes bytes{21,static_cast<std::uint8_t>(id)}; bytes.resize(pairs*2,0);
 		f.set({record(1,1,0,12,bytes),record(1,1,1,12,{0,0,104,2})});
 		auto r=f.begin();
-		if (!count) {
-			error(r,XeenEventExecutionErrorKind::QuestItemUnderflow);
-			const auto &e=std::get<XeenEventExecutionError>(r);
-			check(e.instructionCount==1 && e.source && e.source->line==0 && !f.members.questFlags.isSet(2),"underflow ran following instruction");
-		} else { complete(r); --counts[id-82]; }
+		// The counter is a byte without a floor (0x22339): zero wraps to 255.
+		complete(r); counts[id-82]=static_cast<std::uint8_t>(count-1);
 		check(f.members.questItems.counts()==counts,"take quantity/width/alias/eligibility");
 	}
 	Fixture final; final.members.questItems.increment(17);
 	final.set({record(1,1,0,12,{21,99})}); complete(final.begin());
 	check(final.members.questItems.at(17)==0,"absent sequential successor failed");
-	for (const Bytes bytes : std::vector<Bytes>{{21,81},{21,117},{21,255},{21,99,0,1},{21,99,21,99},{21,99,0,0,0,1},{21,99,0,0,104,2}}) {
+	for (const Bytes bytes : std::vector<Bytes>{{21,117},{21,255}}) {
 		Fixture f;f.members.questItems.increment(17);f.set({record(1,1,0,12,bytes)});
 		error(f.begin(),XeenEventExecutionErrorKind::UnsupportedOperationMode);
 		check(f.members.questItems.at(17)==1,"unsupported take mutated");

@@ -1,5 +1,6 @@
 #ifndef MMODERN_XEEN_RESTORE_GUARD_H
 #define MMODERN_XEEN_RESTORE_GUARD_H
+#include "games/xeen/XeenEventValues.h"
 #include "games/xeen/XeenStateEquality.h"
 #include "games/xeen/XeenGameFlags.h"
 #include "games/xeen/XeenEventTextLoader.h"
@@ -364,44 +365,21 @@ private:
 		check();candidate.check();
 		auto retainedTreasure=candidate.treasure;
 		if(retainedTreasure && treasure) {retainedTreasure->gold=treasure->gold;retainedTreasure->gems=treasure->gems;}
-  auto retainedContext=candidate.context;
-  if(retainedContext && context) {
-   retainedContext->year=context->year;retainedContext->effects=context->effects;
-   retainedContext->lightAndResistances=context->lightAndResistances;retainedContext->rested=context->rested;
-  }
-		// Event capabilities permit inventories, awards, skills, XP, purse, retained RNG, quest/camera/game flags
-		// and World overlays/Spawn. All other inputs retain their preimages.
-		if(candidate.membership!=membership || candidate.quests!=quests || candidate.marked!=marked ||
+		// Event capabilities permit the Event-owned character fields and inputs,
+		// calendar and party effects, purse, food, quest counters, merchant/bank
+		// time effects, retained RNG, quest/camera/game flags and World
+		// overlays/Spawn. All other inputs retain their preimages.
+		if(candidate.membership!=membership || candidate.marked!=marked ||
 			candidate.s.exploredTiles()!=s.exploredTiles() ||
-			bool(candidate.recovery)!=bool(recovery) || !(retainedContext==context) || retainedTreasure!=treasure ||
-			candidate.food!=food || candidate.economy!=economy || candidate.first!=first || candidate.effective!=effective ||
+			bool(candidate.recovery)!=bool(recovery) || bool(candidate.context)!=bool(context) || retainedTreasure!=treasure ||
+			bool(candidate.economy)!=bool(economy) || candidate.first!=first || candidate.effective!=effective ||
 			candidate.diagnostics!=diagnostics || bool(candidate.s._journeyRandom)!=bool(s._journeyRandom)) {
 			failed=true;throw std::logic_error("Event candidate changed an unowned party or RNG field");
 		}
 		for(unsigned owner=0;owner<characters.size();++owner) {
-			auto retainedCharacter=candidate.characters[owner];retainedCharacter.awards=characters[owner].awards;
-   retainedCharacter.currentHp=characters[owner].currentHp;retainedCharacter.conditions=characters[owner].conditions;
-   retainedCharacter.temporaryLevel=characters[owner].temporaryLevel;
-   retainedCharacter.intellect.temporary=characters[owner].intellect.temporary;
-   retainedCharacter.personality.temporary=characters[owner].personality.temporary;
-   retainedCharacter.endurance.temporary=characters[owner].endurance.temporary;
-			retainedCharacter.skills=characters[owner].skills;
-			retainedCharacter.weapons=characters[owner].weapons;retainedCharacter.armor=characters[owner].armor;
-			retainedCharacter.accessories=characters[owner].accessories;retainedCharacter.miscellaneous=characters[owner].miscellaneous;
+			auto retainedCharacter=candidate.characters[owner];xeenEventCopyOwnedCharacter(retainedCharacter,characters[owner]);
 			auto retainedInputs=candidate.inputs[owner];
-			if(retainedInputs && inputs[owner]) {
-    const auto &before=*inputs[owner];auto &after=*retainedInputs;
-    after.experience=before.experience;after.might.temporary=before.might.temporary;
-    after.speed.temporary=before.speed.temporary;after.accuracy.temporary=before.accuracy.temporary;
-    after.temporaryAc=before.temporaryAc;
-    if(after.luck && before.luck)after.luck->temporary=before.luck->temporary;
-    if(after.poisonResistance && before.poisonResistance)after.poisonResistance->temporary=before.poisonResistance->temporary;
-    if(after.resistances && before.resistances) {
-     auto &r=*after.resistances;const auto &v=*before.resistances;
-     r.fireTemporary=v.fireTemporary;r.coldTemporary=v.coldTemporary;r.electricalTemporary=v.electricalTemporary;
-     r.energyTemporary=v.energyTemporary;r.magicTemporary=v.magicTemporary;
-    }
-   }
+			if(retainedInputs && inputs[owner])*retainedInputs=*inputs[owner];
 			if(!xeen_state::sameCharacter(retainedCharacter,characters[owner]) ||
 				bool(candidate.inputs[owner])!=bool(inputs[owner]) ||
 				(inputs[owner] && !xeen_state::sameInputs(*retainedInputs,*inputs[owner]))) {
@@ -435,24 +413,15 @@ private:
 		s._accountedMonsters.swap(accounted);
 		s._headCache=candidate.s._headCache;
 		for(unsigned owner=0;owner<characters.size();++owner) {
-   characters[owner].currentHp=candidate.characters[owner].currentHp;
-   characters[owner].conditions=candidate.characters[owner].conditions;
-   characters[owner].temporaryLevel=candidate.characters[owner].temporaryLevel;
-   characters[owner].intellect.temporary=candidate.characters[owner].intellect.temporary;
-   characters[owner].personality.temporary=candidate.characters[owner].personality.temporary;
-   characters[owner].endurance.temporary=candidate.characters[owner].endurance.temporary;
-			characters[owner].awards=candidate.characters[owner].awards;
-			characters[owner].skills=candidate.characters[owner].skills;
-			characters[owner].weapons=candidate.characters[owner].weapons;characters[owner].armor=candidate.characters[owner].armor;
-			characters[owner].accessories=candidate.characters[owner].accessories;characters[owner].miscellaneous=candidate.characters[owner].miscellaneous;
+			xeenEventCopyOwnedCharacter(characters[owner],candidate.characters[owner]);
 			if(inputs[owner])*inputs[owner]=*candidate.inputs[owner];
 		}
 		if(treasure) {treasure->gold=candidate.treasure->gold;treasure->gems=candidate.treasure->gems;}
 		s._journeyRandom=candidate.s._journeyRandom;
 		maps.swap(nextMaps);objects.swap(nextObjects);cityStatistics.swap(statistics);
 		cameraValue=candidate.cameraValue;flagValues=candidate.flagValues;++worldRevision;
-  context=candidate.context;recovery=candidate.recovery;
-		questFlags=candidate.questFlags;
+		context=candidate.context;recovery=candidate.recovery;food=candidate.food;economy=candidate.economy;
+		quests=candidate.quests;questFlags=candidate.questFlags;
 	}
 	// Sequence boundaries publish the interpreter's known party/RNG prefix while
 	// camera, game flags and World overlays remain owned by final settlement.
@@ -460,37 +429,17 @@ private:
 		check();candidate.check();
 		auto retainedTreasure=candidate.treasure;
 		if(retainedTreasure && treasure){retainedTreasure->gold=treasure->gold;retainedTreasure->gems=treasure->gems;}
-		auto retainedContext=candidate.context;
-		if(retainedContext && context) {
-			retainedContext->year=context->year;retainedContext->effects=context->effects;
-			retainedContext->lightAndResistances=context->lightAndResistances;retainedContext->rested=context->rested;
-		}
 		if(candidate.membership!=membership || candidate.marked!=marked ||
-			bool(candidate.recovery)!=bool(recovery) || !(retainedContext==context) || retainedTreasure!=treasure ||
-			candidate.food!=food || candidate.economy!=economy || candidate.first!=first || candidate.effective!=effective ||
+			bool(candidate.recovery)!=bool(recovery) || bool(candidate.context)!=bool(context) || retainedTreasure!=treasure ||
+			bool(candidate.economy)!=bool(economy) || candidate.first!=first || candidate.effective!=effective ||
 			candidate.diagnostics!=diagnostics || bool(candidate.s._journeyRandom)!=bool(s._journeyRandom)) {
 			failed=true;throw std::logic_error("Event sequence changed an unowned party field");
 		}
 		for(unsigned owner=0;owner<characters.size();++owner) {
 			auto retained=candidate.characters[owner];const auto &before=characters[owner];
-			retained.currentHp=before.currentHp;retained.conditions=before.conditions;
-			retained.temporaryLevel=before.temporaryLevel;retained.intellect.temporary=before.intellect.temporary;
-			retained.personality.temporary=before.personality.temporary;retained.endurance.temporary=before.endurance.temporary;
-			retained.skills=before.skills;retained.awards=before.awards;
-			retained.weapons=before.weapons;retained.armor=before.armor;retained.accessories=before.accessories;retained.miscellaneous=before.miscellaneous;
+			xeenEventCopyOwnedCharacter(retained,before);
 			auto retainedInputs=candidate.inputs[owner];
-			if(retainedInputs && inputs[owner]) {
-				auto &after=*retainedInputs;const auto &prior=*inputs[owner];
-				after.experience=prior.experience;after.might.temporary=prior.might.temporary;
-				after.speed.temporary=prior.speed.temporary;after.accuracy.temporary=prior.accuracy.temporary;after.temporaryAc=prior.temporaryAc;
-				if(after.luck && prior.luck)after.luck->temporary=prior.luck->temporary;
-				if(after.poisonResistance && prior.poisonResistance)after.poisonResistance->temporary=prior.poisonResistance->temporary;
-				if(after.resistances && prior.resistances) {
-					auto &r=*after.resistances;const auto &v=*prior.resistances;
-					r.fireTemporary=v.fireTemporary;r.coldTemporary=v.coldTemporary;r.electricalTemporary=v.electricalTemporary;
-					r.energyTemporary=v.energyTemporary;r.magicTemporary=v.magicTemporary;
-				}
-			}
+			if(retainedInputs && inputs[owner])*retainedInputs=*inputs[owner];
 			if(!xeen_state::sameCharacter(retained,before) || bool(candidate.inputs[owner])!=bool(inputs[owner]) ||
 				(inputs[owner] && !xeen_state::sameInputs(*retainedInputs,*inputs[owner]))) {
 				failed=true;throw std::logic_error("Event sequence changed character inputs without a capability");
@@ -498,14 +447,11 @@ private:
 		}
 		check();candidate.check();
 		for(unsigned owner=0;owner<characters.size();++owner) {
-			auto &live=characters[owner];const auto &after=candidate.characters[owner];
-			live.currentHp=after.currentHp;live.conditions=after.conditions;live.temporaryLevel=after.temporaryLevel;
-			live.intellect.temporary=after.intellect.temporary;live.personality.temporary=after.personality.temporary;
-			live.endurance.temporary=after.endurance.temporary;live.skills=after.skills;live.awards=after.awards;
-			live.weapons=after.weapons;live.armor=after.armor;live.accessories=after.accessories;live.miscellaneous=after.miscellaneous;
+			xeenEventCopyOwnedCharacter(characters[owner],candidate.characters[owner]);
 			if(inputs[owner])*inputs[owner]=*candidate.inputs[owner];
 		}
 		quests=candidate.quests;questFlags=candidate.questFlags;context=candidate.context;recovery=candidate.recovery;
+		food=candidate.food;economy=candidate.economy;
 		if(treasure){treasure->gold=candidate.treasure->gold;treasure->gems=candidate.treasure->gems;}
 		s._journeyRandom=candidate.s._journeyRandom;
 	}

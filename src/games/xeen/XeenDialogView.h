@@ -91,6 +91,8 @@ DialogInput xeenBuyInput(XeenItemService);
 std::string xeenLocationText(const XeenDosText &text,XeenLocationDialog,const XeenPartyState &,std::size_t);
 std::uint32_t xeenTempleUncurseCost(const XeenCharacter &);
 std::string xeenNotEnoughGold(const XeenDosText &text);
+// Party::notEnough (0x1e8bb): consumable 0 gold, 1 gems, 2 food, in the party.
+std::string xeenNotEnough(const XeenDosText &text,unsigned consumable);
 std::string xeenServiceConfirm(const XeenDosText &text,bool repair,const std::string &,std::uint32_t);
 std::string xeenServiceConfirm(const XeenDosText &,XeenItemService,const std::string &,std::uint32_t);
 std::string xeenIdentifiedDetails(const XeenDosText &,const XeenCharacter &,XeenInventoryCategory,const XeenItem &,const XeenLearnedSpellNames &);

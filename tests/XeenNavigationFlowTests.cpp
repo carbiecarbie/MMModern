@@ -250,7 +250,7 @@ void testMapTransitionAndErrorBoundary() {
 	addTrigger(errorMap, 1, 2);
 	error.maps.emplace(1, errorMap);
 	error.scripts.emplace(1, script(1,
-		{record(1, 2, 0, 0x17, {}, kXeenEventDirectionAll, 987)}));
+		{record(1, 2, 0, 0x30, {}, kXeenEventDirectionAll, 987)}));
 	XeenCamera errorCamera{1, 1, 1, XeenDirection::North};
 	XeenGameFlags errorFlags;
 	const auto errorResult = error.flow.processNavigationAction(error.world, error.party,

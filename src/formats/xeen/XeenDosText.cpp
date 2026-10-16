@@ -102,6 +102,8 @@ const std::vector<XeenDosText::Field> &XeenDosText::layout() {
   {"ELIGIBLE_FOR_LEVEL",0x52bc0,0x52bf1,1,false,"s,d,lu"},
   {"TRAINING_TEXT",0x52bf1,0x52c3c,1,false,"s,s"},
   {"NOT_ENOUGH_X_IN_THE_Y",0x5320a,0x5322b,1,false,"s,s"},
+  {"PICKS_THE_LOCK",0x53971,0x53999,1,false,"s"},
+  {"UNABLE_TO_PICK_LOCK",0x53999,0x539ce,1,false,"s"},
   {"CHARACTER_DETAILS",0x55a1a,0x55b71,1,false,"s,s,s,s,s,02u,u,02u,u,02u,d,lu,02u,u,02u,u,02u,u,lu,02u,u,02u,u,u,lu,02u,u,02u,u,u,u,c,02u,u,02u,u,u,02u,s,s,s,s,s"},
   {"PARTY_GOLD",0x55b71,0x55b7c,1,false,""},
   {"QUICK_REF_LINE",0x55b81,0x55be8,1,false,"3d,u,s,c,c,c,02u,u,02u,d,02u,u,02u,u,02u,c,c,c,c"},

@@ -67,6 +67,7 @@ add_library(mmodern_xeen STATIC
 	src/games/xeen/XeenCharacterRules.cpp
 	src/games/xeen/XeenLearnedSpellRules.cpp
 	src/games/xeen/XeenEventDecoder.cpp
+	src/games/xeen/XeenEventValues.cpp
 	src/games/xeen/XeenEventDiagnostics.cpp
 	src/games/xeen/XeenEventInterpreter.cpp
 	src/games/xeen/XeenItemRewards.cpp
@@ -416,10 +417,16 @@ if(BUILD_TESTING)
 	add_executable(mmodern_event_foundation_tests tests/XeenEventFoundationTests.cpp)
 	target_link_libraries(mmodern_event_foundation_tests PRIVATE mmodern_app mmodern_xeen mmodern_platform_sdl SDL2::SDL2)
 	add_test(NAME xeen_event_foundation COMMAND mmodern_event_foundation_tests)
+	add_executable(mmodern_event_value_tests tests/XeenEventValueTests.cpp)
+	target_link_libraries(mmodern_event_value_tests PRIVATE mmodern_xeen)
+	add_test(NAME xeen_event_values COMMAND mmodern_event_value_tests)
 	add_executable(mmodern_map_event_tests tests/XeenMapEventTests.cpp)
 	target_link_libraries(mmodern_map_event_tests PRIVATE mmodern_xeen)
 	add_test(NAME xeen_map_events COMMAND mmodern_map_event_tests)
 	add_test(NAME xeen_event_foundation_original COMMAND mmodern_event_foundation_tests "${MMODERN_XEEN_DATA_DIR}")
+	add_executable(mmodern_gold_vein_tests tests/XeenGoldVeinTests.cpp)
+	target_link_libraries(mmodern_gold_vein_tests PRIVATE mmodern_app mmodern_xeen mmodern_platform_sdl SDL2::SDL2)
+	add_test(NAME xeen_gold_vein_original COMMAND mmodern_gold_vein_tests "${MMODERN_XEEN_DATA_DIR}")
 	add_executable(mmodern_journey_gameplay_tests tests/XeenJourneyGameplayTests.cpp tests/XeenRestoreReplayProbe.cpp)
 	target_link_libraries(mmodern_journey_gameplay_tests PRIVATE mmodern_app mmodern_xeen mmodern_platform_sdl SDL2::SDL2)
 	add_test(NAME xeen_journey_gameplay COMMAND mmodern_journey_gameplay_tests)

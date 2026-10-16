@@ -139,7 +139,11 @@ void integrity() {
 void originalSessions(const char *directory) {
     const std::vector<XeenCamera> starts{{27,10,10,XeenDirection::North},{49,0,0,XeenDirection::North},
         {47,13,13,XeenDirection::East},{79,2,13,XeenDirection::North},
-        {29,1,1,XeenDirection::North},{27,30,30,XeenDirection::North}};
+        {29,1,1,XeenDirection::North},{27,30,30,XeenDirection::North},
+        // M70 Part B: maze0034.evt (7,16) JumpRnd/RndDamage/condition grant, maze0035.evt (11,6)
+        // JumpRnd/GiveMulti gold, maze0027.evt (10,9) If2 Linguist branch, maze0052.evt (7,4) GiveMulti.
+        {34,7,16,XeenDirection::North},{35,11,6,XeenDirection::North},{27,10,9,XeenDirection::North},
+        {52,7,4,XeenDirection::North}};
     for(unsigned scenario=0;scenario<starts.size();++scenario) {
         const auto start=starts[scenario];
         combat_gameplay_test::Harness h{std::filesystem::path(directory)};auto s=h.services();
@@ -167,7 +171,7 @@ void originalSessions(const char *directory) {
                 request.reset();
                 if(const auto *p=std::get_if<XeenEventExecutionSuspended>(&result))request=p->request;
                 if(const auto *e=std::get_if<XeenEventExecutionError>(&result)) {
-                    ++failures;std::cerr<<"Original Part A map "<<start.mapId.number<<": "<<e->message<<'\n';
+                    ++failures;std::cerr<<"Original M70 map "<<start.mapId.number<<": "<<e->message<<'\n';
                 }
             };
             const auto press=[&](const PlayerAction &action) {
@@ -188,7 +192,7 @@ void originalSessions(const char *directory) {
                     }
                 }
                 check(!failures && (!h.flow->blocksGameplay() || (scenario==4 && h.flow->encounter()->combat())),
-                    "Original Part A Event did not return session input or enter Spawn combat");
+                    "Original M70 Event did not return session input or enter Spawn combat");
             }
             if(scenario==2)check(h.world->effectiveWallItem({47,0}).x==-128 &&
                 h.world->effectiveWallItem({47,4}).x==13 && h.world->sampleCell(47,12,7)->cell->surfaceIndex==6,
@@ -204,8 +208,10 @@ void originalSessions(const char *directory) {
                 }
                 check(cleared==10,"Original MakeNothingHere witness no longer names its ten original records");
             }
-            if(scenario!=4 || !h.flow->encounter()->combat())
+            if(scenario<6 && (scenario!=4 || !h.flow->encounter()->combat()))
                 check(h.world->sessionState().journeyRandom()==random,"Part A original script consumed a Journey draw");
+            if(scenario==6 || scenario==7 || scenario==9)
+                check(h.world->sessionState().journeyRandom()->count>random->count,"Part B random operation drew nothing");
             return true;
         };
         check(Application().playGameplay(s,{}, {},false,XeenEncounterEntry::Journey,7)==0 && shown,

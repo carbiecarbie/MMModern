@@ -408,7 +408,10 @@ std::uint32_t xeenTempleUncurseCost(const XeenCharacter &c) {
     return cursed?c.currentLevel()*20:0;
 }
 std::string xeenNotEnoughGold(const XeenDosText &text) {
-    return xeenDialogFormat(text.scalar("NOT_ENOUGH_X_IN_THE_Y"),{str(text.table("CONSUMABLE_NAMES")[0]),str(text.table("WHERE_NAMES")[0])});
+    return xeenNotEnough(text,0);
+}
+std::string xeenNotEnough(const XeenDosText &text,unsigned consumable) {
+    return xeenDialogFormat(text.scalar("NOT_ENOUGH_X_IN_THE_Y"),{str(text.table("CONSUMABLE_NAMES").at(consumable)),str(text.table("WHERE_NAMES")[0])});
 }
 std::string xeenServiceConfirm(const XeenDosText &text,bool repair,const std::string &name,std::uint32_t price) {
     // English getGoldPlurals is always the singular resource form.

@@ -6,13 +6,21 @@ namespace mmodern {
 XeenItemCandidate::XeenItemCandidate(unsigned value):level(value) {
 	if(level<1 || level>7)throw std::invalid_argument("Unsupported generated item level");
 }
+XeenItemCandidate::XeenItemCandidate(unsigned value,std::optional<int> itemType):XeenItemCandidate(value) {
+	special=itemType;
+}
 bool XeenItemCandidate::service(XeenConsequenceDraw &draw) {
 	draw.remaining=std::min(draw.remaining,64u);
 	while(step!=Step::Done && draw.remaining) switch(step) {
 	case Step::Category: { const auto n=draw.draw(0,100);if(n) { categoryRoll=*n;step=Step::Subcategory; } break; }
 	case Step::Subcategory: { const auto n=draw.draw(0,level>=6?80:100);if(n) { subcategory=*n;step=Step::Resolve; } break; }
 	case Step::Resolve:
-		if(categoryRoll<=(level==1?40:35)) {
+		if(special) {
+			const int type=*special;
+			selectedCategory=type<35?0:type<49?1:type<60?2:3;
+			generated.id=static_cast<std::uint8_t>(type<35?type:type<49?type-35:type<60?type-49:type-60);
+			step=Step::Enchantment;
+		} else if(categoryRoll<=(level==1?40:35)) {
 			selectedCategory=0;lo=subcategory<=30?1:subcategory<=60?7:subcategory<=85?18:30;
 			hi=subcategory<=30?6:subcategory<=60?17:subcategory<=85?29:33;step=Step::Id;
 		} else if(level==1) { selectedCategory=categoryRoll<=85?1:3;lo=1;hi=selectedCategory==1?7:9;step=Step::Id; }

@@ -265,11 +265,11 @@ void checkSource(const XeenEventSourceLocation &source, bool withContext,
 }
 
 void testErrorsMetadataAndPurity() {
-	const auto unsupportedKnown = XeenEventDecoder::decode(record(0x17, {1, 2}),
+	const auto unsupportedKnown = XeenEventDecoder::decode(record(0x30, {1, 2}),
 		{42, std::string("maze0042.evt")});
 	const auto &opcodeError = failure(unsupportedKnown,
 		XeenEventDecodeErrorKind::UnsupportedOpcode);
-	checkSource(opcodeError.source, true, 0x17);
+	checkSource(opcodeError.source, true, 0x30);
 	check(!opcodeError.expectedParameterSize && opcodeError.actualParameterSize == 2,
 		"unsupported opcode does not parse parameters");
 	checkSource(failure(XeenEventDecoder::decode(record(0xff)),
@@ -381,7 +381,10 @@ int main() {
 		check(move.record==255 && move.x==-128 && move.y==-1,"MoveObj original identity/signed byte coordinates");
 		for(unsigned size:{0u,1u,2u,4u})failure(XeenEventDecoder::decode(record(0x0b,std::vector<std::uint8_t>(size))),XeenEventDecodeErrorKind::MalformedInstruction);
 		operation<XeenEventSetCharacter>(XeenEventDecoder::decode(record(0x0f,{0})));
-		for(unsigned selector=1;selector<256;++selector)failure(XeenEventDecoder::decode(record(0x0f,{std::uint8_t(selector)})),XeenEventDecodeErrorKind::UnsupportedOperand);
+		// Every selector decodes; the interpreter owns its meaning (0x279ef).
+		for(unsigned selector=1;selector<256;++selector)
+			check(operation<XeenEventSetCharacter>(XeenEventDecoder::decode(record(0x0f,{std::uint8_t(selector)}))).selector==selector,"SetChar selector byte");
+		failure(XeenEventDecoder::decode(record(0x0f,{})),XeenEventDecodeErrorKind::MalformedInstruction);
 		const auto multi=operation<XeenEventGiveMulti>(XeenEventDecoder::decode(record(0x14,{34,0x78,0x56,0x34,0x12,35,0xcd,0xab,0,0})));
 		check(multi.first.value==0x12345678 && multi.second.value==0xabcd && multi.third.mode==0,"GiveMulti ordered 32/16/8-bit values");
 		testErrorsMetadataAndPurity();

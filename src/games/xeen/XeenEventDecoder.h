@@ -114,7 +114,8 @@ struct XeenEventMoveWallObject { std::uint8_t record=0; int x=0,y=0; };
 struct XeenEventMakeNothingHere {};
 struct XeenEventAlterMap { int x=0,y=0; std::uint8_t direction=0,wall=0; };
 struct XeenEventAlterCellFlag { int x=0,y=0; std::uint8_t surface=0; };
-struct XeenEventSetVar { std::uint8_t mode=0, value=0; };
+// SetVar keeps the mode-specific operand width (see XeenEventValues.h).
+struct XeenEventSetVar { std::uint8_t mode=0; std::uint32_t value=0; };
 struct XeenEventProtectionCheck {};
 struct XeenEventAlterHeads { std::uint8_t left=0,right=0; };
 struct XeenEventDamage { std::uint16_t amount=0;std::uint8_t type=0; };
@@ -132,6 +133,19 @@ struct XeenEventTakeOrGive {
 	XeenEventTakeOrGivePair third;
 };
 struct XeenEventGiveMulti : XeenEventTakeOrGive {};
+// TakeOrGive_2/_3/_4 (opcodes 28, 29, 38): ifProc test(s), then a give-only giveTake.
+struct XeenEventTakeOrGiveTest : XeenEventTakeOrGive {
+	std::uint8_t opcode = 28;
+};
+// JumpRnd (23): draw 1..range, jump when it equals match. Operands are signed bytes.
+struct XeenEventJumpRandom { int range = 0, match = 0, line = 0; };
+// RndDamage (33): typed damage of 1..maximum. The third byte is not read.
+struct XeenEventRandomDamage { std::uint8_t type = 0; int maximum = 0; std::optional<std::uint8_t> unused; };
+// IfMapFlag (42): continue while the monster (or any, 0xff) is on the map, else jump.
+struct XeenEventIfMapFlag { std::uint8_t monster = 0; int line = 0; };
+struct XeenEventSelectRandomCharacter {};
+// ItemType (45): the special-event item for the run's later item generation.
+struct XeenEventItemType { int itemType = 0; };
 
 using XeenDecodedEventOperation = std::variant<
 	XeenEventNone,
@@ -163,7 +177,13 @@ using XeenDecodedEventOperation = std::variant<
 	XeenEventSetVar,
 	XeenEventProtectionCheck,
 	XeenEventAlterHeads,
-	XeenEventDamage>;
+	XeenEventDamage,
+	XeenEventTakeOrGiveTest,
+	XeenEventJumpRandom,
+	XeenEventRandomDamage,
+	XeenEventIfMapFlag,
+	XeenEventSelectRandomCharacter,
+	XeenEventItemType>;
 
 struct XeenDecodedEventInstruction {
 	XeenEventSourceLocation source;

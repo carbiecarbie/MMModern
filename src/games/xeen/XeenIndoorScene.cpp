@@ -501,6 +501,7 @@ std::vector<XeenIndoorDrawCommand> XeenIndoorScene::build(
 							world.isObjectDisabled({camera.mapId, recordIndex}))
 						continue;
 					auto visual = resolver->resolve(file, recordIndex, camera.direction,ordinaryPhase);
+					if (const auto frame = world.objectFrame({camera.mapId, recordIndex})) visual.frame = *frame;
 					if (visual.status == XeenObjectVisualStatus::SupportedStatic ||
 						visual.status == XeenObjectVisualStatus::SupportedAnimated) {
 						const std::size_t anchorRow = object.resourceId == 113 ? 1 : 0;

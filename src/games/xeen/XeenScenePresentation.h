@@ -59,6 +59,9 @@ struct XeenMonsterAnimation {
 class XeenScenePresentation {
 public:
  std::map<XeenObjectIdentity,bool> objectFlips;
+ // giveExt's chest frame (0x235f6, 0x23703): open while the lock is picked,
+ // until the map is loaded again. Not saved, as in DOS.
+ std::map<XeenObjectIdentity,unsigned> objectFrames;
  struct PortraitEffect {unsigned spellFrame=4, damageFrame=0, damageTicks=0;std::uint64_t spellDeadline=0,damageDeadline=0;};
  // One physical (frame 0) or spell splat per row, plus the original's separate
  // elemental weapon splat beside it (_elemFrame/_elemScale, M67).

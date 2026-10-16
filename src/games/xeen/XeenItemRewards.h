@@ -24,6 +24,7 @@ public:
 	std::uint32_t gold() const noexcept {return _gold;}
 	std::uint32_t gems() const noexcept {return _gems;}
 	std::size_t size() const { return _size; }
+	std::size_t count(XeenRewardCategory category) const { return _counts.at(static_cast<unsigned>(category)); }
 	std::size_t overflow() const { return _overflow; }
 	std::size_t invalid() const { return _invalid; }
 	bool hasWork() const { return _size || _overflow || _invalid || _gold || _gems; }

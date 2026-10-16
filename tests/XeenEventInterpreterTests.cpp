@@ -118,7 +118,9 @@ XeenEventExecutionCompleted success(const XeenEventExecutionResult &result) {
 XeenEventExecutionError failure(const XeenEventExecutionResult &result,
 		XeenEventExecutionErrorKind kind) {
 	const auto *value = std::get_if<XeenEventExecutionError>(&result);
-	check(value && value->kind == kind, "unexpected execution error");
+	if (!value || value->kind != kind)
+		throw std::runtime_error(std::string("unexpected execution error: ") + (value ?
+			std::to_string(static_cast<int>(value->kind)) + " " + value->message : "completed"));
 	return *value;
 }
 
@@ -255,7 +257,7 @@ void testConditions() {
 
 	Fixture unsupported;
 	unsupported.scripts.emplace(1, script(1, {
-		record(1, 1, 0, 0x09, {21, 1, 1})
+		record(1, 1, 0, 0x09, {107, 1, 1})
 	}));
 	failure(unsupported.execute(camera, party, flags),
 		XeenEventExecutionErrorKind::UnsupportedConditionAction);
@@ -415,7 +417,7 @@ void testTeleportsAndTransactionalResult() {
 		XeenEventExecutionErrorKind::MalformedInstruction);
 
 	Fixture unsupported;
-	unsupported.scripts.emplace(1, script(1, {record(1, 1, 0, 0x17)}));
+	unsupported.scripts.emplace(1, script(1, {record(1, 1, 0, 0x30)}));
 	failure(unsupported.execute(camera, party, flags),
 		XeenEventExecutionErrorKind::UnsupportedOpcode);
 }
@@ -485,9 +487,15 @@ void testTakeOrGiveFlagOperations() {
 	check(ownedResult.finalGameFlags.isSet(7) &&
 		!ownedResult.finalGameFlags.isSet(8), "Completed owns finalGameFlags by value");
 
+	// Every original mode pair is giveTake (0x2200c): take flag 1, give flag 2.
+	Fixture both;
+	both.scripts.emplace(1, script(1, {record(1, 1, 0, 0x0c, {20, 1, 20, 2})}));
+	XeenGameFlags bothInput;bothInput.set(1);
+	const auto bothResult = success(both.execute(camera, party, bothInput));
+	check(!bothResult.finalGameFlags.isSet(1) && bothResult.finalGameFlags.isSet(2), "take and give in one TakeOrGive");
+	// Modes owned elsewhere still refuse: Darkside flags, damage and time going back.
 	for (const auto &parameters : std::vector<std::vector<std::uint8_t>>{
-			{}, {20, 1, 20, 2}, {9, 1}, {0, 7, 20, 1},
-			{0, 0, 20, 1, 1, 1}, {0, 0}}) {
+			{0, 0, 107, 1}, {8, 5}, {0, 0, 82, 5}, {0, 0, 25, 1, 0}}) {
 		Fixture unsupported;
 		unsupported.scripts.emplace(1, script(1,
 			{record(1, 1, 0, 0x0c, parameters)}));
@@ -583,7 +591,7 @@ void testTakeOrGiveRollback() {
 
 	Fixture unsupportedOpcode;
 	unsupportedOpcode.scripts.emplace(1, script(1, {
-		record(1, 1, 0, 0x0c, setFlag(25)), record(1, 1, 1, 0x17)
+		record(1, 1, 0, 0x0c, setFlag(25)), record(1, 1, 1, 0x30)
 	}));
 	failure(unsupportedOpcode.execute(camera, party, clearInput),
 		XeenEventExecutionErrorKind::UnsupportedOpcode);
@@ -591,7 +599,7 @@ void testTakeOrGiveRollback() {
 
 	Fixture unsupportedMode;
 	unsupportedMode.scripts.emplace(1, script(1, {
-		record(1, 1, 0, 0x0c, clearFlag(25)), record(1, 1, 1, 0x0c)
+		record(1, 1, 0, 0x0c, clearFlag(25)), record(1, 1, 1, 0x0c, {0, 0, 107, 1})
 	}));
 	XeenGameFlags setInput;
 	setInput.set(25);
@@ -697,7 +705,7 @@ XeenEventExecutionError makeOwnedDiagnostic() {
 	auto party = partyWithSp(2);
 	Fixture fixture;
 	fixture.scripts.emplace(1, script(1, {
-		record(1, 1, 0, 0x17, {}, kXeenEventDirectionAll, 987)
+		record(1, 1, 0, 0x30, {}, kXeenEventDirectionAll, 987)
 	}));
 	return failure(fixture.execute({1, 1, 1, XeenDirection::North},
 		party, XeenGameFlags{}),

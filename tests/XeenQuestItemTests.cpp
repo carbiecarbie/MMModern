@@ -107,7 +107,7 @@ XeenEventExecutionCompleted done(const XeenEventExecutionStepResult &r) {
 }
 XeenEventExecutionError failed(const XeenEventExecutionStepResult &r, XeenEventExecutionErrorKind kind) {
 	const auto *e = std::get_if<XeenEventExecutionError>(&r);
-	check(e && e->kind == kind, "unexpected error kind"); return *e;
+	if(!e || e->kind != kind) throw std::runtime_error("unexpected error kind: "+(e?std::to_string(int(e->kind))+" "+e->message:std::string("no error"))); return *e;
 }
 
 void conditions() {
@@ -122,7 +122,8 @@ void conditions() {
 		check(result.finalGameFlags.isSet(7) == (op == 8 || count != 0), "possession comparison used bool/raw count");
 		check(f.members.questItems.counts() == counts, "condition mutated ownership");
 	}
-	for (int id : {0,81,117,255}) {
+	// Values below 82 test the carried items; only ids past the Clouds quest items are refused.
+	for (int id : {117,255}) {
 		Fixture f; f.scripts.emplace(1, script(1,{record(1,1,0,9,{21,static_cast<std::uint8_t>(id),1})}));
 		const auto e = failed(f.begin(), XeenEventExecutionErrorKind::UnsupportedConditionAction);
 		check(e.source && e.source->fileOffset == 100 && e.message.find(std::to_string(id)) != std::string::npos,

@@ -166,18 +166,18 @@ void rejectionAndRollback() {
 		wrong.runManualEvent(world, party, camera, flags)) && wrong.cachedScriptCount() == 0,
 		"wrong-side script accepted/cached");
 	XeenEventSystem rollback([](XeenMapIdentity id) {
-		if (id.number == 1) return script(id, {record(1, 1, 0, 0x0c, {0,0,20,5}),
-			record(1, 1, 1, 0x1f, {2,2,2})});
+		// Game flags are a Clouds bank; the teleport alone carries the transaction.
+		if (id.number == 1) return script(id, {record(1, 1, 0, 0x1f, {2,2,2})});
 		return script(id, {record(2, 2, 0, 0x01, {0}), record(2, 2, 1, 0xff)});
 	}, [](XeenMapIdentity id) { return XeenEventTextFile{id, "test", true, {"pending"}}; });
 	auto pending = std::get<XeenEventExecutionSuspended>(rollback.runManualEvent(world, party, camera, flags));
-	check(!flags.isSet(5) && camera.mapId == dark && pending.state.workingGameFlags.isSet(5),
+	check(camera.mapId == dark && pending.state.workingCamera.mapId == XeenMapIdentity(XeenSide::Darkside, 2),
 		"pending transaction leaked");
 	rollback.discardScriptCache(); rollback.discardTextCache(); world.discardMapCache();
 	auto result = rollback.resumeManualEvent(pending.state, XeenPresentationResponse::Presented,
 		world, party, camera, flags);
 	const auto &error = std::get<XeenEventExecutionError>(result);
-	check(camera.mapId == dark && !flags.isSet(5) &&
+	check(camera.mapId == dark &&
 		error.logicalAddress.mapId == XeenMapIdentity{XeenSide::Darkside, 2} &&
 		error.source->mapId == error.logicalAddress.mapId, "rollback/error side lost");
 	XeenEventSystem wrongText([](XeenMapIdentity id) {
@@ -201,11 +201,11 @@ void rejectionAndRollback() {
 	check(std::get<XeenEventExecutionError>(badTarget).requestedTarget->mapId ==
 		XeenMapIdentity{XeenSide::Darkside, 2}, "requested target lost side");
 	XeenEventSystem commit([](XeenMapIdentity id) {
-		return script(id, {record(1, 1, 0, 0x0c, {0,0,20,5}), record(1, 1, 1, 0x07, {2,2,2})});
+		return script(id, {record(1, 1, 0, 0x07, {2,2,2})});
 	});
 	check(std::holds_alternative<XeenManualEventCompleted>(commit.runManualEvent(world, party, camera, flags)) &&
-		camera.mapId == XeenMapIdentity{XeenSide::Darkside, 2} && flags.isSet(5),
-		"TeleportAndExit/flag commit lost side");
+		camera.mapId == XeenMapIdentity{XeenSide::Darkside, 2},
+		"TeleportAndExit commit lost side");
 	int reads = 0;
 	auto reader = [&](const std::string &) -> std::optional<std::vector<std::uint8_t>> {
 		++reads; return std::nullopt;

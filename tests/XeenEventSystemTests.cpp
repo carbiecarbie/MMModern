@@ -243,7 +243,7 @@ void testCommitAndRollback() {
 	rollback.maps.emplace(1, map(1, true, {{1, 1}}));
 	rollback.scripts.emplace(1, script(1, {
 		record(1, 1, 0, 0x0c, setFlag(25)),
-		record(1, 1, 1, 0x17, {}, kXeenEventDirectionAll, 987)
+		record(1, 1, 1, 0x30, {}, kXeenEventDirectionAll, 987)
 	}));
 	XeenCamera rollbackCamera{1, 1, 1, XeenDirection::South};
 	XeenGameFlags rollbackFlags;
@@ -260,7 +260,7 @@ void testCommitAndRollback() {
 	history.scripts.emplace(1, script(1, {
 		record(1, 1, 0, 0x0c, setFlag(7)),
 		record(2, 2, 0, 0x0c, setFlag(8)),
-		record(2, 2, 1, 0x17)
+		record(2, 2, 1, 0x30)
 	}));
 	XeenCamera historyCamera{1, 1, 1, XeenDirection::North};
 	XeenGameFlags historyFlags;
@@ -284,7 +284,7 @@ void testCommitAndRollback() {
 		record(1, 1, 0, 0x1f, {2, 3, 4})
 	}));
 	workingTeleport.scripts.emplace(2, script(2, {
-		record(3, 4, 0, 0x17)
+		record(3, 4, 0, 0x30)
 	}));
 	XeenCamera teleportCamera{1, 1, 1, XeenDirection::West};
 	XeenGameFlags teleportFlags;

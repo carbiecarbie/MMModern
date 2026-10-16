@@ -236,7 +236,17 @@ XeenPresentationUpdate XeenEventPresenter::handle(const PlayerAction &action, bo
 		return update;
 	}
 	if (_request.kind == XeenPresentationKind::NpcAcknowledgment) {
-		if (!isAcknowledge(action) && !std::holds_alternative<CancelInteractionAction>(action))
+		const bool choice=_request.response == XeenPresentationResponseRequirement::YesNo;
+		if (choice && _page + 1 == _pages.size()) {
+			// Only Y, N or Escape answer the last page (LocationMessage::execute).
+			if (std::holds_alternative<YesAction>(action)) update.response = XeenPresentationResponse::Yes;
+			else if (std::holds_alternative<NoAction>(action) || std::holds_alternative<CancelInteractionAction>(action))
+				update.response = XeenPresentationResponse::No;
+			if (update.response && finishResponse) update.frame = finishPresentation();
+			return update;
+		}
+		if (!isAcknowledge(action) && !std::holds_alternative<CancelInteractionAction>(action) &&
+			!(choice && (std::holds_alternative<YesAction>(action) || std::holds_alternative<NoAction>(action))))
 			return update;
 		if (_page + 1 < _pages.size()) {
 			const auto beforePage=_page;const auto beforeTiming=_npcTiming;
@@ -345,7 +355,7 @@ IndexedFrame XeenEventPresenter::rebase(const IndexedFrame &base) {
 
 void XeenEventPresenter::layoutNpc(const IndexedFrame &base,
         const XeenPresentationRequest &request) {
-    if(!request.npc || (request.npc->confirmationMode!=1 && request.npc->confirmationMode!=2) || !_npcDraw || !_dosText)
+    if(!request.npc || request.npc->confirmationMode>2 || !_npcDraw || !_dosText)
         throw std::invalid_argument("NPC presentation requires supported metadata and original assets");
     _pages.clear();_npcPageSourceEnds.clear();_diagnostics.clear();
     auto o=optionsFor(request);
@@ -371,6 +381,9 @@ void XeenEventPresenter::layoutNpc(const IndexedFrame &base,
 IndexedFrame XeenEventPresenter::drawNpcPage() const {
 	auto frame = _pages.at(_page);
 	_npcDraw(frame, _request.npc->portraitId, _npcTiming.displayedFrame);
+	// Confirmation mode 0 adds the Yes/No buttons after the last page's text.
+	if (_request.npc->confirmationMode == 0 && _page + 1 == _pages.size())
+		frame = drawConfirmation(frame);
 	return overlayNotices(std::move(frame));
 }
 

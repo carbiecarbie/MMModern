@@ -39,6 +39,8 @@ void XeenWorld::reloadMapMonsters(XeenMapIdentity mapId) {
 
 void XeenWorld::leaveMap(XeenMapIdentity mapId) {
 	if (!_detachedEventCandidate) throw std::logic_error("Map exit requires a detached transition");
+	for(auto at=_scenePresentation.objectFrames.begin();at!=_scenePresentation.objectFrames.end();)
+		at=at->first.mapId==mapId?_scenePresentation.objectFrames.erase(at):std::next(at);
 	for(const auto &entry:_sessionState._mapStates) {
 		auto &cells=_sessionState._mapStates.find(entry.first)->cells;
 		for(auto &cell:cells)if(cell.visitMap==mapId) {
@@ -105,6 +107,7 @@ void XeenWorld::applySpawn(XeenMapIdentity mapId, std::uint8_t slot, int x, int 
 XeenScenePresentation XeenWorld::prepareSpawnPresentation(const XeenWorld &candidate) const {
 	auto prepared=_scenePresentation;
 	prepared.objectFlips=candidate._scenePresentation.objectFlips;
+	prepared.objectFrames=candidate._scenePresentation.objectFrames;
 	for(const auto id:candidate._spawnedPresentationSlots)
 		prepared.copySpawn(candidate._sessionState.regionalActors(id.mapId).at(id.recordIndex),candidate._scenePresentation);
 	if(!candidate._spawnedPresentationSlots.empty())prepared.copySpawnRandom(candidate._scenePresentation);

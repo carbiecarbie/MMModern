@@ -31,8 +31,8 @@ void continuations(){
 	check(s.pendingRewards.size()==1&&s.rewardPhase==XeenRewardPhase::Running&&s.callStack.empty()&&s.instructionCount==4,"Call/Return delivered early or lost queue");
 	s=pending(e.resume(s));check(s.rewardReceipt.delivered==1&&s.instructionCount==5,"Call/Return finalization count");
 	for(auto bad:std::vector<XeenEventRecord>{record(1,1,1,0x1a),record(1,1,1,0x19,{99,99,0}),
-		record(1,1,1,9,{20,7,99}),record(1,1,1,0x2c,{69,37,0,1}),record(1,1,1,12,{21,81,0,0}),
-		record(1,1,1,12,{104,2,0,1})}){
+		record(1,1,1,9,{20,7,99}),record(1,1,1,0x2c,{69,37,0,1}),record(1,1,1,12,{21,117,0,0}),
+		record(1,1,1,12,{104,30,0,0})}){
 		Execution x;auto state=x.seed({pause(),bad});state.workingGameFlags.set(7);
 		auto result=x.resume(state);const auto &error=std::get<XeenEventExecutionError>(result);
 		check(error.rewards.discarded==1&&error.rewards.discardReason==XeenRewardDiscard::ExecutionError&&
@@ -111,11 +111,11 @@ void production(){
 	}
 	{
 		Execution e;e.f.initial.questItems.increment(17);
-		const auto failure=std::get<XeenEventExecutionError>(begin(e,{record(1,1,0,12,{21,99}),
-			record(1,1,1,0x2c,{70,37}),record(1,1,2,12,{21,99}),record(1,1,3,12,{0,0,104,2})}));
-		check(failure.kind==XeenEventExecutionErrorKind::QuestItemUnderflow && failure.instructionCount==3 &&
-			failure.rewards.discarded==1 && e.f.initial.questItems.at(17)==0 && !e.f.initial.questFlags.isSet(2) &&
-			!e.f.initial.roster.at(0).miscellaneous[0].id,"underflow rolled back earlier take/delivered queue/continued");
+		// A quest take at zero wraps the byte counter (0x22339) and the script continues.
+		const auto result=begin(e,{record(1,1,0,12,{21,99}),
+			record(1,1,1,0x2c,{70,37}),record(1,1,2,12,{21,99}),record(1,1,3,12,{0,0,104,2})});
+		check(!std::holds_alternative<XeenEventExecutionError>(result) && e.f.initial.questItems.at(17)==255 &&
+			e.f.initial.questFlags.isSet(2),"quest take at zero stopped or did not wrap");
 	}
 	Execution call;auto s=pending(begin(call,{record(1,1,0,0x2c,{70,37,0,1}),record(1,1,1,0x19,{2,2,0}),
 		pause(2),record(2,2,0,0x2c,{71,73,123}),record(2,2,1,0x1a)}));

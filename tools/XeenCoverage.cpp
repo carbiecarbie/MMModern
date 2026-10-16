@@ -128,6 +128,8 @@ XeenEventFile isolatedEventProbe(const XeenEventRecord &original,XeenMapIdentity
     const auto &operation=std::get<XeenDecodedEventInstruction>(decoded).operation;
     if(const auto *condition=std::get_if<XeenEventConditional>(&operation))exitLines.insert(condition->targetLine);
     if(const auto *npc=std::get_if<XeenEventNpc>(&operation))exitLines.insert(npc->targetLine);
+    if(const auto *jump=std::get_if<XeenEventJumpRandom>(&operation))if(jump->line>=0)exitLines.insert(unsigned(jump->line));
+    if(const auto *flag=std::get_if<XeenEventIfMapFlag>(&operation))if(flag->line>=0)exitLines.insert(unsigned(flag->line));
     if(const auto *call=std::get_if<XeenEventCallEvent>(&operation))
         if(call->x==record.x && call->y==record.y)exitLines.insert(call->line);
     for(const auto line:exitLines)if(line!=record.line) {
@@ -275,6 +277,7 @@ std::string eventMechanic(const XeenEventRecord &r) {
         if(auto p=std::get_if<XeenEventDisplay>(&op))key+=" layout="+(p->layoutValue?std::to_string(*p->layoutValue):"default");
         if(auto p=std::get_if<XeenEventTownService>(&op))key+=" action="+std::to_string(p->action);
         if(auto p=std::get_if<XeenEventSetVar>(&op))key+=" mode="+std::to_string(p->mode);
+        if(auto p=std::get_if<XeenEventSetCharacter>(&op))key+=" selector="+std::to_string(p->selector);
         if(auto p=std::get_if<XeenEventTeleportAndExit>(&op))key+=" destination="+std::to_string(p->mapId);
         if(auto p=std::get_if<XeenEventTeleportAndContinue>(&op))key+=" destination="+std::to_string(p->mapId);
         if(auto p=std::get_if<XeenEventDamage>(&op))key+=" type="+std::to_string(p->type);

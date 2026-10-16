@@ -91,8 +91,14 @@ void skillComparisons() {
   records.push_back(record(1,1,line+1,0x12));
   records.push_back(record(1,1,line+2,0x0c,{0,0,20,7}));f.set(records);
   const auto result=f.interpreter.execute(f.camera,f.members,f.flags,f.world,[&](auto id){return f.scripts.at(id);});
+  // A failed skill test leaves the record offset (100) in the low word: >= 4 holds, == 4 fails
+  // and <= 4 depends on the unknown high word, so it is refused unless another member passes.
+  if(opcode==10 && (all?holders==0:holders!=2)) {
+   check(std::holds_alternative<XeenEventExecutionError>(result),"residue <= comparison was not refused");
+   continue;
+  }
   const auto *done=std::get_if<XeenEventExecutionCompleted>(&result);
-  check(done && done->finalGameFlags.isSet(7)==(opcode==10 || (all?holders>0:holders==2)),"Selected/all-member skill13 comparison changed");
+  check(done && done->finalGameFlags.isSet(7)==(opcode!=9 || (all?holders>0:holders==2)),"Selected/all-member skill13 comparison changed");
  }
  for(const auto opcode:{8,9,10})for(unsigned holders=0;holders<=2;++holders) {
   Fixture f;f.members.roster.at(4).skills[11]=holders>=1?1:0;
@@ -103,7 +109,7 @@ void skillComparisons() {
   const auto *done=std::get_if<XeenEventExecutionCompleted>(&result);
   check(done && done->finalGameFlags.isSet(7)==(opcode==8 || holders==2),"Party skill99 Pathfinder count/condition filter changed");
  }
- Fixture unsupported;unsupported.set({record(1,1,0,0x09,{13,1,1}),record(1,1,1,0x12)});
+ Fixture unsupported;unsupported.set({record(1,1,0,0x09,{107,1,1}),record(1,1,1,0x12)});
  error(unsupported.begin(),Kind::UnsupportedConditionAction);
 }
 void decoderAndExecution() {
@@ -124,7 +130,7 @@ void decoderAndExecution() {
   check(shown.response && *shown.response==XeenPresentationResponse::Presented && !presenter.blocksGameplay() && presenter.hasNpcOffer(),"Mode2 offer did not remain as passive NPC layer");
   check(std::holds_alternative<XeenEventExecutionCompleted>(offer.resume(state,XeenPresentationResponse::Presented)),"Mode2 offer failed sequential continuation");
  }
- for(int mode:{0,3,255}) {Fixture f;auto r=npc();r.parameters[3]=mode;f.set({r});error(f.begin(),Kind::UnsupportedOperand);}
+ for(int mode:{3,255}) {Fixture f;auto r=npc();r.parameters[3]=mode;f.set({r});error(f.begin(),Kind::UnsupportedOperand);}
 	for(int missing:{0,1}) {Fixture f;auto r=npc();r.parameters[missing]=250;f.set({r});error(f.begin(),Kind::InvalidTextIndex);}
 	for(int fault=0;fault<3;++fault) {
 		Fixture f;auto flow=f.flow();std::optional<XeenEventExecutionError> e;

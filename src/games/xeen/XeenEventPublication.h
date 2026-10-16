@@ -4,6 +4,7 @@
 #include "games/xeen/XeenEventInterpreter.h"
 #include "games/xeen/XeenRegionalRules.h"
 #include "games/xeen/XeenEventContinuation.h"
+#include "games/xeen/XeenEventValues.h"
 #include <limits>
 namespace mmodern {
 // A stack-bound publication capability, issued only to the live Journey continuation.
@@ -150,14 +151,32 @@ public:
 		const auto effect=takeOrGive();
 		if (!neutral(effect.first) || effect.second.mode!=21 || effect.second.value!=index+82 || !neutral(effect.third) || index>=guard.quests.size()) integrity("Regional grant operands changed");
 		consume();
-		if (grant || guard.quests[index]==std::numeric_limits<std::uint32_t>::max())
+		if (grant)
 			throw std::logic_error("Journey grant publication unavailable");
 		grant=true; grantIndex=index;
+	}
+	// Generic live writes of If/SetVar/TakeOrGive value modes: party fields an
+	// Event owns, anticipated into the retained preimage after each write.
+	void prepareEventWrite() const {
+		check();
+		const auto operation=decodedOperation();
+		if(!std::holds_alternative<XeenEventTakeOrGive>(operation) && !std::holds_alternative<XeenEventTakeOrGiveTest>(operation) &&
+			!std::holds_alternative<XeenEventSetVar>(operation) && !std::holds_alternative<XeenEventGiveMulti>(operation))
+			integrity("Event write has no dispatched value operation");
+	}
+	void eventWritten(const XeenPartyState &party) const {
+		for(const auto id:guard.membership) {
+			xeenEventCopyOwnedCharacter(guard.characters[id],party.roster.at(id));
+			guard.inputs[id]=party.roster.combatInputs(id);
+		}
+		guard.context=party.encounterContext;guard.food=party.food;
+		if(guard.treasure && party.monsterTreasure) {guard.treasure->gold=party.monsterTreasure->gold;guard.treasure->gems=party.monsterTreasure->gems;}
+		guard.adoptMutationBoundary();
 	}
 	void text(const XeenEventTextFile &file) const {
 		guard.admitEventText(file);
 	}
-	void granted() const noexcept { ++guard.quests[grantIndex];guard.adoptMutationBoundary(); }
+	void granted() const noexcept { guard.quests[grantIndex]=XeenCloudsQuestItems::afterEventGrant(guard.quests[grantIndex]);guard.adoptMutationBoundary(); }
 	void prepareQuestFlag(bool value) const {
 		check();
 		const auto effect=takeOrGive();
@@ -169,10 +188,10 @@ public:
 	void prepareQuestTake(std::size_t index) const {
 		check();
 		const auto effect=takeOrGive();
-		if(effect.first.mode!=21 || effect.first.value!=index+82 || !neutral(effect.second) || !neutral(effect.third) || index>=guard.quests.size() || !guard.quests[index]) integrity("Regional quest take operands changed");
+		if(effect.first.mode!=21 || effect.first.value!=index+82 || !neutral(effect.second) || !neutral(effect.third) || index>=guard.quests.size()) integrity("Regional quest take operands changed");
 		takeIndex=index;consume();
 	}
-	void questTaken() const noexcept { --guard.quests[takeIndex];guard.adoptMutationBoundary(); }
+	void questTaken() const noexcept { guard.quests[takeIndex]=XeenCloudsQuestItems::afterEventTake(guard.quests[takeIndex]);guard.adoptMutationBoundary(); }
 	void deferredAudio() const {
 		check();
 		const auto operation=decodedOperation();

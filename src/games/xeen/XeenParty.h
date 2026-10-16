@@ -44,6 +44,7 @@ private:
 	friend class XeenSaveState;
 	friend class XeenRestoreGuard;
 	friend class XeenWorld;
+	friend struct XeenEventValueAccess;
 	XeenGameplayBorrowOwner _gameplayBorrow;
 	friend struct XeenPartyState;
 	const std::uint64_t _incarnation = xeenNextOwnerIdentity();
@@ -98,6 +99,14 @@ public:
 	bool increment(std::size_t index);
 	// Bounded access; returns false at zero without changing the counter.
 	bool decrement(std::size_t index);
+	// Event quest-counter rule: the original counter is one byte, incremented by
+	// give 21 (0x22967..0x2296e) and GiveEnchanted (0x289c2..0x289d1) and
+	// decremented by take 21 (0x22339..0x22340) without bounds, so 255 + 1 = 0
+	// and 0 - 1 = 255. The stored width is unchanged.
+	static std::uint32_t afterEventGrant(std::uint32_t count) noexcept { return static_cast<std::uint8_t>(count + 1); }
+	static std::uint32_t afterEventTake(std::uint32_t count) noexcept { return static_cast<std::uint8_t>(count - 1); }
+	void eventGrant(std::size_t index);
+	void eventTake(std::size_t index);
 	const XeenMutableArray<std::uint32_t,kCount> &counts() const { return _counts; }
 
 private:

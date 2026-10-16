@@ -233,6 +233,10 @@ XeenEventDecodeResult decodeTakeOrGive(const XeenEventRecord &record,
 			XeenEventDecodeErrorKind::MalformedInstruction, message.str());
 	}
 	if(record.opcode==0x14) {XeenEventGiveMulti multi;static_cast<XeenEventTakeOrGive &>(multi)=result;return instruction(record,context,multi);}
+	if(record.opcode==0x1c || record.opcode==0x1d || record.opcode==0x26) {
+		XeenEventTakeOrGiveTest test;static_cast<XeenEventTakeOrGive &>(test)=result;test.opcode=record.opcode;
+		return instruction(record,context,test);
+	}
 	return instruction(record, context, result);
 }
 
@@ -279,8 +283,31 @@ XeenEventDecodeResult XeenEventDecoder::decode(const XeenEventRecord &record,
 			static_cast<std::int8_t>(record.parameters[1]),static_cast<std::int8_t>(record.parameters[2])});
 	case 0x0f:
 		if(record.parameters.size()!=1)return wrongSize(record,context,1);
-		if(record.parameters[0]!=0)return makeError(record,context,XeenEventDecodeErrorKind::UnsupportedOperand,"SetChar selector is not supported yet");
-		return instruction(record,context,XeenEventSetCharacter{0});
+		return instruction(record,context,XeenEventSetCharacter{record.parameters[0]});
+	case 0x1c: case 0x1d: case 0x26:
+		return decodeTakeOrGive(record,context);
+	case 0x17:
+		// DOS 0x28131..0x2815d sign-extends all three operand bytes.
+		if(record.parameters.size()!=3)return wrongSize(record,context,3);
+		return instruction(record,context,XeenEventJumpRandom{static_cast<std::int8_t>(record.parameters[0]),
+			static_cast<std::int8_t>(record.parameters[1]),static_cast<std::int8_t>(record.parameters[2])});
+	case 0x21: {
+		// DOS 0x285cc..0x2860b reads the type and a signed maximum; a third byte is left unread.
+		if(record.parameters.size()<2)return wrongSize(record,context,2);
+		if(record.parameters.size()>3)return wrongSize(record,context,3);
+		if(record.parameters[0]>6)return makeError(record,context,XeenEventDecodeErrorKind::UnsupportedOperand,"Damage type is not supported yet");
+		XeenEventRandomDamage damage{record.parameters[0],static_cast<std::int8_t>(record.parameters[1]),{}};
+		if(record.parameters.size()==3)damage.unused=record.parameters[2];
+		return instruction(record,context,damage);
+	}
+	case 0x2a:
+		if(record.parameters.size()!=2)return wrongSize(record,context,2);
+		return instruction(record,context,XeenEventIfMapFlag{record.parameters[0],static_cast<std::int8_t>(record.parameters[1])});
+	case 0x2b:
+		return decodeEmpty(record,context,XeenEventSelectRandomCharacter{});
+	case 0x2d:
+		if(record.parameters.size()!=1)return wrongSize(record,context,1);
+		return instruction(record,context,XeenEventItemType{static_cast<std::int8_t>(record.parameters[0])});
 	case 0x14:
 		return decodeTakeOrGive(record,context);
 	case 0x10:
@@ -290,9 +317,16 @@ XeenEventDecodeResult XeenEventDecoder::decode(const XeenEventRecord &record,
 	case 0x18:
 		if (record.parameters.size()!=2) return wrongSize(record,context,2);
 		return instruction(record,context,XeenEventAlterEvent{record.parameters[0],record.parameters[1]});
-	case 0x1b:
-		if (record.parameters.size()!=2) return wrongSize(record,context,2);
-		return instruction(record,context,XeenEventSetVar{record.parameters[0],record.parameters[1]});
+	case 0x1b: {
+		// DOS 0x283fc..0x284b7: the same mode-specific widths as If and TakeOrGive.
+		if (record.parameters.empty()) return wrongSize(record,context,1);
+		const std::uint8_t mode=record.parameters[0];
+		const std::size_t expected=1+(usesUint32(mode)?4:usesUint16(mode)?2:1);
+		if (record.parameters.size()!=expected) return wrongSize(record,context,expected);
+		ParameterReader reader(record.parameters);std::uint8_t decodedMode=0;std::uint32_t value=0;
+		reader.readUint8(decodedMode);readUnsignedValue(reader,mode,value);
+		return instruction(record,context,XeenEventSetVar{mode,value});
+	}
 	case 0x2f:
 		return decodeEmpty(record,context,XeenEventProtectionCheck{});
 	case 0x2c: {

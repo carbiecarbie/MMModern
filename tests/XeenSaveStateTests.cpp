@@ -578,6 +578,85 @@ void mapEventRoundTrips(){
   check(XeenSaveFormat::encode(loaded.capture())==bytes,"Persistent Event did not round-trip exactly through v13");
  }
 }
+// M70 Part B: the value operations publish through the city's detached
+// candidate (and one live mainland write), then round-trip exactly through
+// v13 without replaying any Event, reward, time or draw.
+void valueRoundTrips(){
+ for(unsigned operation=0;operation<8;++operation) {
+  const XeenMapIdentity active=operation==5 || operation==7?23:28;
+  auto initial=currentSnapshot();initial.camera={active,9,11,XeenDirection::North};
+  initial.map(28).monsters=mobTable(4);
+  auto city=XeenEventFile{active,"synthetic.evt",true,{}};
+  const auto add=[&](unsigned line,unsigned op,std::vector<std::uint8_t> p={}) {
+   auto r=record(9,11,line,op,std::move(p));r.direction=4;city.records.push_back(r);
+  };
+  switch(operation) {
+  case 0:add(0,15,{0});add(1,12,{0,0,47,5});add(2,12,{0,0,15,20});add(3,12,{0,0,18,3});add(4,12,{0,0,37,7});add(5,18);break;
+  case 1:add(0,27,{74,1});add(1,27,{76,42});add(2,12,{0,0,65,10});add(3,12,{0,0,35,5,0});add(4,18);break;
+  case 2:add(0,23,{4,1,5});add(1,20,{101,15,0,106,5,0,0,0});add(2,18);add(5,20,{100,10,0,0,0,0,0});add(6,18);break;
+  case 3:add(0,12,{0,0,76,1});add(1,18);break;
+  case 4:add(0,12,{0,0,21,90});add(1,12,{21,90,0,0});add(2,18);break;
+  // The live mainland runs only its admitted interactions; an NPC record makes (9,11) Myra's.
+  case 5:add(0,12,{0,0,11,5});add(1,10,{11,5,3});add(2,12,{0,0,11,1});add(3,18);add(99,5,{0,0,0,1,0});break;
+  // Skills whose effects are not implemented are still granted and saved as bytes.
+  // The live mainland path uses the same quest byte rule: 0 - 1 = 255 and 255 + 1 = 0.
+  case 7:add(0,12,{21,90});add(1,12,{0,0,21,91});add(2,18);add(99,5,{0,0,0,1,0});initial.questItems[8]=0;initial.questItems[9]=255;break;
+  case 6:{add(0,15,{0});unsigned line=1;for(std::uint8_t skill:{1,6,8,9,14,15,16,17})add(line++,12,{0,0,13,skill});add(line,18);break;}
+  }
+  const auto configure=[&](CurrentDestination &f) {
+   usePerMapResources(f,4);
+   f.mapProvider=[](auto id){auto m=id==XeenMapIdentity(24)?regional_test::map(id):indoorMap(id);
+    if(id==XeenMapIdentity(28))m.geometry.neighbors=std::array<std::uint16_t,4>{30,29,0,0};
+    if(id==XeenMapIdentity(30))m.geometry.neighbors[1]=31;
+    if(id==XeenMapIdentity(29))m.geometry.neighbors[0]=31;
+    if(id==XeenMapIdentity(23))m.geometry.neighbors[1]=24;return m;};
+   f.resources.loadEvents=[&](auto id){return id==active?city:indoorEvents(id);};
+   f.resources.loadRegionalText=[](auto id){auto t=regional_test::texts(id);if(id==XeenMapIdentity(23))t.strings.resize(44);return t;};
+  };
+  CurrentDestination live;configure(live);live.restore(XeenSaveFormat::decode(XeenSaveFormat::encode(initial)));
+  const auto &before=initial;
+  XeenEventSystem events([&](auto id){return XeenEventScript(live.resources.loadEvents(id));},live.resources.loadRegionalText);
+  const auto display=font();IndexedFrame image;image.width=320;image.height=200;image.pixels.resize(64000);
+  std::uint64_t now=0,cycle=0;
+  XeenEventFlow flow(live.world,events,live.party,live.camera,live.flags,display,
+   [&](auto){return XeenEventFlow::Composition{image,false};},{},[&]{return now;},{},nullptr,
+   [&](auto,auto){return XeenEventFlow::Composition{image,false};},nullptr,
+   [&](auto &,const auto &,const auto &,auto,auto){return XeenEventFlow::Composition{image,false};});
+  flow.dialogText=&dos_test::text();unsigned failures=0;
+  flow.reportManual=[&](const auto &r){if(const auto *e=std::get_if<XeenEventExecutionError>(&r)){
+   ++failures;std::cerr<<"Value round trip "<<operation<<": "<<e->message<<'\n';}};
+  const auto present=[&](const IndexedFrame &frame){if(frame.presentation())flow.framePresented(frame.presentation());};
+  present(flow.frame());flow.beginCycle(++cycle);
+  present(flow.handle(InteractionAction{},flow.displayedInput(),flow.frame().presentation()));
+  for(unsigned n=0;n<1000 && !flow.canSave();++n) {now+=125;flow.beginCycle(++cycle);
+   if(const auto frame=flow.updatePresentation())present(*frame);
+   present(flow.handle(AcknowledgeAction{},flow.displayedInput(),flow.frame().presentation()));}
+  check(!failures && flow.canSave(),"Value Event failed publication or quiet capture");
+  const auto snapshot=live.capture();const auto bytes=XeenSaveFormat::encode(snapshot);
+  const auto &ids=snapshot.activeRosterIds;
+  const auto first=ids.at(0);
+  if(operation==0) for(const auto id:ids) {
+   check(snapshot.characters[id].personality.permanent==std::min(255,before.characters[id].personality.permanent+5) &&
+    snapshot.characters[id].awards[20]==(before.characters[id].awards[20]|1) &&
+    snapshot.characters[id].conditions[3]==std::uint8_t(before.characters[id].conditions[3]+1),"Character values not published");
+  }
+  if(operation==1)check(snapshot.journey->context->effects[0]==1 && snapshot.journey->context->effects[4]==1 &&
+   snapshot.journey->context->day==42 && snapshot.food==std::uint16_t(before.food+10) &&
+   snapshot.journey->treasure->gems==before.journey->treasure->gems+5,"Party values not published");
+  if(operation==2)check(snapshot.journey->random->count>before.journey->random->count,"Random operations drew nothing");
+  if(operation==3)check(snapshot.journey->context->day!=before.journey->context->day ||
+   snapshot.journey->context->year!=before.journey->context->year,"Time advance not published");
+  if(operation==4)check(snapshot.questItems==before.questItems,"Quest grant and take did not cancel");
+  if(operation==5)check(snapshot.characters[first].temporaryLevel==before.characters[first].temporaryLevel+
+   (before.characters[first].temporaryLevel+5<=5?5:6),("Live mainland write or If3 test failed: "+
+   std::to_string(before.characters[first].temporaryLevel)+" -> "+std::to_string(snapshot.characters[first].temporaryLevel)).c_str());
+  if(operation==7)check(snapshot.questItems[8]==255 && snapshot.questItems[9]==0,"Live quest counters are not byte arithmetic");
+  if(operation==6)for(const auto id:ids)for(unsigned skill:{1u,6u,8u,9u,14u,15u,16u,17u})
+   check(snapshot.characters[id].skills[skill]==std::uint8_t(before.characters[id].skills[skill]+1),"Skill grant not published");
+  CurrentDestination loaded;configure(loaded);loaded.restore(XeenSaveFormat::decode(bytes));loaded.bind();
+  check(XeenSaveFormat::encode(loaded.capture())==bytes,"Value Event did not round-trip exactly through v13");
+ }
+}
 // Review finding 1: treasure sources keep their full identity. F3 and the city
 // both hold a defeated, accounted record 2; the saved source names one, the
 // other or both, with the city record a non-Orc (no Orc to prefer) or the only
@@ -736,7 +815,7 @@ void invalidResourceAndState(){
 int main() {
 	try {
 		fullRestoration(); explicitItems(); invalidResourceAndState(); characterPreflight(); mutationPolicies(); journeyBorrowRefusal();
-		genericRoundTrip(); replacedOpcodePublication(); mapEventRoundTrips(); sourceIdentityCases(); unsupportedMapState(); warzoneLifetime(); allCloudsMaps();
+		genericRoundTrip(); replacedOpcodePublication(); mapEventRoundTrips(); valueRoundTrips(); sourceIdentityCases(); unsupportedMapState(); warzoneLifetime(); allCloudsMaps();
 		std::cout << "Current save state: atomic preparation, resource identities, rules and owner/flow lifetimes passed\n";
 		return 0;
 	} catch (const std::exception &error) {

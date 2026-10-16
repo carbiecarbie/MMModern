@@ -520,8 +520,11 @@ void testMutableSkills() {
  checkEqual(c.currentHp,3,"learning must not refill HP");checkEqual(c.currentSp,2,"learning must not refill SP");
  checkEqual(xeenGrantSkill(c,4),true,"Cartography grant");checkEqual(xeenRemoveSkill(c,4),true,"Cartography removal");
  checkEqual(c.skills[4],0,"removal clears counter");
- const auto before=c.skills;checkEqual(xeenGrantSkill(c,17),false,"unsupported grant");
- checkEqual(xeenRemoveSkill(c,17),false,"unsupported removal");checkEqual(c.skills==before,true,"unsupported mutation");
+ // Every skill is a stored byte, whether or not its effect is implemented.
+ checkEqual(xeenGrantSkill(c,17),true,"Danger Sense grant");checkEqual(c.skills[17],1,"Danger Sense byte");
+ checkEqual(xeenRemoveSkill(c,17),true,"Danger Sense removal");checkEqual(c.skills[17],0,"Danger Sense cleared");
+ const auto before=c.skills;checkEqual(xeenGrantSkill(c,18),false,"grant past the skills");
+ checkEqual(xeenRemoveSkill(c,18),false,"removal past the skills");checkEqual(c.skills==before,true,"out-of-range mutation");
  XeenPartyState p;p.party=XeenParty::fromRosterIds({0,1,2});
  p.roster.at(29).skills[4]=1;checkEqual(xeenPartyHasSkill(p,4),false,"inactive holder");
  p.roster.at(0).skills[4]=1;p.roster.at(0).conditions[13]=1;

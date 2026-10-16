@@ -160,6 +160,7 @@ std::vector<XeenOutdoorDrawCommand> XeenOutdoorScene::build(
 				if (object.x != rawX || object.y != rawY || !object.isActive() ||
 						object.resourceId >= 255 || world.isObjectDisabled({camera.mapId, i})) continue;
 				auto visual = resolver->resolve(file, i, camera.direction, ordinaryPhase);
+				if (const auto frame = world.objectFrame({camera.mapId, i})) visual.frame = *frame;
 				if (visual.status == XeenObjectVisualStatus::SupportedStatic ||
 						visual.status == XeenObjectVisualStatus::SupportedAnimated) {
 					const unsigned row = object.resourceId == 113 ? 1 : 0;

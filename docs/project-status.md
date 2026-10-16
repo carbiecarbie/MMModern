@@ -410,8 +410,10 @@ instructions are in [dependencies](dependencies.md).
 - **Rest details.** Resting on unsupported terrain (lava, sky, cloud, space)
   refuses; none is reachable today.
 - **Skills.** Only Cartography and the skills used by existing rules
-  (Thievery, Navigator, Bodybuilder and others affecting HP/SP) have effects;
-  Swimming, Mountaineer and the rest are recorded but not used yet.
+  (Thievery, Navigator, Bodybuilder and others affecting HP/SP) have effects.
+  Arms Master, Direction Sense, Merchant, Mountaineer, Swimmer, Tracker, Spot
+  Secret Doors and Danger Sense can be learned from Events and are saved, but
+  their passive effects are not implemented yet.
 - **Darkside** gameplay is not supported.
 
 Next steps are in the [roadmap](roadmap.md).

@@ -34,6 +34,7 @@ public:
 			a.preferredRewardRecipient==b.preferredRewardRecipient && address(a.logicalAddress,b.logicalAddress) &&
 			a.lookupDirection==b.lookupDirection && xeen_state::sameCamera(a.workingCamera,b.workingCamera) &&
 			a.selectedObject==b.selectedObject && a.activeCharacterIndex==b.activeCharacterIndex && a.entireParty==b.entireParty &&
+			a.scriptValues==b.scriptValues && a.giveTake==b.giveTake && a.lock==b.lock &&
 			a.workingGameFlags.values()==b.workingGameFlags.values() &&
 			a.instructionCount==b.instructionCount && a.missingInstructionPolicy==b.missingInstructionPolicy &&
 			optional(a.pendingTransferSource,b.pendingTransferSource,source) &&
@@ -91,8 +92,8 @@ private:
 		const auto &x=a.request;const auto &y=b.request;
 		if(a.continuation!=b.continuation || x.rewardWaitTicks!=y.rewardWaitTicks || !optional(x.portrait,y.portrait,[](const auto &p,const auto &q){return p==q;}) || !optional(a.conditional,b.conditional,conditional) ||
 			!optional(x.cdSpeech,y.cdSpeech,speech) ||
-			std::tie(x.kind,x.response,x.mapId,x.textIndex,x.text,x.layoutValue,x.verbIndex,x.refusal,x.title)!=
-			std::tie(y.kind,y.response,y.mapId,y.textIndex,y.text,y.layoutValue,y.verbIndex,y.refusal,y.title) ||
+			std::tie(x.kind,x.response,x.mapId,x.textIndex,x.text,x.layoutValue,x.verbIndex,x.refusal,x.title,x.notEnough,x.lockPicked)!=
+			std::tie(y.kind,y.response,y.mapId,y.textIndex,y.text,y.layoutValue,y.verbIndex,y.refusal,y.title,y.notEnough,y.lockPicked) ||
 			!source(x.source,y.source) || x.members.size()!=y.members.size() ||
 			!optional(x.npc,y.npc,[](const auto &p,const auto &q) {
 				return std::tie(p.titleTextIndex,p.bodyTextIndex,p.portraitId,p.confirmationMode,p.targetLine)==

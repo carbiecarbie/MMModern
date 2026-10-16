@@ -5,6 +5,7 @@
 #include "games/xeen/XeenDialogView.h"
 #include "games/xeen/XeenEventScript.h"
 #include "games/xeen/XeenEventTextLoader.h"
+#include "games/xeen/XeenEventValues.h"
 #include "games/xeen/XeenGameFlags.h"
 #include "games/xeen/XeenNavigation.h"
 #include "games/xeen/XeenParty.h"
@@ -131,6 +132,10 @@ struct XeenPresentationRequest {
 	std::optional<XeenTreasureDisplay> treasure;
 	unsigned rewardWaitTicks=0;
     std::optional<XeenEventPortraitEffect> portrait;
+	// Party::subtract's refusal (0x1e8bb): consumable 0 gold, 1 gems, 2 food.
+	std::optional<std::uint8_t> notEnough;
+	// giveExt's lock message (0x236b3, 0x236e9) for the member named in title.
+	std::optional<bool> lockPicked;
 };
 
 enum class XeenEventMissingInstructionPolicy {
@@ -146,7 +151,8 @@ enum class XeenEventPendingContinuation {
 	WhoWill,
 	RewardFinalization,
 	GiveMulti,
-	PortraitEffect
+	PortraitEffect,
+	NpcChoice
 };
 
 struct XeenEventPendingPresentation {
@@ -160,6 +166,30 @@ struct XeenEventCallFrame {
 };
 
 enum class XeenRewardPhase { Running, Warning, Blank, Found, Receipt, Completed };
+
+// giveExt's lock picking (0x235ac..0x23726): trap, then the attempt and its message.
+struct XeenEventLockProgress {
+	enum class Phase { Trap, Attempt, Message };
+	Phase phase = Phase::Trap;
+	std::size_t member = 0;
+	XeenObjectIdentity object;
+	bool picked = false;
+	bool operator==(const XeenEventLockProgress &o) const noexcept {
+		return phase==o.phase && member==o.member && object==o.object && picked==o.picked;
+	}
+};
+
+// A TakeOrGive member loop (0x275f4..0x2790d) suspended by a member's sparkle.
+struct XeenEventGiveTakeProgress {
+	enum class Phase { Member, BeforeHp, AfterMember };
+	Phase phase = Phase::Member;
+	unsigned member = 0;
+	std::uint8_t takeMode = 0;  // the loop clears it after mode 8 and 82 (0x27877, 0x278b4)
+	bool flag = false;           // giveTake's result for the current member
+	bool operator==(const XeenEventGiveTakeProgress &o) const noexcept {
+		return phase==o.phase && member==o.member && takeMode==o.takeMode && flag==o.flag;
+	}
+};
 
 struct XeenEventExecutionState {
     std::optional<XeenEventPortraitProgress> portraitProgress;
@@ -184,6 +214,9 @@ struct XeenEventExecutionState {
 	// Temporary active-party index; independent of roster IDs and call frames.
 	std::optional<std::size_t> activeCharacterIndex;
 	bool entireParty=false; // checkEvents starts at member 1; SetChar(0) selects all.
+	XeenEventScriptValues scriptValues;
+	std::optional<XeenEventGiveTakeProgress> giveTake;
+	std::optional<XeenEventLockProgress> lock;
 	XeenGameFlags workingGameFlags;
 	std::optional<XeenEventScript> currentScript;
 	std::vector<XeenEventCallFrame> callStack;

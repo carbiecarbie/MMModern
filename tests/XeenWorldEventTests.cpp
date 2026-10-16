@@ -1,3 +1,4 @@
+#include "games/xeen/XeenEventValues.h"
 #include "XeenTestInstallation.h"
 #include "formats/xeen/XeenVocDuration.h"
 #include "XeenTrainingTestSupport.h"
@@ -96,7 +97,7 @@ void portraitRewards(Inputs &in) {
  struct Grant {unsigned mode,value;bool give,all,sparkle;};
  for(const auto g:std::vector<Grant>{{13,4,true,false,true},{15,0,true,false,true},
    {16,100,true,true,true},{16,0,true,true,true},{15,8,true,true,false},
-   {13,4,false,false,false},{15,6,false,false,false},{34,25,true,true,false}}) {
+   {13,4,false,false,false},{15,6,false,false,false},{34,25,true,true,true}}) {
   auto source=at(in,20,20);const unsigned selected=3,owner=source.activeRosterIds[selected];
   XeenWorld geometry(in.mapLoader());const auto cell=geometry.sampleCell(28,20,20);
   for(unsigned d=0;d<4;++d){const auto wall=wallAt(*cell->cell,XeenDirection(d));if(wall!=1 && wall!=6 && wall!=9 && wall!=13){source.camera.direction=XeenDirection(d);break;}}
@@ -129,7 +130,8 @@ void portraitRewards(Inputs &in) {
   });
   f.act(InteractionAction{});f.act(SelectMemberAction{selected});settle(f);
   std::uint32_t expectedOwners=0;
-  if(g.sparkle)for(auto id:source.activeRosterIds)if(g.all || id==owner)expectedOwners|=1u<<id;
+  // A party gold grant ends the member loop after its first success (0x277f9..0x2790d), so one member sparkles.
+  if(g.sparkle)for(auto id:source.activeRosterIds)if(g.mode==34?id==source.activeRosterIds.front():g.all || id==owner)expectedOwners|=1u<<id;
   check(owners==expectedOwners,"Reward sparkle used the wrong retained roster recipients");
   for(const auto &effect:f.w.scenePresentation().portraits)check(effect.spellFrame==4,"Quiet boundary preceded reward sparkle completion");
   const auto saved=f.snapshot();Fixture restored(in,saved,false,&city);
@@ -437,8 +439,8 @@ void rules(Inputs &in) {
  const auto once=XeenSaveFormat::encode(retry.snapshot());retry.act(AcknowledgeAction{});retry.act(AcknowledgeAction{});
  check(once==XeenSaveFormat::encode(retry.snapshot()),"Repeated receipt regranted fixed rewards");
  // Unsupported dependencies in called scripts must refuse the whole group.
- for(const auto suffix:std::vector<XeenEventRecord>{record(9,0x14,{101,1,0}),record(9,0x0c,{34,0,0,0,0,0,0}),
-   record(9,0x0c,{16,1,0,0,0,16,1,0,0,0}),record(9,0x0c,{20,0,0,0}),record(9,0x0f,{7}),record(9,0x0b,{255,0,0})}) {
+ for(const auto suffix:std::vector<XeenEventRecord>{record(9,0x14,{67,1,0}),record(9,0x0c,{34,0,0,0,0,0,0}),
+   record(9,0x0c,{0,0,82,5}),record(9,0x0c,{20,0,0,0}),record(9,0x0f,{8}),record(9,0x0b,{255,0,0})}) {
   city.records={record(0,0x0c,{0,0,15,6}),record(1,0x0b,{0,20,20}),record(2,0x19,{20,20,9}),record(3,0x12),suffix,record(10,0x1a)};
   Fixture refused(in,s,false,&city);const auto preimage=XeenSaveFormat::encode(refused.snapshot());
   interact(refused);check(preimage==XeenSaveFormat::encode(refused.snapshot()),"Unsupported dependent call published prefix");
@@ -446,27 +448,30 @@ void rules(Inputs &in) {
  auto candidate=f.w.transitionCandidate();
  XeenPartyState grants;candidate->copyEventParty(f.p,grants);
  const auto selected=grants.party.activeRosterIds()[0],other=grants.party.activeRosterIds()[1];
- grants.roster.at(selected).awards[127]=15;
- candidate->applyEventGrant(grants,15,81,0,false,true);
- check(grants.roster.at(selected).awards[127]==1 && grants.roster.at(other).awards[127]==f.p.roster.at(other).awards[127],"Selected award count/remapping failed");
- candidate->applyEventGrant(grants,15,81,0,false,false);
- check(grants.roster.at(selected).awards[127]==0,"Award clear failed");
+ XeenGameFlags grantFlags;XeenCamera grantCamera=f.c;XeenEventScriptValues grantScript;
+ const XeenEventValueOwners owners{grants,grantFlags,grantCamera,grantScript};
+ // Award 81 is byte 63's high nibble: a grant ORs 1, a removal ORs 0xf into the low nibble.
+ grants.roster.at(selected).awards[127]=14;
+ xeenEventGive(owners,15,81,0);
+ check(grants.roster.at(selected).awards[127]==15 && grants.roster.at(other).awards[127]==f.p.roster.at(other).awards[127],"Selected award count/remapping failed");
+ xeenEventTake(owners,15,81,0);
+ check(grants.roster.at(selected).awards[127]==15 && grants.roster.at(selected).awards[63]==15,"Award removal did not follow the original nibble defect");
  const auto beforeXp=std::uint32_t(grants.roster.combatInputs(selected)->experience);
- candidate->applyEventGrant(grants,16,0xffffffffu,0,false,true);
+ xeenEventGive(owners,16,0xffffffffu,0);
  check(grants.roster.combatInputs(selected)->experience==std::uint32_t(beforeXp-1),"XP arithmetic did not wrap as uint32");
  const auto beforeGold=std::uint32_t(grants.monsterTreasure->gold);
- candidate->applyEventGrant(grants,34,0xffffffffu,0,true,true);
- check(grants.monsterTreasure->gold==std::uint32_t(beforeGold-1),"All-member currency applied more than once or saturated");
+ xeenEventGive(owners,34,0xffffffffu,0);
+ check(grants.monsterTreasure->gold==std::uint32_t(beforeGold-1),"Purse arithmetic did not wrap as uint32");
  grants.roster.at(selected).skills[4]=254;
  for(const auto expected:{255,0}) {
-  candidate->applyEventGrant(grants,13,4,0,false,true);
+  xeenEventGive(owners,13,4,0);
   check(grants.roster.at(selected).skills[4]==expected,"Generic skill grant did not wrap its byte");
   auto skillSave=f.snapshot();skillSave.characters[selected].skills=grants.roster.at(selected).skills;
   Fixture restoredSkill(in,XeenSaveFormat::decode(XeenSaveFormat::encode(skillSave)),false,&city);
   check(restoredSkill.p.roster.at(selected).skills[4]==expected,"Skill byte changed on exact restore");
  }
- candidate->applyEventGrant(grants,13,4,0,false,true);
- candidate->applyEventGrant(grants,13,4,0,false,false);
+ xeenEventGive(owners,13,4,0);
+ xeenEventTake(owners,13,4,0);
  check(!grants.roster.at(selected).skills[4] && grants.roster.at(29).skills==f.p.roster.at(29).skills,"Generic skill removal changed inactive owner");
  const auto original=candidate->effectiveObject({28,0});
  candidate->applyMoveObject({28,0},original.x,original.y);const bool flip=candidate->effectiveObjectFlip({28,0});
@@ -547,7 +552,8 @@ void teachers(Inputs &in) {
    if(gold<price)check(sameExceptNpcRandom(preimage,b.snapshot()),"Insufficient lesson changed durable state");
   }
   auto blocked=in.city;
-  for(auto &r:blocked.records)if(r.x==x && r.y==y && r.line==6)r.parameters.back()=1;
+  // Skill 18 is past the skill table; every skill inside it is granted.
+  for(auto &r:blocked.records)if(r.x==x && r.y==y && r.line==6)r.parameters.back()=18;
   Fixture unsupported(in,source,false,&blocked);const auto unchanged=XeenSaveFormat::encode(unsupported.snapshot());
   interact(unsupported);
   check(sameExceptNpcRandom(unchanged,unsupported.snapshot()) && unsupported.flow->canSave(),"Unsupported dependent skill spent gold or changed world/time/RNG");
@@ -632,6 +638,77 @@ bool sameItem(XeenItem a,XeenItem b) {
  return std::tie(a.material,a.id,a.state,a.frame)==std::tie(b.material,b.id,b.state,b.frame);
 }
 unsigned itemCount(const XeenPartyState &);
+// Review finding 1: GiveMulti draws from the one shared Journey stream
+// (0x23786..0x237e3, helper 0x45b9a), like SelectRandomChar (0x287d8..0x287eb)
+// and every other Event draw; no reward generator outlives its instruction.
+struct RandomRun {XeenJourneyRandomState random;std::uint32_t gold=0,gems=0;bool quiet=false;};
+RandomRun randomRun(Inputs &in,std::vector<XeenEventRecord> records,XeenJourneyRandomState start) {
+ auto source=at(in,20,20);source.journey->random=start;
+ XeenEventFile city{28,"maze0028.evt",true,std::move(records)};
+ Fixture f(in,source,false,&city);f.act(InteractionAction{});settle(f);
+ return {*f.w.sessionState().journeyRandom(),std::uint32_t(f.p.monsterTreasure->gold),std::uint32_t(f.p.monsterTreasure->gems),f.flow->canSave()};
+}
+XeenJourneyRandomState afterDraws(XeenJourneyRandomState state,const std::vector<std::pair<std::uint32_t,std::uint32_t>> &draws) {
+ XeenCombatRandom random(state);
+ for(const auto &d:draws)while(!random.draw(d.first,d.second)){}
+ return random.continuation();
+}
+void rewardRandomOwnership(Inputs &in) {
+ stage="GiveMulti shared random stream";
+ const XeenJourneyRandomState seed{1,7,0};
+ const auto base=at(in,20,20);
+ const auto gems=std::uint32_t(base.journey->treasure->gems),gold=std::uint32_t(base.journey->treasure->gold);
+ check(base.activeRosterIds.size()==6,"Shared stream regression needs six members");
+ const auto gems1=record(0,0x14,{101,1,0});
+ // GiveMulti(101,1), SelectRandomChar, GiveMulti(101,1), Exit: three draws in order.
+ {
+  const auto run=randomRun(in,{gems1,record(1,0x2b),record(2,0x14,{101,1,0}),record(3,0x12)},seed);
+  check(run.quiet && run.gems==gems+2,"Interleaved GiveMulti rewards differ");
+  check(run.random==afterDraws(seed,{{1,1},{1,6},{1,1}}) && run.random.count==3,"GiveMulti reused a stale reward generator");
+ }
+ // The same ownership for every other Event draw between two rewards. Each middle
+ // instruction is measured alone from the state after the first reward.
+ const auto first=afterDraws(seed,{{1,1}});
+ using Middle=XeenEventRecord(*)(unsigned);
+ for(const Middle middle:std::vector<Middle>{
+   [](unsigned line){return record(line,0x17,{4,1,std::uint8_t(line+1)});}, // JumpRnd to the next line either way
+   [](unsigned line){return record(line,0x21,{0,5});},                         // RndDamage
+   [](unsigned line){return record(line,0x0f,{7});},                           // SetChar 7
+   [](unsigned line){return record(line,0x0c,{0,0,100,3,0,0,0});}}) {         // give 100: a take/give draw
+  const auto alone=randomRun(in,{middle(0),record(1,0x12)},first);
+  const auto run=randomRun(in,{gems1,middle(1),record(2,0x14,{101,1,0}),record(3,0x12)},seed);
+  check(alone.quiet && run.quiet && alone.random.count>first.count,"Middle Event draw did not run");
+  check(run.random==afterDraws(alone.random,{{1,1}}) && run.random.count==alone.random.count+1 && run.gems==gems+2,
+   "A later GiveMulti overwrote or repeated an intervening Journey draw");
+ }
+ // A suspension during item generation keeps its generator; the next draws follow it.
+ {
+  std::vector<XeenEventRecord> records;
+  for(unsigned line=0;line<21;++line)records.push_back(record(line,0x14,{100,1,0,0,0,100,1,0,0,0,100,1,0,0,0}));
+  records.push_back(record(21,0x14,{66,7,0,0,0,0}));records.push_back(record(22,0x2b));
+  records.push_back(record(23,0x14,{101,1,0}));records.push_back(record(24,0x12));
+  XeenCombatRandom expected(seed);XeenConsequenceDraw many{expected,256,{}};
+  for(unsigned i=0;i<63;++i)check(many.draw(1,1)==1,"Fixed random-gold oracle");
+  XeenItemCandidate item(7);check(item.service(many),"Bounded item oracle");
+  const auto run=randomRun(in,records,seed);
+  check(run.quiet && run.gold==gold+63 && run.gems==gems+1 &&
+   run.random==afterDraws(expected.continuation(),{{1,6},{1,1}}),"Suspended item generation lost its order with later draws");
+ }
+ // Review finding 3: the currency and food draws take the operand's low word
+ // (0x23770..0x237de). 65537 draws 1..1 once; 0xffff draws 1..1 (signed word divisor).
+ {
+  const auto run=randomRun(in,{record(0,0x14,{100,1,0,1,0}),record(1,0x12)},seed);
+  check(run.quiet && run.gold==gold+1 && run.random==afterDraws(seed,{{1,1}}) && run.random.count==1,"GiveMulti 100 used the decoded width");
+  const auto high=randomRun(in,{record(0,0x14,{101,0xff,0xff}),record(1,0x12)},seed);
+  check(high.quiet && high.gems==gems+1 && high.random==afterDraws(seed,{{1,1}}),"GiveMulti 101 bit-15 word differs");
+  const auto half=randomRun(in,{record(0,0x14,{101,0x00,0x80}),record(1,0x12)},seed);
+  check(half.quiet && half.random==afterDraws(seed,{{1,0x8000}}),"GiveMulti 101 0x8000 word differs");
+  for(const auto &zero:std::vector<XeenEventRecord>{record(0,0x14,{100,0,0,1,0}),record(0,0x14,{101,0,0})}) {
+   const auto refused=randomRun(in,{zero,record(1,0x12)},seed);
+   check(refused.quiet && refused.random==seed && refused.gold==gold && refused.gems==gems,"A zero word divisor was not refused before drawing");
+  }
+ }
+}
 void treasure(Inputs &in) {
  stage="shared Event treasure";
  auto s=at(in,20,20);
@@ -700,7 +777,7 @@ void treasure(Inputs &in) {
  Fixture cancelled(in,s,false,&city);const auto preimage=XeenSaveFormat::encode(cancelled.snapshot());
  cancelled.act(InteractionAction{});check(cancelled.flow->canCancelInteraction(),"Post-generation selector absent");
  cancelled.act(CancelInteractionAction{});check(cancelled.flow->canSave() && preimage==XeenSaveFormat::encode(cancelled.snapshot()),"Cancellation leaked item/RNG/flag");
- city.records.push_back(record(4,0x14,{101,1,0}));city.records[3]=record(3,0x19,{20,20,4});city.records.push_back(record(5,0x1a));
+ city.records.push_back(record(4,0x14,{107,1}));city.records[3]=record(3,0x19,{20,20,4});city.records.push_back(record(5,0x1a));
  Fixture refused(in,s,false,&city);interact(refused);
  check(preimage==XeenSaveFormat::encode(refused.snapshot()),"Dependent unsupported suffix consumed treasure RNG");
  // Sixty-three raw draws leave one draw for makeItem, forcing a partial item continuation.
@@ -1163,7 +1240,7 @@ int main(int argc,char **argv) {
   try {
    timed("portraitRewards",portraitRewards);timed("originalPortraitOrder",originalPortraitOrder);timed("npcBeforeDeadline",npcBeforeDeadline);
    timed("partBVernGuild",partBVernGuild);timed("partBSearches",partBSearches);timed("partA",partA);timed("rules",rules);timed("teachers",teachers);
-   timed("treasure",treasure);timed("originalVisualRegressions",originalVisualRegressions);timed("originalEvents",originalEvents);
+   timed("treasure",treasure);timed("rewardRandomOwnership",rewardRandomOwnership);timed("originalVisualRegressions",originalVisualRegressions);timed("originalEvents",originalEvents);
    timed("partAOriginal",partAOriginal);timed("treeFlags",treeFlags);timed("originalJourney",originalJourney);
   }catch(...){std::cout.rdbuf(saved);throw;}
   std::cout.rdbuf(saved);
