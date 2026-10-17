@@ -366,12 +366,12 @@ bool XeenEncounterFlow::observeCombat() {
         if(r.operation==XeenCombatOperation::Cast && _combat->cast()) {
             const auto &cast=_combat->cast()->result;
             if((XeenLearnedSpellRules::target(cast.spell)==XeenSpellTarget::Contact) && _combat->cast()->phase==XeenCombatCastPhase::Projectile) {
-                _castProjectile=XeenProjectileAppearance{false,_combat->cast()->projectileRow,0,3,{},xeenSpellProjectile(*XeenLearnedSpellRules::supported(std::uint8_t(cast.spell)))};
+                _castProjectile=XeenProjectileAppearance{false,_combat->cast()->projectileRow,0,3,{},_combat->cast()->projectile};
                 _castProjectile->active=_combat->cast()->projectileRow<=3;
                 _castProjectileDeadline.reset();
                 _castProjectile->target=r.targetMonster;
             }
-            if((cast.spell==26 || cast.spell==10 || cast.spell==59) && !cast.failed && !cast.refunded)
+            if((cast.spell==26 || cast.spell==10 || cast.spell==59 || cast.spell==48) && !cast.failed && !cast.refunded)
                 for(unsigned i=0;i<cast.count;++i) {
                     const auto &e=cast.effects[i];
                     if(e.beforeHp<=XeenCharacterRules::maxHp(_party.roster.at(e.owner),{_party.encounterContext->year}))presentation.spellEffect(e.owner,_lastTime,true);

@@ -85,7 +85,8 @@ int main(int argc,char **argv) {
     try {
         check(eventMechanic(record(0x09,{20,1,1})).find("mode=20")!=std::string::npos,"condition dimension");
         check(eventMechanic(record(0x1c,{19,10,0,0})).find("operand1=10")!=std::string::npos,"unsupported variant still groups shared operand shape");
-        check(spellSupport(26).status==Status::Supported && spellSupport(0).status==Status::Unsupported,"spell checks");
+        check(spellSupport(26).status==Status::Supported && spellSupport(0).status==Status::Supported &&
+            spellSupport(24).status==Status::Unsupported,"spell checks");
         check(restSupport(5,true).status==Status::Supported,"lava Rest applies shared arrival after recovery");
         check(restSupport(13,true).status==Status::Supported,"cloud Rest applies shared arrival after losing levitation");
         check(restSupport(6,true).status==Status::Supported,"supported navigator damage variation is not a gap");

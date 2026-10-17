@@ -82,8 +82,10 @@ IndexedFrame XeenEventFlow::handleCombatCasting(const PlayerAction &action,std::
             if(id && XeenLearnedSpellRules::target(*id)==XeenSpellTarget::Contact) {
                 XeenMonsterAppearance appearance;appearance.projectile=XeenProjectileAppearance{false,0,0,0,{}};
                 appearance.projectile->target=_encounter->combat()->selectedTarget();
-                appearance.projectile->pow=xeenSpellProjectile(*XeenLearnedSpellRules::supported(*id));
-                if(!_encounterCompose(_ordinary.phase,appearance).frame.isValid())throw std::runtime_error("Invalid Arrow preflight");
+                for(unsigned type=2;type<=(*id==18?5u:2u);++type) {
+                    appearance.projectile->pow=xeenSpellProjectile(*XeenLearnedSpellRules::supported(*id),type);
+                    if(!_encounterCompose(_ordinary.phase,appearance).frame.isValid())throw std::runtime_error("Invalid spell preflight");
+                }
             }
         }
         return names;
@@ -134,8 +136,10 @@ IndexedFrame XeenEventFlow::handleCasting(const PlayerAction &action,std::uint64
         }
         if(XeenLearnedSpellRules::target(id)==XeenSpellTarget::Contact) {
           XeenRestoreGuard::Providers providers(_encounter->journeySavePreimage(),_world);
-          XeenMonsterAppearance appearance;appearance.projectile=XeenProjectileAppearance{false,0,0,3,{},xeenSpellProjectile(*XeenLearnedSpellRules::supported(id))};
-          if(!_encounterCompose(_ordinary.phase,appearance).frame.isValid())throw std::runtime_error("Invalid spell projectile preflight");
+          for(unsigned type=2;type<=(id==18?5u:2u);++type) {
+           XeenMonsterAppearance appearance;appearance.projectile=XeenProjectileAppearance{false,0,0,3,{},xeenSpellProjectile(*XeenLearnedSpellRules::supported(id),type)};
+           if(!_encounterCompose(_ordinary.phase,appearance).frame.isValid())throw std::runtime_error("Invalid spell projectile preflight");
+          }
           _encounter->journeySavePreimage().check();
         }
         if(!_encounter->confirmCasting(_encounter->ticket(),ui.caster,c.currentSpell,input,responseFrame()))return frameCopy();

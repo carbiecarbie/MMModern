@@ -61,6 +61,8 @@ std::optional<std::uint8_t> XeenLearnedSpellRules::spellForSlot(XeenSpellCategor
 
 std::optional<XeenLearnedSpell> XeenLearnedSpellRules::supported(std::uint8_t id) noexcept {
     switch (id) {
+    case 0: case 5: case 11: case 14: case 18: case 22: case 23: case 25: case 28:
+    case 35: case 36: case 37: case 43: case 47: case 48: case 54: case 63: case 65:
     case 1: case 10: case 20: case 26: case 27: case 40: case 45:
     case 2: case 17: case 33: case 38: case 61: case 62: case 72: case 73:
     case 50: case 59: case 60: case 75: return static_cast<XeenLearnedSpell>(id);
@@ -104,14 +106,18 @@ std::vector<std::size_t> XeenLearnedSpellRules::rows(const XeenCharacter &c,bool
     } else for(std::size_t slot=0;slot<39;++slot)if(known(c,slot))result.push_back(slot);
     return result;
 }
-bool XeenLearnedSpellRules::group(std::uint8_t id) noexcept {
+XeenSpellRange XeenLearnedSpellRules::range(std::uint8_t id) noexcept {
     switch(id) {
-    case 2: case 33: case 38: case 50: case 60: case 61: case 62: case 72: case 73: return true;
-    default: return false;
+    case 0: case 5: case 18: case 48: case 54: case 63: case 65: return XeenSpellRange::All;
+    case 11: case 14: case 22: case 25: case 37: case 43: case 47:
+    case 2: case 33: case 38: case 50: case 60: case 61: case 62: case 72: case 73: return XeenSpellRange::Group;
+    default: return XeenSpellRange::Single;
     }
 }
 XeenSpellTarget XeenLearnedSpellRules::target(std::uint8_t id) noexcept {
     switch (id) {
+    case 0: case 5: case 11: case 14: case 18: case 22: case 23: case 25: case 28:
+    case 35: case 36: case 37: case 43: case 47: case 48: case 54: case 63: case 65: return XeenSpellTarget::Contact;
     case 1: case 75: return XeenSpellTarget::Party;
     case 10: case 26: case 59: return XeenSpellTarget::Member;
     case 2: case 17: case 33: case 38: case 61: case 62: case 72: case 73:

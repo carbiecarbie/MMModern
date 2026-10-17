@@ -64,7 +64,7 @@ void domainsAndBooks() {
     using Rules=XeenLearnedSpellRules;
     for(unsigned id=0;id<256;++id)for(bool combat:{false,true})
         check(bool(Rules::supportedIn(id,combat))==(bool(Rules::supported(id)) && (!combat || (id!=40 && id!=75))),"Context spell admission differs");
-    for(unsigned id=0;id<256;++id)check(bool(Rules::supported(id))==(id==1 || id==10 || id==20 || id==26 || id==27 || id==40 || id==45 || id==50 || id==59 || id==60 || id==75 || id==2 || id==17 || id==33 || id==38 || id==61 || id==62 || id==72 || id==73),"Effect recognition differs");
+    for(unsigned id=0;id<256;++id)check(bool(Rules::supported(id))==(id==0 || id==5 || id==11 || id==14 || id==18 || id==22 || id==23 || id==25 || id==28 || id==35 || id==36 || id==37 || id==43 || id==47 || id==48 || id==54 || id==63 || id==65 || id==1 || id==10 || id==20 || id==26 || id==27 || id==40 || id==45 || id==50 || id==59 || id==60 || id==75 || id==2 || id==17 || id==33 || id==38 || id==61 || id==62 || id==72 || id==73),"Effect recognition differs");
     check(Rules::cost(XeenLearnedSpell::Awaken)==1 && Rules::cost(XeenLearnedSpell::FirstAid)==1 && Rules::cost(XeenLearnedSpell::MagicArrow)==2,"Fixed costs differ");
     check(Rules::spellForSlot(XeenSpellCategory::Wizardry,25)==45 && Rules::spellForSlot(XeenSpellCategory::Druidic,23)==45,"Magic Arrow class slots differ");
     XeenPartyState party;party.party=XeenParty::fromRosterIds({6});auto &caster=party.roster.at(6);
@@ -118,6 +118,63 @@ void spellDamage() {
     rejects([]{XeenSpellDamageCandidate c(3,0,0,6,S::Pain,101);});
     rejects([]{XeenSpellDamageCandidate c(3,0,0,6,S::FirstAid);});
 }
+void m74Spells() {
+    using S=XeenLearnedSpell;using R=XeenSpellRange;using D=XeenCombatRandom::Draw;
+    struct Rule {S spell;int base;unsigned type,lo,hi,sp,gems,pow;R range;};
+    const Rule rules[]{
+        {S::AcidSpray,15,5,0,0,8,0,10,R::All}, {S::ColdRay,0,4,2,4,14,4,8,R::All},
+        {S::DancingSword,0,0,6,14,21,10,14,R::Group}, {S::DeadlySwarm,40,0,0,0,12,0,15,R::Group},
+        {S::ElementalStorm,150,2,2,5,100,10,0,R::All}, {S::FantasticFreeze,40,4,0,0,15,5,8,R::Group},
+        {S::FieryFlail,100,2,0,0,25,5,2,R::Single}, {S::Fireball,0,2,3,7,14,2,0,R::Group},
+        {S::Frostbite,35,4,0,0,7,0,8,R::Single}, {S::Implosion,1000,6,0,0,100,20,6,R::Single},
+        {S::Incinerate,250,2,0,0,35,10,1,R::Single}, {S::Inferno,250,2,0,0,75,10,1,R::Group},
+        {S::LightningBolt,0,3,4,6,14,2,3,R::Group}, {S::MegaVolts,150,3,0,0,40,10,4,R::Group},
+        {S::MoonRay,30,6,0,0,60,10,13,R::All}, {S::PrismaticLight,80,0,0,6,60,10,14,R::All},
+        {S::StarBurst,500,2,0,0,200,20,15,R::All}, {S::SunRay,200,6,0,0,150,20,13,R::All}
+    };
+    for(const auto &r:rules)for(unsigned level:{0u,7u})for(unsigned roll=r.lo;roll<=r.hi;++roll) {
+        const bool typeDraw=r.spell==S::ElementalStorm || r.spell==S::PrismaticLight;
+        const int base=r.base?r.base:int(roll*level);
+        const auto type=typeDraw?roll:r.type;
+        std::vector<D> initial;if(r.hi)initial.push_back({r.lo,r.hi,roll});
+        XeenCombatRandom empty(initial);XeenConsequenceDraw emptyDraw{empty};
+        XeenSpellDamagePreparation prep(r.spell,level);
+        check(prep.service(emptyDraw) && prep.damage==base && prep.type==type && empty.position()==initial.size(),"M74 empty-target preparation differs");
+        check(prep.service(emptyDraw) && empty.position()==initial.size(),"M74 preparation replayed");
+        const auto id=std::uint8_t(r.spell);
+        check(XeenLearnedSpellRules::range(id)==r.range && XeenLearnedSpellRules::target(id)==XeenSpellTarget::Contact,"M74 range/admission differs");
+        if(level==7) {const auto cost=XeenLearnedSpellRules::cost(id,level);check(cost.sp==r.sp && cost.gems==r.gems,"M74 cost differs");}
+        const unsigned storm[]{0,5,9,10};
+        check(xeenSpellProjectile(r.spell,type)==(r.spell==S::ElementalStorm?storm[type-2]:r.pow),"M74 projectile differs");
+        XeenCombatRandom ungated(base?std::vector<D>{{1,56,7}}:std::vector<D>{});XeenConsequenceDraw ungatedDraw{ungated};
+        XeenSpellDamageCandidate noGate(level,0,0,6,r.spell,0,XeenActorStatus::Physical,0,&prep);
+        check(noGate.service(ungatedDraw) && noGate.damage==base && ungated.position()==unsigned(base!=0),"M74 zero resistance added a gate draw");
+        XeenScenePresentation scene;XeenActor actor;actor.statistics=XeenMonsterRecord{};
+        scene.spellImpact(actor,r.spell,type);constexpr unsigned tints[]{3,10,4,11,1,2,5};
+        check(scene.animation(actor.id) && scene.animation(actor.id)->effect2==tints[type],"M74 damage tint differs");
+        for(unsigned physical:{0u,33u,100u})for(unsigned gate:{49u,50u})for(unsigned save:{6u,7u}) {
+            auto tape=initial;tape.push_back({1,100+level,gate});if(gate==50 && base)tape.push_back({1,56,save});
+            XeenCombatRandom random(tape);XeenConsequenceDraw draw{random};XeenSpellDamagePreparation cast(r.spell,level);
+            check(cast.service(draw),"M74 preparation incomplete");
+            XeenSpellDamageCandidate hit(level,0,50,6,r.spell,physical,XeenActorStatus::Sleep,0,&cast);
+            check(hit.service(draw),"M74 target incomplete");
+            int expected=type==0?base*(100-physical)/100:base;if(save<=6)expected/=2;if(gate<50)expected=0;
+            check(hit.damage==expected && hit.resisted==(gate<50) && random.position()==tape.size(),"M74 preparation/gate/physical/save order differs");
+            check(hit.impact==(gate==50 && base!=0),"M74 zero-level/immunity entry differs");
+        }
+    }
+    XeenPartyState party;party.party=XeenParty::fromRosterIds({0,1,2});
+    for(unsigned i=0;i<3;++i){auto &c=party.roster.at(i);c.rosterId=i;c.currentHp=1;c.conditions[13]=1;}
+    XeenCombatRandom random(std::vector<D>{{1,30,1},{1,30,15},{1,30,30}});XeenMoonRayHealing healing;
+    for(unsigned i=0;i<3;++i){XeenConsequenceDraw draw{random,1};check(healing.service(draw,party,0)==(i==2),"Moon Ray healing continuation differs");}
+    check(healing.result.effects.empty() && random.position()==3,"Moon Ray must draw even for unhealable active members");
+    std::vector<D> rejected(64,{3,7,0,true});rejected.push_back({3,7,5});
+    XeenCombatRandom delayed(rejected);XeenSpellDamagePreparation retained(S::Fireball,7);
+    XeenConsequenceDraw first{delayed};check(!retained.service(first),"Preparation ignored draw budget");
+    XeenConsequenceDraw second{delayed};check(retained.service(second) && retained.damage==35 && delayed.position()==65,"Preparation replayed after rejected draws");
+    check(xeenItemUseSpell(33)==S::Frostbite && xeenSpellProjectile(S::Frostbite,4,33)==9 &&
+        xeenItemUseSpell(64)==S::Incinerate && xeenSpellProjectile(S::Incinerate,2,64)==2,"DOS item variants differ");
+}
 void m73Spells() {
     using S=XeenLearnedSpell;using A=XeenActorStatus;using D=XeenCombatRandom::Draw;
     struct Book {unsigned id,mask;};
@@ -125,7 +182,7 @@ void m73Spells() {
         for(unsigned category=0;category<3;++category) {
             const auto slot=XeenLearnedSpellRules::slotForSpell(XeenSpellCategory(category),b.id);
             check(bool(slot)==bool(b.mask&(1u<<category)),"M73 spell book differs");
-            check(XeenLearnedSpellRules::group(b.id)==(b.id!=17),"M73 group/single range differs");
+            check(XeenLearnedSpellRules::range(b.id)==(b.id!=17?XeenSpellRange::Group:XeenSpellRange::Single),"M73 group/single range differs");
             if(slot)check(XeenLearnedSpellRules::spellForSlot(XeenSpellCategory(category),*slot)==b.id &&
                 XeenLearnedSpellRules::supportedIn(b.id,true) && XeenLearnedSpellRules::supportedIn(b.id,false),"M73 contexts/slot identity differ");
         }
@@ -180,11 +237,11 @@ void m73Spells() {
 }
 void itemPowerMapping() {
     // Independent transcription of magic.md's named power ranges, ten per row.
-    // 33 is the special Frostbite handler, represented by no ordinary ID.
+    // 33 shares Frostbite damage but selects the item projectile.
     constexpr unsigned expected[]{42,1,45,26,27,20,61,59,10,62,
         60,38,72,55,50,40,2,4,73,41,
         75,3,34,43,31,52,49,44,53,30,
-        33,74,76,15,25,5,9,0,70,17,
+        33,74,28,15,25,5,9,0,70,17,
         7,69,24,8,29,51,14,66,12,13,
         6,23,57,22,71,64,56,21,11,48,
         46,54,19,36,32,58,18,47,37,65,
@@ -198,4 +255,4 @@ void itemPowerMapping() {
 }
 
 }
-int main(){try{arrow();spellDamage();m73Spells();itemPowerMapping();domainsAndBooks();std::cout<<"Learned spell rule/context/RNG tests passed\n";return 0;}catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}
+int main(){try{arrow();spellDamage();m73Spells();m74Spells();itemPowerMapping();domainsAndBooks();std::cout<<"Learned spell rule/context/RNG tests passed\n";return 0;}catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}

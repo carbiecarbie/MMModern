@@ -158,8 +158,10 @@ void XeenEventFlow::performItemOption(unsigned option) {
     if(!journey() || !xeenItemUseSupported(_inventory.record)) {dialogError("Item effect: not supported yet");return;}
     if(const auto spell=xeenItemUseSpell(_inventory.record.id);spell && XeenLearnedSpellRules::target(static_cast<std::uint8_t>(*spell))==XeenSpellTarget::Contact) {
         XeenRestoreGuard::Providers providers(_encounter->journeySavePreimage(),_world);
-        XeenMonsterAppearance appearance;appearance.projectile=XeenProjectileAppearance{false,0,0,3,{},xeenSpellProjectile(*spell)};
-        if(!_encounterCompose(_ordinary.phase,appearance).frame.isValid())throw std::runtime_error("Invalid item projectile preflight");
+        for(unsigned type=2;type<=(*spell==XeenLearnedSpell::ElementalStorm?5u:2u);++type) {
+            XeenMonsterAppearance appearance;appearance.projectile=XeenProjectileAppearance{false,0,0,3,{},xeenSpellProjectile(*spell,type,_inventory.record.id)};
+            if(!_encounterCompose(_ordinary.phase,appearance).frame.isValid())throw std::runtime_error("Invalid item projectile preflight");
+        }
         _encounter->journeySavePreimage().check();
     }
     const auto certificate=_equipmentSelection;

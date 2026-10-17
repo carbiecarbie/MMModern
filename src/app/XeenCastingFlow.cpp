@@ -38,13 +38,7 @@ std::unique_ptr<XeenShootCandidate> XeenEncounterFlow::prepareSpellProjectile(
     work.eligible[0]=true;work.charge=charge;
     work.random=XeenCombatRandom(*_world.sessionState().journeyRandom());
     work.rows=xeenPlayerRayRows(_world,_camera);work.projectileEnd.fill(work.rows-1);
-    const auto &actors=_world.sessionState().regionalActors(_camera.mapId);
-    const auto targets=xeenSpellTargets(_world,_camera,actors,{},XeenLearnedSpellRules::group(static_cast<std::uint8_t>(spell)));
-    for(unsigned n=0;n<3;++n)if(targets[n]) {
-        const auto &a=actors.at(targets[n]->recordIndex);
-        const unsigned row=std::abs(a.x-_camera.x)+std::abs(a.y-_camera.y);
-        if(row<4)work.targets[row*3+n]=targets[n];
-    }
+    work.spellPreparation.emplace(spell,_party.roster.at(owner).currentLevel());
     return projectile;
 }
 
@@ -135,7 +129,8 @@ bool XeenEncounterFlow::confirmCasting(const Ticket &entry, std::size_t casterIn
           }
         }
         std::vector<XeenProjectileAppearance> projectiles;
-        if(projectile)projectiles.push_back({false,0,0,3,{},xeenSpellProjectile(*spell)});
+        if(projectile && projectile->spellPreparation->ready())
+            projectiles.push_back({false,0,0,3,{},xeenSpellProjectile(*spell,projectile->spellPreparation->type)});
         const auto after=static_cast<std::int16_t>(caster.currentSp-cost.sp);
 		auto prepared=std::make_shared<XeenRestoreGuard>(_world,_party,_camera,_flags);
 		prepared->retainResources(*_journeyPreimage);

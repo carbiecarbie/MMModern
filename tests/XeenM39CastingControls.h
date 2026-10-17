@@ -67,7 +67,7 @@ bool m39CastControls(const std::string &control,const IndexedFrame &first,const 
         const auto &caster=party.roster.at(owner);
         const auto price=XeenLearnedSpellRules::cost(std::uint8_t(spell),unsigned(std::max(caster.permanentLevel+caster.temporaryLevel,0)));
         auto expectedRandom=fight().random();int expectedDamage=0;
-        const auto groupTargets=xeenSpellTargets(world,camera,world.sessionState().monsters(23),fight().selectedTarget(),group);
+        const auto groupTargets=xeenSpellTargets(world,camera,world.sessionState().monsters(23),fight().selectedTarget(),group?XeenSpellRange::Group:XeenSpellRange::Single);
         std::array<int,3> groupHp{};unsigned groupCount=0;
         auto expectedTreasure=*party.monsterTreasure;
         const auto accounted=world.sessionState().accountedMonsters();std::set<XeenMonsterIdentity> expectedAccounted(accounted.begin(),accounted.end());

@@ -142,7 +142,7 @@ public:
     // attack2's RT_GROUP path assigns the transient monster tint even when
     // physical resistance reduces the accepted spell to zero damage. Call once
     // after an accepted magic gate and nonzero base damage, never on redraw.
-    void spellImpact(const XeenActor &actor,XeenLearnedSpell spell) {
+    void spellImpact(const XeenActor &actor,XeenLearnedSpell spell,unsigned type=0) {
         unsigned effect;
         switch(spell) {
         case XeenLearnedSpell::EnergyBlast: effect=5;break;
@@ -152,6 +152,19 @@ public:
         case XeenLearnedSpell::Sparks: effect=11;break;
         case XeenLearnedSpell::MagicArrow: case XeenLearnedSpell::Shrapmetal:
         case XeenLearnedSpell::FlyingFist: case XeenLearnedSpell::Pain: effect=3;break;
+        case XeenLearnedSpell::AcidSpray: case XeenLearnedSpell::ColdRay:
+        case XeenLearnedSpell::DancingSword: case XeenLearnedSpell::DeadlySwarm:
+        case XeenLearnedSpell::ElementalStorm: case XeenLearnedSpell::FantasticFreeze:
+        case XeenLearnedSpell::FieryFlail: case XeenLearnedSpell::Fireball:
+        case XeenLearnedSpell::Frostbite: case XeenLearnedSpell::Implosion:
+        case XeenLearnedSpell::Incinerate: case XeenLearnedSpell::Inferno:
+        case XeenLearnedSpell::LightningBolt: case XeenLearnedSpell::MegaVolts:
+        case XeenLearnedSpell::MoonRay: case XeenLearnedSpell::PrismaticLight:
+        case XeenLearnedSpell::StarBurst: case XeenLearnedSpell::SunRay: {
+            constexpr unsigned effects[]{3,10,4,11,1,2,5};
+            if(type>=std::size(effects))throw std::invalid_argument("Invalid spell damage tint");
+            effect=effects[type];break;
+        }
         default: throw std::invalid_argument("Unsupported spell impact presentation");
         }
         include({actor});

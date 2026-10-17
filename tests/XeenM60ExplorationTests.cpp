@@ -28,6 +28,8 @@ XeenSaveSnapshot source(Inputs &in,unsigned spell,bool indoor) {
  save_test::clearExplored(s);for(auto &c:s.characters)c.skills[4]=0;
  auto &caster=s.characters[s.activeRosterIds[4]];
  caster.characterClass=spell==33?XeenCharacterClass::Cleric:spell==17?XeenCharacterClass::Sorcerer:XeenCharacterClass::Druid;caster.hasSpells=true;caster.currentSp=100;
+ if(!XeenLearnedSpellRules::slotForSpell(*XeenLearnedSpellRules::categoryForClass(caster.characterClass),spell))
+  caster.characterClass=XeenLearnedSpellRules::slotForSpell(XeenSpellCategory::Wizardry,spell)?XeenCharacterClass::Sorcerer:XeenCharacterClass::Cleric;
  for(auto *items:{&caster.weapons,&caster.armor,&caster.accessories})for(auto &item:*items)item.frame=0;
  caster.learnedSpells.emplace();caster.currentSpell=*XeenLearnedSpellRules::slotForSpell(*XeenLearnedSpellRules::categoryForClass(caster.characterClass),spell);
  caster.learnedSpells->at(caster.currentSpell)=1;
@@ -179,7 +181,7 @@ void m73Guild(Inputs &in) {
 void m73Live(Inputs &in) {
  check(in.statistics.at(2).monsterType()==2 && in.statistics.at(6).monsterType()==3 &&
   in.statistics.at(8).monsterType()==4 && in.statistics.at(9).monsterType()==4,"Original Doom Bug/Orc/Skeleton/Zombie species differ");
- for(unsigned spell:{2u,17u,33u,38u,61u,62u,72u,73u})for(bool item:{false,true}) {
+ for(unsigned spell:{2u,17u,33u,38u,61u,62u,72u,73u,25u,0u,28u,36u})for(bool item:{false,true}) {
   try {
   auto s=source(in,spell,false);
   const auto originals=XeenActorApproach::actorsFromResources(in.maps.loadObjects(in.assets,23),in.statistics);
@@ -197,18 +199,21 @@ void m73Live(Inputs &in) {
    saved.x=position->first;saved.y=position->second;saved.lifecycle=XeenActorLifecycle::Present;saved.accounted=false;
   }
   check(slots.size()==3,"Mainland fixture needs three original Orc slots");
-  const unsigned count=spell==17?1:3;
-  const unsigned power=spell==2?17:spell==17?40:spell==33?31:spell==38?12:spell==61?7:spell==62?10:spell==72?13:19;
+  if(spell==0)++s.map(23).monsters->slots.at(slots[0]).x;
+  const unsigned count=XeenLearnedSpellRules::range(spell)==XeenSpellRange::Single?1:3;
+  const unsigned power=spell==25?35:spell==0?38:spell==28?33:spell==36?64:spell==2?17:spell==17?40:spell==33?31:spell==38?12:spell==61?7:spell==62?10:spell==72?13:19;
   if(item)s.characters[s.activeRosterIds[4]].miscellaneous[0]={1,std::uint8_t(power),2,0};
   Fixture f(in,s);
   for(auto slot:slots)XeenMonsterTestAccess::setLive(*f.flow,f.w,23,slot,1,true);
   const auto &caster=f.p.roster.at(s.activeRosterIds[4]);
   auto expected=XeenCombatRandom(*f.w.sessionState().journeyRandom());auto treasure=*f.p.monsterTreasure;
   std::array<XeenActorStatus,3> status{};std::array<int,3> hp{1,1,1};
+  XeenSpellDamagePreparation preparation(*XeenLearnedSpellRules::supported(spell),caster.currentLevel());
+  XeenConsequenceDraw preparationDraw{expected};check(preparation.service(preparationDraw),"Cast-wide preparation incomplete");
   for(unsigned i=0;i<count;++i) {
    const auto &a=f.w.sessionState().monsters(23).at(slots[i]);
    XeenSpellDamageCandidate effect(caster.permanentLevel,caster.temporaryLevel,a.statistics->magicResistance(),6,
-    *XeenLearnedSpellRules::supported(spell),a.statistics->physicalResistance(),a.status,a.statistics->monsterType());
+    *XeenLearnedSpellRules::supported(spell),a.statistics->physicalResistance(),a.status,a.statistics->monsterType(),&preparation);
    XeenConsequenceDraw draw{expected};check(effect.service(draw),"M73 exploration expected cast did not finish");
    hp[i]=std::max(1-effect.damage,0);status[i]=effect.status;
    if(!hp[i]){XeenMonsterDropCandidate drop(treasure,a.id);check(drop.service(draw),"M73 target settlement did not finish");treasure=drop.treasure;}
@@ -318,13 +323,43 @@ void targets(Inputs &in) {
  for(unsigned i=0;i<4;++i) {
   auto &a=actors.at(i);a.lifecycle=XeenActorLifecycle::Present;a.hp=1;a.x=i<3?10:11;a.y=11;a.activated=true;
  }
- const auto group=xeenSpellTargets(f.w,f.c,actors,{},true);
+ const auto group=xeenSpellTargets(f.w,f.c,actors,{},XeenSpellRange::Group);
  for(unsigned i=0;i<3;++i)check(group[i]==actors[i].id,"First reachable group traversal differs");
- const auto single=xeenSpellTargets(f.w,f.c,actors,{},false);
+ const auto single=xeenSpellTargets(f.w,f.c,actors,{},XeenSpellRange::Single);
  check(single[0]==group[0] && !single[1] && !single[2],"Single target reaches extra monsters");
  for(unsigned i=0;i<3;++i)actors[i].x=9;
- const auto selected=xeenSpellTargets(f.w,f.c,actors,actors[2].id,true);
+ const auto selected=xeenSpellTargets(f.w,f.c,actors,actors[2].id,XeenSpellRange::Group);
  check(selected[0]==actors[2].id && selected[1]==actors[0].id && selected[2]==actors[1].id,"Selected contact order differs");
+ for(bool indoor:{false,true})for(unsigned rows:{2u,4u}) {
+  std::optional<XeenCamera> origin;
+  for(int y=0;y<13 && !origin;++y)for(int x=0;x<13 && !origin;++x) {
+   XeenCamera camera{indoor?28:23,x,y,XeenDirection::East};
+   if(xeenPlayerRayRows(f.w,camera)==rows)origin=camera;
+  }
+  check(bool(origin),"All range wall fixture missing");
+  const unsigned width=indoor?2:3; // Preserve the pin's indoor slot-5/slot-2 quirk.
+  for(unsigned i=0;i<12;++i) {
+   auto &a=actors.at(i);a.lifecycle=i<width*4?XeenActorLifecycle::Present:XeenActorLifecycle::Defeated;a.hp=100;
+   a.id.mapId=origin->mapId;
+   a.x=i<width*4?int(origin->x)+int(i/width):-128;a.y=i<width*4?int(origin->y):-128;a.activated=true;
+  }
+  const auto all=xeenSpellTargets(f.w,*origin,actors,{},XeenSpellRange::All);
+  for(unsigned i=0;i<12;++i)if(!(i<rows*width?all[i]==actors[i].id:!all[i]))throw std::runtime_error("All range indoor="+std::to_string(indoor)+" rows="+std::to_string(rows)+" slot="+std::to_string(i)+" actual="+(all[i]?std::to_string(all[i]->recordIndex):"none")+" camera="+std::to_string(origin->x)+","+std::to_string(origin->y));
+ }
+}
+void m74Empty(Inputs &in) {
+ for(unsigned spell:{0u,5u,11u,14u,18u,22u,23u,25u,28u,35u,36u,37u,43u,47u,48u,54u,63u,65u}) {
+  auto s=source(in,spell,false);const auto owner=s.activeRosterIds[4];s.characters[owner].currentSp=1000;
+  for(auto id:s.activeRosterIds)s.characters[id].currentHp=1;
+  Fixture f(in,s);XeenCombatRandom expected(*f.w.sessionState().journeyRandom());XeenConsequenceDraw draw{expected};
+  XeenSpellDamagePreparation prep(*XeenLearnedSpellRules::supported(spell),f.p.roster.at(owner).currentLevel());check(prep.service(draw),"Empty preparation incomplete");
+  XeenMoonRayHealing healing;if(spell==48)check(healing.service(draw,f.p,f.p.encounterContext->year),"Empty Moon Ray incomplete");
+  const auto cost=XeenLearnedSpellRules::cost(spell,f.p.roster.at(owner).currentLevel());
+  begin(f);quiet(f);
+  check(f.p.roster.at(owner).currentSp==1000-int(cost.sp) && f.p.monsterTreasure->gems==100-cost.gems && f.p.encounterContext->minutes==s.journey->context->minutes+10,"Empty M74 cast refunded cost or changed time");
+  check(f.w.sessionState().journeyRandom()==expected.continuation(),"Empty M74 preparation/healing RNG differs");
+  for(const auto &effect:healing.result.effects)check(f.p.roster.at(effect.owner).currentHp==effect.hp,"Moon Ray did not use ordinary healing");
+ }
 }
 void jump(Inputs &in) {
  for(bool unsupported:{false,true}) {
@@ -355,7 +390,7 @@ void jump(Inputs &in) {
 int main(int argc,char **argv) {try {
  check(argc==2,"usage: m60-exploration <installation>");auto install=xeenTestInstallationDetector().detect(argv[1]);check(bool(install),"Missing installation");Inputs in(*install);
  std::ostringstream captured;auto *old=std::cout.rdbuf(captured.rdbuf());
- try {effects(in);blockedProjectiles(in);eyeExpiry(in);refunds(in);jump(in);jumpEvent(in);targets(in);impacts(in);
+ try {effects(in);blockedProjectiles(in);eyeExpiry(in);refunds(in);jump(in);jumpEvent(in);targets(in);impacts(in);m74Empty(in);
   try{m73Live(in);}catch(const std::exception &e){throw std::runtime_error(std::string("M73 live: ")+e.what());}
   try{m73DeadDragonRecovery(in);m73LiveDragon(in);}catch(const std::exception &e){throw std::runtime_error(std::string("M73 Dragon: ")+e.what());}
   try{m73Guild(in);}catch(const std::exception &e){throw std::runtime_error(std::string("M73 Guild: ")+e.what());}}catch(...){std::cout.rdbuf(old);throw;}

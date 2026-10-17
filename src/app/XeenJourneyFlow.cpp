@@ -266,7 +266,9 @@ std::optional<std::uint64_t> XeenEncounterFlow::beginItemUse(const Ticket &entry
 			}
 			if(next->spell && XeenLearnedSpellRules::target(static_cast<std::uint8_t>(*next->spell))==XeenSpellTarget::Contact) {
 				next->projectile=prepareSpellProjectile(*next->spell,selection.sourceOwner,0);
-				next->appearances.push_back({false,0,0,3,{},xeenSpellProjectile(*next->spell)});
+				next->projectile->itemPower=selection.record.id;
+                if(next->projectile->spellPreparation->ready())
+                    next->appearances.push_back({false,0,0,3,{},xeenSpellProjectile(*next->spell,next->projectile->spellPreparation->type,selection.record.id)});
 			}
 			_journeyPreimage->check();}
 		next->opportunity=std::make_unique<XeenRegionalActionCandidate>();

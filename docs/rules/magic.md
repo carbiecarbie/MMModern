@@ -427,7 +427,9 @@ See [Frostbite](../original-quirks.md#sv-frostbite-initial-fx) and
 Selector calls are established; their perceived sound/animation remains
 unverified by play.
 Power 0 is invalid. Power 33 calls the special Frostbite animation handler;
-it is not an ordinary global-spell entry. Learned books and SP/gem costs
+its shared Frostbite damage uses projectile 9 instead of learned projectile 8.
+Item Incinerate similarly selects projectile 2 instead of learned projectile 1.
+Audio remains deferred. Learned books and SP/gem costs
 are bypassed by item dispatch. See cancellation caveats above.
 
 | Power range | Effects in ascending power order |

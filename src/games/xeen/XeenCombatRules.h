@@ -90,7 +90,24 @@ private:
     enum class Step { Target, Fallback, Done } step=Step::Target;
 };
 // Original POW resource selector for the implemented ranged spells.
-unsigned xeenSpellProjectile(XeenLearnedSpell);
+unsigned xeenSpellProjectile(XeenLearnedSpell,unsigned damageType=2,unsigned itemPower=0);
+// One retained scalar/type draw per cast, before any target gate. Ordinary
+// damage types use the original Physical..Energy indices (including Magical).
+struct XeenSpellDamagePreparation {
+    int damage=0;
+    unsigned type=0;
+    XeenSpellDamagePreparation(XeenLearnedSpell,unsigned level);
+    bool service(XeenConsequenceDraw &);
+    bool ready() const noexcept {return done;}
+private:
+    unsigned low=0,high=0,level=0;
+    bool typeDraw=false,done=false;
+};
+struct XeenMoonRayHealing {
+    XeenSpellPreparation result;
+    unsigned member=0;
+    bool service(XeenConsequenceDraw &,const XeenPartyState &,std::uint32_t year);
+};
 // Detached learned ranged spell damage; callers own publication and target order.
 struct XeenSpellDamageCandidate {
     int damage=0;
@@ -99,7 +116,8 @@ struct XeenSpellDamageCandidate {
     XeenActorStatus status;
     XeenSpellDamageCandidate(std::int64_t permanentLevel, std::int64_t temporaryLevel,
         unsigned magicResistance, unsigned resourceId, XeenLearnedSpell,
-        unsigned physicalResistance=0, XeenActorStatus status=XeenActorStatus::Physical, unsigned species=0);
+        unsigned physicalResistance=0, XeenActorStatus status=XeenActorStatus::Physical, unsigned species=0,
+        const XeenSpellDamagePreparation *prepared=nullptr);
     bool service(XeenConsequenceDraw &);
 private:
     enum class Step { Resistance, Species, Save, Done };

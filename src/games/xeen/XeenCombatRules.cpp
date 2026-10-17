@@ -184,8 +184,26 @@ bool XeenTypedDamageCandidate::service(XeenConsequenceDraw &draw) {
 		XeenCombatAttackOutcome::HitPositiveDamage : XeenCombatAttackOutcome::HitZeroDamage;
 	return true;
 }
-unsigned xeenSpellProjectile(XeenLearnedSpell spell) {
+unsigned xeenSpellProjectile(XeenLearnedSpell spell,unsigned type,unsigned itemPower) {
     switch (spell) {
+    case XeenLearnedSpell::AcidSpray: return 10;
+    case XeenLearnedSpell::ColdRay: case XeenLearnedSpell::FantasticFreeze: return 8;
+    case XeenLearnedSpell::DancingSword: case XeenLearnedSpell::PrismaticLight: return 14;
+    case XeenLearnedSpell::DeadlySwarm: case XeenLearnedSpell::StarBurst: return 15;
+    case XeenLearnedSpell::ElementalStorm: {
+        constexpr unsigned projectiles[]{0,5,9,10};
+        if(type<2 || type>5)throw std::invalid_argument("Invalid Elemental Storm type");
+        return projectiles[type-2];
+    }
+    case XeenLearnedSpell::FieryFlail: return 2;
+    case XeenLearnedSpell::Fireball: return 0;
+    case XeenLearnedSpell::Frostbite: return itemPower==33?9:8;
+    case XeenLearnedSpell::Implosion: return 6;
+    case XeenLearnedSpell::Incinerate: return itemPower==64?2:1;
+    case XeenLearnedSpell::Inferno: return 1;
+    case XeenLearnedSpell::LightningBolt: return 3;
+    case XeenLearnedSpell::MegaVolts: return 4;
+    case XeenLearnedSpell::MoonRay: case XeenLearnedSpell::SunRay: return 13;
     case XeenLearnedSpell::MagicArrow: return 11; // POW_ARROW, not POW_MAGIC_ARROW
     case XeenLearnedSpell::EnergyBlast: case XeenLearnedSpell::TurnUndead: return 13;
     case XeenLearnedSpell::Sparks: return 5;
@@ -197,10 +215,50 @@ unsigned xeenSpellProjectile(XeenLearnedSpell spell) {
     default: throw std::invalid_argument("Unsupported spell projectile");
     }
 }
+XeenSpellDamagePreparation::XeenSpellDamagePreparation(XeenLearnedSpell spell,unsigned casterLevel) : level(casterLevel) {
+    using S=XeenLearnedSpell;
+    switch(spell) {
+    case S::AcidSpray: damage=15;type=5;break;
+    case S::ColdRay: low=2;high=4;type=4;break;
+    case S::DancingSword: low=6;high=14;break;
+    case S::DeadlySwarm: damage=40;break;
+    case S::ElementalStorm: damage=150;low=2;high=5;typeDraw=true;break;
+    case S::FantasticFreeze: damage=40;type=4;break;
+    case S::FieryFlail: damage=100;type=2;break;
+    case S::Fireball: low=3;high=7;type=2;break;
+    case S::Frostbite: damage=35;type=4;break;
+    case S::Implosion: damage=1000;type=6;break;
+    case S::Incinerate: case S::Inferno: damage=250;type=2;break;
+    case S::LightningBolt: low=4;high=6;type=3;break;
+    case S::MegaVolts: damage=150;type=3;break;
+    case S::MoonRay: damage=30;type=6;break;
+    case S::PrismaticLight: damage=80;low=0;high=6;typeDraw=true;break;
+    case S::StarBurst: damage=500;type=2;break;
+    case S::SunRay: damage=200;type=6;break;
+    default: break; // Earlier spell dispatch remains in the per-target rule.
+    }
+    done=high==0;
+}
+bool XeenSpellDamagePreparation::service(XeenConsequenceDraw &draw) {
+    while(!done && draw.remaining)if(const auto value=draw.draw(low,high)) {
+        if(typeDraw)type=*value;
+        else damage=physicalChecked(std::int64_t(*value)*level);
+        done=true;
+    }
+    return done;
+}
+bool XeenMoonRayHealing::service(XeenConsequenceDraw &draw,const XeenPartyState &party,std::uint32_t year) {
+    while(member<party.party.size() && draw.remaining)if(const auto amount=draw.draw(1,30)) {
+        const auto effect=XeenLearnedSpellRules::prepareFirstAid(party,member++,year,*amount);
+        result.effects.insert(result.effects.end(),effect.effects.begin(),effect.effects.end());
+    }
+    return member==party.party.size();
+}
 // Pinned combat.cpp rangedAttack/attack/attack2: physical reduction precedes
 // the resource-ID save; Arrow draws the save but ignores its result.
 XeenSpellDamageCandidate::XeenSpellDamageCandidate(std::int64_t permanent, std::int64_t temporary,
-        unsigned r, unsigned index, XeenLearnedSpell spell, unsigned physical, XeenActorStatus initialStatus, unsigned targetSpecies) : status(initialStatus), resistance(r), resourceId(index), physicalResistance(physical), species(targetSpecies), spell(spell) {
+        unsigned r, unsigned index, XeenLearnedSpell spell, unsigned physical, XeenActorStatus initialStatus, unsigned targetSpecies,
+        const XeenSpellDamagePreparation *prepared) : status(initialStatus), resistance(r), resourceId(index), physicalResistance(physical), species(targetSpecies), spell(spell) {
     ruleRequire(permanent>=std::numeric_limits<int>::min() && permanent<=std::numeric_limits<int>::max() &&
         temporary>=std::numeric_limits<int>::min() && temporary<=std::numeric_limits<int>::max(),"Invalid Arrow level operands");
     const auto level=std::max<std::int64_t>(permanent+temporary,0);
@@ -221,7 +279,9 @@ XeenSpellDamageCandidate::XeenSpellDamageCandidate(std::int64_t permanent, std::
     case XeenLearnedSpell::Shrapmetal: acceptedDamage=physicalChecked(2*level);physicalDamage=true;break;
     case XeenLearnedSpell::FlyingFist: acceptedDamage=6;physicalDamage=true;break;
     case XeenLearnedSpell::Pain: acceptedDamage=8;physicalDamage=true;break;
-    default: throw std::invalid_argument("Unsupported ranged spell damage");
+    default:
+        ruleRequire(prepared && prepared->ready() && XeenLearnedSpellRules::target(std::uint8_t(spell))==XeenSpellTarget::Contact,"Missing ranged spell preparation");
+        acceptedDamage=prepared->damage;physicalDamage=prepared->type==0;break;
     }
     // Zero base damage never enters attack2. Physical immunity, however, reduces
     // damage only after entry, so it still consumes the saving throw.

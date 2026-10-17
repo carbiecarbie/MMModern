@@ -40,12 +40,13 @@ mainland; many items apply there, others wait for areas not open yet.
   [Evidence](original-quirks.md#sv-holy-word-miss). Pin: differs; master not rechecked.
 - **Frostbite's initial sound call.** The pin adds FX8 before the learned
   spell's projectile; DOS makes no such initial call. The item variant
-  matches. Actual audio remains unverified; Frostbite is not implemented yet.
+  matches. Both Frostbite projectiles are implemented; audio remains deferred
+  and unverified.
   [Evidence](original-quirks.md#sv-frostbite-initial-fx). Pin: differs; master not rechecked.
 - **Incinerate from an item.** DOS uses different sound/projectile selectors
   from the learned spell, while the pin shares the learned handler. Both
-  prepare 250 Fire damage. Actual presentation remains unverified, and
-  Incinerate is not implemented yet.
+  prepare 250 Fire damage. MMModern uses item projectile 2 and learned
+  projectile 1. Audio remains deferred; DOS presentation has not been played.
   [Evidence](original-quirks.md#sv-item-incinerate-selectors). Pin: differs; master not rechecked.
 - **Controlled monsters recover on the DOS roll.** Recovery succeeds at a roll
   at most the monster resource ID; the pin reverses the inequality. Equality

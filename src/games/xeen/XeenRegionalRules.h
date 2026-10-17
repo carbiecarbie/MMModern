@@ -27,8 +27,8 @@ std::bitset<256> xeenActorClosure(const XeenMap &, const XeenActor &);
 unsigned xeenPlayerRayRows(const XeenMap &, const XeenCamera &);
 bool xeenOutdoorRangedRay(const XeenMap &, const XeenCamera &, const XeenActor &);
 unsigned xeenPlayerRayRows(XeenWorld &, const XeenCamera &);
-std::array<std::optional<XeenMonsterIdentity>,3> xeenSpellTargets(XeenWorld &,
- const XeenCamera &,const std::vector<XeenActor> &,std::optional<XeenMonsterIdentity>,bool group);
+std::array<std::optional<XeenMonsterIdentity>,12> xeenSpellTargets(XeenWorld &,
+ const XeenCamera &,const std::vector<XeenActor> &,std::optional<XeenMonsterIdentity>,XeenSpellRange);
 bool xeenIndoorRangedRay(XeenWorld &, const XeenCamera &, const XeenActor &);
 std::optional<std::size_t> xeenRegionalEvent(const XeenEventFile &, const XeenCamera &);
 bool xeenRegionalSign(const XeenEventFile &, const XeenCamera &);
@@ -125,6 +125,10 @@ struct XeenShootCandidate {
 	std::optional<XeenTerrainArrivalCandidate> terrain;
 	std::optional<XeenLearnedSpell> spell;
 	std::optional<XeenSpellDamageCandidate> spellAttack;
+	std::optional<XeenSpellDamagePreparation> spellPreparation;
+	XeenMoonRayHealing healing;
+	bool spellTargetsPrepared=false;
+	unsigned itemPower=0;
 	unsigned spellCaster=0;
 	XeenPartyOrder owners{};
 	 enum class Stage { Travel, Impact, PostImpact };

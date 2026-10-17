@@ -211,23 +211,25 @@ void quickCasting(Inputs &in) {
  }
 }
 void m73QuickCasting(Inputs &in) {
- for(unsigned spell:{2u,17u,33u,38u,61u,62u,72u,73u}) {
-  const auto cls=spell==17?XeenCharacterClass::Sorcerer:spell==33?XeenCharacterClass::Cleric:XeenCharacterClass::Druid;
+ for(unsigned spell:{2u,17u,33u,38u,61u,62u,72u,73u,0u,5u,11u,14u,18u,22u,23u,25u,28u,35u,36u,37u,43u,47u,48u,54u,63u,65u}) {
+  const auto cls=XeenLearnedSpellRules::slotForSpell(XeenSpellCategory::Druidic,spell)?XeenCharacterClass::Druid:XeenLearnedSpellRules::slotForSpell(XeenSpellCategory::Wizardry,spell)?XeenCharacterClass::Sorcerer:XeenCharacterClass::Cleric;
   auto source=casterSource(in,cls,spell);Fixture quick(in,source),manual(in,source);engage(quick);engage(manual);
   auto &fight=*manual.flow->encounter()->combat();
   const auto owner=source.activeRosterIds[0];const auto before=manual.p.roster.at(owner);
   const auto time=*manual.p.encounterContext;const auto gems=manual.p.monsterTreasure->gems;
-  const auto targets=xeenSpellTargets(manual.w,manual.c,manual.w.sessionState().monsters(23),fight.selectedTarget(),XeenLearnedSpellRules::group(spell));
+  const auto targets=xeenSpellTargets(manual.w,manual.c,manual.w.sessionState().monsters(23),fight.selectedTarget(),XeenLearnedSpellRules::range(spell));
   XeenCombatRandom expected(*manual.w.sessionState().journeyRandom());auto treasure=*manual.p.monsterTreasure;
-  std::array<int,3> hp{};std::array<XeenActorStatus,3> statuses{};
-  for(unsigned i=0;i<3 && targets[i];++i) {
+  std::array<int,12> hp{};std::array<XeenActorStatus,12> statuses{};
+  XeenSpellDamagePreparation preparation(*XeenLearnedSpellRules::supported(spell),before.currentLevel());XeenConsequenceDraw preparationDraw{expected};check(preparation.service(preparationDraw),"Quick preparation incomplete");
+  for(unsigned i=0;i<targets.size() && targets[i];++i) {
    const auto &a=manual.w.sessionState().monsters(23).at(targets[i]->recordIndex);
    XeenSpellDamageCandidate effect(before.permanentLevel,before.temporaryLevel,a.statistics->magicResistance(),a.original.resourceId,
-    *XeenLearnedSpellRules::supported(spell),a.statistics->physicalResistance(),a.status,a.statistics->monsterType());
+    *XeenLearnedSpellRules::supported(spell),a.statistics->physicalResistance(),a.status,a.statistics->monsterType(),&preparation);
    XeenConsequenceDraw draw{expected};check(effect.service(draw),"M73 parity expected cast did not finish");
    hp[i]=std::max(a.hp-effect.damage,0);statuses[i]=effect.status;
    if(!hp[i] && a.original.resourceId==6){XeenMonsterDropCandidate drop(treasure,a.id);check(drop.service(draw),"M73 parity drop did not finish");treasure=drop.treasure;}
   }
+  if(spell==48){XeenMoonRayHealing healing;XeenConsequenceDraw draw{expected};check(healing.service(draw,manual.p,time.year),"Combat Moon Ray healing incomplete");}
   quick.act(QuickFightAction{});manual.act(CastSpellAction{});manual.act(DialogKeyAction{'c'});
   for(unsigned n=0;n<1000;++n){if(fight.cast() && fight.cast()->phase==XeenCombatCastPhase::Result)break;pulse(quick);pulse(manual);}
   check(fight.cast() && fight.cast()->phase==XeenCombatCastPhase::Result,"M73 Cast result missing");
@@ -236,10 +238,14 @@ void m73QuickCasting(Inputs &in) {
   const auto cost=XeenLearnedSpellRules::cost(spell,before.currentLevel());
   for(auto *f:{&manual,&quick}) {
    check(f->p.roster.at(owner).currentSp==before.currentSp-int(cost.sp) && f->p.monsterTreasure->gems==gems-cost.gems && *f->p.encounterContext==time,"M73 combat cost/time differs");
-   for(unsigned i=0;i<3 && targets[i];++i){const auto &a=f->w.sessionState().monsters(23).at(targets[i]->recordIndex);check(a.hp==hp[i] && a.status==statuses[i],"M73 Cast/Quick Fight effect differs");}
+   for(unsigned i=0;i<targets.size() && targets[i];++i){const auto &a=f->w.sessionState().monsters(23).at(targets[i]->recordIndex);check(a.hp==hp[i] && a.status==statuses[i],"M73 Cast/Quick Fight effect differs");}
   }
-  manual.act(AcknowledgeAction{});ready(manual);ready(quick);
-  check(fight.participant()!=0 && quick.flow->encounter()->combat()->participant()!=0,"M73 cast did not spend exactly the acting turn");
+  const auto successor=fight.cast()->successorPhase;
+  manual.act(AcknowledgeAction{});
+  if(successor!=XeenCombatPhase::VictoryAwaitingEnd && successor!=XeenCombatPhase::DisengagementPending) {
+   ready(manual);ready(quick);
+   check(fight.participant()!=0 && quick.flow->encounter()->combat()->participant()!=0,"Cast did not spend exactly the acting turn");
+  }
  }
 }
 

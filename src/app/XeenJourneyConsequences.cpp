@@ -3,6 +3,7 @@
 #include "games/xeen/XeenJourneyCapture.h"
 #include "games/xeen/XeenItemCatalog.h"
 #include "games/xeen/XeenIndoorScene.h"
+#include "games/xeen/XeenCharacterRules.h"
 #include <sstream>
 #include <limits>
 namespace mmodern {
@@ -105,6 +106,21 @@ bool XeenEncounterFlow::serviceShoot() {
   XeenActorApproach::validateEnvironment(_world,admission,_events);
   const auto check=[&] { _journeyPreimage->check(); };
   XeenConsequenceDraw draw{work.random,64,check};
+  if(work.spell && !work.spellTargetsPrepared) {
+   if(!work.spellPreparation->service(draw))return true;
+   const auto targets=xeenSpellTargets(_world,_camera,active,{},XeenLearnedSpellRules::range(std::uint8_t(*work.spell)));
+   std::array<unsigned,4> counts{};
+   for(const auto &id:targets)if(id) {
+    const auto &a=active.at(id->recordIndex);
+    const unsigned row=std::abs(a.x-_camera.x)+std::abs(a.y-_camera.y);
+    work.targets.at(row*3+counts.at(row)++)=id;
+   }
+   work.spellTargetsPrepared=true;
+   if(_projectiles.empty()) {
+    _projectiles.push_back({false,0,0,3,{},xeenSpellProjectile(*work.spell,work.spellPreparation->type,work.itemPower)});
+    work.presented=false;return true;
+   }
+  }
   if(!work.volleyDone) {
    using Stage=XeenShootCandidate::Stage;
    if(!work.presented)return false;
@@ -129,7 +145,7 @@ bool XeenEncounterFlow::serviceShoot() {
     const auto owner=work.owners[work.shooter];
     if(!work.attack && !work.spellAttack) {work.bound=actor;
      if(work.spell) {const auto &caster=_party.roster.at(work.spellCaster);
-      work.spellAttack.emplace(caster.permanentLevel,caster.temporaryLevel,actor.statistics->magicResistance(),actor.original.resourceId,*work.spell,actor.statistics->physicalResistance(),actor.status,actor.statistics->monsterType());
+      work.spellAttack.emplace(caster.permanentLevel,caster.temporaryLevel,actor.statistics->magicResistance(),actor.original.resourceId,*work.spell,actor.statistics->physicalResistance(),actor.status,actor.statistics->monsterType(),&*work.spellPreparation);
      } else work.attack.emplace(_party.roster.at(owner),*_party.roster.combatInputs(owner),*actor.statistics,actor.original.resourceId,_party.encounterContext->year,true,_party.encounterContext->difficulty,actor.status);}
     const auto damage=[&] {return work.spellAttack?work.spellAttack->damage:work.attack->damage;};
     const auto status=[&] {return work.spellAttack?work.spellAttack->status:work.attack->status;};
@@ -178,7 +194,7 @@ bool XeenEncounterFlow::serviceShoot() {
        work.attack->elementalFrame,work.attack->elemental);
      }
      if(work.spellAttack && work.spellAttack->impact)
-       _world.scenePresentation().spellImpact(liveActors.at(id->recordIndex),*work.spell);
+       _world.scenePresentation().spellImpact(liveActors.at(id->recordIndex),*work.spell,work.spellPreparation->type);
      work.stage=damage() ? Stage::Impact : Stage::PostImpact;
      _appearanceIdentity=id;_frame=damage()?11:0;
      if(hit()) {work.presented=false;++_generation;return true;}
@@ -212,7 +228,7 @@ bool XeenEncounterFlow::serviceShoot() {
     if(work.spell) {
      ++work.target;work.shooter=0;work.spent.fill(false);
      bool remaining=false;for(unsigned n=work.target;n<work.targets.size();++n)remaining=remaining || bool(work.targets[n]);
-     if(!remaining) {work.target=12;work.row=work.rows-1;}
+     if(!remaining) {work.target=12;if(XeenLearnedSpellRules::range(std::uint8_t(*work.spell))!=XeenSpellRange::All)work.row=work.rows-1;}
     }
     else ++work.shooter;
     work.spellAttack.reset();work.attack.reset();work.drop.reset();work.bound.reset();work.lethal.reset();work.attackDone=work.suffixPrepared=false;work.stage=Stage::Travel;
@@ -230,6 +246,17 @@ bool XeenEncounterFlow::serviceShoot() {
    work.volleyDone=true;return true;
   }
   if(work.spell) {
+   if(work.spell==XeenLearnedSpell::MoonRay) {
+    if(!work.healing.service(draw,_party,_party.encounterContext->year))return true;
+    check();
+    for(const auto &effect:work.healing.result.effects) {
+     auto &live=_party.roster.at(effect.owner);
+     const bool sparkle=live.currentHp<=XeenCharacterRules::maxHp(live,{_party.encounterContext->year});
+     live.currentHp=effect.hp;live.conditions=effect.conditions;
+     if(sparkle)_world.scenePresentation().spellEffect(effect.owner,_lastTime,true);
+    }
+   }
+   session._journeyRandom=work.random.continuation();
    if(_itemUse) {_itemUse->ready=true;session._journeyActivity=XeenJourneyActivity::ItemUse;}
    else {_casting->effectDone=true;_casting->random=work.random;session._journeyActivity=XeenJourneyActivity::Casting;}
    _shoot.reset();

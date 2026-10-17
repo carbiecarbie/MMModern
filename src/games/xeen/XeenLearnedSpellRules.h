@@ -10,6 +10,10 @@ namespace mmodern {
 
 enum class XeenSpellCategory : std::uint8_t { Clerical, Wizardry, Druidic };
 enum class XeenLearnedSpell : std::uint8_t {
+    AcidSpray=0, ColdRay=5, DancingSword=11, DeadlySwarm=14, ElementalStorm=18,
+    FantasticFreeze=22, FieryFlail=23, Fireball=25, Frostbite=28, Implosion=35,
+    Incinerate=36, Inferno=37, LightningBolt=43, MegaVolts=47, MoonRay=48,
+    PrismaticLight=54, StarBurst=63, SunRay=65,
     Awaken=1, BeastMaster=2, CureWounds=10, DragonSleep=17, EnergyBlast=20,
     FirstAid=26, FlyingFist=27, Hypnotize=33, InsectSpray=38, Jump=40,
     MagicArrow=45, Pain=50, Revitalize=59, Shrapmetal=60, Sleep=61, Sparks=62,
@@ -38,6 +42,7 @@ struct XeenLearnedSpellNames {
 
 enum class XeenQuickSpellCheck { Supported, NoSpell, InsufficientSp, InsufficientGems, CombatForbidden, Unsupported };
 enum class XeenSpellTarget { Party, Member, Contact, Relocation, Unsupported };
+enum class XeenSpellRange { Single, Group, All };
 struct XeenSpellCost { unsigned sp=0, gems=0; };
 class XeenLearnedSpellRules {
 public:
@@ -51,7 +56,7 @@ public:
 	static std::uint32_t purchasePrice(std::uint8_t,XeenCharacterClass) noexcept;
 	static std::vector<std::size_t> rows(const XeenCharacter &,bool guild=false,bool info=false);
 	static XeenQuickSpellCheck check(const XeenCharacter &,std::size_t slot,std::uint32_t gems,bool combat) noexcept;
-	static bool group(std::uint8_t) noexcept;
+	static XeenSpellRange range(std::uint8_t) noexcept;
 	static XeenSpellTarget target(std::uint8_t) noexcept;
 	static XeenQuickSpellCheck quickSpellCheck(const XeenCharacter &,std::uint32_t gems) noexcept;
 	static bool known(const XeenCharacter &, std::size_t) noexcept;

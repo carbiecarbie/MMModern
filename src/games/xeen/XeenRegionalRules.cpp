@@ -105,19 +105,23 @@ unsigned xeenPlayerRayRows(XeenWorld &world,const XeenCamera &camera) {
  }
  return 4;
 }
-std::array<std::optional<XeenMonsterIdentity>,3> xeenSpellTargets(XeenWorld &world,
+std::array<std::optional<XeenMonsterIdentity>,12> xeenSpellTargets(XeenWorld &world,
  const XeenCamera &camera,const std::vector<XeenActor> &actors,
- std::optional<XeenMonsterIdentity> selected,bool group) {
+ std::optional<XeenMonsterIdentity> selected,XeenSpellRange range) {
  const auto view=world.map(camera.mapId).geometry.isOutdoors()?
   XeenActorApproach::classify(actors,camera):XeenIndoorScene().classifyActors(world,camera,actors);
- std::array<std::optional<XeenMonsterIdentity>,3> targets{};
+ std::array<std::optional<XeenMonsterIdentity>,12> targets{};
+ unsigned count=0;
  const auto rows=xeenPlayerRayRows(world,camera);
  for(unsigned row=0;row<rows;++row) {
-  unsigned count=0;
+  const auto begin=count;
   if(row==0 && selected)for(unsigned i=0;i<3;++i)if(view.slots[i]==selected)targets[count++]=selected;
-  for(unsigned i=0;i<3;++i)if(view.slots[row*3+i] && view.slots[row*3+i]!=targets[0])
+  for(unsigned i=0;i<3;++i)if(view.slots[row*3+i] && view.slots[row*3+i]!=targets[begin])
    targets[count++]=view.slots[row*3+i];
-  if(count) {if(!group)for(unsigned i=1;i<3;++i)targets[i].reset();return targets;}
+  if(count && range!=XeenSpellRange::All) {
+   if(range==XeenSpellRange::Single)for(unsigned i=1;i<count;++i)targets[i].reset();
+   return targets;
+  }
  }
  return targets;
 }
