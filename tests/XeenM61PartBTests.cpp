@@ -9,7 +9,7 @@
 #include <sstream>
 using namespace training_test;
 namespace {
-constexpr unsigned powers[]{2,3,4,5,6,8,9,11,15,16,21,37};
+constexpr unsigned powers[]{2,3,4,5,6,7,8,9,10,11,12,13,15,16,17,19,21,31,37,40};
 void tick(Fixture &f) {
     f.now+=125;f.flow->beginCycle(++f.cycle);
     if(auto frame=f.flow->updatePresentation())f.present(*frame);
@@ -199,9 +199,9 @@ void castingParity(Inputs &in) {
     for(unsigned power:powers) {
         if(power==37)continue;
         const auto spell=*xeenItemUseSpell(power);auto s=source(in,power,false,2);
-        auto &c=s.characters[s.activeRosterIds[0]];c.characterClass=XeenCharacterClass::Druid;c.hasSpells=true;c.currentSp=100;c.learnedSpells.emplace();
+        auto &c=s.characters[s.activeRosterIds[0]];c.characterClass=spell==XeenLearnedSpell::DragonSleep?XeenCharacterClass::Sorcerer:spell==XeenLearnedSpell::Hypnotize?XeenCharacterClass::Cleric:XeenCharacterClass::Druid;c.hasSpells=true;c.currentSp=100;c.learnedSpells.emplace();
         for(auto *items:{&c.weapons,&c.armor,&c.accessories})for(auto &item:*items)item.frame=0;
-        c.currentSpell=*XeenLearnedSpellRules::slotForSpell(XeenSpellCategory::Druidic,static_cast<std::uint8_t>(spell));c.learnedSpells->at(c.currentSpell)=1;
+        c.currentSpell=*XeenLearnedSpellRules::slotForSpell(*XeenLearnedSpellRules::categoryForClass(c.characterClass),static_cast<std::uint8_t>(spell));c.learnedSpells->at(c.currentSpell)=1;
         s.journey->treasure->gems=100;s.characters[s.activeRosterIds[1]].currentHp=1;s.characters[s.activeRosterIds[1]].conditions[2]=3;s.characters[s.activeRosterIds[1]].conditions[8]=1;
         Fixture item(in,s),cast(in,s);open(item);key(item,'u');
         if(item.flow->encounter()->itemUseNeedsTarget())item.act(SelectMemberAction{1});quiet(item);

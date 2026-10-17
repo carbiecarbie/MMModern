@@ -365,7 +365,7 @@ bool XeenEncounterFlow::observeCombat() {
             r.attackStage==XeenCombatAttackStage::None)presentation.splats[_hitRow]={};
         if(r.operation==XeenCombatOperation::Cast && _combat->cast()) {
             const auto &cast=_combat->cast()->result;
-            if((cast.spell==45 || cast.spell==20 || cast.spell==27 || cast.spell==50 || cast.spell==60) && _combat->cast()->phase==XeenCombatCastPhase::Projectile) {
+            if((XeenLearnedSpellRules::target(cast.spell)==XeenSpellTarget::Contact) && _combat->cast()->phase==XeenCombatCastPhase::Projectile) {
                 _castProjectile=XeenProjectileAppearance{false,_combat->cast()->projectileRow,0,3,{},xeenSpellProjectile(*XeenLearnedSpellRules::supported(std::uint8_t(cast.spell)))};
                 _castProjectile->active=_combat->cast()->projectileRow<=3;
                 _castProjectileDeadline.reset();

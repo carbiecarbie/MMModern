@@ -246,7 +246,7 @@ but ignores its result and retains 8 damage (`0x30fa8`, `0x2cde4`,
 `0x2c037`, `0x2c59a`). Pain prepares 8 physical damage against a group
 (`0x33558`, `0x2f5e9`, `0x2cd81`). See [original quirks](../original-quirks.md).
 
-**Reference only, boundary cases:** zero-level Energy Blast/Shrapmetal
+**Reference only, boundary cases:** zero-level Energy Blast/Shrapmetal/Sparks
 still draw a nonzero magic-resistance gate but do not enter damage handling
 and do not draw a save. Nonzero prepared damage reduced to zero by physical
 immunity does retain the save draw. Clouds resource ID 89 has a special
@@ -271,6 +271,41 @@ These are dispatch rules, not a complete account of status duration/AI.
 | Golem Stopper | Golem; 100 damage; ordinary save draw does not halve it. |
 | Insect Spray | Insect; 25 damage; ordinary save draw does not halve it. |
 | Turn Undead | Undead receives 25; non-undead enters with zero. Ordinary save does not halve it. |
+
+Sleep, Beast Master and Hypnotize affect the first reachable group (up to
+three targets); Dragon Sleep affects one target. All prepare zero damage,
+use Magic Orb (`pow7.icn`) and sound FX18 (audio deferred). After the nonzero-resistance gate,
+check species, then draw `U(1,50+I)` only for compatible targets. Success
+(`> I`) replaces the single status; there is no damage-stage save, damage
+or allegiance change. **Evidence: Reference only** for application and
+presentation (`Combat::attack`, the four spell handlers). Recovery and
+waking are documented in [combat](combat.md#initiative-block-run-and-monster-recovery), with
+their separate evidence labels; application tests do not establish DOS play.
+
+Insect Spray and Turn Undead prepare 25 for Insect and Undead respectively,
+then consume the ordinary save without halving. Wrong-type Spray skips
+`attack2`; wrong-type Turn Undead enters it with zero, so draws no save and
+does not wake Sleep. **Evidence: Reference only** (`attack`, `attack2`).
+Both use group range; Insect Spray uses Spray (`pow10.icn`), sound FX17, while
+Turn Undead uses Energy Blast (`pow13.icn`), sound FX18. Audio remains deferred.
+
+Sparks prepares `2L` electrical damage, costs `L` SP and one gem, and uses
+Sparks (`pow5.icn`), sound FX14 (deferred). Toxic Cloud prepares 10 poison damage, costs four
+SP and one gem, and uses Spray, sound FX17 (deferred). Both use group range and the ordinary
+halving save. **Evidence: Reference only** for preparation/presentation;
+**DOS static (retained)** for the zero elemental-resistance contribution.
+Visual monster tints follow `Combat::DAMAGE_TYPE_EFFECTS`: Insect Spray and
+Toxic Cloud use 2, Sparks 11, Turn Undead 14. Controls do not enter `attack2`
+and do not apply a damage tint. These are distinct from the sound FX IDs.
+A level-zero Sparks still gates against nonzero magic resistance, then skips
+the damage save. Each target's damage, death and treasure draws finish
+before the next target's resistance gate.
+
+All eight spells are delivered through learned Cast (combat or exploration),
+Quick Fight, and exploration item Use. Costs/books retain the tables above;
+item powers 7/17/31/40 and 12/19/10/13 deliver Sleep/Beast Master/Hypnotize/
+Dragon Sleep and Insect Spray/Turn Undead/Sparks/Toxic Cloud respectively.
+These are implementation witnesses, not additional DOS evidence.
 
 For Finger of Death, the first save and the damage-stage save are distinct
 RNG draws. Do not replace this by a single kill chance inferred from its name.
@@ -350,7 +385,7 @@ The strongest retained DOS findings are the Pain, Suppress Poison,
 elemental-damage and Magic Arrow corrections. Most of this chapter is a
 carefully bounded reference inventory. Unknown high-impact areas include
 non-First-Aid item-prompt refunds, Resurrection's actual recovery effect, Poison Volley's full missile
-arithmetic, high-tier overflow, monster-control duration and full travel
+arithmetic, high-tier overflow, full travel
 spell dialogs. Names and spell descriptions are not sufficient evidence
 for these rules.
 

@@ -39,7 +39,7 @@ std::unique_ptr<XeenShootCandidate> XeenEncounterFlow::prepareSpellProjectile(
     work.random=XeenCombatRandom(*_world.sessionState().journeyRandom());
     work.rows=xeenPlayerRayRows(_world,_camera);work.projectileEnd.fill(work.rows-1);
     const auto &actors=_world.sessionState().regionalActors(_camera.mapId);
-    const auto targets=xeenSpellTargets(_world,_camera,actors,{},spell==XeenLearnedSpell::Shrapmetal || spell==XeenLearnedSpell::Pain);
+    const auto targets=xeenSpellTargets(_world,_camera,actors,{},XeenLearnedSpellRules::group(static_cast<std::uint8_t>(spell)));
     for(unsigned n=0;n<3;++n)if(targets[n]) {
         const auto &a=actors.at(targets[n]->recordIndex);
         const unsigned row=std::abs(a.x-_camera.x)+std::abs(a.y-_camera.y);

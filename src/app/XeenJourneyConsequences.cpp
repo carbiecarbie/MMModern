@@ -129,7 +129,7 @@ bool XeenEncounterFlow::serviceShoot() {
     const auto owner=work.owners[work.shooter];
     if(!work.attack && !work.spellAttack) {work.bound=actor;
      if(work.spell) {const auto &caster=_party.roster.at(work.spellCaster);
-      work.spellAttack.emplace(caster.permanentLevel,caster.temporaryLevel,actor.statistics->magicResistance(),actor.original.resourceId,*work.spell,actor.statistics->physicalResistance(),actor.status);
+      work.spellAttack.emplace(caster.permanentLevel,caster.temporaryLevel,actor.statistics->magicResistance(),actor.original.resourceId,*work.spell,actor.statistics->physicalResistance(),actor.status,actor.statistics->monsterType());
      } else work.attack.emplace(_party.roster.at(owner),*_party.roster.combatInputs(owner),*actor.statistics,actor.original.resourceId,_party.encounterContext->year,true,_party.encounterContext->difficulty,actor.status);}
     const auto damage=[&] {return work.spellAttack?work.spellAttack->damage:work.attack->damage;};
     const auto status=[&] {return work.spellAttack?work.spellAttack->status:work.attack->status;};
@@ -177,8 +177,7 @@ bool XeenEncounterFlow::serviceShoot() {
       _world.scenePresentation().hitSplat(work.target,damage(),0,xeenSplatAlternatePosition(front),_lastTime,
        work.attack->elementalFrame,work.attack->elemental);
      }
-     if(work.spellAttack && !work.spellAttack->resisted &&
-       ((*work.spell!=XeenLearnedSpell::EnergyBlast && *work.spell!=XeenLearnedSpell::Shrapmetal) || _party.roster.at(work.spellCaster).currentLevel()))
+     if(work.spellAttack && work.spellAttack->impact)
        _world.scenePresentation().spellImpact(liveActors.at(id->recordIndex),*work.spell);
      work.stage=damage() ? Stage::Impact : Stage::PostImpact;
      _appearanceIdentity=id;_frame=damage()?11:0;

@@ -2,6 +2,7 @@
 #include "formats/xeen/XeenVocDuration.h"
 #include "XeenTrainingTestSupport.h"
 #include "XeenM42Evidence.h"
+#include "XeenMonsterTestAccess.h"
 #include "games/xeen/XeenJumpRules.h"
 #include "games/xeen/XeenEventTrigger.h"
 #include <iostream>
@@ -26,9 +27,9 @@ XeenSaveSnapshot source(Inputs &in,unsigned spell,bool indoor) {
  }
  save_test::clearExplored(s);for(auto &c:s.characters)c.skills[4]=0;
  auto &caster=s.characters[s.activeRosterIds[4]];
- caster.characterClass=XeenCharacterClass::Druid;caster.hasSpells=true;caster.currentSp=100;
+ caster.characterClass=spell==33?XeenCharacterClass::Cleric:spell==17?XeenCharacterClass::Sorcerer:XeenCharacterClass::Druid;caster.hasSpells=true;caster.currentSp=100;
  for(auto *items:{&caster.weapons,&caster.armor,&caster.accessories})for(auto &item:*items)item.frame=0;
- caster.learnedSpells.emplace();caster.currentSpell=*XeenLearnedSpellRules::slotForSpell(XeenSpellCategory::Druidic,spell);
+ caster.learnedSpells.emplace();caster.currentSpell=*XeenLearnedSpellRules::slotForSpell(*XeenLearnedSpellRules::categoryForClass(caster.characterClass),spell);
  caster.learnedSpells->at(caster.currentSpell)=1;
  s.journey->treasure->gems=100;s.journey->context->ctr24=23;
  return s;
@@ -39,7 +40,7 @@ void begin(Fixture &f) {
  f.act(DialogKeyAction{'c'});
 }
 void effects(Inputs &in) {
- for(bool indoor:{false,true})for(unsigned id:{10u,59u,75u,20u,27u,45u,50u,60u}) {
+ for(bool indoor:{false,true})for(unsigned id:{10u,59u,75u,20u,27u,45u,50u,60u,2u,17u,33u,38u,61u,62u,72u,73u}) {
   auto s=source(in,id,indoor);auto &target=s.characters[s.activeRosterIds[0]];
   target.currentHp=1;target.conditions[2]=3;
   const auto cost=XeenLearnedSpellRules::cost(id,s.characters[s.activeRosterIds[4]].currentLevel());
@@ -68,7 +69,7 @@ void blockedProjectiles(Inputs &in) {
   XeenCamera c{28,x,y,XeenDirection(d)};if(xeenPlayerRayRows(query,c)==1)blocked=c;
  }
  check(bool(blocked),"Original blocked projectile fixture missing");
- for(unsigned id:{20u,27u,45u,50u,60u}) {
+ for(unsigned id:{20u,27u,45u,50u,60u,2u,17u,33u,38u,61u,62u,72u,73u}) {
   auto s=source(in,id,true);s.camera=*blocked;Fixture f(in,s);const auto random=f.w.sessionState().journeyRandom();
   const auto cost=XeenLearnedSpellRules::cost(id,f.p.roster.at(s.activeRosterIds[4]).currentLevel());begin(f);quiet(f);
   check(f.p.roster.at(s.activeRosterIds[4]).currentSp==100-int(cost.sp) && f.p.monsterTreasure->gems==100-cost.gems &&
@@ -149,6 +150,119 @@ void impacts(Inputs &in) {
   check(saved==XeenSaveFormat::encode(restored.snapshot()),"Live spell restore replayed impacts/rewards");
  }
 }
+void m73Guild(Inputs &in) {
+ for(unsigned spell:{38u,61u,62u,72u}) {
+  auto s=source(in,spell,true);s.camera={28,20,13,XeenDirection::North};s.journey->treasure->gold=20000;
+  auto &c=s.characters[s.activeRosterIds[4]];c.awards[0]=1;c.learnedSpells->fill(1);c.learnedSpells->at(c.currentSpell)=0;
+  Fixture guild(in,s);guild.flow->drawGuildArt=[&in](auto &image){in.assets.drawGuild(image);};
+  guild.act(InteractionAction{});guild.prepare();guild.act(SelectMemberAction{4});
+  guild.act(DialogKeyAction{'b'});guild.act(DialogKeyAction{'1'});guild.act(DialogKeyAction{'y'});
+  check(XeenLearnedSpellRules::known(guild.p.roster.at(s.activeRosterIds[4]),c.currentSpell),"Vertigo Guild did not teach M73 spell");
+  check(guild.p.monsterTreasure->gold==20000-XeenLearnedSpellRules::purchasePrice(spell,c.characterClass),"Vertigo Guild M73 price differs");
+  guild.act(CancelInteractionAction{});guild.act(CancelInteractionAction{});quiet(guild);
+  auto learned=guild.snapshot();learned.camera={28,15,0,XeenDirection::North};
+  const auto original=XeenActorApproach::actorsFromResources(in.maps.loadObjects(in.assets,28),in.statistics);
+  const auto bug=std::find_if(original.begin(),original.end(),[](const auto &a){return a.original.resourceId==2;});
+  check(bug!=original.end(),"Vertigo has no original Doom Bug");
+  auto &a=learned.map(28).monsters->slots.at(bug->id.recordIndex);a.x=15;a.y=3;a.lifecycle=XeenActorLifecycle::Present;a.accounted=false;
+  Fixture fight(in,learned);XeenMonsterTestAccess::setLive(*fight.flow,fight.w,28,bug->id.recordIndex,1,false);
+  const auto sp=fight.p.roster.at(s.activeRosterIds[4]).currentSp;const auto gems=fight.p.monsterTreasure->gems;
+  const auto minutes=fight.p.encounterContext->minutes;begin(fight);quiet(fight);
+  const auto &after=fight.w.sessionState().monsters(28).at(bug->id.recordIndex);
+  check(spell==61?(after.hp==1 && after.status==XeenActorStatus::Physical):after.lifecycle==XeenActorLifecycle::Defeated,"Purchased spell/Doom Bug effect differs");
+  const auto cost=XeenLearnedSpellRules::cost(spell,c.currentLevel());
+  check(fight.p.roster.at(s.activeRosterIds[4]).currentSp==sp-int(cost.sp) && fight.p.monsterTreasure->gems==gems-cost.gems &&
+   fight.p.encounterContext->minutes==minutes+1,"Purchased M73 spell costs differ");
+ }
+}
+
+void m73Live(Inputs &in) {
+ check(in.statistics.at(2).monsterType()==2 && in.statistics.at(6).monsterType()==3 &&
+  in.statistics.at(8).monsterType()==4 && in.statistics.at(9).monsterType()==4,"Original Doom Bug/Orc/Skeleton/Zombie species differ");
+ for(unsigned spell:{2u,17u,33u,38u,61u,62u,72u,73u})for(bool item:{false,true}) {
+  try {
+  auto s=source(in,spell,false);
+  const auto originals=XeenActorApproach::actorsFromResources(in.maps.loadObjects(in.assets,23),in.statistics);
+  std::vector<unsigned> slots{7,8,9};
+  XeenWorld query(in.mapLoader());std::bitset<256> common;common.set();
+  for(auto slot:slots){check(originals.at(slot).original.resourceId==6,"Expected original Orc slot");common &= xeenActorClosure(query.map(23),originals.at(slot));}
+  std::optional<std::pair<int,int>> position;
+  for(int y=0;y<16 && !position;++y)for(int x=0;x<13 && !position;++x)
+   if(common[y*16+x] && common[y*16+x+3]) {
+    XeenCamera camera{23,x+3,y,XeenDirection::West};
+    if(xeenPlayerRayRows(query,camera)==4){position={{x,y}};s.camera=camera;}
+   }
+  check(bool(position),"Mainland has no reachable three-cell Orc ray");
+  for(auto slot:slots){auto &saved=s.map(23).monsters->slots.at(slot);
+   saved.x=position->first;saved.y=position->second;saved.lifecycle=XeenActorLifecycle::Present;saved.accounted=false;
+  }
+  check(slots.size()==3,"Mainland fixture needs three original Orc slots");
+  const unsigned count=spell==17?1:3;
+  const unsigned power=spell==2?17:spell==17?40:spell==33?31:spell==38?12:spell==61?7:spell==62?10:spell==72?13:19;
+  if(item)s.characters[s.activeRosterIds[4]].miscellaneous[0]={1,std::uint8_t(power),2,0};
+  Fixture f(in,s);
+  for(auto slot:slots)XeenMonsterTestAccess::setLive(*f.flow,f.w,23,slot,1,true);
+  const auto &caster=f.p.roster.at(s.activeRosterIds[4]);
+  auto expected=XeenCombatRandom(*f.w.sessionState().journeyRandom());auto treasure=*f.p.monsterTreasure;
+  std::array<XeenActorStatus,3> status{};std::array<int,3> hp{1,1,1};
+  for(unsigned i=0;i<count;++i) {
+   const auto &a=f.w.sessionState().monsters(23).at(slots[i]);
+   XeenSpellDamageCandidate effect(caster.permanentLevel,caster.temporaryLevel,a.statistics->magicResistance(),6,
+    *XeenLearnedSpellRules::supported(spell),a.statistics->physicalResistance(),a.status,a.statistics->monsterType());
+   XeenConsequenceDraw draw{expected};check(effect.service(draw),"M73 exploration expected cast did not finish");
+   hp[i]=std::max(1-effect.damage,0);status[i]=effect.status;
+   if(!hp[i]){XeenMonsterDropCandidate drop(treasure,a.id);check(drop.service(draw),"M73 target settlement did not finish");treasure=drop.treasure;}
+  }
+  // The existing regional opportunity also accounts for ordinary Orc ranged
+  // responses when the spell leaves them able to act; recovery stays Part A's rule.
+  const auto live=f.w.sessionState().monsters(23);
+  std::vector<XeenActor> anticipated(live.begin(),live.end());
+  for(unsigned i=0;i<3;++i){auto &a=anticipated.at(slots[i]);a.hp=hp[i];a.status=status[i];
+   if(!hp[i]){a.lifecycle=XeenActorLifecycle::Defeated;a.x=a.y=-128;a.activated=false;}}
+  XeenConsequenceCharacters characters;XeenConsequenceInputs inputs;
+  for(unsigned i=0;i<6;++i){const auto owner=s.activeRosterIds[i];characters[i]=f.p.roster.at(owner);inputs[i]=*f.p.roster.combatInputs(owner);}
+  XeenRegionalOpportunityCandidate response(query.map(23),anticipated,s.camera,characters,inputs,f.p.encounterContext->year,63);
+  for(unsigned n=0;n<100;++n){XeenConsequenceDraw draw{expected};if(response.service(draw))break;}
+  for(unsigned i=0;i<3;++i)status[i]=response.actors.at(slots[i]).status;
+  const auto minutes=f.p.encounterContext->minutes;const auto sp=caster.currentSp;const auto gems=f.p.monsterTreasure->gems;
+  if(item){f.act(SelectMemberAction{4});f.act(DialogKeyAction{'i'});f.act(DialogKeyAction{'m'});f.act(DialogKeyAction{'1'});f.act(DialogKeyAction{'u'});}
+  else begin(f);
+  quiet(f);
+  for(unsigned i=0;i<3;++i){const auto &a=f.w.sessionState().monsters(23).at(slots[i]);check(a.hp==hp[i] && a.status==status[i],"M73 real exploration/item group effect differs");}
+  if(f.w.sessionState().journeyRandom()!=expected.continuation())throw std::runtime_error("M73 target/drop/recovery order: spell="+std::to_string(spell)+" item="+std::to_string(item)+" actual="+std::to_string(f.w.sessionState().journeyRandom()->count)+" expected="+std::to_string(expected.position()));
+  if(spell==2 || spell==33 || spell==61)check(std::any_of(status.begin(),status.end(),[](auto s){return s!=XeenActorStatus::Physical;}),"M73 real-cast fixture must retain a successful control at save");
+  const auto cost=XeenLearnedSpellRules::cost(spell,caster.currentLevel());
+  check(f.p.encounterContext->minutes==minutes+(item?0:10) && caster.currentSp==sp-(item?0:int(cost.sp)) &&
+   f.p.monsterTreasure->gems==gems-(item?0:cost.gems),"M73 exploration/item costs differ");
+  if(item)check(caster.miscellaneous[0].state==1,"M73 item did not spend exactly one charge");
+  const auto saved=XeenSaveFormat::encode(f.snapshot());Fixture restored(in,XeenSaveFormat::decode(saved));
+  check(saved==XeenSaveFormat::encode(restored.snapshot()),"M73 cast status restore replayed RNG/time/rewards");
+  for(const auto &a:restored.w.sessionState().monsters(23))check(a.status==XeenActorStatus::Physical,"M73 real-cast status was not canonicalized");
+  for(auto slot:slots)XeenMonsterTestAccess::status(*f.flow->encounter(),f.w,23,slot,XeenActorStatus::Physical);
+  check(saved==XeenSaveFormat::encode(f.snapshot()),"Save with real-cast statuses differs from otherwise identical Physical actors");
+  }catch(const std::exception &e){throw std::runtime_error("spell="+std::to_string(spell)+" item="+std::to_string(item)+": "+e.what());}
+ }
+ // Actual Fire Dragon statistics, injected into a detached fixture; no dragon route is claimed.
+ auto dragon=in.statistics.at(68);check(dragon.monsterType()==6,"Fire Dragon must be Dragon species");
+ std::vector<XeenCombatRandom::Draw> tape;
+ if(dragon.magicResistance())tape.push_back({1,107,dragon.magicResistance()});
+ tape.push_back({1,118,69});XeenCombatRandom rng(tape);
+ XeenSpellDamageCandidate sleep(7,0,dragon.magicResistance(),68,XeenLearnedSpell::DragonSleep,
+  dragon.physicalResistance(),XeenActorStatus::Physical,dragon.monsterType());
+ XeenConsequenceDraw draw{rng};check(sleep.service(draw) && sleep.status==XeenActorStatus::DragonSleep && !sleep.damage,"Fire Dragon sleep failed");
+ auto actors=XeenActorApproach::actorsFromResources(in.maps.loadObjects(in.assets,23),in.statistics);
+ for(auto &a:actors){a.status=XeenActorStatus::Physical;a.lifecycle=XeenActorLifecycle::Defeated;a.x=a.y=-128;a.hp=0;}
+ auto &a=actors.front();a.original.resourceId=68;a.statistics=dragon;a.status=sleep.status;
+ XeenConsequenceCharacters chars;XeenConsequenceInputs inputs;
+ auto base=source(in,61,false);for(unsigned i=0;i<6;++i){chars[i]=base.characters[base.activeRosterIds[i]];inputs[i]=base.journey->supplements[base.activeRosterIds[i]].inputs;}
+ XeenWorld world(in.mapLoader());XeenRegionalOpportunityCandidate recovery(world.map(23),actors,{23,9,11,XeenDirection::East},chars,inputs,610,63);
+ XeenCombatRandom none(std::vector<XeenCombatRandom::Draw>{});XeenConsequenceDraw empty{none};
+ check(recovery.service(empty) && !none.position() && recovery.actors.front().status==sleep.status,"Fire Dragon drew recovery");
+ XeenCombatRandom hit(std::vector<XeenCombatRandom::Draw>{{1,118,118}});
+ XeenSpellDamageCandidate wake(7,0,0,68,XeenLearnedSpell::ToxicCloud,dragon.physicalResistance(),sleep.status,dragon.monsterType());
+ XeenConsequenceDraw damage{hit};check(wake.service(damage) && wake.damage==10 && wake.status==XeenActorStatus::Physical,"Fire Dragon did not wake from real damage");
+}
+
 void targets(Inputs &in) {
  auto s=source(in,60,false);Fixture f(in,s);
  const auto live=f.w.sessionState().monsters(23);std::vector<XeenActor> actors(live.begin(),live.end());
@@ -192,7 +306,9 @@ void jump(Inputs &in) {
 int main(int argc,char **argv) {try {
  check(argc==2,"usage: m60-exploration <installation>");auto install=xeenTestInstallationDetector().detect(argv[1]);check(bool(install),"Missing installation");Inputs in(*install);
  std::ostringstream captured;auto *old=std::cout.rdbuf(captured.rdbuf());
- try {effects(in);blockedProjectiles(in);eyeExpiry(in);refunds(in);jump(in);jumpEvent(in);targets(in);impacts(in);}catch(...){std::cout.rdbuf(old);throw;}
+ try {effects(in);blockedProjectiles(in);eyeExpiry(in);refunds(in);jump(in);jumpEvent(in);targets(in);impacts(in);
+  try{m73Live(in);}catch(const std::exception &e){throw std::runtime_error(std::string("M73 live: ")+e.what());}
+  try{m73Guild(in);}catch(const std::exception &e){throw std::runtime_error(std::string("M73 Guild: ")+e.what());}}catch(...){std::cout.rdbuf(old);throw;}
  std::cout.rdbuf(old);std::cout<<"M60 original-data exploration effects, blocked/empty/live projectiles, Eye reset, refunds, Jump and exact restore passed\n";
  return 0;
 }catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}

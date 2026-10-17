@@ -106,6 +106,20 @@ void prepare(XeenSaveSnapshot &snapshot,const std::string &preset) {
     auto &journey=*snapshot.journey;
     const auto first=snapshot.activeRosterIds.at(0),second=snapshot.activeRosterIds.at(1);
     auto &member=snapshot.characters[first];
+    if (preset=="monster-control") {
+        snapshot.camera={28,18,4,XeenDirection::West};
+        journey.treasure->gems=1000;
+        for(auto owner:snapshot.activeRosterIds) {
+            auto &caster=snapshot.characters[owner];
+            const auto category=XeenLearnedSpellRules::categoryForClass(caster.characterClass);
+            if(!category)continue;
+            caster.hasSpells=true;caster.currentSp=1000;
+            if(!caster.learnedSpells)caster.learnedSpells.emplace();
+            for(unsigned id:{2u,17u,33u,38u,61u,62u,72u,73u})
+                if(const auto slot=XeenLearnedSpellRules::slotForSpell(*category,id))caster.learnedSpells->at(*slot)=1;
+        }
+        return;
+    }
     if (preset=="broken-armor") {
         // Physical injury can break equipped armor; Temple Heal leaves that bit set.
         for (auto owner:snapshot.activeRosterIds) for (auto &item:snapshot.characters[owner].armor)
@@ -147,7 +161,7 @@ void prepare(XeenSaveSnapshot &snapshot,const std::string &preset) {
 
 void generateTestSave(const GameInstallation &installation,const std::string &preset,
         const std::filesystem::path &output) {
-    if (preset!="broken-armor" && preset!="train-ready" && preset!="injured-dead" && preset!="poisoned")
+    if (preset!="broken-armor" && preset!="train-ready" && preset!="injured-dead" && preset!="poisoned" && preset!="monster-control")
         throw std::invalid_argument("Unknown test-save preset: "+preset);
     const auto target=XeenSaveFile::resolve(output,installation);
     // Reuse the native alias/reparse-aware path guard for the repository too.
@@ -157,6 +171,12 @@ void generateTestSave(const GameInstallation &installation,const std::string &pr
     Inputs inputs(installation);
     auto candidate=inputs.fresh();
     prepare(candidate,preset);
+    if(preset=="monster-control") {
+        const auto actors=XeenActorApproach::actorsFromResources(inputs.maps.loadObjects(inputs.assets,28),inputs.resources.loadMonsterStatistics());
+        auto &table=candidate.map(28).monsters;
+        table.emplace(XeenSaveMonsterTable{std::uint16_t(actors.size()),{}});
+        for(const auto &actor:actors)table->slots.push_back({actor.x,actor.y,actor.lifecycle,actor.status,false,-1});
+    }
     // Publish only a snapshot recaptured from restored, validated current owners.
     const auto snapshot=inputs.validated(candidate);
     XeenSaveFile::write(target,snapshot);

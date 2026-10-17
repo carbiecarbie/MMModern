@@ -1,6 +1,8 @@
 #include "games/xeen/XeenCombatRules.h"
 #include "games/xeen/XeenLearnedSpellRules.h"
 #include "games/xeen/XeenArmorRepair.h"
+#include "games/xeen/XeenItemServiceRules.h"
+#include "games/xeen/XeenScenePresentation.h"
 #include <iostream>
 #include <limits>
 #include <stdexcept>
@@ -62,7 +64,7 @@ void domainsAndBooks() {
     using Rules=XeenLearnedSpellRules;
     for(unsigned id=0;id<256;++id)for(bool combat:{false,true})
         check(bool(Rules::supportedIn(id,combat))==(bool(Rules::supported(id)) && (!combat || (id!=40 && id!=75))),"Context spell admission differs");
-    for(unsigned id=0;id<256;++id)check(bool(Rules::supported(id))==(id==1 || id==10 || id==20 || id==26 || id==27 || id==40 || id==45 || id==50 || id==59 || id==60 || id==75),"Effect recognition differs");
+    for(unsigned id=0;id<256;++id)check(bool(Rules::supported(id))==(id==1 || id==10 || id==20 || id==26 || id==27 || id==40 || id==45 || id==50 || id==59 || id==60 || id==75 || id==2 || id==17 || id==33 || id==38 || id==61 || id==62 || id==72 || id==73),"Effect recognition differs");
     check(Rules::cost(XeenLearnedSpell::Awaken)==1 && Rules::cost(XeenLearnedSpell::FirstAid)==1 && Rules::cost(XeenLearnedSpell::MagicArrow)==2,"Fixed costs differ");
     check(Rules::spellForSlot(XeenSpellCategory::Wizardry,25)==45 && Rules::spellForSlot(XeenSpellCategory::Druidic,23)==45,"Magic Arrow class slots differ");
     XeenPartyState party;party.party=XeenParty::fromRosterIds({6});auto &caster=party.roster.at(6);
@@ -116,5 +118,84 @@ void spellDamage() {
     rejects([]{XeenSpellDamageCandidate c(3,0,0,6,S::Pain,101);});
     rejects([]{XeenSpellDamageCandidate c(3,0,0,6,S::FirstAid);});
 }
+void m73Spells() {
+    using S=XeenLearnedSpell;using A=XeenActorStatus;using D=XeenCombatRandom::Draw;
+    struct Book {unsigned id,mask;};
+    for(auto b:{Book{2,5},Book{17,2},Book{33,1},Book{38,6},Book{61,6},Book{62,5},Book{72,6},Book{73,5}})
+        for(unsigned category=0;category<3;++category) {
+            const auto slot=XeenLearnedSpellRules::slotForSpell(XeenSpellCategory(category),b.id);
+            check(bool(slot)==bool(b.mask&(1u<<category)),"M73 spell book differs");
+            check(XeenLearnedSpellRules::group(b.id)==(b.id!=17),"M73 group/single range differs");
+            if(slot)check(XeenLearnedSpellRules::spellForSlot(XeenSpellCategory(category),*slot)==b.id &&
+                XeenLearnedSpellRules::supportedIn(b.id,true) && XeenLearnedSpellRules::supportedIn(b.id,false),"M73 contexts/slot identity differ");
+        }
+    XeenActor actor;actor.id={23,0};actor.statistics.emplace();actor.statistics->raw[20]=20;
+    actor.statistics->raw[22]=1;actor.statistics->raw[47]=8;
+    XeenScenePresentation scene(1);
+    for(auto entry:{std::pair<S,unsigned>{S::InsectSpray,2},{S::TurnUndead,14},{S::Sparks,11},{S::ToxicCloud,2}}) {
+        scene.spellImpact(actor,entry.first);
+        check(scene.animation(actor.id) && scene.animation(actor.id)->effect2==entry.second,"M73 impact FX selector differs");
+    }
+    struct Control {S spell;A status;unsigned sp,gems,projectile;};
+    for(auto c:{Control{S::Sleep,A::Sleep,3,1,7},Control{S::BeastMaster,A::BeastMaster,5,2,7},
+        Control{S::Hypnotize,A::Hypnotize,15,4,7},Control{S::DragonSleep,A::DragonSleep,10,4,7}}) {
+        const auto cost=XeenLearnedSpellRules::cost(unsigned(c.spell),7);
+        check(cost.sp==c.sp && cost.gems==c.gems && xeenSpellProjectile(c.spell)==c.projectile,"Control cost/projectile differs");
+        for(unsigned species=0;species<=6;++species)for(unsigned r:{0u,50u})for(unsigned gate:{49u,50u})for(unsigned save:{6u,7u}) {
+            const bool compatible=c.spell==S::DragonSleep?species==6:species==1 || species==3;
+            const bool passes=!r || gate>=r;
+            std::vector<D> tape;if(r)tape.push_back({1,107,gate});
+            if(passes && compatible)tape.push_back({1,56,save});
+            XeenCombatRandom rng(tape);XeenSpellDamageCandidate cast(5,2,r,6,c.spell,100,A::Hypnotize,species);
+            for(unsigned n=0;n<8;++n){XeenConsequenceDraw draw{rng,1};if(cast.service(draw))break;}
+            XeenConsequenceDraw done{rng};check(cast.service(done),"Control did not finish after yields");
+            check(cast.status==(passes && compatible && save>6?c.status:A::Hypnotize) && !cast.damage &&
+                cast.resisted==!passes && !cast.impact && rng.position()==tape.size(),"Control gate/species/save/overwrite tape differs");
+        }
+    }
+    for(auto spell:{S::InsectSpray,S::TurnUndead,S::Sparks,S::ToxicCloud})for(unsigned species=0;species<=6;++species)
+    for(unsigned level:{0u,7u})for(unsigned r:{0u,50u})for(unsigned gate:{49u,50u})for(unsigned save:{6u,7u}) {
+        const bool passes=!r || gate>=r;
+        const int base=spell==S::Sparks?2*level:spell==S::ToxicCloud?10:
+            spell==S::InsectSpray?(species==2?25:0):(species==4?25:0);
+        std::vector<D> tape;if(r)tape.push_back({1,100+level,gate});if(passes && base)tape.push_back({1,56,save});
+        XeenCombatRandom rng(tape);XeenSpellDamageCandidate cast(level,0,r,6,spell,100,A::DragonSleep,species);
+        for(unsigned n=0;n<8;++n){XeenConsequenceDraw draw{rng,1};if(cast.service(draw))break;}
+        XeenConsequenceDraw done{rng};check(cast.service(done),"Damage did not finish after yields");
+        const bool halves=spell==S::Sparks || spell==S::ToxicCloud;
+        check(cast.damage==(passes?(halves && save<=6?base/2:base):0) && rng.position()==tape.size() &&
+            cast.status==(passes && base?A::Physical:A::DragonSleep),"Damage formula/species/save/wake tape differs");
+        const auto cost=XeenLearnedSpellRules::cost(unsigned(spell),level);
+        check(cost.sp==(spell==S::Sparks?level:spell==S::ToxicCloud?4u:5u) && cost.gems==(spell==S::TurnUndead?2u:1u),"Damage cost differs");
+    }
+    for(auto spell:{S::Sparks,S::Sleep,S::InsectSpray,S::TurnUndead}) {
+        XeenCombatRandom rng(std::vector<D>{{1,100,50}});
+        XeenSpellDamageCandidate noSave(0,0,50,6,spell,0,A::Sleep,0);
+        XeenConsequenceDraw one{rng,1};
+        check(noSave.service(one) && rng.position()==1 && !noSave.impact && noSave.status==A::Sleep,
+            "Draw-free dispatch must finish at the exact gate budget without another presentation slice");
+    }
+    check(xeenSpellProjectile(S::InsectSpray)==10 && xeenSpellProjectile(S::ToxicCloud)==10 &&
+        xeenSpellProjectile(S::Sparks)==5 && xeenSpellProjectile(S::TurnUndead)==13,"M73 projectile IDs differ");
 }
-int main(){try{arrow();spellDamage();domainsAndBooks();std::cout<<"Learned spell rule/context/RNG tests passed\n";return 0;}catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}
+void itemPowerMapping() {
+    // Independent transcription of magic.md's named power ranges, ten per row.
+    // 33 is the special Frostbite handler, represented by no ordinary ID.
+    constexpr unsigned expected[]{42,1,45,26,27,20,61,59,10,62,
+        60,38,72,55,50,40,2,4,73,41,
+        75,3,34,43,31,52,49,44,53,30,
+        33,74,76,15,25,5,9,0,70,17,
+        7,69,24,8,29,51,14,66,12,13,
+        6,23,57,22,71,64,56,21,11,48,
+        46,54,19,36,32,58,18,47,37,65,
+        35,63,16};
+    for(unsigned power=1;power<=73;++power) {
+        const auto raw=xeenItemPowerSpellId(power);
+        check(expected[power-1]==76?!raw:raw==expected[power-1],"Original item-power destination differs");
+        check(xeenItemUseSpell(power)==(raw?XeenLearnedSpellRules::supportedIn(*raw,false):std::nullopt),"Unsupported item effect was admitted/misrouted");
+    }
+    check(!xeenItemPowerSpellId(0) && !xeenItemPowerSpellId(74) && !xeenItemUseSpell(255),"Invalid item power admitted");
+}
+
+}
+int main(){try{arrow();spellDamage();m73Spells();itemPowerMapping();domainsAndBooks();std::cout<<"Learned spell rule/context/RNG tests passed\n";return 0;}catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}

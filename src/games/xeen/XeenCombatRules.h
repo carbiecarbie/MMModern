@@ -95,19 +95,23 @@ unsigned xeenSpellProjectile(XeenLearnedSpell);
 struct XeenSpellDamageCandidate {
     int damage=0;
     bool resisted=false;
+    bool impact=false;
     XeenActorStatus status;
     XeenSpellDamageCandidate(std::int64_t permanentLevel, std::int64_t temporaryLevel,
         unsigned magicResistance, unsigned resourceId, XeenLearnedSpell,
-        unsigned physicalResistance=0, XeenActorStatus status=XeenActorStatus::Physical);
+        unsigned physicalResistance=0, XeenActorStatus status=XeenActorStatus::Physical, unsigned species=0);
     bool service(XeenConsequenceDraw &);
 private:
-    enum class Step { Resistance, Save, Done };
+    enum class Step { Resistance, Species, Save, Done };
     Step step;
     unsigned levelBound, resistance, resourceId, saveBound, physicalResistance;
     int acceptedDamage=0;
     bool halveOnSave=true;
     bool entersDamage=true;
     bool physicalDamage=false, damagePrepared=false;
+    unsigned species;
+    XeenLearnedSpell spell;
+    XeenActorStatus control=XeenActorStatus::Physical;
 };
 // Existing callers retain the fixed-eight-damage Arrow interface.
 struct XeenMagicArrowCandidate : XeenSpellDamageCandidate {

@@ -396,7 +396,8 @@ void spellDialogs(Inputs &in,bool mouse) {
     choose(cast,'c');check(cast.p.roster.at(owner).currentSp==29,"First Aid debit differs");choose(cast,InputKey::Escape);
     for(unsigned i=0;i<1000 && !cast.flow->canSave();++i){cast.now+=100;cast.flow->beginCycle(++cast.cycle);if(auto frame=cast.flow->updatePresentation())cast.present(*frame);}
     check(cast.flow->canSave() && cast.p.roster.at(owner).currentSp==30 && cast.p.encounterContext->minutes==source.journey->context->minutes+1,"Indoor target cancellation refund/time differs");
-    cast.act(CastSpellAction{});choose(cast,'n');choose(cast,'3');choose(cast,'s'); // unsupported clerical Bless
+    cast.act(CastSpellAction{});choose(cast,'n');choose(cast,'4');choose(cast,'s'); // unsupported clerical Bless (slot 3; Beast Master now works)
+    check(cast.p.roster.at(owner).currentSpell==3,"Unsupported modal fixture must select Bless");
     const auto unsupported=Owners(cast);choose(cast,'c');unsupported.unchanged(cast);
     choose(cast,InputKey::Enter);choose(cast,InputKey::Escape);unsupported.unchanged(cast);
     auto terminal=source;terminal.characters[terminal.activeRosterIds[0]].currentHp=0;terminal.characters[terminal.activeRosterIds[0]].conditions[13]=1;

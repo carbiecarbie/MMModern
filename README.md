@@ -254,6 +254,14 @@ stays at map 23 `(9,11)` facing West; world, calendar and RNG retain fresh
 Journey values (explicit seed 7). The presets provide equipped broken armor,
 enough XP/gold for one Training, an Unconscious member and a Dead member with
 four survivors, or Poison and a usable Misc antidote, respectively.
+The `monster-control` preset stands in Vertigo `(18,4)` facing West: each
+caster knows the M73 spells available in their book (Sleep, Beast Master,
+Hypnotize, Dragon Sleep, Insect Spray, Turn Undead, Sparks and Toxic Cloud),
+with 1,000 SP each and 1,000 party gems. Generate it with:
+
+```powershell
+.\build-rel\mmodern_test_save.exe monster-control "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/monster-control.mmsave"
+```
 
 ```powershell
 New-Item -ItemType Directory -Force D:/MModern-playtest

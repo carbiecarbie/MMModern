@@ -146,6 +146,10 @@ public:
         unsigned effect;
         switch(spell) {
         case XeenLearnedSpell::EnergyBlast: effect=5;break;
+        // Combat::DAMAGE_TYPE_EFFECTS; spell-handler FX14/17/18 are deferred audio.
+        case XeenLearnedSpell::TurnUndead: effect=14;break;
+        case XeenLearnedSpell::InsectSpray: case XeenLearnedSpell::ToxicCloud: effect=2;break;
+        case XeenLearnedSpell::Sparks: effect=11;break;
         case XeenLearnedSpell::MagicArrow: case XeenLearnedSpell::Shrapmetal:
         case XeenLearnedSpell::FlyingFist: case XeenLearnedSpell::Pain: effect=3;break;
         default: throw std::invalid_argument("Unsupported spell impact presentation");

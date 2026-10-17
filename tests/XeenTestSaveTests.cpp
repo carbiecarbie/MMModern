@@ -54,7 +54,7 @@ void preset(const GameInstallation &installation,const std::string &name,const f
     check(flow.prepareJourneyFrame(flow.ticket(),[]{}) && flow.presentJourney(flow.ticket()),"restored preset is not quiet");
     const auto captured=XeenSaveState::capture(inputs.signature,party,camera,flags,world);
     check(XeenSaveFormat::encode(saved)==XeenSaveFormat::encode(captured),"restore replayed or changed state");
-    check(save_test::sameCamera(camera,xeenJourneyContent().entry),"fresh Journey camera changed");
+    check(name=="monster-control" || save_test::sameCamera(camera,xeenJourneyContent().entry),"fresh Journey camera changed");
     const auto first=party.party.activeRosterIds()[0],second=party.party.activeRosterIds()[1];
     const auto &member=party.roster.at(first);
     const auto gold=party.monsterTreasure->gold;
@@ -87,6 +87,21 @@ void preset(const GameInstallation &installation,const std::string &name,const f
         for (auto owner:party.party.activeRosterIds()) if (party.roster.at(owner).canAct())
             for (const auto &item:party.roster.at(owner).miscellaneous) found=found || XeenAntidoteUse::eligible(item);
         check(found,"no usable Misc antidote");
+    }
+    if(name=="monster-control") {
+        check(camera.mapId==XeenMapIdentity(28) && camera.x==18 && camera.y==4,"Control fixture must stand in Vertigo");
+        check(party.monsterTreasure->gems==1000,"Control fixture lacks gems");
+        unsigned covered=0;
+        for(unsigned id:{2u,17u,33u,38u,61u,62u,72u,73u}) {
+            bool known=false;
+            for(auto owner:party.party.activeRosterIds()) {
+                const auto &c=party.roster.at(owner);const auto category=XeenLearnedSpellRules::categoryForClass(c.characterClass);
+                if(category)if(auto slot=XeenLearnedSpellRules::slotForSpell(*category,id))
+                    known=known || (XeenLearnedSpellRules::known(c,*slot) && c.currentSp==1000);
+            }
+            covered+=known;
+        }
+        check(covered==8,"Control fixture does not cover eight spells");return;
     }
     // Revert only the documented preset fields and compare against a fresh Journey.
     // This also checks actor/world/economy/time/RNG preservation, not just symptoms.

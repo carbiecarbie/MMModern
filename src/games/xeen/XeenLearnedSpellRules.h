@@ -9,7 +9,12 @@
 namespace mmodern {
 
 enum class XeenSpellCategory : std::uint8_t { Clerical, Wizardry, Druidic };
-enum class XeenLearnedSpell : std::uint8_t { Awaken = 1, CureWounds = 10, EnergyBlast = 20, FirstAid = 26, FlyingFist = 27, Jump = 40, MagicArrow = 45, Pain = 50, Revitalize = 59, Shrapmetal = 60, WizardEye = 75 };
+enum class XeenLearnedSpell : std::uint8_t {
+    Awaken=1, BeastMaster=2, CureWounds=10, DragonSleep=17, EnergyBlast=20,
+    FirstAid=26, FlyingFist=27, Hypnotize=33, InsectSpray=38, Jump=40,
+    MagicArrow=45, Pain=50, Revitalize=59, Shrapmetal=60, Sleep=61, Sparks=62,
+    ToxicCloud=72, TurnUndead=73, WizardEye=75
+};
 
 struct XeenSpellEffect {
 	std::uint8_t owner = 0;
@@ -46,6 +51,7 @@ public:
 	static std::uint32_t purchasePrice(std::uint8_t,XeenCharacterClass) noexcept;
 	static std::vector<std::size_t> rows(const XeenCharacter &,bool guild=false,bool info=false);
 	static XeenQuickSpellCheck check(const XeenCharacter &,std::size_t slot,std::uint32_t gems,bool combat) noexcept;
+	static bool group(std::uint8_t) noexcept;
 	static XeenSpellTarget target(std::uint8_t) noexcept;
 	static XeenQuickSpellCheck quickSpellCheck(const XeenCharacter &,std::uint32_t gems) noexcept;
 	static bool known(const XeenCharacter &, std::size_t) noexcept;

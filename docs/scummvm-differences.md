@@ -30,8 +30,8 @@ mainland; many items apply there, others wait for areas not open yet.
 
 - **Controlled monsters recover on the DOS roll.** Recovery succeeds at a roll
   at most the monster resource ID; the pin reverses the inequality. Equality
-  succeeds in both. The core scans every map slot before queued shots; status
-  producers remain deferred (M73 Part A). Pin: differs; master not rechecked.
+  succeeds in both. The core scans every map slot before queued shots; learned
+  casts and item Use apply controls (M73 Parts A/B). Pin: differs; master not rechecked.
   [Evidence](original-quirks.md#sv-monster-recovery).
 
 - **Terrain damage starts fresh for each character.** Lava and surface falls

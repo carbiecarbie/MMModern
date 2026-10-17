@@ -206,6 +206,39 @@ void quickCasting(Inputs &in) {
   else {ready(skip);check(combat->participant()!=0 && !(combat->result().blockedMembers&1),"None/cost/forbidden Quick Cast spends one unblocked turn");}
  }
 }
+void m73QuickCasting(Inputs &in) {
+ for(unsigned spell:{2u,17u,33u,38u,61u,62u,72u,73u}) {
+  const auto cls=spell==17?XeenCharacterClass::Sorcerer:spell==33?XeenCharacterClass::Cleric:XeenCharacterClass::Druid;
+  auto source=casterSource(in,cls,spell);Fixture quick(in,source),manual(in,source);engage(quick);engage(manual);
+  auto &fight=*manual.flow->encounter()->combat();
+  const auto owner=source.activeRosterIds[0];const auto before=manual.p.roster.at(owner);
+  const auto time=*manual.p.encounterContext;const auto gems=manual.p.monsterTreasure->gems;
+  const auto targets=xeenSpellTargets(manual.w,manual.c,manual.w.sessionState().monsters(23),fight.selectedTarget(),XeenLearnedSpellRules::group(spell));
+  XeenCombatRandom expected(*manual.w.sessionState().journeyRandom());auto treasure=*manual.p.monsterTreasure;
+  std::array<int,3> hp{};std::array<XeenActorStatus,3> statuses{};
+  for(unsigned i=0;i<3 && targets[i];++i) {
+   const auto &a=manual.w.sessionState().monsters(23).at(targets[i]->recordIndex);
+   XeenSpellDamageCandidate effect(before.permanentLevel,before.temporaryLevel,a.statistics->magicResistance(),a.original.resourceId,
+    *XeenLearnedSpellRules::supported(spell),a.statistics->physicalResistance(),a.status,a.statistics->monsterType());
+   XeenConsequenceDraw draw{expected};check(effect.service(draw),"M73 parity expected cast did not finish");
+   hp[i]=std::max(a.hp-effect.damage,0);statuses[i]=effect.status;
+   if(!hp[i] && a.original.resourceId==6){XeenMonsterDropCandidate drop(treasure,a.id);check(drop.service(draw),"M73 parity drop did not finish");treasure=drop.treasure;}
+  }
+  quick.act(QuickFightAction{});manual.act(CastSpellAction{});manual.act(DialogKeyAction{'c'});
+  for(unsigned n=0;n<1000;++n){if(fight.cast() && fight.cast()->phase==XeenCombatCastPhase::Result)break;pulse(quick);pulse(manual);}
+  check(fight.cast() && fight.cast()->phase==XeenCombatCastPhase::Result,"M73 Cast result missing");
+  check(!quick.flow->encounter()->combat()->cast(),"M73 Quick Fight did not retire cast");
+  check(manual.w.sessionState().journeyRandom()==expected.continuation() && quick.w.sessionState().journeyRandom()==expected.continuation(),"M73 Cast/Quick Fight tape differs");
+  const auto cost=XeenLearnedSpellRules::cost(spell,before.currentLevel());
+  for(auto *f:{&manual,&quick}) {
+   check(f->p.roster.at(owner).currentSp==before.currentSp-int(cost.sp) && f->p.monsterTreasure->gems==gems-cost.gems && *f->p.encounterContext==time,"M73 combat cost/time differs");
+   for(unsigned i=0;i<3 && targets[i];++i){const auto &a=f->w.sessionState().monsters(23).at(targets[i]->recordIndex);check(a.hp==hp[i] && a.status==statuses[i],"M73 Cast/Quick Fight effect differs");}
+  }
+  manual.act(AcknowledgeAction{});ready(manual);ready(quick);
+  check(fight.participant()!=0 && quick.flow->encounter()->combat()->participant()!=0,"M73 cast did not spend exactly the acting turn");
+ }
+}
+
 void orderedShootBarrierTreasure(Inputs &in) {
  auto source=in.base();Fixture exchanged(in,source);exchange(exchanged,0,5);source=exchanged.snapshot();Fixture shoot(in,source);shoot.act(ShootAction{});
  check(XeenPartyInterfaceTestAccess::shootOwners(*shoot.flow)==shoot.p.party.activeOrder(),"Shoot captures reordered owners");
@@ -300,6 +333,6 @@ void spellChecks(Inputs &in) {
 int main(int argc,char **argv){try{
  check(argc==2,"usage: party-interface-tests <installation>");auto game=xeenTestInstallationDetector().detect(argv[1]);check(bool(game),"Missing installation");Inputs in(*game);
  std::ostringstream captured;auto *before=std::cout.rdbuf(captured.rdbuf());
- try{const auto run=[&](const char *name,auto fn){try{fn(in);}catch(const std::exception &e){throw std::runtime_error(std::string(name)+": "+e.what());}};run("exchange",exchangeAndSave);run("time/rest",reorderedTimeAndRest);run("combat/options",combatAndOptions);run("quick casting",quickCasting);run("ordered consequences",orderedShootBarrierTreasure);run("indoor quick Run",unsupportedQuickRun);run("spell checks",spellChecks);}catch(...){std::cout.rdbuf(before);throw;}
+ try{const auto run=[&](const char *name,auto fn){try{fn(in);}catch(const std::exception &e){throw std::runtime_error(std::string(name)+": "+e.what());}};run("exchange",exchangeAndSave);run("time/rest",reorderedTimeAndRest);run("combat/options",combatAndOptions);run("quick casting",quickCasting);run("M73 quick casting",m73QuickCasting);run("ordered consequences",orderedShootBarrierTreasure);run("indoor quick Run",unsupportedQuickRun);run("spell checks",spellChecks);}catch(...){std::cout.rdbuf(before);throw;}
  std::cout.rdbuf(before);std::cout<<"Exchange, ordered ownership, Quick Fight, v8 and stale input passed\n";return 0;
 }catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}

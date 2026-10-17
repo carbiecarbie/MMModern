@@ -415,8 +415,12 @@ bool XeenEncounterFlow::serviceItemUse() {
 			result.outcome==XeenEncounterOutcome::Stopped) { closeJourney();return false; }
 		_world._combatCheck={};_world._combatAuthorized={};
 		if(result.outcome==XeenEncounterOutcome::Pending) {
+            // A staged response may already publish movement, injury and RNG.
+            // Retain that preimage and acquire its travel/portrait before resuming.
+            _result=result;++_generation;_journeyFramePrepared=false;
+            if(result.consequences)observeRanged(result.consequences);
 			s._journeyActivity=XeenJourneyActivity::ItemUse;++s._journeyGeneration;
-			_journeyPreimage->adoptJourneyCoordination();return true;
+			retainJourney();return true;
 		}
 		_result=result;++_generation;_journeyFramePrepared=false;
 		if(result.needsRest)_needsRestNotice=true;
