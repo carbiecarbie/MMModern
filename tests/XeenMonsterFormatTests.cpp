@@ -3,6 +3,7 @@
 #include "formats/xeen/XeenAssetSource.h"
 #include <chrono>
 #include <iostream>
+#include "TestTreeRemoval.h"
 
 using namespace encounter_test;
 namespace fs=std::filesystem;
@@ -47,7 +48,7 @@ int main() {
 		check(!party().encounterContext,"ordinary party load acquired encounter context");
 		const auto dir=fs::temp_directory_path()/("mmodern-monster-"+std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
 		fs::create_directories(dir);
-		struct Cleanup {fs::path dir;~Cleanup(){std::error_code e;fs::remove_all(dir,e);}} cleanup{dir};
+		struct Cleanup {fs::path dir;~Cleanup(){removeTestTree(dir);}} cleanup{dir};
 		GameInstallation installation;installation.root=dir;installation.xeenArchive=dir/"xeen.cc";
 		installation.darkArchive=dir/"dark.cc";installation.edition=GameEdition::WorldOfXeen;
 		sprite_test::archive(installation.xeenArchive,{{"dummy",{1}}});

@@ -20,6 +20,7 @@
 #include <map>
 #include <optional>
 #include <stdexcept>
+#include "TestTreeRemoval.h"
 
 using namespace mmodern;
 using namespace sprite_test;
@@ -714,7 +715,7 @@ int main() {
 		std::filesystem::create_directories(directory);
 		struct Cleanup {
 			std::filesystem::path path;
-			~Cleanup() { std::error_code error; std::filesystem::remove_all(path, error); }
+			~Cleanup() { removeTestTree(path); }
 		} cleanup{directory};
 		const auto files = baseFiles();
 		const auto installation = installationAt(directory, files, metadata());

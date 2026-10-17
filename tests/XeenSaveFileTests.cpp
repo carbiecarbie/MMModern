@@ -9,6 +9,8 @@
 #include <cstring>
 #include <fstream>
 #include <iostream>
+#include <thread>
+#include "TestTreeRemoval.h"
 using namespace mmodern;
 using namespace save_test;
 namespace fs = std::filesystem;
@@ -209,6 +211,32 @@ void legacyReplacement(const fs::path &path) {
  put(path,wire);
 }
 
+// The test-tree helper must finish where libstdc++'s remove_all spins: an entry
+// still listed while delete-pending, whose holder closes later. Links are
+// removed without deleting their targets.
+void testTreeRemoval(const fs::path &directory) {
+ const auto fixture=directory/("tree-"+std::to_string(GetCurrentProcessId())+"-"+std::to_string(GetTickCount64()));
+ const auto tree=fixture/"tree",outside=fixture/"outside",deep=tree/"a"/"b";
+ fs::create_directories(deep);fs::create_directories(outside);
+ for(unsigned i=0;i<10;++i)put(deep/("slot-"+std::to_string(i)+".mmsave"),Bytes{1});
+ put(outside/"keep.mmsave",Bytes{2});
+ TestJunction link(tree/"link",outside);
+ const auto victim=deep/"slot-0.mmsave";
+ const DWORD share=FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE;
+ HANDLE holder=CreateFileW(victim.c_str(),GENERIC_READ,share,nullptr,OPEN_EXISTING,0,nullptr);
+ HANDLE marker=CreateFileW(victim.c_str(),DELETE,share,nullptr,OPEN_EXISTING,0,nullptr);
+ FILE_DISPOSITION_INFO disposition{TRUE};
+ const bool pending=SetFileInformationByHandle(marker,FileDispositionInfo,&disposition,sizeof disposition)!=0;
+ CloseHandle(marker);
+ check(holder!=INVALID_HANDLE_VALUE && pending,"cannot create delete-pending fixture entry");
+ std::thread release([&]{Sleep(300);CloseHandle(holder);});
+ const bool removed=removeTestTree(tree);release.join();
+ link.path.clear();
+ check(removed && !fs::exists(tree),"test tree removal left entries");
+ check(raw(outside/"keep.mmsave")==Bytes{2},"test tree removal followed a junction");
+ check(removeTestTree(fixture) && !fs::exists(fixture),"test tree fixture cleanup");
+ std::cout<<"Test tree removal survives a delete-pending entry and keeps junction targets\n";
+}
 void managedStorage(const fs::path &directory) {
  const auto fixture=directory/("managed-"+std::to_string(GetCurrentProcessId())+"-"+std::to_string(GetTickCount64()));
  const auto commercial=fixture/"commercial",repository=fixture/"repository",local=fixture/"local";
@@ -273,7 +301,7 @@ void managedStorage(const fs::path &directory) {
  for(const auto &entry:fs::directory_iterator(slots))check(entry.path().extension()==".mmsave","managed temporary leaked");
  alias.remove();
  repositoryAlias.remove();
- fs::remove_all(fixture);
+ check(removeTestTree(fixture),"managed fixture cleanup");
 }
 
 int main(int argc,char **argv) {
@@ -284,6 +312,7 @@ int main(int argc,char **argv) {
   if(argc==2 && std::string(argv[1])=="--identity-only")return 0;
   directoryAliasTests(directory);
   managedStorage(directory);
+  testTreeRemoval(directory);
   const auto path=XeenSaveFile::resolve(directory/fs::path(L"space \u00e7 \u6e38.mmsave"),directory/"commercial");
   check(XeenSaveFile::resolve(fs::path("save-file-tests")/fs::path(L"space \u00e7 \u6e38.mmsave"),directory/"commercial")==path,"relative save path resolution");
   rejects([&]{XeenSaveFile::resolve(directory/"CON.mmsave",directory/"commercial");},"device");

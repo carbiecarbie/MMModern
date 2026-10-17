@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <chrono>
 #include <iostream>
+#include "TestTreeRemoval.h"
 
 using namespace mmodern;
 using namespace sprite_test;
@@ -28,7 +29,7 @@ Bytes solid(unsigned width,unsigned height,unsigned color) {
 int main(){try {
 	const auto directory=std::filesystem::temp_directory_path()/("mmodern-composer-"+std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
 	std::filesystem::create_directories(directory);
-	struct Cleanup{std::filesystem::path p;~Cleanup(){std::error_code e;std::filesystem::remove_all(p,e);}} cleanup{directory};
+	struct Cleanup{std::filesystem::path p;~Cleanup(){removeTestTree(p);}} cleanup{directory};
 	const auto empty=frames(cell(0,0,0,0,{}),41);
 	std::map<std::string,Bytes> files;
 	for(const char *name:{"sky.sky","water.out","water.srf","space.srf","global.icn","border.icn","fecp.brd","bless.icn","restorex.icn","main.icn"})files[name]=empty;

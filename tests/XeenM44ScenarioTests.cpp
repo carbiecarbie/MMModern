@@ -78,9 +78,9 @@ int main(int argc,char **argv) {
         std::cout<<"Scenario "<<scenario->name<<": digest and reload round trip exact\n";
     }catch(const std::exception &e){
         std::cerr<<e.what()<<'\n';
-        std::error_code ignored;if(!dir.empty())fs::remove_all(dir,ignored);
+        if(!dir.empty())removeTestTree(dir);
         return 1;
     }
-    std::error_code ignored;fs::remove_all(dir,ignored);
+    removeTestTree(dir);
     return 0;
 }

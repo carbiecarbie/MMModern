@@ -8,6 +8,7 @@
 #include <chrono>
 #include <iostream>
 #include <set>
+#include "TestTreeRemoval.h"
 using namespace regional_test;
 namespace {
 template<class F> void rejects(F f) {bool rejected=false;try {f();}catch(const std::exception &) {rejected=true;}check(rejected,"Malformed presentation metadata admitted");}
@@ -16,7 +17,7 @@ void archiveResolution() {
 	using namespace sprite_test;
 	const auto root=std::filesystem::temp_directory_path()/("mmodern-scene-archives-"+std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
 	std::filesystem::create_directories(root);
-	struct Cleanup {std::filesystem::path path;~Cleanup() {std::error_code error;std::filesystem::remove_all(path,error);}} cleanup{root};
+	struct Cleanup {std::filesystem::path path;~Cleanup() {removeTestTree(path);}} cleanup{root};
 	const auto image=[](unsigned color) {return sprite(cell(0,1,0,1,{3,0,0,std::uint8_t(color)}));};
 	GameInstallation installation;installation.root=root;installation.xeenArchive=root/"XEEN.CC";installation.darkArchive=root/"DARK.CC";installation.edition=GameEdition::WorldOfXeen;
 	archive(installation.xeenArchive,{{"shared.srf",image(3)},{"broken.srf",{0}},{"cloudsonly.srf",image(12)}});
@@ -255,8 +256,8 @@ int main() {try {
 		walls.entities.wallItems.push_back(walls.entities.wallItems[0]);
 		wallWorld.discardMapCache();
 		const auto duplicates=XeenIndoorScene().build(wallWorld,c,nullptr,nullptr,{}, {},false,[](auto) {return 3;});
-		const auto near=std::find_if(duplicates.begin(),duplicates.end(),[](const auto &v) {return v.wallItem()&&v.originalOrder==148;});
-		check(near!=duplicates.end()&&near->wallItem()->recordIndex==walls.entities.wallItems.size()-1,"Near duplicate did not use last record");
+		const auto nearDuplicate=std::find_if(duplicates.begin(),duplicates.end(),[](const auto &v) {return v.wallItem()&&v.originalOrder==148;});
+		check(nearDuplicate!=duplicates.end()&&nearDuplicate->wallItem()->recordIndex==walls.entities.wallItems.size()-1,"Near duplicate did not use last record");
 		rejects([&] {XeenIndoorScene().build(wallWorld,c,nullptr,nullptr,{}, {},false,[](auto) {return 0;});});
 		walls.entities.wallItems[0].direction=4;wallWorld.discardMapCache();
 		rejects([&] {XeenIndoorScene().build(wallWorld,c,nullptr,nullptr,{}, {},false,[](auto) {return 3;});});

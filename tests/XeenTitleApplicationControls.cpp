@@ -15,6 +15,7 @@
 #include <algorithm>
 #include <cstring>
 #include <cstdlib>
+#include "TestTreeRemoval.h"
 using namespace mmodern;
 namespace fs=std::filesystem;
 using save_test::check;
@@ -294,7 +295,7 @@ void titleApplicationControls(const char *game) {
  state.enabled=true;
  state.base=fs::temp_directory_path()/("mmodern-m54-title-"+std::to_string(GetCurrentProcessId())+"-"+std::to_string(GetTickCount64()));
  fs::create_directory(state.base);
- struct Cleanup {~Cleanup(){state.enabled=false;std::error_code error;fs::remove_all(state.base,error);}} cleanup;
+ struct Cleanup {~Cleanup(){state.enabled=false;removeTestTree(state.base);}} cleanup;
  for(auto difficulty:{XeenDifficulty::Adventurer,XeenDifficulty::Warrior}) {
   state.difficulty=difficulty;state.mouse=difficulty==XeenDifficulty::Warrior;
   state.loading=false;state.shown=false;state.seeds=0;

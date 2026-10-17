@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <chrono>
 #include <iostream>
+#include "TestTreeRemoval.h"
 
 using namespace mmodern;
 using namespace remove_test;
@@ -237,7 +238,7 @@ void errorsAndSuspendedMutation(XeenAssetSource &assets,const std::filesystem::p
 }
 int main(int argc,char **argv){try{
 	const auto dir=std::filesystem::temp_directory_path()/("mmodern-16c-"+std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
-	struct Cleanup{std::filesystem::path p;~Cleanup(){std::error_code e;std::filesystem::remove_all(p,e);}} cleanup{dir};
+	struct Cleanup{std::filesystem::path p;~Cleanup(){removeTestTree(p);}} cleanup{dir};
 	const std::filesystem::path output=argc>1?argv[1]:dir;std::filesystem::create_directories(output);
 	{ XeenAssetSource assets(installation(dir),320,200);
 	basic(assets,output);presentation(assets,output);errorsAndSuspendedMutation(assets,output); }

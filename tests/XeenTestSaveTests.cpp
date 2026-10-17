@@ -9,6 +9,7 @@
 #include <windows.h>
 #include <fstream>
 #include <iostream>
+#include "TestTreeRemoval.h"
 
 using namespace mmodern;
 using save_test::check;
@@ -20,7 +21,7 @@ struct TemporaryDirectory {
     fs::path path=fs::temp_directory_path()/
         ("mmodern-test-save-"+std::to_string(GetCurrentProcessId())+"-"+std::to_string(GetTickCount64()));
     TemporaryDirectory() {check(fs::create_directory(path),"temporary directory already exists");}
-    ~TemporaryDirectory() {std::error_code ignored;fs::remove_all(path,ignored);}
+    ~TemporaryDirectory() {removeTestTree(path);}
 };
 
 void paths(const GameInstallation &installation,const fs::path &repository,const fs::path &directory) {

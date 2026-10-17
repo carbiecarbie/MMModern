@@ -5,6 +5,7 @@
 #include <iostream>
 #include <algorithm>
 #include <random>
+#include "TestTreeRemoval.h"
 using namespace mmodern;
 using namespace sprite_test;
 namespace {
@@ -14,7 +15,7 @@ Bytes frames(unsigned count,unsigned color){return multiFrameSprite(std::vector<
 }
 int main(){try{
  const auto root=std::filesystem::temp_directory_path()/("mmodern-consequence-sprites-"+std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
- std::filesystem::create_directories(root);struct Cleanup{std::filesystem::path p;~Cleanup(){std::error_code e;std::filesystem::remove_all(p,e);}} cleanup{root};
+ std::filesystem::create_directories(root);struct Cleanup{std::filesystem::path p;~Cleanup(){removeTestTree(p);}} cleanup{root};
  std::map<std::string,Bytes> original;for(unsigned id:{3u,6u,8u,9u,13u}){original[XeenAssetSource::normalMonsterResource(id)]=frames(8,7);original[XeenAssetSource::attackMonsterResource(id)]=frames(4,7);}
  original["pow11.icn"]=frames(3,7);original["pow12.icn"]=frames(3,7);
  GameInstallation installation;installation.xeenArchive=root/"xeen.cc";

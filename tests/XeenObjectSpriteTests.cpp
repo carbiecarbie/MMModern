@@ -4,6 +4,7 @@
 #include "games/xeen/XeenObjectVisual.h"
 #include <chrono>
 #include <iostream>
+#include "TestTreeRemoval.h"
 
 using namespace mmodern;
 using namespace sprite_test;
@@ -56,7 +57,7 @@ int main() {
 		const auto directory=std::filesystem::temp_directory_path()/
 			("mmodern-sprite-"+std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
 		std::filesystem::create_directories(directory);
-		struct Cleanup { std::filesystem::path p; ~Cleanup() {std::error_code e;std::filesystem::remove_all(p,e);} } cleanup{directory};
+		struct Cleanup { std::filesystem::path p; ~Cleanup() {removeTestTree(p);} } cleanup{directory};
 		std::map<std::string,Bytes> files={{"one.obj",one},{"two.obj",two},{"solid.obj",solid},
 			{"commands.obj",commands},{"literal.obj",longLiteral},{"padded.obj",padded},{"base.raw",Bytes(320*200,99)},{"clouds.dat",Bytes(12,7)}};
 		for(std::size_t i=0;i<malformed.size();++i) files["bad"+std::to_string(i)+".obj"]=malformed[i];

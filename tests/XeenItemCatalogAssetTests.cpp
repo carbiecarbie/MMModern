@@ -9,6 +9,7 @@
 #include <stdexcept>
 #include <string>
 #include <vector>
+#include "TestTreeRemoval.h"
 
 using namespace mmodern;
 using namespace sprite_test;
@@ -62,7 +63,7 @@ int main() {
 		fs::create_directories(directory);
 		struct Cleanup {
 			fs::path path;
-			~Cleanup() { std::error_code error; fs::remove_all(path, error); }
+			~Cleanup() { removeTestTree(path); }
 		} cleanup{directory};
 
 		const auto currentInstallation = installation(directory);
@@ -120,8 +121,7 @@ int main() {
 		std::cout << "Xeen item catalog production asset-path tests passed\n";
 		return 0;
 	} catch (const std::exception &error) {
-		std::error_code ignored;
-		fs::remove_all(directory, ignored);
+		removeTestTree(directory);
 		std::cerr << error.what() << '\n';
 		return 1;
 	}

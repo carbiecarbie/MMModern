@@ -8,6 +8,7 @@
 #include <SDL.h>
 #include <chrono>
 #include <iostream>
+#include "TestTreeRemoval.h"
 
 using namespace mmodern;
 using remove_test::check;
@@ -142,7 +143,7 @@ struct RealScene {
   archive(dir/"xeen.cc",files);archive(dir/"dark.cc",{{"clouds.dat",metadata}});
   installation.xeenArchive=dir/"xeen.cc";installation.darkArchive=dir/"dark.cc";
  }
- ~RealScene(){std::error_code e;std::filesystem::remove_all(dir,e);}
+ ~RealScene(){removeTestTree(dir);}
 };
 void realComposition(bool sdl){
  RealScene resources;XeenAssetSource assets(resources.installation,320,200);CloudsMapComposer composer;
