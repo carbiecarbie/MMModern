@@ -26,6 +26,10 @@ struct XeenTempleSurcharges {
 // Throws for a Clouds map without a temple entry: DOS keeps the previous
 // temple's values there, which MMModern does not model.
 XeenTempleSurcharges xeenTempleSurcharges(XeenMapIdentity);
+// Donation overwrites these spell effects, rather than taking their maximum.
+bool xeenTempleDonationBlessing(XeenGameplayContext &,std::uint8_t &counter);
+std::uint32_t xeenTempleUncurseCost(const XeenCharacter &,XeenMapIdentity temple=XeenMapIdentity(28));
+void xeenTempleClearCurse(XeenCharacter &) noexcept;
 XeenTempleHealResult xeenQuoteTempleHeal(const XeenCharacter &,std::uint32_t gold,
     const XeenGameplayContext &,XeenMapIdentity temple);
 XeenTempleHealCandidate xeenPrepareTempleHeal(const XeenPartyState &,std::uint8_t owner,

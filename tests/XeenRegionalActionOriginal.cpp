@@ -5,6 +5,7 @@
 #include "formats/xeen/XeenQuestFlagFormat.h"
 #include "games/xeen/XeenCharacterRules.h"
 #include "games/xeen/XeenStateEquality.h"
+#include "games/xeen/XeenItemRewards.h"
 #include <chrono>
 #include <iostream>
 
@@ -136,6 +137,20 @@ void arrival(const fs::path &game,const fs::path &save,const XeenSaveSnapshot &i
   present();check(h.flow->canSave(),"Arrival source fixture is not Quiet");
   const auto rng=*h.world->sessionState().journeyRandom();
   const auto context=*h.party->encounterContext;
+  auto expectedContext=context;expectedContext.minutes+=exit?10:1;expectedContext.ctr24=(context.ctr24+1)%24;
+  const XeenCamera destination=exit?XeenCamera{23,10,12,XeenDirection::South}:XeenCamera{28,15,0,XeenDirection::North};
+  auto destinationWorld=h.world->transitionCandidate();
+  destinationWorld->loadEventDestination(h.camera->mapId,destination.mapId);
+  XeenConsequenceCharacters characters;XeenConsequenceInputs inputs;
+  const auto owners=h.party->party.activeOrder();
+  for(unsigned n=0;n<6;++n) {characters[n]=h.party->roster.at(owners[n]);inputs[n]=*h.party->roster.combatInputs(owners[n]);}
+  const std::vector<XeenActor> loaded=destinationWorld->sessionState().regionalActors(destination.mapId);
+  std::optional<XeenRegionalOpportunityCandidate> opportunity;
+  if(exit)opportunity.emplace(destinationWorld->map(destination.mapId),loaded,destination,characters,inputs,context.year,0x3f);
+  else opportunity.emplace(*destinationWorld,loaded,destination,characters,inputs,context.year,0x3f);
+  XeenCombatRandom opportunityRandom(rng);
+  for(;;){XeenConsequenceDraw draw{opportunityRandom,64,{}};if(opportunity->service(draw))break;}
+  check(opportunityRandom.continuation()==rng,"Arrival control unexpectedly has ranged randomness");
   const std::vector<XeenActor> source=h.world->sessionState().regionalActors(exit?28:23);
   const auto gold=h.party->monsterTreasure->gold;
   duringComposition=denied;
@@ -144,8 +159,20 @@ void arrival(const fs::path &game,const fs::path &save,const XeenSaveSnapshot &i
   check(destinationCompositions==1,"Original transition did not compose one detached destination");
   check(h.camera->mapId==XeenMapIdentity(exit?23:28),"Original Event did not publish destination");
   denied(); // The returned destination frame has not been presented yet.
-  check(*h.party->encounterContext==context && *h.world->sessionState().journeyRandom()==rng,
-   "Transition/arrival changed time or RNG");
+  check(*h.party->encounterContext==expectedContext && *h.world->sessionState().journeyRandom()==rng,
+   "Completed transition did not charge exactly one indoor/ten outdoor minutes with one ctr24 opportunity and unchanged RNG");
+  check(xeen_state::sameCamera(*h.camera,destination),"Original transition changed destination coordinates/facing");
+  sameActors(opportunity->actors,h.world->sessionState().regionalActors(destination.mapId));
+  auto expectedCharacters=opportunity->characters;
+  if(mode==Arrival::TreasureClear) {
+   // The first visible transfer has not reached the Found-stage inventory sort.
+   std::array<XeenCharacter *,6> recipients{};for(unsigned n=0;n<6;++n)recipients[n]=&expectedCharacters[n];
+   auto item=liveTreasure.weapons[0].item;
+   const auto recipient=xeenDeliverRewardItem(recipients.data(),recipients.size(),item,XeenRewardCategory::Weapons,{},false);
+   check(recipient==0 && expectedCharacters[0].weapons[8].id==30,"Controlled treasure did not use owner0 slot8 before sorting");
+  }
+  for(unsigned n=0;n<6;++n)check(xeen_state::sameCharacter(h.party->roster.at(owners[n]),expectedCharacters[n]),
+   "Completed transition changed characters outside its destination opportunity/item publication");
   if(!exit)sameActors(source,h.world->sessionState().monsters(23));
   if(contact) {
    check(h.flow->encounter()->combat() &&
@@ -173,6 +200,9 @@ void arrival(const fs::path &game,const fs::path &save,const XeenSaveSnapshot &i
    check(h.flow->canSave() && h.party->monsterTreasure->pendingMask==0 &&
     h.party->monsterTreasure->pendingGold==0 && h.party->monsterTreasure->gold==gold+10,
     "Receipt acknowledgment failed to settle source-qualified gold");
+   const auto delivered=xeenPrepareMonsterDelivery(liveTreasure,opportunity->characters);
+   for(unsigned n=0;n<6;++n)check(xeen_state::sameCharacter(h.party->roster.at(owners[n]),delivered.characters[n]),
+    "Final receipt did not retain exactly the sorted single-item transfer");
    input(AcknowledgeAction{});
    check(h.party->monsterTreasure->gold==gold+10,"Repeated receipt acknowledgment duplicated gold");
   } else {
@@ -183,7 +213,7 @@ void arrival(const fs::path &game,const fs::path &save,const XeenSaveSnapshot &i
    if(mode==Arrival::EntryVisible || mode==Arrival::TreasureBlocked) {
     const auto &actor=h.world->sessionState().regionalActors(28)[35];
     check(actor.x==15 && actor.y==1 && actor.activated && actor.hp==2,
-     "Arrival classification performed synthetic actor movement");
+     "Destination opportunity changed the original visible actor control");
    }
   }
   if(!contact) {input(SaveGameAction{});check(h.saves==3,"Settled arrival F9 failed");}

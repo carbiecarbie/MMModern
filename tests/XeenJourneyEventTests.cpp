@@ -6,6 +6,16 @@
 #include <iostream>
 #include <limits>
 #include "XeenCosmeticHandoffTestSupport.h"
+namespace mmodern {
+struct XeenCityEventTestAccess {
+ static const XeenPartyState &visible(const XeenEventFlow &f) {if(f._transition){f._transition->guard->check();return f._transition->party;}return f._party;}
+ // Fault trigger only: the interpreter owns intentional in-progress writes;
+ // checked stagedEffects below verifies the retained boundary after return.
+ static unsigned pendingQuest(const XeenEventFlow &f) {return f._transition?f._transition->party.questItems.at(17):f._party.questItems.at(17);}
+ static void discardCandidateMaps(XeenEventFlow &f) {if(!f._transition)throw std::logic_error("retained Event candidate absent");f._transition->world->discardMapCache();}
+ static const XeenWorld &visibleWorld(const XeenEventFlow &f) {if(f._transition){f._transition->guard->check();return *f._transition->world;}return f._world;}
+};
+}
 using namespace combat_gameplay_test;
 namespace fs=std::filesystem;
 namespace {
@@ -38,10 +48,15 @@ XeenSaveSnapshot snapshot(Harness &h){return XeenSaveState::capture(h.signature,
 void effects(Harness &h,unsigned count,unsigned objects,unsigned events) {
  check(h.party->questItems.at(17)==count&&h.world->sessionState().disabledObjectCount()==objects&&h.world->sessionState().disabledEventCount()==events,"exact independently published objective effects");
 }
+void stagedEffects(Harness &h,unsigned count,unsigned objects,unsigned events) {
+ const auto &party=XeenCityEventTestAccess::visible(*h.flow);const auto &world=XeenCityEventTestAccess::visibleWorld(*h.flow);
+ check(party.questItems.at(17)==count&&world.sessionState().disabledObjectCount()==objects&&world.sessionState().disabledEventCount()==events,"exact checked staged objective effects");
+}
+void completedSpace(XeenSaveSnapshot &s) {s.journey->context->minutes+=10;s.journey->context->ctr24=(s.journey->context->ctr24+1)%24;}
 void acknowledgment(Harness &h,const Handler &handler){send(h,handler,InteractionAction{});check(h.flow->canCancelInteraction(),"WhoWill reached");send(h,handler,SelectMemberAction{4});check(h.flow->presentationGeneration()&&!h.flow->canCancelInteraction()&&!h.flow->canSave(),"acknowledgment reached without grant");}
-// Action 44 publishes the quest grant and Remove prefix before the treasure
-// blank. Acquire every returned stage; a skip advances one hold, not the final
-// currency/continuation acknowledgment. No stage may repeat published effects.
+// Action 44 stages the quest grant and Remove before the treasure blank.
+// Every receipt renders that checked candidate while the live state stays
+// unchanged until the final Space suffix is admitted and published once.
 void questReceipt(Harness &h,const Handler &handler,bool presentTerminal=true) {
  const auto quests=h.party->questItems.counts();
  const auto objects=h.world->sessionState().disabledObjectCount();
@@ -60,12 +75,24 @@ void questReceipt(Harness &h,const Handler &handler,bool presentTerminal=true) {
   send(h,handler,AcknowledgeAction{});
   const auto next=h.flow->presentationGeneration();
   check(next&&next!=generation&&!h.flow->canSave(),stage);
-  generation=next;unchanged();
+  generation=next;unchanged();stagedEffects(h,std::uint8_t(quests[17]+1),objects+1,events+11);
  }
  handler.framePresented(h.flow->frame().presentation());
  send(h,handler,AcknowledgeAction{},presentTerminal);
  check(!h.flow->presentationGeneration(),"final quest acknowledgment consumes its continuation");
- unchanged();
+ check(h.party->questItems.at(17)==std::uint8_t(quests[17]+1) &&
+  h.world->sessionState().disabledObjectCount()==objects+1 && h.world->sessionState().disabledEventCount()==events+11 &&
+  h.world->sessionState().journeyRandom()==random && h.party->encounterContext->minutes==context->minutes+10 &&
+  h.party->encounterContext->ctr24==(context->ctr24+1)%24,
+  "final receipt publishes objective effects and exactly one Space suffix");
+}
+void finishEvent(Harness &h,const Handler &handler,const SdlWindow::IdleFrameHandler &idle) {
+ for(unsigned n=0;!h.flow->canSave();++n) {
+  check(n<100,"retained Event recovery is bounded");h.tick(handler,idle);
+  if(h.flow->canSave())break;
+  if(h.flow->canCancelInteraction())send(h,handler,SelectMemberAction{4});
+  else if(h.flow->presentationGeneration())send(h,handler,AcknowledgeAction{});
+ }
 }
 XeenSaveSnapshot objective(const fs::path &path) {
  Harness h;auto s=services(h);std::optional<XeenSaveSnapshot> saved;
@@ -93,11 +120,11 @@ void authority(const fs::path &path,const XeenSaveSnapshot &saved){
   handler.withDisplayedInput(AcknowledgeAction{},selectingInput);effects(h,0,0,0);
   const auto saves=h.saves;for(const PlayerAction &a:std::vector<PlayerAction>{SaveGameAction{},NavigationAction::MoveForward,WaitAction{},InspectInventoryAction{},BlockAction{}})send(h,handler,a);
   check(h.saves==saves&&!h.flow->canSave(),"modal refusal precedes save providers");
-  send(h,handler,AcknowledgeAction{},false);effects(h,1,1,11);check(!h.flow->canSave()&&!h.flow->respond(ack,XeenPresentationResponse::Acknowledged),"published effects require terminal frame and response is consumed");
+  send(h,handler,AcknowledgeAction{},false);effects(h,0,0,0);stagedEffects(h,1,1,11);check(!h.flow->canSave()&&!h.flow->respond(ack,XeenPresentationResponse::Acknowledged),"staged effects require terminal frame and response is consumed");
   handler.framePresented(h.flow->frame().presentation());questReceipt(h,handler,false);
   check(!h.flow->canSave(),"final receipt response still requires terminal frame acquisition");
   handler.framePresented(h.flow->frame().presentation());check(h.flow->canSave(),"terminal presented frame opens save");
-  auto expected=saved;++expected.questItems[17];save_test::setRemovedObjects(expected,{{23,13}});for(unsigned i=1;i<=11;++i)save_test::addDisabledEvent(expected,{23,124+i});
+  auto expected=saved;completedSpace(expected);++expected.questItems[17];save_test::setRemovedObjects(expected,{{23,13}});for(unsigned i=1;i<=11;++i)save_test::addDisabledEvent(expected,{23,124+i});
   check(XeenSaveFormat::encode(snapshot(h))==XeenSaveFormat::encode(expected),"authority tests preserve all nonobjective state");return true;};});
 }
 void modalSdlReturn(const fs::path &path,const XeenSaveSnapshot &saved) {
@@ -131,7 +158,7 @@ void modalSdlReturn(const fs::path &path,const XeenSaveSnapshot &saved) {
     if(*stage)check(seen[*stage-1].has_value(),"quest blank/found/final frames acquired in order");
     if(seen[*stage])check(seen[*stage]==acquiredGeneration,"repaint retains quest stage generation");
     else seen[*stage]=acquiredGeneration;
-    effects(h,1,1,11);
+    effects(h,0,0,0);stagedEffects(h,1,1,11);
     check(h.camera->direction==XeenDirection::North,"same SDL batch cannot cross acknowledgment to Quiet");
    } else if(initialQueued&&!acquiredGeneration&&h.flow->canSave())quietAcquired=true;
   };
@@ -173,7 +200,7 @@ void modalCosmeticOmissions(const fs::path &path,const XeenSaveSnapshot &saved) 
   s.show=[&](const auto &,const auto &handler,const auto &escape,const auto &idle,const auto &status){
    handler.framePresented(h.flow->frame().presentation());acknowledgment(h,handler);const auto response=h.flow->presentationGeneration();
    const auto unchanged=[&]{effects(h,0,0,0);check(h.flow->presentationGeneration()==response && h.world->sessionState().journeyActivity()==XeenJourneyActivity::Event,"Unuploaded cosmetic retains matching Event continuation and lease");};
-   const auto accepted=[&]{effects(h,1,1,11);check(h.flow->presentationGeneration()!=response,"Legitimate response enters quest blank after expected frame upload");questReceipt(h,handler);};
+   const auto accepted=[&]{effects(h,0,0,0);stagedEffects(h,1,1,11);check(h.flow->presentationGeneration()!=response,"Legitimate response enters quest blank after expected frame upload");questReceipt(h,handler);};
    return cosmetic_handoff_test::exercise(h,handler,idle,escape,status,mode,SDLK_RETURN,AcknowledgeAction{},unchanged,accepted);
   };
  });
@@ -182,26 +209,36 @@ void failures(const fs::path &path,const XeenSaveSnapshot &saved){
  // The live grant follows the Event byte rule (0x22967..0x2296e): 255 wraps to 0.
  auto maximum=saved;maximum.questItems[17]=255;
  run(path,maximum,[&](Harness &h,XeenGameplayServices &s){s.show=[&](const auto &,const auto &handler,const auto &,const auto &,const auto &){handler.framePresented(h.flow->frame().presentation());acknowledgment(h,handler);send(h,handler,AcknowledgeAction{});questReceipt(h,handler);effects(h,0,1,11);
-  auto expected=maximum;expected.questItems[17]=0;save_test::setRemovedObjects(expected,{{23,13}});for(unsigned i=1;i<=11;++i)save_test::addDisabledEvent(expected,{23,124+i});
+  auto expected=maximum;completedSpace(expected);expected.questItems[17]=0;save_test::setRemovedObjects(expected,{{23,13}});for(unsigned i=1;i<=11;++i)save_test::addDisabledEvent(expected,{23,124+i});
   check(h.flow->canSave()&&XeenSaveFormat::encode(snapshot(h))==XeenSaveFormat::encode(expected),"live quest grant at 255 did not wrap to 0 exactly");return true;};});
- for(unsigned phase=0;phase<3;++phase)run(path,saved,[&](Harness &h,XeenGameplayServices &s){s.show=[&,phase](const auto &,const auto &handler,const auto &,const auto &,const auto &){
+ for(unsigned phase=0;phase<3;++phase)run(path,saved,[&](Harness &h,XeenGameplayServices &s){s.show=[&,phase](const auto &,const auto &handler,const auto &,const auto &idle,const auto &){
   handler.framePresented(h.flow->frame().presentation());bool injected=false;
   h.flow->reportManual=[&](const auto &r){const bool suspended=std::holds_alternative<XeenEventExecutionSuspended>(r);if(!injected&&((phase==0&&suspended)||(phase==1&&suspended&&!h.flow->canCancelInteraction())||(phase==2&&std::holds_alternative<XeenManualEventCompleted>(r)))){injected=true;throw std::runtime_error("one report fault");}};
   send(h,handler,InteractionAction{});if(!injected)send(h,handler,SelectMemberAction{4});if(!injected)send(h,handler,AcknowledgeAction{});
   if(phase==2&&!injected)questReceipt(h,handler);
-  check(injected&&h.flow->canSave(),"report failure recovers only after fresh terminal frame");effects(h,phase==2?1:0,phase==2?1:0,phase==2?11:0);
+  check(injected,"report fault reached the requested retained phase");
+  if(phase<2){check(!h.flow->canSave(),"report failure retains Event until fresh recovery presentation");effects(h,0,0,0);}
+  finishEvent(h,handler,idle);effects(h,1,1,11);
+  auto expected=saved;completedSpace(expected);++expected.questItems[17];save_test::setRemovedObjects(expected,{{23,13}});for(unsigned i=1;i<=11;++i)save_test::addDisabledEvent(expected,{23,124+i});
+  check(XeenSaveFormat::encode(snapshot(h))==XeenSaveFormat::encode(expected),"report recovery publishes one exact objective and Space suffix");
   const auto bytes=XeenSaveFormat::encode(snapshot(h));send(h,handler,SaveGameAction{});check(XeenSaveFormat::encode(XeenSaveFile::read(path))==bytes,"fresh F9 persists surviving report-failure effects");h.flow->refresh(true);handler.framePresented(h.flow->frame().presentation());check(bytes==XeenSaveFormat::encode(snapshot(h)),"report recovery reconstruction never replays");h.flow->reportManual={};return true;};});
  run(path,saved,[&](Harness &h,XeenGameplayServices &s){auto state=std::make_shared<std::array<bool,2>>();const auto maps=s.maps;
-  s.maps=[&,maps,state](auto id){if((*state)[0]&&!(*state)[1]&&h.party->questItems.at(17)==1){(*state)[1]=true;throw std::runtime_error("Remove map preparation fault");}return maps(id);};
-  s.show=[&,state](const auto &,const auto &handler,const auto &,const auto &,const auto &){handler.framePresented(h.flow->frame().presentation());acknowledgment(h,handler);h.world->discardMapCache();(*state)[0]=true;send(h,handler,AcknowledgeAction{});
-   check((*state)[1]&&h.flow->canSave(),"grant-only provider fault has a trusted recovery frame");effects(h,1,0,0);auto partial=snapshot(h);auto expected=saved;++expected.questItems[17];check(XeenSaveFormat::encode(partial)==XeenSaveFormat::encode(expected),"grant survives failed Remove with no partial identity set");send(h,handler,SaveGameAction{});check(XeenSaveFormat::encode(XeenSaveFile::read(path))==XeenSaveFormat::encode(partial),"fresh F9 writes exact grant-only partial failure");
-   acknowledgment(h,handler);send(h,handler,AcknowledgeAction{});questReceipt(h,handler);effects(h,2,1,11);return true;};});
- for(bool persistent:{false,true})run(path,saved,[&](Harness &h,XeenGameplayServices &s){auto failures=std::make_shared<unsigned>(0);const auto compose=s.composeEncounter;
-  s.composeEncounter=[&,compose,persistent,failures](auto &w,const auto &p,const auto &c,auto ordinary,auto actor){if(w.sessionState().disabledObjectCount()&&(persistent||!*failures)){++*failures;throw std::runtime_error("postRemove composition fault");}return compose(w,p,c,ordinary,actor);};
-  s.show=[&,persistent,failures](const auto &,const auto &handler,const auto &,const auto &,const auto &){handler.framePresented(h.flow->frame().presentation());acknowledgment(h,handler);bool threw=false;try{send(h,handler,AcknowledgeAction{});}catch(const std::exception &){threw=true;}
-   check(*failures>0,"postRemove composer fault reached");effects(h,1,1,11);
-   if(!persistent&&!threw&&h.flow->presentationGeneration())questReceipt(h,handler);
-   check(persistent?threw&&!h.flow->canSave():!threw&&h.flow->canSave(),"composition recovery or fatal closure preserves publication");return true;};});
+  s.maps=[&,maps,state](auto id){if((*state)[0]&&!(*state)[1]&&XeenCityEventTestAccess::pendingQuest(*h.flow)==1){(*state)[1]=true;throw std::runtime_error("Remove map preparation fault");}return maps(id);};
+  s.show=[&,state](const auto &,const auto &handler,const auto &,const auto &,const auto &){handler.framePresented(h.flow->frame().presentation());acknowledgment(h,handler);h.world->discardMapCache();XeenCityEventTestAccess::discardCandidateMaps(*h.flow);(*state)[0]=true;send(h,handler,AcknowledgeAction{});
+   check((*state)[1]&&h.flow->canSave(),"unobserved provider fault has a trusted recovery frame");effects(h,0,0,0);auto partial=snapshot(h);check(XeenSaveFormat::encode(partial)==XeenSaveFormat::encode(saved),"unobserved grant and failed Remove discard the detached action exactly");send(h,handler,SaveGameAction{});check(XeenSaveFormat::encode(XeenSaveFile::read(path))==XeenSaveFormat::encode(partial),"fresh F9 writes the exact discarded-action recovery state");
+   acknowledgment(h,handler);send(h,handler,AcknowledgeAction{});questReceipt(h,handler);effects(h,1,1,11);return true;};});
+ for(bool persistent:{false,true})run(path,saved,[&](Harness &h,XeenGameplayServices &s){auto failures=std::make_shared<unsigned>(0);auto enabled=std::make_shared<bool>(true);const auto compose=s.composeEncounter;
+  s.composeEncounter=[&,compose,persistent,failures,enabled](auto &w,const auto &p,const auto &c,auto ordinary,auto actor){if(*enabled&&w.sessionState().disabledObjectCount()&&(persistent||!*failures)){++*failures;throw std::runtime_error("postRemove composition fault");}return compose(w,p,c,ordinary,actor);};
+  s.show=[&,persistent,failures,enabled](const auto &,const auto &handler,const auto &,const auto &idle,const auto &){handler.framePresented(h.flow->frame().presentation());acknowledgment(h,handler);send(h,handler,AcknowledgeAction{});
+   effects(h,0,0,0);stagedEffects(h,1,1,11);
+   // Acquire all receipt phases; the final composition failure leaves the
+   // completed candidate retained, without publishing its gameplay projection.
+   for(unsigned n=0;n<3;++n)send(h,handler,AcknowledgeAction{});
+   check(*failures>0&&!h.flow->canSave(),"postRemove composition fault retains a completed Event");effects(h,0,0,0);stagedEffects(h,1,1,11);
+   if(persistent)for(unsigned n=0;n<2;++n){h.tick(handler,idle);check(!h.flow->canSave(),"persistent composition failure cannot expose Quiet");effects(h,0,0,0);}
+   *enabled=false;finishEvent(h,handler,idle);effects(h,1,1,11);
+   auto expected=saved;completedSpace(expected);++expected.questItems[17];save_test::setRemovedObjects(expected,{{23,13}});for(unsigned i=1;i<=11;++i)save_test::addDisabledEvent(expected,{23,124+i});
+   check(XeenSaveFormat::encode(snapshot(h))==XeenSaveFormat::encode(expected),"composition retry publishes one exact objective and Space suffix");return true;};});
 }
 }
 void pages(const fs::path &path,const XeenSaveSnapshot &saved){
@@ -229,7 +266,7 @@ void pages(const fs::path &path,const XeenSaveSnapshot &saved){
    check(h.flow->presentationGeneration()!=generation&&!h.flow->canCancelInteraction(),"discovery pages lead to separate Action44 acknowledgment");effects(h,0,0,0);
    const auto discovery=h.flow->frame();h.flow->refresh(true);handler.framePresented(h.flow->frame().presentation());
    bool ink=false;for(unsigned y=143;y<199;++y)for(unsigned x=0;x<320;++x){check(discovery.pixels[y*320+x]==h.flow->frame().pixels[y*320+x],"final discovery page remains unchanged through separate Action44 reconstruction");ink|=discovery.pixels[y*320+x]!=h.base.pixels[y*320+x];}check(ink,"retained final discovery is visibly drawn");
-   send(h,handler,AcknowledgeAction{});effects(h,1,1,11);questReceipt(h,handler);check(h.flow->canSave(),"multipage collection becomes quiet after final quest receipt frame");
+   send(h,handler,AcknowledgeAction{});effects(h,0,0,0);stagedEffects(h,1,1,11);questReceipt(h,handler);check(h.flow->canSave(),"multipage collection becomes quiet after final quest receipt frame");
    const auto previous=*loads;h.eventSystem->discardScriptCache();h.eventSystem->discardTextCache();h.world->discardMapCache();send(h,handler,InteractionAction{});
    check((*loads)[0]>previous[0]&&(*loads)[1]>previous[1]&&(*loads)[2]>previous[2],"explicit effective-None repeat really reloads immutable map MOB and EVT");effects(h,1,1,11);
    check((*loads)[3]>0,"original text provider was used");return true;};

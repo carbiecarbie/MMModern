@@ -82,7 +82,7 @@ struct Dump {
     V(XeenSaveWallItemOverride, F(record); F(x); F(y);)
     V(XeenSaveCellOverride, F(cell); F(word); F(attributes); F(originalWord); F(originalAttributes);)
     V(XeenSaveEventOverride, F(record); F(opcode);)
-    V(XeenSaveMapState, F(id); F(monsters); F(objects); F(wallItems); F(cells); F(events); F(explored);)
+    V(XeenSaveMapState, F(id); F(monsters); F(objects); F(wallItems); F(cells); F(events); F(explored); F(tavernTips);)
     V(XeenSaveJourney, F(entry); F(schema); F(content); F(context); F(supplements); F(skeletonSeed);
         F(random); F(treasure);
         // The saved source slots 0..n-1 keep the B build's `treasureSources` paths.
@@ -107,6 +107,7 @@ void perMap(Dump &d, const XeenSaveSnapshot &s) {
         return "maps[" + std::to_string(unsigned(XeenSide(id.side))) + ":" + std::to_string(unsigned(id.number)) + "]";
     };
     for (const auto &m : s.maps) {
+        if (m.tavernTips) d.value(key(m.id) + ".tavernTips", *m.tavernTips);
         if (m.monsters) {
             const auto p = key(m.id) + ".monsters";
             d.value(p + ".present", true); d.value(p + ".size", m.monsters->slots.size());
@@ -169,12 +170,15 @@ void selfTest() {
     s.characters[29].awards[127] = 7;
     s.characters[29].skills[17]=255;
     s.map(23).explored.emplace();(*s.map(23).explored)[31]=128;
+    s.map(23).tavernTips=14;s.map(28).tavernTips=0;
     s.journey->random->count = 0xffffffffffffffffULL;
     s.journey->serviceEconomy->bank.gold = 123;
     auto &orc=s.map(23).monsters->slots[2];orc.x=orc.y=-128;orc.accounted=true;orc.lifecycle=XeenActorLifecycle::Defeated;
     s.journey->treasure->miscellaneous[0]={0,{9,15,8,0}};s.journey->treasure->sources[0]={23,2};
     s.map(28).cells.push_back({255,0x1999,0x80,0x9999,0});
     const auto b = decoded(XeenSaveFormat::encode(s)).fields;
+    save_test::check(b.at("maps[0:23].tavernTips")=="14" && b.at("maps[0:28].tavernTips")=="0" &&
+        b.at("snapshot.maps[1].tavernTips.present")=="0", "Tip cursor dump omitted zero, absence or map identity");
     save_test::check(b.at("snapshot.characters[29].skills[17]")=="255", "skill omitted");
     save_test::check(b.at("snapshot.characters[29].awards[127]") == "7", "award omitted");
     save_test::check(b.at("snapshot.journey.value.random.value.count") == "18446744073709551615", "uint64 truncated");

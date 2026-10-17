@@ -23,9 +23,8 @@ public:
 
 class XeenSaveFormat {
 public:
-	// M69 replaces the two named actor tables and the flat overlays with one
-	// per-map table; schema/content are retained (maintainer decision).
-	static constexpr std::uint16_t kJourneyVersion = 13;
+	// M72 adds the original per-map Tavern tip cursor; schema/content retained.
+	static constexpr std::uint16_t kJourneyVersion = 14;
 	static constexpr std::uint16_t kJourneySchema = 9;
 	static constexpr std::uint16_t kJourneyContent = 14;
 	static constexpr std::size_t kHeaderSize = 20;

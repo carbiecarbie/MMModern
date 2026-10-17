@@ -2,6 +2,7 @@
 #include "formats/xeen/XeenVocDuration.h"
 #include "XeenTrainingTestSupport.h"
 #include "platform/sdl/XeenMainScreenInput.h"
+#include "games/xeen/XeenEventTrigger.h"
 #include <iostream>
 using namespace training_test;
 namespace mmodern {
@@ -10,6 +11,15 @@ struct XeenRestTestAccess {
  static bool complete(const XeenEventFlow &f){return f._encounter->_rest && f._encounter->_rest->phase==XeenEncounterFlow::RestContinuation::Phase::Complete;}
  static bool confirm(const XeenEventFlow &f){return f._encounter->_rest && f._encounter->_rest->phase==XeenEncounterFlow::RestContinuation::Phase::Confirm;}
  static bool refused(const XeenEventFlow &f){return f._encounter->_rest && f._encounter->_rest->phase==XeenEncounterFlow::RestContinuation::Phase::Refused;}
+ static bool portrait(const XeenEventFlow &f){return bool(f._portraitSequence);}
+ static bool eventPortrait(const XeenEventFlow &f){return f._portraitSequence && f._portraitSequence->event;}
+ static bool manualTravel(const XeenEventFlow &f){return f._transition && f._transition->manualStep && f._transition->manualStep->opportunity && f._transition->manualStep->opportunity->travelStarted;}
+ static unsigned manualOpportunities(const XeenEventFlow &f){return f._transition->manualStep->result.movementOpportunities;}
+ static bool manualReady(const XeenEventFlow &f){return f._transition && f._transition->terrainDone && bool(f._transition->manualStep);}
+ static int manualPortrait(const XeenEventFlow &f){return !f._portraitSequence?-1:f._portraitSequence->effect.stage==XeenEventPortraitStage::DamageOverlay?0:f._portraitSequence->effect.stage==XeenEventPortraitStage::DamageHold?1:2;}
+ static int stagedHp(const XeenEventFlow &f,unsigned owner){return f._transition->party.roster.at(owner).currentHp;}
+ static bool recovering(const XeenEventFlow &f){return f._encounter->_rest && f._encounter->_rest->phase==XeenEncounterFlow::RestContinuation::Phase::Recovery;}
+ static void transitionComposer(XeenEventFlow &f,XeenEventFlow::TransitionCompose value){f._transitionCompose=std::move(value);}
   using Dream=XeenEncounterFlow::RestContinuation::Dream;
  static bool dream(const XeenEventFlow &f){return f._encounter->_rest && f._encounter->_rest->phase==XeenEncounterFlow::RestContinuation::Phase::Dream;}
  static Dream dreamPhase(const XeenEventFlow &f){return f._encounter->_rest->dreamPhase;}
@@ -47,6 +57,7 @@ void finish(Fixture &f) {
  for(unsigned n=0;n<1000;++n) {
   if(XeenRestTestAccess::confirm(*f.flow)) {f.act(DialogKeyAction{'y'});continue;}
   if(XeenRestTestAccess::complete(*f.flow)) {
+   if(XeenRestTestAccess::portrait(*f.flow)){pulse(f);continue;}
    const auto oracle=drawXeenErrorScroll(f.flow->frame(),f.in.font,XeenRestTestAccess::completionText(*f.flow));
    check(oracle.pixels==f.flow->frame().pixels,"Rest completion exact DAT text/colors in window 6");
    const auto input=f.flow->inputContext(f.flow->frame().presentation()).dialog;
@@ -342,21 +353,60 @@ void terrain(Inputs &in) {
   for(unsigned s:{5u,6u,10u,13u,15u}){std::cout<<" surface"<<s<<'='<<count[s];check(!count[s],"Original reachable hazardous Rest surface found");}
   std::cout<<'\n';
  }
- for(bool indoor:{false,true})for(unsigned surface:{5u,6u,10u,13u,15u}) {
-  if(!indoor && surface==15)continue; // Space cannot restore an outdoor traversal anchor; covered indoors and by the rules oracle.
-  auto start=source(in,indoor);if(surface==13)start.journey->context->effects[2]=1;
+ for(bool indoor:{false,true})for(unsigned surface:{5u,6u,10u,13u}) {
+  auto start=source(in,indoor);
+  for(auto owner:start.activeRosterIds)start.characters[owner].permanentLevel=100;
+  if(surface==13)start.journey->context->effects[2]=1;
   const auto loader=[&](auto id) {
    auto map=in.maps.loadGeometryMap(in.assets,id);if(id==start.camera.mapId)map.geometry.surfaceTypes.fill(surface);return map;
   };
   Fixture f(in,start,false,nullptr,loader,indoor?XeenRegionalManifest{}:manifest(surface));wire(f);unsigned providers=0;
   f.flow->loadRestDream=[&]{++providers;return in.assets.restDreamImage();};
   const auto before=XeenSaveFormat::encode(f.snapshot());f.act(RestAction{});
-  if(surface!=6) {
-   check(XeenRestTestAccess::refused(*f.flow) && !providers,"Unsupported surface was not preflighted before dream/sleep");
-   f.act(AcknowledgeAction{});finish(f);check(XeenSaveFormat::encode(f.snapshot())==before,"Unsupported terrain changed state/time/RNG");
-  } else {
-   finish(f);check(f.p.encounterContext->minutes==start.journey->context->minutes+480+(indoor?0:170),"Desert Rest addTime/indoor suffix");
+  if(indoor && (surface==10 || surface==13)) {
+   check(XeenRestTestAccess::refused(*f.flow) && !providers,"Unadmitted mainland fall was not refused before Rest");
+   f.act(AcknowledgeAction{});finish(f);check(XeenSaveFormat::encode(f.snapshot())==before,"Refused fall leaked Rest state");continue;
   }
+  check(!XeenRestTestAccess::refused(*f.flow) && providers,"Hazardous surface incorrectly refuses Rest");
+  const bool successfulFall=!indoor && (surface==10 || surface==13);
+  unsigned fallCompositions=0;
+  if(successfulFall) {
+   // At this retained Rest boundary all ten sleeping opportunities and the
+   // remainder have finished; the next operation refills, then falls. Wound
+   // one distant original actor here so only the map-load lifetime can refill
+   // it. No original resource or production admission is changed.
+   for(unsigned n=0;!XeenRestTestAccess::recovering(*f.flow);++n) {
+    check(n<1000 && !XeenRestTestAccess::complete(*f.flow),"Rest fall did not expose its recovery boundary");pulse(f);
+   }
+   const auto wounded=XeenTrainingTestAccess::woundBeforeFall(*f.flow);
+   XeenRestTestAccess::transitionComposer(*f.flow,[&,wounded](auto &candidate,const auto &party,const auto &camera,auto,auto) {
+    ++fallCompositions;
+    check(camera.mapId==XeenMapIdentity(23) && camera.x==12 && camera.y==10,"Fall composed an intermediate destination");
+    const auto live=f.w.sessionState().regionalActors(23),staged=candidate.sessionState().regionalActors(23);
+    check(live[wounded].hp==1 && live[wounded].activated,"Fall reload escaped before destination publication");
+    check(staged[wounded].hp==staged[wounded].statistics->baseHp() && !staged[wounded].activated,
+     "Fall destination must reload original MON HP/asleep before composing damage/publication");
+    for(auto owner:start.activeRosterIds) {
+     const auto maximum=XeenCharacterRules::maxHp(party.roster.at(owner),{610});
+     check(f.p.roster.at(owner).currentHp==maximum,"Fall damage escaped before destination publication");
+     check(party.roster.at(owner).currentHp==maximum-100,"Fall applies fresh physical100 independently after Rest refill");
+    }
+    return XeenEventFlow::Composition{frame(),false};
+   });
+  }
+  finish(f);check(f.p.encounterContext->minutes==start.journey->context->minutes+480+(surface==6 && !indoor?170:0),"Rest terrain suffix time");
+  if(successfulFall) {
+   check(fallCompositions==1,"Fall destination composed/published more than once");
+   for(auto owner:start.activeRosterIds)check(f.p.roster.at(owner).currentHp==XeenCharacterRules::maxHp(f.p.roster.at(owner),{610})-100,
+    "Published fall damage differs from the prepared physical100");
+   const auto saved=f.snapshot();const auto bytes=XeenSaveFormat::encode(saved);
+   Fixture loaded(in,XeenSaveFormat::decode(bytes),false,nullptr,loader,manifest(surface));wire(loaded);
+   check(XeenSaveFormat::encode(loaded.snapshot())==bytes,"Current-format fall restore replayed terrain/time/RNG or changed actor positions");
+   pulse(loaded);
+   check(XeenSaveFormat::encode(loaded.snapshot())==bytes,"First restored presentation replayed fall arrival");
+  }
+  if(surface==5)for(auto owner:start.activeRosterIds)check(f.p.roster.at(owner).currentHp<XeenCharacterRules::maxHp(f.p.roster.at(owner),{610}),"Lava damages after refill");
+  if(surface==10 || surface==13)check(f.c.mapId==XeenMapIdentity(23) && f.c.x==12 && f.c.y==10 && f.c.direction==XeenDirection::North,"Rest fall uses staged shared destination and loses Levitate");
  }
  {
   // Synthetic Navigator skill restored through the authoritative saved owner.
@@ -366,15 +416,246 @@ void terrain(Inputs &in) {
   Fixture f(in,start,false,nullptr,loader,manifest(6));wire(f);f.act(RestAction{});finish(f);
   check(f.p.encounterContext->minutes==start.journey->context->minutes+480,"Navigator did not suppress desert addTime");
  }
- const auto seam=source(in,true,false,false,true);
- for(bool primaryUnsupported:{false,true}) {
-  const auto loader=[&](auto id) {auto map=in.maps.loadGeometryMap(in.assets,id);
-   if(id!=XeenMapIdentity(23))map.geometry.surfaceTypes.fill((id==seam.camera.mapId)==primaryUnsupported?5:0);return map;};
-  Fixture f(in,seam,false,nullptr,loader);wire(f);const auto before=XeenSaveFormat::encode(f.snapshot());f.act(RestAction{});
-  check(XeenRestTestAccess::refused(*f.flow)==primaryUnsupported,"Rest surface table came from physical neighbor");
-  if(primaryUnsupported){f.act(AcknowledgeAction{});finish(f);check(XeenSaveFormat::encode(f.snapshot())==before,"Primary terrain refusal mutated state");}
-  else finish(f);
+ // Actual original map13 lava, and a map25 sky fall use original geometry,
+ // not synthetic resource replacements. Shared admission refuses unopened fall
+ // destinations before callers spend time, food, SP or the random continuation.
+ XeenWorld original(in.mapLoader(),in.objectLoader());const auto start=in.base();
+ XeenConsequenceCharacters c;XeenConsequenceInputs inputs;
+ for(unsigned n=0;n<6;++n){const auto owner=start.activeRosterIds[n];c[n]=start.characters[owner];inputs[n]=start.journey->supplements[owner].inputs;c[n].currentHp=1000;}
+ const auto lava=original.prepareTerrainArrival({13,9,11,XeenDirection::North},c,*start.journey->context);
+ check(lava.surface==5 && lava.damage==100 && lava.type==XeenDamageType::Fire,"Original map13 lava arrival");
+ const auto originalActors=XeenActorApproach::actorsFromResources(original.objectFile(13),in.statistics);
+ const auto fixtureView=XeenActorApproach::classify(originalActors,{13,8,11,XeenDirection::East});
+ std::cout<<"Hazard fixture: --event-fixture <game-dir> 13 8 11 east; immediateContact="<<fixtureView.engaged()<<'\n';
+ const auto restFixtureView=XeenActorApproach::classify(originalActors,{13,9,11,XeenDirection::North});
+ check(!restFixtureView.engaged(),"Direct original lava Rest fixture has immediate contact");
+ std::cout<<"Direct Rest fixture: --event-fixture <game-dir> 13 9 11 north; immediateContact="<<restFixtureView.engaged()<<'\n';
+ XeenCombatRandom random(7);XeenTerrainArrivalCandidate effect(lava,c,inputs,*start.journey->context,&*start.journey->serviceEconomy);
+ for(unsigned n=0;;++n){check(n<100,"Original lava bounded");XeenConsequenceDraw draw{random,64,{}};if(effect.service(draw))break;}
+ for(const auto &v:effect.characters)check(v.currentHp<1000,"Original lava damage reaches every member");
+ bool found=false;
+ for(int y=0;y<16 && !found;++y)for(int x=0;x<16 && !found;++x) {
+  const auto rule=original.prepareTerrainArrival({25,x,y,XeenDirection::West},c,*start.journey->context);
+  if(!rule.falling)continue;
+  check(rule.transition.destination.mapId==XeenMapIdentity(24) && rule.transition.destination.x==11 && rule.transition.destination.y==9,"Original map25 fall destination");
+  original.markEncounterSession(XeenEncounterEntry::Journey);
+  const auto refused=original.prepareTerrainArrival({25,x,y,XeenDirection::West},c,*start.journey->context);
+  check(!refused && !refused.transition.reason.empty(),"Original fall uses shared unopened-map refusal");found=true;
  }
+ check(found,"Original map25 sky witness absent");
+ {
+  auto state=source(in,false);for(auto owner:state.activeRosterIds){state.characters[owner].permanentLevel=100;state.characters[owner].currentHp=1000;}
+  for(auto owner:state.activeRosterIds)for(auto &weapon:state.characters[owner].weapons)if(weapon.frame==4)weapon.frame=0;
+  const auto loader=[&](auto id){auto map=in.maps.loadGeometryMap(in.assets,id);if(id==XeenMapIdentity(23))map.geometry.surfaceTypes.fill(5);return map;};
+  Fixture f(in,state,false,nullptr,loader,manifest(5));wire(f);
+  const auto idle=XeenSaveFormat::encode(f.snapshot());
+  f.act(ShootAction{});finish(f);check(XeenSaveFormat::encode(f.snapshot())==idle,"No shooter must not apply lava arrival or spend a draw");
+  f.act(CastSpellAction{});f.act(CancelInteractionAction{});finish(f);
+  check(XeenSaveFormat::encode(f.snapshot())==idle,"Cancelled Cast must not apply lava arrival or spend a draw");
+  const auto beforeMinutes=f.p.encounterContext->minutes;const auto beforeHp=f.p.roster.at(state.activeRosterIds[0]).currentHp;
+  f.act(NavigationAction::TurnLeft);finish(f);
+  check(f.p.encounterContext->minutes==beforeMinutes && f.p.roster.at(state.activeRosterIds[0]).currentHp<beforeHp,"Turning reapplies lava without chargeStep time");
+ }
+ {
+  auto state=source(in,true);const auto cell=original.sampleCell(state.camera.mapId,state.camera.x,state.camera.y);
+  bool blocked=false;for(unsigned d=0;d<4;++d)if(wallAt(*cell->cell,XeenDirection(d))>=original.map(28).geometry.difficulties[0]) {
+   state.camera.direction=XeenDirection(d);blocked=true;break;
+  }
+  check(blocked,"Original blocked movement witness absent");
+  const auto loader=[&](auto id){auto map=in.maps.loadGeometryMap(in.assets,id);if(id==XeenMapIdentity(28))map.geometry.surfaceTypes.fill(5);return map;};
+  Fixture f(in,state,false,nullptr,loader);wire(f);const auto before=XeenSaveFormat::encode(f.snapshot());
+  f.act(NavigationAction::MoveForward);finish(f);
+  check(XeenSaveFormat::encode(f.snapshot())==before,"Blocked movement must not apply lava arrival");
+ }
+ {
+  auto state=source(in,true);
+  const auto loader=[&](auto id){auto map=in.maps.loadGeometryMap(in.assets,id);if(id==XeenMapIdentity(28))map.geometry.surfaceTypes.fill(15);return map;};
+  Fixture f(in,state,false,nullptr,loader);wire(f);f.act(RestAction{});
+  for(unsigned n=0;n<1000 && !XeenRestTestAccess::complete(*f.flow);++n)pulse(f);
+  check(XeenRestTestAccess::complete(*f.flow),"Space Rest reaches completion before party defeat");
+  for(auto owner:state.activeRosterIds)check(!f.p.roster.at(owner).conditions[13],"Space must not invent member Dead conditions");
+ }
+}
+void terrainCallsites(Inputs &in) {
+ const auto armed=[&](bool indoor) {
+  auto s=indoor?in.service():in.base();s.camera=indoor?XeenCamera{28,20,20,XeenDirection::North}:XeenCamera{23,9,11,XeenDirection::East};
+  for(auto &map:s.maps)if(map.monsters)for(auto &a:map.monsters->slots) {a.x=a.y=-128;a.lifecycle=XeenActorLifecycle::Defeated;a.accounted=true;}
+  for(auto owner:s.activeRosterIds) {
+   auto &c=s.characters[owner];c.currentHp=1000;c.permanentLevel=100;
+   for(auto &w:c.weapons)if(w.frame!=4)w.frame=0;
+   for(auto *items:{&c.armor,&c.accessories})for(auto &item:*items)item.frame=0;
+   s.journey->supplements[owner].inputs.resistances=XeenCombatResistances{};
+  }
+  s.journey->context->effects.fill(0);s.journey->context->lightAndResistances.fill(0);
+  return s;
+ };
+ const auto lavaLoader=[&](auto id) {auto m=in.maps.loadGeometryMap(in.assets,id);if(id==XeenMapIdentity(23))m.geometry.surfaceTypes.fill(5);return m;};
+ const XeenRegionalManifest lavaManifest=[&](const auto &m,const auto &o,const auto &e,const auto &s) {
+  auto original=m;original.geometry.surfaceTypes=in.maps.loadGeometryMap(in.assets,23).geometry.surfaceTypes;
+  xeenValidateRegionalManifest(original,o,e,s,in.assets.readInitialResource("maze0023.dat"),in.assets.readInitialResource("maze0023.mob"),in.assets.readInitialResource("maze0023.evt"));
+ };
+ for(unsigned action=0;action<4;++action) {
+  auto state=armed(false);auto &caster=state.characters[state.activeRosterIds[4]];
+  const unsigned spell=action==3?40u:1u;caster.characterClass=XeenCharacterClass::Druid;caster.hasSpells=true;caster.currentSp=100;
+  for(auto &w:caster.weapons)w.frame=0;
+  caster.learnedSpells.emplace();caster.currentSpell=*XeenLearnedSpellRules::slotForSpell(XeenSpellCategory::Druidic,spell);caster.learnedSpells->at(caster.currentSpell)=1;
+  Fixture f(in,state,false,nullptr,lavaLoader,lavaManifest);wire(f);
+  if(action==0)f.act(WaitAction{});
+  else if(action==1)f.act(ShootAction{});
+  else {f.act(CastSpellAction{});f.act(SelectMemberAction{4});f.act(DialogKeyAction{'c'});}
+  finish(f);
+  for(auto owner:state.activeRosterIds)check(f.p.roster.at(owner).currentHp==900,"Wait/Shoot/Cast/learnedJump must each apply one lava arrival");
+  check(f.p.encounterContext->minutes==state.journey->context->minutes+10,"Arrival callsite charged wrong time");
+  if(action==3)check(f.c.x==11 && f.c.y==11,"Learned Jump reached wrong lava destination");
+ }
+ const auto row=[](unsigned x,unsigned y,unsigned opcode,std::vector<std::uint8_t> p={}) {
+  XeenEventRecord r;r.x=x;r.y=y;r.direction=4;r.line=0;r.opcode=opcode;r.parameters=std::move(p);r.lengthField=5+r.parameters.size();return r;
+ };
+ for(unsigned kind=0;kind<3;++kind) {
+  auto state=armed(true);const bool automatic=kind==1,refused=kind==2;if(automatic)state.camera.y=19;
+  XeenEventFile script{28,"maze0028.evt",true,automatic?
+   std::vector<XeenEventRecord>{row(20,20,0x12)}:
+   std::vector<XeenEventRecord>{row(20,20,0x1f,{28,20,21}),row(20,21,0x1f,{28,20,22}),row(20,22,0x12)}};
+  const auto loader=[&](auto id) {
+   auto m=in.maps.loadGeometryMap(in.assets,id);if(!m.geometry.isOutdoors()) {
+    m.geometry.surfaceTypes[0]=0;m.geometry.surfaceTypes[1]=refused?10:5;
+    for(auto &cell:m.geometry.cells){cell.rawWord=0;cell.geometry=XeenIndoorWalls{};cell.rawAttributes=1;cell.surfaceIndex=1;cell.flags=0;}
+    // Logical(20,19) is physical(4,3), the automatic move's safe source.
+    auto &start=m.geometry.cells[3*16+4];start.rawAttributes=0;start.surfaceIndex=0;
+    if(automatic && id==XeenMapIdentity(111))m.geometry.cells[4*16+4].rawAttributes|=kXeenAutomaticEventFlag;
+   }return m;
+  };
+  Fixture f(in,state,false,&script,loader);wire(f);const auto before=XeenSaveFormat::encode(f.snapshot());
+  f.act(automatic?PlayerAction{NavigationAction::MoveForward}:PlayerAction{InteractionAction{}});finish(f);
+  if(refused)check(XeenSaveFormat::encode(f.snapshot())==before,"Refused final Event fall leaked teleport/RNG/party state");
+  else {
+   check(f.c.x==20 && f.c.y==(automatic?20:22),"Event arrival published an intermediate teleport");
+   check(f.p.encounterContext->minutes==state.journey->context->minutes+1,"Manual chain must charge exactly one indoor minute after its final Event");
+   for(auto owner:state.activeRosterIds)check(f.p.roster.at(owner).currentHp==900,
+    "Manual teleport chain must arrive once at final cell; automatic completion must not repeat movement arrival");
+  }
+ }
+ // The original mainland sign used the old direct-publication branch. It must
+ // now receive the same outdoor Space suffix as the detached city Events.
+ for(bool sign:{false,true}) {
+  auto state=armed(false);state.camera=sign?XeenCamera{23,5,9,XeenDirection::North}:XeenCamera{23,10,11,XeenDirection::North};
+  const auto script=in.events.load(23);
+  check(sign?xeenRegionalSign(script,state.camera):!xeenRegionalEvent(script,state.camera),"Manual Space fixture source changed");
+  Fixture f(in,state,false,nullptr,lavaLoader,lavaManifest);wire(f);f.act(InteractionAction{});finish(f);
+  for(auto owner:state.activeRosterIds)check(f.p.roster.at(owner).currentHp==900,"Mainland sign/no-Event Space omitted or repeated lava arrival");
+  check(f.p.encounterContext->minutes==state.journey->context->minutes+10 && f.p.encounterContext->ctr24==(state.journey->context->ctr24+1)%24,
+   "Mainland sign/no-Event Space must charge10 then call stepTime once");
+ }
+ // Dawn expires Levitate before cloud arrival, including Event-free Space.
+ const auto cloudLoader=[&](auto id){auto m=in.maps.loadGeometryMap(in.assets,id);if(id==XeenMapIdentity(23))m.geometry.surfaceTypes.fill(13);return m;};
+ for(bool sign:{false,true}) {
+  auto state=armed(false);state.camera=sign?XeenCamera{23,5,9,XeenDirection::North}:XeenCamera{23,10,11,XeenDirection::North};
+  state.journey->context->minutes=299;state.journey->context->newDay=true;state.journey->context->rested=true;state.journey->context->effects[2]=1;
+  Fixture f(in,state,false,nullptr,cloudLoader,lavaManifest);wire(f);f.act(InteractionAction{});finish(f);
+  check(f.c.x==12 && f.c.y==10 && f.c.direction==XeenDirection::North && f.p.encounterContext->minutes==309 && !f.p.encounterContext->effects[2],
+   "Space must charge across dawn before checking cloud protection/fall");
+  for(auto owner:state.activeRosterIds)check(f.p.roster.at(owner).currentHp==900,"Post-dawn Space fall must apply physical100 once");
+ }
+ // A flag and a visible physical damage prefix remain detached when the
+ // completed manual chain would fall outside admission. No prefix may leak.
+ {
+  auto state=armed(true);state.questFlags[3]=false;
+  auto flag=row(20,20,0x0c,{0,0,104,3});auto damage=row(20,20,0x16,{10,0,0});damage.line=1;
+  auto teleport=row(20,20,0x1f,{28,20,22});teleport.line=2;
+  XeenEventFile script{28,"maze0028.evt",true,{flag,damage,teleport,row(20,22,0x12)}};
+  const auto loader=[&](auto id){auto m=in.maps.loadGeometryMap(in.assets,id);if(!m.geometry.isOutdoors()) {
+   m.geometry.surfaceTypes.fill(10);for(auto &c:m.geometry.cells){c.rawWord=0;c.geometry=XeenIndoorWalls{};c.flags=0;}
+  }return m;};
+  Fixture f(in,state,false,&script,loader);wire(f);const auto bytes=XeenSaveFormat::encode(f.snapshot());
+  f.act(InteractionAction{});bool portrait=false;
+  for(unsigned n=0;!f.flow->canSave();++n){check(n<1000,"Refused prefix fixture did not settle");portrait=portrait || XeenRestTestAccess::eventPortrait(*f.flow);pulse(f);}
+  check(portrait,"Refused fall fixture did not reach its visible damage prefix");
+  check(XeenSaveFormat::encode(f.snapshot())==bytes,"Refused post-Event fall leaked a published flag/damage/time/RNG prefix");
+ }
+ // Already displayed damage/sparkle prefixes are not armed again by final
+ // publication. Their Event holds must not grow a standalone presentation tail.
+ for(bool sparkle:{false,true}) {
+  auto state=armed(true);auto select=row(20,20,0x0f,{0});auto damage=sparkle?row(20,20,0x0c,{0,0,16,1,0,0,0}):row(20,20,0x16,{10,0,0});damage.line=1;auto exit=row(20,20,0x12);exit.line=2;
+  XeenEventFile script{28,"maze0028.evt",true,{select,damage,exit}};
+  const auto loader=[&](auto id){auto m=in.maps.loadGeometryMap(in.assets,id);if(!m.geometry.isOutdoors()) {
+   m.geometry.surfaceTypes.fill(0);for(auto &c:m.geometry.cells){c.rawWord=0;c.geometry=XeenIndoorWalls{};c.flags=0;}
+  }return m;};
+  Fixture f(in,state,false,&script,loader);wire(f);f.act(InteractionAction{});bool shown=false;
+  for(unsigned n=0;!f.flow->canSave();++n) {
+   check(n<1000,"Successful damage prefix did not settle");
+   if(XeenRestTestAccess::portrait(*f.flow)){shown=true;check(XeenRestTestAccess::eventPortrait(*f.flow),"Final manual publication replayed an already displayed damage portrait");}
+   pulse(f);
+  }
+  check(shown && f.p.encounterContext->minutes==state.journey->context->minutes+1,"Successful portrait prefix omitted the Space suffix");
+  for(auto owner:state.activeRosterIds)check(f.p.roster.at(owner).currentHp==(sparkle?1000:990) &&
+   f.p.roster.combatInputs(owner)->experience==state.journey->supplements[owner].inputs.experience+unsigned(sparkle),"Successful damage/sparkle prefix was lost or applied twice");
+ }
+ // Use the existing supported ranged profile to prove the Event suffix keeps
+ // travel, pre-HP overlay and post-HP hold, then arrives. Compare every saved
+ // value with the existing Wait owner, including random continuation and actors.
+ {
+  constexpr unsigned pending=0;
+  auto state=armed(true);state.camera={28,11,1,XeenDirection::North};state.journey->random=XeenCombatRandom(1).continuation();
+  state.characters[0].characterClass=XeenCharacterClass::Knight;state.characters[0].permanentLevel=1;
+  state.journey->supplements[0].inputs.luck->permanent=0;
+  auto &actor=state.map(28).monsters->slots[0];actor.x=11;actor.y=pending?5:4;actor.lifecycle=XeenActorLifecycle::Present;actor.accounted=false;
+  const auto previous=in.statistics[2];auto &monster=in.statistics[2];
+  monster.raw[24]=1;monster.raw[25]=unsigned(state.characters[0].characterClass);monster.raw[26]=1;monster.raw[27]=0;
+  monster.raw[28]=1;monster.raw[29]=0;monster.raw[30]=9;monster.raw[31]=5;monster.raw[32]=1;
+  const auto loader=[&](auto id){auto m=in.maps.loadGeometryMap(in.assets,id);if(!m.geometry.isOutdoors()) {
+   m.geometry.surfaceTypes.fill(5);for(auto &c:m.geometry.cells){c.rawWord=0;c.geometry=XeenIndoorWalls{};c.flags=0;}
+  }return m;};
+  auto choice=row(11,1,0x20,{0,0}),exit=row(11,1,0x12);exit.line=1;
+  XeenEventFile script{28,"maze0028.evt",true,pending?std::vector<XeenEventRecord>{choice,exit}:std::vector<XeenEventRecord>{row(11,1,0x12)}};
+  Fixture manual(in,state,false,&script,loader),wait(in,state,false,&script,loader);in.statistics[2]=previous;wire(manual);wire(wait);
+  XeenRestTestAccess::pending(*wait.flow,pending);
+  bool retried=false,travel=false,overlay=false,hold=false,blocked=false;
+  XeenRestTestAccess::transitionComposer(*manual.flow,[&](auto &,const auto &,const auto &,auto,auto) {
+   if(XeenRestTestAccess::manualReady(*manual.flow) && !retried){retried=true;throw std::runtime_error("Synthetic final Space frame allocation failure");}
+   return XeenEventFlow::Composition{frame(),false};
+  });
+  const auto initialRandom=manual.w.sessionState().journeyRandom();manual.act(InteractionAction{});
+  if(pending){check(manual.flow->canCancelInteraction(),"Owed opportunity fixture did not reach WhoWill");XeenRestTestAccess::pending(*manual.flow,pending);manual.act(SelectMemberAction{0});}
+  for(unsigned n=0;!manual.flow->canSave();++n) {
+   check(n<1000,"Retained manual ranged opportunity did not settle");
+   travel=travel || XeenRestTestAccess::manualTravel(*manual.flow);
+   const auto portrait=XeenRestTestAccess::manualPortrait(*manual.flow);overlay=overlay || portrait==0;hold=hold || portrait==1;
+   check(manual.p.roster.at(0).currentHp==1000 && manual.p.encounterContext->minutes==state.journey->context->minutes &&
+    manual.w.sessionState().journeyRandom()==initialRandom,"Manual opportunity published damage/time/RNG before final suffix admission");
+   if(portrait==0)check(XeenRestTestAccess::stagedHp(*manual.flow,0)==1000,"Pre-HP overlay applied ranged injury early");
+   if(portrait==1)check(XeenRestTestAccess::stagedHp(*manual.flow,0)==999,"Post-HP hold did not retain the worked physical1 injury");
+   if(travel && !blocked){blocked=true;manual.act(InteractionAction{});}
+   pulse(manual);
+  }
+  wait.act(WaitAction{});finish(wait);
+  check(travel && overlay && hold && retried,"Manual Space lost travel/portrait holds or retry coverage");
+  check(manual.p.roster.at(0).currentHp==899 && manual.w.sessionState().regionalActors(28)[0].y==3,
+   "Manual Space must service owed/forced opportunities, apply original physical1, then lava100");
+  save_test::sameSnapshot(manual.snapshot(),wait.snapshot());
+  check(XeenSaveFormat::encode(manual.snapshot())==XeenSaveFormat::encode(wait.snapshot()),"Manual Space retry repeated Events/opportunities or differs from the shared Wait suffix");
+ }
+
+ // An owed chargeStep opportunity and Space's forced opportunity remain two
+ // distinct operations. Inject the countdown only after ordinary Event entry;
+ // normal UI admission still starts Space at its existing quiet boundary.
+ {
+  auto state=armed(true);auto choice=row(20,20,0x20,{0,0}),exit=row(20,20,0x12);exit.line=1;
+  XeenEventFile script{28,"maze0028.evt",true,{choice,exit}};
+  const auto loader=[&](auto id){auto m=in.maps.loadGeometryMap(in.assets,id);if(!m.geometry.isOutdoors()) {
+   m.geometry.surfaceTypes.fill(5);for(auto &c:m.geometry.cells){c.rawWord=0;c.geometry=XeenIndoorWalls{};c.flags=0;}
+  }return m;};
+  Fixture manual(in,state,false,&script,loader),wait(in,state,false,&script,loader);wire(manual);wire(wait);unsigned opportunities=0;
+  XeenRestTestAccess::transitionComposer(*manual.flow,[&](auto &,const auto &,const auto &,auto,auto) {
+   if(XeenRestTestAccess::manualReady(*manual.flow))opportunities=XeenRestTestAccess::manualOpportunities(*manual.flow);
+   return XeenEventFlow::Composition{frame(),false};
+  });
+  manual.act(InteractionAction{});check(manual.flow->canCancelInteraction(),"Owed opportunity fixture did not reach WhoWill");
+  XeenRestTestAccess::pending(*manual.flow,3);manual.act(SelectMemberAction{0});finish(manual);
+  XeenRestTestAccess::pending(*wait.flow,3);wait.act(WaitAction{});finish(wait);
+  check(opportunities==2,"Space did not consume both owed and forced opportunities");
+  check(XeenSaveFormat::encode(manual.snapshot())==XeenSaveFormat::encode(wait.snapshot()),"Manual owed-opportunity settlement differs from existing Wait or leaks its Event ticket");
+ }
+
 }
 void rolloverAndDream(Inputs &in) {
  auto start=source(in,true);start.food=3;start.journey->context->day=99;start.journey->context->minutes=1439;
@@ -482,6 +763,6 @@ void rolloverAndDream(Inputs &in) {
 }
 int main(int argc,char **argv) {try {
  check(argc==2,"Rest original usage: installation");const auto installation=xeenTestInstallationDetector().detect(argv[1]);check(bool(installation),"Original installation absent");
- Inputs in(*installation);sleepingHit(in);terrain(in);success(in,false);success(in,true);entry(in);interruption(in,false,0);interruption(in,true,3);interruption(in,false,0,true);rolloverAndDream(in);reentrant(in);sampleFailure(in);combatOutcomes(in,true);combatOutcomes(in,false);conditionDeath(in);noTargets(in);
+ Inputs in(*installation);sleepingHit(in);terrain(in);terrainCallsites(in);success(in,false);success(in,true);entry(in);interruption(in,false,0);interruption(in,true,3);interruption(in,false,0,true);rolloverAndDream(in);reentrant(in);sampleFailure(in);combatOutcomes(in,true);combatOutcomes(in,false);conditionDeath(in);noTargets(in);
  std::cout<<"Original-resource Rest, interruption, food, UI path and mid-sequence save tests passed\n";return 0;
  }catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}

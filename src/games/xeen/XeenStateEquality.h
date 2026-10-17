@@ -54,7 +54,7 @@ inline bool sameMapState(const XeenMapState &a, const XeenMapState &b) {
 	}
 	return a.removedObjects == b.removedObjects && a.disabledEvents == b.disabledEvents &&
 		a.objectOverrides == b.objectOverrides && a.wallItemOverrides == b.wallItemOverrides &&
-		a.eventOverrides == b.eventOverrides && a.cells == b.cells && a.explored == b.explored;
+		a.eventOverrides == b.eventOverrides && a.cells == b.cells && a.explored == b.explored && a.tavernTips == b.tavernTips;
 }
 inline bool sameMapStates(const XeenMapTable &a, const XeenMapTable &b) {
 	static const XeenMapState none;

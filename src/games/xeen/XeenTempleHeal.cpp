@@ -22,6 +22,27 @@ XeenTempleSurcharges xeenTempleSurcharges(XeenMapIdentity temple) {
     }
     throw std::invalid_argument("Temple surcharges are not known for this map");
 }
+bool xeenTempleDonationBlessing(XeenGameplayContext &context,std::uint8_t &counter) {
+    // DOS 0x1aee4..1af28: the counter is local to a visit/character selection.
+    counter=static_cast<std::uint8_t>((counter+1)%10);
+    if(counter!=context.day%10)return false;
+    context.effects[3]=1;context.lightAndResistances[0]=1;
+    const auto amount=static_cast<std::uint8_t>(counter?counter:10);
+    for(unsigned i=5;i<=8;++i)context.effects[i]=amount;
+    return true;
+}
+std::uint32_t xeenTempleUncurseCost(const XeenCharacter &c,XeenMapIdentity temple) {
+    bool cursed=c.conditions[0]!=0;
+    for(const auto *items:{&c.weapons,&c.armor,&c.accessories,&c.miscellaneous})
+        for(const auto &item:*items)cursed|=(item.state&0x40)!=0;
+    return cursed?c.currentLevel()*20+xeenTempleSurcharges(temple).uncurse:0;
+}
+void xeenTempleClearCurse(XeenCharacter &c) noexcept {
+    // DOS 0x1afa2..1b01b clears the state bit in all 36 slots, even empty ones.
+    c.conditions[0]=0;
+    for(auto *items:{&c.weapons,&c.armor,&c.accessories,&c.miscellaneous})
+        for(auto &item:*items)item.state&=0xbf;
+}
 XeenTempleHealResult xeenQuoteTempleHeal(const XeenCharacter &c,std::uint32_t gold,
         const XeenGameplayContext &context,XeenMapIdentity temple) {
     XeenCharacterRules::validateForUse(c,{context.year});

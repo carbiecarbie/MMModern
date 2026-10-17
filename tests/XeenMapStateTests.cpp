@@ -24,11 +24,15 @@ XeenEventFile events(XeenMapIdentity id) {return XeenEventFile{id,"events",true,
 void exchange() {
 	XeenMapTable live,candidate;
 	live.state(23).monsters.emplace(std::vector<XeenActor>{actor(23,0,5)});
+	live.state(23).tavernTips.emplace(3);
 	live.state(109).explored=std::array<std::uint8_t,32>{};
 	candidate.state(23).monsters.emplace(std::vector<XeenActor>{actor(23,0,4),actor(23,1,6)});
+	candidate.state(23).tavernTips.emplace(14);
 	candidate.state(28).removedObjects.insert({28,3});
 	const auto *entry=live.find(23);const auto *table=&*entry->monsters;
 	live.swap(candidate);
+	check(std::uint8_t(*live.find(23)->tavernTips)==14 && std::uint8_t(*candidate.find(23)->tavernTips)==3,
+		"Common map entries exchange their retained tip cursors");
 	check(live.find(23)==entry && &*live.find(23)->monsters==table && live.find(23)->monsters->size()==2,
 		"A common entry must exchange its content in place");
 	check(live.find(28) && live.find(28)->removedObjects.count({28,3}) && !live.find(109),
@@ -47,6 +51,11 @@ void equivalence() {
 	other.state(9).monsters.emplace(std::vector<XeenActor>{actor(9,0,4)});
 	check(!xeen_state::sameMapStates(hp,other),"Monster values must be compared");
 	XeenMapTable changed,empty;
+	changed.state(5).tavernTips.emplace(0);
+	check(!changed.empty() && !xeen_state::sameMapStates(changed,empty),"A present zero tip cursor must survive map-state projection");
+	empty=changed;empty.state(5).tavernTips.emplace(14);
+	check(!xeen_state::sameMapStates(changed,empty),"Tip cursors are observed map state");
+	changed.state(5).tavernTips.reset();empty=XeenMapTable{};
 	changed.state(5).wallItemOverrides.push_back({{5,0},4,5});
 	check(!xeen_state::sameMapStates(changed,empty) && !changed.empty(),"Wall-item overrides must be observable");
 	empty=changed;empty.state(5).wallItemOverrides[0].x=6;
@@ -63,6 +72,22 @@ void bounds() {
 	try {table.state(XeenMapTable::kMaximumMaps+1);} catch(const std::length_error &) {full=true;}
 	try {XeenMapTable().state(0);} catch(const std::invalid_argument &) {zero=true;}
 	check(full && zero && table.size()==XeenMapTable::kMaximumMaps,"The table must stay bounded and keyed by real maps");
+}
+void tipCursorLifetime() {
+ XeenWorld world([](XeenMapIdentity id) {auto m=tile(id);m.geometry.tavernTips=7;return m;},objects);
+ check(world.tavernTipIndex(5)==7 && !world.sessionState().mapState(5),
+  "An untouched Tavern uses its original DAT cursor without creating state");
+ world.setTavernTipIndex(5,14);world.discardMapCache();
+ check(world.tavernTipIndex(5)==14 && world.map(5).geometry.tavernTips==7,
+  "Tip progression survives cache reload and leaves original resources immutable");
+ XeenPartyState party;XeenCamera camera{5,0,0,XeenDirection::North};XeenGameFlags flags;
+ XeenRestoreGuard guard(world,party,camera,flags);
+ world.setTavernTipIndex(5,0);world.setTavernTipIndex(5,14);
+ check(!guard.current(),"A reverted tip cursor mutation invalidates the retained preimage");
+ auto &alias=*const_cast<XeenMapState *>(world.sessionState().mapState(5))->tavernTips;
+ XeenRestoreGuard aliasGuard(world,party,camera,flags);
+ alias=0;alias=14;
+ check(!aliasGuard.current(),"Reverted writes through a retained cursor alias remain observable");
 }
 void distribution() {
 	XeenWorld world(tile,objects);
@@ -140,10 +165,12 @@ void warzone() {
 		xeenRetainsMapState({XeenSide::Darkside,85}),"Only Clouds 85 is never retained");
 	XeenMapTable table;
 	table.state(85).removedObjects.insert({85,1});table.state(28).removedObjects.insert({28,1});
+	table.state(85).tavernTips.emplace(3);table.state(28).tavernTips.emplace(14);
 	table.state({XeenSide::Darkside,85}).explored=std::array<std::uint8_t,32>{};
 	table.leave(28);table.leave(85);table.leave({XeenSide::Darkside,85});
 	check(!table.find(85) && table.find(28) && table.find({XeenSide::Darkside,85}),"Leaving drops only the Warzone");
 	check(table.state(85).empty(),"Re-entering the Warzone starts fresh");
+	check(!table.state(85).tavernTips && std::uint8_t(*table.find(28)->tavernTips)==14,"Tip state follows original map-retention lifetimes");
 }
 void mapLoad() {
 	// Decision 8 (DOS map load 0x0f542): a live monster returns to its MON HP,
@@ -160,7 +187,7 @@ void mapLoad() {
 }
 int main() {
 	try {
-		exchange();equivalence();bounds();distribution();mapOverrideGuards();warzone();mapLoad();
+		exchange();equivalence();bounds();tipCursorLifetime();distribution();mapOverrideGuards();warzone();mapLoad();
 		std::cout<<"Per-map table exchange, equivalence, bounds and distribution passed\n";
 	} catch(const std::exception &e) {std::cerr<<e.what()<<'\n';return 1;}
 }

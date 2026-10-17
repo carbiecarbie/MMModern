@@ -759,4 +759,14 @@ void XeenWorld::restoreHeads(const std::optional<XeenHeadCache> &heads,const Xee
  XeenMutationWatch::write(this);_sessionState._headCache=heads;
 }
 
+std::uint8_t XeenWorld::tavernTipIndex(XeenMapIdentity id) {
+ const auto *state=_sessionState.mapState(id);
+ return state && state->tavernTips ? std::uint8_t(*state->tavernTips) : std::uint8_t(map(id).geometry.tavernTips);
+}
+void XeenWorld::setTavernTipIndex(XeenMapIdentity id,std::uint8_t index) {
+ static_cast<void>(map(id));
+ XeenMutationWatch::write(this);
+ _sessionState._mapStates.state(id).tavernTips.emplace(index);
+}
+
 } // namespace mmodern

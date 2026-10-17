@@ -33,6 +33,7 @@ add_library(mmodern_xeen STATIC
     src/games/xeen/XeenCombatRandom.cpp
 	src/games/xeen/XeenCombatRules.cpp
 	src/games/xeen/XeenRestRules.cpp
+	src/games/xeen/XeenTerrainRules.cpp
 	src/games/xeen/XeenMonsterTreasure.cpp
 	src/games/xeen/XeenServiceEconomy.cpp
     src/games/xeen/XeenFoodBank.cpp

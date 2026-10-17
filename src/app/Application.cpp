@@ -479,6 +479,7 @@ int Application::gameplay(const std::filesystem::path &gameDirectory, XeenCamera
                 flow.drawGuildArt = [&](IndexedFrame &frame) { assets.drawGuild(frame); };
                 flow.loadSpellDescriptions = [&] { return assets.readArchiveResource("spldesc.bin"); };
                 flow.tavernFoodOffer = [&] { return assets.tavernFoodOffer(); };
+                flow.tavernString = [&](std::size_t index) {return assets.tavernString(index);};
                 flow.drawCombatButtons = [&](IndexedFrame &frame) { CloudsUiComposer().drawCombatButtons(assets,frame); };
                 flow.drawDialogSprite = [&](IndexedFrame &frame,const char *name,unsigned index,int x,int y) { assets.drawDialogSprite(frame,name,index,x,y); };
                 flow.mapName = [&](XeenMapIdentity id) { return assets.mapName(id); };

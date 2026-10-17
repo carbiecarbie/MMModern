@@ -39,8 +39,7 @@ entry. Dialog identifiers below are reference identifiers, not commercial text.
 | ItemsDialog | partial | Categories, Equip, Remove, Discard, transfer, Use, Exit outside combat; Quest, combat equipment/use and Recharge/Enchant/Gold unavailable | XeenInventoryFlow |
 | Input / StringInput / NumericInput | partial | Save names, Bank amounts work; general Event inputs unavailable | XeenTitleFlow / XeenEventFlow |
 | SpellsDialog / CastSpell / SpellOnWho | partial | Select, Buy, Info, rows, scroll, Cast, New, member choice, cancel work; effects limited by Spells dimension | XeenCastingUi |
-| Tavern | partial | Food, Exit work; Drink, Tip, Rumors, Sign In unavailable | XeenEventFlow |
-| Temple | partial | Heal, Exit work for modeled conditions; Donation and Uncurse unavailable | XeenEventFlow |
+| Tavern | partial | Food, Drink, Tip, Rumors, member selection, Exit work; Sign In awaits the inn | XeenEventFlow |
 | LocationMessage / NPC | partial | Acknowledge and Yes/No; other NPC modes unavailable | XeenEventPresenter |
 | PleaseWait | unclassified | Reference helper; no separately identified equivalent screen | — |
 | CreditsScreen | supported | Four original pages, acknowledge | XeenTitleFlow |
@@ -56,6 +55,7 @@ entry. Dialog identifiers below are reference identifiers, not commercial text.
 | NotWhileEngaged | supported | Original combat refusal, acknowledge | XeenCastingUi |
 | WhoWill | supported | Member choice, cancel | XeenEventPresenter |
 | Bank | supported | Deposit, Withdraw, Gold, Gems, amount, Exit | XeenEventFlow |
+| Temple | supported | Heal, Donation, Uncurse, member selection, Exit | XeenSmithFlow |
 | Blacksmith | supported | Browse, Buy, Sell, Identify, Fix, Exit | XeenSmithFlow |
 | Guild | supported | Buy Spells, Spell Info, member selection, Exit; Vertigo catalogue | XeenCastingUi |
 | Training | supported | Train, member, Exit; Vertigo cap | XeenTrainingFlow |

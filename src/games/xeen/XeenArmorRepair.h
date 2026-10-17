@@ -63,6 +63,17 @@ inline XeenArmorRepairCandidate xeenPrepareItemService(XeenInventoryCategory cat
 inline XeenArmorRepairCandidate xeenPrepareArmorRepair(const XeenItem &item,std::uint32_t gold) noexcept {
 	return xeenPrepareItemService(XeenInventoryCategory::Armor,item,gold,XeenItemService::Fix);
 }
+inline std::optional<XeenGameplayContext> xeenPrepareServiceDeparture(
+        const XeenGameplayContext &before,std::uint16_t minutes) {
+    if(!xeenRegionalContext(before))return {};
+    // DOS addTime 0x263b7..263e5 first adds into the minute WORD, then
+    // normalizes unsigned. A large farewell can wrap that sum within this day.
+    auto midnight=before;midnight.minutes=0;
+    const auto sum=static_cast<std::uint16_t>(std::uint32_t(before.minutes)+minutes);
+    auto after=xeenPrepareTime(midnight,sum).context;
+    if(after.minutes>=300)after.newDay=false;
+    return after;
+}
 inline std::optional<XeenGameplayContext> xeenPrepareSmithDeparture(
 		const XeenGameplayContext &before) {
 	if (!xeenRegionalContext(before)) return {};

@@ -42,6 +42,7 @@ Support eventSupport(const XeenEventRecord &, const XeenEventFile &, const XeenW
 std::string eventMechanic(const XeenEventRecord &);
 Support spellSupport(unsigned id);
 Support restSupport(unsigned surface,bool outdoor);
+Support arrivalSupport(unsigned surface,bool outdoor,const XeenCamera &,XeenWorld &);
 Support itemSupport(unsigned category,const XeenItem &,const XeenWorld &,const XeenPartyState &);
 Support equipmentCombatSupport(unsigned,const XeenItem &,const XeenWorld &,const XeenPartyState &);
 void reconcileContexts(Census &,Census &);

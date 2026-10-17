@@ -18,14 +18,24 @@ documented in its source. Each item links to its entry in
 [original quirks](original-quirks.md), with the evidence, dates and offsets.
 
 **Revisions.** MMModern pins ScummVM `6814ee9b` (2026-09-06). Every item was
-rechecked against ScummVM master `55895ab0` on 2026-10-16: since the pin the
+rechecked against ScummVM master `55895ab0` on 2026-10-16, except the new
+terrain/Tavern/Temple entries explicitly marked "pin: differs; master not
+rechecked". At that check, since the pin the
 Xeen engine has had only a code-style edit and the Xeen data in `mm.dat` is
-unchanged apart from its version number, so each item is marked
+unchanged apart from its version number, so the earlier entries are marked
 "master: differs". MMModern currently plays Vertigo and the surrounding
 mainland; many items apply there, others wait for areas not open yet.
 
 ## Combat and conditions
 
+- **Terrain damage starts fresh for each character.** Lava and surface falls
+  use their full starting damage for every party member in DOS. The pin
+  carries earlier members' damage reductions into later members.
+  [Evidence](original-quirks.md#sv-terrain-damage-start). Pin: differs; master not rechecked.
+- **Darkside fall boundaries.** The original uses the direct map-minus-88
+  fall only for maps 89-112 and excludes 130-132 from its special dispatch.
+  MMModern keeps these bounds; Darkside play remains outside the admitted area.
+  [Evidence](original-quirks.md#sv-darkside-fall-bounds). Pin: differs; master not rechecked.
 - **First save against poison and other elements.** The original's first save
   against a monster's non-physical attack (such as the poison of Vertigo's
   Slime and Doom Bug) uses Luck and level; only later saves use the element's
@@ -119,6 +129,15 @@ Most of the scripts concerned are in areas MMModern has not opened yet.
 
 ## Services
 
+- **Tavern tips cycle through the original list.** DOS advances the map's
+  index modulo 15 on Clouds; the pin divides and repeats the early tips.
+  The original also selects the proper tip group for Clouds town 30.
+  [Evidence](original-quirks.md#sv-tavern-tip-cycle). Pin: differs; master not rechecked.
+- **Repeated Temple purchases each add a day.** Two successful Heal/Uncurse
+  actions cost three days on departure in DOS; the pin charges only two.
+  Very large visit totals also keep DOS's word arithmetic and signed stock
+  regeneration test.
+  [Evidence](original-quirks.md#sv-temple-visit-time). Pin: differs; master not rechecked.
 - **Raising the dead.** The original leaves the hit-point part out of the
   Temple's Heal price below zero HP, so raising a dead character usually costs
   10 gold per level less than in ScummVM.
@@ -217,10 +236,10 @@ in [project status](project-status.md#known-gaps):
   the rest of Clouds of Xeen and all of Darkside of Xeen are not.
 - **Sound:** no music, effects or CD speech yet (speech keeps its duration in
   silence); no intros, ending or Mr Wizard's help.
-- **Services and magic:** no Inn or recruiting; some Temple and Tavern options,
+- **Services and magic:** no Inn, recruiting or Tavern Sign In;
   most spells and some item powers say "not supported yet".
-- **Combat and world:** no moving, equipping or Use in combat; no terrain
-  hazards on arrival; passive skills such as Mountaineer have no effect yet.
+- **Combat and world:** no moving, equipping or Use in combat; terrain falls
+  into areas outside the admitted mainland remain unavailable.
 - **Platforms and editions:** MMModern runs on 64-bit Windows with the English
   World of Xeen CD; ScummVM covers many platforms, editions and languages, and
   Swords of Xeen.

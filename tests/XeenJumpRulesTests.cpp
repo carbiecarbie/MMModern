@@ -32,7 +32,7 @@ void rules() {
     check(run().admission==XeenJumpAdmission::Blocked,"zero destination surface blocks");
     for(const auto type:{5,6,10,13,15}) {
         m=outdoor();m.geometry.surfaceTypes[2]=type;xeenGet<XeenOutdoorLayers>(m.geometry.cells[11*16+11].geometry).surface=2;
-        check(run().admission==XeenJumpAdmission::Unsupported,"unimplemented terrain consequence precharge refusal");
+        check(run().admission==(type==15?XeenJumpAdmission::Unsupported:XeenJumpAdmission::Ready),"Hazardous Jump uses shared arrival; ordinary space stays outside admitted footprint");
         xeenGet<XeenOutdoorLayers>(m.geometry.cells[11*16+10].geometry).middle=1;
         check(run().admission==XeenJumpAdmission::Blocked,"original wall failure precedes terrain support");
     }
@@ -49,7 +49,7 @@ void rules() {
         check(cityRun().admission==XeenJumpAdmission::Blocked,"both indoor directional walls block even below walk threshold");
     }
     m=indoor();m.geometry.surfaceTypes[1]=13;m.geometry.cells[8*16+10].surfaceIndex=1;
-    check(cityRun().admission==XeenJumpAdmission::Unsupported,"indoor terrain restriction");
+    check(cityRun().admission==XeenJumpAdmission::Ready,"Indoor cloud Jump reaches shared arrival preflight");
     m=indoor();XeenWorld world([&](auto){return m;});
     check(xeenJumpPreflight(world,{28,0,8,XeenDirection::West}).admission==XeenJumpAdmission::Blocked,"missing indoor ahead blocks original lookup");
     check(world.sessionState().exploredTiles().empty() && world.sessionState().barriers().empty(),"preflight mutated world overlays");

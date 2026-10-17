@@ -42,6 +42,9 @@ public:
 	// Copy an already generated triggering reservation; otherwise start a fresh
 	// private generation from the same live entry preimage.
 	XeenServiceDayCandidate upgradeTemplePaid() const;
+    XeenServiceDayCandidate addTemplePaidDay() const;
+    XeenServiceDayCandidate rebindContext(const XeenGameplayContext &) const;
+    std::uint16_t minutes() const noexcept {return static_cast<std::uint16_t>(charge);}
 	// Bank menus update only balances; keep the reserved stock and RNG. Interest
 	// is resolved once when departure closes the menu to further transactions.
 	XeenServiceDayCandidate rebindBank(const XeenServiceEconomy &) const;

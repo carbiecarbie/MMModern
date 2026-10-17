@@ -18,6 +18,13 @@ bool XeenEventFlow::beginBarrier(bool bash) {
 		work->rule.emplace(*work->world,work->camera,work->characters,work->inputs,work->random.continuation(),work->context,bash);
 	}
 	if(!work->rule->handled)return false;
+	if(bash && work->rule->moved) {
+		auto ending=xeenPrepareTime(work->context,bash?2u:1u);
+		if(ending.dailyProcessing)xeenResetPartyTemps(ending.context);
+		const auto terrain=work->world->prepareTerrainArrival(work->rule->camera,work->characters,ending.context);
+		_encounter->journeySavePreimage().check();
+		if(!terrain) {_encounter->_journeyRefusal=terrain.transition.reason;return false;}
+	}
 	if(bash) {
 		const unsigned charge=work->world->map(_camera.mapId).geometry.isOutdoors()?10:1;
 		static_cast<void>(xeenPrepareTime(work->context,charge));
@@ -97,6 +104,7 @@ bool XeenEventFlow::serviceBarrier() {
 		work.economy=work.time->economy;work.dailyReset=work.dailyReset || work.time->resetTemps;work.needsRest=work.needsRest || work.time->needsRest;work.time.reset();rule.random=work.random;
 	}
 	if(work.secondCharge){rule.characters=work.characters;rule.inputs=work.inputs;}
+
 	{
 		XeenRestoreGuard::Providers providers(*work.guard,*work.world,check);
 		if(rule.opened)work.world->setBarrier(work.camera,rule.targetWall,!work.bash);
@@ -131,6 +139,7 @@ bool XeenEventFlow::serviceBarrier() {
 	_encounter->guardCallback(entry,[&]{now=_clock();});check();
 	if(now>std::numeric_limits<std::uint64_t>::max()-100)throw std::overflow_error("Barrier animation clock exhausted");
 	_encounter->publishBarrier(entry,*work.world,*work.guard,rule,work.context,now,work.dailyReset);
+
 	const bool pause=work.bash && !rule.moved && rule.portraitMask;
 	if(work.needsRest)_encounter->_needsRestNotice=true;
 	work.published=true;work.deadline=pause?PresentationClock::afterMilliseconds(now,2):now;
@@ -138,7 +147,8 @@ bool XeenEventFlow::serviceBarrier() {
 	if(rule.moved)_world.scenePresentation().navigation(NavigationAction::MoveForward,true);
 	if(!pause) {
 		const bool bash=work.bash;_barrier.reset();_encounter->endJourneyEvent();
-		if(bash) {_encounter->journeyPulse(_encounter->ticket());prepareJourneyTransition();}
+		if(bash)_encounter->journeyPulse(_encounter->ticket());
+		prepareJourneyTransition();
 	}
 	return true;
 }
@@ -243,7 +253,7 @@ void XeenEncounterFlow::publishBarrier(const Ticket &entry,XeenWorld &candidate,
 		c.revision=_state.revision();c.pending=2;c.remaining=rule.moved?1:0;c.classify=true;
 		c.result.outcome=XeenEncounterOutcome::Accepted;
 		if(rule.moved) {
-			c.context.ctr24=(c.context.ctr24+1)%24;
+			c.stepTimePending=true;
 			const auto cell=candidate.sampleCell(rule.camera.mapId,rule.camera.x,rule.camera.y);
 			c.result.automaticEvent=cell && (cell->cell->rawAttributes&kXeenAutomaticEventFlag) && xeenRegionalEvent(_events,rule.camera).has_value();
 		}

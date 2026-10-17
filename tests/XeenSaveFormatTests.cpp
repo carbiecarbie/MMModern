@@ -14,6 +14,23 @@ using namespace save_test;
 
 namespace {
 
+void tipCursorWire() {
+ auto s=currentWireSnapshot();
+ s.map(28).tavernTips=0;s.map(49).tavernTips=255;
+ const auto wire=XeenSaveFormat::encode(s);
+ const auto decoded=XeenSaveFormat::decode(wire);sameSnapshot(s,decoded);
+ check(decoded.map(28).tavernTips==0 && decoded.map(49).tavernTips==255 &&
+  !decoded.map(23).tavernTips && XeenSaveFormat::encode(decoded)==wire,
+  "v14 preserves absent, zero and full-byte tip cursors by map identity");
+ // Final map: identity 3, absent monsters 1, four counts 8, explored 1,
+ // tip presence 1 and value 1; followed by head/name presence bytes.
+ const auto last=wire.size()-2-15;
+ check(wire.at(last+1)==49 && wire.at(last+13)==1 && wire.at(last+14)==255,
+  "Literal v14 tip cursor extent");
+ auto corrupt=wire;corrupt[last+13]=2;fixIndependentEnvelope(corrupt);
+ rejects([&]{XeenSaveFormat::decode(corrupt);});
+}
+
 void roundTrip(const XeenSaveSnapshot &s) {
 	const auto bytes = XeenSaveFormat::encode(s);
 	const auto decoded = XeenSaveFormat::decode(bytes);
@@ -48,12 +65,12 @@ void worldEffectsWire() {
  // count 2 and map 23's entry: identity 3, monster flag 1, counts 4, 19 slots
  // of 7, two objects of 5 after their count 2, then wall-item, cell and Event
  // counts 2 each and the explored flag 1; before it, 30 tagged award arrays.
- const std::size_t entry=3+1+4+19*7+2+2*5+2+2+2+1;
+ const std::size_t entry=3+1+4+19*7+2+2*5+2+2+2+1+1;
  const auto tail=wire.size()-(3871+2+entry+1+1);
  const auto objects=tail+3871+2+3+1+4+19*7;
  check(wire.at(tail)==30 && wire.at(tail+1)==0 && wire.at(tail+3871)==1 && wire.at(tail+3871+2+1)==23 &&
   wire.at(objects)==2 && wire.at(objects+2)==0 && wire.at(objects+4)==0x80 && wire.at(objects+5)==0xff && wire.at(objects+6)==1,
-  "Literal v13 owner extent and map 23 object overrides (record, x -128, y -1, flip)");
+  "Literal v14 owner extent and map 23 object overrides (record, x -128, y -1, flip)");
  for(auto offset:{tail,tail+1,objects+6}) {
   auto bad=wire;bad[offset]=255;fixIndependentEnvelope(bad);rejects([&]{XeenSaveFormat::decode(bad);});
  }
@@ -89,9 +106,9 @@ void skillExplorationWire() {
  // From the end: absent name 1 and head cache 1, then map 28's entry (side,
  // number, no monsters, four empty override counts, explored flag and 32
  // bits); map 23's explored bits end just before it.
- auto wire=XeenSaveFormat::encode(s);const auto at=wire.size()-(1+1+3+1+8+1+32);
+ auto wire=XeenSaveFormat::encode(s);const auto at=wire.size()-(1+1+3+1+8+1+32+1);
  check(wire[at]==0 && wire[at+1]==28 && wire[at+2]==0 && wire[at+3]==0 && wire[at+12]==1 && wire[at+13+31]==128 &&
-  wire[at-33]==1 && wire[at-32]==1,"literal physical explored tile wire layout");
+  wire[at-34]==1 && wire[at-33]==1,"literal physical explored tile wire layout");
  for(unsigned field:{0u,2u,3u,12u}) {
   auto corrupt=wire;corrupt[at+field]=255;fixIndependentEnvelope(corrupt);rejects([&]{XeenSaveFormat::decode(corrupt);});
  }
@@ -168,11 +185,11 @@ void wireContract() {
 	s.resources.clouds = {0x0807060504030201ULL, 0x0c0b0a09U};
 	s.camera = {23, 0, 15, XeenDirection::West};
 	const auto expected = legacyGolden();
-	// The party prefix ends with the game flags at 7319; the v13 Journey
+	// The party prefix ends with the game flags at 7319; the v14 Journey
 	// block follows directly (no top-level overlay lists).
 	Bytes v2(7319, 0);
 	std::copy_n(expected.begin(), 53, v2.begin());
-	v2[8] = 13;
+	v2[8] = 14;
 	for (unsigned i = 0; i < 30; ++i) {v2[53 + 228 * i] = i;v2[53+228*i+227]=255;}
 	const auto current=XeenSaveFormat::encode(s);
 	check(current[7319]==3,"Journey domain byte follows the game flags");
@@ -197,7 +214,7 @@ void wireContract() {
 void asymmetricBase() {
 	// Independent offsets: three members, 14 name bytes, 228 fixed bytes/character.
 	Bytes bytes(7319 + 3 + 14, 0);
-	const Bytes prefix{'M','M','M','S','A','V','E',0,13,0,0,0};
+	const Bytes prefix{'M','M','M','S','A','V','E',0,14,0,0,0};
 	std::copy(prefix.begin(), prefix.end(), bytes.begin());
 	bytes[20] = 99; bytes[28] = 88; bytes[46] = 23;
 	bytes[51] = 3; bytes[52] = 18; bytes[53] = 0; bytes[54] = 18; bytes[55] = 30;
@@ -330,7 +347,7 @@ void malformedBytes() {
 	}
 	auto bad = good;
 	bad[0] ^= 1; rejects([&] { XeenSaveFormat::decode(bad); }, "unrecognized format");
-	bad = good; bad[8] = 14; rejects([&] { XeenSaveFormat::decode(bad); }, "newer or unsupported");
+	bad = good; bad[8] = 15; rejects([&] { XeenSaveFormat::decode(bad); }, "newer or unsupported");
 	bad = good; bad[8] = 3; rejects([&] { XeenSaveFormat::decode(bad); }); // v1 payload is not v3.
 	bad = good; bad[8] = 2; rejects([&] { XeenSaveFormat::decode(bad); }); // v1 payload is not v2.
 	bad = good; bad[8] = 0; rejects([&] { XeenSaveFormat::decode(bad); }, "newer or unsupported");
@@ -343,7 +360,7 @@ void malformedBytes() {
 	// The golden table: count 2 and map 23's entry (identity 3, monster flag 1,
 	// counts 4, 19 slots of 7, four empty override counts and the explored
 	// flag), then the head-cache flag and the name length.
-	const auto table = good.size() - (2 + 3 + 1 + 4 + 19 * 7 + 4 * 2 + 1) - 1 - 1;
+	const auto table = good.size() - (2 + 3 + 1 + 4 + 19 * 7 + 4 * 2 + 1 + 1) - 1 - 1;
 	rejects([&] { XeenSaveFormat::decode(Bytes(XeenSaveFormat::kMaximumSize + 1)); }, "oversized");
 	for (const auto offset : {32U, 112U, 7033U, 7063U}) {
 		bad = good; bad[offset] = 2; fixEnvelope(bad);
@@ -370,10 +387,10 @@ void malformedBytes() {
 	// (one removed object, 18 bytes), 2 (a removed object and an Event, 21),
 	// 3 (an Event, 16), 23 (19 monsters, 150) and 9999 (21). A duplicate or
 	// descending identity is rejected.
-	const auto second = XeenSaveFormat::encode(s).size() - 1 - 1 - (18 + 21 + 16 + 150 + 21) + 18;
-	for (const auto entry : {second, second + 21}) { // Map 2 duplicates map 1; map 3 descends to 1.
+	const auto second = XeenSaveFormat::encode(s).size() - 1 - 1 - (19 + 22 + 17 + 151 + 22) + 19;
+	for (const auto entry : {second, second + 22}) { // Map 2 duplicates map 1; map 3 descends to 1.
 		bad = XeenSaveFormat::encode(s);
-		check(bad[second] == 0 && bad[second + 1] == 2 && bad[second + 21 + 1] == 3, "literal map identities");
+		check(bad[second] == 0 && bad[second + 1] == 2 && bad[second + 22 + 1] == 3, "literal map identities");
 		bad[entry + 1] = 1;
 		fixEnvelope(bad); rejects([&] { XeenSaveFormat::decode(bad); }, "ordered");
 	}
@@ -462,16 +479,16 @@ void fingerprints() {
 // Synthetic wire-only owners: no original resources or gameplay injection.
 
 // Bytes of the minimal Journey suffix of currentWireSnapshot(), from the domain
-// byte to the end: the fixed v13 Journey block (6 domain/schema/content/context
+// byte to the end: the fixed v14 Journey block (6 domain/schema/content/context
 // marker, 36 context and food, 1230 supplements, 13 RNG, 331 resistances, 20
 // treasure counts, 128 world flags, 1201 learned spells, 91 poison, 1164
-// economy, 3871 awards), the per-map table (count 2 and map 23's 150-byte
+// economy, 3871 awards), the per-map table (count 2 and map 23's 151-byte
 // entry with 19 slots), the head-cache flag and the name length.
-constexpr std::size_t kMinimalSuffix = 8091 + 2 + 150 + 1 + 1;
+constexpr std::size_t kMinimalSuffix = 8091 + 2 + 151 + 1 + 1;
 // The economy block (shape 4, wares 1152, bank 8) to the end of the minimal save.
-constexpr std::size_t kMinimalEconomyTail = 1164 + 3871 + 2 + 150 + 1 + 1;
-// A map entry is 13 bytes without a monster table; a table adds 4 + 7 per slot.
-constexpr std::size_t mapEntryBytes(std::size_t monsters) { return 13 + 4 + 7 * monsters; }
+constexpr std::size_t kMinimalEconomyTail = 1164 + 3871 + 2 + 151 + 1 + 1;
+// A map entry is 14 bytes without a monster table; a table adds 4 + 7 per slot.
+constexpr std::size_t mapEntryBytes(std::size_t monsters) { return 14 + 4 + 7 * monsters; }
 
 XeenSaveMonsterTable cityTable(unsigned count) {
 	auto table = monsterTable(count);table.originalCount = 46;
@@ -480,12 +497,12 @@ XeenSaveMonsterTable cityTable(unsigned count) {
 }
 
 void rejectedVersions() {
- // v12 and every earlier envelope are recognizable older formats: no legacy
+ // v13 and every earlier envelope are recognizable older formats: no legacy
  // reader, the existing clear rejection.
- for(unsigned version:{0u,1u,2u,3u,4u,5u,6u,7u,8u,9u,10u,11u,12u,14u,65535u}) {
+ for(unsigned version:{0u,1u,2u,3u,4u,5u,6u,7u,8u,9u,10u,11u,12u,13u,15u,65535u}) {
   auto bytes=golden();bytes[8]=version;bytes[9]=version>>8;
   // Only recognizable earlier envelopes are "older"; others may be newer builds.
-  rejects([&]{XeenSaveFormat::decode(bytes);},version>=1 && version<=12?"no longer supported":"newer or unsupported");
+  rejects([&]{XeenSaveFormat::decode(bytes);},version>=1 && version<=13?"no longer supported":"newer or unsupported");
  }
  {
   auto v12=golden();v12[8]=12;fixIndependentEnvelope(v12);
@@ -495,7 +512,7 @@ void rejectedVersions() {
  rejects([&]{XeenSaveFormat::decode(legacyGolden());},"no longer supported");
  rejects([&]{XeenSaveFormat::encode(XeenSaveSnapshot{});},"no longer supported");
  const auto good=currentWireSnapshot();const auto wire=XeenSaveFormat::encode(good);const auto start=wire.size()-kMinimalSuffix;
- check(wire[start]==3,"literal minimal v13 Journey suffix");
+ check(wire[start]==3,"literal minimal v14 Journey suffix");
  for(unsigned schema=0;schema<=11;++schema)for(unsigned content=0;content<=15;++content) {
   if(schema==9 && content==14)continue;
   auto s=good;s.journey->schema=schema;s.journey->content=content;
@@ -550,7 +567,7 @@ void mainlandTopologyCounts() {
 void serviceEconomyWireContract() {
 	// M71 mutations: reject old charges 1/2, truncate new 9/10, regenerate
 	// restored stock, replay pending rewards, or move the saved RNG cursor.
-	// Both legacy and corrected records use the same v13/schema9/content14 wire.
+	// Both legacy and corrected records use the same v14/schema9/content14 wire.
 	for(unsigned charges:{1u,2u,9u,10u})for(bool pending:{false,true}) {
 		auto state=currentWireSnapshot();
 		state.journey->serviceEconomy->wares[0][0][3][0]={1,1,std::uint8_t(charges),0};
@@ -561,11 +578,11 @@ void serviceEconomyWireContract() {
 		if(pending) {loot.pendingMask=1;loot.pendingGold=10;}
 		roundTrip(state);
 		const auto wire=XeenSaveFormat::encode(state);
-		// Literal v13 positions: stock's first Misc state and treasure's sole
+		// Literal v14 positions: stock's first Misc state and treasure's sole
 		// Misc state after its five-byte source identity and category counts.
 		const auto stockCharge=wire.size()-kMinimalEconomyTail+4+3*9*4+2;
 		const auto lootCharge=journeyOffset(state)+6+36+1230+13+331+16+1+5+2+1+3;
-		check(wire.at(stockCharge)==charges && wire.at(lootCharge)==charges,"v13 charge wire positions differ");
+		check(wire.at(stockCharge)==charges && wire.at(lootCharge)==charges,"v14 charge wire positions differ");
 		for(unsigned invalid:{0u,11u,64u,128u,255u}) {
 			auto bad=state;bad.journey->serviceEconomy->wares[0][0][3][0].state=invalid;
 			rejects([&]{XeenSaveFormat::encode(bad);});
@@ -584,7 +601,7 @@ void serviceEconomyWireContract() {
 		s.journey->supplements[owner].inputs.poisonResistance=XeenAttributeValue{int(owner),int(255-owner)};
 	}
 	const auto bytes=XeenSaveFormat::encode(s);const auto start=bytes.size()-kMinimalSuffix;
-	check(bytes[8]==13 && bytes[start+1]==9 && bytes[start+3]==content,"exact v13/schema9/content selectors");
+	check(bytes[8]==14 && bytes[start+1]==9 && bytes[start+3]==content,"exact v14/schema9/content selectors");
 	auto expected=bytes;expected.resize(expected.size()-kMinimalEconomyTail);
 	expected.insert(expected.end(),{2,4,4,9});
 	// Literal wire recipe is independent of the production encoder and validator.
@@ -601,12 +618,12 @@ void serviceEconomyWireContract() {
 	expected.insert(expected.end(),{0x98,0xba,0xdc,0xfe,0xff,0xff,0xff,0xff});
 	expected.push_back(30);
 	for(unsigned owner=0;owner<30;++owner) {expected.push_back(owner);expected.insert(expected.end(),128,0);}
-	// v13 per-map table: one entry, map 23 (Clouds side 0), with its monster
+	// v14 per-map table: one entry, map 23 (Clouds side 0), with its monster
 	// table of 19 MOB-bound slots (x 0, y 0, Present 0, Physical 0, not
 	// accounted, type -1) and no overrides or explored bits.
 	expected.insert(expected.end(),{1,0, 0,23,0, 1, 19,0, 19,0});
 	for(unsigned slot=0;slot<19;++slot)expected.insert(expected.end(),{0,0,0,0,0,0xff,0xff});
-	expected.insert(expected.end(),{0,0, 0,0, 0,0, 0,0, 0});
+	expected.insert(expected.end(),{0,0, 0,0, 0,0, 0,0, 0, 0});
 	expected.push_back(0); // v11 absent head cache.
 	expected.push_back(0); // v7 absent-name metadata ends the payload.
 	fixIndependentEnvelope(expected);
@@ -657,7 +674,7 @@ void serviceEconomyWireContract() {
 		}
 		const auto wire=XeenSaveFormat::encode(state);
 		// Each pending source adds its five-byte identity and its five-byte item.
-		check(wire.size()==start+kMinimalSuffix+(cityCount?mapEntryBytes(cityCount):0)+10*pending+(cityCount==52?3:0),"v13 exact city/pending suffix extent");
+		check(wire.size()==start+kMinimalSuffix+(cityCount?mapEntryBytes(cityCount):0)+10*pending+(cityCount==52?3:0),"v14 exact city/pending suffix extent");
 		sameSnapshot(state,XeenSaveFormat::decode(wire));
 	}
 	for(unsigned day=8;day<=99;++day) {
@@ -675,7 +692,7 @@ void purchaseDepletedWireContract() {
 	// The city entry follows map 23's at the end of the payload.
 	const auto economyOffset=complete.size()-(kMinimalEconomyTail+mapEntryBytes(46));
 	const auto start=complete.size()-(kMinimalSuffix+mapEntryBytes(46));
-	check(complete[8]==13 && complete[start+1]==9 && complete[start+3]==14,"purchase selector/extent differs");
+	check(complete[8]==14 && complete[start+1]==9 && complete[start+3]==14,"purchase selector/extent differs");
 	// Literal eight L1 Weapon source from twenty Weapon calls. Removing one
 	// inserted plain record leaves seven; old generated-only meaning rejects it.
 	state.journey->serviceEconomy->wares[0][0][0][7]={};
@@ -728,7 +745,7 @@ void templeWireContract() {
 	}
 }
 
-// Every v13 per-map record kind, written byte by byte independently of the
+// Every v14 per-map record kind, written byte by byte independently of the
 // encoder. Map 28 holds a monster table with a MOB record and a script slot,
 // a moved and a removed object, a wall item, a cell, a MakeNothingHere and a
 // replaced Event record and explored bits; map 109 (a neighbour tile) holds a
@@ -751,7 +768,7 @@ void perMapWire() {
 	Bytes table{3,0}; // Three entries: 23, 28 and 109.
 	table.insert(table.end(),{0,23,0, 1, 19,0, 19,0});
 	for(unsigned slot=0;slot<19;++slot)table.insert(table.end(),{0,0,0,0,0,0xff,0xff});
-	table.insert(table.end(),{0,0, 0,0, 0,0, 0,0, 0});
+	table.insert(table.end(),{0,0, 0,0, 0,0, 0,0, 0, 0});
 	table.insert(table.end(),{0,28,0, 1, 1,0, 2,0});              // Identity, table present, original count 1 of 2.
 	table.insert(table.end(),{3,0x80, 1, 0, 0, 0xff,0xff});       // Record 0: x 3, y -128, Disabled, Physical, MOB-bound.
 	table.insert(table.end(),{31,30, 0, 0, 0, 0,0});              // Slot 1: (31,30), Present, spawned MON type 0.
@@ -760,11 +777,13 @@ void perMapWire() {
 	table.insert(table.end(),{1,0, 255, 0x99,0x19, 0x80, 0x99,0x99, 0x00}); // Cell 255: word/attributes, then preimage.
 	table.insert(table.end(),{2,0, 0,0,0, 0xfc,0x02,0x2a});       // Events: #0 opcode 0; #764 opcode 0x2a.
 	table.push_back(1);table.push_back(0x81);table.insert(table.end(),30,0);table.push_back(0x7f);
+	table.push_back(0); // Absent tip cursor.
 	table.insert(table.end(),{0,109,0, 0, 0,0, 0,0, 1,0, 0, 0x93,0x99, 0x08, 0x99,0x99, 0x08, 0,0, 1});
 	for(unsigned byte=0;byte<32;++byte)table.push_back(byte==5?4:0);
+	table.push_back(0); // Absent tip cursor.
 	table.insert(table.end(),{0,0}); // Absent head cache and name.
 	check(wire.size()>table.size() && std::equal(table.begin(),table.end(),wire.end()-table.size()),
-		"literal v13 per-map table: identity order and every record kind");
+		"literal v14 per-map table: identity order and every record kind");
 	const auto at=wire.size()-table.size();
 	const auto city0=at+2+mapEntryBytes(19);
 	// Each corrupted field is rejected. Offsets within map 28's entry: identity
@@ -808,6 +827,7 @@ int main() {
 		run("purchaseDepletedWireContract",purchaseDepletedWireContract);
 		run("templeWireContract",templeWireContract);
 		run("perMapWire",perMapWire);
+		run("tipCursorWire",tipCursorWire);
 
 		std::cout << "Current save format: wire content, all modeled values, domains, malformed input and fingerprints passed\n";
 		return 0;

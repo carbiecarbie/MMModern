@@ -16,6 +16,7 @@ struct Visit : Fixture {
         flow->drawTavernArt = [&inputs](auto &image) { inputs.assets.drawTavern(image); };
         flow->drawBankArt = [&inputs](auto &image) { inputs.assets.drawBank(image); };
         flow->tavernFoodOffer = [&inputs] { return inputs.assets.tavernFoodOffer(); };
+        flow->tavernString = [&inputs](std::size_t index) { return inputs.assets.tavernString(index); };
         flow->loadRestDream = [&inputs] { return inputs.assets.restDreamImage(); };
     }
     auto dialog() { return flow->inputContext(flow->frame().presentation()).dialog; }
@@ -118,7 +119,7 @@ void tavern(Inputs &in) {
             }
         };
         v.open();check(handoffs==1,"Tavern prelude/handoff repeated");
-        for(unsigned command:{'d','t','r','s'}) {
+        for(unsigned command:{'s'}) {
             XeenRestoreGuard owners(v.w,v.p,v.c,v.f);v.choose(command,mouse);
             check(v.dialog() && v.dialog()->anyKey,"Deferred Tavern command has no notice");v.dismiss();owners.check();
         }
@@ -142,6 +143,58 @@ void tavern(Inputs &in) {
     Visit key(in,s),mouse(in,s);key.open();mouse.open();
     check(key.flow->frame().pixels==mouse.flow->frame().pixels,"Original Tavern lobby pixels differ");
     key.food(true);mouse.food(true,true);key.leave();mouse.leave();save_test::sameSnapshot(key.snapshot(),mouse.snapshot());
+}
+void tavernOptions(Inputs &in) {
+    stage="Original Tavern Drink, Tip, Rumors and exact saved cursor";
+    for(bool mouse:{false,true}) {
+        auto s=source(in,3);s.journey->treasure->gold=100;
+        s.journey->random=XeenJourneyRandomState{1,1,0};
+        const auto owner=s.activeRosterIds[0];s.characters[owner].conditions[7]=0;
+        Visit v(in,s);v.open();
+        const auto initialTip=v.w.tavernTipIndex(28);
+        const auto before=*v.w.sessionState().journeyRandom();
+        XeenCombatRandom expected(before);std::optional<std::uint32_t> roll;
+        do {roll=expected.draw(1,100);} while(!roll);
+        v.choose('d',mouse);
+        check(v.p.monsterTreasure->gold==99 && *v.w.sessionState().journeyRandom()==expected.continuation() &&
+            v.p.roster.at(owner).conditions[7]==(*roll<26?1u:0u),
+            "Drink payment, single original draw or Drunk increment differs");
+        check(*roll>=26,"Tavern fixture seed must leave its member sober");
+        v.dismiss();const auto beforeTip=*v.w.sessionState().journeyRandom();
+        v.choose('t',mouse);
+        check(v.p.monsterTreasure->gold==98 && v.w.tavernTipIndex(28)==std::uint8_t(std::uint8_t(initialTip+1)%15) &&
+            *v.w.sessionState().journeyRandom()==beforeTip,"Tip did not retain DOS modulo cursor without a draw");
+        v.dismiss();v.choose('t',mouse);v.dismiss();
+        check(v.p.monsterTreasure->gold==98 && *v.w.sessionState().journeyRandom()==beforeTip,
+            "Tip without another Drink charged or drew");
+        v.choose('r',mouse);const auto rumor=v.flow->frame().pixels;v.dismiss();
+        v.choose('r',mouse);check(rumor==v.flow->frame().pixels,"same-day Rumors changed text");v.dismiss();
+        check(v.p.monsterTreasure->gold==98 && *v.w.sessionState().journeyRandom()==beforeTip,"Rumors paid or drew");
+        v.leave();const auto saved=v.snapshot();const auto bytes=XeenSaveFormat::encode(saved);
+        Visit restored(in,XeenSaveFormat::decode(bytes));
+        check(bytes==XeenSaveFormat::encode(restored.snapshot()) && restored.w.tavernTipIndex(28)==v.w.tavernTipIndex(28),
+            "Tavern v14 restore replayed a payment, tip, time or draw");
+    }
+    auto s=source(in,3);s.journey->treasure->gold=10;
+    const auto owner=s.activeRosterIds[0];s.characters[owner].conditions[7]=1;
+    Visit drunk(in,s);drunk.open();const auto tip=drunk.w.tavernTipIndex(28);
+    drunk.choose('d');drunk.dismiss();const auto random=*drunk.w.sessionState().journeyRandom();
+    drunk.choose('t');drunk.dismiss();drunk.choose('t');drunk.dismiss();
+    check(drunk.p.monsterTreasure->gold==9 && drunk.w.tavernTipIndex(28)==tip &&
+        *drunk.w.sessionState().journeyRandom()==random,"Drunk Tip charged, advanced or drew");
+    drunk.leave();
+    auto unable=source(in,3);unable.journey->treasure->gold=10;
+    unable.characters[unable.activeRosterIds[0]].conditions[13]=1;
+    unable.characters[unable.activeRosterIds[0]].currentHp=0;
+    Visit disabled(in,unable);disabled.open();
+    const auto untouched=*disabled.w.sessionState().journeyRandom();
+    for(const auto action:{'d','t'}) {
+        disabled.choose(action);
+        check(disabled.dialog() && disabled.dialog()->anyKey && disabled.p.monsterTreasure->gold==10 &&
+            *disabled.w.sessionState().journeyRandom()==untouched,"disabled Tavern member needs a notice without payment or draw");
+        disabled.dismiss();
+    }
+    disabled.leave();
 }
 void bank(Inputs &in) {
     stage="Original Bank transactions and amount input";
@@ -383,7 +436,7 @@ void originalJourney(Inputs &in) {
     Visit restored(in,XeenSaveFormat::decode(bytes));save_test::sameSnapshot(saved,restored.snapshot());
     check(bytes==XeenSaveFormat::encode(restored.snapshot()) && v.f.isSet(231),
         "Food/balances/flags/time/RNG did not restore byte-exactly");
-    check(XeenSaveFormat::kJourneyVersion==13 && XeenSaveFormat::kJourneySchema==9 && XeenSaveFormat::kJourneyContent==14,
+    check(XeenSaveFormat::kJourneyVersion==14 && XeenSaveFormat::kJourneySchema==9 && XeenSaveFormat::kJourneyContent==14,
         "Food/Bank did not retain the current save format");
 }
 }
@@ -391,7 +444,7 @@ int main(int argc,char **argv) {
     try {
         check(argc==2,"usage: food-bank-flow <original-installation>");
         const auto installation=xeenTestInstallationDetector().detect(argv[1]);check(bool(installation),"Original installation unavailable");
-        Inputs inputs(*installation);tavern(inputs);bank(inputs);departure(inputs);transactionFaults(inputs);genericPrelude(inputs);directionPrelude(inputs);originalJourney(inputs);stage="Application Food/Bank save exclusion";foodBankSaveChecks(*installation);
+        Inputs inputs(*installation);tavern(inputs);tavernOptions(inputs);bank(inputs);departure(inputs);transactionFaults(inputs);genericPrelude(inputs);directionPrelude(inputs);originalJourney(inputs);stage="Application Food/Bank save exclusion";foodBankSaveChecks(*installation);
         std::cout<<"Food/Bank original UI, prelude, transactions, settlement, saving and New Game route passed\n";return 0;
     } catch(const std::exception &error) {std::cerr<<stage<<": "<<error.what()<<'\n';return 1;}
 }

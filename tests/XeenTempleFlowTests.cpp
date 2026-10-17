@@ -99,7 +99,8 @@ void revisionLimits(Inputs &in) {
         if(XeenTrainingTestAccess::templeLobby(*fixture.flow))fixture.leave();
         else fixture.act(AcknowledgeAction{});
         fixture.finishDeparture();
-        check(fixture.flow->canSave() && fixture.p.encounterContext->day==(room==1 && !alreadyPaid?9:10),
+        const unsigned paidActions=unsigned(alreadyPaid)+unsigned(room!=1);
+        check(fixture.flow->canSave() && fixture.p.encounterContext->day==9+paidActions,
             "Temple UI revision exhaustion lost mandatory departure");
     }
     // Independently exercise the final check while a detached Heal is pending.
@@ -173,6 +174,62 @@ void refusedResult(Inputs &in,bool exhaustedRandom) {
         fixture.p.encounterContext->day==(exhaustedRandom?9:99),
         "Temple refusal lost the unchanged recipient/purse or mandatory one-day exit");
 }
+void templeOptions(Inputs &in) {
+    auto source=in.service(8);source.camera={28,15,28,XeenDirection::North};
+    source.journey->treasure->gold=1000;
+    TempleFixture donation(in,source);donation.enter();
+    const auto cursor=*donation.w.sessionState().journeyRandom();
+    const auto acknowledge=[&](TempleFixture &v) {
+        const auto dialog=v.flow->inputContext(v.flow->frame().presentation()).dialog;
+        if(dialog && dialog->anyKey)v.act(AcknowledgeAction{});
+    };
+    for(unsigned n=0;n<7;++n){donation.act(DialogKeyAction{'d'});acknowledge(donation);}
+    check(donation.p.monsterTreasure->gold==930 && donation.p.encounterContext->effects[6]==0,
+        "Donation blessed before day-modulo counter matched");
+    donation.act(DialogKeyAction{'d'});acknowledge(donation);
+    check(donation.p.monsterTreasure->gold==920 && donation.p.encounterContext->effects[6]==8 &&
+        donation.p.encounterContext->lightAndResistances[0]==1 &&
+        *donation.w.sessionState().journeyRandom()==cursor,"Donation price, blessing, light or draw differs");
+    donation.act(SelectMemberAction{1});donation.act(DialogKeyAction{'d'});acknowledge(donation);
+    check(donation.p.monsterTreasure->gold==920,"blessed visit charged again after member selection");
+    donation.leave();check(donation.p.encounterContext->day==9,"Donation added a paid farewell day");
+    const auto saved=donation.snapshot();TempleFixture restored(in,saved);
+    check(XeenSaveFormat::encode(saved)==XeenSaveFormat::encode(restored.snapshot()),
+        "Donation v14 restore replayed effect, time, debit or RNG");
+    restored.enter();restored.act(DialogKeyAction{'d'});acknowledge(restored);
+    check(restored.p.monsterTreasure->gold==910,"new visit inherited the free Donation latch");
+    restored.leave();
+
+    TempleFixture selected(in,source);selected.enter();
+    for(unsigned n=0;n<3;++n){selected.act(DialogKeyAction{'d'});acknowledge(selected);}
+    selected.act(SelectMemberAction{0});
+    for(unsigned n=0;n<7;++n){selected.act(DialogKeyAction{'d'});acknowledge(selected);}
+    check(selected.p.encounterContext->effects[6]==0,"same-member F-key did not reset Donation counter");
+    selected.act(DialogKeyAction{'d'});acknowledge(selected);
+    check(selected.p.encounterContext->effects[6]==8 && selected.p.monsterTreasure->gold==890,
+        "Donation counter did not restart after same-member selection");
+    selected.leave();
+
+    const auto owner=source.activeRosterIds[0];auto &c=source.characters[owner];
+    c.permanentLevel=3;c.temporaryLevel=2;c.conditions[0]=1;
+    const auto second=source.activeRosterIds[1];source.characters[second].conditions[0]=1;
+    source.characters[second].permanentLevel=3;source.characters[second].temporaryLevel=0;
+    check(c.weapons[0].id!=0,"original selected member has no weapon for Uncurse witness");
+    c.weapons[0].state=std::uint8_t(c.weapons[0].state)|0xc0;
+    auto expected=c;expected.conditions[0]=0;expected.weapons[0].state=std::uint8_t(expected.weapons[0].state)&0xbf;
+    TempleFixture uncurse(in,source);uncurse.enter();
+    const auto before=*uncurse.w.sessionState().journeyRandom();
+    uncurse.act(DialogKeyAction{'u'});acknowledge(uncurse);
+    check(uncurse.p.monsterTreasure->gold==900 && xeen_state::sameCharacter(expected,uncurse.p.roster.at(owner)) &&
+        *uncurse.w.sessionState().journeyRandom()==before,"Uncurse changed item bytes, charged incorrectly or drew");
+    uncurse.act(SelectMemberAction{1});uncurse.act(DialogKeyAction{'u'});acknowledge(uncurse);
+    check(uncurse.p.monsterTreasure->gold==840 && !uncurse.p.roster.at(second).conditions[0],
+        "second paid Uncurse failed");
+    uncurse.leave();check(uncurse.p.encounterContext->day==11,"two paid Uncurses did not cost three farewell days");
+    const auto final=uncurse.snapshot();TempleFixture loaded(in,final);
+    check(XeenSaveFormat::encode(final)==XeenSaveFormat::encode(loaded.snapshot()),
+        "Uncurse v14 restore replayed removal, time, debit or RNG");
+}
 }
 int main(int argc,char **argv) {
     try {
@@ -189,7 +246,7 @@ int main(int argc,char **argv) {
             else throw std::invalid_argument("Unknown Temple regression");
             return 0;
         }
-        departureRetries(in);revisionLimits(in);quotePreview(in);
+        departureRetries(in);revisionLimits(in);quotePreview(in);templeOptions(in);
         refusedResult(in,false);refusedResult(in,true);
         auto source=injured(in);
         TempleFixture f(in,source);
@@ -213,8 +270,8 @@ int main(int argc,char **argv) {
         check(xeenQuoteTempleHeal(f.p.roster.at(6),f.p.monsterTreasure->gold,*f.p.encounterContext,XeenMapIdentity(28)).outcome==
             XeenTempleHealOutcome::NoCharge,"healthy recipient gained an extra paid quote");
         f.leave();
-        check(f.p.encounterContext->day==10 && f.p.monsterTreasure->gold==370,
-            "paid Temple visit did not make one two-day departure");
+        check(f.p.encounterContext->day==11 && f.p.monsterTreasure->gold==370,
+            "two paid Temple actions did not make one three-day departure");
         const auto saved=f.snapshot();TempleFixture restored(in,saved);sameSnapshot(saved,restored.snapshot());
         {
             auto noPay=injured(in);TempleFixture refused(in,noPay);
@@ -343,7 +400,7 @@ int main(int argc,char **argv) {
             check(fixture.p.encounterContext->day==10,
                 "Temple cosmetic handoff changed paid departure");
         }
-        std::cout<<"Synthetic Temple recovery, one/two-day departure and exact restore passed\n";
+        std::cout<<"Temple recovery, cumulative paid departure, services and exact restore passed\n";
         return 0;
     } catch(const std::exception &error){std::cerr<<error.what()<<'\n';return 1;}
 }

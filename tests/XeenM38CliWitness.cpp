@@ -220,22 +220,37 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
   };
   const auto inspect=[&](std::function<void()> f){steps.push_back([f]{f();return true;});};
   const auto beginSmith=[&] {smithDraws.clear();smithDrawTimes.clear();observeSmith=true;};
-  // These visits depart before day 11, so the only original shared-generator
-  // calls are Smith's 5..7 speaking choices. Replay all raw values/cursors,
-  // including rejection, from the saved preimage; any other request is a fault.
+  // Replay every speaking request and the complete day-11 stock schedule,
+  // including raw rejection/cursors. The midnight detour ends its second visit
+  // on day 11; ordinary visits end on days 9/10 and retain their stock and bank.
   const auto finishSmith=[&](XeenSaveSnapshot &expected) {
    observeSmith=false;const auto before=*expected.journey->random;
    m42_test::StockOracle oracle{before.state,before.count,{}};std::size_t offset=0,row=0;
-   while(smithDraws.compare(offset,9,"DRAW 5:7:")==0) {
-    const auto previous=oracle.trace.size();oracle.draw(5,7);
+   const auto consume=[&](std::size_t previous,bool speaking) {
     const auto line=oracle.trace.substr(previous);
     check(smithDraws.compare(offset,line.size(),line)==0,"M38 Smith random request/value/cursor differs");
     for(char c:line)if(c=='\n') {
      check(row<smithDrawTimes.size(),"M38 Smith random observation incomplete");
-     check(smithDrawTimes[row].now<smithDrawTimes[row].sampleEnd,"M38 Smith speaking RNG outside sample interval");++row;
+     if(speaking)check(smithDrawTimes[row].now<smithDrawTimes[row].sampleEnd,"M38 Smith speaking RNG outside sample interval");
+     ++row;
     }
     offset+=line.size();
+   };
+   const auto speech=[&] {
+    while(smithDraws.compare(offset,9,"DRAW 5:7:")==0) {
+     const auto previous=oracle.trace.size();oracle.draw(5,7);consume(previous,true);
+    }
+   };
+   speech();
+   // All these scripts charge exactly one day. An ending day congruent to 1
+   // modulo 10 generates every shop, then credits each bank balance its floor 1%.
+   if(expected.journey->context->day%10==1) {
+    const auto previous=oracle.trace.size();const auto generated=oracle.generate();consume(previous,false);
+    auto &economy=*expected.journey->serviceEconomy;economy.wares=generated.wares;
+    economy.bank.gold=static_cast<std::uint32_t>(std::uint64_t(economy.bank.gold)+std::uint32_t(economy.bank.gold)/100);
+    economy.bank.gems=static_cast<std::uint32_t>(std::uint64_t(economy.bank.gems)+std::uint32_t(economy.bank.gems)/100);
    }
+   speech();
    check(offset==smithDraws.size() && row==smithDrawTimes.size(),"M38 unexpected Smith random request");
    expectedSmithRandom=before;expectedSmithRandom.state=oracle.state;expectedSmithRandom.count=oracle.count;
    expected.journey->random=expectedSmithRandom;
@@ -359,7 +374,9 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
    inspect([&]{std::cout<<"M49 EARNED PURSE "<<party->monsterTreasure->gold<<'\n';check(party->monsterTreasure->gold==840,"M38 production earned gold mismatch");});
    route("LLULUU");action(InteractionAction{});action(YesAction{});settle();
    route("URULUUULUUU");
-   route("UUUUU");inspect([&]{check(position->x==8 && position->y==4 && party->encounterContext->minutes==1297,"M38 five-cell corridor endpoint/time");
+   // Ten completed outdoor well interactions charge10 each; city entry charges1.
+   // The identical route/seed therefore reaches1398 (1297+100+1), ctr24=1.
+   route("UUUUU");inspect([&]{check(position->x==8 && position->y==4 && party->encounterContext->minutes==1398 && party->encounterContext->ctr24==1,"M38 five-cell corridor endpoint/time");
     check(world->sessionState().journeyRandom()->state==2232520509u && world->sessionState().journeyRandom()->count==1227,"M71 ordinary pre-Smith cursor: catches extra combat/rest draws or incorrect RNG publication");});checkpoint('A');
   }
   // Exact before/after visits protect Fix price, selected owner/item, equipped AC,
@@ -476,7 +493,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
    action(InteractionAction{});waitService();deniedSave();action(CancelInteractionAction{});settle();
    inspect([&,expected]{++expected->journey->context->day;finishSmith(*expected);
     check(XeenSaveFormat::encode(*expected)==XeenSaveFormat::encode(XeenSaveState::capture(original.resources.signature,*party,*position,*flags,*world)),"M38 empty visit changed unrelated durable state");
-    check(party->encounterContext->day==9 && party->encounterContext->minutes==1297 &&
+    check(party->encounterContext->day==9 && party->encounterContext->minutes==1398 &&
     party->monsterTreasure->gold==840 && party->roster.at(1).armor[0].state==128 &&
     party->roster.at(1).armor[1].state==128,"M38 transaction-free departure mismatch");});
    checkpoint('E');
@@ -499,11 +516,15 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
      "M38 reset/revisit route absent");});checkpoint('F');
    }
    if(stage!="detour-G") {visit(1,829);checkpoint('G');}
-   inspect([&]{check(party->encounterContext->day==10,"M38 detour second departure absent");});
+   // From1398: exit corridor11 + mainland exit10 + approach10 + entry1 +
+   // city return13 + one Slime combat minute =1444. Midnight reaches
+   // day10/minute4 before the second Smith departure advances to day11.
+   inspect([&]{check(party->encounterContext->day==11 && party->encounterContext->minutes==4,
+    "M38 detour midnight and second departure absent");});
   } else {
    if(!resume || (stage=="A" || stage=="native")) {visit(0,830);checkpoint('B');}
    if(!resume || stage=="A" || stage=="B" || stage=="native") {visit(1,829);checkpoint('C');}
-   inspect([&]{check(party->encounterContext->day==10 && party->encounterContext->minutes==1297 &&
+   inspect([&]{check(party->encounterContext->day==10 && party->encounterContext->minutes==1398 &&
     party->monsterTreasure->gold==829 && *world->sessionState().journeyRandom()==expectedSmithRandom,
     "M38 two-visit date/purse/RNG witness mismatch");});
   }

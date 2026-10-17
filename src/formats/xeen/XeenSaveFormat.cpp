@@ -246,6 +246,8 @@ void writeMapStates(Writer &out, const std::vector<XeenSaveMapState> &maps) {
 		for (const auto &v : m.events) { out.u16(v.record); out.u8(v.opcode); }
 		out.u8(m.explored.has_value());
 		if (m.explored) for (const auto byte : *m.explored) out.u8(byte);
+		out.u8(m.tavernTips.has_value());
+		if (m.tavernTips) out.u8(*m.tavernTips);
 	}
 }
 
@@ -254,7 +256,7 @@ int signedWireByte(std::uint8_t value) { return value < 128 ? int(value) : int(v
 // Every count is bounded by the bytes that remain before anything is allocated.
 std::vector<XeenSaveMapState> readMapStates(Reader &in) {
 	const auto count = in.u16();
-	require(count <= XeenSaveFormat::kMaximumMaps && count <= in.remaining() / 13, "invalid map state count");
+	require(count <= XeenSaveFormat::kMaximumMaps && count <= in.remaining() / 14, "invalid map state count");
 	std::vector<XeenSaveMapState> maps(count);
 	for (auto &m : maps) {
 		m.id = in.map();
@@ -299,6 +301,7 @@ std::vector<XeenSaveMapState> readMapStates(Reader &in) {
 			for (auto &byte : bits) byte = in.u8();
 			m.explored = bits;
 		}
+		if (in.boolean()) m.tavernTips = in.u8();
 	}
 	return maps;
 }
@@ -306,7 +309,8 @@ std::vector<XeenSaveMapState> readMapStates(Reader &in) {
 // Bytes of one decoded map state, for the computed payload extent.
 std::size_t mapStateBytes(const XeenSaveMapState &m) {
 	return 3 + 1 + (m.monsters ? 4 + 7 * m.monsters->slots.size() : 0) + 2 + 5 * m.objects.size() +
-		2 + 4 * m.wallItems.size() + 2 + 7 * m.cells.size() + 2 + 3 * m.events.size() + 1 + (m.explored ? 32 : 0);
+		2 + 4 * m.wallItems.size() + 2 + 7 * m.cells.size() + 2 + 3 * m.events.size() + 1 + (m.explored ? 32 : 0) +
+		1 + (m.tavernTips ? 1 : 0);
 }
 
 XeenUnsupportedSave unsupportedPair(std::uint16_t schema, std::uint16_t content) {

@@ -4,8 +4,11 @@
 #include <cstddef>
 #include <cstdint>
 #include <string_view>
+#include "games/xeen/XeenMapIdentity.h"
+#include "games/xeen/XeenCharacter.h"
 
 namespace mmodern {
+enum class XeenSimpleServiceOutcome { Done, NoAction, InsufficientGold, HaveDrink, Drunk, SupportLimit };
 enum class XeenFoodOutcome { Purchased, Full, InsufficientGold, Cancelled };
 struct XeenFoodResult {
     XeenFoodOutcome outcome;
@@ -15,6 +18,12 @@ struct XeenFoodResult {
 // Vertigo's offer is a flat price for filling the party-wide food counter.
 XeenFoodResult xeenBuyFood(std::size_t activeMembers, std::uint16_t food,
     std::uint32_t gold, bool yes);
+
+// DOS Tavern rules: 0x1b17b..1b192, 0x1b471..1b521 and 0x1b626..1b6ad.
+std::uint8_t xeenTavernDrinkCondition(std::uint8_t before,unsigned roll);
+std::size_t xeenTavernTipText(XeenMapIdentity,std::uint8_t index);
+std::uint8_t xeenTavernNextTip(XeenMapIdentity,std::uint8_t index) noexcept;
+std::size_t xeenTavernRumorText(XeenMapIdentity,unsigned day);
 
 enum class XeenBankOutcome { Transferred, NoTransfer, EmptySource, Excess };
 struct XeenBankResult {

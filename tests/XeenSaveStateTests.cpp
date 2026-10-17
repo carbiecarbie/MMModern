@@ -378,6 +378,7 @@ void genericRoundTrip(){
  f3.objects={{0,-128,-128,false}};f3.events={{0,0},{1,0}};
  f3.cells={{17,0x0906,0,1,0}}; // Outdoor surface plus an independent wall-word layer.
  f3.explored=std::array<std::uint8_t,32>{};(*f3.explored)[9]=0x10;
+ f3.tavernTips=14;
  s.journey->treasure->weapons[0]={0,{0,30,0,0}};s.journey->treasure->sources[0]={23,2};
  auto &city=s.map(28);
  city.monsters=mobTable(4);
@@ -390,6 +391,7 @@ void genericRoundTrip(){
  // A map never entered can still own MOB/EVT changes; no monster staging.
  s.map(37).wallItems={{1,-1,-2}};s.map(37).events={{1,255}};
  city.explored=std::array<std::uint8_t,32>{};(*city.explored)[31]=0x80;
+ city.tavernTips=0;
  s.headCache=XeenHeadCache{23,{}};s.headCache->overrides[9]=XeenHeadIndicators{1,2};
  const auto bytes=XeenSaveFormat::encode(s);
  CurrentDestination live;usePerMapResources(live,4);live.restore(XeenSaveFormat::decode(bytes));live.bind();
@@ -409,6 +411,9 @@ void genericRoundTrip(){
   xeenGet<XeenOutdoorLayers>(live.world.sampleCell(23,1,1)->cell->geometry).top==9,
   "Outdoor v13 cells did not restore effective surface and wall-word layers");
  live.world.discardMapCache();
+ check(live.world.tavernTipIndex(23)==14 && live.world.tavernTipIndex(28)==0 &&
+  live.world.map(23).geometry.tavernTips==regional_test::map(23).geometry.tavernTips,
+  "Restored tip cursors survive cache reload without modifying original DAT bytes");
  check(live.world.effectiveWallItem({28,2}).x==9 && live.world.objectFile(28).entities.wallItems[2].x==6,
   "Resource cache reload keeps effective wall-item positions and immutable MOB preimages");
  auto revisit=live.world.transitionCandidate();
@@ -494,7 +499,7 @@ void replacedOpcodePublication(){
  check(delivered==1,"The replaced GiveEnchanted opcode must grant exactly once across suspension and deletion");
 }
 // Each producer runs through the normal detached Event/publication flow,
-// leaves the indoor map, returns, then uses the real v13 serializer/restore.
+// leaves the indoor map, returns, then uses the current serializer/restore.
 void mapEventRoundTrips(){
  for(unsigned operation=0;operation<9;++operation) {
   const XeenMapIdentity active=operation>=7?23:28,other=operation>=7?28:23;
@@ -573,7 +578,12 @@ void mapEventRoundTrips(){
   if(operation==8)check(snapshot.find(23)->monsters->slots.size()==snapshot.find(23)->monsters->originalCount,
    "Outdoor Spawn past the MOB count materialized or persisted a slot");
   auto neutral=snapshot;neutral.maps=initial.maps;neutral.camera=initial.camera;
-  check(XeenSaveFormat::encode(neutral)==XeenSaveFormat::encode(initial),"Map Event replayed reward/time or consumed Journey RNG");
+  auto expected=initial;
+  // One indoor completion for called deletion; otherwise one indoor and one
+  // outdoor destination charge, with one stepTime counter tick per completion.
+  expected.journey->context->minutes+=operation==1?1:11;
+  expected.journey->context->ctr24=(expected.journey->context->ctr24+(operation==1?1:2))%24;
+  check(XeenSaveFormat::encode(neutral)==XeenSaveFormat::encode(expected),"Map Event changed more than its completed Space scheduling or consumed Journey RNG");
   CurrentDestination loaded;configure(loaded);loaded.restore(XeenSaveFormat::decode(bytes));loaded.bind();
   check(XeenSaveFormat::encode(loaded.capture())==bytes,"Persistent Event did not round-trip exactly through v13");
  }
@@ -677,7 +687,9 @@ void travelRoundTrips() {
    "Continue must execute the destination counter exactly once; Exit must never execute it");
   if(same)check(live.world.sessionState().monsters(28)[0].hp==3,"Same-map teleport reloaded monster HP");
   const auto snapshot=live.capture();const auto bytes=XeenSaveFormat::encode(snapshot);
-  check(snapshot.journey->random==initial.journey->random && snapshot.journey->context==initial.journey->context &&
+  auto expectedClock=*initial.journey->context;
+  expectedClock.minutes+=same?1:10;expectedClock.ctr24=(expectedClock.ctr24+1)%24;
+  check(snapshot.journey->random==initial.journey->random && snapshot.journey->context==expectedClock &&
    snapshot.journey->treasure==initial.journey->treasure,"Travel changed time, rewards or RNG");
   CurrentDestination restored;configure(restored);restored.restore(XeenSaveFormat::decode(bytes));restored.bind();
   check(XeenSaveFormat::encode(restored.capture())==bytes,"Travel v13 restore replayed Event, reward, time or draw");

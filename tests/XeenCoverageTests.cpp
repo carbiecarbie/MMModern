@@ -15,6 +15,12 @@ void fixtureContexts(const char *directory) {
     check(installation.has_value(),"fixture original installation");
     const XeenCamera start{27,10,10,XeenDirection::North};
     OriginalContext context(*installation,start);
+    check(arrivalSupport(5,true,start,context.world).status==Status::Supported,
+        "lava arrival has a production rule query");
+    check(arrivalSupport(10,true,{25,0,0,XeenDirection::North},context.world).status==Status::Partial,
+        "implemented sky fall names its unadmitted destination");
+    check(arrivalSupport(13,true,{23,0,0,XeenDirection::North},context.world).status==Status::Partial,
+        "cloud fall preserves admission restrictions on its mainland destination");
     check(context.world.developerEventMap()==start.mapId && context.camera.x==10 && context.camera.y==10,
         "documented developer fixture entry");
     const auto at=[](XeenCamera camera,unsigned line,unsigned opcode,std::vector<std::uint8_t> parameters={}) {
@@ -80,8 +86,8 @@ int main(int argc,char **argv) {
         check(eventMechanic(record(0x09,{20,1,1})).find("mode=20")!=std::string::npos,"condition dimension");
         check(eventMechanic(record(0x1c,{19,10,0,0})).find("operand1=10")!=std::string::npos,"unsupported variant still groups shared operand shape");
         check(spellSupport(26).status==Status::Supported && spellSupport(0).status==Status::Unsupported,"spell checks");
-        check(restSupport(5,true).status==Status::Unsupported,"rest refusal is missing support");
-        check(restSupport(13,true).status==Status::Unsupported,"rest clears levitation before checking terrain");
+        check(restSupport(5,true).status==Status::Supported,"lava Rest applies shared arrival after recovery");
+        check(restSupport(13,true).status==Status::Supported,"cloud Rest applies shared arrival after losing levitation");
         check(restSupport(6,true).status==Status::Supported,"supported navigator damage variation is not a gap");
         Census c;c.side="Synthetic";c.maps[1].name="A|B";
         c.add("Events","mode 1",{Status::Unsupported,"engine reason"},1,3);

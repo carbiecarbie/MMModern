@@ -232,6 +232,22 @@ int main(int argc,char **argv) {
 		}
 		check(f.w.sessionState().barriers().size()==2 && !(f.w.sessionState().journeyRandom()==rng),"Original grate did not unlock with both durable faces and live RNG");
 		const auto saved=f.snapshot();Fixture restored(in,saved);
+        for(unsigned surface:{5u,10u,13u,15u}) {
+            auto hazardous=saved;hazardous.journey->context->minutes=299;hazardous.journey->context->newDay=true;hazardous.journey->context->effects[2]=1;
+            const auto loader=[&](auto id){auto m=in.maps.loadGeometryMap(in.assets,id);if(id==XeenMapIdentity(28))m.geometry.surfaceTypes.fill(surface);return m;};
+            Fixture toggle(in,hazardous,false,nullptr,loader);const auto beforeToggle=toggle.snapshot();
+            const auto actors=toggle.w.sessionState().regionalActors(28);std::vector<std::pair<int,int>> positions;
+            for(const auto &a:actors)positions.emplace_back(a.x,a.y);
+            toggle.act(InteractionAction{});settle(toggle);const auto afterToggle=toggle.snapshot();
+            check(afterToggle.journey->context==beforeToggle.journey->context && afterToggle.journey->random==beforeToggle.journey->random &&
+                afterToggle.journey->serviceEconomy==beforeToggle.journey->serviceEconomy &&
+                afterToggle.camera.mapId==beforeToggle.camera.mapId && afterToggle.camera.x==beforeToggle.camera.x && afterToggle.camera.y==beforeToggle.camera.y,
+                "Handled Space grate must preserve dawn context/Levitate, HP and RNG without terrain arrival");
+            for(unsigned owner=0;owner<30;++owner)remove_test::checkSameCharacter(afterToggle.characters[owner],beforeToggle.characters[owner]);
+            const auto afterActors=toggle.w.sessionState().regionalActors(28);
+            for(unsigned n=0;n<afterActors.size();++n)check(positions[n]==std::make_pair(int(afterActors[n].x),int(afterActors[n].y)),"Handled Space grate moved monsters");
+            check(toggle.w.sessionState().barriers()!=f.w.sessionState().barriers(),"Hazardous grate did not toggle its original wall");
+        }
 		Fixture retry(in,initial);bool failed=false;
 		XeenCityEventTestAccess::composer(*retry.flow,[&](auto &,const auto &,const auto &,auto,auto) {
 			if(!failed) {failed=true;throw std::runtime_error("Injected barrier composition failure");}

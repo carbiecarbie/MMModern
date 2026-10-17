@@ -13,7 +13,7 @@ is implemented.
 | [Combat and character capacity](combat.md) | Attributes, HP/SP, armor class, hit and damage, targeting, saves, initiative, Run, experience and monster treasure |
 | [Magic](magic.md) | All 76 spell costs, all 73 item powers, casting and cancellation, healing, damage, buffs and travel boundaries |
 | [Items and equipment](items.md) | Item representation, equipment slots, prices, Smith transactions, charges, Discard, generation and treasure delivery |
-| [Time, rest and conditions](time-and-conditions.md) | Calendar, eight-hour checks, per-action recovery, fatigue, temporary effects, Rest, food, bank interest and the Temple Heal price |
+| [Time, rest and conditions](time-and-conditions.md) | Calendar, eight-hour checks, per-action recovery, fatigue, temporary effects, Rest, terrain arrival and falls, food, bank interest, Tavern options and Temple prices/effects |
 | [World Events](world-events.md) | Wall items, cell walls and surfaces, physical Event replacement/deletion, Spawn and map-state lifetimes; If/SetVar/TakeOrGive value modes, rewards, lock picking and random draws; teleports, mirrors and typed passwords |
 | [Evidence and unresolved questions](evidence.md) | Exact original identity, REA evidence, calibration, original file offsets, limitations and the next questions to resolve |
 

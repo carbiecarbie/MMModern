@@ -216,11 +216,11 @@ void XeenEncounterFlow::closeJourney() noexcept {
 }
 bool XeenEncounterFlow::journeyQuiet() const noexcept {
 	const auto capture=_world._journeyCapture.lock();
-	return _journey && !_rest && !_castingSettlement && !_regionalAutomatic && !_shootIntent && !projectilesPending() && !_busy && !_combat && !_failure && _boundary.quiet() && current(ticket()) &&
+	return _journey && !_terrainFall && !_rest && !_castingSettlement && !_regionalAutomatic && !_shootIntent && !projectilesPending() && !_busy && !_combat && !_failure && _boundary.quiet() && current(ticket()) &&
 		capture && capture->current(_party,_camera);
 }
 bool XeenEncounterFlow::journeyMutable() const noexcept {
-	return _journey && !_rest && !_castingSettlement && !_regionalAutomatic && !_shootIntent && !projectilesPending() && !_busy && !_combat && !_failure && current(ticket()) &&
+	return _journey && !_terrainFall && !_rest && !_castingSettlement && !_regionalAutomatic && !_shootIntent && !projectilesPending() && !_busy && !_combat && !_failure && current(ticket()) &&
 		_state.pending() == 0 && _state.phase() == XeenEncounterPhase::Exploring &&
 		_world.sessionState().journeyActivity() == XeenJourneyActivity::Quiet;
 }
@@ -228,7 +228,7 @@ bool XeenEncounterFlow::journeyNavigationReady() const noexcept {
     // Deliberately narrower than relaxing journeyMutable: menus and saves still
     // require Quiet. A simple countdown carries no retained actor work.
     const auto activity=_world.sessionState().journeyActivity();
-    return _journey && !_rest && !_casting && !_castingSettlement && !_regionalAutomatic && !_regionalWork &&
+    return _journey && !_terrainFall && !_rest && !_casting && !_castingSettlement && !_regionalAutomatic && !_regionalWork &&
         !_shoot && !_shootIntent && !projectilesPending() && !_busy && !_combat && !_failure &&
         !_itemUse && !_smith && !_training && _boundary.quiet() && current(ticket()) &&
         _state.phase()==XeenEncounterPhase::Exploring &&
@@ -485,14 +485,33 @@ void XeenEncounterFlow::endJourneyEvent() {
 	_boundary.release(XeenCombatBoundary::Work::Event,_eventLease);
 	_trainingEventSettlement=false;
 	_smithEventSettlement=false;
+    if(_manualStepPendingReset){_state._pending=0;_manualStepPendingReset=false;}
 	_eventLease=0; _journeyFramePrepared = _journeyFrameRetry = false;
 }
 void XeenEncounterFlow::publishArrival(const XeenActorView &view) noexcept {
+	bool living=false;for(auto owner:_party.party.activeRosterIds())living=living || xeenCombatTargetable(_party.roster.at(owner));
+	if(!living || _terrainDead) {
+		_state._phase=XeenEncounterPhase::SupportStopped;_state._reason=XeenEncounterStop::Defeat;
+		_world._sessionState._encounterTerminal=true;_journeyPreimage->adoptJourneyCoordination();return;
+	}
 	_state._phase=view.engaged()?XeenEncounterPhase::Engaged:XeenEncounterPhase::Exploring;
 	_state._reason=XeenEncounterStop::None;
 	_world._sessionState._encounterTerminal=view.engaged();
 	_result.view=view;
 	_journeyPreimage->adoptJourneyCoordination();
+}
+void XeenEncounterFlow::settleManualStep(bool needsRest) noexcept {
+ _manualStepPendingReset=true;_needsRestNotice=needsRest;
+}
+void XeenEncounterFlow::beginTerrainTransition() {
+	if(!_terrainFall || _busy || _combat || _failure || !_boundary.quiet() || !current(ticket()) || !journeyCapacity())
+		throw std::logic_error("Terrain transition publication is unavailable");
+	_state._pending=0;
+	_eventLease=_boundary.hold(XeenCombatBoundary::Work::Event);
+	_regionalAutomatic=false;_regionalAutomaticAddress.reset();
+	_world._sessionState._journeyActivity=XeenJourneyActivity::Event;
+	++_world._sessionState._journeyGeneration;++_generation;
+	_journeyPreimage->adoptJourneyCoordination();_journeyFramePrepared=_journeyFrameRetry=false;
 }
 void XeenEncounterFlow::journeyRead(const std::function<void()> &operation) {
 	if (!journeyMutable() || !_boundary.quiet()) throw std::logic_error("Journey interaction unavailable");
@@ -678,10 +697,14 @@ XeenEncounterResult XeenEncounterFlow::advanceJourney(const Ticket &entry, std::
 			retainJourney();return result;
 		}
 		if (result.outcome == XeenEncounterOutcome::Refused) {
+			if(result.arrivalRefusal)_journeyRefusal=result.arrivalRefusal;
 			if (!journeyEvent() && !_shoot && !monsterReward()) s._journeyActivity = _state.phase()==XeenEncounterPhase::SupportStopped ? XeenJourneyActivity::SupportStopped : (_state.pending() || _regionalWork || projectilesPending() || _shootIntent || _regionalAutomatic) ? XeenJourneyActivity::Approach : XeenJourneyActivity::Quiet;
 			_journeyPreimage->adoptJourneyCoordination(); _journeyPreimage->check(); return result;
 		}
 		_result = result; ++_generation; _journeyFramePrepared = false;
+		if(result.terrainFall)_terrainFall=*result.terrainFall;
+		if(result.terrainPortrait<7)for(auto owner:_party.party.activeRosterIds())
+			_world.scenePresentation().portraitDamage(owner,result.terrainPortrait,_lastTime);
 		if(action) { _itemUseResult.reset(); retireCastingFeedback(); }
 		if(result.needsRest)_needsRestNotice=true;
 		if(result.consequences) observeRanged(result.consequences);

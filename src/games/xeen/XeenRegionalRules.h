@@ -2,6 +2,7 @@
 #define MMODERN_XEEN_REGIONAL_RULES_H
 #include "games/xeen/XeenActorApproach.h"
 #include "games/xeen/XeenCombatRules.h"
+#include "games/xeen/XeenTerrainRules.h"
 #include "games/xeen/XeenJourneyProgression.h"
 #include <bitset>
 
@@ -108,6 +109,8 @@ struct XeenRegionalActionCandidate {
 	XeenCombatRandom random;
 	XeenEncounterResult result;
 	std::optional<XeenConditionTimeCandidate> time;
+	std::optional<XeenTerrainArrivalCandidate> terrain;
+	std::optional<XeenTerrainArrival> terrainRule;
 	std::optional<XeenRegionalOpportunityCandidate> opportunity;
 	std::array<XeenRegionalRangedShot,108> shots{};
 	unsigned shotCount=0, remaining=0, pending=0;
@@ -117,6 +120,7 @@ struct XeenRegionalActionCandidate {
 };
 
 struct XeenShootCandidate {
+	std::optional<XeenTerrainArrivalCandidate> terrain;
 	std::optional<XeenLearnedSpell> spell;
 	std::optional<XeenSpellDamageCandidate> spellAttack;
 	unsigned spellCaster=0;

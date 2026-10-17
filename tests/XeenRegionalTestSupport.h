@@ -36,6 +36,12 @@ inline XeenMap map(XeenMapIdentity id={23}){
     XeenMap m;m.geometry.id=id.number;m.side=id.side;m.geometry.flags2=0x8000;
     for(unsigned i=0;i<16;++i)m.geometry.surfaceTypes[i]=i;
     for(auto &c:m.geometry.cells){c.rawWord=1;c.surfaceIndex=1;c.geometry=XeenOutdoorLayers{1,0,0,0};}
+    if(id==XeenMapIdentity(28)) {
+        // Synthetic Vertigo repeats one safe indoor tile across its logical
+        // quadrants; detached manual Events validate the complete city view.
+        m.geometry.flags2=0;m.geometry.neighbors.fill(28);
+        for(auto &c:m.geometry.cells){c.rawWord=0;c.rawAttributes=1;c.geometry=XeenIndoorWalls{};}
+    }
     return m;
 }
 inline XeenObjectFile objects(XeenMapIdentity id={23}){
@@ -106,7 +112,7 @@ inline std::pair<XeenEventFile,XeenEventFile> eventFiles(){
 }
 inline XeenEventFile events(XeenMapIdentity id){auto files=eventFiles();return id==XeenMapIdentity(28)?files.second:files.first;}
 inline XeenEventTextFile texts(XeenMapIdentity id){
-    return {id,id==XeenMapIdentity(28)?"aaze0028.txt":"aaze0023.txt",true,std::vector<std::string>(64,"Synthetic text")};
+    return {id,id==XeenMapIdentity(28)?"aaze0028.txt":"aaze0023.txt",true,std::vector<std::string>(id==XeenMapIdentity(23)?44:64,"Synthetic text")};
 }
 inline XeenSaveResourceSignature signature(){return {{1,2},XeenArchiveFingerprint{3,4}};}
 inline XeenSaveState::Resources resources(){

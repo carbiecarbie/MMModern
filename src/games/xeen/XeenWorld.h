@@ -14,6 +14,7 @@
 #include "games/xeen/XeenExploration.h"
 #include "games/xeen/XeenMapState.h"
 #include "games/xeen/XeenTransitionResult.h"
+#include "games/xeen/XeenTerrainArrival.h"
 #include <stdexcept>
 #include <set>
 #include <array>
@@ -28,6 +29,8 @@
 #include <vector>
 
 namespace mmodern {
+struct XeenTerrainArrivalCandidate;
+struct XeenRegionalActionCandidate;
 
 enum class XeenDamageType : std::uint8_t;
 struct XeenTypedDamageCandidate;
@@ -224,6 +227,8 @@ public:
 	std::optional<XeenMapIdentity> developerEventMap() const noexcept { return _developerEventMap; }
 	bool eventCameraAdmitted(const XeenCamera &) const noexcept;
 	XeenTransitionResult prepareEventTransition(const XeenCamera &,bool runLocation=false);
+	XeenTerrainArrival prepareTerrainArrival(const XeenCamera &,const std::array<XeenCharacter,6> &,const XeenGameplayContext &);
+	void publishTerrainArrival(XeenPartyState &,const XeenTerrainArrivalCandidate &,const XeenJourneyRandomState &);
 	void loadEventDestination(XeenMapIdentity from,XeenMapIdentity to);
 	bool regionalJourney() const noexcept {
 		return (_sessionState.journey() || _detachedEventCandidate);
@@ -263,6 +268,8 @@ public:
 	std::vector<XeenExploredTile> explorationAfterStep(const XeenPartyState &,const XeenCamera &);
 	void recordExploration(const XeenPartyState &,const XeenCamera &);
 	void restoreExploredTiles(const std::vector<XeenExploredTile> &);
+	std::uint8_t tavernTipIndex(XeenMapIdentity);
+	void setTavernTipIndex(XeenMapIdentity,std::uint8_t);
 	// Original Map::getCell neighbor queries, for scene observation only.
 	// Movement and mechanic admission continue to use sampleCell.
 	std::optional<XeenCellSample> sceneCell(XeenMapIdentity mapId, int x, int y);
@@ -282,6 +289,8 @@ public:
 	// Map load (decision 8): the destination's live monsters return to MON HP,
 	// asleep, before the arrival view wakes those it sees. Detached work only.
 	void reloadMapMonsters(XeenMapIdentity);
+	// Retain a manual Space suffix in its detached Event owner, before publication.
+	void retainEventStep(XeenPartyState &,const XeenRegionalActionCandidate &,const std::vector<XeenActor> &);
 	// Map exit (decision 2): a map that is never retained, the Warzone, loses
 	// its state and accounting, so re-entry starts fresh. Detached work only.
 	void leaveMap(XeenMapIdentity);

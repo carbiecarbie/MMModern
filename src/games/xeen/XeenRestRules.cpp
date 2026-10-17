@@ -3,7 +3,9 @@
 #include <stdexcept>
 namespace mmodern {
 std::optional<unsigned> xeenRestTerrain(unsigned surface,bool outdoor,bool navigator,bool levitating) {
- if(surface==5 || surface==10 || surface==15 || (surface==13 && !levitating))return {};
+ // DOS Rest 0x1e4f5 admits every surface. Shared arrival follows recovery
+ // (0x1e7df), after resetTemps has removed Levitate.
+ (void)levitating;
  return surface==6 && outdoor && !navigator ? 170u : 0u;
 }
 // Adapted from Interface::rest at ScummVM 6814ee9b, interface.cpp:1144-1238;

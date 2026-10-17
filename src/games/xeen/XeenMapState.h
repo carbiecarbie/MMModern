@@ -58,13 +58,17 @@ struct XeenMapState {
 	std::vector<XeenBarrierOverride> cells;
 	// This tile's explored bits (y*16+x). Presence is retained even when zero.
 	std::optional<std::array<std::uint8_t,32>> explored;
+	// Original DAT Tavern tip cursor, retained with this physical map.
+	// Absence uses the immutable resource's initial byte.
+	XeenMutableOptional<XeenMutable<std::uint8_t>> tavernTips;
 
 	bool empty() const noexcept {
 		return !monsters && removedObjects.empty() && disabledEvents.empty() &&
-			objectOverrides.empty() && wallItemOverrides.empty() && eventOverrides.empty() && cells.empty() && !explored;
+			objectOverrides.empty() && wallItemOverrides.empty() && eventOverrides.empty() && cells.empty() && !explored && !tavernTips;
 	}
 	void swap(XeenMapState &other) noexcept {
 		monsters.swap(other.monsters);
+		tavernTips.swap(other.tavernTips);
 		const std::uint16_t count=originalMonsterCount;originalMonsterCount=std::uint16_t(other.originalMonsterCount);
 		other.originalMonsterCount=count;
 		const bool open=outdoors;outdoors=bool(other.outdoors);other.outdoors=open;

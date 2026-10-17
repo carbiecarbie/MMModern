@@ -51,6 +51,14 @@ bool XeenEncounterFlow::beginShoot() {
   // (pin interface.cpp Shoot `!party.canShoot()`; maintainer DOSBox CD play,
   // 2026-10-15). Audio arrives with the audio arc; until then this is silent.
   if(!eligible)return true;
+  {
+   XeenRestoreGuard::Providers providers(*_journeyPreimage,_world);
+   auto ending=xeenPrepareTime(*_party.encounterContext,charge);
+   if(ending.dailyProcessing)xeenResetPartyTemps(ending.context);
+   const auto arrival=_world.prepareTerrainArrival(_camera,activeCharacters(_party,candidate->owners),ending.context);
+   _journeyPreimage->check();
+   if(!arrival) {_journeyRefusal=arrival.transition.reason;return false;}
+  }
   // Check before retaining intent or consuming old work, and again when that
   // work finishes: ranged damage can disable a previously eligible shooter.
   if(_state.pending()) { retireCastingFeedback();_shootIntent=true;journeyPulse(ticket());return true; }
@@ -221,15 +229,29 @@ bool XeenEncounterFlow::serviceShoot() {
   }
   if(!work.time) work.time.emplace(*_party.encounterContext,work.charge,activeCharacters(_party,work.owners),activeInputs(_party,work.owners),&*_party.serviceEconomy);
   if(!work.time->service(draw)) return true;
+  if(!work.terrain) {
+   auto rule=_world.prepareTerrainArrival(_camera,work.time->characters,work.time->context);
+   if(!rule)throw std::logic_error("Shoot arrival admission changed");
+   if(rule.falling) {_terrainFall=rule;rule.damage=0;}
+   work.terrain.emplace(rule,work.time->characters,work.time->inputs,work.time->context,work.time->economy?&*work.time->economy:nullptr);
+  }
+  if(!work.terrain->service(draw))return true;
+  work.time->characters=work.terrain->characters;work.time->inputs=work.terrain->inputs;
+  work.time->context=work.terrain->context;work.time->economy=work.terrain->economy;
+  work.time->needsRest=work.time->needsRest || work.terrain->needsRest;
+  _terrainDead=work.terrain->rule.dead;
   if(session._encounterRevision==std::numeric_limits<std::uint64_t>::max() || !journeyCapacity())throw std::overflow_error("Shoot charge generation exhausted");
   auto exploration=_world.explorationAfterStep(_party,_camera);check();bool living=false;
   for(const auto &v:work.time->characters) {
    auto &c=_party.roster.at(v.rosterId);c=v;
    living=living || xeenCombatTargetable(c);
   }
+  living=living && !_terrainDead;
+  if(work.terrain->rule.damage)for(auto owner:work.owners)
+   _world.scenePresentation().portraitDamage(owner,work.terrain->rule.type==XeenDamageType::Fire?1u:0u,_lastTime);
   if(work.time->needsRest)_needsRestNotice=true;
   _party.serviceEconomy=work.time->economy;for(unsigned n=0;n<6;++n)_party.roster._combatInputs[work.owners[n]]=work.time->inputs[n];
-  _party.encounterContext=work.time->context;session._journeyRandom=work.random.continuation();_state._pending=living?3:0;
+  _party.encounterContext=work.time->context;session._journeyRandom=work.random.continuation();_state._pending=living && !_terrainFall?3:0;
   if(!living) { _state._phase=XeenEncounterPhase::SupportStopped;_state._reason=XeenEncounterStop::Defeat;session._encounterTerminal=true; }
   ++session._encounterRevision;_state._revision=session._encounterRevision;++session._journeyGeneration;++_generation;
   session.publishExploration(exploration);
@@ -300,10 +322,11 @@ void XeenEncounterFlow::advanceMonsterReward() {
   ++_world._sessionState._journeyGeneration;++_generation;retainJourney();
  }catch(...) {closeJourney();throw;}
 }
-void XeenEncounterFlow::observeRanged(std::shared_ptr<const XeenRegionalObservation> observation) {
+void XeenEncounterFlow::observeRanged(std::shared_ptr<const XeenRegionalObservation> observation,const XeenWorld *environment,const XeenCamera *position) {
+ const auto &world=environment?*environment:_world;const auto &camera=position?*position:_camera;
  if(observation->stage==XeenRegionalObservation::Stage::Portrait) {
   if(observation->impactSource && observation->impactOwner) {
-   const auto &a=_world.sessionState().regionalActors(observation->impactSource->mapId).at(observation->impactSource->recordIndex);
+   const auto &a=world.sessionState().regionalActors(observation->impactSource->mapId).at(observation->impactSource->recordIndex);
    _world.scenePresentation().portraitDamage(*observation->impactOwner,xeenPortraitDamageFrame(a.statistics->raw[29]),_lastTime);
   }
   _rangedObservation=std::move(observation);return;
@@ -315,14 +338,14 @@ void XeenEncounterFlow::observeRanged(std::shared_ptr<const XeenRegionalObservat
  // for the simultaneous volley; this lookup admits no new damage mechanics.
  for(unsigned i=0;i<observation->count;++i) {
   const auto &shot=observation->shots[i];
-  const auto &actor=_world.sessionState().regionalActors(shot.source.mapId).at(shot.source.recordIndex);
+  const auto &actor=world.sessionState().regionalActors(shot.source.mapId).at(shot.source.recordIndex);
   const auto type=actor.statistics->raw[29];pow=xeenMonsterProjectile(type);
   if(pow!=12)break;
  }
  for(unsigned i=0;i<observation->count;++i) {
   const auto &shot=observation->shots[i];
-  const auto &actor=_world.sessionState().regionalActors(shot.source.mapId).at(shot.source.recordIndex);
-  if(shot.direction==_camera.direction && shot.distance>=1 && shot.distance<=3 && prepared.size()<6)
+  const auto &actor=world.sessionState().regionalActors(shot.source.mapId).at(shot.source.recordIndex);
+  if(shot.direction==camera.direction && shot.distance>=1 && shot.distance<=3 && prepared.size()<6)
    prepared.push_back({true,shot.distance-1,unsigned(prepared.size()%6),shot.distance,shot.source,pow});
  }
  _rangedObservation=std::move(observation);_projectiles.swap(prepared);_projectileDeadline=0;

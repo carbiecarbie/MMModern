@@ -210,7 +210,7 @@ void refusals(Inputs &in) {
         const Owners before(f);std::string notice;f.flow->reportText=[&](const auto &text){notice=text;};
         keyboard(f,temple?'h':'t');check(notice==xeenNotEnoughGold(in.assets.uiText()),"one-step service lacks original gold refusal");before.unchanged(f);
         keyboard(f,InputKey::Enter);
-        if(temple) {keyboard(f,'u');check(notice.find("not supported yet")!=std::string::npos,"Uncurse lacks refusal");before.unchanged(f);keyboard(f,InputKey::Enter);}
+        if(temple) {keyboard(f,'u');check(notice==xeenNotEnoughGold(in.assets.uiText()),"Uncurse lacks original gold refusal");before.unchanged(f);keyboard(f,InputKey::Enter);}
         keyboard(f,InputKey::Escape);check(f.flow->canSave() && f.p.encounterContext->day==9,"refused service lost unpaid departure");
     }
     auto source=service(in);source.journey->treasure->gold=0;
@@ -255,17 +255,18 @@ void dialogs(Inputs &in,bool mouse) {
     templeSource.characters[1].currentHp=0;templeSource.characters[1].conditions[12]=1;
     Fixture temple(in,templeSource);temple.flow->drawTempleArt=[&](auto &image){in.assets.drawTemple(image);};temple.act(InteractionAction{});temple.prepare();
     std::string message;temple.flow->reportText=[&](const auto &text){message=text;};
-    const auto unhealed=Owners(temple);keyboard(temple,'d');check(message.find("not supported yet")!=std::string::npos,"Donation missing refusal");unhealed.unchanged(temple);keyboard(temple,InputKey::Enter);
+    auto donated=Owners(temple);donated.treasure.gold-=10;keyboard(temple,'d');
+    donated.unchanged(temple); // First donation on day8 pays10 without blessing.
     for(unsigned member:{5u,4u}) {
         if(mouse)click(temple,member==5?190:154,151);else keyboard(temple,InputKey::F1+member);
         if(mouse)click(temple,235,55);else keyboard(temple,'h');temple.prepare();
         check(XeenTrainingTestAccess::templeLobby(*temple.flow),"Heal retained result screen");
     }
     // DOS unsigned HP comparison: Seymour at HP -15 pays 380, Rebecca 60.
-    check(temple.p.monsterTreasure->gold==370 && temple.p.roster.at(6).currentHp==15 && !temple.p.roster.at(6).conditions[13] && temple.p.roster.at(1).currentHp==21,"one-step Heal/resurrection differs");
+    check(temple.p.monsterTreasure->gold==360 && temple.p.roster.at(6).currentHp==15 && !temple.p.roster.at(6).conditions[13] && temple.p.roster.at(1).currentHp==21,"one-step Donation/Heal/resurrection differs");
     if(mouse)click(temple,262,109);else keyboard(temple,InputKey::Escape);
     temple.finishDeparture();
-    check(temple.flow->canSave() && temple.p.encounterContext->day==10,"paid Temple departure differs");
+    check(temple.flow->canSave() && temple.p.encounterContext->day==11,"two paid Temple actions require three farewell days");
 }
 void spellDialogs(Inputs &in,bool mouse) {
     const auto &text=in.assets.uiText();

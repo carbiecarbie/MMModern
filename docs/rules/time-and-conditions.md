@@ -373,12 +373,109 @@ already replaced Weak with Drunk. A member who entered Rest with Drunk 2
 can therefore recover with Weak 2; computing maxima before that replacement
 or applying the pin's later cure changes the result.
 
-**Reference only:** outdoor desert arrival adds 170 minutes through
-`addTime` unless the party has Navigator. Indoor surfaces do not incur that
-extra time. Other terrain can cause damage, death or falling; this chapter
-does not establish a safe-Rest exemption for lava/sky/cloud/space. MMModern's
-currently approved unsupported-terrain refusals are implementation limits,
-not rules of the original game.
+**DOS static (2026-10-17), high confidence:** ordinary Rest has no
+surface-specific refusal (`0x1e50d..0x1e52e`). The original calls the shared
+arrival routine after refill (`0x1e7df`); resetting temporary effects first
+removes Levitate, so resting on cloud falls afterward.
+
+## Terrain arrival
+
+**DOS static (2026-10-17), high confidence.** Shared routine `070d:0194`,
+`WORLD/XEEN.DAT` file `0x0c924..0x0ca48`, calibrated against ordinary Rest
+and its known time/recovery order. Outdoor cells select a surface slot
+from the wall word's low nibble (`0x11afb..0x11b01`); indoor cells use the
+attribute byte's low three bits (`0x11b30..0x11b45`). Both resolve that slot
+through the primary map's surface-types table (`0x0c93d..0x0c945`). Raw
+slot numbers are map-dependent. Indoor raw slot 4 has a separate swimming
+movement check; it must not be confused with resolved type 4, swamp.
+
+| Resolved type | Name | Arrival effect |
+| --- | --- | --- |
+| 0 | Water/default floor | None |
+| 1 | Dirt | None |
+| 2 | Grass | None |
+| 3 | Snow | None |
+| 4 | Swamp | None |
+| 5 | Lava | 100 fire damage per active member |
+| 6 | Desert | Outdoors only, `addTime(170)` unless the party has Navigator |
+| 7 | Road | None |
+| 8 | Deep water | None |
+| 9 | Tile floor | None |
+| 10 | Sky | Fall, then 100 physical damage per member |
+| 11 | Cloud road | None |
+| 12 | Sewer | None |
+| 13 | Cloud | Fall, then 100 physical damage unless Levitate is nonzero |
+| 14 | Scorched | None |
+| 15 | Space | Set party dead |
+
+Type names are established by the resource-name table
+`0x52677..0x5270a`. Lava is `0x0c95f..0x0c968`; sky
+`0x0c96a..0x0c978`; desert `0x0c97a..0x0c996`; cloud
+`0x0c998..0x0c9ac`; space `0x0c958..0x0c95d`. Swimming, Walk on Water,
+Mountaineer and Pathfinder govern movement and give no arrival protection.
+Levitate protects cloud only; it does not protect sky, lava or space.
+Darkside game flag 118 suppresses the fall/damage suffix
+(`0x0c9af..0x0c9ce`). Arrival makes no direct random draw.
+
+The original calls arrival from the step-time suffix (`0x0d411`), the
+successful Cast/Shoot suffix (`0x0d5ba`) and completed Rest (`0x1e7df`).
+Consequently turns, waits and successful stationary casts/shots can repeat
+a hazard. Jump and teleport spells reach the same successful-cast suffix.
+Internal TeleportAndContinue chains finish before the outer interaction's
+step-time suffix: only their final destination receives that terrain call.
+Manual Space first completes its Event chain, then charges 1 minute indoors
+or 10 outdoors and runs the ordinary monster opportunity before arrival
+(`0x0d468..0x0d482`). Event-free Space shares this sequence. Blocked Bash
+skips arrival (`0x0d547..0x0d54f`, jump to `0x0d5c7`). Handled Space doors
+and grates also skip the suffix: openGrate clears the current key at
+`0x0c911` before returning (`0x0c917..0x0c91a`), and dispatch tests it at
+`0x0d263`. Bash pass-through retains its charged movement and arrival.
+Terminal services
+consume their separate farewell and clear the current key before returning
+(`0x1d782..0x1d7d3`, key clear `0x1d7c8`), so they do not receive an extra
+Space charge, monster opportunity or arrival.
+Automatic Events do not repeat the movement call that already reached them.
+Rest arrival follows temporary-effect reset and recovery; falling occurs
+before its fixed damage, using the destination map's ordinary load lifetime.
+
+Clouds surface fall destinations (`0x0ca60..0x0cd20`, table `0x0cdf4`):
+
+| Source maps | Map, position | Facing |
+| --- | --- | --- |
+| 25, 51-54 | 24, (11,9) | Preserve |
+| 26, 55-58 | 12, (6,15) | Preserve |
+| 27, 59-62, 76-78 | 15, (4,12) | South |
+| 65-66 | 14, (8,3) | South |
+| 69-70 | 1, (8,7) | North |
+| 74 | 12, (11,13) | South |
+| 82-84 | 5, (12,7) | North |
+| 85 | 6, (12,3) | North |
+| Other | 23, (12,10) | North |
+
+Explicit Event falls use the script's own destination and signed damage
+byte (`0x0cc93..0x0ccb4`, `0x0cd00..0x0cd0b`), rather than this fixed
+surface-fall damage.
+
+Darkside surface falls retain the original generic mapping even though its
+maps are not admitted to play. Sources 89-112 fall to map minus 88 with their
+coordinates and facing retained (`0x0cb70..0x0cb86`). The remaining special
+dispatch only covers 25-129 (`0x0cb93..0x0cb98`, table `0x0cd22`); sources
+outside it use Darkside 29 `(25,21)` North. The pin additionally includes 113
+in the subtraction range and 130-132 in its special cases.
+
+For each terrain-damage recipient the original starts again at 100
+(`0x23de0..0x23de8`) and clears Asleep (`0x23dfa..0x23e04`), including
+terminal members. Fire subtracts party fire resistance, then repeatedly
+draws `U(1,R+40)`, where `R` is permanent + temporary fire resistance plus
+equipment scan 11. A roll at most `R` halves positive damage and repeats;
+even reaching zero incurs a final draw (`0x23e84..0x23eb5`, save helper
+`0x2d13d..0x2d161`, `0x2d1fa..0x2d21d`). Physical damage skips saving
+throws. Finally subtract Power Shield and clamp at zero
+(`0x23ee5..0x23f10`). Example: party fire resistance 20, `R=10`, shield 3,
+rolls 5 then 20 from 1..50: `(100-20)/2-3 = 37` damage. Each subsequent
+member starts from 100. A physical fall with shield 3 deals 97, with no
+saving draw. Pinned ScummVM carries reductions between party members;
+terrain follows the original fresh value.
 
 ## Calendar economy and direct year changes
 
@@ -439,8 +536,9 @@ surcharge`, `0x1cc22..0x1cce4`). Surcharges come from the current map
 | Clouds 49, any other Darkside map | 100 | 500 | 5000 | 300 | 100 |
 
 A Clouds map outside the table keeps the previous temple's values in DOS;
-MMModern refuses to price it. Donation is 0 while the party is blessed
-(byte at `0x47ad:0`). The pinned reference agrees except for the signed HP
+MMModern refuses to price it. Donation is 0 after this visit's blessing
+latch is set (byte at `0x47ad:0`), independently of an existing party
+Blessed effect. The pinned reference agrees except for the signed HP
 comparison and the full-width Eradicated product; see
 [original quirks](../original-quirks.md). Worked examples: level 3 at HP -15,
 Unconscious and Dead 1 at Vertigo costs `30 + 350 = 380`; the same character
@@ -448,6 +546,68 @@ at HP 0 costs 410. Implementation: `xeenTempleSurcharges` and
 `xeenQuoteTempleHeal` in
 [XeenTempleHeal.cpp](../../src/games/xeen/XeenTempleHeal.cpp), tested by
 [XeenTempleRulesTests.cpp](../../tests/XeenTempleRulesTests.cpp).
+
+## Tavern and Temple options
+
+**DOS static (2026-10-17), high confidence.** Calibrated against the Temple
+price routine above and the original resource strings. Service actions
+below add no action time; normal departure still advances time and may
+regenerate merchant stock, apply interest and consume the associated RNG.
+
+- **Drink:** an acting member pays 1 carried gold, receives the original
+  Good Stuff status and sets a visit-local bought-drink latch. Exactly one
+  `U(1,100)` draw follows payment; rolls 1..25 increment the selected
+  member's Drunk byte, including byte wrap (`0x1b077..0x1b192`). A disabled
+  member or failed payment makes no draw. Selecting a member clears the latch.
+- **Tip:** an acting member without that latch gets the original Have a
+  Drink status. With the latch, clear it first; Drunk refuses without payment,
+  otherwise pay 1 gold and show `tavern.bin[base+tipIndex]`. Then store
+  `(byte(tipIndex+1)) % 15` on Clouds, `%10` on Darkside
+  (`0x1b349..0x1b521`). No random draw. The cursor belongs to the map and
+  survives revisits and saves. Clouds town bases: 28 -> 30, 30 -> 45,
+  49 -> 60; Darkside: 29 -> 30, 31 -> 40, others -> 50. The pin uses
+  division instead of remainder and checks Clouds map 45 instead of 30.
+- **Rumors:** free, no random draw and no persistent change. Show
+  `tavern.bin[base + day%10]`, so a day's rumor repeats
+  (`0x1b626..0x1b6ad`). Clouds bases: 28 -> 0, 30 -> 10, 49 -> 20;
+  Darkside: 29 -> 0, 31 -> 10, others -> 20.
+- **Donation:** pay the current temple's fixed price, then increment a
+  visit-local counter modulo 10. When it equals `day%10`, set Clairvoyance,
+  Light=1, and Blessed, Power Shield, Holy Bonus and Heroism to that counter
+  (10 for zero). Set the visit-blessed latch so further Donation quotes are
+  zero (`0x1ae8f..0x1af73`). Counter resets on entry and character selection;
+  the blessed latch resets on entry. No random draw or persistent donation
+  counter. Worked values: day 8 requires eight successful donations from a
+  fresh counter; day 0 requires ten. At Vertigo that costs 80 or 100 gold.
+- **Uncurse:** when the selected member is Cursed or any carried item's
+  state has bit `0x40`, charge `20*L + uncurse surcharge`. After payment
+  clear Cursed and only that bit from all nine item slots in all four
+  categories (`0x1cc1e..0x1cce0`, `0x1af79..0x1b01b`). Preserve the items,
+  their equipped status, other state bits and even empty-slot metadata.
+  No random draw. A level-3 member costs 60 in Vertigo or 160 in Clouds
+  temple 30, regardless of the number of cursed slots.
+
+Each paid Heal or Uncurse **adds** 1,440 to a visit-local 16-bit farewell
+accumulator (`0x1ae68`); the common exit adds another 1,440 and passes the
+word to `addTime` (`0x1d78e..0x1d798`). Thus zero, one and two successful
+purchases cost one, two and three days. Addition wraps as an unsigned word;
+Donation contributes no paid-day increment. Pinned ScummVM instead assigns
+one paid day, so repeated purchases do not accumulate there.
+
+The called DOS `addTime` also adds the current minutes and charge in a word
+before normalizing unsigned (`0x263b3..0x263e5`, addition `0x263be`). For
+example `1300 + 65000` wraps to minute 764 on the same day. Its merchant
+regeneration test requires a changed day and either a resulting day ending
+in 1 or the original charge interpreted as signed greater than 1,440
+(`0x263e7..0x2640b`, signed branch `0x263f9`). Starting at day 0 minute
+604, charge 32,767 reaches day 23 minute 251 and regenerates; charge 32,768
+reaches minute 252 and does not. These service-only word edges are retained
+without changing the ordinary interactive time owner.
+
+Sign In enters the original inn party manager, after writing town/side and
+advancing a day (`0x1b6b0..0x1b79a`, outer dispatch `0x0b819..0x0b839`,
+inn guard/list `0x394b7..0x395d5`). It remains unsupported until the inn
+milestone, by the maintainer's explicit 2026-10-17 scope decision.
 
 ## Executable witnesses and limits
 

@@ -30,22 +30,17 @@ bool XeenEncounterFlow::beginRest(const std::function<IndexedFrame()> &dream,
   const auto cell=_world.sampleCell(_camera.mapId,_camera.x,_camera.y);
   if(!cell)throw std::invalid_argument("Rest cell is absent");
   const auto &primary=_world.map(_camera.mapId).geometry;
-  const auto surface=primary.surfaceTypes[cell->cell->surfaceIndex];
-  bool navigator=false;for(auto owner:_party.party.activeRosterIds()) {
-   navigator=navigator || _party.roster.at(owner).skills[10]!=0;
-  }
   // doStepCode follows resetTemps, which clears levitation. Evaluate that
   // foreseeable suffix before publishing sleep, charges, food or RNG.
   auto ending=*_party.encounterContext;xeenResetPartyTemps(ending);
-  const auto terrain=xeenRestTerrain(surface,primary.isOutdoors(),navigator,ending.effects[2]!=0);
+  const auto terrain=_world.prepareTerrainArrival(_camera,members(_party,_party.party.activeOrder()),ending);
   auto candidate=std::make_unique<RestContinuation>();candidate->owners=_party.party.activeOrder();
   if(primary.flags&0x4000)candidate->phase=RestContinuation::Phase::Refused;
   else if(!terrain) {
    candidate->phase=RestContinuation::Phase::Refused;
-   candidate->refusal="Rest terrain is not supported yet";
+   candidate->refusal=terrain.transition.reason;
   }
   else {
-   candidate->terrainMinutes=*terrain;
    candidate->phase=xeenRestDanger(members(_party,candidate->owners),supplements(_party,candidate->owners),_party.encounterContext->year)?
     RestContinuation::Phase::Confirm:RestContinuation::Phase::Charges;
    if(_party.encounterContext->profile==XeenBehaviorProfile::WorldOfXeenClouds) {
@@ -82,6 +77,7 @@ bool XeenEncounterFlow::respondRest(const PlayerAction &action) {
  const bool completed=_rest->phase==P::Complete;_rest.reset();
  if(completed) {
   bool living=false;for(auto owner:_party.party.activeRosterIds())living=living || xeenCombatTargetable(_party.roster.at(owner));
+  living=living && !_terrainDead;
   if(!living) {_state._phase=XeenEncounterPhase::SupportStopped;_state._reason=XeenEncounterStop::Defeat;_world._sessionState._encounterTerminal=true;}
  }
  _world._sessionState._journeyActivity=XeenJourneyActivity::Presentation;
@@ -129,22 +125,24 @@ bool XeenEncounterFlow::serviceRest() {
   if(rest.phase==P::Recovery) {
    if(!rest.recovery)rest.recovery.emplace(members(_party,rest.owners),supplements(_party,rest.owners),*_party.encounterContext,_party.food);
    auto &recovery=*rest.recovery;
-   if(rest.terrainMinutes) {
-    if(!rest.time)rest.time.emplace(recovery.context,rest.terrainMinutes,recovery.characters,recovery.inputs,
-     &*_party.serviceEconomy,XeenTimeMode::Interactive,XeenTimeCall::Add);
-    XeenConsequenceDraw draw{rest.random,64,check};if(!rest.time->service(draw))return true;
-    recovery.context=rest.time->context;recovery.characters=rest.time->characters;recovery.inputs=rest.time->inputs;
+   if(!rest.terrain) {
+    auto rule=_world.prepareTerrainArrival(_camera,recovery.characters,recovery.context);
+    if(!rule)throw std::logic_error("Rest arrival admission changed");
+    if(rule.falling) {_terrainFall=rule;rule.damage=0;}
+    rest.terrain.emplace(rule,recovery.characters,recovery.inputs,recovery.context,&*_party.serviceEconomy);
    }
+   XeenConsequenceDraw draw{rest.random,64,check};if(!rest.terrain->service(draw))return true;
+   recovery.context=rest.terrain->context;recovery.characters=rest.terrain->characters;recovery.inputs=rest.terrain->inputs;
    auto exploration=_world.explorationAfterStep(_party,_camera);check();
    for(unsigned n=0;n<6;++n) {
     _party.roster.at(rest.owners[n])=recovery.characters[n];
     _party.roster._combatInputs[rest.owners[n]]=recovery.inputs[n];
    }
    _party.food=recovery.food;_party.encounterContext=recovery.context;
-   if(rest.time) {
-    _party.serviceEconomy=rest.time->economy;session._journeyRandom=rest.random.continuation();
-    _needsRestNotice=rest.time->needsRest;rest.time.reset();
-   }
+   _party.serviceEconomy=rest.terrain->economy;session._journeyRandom=rest.random.continuation();
+   _needsRestNotice=rest.terrain->needsRest;_terrainDead=rest.terrain->rule.dead;
+   if(rest.terrain->rule.damage)for(auto owner:rest.owners)
+    _world.scenePresentation().portraitDamage(owner,rest.terrain->rule.type==XeenDamageType::Fire?1u:0u,_lastTime);
    rest.consumed=recovery.consumed;rest.starving=recovery.starving;rest.phase=P::Complete;
    session.publishExploration(exploration);restPublication();return true;
   }

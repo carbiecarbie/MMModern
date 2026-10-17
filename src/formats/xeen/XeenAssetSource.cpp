@@ -191,20 +191,22 @@ void XeenAssetSource::drawSmith(IndexedFrame &frame) {
 void XeenAssetSource::drawTraining(IndexedFrame &frame) {
 	_impl->bridge.drawTraining(frame);
 }
-std::string XeenAssetSource::tavernFoodOffer() {
+std::string XeenAssetSource::tavernFoodOffer() {return tavernString(75);}
+std::string XeenAssetSource::tavernString(std::size_t wanted) {
+ if(wanted>77)throw std::out_of_range("Tavern string index");
  const auto bytes=readArchiveResource("tavern.bin",XeenSceneArchive::Clouds);
  if(bytes.size()>65536)throw std::runtime_error("Tavern strings exceed bounded reader capacity");
  std::size_t begin=0;
- for(unsigned index=0;index<=75;++index) {
+ for(std::size_t index=0;index<=wanted;++index) {
   auto end=begin;while(end<bytes.size() && bytes[end])++end;
-  if(end==bytes.size())throw std::runtime_error("Missing or unterminated Tavern food offer");
-  if(index==75) {
-   if(end-begin>4096)throw std::runtime_error("Tavern food offer exceeds bounded reader capacity");
+  if(end==bytes.size())throw std::runtime_error("Missing or unterminated Tavern string");
+  if(index==wanted) {
+   if(end-begin>4096)throw std::runtime_error("Tavern string exceeds bounded reader capacity");
    std::string offer(bytes.begin()+begin,bytes.begin()+end);XeenDosText::validateControls(offer);return offer;
   }
   begin=end+1;
  }
- throw std::runtime_error("Missing Tavern food offer");
+ throw std::runtime_error("Missing Tavern string");
 }
 void XeenAssetSource::drawTavern(IndexedFrame &frame) { _impl->bridge.drawTavern(frame); }
 void XeenAssetSource::drawBank(IndexedFrame &frame) { _impl->bridge.drawBank(frame); }

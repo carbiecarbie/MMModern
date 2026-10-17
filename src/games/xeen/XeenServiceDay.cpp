@@ -4,17 +4,24 @@
 #include <algorithm>
 #include <stdexcept>
 namespace mmodern {
+namespace {
+bool serviceDepartureRegenerates(unsigned oldDay,unsigned endingDay,std::uint16_t minutes) noexcept {
+    // DOS addTime 0x263e7..2640b compares the original charge as a signed
+    // word (jle at 0x263f9), independently of unsigned minute normalization.
+    const int signedMinutes=minutes<32768?int(minutes):int(minutes)-65536;
+    return oldDay!=endingDay && (endingDay%10==1 || signedMinutes>1440);
+}
+}
 XeenServiceDayCandidate::XeenServiceDayCandidate(const XeenGameplayContext &context,
 		const XeenServiceEconomy &economy,const XeenJourneyRandomState &cursor,
 		XeenScriptServiceCharge serviceCharge,bool deferBankInterest,bool deferGeneration):
 	originalContext(context),endingContext(context),originalEconomy(economy),endingEconomy(economy),
 	originalRandom(cursor),random(cursor),charge(serviceCharge),bankInterestDeferred(deferBankInterest) {
 
-	const auto successor=charge==XeenScriptServiceCharge::OneDay ?
-		xeenPrepareSmithDeparture(context) : xeenPrepareTemplePaidDeparture(context);
+	const auto successor=xeenPrepareServiceDeparture(context,static_cast<std::uint16_t>(charge));
 	if(!successor)throw std::invalid_argument("Unsupported script service context");
 	xeenValidateCurrentServiceEconomy(economy);endingContext=*successor;
-	regenerating=xeenServiceDayRegenerates(originalContext.day,endingContext.day,static_cast<std::uint16_t>(charge));
+	regenerating=serviceDepartureRegenerates(originalContext.day,endingContext.day,static_cast<std::uint16_t>(charge));
 	generationDeferred=regenerating && deferGeneration;
 	// 160 items, at most eight accepted requests each, spans <=101. A rejected
 	// nonzero xorshift32 raw (<101) has a successor >100: at most two raws/request.
@@ -64,16 +71,30 @@ XeenServiceDayCandidate XeenServiceDayCandidate::upgradeTemplePaid() const {
 	replacement.validateReservation();
 	return replacement;
 }
+XeenServiceDayCandidate XeenServiceDayCandidate::addTemplePaidDay() const {
+    validateReservation();
+    if(generationStarted || (regenerating && !generationDeferred))
+        throw std::logic_error("Temple payment followed departure generation");
+    // DOS 0x1ae68 and 0x1d78e add into one unsigned word, including wrap.
+    const auto next=static_cast<XeenScriptServiceCharge>(static_cast<std::uint16_t>(minutes()+1440));
+    return {originalContext,originalEconomy,originalRandom,next,false,true};
+}
+XeenServiceDayCandidate XeenServiceDayCandidate::rebindContext(const XeenGameplayContext &after) const {
+    validateReservation();
+    auto expected=originalContext;expected.effects=after.effects;expected.lightAndResistances=after.lightAndResistances;
+    if(!(expected==after) || generationStarted || (regenerating && !generationDeferred))
+        throw std::logic_error("Service effect rebind changed calendar or followed generation");
+    return {after,originalEconomy,originalRandom,charge,bankInterestDeferred,true};
+}
 void XeenServiceDayCandidate::validateComplete() const {
 	validateReservation();
 	if(generationDeferred)throw std::invalid_argument("Service-day generation is deferred");
 }
 void XeenServiceDayCandidate::validateReservation() const {
 	if(!completed)throw std::invalid_argument("Service-day departure is incomplete");
-	const auto expected=charge==XeenScriptServiceCharge::OneDay ?
-		xeenPrepareSmithDeparture(originalContext) : xeenPrepareTemplePaidDeparture(originalContext);
+	const auto expected=xeenPrepareServiceDeparture(originalContext,static_cast<std::uint16_t>(charge));
 	if(!expected || !(endingContext==*expected) ||
-		regenerating!=xeenServiceDayRegenerates(originalContext.day,endingContext.day,static_cast<std::uint16_t>(charge)))
+		regenerating!=serviceDepartureRegenerates(originalContext.day,endingContext.day,static_cast<std::uint16_t>(charge)))
 		throw std::invalid_argument("Service-day context successor changed");
 	xeenValidateCurrentServiceEconomy(originalEconomy);
 	if(generationDeferred) {

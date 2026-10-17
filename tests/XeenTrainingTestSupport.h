@@ -17,6 +17,17 @@
 namespace mmodern {
 // Synthetic authority-limit controls; never used by an earned/process witness.
 struct XeenTrainingTestAccess {
+    static unsigned woundBeforeFall(XeenEventFlow &flow) {
+        auto &encounter=*flow._encounter;
+        auto &actors=encounter._world._sessionState.mutableMonsters(23);
+        for(unsigned n=0;n<actors.size();++n) {
+            auto &a=actors[n];
+            if(a.lifecycle!=XeenActorLifecycle::Present || !a.statistics ||
+                std::abs(a.x-12)+std::abs(a.y-10)<=6)continue;
+            a.hp=1;a.activated=true;encounter.retainJourney();flow._encounterFrame=encounter.ticket();return n;
+        }
+        throw std::runtime_error("No distant original actor available for fall reload fixture");
+    }
     static bool templeLobby(const XeenEventFlow &flow) {
         return flow._smithUi && flow._smithUi->mode==XeenEventFlow::SmithUi::Mode::Heal &&
             flow._smithUi->phase==XeenEventFlow::SmithUi::Phase::Lobby;

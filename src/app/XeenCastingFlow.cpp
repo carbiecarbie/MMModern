@@ -125,6 +125,11 @@ bool XeenEncounterFlow::confirmCasting(const Ticket &entry, std::size_t casterIn
             if(preflight.admission==XeenJumpAdmission::Unsupported)return false;
             if(preflight.admission==XeenJumpAdmission::Ready)jump=preflight.destination;
           }
+          auto ending=xeenPrepareTime(*_party.encounterContext,_world.map(_camera.mapId).geometry.isOutdoors()?10:1);
+          if(ending.dailyProcessing)xeenResetPartyTemps(ending.context);
+          const auto arrival=_world.prepareTerrainArrival(jump?*jump:_camera,activeCharacters(_party,_casting->owners),ending.context);
+          _journeyPreimage->check();
+          if(!arrival) {_journeyRefusal=arrival.transition.reason;return false;}
           if(XeenLearnedSpellRules::target(*id)==XeenSpellTarget::Contact) {
             projectile=prepareSpellProjectile(*spell,owner,_world.map(_camera.mapId).geometry.isOutdoors()?10:1);
           }
@@ -248,6 +253,18 @@ bool XeenEncounterFlow::serviceCasting() {
 		if (!work.time) work.time.emplace(*_party.encounterContext,(_world.map(_camera.mapId).geometry.isOutdoors()?10:1),activeCharacters(_party,work.owners),activeInputs(_party,work.owners),&*_party.serviceEconomy);
 		XeenConsequenceDraw draw{work.random,64,[&] { _journeyPreimage->check(); }};
 		if (!work.time->service(draw)) return true;
+        if(!work.terrain) {
+            auto rule=_world.prepareTerrainArrival(_camera,work.time->characters,work.time->context);
+            if(!rule)throw std::logic_error("Casting arrival admission changed");
+            if(rule.falling) {_terrainFall=rule;rule.damage=0;}
+            work.terrain.emplace(rule,work.time->characters,work.time->inputs,work.time->context,
+                work.time->economy?&*work.time->economy:nullptr);
+        }
+        if(!work.terrain->service(draw))return true;
+        work.time->characters=work.terrain->characters;work.time->inputs=work.terrain->inputs;
+        work.time->context=work.terrain->context;work.time->economy=work.terrain->economy;
+        work.time->needsRest=work.time->needsRest || work.terrain->needsRest;
+        _terrainDead=work.terrain->rule.dead;
 		if (_world._sessionState._encounterRevision==std::numeric_limits<std::uint64_t>::max())
 			throw std::overflow_error("Casting charge generation exhausted");
 		std::vector<XeenExploredTile> exploration;
@@ -268,6 +285,7 @@ bool XeenEncounterFlow::serviceCasting() {
 			owner=value;
 			living=living || xeenCombatTargetable(owner);
 		}
+        living=living && !_terrainDead;
 		prepared->context=work.time->context;prepared->economy=work.time->economy;
 		for(unsigned n=0;n<6;++n)prepared->inputs[work.owners[n]]=work.time->inputs[n];
 		const auto continuation=work.random.continuation();
@@ -283,7 +301,9 @@ bool XeenEncounterFlow::serviceCasting() {
 		auto &session=_world._sessionState;
 		session.publishExploration(exploration);
 		session._journeyRandom=continuation;
-		_state._pending=living?3:0;
+        if(work.terrain->rule.damage)for(auto owner:work.owners)
+            _world.scenePresentation().portraitDamage(owner,work.terrain->rule.type==XeenDamageType::Fire?1u:0u,_lastTime);
+		_state._pending=living && !_terrainFall?3:0;
 		if (!living) { _state._phase=XeenEncounterPhase::SupportStopped;
 			_state._reason=XeenEncounterStop::Defeat;session._encounterTerminal=true; }
 		++session._encounterRevision;_state._revision=session._encounterRevision;

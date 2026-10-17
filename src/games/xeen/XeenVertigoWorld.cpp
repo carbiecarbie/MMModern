@@ -2,11 +2,43 @@
 #include "games/xeen/XeenActorApproach.h"
 #include "games/xeen/XeenRegionalRules.h"
 #include "games/xeen/XeenIndoorScene.h"
+#include "games/xeen/XeenTerrainRules.h"
 #include <bitset>
 #include <algorithm>
 #include <stdexcept>
 
 namespace mmodern {
+
+void XeenWorld::retainEventStep(XeenPartyState &party,const XeenRegionalActionCandidate &step,const std::vector<XeenActor> &actors) {
+ if(!detachedEventCandidate())throw std::logic_error("Event step requires detached preparation");
+ auto retained=actors;_sessionState.mutableMonsters(step.camera.mapId).swap(retained);
+ for(unsigned n=0;n<6;++n) {
+  party.roster.at(step.owners[n])=step.characters[n];party.roster._combatInputs[step.owners[n]]=step.inputs[n];
+ }
+ party.encounterContext=step.context;
+ if(step.time)party.serviceEconomy=step.time->economy;
+ retainEventRandom(step.random.continuation());
+}
+
+void XeenWorld::publishTerrainArrival(XeenPartyState &party,const XeenTerrainArrivalCandidate &arrival,const XeenJourneyRandomState &random) {
+ if(!detachedEventCandidate())throw std::logic_error("Terrain arrival requires detached publication");
+ for(unsigned n=0;n<6;++n) {
+  const auto owner=arrival.characters[n].rosterId;
+  party.roster.at(owner)=arrival.characters[n];party.roster._combatInputs[owner]=arrival.inputs[n];
+ }
+ party.encounterContext=arrival.context;party.serviceEconomy=arrival.economy;retainEventRandom(random);
+}
+
+XeenTerrainArrival XeenWorld::prepareTerrainArrival(const XeenCamera &camera,
+ const XeenConsequenceCharacters &characters,const XeenGameplayContext &context) {
+ const auto cell=sampleCell(camera.mapId,camera.x,camera.y);
+ if(!cell)throw std::invalid_argument("Arrival cell is absent");
+ const auto &primary=map(camera.mapId).geometry;
+ bool navigator=false;for(const auto &c:characters)navigator=navigator || c.skills[10]!=0;
+ auto rule=xeenTerrainArrival(primary.surfaceTypes[cell->cell->surfaceIndex],primary.isOutdoors(),navigator,context.effects[2]!=0,camera);
+ if(rule.falling)rule.transition=prepareEventTransition(rule.transition.destination);
+ return rule;
+}
 
 XeenTransitionResult XeenWorld::prepareEventTransition(const XeenCamera &requested,bool runLocation) {
     auto destination=requested;

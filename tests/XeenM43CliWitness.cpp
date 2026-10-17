@@ -153,6 +153,12 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
         };
         auto resurrection=std::make_shared<XeenTempleHealCandidate>(),initialHeal=std::make_shared<XeenTempleHealCandidate>();
         auto resurrectionIndex=std::make_shared<unsigned>(0),healIndex=std::make_shared<unsigned>(0);
+        // The unchanged pre-Temple script has four Space interactions at the
+        // outdoor well (one each for members 0,1,3,4): 4*10 minutes. Its fifth
+        // Space enters Vertigo; chargeStep runs after the Event teleport, so
+        // that interaction costs 1 indoor minute. Add these formerly omitted
+        // charges to the established 635-minute route oracle, not an observation.
+        constexpr unsigned templeArrivalMinutes=635+4*10+1;
         auto arrivalMinutes=std::make_shared<unsigned>(0);
         unsigned openingAttacks=0;
         auto mainStockCursor=std::make_shared<XeenJourneyRandomState>();
@@ -221,7 +227,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
                     "M43 restore changed encoded owners before first input");
                 if(stage=="unpaid")
                     check(position->mapId==XeenMapIdentity(28) && position->x==15 && position->y==28 &&
-                        party->encounterContext->day==8 && party->encounterContext->minutes==635 &&
+                        party->encounterContext->day==8 && party->encounterContext->minutes==templeArrivalMinutes &&
                         party->monsterTreasure->gold==800 && party->roster.at(6).currentHp==0 &&
                         party->roster.at(6).conditions[13] && party->roster.at(14).currentHp==20,
                         "M43 restored original refusal A baseline differs");
@@ -261,7 +267,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
                 <<" TIME "<<party->encounterContext->day<<':'<<party->encounterContext->minutes
                 <<" GOLD "<<party->monsterTreasure->gold<<'\n';
             check(position->mapId==XeenMapIdentity(28) && position->x==15 && position->y==28 &&
-                party->encounterContext->day==8 && party->encounterContext->minutes==635 && party->monsterTreasure->gold==800,
+                party->encounterContext->day==8 && party->encounterContext->minutes==templeArrivalMinutes && party->monsterTreasure->gold==800,
                 "M43 Temple arrival differs");
             *arrivalMinutes=party->encounterContext->minutes;
             *mainStockCursor=*world->sessionState().journeyRandom();beginServiceObservation();
@@ -299,13 +305,15 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
             observeStockDraws=false;
             const auto replay=serviceOracle(*mainStockCursor,2,4,true);const auto &oracle=replay.first;
             const auto &expected=replay.second;
-            check(party->encounterContext->day==10 && party->encounterContext->minutes==*arrivalMinutes &&
+            // DOS 0x1ae68 accumulates one day for each of these two paid
+            // actions, then common departure 0x1d78e adds the third day.
+            check(party->encounterContext->day==11 && party->encounterContext->minutes==*arrivalMinutes &&
                 party->monsterTreasure->gold==initialHeal->result.goldAfter && world->sessionState().journeyRandom()->state==oracle.state &&
                 world->sessionState().journeyRandom()->count==oracle.count &&
                 observedStockDraws==oracle.trace &&
                 m40_test::stockBytes(expected)==m40_test::stockBytes(*party->serviceEconomy),
-                "M43 one two-day paid departure or complete stock differs");
-            std::cerr<<"M43 PAID DEPARTURE DAY10 RNG "<<oracle.state<<':'<<oracle.count<<" STOCK ALL1152\n";
+                "M43 cumulative three-day paid departure or complete stock differs");
+            std::cerr<<"M43 PAID DEPARTURE DAY11 RNG "<<oracle.state<<':'<<oracle.count<<" STOCK ALL1152\n";
         });
         checkpoint("B");
         }
@@ -437,11 +445,13 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
             });
             checkpoint("D");
         }else{
-        auto resumedMinutes=std::make_shared<unsigned>(0),resumedGold=std::make_shared<unsigned>(0);
-        inspect([&,resumedMinutes,resumedGold]{*resumedMinutes=party->encounterContext->minutes;*resumedGold=party->monsterTreasure->gold;});
+        auto resumedMinutes=std::make_shared<unsigned>(0),resumedGold=std::make_shared<unsigned>(0),resumedDay=std::make_shared<unsigned>(0);
+        // Continue from the actual saved/current context. The independent
+        // unpaid and depleted branches above keep their original starting days.
+        inspect([&,resumedMinutes,resumedGold,resumedDay]{*resumedMinutes=party->encounterContext->minutes;*resumedGold=party->monsterTreasure->gold;*resumedDay=party->encounterContext->day;});
         route("DDUU");
-        inspect([&,resumedMinutes,resumedGold]{check(position->mapId==XeenMapIdentity(28) && position->x==15 && position->y==28 &&
-            party->encounterContext->day==10 && party->encounterContext->minutes==*resumedMinutes+4 &&
+        inspect([&,resumedMinutes,resumedGold,resumedDay]{check(position->mapId==XeenMapIdentity(28) && position->x==15 && position->y==28 &&
+            party->encounterContext->day==*resumedDay && party->encounterContext->minutes==*resumedMinutes+4 &&
             party->monsterTreasure->gold==*resumedGold,"M43 resumed north corridor continuation differs");});
         checkpoint("C");
         route("RR"+std::string(28,'U'));
@@ -541,10 +551,10 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
                 <<party->roster.at(6).currentSp<<'\n';});
         action(CancelInteractionAction{});
         steps.push_back([&]{return flow->canSave();});
-        inspect([&,returnHeal]{check(party->encounterContext->day==12 &&
+        inspect([&,returnHeal,resumedDay]{check(party->encounterContext->day==(*resumedDay+2)%100 &&
             party->monsterTreasure->gold==returnHeal->result.goldAfter,
             "M43 returned paid visit did not make one two-day departure");
-            std::cerr<<"M43 RETURN TEMPLE PAID DAY12\n";});
+            std::cerr<<"M43 RETURN TEMPLE PAID DAY"<<party->encounterContext->day<<'\n';});
         checkpoint("E");
         }
         if(stage=="main") {
@@ -552,7 +562,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
             inspect([&,before]{*before=XeenSaveState::capture(original.resources.signature,*party,*position,*flags,*world);});
             route("DDUU");
             inspect([&,before]{const auto after=XeenSaveState::capture(original.resources.signature,*party,*position,*flags,*world);
-                check(xeen_state::sameCamera(after.camera,before->camera) && after.journey->context->day==12 &&
+                check(xeen_state::sameCamera(after.camera,before->camera) && after.journey->context->day==before->journey->context->day &&
                     after.journey->context->minutes==before->journey->context->minutes+4 &&
                     after.journey->treasure->gold==before->journey->treasure->gold &&
                     after.journey->random==before->journey->random &&

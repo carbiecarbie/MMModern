@@ -128,12 +128,13 @@ struct XeenSaveMapState {
 	std::vector<XeenSaveEventOverride> events;
 	// This tile's explored bits (y*16+x); presence is kept even when zero.
 	std::optional<std::array<std::uint8_t, 32>> explored;
+	std::optional<std::uint8_t> tavernTips;
 	bool empty() const noexcept {
-		return !monsters && objects.empty() && wallItems.empty() && cells.empty() && events.empty() && !explored;
+		return !monsters && objects.empty() && wallItems.empty() && cells.empty() && events.empty() && !explored && !tavernTips;
 	}
 	friend bool operator==(const XeenSaveMapState &a, const XeenSaveMapState &b) {
 		return a.id == b.id && a.monsters == b.monsters && a.objects == b.objects && a.wallItems == b.wallItems &&
-			a.cells == b.cells && a.events == b.events && a.explored == b.explored;
+			a.cells == b.cells && a.events == b.events && a.explored == b.explored && a.tavernTips == b.tavernTips;
 	}
 };
 
@@ -179,7 +180,7 @@ struct XeenSaveSnapshot {
 	XeenSaveMapState &map(XeenMapIdentity id) {
 		auto at = maps.begin();
 		while (at != maps.end() && at->id < id) ++at;
-		if (at == maps.end() || at->id != id) at = maps.insert(at, XeenSaveMapState{id, {}, {}, {}, {}, {}, {}});
+		if (at == maps.end() || at->id != id) at = maps.insert(at, XeenSaveMapState{id, {}, {}, {}, {}, {}, {}, {}});
 		return *at;
 	}
 

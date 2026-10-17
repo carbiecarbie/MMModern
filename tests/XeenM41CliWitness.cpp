@@ -197,6 +197,12 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
                 if(drainLast || n+1<path.size())settle();
             }
         };
+        // The unchanged fresh route drinks at the outdoor well for five
+        // members: five Space actions charge 5*10 minutes. The later entrance
+        // Space charges one minute after its Event teleports indoors. Service
+        // visits retain their existing calendar charge and these same minutes.
+        constexpr unsigned wellSpaceMinutes=5*10;
+        constexpr unsigned cityPrefixMinutes=wellSpaceMinutes+1;
         const auto expect=[&](unsigned day,unsigned minute,std::uint32_t gold,std::uint32_t state,std::uint64_t count) {
             check(party->encounterContext->day==day && party->encounterContext->minutes==minute && party->monsterTreasure->gold==gold &&
                 world->sessionState().journeyRandom()->state==state && world->sessionState().journeyRandom()->count==count,"M41 literal date/gold/RNG checkpoint mismatch");
@@ -290,27 +296,27 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
         if(!resume) {
             route("RRRUUURUURRRU");for(unsigned member:{0u,1u,2u,3u,5u}) {action(InteractionAction{});action(SelectMemberAction{member});settle();}
             route("RRUUUU");route("URRRUU");route("UU");route("UURU");route("RRURRRUUUUUUUUURRRU");
-            inspect([&]{expect(8,786,870,4263475254u,1096);check(party->roster.combatInputs(18)->experience==3332 && party->roster.combatInputs(1)->experience==3332,"M41 earned XP prefix mismatch");});
+            inspect([&]{expect(8,786+wellSpaceMinutes,870,4263475254u,1096);check(party->roster.combatInputs(18)->experience==3332 && party->roster.combatInputs(1)->experience==3332,"M41 earned XP prefix mismatch");});
             action(CastSpellAction{});action(SelectMemberAction{4});action(DialogKeyAction{'n'});action(DialogKeyAction{'2'});
             action(DialogKeyAction{'s'});action(DialogKeyAction{'c'});action(SelectMemberAction{4});settle();
             inspect([&]{check(party->roster.at(1).currentHp==21 && party->roster.at(1).currentSp==13,"M41 genuine First Aid mismatch");cityFight=true;});
             action(InteractionAction{});action(YesAction{});settle();route("UUUU");
             inspect([&] {
-                expect(8,801,870,4180726993u,1109);
+                expect(8,801+cityPrefixMinutes,870,4180726993u,1109);
                 constexpr int hp[]{61,66,61,61,20,27},sp[]{6,0,6,0,13,27};
                 constexpr unsigned xp[]{1016,3348,1016,1016,3348,1148};
                 for(unsigned n=0;n<6;++n){const auto owner=kXeenCombatOwners[n];check(party->roster.at(owner).currentHp==hp[n] &&
                     party->roster.at(owner).currentSp==sp[n] && party->roster.combatInputs(owner)->experience==xp[n],"M41 Slime checkpoint mismatch");}
             // Decision 9: back up facing East from (15,7) to (10,7), so the view
             // West never wakes Slime #34 before the resumed checkpoints A and B.
-            });route("UUURDDDDDLUUUU");inspect([&]{expect(8,813,870,4180726993u,1109);});checkpoint("A");
+            });route("UUURDDDDDLUUUU");inspect([&]{expect(8,813+cityPrefixMinutes,870,4180726993u,1109);});checkpoint("A");
         }
         if(!resume || stage=="A") {
             inspect(beginService);
             action(InteractionAction{});waitService();paid(1,18,9,780,64,0);paid(4,1,10,690,28,28);
-            action(SelectMemberAction{1});inspect([&]{deny();const auto oracle=serviceOracle(false);expect(10,813,690,oracle.state,oracle.count);});
+            action(SelectMemberAction{1});inspect([&]{deny();const auto oracle=serviceOracle(false);expect(10,813+cityPrefixMinutes,690,oracle.state,oracle.count);});
             action(CancelInteractionAction{});settle();
-            inspect([&]{observeService=false;const auto oracle=serviceOracle(true);expect(11,813,690,oracle.state,oracle.count);check(interestCalls==1,"M41 stock/interest duplicated");});checkpoint("B");
+            inspect([&]{observeService=false;const auto oracle=serviceOracle(true);expect(11,813+cityPrefixMinutes,690,oracle.state,oracle.count);check(interestCalls==1,"M41 stock/interest duplicated");});checkpoint("B");
         }
         // B -> C: reset exit, useful First Aid, lethal Magic Arrow, empty visit.
         route("DDDDRUUUUURUUUUUUU");action(InteractionAction{});action(YesAction{});settle();

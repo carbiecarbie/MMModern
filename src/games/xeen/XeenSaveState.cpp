@@ -211,6 +211,12 @@ void XeenSaveState::restoreJourney(const XeenSaveSnapshot &source, const Resourc
 	if(!movedObjects.empty()) {w.restoreObjectOverrides(movedObjects);adopt();}
 	if(!cells.empty()) {w.restoreBarriers(cells);adopt();}
 	if(!explored.empty()) {w.restoreExploredTiles(explored);adopt();}
+	for (const auto &m:snapshot.maps) if (m.tavernTips) {
+		// Resolve all resource callbacks against the retained preimage before
+		// publishing this candidate's map-owned cursor; never advance a tip.
+		static_cast<void>(callback([&] { return w.map(m.id).geometry.id; }));
+		w.setTavernTipIndex(m.id,*m.tavernTips);adopt();
+	}
 	w.restoreHeads(snapshot.headCache,c);adopt();
 	auto statistics = callback(monsters);
 	const auto &policy=xeenJourneyContent();
@@ -407,6 +413,7 @@ XeenSaveSnapshot XeenSaveState::captureImpl(const XeenSaveResourceSignature &res
 		for (const auto &id:live.disabledEvents) events[id.recordIndex]=0;
 		for (const auto &v:events) saved.events.push_back({record(v.first),v.second});
 		saved.explored=live.explored;
+		if(live.tavernTips)saved.tavernTips=std::uint8_t(*live.tavernTips);
 		if (!saved.empty()) snapshot.maps.push_back(std::move(saved));
 	}
 

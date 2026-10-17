@@ -1,5 +1,6 @@
 #include "games/xeen/XeenRestRules.h"
 #include "games/xeen/XeenRegionalRules.h"
+#include "games/xeen/XeenTerrainRules.h"
 #include "XeenSaveTestSupport.h"
 #include <iostream>
 using namespace mmodern;
@@ -74,11 +75,55 @@ void movement() {
  c[0].conditions.fill(0);c[0].conditions[2]=1;check(!xeenRestRangedWake(c),"Awake Weak member does not satisfy literal ranged wake test");
  c[0].conditions[2]=0;check(xeenRestRangedWake(c),"Good member wakes mode");
 }
+void terrain() {
+ const XeenCamera camera{25,3,4,XeenDirection::West};
+ for(bool outdoors:{false,true})for(unsigned surface=0;surface<16;++surface)for(bool levitate:{false,true}) {
+  const auto rule=xeenTerrainArrival(surface,outdoors,false,levitate,camera);
+  check(rule.dead==(surface==15),"Only space sets party defeat");
+  check(rule.falling==(surface==10 || (surface==13 && !levitate)),"Sky ignores Levitate; cloud checks it");
+  check(rule.damage==((surface==5 || rule.falling)?100u:0u),"Terrain fixed original damage");
+  check(rule.minutes==((surface==6 && outdoors)?170u:0u),"Desert is outdoors only");
+  check(xeenRestTerrain(surface,outdoors,false,levitate).has_value(),"Every surface admits Rest");
+ }
+ const auto fall=xeenTerrainFallDestination(camera);
+ check(fall.mapId==XeenMapIdentity(24) && fall.x==11 && fall.y==9 && fall.direction==XeenDirection::West,"Clouds castle fall preserves facing");
+ const auto south=xeenTerrainFallDestination({65,0,0,XeenDirection::West});
+ check(south.mapId==XeenMapIdentity(14) && south.x==8 && south.y==3 && south.direction==XeenDirection::South,"Clouds 65 fall destination/facing");
+ for(const auto id:{89u,112u}) {
+  const auto dark=xeenTerrainFallDestination({{XeenSide::Darkside,std::uint16_t(id)},3,4,XeenDirection::West});
+  check(dark.mapId==XeenMapIdentity(XeenSide::Darkside,std::uint16_t(id-88)) && dark.x==3 && dark.y==4 &&
+   dark.direction==XeenDirection::West,"DOS Darkside direct fall retains coordinates and facing");
+ }
+ for(const auto id:{113u,130u,131u,132u}) {
+  const auto dark=xeenTerrainFallDestination({{XeenSide::Darkside,std::uint16_t(id)},3,4,XeenDirection::West});
+  check(dark.mapId==XeenMapIdentity(XeenSide::Darkside,29) && dark.x==25 && dark.y==21 &&
+   dark.direction==XeenDirection::North,"DOS Darkside dispatch excludes pin's extra boundaries");
+ }
+ auto c=characters();auto i=inputs();for(auto &v:c){v.currentHp=200;v.conditions.fill(0);}
+ for(auto &v:i)v.resistances->fireTemporary=0;
+ XeenGameplayContext ctx;ctx.year=610;ctx.day=8;ctx.minutes=480;
+ ctx.lightAndResistances[2]=20;ctx.effects[6]=3;
+ std::vector<XeenCombatRandom::Draw> tape;
+ // Each member starts at 100: 100-20=80, save5<=10 halves40,
+ // save20>10 stops, then shield3 leaves37. No cumulative reductions.
+ for(auto &v:i)v.resistances->firePermanent=10;
+ for(unsigned n=0;n<6;++n){tape.push_back({1,50,5});tape.push_back({1,50,20});}
+ XeenCombatRandom random(tape);
+ XeenTerrainArrivalCandidate fire(xeenTerrainArrival(5,true,false,false,camera),c,i,ctx,nullptr);
+ for(unsigned slice=0;;++slice) {check(slice<50,"Terrain bounded save continuation");XeenConsequenceDraw draw{random,1,{}};if(fire.service(draw))break;}
+ for(const auto &v:fire.characters)check(v.currentHp==163,"Original fresh100 fire damage per member worked37");
+ check(random.position()==12,"Exactly two fire-saving draws per member");
+ XeenCombatRandom physical(7);XeenTerrainArrivalCandidate sky(xeenTerrainArrival(10,true,false,true,camera),c,i,ctx,nullptr);
+ XeenConsequenceDraw draw{physical,64,{}};check(sky.service(draw),"Physical terrain completes without random work");
+ for(const auto &v:sky.characters)check(v.currentHp==103,"Physical terrain applies PowerShield:100-3=97");
+ check(!physical.position(),"Physical terrain makes no saving draw");
+ auto space=xeenTerrainArrival(15,false,false,false,camera);XeenTerrainArrivalCandidate vacuum(space,c,i,ctx,nullptr);
+ check(vacuum.service(draw) && vacuum.characters[0].currentHp==200 && !vacuum.characters[0].conditions[13],"Space changes no member HP/Dead state");
 }
-int main() {try {recovery();time();movement();
+}
+int main() {try {recovery();time();movement();terrain();
  check(xeenRestTerrain(6,true,false,false)==170 && xeenRestTerrain(6,true,true,false)==0 &&
   xeenRestTerrain(6,false,false,false)==0,"Desert addTime/Navigator/indoor oracle");
- check(xeenRestTerrain(13,true,false,true)==0 && !xeenRestTerrain(13,true,false,false),"Cloud levitation oracle");
- for(unsigned surface:{5u,10u,15u})check(!xeenRestTerrain(surface,true,false,true),"Unsupported terrain oracle");
+ check(xeenRestTerrain(13,true,false,true)==0 && xeenRestTerrain(13,true,false,false)==0,"Cloud admits Rest before arrival");
  std::cout<<"Rest recovery/time/movement reference oracles passed\n";return 0;}
  catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}

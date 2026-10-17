@@ -114,7 +114,7 @@ bool XeenEncounterFlow::handle(const PlayerAction &input, std::optional<std::uin
 		if (r.reason == XeenEncounterStop::Envelope) _journeyRefusal = "Four-cell boundary: x=13..14, y=1..2";
 		return true;
 	}
-	if (_state.phase() == XeenEncounterPhase::Exploring &&
+	if (!_terrainFall && _state.phase() == XeenEncounterPhase::Exploring &&
 		(r.outcome == XeenEncounterOutcome::Accepted || r.outcome == XeenEncounterOutcome::Blocked)) {
 		if (!prepareTime(ticket(),now)) return true;
 		journeyPulse(ticket());
@@ -147,7 +147,7 @@ bool XeenEncounterFlow::idle(std::optional<std::uint64_t> cycle) {
         // A yielded chargeStep still owes the ordinary draw's pulse/contact
         // check once its prior actor work and stepTime finish. Do not expose
         // navigation between that suffix and the check (DAT 0x0d1c3..0x0d1c9).
-        if(_state.phase()==XeenEncounterPhase::Exploring && !_regionalWork &&
+        if(!_terrainFall && _state.phase()==XeenEncounterPhase::Exploring && !_regionalWork &&
             (completed.outcome==XeenEncounterOutcome::Accepted || completed.outcome==XeenEncounterOutcome::Blocked)) {
             if(!prepareTime(ticket(),now))return true;
             journeyPulse(ticket());

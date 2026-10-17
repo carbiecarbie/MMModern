@@ -12,14 +12,13 @@ std::string trim(std::string s) {
     return a==std::string::npos?"":s.substr(a,b-a+1);
 }
 bool documentedGap(const std::string &dimension,const std::string &mechanic,const std::string &status,const std::string &reason) {
-    // Expectations only, never classification inputs: audio and the six
-    // deferred service actions. Mirror/password input is implemented.
+    // Expectations only, never classification inputs: audio and deferred Sign In.
     if(dimension=="Events") {
         const std::map<std::string,std::string> audio{{"6 PlayFX","Sound effects not supported yet"},
             {"40 PlayEventVoc","Voice audio not supported yet"},{"60 PlayCD","CD speech not supported yet"}};
         if(const auto i=audio.find(mechanic);i!=audio.end())return status=="partial" && reason.find(i->second)!=std::string::npos;
     }
-    const std::set<std::string> actions{"Drink","Tip","Rumors","Sign In","Donation","Uncurse"};
+    const std::set<std::string> actions{"Sign In"};
     return dimension=="Services" && actions.count(mechanic) && status=="unsupported" &&
         reason.find(mechanic+": not supported yet")!=std::string::npos;
 }
@@ -36,7 +35,7 @@ int main(int argc,char **argv) {
         require(!documentedGap("Events","17 DoTownEvent action=0","unsupported","opcode 17 is outside the supported decoder subset"),"Missing service handoff must fail calibration");
         std::ifstream input(argv[1]);require(bool(input),"Cannot read coverage report");
         std::string line,dimension;bool clouds=false,darkside=false;unsigned gaps=0,unused=0,waterDragon=0,vultureRoc=0,movement=0;
-        std::set<std::string> supported;
+        std::set<std::string> supported,supportedServices;
         while(std::getline(input,line)) {
             if(line=="## Clouds detail")clouds=true;
             if(line=="## Darkside detail") {clouds=false;darkside=true;}
@@ -83,6 +82,7 @@ int main(int argc,char **argv) {
                     require(unresolvedSubroutine(mechanic,reason),"Unclassified accepted Vertigo Event: "+mechanic+" / "+reason);++unused;
                 }
                 if(dimension=="Events" && status=="supported")supported.insert(mechanic);
+                if(dimension=="Services" && status=="supported")supportedServices.insert(mechanic);
             }
             if(maps.count(23) && dimension=="Events" && (mechanic=="14 Remove" || mechanic=="12 TakeOrGive modes=0,8,0" ||
                     mechanic=="12 TakeOrGive modes=21,0,0 operand1=99" || mechanic=="12 TakeOrGive modes=21,0,0 operand1=100"))
@@ -94,7 +94,9 @@ int main(int argc,char **argv) {
             bool found=false;for(const auto &name:supported)found=found || name.rfind(prefix,0)==0;
             require(found,std::string("Accepted Vertigo mechanic missing: ")+prefix);
         }
-        require(gaps==9 && unused==4,"Vertigo documented gap/subroutine inventory changed; explain and recalibrate");
+        for(const auto action:{"Drink","Tip","Rumors","Donation","Uncurse"})
+            require(supportedServices.count(action),std::string("Implemented Vertigo service missing: ")+action);
+        require(gaps==4 && unused==4,"Vertigo documented gap/subroutine inventory changed; explain and recalibrate");
         require(waterDragon==2 && vultureRoc==2,"Species 59 species and movement rows are missing from the census");
         require(movement>=4,"Monster movement rows are missing from the census");
         std::cout<<"Vertigo calibration: "<<gaps<<" documented gap rows; "<<unused<<" unresolved-subroutine exceptions; accepted effects and services supported\n";

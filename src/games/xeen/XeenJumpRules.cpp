@@ -31,20 +31,14 @@ XeenJumpPreflight xeenJumpPreflight(XeenWorld &world,const XeenCamera &camera) {
     }
     result.admission=XeenJumpAdmission::Unsupported;
     if(!destination)return result;
-    const unsigned surface=map.geometry.isOutdoors() ?
-        unsigned(xeenGet<XeenOutdoorLayers>(destination->cell->geometry).surface) : unsigned(destination->cell->surfaceIndex);
-    const auto type=map.geometry.surfaceTypes.at(surface);
-    // Maintainer-approved M60 restriction: terrain-arrival consequences are
-    // deferred. Do not charge a spell whose destination cannot yet be handled.
-    if(type==5 || type==6 || type==10 || type==13 || type==15)return result;
     if(map.geometry.isOutdoors()) {
-        if(camera.mapId!=XeenMapIdentity(23) || destination->mapId!=XeenMapIdentity(23) ||
+        if(camera.mapId!=world.developerEventMap() && (camera.mapId!=XeenMapIdentity(23) || destination->mapId!=XeenMapIdentity(23) ||
             x<0 || x>=16 || y<0 || y>=16 ||
-            !XeenMovement::component(map,9,11,xeenJourneyContent().traversal)[y*16+x])return result;
+            !XeenMovement::component(map,9,11,xeenJourneyContent().traversal)[y*16+x]))return result;
         result.destination.mapId=destination->mapId;
         result.destination.x=destination->x;result.destination.y=destination->y;
     } else {
-        if(camera.mapId!=XeenMapIdentity(28) || !xeenIndoorCoordinate(x,y))return result;
+        if((camera.mapId!=XeenMapIdentity(28) && camera.mapId!=world.developerEventMap()) || !xeenIndoorCoordinate(x,y))return result;
         result.destination.x=x;result.destination.y=y;
     }
     result.admission=XeenJumpAdmission::Ready;

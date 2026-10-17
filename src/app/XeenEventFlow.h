@@ -71,6 +71,7 @@ public:
 	std::function<void(IndexedFrame &)> drawTavernArt,drawBankArt,drawGuildArt;
     std::function<std::vector<std::uint8_t>()> loadSpellDescriptions;
 	std::function<std::string()> tavernFoodOffer;
+    std::function<std::string(std::size_t)> tavernString;
 	std::function<void(IndexedFrame &)> drawCombatButtons;
 	XeenDialogSpriteDraw drawDialogSprite;
 	std::function<std::string(XeenMapIdentity)> mapName;
@@ -190,6 +191,7 @@ private:
 		std::string feedback;
 		std::string itemDetails;
 		std::string foodOffer,amount;
+        std::string tavernStatus,tavernPopup;
 		XeenTextInput amountCursor;
 		bool withdrawal=false,gems=false,bankRefreshed=false;
         bool goodbye=false;
@@ -240,8 +242,25 @@ private:
 		bool cancelled = false;
 		bool preludeRequired = false;
 		bool presentationRetry = false;
+		bool automatic=false, terrainDone=false, manualStepDone=false;
+		std::optional<XeenTerrainArrivalCandidate> terrain;
+		std::optional<XeenRegionalActionCandidate> manualStep;
+        // The old observable party/RNG prefix, retained until the final fall
+        // check. Its World remains detached; only the old prefix projection
+        // can be published on ordinary cancellation or an unsupported tail.
+        struct ObservedPrefix {
+            std::unique_ptr<XeenWorld> world;XeenPartyState party;XeenCamera camera;XeenGameFlags flags;
+            std::unique_ptr<XeenRestoreGuard> guard;
+        };
+        std::unique_ptr<ObservedPrefix> observed;
+        std::optional<XeenEventExecutionState> observedPrelude;
+        std::optional<XeenEventContinuation> observedPreludeContinuation;
 	};
 	std::unique_ptr<TransitionCandidate> _transition;
+	void prepareTerrainTransition();
+	bool serviceManualStep();
+	void retainManualPrefix(bool party);
+	void publishManualPrefix();
 	std::optional<XeenEventContinuation> _serviceEventContinuation;
 	const void *_serviceEventOwner=nullptr;
 	bool _candidateResultRefused=false;

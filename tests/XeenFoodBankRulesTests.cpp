@@ -22,6 +22,20 @@ void bankResult(const XeenBankResult &result, XeenBankOutcome outcome,
 }
 int main() {
     try {
+        // DOS Drink succeeds on 1..25 of 1..100; its unsigned condition byte wraps.
+        for(unsigned roll=1;roll<=100;++roll)
+            check(xeenTavernDrinkCondition(8,roll)==(roll<26?9:8),"Drink threshold differs");
+        check(xeenTavernDrinkCondition(255,25)==0 && xeenTavernDrinkCondition(255,26)==255,"Drink byte wrap differs");
+        const XeenMapIdentity vertigo(28),nightshadow(30),rivercity(49),dark(XeenSide::Darkside,31);
+        check(xeenTavernTipText(vertigo,14)==44 && xeenTavernTipText(nightshadow,0)==45 &&
+            xeenTavernTipText(rivercity,14)==74 && xeenTavernTipText(dark,9)==49,"Tip text ranges differ");
+        check(xeenTavernNextTip(vertigo,13)==14 && xeenTavernNextTip(vertigo,14)==0 &&
+            xeenTavernNextTip(dark,9)==0 && xeenTavernNextTip(vertigo,255)==0,"Tip modulo/byte wrap differs");
+        check(xeenTavernRumorText(vertigo,18)==8 && xeenTavernRumorText(nightshadow,18)==18 &&
+            xeenTavernRumorText(rivercity,18)==28 && xeenTavernRumorText(dark,118)==18,"Rumor day selection differs");
+        bool unknownTavern=false;
+        try {static_cast<void>(xeenTavernRumorText(45,8));}catch(const std::invalid_argument &){unknownTavern=true;}
+        check(unknownTavern,"Untabled Clouds Tavern must not invent a rumor base");
         constexpr auto maximum = std::numeric_limits<std::uint32_t>::max();
         for (std::size_t members = 1; members <= 6; ++members) {
             const auto limit = static_cast<std::uint16_t>(15u * members);

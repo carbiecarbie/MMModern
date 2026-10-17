@@ -10,6 +10,7 @@
 #include "games/xeen/XeenEquipment.h"
 #include "games/xeen/XeenItemTransfer.h"
 #include "games/xeen/XeenRestRules.h"
+#include "games/xeen/XeenTerrainRules.h"
 #include "formats/xeen/XeenQuestItemFormat.h"
 #include <algorithm>
 #include <array>
@@ -63,6 +64,14 @@ Support restSupport(unsigned surface,bool outdoor) {
     const bool navigator=xeenRestTerrain(surface,outdoor,true,false).has_value();
     if(ordinary && navigator)return {Status::Supported,"xeenRestTerrain admits after beginRest resets temporary effects"};
     return {ordinary || navigator?Status::Partial:Status::Unsupported,"Rest terrain is not supported yet"};
+}
+Support arrivalSupport(unsigned surface,bool outdoor,const XeenCamera &camera,XeenWorld &world) {
+    const auto rule=xeenTerrainArrival(surface,outdoor,false,false,camera);
+    if(rule.falling) {
+        const auto transition=world.prepareEventTransition(rule.transition.destination);
+        if(!transition)return {Status::Partial,"Shared terrain fall implemented; "+transition.reason};
+    }
+    return {Status::Supported,"Shared xeenTerrainArrival applies the original effect and protection checks"};
 }
 Support itemSupport(unsigned category,const XeenItem &item,const XeenWorld &source,const XeenPartyState &initial) {
     if(category==3)return xeenItemUseSupported(item)?Support{Status::Supported,"xeenItemUseSupported admits; charges and acting-member requirements are gameplay rules"}:

@@ -119,6 +119,22 @@ int main() {
         rejects([&]{xeenQuoteTempleHeal(c,UINT32_MAX,context,XeenMapIdentity(XeenSide::Clouds,29));},
             "Temple surcharges are not known");
         c.conditions.fill(0);
+        // All item bytes except the curse bit survive, including empty slots.
+        c.conditions[0]=9;c.weapons[0]={37,1,0xc3,4};c.armor[8]={8,0,0x40,7};
+        check(xeenTempleUncurseCost(c,{XeenSide::Clouds,30})==160,"Uncurse surcharge/level price differs");
+        xeenTempleClearCurse(c);
+        check(!c.conditions[0] && c.weapons[0].material==37 && c.weapons[0].id==1 &&
+            c.weapons[0].state==0x83 && c.weapons[0].frame==4 && c.armor[8].state==0 &&
+            c.armor[8].material==8 && c.armor[8].frame==7,"Uncurse changed other item bytes");
+        check(!xeenTempleUncurseCost(c),"Uncursed character still priced");
+        auto donation=context;donation.day=8;donation.effects[5]=99;donation.lightAndResistances[0]=100;
+        std::uint8_t counter=0;
+        for(unsigned count=1;count<=8;++count)check(xeenTempleDonationBlessing(donation,counter)==(count==8),"Donation threshold differs");
+        check(counter==8 && donation.effects[3]==1 && donation.effects[5]==8 && donation.effects[6]==8 &&
+            donation.effects[7]==8 && donation.effects[8]==8 && donation.lightAndResistances[0]==1,"Donation did not overwrite spell effects");
+        donation.day=0;counter=0;
+        for(unsigned count=1;count<=10;++count)check(xeenTempleDonationBlessing(donation,counter)==(count==10),"Donation day zero differs");
+        check(donation.effects[5]==10 && counter==0,"Donation zero counter blessing amount differs");
         const auto economy=completeEconomy();const XeenJourneyRandomState random{1,7,886};
         for(unsigned day:{8u,9u,10u,11u,19u,20u,97u,98u}) {
             context.day=day;
@@ -136,6 +152,40 @@ int main() {
             if(unpaid.triggered())check(paid.continuation()==unpaid.continuation(),
                 "already-generated reservation was redrawn");
         }
+        context.day=8;
+        XeenServiceDayCandidate visit(context,economy,random,XeenScriptServiceCharge::OneDay,false,true);
+        visit=visit.addTemplePaidDay();visit=visit.addTemplePaidDay();
+        check(visit.minutes()==4320 && visit.context().day==11 && visit.triggered(),"Repeated Temple payments did not accumulate");
+        auto effects=context;effects.effects[3]=1;effects.lightAndResistances[0]=1;
+        visit=visit.rebindContext(effects);
+        check(visit.context().effects[3]==1 && visit.context().lightAndResistances[0]==1 &&
+            visit.beforeRandom()==random && visit.minutes()==4320,"Donation rebind lost reserved time/RNG");
+        // Forty-six payments: 47*1440 = 67680 -> 2144 minutes in the DOS word.
+        XeenServiceDayCandidate wrapped(context,economy,random,XeenScriptServiceCharge::OneDay,false,true);
+        for(unsigned payment=0;payment<46;++payment)wrapped=wrapped.addTemplePaidDay();
+        check(wrapped.minutes()==2144 && wrapped.context().day==9 && wrapped.context().minutes==context.minutes+704,
+            "Temple farewell word did not wrap");
+        // DOS 0x263be: minute word sum wraps before unsigned normalization.
+        auto high=context;high.day=0;high.minutes=1300;
+        XeenServiceDayCandidate minuteWrap(high,economy,random,static_cast<XeenScriptServiceCharge>(65000),false,true);
+        check(minuteWrap.context().day==0 && minuteWrap.context().minutes==764 && !minuteWrap.triggered() &&
+            minuteWrap.continuation()==random,"Service minute sum did not wrap 1300+65000 to 764");
+        // 604+32767=33371 -> day23/min251; one more minute flips only the
+        // signed regeneration test, not the unsigned calendar normalization.
+        high.minutes=604;
+        XeenServiceDayCandidate signedLow(high,economy,random,static_cast<XeenScriptServiceCharge>(32767),false,true);
+        XeenServiceDayCandidate signedHigh(high,economy,random,static_cast<XeenScriptServiceCharge>(32768),false,true);
+        check(signedLow.context().day==23 && signedLow.context().minutes==251 && signedLow.triggered() &&
+            signedHigh.context().day==23 && signedHigh.context().minutes==252 && !signedHigh.triggered() &&
+            signedHigh.continuation()==random,"Service signed charge boundary 32767/32768 differs");
+        high.day=8;
+        XeenServiceDayCandidate decade(high,economy,random,static_cast<XeenScriptServiceCharge>(32768),false,true);
+        check(decade.context().day==31 && decade.triggered(),"Day-one decade regeneration was lost for a high-word charge");
+        auto limit=context;limit.year=65535;limit.day=98;
+        XeenServiceDayCandidate lastDay(limit,economy,random,XeenScriptServiceCharge::OneDay,false,true);
+        rejects([&]{static_cast<void>(lastDay.addTemplePaidDay());},"calendar year overflow");
+        check(lastDay.minutes()==1440 && lastDay.context().day==99 && lastDay.beforeRandom()==random,
+            "refused paid-day successor changed the retained unpaid departure");
         context.day=99;XeenServiceDayCandidate rollover(context,economy,random);check(rollover.context().day==0 && rollover.context().year==611,"Temple rollover");
         std::cout<<"Temple quote and one/two-day complete-reservation matrix passed\n";return 0;
     } catch(const std::exception &error){std::cerr<<error.what()<<'\n';return 1;}

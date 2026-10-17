@@ -16,6 +16,7 @@
 #include "games/xeen/XeenServiceDay.h"
 #include "games/xeen/XeenTraining.h"
 #include "games/xeen/XeenTempleHeal.h"
+#include "games/xeen/XeenFoodBank.h"
 #include "games/xeen/XeenEquipmentPurchase.h"
 #include "games/xeen/XeenRestRules.h"
 
@@ -168,7 +169,7 @@ private:
     IndexedFrame::Presentation _castFrame;
     std::uint64_t _castInput=0;
     std::string _combatCastRefusal;
-	bool _needsRestNotice=false;
+	bool _needsRestNotice=false, _manualStepPendingReset=false;
 	struct RestContinuation {
 	 XeenPartyOrder owners{};
 	 enum class Phase { Confirm, Refused, Charges, Remainder, Dream, Recovery, Complete };
@@ -188,7 +189,7 @@ private:
       if(!dreamFade())return 128;
       return dreamPhase==Dream::FadeOutGameplay || dreamPhase==Dream::FadeOutDream?128-4*fadeStep:4*fadeStep;
      }
-	 unsigned terrainMinutes=0;
+	 std::optional<XeenTerrainArrivalCandidate> terrain;
 	 std::string refusal;
 	 bool starving=false, presented=false;
 	 std::uint64_t deadline=0;
@@ -198,6 +199,10 @@ private:
 	 IndexedFrame dream, background;
 	};
 	std::unique_ptr<RestContinuation> _rest;
+	std::optional<XeenTerrainArrival> _terrainFall;
+	bool _terrainDead=false;
+	void beginTerrainTransition();
+	void settleManualStep(bool needsRest) noexcept;
 	bool beginRest(const std::function<IndexedFrame()> &,const std::function<std::array<std::uint64_t,2>()> &);
 	bool respondRest(const PlayerAction &);
 	bool serviceRest();
@@ -229,7 +234,8 @@ private:
 		XeenInventoryCategory category=XeenInventoryCategory::Armor;
 		XeenItemService itemAction=XeenItemService::Fix;
 		bool quoted=false, departed=false, published=false, buy=false,temple=false,paid=false;
-		std::uint8_t serviceAction=1;
+		std::uint8_t serviceAction=1,donationCounter=0;
+        bool boughtDrink=false,templeBlessed=false;
 		XeenArmorRepairCandidate result;
 		XeenTempleHealResult healResult;
 		std::unique_ptr<XeenTempleHealCandidate> healPending;
@@ -267,6 +273,7 @@ private:
 	void checkSmithBoundary(XeenSmithBoundary);
 	bool beginSmith(const std::function<void()> &,std::uint8_t action=1);
 	void buyFood();
+    XeenSimpleServiceOutcome simpleService(std::size_t member,char action);
     bool buySpell(std::size_t member,std::size_t slot);
 	void transferBank(bool withdrawal,bool gems,std::uint64_t amount);
 	bool serviceSmithPreparation();
@@ -333,6 +340,7 @@ private:
 		std::optional<XeenCamera> jumpDestination;
 		XeenCombatRandom random;
 		std::optional<XeenConditionTimeCandidate> time;
+		std::optional<XeenTerrainArrivalCandidate> terrain;
 	};
 	std::unique_ptr<CastingContinuation> _casting;
 	// Input protection outlives spell selection and the time publication.
@@ -360,7 +368,7 @@ private:
  }
 	std::uint64_t _projectileDeadline=0;
 	std::shared_ptr<const XeenRegionalObservation> _rangedObservation;
-	void observeRanged(std::shared_ptr<const XeenRegionalObservation>);
+	void observeRanged(std::shared_ptr<const XeenRegionalObservation>,const XeenWorld *environment=nullptr,const XeenCamera *position=nullptr);
     void projectilesPresented();
 	bool animateProjectiles();
 	bool projectilesPending() const noexcept { for(const auto &p:_projectiles)if(p.active)return true;return false; }

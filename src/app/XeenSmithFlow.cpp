@@ -50,6 +50,80 @@ void XeenEncounterFlow::checkSmithReservation() {
   throw std::logic_error("Complete Smith departure candidate changed");
  }
 }
+XeenSimpleServiceOutcome XeenEncounterFlow::simpleService(std::size_t member,char action) {
+    if(!_smith || _smith->departed || _smith->frame || _busy || !smithCapacity(20,4) ||
+        !xeenSmithAuthorityRoom(_smith->reservation,1) || member>=_party.party.size() ||
+        !((_smith->serviceAction==3 && (action=='d' || action=='t')) ||
+          (_smith->temple && (action=='D' || action=='u'))))
+        throw std::logic_error("Simple service authority unavailable");
+    SmithBusy busy(_busy);_journeyPreimage->check();checkSmithReservation();
+    auto &visit=*_smith;visit.published=false;
+    const auto owner=_party.party.activeRosterIds()[member];const auto &character=_party.roster.at(owner);
+    auto afterCharacter=character;auto afterContext=*_party.encounterContext;
+    auto afterGold=std::uint32_t(_party.monsterTreasure->gold);
+    auto afterRandom=*_world.sessionState().journeyRandom();
+    auto counter=visit.donationCounter;bool blessed=visit.templeBlessed,bought=visit.boughtDrink;
+    std::optional<std::uint8_t> tip;
+    std::unique_ptr<XeenServiceDayCandidate> departure;
+    if(action=='d' || action=='t') {
+        if(!character.canAct())return XeenSimpleServiceOutcome::NoAction;
+        if(action=='t') {
+            if(!bought)return XeenSimpleServiceOutcome::HaveDrink;
+            // DOS consumes eligibility even for a drunk patron or empty purse.
+            visit.boughtDrink=false;bought=false;
+            if(character.conditions[7])return XeenSimpleServiceOutcome::Drunk;
+        }
+        if(!afterGold)return XeenSimpleServiceOutcome::InsufficientGold;
+        --afterGold;
+        if(action=='d') {
+            XeenCombatRandom random(afterRandom);std::optional<std::uint32_t> roll;
+            // A rejected xorshift32 conversion below 96 has a successor above
+            // that threshold, so this inclusive request needs at most two raws.
+            for(unsigned attempt=0;attempt<2 && !roll;++attempt)roll=random.draw(1,100);
+            if(!roll)throw std::logic_error("Tavern Drink conversion exceeded its bound");
+            afterCharacter.conditions[7]=xeenTavernDrinkCondition(character.conditions[7],*roll);
+            afterRandom=random.continuation();bought=true;
+            departure=std::make_unique<XeenServiceDayCandidate>(visit.departure->rebindRandom(afterRandom));
+        } else tip=xeenTavernNextTip(_camera.mapId,_world.tavernTipIndex(_camera.mapId));
+    } else if(action=='D') {
+        if(blessed)return XeenSimpleServiceOutcome::NoAction;
+        const auto price=static_cast<std::uint32_t>(xeenTempleSurcharges(_camera.mapId).donation);
+        if(afterGold<price)return XeenSimpleServiceOutcome::InsufficientGold;
+        afterGold-=price;blessed=xeenTempleDonationBlessing(afterContext,counter);
+        departure=std::make_unique<XeenServiceDayCandidate>(visit.departure->rebindContext(afterContext));
+    } else {
+        const auto price=xeenTempleUncurseCost(character,_camera.mapId);
+        if(!price)return XeenSimpleServiceOutcome::NoAction;
+        if(afterGold<price)return XeenSimpleServiceOutcome::InsufficientGold;
+        afterGold-=price;xeenTempleClearCurse(afterCharacter);
+        try {departure=std::make_unique<XeenServiceDayCandidate>(visit.departure->addTemplePaidDay());}
+        catch(const std::overflow_error &) {return XeenSimpleServiceOutcome::SupportLimit;}
+    }
+    auto *tipLive=tip?_world._sessionState._mapStates.find(_camera.mapId):nullptr;
+    if(tip && !tipLive)throw std::logic_error("Tavern visit has no loaded map state");
+    XeenMutableOptional<XeenMutable<std::uint8_t>> tipAfter;
+    if(tip)tipAfter.emplace(*tip);
+    const SmithDepartureBinding binding(departure?*departure:*visit.departure);
+    auto prepared=std::make_shared<XeenRestoreGuard>(_world,_party,_camera,_flags);
+    prepared->retainResources(*_journeyPreimage);prepared->characters[owner]=afterCharacter;
+    prepared->treasure->gold=afterGold;prepared->context=afterContext;prepared->s._journeyRandom=afterRandom;
+    if(tip)prepared->s._mapStates.state(_camera.mapId).tavernTips.emplace(*tip);
+    checkSmithBoundary(XeenSmithBoundary::BeforePurchase);checkSmithReservation();_journeyPreimage->check();
+    // All allocations and successor validation precede the publication.
+    auto &live=_party.roster.at(owner);
+    if(action=='d')live.conditions[7]=afterCharacter.conditions[7];
+    if(action=='u')xeenTempleClearCurse(live);
+    _party.monsterTreasure->gold=afterGold;
+    _party.encounterContext=afterContext;_world._sessionState._journeyRandom=afterRandom;
+    static_assert(noexcept(tipLive->tavernTips.swap(tipAfter)));
+    if(tip)tipLive->tavernTips.swap(tipAfter);
+    if(departure){visit.departure.swap(departure);*visit.binding=binding;++visit.reservation;}
+    visit.boughtDrink=bought;visit.donationCounter=counter;visit.templeBlessed=blessed;
+    if(action=='u')visit.paid=true;
+    visit.published=true;++_world._sessionState._journeyGeneration;++_generation;
+    prepared->adoptJourneyCoordination();_journeyPreimage.swap(prepared);
+    checkSmithBoundary(XeenSmithBoundary::AfterPurchase);return XeenSimpleServiceOutcome::Done;
+}
 void XeenEncounterFlow::buyFood() {
  if(!_smith || _smith->serviceAction!=3 || _smith->departed || _smith->frame || _busy || !smithCapacity(19,4))
   throw std::logic_error("Food purchase authority unavailable");
@@ -372,8 +446,7 @@ bool XeenEncounterFlow::confirmTempleHeal() {
 		_journeyPreimage->failed=true;
 		throw std::logic_error("Temple Heal quote preimage changed");
 	}
-	if(!_smith->paid && (!xeenPrepareTemplePaidDeparture(*_party.encounterContext) ||
-        !XeenServiceDayCandidate::randomRoom(_smith->departure->beforeRandom()))) {
+	if(!XeenServiceDayCandidate::randomRoom(_smith->departure->beforeRandom())) {
 		_smith->healResult.outcome=XeenTempleHealOutcome::SupportLimit;
 		_smith->quoted=false;advanceSmith();return true;
 	}
@@ -391,11 +464,9 @@ bool XeenEncounterFlow::confirmTempleHeal() {
 		_smith->quoted=false;advanceSmith();return true;
 	}
 	std::unique_ptr<XeenServiceDayCandidate> upgrade;
-	if(!_smith->paid) {
-		checkSmithBoundary(XeenSmithBoundary::BeforeHealUpgrade);
-		upgrade=std::make_unique<XeenServiceDayCandidate>(_smith->departure->upgradeTemplePaid());
-		checkSmithBoundary(XeenSmithBoundary::AfterHealUpgrade);
-	}
+    checkSmithBoundary(XeenSmithBoundary::BeforeHealUpgrade);
+    upgrade=std::make_unique<XeenServiceDayCandidate>(_smith->departure->addTemplePaidDay());
+    checkSmithBoundary(XeenSmithBoundary::AfterHealUpgrade);
 	_journeyPreimage->check();checkSmithReservation();
 	_smith->healPending.swap(delta);_smith->templeUpgrade.swap(upgrade);
 	_smith->quoted=false;advanceSmith();
@@ -600,7 +671,7 @@ std::shared_ptr<const DialogInput> XeenEventFlow::serviceDialogInput() const {
         else if(ui.phase==SmithUi::Phase::Confirm) input=ui.mode==SmithUi::Mode::Guild?xeenSpellConfirmInput(ui.spellInfo):ui.mode==SmithUi::Mode::Food?xeenFoodConfirmInput():xeenConfirmInput();
         else if(ui.phase==SmithUi::Phase::Browse) input=ui.mode==SmithUi::Mode::Guild?xeenSpellListInput(false):xeenBuyInput(ui.itemAction());
         else input=xeenLocationInput(ui.mode==SmithUi::Mode::Guild?XeenLocationDialog::Guild:ui.mode==SmithUi::Mode::Food?XeenLocationDialog::Tavern:ui.mode==SmithUi::Mode::Bank?XeenLocationDialog::Bank:ui.mode==SmithUi::Mode::Heal?XeenLocationDialog::Temple:XeenLocationDialog::Smith);
-        if(!ui.feedback.empty() && ui.phase!=SmithUi::Phase::Departure) {input={};input.anyKey=input.anyClick=input.keyMouseWait=true;}
+        if((!ui.feedback.empty() || !ui.tavernStatus.empty() || !ui.tavernPopup.empty()) && ui.phase!=SmithUi::Phase::Departure) {input={};input.anyKey=input.anyClick=input.keyMouseWait=true;}
     } else return {};
     return std::make_shared<const DialogInput>(std::move(input));
 }
@@ -633,7 +704,7 @@ std::string XeenEventFlow::smithText() const {
 IndexedFrame XeenEventFlow::drawSmith(const IndexedFrame &world) const {
     const auto &ui=*_smithUi;
     auto frame=drawXeenLocation(dosText(),world,ui.art,_inventoryFont,
-        ui.mode==SmithUi::Mode::Guild?XeenLocationDialog::Guild:ui.mode==SmithUi::Mode::Food?XeenLocationDialog::Tavern:ui.mode==SmithUi::Mode::Bank?XeenLocationDialog::Bank:ui.mode==SmithUi::Mode::Heal?XeenLocationDialog::Temple:XeenLocationDialog::Smith,_party,ui.member,_camera.mapId,drawDialogSprite);
+        ui.mode==SmithUi::Mode::Guild?XeenLocationDialog::Guild:ui.mode==SmithUi::Mode::Food?XeenLocationDialog::Tavern:ui.mode==SmithUi::Mode::Bank?XeenLocationDialog::Bank:ui.mode==SmithUi::Mode::Heal?XeenLocationDialog::Temple:XeenLocationDialog::Smith,_party,ui.member,_camera.mapId,drawDialogSprite,_encounter->_smith && _encounter->_smith->templeBlessed,ui.tavernStatus);
     if(ui.mode==SmithUi::Mode::Guild && (ui.phase==SmithUi::Phase::Browse || ui.phase==SmithUi::Phase::Confirm)) {
         frame=drawXeenSpellList(dosText(),frame,_inventoryFont,_party.party.member(_party.roster,ui.member),
             *_encounter->journeySavePreimage().learnedNames,ui.spells,_party.monsterTreasure->gold,true,ui.spellInfo,drawDialogSprite,_party.encounterContext->year);
@@ -655,6 +726,7 @@ IndexedFrame XeenEventFlow::drawSmith(const IndexedFrame &world) const {
         if(ui.phase==SmithUi::Phase::Confirm) frame=drawXeenConfirm(frame,_inventoryFont,smithText(),false,drawDialogSprite);
         if(ui.phase==SmithUi::Phase::Detail)frame=drawXeenIdentifiedDetails(frame,_inventoryFont,ui.itemDetails);
     }
+    if(!ui.tavernPopup.empty())frame=drawXeenTavernPopup(frame,_inventoryFont,ui.tavernPopup);
     if(!ui.feedback.empty()) frame=drawXeenErrorScroll(frame,_inventoryFont,ui.feedback);
     return frame;
 }
@@ -691,7 +763,7 @@ IndexedFrame XeenEventFlow::handleSmith(const PlayerAction &action,std::uint64_t
         ui.phase==SmithUi::Phase::Confirm?xeenConfirmAnswer(key).has_value():
         ui.phase==SmithUi::Phase::Lobby?(key=='b' || key=='r' || key==InputKey::Escape || member):
         (key==InputKey::Escape || member || (key>='1' && key<='9') || key=='w' || key=='a' || key=='c' || key=='m' || key=='b' || key=='s' || key=='i' || key=='f');
-    if((ui.feedback.empty() || ui.phase==SmithUi::Phase::Departure) && (!allowed || (member && key-InputKey::F1==ui.member))) return frameCopy();
+    if((ui.feedback.empty() || ui.phase==SmithUi::Phase::Departure) && !allowed) return frameCopy();
     if(_smithSettlement) {_handoffPending=true;return settleSmithEvent();}
     if(!_encounter->consumeSmithFrame(input,inputFrame)) return frameCopy();
     serviceInputPolled(ui.animation);
@@ -805,7 +877,10 @@ IndexedFrame XeenEventFlow::handleFoodBank(const PlayerAction &action,std::uint6
             {dosText().table("CONSUMABLE_NAMES")[ui.gems?1:0],dosText().table("WHERE_NAMES")[ui.withdrawal?1:0]});
     };
     try {
-        if(!ui.feedback.empty() && ui.phase!=SmithUi::Phase::Departure) {
+        if(food && (!ui.tavernStatus.empty() || !ui.tavernPopup.empty())) {
+            ui.tavernStatus.clear();ui.tavernPopup.clear();
+        }
+        else if(!ui.feedback.empty() && ui.phase!=SmithUi::Phase::Departure) {
             ui.feedback.clear();
             if(food && ui.phase==SmithUi::Phase::Confirm)ui.phase=SmithUi::Phase::Lobby;
         }
@@ -813,6 +888,7 @@ IndexedFrame XeenEventFlow::handleFoodBank(const PlayerAction &action,std::uint6
             if(key==InputKey::Escape)ui.phase=SmithUi::Phase::Departure;
             else if((food || guild) && key>=InputKey::F1 && key<InputKey::F1+_party.party.size()) {
                 ui.member=key-InputKey::F1;
+                if(food)_encounter->_smith->boughtDrink=false;
                 if(guild && !xeenVertigoGuildMember(_party,ui.member))startServiceSample(ui.animation,"guild11.voc");
             }
             else if(guild) {
@@ -829,7 +905,26 @@ IndexedFrame XeenEventFlow::handleFoodBank(const PlayerAction &action,std::uint6
             }
             else if(food) {
                 if(key=='f')ui.phase=SmithUi::Phase::Confirm;
-                else if(const auto refusal=xeenLocationUnsupportedAction(XeenLocationDialog::Tavern,key))ui.feedback=*refusal;
+                else if(key=='d' || key=='t') {
+                    std::string popup;
+                    const auto &c=_party.party.member(_party.roster,ui.member);
+                    if(key=='t' && c.canAct() && _encounter->_smith->boughtDrink && !c.conditions[7] && _party.monsterTreasure->gold) {
+                        if(!tavernString)throw std::runtime_error("Missing Tavern strings provider");
+                        popup=xeenDialogFormat(dosText().scalar("TAVERN_RUMOR_FORMAT"),{tavernString(xeenTavernTipText(_camera.mapId,_world.tavernTipIndex(_camera.mapId)))});
+                    }
+                    const auto result=_encounter->simpleService(ui.member,static_cast<char>(key));
+                    if(result==XeenSimpleServiceOutcome::NoAction && !c.canAct())ui.feedback=xeenDialogFormat(dosText().scalar("IN_NO_CONDITION"),{c.name});
+                    else if(result==XeenSimpleServiceOutcome::InsufficientGold)ui.feedback=xeenNotEnoughGold(dosText());
+                    else if(result==XeenSimpleServiceOutcome::HaveDrink)ui.tavernStatus=dosText().scalar("TAVERN_HAVE_A_DRINK");
+                    else if(result==XeenSimpleServiceOutcome::Drunk)ui.tavernStatus=dosText().scalar("TAVERN_YOURE_DRUNK");
+                    else if(result==XeenSimpleServiceOutcome::Done) {
+                        if(key=='d'){ui.tavernStatus=dosText().scalar("TAVERN_GOOD_STUFF");startServiceSample(ui.animation,"gulp.voc");}
+                        else {ui.tavernPopup=std::move(popup);startServiceSample(ui.animation,"thankyou.voc");}
+                    }
+                } else if(key=='r') {
+                    if(!tavernString)throw std::runtime_error("Missing Tavern strings provider");
+                    ui.tavernPopup=xeenDialogFormat(dosText().scalar("TAVERN_RUMOR_FORMAT"),{tavernString(xeenTavernRumorText(_camera.mapId,_party.encounterContext->day))});
+                } else if(const auto refusal=xeenLocationUnsupportedAction(XeenLocationDialog::Tavern,key))ui.feedback=*refusal;
             } else if(key=='d' || key=='w') {
                 ui.withdrawal=key=='w';ui.bankRefreshed=false;ui.phase=SmithUi::Phase::Currency;ui.animation.sample.stop();
             }
@@ -916,7 +1011,7 @@ IndexedFrame XeenEventFlow::handleTemple(const PlayerAction &action,std::uint64_
     const bool member=key>=InputKey::F1 && key<InputKey::F1+_party.party.size();
     const bool allowed=ui.phase==SmithUi::Phase::Departure?(key==InputKey::Escape || key==InputKey::Enter):
         ui.phase==SmithUi::Phase::Upgrade?key==InputKey::Escape:(member || key==InputKey::Escape || key=='h' || key=='d' || key=='u');
-    if((ui.feedback.empty() || ui.phase==SmithUi::Phase::Departure) && (!allowed || (member && key-InputKey::F1==ui.member))) return frameCopy();
+    if((ui.feedback.empty() || ui.phase==SmithUi::Phase::Departure) && !allowed) return frameCopy();
     if(_smithSettlement) {_handoffPending=true;return settleSmithEvent();}
     if(!_encounter->consumeSmithFrame(input,inputFrame)) return frameCopy();
     serviceInputPolled(ui.animation);
@@ -924,9 +1019,9 @@ IndexedFrame XeenEventFlow::handleTemple(const PlayerAction &action,std::uint64_
     const unsigned revisions=key=='h'?2:1;
     if(ui.phase!=SmithUi::Phase::Departure && !(cancel && (ui.phase==SmithUi::Phase::Lobby || ui.phase==SmithUi::Phase::Upgrade)) &&
         (!_encounter->smithCapacity(20,4) || !xeenSmithAuthorityRoom(_inputGeneration,10) || !xeenSmithAuthorityRoom(ui.revision,revisions) ||
-        (key=='h' && (!xeenSmithAuthorityRoom(_encounter->_smith->operation,1) ||
-        (!_encounter->_smith->paid && !xeenSmithAuthorityRoom(_encounter->_smith->reservation,1)))))) {
-        ui.phase=SmithUi::Phase::Departure;ui.feedback="Further Heal actions unavailable. Escape: depart.";
+        (key=='h' && !xeenSmithAuthorityRoom(_encounter->_smith->operation,1)) ||
+        ((key=='h' || key=='u') && !xeenSmithAuthorityRoom(_encounter->_smith->reservation,1)))) {
+        ui.phase=SmithUi::Phase::Departure;ui.feedback="Further Temple actions unavailable. Escape: depart.";
         if(ui.revision!=UINT64_MAX) ++ui.revision;return renderEncounter();
     }
     const auto originalPhase=ui.phase;
@@ -935,10 +1030,12 @@ IndexedFrame XeenEventFlow::handleTemple(const PlayerAction &action,std::uint64_
         if(ui.phase!=SmithUi::Phase::Departure && !ui.feedback.empty()) {ui.feedback.clear();_encounter->advanceSmith();}
         else if(ui.phase==SmithUi::Phase::Lobby) {
             if(key>=InputKey::F1 && key<InputKey::F1+_party.party.size()) {
-                ui.member=key-InputKey::F1;_encounter->_smith->quoted=false;_encounter->advanceSmith();
-            } else if(key=='d') ui.feedback=*xeenLocationUnsupportedAction(XeenLocationDialog::Temple,key);
-            else if(key=='u') {
-                if(xeenTempleUncurseCost(_party.party.member(_party.roster,ui.member))) ui.feedback=*xeenLocationUnsupportedAction(XeenLocationDialog::Temple,key);
+                ui.member=key-InputKey::F1;_encounter->_smith->donationCounter=0;_encounter->_smith->quoted=false;_encounter->advanceSmith();
+            } else if(key=='d' || key=='u') {
+                const auto result=_encounter->simpleService(ui.member,key=='d'?'D':'u');
+                if(result==XeenSimpleServiceOutcome::InsufficientGold)ui.feedback=xeenNotEnoughGold(dosText());
+                else if(result==XeenSimpleServiceOutcome::SupportLimit)ui.feedback="Uncurse: not supported yet at this date or capacity";
+                else if(result==XeenSimpleServiceOutcome::Done)startServiceSample(ui.animation,key=='d' && !_encounter->_smith->templeBlessed?"coina.voc":"ahh.voc");
             } else if(key=='h') {
                 if(!_encounter->_smith->quoted) _encounter->quoteTempleHeal(ui.member);
                 if(_encounter->_smith->quoted) ui.phase=_encounter->confirmTempleHeal()?SmithUi::Phase::Lobby:SmithUi::Phase::Upgrade;

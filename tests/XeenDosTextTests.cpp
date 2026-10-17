@@ -19,6 +19,8 @@ template<class F> void rejects(F mutate) {
 void synthetic() {
  const auto b=fixture();XeenDosText a(b),again(b);
  for(const auto &f:XeenDosText::layout())check(a.table(f.name)==again.table(f.name),"deterministic fields");
+ rejects([](auto &b){b[0x529f4]='x';});
+ rejects([](auto &b){b[0x52a57]='x';});
  check(a.table("CLASS_NAMES").at(10).empty(),"intentional empty class");
  check(a.scalar("DAY_SINGULAR").empty(),"interior empty day suffix");
  check(a.table("EFFECTIVENESS_NAMES")[0].empty(),"intentional empty effectiveness");

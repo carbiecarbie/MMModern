@@ -574,6 +574,12 @@ XeenEncounterResult XeenActorApproach::regionalTransition(XeenWorld &world,XeenP
 					}
 				}
 			}
+			if(stepTime) {
+				auto ending=xeenPrepareTime(c.context,charge?(indoor?1u:10u):0u);
+				if(ending.dailyProcessing)xeenResetPartyTemps(ending.context);
+				c.terrainRule=world.prepareTerrainArrival(c.camera,c.characters,ending.context);check();
+				if(!*c.terrainRule) {refused.arrivalRefusal="Terrain destination is not admitted yet";return refused;}
+			}
 			if(charge) {
 				static_cast<void>(xeenPrepareTime(c.context,indoor?1:10));
 				c.time.emplace(c.context,indoor?1:10,c.characters,c.inputs,&*party.serviceEconomy);
@@ -632,12 +638,24 @@ XeenEncounterResult XeenActorApproach::regionalTransition(XeenWorld &world,XeenP
 			--c.remaining;++c.result.movementOpportunities;
 		}
         if(c.stepTimePending) {
+            if(!c.terrain) {
+                auto rule=world.prepareTerrainArrival(c.camera,c.characters,c.context);
+                if(!rule)throw std::logic_error("Arrival admission changed during action");
+                if(rule.falling) {c.result.terrainFall=std::make_shared<XeenTerrainArrival>(rule);rule.damage=0;}
+                c.terrain.emplace(rule,c.characters,c.inputs,c.context,
+                    c.time && c.time->economy ? &*c.time->economy : &*party.serviceEconomy);
+            }
+            if(!c.terrain->service(draw))return pending();
+            c.characters=c.terrain->characters;c.inputs=c.terrain->inputs;c.context=c.terrain->context;
+            if(c.terrain->rule.damage)c.result.terrainPortrait=c.terrain->rule.type==XeenDamageType::Fire?1u:0u;
+            if(c.time)c.time->economy=c.terrain->economy;
             c.context.ctr24=(c.context.ctr24+1)%24;
             c.exploration=world.explorationAfterStep(party,c.camera);
             c.stepTimePending=false;
         }
-		if(c.classify) { c.result.view=indoor ? XeenIndoorScene().classifyActors(world,c.camera,c.actors) : classify(c.actors,c.camera);activate(c.actors,c.result.view); }
+		if(c.classify && !c.result.terrainFall) { c.result.view=indoor ? XeenIndoorScene().classifyActors(world,c.camera,c.actors) : classify(c.actors,c.camera);activate(c.actors,c.result.view); }
 		bool living=false;for(const auto &owner:c.characters) living=living || xeenCombatTargetable(owner);
+        living=living && !(c.terrain && c.terrain->rule.dead);
 		const bool engaged=living && c.classify && c.result.view.engaged();
 		if(engaged) c.result.outcome=XeenEncounterOutcome::Engaged;
 		// Rest's condition deaths are checked after its completion scroll.
@@ -652,14 +670,19 @@ XeenEncounterResult XeenActorApproach::regionalTransition(XeenWorld &world,XeenP
 		// One nonthrowing publication spans both opportunities and the full tick.
 		regionalActors.swap(c.actors);session._journeyRandom=c.random.continuation();
 		camera=c.camera;party.encounterContext=c.context;
+		if(c.terrain) {
+			party.serviceEconomy=c.terrain->economy;
+			for(unsigned n=0;n<6;++n)party.roster._combatInputs[c.owners[n]]=c.inputs[n];
+			if(c.result.terrainFall)c.pending=0;
+		}
 		if(c.exploration)session.publishExploration(*c.exploration);
                     if(c.time && c.timeDone)party.serviceEconomy=c.time->economy;
                     if(c.time && c.timeDone)for(unsigned n=0;n<6;++n)party.roster._combatInputs[c.owners[n]]=c.inputs[n];
 		for(const auto &value:c.characters) { auto &owner=party.roster.at(value.rosterId);publishInjured(owner,value);
-         if(c.time && c.timeDone && c.time->resetTemps)xeenResetCharacterTemps(owner,*party.roster._combatInputs[value.rosterId]); }
+         if((c.time && c.timeDone && c.time->resetTemps) || (c.terrain && c.terrain->resetTemps))xeenResetCharacterTemps(owner,*party.roster._combatInputs[value.rosterId]); }
 		state._pending=c.pending;state._revision=session._encounterRevision=c.result.revision;
 		if(engaged || defeat) { state._phase=engaged?XeenEncounterPhase::Engaged:XeenEncounterPhase::SupportStopped;state._reason=c.result.reason;session._encounterTerminal=true; }
-		c.result.needsRest=c.time && c.timeDone && !c.timeNoticePublished && c.time->needsRest;auto result=c.result;work.reset();return result;
+		c.result.needsRest=(c.time && c.timeDone && !c.timeNoticePublished && c.time->needsRest) || (c.terrain && c.terrain->needsRest);auto result=c.result;work.reset();return result;
 	} catch(...) {
 		if(!authorized() || state._revision!=entry._revision) { refused.outcome=XeenEncounterOutcome::Stale;return refused; }
 		work.reset();return stop(world,state,XeenEncounterStop::Preparation);

@@ -60,6 +60,9 @@ struct XeenEncounterResult {
 	std::uint64_t revision = 0;
 	unsigned movementOpportunities = 0;
 	bool automaticEvent = false, needsRest=false;
+	std::shared_ptr<const XeenTerrainArrival> terrainFall;
+	const char *arrivalRefusal=nullptr;
+	unsigned terrainPortrait=7;
 	XeenMutableOptional<XeenMonsterIdentity> stoppedActor;
 	int stoppedX = 0, stoppedY = 0;
 	XeenActorView view;

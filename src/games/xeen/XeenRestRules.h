@@ -4,7 +4,7 @@
 namespace mmodern {
 bool xeenRestDanger(const XeenConsequenceCharacters &,const XeenConsequenceInputs &,unsigned year);
 bool xeenRestRangedWake(const XeenConsequenceCharacters &);
-// doStepCode's cheap cases; nullopt means damage/falling is not supported yet.
+// Rest never refuses a surface; shared arrival applies its consequences.
 std::optional<unsigned> xeenRestTerrain(unsigned surface,bool outdoor,bool navigator,bool levitating);
 // Interface::rest recovery suffix; time and dream are separate visible steps.
 struct XeenRestRecovery {

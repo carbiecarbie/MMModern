@@ -239,6 +239,13 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
                 return true;
             });
         };
+        // Ten outdoor well interactions and the subsequent indoor entrance
+        // add 10*10+1 minutes and eleven ordinary step counters to this route.
+        // The later reset exit/entrance adds another 10+1 minutes and two
+        // counters. Its three indoor steps follow the one outdoor move.
+        constexpr unsigned prefixMinutes=10*10+1,prefixSteps=10+1;
+        constexpr unsigned resetReadyMinutes=1315+prefixMinutes+11+10+10+1+3;
+        constexpr unsigned resetEndMinutes=1341+prefixMinutes+10+1;
         const auto expectDate=[&](unsigned day,unsigned minute,unsigned ctr,std::uint32_t state,std::uint64_t count,std::uint32_t gold) {
             std::cout<<"M49 CHECK actual "<<party->encounterContext->year<<":"<<party->encounterContext->day<<":"<<party->encounterContext->minutes<<":"<<party->encounterContext->ctr24<<" "<<world->sessionState().journeyRandom()->state<<":"<<world->sessionState().journeyRandom()->count<<" "<<party->monsterTreasure->gold
                 <<" expected "<<day<<":"<<minute<<":"<<ctr<<" "<<state<<":"<<count<<" "<<gold<<'\n';
@@ -338,7 +345,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
    inspect([&]{check(party->monsterTreasure->gold==840,"M40 production earned gold mismatch");});
    route("LLULUU");action(InteractionAction{});action(YesAction{});settle();route("URULUUULUUU");
    route("UUUUU");inspect([&]{check(position->x==8 && position->y==4,"M40 five-cell corridor endpoint");
-    expectDate(8,1297,14,2232520509u,1227,840);});checkpoint("A");
+    expectDate(8,1297+prefixMinutes,(14+prefixSteps)%24,2232520509u,1227,840);});checkpoint("A");
   }
         if(branch=="empty") {
             const auto generatingEmpty=[&](bool firstGeneration) {
@@ -386,7 +393,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
                     stock.bank.gold+=stock.bank.gold/100u;stock.bank.gems+=stock.bank.gems/100u;
                     ++before->journey->context->day;before->journey->random=XeenJourneyRandomState{1,oracle.state,oracle.count};before->journey->serviceEconomy=stock;
                     exact(*before);
-                    if(firstGeneration) {expectDate(11,1297,14,1006382178u,2125,840);check(m40_test::stockBytes(*party->serviceEconomy)==m40_test::stockBytes(m42_test::StockOracle{2232520509u,1227,{}}.generate()),"M40 empty10->11 stock literal oracle differs");}
+                    if(firstGeneration) {expectDate(11,1297+prefixMinutes,(14+prefixSteps)%24,1006382178u,2125,840);check(m40_test::stockBytes(*party->serviceEconomy)==m40_test::stockBytes(m42_test::StockOracle{2232520509u,1227,{}}.generate()),"M40 empty10->11 stock literal oracle differs");}
                     check(party->roster.at(1).armor[0].state==128 && party->roster.at(1).armor[1].state==128 && party->monsterTreasure->gold==840,
                         "M40 zero-transaction service repaired/debited carried purse");
                 });
@@ -399,20 +406,20 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
         if(!resume || stage=="A") {emptyVisit();emptyVisit();repair(0,830);
             // BankPrepared now faults before deferred generation/interest starts.
             // Its retry must still calculate and publish interest exactly once.
-            inspect([&]{expectDate(11,1297,14,1006382178u,2125,830);check(interestOperations==1 && committedInterestOperations==1 &&
+            inspect([&]{expectDate(11,1297+prefixMinutes,(14+prefixSteps)%24,1006382178u,2125,830);check(interestOperations==1 && committedInterestOperations==1 &&
                 m40_test::stockBytes(*party->serviceEconomy)==m40_test::stockBytes(m42_test::StockOracle{2232520509u,1227,{}}.generate()) &&
                 party->serviceEconomy->bank.gold==0 && party->serviceEconomy->bank.gems==0 && party->roster.at(1).armor[1].state==128,"M40 10->11 restock/interest literal oracle differs");
                 });checkpoint("B");}
-        if(!resume || stage=="A" || stage=="B") {route("DDDDDDDUUUUUUU");inspect([&]{expectDate(11,1311,4,1006382178u,2125,830);});checkpoint("C");}
-        if(!resume || stage=="A" || stage=="B" || stage=="C") {repair(1,829);inspect([&]{expectDate(12,1311,4,1006382178u,2125,829);});checkpoint("D");}
+        if(!resume || stage=="A" || stage=="B") {route("DDDDDDDUUUUUUU");inspect([&]{expectDate(11,1311+prefixMinutes,(4+prefixSteps)%24,1006382178u,2125,830);});checkpoint("C");}
+        if(!resume || stage=="A" || stage=="B" || stage=="C") {repair(1,829);inspect([&]{expectDate(12,1311+prefixMinutes,(4+prefixSteps)%24,1006382178u,2125,829);});checkpoint("D");}
         if(stage!="E") {
             for(unsigned i=0;i<4;++i){action(CastSpellAction{});action(SelectMemberAction{4});action(DialogKeyAction{'n'});action(DialogKeyAction{'2'});action(DialogKeyAction{'s'});action(DialogKeyAction{'c'});action(SelectMemberAction{i<3?5u:4u});settle();}
-            inspect([&]{expectDate(12,1315,4,1006382178u,2125,829);check(party->roster.at(1).currentSp==17 && party->roster.at(6).currentSp==27,"M40 post-service exploration First Aid differs");});
+            inspect([&]{expectDate(12,1315+prefixMinutes,(4+prefixSteps)%24,1006382178u,2125,829);check(party->roster.at(1).currentSp==17 && party->roster.at(6).currentSp==27,"M40 post-service exploration First Aid differs");});
             route("DDDDDDDLUUUU");action(InteractionAction{});action(YesAction{});settle();route("LLU");action(InteractionAction{});action(YesAction{});settle();route("URULU",false);
             if(branch=="clock") steps.push_back([&] {
                 if(clockArmed && faultFired)return true;
                 if(const auto c=combat();c && c->phase()==XeenCombatPhase::PlayerReady) {
-                    check(resume && stage=="D" && party->encounterContext->day==12,"Clock control lacks genuine post-service/full-exit/restore domain");
+                    check(resume && stage=="D" && party->encounterContext->day==12+resetReadyMinutes/1440,"Clock control lacks genuine post-service/full-exit/restore domain");
                     clockArmed=true;std::cout<<"M40 POST-SERVICE RESTORED PLAYERREADY CLOCK ARMED\n";return false;
                 }
                 if(!combat() && (world->sessionState().journeyActivity()==XeenJourneyActivity::Event || world->sessionState().journeyActivity()==XeenJourneyActivity::Reward))act(AcknowledgeAction{});
@@ -449,7 +456,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
             inspect([&] {
                 // M68: the Slime's first save uses the Physical selector and the
                 // element loop draws once at zero damage (DOS 0x2d2e4, 0x2d35e).
-                expectDate(12,1341,0,2160414077u,2143,829);
+                expectDate(12+resetEndMinutes/1440,resetEndMinutes%1440,(prefixSteps+2)%24,2160414077u,2143,829);
                 check(position->mapId==XeenMapIdentity(28) && position->x==16 && position->y==2 && position->direction==XeenDirection::North &&
                     party->roster.at(1).currentSp==16 && party->roster.at(6).currentSp==24 && world->sessionState().regionalActors(28).size()==46 &&
                     // CD maze0028.evt removes (15,0,South,4/5) protection/AlterEvent;

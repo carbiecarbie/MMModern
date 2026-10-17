@@ -181,9 +181,18 @@ void events(Census &c,const std::vector<XeenEventRecord> &records,XeenMapIdentit
         }
         c.add("Events",eventMechanic(r),support,id.number);
         if(r.opcode==0x11 && !r.parameters.empty())c.add("Map features","Town service action="+std::to_string(r.parameters[0]),support,id.number);
-        if(support.service)for(const auto key:xeenLocationInput(*support.service).keys)
+        if(support.service)for(const auto key:xeenLocationInput(*support.service).keys) {
             if(const auto refusal=xeenLocationUnsupportedAction(*support.service,key))
                 c.add("Services",refusal->substr(0,refusal->find(':')),{Status::Unsupported,*refusal},id.number);
+            else {
+                const char *name=nullptr;
+                if(*support.service==XeenLocationDialog::Tavern)
+                    name=key=='d'?"Drink":key=='t'?"Tip":key=='r'?"Rumors":nullptr;
+                if(*support.service==XeenLocationDialog::Temple)
+                    name=key=='d'?"Donation":key=='u'?"Uncurse":nullptr;
+                if(name)c.add("Services",name,{Status::Supported,"Original dialog action admitted by the existing service owner"},id.number);
+            }
+        }
         auto shape=r;
         if(shape.opcode==0x1c || shape.opcode==0x1d || shape.opcode==0x26)shape.opcode=0x0c;
         const auto decoded=XeenEventDecoder::decode(shape,{id,{}, {},true});
@@ -289,6 +298,7 @@ Census census(const GameInstallation &original,XeenSide side,OriginalContext &co
             const auto &record=statistics[m.resourceId];
             monster(c,record,unsigned(m.resourceId),number,1,std::string(usesClouds?"xeen.mon ":"dark.mon ")+std::to_string(m.resourceId)+" "+record.name());
         }
+        std::map<unsigned,Support> arrivalSupportBySurface;
         for(const auto &cell:geometry.cells) {
             const unsigned surface=geometry.surfaceTypes[cell.surfaceIndex];
             if(geometry.isOutdoors()) {
@@ -308,7 +318,10 @@ Census census(const GameInstallation &original,XeenSide side,OriginalContext &co
             }
             c.add("Map features","Rest surface="+std::to_string(surface),
                 restSupport(surface,geometry.isOutdoors()),number);
-            c.add("Map features","Arrival surface="+std::to_string(surface),{Status::Unclassified,"No engine arrival-effect support query; Rest/traversal are not proof of arrival effects"},number);
+            auto arrival=arrivalSupportBySurface.find(surface);
+            if(arrival==arrivalSupportBySurface.end())arrival=arrivalSupportBySurface.emplace(surface,
+                arrivalSupport(surface,geometry.isOutdoors(),{id,0,0,XeenDirection::North},context.world)).first;
+            c.add("Map features","Arrival surface="+std::to_string(surface),arrival->second,number);
         }
         for(const auto &o:entities.objects)if(o.hasResource())c.add("Map features","Object sprite="+std::to_string(o.resourceId),
             {Status::Unclassified,"Object behavior depends on selected Event and state; see Event rows"},number);

@@ -44,6 +44,7 @@ public:
 	void drawTraining(IndexedFrame &frame);
 	void drawTemple(IndexedFrame &frame);
 	std::string tavernFoodOffer();
+    std::string tavernString(std::size_t index);
 	void drawTavern(IndexedFrame &frame);
 	void drawBank(IndexedFrame &frame);
 	void drawGuild(IndexedFrame &frame);

@@ -295,7 +295,13 @@ Jump moves two cells forward, retaining direction. Indoors both crossed
 forward walls must be clear. Outdoors the first wall and destination wall
 must differ from 1, and destination surface ID must be nonzero. A valid
 jump marks the party stepped, so terrain arrival matters; it is not a
-blanket safe traversal. Etherealize moves one cell ahead after its map
+blanket safe traversal. Learned Jump reaches the successful-cast arrival
+suffix, including damage or a fall; item Jump returns through the item-use
+monster response, which does not call arrival. This distinction follows the
+calibrated DOS call sites `0x0d411`, `0x0d5ba`, `0x1e7df` and item dispatch
+`0x39e4b` (2026-10-17). Destinations outside the admitted area remain refused
+before charge. See [terrain arrival](time-and-conditions.md#terrain-arrival).
+Etherealize moves one cell ahead after its map
 restriction and invalid-cell checks. Time Distortion moves to the map's run
 location. Lloyd's Beacon, Teleport, Town Portal and Super Shelter each check
 their own map restriction. Full destination-selection and map-transition

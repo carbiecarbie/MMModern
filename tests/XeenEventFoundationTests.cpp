@@ -143,7 +143,7 @@ void originalSessions(const char *directory) {
         // M70 Part B: maze0034.evt (7,16) JumpRnd/RndDamage/condition grant, maze0035.evt (11,6)
         // JumpRnd/GiveMulti gold, maze0027.evt (10,9) If2 Linguist branch, maze0052.evt (7,4) GiveMulti.
         {34,7,16,XeenDirection::North},{35,11,6,XeenDirection::North},{27,10,9,XeenDirection::North},
-        {52,7,4,XeenDirection::North}};
+        {52,7,4,XeenDirection::North},{27,30,30,XeenDirection::North}};
     for(unsigned scenario=0;scenario<starts.size();++scenario) {
         const auto start=starts[scenario];
         combat_gameplay_test::Harness h{std::filesystem::path(directory)};auto s=h.services();
@@ -159,6 +159,13 @@ void originalSessions(const char *directory) {
             xeenValidateRegionalManifest(m,o,e,statistics,h.assets->readInitialResource("maze0023.dat"),
                 h.assets->readInitialResource("maze0023.mob"),h.assets->readInitialResource("maze0023.evt"));
         };
+        if(scenario==10) {
+            // The original cloud refusal remains scenario5. This narrow safe-floor
+            // fixture isolates successful publication of the same original Event.
+            const auto maps=s.maps;
+            s.maps=[=](auto id){auto map=maps(id);if(id==XeenMapIdentity(27))
+                for(auto &surface:map.geometry.surfaceTypes)if(surface==13)surface=0;return map;};
+        }
         s.eventFixture=start;s.saveUnavailable="disabled in the Event developer session";bool shown=false;
         s.show=[&](const auto &frame,const auto &handler,const auto &,const auto &idle,const auto &) {
             shown=true;h.flow->prepareJourneySprites();
@@ -166,6 +173,9 @@ void originalSessions(const char *directory) {
                 !h.flow->canSave(),"Original-data Application fixture did not render its selected map");
             if(scenario<2)return true;
             const auto random=h.world->sessionState().journeyRandom();
+            const auto before=h.world->transitionCandidate();const auto clock=h.party->encounterContext;
+            std::vector<XeenCharacter> characters;
+            for(auto owner:h.party->party.activeRosterIds())characters.push_back(h.party->roster.at(owner));
             std::optional<XeenPresentationRequest> request;unsigned failures=0;
             h.flow->reportManual=[&](const auto &result) {
                 request.reset();
@@ -201,14 +211,27 @@ void originalSessions(const char *directory) {
                 "Original map-79 wall switch was not published");
             if(scenario==4)check(h.world->sessionState().regionalActors(29)[22].x==1 &&
                 h.world->sessionState().regionalActors(29)[22].y==1,"Original map-29 Spawn was not published");
-            if(scenario==5) {
+            if(scenario==5 || scenario==10) {
                 const auto file=h.eventLoader->load(27);unsigned cleared=0;
+                const auto cell=h.world->sampleCell(27,30,30);
+                check(cell && h.world->map(27).geometry.surfaceTypes[cell->cell->surfaceIndex]==(scenario==5?13:0),
+                    "Original MakeNothingHere cloud/safe-floor fixture changed");
                 for(unsigned i=0;i<file.records.size();++i)if(file.records[i].x==30 && file.records[i].y==30) {
-                    check(h.world->isEventDisabled({27,i}),"Original map-27 physical Event survived MakeNothingHere");++cleared;
+                    check(h.world->isEventDisabled({27,i})==(scenario==10),
+                        "Original cloud suffix published refused MakeNothingHere or lost safe-floor completion");++cleared;
                 }
                 check(cleared==10,"Original MakeNothingHere witness no longer names its ten original records");
+                if(scenario==5) {
+                    check(xeen_state::sameMapStates(h.world->sessionState().mapStates(),before->sessionState().mapStates()) &&
+                        h.party->encounterContext==clock && h.world->sessionState().journeyRandom()==random &&
+                        xeen_state::sameCamera(*h.camera,start),"Refused original cloud fall leaked map/time/RNG/camera");
+                    unsigned n=0;for(auto owner:h.party->party.activeRosterIds())
+                        check(xeen_state::sameCharacter(h.party->roster.at(owner),characters[n++]),
+                            "Refused original cloud fall leaked character effects");
+                } else check(h.party->encounterContext->minutes==clock->minutes+1,
+                    "Safe-floor original MakeNothingHere omitted completed Space charge");
             }
-            if(scenario<6 && (scenario!=4 || !h.flow->encounter()->combat()))
+            if((scenario<6 || scenario==10) && (scenario!=4 || !h.flow->encounter()->combat()))
                 check(h.world->sessionState().journeyRandom()==random,"Part A original script consumed a Journey draw");
             if(scenario==6 || scenario==7 || scenario==9)
                 check(h.world->sessionState().journeyRandom()->count>random->count,"Part B random operation drew nothing");

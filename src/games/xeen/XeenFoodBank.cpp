@@ -23,6 +23,28 @@ XeenFoodResult xeenBuyFood(std::size_t activeMembers, std::uint16_t food,
     return result;
 }
 
+std::uint8_t xeenTavernDrinkCondition(std::uint8_t before,unsigned roll) {
+    if(roll<1 || roll>100)throw std::invalid_argument("Tavern Drink roll outside 1..100");
+    return static_cast<std::uint8_t>(before+(roll<26));
+}
+std::size_t xeenTavernTipText(XeenMapIdentity map,std::uint8_t index) {
+    if(map.side==XeenSide::Darkside)return (map.number==29?30u:map.number==31?40u:50u)+index;
+    switch(static_cast<unsigned>(map.number)) {
+    case 28:return 30u+index;case 30:return 45u+index;case 49:return 60u+index;
+    default:throw std::invalid_argument("Tavern tips are not known for this map");
+    }
+}
+std::uint8_t xeenTavernNextTip(XeenMapIdentity map,std::uint8_t index) noexcept {
+    return static_cast<std::uint8_t>(static_cast<std::uint8_t>(index+1)%(map.side==XeenSide::Darkside?10:15));
+}
+std::size_t xeenTavernRumorText(XeenMapIdentity map,unsigned day) {
+    if(map.side==XeenSide::Darkside)
+        return (map.number==29?0u:map.number==31?10u:20u)+day%10;
+    switch(static_cast<unsigned>(map.number)) {
+    case 28:return day%10;case 30:return 10u+day%10;case 49:return 20u+day%10;
+    default:throw std::invalid_argument("Tavern rumors are not known for this map");
+    }
+}
 XeenBankResult xeenTransferBank(std::uint32_t source, std::uint32_t destination,
         std::uint64_t amount) noexcept {
     XeenBankResult result{XeenBankOutcome::NoTransfer, source, destination};
