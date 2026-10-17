@@ -179,9 +179,14 @@ Power Cure's one draw of 5 gives 35 healing before the HP cap.
 
 ## Damage preparation and resolution
 
-**Evidence: Reference only** for the preparation table, except Pain's DOS
-correction. Sources: [handlers][spells], [combat][combat]
+**Evidence: DOS static (2026-10-17), high confidence** for the 18 ordinary
+M74 spells' preparation, ranges, draws and costs; other rows remain
+**Reference only**, except Pain's retained DOS correction. Sources: [handlers][spells], [combat][combat]
 `rangedAttack`, `attack`, `attack2`, `getMonsterResistance`.
+The checked image and mapping are in [evidence](evidence.md#exact-baseline).
+Pain, the zero elemental contribution and item dispatch were recalibrated
+before this pass. Bounded instructions and per-spell offsets are retained in
+`D:/MModern-re/m74-damage-spells/findings.md`; no game execution was used.
 `Single`, `Group` and `All` describe the spell's range setting: ranged
 resolution still calls `attack` using the spell/group path, even for a
 single-target spell. Do not confuse that with the physical weapon
@@ -214,14 +219,28 @@ single-target spell. Do not confuse that with the physical weapon
 | Sun Ray | 200 | Energy | All |
 | Toxic Cloud | 10 | Poison | Group |
 
-The scalar random draw in each variable-damage handler occurs once before
+**DOS static, high confidence:** the scalar random draw in each variable-damage handler occurs once before
 projectile resolution, not once per monster or once per caster level.
+Cold Ray, Dancing Sword, Fireball and Lightning Bolt draw at `0x30263`,
+`0x30a14`, `0x30043` and `0x2fc0f`, then multiply by current level.
+Elemental Storm stores 150 before its one type draw `U(2,5)` (`0x30b7b..0x30b8d`);
+Prismatic Light stores 80 before `U(0,6)` (`0x30a52..0x30a64`). Neither has
+a damage draw. Prismatic's interval includes Magical (1). These draws precede
+every target's magic-resistance gate and saves, even with no targets.
 Single stops after the first attacked monster. Group stops after the first
 occupied group, up to three positions. All continues through subsequent
-reachable groups; walls still limit the projectile. Target ordering and
-wall geometry live in `rangedAttack`, not the cost or damage table.
+reachable groups, **at most four groups / twelve positions**, while the
+projectile remains active. DOS iterates slots `0x98b4..0x98bf` at
+`0x1d98a..0x1de91`. Between groups, outdoors wall values 1, 3, 6, 7, 9,
+10 and 12 block; indoors a wall at least the no-pass threshold blocks
+(`0x1db3e..0x1db84`, `0x1dc65..0x1dca4`, `0x1dd85..0x1ddc4`).
+Each target finishes damage, death and treasure generation/staging before
+the next target's gate; party treasure delivery happens after the projectile
+(`0x2cf94..0x2cf9f`, `0x2c112..0x2c591`, `0x1debf`). This matches the pin.
 
-For ordinary nonzero damage spells the per-target order is:
+For ordinary nonzero damage spells the per-target order is **DOS static,
+high confidence** (`0x2cd12..0x2cd93`, `0x2beab..0x2bf98`,
+`0x2c020..0x2c06e`; save helper `0x2e19b..0x2e1bf`):
 
 1. If magic resistance `R` is nonzero, draw `U(1,100+L)`; reject when the
    draw is less than `R`. Zero resistance skips this draw. Equality passes.
@@ -248,15 +267,45 @@ but ignores its result and retains 8 damage (`0x30fa8`, `0x2cde4`,
 
 **Reference only, boundary cases:** zero-level Energy Blast/Shrapmetal/Sparks
 still draw a nonzero magic-resistance gate but do not enter damage handling
-and do not draw a save. Nonzero prepared damage reduced to zero by physical
-immunity does retain the save draw. Clouds resource ID 89 has a special
-spell-damage refusal in `attack2`; this chapter does not certify the DOS
-boss behavior. Poison Volley changes the shooting mode and uses the missile
-branch, so the ordinary spell formula above must not be applied to it.
+and do not draw a save. **DOS static, high confidence:** nonzero prepared
+damage reduced to zero by physical immunity does retain the save draw.
+Clouds resource ID 89 refuses nonzero damage supplied with a nonzero
+attack range argument (`0x2bdf8..0x2be33`). All spell projectiles, including
+Single spells and Poison Volley, use such arguments. The refusal precedes
+waking, damage-stage saves and HP changes, but follows earlier preparation,
+magic-resistance and Finger of Death's first save when applicable. The
+corresponding Darkside test does not refuse. This matches the pin's spell
+refusal; it does not settle the separate melee/Slayer Sword path.
+
+**DOS static, high confidence:** all 23 M74 spells can be cast in exploration
+and spend their normal learned costs with no target. Cost debit precedes
+direct dispatch (`0x3327b..0x332c7`); empty target slots are skipped without
+a refund (`0x1d98a..0x1dec7`). Preparation draws still occur, but no monster
+gate/save is drawn. Moon Ray still draws `U(1,30)` per active member after
+delivery and calls healing (`0x30aa1..0x30ad4`). This confirms that ordering
+and empty-target behavior, not all surrounding exploration time/AI rules.
+
+**Poison Volley: DOS static, high confidence.** Entry `0x30fc3` prepares
+10/type 17/All; `0x1d899..0x1d8be` changes type to Poison and enables six
+shot flags. The active-party loop supplies one successful shot per member,
+without requiring a missile weapon. Each target resets miss flags; a miss
+retains the shot for later targets, a hit consumes it (`0x2cb46..0x2ccd9`).
+It uses weapon/accuracy rolls, bypassing the spell magic-resistance gate.
+On a hit the base is 10, regardless of the weapon dice already rolled;
+RT_HIT adds that shooter's missile-material elemental contribution, reduced
+by its corresponding resistance, and the monster save halves the combined
+amount. Physical resistance does not reduce the Poison base
+(`0x2cb89..0x2cbbc`, `0x2c675..0x2c70c`, `0x2beab..0x2beb4`, `0x2c037`).
+Without an elemental missile the hit is therefore 10 or 5. The same four
+tiers, walls and target settlement apply. The pin agrees with this branch,
+but its signed hit-total comparison differs from DOS's unsigned word
+comparison: [negative hit totals](../original-quirks.md#sv-hit-total-unsigned).
 
 ## Monster-specific magic
 
-**Evidence: Reference only.** Source: [combat][combat] `Combat::attack` and
+**Evidence: Reference only**, except Finger of Death, Holy Word, Mass
+Distortion and Golem Stopper, whose species gates, amounts and saves are
+**DOS static (2026-10-17), high confidence**. Source: [combat][combat] `Combat::attack` and
 `attack2`. Every branch below first goes through the magic-resistance gate.
 These are dispatch rules, not a complete account of status duration/AI.
 
@@ -271,6 +320,18 @@ These are dispatch rules, not a complete account of status duration/AI.
 | Golem Stopper | Golem; 100 damage; ordinary save draw does not halve it. |
 | Insect Spray | Insect; 25 damage; ordinary save draw does not halve it. |
 | Turn Undead | Undead receives 25; non-undead enters with zero. Ordinary save does not halve it. |
+
+DOS special dispatch table `0x2cfab` reaches Finger `0x2ced1..0x2cf2c`,
+Holy Word `0x2cf4c..0x2cf68`, Mass Distortion `0x2cf6c..0x2cf91` and
+Golem Stopper `0x2cdf1..0x2ce04`. Finger's first save is at `0x2cef3`;
+damage-stage save `0x2c037` uses table `0x2c59a`. Finger/Mass success
+sets exactly 5, even if that increases a smaller amount; Holy Word/Golem
+consume the save and ignore it. Prepared ranges are Group for Finger,
+Holy Word and Mass Distortion, Single for Golem Stopper.
+Wrong-species Holy Word enters zero-damage/miss handling in DOS, whereas
+the pin skips it; neither harms the target or draws a damage save.
+The [miss-call difference](../original-quirks.md#sv-holy-word-miss) is
+confirmed statically; its audible presentation has not been played.
 
 Sleep, Beast Master and Hypnotize affect the first reachable group (up to
 three targets); Dragon Sleep affects one target. All prepare zero damage,
@@ -356,6 +417,15 @@ names do not prove identical presentation. Calibration uses known
 First Aid, Cure Poison and learned-spell targets. See
 [original-program evidence](evidence.md#spell-and-item-control-flow).
 This maps power ID, not container/material ID.
+**DOS static (2026-10-17), high confidence:** Frostbite power 33 prepares
+35 Cold/Single and calls sound/projectile selectors 15/9
+(`0x2fc77..0x2fc99`), matching `frostbite2`. Learned Frostbite retains
+35 Cold/Single/projectile 8 but omits the initial FX8 call present in the
+pin (`0x30eac..0x30ec6`); this does not mean the whole cast is silent.
+See [Frostbite](../original-quirks.md#sv-frostbite-initial-fx) and
+[item Incinerate](../original-quirks.md#sv-item-incinerate-selectors).
+Selector calls are established; their perceived sound/animation remains
+unverified by play.
 Power 0 is invalid. Power 33 calls the special Frostbite animation handler;
 it is not an ordinary global-spell entry. Learned books and SP/gem costs
 are bypassed by item dispatch. See cancellation caveats above.

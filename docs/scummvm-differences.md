@@ -19,7 +19,7 @@ documented in its source. Each item links to its entry in
 
 **Revisions.** MMModern pins ScummVM `6814ee9b` (2026-09-06). Every item was
 rechecked against ScummVM master `55895ab0` on 2026-10-16, except the new
-terrain/Tavern/Temple/recovery entries explicitly marked "pin: differs; master not
+terrain/Tavern/Temple/recovery/spell entries explicitly marked "pin: differs; master not
 rechecked". At that check, since the pin the
 Xeen engine has had only a code-style edit and the Xeen data in `mm.dat` is
 unchanged apart from its version number, so the earlier entries are marked
@@ -28,6 +28,25 @@ mainland; many items apply there, others wait for areas not open yet.
 
 ## Combat and conditions
 
+- **Poison Volley and negative hit totals.** DOS treats the final accuracy
+  total as an unsigned word, so a negative total can become a hit; the pin's
+  signed comparison misses. This belongs to the shared player accuracy
+  helper and is not implemented in MMModern yet.
+  [Evidence](original-quirks.md#sv-hit-total-unsigned). Pin: differs; master not rechecked.
+- **Holy Word against the wrong species.** DOS enters the miss path for a
+  non-undead target; the pin skips it. Neither damages the target or draws
+  a damage-stage save. The call difference is confirmed; its audible result
+  remains unplayed, and Holy Word is not implemented yet.
+  [Evidence](original-quirks.md#sv-holy-word-miss). Pin: differs; master not rechecked.
+- **Frostbite's initial sound call.** The pin adds FX8 before the learned
+  spell's projectile; DOS makes no such initial call. The item variant
+  matches. Actual audio remains unverified; Frostbite is not implemented yet.
+  [Evidence](original-quirks.md#sv-frostbite-initial-fx). Pin: differs; master not rechecked.
+- **Incinerate from an item.** DOS uses different sound/projectile selectors
+  from the learned spell, while the pin shares the learned handler. Both
+  prepare 250 Fire damage. Actual presentation remains unverified, and
+  Incinerate is not implemented yet.
+  [Evidence](original-quirks.md#sv-item-incinerate-selectors). Pin: differs; master not rechecked.
 - **Controlled monsters recover on the DOS roll.** Recovery succeeds at a roll
   at most the monster resource ID; the pin reverses the inequality. Equality
   succeeds in both. The core scans every map slot before queued shots; learned

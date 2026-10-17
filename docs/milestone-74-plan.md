@@ -24,21 +24,28 @@ the format stays v14 (nothing new is persisted).
 
 ## Tasks
 
-- [ ] **Part 0 - DOS check (read-only, delegated).** Compare each of the 23
-      handlers' prepared damage, type, range, cost and save use in
-      `WORLD/XEEN.DAT` with the pinned reference, as Pain was (M60). Record
-      each difference with offsets in `docs/original-quirks.md` (and
-      `docs/scummvm-differences.md`), and the resource ID 89 (Lord Xeen)
-      spell refusal. Unsettled cases go to the maintainer before Part A.
+- [x] **Part 0 - DOS check (read-only, delegated).** Done 2026-10-17: all
+      23 handlers match the pin in damage, type, range and cost. DOS
+      differences are recorded in `docs/original-quirks.md`: learned
+      Frostbite has no initial FX8, item Incinerate uses its own selectors,
+      wrong-species Holy Word enters the miss path, and a negative player hit
+      total hits (unsigned comparison). Rules and offsets are in
+      [magic](rules/magic.md#damage-preparation-and-resolution).
 - [ ] **Part A - ranges and ordinary damage.** "All" range: the projectile
-      continues through every reachable group behind the first until a wall,
-      not just the first three targets. One scalar draw per cast for
-      variable damage (`U(a,b) * L`); one type draw for Elemental Storm and
-      Prismatic Light. The 18 spells above with their costs, gems, icons and
-      damage tints; the Frostbite item variant as the reference has it.
-- [ ] **Part B - special spells.** Finger of Death (two distinct saves),
-      Holy Word, Mass Distortion, Golem Stopper with their species gates;
-      Poison Volley through the missile branch, not the ordinary formula.
+      continues through up to four groups (twelve positions), stopped by
+      walls, each target settled before the next. One scalar draw per cast
+      for variable damage (`U(a,b) * L`); one type draw for Elemental Storm
+      and Prismatic Light; draws happen even with no target. The 18 spells
+      above with their costs, gems, projectiles and damage tints, the DOS
+      item selectors (Frostbite power 33, item Incinerate) and Moon Ray's
+      party healing. Casting with no target spends the cost, as in DOS.
+- [ ] **Part B - special spells and the hit total.** Finger of Death (two
+      distinct saves), Holy Word (wrong species takes the miss path), Mass
+      Distortion and Golem Stopper with their species gates; resource ID 89
+      refuses spell damage. Poison Volley through the missile branch (one
+      shot per active member, weapon accuracy, 10 Poison plus the missile
+      contribution). The player hit comparison becomes unsigned as in DOS,
+      generically for every party attack (melee, Shoot, Poison Volley).
 - [ ] Developer test save `monster-damage` (as `monster-control`): Vertigo,
       casters with all 23 spells, ample SP and gems; README entry.
 - [ ] Regenerate `docs/coverage.md`; update `docs/rules/magic.md` evidence
@@ -49,6 +56,8 @@ the format stays v14 (nothing new is persisted).
 - Unit tests per spell: preparation, range, gates and save use, including
   the All range past the first group, zero-level and immunity boundaries,
   and Finger of Death's two draws. Exact RNG order per target as in M73.
+- A negative hit total hits in melee, Shoot and Poison Volley; the
+  original-data digests change only if a scenario reaches one.
 - Original-data tests: a group spell (Fireball) on mainland Orcs and an All
   spell reaching two groups; one item-power cast. A save/load round trip
   after casting stays exact.
@@ -59,7 +68,8 @@ the format stays v14 (nothing new is persisted).
 
 ## Risks
 
-- If the All range needs combat-state changes beyond targeting (target lists
-  longer than three, deaths mid-projectile), stop and report before widening.
-- If Part 0 shows many DOS differences, the maintainer decides whether M74
-  keeps its scope or splits.
+- The current spell targeting holds at most three targets; All needs up to
+  twelve. If that needs combat-state or ownership changes beyond targeting
+  and resolution, stop and report before widening.
+- Perceived sound and animation of the DOS selector differences and of the
+  Holy Word miss are unplayed; audio stays deferred.
