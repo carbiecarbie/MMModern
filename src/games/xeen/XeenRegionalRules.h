@@ -143,9 +143,9 @@ struct XeenShootCandidate {
 	 std::string feedback;
 	 std::optional<unsigned> retireLane;
 	std::array<std::optional<XeenMonsterIdentity>,12> targets{};
-	std::array<bool,6> eligible{},spent{};
+	XeenPartyVolley volley;
 	std::array<unsigned,6> projectileEnd{};
-	unsigned target=0,shooter=0,blockedRow=4;
+	unsigned target=0,blockedRow=4;
 	XeenCombatRandom random;
 	std::optional<XeenPhysicalPlayerCandidate> attack;
 	std::optional<XeenMonsterDropCandidate> drop;

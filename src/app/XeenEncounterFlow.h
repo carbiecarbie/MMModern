@@ -137,8 +137,14 @@ public:
 		auto result = _frame < 8 ? XeenMonsterAppearance{_frame} :
 			XeenMonsterAppearance{XeenMonsterSpriteKind::Attack, static_cast<std::uint8_t>(_frame - 8)};
 		if (_frame >= 8) result.identity = _appearanceIdentity;
-        if(_combat && _combat->cast() && _castProjectile && _castProjectile->active)
-            result.projectiles.push_back(*_castProjectile);
+        if(_combat && _combat->cast() && _castProjectile && _castProjectile->active) {
+            const auto cast=*_combat->cast();
+            if(cast.result.spell==unsigned(XeenLearnedSpell::PoisonVolley)) {
+                for(unsigned i=0;i<6;++i)if(cast.volleyShots&(1u<<i)) {
+                    auto projectile=*_castProjectile;projectile.lane=i;result.projectiles.push_back(projectile);
+                }
+            } else result.projectiles.push_back(*_castProjectile);
+        }
         for(const auto &p:_projectiles) if(p.active) result.projectiles.push_back(p);
         if(_combat) {
             result.impactSnapshot=_combat->attackImpactSnapshot();

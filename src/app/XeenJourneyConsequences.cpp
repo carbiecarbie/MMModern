@@ -46,7 +46,7 @@ bool XeenEncounterFlow::beginShoot() {
   candidate->owners=_party.party.activeOrder();candidate->charge=charge;
   for(unsigned i=0;i<6;++i) {
    const auto &c=_party.roster.at(candidate->owners[i]);
-   if(c.canAct()) for(const auto &w:c.weapons) if(w.frame==4) candidate->eligible[i]=eligible=true;
+   if(c.canAct()) for(const auto &w:c.weapons) if(w.frame==4) candidate->volley.eligible[i]=eligible=true;
   }
   // Nobody can shoot: the original only plays sound effect 21, with no message
   // (pin interface.cpp Shoot `!party.canShoot()`; maintainer DOSBox CD play,
@@ -71,7 +71,7 @@ bool XeenEncounterFlow::beginShoot() {
   candidate->projectileEnd.fill(rows-1);
   candidate->rows=rows;
   std::vector<XeenProjectileAppearance> projectile;
-  for(unsigned i=0;i<6;++i)if(candidate->eligible[i])projectile.push_back({false,0,i,3,{}});
+  for(unsigned i=0;i<6;++i)if(candidate->volley.eligible[i])projectile.push_back({false,0,i,3,{}});
   // Preserve the existing notice distinction: reaching the map edge is empty,
   // while an in-map obstruction identifies its blocked row.
   if(rows<4) {
@@ -130,26 +130,27 @@ bool XeenEncounterFlow::serviceShoot() {
    if(work.advanceDraw) {for(auto &p:_projectiles)p.advance();work.advanceDraw=false;}
    if(work.retireLane) {for(auto &p:_projectiles)if(p.lane==*work.retireLane)p.active=false;work.retireLane.reset();}
    while(work.target<12) {
-    bool shooting=false;for(unsigned i=0;i<6;++i)shooting=shooting || (work.eligible[i] && !work.spent[i]);
+    const bool shooting=work.volley.remaining();
     if(!shooting) {work.target=12;work.row=work.rows-1;break;}
     if(work.target/3>work.row) {
      if(work.row+1>=work.rows) {work.target=12;break;}
      ++work.row;work.presented=false;return true;
     }
     const auto id=work.targets[work.target];
-    if(!id || liveActors.at(id->recordIndex).lifecycle!=XeenActorLifecycle::Present) { ++work.target;work.shooter=0;continue; }
-    while(work.shooter<6 && (!work.eligible[work.shooter] || work.spent[work.shooter])) ++work.shooter;
-    if(work.shooter==6) { ++work.target;work.shooter=0;continue; }
+    if(!id || liveActors.at(id->recordIndex).lifecycle!=XeenActorLifecycle::Present) { ++work.target;work.volley.nextTarget();continue; }
+    if(!work.volley.select()) { ++work.target;work.volley.nextTarget();continue; }
     const auto &actor=work.bound ? *work.bound : liveActors.at(id->recordIndex);
     if(!(actor.id==*id)) throw std::logic_error("Shoot retained identity mismatch");
-    const auto owner=work.owners[work.shooter];
+    const auto owner=work.owners[work.volley.shooter];
     if(!work.attack && !work.spellAttack) {work.bound=actor;
-     if(work.spell) {const auto &caster=_party.roster.at(work.spellCaster);
+     if(work.spell==XeenLearnedSpell::PoisonVolley) {
+      work.spellAttack.emplace(_party.roster.at(owner),*_party.roster.combatInputs(owner),*actor.statistics,actor.original.resourceId,_party.encounterContext->year,_party.encounterContext->difficulty,actor.status,_camera.mapId.side==XeenSide::Clouds);
+     } else if(work.spell) {const auto &caster=_party.roster.at(work.spellCaster);
       work.spellAttack.emplace(caster.permanentLevel,caster.temporaryLevel,actor.statistics->magicResistance(),actor.original.resourceId,*work.spell,actor.statistics->physicalResistance(),actor.status,actor.statistics->monsterType(),&*work.spellPreparation,actor.hp,_camera.mapId.side==XeenSide::Clouds);
      } else work.attack.emplace(_party.roster.at(owner),*_party.roster.combatInputs(owner),*actor.statistics,actor.original.resourceId,_party.encounterContext->year,true,_party.encounterContext->difficulty,actor.status);}
     const auto damage=[&] {return work.spellAttack?work.spellAttack->damage:work.attack->damage;};
     const auto status=[&] {return work.spellAttack?work.spellAttack->status:work.attack->status;};
-    const auto hit=[&] {return work.spellAttack?true:work.attack->hit;};
+    const auto hit=[&] {return work.spellAttack?(work.spell!=XeenLearnedSpell::PoisonVolley || !work.spellAttack->miss):work.attack->hit;};
     if(!work.attackDone) {
      if(work.spellAttack ? !work.spellAttack->service(draw) : !work.attack->service(draw)) return true;
      work.impactRandom=work.random.continuation();
@@ -218,19 +219,19 @@ bool XeenEncounterFlow::serviceShoot() {
      if(work.drop) _party.monsterTreasure=work.drop->treasure;
     } else live.hp=actor.hp-damage();
     live.status=status();
-    if(hit()) work.projectileEnd[work.shooter]=work.target/3;
-    work.spent[work.shooter]=hit();session._journeyRandom=work.random.continuation();
-    if(hit() && !work.spell) {
-     if(removed)work.retireLane=work.shooter;
-     else for(auto &p:_projectiles)if(p.lane==work.shooter)p.active=false;
+    if(hit()) work.projectileEnd[work.volley.shooter]=work.target/3;
+    session._journeyRandom=work.random.continuation();
+    if(hit() && (!work.spell || work.spell==XeenLearnedSpell::PoisonVolley)) {
+     if(removed)work.retireLane=work.volley.shooter;
+     else for(auto &p:_projectiles)if(p.lane==work.volley.shooter)p.active=false;
     }
     ++session._encounterRevision;_state._revision=session._encounterRevision;++session._journeyGeneration;++_generation;
-    if(work.spell) {
-     ++work.target;work.shooter=0;work.spent.fill(false);
+    if(work.spell && work.spell!=XeenLearnedSpell::PoisonVolley) {
+     ++work.target;work.volley.nextTarget();work.volley.spent.fill(false);
      bool remaining=false;for(unsigned n=work.target;n<work.targets.size();++n)remaining=remaining || bool(work.targets[n]);
      if(!remaining) {work.target=12;if(XeenLearnedSpellRules::range(std::uint8_t(*work.spell))!=XeenSpellRange::All)work.row=work.rows-1;}
     }
-    else ++work.shooter;
+    else work.volley.settle(hit());
     work.spellAttack.reset();work.attack.reset();work.drop.reset();work.bound.reset();work.lethal.reset();work.attackDone=work.suffixPrepared=false;work.stage=Stage::Travel;
     _frame=0;_appearanceIdentity.reset();
     // Hit accounting is developer output, never a player-facing refusal.

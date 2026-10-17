@@ -13,7 +13,7 @@ using namespace training_test;
 namespace mmodern {
 struct XeenPartyInterfaceTestAccess {
  static auto shootOwners(const XeenEventFlow &f){return f._encounter->_shoot->owners;}
- static auto shootEligible(const XeenEventFlow &f){return f._encounter->_shoot->eligible;}
+ static auto shootEligible(const XeenEventFlow &f){return f._encounter->_shoot->volley.eligible;}
  static auto lanes(const XeenEventFlow &f){return f._encounter->_projectiles;}
  static bool reward(const XeenEventFlow &f){return f._encounter->monsterReward();}
  static auto rewardPhase(const XeenEventFlow &f){return f._encounter->_monsterReceipt->phase;}

@@ -54,7 +54,7 @@ int main(int argc,char **argv){try{
         child_test::require(result.exit==0 && result.output.find("M39 ARTIFICIAL CONTROL PASSED "+control)!=std::string::npos,"M39 authority/publication control failed");
     }
     if(selected.empty() || selected=="effects")
-    for(unsigned value:{10u,59u,27u,50u,60u,20u,150u,160u,220u,259u,124u,132u,146u,29u,224u,232u,246u,229u}) {
+    for(unsigned value:{10u,59u,27u,50u,60u,20u,150u,160u,220u,259u,124u,132u,146u,29u,224u,232u,246u,229u,151u,251u}) {
         const unsigned spell=value%100;const bool group=value>=100 && value<200;const bool quick=value>=200;
         const std::string control="m60-"+std::to_string(spell)+(group?"-group":quick?"-quick":"");
         // Detached, disclosed fixture: keep original actors/resources and teach
@@ -62,7 +62,7 @@ int main(int argc,char **argv){try{
         auto fixture=mmodern::XeenSaveFile::read(dir/"aba-hp.mmsave");
         const unsigned owner=(spell==10 || spell==59 || spell==27 || spell==50)?1:6;
         auto &caster=fixture.characters[owner];
-        if(spell==24 || spell==29 || spell==32 || spell==46) {
+        if(spell==24 || spell==29 || spell==32 || spell==46 || spell==51) {
             caster.characterClass=mmodern::XeenLearnedSpellRules::slotForSpell(mmodern::XeenSpellCategory::Wizardry,std::uint8_t(spell))?mmodern::XeenCharacterClass::Sorcerer:mmodern::XeenCharacterClass::Cleric;
             caster.currentSp=1000;fixture.journey->treasure->gems=1000;
         }

@@ -108,6 +108,51 @@ struct XeenMoonRayHealing {
     unsigned member=0;
     bool service(XeenConsequenceDraw &,const XeenPartyState &,std::uint32_t year);
 };
+// Combat::attack/hitMonster/getWeaponDamage/attack2 for one member: metal hit
+// and damage, elemental damage, effectiveness and the Slayer Sword bypass (M67).
+// `monsterType` is the resource ID of the Shoot saving throw, not the species.
+struct XeenPhysicalPlayerCandidate {
+	int damage = 0;      // Published total: physical + elemental, halved by a Shoot save.
+	int physical = 0;    // Accumulated hits after effectiveness and physical resistance.
+	int elemental = 0;   // Elemental material contribution after its own resistance.
+	unsigned elementalFrame = 0; // Elemental category + 1 while elemental > 0 (splat).
+	bool hit = false, impact = false;
+	XeenActorStatus status;
+	XeenPhysicalPlayerCandidate(const XeenCharacter &, const XeenCombatInputs &,
+		const XeenMonsterRecord &, unsigned monsterType, unsigned year, bool shoot,
+		XeenDifficulty difficulty = XeenDifficulty::Adventurer, XeenActorStatus status=XeenActorStatus::Physical);
+    XeenPhysicalPlayerCandidate(const XeenCharacter &,const XeenCombatInputs &,
+        const XeenMonsterRecord &,unsigned monsterType,unsigned year,bool shoot,
+        XeenDifficulty,XeenActorStatus,bool poisonVolley,bool clouds);
+	bool service(XeenConsequenceDraw &);
+private:
+	enum class Step { Weapon, Hit, Save, Done };
+	Step step = Step::Weapon;
+	XeenCharacter character;
+	XeenMonsterRecord monster;
+	unsigned monsterType, attacks, slot = 0, dice = 0, sides = 0;
+	int baseHit, hitTotal, might, weapon = 0, accumulated = 0;
+	bool shoot, adventurer, poisonVolley, clouds;
+	unsigned elementalMaterial = 0, attackWeaponId = 0;
+	int hitBonus = 0, effectiveness = 1;
+};
+// One successful shot per eligible member, in party order. A miss only advances
+// this target's cursor; the same shot is available when the next target begins.
+// Owners retain targets, RNG, presentation and settlement.
+struct XeenPartyVolley {
+    std::array<bool,6> eligible{},spent{};
+    unsigned shooter=0;
+    bool remaining() const noexcept {
+        for(unsigned i=0;i<6;++i)if(eligible[i] && !spent[i])return true;
+        return false;
+    }
+    bool select() noexcept {
+        while(shooter<6 && (!eligible[shooter] || spent[shooter]))++shooter;
+        return shooter<6;
+    }
+    void settle(bool hit) {spent.at(shooter)=hit;++shooter;}
+    void nextTarget() noexcept {shooter=0;}
+};
 // Detached learned ranged spell damage; callers own publication and target order.
 struct XeenSpellDamageCandidate {
     int damage=0;
@@ -119,8 +164,13 @@ struct XeenSpellDamageCandidate {
         unsigned magicResistance, unsigned resourceId, XeenLearnedSpell,
         unsigned physicalResistance=0, XeenActorStatus status=XeenActorStatus::Physical, unsigned species=0,
         const XeenSpellDamagePreparation *prepared=nullptr, int currentHp=-1, bool clouds=true);
+    // Poison Volley: bind a shooter, preserving weapon draws and unsigned accuracy.
+    XeenSpellDamageCandidate(const XeenCharacter &,const XeenCombatInputs &,
+        const XeenMonsterRecord &,unsigned resourceId,unsigned year,XeenDifficulty,
+        XeenActorStatus,bool clouds);
     bool service(XeenConsequenceDraw &);
 private:
+    std::optional<XeenPhysicalPlayerCandidate> missile;
     enum class Step { Resistance, Species, FingerSave, Damage, Save, Done };
     Step step;
     unsigned levelBound, resistance, resourceId, saveBound, physicalResistance;
@@ -185,31 +235,6 @@ private:
 	bool noTarget=false, disabled=false;
 	// The victim before this application: injury and item observations diff it.
 	std::optional<XeenCharacter> before;
-};
-// Combat::attack/hitMonster/getWeaponDamage/attack2 for one member: metal hit
-// and damage, elemental damage, effectiveness and the Slayer Sword bypass (M67).
-// `monsterType` is the resource ID of the Shoot saving throw, not the species.
-struct XeenPhysicalPlayerCandidate {
-	int damage = 0;      // Published total: physical + elemental, halved by a Shoot save.
-	int physical = 0;    // Accumulated hits after effectiveness and physical resistance.
-	int elemental = 0;   // Elemental material contribution after its own resistance.
-	unsigned elementalFrame = 0; // Elemental category + 1 while elemental > 0 (splat).
-	bool hit = false;
-	XeenActorStatus status;
-	XeenPhysicalPlayerCandidate(const XeenCharacter &, const XeenCombatInputs &,
-		const XeenMonsterRecord &, unsigned monsterType, unsigned year, bool shoot,
-		XeenDifficulty difficulty = XeenDifficulty::Adventurer, XeenActorStatus status=XeenActorStatus::Physical);
-	bool service(XeenConsequenceDraw &);
-private:
-	enum class Step { Weapon, Hit, Save, Done };
-	Step step = Step::Weapon;
-	XeenCharacter character;
-	XeenMonsterRecord monster;
-	unsigned monsterType, attacks, slot = 0, dice = 0, sides = 0;
-	int baseHit, hitTotal, might, weapon = 0, accumulated = 0;
-	bool shoot, adventurer;
-	unsigned elementalMaterial = 0, attackWeaponId = 0;
-	int hitBonus = 0, effectiveness = 1;
 };
 // ELEMENTAL_CATEGORIES: Fire 1-8, Electrical 9-15, Cold 16-20, Poison 21-25,
 // Energy 26-33, Magic 34-36. Material 0 is Fire by table position.

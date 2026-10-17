@@ -115,7 +115,7 @@ void prepare(XeenSaveSnapshot &snapshot,const std::string &preset) {
             if(!category)continue;
             caster.hasSpells=true;caster.currentSp=1000;
             if(!caster.learnedSpells)caster.learnedSpells.emplace();
-            const std::vector<unsigned> spells=preset=="monster-damage" ? std::vector<unsigned>{0u,5u,11u,14u,18u,22u,23u,24u,25u,28u,29u,32u,35u,36u,37u,43u,46u,47u,48u,54u,63u,65u} : std::vector<unsigned>{2u,17u,33u,38u,61u,62u,72u,73u};
+            const std::vector<unsigned> spells=preset=="monster-damage" ? std::vector<unsigned>{0u,5u,11u,14u,18u,22u,23u,24u,25u,28u,29u,32u,35u,36u,37u,43u,46u,47u,48u,51u,54u,63u,65u} : std::vector<unsigned>{2u,17u,33u,38u,61u,62u,72u,73u};
             for(unsigned id:spells)
                 if(const auto slot=XeenLearnedSpellRules::slotForSpell(*category,id))caster.learnedSpells->at(*slot)=1;
         }

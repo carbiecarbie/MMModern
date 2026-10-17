@@ -184,7 +184,7 @@ void m73Guild(Inputs &in) {
 void m73Live(Inputs &in) {
  check(in.statistics.at(2).monsterType()==2 && in.statistics.at(6).monsterType()==3 &&
   in.statistics.at(8).monsterType()==4 && in.statistics.at(9).monsterType()==4,"Original Doom Bug/Orc/Skeleton/Zombie species differ");
- for(unsigned spell:{2u,17u,33u,38u,61u,62u,72u,73u,25u,0u,28u,36u})for(bool item:{false,true}) {
+ for(unsigned spell:{2u,17u,33u,38u,61u,62u,72u,73u,25u,0u,28u,36u,51u})for(bool item:{false,true}) {
   try {
   auto s=source(in,spell,false);
   const auto originals=XeenActorApproach::actorsFromResources(in.maps.loadObjects(in.assets,23),in.statistics);
@@ -204,7 +204,7 @@ void m73Live(Inputs &in) {
   check(slots.size()==3,"Mainland fixture needs three original Orc slots");
   if(spell==0)++s.map(23).monsters->slots.at(slots[0]).x;
   const unsigned count=XeenLearnedSpellRules::range(spell)==XeenSpellRange::Single?1:3;
-  const unsigned power=spell==25?35:spell==0?38:spell==28?33:spell==36?64:spell==2?17:spell==17?40:spell==33?31:spell==38?12:spell==61?7:spell==62?10:spell==72?13:19;
+  const unsigned power=spell==51?46:spell==25?35:spell==0?38:spell==28?33:spell==36?64:spell==2?17:spell==17?40:spell==33?31:spell==38?12:spell==61?7:spell==62?10:spell==72?13:19;
   if(item)s.characters[s.activeRosterIds[4]].miscellaneous[0]={1,std::uint8_t(power),2,0};
   Fixture f(in,s);
   for(auto slot:slots)XeenMonsterTestAccess::setLive(*f.flow,f.w,23,slot,1,true);
@@ -213,13 +213,23 @@ void m73Live(Inputs &in) {
   std::array<XeenActorStatus,3> status{};std::array<int,3> hp{1,1,1};
   XeenSpellDamagePreparation preparation(*XeenLearnedSpellRules::supported(spell),caster.currentLevel());
   XeenConsequenceDraw preparationDraw{expected};check(preparation.service(preparationDraw),"Cast-wide preparation incomplete");
+  XeenPartyVolley volley;volley.eligible.fill(true);
   for(unsigned i=0;i<count;++i) {
    const auto &a=f.w.sessionState().monsters(23).at(slots[i]);
-   XeenSpellDamageCandidate effect(caster.permanentLevel,caster.temporaryLevel,a.statistics->magicResistance(),6,
-    *XeenLearnedSpellRules::supported(spell),a.statistics->physicalResistance(),a.status,a.statistics->monsterType(),&preparation);
-   XeenConsequenceDraw draw{expected};check(effect.service(draw),"M73 exploration expected cast did not finish");
-   hp[i]=std::max(1-effect.damage,0);status[i]=effect.status;
-   if(!hp[i]){XeenMonsterDropCandidate drop(treasure,a.id);check(drop.service(draw),"M73 target settlement did not finish");treasure=drop.treasure;}
+   volley.nextTarget();
+   do {
+    if(spell==51 && !volley.select())break;
+    const auto shooter=s.activeRosterIds[volley.shooter];
+    XeenSpellDamageCandidate effect=spell==51 ?
+     XeenSpellDamageCandidate(f.p.roster.at(shooter),*f.p.roster.combatInputs(shooter),*a.statistics,6,f.p.encounterContext->year,f.p.encounterContext->difficulty,a.status,true) :
+     XeenSpellDamageCandidate(caster.permanentLevel,caster.temporaryLevel,a.statistics->magicResistance(),6,
+      *XeenLearnedSpellRules::supported(spell),a.statistics->physicalResistance(),a.status,a.statistics->monsterType(),&preparation);
+    XeenConsequenceDraw draw{expected};check(effect.service(draw),"Exploration expected cast did not finish");
+    hp[i]=std::max(hp[i]-effect.damage,0);status[i]=effect.status;
+    if(!hp[i]){XeenMonsterDropCandidate drop(treasure,a.id);check(drop.service(draw),"Target settlement did not finish");treasure=drop.treasure;}
+    if(spell!=51)break;
+    volley.settle(!effect.miss);
+   }while(hp[i]>0);
   }
   // The existing regional opportunity also accounts for ordinary Orc ranged
   // responses when the spell leaves them able to act; recovery stays Part A's rule.
@@ -351,7 +361,7 @@ void targets(Inputs &in) {
  }
 }
 void m74Empty(Inputs &in) {
- for(unsigned spell:{0u,5u,11u,14u,18u,22u,23u,24u,25u,28u,29u,32u,35u,36u,37u,43u,46u,47u,48u,54u,63u,65u}) {
+ for(unsigned spell:{0u,5u,11u,14u,18u,22u,23u,24u,25u,28u,29u,32u,35u,36u,37u,43u,46u,47u,48u,51u,54u,63u,65u}) {
   auto s=source(in,spell,false);const auto owner=s.activeRosterIds[4];s.characters[owner].currentSp=1000;
   for(auto id:s.activeRosterIds)s.characters[id].currentHp=1;
   Fixture f(in,s);XeenCombatRandom expected(*f.w.sessionState().journeyRandom());XeenConsequenceDraw draw{expected};

@@ -110,13 +110,14 @@ void specialDamage() {
     XeenCombatRandom rng(std::vector<D>{{1,107,50}});
     XeenSpellDamageCandidate arrow(7,0,50,89,S::MagicArrow,0,A::Sleep);
     XeenConsequenceDraw draw{rng};check(arrow.service(draw) && !arrow.damage && !arrow.impact && arrow.status==A::Sleep && rng.position()==1,"ID89 ordinary refusal");
-    check(!XeenLearnedSpellRules::supported(51),"Poison Volley must remain unsupported until Part C");
+    check(XeenLearnedSpellRules::supported(51)==XeenLearnedSpell::PoisonVolley &&
+        XeenLearnedSpellRules::range(51)==XeenSpellRange::All && xeenSpellProjectile(XeenLearnedSpell::PoisonVolley)==11,"Poison Volley admission/range/projectile");
 }
 void domainsAndBooks() {
     using Rules=XeenLearnedSpellRules;
     for(unsigned id=0;id<256;++id)for(bool combat:{false,true})
         check(bool(Rules::supportedIn(id,combat))==(bool(Rules::supported(id)) && (!combat || (id!=40 && id!=75))),"Context spell admission differs");
-    for(unsigned id=0;id<256;++id)check(bool(Rules::supported(id))==(id==24 || id==29 || id==32 || id==46 || id==0 || id==5 || id==11 || id==14 || id==18 || id==22 || id==23 || id==25 || id==28 || id==35 || id==36 || id==37 || id==43 || id==47 || id==48 || id==54 || id==63 || id==65 || id==1 || id==10 || id==20 || id==26 || id==27 || id==40 || id==45 || id==50 || id==59 || id==60 || id==75 || id==2 || id==17 || id==33 || id==38 || id==61 || id==62 || id==72 || id==73),"Effect recognition differs");
+    for(unsigned id=0;id<256;++id)check(bool(Rules::supported(id))==(id==51 || id==24 || id==29 || id==32 || id==46 || id==0 || id==5 || id==11 || id==14 || id==18 || id==22 || id==23 || id==25 || id==28 || id==35 || id==36 || id==37 || id==43 || id==47 || id==48 || id==54 || id==63 || id==65 || id==1 || id==10 || id==20 || id==26 || id==27 || id==40 || id==45 || id==50 || id==59 || id==60 || id==75 || id==2 || id==17 || id==33 || id==38 || id==61 || id==62 || id==72 || id==73),"Effect recognition differs");
     check(Rules::cost(XeenLearnedSpell::Awaken)==1 && Rules::cost(XeenLearnedSpell::FirstAid)==1 && Rules::cost(XeenLearnedSpell::MagicArrow)==2,"Fixed costs differ");
     check(Rules::spellForSlot(XeenSpellCategory::Wizardry,25)==45 && Rules::spellForSlot(XeenSpellCategory::Druidic,23)==45,"Magic Arrow class slots differ");
     XeenPartyState party;party.party=XeenParty::fromRosterIds({6});auto &caster=party.roster.at(6);

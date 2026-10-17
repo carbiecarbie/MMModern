@@ -35,7 +35,9 @@ std::unique_ptr<XeenShootCandidate> XeenEncounterFlow::prepareSpellProjectile(
         XeenLearnedSpell spell,std::uint8_t owner,unsigned charge) {
     auto projectile=std::make_unique<XeenShootCandidate>();auto &work=*projectile;
     work.spell=spell;work.spellCaster=owner;work.owners=_party.party.activeOrder();
-    work.eligible[0]=true;work.charge=charge;
+    work.volley.eligible[0]=true;
+    if(spell==XeenLearnedSpell::PoisonVolley)work.volley.eligible.fill(true);
+    work.charge=charge;
     work.random=XeenCombatRandom(*_world.sessionState().journeyRandom());
     work.rows=xeenPlayerRayRows(_world,_camera);work.projectileEnd.fill(work.rows-1);
     work.spellPreparation.emplace(spell,_party.roster.at(owner).currentLevel());
@@ -130,7 +132,8 @@ bool XeenEncounterFlow::confirmCasting(const Ticket &entry, std::size_t casterIn
         }
         std::vector<XeenProjectileAppearance> projectiles;
         if(projectile && projectile->spellPreparation->ready())
-            projectiles.push_back({false,0,0,3,{},xeenSpellProjectile(*spell,projectile->spellPreparation->type)});
+            for(unsigned lane=0;lane<(*spell==XeenLearnedSpell::PoisonVolley?6u:1u);++lane)
+                projectiles.push_back({false,0,lane,3,{},xeenSpellProjectile(*spell,projectile->spellPreparation->type)});
         const auto after=static_cast<std::int16_t>(caster.currentSp-cost.sp);
 		auto prepared=std::make_shared<XeenRestoreGuard>(_world,_party,_camera,_flags);
 		prepared->retainResources(*_journeyPreimage);

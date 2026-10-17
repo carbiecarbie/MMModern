@@ -210,6 +210,7 @@ unsigned xeenSpellProjectile(XeenLearnedSpell spell,unsigned type,unsigned itemP
     case XeenLearnedSpell::MagicArrow: return 11; // POW_ARROW, not POW_MAGIC_ARROW
     case XeenLearnedSpell::EnergyBlast: case XeenLearnedSpell::TurnUndead: return 13;
     case XeenLearnedSpell::Sparks: return 5;
+    case XeenLearnedSpell::PoisonVolley: return 11;
     case XeenLearnedSpell::InsectSpray: case XeenLearnedSpell::ToxicCloud: return 10;
     case XeenLearnedSpell::Sleep: case XeenLearnedSpell::BeastMaster:
     case XeenLearnedSpell::Hypnotize: case XeenLearnedSpell::DragonSleep: return 7;
@@ -221,6 +222,7 @@ unsigned xeenSpellProjectile(XeenLearnedSpell spell,unsigned type,unsigned itemP
 XeenSpellDamagePreparation::XeenSpellDamagePreparation(XeenLearnedSpell spell,unsigned casterLevel) : level(casterLevel) {
     using S=XeenLearnedSpell;
     switch(spell) {
+    case S::PoisonVolley: damage=10;type=5;break;
     case S::FingerOfDeath: type=8;break;
     case S::HolyWord: type=9;break;
     case S::MassDistortion: type=10;break;
@@ -273,6 +275,7 @@ XeenSpellDamageCandidate::XeenSpellDamageCandidate(std::int64_t permanent, std::
         index<=unsigned(std::numeric_limits<int>::max()-50),"Invalid Arrow interval");
     ruleRequire(xeenActorStatusSupported(status),"Unsupported spell target status");
     levelBound=unsigned(100+level);saveBound=50+index;
+    ruleRequire(spell!=XeenLearnedSpell::PoisonVolley,"Poison Volley requires a bound shooter");
     switch (spell) {
     case XeenLearnedSpell::FingerOfDeath: case XeenLearnedSpell::HolyWord: case XeenLearnedSpell::MassDistortion:
         ruleRequire(currentHp>0,"Special spell requires live target HP");break;
@@ -298,7 +301,17 @@ XeenSpellDamageCandidate::XeenSpellDamageCandidate(std::int64_t permanent, std::
     entersDamage=acceptedDamage!=0;
     step=r ? Step::Resistance : Step::Species;
 }
+XeenSpellDamageCandidate::XeenSpellDamageCandidate(const XeenCharacter &c,const XeenCombatInputs &i,
+    const XeenMonsterRecord &m,unsigned id,unsigned year,XeenDifficulty difficulty,XeenActorStatus initial,bool isClouds)
+    : XeenSpellDamageCandidate(0,0,0,id,XeenLearnedSpell::ToxicCloud,0,initial) {
+    missile.emplace(c,i,m,id,year,true,difficulty,initial,true,isClouds);
+}
 bool XeenSpellDamageCandidate::service(XeenConsequenceDraw &draw) {
+    if(missile) {
+        if(!missile->service(draw))return false;
+        damage=missile->damage;status=missile->status;impact=missile->impact;miss=!missile->hit;
+        return true;
+    }
     // Complete the draw-free species dispatch even when the gate used the budget.
     while (step!=Step::Done && (draw.remaining || step==Step::Species || step==Step::Damage)) {
         if(step==Step::Species) {
@@ -547,8 +560,12 @@ unsigned xeenElementalCategory(unsigned material) {
 	return index;
 }
 XeenPhysicalPlayerCandidate::XeenPhysicalPlayerCandidate(const XeenCharacter &c,
-		const XeenCombatInputs &i,const XeenMonsterRecord &m,unsigned type,unsigned year,bool missile,XeenDifficulty difficulty, XeenActorStatus initialStatus) :
-		status(initialStatus),character(c),monster(m),monsterType(type),shoot(missile),adventurer(difficulty==XeenDifficulty::Adventurer) {
+    const XeenCombatInputs &i,const XeenMonsterRecord &m,unsigned type,unsigned year,bool shoot,
+    XeenDifficulty difficulty,XeenActorStatus status)
+    : XeenPhysicalPlayerCandidate(c,i,m,type,year,shoot,difficulty,status,false,true) {}
+XeenPhysicalPlayerCandidate::XeenPhysicalPlayerCandidate(const XeenCharacter &c,
+		const XeenCombatInputs &i,const XeenMonsterRecord &m,unsigned type,unsigned year,bool missile,XeenDifficulty difficulty, XeenActorStatus initialStatus, bool poison, bool isClouds) :
+		status(initialStatus),character(c),monster(m),monsterType(type),shoot(missile),adventurer(difficulty==XeenDifficulty::Adventurer),poisonVolley(poison),clouds(isClouds) {
 	ruleRequire(xeenActorStatusSupported(status),"Unsupported physical target status");
 	constexpr unsigned divisors[]{1,2,2,3,4,2,2,1,3,2};
 	ruleRequire(unsigned(c.characterClass)<10 && m.physicalResistance()<=100 && unsigned(difficulty)<=1,"Invalid physical player operands");
@@ -601,9 +618,14 @@ bool XeenPhysicalPlayerCandidate::service(XeenConsequenceDraw &draw) {
 		// attack2: effectiveness, then physical resistance (bypassed from the Xeen
 		// Slayer Sword, ID 34, upward), then the elemental material once, only for
 		// a nonzero accumulated input; the Shoot save halves the combined amount.
+        if(poisonVolley) {
+            accumulated=hit?10:0;
+            if(hit && clouds && monsterType==89) {step=Step::Done;break;}
+        }
+        impact=accumulated!=0;
 		accumulated=physicalChecked(std::int64_t(accumulated)*effectiveness);
 		status=xeenActorStatusAfterDamage(status,accumulated!=0);
-		physical=attackWeaponId>=34 ? accumulated : physicalChecked(std::int64_t(accumulated)*(100-monster.physicalResistance())/100);
+		physical=poisonVolley || attackWeaponId>=34 ? accumulated : physicalChecked(std::int64_t(accumulated)*(100-monster.physicalResistance())/100);
 		elemental=0;elementalFrame=0;
 		if (accumulated>0 && elementalMaterial) {
 			const auto category=xeenElementalCategory(elementalMaterial);

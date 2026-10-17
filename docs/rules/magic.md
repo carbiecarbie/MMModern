@@ -376,7 +376,15 @@ bounded execution. Clouds ID89 refuses nonzero spell damage after dispatch
 and Finger's first save, before waking or the damage-stage save. Holy Word's
 wrong-species path records a miss without waking or drawing a damage save;
 audio remains deferred. Melee and Shoot compare the final hit total as a
-16-bit unsigned word; Poison Volley remains unsupported until Part C.
+16-bit unsigned word, also used by Poison Volley (M74 Part C).
+Poison Volley uses the shared party volley in exploration Cast/item Use
+(power 46) and combat Cast/Quick Fight: one successful shot per active
+member, with misses retaining their shot for later targets. Its missile
+candidate preserves weapon dice and accuracy draws, substitutes the 10
+Poison base, adds resisted missile elemental damage and halves the total
+on a save. No missile weapon is required; neither the magic-resistance gate
+nor physical resistance reduces the base. Target settlement remains inside
+the existing exploration and combat owners; saves stay v14.
 These implementation checks add no DOS evidence.
 
 For Finger of Death, the first save and the damage-stage save are distinct
@@ -467,8 +475,7 @@ other admission-list differences match DOS is
 The strongest retained DOS findings are the Pain, Suppress Poison,
 elemental-damage and Magic Arrow corrections. Most of this chapter is a
 carefully bounded reference inventory. Unknown high-impact areas include
-non-First-Aid item-prompt refunds, Resurrection's actual recovery effect, Poison Volley's full missile
-arithmetic, high-tier overflow, full travel
+non-First-Aid item-prompt refunds, Resurrection's actual recovery effect, high-tier overflow, full travel
 spell dialogs. Names and spell descriptions are not sufficient evidence
 for these rules.
 

@@ -98,7 +98,7 @@ void effects(Inputs &in) {
     }
 }
 void refusal(Inputs &in) {
-    constexpr unsigned damagePowers[]{24,33,35,36,38,47,52,54,59,60,62,64,67,68,69,70,71,72};
+    constexpr unsigned damagePowers[]{24,33,35,36,38,46,47,52,54,59,60,62,64,67,68,69,70,71,72};
     for(unsigned power=0;power<75;++power) {
         const bool supported=std::find(std::begin(powers),std::end(powers),power)!=std::end(powers) ||
             std::find(std::begin(damagePowers),std::end(damagePowers),power)!=std::end(damagePowers);

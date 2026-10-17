@@ -17,7 +17,7 @@ enum class XeenLearnedSpell : std::uint8_t {
     PrismaticLight=54, StarBurst=63, SunRay=65,
     Awaken=1, BeastMaster=2, CureWounds=10, DragonSleep=17, EnergyBlast=20,
     FirstAid=26, FlyingFist=27, Hypnotize=33, InsectSpray=38, Jump=40,
-    MagicArrow=45, Pain=50, Revitalize=59, Shrapmetal=60, Sleep=61, Sparks=62,
+    MagicArrow=45, Pain=50, PoisonVolley=51, Revitalize=59, Shrapmetal=60, Sleep=61, Sparks=62,
     ToxicCloud=72, TurnUndead=73, WizardEye=75
 };
 

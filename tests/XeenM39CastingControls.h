@@ -68,27 +68,38 @@ bool m39CastControls(const std::string &control,const IndexedFrame &first,const 
         const auto price=XeenLearnedSpellRules::cost(std::uint8_t(spell),unsigned(std::max(caster.permanentLevel+caster.temporaryLevel,0)));
         auto expectedRandom=fight().random();int expectedDamage=0;
         const auto groupTargets=xeenSpellTargets(world,camera,world.sessionState().monsters(23),fight().selectedTarget(),XeenLearnedSpellRules::range(spell));
-        std::array<int,3> groupHp{};unsigned groupCount=0;
+        std::array<int,12> groupHp{};unsigned groupCount=0;
         auto expectedTreasure=*party.monsterTreasure;
         const auto accounted=world.sessionState().accountedMonsters();std::set<XeenMonsterIdentity> expectedAccounted(accounted.begin(),accounted.end());
         std::array<std::uint32_t,6> beforeXp{};std::uint32_t xpPerMember=0;
         for(unsigned i=0;i<6;++i)beforeXp[i]=party.roster.combatInputs(party.party.activeRosterIds().at(i))->experience;
         if(!member) {
+            XeenPartyVolley volley;volley.eligible.fill(true);
             for(unsigned i=0;i<groupTargets.size() && groupTargets[i];++i) {
                 const auto &actor=world.sessionState().monsters(23).at(groupTargets[i]->recordIndex);
-                XeenSpellDamageCandidate candidate(caster.permanentLevel,caster.temporaryLevel,
-                    actor.statistics->magicResistance(),actor.original.resourceId,
-                    *XeenLearnedSpellRules::supported(std::uint8_t(spell)),actor.statistics->physicalResistance(),actor.status,actor.statistics->monsterType(),nullptr,actor.hp);
-                XeenConsequenceDraw draws{expectedRandom};check(candidate.service(draws),"M60 expected bounded damage");
-                if(!i)expectedDamage=candidate.damage;
-                groupHp[i]=std::max(actor.hp-candidate.damage,0);++groupCount;
-                if(!groupHp[i]) {
-                    expectedAccounted.insert(actor.id);xpPerMember+=actor.statistics->experience()/6;
-                    if(actor.original.resourceId==6) {
-                        XeenMonsterDropCandidate drop(expectedTreasure,actor.id);
-                        check(drop.service(draws),"M60 expected bounded drop");expectedTreasure=drop.treasure;
+                groupHp[i]=actor.hp;++groupCount;volley.nextTarget();
+                auto status=actor.status;
+                do {
+                    if(spell==51 && !volley.select())break;
+                    const auto shooter=party.party.activeRosterIds().at(volley.shooter);
+                    XeenSpellDamageCandidate candidate=spell==51 ?
+                        XeenSpellDamageCandidate(party.roster.at(shooter),*party.roster.combatInputs(shooter),*actor.statistics,actor.original.resourceId,party.encounterContext->year,party.encounterContext->difficulty,status,true) :
+                        XeenSpellDamageCandidate(caster.permanentLevel,caster.temporaryLevel,
+                            actor.statistics->magicResistance(),actor.original.resourceId,
+                            *XeenLearnedSpellRules::supported(std::uint8_t(spell)),actor.statistics->physicalResistance(),status,actor.statistics->monsterType(),nullptr,groupHp[i]);
+                    XeenConsequenceDraw draws{expectedRandom};check(candidate.service(draws),"M60 expected bounded damage");
+                    if(!i)expectedDamage+=candidate.damage;
+                    groupHp[i]=std::max(groupHp[i]-candidate.damage,0);status=candidate.status;
+                    if(!groupHp[i]) {
+                        expectedAccounted.insert(actor.id);xpPerMember+=actor.statistics->experience()/6;
+                        if(actor.original.resourceId==6) {
+                            XeenMonsterDropCandidate drop(expectedTreasure,actor.id);
+                            check(drop.service(draws),"M60 expected bounded drop");expectedTreasure=drop.treasure;
+                        }
                     }
-                }
+                    if(spell!=51)break;
+                    volley.settle(!candidate.miss);
+                }while(groupHp[i]>0);
             }
         }
         if(quick)respond(QuickFightAction{});else {respond(CastSpellAction{});castSelected();}

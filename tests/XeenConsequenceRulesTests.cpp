@@ -344,6 +344,47 @@ void completeWeaponRules() {
  check(XeenCharacterRules::effectiveIntellect(c[0],{610})==XeenCharacterRules::effectiveIntellect(old,{610})-4 && XeenCharacterRules::effectivePersonality(c[0],{610})==XeenCharacterRules::effectivePersonality(old,{610})-4 && XeenCharacterRules::effectiveEndurance(c[0],{610})==XeenCharacterRules::effectiveEndurance(old,{610})-4,"Disease changes mental/endurance stats");
  check(c[0].currentHp==old.currentHp && c[0].currentSp==old.currentSp,"Derived changes never clamp HP/SP");
 }
+void partyVolley() {
+ XeenPartyVolley volley;volley.eligible.fill(true);
+ for(unsigned i=0;i<6;++i) {
+  check(volley.remaining() && volley.select() && volley.shooter==i,"Volley party order");
+  volley.settle(i%2==0);
+ }
+ check(!volley.select() && volley.remaining(),"Volley retried a miss on the same target");
+ volley.nextTarget();
+ for(unsigned i:{1u,3u,5u}) {
+  check(volley.select() && volley.shooter==i,"Volley miss did not retain the shot");volley.settle(true);
+ }
+ volley.nextTarget();check(!volley.select() && !volley.remaining(),"Volley spent more than one shot per member");
+ XeenPartyVolley sparse;sparse.eligible[2]=true;sparse.eligible[5]=true;
+ check(sparse.select() && sparse.shooter==2,"Volley ineligible member fired");sparse.settle(true);
+ check(sparse.select() && sparse.shooter==5,"Volley sparse order");sparse.settle(true);
+ check(!sparse.remaining(),"Volley sparse exhaustion");
+}
+void poisonVolley() {
+ for(bool weapon:{false,true})for(bool save:{false,true})for(unsigned resistance:{0u,50u,100u}) {
+  auto c=characters();auto in=inputs();auto m=profile();
+  m.raw[34]=resistance;m.raw[39]=100;m.raw[40]=100; // Neither magic gate nor physical resistance applies.
+  c[0].permanentLevel=20;c[0].characterClass=XeenCharacterClass::Knight;
+  if(weapon)c[0].weapons[0]={1,30,0,4}; // Fire material, three d2 dice still drawn.
+  std::vector<XeenCombatRandom::Draw> tape;
+  if(weapon)for(unsigned n=0;n<3;++n)tape.push_back({1,2,2});
+  tape.push_back({1,20,1});tape.push_back({1,56,save?6u:7u});
+  XeenCombatRandom rng(tape);XeenSpellDamageCandidate shot(c[0],in[0],m,6,610,XeenDifficulty::Warrior,XeenActorStatus::Sleep,true);
+  finish(shot,rng,1);
+  check(!shot.miss && shot.impact && shot.damage==(10+(weapon?2*(100-int(resistance))/100:0))/(save?2:1) && shot.status==XeenActorStatus::Physical && rng.position()==tape.size(),"Poison Volley base/element/save/draw order");
+ }
+ auto c=characters();auto in=inputs();auto m=profile();
+ c[0].permanentLevel=1;c[0].characterClass=XeenCharacterClass::Knight;in[0].accuracy={12,0};
+ c[0].weapons[0]={37,30,0,4};
+ for(bool clouds:{false,true}) {
+  std::vector<XeenCombatRandom::Draw> tape{{1,2,2},{1,2,2},{1,2,2},{1,20,1}};
+  if(!clouds)tape.push_back({1,139,139});
+  XeenCombatRandom rng(tape);XeenSpellDamageCandidate shot(c[0],in[0],m,89,610,XeenDifficulty::Warrior,XeenActorStatus::Physical,clouds);
+  finish(shot,rng,1);
+  check(!shot.miss && shot.damage==(clouds?0:10) && shot.impact==!clouds && rng.position()==tape.size(),"Poison Volley negative hit/refusal/save boundary");
+ }
+}
 void unsignedPlayerHit() {
  for(bool shoot:{false,true})for(int total:{-1,0,1,14,15}) {
   auto c=characters();auto in=inputs();auto m=profile();
@@ -624,4 +665,4 @@ void timeAndInputs() {
 }
 }
 #include "XeenDailyTimeOracles.h"
-int main() { try { unsignedPlayerHit();dailyTimeOracles();dailyConditionChecks();difficultyOracles();dormantTreasure();physical();targetingAndCounts();runAndParticipation();shootAndLoot();additionalTapes();completeWeaponRules();equippedContributions();missileClassAndZeroDamage();dosMonsterDelivery();rejectionBudgets();rangedOpportunity();indoorOpportunity();stackedRangedOpportunity();timeAndInputs();std::cout<<"Shared consequence pure-rule controls passed\n";return 0; } catch (const std::exception &e) { std::cerr<<e.what()<<'\n';return 1; } }
+int main() { try { partyVolley();poisonVolley();unsignedPlayerHit();dailyTimeOracles();dailyConditionChecks();difficultyOracles();dormantTreasure();physical();targetingAndCounts();runAndParticipation();shootAndLoot();additionalTapes();completeWeaponRules();equippedContributions();missileClassAndZeroDamage();dosMonsterDelivery();rejectionBudgets();rangedOpportunity();indoorOpportunity();stackedRangedOpportunity();timeAndInputs();std::cout<<"Shared consequence pure-rule controls passed\n";return 0; } catch (const std::exception &e) { std::cerr<<e.what()<<'\n';return 1; } }

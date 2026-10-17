@@ -88,7 +88,7 @@ int main(int argc,char **argv) {
         check(spellSupport(26).status==Status::Supported && spellSupport(0).status==Status::Supported &&
             spellSupport(24).status==Status::Supported && spellSupport(29).status==Status::Supported &&
             spellSupport(32).status==Status::Supported && spellSupport(46).status==Status::Supported &&
-            spellSupport(51).status==Status::Unsupported,"spell checks");
+            spellSupport(51).status==Status::Supported,"spell checks");
         check(restSupport(5,true).status==Status::Supported,"lava Rest applies shared arrival after recovery");
         check(restSupport(13,true).status==Status::Supported,"cloud Rest applies shared arrival after losing levitation");
         check(restSupport(6,true).status==Status::Supported,"supported navigator damage variation is not a gap");

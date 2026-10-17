@@ -162,6 +162,7 @@ struct XeenCombatCastView {
     std::size_t top=0;
     std::optional<std::size_t> selection;
     std::optional<XeenMonsterIdentity> enemy;
+    unsigned volleyShots=0; // Disposable Poison Volley presentation lanes.
     bool committed=false;
     XeenCombatPhase successorPhase=XeenCombatPhase::Failed;
     XeenCombatWork successorWork=XeenCombatWork::None;
