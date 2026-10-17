@@ -72,9 +72,10 @@ accepted).
 4. **World Events, Clouds**: completed and accepted in
    [M70](milestone-70-plan.md). Darkside-only operations and Darkside durable
    state wait for a later Darkside arc; shared operations stay generic.
-5. **Terrain and simple services** (Tier B, lower complexity): Rest surfaces
-   and arrival hazards (lava, sky, cloud, space, desert, water); Tavern
-   Drink/Tip/Rumors/Sign In and Temple Donation/Uncurse.
+5. **Terrain and simple services** (Tier B, lower complexity,
+   [M72](milestone-72-plan.md)): Rest surfaces and arrival hazards (lava,
+   sky, cloud, space, desert, water); Tavern Drink/Tip/Rumors/Sign In and
+   Temple Donation/Uncurse.
 6. **Spells** (Tiers A and B, high volume): the remaining 65 in two or three
    milestones by level and use. Sleep, hypnosis and similar spells first need
    a monster status system (Tier A).
@@ -85,7 +86,11 @@ accepted).
 9. **Monster treasure** (Tier A, changes the save): item drops for every
    monster and drop levels 2 to 6, including accessories in staged treasure,
    on the shared generator from [M71](milestone-71-plan.md).
-10. **Opening areas**: admit every Clouds map whose census readiness has no
+10. **Entrance scenes** (likely Tier B): the scenes shown at some entrances,
+    without interaction (`DoTownEvent` 8 to 12: Reaper, Golem, Dwarf Mine,
+    Sphinx, Pyramid), on up to 6 Clouds maps each, F3 included. The Dwarf
+    Mine scene leads toward the next area after Vertigo.
+11. **Opening areas**: admit every Clouds map whose census readiness has no
     unsupported mechanic, then play-test by sampling rather than map by map.
 
 Audio comes after this arc (Tier A: music, sounds and CD tracks on the
