@@ -876,7 +876,7 @@ IndexedFrame XeenEventFlow::renderEncounter(bool report, bool cosmeticInput, boo
                             treasure.items.push_back({_party.roster.at(*entry.recipient).name,
                                 _catalog.foundName(category,entry.production.item),false});
                         }
-                        prepareTreasureWait(_encounter->ticket().generation,
+                        prepareTreasureWait(_encounter->_rewardLease,
                             receipt.phase==Phase::Blank?1:receipt.phase==Phase::Found?10:0,true);
                         _presenter.originalAssets(dialogText,drawDialogSprite);
 						rendered=_presenter.present(composed.frame,request).frame;_monsterReceiptPresented=true;
@@ -1767,8 +1767,14 @@ void XeenEventFlow::publishEventSequencePrefix(const XeenEventExecutionState &st
 void XeenEventFlow::prepareTreasureWait(std::uint64_t generation,unsigned ticks,bool monster) {
 	if(!ticks){_treasureWait.reset();return;}
 	if(_treasureWait && _treasureWait->generation==generation && _treasureWait->monster==monster &&
-		_treasureWait->ticks==ticks)return;
+		_treasureWait->ticks==ticks && (!monster ||
+		(_treasureWait->monsterCursor==_encounter->_monsterReceipt->cursor &&
+		 _treasureWait->monsterPhase==_encounter->_monsterReceipt->phase)))return;
 	_treasureWait=TreasureWait{generation,0,ticks,monster,false};
+	if(monster) {
+		_treasureWait->monsterCursor=_encounter->_monsterReceipt->cursor;
+		_treasureWait->monsterPhase=_encounter->_monsterReceipt->phase;
+	}
 }
 std::optional<IndexedFrame> XeenEventFlow::advanceTreasureWait() {
 	if(!_treasureWait || !_treasureWait->acquired || _dispatching || _fatal || _saving || _handoffPending || _cosmeticPending)
@@ -1778,7 +1784,12 @@ std::optional<IndexedFrame> XeenEventFlow::advanceTreasureWait() {
 	const auto wait=*_treasureWait;
 	DispatchScope dispatch(_dispatching);
 	if(wait.monster) {
-		if(!_encounter || !_encounter->monsterReward() || _encounter->ticket().generation!=wait.generation)
+		// Journey frame acquisition renews presentation tickets during the hold.
+		// The existing reward lease and item phase identify the held receipt.
+		if(!_encounter || !_encounter->monsterReward() ||
+			!_encounter->_boundary.holds(XeenCombatBoundary::Work::Reward,wait.generation) ||
+			_encounter->_rewardLease!=wait.generation || _encounter->_monsterReceipt->cursor!=wait.monsterCursor ||
+			_encounter->_monsterReceipt->phase!=wait.monsterPhase)
 			throw std::logic_error("Stale monster treasure hold");
 		_treasureWait.reset();_encounter->advanceMonsterReward();_monsterReceiptPresented=false;
 		return renderEncounter();

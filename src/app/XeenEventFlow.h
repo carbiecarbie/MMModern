@@ -219,6 +219,8 @@ private:
 		std::uint64_t generation=0,deadline=0;
 		unsigned ticks=0;
 		bool monster=false,acquired=false;
+		unsigned monsterCursor=0;
+		XeenMonsterDeliveryCandidate::Phase monsterPhase=XeenMonsterDeliveryCandidate::Phase::Final;
 	};
 	std::optional<TreasureWait> _treasureWait;
 	void prepareTreasureWait(std::uint64_t,unsigned,bool monster=false);
