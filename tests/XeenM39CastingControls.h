@@ -67,7 +67,7 @@ bool m39CastControls(const std::string &control,const IndexedFrame &first,const 
         const auto &caster=party.roster.at(owner);
         const auto price=XeenLearnedSpellRules::cost(std::uint8_t(spell),unsigned(std::max(caster.permanentLevel+caster.temporaryLevel,0)));
         auto expectedRandom=fight().random();int expectedDamage=0;
-        const auto groupTargets=xeenSpellTargets(world,camera,world.sessionState().monsters(23),fight().selectedTarget(),group?XeenSpellRange::Group:XeenSpellRange::Single);
+        const auto groupTargets=xeenSpellTargets(world,camera,world.sessionState().monsters(23),fight().selectedTarget(),XeenLearnedSpellRules::range(spell));
         std::array<int,3> groupHp{};unsigned groupCount=0;
         auto expectedTreasure=*party.monsterTreasure;
         const auto accounted=world.sessionState().accountedMonsters();std::set<XeenMonsterIdentity> expectedAccounted(accounted.begin(),accounted.end());
@@ -78,7 +78,7 @@ bool m39CastControls(const std::string &control,const IndexedFrame &first,const 
                 const auto &actor=world.sessionState().monsters(23).at(groupTargets[i]->recordIndex);
                 XeenSpellDamageCandidate candidate(caster.permanentLevel,caster.temporaryLevel,
                     actor.statistics->magicResistance(),actor.original.resourceId,
-                    *XeenLearnedSpellRules::supported(std::uint8_t(spell)),actor.statistics->physicalResistance());
+                    *XeenLearnedSpellRules::supported(std::uint8_t(spell)),actor.statistics->physicalResistance(),actor.status,actor.statistics->monsterType(),nullptr,actor.hp);
                 XeenConsequenceDraw draws{expectedRandom};check(candidate.service(draws),"M60 expected bounded damage");
                 if(!i)expectedDamage=candidate.damage;
                 groupHp[i]=std::max(actor.hp-candidate.damage,0);++groupCount;

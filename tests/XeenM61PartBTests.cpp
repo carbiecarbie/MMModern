@@ -4,6 +4,7 @@
 #include "games/xeen/XeenJumpRules.h"
 #include "games/xeen/XeenItemGeneration.h"
 #include "XeenM42Evidence.h"
+#include "XeenMonsterTestAccess.h"
 #include <queue>
 #include <exception>
 #include <iostream>
@@ -16,7 +17,7 @@ struct XeenMonsterAbilityTestAccess {
 };
 }
 namespace {
-constexpr unsigned powers[]{2,3,4,5,6,7,8,9,10,11,12,13,15,16,17,19,21,31,37,40};
+constexpr unsigned powers[]{2,3,4,5,6,7,8,9,10,11,12,13,15,16,17,19,21,31,37,40,43,45,61,65};
 void tick(Fixture &f) {
     f.now+=125;f.flow->beginCycle(++f.cycle);
     if(auto frame=f.flow->updatePresentation())f.present(*frame);
@@ -165,17 +166,19 @@ void miscTreasure(Inputs &in) {
     check(saved==XeenSaveFormat::encode(restored.snapshot()),"Delivered Misc did not restore exactly");
 }
 void impacts(Inputs &in) {
-    for(unsigned power:{3u,5u,6u,11u,15u})for(unsigned distance:{1u,2u,3u}) {
+    for(unsigned power:{3u,5u,6u,11u,15u,61u})for(unsigned distance:{1u,2u,3u}) {
         auto s=source(in,power,true);s.camera={28,15,0,XeenDirection::North};
-        const auto spell=*xeenItemUseSpell(power);const unsigned count=power==11 || power==15?3:1;
+        const auto spell=*xeenItemUseSpell(power);const unsigned count=power==11 || power==15 || power==61?3:1;
         for(unsigned n=0;n<count;++n) {
             auto &a=s.map(28).monsters->slots.at(35+n);a.x=15;a.y=distance;a.lifecycle=XeenActorLifecycle::Present;a.accounted=false;
         }
-        Fixture f(in,s);XeenCombatRandom expected(*f.w.sessionState().journeyRandom());
+        Fixture f(in,s);
+        if(power==61)for(unsigned n=0;n<count;++n)XeenMonsterTestAccess::setLive(*f.flow,f.w,28,35+n,1,true);
+        XeenCombatRandom expected(*f.w.sessionState().journeyRandom());
         const auto &caster=f.p.roster.at(s.activeRosterIds[0]);
         for(unsigned n=0;n<count;++n) {
             const auto &a=f.w.sessionState().regionalActors(28).at(35+n);
-            XeenSpellDamageCandidate damage(caster.permanentLevel,caster.temporaryLevel,a.statistics->magicResistance(),a.original.resourceId,spell,a.statistics->physicalResistance());
+            XeenSpellDamageCandidate damage(caster.permanentLevel,caster.temporaryLevel,a.statistics->magicResistance(),a.original.resourceId,spell,a.statistics->physicalResistance(),a.status,a.statistics->monsterType(),nullptr,a.hp);
             XeenConsequenceDraw draw{expected};check(damage.service(draw) && damage.damage>0,"Lethal item fixture failed");
         }
         open(f);key(f,'u');quiet(f);
@@ -210,6 +213,8 @@ void castingParity(Inputs &in) {
         const auto spell=*xeenItemUseSpell(power);auto s=source(in,power,false,2);
         auto &c=s.characters[s.activeRosterIds[0]];c.characterClass=spell==XeenLearnedSpell::DragonSleep?XeenCharacterClass::Sorcerer:spell==XeenLearnedSpell::Hypnotize?XeenCharacterClass::Cleric:XeenCharacterClass::Druid;c.hasSpells=true;c.currentSp=100;c.learnedSpells.emplace();
         for(auto *items:{&c.weapons,&c.armor,&c.accessories})for(auto &item:*items)item.frame=0;
+        if(!XeenLearnedSpellRules::slotForSpell(*XeenLearnedSpellRules::categoryForClass(c.characterClass),std::uint8_t(spell)))
+            c.characterClass=XeenLearnedSpellRules::slotForSpell(XeenSpellCategory::Wizardry,std::uint8_t(spell))?XeenCharacterClass::Sorcerer:XeenCharacterClass::Cleric;
         c.currentSpell=*XeenLearnedSpellRules::slotForSpell(*XeenLearnedSpellRules::categoryForClass(c.characterClass),static_cast<std::uint8_t>(spell));c.learnedSpells->at(c.currentSpell)=1;
         s.journey->treasure->gems=100;s.characters[s.activeRosterIds[1]].currentHp=1;s.characters[s.activeRosterIds[1]].conditions[2]=3;s.characters[s.activeRosterIds[1]].conditions[8]=1;
         Fixture item(in,s),cast(in,s);open(item);key(item,'u');

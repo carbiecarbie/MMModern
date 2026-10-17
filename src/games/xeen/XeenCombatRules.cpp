@@ -186,6 +186,9 @@ bool XeenTypedDamageCandidate::service(XeenConsequenceDraw &draw) {
 }
 unsigned xeenSpellProjectile(XeenLearnedSpell spell,unsigned type,unsigned itemPower) {
     switch (spell) {
+    case XeenLearnedSpell::FingerOfDeath: return 14;
+    case XeenLearnedSpell::GolemStopper: case XeenLearnedSpell::MassDistortion: return 6;
+    case XeenLearnedSpell::HolyWord: return 13;
     case XeenLearnedSpell::AcidSpray: return 10;
     case XeenLearnedSpell::ColdRay: case XeenLearnedSpell::FantasticFreeze: return 8;
     case XeenLearnedSpell::DancingSword: case XeenLearnedSpell::PrismaticLight: return 14;
@@ -218,6 +221,10 @@ unsigned xeenSpellProjectile(XeenLearnedSpell spell,unsigned type,unsigned itemP
 XeenSpellDamagePreparation::XeenSpellDamagePreparation(XeenLearnedSpell spell,unsigned casterLevel) : level(casterLevel) {
     using S=XeenLearnedSpell;
     switch(spell) {
+    case S::FingerOfDeath: type=8;break;
+    case S::HolyWord: type=9;break;
+    case S::MassDistortion: type=10;break;
+    case S::GolemStopper: type=14;break;
     case S::AcidSpray: damage=15;type=5;break;
     case S::ColdRay: low=2;high=4;type=4;break;
     case S::DancingSword: low=6;high=14;break;
@@ -258,7 +265,7 @@ bool XeenMoonRayHealing::service(XeenConsequenceDraw &draw,const XeenPartyState 
 // the resource-ID save; Arrow draws the save but ignores its result.
 XeenSpellDamageCandidate::XeenSpellDamageCandidate(std::int64_t permanent, std::int64_t temporary,
         unsigned r, unsigned index, XeenLearnedSpell spell, unsigned physical, XeenActorStatus initialStatus, unsigned targetSpecies,
-        const XeenSpellDamagePreparation *prepared) : status(initialStatus), resistance(r), resourceId(index), physicalResistance(physical), species(targetSpecies), spell(spell) {
+        const XeenSpellDamagePreparation *prepared, int hp, bool isClouds) : status(initialStatus), resistance(r), resourceId(index), physicalResistance(physical), currentHp(hp), clouds(isClouds), species(targetSpecies), spell(spell) {
     ruleRequire(permanent>=std::numeric_limits<int>::min() && permanent<=std::numeric_limits<int>::max() &&
         temporary>=std::numeric_limits<int>::min() && temporary<=std::numeric_limits<int>::max(),"Invalid Arrow level operands");
     const auto level=std::max<std::int64_t>(permanent+temporary,0);
@@ -267,6 +274,9 @@ XeenSpellDamageCandidate::XeenSpellDamageCandidate(std::int64_t permanent, std::
     ruleRequire(xeenActorStatusSupported(status),"Unsupported spell target status");
     levelBound=unsigned(100+level);saveBound=50+index;
     switch (spell) {
+    case XeenLearnedSpell::FingerOfDeath: case XeenLearnedSpell::HolyWord: case XeenLearnedSpell::MassDistortion:
+        ruleRequire(currentHp>0,"Special spell requires live target HP");break;
+    case XeenLearnedSpell::GolemStopper: acceptedDamage=100;halveOnSave=false;break;
     case XeenLearnedSpell::Sleep: control=XeenActorStatus::Sleep;break;
     case XeenLearnedSpell::BeastMaster: control=XeenActorStatus::BeastMaster;break;
     case XeenLearnedSpell::Hypnotize: control=XeenActorStatus::Hypnotize;break;
@@ -283,14 +293,14 @@ XeenSpellDamageCandidate::XeenSpellDamageCandidate(std::int64_t permanent, std::
         ruleRequire(prepared && prepared->ready() && XeenLearnedSpellRules::target(std::uint8_t(spell))==XeenSpellTarget::Contact,"Missing ranged spell preparation");
         acceptedDamage=prepared->damage;physicalDamage=prepared->type==0;break;
     }
-    // Zero base damage never enters attack2. Physical immunity, however, reduces
-    // damage only after entry, so it still consumes the saving throw.
+    // Zero damage skips waking and the save. Physical immunity reduces damage
+    // only after entry, so it still consumes the saving throw.
     entersDamage=acceptedDamage!=0;
     step=r ? Step::Resistance : Step::Species;
 }
 bool XeenSpellDamageCandidate::service(XeenConsequenceDraw &draw) {
     // Complete the draw-free species dispatch even when the gate used the budget.
-    while (step!=Step::Done && (draw.remaining || step==Step::Species)) {
+    while (step!=Step::Done && (draw.remaining || step==Step::Species || step==Step::Damage)) {
         if(step==Step::Species) {
             if(control!=XeenActorStatus::Physical) {
                 const bool compatible=control==XeenActorStatus::DragonSleep ? species==6 : species==1 || species==3;
@@ -300,6 +310,24 @@ bool XeenSpellDamageCandidate::service(XeenConsequenceDraw &draw) {
             if(spell==XeenLearnedSpell::InsectSpray && species!=2) {step=Step::Done;continue;}
             // Turn Undead calls attack2 with zero for other species: no wake/save.
             if(spell==XeenLearnedSpell::TurnUndead && species!=4) {acceptedDamage=0;entersDamage=false;}
+            if(spell==XeenLearnedSpell::FingerOfDeath) {
+                if(species!=1 && species!=3) {step=Step::Done;continue;}
+                step=Step::FingerSave;continue;
+            }
+            if(spell==XeenLearnedSpell::GolemStopper && species!=5) {step=Step::Done;continue;}
+            if(spell==XeenLearnedSpell::HolyWord) {
+                // DOS enters attack2 with zero for the wrong species (sv-holy-word-miss).
+                acceptedDamage=species==4 ? currentHp : 0;halveOnSave=false;
+            }
+            if(spell==XeenLearnedSpell::MassDistortion)acceptedDamage=std::max(currentHp/2,1);
+            step=Step::Damage;continue;
+        }
+        if(step==Step::Damage) {
+            entersDamage=acceptedDamage!=0;
+            // Every spell projectile supplies a nonzero attack-range argument,
+            // including Single. Refuse after Finger's first save, before waking.
+            if(entersDamage && clouds && resourceId==89) {step=Step::Done;continue;}
+            miss=!entersDamage && (spell==XeenLearnedSpell::HolyWord || spell==XeenLearnedSpell::TurnUndead);
             impact=entersDamage;
             step=entersDamage ? Step::Save : Step::Done;continue;
         }
@@ -313,13 +341,19 @@ bool XeenSpellDamageCandidate::service(XeenConsequenceDraw &draw) {
         if (step==Step::Resistance) {
             if (*accepted<resistance) {resisted=true;step=Step::Done;}
             else step=Step::Species;
+        } else if(step==Step::FingerSave) {
+            if(*accepted<=resourceId)step=Step::Done;
+            else {acceptedDamage=std::min(currentHp,50);step=Step::Damage;}
         } else {
             if(control!=XeenActorStatus::Physical) {
                 if(*accepted>resourceId)status=control;
                 step=Step::Done;continue;
             }
             damage=acceptedDamage;
-            if (halveOnSave && *accepted<=resourceId) damage/=2;
+            if (*accepted<=resourceId) {
+                if(spell==XeenLearnedSpell::FingerOfDeath || spell==XeenLearnedSpell::MassDistortion)damage=5;
+                else if(halveOnSave)damage/=2;
+            }
             step=Step::Done;
         }
     }
@@ -558,7 +592,9 @@ bool XeenPhysicalPlayerCandidate::service(XeenConsequenceDraw &draw) {
 		const auto n=draw.draw(1,20);if (!n) break;
 		hitTotal=physicalChecked(std::int64_t(hitTotal)+*n);if (*n==20) break;
 		if (status!=XeenActorStatus::Physical) hitTotal=physicalChecked(std::int64_t(hitTotal)+20);
-		if (hitTotal>=int(monster.armorClass()+10)) {
+		// DOS compares the final player hit total as a 16-bit unsigned word
+		// (sv-hit-total-unsigned), shared by melee and missile attacks.
+		if (static_cast<std::uint16_t>(hitTotal)>=unsigned(monster.armorClass()+10)) {
 			hit=true;accumulated=physicalChecked(std::int64_t(accumulated)+(shoot ? weapon : std::max(physicalChecked(std::int64_t(weapon)+might),1)));
 		}
 		if (--attacks) { slot=0;weapon=0;hitBonus=0;elementalMaterial=0;hitTotal=baseHit;step=Step::Weapon;break; }

@@ -55,7 +55,7 @@ void preset(const GameInstallation &installation,const std::string &name,const f
     check(flow.prepareJourneyFrame(flow.ticket(),[]{}) && flow.presentJourney(flow.ticket()),"restored preset is not quiet");
     const auto captured=XeenSaveState::capture(inputs.signature,party,camera,flags,world);
     check(XeenSaveFormat::encode(saved)==XeenSaveFormat::encode(captured),"restore replayed or changed state");
-    check(name=="monster-control" || save_test::sameCamera(camera,xeenJourneyContent().entry),"fresh Journey camera changed");
+    check((name=="monster-control" || name=="monster-damage") || save_test::sameCamera(camera,xeenJourneyContent().entry),"fresh Journey camera changed");
     const auto first=party.party.activeRosterIds()[0],second=party.party.activeRosterIds()[1];
     const auto &member=party.roster.at(first);
     const auto gold=party.monsterTreasure->gold;
@@ -89,11 +89,12 @@ void preset(const GameInstallation &installation,const std::string &name,const f
             for (const auto &item:party.roster.at(owner).miscellaneous) found=found || XeenAntidoteUse::eligible(item);
         check(found,"no usable Misc antidote");
     }
-    if(name=="monster-control") {
+    if((name=="monster-control" || name=="monster-damage")) {
         check(camera.mapId==XeenMapIdentity(28) && camera.x==18 && camera.y==4,"Control fixture must stand in Vertigo");
         check(party.monsterTreasure->gems==1000,"Control fixture lacks gems");
         unsigned covered=0;
-        for(unsigned id:{2u,17u,33u,38u,61u,62u,72u,73u}) {
+        const std::vector<unsigned> spells=name=="monster-damage" ? std::vector<unsigned>{0u,5u,11u,14u,18u,22u,23u,24u,25u,28u,29u,32u,35u,36u,37u,43u,46u,47u,48u,54u,63u,65u} : std::vector<unsigned>{2u,17u,33u,38u,61u,62u,72u,73u};
+        for(unsigned id:spells) {
             bool known=false;
             for(auto owner:party.party.activeRosterIds()) {
                 const auto &c=party.roster.at(owner);const auto category=XeenLearnedSpellRules::categoryForClass(c.characterClass);
@@ -102,7 +103,7 @@ void preset(const GameInstallation &installation,const std::string &name,const f
             }
             covered+=known;
         }
-        check(covered==8,"Control fixture does not cover eight spells");return;
+        check(covered==spells.size(),"Monster fixture does not cover its spells");return;
     }
     // Revert only the documented preset fields and compare against a fresh Journey.
     // This also checks actor/world/economy/time/RNG preservation, not just symptoms.

@@ -60,11 +60,63 @@ void arrow() {
     XeenMonsterRecord monster;monster.raw[39]=100;monster.raw[40]=50;
     check(monster.magicResistance()==100 && monster.physicalResistance()==50,"Resistance byte identities conflated");
 }
+void specialDamage() {
+    using S=XeenLearnedSpell;using A=XeenActorStatus;using D=XeenCombatRandom::Draw;
+    for(auto spell:{S::FingerOfDeath,S::HolyWord,S::MassDistortion,S::GolemStopper}) {
+        const auto id=std::uint8_t(spell);
+        check(XeenLearnedSpellRules::supportedIn(id,true)==spell && XeenLearnedSpellRules::supportedIn(id,false)==spell,"Special admission");
+        check(XeenLearnedSpellRules::range(id)==(spell==S::GolemStopper?XeenSpellRange::Single:XeenSpellRange::Group),"Special range");
+        XeenSpellDamagePreparation prep(spell,7);
+        check(prep.ready() && prep.damage==0,"Special preparation must dispatch per target");
+        check(xeenSpellProjectile(spell)==(spell==S::FingerOfDeath?14u:spell==S::HolyWord?13u:6u),"Special projectile");
+        XeenActor actor;actor.id={23,0};actor.statistics=XeenMonsterRecord{};XeenScenePresentation scene;
+        scene.spellImpact(actor,spell,prep.type);
+        check(scene.animation(actor.id) && scene.animation(actor.id)->effect2==(spell==S::HolyWord?14u:spell==S::GolemStopper?3u:5u),"Special damage tint");
+        {
+            std::vector<D> tape;if(spell==S::FingerOfDeath)tape.push_back({1,56,7});tape.push_back({1,56,6});
+            XeenCombatRandom random(tape);
+            const unsigned species=spell==S::HolyWord?4:spell==S::GolemStopper?5:1;
+            XeenSpellDamageCandidate candidate(7,0,0,6,spell,100,A::Sleep,species,&prep,3);
+            XeenConsequenceDraw draw{random};
+            const int expected=spell==S::HolyWord?3:spell==S::GolemStopper?100:5;
+            check(candidate.service(draw) && candidate.damage==expected && random.position()==tape.size(),"Special zero resistance or small damage override");
+        }
+        for(unsigned species=0;species<7;++species)for(unsigned resource:{6u,89u})
+        for(unsigned gate:{49u,50u})for(unsigned first:{1u,6u,89u,139u})for(unsigned save:{1u,6u,89u,139u})
+        for(int hp:{1,3,49,50,101})for(bool clouds:{false,true}) {
+            const bool finger=spell==S::FingerOfDeath;
+            const bool compatible=spell==S::MassDistortion || (finger?(species==1 || species==3):spell==S::HolyWord?species==4:species==5);
+            const unsigned bound=50+resource;
+            std::vector<D> tape{{1,107,gate}};
+            const bool firstDraw=gate==50 && compatible && finger;
+            if(firstDraw)tape.push_back({1,bound,std::min(first,bound)});
+            const bool dispatch=gate==50 && compatible && (!finger || first>resource);
+            const bool damageStage=dispatch && !(clouds && resource==89);
+            if(damageStage)tape.push_back({1,bound,std::min(save,bound)});
+            XeenCombatRandom random(tape);
+            XeenSpellDamageCandidate candidate(7,0,50,resource,spell,100,A::Sleep,species,&prep,hp,clouds);
+            bool done=false;
+            for(unsigned n=0;n<4 && !done;++n) {XeenConsequenceDraw draw{random,1};done=candidate.service(draw);}
+            const int amount=finger?std::min(hp,50):spell==S::HolyWord?hp:spell==S::MassDistortion?std::max(hp/2,1):100;
+            const int expected=damageStage ? ((finger || spell==S::MassDistortion) && save<=resource ? 5 : amount) : 0;
+            check(done && random.position()==tape.size() && candidate.damage==expected,"Special gate/species/two-save/ID89 order");
+            check(candidate.status==(damageStage?A::Physical:A::Sleep) && candidate.impact==damageStage,"Special refusal woke target or skipped damage entry");
+            check(candidate.miss==(gate==50 && spell==S::HolyWord && species!=4),"Holy Word DOS zero-damage miss path");
+            check(candidate.resisted==(gate<50),"Special resistance gate");
+            XeenConsequenceDraw again{random};check(candidate.service(again) && random.position()==tape.size(),"Special replayed draw");
+        }
+    }
+    // ID89 also refuses ordinary Single projectiles before waking or saving.
+    XeenCombatRandom rng(std::vector<D>{{1,107,50}});
+    XeenSpellDamageCandidate arrow(7,0,50,89,S::MagicArrow,0,A::Sleep);
+    XeenConsequenceDraw draw{rng};check(arrow.service(draw) && !arrow.damage && !arrow.impact && arrow.status==A::Sleep && rng.position()==1,"ID89 ordinary refusal");
+    check(!XeenLearnedSpellRules::supported(51),"Poison Volley must remain unsupported until Part C");
+}
 void domainsAndBooks() {
     using Rules=XeenLearnedSpellRules;
     for(unsigned id=0;id<256;++id)for(bool combat:{false,true})
         check(bool(Rules::supportedIn(id,combat))==(bool(Rules::supported(id)) && (!combat || (id!=40 && id!=75))),"Context spell admission differs");
-    for(unsigned id=0;id<256;++id)check(bool(Rules::supported(id))==(id==0 || id==5 || id==11 || id==14 || id==18 || id==22 || id==23 || id==25 || id==28 || id==35 || id==36 || id==37 || id==43 || id==47 || id==48 || id==54 || id==63 || id==65 || id==1 || id==10 || id==20 || id==26 || id==27 || id==40 || id==45 || id==50 || id==59 || id==60 || id==75 || id==2 || id==17 || id==33 || id==38 || id==61 || id==62 || id==72 || id==73),"Effect recognition differs");
+    for(unsigned id=0;id<256;++id)check(bool(Rules::supported(id))==(id==24 || id==29 || id==32 || id==46 || id==0 || id==5 || id==11 || id==14 || id==18 || id==22 || id==23 || id==25 || id==28 || id==35 || id==36 || id==37 || id==43 || id==47 || id==48 || id==54 || id==63 || id==65 || id==1 || id==10 || id==20 || id==26 || id==27 || id==40 || id==45 || id==50 || id==59 || id==60 || id==75 || id==2 || id==17 || id==33 || id==38 || id==61 || id==62 || id==72 || id==73),"Effect recognition differs");
     check(Rules::cost(XeenLearnedSpell::Awaken)==1 && Rules::cost(XeenLearnedSpell::FirstAid)==1 && Rules::cost(XeenLearnedSpell::MagicArrow)==2,"Fixed costs differ");
     check(Rules::spellForSlot(XeenSpellCategory::Wizardry,25)==45 && Rules::spellForSlot(XeenSpellCategory::Druidic,23)==45,"Magic Arrow class slots differ");
     XeenPartyState party;party.party=XeenParty::fromRosterIds({6});auto &caster=party.roster.at(6);
@@ -255,4 +307,4 @@ void itemPowerMapping() {
 }
 
 }
-int main(){try{arrow();spellDamage();m73Spells();m74Spells();itemPowerMapping();domainsAndBooks();std::cout<<"Learned spell rule/context/RNG tests passed\n";return 0;}catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}
+int main(){try{specialDamage();arrow();spellDamage();m73Spells();m74Spells();itemPowerMapping();domainsAndBooks();std::cout<<"Learned spell rule/context/RNG tests passed\n";return 0;}catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}

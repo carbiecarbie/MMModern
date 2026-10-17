@@ -263,6 +263,16 @@ with 1,000 SP each and 1,000 party gems. Generate it with:
 .\build-rel\mmodern_test_save.exe monster-control "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/monster-control.mmsave"
 ```
 
+The `monster-damage` preset uses the same Vertigo position, 1,000 SP per
+caster and 1,000 party gems. Together the casters know the 22 M74 damage
+spells implemented in Parts A and B, including Finger of Death, Holy Word,
+Mass Distortion and Golem Stopper. Poison Volley remains unsupported until
+Part C. Generate it with:
+
+```powershell
+.\build-rel\mmodern_test_save.exe monster-damage "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/monster-damage.mmsave"
+```
+
 ```powershell
 New-Item -ItemType Directory -Force D:/MModern-playtest
 .\build-rel\mmodern_test_save.exe train-ready "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/train-ready.mmsave"

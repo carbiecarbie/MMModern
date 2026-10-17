@@ -368,6 +368,17 @@ item powers 7/17/31/40 and 12/19/10/13 deliver Sleep/Beast Master/Hypnotize/
 Dragon Sleep and Insect Spray/Turn Undead/Sparks/Toxic Cloud respectively.
 These are implementation witnesses, not additional DOS evidence.
 
+Finger of Death, Holy Word, Mass Distortion and Golem Stopper are implemented
+(M74 Part B) through the same damage candidate in combat Cast, Quick Fight,
+exploration Cast and item Use (powers 43, 65, 61 and 45 respectively). The
+candidate uses the target's current HP and retains both Finger saves across
+bounded execution. Clouds ID89 refuses nonzero spell damage after dispatch
+and Finger's first save, before waking or the damage-stage save. Holy Word's
+wrong-species path records a miss without waking or drawing a damage save;
+audio remains deferred. Melee and Shoot compare the final hit total as a
+16-bit unsigned word; Poison Volley remains unsupported until Part C.
+These implementation checks add no DOS evidence.
+
 For Finger of Death, the first save and the damage-stage save are distinct
 RNG draws. Do not replace this by a single kill chance inferred from its name.
 

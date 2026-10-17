@@ -912,7 +912,7 @@ XeenCombatResult XeenCombat::respondCast(CastResponse &response,XeenCombatCastIn
                 const auto &a=d.actors.at(v.enemy->recordIndex);
                 require(a.id==*v.enemy && a.hp>0 && a.statistics && a.lifecycle==XeenActorLifecycle::Present && xeenActorStatusSupported(a.status),"Spell target changed");
                 arrow.emplace(ch.permanentLevel,ch.temporaryLevel,a.statistics->magicResistance(),a.original.resourceId,*spell,
-                    a.statistics->physicalResistance(),a.status,a.statistics->monsterType(),&*preparation);
+                    a.statistics->physicalResistance(),a.status,a.statistics->monsterType(),&*preparation,a.hp,d.camera.mapId.side==XeenSide::Clouds);
                 reservation.enemy=a;
             }
         }
@@ -1033,7 +1033,7 @@ XeenCombatResult XeenCombat::serviceCast(const Ticket &t,std::uint64_t now) {
                 c.reservation->enemy=a;
                 const auto &caster=d.character(int(reserved.participant));
                 c.arrow.emplace(caster.permanentLevel,caster.temporaryLevel,a.statistics->magicResistance(),a.original.resourceId,
-                    static_cast<XeenLearnedSpell>(reserved.spell),a.statistics->physicalResistance(),a.status,a.statistics->monsterType(),&*c.preparation);
+                    static_cast<XeenLearnedSpell>(reserved.spell),a.statistics->physicalResistance(),a.status,a.statistics->monsterType(),&*c.preparation,a.hp,d.camera.mapId.side==XeenSide::Clouds);
                 c.targetRow=unsigned(std::abs(a.x-d.camera.x)+std::abs(a.y-d.camera.y));
                 c.operation.monster=a.id;c.operation.targetMonster=a.id;c.operation.actorHpBefore=c.operation.actorHpAfter=a.hp;
             }
@@ -1129,7 +1129,7 @@ XeenCombatResult XeenCombat::serviceCast(const Ticket &t,std::uint64_t now) {
             nextActor=d.actors.at(c.targets[c.target+1]->recordIndex);
             const auto &caster=d.character(int(reserved.participant));
             nextDamage.emplace(caster.permanentLevel,caster.temporaryLevel,nextActor->statistics->magicResistance(),nextActor->original.resourceId,
-                *XeenLearnedSpellRules::supported(std::uint8_t(reserved.spell)),nextActor->statistics->physicalResistance(),nextActor->status,nextActor->statistics->monsterType(),&*c.preparation);
+                *XeenLearnedSpellRules::supported(std::uint8_t(reserved.spell)),nextActor->statistics->physicalResistance(),nextActor->status,nextActor->statistics->monsterType(),&*c.preparation,nextActor->hp,d.camera.mapId.side==XeenSide::Clouds);
         }
         d.probeFor(t);d.checkCastReservation(t,reserved,true);
         d.activeActors().at(actor.id.recordIndex)=actor;d.actors.at(actor.id.recordIndex)=actor;

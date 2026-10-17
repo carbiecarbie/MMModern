@@ -10,6 +10,7 @@ namespace mmodern {
 
 enum class XeenSpellCategory : std::uint8_t { Clerical, Wizardry, Druidic };
 enum class XeenLearnedSpell : std::uint8_t {
+    FingerOfDeath=24, GolemStopper=29, HolyWord=32, MassDistortion=46,
     AcidSpray=0, ColdRay=5, DancingSword=11, DeadlySwarm=14, ElementalStorm=18,
     FantasticFreeze=22, FieryFlail=23, Fireball=25, Frostbite=28, Implosion=35,
     Incinerate=36, Inferno=37, LightningBolt=43, MegaVolts=47, MoonRay=48,

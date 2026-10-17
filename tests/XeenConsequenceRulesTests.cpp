@@ -344,6 +344,24 @@ void completeWeaponRules() {
  check(XeenCharacterRules::effectiveIntellect(c[0],{610})==XeenCharacterRules::effectiveIntellect(old,{610})-4 && XeenCharacterRules::effectivePersonality(c[0],{610})==XeenCharacterRules::effectivePersonality(old,{610})-4 && XeenCharacterRules::effectiveEndurance(c[0],{610})==XeenCharacterRules::effectiveEndurance(old,{610})-4,"Disease changes mental/endurance stats");
  check(c[0].currentHp==old.currentHp && c[0].currentSp==old.currentSp,"Derived changes never clamp HP/SP");
 }
+void unsignedPlayerHit() {
+ for(bool shoot:{false,true})for(int total:{-1,0,1,14,15}) {
+  auto c=characters();auto in=inputs();auto m=profile();
+  c[0].permanentLevel=1;c[0].characterClass=XeenCharacterClass::Knight;
+  // Metal 37 supplies -3 hit: class base 1 minus 3, then U(1,20).
+  in[0].accuracy={12,0};in[0].might={15,0};
+  c[0].weapons[0]={37,std::uint8_t(shoot?30:1),0,std::uint8_t(shoot?4:1)};
+  std::vector<XeenCombatRandom::Draw> tape;
+  for(unsigned n=0;n<3;++n)tape.push_back({1,shoot?2u:3u,2});
+  tape.push_back({1,20,unsigned(total+2)});
+  const bool hit=total==-1 || total>=15;
+  if(shoot && hit)tape.push_back({1,56,56});
+  XeenCombatRandom rng(tape);
+  XeenPhysicalPlayerCandidate candidate(c[0],in[0],m,6,610,shoot,XeenDifficulty::Warrior);
+  finish(candidate,rng,1);
+  check(candidate.hit==hit && (candidate.damage>0)==hit && rng.position()==tape.size(),"DOS unsigned hit at -1/0/positive differs");
+ }
+}
 void difficultyOracles() {
  // combat.cpp:1725: weapon multiplication precedes Might and resistance;
  // difficulty changes the base hit without consuming any additional draws.
@@ -606,4 +624,4 @@ void timeAndInputs() {
 }
 }
 #include "XeenDailyTimeOracles.h"
-int main() { try { dailyTimeOracles();dailyConditionChecks();difficultyOracles();dormantTreasure();physical();targetingAndCounts();runAndParticipation();shootAndLoot();additionalTapes();completeWeaponRules();equippedContributions();missileClassAndZeroDamage();dosMonsterDelivery();rejectionBudgets();rangedOpportunity();indoorOpportunity();stackedRangedOpportunity();timeAndInputs();std::cout<<"Shared consequence pure-rule controls passed\n";return 0; } catch (const std::exception &e) { std::cerr<<e.what()<<'\n';return 1; } }
+int main() { try { unsignedPlayerHit();dailyTimeOracles();dailyConditionChecks();difficultyOracles();dormantTreasure();physical();targetingAndCounts();runAndParticipation();shootAndLoot();additionalTapes();completeWeaponRules();equippedContributions();missileClassAndZeroDamage();dosMonsterDelivery();rejectionBudgets();rangedOpportunity();indoorOpportunity();stackedRangedOpportunity();timeAndInputs();std::cout<<"Shared consequence pure-rule controls passed\n";return 0; } catch (const std::exception &e) { std::cerr<<e.what()<<'\n';return 1; } }

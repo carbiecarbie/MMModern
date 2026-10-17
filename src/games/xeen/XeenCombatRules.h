@@ -113,17 +113,19 @@ struct XeenSpellDamageCandidate {
     int damage=0;
     bool resisted=false;
     bool impact=false;
+    bool miss=false; // Entered the zero-damage/miss path (no wake or save).
     XeenActorStatus status;
     XeenSpellDamageCandidate(std::int64_t permanentLevel, std::int64_t temporaryLevel,
         unsigned magicResistance, unsigned resourceId, XeenLearnedSpell,
         unsigned physicalResistance=0, XeenActorStatus status=XeenActorStatus::Physical, unsigned species=0,
-        const XeenSpellDamagePreparation *prepared=nullptr);
+        const XeenSpellDamagePreparation *prepared=nullptr, int currentHp=-1, bool clouds=true);
     bool service(XeenConsequenceDraw &);
 private:
-    enum class Step { Resistance, Species, Save, Done };
+    enum class Step { Resistance, Species, FingerSave, Damage, Save, Done };
     Step step;
     unsigned levelBound, resistance, resourceId, saveBound, physicalResistance;
-    int acceptedDamage=0;
+    int acceptedDamage=0, currentHp;
+    bool clouds;
     bool halveOnSave=true;
     bool entersDamage=true;
     bool physicalDamage=false, damagePrepared=false;

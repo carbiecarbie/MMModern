@@ -145,7 +145,7 @@ bool XeenEncounterFlow::serviceShoot() {
     const auto owner=work.owners[work.shooter];
     if(!work.attack && !work.spellAttack) {work.bound=actor;
      if(work.spell) {const auto &caster=_party.roster.at(work.spellCaster);
-      work.spellAttack.emplace(caster.permanentLevel,caster.temporaryLevel,actor.statistics->magicResistance(),actor.original.resourceId,*work.spell,actor.statistics->physicalResistance(),actor.status,actor.statistics->monsterType(),&*work.spellPreparation);
+      work.spellAttack.emplace(caster.permanentLevel,caster.temporaryLevel,actor.statistics->magicResistance(),actor.original.resourceId,*work.spell,actor.statistics->physicalResistance(),actor.status,actor.statistics->monsterType(),&*work.spellPreparation,actor.hp,_camera.mapId.side==XeenSide::Clouds);
      } else work.attack.emplace(_party.roster.at(owner),*_party.roster.combatInputs(owner),*actor.statistics,actor.original.resourceId,_party.encounterContext->year,true,_party.encounterContext->difficulty,actor.status);}
     const auto damage=[&] {return work.spellAttack?work.spellAttack->damage:work.attack->damage;};
     const auto status=[&] {return work.spellAttack?work.spellAttack->status:work.attack->status;};

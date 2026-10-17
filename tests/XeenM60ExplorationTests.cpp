@@ -112,18 +112,21 @@ void jumpEvent(Inputs &in) {
  check(saved==XeenSaveFormat::encode(restored.snapshot()),"Jump arrival replayed on load");
 }
 void impacts(Inputs &in) {
- for(unsigned spell:{20u,27u,45u,50u,60u})for(unsigned distance:{1u,2u,3u}) {
+ for(unsigned spell:{20u,27u,45u,46u,50u,60u})for(unsigned distance:{1u,2u,3u}) {
   auto s=source(in,spell,true);s.camera={28,15,0,XeenDirection::North};
-  const bool group=spell==50 || spell==60;const unsigned count=group?3:1;
+  const bool group=spell==46 || spell==50 || spell==60;const unsigned count=group?3:1;
   for(unsigned i=0;i<count;++i) {
    auto &a=s.map(28).monsters->slots.at(35+i);a.x=15;a.y=distance;a.lifecycle=XeenActorLifecycle::Present;a.accounted=false;
   }
-  Fixture f(in,s);XeenCombatRandom expected(*f.w.sessionState().journeyRandom());
+  Fixture f(in,s);
+  // Disclosed live wounds on original Vertigo monsters; current HP drives Mass Distortion.
+  if(spell==46)for(unsigned i=0;i<count;++i)XeenMonsterTestAccess::setLive(*f.flow,f.w,28,35+i,1,true);
+  XeenCombatRandom expected(*f.w.sessionState().journeyRandom());
   auto treasure=*f.p.monsterTreasure;unsigned xp=0;
   for(unsigned i=0;i<count;++i) {
    const auto &actor=f.w.sessionState().regionalActors(28).at(35+i);const auto &caster=f.p.roster.at(s.activeRosterIds[4]);
    XeenSpellDamageCandidate candidate(caster.permanentLevel,caster.temporaryLevel,actor.statistics->magicResistance(),actor.original.resourceId,
-    *XeenLearnedSpellRules::supported(spell),actor.statistics->physicalResistance());
+    *XeenLearnedSpellRules::supported(spell),actor.statistics->physicalResistance(),actor.status,actor.statistics->monsterType(),nullptr,actor.hp);
    XeenConsequenceDraw draw{expected};check(candidate.service(draw) && candidate.damage>=1,"Live spell fixture must be lethal");
    xp+=actor.statistics->experience()/6;
    if(actor.original.resourceId==6) {
@@ -348,7 +351,7 @@ void targets(Inputs &in) {
  }
 }
 void m74Empty(Inputs &in) {
- for(unsigned spell:{0u,5u,11u,14u,18u,22u,23u,25u,28u,35u,36u,37u,43u,47u,48u,54u,63u,65u}) {
+ for(unsigned spell:{0u,5u,11u,14u,18u,22u,23u,24u,25u,28u,29u,32u,35u,36u,37u,43u,46u,47u,48u,54u,63u,65u}) {
   auto s=source(in,spell,false);const auto owner=s.activeRosterIds[4];s.characters[owner].currentSp=1000;
   for(auto id:s.activeRosterIds)s.characters[id].currentHp=1;
   Fixture f(in,s);XeenCombatRandom expected(*f.w.sessionState().journeyRandom());XeenConsequenceDraw draw{expected};

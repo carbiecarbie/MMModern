@@ -31,12 +31,13 @@ mainland; many items apply there, others wait for areas not open yet.
 - **Poison Volley and negative hit totals.** DOS treats the final accuracy
   total as an unsigned word, so a negative total can become a hit; the pin's
   signed comparison misses. This belongs to the shared player accuracy
-  helper and is not implemented in MMModern yet.
+  helper. **Implemented (M74 Part B)** for melee and Shoot; Poison Volley
+  remains unsupported until Part C.
   [Evidence](original-quirks.md#sv-hit-total-unsigned). Pin: differs; master not rechecked.
 - **Holy Word against the wrong species.** DOS enters the miss path for a
   non-undead target; the pin skips it. Neither damages the target or draws
   a damage-stage save. The call difference is confirmed; its audible result
-  remains unplayed, and Holy Word is not implemented yet.
+  remains unplayed. **Implemented (M74 Part B)**; audio remains deferred.
   [Evidence](original-quirks.md#sv-holy-word-miss). Pin: differs; master not rechecked.
 - **Frostbite's initial sound call.** The pin adds FX8 before the learned
   spell's projectile; DOS makes no such initial call. The item variant
