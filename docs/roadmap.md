@@ -1,6 +1,6 @@
 # MMModern - Roadmap
 
-**M71 is the latest completed and accepted milestone.**
+**M72 is the latest completed and accepted milestone.**
 [Project status](project-status.md) describes what is playable now;
 [project history](project-history.md) records completed milestones. Reference
 provenance belongs to [dependencies](dependencies.md).
@@ -72,17 +72,15 @@ accepted).
 4. **World Events, Clouds**: completed and accepted in
    [M70](milestone-70-plan.md). Darkside-only operations and Darkside durable
    state wait for a later Darkside arc; shared operations stay generic.
-5. **Terrain and simple services** (Tier B, lower complexity,
-   [M72](milestone-72-plan.md)): Rest surfaces and arrival hazards (lava,
-   sky, cloud, space, desert, water); Tavern Drink/Tip/Rumors/Sign In and
-   Temple Donation/Uncurse.
+5. **Terrain and simple services**: completed and accepted in
+   [M72](milestone-72-plan.md) (save v14; Sign In moved to step 8).
 6. **Spells** (Tiers A and B, high volume): the remaining 65 in two or three
    milestones by level and use. Sleep, hypnosis and similar spells first need
    a monster status system (Tier A).
 7. **Combat Equip and Use, and the missing screens** (Tier B, medium): Quests,
    Awards and the others in the census checklist.
-8. **Inn, recruiting and character creation** (Tier A, high): attribute
-   rolls, the creation screens and changes to the saved party.
+8. **Inn, recruiting and character creation** (Tier A, high): Tavern Sign In,
+   attribute rolls, the creation screens and changes to the saved party.
 9. **Monster treasure** (Tier A, changes the save): item drops for every
    monster and drop levels 2 to 6, including accessories in staged treasure,
    on the shared generator from [M71](milestone-71-plan.md).

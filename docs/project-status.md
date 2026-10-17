@@ -1,7 +1,12 @@
 # MMModern - Project Status
 
-This describes what can be played and done now. **M71 is the latest completed
-and accepted milestone** ([plan](milestone-71-plan.md)): shops, Event treasure,
+This describes what can be played and done now. **M72 is the latest completed
+and accepted milestone** ([plan](milestone-72-plan.md)): every surface works
+as in the original (lava burns, sky and clouds drop the party to the land
+below, space kills, the desert costs time, and Rest runs anywhere), pressing
+Space passes time and lets monsters act, and the Vertigo Tavern and Temple
+offer Drink, Tip, Rumors, Donation and Uncurse; saves are now v14. M71
+([plan](milestone-71-plan.md)) made shops, Event treasure,
 display cases and monster drops generate items with the original draws, so
 wands and other charged items come with 3 to 10 charges as in DOS. M70
 ([plan](milestone-70-plan.md)) made every Event operation
@@ -175,11 +180,17 @@ the original text panel, and buttons work by mouse or key.
   trained member's HP/SP.
 - **Temple** (Space at `(15,28)`): Heal and resurrection at original prices for a
   selected member, including Unconscious or Dead ones. Conditions are cleared
-  and HP restored; SP and equipment are not touched.
+  and HP restored; SP and equipment are not touched. Donation (D) charges per
+  gift and blesses the party when the count matches the day; Uncurse (U)
+  clears the Cursed condition and the curse of carried items. Each paid Heal
+  or Uncurse adds a day to the stay, plus one on leaving.
 - **Tavern** (Space at `(24,5)`): Food (F) offers a refill to 15 food per
   active member for a flat 10 carried gold. Full or overfull packs cost nothing
   and are not reduced; insufficient gold gives the original refusal. No/Escape
   cancels, and the selected member's condition does not prevent buying food.
+  Drink (D) costs 1 gold and may make the member Drunk; Tip (T) needs a drink
+  bought this visit and shows the next of the town's tips; Rumors (R) is free
+  and changes daily. Sign In says "not supported yet" until the Inn exists.
 - **Bank** (Space at `(26,17)`): D/W selects deposit/withdrawal, then O/E
   selects gold/gems. Enter up to ten digits, edit with Backspace/Delete and
   confirm with Enter. Zero, empty input and cancellation transfer nothing;
@@ -324,9 +335,10 @@ The earlier `--encounter-26`, `--encounter-27`, `--journey-skeleton` and
 
 ## Save format
 
-There is **one current save format**: envelope v13, schema 9, content 14. It
+There is **one current save format**: envelope v14, schema 9, content 14. It
 keeps one generic state per visited map (monster positions and lifecycle,
-removed or moved objects, changed cells, disabled Events and explored cells),
+removed or moved objects, changed cells, disabled Events, explored cells and
+the Tavern tip index),
 plus skills, bounded world flags and head-cache overrides with their original
 map-reload lifetime. Monster HP and wake state are not saved: every map load
 rebuilds them. During 0.x, older formats are not read:
@@ -404,20 +416,16 @@ instructions are in [dependencies](dependencies.md).
   are missing, and monsters cannot yet be put to sleep, paralyzed or
   controlled; Light, Sleep, Insect Spray, Protection
   from Elements, Sparks, Toxic Cloud and Suppress Poison can be bought but say
-  "not supported yet" when cast. Terrain hazards on arrival (space, lava, sky,
-  cloud, desert) are not implemented. Mainland fountains remain
+  "not supported yet" when cast. Mainland fountains remain
   unsupported. Locked-chest lock/trap/XP mechanics are deferred; Vertigo CD's
   searchable objects use the crate, case, bed and rubbish mechanics.
 - **Presentation.** There is no audio: where the CD plays speech, a short
   notice appears. Speech, shop voices, the dream and the death laugh keep their
   original duration silently, and NPC faces move for as long as the CD speech
   would play.
-- **Services.** Temple Donation and Uncurse, and Tavern Drink, Tip, Rumors and Sign In
-  show "not supported yet".
+- **Services.** Tavern Sign In shows "not supported yet" until the Inn.
 - **Combat items.** Equipping during combat and the combat Use button are not
   supported yet (the original allows both).
-- **Rest details.** Resting on unsupported terrain (lava, sky, cloud, space)
-  refuses; none is reachable today.
 - **Skills.** Only Cartography and the skills used by existing rules
   (Thievery, Navigator, Bodybuilder and others affecting HP/SP) have effects.
   Arms Master, Direction Sense, Merchant, Mountaineer, Swimmer, Tracker, Spot

@@ -326,3 +326,11 @@ weapon effectiveness and Misc charges 3 to 10. Monster drops lost their
 duplicate generator. Tests that remembered one stock or one combat were
 rewritten to check rules, with no growth in the suite; save v13 and v0.2.0
 saves are unchanged. [Plan](milestone-71-plan.md).
+
+**M72 - Terrain and simple services** (`e21f398` plan and its implementation).
+Every surface has its original arrival effect (lava, falls from sky and
+cloud, space, desert time) from every place the original applies it, and Rest
+runs on any surface. Pressing Space now passes time and gives monsters their
+turn, a gap since before M44. The Vertigo Tavern and Temple gained Drink, Tip,
+Rumors, Donation and Uncurse; Sign In moved to the Inn step. Save v14 keeps
+the Tavern tip index. [Plan](milestone-72-plan.md).
