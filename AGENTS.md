@@ -177,13 +177,25 @@ tag and an item in `docs/scummvm-differences.md`.
 
 ## Efficiency
 
-Priorities, in order: correctness, then credit/resource efficiency, then speed.
-- Prefer targeted inspection; do not rescan ScummVM or original resources when
-  the docs already establish the behavior.
-- Keep prompts and plans short: reference the plan instead of restating it.
-- The main agent may launch subagents or parallel work when they materially
-  improve correctness, investigation or independent verification, except while
-  the complete suite runs (`tools/AGENTS.md`).
+Priorities: correctness, then credit use, then speed. Nearly all cost is the
+conversation re-read on every model call (measured 2026-10-17: 150-450k
+tokens per call); reasoning effort and output are a small share.
+- Fewer, larger tool calls: batch related reads and commands; never poll.
+- Keep large output out of the conversation: send anything over ~100 lines
+  (build, tests, disassembly, dumps, diffs) to a file under the build
+  directory and read targeted ranges. Do not re-read unchanged files.
+- Keep context small: start each milestone part in a fresh session from the
+  plan and the last report; compact or hand off past ~200k tokens.
+- Delegate mechanical, read-heavy work to one lightweight subagent without
+  conversation context that returns a short summary (Codex `gpt-6-luna` low,
+  Claude Haiku, or Sonnet when judgment is needed): the complete suite,
+  disassembly sweeps, inventories, mutation runs, digest field explanations.
+  The main agent keeps design decisions and code edits.
+- Request sandbox escalation once per validation phase, not per command.
+- Do not rescan ScummVM or original resources the docs already settle;
+  reference the plan instead of restating it; reports ~100 lines, detail in
+  side files. Other parallel work only when it materially improves
+  correctness, never while the complete suite runs.
 
 ## Dependencies
 
