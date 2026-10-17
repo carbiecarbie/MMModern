@@ -54,11 +54,11 @@ std::optional<std::uint32_t> wrappedDraw(XeenCombatRandom *r,std::uint32_t lo,st
 // Artificial zero-damage operand at the pure resolver boundary only. World
 // profiles/resources remain original; no genuine route uses this wrapper mode.
 bool zeroResistanceFixture=false;
-#define PLAYER_CTOR "_ZN7mmodern27XeenPhysicalPlayerCandidateC1ERKNS_13XeenCharacterERKNS_16XeenCombatInputsERKNS_17XeenMonsterRecordEjjbNS_14XeenDifficultyE"
-void realPlayer(XeenPhysicalPlayerCandidate *,const XeenCharacter &,const XeenCombatInputs &,const XeenMonsterRecord &,unsigned,unsigned,bool,XeenDifficulty) asm("__real_" PLAYER_CTOR);
-void wrappedPlayer(XeenPhysicalPlayerCandidate *,const XeenCharacter &,const XeenCombatInputs &,const XeenMonsterRecord &,unsigned,unsigned,bool,XeenDifficulty) asm("__wrap_" PLAYER_CTOR);
-void wrappedPlayer(XeenPhysicalPlayerCandidate *self,const XeenCharacter &c,const XeenCombatInputs &i,const XeenMonsterRecord &m,unsigned type,unsigned year,bool shoot,XeenDifficulty difficulty){
- auto operand=m;if(zeroResistanceFixture && shoot)operand.raw[40]=100;realPlayer(self,c,i,operand,type,year,shoot,difficulty);
+#define PLAYER_CTOR "_ZN7mmodern27XeenPhysicalPlayerCandidateC1ERKNS_13XeenCharacterERKNS_16XeenCombatInputsERKNS_17XeenMonsterRecordEjjbNS_14XeenDifficultyENS_15XeenActorStatusE"
+void realPlayer(XeenPhysicalPlayerCandidate *,const XeenCharacter &,const XeenCombatInputs &,const XeenMonsterRecord &,unsigned,unsigned,bool,XeenDifficulty,XeenActorStatus) asm("__real_" PLAYER_CTOR);
+void wrappedPlayer(XeenPhysicalPlayerCandidate *,const XeenCharacter &,const XeenCombatInputs &,const XeenMonsterRecord &,unsigned,unsigned,bool,XeenDifficulty,XeenActorStatus) asm("__wrap_" PLAYER_CTOR);
+void wrappedPlayer(XeenPhysicalPlayerCandidate *self,const XeenCharacter &c,const XeenCombatInputs &i,const XeenMonsterRecord &m,unsigned type,unsigned year,bool shoot,XeenDifficulty difficulty,XeenActorStatus status){
+ auto operand=m;if(zeroResistanceFixture && shoot)operand.raw[40]=100;realPlayer(self,c,i,operand,type,year,shoot,difficulty,status);
 }
 struct Source:training_test::Inputs {
  std::vector<XeenMonsterRecord> &mon=statistics;XeenEventFile &evt=mainland;

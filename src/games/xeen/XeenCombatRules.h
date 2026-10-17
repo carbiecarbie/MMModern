@@ -95,17 +95,19 @@ unsigned xeenSpellProjectile(XeenLearnedSpell);
 struct XeenSpellDamageCandidate {
     int damage=0;
     bool resisted=false;
+    XeenActorStatus status;
     XeenSpellDamageCandidate(std::int64_t permanentLevel, std::int64_t temporaryLevel,
         unsigned magicResistance, unsigned resourceId, XeenLearnedSpell,
-        unsigned physicalResistance=0);
+        unsigned physicalResistance=0, XeenActorStatus status=XeenActorStatus::Physical);
     bool service(XeenConsequenceDraw &);
 private:
     enum class Step { Resistance, Save, Done };
     Step step;
-    unsigned levelBound, resistance, resourceId, saveBound;
+    unsigned levelBound, resistance, resourceId, saveBound, physicalResistance;
     int acceptedDamage=0;
     bool halveOnSave=true;
     bool entersDamage=true;
+    bool physicalDamage=false, damagePrepared=false;
 };
 // Existing callers retain the fixed-eight-damage Arrow interface.
 struct XeenMagicArrowCandidate : XeenSpellDamageCandidate {
@@ -129,7 +131,7 @@ struct XeenEnemyAttackCandidate {
  bool deferInjury=false, injuryReady=false, injuryAcknowledged=false, injuryApplied=false;
  std::uint8_t impactOwner=0;
 	XeenEnemyAttackCandidate(const XeenConsequenceCharacters &, const XeenConsequenceInputs &,
-		const XeenMonsterRecord &, unsigned year, unsigned participantMask, const std::array<bool,6> &blocked = {});
+		const XeenMonsterRecord &, unsigned year, unsigned participantMask, const std::array<bool,6> &blocked = {}, XeenActorStatus status=XeenActorStatus::Physical);
 	bool service(XeenConsequenceDraw &);
 	// Call only after publishing/retaining the completed attack. Both melee and
 	// ranged sources use this same reference count loop and updated characters.
@@ -156,7 +158,7 @@ private:
 	unsigned dice = 0;
 	bool allParty;
 	XeenDamageType type=XeenDamageType::Physical;
-	bool noTarget=false;
+	bool noTarget=false, disabled=false;
 	// The victim before this application: injury and item observations diff it.
 	std::optional<XeenCharacter> before;
 };
@@ -169,9 +171,10 @@ struct XeenPhysicalPlayerCandidate {
 	int elemental = 0;   // Elemental material contribution after its own resistance.
 	unsigned elementalFrame = 0; // Elemental category + 1 while elemental > 0 (splat).
 	bool hit = false;
+	XeenActorStatus status;
 	XeenPhysicalPlayerCandidate(const XeenCharacter &, const XeenCombatInputs &,
 		const XeenMonsterRecord &, unsigned monsterType, unsigned year, bool shoot,
-		XeenDifficulty difficulty = XeenDifficulty::Adventurer);
+		XeenDifficulty difficulty = XeenDifficulty::Adventurer, XeenActorStatus status=XeenActorStatus::Physical);
 	bool service(XeenConsequenceDraw &);
 private:
 	enum class Step { Weapon, Hit, Save, Done };

@@ -82,6 +82,7 @@ struct XeenMapState {
 // HP refilled from MON+0x14 at 0x0faa8; the save keeps positions only, 0x266e3):
 // a map load rebuilds every live monster at its MON HP and asleep.
 inline void xeenRefillLoadedMonster(XeenActor &actor) noexcept {
+	actor.status=XeenActorStatus::Physical;
 	if(actor.lifecycle!=XeenActorLifecycle::Present || !actor.statistics)return;
 	const auto hp=std::int32_t(actor.statistics->baseHp());
 	if(actor.hp!=hp)actor.hp=hp;

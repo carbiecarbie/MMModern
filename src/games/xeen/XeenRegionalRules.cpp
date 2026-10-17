@@ -241,7 +241,7 @@ void xeenValidateRegionalActors(const XeenMap &map, const XeenObjectFile &mob, c
 		const auto &a=actors[i];const auto &original=mob.entities.monsters[i];
 		if (!(a.id==XeenMonsterIdentity{23,i}) || a.original.x!=original.x || a.original.y!=original.y ||
 			a.original.tableIndex!=original.tableIndex || a.original.direction!=original.direction || a.original.resourceId!=original.resourceId ||
-			!a.statistics || !xeenMonsterMovementSupported(*a.statistics,a.original.resourceId) || !a.statistics->supportsAdmittedMechanicsRendering() || a.status!=XeenActorStatus::Physical)
+			!a.statistics || !xeenMonsterMovementSupported(*a.statistics,a.original.resourceId) || !a.statistics->supportsAdmittedMechanicsRendering() || !xeenActorStatusSupported(a.status))
 			throw std::invalid_argument("Regional actor immutable identity/profile changed");
 		const auto type=a.original.resourceId;
 		if (!a.original.hasResource() || unsigned(type)>=statistics.size() || a.statistics->raw!=statistics[type].raw)
@@ -264,7 +264,7 @@ namespace mmodern {
 XeenRegionalOpportunityCandidate::XeenRegionalOpportunityCandidate(XeenWorld &world,
 		const std::vector<XeenActor> &before,const XeenCamera &c,const XeenConsequenceCharacters &p,
 		const XeenConsequenceInputs &i,unsigned y,unsigned mask,const std::array<bool,6> &b,XeenActorOpportunityContext context) :
-		characters(p),camera(c),inputs(i),year(y),participantMask(mask),blocked(b),indoorWorld(&world) {
+		characters(p),camera(c),inputs(i),year(y),participantMask(mask),recoveryEnabled(context.movementEnabled && !context.charactersShooting),blocked(b),indoorWorld(&world) {
 	if(world.map(c.mapId).geometry.isOutdoors() || mask>0x3f)
 		throw std::invalid_argument("Invalid indoor opportunity");
 	std::array<bool,107> tested{};
@@ -293,7 +293,7 @@ XeenRegionalOpportunityCandidate::XeenRegionalOpportunityCandidate(XeenWorld &wo
 XeenRegionalOpportunityCandidate::XeenRegionalOpportunityCandidate(const XeenMap &map,
 		const std::vector<XeenActor> &before,const XeenCamera &c,const XeenConsequenceCharacters &p,
 		const XeenConsequenceInputs &i,unsigned y,unsigned mask,const std::array<bool,6> &b,XeenActorOpportunityContext context) :
-		characters(p),camera(c),inputs(i),year(y),participantMask(mask),blocked(b) {
+		characters(p),camera(c),inputs(i),year(y),participantMask(mask),recoveryEnabled(context.movementEnabled && !context.charactersShooting),blocked(b) {
 	if (mask>0x3f) throw std::invalid_argument("Invalid regional participation mask");
 	std::array<bool,107> tested{};
 	actors=regionalMove(before,c,[&](const XeenActor &a,int x,int z) {
@@ -316,6 +316,20 @@ XeenRegionalOpportunityCandidate::XeenRegionalOpportunityCandidate(const XeenMap
 	},context);
 }
 bool XeenRegionalOpportunityCandidate::service(XeenConsequenceDraw &draw) {
+	// DOS 0x20ca9..0x20cf1: all original slots, irrespective of lifecycle,
+	// position or activation. Recovery precedes queue dispatch (0x20167/0x20171).
+	while (recoveryEnabled && recoveryCursor<actors.size()) {
+		auto &actor=actors[recoveryCursor];
+		if (!xeenActorStatusSupported(actor.status)) throw std::invalid_argument("Unsupported recovery status");
+		if (actor.status!=XeenActorStatus::Physical && actor.status!=XeenActorStatus::DragonSleep) {
+			const auto id=actor.original.resourceId;
+			if (id<0) throw std::invalid_argument("Invalid recovery resource ID");
+			const auto n=draw.draw(1,unsigned(id)+50);if(!n)return false;
+			// DOS 0x2e1b2..0x2e1b4, deliberately differs from the pin.
+			if (*n<=unsigned(id)) actor.status=XeenActorStatus::Physical;
+		}
+		++recoveryCursor;
+	}
 	if(staged && shotCount && !travelPresented) {travelStarted=true;return false;}
 	impactSource.reset();impactOwner.reset();impactApplied=false;
 	while (cursor<shotCount && draw.remaining) {

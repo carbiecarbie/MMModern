@@ -394,8 +394,10 @@ XeenSaveSnapshot XeenSaveState::captureImpl(const XeenSaveResourceSignature &res
 			XeenSaveMonsterTable table;table.originalCount=live.originalMonsterCount;
 			// Only MOB records persist, as the DOS writer stores; no script slots.
 			if (live.monsters->size()!=table.originalCount) throw std::logic_error("Monster table differs from its MOB records");
-			for (const auto &a:*live.monsters)
-				table.slots.push_back({a.x,a.y,a.lifecycle,a.status,state.accountedMonsters().count(a.id)!=0,-1});
+			for (const auto &a:*live.monsters) {
+				if (!xeenActorStatusSupported(a.status)) throw std::invalid_argument("Unsupported live monster status");
+				table.slots.push_back({a.x,a.y,a.lifecycle,XeenActorStatus::Physical,state.accountedMonsters().count(a.id)!=0,-1});
+			}
 			saved.monsters=std::move(table);
 		}
 		std::map<std::size_t,XeenSaveObjectOverride> objects;

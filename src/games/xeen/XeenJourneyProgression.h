@@ -17,7 +17,7 @@ inline XeenJourneyLethal xeenPrepareJourneyLethal(const XeenActor &actor,
 		const std::set<XeenMonsterIdentity> &accounted, unsigned participantMask) {
 	if (participantMask>0x3f) throw std::invalid_argument("Invalid Journey XP participation mask");
 	if (accounted.count(actor.id) || actor.lifecycle != XeenActorLifecycle::Present ||
-		actor.status != XeenActorStatus::Physical || !actor.statistics || actor.hp <= 0)
+		!xeenActorStatusSupported(actor.status) || !actor.statistics || actor.hp <= 0)
 		throw std::invalid_argument("Journey lethal identity is unavailable");
 	unsigned eligible = 0;
 	for (unsigned i=0;i<6;++i) if ((participantMask&(1u<<i)) && characters[i] && xeenCombatXpEligible(characters[i]->worstCondition())) ++eligible;

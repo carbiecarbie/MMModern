@@ -21,7 +21,8 @@ struct XeenMonsterAnimation {
 	bool reverse=false;
 	void attack(unsigned delay) { frame=8; postAttackDelay=delay; }
 	void hit(unsigned delay) { frame=11; postAttackDelay=delay; }
-	void advance(const XeenMonsterRecord &data) {
+	void advance(const XeenMonsterRecord &data, XeenActorStatus status=XeenActorStatus::Physical) {
+		if (status==XeenActorStatus::Physical) {
 		if (frame<8) {
 			if (!data.loopAnimation()) frame=(frame+1)%8;
 			else if (!reverse) {frame=(frame+1)%8; if (!frame) {reverse=true;frame=6;}}
@@ -31,6 +32,7 @@ struct XeenMonsterAnimation {
 		} else if (++frame==11) {
 			if (postAttackDelay) --postAttackDelay;
 			frame=postAttackDelay?10:0;
+		}
 		}
 		if (effect2) {
 			if (effect1) {
@@ -123,7 +125,7 @@ public:
 	void wait() {}
 	void include(const std::vector<XeenActor> &actors) {
 		for (const auto &a:actors) if (a.statistics && a.statistics->supportsRendering()) {
-			if (_actors.count(a.id)) continue;
+			if (auto i=_actors.find(a.id);i!=_actors.end()) {i->second.status=a.status;continue;}
 			XeenMonsterAnimation animation;
 			// Original normal-frame initialization and the approved effect-phase
 			// initialization both consume only disposable cosmetic randomness.
@@ -131,7 +133,7 @@ public:
 			animation.effect1=animation.effect2=a.statistics->animationEffect();
 			// Approved M48 deviation: random initial phases use only this cosmetic RNG.
 			if (animation.effect2) animation.effect3=std::uniform_int_distribution<unsigned>(0,7)(_random);
-			_actors.emplace(a.id, Entry{*a.statistics,animation});
+			_actors.emplace(a.id, Entry{*a.statistics,animation,a.status});
 		}
 	}
 	const XeenMonsterAnimation *animation(XeenMonsterIdentity id) const {
@@ -188,7 +190,7 @@ public:
 	// animate3d runs after the chosen scene has been composed (DAT 0x107b6).
 	void advanceAfterDraw(XeenMapIdentity map) {
 		overallFrame=(overallFrame+1)%5;floatPhase=(floatPhase+1)%8;++wallPhase;
-		for (auto &[id,entry]:_actors) if (id.mapId==map) entry.animation.advance(entry.data);
+		for (auto &[id,entry]:_actors) if (id.mapId==map) entry.animation.advance(entry.data,entry.status);
         for(auto &s:splats)if(s.duration)--s.duration;
 	}
 	void advance(XeenMapIdentity map) {composeFromRetained(false);beginDraw();advanceAfterDraw(map);}
@@ -207,7 +209,7 @@ public:
 private:
 	std::shared_ptr<const XeenScenePresentation> _drawn;
 	bool _reconstruct=false;
-	struct Entry {XeenMonsterRecord data;XeenMonsterAnimation animation;};
+	struct Entry {XeenMonsterRecord data;XeenMonsterAnimation animation;XeenActorStatus status;};
 	std::mt19937 _random;
 	unsigned _uiPhase=0;
 	std::uint64_t _wallOrigin=0;

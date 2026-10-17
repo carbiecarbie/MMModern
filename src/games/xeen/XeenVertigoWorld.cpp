@@ -165,7 +165,7 @@ void xeenValidateIndoorActors(XeenWorld &world,XeenMapIdentity mapId,const std::
 		world._cityStatistics.empty()) throw std::invalid_argument("Invalid resource-bound city actor collection");
 	for(unsigned i=0;i<actors.size();++i) {
 		const auto &a=actors[i];
-		if(!(a.id==XeenMonsterIdentity{mapId,i}) || a.status!=XeenActorStatus::Physical)
+		if(!(a.id==XeenMonsterIdentity{mapId,i}) || !xeenActorStatusSupported(a.status))
 			throw std::invalid_argument("Vertigo actor identity/status changed");
 		const auto &original=mob.entities.monsters[i];
 		if(a.original.x!=original.x || a.original.y!=original.y ||

@@ -443,11 +443,25 @@ retreat position; the roll does not select a random retreat cell.
 0 and Dragon Sleep (13), and calls recovery with resource ID (`0x20ca9..0x20cf1`,
 ID argument `0x20cd2`). The helper draws `R(1, resource ID + 50)` and returns
 success at **draw <= ID** (`0x2e1b2..0x2e1b4`); the caller clears status at
-`0x20ce1`. The pin instead uses `>= ID`; equality succeeds in both. These
-control states are not yet reachable through admitted spells/items, so Part D
-makes no production change. Future recovery must use DOS. Damage saving throws
-also use `<= ID`. Separately, the reference wakes damaged sleeping/dragon-sleeping
-monsters on entry to `attack2`'s positive-input branch, before later resistance.
+`0x20ce1`. The pin instead uses `>= ID`; equality succeeds in both. **Implemented (M73 Part A):** `XeenRegionalOpportunityCandidate::service` scans
+all current-map slots in original order, including offscreen, inactive and dead
+slots; Physical and Dragon Sleep never draw. Recovery is resumable and precedes
+the first queued shot (`0x20167`, then `0x20171`), after movement/ranged selection.
+Recovered actors cannot retroactively move or join that queue; later melee sees
+the recovered status. Exploration, combat rounds, item response and Rest share
+this opportunity. Disabled movement or characters shooting skips the entire
+opportunity. The bounded DOS check `0x20ca9..0x20cf1` has no HP, lifecycle or
+position filter, calibrated against status +7, species +6 and MOB count `0x9c59`.
+Production spells/items do not yet apply controls; unit tests inject them. Damage saving throws
+also use `<= ID`. **Implemented (M73 Part A), Reference only:** melee, Shoot and existing spells
+wake Sleep/Dragon Sleep on nonzero entry damage, before physical resistance and
+the damage save, even if final damage becomes zero. Misses, failed magic gates
+and zero entry damage do not wake; Beast Master/Hypnotize survive hits. Every
+non-Physical status skips movement, ranged selection and melee without target
+or damage draws, while occupancy, visibility, targeting and front-slot combat
+contact remain. The hit bonus in step 5 above follows the exploding d20. The
+whole monster frame block freezes, including frame 11 and its delay; impact FX
+continue animating. These presentation/waking rules await DOS play confirmation.
 
 **DOS static, high confidence (M69 A2):** monsters do not recover between map
 visits by regeneration but by reloading. Every map load (`0x0f542`) zeroes the
@@ -458,7 +472,10 @@ and loading a game re-enters the main loop, which loads the current map
 (`0x0b819..0x0b839`, `0x0d086..0x0d08c`). A wounded survivor is therefore at
 full HP and asleep after the party leaves its map and returns, and after a game
 is loaded; while the party stays on the map, its wound persists. The arrival
-view then wakes the monsters it sees. Same as the pin
+view then wakes the monsters it sees. **M73 Part A:** every slot
+clears status, regardless of lifecycle, and Spawn resets it too. Save v14
+(schema 9/content 14) validates live statuses and captures Physical, retaining
+its existing bytes without replaying RNG or time. Same as the pin
 ([`MonsterObjectData::synchronize`](https://github.com/scummvm/scummvm/blob/6814ee9ba54582f5b5adcffab49efbbd8f589edd/engines/mm/xeen/map.cpp#L500)).
 The maintainer's DOSBox check is pending. Offsets and calibration are in
 [original quirks](../original-quirks.md#original-findings-and-current-discrepancies).

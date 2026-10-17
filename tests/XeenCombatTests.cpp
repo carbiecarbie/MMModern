@@ -1,5 +1,6 @@
 #include "XeenRegionalCombatTestSupport.h"
 #include "core/PresentationClock.h"
+#include "XeenMonsterTestAccess.h"
 #include <iostream>
 using namespace regional_combat_test;
 using regional_combat_test::RegionalCombatFixture;
@@ -185,4 +186,51 @@ void acquiredAttackOrder() {
  }
  check(damage.attackStage==Stage::None && damage.injuryCount==2,"Monster final hold omitted attack completion");
 }
-int main(){try{mixed();defeat();seeds();injuryAndBare();fixedObservations();acquiredAttackOrder();std::cout<<"Combat literal mixed victory, all-Block defeat, seeds, injury and acquired attack order passed\n";return 0;}catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}
+void controlledContact() {
+ for(auto status:{XeenActorStatus::Sleep,XeenActorStatus::BeastMaster,XeenActorStatus::Hypnotize,XeenActorStatus::DragonSleep}) {
+  RegionalCombatFixture f{XeenCombatRandom(status==XeenActorStatus::DragonSleep ? std::vector<Draw>{} : std::vector<Draw>(10,{1,58,58}))};
+  XeenMonsterTestAccess::status(*f.flow,f.w,23,5,status);
+  tape=&f.rng;
+  // The party approaches the disabled monster, which cannot approach us.
+  f.actionBefore(XeenEncounterAction::Forward);
+  if(f.flow->state().phase()!=XeenEncounterPhase::Engaged)f.actionBefore(XeenEncounterAction::Wait);
+  check(f.flow->state().phase()==XeenEncounterPhase::Engaged,"Controlled front monster must engage");
+  check(f.flow->attachJourney(f.flow->ticket(),[]{}),"Controlled contact attachment");
+  f.combat=f.flow->combat();check(f.combat,"Controlled contact must create a combat owner");
+  for(unsigned n=0;n<20 && f.combat->pending()==Work::Round;++n)f.service();
+  check(f.combat->phase()==Phase::PlayerReady,"Controlled contact must pass combat validation");
+  const auto before=f.rng.position();
+  while(f.combat->phase()==Phase::PlayerReady)f.action(Command::Block);
+  check(f.combat->pending()==Work::Enemy,"Controlled monster must retain scheduler turn");
+  const auto skipped=f.service();
+  check(!skipped.targetedMembers && !skipped.injuryCount && f.rng.position()==before,"Skipped controlled turn must consume no draws");
+  check(f.combat->phase()!=Phase::VictoryAwaitingEnd,"Controlled contact must keep combat engaged");
+ }
+}
+void controlledPreHp() {
+ for(auto status:{XeenActorStatus::Sleep,XeenActorStatus::BeastMaster,XeenActorStatus::Hypnotize,XeenActorStatus::DragonSleep}) {
+  RegionalCombatFixture f{XeenCombatRandom(status==XeenActorStatus::DragonSleep ? std::vector<Draw>{} : std::vector<Draw>(10,{1,58,58}))};
+  XeenMonsterTestAccess::status(*f.flow,f.w,23,5,status);tape=&f.rng;
+  f.actionBefore(XeenEncounterAction::Forward);
+  if(f.flow->state().phase()!=XeenEncounterPhase::Engaged)f.actionBefore(XeenEncounterAction::Wait);
+  check(f.flow->attachJourney(f.flow->ticket(),[]{}),"Controlled pose attachment");
+  f.combat=f.flow->combat();
+  for(unsigned n=0;n<20 && f.combat->pending()==Work::Round;++n)f.service();
+  check(f.combat->phase()==Phase::PlayerReady,"Controlled pose must settle the owed entry opportunity");
+  f.rng=XeenCombatRandom(mixedTape());
+  const auto hp=f.w.sessionState().monsters(23)[5].hp;
+  f.combat->command(f.combat->ticket(),Command::Attack);
+  const auto pre=f.combat->servicePresented(f.combat->ticket(),0);
+  if(pre.attackStage!=XeenCombatAttackStage::PreHp || pre.damage<=0 ||
+   f.w.sessionState().monsters(23)[5].hp!=hp ||
+   f.w.sessionState().monsters(23)[5].status!=xeenActorStatusAfterDamage(status,true))
+   std::cerr<<"Controlled pre-HP: status "<<int(status)<<" result "<<int(pre.status)<<" stage "<<int(pre.attackStage)
+    <<" damage "<<pre.damage<<" hp "<<f.w.sessionState().monsters(23)[5].hp<<'/'<<hp
+    <<" live status "<<int(XeenActorStatus(f.w.sessionState().monsters(23)[5].status))<<'\n';
+  check(pre.attackStage==XeenCombatAttackStage::PreHp && pre.damage>0 &&
+   f.w.sessionState().monsters(23)[5].hp==hp &&
+   f.w.sessionState().monsters(23)[5].status==xeenActorStatusAfterDamage(status,true),
+   "Waking must publish before the pre-HP pose while controls that survive hits stay frozen");
+ }
+}
+int main(){try{controlledPreHp();controlledContact();mixed();defeat();seeds();injuryAndBare();fixedObservations();acquiredAttackOrder();std::cout<<"Combat literal mixed victory, all-Block defeat, seeds, injury and acquired attack order passed\n";return 0;}catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}

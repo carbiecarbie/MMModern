@@ -141,9 +141,13 @@ std::vector<XeenActor> XeenActorApproach::moveWithContext(const std::vector<Xeen
 				if(context.sleeping && a.lifecycle!=XeenActorLifecycle::Present)continue;
 				if (a.x != camera.x + dx || a.y != camera.y + dy ||
 					(!a.activated && !context.sleeping) || moved[i]) continue;
+				if (a.status!=XeenActorStatus::Physical) {
+					require(xeenActorStatusSupported(a.status),"unsupported relevant actor status");
+					continue;
+				}
 				if (beforeMovement) beforeMovement(result,i);
 				require(coordinate(a.x, a.y) && a.lifecycle == XeenActorLifecycle::Present &&
-					a.status == XeenActorStatus::Physical && a.statistics &&
+					a.statistics &&
 					(beforeMovement ? xeenMonsterMovementSupported(*a.statistics,a.original.resourceId) :
 						(!a.statistics->raw[32] && xeenMonsterMovementSupported(*a.statistics,a.original.resourceId))), "unsupported relevant actor movement");
 				const int sx = dx < 0 ? 1 : dx > 0 ? -1 : 0;

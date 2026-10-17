@@ -196,30 +196,34 @@ unsigned xeenSpellProjectile(XeenLearnedSpell spell) {
 // Pinned combat.cpp rangedAttack/attack/attack2: physical reduction precedes
 // the resource-ID save; Arrow draws the save but ignores its result.
 XeenSpellDamageCandidate::XeenSpellDamageCandidate(std::int64_t permanent, std::int64_t temporary,
-        unsigned r, unsigned index, XeenLearnedSpell spell, unsigned physical) : resistance(r), resourceId(index) {
+        unsigned r, unsigned index, XeenLearnedSpell spell, unsigned physical, XeenActorStatus initialStatus) : status(initialStatus), resistance(r), resourceId(index), physicalResistance(physical) {
     ruleRequire(permanent>=std::numeric_limits<int>::min() && permanent<=std::numeric_limits<int>::max() &&
         temporary>=std::numeric_limits<int>::min() && temporary<=std::numeric_limits<int>::max(),"Invalid Arrow level operands");
     const auto level=std::max<std::int64_t>(permanent+temporary,0);
     ruleRequire(r<=100 && physical<=100 && level<=std::numeric_limits<int>::max()-100 &&
         index<=unsigned(std::numeric_limits<int>::max()-50),"Invalid Arrow interval");
+    ruleRequire(xeenActorStatusSupported(status),"Unsupported spell target status");
     levelBound=unsigned(100+level);saveBound=50+index;
-    bool isPhysical=false;
     switch (spell) {
     case XeenLearnedSpell::MagicArrow: acceptedDamage=8;halveOnSave=false;break;
     case XeenLearnedSpell::EnergyBlast: acceptedDamage=physicalChecked(2*level);break;
-    case XeenLearnedSpell::Shrapmetal: acceptedDamage=physicalChecked(2*level);isPhysical=true;break;
-    case XeenLearnedSpell::FlyingFist: acceptedDamage=6;isPhysical=true;break;
-    case XeenLearnedSpell::Pain: acceptedDamage=8;isPhysical=true;break;
+    case XeenLearnedSpell::Shrapmetal: acceptedDamage=physicalChecked(2*level);physicalDamage=true;break;
+    case XeenLearnedSpell::FlyingFist: acceptedDamage=6;physicalDamage=true;break;
+    case XeenLearnedSpell::Pain: acceptedDamage=8;physicalDamage=true;break;
     default: throw std::invalid_argument("Unsupported ranged spell damage");
     }
     // Zero base damage never enters attack2. Physical immunity, however, reduces
     // damage only after entry, so it still consumes the saving throw.
     entersDamage=acceptedDamage!=0;
     step=r ? Step::Resistance : entersDamage ? Step::Save : Step::Done;
-    if (isPhysical) acceptedDamage=physicalChecked(std::int64_t(acceptedDamage)*(100-physical)/100);
 }
 bool XeenSpellDamageCandidate::service(XeenConsequenceDraw &draw) {
     while (step!=Step::Done && draw.remaining) {
+        if(step==Step::Save && !damagePrepared) {
+            status=xeenActorStatusAfterDamage(status,entersDamage);
+            if(physicalDamage) acceptedDamage=physicalChecked(std::int64_t(acceptedDamage)*(100-physicalResistance)/100);
+            damagePrepared=true;
+        }
         const auto accepted=draw.draw(1,step==Step::Resistance ? levelBound : saveBound);
         if (!accepted) continue;
         if (step==Step::Resistance) {
@@ -274,14 +278,16 @@ bool XeenMonsterTargetCandidate::service(XeenConsequenceDraw &draw) {
     return step==Step::Done;
 }
 XeenEnemyAttackCandidate::XeenEnemyAttackCandidate(const XeenConsequenceCharacters &c,
-		const XeenConsequenceInputs &i, const XeenMonsterRecord &m, unsigned y, unsigned mask, const std::array<bool,6> &b) :
+		const XeenConsequenceInputs &i, const XeenMonsterRecord &m, unsigned y, unsigned mask, const std::array<bool,6> &b, XeenActorStatus status) :
 		characters(c), inputs(i), monster(m), year(y), blocked(b), allParty(m.hatred()==unsigned(XeenMonsterHatred::Party)) {
+	ruleRequire(xeenActorStatusSupported(status),"Unsupported attacking monster status");
+	disabled=status!=XeenActorStatus::Physical;
 	m.validateAttackCapabilities();
 	type=static_cast<XeenDamageType>(m.damageType());
 	ruleRequire(mask<=0x3f,"Invalid combat participation mask");
 	for (unsigned owner=0;owner<6;++owner) if (mask&(1u<<owner)) participants[participantCount++]=owner;
 	result.operation = XeenCombatOperation::EnemyAttack;
-	if (!participantCount || !monster.attacks()) step=Step::Done;
+	if (disabled || !participantCount || !monster.attacks()) step=Step::Done;
 }
 // After the saves: Power Shield (no owner yet, zero) and the zero clamp, then
 // the acknowledged portrait, the secondary save (positive damage, nonzero
@@ -408,7 +414,7 @@ bool XeenEnemyAttackCandidate::service(XeenConsequenceDraw &draw) {
 }
 bool XeenEnemyAttackCandidate::nextAttack() {
     ruleRequire(step==Step::Done,"Cannot advance an unfinished monster attack");
-    if(noTarget || ++attackOrdinal>=monster.attacks())return false;
+    if(disabled || noTarget || ++attackOrdinal>=monster.attacks())return false;
     result=XeenCombatResult{};result.operation=XeenCombatOperation::EnemyAttack;
     target=-1;participantCursor=0;step=Step::Target;return true;
 }
@@ -419,8 +425,9 @@ unsigned xeenElementalCategory(unsigned material) {
 	return index;
 }
 XeenPhysicalPlayerCandidate::XeenPhysicalPlayerCandidate(const XeenCharacter &c,
-		const XeenCombatInputs &i,const XeenMonsterRecord &m,unsigned type,unsigned year,bool missile,XeenDifficulty difficulty) :
-		character(c),monster(m),monsterType(type),shoot(missile),adventurer(difficulty==XeenDifficulty::Adventurer) {
+		const XeenCombatInputs &i,const XeenMonsterRecord &m,unsigned type,unsigned year,bool missile,XeenDifficulty difficulty, XeenActorStatus initialStatus) :
+		status(initialStatus),character(c),monster(m),monsterType(type),shoot(missile),adventurer(difficulty==XeenDifficulty::Adventurer) {
+	ruleRequire(xeenActorStatusSupported(status),"Unsupported physical target status");
 	constexpr unsigned divisors[]{1,2,2,3,4,2,2,1,3,2};
 	ruleRequire(unsigned(c.characterClass)<10 && m.physicalResistance()<=100 && unsigned(difficulty)<=1,"Invalid physical player operands");
 	baseHit=physicalChecked(std::int64_t(Rules::physicalBonus(Rules::effectivePhysical(c,i,Rules::PhysicalAttribute::Accuracy,{year})))+(adventurer?5:0)+c.currentLevel()/divisors[unsigned(c.characterClass)]);
@@ -462,6 +469,7 @@ bool XeenPhysicalPlayerCandidate::service(XeenConsequenceDraw &draw) {
 	case Step::Hit: {
 		const auto n=draw.draw(1,20);if (!n) break;
 		hitTotal=physicalChecked(std::int64_t(hitTotal)+*n);if (*n==20) break;
+		if (status!=XeenActorStatus::Physical) hitTotal=physicalChecked(std::int64_t(hitTotal)+20);
 		if (hitTotal>=int(monster.armorClass()+10)) {
 			hit=true;accumulated=physicalChecked(std::int64_t(accumulated)+(shoot ? weapon : std::max(physicalChecked(std::int64_t(weapon)+might),1)));
 		}
@@ -470,6 +478,7 @@ bool XeenPhysicalPlayerCandidate::service(XeenConsequenceDraw &draw) {
 		// Slayer Sword, ID 34, upward), then the elemental material once, only for
 		// a nonzero accumulated input; the Shoot save halves the combined amount.
 		accumulated=physicalChecked(std::int64_t(accumulated)*effectiveness);
+		status=xeenActorStatusAfterDamage(status,accumulated!=0);
 		physical=attackWeaponId>=34 ? accumulated : physicalChecked(std::int64_t(accumulated)*(100-monster.physicalResistance())/100);
 		elemental=0;elementalFrame=0;
 		if (accumulated>0 && elementalMaterial) {

@@ -19,7 +19,7 @@ documented in its source. Each item links to its entry in
 
 **Revisions.** MMModern pins ScummVM `6814ee9b` (2026-09-06). Every item was
 rechecked against ScummVM master `55895ab0` on 2026-10-16, except the new
-terrain/Tavern/Temple entries explicitly marked "pin: differs; master not
+terrain/Tavern/Temple/recovery entries explicitly marked "pin: differs; master not
 rechecked". At that check, since the pin the
 Xeen engine has had only a code-style edit and the Xeen data in `mm.dat` is
 unchanged apart from its version number, so the earlier entries are marked
@@ -27,6 +27,12 @@ unchanged apart from its version number, so the earlier entries are marked
 mainland; many items apply there, others wait for areas not open yet.
 
 ## Combat and conditions
+
+- **Controlled monsters recover on the DOS roll.** Recovery succeeds at a roll
+  at most the monster resource ID; the pin reverses the inequality. Equality
+  succeeds in both. The core scans every map slot before queued shots; status
+  producers remain deferred (M73 Part A). Pin: differs; master not rechecked.
+  [Evidence](original-quirks.md#sv-monster-recovery).
 
 - **Terrain damage starts fresh for each character.** Lava and surface falls
   use their full starting damage for every party member in DOS. The pin

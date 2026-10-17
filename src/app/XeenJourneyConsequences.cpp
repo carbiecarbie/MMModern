@@ -129,9 +129,10 @@ bool XeenEncounterFlow::serviceShoot() {
     const auto owner=work.owners[work.shooter];
     if(!work.attack && !work.spellAttack) {work.bound=actor;
      if(work.spell) {const auto &caster=_party.roster.at(work.spellCaster);
-      work.spellAttack.emplace(caster.permanentLevel,caster.temporaryLevel,actor.statistics->magicResistance(),actor.original.resourceId,*work.spell,actor.statistics->physicalResistance());
-     } else work.attack.emplace(_party.roster.at(owner),*_party.roster.combatInputs(owner),*actor.statistics,actor.original.resourceId,_party.encounterContext->year,true,_party.encounterContext->difficulty);}
+      work.spellAttack.emplace(caster.permanentLevel,caster.temporaryLevel,actor.statistics->magicResistance(),actor.original.resourceId,*work.spell,actor.statistics->physicalResistance(),actor.status);
+     } else work.attack.emplace(_party.roster.at(owner),*_party.roster.combatInputs(owner),*actor.statistics,actor.original.resourceId,_party.encounterContext->year,true,_party.encounterContext->difficulty,actor.status);}
     const auto damage=[&] {return work.spellAttack?work.spellAttack->damage:work.attack->damage;};
+    const auto status=[&] {return work.spellAttack?work.spellAttack->status:work.attack->status;};
     const auto hit=[&] {return work.spellAttack?true:work.attack->hit;};
     if(!work.attackDone) {
      if(work.spellAttack ? !work.spellAttack->service(draw) : !work.attack->service(draw)) return true;
@@ -159,6 +160,12 @@ bool XeenEncounterFlow::serviceShoot() {
      check();work.suffixPrepared=true;
     }
     if(work.stage==Stage::Travel) {
+     // attack2 wakes before the pre-HP draw, including zero final damage.
+     if(liveActors.at(id->recordIndex).status!=status()) {
+      check();liveActors.at(id->recordIndex).status=status();
+      ++session._encounterRevision;_state._revision=session._encounterRevision;
+      ++session._journeyGeneration;++_generation;retainJourney();
+     }
      // The logical shooter is spent, but hitMonster clears its visual slots
      // only after attack2 returns (0x2cbab..0x2ccba). Remaining visible arrows
      // continue through the common impact draws.
@@ -172,13 +179,14 @@ bool XeenEncounterFlow::serviceShoot() {
      }
      if(work.spellAttack && !work.spellAttack->resisted &&
        ((*work.spell!=XeenLearnedSpell::EnergyBlast && *work.spell!=XeenLearnedSpell::Shrapmetal) || _party.roster.at(work.spellCaster).currentLevel()))
-       _world.scenePresentation().spellImpact(actor,*work.spell);
+       _world.scenePresentation().spellImpact(liveActors.at(id->recordIndex),*work.spell);
      work.stage=damage() ? Stage::Impact : Stage::PostImpact;
      _appearanceIdentity=id;_frame=damage()?11:0;
      if(hit()) {work.presented=false;++_generation;return true;}
     }
     if(work.stage==Stage::Impact) {
      check();liveActors.at(id->recordIndex).hp=std::max(actor.hp-damage(),0);
+     liveActors.at(id->recordIndex).status=status();
      session._journeyRandom=work.impactRandom;
      work.stage=Stage::PostImpact;work.presented=false;
      ++session._encounterRevision;_state._revision=session._encounterRevision;++session._journeyGeneration;++_generation;
@@ -194,6 +202,7 @@ bool XeenEncounterFlow::serviceShoot() {
      for(unsigned i=0;i<6;++i) _party.roster._combatInputs[work.owners[i]]->experience=work.lethal->experience[i];
      if(work.drop) _party.monsterTreasure=work.drop->treasure;
     } else live.hp=actor.hp-damage();
+    live.status=status();
     if(hit()) work.projectileEnd[work.shooter]=work.target/3;
     work.spent[work.shooter]=hit();session._journeyRandom=work.random.continuation();
     if(hit() && !work.spell) {

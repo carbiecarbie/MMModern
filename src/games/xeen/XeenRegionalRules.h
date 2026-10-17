@@ -92,6 +92,8 @@ private:
 	XeenCamera camera;
 	XeenConsequenceInputs inputs;
 	unsigned year, participantMask, cursor=0;
+	std::size_t recoveryCursor=0;
+	bool recoveryEnabled=true;
 	std::array<bool,6> blocked;
 	std::optional<XeenEnemyAttackCandidate> attack;
 	XeenWorld *indoorWorld = nullptr;

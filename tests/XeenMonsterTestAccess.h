@@ -9,11 +9,19 @@ namespace mmodern {
 // before the Journey flow adopts the restored world. The restoration preimage
 // adopts exactly this change.
 struct XeenMonsterTestAccess {
-	static void set(XeenWorld &world, XeenMapIdentity map, std::size_t index, std::int32_t hp, bool activated) {
+	// Inject a control at a quiet boundary; use the existing owner preimage.
+	template<class EncounterFlow>
+	static void status(EncounterFlow &flow, XeenWorld &world, XeenMapIdentity map, std::size_t index, XeenActorStatus status) {
+		auto &guard=*flow._journeyPreimage;guard.check();
+		world._sessionState.mutableMonsters(map).at(index).status=status;
+		guard.s._mapStates=world._sessionState._mapStates;guard.adoptMutationBoundary();
+	}
+	static void set(XeenWorld &world, XeenMapIdentity map, std::size_t index, std::int32_t hp, bool activated,
+		XeenActorStatus status=XeenActorStatus::Physical) {
 		if(!world._journeyRestoration || !world._journeyRestoration->guard)
 			throw std::logic_error("Live monster fixture needs an unconsumed Journey restoration");
 		auto &actor=world._sessionState.mutableMonsters(map).at(index);
-		actor.hp=hp;actor.activated=activated;
+		actor.hp=hp;actor.activated=activated;actor.status=status;
 		auto &guard=*world._journeyRestoration->guard;
 		guard.s._mapStates=world._sessionState._mapStates;guard.adoptMutationBoundary();
 	}

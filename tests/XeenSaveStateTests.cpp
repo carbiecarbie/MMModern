@@ -302,6 +302,29 @@ struct CurrentDestination {
  XeenSaveSnapshot capture(){return XeenSaveState::capture(resources.signature,party,camera,flags,world);}
 };
 XeenSaveSnapshot currentSnapshot(){static const auto value=regional_test::snapshot();return value;}
+void liveStatusRoundTrip(){
+ // Load the existing v14 shape, inject only transient statuses, and compare the
+ // complete current serializer (including RNG/time), rather than selected fields.
+ const auto existing=XeenSaveFormat::encode(currentSnapshot());
+ CurrentDestination plain;plain.restore(XeenSaveFormat::decode(existing));plain.bind();
+ const auto canonical=XeenSaveFormat::encode(plain.capture());
+ for(auto status:{XeenActorStatus::Sleep,XeenActorStatus::BeastMaster,XeenActorStatus::Hypnotize,XeenActorStatus::DragonSleep}) {
+  CurrentDestination live;live.restore(XeenSaveFormat::decode(existing));
+  const auto hp=live.world.sessionState().monsters(23)[0].hp;
+  XeenMonsterTestAccess::set(live.world,23,0,hp,false,status);live.bind();
+  const auto saved=XeenSaveFormat::encode(live.capture());
+  check(saved==canonical,"Live control status must canonicalize without RNG/time or byte changes");
+  CurrentDestination restored;restored.restore(XeenSaveFormat::decode(saved));restored.bind();
+  check(restored.world.sessionState().monsters(23)[0].status==XeenActorStatus::Physical &&
+   XeenSaveFormat::encode(restored.capture())==saved,"Status load must reset exactly without replay");
+ }
+ for(auto status:{XeenActorStatus::Unsupported,static_cast<XeenActorStatus>(255)}) {
+  CurrentDestination bad;bad.restore(XeenSaveFormat::decode(existing));
+  XeenMonsterTestAccess::set(bad.world,23,0,bad.world.sessionState().monsters(23)[0].hp,false,status);
+  bool refused=false;try {bad.bind();(void)bad.capture();}catch(const std::exception &){refused=true;}
+  check(refused,"Invalid/unsupported live status must not be silently canonicalized");
+ }
+}
 void fullRestoration(){
  auto s=currentSnapshot();s.questItems[17]=3;s.questFlags[2]=true;s.gameFlags[7]=true;
  s.food=27;s.journey->context->year=611;s.journey->context->day=0;
@@ -540,6 +563,12 @@ void mapEventRoundTrips(){
    f.resources.loadRegionalText=[](auto id){auto t=regional_test::texts(id);if(id==XeenMapIdentity(23))t.strings.resize(44);return t;};
   };
   CurrentDestination live;configure(live);live.restore(XeenSaveFormat::decode(XeenSaveFormat::encode(initial)));
+  if(operation==5) {
+   XeenMonsterTestAccess::set(live.world,28,0,0,false,XeenActorStatus::DragonSleep);
+   auto spawned=live.world.transitionCandidate();spawned->applySpawn(28,0,7,11,0);
+   check(spawned->sessionState().monsters(28)[0].status==XeenActorStatus::Physical,
+    "Spawn must reset status before any map reload");
+  }
   XeenEventSystem events([&](auto id){return XeenEventScript(live.resources.loadEvents(id));},live.resources.loadRegionalText);
   const auto display=font();IndexedFrame image;image.width=320;image.height=200;image.pixels.resize(64000);
   std::uint64_t now=0,cycle=0;
@@ -570,7 +599,7 @@ void mapEventRoundTrips(){
   if(operation==2)check(revisit->sampleCell(28,25,5)->cell->rawWord==0x8888 && snapshot.find(29)->cells.size()==1,"Wall change lost physical owner");
   if(operation==3)check(revisit->sampleCell(28,25,5)->cell->surfaceIndex==6 && snapshot.find(29)->cells.size()==1,"Surface change lost physical owner");
   if(operation==4)check(revisit->effectiveEvent({28,2},city.records[2]).opcode==34,"Nonzero replacement lost after leave/return");
-  if(operation==5)check(map->monsters->slots[0].lifecycle==XeenActorLifecycle::Present,"Spawn slot lost after leave/return");
+  if(operation==5)check(map->monsters->slots[0].lifecycle==XeenActorLifecycle::Present && live.world.sessionState().monsters(28)[0].status==XeenActorStatus::Physical,"Spawn must reset retained control status");
   if(operation==6)check(map->monsters->slots.size()==4 && revisit->sessionState().monsters(28).size()==4,
    "Spawn past the MOB count materialized or persisted a slot");
   if(operation==7)check(revisit->sampleCell(23,3,4)->cell->surfaceIndex==6 &&
@@ -932,7 +961,7 @@ void invalidResourceAndState(){
 
 int main() {
 	try {
-		fullRestoration(); explicitItems(); invalidResourceAndState(); characterPreflight(); mutationPolicies(); journeyBorrowRefusal();
+		liveStatusRoundTrip(); fullRestoration(); explicitItems(); invalidResourceAndState(); characterPreflight(); mutationPolicies(); journeyBorrowRefusal();
 		genericRoundTrip(); replacedOpcodePublication(); mapEventRoundTrips(); travelRoundTrips(); valueRoundTrips(); sourceIdentityCases(); unsupportedMapState(); warzoneLifetime(); allCloudsMaps();
 		std::cout << "Current save state: atomic preparation, resource identities, rules and owner/flow lifetimes passed\n";
 		return 0;
