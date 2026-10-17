@@ -1,12 +1,15 @@
 # MMModern - Project Status
 
-This describes what can be played and done now. **M73 is the latest completed
-and accepted milestone** ([plan](milestone-73-plan.md)): Sleep, Beast Master,
-Hypnotize and Dragon Sleep put monsters out of action until they recover or,
-for the two sleeps, are hit; Insect Spray, Turn Undead, Sparks and Toxic Cloud
-damage a group; all eight work from the spell book, Quick Fight and charged
-items, and every item power now reaches its original spell. A monster
-treasure receipt with an item no longer closes the game; saves stay v14. M72
+This describes what can be played and done now. **M74 is the latest completed
+and accepted milestone** ([plan](milestone-74-plan.md)): every spell that
+hurts monsters now works, 23 more of them, from Fireball and Lightning Bolt
+to Star Burst, Finger of Death and Poison Volley, from the spell book, Quick
+Fight and charged items. Spells with the All range reach up to four groups,
+and a party attack whose hit total goes negative hits, as in DOS; saves stay
+v14. M73 ([plan](milestone-73-plan.md)) added Sleep, Beast Master,
+Hypnotize and Dragon Sleep, which put monsters out of action until they
+recover, Insect Spray, Turn Undead, Sparks and Toxic Cloud, and every item
+power's original spell. M72
 ([plan](milestone-72-plan.md)) made every surface work
 as in the original (lava burns, sky and clouds drop the party to the land
 below, space kills, the desert costs time, and Rest runs anywhere), pressing
@@ -96,15 +99,22 @@ the automated scenarios use it.
   leaves, it is moved to the original fixed destination `(10,12)` with its
   facing unchanged. Survivors keep their wounds and can be met again.
 - **Magic** uses the characters' learned books. Awaken, First Aid, Cure Wounds,
-  Revitalize, Magic Arrow, Flying Fist, Energy Blast, Shrapmetal, Pain, Sleep,
-  Beast Master, Hypnotize, Dragon Sleep, Insect Spray, Turn Undead, Sparks and
-  Toxic Cloud work in exploration and combat; Wizard Eye and Jump in
-  exploration. Sleeping, mastered or hypnotized monsters stay in place, do not
+  Revitalize, Moon Ray, Sleep, Beast Master, Hypnotize, Dragon Sleep and
+  every spell that damages monsters (Magic Arrow, Flying Fist, Energy Blast,
+  Shrapmetal, Pain, Insect Spray, Turn Undead, Sparks, Toxic Cloud, Acid
+  Spray, Cold Ray, Dancing Sword, Deadly Swarm, Elemental Storm, Fantastic
+  Freeze, Fiery Flail, Fireball, Frostbite, Implosion, Incinerate, Inferno,
+  Lightning Bolt, Mega Volts, Prismatic Light, Star Burst, Sun Ray, Finger of
+  Death, Holy Word, Mass Distortion, Golem Stopper and Poison Volley) work in
+  exploration and combat; Wizard Eye and Jump in exploration. Sleeping, mastered or hypnotized monsters stay in place, do not
   move or attack and are easier to hit; each turn they may recover, and the
-  two sleeps also end when the monster is hurt. Insect Spray and Turn Undead
-  only hurt insects and undead. Missiles fly
-  forward to the first reachable monsters, with the original magic resistance
-  and saving throws. Wizard Eye shows the surroundings on the automap without
+  two sleeps also end when the monster is hurt. Spells aimed at one species
+  (Insect Spray, Turn Undead, Holy Word, Golem Stopper, Finger of Death) do
+  nothing to the others. Missiles fly forward to the first reachable monster,
+  group or, for All spells, up to four groups until a wall, with the original
+  magic resistance and saving throws; a cast with no monster in reach still
+  costs its SP and gems. Poison Volley fires one arrow per member, bow or
+  not, with each member's accuracy, and Moon Ray also heals the party. Wizard Eye shows the surroundings on the automap without
   marking them explored, until the next temporary-effect reset (Rest, dawn).
   Jump moves two cells forward; destinations on space, lava, sky, cloud or
   desert, or outside the walkable area, say "not supported yet" for now.
@@ -423,8 +433,9 @@ instructions are in [dependencies](dependencies.md).
 - **Missing services.** Inn/recruitment is not available; the Temple handles
   only the modeled conditions.
 - **Items and magic.** Item powers backed by unimplemented spells say "not
-  supported yet"; cursed-item refusals follow the reference. Most spells
-  are missing; Light, Protection from Elements and Suppress Poison can be
+  supported yet"; cursed-item refusals follow the reference. 34 of the 76
+  spells are still missing (party healing and conditions, buffs,
+  information, item and travel spells); Light, Protection from Elements and Suppress Poison can be
   bought but say "not supported yet" when cast. Mainland fountains remain
   unsupported. Locked-chest lock/trap/XP mechanics are deferred; Vertigo CD's
   searchable objects use the crate, case, bed and rubbish mechanics.

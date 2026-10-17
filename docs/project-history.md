@@ -344,3 +344,14 @@ from books, Quick Fight and items; the item-power table now has all 73
 original entries. The play-test found a treasure-receipt crash present since
 M63, now fixed with the first gameplay tests of monster item drops. Save v14
 is unchanged. [Plan](milestone-73-plan.md).
+
+**M74 - Monster damage spells** (`3ac560a` plan, `fe48d81`, `99a7518`,
+`746acbd`, `ac4889b`). A static check of the DOS program first confirmed
+all 23 remaining damage spells and kept its few differences. Every spell
+that hurts monsters now works from books, Quick Fight and items: the All
+range reaches up to four groups, Elemental Storm and Prismatic Light draw
+their type once per cast, Moon Ray also heals, Finger of Death and Mass
+Distortion follow their two saves, and Poison Volley fires one arrow per
+member through a volley rule now shared by Shoot and combat. Party attacks
+compare the hit total unsigned, as in DOS. Save v14 is unchanged.
+[Plan](milestone-74-plan.md).

@@ -1,6 +1,6 @@
 # MMModern - Roadmap
 
-**M73 is the latest completed and accepted milestone.**
+**M74 is the latest completed and accepted milestone.**
 [Project status](project-status.md) describes what is playable now;
 [project history](project-history.md) records completed milestones. Reference
 provenance belongs to [dependencies](dependencies.md).
@@ -75,13 +75,14 @@ accepted).
 5. **Terrain and simple services**: completed and accepted in
    [M72](milestone-72-plan.md) (save v14; Sign In moved to step 8).
 6. **Spells**: [M73](milestone-73-plan.md) monster control and four group
-   spells (Tier A, completed and accepted); [M74](milestone-74-plan.md) monster damage spells (Tier B, planned); M75 party healing and
+   spells (Tier A, completed and accepted); [M74](milestone-74-plan.md) monster damage spells (Tier B, completed and accepted); M75 party healing and
    conditions, including Raise Dead, Resurrection and Divine Intervention
    (Tier B); M76 buffs, information, item and travel spells (Tier A).
 7. **Combat Equip and Use, and the missing screens** (Tier B, medium): Quests,
    Awards and the others in the census checklist.
 8. **Inn, recruiting and character creation** (Tier A, high): Tavern Sign In,
-   attribute rolls, the creation screens and changes to the saved party.
+   attribute rolls, the creation screens and changes to the saved party,
+   including Poison Volley shooting for the active party size (M74 assumes six).
 9. **Monster treasure** (Tier A, changes the save): item drops for every
    monster and drop levels 2 to 6, including accessories in staged treasure,
    on the shared generator from [M71](milestone-71-plan.md).
