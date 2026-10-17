@@ -74,9 +74,10 @@ accepted).
    state wait for a later Darkside arc; shared operations stay generic.
 5. **Terrain and simple services**: completed and accepted in
    [M72](milestone-72-plan.md) (save v14; Sign In moved to step 8).
-6. **Spells** (Tiers A and B, high volume): the remaining 65 in two or three
-   milestones by level and use. Sleep, hypnosis and similar spells first need
-   a monster status system (Tier A).
+6. **Spells**: [M73](milestone-73-plan.md) monster control and four group
+   spells (Tier A); M74 monster damage spells (Tier B); M75 party healing and
+   conditions, including Raise Dead, Resurrection and Divine Intervention
+   (Tier B); M76 buffs, information, item and travel spells (Tier A).
 7. **Combat Equip and Use, and the missing screens** (Tier B, medium): Quests,
    Awards and the others in the census checklist.
 8. **Inn, recruiting and character creation** (Tier A, high): Tavern Sign In,
