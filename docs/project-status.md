@@ -1,7 +1,13 @@
 # MMModern - Project Status
 
-This describes what can be played and done now. **M72 is the latest completed
-and accepted milestone** ([plan](milestone-72-plan.md)): every surface works
+This describes what can be played and done now. **M73 is the latest completed
+and accepted milestone** ([plan](milestone-73-plan.md)): Sleep, Beast Master,
+Hypnotize and Dragon Sleep put monsters out of action until they recover or,
+for the two sleeps, are hit; Insect Spray, Turn Undead, Sparks and Toxic Cloud
+damage a group; all eight work from the spell book, Quick Fight and charged
+items, and every item power now reaches its original spell. A monster
+treasure receipt with an item no longer closes the game; saves stay v14. M72
+([plan](milestone-72-plan.md)) made every surface work
 as in the original (lava burns, sky and clouds drop the party to the land
 below, space kills, the desert costs time, and Rest runs anywhere), pressing
 Space passes time and lets monsters act, and the Vertigo Tavern and Temple
@@ -90,8 +96,13 @@ the automated scenarios use it.
   leaves, it is moved to the original fixed destination `(10,12)` with its
   facing unchanged. Survivors keep their wounds and can be met again.
 - **Magic** uses the characters' learned books. Awaken, First Aid, Cure Wounds,
-  Revitalize, Magic Arrow, Flying Fist, Energy Blast, Shrapmetal and Pain work
-  in exploration and combat; Wizard Eye and Jump in exploration. Missiles fly
+  Revitalize, Magic Arrow, Flying Fist, Energy Blast, Shrapmetal, Pain, Sleep,
+  Beast Master, Hypnotize, Dragon Sleep, Insect Spray, Turn Undead, Sparks and
+  Toxic Cloud work in exploration and combat; Wizard Eye and Jump in
+  exploration. Sleeping, mastered or hypnotized monsters stay in place, do not
+  move or attack and are easier to hit; each turn they may recover, and the
+  two sleeps also end when the monster is hurt. Insect Spray and Turn Undead
+  only hurt insects and undead. Missiles fly
   forward to the first reachable monsters, with the original magic resistance
   and saving throws. Wizard Eye shows the surroundings on the automap without
   marking them explored, until the next temporary-effect reset (Rest, dawn).
@@ -413,10 +424,8 @@ instructions are in [dependencies](dependencies.md).
   only the modeled conditions.
 - **Items and magic.** Item powers backed by unimplemented spells say "not
   supported yet"; cursed-item refusals follow the reference. Most spells
-  are missing, and monsters cannot yet be put to sleep, paralyzed or
-  controlled; Light, Sleep, Insect Spray, Protection
-  from Elements, Sparks, Toxic Cloud and Suppress Poison can be bought but say
-  "not supported yet" when cast. Mainland fountains remain
+  are missing; Light, Protection from Elements and Suppress Poison can be
+  bought but say "not supported yet" when cast. Mainland fountains remain
   unsupported. Locked-chest lock/trap/XP mechanics are deferred; Vertigo CD's
   searchable objects use the crate, case, bed and rubbish mechanics.
 - **Presentation.** There is no audio: where the CD plays speech, a short

@@ -334,3 +334,13 @@ runs on any surface. Pressing Space now passes time and gives monsters their
 turn, a gap since before M44. The Vertigo Tavern and Temple gained Drink, Tip,
 Rumors, Donation and Uncurse; Sign In moved to the Inn step. Save v14 keeps
 the Tavern tip index. [Plan](milestone-72-plan.md).
+
+**M73 - Monster control and first spell expansion** (`d58d097` plan,
+`4792a3d`, `972256b`, `6724171`, `2f34569`). Monsters can hold one status:
+Sleep, Beast Master, Hypnotize or Dragon Sleep stop them moving and
+attacking, and they recover with the original DOS draw. Eight spells joined
+(the four controls plus Insect Spray, Turn Undead, Sparks and Toxic Cloud),
+from books, Quick Fight and items; the item-power table now has all 73
+original entries. The play-test found a treasure-receipt crash present since
+M63, now fixed with the first gameplay tests of monster item drops. Save v14
+is unchanged. [Plan](milestone-73-plan.md).
