@@ -75,9 +75,11 @@ accepted).
 5. **Terrain and simple services**: completed and accepted in
    [M72](milestone-72-plan.md) (save v14; Sign In moved to step 8).
 6. **Spells**: [M73](milestone-73-plan.md) monster control and four group
-   spells (Tier A, completed and accepted); [M74](milestone-74-plan.md) monster damage spells (Tier B, completed and accepted); M75 party healing and
-   conditions, including Raise Dead, Resurrection and Divine Intervention
-   (Tier B); M76 buffs, information, item and travel spells (Tier A).
+   spells (Tier A, completed and accepted); [M74](milestone-74-plan.md)
+   monster damage spells (Tier B, completed and accepted);
+   [M75](milestone-75-plan.md) party healing and conditions, including Raise
+   Dead, Resurrection, Divine Intervention and Create Food (Tier B); M76
+   buffs, information, item and travel spells (Tier A).
 7. **Combat Equip and Use, and the missing screens** (Tier B, medium): Quests,
    Awards and the others in the census checklist.
 8. **Inn, recruiting and character creation** (Tier A, high): Tavern Sign In,
