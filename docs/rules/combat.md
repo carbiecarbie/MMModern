@@ -452,7 +452,7 @@ the recovered status. Exploration, combat rounds, item response and Rest share
 this opportunity. Disabled movement or characters shooting skips the entire
 opportunity. The bounded DOS check `0x20ca9..0x20cf1` has no HP, lifecycle or
 position filter, calibrated against status +7, species +6 and MOB count `0x9c59`.
-Production spells/items do not yet apply controls; unit tests inject them. Damage saving throws
+Learned casts and item Use now apply the statuses (M73). Damage saving throws
 also use `<= ID`. **Implemented (M73 Part A), Reference only:** melee, Shoot and existing spells
 wake Sleep/Dragon Sleep on nonzero entry damage, before physical resistance and
 the damage save, even if final damage becomes zero. Misses, failed magic gates

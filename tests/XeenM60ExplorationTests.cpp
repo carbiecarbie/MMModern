@@ -242,25 +242,74 @@ void m73Live(Inputs &in) {
   check(saved==XeenSaveFormat::encode(f.snapshot()),"Save with real-cast statuses differs from otherwise identical Physical actors");
   }catch(const std::exception &e){throw std::runtime_error("spell="+std::to_string(spell)+" item="+std::to_string(item)+": "+e.what());}
  }
- // Actual Fire Dragon statistics, injected into a detached fixture; no dragon route is claimed.
- auto dragon=in.statistics.at(68);check(dragon.monsterType()==6,"Fire Dragon must be Dragon species");
- std::vector<XeenCombatRandom::Draw> tape;
- if(dragon.magicResistance())tape.push_back({1,107,dragon.magicResistance()});
- tape.push_back({1,118,69});XeenCombatRandom rng(tape);
- XeenSpellDamageCandidate sleep(7,0,dragon.magicResistance(),68,XeenLearnedSpell::DragonSleep,
-  dragon.physicalResistance(),XeenActorStatus::Physical,dragon.monsterType());
- XeenConsequenceDraw draw{rng};check(sleep.service(draw) && sleep.status==XeenActorStatus::DragonSleep && !sleep.damage,"Fire Dragon sleep failed");
+}
+
+void m73DeadDragonRecovery(Inputs &in) {
+ // Retain the all-lifecycle recovery exemption independently of the live cast.
  auto actors=XeenActorApproach::actorsFromResources(in.maps.loadObjects(in.assets,23),in.statistics);
  for(auto &a:actors){a.status=XeenActorStatus::Physical;a.lifecycle=XeenActorLifecycle::Defeated;a.x=a.y=-128;a.hp=0;}
- auto &a=actors.front();a.original.resourceId=68;a.statistics=dragon;a.status=sleep.status;
+ auto &a=actors.front();a.original.resourceId=68;a.statistics=in.statistics.at(68);a.status=XeenActorStatus::DragonSleep;
  XeenConsequenceCharacters chars;XeenConsequenceInputs inputs;
  auto base=source(in,61,false);for(unsigned i=0;i<6;++i){chars[i]=base.characters[base.activeRosterIds[i]];inputs[i]=base.journey->supplements[base.activeRosterIds[i]].inputs;}
  XeenWorld world(in.mapLoader());XeenRegionalOpportunityCandidate recovery(world.map(23),actors,{23,9,11,XeenDirection::East},chars,inputs,610,63);
  XeenCombatRandom none(std::vector<XeenCombatRandom::Draw>{});XeenConsequenceDraw empty{none};
- check(recovery.service(empty) && !none.position() && recovery.actors.front().status==sleep.status,"Fire Dragon drew recovery");
- XeenCombatRandom hit(std::vector<XeenCombatRandom::Draw>{{1,118,118}});
- XeenSpellDamageCandidate wake(7,0,0,68,XeenLearnedSpell::ToxicCloud,dragon.physicalResistance(),sleep.status,dragon.monsterType());
- XeenConsequenceDraw damage{hit};check(wake.service(damage) && wake.damage==10 && wake.status==XeenActorStatus::Physical,"Fire Dragon did not wake from real damage");
+ check(recovery.service(empty) && !none.position() && recovery.actors.front().status==XeenActorStatus::DragonSleep,
+  "Dead Fire Dragon slot drew recovery");
+}
+
+void m73LiveDragon(Inputs &in) {
+ // Synthetic MOB injects the actual Fire Dragon profile into an existing map;
+ // this proves the production cast/response/damage path, not a dragon route.
+ const auto dragon=in.statistics.at(68);check(dragon.monsterType()==6,"Fire Dragon must be Dragon species");
+ auto objects=in.maps.loadObjects(in.assets,23);objects.entities.monsters.at(8).resourceId=68;
+ auto s=source(in,17,false);s.camera={23,9,11,XeenDirection::East};
+ auto &saved=s.map(23).monsters->slots.at(8);
+ saved.x=12;saved.y=11;saved.lifecycle=XeenActorLifecycle::Present;saved.accounted=false;
+ auto &caster=s.characters[s.activeRosterIds[4]];caster.miscellaneous[0]={1,2,2,0};caster.miscellaneous[1]={1,3,2,0};
+ // Fixed original-data vector: R=0 skips both gates; Dragon Sleep and
+ // Magic Arrow each draw one U(1,118) save. The Arrow save never halves.
+ check(dragon.magicResistance()==0,"Fire Dragon resistance vector changed");
+ s.journey->random=XeenCombatRandom(3).continuation();
+ XeenCombatRandom expected(*s.journey->random);
+ const auto control=expected.draw(1,118);check(control && *control>68,"Dragon Sleep fixture must succeed");
+ const auto asleepRandom=expected.continuation();
+ check(expected.draw(1,118).has_value(),"Dragon damage fixture save rejected");
+ const auto awakeRandom=expected.continuation();
+ XeenRegionalManifest synthetic=[](const auto &,const auto &,const auto &,const auto &){};
+ Fixture f(in,s,false,nullptr,{},synthetic,{},nullptr,
+  [&in,objects](auto id){return id==XeenMapIdentity(23)?objects:in.maps.loadObjects(in.assets,id);});
+ const auto id=f.w.sessionState().monsters(23).at(8).id;
+ const auto assertDragon=[&](XeenActorStatus status,int hp) {
+  const auto &a=f.w.sessionState().monsters(23).at(8);
+  check(a.id==id && a.original.resourceId==68 && a.statistics->raw==dragon.raw &&
+   a.lifecycle==XeenActorLifecycle::Present && a.hp==hp && a.x==12 && a.y==11 && a.status==status,
+   "Live Fire Dragon identity, HP, map position or status differs");
+ };
+ assertDragon(XeenActorStatus::Physical,dragon.baseHp());
+ begin(f);quiet(f);assertDragon(XeenActorStatus::DragonSleep,dragon.baseHp());
+ check(f.w.sessionState().journeyRandom()==asleepRandom,"Dragon Sleep cast/response RNG differs");
+ const auto minutes=f.p.encounterContext->minutes;
+ f.act(SelectMemberAction{4});f.act(DialogKeyAction{'i'});f.act(DialogKeyAction{'m'});
+ f.act(DialogKeyAction{'1'});f.act(DialogKeyAction{'u'});quiet(f);
+ assertDragon(XeenActorStatus::DragonSleep,dragon.baseHp());
+ check(f.w.sessionState().journeyRandom()==asleepRandom && f.flow->encounter()->result().movementOpportunities==1,
+  "Live Fire Dragon response drew recovery or repeated its opportunity");
+ f.act(SelectMemberAction{4});f.act(DialogKeyAction{'i'});f.act(DialogKeyAction{'m'});
+ f.act(DialogKeyAction{'2'});f.act(DialogKeyAction{'u'});
+ // Observe the wake and HP publication before the now-awake dragon's response.
+ bool woke=false,damaged=false;
+ for(unsigned n=0;n<1000 && !damaged;++n) {
+  const auto &a=f.w.sessionState().monsters(23).at(8);
+  woke=woke || a.status==XeenActorStatus::Physical;
+  damaged=a.hp==dragon.baseHp()-8;
+  if(damaged)break;
+  tick(f);
+ }
+ assertDragon(XeenActorStatus::Physical,dragon.baseHp()-8);
+ check(woke && damaged && f.w.sessionState().journeyRandom()==awakeRandom &&
+  f.p.roster.at(s.activeRosterIds[4]).miscellaneous[0].state==1 &&
+  f.p.roster.at(s.activeRosterIds[4]).miscellaneous[1].state==1 && f.p.encounterContext->minutes==minutes,
+  "Normal item damage did not wake the same live Fire Dragon exactly once");
 }
 
 void targets(Inputs &in) {
@@ -308,6 +357,7 @@ int main(int argc,char **argv) {try {
  std::ostringstream captured;auto *old=std::cout.rdbuf(captured.rdbuf());
  try {effects(in);blockedProjectiles(in);eyeExpiry(in);refunds(in);jump(in);jumpEvent(in);targets(in);impacts(in);
   try{m73Live(in);}catch(const std::exception &e){throw std::runtime_error(std::string("M73 live: ")+e.what());}
+  try{m73DeadDragonRecovery(in);m73LiveDragon(in);}catch(const std::exception &e){throw std::runtime_error(std::string("M73 Dragon: ")+e.what());}
   try{m73Guild(in);}catch(const std::exception &e){throw std::runtime_error(std::string("M73 Guild: ")+e.what());}}catch(...){std::cout.rdbuf(old);throw;}
  std::cout.rdbuf(old);std::cout<<"M60 original-data exploration effects, blocked/empty/live projectiles, Eye reset, refunds, Jump and exact restore passed\n";
  return 0;

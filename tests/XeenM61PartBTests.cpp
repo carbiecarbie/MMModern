@@ -5,9 +5,16 @@
 #include "games/xeen/XeenItemGeneration.h"
 #include "XeenM42Evidence.h"
 #include <queue>
+#include <exception>
 #include <iostream>
 #include <sstream>
 using namespace training_test;
+namespace mmodern {
+struct XeenMonsterAbilityTestAccess {
+    static auto ranged(const XeenEncounterFlow &flow) { return flow._rangedObservation; }
+    static auto portrait(const XeenEncounterFlow &flow) { return flow.rangedPortrait(); }
+};
+}
 namespace {
 constexpr unsigned powers[]{2,3,4,5,6,7,8,9,10,11,12,13,15,16,17,19,21,31,37,40};
 void tick(Fixture &f) {
@@ -251,6 +258,86 @@ void survivingResponse(Inputs &in) {
             f.p.encounterContext->minutes==s.journey->context->minutes,"Response/retry repeated charge, response or time");
     }
 }
+void stagedRangedItemResponse(Inputs &in) {
+    for(bool retry:{false,true}) {
+        // Power 3 (Magic Arrow) was admitted in M61. The original Orc survives
+        // its eight damage and must fire, rather than merely move in response.
+        auto s=source(in,3,false,2);s.camera={23,9,11,XeenDirection::East};s.journey->random=XeenCombatRandom(5).continuation();
+        auto &saved=s.map(23).monsters->slots.at(8);
+        saved.x=12;saved.y=11;saved.lifecycle=XeenActorLifecycle::Present;saved.accounted=false;
+        Fixture f(in,s);
+        const auto live=f.w.sessionState().regionalActors(23);
+        std::vector<XeenActor> actors(live.begin(),live.end());
+        check(actors[8].original.resourceId==6 && actors[8].statistics->raw[32],"Staged fixture needs original ranged Orc");
+        const auto &caster=f.p.roster.at(s.activeRosterIds[0]);
+        XeenCombatRandom expected(*f.w.sessionState().journeyRandom());
+        XeenSpellDamageCandidate arrow(caster.permanentLevel,caster.temporaryLevel,actors[8].statistics->magicResistance(),6,
+            XeenLearnedSpell::MagicArrow,actors[8].statistics->physicalResistance());
+        XeenConsequenceDraw draw{expected};check(arrow.service(draw) && arrow.damage==8 && actors[8].hp>8,"Staged Orc must survive Arrow");
+        actors[8].hp-=8;
+        XeenConsequenceCharacters characters;XeenConsequenceInputs inputs;
+        for(unsigned i=0;i<6;++i){characters[i]=f.p.roster.at(s.activeRosterIds[i]);inputs[i]=*f.p.roster.combatInputs(s.activeRosterIds[i]);}
+        XeenRegionalOpportunityCandidate response(f.w.map(23),actors,f.c,characters,inputs,f.p.encounterContext->year,63);
+        check(response.shotCount==1 && response.shots[0].source==actors[8].id,"Item response must queue exactly one ranged shot");
+        const auto travelRandom=expected.continuation();
+        check(travelRandom==XeenJourneyRandomState{1,1351845u,1},"Staged travel RNG vector differs");
+        check(response.service(draw),"Response oracle incomplete");
+        check(response.shots[0].attack.injuryCount==1 && response.shots[0].attack.damage==2,
+            "Staged response must inflict one positive injury");
+        const auto injury=response.shots[0].attack.injury(0);
+        check(injury.owner==18 && injury.beforeHp==f.p.roster.at(18).currentHp && injury.afterHp==injury.beforeHp-2,
+            "Staged fixture must wound roster 18 by exactly two HP");
+        const auto finalRandom=expected.continuation();
+        check(finalRandom==XeenJourneyRandomState{1,1234782181u,5},"Staged fixture exact RNG vector differs");
+        unsigned travel=0,portraits=0,retries=0;
+        std::exception_ptr observationFailure;
+        std::shared_ptr<const XeenRegionalObservation> last;
+        const auto observe=[&] {
+            const auto observation=XeenMonsterAbilityTestAccess::ranged(*f.flow->encounter());
+            if(!observation || observation==last)return;
+            last=observation;
+            if(observation->stage!=XeenRegionalObservation::Stage::Published) {
+                check(f.flow->encounter()->result().outcome==XeenEncounterOutcome::Pending &&
+                    f.flow->encounter()->itemUseActive() && f.flow->encounter()->result().movementOpportunities==0 &&
+                    caster.miscellaneous[0].state==1,"Staged item response lost its pending continuation or repeated charge/opportunity");
+            }
+            if(observation->stage==XeenRegionalObservation::Stage::Travel) {
+                ++travel;
+                check(observation->count==1 && observation->shots[0].source==actors[8].id,"Wrong staged travel source/count");
+                check(f.w.sessionState().journeyRandom()==travelRandom,"Travel consumed attack RNG early");
+                check(!f.flow->encounter()->appearance().projectiles.empty(),"Travel has no acquired projectile");
+            } else if(observation->stage==XeenRegionalObservation::Stage::Portrait) {
+                ++portraits;
+                check(observation->impactSource==actors[8].id && observation->impactOwner==18,"Portrait lost ranged injury identity");
+                const auto portrait=XeenMonsterAbilityTestAccess::portrait(*f.flow->encounter());
+                check(portrait && portrait->first==18 && !portrait->second &&
+                    f.p.roster.at(18).currentHp==injury.beforeHp && f.w.sessionState().journeyRandom()==travelRandom,
+                    "Portrait did not precede HP and RNG publication");
+            }
+        };
+        open(f);
+        f.flow->beforeEncounterFrameCopy=[&] {
+            // Composition retries may catch observer exceptions. Retain a failed
+            // assertion so a successful redraw cannot hide a regression.
+            try {observe();} catch(...) {observationFailure=std::current_exception();throw;}
+            const auto observation=XeenMonsterAbilityTestAccess::ranged(*f.flow->encounter());
+            if(retry && !retries && observation && observation->stage==XeenRegionalObservation::Stage::Portrait) {
+                ++retries;throw std::bad_alloc();
+            }
+        };
+        key(f,'u');quiet(f);f.flow->beforeEncounterFrameCopy={};
+        if(observationFailure)std::rethrow_exception(observationFailure);
+        check(travel==1 && portraits==1 && retries==unsigned(retry),("Travel/portrait/retry counts="+std::to_string(travel)+","+std::to_string(portraits)+","+std::to_string(retries)).c_str());
+        check(f.w.sessionState().journeyRandom()==finalRandom,"Staged response/retry changed exact RNG continuation");
+        for(unsigned i=0;i<6;++i)check(f.p.roster.at(s.activeRosterIds[i]).currentHp==response.characters[i].currentHp &&
+            f.p.roster.at(s.activeRosterIds[i]).conditions==response.characters[i].conditions,"Staged response/retry lost or repeated injury");
+        const auto &actual=f.w.sessionState().regionalActors(23).at(8);
+        check(actual.hp==response.actors[8].hp && actual.x==response.actors[8].x && actual.y==response.actors[8].y,"Staged response repeated movement or item damage");
+        check(caster.miscellaneous[0].state==1 && f.flow->encounter()->result().movementOpportunities==1 &&
+            !f.flow->encounter()->state().pending() && *f.p.encounterContext==*s.journey->context,
+            "Staged response/retry repeated charge, opportunity or time");
+    }
+}
 void jumpArrival(Inputs &in) {
     auto s=source(in,16,false);s.camera={23,5,7,XeenDirection::North};s.characters[s.activeRosterIds[0]].skills[4]=1;
     Fixture f(in,s);unsigned signs=0;
@@ -335,6 +422,6 @@ void found(Inputs &in) {
 int main(int argc,char **argv) {try {
     check(argc==2,"usage: m61-part-b <installation>");auto installation=xeenTestInstallationDetector().detect(argv[1]);check(bool(installation),"Installation unavailable");Inputs in(*installation);
     std::ostringstream captured;auto *old=std::cout.rdbuf(captured.rdbuf());
-    try {effects(in);refusal(in);itemCancellation(in);miscTreasure(in);impacts(in);targetRetry(in);castingParity(in);survivingResponse(in);jumpArrival(in);found(in);}catch(...){std::cout.rdbuf(old);throw;}
+    try {effects(in);refusal(in);itemCancellation(in);miscTreasure(in);impacts(in);targetRetry(in);castingParity(in);survivingResponse(in);stagedRangedItemResponse(in);jumpArrival(in);found(in);}catch(...){std::cout.rdbuf(old);throw;}
     std::cout.rdbuf(old);std::cout<<"M61 Part B supported powers, item settlement, parity, refusals, live projectile RNG and restore passed\n";return 0;
 }catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}
