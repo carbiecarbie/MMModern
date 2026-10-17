@@ -31,7 +31,7 @@ the format stays v14 (nothing new is persisted).
       wrong-species Holy Word enters the miss path, and a negative player hit
       total hits (unsigned comparison). Rules and offsets are in
       [magic](rules/magic.md#damage-preparation-and-resolution).
-- [ ] **Part A - ranges and ordinary damage.** "All" range: the projectile
+- [x] **Part A - ranges and ordinary damage.** "All" range: the projectile
       continues through up to four groups (twelve positions), stopped by
       walls, each target settled before the next. One scalar draw per cast
       for variable damage (`U(a,b) * L`); one type draw for Elemental Storm
@@ -42,14 +42,21 @@ the format stays v14 (nothing new is persisted).
 - [ ] **Part B - special spells and the hit total.** Finger of Death (two
       distinct saves), Holy Word (wrong species takes the miss path), Mass
       Distortion and Golem Stopper with their species gates; resource ID 89
-      refuses spell damage. Poison Volley through the missile branch (one
-      shot per active member, weapon accuracy, 10 Poison plus the missile
-      contribution). The player hit comparison becomes unsigned as in DOS,
-      generically for every party attack (melee, Shoot, Poison Volley).
+      refuses spell damage. The player hit comparison becomes unsigned as in
+      DOS, generically for every party attack (melee and Shoot).
+- [ ] **Part C - Poison Volley and the shared volley.** Combat has no party
+      volley, so the Shoot volley progression (one shot per member, a miss
+      keeps the shot for later targets) moves from exploration's
+      `serviceShoot` into one shared rule used by exploration and combat,
+      keeping both owners and save v14. Poison Volley then works through
+      the missile branch everywhere: weapon accuracy, 10 Poison plus the
+      shooter's missile contribution, halved by the save.
 - [ ] Developer test save `monster-damage` (as `monster-control`): Vertigo,
-      casters with all 23 spells, ample SP and gems; README entry.
-- [ ] Regenerate `docs/coverage.md`; update `docs/rules/magic.md` evidence
-      labels only where Part 0 gives DOS evidence.
+      casters with all 23 spells, ample SP and gems; README entry. Part B
+      creates it; Part C adds Poison Volley.
+- [ ] Regenerate `docs/coverage.md` in each part (41 of 76 spells after
+      Part B, 42 after Part C); update `docs/rules/magic.md` where an
+      implementation changes what it says.
 
 ## Acceptance
 
@@ -71,5 +78,8 @@ the format stays v14 (nothing new is persisted).
 - The current spell targeting holds at most three targets; All needs up to
   twelve. If that needs combat-state or ownership changes beyond targeting
   and resolution, stop and report before widening.
+- Part C changes exploration Shoot, which already plays and has
+  original-data digests: those must stay unchanged unless the hit-total
+  fix explains a difference.
 - Perceived sound and animation of the DOS selector differences and of the
   Holy Word miss are unplayed; audio stays deferred.
