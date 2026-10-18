@@ -586,11 +586,14 @@ and [special item IDs](../original-quirks.md#sv-item-spell-special-id).
 
 Recharge admits nonempty Misc containers with material at most 9, excluding
 power 53. It draws `U(1,6)` once and normally adds charges up to 63, preserving
-broken/cursed flags; there is no break or destruction draw. The DOS cap
-comparison masks with `0xbf`, retaining the curse bit: an eligible cursed
-item therefore fills to 63 charges (`0x31bae..0x31c3f`). The pin always
-compares just the six-bit charge count. See
-[cursed Recharge](../original-quirks.md#sv-recharge-cursed).
+broken/cursed flags; there is no break or destruction draw. Broken items
+are not refused. The DOS cap comparison masks the state with `0xbf`, which
+drops the cursed bit (`0x40`) but keeps the broken bit (`0x80`): an
+eligible broken item therefore always fills to 63 charges, while a cursed
+one recharges normally (`0x31bae..0x31c3f`; bits confirmed by Curse Item
+`0x2d685` and Break Weapon `0x2d52c`). The pin always compares just the
+six-bit charge count. See
+[broken Recharge](../original-quirks.md#sv-recharge-broken).
 
 Item to Gold converts a selected nonempty item immediately, with **no extra
 Yes/No confirmation**. Equipped, broken or cursed status does not refuse it;

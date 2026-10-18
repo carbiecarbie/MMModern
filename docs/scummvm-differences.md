@@ -47,9 +47,9 @@ mainland; many items apply there, others wait for areas not open yet.
 - **Special weapon IDs in item spells.** DOS Enchant and Item to Gold
   exclude ID exactly 34; the pin also excludes every higher ID.
   [Evidence](original-quirks.md#sv-item-spell-special-id). Pin: differs; master not rechecked. Rule established; M76 implementation pending.
-- **Recharge on cursed items.** DOS fills an eligible cursed item to 63
+- **Recharge on broken items.** DOS fills an eligible broken item to 63
   charges; the pin adds its normal 1..6 charges with the same cap.
-  [Evidence](original-quirks.md#sv-recharge-cursed). Pin: differs; master not rechecked. Rule established; M76 implementation pending.
+  [Evidence](original-quirks.md#sv-recharge-broken). Pin: differs; master not rechecked. Rule established; M76 implementation pending.
 - **Town Portal items in combat.** DOS continues from the refusal notice
   into its normal town dialog and can load the selected town; the pin returns.
   [Evidence](original-quirks.md#sv-town-portal-item-combat). Pin: differs; master not rechecked. Static route settled; DOSBox presentation unobserved, M76 implementation pending.

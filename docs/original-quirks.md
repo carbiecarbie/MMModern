@@ -221,11 +221,14 @@ finding ledger are in [M76 evidence](rules/evidence.md#m76-spells).
   `0x31df8..0x31dfe`; higher weapon IDs are not refused by these tests.
   **ScummVM:** differs; both tests reject IDs at least 34. Quest counters
   themselves are separate from selectable inventory records.
-- <a id="sv-recharge-cursed"></a> **Recharge fills an eligible cursed item
-  to 63 charges.** The cap comparison retains curse bit `0x80` with mask
-  `0xbf` (`0x31c0d..0x31c1f`), so it always takes the cap branch. Broken
-  bit `0x40` is ignored for that comparison and preserved in the record.
-  One 1..6 draw still occurs; no break/destruction draw occurs.
+- <a id="sv-recharge-broken"></a> **Recharge fills an eligible broken item
+  to 63 charges.** The cap comparison masks the state with `0xbf`
+  (`0x31c0d..0x31c1f`), which keeps broken bit `0x80`, so a broken item
+  always takes the cap branch. Cursed bit `0x40` is dropped for that
+  comparison, so a cursed item recharges normally; both flags stay in the
+  record. Bit values: Curse Item sets `0x40` (`0x2d685`), Break Weapon
+  `0x80` (`0x2d52c`). One 1..6 draw still occurs; no break/destruction
+  draw occurs.
   **ScummVM:** differs; it compares the six-bit charge count alone.
 - <a id="sv-town-portal-item-combat"></a> **Town Portal items continue after
   the combat refusal notice.** The branch `0x3a058..0x3a075` reaches the
