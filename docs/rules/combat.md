@@ -429,6 +429,37 @@ insertion order: party members first in combat order, then front monster slots
 0, 1 and 2. Speed zero is omitted from this table. The table alone does not grant
 an action to a disabled character; action eligibility is handled separately.
 
+**DOS static (2026-10-17), high confidence: re-enabled members.** The
+next-actor search continues from the speed-order cursor, rather than scanning
+from the beginning. Advancing marks the previous actor's action flag, including
+a disabled member whose slot was skipped (`0x2dd6d..0x2dd9f`). The condition
+switch (`0x2de09`, table `0x2de5e`) skips Asleep, Paralyzed, Unconscious,
+Dead, Stoned and Eradicated. Therefore a member re-enabled before their slot
+arrives can act this round; one re-enabled after it was skipped waits until
+the next round's flag reset. This applies to Awaken, Cure Paralysis, Stone to
+Flesh and revival, provided no other disabling condition remains.
+
+When only completed/disabled actors remain, the completion predicate
+`0x2cfe3..0x2d06d` ends the round; the combat loop clears action/Block flags,
+rebuilds the order and resets the cursor (`0x2ea0f..0x2ea47`). A final terminal
+slot need not receive an action-flag write: the predicate already treats
+conditions 11..15 as completed. Asleep instead gets marked as the skip loop
+advances. Neither case offers another player action between the skipped tail
+and the round reset. The all-disabled inner path also resets at
+`0x2ddb6..0x2ddcf`; party defeat/exit can supersede round continuation.
+
+Calibration reproduced Run's strict threshold, removal and order rebuild
+(`0x2e1c0..0x2e1f2`). The pin's `Interface::nextChar` agrees. **Current
+MMModern differs:** `XeenCombat.cpp::selectNext` restarts at the beginning and
+leaves skipped members unmarked, allowing a re-enabled member to act late in
+the same round; M75 Part A brings it in line with DOS. See [healing evidence](evidence.md#party-healing-spells)
+for the complete trace. **HP alone is not an admission gate:** with no disabling
+condition, a zero/negative-HP member receives a turn; the condition-only defeat
+check (`0x24f29..0x24f8f`), portrait focus and ordinary command dispatcher do
+not reject it. Attack is admitted at `0x2e8c3`; complete Block/Run paths
+(`0x2e205..0x2e210`, `0x2e1c0..0x2e204`) also have no HP test. The pin
+agrees. This establishes turn/command admission, not all downstream effects.
+
 Block marks the acting member blocked, changing the later monster hit threshold
 as described above. Run draws `R(1,100)` and succeeds only when the draw is
 strictly less than the map's chance-to-run field. For threshold 50, rolls 1-49

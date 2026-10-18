@@ -61,7 +61,7 @@ Earlier evidence is retained under `D:\MModern-re\20261011-rea-ghidra\` and
 the external `D:\MModern-re\ghidra-xeen-dat\WorldXeenDat.gpr` project.
 Its authoritative summaries and calibration are in
 [original quirks](../original-quirks.md) and
-[M61 price evidence](../milestone-61-plan.md#original-program-price-evidence-and-confidence).
+[Smith price rules](items.md#smith-prices).
 
 ## Presentation clock captures (2026-10-13)
 
@@ -214,7 +214,7 @@ original-program checks.
 | Finding | Original anchors | Calibration and boundary |
 | --- | --- | --- |
 | All 76 SP costs and all 76 gem costs agree with the pin | Signed-word SP table `[0x4f752,0x4f7ea)`; gem-byte table `[0x4f7ec,0x4f838)`; cost lookup `0x2f2de..0x2f2e9`, refund lookup `0x2f353..0x2f35f` | Comparison against `SPELL_COSTS` and `SPELL_GEM_COST` has zero differing entries. The two-byte gap is not a gem entry. This establishes the tables, not every Guild or cost-overflow rule. |
-| Resurrection cancellation refunds its own cost | Global dispatch 58 at `0x33598` reaches `0x30bee`; target call supplies 58 at `0x30bf3`; cancel return `0x30bff..0x30c01` | First Aid supplies 26 and Suppress Poison supplies 68 to the same prompt/refund convention. DOS refunds 125 SP/20 gems; the pin supplies Raise Dead 56 and refunds 50 SP/10 gems. Resurrection's recovery effect remains a separate unverified question. |
+| Resurrection cancellation refunds its own cost | Global dispatch 58 at `0x33598` reaches `0x30bee`; target call supplies 58 at `0x30bf3`; cancel return `0x30bff..0x30c01` | First Aid supplies 26 and Suppress Poison supplies 68 to the same prompt/refund convention. DOS refunds 125 SP/20 gems; the pin supplies Raise Dead 56 and refunds 50 SP/10 gems. The later [healing check](#party-healing-spells) settles the recovery effect. |
 | Nature's Cure heals 25 HP | Dispatch 49 at `0x33550` reaches `0x2fb9e`; target ID at `0x2fba3`; terminal refusals `0x2fbe0..0x2fbef`; heal argument 25 at `0x2fbf9`, helper `0x2ee3a` | First Aid passes 6 at `0x2f450` to the same helper. No separate condition cure exists in the traced handler; positive-HP Unconscious clearing belongs to healing. |
 | Normal Item Use spends before dispatch, without learned-cast resource debit | Entry `0x313b7`, admission `0x313ce`; decrement `0x3145c`; caster pointer assignment `0x3146d..0x31470`; dispatch call `0x3149e`; exhausted removal `0x314a4..0x314c6`; monster response `0x314ce` | Retained DOS play establishes no time advance, failed Jump spending and last-charge removal. The item caller has no SP/gem debit. Combat restrictions and individual effect failures remain separate checks. |
 | Escaping a First Aid item's target prompt grants the user 1 SP | Item dispatcher `0x39e4b`; power-4 branch `0x39e79` reaches First Aid `0x2f3f5`; ID 26 at `0x2f3fa`; prompt `0x2f0ba`; Escape branch `0x2f146`; refund `0x2f34b`, SP addition `0x2f386` | The caller set this user as caster and did not debit SP. Refund adds to caster field `0x158`, with no maximum-SP clamp or item-origin test; party gem addition at `0x2f38f..0x2f393` is zero for this spell. Charge and normal post-effect settlement remain. This does not establish other powers' refund IDs. |
@@ -249,6 +249,130 @@ The pin's shared Incinerate handler therefore does not establish identical item
 presentation. Its Town Portal control flow is also not a complete account of
 the original item route. Full non-First-Aid cancellation and travel outcomes
 remain open.
+
+## Party healing spells
+
+**DOS static, high confidence (2026-10-17):** MMModern baseline `493f6f6`,
+the exact original hash above, and pin `6814ee9b`. M74's hash-checking
+Capstone query was reused through WSL after REA rejected the Windows path.
+Fresh calibration reproduced First Aid's prompt ID 26 at `0x2f3fa` and
+argument 6 at `0x2f450`, calling healing helper `0x2ee3a` at `0x2f459`.
+Notes and bounded instruction slices remain outside the repository in
+`D:/MModern-re/m75-healing-spells/`; `findings.md` answers the ten questions.
+Existing Nature's Cure amount, Suppress Poison correction and Resurrection
+refund evidence above is retained, rather than claimed as a new discovery.
+
+| Spell ID | Dispatch -> handler | Member prompt ID location | SP / gems |
+| --- | --- | --- | --- |
+| 6 Create Food | `0x332fc -> 0x30642` | None | 20 / 5 |
+| 7 Cure Disease | `0x33304 -> 0x302a1` | 7 at `0x302a2` | 10 / 0 |
+| 8 Cure Paralysis | `0x3330c -> 0x3058b` | 8 at `0x3058c` | 12 / 0 |
+| 9 Cure Poison | `0x33314 -> 0x2ffdf` | 9 at `0x2ffe0` | 8 / 0 |
+| 16 Divine Intervention | `0x3334c -> 0x30d4f` | None | 200 / 20 |
+| 49 Nature's Cure | `0x33550 -> 0x2fb9e` | 49 at `0x2fba3` (retained) | 6 / 0 |
+| 52 Power Cure | `0x33568 -> 0x2fb10` | 52 at `0x2fb15` | 2L / 3 |
+| 56 Raise Dead | `0x33588 -> 0x308fd` | 56 at `0x30902` | 50 / 10 |
+| 58 Resurrection | `0x33598 -> 0x30bee` | 58 at `0x30bf3` (retained) | 125 / 20 |
+| 64 Stone to Flesh | `0x335c8 -> 0x30825` | 64 at `0x30826` | 35 / 5 |
+| 67 Suppress Disease | `0x3361f -> 0x2f838` | 67 at `0x2f83d` | 5 / 0 |
+| 68 Suppress Poison | `0x33627 -> 0x2f62f` | 68 at `0x2f634` (retained handler) | 4 / 0 |
+
+All 76 SP/gem entries again compare equal to the pin. These twelve dispatch
+entries call their handlers directly, without a combat prohibition; charging
+precedes dispatch (`0x3327b`, `0x332bb..0x332c7`). Escape passes the prompt's
+ID to refund (`0x2f146..0x2f159`); SP/gem writes are `0x2f386..0x2f393`.
+
+The shared helper refuses Dead/Stoned/Eradicated (`0x2ee61..0x2ee6e`) and
+clears Unconscious only at positive HP (`0x2eeaf..0x2eeb7`). Cure Poison,
+Disease, Paralysis and Stone to Flesh have no terminal refusal of their own:
+helper calls `0x30013`, `0x302d5`, `0x305bf`, `0x30859` precede clears
+`0x30030`, `0x302f2`, `0x305dc`, `0x30876`. Power Cure refuses terminal
+targets at `0x2fb52..0x2fb61`, then makes one inclusive 2..12 draw
+(`0x2fb6b..0x2fb74`, helper `0x45b9a`) multiplied by caster level
+(`0x2fb78..0x2fb8d`, level helper `0x21fc9`).
+
+Suppress Disease tests zero at `0x2f86c`, sets 1..3 to 1 at `0x2f87c`,
+subtracts 3 at `0x2f88c`, then calls healing at `0x2f8a4` even for zero.
+The pin also subtracts 3; its difference is skipping the helper at zero.
+The follow-up also traces the complete Suppress Poison handler: zero branches
+from `0x2f663..0x2f669` directly to `0x2f68a`; counts 1..3 are set to 1
+at `0x2f673`, and counts 4+ subtract 3 at `0x2f683`. All selected-target
+paths join at `0x2f68a` and call healing with zero at `0x2f692..0x2f69b`.
+Cancellation exits before these paths. Unlike Suppress Disease, the pin's
+Suppress Poison also calls healing at zero: there is no extra zero-path
+discrepancy. The previously established prompt/refund and decrement differences
+remain the only Suppress Poison differences in this check.
+Raise Dead requires Dead (`0x30934..0x30943`), clears Dead/Unconscious and
+sets HP 0 (`0x3094a..0x30954`) before healing 1 (`0x30963..0x3096c`).
+Other terminal flags remain and can leave HP 0. No age write occurs.
+Resurrection requires Eradicated (`0x30c25..0x30c34`), calls healing 0 while
+it is still set (`0x30c3e..0x30c47`), then clears only Eradicated
+(`0x30c50`): no HP refill or Unconscious clear. Both decrement the Endurance
+byte before checking minimum 1 (`0x30975..0x30986`, `0x30c56..0x30c6b`):
+input 0 wraps to 255, unlike the pin's integer decrement. Resurrection's
+temporary age increases by 5, capped at 250 (`0x30c73..0x30c91`).
+
+Divine Intervention ages the caster by 5 capped at 250 (`0x30d54..0x30d77`),
+loops the active array at DS:`b41e`, stride `0x162`, count DS:`ed8c`
+(`0x30d7f..0x30dde`), clears Cursed through Stoned while preserving
+Eradicated (`0x30d91..0x30db7`), and assigns maximum HP only if not
+Eradicated (`0x30dbc..0x30dd1`). It does not write SP. Create Food adds
+that same unfiltered active count to the food word at DS:`eff6`
+(`0x30642..0x30647`): modulo 65536, no saturation. The pin uses a wider
+in-memory food field, although its save serializes 16 bits.
+
+Item powers 26/27/37/41/44/51/56/57/66/73 call the same handlers at
+`0x39f41`/`0x39f49`/`0x39fb1`/`0x39fd1`/`0x39ff5`/`0x3a038`/
+`0x3a082`/`0x3a08a`/`0x3a0db`/`0x3a10c`. Their branches end at the common
+return; no neighboring handler is attributed by fall-through. The item
+caller debits a charge (`0x3145c..0x31462`), sets the user as caster
+(`0x3146d..0x31470`), and dispatches (`0x3149e`) without SP/gem debit.
+Thus the eight targeted powers refund their own spell costs on Escape;
+Create Food/Divine Intervention have no member prompt. This extends the
+First Aid cancellation evidence only to these traced powers.
+
+**Combat turn order, DOS static, high confidence:** follow-up calibration
+reproduced Run's 1..100 draw/strict threshold (`0x2e1c0..0x2e1d4`), combat
+member removal/compaction and speed rebuild (`0x2e1dc..0x2e1eb`). Healing
+handlers map a selected slot through DS:`9720`, bounded by DS:`971f`, to an
+active record; they do not reinsert members or reset action flags/cursors.
+`0x2dd6d..0x2dd9f` marks DS:`9707[current actor]`, increments cursor
+DS:`97fe`, reads order DS:`9713` and stores actor DS:`97ff`. A disabled
+slot takes the skip loop back through that same flag write. The condition
+table is **`0x2de5e`**, correcting the earlier `0x2de7e` transcription:
+CS offset `0x212e` plus file segment base `0x2bd30`. It skips conditions
+8 and 11..15; 9/10 continue. Re-enabled before its slot, a member can act
+this round; after a skipped slot, it waits for next round's flag reset.
+
+The last disabled slot does not leave a revival opportunity before reset:
+the completion predicate (`0x2cfe3..0x2d06d`) ignores unflagged terminal/
+Paralyzed/Unconscious members (11..15), whereas Asleep is marked by continuing
+the skip loop. The caller checks completion at `0x2ea10`, clears action and
+Block flags, calls `0x2e3e5`, resets both cursors and selects again
+(`0x2ea1a..0x2ea47`). The all-disabled inner path resets at
+`0x2ddb6..0x2ddcf`; defeat/exit remains possible. Rebuilding speed order
+alone (for example Run) is not the same as the next round's flag reset.
+These rules match the pin's `Interface::nextChar`/`Combat::allHaveGone`.
+They differ from current MMModern `XeenCombat.cpp::selectNext`, which starts
+over and leaves skipped members unmarked; M75 Part A brings it in line
+with DOS (maintainer decision). This concerns Awaken as
+well as Part A's Cure Paralysis/Stone to Flesh and Part B's revival spells.
+
+**HP-only admission, DOS static, high confidence:** zero/negative HP alone
+does not deny a turn when no disabling condition remains. The party-defeat
+gate `0x24f29..0x24f8f` reads only condition IDs (table `0x24f91`), not HP;
+No Condition returns not defeated. Actor focus `0x1f8b6..0x1f92c` only
+draws the portrait selection. Combat input `0x2e808..0x2e824` dispatches
+keys through tables `0x2ecad`/`0x2ecd7`: Attack to `0x2e8c3`, Block to
+`0x2e951`, Run to `0x2e920`, without an HP admission gate. Block's complete
+effect `0x2e205..0x2e210` and Run's `0x2e1c0..0x2e204` do not test HP;
+Attack enters `0x2c8a2`. The separate learned Cast menu condition gate is
+`0x3324e -> 0x1e3bc`, followed by SP/gem checks, not a general combat menu.
+The pin agrees on these admission paths. Thus Resurrection can leave HP
+nonpositive without itself barring action, provided other disabling conditions
+are absent and the turn-order rule permits it. This is an admission result,
+not an exhaustive claim about every downstream attack/spell effect. No DOSBox
+protocol remains required to settle the requested scheduling/admission questions.
 
 ## Monster treasure staging
 
@@ -392,7 +516,7 @@ replacements for the control-flow interpretation above.
 | Damage and targeting | Confirm ranged continuation, elemental multi-attack arithmetic and targeting distributions for every party size. |
 | Items | Trace all other item-prompt refunds; Recharge, Enchant, Item to Gold, cursed refusals and high-tier generation. |
 | Treasure | Extend delivery evidence to the special sword and other editions' quest branches; the Clouds quest display/count boundary is established above. |
-| Magic | Establish Resurrection's actual recovery, Holy Bonus's combat contribution, control-spell duration, Poison Volley arithmetic and high-tier overflow. |
+| Magic | Establish Holy Bonus's combat contribution, control-spell duration, Poison Volley arithmetic and high-tier overflow; Resurrection's recovery is settled by the [healing check](#party-healing-spells). |
 | Travel | Settle Town Portal item behavior after its combat notice; complete Beacon, Teleport, Etherealize and terrain-arrival paths. |
 | Time | Verify remaining script-mode dawn behavior and uncalibrated condition-byte edges. Current MMModern wrapping/saturation is not literal equivalence with the pin's live integer counters; see the time chapter. |
 | Broader coverage | Event opcode catalogue, all services, AI/movement, character creation, Darkside/World transitions, audio and frame-level UI timing still need dedicated chapters and calibration. |

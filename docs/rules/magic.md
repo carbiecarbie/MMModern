@@ -124,9 +124,28 @@ Using power 4 and then Escape at its member prompt spends the charge and grants
 the item user 1 SP without an initial SP debit or maximum-SP clamp. Its gem refund
 is zero. The traced item caller, shared prompt and unconditional refund helper
 are detailed in [items](items.md#item-use-and-cancellation) and
-[evidence](evidence.md#spell-and-item-control-flow). **Unknown:** the complete
-resource effect of every other item/dialog cancellation path; do not generalize
-the amount or refund ID from this one route.
+[evidence](evidence.md#spell-and-item-control-flow). The M75 item paths below
+are also settled; other item/dialog cancellation paths remain unknown.
+
+**DOS static (2026-10-17), high confidence:** all twelve M75 spells are
+admitted in combat. The ten member-targeted handlers supply their own global
+spell ID to the shared prompt and refund their own table cost on Escape;
+Create Food and Divine Intervention have no member prompt. Item powers 26,
+27, 37, 41, 44, 56, 57 and 66 reach those same prompts: cancellation spends
+the charge and adds the corresponding spell's SP and gems to the item user
+and party, without an initial SP/gem debit or maximum-SP clamp. Powers 51
+and 73 have no target cancellation. Power Cure's refund is `2L` SP/3 gems,
+using the item user's level. See [offsets and limits](evidence.md#party-healing-spells).
+
+**DOS static, high confidence:** re-enabled members retain their combat-party
+slots. Before their slot arrives they can act this round; after a skipped
+slot they wait until next round's flag reset. This applies to Awaken,
+Cure Paralysis, Stone to Flesh and revival, with other disabling conditions
+still respected. The pin agrees; current MMModern restarts its scan and can
+allow a late same-round action. See [turn-order evidence](combat.md#initiative-block-run-and-monster-recovery)
+and [admission evidence](evidence.md#party-healing-spells). Zero/negative HP
+alone does not prevent a turn or ordinary command admission when disabling
+conditions are absent; Resurrection need not refill HP to restore eligibility.
 
 Exploration learned casts enter the normal step charge (1 minute indoors,
 10 outdoors); item Use is a separate settlement path. **DOS play:** retained
@@ -138,7 +157,10 @@ Escape before selecting an item. See [the item-use evidence](../original-quirks.
 
 ## Healing and conditions
 
-**Evidence: Reference only**, except the marked DOS corrections.
+**Evidence: DOS static (2026-10-17), high confidence** for the twelve M75
+spells and the shared healing helper's terminal guards and condition order;
+other rows remain Reference only unless marked. See the
+[bounded handler checks](evidence.md#party-healing-spells).
 Sources: [spell handlers][spells], [character rules][character]
 `Character::addHitPoints`, `isDead`.
 
@@ -157,13 +179,13 @@ member. Spell handlers can still clear their explicit condition afterward.
 | Cure Poison / Disease / Paralysis | Call `addHitPoints(0)`, then clear the named condition, including on a terminal target. |
 | Stone to Flesh | Call `addHitPoints(0)` while Stoned is still set, then clear Stoned; this order can leave Unconscious untouched. |
 | Awaken | Every active member: clear Asleep; clear Unconscious if current HP is positive. No terminal-status guard. |
-| Suppress Disease | If count is nonzero, set counts 1-3 to 1 and subtract 3 from counts at least 4; then call `addHitPoints(0)`. Zero stays zero. |
-| Suppress Poison | **DOS static (retained):** subtract 3 at counts at least 4; the pin subtracts 2. The retained evidence establishes the decrement and cancellation correction above; other presentation details remain reference only. |
-| Raise Dead | Require Dead; clear Dead and Unconscious, set HP to 0, call `addHitPoints(1)`, then reduce permanent Endurance by 1 with minimum 1. Other terminal flags can prevent the heal. |
-| Resurrection | Require Eradicated; call `addHitPoints(0)` before clearing it, then reduce permanent Endurance by 1 (minimum 1) and add 5 temporary age (cap 250). No explicit HP refill. DOS confirmation remains open. |
+| Suppress Disease | Set counts 1-3 to 1 and subtract 3 from counts at least 4; zero stays zero. Always call `addHitPoints(0)` afterward, including at zero. The pin also subtracts 3, but skips the helper at zero. |
+| Suppress Poison | DOS branches `0x2f663..0x2f685` set counts 1-3 to 1, subtract 3 at counts at least 4, and leave zero unchanged; all selected-target paths call `addHitPoints(0)` at `0x2f69b`. The pin agrees at zero and 1-3, but subtracts 2 and uses the wrong cancellation ID. |
+| Raise Dead | Require Dead; clear Dead and Unconscious, set HP to 0, call `addHitPoints(1)`, then decrement permanent Endurance as a byte, replacing a zero result with 1. Input 0 wraps to 255; inputs 1/2 become 1. No age change. Other terminal flags can prevent the heal, leaving HP 0. |
+| Resurrection | Require Eradicated; call `addHitPoints(0)` before clearing Eradicated alone, leaving HP and other conditions unchanged. Decrement permanent Endurance with the same byte rule as Raise Dead; add 5 temporary age, capped at 250. |
 | Divine Intervention | Add 5 caster temporary age, cap 250; clear conditions Cursed through Stoned for all active members, leaving Eradicated. Refill HP only for non-eradicated members. It does not refill SP. |
 | Moon Ray | Deliver attack first, then draw `U(1,30)` separately for every active member and call `addHitPoints` with it, even if terminal status makes the heal ineffective. |
-| Create Food | Add active-party size to food, without filtering by condition. Original overflow behavior is not established here. |
+| Create Food | Add active-party size to the unsigned 16-bit food field, without filtering by condition; wrap modulo 65536, with no cap. The pin's in-memory field is wider. |
 
 **DOS static (2026-10-12), high confidence: Nature's Cure heals 25.**
 DOS dispatch ID 49 at `0x33550` reaches `0x2fb9e`; target ID 49 is supplied
@@ -475,8 +497,8 @@ other admission-list differences match DOS is
 The strongest retained DOS findings are the Pain, Suppress Poison,
 elemental-damage and Magic Arrow corrections. Most of this chapter is a
 carefully bounded reference inventory. Unknown high-impact areas include
-non-First-Aid item-prompt refunds, Resurrection's actual recovery effect, high-tier overflow, full travel
-spell dialogs. Names and spell descriptions are not sufficient evidence
+item-prompt refunds outside the traced First Aid/M75 paths, high-tier overflow,
+and full travel spell dialogs. Names and spell descriptions are not sufficient evidence
 for these rules.
 
 MMModern cross-checks (implementation evidence, not DOS proof):

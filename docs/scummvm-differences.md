@@ -28,6 +28,25 @@ mainland; many items apply there, others wait for areas not open yet.
 
 ## Combat and conditions
 
+- **Suppress Disease without Disease.** DOS still applies zero-point healing,
+  which can clear Unconscious at positive HP; the pin skips it. Both subtract
+  3 from Disease counts of at least 4. Not implemented; DOS rule for M75.
+  [Evidence](original-quirks.md#sv-suppress-disease-zero). Pin: differs; master not rechecked.
+- **Suppress Poison's refund and reduction.** DOS refunds 4 SP on cancel and
+  subtracts 3 from counts of at least 4; the pin refunds 1 and subtracts 2.
+  Not implemented; DOS rule for M75.
+  [Evidence](original-quirks.md#sv-suppress-poison). Pin: differs; master not rechecked.
+- **Resurrection cancellation.** DOS refunds 125 SP/20 gems, including from
+  its item prompt; the pin uses Raise Dead's 50 SP/10 gems. Not implemented;
+  DOS rule for M75.
+  [Evidence](original-quirks.md#sv-resurrection-refund). Pin: differs; master not rechecked.
+- **Revival at zero Endurance.** DOS byte arithmetic changes 0 to 255 before
+  testing the minimum; the pin gives 1. Ordinary-play reachability is not
+  established. Not implemented; DOS rule for M75.
+  [Evidence](original-quirks.md#sv-revival-endurance-byte). Pin: differs; master not rechecked.
+- **Create Food overflow.** DOS wraps its food counter modulo 65536; the pin
+  retains a wider total in memory. Not implemented; DOS rule for M75.
+  [Evidence](original-quirks.md#sv-create-food-wrap). Pin: differs; master not rechecked.
 - **Poison Volley and negative hit totals.** DOS treats the final accuracy
   total as an unsigned word, so a negative total can become a hit; the pin's
   signed comparison misses. This belongs to the shared player accuracy
@@ -54,7 +73,6 @@ mainland; many items apply there, others wait for areas not open yet.
   succeeds in both. The core scans every map slot before queued shots; learned
   casts and item Use apply controls (M73 Parts A/B). Pin: differs; master not rechecked.
   [Evidence](original-quirks.md#sv-monster-recovery).
-
 - **Terrain damage starts fresh for each character.** Lava and surface falls
   use their full starting damage for every party member in DOS. The pin
   carries earlier members' damage reductions into later members.

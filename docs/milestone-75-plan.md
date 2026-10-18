@@ -25,7 +25,7 @@ already saved).
 
 ## Tasks
 
-- [ ] **Part 0 - DOS check (read-only, delegated).** Compare the 12 handlers
+- [x] **Part 0 - DOS check (read-only, delegated).** Compare the 12 handlers
       in `WORLD/XEEN.DAT` with the rules table and the pin: target prompt ID
       and cancellation refund, terminal-condition guards, the order of
       `addHitPoints` and condition clearing, amounts and draws (Power Cure's
@@ -37,11 +37,21 @@ already saved).
       rejoins the turn order. Record differences with offsets in
       `docs/original-quirks.md` (and `docs/scummvm-differences.md`); raise
       evidence labels in `docs/rules/magic.md` only where DOS settles them.
-      Unsettled cases go to the maintainer before Part A.
-- [ ] **Part A - healing and cures.** The eight spells of the first group and
-      Create Food, single-member prompt where the original has one, with
-      their costs, gems and refunds. Suppress Poison uses the DOS prompt ID,
-      refund and decrement (closing the M60 "not implemented" quirk row).
+      Unsettled cases go to the maintainer before the part that depends on them.
+      Result: [calibrated DOS checks](rules/evidence.md#party-healing-spells)
+      settle every question; DOS matches the pin on combat turn order, and
+      MMModern's `selectNext` does not (maintainer decision: fix it first in
+      Part A).
+- [ ] **Part A - turn order, healing and cures.** First, combat turn order
+      as [DOS has it](rules/combat.md): the next-actor search continues from
+      the order cursor and marks a skipped disabled member as done, so a
+      member re-enabled after their slot passed waits for the next round,
+      while one re-enabled before it acts this round. One generic fix in
+      `XeenCombat.cpp::selectNext`, covering Awaken and every later cure.
+      Then the eight spells of the first group and Create Food,
+      single-member prompt where the original has one, with their costs,
+      gems and refunds. Suppress Poison uses the DOS prompt ID, refund and
+      decrement (closing the M60 "not implemented" quirk row).
 - [ ] **Part B - death and the whole party.** Raise Dead, Resurrection
       (refund of its own cost on cancel, as DOS) and Divine Intervention,
       in exploration and combat, including a member returning to combat
@@ -56,6 +66,9 @@ already saved).
 
 ## Acceptance
 
+- Turn order tests: a member re-enabled (Awaken, Cure Paralysis) before
+  their slot acts this round; after a skipped slot, only next round; a
+  skipped last slot ends the round.
 - Unit tests per spell: prompt, cancellation refund, terminal guards,
   condition order (Unconscious kept or cleared as the rules say), amounts,
   Power Cure's single draw, Suppress counts at 0, 1-3 and 4+, Raise Dead

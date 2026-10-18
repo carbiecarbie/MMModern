@@ -72,8 +72,8 @@ broken/cursed state; the Journey check refuses only records outside those tables
 
 **Evidence: DOS static (retained), high confidence.** The original price routine
 is file `0x3c67d`; category and mode dispatch, tables and DOSBox calibration are
-recorded in [M61 price evidence](../milestone-61-plan.md#original-program-price-evidence-and-confidence)
-and [original quirks](../original-quirks.md). Source comparison:
+recorded in [original quirks](../original-quirks.md), including the
+[attribute-material check](../original-quirks.md#sv-attribute-material-price). Source comparison:
 [ItemsDialog::calcItemCost][dialogs].
 
 For weapons, armor and accessories, start with the category's base price `B`.
@@ -187,7 +187,11 @@ does not enter this sequence.
 
 **Implemented (M61 Part C):** First Aid item Escape grants this uncapped 1 SP
 to the user and spends the charge. Other item powers gain no new refund; their
-complete original cancellation paths remain unverified.
+complete original cancellation paths were not established by M61. The later
+[M75 DOS checks](evidence.md#party-healing-spells) establish refunds for
+powers 26, 27, 37, 41, 44, 56, 57 and 66: each uses its spell's own ID and
+cost, including gems; powers 51 and 73 have no member prompt. This evidence
+does not itself implement those refunds.
 
 ## Discard, recharge and enchant
 
@@ -226,7 +230,7 @@ and delivery rules below. Source program: `WORLD/XEEN.DAT` SHA-256
 against the Event currency draw `0x23770..0x23791`. Reference sources:
 [Character::makeItem][character],
 [Combat::attack2][combat], [Party::giveTreasure][party]. The exhaustive low-tier
-generation ranges are recorded in [M61's catalogue](../milestone-61-plan.md#reachable-catalogue-exhaustive-generation-table-ranges).
+generation scope is summarized in [M61's catalogue](../milestone-61-plan.md#goal-and-final-scope).
 
 Generation level 1 permits weapons 1-33, armor 1-7 and Misc containers 1-9;
 no accessories. Level 2 expands armor through 13 and includes accessories 1-10.
