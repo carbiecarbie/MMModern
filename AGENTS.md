@@ -139,7 +139,11 @@ recurring, stop and propose a milestone instead.
   The maintainer's play-tests and release packages use `build-rel` too;
   `build-m44` (Debug, `-O0`) stays for debugging only. Setup is in
   `docs/dependencies.md`.
-- While iterating, run the affected tests and `ctest -L fast` on `build-rel`.
+- While iterating, build only the affected targets
+  (`cmake --build build-rel --target <name>`), run the affected tests, and
+  run `ctest --test-dir build-rel -L fast -j 8` (the declared `RUN_SERIAL`
+  and `RESOURCE_LOCK` properties keep it safe). Keep a helper used by one
+  test file inside that file rather than in a shared test header.
 - Write long build output to a log and read the summary and failures after
   completion.
 - **Documentation-only changes** (no production code or tests changed): check
