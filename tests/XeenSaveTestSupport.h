@@ -233,7 +233,7 @@ inline XeenSaveSnapshot sample() {
 // and roster counts, members, characters, quest counters/flags and game flags.
 inline std::size_t journeyOffset(const XeenSaveSnapshot &s) {
 	std::size_t n=20+25+6+2+s.activeRosterIds.size()+4*s.questItems.size()+s.questFlags.size()+s.gameFlags.size();
-	for(const auto &c:s.characters)n+=228+c.name.size();
+	for(const auto &c:s.characters)n+=232+c.name.size();
 	return n;
 }
 

@@ -366,7 +366,7 @@ The earlier `--encounter-26`, `--encounter-27`, `--journey-skeleton` and
 
 ## Save format
 
-There is **one current save format**: envelope v14, schema 9, content 14. It
+There is **one current save format**: envelope v15, schema 9, content 14. It
 keeps one generic state per visited map (monster positions and lifecycle,
 removed or moved objects, changed cells, disabled Events, explored cells and
 the Tavern tip index),

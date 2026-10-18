@@ -227,9 +227,9 @@ void sheet(Inputs &in,bool mouse) {
         check(f.flow->canSave(),"Discard did not settle inventory");
         const auto saved=f.snapshot();Fixture restored(in,saved);save_test::sameSnapshot(saved,restored.snapshot());
     }
-    auto s=inventorySource(in);s.camera={28,8,5,XeenDirection::West};s.characters[0].miscellaneous[0]={10,55,1,0};Fixture f(in,s);
+    auto s=inventorySource(in);s.camera={28,8,5,XeenDirection::West};s.characters[0].miscellaneous[0]={10,55,0x81,0};Fixture f(in,s);
     f.act(InspectInventoryAction{});key(f,'m',mouse);key(f,'1',mouse);const Owners before(f);key(f,'u',mouse);before.unchanged(f);
-    check(f.flow->inputContext(f.flow->frame().presentation()).dialog->anyKey,"Unsupported Use lacks notice");
+    check(f.flow->inputContext(f.flow->frame().presentation()).dialog->anyKey,"Broken item Use lacks notice");
 }
 }
 int main(int argc,char **argv) {

@@ -351,7 +351,15 @@ private:
 		prepareMutationRanges();
 		++worldRevision; ++partyReplacement; ++rosterReplacement;
 	}
-	void prepareVertigoPrelude(const XeenGameFlags &after) {
+	// A travel load changes only the existing world's map state and resource caches.
+    void prepareSpellMapPublication(const XeenWorld &candidate) {
+        s._mapStates=candidate._sessionState._mapStates;
+        s._accountedMonsters=candidate._sessionState._accountedMonsters;
+        s._headCache=candidate._sessionState._headCache;
+        maps=candidate._maps;objects=candidate._objects;cityStatistics=candidate._cityStatistics;
+        ++worldRevision;prepareMutationRanges();
+    }
+    void prepareVertigoPrelude(const XeenGameFlags &after) {
 		check();
 		flagValues=after.values();
 	}

@@ -5,6 +5,43 @@
 using namespace encounter_test;
 namespace {
 using R=XeenLearnedSpellRules;using S=XeenLearnedSpell;
+void mapTravel() {
+    for(auto spell:{S::LloydsBeacon,S::TownPortal}) {
+        const unsigned flag=spell==S::LloydsBeacon?0x800:0x100;
+        const auto loader=[&](auto id){auto m=map();m.geometry.id=id.number;m.geometry.flags=id==XeenMapIdentity(23)?flag:0;
+            m.geometry.runX=18;m.geometry.runY=4;
+            m.geometry.flags2=0;m.geometry.neighbors.fill(0);if(id==XeenMapIdentity(28))m.geometry.neighbors[1]=109;return m;};
+        XeenWorld blocked(loader);XeenCharacter caster;const XeenCamera here{23,9,11,XeenDirection::West};
+        const auto refused=R::travel(blocked,here,spell,1,&caster);
+        check(refused.failed && !refused.beacon && !refused.destination && !caster.lloydMap,"Restriction precedes dialog/default write");
+        XeenWorld w([&](auto id){auto m=loader(id);m.geometry.flags=0;return m;});
+        const auto cancel=R::travel(w,here,spell,0,&caster);
+        check(!cancel.failed && !cancel.destination && (spell!=S::LloydsBeacon || cancel.beacon==std::array<std::uint8_t,4>{28,18,4,0}),"Paid dialog cancel/default initialization");
+        const auto cost=R::cost(unsigned(spell),17);
+        check(cost.sp==(spell==S::LloydsBeacon?6u:30u) && cost.gems==(spell==S::LloydsBeacon?2u:5u),"Exact travel costs");
+        check(!R::supportedIn(unsigned(spell),true),"Learned combat and Quick Fight forbid map travel");
+        if(spell==S::LloydsBeacon) {
+            const auto set=R::travel(w,here,spell,1,&caster);
+            check(set.beacon==std::array<std::uint8_t,4>{23,9,11,0} && !set.destination,"Set records caster location only");
+            caster.lloydMap=23;caster.lloydX=9;caster.lloydY=11;
+            const auto same=R::travel(w,here,spell,2,&caster);
+            check(same.destination && !same.reload && same.destination->direction==here.direction,"Same map Return never reloads or turns");
+            const auto cross=R::travel(w,{28,18,4,XeenDirection::South},spell,2,&caster);
+            check(cross.destination && cross.reload && cross.destination->direction==XeenDirection::South,"Cross map Return loads and keeps facing");
+            for(unsigned side:{0u,1u}) {caster.lloydMap=side?23:29;caster.lloydSide=side;
+                check(R::travel(w,here,spell,2,&caster).unsupported,"Unopened or Darkside beacon must refuse before payment");}
+        } else {
+            const auto town=R::travel(w,here,spell,1,&caster);
+            const auto same=R::travel(w,{28,18,4,XeenDirection::East},spell,1,&caster);
+            check(town.reload && town.destination && town.destination->mapId==XeenMapIdentity(28) && town.destination->x==18 && town.destination->y==4 && same.reload,"Portal always loads Vertigo");
+            for(unsigned town=2;town<=5;++town)check(R::travel(w,here,spell,town,&caster).unsupported,"Unopened towns refuse before payment");
+        }
+    }
+    for(auto pair:{std::pair{28,S::LloydsBeacon},{55,S::TownPortal}}) {
+        check(xeenItemUseSpell(pair.first)==pair.second,"Travel item exploration dispatch");
+        check(!xeenItemUseSpell(pair.first,true),"Beacon combat item refusal; Portal refusal retained until step 7");
+    }
+}
 void handlers() {
     for(bool outdoor:{false,true})for(auto spell:{S::SuperShelter,S::Etherealize,S::TimeDistortion,S::Teleport}) {
         auto source=map();source.geometry.id=outdoor?23:28;source.geometry.flags2=outdoor?0x8000:0;
@@ -51,4 +88,4 @@ void handlers() {
         R::cost(70,7).sp==8 && !R::cost(70,7).gems && R::cost(69,7).sp==10 && !R::cost(69,7).gems,"C1 exact fixed costs");
 }
 }
-int main(){try{handlers();std::cout<<"M76 shelter and travel handler rules passed\n";return 0;}catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}
+int main(){try{mapTravel();handlers();std::cout<<"M76 shelter and travel handler rules passed\n";return 0;}catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}

@@ -30,7 +30,7 @@ enum class XeenLearnedSpell : std::uint8_t {
     FirstAid=26, FlyingFist=27, Hypnotize=33, InsectSpray=38, Jump=40,
     MagicArrow=45, Pain=50, PoisonVolley=51, Revitalize=59, Shrapmetal=60, Sleep=61, Sparks=62,
     ToxicCloud=72, TurnUndead=73, WizardEye=75,
-    Etherealize=21, SuperShelter=66, Teleport=69, TimeDistortion=70
+    Etherealize=21, SuperShelter=66, Teleport=69, TimeDistortion=70, LloydsBeacon=44, TownPortal=71
 };
 
 struct XeenSpellEffect {
@@ -63,7 +63,12 @@ class XeenWorld;
 // Disposable handler result. Admission checks precede payment; existing owners
 // publish the camera or run Rest after the spell has been paid.
 struct XeenSpellTravel {
-    bool failed=false, unsupported=false, shelter=false;
+    bool failed=false, unsupported=false, shelter=false, reload=false;
+    std::optional<std::array<std::uint8_t,4>> beacon;
+    void applyBeacon(XeenCharacter &caster) const {
+        if(!beacon)return;
+        caster.lloydMap=(*beacon)[0];caster.lloydX=(*beacon)[1];caster.lloydY=(*beacon)[2];caster.lloydSide=(*beacon)[3];
+    }
     std::optional<XeenCamera> destination;
 };
 
@@ -100,7 +105,9 @@ struct XeenSpellItemSelection {
 };
 class XeenLearnedSpellRules {
 public:
-    static XeenSpellTravel travel(XeenWorld &,const XeenCamera &,XeenLearnedSpell,unsigned distance=0);
+    // Input: Teleport distance; Beacon 0 cancel/default, 1 Set, 2 Return;
+    // Town Portal 0 cancel, 1..5 town. All guards precede any returned write.
+    static XeenSpellTravel travel(XeenWorld &,const XeenCamera &,XeenLearnedSpell,unsigned distance=0, const XeenCharacter *caster=nullptr);
     static std::optional<XeenSpellInformation> information(XeenLearnedSpell,const XeenCamera &,
         const std::vector<XeenActor> &,const std::array<std::optional<XeenMonsterIdentity>,3> &);
 	static std::optional<XeenSpellCategory> categoryForClass(XeenCharacterClass) noexcept;

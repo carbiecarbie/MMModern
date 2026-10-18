@@ -92,7 +92,7 @@ void preset(const GameInstallation &installation,const std::string &name,const f
     if(name=="m76-spells") {
         check(camera.mapId==28 && camera.x==18 && camera.y==4,"M76 preset position");
         check(party.monsterTreasure->gems==1000,"M76 preset gems");
-        for(unsigned id:{3u,30u,31u,53u,55u,12u,13u,42u,41u,74u,4u,15u,34u,19u,57u,39u,66u,21u,70u,69u}) {
+        for(unsigned id:{3u,30u,31u,53u,55u,12u,13u,42u,41u,74u,4u,15u,34u,19u,57u,39u,66u,21u,70u,69u,44u,71u}) {
             bool found=false;
             for(auto owner:{first,second}) {
                 const auto &caster=party.roster.at(owner);const auto category=*XeenLearnedSpellRules::categoryForClass(caster.characterClass);
@@ -106,12 +106,16 @@ void preset(const GameInstallation &installation,const std::string &name,const f
             check(found,"M76 preset charged power");
         }
         const auto &targets=party.roster.at(party.party.activeRosterIds()[2]);
-        for(unsigned i=0;i<4;++i)check(targets.miscellaneous[i].id==std::array<unsigned,4>{48,58,39,42}[i] &&
+        for(unsigned i=0;i<6;++i)check(targets.miscellaneous[i].id==std::array<unsigned,6>{48,58,39,42,28,55}[i] &&
             targets.miscellaneous[i].state==5,"M76 travel charged powers");
         check(targets.weapons[0].id && !targets.weapons[0].material && !targets.weapons[0].state &&
             targets.armor[0].id && !targets.armor[0].material && !targets.armor[0].state,"M76 plain enchant targets");
         check(targets.weapons[1].material && targets.weapons[2].state==0x80 && targets.weapons[3].state==0x40 && targets.weapons[4].id==34,"M76 refusal and ID-34 targets");
         const auto &misc=party.roster.at(second).miscellaneous;
+        for(unsigned i=0;i<3;++i) {
+            const auto &c=party.roster.at(party.party.activeRosterIds()[i]);
+            check(c.lloydMap==(i==0?28:i==1?23:29) && c.lloydSide==0 && c.lloydX==(i==1?9:18) && c.lloydY==(i==1?11:4),"M76 preset distinct character beacons");
+        }
         check(misc[6].state==2 && misc[7].state==0x42 && misc[8].state==0x82 && misc[5].id==53,"M76 ordinary/cursed/broken Recharge and excluded power-53 targets");
         const auto &nearby=saved.map(28).monsters->slots.at(0);
         check(nearby.x==17 && nearby.y==4 && nearby.lifecycle==XeenActorLifecycle::Present,"M76 nearby monster");

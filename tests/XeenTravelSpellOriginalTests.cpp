@@ -10,13 +10,17 @@ struct XeenRestTestAccess {
     static bool confirm(const XeenEventFlow &f){return f._encounter->_rest && f._encounter->_rest->phase==XeenEncounterFlow::RestContinuation::Phase::Confirm;}
     static bool refused(const XeenEventFlow &f){return f._encounter->_rest && f._encounter->_rest->phase==XeenEncounterFlow::RestContinuation::Phase::Refused;}
     static unsigned charges(const XeenEventFlow &f){return f._encounter->_rest?f._encounter->_rest->charges:0;}
-    static bool teleport(const XeenEventFlow &f){return bool(f._teleportUi);}
+    static void woundCity(XeenEventFlow &f) {
+        auto &e=*f._encounter;auto &a=const_cast<XeenActor&>(e._world.sessionState().regionalActors(28).at(0));a.hp=1;a.status=XeenActorStatus::Sleep;
+        e.retainJourney();f._encounterFrame=e.ticket();
+    }
+    static bool teleport(const XeenEventFlow &f){return bool(f._travelUi);}
     static bool complete(const XeenEventFlow &f){return f._encounter->_rest && f._encounter->_rest->phase==XeenEncounterFlow::RestContinuation::Phase::Complete;}
     static bool dream(const XeenEventFlow &f){return f._encounter->_rest && f._encounter->_rest->phase==XeenEncounterFlow::RestContinuation::Phase::Dream;}
     static void composer(XeenEventFlow &f,XeenEventFlow::TransitionCompose compose){f._transitionCompose=std::move(compose);}
     static std::string state(const XeenEventFlow &f) {
         const auto &e=*f._encounter;
-        return " teleport="+std::to_string(bool(f._teleportUi))+" cast="+std::to_string(bool(e._casting))+
+        return " teleport="+std::to_string(bool(f._travelUi))+" cast="+std::to_string(bool(e._casting))+
             " committed="+std::to_string(e._casting && e._casting->committed)+" done="+std::to_string(e._casting && e._casting->effectDone)+
             " ui="+(f._castingUi?std::to_string(unsigned(f._castingUi->phase)):"none")+" refusal="+(f._castingUi?f._castingUi->refusal:"")+" notice="+e.notice();
     }
@@ -28,7 +32,7 @@ std::string scenario;
 void tick(Fixture &f){f.now+=125;f.flow->beginCycle(++f.cycle);if(auto image=f.flow->updatePresentation())f.present(*image);}
 void key(Fixture &f,unsigned k){const auto input=f.flow->inputContext(f.flow->frame().presentation()).dialog;
     check(bool(input),"Travel input missing");const auto action=input->key(k);check(bool(action),"Travel key missing");f.act(*action);}
-void wire(Fixture &f){f.flow->loadRestDream=[&]{return f.in.assets.restDreamImage();};f.flow->loadSampleDuration=[&](auto name,auto archive){return xeenVocDurationNanoseconds(f.in.assets.readArchiveResource(name,archive));};}
+void wire(Fixture &f){f.flow->mapName=[&f](auto id){return f.in.assets.mapName(id);};f.flow->loadRestDream=[&]{return f.in.assets.restDreamImage();};f.flow->loadSampleDuration=[&](auto name,auto archive){return xeenVocDurationNanoseconds(f.in.assets.readArchiveResource(name,archive));};}
 void quiet(Fixture &f){for(unsigned n=0;n<1500 && !f.flow->canSave();++n) {
     check(!f.flow->encounter()->combat(),"Travel unexpectedly entered combat");
     check(XeenRestTestAccess::charges(*f.flow)==0,"Super Shelter created an ordinary interruption opportunity");
@@ -41,9 +45,9 @@ XeenSaveSnapshot source(Inputs &in,unsigned spell,bool combat=false) {
     for(auto map:{23,28})for(auto &a:s.map(map).monsters->slots) {a.x=a.y=-128;a.lifecycle=XeenActorLifecycle::Defeated;a.accounted=true;}
     for(auto id:s.activeRosterIds) {auto &c=s.characters[id];c.currentHp=1000;c.conditions.fill(0);c.miscellaneous={};c.weapons={};c.armor={};c.accessories={};
         s.journey->supplements[id].inputs.speed={int(180-id),0};}
-    auto &c=s.characters[s.activeRosterIds[0]];c.characterClass=XeenCharacterClass::Sorcerer;c.hasSpells=true;
+    auto &c=s.characters[s.activeRosterIds[0]];c.characterClass=spell==71?XeenCharacterClass::Cleric:XeenCharacterClass::Sorcerer;c.hasSpells=true;
     c.currentSp=1000;c.permanentLevel=10;c.temporaryLevel=0;c.learnedSpells.emplace();c.learnedSpells->fill(0);
-    c.currentSpell=*R::slotForSpell(XeenSpellCategory::Wizardry,spell);c.learnedSpells->at(c.currentSpell)=1;c.quickOption=1;
+    c.currentSpell=*R::slotForSpell(spell==71?XeenSpellCategory::Clerical:XeenSpellCategory::Wizardry,spell);c.learnedSpells->at(c.currentSpell)=1;c.quickOption=1;
     s.journey->supplements[c.rosterId].inputs.speed={250,0};s.journey->context->minutes=600;s.journey->treasure->gems=1000;
     auto &a=s.map(23).monsters->slots.at(7);a.x=1;a.y=1;a.lifecycle=XeenActorLifecycle::Present;a.accounted=false;
     if(combat){s.camera.direction=XeenDirection::West;auto &enemy=s.map(23).monsters->slots.at(5);enemy.x=8;enemy.y=11;enemy.lifecycle=XeenActorLifecycle::Present;enemy.accounted=false;}
@@ -54,6 +58,96 @@ void cast(Fixture &f,bool item,unsigned distance=0) {
     if(item){f.act(SelectMemberAction{0});key(f,'i');key(f,'m');key(f,'1');key(f,'u');}
     else {f.act(CastSpellAction{});f.act(SelectMemberAction{0});key(f,'c');}
     if(XeenRestTestAccess::teleport(*f.flow)){if(distance)key(f,'0'+distance);key(f,InputKey::Enter);}
+}
+void openTravel(Fixture &f,bool item) {
+    if(item){f.act(SelectMemberAction{0});key(f,'i');key(f,'m');key(f,'1');key(f,'u');}
+    else {f.act(CastSpellAction{});f.act(SelectMemberAction{0});key(f,'c');}
+}
+void mapTravel(Inputs &in) {
+    for(bool item:{false,true}) {
+        scenario="beacon set/return item="+std::to_string(item);
+        auto s=source(in,44);const auto owner=s.activeRosterIds[0],other=s.activeRosterIds[1];
+        s.map(23).tavernTips=17;s.map(28).tavernTips=29;
+        if(item)s.characters[owner].miscellaneous[0]={1,28,5,0};
+        Fixture set(in,s);wire(set);openTravel(set,item);
+        check(XeenRestTestAccess::teleport(*set.flow),"Beacon dialog absent");
+        // Set through the mouse hit table; Return uses its keyboard alias.
+        const auto input=set.flow->inputContext(set.flow->frame().presentation()).dialog;check(input && input->click(245,110) && input->button('t')->frame==2 && input->button('r')->frame==0,"Beacon original mouse sprites/targets absent");
+        set.act(*input->click(245,110));quiet(set);roundtrip(in,set);
+        check(set.p.roster.at(owner).lloydMap==23 && set.p.roster.at(owner).lloydX==9 && set.p.roster.at(owner).lloydY==11 &&
+            set.p.roster.at(other).lloydMap==s.characters[other].lloydMap,"Beacon Set must affect only caster");
+        auto saved=set.snapshot();saved.camera={28,18,4,XeenDirection::West};
+        Fixture cross(in,saved);wire(cross);openTravel(cross,item);key(cross,'r');quiet(cross);roundtrip(in,cross);
+        check(cross.c.mapId==XeenMapIdentity(23) && cross.c.x==9 && cross.c.y==11 && cross.c.direction==XeenDirection::West,"Return from Vertigo did not load mainland beacon");
+        check(cross.w.tavernTipIndex(23)==17 && cross.w.tavernTipIndex(28)==29,"Cross-map Return discarded per-map state");
+        auto sameSave=cross.snapshot();Fixture same(in,sameSave);wire(same);XeenTrainingTestAccess::woundTravel(*same.flow);
+        openTravel(same,item);key(same,'r');quiet(same);roundtrip(in,same);
+        const auto &monster=same.w.sessionState().regionalActors(23).at(7);
+        check(monster.hp==1 && monster.status==XeenActorStatus::Sleep,"Same-map Return reloaded live monsters");
+        check(same.p.encounterContext->minutes==600+(item?0:30),"Beacon learned suffix/item response timing");
+        check(same.p.roster.at(owner).currentSp==1000-(item?0:18) && same.p.monsterTreasure->gems==1000-(item?0:6),"Beacon paid Set and both Returns exactly once");
+        if(item)check(same.p.roster.at(owner).miscellaneous[0].state==2,"Beacon charges spent exactly once");
+    }
+    for(bool item:{false,true})for(bool inside:{false,true}) {
+        scenario="portal item="+std::to_string(item)+" inside="+std::to_string(inside);
+        auto s=source(in,71);const auto owner=s.activeRosterIds[0];if(inside)s.camera={28,18,4,XeenDirection::West};
+        auto &cityMonster=s.map(28).monsters->slots[0];cityMonster.x=1;cityMonster.y=1;cityMonster.lifecycle=XeenActorLifecycle::Present;cityMonster.accounted=false;
+        if(item)s.characters[owner].miscellaneous[0]={1,55,3,0};
+        Fixture f(in,s);wire(f);XeenTrainingTestAccess::woundTravel(*f.flow);
+        openTravel(f,item);key(f,'1');key(f,InputKey::Enter);quiet(f);roundtrip(in,f);
+        check(f.c.mapId==XeenMapIdentity(28) && f.c.x==18 && f.c.y==4 && f.c.direction==s.camera.direction,"Portal Vertigo destination/facing");
+        check(f.p.roster.at(owner).currentSp==1000-(item?0:30) && f.p.monsterTreasure->gems==1000-(item?0:5),"Portal paid once");
+        // A second Portal while already in Vertigo must still call Map::load.
+        auto again=f.snapshot();Fixture reload(in,again);wire(reload);
+        const auto before=reload.w.sessionState().regionalActors(28).at(0).hp;
+        XeenRestTestAccess::woundCity(*reload.flow);
+        openTravel(reload,item);key(reload,'1');key(reload,InputKey::Enter);quiet(reload);roundtrip(in,reload);
+        check(reload.p.encounterContext->minutes==600+(item?0:2),"Portal destination indoor suffix timing");
+        check(reload.w.sessionState().regionalActors(28).at(0).hp==before,"Portal inside Vertigo failed to reload monster HP");
+    }
+    for(bool item:{false,true})for(bool retry:{false,true}) {
+        scenario="portal numeric cancel/retry";auto s=source(in,71);const auto owner=s.activeRosterIds[0];
+        if(item)s.characters[owner].miscellaneous[0]={1,55,2,0};
+        Fixture f(in,s);wire(f);openTravel(f,item);
+        if(retry){key(f,'6');key(f,InputKey::Enter);check(XeenRestTestAccess::teleport(*f.flow),"Portal must retry digit above 5");}
+        key(f,'0');key(f,InputKey::Enter);quiet(f);roundtrip(in,f);
+        check(f.c.mapId==XeenMapIdentity(23) && f.c.x==9 && f.c.y==11 &&
+            f.p.roster.at(owner).currentSp==1000-(item?0:30) && f.p.monsterTreasure->gems==1000-(item?0:5),"Portal numeric cancel moved/refunded");
+    }
+    for(bool item:{false,true}) {
+        scenario="beacon stale dialog provider";auto s=source(in,44);const auto owner=s.activeRosterIds[0];
+        if(item)s.characters[owner].miscellaneous[0]={1,28,2,0};
+        Fixture f(in,s);wire(f);const auto rng=f.w.sessionState().journeyRandom();
+        f.flow->mapName=[&](auto id){++f.p.roster.at(owner).lloydX;--f.p.roster.at(owner).lloydX;return in.assets.mapName(id);};
+        bool rejected=false;try{openTravel(f,item);}catch(const std::exception &e){
+            const std::string message=e.what();if(message.find("preimage")==std::string::npos && message.find("integrity")==std::string::npos)throw;rejected=true;}
+        check(rejected && f.p.roster.at(owner).currentSp==1000 && f.p.monsterTreasure->gems==1000 &&
+            f.p.encounterContext->minutes==600 && f.w.sessionState().journeyRandom()==rng &&
+            (!item || f.p.roster.at(owner).miscellaneous[0].state==2),"Stale beacon work published payment/time/RNG");
+    }
+    for(unsigned spell:{44u,71u})for(bool item:{false,true})for(unsigned operation=0;operation<4;++operation) {
+        scenario="map travel guard/cancel spell="+std::to_string(spell)+" operation="+std::to_string(operation);
+        auto s=source(in,spell);const auto owner=s.activeRosterIds[0];s.characters[owner].lloydMap=0;
+        if(operation==0)s.camera={28,18,4,XeenDirection::West};
+        if(item)s.characters[owner].miscellaneous[0]={1,std::uint8_t(spell==44?28:55),3,0};
+        if(operation>=2){s.characters[owner].lloydMap=operation==2?29:23;s.characters[owner].lloydSide=operation==3;}
+        const auto loader=[&](auto id){auto m=in.maps.loadGeometryMap(in.assets,id);if(operation==0 && id==s.camera.mapId)m.geometry.flags|=spell==44?0x800:0x100;return m;};
+        Fixture f(in,s,false,nullptr,loader);wire(f);const auto rng=f.w.sessionState().journeyRandom();
+        openTravel(f,item);
+        if(operation==0)check(!XeenRestTestAccess::teleport(*f.flow) && !f.p.roster.at(owner).lloydMap,"Restriction opened dialog/defaulted beacon");
+        else if(operation==1)key(f,InputKey::Escape);
+        else {
+            const auto context=*f.p.encounterContext;const auto sp=f.p.roster.at(owner).currentSp;
+            if(spell==44)key(f,'r');else {key(f,'0'+operation);key(f,InputKey::Enter);}
+            check(f.p.roster.at(owner).currentSp==sp && f.p.monsterTreasure->gems==1000 && f.w.sessionState().journeyRandom()==rng &&
+                f.p.encounterContext->minutes==context.minutes && (!item || f.p.roster.at(owner).miscellaneous[0].state==3),"Unsupported destination spent cost/time/charge/RNG");
+            f.act(AcknowledgeAction{});key(f,InputKey::Escape);
+        }
+        quiet(f);roundtrip(in,f);
+        check(f.p.roster.at(owner).currentSp==1000-(item?0:spell==44?6:30),"Restricted/cancelled travel refunded cost");
+        check(f.p.monsterTreasure->gems==1000-(item?0:spell==44?2:5),"Restricted/cancelled travel gem cost");
+        if(spell==44 && operation==1)check(f.p.roster.at(owner).lloydMap==28 && f.p.roster.at(owner).lloydX==18 && f.p.roster.at(owner).lloydY==4,"Escape failed to retain default beacon");
+    }
 }
 void exploration(Inputs &in) {
     for(auto pair:{std::pair{66u,48u},{21u,58u},{70u,39u},{69u,42u}})for(bool item:{false,true})for(bool restricted:{false,true}) {
@@ -207,6 +301,6 @@ void combat(Inputs &in) {
 }
 }
 int main(int argc,char **argv){try{check(argc==2,"usage: travel-original <installation>");const auto detected=xeenTestInstallationDetector().detect(argv[1]);check(bool(detected),"Missing installation");Inputs in(*detected);
-    std::ostringstream out;auto *old=std::cout.rdbuf(out.rdbuf());try{exploration(in);rest(in);unsupported(in);shelterOrder(in);combat(in);}catch(...){std::cout.rdbuf(old);throw;}std::cout.rdbuf(old);
+    std::ostringstream out;auto *old=std::cout.rdbuf(out.rdbuf());try{mapTravel(in);exploration(in);rest(in);unsupported(in);shelterOrder(in);combat(in);}catch(...){std::cout.rdbuf(old);throw;}std::cout.rdbuf(old);
     std::cout<<"M76 same-map travel, Shelter, Rest cell refusal, costs, items and exact restore passed\n";return 0;
 }catch(const std::exception &e){std::cerr<<scenario<<": "<<e.what()<<'\n';return 1;}}

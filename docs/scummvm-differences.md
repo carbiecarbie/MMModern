@@ -52,7 +52,7 @@ mainland; many items apply there, others wait for areas not open yet.
   [Evidence](original-quirks.md#sv-recharge-broken). Pin: differs; master not rechecked. Rule established; M76 implementation pending.
 - **Town Portal items in combat.** DOS continues from the refusal notice
   into its normal town dialog and can load the selected town; the pin returns.
-  [Evidence](original-quirks.md#sv-town-portal-item-combat). Pin: differs; master not rechecked. Static route settled; DOSBox presentation unobserved, M76 implementation pending.
+  [Evidence](original-quirks.md#sv-town-portal-item-combat). Pin: differs; master not rechecked. Static route settled; DOSBox presentation unobserved. MMModern retains the refusal until step 7 (M76 decision 6).
 - **Rest's cell restriction.** DOS checks cell bit `0x40`, including on
   the mainland; the pin's cell test is ineffective. MMModern reads the DOS
   attribute bit, and Super Shelter bypasses both ordinary Rest restrictions.

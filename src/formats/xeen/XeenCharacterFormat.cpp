@@ -169,8 +169,8 @@ XeenRoster XeenCharacterFormat::parseRoster(const std::vector<std::uint8_t> &byt
 			character.awards[i+64]=details->awards[i+64];
 		}
 		details->birthDay = record[37]; details->temporaryAc = record[34];
-		details->xeenSide=record[18];details->lloydMap=record[160];
-		details->lloydX=record[161];details->lloydY=record[162];details->lloydSide=record[310];
+		details->xeenSide=record[18];character.lloydMap=record[160];
+		character.lloydX=record[161];character.lloydY=record[162];character.lloydSide=record[310];
 		character.currentSpell=record[164];character.quickOption=record[165];
 		details->townUnknown=readUint16LE(record+339);details->savedMaze=record[341];
 		details->adventuringSpell=record[352];details->combatSpell=record[353];

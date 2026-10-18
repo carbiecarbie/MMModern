@@ -13,12 +13,33 @@
 
 namespace mmodern {
 XeenSpellTravel XeenLearnedSpellRules::travel(XeenWorld &world,const XeenCamera &camera,
-        XeenLearnedSpell spell,unsigned distance) {
+        XeenLearnedSpell spell,unsigned distance,const XeenCharacter *caster) {
     const auto &map=world.map(camera.mapId);
-    const unsigned flag=spell==XeenLearnedSpell::SuperShelter?0x200:
+    const unsigned flag=spell==XeenLearnedSpell::LloydsBeacon?0x800:spell==XeenLearnedSpell::TownPortal?0x100:spell==XeenLearnedSpell::SuperShelter?0x200:
         spell==XeenLearnedSpell::Etherealize?0x40:spell==XeenLearnedSpell::TimeDistortion?0x400:0x1000;
     XeenSpellTravel result;
     if(map.geometry.flags&flag) {result.failed=true;return result;}
+    if(spell==XeenLearnedSpell::LloydsBeacon || spell==XeenLearnedSpell::TownPortal) {
+        auto to=camera;
+        if(spell==XeenLearnedSpell::LloydsBeacon) {
+            if(!caster)throw std::invalid_argument("Beacon requires a caster");
+            std::array<std::uint8_t,4> beacon{caster->lloydMap,caster->lloydX,caster->lloydY,caster->lloydSide};
+            if(!beacon[0])beacon={28,18,4,0};
+            result.beacon=beacon;
+            if(distance==1) {result.beacon=std::array<std::uint8_t,4>{std::uint8_t(camera.mapId.number),std::uint8_t(int(camera.x)),std::uint8_t(int(camera.y)),std::uint8_t(camera.mapId.side)};return result;}
+            if(distance!=2)return result;
+            to.mapId=XeenMapIdentity(static_cast<XeenSide>(beacon[3]),beacon[0]);to.x=beacon[1];to.y=beacon[2];
+            result.reload=to.mapId!=camera.mapId;
+        } else {
+            if(!distance)return result;
+            if(distance>1) {result.unsupported=true;return result;}
+            to.mapId=28;to.x=18;to.y=4;result.reload=true;
+        }
+        if(to.mapId.side!=XeenSide::Clouds || (to.mapId!=XeenMapIdentity(23) && to.mapId!=XeenMapIdentity(28) && to.mapId!=world.developerEventMap()))result.unsupported=true;
+        else {const auto admitted=world.prepareEventTransition(to,spell==XeenLearnedSpell::TownPortal);result.unsupported=!admitted;to=admitted.destination;}
+        if(!result.unsupported)result.destination=to;
+        return result;
+    }
     if(spell==XeenLearnedSpell::SuperShelter) {result.shelter=true;return result;}
     if(spell==XeenLearnedSpell::Teleport && !distance)return result;
     auto to=camera;
@@ -167,7 +188,7 @@ std::optional<std::uint8_t> XeenLearnedSpellRules::spellForSlot(XeenSpellCategor
 
 std::optional<XeenLearnedSpell> XeenLearnedSpellRules::supported(std::uint8_t id) noexcept {
     switch (id) {
-    case 21: case 66: case 69: case 70:
+    case 44: case 71: case 21: case 66: case 69: case 70:
     case 19: case 39: case 57:
     case 4: case 15: case 34: case 41: case 42: case 74:
     case 3: case 12: case 13: case 30: case 31: case 53: case 55:
@@ -184,7 +205,7 @@ std::optional<XeenLearnedSpell> XeenLearnedSpellRules::supported(std::uint8_t id
 }
 
 std::optional<XeenLearnedSpell> XeenLearnedSpellRules::supportedIn(std::uint8_t id, bool combat) noexcept {
-    if (combat && (id==19 || id==21 || id==40 || id==66 || id==69 || id==75)) return std::nullopt;
+    if (combat && (id==44 || id==71 || id==19 || id==21 || id==40 || id==66 || id==69 || id==75)) return std::nullopt;
     return supported(id);
 }
 unsigned XeenLearnedSpellRules::cost(XeenLearnedSpell spell) noexcept {
@@ -243,7 +264,7 @@ XeenSpellTarget XeenLearnedSpellRules::target(std::uint8_t id) noexcept {
     case 10: case 26: case 59: return XeenSpellTarget::Member;
     case 2: case 17: case 33: case 38: case 61: case 62: case 72: case 73:
     case 20: case 27: case 45: case 50: case 60: return XeenSpellTarget::Contact;
-    case 21: case 69: case 70: case 40: return XeenSpellTarget::Relocation;
+    case 44: case 71: case 21: case 69: case 70: case 40: return XeenSpellTarget::Relocation;
     case 66: return XeenSpellTarget::Party;
     default: return XeenSpellTarget::Unsupported;
     }

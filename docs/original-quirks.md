@@ -239,7 +239,8 @@ finding ledger are in [M76 evidence](rules/evidence.md#m76-spells).
   map restriction clear, a selection can load the town even in combat.
   Cancellation does not refund the charge. **ScummVM:** differs; it returns
   after the notice. Static reachability is settled; the anomalous route's
-  complete DOSBox presentation remains unobserved.
+  complete DOSBox presentation remains unobserved. MMModern keeps the combat
+  item refusal until step 7 and its DOSBox presentation check (M76 decision 6).
 - <a id="sv-rest-cell-flag"></a> **DOS ordinary Rest honors cell bit 0x40.**
   Lookup stores attribute `&0x40` in DS:`f488` (`0x11fe7..0x11fec`), and
   Rest checks it before the primary map flag (`0x1e50d..0x1e521`). Mode 12
@@ -251,7 +252,8 @@ finding ledger are in [M76 evidence](rules/evidence.md#m76-spells).
   attribute bit `0x40`. Super Shelter bypasses both ordinary refusals.
 
 - **Item travel arrival timing is only partly confirmed in DOS.** Item
-  Jump, Etherealize, Time Distortion and Teleport return through the existing
+  Jump, Etherealize, Time Distortion, Teleport, Lloyd's Beacon and Town
+  Portal return through the existing
   item-use monster response, without an immediate terrain-arrival call.
   The calibrated call sites are `0x39e4b`, `0x0d411` and `0x0d5ba`; see
   [M76 travel evidence](rules/evidence.md#m76-spells). The exact timing of

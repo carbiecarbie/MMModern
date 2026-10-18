@@ -256,11 +256,11 @@ namespace m44_baseline {
 inline constexpr const char *revision = "M72 (save v14), baseline e21f398";
 struct Scenario { const char *name; std::uint32_t seed; const char *sha256; };
 inline constexpr std::array<Scenario,4> scenarios{{
-    {"mainland-combat-myra-phirna",3626689381u,"be95a00f4b9d977770bd63aa4f5bdee066c26f0c2c269a7d5df9cfd777c694d6"},
+    {"mainland-combat-myra-phirna",3626689381u,"202b6d402a0a160aedced163ac604a561858878d18e8b486060320e96f66e2da"},
     // M75: a member woken after its skipped slot waits for the next round (DOS turn order).
-    {"vertigo-buy-repair-training",7u,"8a4beeb6640a2aae32523cb48f54d88db6ce78ae4cf0fcf6a1ee594a28c0de1f"},
-    {"temple-recovery",3626689381u,"f2b207207a0a35d92f57b85af24b4b85c1d4625499cfde10017696601c075190"},
-    {"vertigo-f3-roundtrip",3626689381u,"6b6396f2254cae6928fafefcdec9dfcf928d21a36244b35ad3bda858844898cd"}
+    {"vertigo-buy-repair-training",7u,"de7e4a64d04dc7cf8b3dd22e20969022c271291943533f49ddeb05df08b5bfa6"},
+    {"temple-recovery",3626689381u,"4afaf0a9824e7d56bd1ab4836f0de6d53f186f719345c52ca58e3af955c40165"},
+    {"vertigo-f3-roundtrip",3626689381u,"d70cc74ce934d45a3731954a8dc1eccb1289d64339cf470c4ae5a9fb1d64a52b"}
 }};
 }
 #endif

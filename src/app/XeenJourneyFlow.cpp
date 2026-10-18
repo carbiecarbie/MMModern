@@ -44,7 +44,13 @@ XeenEncounterFlow::XeenEncounterFlow(XeenWorld &w, XeenPartyState &p, XeenCamera
 	const auto preparedStart=setup.prepared;
 	const auto mainlandProvider=setup.mainlandEventsProvider;
 	const auto cityProvider=setup.cityEventsProvider;
-	const auto start=setup.start;
+	_travelEventsProvider=[mainlandProvider,cityProvider,fixture=setup.eventFixture,original=setup.events](XeenMapIdentity id) {
+        if(fixture && id==fixture->mapId)return original;
+        if(id==XeenMapIdentity(23) && mainlandProvider)return mainlandProvider();
+        if(id==XeenMapIdentity(28) && cityProvider)return cityProvider();
+        throw std::logic_error("Travel destination Events unavailable");
+    };
+    const auto start=setup.start;
 	const auto eventFixture=setup.eventFixture;
 	_journeyEvents = setup.events;
 	_journeyCapture.reset(new XeenJourneyCapture(w,p,c,_state,_boundary,_busy,_journeyPreimage,&_needsRestNotice));
@@ -263,6 +269,7 @@ std::optional<std::uint64_t> XeenEncounterFlow::beginItemUse(const Ticket &entry
 		xeenValidateJourneyParty(_party);
 		auto next=std::make_unique<ItemUseContinuation>();
         next->spell=xeenItemUseSpell(selection.record.id);
+        XeenSpellTravel travel;
         if(next->spell==XeenLearnedSpell::DetectMonster || next->spell==XeenLearnedSpell::IdentifyMonster) {
             const auto &actors=_world.sessionState().regionalActors(_camera.mapId);
             const auto view=XeenActorApproach::classify(actors,_camera);
@@ -277,8 +284,8 @@ std::optional<std::uint64_t> XeenEncounterFlow::beginItemUse(const Ticket &entry
 				if(jump.admission==XeenJumpAdmission::Unsupported)return {};
 				if(jump.admission==XeenJumpAdmission::Ready)next->jumpDestination=jump.destination;
 			}
-            if(next->spell && (*next->spell==XeenLearnedSpell::Etherealize || *next->spell==XeenLearnedSpell::TimeDistortion || *next->spell==XeenLearnedSpell::SuperShelter || *next->spell==XeenLearnedSpell::Teleport)) {
-                const auto travel=XeenLearnedSpellRules::travel(_world,_camera,*next->spell,distance);
+            if(next->spell && (*next->spell==XeenLearnedSpell::LloydsBeacon || *next->spell==XeenLearnedSpell::TownPortal || *next->spell==XeenLearnedSpell::Etherealize || *next->spell==XeenLearnedSpell::TimeDistortion || *next->spell==XeenLearnedSpell::SuperShelter || *next->spell==XeenLearnedSpell::Teleport)) {
+                travel=XeenLearnedSpellRules::travel(_world,_camera,*next->spell,distance,&source);
                 _journeyPreimage->check();if(travel.unsupported)return {};
                 next->jumpDestination=travel.destination;next->failed=travel.failed;next->shelterPending=travel.shelter;
             }
@@ -290,10 +297,11 @@ std::optional<std::uint64_t> XeenEncounterFlow::beginItemUse(const Ticket &entry
                         next->appearances.push_back({false,0,lane,3,{},xeenSpellProjectile(*next->spell,next->projectile->spellPreparation->type,selection.record.id)});
 			}
 			_journeyPreimage->check();}
-		next->opportunity=std::make_unique<XeenRegionalActionCandidate>();
+		auto mapWork=prepareSpellMap(travel);
+        next->opportunity=std::make_unique<XeenRegionalActionCandidate>();
 		auto &c=*next->opportunity;
 		const auto &s=_world.sessionState();
-		c.owners=_party.party.activeOrder();c.camera=_camera;c.context=*_party.encounterContext;c.actors=s.regionalActors(_camera.mapId);
+		c.owners=_party.party.activeOrder();c.camera=next->jumpDestination.value_or(_camera);c.context=*_party.encounterContext;c.actors=(mapWork.world?mapWork.world->sessionState():s).regionalActors(c.camera.mapId);
 		c.random=XeenCombatRandom(*s.journeyRandom());c.revision=_state.revision();c.pending=0;
 		c.remaining=1;c.classify=true;c.result.outcome=XeenEncounterOutcome::Pulsed;
 		for(unsigned i=0;i<6;++i) { c.characters[i]=_party.roster.at(c.owners[i]);c.inputs[i]=*_party.roster.combatInputs(c.owners[i]); }
@@ -307,11 +315,20 @@ std::optional<std::uint64_t> XeenEncounterFlow::beginItemUse(const Ticket &entry
 		auto items=source.miscellaneous;
 		--items[selection.slot].state;
 		XeenAntidoteUse::settle(items,selection.slot,next->exhausted);
-		_party.roster.at(selection.sourceOwner).miscellaneous=items;
+		auto prepared=std::make_shared<XeenRestoreGuard>(_world,_party,_camera,_flags);
+        prepared->retainResources(*_journeyPreimage);
+        prepared->characters[selection.sourceOwner].miscellaneous=items;
+        travel.applyBeacon(prepared->characters[selection.sourceOwner]);
+        if(mapWork.world) {prepared->prepareSpellMapPublication(*mapWork.world);prepared->cameraValue=*next->jumpDestination;}
+        _journeyPreimage->check();
+        if(mapWork.world) {_world.publishTransition(*mapWork.world);_camera=*next->jumpDestination;_journeyEvents=std::move(mapWork.events);}
+        travel.applyBeacon(_party.roster.at(selection.sourceOwner));
+        _party.roster.at(selection.sourceOwner).miscellaneous=items;
 		_itemUse=std::move(next);_itemUseResult.reset();
 		_world._sessionState._journeyActivity=XeenJourneyActivity::ItemUse;
 		++_world._sessionState._journeyGeneration;++_generation;
-		retainJourney();
+        prepared->adoptJourneyCoordination();_journeyPreimage.swap(prepared);
+        _journeyCapture->generation=_boundary.generation();
 		return _itemUseGeneration;
 	} catch (...) { closeJourney(); throw; }
 }
@@ -376,7 +393,7 @@ bool XeenEncounterFlow::settleItemUse(const Ticket &entry,std::uint64_t generati
 				XeenRestoreGuard::Providers providers(*_journeyPreimage,_world);
 				const auto &destination=*_itemUse->jumpDestination;
 				const auto sample=_world.sampleCell(destination.mapId,destination.x,destination.y);
-				automaticArrival=sample && (sample->cell->rawAttributes & kXeenAutomaticEventFlag) && bool(xeenRegionalEvent(_events,destination));
+				automaticArrival=sample && (sample->cell->rawAttributes & kXeenAutomaticEventFlag) && bool(xeenRegionalEvent(_journeyEvents,destination));
 				_journeyPreimage->check();
 			}
 			for(const auto &value:effect.effects) {

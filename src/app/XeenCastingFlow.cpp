@@ -44,6 +44,37 @@ std::unique_ptr<XeenShootCandidate> XeenEncounterFlow::prepareSpellProjectile(
     return projectile;
 }
 
+bool XeenEncounterFlow::initializeBeacon(std::uint8_t owner) {
+    _journeyPreimage->check();
+    const auto &caster=_party.roster.at(owner);
+    const auto travel=XeenLearnedSpellRules::travel(_world,_camera,XeenLearnedSpell::LloydsBeacon,0,&caster);
+    _journeyPreimage->check();
+    if(travel.failed)return false;
+    if(!caster.lloydMap) {
+        auto prepared=std::make_shared<XeenRestoreGuard>(_world,_party,_camera,_flags);
+        prepared->retainResources(*_journeyPreimage);
+        travel.applyBeacon(prepared->characters[owner]);
+        _journeyPreimage->check();
+        travel.applyBeacon(_party.roster.at(owner));
+        _journeyPreimage.swap(prepared);_journeyPreimage->adoptMutationBoundary();
+    }
+    return true;
+}
+XeenEncounterFlow::SpellMapWork XeenEncounterFlow::prepareSpellMap(const XeenSpellTravel &travel) {
+    SpellMapWork result;
+    if(!travel.reload || !travel.destination)return result;
+    result.world=_world.transitionCandidate();
+    XeenPartyState party;result.world->copyEventParty(_party,party);
+    auto camera=_camera;auto flags=_flags;
+    XeenRestoreGuard guard(*result.world,party,camera,flags);
+    XeenRestoreGuard::EventProviders providers(*result.world,party,camera,flags,guard,[&]{_journeyPreimage->check();},[&]{_journeyPreimage->failed=true;});
+    result.world->loadEventDestination(_camera.mapId,travel.destination->mapId);
+    result.events=_travelEventsProvider(travel.destination->mapId);
+    _journeyPreimage->check();
+    if(result.events.mapId!=travel.destination->mapId)throw std::logic_error("Travel Events identity changed");
+    return result;
+}
+
 bool XeenEncounterFlow::beginCasting(const Ticket &entry) {
 	if (!current(entry) || !journeyMutable() || _casting || !_boundary.quiet() || _castingGeneration==std::numeric_limits<std::uint64_t>::max() ||
 			!journeyCapacity()) return false;
@@ -122,8 +153,8 @@ bool XeenEncounterFlow::confirmCasting(const Ticket &entry, std::size_t casterIn
             if(preflight.admission==XeenJumpAdmission::Unsupported)return false;
             if(preflight.admission==XeenJumpAdmission::Ready)jump=preflight.destination;
           }
-          if(*id==21 || *id==66 || *id==69 || *id==70) {
-            travel=XeenLearnedSpellRules::travel(_world,_camera,*spell,distance);
+          if(*id==44 || *id==71 || *id==21 || *id==66 || *id==69 || *id==70) {
+            travel=XeenLearnedSpellRules::travel(_world,_camera,*spell,distance,&caster);
             _journeyPreimage->check();
             if(travel.unsupported) {_journeyRefusal="Spell not supported yet";return false;}
             jump=travel.destination;
@@ -143,18 +174,23 @@ bool XeenEncounterFlow::confirmCasting(const Ticket &entry, std::size_t casterIn
         if(projectile && projectile->spellPreparation->ready())
             for(unsigned lane=0;lane<(*spell==XeenLearnedSpell::PoisonVolley?6u:1u);++lane)
                 projectiles.push_back({false,0,lane,3,{},xeenSpellProjectile(*spell,projectile->spellPreparation->type)});
+        auto mapWork=prepareSpellMap(travel);
         const auto after=static_cast<std::int16_t>(caster.currentSp-cost.sp);
 		auto prepared=std::make_shared<XeenRestoreGuard>(_world,_party,_camera,_flags);
 		prepared->retainResources(*_journeyPreimage);
 		prepared->characters[owner].currentSp=after;
         prepared->treasure->gems-=cost.gems;
+        travel.applyBeacon(prepared->characters[owner]);
+        if(mapWork.world) {prepared->prepareSpellMapPublication(*mapWork.world);prepared->cameraValue=*jump;}
 		_casting->casterOwner=owner;_casting->slot=static_cast<std::uint8_t>(slot);
 		_casting->spell=*spell;_casting->originalSp=caster.currentSp;
         _casting->jumpDestination=jump;
         _casting->failed=travel.failed;_casting->shelterPending=travel.shelter;
 		_casting->random=XeenCombatRandom(*_world.sessionState().journeyRandom());
 		_journeyPreimage->check();
-		_party.roster.at(owner).currentSp=after;
+		if(mapWork.world) {_world.publishTransition(*mapWork.world);_camera=*jump;_journeyEvents=std::move(mapWork.events);}
+        travel.applyBeacon(_party.roster.at(owner));
+        _party.roster.at(owner).currentSp=after;
         _party.monsterTreasure->gems-=cost.gems;
         if(projectile) {
           _projectiles.swap(projectiles);_projectileDeadline=0;
@@ -393,7 +429,7 @@ bool XeenEncounterFlow::serviceCasting() {
             exploration=_world.explorationAfterStep(_party,_camera);
             if(work.jumpDestination) {
               const auto sample=_world.sampleCell(_camera.mapId,_camera.x,_camera.y);
-              automaticArrival=sample && (sample->cell->rawAttributes & kXeenAutomaticEventFlag) && bool(xeenRegionalEvent(_events,_camera));
+              automaticArrival=sample && (sample->cell->rawAttributes & kXeenAutomaticEventFlag) && bool(xeenRegionalEvent(_journeyEvents,_camera));
             }
             _journeyPreimage->check();}
 		auto prepared=std::make_shared<XeenRestoreGuard>(_world,_party,_camera,_flags);

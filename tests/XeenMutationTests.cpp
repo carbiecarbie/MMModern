@@ -256,6 +256,16 @@ int main() {
    XeenRestoreGuard guard(f.world,f.party,f.camera,f.flags);
    require(guard.current(),"legacy resource cache has artificial observer capacity limit");
   }
+  for(unsigned field=0;field<4;++field) {
+   Fixture f;const auto before=f.party.roster.at(0);
+   auto &c=f.party.roster.at(0);auto *v=field==0?&c.lloydMap:field==1?&c.lloydX:field==2?&c.lloydY:&c.lloydSide;
+   XeenRestoreGuard guard(f.world,f.party,f.camera,f.flags);
+   ++*v;require(!xeen_state::sameCharacter(before,c),"Beacon missing from character equality");
+   require(f.party.roster.at(1).lloydMap==0 && f.party.roster.at(1).lloydX==0 && f.party.roster.at(1).lloydY==0 && f.party.roster.at(1).lloydSide==0,"Beacon mutation crossed character owner");
+   bool rejected=false;try{guard.check();}catch(const std::logic_error &){rejected=true;}
+   require(rejected,"Prepared work published over a changed beacon");
+   --*v;require(xeen_state::sameCharacter(before,c) && !guard.current(),"Beacon ABA revived stale prepared work");
+  }
   // Refreshing one owned publication boundary cannot revive a stale outer guard.
   XeenMutable<int> value=0;XeenMutationWatch outer;outer.add(&value,sizeof(value));
   XeenMutationWatch inner;inner.add(&value,sizeof(value));value=1;

@@ -15,6 +15,7 @@ inline void checkSameCharacter(const XeenCharacter &a, const XeenCharacter &b) {
 			a.currentHp != b.currentHp || a.currentSp != b.currentSp || a.hasSpells != b.hasSpells ||
 			a.learnedSpells != b.learnedSpells || a.quickOption != b.quickOption || a.currentSpell != b.currentSpell ||
 			a.conditions != b.conditions || a.awards!=b.awards ||
+            a.lloydMap!=b.lloydMap || a.lloydX!=b.lloydX || a.lloydY!=b.lloydY || a.lloydSide!=b.lloydSide ||
 			a.skills != b.skills)
 		throw std::runtime_error("modeled character values differ");
 	const XeenAttributeValue av[]{a.intellect, a.personality, a.endurance};

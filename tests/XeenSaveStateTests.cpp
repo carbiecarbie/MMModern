@@ -396,6 +396,7 @@ XeenSaveMonsterTable mobTable(unsigned monsters) {
 // head cache and a dormant treasure item's source identity.
 void genericRoundTrip(){
  auto s=currentSnapshot();
+ for(unsigned i=0;i<30;++i) {auto &c=s.characters[i];c.lloydMap=23+i;c.lloydX=i;c.lloydY=31-i;c.lloydSide=i%2;}
  auto &f3=s.map(23);
  auto &orc=f3.monsters->slots[2];orc.x=orc.y=-128;orc.lifecycle=XeenActorLifecycle::Defeated;orc.accounted=true;
  f3.objects={{0,-128,-128,false}};f3.events={{0,0},{1,0}};

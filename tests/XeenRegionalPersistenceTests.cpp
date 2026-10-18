@@ -9,7 +9,8 @@ std::size_t baseSize(const XeenSaveSnapshot &s){
  // members, quest counters and flags and game flags; v13 writes no top-level
  // overlay list before the Journey block.
  std::size_t n=20+25+6+2+s.activeRosterIds.size()+4*s.questItems.size()+s.questFlags.size()+s.gameFlags.size();
- for(const auto &c:s.characters)n+=228+c.name.size();return n;
+ // v15 adds four mutable beacon bytes per character before the Journey block.
+ for(const auto &c:s.characters)n+=232+c.name.size();return n;
 }
 // The fixtures below use source slot r for F3 record r, as the drop rules
 // produce F3's Orcs live; v13 saves order source identities instead.
@@ -88,7 +89,7 @@ void defeat(XeenSaveSnapshot &s,unsigned record){auto &a=s.map(23).monsters->slo
 void verify(const XeenSaveSnapshot &fixture,bool exhaustive=false){
  const auto s=withSources(fixture);
  const auto bytes=XeenSaveFormat::encode(s),expected=suffix(s);const auto offset=baseSize(s);
- check(bytes.size()==offset+expected.size()&&std::equal(expected.begin(),expected.end(),bytes.begin()+offset),"Independent complete v14 schema9/content14 suffix and absent name");
+ check(bytes.size()==offset+expected.size()&&std::equal(expected.begin(),expected.end(),bytes.begin()+offset),"Independent complete v15 schema9/content14 suffix and absent name");
  sameSnapshot(s,XeenSaveFormat::decode(bytes));check(XeenSaveFormat::encode(XeenSaveFormat::decode(bytes))==bytes,"Exact current byte continuation");
  const std::size_t stride=exhaustive?1:97;
  for(std::size_t size=offset;size<bytes.size();size+=stride){auto b=bytes;b.resize(size);fixIndependentEnvelope(b);rejects([&]{XeenSaveFormat::decode(b);});}

@@ -457,11 +457,13 @@ private:
         std::string refusal;
     };
     std::optional<CastingUi> _castingUi;
-    struct TeleportUi {bool item=false;XeenTextInput digits;std::string refusal;};
-    std::optional<TeleportUi> _teleportUi;
-    std::optional<unsigned> _teleportDistance;
-    IndexedFrame drawTeleport(const IndexedFrame &) const;
-    IndexedFrame handleTeleport(const PlayerAction &,std::uint64_t);
+    struct TravelUi {bool item=false;XeenLearnedSpell spell=XeenLearnedSpell::Teleport;std::uint8_t owner=0;
+        XeenTextInput digits;std::string refusal;std::array<std::string,5> names;};
+    bool beginTravelDialog(XeenLearnedSpell,std::uint8_t,bool);
+    std::optional<TravelUi> _travelUi;
+    std::optional<unsigned> _travelChoice;
+    IndexedFrame drawTravelDialog(const IndexedFrame &) const;
+    IndexedFrame handleTravelDialog(const PlayerAction &,std::uint64_t);
     std::optional<std::size_t> _lastCaster;
     void initializeCaster();
     std::shared_ptr<const DialogInput> castingDialogInput() const;

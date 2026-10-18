@@ -276,7 +276,7 @@ The `m76-spells` preset starts at Vertigo `(18,4)` facing West. A level-7
 Cleric and Sorcerer know the seven M76 party buffs and Light, Levitate,
 Walk on Water, Clairvoyance, Detect Monster and Identify Monster between them;
 the Sorcerer also knows Enchant Item, Recharge Item, Item to Gold,
-Super Shelter, Etherealize, Time Distortion and Teleport,
+Super Shelter, Etherealize, Time Distortion, Teleport, Lloyd's Beacon and Town Portal,
 with 1,000 SP each and 1,000 party gems. Their miscellaneous packs hold
 five-charge items for the first fifteen powers: the Cleric has the seven buff
 powers, Light and Levitate; the Sorcerer has Walk on Water, Clairvoyance,
@@ -295,15 +295,25 @@ Walk on Water onto the shallow water at `(11,9)`. The open mainland and
 Vertigo components have no deep-water or cloud cells; those consumers have
 automated tests with synthetic terrain.
 
-The third member's first four Misc slots hold five-charge Super Shelter,
-Etherealize, Time Distortion and Teleport items. On mainland map 23,
+The third member's first six Misc slots hold five-charge Super Shelter,
+Etherealize, Time Distortion, Teleport, Lloyd's Beacon and Town Portal items. On mainland map 23,
 `(12,10)` has cell attribute bit `0x40`: ordinary Rest refuses there, while
 Super Shelter sleeps eight hours without monster interruption opportunities.
 Time Distortion returns to `(10,12)` without changing facing. Teleport asks
 for one digit (1-9); empty, zero or Escape keeps the cost and cancels.
 Destinations outside the open region refuse before payment. Etherealize
 moves one cell forward, ignoring walls. Only Time Distortion is admitted
-from the learned book or Quick Fight during combat.
+from these six travel spells in the learned book or Quick Fight during combat.
+
+The Cleric's beacon starts in Vertigo `(18,4)`, the Sorcerer's on mainland 23
+`(9,11)`, and the third member's on unopened map 29. The third member also
+knows Lloyd's Beacon. Transfer the Beacon item to the Cleric to use his stored
+Vertigo destination. Set uses S/T or the original Set button; Return uses R
+or its button and keeps facing. Same-map Return keeps live monster HP and
+status; cross-map Return reloads. Town Portal accepts 1-5 followed by Enter;
+Vertigo always reloads, including from Vertigo. The other towns and unopened
+or Darkside beacons refuse without spending resources. Escape keeps the
+spell or item cost; an unset beacon defaults to Vertigo even on cancel.
 
 ```powershell
 .\build-rel\mmodern_test_save.exe m76-spells "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/m76-spells.mmsave"

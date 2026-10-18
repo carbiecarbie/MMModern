@@ -621,12 +621,18 @@ SP/gems or the item charge. Escape from the travel dialogs does not refund.
 Super Shelter's dying-risk confirmation likewise has no spell-cost refund
 on decline; it cancels sleeping/time/recovery before those begin.
 
-MMModern implements these four C1 handlers in `XeenLearnedSpellRules::travel`;
+MMModern implements these six travel handlers in `XeenLearnedSpellRules::travel`;
 the existing casting, combat and item owners publish same-map movement without
-loading the map. Teleport holds payment in its modal input until the chosen
+loading the map. Beacon stores map/X/Y/side on the caster's mutable roster record.
+Cross-map Return and every Town Portal selection load through the existing
+world transition, retaining per-map changes and rebuilding live monsters.
+Only Vertigo and the open mainland can be destinations; unopened maps and
+Darkside refuse before payment. Town Portal's combat item path keeps its
+refusal until step 7 (M76 decision 6). Travel dialogs hold payment until the chosen
 destination is admitted, so the engine's unopened-area refusal spends nothing.
 Empty/zero/Escape still commits the paid cancellation. Original-data automated
-checks in `XeenTravelSpellOriginalTests.cpp` are implementation evidence,
+checks in `XeenTravelSpellOriginalTests.cpp` cover same-map movement, map loads,
+per-character beacons and exact save v15 restore. They are implementation evidence,
 not an additional DOS observation. Destination Event timing after item travel
 remains unconfirmed in DOS; see [the retained limit](../original-quirks.md).
 

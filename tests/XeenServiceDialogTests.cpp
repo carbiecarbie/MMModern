@@ -390,6 +390,7 @@ void spellDialogs(Inputs &in,bool mouse) {
     const auto owner=source.activeRosterIds[4];auto &caster=source.characters[owner];
     caster.characterClass=XeenCharacterClass::Cleric;caster.hasSpells=true;caster.currentSp=30;caster.learnedSpells.emplace();
     for(auto &flag:*caster.learnedSpells)flag=1;caster.currentSpell=255;
+    source.journey->treasure->gems=0; // Town Portal is supported, but cannot be afforded.
     Fixture cast(in,source);const auto initial=Owners(cast);
     cast.act(CastSpellAction{});check(!cast.flow->canSave(),"Cast permits Save");
     choose(cast,InputKey::F1+4);choose(cast,'n');choose(cast,InputKey::PageDown);choose(cast,InputKey::Up);
@@ -406,8 +407,8 @@ void spellDialogs(Inputs &in,bool mouse) {
     choose(cast,'c');check(cast.p.roster.at(owner).currentSp==29,"First Aid debit differs");choose(cast,InputKey::Escape);
     for(unsigned i=0;i<1000 && !cast.flow->canSave();++i){cast.now+=100;cast.flow->beginCycle(++cast.cycle);if(auto frame=cast.flow->updatePresentation())cast.present(*frame);}
     check(cast.flow->canSave() && cast.p.roster.at(owner).currentSp==30 && cast.p.encounterContext->minutes==source.journey->context->minutes+1,"Indoor target cancellation refund/time differs");
-    cast.act(CastSpellAction{});choose(cast,'n');choose(cast,InputKey::PageDown);choose(cast,InputKey::PageDown);choose(cast,InputKey::PageDown);choose(cast,'7');choose(cast,'s'); // Town Portal (clerical slot 36) waits for C2.
-    check(cast.p.roster.at(owner).currentSpell==36,"Unsupported modal fixture must select Town Portal");
+    cast.act(CastSpellAction{});choose(cast,'n');choose(cast,InputKey::PageDown);choose(cast,InputKey::PageDown);choose(cast,InputKey::PageDown);choose(cast,'7');choose(cast,'s'); // Town Portal (clerical slot 36) refuses without its gems.
+    check(cast.p.roster.at(owner).currentSpell==36,"Unaffordable modal fixture must select Town Portal");
     const auto unsupported=Owners(cast);choose(cast,'c');unsupported.unchanged(cast);
     choose(cast,InputKey::Enter);choose(cast,InputKey::Escape);unsupported.unchanged(cast);
     auto terminal=source;terminal.characters[terminal.activeRosterIds[0]].currentHp=0;terminal.characters[terminal.activeRosterIds[0]].conditions[13]=1;

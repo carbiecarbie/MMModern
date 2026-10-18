@@ -87,7 +87,7 @@ struct XeenCharacterOriginalDetails {
 	std::uint8_t birthDay = 0, temporaryAc = 0;
 	std::uint32_t experience = 0;
 	// Source-backed defaults only, until these mechanics acquire mutable owners.
-	std::uint8_t xeenSide=0, lloydMap=0, lloydX=0, lloydY=0, lloydSide=0;
+	std::uint8_t xeenSide=0;
 	std::uint8_t savedMaze=0;
 	std::uint8_t adventuringSpell=0, combatSpell=0;
 	std::uint16_t townUnknown=0;
@@ -100,6 +100,8 @@ struct XeenCharacter {
 	static constexpr std::uint8_t kPortraitRosterCount = 24;
 	using XeenLearnedSpells = XeenMutableArray<std::uint8_t, 39>;
 
+	// Per-character mutable CHR beacon, owned and persisted by the roster.
+	XeenMutable<std::uint8_t> lloydMap=0, lloydX=0, lloydY=0, lloydSide=0;
 	XeenMutable<std::uint8_t> rosterId = 0;
 	XeenMutableString name;
 	XeenMutable<XeenSex> sex = XeenSex::Male;

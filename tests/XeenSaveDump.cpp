@@ -57,7 +57,7 @@ struct Dump {
         value(p+".maxStatSkills.prayerMaster",bool(v.skills[12]));
         value(p+".maxStatSkills.prestidigitation",bool(v.skills[13])); F(currentSpell); F(quickOption); F(hasSpells);
         F(learnedSpells); F(weapons); F(armor); F(accessories); F(miscellaneous);
-        F(currentHp); F(currentSp); F(conditions); F(birthYear); F(awards);)
+        F(lloydMap); F(lloydX); F(lloydY); F(lloydSide); F(currentHp); F(currentSp); F(conditions); F(birthYear); F(awards);)
     V(XeenCombatResistances,
         F(coldPermanent); F(coldTemporary); F(electricalPermanent); F(electricalTemporary);
         F(firePermanent); F(fireTemporary); F(energyPermanent); F(energyTemporary);
@@ -169,6 +169,7 @@ void selfTest() {
     save_test::check(a.at("snapshot.characters[0].name").size() == 36, "DOS string bytes lost");
     s.characters[29].awards[127] = 7;
     s.characters[29].skills[17]=255;
+    s.characters[29].lloydMap=23;s.characters[29].lloydX=9;s.characters[29].lloydY=11;s.characters[29].lloydSide=1;
     s.map(23).explored.emplace();(*s.map(23).explored)[31]=128;
     s.map(23).tavernTips=14;s.map(28).tavernTips=0;
     s.journey->random->count = 0xffffffffffffffffULL;
@@ -179,6 +180,8 @@ void selfTest() {
     const auto b = decoded(XeenSaveFormat::encode(s)).fields;
     save_test::check(b.at("maps[0:23].tavernTips")=="14" && b.at("maps[0:28].tavernTips")=="0" &&
         b.at("snapshot.maps[1].tavernTips.present")=="0", "Tip cursor dump omitted zero, absence or map identity");
+    save_test::check(b.at("snapshot.characters[29].lloydMap")=="23" && b.at("snapshot.characters[29].lloydX")=="9" &&
+        b.at("snapshot.characters[29].lloydY")=="11" && b.at("snapshot.characters[29].lloydSide")=="1","Beacon dump incomplete");
     save_test::check(b.at("snapshot.characters[29].skills[17]")=="255", "skill omitted");
     save_test::check(b.at("snapshot.characters[29].awards[127]") == "7", "award omitted");
     save_test::check(b.at("snapshot.journey.value.random.value.count") == "18446744073709551615", "uint64 truncated");

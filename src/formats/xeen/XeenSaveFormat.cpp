@@ -185,6 +185,7 @@ void writeCharacter(Writer &out, const XeenCharacter &c) {
 	for (const auto value : c.conditions) out.u8(value);
 	out.u16(c.birthYear);
 	out.u8(c.quickOption);out.u8(c.currentSpell);
+	out.u8(c.lloydMap);out.u8(c.lloydX);out.u8(c.lloydY);out.u8(c.lloydSide);
 }
 
 XeenCharacter readCharacter(Reader &in) {
@@ -214,6 +215,7 @@ XeenCharacter readCharacter(Reader &in) {
 	for (auto &value : c.conditions) value = in.u8();
 	c.birthYear = in.u16();
 	c.quickOption=in.u8();c.currentSpell=in.u8();
+	c.lloydMap=in.u8();c.lloydX=in.u8();c.lloydY=in.u8();c.lloydSide=in.u8();
 	return c;
 }
 

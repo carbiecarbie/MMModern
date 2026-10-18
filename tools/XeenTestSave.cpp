@@ -108,7 +108,7 @@ void prepare(XeenSaveSnapshot &snapshot,const std::string &preset) {
     auto &member=snapshot.characters[first];
     if(preset=="m76-spells") {
         snapshot.camera={28,18,4,XeenDirection::West};journey.treasure->gems=1000;
-        constexpr unsigned spells[]{3,30,31,53,55,12,13,42,41,74,4,15,34,19,57,39,66,21,70,69};
+        constexpr unsigned spells[]{3,30,31,53,55,12,13,42,41,74,4,15,34,19,57,39,66,21,70,69,44,71};
         constexpr unsigned powers[]{22,30,25,29,14,49,50,1,20,32,18,34,23,63,53};
         for(unsigned i=0;i<2;++i) {
             auto &caster=snapshot.characters[snapshot.activeRosterIds[i]];
@@ -130,8 +130,14 @@ void prepare(XeenSaveSnapshot &snapshot,const std::string &preset) {
         targets.weapons[1]={37,2,0,0}; // Already enchanted.
         targets.weapons[2]={0,3,0x80,0};targets.weapons[3]={0,4,0x40,0};
         targets.weapons[4]={0,34,0,0};
-        constexpr unsigned travelPowers[]{48,58,39,42};
-        for(unsigned i=0;i<4;++i)targets.miscellaneous[i]={1,static_cast<std::uint8_t>(travelPowers[i]),5,0};
+        constexpr unsigned travelPowers[]{48,58,39,42,28,55};
+        for(unsigned i=0;i<6;++i)targets.miscellaneous[i]={1,static_cast<std::uint8_t>(travelPowers[i]),5,0};
+        for(unsigned i=0;i<3;++i) {
+            auto &c=snapshot.characters[snapshot.activeRosterIds[i]];
+            c.lloydMap=i==0?28:i==1?23:29;c.lloydX=i==1?9:18;c.lloydY=i==1?11:4;c.lloydSide=0;
+            if(i==2) {c.characterClass=XeenCharacterClass::Sorcerer;c.hasSpells=true;c.currentSp=1000;c.learnedSpells.emplace();c.learnedSpells->fill(0);
+                c.currentSpell=*XeenLearnedSpellRules::slotForSpell(XeenSpellCategory::Wizardry,44);c.learnedSpells->at(c.currentSpell)=1;}
+        }
         auto &misc=snapshot.characters[second].miscellaneous;
         misc[6]={1,4,2,0};misc[7]={1,4,0x42,0};misc[8]={1,4,0x82,0};
         return;

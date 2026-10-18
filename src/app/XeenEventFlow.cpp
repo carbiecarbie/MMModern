@@ -81,7 +81,7 @@ XeenEventFlow::SaveBoundary XeenEventFlow::beginSave() {
 InputContext XeenEventFlow::inputContext(const IndexedFrame::Presentation &origin) {
     const auto *combat = _encounter ? _encounter->combat() : nullptr;
     // Panels are strict throughout their lifetime, including preparation/result work.
-    const unsigned panel = _teleportUi ? 17 : _death ? 16 : _encounter && !_encounter->_combatCastRefusal.empty() ? 15 : !_whoWillRefusal.empty() ? 14 : _quickFightMember ? 13 : _summary ? 12 : _encounter && _encounter->_rest ? 11 : _encounter && _encounter->_needsRestNotice ? 10 : _fatal ? 1 : _trainingUi ? 2 : _smithUi ? 3 : inventoryOpen() ? 4 :
+    const unsigned panel = _travelUi ? 17 : _death ? 16 : _encounter && !_encounter->_combatCastRefusal.empty() ? 15 : !_whoWillRefusal.empty() ? 14 : _quickFightMember ? 13 : _summary ? 12 : _encounter && _encounter->_rest ? 11 : _encounter && _encounter->_needsRestNotice ? 10 : _fatal ? 1 : _trainingUi ? 2 : _smithUi ? 3 : inventoryOpen() ? 4 :
         (_castingUi || (combat && combat->cast())) ? 5 :
         (_pending || _transition || (_encounter && _encounter->journeyEvent())) ? 6 :
         (_encounter && _encounter->monsterReward()) ? 7 :
@@ -133,9 +133,14 @@ InputContext XeenEventFlow::inputContext(const IndexedFrame::Presentation &origi
     if(_portraitSequence)ready=navigationReady=restReady=false;
     auto dialog=_smithUi || _trainingUi ? serviceDialogInput() : characterDialogInput();
     if(_castingUi || (combat && combat->cast()))dialog=castingDialogInput();
-    if(_teleportUi) {
+    if(_travelUi) {
         DialogInput input;input.textEntry=true;input.keys={InputKey::Enter,InputKey::Escape,8,127,'0','1','2','3','4','5','6','7','8','9'};
-        if(!_teleportUi->refusal.empty())input.anyKey=input.anyClick=input.keyMouseWait=true;
+        if(_travelUi->spell==XeenLearnedSpell::LloydsBeacon) {
+            input.textEntry=false;input.keys={InputKey::Escape,'s','t','r'};
+            input.hits={{242,108,266,128,'t',InputButton{"lloyds.icn",2,242,108}},
+                {281,108,305,128,'r',InputButton{"lloyds.icn",0,281,108}}};
+        }
+        if(!_travelUi->refusal.empty())input.anyKey=input.anyClick=input.keyMouseWait=true;
         dialog=std::make_shared<const DialogInput>(std::move(input));
     }
     if(_presenter.blocksGameplay() &&
@@ -199,7 +204,7 @@ std::uint64_t XeenEventFlow::presentationNow() {
 }
 std::optional<std::uint64_t> XeenEventFlow::nextPresentationDeadline() {
     const auto now=presentationNow();
-    if(_teleportUi) {if(!_teleportUi->refusal.empty())return std::nullopt;const auto at=_teleportUi->digits.deadline();return at?PresentationClock::fromMilliseconds(*at):now;}
+    if(_travelUi) {if(!_travelUi->refusal.empty())return std::nullopt;if(_travelUi->spell==XeenLearnedSpell::LloydsBeacon)return std::nullopt;const auto at=_travelUi->digits.deadline();return at?PresentationClock::fromMilliseconds(*at):now;}
     if(_presenter.wordInputActive()) {
         const auto deadline=_presenter.wordDeadline();
         return deadline?PresentationClock::fromMilliseconds(*deadline):now;
@@ -903,7 +908,7 @@ IndexedFrame XeenEventFlow::renderEncounter(bool report, bool cosmeticInput, boo
                 if(!_whoWillRefusal.empty())rendered=drawXeenErrorScroll(rendered,_inventoryFont,_whoWillRefusal);
 				_inventoryUnderlay = rendered;
 				if (inventoryOpen()) rendered = drawCharacterDialog(rendered);
-                if(_teleportUi)rendered=drawTeleport(rendered);
+                if(_travelUi)rendered=drawTravelDialog(rendered);
 				if (_smithUi) rendered=drawSmith(composed.frame);
 				if (_trainingUi) rendered=drawTraining(composed.frame);
 				if(_summary)rendered=drawSummary(rendered);
@@ -1026,6 +1031,7 @@ XeenEventFlow::XeenEventFlow(XeenWorld &world, XeenEventSystem &events,
 		_encounterCompose = std::move(encounterCompose);
 		if (journey) _encounter = std::make_unique<XeenEncounterFlow>(world,party,camera,flags,_clock,*journey,&_presentationClock);
 		else _encounter = std::make_unique<XeenEncounterFlow>(world,party,camera,flags,_clock,XeenJourneyRestoreTag{},&_presentationClock);
+        _encounter->_travelEventsProvider=[this](XeenMapIdentity id){return _events.scriptForMap(id).file();};
 	}
     _ordinary.deadline=PresentationClock::after(_presentationClock(),2);
 	if (!_gameplayBorrow) {
@@ -2111,8 +2117,8 @@ std::optional<IndexedFrame> XeenEventFlow::updatePresentation() {
             return renderEncounter(); // A committed prefix needs a fresh concrete recovery frame.
         }
     }
-    if(_teleportUi) {
-        if(_teleportUi->refusal.empty() && _teleportUi->digits.animate(_clock())) {DispatchScope dispatch(_dispatching);return renderEncounter(false,true);}
+    if(_travelUi) {
+        if(_travelUi->spell!=XeenLearnedSpell::LloydsBeacon && _travelUi->refusal.empty() && _travelUi->digits.animate(_clock())) {DispatchScope dispatch(_dispatching);return renderEncounter(false,true);}
         return std::nullopt;
     }
 	const bool smithArtPulsed=_smithUi && _smithUi->phase!=SmithUi::Phase::Preparation && _smithUi->phase!=SmithUi::Phase::Upgrade &&
@@ -2412,7 +2418,7 @@ IndexedFrame XeenEventFlow::handle(const PlayerAction &physicalAction, std::opti
 	}
 	if(_quickFightMember && !_dispatching && !_fatal && !_saving) {DispatchScope dispatch(_dispatching);return handleQuickFightOptions(action);}
 	if (std::holds_alternative<SaveGameAction>(action) || _dispatching || _fatal || _saving) return frameCopy();
-    if(_teleportUi) {DispatchScope dispatch(_dispatching);return handleTeleport(action,*displayedInput);}
+    if(_travelUi) {DispatchScope dispatch(_dispatching);return handleTravelDialog(action,*displayedInput);}
 	if(_encounter && _encounter->_needsRestNotice) {
   _encounter->_needsRestNotice=false;
   DispatchScope dispatch(_dispatching);return renderEncounter(); // Consume acknowledgment without leaking an action.

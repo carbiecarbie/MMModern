@@ -4,21 +4,82 @@
 #include <algorithm>
 
 namespace mmodern {
-IndexedFrame XeenEventFlow::drawTeleport(const IndexedFrame &base) const {
+bool XeenEventFlow::beginTravelDialog(XeenLearnedSpell spell,std::uint8_t owner,bool item) {
+    XeenSpellTravel rule;TravelUi ui;
+    {XeenRestoreGuard::Providers providers(_encounter->journeySavePreimage(),_world);
+    rule=XeenLearnedSpellRules::travel(_world,_camera,spell,0,&_party.roster.at(owner));
+    _encounter->journeySavePreimage().check();
+    if(rule.failed)return false;
+    ui.spell=spell;ui.owner=owner;ui.item=item;ui.digits.begin();
+    if(spell==XeenLearnedSpell::LloydsBeacon || spell==XeenLearnedSpell::TownPortal) {
+        if(!mapName)throw std::logic_error("Travel map name provider missing");
+        for(unsigned i=0;i<(spell==XeenLearnedSpell::TownPortal?5u:1u);++i) {
+            const auto b=rule.beacon;
+            ui.names[i]=mapName(spell==XeenLearnedSpell::TownPortal?XeenMapIdentity(28+i):XeenMapIdentity(static_cast<XeenSide>((*b)[3]),(*b)[0]));
+            _encounter->journeySavePreimage().check();
+        }
+    }
+    }
+    if(spell==XeenLearnedSpell::LloydsBeacon && !_encounter->initializeBeacon(owner))return false;
+    _travelUi=std::move(ui);return true;
+}
+IndexedFrame XeenEventFlow::drawTravelDialog(const IndexedFrame &base) const {
+    const auto &ui=*_travelUi;
+    if(ui.spell==XeenLearnedSpell::LloydsBeacon || ui.spell==XeenLearnedSpell::TownPortal) {
+        const auto &c=_party.roster.at(ui.owner);
+        XeenTextRenderOptions options;options.originalControls=true;options.drawWindow=true;
+        const bool beacon=ui.spell==XeenLearnedSpell::LloydsBeacon;
+        options.windowBounds=beacon?XeenTextRect{226,0,320,146}:XeenTextRect{80,28,256,148};
+        options.bounds=beacon?XeenTextRect{234,8,312,138}:XeenTextRect{88,36,248,140};options.x=options.bounds.left;options.y=options.bounds.top;options.stopAtBottom=true;
+        const auto text=beacon?xeenDialogFormat(dosText().scalar("LLOYDS_BEACON"),{ui.names[0],std::to_string(c.lloydX),std::to_string(c.lloydY)}):
+            xeenDialogFormat(dosText().scalar("TOWN_PORTAL"),{ui.names[0],ui.names[1],ui.names[2],ui.names[3],ui.names[4]});
+        auto rendered=XeenTextRenderer(_inventoryFont).render(base,text,options);
+        if(rendered.pages.size()!=1 || !rendered.diagnostics.empty())throw std::runtime_error("Travel dialog layout overflow");
+        auto frame=std::move(rendered.pages.front());
+        if(beacon && drawDialogSprite) {drawDialogSprite(frame,"lloyds.icn",2,242,108);drawDialogSprite(frame,"lloyds.icn",0,281,108);}
+        if(!beacon) {
+            // Input::getString continues at Window 20's saved write position,
+            // clears 160 pixels, and centers the digit. FontSurface clips this
+            // final input row to the window, including the animated cursor.
+            options.drawWindow=false;options.x=rendered.writeX;options.y=rendered.writeY;
+            options.size=rendered.writeSize;options.colorIndex=rendered.writeColor;
+            const auto checked=[](const XeenTextRenderResult &r) {
+                if(r.pages.size()!=1 || std::any_of(r.diagnostics.begin(),r.diagnostics.end(),[](const auto &d){return d!="Original dialog text clipped vertically";}))
+                    throw std::runtime_error("Town Portal input layout overflow");
+            };
+            auto digits=XeenTextRenderer(_inventoryFont).render(frame,"\x03l\t000\x04" "160\x03" "c"+ui.digits.value(),options);checked(digits);
+            options.x=digits.writeX;options.y=digits.writeY;options.alignment=XeenTextAlignment::Left;
+            auto cursor=XeenTextRenderer(_inventoryFont).render(digits.pages.front(),std::string(1,char(ui.digits.cursor())),options);checked(cursor);
+            frame=std::move(cursor.pages.front());
+        }
+        if(!ui.refusal.empty())frame=drawXeenErrorScroll(frame,_inventoryFont,ui.refusal);
+        return frame;
+    }
     XeenTextRenderOptions options;options.originalControls=true;options.drawWindow=true;
     options.windowBounds={52,149,268,198};options.bounds={60,157,260,190};options.x=60;options.y=157;
     const auto prompt=xeenDialogFormat(dosText().scalar("HOW_MANY_SQUARES"),
         {dosText().table("DIRECTION_TEXT").at(unsigned(XeenDirection(_camera.direction)))});
-    auto frame=_teleportUi->digits.render(base,_inventoryFont,prompt,options);
-    if(!_teleportUi->refusal.empty())frame=drawXeenErrorScroll(base,_inventoryFont,_teleportUi->refusal);
+    auto frame=_travelUi->digits.render(base,_inventoryFont,prompt,options);
+    if(!_travelUi->refusal.empty())frame=drawXeenErrorScroll(base,_inventoryFont,_travelUi->refusal);
     return frame;
 }
-IndexedFrame XeenEventFlow::handleTeleport(const PlayerAction &action,std::uint64_t input) {
-    auto &ui=*_teleportUi;
+IndexedFrame XeenEventFlow::handleTravelDialog(const PlayerAction &action,std::uint64_t input) {
+    auto &ui=*_travelUi;
     if(!ui.refusal.empty()) {ui.refusal.clear();return renderEncounter();}
     const auto *key=std::get_if<DialogKeyAction>(&action);
     const unsigned value=key?key->key:std::holds_alternative<CancelInteractionAction>(action)?InputKey::Escape:
         std::holds_alternative<AcknowledgeAction>(action)?InputKey::Enter:0;
+    if(ui.spell==XeenLearnedSpell::LloydsBeacon) {
+        const unsigned choice=value=='s' || value=='t'?1:value=='r'?2:0;
+        if(!choice && value!=InputKey::Escape)return frameCopy();
+        {XeenRestoreGuard::Providers providers(_encounter->journeySavePreimage(),_world);
+            const auto rule=XeenLearnedSpellRules::travel(_world,_camera,ui.spell,choice,&_party.roster.at(ui.owner));
+            _encounter->journeySavePreimage().check();
+            if(rule.unsupported) {ui.refusal="Spell not supported yet";return renderEncounter();}}
+        const bool item=ui.item;_travelUi.reset();_travelChoice=choice;
+        IndexedFrame result;if(item){performItemOption(2);result=renderEncounter();}else result=handleCasting(DialogKeyAction{'c'},input);
+        _travelChoice.reset();return result;
+    }
     if(const auto *typed=std::get_if<TextInputAction>(&action)) {
         if(typed->text.size()==1 && typed->text[0]>='0' && typed->text[0]<='9')ui.digits.type(typed->text,_inventoryFont,1);
         ui.digits.keyRedraw();
@@ -29,16 +90,17 @@ IndexedFrame XeenEventFlow::handleTeleport(const PlayerAction &action,std::uint6
     if(value!=InputKey::Enter && value!=InputKey::Escape)return frameCopy();
     const unsigned distance=value==InputKey::Escape || ui.digits.value().empty()?0:unsigned(ui.digits.value()[0]-'0');
     {XeenRestoreGuard::Providers providers(_encounter->journeySavePreimage(),_world);
-        const auto travel=XeenLearnedSpellRules::travel(_world,_camera,XeenLearnedSpell::Teleport,distance);
+        if(ui.spell==XeenLearnedSpell::TownPortal && distance>5) {ui.digits.clear();ui.digits.begin();return renderEncounter();}
+        const auto travel=XeenLearnedSpellRules::travel(_world,_camera,ui.spell,distance,&_party.roster.at(ui.owner));
         _encounter->journeySavePreimage().check();
         if(travel.unsupported) {ui.refusal="Spell not supported yet";return renderEncounter();}
     }
-    const bool item=ui.item;_teleportUi.reset();_teleportDistance=distance;
+    const bool item=ui.item;_travelUi.reset();_travelChoice=distance;
     // Hold payment until destination admission; cancellation is a paid no-op.
     IndexedFrame result;
     if(item) {performItemOption(2);result=renderEncounter();}
     else result=handleCasting(DialogKeyAction{'c'},input);
-    _teleportDistance.reset();return result;
+    _travelChoice.reset();return result;
 }
 namespace {
 unsigned castKey(const PlayerAction &action) {
@@ -273,12 +335,8 @@ IndexedFrame XeenEventFlow::handleCasting(const PlayerAction &action,std::uint64
             ui.refusal=admission==Q::NoSpell?"":admission==Q::InsufficientSp?"SP":admission==Q::InsufficientGems?"gems":"Spell not supported yet";
             return renderEncounter();
         }
-        if(id==69 && !_teleportDistance) {
-            XeenRestoreGuard::Providers providers(_encounter->journeySavePreimage(),_world);
-            const auto travel=XeenLearnedSpellRules::travel(_world,_camera,XeenLearnedSpell::Teleport);
-            _encounter->journeySavePreimage().check();
-            if(!travel.failed) {_teleportUi.emplace();_teleportUi->digits.begin();return renderEncounter();}
-        }
+        if((id==44 || id==71 || id==69) && !_travelChoice &&
+            beginTravelDialog(*XeenLearnedSpellRules::supported(id),c.rosterId,false))return renderEncounter();
         if(XeenLearnedSpellRules::target(id)==XeenSpellTarget::Contact) {
           XeenRestoreGuard::Providers providers(_encounter->journeySavePreimage(),_world);
           for(unsigned type=2;type<=(id==18?5u:2u);++type) {
@@ -287,7 +345,7 @@ IndexedFrame XeenEventFlow::handleCasting(const PlayerAction &action,std::uint64
           }
           _encounter->journeySavePreimage().check();
         }
-        if(!_encounter->confirmCasting(_encounter->ticket(),ui.caster,c.currentSpell,input,responseFrame(),_teleportDistance.value_or(0))) {
+        if(!_encounter->confirmCasting(_encounter->ticket(),ui.caster,c.currentSpell,input,responseFrame(),_travelChoice.value_or(0))) {
             if(!_encounter->_journeyRefusal.empty())ui.refusal=_encounter->_journeyRefusal;
             return renderEncounter();
         }

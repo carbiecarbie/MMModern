@@ -415,7 +415,11 @@ private:
 	XeenEventFile _journeyEvents;
 	std::vector<XeenMonsterRecord> _journeyStatistics;
 	std::function<XeenLearnedSpellNames()> _learnedNamesProvider;
-	void retainJourney();
+	struct SpellMapWork {std::unique_ptr<XeenWorld> world; XeenEventFile events;};
+    SpellMapWork prepareSpellMap(const XeenSpellTravel &);
+    bool initializeBeacon(std::uint8_t owner);
+    std::function<XeenEventFile(XeenMapIdentity)> _travelEventsProvider;
+    void retainJourney();
 	bool journeyCapacity() noexcept;
 	bool smithCapacity(unsigned journeySteps,unsigned boundarySteps) const noexcept;
 	void closeJourney() noexcept;
