@@ -438,7 +438,7 @@ private:
 	std::optional<EquipmentSelection> _equipmentSelection;
 	std::optional<std::uint64_t> _itemUseGeneration;
     struct CastingUi {
-        enum class Phase { Cast, New, ChooseTarget, Settling };
+        enum class Phase { Cast, New, ChooseTarget, ChooseElement, Settling };
         Phase phase=Phase::Cast;
         std::size_t caster=0;
         XeenSpellListUi list;

@@ -581,8 +581,8 @@ bool XeenEventFlow::serviceManualStep() {
  while(step.remaining) {
   if(!step.opportunity) {
    if(work.world->map(step.camera.mapId).geometry.isOutdoors())
-    step.opportunity.emplace(work.world->map(step.camera.mapId),step.actors,step.camera,step.characters,step.inputs,step.context.year,0x3f);
-   else step.opportunity.emplace(*work.world,step.actors,step.camera,step.characters,step.inputs,step.context.year,0x3f);
+    step.opportunity.emplace(work.world->map(step.camera.mapId),step.actors,step.camera,step.characters,step.inputs,step.context.year,0x3f,std::array<bool,6>{},XeenActorOpportunityContext{},step.context);
+   else step.opportunity.emplace(*work.world,step.actors,step.camera,step.characters,step.inputs,step.context.year,0x3f,std::array<bool,6>{},XeenActorOpportunityContext{},step.context);
    step.opportunity->staged=true;
   }
   auto &op=*step.opportunity;

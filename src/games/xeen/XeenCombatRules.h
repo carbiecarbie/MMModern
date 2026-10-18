@@ -56,6 +56,7 @@ using XeenConsequenceInputs = std::array<XeenCombatInputs,6>;
 struct XeenDamageProtection {
 	std::array<int,4> resistances{};
 	int powerShield=0;
+    unsigned blessed=0;
 };
 // Detached giveCharDamage continuation. Damage carries between selected
 // members exactly as in the reference; publication remains with the caller.
@@ -121,9 +122,12 @@ struct XeenPhysicalPlayerCandidate {
 	XeenPhysicalPlayerCandidate(const XeenCharacter &, const XeenCombatInputs &,
 		const XeenMonsterRecord &, unsigned monsterType, unsigned year, bool shoot,
 		XeenDifficulty difficulty = XeenDifficulty::Adventurer, XeenActorStatus status=XeenActorStatus::Physical);
+    XeenPhysicalPlayerCandidate(const XeenCharacter &,const XeenCombatInputs &,const XeenMonsterRecord &,
+        unsigned,unsigned,bool,XeenDifficulty,XeenActorStatus,const XeenGameplayContext &);
+    void setPartyEffects(const XeenGameplayContext &);
     XeenPhysicalPlayerCandidate(const XeenCharacter &,const XeenCombatInputs &,
         const XeenMonsterRecord &,unsigned monsterType,unsigned year,bool shoot,
-        XeenDifficulty,XeenActorStatus,bool poisonVolley,bool clouds);
+        XeenDifficulty,XeenActorStatus,bool poisonVolley,bool clouds,const XeenGameplayContext &partyContext = {});
 	bool service(XeenConsequenceDraw &);
 private:
 	enum class Step { Weapon, Hit, Save, Done };
@@ -135,6 +139,7 @@ private:
 	bool shoot, adventurer, poisonVolley, clouds;
 	unsigned elementalMaterial = 0, attackWeaponId = 0;
 	int hitBonus = 0, effectiveness = 1;
+    unsigned heroism,holyBonus;
 };
 // One successful shot per eligible member, in party order. A miss only advances
 // this target's cursor; the same shot is available when the next target begins.
@@ -167,7 +172,7 @@ struct XeenSpellDamageCandidate {
     // Poison Volley: bind a shooter, preserving weapon draws and unsigned accuracy.
     XeenSpellDamageCandidate(const XeenCharacter &,const XeenCombatInputs &,
         const XeenMonsterRecord &,unsigned resourceId,unsigned year,XeenDifficulty,
-        XeenActorStatus,bool clouds);
+        XeenActorStatus,bool clouds,const XeenGameplayContext &partyContext = {});
     bool service(XeenConsequenceDraw &);
 private:
     std::optional<XeenPhysicalPlayerCandidate> missile;
@@ -206,6 +211,9 @@ struct XeenEnemyAttackCandidate {
  std::uint8_t impactOwner=0;
 	XeenEnemyAttackCandidate(const XeenConsequenceCharacters &, const XeenConsequenceInputs &,
 		const XeenMonsterRecord &, unsigned year, unsigned participantMask, const std::array<bool,6> &blocked = {}, XeenActorStatus status=XeenActorStatus::Physical);
+    XeenEnemyAttackCandidate(const XeenConsequenceCharacters &,const XeenConsequenceInputs &,
+        const XeenMonsterRecord &,unsigned,unsigned,const std::array<bool,6> &,XeenActorStatus,const XeenGameplayContext &);
+    void setPartyEffects(const XeenGameplayContext &);
 	bool service(XeenConsequenceDraw &);
 	// Call only after publishing/retaining the completed attack. Both melee and
 	// ranged sources use this same reference count loop and updated characters.
@@ -232,6 +240,7 @@ private:
 	unsigned dice = 0;
 	bool allParty;
 	XeenDamageType type=XeenDamageType::Physical;
+    XeenGameplayContext partyContext;
 	bool noTarget=false, disabled=false;
 	// The victim before this application: injury and item observations diff it.
 	std::optional<XeenCharacter> before;

@@ -13,6 +13,7 @@ class XeenAssetSource;
 class XeenWorld;
 struct XeenCharacterRulesContext;
 struct XeenPartyState;
+class XeenScenePresentation;
 
 class CloudsMapComposer {
 public:
@@ -35,7 +36,7 @@ public:
 	// Complete a scene replay through the same production border/UI layers.
 	void drawInterfaceLayers(XeenAssetSource &assets,
 		const XeenPartyState &partyState,
-		const XeenCharacterRulesContext &context) const;
+		const XeenCharacterRulesContext &context,XeenScenePresentation *presentation=nullptr) const;
 };
 
 } // namespace mmodern

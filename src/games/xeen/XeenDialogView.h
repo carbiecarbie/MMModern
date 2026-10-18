@@ -62,6 +62,10 @@ struct XeenSpellListUi {
 DialogInput xeenCastInput(bool switchCaster=true);
 DialogInput xeenSpellListInput(bool selecting,bool switchCaster=true);
 DialogInput xeenSpellTargetInput();
+DialogInput xeenElementInput();
+IndexedFrame drawXeenProtectionCorners(const IndexedFrame &,const XeenGameplayContext &,const XeenDialogSpriteDraw &);
+std::optional<unsigned> xeenElementSelection(unsigned key);
+IndexedFrame drawXeenElement(const XeenDosText &,const IndexedFrame &,const XeenFontFormat &,const XeenDialogSpriteDraw &);
 DialogInput xeenSpellConfirmInput(bool info=false);
 IndexedFrame drawXeenCast(const XeenDosText &,const IndexedFrame &,const XeenFontFormat &,
     const XeenCharacter &,std::size_t,const XeenLearnedSpellNames &,const XeenDialogSpriteDraw &);

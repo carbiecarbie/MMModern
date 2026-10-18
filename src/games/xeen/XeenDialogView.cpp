@@ -20,7 +20,8 @@ const XeenCombatInputs *inputs(const XeenPartyState &p,const XeenCharacter &c) {
     const auto &i=p.roster.combatInputs(c.rosterId); return i?&*i:nullptr;
 }
 XeenCharacterRulesContext context(const XeenPartyState &p) {
-    return {p.encounterContext?std::uint32_t(p.encounterContext->year):kCloudsInitialYear};
+    return {p.encounterContext?std::uint32_t(p.encounterContext->year):kCloudsInitialYear,
+        p.encounterContext?unsigned(p.encounterContext->effects[8]):0u};
 }
 void partyButtons(DialogInput &input) {
     constexpr int faces[]{10,45,81,117,153,189};
@@ -204,6 +205,25 @@ DialogInput xeenSpellListInput(bool selecting,bool switching) {
     if(switching)partyButtons(input);return input;
 }
 DialogInput xeenSpellTargetInput() {DialogInput input;partyButtons(input);input.keys.push_back(InputKey::Escape);return input;}
+IndexedFrame drawXeenProtectionCorners(const IndexedFrame &base,const XeenGameplayContext &context,const XeenDialogSpriteDraw &draw) {
+    auto frame=base;if(draw)for(unsigned i=0;i<4;++i)
+        draw(frame,"fecp.brd",8+2*i+(context.lightAndResistances[i+2]?1:0),i%2?219:8,i<2?8:134);
+    return frame;
+}
+DialogInput xeenElementInput() {
+    DialogInput input;constexpr unsigned keys[]{'f','e','c','a'};
+    for(unsigned i=0;i<4;++i)button(input,60+30*i,92,84+30*i,112,keys[i],"element.icn",2*i);
+    input.keys.push_back(InputKey::Escape);return input;
+}
+std::optional<unsigned> xeenElementSelection(unsigned key) {
+    constexpr unsigned keys[]{'f','e','c','a'};
+    for(unsigned i=0;i<4;++i)if(key==keys[i])return i;return {};
+}
+IndexedFrame drawXeenElement(const XeenDosText &text,const IndexedFrame &base,const XeenFontFormat &font,const XeenDialogSpriteDraw &draw) {
+    auto frame=render(base,font,str(text.scalar("WHICH_ELEMENT2")),{50,71,182,129},{58,79,174,121});
+    if(draw)for(unsigned i=0;i<4;++i)draw(frame,"element.icn",2*i,60+30*i,92);
+    return frame;
+}
 DialogInput xeenSpellConfirmInput(bool info) {
     DialogInput input;
     if(info)input.anyKey=input.anyClick=true;
@@ -574,7 +594,11 @@ IndexedFrame drawXeenSheet(const XeenDosText &text,const IndexedFrame &base,cons
         n(color(2)),n(stat(2)),n(R::statColor(R::sheetAge(c,ctx),R::sheetAge(c,ctx,true))),n(R::sheetAge(c,ctx)),n(totalResistance),n(gems(p)),
         n(color(3)),n(stat(3)),n(R::statColor(c.currentLevel(),c.permanentLevel)),n(c.currentLevel()),n(R::skillCount(c)),n(food),food==1?" ":str(text.scalar("DAY_PLURAL")),
         n(color(4)),n(stat(4)),n(R::statColor(R::sheetArmorClass(c,in,ctx),R::sheetArmorClass(c,in,ctx,true))),n(R::sheetArmorClass(c,in,ctx)),n(R::awardCount(c)),
-        n(condition<8?9:condition<12?32:condition<16?6:15),str(conditions(text,c)[condition]),"","","",""});
+        n(condition<8?9:condition<12?32:condition<16?6:15),str(conditions(text,c)[condition]),
+        condition==16 && p.encounterContext && p.encounterContext->effects[8]?str(text.scalar("PLUS_14")):"",
+        condition==16 && p.encounterContext && p.encounterContext->effects[6]?str(text.scalar("PLUS_14")):"",
+        condition==16 && p.encounterContext && p.encounterContext->effects[7]?str(text.scalar("PLUS_14")):"",
+        condition==16 && p.encounterContext && p.encounterContext->effects[5]?str(text.scalar("PLUS_14")):""});
     auto frame=render(base,font,xeenDialogFormat(text.scalar("CHARACTER_TEMPLATE"),{details}),{0,0,320,146},{8,8,312,138});
     if(draw) {
         constexpr int x[]{2,53,104,169};
@@ -669,6 +693,13 @@ XeenDialogPopup xeenSheetPopup(const XeenDosText &text,const XeenPartyState &p,s
             lines+="\n\t020"+str(conditions(text,c)[i]);if(i<12) lines+="\t095-"+n(unsigned(c.conditions[i]));++count;
         }
         if(!count) {lines=cell==13?str(text.scalar("NONE")):"\n\t020"+str(text.scalar("GOOD"));count=1;}
+        if(cell==19 && p.encounterContext) {
+            constexpr unsigned indices[]{8,6,7,5};
+            constexpr const char *names[]{"BLESSED","POWER_SHIELD","HOLY_BONUS","HEROISM"};
+            for(unsigned i=0;i<4;++i)if(p.encounterContext->effects[indices[i]]) {
+                lines+=xeenDialogFormat(text.scalar(names[i]),{n(unsigned(p.encounterContext->effects[indices[i]]))});++count;
+            }
+        }
         popup.text="\x02\x03" "c"+name+"\x03l"+lines;
         popup.bounds.top-=int((cell==13?count:count-1)/2)*8;popup.bounds.bottom=popup.bounds.top+int(count)*9+26;
         if(popup.bounds.bottom>=200) { const int delta=popup.bounds.bottom-199;popup.bounds.top-=delta;popup.bounds.bottom-=delta; }

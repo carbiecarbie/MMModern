@@ -55,7 +55,7 @@ void preset(const GameInstallation &installation,const std::string &name,const f
     check(flow.prepareJourneyFrame(flow.ticket(),[]{}) && flow.presentJourney(flow.ticket()),"restored preset is not quiet");
     const auto captured=XeenSaveState::capture(inputs.signature,party,camera,flags,world);
     check(XeenSaveFormat::encode(saved)==XeenSaveFormat::encode(captured),"restore replayed or changed state");
-    check((name=="monster-control" || name=="monster-damage" || name=="party-healing") || save_test::sameCamera(camera,xeenJourneyContent().entry),"fresh Journey camera changed");
+    check((name=="monster-control" || name=="monster-damage" || name=="party-healing" || name=="m76-spells") || save_test::sameCamera(camera,xeenJourneyContent().entry),"fresh Journey camera changed");
     const auto first=party.party.activeRosterIds()[0],second=party.party.activeRosterIds()[1];
     const auto &member=party.roster.at(first);
     const auto gold=party.monsterTreasure->gold;
@@ -88,6 +88,26 @@ void preset(const GameInstallation &installation,const std::string &name,const f
         for (auto owner:party.party.activeRosterIds()) if (party.roster.at(owner).canAct())
             for (const auto &item:party.roster.at(owner).miscellaneous) found=found || XeenAntidoteUse::eligible(item);
         check(found,"no usable Misc antidote");
+    }
+    if(name=="m76-spells") {
+        check(camera.mapId==28 && camera.x==18 && camera.y==4,"M76 preset position");
+        check(party.monsterTreasure->gems==1000,"M76 preset gems");
+        for(unsigned id:{3u,30u,31u,53u,55u,12u,13u}) {
+            bool found=false;
+            for(auto owner:{first,second}) {
+                const auto &caster=party.roster.at(owner);const auto category=*XeenLearnedSpellRules::categoryForClass(caster.characterClass);
+                const auto slot=XeenLearnedSpellRules::slotForSpell(category,id);
+                found=found || (slot && XeenLearnedSpellRules::known(caster,*slot) && caster.currentSp==1000 && caster.currentLevel()==7);
+            }
+            check(found,"M76 preset book knowledge/current level/SP");
+        }
+        for(unsigned power:{22u,30u,25u,29u,14u,49u,50u}) {
+            bool found=false;for(const auto &item:party.roster.at(first).miscellaneous)found=found || (item.id==power && (item.state&63)==5);
+            check(found,"M76 preset charged power");
+        }
+        const auto &nearby=saved.map(28).monsters->slots.at(0);
+        check(nearby.x==17 && nearby.y==4 && nearby.lifecycle==XeenActorLifecycle::Present,"M76 nearby monster");
+        return;
     }
     if(name=="party-healing") {
         check(camera.mapId==28 && camera.x==18 && camera.y==4,"Healing preset position");

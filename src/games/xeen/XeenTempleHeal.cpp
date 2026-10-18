@@ -26,7 +26,7 @@ bool xeenTempleDonationBlessing(XeenGameplayContext &context,std::uint8_t &count
     // DOS 0x1aee4..1af28: the counter is local to a visit/character selection.
     counter=static_cast<std::uint8_t>((counter+1)%10);
     if(counter!=context.day%10)return false;
-    context.effects[3]=1;context.lightAndResistances[0]=1;
+    context.effects[0]=1;context.lightAndResistances[0]=1;
     const auto amount=static_cast<std::uint8_t>(counter?counter:10);
     for(unsigned i=5;i<=8;++i)context.effects[i]=amount;
     return true;

@@ -66,7 +66,7 @@ bool XeenTerrainArrivalCandidate::service(XeenConsequenceDraw &draw) {
   if(!injury) {
    XeenDamageProtection protection;
    for(unsigned n=0;n<4;++n)protection.resistances[n]=context.lightAndResistances[n+2];
-   protection.powerShield=context.effects[6];
+   protection.powerShield=context.effects[6];protection.blessed=context.effects[8];
    injury.emplace(characters,inputs,int(rule.damage),rule.type,context.year,1u<<member,protection);
   }
   if(!injury->service(draw))return false;

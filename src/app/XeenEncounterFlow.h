@@ -104,6 +104,7 @@ public:
 	const std::string &castingResult() const noexcept { return _castingResult; }
 	bool itemUseReady() const noexcept;
 	bool itemUseNeedsTarget() const noexcept;
+    bool itemUseNeedsElement() const noexcept;
 	bool itemUseFailed() const noexcept { return _itemUse && _itemUse->failed; }
 	const std::optional<XeenAntidoteResult> &itemUseResult() const noexcept { return _itemUseResult; }
 	bool attachJourney(const Ticket &, const std::function<void()> &prepareSprites);

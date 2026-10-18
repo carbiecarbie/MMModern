@@ -144,10 +144,10 @@ bool XeenEncounterFlow::serviceShoot() {
     const auto owner=work.owners[work.volley.shooter];
     if(!work.attack && !work.spellAttack) {work.bound=actor;
      if(work.spell==XeenLearnedSpell::PoisonVolley) {
-      work.spellAttack.emplace(_party.roster.at(owner),*_party.roster.combatInputs(owner),*actor.statistics,actor.original.resourceId,_party.encounterContext->year,_party.encounterContext->difficulty,actor.status,_camera.mapId.side==XeenSide::Clouds);
+      work.spellAttack.emplace(_party.roster.at(owner),*_party.roster.combatInputs(owner),*actor.statistics,actor.original.resourceId,_party.encounterContext->year,_party.encounterContext->difficulty,actor.status,_camera.mapId.side==XeenSide::Clouds,*_party.encounterContext);
      } else if(work.spell) {const auto &caster=_party.roster.at(work.spellCaster);
       work.spellAttack.emplace(caster.permanentLevel,caster.temporaryLevel,actor.statistics->magicResistance(),actor.original.resourceId,*work.spell,actor.statistics->physicalResistance(),actor.status,actor.statistics->monsterType(),&*work.spellPreparation,actor.hp,_camera.mapId.side==XeenSide::Clouds);
-     } else work.attack.emplace(_party.roster.at(owner),*_party.roster.combatInputs(owner),*actor.statistics,actor.original.resourceId,_party.encounterContext->year,true,_party.encounterContext->difficulty,actor.status);}
+     } else {work.attack.emplace(_party.roster.at(owner),*_party.roster.combatInputs(owner),*actor.statistics,actor.original.resourceId,_party.encounterContext->year,true,_party.encounterContext->difficulty,actor.status);work.attack->setPartyEffects(*_party.encounterContext);}}
     const auto damage=[&] {return work.spellAttack?work.spellAttack->damage:work.attack->damage;};
     const auto status=[&] {return work.spellAttack?work.spellAttack->status:work.attack->status;};
     const auto hit=[&] {return work.spellAttack?(work.spell!=XeenLearnedSpell::PoisonVolley || !work.spellAttack->miss):work.attack->hit;};

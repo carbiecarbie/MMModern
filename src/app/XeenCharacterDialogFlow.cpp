@@ -54,6 +54,7 @@ std::shared_ptr<const DialogInput> XeenEventFlow::characterDialogInput() const {
     if(_exchange) input=xeenExchangeInput();
     else if(_statPopup || _dialogError) {input.anyKey=input.anyClick=input.keyMouseWait=true;}
     else if(_discardConfirm)input=xeenConfirmInput();
+    else if(_inventory.mode==XeenInventoryMode::UseTarget && _encounter->itemUseNeedsElement())input=xeenElementInput();
     else if(_inventory.mode==XeenInventoryMode::UseTarget) {
         constexpr int x[]{10,45,81,117,153,189};
         for(unsigned i=0;i<6;++i) {input.hits.push_back({x[i],150,x[i]+32,182,InputKey::F1+i});input.keys.push_back(InputKey::F1+i);}
@@ -64,6 +65,7 @@ std::shared_ptr<const DialogInput> XeenEventFlow::characterDialogInput() const {
 }
 IndexedFrame XeenEventFlow::drawCharacterDialog(const IndexedFrame &base) const {
 	if(_inventory.mode==XeenInventoryMode::UseTarget && _dialogError) return drawXeenErrorScroll(base,_inventoryFont,*_dialogError);
+    if(_inventory.mode==XeenInventoryMode::UseTarget && _encounter->itemUseNeedsElement())return drawXeenElement(dosText(),base,_inventoryFont,drawDialogSprite);
     if(_inventory.mode==XeenInventoryMode::UseTarget) return drawXeenItemTarget(dosText(),base,_inventoryFont);
     auto frame=_sheet && !_itemsVisible?
         drawXeenSheet(dosText(),base,_inventoryFont,_party,_inventory.source,_sheet->cursor,_sheet->blink,drawDialogSprite):

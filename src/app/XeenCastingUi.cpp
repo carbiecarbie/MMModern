@@ -40,23 +40,31 @@ std::shared_ptr<const DialogInput> XeenEventFlow::castingDialogInput() const {
         else if(ui.phase==P::New)input=xeenSpellListInput(true);
         else if(ui.phase==P::Cast)input=xeenCastInput();
         else if(ui.phase==P::ChooseTarget)input=xeenSpellTargetInput();
+        else if(ui.phase==P::ChooseElement)input=xeenElementInput();
     } else if(_encounter && _encounter->combat())if(const auto v=_encounter->combat()->cast()) {
         using P=XeenCombatCastPhase;
         if(!v->refusal.empty() || (v->phase==P::Result && v->result.failed))input.anyKey=input.anyClick=input.keyMouseWait=true;
         else if(v->phase==P::Learned)input=xeenSpellListInput(true,false);
         else if(v->phase==P::Confirm)input=xeenCastInput(false);
         else if(v->phase==P::PartyTarget)input=xeenSpellTargetInput();
+        else if(v->phase==P::Element)input=xeenElementInput();
     }
     return std::make_shared<const DialogInput>(std::move(input));
 }
 IndexedFrame XeenEventFlow::drawCasting(const IndexedFrame &base) const {
+    const auto underlay=drawXeenProtectionCorners(base,*_party.encounterContext,drawDialogSprite);
     const auto &names=*_encounter->journeySavePreimage().learnedNames;
     if(_castingUi) {
         using P=CastingUi::Phase;const auto &ui=*_castingUi;
         const auto &c=_party.party.member(_party.roster,ui.caster);
         if(ui.phase==P::Settling)return ui.refusal.empty()?base:drawXeenErrorScroll(base,_inventoryFont,std::string(dosText().scalar("SPELL_FAILED")));
-        auto frame=ui.phase==P::ChooseTarget?drawXeenSpellTarget(dosText(),base,_inventoryFont):
-            drawXeenCast(dosText(),base,_inventoryFont,c,ui.caster,names,drawDialogSprite);
+        if(ui.phase==P::ChooseElement) {
+            auto sidebar=c;sidebar.currentSp=_encounter->_casting->originalSp;
+            const auto cast=drawXeenCast(dosText(),underlay,_inventoryFont,sidebar,ui.caster,names,drawDialogSprite);
+            return drawXeenElement(dosText(),cast,_inventoryFont,drawDialogSprite);
+        }
+        auto frame=ui.phase==P::ChooseTarget?drawXeenSpellTarget(dosText(),underlay,_inventoryFont):
+            drawXeenCast(dosText(),underlay,_inventoryFont,c,ui.caster,names,drawDialogSprite);
         if(ui.phase==P::New)frame=drawXeenSpellList(dosText(),frame,_inventoryFont,c,names,ui.list,_party.monsterTreasure->gold,false,false,drawDialogSprite,_party.encounterContext->year);
         if(!ui.refusal.empty())frame=drawXeenErrorScroll(frame,_inventoryFont,refusal(dosText(),c,names,ui.refusal));
         return frame;
@@ -64,10 +72,17 @@ IndexedFrame XeenEventFlow::drawCasting(const IndexedFrame &base) const {
     const auto observed=_encounter->combat()->cast();if(!observed)return base;const auto &v=*observed;
     using P=XeenCombatCastPhase;const auto &c=_party.roster.at(v.owner);
     if(v.phase==P::Result && v.result.failed)return drawXeenErrorScroll(base,_inventoryFont,std::string(dosText().scalar("SPELL_FAILED")));
+    if(v.phase==P::Element) {
+        if(v.quick)return drawXeenElement(dosText(),base,_inventoryFont,drawDialogSprite);
+        unsigned portrait=0;for(unsigned i=0;i<v.participant;++i)portrait+=bool(_encounter->combat()->participants()&(1u<<i));
+        auto sidebar=c;sidebar.currentSp=v.result.spBefore;
+        const auto cast=drawXeenCast(dosText(),underlay,_inventoryFont,sidebar,portrait,names,drawDialogSprite);
+        return drawXeenElement(dosText(),cast,_inventoryFont,drawDialogSprite);
+    }
     if(v.phase!=P::Learned && v.phase!=P::Confirm && v.phase!=P::PartyTarget)return base;
     unsigned portrait=0;for(unsigned i=0;i<v.participant;++i)portrait+=bool(_encounter->combat()->participants()&(1u<<i));
-    auto frame=v.phase==P::PartyTarget?drawXeenSpellTarget(dosText(),base,_inventoryFont):
-        drawXeenCast(dosText(),base,_inventoryFont,c,portrait,names,drawDialogSprite);
+    auto frame=v.phase==P::PartyTarget?drawXeenSpellTarget(dosText(),underlay,_inventoryFont):
+        drawXeenCast(dosText(),underlay,_inventoryFont,c,portrait,names,drawDialogSprite);
     if(v.phase==P::Learned)frame=drawXeenSpellList(dosText(),frame,_inventoryFont,c,names,{v.top,v.selection},_party.monsterTreasure->gold,false,false,drawDialogSprite,_party.encounterContext->year);
     if(!v.refusal.empty())frame=drawXeenErrorScroll(frame,_inventoryFont,refusal(dosText(),c,names,v.refusal));
     return frame;
@@ -98,7 +113,7 @@ IndexedFrame XeenEventFlow::handleCasting(const PlayerAction &action,std::uint64
     auto &ui=*_castingUi;using P=CastingUi::Phase;const auto key=castKey(action);
     if(!ui.refusal.empty()){ui.refusal.clear();return renderEncounter();}
     if(ui.phase==P::Settling)return frameCopy();
-    if(key>=InputKey::F1 && key<InputKey::F1+_party.party.size() && ui.phase!=P::ChooseTarget) {
+    if(key>=InputKey::F1 && key<InputKey::F1+_party.party.size() && ui.phase!=P::ChooseTarget && ui.phase!=P::ChooseElement) {
         ui.caster=key-InputKey::F1;_lastCaster=ui.caster;return renderEncounter();
     }
     if(ui.phase==P::New) {
@@ -148,8 +163,14 @@ IndexedFrame XeenEventFlow::handleCasting(const PlayerAction &action,std::uint64
             ui.phase=P::Settling;
             if(_encounter->_casting->failed)ui.refusal="failed";
         } else if(XeenLearnedSpellRules::target(id)==XeenSpellTarget::Contact)ui.phase=P::Settling;
-        else ui.phase=P::ChooseTarget;
+        else ui.phase=XeenLearnedSpellRules::target(id)==XeenSpellTarget::Element?P::ChooseElement:P::ChooseTarget;
         return renderEncounter();
+    }
+    if(ui.phase==P::ChooseElement) {
+        const auto element=xeenElementSelection(key);
+        if(key!=InputKey::Escape && !element)return frameCopy();
+        if(!_encounter->respondCastingTarget(_encounter->ticket(),element,input,responseFrame()))return frameCopy();
+        ui.phase=P::Settling;return renderEncounter();
     }
     if(ui.phase==P::ChooseTarget) {
         const bool escape=key==InputKey::Escape;

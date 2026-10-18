@@ -67,6 +67,7 @@ std::optional<std::uint8_t> XeenLearnedSpellRules::spellForSlot(XeenSpellCategor
 
 std::optional<XeenLearnedSpell> XeenLearnedSpellRules::supported(std::uint8_t id) noexcept {
     switch (id) {
+    case 3: case 12: case 13: case 30: case 31: case 53: case 55:
     case 16: case 56: case 58:
     case 6: case 7: case 8: case 9: case 49: case 52: case 64: case 67: case 68:
     case 24: case 29: case 32: case 46: case 51:
@@ -129,7 +130,9 @@ XeenSpellTarget XeenLearnedSpellRules::target(std::uint8_t id) noexcept {
     case 24: case 29: case 32: case 46: case 51:
     case 0: case 5: case 11: case 14: case 18: case 22: case 23: case 25: case 28:
     case 35: case 36: case 37: case 43: case 47: case 48: case 54: case 63: case 65: return XeenSpellTarget::Contact;
+    case 3: case 12: case 13: case 30: case 31: case 53:
     case 1: case 6: case 16: case 75: return XeenSpellTarget::Party;
+    case 55: return XeenSpellTarget::Element;
     case 56: case 58:
     case 7: case 8: case 9: case 49: case 52: case 64: case 67: case 68:
     case 10: case 26: case 59: return XeenSpellTarget::Member;
@@ -203,7 +206,31 @@ XeenSpellPreparation XeenLearnedSpellRules::prepareEffect(XeenLearnedSpell spell
     default:throw std::invalid_argument("Unsupported member spell effect");
     }
 }
-void XeenLearnedSpellRules::applyPartyEffect(XeenLearnedSpell spell,XeenGameplayContext &context) {
+void XeenLearnedSpellRules::applyPartyEffect(XeenLearnedSpell spell,XeenGameplayContext &context,
+        unsigned level,std::optional<unsigned> element) {
+    // DOS byte writes, including Day spells' flag/count assignments (M76 Part 0).
+    const auto byte=static_cast<std::uint8_t>(level);
+    switch(spell) {
+    case XeenLearnedSpell::Bless: context.effects[8]=byte;break;
+    case XeenLearnedSpell::Heroism: context.effects[5]=byte;break;
+    case XeenLearnedSpell::HolyBonus: context.effects[7]=byte;break;
+    case XeenLearnedSpell::PowerShield: context.effects[6]=byte;break;
+    case XeenLearnedSpell::ProtectionFromElements:
+        if(element) {
+            if(*element>=4)throw std::invalid_argument("Invalid protection element");
+            context.lightAndResistances[*element+2]=std::min(2u*level+5u,200u);
+        }
+        break;
+    case XeenLearnedSpell::DayOfProtection:
+        for(unsigned i:{4u,5u,7u,8u})context.effects[i]=byte;
+        for(unsigned i:{0u,2u,3u,4u,5u})context.lightAndResistances[i]=byte;
+        break;
+    case XeenLearnedSpell::DayOfSorcery:
+        for(unsigned i:{0u,2u,3u,6u})context.effects[i]=byte;
+        context.effects[1]=0;context.lightAndResistances[0]=byte;
+        break;
+    default: break;
+    }
     if(spell==XeenLearnedSpell::WizardEye) {context.effects[2]=1;context.effects[1]=0;}
 }
 

@@ -225,7 +225,7 @@ XeenEventWrite applyCondition(XeenCharacter &c, std::uint32_t value) {
 }
 
 bool canonicalEffects(const XeenGameplayContext &c) noexcept {
-	return c.effects[1] <= 1 && c.effects[2] <= 1 && c.effects[3] <= 1 && c.effects[4] <= 1;
+	return c.effects[1] <= 1; // The Day spells write level bytes to the other flags/counts.
 }
 
 std::uint32_t signedWord(int value) noexcept {
@@ -369,7 +369,7 @@ std::optional<XeenEventProbe> xeenEventProbe(const XeenEventValueOwners &o, unsi
 		const auto owner = ownerOf(o.party, member);
 		const auto &in = o.party.roster.combatInputs(owner);
 		return known(static_cast<std::uint16_t>(XeenCharacterRules::sheetArmorClass(character(o, member),
-			in ? &*in : nullptr, {c->year})));
+			in ? &*in : nullptr, {c->year,c->effects[8]})));
 	}
 	case 12: {
 		const auto *c = context(o, reason);

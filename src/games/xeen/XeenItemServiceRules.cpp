@@ -13,9 +13,9 @@ std::optional<std::uint8_t> xeenItemPowerSpellId(std::uint8_t power) noexcept {
     if(!power || power>=std::size(spells) || spells[power]==76)return {};
     return spells[power];
 }
-std::optional<XeenLearnedSpell> xeenItemUseSpell(std::uint8_t power) noexcept {
+std::optional<XeenLearnedSpell> xeenItemUseSpell(std::uint8_t power,bool combat) noexcept {
     const auto id=xeenItemPowerSpellId(power);
-    return id?XeenLearnedSpellRules::supportedIn(*id,false):std::nullopt;
+    return id?XeenLearnedSpellRules::supportedIn(*id,combat):std::nullopt;
 }
 bool xeenItemUseSupported(const XeenItem &item) noexcept {
     return xeenItemUseAdmission(XeenInventoryCategory::Miscellaneous,item,true,true)==XeenItemUseAdmission::Admitted &&

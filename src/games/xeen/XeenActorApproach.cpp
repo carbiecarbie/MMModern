@@ -609,8 +609,8 @@ XeenEncounterResult XeenActorApproach::regionalTransition(XeenWorld &world,XeenP
 		}
 		while(c.remaining) {
 			if(!c.opportunity) {
-				if(indoor)c.opportunity.emplace(world,c.actors,c.camera,c.characters,c.inputs,c.context.year,0x3f,std::array<bool,6>{},XeenActorOpportunityContext{c.sleeping});
-				else c.opportunity.emplace(map,c.actors,c.camera,c.characters,c.inputs,c.context.year,0x3f,std::array<bool,6>{},XeenActorOpportunityContext{c.sleeping});
+				if(indoor)c.opportunity.emplace(world,c.actors,c.camera,c.characters,c.inputs,c.context.year,0x3f,std::array<bool,6>{},XeenActorOpportunityContext{c.sleeping},c.context);
+				else c.opportunity.emplace(map,c.actors,c.camera,c.characters,c.inputs,c.context.year,0x3f,std::array<bool,6>{},XeenActorOpportunityContext{c.sleeping},c.context);
 				c.opportunity->staged=true;
 			}
 			if(!c.opportunity->service(draw)) {

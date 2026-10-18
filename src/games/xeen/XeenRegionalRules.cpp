@@ -267,8 +267,8 @@ void xeenValidateRegionalActors(const XeenMap &map, const XeenObjectFile &mob, c
 namespace mmodern {
 XeenRegionalOpportunityCandidate::XeenRegionalOpportunityCandidate(XeenWorld &world,
 		const std::vector<XeenActor> &before,const XeenCamera &c,const XeenConsequenceCharacters &p,
-		const XeenConsequenceInputs &i,unsigned y,unsigned mask,const std::array<bool,6> &b,XeenActorOpportunityContext context) :
-		characters(p),camera(c),inputs(i),year(y),participantMask(mask),recoveryEnabled(context.movementEnabled && !context.charactersShooting),blocked(b),indoorWorld(&world) {
+		const XeenConsequenceInputs &i,unsigned y,unsigned mask,const std::array<bool,6> &b,XeenActorOpportunityContext context,const XeenGameplayContext &partyContext) :
+		characters(p),camera(c),inputs(i),year(y),participantMask(mask),recoveryEnabled(context.movementEnabled && !context.charactersShooting),blocked(b),indoorWorld(&world),partyContext(partyContext) {
 	if(world.map(c.mapId).geometry.isOutdoors() || mask>0x3f)
 		throw std::invalid_argument("Invalid indoor opportunity");
 	std::array<bool,107> tested{};
@@ -296,8 +296,8 @@ XeenRegionalOpportunityCandidate::XeenRegionalOpportunityCandidate(XeenWorld &wo
 }
 XeenRegionalOpportunityCandidate::XeenRegionalOpportunityCandidate(const XeenMap &map,
 		const std::vector<XeenActor> &before,const XeenCamera &c,const XeenConsequenceCharacters &p,
-		const XeenConsequenceInputs &i,unsigned y,unsigned mask,const std::array<bool,6> &b,XeenActorOpportunityContext context) :
-		characters(p),camera(c),inputs(i),year(y),participantMask(mask),recoveryEnabled(context.movementEnabled && !context.charactersShooting),blocked(b) {
+		const XeenConsequenceInputs &i,unsigned y,unsigned mask,const std::array<bool,6> &b,XeenActorOpportunityContext context,const XeenGameplayContext &partyContext) :
+		characters(p),camera(c),inputs(i),year(y),participantMask(mask),recoveryEnabled(context.movementEnabled && !context.charactersShooting),blocked(b),partyContext(partyContext) {
 	if (mask>0x3f) throw std::invalid_argument("Invalid regional participation mask");
 	std::array<bool,107> tested{};
 	actors=regionalMove(before,c,[&](const XeenActor &a,int x,int z) {
@@ -340,7 +340,10 @@ bool XeenRegionalOpportunityCandidate::service(XeenConsequenceDraw &draw) {
 		auto &shot=shots[cursor];
 		const auto &source=actors.at(shot.source.recordIndex);
 		if (!(source.id==shot.source) || !source.statistics) throw std::invalid_argument("Ranged source identity changed");
-		if (!attack) attack.emplace(characters,inputs,*source.statistics,year,participantMask,blocked);
+		if (!attack) {
+            attack.emplace(characters,inputs,*source.statistics,year,participantMask,blocked);
+            attack->setPartyEffects(partyContext);
+        }
 		attack->deferInjury=staged;
         if(staged && impactPresented) {attack->injuryAcknowledged=true;impactPresented=false;}
         if (!attack->service(draw)) {

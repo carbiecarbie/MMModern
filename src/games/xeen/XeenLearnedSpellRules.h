@@ -10,6 +10,8 @@ namespace mmodern {
 
 enum class XeenSpellCategory : std::uint8_t { Clerical, Wizardry, Druidic };
 enum class XeenLearnedSpell : std::uint8_t {
+    Bless=3, DayOfProtection=12, DayOfSorcery=13, Heroism=30, HolyBonus=31,
+    PowerShield=53, ProtectionFromElements=55,
     FingerOfDeath=24, GolemStopper=29, HolyWord=32, MassDistortion=46,
     AcidSpray=0, ColdRay=5, DancingSword=11, DeadlySwarm=14, ElementalStorm=18,
     FantasticFreeze=22, FieryFlail=23, Fireball=25, Frostbite=28, Implosion=35,
@@ -51,7 +53,7 @@ struct XeenLearnedSpellNames {
 };
 
 enum class XeenQuickSpellCheck { Supported, NoSpell, InsufficientSp, InsufficientGems, CombatForbidden, Unsupported };
-enum class XeenSpellTarget { Party, Member, Contact, Relocation, Unsupported };
+enum class XeenSpellTarget { Party, Member, Element, Contact, Relocation, Unsupported };
 enum class XeenSpellRange { Single, Group, All };
 struct XeenSpellCost { unsigned sp=0, gems=0; };
 class XeenLearnedSpellRules {
@@ -81,7 +83,8 @@ public:
 	static XeenSpellPreparation prepareEffect(XeenLearnedSpell,const XeenPartyState &,
 		std::optional<std::size_t> targetIndex,std::uint32_t currentYear,
 		std::optional<std::uint8_t> casterOwner = {});
-	static void applyPartyEffect(XeenLearnedSpell,XeenGameplayContext &);
+	static void applyPartyEffect(XeenLearnedSpell,XeenGameplayContext &, unsigned level=1,
+        std::optional<unsigned> element = {});
 };
 
 } // namespace mmodern

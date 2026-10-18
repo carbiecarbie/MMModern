@@ -134,8 +134,8 @@ the M67 play-test is the intended check.
 - `getWeaponDamage` assigns a metal weapon's damage modifier instead of adding
   it; with one equipped melee or missile weapon this is unobservable, and
   MMModern assigns as the reference does.
-- Heroism adds to the hit modifier per matching slot in the reference; the
-  spell has no owner here, so the term is 0.
+- Heroism adds to the hit modifier per matching slot. M76 Part 0 confirms
+  this DOS rule, including Shoot and Poison Volley; see [the consumers](rules/magic.md#party-effects-and-movement).
 
 ## Original findings and current discrepancies
 

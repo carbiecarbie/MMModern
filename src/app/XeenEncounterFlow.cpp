@@ -203,6 +203,7 @@ bool XeenEncounterFlow::respondCombatCast(const PlayerAction &action,std::uint64
         if(!_combat->cast()->refusal.empty())response=CI::Enter;
         if(const auto *key=std::get_if<DialogKeyAction>(&action)) {
             if(key->key==27)response=CI::Escape;
+            if(phase==XeenCombatCastPhase::Element)if(const auto element=xeenElementSelection(key->key)) {response=CI::Element;index=*element;}
             if(key->key=='n')response=CI::New;
             if(key->key=='c' && phase==XeenCombatCastPhase::Confirm)response=CI::Enter;
             if((key->key=='s' || key->key==13) && phase==XeenCombatCastPhase::Learned)response=CI::Select;

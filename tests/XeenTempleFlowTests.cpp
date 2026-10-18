@@ -188,7 +188,7 @@ void templeOptions(Inputs &in) {
         "Donation blessed before day-modulo counter matched");
     donation.act(DialogKeyAction{'d'});acknowledge(donation);
     check(donation.p.monsterTreasure->gold==920 && donation.p.encounterContext->effects[6]==8 &&
-        donation.p.encounterContext->lightAndResistances[0]==1 &&
+        donation.p.encounterContext->lightAndResistances[0]==1 && donation.p.encounterContext->effects[0]==1 && !donation.p.encounterContext->effects[3] &&
         *donation.w.sessionState().journeyRandom()==cursor,"Donation price, blessing, light or draw differs");
     donation.act(SelectMemberAction{1});donation.act(DialogKeyAction{'d'});acknowledge(donation);
     check(donation.p.monsterTreasure->gold==920,"blessed visit charged again after member selection");

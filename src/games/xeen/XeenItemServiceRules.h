@@ -11,7 +11,7 @@ enum class XeenItemUseAdmission { Admitted, InvalidCategory, NoWorld, CannotAct,
 XeenItemUseAdmission xeenItemUseAdmission(XeenInventoryCategory,const XeenItem &,bool world,bool canAct) noexcept;
 // Original ordinary-spell destination; invalid and special handlers have no ID.
 std::optional<std::uint8_t> xeenItemPowerSpellId(std::uint8_t power) noexcept;
-std::optional<XeenLearnedSpell> xeenItemUseSpell(std::uint8_t power) noexcept;
+std::optional<XeenLearnedSpell> xeenItemUseSpell(std::uint8_t power,bool combat=false) noexcept;
 bool xeenItemUseSupported(const XeenItem &) noexcept;
 // Detached category delta. Curse refusal follows ScummVM; not confirmed in DOS.
 std::optional<XeenItemCategory> xeenDiscardItems(const XeenItemCategory &,std::size_t slot) noexcept;

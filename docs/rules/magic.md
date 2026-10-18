@@ -512,6 +512,13 @@ check does not establish a universal wall-clock frame rate.
 | Levitate | `border.icn`, active 16..27 at (0,82); inactive frame 16; counter advances modulo 12 even while inactive |
 | Fire/Electrical/Cold/Poison | `fecp.brd`, inactive/active pairs 0/1, 2/3, 4/5, 6/7 at (2,2), (219,2), (2,134), (219,134); alternate window layout uses 8/9, 10/11, 12/13, 14/15 at (8,8), (219,8), (8,134), (219,134) |
 
+**Reference only** for character-sheet presentation: the Good condition row
+adds one original `PLUS_14` marker for each active Bless, Power Shield, Holy
+Bonus and Heroism, in that order. The condition expansion lists their names
+and signed amounts after the character conditions, even for an ill member.
+`XeenDialogView` reads the party context for these lines and the sheet AC;
+this presentation has not received an additional DOS confirmation.
+
 The four buff counters advance modulo 4 while active; elemental indicators
 are static presence tests. Clairvoyance reads each cell's two HED hint bytes
 when the corresponding Yes/No, Who Will or location prompt installs them;

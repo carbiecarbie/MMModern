@@ -163,8 +163,9 @@ bool XeenEncounterFlow::respondCastingTarget(const Ticket &entry,
 		const IndexedFrame::Presentation &frame) {
 	if (!current(entry) || !castingFrameCurrent(input,frame) || !_casting->committed ||
 		(_casting->effectDone || _casting->targetPending) || !journeyCapacity() ||
-		(XeenLearnedSpellRules::target(static_cast<std::uint8_t>(_casting->spell))!=XeenSpellTarget::Member) ||
-		(targetIndex && *targetIndex>=_party.party.size())) return false;
+		(XeenLearnedSpellRules::target(static_cast<std::uint8_t>(_casting->spell))!=XeenSpellTarget::Member &&
+         XeenLearnedSpellRules::target(static_cast<std::uint8_t>(_casting->spell))!=XeenSpellTarget::Element) ||
+		(targetIndex && *targetIndex>=(_casting->spell==XeenLearnedSpell::ProtectionFromElements?4:_party.party.size()))) return false;
     BusyCast busy(_busy);
     _casting->targetIndex=targetIndex;_casting->targetPending=true;
     _casting->displayedFrame.reset();_casting->displayedInput=0;
@@ -173,6 +174,7 @@ bool XeenEncounterFlow::respondCastingTarget(const Ticket &entry,
 
 bool XeenEncounterFlow::publishCastingTarget() {
     const auto targetIndex=_casting->targetIndex;
+    const bool element=_casting->spell==XeenLearnedSpell::ProtectionFromElements;
     try {
 		_journeyPreimage->check();
 		XeenSpellPreparation preparedEffect;
@@ -182,7 +184,7 @@ bool XeenEncounterFlow::publishCastingTarget() {
                 _party.roster.at(_casting->casterOwner).currentLevel(),draw);
             if(!effect)return true;
             preparedEffect=*effect;
-        } else preparedEffect=XeenLearnedSpellRules::prepareEffect(_casting->spell,_party,targetIndex,_party.encounterContext->year);
+        } else preparedEffect=XeenLearnedSpellRules::prepareEffect(_casting->spell,_party,element?std::nullopt:targetIndex,_party.encounterContext->year);
         const auto cost=XeenLearnedSpellRules::cost(static_cast<std::uint8_t>(_casting->spell),
             _party.roster.at(_casting->casterOwner).currentLevel());
 		auto prepared=std::make_shared<XeenRestoreGuard>(_world,_party,_camera,_flags);
@@ -194,7 +196,11 @@ bool XeenEncounterFlow::publishCastingTarget() {
 			prepared->characters[_casting->casterOwner].currentSp=_casting->originalSp;
             prepared->treasure->gems+=cost.gems;
 			result="Spell target cancelled; SP and gems refunded";
-		} else if (preparedEffect.failed) result="Spell failed; costs spent";
+		} else if(element) {
+            XeenLearnedSpellRules::applyPartyEffect(_casting->spell,*prepared->context,
+                _party.roster.at(_casting->casterOwner).currentLevel(),unsigned(*targetIndex));
+            result="Party elemental protection; costs spent";
+        } else if (preparedEffect.failed) result="Spell failed; costs spent";
 		else {
 			const auto &effect=preparedEffect.effects.front();
 			effect.apply(prepared->characters[effect.owner]);
@@ -210,7 +216,8 @@ bool XeenEncounterFlow::publishCastingTarget() {
             _party.roster.at(_casting->casterOwner).currentSp=_casting->originalSp;
             _party.monsterTreasure->gems+=cost.gems;
         }
-		else for (const auto &effect:preparedEffect.effects) {
+		else if(element) *_party.encounterContext=*prepared->context;
+        else for (const auto &effect:preparedEffect.effects) {
 			auto &live=_party.roster.at(effect.owner);
             if(effect.healing)_world.scenePresentation().spellEffect(effect.owner,_lastTime,true);
 			effect.apply(live);
@@ -245,11 +252,11 @@ bool XeenEncounterFlow::publishAwaken(const Ticket &entry) {
 		message<<cleared<<" Sleep cleared";
 		auto result=message.str();
         if(effect.food)prepared->food=*effect.food;
-        XeenLearnedSpellRules::applyPartyEffect(_casting->spell,*prepared->context);
+        XeenLearnedSpellRules::applyPartyEffect(_casting->spell,*prepared->context,_party.roster.at(_casting->casterOwner).currentLevel());
         if(_casting->spell==XeenLearnedSpell::Jump && _casting->jumpDestination)prepared->cameraValue=*_casting->jumpDestination;
         _journeyPreimage->check();
         if(effect.food)_party.food=*effect.food;
-        XeenLearnedSpellRules::applyPartyEffect(_casting->spell,*_party.encounterContext);
+        XeenLearnedSpellRules::applyPartyEffect(_casting->spell,*_party.encounterContext,_party.roster.at(_casting->casterOwner).currentLevel());
         if(_casting->spell==XeenLearnedSpell::Jump) {
           _casting->failed=!_casting->jumpDestination;
           if(_casting->jumpDestination)_camera=*_casting->jumpDestination;

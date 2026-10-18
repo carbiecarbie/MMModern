@@ -98,7 +98,7 @@ void xeenValidateJourneyMelee(const XeenPartyState &party) {
 			(void)Rules::effectivePhysical(c, input, attr, {party.encounterContext->year});
 
 		(void)Rules::effectiveLuck(c,input);
-		(void)Rules::combatArmorClass(c, input, {party.encounterContext->year});
+		(void)Rules::combatArmorClass(c, input, {party.encounterContext->year,party.encounterContext->effects[8]});
 		(void)xeenCombatAttackCount(c.characterClass, c.currentLevel());
 	}
 }

@@ -86,6 +86,9 @@ void widths() {
 
 void probes() {
  Owners o;
+ const auto armor=probe(o,10,0).value;o.p.encounterContext->effects[8]=7;
+ check(probe(o,10,0).value==armor+7,"Event armor-class probe omitted party Bless");
+ o.p.encounterContext->effects[8]=0;
  // A failed skill test leaves ifProc's local uninitialised (residue).
  check(probe(o,13,5).residue && !probe(o,99,5).residue && probe(o,99,5).value==0xffffffffu,"skill/party-skill failure values");
  o.c(0).skills[5]=1;check(!probe(o,13,5).residue && probe(o,13,5).value==5,"skill success");
@@ -123,7 +126,9 @@ void writes() {
  check(xeenEventSetValue(w,74,0,0).status==XeenEventWriteStatus::Applied,"SetVar 74");
  check(!o.p.encounterContext->effects[0] && !o.p.encounterContext->effects[2] && !o.p.encounterContext->effects[4] &&
   !o.p.encounterContext->lightAndResistances[0] && !o.p.encounterContext->lightAndResistances[5],"SetVar 74 writes every field");
- check(xeenEventSetValue(w,74,2,0).status==XeenEventWriteStatus::Unsupported,"a non-flag effect value refuses");
+ check(xeenEventSetValue(w,74,2,0).status==XeenEventWriteStatus::Applied &&
+  o.p.encounterContext->effects[4]==2 && o.p.encounterContext->effects[2]==2,"byte-valued party flags are admitted, as produced by Day spells");
+ xeenEventSetValue(w,74,0,0); // Keep later grant/take checks independent of this assignment.
  check(xeenEventSetValue(w,84,2,0).status==XeenEventWriteStatus::Applied && o.camera.direction==XeenDirection::South,"SetVar 84 faces");
  check(xeenEventSetValue(w,83,4,0).status==XeenEventWriteStatus::Applied && o.script.damageType==4,"SetVar 83 damage type");
  check(xeenEventSetValue(w,25,1500,0).status==XeenEventWriteStatus::Unsupported,"minutes beyond a day refuse");

@@ -272,6 +272,16 @@ and Poison Volley. Generate it with:
 .\build-rel\mmodern_test_save.exe monster-damage "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/monster-damage.mmsave"
 ```
 
+The `m76-spells` preset starts at Vertigo `(18,4)` facing West. A level-7
+Cleric and Sorcerer know the seven M76 party buffs between them, with 1,000 SP
+each and 1,000 party gems. The Cleric carries five-charge items for all seven
+powers. An original Vertigo monster stands one step west, at `(17,4)`, for
+combat casting and Quick Fight. Combat item Use remains deferred.
+
+```powershell
+.\build-rel\mmodern_test_save.exe m76-spells "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/m76-spells.mmsave"
+```
+
 The `party-healing` preset also starts at Vertigo (18,4). A Cleric and a
 Druid know the M75 spells allowed by their classes, with 1,000 SP per caster
 and 1,000 party gems.

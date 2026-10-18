@@ -15,6 +15,7 @@ enum class XeenDamageType : std::uint8_t {
 
 struct XeenCharacterRulesContext {
 	std::uint32_t currentYear = 0;
+    unsigned blessed = 0;
 };
 
 class XeenCharacterRules {

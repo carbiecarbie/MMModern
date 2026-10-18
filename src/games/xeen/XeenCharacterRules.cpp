@@ -318,7 +318,10 @@ int XeenCharacterRules::equipmentArmorClass(const XeenCharacter &c) {
 int XeenCharacterRules::sheetArmorClass(const XeenCharacter &c,const XeenCombatInputs *input,
 		const XeenCharacterRulesContext &context,bool baseOnly) {
 	int result=add<true>(statBonus(sheetStat(c,input,4,context)),equipmentArmorClass(c));
-	if(!baseOnly) result=add<true>(result,input?int(input->temporaryAc):c.originalDetails()?c.originalDetails()->temporaryAc:0);
+	if(!baseOnly) {
+        result=add<true>(result,input?int(input->temporaryAc):c.originalDetails()?c.originalDetails()->temporaryAc:0);
+        result=add<true>(result,context.blessed);
+    }
 	return std::max(result,0);
 }
 int XeenCharacterRules::sheetResistance(const XeenCharacter &c,const XeenCombatInputs *input,unsigned resistance) {
@@ -412,7 +415,7 @@ int XeenCharacterRules::combatArmorClass(const XeenCharacter &c, const XeenComba
 		const XeenCharacterRulesContext &context) {
 	// ScummVM developers, GPL-3.0-or-later, pin 6814ee9ba54582f5b5adcffab49efbbd8f589edd:
 	// Character::getArmorClass = statBonus(Speed) + itemScan(9) + temporary AC
-	// (party Blessed has no owner yet). The monster hit threshold, the sheet
+	// + party Blessed unless base-only. The monster hit threshold, the sheet
 	// and the injury observations share this one equipment scan.
 	return sheetArmorClass(c,&input,context);
 }

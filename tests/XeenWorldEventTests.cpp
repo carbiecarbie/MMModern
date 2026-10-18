@@ -1160,7 +1160,7 @@ void partBVernGuild(Inputs &in) {
  Fixture restored(in,g.snapshot());check(XeenSaveFormat::encode(restored.snapshot())==XeenSaveFormat::encode(g.snapshot()),"Guild membership/day restore is not exact");
 
  // Original Vern -> Guild input path with a synthetic purse large enough to buy.
- stage="M60 Vern membership and unsupported purchase";
+ stage="Vern membership and original Protection from Elements purchase";
  auto funded=source;funded.journey->treasure->gold=1000;const unsigned caster=4,casterOwner=funded.activeRosterIds[caster];
  Fixture enrollment(in,funded);teacherPrompt(enrollment);enrollment.act(SelectMemberAction{caster});settle(enrollment);
  check(enrollment.p.roster.at(casterOwner).awards[0]==1 && enrollment.p.monsterTreasure->gold==975,"Vern did not enroll funded caster");
@@ -1168,17 +1168,17 @@ void partBVernGuild(Inputs &in) {
  shop.act(DialogKeyAction{InputKey::F1+caster});shop.act(DialogKeyAction{'b'});
  const auto offered=XeenLearnedSpellRules::rows(shop.p.roster.at(casterOwner),true);
  const auto category=*XeenLearnedSpellRules::categoryForClass(shop.p.roster.at(casterOwner).characterClass);
- const auto unsupported=std::find_if(offered.begin(),offered.end(),[&](auto slot){return !XeenLearnedSpellRules::supported(*XeenLearnedSpellRules::spellForSlot(category,slot));});
- check(unsupported!=offered.end() && unsupported-offered.begin()<10,"original book has no unsupported first-page Guild offers");const auto bought=*unsupported;
+ const auto purchase=std::find(offered.begin(),offered.end(),*XeenLearnedSpellRules::slotForSpell(category,55));
+ check(purchase!=offered.end() && purchase-offered.begin()<10,"original Protection from Elements offer missing");const auto bought=*purchase;
  const auto spell=*XeenLearnedSpellRules::spellForSlot(*XeenLearnedSpellRules::categoryForClass(shop.p.roster.at(casterOwner).characterClass),bought);
- check(!XeenLearnedSpellRules::supported(spell),"original unsupported purchase witness changed");
+ check(spell==55 && XeenLearnedSpellRules::supported(spell),"original Protection from Elements purchase identity/support");
  const auto price=XeenLearnedSpellRules::purchasePrice(spell,shop.p.roster.at(casterOwner).characterClass);
- shop.act(DialogKeyAction{'1'+unsigned(unsupported-offered.begin())});shop.act(DialogKeyAction{'y'});
+ shop.act(DialogKeyAction{'1'+unsigned(purchase-offered.begin())});shop.act(DialogKeyAction{'y'});
  check(shop.p.roster.at(casterOwner).learnedSpells->at(bought)==1 && shop.p.monsterTreasure->gold==975-price,"original Guild purchase did not learn/debit selected book");
  shop.act(CancelInteractionAction{});shop.act(CancelInteractionAction{});
  for(unsigned n=0;n<1000 && !shop.flow->canSave();++n){shop.flow->beginCycle(++shop.cycle);if(auto image=shop.flow->updatePresentation())shop.present(*image);}
  check(shop.flow->canSave(),"Purchased Guild departure did not settle");
- Fixture purchased(in,shop.snapshot());check(XeenSaveFormat::encode(purchased.snapshot())==XeenSaveFormat::encode(shop.snapshot()),"purchased unsupported book did not restore exactly");
+ Fixture purchased(in,shop.snapshot());check(XeenSaveFormat::encode(purchased.snapshot())==XeenSaveFormat::encode(shop.snapshot()),"purchased book did not restore exactly");
 }
 void partBSearches(Inputs &in) {
  struct Family {const char *name;unsigned items;bool crates,monster;std::vector<std::pair<int,int>> sites;};

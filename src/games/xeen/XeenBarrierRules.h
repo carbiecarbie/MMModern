@@ -68,7 +68,7 @@ struct XeenBarrierCandidate {
 			if(!selection) {opened=true;done=true;}
 		}
 		for(unsigned n=0;n<4;++n)protection.resistances[n]=context.lightAndResistances[n+2];
-		protection.powerShield=context.effects[6];
+		protection.powerShield=context.effects[6];protection.blessed=context.effects[8];
 	}
 	void choose(unsigned member) {
 		if(step!=Step::Select || member>=6 || !characters[member].canAct())throw std::logic_error("Stale or ineligible unlock selection");

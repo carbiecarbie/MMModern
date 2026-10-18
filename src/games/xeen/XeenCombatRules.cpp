@@ -113,7 +113,7 @@ XeenTypedDamageCandidate::XeenTypedDamageCandidate(const XeenConsequenceCharacte
 	constexpr unsigned frames[]{0,6,1,2,3,4,5};portraitFrame=frames[unsigned(type)];
 	for (unsigned n=0;n<6;++n) if (mask&(1u<<n)) {
 		Rules::validateForUse(characters[n],{year});
-		(void)Rules::sheetArmorClass(characters[n],&inputs[n],{year});
+		(void)Rules::sheetArmorClass(characters[n],&inputs[n],{year,protection.blessed});
 		if (type!=XeenDamageType::Physical) {
 			const auto v=Rules::damageSaveValue(characters[n],inputs[n],type,{year});
 			ruleRequire(v>=0 && v<=std::numeric_limits<int>::max()-40,"Invalid typed saving interval");
@@ -123,7 +123,7 @@ XeenTypedDamageCandidate::XeenTypedDamageCandidate(const XeenConsequenceCharacte
 bool XeenTypedDamageCandidate::operator==(const XeenTypedDamageCandidate &other) const {
     if(std::tie(deferInjury,injuryReady,injuryAcknowledged,injuryApplied,impactOwner,portraitFrame,step,type,year,mask,target,damage,beforeAc)!=
         std::tie(other.deferInjury,other.injuryReady,other.injuryAcknowledged,other.injuryApplied,other.impactOwner,other.portraitFrame,other.step,other.type,other.year,other.mask,other.target,other.damage,other.beforeAc) ||
-        protection.resistances!=other.protection.resistances || protection.powerShield!=other.protection.powerShield ||
+        protection.resistances!=other.protection.resistances || protection.powerShield!=other.protection.powerShield || protection.blessed!=other.protection.blessed ||
         result.injuryCount!=other.result.injuryCount || result.armorCount!=other.result.armorCount || result.damage!=other.result.damage ||
         result.targetedMembers!=other.result.targetedMembers || result.targetOwner!=other.result.targetOwner || result.attackOutcome!=other.result.attackOutcome)return false;
     for(unsigned n=0;n<characters.size();++n)if(!xeen_state::sameCharacter(characters[n],other.characters[n]) || !xeen_state::sameInputs(inputs[n],other.inputs[n]))return false;
@@ -143,7 +143,7 @@ bool XeenTypedDamageCandidate::service(XeenConsequenceDraw &draw) {
 		case Step::Begin:
 			while (target<6 && !(mask&(1u<<target))) ++target;
 			if (target==6) {step=Step::Done;break;}
-			beforeAc=Rules::sheetArmorClass(characters[target],&inputs[target],{year});
+			beforeAc=Rules::sheetArmorClass(characters[target],&inputs[target],{year,protection.blessed});
 			characters[target].conditions[8]=0;
 			if (unsigned(type)>=2 && unsigned(type)<=5)
 				damage=physicalChecked(std::int64_t(damage)-protection.resistances[unsigned(type)-2]);
@@ -168,7 +168,7 @@ bool XeenTypedDamageCandidate::service(XeenConsequenceDraw &draw) {
 			XeenCombatDamage injury;injury.owner=c.rosterId;injury.amount=damage;
 			injury.beforeHp=c.currentHp;injury.beforeAc=beforeAc;injury.beforeSp=injury.afterSp=c.currentSp;injury.beforeAge=injury.afterAge=c.temporaryAge;
 			xeenApplyPhysicalInjury(c,damage,year);
-			injury.afterHp=c.currentHp;injury.afterAc=Rules::sheetArmorClass(c,&inputs[target],{year});injury.conditions=c.conditions;
+			injury.afterHp=c.currentHp;injury.afterAc=Rules::sheetArmorClass(c,&inputs[target],{year,protection.blessed});injury.conditions=c.conditions;
 			result.injuries.at(result.injuryCount++)=injury;result.targetedMembers|=std::uint8_t(1u<<target);result.targetOwner=c.rosterId;
 			result.damage=physicalChecked(std::int64_t(result.damage)+damage);
 			xeenRecordItemChanges(result,previous,c);
@@ -302,9 +302,9 @@ XeenSpellDamageCandidate::XeenSpellDamageCandidate(std::int64_t permanent, std::
     step=r ? Step::Resistance : Step::Species;
 }
 XeenSpellDamageCandidate::XeenSpellDamageCandidate(const XeenCharacter &c,const XeenCombatInputs &i,
-    const XeenMonsterRecord &m,unsigned id,unsigned year,XeenDifficulty difficulty,XeenActorStatus initial,bool isClouds)
+    const XeenMonsterRecord &m,unsigned id,unsigned year,XeenDifficulty difficulty,XeenActorStatus initial,bool isClouds,const XeenGameplayContext &partyContext)
     : XeenSpellDamageCandidate(0,0,0,id,XeenLearnedSpell::ToxicCloud,0,initial) {
-    missile.emplace(c,i,m,id,year,true,difficulty,initial,true,isClouds);
+    missile.emplace(c,i,m,id,year,true,difficulty,initial,true,isClouds,partyContext);
 }
 bool XeenSpellDamageCandidate::service(XeenConsequenceDraw &draw) {
     if(missile) {
@@ -413,8 +413,16 @@ bool XeenMonsterTargetCandidate::service(XeenConsequenceDraw &draw) {
     return step==Step::Done;
 }
 XeenEnemyAttackCandidate::XeenEnemyAttackCandidate(const XeenConsequenceCharacters &c,
-		const XeenConsequenceInputs &i, const XeenMonsterRecord &m, unsigned y, unsigned mask, const std::array<bool,6> &b, XeenActorStatus status) :
-		characters(c), inputs(i), monster(m), year(y), blocked(b), allParty(m.hatred()==unsigned(XeenMonsterHatred::Party)) {
+        const XeenConsequenceInputs &i,const XeenMonsterRecord &m,unsigned y,unsigned mask,
+        const std::array<bool,6> &blocked,XeenActorStatus status)
+    : XeenEnemyAttackCandidate(c,i,m,y,mask,blocked,status,{}) {}
+void XeenEnemyAttackCandidate::setPartyEffects(const XeenGameplayContext &context) {
+    ruleRequire(step==Step::Target || step==Step::Done,"Monster party effects must be bound before service");
+    partyContext=context;
+}
+XeenEnemyAttackCandidate::XeenEnemyAttackCandidate(const XeenConsequenceCharacters &c,
+		const XeenConsequenceInputs &i, const XeenMonsterRecord &m, unsigned y, unsigned mask, const std::array<bool,6> &b, XeenActorStatus status,const XeenGameplayContext &partyContext) :
+		characters(c), inputs(i), monster(m), year(y), blocked(b), allParty(m.hatred()==unsigned(XeenMonsterHatred::Party)),partyContext(partyContext) {
 	ruleRequire(xeenActorStatusSupported(status),"Unsupported attacking monster status");
 	disabled=status!=XeenActorStatus::Physical;
 	m.validateAttackCapabilities();
@@ -424,11 +432,11 @@ XeenEnemyAttackCandidate::XeenEnemyAttackCandidate(const XeenConsequenceCharacte
 	result.operation = XeenCombatOperation::EnemyAttack;
 	if (disabled || !participantCount || !monster.attacks()) step=Step::Done;
 }
-// After the saves: Power Shield (no owner yet, zero) and the zero clamp, then
+// After the saves: Power Shield and the zero clamp, then
 // the acknowledged portrait, the secondary save (positive damage, nonzero
 // special) or the HP subtraction.
 XeenEnemyAttackCandidate::Step XeenEnemyAttackCandidate::afterSaves() {
-	damage=std::max(damage,0);
+	damage=std::max(physicalChecked(std::int64_t(damage)-partyContext.effects[6]),0);
 	if (deferInjury) return Step::Portrait;
 	return damage>0 && monster.specialAttack() ? Step::Special : Step::Injury;
 }
@@ -473,7 +481,7 @@ bool XeenEnemyAttackCandidate::service(XeenConsequenceDraw &draw) {
 		case Step::Parameter: {
 			const auto n=draw.draw(1,monster.hitParameter()); if (!n) break;
 			const auto &c=characters[target];
-			const auto threshold=std::int64_t(Rules::combatArmorClass(c,inputs[target],{year}))+
+			const auto threshold=std::int64_t(Rules::combatArmorClass(c,inputs[target],{year,partyContext.effects[8]}))+
 				(blocked[target] ? c.currentLevel()/2+15 : 10);
 			if (std::int64_t(roll)+monster.hitParameter()/4+*n>=threshold) {
 				characters[target].conditions[8]=0; afterInjury=Step::Next; step=Step::Dice;
@@ -481,7 +489,7 @@ bool XeenEnemyAttackCandidate::service(XeenConsequenceDraw &draw) {
 			break;
 		}
 		case Step::Dice: {
-            if(!dice) { beforeDamageAc=Rules::combatArmorClass(characters[target],inputs[target],{year}); before=characters[target]; }
+            if(!dice) { beforeDamageAc=Rules::combatArmorClass(characters[target],inputs[target],{year,partyContext.effects[8]}); before=characters[target]; }
 			const auto n=draw.draw(1,monster.damageDie()); if (!n) break;
 			damage=physicalChecked(std::int64_t(damage)+*n);
 			if (++dice==monster.strikes()) step=type==XeenDamageType::Physical ? afterSaves() : Step::InitialSave;
@@ -493,8 +501,9 @@ bool XeenEnemyAttackCandidate::service(XeenConsequenceDraw &draw) {
 			const auto v=physicalSave(characters[target]);
 			const auto n=draw.draw(1,unsigned(v+20)); if (!n) break;
 			if (std::int64_t(*n)<=v) damage/=2;
-			// Party Fire/Electrical/Cold/Poison protection is subtracted here; it
-			// has no owner yet (zero) until the protection spells exist.
+			// DOS: the initial Physical save precedes flat party protection.
+            if(unsigned(type)>=2 && unsigned(type)<=5)
+                damage=physicalChecked(std::int64_t(damage)-partyContext.lightAndResistances[unsigned(type)]);
 			step=Step::ElementSave;
 			break;
 		}
@@ -526,7 +535,7 @@ bool XeenEnemyAttackCandidate::service(XeenConsequenceDraw &draw) {
 			injury.beforeHp=before->currentHp; injury.beforeAc=beforeDamageAc;
 			injury.beforeSp=before->currentSp; injury.beforeAge=before->temporaryAge;
 			xeenApplyPhysicalInjury(c,damage,year);
-			injury.afterHp=c.currentHp; injury.afterAc=Rules::combatArmorClass(c,inputs[target],{year}); injury.conditions=c.conditions;
+			injury.afterHp=c.currentHp; injury.afterAc=Rules::combatArmorClass(c,inputs[target],{year,partyContext.effects[8]}); injury.conditions=c.conditions;
 			injury.afterSp=c.currentSp; injury.afterAge=c.temporaryAge;
 			result.injuries.at(result.injuryCount++)=injury;
 			xeenRecordItemChanges(result,*before,c);
@@ -560,12 +569,20 @@ unsigned xeenElementalCategory(unsigned material) {
 	return index;
 }
 XeenPhysicalPlayerCandidate::XeenPhysicalPlayerCandidate(const XeenCharacter &c,
-    const XeenCombatInputs &i,const XeenMonsterRecord &m,unsigned type,unsigned year,bool shoot,
-    XeenDifficulty difficulty,XeenActorStatus status)
-    : XeenPhysicalPlayerCandidate(c,i,m,type,year,shoot,difficulty,status,false,true) {}
+        const XeenCombatInputs &i,const XeenMonsterRecord &m,unsigned type,unsigned year,bool shoot,
+        XeenDifficulty difficulty,XeenActorStatus status)
+    : XeenPhysicalPlayerCandidate(c,i,m,type,year,shoot,difficulty,status,{}) {}
+void XeenPhysicalPlayerCandidate::setPartyEffects(const XeenGameplayContext &context) {
+    ruleRequire(step==Step::Weapon && slot==0 && dice==0,"Player party effects must be bound before service");
+    heroism=context.effects[5];holyBonus=context.effects[7];
+}
 XeenPhysicalPlayerCandidate::XeenPhysicalPlayerCandidate(const XeenCharacter &c,
-		const XeenCombatInputs &i,const XeenMonsterRecord &m,unsigned type,unsigned year,bool missile,XeenDifficulty difficulty, XeenActorStatus initialStatus, bool poison, bool isClouds) :
-		status(initialStatus),character(c),monster(m),monsterType(type),shoot(missile),adventurer(difficulty==XeenDifficulty::Adventurer),poisonVolley(poison),clouds(isClouds) {
+    const XeenCombatInputs &i,const XeenMonsterRecord &m,unsigned type,unsigned year,bool shoot,
+    XeenDifficulty difficulty,XeenActorStatus status,const XeenGameplayContext &partyContext)
+    : XeenPhysicalPlayerCandidate(c,i,m,type,year,shoot,difficulty,status,false,true,partyContext) {}
+XeenPhysicalPlayerCandidate::XeenPhysicalPlayerCandidate(const XeenCharacter &c,
+		const XeenCombatInputs &i,const XeenMonsterRecord &m,unsigned type,unsigned year,bool missile,XeenDifficulty difficulty, XeenActorStatus initialStatus, bool poison, bool isClouds,const XeenGameplayContext &partyContext) :
+		status(initialStatus),character(c),monster(m),monsterType(type),shoot(missile),adventurer(difficulty==XeenDifficulty::Adventurer),poisonVolley(poison),clouds(isClouds),heroism(partyContext.effects[5]),holyBonus(partyContext.effects[7]) {
 	ruleRequire(xeenActorStatusSupported(status),"Unsupported physical target status");
 	constexpr unsigned divisors[]{1,2,2,3,4,2,2,1,3,2};
 	ruleRequire(unsigned(c.characterClass)<10 && m.physicalResistance()<=100 && unsigned(difficulty)<=1,"Invalid physical player operands");
@@ -602,7 +619,9 @@ bool XeenPhysicalPlayerCandidate::service(XeenConsequenceDraw &draw) {
 			if (item.material<37) elementalMaterial=item.material;
 			else if (item.material<59) { hitBonus=item_tables::metalHit[item.material-37];weapon=item_tables::metalDamage[item.material-37]; }
 		}
-		attackWeaponId=item.id;
+		hitBonus=physicalChecked(std::int64_t(hitBonus)+heroism);
+        weapon=physicalChecked(std::int64_t(weapon)+holyBonus);
+        attackWeaponId=item.id;
 		const auto value=xeenOrdinaryWeaponDice(item.id); dice=value.count;sides=value.sides;break;
 	}
 	case Step::Hit: {

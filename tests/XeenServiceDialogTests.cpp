@@ -335,11 +335,13 @@ void spellDialogs(Inputs &in,bool mouse) {
         const auto paid=Owners(f);f.flow->beginCycle(++f.cycle);f.present(f.flow->handle(DialogKeyAction{'y'},epoch,old));paid.unchanged(f);
         const auto remaining=XeenLearnedSpellRules::rows(f.p.roster.at(owner),true);
         const auto unsupported=std::find_if(remaining.begin(),remaining.end(),[&](auto slot){return !XeenLearnedSpellRules::supported(*XeenLearnedSpellRules::spellForSlot(static_cast<XeenSpellCategory>(book),slot));});
-        check(unsupported!=remaining.end() && unsupported-remaining.begin()<10,"unsupported purchase fixture missing from first page");
+        check(unsupported!=remaining.end(),"unsupported purchase fixture missing");
         const auto nextSlot=*unsupported;
         const auto nextId=*XeenLearnedSpellRules::spellForSlot(static_cast<XeenSpellCategory>(book),nextSlot);
         check(!XeenLearnedSpellRules::supported(nextId),"unsupported purchase fixture");
-        choose(f,'1'+unsigned(unsupported-remaining.begin()));choose(f,'y');
+        const auto nextRow=unsigned(unsupported-remaining.begin());
+        for(unsigned page=0;page<nextRow/10;++page)choose(f,InputKey::PageDown);
+        choose(f,nextRow%10==9?'0':'1'+nextRow%10);choose(f,'y');
         check(f.p.roster.at(owner).learnedSpells->at(nextSlot)==1 && f.p.monsterTreasure->gold==19900-XeenLearnedSpellRules::purchasePrice(nextId,c.characterClass),"unsupported spell was not purchasable");
         choose(f,InputKey::F1+1);check(XeenPurchaseTestAccess::lobby(*f.flow),"Guild did not refresh selected character membership");
         f.leave();check(f.p.encounterContext->day==9,"Guild departed with wrong charge");
@@ -404,8 +406,8 @@ void spellDialogs(Inputs &in,bool mouse) {
     choose(cast,'c');check(cast.p.roster.at(owner).currentSp==29,"First Aid debit differs");choose(cast,InputKey::Escape);
     for(unsigned i=0;i<1000 && !cast.flow->canSave();++i){cast.now+=100;cast.flow->beginCycle(++cast.cycle);if(auto frame=cast.flow->updatePresentation())cast.present(*frame);}
     check(cast.flow->canSave() && cast.p.roster.at(owner).currentSp==30 && cast.p.encounterContext->minutes==source.journey->context->minutes+1,"Indoor target cancellation refund/time differs");
-    cast.act(CastSpellAction{});choose(cast,'n');choose(cast,'4');choose(cast,'s'); // unsupported clerical Bless (slot 3; Beast Master now works)
-    check(cast.p.roster.at(owner).currentSpell==3,"Unsupported modal fixture must select Bless");
+    cast.act(CastSpellAction{});choose(cast,'n');choose(cast,InputKey::PageDown);choose(cast,InputKey::PageDown);choose(cast,'2');choose(cast,'s'); // Light (clerical slot 21) is deferred to A2
+    check(cast.p.roster.at(owner).currentSpell==21,"Unsupported modal fixture must select Light");
     const auto unsupported=Owners(cast);choose(cast,'c');unsupported.unchanged(cast);
     choose(cast,InputKey::Enter);choose(cast,InputKey::Escape);unsupported.unchanged(cast);
     auto terminal=source;terminal.characters[terminal.activeRosterIds[0]].currentHp=0;terminal.characters[terminal.activeRosterIds[0]].conditions[13]=1;

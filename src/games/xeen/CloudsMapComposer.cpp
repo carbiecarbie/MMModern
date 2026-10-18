@@ -45,7 +45,7 @@ void CloudsMapComposer::drawIndoorCommands(XeenAssetSource &assets,
 
 void CloudsMapComposer::drawInterfaceLayers(XeenAssetSource &assets,
 		const XeenPartyState &partyState,
-		const XeenCharacterRulesContext &context) const {
+		const XeenCharacterRulesContext &context,XeenScenePresentation *presentation) const {
 	// Interface::assembleBorder() redraws this frame after drawScene(). Parts of
 	// the corner gems intentionally overlap the generic scene clipping rectangle.
 	assets.drawSprite("global.icn", 0, 8, 8);
@@ -57,12 +57,18 @@ void CloudsMapComposer::drawInterfaceLayers(XeenAssetSource &assets,
 	assets.drawSprite("border.icn",  0,   0, 32); // Left clairvoyance statue, inactive.
 	assets.drawSprite("border.icn",  8, 215, 32); // Right clairvoyance statue, inactive.
 	// Default (no active resistance) corner indicators from assembleBorder().
-	assets.drawSprite("fecp.brd", 0,   2,   2); // Fire.
-	assets.drawSprite("fecp.brd", 2, 219,   2); // Electricity.
-	assets.drawSprite("fecp.brd", 4,   2, 134); // Cold.
-	assets.drawSprite("fecp.brd", 6, 219, 134); // Poison.
+	const auto *buffs=partyState.encounterContext?&*partyState.encounterContext:nullptr;
+    assets.drawSprite("fecp.brd", buffs && buffs->lightAndResistances[2]?1:0,   2,   2); // Fire.
+	assets.drawSprite("fecp.brd", buffs && buffs->lightAndResistances[3]?3:2, 219,   2); // Electricity.
+	assets.drawSprite("fecp.brd", buffs && buffs->lightAndResistances[4]?5:4,   2, 134); // Cold.
+	assets.drawSprite("fecp.brd", buffs && buffs->lightAndResistances[5]?7:6, 219, 134); // Poison.
 	assets.drawSprite("bless.icn", 16, 33, 137); // Blessed indicator, inactive.
 
+	constexpr unsigned indices[]{8,6,7,5};constexpr int x[]{33,55,160,182};
+    for(unsigned i=0;i<4;++i)if(buffs && buffs->effects[indices[i]]) {
+        const auto phase=presentation?(presentation->buffFrames[i]=(presentation->buffFrames[i]+1)%4):1;
+        assets.drawSprite("bless.icn",4*i+phase,x[i],137);
+    }
 	// The compass/main button at y=137 overlaps the scene border in the original UI.
 	CloudsUiComposer().drawInterface(assets, partyState, context);
 }
@@ -114,7 +120,9 @@ IndexedFrame CloudsMapComposer::compose(XeenAssetSource &assets,
 		drawIndoorCommands(assets, commands);
 	}
 
-	drawInterfaceLayers(assets, partyState, context);
+	drawInterfaceLayers(assets, partyState, context,&world.scenePresentation());
+    if(partyState.encounterContext)for(unsigned i:{8u,6u,7u,5u})
+        emittedAnimation=emittedAnimation || partyState.encounterContext->effects[i]!=0;
 	auto result = drawXeenMinimap(world,camera,assets.snapshot(),
         partyState.encounterContext && partyState.encounterContext->effects[1]!=0,
         [&](IndexedFrame &frame,const char *name,unsigned index,int x,int y) {

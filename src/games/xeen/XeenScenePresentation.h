@@ -70,6 +70,7 @@ public:
  struct Splat {unsigned frame=0, duration=0;int damage=0;bool alternatePosition=false;std::uint64_t deadline=0;
   unsigned elementalFrame=0;int elementalDamage=0;};
  std::array<PortraitEffect,30> portraits{};
+ std::array<unsigned,4> buffFrames{};
  std::array<Splat,3> splats{};
  bool feedbackActive() const noexcept {
   for(const auto &p:portraits)if(p.spellFrame<4 || p.damageTicks)return true;

@@ -142,8 +142,8 @@ struct XeenCombatResult {
 	std::shared_ptr<const XeenRegionalObservation> ranged;
 };
 
-enum class XeenCombatCastPhase { Learned, Enemy, Confirm, PartyTarget, Preparing, Projectile, Impact, PostImpact, Result };
-enum class XeenCombatCastInput { Up, Down, Enter, Escape, PartyTarget, EnemyTarget, New, SelectRow, Select, PageUp, PageDown };
+enum class XeenCombatCastPhase { Learned, Enemy, Confirm, PartyTarget, Preparing, Projectile, Impact, PostImpact, Result, Element };
+enum class XeenCombatCastInput { Up, Down, Enter, Escape, PartyTarget, Element, EnemyTarget, New, SelectRow, Select, PageUp, PageDown };
 struct XeenCombatCastResult {
     unsigned spell=0, count=0;
     int spBefore=0, spAfter=0;

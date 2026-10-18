@@ -78,10 +78,10 @@ struct XeenRegionalOpportunityCandidate {
 	XeenActorView view;
 	XeenRegionalOpportunityCandidate(const XeenMap &, const std::vector<XeenActor> &,
 		const XeenCamera &, const XeenConsequenceCharacters &, const XeenConsequenceInputs &,
-		unsigned year, unsigned participantMask, const std::array<bool,6> &blocked = {}, XeenActorOpportunityContext context = {});
+		unsigned year, unsigned participantMask, const std::array<bool,6> &blocked = {}, XeenActorOpportunityContext context = {},const XeenGameplayContext &partyContext = {});
 	XeenRegionalOpportunityCandidate(XeenWorld &, const std::vector<XeenActor> &,
 		const XeenCamera &, const XeenConsequenceCharacters &, const XeenConsequenceInputs &,
-		unsigned year, unsigned participantMask, const std::array<bool,6> &blocked = {}, XeenActorOpportunityContext context = {});
+		unsigned year, unsigned participantMask, const std::array<bool,6> &blocked = {}, XeenActorOpportunityContext context = {},const XeenGameplayContext &partyContext = {});
 	bool service(XeenConsequenceDraw &);
  std::shared_ptr<const XeenRegionalObservation> presentation() const;
     std::optional<std::pair<unsigned,bool>> portrait() const {
@@ -97,6 +97,7 @@ private:
 	std::array<bool,6> blocked;
 	std::optional<XeenEnemyAttackCandidate> attack;
 	XeenWorld *indoorWorld = nullptr;
+    XeenGameplayContext partyContext;
 };
 // Retained preparation of one existing action/pulse publication. Flow holds the
 // continuation while Approach retains sole authority to publish world deltas.

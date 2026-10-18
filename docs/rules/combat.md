@@ -125,7 +125,7 @@ sheet and the injury observations share one equipment scan
 (`XeenCharacterRules::equipmentArmorClass`): `ARMOR_STRENGTHS[id]` plus
 `METAL_LAC[material - 37]` for good equipped metal armor 37-58, plus the AC
 attribute bonus (category 9) of every good equipped weapon, armor or accessory.
-Party Blessed has no owner yet. Example: Speed 15 (`+2`), padded armor (2) of
+Party Blessed comes from the gameplay context; base-only AC omits it. Example: Speed 15 (`+2`), padded armor (2) of
 material 45 (`+8`) and a ring of material 117 (`+4`) give AC 16; the same armor
 broken gives 6, and material 38 adds 0.
 
@@ -175,7 +175,7 @@ weapons included; never in Shoot) and the Slayer Sword bypass below;
 `xeenValidateJourneyMelee` admits every material 0-130 and counter 0-6. A
 later metal slot assigning rather than adding its damage modifier is
 unreachable: one melee weapon (frames 1/13) or one missile weapon (frame 4) is
-equipped at a time. Heroism is 0 until the spell exists.
+equipped at a time. Heroism is read from the gameplay context.
 
 M67 examples (Warrior, level-1 Knight, Accuracy 12, Might 15, monster AC 5):
 
@@ -330,7 +330,7 @@ before its secondary save. For any other damage type, the exact order is:
    unconditionally, even at zero damage; on success halve and repeat while the
    damage stays nonzero; stop on the first failed save. The pinned reference
    tests `damage > 0` before every draw and therefore draws nothing at zero.
-4. Subtract Power Shield (no owner yet, zero) and clamp to zero (`0x2d3a9..0x2d3b5`).
+4. Subtract party Power Shield and clamp to zero (`0x2d3a9..0x2d3b5`).
 5. If positive damage remains and the special attack byte is nonzero, draw a
    Physical character save (`0x2d3ed`). A failed save applies the secondary
    effect.

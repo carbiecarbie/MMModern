@@ -130,7 +130,7 @@ int main() {
         auto donation=context;donation.day=8;donation.effects[5]=99;donation.lightAndResistances[0]=100;
         std::uint8_t counter=0;
         for(unsigned count=1;count<=8;++count)check(xeenTempleDonationBlessing(donation,counter)==(count==8),"Donation threshold differs");
-        check(counter==8 && donation.effects[3]==1 && donation.effects[5]==8 && donation.effects[6]==8 &&
+        check(counter==8 && donation.effects[0]==1 && !donation.effects[3] && donation.effects[5]==8 && donation.effects[6]==8 &&
             donation.effects[7]==8 && donation.effects[8]==8 && donation.lightAndResistances[0]==1,"Donation did not overwrite spell effects");
         donation.day=0;counter=0;
         for(unsigned count=1;count<=10;++count)check(xeenTempleDonationBlessing(donation,counter)==(count==10),"Donation day zero differs");
