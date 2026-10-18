@@ -89,6 +89,14 @@ void layout(Inputs &in) {
     parity(xeenBankInput(),235,109,'o');parity(xeenBankInput(),262,109,'e');parity(xeenBankInput(),289,109,InputKey::Escape);
     parity(xeenFoodConfirmInput(),236,76,'y');parity(xeenFoodConfirmInput(),261,76,'n');
     for(unsigned i=0;i<10;++i)parity(xeenSpellListInput(true),40,28+9*i,i==9?'0':'1'+i);
+    // DOS spell rows are 9 lines tall and leave no dead line; item rows keep
+    // their original 8-line height and one-line gap.
+    for(int y=28;y<118;++y)for(int x:{40,186}) {
+        const auto hit=xeenSpellListInput(true).click(x,y);const unsigned row=unsigned(y-28)/9;
+        check(hit && std::get<DialogKeyAction>(*hit).key==(row==9?'0':'1'+row),"spell row line misses its row");
+    }
+    check(!xeenSpellListInput(true).click(40,118) && !xeenSpellListInput(true).click(39,28) && !xeenSpellListInput(true).click(40,27),"spell row bounds widened");
+    for(int y:{28,37,46,55,64,73,82,91})check(!xeenItemsInput(false,false).click(8,y),"item row gap differs from DOS");
     parity(xeenSpellListInput(true),187,26,InputKey::Up);parity(xeenSpellListInput(true),187,111,InputKey::Down);
     parity(xeenSpellListInput(true),187,50,InputKey::PageUp);parity(xeenSpellListInput(true),187,90,InputKey::PageDown);
     parity(xeenSpellListInput(true),132,123,'s');parity(xeenSpellListInput(true),174,123,InputKey::Escape);

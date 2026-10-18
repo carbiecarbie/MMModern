@@ -194,7 +194,9 @@ DialogInput xeenSpellListInput(bool selecting,bool switching) {
     DialogInput input;
     button(input,187,26,198,36,InputKey::Up,"scroll.icn",0);
     button(input,187,111,198,121,InputKey::Down,"scroll.icn",2);
-    for(unsigned i=0;i<10;++i)button(input,40,28+9*i,187,36+9*i,i==9?'0':'1'+i);
+    // DOS stores these rows with height 9 (DAT button table 0x4f19a), so they
+    // tile without the reference's one-line gap.
+    for(unsigned i=0;i<10;++i)button(input,40,28+9*i,187,37+9*i,i==9?'0':'1'+i);
     button(input,174,123,198,133,InputKey::Escape);
     button(input,187,35,198,73,InputKey::PageUp);
     button(input,187,74,198,112,InputKey::PageDown);

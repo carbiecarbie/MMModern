@@ -570,6 +570,10 @@ if(BUILD_TESTING)
 	add_executable(mmodern_service_dialog_tests tests/XeenServiceDialogTests.cpp)
 	add_executable(mmodern_m61_part_a_tests tests/XeenM61PartATests.cpp)
 	add_executable(mmodern_m61_part_b_tests tests/XeenM61PartBTests.cpp)
+	add_executable(mmodern_member_prompt_click_tests tests/XeenMemberPromptClickTests.cpp)
+	target_link_libraries(mmodern_member_prompt_click_tests PRIVATE mmodern_app mmodern_xeen mmodern_platform_sdl SDL2::SDL2)
+	add_test(NAME xeen_member_prompt_click COMMAND mmodern_member_prompt_click_tests "${MMODERN_XEEN_DATA_DIR}")
+	set_tests_properties(xeen_member_prompt_click PROPERTIES ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_RENDER_DRIVER=software")
 	target_link_libraries(mmodern_m61_part_b_tests PRIVATE mmodern_app mmodern_xeen)
 	add_test(NAME xeen_m61_part_b COMMAND mmodern_m61_part_b_tests "${MMODERN_XEEN_DATA_DIR}")
 	set_tests_properties(xeen_m61_part_b PROPERTIES LABELS "fast")
@@ -1109,7 +1113,7 @@ if(BUILD_TESTING)
 	# window never share the machine with another test.
 	set_tests_properties(xeen_input_scheduling xeen_main_screen xeen_native_responsiveness
 		xeen_title_flow xeen_myra_original_sdl xeen_save_cli xeen_combat_cli
-		sdl_input sdl_main_screen sdl_motion PROPERTIES RUN_SERIAL TRUE)
+		sdl_input sdl_main_screen sdl_motion xeen_member_prompt_click PROPERTIES RUN_SERIAL TRUE)
 	# Tests that write the same fixed working-directory or temp path never overlap.
 	set_tests_properties(xeen_npc xeen_npc_sdl PROPERTIES RESOURCE_LOCK npc_asset_dir)
 	set_tests_properties(xeen_journey_gameplay xeen_journey_sdl PROPERTIES RESOURCE_LOCK journey_gameplay_dir)

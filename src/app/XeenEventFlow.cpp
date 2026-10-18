@@ -2205,6 +2205,7 @@ std::optional<IndexedFrame> XeenEventFlow::updatePresentation() {
         if(!_encounter->combat() && _encounter->journeyNavigationReady() &&
             presentationNow()<_ordinary.deadline)return std::nullopt;
 		const bool quietBefore = journey() && _encounter->journeyMutable();
+		const bool castingBefore = journey() && _castingUi && _encounter->castingActive();
 		const bool hadJourneyCombat = journey() && _encounter->combat();
 		const bool changed = _encounter->idle(_cycle);
 		if (_castingUi && !_encounter->castingActive()) _castingUi.reset();
@@ -2222,8 +2223,12 @@ std::optional<IndexedFrame> XeenEventFlow::updatePresentation() {
 		// retaining the exact semantic ticket. Do not retire fresh keys for that redraw.
 		const bool combatCosmetic = _encounter->combat() && beforeIdle.combat &&
 			_encounter->combat()->current(*beforeIdle.combat);
+		// A cast prompt holds the world still; its scene redraw retains the
+		// prompt's input, as the original keeps polling the same buttons.
+		const bool castingCosmetic = castingBefore && !changed && _castingUi && _encounter->castingActive() &&
+			_encounter->current(beforeIdle);
 		if (changed || ordinary) return renderEncounter((hadJourneyCombat && !_encounter->combat()),
-			combatCosmetic || (quietBefore && _encounter->journeyMutable() && _encounter->current(beforeIdle)));
+			combatCosmetic || castingCosmetic || (quietBefore && _encounter->journeyMutable() && _encounter->current(beforeIdle)));
 		return std::nullopt;
 	}
 	const bool recomposed = refreshScene(false, OrdinaryCause::Idle);
