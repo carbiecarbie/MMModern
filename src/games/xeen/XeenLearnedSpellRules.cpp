@@ -8,6 +8,11 @@
 #include <stdexcept>
 
 namespace mmodern {
+void XeenSpellEffect::apply(XeenCharacter &character) const {
+    character.currentHp=hp;character.conditions=conditions;
+    if(permanentEndurance)character.endurance.permanent=*permanentEndurance;
+    if(temporaryAge)character.temporaryAge=*temporaryAge;
+}
 namespace {
 // Adapted from ScummVM 6814ee9ba54582f5b5adcffab49efbbd8f589edd,
 // devtools/create_mm/create_xeen/constants.cpp, SPELLS_ALLOWED. ScummVM
@@ -62,6 +67,7 @@ std::optional<std::uint8_t> XeenLearnedSpellRules::spellForSlot(XeenSpellCategor
 
 std::optional<XeenLearnedSpell> XeenLearnedSpellRules::supported(std::uint8_t id) noexcept {
     switch (id) {
+    case 16: case 56: case 58:
     case 6: case 7: case 8: case 9: case 49: case 52: case 64: case 67: case 68:
     case 24: case 29: case 32: case 46: case 51:
     case 0: case 5: case 11: case 14: case 18: case 22: case 23: case 25: case 28:
@@ -123,7 +129,8 @@ XeenSpellTarget XeenLearnedSpellRules::target(std::uint8_t id) noexcept {
     case 24: case 29: case 32: case 46: case 51:
     case 0: case 5: case 11: case 14: case 18: case 22: case 23: case 25: case 28:
     case 35: case 36: case 37: case 43: case 47: case 48: case 54: case 63: case 65: return XeenSpellTarget::Contact;
-    case 1: case 6: case 75: return XeenSpellTarget::Party;
+    case 1: case 6: case 16: case 75: return XeenSpellTarget::Party;
+    case 56: case 58:
     case 7: case 8: case 9: case 49: case 52: case 64: case 67: case 68:
     case 10: case 26: case 59: return XeenSpellTarget::Member;
     case 2: case 17: case 33: case 38: case 61: case 62: case 72: case 73:
@@ -165,14 +172,24 @@ bool XeenLearnedSpellRules::eligible(const XeenPartyState &party, std::size_t ac
 		character.currentSp >= int(cost(*spell,character.currentLevel()).sp) && known(character, slot);
 }
 
-namespace { XeenSpellPreparation cure(const XeenPartyState &,std::size_t,std::uint32_t,unsigned,bool suppress=false); }
+namespace {
+XeenSpellPreparation cure(const XeenPartyState &,std::size_t,std::uint32_t,unsigned,bool suppress=false);
+XeenSpellPreparation revive(const XeenPartyState &,std::size_t,std::uint32_t,bool);
+XeenSpellPreparation divineIntervention(const XeenPartyState &,std::uint8_t,std::uint32_t);
+}
 
 XeenSpellPreparation XeenLearnedSpellRules::prepareEffect(XeenLearnedSpell spell,const XeenPartyState &party,
-        std::optional<std::size_t> target,std::uint32_t year) {
+        std::optional<std::size_t> target,std::uint32_t year,std::optional<std::uint8_t> casterOwner) {
     if(spell==XeenLearnedSpell::Awaken)return prepareAwaken(party);
     if(spell==XeenLearnedSpell::CreateFood)return {false,{},static_cast<std::uint16_t>(party.food+party.party.size())};
+    if(spell==XeenLearnedSpell::DivineIntervention) {
+        if(!casterOwner)throw std::invalid_argument("Divine Intervention requires its caster owner");
+        return divineIntervention(party,*casterOwner,year);
+    }
     if(!target)return {};
     switch(spell) {
+    case XeenLearnedSpell::RaiseDead:return revive(party,*target,year,false);
+    case XeenLearnedSpell::Resurrection:return revive(party,*target,year,true);
     case XeenLearnedSpell::FirstAid:return prepareFirstAid(party,*target,year);
     case XeenLearnedSpell::CureWounds:return prepareFirstAid(party,*target,year,15);
     case XeenLearnedSpell::Revitalize:return prepareRevitalize(party,*target,year);
@@ -209,9 +226,54 @@ XeenSpellPreparation heal(const XeenCharacter &target,std::size_t owner,std::uin
 	effect.owner = static_cast<std::uint8_t>(owner);
 	effect.hp = static_cast<std::int16_t>(after);
 	effect.conditions = target.conditions;
+	effect.healing = hp <= maximum;
 	if (after > 0) effect.conditions[12] = 0;
 	result.effects.push_back(effect);
 	return result;
+}
+
+XeenSpellPreparation revive(const XeenPartyState &party,std::size_t index,std::uint32_t year,bool resurrection) {
+    const auto owner=ownerFor(party,index);
+    auto target=party.roster.at(owner);
+    if(!target.conditions[resurrection?15:13])return {true,{},{}};
+    XeenSpellEffect effect{static_cast<std::uint8_t>(owner),target.currentHp,target.conditions};
+    if(resurrection) {
+        // DOS calls healing(0) while Eradicated still refuses it, then clears only that flag.
+        effect.conditions[15]=0;
+        effect.temporaryAge=std::min(int(target.temporaryAge)+5,250);
+    } else {
+        target.conditions[13]=target.conditions[12]=0;target.currentHp=0;
+        const auto healed=heal(target,owner,year,1);
+        effect.hp=0;effect.conditions=target.conditions;
+        if(!healed.failed)effect=healed.effects.front();
+    }
+    // DOS byte subtraction precedes the minimum; input zero wraps to 255.
+    effect.permanentEndurance=std::max(1,int(static_cast<std::uint8_t>(int(target.endurance.permanent)-1)));
+    return {false,{effect},{}};
+}
+
+XeenSpellPreparation divineIntervention(const XeenPartyState &party,std::uint8_t caster,std::uint32_t year) {
+    const auto &ids=party.party.activeRosterIds();
+    if(std::find(ids.begin(),ids.end(),caster)==ids.end())throw std::invalid_argument("Invalid Divine Intervention caster");
+    XeenSpellPreparation result;
+    for(std::size_t index=0;index<party.party.size();++index) {
+        const auto owner=ownerFor(party,index);
+        auto target=party.roster.at(owner);
+        XeenSpellEffect effect{static_cast<std::uint8_t>(owner),target.currentHp,target.conditions};
+        if(owner==caster) {
+            target.temporaryAge=std::min(int(target.temporaryAge)+5,250);
+            effect.temporaryAge=target.temporaryAge;
+        }
+        std::fill(effect.conditions.begin(),effect.conditions.begin()+15,0);
+        target.conditions=effect.conditions;
+        if(!target.conditions[15]) {
+            XeenCharacterRules::validateForUse(target,{year});
+            effect.hp=XeenCharacterRules::maxHp(target,{year});
+            // Direct HP assignment; unlike addHitPoints this has no portrait sparkle.
+        }
+        result.effects.push_back(effect);
+    }
+    return result;
 }
 
 XeenSpellPreparation cure(const XeenPartyState &party,std::size_t index,std::uint32_t year,

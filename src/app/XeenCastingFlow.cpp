@@ -197,8 +197,7 @@ bool XeenEncounterFlow::publishCastingTarget() {
 		} else if (preparedEffect.failed) result="Spell failed; costs spent";
 		else {
 			const auto &effect=preparedEffect.effects.front();
-			prepared->characters[effect.owner].currentHp=effect.hp;
-			prepared->characters[effect.owner].conditions=effect.conditions;
+			effect.apply(prepared->characters[effect.owner]);
 			result="Healing: "+_party.roster.at(_casting->casterOwner).name+" -> "+
 				_party.roster.at(effect.owner).name+" HP "+
 				std::to_string(_party.roster.at(effect.owner).currentHp)+"->"+std::to_string(effect.hp)+
@@ -213,8 +212,8 @@ bool XeenEncounterFlow::publishCastingTarget() {
         }
 		else for (const auto &effect:preparedEffect.effects) {
 			auto &live=_party.roster.at(effect.owner);
-            if(!live.conditions[13] && !live.conditions[14] && !live.conditions[15] && live.currentHp<=XeenCharacterRules::maxHp(live,{_party.encounterContext->year}))_world.scenePresentation().spellEffect(effect.owner,_lastTime,true);
-			live.currentHp=effect.hp;live.conditions=effect.conditions;
+            if(effect.healing)_world.scenePresentation().spellEffect(effect.owner,_lastTime,true);
+			effect.apply(live);
 		}
 		_castingResult.swap(result);
 		_casting->failed=preparedEffect.failed;
@@ -232,7 +231,7 @@ bool XeenEncounterFlow::publishAwaken(const Ticket &entry) {
 	BusyCast busy(_busy);
 	try {
 		_journeyPreimage->check();
-		const auto effect=XeenLearnedSpellRules::prepareEffect(_casting->spell,_party,{},_party.encounterContext->year);
+		const auto effect=XeenLearnedSpellRules::prepareEffect(_casting->spell,_party,{},_party.encounterContext->year,_casting->casterOwner);
 		auto prepared=std::make_shared<XeenRestoreGuard>(_world,_party,_camera,_flags);
 		prepared->retainResources(*_journeyPreimage);
 		std::ostringstream message;
@@ -241,7 +240,7 @@ bool XeenEncounterFlow::publishAwaken(const Ticket &entry) {
 		for (const auto &value:effect.effects) {
 			const auto &before=_party.roster.at(value.owner);
 			cleared+=(before.conditions[8]!=0 && value.conditions[8]==0);
-			prepared->characters[value.owner].conditions=value.conditions;
+			value.apply(prepared->characters[value.owner]);
 		}
 		message<<cleared<<" Sleep cleared";
 		auto result=message.str();
@@ -255,7 +254,10 @@ bool XeenEncounterFlow::publishAwaken(const Ticket &entry) {
           _casting->failed=!_casting->jumpDestination;
           if(_casting->jumpDestination)_camera=*_casting->jumpDestination;
         }
-		for (const auto &value:effect.effects) _party.roster.at(value.owner).conditions=value.conditions;
+		for (const auto &value:effect.effects) {
+            if(value.healing)_world.scenePresentation().spellEffect(value.owner,_lastTime,true);
+            value.apply(_party.roster.at(value.owner));
+        }
 		_castingResult.swap(result);
 		_casting->effectDone=true;
 		_casting->displayedFrame.reset();_casting->displayedInput=0;

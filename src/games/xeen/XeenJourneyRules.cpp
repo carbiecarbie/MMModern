@@ -56,9 +56,8 @@ void xeenValidateJourneyParty(const XeenPartyState &party) {
 			byte(c.temporaryLevel) && byte(c.temporaryAge), "Journey active character outside byte range");
 		require(static_cast<unsigned>(c.sex) <= 2 && static_cast<unsigned>(c.race) <= 4 &&
 			static_cast<unsigned>(c.characterClass) <= 9 && c.permanentLevel > 0, "Unsupported Journey active rules");
-		// All sixteen conditions have canonical unsigned-byte storage.
-		require((!c.conditions[12] || c.currentHp <= 0) && (c.conditions[12] || c.conditions[13] || c.currentHp > 0),
-			"Journey HP and condition signs disagree");
+		// Revival and condition cures can leave HP and Unconscious independent.
+		// Admission follows conditions, never an inferred condition from HP.
 		XeenCharacterRules::validateForUse(c, {context.year});
 		xeenValidateCompletedEquipment(c);
 		able = able || (xeenCombatTargetable(c));

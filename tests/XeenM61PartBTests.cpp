@@ -100,7 +100,7 @@ void effects(Inputs &in) {
 void refusal(Inputs &in) {
     constexpr unsigned damagePowers[]{24,33,35,36,38,46,47,52,54,59,60,62,64,67,68,69,70,71,72};
     for(unsigned power=0;power<75;++power) {
-        const bool m75=power==26 || power==27 || power==41 || power==44 || power==51 || power==56;
+        const bool m75=power==26 || power==27 || power==41 || power==44 || power==51 || power==56 || power==57 || power==66 || power==73;
         const bool supported=m75 || std::find(std::begin(powers),std::end(powers),power)!=std::end(powers) ||
             std::find(std::begin(damagePowers),std::end(damagePowers),power)!=std::end(damagePowers);
         check(xeenItemUseSupported({1,std::uint8_t(power),1,0})==supported,"Power support boundary differs");

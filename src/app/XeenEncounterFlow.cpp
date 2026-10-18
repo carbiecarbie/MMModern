@@ -371,10 +371,10 @@ bool XeenEncounterFlow::observeCombat() {
                 _castProjectileDeadline.reset();
                 _castProjectile->target=r.targetMonster;
             }
-            if((XeenLearnedSpellRules::target(cast.spell)==XeenSpellTarget::Member || cast.spell==48) && !cast.failed && !cast.refunded)
+            if(!cast.failed && !cast.refunded)
                 for(unsigned i=0;i<cast.count;++i) {
                     const auto &e=cast.effects[i];
-                    if(!e.before[13] && !e.before[14] && !e.before[15] && e.beforeHp<=XeenCharacterRules::maxHp(_party.roster.at(e.owner),{_party.encounterContext->year}))presentation.spellEffect(e.owner,_lastTime,true);
+                    if(e.healing)presentation.spellEffect(e.owner,_lastTime,true);
                 }
         }
     }

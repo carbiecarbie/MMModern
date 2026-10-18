@@ -37,12 +37,12 @@ mainland; many items apply there, others wait for areas not open yet.
   Implemented in M75 Part A.
   [Evidence](original-quirks.md#sv-suppress-poison). Pin: differs; master not rechecked.
 - **Resurrection cancellation.** DOS refunds 125 SP/20 gems, including from
-  its item prompt; the pin uses Raise Dead's 50 SP/10 gems. Not implemented;
-  DOS rule for M75.
+  its item prompt; the pin uses Raise Dead's 50 SP/10 gems. Implemented
+  in M75 Part B.
   [Evidence](original-quirks.md#sv-resurrection-refund). Pin: differs; master not rechecked.
 - **Revival at zero Endurance.** DOS byte arithmetic changes 0 to 255 before
   testing the minimum; the pin gives 1. Ordinary-play reachability is not
-  established. Not implemented; DOS rule for M75.
+  established. Implemented in M75 Part B, including this settled edge case.
   [Evidence](original-quirks.md#sv-revival-endurance-byte). Pin: differs; master not rechecked.
 - **Create Food overflow.** DOS wraps its food counter modulo 65536; the pin
   retains a wider total in memory. Implemented in M75 Part A.

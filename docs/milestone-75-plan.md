@@ -52,18 +52,18 @@ already saved).
       single-member prompt where the original has one, with their costs,
       gems and refunds. Suppress Poison uses the DOS prompt ID, refund and
       decrement (closing the M60 "not implemented" quirk row).
-- [ ] **Part B - death and the whole party.** Raise Dead, Resurrection
+- [x] **Part B - death and the whole party.** Raise Dead, Resurrection
       (refund of its own cost on cancel, as DOS) and Divine Intervention,
       in exploration and combat, including a member returning to combat
       after being raised, as Part 0 establishes.
 - [x] Part A item powers 26, 27, 37, 41, 44, 51 and 56 use the same
       effects and the M61 charge rules.
-- [ ] Part B item powers 57, 66 and 73 use the same effects and charge rules.
+- [x] Part B item powers 57, 66 and 73 use the same effects and charge rules.
 - [x] Developer test save `party-healing` (as `monster-damage`): Vertigo, a
       Cleric and a Druid with all 12 spells, ample SP and gems, other members
       Poisoned, Diseased, Paralyzed, Stoned, Dead and Eradicated, and a few
       charged items with these powers; README entry.
-- [x] Regenerate `docs/coverage.md` (Part A: 51 of 76 spells).
+- [x] Regenerate `docs/coverage.md` (54 of 76 spells).
 
 ## Acceptance
 

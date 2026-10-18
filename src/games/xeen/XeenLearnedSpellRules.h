@@ -17,6 +17,7 @@ enum class XeenLearnedSpell : std::uint8_t {
     PrismaticLight=54, StarBurst=63, SunRay=65,
     CreateFood=6, CureDisease=7, CureParalysis=8, CurePoison=9, NaturesCure=49,
     PowerCure=52, StoneToFlesh=64, SuppressDisease=67, SuppressPoison=68,
+    DivineIntervention=16, RaiseDead=56, Resurrection=58,
     Awaken=1, BeastMaster=2, CureWounds=10, DragonSleep=17, EnergyBlast=20,
     FirstAid=26, FlyingFist=27, Hypnotize=33, InsectSpray=38, Jump=40,
     MagicArrow=45, Pain=50, PoisonVolley=51, Revitalize=59, Shrapmetal=60, Sleep=61, Sparks=62,
@@ -27,6 +28,9 @@ struct XeenSpellEffect {
 	std::uint8_t owner = 0;
 	std::int16_t hp = 0;
 	std::array<std::uint8_t, XeenCharacter::kConditionCount> conditions{};
+	std::optional<int> permanentEndurance, temporaryAge;
+	bool healing = false;
+	void apply(XeenCharacter &) const;
 };
 
 struct XeenSpellPreparation {
@@ -75,7 +79,8 @@ public:
 	static std::optional<XeenSpellPreparation> preparePowerCure(const XeenPartyState &,
 		std::size_t targetIndex,std::uint32_t currentYear,unsigned casterLevel,XeenConsequenceDraw &);
 	static XeenSpellPreparation prepareEffect(XeenLearnedSpell,const XeenPartyState &,
-		std::optional<std::size_t> targetIndex,std::uint32_t currentYear);
+		std::optional<std::size_t> targetIndex,std::uint32_t currentYear,
+		std::optional<std::uint8_t> casterOwner = {});
 	static void applyPartyEffect(XeenLearnedSpell,XeenGameplayContext &);
 };
 

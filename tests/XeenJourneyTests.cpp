@@ -169,8 +169,11 @@ void readinessAndHistory() {
 	owner.armor[8] = {}; owner.accessories[8] = {131,10,0,11}; rejects([&] { xeenValidateJourneyMelee(raw.p); }, "accessory");
 	owner.accessories[8] = {};
 	owner.conditions[3] = 1; xeenValidateJourneyParty(raw.p);
-	owner.conditions[3] = 0; owner.conditions[12] = 2; rejects([&] { xeenValidateJourneyParty(raw.p); }, "condition");
-	owner.conditions[12] = 1; rejects([&] { xeenValidateJourneyParty(raw.p); }, "signs");
+	owner.conditions[3] = 0; owner.conditions[12] = 2; xeenValidateJourneyParty(raw.p);
+	owner.conditions[12] = 1; xeenValidateJourneyParty(raw.p);
+	owner.conditions[12] = 0; owner.currentHp = 0; xeenValidateJourneyParty(raw.p);
+	owner.currentHp = -3; owner.conditions[15] = 1; xeenValidateJourneyParty(raw.p);
+	owner.conditions[15] = 0; xeenValidateJourneyParty(raw.p);
 	for (auto id : kXeenCombatOwners) { raw.p.roster.at(id).currentHp = 0; raw.p.roster.at(id).conditions[12] = 1; }
 	rejects([&] { xeenValidateJourneyParty(raw.p); }, "acting");
 	Fixture partial;

@@ -990,7 +990,7 @@ XeenCombatResult XeenCombat::settleCast(const Ticket &t,std::optional<unsigned> 
                 ++d.generation;return d.adopt(c.operation,Status::Pending);
             }
             effect=*healing;
-        } else effect=XeenLearnedSpellRules::prepareEffect(static_cast<XeenLearnedSpell>(reserved.spell),d.party,target,d.party.encounterContext->year);
+        } else effect=XeenLearnedSpellRules::prepareEffect(static_cast<XeenLearnedSpell>(reserved.spell),d.party,target,d.party.encounterContext->year,reserved.owner);
         if(reserved.spell==unsigned(XeenLearnedSpell::MoonRay)) {
             XeenConsequenceDraw draw{c.random,64,[&]{d.probeFor(t);d.checkCastReservation(t,reserved,true);}};
             if(!c.healing.service(draw,d.party,d.party.encounterContext->year)) {
@@ -1011,7 +1011,10 @@ XeenCombatResult XeenCombat::settleCast(const Ticket &t,std::optional<unsigned> 
             auto &row=result.effects.at(result.count++);
             row={value.owner,before.currentHp,value.hp,before.conditions,value.conditions};
             result.noop=result.noop && row.beforeHp==row.afterHp && row.before==row.after;
-            prepared->characters[value.owner].currentHp=value.hp;prepared->characters[value.owner].conditions=value.conditions;
+            value.apply(prepared->characters[value.owner]);
+            row.healing=value.healing;
+            result.noop=result.noop && (!value.permanentEndurance || *value.permanentEndurance==before.endurance.permanent) &&
+                (!value.temporaryAge || *value.temporaryAge==before.temporaryAge);
         }
         if(effect.failed && target) {
             const auto &before=d.character(int(*target));
@@ -1029,7 +1032,7 @@ XeenCombatResult XeenCombat::settleCast(const Ticket &t,std::optional<unsigned> 
         if(effect.food)d.party.food=d.expected.food=*effect.food;
         for(const auto &value:effect.effects) {
             auto &live=d.party.roster.at(value.owner);auto &before=d.expected.roster.at(value.owner);
-            live.currentHp=before.currentHp=value.hp;live.conditions=before.conditions=value.conditions;
+            value.apply(live);value.apply(before);
         }
         d.rng=c.random;d.expectedRandom=d.session()._journeyRandom=c.random.continuation();
         d.acted[reserved.participant]=true;d.playerSpeeds=speeds;c.view.result=result;

@@ -24,16 +24,20 @@ void run(unsigned spell,unsigned target,unsigned targetSpeed,bool quick,bool can
     auto &patient=saved.characters[saved.activeRosterIds[target]];
     saved.journey->supplements[patient.rosterId].inputs.speed={int(targetSpeed),0};
     if(spell==52){patient.permanentLevel=30;patient.currentHp=1;}
+    if(spell==56 || spell==58 || spell==16) {
+        patient.currentHp=0;patient.conditions[spell==58?15:13]=1;
+        patient.endurance.permanent=18;patient.temporaryAge=0;
+    }
     saved.food=65535;
     if(spell==1 || spell==8 || tail)patient.conditions[spell==8?11:8]=1;
     const auto statistics=services.resources.loadMonsterStatistics;
-    services.resources.loadMonsterStatistics=[=]{auto values=statistics();for(auto &m:values)m.raw[23]=tail?10:1;return values;};
+    services.resources.loadMonsterStatistics=[=]{auto values=statistics();for(auto &m:values){m.raw[23]=tail?10:1;if(spell==56 || spell==58)m.raw[24]=0;}return values;};
     services.show=[&](const auto &,const auto &handler,const auto &,const auto &idle,const auto &) {
         const auto tick=[&] {h.tick(handler,idle);if(handler.completeInputHandoff)handler.completeInputHandoff(h.flow->frame().presentation());};
         const auto send=[&](PlayerAction action) {h.press(handler,action);if(handler.completeInputHandoff)handler.completeInputHandoff(h.flow->frame().presentation());};
         const auto ready=[&] {
             for(unsigned n=0;n<1000;++n) {
-                if(!h.retired() && h.fight().phase()==Phase::PlayerReady)return;
+                if(!h.retired() && h.fight().phase()==Phase::PlayerReady && !h.world->scenePresentation().feedbackActive())return;
                 tick();
             }
             throw std::runtime_error("M75 combat did not reach a player turn");
@@ -64,16 +68,27 @@ void run(unsigned spell,unsigned target,unsigned targetSpeed,bool quick,bool can
             check(h.party->roster.at(patient.rosterId).currentHp==1+int(*amount*7) && h.fight().random()==expected,"Combat Power Cure draw/level source");
         }
         if(spell==6)check(h.party->food==5,"Combat Create Food prompt/wrap");
-        if(spell!=1 && spell!=8)return true;
-        const unsigned condition=spell==8?11:8;
+        if(spell==56 || spell==58) {
+            check(h.party->roster.at(patient.rosterId).endurance.permanent==17 &&
+                h.party->roster.at(patient.rosterId).temporaryAge==(spell==58?5:0),"Combat revival Endurance/age publication");
+            check(h.party->roster.at(patient.rosterId).currentHp==(spell==58?0:1),"Combat revival HP");
+        }
+        if(spell==16)check(!h.party->roster.at(patient.rosterId).conditions[13] && h.party->roster.at(owner).temporaryAge==std::min(int(caster.temporaryAge)+5,250),"Combat Divine Intervention effects/caster");
+        if(spell!=1 && spell!=8 && spell!=56 && spell!=58 && spell!=16)return true;
+        const unsigned condition=spell==8?11:spell==58?15:(spell==56 || spell==16)?13:8;
         check(!h.party->roster.at(patient.rosterId).conditions[condition],"Combat cure did not re-enable target");
-        if(targetSpeed<60)check(h.fight().participant()==int(target) && h.party->encounterContext->minutes==minute,"Member cured before its slot lost this round");
+        if(targetSpeed<60) {
+            check(h.fight().participant()==int(target) && h.party->encounterContext->minutes==minute,"Member cured before its slot lost this round");
+            ready();send(BlockAction{});ready();
+            if(h.fight().participant()==int(target))throw std::runtime_error("Re-enabled member could not issue a command: spell="+std::to_string(spell));
+        }
         else {
             for(unsigned n=0;n<1000 && h.party->encounterContext->minutes==minute;++n) {
                 check(h.fight().participant()!=int(target) || h.fight().phase()!=Phase::PlayerReady,"Member cured after skip acted in the same round");
-                if(h.fight().phase()==Phase::PlayerReady)send(BlockAction{});else tick();
+                if(h.fight().phase()==Phase::PlayerReady && !h.world->scenePresentation().feedbackActive())send(BlockAction{});else tick();
             }
-            ready();check(h.fight().participant()==int(target),"Skipped member failed to return next round");
+            ready();
+            if(h.fight().participant()!=int(target))throw std::runtime_error("Skipped member failed to return next round: spell="+std::to_string(spell));
         }
         return true;
     };
@@ -83,9 +98,9 @@ void run(unsigned spell,unsigned target,unsigned targetSpeed,bool quick,bool can
 }
 }
 int main() {try {
-    for(unsigned spell:{1u,8u})for(bool quick:{false,true})for(unsigned speed:{55u,70u})run(spell,1,speed,quick,false);
+    for(unsigned spell:{1u,8u,16u,56u,58u})for(bool quick:{false,true})for(unsigned speed:{55u,70u})run(spell,1,speed,quick,false);
     run(1,5,2,false,false,true);run(8,5,2,false,false,true);
-    for(unsigned spell:{7u,8u,9u,49u,52u,64u,67u,68u})for(bool quick:{false,true})run(spell,1,55,quick,true);
+    for(unsigned spell:{7u,8u,9u,49u,52u,56u,58u,64u,67u,68u})for(bool quick:{false,true})run(spell,1,55,quick,true);
     for(bool quick:{false,true}){run(52,1,55,quick,false);run(6,1,55,quick,false);}
     std::cout<<"M75 turn order, HP admission, book/Quick Fight prompts and refunds passed\n";return 0;
 }catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}

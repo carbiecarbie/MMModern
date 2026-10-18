@@ -152,6 +152,7 @@ struct XeenCombatCastResult {
         std::uint8_t owner=0;
         int beforeHp=0,afterHp=0;
         std::array<std::uint8_t,16> before{},after{};
+        bool healing=false;
     };
     std::array<Effect,6> effects{};
 };

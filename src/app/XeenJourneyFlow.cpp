@@ -343,7 +343,7 @@ bool XeenEncounterFlow::settleItemUse(const Ticket &entry,std::uint64_t generati
                 if(!healing)return true;
                 effect=*healing;
                 _world._sessionState._journeyRandom=_itemUse->opportunity->random.continuation();
-            } else effect=XeenLearnedSpellRules::prepareEffect(spell,_party,targetIndex,_party.encounterContext->year);
+            } else effect=XeenLearnedSpellRules::prepareEffect(spell,_party,targetIndex,_party.encounterContext->year,_itemUse->sourceOwner);
 			bool automaticArrival=false;
 			if(_itemUse->jumpDestination) {
 				XeenRestoreGuard::Providers providers(*_journeyPreimage,_world);
@@ -354,16 +354,16 @@ bool XeenEncounterFlow::settleItemUse(const Ticket &entry,std::uint64_t generati
 			}
 			for(const auto &value:effect.effects) {
 				auto &live=_party.roster.at(value.owner);
-				if(spell!=XeenLearnedSpell::Awaken && !live.conditions[13] && !live.conditions[14] && !live.conditions[15] && live.currentHp<=XeenCharacterRules::maxHp(live,{_party.encounterContext->year}))
+				if(value.healing)
 					_world.scenePresentation().spellEffect(value.owner,_lastTime,true);
-				live.currentHp=value.hp;live.conditions=value.conditions;
+				value.apply(live);
 			}
 			XeenLearnedSpellRules::applyPartyEffect(spell,*_party.encounterContext);
 			if(effect.food)_party.food=*effect.food;
             const auto id=static_cast<std::uint8_t>(spell);
             // M61 First Aid and the M75 DOS item prompts refund without a debit.
             // Other pre-M75 item cancellation paths retain their existing policy.
-            if(!targetIndex && (id==26 || id==7 || id==8 || id==9 || id==49 || id==52 || id==64)) {
+            if(!targetIndex && (id==26 || id==7 || id==8 || id==9 || id==49 || id==52 || id==56 || id==58 || id==64)) {
                 auto &user=_party.roster.at(_itemUse->sourceOwner);
                 const auto refund=XeenLearnedSpellRules::cost(id,user.currentLevel());
                 user.currentSp=static_cast<std::int16_t>(user.currentSp+refund.sp);

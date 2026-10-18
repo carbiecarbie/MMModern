@@ -74,8 +74,57 @@ void rules() {
         const auto result=R::prepareEffect(S::CreateFood,p,{},610);
         check(result.food==std::uint16_t(food+6) && result.effects.empty(),"Food must count all six and wrap as a word");
     }
-    for(unsigned id:{16u,56u,58u})check(!R::supported(id),"Part B admitted early");
+}
+void revival() {
+    using R=XeenLearnedSpellRules;using S=XeenLearnedSpell;
+    auto p=party();auto &target=p.roster.at(1);
+    for(auto spell:{S::RaiseDead,S::Resurrection}) {
+        const auto id=static_cast<std::uint8_t>(spell);
+        const bool resurrection=spell==S::Resurrection;
+        const auto cost=R::cost(id,7);
+        check(R::supportedIn(id,true)==spell && R::supportedIn(id,false)==spell && R::target(id)==XeenSpellTarget::Member,"Revival admission/prompt");
+        check(cost.sp==(resurrection?125u:50u) && cost.gems==(resurrection?20u:10u),"Revival own refund cost");
+        check(R::prepareEffect(spell,p,{},610).effects.empty(),"Revival cancellation mutated target");
+        for(unsigned flags=0;flags<8;++flags)for(int hp:{-30,0,10,1000})for(int endurance:{0,1,2,18,255})for(int age:{0,245,246,250,255}) {
+            target.conditions.fill(3);target.currentHp=hp;target.endurance.permanent=endurance;target.temporaryAge=age;
+            for(unsigned n=0;n<3;++n)target.conditions[13+n]=(flags&(1u<<n))?1:0;
+            auto expected=target.conditions;
+            const auto effect=R::prepareEffect(spell,p,1,610);
+            const bool admitted=bool(flags&(resurrection?4u:1u));
+            check(effect.failed==!admitted,"Revival terminal requirement");
+            if(!admitted) {check(effect.effects.empty(),"Failed revival changed fields");continue;}
+            expected[resurrection?15:13]=0;if(!resurrection)expected[12]=0;
+            const int expectedHp=resurrection?hp:(flags&6u?0:1);
+            const auto &value=effect.effects.at(0);
+            check(value.owner==1 && value.hp==expectedHp && value.conditions==expected,"Revival HP/condition order");
+            check(value.permanentEndurance==(endurance==0?255:std::max(1,endurance-1)),"Revival byte Endurance minimum");
+            auto after=target;value.apply(after);
+            check(after.endurance.permanent==*value.permanentEndurance && after.temporaryAge==(resurrection?std::min(age+5,250):age),"Revival publication/age cap");
+            check(value.healing==(!resurrection && !(flags&6u)),"Revival healing portrait admission");
+        }
+    }
+    check(R::target(16)==XeenSpellTarget::Party && R::supportedIn(16,true)==S::DivineIntervention,"Divine Intervention party admission");
+    check(R::cost(16,7).sp==200 && R::cost(16,7).gems==20,"Divine Intervention cost");
+    p.party=XeenParty::fromRosterIds({5,2,9});
+    for(int age:{0,60,245,246,250,255})for(bool eradicated:{false,true}) {
+        for(auto owner:{5,2,9,0}) {
+            auto &c=p.roster.at(owner);c.conditions.fill(7);c.conditions[15]=eradicated?255:0;
+            c.currentHp=1000;c.currentSp=3;c.temporaryAge=age;c.endurance.permanent=18;
+        }
+        const auto effect=R::prepareEffect(S::DivineIntervention,p,{},610,2);
+        check(effect.effects.size()==3 && !effect.failed,"Divine Intervention active member set");
+        for(const auto &value:effect.effects) {
+            const auto old=p.roster.at(value.owner);auto after=old;value.apply(after);
+            for(unsigned i=0;i<15;++i)check(!after.conditions[i],"Divine Intervention condition range");
+            check(after.conditions[15]==(eradicated?255:0) && after.currentSp==3 && after.endurance.permanent==18,"Divine Intervention preserved fields");
+            auto healed=after;healed.conditions.fill(0);
+            check(after.currentHp==(eradicated?1000:XeenCharacterRules::maxHp(healed,{610})),"Divine Intervention refill after caster aging/condition clearing");
+            check(after.temporaryAge==(value.owner==2?std::min(age+5,250):age),"Divine Intervention aged wrong owner");
+            check(!value.healing,"Divine Intervention direct HP assignment added a healing sparkle");
+        }
+        check(p.roster.at(0).conditions[0]==7 && p.roster.at(0).temporaryAge==age,"Inactive roster member changed");
+    }
 }
 }
-int main() {try {rules();std::cout<<"M75 healing guards, conditions, suppression, Power Cure draws and food passed\n";return 0;}
+int main() {try {rules();revival();std::cout<<"M75 healing, revival, Divine Intervention, conditions, draws and food passed\n";return 0;}
 catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}

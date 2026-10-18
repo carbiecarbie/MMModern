@@ -160,10 +160,10 @@ Escape before selecting an item. See [the item-use evidence](../original-quirks.
 **Implemented:** First Aid, Cure Wounds, Revitalize, Awaken and Moon Ray;
 M75 Part A adds Nature's Cure, Power Cure, Cure Poison, Cure Disease,
 Cure Paralysis, Stone to Flesh, Suppress Poison, Suppress Disease and
-Create Food, through the book, Quick Fight and their item powers.
-Raise Dead, Resurrection and Divine Intervention remain unsupported until
-Part B. The M75 own-ID target prompts and refunds above are implemented
-for Part A, including charged-item cancellation.
+Create Food. M75 Part B adds Raise Dead, Resurrection and Divine
+Intervention. All use the book, Quick Fight and their item powers, with
+the M75 own-ID target prompts and refunds above, including charged-item
+cancellation.
 
 **Evidence: DOS static (2026-10-17), high confidence** for the twelve M75
 spells and the shared healing helper's terminal guards and condition order;
