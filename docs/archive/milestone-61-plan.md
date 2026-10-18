@@ -8,7 +8,7 @@ maintainer accepted the Debug play-tests (2026-10-12/13). The rules reference
 ## Goal and final scope
 
 Make the items Vertigo's loot yields usable through the original interface
-([roadmap](roadmap.md) step 7). Authority: the World of Xeen CD resources,
+([roadmap](../roadmap.md) step 7). Authority: the World of Xeen CD resources,
 calibrated analysis of the original program `WORLD/XEEN.DAT` (persistent Ghidra
 project outside the repository), maintainer DOSBox evidence (2026-10-12) and
 pinned ScummVM `6814ee9ba54582f5b5adcffab49efbbd8f589edd`.
@@ -45,8 +45,8 @@ pinned ScummVM `6814ee9ba54582f5b5adcffab49efbbd8f589edd`.
    Lightning Bolt, Holy Bonus, Power Cure, Nature Cure, Power Shield and Heroism
    stay "not supported yet"; implementing those spells later enables the items.
 2. **Original program over reference** for prices, Misc drops, the First Aid
-   item refund and delivery; recorded in [original quirks](original-quirks.md)
-   and the [rules reference](rules/README.md). Cursed refusals follow the
+   item refund and delivery; recorded in [original quirks](../original-quirks.md)
+   and the [rules reference](../rules/README.md). Cursed refusals follow the
    reference provisionally (no cursed item was reachable for DOSBox testing).
 3. **Save v12** (schema 9, content 14) for Part C; M44 digests replaced after the
    maintainer-approved audit (traces identical). Parts A, B and D kept the

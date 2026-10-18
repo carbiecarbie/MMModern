@@ -38,7 +38,7 @@ keyboard. Reuse the Event, Service and Flow owners; no new persistent state.
 ## Evidence
 
 Pinned ScummVM `6814ee9ba54582f5b5adcffab49efbbd8f589edd`
-([provenance](dependencies.md)): `locations.cpp` Bank/Food/BaseLocation,
+([provenance](../dependencies.md)): `locations.cpp` Bank/Food/BaseLocation,
 `dialogs_input.cpp`, `party.cpp` and `scripts.cpp::cmdDoTownEvent`.
 Read-only CD Events confirm both entrances. DAT fields: Bank
 `[0x52d9f,0x52e2b)`, currency/amount/refresh `[0x52ac9,0x52b79)`, full packs
@@ -49,7 +49,7 @@ limit, unchanged full packs, bank interest and one-day visits. Depositing
 `4294967296` or `4294967306` with more than 10 gold gives the original excess
 refusal without wrapping. DOS scans `%lu` (`0x1e26f`, format `0x5311f`), unlike
 the reference's signed `atoi`. Retained quirks and DAT differences are recorded
-in [original quirks](original-quirks.md).
+in [original quirks](../original-quirks.md).
 
 ## Acceptance
 
@@ -62,6 +62,6 @@ in [original quirks](original-quirks.md).
   passes with exact food, balances, flags, time and RNG restoration.
 - Full builds passed. `build-rel`: 143/143 fast and 177/177 complete tests;
   complete suite ran through the single-job `gpt-6-luna` low-effort runner
-  ([protocol](../tools/AGENTS.md)). `build-m44`: 143/143 fast and 3/3 M44 scenarios.
+  ([protocol](../../tools/AGENTS.md)). `build-m44`: 143/143 fast and 3/3 M44 scenarios.
   All three M44 digests are unchanged on both builds.
 - Maintainer Debug play-test passed and was accepted. No scope deviations.

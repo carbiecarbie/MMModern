@@ -6,7 +6,7 @@ reviews passed; the maintainer accepted both play-tests (2026-10-15).
 
 ## Goal and final scope
 
-Step 2 of the [systems arc](roadmap.md#next-arc-finishing-the-games-systems):
+Step 2 of the [systems arc](../roadmap.md#next-arc-finishing-the-games-systems):
 every monster attack, secondary effect and movement kind the Clouds and
 Darkside data use works as in the original. No map was admitted; the monster
 status system (sleeping, paralyzed or controlled monsters) stays with the
@@ -36,7 +36,7 @@ spells step.
    special 11 no-op, Eradicate and Curse Item frames, and two movement
    differences the maintainer approved: middles {1,7,9,10,12} always refuse,
    and the wall threshold is strict. All are recorded in the combat rules and
-   [original quirks](original-quirks.md).
+   [original quirks](../original-quirks.md).
 2. **M44:** the Poison correction changed the services and temple digests,
    replaced with the maintainer's approval; mainland unchanged; Part B had
    zero differences.

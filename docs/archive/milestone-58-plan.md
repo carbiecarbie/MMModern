@@ -9,7 +9,7 @@ Baseline: `ba1b41676e0b6c585e5c0b542c445254814a27b8`.
 
 Learn Cartography from Mylo and Pathfinder from Rialdo, use one character skill
 state for rules and display, and explore with the original automap and Map
-([roadmap](roadmap.md) step 4). Teacher addresses were evidence only, never
+([roadmap](../roadmap.md) step 4). Teacher addresses were evidence only, never
 runtime admission. Authority: the World of Xeen CD resources, maintainer
 DOSBox evidence of 2026-10-10/11 and pinned ScummVM
 `6814ee9ba54582f5b5adcffab49efbbd8f589edd`.
@@ -47,7 +47,7 @@ DOSBox evidence of 2026-10-10/11 and pinned ScummVM
    the plan's once-only assumption.
 3. Rialdo's price, repeat lessons, party skill checks, Event skill sentinels,
    minimap/Map reference placement and sky/space Map visibility are recorded in
-   [original quirks](original-quirks.md).
+   [original quirks](../original-quirks.md).
 4. **Save v10** (schema 9, content 14): all 18 skill bytes per roster owner and
    bounded explored-tile bitsets. M44 digests were replaced after the
    maintainer-approved audit with `tools/m44-digest-audit.ps1`: traces and all

@@ -4,7 +4,7 @@
 after independent plan and implementation reviews and a maintainer
 play-test. Plan `e21f398`, amended twice by the maintainer; implementation in
 this closure's parent commit. Step 5 of the
-[systems arc](roadmap.md#next-arc-finishing-the-games-systems).
+[systems arc](../roadmap.md#next-arc-finishing-the-games-systems).
 
 ## Scope
 
@@ -20,7 +20,7 @@ areas; audio.
 ## Results
 
 Evidence: calibrated static analysis of `WORLD/XEEN.DAT` (offsets in
-[original quirks](original-quirks.md) and the rules chapters), pinned ScummVM
+[original quirks](../original-quirks.md) and the rules chapters), pinned ScummVM
 `6814ee9b` where DOS was not checked.
 
 - **Surfaces.** One arrival owner (`0x0c924..0x0ca5f`) called from every

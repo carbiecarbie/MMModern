@@ -15,47 +15,47 @@ v14. M73 ([plan](milestone-73-plan.md)) added Sleep, Beast Master,
 Hypnotize and Dragon Sleep, which put monsters out of action until they
 recover, Insect Spray, Turn Undead, Sparks and Toxic Cloud, and every item
 power's original spell. M72
-([plan](milestone-72-plan.md)) made every surface work
+([plan](archive/milestone-72-plan.md)) made every surface work
 as in the original (lava burns, sky and clouds drop the party to the land
 below, space kills, the desert costs time, and Rest runs anywhere), pressing
 Space passes time and lets monsters act, and the Vertigo Tavern and Temple
 offer Drink, Tip, Rumors, Donation and Uncurse; saves are now v14. M71
-([plan](milestone-71-plan.md)) made shops, Event treasure,
+([plan](archive/milestone-71-plan.md)) made shops, Event treasure,
 display cases and monster drops generate items with the original draws, so
 wands and other charged items come with 3 to 10 charges as in DOS. M70
-([plan](milestone-70-plan.md)) made every Event operation
+([plan](archive/milestone-70-plan.md)) made every Event operation
 the Clouds scripts use runs as in the original, other than audio, town services
 and the ending, including moved walls and objects, monster spawns, conditions,
 rewards, random Events, teleports, the magic mirror and password prompts; most
-of them live in areas not open yet. M69 ([plan](milestone-69-plan.md)) made the save keep every
+of them live in areas not open yet. M69 ([plan](archive/milestone-69-plan.md)) made the save keep every
 map's state in one generic form (save v13), ready for the areas still to open,
 and monsters recover full HP and fall asleep whenever their map is loaded
-again, as in the original. M68 ([plan](milestone-68-plan.md)) made every monster attack,
+again, as in the original. M68 ([plan](archive/milestone-68-plan.md)) made every monster attack,
 secondary effect and movement kind in the original data works as in DOS,
 including flying monsters, though most of them live in areas not open yet;
 the death scene and the Shoot refusal were corrected (release v0.1.3). M67
-([plan](milestone-67-plan.md)) made equipped metal,
+([plan](archive/milestone-67-plan.md)) made equipped metal,
 elemental and enchanted items, rings and amulets count in combat, Shoot and
-Rest as in the original (release v0.1.2). M66 ([plan](milestone-66-plan.md))
+Rest as in the original (release v0.1.2). M66 ([plan](archive/milestone-66-plan.md))
 cut the complete test suite from 29 minutes to about 3, and M65
-([plan](milestone-65-plan.md)) keeps a census of every mechanic the original
-data uses, with its support status, in [the coverage report](coverage.md). M64 ([plan](milestone-64-plan.md)) fixed the last
+([plan](archive/milestone-65-plan.md)) keeps a census of every mechanic the original
+data uses, with its support status, in [the coverage report](coverage.md). M64 ([plan](archive/milestone-64-plan.md)) fixed the last
 play-through findings in Vertigo and published the first public releases,
 [v0.1.0 and v0.1.1](https://github.com/carbiecarbie/MMModern/releases), a
 Windows zip whose launcher finds the GOG installation. M63
-([plan](milestone-63-plan.md)) put the game on the original clock: the party
+([plan](archive/milestone-63-plan.md)) put the game on the original clock: the party
 walks about nine steps per second as in DOS, and NPC speech, shopkeepers,
 treasure, sparkles, Shoot, the dream, the title and party death follow the
 original sequences and timing. M62
-([plan](milestone-62-plan.md)) gave Event, NPC, WhoWill, combat-panel and
+([plan](archive/milestone-62-plan.md)) gave Event, NPC, WhoWill, combat-panel and
 treasure screens the original presentation and animated the six shopkeepers. M61
-([plan](milestone-61-plan.md)) made the Ironworks buy,
+([plan](archive/milestone-61-plan.md)) made the Ironworks buy,
 sell, identify and fix every item category, and charged items can be used
-outside combat. M60 ([plan](milestone-60-plan.md)) added the original Cast dialog,
+outside combat. M60 ([plan](archive/milestone-60-plan.md)) added the original Cast dialog,
 Guild spell purchases and Spell Info, and eight new spells (Wizard Eye,
 Shrapmetal, Energy Blast, Jump, Cure Wounds, Flying Fist, Revitalize, Pain).
-M59 ([plan](milestone-59-plan.md)) made display cases, jail, the well, city
-searches, Vern's guild membership and Guild entry work. M58 ([plan](milestone-58-plan.md)) added teachers, skills and Cartography for
+M59 ([plan](archive/milestone-59-plan.md)) made display cases, jail, the well, city
+searches, Vern's guild membership and Guild entry work. M58 ([plan](archive/milestone-58-plan.md)) added teachers, skills and Cartography for
 the original automap and Map. M57 added shared Event rewards and object changes;
 M56 added Tavern food and Bank transfers.
 The original title, save slots, main screen, character dialogs, Rest and combat

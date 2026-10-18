@@ -10,7 +10,7 @@ MMModern supports it, so the next arc finishes the game's systems as a closed
 list ordered by impact instead of discovering gaps map by map in play.
 
 - `mmodern_census` reads every Clouds and Darkside map, monster, item and
-  spell resource (read-only) and writes [the coverage report](coverage.md):
+  spell resource (read-only) and writes [the coverage report](../coverage.md):
   totals, the largest gaps first, every mechanic with its uses, maps and
   support status, and per-map readiness. Screens are the one manual checklist,
   taken from the pinned ScummVM dialog set.

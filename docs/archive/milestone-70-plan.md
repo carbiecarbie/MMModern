@@ -4,7 +4,7 @@
 maintainer (2026-10-16)** after independent plan and implementation reviews
 and maintainer play-tests. Commits: foundation `bf49eb3`, Part A `a590e30`,
 Part B `c8f1a19`, Part C (this closure's parent). Baseline `3b4dab9` (v0.2.0).
-Step 4 of the [systems arc](roadmap.md#next-arc-finishing-the-games-systems).
+Step 4 of the [systems arc](../roadmap.md#next-arc-finishing-the-games-systems).
 
 ## Scope
 
@@ -20,8 +20,8 @@ ConfirmWord codes, and admitting maps (step 9).
 Authority: calibrated static analysis of `WORLD/XEEN.DAT` (dispatch
 `0x26c50..0x26c69`, table `0x29320`), maintainer DOSBox evidence, and pinned
 ScummVM `6814ee9b` (`scripts.cpp`) where DOS was not checked. Rules and
-offsets are in [world Events](rules/world-events.md); kept oddities are in
-[original quirks](original-quirks.md).
+offsets are in [world Events](../rules/world-events.md); kept oddities are in
+[original quirks](../original-quirks.md).
 
 ## Results
 

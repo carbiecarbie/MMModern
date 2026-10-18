@@ -232,7 +232,7 @@ and delivery rules below. Source program: `WORLD/XEEN.DAT` SHA-256
 against the Event currency draw `0x23770..0x23791`. Reference sources:
 [Character::makeItem][character],
 [Combat::attack2][combat], [Party::giveTreasure][party]. The exhaustive low-tier
-generation scope is summarized in [M61's catalogue](../milestone-61-plan.md#goal-and-final-scope).
+generation scope is summarized in [M61's catalogue](../archive/milestone-61-plan.md#goal-and-final-scope).
 
 Generation level 1 permits weapons 1-33, armor 1-7 and Misc containers 1-9;
 no accessories. Level 2 expands armor through 13 and includes accessories 1-10.

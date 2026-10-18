@@ -35,7 +35,7 @@ operable by mouse and keyboard, following the pinned ScummVM reference.
 1. **Text source.** Original strings are never checked in. A pinned build-time
    generator (`tools/GenerateXeenItemCatalog.ps1 -DialogText`) reads named
    fields of ScummVM's `CONSTANTS_7` Git blob, verified by revision, object
-   identity, size and SHA-256; see [dependencies](dependencies.md).
+   identity, size and SHA-256; see [dependencies](../dependencies.md).
 2. **New character fields** (resistances, skills, awards, birth day, food) are
    read-only from the original resources; the save format and M44 digests are
    unchanged. **Rule:** the first milestone in which any of these fields can

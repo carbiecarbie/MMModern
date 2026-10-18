@@ -7,7 +7,7 @@ both parts (2026-10-13/14).
 ## Goal and final scope
 
 Reproduce the original presentation timing and roughly nine movement steps per
-second ([roadmap](roadmap.md) step 9), with the approved no-phantom-steps
+second ([roadmap](../roadmap.md) step 9), with the approved no-phantom-steps
 deviation. Authority: calibrated analysis of the original program `WORLD/XEEN.DAT`
 (findings under `D:/MModern-re/ui-presentation-20261013/` and
 `D:/MModern-re/movement-fluidity-20261013/`, outside the repository), the
@@ -40,7 +40,7 @@ movement at 20000 and 80000 cycles) and pinned ScummVM
 
 1. **Approved queue deviation (option b)** with the typematic delay added after
    the maintainer's first Part A play-test; recorded in
-   [original quirks](original-quirks.md).
+   [original quirks](../original-quirks.md).
 2. **CD speech duration** is `(end - start + 25) / 75` s from the original play
    call; the drive/capture start latency could not be isolated from the
    recording and no guessed delay is added (maintainer, 2026-10-13).

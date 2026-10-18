@@ -1,6 +1,6 @@
 # MMModern - Roadmap
 
-**M74 is the latest completed and accepted milestone.**
+**M75 is the latest completed and accepted milestone.**
 [Project status](project-status.md) describes what is playable now;
 [project history](project-history.md) records completed milestones. Reference
 provenance belongs to [dependencies](dependencies.md).
@@ -45,8 +45,8 @@ faithful screens, the original clock and movement pace (the maintainer
 declined an opt-in faster movement option), and closure with the first public
 releases, [v0.1.0 and v0.1.1](https://github.com/carbiecarbie/MMModern/releases).
 [Project history](project-history.md) has each milestone. After it,
-[M65](milestone-65-plan.md) measured every mechanic the original data uses in
-[the coverage report](coverage.md), and [M66](milestone-66-plan.md) cut the
+[M65](archive/milestone-65-plan.md) measured every mechanic the original data uses in
+[the coverage report](coverage.md), and [M66](archive/milestone-66-plan.md) cut the
 complete test suite from 29 minutes to about 3.
 
 ## Next arc: finishing the game's systems
@@ -59,21 +59,21 @@ regenerated each time, so progress is visible. Steps are direction, not
 approved plans, and the order may change when the census or play shows a
 better one.
 
-Between steps 4 and 5, [M71](milestone-71-plan.md) made item generation
+Between steps 4 and 5, [M71](archive/milestone-71-plan.md) made item generation
 follow the original makeItem draws for every supported source (completed and
 accepted).
 
 1. **Equipped item contributions**: completed and accepted in
-   [M67](milestone-67-plan.md) (release v0.1.2).
+   [M67](archive/milestone-67-plan.md) (release v0.1.2).
 2. **Monster abilities**: completed and accepted in
-   [M68](milestone-68-plan.md) (release v0.1.3).
+   [M68](archive/milestone-68-plan.md) (release v0.1.3).
 3. **Generic per-map state**: completed and accepted in
-   [M69](milestone-69-plan.md) (save v13).
+   [M69](archive/milestone-69-plan.md) (save v13).
 4. **World Events, Clouds**: completed and accepted in
-   [M70](milestone-70-plan.md). Darkside-only operations and Darkside durable
+   [M70](archive/milestone-70-plan.md). Darkside-only operations and Darkside durable
    state wait for a later Darkside arc; shared operations stay generic.
 5. **Terrain and simple services**: completed and accepted in
-   [M72](milestone-72-plan.md) (save v14; Sign In moved to step 8).
+   [M72](archive/milestone-72-plan.md) (save v14; Sign In moved to step 8).
 6. **Spells**: [M73](milestone-73-plan.md) monster control and four group
    spells (Tier A, completed and accepted); [M74](milestone-74-plan.md)
    monster damage spells (Tier B, completed and accepted);
@@ -88,7 +88,7 @@ accepted).
    including Poison Volley shooting for the active party size (M74 assumes six).
 9. **Monster treasure** (Tier A, changes the save): item drops for every
    monster and drop levels 2 to 6, including accessories in staged treasure,
-   on the shared generator from [M71](milestone-71-plan.md).
+   on the shared generator from [M71](archive/milestone-71-plan.md).
 10. **Entrance scenes** (likely Tier B): the scenes shown at some entrances,
     without interaction (`DoTownEvent` 8 to 12: Reaper, Golem, Dwarf Mine,
     Sphinx, Pyramid), on up to 6 Clouds maps each, F3 included. The Dwarf

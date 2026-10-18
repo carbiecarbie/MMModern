@@ -8,7 +8,7 @@ M63 roadmap merge (`22e99af`) landed during this milestone.
 ## Goal and final scope
 
 Replace the project-made stopgaps a player meets in Vertigo and map 23 with
-the original presentation ([roadmap](roadmap.md) step 8). Authority: original
+the original presentation ([roadmap](../roadmap.md) step 8). Authority: original
 program analysis of `WORLD/XEEN.DAT` (REA findings under
 `D:/MModern-re/ui-presentation-20261013/`, outside the repository), the CD
 resources, maintainer DOSBox evidence and pinned ScummVM

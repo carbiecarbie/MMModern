@@ -181,7 +181,7 @@ calibration, retained REA records and limitations are in
 ## Presentation findings (2026-10-13)
 
 These are calibrated **DOS static** findings, not implemented corrections or
-DOSBox observations. [M62's proposed plan](milestone-62-plan.md) separates
+DOSBox observations. [M62's proposed plan](archive/milestone-62-plan.md) separates
 resource/layout work from M63 timing and publication work. Evidence is the
 external [UI report](D:/MModern-re/ui-presentation-20261013/findings.md) and
 [claim index](D:/MModern-re/ui-presentation-20261013/evidence-index.md), using

@@ -39,7 +39,7 @@ recruitment and audio stayed out of scope.
    Exchange accepts only faces and the cancel button, and self-selection swaps
    nobody; Info shows the World of Xeen title; after a Run, Quick Fight
    Options keeps the old party indexing. That bug is reproduced on purpose and
-   recorded in [original quirks](original-quirks.md), as is the Info title and
+   recorded in [original quirks](../original-quirks.md), as is the Info title and
    Walk on Water format difference from the reference.
 2. **Tier A** because Exchange replaced the fixed combat owner order with the
    party's current order (captured on combat entry), and Quick Fight needed

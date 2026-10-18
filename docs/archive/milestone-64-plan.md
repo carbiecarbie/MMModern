@@ -7,7 +7,7 @@ v0.1.1). The maintainer accepted the play-tests and the published downloads
 
 ## Goal and final scope
 
-Close [roadmap](roadmap.md) step 10: fix what the maintainer's full Vertigo
+Close [roadmap](../roadmap.md) step 10: fix what the maintainer's full Vertigo
 play-through found, then publish the first public release for Windows. No new
 content, mechanics or save-format change (v12, schema 9, content 14).
 
@@ -33,7 +33,7 @@ content, mechanics or save-format change (v12, schema 9, content 14).
 1. **Sparkle cause.** The plan blamed a game-flag grant; implementation found
    the per-Event latch in `WORLD/XEEN.DAT` and ScummVM and fixed that instead.
    DOS also sparkles for more grant types than ScummVM; no Vertigo or F3 script
-   uses them (recorded in [original quirks](original-quirks.md)).
+   uses them (recorded in [original quirks](../original-quirks.md)).
 2. **Save policy for 0.x** (maintainer): one current format; older saves show as
    "Unavailable"; compatibility is revisited at 1.0 (`AGENTS.md`).
 3. **Player-facing names.** The README and release notes call the mainland

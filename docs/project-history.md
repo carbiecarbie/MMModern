@@ -2,7 +2,7 @@
 
 One short paragraph per completed milestone, with the closing commit. This is
 not the authority for current state: see [project status](project-status.md) and
-the [roadmap](roadmap.md). Plans of milestones 15-43 are kept in
+the [roadmap](roadmap.md). Plans of milestones 6 and 15-72 are kept in
 [docs/archive](archive/) as a historical record; their limits and entry modes
 describe their time, not the present.
 
@@ -122,72 +122,72 @@ Temple with original prices and a two-day paid departure.
 configuration; legacy contracts, save versions and diagnostic modes removed;
 tests labelled `fast`/`process` with digest-checked original-data scenarios;
 closed plans archived and docs rewritten. Game behavior unchanged.
-[Plan](milestone-44-plan.md).
+[Plan](archive/milestone-44-plan.md).
 
 **M45 - Reliable input and play stability**. Buffered keyboard input in
 exploration and combat (up to five presses, applied when the game is ready,
 flushed on context changes), replacing silent dropping; integrity guards
 admit maps and object files loaded on demand, ending "Stale encounter frame"
-crashes near map edges. [Plan](milestone-45-plan.md).
+crashes near map edges. [Plan](archive/milestone-45-plan.md).
 
 **M46 - Clickable main screen** (`646ea1e`). Left clicks on the original
 main-screen buttons, combat buttons, targets and 3D view drive the existing
 actions through the M45 input path; unimplemented buttons say so.
-[Plan](milestone-46-plan.md).
+[Plan](archive/milestone-46-plan.md).
 
 **M47 - Original dialogs** (`02214e1` and the Part B commit). The original
 character sheet and items dialog replace the project inventory, and the
 Ironworks, Training and Temple use the original location screens and
 dialogs, by mouse or key; dialog text comes from a pinned build-time
-generator. [Plan](milestone-47-plan.md).
+generator. [Plan](archive/milestone-47-plan.md).
 
 **M48 - Generic presentation systems** (`6387a0e`, `b0e4919`, `4d953c6`).
 Terrain, sky, water, wall items and monster animation from original data on
 every Clouds map; simultaneous missiles, splats, portrait damage/healing
 effects, Magic Arrow travel, the combat strip, original keys and cursor.
 Presentation only; combat impact timing and rotation moved to M49.
-[Plan](milestone-48-plan.md).
+[Plan](archive/milestone-48-plan.md).
 
 **M49 - Combat rules fidelity** (`804fc5a`). Monsters choose targets and attack counts
 from their original data for every record (the Slime now hits two members,
 not the whole party); missile damage, death and rewards apply on arrival;
 the party can turn during combat. Two M44 scenarios were re-routed off the
 old defect and all three digests regenerated with every changed byte
-explained. [Plan](milestone-49-plan.md).
+explained. [Plan](archive/milestone-49-plan.md).
 
 **M50 - Whole Vertigo** (`2cabd9a`, `ff91d0a`, `73739e7`). The whole town is
 loaded from the original resources: certification and actor freezes removed,
 all 46 monsters active, Events dispatched generically through guarded
 publication, original Bash and grate/door unlocking with typed trap damage
 and Thievery, indoor Shoot and enemy ranged attacks; save v5.
-[Plan](milestone-50-plan.md).
+[Plan](archive/milestone-50-plan.md).
 
 **M51 - Rest, food and daily time** (`b8856c1`, `55633c1`, `cffb2c3`).
 Original Rest from the button or R with food, recovery, the dream and monster
 interruption; shared daily time with the original eight-hour condition
 schedule, dawn, night sky and year rollover replaced the old calendar limits;
-food read from the correct offset; save v6. [Plan](milestone-51-plan.md).
+food read from the correct offset; save v6. [Plan](archive/milestone-51-plan.md).
 
 **M52 - Normal start in Vertigo** (`08178fe`, `a830248`). A new game starts
 from the original initialization: the six level-1 characters in Vertigo at
 `(18,4)`, day 1, 800 gold and 90 food, with all town actors in their original
 state. Adventurer and Warrior both work. The command line temporarily replaces
 the original title menu and difficulty dialog; the prepared Journey remains a
-test mode. [Plan](milestone-52-plan.md).
+test mode. [Plan](archive/milestone-52-plan.md).
 
 **M53 - CD edition data** (`69b82d0`, `2bbe975`, `37101c4`). The World of
 Xeen CD talkie edition became the only reference data: archives read from the
 GOG disc images or a CD copy, DOS interface text from `WORLD/XEEN.DAT`, floppy
 fixed checks replaced by structural ones, and CD speech handled as deferred
 audio. All accepted behavior was revalidated: the three M44 routes play
-identically on CD data. [Plan](milestone-53-plan.md).
+identically on CD data. [Plan](archive/milestone-53-plan.md).
 
 **M54 - Original title menu and saves** (`4ab4762`, `11e8c81`, `a760e69`).
 The game opens on the original CD title screen with Credits and Other Options;
 New picks a slot, name and difficulty; the in-game control panel saves, saves
 as, loads and quits as in DOS, with ten slots under Local AppData and the
 original pulsing text cursor. Save v7 adds the slot name. M52's temporary
-command-line entry is retired. [Plan](milestone-54-plan.md).
+command-line entry is retired. [Plan](archive/milestone-54-plan.md).
 
 **M55 - Interface gaps** (`9d51e42`, `9e4df22`, `ef7ec84`). The party can
 strafe, Quick Reference shows the party summary and Info the date, time and
@@ -195,7 +195,7 @@ active effects, Exchange swaps two members and combat, Shoot, Rest, casting,
 barriers and treasure follow the new order, and Quick Fight runs each
 member's configured action with the original Options dialog, all by mouse and
 keyboard. Save v8 stores each character's quick action and remembered spell.
-[Plan](milestone-55-plan.md).
+[Plan](archive/milestone-55-plan.md).
 
 **M56 - Food and bank** (`cf4c9a9`). The Tavern refills party food for the
 original flat price, with full packs free; the Bank deposits and withdraws
@@ -203,7 +203,7 @@ gold or gems through the original screens and ten-digit amount entry.
 Supported Event preludes run and publish once before terminal town services;
 one-day departures apply scheduled interest to final balances without
 rerolling stock. Save v8 and all M44 digests are unchanged. Maintainer play-test
-accepted. [Plan](milestone-56-plan.md).
+accepted. [Plan](archive/milestone-56-plan.md).
 
 **M57 - Generic Event effects** (`94007d0` and `d1f5459`). Events
 can move and turn objects, award XP, awards, flags, gold and gems, and give
@@ -212,7 +212,7 @@ proof and Gunther's reward work from the original scripts, searched crates
 open and each tree pays once; the well refuses safely until it is implemented.
 Save v9 stores all characters' awards and moved objects. Two display bugs
 found in play-testing were fixed. Maintainer play-test accepted.
-[Plan](milestone-57-plan.md).
+[Plan](archive/milestone-57-plan.md).
 
 **M58 - Skills and mapping** (`a39ec95`). Each character has one skill state
 from the original data, used by the sheet and the rules. Mylo and Rialdo teach
@@ -220,7 +220,7 @@ Cartography and Pathfinder through the original scripts, including Rialdo's
 lower actual price and paid repeat lessons. Cartography records explored cells
 for the original automap and Map. Save v10 stores skills and exploration; a
 reusable digest audit tool now checks save-format changes.
-[Plan](milestone-58-plan.md).
+[Plan](archive/milestone-58-plan.md).
 
 **M59 - Vertigo content** (Part A `384eb13`, `5166cab`; Part B `4d39d79`). Display cases use
 Thievery for treasure or a one-year jail penalty with ordinary walk-out; the
@@ -232,7 +232,7 @@ original portrait sparkle. Save v11 stores generic world flags and head-cache
 overrides; Part A's explained M44 digest update was approved, and Part B and the
 sparkle correction left the digests unchanged. Both parts and the corrected
 feedback were accepted after maintainer play-testing on 2026-10-11.
-[Plan](milestone-59-plan.md).
+[Plan](archive/milestone-59-plan.md).
 
 **M60 - Magic** (`e7e7a62`, `6bc4779`). The original Cast dialog and New list
 replace the project screens, and the Guild sells and describes Vertigo's 18
@@ -240,7 +240,7 @@ spells to members at the original prices. Eight new spells work through shared
 projectile and casting rules: Wizard Eye, Shrapmetal, Energy Blast, Jump, Cure
 Wounds, Flying Fist, Revitalize and Pain. Original program analysis settled
 spell resistance and Pain. Jump refuses unimplemented terrain hazards. Save v11
-unchanged. [Plan](milestone-60-plan.md).
+unchanged. [Plan](archive/milestone-60-plan.md).
 
 **M61 - Items for the loot** (`5e0542c`, `9cc4def`, `dc056ae`, `cbebb10`). The
 Ironworks buys, sells, identifies and fixes every item category at prices taken
@@ -249,14 +249,14 @@ the character sheet without spending time. Analysis of the original program
 corrected the reference: monsters' miscellaneous drops are delivered, full packs
 keep gold and gems, and treasure delivery follows the original recipient and
 replacement rules. A game rules reference (`docs/rules`) records the evidence.
-Save v12 stores pending miscellaneous treasure. [Plan](milestone-61-plan.md).
+Save v12 stores pending miscellaneous treasure. [Plan](archive/milestone-61-plan.md).
 
 **M62 - Faithful screens and animation** (`5cc0079`, `41237e1`, `27f344a`). The
 developer overlay and log-style combat text left normal play. Event, NPC,
 WhoWill, combat-panel and treasure screens use the original windows, text and
 input, the six shopkeepers animate, scenery animations include their final
 frame, and the title and credits follow DOS. Timing-dependent parts are left
-for M63. [Plan](milestone-62-plan.md).
+for M63. [Plan](archive/milestone-62-plan.md).
 
 **M63 - Original presentation clock and movement pace** (`4f20b52`,
 `5c40ffe`). One clock in original BIOS ticks drives every wait, and the party
@@ -265,35 +265,35 @@ step after a held key is released (approved deviation). NPC speech, shop
 voices, treasure, sparkles, Shoot, the dream, the title and party death follow
 the original sequences and timing; death returns to the title instead of
 DEFEAT. Myra's original speaking draws changed the Mainland M44 digest
-(approved). [Plan](milestone-63-plan.md).
+(approved). [Plan](archive/milestone-63-plan.md).
 
 **M64 - Vertigo closure and first public release** (`c080eb1`, `080b05f`,
 `5545471`). The maintainer's full play-through fixes: one sparkle per member
 per Event run, as in DOS, original item names in equip refusals and a plain
 window title. The first public releases followed: v0.1.0, a Windows zip with
 a player README and the 0.x save policy, and v0.1.1, whose launcher finds and
-remembers the GOG folder. [Plan](milestone-64-plan.md).
+remembers the GOG folder. [Plan](archive/milestone-64-plan.md).
 
 **M65 - Coverage census** (`1248d83`). A read-only tool counts every mechanic
 the World of Xeen data uses and asks the engine whether it is supported, with
 a real game context; the generated coverage report lists totals, the largest
 gaps and per-map readiness, and a calibration test pins Vertigo to its known
 gaps. It found a real gap: equipped material or enchanted items are refused
-before combat and Rest. [Plan](milestone-65-plan.md).
+before combat and Rest. [Plan](archive/milestone-65-plan.md).
 
 **M66 - Test-suite cleanup** (`613a566`). The old M39-M43 witnesses stopped
 waiting real time for deadlines of their simulated clock, slow tests were
 shortened or split, twelve broken programs outside CTest were retired and
 eleven passing ones joined it, and the runner went parallel. The complete
 suite went from 29 minutes to about 3, with 209 tests instead of 195.
-[Plan](milestone-66-plan.md).
+[Plan](archive/milestone-66-plan.md).
 
 **M67 - Equipped item contributions** (`11d3d72`). Metal weapons add hit and
 damage, elemental weapons add their element's damage against the monster's
 resistance, slaying weapons triple damage against their kind, and metal armor
 counts in combat; the old validation that refused these items before combat,
 Shoot and Rest is gone. Drafted in a cloud session and finished on Windows
-with the game data; released as v0.1.2. [Plan](milestone-67-plan.md).
+with the game data; released as v0.1.2. [Plan](archive/milestone-67-plan.md).
 
 **M68 - Monster abilities** (`ff38fb2`, `d32f9ce`). Every monster attack type,
 secondary effect and movement kind works as in DOS: the original damage save
@@ -302,14 +302,14 @@ Eradicate and the rest, ranged elemental attacks, and flying monsters and the
 Water Dragon crossing water by the original terrain rule. A developer fixture
 places any original species on F3 for testing. The Shoot refusal and the
 death scene were fixed on the way; released as v0.1.3.
-[Plan](milestone-68-plan.md).
+[Plan](archive/milestone-68-plan.md).
 
 **M69 - Generic per-map state** (`ea201f2`, `417a1c0`, `f6074c2`). One owner
 keeps the state of any map, Vertigo and F3 included, and save v13 stores it as
 deltas over the original resources. As in DOS, confirmed in `WORLD/XEEN.DAT`,
 monsters are rebuilt at full HP and asleep on every map or game load. A fourth
 M44 scenario travels Vertigo, F3 and back. Saves from 0.1.x are no longer
-read. [Plan](milestone-69-plan.md).
+read. [Plan](archive/milestone-69-plan.md).
 
 **M70 - World Events, Clouds** (`bf49eb3`, `a590e30`, `c8f1a19` and Part C).
 Every Event operation the Clouds scripts use, other than audio, town services
@@ -317,7 +317,7 @@ and the ending, runs as in DOS: moved walls and objects, cleared and altered
 cells, monster spawns anywhere, conditions, values, rewards and random draws,
 Gold Vein tiers, teleports, the magic mirror and password prompts. A developer
 fixture starts an Event session on any Clouds cell. Save v13 is unchanged.
-[Plan](milestone-70-plan.md).
+[Plan](archive/milestone-70-plan.md).
 
 **M71 - Original item generation** (`697385f` plan and its implementation).
 Shops, Event treasure, display cases and monster drops share one item
@@ -325,7 +325,7 @@ generator with the original draws: categories from 1, the level-7 selector,
 weapon effectiveness and Misc charges 3 to 10. Monster drops lost their
 duplicate generator. Tests that remembered one stock or one combat were
 rewritten to check rules, with no growth in the suite; save v13 and v0.2.0
-saves are unchanged. [Plan](milestone-71-plan.md).
+saves are unchanged. [Plan](archive/milestone-71-plan.md).
 
 **M72 - Terrain and simple services** (`e21f398` plan and its implementation).
 Every surface has its original arrival effect (lava, falls from sky and
@@ -333,7 +333,7 @@ cloud, space, desert time) from every place the original applies it, and Rest
 runs on any surface. Pressing Space now passes time and gives monsters their
 turn, a gap since before M44. The Vertigo Tavern and Temple gained Drink, Tip,
 Rumors, Donation and Uncurse; Sign In moved to the Inn step. Save v14 keeps
-the Tavern tip index. [Plan](milestone-72-plan.md).
+the Tavern tip index. [Plan](archive/milestone-72-plan.md).
 
 **M73 - Monster control and first spell expansion** (`d58d097` plan,
 `4792a3d`, `972256b`, `6724171`, `2f34569`). Monsters can hold one status:

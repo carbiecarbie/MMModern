@@ -10,7 +10,7 @@ sparkle correction in a further play-test.
 
 Complete the remaining city searches, display cases, jail, well and Vern/Guild
 entry through the existing Event, Service, World and Party owners
-([roadmap](roadmap.md#near-term) step 5). Coordinates identified original-data
+([roadmap](../roadmap.md#near-term) step 5). Coordinates identified original-data
 evidence, never runtime admission or per-cell behavior. Authority: World of Xeen
 CD resources, maintainer DOSBox evidence and pinned ScummVM
 `6814ee9ba54582f5b5adcffab49efbbd8f589edd`.
@@ -73,13 +73,13 @@ correction retained v11 and produced zero M44 audit differences.
   typed damage/RNG, healing boundaries, flags/heads, all search families,
   Vern/Guild, cancellation, stale guards, retries and exact restoration.
 - Final `build-rel` fast suite 149/149 and complete suite 183/183, run through
-  the lightweight single-job runner required by [tools/AGENTS.md](../tools/AGENTS.md).
+  the lightweight single-job runner required by [tools/AGENTS.md](../../tools/AGENTS.md).
 - Debug closure fast suite 149/149 and three M44 scenarios 3/3 passed. The final
   portrait correction also passed the affected Debug event test and rebuilt
   the play-test executable.
 - Maintainer play-test accepted both parts and confirmed the corrected sparkle.
   Retained quirks and reference-defined edges are in
-  [original quirks](original-quirks.md).
+  [original quirks](../original-quirks.md).
 
 ## Deferred
 

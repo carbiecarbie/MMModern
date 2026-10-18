@@ -6,7 +6,7 @@
 
 Remove the legacy machinery that made every change expensive, without changing
 what the game does. Applies the pre-release policy in
-[AGENTS.md](../AGENTS.md#save-compatibility-pre-release-policy).
+[AGENTS.md](../../AGENTS.md#save-compatibility-pre-release-policy).
 
 ## Final scope and decisions
 
@@ -34,7 +34,7 @@ what the game does. Applies the pre-release policy in
   CTest against SHA-256 digests recorded before any M44 change, then reload and
   re-save byte-identically; this is also the generic round-trip test. Tests
   fail when an expected link-time probe never fires.
-- **Docs (D5).** Plans M15-M43 and `milestone6.md` moved to `docs/archive/`;
+- **Docs (D5).** Plans M15-M43 and `milestone6.md` (now `milestone-6-plan.md`) moved to `docs/archive/`;
   status, history and README rewritten in player terms.
 
 Shared code with legacy names was kept because current play uses it
@@ -73,4 +73,4 @@ overwrite, removed modes and the unsaveable explorer.
   because it sends keys after fixed sleeps instead of waiting for frame
   readiness. Pre-existing.
 
-Both are listed in the [roadmap](roadmap.md#next-milestones).
+Both are listed in the [roadmap](../roadmap.md#next-milestones).

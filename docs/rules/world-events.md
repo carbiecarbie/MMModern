@@ -4,7 +4,7 @@
 `8bf78b4850d5973cbb063c7dd96b9aaef4e94791d748334187eef74acf528d27`.
 These rules were checked on Windows on 2026-10-15 using bounded 16-bit
 disassembly at the file offsets below. The Event dispatcher and signed-byte
-operand reads agree with the calibration in [the M70 plan](../milestone-70-plan.md).
+operand reads agree with the calibration in [the M70 plan](../archive/milestone-70-plan.md).
 They establish code paths, not a claim of DOSBox observation.
 
 | Operation | Rule and original file offsets |

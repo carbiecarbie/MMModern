@@ -8,7 +8,7 @@ Baseline: `454eea60fa1a49f5432784007c3e5e2e35f90374`.
 ## Goal and final scope
 
 Complete Joe's proof and Gunther's reward through generic Event mechanics, then
-deliver Event treasure through shared item rules and RNG ([roadmap](roadmap.md)
+deliver Event treasure through shared item rules and RNG ([roadmap](../roadmap.md)
 step 3). Addresses identified evidence only, never runtime admission. Authority:
 the installed World of Xeen CD resources and pinned ScummVM
 `6814ee9ba54582f5b5adcffab49efbbd8f589edd`, with maintainer DOSBox CD evidence
@@ -52,7 +52,7 @@ of 2026-10-10.
 - Play-test fixes: a left side wall beside a distant front wall was wrongly
   culled; the proof text no longer lets the party panel overdraw its window.
 - Quirks: the full-pack loss of staged treasure, unsigned XP/currency wrap and
-  award slots are in [quirks](original-quirks.md).
+  award slots are in [quirks](../original-quirks.md).
 
 ## Deferred
 

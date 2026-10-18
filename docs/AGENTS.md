@@ -19,7 +19,7 @@ workflow documents.
 | `docs/rules/` | Consultable game rules, formulas, evidence and explicit unknowns; playable coverage remains in project status | Grows by topic |
 | `docs/dependencies.md` | Toolchain, pinned ScummVM revision and configuration, build setup (authoritative) | - |
 | `docs/coverage.md` | Generated original-data mechanic census and per-map readiness; regenerate with `mmodern_census` whenever support changes; checked by `xeen_coverage_original_guard` and the Vertigo/mainland calibration gate `xeen_coverage_calibration` | Generated |
-| `docs/archive/` | Plans of milestones 6 and 15-43, kept as a historical record | Exempt |
+| `docs/archive/` | Plans of milestones 6 and 15-72, kept as a historical record | Exempt |
 | `AGENTS.md`, `docs/AGENTS.md`, `tools/AGENTS.md` | Agent instructions: every task; documentation; complete test suite | Root under 220 lines |
 
 ## Milestone plans
@@ -46,6 +46,8 @@ Tier scope, reviews and acceptance are defined in the root `AGENTS.md`.
 - Do not record in-progress work, review transcripts, temporary review state or
   commit readiness in durable docs.
 - Archived plans in `docs/archive/` are historical, not current rules or scope.
+  Closed plans move there as `milestone-N-plan.md` once they no longer give
+  context for the current arc; the maintainer decides when.
 - `docs/original-quirks.md` is updated in the same change that keeps or
   rejects an original or reference oddity (see the root `AGENTS.md`); it is
   durable, not a work-in-progress list, and is not condensed at closure.

@@ -7,7 +7,7 @@ the maintainer accepted the play-test on 2026-10-15.
 
 ## Goal and final scope
 
-Step 3 of the [systems arc](roadmap.md#next-arc-finishing-the-games-systems):
+Step 3 of the [systems arc](../roadmap.md#next-arc-finishing-the-games-systems):
 keep the live state of any Clouds or Darkside map in one generic form, on the
 original's lifetime rules, so the world Events of step 4 and the maps opened
 in step 9 need no new save shape. Vertigo and F3 moved onto it with identical

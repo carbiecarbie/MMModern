@@ -6,7 +6,7 @@
 
 ## Goal and final scope
 
-Step 1 of the [systems arc](roadmap.md#next-arc-finishing-the-games-systems):
+Step 1 of the [systems arc](../roadmap.md#next-arc-finishing-the-games-systems):
 equipped items count in combat, Shoot and Rest as in the original. Before M67,
 an equipped material or enchanted item, including Vertigo's level-2 loot, made
 them say "not supported yet".

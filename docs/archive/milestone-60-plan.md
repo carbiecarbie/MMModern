@@ -8,7 +8,7 @@ of both parts (2026-10-12). Prerequisite: the condition-rule correction `b7a870a
 
 Replace the temporary casting screens with the original Cast dialog, buy and
 inspect spells at Vertigo's Guild, and implement eight new effects
-([roadmap](roadmap.md) step 6). The maintainer chose option "(a+)": Wizard Eye,
+([roadmap](../roadmap.md) step 6). The maintainer chose option "(a+)": Wizard Eye,
 Shrapmetal, Energy Blast and Jump plus Cure Wounds, Flying Fist, Revitalize and
 Pain. Authority: the World of Xeen CD resources, original program analysis of
 `WORLD/XEEN.DAT` (2026-10-11) and pinned ScummVM
@@ -42,7 +42,7 @@ Pain. Authority: the World of Xeen CD resources, original program analysis of
 2. **Original program evidence** settled monster elemental resistance (no
    reduction of spell damage), Pain (8 physical, not zero), Suppress Poison
    (refund 4, subtract 3) and the Magic Arrow saving-throw draw (kept); see
-   [original quirks](original-quirks.md).
+   [original quirks](../original-quirks.md).
 3. **Jump restriction** (maintainer, 2026-10-12): the original lets Jump land on
    space, lava, sky, cloud and desert with death, damage, falling or extra time.
    Those destinations, and cells outside the current walking-reachable save
