@@ -28,6 +28,35 @@ mainland; many items apply there, others wait for areas not open yet.
 
 ## Combat and conditions
 
+- **Holy Bonus adds weapon damage.** DOS applies it to melee and Shoot,
+  before Adventurer's damage multiplier; the pin only displays it.
+  [Evidence](original-quirks.md#sv-holy-bonus-damage). Pin: differs; master not rechecked. Rule established; M76 implementation pending.
+- **Day-spell counters.** DOS copies current caster level's low byte into
+  the Day spells' flags/counts, including Levitate; the pin uses true/1.
+  [Evidence](original-quirks.md#sv-day-spell-counters). Pin: differs; master not rechecked. Rule established; M76 implementation pending.
+- **Spell effect counter limits.** DOS stores the four combat buffs as bytes
+  and Light as a wrapping word; the pin's live integers retain larger values.
+  [Evidence](original-quirks.md#sv-spell-effect-widths). Pin: differs; master not rechecked. Extreme-value reachability in ordinary play unverified.
+- **Clairvoyance's right statue.** The DOS hint-0 cycle uses frames 8..11;
+  the pin uses 9..12.
+  [Evidence](original-quirks.md#sv-clairvoyance-right-frames). Pin: differs; master not rechecked. Rule established; M76 implementation pending.
+- **Enchant's level and empty result.** DOS uses the caster's level and
+  accepts a generated enchantment with no properties; the pin uses the
+  initially selected recipient's level and adds an error for an empty result.
+  [Evidence](original-quirks.md#sv-enchant-caster-and-copy). Pin: differs; master not rechecked. Rule established; M76 implementation pending.
+- **Special weapon IDs in item spells.** DOS Enchant and Item to Gold
+  exclude ID exactly 34; the pin also excludes every higher ID.
+  [Evidence](original-quirks.md#sv-item-spell-special-id). Pin: differs; master not rechecked. Rule established; M76 implementation pending.
+- **Recharge on cursed items.** DOS fills an eligible cursed item to 63
+  charges; the pin adds its normal 1..6 charges with the same cap.
+  [Evidence](original-quirks.md#sv-recharge-cursed). Pin: differs; master not rechecked. Rule established; M76 implementation pending.
+- **Town Portal items in combat.** DOS continues from the refusal notice
+  into its normal town dialog and can load the selected town; the pin returns.
+  [Evidence](original-quirks.md#sv-town-portal-item-combat). Pin: differs; master not rechecked. Static route settled; DOSBox presentation unobserved, M76 implementation pending.
+- **Rest's cell restriction.** DOS checks cell bit `0x40`, including on
+  the mainland; the pin's cell test is ineffective. Current MMModern follows
+  the pin here, so this remains a documented implementation discrepancy.
+  [Evidence](original-quirks.md#sv-rest-cell-flag). Pin: differs; master not rechecked.
 - **Suppress Disease without Disease.** DOS still applies zero-point healing,
   which can clear Unconscious at positive HP; the pin skips it. Both subtract
   3 from Disease counts of at least 4. Implemented in M75 Part A.

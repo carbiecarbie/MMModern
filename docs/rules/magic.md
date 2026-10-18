@@ -422,19 +422,219 @@ RNG draws. Do not replace this by a single kill chance inferred from its name.
 
 ## Party effects and movement
 
-**Evidence: Reference only.** Source: [handlers][spells]. Durations and reset
-ownership are detailed in [time and conditions](time-and-conditions.md).
+**Evidence: DOS static, high confidence (2026-10-18)** for the M76 rules below.
+The earlier Jump evidence is retained. Source comparison: [handlers][spells].
+Offsets, calibration and limits are in [M76 spells](evidence.md#m76-spells).
+Durations and reset ownership are detailed in
+[time and conditions](time-and-conditions.md).
 
 | Spell | Assignment, not an inferred stacking rule |
 | --- | --- |
-| Bless / Heroism / Holy Bonus / Power Shield | Set corresponding party amount to caster `L`, replacing any larger prior amount. |
+| Bless / Heroism / Holy Bonus / Power Shield | Set corresponding party byte to current caster level `L` modulo 256, replacing any larger prior amount. |
 | Protection from Elements | Choose Fire/Electrical/Cold/Poison; set that party resistance to `min(2L+5,200)`. |
 | Levitate | Set levitate count to 1. |
-| Light | Increment light count; its interaction with darkness also marks a step outside complete blackness. |
+| Light | Increment the light word modulo 65536; mark stepped when the obscurity value is nonzero (outside complete blackness). This includes maps that are not dark. |
 | Wizard Eye | Set wizard eye and clear automap-on. It does not mark cells explored. |
 | Clairvoyance / Walk on Water | Set their respective flags. |
-| Day of Protection | Set Walk on Water; Heroism, Holy Bonus, Bless, four party elemental resistances and light count all become `L`. |
-| Day of Sorcery | Set Power Shield and light count to `L`, Clairvoyance and Wizard Eye true, Levitate count 1, automap-on false. |
+| Day of Protection | Walk on Water, Heroism, Holy Bonus, Bless, four party elemental resistances and light count all receive the low byte of `L`. |
+| Day of Sorcery | Power Shield, Clairvoyance, Wizard Eye, Levitate and light count all receive the low byte of `L`; automap-on becomes zero. |
+
+`L` includes temporary level (`0x21fc9..0x21fed`). The Day spells copy that
+level byte even into their flag/count fields; they do not substitute 1.
+The pin substitutes true/1 for those fields. See
+[Day-spell counters](../original-quirks.md#sv-day-spell-counters).
+Its in-memory buff/light integers also retain values beyond the DOS byte/
+word limits; see [effect widths](../original-quirks.md#sv-spell-effect-widths).
+Wizard Eye's standalone assignment remains **Reference only** here; its
+previously established item entry is retained.
+
+Bless adds to Speed's stat bonus and equipment AC, together with temporary
+AC, unless the caller requests base-only AC (`0x3bccf..0x3bd25`). There is
+no condition test in that calculation. A disabling condition can separately
+change a monster's attack path; it does not erase the Bless amount.
+
+Heroism adds to the shared weapon hit bonus for each matching equipped
+melee/missile weapon (`0x2e0c8..0x2e0d2`). It therefore affects melee, Shoot
+and the weapon-accuracy path used by Poison Volley. It does not add to the
+magic-resistance gate used by ordinary damage spells. Holy Bonus adds to
+weapon damage at `0x2e0d6..0x2e0db`, before Adventurer's multiplication by
+3 (`0x2e15d..0x2e165`); Shoot uses it too. A spell's nonzero prepared
+damage replaces weapon damage, so Poison Volley's base remains 10.
+The pin has the Heroism contribution but omits Holy Bonus's damage addition.
+See [Holy Bonus](../original-quirks.md#sv-holy-bonus-damage).
+
+Power Shield and the four party protections are flat damage subtractions,
+not percentages or additions to personal resistance. Monster damage uses
+the [retained combat sequence](combat.md#monster-damage-saving-throws-and-secondary-attacks):
+initial Physical save for a nonphysical attack, party elemental subtraction,
+personal elemental save loop, then Power Shield and a zero clamp before
+the secondary-effect Physical save. Generic party damage (including traps,
+Events and monster spell damage using that path) subtracts party protection,
+runs the personal save loop, then subtracts Power Shield and clamps at zero
+(`0x23e27..0x23f10`). Physical damage skips elemental protection/saves but
+still subtracts Power Shield. The special death-type suffix replaces the
+damage with current HP after that clamp (`0x23f10..0x23f25`). The existing
+[terrain](time-and-conditions.md#terrain-arrival) and
+[monster evidence](evidence.md#monster-damage-and-secondary-attacks) retain
+their DOS differences from the pin; they are not new M76 discoveries.
+
+Protection from Elements opens Select Element: Fire, Electricity, Cold,
+Acid, in that screen order, using F/E/C/A or their buttons. Acid selects
+party Poison protection. Escape refunds its own `L` SP/1 gem and makes no
+assignment. Item power 14 uses the same dialog: cancellation retains the
+spent charge and adds those SP/gems without an initial debit, as with the
+previously established shared refund convention.
+
+Light drain is attribute-byte bit `0x20`, latched by cell lookup in
+DS:`f486` (`0x11fef..0x11ff4`). A stepped lighting check decrements a
+nonzero light count once before checking map darkness (`0x12012..0x12084`).
+The original CD mainland 23 and Vertigo maps 28/109/110/111 contain **no**
+such cells; all five are not dark. Levitate is tested as nonzero, not
+consumed per movement. It protects cloud arrival, not sky or an unconditional
+scripted fall/pit. Walk on Water permits shallow and deep outdoor water;
+Swimming alone permits shallow water. Indoor movement's separate raw-slot-4
+check accepts either Swimming or Walk on Water (`0x0cf52..0x0cf8d`). Neither
+provides extra terrain-arrival immunity. Rest/dawn temporary reset ends
+both effects; script changes can also alter them.
+
+### Border and information screens
+
+**DOS static, high confidence.** The border assembler is `0x1b9c6..0x1be1b`.
+Animation advances once per assembly call, not per game minute; this static
+check does not establish a universal wall-clock frame rate.
+
+| Indicator | Resource, frames and position |
+| --- | --- |
+| Bless | `bless.icn`, active 0..3 at (33,137), with base frame 16 drawn first |
+| Power Shield | `bless.icn`, active 4..7 at (55,137) |
+| Holy Bonus | `bless.icn`, active 8..11 at (160,137) |
+| Heroism | `bless.icn`, active 12..15 at (182,137) |
+| Levitate | `border.icn`, active 16..27 at (0,82); inactive frame 16; counter advances modulo 12 even while inactive |
+| Fire/Electrical/Cold/Poison | `fecp.brd`, inactive/active pairs 0/1, 2/3, 4/5, 6/7 at (2,2), (219,2), (2,134), (219,134); alternate window layout uses 8/9, 10/11, 12/13, 14/15 at (8,8), (219,8), (8,134), (219,134) |
+
+The four buff counters advance modulo 4 while active; elemental indicators
+are static presence tests. Clairvoyance reads each cell's two HED hint bytes
+when the corresponding Yes/No, Who Will or location prompt installs them;
+they are not a prediction calculated by the spell. Hint 2 is neutral, with
+frames 0/8; hint 1 uses left 0..3/right 12..15; hint 0 uses left 4..7/right
+8..11. The statues are at (0,32)/(215,32), in `border.icn`; an overlapping
+window can replace the right statue with frame 52. Without Clairvoyance
+they remain neutral. The pin's right hint-0 frames are 9..12, a
+[one-frame discrepancy](../original-quirks.md#sv-clairvoyance-right-frames).
+The HED bytes encode the good/bad hints; static control flow does not
+independently establish the emotional meaning of each drawn frame.
+
+Detect Monster opens window 19 with `detctmon.icn` on Clouds, showing the
+7x7 square within three cells on each axis, north upward, without a wall or
+line-of-sight test. Matching monster positions increment each marker to a
+maximum of three; the party arrow shows facing. It does not list species or
+HP. Any key/mouse dismissal closes it; an empty area still costs 6 SP.
+Marker positions are (244+9*column,81+7*row), matching the pin
+(`0x3017d..0x301a4`).
+
+Identify Monster tests the three current attack slots, rather than combat
+mode. With none it says Spell Failed and retains 5 SP cost. Otherwise window
+17 lists each occupied slot in order, with name, current HP, AC, number of
+attacks and special-attack description; a key/mouse dismissal closes it
+(`0x2f8f8..0x2faf3`). Both information spells are admitted from the book and
+their items in combat and exploration. These information-screen rules match
+the pin.
+
+### Item spell actions
+
+**DOS static, high confidence.** Enchant Item, Recharge Item and Item to Gold
+first use the member prompt with their own IDs 19/57/39. Escape there refunds
+30 SP/20 gems, 15 SP/10 gems, or 20 SP/10 gems respectively. Enchant and
+Recharge items reach those same prompts, retaining their spent charge and
+adding the refund. Later Escape from Items/selection has no spell refund.
+Failed eligibility also retains the cost. Items modes are 6/4/11 respectively.
+
+Enchant draws `U(1,floor(caster current level/5)+1)`, capped at 5, **before**
+category/eligibility refusal (`0x31c91..0x31cca`). Only weapons and armor
+with material 0 and state byte 0 qualify; broken, cursed and already
+enchanted records refuse. Equipped frame alone does not refuse. The weapon
+exception is ID **equal to 34**, not all higher IDs. The handler calls the
+existing DOS generator in forced weapon/armor mode and copies only its
+material/state, retaining the selected base item and frame. Generation uses
+the [already settled draw order](items.md#generation-and-reward-delivery),
+not a new enchantment formula. A zero-property result is copied and receives
+the success sound selector too. The pin instead uses the initially selected
+recipient's level, rejects every weapon ID at least 34 and adds an error for
+a zero-property result. See [Enchant](../original-quirks.md#sv-enchant-caster-and-copy)
+and [special item IDs](../original-quirks.md#sv-item-spell-special-id).
+
+Recharge admits nonempty Misc containers with material at most 9, excluding
+power 53. It draws `U(1,6)` once and normally adds charges up to 63, preserving
+broken/cursed flags; there is no break or destruction draw. The DOS cap
+comparison masks with `0xbf`, retaining the curse bit: an eligible cursed
+item therefore fills to 63 charges (`0x31bae..0x31c3f`). The pin always
+compares just the six-bit charge count. See
+[cursed Recharge](../original-quirks.md#sv-recharge-cursed).
+
+Item to Gold converts a selected nonempty item immediately, with **no extra
+Yes/No confirmation**. Equipped, broken or cursed status does not refuse it;
+the weapon exception is ID exactly 34. Quest counters are not inventory slots
+and cannot be selected here. Gold is `max(1,full item value)`, using the
+[DOS price formula](items.md#smith-prices), ignoring charges and condition,
+then the item is cleared and its category compacted (`0x31ddd..0x31fad`).
+The pin rejects all weapon IDs at least 34 and retains its previously
+documented attribute-material pricing difference.
+
+### Travel handlers and callers
+
+**DOS static, high confidence** for the following mutations and admission.
+Learned Enchant Item, Etherealize, Lloyd's Beacon, Super Shelter, Teleport
+and Town Portal refuse combat with a full refund before calling the handler.
+The other sixteen M76 spells are admitted. Items refuse powers 16, 21, 28,
+42, 48 and 58 in combat. Power 55 shows the refusal notice but continues
+into Town Portal: if its map flag allows it, the dialog and map load really
+remain reachable. This is a
+[DOS difference](../original-quirks.md#sv-town-portal-item-combat), not a claim
+that every resulting combat state was observed in DOSBox.
+
+Guards tested inside an admitted handler say Spell Failed and **retain**
+SP/gems or the item charge. Escape from the travel dialogs does not refund.
+Super Shelter's dying-risk confirmation likewise has no spell-cost refund
+on decline; it cancels sleeping/time/recovery before those begin.
+
+| Spell | Map flag, mutation and facing |
+| --- | --- |
+| Etherealize | `0x40`; one cell forward, requiring full-word lookup different from `0x8888`; ignore intervening wall checks; preserve facing; no direct map load |
+| Time Distortion | `0x400`; assign primary map run X/Y, preserve facing, redraw; no direct map load; works out of combat too |
+| Teleport | `0x1000`; one-digit distance prompt in current facing; positive input 1..9; walls between start and destination are ignored; preserve facing; no direct map load |
+| Lloyd's Beacon | `0x800`; Set stores the caster's map/X/Y/side; Return loads only if map or side changes, then assigns X/Y; preserve facing |
+| Town Portal | `0x100`; select town 1..5; always load selected town, even the current one; Clouds uses that town's run X/Y; preserve facing |
+
+Teleport Escape/empty/0 closes without moving. Indoors a destination full
+word `0x8888` fails; outdoors raw destination surface 0 or 8 fails. Shared
+lookup resolves loaded neighboring cells; a missing neighbor returns
+`0x8888` indoors or 15 outdoors, while an excessive positive coordinate
+returns `0x8888`. Do not replace these exact comparisons with a generic wall
+or water test (`0x303e3..0x30541`, `0x11d40..0x11f03`). A later ordinary
+outdoor boundary transition is distinct from a handler explicitly reloading.
+
+Beacon's S/T Set and R Return buttons/keys or Escape use window 10. Before
+display, map 0 initializes Clouds beacon to map 28, (18,4), side 0; even
+Escape retains that initialization. Stored fields are character offsets
+`0xa0`, `0xa1`, `0xa2`, `0x136`. Return to Clouds maps 75..78 after castle
+completion fails. There is no separate direction in a beacon.
+
+Town Portal's window 20 accepts 1..5, retries higher digits and treats
+Escape/0 as cancel. Clouds destinations, from the CD initial map records:
+Vertigo 28 (18,4), Nightshadow 29 (14,1), Rivercity 30 (17,1), Asp 31 (8,1),
+Winterkill 32 (7,14). Restrictions precede dialog/default-beacon writes.
+
+The handlers do not run Events or terrain directly. Exploration learned
+casting reaches the existing monster/step-time/terrain suffix at `0x0d5ba`;
+normal outer Event processing then sees the destination. Item use returns
+through its existing monster response, without an immediate terrain call,
+as already established for Jump. Combat Time Distortion moves/redraws and
+returns to ordinary cast/turn bookkeeping; it does not directly issue Run.
+The combat loop rechecks attack slots (`0x2ea99..0x2ead1`). Town Portal's
+combat item route similarly returns to item bookkeeping after loading;
+the notice is not a downstream admission gate. Exact DOSBox presentation
+of that anomalous route remains unobserved. Super Shelter's separate Rest
+entry and arrival are in [Rest](time-and-conditions.md#rest).
 
 Jump moves two cells forward, retaining direction. Indoors both crossed
 forward walls must be clear. Outdoors the first wall and destination wall
@@ -446,17 +646,11 @@ monster response, which does not call arrival. This distinction follows the
 calibrated DOS call sites `0x0d411`, `0x0d5ba`, `0x1e7df` and item dispatch
 `0x39e4b` (2026-10-17). Destinations outside the admitted area remain refused
 before charge. See [terrain arrival](time-and-conditions.md#terrain-arrival).
-Etherealize moves one cell ahead after its map
-restriction and invalid-cell checks. Time Distortion moves to the map's run
-location. Lloyd's Beacon, Teleport, Town Portal and Super Shelter each check
-their own map restriction. Full destination-selection and map-transition
-semantics require their dedicated dialogs; they are not settled by these
-entry checks.
 
 ## Item power lookup
 
 **Evidence: DOS static (2026-10-12), high confidence for the mapping;
-Reference only for combat admission below.** Source: [casting][spells]
+DOS static (2026-10-18), high confidence for the combat branches below.** Source: [casting][spells]
 `Spells::castItemSpell`; original item dispatch at file `0x39e4b`, table
 `[0x3a114,0x3a1a6)`. All 73 semantic destinations match the pin; power 33
 uses the alternate Frostbite handler at `0x2fc77`. Incinerate power 64 reaches
@@ -492,13 +686,11 @@ are bypassed by item dispatch. See cancellation caveats above.
 | 61-70 | Mass Distortion; Prismatic Light; Enchant Item; Incinerate; Holy Word; Resurrection; Elemental Storm; Mega Volts; Inferno; Sun Ray |
 | 71-73 | Implosion; Star Burst; Divine Intervention |
 
-Item dispatch explicitly refuses powers 16, 21, 28, 42, 48, 55 and 58 in
-combat. Unlike learned `castSpell`, that switch does not include Enchant
-Item power 63. These are the reference's restrictions. In DOS, Town Portal's
-item entry calls its notice and then reaches the handler even in combat
-(`0x3a058..0x3a075`); the full downstream result remains unknown. Whether the
-other admission-list differences match DOS is
-**Unknown**; avoid silently making the two admission lists identical.
+DOS item dispatch refuses powers 16, 21, 28, 42, 48 and 58 in combat.
+Town Portal power 55 shows the notice but reaches its dialog and map load
+when its map restriction is clear (`0x3a058..0x3a075`, `0x30654..0x30819`).
+The pin returns after that notice. Both admit Enchant Item power 63,
+unlike learned combat casting. See [M76 spells](evidence.md#m76-spells).
 
 ## Coverage and executable witnesses
 

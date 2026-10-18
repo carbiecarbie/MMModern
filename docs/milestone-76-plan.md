@@ -46,37 +46,28 @@ Darkside-only behavior.
 ## Design decisions
 
 1. **DOS check first (Part 0).** Read-only static analysis of
-   `WORLD/XEEN.DAT`, calibrated as in M74 and M75, before any code. It
-   settles, for the 22 handlers and their consumers:
-   - each handler's guard, value, prompt, refund on cancel and combat
-     admission, from the book and from items (the item list refuses powers
-     16, 21, 28, 42, 48, 55 and 58 in combat in the pin; Town Portal's item
-     entry differs in DOS);
-   - where each buff is read: Bless in armor class, Heroism in the hit
-     chance, Power Shield after monster damage, the party resistances in
-     monster and trap damage, and **Holy Bonus**, which the pin only shows
-     and never applies;
-   - Rest's order: the temporary reset clears every buff first, whatever
-     the food, so the pin's later per-member clearing of four buffs is
-     redundant; and the dawn reset;
-   - Super Shelter against ordinary Rest: one 480-minute call or
-     interruptible steps, the map restriction, the dying-risk warning and
-     cancel, food and reset order, and arrival after Levitate ends;
-   - Light's stepped mark, and whether mainland 23 or Vertigo has
-     light-drain cells (the pin decrements the light count on them,
-     whether or not the map is dark);
-   - Walk on Water and Levitate in movement and terrain arrival;
-   - Clairvoyance's statues, the border indicators and their frames;
-   - the Detect Monster and Identify Monster screens;
-   - the Enchant, Recharge and Item to Gold formulas, refusals and draws;
-   - for each travel spell, **relocation or map reload**: the pin's Time
-     Distortion and Teleport only set a position on the current map, and
-     Lloyd's Beacon reloads only when map or side change; plus direction,
-     arrival processing, combat continuation, the dialogs, destinations
-     and map restriction flags.
-   Results go to [magic](rules/magic.md), [evidence](rules/evidence.md) and
-   [original quirks](original-quirks.md). DOS overrides the pin; cases that
-   stay unsettled go to the maintainer.
+   `WORLD/XEEN.DAT`, calibrated on the item dispatch and the Jump arrival
+   calls, settled all 22 handlers and their consumers with high confidence;
+   the rules are in [magic](rules/magic.md),
+   [time and conditions](rules/time-and-conditions.md),
+   [evidence](rules/evidence.md#m76-spells) and
+   [original quirks](original-quirks.md). Results that shape the parts:
+   - **Holy Bonus** adds to weapon damage before Adventurer's
+     multiplication, in melee and Shoot (the pin never applies it);
+   - Rest's temporary reset clears every buff before food and recovery;
+     Super Shelter is one 480-minute Rest that bypasses the ordinary
+     refusals after its own map restriction;
+   - **ordinary Rest** is also refused on cells with attribute bit `0x40`
+     (42 mainland cells); MMModern follows the pin, whose check never
+     fires;
+   - no light-drain cells on mainland 23 or Vertigo;
+   - Etherealize, Time Distortion and Teleport relocate on the current map
+     with the facing kept; Lloyd's Beacon reloads only across a map or side
+     change; Town Portal always loads (Vertigo 28 `(18,4)`, other towns
+     refuse); the beacon defaults to map 28 `(18,4)`;
+   - Enchant, Recharge and Item to Gold differ from the pin (caster level,
+     item 34, cursed recharge, pricing); the DOS rules apply;
+   - in DOS, Town Portal's item power continues into its dialog in combat.
 2. **One generic owner per mechanic.** Buffs live on the existing gameplay
    context; their readers go into the existing combat, movement, terrain and
    presentation rules, not into the spell handlers. Item spells reuse the
@@ -89,13 +80,10 @@ Darkside-only behavior.
    save capture and restore, state equality and mutation protection, so
    stale prepared work cannot publish over a changed beacon.
 4. **Darkness moves to step 11** (maintainer decision, 2026-10-18).
-   Mainland 23 and Vertigo are not dark, so the dark view changes nothing
-   playable yet and is tested best on a real dark map when one opens. On
-   maps that are not dark, Light is complete as a counter: it increments
-   the light count and marks the party stepped, as in the pin. If Part 0
-   finds light-drain cells on the open maps, their decrement (a rule, no
-   rendering) stays in M76, since Info shows the count; otherwise drain
-   cells go to step 11 with the dark view.
+   Mainland 23 and Vertigo are not dark and have no light-drain cells, so
+   the dark view and drain cells change nothing playable yet and go to
+   step 11. On maps that are not dark, Light is complete as a counter: it
+   increments the light count and marks the party stepped.
 5. **Destinations not open yet refuse** before any SP, gem, charge, time or
    random draw is spent, with "not supported yet", as Jump and the mirror
    do. Town Portal reaches Vertigo; the other four towns refuse. Lloyd's
@@ -104,8 +92,18 @@ Darkside-only behavior.
 6. **Combat items wait for step 7.** Combat Use is not available yet, so
    item powers in combat (admission and effects) are covered by automated
    tests only; learned casting in combat, Quick Fight and item Use in
-   exploration are play-tested.
-7. **Census.** Regenerate [the coverage report](coverage.md) after each
+   exploration are play-tested. Town Portal's combat item path, whose DOS
+   presentation is unobserved, waits for step 7 and a DOSBox observation
+   (maintainer decision, 2026-10-18).
+7. **Item travel follows item Jump** (maintainer decision, 2026-10-18).
+   Travel item powers used in exploration return through the item-use
+   monster response without the terrain arrival call, as item Jump does;
+   the exact timing of destination Events is not confirmed in DOS, and the
+   part that implements it records this in
+   [original quirks](original-quirks.md).
+8. **Ordinary Rest gains the DOS cell refusal in Part C1** (maintainer
+   decision, 2026-10-18), with Super Shelter, which bypasses it.
+9. **Census.** Regenerate [the coverage report](coverage.md) after each
    part; at closure all 76 spells are supported.
 
 ## Parts
@@ -113,19 +111,18 @@ Darkside-only behavior.
 Each part ends with a passing complete suite, its own commit and a report;
 a session may cover more than one part.
 
-- **Part 0 - DOS check** (read-only): the questions above, recorded in the
-  rules chapters. Stop rule: any finding that changes this plan's scope is
-  reported before Part A1 starts, and the plan is amended first.
+- **Part 0 - DOS check** (read-only, documentation only): decision 1.
 - **Part A1 - party buffs** (7): Bless, Heroism, Holy Bonus, Power Shield,
   Protection from Elements with Select Element, Day of Protection and Day
-  of Sorcery, their combat and trap effects and the border indicators.
+  of Sorcery, their combat and trap effects (Holy Bonus in weapon damage)
+  and the border indicators.
 - **Part A2 - senses and information** (6): Light (decision 4), Levitate,
   Walk on Water, Clairvoyance and its statues, Detect Monster and Identify
   Monster.
 - **Part B - item spells** (3): Enchant Item, Recharge Item, Item to Gold,
   through the original member prompt and Items dialog modes.
 - **Part C1 - shelter and relocation** (4): Super Shelter, Etherealize,
-  Time Distortion and Teleport.
+  Time Distortion and Teleport, and the ordinary Rest cell refusal.
 - **Part C2 - map travel and save v15** (2): Lloyd's Beacon and Town
   Portal, with the beacon's roster state and save format.
 
@@ -133,13 +130,15 @@ a session may cover more than one part.
 
 - **Digest changes.** Two kinds, kept apart. Gameplay changes: buffs can
   move a recorded scenario only if it casts or receives one (Temple
-  Donation sets four). Format changes: the baseline digests hash raw save
+  Donation sets four), and the Rest cell refusal only if it rests on a
+  flagged cell. Format changes: the baseline digests hash raw save
   files, so v15 changes them in Part C2 even with identical gameplay.
   Either kind needs a byte, trace and field audit against a rebuilt
   baseline and the maintainer's approval of replacement digests before
   the part's suite can pass and be committed (lesson from M75).
-- **Rest and travel.** Super Shelter must not change ordinary Rest (M51,
-  M72); a wrong reload would reset monsters, and no move may publish partly.
+- **Rest and travel.** Apart from the cell refusal, ordinary Rest keeps
+  its M51 and M72 rules; a wrong reload would reset monsters, and no move
+  may publish partly.
 - **Scope.** 22 spells is large; a part that finds more work than planned
   stops and is split, as in M74.
 
@@ -150,12 +149,13 @@ a session may cover more than one part.
   dialogs, refusals, refunds and costs. Their item powers work in
   exploration; in combat they are proved by automated tests (decision 6).
 - Bless, Heroism, Power Shield, Protection from Elements and Holy Bonus
-  (as Part 0 settles it) change combat and traps as in DOS; Rest and dawn
+  change combat and traps as in DOS; Rest and dawn
   clear them in the DOS order; the border shows the original indicators.
 - Walk on Water and Levitate change movement and terrain as in DOS.
 - Super Shelter tests: its Rest against ordinary Rest's interruption, the
   map restriction, cancel at the dying-risk warning, food and reset order,
-  and arrival after Levitate ends.
+  and arrival after Levitate ends; ordinary Rest is refused on a flagged
+  mainland cell and Super Shelter is not.
 - Same-map relocation keeps live monsters' HP and status; cross-map
   Lloyd's Beacon and Town Portal keep the M69 per-map state.
 - Each character keeps their own beacon across save and load, exactly, with

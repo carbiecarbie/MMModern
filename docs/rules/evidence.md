@@ -242,13 +242,14 @@ equivalence with a learned spell:
   calibration; selector identity alone does not name an animation or sound.
 - Power 55's combat branch at `0x3a058..0x3a075` calls the prohibited-use notice
   and then reaches Town Portal's handler. The pin returns after the notice.
-  **Unknown:** whether the downstream DOS handler ultimately allows any travel
-  in combat. This observation must not be rewritten as permission to teleport.
+  The [M76 check](#m76-spells) follows the downstream map guard, dialog and
+  load: travel remains reachable in combat if the map permits it. This is
+  static control flow, not a DOSBox observation of that anomalous route.
 
 The pin's shared Incinerate handler therefore does not establish identical item
 presentation. Its Town Portal control flow is also not a complete account of
-the original item route. Full non-First-Aid cancellation and travel outcomes
-remain open.
+the original item route. M75 and [M76](#m76-spells) separately trace further
+cancellation and travel outcomes; untraced powers remain open.
 
 ## Party healing spells
 
@@ -373,6 +374,138 @@ nonpositive without itself barring action, provided other disabling conditions
 are absent and the turn-order rule permits it. This is an admission result,
 not an exhaustive claim about every downstream attack/spell effect. No DOSBox
 protocol remains required to settle the requested scheduling/admission questions.
+
+## M76 spells
+
+**DOS static, high confidence (2026-10-18)** where explicitly stated below.
+MMModern baseline: clean `main`, `1bd6d5fcd084121aa92b6f047be7df31a47ca9b9`.
+The installed CD `WORLD/XEEN.DAT` is 353,511 bytes with the exact SHA-256
+in [Exact baseline](#exact-baseline). Pin verified locally:
+`6814ee9ba54582f5b5adcffab49efbbd8f589edd`.
+
+Capstone 5.0.7, 16-bit x86, read the installed image through WSL. Work,
+instruction slices and the detailed question-by-question ledger remain in
+`D:/MModern-re/m76-part0/`, especially `findings.md`, `analyze.py`,
+`handler-disassembly.txt`, `item-spell-actions.asm`, `maps-and-tables.py`
+and `map-data.txt`. Preliminary mechanical inventories were checked and
+corrected by the main analyst; `findings.md` is the final interpretation.
+No original-program execution, DOSBox play, build or tests were part of this check.
+
+**Calibration passed:** item dispatch `0x39e4b` subtracts 1, bounds at 72
+and indexes CS:`0474`, file `[0x3a114,0x3a1a6)`, segment base `0x39ca0`.
+Power 1 reaches Light `0x2f39a`, power 4 the already established First Aid
+`0x2f3f5`; power 16 uses Jump's combat notice branch. The three retained
+Jump/arrival caller anchors `0x0d411`, `0x0d5ba`, `0x1e7df` again resolve
+to `070d:0194`, file `0x0c924` (near calls use the caller's segment base).
+Mapping remains file `=0x56c0+seg*16+off`; Ghidra linear `=file+0xa940`.
+No Ghidra address was mistaken for a file offset.
+
+### Handlers, costs and admission
+
+All rows have **high confidence** for entry, cost and indicated writes.
+SP/gem tables and shared debit/refund semantics retain their prior evidence;
+the new trace establishes which M76 paths actually reach those helpers.
+`L` is current level including temporary level; byte writes keep `L mod 256`.
+The table's combat column is learned admission. Items share the effect
+handler except their separately traced combat branches below.
+
+| ID, spell (item power) | Effect file entry | SP/gems | Learned combat; guard/value/dialog |
+| --- | --- | --- | --- |
+| 3 Bless (22) | `0x2f8b5` | 2L/1 | Yes; no guard/prompt; Bless byte L |
+| 30 Heroism (30) | `0x2fc4d` | 2L/3 | Yes; no guard/prompt; Heroism byte L |
+| 31 Holy Bonus (25) | `0x2faf4` | 2L/1 | Yes; no guard/prompt; Holy Bonus byte L |
+| 53 Power Shield (29) | `0x2ffc3` | 2L/2 | Yes; no guard/prompt; shield byte L |
+| 55 Protection from Elements (14) | `0x2f6ac` | L/1 | Yes; Select Element; selected protection min(2L+5,200) |
+| 12 Day of Protection (49) | `0x30e24` | 75/10 | Yes; no guard/prompt; all specified fields receive level byte |
+| 13 Day of Sorcery (50) | `0x30e5a` | 40/10 | Yes; no guard/prompt; flags/counts receive level byte; automap zero |
+| 42 Light (1) | `0x2f39a` | 1/0 | Yes; no guard/prompt; light increment, conditional stepped mark |
+| 41 Levitate (20) | `0x2f8d1` | 5/0 | Yes; no guard/prompt; count 1 |
+| 74 Walk on Water (32) | `0x2fc69` | 7/0 | Yes; no guard/prompt; flag 1 |
+| 4 Clairvoyance (18) | `0x30e16` | 5/2 | Yes; no guard/prompt; flag 1 |
+| 15 Detect Monster (34) | `0x30081` | 6/0 | Yes; no target guard; detection screen |
+| 34 Identify Monster (23) | `0x2f8f2` | 5/0 | Yes; needs an occupied attack slot; identification screen |
+| 19 Enchant Item (63) | `0x30b03` | 30/20 | No; member prompt 19, then Items mode 6 |
+| 57 Recharge Item (53) | `0x30885` | 15/10 | Yes; member prompt 57, then Items mode 4 |
+| 39 Item to Gold (-) | `0x30f53` | 20/10 | Yes; member prompt 39, then Items mode 11 |
+| 21 Etherealize (58) | `0x30996` | 30/10 | No; flag 0x40 or full-word target 0x8888 refuses |
+| 70 Time Distortion (39) | `0x30301` | 8/0 | Yes; flag 0x400 refuses; run X/Y |
+| 66 Super Shelter (48) | `0x305eb` | 15/5 | No; flag 0x200 refuses; mode-12 Rest |
+| 69 Teleport (42) | `0x30348` | 10/0 | No; flag 0x1000 refuses; distance dialog/lookup |
+| 44 Lloyd's Beacon (28) | `0x2fc9a` | 6/2 | No; flag 0x800 refuses; Set/Return dialog |
+| 71 Town Portal (55) | `0x30654` | 30/5 | No; flag 0x100 refuses; town dialog/load |
+
+The six learned combat blocks are `0x33364`, `0x333b3`, `0x334e9`,
+`0x335d8`, `0x3362f`, `0x3367e`: prior mode 2 takes the full refund
+`0x2f34b` and skips the handler. Charging precedes dispatch
+(`0x3327b`, `0x332bb..0x332c7`). A handler's Spell Failed has no automatic
+refund. Select Element Escape (`0x2f05f..0x2f072`) refunds ID 55. The three
+member prompts use their own IDs at `0x30b08`, `0x3088a`, `0x30f58`;
+later item-selection cancellation has no refund call. Beacon, Teleport,
+Town Portal and the shelter warning also have no refund call on cancel.
+
+Items refuse powers 16/21/28/42/48/58 in combat: entries `0x39ed9`,
+`0x39f0d`, `0x39f51`, `0x39fd9`, `0x3a015`, `0x3a092`, joining the
+notice/return path. Town Portal 55 at `0x3a058` instead rejoins its handler
+at `0x3a075`. All other M76 powers are admitted, including Enchant 63.
+The shared item caller's retained charge debit and no-SP/gem-debit rule
+therefore also applies to these new shared prompt/refund paths.
+
+### Consumer and dialog locators
+
+The [magic chapter](magic.md#party-effects-and-movement) gives the settled
+rules in player/mechanic terms. This table is the address index, including
+confidence and comparison boundaries for the requested questions.
+
+| Question | DOS file anchors; verdict and comparison |
+| --- | --- |
+| 1 | Handler table above; debit `0x3327b`, refunds `0x2f34b`. High: failed guards spend; only explicit early prompt/admission refunds. Same as pin, except Day assignments and Enchant details below. |
+| 2 | Learned blocks above; items `0x39e4b..0x3a112`; Portal `0x30654..0x30819`. High: learned lists match; item 55 differs from pin by continuing to dialog/load after notice. |
+| 3 | `0x21fc9..0x21fed`, buff calls `0x2f8c5`, `0x2fc5d`, `0x2fb04`, `0x2ffd3`, `0x2f6b5`, `0x30e2c`, `0x30e62`. High: current level, same as pin; DOS byte storage truncates. |
+| 4 | `0x3bccf..0x3bd25`, caller `0x2dbcf..0x2dbdc`. High: Bless is added with temporary AC unless base-only requested; no condition predicate. Same as pin. |
+| 5 | `0x2e0c8..0x2e0d2`; accuracy callers `0x2c917`, `0x2cb7c`. High: melee and Shoot/Poison Volley weapon accuracy, not a general spell accuracy bonus. Same as pin. |
+| 6 | Retained `0x2d3a9..0x2d3f6`, generic `0x23ee5..0x23f25`. High: shield after damage saves, before secondary save; zero clamp. Same placement as pin; special death suffix bypasses final shielded amount in both. |
+| 7 | Retained `0x2d2e4..0x2d374`; generic `0x23e27..0x23eb5`. High: flat party subtraction, then personal resistance save loop; monster initial Physical save precedes subtraction. Existing pin differences remain as recorded for M68/M72. |
+| 8 | `0x2e0d6..0x2e0db`, `0x2e15d..0x2e165`, `0x2cb89..0x2cba1`. High: Holy Bonus adds weapon damage before difficulty scaling; prepared spell damage overrides it. Differs from pin, which omits the addition. |
+| 9 | `0x2f6ac..0x2f70a`, dialog `0x2eed7..0x2f0b9`, key table `0x2f0a6`. High: capped formula, F/E/C/A, Acid means Poison, Escape refunds. Same as pin. |
+| 10 | `0x1e72d`, `0x1e754..0x1e7b8`, `0x1e828..0x1e8ba`. High: reset before food/recovery; later four clears redundant. Same as pin. |
+| 11 | `0x305eb..0x3061e`, `0x1e50d..0x1e5f0`, suffix `0x1e72b..0x1e826`. High: one 480-minute shelter call, no ordinary interruption opportunities; warning/cancel, dream/reset/food/arrival order match. Differs from pin for ordinary cell restriction, `0x11fe7..0x11fec`. |
+| 12 | `0x2f39a..0x2f3b2`, `0x11fef..0x11ff4`, `0x12012..0x12093`; CD DAT attributes +0x200. High: increment/stepped, drain before darkness; none on open maps. Same as pin within the DOS word range; differs at Light overflow, wrapping modulo 65536. |
+| 13 | `0x2f8d1`, border `0x1b9ec..0x1ba1a`; retained cloud `0x0c998..0x0c9af` and unconditional Event fall `0x0cc93..0x0ccb4`. High: presence, no step decrement, cloud protection only; reset ends it. Same as pin except Day spell producer. |
+| 14 | `0x0ceeb..0x0cf26`, `0x0cf52..0x0cf8d`; retained arrival/reset. High: shallow water accepts Swimming or flag; deep requires flag; no arrival immunity. Same as pin. |
+| 15 | HED prompt reads `0x24b5a..0x24bbb`, `0x25a30..0x25aa0`; frames `0x1baaf..0x1bb6a`. High for hint-byte selection/numeric frames; differs from pin's right hint-0 cycle. Emotional good/bad frame naming remains Reference only, medium confidence. |
+| 16 | `0x1b9c6..0x1bdb8`; resource names `0x553ea`, `0x55401`, `0x5540a`. High: per-border-call cycles/positions in magic chapter; same as pin for requested indicators. No fixed wall-clock frequency inferred. |
+| 17 | `0x30081..0x3023b`. High: 7x7 position/count screen, counts capped 3, any key/mouse; empty still paid. Same as pin. |
+| 18 | `0x2f8f8..0x2faf3`. High: attack-slot guard, not combat-mode guard; up to three current monsters and five fields; no-target failure paid. Same as pin. |
+| 19 | `0x30b03..0x30b55`, `0x31c76..0x31dd7`; generator `0x25ca8`. High: caster-level draw before refusal, weapon/armor material/state copy, early prompt refund only. Differs from pin in level owner, ID-34 equality, empty-result handling and retained generator draw differences. |
+| 20 | `0x31bae..0x31c73`. High: eligible Misc, U(1,6), no break/destroy branch; cursed cap comparison fills to 63. Differs from pin on cursed records. |
+| 21 | `0x31ddd..0x31fad`, calculator `0x3c67d`, mode-11 arm `0x3cb1d`. High: full value, no extra confirmation, no equipped/broken/cursed refusal. Differs from pin's ID threshold and retained attribute-price formula. |
+| 22 | Etherealize `0x30996..0x30a0f`, Distortion `0x30301..0x30324`, Teleport `0x30348..0x3055e`, Beacon `0x2fef7..0x2ff61`, Portal `0x30779..0x307b8`; callers `0x0d5ba`, `0x314ce`, `0x2e8a5..0x2e8c0`, `0x2ea99..0x2ead1`. High for relocation/load/facing and immediate caller paths; same as pin except Portal item combat. Complete anomalous combat presentation and exact post-item automatic-Event timing remain Unknown, medium confidence; no DOS evidence label assigned to those details. |
+| 23 | `0x3099b..0x30a0a`, lookup `0x11d40..0x11f03`. High: forward whole-word non-0x8888, restriction 0x40, no traversed-wall test. Same as pin. |
+| 24 | `0x30301..0x30324`, run helper `0x1691f..0x1692b`. High: primary DAT run X/Y; same-map relocation both in and out of combat. Same as pin. |
+| 25 | `0x303a5..0x3055e`, lookup `0x11d40..0x11f03`. High: one-digit 1..9, zero/empty cancel without refund, destination comparisons and resident-neighbor lookup; no traversed-wall test/load. Same as pin. |
+| 26 | `0x2fc9f..0x2fd0b`, key table `0x2ffb3`, Return/Set `0x2feaa..0x2ffaf`. High: character map/X/Y/side, Clouds default 28 (18,4), same-map/side Return skips load. Same as pin. |
+| 27 | `0x30659..0x30819`, town table `0x54054..0x54059`, run helper `0x1691f`. High: restriction 0x100, dialog 1..5, maps 28..32 and their original run positions. Same as pin apart from item-combat entry. |
+
+The map check used existing `build-rel/mmodern.exe --inspect-map` for maps
+23 and 28, then reconstructed the same read-only initial container as
+`ScummVmXeenBridge::initial` to inspect all 256 attribute bytes per component.
+The source was CD `GAME1.GOG`, MODE1/2352, ISO `GAME/XEEN.CC`, extent 11620,
+13,438,429 bytes, SHA-256
+`8c0ac4c0650080cc85e96af3e9d5cd9968dad16bfd2ed0785d77d21893cc155c`.
+No resources were extracted into the repository. Internal reconstructed
+container offsets for DAT 23/28/109/110/111 are
+`0x2ec05/0x2fd71/0x3e6e5/0x3ea61/0x3eddd`; attributes occupy each DAT's
+`[0x200,0x300)`. No drain cells occur. Ordinary Rest cell bit 0x40 does
+occur on map 23; the external ledger lists every coordinate. Town run X/Y
+are DAT offsets `0x32f/0x338`, not inferred town-entry coordinates.
+
+The dawn mode/latch control flow retains its **Reference only** label;
+the already confirmed temporary-reset field selection is cited, not
+reopened. Likewise the existing monster damage, terrain arrival, dream
+presentation, item generation and Smith-price findings retain their own
+calibration and limits. See [M76 quirks](../original-quirks.md#m76-spell-findings)
+for newly settled pin differences. None of this changes milestone scope,
+production behavior or the save format by itself.
 
 ## Monster treasure staging
 
@@ -514,10 +647,10 @@ replacements for the control-flow interpretation above.
 | --- | --- |
 | Combat | Establish remaining enchanted multi-attack arithmetic. Eradicate equipment-frame behavior is settled above. |
 | Damage and targeting | Confirm ranged continuation, elemental multi-attack arithmetic and targeting distributions for every party size. |
-| Items | Trace all other item-prompt refunds; Recharge, Enchant, Item to Gold, cursed refusals and high-tier generation. |
+| Items | Trace the remaining unexamined item-prompt refunds and high-tier generation cases; M76 settles Recharge, Enchant and Item to Gold above. |
 | Treasure | Extend delivery evidence to the special sword and other editions' quest branches; the Clouds quest display/count boundary is established above. |
-| Magic | Establish Holy Bonus's combat contribution, control-spell duration, Poison Volley arithmetic and high-tier overflow; Resurrection's recovery is settled by the [healing check](#party-healing-spells). |
-| Travel | Settle Town Portal item behavior after its combat notice; complete Beacon, Teleport, Etherealize and terrain-arrival paths. |
+| Magic | Extend control-spell duration and high-tier overflow checks. Holy Bonus is settled by [M76](#m76-spells); Poison Volley and Resurrection retain their earlier evidence. |
+| Travel | Calibrate complete DOSBox presentation of Town Portal's anomalous combat item route and exact post-item automatic-Event timing. M76 settles handler relocation/load/admission; terrain keeps its earlier evidence. |
 | Time | Verify remaining script-mode dawn behavior and uncalibrated condition-byte edges. Current MMModern wrapping/saturation is not literal equivalence with the pin's live integer counters; see the time chapter. |
 | Broader coverage | Event opcode catalogue, all services, AI/movement, character creation, Darkside/World transitions, audio and frame-level UI timing still need dedicated chapters and calibration. |
 

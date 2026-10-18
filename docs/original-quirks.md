@@ -174,9 +174,110 @@ calibration, retained REA records and limitations are in
 | <a id="sv-event-sparkles"></a> The Event give dispatch sparkles the recipient for sex, race and class (3-5), SP, AC and level bonuses (9-11), gold and gems (34/35) and food (65), besides the pin's sparkle modes (HP 8, skills 13, awards 15 except 8, XP 16, 25, 37-64, 77, 78, 81). | DOS give table `0x23331` dispatched at `0x22689`; these handlers reach the shared tail `0x23278..0x2327f`, game flags (20) and world/quest flags (103/104) leave through `0x23308` without one; 2026-10-14, high confidence. Mode 19 sparkles only when the spell is in the class book (`0x2280b..0x22869`, rechecked 2026-10-16). The pin's `giveTake` omits spellFX for 3-5, 9-11, 34, 35 and 65. | **Implemented (M70 Part B)** in `xeenEventGive`, once per member per Event run; GiveMulti currency still goes to treasure without a sparkle. **ScummVM:** differs. |
 | A Knight, Robber, Ninja or Barbarian's spell test, grant or removal uses the spell book of whichever class the program computed last. | Static analysis, 2026-10-16: the class switches at `0x21729`, `0x22182` and `0x2280b` leave the global `0xf604` unchanged for these classes. Pinned `getSpellsCategory` returns invalid and skips. | **Not supported yet** (M70 Part B, `xeenEventProbe`/`xeenEventTake`/`xeenEventGive` mode 19): MMModern does not own that global and refuses. A non-caster's learned flags are never shown. |
 | <a id="sv-makeitem-draws"></a> `makeItem` draws category and subcategory from 1, not 0. It also consumes a material selector at level 7, tests weapon effectiveness with `R(1,20)`, and gives Misc items `R(1,8)+2` charges. The pin uses 0-based category/subcategory and effectiveness rolls, skips the level-7 selector, and stores the Misc roll without 2. | Calibrated DOS static analysis, 2026-10-16, `WORLD/XEEN.DAT` SHA-256 `8bf78b48...`: helper `0x45b9a..0x45bb4` computes inclusive min..max, as at the known Event currency draw `0x23770..0x23791`. `makeItem` `0x25cbc..0x25ce3` draws category `R(1,100)` and subcategory `R(1,100)` or `R(1,80)` at level 6+; comparisons at `0x25d45..0x25e38` retain the same thresholds. Selector `0x26165..0x26187` is drawn before the level-7 material override; effectiveness `0x262ae..0x262c6`; Misc charges `0x2624b..0x2625a`. High confidence. | **Implemented** in the shared `XeenItemCandidate` and merchant support validation. Event GiveMulti, display cases and merchant stock use it. Combat reloads the monster's drop-level field (`+0x2d`) at `0x2c3e2` and passes it to makeItem at `0x2c3e7` (far target `1b98:4c68`, file `0x25ca8`); the chance check at `0x2c38b..0x2c39a` precedes generation and capacity checks follow it. `XeenMonsterDropCandidate` shares the generator for supported level-1 drops (M71), retaining chance, accounting, staging and delivery. Higher levels and accessory staging remain unsupported. Stored stock and pending Misc charges 1-10 remain valid without regeneration; new generation yields 3-10. **ScummVM:** differs. |
-| Town Portal's item combat branch shows its prohibited-use notice, then reaches the spell handler. | DOS `0x3a058..0x3a075`; the pin returns after the notice. [Dispatch evidence](rules/evidence.md#item-power-dispatch-and-variants). | A control-flow observation only: actual downstream travel in combat remains unknown. Do not infer that teleportation is allowed. |
+| Town Portal's item combat branch shows its prohibited-use notice, then reaches the spell handler. | DOS `0x3a058..0x3a075`; the pin returns after the notice. [M76 downstream check](#sv-town-portal-item-combat) traces the dialog and load. | Static travel reachability is settled by M76; DOSBox presentation remains unobserved. |
 | <a id="sv-outdoor-monster-terrain"></a> Outdoors, monsters never enter a cell whose middle value is 1, 7, 9, 10 or 12, flyers included, whatever the map's no-pass threshold; the pin compares these middles with the threshold. | DOS `canMonsterMove` `0x1fc91`: jump table `0x1fda3` sends these middles straight to the refusal at `0x1fd8b`; threshold byte calibrated as described in [combat](rules/combat.md#monster-movement-terrain). 2026-10-15, high confidence. Observable only on Clouds outdoor map 2 (no-pass 6, 17 middle-1 cells); map 23 has no-pass 0, where both agree. Maintainer approved following DOS, 2026-10-15. | **Implemented (M68 Part B)**, `xeenOutdoorMonsterTerrain`. **ScummVM:** differs. |
 | <a id="sv-monster-wall-threshold"></a> A monster's wall threshold is strict: a wall passes only below the map's no-pass value (the player's own rule), indoors and for outdoor middle 15; the pin admits a wall equal to no-pass. | DOS `0x1fd8f..0x1fd9b`: `mov al,[0xc0fc]`, `cmp ax,dx`, `jle` refuses. 2026-10-15, high confidence. Original-data scan: no-pass-valued (7) interior walls on Clouds maps 51, 55, 59 and Darkside maps 53, 57, 61, 65, 69, 113, 117, 163, 164, 213 now block monsters. Vertigo's only such wall is an off-map edge, so the playable route is unchanged. Maintainer approved following DOS, 2026-10-15. | **Implemented (M68 Part B)**, `xeenMonsterPassesWall`, shared by walkers and flyers. **ScummVM:** differs. |
+
+### M76 spell findings
+
+The following are **DOS static, high confidence (2026-10-18)**, against pin
+`6814ee9b`; master was not rechecked. They establish original rules, not
+implemented M76 support or milestone acceptance. Calibration and the external
+finding ledger are in [M76 evidence](rules/evidence.md#m76-spells).
+
+- <a id="sv-holy-bonus-damage"></a> **Holy Bonus contributes weapon damage.**
+  The shared weapon calculation adds Heroism to hit at `0x2e0c8..0x2e0d2`
+  and Holy Bonus to damage at `0x2e0d6..0x2e0db`, before Adventurer triples
+  damage. Melee and Shoot use it; a spell's prepared nonzero damage replaces
+  the weapon base. **ScummVM:** differs; its weapon routine omits Holy Bonus.
+- <a id="sv-day-spell-counters"></a> **Day spells copy the caster's level byte
+  into flags and counts.** Day of Protection writes Walk on Water as that
+  byte (`0x30e34`); Day of Sorcery does the same for Clairvoyance, Wizard Eye
+  and Levitate (`0x30e6d..0x30e73`). Light and party elemental words receive
+  the zero-extended low byte too. All use current level including temporary
+  level (`0x21fc9`). **ScummVM:** differs; its flag assignments are true and
+  Levitate is 1; its level assignments retain the full integer level.
+- <a id="sv-spell-effect-widths"></a> **Spell effect writes retain DOS field
+  widths.** Bless/Heroism/Holy Bonus/Power Shield store only the low level
+  byte (`0x2f8cd`, `0x2fc65`, `0x2fb0c`, `0x2ffdb`); Light increments a
+  word and wraps 65535 to 0 (`0x2f39a`). **ScummVM:** differs; its live
+  integer fields retain larger values, although save serialization uses
+  byte/word fields. Reachability of these extremes in ordinary play was
+  not established; the static writes are high confidence.
+- <a id="sv-clairvoyance-right-frames"></a> **The right statue's hint-0 cycle
+  is frames 8..11.** DOS subtracts 4 after its modulo-4-plus-12 calculation
+  (`0x1badd..0x1bafd`). **ScummVM:** differs; subtracting 3 gives 9..12.
+  These are numeric frame identities, not a DOSBox animation capture.
+- <a id="sv-enchant-caster-and-copy"></a> **Enchant uses the caster's level
+  and copies even an empty generated enchantment.** The global caster is
+  passed to current-level helper at `0x31c91..0x31c99`, before the level
+  draw/cap. Eligible weapon/armor branches copy material/state and call the
+  success sound selector without testing the generated properties
+  (`0x31cfa..0x31da3`). **ScummVM:** differs; it uses the initially selected
+  recipient's level and adds an error on a zero-property result. Generator
+  draw differences already recorded for M71 also apply to this shared call.
+- <a id="sv-item-spell-special-id"></a> **Enchant and Item to Gold exclude
+  weapon ID exactly 34.** DOS equality checks are `0x31cef..0x31cf7` and
+  `0x31df8..0x31dfe`; higher weapon IDs are not refused by these tests.
+  **ScummVM:** differs; both tests reject IDs at least 34. Quest counters
+  themselves are separate from selectable inventory records.
+- <a id="sv-recharge-cursed"></a> **Recharge fills an eligible cursed item
+  to 63 charges.** The cap comparison retains curse bit `0x80` with mask
+  `0xbf` (`0x31c0d..0x31c1f`), so it always takes the cap branch. Broken
+  bit `0x40` is ignored for that comparison and preserved in the record.
+  One 1..6 draw still occurs; no break/destruction draw occurs.
+  **ScummVM:** differs; it compares the six-bit charge count alone.
+- <a id="sv-town-portal-item-combat"></a> **Town Portal items continue after
+  the combat refusal notice.** The branch `0x3a058..0x3a075` reaches the
+  ordinary map guard, town dialog and load (`0x30654..0x30819`). With the
+  map restriction clear, a selection can load the town even in combat.
+  Cancellation does not refund the charge. **ScummVM:** differs; it returns
+  after the notice. Static reachability is settled; the anomalous route's
+  complete DOSBox presentation remains unobserved.
+- <a id="sv-rest-cell-flag"></a> **DOS ordinary Rest honors cell bit 0x40.**
+  Lookup stores attribute `&0x40` in DS:`f488` (`0x11fe7..0x11fec`), and
+  Rest checks it before the primary map flag (`0x1e50d..0x1e521`). Mode 12
+  bypasses both checks for Super Shelter. **ScummVM:** differs; its cell
+  lookup masks the cell flags with map restriction `0x4000`, which cannot
+  occur in the byte. The CD mainland 23 contains such cells; Vertigo's four
+  component maps do not. Current MMModern's map-only Rest rule is therefore
+  a discrepancy requiring a scoped maintainer decision before implementation.
+
+The same check also settles these rules that agree with the pin, within the
+listed boundaries:
+
+- The 22 spell costs, learned combat list and item branches other than Portal
+  agree; admitted handler failures spend resources, while explicit member/
+  element cancellation refunds use the supplied spell ID. Late Items/travel
+  cancellation does not refund. [Handler and refund offsets](rules/evidence.md#handlers-costs-and-admission).
+- Bless's AC addition has no condition test. Heroism applies in the shared
+  weapon accuracy path, including Shoot/Poison Volley. Shield comes after
+  damage saves and before the secondary save, with a zero clamp. The prior
+  M68/M72 damage-sequence differences remain. [Consumer locators](rules/evidence.md#consumer-and-dialog-locators).
+- Rest resets all temporary buffs before food/recovery, so its later four
+  clears are redundant. Super Shelter makes one 480-minute call, bypasses
+  ordinary monster interruption opportunities, still asks about dying risk,
+  and shares dream/reset/food/arrival ordering. Levitate has ended before
+  arrival. [Rest sequence](rules/time-and-conditions.md#rest).
+- Light increments/marks stepped; a stepped drain check decrements before
+  darkness. No drain cells occur on the five open map components. Levitate
+  has no per-step decrement and protects cloud, not unconditional falls/sky;
+  Walk on Water handles shallow/deep movement without extra arrival immunity.
+  The requested buff/element/Levitate border positions and per-call cycles
+  agree. Detect/Identify Monster screens and their empty-target costs agree.
+  [Senses and screens](rules/magic.md#border-and-information-screens).
+- Recharge has no break/destruction draw. Enchant's eligibility tests occur
+  after its initial draw and its generator is shared with the existing DOS
+  generation rules. Item to Gold uses full DOS item value, no additional
+  confirmation, and no equipped/broken/cursed refusal. The differences above
+  qualify these agreements. [Item actions](rules/magic.md#item-spell-actions).
+- Etherealize, Time Distortion and Teleport mutate position without directly
+  loading; Beacon reloads only across map/side changes; Portal always loads.
+  Facing is preserved on Clouds. Restrictions, dialog cancellation, Beacon's
+  per-character default/Set/Return fields and five town run destinations are
+  recorded with offsets. [Travel](rules/magic.md#travel-handlers-and-callers).
+  Exact post-item automatic-Event timing remains Unknown; the normal learned
+  terrain suffix retains the earlier Jump evidence.
 
 ## Presentation findings (2026-10-13)
 
@@ -330,4 +431,4 @@ a port defect; MMModern follows the original instead.
 | <a id="sv-condition-modifiers"></a> `Character::conditionMod` and the eight-hour Weak/Drunk step treat a condition byte `0xFF` as the `-1` sentinel; In Love, Insane and Drunk have different attribute signs. | **DOS rule implemented.** The eight-hour step unconditionally replaces Weak with Drunk and clears Drunk, including Weak 255 and Drunk 0/255. Dawn increments Weak up to 255. Attribute modifiers use unsigned counts, one point per count: In Love adds to all seven; Insane adds to Might/Speed, subtracts from Intellect/Personality/Accuracy, leaves Endurance/Luck unchanged; Drunk adds to Personality/Luck and subtracts from the other five. Weak 255 subtracts 255. Dead/Stoned/Eradicated suppress the modifiers. Read-only original program analysis rechecked 2026-10-11 on the same DAT: `0x255ab`, `0x26452`, `0x1f9a8..0x1fbe4` (Insane `0x1f9fa`, In Love `0x1face`, Weak `0x1fb1b`, Drunk `0x1fb68`); selector table `0x1fbe6` agrees with the known attribute order in `0x21454`. | `XeenCombatRules.cpp::XeenConditionTimeCandidate::service`, shared `XeenCharacterRules.cpp::conditionModifier` used by `sheetStat/effectiveAttribute` **ScummVM:** differs. |
 | <a id="sv-pain"></a> Pain (spell 50) prepares zero damage and appears to do nothing. | DOS prepares 8 physical damage against the first group, with the normal physical resistance and saving throw. Original program analysis, 2026-10-11, `WORLD/XEEN.DAT` `0x33558`, `0x2f5e9`, `0x2cd81`. | M60 Part B, `XeenSpellDamageCandidate` **ScummVM:** differs. |
 | <a id="sv-suppress-poison"></a> Suppress Poison's target dialog passes First Aid's ID, refunding 1 SP on cancel, and reduces Poison by 2 when it is at least 4. | DOS passes ID 68, refunds 4 SP on cancel and subtracts 3. Original program analysis, 2026-10-11, `WORLD/XEEN.DAT` `0x2f62f`, `0x2f146`, `0x2f34b`, `0x2f67b`. Follow-up 2026-10-17 confirms zero unchanged (`0x2f663..0x2f669`), 1..3 set to 1 (`0x2f673`), 4+ subtract 3 (`0x2f683`), all selected-target paths reaching healing(0) at `0x2f69b`. Zero/1..3 and the unconditional helper match the pin; no extra zero-path discrepancy. | `XeenLearnedSpellRules` and own-ID casting refunds, implemented in M75 Part A. **ScummVM:** differs; master not rechecked. |
-| `_currentCantRest` tests a flag that the cell loader can never set, so only the map-wide flag refuses Rest. | Same effective behavior: only the primary map's flag refuses Rest. | M51 |
+| The pin's `_currentCantRest` tests a flag its cell loader cannot set. | DOS differs: cell bit `0x40` is loaded and tested. See [Rest cell flag](#sv-rest-cell-flag). | M51's map-only MMModern behavior remains a discrepancy; this evidence change does not alter production code. |

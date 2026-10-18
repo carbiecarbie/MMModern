@@ -320,23 +320,27 @@ waits. **DOS play**, maintainer 2026-10-13, confirms that Escape does not locall
 skip the dream. [Capture measurements and limits](evidence.md#presentation-clock-captures-2026-10-13)
 support the nominal clock rates and sequential header-derived sample durations.
 Capture A/V displacement does not establish extra emulated sound holds. This presentation
-evidence does not upgrade the remaining Rest mechanics below to DOS confirmation.
+evidence is separate from the mechanical checks below.
 
-**Evidence: Reference only** for exact sequencing, food edge cases and
-interruption; retained **DOS play** accepted ordinary Rest in M51, but does
-not establish every synthetic case below. Weak/Drunk ordering uses the
-stronger DOS static evidence above. Source: [Interface::rest][interface],
+**Evidence: DOS static, high confidence (2026-10-18)** for the Rest sequence
+below, including Super Shelter and food/terminal ordering
+(`0x1e50d..0x1e826`); retained **DOS play** accepted ordinary Rest in M51.
+Static branches do not claim DOSBox observation of every synthetic party
+state. Weak/Drunk ordering retains its earlier evidence.
+Source comparison: [Interface::rest][interface],
 `chargeStep`, `doStepCode`; [Party::changeTime/resetTemps][party].
 
-The primary map's Rest restriction refuses ordinary Rest. The pin's cell
-flag check is ineffective because the loader cannot populate that flag;
-this is recorded in [original quirks](../original-quirks.md), **Reference
-only**, not a separately confirmed DOS cell rule. Super Shelter uses a
+The primary map's Rest restriction refuses ordinary Rest. DOS cell lookup
+also populates a cell restriction latch from attribute bit `0x40`
+(`0x11fe7..0x11fec`); Rest tests it at `0x1e50d`. The pin's cell check is
+ineffective because its loader cannot populate the flag it tests; see
+[the restriction discrepancy](../original-quirks.md#sv-rest-cell-flag).
+Super Shelter uses a
 special entry mode that bypasses this ordinary refusal, after its own map
 restriction check.
 
 Before sleeping, inspect every member's seven effective attributes. Any
-below 1 triggers the dying-risk confirmation; declining changes nothing.
+below 1 triggers the dying-risk confirmation; declining starts no Rest.
 On admission set Asleep on all active members. Ordinary Rest then performs
 ten `chargeStep` opportunities, followed by 470 more minutes indoors or
 380 outdoors. Total is 480 minutes: `10*1+470` or `10*10+380`. Monsters can
@@ -347,6 +351,12 @@ Do not wake untouched sleepers merely because the action was interrupted.
 Super Shelter instead calls `changeTime(480)` once, without those ten
 ordinary opportunities. The difference in call partitioning can matter for
 Confused/Paralyzed recovery even though total elapsed minutes match.
+Its own map restriction is `0x200` (`0x305ef`); the handler enters mode 12
+at `0x30605`, calls Rest at `0x30612` and restores its prior mode.
+It bypasses ordinary map/cell Rest refusal, not the dying-risk warning.
+Declining that warning returns before Asleep or time writes, but an
+already-admitted Super Shelter retains its SP/gems or item charge.
+Neither that decline nor a failed map guard invokes a spell refund.
 
 After an uninterrupted time sequence:
 
@@ -359,6 +369,16 @@ After an uninterrupted time sequence:
    no refill. Every other member consumes one food, clears Unconscious and
    receives maximum HP and SP using the now-reset temporary values.
 6. Apply terrain arrival, display completion/food-consumed and check defeat.
+
+The DOS reset call is `0x1e72d -> 0x1e828`, before the food check
+`0x1e754`, terminal test `0x1e770..0x1e778`, ration debit `0x1e77a` and
+HP/SP refill `0x1e79b..0x1e7b8`. Its party-field clears at
+`0x1e890..0x1e8b6` cover all the listed buffs even with no food. The later
+Heroism/Holy Bonus/Power Shield/Bless clears at `0x1e784..0x1e78d` are
+therefore redundant, as in the pin. The dream check precedes reset
+(`0x1e5f1..0x1e605`); completed Super Shelter shares the same dream,
+food and terrain suffix. Levitate has ended before `0x1e7df` calls arrival.
+See [M76 spell evidence](evidence.md#m76-spells).
 
 This is partial recovery in party order, not an all-or-nothing ration
 check. With two food and six living members, only the first two refill.
