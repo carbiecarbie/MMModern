@@ -1,8 +1,13 @@
 # MMModern - Project Status
 
-This describes what can be played and done now. **M74 is the latest completed
-and accepted milestone** ([plan](milestone-74-plan.md)): every spell that
-hurts monsters now works, 23 more of them, from Fireball and Lightning Bolt
+This describes what can be played and done now. **M75 is the latest completed
+and accepted milestone** ([plan](milestone-75-plan.md)): every spell that
+heals the party or cures its conditions now works, 12 more of them, from
+Nature's Cure, Power Cure and the cures of Poison, Disease, Paralysis and
+Stone to Raise Dead, Resurrection, Divine Intervention and Create Food, and a
+member woken or cured in combat after their turn was skipped waits for the
+next round, as in DOS; saves stay v14. M74 ([plan](milestone-74-plan.md))
+made every spell that hurts monsters work, 23 more of them, from Fireball and Lightning Bolt
 to Star Burst, Finger of Death and Poison Volley, from the spell book, Quick
 Fight and charged items. Spells with the All range reach up to four groups,
 and a party attack whose hit total goes negative hits, as in DOS; saves stay
@@ -99,7 +104,9 @@ the automated scenarios use it.
   leaves, it is moved to the original fixed destination `(10,12)` with its
   facing unchanged. Survivors keep their wounds and can be met again.
 - **Magic** uses the characters' learned books. Awaken, First Aid, Cure Wounds,
-  Revitalize, Moon Ray, Sleep, Beast Master, Hypnotize, Dragon Sleep and
+  Revitalize, Nature's Cure, Power Cure, Cure Poison, Cure Disease, Cure
+  Paralysis, Stone to Flesh, Suppress Poison, Suppress Disease, Raise Dead,
+  Resurrection, Divine Intervention, Create Food, Moon Ray, Sleep, Beast Master, Hypnotize, Dragon Sleep and
   every spell that damages monsters (Magic Arrow, Flying Fist, Energy Blast,
   Shrapmetal, Pain, Insect Spray, Turn Undead, Sparks, Toxic Cloud, Acid
   Spray, Cold Ray, Dancing Sword, Deadly Swarm, Elemental Storm, Fantastic
@@ -114,7 +121,10 @@ the automated scenarios use it.
   group or, for All spells, up to four groups until a wall, with the original
   magic resistance and saving throws; a cast with no monster in reach still
   costs its SP and gems. Poison Volley fires one arrow per member, bow or
-  not, with each member's accuracy, and Moon Ray also heals the party. Wizard Eye shows the surroundings on the automap without
+  not, with each member's accuracy, and Moon Ray also heals the party. Healing spells ask for a member;
+  Escape refunds the spell's SP and gems. A member woken, cured or raised in
+  combat acts this round if their turn has not come yet, otherwise next
+  round. Wizard Eye shows the surroundings on the automap without
   marking them explored, until the next temporary-effect reset (Rest, dawn).
   Jump moves two cells forward; destinations on space, lava, sky, cloud or
   desert, or outside the walkable area, say "not supported yet" for now.
@@ -433,10 +443,10 @@ instructions are in [dependencies](dependencies.md).
 - **Missing services.** Inn/recruitment is not available; the Temple handles
   only the modeled conditions.
 - **Items and magic.** Item powers backed by unimplemented spells say "not
-  supported yet"; cursed-item refusals follow the reference. 34 of the 76
-  spells are still missing (party healing and conditions, buffs,
-  information, item and travel spells); Light, Protection from Elements and Suppress Poison can be
-  bought but say "not supported yet" when cast. Mainland fountains remain
+  supported yet"; cursed-item refusals follow the reference. 22 of the 76
+  spells are still missing (buffs, information, item and travel spells);
+  Light and Protection from Elements can be bought but say "not supported
+  yet" when cast. Mainland fountains remain
   unsupported. Locked-chest lock/trap/XP mechanics are deferred; Vertigo CD's
   searchable objects use the crate, case, bed and rubbish mechanics.
 - **Presentation.** There is no audio: where the CD plays speech, a short

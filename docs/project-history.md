@@ -355,3 +355,13 @@ Distortion follow their two saves, and Poison Volley fires one arrow per
 member through a volley rule now shared by Shoot and combat. Party attacks
 compare the hit total unsigned, as in DOS. Save v14 is unchanged.
 [Plan](milestone-74-plan.md).
+
+**M75 - Party healing and conditions** (`493f6f6` plan, `821ed91`,
+`c12e551`, `071d62f`). A static check of the DOS program settled all 12
+remaining healing spells before any code. Nature's Cure, Power Cure, the
+four cures, the two suppressions, Raise Dead, Resurrection, Divine
+Intervention and Create Food now work from books, Quick Fight and items,
+with each spell's own refund on cancel and the DOS differences kept.
+Combat turn order now follows DOS: a member woken or cured after their
+turn was skipped waits for the next round. Save v14 is unchanged.
+[Plan](milestone-75-plan.md).

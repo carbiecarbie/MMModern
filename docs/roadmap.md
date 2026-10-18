@@ -78,7 +78,8 @@ accepted).
    spells (Tier A, completed and accepted); [M74](milestone-74-plan.md)
    monster damage spells (Tier B, completed and accepted);
    [M75](milestone-75-plan.md) party healing and conditions, including Raise
-   Dead, Resurrection, Divine Intervention and Create Food (Tier B); M76
+   Dead, Resurrection, Divine Intervention and Create Food (Tier B,
+   completed and accepted); M76
    buffs, information, item and travel spells (Tier A).
 7. **Combat Equip and Use, and the missing screens** (Tier B, medium): Quests,
    Awards and the others in the census checklist.

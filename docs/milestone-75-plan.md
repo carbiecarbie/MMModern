@@ -1,92 +1,59 @@
 # Milestone 75 plan - Party healing and conditions
 
-**Tier B. Status: planned.** Third milestone of step 6 of the
+**Tier B. Status: completed and accepted by the maintainer (2026-10-18)**
+after a maintainer play-test. Plan `493f6f6`, DOS check and plan update
+`821ed91`; implementation `c12e551` (Part A) and `071d62f` (Part B). Third
+milestone of step 6 of the
 [systems arc](roadmap.md#next-arc-finishing-the-games-systems), after
-[M74](milestone-74-plan.md). Baseline `b55b7c6`.
+[M74](milestone-74-plan.md).
 
-## Goal
+## Scope
 
-Every remaining spell that heals the party or cures its conditions works as
-in the original, from the spell book (combat and exploration), Quick Fight
-and charged items, following the
-[healing and conditions rules](rules/magic.md#healing-and-conditions):
-
-- **Healing and cures (8):** Nature's Cure, Power Cure, Cure Poison, Cure
-  Disease, Cure Paralysis, Stone to Flesh, Suppress Poison, Suppress Disease.
-- **Death and the whole party (3):** Raise Dead, Resurrection, Divine
-  Intervention.
-- **Create Food (1):** it adds food for the party and belongs to no M76
-  group, so it joins this milestone.
+The 12 remaining spells that heal the party or cure its conditions, from
+the spell book in combat and exploration, Quick Fight and charged items:
+Nature's Cure, Power Cure, Cure Poison, Cure Disease, Cure Paralysis, Stone
+to Flesh, Suppress Poison, Suppress Disease, Raise Dead, Resurrection,
+Divine Intervention and Create Food, with item powers 26, 27, 37, 41, 44,
+51, 56, 57, 66 and 73.
 
 Out of scope: buffs, information, item and travel spells (M76), Temple
-changes, combat inventory, map admission, audio. No save change: the format
-stays v14 (conditions, HP, permanent Endurance, temporary age and food are
-already saved).
+changes, combat inventory, map admission, audio.
 
-## Tasks
+## Key decisions
 
-- [x] **Part 0 - DOS check (read-only, delegated).** Compare the 12 handlers
-      in `WORLD/XEEN.DAT` with the rules table and the pin: target prompt ID
-      and cancellation refund, terminal-condition guards, the order of
-      `addHitPoints` and condition clearing, amounts and draws (Power Cure's
-      one draw, Suppress Disease's decrement, which in DOS may be 3 like
-      Suppress Poison's), Raise Dead's and Resurrection's HP, Endurance and
-      age changes, Divine Intervention's member set, age and HP refill,
-      and Create Food's member count and overflow. Also whether these
-      spells are admitted in combat, and how a member raised in combat
-      rejoins the turn order. Record differences with offsets in
-      `docs/original-quirks.md` (and `docs/scummvm-differences.md`); raise
-      evidence labels in `docs/rules/magic.md` only where DOS settles them.
-      Unsettled cases go to the maintainer before the part that depends on them.
-      Result: [calibrated DOS checks](rules/evidence.md#party-healing-spells)
-      settle every question; DOS matches the pin on combat turn order, and
-      MMModern's `selectNext` does not (maintainer decision: fix it first in
-      Part A).
-- [x] **Part A - turn order, healing and cures.** First, combat turn order
-      as [DOS has it](rules/combat.md): the next-actor search continues from
-      the order cursor and marks a skipped disabled member as done, so a
-      member re-enabled after their slot passed waits for the next round,
-      while one re-enabled before it acts this round. One generic fix in
-      `XeenCombat.cpp::selectNext`, covering Awaken and every later cure.
-      Then the eight spells of the first group and Create Food,
-      single-member prompt where the original has one, with their costs,
-      gems and refunds. Suppress Poison uses the DOS prompt ID, refund and
-      decrement (closing the M60 "not implemented" quirk row).
-- [x] **Part B - death and the whole party.** Raise Dead, Resurrection
-      (refund of its own cost on cancel, as DOS) and Divine Intervention,
-      in exploration and combat, including a member returning to combat
-      after being raised, as Part 0 establishes.
-- [x] Part A item powers 26, 27, 37, 41, 44, 51 and 56 use the same
-      effects and the M61 charge rules.
-- [x] Part B item powers 57, 66 and 73 use the same effects and charge rules.
-- [x] Developer test save `party-healing` (as `monster-damage`): Vertigo, a
-      Cleric and a Druid with all 12 spells, ample SP and gems, other members
-      Poisoned, Diseased, Paralyzed, Stoned, Dead and Eradicated, and a few
-      charged items with these powers; README entry.
-- [x] Regenerate `docs/coverage.md` (54 of 76 spells).
+- **DOS check first** (Part 0, static analysis of `WORLD/XEEN.DAT`, with a
+  follow-up): every handler, prompt, refund, guard, amount and item path
+  settled. Kept DOS differences from the pin: Suppress Poison's and
+  Resurrection's own refunds, Suppress Disease healing at count zero, the
+  revival Endurance byte wrap and Create Food's 16-bit wrap. Evidence is in
+  [magic](rules/magic.md#healing-and-conditions),
+  [evidence](rules/evidence.md#party-healing-spells) and
+  [original quirks](original-quirks.md).
+- **Combat turn order** (maintainer decision): DOS and the pin spend the
+  turn of a member skipped while disabled, so one re-enabled after their
+  slot waits for the next round. MMModern let them act late in the same
+  round; Part A fixed this generically for Awaken, the cures and revival
+  ([combat rules](rules/combat.md)).
+- **Witnesses adapted** (maintainer decision): the services, M38 and M40
+  witnesses relied on the old order; their action policies and dependent
+  expectations were updated and the services digest re-recorded. Mainland
+  and Temple digests are unchanged.
+- **HP and Unconscious are independent:** the Journey check that tied them
+  was dropped, since DOS cures can separate them (Resurrection keeps HP).
+- **Save v14 kept**: nothing new is persisted.
 
-## Acceptance
+## Results
 
-- Turn order tests: a member re-enabled (Awaken, Cure Paralysis) before
-  their slot acts this round; after a skipped slot, only next round; a
-  skipped last slot ends the round.
-- Unit tests per spell: prompt, cancellation refund, terminal guards,
-  condition order (Unconscious kept or cleared as the rules say), amounts,
-  Power Cure's single draw, Suppress counts at 0, 1-3 and 4+, Raise Dead
-  and Resurrection Endurance minimum and age cap 250, Divine Intervention
-  leaving Eradicated, Create Food overflow as Part 0 settles it.
-- Original-data tests: a cure in exploration, Raise Dead in mainland combat
-  with the raised member acting, and one item-power cast. A save/load round
-  trip after casting stays exact.
-- Census: 54 of 76 spells supported; the rest still say "not supported yet".
-- Complete `build-rel` suite through the runner (`tools/AGENTS.md`).
-- Maintainer play-test with `party-healing`: each cure on its condition and
-  on a member without it, Raise Dead and Resurrection with cancel, Divine
-  Intervention, Create Food, combat casts, item use, save/load.
+- Census: 54 of 76 spells supported. Developer test save `party-healing`
+  (README) starts in Vertigo with a Cleric and a Druid who know all 12
+  spells, four patients with every condition, and charged items for the
+  ten powers.
+- Cancelling a member prompt refunds the spell's own SP and gems, from the
+  book and from items.
 
-## Risks
+## Validation
 
-- If returning a raised member to combat needs combat-state changes beyond
-  the existing turn order, stop and report before widening.
-- If Part 0 shows many DOS differences, the maintainer decides whether M75
-  keeps its scope or splits.
+- Complete `build-rel` suite, unsandboxed: 230/230 for Part A and Part B.
+- Maintainer play-test with `party-healing`: each cure, Raise Dead and
+  Resurrection with cancel, Divine Intervention, Create Food, item use,
+  combat casts and save/load.
