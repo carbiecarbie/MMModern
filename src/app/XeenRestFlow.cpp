@@ -17,16 +17,19 @@ void XeenEncounterFlow::restPublication() {
  _journeyFramePrepared=false;_rest->presented=false;retainJourney();
 }
 bool XeenEncounterFlow::beginRest(const std::function<IndexedFrame()> &dream,
- const std::function<std::array<std::uint64_t,2>()> &durations) {
+ const std::function<std::array<std::uint64_t,2>()> &durations,bool shelter) {
  if(!_journey || _rest || _busy || _combat || _failure || _regionalWork || _regionalAutomatic ||
-  _shoot || _shootIntent || _casting || _castingSettlement || projectilesPending() || monsterReward() ||
-  !_boundary.quiet() || !current(ticket()) || _state.pending()>3 || _state.phase()!=XeenEncounterPhase::Exploring || !journeyCapacity())return false;
+  _shoot || _shootIntent || (!shelter && (_casting || _castingSettlement || !_boundary.quiet())) || projectilesPending() || monsterReward() ||
+  !current(ticket()) || _state.pending()>3 || _state.phase()!=XeenEncounterPhase::Exploring || !journeyCapacity())return false;
+ if(shelter && !((_casting && _casting->shelterPending) || (_itemUse && _itemUse->shelterPending)))return false;
+ if(shelter && !((_casting && _boundary.only(XeenCombatBoundary::Work::Casting,_casting->lease)) ||
+  (_itemUse && _boundary.only(XeenCombatBoundary::Work::ItemUse,_itemUse->lease))))return false;
  RestBusy busy(_busy);
  try {
   const auto retained=_journeyPreimage;XeenRestoreGuard::Providers providers(*retained,_world);
   xeenValidateJourneyMelee(_party);
-  // Sample seams, but RESTRICTION_REST belongs to the primary map. The pin's
-  // byte cell flags can never contain 0x4000.
+  // DOS lookup latches attribute bit 0x40 (0x11fe7); Rest reads it at
+  // 0x1e50d. The map restriction still belongs to the primary map.
   const auto cell=_world.sampleCell(_camera.mapId,_camera.x,_camera.y);
   if(!cell)throw std::invalid_argument("Rest cell is absent");
   const auto &primary=_world.map(_camera.mapId).geometry;
@@ -35,14 +38,15 @@ bool XeenEncounterFlow::beginRest(const std::function<IndexedFrame()> &dream,
   auto ending=*_party.encounterContext;xeenResetPartyTemps(ending);
   const auto terrain=_world.prepareTerrainArrival(_camera,members(_party,_party.party.activeOrder()),ending);
   auto candidate=std::make_unique<RestContinuation>();candidate->owners=_party.party.activeOrder();
-  if(primary.flags&0x4000)candidate->phase=RestContinuation::Phase::Refused;
+  candidate->shelter=shelter;
+  if(!shelter && ((cell->cell->rawAttributes&0x40) || (primary.flags&0x4000)))candidate->phase=RestContinuation::Phase::Refused;
   else if(!terrain) {
    candidate->phase=RestContinuation::Phase::Refused;
    candidate->refusal=terrain.transition.reason;
   }
   else {
    candidate->phase=xeenRestDanger(members(_party,candidate->owners),supplements(_party,candidate->owners),_party.encounterContext->year)?
-    RestContinuation::Phase::Confirm:RestContinuation::Phase::Charges;
+    RestContinuation::Phase::Confirm:shelter?RestContinuation::Phase::Remainder:RestContinuation::Phase::Charges;
    if(_party.encounterContext->profile==XeenBehaviorProfile::WorldOfXeenClouds) {
     if(!dream || !durations)throw std::invalid_argument("Original Rest dream providers are absent");
     candidate->sampleDurations=durations();
@@ -54,7 +58,14 @@ bool XeenEncounterFlow::beginRest(const std::function<IndexedFrame()> &dream,
    }
   }
   candidate->random=XeenCombatRandom(*_world.sessionState().journeyRandom());retained->check();
-  if(candidate->phase==RestContinuation::Phase::Charges)
+  // Rest owns its nested presentation and terrain suffix. Suspend the spell's
+  // modal lease so the existing terrain transition can run if Levitate expires.
+  // The retained continuations still prevent input and quiet-save admission.
+  if(shelter) {
+   if(_casting) {_boundary.release(XeenCombatBoundary::Work::Casting,_casting->lease);_casting->lease=0;}
+   if(_itemUse) {_boundary.release(XeenCombatBoundary::Work::ItemUse,_itemUse->lease);_itemUse->lease=0;}
+  }
+  if(candidate->phase==RestContinuation::Phase::Charges || candidate->phase==RestContinuation::Phase::Remainder)
    for(auto owner:_party.party.activeRosterIds())_party.roster.at(owner).conditions[8]=1;
   _rest.swap(candidate);_world._sessionState._journeyActivity=XeenJourneyActivity::Presentation;
   _journeyRefusal.clear();restPublication();return true;
@@ -72,15 +83,19 @@ bool XeenEncounterFlow::respondRest(const PlayerAction &action) {
  RestBusy busy(_busy);_journeyPreimage->check();
  if(_rest->phase==P::Confirm && yes) {
   for(auto owner:_party.party.activeRosterIds())_party.roster.at(owner).conditions[8]=1;
-  _rest->phase=P::Charges;restPublication();return true;
+  _rest->phase=_rest->shelter?P::Remainder:P::Charges;restPublication();return true;
  }
- const bool completed=_rest->phase==P::Complete;_rest.reset();
+ const bool completed=_rest->phase==P::Complete,shelter=_rest->shelter;_rest.reset();
+ if(shelter) {
+  if(_casting) {_casting->lease=_boundary.hold(XeenCombatBoundary::Work::Casting);_casting->shelterPending=false;_casting->random=XeenCombatRandom(*_world.sessionState().journeyRandom());}
+  if(_itemUse) {_itemUse->lease=_boundary.hold(XeenCombatBoundary::Work::ItemUse);_itemUse->shelterPending=false;}
+ }
  if(completed) {
   bool living=false;for(auto owner:_party.party.activeRosterIds())living=living || xeenCombatTargetable(_party.roster.at(owner));
   living=living && !_terrainDead;
   if(!living) {_state._phase=XeenEncounterPhase::SupportStopped;_state._reason=XeenEncounterStop::Defeat;_world._sessionState._encounterTerminal=true;}
  }
- _world._sessionState._journeyActivity=XeenJourneyActivity::Presentation;
+ _world._sessionState._journeyActivity=_casting?XeenJourneyActivity::Casting:_itemUse?XeenJourneyActivity::ItemUse:XeenJourneyActivity::Presentation;
  ++_world._sessionState._journeyGeneration;++_generation;retainJourney();schedule(_lastTime);return true;
 }
 bool XeenEncounterFlow::serviceRest() {
@@ -156,7 +171,7 @@ bool XeenEncounterFlow::serviceRest() {
    check();_regionalWork.swap(candidate);
   }
   if(rest.phase==P::Remainder) {
-   if(!rest.time)rest.time.emplace(*_party.encounterContext,outdoor?380:470,
+   if(!rest.time)rest.time.emplace(*_party.encounterContext,rest.shelter?480:outdoor?380:470,
     members(_party,rest.owners),supplements(_party,rest.owners),&*_party.serviceEconomy,XeenTimeMode::Sleeping);
    XeenConsequenceDraw draw{rest.random,64,check};if(!rest.time->service(draw))return true;
    const auto dream=draw.draw(1,20);if(!dream)return true;

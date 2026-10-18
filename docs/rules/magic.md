@@ -621,6 +621,15 @@ SP/gems or the item charge. Escape from the travel dialogs does not refund.
 Super Shelter's dying-risk confirmation likewise has no spell-cost refund
 on decline; it cancels sleeping/time/recovery before those begin.
 
+MMModern implements these four C1 handlers in `XeenLearnedSpellRules::travel`;
+the existing casting, combat and item owners publish same-map movement without
+loading the map. Teleport holds payment in its modal input until the chosen
+destination is admitted, so the engine's unopened-area refusal spends nothing.
+Empty/zero/Escape still commits the paid cancellation. Original-data automated
+checks in `XeenTravelSpellOriginalTests.cpp` are implementation evidence,
+not an additional DOS observation. Destination Event timing after item travel
+remains unconfirmed in DOS; see [the retained limit](../original-quirks.md).
+
 | Spell | Map flag, mutation and facing |
 | --- | --- |
 | Etherealize | `0x40`; one cell forward, requiring full-word lookup different from `0x8888`; ignore intervening wall checks; preserve facing; no direct map load |
@@ -721,8 +730,9 @@ unlike learned combat casting. See [M76 spells](evidence.md#m76-spells).
 The strongest retained DOS findings are the Pain, Suppress Poison,
 elemental-damage and Magic Arrow corrections. Most of this chapter is a
 carefully bounded reference inventory. Unknown high-impact areas include
-item-prompt refunds outside the traced First Aid/M75 paths, high-tier overflow,
-and full travel spell dialogs. Names and spell descriptions are not sufficient evidence
+high-tier overflow, exact post-item automatic-Event timing and the full DOSBox
+presentation of Town Portal's combat item path. The M76 static traces settle
+the ordinary travel handlers and dialogs above. Names and spell descriptions are not sufficient evidence
 for these rules.
 
 MMModern cross-checks (implementation evidence, not DOS proof):

@@ -275,9 +275,10 @@ and Poison Volley. Generate it with:
 The `m76-spells` preset starts at Vertigo `(18,4)` facing West. A level-7
 Cleric and Sorcerer know the seven M76 party buffs and Light, Levitate,
 Walk on Water, Clairvoyance, Detect Monster and Identify Monster between them;
-the Sorcerer also knows Enchant Item, Recharge Item and Item to Gold,
+the Sorcerer also knows Enchant Item, Recharge Item, Item to Gold,
+Super Shelter, Etherealize, Time Distortion and Teleport,
 with 1,000 SP each and 1,000 party gems. Their miscellaneous packs hold
-five-charge items for all fifteen powers: the Cleric has the seven buff
+five-charge items for the first fifteen powers: the Cleric has the seven buff
 powers, Light and Levitate; the Sorcerer has Walk on Water, Clairvoyance,
 Detect Monster, Identify Monster, Enchant and Recharge. The Sorcerer's last
 three Misc slots hold ordinary, cursed and broken rechargeable items: broken
@@ -293,6 +294,16 @@ remains deferred. On mainland map 23, stand at `(12,9)` facing West to try
 Walk on Water onto the shallow water at `(11,9)`. The open mainland and
 Vertigo components have no deep-water or cloud cells; those consumers have
 automated tests with synthetic terrain.
+
+The third member's first four Misc slots hold five-charge Super Shelter,
+Etherealize, Time Distortion and Teleport items. On mainland map 23,
+`(12,10)` has cell attribute bit `0x40`: ordinary Rest refuses there, while
+Super Shelter sleeps eight hours without monster interruption opportunities.
+Time Distortion returns to `(10,12)` without changing facing. Teleport asks
+for one digit (1-9); empty, zero or Escape keeps the cost and cancels.
+Destinations outside the open region refuse before payment. Etherealize
+moves one cell forward, ignoring walls. Only Time Distortion is admitted
+from the learned book or Quick Fight during combat.
 
 ```powershell
 .\build-rel\mmodern_test_save.exe m76-spells "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/m76-spells.mmsave"

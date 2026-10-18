@@ -339,6 +339,12 @@ Super Shelter uses a
 special entry mode that bypasses this ordinary refusal, after its own map
 restriction check.
 
+MMModern reads the DOS cell bit in `XeenRestFlow::beginRest`. Its Super Shelter
+mode reuses that Rest continuation, with a single 480-minute sleeping call.
+`XeenTravelSpellOriginalTests.cpp` checks the mainland refusal and shelter
+bypass, warning cancellation and exact restoration; this is implementation
+evidence rather than DOS play.
+
 Before sleeping, inspect every member's seven effective attributes. Any
 below 1 triggers the dying-risk confirmation; declining starts no Rest.
 On admission set Asleep on all active members. Ordinary Rest then performs
@@ -645,8 +651,8 @@ Rest integration. An original-data automated test runs MMModern with those
 resources; it is not a DOS play observation.
 
 The major remaining DOS questions are remaining script-mode dawn behavior,
-unusual condition-byte edges and
-Super Shelter's full interruption/terrain interaction. The established DOS
+unusual condition-byte edges. Super Shelter's call partition and shared terrain
+suffix have the M76 static evidence above. The established DOS
 Poison/Disease and Weak/Drunk findings supersede conflicting old milestone
 prose; retain that distinction when implementing adjacent mechanics.
 

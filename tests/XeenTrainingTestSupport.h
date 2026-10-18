@@ -17,6 +17,10 @@
 namespace mmodern {
 // Synthetic authority-limit controls; never used by an earned/process witness.
 struct XeenTrainingTestAccess {
+    static void woundTravel(XeenEventFlow &flow,unsigned index=7) {
+        auto &e=*flow._encounter;auto &a=e._world._sessionState.mutableMonsters(23).at(index);
+        a.hp=1;a.status=XeenActorStatus::Sleep;e.retainJourney();flow._encounterFrame=e.ticket();
+    }
     static unsigned woundBeforeFall(XeenEventFlow &flow) {
         auto &encounter=*flow._encounter;
         auto &actors=encounter._world._sessionState.mutableMonsters(23);

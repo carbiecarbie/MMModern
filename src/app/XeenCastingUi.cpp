@@ -4,6 +4,42 @@
 #include <algorithm>
 
 namespace mmodern {
+IndexedFrame XeenEventFlow::drawTeleport(const IndexedFrame &base) const {
+    XeenTextRenderOptions options;options.originalControls=true;options.drawWindow=true;
+    options.windowBounds={52,149,268,198};options.bounds={60,157,260,190};options.x=60;options.y=157;
+    const auto prompt=xeenDialogFormat(dosText().scalar("HOW_MANY_SQUARES"),
+        {dosText().table("DIRECTION_TEXT").at(unsigned(XeenDirection(_camera.direction)))});
+    auto frame=_teleportUi->digits.render(base,_inventoryFont,prompt,options);
+    if(!_teleportUi->refusal.empty())frame=drawXeenErrorScroll(base,_inventoryFont,_teleportUi->refusal);
+    return frame;
+}
+IndexedFrame XeenEventFlow::handleTeleport(const PlayerAction &action,std::uint64_t input) {
+    auto &ui=*_teleportUi;
+    if(!ui.refusal.empty()) {ui.refusal.clear();return renderEncounter();}
+    const auto *key=std::get_if<DialogKeyAction>(&action);
+    const unsigned value=key?key->key:std::holds_alternative<CancelInteractionAction>(action)?InputKey::Escape:
+        std::holds_alternative<AcknowledgeAction>(action)?InputKey::Enter:0;
+    if(const auto *typed=std::get_if<TextInputAction>(&action)) {
+        if(typed->text.size()==1 && typed->text[0]>='0' && typed->text[0]<='9')ui.digits.type(typed->text,_inventoryFont,1);
+        ui.digits.keyRedraw();
+        return renderEncounter();
+    }
+    if(value>='0' && value<='9') {ui.digits.type(std::string(1,char(value)),_inventoryFont,1);ui.digits.keyRedraw();return renderEncounter();}
+    if(value==8 || value==127) {ui.digits.backspace();ui.digits.keyRedraw();return renderEncounter();}
+    if(value!=InputKey::Enter && value!=InputKey::Escape)return frameCopy();
+    const unsigned distance=value==InputKey::Escape || ui.digits.value().empty()?0:unsigned(ui.digits.value()[0]-'0');
+    {XeenRestoreGuard::Providers providers(_encounter->journeySavePreimage(),_world);
+        const auto travel=XeenLearnedSpellRules::travel(_world,_camera,XeenLearnedSpell::Teleport,distance);
+        _encounter->journeySavePreimage().check();
+        if(travel.unsupported) {ui.refusal="Spell not supported yet";return renderEncounter();}
+    }
+    const bool item=ui.item;_teleportUi.reset();_teleportDistance=distance;
+    // Hold payment until destination admission; cancellation is a paid no-op.
+    IndexedFrame result;
+    if(item) {performItemOption(2);result=renderEncounter();}
+    else result=handleCasting(DialogKeyAction{'c'},input);
+    _teleportDistance.reset();return result;
+}
 namespace {
 unsigned castKey(const PlayerAction &action) {
     if(const auto *key=std::get_if<DialogKeyAction>(&action))return key->key;
@@ -237,6 +273,12 @@ IndexedFrame XeenEventFlow::handleCasting(const PlayerAction &action,std::uint64
             ui.refusal=admission==Q::NoSpell?"":admission==Q::InsufficientSp?"SP":admission==Q::InsufficientGems?"gems":"Spell not supported yet";
             return renderEncounter();
         }
+        if(id==69 && !_teleportDistance) {
+            XeenRestoreGuard::Providers providers(_encounter->journeySavePreimage(),_world);
+            const auto travel=XeenLearnedSpellRules::travel(_world,_camera,XeenLearnedSpell::Teleport);
+            _encounter->journeySavePreimage().check();
+            if(!travel.failed) {_teleportUi.emplace();_teleportUi->digits.begin();return renderEncounter();}
+        }
         if(XeenLearnedSpellRules::target(id)==XeenSpellTarget::Contact) {
           XeenRestoreGuard::Providers providers(_encounter->journeySavePreimage(),_world);
           for(unsigned type=2;type<=(id==18?5u:2u);++type) {
@@ -245,7 +287,10 @@ IndexedFrame XeenEventFlow::handleCasting(const PlayerAction &action,std::uint64
           }
           _encounter->journeySavePreimage().check();
         }
-        if(!_encounter->confirmCasting(_encounter->ticket(),ui.caster,c.currentSpell,input,responseFrame()))return frameCopy();
+        if(!_encounter->confirmCasting(_encounter->ticket(),ui.caster,c.currentSpell,input,responseFrame(),_teleportDistance.value_or(0))) {
+            if(!_encounter->_journeyRefusal.empty())ui.refusal=_encounter->_journeyRefusal;
+            return renderEncounter();
+        }
         if(XeenLearnedSpellRules::target(id)==XeenSpellTarget::Party || XeenLearnedSpellRules::target(id)==XeenSpellTarget::Relocation) {
             if(!_encounter->publishAwaken(_encounter->ticket()))throw std::logic_error("Awaken publication failed");
             ui.phase=P::Settling;

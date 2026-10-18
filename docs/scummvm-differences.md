@@ -54,8 +54,8 @@ mainland; many items apply there, others wait for areas not open yet.
   into its normal town dialog and can load the selected town; the pin returns.
   [Evidence](original-quirks.md#sv-town-portal-item-combat). Pin: differs; master not rechecked. Static route settled; DOSBox presentation unobserved, M76 implementation pending.
 - **Rest's cell restriction.** DOS checks cell bit `0x40`, including on
-  the mainland; the pin's cell test is ineffective. Current MMModern follows
-  the pin here, so this remains a documented implementation discrepancy.
+  the mainland; the pin's cell test is ineffective. MMModern reads the DOS
+  attribute bit, and Super Shelter bypasses both ordinary Rest restrictions.
   [Evidence](original-quirks.md#sv-rest-cell-flag). Pin: differs; master not rechecked.
 - **Suppress Disease without Disease.** DOS still applies zero-point healing,
   which can clear Unconscious at positive HP; the pin skips it. Both subtract

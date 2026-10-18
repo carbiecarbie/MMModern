@@ -172,12 +172,18 @@ void XeenEventFlow::performItemOption(unsigned option) {
     }
     const auto certificate=_equipmentSelection;
     if(!certificate || !validEquipmentSelection(*certificate)) {invalidateInventorySelection();return;}
+    if(_inventory.record.id==42 && !_teleportDistance) {
+        XeenRestoreGuard::Providers providers(_encounter->journeySavePreimage(),_world);
+        const auto travel=XeenLearnedSpellRules::travel(_world,_camera,XeenLearnedSpell::Teleport);
+        _encounter->journeySavePreimage().check();
+        if(!travel.failed) {_teleportUi.emplace();_teleportUi->item=true;_teleportUi->digits.begin();return;}
+    }
     XeenEncounterFlow::ItemUseSelection selection;
     selection.epoch=certificate->epoch;selection.membership=certificate->membership;
     selection.membershipSize=certificate->membershipSize;selection.sourceIndex=certificate->sourceActiveIndex;
     selection.sourceOwner=certificate->resolvedOwner;selection.category=certificate->category;
     selection.slot=certificate->physicalSlot;selection.record=certificate->selectedRecord;
-    const auto generation=_encounter->beginItemUse(_encounter->ticket(),selection,_inventoryLease,_certificateLease);
+    const auto generation=_encounter->beginItemUse(_encounter->ticket(),selection,_inventoryLease,_certificateLease,_teleportDistance.value_or(0));
     if(!generation) {invalidateInventorySelection();dialogError("Item use: not supported yet");return;}
     advanceInventoryEpoch();_itemUseGeneration=*generation;_inventory.mode=XeenInventoryMode::UseTarget;
     _sheet.reset();_itemsVisible=true;

@@ -246,8 +246,18 @@ finding ledger are in [M76 evidence](rules/evidence.md#m76-spells).
   bypasses both checks for Super Shelter. **ScummVM:** differs; its cell
   lookup masks the cell flags with map restriction `0x4000`, which cannot
   occur in the byte. The CD mainland 23 contains such cells; Vertigo's four
-  component maps do not. Current MMModern's map-only Rest rule is therefore
-  a discrepancy requiring a scoped maintainer decision before implementation.
+  component maps do not. MMModern follows DOS in `XeenRestFlow::beginRest`:
+  it samples the current cell, including resident neighbors, and refuses on
+  attribute bit `0x40`. Super Shelter bypasses both ordinary refusals.
+
+- **Item travel arrival timing is only partly confirmed in DOS.** Item
+  Jump, Etherealize, Time Distortion and Teleport return through the existing
+  item-use monster response, without an immediate terrain-arrival call.
+  The calibrated call sites are `0x39e4b`, `0x0d411` and `0x0d5ba`; see
+  [M76 travel evidence](rules/evidence.md#m76-spells). The exact timing of
+  automatic destination Events after an item cast is not confirmed in DOS.
+  `XeenEncounterFlow::settleItemUse/serviceItemUse` retains item Jump's
+  destination-Event scheduling, following the pin within this evidence limit.
 
 The same check also settles these rules that agree with the pin, within the
 listed boundaries:
@@ -437,4 +447,4 @@ a port defect; MMModern follows the original instead.
 | <a id="sv-condition-modifiers"></a> `Character::conditionMod` and the eight-hour Weak/Drunk step treat a condition byte `0xFF` as the `-1` sentinel; In Love, Insane and Drunk have different attribute signs. | **DOS rule implemented.** The eight-hour step unconditionally replaces Weak with Drunk and clears Drunk, including Weak 255 and Drunk 0/255. Dawn increments Weak up to 255. Attribute modifiers use unsigned counts, one point per count: In Love adds to all seven; Insane adds to Might/Speed, subtracts from Intellect/Personality/Accuracy, leaves Endurance/Luck unchanged; Drunk adds to Personality/Luck and subtracts from the other five. Weak 255 subtracts 255. Dead/Stoned/Eradicated suppress the modifiers. Read-only original program analysis rechecked 2026-10-11 on the same DAT: `0x255ab`, `0x26452`, `0x1f9a8..0x1fbe4` (Insane `0x1f9fa`, In Love `0x1face`, Weak `0x1fb1b`, Drunk `0x1fb68`); selector table `0x1fbe6` agrees with the known attribute order in `0x21454`. | `XeenCombatRules.cpp::XeenConditionTimeCandidate::service`, shared `XeenCharacterRules.cpp::conditionModifier` used by `sheetStat/effectiveAttribute` **ScummVM:** differs. |
 | <a id="sv-pain"></a> Pain (spell 50) prepares zero damage and appears to do nothing. | DOS prepares 8 physical damage against the first group, with the normal physical resistance and saving throw. Original program analysis, 2026-10-11, `WORLD/XEEN.DAT` `0x33558`, `0x2f5e9`, `0x2cd81`. | M60 Part B, `XeenSpellDamageCandidate` **ScummVM:** differs. |
 | <a id="sv-suppress-poison"></a> Suppress Poison's target dialog passes First Aid's ID, refunding 1 SP on cancel, and reduces Poison by 2 when it is at least 4. | DOS passes ID 68, refunds 4 SP on cancel and subtracts 3. Original program analysis, 2026-10-11, `WORLD/XEEN.DAT` `0x2f62f`, `0x2f146`, `0x2f34b`, `0x2f67b`. Follow-up 2026-10-17 confirms zero unchanged (`0x2f663..0x2f669`), 1..3 set to 1 (`0x2f673`), 4+ subtract 3 (`0x2f683`), all selected-target paths reaching healing(0) at `0x2f69b`. Zero/1..3 and the unconditional helper match the pin; no extra zero-path discrepancy. | `XeenLearnedSpellRules` and own-ID casting refunds, implemented in M75 Part A. **ScummVM:** differs; master not rechecked. |
-| The pin's `_currentCantRest` tests a flag its cell loader cannot set. | DOS differs: cell bit `0x40` is loaded and tested. See [Rest cell flag](#sv-rest-cell-flag). | M51's map-only MMModern behavior remains a discrepancy; this evidence change does not alter production code. |
+| The pin's `_currentCantRest` tests a flag its cell loader cannot set. | DOS differs: cell bit `0x40` is loaded and tested. See [Rest cell flag](#sv-rest-cell-flag). | MMModern follows DOS in `XeenRestFlow::beginRest`, including Super Shelter's bypass. |

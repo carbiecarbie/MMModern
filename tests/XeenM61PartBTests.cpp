@@ -103,7 +103,8 @@ void refusal(Inputs &in) {
         const bool m75=power==26 || power==27 || power==41 || power==44 || power==51 || power==56 || power==57 || power==66 || power==73;
         const bool partyBuff=power==22 || power==30 || power==25 || power==29 || power==14 || power==49 || power==50;
         const bool senses=power==1 || power==20 || power==32 || power==18 || power==34 || power==23;
-        const bool supported=power==63 || power==53 || senses || partyBuff || m75 || std::find(std::begin(powers),std::end(powers),power)!=std::end(powers) ||
+        const bool travel=power==39 || power==42 || power==48 || power==58;
+        const bool supported=power==63 || power==53 || senses || partyBuff || m75 || travel || std::find(std::begin(powers),std::end(powers),power)!=std::end(powers) ||
             std::find(std::begin(damagePowers),std::end(damagePowers),power)!=std::end(damagePowers);
         check(xeenItemUseSupported({1,std::uint8_t(power),1,0})==supported,"Power support boundary differs");
         if(supported)continue;

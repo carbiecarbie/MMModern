@@ -42,6 +42,7 @@ const std::vector<XeenDosText::Field> &XeenDosText::layout() {
   {"WORD_INPUT_WINDOW",0x539ce,0x539dc,1,false,"s"},
   {"CAST_SPELL_DETAILS",0x546da,0x54760,1,false,"s,s,u,u,u"},
   {"DETECT_MONSTERS",0x5424b,0x5425d,1,false,""},
+  {"HOW_MANY_SQUARES",0x5425d,0x54283,1,false,"s"},
   {"MONSTER_DETAILS",0x54159,0x5417b,1,false,"s,s,u,u,s"},
   {"IDENTIFY_MONSTERS",0x5417b,0x541aa,1,false,"s,s,s"},
   {"MONSTER_SPECIAL_ATTACKS",0x5004e,0x500aa,23,true,""},

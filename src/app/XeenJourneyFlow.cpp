@@ -244,7 +244,7 @@ bool XeenEncounterFlow::itemUseNeedsElement() const noexcept {
     return _itemUse && _itemUse->spell==XeenLearnedSpell::ProtectionFromElements && !_itemUse->effectDone;
 }
 std::optional<std::uint64_t> XeenEncounterFlow::beginItemUse(const Ticket &entry,const ItemUseSelection &selection,
-		std::uint64_t inventoryLease,std::uint64_t certificateLease) {
+		std::uint64_t inventoryLease,std::uint64_t certificateLease,unsigned distance) {
 	if (!journeyMutable() || !current(entry) || !_journeyPreimage || _itemUse ||
 		!_boundary.holds(XeenCombatBoundary::Work::Inventory,inventoryLease) ||
 		!_boundary.holds(XeenCombatBoundary::Work::Certificate,certificateLease) ||
@@ -277,6 +277,11 @@ std::optional<std::uint64_t> XeenEncounterFlow::beginItemUse(const Ticket &entry
 				if(jump.admission==XeenJumpAdmission::Unsupported)return {};
 				if(jump.admission==XeenJumpAdmission::Ready)next->jumpDestination=jump.destination;
 			}
+            if(next->spell && (*next->spell==XeenLearnedSpell::Etherealize || *next->spell==XeenLearnedSpell::TimeDistortion || *next->spell==XeenLearnedSpell::SuperShelter || *next->spell==XeenLearnedSpell::Teleport)) {
+                const auto travel=XeenLearnedSpellRules::travel(_world,_camera,*next->spell,distance);
+                _journeyPreimage->check();if(travel.unsupported)return {};
+                next->jumpDestination=travel.destination;next->failed=travel.failed;next->shelterPending=travel.shelter;
+            }
 			if(next->spell && XeenLearnedSpellRules::target(static_cast<std::uint8_t>(*next->spell))==XeenSpellTarget::Contact) {
 				next->projectile=prepareSpellProjectile(*next->spell,selection.sourceOwner,0);
 				next->projectile->itemPower=selection.record.id;
@@ -420,6 +425,7 @@ bool XeenEncounterFlow::settleItemUse(const Ticket &entry,std::uint64_t generati
 	} catch (...) { closeJourney(); throw; }
 }
 bool XeenEncounterFlow::serviceItemUse() {
+    if(_rest || (_itemUse && _itemUse->shelterPending))return false;
     if(_itemUse && _itemUse->itemSpell && _itemUse->itemSpell->selected && !_itemUse->effectDone)return serviceSpellItem();
     if(_itemUse && !_itemUse->effectDone && _itemUse->targetPending && !_busy)
         return settleItemUse(ticket(),_itemUse->generation,_itemUse->epoch,_itemUse->targetIndex);

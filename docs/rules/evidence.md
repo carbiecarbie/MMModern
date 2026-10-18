@@ -391,6 +391,12 @@ and `map-data.txt`. Preliminary mechanical inventories were checked and
 corrected by the main analyst; `findings.md` is the final interpretation.
 No original-program execution, DOSBox play, build or tests were part of this check.
 
+The subsequent C1 implementation checks live in
+`tests/XeenTravelSpellRulesTests.cpp` and `tests/XeenTravelSpellOriginalTests.cpp`.
+They exercise the documented handler/Rest rules with synthetic cases and
+original resources; they do not upgrade the DOS evidence labels or settle
+the unknown post-item automatic-Event timing.
+
 **Calibration passed:** item dispatch `0x39e4b` subtracts 1, bounds at 72
 and indexes CS:`0474`, file `[0x3a114,0x3a1a6)`, segment base `0x39ca0`.
 Power 1 reaches Light `0x2f39a`, power 4 the already established First Aid

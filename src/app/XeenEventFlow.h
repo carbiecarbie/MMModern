@@ -457,6 +457,11 @@ private:
         std::string refusal;
     };
     std::optional<CastingUi> _castingUi;
+    struct TeleportUi {bool item=false;XeenTextInput digits;std::string refusal;};
+    std::optional<TeleportUi> _teleportUi;
+    std::optional<unsigned> _teleportDistance;
+    IndexedFrame drawTeleport(const IndexedFrame &) const;
+    IndexedFrame handleTeleport(const PlayerAction &,std::uint64_t);
     std::optional<std::size_t> _lastCaster;
     void initializeCaster();
     std::shared_ptr<const DialogInput> castingDialogInput() const;

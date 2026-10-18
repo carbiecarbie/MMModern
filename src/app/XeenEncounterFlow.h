@@ -93,7 +93,7 @@ public:
 		XeenInventoryCategory category=XeenInventoryCategory::Weapons;
 		XeenItem record{};
 	};
-	std::optional<std::uint64_t> beginItemUse(const Ticket &, const ItemUseSelection &, std::uint64_t inventoryLease, std::uint64_t certificateLease);
+	std::optional<std::uint64_t> beginItemUse(const Ticket &, const ItemUseSelection &, std::uint64_t inventoryLease, std::uint64_t certificateLease,unsigned distance=0);
 	bool finishItemUse(const Ticket &, std::uint64_t generation, std::uint64_t inventoryEpoch,
 		std::optional<std::size_t> targetIndex, std::uint64_t displayedInput,
 		const IndexedFrame::Presentation &selectorFrame);
@@ -198,7 +198,7 @@ private:
      }
 	 std::optional<XeenTerrainArrivalCandidate> terrain;
 	 std::string refusal;
-	 bool starving=false, presented=false;
+	 bool starving=false, presented=false, shelter=false;
 	 std::uint64_t deadline=0;
 	 XeenCombatRandom random;
 	 std::optional<XeenConditionTimeCandidate> time;
@@ -210,7 +210,7 @@ private:
 	bool _terrainDead=false;
 	void beginTerrainTransition();
 	void settleManualStep(bool needsRest) noexcept;
-	bool beginRest(const std::function<IndexedFrame()> &,const std::function<std::array<std::uint64_t,2>()> &);
+	bool beginRest(const std::function<IndexedFrame()> &,const std::function<std::array<std::uint64_t,2>()> &,bool shelter=false);
 	bool respondRest(const PlayerAction &);
 	bool serviceRest();
 	void restPublication();
@@ -303,7 +303,7 @@ private:
 	bool castingFrameCurrent(std::uint64_t, const IndexedFrame::Presentation &) const noexcept;
 	bool cancelCasting(const Ticket &, std::uint64_t, const IndexedFrame::Presentation &);
 	bool confirmCasting(const Ticket &, std::size_t casterIndex, std::size_t slot,
-		std::uint64_t, const IndexedFrame::Presentation &);
+		std::uint64_t, const IndexedFrame::Presentation &,unsigned distance=0);
 	bool respondCastingTarget(const Ticket &, std::optional<std::size_t> targetIndex,
 		std::uint64_t, const IndexedFrame::Presentation &);
 	bool publishAwaken(const Ticket &);
@@ -337,6 +337,7 @@ private:
 		std::size_t slot=0;
 		bool exhausted=false,ready=false;
 		bool effectDone=false,failed=false,automaticArrival=false;
+        bool shelterPending=false;
         bool targetPending=false;
         std::optional<std::size_t> targetIndex;
 		std::optional<XeenLearnedSpell> spell;
@@ -356,6 +357,7 @@ private:
 		XeenLearnedSpell spell=XeenLearnedSpell::Awaken;
 		std::int16_t originalSp=0;
 		bool committed=false,effectDone=false,failed=false;
+        bool shelterPending=false;
         bool targetPending=false;
         std::optional<std::size_t> targetIndex;
 		std::optional<XeenCamera> jumpDestination;

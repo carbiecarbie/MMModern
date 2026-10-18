@@ -96,7 +96,7 @@ bool XeenEncounterFlow::cancelCasting(const Ticket &entry, std::uint64_t input,
 }
 
 bool XeenEncounterFlow::confirmCasting(const Ticket &entry, std::size_t casterIndex,
-		std::size_t slot, std::uint64_t input, const IndexedFrame::Presentation &frame) {
+		std::size_t slot, std::uint64_t input, const IndexedFrame::Presentation &frame,unsigned distance) {
 	if (!current(entry) || !castingFrameCurrent(input,frame) || _casting->committed ||
 		casterIndex>=_party.party.size() || slot>=39 || !journeyCapacity()) return false;
 	BusyCast busy(_busy);
@@ -114,6 +114,7 @@ bool XeenEncounterFlow::confirmCasting(const Ticket &entry, std::size_t casterIn
 		const auto cost=XeenLearnedSpellRules::cost(*id,caster.currentLevel());
         if(XeenLearnedSpellRules::check(caster,slot,_party.monsterTreasure->gems,false)!=XeenQuickSpellCheck::Supported)return false;
         std::optional<XeenCamera> jump;
+        XeenSpellTravel travel;
         std::unique_ptr<XeenShootCandidate> projectile;
         { XeenRestoreGuard::Providers providers(*_journeyPreimage,_world);
           if(*spell==XeenLearnedSpell::Jump) {
@@ -121,9 +122,16 @@ bool XeenEncounterFlow::confirmCasting(const Ticket &entry, std::size_t casterIn
             if(preflight.admission==XeenJumpAdmission::Unsupported)return false;
             if(preflight.admission==XeenJumpAdmission::Ready)jump=preflight.destination;
           }
+          if(*id==21 || *id==66 || *id==69 || *id==70) {
+            travel=XeenLearnedSpellRules::travel(_world,_camera,*spell,distance);
+            _journeyPreimage->check();
+            if(travel.unsupported) {_journeyRefusal="Spell not supported yet";return false;}
+            jump=travel.destination;
+          }
           auto ending=xeenPrepareTime(*_party.encounterContext,_world.map(_camera.mapId).geometry.isOutdoors()?10:1);
           XeenLearnedSpellRules::applyPartyEffect(*spell,ending.context,caster.currentLevel());
           if(ending.dailyProcessing)xeenResetPartyTemps(ending.context);
+          if(travel.shelter)xeenResetPartyTemps(ending.context);
           const auto arrival=_world.prepareTerrainArrival(jump?*jump:_camera,activeCharacters(_party,_casting->owners),ending.context);
           _journeyPreimage->check();
           if(!arrival) {_journeyRefusal=arrival.transition.reason;return false;}
@@ -143,6 +151,7 @@ bool XeenEncounterFlow::confirmCasting(const Ticket &entry, std::size_t casterIn
 		_casting->casterOwner=owner;_casting->slot=static_cast<std::uint8_t>(slot);
 		_casting->spell=*spell;_casting->originalSp=caster.currentSp;
         _casting->jumpDestination=jump;
+        _casting->failed=travel.failed;_casting->shelterPending=travel.shelter;
 		_casting->random=XeenCombatRandom(*_world.sessionState().journeyRandom());
 		_journeyPreimage->check();
 		_party.roster.at(owner).currentSp=after;
@@ -242,7 +251,8 @@ bool XeenEncounterFlow::publishCastingTarget() {
 
 bool XeenEncounterFlow::publishAwaken(const Ticket &entry) {
 	if (!current(entry) || !_casting || !_casting->committed || _casting->effectDone ||
-		(XeenLearnedSpellRules::target(static_cast<std::uint8_t>(_casting->spell))!=XeenSpellTarget::Party && _casting->spell!=XeenLearnedSpell::Jump) || !journeyCapacity()) return false;
+		(XeenLearnedSpellRules::target(static_cast<std::uint8_t>(_casting->spell))!=XeenSpellTarget::Party &&
+         XeenLearnedSpellRules::target(static_cast<std::uint8_t>(_casting->spell))!=XeenSpellTarget::Relocation) || !journeyCapacity()) return false;
 	BusyCast busy(_busy);
 	try {
 		_journeyPreimage->check();
@@ -269,14 +279,14 @@ bool XeenEncounterFlow::publishAwaken(const Ticket &entry) {
 		auto result=message.str();
         if(effect.food)prepared->food=*effect.food;
         XeenLearnedSpellRules::applyPartyEffect(_casting->spell,*prepared->context,_party.roster.at(_casting->casterOwner).currentLevel());
-        if(_casting->spell==XeenLearnedSpell::Jump && _casting->jumpDestination)prepared->cameraValue=*_casting->jumpDestination;
+        if(_casting->jumpDestination)prepared->cameraValue=*_casting->jumpDestination;
         _journeyPreimage->check();
         if(effect.food)_party.food=*effect.food;
         XeenLearnedSpellRules::applyPartyEffect(_casting->spell,*_party.encounterContext,_party.roster.at(_casting->casterOwner).currentLevel());
         if(_casting->spell==XeenLearnedSpell::Jump) {
           _casting->failed=!_casting->jumpDestination;
-          if(_casting->jumpDestination)_camera=*_casting->jumpDestination;
         }
+        if(_casting->jumpDestination)_camera=*_casting->jumpDestination;
 		for (const auto &value:effect.effects) {
             if(value.healing)_world.scenePresentation().spellEffect(value.owner,_lastTime,true);
             value.apply(_party.roster.at(value.owner));
@@ -351,6 +361,7 @@ bool XeenEncounterFlow::serviceSpellItem() {
 }
 
 bool XeenEncounterFlow::serviceCasting() {
+    if(_rest || (_casting && _casting->shelterPending))return false;
     if(_casting && _casting->itemSpell && _casting->itemSpell->selected && !_casting->effectDone)return serviceSpellItem();
 	if (!_casting || _casting->information || !_casting->committed || (!_casting->effectDone && !_casting->targetPending) || _busy || _failure ||
 		!current(ticket()) || !journeyCapacity()) return false;
@@ -380,7 +391,7 @@ bool XeenEncounterFlow::serviceCasting() {
         bool automaticArrival=false;
         {XeenRestoreGuard::Providers providers(*_journeyPreimage,_world);
             exploration=_world.explorationAfterStep(_party,_camera);
-            if(work.spell==XeenLearnedSpell::Jump && work.jumpDestination) {
+            if(work.jumpDestination) {
               const auto sample=_world.sampleCell(_camera.mapId,_camera.x,_camera.y);
               automaticArrival=sample && (sample->cell->rawAttributes & kXeenAutomaticEventFlag) && bool(xeenRegionalEvent(_events,_camera));
             }

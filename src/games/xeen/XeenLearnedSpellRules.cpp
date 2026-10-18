@@ -2,6 +2,9 @@
 #include "games/xeen/XeenCharacterRules.h"
 #include "games/xeen/XeenCombatRules.h"
 #include "games/xeen/XeenItemServiceRules.h"
+#include "games/xeen/XeenWorld.h"
+#include "games/xeen/XeenMovement.h"
+#include "games/xeen/XeenJourneyContent.h"
 
 #include <algorithm>
 #include <array>
@@ -9,6 +12,41 @@
 #include <stdexcept>
 
 namespace mmodern {
+XeenSpellTravel XeenLearnedSpellRules::travel(XeenWorld &world,const XeenCamera &camera,
+        XeenLearnedSpell spell,unsigned distance) {
+    const auto &map=world.map(camera.mapId);
+    const unsigned flag=spell==XeenLearnedSpell::SuperShelter?0x200:
+        spell==XeenLearnedSpell::Etherealize?0x40:spell==XeenLearnedSpell::TimeDistortion?0x400:0x1000;
+    XeenSpellTravel result;
+    if(map.geometry.flags&flag) {result.failed=true;return result;}
+    if(spell==XeenLearnedSpell::SuperShelter) {result.shelter=true;return result;}
+    if(spell==XeenLearnedSpell::Teleport && !distance)return result;
+    auto to=camera;
+    if(spell==XeenLearnedSpell::TimeDistortion) {to.x=map.geometry.runX;to.y=map.geometry.runY;}
+    else {
+        constexpr int dx[]{0,1,0,-1},dy[]{1,0,-1,0};
+        const auto d=unsigned(XeenDirection(camera.direction));
+        if(d>=4 || distance>9)throw std::invalid_argument("Invalid travel spell input");
+        const unsigned count=spell==XeenLearnedSpell::Etherealize?1:distance;
+        to.x+=int(count)*dx[d];to.y+=int(count)*dy[d];
+    }
+    const auto cell=world.sampleCell(camera.mapId,to.x,to.y);
+    // DOS 0x30996 and 0x303e3: destination lookup only, no traversed walls.
+    const unsigned word=cell?unsigned(cell->cell->rawWord):0x8888;
+    const unsigned surface=cell?unsigned(cell->cell->surfaceIndex):15;
+    if((spell==XeenLearnedSpell::Etherealize && word==0x8888) ||
+        (spell==XeenLearnedSpell::Teleport && (map.geometry.isOutdoors()?
+            surface==0 || surface==8:word==0x8888))) {result.failed=true;return result;}
+    result.unsupported=!cell;
+    if(map.geometry.isOutdoors()) {
+        if(camera.mapId!=world.developerEventMap() && (camera.mapId!=XeenMapIdentity(23) || !cell ||
+            cell->mapId!=camera.mapId || to.x<0 || to.x>=16 || to.y<0 || to.y>=16 ||
+            !XeenMovement::component(map,9,11,xeenJourneyContent().traversal)[to.y*16+to.x]))result.unsupported=true;
+    } else if((camera.mapId!=XeenMapIdentity(28) && camera.mapId!=world.developerEventMap()) ||
+        !xeenIndoorCoordinate(to.x,to.y))result.unsupported=true;
+    if(!result.unsupported)result.destination=to;
+    return result;
+}
 XeenItemSpellPreparation::XeenItemSpellPreparation(XeenLearnedSpell value,unsigned casterLevel,
         XeenInventoryCategory kind,XeenItem selected):item(selected),spell(value),level(casterLevel),category(kind) {}
 bool XeenItemSpellPreparation::service(XeenConsequenceDraw &draw) {
@@ -129,6 +167,7 @@ std::optional<std::uint8_t> XeenLearnedSpellRules::spellForSlot(XeenSpellCategor
 
 std::optional<XeenLearnedSpell> XeenLearnedSpellRules::supported(std::uint8_t id) noexcept {
     switch (id) {
+    case 21: case 66: case 69: case 70:
     case 19: case 39: case 57:
     case 4: case 15: case 34: case 41: case 42: case 74:
     case 3: case 12: case 13: case 30: case 31: case 53: case 55:
@@ -145,7 +184,7 @@ std::optional<XeenLearnedSpell> XeenLearnedSpellRules::supported(std::uint8_t id
 }
 
 std::optional<XeenLearnedSpell> XeenLearnedSpellRules::supportedIn(std::uint8_t id, bool combat) noexcept {
-    if (combat && (id==19 || id==40 || id==75)) return std::nullopt;
+    if (combat && (id==19 || id==21 || id==40 || id==66 || id==69 || id==75)) return std::nullopt;
     return supported(id);
 }
 unsigned XeenLearnedSpellRules::cost(XeenLearnedSpell spell) noexcept {
@@ -204,7 +243,8 @@ XeenSpellTarget XeenLearnedSpellRules::target(std::uint8_t id) noexcept {
     case 10: case 26: case 59: return XeenSpellTarget::Member;
     case 2: case 17: case 33: case 38: case 61: case 62: case 72: case 73:
     case 20: case 27: case 45: case 50: case 60: return XeenSpellTarget::Contact;
-    case 40: return XeenSpellTarget::Relocation;
+    case 21: case 69: case 70: case 40: return XeenSpellTarget::Relocation;
+    case 66: return XeenSpellTarget::Party;
     default: return XeenSpellTarget::Unsupported;
     }
 }

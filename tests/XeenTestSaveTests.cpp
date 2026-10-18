@@ -92,7 +92,7 @@ void preset(const GameInstallation &installation,const std::string &name,const f
     if(name=="m76-spells") {
         check(camera.mapId==28 && camera.x==18 && camera.y==4,"M76 preset position");
         check(party.monsterTreasure->gems==1000,"M76 preset gems");
-        for(unsigned id:{3u,30u,31u,53u,55u,12u,13u,42u,41u,74u,4u,15u,34u,19u,57u,39u}) {
+        for(unsigned id:{3u,30u,31u,53u,55u,12u,13u,42u,41u,74u,4u,15u,34u,19u,57u,39u,66u,21u,70u,69u}) {
             bool found=false;
             for(auto owner:{first,second}) {
                 const auto &caster=party.roster.at(owner);const auto category=*XeenLearnedSpellRules::categoryForClass(caster.characterClass);
@@ -106,6 +106,8 @@ void preset(const GameInstallation &installation,const std::string &name,const f
             check(found,"M76 preset charged power");
         }
         const auto &targets=party.roster.at(party.party.activeRosterIds()[2]);
+        for(unsigned i=0;i<4;++i)check(targets.miscellaneous[i].id==std::array<unsigned,4>{48,58,39,42}[i] &&
+            targets.miscellaneous[i].state==5,"M76 travel charged powers");
         check(targets.weapons[0].id && !targets.weapons[0].material && !targets.weapons[0].state &&
             targets.armor[0].id && !targets.armor[0].material && !targets.armor[0].state,"M76 plain enchant targets");
         check(targets.weapons[1].material && targets.weapons[2].state==0x80 && targets.weapons[3].state==0x40 && targets.weapons[4].id==34,"M76 refusal and ID-34 targets");

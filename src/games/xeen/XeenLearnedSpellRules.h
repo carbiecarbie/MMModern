@@ -29,7 +29,8 @@ enum class XeenLearnedSpell : std::uint8_t {
     Awaken=1, BeastMaster=2, CureWounds=10, DragonSleep=17, EnergyBlast=20,
     FirstAid=26, FlyingFist=27, Hypnotize=33, InsectSpray=38, Jump=40,
     MagicArrow=45, Pain=50, PoisonVolley=51, Revitalize=59, Shrapmetal=60, Sleep=61, Sparks=62,
-    ToxicCloud=72, TurnUndead=73, WizardEye=75
+    ToxicCloud=72, TurnUndead=73, WizardEye=75,
+    Etherealize=21, SuperShelter=66, Teleport=69, TimeDistortion=70
 };
 
 struct XeenSpellEffect {
@@ -58,6 +59,13 @@ struct XeenSpellInformation {
 };
 
 struct XeenConsequenceDraw;
+class XeenWorld;
+// Disposable handler result. Admission checks precede payment; existing owners
+// publish the camera or run Rest after the spell has been paid.
+struct XeenSpellTravel {
+    bool failed=false, unsupported=false, shelter=false;
+    std::optional<XeenCamera> destination;
+};
 
 struct XeenLearnedSpellNames {
 	std::vector<std::uint8_t> raw;
@@ -92,6 +100,7 @@ struct XeenSpellItemSelection {
 };
 class XeenLearnedSpellRules {
 public:
+    static XeenSpellTravel travel(XeenWorld &,const XeenCamera &,XeenLearnedSpell,unsigned distance=0);
     static std::optional<XeenSpellInformation> information(XeenLearnedSpell,const XeenCamera &,
         const std::vector<XeenActor> &,const std::array<std::optional<XeenMonsterIdentity>,3> &);
 	static std::optional<XeenSpellCategory> categoryForClass(XeenCharacterClass) noexcept;

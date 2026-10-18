@@ -105,7 +105,7 @@ struct XeenCombat::Impl {
 			serviceEconomy(p.serviceEconomy),food(p.food),
 			firstSerializedCount(p.firstSerializedCount), effectiveSerializedCount(p.effectiveSerializedCount), diagnostics(p.diagnostics) {}
 	} expected;
-	bool journey = false, ended = false, episodeLethal = false;
+	bool journey = false, ended = false, episodeLethal = false, spellRelocated = false;
 	std::uint32_t journeySeed = 0;
 	std::optional<XeenJourneyRandomState> expectedRandom;
 	bool moveDue=false, chargeRound=false;
@@ -1034,8 +1034,17 @@ XeenCombatResult XeenCombat::settleCast(const Ticket &t,std::optional<unsigned> 
         }
         auto prepared=d.prepareCastGuard();
         prepared->s._journeyRandom=c.random.continuation();
+        std::optional<XeenCamera> relocation;
+        bool travelFailed=false;
+        if(reserved.spell==unsigned(XeenLearnedSpell::TimeDistortion)) {
+            XeenRestoreGuard::Providers providers(*prepared,d.world);
+            const auto travel=XeenLearnedSpellRules::travel(d.world,d.camera,XeenLearnedSpell::TimeDistortion);
+            prepared->check();require(!travel.unsupported,"Combat Time Distortion destination is not open");
+            travelFailed=travel.failed;relocation=travel.destination;
+            if(relocation)prepared->cameraValue=*relocation;
+        }
         auto information=XeenLearnedSpellRules::information(static_cast<XeenLearnedSpell>(reserved.spell),d.camera,d.actors,d.contact);
-        result.failed=effect.failed || (information && information->failed) || (c.itemPreparation && c.itemPreparation->failed);
+        result.failed=effect.failed || travelFailed || (information && information->failed) || (c.itemPreparation && c.itemPreparation->failed);
         if(c.itemPreparation && !c.itemPreparation->failed) {
             auto &items=*xeenInventoryItems(prepared->characters[*targetOwner],c.itemSelection->category);
             items.at(c.itemSelection->slot)=c.itemPreparation->item;
@@ -1088,6 +1097,9 @@ XeenCombatResult XeenCombat::settleCast(const Ticket &t,std::optional<unsigned> 
                 *xeenInventoryItems(prepared->characters[*targetOwner],c.itemSelection->category);
             d.party.monsterTreasure->gold=d.expected.treasure->gold=prepared->treasure->gold;
         }
+        // DOS returns to ordinary cast/turn bookkeeping and rechecks the attack
+        // slots. Empty slots can end this episode without lethal accounting.
+        if(relocation) {d.camera=d.expectedCamera=*relocation;d.stepped=true;d.spellRelocated=true;result.noop=false;}
         if(effect.stepped)d.stepped=true;
         d.rng=c.random;d.expectedRandom=d.session()._journeyRandom=c.random.continuation();
         d.acted[reserved.participant]=true;d.playerSpeeds=speeds;c.view.result=result;
@@ -1317,7 +1329,7 @@ XeenCombatResult XeenCombat::serviceConsequences(const Ticket &t) {
 				d.refreshSpeeds();d.reconcile();d.sortOrder();d.selectNext();
 				if(d.work==Work::Enemy) { ++d.generation;return d.adopt(d.observation(Status::Pending),Status::Pending); }
 			}
-			if(end) require(!d.contact[0] && !d.moveDue && d.episodeLethal,"End requires an actual lethal and no owed work");
+			if(end) require(!d.contact[0] && !d.moveDue && (d.episodeLethal || d.spellRelocated),"End requires lethal accounting or spell relocation and no owed work");
 			if(end || d.chargeRound) {
 				const auto time=xeenPrepareTime(*d.party.encounterContext,1);
 				static_cast<void>(time); // Canonical range and overflow preflight; shared processing follows.
@@ -1580,8 +1592,8 @@ void XeenCombat::retireJourney(const Ticket &t, XeenEncounterState &state) {
 		d.work == Work::None && !d.consequences && d.boundary.quiet(), "Journey retirement requires successful quiescent End");
 	if (!d.exact()) { fail(t,Failure::Integrity); throw IntegrityError("Journey retirement preimage changed"); }
 	d.capacity();
-	require(!d.contact[0] && !d.moveDue && (d.episodeLethal),
-		"Journey retirement requires published lethal accounting");
+	require(!d.contact[0] && !d.moveDue && (d.episodeLethal || d.spellRelocated),
+		"Journey retirement requires published lethal accounting or spell relocation");
 	// No callbacks, allocation or gameplay mutation after this point.
 	auto &s = d.session();
 	s._journeyActivity = XeenJourneyActivity::Presentation;
