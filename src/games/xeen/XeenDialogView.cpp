@@ -21,7 +21,7 @@ const XeenCombatInputs *inputs(const XeenPartyState &p,const XeenCharacter &c) {
 }
 XeenCharacterRulesContext context(const XeenPartyState &p) {
     return {p.encounterContext?std::uint32_t(p.encounterContext->year):kCloudsInitialYear,
-        p.encounterContext?unsigned(p.encounterContext->effects[8]):0u};
+        p.encounterContext?unsigned(p.encounterContext->effects[XeenPartyEffect::Bless]):0u};
 }
 void partyButtons(DialogInput &input) {
     constexpr int faces[]{10,45,81,117,153,189};
@@ -48,6 +48,29 @@ void highlight(IndexedFrame &frame,std::size_t member,const XeenDialogSpriteDraw
 const auto &conditions(const XeenDosText &text,const XeenCharacter &) { return text.table("CONDITION_NAMES"); }
 std::uint32_t gold(const XeenPartyState &p) { return p.monsterTreasure?std::uint32_t(p.monsterTreasure->gold):0u; }
 std::uint32_t gems(const XeenPartyState &p) { return p.monsterTreasure?std::uint32_t(p.monsterTreasure->gems):0u; }
+}
+// Screen layout from pinned dialogs_spells.cpp/window.cpp; DOS Part 0 confirms
+// the screen contents, marker positions, slot guard and any-key/mouse wait.
+IndexedFrame drawXeenSpellInformation(const XeenDosText &text,const IndexedFrame &base,
+        const XeenFontFormat &font,const XeenSpellInformation &info,const XeenDialogSpriteDraw &draw) {
+    if(info.failed)throw std::invalid_argument("Failed spell has no information screen");
+    if(info.detection) {
+        auto frame=render(base,font,str(text.scalar("DETECT_MONSTERS")),{231,48,317,141},{239,56,309,133});
+        if(draw) {
+            draw(frame,"detctmon.icn",0,243,80);
+            for(unsigned row=0;row<7;++row)for(unsigned col=0;col<7;++col)
+                if(info.grid[row*7+col])draw(frame,"detctmon.icn",std::min(info.grid[row*7+col],3u),244+9*col,81+7*row);
+            draw(frame,"global.icn",unsigned(info.facing)+1,270,101);
+        }
+        return frame;
+    }
+    std::vector<std::string> rows(3);
+    for(unsigned i=0;i<3;++i)if(info.monsters[i]) {
+        const auto &m=*info.monsters[i];
+        const auto hp=m.hp>999?n(m.hp/1000)+"k":n(m.hp);
+        rows[i]=xeenDialogFormat(text.scalar("MONSTER_DETAILS"),{m.name,hp,n(m.ac),n(m.attacks),text.table("MONSTER_SPECIAL_ATTACKS").at(m.special)});
+    }
+    return render(base,font,xeenDialogFormat(text.scalar("IDENTIFY_MONSTERS"),rows),{20,142,290,199},{28,150,282,191});
 }
 std::string xeenTreasureText(const XeenDosText &text,const XeenTreasureDisplay &treasure,std::size_t page) {
     if(page>treasure.items.size())throw std::out_of_range("Treasure display page");
@@ -237,6 +260,7 @@ IndexedFrame drawXeenCast(const XeenDosText &text,const IndexedFrame &base,const
     const auto cost=XeenLearnedSpellRules::cost(id.value_or(76),c.currentLevel());
     auto frame=render(base,font,xeenDialogFormat(text.scalar("CAST_SPELL_DETAILS"),{c.name,names.names[id.value_or(76)],n(cost.sp),n(cost.gems),n(c.currentSp)}),{226,0,320,146},{234,8,312,138});
     if(draw)for(const auto &hit:xeenCastInput().hits)if(hit.button) {const auto &b=*hit.button;draw(frame,b.resource,b.frame,b.x,b.y);}
+    if(draw)draw(frame,"border.icn",52,215,32); // Window 10 covers the right statue.
     highlight(frame,member,draw);return frame;
 }
 IndexedFrame drawXeenSpellList(const XeenDosText &text,const IndexedFrame &base,const XeenFontFormat &font,
@@ -595,10 +619,10 @@ IndexedFrame drawXeenSheet(const XeenDosText &text,const IndexedFrame &base,cons
         n(color(3)),n(stat(3)),n(R::statColor(c.currentLevel(),c.permanentLevel)),n(c.currentLevel()),n(R::skillCount(c)),n(food),food==1?" ":str(text.scalar("DAY_PLURAL")),
         n(color(4)),n(stat(4)),n(R::statColor(R::sheetArmorClass(c,in,ctx),R::sheetArmorClass(c,in,ctx,true))),n(R::sheetArmorClass(c,in,ctx)),n(R::awardCount(c)),
         n(condition<8?9:condition<12?32:condition<16?6:15),str(conditions(text,c)[condition]),
-        condition==16 && p.encounterContext && p.encounterContext->effects[8]?str(text.scalar("PLUS_14")):"",
-        condition==16 && p.encounterContext && p.encounterContext->effects[6]?str(text.scalar("PLUS_14")):"",
-        condition==16 && p.encounterContext && p.encounterContext->effects[7]?str(text.scalar("PLUS_14")):"",
-        condition==16 && p.encounterContext && p.encounterContext->effects[5]?str(text.scalar("PLUS_14")):""});
+        condition==16 && p.encounterContext && p.encounterContext->effects[XeenPartyEffect::Bless]?str(text.scalar("PLUS_14")):"",
+        condition==16 && p.encounterContext && p.encounterContext->effects[XeenPartyEffect::PowerShield]?str(text.scalar("PLUS_14")):"",
+        condition==16 && p.encounterContext && p.encounterContext->effects[XeenPartyEffect::HolyBonus]?str(text.scalar("PLUS_14")):"",
+        condition==16 && p.encounterContext && p.encounterContext->effects[XeenPartyEffect::Heroism]?str(text.scalar("PLUS_14")):""});
     auto frame=render(base,font,xeenDialogFormat(text.scalar("CHARACTER_TEMPLATE"),{details}),{0,0,320,146},{8,8,312,138});
     if(draw) {
         constexpr int x[]{2,53,104,169};
@@ -647,7 +671,7 @@ XeenDialogPopup xeenInfoPopup(const XeenDosText &text,const XeenGameplayContext 
     for(unsigned i=0;i<4;++i)if(ctx.lightAndResistances[i+2]) {
         effects+=xeenDialogFormat(text.scalar(resistance[i]),{std::string(1,rows?'\1':'\n'),left,right,n(unsigned(ctx.lightAndResistances[i+2]))});++rows;
     }
-    constexpr unsigned index[]{0,3,4};
+    constexpr XeenPartyEffect index[]{XeenPartyEffect::Clairvoyance,XeenPartyEffect::Levitate,XeenPartyEffect::WalkOnWater};
     constexpr const char *effect[]{"CLAIRVOYANCE_TEXT","LEVITATE_TEXT","WALK_ON_WATER_TEXT"};
     for(unsigned i=0;i<3;++i)if(ctx.effects[index[i]]) {
         std::vector<std::string> args{std::string(1,rows?'\1':'\n'),left};
@@ -694,7 +718,7 @@ XeenDialogPopup xeenSheetPopup(const XeenDosText &text,const XeenPartyState &p,s
         }
         if(!count) {lines=cell==13?str(text.scalar("NONE")):"\n\t020"+str(text.scalar("GOOD"));count=1;}
         if(cell==19 && p.encounterContext) {
-            constexpr unsigned indices[]{8,6,7,5};
+            constexpr XeenPartyEffect indices[]{XeenPartyEffect::Bless,XeenPartyEffect::PowerShield,XeenPartyEffect::HolyBonus,XeenPartyEffect::Heroism};
             constexpr const char *names[]{"BLESSED","POWER_SHIELD","HOLY_BONUS","HEROISM"};
             for(unsigned i=0;i<4;++i)if(p.encounterContext->effects[indices[i]]) {
                 lines+=xeenDialogFormat(text.scalar(names[i]),{n(unsigned(p.encounterContext->effects[indices[i]]))});++count;

@@ -17,7 +17,7 @@ XeenAutomaticEventResult XeenNavigationFlow::processInitialEvent(
 XeenNavigationFlowResult XeenNavigationFlow::processNavigationAction(
 		XeenWorld &world, XeenPartyState &partyState, XeenCamera &camera,
 		XeenGameFlags &gameFlags, NavigationAction action) {
-	const XeenMovementResult movementResult = _movement.apply(world, camera, action);
+	const XeenMovementResult movementResult = _movement.apply(world, camera, action,XeenMovement::capabilities(partyState));
 	const auto cameraAfterMovement = camera;
 	return {movementResult,
 		_eventSystem.runAutomaticEvent(world, partyState, camera, gameFlags), cameraAfterMovement};

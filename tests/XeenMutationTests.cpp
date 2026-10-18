@@ -184,7 +184,7 @@ int main() {
   rejects("inventory",[](auto &f){auto &v=f.party.roster.at(0).miscellaneous[0].state;v=1;v=0;});
   rejects("learned optional",[](auto &f){auto &v=f.party.roster.at(0).learnedSpells;const auto before=v;v.reset();v=before;});
   rejects("calendar",[](auto &f){++f.party.encounterContext->minutes;--f.party.encounterContext->minutes;});
-  rejects("effects",[](auto &f){auto &v=f.party.encounterContext->effects[0];v=1;v=0;});
+  rejects("effects",[](auto &f){auto &v=f.party.encounterContext->effects[XeenPartyEffect::Levitate];v=1;v=0;});
   rejects("context optional",[](auto &f){const auto before=f.party.encounterContext;f.party.encounterContext.reset();f.party.encounterContext=before;});
   rejects("treasure",[](auto &f){++f.party.monsterTreasure->gold;--f.party.monsterTreasure->gold;});
   rejects("recovery",[](auto &f){f.party.worldFlags->values[16]=true;f.party.worldFlags->values[16]=false;});

@@ -273,10 +273,17 @@ and Poison Volley. Generate it with:
 ```
 
 The `m76-spells` preset starts at Vertigo `(18,4)` facing West. A level-7
-Cleric and Sorcerer know the seven M76 party buffs between them, with 1,000 SP
-each and 1,000 party gems. The Cleric carries five-charge items for all seven
-powers. An original Vertigo monster stands one step west, at `(17,4)`, for
-combat casting and Quick Fight. Combat item Use remains deferred.
+Cleric and Sorcerer know the seven M76 party buffs and Light, Levitate,
+Walk on Water, Clairvoyance, Detect Monster and Identify Monster between them,
+with 1,000 SP each and 1,000 party gems. Their miscellaneous packs hold
+five-charge items for all thirteen powers: the Cleric has the seven buff
+powers, Light and Levitate; the Sorcerer has Walk on Water, Clairvoyance,
+Detect Monster and Identify Monster. An original Vertigo monster stands one
+step west, at `(17,4)`, for combat casting and Quick Fight. Combat item Use
+remains deferred. On mainland map 23, stand at `(12,9)` facing West to try
+Walk on Water onto the shallow water at `(11,9)`. The open mainland and
+Vertigo components have no deep-water or cloud cells; those consumers have
+automated tests with synthetic terrain.
 
 ```powershell
 .\build-rel\mmodern_test_save.exe m76-spells "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/m76-spells.mmsave"

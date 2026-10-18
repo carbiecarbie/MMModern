@@ -95,7 +95,7 @@ void departure() {
 		else if (mode==6) before.newDay=true;
 		else if (mode==7) before.difficulty=XeenDifficulty::Warrior;
 		else if (mode==8) before.profile=static_cast<XeenBehaviorProfile>(255);
-		else if (mode<18) before.effects[mode-9]=1;
+		else if (mode<18) before.effects[kXeenPartyEffects[mode-9]]=1;
 		else before.lightAndResistances[mode-18]=1;
 		const auto original=before;
 		if(mode==4 || mode==8)check(!xeenPrepareSmithDeparture(before),"Noncanonical context admitted");

@@ -52,15 +52,15 @@ void dailyTimeOracles() {
  in[0].might.temporary=9;in[0].speed.temporary=8;in[0].accuracy.temporary=7;
  in[0].luck->temporary=6;in[0].temporaryAc=5;c[0].temporaryAge=4;
  c[0].intellect.temporary=3;c[0].personality.temporary=2;c[0].endurance.temporary=1;c[0].temporaryLevel=9;
- t.effects[0]=2;t.effects[1]=1;t.effects[2]=1;t.effects[3]=1;t.effects[4]=1;
- for(unsigned n=5;n<9;++n)t.effects[n]=n;
+ t.effects[XeenPartyEffect::Levitate]=2;t.effects[XeenPartyEffect::AutomapOn]=1;t.effects[XeenPartyEffect::WizardEye]=1;t.effects[XeenPartyEffect::Clairvoyance]=1;t.effects[XeenPartyEffect::WalkOnWater]=1;
+ for(auto effect:{XeenPartyEffect::Bless,XeenPartyEffect::PowerShield,XeenPartyEffect::HolyBonus,XeenPartyEffect::Heroism})t.effects[effect]=static_cast<unsigned>(effect);
  for(unsigned n=0;n<6;++n)t.lightAndResistances[n]=n+1;
  for(auto mode:{XeenTimeMode::Interactive,XeenTimeMode::Sleeping,XeenTimeMode::Script,XeenTimeMode::Interactive7}) {
   XeenConditionTimeCandidate daily(t,1,c,in,nullptr,mode,XeenTimeCall::Add);finish(daily,none,1);
   const bool suppressed=mode==XeenTimeMode::Script || mode==XeenTimeMode::Interactive7;
   check(!daily.context.newDay && daily.resetTemps==!suppressed && daily.needsRest==(mode==XeenTimeMode::Interactive),
    "Mode-specific dawn consumption, reset and message");
-  check(daily.characters[0].temporaryAge==4 && daily.context.effects[1]==1 && daily.context.lightAndResistances[1]==2,
+  check(daily.characters[0].temporaryAge==4 && daily.context.effects[XeenPartyEffect::AutomapOn]==1 && daily.context.lightAndResistances[1]==2,
    "Age, automap and torch count survive reset");
   check(daily.inputs[0].resistances->fireTemporary==(suppressed?19:0) &&
    daily.inputs[0].resistances->energyTemporary==(suppressed?23:0) &&

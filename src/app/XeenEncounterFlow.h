@@ -333,6 +333,7 @@ private:
         std::optional<std::size_t> targetIndex;
 		std::optional<XeenLearnedSpell> spell;
 		std::optional<XeenCamera> jumpDestination;
+        std::optional<XeenSpellInformation> information;
 		std::unique_ptr<XeenShootCandidate> projectile;
 		std::vector<XeenProjectileAppearance> appearances;
 		std::unique_ptr<XeenRegionalActionCandidate> opportunity;
@@ -349,6 +350,7 @@ private:
         bool targetPending=false;
         std::optional<std::size_t> targetIndex;
 		std::optional<XeenCamera> jumpDestination;
+        std::optional<XeenSpellInformation> information;
 		XeenCombatRandom random;
 		std::optional<XeenConditionTimeCandidate> time;
 		std::optional<XeenTerrainArrivalCandidate> terrain;

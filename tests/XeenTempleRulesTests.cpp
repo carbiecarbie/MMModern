@@ -127,14 +127,14 @@ int main() {
             c.weapons[0].state==0x83 && c.weapons[0].frame==4 && c.armor[8].state==0 &&
             c.armor[8].material==8 && c.armor[8].frame==7,"Uncurse changed other item bytes");
         check(!xeenTempleUncurseCost(c),"Uncursed character still priced");
-        auto donation=context;donation.day=8;donation.effects[5]=99;donation.lightAndResistances[0]=100;
+        auto donation=context;donation.day=8;donation.effects[XeenPartyEffect::Heroism]=99;donation.lightAndResistances[0]=100;
         std::uint8_t counter=0;
         for(unsigned count=1;count<=8;++count)check(xeenTempleDonationBlessing(donation,counter)==(count==8),"Donation threshold differs");
-        check(counter==8 && donation.effects[0]==1 && !donation.effects[3] && donation.effects[5]==8 && donation.effects[6]==8 &&
-            donation.effects[7]==8 && donation.effects[8]==8 && donation.lightAndResistances[0]==1,"Donation did not overwrite spell effects");
+        check(counter==8 && donation.effects[XeenPartyEffect::Clairvoyance]==1 && !donation.effects[XeenPartyEffect::Levitate] && donation.effects[XeenPartyEffect::Heroism]==8 && donation.effects[XeenPartyEffect::PowerShield]==8 &&
+            donation.effects[XeenPartyEffect::HolyBonus]==8 && donation.effects[XeenPartyEffect::Bless]==8 && donation.lightAndResistances[0]==1,"Donation did not overwrite spell effects");
         donation.day=0;counter=0;
         for(unsigned count=1;count<=10;++count)check(xeenTempleDonationBlessing(donation,counter)==(count==10),"Donation day zero differs");
-        check(donation.effects[5]==10 && counter==0,"Donation zero counter blessing amount differs");
+        check(donation.effects[XeenPartyEffect::Heroism]==10 && counter==0,"Donation zero counter blessing amount differs");
         const auto economy=completeEconomy();const XeenJourneyRandomState random{1,7,886};
         for(unsigned day:{8u,9u,10u,11u,19u,20u,97u,98u}) {
             context.day=day;
@@ -156,9 +156,9 @@ int main() {
         XeenServiceDayCandidate visit(context,economy,random,XeenScriptServiceCharge::OneDay,false,true);
         visit=visit.addTemplePaidDay();visit=visit.addTemplePaidDay();
         check(visit.minutes()==4320 && visit.context().day==11 && visit.triggered(),"Repeated Temple payments did not accumulate");
-        auto effects=context;effects.effects[3]=1;effects.lightAndResistances[0]=1;
+        auto effects=context;effects.effects[XeenPartyEffect::Clairvoyance]=1;effects.lightAndResistances[0]=1;
         visit=visit.rebindContext(effects);
-        check(visit.context().effects[3]==1 && visit.context().lightAndResistances[0]==1 &&
+        check(visit.context().effects[XeenPartyEffect::Clairvoyance]==1 && visit.context().lightAndResistances[0]==1 &&
             visit.beforeRandom()==random && visit.minutes()==4320,"Donation rebind lost reserved time/RNG");
         // Forty-six payments: 47*1440 = 67680 -> 2144 minutes in the DOS word.
         XeenServiceDayCandidate wrapped(context,economy,random,XeenScriptServiceCharge::OneDay,false,true);

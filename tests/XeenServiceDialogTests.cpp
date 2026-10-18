@@ -334,15 +334,15 @@ void spellDialogs(Inputs &in,bool mouse) {
         check(*f.p.encounterContext==before.context && *f.w.sessionState().journeyRandom()==before.random,"Guild purchase changed clock/RNG");
         const auto paid=Owners(f);f.flow->beginCycle(++f.cycle);f.present(f.flow->handle(DialogKeyAction{'y'},epoch,old));paid.unchanged(f);
         const auto remaining=XeenLearnedSpellRules::rows(f.p.roster.at(owner),true);
-        const auto unsupported=std::find_if(remaining.begin(),remaining.end(),[&](auto slot){return !XeenLearnedSpellRules::supported(*XeenLearnedSpellRules::spellForSlot(static_cast<XeenSpellCategory>(book),slot));});
-        check(unsupported!=remaining.end(),"unsupported purchase fixture missing");
-        const auto nextSlot=*unsupported;
+        // Every spell in Vertigo's original catalogue is now supported.
+        // A second purchase still checks row refresh, price and saved knowledge.
+        check(!remaining.empty(),"second purchase fixture missing");
+        const auto nextSlot=remaining.front();
         const auto nextId=*XeenLearnedSpellRules::spellForSlot(static_cast<XeenSpellCategory>(book),nextSlot);
-        check(!XeenLearnedSpellRules::supported(nextId),"unsupported purchase fixture");
-        const auto nextRow=unsigned(unsupported-remaining.begin());
+        const unsigned nextRow=0;
         for(unsigned page=0;page<nextRow/10;++page)choose(f,InputKey::PageDown);
         choose(f,nextRow%10==9?'0':'1'+nextRow%10);choose(f,'y');
-        check(f.p.roster.at(owner).learnedSpells->at(nextSlot)==1 && f.p.monsterTreasure->gold==19900-XeenLearnedSpellRules::purchasePrice(nextId,c.characterClass),"unsupported spell was not purchasable");
+        check(f.p.roster.at(owner).learnedSpells->at(nextSlot)==1 && f.p.monsterTreasure->gold==19900-XeenLearnedSpellRules::purchasePrice(nextId,c.characterClass),"second catalogue spell was not purchasable");
         choose(f,InputKey::F1+1);check(XeenPurchaseTestAccess::lobby(*f.flow),"Guild did not refresh selected character membership");
         f.leave();check(f.p.encounterContext->day==9,"Guild departed with wrong charge");
         Fixture restored(in,f.snapshot());check(XeenSaveFormat::encode(restored.snapshot())==XeenSaveFormat::encode(f.snapshot()),"Purchased book restore is not exact");
@@ -406,8 +406,8 @@ void spellDialogs(Inputs &in,bool mouse) {
     choose(cast,'c');check(cast.p.roster.at(owner).currentSp==29,"First Aid debit differs");choose(cast,InputKey::Escape);
     for(unsigned i=0;i<1000 && !cast.flow->canSave();++i){cast.now+=100;cast.flow->beginCycle(++cast.cycle);if(auto frame=cast.flow->updatePresentation())cast.present(*frame);}
     check(cast.flow->canSave() && cast.p.roster.at(owner).currentSp==30 && cast.p.encounterContext->minutes==source.journey->context->minutes+1,"Indoor target cancellation refund/time differs");
-    cast.act(CastSpellAction{});choose(cast,'n');choose(cast,InputKey::PageDown);choose(cast,InputKey::PageDown);choose(cast,'2');choose(cast,'s'); // Light (clerical slot 21) is deferred to A2
-    check(cast.p.roster.at(owner).currentSpell==21,"Unsupported modal fixture must select Light");
+    cast.act(CastSpellAction{});choose(cast,'n');choose(cast,InputKey::PageDown);choose(cast,InputKey::PageDown);choose(cast,InputKey::PageDown);choose(cast,'7');choose(cast,'s'); // Town Portal (clerical slot 36) waits for C2.
+    check(cast.p.roster.at(owner).currentSpell==36,"Unsupported modal fixture must select Town Portal");
     const auto unsupported=Owners(cast);choose(cast,'c');unsupported.unchanged(cast);
     choose(cast,InputKey::Enter);choose(cast,InputKey::Escape);unsupported.unchanged(cast);
     auto terminal=source;terminal.characters[terminal.activeRosterIds[0]].currentHp=0;terminal.characters[terminal.activeRosterIds[0]].conditions[13]=1;

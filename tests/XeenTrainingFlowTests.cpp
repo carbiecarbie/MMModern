@@ -69,9 +69,9 @@ int main(int argc,char **argv) {
         {
             Fixture fixture(inputs,matrix);const auto inactive=fixture.p.roster.at(2);const auto inactiveInputs=*fixture.p.roster.combatInputs(2);
             fixture.enter();fixture.train(1);
-            check(!fixture.p.encounterContext->effects[0] && fixture.p.encounterContext->effects[1]==1 &&
+            check(!fixture.p.encounterContext->effects[XeenPartyEffect::Levitate] && fixture.p.encounterContext->effects[XeenPartyEffect::AutomapOn]==1 &&
                 fixture.p.encounterContext->lightAndResistances[1]==3,"Training reset preserves automap/torches");
-            for(unsigned n=2;n<9;++n)check(!fixture.p.encounterContext->effects[n],"Training party effect survived");
+            for(auto effect:kXeenPartyEffects)if(effect!=XeenPartyEffect::AutomapOn)check(!fixture.p.encounterContext->effects[effect],"Training party effect survived");
             for(unsigned n:{0u,2u,3u,4u,5u})check(!fixture.p.encounterContext->lightAndResistances[n],"Training party light/resistance survived");
             check(fixture.p.roster.at(18).permanentLevel==4 && fixture.p.roster.at(18).currentHp==64 && fixture.p.roster.at(18).currentSp==0 &&
                 fixture.p.roster.combatInputs(18)->experience==0 && fixture.p.monsterTreasure->gold==0 && fixture.p.encounterContext->day==9,"exact funds/reset/refill/progression mismatch");

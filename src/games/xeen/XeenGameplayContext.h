@@ -1,12 +1,23 @@
 #ifndef MMODERN_XEEN_GAMEPLAY_CONTEXT_H
 #define MMODERN_XEEN_GAMEPLAY_CONTEXT_H
 #include <array>
+#include <cstddef>
 #include <cstdint>
 
 #include "games/xeen/XeenMutation.h"
 namespace mmodern {
 enum class XeenBehaviorProfile { WorldOfXeenClouds };
 enum class XeenDifficulty : std::uint8_t { Adventurer, Warrior };
+
+// DOS DS:ed9e..eda6, also the serialized party effect byte order.
+enum XeenPartyEffect : std::size_t {
+	Levitate = 0, AutomapOn = 1, WizardEye = 2, Clairvoyance = 3,
+	WalkOnWater = 4, Bless = 5, PowerShield = 6, HolyBonus = 7, Heroism = 8
+};
+inline constexpr std::array<XeenPartyEffect, 9> kXeenPartyEffects{
+	Levitate, AutomapOn, WizardEye, Clairvoyance, WalkOnWater,
+	Bless, PowerShield, HolyBonus, Heroism
+};
 
 struct XeenGameplayContext {
 	XeenMutable<XeenBehaviorProfile> profile = XeenBehaviorProfile::WorldOfXeenClouds;

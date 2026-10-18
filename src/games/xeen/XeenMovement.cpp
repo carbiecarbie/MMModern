@@ -1,6 +1,7 @@
 #include "games/xeen/XeenMovement.h"
 
 #include "games/xeen/XeenWorld.h"
+#include "games/xeen/XeenSkills.h"
 
 #include <stdexcept>
 #include <utility>
@@ -47,9 +48,9 @@ bool checksSurface(std::uint8_t middle) {
 	}
 }
 
-bool blockedSurface(std::uint8_t surface) {
-	// No Swimming, Walk on Water, or Party state exists in this milestone.
-	return surface == 0 || surface == 8 || surface == 15;
+bool blockedSurface(std::uint8_t surface, XeenMovement::Capabilities c) {
+	return (surface == 0 && !c.swimming && !c.walkOnWater) ||
+        (surface == 8 && !c.walkOnWater) || surface == 15;
 }
 
 std::pair<int, int> directionDelta(XeenDirection direction) {
@@ -67,14 +68,14 @@ XeenDirection opposite(XeenDirection direction) {
 }
 
 XeenMovementResult applyOutdoor(XeenWorld &world, XeenCamera &camera,
-		XeenDirection effectiveDirection) {
+		XeenDirection effectiveDirection, XeenMovement::Capabilities capabilities) {
 	const auto delta = directionDelta(effectiveDirection);
 	const auto target = world.sampleCell(camera.mapId,
 		camera.x + delta.first, camera.y + delta.second);
 	if (!target)
 		return XeenMovementResult::BlockedByMapBoundary;
 
-	const auto admission = XeenMovement::outdoorDestination(*target->geometry, *target->cell, {});
+	const auto admission = XeenMovement::outdoorDestination(*target->geometry, *target->cell, capabilities);
 	if (admission != XeenMovementResult::Moved) return admission;
 
 	XeenCamera destination = camera;
@@ -86,7 +87,7 @@ XeenMovementResult applyOutdoor(XeenWorld &world, XeenCamera &camera,
 }
 
 XeenMovementResult applyIndoor(XeenWorld &world, XeenCamera &camera,
-		XeenDirection effectiveDirection) {
+		XeenDirection effectiveDirection, XeenMovement::Capabilities capabilities) {
 	const auto delta = directionDelta(effectiveDirection);
 	const int targetX = camera.x + delta.first;
 	const int targetY = camera.y + delta.second;
@@ -102,22 +103,26 @@ XeenMovementResult applyIndoor(XeenWorld &world, XeenCamera &camera,
 		throw std::runtime_error("Outdoor cell found in an indoor logical map");
 	if (wallAt(*source->cell,effectiveDirection) >= world.map(camera.mapId).geometry.difficulties[0])
 		return XeenMovementResult::BlockedByWall;
-	if (target->cell->surfaceIndex == 4) return XeenMovementResult::BlockedBySurface;
+	if (target->cell->surfaceIndex == 4 && !capabilities.swimming && !capabilities.walkOnWater) return XeenMovementResult::BlockedBySurface;
 	camera.x=targetX;camera.y=targetY;
 	return XeenMovementResult::Moved;
 }
 
 } // namespace
 
+XeenMovement::Capabilities XeenMovement::capabilities(const XeenPartyState &party) {
+    return {xeenPartyHasSkill(party,14),party.encounterContext && party.encounterContext->effects[XeenPartyEffect::WalkOnWater]!=0,false};
+}
+
 XeenMovementResult XeenMovement::outdoorDestination(const XeenMapGeometry &geometry,
 		const XeenMapCell &cell, Capabilities capabilities) {
-	if (capabilities.swimming || capabilities.walkOnWater || capabilities.mountaineer)
+	if (capabilities.mountaineer)
 		throw std::invalid_argument("Unsupported outdoor traversal capability");
 	const auto *layers = xeenGetIf<XeenOutdoorLayers>(&cell.geometry);
 	if (!geometry.isOutdoors() || !layers || layers->surface >= 16 || layers->middle >= 16)
 		throw std::invalid_argument("Invalid outdoor destination geometry");
 	if (blocksWithoutMountaineer(layers->middle)) return XeenMovementResult::BlockedByTerrain;
-	if (checksSurface(layers->middle) && blockedSurface(geometry.surfaceTypes[layers->surface]))
+	if (checksSurface(layers->middle) && blockedSurface(geometry.surfaceTypes[layers->surface],capabilities))
 		return XeenMovementResult::BlockedBySurface;
 	return XeenMovementResult::Moved;
 }
@@ -156,7 +161,7 @@ std::bitset<256> XeenMovement::component(const XeenMap &map, int anchorX, int an
 }
 
 XeenMovementResult XeenMovement::apply(XeenWorld &world, XeenCamera &camera,
-		NavigationAction action) const {
+		NavigationAction action, Capabilities capabilities) const {
 	const XeenMap &currentMap = world.map(camera.mapId);
 	if (camera.mapId != currentMap.identity())
 		throw std::runtime_error("Camera and map identities differ");
@@ -178,8 +183,8 @@ XeenMovementResult XeenMovement::apply(XeenWorld &world, XeenCamera &camera,
 		action == NavigationAction::StrafeLeft ? turnLeft(camera.direction) :
 		action == NavigationAction::StrafeRight ? turnRight(camera.direction) : XeenDirection(camera.direction);
 	if (currentMap.geometry.isOutdoors())
-		return applyOutdoor(world, camera, effectiveDirection);
-	return applyIndoor(world, camera, effectiveDirection);
+		return applyOutdoor(world, camera, effectiveDirection, capabilities);
+	return applyIndoor(world, camera, effectiveDirection, capabilities);
 }
 
 } // namespace mmodern

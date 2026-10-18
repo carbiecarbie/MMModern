@@ -58,8 +58,8 @@ void effects(Inputs &in) {
   if(id==10)check(f.p.roster.at(s.activeRosterIds[0]).currentHp==16,"Cure Wounds did not heal 15");
   if(id==59)check(f.p.roster.at(s.activeRosterIds[0]).conditions[2]==0,"Revitalize retained Weak");
   if(id==75) {
-   check(f.p.encounterContext->effects[2]==1 && f.p.encounterContext->effects[1]==0,"Eye flags differ");
-   f.act(ToggleAutomapAction{});quiet(f);check(f.p.encounterContext->effects[2]==1,"Automap cleared Eye");
+   check(f.p.encounterContext->effects[XeenPartyEffect::WizardEye]==1 && f.p.encounterContext->effects[XeenPartyEffect::AutomapOn]==0,"Eye flags differ");
+   f.act(ToggleAutomapAction{});quiet(f);check(f.p.encounterContext->effects[XeenPartyEffect::WizardEye]==1,"Automap cleared Eye");
   }
   const auto saved=XeenSaveFormat::encode(f.snapshot());Fixture restored(in,XeenSaveFormat::decode(saved));
   check(saved==XeenSaveFormat::encode(restored.snapshot()),"M60 generic restore replayed cast or changed state");
@@ -83,8 +83,8 @@ void eyeExpiry(Inputs &in) {
  for(bool dawn:{false,true}) {
   auto s=source(in,75,true);if(dawn){s.journey->context->minutes=299;s.journey->context->newDay=true;s.journey->context->rested=true;}
   Fixture f(in,s);f.flow->loadRestDream=[&]{return in.assets.restDreamImage();};f.flow->loadSampleDuration=[&](const char *name,XeenSceneArchive archive){return xeenVocDurationNanoseconds(in.assets.readArchiveResource(name,archive));};begin(f);quiet(f);
-  if(!dawn) {check(f.p.encounterContext->effects[2]==1,"Eye missing before Rest");f.act(RestAction{});f.act(DialogKeyAction{'y'});quiet(f);}
-  check(f.p.encounterContext->effects[2]==0 && f.w.sessionState().exploredTiles().empty(),"resetTemps retained Eye or wrote reveal bits");
+  if(!dawn) {check(f.p.encounterContext->effects[XeenPartyEffect::WizardEye]==1,"Eye missing before Rest");f.act(RestAction{});f.act(DialogKeyAction{'y'});quiet(f);}
+  check(f.p.encounterContext->effects[XeenPartyEffect::WizardEye]==0 && f.w.sessionState().exploredTiles().empty(),"resetTemps retained Eye or wrote reveal bits");
  }
 }
 void refunds(Inputs &in) {

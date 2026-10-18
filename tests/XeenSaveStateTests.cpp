@@ -329,7 +329,7 @@ void fullRestoration(){
  auto s=currentSnapshot();s.questItems[17]=3;s.questFlags[2]=true;s.gameFlags[7]=true;
  s.food=27;s.journey->context->year=611;s.journey->context->day=0;
  s.journey->context->minutes=299;s.journey->context->newDay=true;s.journey->context->rested=true;
- s.journey->context->effects[0]=3;s.journey->context->lightAndResistances[1]=9;
+ s.journey->context->effects[XeenPartyEffect::Levitate]=3;s.journey->context->lightAndResistances[1]=9;
  for(auto &pair:s.journey->supplements) {
   pair.inputs.resistances->fireTemporary=7;pair.inputs.resistances->energyTemporary=8;
   pair.inputs.resistances->magicTemporary=9;
@@ -787,7 +787,7 @@ void valueRoundTrips(){
     snapshot.characters[id].awards[20]==(before.characters[id].awards[20]|1) &&
     snapshot.characters[id].conditions[3]==std::uint8_t(before.characters[id].conditions[3]+1),"Character values not published");
   }
-  if(operation==1)check(snapshot.journey->context->effects[0]==1 && snapshot.journey->context->effects[4]==1 &&
+  if(operation==1)check(snapshot.journey->context->effects[XeenPartyEffect::Levitate]==1 && snapshot.journey->context->effects[XeenPartyEffect::WalkOnWater]==1 &&
    snapshot.journey->context->day==42 && snapshot.food==std::uint16_t(before.food+10) &&
    snapshot.journey->treasure->gems==before.journey->treasure->gems+5,"Party values not published");
   if(operation==2)check(snapshot.journey->random->count>before.journey->random->count,"Random operations drew nothing");

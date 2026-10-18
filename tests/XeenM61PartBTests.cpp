@@ -91,7 +91,7 @@ void effects(Inputs &in) {
         if(power==4 || power==9)check(t.currentHp==(power==4?7:16),"Shared healing amount differs");
         if(power==8)check(!t.conditions[2],"Revitalize retained Weak");
         if(power==37)check(!t.conditions[3],"Antidote retained Poison");
-        if(power==21)check(f.p.encounterContext->effects[2]==1 && f.p.encounterContext->effects[1]==0,"Eye flags differ");
+        if(power==21)check(f.p.encounterContext->effects[XeenPartyEffect::WizardEye]==1 && f.p.encounterContext->effects[XeenPartyEffect::AutomapOn]==0,"Eye flags differ");
         if(power==16 && !indoor)check(f.c.x==11 && f.c.y==11,"Jump destination differs");
         const auto saved=XeenSaveFormat::encode(f.snapshot());Fixture restored(in,XeenSaveFormat::decode(saved));
         check(saved==XeenSaveFormat::encode(restored.snapshot()),"Item save/load replayed effects/response");
@@ -102,7 +102,8 @@ void refusal(Inputs &in) {
     for(unsigned power=0;power<75;++power) {
         const bool m75=power==26 || power==27 || power==41 || power==44 || power==51 || power==56 || power==57 || power==66 || power==73;
         const bool partyBuff=power==22 || power==30 || power==25 || power==29 || power==14 || power==49 || power==50;
-        const bool supported=partyBuff || m75 || std::find(std::begin(powers),std::end(powers),power)!=std::end(powers) ||
+        const bool senses=power==1 || power==20 || power==32 || power==18 || power==34 || power==23;
+        const bool supported=senses || partyBuff || m75 || std::find(std::begin(powers),std::end(powers),power)!=std::end(powers) ||
             std::find(std::begin(damagePowers),std::end(damagePowers),power)!=std::end(damagePowers);
         check(xeenItemUseSupported({1,std::uint8_t(power),1,0})==supported,"Power support boundary differs");
         if(supported)continue;

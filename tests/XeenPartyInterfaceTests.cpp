@@ -200,7 +200,7 @@ void quickCasting(Inputs &in) {
  check(arrow.w.sessionState().journeyRandom()==manual.w.sessionState().journeyRandom(),"Quick Arrow uses ordinary RNG draws");
  for(unsigned id=0;id<30;++id)check(xeen_state::sameCharacter(arrow.p.roster.at(id),manual.p.roster.at(id)) && xeen_state::sameInputs(*arrow.p.roster.combatInputs(id),*manual.p.roster.combatInputs(id)),"Quick Arrow ordinary owner write-back");
  for(unsigned kind=0;kind<5;++kind) {
-  auto s=casterSource(in,XeenCharacterClass::Sorcerer,kind==0?255:kind==1?45:kind==2?40:kind==3?42:20);
+  auto s=casterSource(in,XeenCharacterClass::Sorcerer,kind==0?255:kind==1?45:kind==2?40:kind==3?44:20);
   if(kind==1)s.characters[s.activeRosterIds[0]].currentSp=0;
   if(kind==4)s.journey->treasure->gems=0;
   Fixture skip(in,s);engage(skip);combat=skip.flow->encounter()->combat();const auto before=skip.p.roster.at(s.activeRosterIds[0]);const auto cursor=skip.w.sessionState().journeyRandom();const auto minutes=skip.p.encounterContext->minutes;
@@ -440,7 +440,7 @@ void spellChecks(Inputs &in) {
   c.currentSpell=slot;const auto id=XeenLearnedSpellRules::spellForSlot(*XeenLearnedSpellRules::categoryForClass(c.characterClass),slot);
   const auto result=XeenLearnedSpellRules::quickSpellCheck(c,1000);
   if(*id==45)check(result==Q::Supported,"Quick Cast supported arrow");
-  if(*id==42)check(result==Q::Unsupported,"Unsupported system refuses");
+  if(*id==44)check(result==Q::Unsupported,"Unsupported system refuses");
   if(*id==40 || *id==75)check(result==Q::CombatForbidden,"Implemented exploration spell is forbidden in combat");
  }
  for(unsigned slot=0;slot<39;++slot)if(XeenLearnedSpellRules::spellForSlot(*XeenLearnedSpellRules::categoryForClass(c.characterClass),slot)==45)c.currentSpell=slot;

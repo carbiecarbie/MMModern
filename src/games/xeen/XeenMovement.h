@@ -9,6 +9,7 @@
 namespace mmodern {
 
 class XeenWorld;
+struct XeenPartyState;
 
 enum class XeenMovementResult {
 	Turned,
@@ -26,6 +27,7 @@ public:
 	struct Capabilities {
 		bool swimming = false, walkOnWater = false, mountaineer = false;
 	};
+	static Capabilities capabilities(const XeenPartyState &);
 	static XeenMovementResult outdoorDestination(const XeenMapGeometry &geometry,
 		const XeenMapCell &cell, Capabilities capabilities);
 	static XeenMovementResult localOutdoor(const XeenMap &map, int fromX, int fromY,
@@ -33,7 +35,7 @@ public:
 	static std::bitset<256> component(const XeenMap &map, int anchorX, int anchorY,
 		Capabilities capabilities);
 	XeenMovementResult apply(XeenWorld &world, XeenCamera &camera,
-		NavigationAction action) const;
+		NavigationAction action, Capabilities capabilities = {false,false,false}) const;
 };
 
 } // namespace mmodern

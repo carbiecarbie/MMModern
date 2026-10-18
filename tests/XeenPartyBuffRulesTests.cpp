@@ -31,16 +31,16 @@ void handlers() {
         XeenGameplayContext context;context.effects.fill(99);context.lightAndResistances.fill(999);
         R::applyPartyEffect(spell,context,caster.currentLevel(),3);
         const unsigned byte=level%256;
-        if(n<4) {constexpr unsigned index[]{8,5,7,6};check(context.effects[index[n]]==byte,"Byte assignment replaces stronger bonus");}
+        if(n<4) {constexpr XeenPartyEffect index[]{XeenPartyEffect::Bless,XeenPartyEffect::Heroism,XeenPartyEffect::HolyBonus,XeenPartyEffect::PowerShield};check(context.effects[index[n]]==byte,"Byte assignment replaces stronger bonus");}
         if(n==4)check(context.lightAndResistances[5]==std::min(2*level+5,200u) && context.lightAndResistances[2]==999,"Acid assigns Poison only, capped");
         if(n==5) {
-            for(unsigned i:{4u,5u,7u,8u})check(context.effects[i]==byte,"Day of Protection byte flags");
+            for(auto i:{XeenPartyEffect::WalkOnWater,XeenPartyEffect::Heroism,XeenPartyEffect::HolyBonus,XeenPartyEffect::Bless})check(context.effects[i]==byte,"Day of Protection byte flags");
             for(unsigned i:{0u,2u,3u,4u,5u})check(context.lightAndResistances[i]==byte,"Day of Protection word assignments");
-            check(context.effects[6]==99 && context.effects[1]==99 && context.lightAndResistances[1]==999,"Day of Protection unrelated fields");
+            check(context.effects[XeenPartyEffect::PowerShield]==99 && context.effects[XeenPartyEffect::AutomapOn]==99 && context.lightAndResistances[1]==999,"Day of Protection unrelated fields");
         }
         if(n==6) {
-            for(unsigned i:{0u,2u,3u,6u})check(context.effects[i]==byte,"Day of Sorcery byte flags/count");
-            check(context.lightAndResistances[0]==byte && !context.effects[1] && context.effects[5]==99 && context.lightAndResistances[2]==999,"Day of Sorcery light/automap and exclusions");
+            for(auto i:{XeenPartyEffect::Clairvoyance,XeenPartyEffect::WizardEye,XeenPartyEffect::Levitate,XeenPartyEffect::PowerShield})check(context.effects[i]==byte,"Day of Sorcery byte flags/count");
+            check(context.lightAndResistances[0]==byte && !context.effects[XeenPartyEffect::AutomapOn] && context.effects[XeenPartyEffect::Heroism]==99 && context.lightAndResistances[2]==999,"Day of Sorcery light/automap and exclusions");
         }
     }
     for(unsigned element=0;element<4;++element) {
@@ -72,11 +72,19 @@ void consumers() {
     c=characters();c[0].permanentLevel=1;c[0].characterClass=XeenCharacterClass::Knight;
     XeenMonsterRecord monster;monster.raw[22]=5;
     for(bool shoot:{false,true})for(auto difficulty:{XeenDifficulty::Adventurer,XeenDifficulty::Warrior}) {
+        monster.raw[22]=difficulty==XeenDifficulty::Adventurer?10:5;
         c[0].weapons[0]={0,std::uint8_t(shoot?30:1),0,std::uint8_t(shoot?4:1)};
-        XeenGameplayContext context;context.effects[5]=4;context.effects[7]=7;
+        XeenGameplayContext context;R::applyPartyEffect(XeenLearnedSpell::Heroism,context,4);
+        check(context.effects[XeenPartyEffect::Heroism]==4 && !context.effects[XeenPartyEffect::Bless],
+            "Heroism spell writes its DOS byte, independently of Bless");
+        context.effects[XeenPartyEffect::HolyBonus]=7;
         std::vector<D> tape(3,{1,shoot?2u:3u,2});tape.push_back({1,20,10});if(shoot)tape.push_back({1,56,56});
         XeenCombatRandom random(tape);XeenPhysicalPlayerCandidate attack(c[0],in[0],monster,6,610,shoot,difficulty,XeenActorStatus::Physical,context);finish(attack,random);
         check(attack.hit && attack.damage==13*(difficulty==XeenDifficulty::Adventurer?3:1)+(shoot?0:2),"Heroism hit and Holy Bonus before difficulty, melee/Shoot");
+        XeenCombatRandom unbuffedRandom(tape);XeenGameplayContext unbuffed;
+        XeenPhysicalPlayerCandidate unbuffedAttack(c[0],in[0],monster,6,610,shoot,difficulty,XeenActorStatus::Physical,unbuffed);
+        finish(unbuffedAttack,unbuffedRandom);
+        check(!unbuffedAttack.hit,"The same attack roll misses without the Heroism spell");
         if(shoot) {
             XeenCombatRandom poisonRandom(tape);XeenSpellDamageCandidate poison(c[0],in[0],monster,6,610,difficulty,XeenActorStatus::Physical,true,context);finish(poison,poisonRandom);
             check(poison.damage==10 && !poison.miss,"Poison Volley uses Heroism accuracy and overrides Holy Bonus damage");
@@ -84,12 +92,12 @@ void consumers() {
     }
     c=characters();in=inputs();
     {
-        XeenGameplayContext context;context.effects[6]=3;context.lightAndResistances[2]=4;
+        XeenGameplayContext context;context.effects[XeenPartyEffect::PowerShield]=3;context.lightAndResistances[2]=4;
         monster={};monster.raw[24]=1;monster.raw[25]=3;monster.raw[26]=1;monster.raw[28]=20;monster.raw[29]=2;monster.raw[30]=5;
         XeenCombatRandom random(std::vector<D>{{1,20,20},{1,25,1},{1,40,40},{1,25,25}});
         XeenEnemyAttackCandidate attack(c,in,monster,610,63,{},XeenActorStatus::Physical,context);finish(attack,random);
         check(attack.result.damage==3 && attack.characters[0].conditions[3]==1 && random.position()==4,"Positive shielded monster damage retains secondary save after shield");
-        c[0].conditions[8]=1;monster.raw[29]=0;monster.raw[31]=5;context.effects[6]=20;
+        c[0].conditions[8]=1;monster.raw[29]=0;monster.raw[31]=5;context.effects[XeenPartyEffect::PowerShield]=20;
         XeenCombatRandom physicalRandom(std::vector<D>{{1,20,20}});
         XeenEnemyAttackCandidate physical(c,in,monster,610,63,{},XeenActorStatus::Physical,context);finish(physical,physicalRandom);
         check(!physical.result.damage && physicalRandom.position()==1,"Physical shield skips elemental and zero-damage secondary saves");
@@ -101,7 +109,7 @@ void consumers() {
         // personal resistance 10 succeeds once: 6 -> 3; fail; shield -> 0.
         in[0].resistances->firePermanent=in[0].resistances->electricalPermanent=in[0].resistances->coldPermanent=10;
         in[0].poisonResistance=XeenAttributeValue{10,0};
-        XeenGameplayContext context;context.lightAndResistances[type]=4;context.effects[6]=shield;
+        XeenGameplayContext context;context.lightAndResistances[type]=4;context.effects[XeenPartyEffect::PowerShield]=shield;
         XeenCombatRandom random(std::vector<D>{{1,20,20},{1,25,1},{1,50,1},{1,50,50}});
         XeenEnemyAttackCandidate attack(c,in,monster,610,63,{},XeenActorStatus::Physical,context);finish(attack,random);
         check(!attack.result.damage && !attack.characters[0].conditions[3] && random.position()==4,"Monster protection/save/shield order and suppressed secondary save");

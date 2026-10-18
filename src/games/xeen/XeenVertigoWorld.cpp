@@ -35,7 +35,7 @@ XeenTerrainArrival XeenWorld::prepareTerrainArrival(const XeenCamera &camera,
  if(!cell)throw std::invalid_argument("Arrival cell is absent");
  const auto &primary=map(camera.mapId).geometry;
  bool navigator=false;for(const auto &c:characters)navigator=navigator || c.skills[10]!=0;
- auto rule=xeenTerrainArrival(primary.surfaceTypes[cell->cell->surfaceIndex],primary.isOutdoors(),navigator,context.effects[2]!=0,camera);
+ auto rule=xeenTerrainArrival(primary.surfaceTypes[cell->cell->surfaceIndex],primary.isOutdoors(),navigator,context.effects[XeenPartyEffect::Levitate]!=0,camera);
  if(rule.falling)rule.transition=prepareEventTransition(rule.transition.destination);
  return rule;
 }
@@ -52,7 +52,7 @@ XeenTransitionResult XeenWorld::prepareEventTransition(const XeenCamera &request
 		destination.x>=limit || destination.y>=limit || !sampleCell(destination.mapId,destination.x,destination.y))
 		return {XeenTransitionResult::Status::Unavailable,destination,"Destination has no map cell"};
 	if (regionalJourney() && destination.mapId!=_developerEventMap && destination.mapId==XeenMapIdentity(23) &&
-		!XeenMovement::component(resource,9,11,xeenJourneyContent().traversal)[destination.y*16+destination.x])
+		!XeenMovement::component(resource,9,11,{true,true,false})[destination.y*16+destination.x])
 		return {XeenTransitionResult::Status::Unavailable,destination,"Destination is outside the admitted mainland"};
 	return {XeenTransitionResult::Status::Available,destination,{}};
 }

@@ -54,7 +54,7 @@ void summaries(Inputs &in) {
     args={std::string(1,rows?'\1':'\n'),std::string(text.scalar("INFO_ALIGN_LEFT"))};
     if(bit!=7)args.push_back(std::string(text.scalar("INFO_ALIGN_RIGHT")));
     if(bit<5){ctx.lightAndResistances[bit+1]=bit+10;args.push_back(std::to_string(bit+10));}
-    else {constexpr unsigned indices[]{0,3,4};ctx.effects[indices[bit-5]]=1;}
+    else {constexpr XeenPartyEffect indices[]{XeenPartyEffect::Clairvoyance,XeenPartyEffect::Levitate,XeenPartyEffect::WalkOnWater};ctx.effects[indices[bit-5]]=1;}
    }
    effects+=xeenDialogFormat(text.scalar(fields[bit]),args);++rows;
   }
@@ -63,7 +63,7 @@ void summaries(Inputs &in) {
   check(drawXeenPopup(base,in.font,popup).isValid(),"CD Info effect combination rendering");
  }
  const auto all=xeenInfoPopup(text,ctx).text;
- ctx.lightAndResistances[1]=99;for(unsigned i:{1u,2u,5u,6u,7u,8u})ctx.effects[i]=1;
+ ctx.lightAndResistances[1]=99;for(auto i:{XeenPartyEffect::AutomapOn,XeenPartyEffect::WizardEye,XeenPartyEffect::Bless,XeenPartyEffect::PowerShield,XeenPartyEffect::HolyBonus,XeenPartyEffect::Heroism})ctx.effects[i]=1;
  check(xeenInfoPopup(text,ctx).text==all,"Info must exclude other effect fields");
 }
 void readonly(Inputs &in) {

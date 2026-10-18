@@ -425,6 +425,10 @@ RNG draws. Do not replace this by a single kill chance inferred from its name.
 **Evidence: DOS static, high confidence (2026-10-18)** for the M76 rules below.
 The earlier Jump evidence is retained. Source comparison: [handlers][spells].
 Offsets, calibration and limits are in [M76 spells](evidence.md#m76-spells).
+The saved byte order is Levitate, automap on, Wizard Eye, Clairvoyance,
+Walk on Water, Bless, Power Shield, Holy Bonus, Heroism; see
+[Party effect bytes](evidence.md#party-effect-bytes). Temple Donation grants
+Clairvoyance (byte 3), not Levitate (byte 0).
 Durations and reset ownership are detailed in
 [time and conditions](time-and-conditions.md).
 
@@ -445,8 +449,9 @@ The pin substitutes true/1 for those fields. See
 [Day-spell counters](../original-quirks.md#sv-day-spell-counters).
 Its in-memory buff/light integers also retain values beyond the DOS byte/
 word limits; see [effect widths](../original-quirks.md#sv-spell-effect-widths).
-Wizard Eye's standalone assignment remains **Reference only** here; its
-previously established item entry is retained.
+Wizard Eye's standalone flag assignment is also confirmed by the calibrated
+[party byte check](evidence.md#party-effect-bytes); its established item entry
+is retained.
 
 Bless adds to Speed's stat bonus and equipment AC, together with temporary
 AC, unless the caller requests base-only AC (`0x3bccf..0x3bd25`). There is
@@ -496,6 +501,15 @@ Swimming alone permits shallow water. Indoor movement's separate raw-slot-4
 check accepts either Swimming or Walk on Water (`0x0cf52..0x0cf8d`). Neither
 provides extra terrain-arrival immunity. Rest/dawn temporary reset ends
 both effects; script changes can also alter them.
+
+The consumers are `XeenMovement` (Swimming/Walk on Water) and
+`XeenWorld::prepareTerrainArrival`/`XeenTerrainRules` (Levitate). The existing
+party skill test requires Swimming on all active members and does not filter
+conditions (**Reference only** for that aggregation). Saved positions remain
+valid on water when the temporary effect expires; the next attempted move
+still checks the current abilities.
+Light's stepped mark has no lighting consumer on the open, illuminated maps;
+the successful learned-cast suffix still performs its ordinary arrival.
 
 ### Border and information screens
 

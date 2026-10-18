@@ -44,7 +44,7 @@ void controls(Inputs &in) {
  auto source=clearedCity(in);for(auto &c:source.characters)c.skills[4]=0;
  Fixture f(in,source);modal(f);const auto baseline=f.snapshot();
  f.act(ToggleAutomapAction{});quiet(f);auto expected=baseline;
- expected.journey->context->effects[1]=!expected.journey->context->effects[1];
+ expected.journey->context->effects[XeenPartyEffect::AutomapOn]=!expected.journey->context->effects[XeenPartyEffect::AutomapOn];
  check(XeenSaveFormat::encode(f.snapshot())==XeenSaveFormat::encode(expected),"Automap toggle changes existing PTY byte only");
  f.act(ToggleAutomapAction{});quiet(f);
  check(XeenSaveFormat::encode(f.snapshot())==XeenSaveFormat::encode(baseline),"Automap toggle exact inverse");
@@ -177,7 +177,7 @@ void combatMap(Inputs &in) {
  check(combat==f.flow->encounter()->combat() && combat->phase()==XeenCombatPhase::PlayerReady && combat->participant()==participant,"Map restores combat caller and turn");
  check(*f.p.encounterContext==time && f.w.sessionState().journeyRandom()==rng && f.w.sessionState().exploredTiles()==masks && key(f.c)==key(camera),"Combat Map spends no time/RNG/exploration");
  for(unsigned owner=0;owner<30;++owner)check(xeen_state::sameCharacter(f.p.roster.at(owner),characters[owner]),"Combat Map leaves roster unchanged");
- f.act(ToggleAutomapAction{});auto expected=time;expected.effects[1]=!expected.effects[1];
+ f.act(ToggleAutomapAction{});auto expected=time;expected.effects[XeenPartyEffect::AutomapOn]=!expected.effects[XeenPartyEffect::AutomapOn];
  check(*f.p.encounterContext==expected && f.w.sessionState().journeyRandom()==rng && combat->participant()==participant,"Combat automap toggles only existing switch");
  f.act(ToggleAutomapAction{});check(*f.p.encounterContext==time,"Combat automap inverse");
  for(unsigned n=0;n<2000 && f.flow->encounter()->combat();++n) {

@@ -219,6 +219,7 @@ void originalSession(const char *directory,XeenCamera start,const std::string &w
    check(prompts==1,"Mirror must ask exactly once");
    if(!refused) {
     const XeenCamera expected=word=="vertigo"?XeenCamera{28,18,4,XeenDirection::West}:
+     word=="magic delta"?XeenCamera{23,9,6,XeenDirection::West}:
      word=="toad meadow"?XeenCamera{23,7,2,XeenDirection::West}:
      word=="ever blossom orchard"?XeenCamera{23,5,12,XeenDirection::West}:start;
     check(xeen_state::sameCamera(*h.camera,expected),"Original mirror map/x/y/facing: "+word);
@@ -272,7 +273,7 @@ void original(const char *directory) {
   if(r.opcode==21 && r.parameters[0]) {XeenEventTextLoader t([&](const std::string &name)->std::optional<std::vector<std::uint8_t>> {if(!h.assets->hasArchiveResource(name))return {};return h.assets->readArchiveResource(name);});auto text=t.load(id);std::cout<<"PASSWORD primary="<<(text.stringAt(r.parameters[0])?*text.stringAt(r.parameters[0]):"[absent]")<<" alternate="<<(text.stringAt(r.parameters[2])?*text.stringAt(r.parameters[2]):"[absent]")<<'\n';}
  }
  for(const auto &word:{"vertigo","magic delta","toad meadow","ever blossom orchard","nightshadow","dragon tower","i lost it"})
-  originalSession(directory,{28,14,10,XeenDirection::West},word,std::string(word)=="nightshadow" || std::string(word)=="dragon tower" || std::string(word)=="magic delta");
+  originalSession(directory,{28,14,10,XeenDirection::West},word,std::string(word)=="nightshadow" || std::string(word)=="dragon tower");
  originalSession(directory,{69,9,15,XeenDirection::West},"wrong");
  originalSession(directory,{28,12,12,XeenDirection::North},"");
  // Actual railway records, quest flag 221 set / 220 clear: line 4 Continue,

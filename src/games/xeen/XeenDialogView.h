@@ -13,6 +13,11 @@
 #include <string_view>
 namespace mmodern {
 using XeenDialogSpriteDraw = std::function<void(IndexedFrame &,const char *,unsigned,int,int)>;
+struct XeenSpellInformation;
+IndexedFrame drawXeenSpellInformation(const XeenDosText &,const IndexedFrame &,const XeenFontFormat &,
+    const XeenSpellInformation &,const XeenDialogSpriteDraw &);
+
+
 struct XeenTreasureLine {
     std::string recipient, itemName;
     bool quest=false;

@@ -42,7 +42,7 @@ int main() {
 		check(c.day==1 && c.year==610 && c.minutes==480 && c.ctr24==0 && !c.newDay,"PTY offsets");
 		b[620]=0x34;b[621]=0x12;b[630]=0x78;b[631]=0x56;b[18]=7;
 		c=XeenGameplayContextFormat::parse(b);
-		check(c.effects[0]==7 && c.lightAndResistances[0]==0x1234 && c.lightAndResistances[5]==0x5678,
+		check(c.effects[XeenPartyEffect::Levitate]==7 && c.lightAndResistances[0]==0x1234 && c.lightAndResistances[5]==0x5678,
 			"PTY context fields normalized or skipped incorrectly");
 		for(auto offset:{27,658,610}) {b=pty();b[offset]=255;rejects([&]{XeenGameplayContextFormat::parse(b);});}
 		check(!party().encounterContext,"ordinary party load acquired encounter context");

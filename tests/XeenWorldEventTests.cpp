@@ -5,6 +5,7 @@
 #include "games/xeen/XeenIndoorScene.h"
 #include "games/xeen/XeenObjectVisual.h"
 #include "games/xeen/XeenStateEquality.h"
+#include "games/xeen/XeenTempleHeal.h"
 #include <chrono>
 #include <iostream>
 #include <fstream>
@@ -246,12 +247,33 @@ void partA(Inputs &in) {
  for(unsigned d=0;d<4;++d) {const auto wall=wallAt(*tile->cell,XeenDirection(d));if(wall!=1 && wall!=6 && wall!=9 && wall!=13){source.camera.direction=XeenDirection(d);break;}}
  const auto owner=source.activeRosterIds[1];
  source.characters[owner].skills[0]=0;
- source.journey->context->effects[0]=1;source.journey->context->effects[3]=1;source.journey->context->lightAndResistances[2]=13;
+ source.journey->context->effects[XeenPartyEffect::Levitate]=1;source.journey->context->effects[XeenPartyEffect::Clairvoyance]=1;source.journey->context->lightAndResistances[2]=13;
  source.journey->context->lightAndResistances[1]=17;source.journey->context->newDay=true;
  source.characters[owner].temporaryLevel=2;source.characters[owner].temporaryAge=3;
  source.characters[owner].intellect.temporary=9;source.journey->supplements[owner].inputs.might.temporary=7;
  for(int flag:{55,155,222,231})source.gameFlags[flag]=true;
  auto arrival=record(0,0x0c,{0,0,103,24});arrival.x=27;arrival.y=11;
+ // Isolate the producer and both dialog consumers: Donation is not Levitate.
+ for(bool donated:{false,true}) {
+  auto test=source;auto &context=*test.journey->context;context.effects.fill(0);
+  if(donated) {
+   context.day=8;std::uint8_t count=7;
+   check(xeenTempleDonationBlessing(context,count),"Donation blessing did not trigger");
+   check(context.effects[XeenPartyEffect::Clairvoyance] && !context.effects[XeenPartyEffect::Levitate],
+    "Donation must set Clairvoyance without granting Levitate");
+   const auto &text=in.assets.uiText();const auto info=xeenInfoPopup(text,context).text;
+   const std::vector<std::string> args{"\1",std::string(text.scalar("INFO_ALIGN_LEFT")),std::string(text.scalar("INFO_ALIGN_RIGHT"))};
+   check(info.find(xeenDialogFormat(text.scalar("CLAIRVOYANCE_TEXT"),args))!=std::string::npos &&
+    info.find(xeenDialogFormat(text.scalar("LEVITATE_TEXT"),args))==std::string::npos,
+    "Donation must show only the Clairvoyance Info line");
+  } else XeenLearnedSpellRules::applyPartyEffect(XeenLearnedSpell::Levitate,context);
+  XeenEventFile prompt{28,"maze0028.evt",true,{record(0,0x24,{0,1}),record(1,0x20,{0,0}),record(2,0x12)}};
+  Fixture dialog(in,test,false,&prompt);unsigned heads=0;
+  dialog.flow->drawDialogSprite=[&](auto &,const auto &name,unsigned,int,int){if(std::string(name)=="border.icn")++heads;};
+  dialog.act(InteractionAction{});
+  check(donated?heads>=2:heads==0,"Only Donation Clairvoyance activates the prompt statues; Levitate does not");
+  dialog.act(CancelInteractionAction{});
+ }
  XeenEventFile script{28,"maze0028.evt",true,{record(0,0x24,{0,1}),record(1,0x20,{0,0}),
   record(2,0x0a,{102,0,8}),record(3,0x0c,{0,0,78,0}),record(4,0x0c,{0,0,103,23}),record(5,0x12),
   record(8,0x0c,{0,0,85,1}),record(9,0x0f,{0}),record(10,0x0c,{0,0,15,8}),record(11,0x1f,{28,27,11}),arrival}};
@@ -287,7 +309,7 @@ void partA(Inputs &in) {
  check(jail.p.encounterContext->year==clock.year+1 && jail.p.encounterContext->day==clock.day &&
   jail.p.encounterContext->minutes==clock.minutes+1 && jail.p.encounterContext->ctr24==(clock.ctr24+1)%24 &&
   !jail.p.encounterContext->newDay && !jail.p.encounterContext->rested && jail.p.encounterContext->lightAndResistances[1]==17 &&
-  jail.p.encounterContext->effects[3]==0 && jail.p.encounterContext->lightAndResistances[2]==0 && jail.p.serviceEconomy==economy && jail.w.sessionState().journeyRandom()==rng,
+  jail.p.encounterContext->effects[XeenPartyEffect::Clairvoyance]==0 && jail.p.encounterContext->lightAndResistances[2]==0 && jail.p.serviceEconomy==economy && jail.w.sessionState().journeyRandom()==rng,
   "Direct year jump simulated time/economy/RNG or lost retained clock fields");
  check(XeenCharacterRules::sheetAge(jail.p.roster.at(owner),{jail.p.encounterContext->year})==age+1 &&
   jail.p.roster.at(owner).temporaryLevel==0 && jail.p.roster.at(owner).temporaryAge==3 &&
@@ -342,7 +364,7 @@ void partA(Inputs &in) {
  Fixture damage(in,damageSource,false,&damageScript);XeenConsequenceCharacters characters{};XeenConsequenceInputs inputs{};
  for(unsigned n=0;n<damage.p.party.size();++n) {const auto id=damage.p.party.activeRosterIds()[n];characters[n]=damage.p.roster.at(id);inputs[n]=*damage.p.roster.combatInputs(id);}
  XeenDamageProtection protection;for(unsigned n=0;n<4;++n)protection.resistances[n]=damage.p.encounterContext->lightAndResistances[n+2];
- protection.powerShield=damage.p.encounterContext->effects[6];
+ protection.powerShield=damage.p.encounterContext->effects[XeenPartyEffect::PowerShield];
  XeenTypedDamageCandidate oracle(characters,inputs,5,XeenDamageType::Poison,clock.year,2,protection);XeenCombatRandom random(*damage.w.sessionState().journeyRandom());
  for(;;){XeenConsequenceDraw draw{random,64,{}};if(oracle.service(draw))break;}
  XeenConditionTimeCandidate damageSpace(*damage.p.encounterContext,1,oracle.characters,inputs,&*damage.p.serviceEconomy);

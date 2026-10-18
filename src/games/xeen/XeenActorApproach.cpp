@@ -555,9 +555,9 @@ XeenEncounterResult XeenActorApproach::regionalTransition(XeenWorld &world,XeenP
 							*action==XeenEncounterAction::StrafeLeft?3u:*action==XeenEncounterAction::StrafeRight?1u:0u))&3u;
 						constexpr int dx[]{0,1,0,-1},dy[]{1,0,-1,0};const int x=camera.x+dx[d],y=camera.y+dy[d];
 						if(indoor) {
-							result=XeenMovement().apply(world,c.camera,navigation);
+							result=XeenMovement().apply(world,c.camera,navigation,XeenMovement::capabilities(party));
 						} else {
-							result=XeenMovement::localOutdoor(map,camera.x,camera.y,x,y,xeenJourneyContent().traversal);
+							result=XeenMovement::localOutdoor(map,camera.x,camera.y,x,y,XeenMovement::capabilities(party));
 							if(result==XeenMovementResult::Moved) { c.camera.x=x;c.camera.y=y; }
 						}
 					} else result=XeenMovement().apply(world,c.camera,*action==XeenEncounterAction::Left?NavigationAction::TurnLeft:NavigationAction::TurnRight);
@@ -566,7 +566,7 @@ XeenEncounterResult XeenActorApproach::regionalTransition(XeenWorld &world,XeenP
 					if(indoor ? !xeenIndoorCoordinate(c.camera.x,c.camera.y) :
 						(c.camera.x<0 || c.camera.x>=16 || c.camera.y<0 || c.camera.y>=16 ||
 						 (c.camera.mapId!=world.developerEventMap() && (c.camera.mapId!=xeenJourneyContent().entry.mapId ||
-						 !XeenMovement::component(map,9,11,xeenJourneyContent().traversal)[c.camera.y*16+c.camera.x]))))
+						 !XeenMovement::component(map,9,11,{true,true,false})[c.camera.y*16+c.camera.x]))))
 						{ refused.reason=XeenEncounterStop::Envelope;return refused; }
 					const auto sampled=indoor ? world.sampleCell(c.camera.mapId,c.camera.x,c.camera.y) : std::optional<XeenCellSample>{};
 					if(indoor ? (sampled && (sampled->cell->rawAttributes & kXeenAutomaticEventFlag)!=0) :

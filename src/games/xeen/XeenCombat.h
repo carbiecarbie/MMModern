@@ -170,6 +170,7 @@ struct XeenCombatCastView {
     int successorParticipant=-1;
     std::string refusal;
     XeenCombatCastResult result;
+    std::optional<XeenSpellInformation> information;
 };
 class XeenRestoreGuard;
 class XeenCombat {

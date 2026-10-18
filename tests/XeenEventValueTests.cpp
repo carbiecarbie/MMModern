@@ -86,9 +86,12 @@ void widths() {
 
 void probes() {
  Owners o;
- const auto armor=probe(o,10,0).value;o.p.encounterContext->effects[8]=7;
- check(probe(o,10,0).value==armor+7,"Event armor-class probe omitted party Bless");
- o.p.encounterContext->effects[8]=0;
+ const auto armor=probe(o,10,0).value;
+ XeenLearnedSpellRules::applyPartyEffect(XeenLearnedSpell::Bless,*o.p.encounterContext,7);
+ check(o.p.encounterContext->effects[XeenPartyEffect::Bless]==7 &&
+  !o.p.encounterContext->effects[XeenPartyEffect::Heroism] && probe(o,10,0).value==armor+7,
+  "Bless spell must reach the AC byte read by the Event owner");
+ o.p.encounterContext->effects[XeenPartyEffect::Bless]=0;
  // A failed skill test leaves ifProc's local uninitialised (residue).
  check(probe(o,13,5).residue && !probe(o,99,5).residue && probe(o,99,5).value==0xffffffffu,"skill/party-skill failure values");
  o.c(0).skills[5]=1;check(!probe(o,13,5).residue && probe(o,13,5).value==5,"skill success");
@@ -100,7 +103,7 @@ void probes() {
  o.camera.mapId={XeenSide::Clouds,82};o.in(0).might.temporary=3;
  check(probe(o,37,40).value==3,"mode 37 reads temporary Might without a map exception");
  // 69 is a flag, 93 a remainder, 76 the day.
- o.p.encounterContext->effects[0]=5;check(probe(o,69,1).value==1,"Levitate reads as a flag");
+ o.p.encounterContext->effects[XeenPartyEffect::Levitate]=5;check(probe(o,69,1).value==1,"Levitate reads as a flag");
  o.p.encounterContext->day=57;check(probe(o,93,0).value==7 && probe(o,76,0).value==57,"day of week is day%10");
  // 78/81 compare unsigned words: negative HP is not below maximum.
  check(probe(o,78,1).value==1,"HP at or below maximum");
@@ -121,13 +124,13 @@ void probes() {
 void writes() {
  Owners o;const auto w=o.owners();
  // setValue (maze0055.evt @335: SetVar 74 value 0 clears every listed effect).
- o.p.encounterContext->effects[0]=4;o.p.encounterContext->effects[2]=1;o.p.encounterContext->effects[4]=1;
+ o.p.encounterContext->effects[XeenPartyEffect::Levitate]=4;o.p.encounterContext->effects[XeenPartyEffect::WizardEye]=1;o.p.encounterContext->effects[XeenPartyEffect::WalkOnWater]=1;
  o.p.encounterContext->lightAndResistances[0]=9;o.p.encounterContext->lightAndResistances[5]=3;
  check(xeenEventSetValue(w,74,0,0).status==XeenEventWriteStatus::Applied,"SetVar 74");
- check(!o.p.encounterContext->effects[0] && !o.p.encounterContext->effects[2] && !o.p.encounterContext->effects[4] &&
+ check(!o.p.encounterContext->effects[XeenPartyEffect::Levitate] && !o.p.encounterContext->effects[XeenPartyEffect::WizardEye] && !o.p.encounterContext->effects[XeenPartyEffect::WalkOnWater] &&
   !o.p.encounterContext->lightAndResistances[0] && !o.p.encounterContext->lightAndResistances[5],"SetVar 74 writes every field");
  check(xeenEventSetValue(w,74,2,0).status==XeenEventWriteStatus::Applied &&
-  o.p.encounterContext->effects[4]==2 && o.p.encounterContext->effects[2]==2,"byte-valued party flags are admitted, as produced by Day spells");
+  o.p.encounterContext->effects[XeenPartyEffect::WalkOnWater]==2 && o.p.encounterContext->effects[XeenPartyEffect::WizardEye]==2,"byte-valued party flags are admitted, as produced by Day spells");
  xeenEventSetValue(w,74,0,0); // Keep later grant/take checks independent of this assignment.
  check(xeenEventSetValue(w,84,2,0).status==XeenEventWriteStatus::Applied && o.camera.direction==XeenDirection::South,"SetVar 84 faces");
  check(xeenEventSetValue(w,83,4,0).status==XeenEventWriteStatus::Applied && o.script.damageType==4,"SetVar 83 damage type");
@@ -148,8 +151,8 @@ void writes() {
  check(taken.status==XeenEventWriteStatus::NotEnough && taken.consumable==1 && o.p.monsterTreasure->gems==10,"too few gems refuse unchanged");
  check(xeenEventTake(w,65,5,0).status==XeenEventWriteStatus::Applied && o.p.food==15,"food is taken");
  // Give 74 activates Walk on Water; take 74 clears it.
- xeenEventGive(w,74,1,0);check(o.p.encounterContext->effects[4]==1 && o.p.encounterContext->lightAndResistances[2]==1,"give 74");
- xeenEventTake(w,74,1,0);check(!o.p.encounterContext->effects[4] && !o.p.encounterContext->lightAndResistances[2],"take 74");
+ xeenEventGive(w,74,1,0);check(o.p.encounterContext->effects[XeenPartyEffect::WalkOnWater]==1 && o.p.encounterContext->lightAndResistances[2]==1,"give 74");
+ xeenEventTake(w,74,1,0);check(!o.p.encounterContext->effects[XeenPartyEffect::WalkOnWater] && !o.p.encounterContext->lightAndResistances[2],"take 74");
  // Awards: OR 1 on grant; removal ORs 0xf into the other nibble (original defect).
  o.c(4).awards[7]=2;xeenEventGive(w,15,7,4);check(o.c(4).awards[7]==3,"award grant ORs one");
  xeenEventTake(w,15,7,4);check(o.c(4).awards[7]==3 && o.c(4).awards[71]==15,"award removal sets the other nibble");

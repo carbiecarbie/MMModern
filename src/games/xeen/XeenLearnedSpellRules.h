@@ -2,6 +2,8 @@
 #define MMODERN_XEEN_LEARNED_SPELL_RULES_H
 
 #include "games/xeen/XeenParty.h"
+#include "games/xeen/XeenActor.h"
+#include "games/xeen/XeenNavigation.h"
 #include <optional>
 #include <string>
 #include <vector>
@@ -10,6 +12,7 @@ namespace mmodern {
 
 enum class XeenSpellCategory : std::uint8_t { Clerical, Wizardry, Druidic };
 enum class XeenLearnedSpell : std::uint8_t {
+    Clairvoyance=4, DetectMonster=15, IdentifyMonster=34, Levitate=41, Light=42, WalkOnWater=74,
     Bless=3, DayOfProtection=12, DayOfSorcery=13, Heroism=30, HolyBonus=31,
     PowerShield=53, ProtectionFromElements=55,
     FingerOfDeath=24, GolemStopper=29, HolyWord=32, MassDistortion=46,
@@ -39,6 +42,16 @@ struct XeenSpellPreparation {
 	bool failed = false;
 	std::vector<XeenSpellEffect> effects;
 	std::optional<std::uint16_t> food;
+    bool stepped=false; // Light on the open, illuminated maps (obscurity is nonzero).
+};
+
+// Disposable spell-screen data, captured before the ordinary monster response.
+struct XeenSpellInformation {
+    bool detection=false, failed=false;
+    XeenDirection facing=XeenDirection::North;
+    std::array<unsigned,49> grid{}; // row zero is north; counts, not species.
+    struct Monster {std::string name; int hp=0; unsigned ac=0,attacks=0,special=0;};
+    std::array<std::optional<Monster>,3> monsters{};
 };
 
 struct XeenConsequenceDraw;
@@ -58,6 +71,8 @@ enum class XeenSpellRange { Single, Group, All };
 struct XeenSpellCost { unsigned sp=0, gems=0; };
 class XeenLearnedSpellRules {
 public:
+    static std::optional<XeenSpellInformation> information(XeenLearnedSpell,const XeenCamera &,
+        const std::vector<XeenActor> &,const std::array<std::optional<XeenMonsterIdentity>,3> &);
 	static std::optional<XeenSpellCategory> categoryForClass(XeenCharacterClass) noexcept;
 	static std::optional<std::uint8_t> spellForSlot(XeenSpellCategory, std::size_t) noexcept;
 	static std::optional<XeenLearnedSpell> supported(std::uint8_t) noexcept;

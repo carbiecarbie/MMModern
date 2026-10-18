@@ -71,6 +71,14 @@ public:
   unsigned elementalFrame=0;int elementalDamage=0;};
  std::array<PortraitEffect,30> portraits{};
  std::array<unsigned,4> buffFrames{};
+ unsigned levitateFrame=0;
+ static unsigned levitateBorderFrame(bool active,unsigned &phase) noexcept {
+     const auto frame=active?16+phase:16;phase=(phase+1)%12;return frame;
+ }
+ static std::pair<unsigned,unsigned> clairvoyanceFrames(unsigned left,unsigned right,unsigned phase,bool overlap=false) noexcept {
+     phase%=4;
+     return {left==2?0:phase+(left==0?4:0),overlap?52:right==2?8:phase+(right==0?8:12)};
+ }
  std::array<Splat,3> splats{};
  bool feedbackActive() const noexcept {
   for(const auto &p:portraits)if(p.spellFrame<4 || p.damageTicks)return true;

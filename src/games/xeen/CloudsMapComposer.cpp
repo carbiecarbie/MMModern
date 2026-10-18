@@ -51,20 +51,22 @@ void CloudsMapComposer::drawInterfaceLayers(XeenAssetSource &assets,
 	assets.drawSprite("global.icn", 0, 8, 8);
 	// Resting-state border overlays from Interface::assembleBorder(). These fill
 	// the intentionally transparent openings left by global.icn around the scene.
-	assets.drawSprite("border.icn", 16,   0, 82); // Levitation indicator, inactive.
+    const auto *buffs=partyState.encounterContext?&*partyState.encounterContext:nullptr;
+    unsigned phase=0;
+    const auto levitate=XeenScenePresentation::levitateBorderFrame(buffs && buffs->effects[XeenPartyEffect::Levitate],presentation?presentation->levitateFrame:phase);
+    assets.drawSprite("border.icn",levitate,0,82);
 	assets.drawSprite("border.icn", 28, 194, 91); // Secret-door indicator, inactive.
 	assets.drawSprite("border.icn", 40, 107,  9); // Danger-sense indicator, inactive.
 	assets.drawSprite("border.icn",  0,   0, 32); // Left clairvoyance statue, inactive.
 	assets.drawSprite("border.icn",  8, 215, 32); // Right clairvoyance statue, inactive.
 	// Default (no active resistance) corner indicators from assembleBorder().
-	const auto *buffs=partyState.encounterContext?&*partyState.encounterContext:nullptr;
     assets.drawSprite("fecp.brd", buffs && buffs->lightAndResistances[2]?1:0,   2,   2); // Fire.
 	assets.drawSprite("fecp.brd", buffs && buffs->lightAndResistances[3]?3:2, 219,   2); // Electricity.
 	assets.drawSprite("fecp.brd", buffs && buffs->lightAndResistances[4]?5:4,   2, 134); // Cold.
 	assets.drawSprite("fecp.brd", buffs && buffs->lightAndResistances[5]?7:6, 219, 134); // Poison.
 	assets.drawSprite("bless.icn", 16, 33, 137); // Blessed indicator, inactive.
 
-	constexpr unsigned indices[]{8,6,7,5};constexpr int x[]{33,55,160,182};
+	constexpr XeenPartyEffect indices[]{XeenPartyEffect::Bless,XeenPartyEffect::PowerShield,XeenPartyEffect::HolyBonus,XeenPartyEffect::Heroism};constexpr int x[]{33,55,160,182};
     for(unsigned i=0;i<4;++i)if(buffs && buffs->effects[indices[i]]) {
         const auto phase=presentation?(presentation->buffFrames[i]=(presentation->buffFrames[i]+1)%4):1;
         assets.drawSprite("bless.icn",4*i+phase,x[i],137);
@@ -121,14 +123,14 @@ IndexedFrame CloudsMapComposer::compose(XeenAssetSource &assets,
 	}
 
 	drawInterfaceLayers(assets, partyState, context,&world.scenePresentation());
-    if(partyState.encounterContext)for(unsigned i:{8u,6u,7u,5u})
+    if(partyState.encounterContext)for(auto i:{XeenPartyEffect::Levitate,XeenPartyEffect::Bless,XeenPartyEffect::PowerShield,XeenPartyEffect::HolyBonus,XeenPartyEffect::Heroism})
         emittedAnimation=emittedAnimation || partyState.encounterContext->effects[i]!=0;
 	auto result = drawXeenMinimap(world,camera,assets.snapshot(),
-        partyState.encounterContext && partyState.encounterContext->effects[1]!=0,
+        partyState.encounterContext && partyState.encounterContext->effects[XeenPartyEffect::AutomapOn]!=0,
         [&](IndexedFrame &frame,const char *name,unsigned index,int x,int y) {
             assets.drawDialogSprite(frame,name,index,x,y,xeenPictureArchive(camera.mapId));
         },ordinaryPhase.value_or(0),
-        partyState.encounterContext && partyState.encounterContext->effects[2]!=0);
+        partyState.encounterContext && partyState.encounterContext->effects[XeenPartyEffect::WizardEye]!=0);
 	if (containsOrdinaryAnimation) *containsOrdinaryAnimation = emittedAnimation;
 	return result;
 }

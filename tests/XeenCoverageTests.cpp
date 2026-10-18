@@ -19,8 +19,8 @@ void fixtureContexts(const char *directory) {
         "lava arrival has a production rule query");
     check(arrivalSupport(10,true,{25,0,0,XeenDirection::North},context.world).status==Status::Partial,
         "implemented sky fall names its unadmitted destination");
-    check(arrivalSupport(13,true,{23,0,0,XeenDirection::North},context.world).status==Status::Partial,
-        "cloud fall preserves admission restrictions on its mainland destination");
+    check(arrivalSupport(13,true,{23,0,0,XeenDirection::North},context.world).status==Status::Supported,
+        "cloud fall can reach its open mainland water destination");
     check(context.world.developerEventMap()==start.mapId && context.camera.x==10 && context.camera.y==10,
         "documented developer fixture entry");
     const auto at=[](XeenCamera camera,unsigned line,unsigned opcode,std::vector<std::uint8_t> parameters={}) {

@@ -80,7 +80,7 @@ void mapping() {
 	check(XeenLearnedSpellRules::spellForSlot(S::Clerical,14)==26 &&
 		XeenLearnedSpellRules::spellForSlot(S::Druidic,11)==26 &&
 		XeenLearnedSpellRules::spellForSlot(S::Wizardry,0)==1,"selected global IDs");
-	check(!XeenLearnedSpellRules::supported(42) && !XeenLearnedSpellRules::supported(76),"unsupported identity rejected");
+	check(!XeenLearnedSpellRules::supported(44) && !XeenLearnedSpellRules::supported(76),"unsupported identity rejected");
 	rejects([&]{(void)XeenLearnedSpellNames::parse(std::vector<std::uint8_t>{});});
 }
 void structuralNames() {

@@ -1802,13 +1802,14 @@ bool XeenEventFlow::drawPendingHeads(IndexedFrame &frame) {
  if(!_pending || !_pending->state.pendingPresentation || !_presenter.blocksGameplay())return false;
  const auto &request=_pending->state.pendingPresentation->request;
  const auto &party=_transition?_transition->party:_party;
- if(!drawDialogSprite || (request.kind!=XeenPresentationKind::CharacterSelection && request.response!=XeenPresentationResponseRequirement::YesNo) || !party.encounterContext || !party.encounterContext->effects[0])return false;
+ if(!drawDialogSprite || (request.kind!=XeenPresentationKind::CharacterSelection && request.response!=XeenPresentationResponseRequirement::YesNo) || !party.encounterContext || !party.encounterContext->effects[XeenPartyEffect::Clairvoyance])return false;
  auto &world=_transition?*_transition->world:_world;
  const auto &camera=_transition && _pending->state.continuedAtDestination?_pending->state.workingCamera:
   _transition?_transition->camera:_camera;
- const auto heads=world.headIndicators(camera);const unsigned phase=_ordinary.phase%4;
- drawDialogSprite(frame,"border.icn",heads.left==2?0:phase+(heads.left==0?4:0),0,32);
- drawDialogSprite(frame,"border.icn",heads.right==2?8:phase+(heads.right==0?9:12),215,32);
+ const auto heads=world.headIndicators(camera);
+ const auto frames=XeenScenePresentation::clairvoyanceFrames(heads.left,heads.right,_ordinary.phase);
+ drawDialogSprite(frame,"border.icn",frames.first,0,32);
+ drawDialogSprite(frame,"border.icn",frames.second,215,32);
  return true;
 }
 void XeenEventFlow::preparePortraitSequence(const XeenEventPortraitEffect &effect,std::uint64_t generation) {
@@ -2447,7 +2448,7 @@ IndexedFrame XeenEventFlow::handle(const PlayerAction &physicalAction, std::opti
     if(std::holds_alternative<ToggleAutomapAction>(action)) {
         if(_encounter && _encounter->toggleAutomap(_encounter->ticket()))return renderEncounter();
         if(!_encounter && !_pending && !inventoryOpen() && _party.encounterContext) {
-            _party.encounterContext->effects[1]=!_party.encounterContext->effects[1];
+            _party.encounterContext->effects[XeenPartyEffect::AutomapOn]=!_party.encounterContext->effects[XeenPartyEffect::AutomapOn];
             refreshScene(true,OrdinaryCause::None);return _frame;
         }
         return frameCopy();

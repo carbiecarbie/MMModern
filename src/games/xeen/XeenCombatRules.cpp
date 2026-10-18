@@ -436,7 +436,7 @@ XeenEnemyAttackCandidate::XeenEnemyAttackCandidate(const XeenConsequenceCharacte
 // the acknowledged portrait, the secondary save (positive damage, nonzero
 // special) or the HP subtraction.
 XeenEnemyAttackCandidate::Step XeenEnemyAttackCandidate::afterSaves() {
-	damage=std::max(physicalChecked(std::int64_t(damage)-partyContext.effects[6]),0);
+	damage=std::max(physicalChecked(std::int64_t(damage)-partyContext.effects[XeenPartyEffect::PowerShield]),0);
 	if (deferInjury) return Step::Portrait;
 	return damage>0 && monster.specialAttack() ? Step::Special : Step::Injury;
 }
@@ -481,7 +481,7 @@ bool XeenEnemyAttackCandidate::service(XeenConsequenceDraw &draw) {
 		case Step::Parameter: {
 			const auto n=draw.draw(1,monster.hitParameter()); if (!n) break;
 			const auto &c=characters[target];
-			const auto threshold=std::int64_t(Rules::combatArmorClass(c,inputs[target],{year,partyContext.effects[8]}))+
+			const auto threshold=std::int64_t(Rules::combatArmorClass(c,inputs[target],{year,partyContext.effects[XeenPartyEffect::Bless]}))+
 				(blocked[target] ? c.currentLevel()/2+15 : 10);
 			if (std::int64_t(roll)+monster.hitParameter()/4+*n>=threshold) {
 				characters[target].conditions[8]=0; afterInjury=Step::Next; step=Step::Dice;
@@ -489,7 +489,7 @@ bool XeenEnemyAttackCandidate::service(XeenConsequenceDraw &draw) {
 			break;
 		}
 		case Step::Dice: {
-            if(!dice) { beforeDamageAc=Rules::combatArmorClass(characters[target],inputs[target],{year,partyContext.effects[8]}); before=characters[target]; }
+            if(!dice) { beforeDamageAc=Rules::combatArmorClass(characters[target],inputs[target],{year,partyContext.effects[XeenPartyEffect::Bless]}); before=characters[target]; }
 			const auto n=draw.draw(1,monster.damageDie()); if (!n) break;
 			damage=physicalChecked(std::int64_t(damage)+*n);
 			if (++dice==monster.strikes()) step=type==XeenDamageType::Physical ? afterSaves() : Step::InitialSave;
@@ -535,7 +535,7 @@ bool XeenEnemyAttackCandidate::service(XeenConsequenceDraw &draw) {
 			injury.beforeHp=before->currentHp; injury.beforeAc=beforeDamageAc;
 			injury.beforeSp=before->currentSp; injury.beforeAge=before->temporaryAge;
 			xeenApplyPhysicalInjury(c,damage,year);
-			injury.afterHp=c.currentHp; injury.afterAc=Rules::combatArmorClass(c,inputs[target],{year,partyContext.effects[8]}); injury.conditions=c.conditions;
+			injury.afterHp=c.currentHp; injury.afterAc=Rules::combatArmorClass(c,inputs[target],{year,partyContext.effects[XeenPartyEffect::Bless]}); injury.conditions=c.conditions;
 			injury.afterSp=c.currentSp; injury.afterAge=c.temporaryAge;
 			result.injuries.at(result.injuryCount++)=injury;
 			xeenRecordItemChanges(result,*before,c);
@@ -574,7 +574,7 @@ XeenPhysicalPlayerCandidate::XeenPhysicalPlayerCandidate(const XeenCharacter &c,
     : XeenPhysicalPlayerCandidate(c,i,m,type,year,shoot,difficulty,status,{}) {}
 void XeenPhysicalPlayerCandidate::setPartyEffects(const XeenGameplayContext &context) {
     ruleRequire(step==Step::Weapon && slot==0 && dice==0,"Player party effects must be bound before service");
-    heroism=context.effects[5];holyBonus=context.effects[7];
+    heroism=context.effects[XeenPartyEffect::Heroism];holyBonus=context.effects[XeenPartyEffect::HolyBonus];
 }
 XeenPhysicalPlayerCandidate::XeenPhysicalPlayerCandidate(const XeenCharacter &c,
     const XeenCombatInputs &i,const XeenMonsterRecord &m,unsigned type,unsigned year,bool shoot,
@@ -582,7 +582,7 @@ XeenPhysicalPlayerCandidate::XeenPhysicalPlayerCandidate(const XeenCharacter &c,
     : XeenPhysicalPlayerCandidate(c,i,m,type,year,shoot,difficulty,status,false,true,partyContext) {}
 XeenPhysicalPlayerCandidate::XeenPhysicalPlayerCandidate(const XeenCharacter &c,
 		const XeenCombatInputs &i,const XeenMonsterRecord &m,unsigned type,unsigned year,bool missile,XeenDifficulty difficulty, XeenActorStatus initialStatus, bool poison, bool isClouds,const XeenGameplayContext &partyContext) :
-		status(initialStatus),character(c),monster(m),monsterType(type),shoot(missile),adventurer(difficulty==XeenDifficulty::Adventurer),poisonVolley(poison),clouds(isClouds),heroism(partyContext.effects[5]),holyBonus(partyContext.effects[7]) {
+		status(initialStatus),character(c),monster(m),monsterType(type),shoot(missile),adventurer(difficulty==XeenDifficulty::Adventurer),poisonVolley(poison),clouds(isClouds),heroism(partyContext.effects[XeenPartyEffect::Heroism]),holyBonus(partyContext.effects[XeenPartyEffect::HolyBonus]) {
 	ruleRequire(xeenActorStatusSupported(status),"Unsupported physical target status");
 	constexpr unsigned divisors[]{1,2,2,3,4,2,2,1,3,2};
 	ruleRequire(unsigned(c.characterClass)<10 && m.physicalResistance()<=100 && unsigned(difficulty)<=1,"Invalid physical player operands");
@@ -678,7 +678,7 @@ void xeenResetCharacterTemps(XeenCharacter &c,XeenCombatInputs &i) {
 }
 void xeenResetPartyTemps(XeenGameplayContext &c) {
  // automapOn and torchCount survive; temporary age and conditions also survive.
- c.effects[0]=0;for(unsigned n=2;n<9;++n)c.effects[n]=0;
+ for(auto effect:kXeenPartyEffects)if(effect!=XeenPartyEffect::AutomapOn)c.effects[effect]=0;
  c.lightAndResistances[0]=0;for(unsigned n=2;n<6;++n)c.lightAndResistances[n]=0;
 }
 XeenConditionTimeCandidate::XeenConditionTimeCandidate(const XeenGameplayContext &before,std::uint64_t charge,

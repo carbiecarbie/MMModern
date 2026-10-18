@@ -396,8 +396,9 @@ Worked original Clouds scripts:
 - `maze0028.evt`, `(14,10)` West: line 2 ConfirmWord, line 7 map-zero Exit.
   `vertigo` uses map 28's run location `(18,4)` West; `toad meadow` goes to
   map 23 `(7,2)` and `ever blossom orchard` to map 23 `(5,12)`, keeping facing.
-  `magic delta` names map 23 `(9,6)`, outside the admitted mainland component;
-  other nonzero-map names target unadmitted maps and refuse.
+  `magic delta` names map 23 `(9,6)`, in the mainland component connected
+  through water. It is admitted along with the other mainland destinations;
+  nonzero-map names targeting maps that are not open yet refuse.
 - `maze0069.evt`, `(9,15)` West line 0: type 8, success line 4, alternate 21,
   title 10. Primary `There wolf`; alternate 21 aliases text[0]. Either match
   takes line 4 under the approved marker decision.

@@ -262,9 +262,10 @@ IndexedFrame XeenEventFlow::handleInventory(const PlayerAction &action) {
   }
   if(_inventory.mode==Mode::UseTarget) {
    const bool element=_encounter->itemUseNeedsElement();
-   const auto selected=element?xeenElementSelection(key):
+   const bool information=bool(_encounter->_itemUse->information);
+   const auto selected=information?std::nullopt:element?xeenElementSelection(key):
      key>=InputKey::F1 && key<InputKey::F1+_party.party.size()?std::optional<unsigned>{key-InputKey::F1}:std::nullopt;
-   if(selected || key==InputKey::Escape) {
+   if(information || selected || key==InputKey::Escape) {
     if(!_itemUseGeneration || !_encounter->finishItemUse(_encounter->ticket(),*_itemUseGeneration,_inventoryEpoch,
      selected,_inputGeneration,responseFrame())) {closeGameplay();return _frame;}
     if(_encounter->itemUseFailed()) {dialogError(std::string(dosText().scalar("SPELL_FAILED")));return _frame;}

@@ -8,6 +8,33 @@
 #include <stdexcept>
 
 namespace mmodern {
+std::optional<XeenSpellInformation> XeenLearnedSpellRules::information(XeenLearnedSpell spell,
+        const XeenCamera &camera,const std::vector<XeenActor> &actors,
+        const std::array<std::optional<XeenMonsterIdentity>,3> &slots) {
+    if(spell!=XeenLearnedSpell::DetectMonster && spell!=XeenLearnedSpell::IdentifyMonster)return {};
+    XeenSpellInformation result;result.facing=camera.direction;
+    result.detection=spell==XeenLearnedSpell::DetectMonster;
+    if(result.detection) {
+        // DOS checks positions alone, without walls, species or activation tests.
+        for(const auto &actor:actors) {
+            const int x=actor.x-camera.x+3,y=camera.y+3-actor.y;
+            if(x>=0 && x<7 && y>=0 && y<7) {
+                auto &count=result.grid[y*7+x];count=std::min(count+1,3u);
+            }
+        }
+    } else {
+        result.failed=true;
+        for(unsigned n=0;n<3;++n)if(slots[n]) {
+            const auto it=std::find_if(actors.begin(),actors.end(),[&](const auto &a){return a.id==*slots[n];});
+            if(it==actors.end() || !it->statistics)throw std::invalid_argument("Missing Identify Monster attack slot");
+            const auto &m=*it->statistics;
+            result.monsters[n]=XeenSpellInformation::Monster{m.name(),it->hp,m.armorClass(),m.attacks(),m.specialAttack()};
+            result.failed=false;
+        }
+    }
+    return result;
+}
+
 void XeenSpellEffect::apply(XeenCharacter &character) const {
     character.currentHp=hp;character.conditions=conditions;
     if(permanentEndurance)character.endurance.permanent=*permanentEndurance;
@@ -67,6 +94,7 @@ std::optional<std::uint8_t> XeenLearnedSpellRules::spellForSlot(XeenSpellCategor
 
 std::optional<XeenLearnedSpell> XeenLearnedSpellRules::supported(std::uint8_t id) noexcept {
     switch (id) {
+    case 4: case 15: case 34: case 41: case 42: case 74:
     case 3: case 12: case 13: case 30: case 31: case 53: case 55:
     case 16: case 56: case 58:
     case 6: case 7: case 8: case 9: case 49: case 52: case 64: case 67: case 68:
@@ -127,6 +155,7 @@ XeenSpellRange XeenLearnedSpellRules::range(std::uint8_t id) noexcept {
 }
 XeenSpellTarget XeenLearnedSpellRules::target(std::uint8_t id) noexcept {
     switch (id) {
+    case 4: case 15: case 34: case 41: case 42: case 74: return XeenSpellTarget::Party;
     case 24: case 29: case 32: case 46: case 51:
     case 0: case 5: case 11: case 14: case 18: case 22: case 23: case 25: case 28:
     case 35: case 36: case 37: case 43: case 47: case 48: case 54: case 63: case 65: return XeenSpellTarget::Contact;
@@ -183,6 +212,7 @@ XeenSpellPreparation divineIntervention(const XeenPartyState &,std::uint8_t,std:
 
 XeenSpellPreparation XeenLearnedSpellRules::prepareEffect(XeenLearnedSpell spell,const XeenPartyState &party,
         std::optional<std::size_t> target,std::uint32_t year,std::optional<std::uint8_t> casterOwner) {
+    if(spell==XeenLearnedSpell::Light)return {false,{}, {},true};
     if(spell==XeenLearnedSpell::Awaken)return prepareAwaken(party);
     if(spell==XeenLearnedSpell::CreateFood)return {false,{},static_cast<std::uint16_t>(party.food+party.party.size())};
     if(spell==XeenLearnedSpell::DivineIntervention) {
@@ -211,10 +241,16 @@ void XeenLearnedSpellRules::applyPartyEffect(XeenLearnedSpell spell,XeenGameplay
     // DOS byte writes, including Day spells' flag/count assignments (M76 Part 0).
     const auto byte=static_cast<std::uint8_t>(level);
     switch(spell) {
-    case XeenLearnedSpell::Bless: context.effects[8]=byte;break;
-    case XeenLearnedSpell::Heroism: context.effects[5]=byte;break;
-    case XeenLearnedSpell::HolyBonus: context.effects[7]=byte;break;
-    case XeenLearnedSpell::PowerShield: context.effects[6]=byte;break;
+    case XeenLearnedSpell::Clairvoyance: context.effects[XeenPartyEffect::Clairvoyance]=1;break;
+    case XeenLearnedSpell::Levitate: context.effects[XeenPartyEffect::Levitate]=1;break;
+    case XeenLearnedSpell::WalkOnWater: context.effects[XeenPartyEffect::WalkOnWater]=1;break;
+    case XeenLearnedSpell::Light:
+        context.lightAndResistances[0]=static_cast<std::uint16_t>(context.lightAndResistances[0]+1);
+        break;
+    case XeenLearnedSpell::Bless: context.effects[XeenPartyEffect::Bless]=byte;break;
+    case XeenLearnedSpell::Heroism: context.effects[XeenPartyEffect::Heroism]=byte;break;
+    case XeenLearnedSpell::HolyBonus: context.effects[XeenPartyEffect::HolyBonus]=byte;break;
+    case XeenLearnedSpell::PowerShield: context.effects[XeenPartyEffect::PowerShield]=byte;break;
     case XeenLearnedSpell::ProtectionFromElements:
         if(element) {
             if(*element>=4)throw std::invalid_argument("Invalid protection element");
@@ -222,16 +258,16 @@ void XeenLearnedSpellRules::applyPartyEffect(XeenLearnedSpell spell,XeenGameplay
         }
         break;
     case XeenLearnedSpell::DayOfProtection:
-        for(unsigned i:{4u,5u,7u,8u})context.effects[i]=byte;
+        for(auto i:{XeenPartyEffect::WalkOnWater,XeenPartyEffect::Heroism,XeenPartyEffect::HolyBonus,XeenPartyEffect::Bless})context.effects[i]=byte;
         for(unsigned i:{0u,2u,3u,4u,5u})context.lightAndResistances[i]=byte;
         break;
     case XeenLearnedSpell::DayOfSorcery:
-        for(unsigned i:{0u,2u,3u,6u})context.effects[i]=byte;
-        context.effects[1]=0;context.lightAndResistances[0]=byte;
+        for(auto i:{XeenPartyEffect::Clairvoyance,XeenPartyEffect::WizardEye,XeenPartyEffect::Levitate,XeenPartyEffect::PowerShield})context.effects[i]=byte;
+        context.effects[XeenPartyEffect::AutomapOn]=0;context.lightAndResistances[0]=byte;
         break;
     default: break;
     }
-    if(spell==XeenLearnedSpell::WizardEye) {context.effects[2]=1;context.effects[1]=0;}
+    if(spell==XeenLearnedSpell::WizardEye) {context.effects[XeenPartyEffect::WizardEye]=1;context.effects[XeenPartyEffect::AutomapOn]=0;}
 }
 
 namespace {

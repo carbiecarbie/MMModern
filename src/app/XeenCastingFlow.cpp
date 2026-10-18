@@ -122,6 +122,7 @@ bool XeenEncounterFlow::confirmCasting(const Ticket &entry, std::size_t casterIn
             if(preflight.admission==XeenJumpAdmission::Ready)jump=preflight.destination;
           }
           auto ending=xeenPrepareTime(*_party.encounterContext,_world.map(_camera.mapId).geometry.isOutdoors()?10:1);
+          XeenLearnedSpellRules::applyPartyEffect(*spell,ending.context,caster.currentLevel());
           if(ending.dailyProcessing)xeenResetPartyTemps(ending.context);
           const auto arrival=_world.prepareTerrainArrival(jump?*jump:_camera,activeCharacters(_party,_casting->owners),ending.context);
           _journeyPreimage->check();
@@ -239,6 +240,14 @@ bool XeenEncounterFlow::publishAwaken(const Ticket &entry) {
 	try {
 		_journeyPreimage->check();
 		const auto effect=XeenLearnedSpellRules::prepareEffect(_casting->spell,_party,{},_party.encounterContext->year,_casting->casterOwner);
+        std::optional<XeenSpellInformation> information;
+        if(_casting->spell==XeenLearnedSpell::DetectMonster || _casting->spell==XeenLearnedSpell::IdentifyMonster) {
+            const auto &actors=_world.sessionState().regionalActors(_camera.mapId);
+            const auto view=XeenActorApproach::classify(actors,_camera);
+            std::array<std::optional<XeenMonsterIdentity>,3> slots;
+            for(unsigned n=0;n<3;++n)slots[n]=view.slots[n];
+            information=XeenLearnedSpellRules::information(_casting->spell,_camera,actors,slots);
+        }
 		auto prepared=std::make_shared<XeenRestoreGuard>(_world,_party,_camera,_flags);
 		prepared->retainResources(*_journeyPreimage);
 		std::ostringstream message;
@@ -266,16 +275,18 @@ bool XeenEncounterFlow::publishAwaken(const Ticket &entry) {
             value.apply(_party.roster.at(value.owner));
         }
 		_castingResult.swap(result);
-		_casting->effectDone=true;
-		_casting->displayedFrame.reset();_casting->displayedInput=0;
-		++_world._sessionState._journeyGeneration;++_generation;
-		prepared->adoptJourneyCoordination();_journeyPreimage.swap(prepared);
-		return true;
-	} catch (...) { closeJourney();throw; }
+        _casting->information=std::move(information);
+        if(_casting->information && _casting->information->failed) {_casting->failed=true;_casting->information.reset();}
+        _casting->effectDone=true;
+        _casting->displayedFrame.reset();_casting->displayedInput=0;
+        ++_world._sessionState._journeyGeneration;++_generation;
+        prepared->adoptJourneyCoordination();_journeyPreimage.swap(prepared);
+        return true;
+    } catch (...) { closeJourney();throw; }
 }
 
 bool XeenEncounterFlow::serviceCasting() {
-	if (!_casting || !_casting->committed || (!_casting->effectDone && !_casting->targetPending) || _busy || _failure ||
+	if (!_casting || _casting->information || !_casting->committed || (!_casting->effectDone && !_casting->targetPending) || _busy || _failure ||
 		!current(ticket()) || !journeyCapacity()) return false;
 	BusyCast busy(_busy);
 	try {

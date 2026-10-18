@@ -450,6 +450,26 @@ at `0x3a075`. All other M76 powers are admitted, including Enchant 63.
 The shared item caller's retained charge debit and no-SP/gem-debit rule
 therefore also applies to these new shared prompt/refund paths.
 
+### Party effect bytes
+
+**DOS static, high confidence (2026-10-18); same as the pin's
+`Party::synchronize`.** The nine bytes keep this order in saves (v14).
+Calibration: Wizard Eye writes DS:`eda0` and clears DS:`ed9f` at
+`0x2f8df..0x2f8e4`; Event 69 tests DS:`ed9e` at `0x21a36`.
+Offsets below are file offsets in the installed CD `WORLD/XEEN.DAT`.
+
+| Index | DS address | Meaning | DOS anchors |
+| --- | --- | --- | --- |
+| 0 | `ed9e` | Levitate | Handler `0x2f8d1`; cloud fall `0x0c998`; border `0x1b9ee`; Day of Sorcery `0x30e73` |
+| 1 | `ed9f` | Automap on | Wizard Eye clear `0x2f8e4`; Day of Sorcery clear `0x30e7b` |
+| 2 | `eda0` | Wizard Eye | Handler `0x2f8df`; Day of Sorcery `0x30e70` |
+| 3 | `eda1` | Clairvoyance | Handler `0x30e16`; Day of Sorcery `0x30e6d`; Temple Donation `0x1af07`; statues `0x1bb0f` |
+| 4 | `eda2` | Walk on Water | Handler `0x2fc69`; Day of Protection `0x30e34` |
+| 5 | `eda3` | Bless | Handler `0x2f8cd`; Day of Protection `0x30e3d`; Temple `0x1af26`; border `0x1bcdb` |
+| 6 | `eda4` | Power Shield | Handler `0x2ffdb`; Day of Sorcery `0x30e6a`; Temple `0x1af23`; border `0x1bd10` |
+| 7 | `eda5` | Holy Bonus | Handler `0x2fb0c`; Day of Protection `0x30e3a`; Temple `0x1af20`; border `0x1bd48` |
+| 8 | `eda6` | Heroism | Handler `0x2fc65`; Day of Protection `0x30e37`; Temple `0x1af1d`; border `0x1bd81` |
+
 ### Consumer and dialog locators
 
 The [magic chapter](magic.md#party-effects-and-movement) gives the settled

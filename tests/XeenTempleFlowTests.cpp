@@ -184,11 +184,11 @@ void templeOptions(Inputs &in) {
         if(dialog && dialog->anyKey)v.act(AcknowledgeAction{});
     };
     for(unsigned n=0;n<7;++n){donation.act(DialogKeyAction{'d'});acknowledge(donation);}
-    check(donation.p.monsterTreasure->gold==930 && donation.p.encounterContext->effects[6]==0,
+    check(donation.p.monsterTreasure->gold==930 && donation.p.encounterContext->effects[XeenPartyEffect::PowerShield]==0,
         "Donation blessed before day-modulo counter matched");
     donation.act(DialogKeyAction{'d'});acknowledge(donation);
-    check(donation.p.monsterTreasure->gold==920 && donation.p.encounterContext->effects[6]==8 &&
-        donation.p.encounterContext->lightAndResistances[0]==1 && donation.p.encounterContext->effects[0]==1 && !donation.p.encounterContext->effects[3] &&
+    check(donation.p.monsterTreasure->gold==920 && donation.p.encounterContext->effects[XeenPartyEffect::PowerShield]==8 &&
+        donation.p.encounterContext->lightAndResistances[0]==1 && donation.p.encounterContext->effects[XeenPartyEffect::Clairvoyance]==1 && !donation.p.encounterContext->effects[XeenPartyEffect::Levitate] &&
         *donation.w.sessionState().journeyRandom()==cursor,"Donation price, blessing, light or draw differs");
     donation.act(SelectMemberAction{1});donation.act(DialogKeyAction{'d'});acknowledge(donation);
     check(donation.p.monsterTreasure->gold==920,"blessed visit charged again after member selection");
@@ -204,9 +204,9 @@ void templeOptions(Inputs &in) {
     for(unsigned n=0;n<3;++n){selected.act(DialogKeyAction{'d'});acknowledge(selected);}
     selected.act(SelectMemberAction{0});
     for(unsigned n=0;n<7;++n){selected.act(DialogKeyAction{'d'});acknowledge(selected);}
-    check(selected.p.encounterContext->effects[6]==0,"same-member F-key did not reset Donation counter");
+    check(selected.p.encounterContext->effects[XeenPartyEffect::PowerShield]==0,"same-member F-key did not reset Donation counter");
     selected.act(DialogKeyAction{'d'});acknowledge(selected);
-    check(selected.p.encounterContext->effects[6]==8 && selected.p.monsterTreasure->gold==890,
+    check(selected.p.encounterContext->effects[XeenPartyEffect::PowerShield]==8 && selected.p.monsterTreasure->gold==890,
         "Donation counter did not restart after same-member selection");
     selected.leave();
 

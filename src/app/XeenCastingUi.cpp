@@ -36,14 +36,14 @@ std::shared_ptr<const DialogInput> XeenEventFlow::castingDialogInput() const {
     DialogInput input;
     if(_castingUi) {
         using P=CastingUi::Phase;const auto &ui=*_castingUi;
-        if(!ui.refusal.empty())input.anyKey=input.anyClick=input.keyMouseWait=true;
+        if((ui.phase==P::Settling && _encounter->_casting && _encounter->_casting->information) || !ui.refusal.empty())input.anyKey=input.anyClick=input.keyMouseWait=true;
         else if(ui.phase==P::New)input=xeenSpellListInput(true);
         else if(ui.phase==P::Cast)input=xeenCastInput();
         else if(ui.phase==P::ChooseTarget)input=xeenSpellTargetInput();
         else if(ui.phase==P::ChooseElement)input=xeenElementInput();
     } else if(_encounter && _encounter->combat())if(const auto v=_encounter->combat()->cast()) {
         using P=XeenCombatCastPhase;
-        if(!v->refusal.empty() || (v->phase==P::Result && v->result.failed))input.anyKey=input.anyClick=input.keyMouseWait=true;
+        if(!v->refusal.empty() || (v->phase==P::Result && (v->result.failed || v->information)))input.anyKey=input.anyClick=input.keyMouseWait=true;
         else if(v->phase==P::Learned)input=xeenSpellListInput(true,false);
         else if(v->phase==P::Confirm)input=xeenCastInput(false);
         else if(v->phase==P::PartyTarget)input=xeenSpellTargetInput();
@@ -57,6 +57,7 @@ IndexedFrame XeenEventFlow::drawCasting(const IndexedFrame &base) const {
     if(_castingUi) {
         using P=CastingUi::Phase;const auto &ui=*_castingUi;
         const auto &c=_party.party.member(_party.roster,ui.caster);
+        if(ui.phase==P::Settling && _encounter->_casting && _encounter->_casting->information)return drawXeenSpellInformation(dosText(),base,_inventoryFont,*_encounter->_casting->information,drawDialogSprite);
         if(ui.phase==P::Settling)return ui.refusal.empty()?base:drawXeenErrorScroll(base,_inventoryFont,std::string(dosText().scalar("SPELL_FAILED")));
         if(ui.phase==P::ChooseElement) {
             auto sidebar=c;sidebar.currentSp=_encounter->_casting->originalSp;
@@ -71,6 +72,7 @@ IndexedFrame XeenEventFlow::drawCasting(const IndexedFrame &base) const {
     }
     const auto observed=_encounter->combat()->cast();if(!observed)return base;const auto &v=*observed;
     using P=XeenCombatCastPhase;const auto &c=_party.roster.at(v.owner);
+    if(v.phase==P::Result && v.information)return drawXeenSpellInformation(dosText(),base,_inventoryFont,*v.information,drawDialogSprite);
     if(v.phase==P::Result && v.result.failed)return drawXeenErrorScroll(base,_inventoryFont,std::string(dosText().scalar("SPELL_FAILED")));
     if(v.phase==P::Element) {
         if(v.quick)return drawXeenElement(dosText(),base,_inventoryFont,drawDialogSprite);
@@ -112,7 +114,14 @@ IndexedFrame XeenEventFlow::handleCasting(const PlayerAction &action,std::uint64
     if(!_castingUi || !_encounter->castingFrameCurrent(input,responseFrame()))return frameCopy();
     auto &ui=*_castingUi;using P=CastingUi::Phase;const auto key=castKey(action);
     if(!ui.refusal.empty()){ui.refusal.clear();return renderEncounter();}
-    if(ui.phase==P::Settling)return frameCopy();
+    if(ui.phase==P::Settling) {
+        if(_encounter->_casting && _encounter->_casting->information) {
+            _encounter->journeySavePreimage().check();
+            _encounter->_casting->information.reset();
+            return renderEncounter();
+        }
+        return frameCopy();
+    }
     if(key>=InputKey::F1 && key<InputKey::F1+_party.party.size() && ui.phase!=P::ChooseTarget && ui.phase!=P::ChooseElement) {
         ui.caster=key-InputKey::F1;_lastCaster=ui.caster;return renderEncounter();
     }

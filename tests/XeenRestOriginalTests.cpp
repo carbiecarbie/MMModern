@@ -326,6 +326,19 @@ void sleepingHit(Inputs &in) {
   f.p.food==start.food,"Rest must continue after sleepy hit until later contact");
  std::cout<<"Sleeping hit continues after charge 1; contact interrupts charge 3\n";
 }
+// Refusal controls need an actually blocked destination now that water is
+// admitted geography. This is a synthetic mountain cell, not original data.
+XeenMap blockedFallLanding(XeenMap map) {
+ if(map.identity()==XeenMapIdentity(23))xeenGet<XeenOutdoorLayers>(map.geometry.cells[10*16+12].geometry).middle=1;
+ return map;
+}
+XeenRegionalManifest blockedFallManifest(Inputs &in) {
+ return [&in](const auto &m,const auto &o,const auto &e,const auto &stats) {
+  check(xeenGet<XeenOutdoorLayers>(m.geometry.cells[10*16+12].geometry).middle==1,"Synthetic blocked fall destination changed");
+  auto original=m;original.geometry.cells[10*16+12]=in.maps.loadGeometryMap(in.assets,23).geometry.cells[10*16+12];
+  xeenValidateRegionalManifest(original,o,e,stats,in.assets.readInitialResource("maze0023.dat"),in.assets.readInitialResource("maze0023.mob"),in.assets.readInitialResource("maze0023.evt"));
+ };
+}
 void terrain(Inputs &in) {
  const auto manifest=[&](unsigned surface) -> XeenRegionalManifest {
   // Explicit synthetic surface table, checked in addition to every original
@@ -356,11 +369,13 @@ void terrain(Inputs &in) {
  for(bool indoor:{false,true})for(unsigned surface:{5u,6u,10u,13u}) {
   auto start=source(in,indoor);
   for(auto owner:start.activeRosterIds)start.characters[owner].permanentLevel=100;
-  if(surface==13)start.journey->context->effects[2]=1;
+  if(surface==13)start.journey->context->effects[XeenPartyEffect::Levitate]=1;
+  const bool blockedLanding=indoor && (surface==10 || surface==13);
   const auto loader=[&](auto id) {
-   auto map=in.maps.loadGeometryMap(in.assets,id);if(id==start.camera.mapId)map.geometry.surfaceTypes.fill(surface);return map;
+   auto map=in.maps.loadGeometryMap(in.assets,id);if(id==start.camera.mapId)map.geometry.surfaceTypes.fill(surface);
+   return blockedLanding?blockedFallLanding(std::move(map)):map;
   };
-  Fixture f(in,start,false,nullptr,loader,indoor?XeenRegionalManifest{}:manifest(surface));wire(f);unsigned providers=0;
+  Fixture f(in,start,false,nullptr,loader,blockedLanding?blockedFallManifest(in):indoor?XeenRegionalManifest{}:manifest(surface));wire(f);unsigned providers=0;
   f.flow->loadRestDream=[&]{++providers;return in.assets.restDreamImage();};
   const auto before=XeenSaveFormat::encode(f.snapshot());f.act(RestAction{});
   if(indoor && (surface==10 || surface==13)) {
@@ -523,9 +538,9 @@ void terrainCallsites(Inputs &in) {
     // Logical(20,19) is physical(4,3), the automatic move's safe source.
     auto &start=m.geometry.cells[3*16+4];start.rawAttributes=0;start.surfaceIndex=0;
     if(automatic && id==XeenMapIdentity(111))m.geometry.cells[4*16+4].rawAttributes|=kXeenAutomaticEventFlag;
-   }return m;
+   }return refused?blockedFallLanding(std::move(m)):m;
   };
-  Fixture f(in,state,false,&script,loader);wire(f);const auto before=XeenSaveFormat::encode(f.snapshot());
+  Fixture f(in,state,false,&script,loader,refused?blockedFallManifest(in):XeenRegionalManifest{});wire(f);const auto before=XeenSaveFormat::encode(f.snapshot());
   f.act(automatic?PlayerAction{NavigationAction::MoveForward}:PlayerAction{InteractionAction{}});finish(f);
   if(refused)check(XeenSaveFormat::encode(f.snapshot())==before,"Refused final Event fall leaked teleport/RNG/party state");
   else {
@@ -550,9 +565,9 @@ void terrainCallsites(Inputs &in) {
  const auto cloudLoader=[&](auto id){auto m=in.maps.loadGeometryMap(in.assets,id);if(id==XeenMapIdentity(23))m.geometry.surfaceTypes.fill(13);return m;};
  for(bool sign:{false,true}) {
   auto state=armed(false);state.camera=sign?XeenCamera{23,5,9,XeenDirection::North}:XeenCamera{23,10,11,XeenDirection::North};
-  state.journey->context->minutes=299;state.journey->context->newDay=true;state.journey->context->rested=true;state.journey->context->effects[2]=1;
+  state.journey->context->minutes=299;state.journey->context->newDay=true;state.journey->context->rested=true;state.journey->context->effects[XeenPartyEffect::Levitate]=1;
   Fixture f(in,state,false,nullptr,cloudLoader,lavaManifest);wire(f);f.act(InteractionAction{});finish(f);
-  check(f.c.x==12 && f.c.y==10 && f.c.direction==XeenDirection::North && f.p.encounterContext->minutes==309 && !f.p.encounterContext->effects[2],
+  check(f.c.x==12 && f.c.y==10 && f.c.direction==XeenDirection::North && f.p.encounterContext->minutes==309 && !f.p.encounterContext->effects[XeenPartyEffect::Levitate],
    "Space must charge across dawn before checking cloud protection/fall");
   for(auto owner:state.activeRosterIds)check(f.p.roster.at(owner).currentHp==900,"Post-dawn Space fall must apply physical100 once");
  }
@@ -565,8 +580,8 @@ void terrainCallsites(Inputs &in) {
   XeenEventFile script{28,"maze0028.evt",true,{flag,damage,teleport,row(20,22,0x12)}};
   const auto loader=[&](auto id){auto m=in.maps.loadGeometryMap(in.assets,id);if(!m.geometry.isOutdoors()) {
    m.geometry.surfaceTypes.fill(10);for(auto &c:m.geometry.cells){c.rawWord=0;c.geometry=XeenIndoorWalls{};c.flags=0;}
-  }return m;};
-  Fixture f(in,state,false,&script,loader);wire(f);const auto bytes=XeenSaveFormat::encode(f.snapshot());
+  }return blockedFallLanding(std::move(m));};
+  Fixture f(in,state,false,&script,loader,blockedFallManifest(in));wire(f);const auto bytes=XeenSaveFormat::encode(f.snapshot());
   f.act(InteractionAction{});bool portrait=false;
   for(unsigned n=0;!f.flow->canSave();++n){check(n<1000,"Refused prefix fixture did not settle");portrait=portrait || XeenRestTestAccess::eventPortrait(*f.flow);pulse(f);}
   check(portrait,"Refused fall fixture did not reach its visible damage prefix");
@@ -659,7 +674,7 @@ void terrainCallsites(Inputs &in) {
 }
 void rolloverAndDream(Inputs &in) {
  auto start=source(in,true);start.food=3;start.journey->context->day=99;start.journey->context->minutes=1439;
- start.journey->context->effects[2]=1;start.journey->context->lightAndResistances[0]=4;
+ start.journey->context->effects[XeenPartyEffect::WizardEye]=1;start.journey->context->lightAndResistances[0]=4;
  start.characters[start.activeRosterIds[0]].conditions[2]=255;
  Fixture f(in,start);wire(f);f.act(RestAction{});finish(f);
  check(f.p.encounterContext->day==0 && f.p.encounterContext->year==611 && f.p.encounterContext->minutes==479 &&

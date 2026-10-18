@@ -1754,7 +1754,7 @@ XeenTypedDamageCandidate XeenWorld::prepareEventDamage(const XeenPartyState &par
  }
  const auto &context=*party.encounterContext;XeenDamageProtection protection;
  for(unsigned i=0;i<4;++i)protection.resistances[i]=context.lightAndResistances[i+2];
- protection.powerShield=context.effects[6];protection.blessed=context.effects[8];
+ protection.powerShield=context.effects[XeenPartyEffect::PowerShield];protection.blessed=context.effects[XeenPartyEffect::Bless];
  return XeenTypedDamageCandidate(characters,inputs,damage,type,context.year,
   entireParty?(1u<<party.party.size())-1:1u<<*member,protection);
  }

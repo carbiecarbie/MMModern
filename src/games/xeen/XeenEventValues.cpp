@@ -225,7 +225,7 @@ XeenEventWrite applyCondition(XeenCharacter &c, std::uint32_t value) {
 }
 
 bool canonicalEffects(const XeenGameplayContext &c) noexcept {
-	return c.effects[1] <= 1; // The Day spells write level bytes to the other flags/counts.
+	return c.effects[XeenPartyEffect::AutomapOn] <= 1; // The Day spells write level bytes to the other flags/counts.
 }
 
 std::uint32_t signedWord(int value) noexcept {
@@ -319,9 +319,9 @@ std::optional<XeenEventProbe> xeenEventProbe(const XeenEventValueOwners &o, unsi
 	case 69: case 79: case 94: case 70: case 71: case 72: case 73: case 17: {
 		const auto *c = context(o, reason);
 		if (!c) return std::nullopt;
-		if (action == 69) return known(c->effects[0] ? 1 : 0); // 0x21a36: a flag, not the count
-		if (action == 79) return known(c->effects[2]);
-		if (action == 94) return known(c->effects[4]);
+		if (action == 69) return known(c->effects[XeenPartyEffect::Levitate] ? 1 : 0); // 0x21a36: a flag, not the count
+		if (action == 79) return known(c->effects[XeenPartyEffect::WizardEye]);
+		if (action == 94) return known(c->effects[XeenPartyEffect::WalkOnWater]);
 		return known(c->lightAndResistances[*partyWord(action)]);
 	}
 	case 78: case 81: {
@@ -369,7 +369,7 @@ std::optional<XeenEventProbe> xeenEventProbe(const XeenEventValueOwners &o, unsi
 		const auto owner = ownerOf(o.party, member);
 		const auto &in = o.party.roster.combatInputs(owner);
 		return known(static_cast<std::uint16_t>(XeenCharacterRules::sheetArmorClass(character(o, member),
-			in ? &*in : nullptr, {c->year,c->effects[8]})));
+			in ? &*in : nullptr, {c->year,c->effects[XeenPartyEffect::Bless]})));
 	}
 	case 12: {
 		const auto *c = context(o, reason);
@@ -466,12 +466,12 @@ XeenEventWrite xeenEventSetValue(const XeenEventValueOwners &o, unsigned mode, s
 		if (mode == 25) { if (word >= 1440) return unsupported("Event minutes are outside the day"); next.minutes = word; }
 		else if (mode == 76) { if (word >= 100) return unsupported("Event day is outside the year"); next.day = word; }
 		else if (mode == 85) next.year = word;
-		else if (mode == 69) next.effects[0] = byte;
-		else if (mode == 79) next.effects[2] = 1;
-		else if (mode == 94) next.effects[4] = byte;
+		else if (mode == 69) next.effects[XeenPartyEffect::Levitate] = byte;
+		else if (mode == 79) next.effects[XeenPartyEffect::WizardEye] = 1;
+		else if (mode == 94) next.effects[XeenPartyEffect::WalkOnWater] = byte;
 		else if (mode == 74) {
 			// 0x23c38: every listed field receives the low byte.
-			next.effects[4] = byte; next.effects[2] = byte; next.effects[0] = byte;
+			next.effects[XeenPartyEffect::WalkOnWater] = byte; next.effects[XeenPartyEffect::WizardEye] = byte; next.effects[XeenPartyEffect::Levitate] = byte;
 			for (std::size_t n : {0u, 2u, 3u, 4u, 5u}) next.lightAndResistances[n] = byte;
 		} else next.lightAndResistances[*partyWord(mode)] = word;
 		if (!canonicalEffects(next)) return unsupported("Event party effect value is outside its flag range");
@@ -582,14 +582,14 @@ XeenEventWrite xeenEventTake(const XeenEventValueOwners &o, unsigned mode, std::
 		const auto subtract = [&](std::size_t n) {
 			next.lightAndResistances[n] = static_cast<std::uint16_t>(next.lightAndResistances[n] - word);
 		};
-		if (mode == 69) next.effects[0] = static_cast<std::uint8_t>(next.effects[0] - byte);
-		else if (mode == 79) next.effects[2] = 0;
-		else if (mode == 94) next.effects[4] = 0;
+		if (mode == 69) next.effects[XeenPartyEffect::Levitate] = static_cast<std::uint8_t>(next.effects[XeenPartyEffect::Levitate] - byte);
+		else if (mode == 79) next.effects[XeenPartyEffect::WizardEye] = 0;
+		else if (mode == 94) next.effects[XeenPartyEffect::WalkOnWater] = 0;
 		else if (mode == 85) next.year = static_cast<std::uint16_t>(next.year - word);
 		else if (mode == 74) {
-			next.effects[0] = static_cast<std::uint8_t>(next.effects[0] - byte);
+			next.effects[XeenPartyEffect::Levitate] = static_cast<std::uint8_t>(next.effects[XeenPartyEffect::Levitate] - byte);
 			for (std::size_t n : {0u, 2u, 3u, 4u, 5u}) subtract(n);
-			next.effects[4] = 0;
+			next.effects[XeenPartyEffect::WalkOnWater] = 0;
 		} else subtract(*partyWord(mode));
 		*ctx = next;
 		return applied();
@@ -697,14 +697,14 @@ XeenEventWrite xeenEventGive(const XeenEventValueOwners &o, unsigned mode, std::
 		const auto add = [&](std::size_t n) {
 			next.lightAndResistances[n] = static_cast<std::uint16_t>(next.lightAndResistances[n] + word);
 		};
-		if (mode == 69) next.effects[0] = static_cast<std::uint8_t>(next.effects[0] + byte);
-		else if (mode == 79) next.effects[2] = 1;
-		else if (mode == 94) next.effects[4] = 1;
+		if (mode == 69) next.effects[XeenPartyEffect::Levitate] = static_cast<std::uint8_t>(next.effects[XeenPartyEffect::Levitate] + byte);
+		else if (mode == 79) next.effects[XeenPartyEffect::WizardEye] = 1;
+		else if (mode == 94) next.effects[XeenPartyEffect::WalkOnWater] = 1;
 		else if (mode == 74) {
 			// 0x231df..0x232b5: Walk on Water becomes active (the reference clears it).
-			next.effects[0] = static_cast<std::uint8_t>(next.effects[0] + byte);
+			next.effects[XeenPartyEffect::Levitate] = static_cast<std::uint8_t>(next.effects[XeenPartyEffect::Levitate] + byte);
 			for (std::size_t n : {0u, 2u, 3u, 4u, 5u}) add(n);
-			next.effects[4] = 1;
+			next.effects[XeenPartyEffect::WalkOnWater] = 1;
 		} else add(*partyWord(mode));
 		*ctx = next;
 		return applied();

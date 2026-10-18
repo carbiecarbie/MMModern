@@ -36,7 +36,7 @@ void recovery() {
    check(v.currentHp==(fed?XeenCharacterRules::maxHp(v,{610}):int(c[n].currentHp)),"Rest HP allocation in active order");
   }
   check(r.characters[4].conditions[2]==2,"No explicit post-refill Weak cure");
-  check(r.context.effects[1]==7 && r.context.lightAndResistances[1]==7,"Rest retains automap and torches");
+  check(r.context.effects[XeenPartyEffect::AutomapOn]==7 && r.context.lightAndResistances[1]==7,"Rest retains automap and torches");
  }
  auto allDead=c;for(auto &v:allDead)v.conditions[13]=1;
  XeenRestRecovery dead(allDead,i,context,1);check(dead.context.rested && !dead.starving && dead.food==1,"All-dead food eligibility");
@@ -102,7 +102,7 @@ void terrain() {
  auto c=characters();auto i=inputs();for(auto &v:c){v.currentHp=200;v.conditions.fill(0);}
  for(auto &v:i)v.resistances->fireTemporary=0;
  XeenGameplayContext ctx;ctx.year=610;ctx.day=8;ctx.minutes=480;
- ctx.lightAndResistances[2]=20;ctx.effects[6]=3;
+ ctx.lightAndResistances[2]=20;ctx.effects[XeenPartyEffect::PowerShield]=3;
  std::vector<XeenCombatRandom::Draw> tape;
  // Each member starts at 100: 100-20=80, save5<=10 halves40,
  // save20>10 stops, then shield3 leaves37. No cumulative reductions.

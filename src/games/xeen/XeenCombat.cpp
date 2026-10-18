@@ -685,9 +685,9 @@ XeenCombatResult XeenCombat::toggleAutomap(const Ticket &t) {
     if(!d.exact())return fail(t,Failure::Integrity);
     try {
         d.capacity();d.probeFor(t);
-        const auto value=!d.party.encounterContext->effects[1];
-        d.party.encounterContext->effects[1]=d.expected.encounterContext->effects[1]=value;
-        d.lifetime->context->effects[1]=value;
+        const auto value=!d.party.encounterContext->effects[XeenPartyEffect::AutomapOn];
+        d.party.encounterContext->effects[XeenPartyEffect::AutomapOn]=d.expected.encounterContext->effects[XeenPartyEffect::AutomapOn]=value;
+        d.lifetime->context->effects[XeenPartyEffect::AutomapOn]=value;
         d.published();return d.adopt(d.observation(Status::Advanced));
     }catch(...) {return fail(t,Failure::Integrity);}
 }
@@ -1006,7 +1006,9 @@ XeenCombatResult XeenCombat::settleCast(const Ticket &t,std::optional<unsigned> 
         }
         auto prepared=d.prepareCastGuard();
         prepared->s._journeyRandom=c.random.continuation();
-        result.failed=effect.failed;
+        auto information=XeenLearnedSpellRules::information(static_cast<XeenLearnedSpell>(reserved.spell),d.camera,d.actors,d.contact);
+        result.failed=effect.failed || (information && information->failed);
+        if(information && information->failed)information.reset();
         if((element || XeenLearnedSpellRules::target(result.spell)==XeenSpellTarget::Member) && !target) {
             prepared->characters[reserved.owner].currentSp=reserved.originalSp;
             prepared->treasure->gems=reserved.originalGems;
@@ -1046,9 +1048,10 @@ XeenCombatResult XeenCombat::settleCast(const Ticket &t,std::optional<unsigned> 
             auto &live=d.party.roster.at(value.owner);auto &before=d.expected.roster.at(value.owner);
             value.apply(live);value.apply(before);
         }
+        if(effect.stepped)d.stepped=true;
         d.rng=c.random;d.expectedRandom=d.session()._journeyRandom=c.random.continuation();
         d.acted[reserved.participant]=true;d.playerSpeeds=speeds;c.view.result=result;
-        d.reserveCastSuccessor();c.view.phase=XeenCombatCastPhase::Result;
+        d.reserveCastSuccessor();c.view.phase=XeenCombatCastPhase::Result;c.view.information=std::move(information);
         d.published();prepared->adoptJourneyCoordination();c.guard.swap(prepared);
         return d.adopt(c.operation);
     }catch(...){return fail(t,!d.exact()?Failure::Integrity:Failure::Preparation);}

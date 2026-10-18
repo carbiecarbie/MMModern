@@ -189,8 +189,8 @@ bool XeenEncounterFlow::toggleAutomap(const Ticket &entry) {
 	_journeyPreimage->check();
 	auto prepared=std::make_shared<XeenRestoreGuard>(_world,_party,_camera,_flags);
 	prepared->retainResources(*_journeyPreimage);
-	prepared->context->effects[1]=!prepared->context->effects[1];
-	_journeyPreimage->check();_party.encounterContext->effects[1]=prepared->context->effects[1];
+	prepared->context->effects[XeenPartyEffect::AutomapOn]=!prepared->context->effects[XeenPartyEffect::AutomapOn];
+	_journeyPreimage->check();_party.encounterContext->effects[XeenPartyEffect::AutomapOn]=prepared->context->effects[XeenPartyEffect::AutomapOn];
 	++_generation;_journeyPreimage.swap(prepared);_journeyPreimage->adoptMutationBoundary();return true;
 }
 void XeenEncounterFlow::adoptJourneyFlowBorrow() {
@@ -236,7 +236,7 @@ bool XeenEncounterFlow::journeyNavigationReady() const noexcept {
 }
 bool XeenEncounterFlow::itemUseReady() const noexcept { return _itemUse && _itemUse->ready; }
 bool XeenEncounterFlow::itemUseNeedsTarget() const noexcept {
-	return _itemUse && !_itemUse->effectDone && !_itemUse->targetPending && (!_itemUse->spell || XeenLearnedSpellRules::target(static_cast<std::uint8_t>(*_itemUse->spell))==XeenSpellTarget::Member ||
+	return _itemUse && !_itemUse->effectDone && !_itemUse->targetPending && (_itemUse->information || !_itemUse->spell || XeenLearnedSpellRules::target(static_cast<std::uint8_t>(*_itemUse->spell))==XeenSpellTarget::Member ||
         XeenLearnedSpellRules::target(static_cast<std::uint8_t>(*_itemUse->spell))==XeenSpellTarget::Element);
 }
 bool XeenEncounterFlow::itemUseNeedsElement() const noexcept {
@@ -261,7 +261,15 @@ std::optional<std::uint64_t> XeenEncounterFlow::beginItemUse(const Ticket &entry
 	try {
 		xeenValidateJourneyParty(_party);
 		auto next=std::make_unique<ItemUseContinuation>();
-		next->spell=xeenItemUseSpell(selection.record.id);
+        next->spell=xeenItemUseSpell(selection.record.id);
+        if(next->spell==XeenLearnedSpell::DetectMonster || next->spell==XeenLearnedSpell::IdentifyMonster) {
+            const auto &actors=_world.sessionState().regionalActors(_camera.mapId);
+            const auto view=XeenActorApproach::classify(actors,_camera);
+            std::array<std::optional<XeenMonsterIdentity>,3> slots;
+            for(unsigned n=0;n<3;++n)slots[n]=view.slots[n];
+            next->information=XeenLearnedSpellRules::information(*next->spell,_camera,actors,slots);
+            if(next->information && next->information->failed) {next->failed=true;next->information.reset();}
+        }
 		{XeenRestoreGuard::Providers providers(*_journeyPreimage,_world);
 			if(next->spell==XeenLearnedSpell::Jump) {
 				const auto jump=xeenJumpPreflight(_world,_camera);_journeyPreimage->check();
@@ -375,7 +383,7 @@ bool XeenEncounterFlow::settleItemUse(const Ticket &entry,std::uint64_t generati
                 _party.monsterTreasure->gems+=refund.gems;
 			}
 			if(_itemUse->jumpDestination)_camera=*_itemUse->jumpDestination;
-			_itemUse->failed=effect.failed || (spell==XeenLearnedSpell::Jump && !_itemUse->jumpDestination);
+			_itemUse->failed=_itemUse->failed || effect.failed || (spell==XeenLearnedSpell::Jump && !_itemUse->jumpDestination);
 			_itemUse->automaticArrival=automaticArrival;
 			_projectiles.swap(_itemUse->appearances);_projectileDeadline=0;
 			_shoot=std::move(_itemUse->projectile);
@@ -394,6 +402,7 @@ bool XeenEncounterFlow::settleItemUse(const Ticket &entry,std::uint64_t generati
 		}
 		_itemUseResult=result;
 		}
+		_itemUse->information.reset();
 		_itemUse->effectDone=true;_itemUse->ready=!_shoot;
 		_itemUse->selectorTicket.reset();_itemUse->selectorFrame.reset();
 		++_world._sessionState._journeyGeneration;++_generation;

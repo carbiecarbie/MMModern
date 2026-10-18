@@ -233,7 +233,7 @@ int main(int argc,char **argv) {
 		check(f.w.sessionState().barriers().size()==2 && !(f.w.sessionState().journeyRandom()==rng),"Original grate did not unlock with both durable faces and live RNG");
 		const auto saved=f.snapshot();Fixture restored(in,saved);
         for(unsigned surface:{5u,10u,13u,15u}) {
-            auto hazardous=saved;hazardous.journey->context->minutes=299;hazardous.journey->context->newDay=true;hazardous.journey->context->effects[2]=1;
+            auto hazardous=saved;hazardous.journey->context->minutes=299;hazardous.journey->context->newDay=true;hazardous.journey->context->effects[XeenPartyEffect::Levitate]=1;
             const auto loader=[&](auto id){auto m=in.maps.loadGeometryMap(in.assets,id);if(id==XeenMapIdentity(28))m.geometry.surfaceTypes.fill(surface);return m;};
             Fixture toggle(in,hazardous,false,nullptr,loader);const auto beforeToggle=toggle.snapshot();
             const auto actors=toggle.w.sessionState().regionalActors(28);std::vector<std::pair<int,int>> positions;

@@ -129,8 +129,8 @@ void presentation(Inputs &in) {
     sprites.clear();(void)drawXeenProtectionCorners(base,context,draw);
     for(unsigned i=0;i<4;++i)check(sprites[i]==std::make_tuple(std::string("fecp.brd"),9+2*i,i%2?219:8,i<2?8:134),"Alternate protection frame/position");
     // Character sheet condition expansion keeps buffs even on an ill member.
-    f.p.encounterContext->effects[8]=3;f.p.encounterContext->effects[6]=4;
-    f.p.encounterContext->effects[7]=5;f.p.encounterContext->effects[5]=6;
+    f.p.encounterContext->effects[XeenPartyEffect::Bless]=3;f.p.encounterContext->effects[XeenPartyEffect::PowerShield]=4;
+    f.p.encounterContext->effects[XeenPartyEffect::HolyBonus]=5;f.p.encounterContext->effects[XeenPartyEffect::Heroism]=6;
     f.p.roster.at(s.activeRosterIds[0]).conditions[3]=1;
     const auto popup=xeenSheetPopup(text,f.p,0,19);
     std::string expected;constexpr const char *names[]{"BLESSED","POWER_SHIELD","HOLY_BONUS","HEROISM"};

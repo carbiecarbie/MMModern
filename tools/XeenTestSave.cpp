@@ -108,8 +108,8 @@ void prepare(XeenSaveSnapshot &snapshot,const std::string &preset) {
     auto &member=snapshot.characters[first];
     if(preset=="m76-spells") {
         snapshot.camera={28,18,4,XeenDirection::West};journey.treasure->gems=1000;
-        constexpr unsigned spells[]{3,30,31,53,55,12,13};
-        constexpr unsigned powers[]{22,30,25,29,14,49,50};
+        constexpr unsigned spells[]{3,30,31,53,55,12,13,42,41,74,4,15,34};
+        constexpr unsigned powers[]{22,30,25,29,14,49,50,1,20,32,18,34,23};
         for(unsigned i=0;i<2;++i) {
             auto &caster=snapshot.characters[snapshot.activeRosterIds[i]];
             caster.characterClass=i?XeenCharacterClass::Sorcerer:XeenCharacterClass::Cleric;
@@ -123,7 +123,7 @@ void prepare(XeenSaveSnapshot &snapshot,const std::string &preset) {
             caster.miscellaneous={};caster.currentHp=XeenCharacterRules::maxHp(caster,{journey.context->year});
         }
         for(unsigned i=0;i<std::size(powers);++i)
-            snapshot.characters[first].miscellaneous[i]={1,static_cast<std::uint8_t>(powers[i]),5,0};
+            snapshot.characters[snapshot.activeRosterIds[i/9]].miscellaneous[i%9]={1,static_cast<std::uint8_t>(powers[i]),5,0};
         return;
     }
     if(preset=="party-healing") {

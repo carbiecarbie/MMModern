@@ -343,9 +343,9 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
                     inspect([&,seymour]{*seymour=std::make_unique<XeenRestoreGuard>(*world,*party,*position,*flags);});
                     action(CastSpellAction{});selectSpell(2);
                     inspect([&,seymour]{*seymour=std::make_unique<XeenRestoreGuard>(*world,*party,*position,*flags);});
-                    castSelected();
-                    inspect([&,seymour]{check(cast()->phase==XeenCombatCastPhase::Confirm && !cast()->refusal.empty() && (*seymour)->current() && combat()->participant()==5,"M39 unsupported Light charged or consumed turn");});
-                    action(AcknowledgeAction{});selectSpell(3);deny();
+                    // Light is supported; its paid cast is covered by the A2 tests.
+                    // Keep this control's durable state and continue to Arrow.
+                    selectSpell(3);deny();
                     inspect([&,seymour]{
                         check(party->roster.at(6).currentSpell==25,"M55 accepted Arrow slot is remembered");
                         *seymour=std::make_unique<XeenRestoreGuard>(*world,*party,*position,*flags);

@@ -232,7 +232,7 @@ bool XeenEncounterFlow::respondCombatCast(const PlayerAction &action,std::uint64
             if(const auto *row=std::get_if<SelectInventorySlotAction>(&action)){response=CI::EnemyTarget;index=unsigned(row->slot);}
             if(const auto *row=std::get_if<SelectCombatTargetAction>(&action)){response=CI::EnemyTarget;index=row->row;}
         }
-        if(phase==XeenCombatCastPhase::Result && _combat->cast()->result.failed)response=CI::Enter;
+        if(phase==XeenCombatCastPhase::Result && (_combat->cast()->result.failed || _combat->cast()->information))response=CI::Enter;
     }
     if(!begin && !response)return false;
     Busy busy(_busy);
@@ -263,7 +263,7 @@ bool XeenEncounterFlow::respondCombatCast(const PlayerAction &action,std::uint64
     }
     _combatCastRefusal.clear();
     if(!acceptCombatResult(result))return false;
-    if(_combat->cast() && _combat->cast()->quick && _combat->cast()->phase==XeenCombatCastPhase::Result && !_combat->cast()->result.failed) {
+    if(_combat->cast() && _combat->cast()->quick && _combat->cast()->phase==XeenCombatCastPhase::Result && !_combat->cast()->result.failed && !_combat->cast()->information) {
         observeCombat();if(!acceptCombatResult(_combat->finishCast(_combat->ticket())))return false;
     }
     if(begin || !_combat->cast()) {_castProjectile.reset();_castProjectileDeadline.reset();}
@@ -478,7 +478,7 @@ bool XeenEncounterFlow::idleCombat(std::optional<std::uint64_t> cycle) {
         const auto phase=_combat->cast()->phase;
         if(_scheduleAfterFrame)return false;
         if(phase==XeenCombatCastPhase::Result) {
-            if(_combat->cast()->result.failed)return false;
+            if(_combat->cast()->result.failed || _combat->cast()->information)return false;
             if(!acceptCombatResult(_combat->finishCast(_combat->ticket())))return false;
             _castProjectile.reset();_castProjectileDeadline.reset();scheduleCombat(now);return true;
         }
@@ -500,7 +500,7 @@ bool XeenEncounterFlow::idleCombat(std::optional<std::uint64_t> cycle) {
             _castProjectileDeadline.reset();
         }
         if(observeCombat())_cosmeticDeadline=counterDeadline(now,2);
-        if(_combat->cast() && _combat->cast()->quick && _combat->cast()->phase==XeenCombatCastPhase::Result && !_combat->cast()->result.failed) {
+        if(_combat->cast() && _combat->cast()->quick && _combat->cast()->phase==XeenCombatCastPhase::Result && !_combat->cast()->result.failed && !_combat->cast()->information) {
             if(!acceptCombatResult(_combat->finishCast(_combat->ticket())))return false;
             _castProjectile.reset();_castProjectileDeadline.reset();
         }

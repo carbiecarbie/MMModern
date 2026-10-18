@@ -118,7 +118,7 @@ void skillExplorationWire() {
 void dailyStateRoundTrips() {
  auto s=currentWireSnapshot();s.food=90;
  auto &time=*s.journey->context;time.year=611;time.day=0;time.minutes=299;
- time.newDay=true;time.rested=true;time.effects[0]=9;time.lightAndResistances[1]=23;
+ time.newDay=true;time.rested=true;time.effects[XeenPartyEffect::Levitate]=9;time.lightAndResistances[1]=23;
  auto &r=*s.journey->supplements[29].inputs.resistances;
  r.firePermanent=17;r.fireTemporary=255;r.energyPermanent=128;r.energyTemporary=254;
  r.magicPermanent=127;r.magicTemporary=1;
@@ -533,7 +533,7 @@ void regionalCityWire() {
  for(unsigned mode=0;mode<7;++mode) {
   auto invalid=city;
   switch(mode){case 0:invalid.journey->context->year=611;break;case 1:invalid.journey->context->minutes=299;break;
-   case 2:invalid.journey->context->minutes=1260;break;case 3:invalid.journey->context->effects[0]=1;break;
+   case 2:invalid.journey->context->minutes=1260;break;case 3:invalid.journey->context->effects[XeenPartyEffect::Levitate]=1;break;
    case 4:invalid.journey->context->rested=true;break;case 5:invalid.journey->context->newDay=true;break;
    case 6:invalid.journey->context->difficulty=XeenDifficulty::Warrior;break;}
   roundTrip(invalid);

@@ -64,7 +64,7 @@ XeenTrainingCandidate xeenPrepareTraining(const XeenPartyState &party,std::uint8
         for(auto attr:{XeenCharacterRules::PhysicalAttribute::Might,XeenCharacterRules::PhysicalAttribute::Speed,
                 XeenCharacterRules::PhysicalAttribute::Accuracy})
             (void)XeenCharacterRules::effectivePhysical(c,i,attr,{context.year});
-        (void)XeenCharacterRules::combatArmorClass(c,i,{context.year,context.effects[8]});
+        (void)XeenCharacterRules::combatArmorClass(c,i,{context.year,context.effects[XeenPartyEffect::Bless]});
         (void)xeenCombatAttackCount(c.characterClass,c.currentLevel());
         if(id==owner) {
             r.maxHpAfter=XeenCharacterRules::maxHp(c,{context.year});r.maxSpAfter=XeenCharacterRules::maxSp(c,{context.year});
