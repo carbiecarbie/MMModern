@@ -165,7 +165,8 @@ bool XeenEncounterFlow::respondCastingTarget(const Ticket &entry,
 	if (!current(entry) || !castingFrameCurrent(input,frame) || !_casting->committed ||
 		(_casting->effectDone || _casting->targetPending) || !journeyCapacity() ||
 		(XeenLearnedSpellRules::target(static_cast<std::uint8_t>(_casting->spell))!=XeenSpellTarget::Member &&
-         XeenLearnedSpellRules::target(static_cast<std::uint8_t>(_casting->spell))!=XeenSpellTarget::Element) ||
+         XeenLearnedSpellRules::target(static_cast<std::uint8_t>(_casting->spell))!=XeenSpellTarget::Element &&
+         XeenLearnedSpellRules::target(static_cast<std::uint8_t>(_casting->spell))!=XeenSpellTarget::Item) ||
 		(targetIndex && *targetIndex>=(_casting->spell==XeenLearnedSpell::ProtectionFromElements?4:_party.party.size()))) return false;
     BusyCast busy(_busy);
     _casting->targetIndex=targetIndex;_casting->targetPending=true;
@@ -178,6 +179,12 @@ bool XeenEncounterFlow::publishCastingTarget() {
     const bool element=_casting->spell==XeenLearnedSpell::ProtectionFromElements;
     try {
 		_journeyPreimage->check();
+        if(targetIndex && XeenLearnedSpellRules::target(static_cast<std::uint8_t>(_casting->spell))==XeenSpellTarget::Item) {
+            _casting->itemSpell.emplace();_casting->itemSpell->member=*targetIndex;
+            _casting->targetPending=false;
+            ++_world._sessionState._journeyGeneration;++_generation;
+            _journeyPreimage->adoptJourneyCoordination();return true;
+        }
 		XeenSpellPreparation preparedEffect;
         if(_casting->spell==XeenLearnedSpell::PowerCure && targetIndex) {
             XeenConsequenceDraw draw{_casting->random,64,[&]{_journeyPreimage->check();}};
@@ -285,7 +292,66 @@ bool XeenEncounterFlow::publishAwaken(const Ticket &entry) {
     } catch (...) { closeJourney();throw; }
 }
 
+bool XeenEncounterFlow::respondSpellItem(const Ticket &entry,std::optional<XeenSpellItemSelection> selection,
+        std::uint64_t input,const IndexedFrame::Presentation &frame) {
+    if(!current(entry) || _busy)return false;
+    auto *work=_casting && _casting->itemSpell?&*_casting->itemSpell:
+        _itemUse && _itemUse->itemSpell?&*_itemUse->itemSpell:nullptr;
+    if(!work || work->selected)return false;
+    if(_casting) {if(!castingFrameCurrent(input,frame))return false;}
+    else if(!_itemUse->selectorTicket || !_itemUse->selectorFrame || _itemUse->selectorFrame!=frame ||
+        _itemUse->selectorInput!=input || !current(*_itemUse->selectorTicket))return false;
+    _journeyPreimage->check();
+    const auto &member=_party.party.member(_party.roster,work->member);
+    if(selection) {
+        const auto *items=xeenInventoryItems(member,selection->category);
+        if(!items || selection->slot>=items->size() || !xeenSameItem(items->at(selection->slot),selection->record))return false;
+        const auto spell=_casting?_casting->spell:*_itemUse->spell;
+        const auto caster=_casting?_casting->casterOwner:_itemUse->sourceOwner;
+        work->preparation.emplace(spell,_party.roster.at(caster).currentLevel(),selection->category,selection->record);
+    }
+    work->selection=selection;work->selected=true;
+    if(_casting) {_casting->displayedFrame.reset();_casting->displayedInput=0;}
+    else {_itemUse->selectorFrame.reset();_itemUse->selectorTicket.reset();}
+    return serviceSpellItem();
+}
+bool XeenEncounterFlow::serviceSpellItem() {
+    if(!journeyCapacity())return false;
+    BusyCast busy(_busy);
+    try {
+    auto &work=_casting?*_casting->itemSpell:*_itemUse->itemSpell;
+    if(!work.selected)return false;
+    _journeyPreimage->check();
+    auto &random=_casting?_casting->random:_itemUse->opportunity->random;
+    XeenConsequenceDraw draw{random,64,[&]{_journeyPreimage->check();}};
+    if(work.preparation && !work.preparation->service(draw))return true;
+    auto prepared=std::make_shared<XeenRestoreGuard>(_world,_party,_camera,_flags);
+    prepared->retainResources(*_journeyPreimage);
+    const auto owner=_party.party.activeRosterIds().at(work.member);
+    if(work.preparation && !work.preparation->failed) {
+        auto &items=*xeenInventoryItems(prepared->characters[owner],work.selection->category);
+        items.at(work.selection->slot)=work.preparation->item;
+        if(work.preparation->gold)xeenCompactItems(items);
+        prepared->treasure->gold+=work.preparation->gold;
+    }
+    prepared->s._journeyRandom=random.continuation();
+    _journeyPreimage->check();
+    if(work.preparation && !work.preparation->failed) {
+        *xeenInventoryItems(_party.roster.at(owner),work.selection->category)=
+            *xeenInventoryItems(prepared->characters[owner],work.selection->category);
+        _party.monsterTreasure->gold=prepared->treasure->gold;
+    }
+    _world._sessionState._journeyRandom=random.continuation();
+    const bool failed=work.preparation && work.preparation->failed;
+    if(_casting) {_casting->failed=failed;_casting->effectDone=true;}
+    else {_itemUse->failed=failed;_itemUse->effectDone=true;_itemUse->ready=true;}
+    ++_world._sessionState._journeyGeneration;++_generation;
+    prepared->adoptJourneyCoordination();_journeyPreimage.swap(prepared);return true;
+    } catch(...) {closeJourney();throw;}
+}
+
 bool XeenEncounterFlow::serviceCasting() {
+    if(_casting && _casting->itemSpell && _casting->itemSpell->selected && !_casting->effectDone)return serviceSpellItem();
 	if (!_casting || _casting->information || !_casting->committed || (!_casting->effectDone && !_casting->targetPending) || _busy || _failure ||
 		!current(ticket()) || !journeyCapacity()) return false;
 	BusyCast busy(_busy);

@@ -83,6 +83,7 @@ std::vector<std::string> xeenSpellDescriptions(const std::vector<std::uint8_t> &
 IndexedFrame drawXeenExchange(const XeenDosText &,const IndexedFrame &,const XeenFontFormat &,const XeenDialogSpriteDraw &);
 IndexedFrame drawXeenQuickFight(const XeenDosText &,const IndexedFrame &,const XeenFontFormat &,const XeenCharacter &,std::size_t,const XeenDialogSpriteDraw &);
 DialogInput xeenItemsInput(bool misc,bool selection=false);
+DialogInput xeenItemSpellInput(unsigned mode,bool selection=false);
 enum class XeenLocationDialog { Smith, Training, Temple, Tavern, Bank, Guild };
 // Missing action implementations shared by runtime feedback and coverage tools.
 // Conditional eligibility (for example no cursed items) remains with the caller.
@@ -128,7 +129,7 @@ XeenDialogPopup xeenSheetPopup(const XeenDosText &text,const XeenPartyState &,st
 IndexedFrame drawXeenSheet(const XeenDosText &text,const IndexedFrame &,const XeenFontFormat &,const XeenPartyState &,
     std::size_t member,unsigned cursor,bool blink,const XeenDialogSpriteDraw &);
 IndexedFrame drawXeenItems(const XeenDosText &text,const IndexedFrame &,const XeenFontFormat &,const XeenItemCatalog &,
-    const XeenPartyState &,const XeenInventorySelection &,const XeenDialogSpriteDraw &);
+    const XeenPartyState &,const XeenInventorySelection &,const XeenDialogSpriteDraw &,unsigned mode=0);
 IndexedFrame drawXeenPopup(const IndexedFrame &,const XeenFontFormat &,const XeenDialogPopup &);
 IndexedFrame drawXeenErrorScroll(const IndexedFrame &,const XeenFontFormat &,const std::string &,bool startupColors=false);
 IndexedFrame drawXeenConfirm(const IndexedFrame &,const XeenFontFormat &,const std::string &,

@@ -132,10 +132,10 @@ bool XeenEncounterFlow::idle(std::optional<std::uint64_t> cycle) {
 	if(projectilesPending()) return animateProjectiles();
 	if (_combat) return idleCombat(cycle);
 	if (_rest) return serviceRest();
-	if (_casting && _casting->effectDone) { const bool changed=serviceCasting();schedule(_lastTime);return changed; }
+	if (_casting && (_casting->effectDone || (_casting->itemSpell && _casting->itemSpell->selected))) { const bool changed=serviceCasting();schedule(_lastTime);return changed; }
 	if (_busy || _state.phase() != XeenEncounterPhase::Exploring) return false;
 
-	if (itemUseReady()) return serviceItemUse();
+	if (itemUseReady() || (_itemUse && _itemUse->itemSpell && _itemUse->itemSpell->selected)) return serviceItemUse();
 	if (_world.sessionState().journeyActivity() == XeenJourneyActivity::Presentation || !_boundary.quiet()) return false;
 	std::uint64_t now;
 	if (!prepareTime(ticket(),now)) return false;
@@ -203,6 +203,7 @@ bool XeenEncounterFlow::respondCombatCast(const PlayerAction &action,std::uint64
         if(!_combat->cast()->refusal.empty())response=CI::Enter;
         if(const auto *key=std::get_if<DialogKeyAction>(&action)) {
             if(key->key==27)response=CI::Escape;
+            if(phase==XeenCombatCastPhase::Items && key->key>=2000 && key->key<2036) {response=CI::Item;index=key->key-2000;}
             if(phase==XeenCombatCastPhase::Element)if(const auto element=xeenElementSelection(key->key)) {response=CI::Element;index=*element;}
             if(key->key=='n')response=CI::New;
             if(key->key=='c' && phase==XeenCombatCastPhase::Confirm)response=CI::Enter;

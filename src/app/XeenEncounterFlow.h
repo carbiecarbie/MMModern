@@ -320,6 +320,14 @@ private:
 	bool _journeyFramePrepared = false, _journeyFrameRetry = false;
 	std::string _journeyRefusal;
 	std::unique_ptr<XeenRegionalActionCandidate> _regionalWork;
+    struct ItemSpellWork {
+        std::size_t member=0;
+        bool selected=false;
+        std::optional<XeenSpellItemSelection> selection;
+        std::optional<XeenItemSpellPreparation> preparation;
+    };
+    bool respondSpellItem(const Ticket &,std::optional<XeenSpellItemSelection>,std::uint64_t,const IndexedFrame::Presentation &);
+    bool serviceSpellItem();
 	struct ItemUseContinuation {
 		std::uint64_t generation=0,lease=0,epoch=0;
 		std::uint64_t selectorInput=0;
@@ -334,6 +342,7 @@ private:
 		std::optional<XeenLearnedSpell> spell;
 		std::optional<XeenCamera> jumpDestination;
         std::optional<XeenSpellInformation> information;
+        std::optional<ItemSpellWork> itemSpell;
 		std::unique_ptr<XeenShootCandidate> projectile;
 		std::vector<XeenProjectileAppearance> appearances;
 		std::unique_ptr<XeenRegionalActionCandidate> opportunity;
@@ -351,6 +360,7 @@ private:
         std::optional<std::size_t> targetIndex;
 		std::optional<XeenCamera> jumpDestination;
         std::optional<XeenSpellInformation> information;
+        std::optional<ItemSpellWork> itemSpell;
 		XeenCombatRandom random;
 		std::optional<XeenConditionTimeCandidate> time;
 		std::optional<XeenTerrainArrivalCandidate> terrain;

@@ -563,7 +563,7 @@ the pin.
 
 ### Item spell actions
 
-**DOS static, high confidence.** Enchant Item, Recharge Item and Item to Gold
+**DOS static, high confidence; implemented (M76 Part B).** Enchant Item, Recharge Item and Item to Gold
 first use the member prompt with their own IDs 19/57/39. Escape there refunds
 30 SP/20 gems, 15 SP/10 gems, or 20 SP/10 gems respectively. Enchant and
 Recharge items reach those same prompts, retaining their spent charge and
@@ -591,8 +591,8 @@ are not refused. The DOS cap comparison masks the state with `0xbf`, which
 drops the cursed bit (`0x40`) but keeps the broken bit (`0x80`): an
 eligible broken item therefore always fills to 63 charges, while a cursed
 one recharges normally (`0x31bae..0x31c3f`; bits confirmed by Curse Item
-`0x2d685` and Break Weapon `0x2d52c`). The pin always compares just the
-six-bit charge count. See
+`0x2d685` and Break Weapon `0x2d52c`; confirmed in DOS play on 2026-10-18 with edited item states,
+see the quirk). The pin always compares just the six-bit charge count. See
 [broken Recharge](../original-quirks.md#sv-recharge-broken).
 
 Item to Gold converts a selected nonempty item immediately, with **no extra

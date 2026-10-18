@@ -274,11 +274,20 @@ and Poison Volley. Generate it with:
 
 The `m76-spells` preset starts at Vertigo `(18,4)` facing West. A level-7
 Cleric and Sorcerer know the seven M76 party buffs and Light, Levitate,
-Walk on Water, Clairvoyance, Detect Monster and Identify Monster between them,
+Walk on Water, Clairvoyance, Detect Monster and Identify Monster between them;
+the Sorcerer also knows Enchant Item, Recharge Item and Item to Gold,
 with 1,000 SP each and 1,000 party gems. Their miscellaneous packs hold
-five-charge items for all thirteen powers: the Cleric has the seven buff
+five-charge items for all fifteen powers: the Cleric has the seven buff
 powers, Light and Levitate; the Sorcerer has Walk on Water, Clairvoyance,
-Detect Monster and Identify Monster. An original Vertigo monster stands one
+Detect Monster, Identify Monster, Enchant and Recharge. The Sorcerer's last
+three Misc slots hold ordinary, cursed and broken rechargeable items: broken
+fills to 63 charges; cursed adds the normal draw. His Recharge-power item is
+itself ineligible for Recharge. The third member carries a plain weapon and
+armor, an enchanted weapon, broken and cursed weapons, and weapon ID 34.
+Enchant refuses the latter four weapons; Item to Gold refuses only ID 34
+and converts immediately. Escape at the member prompt refunds SP/gems,
+including for an item cast whose charge remains spent; later Escape keeps
+the cost. An original Vertigo monster stands one
 step west, at `(17,4)`, for combat casting and Quick Fight. Combat item Use
 remains deferred. On mainland map 23, stand at `(12,9)` facing West to try
 Walk on Water onto the shallow water at `(11,9)`. The open mainland and

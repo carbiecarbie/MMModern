@@ -4,6 +4,8 @@
 #include "games/xeen/XeenParty.h"
 #include "games/xeen/XeenActor.h"
 #include "games/xeen/XeenNavigation.h"
+#include "games/xeen/XeenItemGeneration.h"
+#include "games/xeen/XeenItemCatalog.h"
 #include <optional>
 #include <string>
 #include <vector>
@@ -12,6 +14,7 @@ namespace mmodern {
 
 enum class XeenSpellCategory : std::uint8_t { Clerical, Wizardry, Druidic };
 enum class XeenLearnedSpell : std::uint8_t {
+    EnchantItem=19, ItemToGold=39, RechargeItem=57,
     Clairvoyance=4, DetectMonster=15, IdentifyMonster=34, Levitate=41, Light=42, WalkOnWater=74,
     Bless=3, DayOfProtection=12, DayOfSorcery=13, Heroism=30, HolyBonus=31,
     PowerShield=53, ProtectionFromElements=55,
@@ -66,9 +69,27 @@ struct XeenLearnedSpellNames {
 };
 
 enum class XeenQuickSpellCheck { Supported, NoSpell, InsufficientSp, InsufficientGems, CombatForbidden, Unsupported };
-enum class XeenSpellTarget { Party, Member, Element, Contact, Relocation, Unsupported };
+enum class XeenSpellTarget { Party, Member, Element, Contact, Relocation, Unsupported, Item };
 enum class XeenSpellRange { Single, Group, All };
 struct XeenSpellCost { unsigned sp=0, gems=0; };
+// Disposable handler work; existing owners publish the item and currency delta.
+struct XeenItemSpellPreparation {
+    XeenItemSpellPreparation(XeenLearnedSpell,unsigned casterLevel,XeenInventoryCategory,XeenItem);
+    bool service(XeenConsequenceDraw &);
+    bool complete=false,failed=false;
+    XeenItem item;
+    std::uint32_t gold=0;
+private:
+    XeenLearnedSpell spell;
+    unsigned level;
+    XeenInventoryCategory category;
+    std::optional<XeenItemCandidate> generated;
+};
+struct XeenSpellItemSelection {
+    XeenInventoryCategory category=XeenInventoryCategory::Weapons;
+    std::size_t slot=0;
+    XeenItem record;
+};
 class XeenLearnedSpellRules {
 public:
     static std::optional<XeenSpellInformation> information(XeenLearnedSpell,const XeenCamera &,

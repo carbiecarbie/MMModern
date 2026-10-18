@@ -92,7 +92,7 @@ void preset(const GameInstallation &installation,const std::string &name,const f
     if(name=="m76-spells") {
         check(camera.mapId==28 && camera.x==18 && camera.y==4,"M76 preset position");
         check(party.monsterTreasure->gems==1000,"M76 preset gems");
-        for(unsigned id:{3u,30u,31u,53u,55u,12u,13u,42u,41u,74u,4u,15u,34u}) {
+        for(unsigned id:{3u,30u,31u,53u,55u,12u,13u,42u,41u,74u,4u,15u,34u,19u,57u,39u}) {
             bool found=false;
             for(auto owner:{first,second}) {
                 const auto &caster=party.roster.at(owner);const auto category=*XeenLearnedSpellRules::categoryForClass(caster.characterClass);
@@ -101,10 +101,16 @@ void preset(const GameInstallation &installation,const std::string &name,const f
             }
             check(found,"M76 preset book knowledge/current level/SP");
         }
-        for(unsigned power:{22u,30u,25u,29u,14u,49u,50u,1u,20u,32u,18u,34u,23u}) {
+        for(unsigned power:{22u,30u,25u,29u,14u,49u,50u,1u,20u,32u,18u,34u,23u,63u,53u}) {
             bool found=false;for(auto owner:{first,second})for(const auto &item:party.roster.at(owner).miscellaneous)found=found || (item.id==power && (item.state&63)==5);
             check(found,"M76 preset charged power");
         }
+        const auto &targets=party.roster.at(party.party.activeRosterIds()[2]);
+        check(targets.weapons[0].id && !targets.weapons[0].material && !targets.weapons[0].state &&
+            targets.armor[0].id && !targets.armor[0].material && !targets.armor[0].state,"M76 plain enchant targets");
+        check(targets.weapons[1].material && targets.weapons[2].state==0x80 && targets.weapons[3].state==0x40 && targets.weapons[4].id==34,"M76 refusal and ID-34 targets");
+        const auto &misc=party.roster.at(second).miscellaneous;
+        check(misc[6].state==2 && misc[7].state==0x42 && misc[8].state==0x82 && misc[5].id==53,"M76 ordinary/cursed/broken Recharge and excluded power-53 targets");
         const auto &nearby=saved.map(28).monsters->slots.at(0);
         check(nearby.x==17 && nearby.y==4 && nearby.lifecycle==XeenActorLifecycle::Present,"M76 nearby monster");
         return;

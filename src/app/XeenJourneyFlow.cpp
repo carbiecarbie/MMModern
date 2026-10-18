@@ -237,6 +237,7 @@ bool XeenEncounterFlow::journeyNavigationReady() const noexcept {
 bool XeenEncounterFlow::itemUseReady() const noexcept { return _itemUse && _itemUse->ready; }
 bool XeenEncounterFlow::itemUseNeedsTarget() const noexcept {
 	return _itemUse && !_itemUse->effectDone && !_itemUse->targetPending && (_itemUse->information || !_itemUse->spell || XeenLearnedSpellRules::target(static_cast<std::uint8_t>(*_itemUse->spell))==XeenSpellTarget::Member ||
+        XeenLearnedSpellRules::target(static_cast<std::uint8_t>(*_itemUse->spell))==XeenSpellTarget::Item ||
         XeenLearnedSpellRules::target(static_cast<std::uint8_t>(*_itemUse->spell))==XeenSpellTarget::Element);
 }
 bool XeenEncounterFlow::itemUseNeedsElement() const noexcept {
@@ -343,8 +344,17 @@ bool XeenEncounterFlow::settleItemUse(const Ticket &entry,std::uint64_t generati
 	if (targetIndex && *targetIndex>=(itemUseNeedsElement()?4:ids.size())) return false;
 	try {
 		_journeyPreimage->check();
+        if(_itemUse->itemSpell) {
+            // Abandoning a later Items dialog never returns to the early refund.
+            _itemUse->itemSpell->selected=true;return serviceSpellItem();
+        }
 		if(_itemUse->spell) {
 			const auto spell=*_itemUse->spell;
+            if(targetIndex && XeenLearnedSpellRules::target(static_cast<std::uint8_t>(spell))==XeenSpellTarget::Item) {
+                _itemUse->itemSpell.emplace();_itemUse->itemSpell->member=*targetIndex;
+                _itemUse->selectorFrame.reset();_itemUse->selectorTicket.reset();
+                ++_world._sessionState._journeyGeneration;++_generation;retainJourney();return true;
+            }
 			XeenSpellPreparation effect;
             if(spell==XeenLearnedSpell::PowerCure && targetIndex) {
                 _itemUse->targetPending=true;_itemUse->targetIndex=targetIndex;
@@ -376,7 +386,7 @@ bool XeenEncounterFlow::settleItemUse(const Ticket &entry,std::uint64_t generati
             const auto id=static_cast<std::uint8_t>(spell);
             // M61 First Aid and the M75 DOS item prompts refund without a debit.
             // Other pre-M75 item cancellation paths retain their existing policy.
-            if(!targetIndex && (id==55 || id==26 || id==7 || id==8 || id==9 || id==49 || id==52 || id==56 || id==58 || id==64)) {
+            if(!targetIndex && (id==19 || id==57 || id==39 || id==55 || id==26 || id==7 || id==8 || id==9 || id==49 || id==52 || id==56 || id==58 || id==64)) {
                 auto &user=_party.roster.at(_itemUse->sourceOwner);
                 const auto refund=XeenLearnedSpellRules::cost(id,user.currentLevel());
                 user.currentSp=static_cast<std::int16_t>(user.currentSp+refund.sp);
@@ -410,6 +420,7 @@ bool XeenEncounterFlow::settleItemUse(const Ticket &entry,std::uint64_t generati
 	} catch (...) { closeJourney(); throw; }
 }
 bool XeenEncounterFlow::serviceItemUse() {
+    if(_itemUse && _itemUse->itemSpell && _itemUse->itemSpell->selected && !_itemUse->effectDone)return serviceSpellItem();
     if(_itemUse && !_itemUse->effectDone && _itemUse->targetPending && !_busy)
         return settleItemUse(ticket(),_itemUse->generation,_itemUse->epoch,_itemUse->targetIndex);
 	if (!itemUseReady() || _busy || _combat || !_journeyPreimage || !journeyCapacity() ||

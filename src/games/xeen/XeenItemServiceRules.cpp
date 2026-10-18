@@ -15,6 +15,8 @@ std::optional<std::uint8_t> xeenItemPowerSpellId(std::uint8_t power) noexcept {
 }
 std::optional<XeenLearnedSpell> xeenItemUseSpell(std::uint8_t power,bool combat) noexcept {
     const auto id=xeenItemPowerSpellId(power);
+    // DOS admits item Enchant in combat, independently of learned admission.
+    if(combat && power==63)return XeenLearnedSpell::EnchantItem;
     return id?XeenLearnedSpellRules::supportedIn(*id,combat):std::nullopt;
 }
 bool xeenItemUseSupported(const XeenItem &item) noexcept {

@@ -191,9 +191,12 @@ complete original cancellation paths were not established by M61. The later
 [M75 DOS checks](evidence.md#party-healing-spells) establish refunds for
 powers 26, 27, 37, 41, 44, 56, 57 and 66: each uses its spell's own ID and
 cost, including gems; powers 51 and 73 have no member prompt. These refunds
-are implemented in M75 Part A for powers 26, 27, 37, 41, 44 and 56,
-with no-prompt Create Food power 51. Powers 57, 66 and 73 remain unsupported
-until Part B.
+are implemented in M75 for all those member-prompt powers; Create Food (51)
+and Divine Intervention (73) have no member prompt. M76 also implements
+own-ID refunds for Protection from Elements (14), Enchant (63) and Recharge
+(53), including their gems, while retaining the spent item charge. The
+[item spell actions](magic.md#item-spell-actions) distinguish early member
+cancellation from later Items cancellation.
 
 ## Discard, recharge and enchant
 
@@ -203,24 +206,33 @@ Sources: [InventoryItems::discardItem/enchantItem][item],
 [ItemsDialog::doItemOptions/itemToGold][dialogs].
 
 Discard refuses cursed items before confirmation. Broken alone is not a refusal.
-Removing an equipped cursed item also refuses. The reference allows Item to Gold
-to convert an occupied ordinary item using full-value pricing and rejects
-slayer-sword weapon IDs; this is distinct from Sell's cursed-item admission.
-Original DOS equivalence for this distinction remains unknown.
+Removing an equipped cursed item also refuses.
 
-Recharge admits nonempty Misc containers at material IDs at most 9, except the
-Recharge Item power itself (53). It adds one `R(1,6)` to the counter and caps at
-63. This check does not independently reject a broken/cursed item. The exact DOS
-behavior and charge spending around the selecting item are not verified here.
+**DOS static, high confidence; implemented (M76 Part B):** the three item
+spells use their own-ID member prompts, then Items modes 6/4/11. Member
+Escape refunds SP/gems, including for a spent item charge; later Escape or
+eligibility refusal keeps the cost. See [item spell actions](magic.md#item-spell-actions)
+and [M76 evidence](evidence.md#m76-spells).
 
-Enchant first draws `R(1, floor(L/5)+1)` and caps the result at 5. The selected
-category's handler then decides eligibility. Weapons and armor
-require material 0 and empty state; weapons also reject slayer IDs. The generator
-supplies enchantment properties; the action does not replace the selected base
-item with a random base type. Accessories and Misc use the failure handler. The
-draw can therefore occur before a later rejection; do not prevalidate it away
-without DOS evidence. These are reference rules, not a fully traced DOS enchant
-algorithm or a promise of current MMModern support.
+Enchant draws `R(1, floor(caster current level/5)+1)`, capped at 5, before
+eligibility. Weapons and armor require material and state zero; equipped
+items qualify, and only weapon ID exactly 34 is excluded. The shared DOS
+generator runs in forced weapon/armor mode, including the category,
+subcategory and base-ID draws. Only material and state are copied; even a
+zero-property result succeeds. Accessories and Misc refuse after the level draw.
+
+Recharge admits nonempty Misc containers at material IDs at most 9, except
+power 53. One `R(1,6)` is added, capped at 63. The DOS comparison uses
+`state & 0xbf`, so a broken item fills to 63; a cursed one adds normally.
+Both flags are preserved, and there is no break/destruction draw.
+
+Item to Gold converts immediately without confirmation or an equipped,
+broken or cursed refusal. Weapon ID exactly 34 refuses; Quest counters are
+not selectable. It credits `max(1, full DOS item value)`, ignoring charges
+and condition, then clears and compacts the category. The Smith price
+formula above is shared. These DOS rules supersede the pin's Enchant
+recipient-level and zero-property checks, ID-at-least-34 exclusions, and
+six-bit-only Recharge comparison.
 
 ## Generation and reward delivery
 

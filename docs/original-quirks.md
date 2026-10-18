@@ -228,7 +228,10 @@ finding ledger are in [M76 evidence](rules/evidence.md#m76-spells).
   comparison, so a cursed item recharges normally; both flags stay in the
   record. Bit values: Curse Item sets `0x40` (`0x2d685`), Break Weapon
   `0x80` (`0x2d52c`). One 1..6 draw still occurs; no break/destruction
-  draw occurs.
+  draw occurs. **DOS play (2026-10-18):** on a save whose item state bytes
+  were edited, a broken charged item went to 63 and stayed broken, a cursed
+  one gained 1..6 and stayed cursed, and Enchant refused a cursed armor
+  with no material.
   **ScummVM:** differs; it compares the six-bit charge count alone.
 - <a id="sv-town-portal-item-combat"></a> **Town Portal items continue after
   the combat refusal notice.** The branch `0x3a058..0x3a075` reaches the

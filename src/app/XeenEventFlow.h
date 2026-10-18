@@ -437,8 +437,20 @@ private:
 	};
 	std::optional<EquipmentSelection> _equipmentSelection;
 	std::optional<std::uint64_t> _itemUseGeneration;
+    struct SpellItemsUi {
+        XeenLearnedSpell spell;
+        XeenInventorySelection selection;
+        bool choosing=false,waiting=false;
+        std::string error;
+    };
+    std::optional<SpellItemsUi> _spellItemsUi;
+    void openSpellItems(XeenLearnedSpell,std::size_t);
+    void syncSpellItems();
+    IndexedFrame handleSpellItems(const PlayerAction &,std::uint64_t);
+    IndexedFrame drawSpellItems(const IndexedFrame &) const;
+    std::shared_ptr<const DialogInput> spellItemsInput() const;
     struct CastingUi {
-        enum class Phase { Cast, New, ChooseTarget, ChooseElement, Settling };
+        enum class Phase { Cast, New, ChooseTarget, ChooseElement, Settling, Items };
         Phase phase=Phase::Cast;
         std::size_t caster=0;
         XeenSpellListUi list;

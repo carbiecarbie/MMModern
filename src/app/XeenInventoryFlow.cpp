@@ -268,6 +268,9 @@ IndexedFrame XeenEventFlow::handleInventory(const PlayerAction &action) {
    if(information || selected || key==InputKey::Escape) {
     if(!_itemUseGeneration || !_encounter->finishItemUse(_encounter->ticket(),*_itemUseGeneration,_inventoryEpoch,
      selected,_inputGeneration,responseFrame())) {closeGameplay();return _frame;}
+    if(_encounter->_itemUse->itemSpell && !_encounter->_itemUse->effectDone) {
+        openSpellItems(*_encounter->_itemUse->spell,_encounter->_itemUse->itemSpell->member);return _frame;
+    }
     if(_encounter->itemUseFailed()) {dialogError(std::string(dosText().scalar("SPELL_FAILED")));return _frame;}
     closeInventory();_frame=_inventoryUnderlay;return _frame;
    }

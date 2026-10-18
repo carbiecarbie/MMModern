@@ -190,6 +190,9 @@ struct XeenCombat::Impl {
         std::array<std::optional<XeenMonsterIdentity>,12> targets{};
         std::optional<XeenSpellDamagePreparation> preparation;
         XeenMoonRayHealing healing;
+        bool itemCancelled=false;
+        std::optional<XeenSpellItemSelection> itemSelection;
+        std::optional<XeenItemSpellPreparation> itemPreparation;
         XeenPartyVolley volley;
         bool targetsPrepared=false;
         unsigned target=0,travelRow=0,targetRow=0,travelRows=4;
@@ -854,6 +857,22 @@ XeenCombatResult XeenCombat::respondCast(CastResponse &response,XeenCombatCastIn
             d.boundary.release(XeenCombatBoundary::Work::Casting,lease);
             return d.adopt(result);
         }
+        if(v.phase==CP::Items) {
+            if(action!=CI::Escape && action!=CI::Item)return d.observation(Status::Refused);
+            require(c.partyTarget && c.reservation,"Missing item spell member");
+            if(action==CI::Item) {
+                if(index>=36)return d.observation(Status::Refused);
+                const auto category=static_cast<XeenInventoryCategory>(index/9);const auto slot=index%9;
+                const auto &member=d.party.party.member(d.party.roster,*c.partyTarget);
+                const auto &item=xeenInventoryItems(member,category)->at(slot);
+                if(category==XeenInventoryCategory::Miscellaneous?!item.material:!item.id)return d.observation(Status::Refused);
+                c.itemSelection=XeenSpellItemSelection{category,slot,item};
+                c.itemPreparation.emplace(static_cast<XeenLearnedSpell>(c.reservation->spell),
+                    d.character(c.reservation->participant).currentLevel(),category,item);
+            } else c.itemCancelled=true;
+            v.phase=CP::Preparing;d.work=Work::Cast;
+            ++d.generation;return d.adopt(c.operation,Status::Pending);
+        }
         if(v.phase==CP::Element) {
             if(action!=CI::Escape && action!=CI::Element)return d.observation(Status::Refused);
             if(action==CI::Element && index>=4)return d.observation(Status::Refused);
@@ -955,7 +974,7 @@ XeenCombatResult XeenCombat::respondCast(CastResponse &response,XeenCombatCastIn
         v.result.spell=reserved.spell;v.result.spBefore=reserved.originalSp;v.result.spAfter=int(after);
         d.party.roster.at(reserved.owner).currentSp=d.expected.roster.at(reserved.owner).currentSp=std::int16_t(after);
         d.party.monsterTreasure->gems=d.expected.treasure->gems=reserved.originalGems-reserved.gemCost;
-        v.committed=true;v.phase=XeenLearnedSpellRules::target(*id)==XeenSpellTarget::Member ? CP::PartyTarget : XeenLearnedSpellRules::target(*id)==XeenSpellTarget::Element?CP::Element:CP::Preparing;
+        v.committed=true;v.phase=XeenLearnedSpellRules::target(*id)==XeenSpellTarget::Member || XeenLearnedSpellRules::target(*id)==XeenSpellTarget::Item ? CP::PartyTarget : XeenLearnedSpellRules::target(*id)==XeenSpellTarget::Element?CP::Element:CP::Preparing;
         d.work=v.phase==CP::Preparing ? Work::Cast : Work::None;
         d.published();prepared->adoptJourneyCoordination();c.guard.swap(prepared);
         auto r=d.observation(Status::Pending);r.operation=Operation::Cast;r.actingOwner=std::uint8_t(reserved.owner);r.participant=int(reserved.participant);
@@ -983,7 +1002,16 @@ XeenCombatResult XeenCombat::settleCast(const Ticket &t,std::optional<unsigned> 
         c.partyTarget=target;
         const bool element=XeenLearnedSpellRules::target(reserved.spell)==XeenSpellTarget::Element;
         const auto targetOwner=target && !element ? std::optional<std::uint8_t>{d.party.party.activeRosterIds().at(*target)} : std::nullopt;
-        if(target && !element)require((XeenLearnedSpellRules::target(reserved.spell)==XeenSpellTarget::Member) && *target<6 && (reserved.participants&(1u<<*target)),"Cast recovery target changed");
+        if(target && !element)require((XeenLearnedSpellRules::target(reserved.spell)==XeenSpellTarget::Member || XeenLearnedSpellRules::target(reserved.spell)==XeenSpellTarget::Item) && *target<6 && (reserved.participants&(1u<<*target)),"Cast recovery target changed");
+        const bool itemSpell=XeenLearnedSpellRules::target(reserved.spell)==XeenSpellTarget::Item;
+        if(itemSpell && target && !c.itemSelection && !c.itemCancelled) {
+            c.view.itemMember=*target;c.view.phase=XeenCombatCastPhase::Items;d.work=Work::None;
+            ++d.generation;return d.adopt(c.operation,Status::Pending);
+        }
+        if(c.itemPreparation) {
+            XeenConsequenceDraw draw{c.random,64,[&]{d.probeFor(t);d.checkCastReservation(t,reserved,true);}};
+            if(!c.itemPreparation->service(draw)) {++d.generation;return d.adopt(c.operation,Status::Pending);}
+        }
         XeenCombatCastResult result=c.view.result;result.spell=reserved.spell;
         result.spBefore=reserved.originalSp;result.spAfter=reserved.originalSp-int(reserved.cost);
         XeenSpellPreparation effect;
@@ -996,7 +1024,7 @@ XeenCombatResult XeenCombat::settleCast(const Ticket &t,std::optional<unsigned> 
                 ++d.generation;return d.adopt(c.operation,Status::Pending);
             }
             effect=*healing;
-        } else effect=XeenLearnedSpellRules::prepareEffect(static_cast<XeenLearnedSpell>(reserved.spell),d.party,element?std::nullopt:target,d.party.encounterContext->year,reserved.owner);
+        } else if(!itemSpell)effect=XeenLearnedSpellRules::prepareEffect(static_cast<XeenLearnedSpell>(reserved.spell),d.party,element?std::nullopt:target,d.party.encounterContext->year,reserved.owner);
         if(reserved.spell==unsigned(XeenLearnedSpell::MoonRay)) {
             XeenConsequenceDraw draw{c.random,64,[&]{d.probeFor(t);d.checkCastReservation(t,reserved,true);}};
             if(!c.healing.service(draw,d.party,d.party.encounterContext->year)) {
@@ -1007,9 +1035,15 @@ XeenCombatResult XeenCombat::settleCast(const Ticket &t,std::optional<unsigned> 
         auto prepared=d.prepareCastGuard();
         prepared->s._journeyRandom=c.random.continuation();
         auto information=XeenLearnedSpellRules::information(static_cast<XeenLearnedSpell>(reserved.spell),d.camera,d.actors,d.contact);
-        result.failed=effect.failed || (information && information->failed);
+        result.failed=effect.failed || (information && information->failed) || (c.itemPreparation && c.itemPreparation->failed);
+        if(c.itemPreparation && !c.itemPreparation->failed) {
+            auto &items=*xeenInventoryItems(prepared->characters[*targetOwner],c.itemSelection->category);
+            items.at(c.itemSelection->slot)=c.itemPreparation->item;
+            if(c.itemPreparation->gold)xeenCompactItems(items);
+            prepared->treasure->gold+=c.itemPreparation->gold;result.noop=false;
+        }
         if(information && information->failed)information.reset();
-        if((element || XeenLearnedSpellRules::target(result.spell)==XeenSpellTarget::Member) && !target) {
+        if((element || itemSpell || XeenLearnedSpellRules::target(result.spell)==XeenSpellTarget::Member) && !target) {
             prepared->characters[reserved.owner].currentSp=reserved.originalSp;
             prepared->treasure->gems=reserved.originalGems;
             result.refunded=true;result.spAfter=reserved.originalSp;
@@ -1047,6 +1081,12 @@ XeenCombatResult XeenCombat::settleCast(const Ticket &t,std::optional<unsigned> 
         for(const auto &value:effect.effects) {
             auto &live=d.party.roster.at(value.owner);auto &before=d.expected.roster.at(value.owner);
             value.apply(live);value.apply(before);
+        }
+        if(c.itemPreparation && !c.itemPreparation->failed) {
+            *xeenInventoryItems(d.party.roster.at(*targetOwner),c.itemSelection->category)=
+                *xeenInventoryItems(d.expected.roster.at(*targetOwner),c.itemSelection->category)=
+                *xeenInventoryItems(prepared->characters[*targetOwner],c.itemSelection->category);
+            d.party.monsterTreasure->gold=d.expected.treasure->gold=prepared->treasure->gold;
         }
         if(effect.stepped)d.stepped=true;
         d.rng=c.random;d.expectedRandom=d.session()._journeyRandom=c.random.continuation();

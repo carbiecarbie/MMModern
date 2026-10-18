@@ -49,6 +49,7 @@ void XeenEventFlow::dialogError(std::string message) {
     if(reportText) reportText(*_dialogError);
 }
 std::shared_ptr<const DialogInput> XeenEventFlow::characterDialogInput() const {
+    if(_spellItemsUi)return spellItemsInput();
     if(!inventoryOpen()) return {};
     DialogInput input;
     if(_exchange) input=xeenExchangeInput();
@@ -65,6 +66,7 @@ std::shared_ptr<const DialogInput> XeenEventFlow::characterDialogInput() const {
     return std::make_shared<const DialogInput>(std::move(input));
 }
 IndexedFrame XeenEventFlow::drawCharacterDialog(const IndexedFrame &base) const {
+    if(_spellItemsUi)return drawSpellItems(base);
 	if(_inventory.mode==XeenInventoryMode::UseTarget && _dialogError) return drawXeenErrorScroll(base,_inventoryFont,*_dialogError);
     if(_inventory.mode==XeenInventoryMode::UseTarget && _encounter->_itemUse->information)return drawXeenSpellInformation(dosText(),base,_inventoryFont,*_encounter->_itemUse->information,drawDialogSprite);
     if(_inventory.mode==XeenInventoryMode::UseTarget && _encounter->itemUseNeedsElement())return drawXeenElement(dosText(),base,_inventoryFont,drawDialogSprite);

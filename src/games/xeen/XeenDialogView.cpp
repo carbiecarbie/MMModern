@@ -5,6 +5,7 @@
 #include "games/xeen/XeenTempleHeal.h"
 #include "games/xeen/XeenArmorRepair.h"
 #include "games/xeen/detail/XeenItemTables.h"
+#include "games/xeen/XeenItemServiceRules.h"
 #include <array>
 #include <stdexcept>
 #include <algorithm>
@@ -324,6 +325,16 @@ DialogInput xeenItemsInput(bool misc,bool selection) {
         partyButtons(input);
     }
     for(unsigned row=0;row<9;++row) button(input,8,20+9*row,263,28+9*row,'1'+row);
+    return input;
+}
+DialogInput xeenItemSpellInput(unsigned mode,bool selection) {
+    DialogInput input;
+    if(selection)button(input,235,111,259,131,InputKey::Escape,"esc.icn");
+    else {
+        const unsigned keys[]{'w','a','c','m',unsigned(mode==6?'e':mode==4?'r':'g'),InputKey::Escape};
+        for(unsigned i=0;i<6;++i)button(input,i==5?284:12+34*i,109,i==5?308:36+34*i,129,keys[i],"buy.icn",i*2);
+    }
+    for(unsigned row=0;row<9;++row)button(input,8,20+9*row,263,28+9*row,'1'+row);
     return input;
 }
 DialogInput xeenBuyInput(bool repair) {
@@ -758,9 +769,9 @@ std::string xeenBackpackFull(const XeenDosText &text,XeenInventoryCategory categ
     return xeenDialogFormat(text.table("CATEGORY_BACKPACK_IS_FULL").at(static_cast<unsigned>(category)),{name});
 }
 IndexedFrame drawXeenItems(const XeenDosText &text,const IndexedFrame &base,const XeenFontFormat &font,const XeenItemCatalog &catalog,
-        const XeenPartyState &p,const XeenInventorySelection &selection,const XeenDialogSpriteDraw &draw) {
+        const XeenPartyState &p,const XeenInventorySelection &selection,const XeenDialogSpriteDraw &draw,unsigned mode) {
     const bool misc=selection.category==XeenInventoryCategory::Miscellaneous;
-    auto frame=render(base,font,xeenDialogFormat(text.scalar("ITEMS_DIALOG_TEXT1"),{str(misc?text.scalar("BTN_USE"):text.scalar("BTN_EQUIP")),str(text.scalar("BTN_REMOVE")),str(text.scalar("BTN_DISCARD")),str(text.scalar("BTN_QUEST"))}),{0,101,320,146},{8,109,312,138});
+    auto frame=render(base,font,mode?xeenDialogFormat(text.scalar("ITEMS_DIALOG_TEXT2"),{str(text.scalar(mode==6?"BTN_ENCHANT":mode==4?"BTN_RECHARGE":"BTN_GOLD"))}):xeenDialogFormat(text.scalar("ITEMS_DIALOG_TEXT1"),{str(misc?text.scalar("BTN_USE"):text.scalar("BTN_EQUIP")),str(text.scalar("BTN_REMOVE")),str(text.scalar("BTN_DISCARD")),str(text.scalar("BTN_QUEST"))}),{0,101,320,146},{8,109,312,138});
     const auto &c=p.party.member(p.roster,selection.source);
     const auto &items=*xeenInventoryItems(c,selection.category);
     std::vector<std::string> args{misc?"\x03l":"\x03" "c",str(text.table("CATEGORY_NAMES")[static_cast<unsigned>(selection.category)]),c.name,str(text.table("CLASS_NAMES")[static_cast<unsigned>(c.characterClass)]),misc?str(text.scalar("FMT_CHARGES")):" "};
@@ -769,13 +780,19 @@ IndexedFrame drawXeenItems(const XeenDosText &text,const IndexedFrame &base,cons
         if(description.empty) args.push_back(i==0?str(text.scalar("NO_ITEMS_AVAILABLE")):"");
         else {
             std::vector<std::string> line{n(selection.slot==i?15:0),n(i+1),description.displayName};
-            if(misc) line.push_back(n(description.counter));
-            args.push_back(xeenDialogFormat(misc?text.scalar("ITEMS_DIALOG_LINE2"):text.scalar("ITEMS_DIALOG_LINE1"),line));
+            if(mode==11)line.push_back(n(xeenItemPrice(selection.category,items[i],XeenItemService::Buy).value_or(1)));
+            else if(misc)line.push_back(n(description.counter));
+            args.push_back(xeenDialogFormat(misc || mode==11?text.scalar("ITEMS_DIALOG_LINE2"):text.scalar("ITEMS_DIALOG_LINE1"),line));
         }
     }
-    frame=render(frame,font,xeenDialogFormat(text.scalar("X_FOR_THE_Y"),args),{0,0,320,108},{8,8,312,100});
+    if(mode) {
+        args.erase(args.begin(),args.begin()+5);
+        args.insert(args.begin(),{str(text.table("CATEGORY_NAMES")[static_cast<unsigned>(selection.category)]),c.name,str(text.scalar(mode==11?"COST":"CHARGES"))});
+    }
+    frame=render(frame,font,xeenDialogFormat(text.scalar(mode?"X_FOR_Y":"X_FOR_THE_Y"),args),{0,0,320,108},{8,8,312,100});
     if(draw) {
-        for(unsigned i=0;i<9;++i) draw(frame,"items.icn",i==4&&misc?18:i*2,12+i*34,109);
+        if(mode)for(unsigned i=0;i<6;++i)draw(frame,"buy.icn",i*2,i==5?284:12+i*34,109);
+        else for(unsigned i=0;i<9;++i) draw(frame,"items.icn",i==4&&misc?18:i*2,12+i*34,109);
         if(!misc) for(unsigned i=0;i<9;++i) if(items[i].id) draw(frame,"equip.icn",xeenItemProficient(c,selection.category,items[i].id)?unsigned(items[i].frame):14,8,18+i*9);
     }
     highlight(frame,selection.source,draw);return frame;

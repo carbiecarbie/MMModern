@@ -10,12 +10,17 @@ XeenItemCandidate::XeenItemCandidate(unsigned value):level(value) {
 XeenItemCandidate::XeenItemCandidate(unsigned value,std::optional<int> itemType):XeenItemCandidate(value) {
 	special=itemType;
 }
+// DOS Enchant retains both initial draws and the random base-ID draw.
+XeenItemCandidate::XeenItemCandidate(unsigned value,Enchant kind):XeenItemCandidate(value) {
+	forcedCategory=kind==Enchant::Armor?60:35;
+}
 bool XeenItemCandidate::service(XeenConsequenceDraw &draw) {
 	draw.remaining=std::min(draw.remaining,64u);
 	while(step!=Step::Done && draw.remaining) switch(step) {
 	case Step::Category: { const auto n=draw.draw(1,100);if(n) { categoryRoll=*n;step=Step::Subcategory; } break; }
 	case Step::Subcategory: { const auto n=draw.draw(1,level>=6?80:100);if(n) { subcategory=*n;step=Step::Resolve; } break; }
 	case Step::Resolve:
+		if(forcedCategory)categoryRoll=*forcedCategory;
 		if(special) {
 			const int type=*special;
 			selectedCategory=type<35?0:type<49?1:type<60?2:3;

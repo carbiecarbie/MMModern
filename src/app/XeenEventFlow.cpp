@@ -808,6 +808,7 @@ void XeenEventFlow::finishOrdinaryDraw() {
 }
 
 IndexedFrame XeenEventFlow::renderEncounter(bool report, bool cosmeticInput, bool reconstruct) {
+    syncSpellItems();
     prepareStandalonePortrait();
 	if (_smithUi) {
 		cosmeticInput=_smithRenderedRevision && *_smithRenderedRevision==_smithUi->revision;
@@ -2168,7 +2169,9 @@ std::optional<IndexedFrame> XeenEventFlow::updatePresentation() {
 		if(*_summary==SummaryDialog::Info && _encounter && advanceEncounterOrdinary())return renderEncounter(false,true);
 		return std::nullopt;
 	}
+    if(_spellItemsUi && !_spellItemsUi->error.empty())return std::nullopt;
 	if(inventoryOpen()) {
+        if(_spellItemsUi && _spellItemsUi->waiting && _encounter->idle(_cycle))return renderEncounter();
         if(_encounter && _world.scenePresentation().feedbackActive()) {
             std::uint64_t now;_encounter->guardCallback(_encounter->ticket(),[&] {now=_clock();});
             if(now>std::numeric_limits<std::uint64_t>::max()-100)throw std::overflow_error("Portrait effect clock exhausted");
@@ -2484,6 +2487,7 @@ IndexedFrame XeenEventFlow::handle(const PlayerAction &physicalAction, std::opti
         _encounter->_journeyRefusal="Bash is unavailable at this boundary";
         return renderEncounter();
     }
+    if(_spellItemsUi)return handleSpellItems(action,*displayedInput);
     if(inventoryOpen()) {
         handleCharacterDialog(action);
         return _encounter?renderEncounter(true):_frame;

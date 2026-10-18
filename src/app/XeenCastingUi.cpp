@@ -26,6 +26,81 @@ std::string refusal(const XeenDosText &text,const XeenCharacter &c,const XeenLea
     return code;
 }
 }
+namespace {
+unsigned itemMode(XeenLearnedSpell spell) {return spell==XeenLearnedSpell::EnchantItem?6:spell==XeenLearnedSpell::RechargeItem?4:11;}
+}
+void XeenEventFlow::openSpellItems(XeenLearnedSpell spell,std::size_t member) {
+    _spellItemsUi.emplace();auto &ui=*_spellItemsUi;ui.spell=spell;
+    ui.selection.mode=XeenInventoryMode::Browse;ui.selection.source=member;
+    ui.selection.sourceOwner=_party.party.activeRosterIds().at(member);
+    ui.selection.category=spell==XeenLearnedSpell::RechargeItem?XeenInventoryCategory::Miscellaneous:XeenInventoryCategory::Weapons;
+}
+std::shared_ptr<const DialogInput> XeenEventFlow::spellItemsInput() const {
+    DialogInput input;const auto &ui=*_spellItemsUi;
+    if(!ui.error.empty())input.anyKey=input.anyClick=input.keyMouseWait=true;
+    else if(!ui.waiting)input=xeenItemSpellInput(itemMode(ui.spell),ui.choosing);
+    return std::make_shared<const DialogInput>(std::move(input));
+}
+IndexedFrame XeenEventFlow::drawSpellItems(const IndexedFrame &base) const {
+    const auto &ui=*_spellItemsUi;
+    auto frame=drawXeenItems(dosText(),base,_inventoryFont,_catalog,_party,ui.selection,drawDialogSprite,itemMode(ui.spell));
+    if(ui.choosing)frame=drawXeenItemSelection(dosText(),frame,_inventoryFont,ui.spell==XeenLearnedSpell::EnchantItem?4:ui.spell==XeenLearnedSpell::RechargeItem?5:6,drawDialogSprite);
+    if(!ui.error.empty())frame=drawXeenErrorScroll(frame,_inventoryFont,ui.error);
+    return frame;
+}
+void XeenEventFlow::syncSpellItems() {
+    if(!_spellItemsUi || !_spellItemsUi->waiting)return;
+    bool done=false,failed=false;
+    if(_encounter->combat()) {
+        const auto cast=_encounter->combat()->cast();done=!cast || cast->phase==XeenCombatCastPhase::Result;
+        failed=cast && done && cast->result.failed;
+    } else if(_encounter->_casting) {done=_encounter->_casting->effectDone;failed=_encounter->_casting->failed;}
+    else if(_encounter->_itemUse) {done=_encounter->_itemUse->effectDone;failed=_encounter->_itemUse->failed;}
+    if(!done)return;
+    if(failed) {
+        auto &ui=*_spellItemsUi;const auto failure=std::string(dosText().scalar("SPELL_FAILED"));
+        ui.error=ui.spell==XeenLearnedSpell::EnchantItem?xeenDialogFormat(dosText().scalar("NOT_ENCHANTABLE"),{failure}):
+            ui.spell==XeenLearnedSpell::RechargeItem?xeenDialogFormat(dosText().scalar("NOT_RECHARGABLE"),{failure}):"\v012\t000\x03" "c"+failure;
+        return;
+    }
+    _spellItemsUi.reset();
+    if(_castingUi)_castingUi->phase=CastingUi::Phase::Settling;
+    else if(inventoryOpen())closeInventory();
+}
+IndexedFrame XeenEventFlow::handleSpellItems(const PlayerAction &action,std::uint64_t input) {
+    auto &ui=*_spellItemsUi;const auto key=castKey(action);
+    if(!ui.error.empty()) {
+        _spellItemsUi.reset();
+        if(_castingUi)_castingUi->phase=CastingUi::Phase::Settling;
+        else if(_encounter->combat())return handleCombatCasting(AcknowledgeAction{},input);
+        else closeInventory();
+        return renderEncounter();
+    }
+    if(ui.waiting)return frameCopy();
+    auto &selection=ui.selection;
+    if(key==InputKey::Escape && ui.choosing) {ui.choosing=false;return renderEncounter();}
+    if(!ui.choosing && (key=='w' || key=='a' || key=='c' || key=='m')) {
+        selection.category=key=='w'?XeenInventoryCategory::Weapons:key=='a'?XeenInventoryCategory::Armor:key=='c'?XeenInventoryCategory::Accessories:XeenInventoryCategory::Miscellaneous;
+        selection.slot.reset();return renderEncounter();
+    }
+    std::optional<XeenSpellItemSelection> picked;
+    if(key>='1' && key<='9') {
+        const auto slot=key-'1';const auto &item=xeenInventoryItems(_party.party.member(_party.roster,selection.source),selection.category)->at(slot);
+        if(selection.category==XeenInventoryCategory::Miscellaneous?!item.material:!item.id)return frameCopy();
+        if(!ui.choosing) {selection.slot=selection.slot==unsigned(slot)?std::nullopt:std::optional<std::size_t>{unsigned(slot)};return renderEncounter();}
+        picked=XeenSpellItemSelection{selection.category,unsigned(slot),item};
+    } else if(key==(ui.spell==XeenLearnedSpell::EnchantItem?'e':ui.spell==XeenLearnedSpell::RechargeItem?'r':'g')) {
+        if(!selection.slot) {ui.choosing=true;return renderEncounter();}
+        picked=XeenSpellItemSelection{selection.category,*selection.slot,xeenInventoryItems(_party.party.member(_party.roster,selection.source),selection.category)->at(*selection.slot)};
+    } else if(key!=InputKey::Escape)return frameCopy();
+    ui.waiting=true;ui.choosing=false;
+    if(_encounter->combat()) {
+        const auto response=picked?PlayerAction{DialogKeyAction{2000+unsigned(picked->category)*9+unsigned(picked->slot)}}:PlayerAction{CancelInteractionAction{}};
+        return handleCombatCasting(response,input);
+    }
+    if(!_encounter->respondSpellItem(_encounter->ticket(),picked,input,responseFrame())) {ui.waiting=false;return frameCopy();}
+    return renderEncounter();
+}
 void XeenEventFlow::initializeCaster() {
     auto &ui=*_castingUi;
     if(_lastCaster && *_lastCaster<_party.party.size())ui.caster=*_lastCaster;
@@ -33,6 +108,7 @@ void XeenEventFlow::initializeCaster() {
     _lastCaster=ui.caster;
 }
 std::shared_ptr<const DialogInput> XeenEventFlow::castingDialogInput() const {
+    if(_spellItemsUi)return spellItemsInput();
     DialogInput input;
     if(_castingUi) {
         using P=CastingUi::Phase;const auto &ui=*_castingUi;
@@ -52,6 +128,7 @@ std::shared_ptr<const DialogInput> XeenEventFlow::castingDialogInput() const {
     return std::make_shared<const DialogInput>(std::move(input));
 }
 IndexedFrame XeenEventFlow::drawCasting(const IndexedFrame &base) const {
+    if(_spellItemsUi)return drawSpellItems(base);
     const auto underlay=drawXeenProtectionCorners(base,*_party.encounterContext,drawDialogSprite);
     const auto &names=*_encounter->journeySavePreimage().learnedNames;
     if(_castingUi) {
@@ -108,6 +185,8 @@ IndexedFrame XeenEventFlow::handleCombatCasting(const PlayerAction &action,std::
         return names;
     };
     if(!_encounter->respondCombatCast(action,input,responseFrame(),prepare))return frameCopy();
+    if(const auto cast=_encounter->combat()->cast();cast && cast->phase==XeenCombatCastPhase::Items && !_spellItemsUi)
+        openSpellItems(static_cast<XeenLearnedSpell>(cast->result.spell),*cast->itemMember);
     return renderEncounter();
 }
 IndexedFrame XeenEventFlow::handleCasting(const PlayerAction &action,std::uint64_t input) {
@@ -185,7 +264,10 @@ IndexedFrame XeenEventFlow::handleCasting(const PlayerAction &action,std::uint64
         const bool escape=key==InputKey::Escape;
         if(!escape && !(key>=InputKey::F1 && key<InputKey::F1+_party.party.size()))return frameCopy();
         if(!_encounter->respondCastingTarget(_encounter->ticket(),escape?std::nullopt:std::optional<std::size_t>{key-InputKey::F1},input,responseFrame()))return frameCopy();
-        ui.phase=P::Settling;if(_encounter->_casting->failed)ui.refusal="failed";return renderEncounter();
+        if(!escape && XeenLearnedSpellRules::target(static_cast<std::uint8_t>(_encounter->_casting->spell))==XeenSpellTarget::Item) {
+            openSpellItems(_encounter->_casting->spell,key-InputKey::F1);ui.phase=P::Items;
+        } else {ui.phase=P::Settling;if(_encounter->_casting->failed)ui.refusal="failed";}
+        return renderEncounter();
     }
     return frameCopy();
 }

@@ -1,6 +1,7 @@
 #include "games/xeen/XeenLearnedSpellRules.h"
 #include "games/xeen/XeenCharacterRules.h"
 #include "games/xeen/XeenCombatRules.h"
+#include "games/xeen/XeenItemServiceRules.h"
 
 #include <algorithm>
 #include <array>
@@ -8,6 +9,40 @@
 #include <stdexcept>
 
 namespace mmodern {
+XeenItemSpellPreparation::XeenItemSpellPreparation(XeenLearnedSpell value,unsigned casterLevel,
+        XeenInventoryCategory kind,XeenItem selected):item(selected),spell(value),level(casterLevel),category(kind) {}
+bool XeenItemSpellPreparation::service(XeenConsequenceDraw &draw) {
+    if(complete)return true;
+    if(spell==XeenLearnedSpell::EnchantItem) {
+        if(!generated) {
+            const auto roll=draw.draw(1,level/5+1);if(!roll)return false;
+            // DOS 0x31c91..0x31da3: caster-level draw precedes every refusal.
+            failed=!item.id || item.material || item.state ||
+                (category!=XeenInventoryCategory::Weapons && category!=XeenInventoryCategory::Armor) ||
+                (category==XeenInventoryCategory::Weapons && item.id==34);
+            if(failed)return complete=true;
+            generated.emplace(std::min(*roll,5u),category==XeenInventoryCategory::Armor?
+                XeenItemCandidate::Enchant::Armor:XeenItemCandidate::Enchant::Weapon);
+        }
+        if(!generated->service(draw))return false;
+        item.material=generated->item().material;item.state=generated->item().state;
+    } else if(spell==XeenLearnedSpell::RechargeItem) {
+        failed=category!=XeenInventoryCategory::Miscellaneous || !item.material || item.material>9 || item.id==53;
+        if(!failed) {
+            const auto roll=draw.draw(1,6);if(!roll)return false;
+            // DOS 0x31c0d: drop curse (0x40), retain broken (0x80) for the cap.
+            item.state=static_cast<std::uint8_t>((item.state&0xc0)|std::min(63u,unsigned(item.state&0xbf)+*roll));
+        }
+    } else if(spell==XeenLearnedSpell::ItemToGold) {
+        failed=category==XeenInventoryCategory::Weapons && item.id==34;
+        if(!failed) {
+            const auto price=xeenItemPrice(category,item,XeenItemService::Buy);
+            failed=!price;if(price) {gold=*price;item={};}
+        }
+    } else throw std::invalid_argument("Not an item spell");
+    return complete=true;
+}
+
 std::optional<XeenSpellInformation> XeenLearnedSpellRules::information(XeenLearnedSpell spell,
         const XeenCamera &camera,const std::vector<XeenActor> &actors,
         const std::array<std::optional<XeenMonsterIdentity>,3> &slots) {
@@ -94,6 +129,7 @@ std::optional<std::uint8_t> XeenLearnedSpellRules::spellForSlot(XeenSpellCategor
 
 std::optional<XeenLearnedSpell> XeenLearnedSpellRules::supported(std::uint8_t id) noexcept {
     switch (id) {
+    case 19: case 39: case 57:
     case 4: case 15: case 34: case 41: case 42: case 74:
     case 3: case 12: case 13: case 30: case 31: case 53: case 55:
     case 16: case 56: case 58:
@@ -109,7 +145,7 @@ std::optional<XeenLearnedSpell> XeenLearnedSpellRules::supported(std::uint8_t id
 }
 
 std::optional<XeenLearnedSpell> XeenLearnedSpellRules::supportedIn(std::uint8_t id, bool combat) noexcept {
-    if (combat && (id==40 || id==75)) return std::nullopt;
+    if (combat && (id==19 || id==40 || id==75)) return std::nullopt;
     return supported(id);
 }
 unsigned XeenLearnedSpellRules::cost(XeenLearnedSpell spell) noexcept {
@@ -155,6 +191,7 @@ XeenSpellRange XeenLearnedSpellRules::range(std::uint8_t id) noexcept {
 }
 XeenSpellTarget XeenLearnedSpellRules::target(std::uint8_t id) noexcept {
     switch (id) {
+    case 19: case 39: case 57:return XeenSpellTarget::Item;
     case 4: case 15: case 34: case 41: case 42: case 74: return XeenSpellTarget::Party;
     case 24: case 29: case 32: case 46: case 51:
     case 0: case 5: case 11: case 14: case 18: case 22: case 23: case 25: case 28:
