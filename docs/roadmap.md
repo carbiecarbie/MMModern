@@ -95,6 +95,9 @@ accepted).
     Mine scene leads toward the next area after Vertigo.
 11. **Opening areas**: admit every Clouds map whose census readiness has no
     unsupported mechanic, then play-test by sampling rather than map by map.
+    The original dark view of dark maps moved here from M76, and so did
+    light-drain cells unless M76 finds some on the open maps (the census
+    counts neither yet).
 
 Audio comes after this arc (Tier A: music, sounds and CD tracks on the
 existing clock); the original durations are already kept.
