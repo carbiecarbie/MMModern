@@ -272,6 +272,18 @@ and Poison Volley. Generate it with:
 .\build-rel\mmodern_test_save.exe monster-damage "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/monster-damage.mmsave"
 ```
 
+The `party-healing` preset also starts at Vertigo (18,4). A Cleric and a
+Druid know the M75 spells allowed by their classes, with 1,000 SP per caster
+and 1,000 party gems.
+Four patients carry Poison, Disease, Paralysis, Stone, Dead and Eradicated;
+the casters carry five-charge items for all ten M75 powers. Revival spells
+and their item powers still say "not supported yet" until Part B.
+
+```powershell
+.\build-rel\mmodern_test_save.exe party-healing "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/party-healing.mmsave"
+```
+
+
 ```powershell
 New-Item -ItemType Directory -Force D:/MModern-playtest
 .\build-rel\mmodern_test_save.exe train-ready "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/train-ready.mmsave"

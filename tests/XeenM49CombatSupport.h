@@ -45,6 +45,22 @@ inline bool canAwaken(const mmodern::XeenPartyState &party,int participant) {
     for(auto owner:mmodern::kXeenCombatOwners)if(party.roster.at(owner).conditions[8])return true;
     return false;
 }
+// M75 DOS turn order: a woken member may wait until next round. Once combat
+// has earned an armor injury, keep every available fighter attacking.
+inline mmodern::PlayerAction servicesCombatAction(const mmodern::XeenPartyState &party,
+        int participant,bool earnArmor,unsigned &openingAttacks,bool unarmedSmith=false) {
+    using namespace mmodern;
+    // Smith's route retains its unarmed fighter and First Aid until the injury.
+    if(unarmedSmith && earnArmor && party.roster.at(18).currentHp<1 && participant==4)
+        return CastSpellAction{};
+    if(canAwaken(party,participant))return CastSpellAction{};
+    if(unarmedSmith && earnArmor && participant==1)return AttackAction{};
+    bool broken=false;
+    for(auto owner:kXeenCombatOwners)for(const auto &armor:party.roster.at(owner).armor)
+        broken=broken || (armor.id && (armor.state&128));
+    if(earnArmor && !broken && openingAttacks++>=1)return BlockAction{};
+    return AttackAction{};
+}
 inline std::optional<mmodern::PlayerAction> toward(mmodern::XeenWorld &world,
         const mmodern::XeenCamera &camera,int x,int y,mmodern::XeenDirection facing) {
     using namespace mmodern;

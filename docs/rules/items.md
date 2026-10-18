@@ -190,8 +190,10 @@ to the user and spends the charge. Other item powers gain no new refund; their
 complete original cancellation paths were not established by M61. The later
 [M75 DOS checks](evidence.md#party-healing-spells) establish refunds for
 powers 26, 27, 37, 41, 44, 56, 57 and 66: each uses its spell's own ID and
-cost, including gems; powers 51 and 73 have no member prompt. This evidence
-does not itself implement those refunds.
+cost, including gems; powers 51 and 73 have no member prompt. These refunds
+are implemented in M75 Part A for powers 26, 27, 37, 41, 44 and 56,
+with no-prompt Create Food power 51. Powers 57, 66 and 73 remain unsupported
+until Part B.
 
 ## Discard, recharge and enchant
 

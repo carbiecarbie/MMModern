@@ -42,7 +42,7 @@ already saved).
       settle every question; DOS matches the pin on combat turn order, and
       MMModern's `selectNext` does not (maintainer decision: fix it first in
       Part A).
-- [ ] **Part A - turn order, healing and cures.** First, combat turn order
+- [x] **Part A - turn order, healing and cures.** First, combat turn order
       as [DOS has it](rules/combat.md): the next-actor search continues from
       the order cursor and marks a skipped disabled member as done, so a
       member re-enabled after their slot passed waits for the next round,
@@ -56,13 +56,14 @@ already saved).
       (refund of its own cost on cancel, as DOS) and Divine Intervention,
       in exploration and combat, including a member returning to combat
       after being raised, as Part 0 establishes.
-- [ ] Item powers for the spells that have one (26, 27, 37, 41, 44, 51, 56,
-      57, 66, 73) use the same effects and the M61 charge rules.
-- [ ] Developer test save `party-healing` (as `monster-damage`): Vertigo, a
+- [x] Part A item powers 26, 27, 37, 41, 44, 51 and 56 use the same
+      effects and the M61 charge rules.
+- [ ] Part B item powers 57, 66 and 73 use the same effects and charge rules.
+- [x] Developer test save `party-healing` (as `monster-damage`): Vertigo, a
       Cleric and a Druid with all 12 spells, ample SP and gems, other members
       Poisoned, Diseased, Paralyzed, Stoned, Dead and Eradicated, and a few
       charged items with these powers; README entry.
-- [ ] Regenerate `docs/coverage.md`.
+- [x] Regenerate `docs/coverage.md` (Part A: 51 of 76 spells).
 
 ## Acceptance
 

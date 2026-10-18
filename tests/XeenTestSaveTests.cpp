@@ -55,7 +55,7 @@ void preset(const GameInstallation &installation,const std::string &name,const f
     check(flow.prepareJourneyFrame(flow.ticket(),[]{}) && flow.presentJourney(flow.ticket()),"restored preset is not quiet");
     const auto captured=XeenSaveState::capture(inputs.signature,party,camera,flags,world);
     check(XeenSaveFormat::encode(saved)==XeenSaveFormat::encode(captured),"restore replayed or changed state");
-    check((name=="monster-control" || name=="monster-damage") || save_test::sameCamera(camera,xeenJourneyContent().entry),"fresh Journey camera changed");
+    check((name=="monster-control" || name=="monster-damage" || name=="party-healing") || save_test::sameCamera(camera,xeenJourneyContent().entry),"fresh Journey camera changed");
     const auto first=party.party.activeRosterIds()[0],second=party.party.activeRosterIds()[1];
     const auto &member=party.roster.at(first);
     const auto gold=party.monsterTreasure->gold;
@@ -88,6 +88,24 @@ void preset(const GameInstallation &installation,const std::string &name,const f
         for (auto owner:party.party.activeRosterIds()) if (party.roster.at(owner).canAct())
             for (const auto &item:party.roster.at(owner).miscellaneous) found=found || XeenAntidoteUse::eligible(item);
         check(found,"no usable Misc antidote");
+    }
+    if(name=="party-healing") {
+        check(camera.mapId==28 && camera.x==18 && camera.y==4,"Healing preset position");
+        check(party.roster.at(first).characterClass==XeenCharacterClass::Cleric && party.roster.at(second).characterClass==XeenCharacterClass::Druid,"Healing preset casters");
+        check(party.monsterTreasure->gems==1000,"Healing preset gems");
+        for(unsigned id:{6u,7u,8u,9u,16u,49u,52u,56u,58u,64u,67u,68u}) {
+            const auto &caster=party.roster.at(first);const auto slot=XeenLearnedSpellRules::slotForSpell(XeenSpellCategory::Clerical,id);
+            check(slot && XeenLearnedSpellRules::known(caster,*slot) && caster.currentSp==1000,"Healing preset spell knowledge/SP");
+        }
+        for(unsigned condition:{3u,4u,11u,14u,13u,15u}) {
+            bool found=false;for(auto owner:party.party.activeRosterIds())found=found || bool(party.roster.at(owner).conditions[condition]);
+            check(found,"Healing preset missing condition");
+        }
+        for(unsigned power:{26u,27u,37u,41u,44u,51u,56u,57u,66u,73u}) {
+            bool found=false;for(auto owner:{first,second})for(const auto &item:party.roster.at(owner).miscellaneous)found=found || (item.id==power && item.state==5);
+            check(found,"Healing preset missing charged item");
+        }
+        return;
     }
     if((name=="monster-control" || name=="monster-damage")) {
         check(camera.mapId==XeenMapIdentity(28) && camera.x==18 && camera.y==4,"Control fixture must stand in Vertigo");

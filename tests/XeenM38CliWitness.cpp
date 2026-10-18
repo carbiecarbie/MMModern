@@ -1,3 +1,7 @@
+// M75 DOS Awaken order and witness policy: 1398 -> 1397.
+// M75 DOS Awaken order and witness policy: 1297 -> 1296.
+// M75 DOS Awaken order and witness policy: 2232520509 -> 1902939615.
+// M75 DOS Awaken order and witness policy: 1227 -> 1225.
 #include "XeenDecisionNine.h"
 #include "XeenTestInstallation.h"
 // Actual CLI/Application with deterministic typed input. Every response follows a
@@ -278,12 +282,9 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
     }else if(combat->phase()==XeenCombatPhase::PlayerReady) {
      if(breakArmor && party->roster.at(1).armor[0].state==128 && party->roster.at(1).armor[1].state==128 && !party->roster.at(1).conditions[13]){breakArmor=false;std::cout<<"M71 REBECCA RECOVERABLE INJURY "<<party->roster.at(1).currentHp<<'\n';}
 
-     if(breakArmor && (party->roster.at(18).armor[0].state&128))act(AttackAction{});
-     else if(breakArmor && party->roster.at(18).currentHp<1 && combat->participant()==4)act(CastSpellAction{});
-     else if(m49_combat::canAwaken(*party,combat->participant()))act(CastSpellAction{});
-     else if(breakArmor && combat->participant()==1)act(AttackAction{});
-     else if(breakArmor && openingAttacks++>=1){++blocks;act(BlockAction{});}
-     else act(AttackAction{});
+     const auto input=m49_combat::servicesCombatAction(*party,combat->participant(),breakArmor,openingAttacks,true);
+     if(std::holds_alternative<BlockAction>(input))++blocks;
+     act(input);
     }
    } else if(world->sessionState().journeyActivity()==XeenJourneyActivity::Event || world->sessionState().journeyActivity()==XeenJourneyActivity::Reward) {
     // Let uninterruptible portrait draws finish before this direct Event acknowledgment.
@@ -364,7 +365,8 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
    inspect([&]{check(party->roster.at(18).weapons[0].frame==0,"M71 ordinary unarmed training precondition");breakArmor=true;});route("RUULUUU");
    inspect([&]{breakArmor=false;
     std::cout<<"M49 ARMOR HP="<<party->roster.at(1).currentHp<<" states="<<unsigned(party->roster.at(1).armor[0].state)<<":"<<unsigned(party->roster.at(1).armor[1].state)<<" dead="<<unsigned(party->roster.at(1).conditions[13])<<" blocks="<<blocks<<'\n';
-    check(blocks==50 && party->roster.at(1).currentHp==-13 && party->roster.at(1).armor[0].state==128 && party->roster.at(1).armor[1].state==128 &&
+    // M75: Rebecca's injury HP -13 -> -12 after the DOS Awaken turn-order change.
+    check(blocks==50 && party->roster.at(1).currentHp==-12 && party->roster.at(1).armor[0].state==128 && party->roster.at(1).armor[1].state==128 &&
       !party->roster.at(1).conditions[13],"M49 ordinary combat did not earn recoverable Rebecca armor injury");});
    action(RestAction{});action(YesAction{});settle();
    inspect([&]{check(party->encounterContext->day==8 && party->roster.at(1).currentHp==21 && party->roster.at(1).currentSp==21 && !party->roster.at(1).conditions[12] && !party->roster.at(1).conditions[13] && party->roster.at(1).armor[0].state==128 && party->roster.at(1).armor[1].state==128,"M71 ordinary Rest must recover the injured repair customer without repairing armor");});
@@ -375,9 +377,9 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
    route("LLULUU");action(InteractionAction{});action(YesAction{});settle();
    route("URULUUULUUU");
    // Ten completed outdoor well interactions charge10 each; city entry charges1.
-   // The identical route/seed therefore reaches1398 (1297+100+1), ctr24=1.
-   route("UUUUU");inspect([&]{check(position->x==8 && position->y==4 && party->encounterContext->minutes==1398 && party->encounterContext->ctr24==1,"M38 five-cell corridor endpoint/time");
-    check(world->sessionState().journeyRandom()->state==2232520509u && world->sessionState().journeyRandom()->count==1227,"M71 ordinary pre-Smith cursor: catches extra combat/rest draws or incorrect RNG publication");});checkpoint('A');
+   // The identical route/seed therefore reaches1397 (1296+100+1), ctr24=1.
+   route("UUUUU");inspect([&]{check(position->x==8 && position->y==4 && party->encounterContext->minutes==1397 && party->encounterContext->ctr24==1,"M38 five-cell corridor endpoint/time");
+    check(world->sessionState().journeyRandom()->state==1902939615u && world->sessionState().journeyRandom()->count==1225,"M71 ordinary pre-Smith cursor: catches extra combat/rest draws or incorrect RNG publication");});checkpoint('A');
   }
   // Exact before/after visits protect Fix price, selected owner/item, equipped AC,
   // one departure, and unrelated owners. Mutations: wrong tariff/item, a duplicate
@@ -493,7 +495,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
    action(InteractionAction{});waitService();deniedSave();action(CancelInteractionAction{});settle();
    inspect([&,expected]{++expected->journey->context->day;finishSmith(*expected);
     check(XeenSaveFormat::encode(*expected)==XeenSaveFormat::encode(XeenSaveState::capture(original.resources.signature,*party,*position,*flags,*world)),"M38 empty visit changed unrelated durable state");
-    check(party->encounterContext->day==9 && party->encounterContext->minutes==1398 &&
+    check(party->encounterContext->day==9 && party->encounterContext->minutes==1397 &&
     party->monsterTreasure->gold==840 && party->roster.at(1).armor[0].state==128 &&
     party->roster.at(1).armor[1].state==128,"M38 transaction-free departure mismatch");});
    checkpoint('E');
@@ -516,15 +518,16 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
      "M38 reset/revisit route absent");});checkpoint('F');
    }
    if(stage!="detour-G") {visit(1,829);checkpoint('G');}
-   // From1398: exit corridor11 + mainland exit10 + approach10 + entry1 +
-   // city return13 + one Slime combat minute =1444. Midnight reaches
-   // day10/minute4 before the second Smith departure advances to day11.
-   inspect([&]{check(party->encounterContext->day==11 && party->encounterContext->minutes==4,
+   // From1397: exit corridor11 + mainland exit10 + approach10 + entry1 +
+   // city return13 + one Slime combat minute =1443. Midnight reaches
+   // day10/minute3 before the second Smith departure advances to day11.
+   // M75 earlier arrival shifts the detour's final minute 4 -> 3.
+   inspect([&]{check(party->encounterContext->day==11 && party->encounterContext->minutes==3,
     "M38 detour midnight and second departure absent");});
   } else {
    if(!resume || (stage=="A" || stage=="native")) {visit(0,830);checkpoint('B');}
    if(!resume || stage=="A" || stage=="B" || stage=="native") {visit(1,829);checkpoint('C');}
-   inspect([&]{check(party->encounterContext->day==10 && party->encounterContext->minutes==1398 &&
+   inspect([&]{check(party->encounterContext->day==10 && party->encounterContext->minutes==1397 &&
     party->monsterTreasure->gold==829 && *world->sessionState().journeyRandom()==expectedSmithRandom,
     "M38 two-visit date/purse/RNG witness mismatch");});
   }

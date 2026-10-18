@@ -18,12 +18,12 @@ int main() {
     LocalFree(arguments);
     try {
         if (args.size()!=4 && (args.size()!=6 || args[4]!=L"--ui-data" || args[5].empty())) throw std::invalid_argument(
-            "Usage: mmodern_test_save <broken-armor|train-ready|injured-dead|poisoned|monster-control|monster-damage> <game-directory> <output.mmsave> [--ui-data <path>]");
+            "Usage: mmodern_test_save <broken-armor|train-ready|injured-dead|poisoned|monster-control|monster-damage|party-healing> <game-directory> <output.mmsave> [--ui-data <path>]");
         const std::string preset(args[1].begin(),args[1].end());
         const auto installation=mmodern::XeenInstallationDetector(args.size()==6?std::filesystem::path(args[5]):std::filesystem::path{}).detect(std::filesystem::path(args[2]));
         if (!installation) throw std::runtime_error("Game installation not found");
         mmodern::developer::generateTestSave(*installation,preset,std::filesystem::path(args[3]));
-        std::cout<<"Generated "<<preset<<((preset=="monster-control" || preset=="monster-damage")?" at Vertigo (18,4), facing West.\n":" at Clouds map 23 (9,11), facing West.\n");
+        std::cout<<"Generated "<<preset<<((preset=="monster-control" || preset=="monster-damage" || preset=="party-healing")?" at Vertigo (18,4), facing West.\n":" at Clouds map 23 (9,11), facing West.\n");
         return 0;
     } catch (const std::exception &e) {std::cerr<<e.what()<<'\n';return 1;}
 }

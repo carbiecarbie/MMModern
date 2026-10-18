@@ -236,7 +236,7 @@ bool XeenEncounterFlow::journeyNavigationReady() const noexcept {
 }
 bool XeenEncounterFlow::itemUseReady() const noexcept { return _itemUse && _itemUse->ready; }
 bool XeenEncounterFlow::itemUseNeedsTarget() const noexcept {
-	return _itemUse && !_itemUse->effectDone && (!_itemUse->spell || XeenLearnedSpellRules::target(static_cast<std::uint8_t>(*_itemUse->spell))==XeenSpellTarget::Member);
+	return _itemUse && !_itemUse->effectDone && !_itemUse->targetPending && (!_itemUse->spell || XeenLearnedSpellRules::target(static_cast<std::uint8_t>(*_itemUse->spell))==XeenSpellTarget::Member);
 }
 std::optional<std::uint64_t> XeenEncounterFlow::beginItemUse(const Ticket &entry,const ItemUseSelection &selection,
 		std::uint64_t inventoryLease,std::uint64_t certificateLease) {
@@ -333,7 +333,17 @@ bool XeenEncounterFlow::settleItemUse(const Ticket &entry,std::uint64_t generati
 		_journeyPreimage->check();
 		if(_itemUse->spell) {
 			const auto spell=*_itemUse->spell;
-			const auto effect=XeenLearnedSpellRules::prepareEffect(spell,_party,targetIndex,_party.encounterContext->year);
+			XeenSpellPreparation effect;
+            if(spell==XeenLearnedSpell::PowerCure && targetIndex) {
+                _itemUse->targetPending=true;_itemUse->targetIndex=targetIndex;
+                _itemUse->selectorFrame.reset();_itemUse->selectorTicket.reset();
+                XeenConsequenceDraw draw{_itemUse->opportunity->random,64,[&]{_journeyPreimage->check();}};
+                const auto healing=XeenLearnedSpellRules::preparePowerCure(_party,*targetIndex,_party.encounterContext->year,
+                    _party.roster.at(_itemUse->sourceOwner).currentLevel(),draw);
+                if(!healing)return true;
+                effect=*healing;
+                _world._sessionState._journeyRandom=_itemUse->opportunity->random.continuation();
+            } else effect=XeenLearnedSpellRules::prepareEffect(spell,_party,targetIndex,_party.encounterContext->year);
 			bool automaticArrival=false;
 			if(_itemUse->jumpDestination) {
 				XeenRestoreGuard::Providers providers(*_journeyPreimage,_world);
@@ -344,16 +354,20 @@ bool XeenEncounterFlow::settleItemUse(const Ticket &entry,std::uint64_t generati
 			}
 			for(const auto &value:effect.effects) {
 				auto &live=_party.roster.at(value.owner);
-				if(spell!=XeenLearnedSpell::Awaken && live.currentHp<=XeenCharacterRules::maxHp(live,{_party.encounterContext->year}))
+				if(spell!=XeenLearnedSpell::Awaken && !live.conditions[13] && !live.conditions[14] && !live.conditions[15] && live.currentHp<=XeenCharacterRules::maxHp(live,{_party.encounterContext->year}))
 					_world.scenePresentation().spellEffect(value.owner,_lastTime,true);
 				live.currentHp=value.hp;live.conditions=value.conditions;
 			}
 			XeenLearnedSpellRules::applyPartyEffect(spell,*_party.encounterContext);
-			if(!targetIndex && spell==XeenLearnedSpell::FirstAid) {
-				// DOS 0x2f146 -> 0x2f34b/0x2f386 refunds 1 SP to the item user,
-				// despite no SP debit. No maximum-SP clamp; the charge stays spent.
-				auto &user=_party.roster.at(_itemUse->sourceOwner);
-				user.currentSp=static_cast<std::int16_t>(user.currentSp+1);
+			if(effect.food)_party.food=*effect.food;
+            const auto id=static_cast<std::uint8_t>(spell);
+            // M61 First Aid and the M75 DOS item prompts refund without a debit.
+            // Other pre-M75 item cancellation paths retain their existing policy.
+            if(!targetIndex && (id==26 || id==7 || id==8 || id==9 || id==49 || id==52 || id==64)) {
+                auto &user=_party.roster.at(_itemUse->sourceOwner);
+                const auto refund=XeenLearnedSpellRules::cost(id,user.currentLevel());
+                user.currentSp=static_cast<std::int16_t>(user.currentSp+refund.sp);
+                _party.monsterTreasure->gems+=refund.gems;
 			}
 			if(_itemUse->jumpDestination)_camera=*_itemUse->jumpDestination;
 			_itemUse->failed=effect.failed || (spell==XeenLearnedSpell::Jump && !_itemUse->jumpDestination);
@@ -382,6 +396,8 @@ bool XeenEncounterFlow::settleItemUse(const Ticket &entry,std::uint64_t generati
 	} catch (...) { closeJourney(); throw; }
 }
 bool XeenEncounterFlow::serviceItemUse() {
+    if(_itemUse && !_itemUse->effectDone && _itemUse->targetPending && !_busy)
+        return settleItemUse(ticket(),_itemUse->generation,_itemUse->epoch,_itemUse->targetIndex);
 	if (!itemUseReady() || _busy || _combat || !_journeyPreimage || !journeyCapacity() ||
 		!_boundary.only(XeenCombatBoundary::Work::ItemUse,_itemUse->lease)) return false;
 	const auto boundaryGeneration=_boundary.generation();

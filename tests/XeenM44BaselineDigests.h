@@ -257,7 +257,8 @@ inline constexpr const char *revision = "M72 (save v14), baseline e21f398";
 struct Scenario { const char *name; std::uint32_t seed; const char *sha256; };
 inline constexpr std::array<Scenario,4> scenarios{{
     {"mainland-combat-myra-phirna",3626689381u,"be95a00f4b9d977770bd63aa4f5bdee066c26f0c2c269a7d5df9cfd777c694d6"},
-    {"vertigo-buy-repair-training",7u,"b92a66716745852863813c7a8ecac579335444d8bb6353cd00c199c7b5ea92a1"},
+    // M75: a member woken after its skipped slot waits for the next round (DOS turn order).
+    {"vertigo-buy-repair-training",7u,"8a4beeb6640a2aae32523cb48f54d88db6ce78ae4cf0fcf6a1ee594a28c0de1f"},
     {"temple-recovery",3626689381u,"f2b207207a0a35d92f57b85af24b4b85c1d4625499cfde10017696601c075190"},
     {"vertigo-f3-roundtrip",3626689381u,"6b6396f2254cae6928fafefcdec9dfcf928d21a36244b35ad3bda858844898cd"}
 }};

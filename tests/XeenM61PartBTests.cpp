@@ -100,7 +100,8 @@ void effects(Inputs &in) {
 void refusal(Inputs &in) {
     constexpr unsigned damagePowers[]{24,33,35,36,38,46,47,52,54,59,60,62,64,67,68,69,70,71,72};
     for(unsigned power=0;power<75;++power) {
-        const bool supported=std::find(std::begin(powers),std::end(powers),power)!=std::end(powers) ||
+        const bool m75=power==26 || power==27 || power==41 || power==44 || power==51 || power==56;
+        const bool supported=m75 || std::find(std::begin(powers),std::end(powers),power)!=std::end(powers) ||
             std::find(std::begin(damagePowers),std::end(damagePowers),power)!=std::end(damagePowers);
         check(xeenItemUseSupported({1,std::uint8_t(power),1,0})==supported,"Power support boundary differs");
         if(supported)continue;
@@ -118,7 +119,7 @@ void refusal(Inputs &in) {
         check(*f.p.encounterContext==context && f.w.sessionState().journeyRandom()==rng &&
             f.flow->encounter()->result().movementOpportunities==1,"Admitted cancellation/failure lost response or charged time");
         check(f.p.roster.at(s.activeRosterIds[1]).currentHp==0,"Terminal member healed");
-        check(f.p.roster.at(s.activeRosterIds[0]).currentSp==(cancel && power==4?1:0),"Only First Aid cancellation, not a failed effect, refunds SP");
+        check(f.p.roster.at(s.activeRosterIds[0]).currentSp==(cancel?(power==4?1:power==37?8:0):0),"Verified healing-item cancellation, not a failed effect, refunds SP");
     }
     auto s=source(in,16,false);s.camera={23,11,11,XeenDirection::East};Fixture f(in,s);
     const auto before=XeenSaveFormat::encode(f.snapshot());open(f);key(f,'u');
@@ -135,8 +136,8 @@ void itemCancellation(Inputs &in) {
         Fixture f(in,s);const auto context=*f.p.encounterContext;const auto rng=f.w.sessionState().journeyRandom();
         check(XeenCharacterRules::maxSp(f.p.roster.at(owner),{context.year})==0,"Cancellation fixture must have zero maximum SP");
         open(f);key(f,'u');const auto frame=f.flow->frame().presentation();const auto input=f.flow->displayedInput();
-        key(f,InputKey::Escape);const auto expected=sp+(power==4?1:0);
-        check(f.p.roster.at(owner).currentSp==expected,"Only First Aid Escape grants uncapped 1 SP to item user");
+        key(f,InputKey::Escape);const auto expected=sp+(power==4?1:power==37?8:0);
+        check(f.p.roster.at(owner).currentSp==expected,"First Aid and Cure Poison Escape grant their uncapped own-cost refunds");
         replay(f,frame,input,CancelInteractionAction{});quiet(f);
         const auto &user=f.p.roster.at(owner);
         check(user.currentSp==expected && f.p.monsterTreasure->gems==0,"Cancellation replay changed refund or gems");

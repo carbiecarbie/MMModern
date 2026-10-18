@@ -328,6 +328,8 @@ private:
 		std::size_t slot=0;
 		bool exhausted=false,ready=false;
 		bool effectDone=false,failed=false,automaticArrival=false;
+        bool targetPending=false;
+        std::optional<std::size_t> targetIndex;
 		std::optional<XeenLearnedSpell> spell;
 		std::optional<XeenCamera> jumpDestination;
 		std::unique_ptr<XeenShootCandidate> projectile;
@@ -343,6 +345,8 @@ private:
 		XeenLearnedSpell spell=XeenLearnedSpell::Awaken;
 		std::int16_t originalSp=0;
 		bool committed=false,effectDone=false,failed=false;
+        bool targetPending=false;
+        std::optional<std::size_t> targetIndex;
 		std::optional<XeenCamera> jumpDestination;
 		XeenCombatRandom random;
 		std::optional<XeenConditionTimeCandidate> time;
@@ -356,6 +360,7 @@ private:
 	std::string _castingResult;
 	std::uint64_t _castingGeneration=0;
 	bool serviceCasting();
+    bool publishCastingTarget();
 	std::unique_ptr<XeenShootCandidate> prepareSpellProjectile(XeenLearnedSpell,std::uint8_t,unsigned);
 	std::optional<XeenAntidoteResult> _itemUseResult;
 	std::uint64_t _itemUseGeneration=0;

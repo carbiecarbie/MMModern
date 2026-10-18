@@ -1,5 +1,6 @@
 #include "games/xeen/XeenLearnedSpellRules.h"
 #include "games/xeen/XeenCharacterRules.h"
+#include "games/xeen/XeenCombatRules.h"
 
 #include <algorithm>
 #include <array>
@@ -61,6 +62,7 @@ std::optional<std::uint8_t> XeenLearnedSpellRules::spellForSlot(XeenSpellCategor
 
 std::optional<XeenLearnedSpell> XeenLearnedSpellRules::supported(std::uint8_t id) noexcept {
     switch (id) {
+    case 6: case 7: case 8: case 9: case 49: case 52: case 64: case 67: case 68:
     case 24: case 29: case 32: case 46: case 51:
     case 0: case 5: case 11: case 14: case 18: case 22: case 23: case 25: case 28:
     case 35: case 36: case 37: case 43: case 47: case 48: case 54: case 63: case 65:
@@ -121,7 +123,8 @@ XeenSpellTarget XeenLearnedSpellRules::target(std::uint8_t id) noexcept {
     case 24: case 29: case 32: case 46: case 51:
     case 0: case 5: case 11: case 14: case 18: case 22: case 23: case 25: case 28:
     case 35: case 36: case 37: case 43: case 47: case 48: case 54: case 63: case 65: return XeenSpellTarget::Contact;
-    case 1: case 75: return XeenSpellTarget::Party;
+    case 1: case 6: case 75: return XeenSpellTarget::Party;
+    case 7: case 8: case 9: case 49: case 52: case 64: case 67: case 68:
     case 10: case 26: case 59: return XeenSpellTarget::Member;
     case 2: case 17: case 33: case 38: case 61: case 62: case 72: case 73:
     case 20: case 27: case 45: case 50: case 60: return XeenSpellTarget::Contact;
@@ -162,14 +165,24 @@ bool XeenLearnedSpellRules::eligible(const XeenPartyState &party, std::size_t ac
 		character.currentSp >= int(cost(*spell,character.currentLevel()).sp) && known(character, slot);
 }
 
+namespace { XeenSpellPreparation cure(const XeenPartyState &,std::size_t,std::uint32_t,unsigned,bool suppress=false); }
+
 XeenSpellPreparation XeenLearnedSpellRules::prepareEffect(XeenLearnedSpell spell,const XeenPartyState &party,
         std::optional<std::size_t> target,std::uint32_t year) {
     if(spell==XeenLearnedSpell::Awaken)return prepareAwaken(party);
+    if(spell==XeenLearnedSpell::CreateFood)return {false,{},static_cast<std::uint16_t>(party.food+party.party.size())};
     if(!target)return {};
     switch(spell) {
     case XeenLearnedSpell::FirstAid:return prepareFirstAid(party,*target,year);
     case XeenLearnedSpell::CureWounds:return prepareFirstAid(party,*target,year,15);
     case XeenLearnedSpell::Revitalize:return prepareRevitalize(party,*target,year);
+    case XeenLearnedSpell::NaturesCure:return prepareFirstAid(party,*target,year,25);
+    case XeenLearnedSpell::CurePoison:return cure(party,*target,year,3);
+    case XeenLearnedSpell::CureDisease:return cure(party,*target,year,4);
+    case XeenLearnedSpell::CureParalysis:return cure(party,*target,year,11);
+    case XeenLearnedSpell::StoneToFlesh:return cure(party,*target,year,14);
+    case XeenLearnedSpell::SuppressPoison:return cure(party,*target,year,3,true);
+    case XeenLearnedSpell::SuppressDisease:return cure(party,*target,year,4,true);
     default:throw std::invalid_argument("Unsupported member spell effect");
     }
 }
@@ -177,10 +190,8 @@ void XeenLearnedSpellRules::applyPartyEffect(XeenLearnedSpell spell,XeenGameplay
     if(spell==XeenLearnedSpell::WizardEye) {context.effects[2]=1;context.effects[1]=0;}
 }
 
-XeenSpellPreparation XeenLearnedSpellRules::prepareFirstAid(const XeenPartyState &party,
-		std::size_t targetIndex, std::uint32_t year, unsigned healing) {
-	const auto owner = ownerFor(party, targetIndex);
-	const auto &target = party.roster.at(owner);
+namespace {
+XeenSpellPreparation heal(const XeenCharacter &target,std::size_t owner,std::uint32_t year,unsigned healing) {
 	XeenSpellPreparation result;
 	if (target.conditions[13] || target.conditions[14] || target.conditions[15]) {
 		result.failed = true;
@@ -203,24 +214,41 @@ XeenSpellPreparation XeenLearnedSpellRules::prepareFirstAid(const XeenPartyState
 	return result;
 }
 
-XeenSpellPreparation XeenLearnedSpellRules::prepareRevitalize(const XeenPartyState &party,
-        std::size_t targetIndex, std::uint32_t year) {
-    const auto owner = ownerFor(party,targetIndex);
-    const auto &target = party.roster.at(owner);
-    XeenSpellEffect effect;
-    effect.owner=static_cast<std::uint8_t>(owner);
-    effect.hp=target.currentHp;
-    effect.conditions=target.conditions;
-    // addHitPoints(0) skips terminal characters, including its Unconscious repair.
-    // Revitalize still clears Weak on them; it is not a failed healing cast.
-    if (!target.conditions[13] && !target.conditions[14] && !target.conditions[15]) {
-        XeenCharacterRules::validateForUse(target,{year});
-        if (effect.hp>0) effect.conditions[12]=0;
+XeenSpellPreparation cure(const XeenPartyState &party,std::size_t index,std::uint32_t year,
+        unsigned condition,bool suppress) {
+    const auto owner=ownerFor(party,index);
+    auto target=party.roster.at(owner);
+    if(suppress) {
+        auto &count=target.conditions[condition];
+        if(count)count=count<4?1:count-3;
     }
-    effect.conditions[2]=0;
-    XeenSpellPreparation result;
-    result.effects.push_back(effect);
+    // DOS: suppression changes its count first; cures clear after healing(0).
+    // Healing refuses terminal flags, but the explicit condition operation does not.
+    auto result=heal(target,owner,year,0);
+    if(result.failed) {
+        result.failed=false;
+        result.effects.push_back({static_cast<std::uint8_t>(owner),target.currentHp,target.conditions});
+    }
+    if(!suppress)result.effects.front().conditions[condition]=0;
     return result;
+}
+}
+XeenSpellPreparation XeenLearnedSpellRules::prepareFirstAid(const XeenPartyState &party,
+        std::size_t index,std::uint32_t year,unsigned healing) {
+    const auto owner=ownerFor(party,index);
+    return heal(party.roster.at(owner),owner,year,healing);
+}
+XeenSpellPreparation XeenLearnedSpellRules::prepareRevitalize(const XeenPartyState &party,
+        std::size_t index,std::uint32_t year) {
+    return cure(party,index,year,2);
+}
+std::optional<XeenSpellPreparation> XeenLearnedSpellRules::preparePowerCure(const XeenPartyState &party,
+        std::size_t index,std::uint32_t year,unsigned level,XeenConsequenceDraw &draw) {
+    const auto guard=prepareFirstAid(party,index,year,0);
+    if(guard.failed)return guard;
+    while(draw.remaining)if(const auto value=draw.draw(2,12))
+        return prepareFirstAid(party,index,year,*value*level);
+    return {};
 }
 
 XeenSpellPreparation XeenLearnedSpellRules::prepareAwaken(const XeenPartyState &party) {

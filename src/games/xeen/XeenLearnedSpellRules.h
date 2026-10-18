@@ -15,6 +15,8 @@ enum class XeenLearnedSpell : std::uint8_t {
     FantasticFreeze=22, FieryFlail=23, Fireball=25, Frostbite=28, Implosion=35,
     Incinerate=36, Inferno=37, LightningBolt=43, MegaVolts=47, MoonRay=48,
     PrismaticLight=54, StarBurst=63, SunRay=65,
+    CreateFood=6, CureDisease=7, CureParalysis=8, CurePoison=9, NaturesCure=49,
+    PowerCure=52, StoneToFlesh=64, SuppressDisease=67, SuppressPoison=68,
     Awaken=1, BeastMaster=2, CureWounds=10, DragonSleep=17, EnergyBlast=20,
     FirstAid=26, FlyingFist=27, Hypnotize=33, InsectSpray=38, Jump=40,
     MagicArrow=45, Pain=50, PoisonVolley=51, Revitalize=59, Shrapmetal=60, Sleep=61, Sparks=62,
@@ -30,7 +32,10 @@ struct XeenSpellEffect {
 struct XeenSpellPreparation {
 	bool failed = false;
 	std::vector<XeenSpellEffect> effects;
+	std::optional<std::uint16_t> food;
 };
+
+struct XeenConsequenceDraw;
 
 struct XeenLearnedSpellNames {
 	std::vector<std::uint8_t> raw;
@@ -67,6 +72,8 @@ public:
 	static XeenSpellPreparation prepareRevitalize(const XeenPartyState &, std::size_t targetIndex,
 		std::uint32_t currentYear);
 	static XeenSpellPreparation prepareAwaken(const XeenPartyState &);
+	static std::optional<XeenSpellPreparation> preparePowerCure(const XeenPartyState &,
+		std::size_t targetIndex,std::uint32_t currentYear,unsigned casterLevel,XeenConsequenceDraw &);
 	static XeenSpellPreparation prepareEffect(XeenLearnedSpell,const XeenPartyState &,
 		std::optional<std::size_t> targetIndex,std::uint32_t currentYear);
 	static void applyPartyEffect(XeenLearnedSpell,XeenGameplayContext &);

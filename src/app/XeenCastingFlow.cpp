@@ -162,36 +162,58 @@ bool XeenEncounterFlow::respondCastingTarget(const Ticket &entry,
 		std::optional<std::size_t> targetIndex, std::uint64_t input,
 		const IndexedFrame::Presentation &frame) {
 	if (!current(entry) || !castingFrameCurrent(input,frame) || !_casting->committed ||
-		_casting->effectDone || !journeyCapacity() ||
-		(_casting->spell!=XeenLearnedSpell::FirstAid && _casting->spell!=XeenLearnedSpell::CureWounds && _casting->spell!=XeenLearnedSpell::Revitalize) ||
+		(_casting->effectDone || _casting->targetPending) || !journeyCapacity() ||
+		(XeenLearnedSpellRules::target(static_cast<std::uint8_t>(_casting->spell))!=XeenSpellTarget::Member) ||
 		(targetIndex && *targetIndex>=_party.party.size())) return false;
-	BusyCast busy(_busy);
-	try {
+    BusyCast busy(_busy);
+    _casting->targetIndex=targetIndex;_casting->targetPending=true;
+    _casting->displayedFrame.reset();_casting->displayedInput=0;
+    return publishCastingTarget();
+}
+
+bool XeenEncounterFlow::publishCastingTarget() {
+    const auto targetIndex=_casting->targetIndex;
+    try {
 		_journeyPreimage->check();
-		const auto preparedEffect=XeenLearnedSpellRules::prepareEffect(_casting->spell,_party,targetIndex,_party.encounterContext->year);
+		XeenSpellPreparation preparedEffect;
+        if(_casting->spell==XeenLearnedSpell::PowerCure && targetIndex) {
+            XeenConsequenceDraw draw{_casting->random,64,[&]{_journeyPreimage->check();}};
+            const auto effect=XeenLearnedSpellRules::preparePowerCure(_party,*targetIndex,_party.encounterContext->year,
+                _party.roster.at(_casting->casterOwner).currentLevel(),draw);
+            if(!effect)return true;
+            preparedEffect=*effect;
+        } else preparedEffect=XeenLearnedSpellRules::prepareEffect(_casting->spell,_party,targetIndex,_party.encounterContext->year);
+        const auto cost=XeenLearnedSpellRules::cost(static_cast<std::uint8_t>(_casting->spell),
+            _party.roster.at(_casting->casterOwner).currentLevel());
 		auto prepared=std::make_shared<XeenRestoreGuard>(_world,_party,_camera,_flags);
 		prepared->retainResources(*_journeyPreimage);
 		std::string result;
 		if (!targetIndex) {
-			if (_party.roster.at(_casting->casterOwner).currentSp!=_casting->originalSp-int(XeenLearnedSpellRules::cost(_casting->spell)))
+			if (_party.roster.at(_casting->casterOwner).currentSp!=_casting->originalSp-int(cost.sp))
 				throw std::logic_error("Casting refund preimage changed");
 			prepared->characters[_casting->casterOwner].currentSp=_casting->originalSp;
-			result="First Aid target cancelled; SP refunded";
-		} else if (preparedEffect.failed) result="First Aid: Spell failed; SP spent";
+            prepared->treasure->gems+=cost.gems;
+			result="Spell target cancelled; SP and gems refunded";
+		} else if (preparedEffect.failed) result="Spell failed; costs spent";
 		else {
 			const auto &effect=preparedEffect.effects.front();
 			prepared->characters[effect.owner].currentHp=effect.hp;
 			prepared->characters[effect.owner].conditions=effect.conditions;
-			result="First Aid: "+_party.roster.at(_casting->casterOwner).name+" -> "+
+			result="Healing: "+_party.roster.at(_casting->casterOwner).name+" -> "+
 				_party.roster.at(effect.owner).name+" HP "+
 				std::to_string(_party.roster.at(effect.owner).currentHp)+"->"+std::to_string(effect.hp)+
 				"; SP spent";
 		}
-		_journeyPreimage->check();
-		if (!targetIndex) _party.roster.at(_casting->casterOwner).currentSp=_casting->originalSp;
+        prepared->s._journeyRandom=_casting->random.continuation();
+        _journeyPreimage->check();
+        _world._sessionState._journeyRandom=_casting->random.continuation();
+        if (!targetIndex) {
+            _party.roster.at(_casting->casterOwner).currentSp=_casting->originalSp;
+            _party.monsterTreasure->gems+=cost.gems;
+        }
 		else for (const auto &effect:preparedEffect.effects) {
 			auto &live=_party.roster.at(effect.owner);
-            if(live.currentHp<=XeenCharacterRules::maxHp(live,{_party.encounterContext->year}))_world.scenePresentation().spellEffect(effect.owner,_lastTime,true);
+            if(!live.conditions[13] && !live.conditions[14] && !live.conditions[15] && live.currentHp<=XeenCharacterRules::maxHp(live,{_party.encounterContext->year}))_world.scenePresentation().spellEffect(effect.owner,_lastTime,true);
 			live.currentHp=effect.hp;live.conditions=effect.conditions;
 		}
 		_castingResult.swap(result);
@@ -206,7 +228,7 @@ bool XeenEncounterFlow::respondCastingTarget(const Ticket &entry,
 
 bool XeenEncounterFlow::publishAwaken(const Ticket &entry) {
 	if (!current(entry) || !_casting || !_casting->committed || _casting->effectDone ||
-		(_casting->spell!=XeenLearnedSpell::Awaken && _casting->spell!=XeenLearnedSpell::WizardEye && _casting->spell!=XeenLearnedSpell::Jump) || !journeyCapacity()) return false;
+		(XeenLearnedSpellRules::target(static_cast<std::uint8_t>(_casting->spell))!=XeenSpellTarget::Party && _casting->spell!=XeenLearnedSpell::Jump) || !journeyCapacity()) return false;
 	BusyCast busy(_busy);
 	try {
 		_journeyPreimage->check();
@@ -214,7 +236,7 @@ bool XeenEncounterFlow::publishAwaken(const Ticket &entry) {
 		auto prepared=std::make_shared<XeenRestoreGuard>(_world,_party,_camera,_flags);
 		prepared->retainResources(*_journeyPreimage);
 		std::ostringstream message;
-		message<<"Awaken: "<<_party.roster.at(_casting->casterOwner).name<<"; SP spent; ";
+		message<<"Party spell: "<<_party.roster.at(_casting->casterOwner).name<<"; SP spent; ";
 		unsigned cleared=0;
 		for (const auto &value:effect.effects) {
 			const auto &before=_party.roster.at(value.owner);
@@ -223,9 +245,11 @@ bool XeenEncounterFlow::publishAwaken(const Ticket &entry) {
 		}
 		message<<cleared<<" Sleep cleared";
 		auto result=message.str();
+        if(effect.food)prepared->food=*effect.food;
         XeenLearnedSpellRules::applyPartyEffect(_casting->spell,*prepared->context);
         if(_casting->spell==XeenLearnedSpell::Jump && _casting->jumpDestination)prepared->cameraValue=*_casting->jumpDestination;
         _journeyPreimage->check();
+        if(effect.food)_party.food=*effect.food;
         XeenLearnedSpellRules::applyPartyEffect(_casting->spell,*_party.encounterContext);
         if(_casting->spell==XeenLearnedSpell::Jump) {
           _casting->failed=!_casting->jumpDestination;
@@ -242,12 +266,13 @@ bool XeenEncounterFlow::publishAwaken(const Ticket &entry) {
 }
 
 bool XeenEncounterFlow::serviceCasting() {
-	if (!_casting || !_casting->committed || !_casting->effectDone || _busy || _failure ||
+	if (!_casting || !_casting->committed || (!_casting->effectDone && !_casting->targetPending) || _busy || _failure ||
 		!current(ticket()) || !journeyCapacity()) return false;
 	BusyCast busy(_busy);
 	try {
 		_journeyPreimage->check();
 		auto &work=*_casting;
+        if(!work.effectDone)return publishCastingTarget();
 		if (!work.time) work.time.emplace(*_party.encounterContext,(_world.map(_camera.mapId).geometry.isOutdoors()?10:1),activeCharacters(_party,work.owners),activeInputs(_party,work.owners),&*_party.serviceEconomy);
 		XeenConsequenceDraw draw{work.random,64,[&] { _journeyPreimage->check(); }};
 		if (!work.time->service(draw)) return true;

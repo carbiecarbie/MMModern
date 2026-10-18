@@ -449,10 +449,10 @@ and the round reset. The all-disabled inner path also resets at
 `0x2ddb6..0x2ddcf`; party defeat/exit can supersede round continuation.
 
 Calibration reproduced Run's strict threshold, removal and order rebuild
-(`0x2e1c0..0x2e1f2`). The pin's `Interface::nextChar` agrees. **Current
-MMModern differs:** `XeenCombat.cpp::selectNext` restarts at the beginning and
-leaves skipped members unmarked, allowing a re-enabled member to act late in
-the same round; M75 Part A brings it in line with DOS. See [healing evidence](evidence.md#party-healing-spells)
+(`0x2e1c0..0x2e1f2`). The pin's `Interface::nextChar` agrees. **Implemented (M75 Part A):**
+`XeenCombat.cpp::selectNext` marks skipped disabled participating party slots
+as done. Its scan can restart after a re-sort without granting them a late
+action; monster-contact handling is unchanged. See [healing evidence](evidence.md#party-healing-spells)
 for the complete trace. **HP alone is not an admission gate:** with no disabling
 condition, a zero/negative-HP member receives a turn; the condition-only defeat
 check (`0x24f29..0x24f8f`), portrait focus and ordinary command dispatcher do

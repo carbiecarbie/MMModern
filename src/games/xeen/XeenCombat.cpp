@@ -361,10 +361,18 @@ struct XeenCombat::Impl {
 		if(defeated()) { turn=-1;phase=Phase::Defeat;work=Work::None;return; }
 		if(disengagementDue()) return;
 		if (!contact[0] && !moveDue) { turn=-1; phase=Phase::VictoryAwaitingEnd; work=Work::End; return; }
-		for(auto i:order) if(!acted[i] && (i>=6 ? bool(contact[i-6]) : ((participants & (1u<<i)) && character(i).canAct() && (playerSpeeds[i]>0)))) {
-			turn=i; phase=i>=6?Phase::PendingEnemy:moveDue?Phase::PendingRound:Phase::PlayerReady;
-			work=i>=6?Work::Enemy:moveDue?Work::Round:Work::None; return;
-		}
+		for(auto i:order) if(!acted[i]) {
+            // Spend disabled party slots as DOS nextChar does. Re-sorting and
+            // new monster contacts retain their existing selection semantics.
+            if(i<6 && (participants & (1u<<i)) && (!character(i).canAct() || playerSpeeds[i]==0)) {
+                acted[i]=true;
+                continue;
+            }
+            if(i>=6 ? bool(contact[i-6]) : ((participants & (1u<<i)) && character(i).canAct() && playerSpeeds[i]>0)) {
+                turn=i; phase=i>=6?Phase::PendingEnemy:moveDue?Phase::PendingRound:Phase::PlayerReady;
+                work=i>=6?Work::Enemy:moveDue?Work::Round:Work::None; return;
+            }
+        }
 		turn=-1; phase=Phase::PendingRound; work=Work::Round;
 	}
 	bool defeated() { for(int i=0;i<6;++i) if(xeenCombatTargetable(character(i))) return false; return true; }
@@ -969,10 +977,20 @@ XeenCombatResult XeenCombat::settleCast(const Ticket &t,std::optional<unsigned> 
         const auto &reserved=*c.reservation;d.checkCastReservation(t,reserved,true);
         c.partyTarget=target;
         const auto targetOwner=target ? std::optional<std::uint8_t>{d.party.party.activeRosterIds().at(*target)} : std::nullopt;
-        if(target)require((reserved.spell==26 || reserved.spell==10 || reserved.spell==59) && *target<6 && (reserved.participants&(1u<<*target)),"Cast recovery target changed");
+        if(target)require((XeenLearnedSpellRules::target(reserved.spell)==XeenSpellTarget::Member) && *target<6 && (reserved.participants&(1u<<*target)),"Cast recovery target changed");
         XeenCombatCastResult result=c.view.result;result.spell=reserved.spell;
         result.spBefore=reserved.originalSp;result.spAfter=reserved.originalSp-int(reserved.cost);
-        auto effect=XeenLearnedSpellRules::prepareEffect(static_cast<XeenLearnedSpell>(reserved.spell),d.party,target,d.party.encounterContext->year);
+        XeenSpellPreparation effect;
+        if(reserved.spell==unsigned(XeenLearnedSpell::PowerCure) && target) {
+            XeenConsequenceDraw draw{c.random,64,[&]{d.probeFor(t);d.checkCastReservation(t,reserved,true);}};
+            const auto healing=XeenLearnedSpellRules::preparePowerCure(d.party,*target,d.party.encounterContext->year,
+                d.character(reserved.participant).currentLevel(),draw);
+            if(!healing) {
+                c.view.phase=XeenCombatCastPhase::Preparing;d.work=Work::Cast;
+                ++d.generation;return d.adopt(c.operation,Status::Pending);
+            }
+            effect=*healing;
+        } else effect=XeenLearnedSpellRules::prepareEffect(static_cast<XeenLearnedSpell>(reserved.spell),d.party,target,d.party.encounterContext->year);
         if(reserved.spell==unsigned(XeenLearnedSpell::MoonRay)) {
             XeenConsequenceDraw draw{c.random,64,[&]{d.probeFor(t);d.checkCastReservation(t,reserved,true);}};
             if(!c.healing.service(draw,d.party,d.party.encounterContext->year)) {
@@ -983,8 +1001,9 @@ XeenCombatResult XeenCombat::settleCast(const Ticket &t,std::optional<unsigned> 
         auto prepared=d.prepareCastGuard();
         prepared->s._journeyRandom=c.random.continuation();
         result.failed=effect.failed;
-        if((result.spell==26 || result.spell==10 || result.spell==59) && !target) {
+        if((XeenLearnedSpellRules::target(result.spell)==XeenSpellTarget::Member) && !target) {
             prepared->characters[reserved.owner].currentSp=reserved.originalSp;
+            prepared->treasure->gems=reserved.originalGems;
             result.refunded=true;result.spAfter=reserved.originalSp;
         }
         for(const auto &value:effect.effects) {
@@ -998,11 +1017,16 @@ XeenCombatResult XeenCombat::settleCast(const Ticket &t,std::optional<unsigned> 
             const auto &before=d.character(int(*target));
             result.effects[result.count++]={before.rosterId,before.currentHp,before.currentHp,before.conditions,before.conditions};
         }
+        if(effect.food) {prepared->food=*effect.food;result.noop=result.noop && *effect.food==d.party.food;}
         auto speeds=d.playerSpeeds;
         for(unsigned i=0;i<6;++i)speeds[i]=Rules::effectivePhysical(prepared->characters[d.owners[i]],d.inputs[i],Rules::PhysicalAttribute::Speed,{d.party.encounterContext->year});
         d.probeFor(t);d.checkCastReservation(t,reserved,true);
         require(c.partyTarget==target && (!target || d.party.party.activeRosterIds().at(*target)==*targetOwner),"Cast recovery reservation changed");
-        if(result.refunded)d.party.roster.at(reserved.owner).currentSp=d.expected.roster.at(reserved.owner).currentSp=reserved.originalSp;
+        if(result.refunded) {
+            d.party.roster.at(reserved.owner).currentSp=d.expected.roster.at(reserved.owner).currentSp=reserved.originalSp;
+            d.party.monsterTreasure->gems=d.expected.treasure->gems=reserved.originalGems;
+        }
+        if(effect.food)d.party.food=d.expected.food=*effect.food;
         for(const auto &value:effect.effects) {
             auto &live=d.party.roster.at(value.owner);auto &before=d.expected.roster.at(value.owner);
             live.currentHp=before.currentHp=value.hp;live.conditions=before.conditions=value.conditions;
@@ -1028,7 +1052,7 @@ XeenCombatResult XeenCombat::serviceCast(const Ticket &t,std::uint64_t now) {
         require(c.reservation.has_value(),"Missing paid cast reservation");
         const auto &reserved=*c.reservation;d.checkCastReservation(t,reserved,true);
         const bool ranged=XeenLearnedSpellRules::target(reserved.spell)==XeenSpellTarget::Contact;
-        if(!ranged)return settleCast(t,std::nullopt);
+        if(!ranged)return settleCast(t,c.partyTarget);
         if(!c.targetsPrepared) {
             XeenConsequenceDraw draw{c.random,64,[&]{d.probeFor(t);d.checkCastReservation(t,reserved,true);}};
             if(!c.preparation->service(draw)){++d.generation;return d.adopt(c.operation,Status::Pending);}

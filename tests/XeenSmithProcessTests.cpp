@@ -1,3 +1,4 @@
+// M75 DOS Awaken order and witness policy: 1398 -> 1397.
 #include "XeenChildProcessTestSupport.h"
 #include <cstdlib>
 #include "platform/XeenSaveFile.h"
@@ -55,7 +56,7 @@ int main(int argc,char **argv) {
   child_test::require(fresh.exit==0 && fresh.output.find("M38 PRODUCTION WITNESS PASSED")!=std::string::npos,"M38 production witness failed");
   const auto a=XeenSaveFile::read(dir/"production-A.mmsave");
   child_test::require(a.journey && a.journey->schema==9 && a.journey->content==14 &&
-   a.journey->context->day==8 && a.journey->context->minutes==1398 && a.journey->context->ctr24==1 &&
+   a.journey->context->day==8 && a.journey->context->minutes==1397 && a.journey->context->ctr24==1 &&
    a.journey->treasure->gold==840 && a.characters[1].armor[0].state==128 &&
    a.characters[1].armor[1].state==128,"M38 production-input checkpoint differs from content");
   // Windows may recycle a terminated process PID; creation time identifies its incarnation.

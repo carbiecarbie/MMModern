@@ -106,6 +106,36 @@ void prepare(XeenSaveSnapshot &snapshot,const std::string &preset) {
     auto &journey=*snapshot.journey;
     const auto first=snapshot.activeRosterIds.at(0),second=snapshot.activeRosterIds.at(1);
     auto &member=snapshot.characters[first];
+    if(preset=="party-healing") {
+        snapshot.camera={28,18,4,XeenDirection::West};journey.treasure->gems=1000;
+        constexpr unsigned spells[]{6,7,8,9,16,49,52,56,58,64,67,68};
+        constexpr unsigned powers[]{26,27,37,41,44,51,56,57,66,73};
+        for(unsigned i=0;i<2;++i) {
+            auto &caster=snapshot.characters[snapshot.activeRosterIds[i]];
+            caster.characterClass=i?XeenCharacterClass::Druid:XeenCharacterClass::Cleric;
+            caster.hasSpells=true;caster.currentSp=1000;caster.conditions.fill(0);
+            caster.learnedSpells.emplace();caster.learnedSpells->fill(0);
+            const auto category=*XeenLearnedSpellRules::categoryForClass(caster.characterClass);
+            for(auto id:spells)if(const auto slot=XeenLearnedSpellRules::slotForSpell(category,id))caster.learnedSpells->at(*slot)=1;
+            caster.currentSpell=*XeenLearnedSpellRules::slotForSpell(category,49);
+            for(auto *items:{&caster.weapons,&caster.armor,&caster.accessories})for(auto &item:*items)item.frame=0;
+            caster.miscellaneous={};
+            caster.currentHp=XeenCharacterRules::maxHp(caster,{journey.context->year});
+        }
+        for(unsigned i=0;i<std::size(powers);++i)
+            snapshot.characters[snapshot.activeRosterIds[i/9]].miscellaneous[i%9]={1,static_cast<std::uint8_t>(powers[i]),5,0};
+        // Four patients carry the six conditions; the two casters stay usable.
+        for(unsigned i=2;i<6;++i) {
+            auto &patient=snapshot.characters[snapshot.activeRosterIds[i]];
+            patient.conditions.fill(0);patient.currentHp=i<4?1:0;
+        }
+        auto &poison=snapshot.characters[snapshot.activeRosterIds[2]];poison.conditions[3]=5;poison.conditions[11]=1;
+        auto &stone=snapshot.characters[snapshot.activeRosterIds[3]];stone.conditions[4]=5;stone.conditions[14]=1;stone.conditions[12]=1;stone.currentHp=0;
+        snapshot.characters[snapshot.activeRosterIds[4]].conditions[13]=1;
+        snapshot.characters[snapshot.activeRosterIds[5]].conditions[15]=1;
+        snapshot.characters[snapshot.activeRosterIds[5]].conditions[12]=1;
+        return;
+    }
     if ((preset=="monster-control" || preset=="monster-damage")) {
         snapshot.camera={28,18,4,XeenDirection::West};
         journey.treasure->gems=1000;
@@ -162,7 +192,7 @@ void prepare(XeenSaveSnapshot &snapshot,const std::string &preset) {
 
 void generateTestSave(const GameInstallation &installation,const std::string &preset,
         const std::filesystem::path &output) {
-    if (preset!="broken-armor" && preset!="train-ready" && preset!="injured-dead" && preset!="poisoned" && preset!="monster-control" && preset!="monster-damage")
+    if (preset!="broken-armor" && preset!="train-ready" && preset!="injured-dead" && preset!="poisoned" && preset!="monster-control" && preset!="monster-damage" && preset!="party-healing")
         throw std::invalid_argument("Unknown test-save preset: "+preset);
     const auto target=XeenSaveFile::resolve(output,installation);
     // Reuse the native alias/reparse-aware path guard for the repository too.
@@ -172,7 +202,7 @@ void generateTestSave(const GameInstallation &installation,const std::string &pr
     Inputs inputs(installation);
     auto candidate=inputs.fresh();
     prepare(candidate,preset);
-    if((preset=="monster-control" || preset=="monster-damage")) {
+    if((preset=="monster-control" || preset=="monster-damage" || preset=="party-healing")) {
         const auto actors=XeenActorApproach::actorsFromResources(inputs.maps.loadObjects(inputs.assets,28),inputs.resources.loadMonsterStatistics());
         auto &table=candidate.map(28).monsters;
         table.emplace(XeenSaveMonsterTable{std::uint16_t(actors.size()),{}});

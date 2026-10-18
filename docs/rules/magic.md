@@ -141,8 +141,8 @@ using the item user's level. See [offsets and limits](evidence.md#party-healing-
 slots. Before their slot arrives they can act this round; after a skipped
 slot they wait until next round's flag reset. This applies to Awaken,
 Cure Paralysis, Stone to Flesh and revival, with other disabling conditions
-still respected. The pin agrees; current MMModern restarts its scan and can
-allow a late same-round action. See [turn-order evidence](combat.md#initiative-block-run-and-monster-recovery)
+still respected. The pin agrees. Implemented in M75 Part A: skipped disabled party slots
+are marked done even when the speed order is re-sorted. See [turn-order evidence](combat.md#initiative-block-run-and-monster-recovery)
 and [admission evidence](evidence.md#party-healing-spells). Zero/negative HP
 alone does not prevent a turn or ordinary command admission when disabling
 conditions are absent; Resurrection need not refill HP to restore eligibility.
@@ -156,6 +156,14 @@ spent charge and normal monster response. This must not be conflated with
 Escape before selecting an item. See [the item-use evidence](../original-quirks.md).
 
 ## Healing and conditions
+
+**Implemented:** First Aid, Cure Wounds, Revitalize, Awaken and Moon Ray;
+M75 Part A adds Nature's Cure, Power Cure, Cure Poison, Cure Disease,
+Cure Paralysis, Stone to Flesh, Suppress Poison, Suppress Disease and
+Create Food, through the book, Quick Fight and their item powers.
+Raise Dead, Resurrection and Divine Intervention remain unsupported until
+Part B. The M75 own-ID target prompts and refunds above are implemented
+for Part A, including charged-item cancellation.
 
 **Evidence: DOS static (2026-10-17), high confidence** for the twelve M75
 spells and the shared healing helper's terminal guards and condition order;

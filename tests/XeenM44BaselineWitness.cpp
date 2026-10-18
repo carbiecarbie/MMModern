@@ -108,12 +108,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
                     if(const auto input=m49_combat::finishAwaken(*cast,*party))act(*input);
                 }else if(combat->phase()==XeenCombatPhase::PlayerReady){
                     if(scenario=="services") {
-                        bool broken=false;for(auto owner:kXeenCombatOwners)for(const auto &armor:party->roster.at(owner).armor)broken=broken || (armor.id && (armor.state&128));
-                        if(m49_combat::canAwaken(*party,combat->participant()))act(CastSpellAction{});
-                        else if(earnArmor && !broken && openingAttacks++>=1)act(BlockAction{});
-                        else if(!earnArmor && position->mapId==XeenMapIdentity(23))
-                            act(combat->participant()==1 || combat->participant()==4 ? PlayerAction{AttackAction{}} : PlayerAction{RunAction{}});
-                        else act(AttackAction{});
+                        act(m49_combat::servicesCombatAction(*party,combat->participant(),earnArmor,openingAttacks));
                     }
                     else {
                         const auto rows=combat->contacts();unsigned selected=0;
@@ -195,10 +190,11 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
                                 (c.conditions[8] || c.conditions[12] || c.conditions[13]));
                         }
                         // Ordinary Run kills incapacitated members left behind.
-                        // Retain Services' paid resurrection obligation rather
-                        // than replacing it with a living learner's cheap Heal.
-                        act(leaveCasualty ? PlayerAction{RunAction{}} :
-                            combat->participant()==1 || combat->participant()==4 ? PlayerAction{AttackAction{}} : PlayerAction{RunAction{}});
+                        // Retain Services' paid recovery before Training.
+                        // Awaken can leave a faster member waiting for the next
+                        // round. Keep the available fighters until a casualty
+                        // has earned Training, rather than escaping them early.
+                        act(leaveCasualty ? PlayerAction{RunAction{}} : PlayerAction{AttackAction{}});
                     }
                     else if(world->sessionState().journeyActivity()==XeenJourneyActivity::Event ||
                             world->sessionState().journeyActivity()==XeenJourneyActivity::Reward)act(AcknowledgeAction{});
@@ -207,7 +203,8 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
                 bool eligible=false;for(unsigned member=0;member<6;++member) {
                     const auto owner=kXeenCombatOwners[member];const auto quote=xeenQuoteTraining(party->roster.at(owner),
                         *party->roster.combatInputs(owner),party->monsterTreasure->gold,*party->encounterContext);
-                    if(!quote.missing && quote.levelBefore==3 && party->roster.at(owner).conditions[13]) {*trainingMember=member;eligible=true;break;}
+                    const auto &learner=party->roster.at(owner);
+                    if(!quote.missing && quote.levelBefore==3 && (learner.conditions[12] || learner.conditions[13])) {*trainingMember=member;eligible=true;break;}
                 }
                 int x=10,y=13;
                 if(!eligible) {
@@ -268,7 +265,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
                     // free/wrong-price recovery and lost resets must fail.
                     const auto owner=kXeenCombatOwners[*trainingMember];
                     auto &expected=*templeExpected;expected.character=party->roster.at(owner);
-                    check(expected.character.conditions[13],"M44 Services lost its ordinary paid resurrection preimage");
+                    check(expected.character.conditions[12] || expected.character.conditions[13],"M44 Services lost its ordinary paid recovery preimage");
                     expected.inputs=*party->roster.combatInputs(owner);
                     auto &c=expected.character;auto &i=expected.inputs;
                     const unsigned level=std::max(0,int(c.permanentLevel)+c.temporaryLevel);
