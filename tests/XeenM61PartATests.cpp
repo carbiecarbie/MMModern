@@ -66,9 +66,9 @@ void prices(const char *root) {
         check(xeenQuoteItemService(C(c),intact,100,A::Fix).outcome==O::Intact,"intact Fix admitted");
         check(xeenPrepareItemService(C(c),broken,0,A::Identify).outcome==O::InsufficientGold,"Identify funds refusal");
         XeenItemCategory items{};items[0]=broken;items[1]=intact;
-        const auto discarded=xeenDiscardItems(items,0);
+        const auto discarded=xeenDiscardItems(items,0,XeenInventoryCategory::Miscellaneous);
         check(discarded && xeenSameItem((*discarded)[0],intact) && !(*discarded)[1].id,"Discard did not compact exact bytes");
-        items[0]=raw;check(!xeenDiscardItems(items,0),"cursed Discard admitted");
+        items[0]=raw;check(!xeenDiscardItems(items,0,XeenInventoryCategory::Miscellaneous),"cursed Discard admitted");
     }
     check(xeenQuoteItemService(C::Weapons,{0,34,128,0},0,A::Sell).outcome==O::Refused,"slayer sword sold");
     for(unsigned state:{0u,1u,63u,64u,128u,255u}) {

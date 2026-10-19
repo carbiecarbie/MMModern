@@ -521,7 +521,8 @@ through the ordinary item-use path (charge spent, monster response, turn
 cursor cleared, next actor). Use is refused from the character sheet in
 combat, and the main-screen Use dialog ignores F1-F6. The rules, refusals and
 offsets are in [the Items dialog in combat](items.md#the-items-dialog-in-combat);
-the Town Portal item route's end-of-combat timing is an open question there.
+Town Portal ends combat at the first attacker re-evaluation after arrival,
+with the ordinary end-of-combat minute (maintainer decision, 2026-10-19).
 
 ## Monster movement terrain
 

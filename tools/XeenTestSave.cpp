@@ -142,6 +142,26 @@ void prepare(XeenSaveSnapshot &snapshot,const std::string &preset) {
         misc[6]={1,4,2,0};misc[7]={1,4,0x42,0};misc[8]={1,4,0x82,0};
         return;
     }
+    if(preset=="combat-items") {
+        snapshot.camera={23,9,11,XeenDirection::West};
+        for(unsigned i=0;i<6;++i) {
+            auto &c=snapshot.characters[snapshot.activeRosterIds[i]];
+            c.conditions.fill(0);c.permanentLevel=10;
+            c.currentHp=XeenCharacterRules::maxHp(c,{journey.context->year});
+            c.weapons={};c.armor={};c.accessories={};c.miscellaneous={};
+            c.weapons[0]={0,1,0,0};c.weapons[1]={0,2,0,0};
+            c.weapons[2]={0,3,0x40,0};c.weapons[3]={0,34,0,0};
+            c.armor[0]={0,1,0,0};c.armor[1]={0,2,0,0};
+            c.accessories[0]={0,1,0,0};
+            c.miscellaneous[0]={1,3,5,0};c.miscellaneous[1]={1,9,5,0};
+            c.miscellaneous[2]={1,55,5,0};c.miscellaneous[3]={1,4,1,0};
+            if(i==5)for(unsigned slot=0;slot<9;++slot) {
+                c.weapons[slot]={0,1,0,0};c.armor[slot]={0,1,0,0};
+                c.accessories[slot]={0,1,0,0};c.miscellaneous[slot]={1,3,5,0};
+            }
+        }
+        return;
+    }
     if(preset=="party-healing") {
         snapshot.camera={28,18,4,XeenDirection::West};journey.treasure->gems=1000;
         constexpr unsigned spells[]{6,7,8,9,16,49,52,56,58,64,67,68};
@@ -228,7 +248,7 @@ void prepare(XeenSaveSnapshot &snapshot,const std::string &preset) {
 
 void generateTestSave(const GameInstallation &installation,const std::string &preset,
         const std::filesystem::path &output) {
-    if (preset!="broken-armor" && preset!="train-ready" && preset!="injured-dead" && preset!="poisoned" && preset!="monster-control" && preset!="monster-damage" && preset!="party-healing" && preset!="m76-spells")
+    if (preset!="broken-armor" && preset!="train-ready" && preset!="injured-dead" && preset!="poisoned" && preset!="monster-control" && preset!="monster-damage" && preset!="party-healing" && preset!="m76-spells" && preset!="combat-items")
         throw std::invalid_argument("Unknown test-save preset: "+preset);
     const auto target=XeenSaveFile::resolve(output,installation);
     // Reuse the native alias/reparse-aware path guard for the repository too.

@@ -17,11 +17,20 @@ std::optional<XeenLearnedSpell> xeenItemUseSpell(std::uint8_t power,bool combat)
     const auto id=xeenItemPowerSpellId(power);
     // DOS admits item Enchant in combat, independently of learned admission.
     if(combat && power==63)return XeenLearnedSpell::EnchantItem;
+    if(combat && power==55)return XeenLearnedSpell::TownPortal;
     return id?XeenLearnedSpellRules::supportedIn(*id,combat):std::nullopt;
 }
 bool xeenItemUseSupported(const XeenItem &item) noexcept {
     return xeenItemUseAdmission(XeenInventoryCategory::Miscellaneous,item,true,true)==XeenItemUseAdmission::Admitted &&
         (item.id==37 || xeenItemUseSpell(item.id).has_value());
+}
+std::optional<XeenSpellCost> xeenItemCancellationRefund(std::uint8_t spell,unsigned level) noexcept {
+    // Only the cancellation routes established by M61, M75 and M76.
+    switch(spell) {
+    case 19:case 57:case 39:case 55:case 26:case 7:case 8:case 9:case 49:case 52:case 56:case 58:case 64:
+        return XeenLearnedSpellRules::cost(spell,level);
+    default:return {};
+    }
 }
 std::optional<std::uint32_t> xeenItemPrice(XeenInventoryCategory category,const XeenItem &item,
         XeenItemService action,unsigned merchant) noexcept {
@@ -62,8 +71,9 @@ XeenItemUseAdmission xeenItemUseAdmission(XeenInventoryCategory category,const X
     if(!item.id || !item.material || (item.state&0xc0) || !(item.state&63))return XeenItemUseAdmission::NoAbility;
     return XeenItemUseAdmission::Admitted;
 }
-std::optional<XeenItemCategory> xeenDiscardItems(const XeenItemCategory &items,std::size_t slot) noexcept {
-    if(slot>=items.size() || !items[slot].id || (items[slot].state&0x40))return {};
+std::optional<XeenItemCategory> xeenDiscardItems(const XeenItemCategory &items,std::size_t slot,XeenInventoryCategory category) noexcept {
+    if(slot>=items.size() || !items[slot].id || (items[slot].state&0x40) ||
+        (category==XeenInventoryCategory::Weapons && items[slot].id==34))return {};
     auto after=items;after[slot]={};xeenCompactItems(after);return after;
 }
 }

@@ -289,8 +289,8 @@ Enchant refuses the latter four weapons; Item to Gold refuses only ID 34
 and converts immediately. Escape at the member prompt refunds SP/gems,
 including for an item cast whose charge remains spent; later Escape keeps
 the cost. An original Vertigo monster stands one
-step west, at `(17,4)`, for combat casting and Quick Fight. Combat item Use
-remains deferred. On mainland map 23, stand at `(12,9)` facing West to try
+step west, at `(17,4)`, for combat casting, Quick Fight and item Use.
+On mainland map 23, stand at `(12,9)` facing West to try
 Walk on Water onto the shallow water at `(11,9)`. The open mainland and
 Vertigo components have no deep-water or cloud cells; those consumers have
 automated tests with synthetic terrain.
@@ -334,6 +334,18 @@ the casters carry five-charge items for all ten M75 powers.
 New-Item -ItemType Directory -Force D:/MModern-playtest
 .\build-rel\mmodern_test_save.exe train-ready "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/train-ready.mmsave"
 .\build-rel\mmodern.exe --load-game "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/train-ready.mmsave"
+```
+
+The `combat-items` preset starts on the mainland at (9,11), facing West,
+near monsters. The party carries weapons and armor to swap, a cursed weapon,
+the Xeen Slayer Sword, and charged damage, healing and Town Portal items.
+The last member has full packs. Enter combat with Wait, manage equipment
+through a character's Items dialog, and use charged items through the combat
+Use button (U).
+
+```powershell
+.\build-rel\mmodern_test_save.exe combat-items "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/combat-items.mmsave"
+.\build-rel\mmodern.exe --load-game "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/combat-items.mmsave"
 ```
 
 Choose your own output path in an existing directory outside both this repository

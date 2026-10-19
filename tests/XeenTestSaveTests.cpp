@@ -89,6 +89,18 @@ void preset(const GameInstallation &installation,const std::string &name,const f
             for (const auto &item:party.roster.at(owner).miscellaneous) found=found || XeenAntidoteUse::eligible(item);
         check(found,"no usable Misc antidote");
     }
+    if(name=="combat-items") {
+        check(camera.mapId==23 && camera.x==9 && camera.y==11,"Combat item preset mainland position");
+        for(auto owner:party.party.activeRosterIds()) {
+            const auto &c=party.roster.at(owner);
+            check(c.canAct() && c.weapons[0].id && c.armor[0].id && c.miscellaneous[0].id==3,"Combat item preset lacks usable gear/damage power");
+        }
+        check(member.weapons[2].state==0x40 && member.weapons[3].id==34,"Combat preset lacks curse/Slayer Sword");
+        check(member.miscellaneous[1].id==9 && member.miscellaneous[2].id==55,"Combat preset lacks healing/Portal powers");
+        const auto &full=party.roster.at(party.party.activeRosterIds()[5]);
+        check(full.weapons[8].id && full.armor[8].id && full.accessories[8].id && full.miscellaneous[8].material,"Combat preset pack not full");
+        return;
+    }
     if(name=="m76-spells") {
         check(camera.mapId==28 && camera.x==18 && camera.y==4,"M76 preset position");
         check(party.monsterTreasure->gems==1000,"M76 preset gems");

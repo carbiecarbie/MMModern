@@ -136,14 +136,13 @@ IndexedFrame XeenEventFlow::handleCharacterDialog(const PlayerAction &action) {
 void XeenEventFlow::performItemOption(unsigned option) {
     if(!validInventorySource(true) || !_inventory.slot) return;
     if(option<2) {
-        // M47 Part A: maintainer-approved viewing only during combat. Combat
-        // equipment publication remains future Tier A work (milestone plan).
-        if(_encounter && _encounter->combat()) {dialogError("Equipment in combat: not supported yet");return;}
         handleEquipment(option==0?XeenEquipmentOperation::Equip:XeenEquipmentOperation::Remove);return;
     }
     if(option==3) {
-        if(_encounter && _encounter->combat()) {dialogError("Discard in combat: not supported yet");return;}
         if(_inventory.record.state&0x40) {dialogError(std::string(dosText().scalar("CANNOT_DISCARD_CURSED_ITEM")));return;}
+        if(_inventory.category==XeenInventoryCategory::Weapons && _inventory.record.id==34) {
+            dialogError(std::string(dosText().scalar("CANNOT_DISCARD_XEEN_SLAYER")));return;
+        }
         if(!journey()) {dialogError("Discard requires an active Journey");return;}
         if(!_equipmentSelection || !validEquipmentSelection(*_equipmentSelection)) {invalidateInventorySelection();return;}
         _discardPrompt=xeenDialogFormat(dosText().scalar("PERMANENTLY_DISCARD"),{_catalog.describe(_inventory.category,_inventory.record).displayName});
@@ -151,18 +150,18 @@ void XeenEventFlow::performItemOption(unsigned option) {
     }
     if(option!=2) return;
     const auto &c=_party.roster.at(*_inventory.sourceOwner);
-    if(_encounter && _encounter->combat()) {
-        dialogError(std::string(xeenDialogText(dosText(),XeenDialogText::UseInCombat)));return;
-    }
     const auto admission=xeenItemUseAdmission(_inventory.category,_inventory.record,_camera.mapId.number!=0,c.canAct());
     if(admission==XeenItemUseAdmission::InvalidCategory)return;
     if(admission==XeenItemUseAdmission::NoWorld) {dialogError(std::string(xeenDialogText(dosText(),XeenDialogText::Hurry)));return;}
     if(admission==XeenItemUseAdmission::CannotAct) {dialogError(xeenDialogFormat(xeenDialogText(dosText(),XeenDialogText::InNoCondition),{c.name}));return;}
+    if(_encounter && _encounter->combat() && !_combatItems) {
+        dialogError(std::string(xeenDialogText(dosText(),XeenDialogText::UseInCombat)));return;
+    }
     if(admission==XeenItemUseAdmission::NoAbility) {
         dialogError(xeenDialogFormat(xeenDialogText(dosText(),XeenDialogText::NoSpecialAbilities),{_catalog.describe(_inventory.category,_inventory.record).displayName}));return;
     }
     if(!journey() || !xeenItemUseSupported(_inventory.record)) {dialogError("Item effect: not supported yet");return;}
-    if(const auto spell=xeenItemUseSpell(_inventory.record.id);spell && XeenLearnedSpellRules::target(static_cast<std::uint8_t>(*spell))==XeenSpellTarget::Contact) {
+    if(!_combatItems) if(const auto spell=xeenItemUseSpell(_inventory.record.id);spell && XeenLearnedSpellRules::target(static_cast<std::uint8_t>(*spell))==XeenSpellTarget::Contact) {
         XeenRestoreGuard::Providers providers(_encounter->journeySavePreimage(),_world);
         for(unsigned type=2;type<=(*spell==XeenLearnedSpell::ElementalStorm?5u:2u);++type) {
             XeenMonsterAppearance appearance;appearance.projectile=XeenProjectileAppearance{false,0,0,3,{},xeenSpellProjectile(*spell,type,_inventory.record.id)};
@@ -172,13 +171,22 @@ void XeenEventFlow::performItemOption(unsigned option) {
     }
     const auto certificate=_equipmentSelection;
     if(!certificate || !validEquipmentSelection(*certificate)) {invalidateInventorySelection();return;}
-    if((_inventory.record.id==28 || _inventory.record.id==55 || _inventory.record.id==42) && !_travelChoice &&
+    if(((!_combatItems && (_inventory.record.id==28 || _inventory.record.id==42)) || _inventory.record.id==55) && !_travelChoice &&
         beginTravelDialog(*xeenItemUseSpell(_inventory.record.id),certificate->resolvedOwner,true))return;
     XeenEncounterFlow::ItemUseSelection selection;
     selection.epoch=certificate->epoch;selection.membership=certificate->membership;
     selection.membershipSize=certificate->membershipSize;selection.sourceIndex=certificate->sourceActiveIndex;
     selection.sourceOwner=certificate->resolvedOwner;selection.category=certificate->category;
     selection.slot=certificate->physicalSlot;selection.record=certificate->selectedRecord;
+    if(_combatItems) {
+        // Keep the concrete selection through the callback-free modal handoff.
+        const auto choice=_travelChoice.value_or(0);
+        if(!_encounter->prepareCombatItem(selection,choice)) {dialogError("Item effect: not supported yet");return;}
+        closeInventory();
+        if(!_encounter->useCombatItem(_encounter->ticket(),selection,choice))
+            throw std::runtime_error("Combat item handoff failed");
+        return;
+    }
     const auto generation=_encounter->beginItemUse(_encounter->ticket(),selection,_inventoryLease,_certificateLease,_travelChoice.value_or(0));
     if(!generation) {invalidateInventorySelection();dialogError("Item use: not supported yet");return;}
     advanceInventoryEpoch();_itemUseGeneration=*generation;_inventory.mode=XeenInventoryMode::UseTarget;

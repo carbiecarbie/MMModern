@@ -18,7 +18,7 @@ int main() {
     LocalFree(arguments);
     try {
         if (args.size()!=4 && (args.size()!=6 || args[4]!=L"--ui-data" || args[5].empty())) throw std::invalid_argument(
-            "Usage: mmodern_test_save <broken-armor|train-ready|injured-dead|poisoned|monster-control|monster-damage|party-healing> <game-directory> <output.mmsave> [--ui-data <path>]");
+            "Usage: mmodern_test_save <broken-armor|train-ready|injured-dead|poisoned|monster-control|monster-damage|party-healing|m76-spells|combat-items> <game-directory> <output.mmsave> [--ui-data <path>]");
         const std::string preset(args[1].begin(),args[1].end());
         const auto installation=mmodern::XeenInstallationDetector(args.size()==6?std::filesystem::path(args[5]):std::filesystem::path{}).detect(std::filesystem::path(args[2]));
         if (!installation) throw std::runtime_error("Game installation not found");

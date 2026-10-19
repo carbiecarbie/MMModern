@@ -667,8 +667,10 @@ loading the map. Beacon stores map/X/Y/side on the caster's mutable roster recor
 Cross-map Return and every Town Portal selection load through the existing
 world transition, retaining per-map changes and rebuilding live monsters.
 Only Vertigo and the open mainland can be destinations; unopened maps and
-Darkside refuse before payment. Town Portal's combat item path keeps its
-refusal until step 7 (M76 decision 6). Travel dialogs hold payment until the chosen
+Darkside refuse before payment. M77 Part A admits Town Portal items in combat
+after the original notice; combat ends at the first attacker re-evaluation after
+the load, with its ordinary minute (maintainer decision, 2026-10-19).
+Travel dialogs hold payment until the chosen
 destination is admitted, so the engine's unopened-area refusal spends nothing.
 Empty/zero/Escape still commits the paid cancellation. Original-data automated
 checks in `XeenTravelSpellOriginalTests.cpp` cover same-map movement, map loads,

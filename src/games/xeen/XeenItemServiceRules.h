@@ -13,7 +13,8 @@ XeenItemUseAdmission xeenItemUseAdmission(XeenInventoryCategory,const XeenItem &
 std::optional<std::uint8_t> xeenItemPowerSpellId(std::uint8_t power) noexcept;
 std::optional<XeenLearnedSpell> xeenItemUseSpell(std::uint8_t power,bool combat=false) noexcept;
 bool xeenItemUseSupported(const XeenItem &) noexcept;
-// Detached category delta. Curse refusal follows ScummVM; not confirmed in DOS.
-std::optional<XeenItemCategory> xeenDiscardItems(const XeenItemCategory &,std::size_t slot) noexcept;
+std::optional<XeenSpellCost> xeenItemCancellationRefund(std::uint8_t spell,unsigned level) noexcept;
+// DOS refuses cursed items and weapon ID exactly 34 before confirmation.
+std::optional<XeenItemCategory> xeenDiscardItems(const XeenItemCategory &,std::size_t slot,XeenInventoryCategory) noexcept;
 }
 #endif

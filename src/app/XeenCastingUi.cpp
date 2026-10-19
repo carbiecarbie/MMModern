@@ -6,20 +6,21 @@
 namespace mmodern {
 bool XeenEventFlow::beginTravelDialog(XeenLearnedSpell spell,std::uint8_t owner,bool item) {
     XeenSpellTravel rule;TravelUi ui;
-    {XeenRestoreGuard::Providers providers(_encounter->journeySavePreimage(),_world);
+    _encounter->itemTravelRead([&] {
     rule=XeenLearnedSpellRules::travel(_world,_camera,spell,0,&_party.roster.at(owner));
-    _encounter->journeySavePreimage().check();
-    if(rule.failed)return false;
+    if(rule.failed)return;
     ui.spell=spell;ui.owner=owner;ui.item=item;ui.digits.begin();
     if(spell==XeenLearnedSpell::LloydsBeacon || spell==XeenLearnedSpell::TownPortal) {
         if(!mapName)throw std::logic_error("Travel map name provider missing");
         for(unsigned i=0;i<(spell==XeenLearnedSpell::TownPortal?5u:1u);++i) {
             const auto b=rule.beacon;
             ui.names[i]=mapName(spell==XeenLearnedSpell::TownPortal?XeenMapIdentity(28+i):XeenMapIdentity(static_cast<XeenSide>((*b)[3]),(*b)[0]));
-            _encounter->journeySavePreimage().check();
         }
     }
-    }
+    });
+    if(rule.failed)return false;
+    if(item && _combatItems && spell==XeenLearnedSpell::TownPortal)
+        ui.refusal=xeenDialogFormat(dosText().scalar("CANT_CAST_WHILE_ENGAGED"),{_encounter->journeySavePreimage().learnedNames->names[unsigned(spell)]});
     if(spell==XeenLearnedSpell::LloydsBeacon && !_encounter->initializeBeacon(owner))return false;
     _travelUi=std::move(ui);return true;
 }
@@ -76,10 +77,11 @@ IndexedFrame XeenEventFlow::handleTravelDialog(const PlayerAction &action,std::u
     if(ui.spell==XeenLearnedSpell::LloydsBeacon) {
         const unsigned choice=value=='s' || value=='t'?1:value=='r'?2:0;
         if(!choice && value!=InputKey::Escape)return frameCopy();
-        {XeenRestoreGuard::Providers providers(_encounter->journeySavePreimage(),_world);
+        _encounter->itemTravelRead([&] {
             const auto rule=XeenLearnedSpellRules::travel(_world,_camera,ui.spell,choice,&_party.roster.at(ui.owner));
-            _encounter->journeySavePreimage().check();
-            if(rule.unsupported) {ui.refusal="Spell not supported yet";return renderEncounter();}}
+            if(rule.unsupported)ui.refusal="Spell not supported yet";
+        });
+        if(!ui.refusal.empty())return renderEncounter();
         const bool item=ui.item;_travelUi.reset();_travelChoice=choice;
         IndexedFrame result;if(item){performItemOption(2);result=renderEncounter();}else result=handleCasting(DialogKeyAction{'c'},input);
         _travelChoice.reset();return result;
@@ -93,12 +95,12 @@ IndexedFrame XeenEventFlow::handleTravelDialog(const PlayerAction &action,std::u
     if(value==8 || value==127) {ui.digits.backspace();ui.digits.keyRedraw();return renderEncounter();}
     if(value!=InputKey::Enter && value!=InputKey::Escape)return frameCopy();
     const unsigned distance=value==InputKey::Escape || ui.digits.value().empty()?0:unsigned(ui.digits.value()[0]-'0');
-    {XeenRestoreGuard::Providers providers(_encounter->journeySavePreimage(),_world);
-        if(ui.spell==XeenLearnedSpell::TownPortal && distance>5) {ui.digits.clear();ui.digits.begin();return renderEncounter();}
+    if(ui.spell==XeenLearnedSpell::TownPortal && distance>5) {ui.digits.clear();ui.digits.begin();return renderEncounter();}
+    _encounter->itemTravelRead([&] {
         const auto travel=XeenLearnedSpellRules::travel(_world,_camera,ui.spell,distance,&_party.roster.at(ui.owner));
-        _encounter->journeySavePreimage().check();
-        if(travel.unsupported) {ui.refusal="Spell not supported yet";return renderEncounter();}
-    }
+        if(travel.unsupported)ui.refusal="Spell not supported yet";
+    });
+    if(!ui.refusal.empty())return renderEncounter();
     const bool item=ui.item;_travelUi.reset();_travelChoice=distance;
     // Hold payment until destination admission; cancellation is a paid no-op.
     IndexedFrame result;
@@ -252,7 +254,8 @@ IndexedFrame XeenEventFlow::drawCasting(const IndexedFrame &base) const {
     const auto observed=_encounter->combat()->cast();if(!observed)return base;const auto &v=*observed;
     using P=XeenCombatCastPhase;const auto &c=_party.roster.at(v.owner);
     if(v.phase==P::Result && v.information)return drawXeenSpellInformation(dosText(),base,_inventoryFont,*v.information,drawDialogSprite);
-    if(v.phase==P::Result && v.result.failed)return drawXeenErrorScroll(base,_inventoryFont,std::string(dosText().scalar("SPELL_FAILED")));
+    if(v.phase==P::Result && v.result.failed)return drawXeenErrorScroll(base,_inventoryFont,
+        v.refusal=="engaged"?xeenDialogFormat(dosText().scalar("CANT_CAST_WHILE_ENGAGED"),{names.names[v.result.spell]}):std::string(dosText().scalar("SPELL_FAILED")));
     if(v.phase==P::Element) {
         if(v.quick)return drawXeenElement(dosText(),base,_inventoryFont,drawDialogSprite);
         unsigned portrait=0;for(unsigned i=0;i<v.participant;++i)portrait+=bool(_encounter->combat()->participants()&(1u<<i));

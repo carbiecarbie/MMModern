@@ -39,7 +39,7 @@ void mapTravel() {
     }
     for(auto pair:{std::pair{28,S::LloydsBeacon},{55,S::TownPortal}}) {
         check(xeenItemUseSpell(pair.first)==pair.second,"Travel item exploration dispatch");
-        check(!xeenItemUseSpell(pair.first,true),"Beacon combat item refusal; Portal refusal retained until step 7");
+        check(bool(xeenItemUseSpell(pair.first,true))==(pair.second==S::TownPortal),"Combat item travel admission (Portal continues, Beacon refuses)");
     }
 }
 void handlers() {

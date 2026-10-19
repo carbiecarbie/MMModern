@@ -52,7 +52,7 @@ mainland; many items apply there, others wait for areas not open yet.
   [Evidence](original-quirks.md#sv-recharge-broken). Pin: differs; master not rechecked. Rule established; implemented in M76.
 - **Town Portal items in combat.** DOS continues from the refusal notice
   into its normal town dialog and can load the selected town; the pin returns.
-  [Evidence](original-quirks.md#sv-town-portal-item-combat). Pin: differs; master not rechecked. Static route settled; DOSBox presentation unobserved. MMModern retains the refusal until step 7 (M76 decision 6).
+  [Evidence](original-quirks.md#sv-town-portal-item-combat). Pin: differs; master not rechecked. Implemented in M77 Part A; DOSBox presentation remains unobserved. Combat ends at the first attacker re-evaluation after arrival, with its ordinary minute, by the maintainer's decision.
 - **Rest's cell restriction.** DOS checks cell bit `0x40`, including on
   the mainland; the pin's cell test is ineffective. MMModern reads the DOS
   attribute bit, and Super Shelter bypasses both ordinary Rest restrictions.
@@ -174,7 +174,7 @@ mainland; many items apply there, others wait for areas not open yet.
   suffix. [Evidence](original-quirks.md#sv-broken-weapon-names). Master: differs.
 - **Discarding the Xeen Slayer Sword.** The original refuses to discard it
   with its own message; ScummVM lets it go. Rule established in M77 Part 0;
-  to be implemented in M77.
+  implemented in M77 Part A in exploration and combat.
   [Evidence](original-quirks.md#sv-discard-xeen-slayer). Pin: differs; master not rechecked.
 
 ## Magic
@@ -328,7 +328,7 @@ in [project status](project-status.md#known-gaps):
   silence); no intros, ending or Mr Wizard's help.
 - **Services and magic:** no Inn, recruiting or Tavern Sign In;
   most spells and some item powers say "not supported yet".
-- **Combat and world:** no moving, equipping or Use in combat; terrain falls
+- **Combat and world:** no moving in combat; terrain falls
   into areas outside the admitted mainland remain unavailable.
 - **Platforms and editions:** MMModern runs on 64-bit Windows with the English
   World of Xeen CD; ScummVM covers many platforms, editions and languages, and

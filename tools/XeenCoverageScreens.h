@@ -33,10 +33,10 @@ entry. Dialog identifiers below are reference identifiers, not commercial text.
 | Reaper / Golem / Dwarf / Sphinx locations | unsupported | Scripted location sequences | — |
 | OtherOptions / endings | unsupported | Clouds/Darkside intros and endings; World ending; Escape works | XeenTitleFlow |
 | Exploration main screen | partial | Movement, strafe, Shoot, Cast, Rest, Bash, Map, Info, Quick Ref, gem, portraits work; Dismiss and Quests refuse | XeenEventFlow |
-| Combat main screen | partial | Attack, Block, Shoot effects, Cast, Quick Fight/options, targets, turns, Info, Quick Ref; Use unavailable, Run outdoors only | XeenEncounterFlow |
+| Combat main screen | partial | Attack, Block, Shoot effects, Cast, charged-item Use (including Town Portal), Quick Fight/options, targets, turns, Info, Quick Ref; Run outdoors only | XeenEncounterFlow |
 | CharacterInfo | partial | Stats and popups, Items, Quick Ref, Exchange, Exit; Awards unavailable | XeenCharacterDialogFlow |
 | ControlPanel | partial | Save, Save As, Load, Quit work; Efx, Music, Speech, Text, Mr Wizard unavailable | XeenEventFlow |
-| ItemsDialog | partial | Categories, Equip, Remove, Discard, transfer, Use, Exit outside combat; Quest, combat equipment/use and Recharge/Enchant/Gold unavailable | XeenInventoryFlow |
+| ItemsDialog | partial | Categories, Equip, Remove, Discard, transfer, Use, Exit; free combat equipment/Discard/transfer, combat-party recipients, main-screen Use; sheet Use refused in combat; Recharge/Enchant/Gold supported; Quest unavailable | XeenInventoryFlow |
 | Input / StringInput / NumericInput | partial | Save names, Bank amounts work; general Event inputs unavailable | XeenTitleFlow / XeenEventFlow |
 | SpellsDialog / CastSpell / SpellOnWho | partial | Select, Buy, Info, rows, scroll, Cast, New, member choice, cancel work; effects limited by Spells dimension | XeenCastingUi |
 | Tavern | partial | Food, Drink, Tip, Rumors, member selection, Exit work; Sign In awaits the inn | XeenEventFlow |

@@ -192,6 +192,7 @@ const std::vector<XeenDosText::Field> &XeenDosText::layout() {
   {"IDENTIFY_ITEM_MSG",0x544f3,0x5451d,1,false,"s,s"},
   {"ITEM_DETAILS",0x545bd,0x5469e,1,false,"s,s,s,s,s,s,s,s"},
   {"CANNOT_DISCARD_CURSED_ITEM",0x542f2,0x54316,1,false,""},
+  {"CANNOT_DISCARD_XEEN_SLAYER",0x54316,0x5435f,1,false,""},
   {"ALL",0x54589,0x5458d,1,false,""},
   {"FIELD_NONE",0x5458d,0x54592,1,false,""},
   {"SIGNED_BONUS",0x54592,0x54596,1,false,"+d"},

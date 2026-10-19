@@ -248,7 +248,8 @@ finding ledger are in [M76 evidence](rules/evidence.md#m76-spells).
   ([evidence](rules/evidence.md#open-questions-from-this-check)). Maintainer
   decision, 2026-10-19: M77 Part A ends combat at the first attacker
   re-evaluation after the load; the exact DOS presentation in between stays
-  unobserved. MMModern keeps the combat item refusal until then.
+  unobserved. Implemented in M77 Part A in `XeenCombat::settleCast` and
+  `XeenEncounterFlow::useCombatItem`, through the existing map transition.
 - <a id="sv-rest-cell-flag"></a> **DOS ordinary Rest honors cell bit 0x40.**
   Lookup stores attribute `&0x40` in DS:`f488` (`0x11fe7..0x11fec`), and
   Rest checks it before the primary map flag (`0x1e50d..0x1e521`). Mode 12
@@ -310,16 +311,17 @@ listed boundaries:
 Calibrated **DOS static** findings of 2026-10-18 (M77 Part 0, read-only
 Capstone analysis of the installed `WORLD/XEEN.DAT`; anchors in
 [M77 evidence](rules/evidence.md#m77-combat-items-quests-awards-and-skill-indicators)).
-They settle rules for M77 Parts A-C; none is implemented yet.
+They settle rules for M77 Parts A-C; the combat item paths are implemented
+in Part A, while Quests, Awards and indicators remain for Parts B-C.
 
 - <a id="sv-discard-xeen-slayer"></a> **Discard refuses the Xeen Slayer
   Sword.** The Discard routine tests weapon ID exactly 34 after the cursed
   test and shows the fixed text "Don't you think you'll need the Xeen Slayer
   to kill Lord Xeen!" (`0x31061..0x3106f`, text `0x54316`); declining the
   confirmation returns false. **ScummVM:** differs; `discardItem` has no
-  weapon test and returns true either way. Not reachable in the areas open
-  today (no Slayer Sword). To implement in M77 Part A with the combat Items
-  dialog.
+  weapon test and returns true either way. Implemented in M77 Part A in
+  `xeenDiscardItems` and `XeenCharacterDialogFlow.cpp`, with the original
+  resource text at `0x54316`; applies in exploration and combat.
 - <a id="sv-danger-sense-frame"></a> **Danger Sense animates from its own
   counter, in phase with Spot Secret Doors.** DOS keeps three border counters
   (`0x974d` Levitate, `0x974e` Spot Doors, `0x974f` Danger Sense), advances

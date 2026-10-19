@@ -94,6 +94,9 @@ public:
 		XeenItem record{};
 	};
 	std::optional<std::uint64_t> beginItemUse(const Ticket &, const ItemUseSelection &, std::uint64_t inventoryLease, std::uint64_t certificateLease,unsigned distance=0);
+    bool prepareCombatItem(const ItemUseSelection &,unsigned);
+    bool useCombatItem(const Ticket &,const ItemUseSelection &,unsigned);
+    void itemTravelRead(const std::function<void()> &);
 	bool finishItemUse(const Ticket &, std::uint64_t generation, std::uint64_t inventoryEpoch,
 		std::optional<std::size_t> targetIndex, std::uint64_t displayedInput,
 		const IndexedFrame::Presentation &selectorFrame);

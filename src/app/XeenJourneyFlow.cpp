@@ -408,11 +408,10 @@ bool XeenEncounterFlow::settleItemUse(const Ticket &entry,std::uint64_t generati
             const auto id=static_cast<std::uint8_t>(spell);
             // M61 First Aid and the M75 DOS item prompts refund without a debit.
             // Other pre-M75 item cancellation paths retain their existing policy.
-            if(!targetIndex && (id==19 || id==57 || id==39 || id==55 || id==26 || id==7 || id==8 || id==9 || id==49 || id==52 || id==56 || id==58 || id==64)) {
+            if(!targetIndex) if(const auto refund=xeenItemCancellationRefund(id,_party.roster.at(_itemUse->sourceOwner).currentLevel())) {
                 auto &user=_party.roster.at(_itemUse->sourceOwner);
-                const auto refund=XeenLearnedSpellRules::cost(id,user.currentLevel());
-                user.currentSp=static_cast<std::int16_t>(user.currentSp+refund.sp);
-                _party.monsterTreasure->gems+=refund.gems;
+                user.currentSp=static_cast<std::int16_t>(user.currentSp+refund->sp);
+                _party.monsterTreasure->gems+=refund->gems;
 			}
 			if(_itemUse->jumpDestination)_camera=*_itemUse->jumpDestination;
 			_itemUse->failed=_itemUse->failed || effect.failed || (spell==XeenLearnedSpell::Jump && !_itemUse->jumpDestination);
@@ -817,12 +816,21 @@ bool XeenEncounterFlow::configureQuickFight(const Ticket &entry,std::size_t acti
 }
 bool XeenEncounterFlow::journeyDiscard(const Ticket &entry,std::size_t active,XeenInventoryCategory category,
         std::size_t slot,const XeenItem &record) {
+    if(_combat) {
+        if(!current(entry) || active>=6 || !(_combat->participants()&(1u<<active)))return false;
+        return _combat->changeInventory(*entry.combat,[&](XeenPartyState &candidate) {
+            auto *items=xeenInventoryItems(candidate.roster.at(candidate.party.activeRosterIds()[active]),category);
+            if(!items || slot>=9 || !xeenSameItem((*items)[slot],record))return false;
+            const auto after=xeenDiscardItems(*items,slot,category);if(!after)return false;
+            *items=*after;return true;
+        });
+    }
     if(!journeyMutable() || !_boundary.preparationReady() || !current(entry) || !journeyCapacity() || active>=_party.party.size())return false;
     BusyJourney busy(_busy);_journeyPreimage->check();
     const auto owner=_party.party.activeRosterIds()[active];
     auto *items=xeenInventoryItems(_party.roster.at(owner),category);
     if(!items || slot>=9 || !xeenSameItem((*items)[slot],record))return false;
-    const auto after=xeenDiscardItems(*items,slot);if(!after)return false;
+    const auto after=xeenDiscardItems(*items,slot,category);if(!after)return false;
     auto prepared=std::make_shared<XeenRestoreGuard>(_world,_party,_camera,_flags);
     prepared->retainResources(*_journeyPreimage);
     *xeenInventoryItems(prepared->characters[owner],category)=*after;
@@ -836,6 +844,15 @@ bool XeenEncounterFlow::journeyDiscard(const Ticket &entry,std::size_t active,Xe
 }
 XeenEquipmentResult XeenEncounterFlow::journeyEquipment(const Ticket &entry, std::size_t active,
 		XeenInventoryCategory category, std::size_t slot, XeenEquipmentOperation operation) {
+	if(_combat) {
+        XeenEquipmentResult result;
+        if(current(entry) && active<6 && (_combat->participants()&(1u<<active)))
+            _combat->changeInventory(*entry.combat,[&](XeenPartyState &candidate) {
+                result=xeenSetEquipment(candidate,active,category,slot,operation);
+                return result.status==XeenEquipmentStatus::Success;
+            });
+        return result;
+    }
 	if (!journeyMutable() || !_boundary.preparationReady() || !current(entry) || !journeyCapacity()) return {};
 	BusyJourney busy(_busy);
 	try {
@@ -847,6 +864,15 @@ XeenEquipmentResult XeenEncounterFlow::journeyEquipment(const Ticket &entry, std
 }
 XeenTransferResult XeenEncounterFlow::journeyTransfer(const Ticket &entry, std::size_t from, std::size_t to,
 		XeenInventoryCategory category, std::size_t slot) {
+	if(_combat) {
+        XeenTransferResult result;
+        if(current(entry) && from<6 && to<6 && (_combat->participants()&(1u<<from)) && (_combat->participants()&(1u<<to)))
+            _combat->changeInventory(*entry.combat,[&](XeenPartyState &candidate) {
+                result=xeenTransferItem(candidate,from,to,category,slot);
+                return result.status==XeenTransferStatus::Success;
+            });
+        return result;
+    }
 	if (!journeyMutable() || !_boundary.preparationReady() || !current(entry) || !journeyCapacity()) return {};
 	BusyJourney busy(_busy);
 	try {

@@ -975,10 +975,11 @@ IndexedFrame XeenEventFlow::renderEncounter(bool report, bool cosmeticInput, boo
 			_frame = std::move(rendered);
 			if (_encounter->combat()) {
 				_inventoryUnderlay = _frame;
-				if (!_death && inventoryOpen()) {
+				if (!_death && inventoryOpen() && !_travelUi) {
 					_frame = drawCharacterDialog(_inventoryUnderlay);
 					returned = _frame;
 				}
+                if(!_death && _travelUi){_frame=drawTravelDialog(_inventoryUnderlay);returned=_frame;}
 				if(!_death && _summary){_frame=drawSummary(_frame);returned=_frame;}
                 if(!_death && _quickFightMember){_frame=drawQuickFightOptions(_frame);returned=_frame;}
 				if (_encounter->combat() && ((journey() && !cosmeticInput) || !_displayedCombat || !_encounter->combat()->current(*_displayedCombat))) {

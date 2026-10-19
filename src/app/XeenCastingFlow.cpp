@@ -5,6 +5,7 @@
 #include "games/xeen/XeenEventTrigger.h"
 #include "games/xeen/XeenJourneyCapture.h"
 #include "games/xeen/XeenJourneyProgression.h"
+#include "games/xeen/XeenItemServiceRules.h"
 
 #include <algorithm>
 #include <limits>
@@ -12,6 +13,42 @@
 #include <stdexcept>
 
 namespace mmodern {
+void XeenEncounterFlow::itemTravelRead(const std::function<void()> &read) {
+    if(_combat)_combat->preparePresentation(_combat->ticket(),read);
+    else {XeenRestoreGuard::Providers providers(*_journeyPreimage,_world);read();_journeyPreimage->check();}
+}
+bool XeenEncounterFlow::prepareCombatItem(const ItemUseSelection &selection,unsigned choice) {
+    if(!_combat || !current(ticket()) || selection.sourceIndex!=std::size_t(_combat->participant()) ||
+        selection.category!=XeenInventoryCategory::Miscellaneous || selection.slot>=9)return false;
+    const auto &ids=_party.party.activeRosterIds();
+    if(selection.membershipSize!=ids.size() || !std::equal(ids.begin(),ids.end(),selection.membership.begin()) ||
+        ids.at(selection.sourceIndex)!=selection.sourceOwner)return false;
+    const auto &source=_party.roster.at(selection.sourceOwner);
+    if(!xeenSameItem(source.miscellaneous[selection.slot],selection.record) ||
+        xeenItemUseAdmission(selection.category,selection.record,_camera.mapId.number!=0,source.canAct())!=XeenItemUseAdmission::Admitted ||
+        !xeenItemUseSpell(selection.record.id))return false;
+    bool supported=true;
+    itemTravelRead([&] {
+        if(selection.record.id==55)supported=!XeenLearnedSpellRules::travel(_world,_camera,XeenLearnedSpell::TownPortal,choice,&source).unsupported;
+    });
+    return supported;
+}
+bool XeenEncounterFlow::useCombatItem(const Ticket &entry,const ItemUseSelection &selection,unsigned choice) {
+    if(!current(entry) || !_boundary.quiet() || !prepareCombatItem(selection,choice))return false;
+    XeenSpellTravel travel;SpellMapWork work;
+    if(selection.record.id==55)itemTravelRead([&] {
+        travel=XeenLearnedSpellRules::travel(_world,_camera,XeenLearnedSpell::TownPortal,choice,&_party.roster.at(selection.sourceOwner));
+        work=prepareSpellMap(travel);
+    });
+    const auto events=work.events;
+    XeenCombat::CastResponse response(_combat->ticket());
+    if(!acceptCombatResult(_combat->beginItemCast(response,selection.slot,selection.record,travel,std::move(work.world),std::move(work.events))))return false;
+    if(selection.record.id==55 && _combat->cast() && _combat->cast()->committed) {
+        if(!acceptCombatResult(_combat->serviceCast(_combat->ticket(),_lastTime)))return false;
+        if(travel.reload && travel.destination)_journeyEvents=events;
+    }
+    observeCombat();scheduleCombat(_lastTime);return true;
+}
 namespace {
 struct BusyCast {
 	bool &flag;
@@ -67,10 +104,12 @@ XeenEncounterFlow::SpellMapWork XeenEncounterFlow::prepareSpellMap(const XeenSpe
     XeenPartyState party;result.world->copyEventParty(_party,party);
     auto camera=_camera;auto flags=_flags;
     XeenRestoreGuard guard(*result.world,party,camera,flags);
-    XeenRestoreGuard::EventProviders providers(*result.world,party,camera,flags,guard,[&]{_journeyPreimage->check();},[&]{_journeyPreimage->failed=true;});
+    const auto entry=ticket();
+    const auto check=[&] {if(_combat) {if(!current(entry))throw std::logic_error("Stale combat map preparation");}else _journeyPreimage->check();};
+    XeenRestoreGuard::EventProviders providers(*result.world,party,camera,flags,guard,check,[&]{_journeyPreimage->failed=true;});
     result.world->loadEventDestination(_camera.mapId,travel.destination->mapId);
     result.events=_travelEventsProvider(travel.destination->mapId);
-    _journeyPreimage->check();
+    check();
     if(result.events.mapId!=travel.destination->mapId)throw std::logic_error("Travel Events identity changed");
     return result;
 }

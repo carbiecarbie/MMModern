@@ -211,8 +211,6 @@ void XeenEventFlow::handleEquipment(XeenEquipmentOperation operation) {
 	}
 }
 void XeenEventFlow::transferInventory(std::size_t destination) {
- // M47 Part A approved combat limit; never bypass the combat preimage.
- if(_encounter && _encounter->combat()) {dialogError("Transfer in combat: not supported yet");return;}
  const auto certificate=_equipmentSelection;
  const bool valid=certificate && validEquipmentSelection(*certificate);
  advanceInventoryEpoch();
@@ -304,10 +302,6 @@ IndexedFrame XeenEventFlow::handleInventory(const PlayerAction &action) {
    const bool misc=_inventory.category==XeenInventoryCategory::Miscellaneous;
    if((key=='e' && misc) || (key=='u' && !misc)) return _frame;
    const unsigned option=key=='e'?0:key=='r'?1:key=='u'?2:3;
-   if(_encounter && _encounter->combat() && option<3) {
-    dialogError(option==2?std::string(xeenDialogText(dosText(),XeenDialogText::UseInCombat)):"Equipment in combat: not supported yet");
-    drawInventory();return _frame;
-   }
    const auto &items=*xeenInventoryItems(_party.roster.at(*_inventory.sourceOwner),_inventory.category);
    const bool empty=misc?items[0].material==0:items[0].id==0;
    if(empty) {if(!misc) {if(_sheet) _itemsVisible=false;else closeInventory();}}
