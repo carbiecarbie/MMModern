@@ -63,6 +63,156 @@ Its authoritative summaries and calibration are in
 [original quirks](../original-quirks.md) and
 [Smith price rules](items.md#smith-prices).
 
+## Outdoor movement skills
+
+**DOS static, high confidence (2026-10-19).** MMModern baseline: clean
+`main`/`origin/main`, `612a4ac42045e331bdf6df7d9b753f40271a1ba5`.
+The pin's HEAD was verified as `6814ee9ba54582f5b5adcffab49efbbd8f589edd`.
+REA opened the installed CD `WORLD/XEEN.DAT` and reported the SHA-256 in
+[Exact baseline](#exact-baseline); an independent SHA-256 check agreed.
+Hash-checked Capstone 16-bit reads of that installed file verified the
+branches below. Tables were read as little-endian words, not instructions.
+Earlier external notes in `D:/MModern-re/skills-20261019/` supplied leads;
+their conclusions alone were not treated as new evidence.
+
+Calibration uses the settled two-holder rule: the complete shared helper
+`0x215b9..0x21609` indexes table `0x2160a` with the supplied skill ID.
+The table's segment file base is `0x21040`; entries 9 and 11 both resolve
+to the two-holder comparison at `0x215e9`. Entries 5 and 14 resolve to
+the whole-party comparison at `0x215f0`; entry 10 resolves to the first-holder
+success at `0x215e4`. This distinguishes Pathfinder (11) from Navigator (10).
+
+| Rule | Original file offsets and conclusion |
+| --- | --- |
+| Conditions | `0x215c6..0x215d5` reads each active member's skill byte (record stride `0x162`) and counts a nonzero value. The complete helper reads no HP or condition fields and calls no condition helper. Dead and unconscious active members count, including for Mountaineer and Pathfinder. |
+| Outdoor wall dispatch | `0x0cec4..0x0cedf` selects the outdoor path and indexes the current wall word through table `0x0cfc1`, with segment file base `0x0c790`. Entries 1/7/9/10/12 resolve to `0x0cf29`; entries 3/6 resolve to `0x0cf38`; entry 5 resolves to `0x0cee4`. |
+| Mountaineer | `0x0cf29..0x0cf35` supplies skill 9 to the calibrated helper. Wall 5 checks the side at `0x0cee4..0x0cee9`: Clouds continues to surface handling, Darkside to Mountaineer. Agrees with the pin. |
+| Pathfinder | `0x0cf38..0x0cf44` supplies skill 11 to that same helper. Two holders permit outdoor wall types 3 and 6; failure reaches the shared refusal. This is a positive movement consumer, absent from pinned `Interface::canMove`. |
+| Refusal | `0x0cf46..0x0cf50` requests FX 21 and returns false. Success returns true at `0x0cfbc..0x0cfbf`. The four callers at `0x0d317`, `0x0d355`, `0x0d3a0`, `0x0d3d8` branch on false directly to `0x0d5c7`, skipping position writes, chargeStep (`0x1d838`) and arrival (`0x0d411`). No action time or explicit action-driven monster opportunity is charged. Ordinary redraw scheduling still runs. |
+| Navigator | `0x0c981..0x0c995` supplies skill 10 and skips the outdoor desert `addTime(170)` when present. This retained arrival rule calibrates the distinct skill ID; it is not the wall-3/6 consumer. |
+
+The pin's `party.cpp::checkSkill` agrees on aggregation and condition handling.
+Its `interface.cpp::canMove` omits wall cases 3 and 6, which pass through
+the default path. MMModern's movement has no Pathfinder check at this baseline.
+See [movement rules](time-and-conditions.md#outdoor-movement-skills) and
+[the indexed difference](../original-quirks.md#sv-pathfinder-movement).
+These are static control-flow findings, not DOSBox observations. Wall numbers
+are raw outdoor wall types, not surface types or a newly inferred forest rule.
+The [lighting and travel check](#darkness-and-lighting-continuations) and
+[fall integration](#fall-and-outdoor-edge-integration) extend these bounded reads.
+
+## Darkness and lighting continuations
+
+**DOS static, high confidence (2026-10-19)** for the paths stated here.
+Same executable/hash and pin as [the skill check](#outdoor-movement-skills).
+Work scripts, instruction slices and derived inventories remain outside the
+repository in `D:/MModern-re/m78-part0/` (`query.py`, `maps.py`,
+`map-inventory.txt`, `inventory-summary.txt`). Calibration reuses the settled
+drain latch, Light producer and two-holder rule; these were not re-established
+from an uncalibrated bit search. Near-call targets were checked from their
+signed displacements and caller segment; embedded jump tables were read as data.
+
+| Question | Original file offsets and conclusion |
+| --- | --- |
+| Dark flag | `0x12077..0x12093` selects obscurity 0 when the light word is zero and primary map flags2 (`DS:c0d8`, DAT +`0x30c`) has bit `0x4000`; otherwise it selects 4. The map record base is `DS:bdcc`. |
+| Independent meaning check | Renderer `0x3fd4a..0x3fd7a` accepts that obscurity: 0 clears pixels to palette index 0; 4 does nothing. Start `0x0a08`, 108 words per row, 104-byte row gap, 132 rows establishes the rectangle `[8,224) x [8,140)`. Independent spell site `0x2f39e..0x2f3a5` treats obscurity 0 as black when deciding Light's stepped mark. These are independent semantic checks downstream of the flag test, not a claim that two direct reads of the flag mask were found. |
+| Partial obscurity | The renderer supports levels 1/2/3 through translation tables (`0x3fd7b..0x3fe0e`). Ordinary map lighting writes only 0/4. The distinct UI fade `0x39ada..0x39b11` traverses 4..0. Partial shading is not a light-counter gradient on a dark map. Agrees with the pin. |
+| Layers | Scene and monster composition precede the obscurity call at `0x11622..0x1162b`. Minimap drawing (`0x13b27`, called at `0x1161d`) uses the right-hand panel (base sprite at `(232,9)`, `0x13b60..0x13b76`), outside the rectangle. The Cartographer exploration write precedes the dark test (`0x1203c..0x12074`), so darkness does not suppress it. Full Map has its separate entry `0x130ed`; neither map path calls the obscurer. Border/indicators assemble afterward at `0x117b1`, so they remain visible. |
+| Check and clear | Indoor scene setup calls lighting at `0x12190`; outdoor setup calls it at `0x1a81a`. Redraw calls those setup paths, then clears stepped (`DS:3067`) at `0x1184f`. With stepped zero, `0x12012` branches over lookup/decrement to `0x12077`, deriving obscurity only. A pending step is therefore consumed during scene preparation; an ordinary subsequent redraw cannot invent another step. |
+| Turns and blocked moves | Turns join the arrival suffix at `0x0d38d..0x0d411`; `0x0c92b` sets stepped even without displacement. Wait reaches that suffix at `0x0d468..0x0d482`. False canMove branches bypass it. Combat turns separately set stepped at `0x2e896`. |
+
+The two direct far calls to the obscurer found in the relocation-backed call
+inventory are scene redraw `0x11626` and the UI fade `0x39aeb`; the indoor
+lighting call is a near call, verified separately. The scene's fixed rectangle
+also explains why darkness cannot hide the minimap or border. The pin's
+`Party::handleLight`, scene setup and `Interface::obscureScene` agree on these
+ordinary lighting paths. These findings do not certify every UI fade or a
+particular DOSBox frame rate.
+
+### Travel lighting checks
+
+Checks below mean the shared lighting routine reached through scene preparation,
+not an extra terrain-arrival call. More than one visible continuation can occur
+inside a single outer action; do not collapse them to one final-destination check.
+
+| Family | Stepped and scene-check continuation (high confidence) |
+| --- | --- |
+| Walk/turn/wait | Shared arrival sets stepped (`0x0c92b`); outdoor normalization may load (`0x0c9df..0x0c9f4`); the next scene preparation checks the destination. Terrain-damage presentation can draw earlier (`0x0ca04`). |
+| Event teleport, including mirrors/stairs | `0x270b9` marks stepped even on same-map travel. Continue explicitly redraws at `0x27121` before restarting the destination Event chain. Exit returns to its outer caller. A later outer arrival can mark stepped again. Each Continue redraw can check an intermediate destination. |
+| Learned travel spells | Successful Cast reaches arrival at `0x0d5b4..0x0d5ba`, marking stepped. Jump also marks it in its handler (`0x2f82b`); Portal always loads, Beacon Return loads across map/side changes, and map load marks stepped at `0x0f58b`. Etherealize/Teleport handlers themselves only relocate. Time Distortion explicitly redraws after relocation (`0x3030f..0x30323`) before its caller's suffix. |
+| Item travel | Retains the established item/learned distinction: item response `0x314ce` has no terrain-arrival call. Jump/map-load marks still apply; a used item closing the character sheet sets stepped at `0x3a493`, with the outer sheet caller testing it at `0x0d4be`. Do not infer lighting solely from the absence of an item terrain call. Exact post-item automatic-Event timing retains the earlier evidence limit. |
+| Surface/scripted fall | Source views are drawn at `0x0ca91`/`0x0ca9e`; destination load at `0x0ccc2` marks stepped. Scripted fall normalizes outdoor coordinates and explicitly redraws at `0x0cced` before its damage. Surface-fall damage presentation uses the shared arrival draw; see the fall integration below. |
+| Run | Relocates to the current map's run position (`0x2eb1f`, helper `0x1691f`), without map loading. Combat exit redraws at `0x2eb7f`, then marks stepped at `0x2eb8f`; the following scene check uses the run destination. It does not invoke terrain arrival directly. |
+
+### Restore boundary
+
+**DOS static, high confidence:** map load sets stepped (`0x0f58b`), and startup
+loads the current map (`0x0d08c`) before scene redraw (`0x0d0da`). Thus a blanket
+claim that every DOS load/redraw bypasses the drain branch is unsupported:
+redraw calls lighting, and the branch depends on pending stepped state.
+The full native saved-game entry/continuation was not established here; do not
+upgrade its no-drain behavior to a DOS-confirmed rule. Pinned native save loading
+also calls `Map::load`, which sets stepped, before the later scene check.
+
+**MMModern current-format policy, not native-DOS-save evidence:** exact snapshot
+restore must retain the saved light word and derive darkness without replaying
+an arrival or manufacturing a step. At the research baseline,
+`XeenSaveState::restoreJourney` copies the saved encounter context and prepares
+presentation through read-only inputs; no lighting drain consumer exists yet.
+Part A must preserve that requirement when adding lighting. This check does not
+authorize changing restore semantics, the planned layout or the plan. Any claim
+that native DOS restore itself never reaches drain still needs clarification/
+evidence before being used as a fidelity rule.
+
+## Fall and outdoor edge integration
+
+**DOS static, high confidence (2026-10-19)** for the normal valid-neighbor paths;
+the [settled fall table](time-and-conditions.md#terrain-arrival) remains unchanged.
+Surface fall uses that table and preserves or sets facing exactly as listed.
+Explicit Event falls instead assign their script map/X/Y at `0x0cca5..0x0ccb4`,
+with no additional facing assignment. Both reach the ordinary map loader at
+`0x0ccc2`; there is no invented route-specific map translation.
+
+Scripted falls with outdoor bit-4 coordinates call edge normalization after
+loading and before destination redraw/damage (`0x0cccc..0x0cce1`). Surface
+arrival also normalizes after its fall handling (`0x0c9df..0x0c9f4`). The shared
+normalizer `0x0f454..0x0f541` adjusts Y first: negative adds 16 and selects South;
+nonnegative subtracts 16 and selects North (`0x0f48c..0x0f4d4`). X then uses
+the selected neighbor: negative adds 16/West, nonnegative subtracts 16/East
+(`0x0f4d8..0x0f525`). It writes adjusted coordinates before loading the selected
+nonzero map (`0x0f529..0x0f53d`). Facing is unchanged. This is a bit-4 test and
+one adjustment per axis, not an arbitrary modulo for malformed coordinates.
+Pinned `Map::getNewMaze` agrees. Missing-neighbor/malformed inputs are not
+certified by this normal-path check.
+
+## Clouds darkness and traversal resource inventory
+
+**Original resource inspection (2026-10-19), high confidence for initial data.**
+Read installed `GAME1.GOG` as MODE1/2352 ISO, `GAME/XEEN.CC` extent 11620,
+13,438,429 bytes, SHA-256
+`8c0ac4c0650080cc85e96af3e9d5cd9968dad16bfd2ed0785d77d21893cc155c`.
+The same initial-container block sequence as the existing loader supplies the
+DAT/EVT records. Each DAT was required to be 892 bytes with matching map ID;
+flags2 is at +`0x30c`, cell attributes at `[0x200,0x300)`. No game bytes were
+copied into the repository, and no generated census was changed.
+
+There are **128 DAT maps**: 85 primary IDs and 43 indoor neighbor tiles.
+**36 have the dark flag**: 33-45, 71, 79-84, 115-129 and 142. The first
+20 are primary maps; the other 16 are physical indoor neighbor tiles.
+**No initial DAT map has a drain cell: 0 maps, 0 cells**, over 32,768 cells.
+This is not a claim about arbitrary runtime cell edits, saved mutations or
+Darkside. There is no natural initial Clouds drain-cell play-test witness.
+
+- Mountaineer teacher: Rivercity, logical map 30 `(30,30)` North (physical
+  tile 114 `(14,14)`). `maze0030.evt` record @228 takes 5,000 gold (mode 34),
+  @241 grants skill 9 (mode 13) to the selected member. The teacher chain
+  starts at @199; the grant is resource evidence, not a DOSBox observation.
+- Mountain crossing: map 23 `(2,12)` North to `(2,13)`, raw wall 1.
+- Pathfinder crossing: map 23 `(1,1)` East to `(2,1)`, raw wall 3.
+  Both crossings start at wall 0 and retain the same ordinary surface on both
+  cells (grass 2 and dirt 1 respectively); neither endpoint has an Event
+  record. Monster positions remain ordinary gameplay state, not a safety claim.
+
 ## Presentation clock captures (2026-10-13)
 
 **DOS play:** updated maintainer recordings `Abertura.mkv` and `Sonho.mkv`

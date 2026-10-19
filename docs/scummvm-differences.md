@@ -19,7 +19,7 @@ documented in its source. Each item links to its entry in
 
 **Revisions.** MMModern pins ScummVM `6814ee9b` (2026-09-06). Every item was
 rechecked against ScummVM master `55895ab0` on 2026-10-16, except the new
-terrain/Tavern/Temple/recovery/spell entries explicitly marked "pin: differs; master not
+terrain/Tavern/Temple/recovery/spell/movement entries explicitly marked "pin: differs; master not
 rechecked". At that check, since the pin the
 Xeen engine has had only a code-style edit and the Xeen data in `mm.dat` is
 unchanged apart from its version number, so the earlier entries are marked
@@ -179,6 +179,10 @@ mainland; many items apply there, others wait for areas not open yet.
 
 ## Magic
 
+- **Pathfinder movement.** DOS requires two Pathfinder holders to cross outdoor
+  wall types 3 and 6; the pin permits them without the skill. Rule established;
+  the movement consumer is not yet implemented in MMModern.
+  [Evidence](original-quirks.md#sv-pathfinder-movement). Pin: differs; master not rechecked.
 - **Pain** does 8 physical damage to the first monster group in the original,
   with normal resistance and save; in ScummVM it does nothing.
   [Evidence](original-quirks.md#sv-pain). Master: differs.

@@ -404,6 +404,45 @@ surface-specific refusal (`0x1e50d..0x1e52e`). The original calls the shared
 arrival routine after refill (`0x1e7df`); resetting temporary effects first
 removes Levitate, so resting on cloud falls afterward.
 
+## Outdoor movement skills
+
+**DOS static, high confidence (2026-10-19).** The outdoor movement dispatch
+requires two Mountaineer holders for wall types 1/7/9/10/12, and two
+Pathfinder holders for wall types 3/6. Wall 5 uses the Mountaineer check
+only on Darkside; Clouds uses its surface check. These are raw wall types,
+separate from the resolved arrival surfaces below. The shared skill check
+counts nonzero skill bytes on active members regardless of condition: dead
+and unconscious holders count too. Navigator is skill 10, needs one holder,
+and prevents the outdoor desert's extra 170 minutes; Pathfinder is skill 11.
+
+Failing either movement skill check plays FX 21 and returns false.
+The four movement callers skip position writes, time charging, the explicit
+action-driven monster opportunity and terrain arrival on false. Ordinary
+redraw/idle monster scheduling still runs; a refusal does not freeze it.
+The pin agrees on Mountaineer and skill aggregation
+but omits the Pathfinder wall consumer. MMModern has not implemented that
+consumer at the research baseline. See [offsets and calibration](evidence.md#outdoor-movement-skills)
+and [the original/reference difference](../original-quirks.md#sv-pathfinder-movement).
+
+### Stepped and lighting
+
+**DOS static, high confidence (2026-10-19):** turns and waits mark stepped
+through shared terrain arrival, even without changing cells. Refused movement
+skips that suffix and does not mark stepped. Scene preparation performs the
+lighting check; completed redraw clears stepped. A subsequent redraw derives
+obscurity but skips drain unless another action or map load has marked stepped.
+The rule is per lighting check with a pending step, not simply per displacement
+or per final destination: Event Continue redraws intermediate destinations,
+and later outer arrival can mark stepped again. Learned travel reaches the
+ordinary successful-cast arrival; item travel retains its separate wrapper.
+See the [travel-family offsets and restore boundary](evidence.md#travel-lighting-checks).
+
+Current-format MMModern restore must keep the saved light value without an
+arrival/step replay. This is the existing exact-restore requirement; it is
+not evidence that original native save loading never reaches drain. DOS map
+load sets stepped, and redraw calls the check. The native restore continuation
+remains explicitly bounded in [the evidence](evidence.md#restore-boundary).
+
 ## Terrain arrival
 
 **DOS static (2026-10-17), high confidence.** Shared routine `070d:0194`,
@@ -481,6 +520,11 @@ Clouds surface fall destinations (`0x0ca60..0x0cd20`, table `0x0cdf4`):
 Explicit Event falls use the script's own destination and signed damage
 byte (`0x0cc93..0x0ccb4`, `0x0cd00..0x0cd0b`), rather than this fixed
 surface-fall damage.
+They preserve facing, load before outdoor edge normalization and redraw the
+destination before damage. Surface arrivals normalize outdoor edges too.
+For valid neighbors, normalization adjusts Y/South-or-North first, then
+X/West-or-East through that selected map, by 16 per flagged axis, preserving
+facing. See [integration offsets and limits](evidence.md#fall-and-outdoor-edge-integration).
 
 Darkside surface falls retain the original generic mapping even though its
 maps are not admitted to play. Sources 89-112 fall to map minus 88 with their

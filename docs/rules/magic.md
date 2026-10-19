@@ -505,11 +505,35 @@ both effects; script changes can also alter them.
 The consumers are `XeenMovement` (Swimming/Walk on Water) and
 `XeenWorld::prepareTerrainArrival`/`XeenTerrainRules` (Levitate). The existing
 party skill test requires Swimming on all active members and does not filter
-conditions (**Reference only** for that aggregation). Saved positions remain
+conditions (**DOS static, high confidence**, [shared skill evidence](evidence.md#outdoor-movement-skills)). Saved positions remain
 valid on water when the temporary effect expires; the next attempted move
 still checks the current abilities.
-Light's stepped mark has no lighting consumer on the open, illuminated maps;
-the successful learned-cast suffix still performs its ordinary arrival.
+Light's stepped mark cannot drain light on the currently open maps, because
+they contain no drain cells; the successful learned-cast suffix still performs
+its ordinary arrival.
+
+### Darkness and light timing
+
+**DOS static, high confidence (2026-10-19).** With zero light, primary-map
+flags2 bit `0x4000` makes the 3D scene completely black. Any nonzero light
+clears that darkness. The ordinary rule selects only black/clear; the original
+renderer also supports three partial-shading levels used by a separate UI fade.
+The obscurer affects `[8,224) x [8,140)`, including monsters already drawn.
+Minimap, full Map, exploration recording and border indicators remain available.
+The flag test, independent pixel-renderer/Light checks and layer order are in
+[the DOS evidence](evidence.md#darkness-and-lighting-continuations).
+
+Turns and waits mark stepped; blocked movement does not. Scene preparation
+checks light with that pending state and completed redraw clears it. A further
+redraw with stepped clear cannot spend light. Travel can create multiple
+check opportunities, especially Event Continue; learned casts, item wrappers,
+falls and Run retain their own continuations. See [travel lighting checks](evidence.md#travel-lighting-checks).
+Exact MMModern snapshot restore derives darkness without inventing a step;
+the [native-load evidence limit](evidence.md#restore-boundary) is distinct.
+
+The initial Clouds resources contain 36 dark physical DAT maps and no drain
+cells (128 DAT maps inspected). See [the complete ID list and traversal
+witnesses](evidence.md#clouds-darkness-and-traversal-resource-inventory).
 
 ### Border and information screens
 
@@ -542,6 +566,9 @@ Each of the three indicators needs its party skill through the shared skill
 check (`0x215b9`): one active member with Spot Secret Doors (16), Danger
 Sense (17) or Direction Sense (6) suffices; only Crusader and Swimming need
 the whole party and Mountaineer and Pathfinder two members (`0x2160a`).
+The complete helper has no condition filter, so dead and unconscious active
+members count too (**DOS static, 2026-10-19, high confidence**;
+[calibration and movement consumers](evidence.md#outdoor-movement-skills)).
 Beyond the skill:
 
 - **Danger Sense** lights while the monster-movement flag `0x974c` is set.

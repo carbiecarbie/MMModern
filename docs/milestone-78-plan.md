@@ -121,6 +121,8 @@ Risks: missed guards, tile/map confusion, partial transitions, double drain and 
 - Unit tests for 0/1/2 skill holders and conditions, terrain, darkness/drain/zero
   boundary, destination resolution and atomic refusals with unchanged state/RNG.
   Test redraw/restore without drain and original travel/cancellation costs.
+  Part 0 found no drain cells in the initial Clouds data, so drain is proven by
+  synthetic fixtures (plus any Clouds Event that sets the drain bit, if found).
 - A few original-data end-to-end tests combine outdoor crossing, Event/stair/mirror
   travel and sky/cloud/scripted falls. Focused tests cover every travel path above,
   all five towns, combat item Portal, generic Bash/locks and text in new maps.
@@ -141,9 +143,9 @@ Risks: missed guards, tile/map confusion, partial transitions, double drain and 
   implementation review precedes acceptance. Doc-only planning/Part 0 uses doc
   checks, no build/CTest. Review findings must be resolved before dependent work.
 - Maintainer play-test samples terrain/borders, towns, a multi-tile dungeon and
-  falls, with original keyboard/mouse UI. The handoff names a dark map and drain
-  cell from the updated census and a teacher location for two Mountaineers;
-  exercise Pathfinder only if Part 0 establishes a consumer. Save/load in a new
+  falls, with original keyboard/mouse UI. The handoff names a dark map with Light,
+  the Rivercity Mountaineer teacher and the Part 0 mountain and wall-3/6
+  Pathfinder crossings (Rialdo teaches Pathfinder). Save/load in a new
   area and check clear v15 rejection; cover travel families across these samples.
   Include pending `bb22c52`: Run's map-specific position/chance indoors/outdoors
   and its automatic-Event destination refusal; Mr Wizard from outside Vertigo
