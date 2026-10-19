@@ -175,8 +175,8 @@ tag and an item in `docs/scummvm-differences.md`.
 - Do not commit, push or tag without the maintainer's explicit authorization.
 - When two agents work at the same time, give each its own `git worktree` and
   build directory; at most one agent writes to a given checkout. The one
-  exception is the complete-suite test runner, which runs in the main agent's
-  checkout (`tools/AGENTS.md`).
+  exception is the complete suite, which runs in the main agent's checkout
+  (`tools/AGENTS.md`).
 - After an authorized push, report branch, `git rev-parse HEAD`,
   `git rev-parse origin/main` and `git status --short`. If the tree is dirty or
   diverged before new work, stop and report it; do not repair it silently.
@@ -194,7 +194,8 @@ tokens per call); reasoning effort and output are a small share.
   plan and the last report; compact or hand off past ~200k tokens.
 - Delegate mechanical, read-heavy work to one lightweight subagent without
   conversation context that returns a short summary (Codex `gpt-6-luna` low,
-  Claude Haiku, or Sonnet when judgment is needed): the complete suite,
+  Claude Haiku, or Sonnet when judgment is needed): the complete suite in
+  Codex (Claude Code runs it as a background command, `tools/AGENTS.md`),
   disassembly sweeps, inventories, mutation runs, digest field explanations.
   The main agent keeps design decisions and code edits.
 - Request sandbox escalation once per validation phase, not per command.

@@ -17,14 +17,19 @@ rerunning its failed tests, and when acting as its test runner. The root
 - Do not run redundant complete suites. Run it again only when a later
   production-code change invalidates the previous result, or failures require
   it (see Failures and reruns).
+- Batch fixes: collect the review and play-test fixes of one round and run one
+  complete suite for the whole batch, not one per fix. Each fix still gets its
+  affected tests and `ctest -L fast` while iterating; no fix of the batch is
+  complete until the batch suite passes.
 
-## Delegation
+## How it runs
 
-- Delegate the complete suite to one lightweight test-runner subagent, so the
-  main model does not spend its reasoning and usage allowance waiting: in Codex
-  `gpt-6-luna`, low reasoning effort, `fork_turns: none`; in Claude Code Haiku,
-  low effort, no conversation context.
-- The runner runs `tools/run-full-ctest.ps1 -BuildDir <build>` with its default
+- The main model never spends reasoning or usage allowance waiting for the
+  suite. In Codex, delegate it to one lightweight test-runner subagent
+  (`gpt-6-luna`, low reasoning effort, `fork_turns: none`). In Claude Code, the
+  main agent starts the script itself as a background shell command
+  (`run_in_background`) and is notified when it exits; no subagent is needed.
+- The suite runs `tools/run-full-ctest.ps1 -BuildDir <build>` with its default
   parallel setting (half the logical processors, at most 8 jobs; `-Jobs` only
   to reproduce a problem). CMake runs the real-clock and native-window tests
   alone (`RUN_SERIAL`), locks the tests that share a fixed path, and gives every
@@ -43,39 +48,43 @@ rerunning its failed tests, and when acting as its test runner. The root
   changes. This is an exception to the separate-worktree rule. While tests
   run, the main agent does not modify either, and launches no other subagents,
   unrelated reviews or parallel work unless the maintainer authorizes it.
-- The runner waits on the process using the longest wait per call its tools
-  allow (for example 300 s), not short polls. It returns only exit code,
-  duration, summary, failed test names and result paths.
-- The runner never diagnoses, edits or fixes anything and never starts a rerun
-  on its own initiative.
-- The main agent waits through the native agent-completion mechanism with the
-  longest wait allowed, without reading logs, polling status or sending
-  progress messages, then reads the result once.
+- The Codex runner waits on the process using the longest wait per call its
+  tools allow (for example 300 s), not short polls. It returns only exit code,
+  duration, summary, failed test names and result paths. It never diagnoses,
+  edits or fixes anything and never starts a rerun on its own initiative.
+- The main agent waits through the native completion notification (the
+  runner's completion in Codex, the background command's exit in Claude Code)
+  without reading logs, polling status or sending progress messages, then
+  reads `summary.txt` once.
 
 ## Failures and reruns
 
 - If the complete suite fails only because of stale test expectations, the
   main agent investigates and fixes the tests (test code only). It then
-  explicitly instructs the same runner to rerun just the failed tests
-  (`ctest --test-dir <build> --rerun-failed --output-on-failure`) and runs
-  `ctest -L fast` itself, instead of another complete run. Such an
-  explicitly requested rerun is the only rerun the runner performs.
+  reruns just the failed tests
+  (`ctest --test-dir <build> --rerun-failed --output-on-failure`; in Codex by
+  explicitly instructing the same runner, in Claude Code as a background
+  command) and runs `ctest -L fast` itself, instead of another complete run.
+  Such an explicitly requested rerun is the only rerun the Codex runner
+  performs.
 - Any production-code change requires another complete run.
 - A passing process test deletes its working directory; a failing one keeps
   it for diagnosis, under the build directory or `%TEMP%` and named after the
   test (for example `mmodern-m38-process-*` or `m42-process-*`).
 
-## When delegation is unavailable
+## When the runner is unavailable
 
-If that model, the script or delegation is unavailable, report it and leave
-full-suite validation pending; never run the complete suite on the main model
-instead. A passing complete suite is still required before declaring
-production changes complete.
+If the Codex runner model, delegation, background commands or the script are
+unavailable, report it and leave full-suite validation pending; never make the
+main model wait on the complete suite in the foreground instead. A passing
+complete suite is still required before declaring production changes
+complete.
 
 ## Handoff
 
-State how the complete suite was run: runner model and effort, the command,
-and how the main agent waited (including any intermediate checks).
+State how the complete suite was run: runner model and effort or background
+command, the command, and how the main agent waited (including any
+intermediate checks).
 
 ## M44 digest audits
 
