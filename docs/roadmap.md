@@ -52,12 +52,11 @@ complete test suite from 29 minutes to about 3.
 ## Next arc: finishing the game's systems
 
 The game loads whole maps from the original data; what keeps an area from
-playing is the mechanics it uses. This arc implements them once each, in the
-order [the coverage report](coverage.md) gives (most maps unblocked first),
-instead of map by map. Each step is its own milestone and plan; the census is
-regenerated each time, so progress is visible. Steps are direction, not
-approved plans, and the order may change when the census or play shows a
-better one.
+playing is the mechanics it uses. This arc implements them once each instead
+of map by map. Each step is its own milestone and plan; the
+[coverage report](coverage.md) is regenerated each time, so progress is
+visible. Steps are direction, not approved plans, and the order may change
+when the census or play shows a better one.
 
 Between steps 4 and 5, [M71](archive/milestone-71-plan.md) made item generation
 follow the original makeItem draws for every supported source (completed and
@@ -73,41 +72,54 @@ accepted).
    [M70](archive/milestone-70-plan.md). Darkside-only operations and Darkside durable
    state wait for a later Darkside arc; shared operations stay generic.
 5. **Terrain and simple services**: completed and accepted in
-   [M72](archive/milestone-72-plan.md) (save v14; Sign In moved to step 8).
-6. **Spells**: [M73](milestone-73-plan.md) monster control and four group
-   spells (Tier A, completed and accepted); [M74](milestone-74-plan.md)
-   monster damage spells (Tier B, completed and accepted);
-   [M75](milestone-75-plan.md) party healing and conditions, including Raise
-   Dead, Resurrection, Divine Intervention and Create Food (Tier B,
-   completed and accepted); [M76](milestone-76-plan.md) buffs,
-   information, item and travel spells (Tier A, completed and accepted).
-   All 76 Clouds spells work.
+   [M72](archive/milestone-72-plan.md) (save v14).
+6. **Spells**: [M73](milestone-73-plan.md) to [M76](milestone-76-plan.md),
+   completed and accepted. All 76 Clouds spells work.
 7. **Combat Equip and Use, and the missing screens**: completed and
-   accepted in [M77](milestone-77-plan.md) (combat items and Town Portal's
-   combat item path, Quests, Awards and the three skill indicators; save v15
-   unchanged).
-8. **Inn, recruiting and character creation** (Tier A, high): Tavern Sign In,
-   Dismiss (moved from step 7: nothing brings a dismissed member back before the Inn),
-   attribute rolls, the creation screens and changes to the saved party,
-   including Poison Volley shooting for the active party size (M74 assumes six).
-9. **Monster treasure** (Tier A, changes the save): item drops for every
-   monster and drop levels 2 to 6, including accessories in staged treasure,
-   on the shared generator from [M71](archive/milestone-71-plan.md).
-10. **Entrance scenes** (likely Tier B): the scenes shown at some entrances,
-    without interaction (`DoTownEvent` 8 to 12: Reaper, Golem, Dwarf Mine,
-    Sphinx, Pyramid), on up to 6 Clouds maps each, F3 included. The Dwarf
-    Mine scene leads toward the next area after Vertigo.
-11. **Opening areas**: admit every Clouds map whose census readiness has no
-    unsupported mechanic, then play-test by sampling rather than map by map.
-    The original dark view of dark maps moved here from M76, and so did
-    light-drain cells unless M76 finds some on the open maps (the census
-    counts neither yet).
+   accepted in [M77](milestone-77-plan.md) (save v15 unchanged).
 
-Audio comes after this arc (Tier A: music, sounds and CD tracks on the
-existing clock); the original durations are already kept.
+A gap investigation (2026-10-19) compared the census and the pinned reference
+with the code. Nearly every remaining Clouds blocker comes from the fixed
+admission of maps 23 and 28: about 64 of the 85 Clouds maps have no
+unsupported mechanic, while Jump, Teleport, the mirror, Town Portal's other
+towns, Lloyd's Beacon and falls from the cloud maps refuse only because their
+destination is not admitted. The entrance scenes are the transitions to the
+next areas, since they check a quest item and load the next map. The Inn,
+recruiting and character creation do not block progress: the starting party
+of six can play the game. The steps after M77 are reordered accordingly.
 
-Also left from the release list: Run inside Vertigo; it joins the step whose
-mechanic it needs.
+Before step 8, a maintenance fix lets combat Run use each map's own run
+position and chance, indoors included, as the reference does, and adds Mr
+Wizard's return to Vertigo.
+
+8. **Opening areas** (Tier A; its plan decides whether to split it):
+   replace the fixed map 23/28 admission with an open area derived from the
+   original data; every travel destination (teleports, the mirror, Town
+   Portal's five towns, Lloyd's Beacon, Jump, falls); Mountaineer and
+   Pathfinder outdoor traversal (two members with the skill, as in the
+   reference); the original dark view of dark maps and light-drain cells
+   (the census counts neither yet). The plan says whether the Journey
+   content changes the save. Then play-test by sampling rather than map by
+   map.
+9. **Services of the other towns** (Tier B): Nightshadow, Rivercity, Asp and
+   Winterkill with their own Training caps, Temple prices, Guild catalogues
+   and merchant stock.
+10. **Entrance scenes and the Arena** (Tier B): `DoTownEvent` 8 to 11
+    (Reaper, Golem, Dwarf Mine, Sphinx) with their quest-item checks and the
+    maps they lead to, and the Arena (action 6, map 85). The Pyramid (action
+    12) switches to Darkside and keeps a clear refusal until the Darkside arc.
+11. **Monster treasure** (Tier A, changes the save): item drops for every
+    monster and drop levels 2 to 6, including accessories in staged treasure,
+    on the shared generator from [M71](archive/milestone-71-plan.md).
+12. **Audio** (Tier A): music and sound effects, CD speech and CD tracks on
+    the existing clock, which already keeps the original durations, and the
+    control panel's Efx, Music, Speech and Text buttons.
+13. **Inn, recruiting and character creation** (Tier A, high): Tavern Sign
+    In, Dismiss, attribute rolls, the creation screens and changes to the
+    saved party, including Poison Volley shooting for the active party size
+    (M74 assumes six).
+14. **Intros and the Clouds ending**: the Other Options intros and the ending
+    (`CutsceneEndClouds`) with its score.
 
 ## Medium-term objective
 
