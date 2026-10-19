@@ -41,6 +41,7 @@ XeenObjectFile mob(XeenMapIdentity id) {
  f.entities.monsters.push_back({100,100,0,0,8});
  for(unsigned i=0;i<extraMonsters;++i)f.entities.monsters.push_back({3,int(3+i),0,0,8});
  for(unsigned i=0;i<5;++i)f.entities.wallItems.push_back({int(i),2,0,3,7});
+ f.entities.objects.push_back({20,20,0,0,7});
  return f;
 }
 struct Fixture {
@@ -171,6 +172,21 @@ void outdoorAndSpawn() {
 // DOS has no per-cell cap outside movement: Spawn stacks freely (Winterkill),
 // each redraw fills attacker slots in slot order (0x1692c, 0x14406) and only a
 // moving monster refuses a destination holding three (0x1fc24).
+// Remove leaves only the (128,128) position (scripts.cpp cmdRemove): MoveObj
+// shows the object again, and no signed-byte operand matches to flip it.
+void removedObjectMove() {
+ Fixture f;const XeenObjectIdentity id{47,0};
+ f.w->disableObject(id);
+ f.w->applyMoveObject(id,-128,-128);
+ check(!f.w->sessionState().isObjectDisabled(id) && f.w->isObjectDisabled(id) && !f.w->effectiveObjectFlip(id),
+  "MoveObj to (-128,-128) flipped a removed object or showed it");
+ f.w->disableObject(id);f.w->applyMoveObject(id,5,6);
+ const auto object=f.w->effectiveObject(id);
+ check(!f.w->isObjectDisabled(id) && object.x==5 && object.y==6 && !f.w->effectiveObjectFlip(id) &&
+  f.w->sessionState().objectOverrides().size()==1,"MoveObj did not show the removed object at its new position");
+ f.w->applyMoveObject(id,5,6);
+ check(f.w->effectiveObjectFlip(id) && f.w->effectiveObject(id).x==5,"MoveObj in place no longer flips");
+}
 void stacking() {
  extraMonsters=4;Fixture f;extraMonsters=0;auto &w=*f.w;
  for(std::uint8_t slot=2;slot<6;++slot)w.applySpawn(47,slot,6,6,0);
@@ -190,6 +206,6 @@ void stacking() {
  check(again[0].x==6 && again[0].y==7,"Movement entered a cell holding four");
 }
 }
-int main() {try{operations(XeenSide::Clouds);operations(XeenSide::Darkside);calledDeletion();outdoorAndSpawn();stacking();
+int main() {try{operations(XeenSide::Clouds);operations(XeenSide::Darkside);calledDeletion();outdoorAndSpawn();removedObjectMove();stacking();
  std::cout<<"Map Event owners, DOS continuation, physical aliases, lifetimes and Spawn passed\n";return 0;
 }catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}

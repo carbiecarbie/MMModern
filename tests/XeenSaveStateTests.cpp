@@ -629,6 +629,78 @@ void mapEventRoundTrips(){
    loaded.world.effectiveObject({28,2}).x==3 && loaded.world.effectiveObjectFlip({28,2}),"Restored MoveObj position or flip differs");
  }
 }
+// Remove only writes the (-128,-128) position (scripts.cpp cmdRemove), so a
+// later MoveObj on the same object shows it again; one position per record.
+void removeThenMoveRoundTrip(){
+ const auto script=[](XeenMapIdentity id,std::vector<XeenEventRecord> records) {
+  XeenEventFile file{id,"synthetic.evt",true,{}};
+  for(auto &r:records){r.direction=4;file.records.push_back(r);}
+  return file;
+ };
+ // Remove runs on the mainland (the city preflight refuses it); MoveObj runs
+ // in the city, from a save holding the removed object.
+ const auto mainland=script(23,{record(9,11,0,14),record(9,11,99,5,{0,0,0,1,0})});
+ const auto city=script(28,{record(9,11,0,11,{0,13,13})});
+ const auto configure=[&](CurrentDestination &f) {
+  usePerMapResources(f,4);
+  f.resources.loadEvents=[&](auto id){return id==XeenMapIdentity(23)?mainland:id==XeenMapIdentity(28)?city:indoorEvents(id);};
+ };
+ // One manual Event at the camera cell, captured at the quiet boundary while
+ // its flow still holds the capture authority.
+ const auto interact=[&](CurrentDestination &f) {
+  XeenEventSystem events([&](auto id){return XeenEventScript(f.resources.loadEvents(id));},f.resources.loadRegionalText);
+  const auto display=font();IndexedFrame image;image.width=320;image.height=200;image.pixels.resize(64000);
+  std::uint64_t now=0,cycle=0;
+  XeenEventFlow flow(f.world,events,f.party,f.camera,f.flags,display,
+   [&](auto){return XeenEventFlow::Composition{image,false};},{},[&]{return now;},{},nullptr,
+   [&](auto,auto){return XeenEventFlow::Composition{image,false};},nullptr,
+   [&](auto &,const auto &,const auto &,auto,auto){return XeenEventFlow::Composition{image,false};});
+  flow.dialogText=&dos_test::text();unsigned failures=0;
+  flow.reportManual=[&](const auto &r){if(const auto *e=std::get_if<XeenEventExecutionError>(&r)){
+   ++failures;std::cerr<<"Remove then MoveObj: "<<e->message<<'\n';}};
+  const auto present=[&](const IndexedFrame &frame){if(frame.presentation())flow.framePresented(frame.presentation());};
+  present(flow.frame());flow.beginCycle(++cycle);
+  present(flow.handle(InteractionAction{},flow.displayedInput(),flow.frame().presentation()));
+  for(unsigned n=0;n<1000 && !flow.canSave();++n) {now+=125;flow.beginCycle(++cycle);
+   if(const auto frame=flow.updatePresentation())present(*frame);
+   present(flow.handle(AcknowledgeAction{},flow.displayedInput(),flow.frame().presentation()));}
+  check(!failures && flow.canSave(),"Remove/MoveObj failed publication or quiet capture");
+  return f.capture();
+ };
+ const auto sameObjects=[](const XeenWorld &a,const XeenWorld &b,XeenMapIdentity id) {
+  const auto *x=a.sessionState().mapState(id),*y=b.sessionState().mapState(id);
+  return x && y && x->removedObjects==y->removedObjects && x->objectOverrides==y->objectOverrides;
+ };
+ // Remove after an in-place MoveObj flip: the removed position replaces the
+ // moved one, and the flip stays in memory only.
+ auto initial=currentSnapshot();initial.camera={23,9,11,XeenDirection::North};
+ initial.map(23).objects={{0,9,11,true}};
+ const XeenObjectIdentity statue{23,0};
+ CurrentDestination live;configure(live);live.restore(XeenSaveFormat::decode(XeenSaveFormat::encode(initial)));
+ const auto removed=interact(live);const auto *tile=removed.find(23);
+ check(live.world.isObjectDisabled(statue) && live.world.sessionState().mapState(23)->objectOverrides.empty() &&
+  live.world.effectiveObjectFlip(statue) && tile && tile->objects.size()==1 && tile->objects[0].x==-128 && tile->objects[0].y==-128,
+  "Remove did not replace the moved position with (-128,-128) or lost the flip in memory");
+ CurrentDestination loadedRemoved;configure(loadedRemoved);loadedRemoved.restore(removed);loadedRemoved.bind();
+ check(sameObjects(loadedRemoved.world,live.world,23) &&
+  XeenSaveFormat::encode(loadedRemoved.capture())==XeenSaveFormat::encode(removed),"Removed object did not round-trip exactly");
+ // MoveObj on an object a loaded save holds as removed.
+ auto later=currentSnapshot();later.camera={28,9,11,XeenDirection::North};
+ later.map(28).monsters=mobTable(4);later.map(28).objects={{0,-128,-128,false}};
+ const XeenObjectIdentity id{28,0};
+ CurrentDestination moving;configure(moving);moving.restore(XeenSaveFormat::decode(XeenSaveFormat::encode(later)));
+ check(moving.world.isObjectDisabled(id),"Saved removed object was not restored hidden");
+ const auto moved=interact(moving);const auto bytes=XeenSaveFormat::encode(moved);
+ const auto object=moving.world.effectiveObject(id);
+ check(!moving.world.isObjectDisabled(id) && object.x==13 && object.y==13 && !moving.world.effectiveObjectFlip(id) &&
+  moving.world.selectObject({28,13,13,XeenDirection::North})==id,"MoveObj did not show the removed object at its new position");
+ check(moved.find(28)->objects.size()==1 && moved.find(28)->objects[0].x==13 && moved.find(28)->objects[0].y==13,
+  "Capture dropped the moved position");
+ CurrentDestination loaded;configure(loaded);loaded.restore(XeenSaveFormat::decode(bytes));loaded.bind();
+ check(!loaded.world.isObjectDisabled(id) && loaded.world.effectiveObject(id).x==13 &&
+  sameObjects(loaded.world,moving.world,28) &&
+  XeenSaveFormat::encode(loaded.capture())==bytes,"Remove then MoveObj did not round-trip exactly");
+}
 // M70 Part C: every travel form reaches the normal quiet capture boundary.
 void travelRoundTrips() {
  for(unsigned form=0;form<20;++form) {
@@ -974,7 +1046,7 @@ void invalidResourceAndState(){
 int main() {
 	try {
 		liveStatusRoundTrip(); fullRestoration(); explicitItems(); invalidResourceAndState(); characterPreflight(); mutationPolicies(); journeyBorrowRefusal();
-		genericRoundTrip(); replacedOpcodePublication(); mapEventRoundTrips(); travelRoundTrips(); valueRoundTrips(); sourceIdentityCases(); unsupportedMapState(); warzoneLifetime(); allCloudsMaps();
+		genericRoundTrip(); replacedOpcodePublication(); mapEventRoundTrips(); removeThenMoveRoundTrip(); travelRoundTrips(); valueRoundTrips(); sourceIdentityCases(); unsupportedMapState(); warzoneLifetime(); allCloudsMaps();
 		std::cout << "Current save state: atomic preparation, resource identities, rules and owner/flow lifetimes passed\n";
 		return 0;
 	} catch (const std::exception &error) {

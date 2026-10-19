@@ -114,6 +114,22 @@ re-entry starts from the original resources, never writes it into a save and
 refuses a save that contains it (M69, `xeenRetainsMapState`). The Warzone is
 not admitted yet. Not confirmed in DOS.
 
+**Remove hides an object only by its position (2026-10-19):** the pinned
+reference's Remove writes the selected object's position as `(128,128)`, the
+signed byte -128 in a save, and keeps nothing else (`scripts.cpp::cmdRemove`);
+a later MoveObj on that object writes a new position and the object shows up
+again (`cmdMoveObj`). MMModern does the same: Remove replaces any MoveObj
+position, MoveObj clears the removal, the object keeps its flip, and a save
+holds one position per MOB record. An original-data scan found no Clouds or
+Darkside script that reaches MoveObj after Remove on the same object (Remove
+exits, and every object a Remove can select is moved, if at all, only earlier
+in that script, to `(-128,-128)` or `(100,100)`); no AlterEvent writes either
+opcode. A MoveObj to `(-128,-128)` on a removed object does not toggle its
+flip, because no signed-byte operand equals `(128,128)`; the next scene draw
+replaces the flip in any case. Where:
+`XeenWorld::applyMoveObject/applyRemove`, `XeenEventPublication::prepareRemove`;
+`XeenSaveStateTests.cpp::removeThenMoveRoundTrip`. Not confirmed in DOS.
+
 **Equipped item contributions (M67):** the following follow the pinned
 reference (`combat.cpp::attack/attack2/getWeaponDamage/getMonsterResistance`,
 `character.cpp::itemScan`, `interface_scene.cpp`) and are not confirmed in DOS

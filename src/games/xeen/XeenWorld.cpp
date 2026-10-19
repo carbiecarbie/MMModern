@@ -236,9 +236,12 @@ bool XeenWorld::effectiveObjectFlip(XeenObjectIdentity id) const {
 void XeenWorld::applyMoveObject(XeenObjectIdentity id,int x,int y) {
 	if(!detachedEventCandidate() || x<-128 || x>127 || y<-128 || y>127)
 		throw std::invalid_argument("MoveObj requires a detached Event and signed-byte coordinates");
+	// Remove only wrote the position (128,128), which no signed-byte operand
+	// matches; MoveObj replaces it, so the removed object shows up again.
+	const bool removed=_sessionState.isObjectDisabled(id);
 	const auto before=effectiveObject(id);
 	bool flip=effectiveObjectFlip(id);
-	if(before.x==x && before.y==y)flip=!flip;
+	if(!removed && before.x==x && before.y==y)flip=!flip;
 	auto &state=_sessionState._mapStates.state(id.mapId);
 	auto prepared=state.objectOverrides;
 	const auto at=std::lower_bound(prepared.begin(),prepared.end(),id,[](const auto &v,auto key){return v.id<key;});
@@ -249,6 +252,7 @@ void XeenWorld::applyMoveObject(XeenObjectIdentity id,int x,int y) {
 	// Allocate the disposable draw-state entry before the owned stores.
 	_scenePresentation.objectFlips[id]=flip;
 	XeenMutationWatch::write(this);state.objectOverrides.swap(prepared);
+	if(removed)state.removedObjects.erase(id);
 }
 
 void XeenWorld::restoreObjectOverrides(const std::vector<XeenObjectOverride> &values) {
@@ -381,11 +385,19 @@ void XeenWorld::applyRemove(const XeenCamera &physical,
 		if (selected->mapId != physical.mapId)
 			throw std::invalid_argument("selected object belongs to another physical map/side");
 		validateObject(*selected);
+		// The removed object keeps its flip in memory, as the original's does.
+		_scenePresentation.objectFlips[*selected] = effectiveObjectFlip(*selected);
 	}
 	auto &state = _sessionState._mapStates.state(physical.mapId);
 	auto disabledObjects = state.removedObjects;
 	auto disabledEvents = state.disabledEvents;
-	if (selected) disabledObjects.insert(*selected);
+	// The removed position replaces any MoveObj position: one position per record.
+	auto objectOverrides = state.objectOverrides;
+	if (selected) {
+		disabledObjects.insert(*selected);
+		objectOverrides.erase(std::remove_if(objectOverrides.begin(),objectOverrides.end(),
+			[&](const auto &v){return v.id==*selected;}),objectOverrides.end());
+	}
 	for (std::size_t i = 0; i < events.records.size(); ++i) {
 		const auto &record = events.records[i];
 		if (record.x == physical.x && record.y == physical.y)
@@ -396,6 +408,7 @@ void XeenWorld::applyRemove(const XeenCamera &physical,
 	static_assert(noexcept(state.disabledEvents.swap(disabledEvents)));
 	XeenMutationWatch::write(this);
 	state.removedObjects.swap(disabledObjects);
+	state.objectOverrides.swap(objectOverrides);
 	state.disabledEvents.swap(disabledEvents);
 	state.eventOverrides.erase(std::remove_if(state.eventOverrides.begin(),state.eventOverrides.end(),
 		[&](const auto &v){return state.disabledEvents.count(v.id)!=0;}),state.eventOverrides.end());
