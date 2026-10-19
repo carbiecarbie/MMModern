@@ -1,170 +1,80 @@
 # Milestone 76 plan - Buffs, information, item and travel spells
 
-**Tier A. Status: planned.** Fourth and last milestone of step 6 of the
+**Tier A. Status: completed and accepted by the maintainer (2026-10-18)**
+after an independent plan review, an independent implementation review and
+a maintainer play-test. Plan `1bd6d5f`, DOS check and plan amendment
+`b5748e5`; implementation `14e8324` (A1), `2566231` (A2), `6cd1383` (B),
+`7f8b1e2` (C1), `7c7d550` (C2); Recharge quirk correction `57ef01d`, review
+fixes `01c57e5`. Last milestone of step 6 of the
 [systems arc](roadmap.md#next-arc-finishing-the-games-systems), after
-[M75](milestone-75-plan.md).
+[M75](milestone-75-plan.md): all 76 Clouds spells now work.
 
-## Goal
+## Scope
 
-The 22 spells still missing, from the spell book in exploration and combat,
-Quick Fight and charged items, so that all 76 Clouds spells work:
+The 22 remaining spells, from the spell book in exploration and combat,
+Quick Fight and charged items: the party buffs (Bless, Heroism, Holy
+Bonus, Power Shield, Protection from Elements, Day of Protection, Day of
+Sorcery), senses and movement (Light, Levitate, Walk on Water,
+Clairvoyance), information (Detect Monster, Identify Monster), item spells
+(Enchant Item, Recharge Item, Item to Gold) and travel (Etherealize, Time
+Distortion, Super Shelter, Teleport, Lloyd's Beacon, Town Portal), with
+their consumers in combat, movement, terrain, Rest and the border.
 
-| Group | Spells | Item powers |
-| --- | --- | --- |
-| Party buffs | Bless, Heroism, Holy Bonus, Power Shield, Protection from Elements, Day of Protection, Day of Sorcery | 22, 30, 25, 29, 14, 49, 50 |
-| Senses and movement | Light, Levitate, Walk on Water, Clairvoyance | 1, 20, 32, 18 |
-| Information | Detect Monster, Identify Monster | 34, 23 |
-| Items | Enchant Item, Recharge Item, Item to Gold | 63, 53, - |
-| Travel | Etherealize, Time Distortion, Super Shelter, Teleport, Lloyd's Beacon, Town Portal | 58, 39, 48, 42, 28, 55 |
+Out of scope: the dark view of dark maps and light-drain cells (step 11;
+the open maps have neither), combat Equip/Use and Town Portal's combat item
+path (step 7), map admission, audio.
 
-Each spell also needs the state it sets to **do** what the original does:
-the party buffs change combat, the senses change movement, terrain and the
-screen, and the border shows the original indicators. The spell dialogs
-come with them: Select Element, Detect Monster, Identify Monster, the
-Items dialog modes, Teleport, Lloyd's Beacon and Town Portal.
+## Key decisions
 
-Out of scope: combat Equip/Use and the other missing screens (step 7), map
-admission and the dark view of dark maps (step 11, decision 4), audio,
-Darkside-only behavior.
+- **DOS check first** (Part 0, static analysis of `WORLD/XEEN.DAT`): all
+  22 handlers and their consumers settled with high confidence before any
+  code. DOS differences kept: Holy Bonus adds to weapon damage (the pin
+  never applies it), ordinary Rest is refused on cells with attribute bit
+  `0x40` (42 mainland cells; the pin's check never fires), Enchant uses the
+  caster's level and copies the generator's result, Recharge fills a broken
+  item to 63, Item to Gold's DOS price, and the ID-34 exceptions. Evidence
+  is in [magic](rules/magic.md), [evidence](rules/evidence.md#m76-spells)
+  and [original quirks](original-quirks.md).
+- **Party effect bytes** follow the DOS layout (`DS:ed9e..eda6`, also the
+  pin's order) through one named index. A follow-up DOS check during A2
+  found that Levitate/Clairvoyance and Bless/Heroism had been swapped, and
+  that A1 had moved Temple Donation's Clairvoyance; all were fixed with
+  cross-owner tests.
+- **Recharge bits**: Part 0 had swapped the cursed (`0x40`) and broken
+  (`0x80`) names; a DOS check corrected it, and an edited-save DOS play
+  test confirmed broken fills to 63 and cursed recharges normally.
+- **Travel**: Etherealize, Time Distortion, Teleport and same-map Beacon
+  Return relocate without a reload, so live monsters keep their state;
+  cross-map Return and Town Portal load through the existing transition.
+  Destinations in maps not open yet refuse before any cost. Item travel
+  follows item Jump; the exact timing of destination Events after an item
+  cast is not confirmed in DOS (maintainer decision).
+- **Save v15** (schema 9, content 14): each character's Lloyd's Beacon is
+  mutable roster state, saved and protected by the restore guard. The four
+  M44 digests were replaced after a format-only audit (traces and gameplay
+  fields identical), with the maintainer's authorization.
+- **Darkness to step 11** (maintainer decision): on maps that are not dark
+  Light is complete as a counter.
 
-## Why Tier A
+## Results
 
-- **Save format.** Lloyd's Beacon stores a beacon per character (map,
-  position, side). MMModern reads those fields into the immutable original
-  character details and does not save them, so the format changes:
-  envelope v15, older saves rejected as usual. Schema 9 and content 14 stay;
-  changing either needs a plan amendment first. Party buffs, light count
-  and the party resistances are already saved
-  (`XeenGameplayContext::effects` and `lightAndResistances`), so they add
-  no format change.
-- **Combat rules.** Bless, Heroism, Power Shield and the party resistances
-  enter the hit and damage formulas used by every fight.
-- **Timing and position.** Super Shelter runs Rest under a different mode;
-  Etherealize, Time Distortion and Teleport relocate the party on its map,
-  and Lloyd's Beacon and Town Portal can change map.
+- Census: 76 of 76 spells supported. Developer test save `m76-spells`
+  (README) holds casters for all 22 spells, charged items for their
+  powers, test items for the item spells, distinct beacons and documented
+  mainland spots for water, the Rest refusal and travel.
+- The admitted mainland area has one definition (water open, independent
+  of the party's abilities) shared by movement, save restore, Event
+  transitions and spell destinations.
 
-## Design decisions
+## Validation
 
-1. **DOS check first (Part 0).** Read-only static analysis of
-   `WORLD/XEEN.DAT`, calibrated on the item dispatch and the Jump arrival
-   calls, settled all 22 handlers and their consumers with high confidence;
-   the rules are in [magic](rules/magic.md),
-   [time and conditions](rules/time-and-conditions.md),
-   [evidence](rules/evidence.md#m76-spells) and
-   [original quirks](original-quirks.md). Results that shape the parts:
-   - **Holy Bonus** adds to weapon damage before Adventurer's
-     multiplication, in melee and Shoot (the pin never applies it);
-   - Rest's temporary reset clears every buff before food and recovery;
-     Super Shelter is one 480-minute Rest that bypasses the ordinary
-     refusals after its own map restriction;
-   - **ordinary Rest** is also refused on cells with attribute bit `0x40`
-     (42 mainland cells); MMModern follows the pin, whose check never
-     fires;
-   - no light-drain cells on mainland 23 or Vertigo;
-   - Etherealize, Time Distortion and Teleport relocate on the current map
-     with the facing kept; Lloyd's Beacon reloads only across a map or side
-     change; Town Portal always loads (Vertigo 28 `(18,4)`, other towns
-     refuse); the beacon defaults to map 28 `(18,4)`;
-   - Enchant, Recharge and Item to Gold differ from the pin (caster level,
-     item 34, cursed recharge, pricing); the DOS rules apply;
-   - in DOS, Town Portal's item power continues into its dialog in combat.
-2. **One generic owner per mechanic.** Buffs live on the existing gameplay
-   context; their readers go into the existing combat, movement, terrain and
-   presentation rules, not into the spell handlers. Item spells reuse the
-   M61 Items dialog modes. A same-map relocation never reloads the map, so
-   live monsters keep their HP and status; a map change reuses the existing
-   transition used by the mirror and terrain falls, with the M69 per-map
-   state.
-3. **Lloyd's Beacon is mutable roster state.** Each character's beacon
-   moves out of the immutable original details into the roster owner, with
-   save capture and restore, state equality and mutation protection, so
-   stale prepared work cannot publish over a changed beacon.
-4. **Darkness moves to step 11** (maintainer decision, 2026-10-18).
-   Mainland 23 and Vertigo are not dark and have no light-drain cells, so
-   the dark view and drain cells change nothing playable yet and go to
-   step 11. On maps that are not dark, Light is complete as a counter: it
-   increments the light count and marks the party stepped.
-5. **Destinations not open yet refuse** before any SP, gem, charge, time or
-   random draw is spent, with "not supported yet", as Jump and the mirror
-   do. Town Portal reaches Vertigo; the other four towns refuse. Lloyd's
-   Beacon can be set anywhere the original allows, but returning to a map
-   not open yet refuses.
-6. **Combat items wait for step 7.** Combat Use is not available yet, so
-   item powers in combat (admission and effects) are covered by automated
-   tests only; learned casting in combat, Quick Fight and item Use in
-   exploration are play-tested. Town Portal's combat item path, whose DOS
-   presentation is unobserved, waits for step 7 and a DOSBox observation
-   (maintainer decision, 2026-10-18).
-7. **Item travel follows item Jump** (maintainer decision, 2026-10-18).
-   Travel item powers used in exploration return through the item-use
-   monster response without the terrain arrival call, as item Jump does;
-   the exact timing of destination Events is not confirmed in DOS, and the
-   part that implements it records this in
-   [original quirks](original-quirks.md).
-8. **Ordinary Rest gains the DOS cell refusal in Part C1** (maintainer
-   decision, 2026-10-18), with Super Shelter, which bypasses it.
-9. **Census.** Regenerate [the coverage report](coverage.md) after each
-   part; at closure all 76 spells are supported.
-
-## Parts
-
-Each part ends with a passing complete suite, its own commit and a report;
-a session may cover more than one part.
-
-- **Part 0 - DOS check** (read-only, documentation only): decision 1.
-- **Part A1 - party buffs** (7): Bless, Heroism, Holy Bonus, Power Shield,
-  Protection from Elements with Select Element, Day of Protection and Day
-  of Sorcery, their combat and trap effects (Holy Bonus in weapon damage)
-  and the border indicators.
-- **Part A2 - senses and information** (6): Light (decision 4), Levitate,
-  Walk on Water, Clairvoyance and its statues, Detect Monster and Identify
-  Monster.
-- **Part B - item spells** (3): Enchant Item, Recharge Item, Item to Gold,
-  through the original member prompt and Items dialog modes.
-- **Part C1 - shelter and relocation** (4): Super Shelter, Etherealize,
-  Time Distortion and Teleport, and the ordinary Rest cell refusal.
-- **Part C2 - map travel and save v15** (2): Lloyd's Beacon and Town
-  Portal, with the beacon's roster state and save format.
-
-## Risks
-
-- **Digest changes.** Two kinds, kept apart. Gameplay changes: buffs can
-  move a recorded scenario only if it casts or receives one (Temple
-  Donation sets four), and the Rest cell refusal only if it rests on a
-  flagged cell. Format changes: the baseline digests hash raw save
-  files, so v15 changes them in Part C2 even with identical gameplay.
-  Either kind needs a byte, trace and field audit against a rebuilt
-  baseline and the maintainer's approval of replacement digests before
-  the part's suite can pass and be committed (lesson from M75).
-- **Rest and travel.** Apart from the cell refusal, ordinary Rest keeps
-  its M51 and M72 rules; a wrong reload would reset monsters, and no move
-  may publish partly.
-- **Scope.** 22 spells is large; a part that finds more work than planned
-  stops and is split, as in M74.
-
-## Acceptance
-
-- All 22 spells work from the book in exploration and in combat where the
-  original allows, and from Quick Fight, with the original prompts,
-  dialogs, refusals, refunds and costs. Their item powers work in
-  exploration; in combat they are proved by automated tests (decision 6).
-- Bless, Heroism, Power Shield, Protection from Elements and Holy Bonus
-  change combat and traps as in DOS; Rest and dawn
-  clear them in the DOS order; the border shows the original indicators.
-- Walk on Water and Levitate change movement and terrain as in DOS.
-- Super Shelter tests: its Rest against ordinary Rest's interruption, the
-  map restriction, cancel at the dying-risk warning, food and reset order,
-  and arrival after Levitate ends; ordinary Rest is refused on a flagged
-  mainland cell and Super Shelter is not.
-- Same-map relocation keeps live monsters' HP and status; cross-map
-  Lloyd's Beacon and Town Portal keep the M69 per-map state.
-- Each character keeps their own beacon across save and load, exactly, with
-  no replayed events, time or random draws; stale prepared work over a
-  changed beacon is rejected; v14 saves are rejected with the older-build
-  message.
-- Unit tests for every rule; original-data end-to-end tests for a buffed
-  fight, Super Shelter, Time Distortion on the mainland and a beacon return
-  across save and load; a developer test save (README) with casters who
-  know all 22 spells and charged items for their powers.
-- Complete `build-rel` suite passes for each part; independent review of
-  the implementation; maintainer play-test.
+- Complete `build-rel` suite for each part: 234/234 (A1), 236/236 (A2),
+  238/238 (B), 240/240 (C1), 240/240 (C2, one stale test fixed and
+  rerun), 240/240 (review fixes). M44 audit with zero differences for
+  every part except C2's approved format change.
+- Independent reviews: plan (approve with changes, applied);
+  implementation (accept with fixes: water admission for same-map travel,
+  item travel dialogs over the inventory, documentation; applied).
+- Maintainer play-test with `m76-spells`: buffs and indicators, senses,
+  information screens, item spells, travel, the Rest refusal, Beacon and
+  Town Portal, and save/load.

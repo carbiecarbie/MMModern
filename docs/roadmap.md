@@ -1,6 +1,6 @@
 # MMModern - Roadmap
 
-**M75 is the latest completed and accepted milestone.**
+**M76 is the latest completed and accepted milestone.**
 [Project status](project-status.md) describes what is playable now;
 [project history](project-history.md) records completed milestones. Reference
 provenance belongs to [dependencies](dependencies.md).
@@ -79,8 +79,9 @@ accepted).
    monster damage spells (Tier B, completed and accepted);
    [M75](milestone-75-plan.md) party healing and conditions, including Raise
    Dead, Resurrection, Divine Intervention and Create Food (Tier B,
-   completed and accepted); M76
-   buffs, information, item and travel spells (Tier A).
+   completed and accepted); [M76](milestone-76-plan.md) buffs,
+   information, item and travel spells (Tier A, completed and accepted).
+   All 76 Clouds spells work.
 7. **Combat Equip and Use, and the missing screens** (Tier B, medium): Quests,
    Awards and the others in the census checklist.
 8. **Inn, recruiting and character creation** (Tier A, high): Tavern Sign In,

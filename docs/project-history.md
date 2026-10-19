@@ -365,3 +365,14 @@ with each spell's own refund on cancel and the DOS differences kept.
 Combat turn order now follows DOS: a member woken or cured after their
 turn was skipped waits for the next round. Save v14 is unchanged.
 [Plan](milestone-75-plan.md).
+
+**M76 - Buffs, information, item and travel spells** (`1bd6d5f` plan,
+`b5748e5`, `14e8324`, `2566231`, `6cd1383`, `7f8b1e2`, `7c7d550`,
+`01c57e5`). The last 22 spells work, so all 76 Clouds spells do: party
+buffs that change combat and show on the border, Light, Levitate, Walk on
+Water, Clairvoyance, Detect and Identify Monster, Enchant, Recharge and
+Item to Gold, Super Shelter and the travel spells. A DOS check first
+settled every rule; later checks fixed the party effect byte layout and
+the Recharge bits. Ordinary Rest is refused on the cells where DOS refuses
+it, and each character's Lloyd's Beacon is saved (save v15).
+[Plan](milestone-76-plan.md).

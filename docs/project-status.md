@@ -1,8 +1,13 @@
 # MMModern - Project Status
 
-This describes what can be played and done now. **M75 is the latest completed
-and accepted milestone** ([plan](milestone-75-plan.md)): every spell that
-heals the party or cures its conditions now works, 12 more of them, from
+This describes what can be played and done now. **M76 is the latest completed
+and accepted milestone** ([plan](milestone-76-plan.md)): the last 22 spells
+now work, so every one of the 76 Clouds spells does, from the party buffs
+Bless, Heroism, Holy Bonus and Power Shield to Walk on Water, Detect
+Monster, Enchant Item, Recharge Item and the travel spells Teleport,
+Lloyd's Beacon and Town Portal; ordinary Rest is refused where the original
+refuses it, and saves are now v15. M75 ([plan](milestone-75-plan.md)) made
+every spell that heals the party or cures its conditions now works, 12 more of them, from
 Nature's Cure, Power Cure and the cures of Poison, Disease, Paralysis and
 Stone to Raise Dead, Resurrection, Divine Intervention and Create Food, and a
 member woken or cured in combat after their turn was skipped waits for the
@@ -103,17 +108,10 @@ the automated scenarios use it.
 - **Run** is per member. Remaining members keep fighting. If the whole party
   leaves, it is moved to the original fixed destination `(10,12)` with its
   facing unchanged. Survivors keep their wounds and can be met again.
-- **Magic** uses the characters' learned books. Awaken, First Aid, Cure Wounds,
-  Revitalize, Nature's Cure, Power Cure, Cure Poison, Cure Disease, Cure
-  Paralysis, Stone to Flesh, Suppress Poison, Suppress Disease, Raise Dead,
-  Resurrection, Divine Intervention, Create Food, Moon Ray, Sleep, Beast Master, Hypnotize, Dragon Sleep and
-  every spell that damages monsters (Magic Arrow, Flying Fist, Energy Blast,
-  Shrapmetal, Pain, Insect Spray, Turn Undead, Sparks, Toxic Cloud, Acid
-  Spray, Cold Ray, Dancing Sword, Deadly Swarm, Elemental Storm, Fantastic
-  Freeze, Fiery Flail, Fireball, Frostbite, Implosion, Incinerate, Inferno,
-  Lightning Bolt, Mega Volts, Prismatic Light, Star Burst, Sun Ray, Finger of
-  Death, Holy Word, Mass Distortion, Golem Stopper and Poison Volley) work in
-  exploration and combat; Wizard Eye and Jump in exploration. Sleeping, mastered or hypnotized monsters stay in place, do not
+- **Magic** uses the characters' learned books. All 76 Clouds spells work
+  from the book, Quick Fight and charged items, in exploration and in combat
+  where the original allows them, with the original prompts, refusals,
+  refunds and costs. Sleeping, mastered or hypnotized monsters stay in place, do not
   move or attack and are easier to hit; each turn they may recover, and the
   two sleeps also end when the monster is hurt. Spells aimed at one species
   (Insect Spray, Turn Undead, Holy Word, Golem Stopper, Finger of Death) do
@@ -124,16 +122,26 @@ the automated scenarios use it.
   not, with each member's accuracy, and Moon Ray also heals the party. Healing spells ask for a member;
   Escape refunds the spell's SP and gems. A member woken, cured or raised in
   combat acts this round if their turn has not come yet, otherwise next
-  round. Wizard Eye shows the surroundings on the automap without
+  round. Bless improves armor class, Heroism the chance to hit, Holy Bonus
+  weapon damage, and Power Shield and Protection from Elements reduce the
+  damage the party takes; the border shows their original indicators, and
+  they end at Rest or dawn, as do Levitate (which protects from cloud falls),
+  Walk on Water (which, like the Swimming skill, lets the party onto
+  water), Clairvoyance (whose statues react to prompts) and Light. Detect
+  Monster and Identify Monster open the original screens. Enchant Item,
+  Recharge Item and Item to Gold work through the original Items dialog.
+  Super Shelter sleeps eight hours without interruption, even where Rest is
+  refused; Etherealize, Time Distortion and Teleport move the party on its
+  map; each character keeps their own Lloyd's Beacon; Town Portal reaches
+  Vertigo. Destinations in maps not open yet refuse without any cost.
+  Wizard Eye shows the surroundings on the automap without
   marking them explored, until the next temporary-effect reset (Rest, dawn).
   Jump moves two cells forward; destinations on space, lava, sky, cloud or
   desert, or outside the walkable area, say "not supported yet" for now.
   Cast uses the original dialog: C casts, N opens the ten-row New list, and
   Escape backs out. F1-F6 or portraits switch caster in exploration; combat
   keeps the acting caster. New's saved selection is shared with Quick Fight.
-  Other spells remain selectable and say "not supported yet" without spending
-  SP, gems, time, a combat turn or spell-caused random draws, including Quick
-  Fight. Supported exploration casts cost one minute indoors and ten outdoors.
+  Exploration casts cost one minute indoors and ten outdoors.
 - **Quests and recovery.** Myra's request, the Phirna collection and Myra's
   return exchange run end to end across normal mainland travel. The selected
   well restores HP. The Myra-delivered antidote can be used from the inventory
@@ -201,11 +209,10 @@ the original text panel, and buttons work by mouse or key.
   (Merchant lets a member sell at full value). Broken items can still be
   identified and sold, and Fix repairs them. Stock is generated and depleted as
   in the original.
-- **Using items.** On the character sheet, charged items cast their effect when
-  it is one of the supported spells or Myra's antidote, without spending time;
-  each use costs a charge, even if it fails or the target prompt is cancelled,
-  and the item vanishes at zero. Other powers say "not supported yet" without
-  spending a charge. Discard asks for confirmation.
+- **Using items.** On the character sheet, charged items cast their spell, or
+  Myra's antidote, without spending time; each use costs a charge, even if it
+  fails or the target prompt is cancelled, and the item vanishes at zero.
+  Discard asks for confirmation.
 - **Training** (Space at `(10,11)`): permanent levels from earned XP and gold,
   with the Vertigo level cap; it resets temporary bonuses and refills the
   trained member's HP/SP.
@@ -247,7 +254,8 @@ the original text panel, and buttons work by mouse or key.
   hours, eats one food per member who can recover, and recovers HP and SP;
   temporary bonuses end. The original warning appears when a member may die,
   and the original dream can appear. Without food, time still passes but
-  nobody recovers.
+  nobody recovers. As in the original, Rest is refused on some cells (42 on
+  the mainland); Super Shelter still works there.
 - **Interruption.** Nearby monsters approach and attack while the party
   sleeps; the Rest stops without recovery, and members who were not hit stay
   asleep until a completed Rest or Awaken.
@@ -442,11 +450,10 @@ instructions are in [dependencies](dependencies.md).
   indoors.
 - **Missing services.** Inn/recruitment is not available; the Temple handles
   only the modeled conditions.
-- **Items and magic.** Item powers backed by unimplemented spells say "not
-  supported yet"; cursed-item refusals follow the reference. 22 of the 76
-  spells are still missing (buffs, information, item and travel spells);
-  Light and Protection from Elements can be bought but say "not supported
-  yet" when cast. Mainland fountains remain
+- **Items and magic.** Cursed-item refusals follow the reference. Light has
+  no dark map to light yet: the dark view and light-drain cells come with
+  the areas that have them. Town Portal's other four towns and travel to
+  maps not open yet refuse. Mainland fountains remain
   unsupported. Locked-chest lock/trap/XP mechanics are deferred; Vertigo CD's
   searchable objects use the crate, case, bed and rubbish mechanics.
 - **Presentation.** There is no audio: where the CD plays speech, a short
@@ -458,7 +465,8 @@ instructions are in [dependencies](dependencies.md).
   supported yet (the original allows both).
 - **Skills.** Only Cartography and the skills used by existing rules
   (Thievery, Navigator, Bodybuilder and others affecting HP/SP) have effects.
-  Arms Master, Direction Sense, Merchant, Mountaineer, Swimmer, Tracker, Spot
+  Swimmer lets the party onto shallow water.
+  Arms Master, Direction Sense, Merchant, Mountaineer, Tracker, Spot
   Secret Doors and Danger Sense can be learned from Events and are saved, but
   their passive effects are not implemented yet.
 - **Events.** Clouds Event audio, town-service Events and the ending's
