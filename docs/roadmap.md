@@ -82,7 +82,8 @@ accepted).
    completed and accepted); [M76](milestone-76-plan.md) buffs,
    information, item and travel spells (Tier A, completed and accepted).
    All 76 Clouds spells work.
-7. **Combat Equip and Use, and the missing screens** (Tier B, medium): Quests,
+7. **Combat Equip and Use, and the missing screens** (Tier B, medium,
+   [M77](milestone-77-plan.md)): Quests,
    Awards and the others in the census checklist; Town Portal's combat item
    path (DOS continues into its dialog; M76 keeps the refusal); and the
    three skill indicators still drawn inactive: Danger Sense (border
@@ -91,6 +92,7 @@ accepted).
    check settles their conditions first; the pin animates Danger Sense with
    the Spot Secret Doors frame counter.
 8. **Inn, recruiting and character creation** (Tier A, high): Tavern Sign In,
+   Dismiss (moved from step 7: nothing brings a dismissed member back before the Inn),
    attribute rolls, the creation screens and changes to the saved party,
    including Poison Volley shooting for the active party size (M74 assumes six).
 9. **Monster treasure** (Tier A, changes the save): item drops for every
