@@ -598,6 +598,11 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 				"event execution exceeded 1024 dispatched instructions",
 				instructionCount, logical, decoded.source);
 		}
+		// Journey Events run on a detached candidate. The live Journey world only
+		// settles a terminal service continuation, which dispatches nothing.
+		if(world.sessionState().journey() && !world.detachedEventCandidate())
+			return error(XeenEventExecutionErrorKind::UnsupportedExecutionContext,
+				"Live Journey Event dispatch is not supported",instructionCount,logical,decoded.source);
 		if(!resumedEffect) {
 			++instructionCount;
 			if(publication)publication->dispatched(state,decoded);
@@ -915,9 +920,6 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 			++logical.line;missingPolicy=MissingInstructionPolicy::NaturalCompletion;continue;
 		}
 		XeenEventValueOwners owners{partyState,workingGameFlags,workingCamera,state.scriptValues};
-		// Original script values may change only in a detached candidate, in a
-		// non-Journey world, or through the live Journey's generic capability.
-		const bool liveJourney=world.sessionState().journey() && !world.detachedEventCandidate();
 		const auto advance=[&](const char *what) -> std::optional<XeenEventExecutionError> {
 			if(logical.line==255)return error(XeenEventExecutionErrorKind::LineOverflow,
 				std::string(what)+" sequential line overflow",instructionCount,logical,decoded.source);
@@ -962,28 +964,16 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 			return *value;
 		};
 		const auto canDraw=[&] {return world.detachedEventCandidate() && world.sessionState().journeyRandom();};
-		const auto liveWrite=[&]() -> std::optional<XeenEventExecutionError> {
-			if(!liveJourney)return std::nullopt;
-			if(!publication)return refuse(XeenEventExecutionErrorKind::UnsupportedExecutionContext,
-				"Event write publication is not supported yet in this context");
-			publication->prepareEventWrite();
-			return std::nullopt;
-		};
-		const auto liveWritten=[&] {if(liveJourney && publication)publication->eventWritten(partyState);};
 
 		if (const auto *setVar=std::get_if<XeenEventSetVar>(&decoded.operation)) {
 			// setValue (0x23945) for the selection; mode 84 writes the facing.
 			if(sideMismatch)return refuse(K::UnsupportedExecutionContext,"SetVar requires one side");
 			if(const auto e=lastLine("SetVar"))return *e;
-			if(liveJourney && setVar->mode==84)
-				return refuse(XeenEventExecutionErrorKind::UnsupportedExecutionContext,"SetVar facing is not supported yet in this context");
-			if(const auto e=liveWrite())return *e;
 			for(const auto member:members()) {
 				const auto written=xeenEventSetValue(owners,setVar->mode,setVar->value,member);
 				if(written.status!=XeenEventWriteStatus::Applied)
 					return refuse(refusalKind(written.refusal,K::UnsupportedOperationMode),written.reason);
 			}
-			liveWritten();
 			if(const auto e=advance("SetVar"))return *e;
 			continue;
 		}
@@ -1072,7 +1062,7 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 			const auto done=[&](bool flag) {progress.flag=flag;progress.phase=GiveTakePhase::AfterMember;};
 			if(progress.phase==GiveTakePhase::BeforeHp) {
 				// 0x226c5: the sparkle preceded this HP grant.
-				xeenEventGive(owners,8,giveValue,member);liveWritten();done(false);return std::nullopt;
+				xeenEventGive(owners,8,giveValue,member);done(false);return std::nullopt;
 			}
 			if(sideMismatch)return std::optional<XeenEventExecutionStepResult>(refuse(K::UnsupportedExecutionContext,"TakeOrGive requires one side"));
 			if(takeMode && !takeValue && takeMode!=104)return fail("TakeOrGive HowMuch is not supported yet");
@@ -1087,10 +1077,6 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 				}
 				giveMode=0;giveValue=0;
 			}
-			if(liveJourney && (giveMode==21 || giveMode==66 || giveMode==76 || giveMode==85 || giveMode==100 || takeMode==34 ||
-				takeMode==35 || takeMode==65 || takeMode==20 || giveMode==20 || takeMode==21))
-				return fail("Event effect is not supported yet in this context");
-			if(const auto e=liveWrite())return std::optional<XeenEventExecutionStepResult>(*e);
 			const auto taken=xeenEventTake(owners,takeMode,takeValue,member);
 			if(taken.status==XeenEventWriteStatus::Unsupported)
 				return std::optional<XeenEventExecutionStepResult>(refuse(refusalKind(taken.refusal,K::UnsupportedOperationMode),taken.reason));
@@ -1104,14 +1090,14 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 				state.pendingPresentation=XeenEventPendingPresentation{request,XeenEventPendingContinuation::Terminate,{}};
 				return std::optional<XeenEventExecutionStepResult>(XeenEventExecutionSuspended{state,request});
 			}
-			if(taken.status==XeenEventWriteStatus::Failed) {liveWritten();done(true);return std::nullopt;}
+			if(taken.status==XeenEventWriteStatus::Failed) {done(true);return std::nullopt;}
 			switch(giveMode) {
 			case 8:
 				if(owner<XeenRoster::kCharacterCount && !(state.sparkledOwners&(1u<<owner))) {
-					progress.phase=GiveTakePhase::BeforeHp;liveWritten();
+					progress.phase=GiveTakePhase::BeforeHp;
 					return sparkle(owner);
 				}
-				xeenEventGive(owners,8,giveValue,member);liveWritten();done(false);return std::nullopt;
+				xeenEventGive(owners,8,giveValue,member);done(false);return std::nullopt;
 			case 21: {
 				// 0x22883: weapons, armor and accessories by ID into treasure;
 				// quest items count first, then show as weapons.
@@ -1188,7 +1174,7 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 			const auto given=xeenEventGive(owners,giveMode,giveValue,member);
 			if(given.status!=XeenEventWriteStatus::Applied)
 				return std::optional<XeenEventExecutionStepResult>(refuse(refusalKind(given.refusal,K::UnsupportedOperationMode),given.reason));
-			liveWritten();done(false);
+			done(false);
 			if(given.sparkle)return sparkle(owner);
 			return std::nullopt;
 		};
@@ -1378,107 +1364,7 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 
 		if (const auto *takeOrGive =
 				std::get_if<XeenEventTakeOrGive>(&decoded.operation)) {
-			const auto neutral = [](const XeenEventTakeOrGivePair &pair) {
-				return pair.mode == 0 && pair.value == 0;
-			};
 			if(const auto e=lastLine("TakeOrGive"))return *e;
-			const bool regionalCombo=(neutral(takeOrGive->first) && (takeOrGive->second.mode==20 || takeOrGive->second.mode==21 ||
-				takeOrGive->second.mode==104)) ||
-				((takeOrGive->first.mode==20 || takeOrGive->first.mode==21 || takeOrGive->first.mode==104) && neutral(takeOrGive->second));
-			if(liveJourney && regionalCombo && neutral(takeOrGive->third)) {
-				const bool setFlag = neutral(takeOrGive->first) &&
-					takeOrGive->second.mode == 20 && neutral(takeOrGive->third);
-				const bool clearFlag = takeOrGive->first.mode == 20 &&
-					neutral(takeOrGive->second) && neutral(takeOrGive->third);
-				const bool grantQuestItem = neutral(takeOrGive->first) &&
-					takeOrGive->second.mode == 21 && neutral(takeOrGive->third);
-				const bool setQuestFlag = neutral(takeOrGive->first) &&
-					takeOrGive->second.mode == 104 && neutral(takeOrGive->third);
-				const bool takeQuestItem = takeOrGive->first.mode == 21 &&
-					neutral(takeOrGive->second) && neutral(takeOrGive->third);
-				const bool clearQuestFlag = takeOrGive->first.mode == 104 &&
-					neutral(takeOrGive->second) && neutral(takeOrGive->third);
-				if (setQuestFlag || clearQuestFlag) {
-					const auto index = setQuestFlag ? takeOrGive->second.value : takeOrGive->first.value;
-					if (!XeenCloudsQuestFlags::validIndex(index))
-						return error(XeenEventExecutionErrorKind::InvalidFlagIndex,
-							"TakeOrGive Clouds quest flag index outside 0..29", instructionCount, logical, decoded.source);
-					if (logical.mapId.side != XeenSide::Clouds || workingCamera.mapId.side != XeenSide::Clouds)
-						return error(XeenEventExecutionErrorKind::UnsupportedExecutionContext,
-							"quest-flag mutation requires Clouds logical and physical context", instructionCount, logical, decoded.source);
-					if (!partyState.party.size())
-						return error(XeenEventExecutionErrorKind::EmptyParty,
-							"quest-flag mutation requires an active party member", instructionCount, logical, decoded.source);
-					if (logical.line == 255)
-						return error(XeenEventExecutionErrorKind::LineOverflow,
-							"quest-flag mutation sequential line overflow", instructionCount, logical, decoded.source);
-					// Authoritative party effect: immediate, idempotent, once per party.
-					if (publication) publication->prepareQuestFlag(setQuestFlag);
-					if (setQuestFlag) partyState.questFlags.set(index);
-					else partyState.questFlags.clear(index);
-					if (publication) publication->questFlagWritten(setQuestFlag);
-					++logical.line;
-					missingPolicy = MissingInstructionPolicy::NaturalCompletion;
-					continue;
-				}
-				if (grantQuestItem || takeQuestItem) {
-					const auto itemId = grantQuestItem ? takeOrGive->second.value : takeOrGive->first.value;
-					const std::string detail = "TakeOrGive quest item " + std::to_string(itemId);
-					const auto index = XeenCloudsQuestItems::indexForItemId(itemId);
-					if (!index)
-						return error(XeenEventExecutionErrorKind::UnsupportedOperationMode,
-							detail + " is outside Clouds IDs 82..116", instructionCount, logical, decoded.source);
-					if (logical.mapId.side != XeenSide::Clouds || workingCamera.mapId.side != XeenSide::Clouds)
-						return error(XeenEventExecutionErrorKind::UnsupportedExecutionContext,
-							detail + " requires Clouds logical and physical context", instructionCount, logical, decoded.source);
-					if (!partyState.party.size())
-						return error(XeenEventExecutionErrorKind::EmptyParty,
-							detail + " requires an active party member", instructionCount, logical, decoded.source);
-					if (logical.line == 255)
-						return error(XeenEventExecutionErrorKind::LineOverflow,
-							"quest-item mutation sequential line overflow", instructionCount, logical, decoded.source);
-					// Party effects are immediate, independent of camera/flag commit.
-					// The same byte rule as the detached path (XeenCloudsQuestItems::eventGrant/eventTake).
-					if (publication && grantQuestItem) publication->prepareGrant(*index);
-					if (grantQuestItem) partyState.questItems.eventGrant(*index);
-					if (publication && grantQuestItem) publication->granted();
-					if(grantQuestItem)state.pendingRewards.enqueueQuest(static_cast<std::uint8_t>(itemId));
-					if (publication && takeQuestItem) publication->prepareQuestTake(*index);
-					if (takeQuestItem) partyState.questItems.eventTake(*index);
-					if (publication && takeQuestItem) publication->questTaken();
-					++logical.line;
-					missingPolicy = MissingInstructionPolicy::NaturalCompletion;
-					continue;
-				}
-				if (!setFlag && !clearFlag) {
-					return error(XeenEventExecutionErrorKind::UnsupportedOperationMode,
-						"TakeOrGive mode combination is outside the interpreter subset",
-						instructionCount, logical, decoded.source);
-				}
-				const std::uint32_t flag = setFlag ? takeOrGive->second.value :
-					takeOrGive->first.value;
-				// The same bank validation as xeenEventTake/xeenEventGive mode 20.
-				if (sideMismatch || workingCamera.mapId.side != XeenSide::Clouds)
-					return error(XeenEventExecutionErrorKind::UnsupportedExecutionContext,
-						"Event game flag is outside the Clouds bank", instructionCount, logical, decoded.source);
-				if (flag >= XeenGameFlags::kCount) {
-					return error(XeenEventExecutionErrorKind::InvalidFlagIndex,
-						"TakeOrGive game flag index exceeds 255", instructionCount,
-						logical, decoded.source);
-				}
-				if (setFlag)
-					workingGameFlags.set(static_cast<int>(flag));
-				else
-					workingGameFlags.clear(static_cast<int>(flag));
-				if (logical.line == 255) {
-					return error(XeenEventExecutionErrorKind::LineOverflow,
-						"TakeOrGive sequential event line overflow", instructionCount,
-						logical, decoded.source);
-				}
-				++logical.line;
-				missingPolicy = MissingInstructionPolicy::NaturalCompletion;
-				continue;
-			}
 			// The original loop (0x277f9..0x2790d). Selection 0 runs every member;
 			// a failed take or give ends it, and some modes end the whole Event.
 			const bool loop=state.entireParty;
