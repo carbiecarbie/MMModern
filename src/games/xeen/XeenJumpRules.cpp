@@ -34,7 +34,7 @@ XeenJumpPreflight xeenJumpPreflight(XeenWorld &world,const XeenCamera &camera) {
     if(map.geometry.isOutdoors()) {
         if(camera.mapId!=world.developerEventMap() && (camera.mapId!=XeenMapIdentity(23) || destination->mapId!=XeenMapIdentity(23) ||
             x<0 || x>=16 || y<0 || y>=16 ||
-            !XeenMovement::component(map,9,11,xeenJourneyContent().traversal)[y*16+x]))return result;
+            !XeenMovement::component(map,9,11,kXeenAdmittedAreaTraversal)[y*16+x]))return result;
         result.destination.mapId=destination->mapId;
         result.destination.x=destination->x;result.destination.y=destination->y;
     } else {

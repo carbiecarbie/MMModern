@@ -1,6 +1,7 @@
 #include "XeenTrainingTestSupport.h"
 #include "XeenTestInstallation.h"
 #include "formats/xeen/XeenVocDuration.h"
+#include "games/xeen/XeenJumpRules.h"
 #include <iostream>
 #include <sstream>
 using namespace training_test;
@@ -264,6 +265,38 @@ void water(Inputs &in) {
         roundtrip(in,f);
     }
 }
+void jumpWater(Inputs &in) {
+    // Jump shares the water-admitting area; a destination outside it stays unsupported.
+    scenario="Jump water fixture search";
+    XeenWorld w(in.mapLoader(),in.objectLoader());const auto &map=w.map(23);
+    const auto dry=XeenMovement::component(map,9,11,{}),area=XeenMovement::component(map,9,11,kXeenAdmittedAreaTraversal);
+    std::optional<XeenCamera> water,outside;
+    for(int y=0;y<16;++y)for(int x=0;x<16;++x)if(dry[y*16+x])for(unsigned d=0;d<4;++d) {
+        const XeenCamera camera{23,x,y,XeenDirection(d)};constexpr int dx[]{0,1,0,-1},dy[]{1,0,-1,0};
+        const int tx=x+2*dx[d],ty=y+2*dy[d];const bool inside=tx>=0 && tx<16 && ty>=0 && ty<16;
+        const auto admission=xeenJumpPreflight(w,camera).admission;
+        if(!water && inside && !dry[ty*16+tx] && area[ty*16+tx] && admission==XeenJumpAdmission::Ready)water=camera;
+        if(!outside && inside && !area[ty*16+tx] && admission==XeenJumpAdmission::Unsupported)outside=camera;
+    }
+    check(bool(water),"No original Jump destination beyond water");check(bool(outside),"No original Jump destination outside the admitted area");
+    for(bool item:{false,true}) {
+        scenario="Jump admitted water item "+std::to_string(item);
+        auto s=source(in,40);const auto owner=s.activeRosterIds[0];s.camera=*water;
+        if(item)s.characters[owner].miscellaneous[0]={1,16,2,0};
+        Fixture f(in,s);wire(f);const auto original=f.c;cast(f,item);quiet(f);
+        constexpr int dx[]{0,1,0,-1},dy[]{1,0,-1,0};const auto d=unsigned(original.direction);
+        check(f.c.x==original.x+2*dx[d] && f.c.y==original.y+2*dy[d] && f.c.direction==original.direction,"Jump refused admitted water or changed facing");
+        check(f.p.roster.at(owner).currentSp==1000-int(item?0:R::cost(40,10).sp),"Water Jump cost");
+        if(item)check(f.p.roster.at(owner).miscellaneous[0].state==1,"Water Jump item charge");
+        roundtrip(in,f);
+        scenario="Jump outside admitted area item "+std::to_string(item);
+        auto r=source(in,40);r.camera=*outside;if(item)r.characters[owner].miscellaneous[0]={1,16,2,0};
+        Fixture g(in,r);const auto rng=g.w.sessionState().journeyRandom();cast(g,item);
+        check(g.c.x==r.camera.x && g.c.y==r.camera.y && g.p.roster.at(owner).currentSp==1000 && g.p.monsterTreasure->gems==1000 &&
+            g.p.encounterContext->minutes==600 && g.w.sessionState().journeyRandom()==rng,"Outside-area Jump spent position/SP/gems/time/RNG");
+        if(item)check(g.p.roster.at(owner).miscellaneous[0].state==2,"Outside-area Jump spent an item charge");
+    }
+}
 void unsupported(Inputs &in) {
     for(unsigned spell:{21u,69u})for(bool item:{false,true}) {
         scenario="unopened destination "+std::to_string(spell)+" item "+std::to_string(item);
@@ -352,6 +385,6 @@ void combat(Inputs &in) {
 }
 }
 int main(int argc,char **argv){try{check(argc==2,"usage: travel-original <installation>");const auto detected=xeenTestInstallationDetector().detect(argv[1]);check(bool(detected),"Missing installation");Inputs in(*detected);
-    std::ostringstream out;auto *old=std::cout.rdbuf(out.rdbuf());try{mapTravel(in);presentation(in);exploration(in);rest(in);water(in);unsupported(in);shelterOrder(in);combat(in);}catch(...){std::cout.rdbuf(old);throw;}std::cout.rdbuf(old);
-    std::cout<<"M76 same-map travel, Shelter, Rest cell refusal, costs, items and exact restore passed\n";return 0;
+    std::ostringstream out;auto *old=std::cout.rdbuf(out.rdbuf());try{mapTravel(in);presentation(in);exploration(in);rest(in);water(in);jumpWater(in);unsupported(in);shelterOrder(in);combat(in);}catch(...){std::cout.rdbuf(old);throw;}std::cout.rdbuf(old);
+    std::cout<<"M76 same-map travel, Jump over water, Shelter, Rest cell refusal, costs, items and exact restore passed\n";return 0;
 }catch(const std::exception &e){std::cerr<<scenario<<": "<<e.what()<<'\n';return 1;}}
