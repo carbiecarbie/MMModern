@@ -52,7 +52,7 @@ XeenTransitionResult XeenWorld::prepareEventTransition(const XeenCamera &request
 		destination.x>=limit || destination.y>=limit || !sampleCell(destination.mapId,destination.x,destination.y))
 		return {XeenTransitionResult::Status::Unavailable,destination,"Destination has no map cell"};
 	if (regionalJourney() && destination.mapId!=_developerEventMap && destination.mapId==XeenMapIdentity(23) &&
-		!XeenMovement::component(resource,9,11,{true,true,false})[destination.y*16+destination.x])
+		!XeenMovement::component(resource,9,11,kXeenAdmittedAreaTraversal)[destination.y*16+destination.x])
 		return {XeenTransitionResult::Status::Unavailable,destination,"Destination is outside the admitted mainland"};
 	return {XeenTransitionResult::Status::Available,destination,{}};
 }

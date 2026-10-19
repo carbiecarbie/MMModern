@@ -33,7 +33,11 @@ IndexedFrame XeenEventFlow::drawTravelDialog(const IndexedFrame &base) const {
         options.bounds=beacon?XeenTextRect{234,8,312,138}:XeenTextRect{88,36,248,140};options.x=options.bounds.left;options.y=options.bounds.top;options.stopAtBottom=true;
         const auto text=beacon?xeenDialogFormat(dosText().scalar("LLOYDS_BEACON"),{ui.names[0],std::to_string(c.lloydX),std::to_string(c.lloydY)}):
             xeenDialogFormat(dosText().scalar("TOWN_PORTAL"),{ui.names[0],ui.names[1],ui.names[2],ui.names[3],ui.names[4]});
-        auto rendered=XeenTextRenderer(_inventoryFont).render(base,text,options);
+        // Window 10 redraws the protection corners and covers the right statue,
+        // as the learned cast window does beneath it.
+        auto underlay=base;
+        if(beacon && ui.item) {underlay=drawXeenProtectionCorners(base,*_party.encounterContext,drawDialogSprite);if(drawDialogSprite)drawDialogSprite(underlay,"border.icn",52,215,32);}
+        auto rendered=XeenTextRenderer(_inventoryFont).render(underlay,text,options);
         if(rendered.pages.size()!=1 || !rendered.diagnostics.empty())throw std::runtime_error("Travel dialog layout overflow");
         auto frame=std::move(rendered.pages.front());
         if(beacon && drawDialogSprite) {drawDialogSprite(frame,"lloyds.icn",2,242,108);drawDialogSprite(frame,"lloyds.icn",0,281,108);}

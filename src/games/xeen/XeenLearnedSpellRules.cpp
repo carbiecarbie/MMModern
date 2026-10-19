@@ -62,7 +62,7 @@ XeenSpellTravel XeenLearnedSpellRules::travel(XeenWorld &world,const XeenCamera 
     if(map.geometry.isOutdoors()) {
         if(camera.mapId!=world.developerEventMap() && (camera.mapId!=XeenMapIdentity(23) || !cell ||
             cell->mapId!=camera.mapId || to.x<0 || to.x>=16 || to.y<0 || to.y>=16 ||
-            !XeenMovement::component(map,9,11,xeenJourneyContent().traversal)[to.y*16+to.x]))result.unsupported=true;
+            !XeenMovement::component(map,9,11,kXeenAdmittedAreaTraversal)[to.y*16+to.x]))result.unsupported=true;
     } else if((camera.mapId!=XeenMapIdentity(28) && camera.mapId!=world.developerEventMap()) ||
         !xeenIndoorCoordinate(to.x,to.y))result.unsupported=true;
     if(!result.unsupported)result.destination=to;

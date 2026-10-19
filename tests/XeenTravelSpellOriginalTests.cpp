@@ -149,6 +149,28 @@ void mapTravel(Inputs &in) {
         if(spell==44 && operation==1)check(f.p.roster.at(owner).lloydMap==28 && f.p.roster.at(owner).lloydX==18 && f.p.roster.at(owner).lloydY==4,"Escape failed to retain default beacon");
     }
 }
+void presentation(Inputs &in) {
+    // Item travel closes the item windows: the dialog sits on the scene, as the learned cast's does.
+    struct Rect{int left,top,right,bottom;};
+    const auto same=[](const IndexedFrame &a,const IndexedFrame &b,Rect r) {
+        for(int y=r.top;y<r.bottom;++y)for(int x=r.left;x<r.right;++x)if(a.pixels[y*320+x]!=b.pixels[y*320+x])return false;
+        return true;};
+    for(unsigned spell:{44u,69u,71u}) {
+        scenario="item travel presentation "+std::to_string(spell);
+        std::optional<IndexedFrame> frames[2];
+        for(bool item:{false,true}) {
+            auto s=source(in,spell);const auto owner=s.activeRosterIds[0];
+            if(item)s.characters[owner].miscellaneous[0]={1,std::uint8_t(spell==44?28:spell==69?42:55),2,0};
+            Fixture f(in,s);wire(f);openTravel(f,item);check(XeenRestTestAccess::teleport(*f.flow),"Travel dialog absent");
+            frames[item]=f.flow->frame();
+        }
+        const auto &learned=*frames[0],&item=*frames[1];
+        // Window 10 (cast window, corners and statue) lies under the learned dialog only.
+        if(spell==44)check(same(learned,item,{0,0,320,146}),"Item Beacon differs from learned window 10 presentation");
+        else check(same(learned,item,{24,0,215,146}),"Item travel dialog kept the inventory underneath");
+        if(spell==69)check(same(learned,item,{52,149,268,198}),"Item Teleport prompt differs from learned");
+    }
+}
 void exploration(Inputs &in) {
     for(auto pair:{std::pair{66u,48u},{21u,58u},{70u,39u},{69u,42u}})for(bool item:{false,true})for(bool restricted:{false,true}) {
         scenario="exploration "+std::to_string(pair.first)+" item "+std::to_string(item)+" restricted "+std::to_string(restricted);
@@ -215,6 +237,33 @@ void rest(Inputs &in) {
     Fixture both(in,bypass,false,nullptr,restrictions);wire(both);cast(both,false);quiet(both);
     check(both.p.encounterContext->minutes==1081,"Shelter did not bypass ordinary map and cell Rest refusals");
 }
+void water(Inputs &in) {
+    // Same-map destinations use the water-admitting area, not party abilities.
+    XeenWorld w(in.mapLoader(),in.objectLoader());const auto &map=w.map(23);
+    const auto dry=XeenMovement::component(map,9,11,{}),area=XeenMovement::component(map,9,11,kXeenAdmittedAreaTraversal);
+    check(area[9*16+12] && !dry[9*16+11] && area[9*16+11],"Mainland (11,9) is no longer admitted water");
+    std::optional<std::pair<XeenCamera,unsigned>> teleport;
+    for(int y=0;y<16 && !teleport;++y)for(int x=0;x<16 && !teleport;++x)if(dry[y*16+x])for(unsigned d=0;d<4 && !teleport;++d)for(unsigned n=1;n<10 && !teleport;++n) {
+        const XeenCamera camera{23,x,y,XeenDirection(d)};constexpr int dx[]{0,1,0,-1},dy[]{1,0,-1,0};
+        const int tx=x+int(n)*dx[d],ty=y+int(n)*dy[d];
+        if(tx<0 || tx>=16 || ty<0 || ty>=16 || dry[ty*16+tx] || !area[ty*16+tx])continue;
+        const auto r=R::travel(w,camera,S::Teleport,n);if(r.destination)teleport={camera,n};
+    }
+    check(bool(teleport),"No original Teleport destination beyond water");
+    for(unsigned spell:{21u,69u})for(bool item:{false,true}) {
+        scenario="admitted water "+std::to_string(spell)+" item "+std::to_string(item);
+        auto s=source(in,spell);const auto owner=s.activeRosterIds[0];
+        s.camera=spell==21?XeenCamera{23,12,9,XeenDirection::West}:teleport->first;
+        if(item)s.characters[owner].miscellaneous[0]={1,std::uint8_t(spell==21?58:42),2,0};
+        Fixture f(in,s);wire(f);const auto original=f.c;cast(f,item,spell==69?teleport->second:0);quiet(f);
+        const auto cost=R::cost(spell,10);
+        if(spell==21)check(f.c.x==11 && f.c.y==9,"Etherealize refused admitted water");
+        else check(f.c.x!=original.x || f.c.y!=original.y,"Teleport refused a destination beyond water");
+        check(f.c.direction==original.direction && f.p.roster.at(owner).currentSp==1000-int(item?0:cost.sp),"Water travel cost or facing");
+        if(item)check(f.p.roster.at(owner).miscellaneous[0].state==1,"Water travel item charge");
+        roundtrip(in,f);
+    }
+}
 void unsupported(Inputs &in) {
     for(unsigned spell:{21u,69u})for(bool item:{false,true}) {
         scenario="unopened destination "+std::to_string(spell)+" item "+std::to_string(item);
@@ -223,7 +272,9 @@ void unsupported(Inputs &in) {
             XeenWorld w(in.mapLoader(),in.objectLoader());const auto area=XeenMovement::component(w.map(23),9,11,{});bool found=false;
             for(int y=8;y<16 && !found;++y)for(int x=0;x<16 && !found;++x)if(area[y*16+x])for(unsigned d=0;d<4 && !found;++d) {
                 const XeenCamera camera{23,x,y,XeenDirection(d)};
-                if(R::travel(w,camera,S::Etherealize).unsupported) {s.camera=camera;found=true;}
+                constexpr int dx[]{0,1,0,-1},dy[]{1,0,-1,0};const int tx=x+dx[d],ty=y+dy[d];
+                const bool outside=tx<0 || tx>=16 || ty<0 || ty>=16 || !XeenMovement::component(w.map(23),9,11,kXeenAdmittedAreaTraversal)[ty*16+tx];
+                if(outside && R::travel(w,camera,S::Etherealize).unsupported) {s.camera=camera;found=true;}
             }
             check(found,"No original unopened Etherealize destination");
         }
@@ -301,6 +352,6 @@ void combat(Inputs &in) {
 }
 }
 int main(int argc,char **argv){try{check(argc==2,"usage: travel-original <installation>");const auto detected=xeenTestInstallationDetector().detect(argv[1]);check(bool(detected),"Missing installation");Inputs in(*detected);
-    std::ostringstream out;auto *old=std::cout.rdbuf(out.rdbuf());try{mapTravel(in);exploration(in);rest(in);unsupported(in);shelterOrder(in);combat(in);}catch(...){std::cout.rdbuf(old);throw;}std::cout.rdbuf(old);
+    std::ostringstream out;auto *old=std::cout.rdbuf(out.rdbuf());try{mapTravel(in);presentation(in);exploration(in);rest(in);water(in);unsupported(in);shelterOrder(in);combat(in);}catch(...){std::cout.rdbuf(old);throw;}std::cout.rdbuf(old);
     std::cout<<"M76 same-map travel, Shelter, Rest cell refusal, costs, items and exact restore passed\n";return 0;
 }catch(const std::exception &e){std::cerr<<scenario<<": "<<e.what()<<'\n';return 1;}}

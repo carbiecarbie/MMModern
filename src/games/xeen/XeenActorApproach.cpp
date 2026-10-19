@@ -566,7 +566,7 @@ XeenEncounterResult XeenActorApproach::regionalTransition(XeenWorld &world,XeenP
 					if(indoor ? !xeenIndoorCoordinate(c.camera.x,c.camera.y) :
 						(c.camera.x<0 || c.camera.x>=16 || c.camera.y<0 || c.camera.y>=16 ||
 						 (c.camera.mapId!=world.developerEventMap() && (c.camera.mapId!=xeenJourneyContent().entry.mapId ||
-						 !XeenMovement::component(map,9,11,{true,true,false})[c.camera.y*16+c.camera.x]))))
+						 !XeenMovement::component(map,9,11,kXeenAdmittedAreaTraversal)[c.camera.y*16+c.camera.x]))))
 						{ refused.reason=XeenEncounterStop::Envelope;return refused; }
 					const auto sampled=indoor ? world.sampleCell(c.camera.mapId,c.camera.x,c.camera.y) : std::optional<XeenCellSample>{};
 					if(indoor ? (sampled && (sampled->cell->rawAttributes & kXeenAutomaticEventFlag)!=0) :

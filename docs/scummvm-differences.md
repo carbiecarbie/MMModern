@@ -30,26 +30,26 @@ mainland; many items apply there, others wait for areas not open yet.
 
 - **Holy Bonus adds weapon damage.** DOS applies it to melee and Shoot,
   before Adventurer's damage multiplier; the pin only displays it.
-  [Evidence](original-quirks.md#sv-holy-bonus-damage). Pin: differs; master not rechecked. Rule established; M76 implementation pending.
+  [Evidence](original-quirks.md#sv-holy-bonus-damage). Pin: differs; master not rechecked. Rule established; implemented in M76.
 - **Day-spell counters.** DOS copies current caster level's low byte into
   the Day spells' flags/counts, including Levitate; the pin uses true/1.
-  [Evidence](original-quirks.md#sv-day-spell-counters). Pin: differs; master not rechecked. Rule established; M76 implementation pending.
+  [Evidence](original-quirks.md#sv-day-spell-counters). Pin: differs; master not rechecked. Rule established; implemented in M76.
 - **Spell effect counter limits.** DOS stores the four combat buffs as bytes
   and Light as a wrapping word; the pin's live integers retain larger values.
   [Evidence](original-quirks.md#sv-spell-effect-widths). Pin: differs; master not rechecked. Extreme-value reachability in ordinary play unverified.
 - **Clairvoyance's right statue.** The DOS hint-0 cycle uses frames 8..11;
   the pin uses 9..12.
-  [Evidence](original-quirks.md#sv-clairvoyance-right-frames). Pin: differs; master not rechecked. Rule established; M76 implementation pending.
+  [Evidence](original-quirks.md#sv-clairvoyance-right-frames). Pin: differs; master not rechecked. Rule established; implemented in M76.
 - **Enchant's level and empty result.** DOS uses the caster's level and
   accepts a generated enchantment with no properties; the pin uses the
   initially selected recipient's level and adds an error for an empty result.
-  [Evidence](original-quirks.md#sv-enchant-caster-and-copy). Pin: differs; master not rechecked. Rule established; M76 implementation pending.
+  [Evidence](original-quirks.md#sv-enchant-caster-and-copy). Pin: differs; master not rechecked. Rule established; implemented in M76.
 - **Special weapon IDs in item spells.** DOS Enchant and Item to Gold
   exclude ID exactly 34; the pin also excludes every higher ID.
-  [Evidence](original-quirks.md#sv-item-spell-special-id). Pin: differs; master not rechecked. Rule established; M76 implementation pending.
+  [Evidence](original-quirks.md#sv-item-spell-special-id). Pin: differs; master not rechecked. Rule established; implemented in M76.
 - **Recharge on broken items.** DOS fills an eligible broken item to 63
   charges; the pin adds its normal 1..6 charges with the same cap.
-  [Evidence](original-quirks.md#sv-recharge-broken). Pin: differs; master not rechecked. Rule established; M76 implementation pending.
+  [Evidence](original-quirks.md#sv-recharge-broken). Pin: differs; master not rechecked. Rule established; implemented in M76.
 - **Town Portal items in combat.** DOS continues from the refusal notice
   into its normal town dialog and can load the selected town; the pin returns.
   [Evidence](original-quirks.md#sv-town-portal-item-combat). Pin: differs; master not rechecked. Static route settled; DOSBox presentation unobserved. MMModern retains the refusal until step 7 (M76 decision 6).

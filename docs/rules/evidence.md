@@ -460,7 +460,7 @@ therefore also applies to these new shared prompt/refund paths.
 ### Party effect bytes
 
 **DOS static, high confidence (2026-10-18); same as the pin's
-`Party::synchronize`.** The nine bytes keep this order in saves (v14).
+`Party::synchronize`.** The nine bytes keep this order in saves (v15).
 Calibration: Wizard Eye writes DS:`eda0` and clears DS:`ed9f` at
 `0x2f8df..0x2f8e4`; Event 69 tests DS:`ed9e` at `0x21a36`.
 Offsets below are file offsets in the installed CD `WORLD/XEEN.DAT`.
@@ -504,7 +504,7 @@ confidence and comparison boundaries for the requested questions.
 | 17 | `0x30081..0x3023b`. High: 7x7 position/count screen, counts capped 3, any key/mouse; empty still paid. Same as pin. |
 | 18 | `0x2f8f8..0x2faf3`. High: attack-slot guard, not combat-mode guard; up to three current monsters and five fields; no-target failure paid. Same as pin. |
 | 19 | `0x30b03..0x30b55`, `0x31c76..0x31dd7`; generator `0x25ca8`. High: caster-level draw before refusal, weapon/armor material/state copy, early prompt refund only. Differs from pin in level owner, ID-34 equality, empty-result handling and retained generator draw differences. |
-| 20 | `0x31bae..0x31c73`. High: eligible Misc, U(1,6), no break/destroy branch; cursed cap comparison fills to 63. Differs from pin on cursed records. |
+| 20 | `0x31bae..0x31c73`. High: eligible Misc, U(1,6), no break/destroy branch; broken cap comparison fills to 63 (cursed recharges normally). Differs from pin on broken records. |
 | 21 | `0x31ddd..0x31fad`, calculator `0x3c67d`, mode-11 arm `0x3cb1d`. High: full value, no extra confirmation, no equipped/broken/cursed refusal. Differs from pin's ID threshold and retained attribute-price formula. |
 | 22 | Etherealize `0x30996..0x30a0f`, Distortion `0x30301..0x30324`, Teleport `0x30348..0x3055e`, Beacon `0x2fef7..0x2ff61`, Portal `0x30779..0x307b8`; callers `0x0d5ba`, `0x314ce`, `0x2e8a5..0x2e8c0`, `0x2ea99..0x2ead1`. High for relocation/load/facing and immediate caller paths; same as pin except Portal item combat. Complete anomalous combat presentation and exact post-item automatic-Event timing remain Unknown, medium confidence; no DOS evidence label assigned to those details. |
 | 23 | `0x3099b..0x30a0a`, lookup `0x11d40..0x11f03`. High: forward whole-word non-0x8888, restriction 0x40, no traversed-wall test. Same as pin. |

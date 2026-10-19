@@ -10,6 +10,7 @@
 #include "formats/xeen/XeenCharacterFormat.h"
 #include "games/xeen/XeenJourneyCapture.h"
 #include "games/xeen/XeenMovement.h"
+#include "games/xeen/XeenJourneyContent.h"
 #include "games/xeen/XeenIndoorScene.h"
 #include "games/xeen/XeenTraining.h"
 
@@ -250,7 +251,7 @@ void XeenSaveState::restoreJourney(const XeenSaveSnapshot &source, const Resourc
 		if (w.map(c.mapId).geometry.isOutdoors() ? (c.x>15 || c.y>15) : !w.sampleCell(c.mapId,c.x,c.y))
 			throw std::invalid_argument("Saved camera outside its map");
 		if (c.mapId==policy.entry.mapId &&
-			!XeenMovement::component(w.map(policy.entry.mapId),9,11,{true,true,false})[c.y*16+c.x])
+			!XeenMovement::component(w.map(policy.entry.mapId),9,11,kXeenAdmittedAreaTraversal)[c.y*16+c.x])
 			throw std::invalid_argument("Regional camera outside mainland");
 	}
 	const auto *entryState=snapshot.find(policy.entry.mapId);

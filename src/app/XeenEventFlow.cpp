@@ -907,7 +907,9 @@ IndexedFrame XeenEventFlow::renderEncounter(bool report, bool cosmeticInput, boo
     const bool heads=drawPendingHeads(rendered);
                 if(!_whoWillRefusal.empty())rendered=drawXeenErrorScroll(rendered,_inventoryFont,_whoWillRefusal);
 				_inventoryUnderlay = rendered;
-				if (inventoryOpen()) rendered = drawCharacterDialog(rendered);
+				// Item travel keeps its inventory selection and leases, but the
+				// original closes the item windows before the spell handler runs.
+				if (inventoryOpen() && !_travelUi) rendered = drawCharacterDialog(rendered);
                 if(_travelUi)rendered=drawTravelDialog(rendered);
 				if (_smithUi) rendered=drawSmith(composed.frame);
 				if (_trainingUi) rendered=drawTraining(composed.frame);
