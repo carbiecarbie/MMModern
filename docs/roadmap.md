@@ -1,6 +1,6 @@
 # MMModern - Roadmap
 
-**M76 is the latest completed and accepted milestone.**
+**M77 is the latest completed and accepted milestone.**
 [Project status](project-status.md) describes what is playable now;
 [project history](project-history.md) records completed milestones. Reference
 provenance belongs to [dependencies](dependencies.md).
@@ -82,15 +82,10 @@ accepted).
    completed and accepted); [M76](milestone-76-plan.md) buffs,
    information, item and travel spells (Tier A, completed and accepted).
    All 76 Clouds spells work.
-7. **Combat Equip and Use, and the missing screens** (Tier B, medium,
-   [M77](milestone-77-plan.md)): Quests,
-   Awards and the others in the census checklist; Town Portal's combat item
-   path (DOS continues into its dialog; M76 keeps the refusal); and the
-   three skill indicators still drawn inactive: Danger Sense (border
-   `(107,9)`, monster nearby), Spot Secret Doors (`(194,91)`, secret
-   passage ahead) and Direction Sense (facing letter below the view). A DOS
-   check settles their conditions first; the pin animates Danger Sense with
-   the Spot Secret Doors frame counter.
+7. **Combat Equip and Use, and the missing screens**: completed and
+   accepted in [M77](milestone-77-plan.md) (combat items and Town Portal's
+   combat item path, Quests, Awards and the three skill indicators; save v15
+   unchanged).
 8. **Inn, recruiting and character creation** (Tier A, high): Tavern Sign In,
    Dismiss (moved from step 7: nothing brings a dismissed member back before the Inn),
    attribute rolls, the creation screens and changes to the saved party,

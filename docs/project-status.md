@@ -1,8 +1,12 @@
 # MMModern - Project Status
 
-This describes what can be played and done now. **M76 is the latest completed
-and accepted milestone** ([plan](milestone-76-plan.md)): the last 22 spells
-now work, so every one of the 76 Clouds spells does, from the party buffs
+This describes what can be played and done now. **M77 is the latest completed
+and accepted milestone** ([plan](milestone-77-plan.md)): the party manages
+and uses its items in combat, including Town Portal from an item, reads its
+quests and awards on the original Quests and Awards screens, and the Danger
+Sense, Spot Secret Doors and Direction Sense indicators work on the border;
+saves stay v15. M76 ([plan](milestone-76-plan.md)) made the last 22 spells
+work, so every one of the 76 Clouds spells does, from the party buffs
 Bless, Heroism, Holy Bonus and Power Shield to Walk on Water, Detect
 Monster, Enchant Item, Recharge Item and the travel spells Teleport,
 Lloyd's Beacon and Town Portal; ordinary Rest is refused where the original
@@ -133,7 +137,7 @@ the automated scenarios use it.
   Super Shelter sleeps eight hours without interruption, even where Rest is
   refused; Etherealize, Time Distortion and Teleport move the party on its
   map; each character keeps their own Lloyd's Beacon; Town Portal reaches
-  Vertigo. Destinations in maps not open yet refuse without any cost.
+  Vertigo, also from an item in combat, which ends the fight. Destinations in maps not open yet refuse without any cost.
   Wizard Eye shows the surroundings on the automap without
   marking them explored, until the next temporary-effect reset (Rest, dawn).
   Jump moves two cells forward; destinations on space, lava, sky, cloud or
@@ -318,8 +322,8 @@ time or combat.
 **Mouse.** On the main screen, left clicks work as in the original: the
 action and movement buttons, the combat buttons and targets 1-3, and the 3D
 view (Interact in exploration, Attack in combat). Buttons whose action is not
-implemented yet (Dismiss and View Quests) show "not supported yet"; the Map
-button opens the Map; the
+implemented yet (Dismiss) show "not supported yet"; View Quests opens the
+Quests screen and the Map button opens the Map; the
 lower corner buttons strafe and the gem opens the control panel; portraits
 open the original character sheet, whose Items dialog is also clickable.
 Buttons briefly show their original pressed frame. The right button does
@@ -337,11 +341,15 @@ The original mouse cursor is used.
 
 **Character sheet and items.** The original character sheet and Items dialog
 replace the project's inventory: stats with their popups, equip, remove,
-transfer and antidote use. In combat they open for viewing only; equipping
-and transferring say "not supported yet", and Use and Exchange give the
-original refusals. Outside combat, Exchange swaps two members and Quick
-Reference opens the party summary. Discard, Quest and Awards are not
-supported yet.
+transfer, discard and Use. In combat, equipping, removing, discarding and
+transferring cost no turn, and the combat Use button (U, the potion) uses a
+charged item, which ends the member's turn; Exchange and Use from the sheet
+give the original refusals. Outside combat, Exchange swaps two members and
+Quick Reference opens the party summary. Quests shows quest items, current
+quests and Auto Notes, and Awards lists the member's awards. Item lists show
+Cursed in yellow and Broken in red, as the original does. The border lights
+Danger Sense when a monster is within three cells, Spot Secret Doors in front
+of a thin indoor wall, and shows the facing letter with Direction Sense.
 
 In exploration and combat, keys pressed while the
 game is still busy (redraws, animations, enemy turns) are buffered and applied
@@ -461,14 +469,13 @@ instructions are in [dependencies](dependencies.md).
   original duration silently, and NPC faces move for as long as the CD speech
   would play.
 - **Services.** Tavern Sign In shows "not supported yet" until the Inn.
-- **Combat items.** Equipping during combat and the combat Use button are not
-  supported yet (the original allows both).
 - **Skills.** Only Cartography and the skills used by existing rules
   (Thievery, Navigator, Bodybuilder and others affecting HP/SP) have effects.
   Swimmer lets the party onto shallow water.
-  Arms Master, Direction Sense, Merchant, Mountaineer, Tracker, Spot
-  Secret Doors and Danger Sense can be learned from Events and are saved, but
-  their passive effects are not implemented yet.
+  Direction Sense, Spot Secret Doors and Danger Sense light their border
+  indicators. Arms Master, Merchant, Mountaineer and Tracker can be learned
+  from Events and are saved, but their passive effects are not implemented
+  yet.
 - **Events.** Clouds Event audio, town-service Events and the ending's
   ConfirmWord answers are not implemented; teleports to maps not open yet refuse.
 - **Darkside** gameplay is not supported.

@@ -376,3 +376,13 @@ settled every rule; later checks fixed the party effect byte layout and
 the Recharge bits. Ordinary Rest is refused on the cells where DOS refuses
 it, and each character's Lloyd's Beacon is saved (save v15).
 [Plan](milestone-76-plan.md).
+
+**M77 - Combat items, Quests, Awards and skill indicators** (`e63502b`
+plan, `3397294`, `2976c6e`, `672270b`, `c7c1828`, `0c89957`). A DOS check
+first settled every rule. The party equips, removes, discards, transfers and
+uses items in combat as in the original, and Town Portal from an item in
+combat loads the town and ends the fight. The Quests and Awards screens
+work, and the Danger Sense, Spot Secret Doors and Direction Sense indicators
+light on the border. Play-test fixes followed DOSBox screenshots: the Town
+Portal window, the combat Use click and the Cursed and Broken colors. Save
+v15 is unchanged. [Plan](milestone-77-plan.md).
