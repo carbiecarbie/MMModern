@@ -524,6 +524,9 @@ check does not establish a universal wall-clock frame rate.
 | Holy Bonus | `bless.icn`, active 8..11 at (160,137) |
 | Heroism | `bless.icn`, active 12..15 at (182,137) |
 | Levitate | `border.icn`, active 16..27 at (0,82); inactive frame 16; counter advances modulo 12 even while inactive |
+| Spot Secret Doors | `border.icn`, active 28..39 at (194,91); inactive frame 28; own counter `0x974e`, modulo 12, advances even while inactive (`0x1ba1e..0x1ba63`) |
+| Danger Sense | `border.icn`, active 40..51 at (107,9); inactive frame 40; own counter `0x974f`, modulo 12, advances even while inactive (`0x1ba67..0x1baab`) |
+| Direction Sense | The facing letter N/E/S/W, font color 8, centered at column 116, row 139 of window 0 (`0x1bdb8..0x1bdfd`, format `0x52a8a`); no animation |
 | Fire/Electrical/Cold/Poison | `fecp.brd`, inactive/active pairs 0/1, 2/3, 4/5, 6/7 at (2,2), (219,2), (2,134), (219,134); alternate window layout uses 8/9, 10/11, 12/13, 14/15 at (8,8), (219,8), (8,134), (219,134) |
 
 **Reference only** for character-sheet presentation: the Good condition row
@@ -532,6 +535,43 @@ Bonus and Heroism, in that order. The condition expansion lists their names
 and signed amounts after the character conditions, even for an ill member.
 `XeenDialogView` reads the party context for these lines and the sheet AC;
 this presentation has not received an additional DOS confirmation.
+
+**Skill indicators (DOS static, 2026-10-18, high confidence;
+[M77 evidence](evidence.md#m77-combat-items-quests-awards-and-skill-indicators)).**
+Each of the three indicators needs its party skill through the shared skill
+check (`0x215b9`): one active member with Spot Secret Doors (16), Danger
+Sense (17) or Direction Sense (6) suffices; only Crusader and Swimming need
+the whole party and Mountaineer and Pathfinder two members (`0x2160a`).
+Beyond the skill:
+
+- **Danger Sense** lights while the monster-movement flag `0x974c` is set.
+  The movement routine (`0x1fdc1`) clears it, then sets it for any monster
+  whose position equals one of the 49 cells within three steps of the party
+  on both axes (`0x1fe49`, `0x1fefb`), before the attacking, asleep or
+  line-of-sight tests, so sleeping and unaware monsters count and walls do
+  not matter. It is evaluated only when that routine runs: after each step
+  and turn in exploration, at each combat round start and after an item Use
+  in combat; it keeps its value in between, and keeps it when the routine
+  returns early because monster movement is disabled or shots are in flight
+  (`0x1fdc7..0x1fde4`).
+- **Spot Secret Doors** lights while the thin-wall flag `0xf496` is set. The
+  indoor scene setup (`0x12094`, the pin's `setMazeBits`) sets it when the
+  cell ahead exists (its wall word is not `0x8888`) and the party's own cell
+  carries wall value 5 or 8 on its facing side (`0x12303..0x1231e`, the
+  pin's `_wo[27]` for cell index 2). The test looks one wall ahead only. The
+  outdoor setup never writes the flag, so outdoors it keeps its last indoor
+  value in DOS and in the pin alike; not observed in DOSBox play.
+- **Direction Sense** writes the letter whenever the skill is present and no
+  text or number prompt is open: the prompt routines set `0x8c52` on entry
+  and clear it on return (`0x1e015`, `0x1e19f`, `0x1e16c`, `0x1e26c`).
+
+All three are assembled with the border on every scene redraw, in
+exploration and combat. The two animated indicators use separate counters
+that advance together once per assembly and are zeroed together with the
+Levitate counter at `0x1c402..0x1c410` and `0x1d4c4..0x1d4d2`, so they stay
+in phase; the pin draws Danger Sense from the Spot Secret Doors counter after
+incrementing it, one frame ahead
+([quirk](../original-quirks.md#sv-danger-sense-frame)).
 
 The four buff counters advance modulo 4 while active; elemental indicators
 are static presence tests. Clairvoyance reads each cell's two HED hint bytes

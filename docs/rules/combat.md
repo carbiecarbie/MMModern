@@ -511,6 +511,18 @@ its existing bytes without replaying RNG or time. Same as the pin
 The maintainer's DOSBox check is pending. Offsets and calibration are in
 [original quirks](../original-quirks.md#original-findings-and-current-discrepancies).
 
+### Items and Use in combat
+
+**DOS static (2026-10-18), high confidence.** The main-screen Use button and
+the character sheet's Items button open the same Items dialog on the acting
+member or the chosen combat-party member. Equip, Remove, Discard, transfer
+and Quest never spend the turn or pass time; only a successful Use does,
+through the ordinary item-use path (charge spent, monster response, turn
+cursor cleared, next actor). Use is refused from the character sheet in
+combat, and the main-screen Use dialog ignores F1-F6. The rules, refusals and
+offsets are in [the Items dialog in combat](items.md#the-items-dialog-in-combat);
+the Town Portal item route's end-of-combat timing is an open question there.
+
 ## Monster movement terrain
 
 **DOS static, high confidence** (M68 Part B, 2026-10-15). `canMonsterMove` is

@@ -46,14 +46,37 @@ already saved).
       `docs/original-quirks.md` (and `docs/scummvm-differences.md`) and in
       the matching `docs/rules/` chapter; unsettled cases go to the
       maintainer before Part A. If a page needs state the save lacks, stop.
+      *Part 0 findings (2026-10-18, [rules](rules/items.md#the-items-dialog-in-combat),
+      [evidence](rules/evidence.md#m77-combat-items-quests-awards-and-skill-indicators)):
+      the DOS rules match the pin except Discard's Xeen Slayer refusal, the
+      Quests/Awards scroll keys and Danger Sense's frame phase; every source
+      is already saved; one open question (below).*
 - [ ] **Part A - combat items.** The Items dialog and the Use button in
       combat on the existing inventory and casting owners; Town Portal's
-      combat item path.
+      combat item path. Part 0 adds: Equip, Remove, Discard, transfer and
+      Quest are free actions in combat and only a successful Use ends the
+      turn; the main-screen Use dialog ignores F1-F6 while the sheet's
+      Items dialog transfers within the combat party; Use from the sheet in
+      combat shows the original refusal; Discard also refuses the Xeen
+      Slayer Sword ([quirk](original-quirks.md#sv-discard-xeen-slayer)).
+      The combat state after Town Portal's arrival follows the maintainer's
+      answer to the open question.
 - [ ] **Part B - Quests and Awards.** Both screens with the original
-      presentation, mouse and keyboard.
+      presentation, mouse and keyboard. Part 0 adds: Up/Down arrows and
+      keypad 8/2, Home, End, Page Up and Page Down scroll; no U/D letters
+      ([quirk](original-quirks.md#sv-quest-award-scroll-keys)); Awards has
+      no member selection of its own; `qnotes.bin` and `award.bin` come from
+      the Darkside archive ([rules](rules/world-events.md#quests-and-awards-screens)).
 - [ ] **Part C - skill indicators.** The three indicators on the border from
       the party's skills, live monsters and map data, in exploration and
-      combat as Part 0 establishes.
+      combat as Part 0 establishes: Danger Sense from the monster-movement
+      pass (any monster within three cells on both axes, whatever its
+      state), Spot Secret Doors from the indoor scene setup (facing wall
+      value 5 or 8 of the party's cell, one cell ahead), Direction Sense
+      hidden while a text prompt is open; separate 12-frame counters in
+      phase ([rules](rules/magic.md#border-and-information-screens),
+      [quirk](original-quirks.md#sv-danger-sense-frame)). No DOSBox check is
+      needed for the secret-passage test.
 - [ ] Developer test save `combat-items` (as `party-healing`): mainland near
       monsters, weapons and armor to swap, charged items including Town
       Portal, quest items, a few awards and quest flags, members with Danger
@@ -82,8 +105,20 @@ already saved).
 
 - If combat item actions need turn-scheduling changes beyond the existing
   combat owner, stop and report before widening (lesson from M75).
-- Spot Secret Doors needs a reliable secret-passage test on the map data; if
-  Part 0 cannot settle it statically, it goes to the maintainer, possibly
-  for a DOSBox check.
+- Spot Secret Doors' secret-passage test is settled statically (Part 0);
+  the indicator keeps its last indoor value outdoors in DOS and the pin,
+  which only a DOSBox observation could contradict.
 - If Part 0 shows the scope is larger than medium, the maintainer decides
   whether M77 splits (for example, indicators into their own milestone).
+  Part 0 found no reason to split.
+
+## Maintainer decision (Part 0, 2026-10-19)
+
+**Town Portal from an item in combat.** DOS continues into the town dialog,
+loads the town and finishes the Use like any other (charge spent, turn
+ended, dialog closed). Combat then ends when the combat loop finds no
+attackers, which the scene setup decides after the load; whether one more
+combat turn is shown in town cannot be settled statically. Decision: Part A
+ends combat at the first attacker re-evaluation after the town load, with
+the ordinary end-of-combat minute; no DOSBox check first. See
+[the evidence](rules/evidence.md#open-questions-from-this-check).

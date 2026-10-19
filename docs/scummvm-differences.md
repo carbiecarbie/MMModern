@@ -172,6 +172,10 @@ mainland; many items apply there, others wait for areas not open yet.
 - **Broken and cursed weapon names** show only the prefix and base type in the
   original (Identify still shows the real properties); ScummVM keeps the
   suffix. [Evidence](original-quirks.md#sv-broken-weapon-names). Master: differs.
+- **Discarding the Xeen Slayer Sword.** The original refuses to discard it
+  with its own message; ScummVM lets it go. Rule established in M77 Part 0;
+  to be implemented in M77.
+  [Evidence](original-quirks.md#sv-discard-xeen-slayer). Pin: differs; master not rechecked.
 
 ## Magic
 
@@ -235,6 +239,15 @@ Most of the scripts concerned are in areas MMModern has not opened yet.
   [Evidence](original-quirks.md#sv-control-panel). Master: differs.
 - **Combat health colors** change at a quarter of maximum HP in the original,
   at half in ScummVM. [Evidence](original-quirks.md#sv-combat-name-colors). Master: differs.
+- **Danger Sense animation** runs in phase with the Spot Secret Doors
+  indicator in the original; ScummVM draws it one frame ahead. Rule
+  established in M77 Part 0; to be implemented in M77.
+  [Evidence](original-quirks.md#sv-danger-sense-frame). Pin: differs; master not rechecked.
+- **Quests and Awards scrolling** uses the Up and Down arrows (and keypad 8
+  and 2) and the on-screen buttons in the original; ScummVM also accepts U
+  and D in Quests and only U and D in Awards. Rule established in M77 Part 0;
+  to be implemented in M77.
+  [Evidence](original-quirks.md#sv-quest-award-scroll-keys). Pin: differs; master not rechecked.
 - **Choosing a member who cannot act** brings a refusal and a new choice in the
   original; ScummVM waits silently.
   [Evidence](original-quirks.md#sv-whowill-refusal). Master: differs.

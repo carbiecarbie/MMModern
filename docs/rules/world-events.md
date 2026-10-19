@@ -415,3 +415,52 @@ Travel/input need no new durable fields: save v13/schema 9/content 14 remains.
 Prompt text, mirror selection, call frames and pending rewards are transient;
 saving is unavailable while those owners are active. Quiet capture and restore
 do not replay an Event, reward, elapsed time or draw.
+
+## Quests and Awards screens
+
+**Evidence: DOS static (2026-10-18), high confidence**; offsets and
+calibration are in
+[M77 evidence](evidence.md#m77-combat-items-quests-awards-and-skill-indicators).
+The pinned reference agrees unless a difference is stated.
+
+**Quests** (`0x3390f..0x3402c`) opens from the main screen's Quests button
+(`0x0d4d8`) and from the Items dialog's Quest button (`0x3b40a`), including
+in combat. It loads `quest.icn` and the note texts `qnotes.bin` from the
+Darkside archive (file set 1) on every open, saves the mode byte and restores
+it at exit. Six buttons at y 109, 24x20: Items (12), Quests (80), Auto Notes
+(148), Up (216), Down (250), Exit (284), with keys I, Q, A, Up, Down, Escape.
+Each page shows nine lines (three for Current Quests) from a top row that the
+page buttons reset to 0:
+
+| Page | Source | Lines |
+| --- | --- | --- |
+| Quest Items (first page) | 85 party quest-item counters, Clouds 0-34 then Darkside 35-84 (DS `0xf077`) | A "Clouds of Xeen" title line before the first Clouds entry and a "Darkside of Xeen" line before the first Darkside entry; items 17, 26 and 79-84 show "N name" with an `s` when N exceeds 1 (`0x34056`); unused lines are "\b \b*" so each row keeps its bullet; no items: "No Quest Items" alone |
+| Current Quests | Quest flags 1-56 of the 60-bit party array (DS `0xf06f`), Clouds 1-29, Darkside 30-56 | Note text `flag - 1`; title lines as above; no flags: an empty line, then "No Current Quests" |
+| Auto Notes | World flags 1-128 of the 128-bit party array (DS `0xf05f`), Clouds 1-72, Darkside 73-128 | Note text `flag - 1 + 56` (the World edition's offset); title lines as above; no flags: an empty line, then "No Auto Notes" |
+
+Scrolling: Up and Down move one row, Page Up and Page Down three, Home to the
+first row, End to the last; the top row stays within `0..count-1`. The DOS
+key table (`0x3402e`) has no U or D letters; the pin accepts them in
+addition ([quirk](../original-quirks.md#sv-quest-award-scroll-keys)). F1-F6
+and other keys are ignored. Nothing passes time. Flag 128 of the Auto Notes
+loop reads the bit after the world array, which is quest flag 0; no Clouds
+script sets that flag.
+
+**Awards** (`0x36c41..0x37072`) opens from the character sheet's Awards
+button for the displayed member (`0x384b0..0x384b6`); it has no member
+selection of its own and ignores F1-F6. It loads `award.icn` and the award
+texts `award.bin` from the Darkside archive. Three buttons at y 109, 24x20:
+Up (216), Down (250), Exit (284), with keys Up, Down and Escape (`0x4f6f2`);
+the pin scrolls with U and D instead ([quirk](../original-quirks.md#sv-quest-award-scroll-keys)).
+Awards 0-87 are tested through the shared award lookup (`0x3ba44`, the
+nibble layout [above](#script-values-conditions-writes-and-random-draws));
+each held award adds one line: award 9 formats its text with the full count
+byte (Warzone wins), award 17 with the member's race name, the rest their
+plain text. With no awards the second line reads "No Awards". The header is
+"Awards for %s the %s" with name and class; nine lines show from the top
+index, Up moves up one, Down moves down one while nine lines still fit.
+
+All four sources are already in save v15: the 35 Clouds quest counters, the
+30 Clouds quest flags, the 128 world flags and each character's 128 award
+nibbles with the full Warzone byte. The Darkside counters and flags are only
+written by Darkside scripts and read as zero here.

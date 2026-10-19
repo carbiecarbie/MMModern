@@ -534,6 +534,85 @@ calibration and limits. See [M76 quirks](../original-quirks.md#m76-spell-finding
 for newly settled pin differences. None of this changes milestone scope,
 production behavior or the save format by itself.
 
+## M77 combat items, Quests, Awards and skill indicators
+
+**DOS static, high confidence (2026-10-18)** where stated below; this is a
+read-only analysis, not DOSBox execution. MMModern baseline: `main`
+`e63502b`. Installed CD `WORLD/XEEN.DAT`, 353,511 bytes, SHA-256 as in
+[Exact baseline](#exact-baseline). Pin verified locally:
+`6814ee9ba54582f5b5adcffab49efbbd8f589edd`. Capstone 5.0.7, 16-bit x86,
+through WSL; the instruction slices, tables and helper script remain in
+`D:/MModern-re/m77-part0/` (`x.py`, `items.asm`, `itemaction.asm`,
+`quests.asm`, `quests-tail.asm`, `awards.asm`, `awards2.asm`,
+`danger.asm`, `thinwall.asm`, `checkskill.asm`). REA's Windows Ghidra
+provider refused the DOS MZ image, as in M76.
+
+**Calibration passed.** The Items dialog entry `0x3a652` is the routine M76
+already identified through its mode arguments 6/4/11 (`0x3a7ae..0x3a874`
+selects the Enchant/Recharge/Gold button sets). The item-use caller
+`0x313ce..0x314dd` is M76's established path and again dispatches through
+`0x39e4b`. The border assembler `0x1b9c6..0x1be1b` and the skill check
+`0x215b9` reproduce the already settled Levitate and buff indicators. Segment
+bases: Items/sheet `0x39ca0`, item actions/spells `0x31010`, Quests/Awards
+`0x33900`, scene `0x10380`, combat/party `0x1d7f0`; mapping
+`file = 0x56c0 + seg*16 + off`. The key translation table at `0x456e8`
+(scan code to key byte) supplied Escape `0x1b` and F1 `0xc9` as known
+anchors; it maps Up and keypad 8 to `0xf2`, Down and keypad 2 to `0xf3`,
+Home `0xdc`, End `0xdd`, Page Up `0xde`, Page Down `0xdf`.
+
+### Combat items
+
+| Question | Anchors; verdict |
+| --- | --- |
+| Use button | Combat key handler `0x2e8e3..0x2e91b`: saves the acting index (`0x97ff`), opens Items mode 7 for the combat-party member (`0x9720` table, roster stride `0x162`), re-highlights when the index is unchanged (`0x2e9ff`), otherwise restores it and advances (`0x2dcf3`); common end-of-action tests `0x2ea0f`, `0x2ea99`. Same as pin. |
+| Dialog modes | `0x3a669..0x3a695`: modes 7 and 4 start on Misc; mode 7 sets the "combat Use" local and becomes mode 0. Key table `0x3b921` (keys) / `0x3b95d` (handlers): Esc, 1-9, A B C D E F G I M Q R S U W, F1-F6. Same as pin. |
+| Equip/Remove/Use/Discard/Quest keys | `0x3b34d` (E: modes 0/6/11, not Misc), `0x3b37c` (R: modes 0/4), `0x3b3a9` (U: mode 0, Misc), `0x3b3c0` (D: mode 0), `0x3b401` (Q: mode 0, calls `0x3390f`). Action call `0x3b3cc..0x3b3dc` to `0x311ae`; result 1 returns a null member (`0x3b3f4`), 2 closes (`0x3b8aa`). No combat-specific restriction. Same as pin. |
+| F1-F6 | `0x3b4b1..0x3b5c7`: refused in the combat Use dialog, modes 3/4/6/11 and on map 0; count from `0x971f` with `0x9720` when the mode byte is 2, else `0xed8c`; transfer `0x3b5ca..0x3b89e` tests the source cursed bit `0x40` (`0x80bb` text) and the destination's slot 8 (`0x80de`, `0x8107`, `0x812e` and the Misc text), copies the record, clears the source, zeroes the destination frame and compacts both (`0x38ae8`). Same as pin. |
+| Item action routine | `0x311ae`: empty category returns (`0x311c8..0x3120c`); selection prompt window 13 (`0x3121d..0x3136a`); mode table `0x32006`, action table `0x31ffe`: Equip `0x37b83`, Remove `0x31119`, Use `0x313b7`, Discard `0x31018`. Same as pin except Discard's weapon test below. |
+| Use path | Map 0 `0x313b7..0x313cb` (text DS `0x6b61`); condition table `0x31fee` refuses 8, 11-15 through `0x313ef` (DS `0x18ca` pointer), admits 9 and 10; sheet-in-combat flag `0x97c6` at `0x31411..0x3141e` (text DS `0x6b97`); power/charge/state tests `0x31420..0x3144c` (text DS `0x6bda`); charge `0x3145c`; caster `0x3146d`; windows 30, 29, 24 closed `0x31474..0x3148b`; dispatch `0x3149e`; exhausted item `0x314aa..0x314c6`; `0x314c9` shooting clear, `0x314ce` monster response, `0x314d3` turn cursor `0xff`, return 1. Flag `0x97c6` set at `0x3a468..0x3a476` with the sheet, cleared `0x3a59b`. Same as pin. |
+| Discard | `0x31018..0x31110`: cursed `0x31034..0x31054` (DS `0x6a62`); weapon ID exactly 34 `0x31061..0x3106f` (DS `0x6a86`, fixed text); confirmation DS `0x6acf` through `0x1ea3a`; Yes clears and compacts, No returns 0. Differs from pin, which has no weapon test and returns true on No. |
+| Remove | `0x31119..0x311ad`: cursed per category (DS `0x6af3`), else frame 0; Misc does nothing. Same as pin. |
+| Town Portal item in combat | Dispatch branch `0x3a058..0x3a075` and handler `0x30654..0x30819` as in M76; the handler saves and restores the mode byte around its dialog (`0x30672..0x3067a`, `0x30762`), sets `0x96e1` at `0x30782`, loads the map (`0xf542`) and the run or town position (`0x307b3`, `0x307c9..`). The Items dialog exit reads `0x96e1` at `0x3b8d9` only to skip freeing its icon resource. Attack slots `0x98b4..0x98b6` are cleared and rebuilt by the scene setup (`0x14413` indoors, `0x16939` outdoors), not by the load; the combat loop ends when they are all `0xff` (`0x2ea99..0x2eaf0`, one minute charged at `0x2eaae`). **Medium confidence / Unknown:** whether a redraw rebuilds the slots before the next member's turn is shown depends on the idle input loop, which this check did not trace. |
+
+### Quests and Awards
+
+| Question | Anchors; verdict |
+| --- | --- |
+| Quests entry and resources | `0x3390f..0x339d3`: `quest.icn` (DS `0x6f95`), `qnotes.bin` (DS `0x6f9f`) loaded with file set 1 (`0x3398e..0x339aa`), mode byte saved `0x33968` and restored `0x34023`, button table DS `0x1e36` (file `0x4f6c6`: x 12/80/148/216/250/284, y 109, 24x20, keys I Q A `0xf2` `0xf3` Esc), header DS `0x6faa`. Callers `0x0d4d8` (main screen) and `0x3b40a` (Items). Same as pin. |
+| Quest Items page | `0x33a4f..0x33c4a`: 85 counters at DS `0xf077`; title lines DS `0x6f57`/`0x6f75` at index < 35 / >= 35; multi-count set table `0x34056` = 17, 26, 79-84 with "%d %s%c" (DS `0x7003`, `s` when > 1); empty lines DS `0x6f52` (backspace, space, backspace, star); none: DS `0x700b`; format DS `0x703a`. Same as pin. |
+| Current Quests page | `0x33c4d..0x33d89`: bit test helper `0x24f07` on DS `0xf06f`, flags 1-56, titles at < 29 / >= 29, note index flag-1; none: second line DS `0x70ba`; format DS `0x70d8`. Same as pin. |
+| Auto Notes page | `0x33d8c..0x33f3c`: DS `0xf05f`, flags 1-128, titles at < 72 / >= 72, note index flag-1+56; none: second line DS `0x7103`. Same as the pin's World branch (offset 56). Flag 128 reads the bit following the array (quest flag 0); unreachable in Clouds. |
+| Quests keys | Table `0x3402e` / handlers `0x34042`: Esc `0x33fdc`; I/Q/A select the page and reset the top row (`0x33f8c..0x33fa5`); Up `0x33fa7`, Down `0x33fb5`, Page Up `0x33fc5` (-3), Page Down `0x33fcb` (+3), Home `0x33fd1`, End `0x33fd3`, clamped to `0..count-1`. Differs from pin, which also accepts U and D. |
+| Awards entry and resources | `0x36c41..0x36d0e`: `award.icn` (DS `0x7692`), `award.bin` (DS `0x769c`) with file set 1; button table DS `0x1e62` (file `0x4f6f2`: x 216/250/284, y 109, 24x20, keys `0xf2` `0xf3` Esc); header DS `0x76a6`; caller `0x384b0..0x384b6` passes the sheet's member. Same as pin for layout; no member selection in either. |
+| Awards list | `0x36d83..0x36ed3` over awards 0-87 through `0x3ba44` (73 to 62, 81 to 63, else modulo 64; low nibble below 64, high nibble above); award 9 formats text 9 with the count byte `0x36db2..0x36e1e`; award 17 formats text 17 with the race name `0x36e21..0x36e90`; none: second line DS `0x76cf`; header DS `0x76db` with name and class, nine lines `0x36ee7..0x36fbb`. Same as pin. |
+| Awards keys | `0x36fdd..0x37019`: Esc; `0xf2` up by one, floor 0; `0xf3` down by one while nine lines fit. Differs from pin, which uses U and D and does not react to the arrows. |
+
+### Skill indicators
+
+| Question | Anchors; verdict |
+| --- | --- |
+| Skill check | `0x215b9..0x21609`, table `0x2160a`: active members in roster order up to `0xed8c`; one member suffices for skills other than 5 and 14 (whole party) and 9 and 11 (two). Same as pin. |
+| Danger Sense | Border `0x1ba67..0x1baab`: `0x974c` and skill 17, frames 40 + own counter `0x974f` at (107,9), counter modulo 12 every call. Source `0x1fdc1`: early returns `0x1fdc7..0x1fde4`, clear `0x1fe49`, set `0x1fefb` for a position match in the 7x7 window (`0x1fea9..0x2015c`) before the attacking/asleep tests. Same condition as pin; the pin's frame comes from the Spot Doors counter after its increment, one frame ahead. |
+| Spot Secret Doors | Border `0x1ba1e..0x1ba63`: `0xf496` and skill 16, frames 28 + counter `0x974e` at (194,91). Source `0x12303..0x1231e` in the indoor scene setup `0x12094` (called from `0x1129c`): wall word `0xf48e` not `0x8888` and `0xf4c6` nonzero, the latter counted for facing wall values 5 and 8 of the party's cell (pin `interface_scene.cpp:923-925`, cell index 2 at offset (0,0) with shift 12). No outdoor writer. Same as pin. |
+| Direction Sense | Border `0x1bdb8..0x1bdfd`: skill 6 and `0x8c52` zero; letter from the direction name table DS `0x17a2` by `0xed96`; format DS `0x51fa` (file `0x52a8a`) into window 0. `0x8c52` set `0x1e015`, `0x1e19f`; cleared `0x1e16c`, `0x1e26c`. Same as pin. |
+| Counter resets | `0x1c402..0x1c410` and `0x1d4c4..0x1d4d2` zero the Levitate, Spot Doors and Danger counters together with the statue frames. The pin resets its Spot Doors counter alone in `locations.cpp`; no visible difference, since it draws both indicators from that counter. |
+
+### Open questions from this check
+
+1. **Town Portal item in combat, arrival state.** DOS continues into the town
+   dialog, loads the town and finishes the Use as above; the combat loop then
+   runs until its attack-slot test finds no attackers, which happens once the
+   scene setup rebuilds the slots. Whether the player sees one more combat
+   turn in town is not settled statically. **Maintainer decision
+   (2026-10-19):** MMModern ends combat at the first attacker re-evaluation
+   after the load, with the ordinary end-of-combat minute; no DOSBox check
+   first. The static label stays medium confidence / Unknown.
+2. **Spot Secret Doors outdoors** keeps its last indoor value in DOS and the
+   pin (no outdoor writer). Static only; a DOSBox observation would settle it.
+
+None of this changes milestone scope, production behavior or the save format
+by itself.
+
 ## Monster treasure staging
 
 **DOS static, high confidence:** the original retains generated Misc monster
@@ -677,7 +756,7 @@ replacements for the control-flow interpretation above.
 | Items | Trace the remaining unexamined item-prompt refunds and high-tier generation cases; M76 settles Recharge, Enchant and Item to Gold above. |
 | Treasure | Extend delivery evidence to the special sword and other editions' quest branches; the Clouds quest display/count boundary is established above. |
 | Magic | Extend control-spell duration and high-tier overflow checks. Holy Bonus is settled by [M76](#m76-spells); Poison Volley and Resurrection retain their earlier evidence. |
-| Travel | Calibrate complete DOSBox presentation of Town Portal's anomalous combat item route and exact post-item automatic-Event timing. M76 settles handler relocation/load/admission; terrain keeps its earlier evidence. |
+| Travel | Calibrate the combat state after Town Portal's combat item route ([M77 open question](#open-questions-from-this-check)) and exact post-item automatic-Event timing. M76 settles handler relocation/load/admission; M77 settles the Use path and the slot test; terrain keeps its earlier evidence. |
 | Time | Verify remaining script-mode dawn behavior and uncalibrated condition-byte edges. Current MMModern wrapping/saturation is not literal equivalence with the pin's live integer counters; see the time chapter. |
 | Broader coverage | Event opcode catalogue, all services, AI/movement, character creation, Darkside/World transitions, audio and frame-level UI timing still need dedicated chapters and calibration. |
 

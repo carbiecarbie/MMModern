@@ -32,7 +32,7 @@ for players in [ScummVM differences](scummvm-differences.md).
 | Bash treats a real forward cell whose whole wall word is `0x8888` as `INVALID_CELL`: HP damage and the pause remain, but there is no Might roll or wall opening. | Maintainer DOSBox CD play, 2026-10-15: Vertigo `(8,4)` West, wall 12, refuses even with Might above 100. Calibrated read-only `WORLD/XEEN.DAT` analysis: lookup/compare `0x32e4f..0x32e5c`, whole-word return `0x11edb..0x11ee4`; the forward cell `(7,4)` is `0x8888`. [Bash rules](rules/time-and-conditions.md#bash). | `XeenBarrierCandidate`; `XeenBarrierTests.cpp`, `XeenBarrierOriginalTests.cpp` | Pinned `Interface::bash`/`Map::mazeLookup` already preserve this collision; MMModern had reduced it to a cell-existence check. This is not a restriction on wall type. DOS also zero-extends the two difficulty bytes (`0x32ee9..0x32ef3`), unlike the pin's signed metadata; MMModern uses unsigned values at the Bash comparison. |
 | The World CD Clouds map-120 MOB contains an entity table index outside the 16-slot format. | Original-data census, 2026-10-14: the existing `XeenMapFormat::parseMob` rejects the member at offset 52. Pinned ScummVM `6814ee9ba54582f5b5adcffab49efbbd8f589edd`, `engines/mm/xeen/map.cpp` around line 819, explicitly skips invalid World map-120 monster data when loading surrounding maps. Not checked in DOS play. | `XeenMapFormat`, `tools/XeenCoverageMain.cpp`, generated `coverage.md` | Keep the strict decoder. The census marks this resource unclassified rather than repairing bytes or treating absent decoded encounters as supported. |
 | Item Use spends its charge before the effect, including Escape at an admitted target prompt and supported failures; an exhausted item disappears. It adds no time and gives monsters one normal response. | Pinned `dialogs_items.cpp` Use decrement-before-`castItemSpell`, revision `6814ee9ba54582f5b5adcffab49efbbd8f589edd`, and the established antidote cancellation witness (`XeenRegionalActionOriginal.cpp`). Maintainer DOSBox CD play, 2026-10-12, confirms no time, failed Jump spending and last-charge removal. | M61 Part B, `XeenJourneyFlow.cpp`, `XeenJourneyConsequences.cpp`, shared M60 effect rules | Unsupported powers and Jump terrain retain the approved pre-admission refusal. |
-| Sell and Discard refuse cursed items; Sell also refuses weapons at or above the Xeen Slayer Sword ID. | Pinned `dialogs_items.cpp::doItemOptions` and `item.cpp::discardItem`, revision `6814ee9ba54582f5b5adcffab49efbbd8f589edd`. Cursed items were not reachable for the maintainer's 2026-10-12 DOSBox check; follows ScummVM provisionally, not confirmed in DOS. | M61 Part A, `xeenQuoteItemService`, `xeenDiscardItems`, `XeenCharacterDialogFlow.cpp` | Refuse before money or inventory changes. |
+| Sell and Discard refuse cursed items; Sell also refuses weapons at or above the Xeen Slayer Sword ID. | Pinned `dialogs_items.cpp::doItemOptions` and `item.cpp::discardItem`, revision `6814ee9ba54582f5b5adcffab49efbbd8f589edd`. Cursed items were not reachable for the maintainer's 2026-10-12 DOSBox check. Discard's cursed refusal is DOS static since 2026-10-18 (`0x31034..0x31054`), and DOS Discard also refuses weapon ID exactly 34 ([M77 finding](#sv-discard-xeen-slayer)); Sell still follows ScummVM provisionally. | M61 Part A, `xeenQuoteItemService`, `xeenDiscardItems`, `XeenCharacterDialogFlow.cpp` | Refuse before money or inventory changes. |
 | Broken items retain their full Identify details and normal Sell price. Identify has no durable known flag; Fix only clears the broken bit. | Maintainer DOSBox CD play, 2026-10-12: broken cudgel retained its electrical damage in Identify; broken equipment could be sold or repaired. Pinned `dialogs_items.cpp` confirms no identified-state write. | M61 Part A, shared item service rules and Identify view | Keep curse, counters, charges, material and frame bytes intact. |
 | A valid Guild class book can buy spells even with zero maximum SP. Its list hides the row numbers but retains selectable offers; New instead shows the noncaster message with no learned rows. | Pinned `dialogs_spells.cpp::SpellsDialog::setSpellText/execute`, revision `6814ee9ba54582f5b5adcffab49efbbd8f589edd`: Guild builds offers before the maximum-SP check; New checks first. Ordinary DOS comparison pending. | M60 Part A, `XeenLearnedSpellRules::rows`, `drawXeenSpellList`, `XeenSmithFlow.cpp` | Do not add a maximum-SP purchase restriction. |
 | AlterHed aliases indoor megamap coordinates through one primary-map head table indexed by `(x % 16, y % 16)`. | Pinned `scripts.cpp::cmdAlterHed` and `map.cpp::Map::load`, revision `6814ee9ba54582f5b5adcffab49efbbd8f589edd`; ordinary DOS comparison pending. | M59, `XeenWorld::alterHeads/reloadHeads`, `XeenHeadState.h` | Unlike exploration, head indicators are not keyed by neighboring physical tile. Reload the original HED on an ordinary map load. |
@@ -239,8 +239,16 @@ finding ledger are in [M76 evidence](rules/evidence.md#m76-spells).
   map restriction clear, a selection can load the town even in combat.
   Cancellation does not refund the charge. **ScummVM:** differs; it returns
   after the notice. Static reachability is settled; the anomalous route's
-  complete DOSBox presentation remains unobserved. MMModern keeps the combat
-  item refusal until step 7 and its DOSBox presentation check (M76 decision 6).
+  complete DOSBox presentation remains unobserved. **M77 Part 0** traced the
+  rest of the route: the handler restores the saved combat mode after its
+  dialog (`0x30762`), the item routine finishes as any Use (monster response,
+  turn cursor cleared, `0x314c9..0x314dd`), the Items dialog closes, and the
+  combat loop ends once its attack-slot test finds no attackers
+  (`0x2ea99..0x2eaf0`), which the scene setup decides after the load
+  ([evidence](rules/evidence.md#open-questions-from-this-check)). Maintainer
+  decision, 2026-10-19: M77 Part A ends combat at the first attacker
+  re-evaluation after the load; the exact DOS presentation in between stays
+  unobserved. MMModern keeps the combat item refusal until then.
 - <a id="sv-rest-cell-flag"></a> **DOS ordinary Rest honors cell bit 0x40.**
   Lookup stores attribute `&0x40` in DS:`f488` (`0x11fe7..0x11fec`), and
   Rest checks it before the primary map flag (`0x1e50d..0x1e521`). Mode 12
@@ -296,6 +304,52 @@ listed boundaries:
   recorded with offsets. [Travel](rules/magic.md#travel-handlers-and-callers).
   Exact post-item automatic-Event timing remains Unknown; the normal learned
   terrain suffix retains the earlier Jump evidence.
+
+### M77 combat items, Quests, Awards and skill indicator findings
+
+Calibrated **DOS static** findings of 2026-10-18 (M77 Part 0, read-only
+Capstone analysis of the installed `WORLD/XEEN.DAT`; anchors in
+[M77 evidence](rules/evidence.md#m77-combat-items-quests-awards-and-skill-indicators)).
+They settle rules for M77 Parts A-C; none is implemented yet.
+
+- <a id="sv-discard-xeen-slayer"></a> **Discard refuses the Xeen Slayer
+  Sword.** The Discard routine tests weapon ID exactly 34 after the cursed
+  test and shows the fixed text "Don't you think you'll need the Xeen Slayer
+  to kill Lord Xeen!" (`0x31061..0x3106f`, text `0x54316`); declining the
+  confirmation returns false. **ScummVM:** differs; `discardItem` has no
+  weapon test and returns true either way. Not reachable in the areas open
+  today (no Slayer Sword). To implement in M77 Part A with the combat Items
+  dialog.
+- <a id="sv-danger-sense-frame"></a> **Danger Sense animates from its own
+  counter, in phase with Spot Secret Doors.** DOS keeps three border counters
+  (`0x974d` Levitate, `0x974e` Spot Doors, `0x974f` Danger Sense), advances
+  each by one modulo 12 per border assembly and zeroes them together
+  (`0x1ba1e..0x1baab`, `0x1c402..0x1c410`, `0x1d4c4..0x1d4d2`). **ScummVM:**
+  differs; `assembleBorder` draws Danger Sense with the Spot Doors counter
+  after incrementing it, one frame ahead. Frame identities, not a DOSBox
+  animation capture.
+- <a id="sv-quest-award-scroll-keys"></a> **Quests and Awards scroll with the
+  arrow keys and buttons, not with U and D.** The Quests key table
+  (`0x3402e`) holds Escape, I, Q, A, Home, End, Page Up, Page Down and the
+  Up/Down codes `0xf2`/`0xf3`; the Awards loop (`0x36fdd..0x37019`) handles
+  Escape, `0xf2` and `0xf3`; the key translation table (`0x456e8`) maps Up
+  and keypad 8 to `0xf2` and Down and keypad 2 to `0xf3`, and the two
+  dialogs' Up/Down buttons carry the same codes. **ScummVM:** differs; its
+  Quests dialog also accepts U and D, and its Awards dialog accepts only U
+  and D (its buttons are `KEYCODE_u`/`KEYCODE_d`). MMModern follows DOS in
+  M77 Part B.
+- **Spot Secret Doors keeps its last indoor evaluation outdoors.** The
+  thin-wall flag `0xf496` is written only by the indoor scene setup
+  (`0x12303..0x1231e`); outdoor scenes never clear it. The pin's `_thinWall`
+  behaves the same. Static only, not observed in DOSBox; see the
+  [open question](rules/evidence.md#open-questions-from-this-check). Follow
+  the code path unless the maintainer decides otherwise.
+- **Combat Items dialog rules match the pin** apart from the Discard test
+  above: Equip, Remove, Discard, transfer and Quest are free actions in
+  combat; only a successful Use ends the turn; the main-screen Use dialog
+  ignores F1-F6; transfers from the character sheet in combat use the combat
+  party; Use from the sheet in combat is refused with the original text
+  ([rules](rules/items.md#the-items-dialog-in-combat)).
 
 ## Presentation findings (2026-10-13)
 

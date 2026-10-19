@@ -198,15 +198,66 @@ own-ID refunds for Protection from Elements (14), Enchant (63) and Recharge
 [item spell actions](magic.md#item-spell-actions) distinguish early member
 cancellation from later Items cancellation.
 
+## The Items dialog in combat
+
+**Evidence: DOS static (2026-10-18), high confidence** for every path below;
+offsets and calibration are in [M77 evidence](evidence.md#m77-combat-items-quests-awards-and-skill-indicators).
+The pinned reference agrees unless a difference is stated.
+
+The Items dialog is one routine with a mode argument. Two callers reach it in
+combat: the main-screen **Use** button (combat loop handler `0x2e8e3`, mode 7)
+and the character sheet's **Items** button (mode 0, `0x3a462..0x3a486`). Mode
+7 only selects the Misc category first and sets an internal "combat Use" flag;
+the dialog then behaves as mode 0 (`0x3a669..0x3a695`). Both therefore show
+the same buttons: Weapons, Armor, Accessories, Misc, Equip (Use on the Misc
+page), Remove, Discard, Quest and Exit, and the same key table (`0x3b921`).
+
+| Action | Combat rule | Refusal and text |
+| --- | --- | --- |
+| Equip (`E`) | Allowed for Weapons, Armor and Accessories; ignored on the Misc page. Same routine as in exploration (`0x37b83`): class restriction, slot conflicts, two-handed and ring/medal limits. No weapons-only or other combat restriction exists. | The ordinary proficiency and "remove X to equip Y" texts |
+| Remove (`R`) | Allowed; clears the equipped frame (`0x31119`). | Cursed item: "You cannot remove a cursed item!" |
+| Discard (`D`) | Allowed; confirmation prompt, then removal and compaction (`0x31018`). | Cursed item: "You cannot discard a cursed item!"; weapon ID 34 (Xeen Slayer Sword): "Don't you think you'll need the Xeen Slayer to kill Lord Xeen!" |
+| Transfer (select a row, then F1-F6) | From the character sheet only, including in combat: the count and order come from the **combat party** (`0x971f`, `0x9720`) while the mode byte is 2, otherwise from the active party. The main-screen Use dialog ignores F1-F6 (`0x3b4b1..0x3b4b7`). Source cursed bit refuses; a full destination category refuses; otherwise the item lands unequipped in the destination's last slot and both lists compact. | "You cannot remove a cursed item!"; "%s's weapons/armor/accessories/misc backpack is full." |
+| Use (`U`) | Only from the main-screen Use dialog on the acting member's turn. From the character sheet in combat the internal flag (`0x97c6`, set with the sheet while the mode byte is 2 and cleared at sheet exit) refuses after the map and condition tests. | Map 0: "What's your hurry? Wait till you get out of here!"; Asleep, Paralyzed, Unconscious, Dead, Stoned or Eradicated: "%s is not in any condition to perform actions!"; sheet in combat: "To use an item in Combat, invoke the Use command on your turn!"; no power, no charge or broken/cursed: "%s has no special abilities!" |
+| Quest (`Q`) | Opens the Quests screen from either caller (`0x3b401`). | - |
+| Exit, Escape | Returns to the caller with nothing changed. | - |
+
+**Turn cost.** Only a successful Use ends the acting member's turn: the item
+routine clears shooting, runs the monster response and sets the turn cursor
+to "nobody" (`0x314c9..0x314dd`), and the combat handler then restores the
+saved index and advances to the next actor (`0x2e909..0x2e91b`). Equip,
+Remove, Discard, transfer, Quest and Exit leave the cursor untouched, so the
+same member still acts; they pass no time and give monsters no opportunity.
+Depressed and Confused members may still Use (`0x31fee`). A cancelled or
+refused Use costs nothing. The charge is spent before the effect and is never
+refunded by the dialog; there is no SP or gem cost ([Item Use](#item-use-and-cancellation)).
+
+**Town Portal from an item in combat** passes its combat notice and continues
+into the town dialog and the load ([M76](../original-quirks.md#sv-town-portal-item-combat)).
+After the load the item routine finishes as any Use: monster response on the
+new map, turn cursor cleared, dialog closed, next actor. The combat loop ends
+only when its attack-slot test finds no attackers (`0x2ea99..0x2eaf0`); those
+slots are rebuilt by the scene setup (`0x14413`, `0x16939`), not by the map
+load, so the exact moment combat ends after arrival is **Unknown** statically.
+Maintainer decision (2026-10-19): MMModern ends combat at the first attacker
+re-evaluation after the load ([M77 evidence](evidence.md#open-questions-from-this-check)).
+
 ## Discard, recharge and enchant
 
-**Evidence: Reference only**, with retained **DOS play** for ordinary Discard's
-selection, permanent-discard confirmation, Yes removal and No preservation.
-Sources: [InventoryItems::discardItem/enchantItem][item],
+**Evidence: DOS static (2026-10-18), high confidence** for Discard's refusals
+and confirmation (`0x31018..0x31110`), with retained **DOS play** for ordinary
+Discard's selection, permanent-discard confirmation, Yes removal and No
+preservation. **Reference only** for Enchant's source listing below. Sources:
+[InventoryItems::discardItem/enchantItem][item],
 [ItemsDialog::doItemOptions/itemToGold][dialogs].
 
-Discard refuses cursed items before confirmation. Broken alone is not a refusal.
-Removing an equipped cursed item also refuses.
+Discard refuses cursed items before confirmation (state bit `0x40`,
+`0x31034..0x31054`). A weapon with ID exactly 34, the Xeen Slayer Sword, also
+refuses with the fixed text "Don't you think you'll need the Xeen Slayer to
+kill Lord Xeen!" (`0x31061..0x3106f`); the pin lacks this test
+([quirk](../original-quirks.md#sv-discard-xeen-slayer)). Broken alone is not a
+refusal. Declining the confirmation changes nothing. Removing an equipped
+cursed item also refuses (`0x31119..0x311ad`).
 
 **DOS static, high confidence; implemented (M76 Part B):** the three item
 spells use their own-ID member prompts, then Items modes 6/4/11. Member
