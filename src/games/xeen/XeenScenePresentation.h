@@ -71,9 +71,25 @@ public:
   unsigned elementalFrame=0;int elementalDamage=0;};
  std::array<PortraitEffect,30> portraits{};
  std::array<unsigned,4> buffFrames{};
- unsigned levitateFrame=0;
+ // Border counters 0x974d (Levitate), 0x974e (Spot Secret Doors) and 0x974f
+ // (Danger Sense): each advances once per border assembly, even while its
+ // indicator is inactive, so the three stay in phase (sv-danger-sense-frame).
+ unsigned levitateFrame=0, spotDoorsFrame=0, dangerSenseFrame=0;
+ // Indicator sources the border reads (M77). DOS keeps them in memory only,
+ // so they are never saved; a load starts them false until their writers run.
+ // 0x974c: set by the monster-movement pass for any monster within three
+ // cells on both axes; kept while the pass returns early (0x1fdc1).
+ bool dangerSense=false;
+ // 0xf496: written only by the indoor scene setup, so outdoors it keeps its
+ // last indoor value (0x12303..0x1231e).
+ bool thinWall=false;
+ // 0x8c52: a text or number prompt is open; hides Direction Sense.
+ bool textPrompt=false;
+ static unsigned animatedBorderFrame(bool active,unsigned inactive,unsigned &phase) noexcept {
+     const auto frame=active?inactive+phase:inactive;phase=(phase+1)%12;return frame;
+ }
  static unsigned levitateBorderFrame(bool active,unsigned &phase) noexcept {
-     const auto frame=active?16+phase:16;phase=(phase+1)%12;return frame;
+     return animatedBorderFrame(active,16,phase);
  }
  static std::pair<unsigned,unsigned> clairvoyanceFrames(unsigned left,unsigned right,unsigned phase,bool overlap=false) noexcept {
      phase%=4;

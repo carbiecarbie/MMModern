@@ -3,6 +3,8 @@
 #include "XeenTrainingTestSupport.h"
 #include "games/xeen/XeenGameFlagsLoader.h"
 #include "games/xeen/CloudsMapComposer.h"
+#include "games/xeen/XeenActorApproach.h"
+#include "games/xeen/XeenSkills.h"
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
@@ -105,6 +107,8 @@ void preset(const GameInstallation &installation,const std::string &name,const f
         check(member.miscellaneous[1].id==9 && member.miscellaneous[2].id==55,"Combat preset lacks healing/Portal powers");
         const auto &full=party.roster.at(party.party.activeRosterIds()[5]);
         check(full.weapons[8].id && full.armor[8].id && full.accessories[8].id && full.miscellaneous[8].material,"Combat preset pack not full");
+        check(xeenPartyHasSkill(party,6) && xeenPartyHasSkill(party,16) && xeenPartyHasSkill(party,17),"Combat preset lacks indicator skills");
+        check(XeenActorApproach::dangerSense(world.sessionState().regionalActors(23),camera),"Combat preset has no monster within Danger Sense range");
         return;
     }
     if(name=="m76-spells") {

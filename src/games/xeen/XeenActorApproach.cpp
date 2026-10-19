@@ -110,6 +110,13 @@ std::array<unsigned, 1024> XeenActorApproach::occupancy(const std::vector<XeenAc
 	return counts;
 }
 
+bool XeenActorApproach::dangerSense(const std::vector<XeenActor> &actors, const XeenCamera &camera) noexcept {
+	// A killed monster leaves the grid, as the original's moves it off-map.
+	return std::any_of(actors.begin(),actors.end(),[&](const XeenActor &a) {
+		return a.lifecycle==XeenActorLifecycle::Present && std::abs(a.x-camera.x)<=3 && std::abs(a.y-camera.y)<=3;
+	});
+}
+
 std::vector<XeenActor> XeenActorApproach::move(const std::vector<XeenActor> &actors,
 		const XeenCamera &camera, const Terrain &terrain, bool movementEnabled) {
 	return move(actors,camera,terrain,movementEnabled,{});
@@ -621,6 +628,7 @@ XeenEncounterResult XeenActorApproach::regionalTransition(XeenWorld &world,XeenP
                     // Movement precedes travel; each injury follows its acquired portrait.
                     auto visibleActors=op.actors;check();
                     regionalActors.swap(visibleActors);camera=c.camera;party.encounterContext=c.context;
+                    if(op.dangerSense)world.scenePresentation().dangerSense=*op.dangerSense;
                     if(c.exploration) {session.publishExploration(*c.exploration);c.exploration.reset();}
                     if(c.time && c.timeDone)party.serviceEconomy=c.time->economy;
                     if(c.time && c.timeDone)for(unsigned n=0;n<6;++n)party.roster._combatInputs[c.owners[n]]=c.inputs[n];
@@ -638,6 +646,7 @@ XeenEncounterResult XeenActorApproach::regionalTransition(XeenWorld &world,XeenP
             }
 			for(unsigned i=0;i<c.opportunity->shotCount;++i) c.shots.at(c.shotCount++)=c.opportunity->shots[i];
 			c.noTargets=c.noTargets || c.opportunity->noTargets;
+			if(c.opportunity->dangerSense)c.dangerSense=c.opportunity->dangerSense;
 			c.actors.swap(c.opportunity->actors);c.characters.swap(c.opportunity->characters);c.opportunity.reset();
 			--c.remaining;++c.result.movementOpportunities;
 		}
@@ -674,6 +683,7 @@ XeenEncounterResult XeenActorApproach::regionalTransition(XeenWorld &world,XeenP
 		// One nonthrowing publication spans both opportunities and the full tick.
 		regionalActors.swap(c.actors);session._journeyRandom=c.random.continuation();
 		camera=c.camera;party.encounterContext=c.context;
+		if(c.dangerSense)world.scenePresentation().dangerSense=*c.dangerSense;
 		if(c.terrain) {
 			party.serviceEconomy=c.terrain->economy;
 			for(unsigned n=0;n<6;++n)party.roster._combatInputs[c.owners[n]]=c.inputs[n];

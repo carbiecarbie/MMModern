@@ -584,6 +584,28 @@ void dormantTreasure() {
  auto invalid=dormant;invalid.armor[0]=invalid.weapons[0];rejects([&]{xeenValidateMonsterTreasure(invalid);});
  invalid=dormant;invalid.weapons[1]=invalid.weapons[0];invalid.weapons[0]={};rejects([&]{xeenValidateMonsterTreasure(invalid);});
 }
+// Danger Sense is the movement pass's own result (0x1fdc1): set for a monster
+// within three cells whatever its state, absent when the pass returns early.
+void dangerSenseOpportunity() {
+ XeenMap map;map.geometry.id=23;map.geometry.flags2=0x8000;map.geometry.surfaceTypes[2]=1;
+ for(auto &cell:map.geometry.cells)cell.geometry=XeenOutdoorLayers{2,0,0,0};
+ const XeenCamera camera{23,8,8,XeenDirection::North};
+ const auto c=characters();const auto i=inputs();
+ const auto at=[&](int x,int y) {
+  XeenActor a;a.id={23,0};a.original.resourceId=6;a.x=x;a.y=y;a.original.x=x;a.original.y=y;a.hp=25;
+  a.lifecycle=XeenActorLifecycle::Present;a.activated=false;a.statistics=profile();a.statistics->raw[20]=25;
+  return std::vector<XeenActor>{a};
+ };
+ XeenRegionalOpportunityCandidate near(map,at(11,8),camera,c,i,610,63);
+ check(near.dangerSense==true,"Unaware monster three cells away not sensed by the movement pass");
+ XeenRegionalOpportunityCandidate far(map,at(8,12),camera,c,i,610,63);
+ check(far.dangerSense==false,"Monster four cells away sensed by the movement pass");
+ XeenRegionalOpportunityCandidate sleeping(map,at(5,5),camera,c,i,610,63,{},XeenActorOpportunityContext{true});
+ check(sleeping.dangerSense==true,"Rest's movement pass did not sense a monster");
+ XeenRegionalOpportunityCandidate disabled(map,at(9,9),camera,c,i,610,63,{},XeenActorOpportunityContext{false,false});
+ XeenRegionalOpportunityCandidate shooting(map,at(9,9),camera,c,i,610,63,{},XeenActorOpportunityContext{false,true,true});
+ check(!disabled.dangerSense && !shooting.dangerSense,"An early-returning movement pass changed Danger Sense");
+}
 void indoorOpportunity() {
  XeenWorld world([](auto id) {XeenMap m;m.geometry.id=id.number;m.geometry.difficulties[0]=7;
   for(auto &cell:m.geometry.cells)cell.geometry=XeenIndoorWalls{};return m;});
@@ -665,4 +687,4 @@ void timeAndInputs() {
 }
 }
 #include "XeenDailyTimeOracles.h"
-int main() { try { partyVolley();poisonVolley();unsignedPlayerHit();dailyTimeOracles();dailyConditionChecks();difficultyOracles();dormantTreasure();physical();targetingAndCounts();runAndParticipation();shootAndLoot();additionalTapes();completeWeaponRules();equippedContributions();missileClassAndZeroDamage();dosMonsterDelivery();rejectionBudgets();rangedOpportunity();indoorOpportunity();stackedRangedOpportunity();timeAndInputs();std::cout<<"Shared consequence pure-rule controls passed\n";return 0; } catch (const std::exception &e) { std::cerr<<e.what()<<'\n';return 1; } }
+int main() { try { partyVolley();poisonVolley();unsignedPlayerHit();dailyTimeOracles();dailyConditionChecks();difficultyOracles();dormantTreasure();physical();targetingAndCounts();runAndParticipation();shootAndLoot();additionalTapes();completeWeaponRules();equippedContributions();missileClassAndZeroDamage();dosMonsterDelivery();rejectionBudgets();rangedOpportunity();dangerSenseOpportunity();indoorOpportunity();stackedRangedOpportunity();timeAndInputs();std::cout<<"Shared consequence pure-rule controls passed\n";return 0; } catch (const std::exception &e) { std::cerr<<e.what()<<'\n';return 1; } }

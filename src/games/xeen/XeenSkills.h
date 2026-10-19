@@ -3,9 +3,10 @@
 #include "games/xeen/XeenParty.h"
 namespace mmodern {
 // A skill is one stored byte. Granting or removing one only writes that byte;
-// effects are read where the rules use them. Arms Master (1), Direction Sense (6),
-// Merchant (8), Mountaineer (9), Tracker (15), Spot Secret Doors (16)
-// and Danger Sense (17) have no implemented effect yet (docs/project-status.md).
+// effects are read where the rules use them. Direction Sense (6), Spot Secret
+// Doors (16) and Danger Sense (17) light the border indicators (CloudsMapComposer).
+// Arms Master (1), Merchant (8), Mountaineer (9) and Tracker (15) have no
+// implemented effect yet (docs/project-status.md).
 // Crusader (5) and Linguist (7) are only read by Event tests: the DOS
 // checkSkill callers (0xc983..0x1bdba) test skills 4, 6, 9, 10, 11, 14, 16, 17.
 inline bool xeenCharacterHasSkill(const XeenCharacter &character,unsigned skill) noexcept {

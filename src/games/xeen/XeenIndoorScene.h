@@ -130,6 +130,16 @@ public:
 		std::optional<XeenMonsterAppearance> actorFrame = std::nullopt,
 		bool night = false,
 		std::function<std::size_t(const std::string &)> wallFrames = {}) const;
+	// setMazeBits' thin-wall flag (DOS 0x12303..0x1231e, pin _thinWall): the
+	// party's own wall on its facing side (sample 2) is 5 or 8, and the last
+	// getCell query, the cell ahead (sample 7), is not INVALID_CELL (0x8888).
+	// build() publishes it to the scene presentation for Spot Secret Doors.
+	static bool thinWall(std::optional<std::uint8_t> facingWall,
+		std::optional<std::array<std::uint8_t,4>> aheadWalls) noexcept {
+		return aheadWalls && *aheadWalls!=std::array<std::uint8_t,4>{8,8,8,8} &&
+			(facingWall==std::uint8_t(5) || facingWall==std::uint8_t(8));
+	}
+	bool thinWall(XeenWorld &world, const XeenCamera &camera) const;
 private:
 	XeenActorView classifySceneActors(XeenWorld &,const XeenCamera &,
 		const std::vector<XeenActor> &,bool sceneView) const;

@@ -493,6 +493,8 @@ private:
 	bool advanceEncounterOrdinary(OrdinaryCause cause = OrdinaryCause::Idle);
 	bool refreshScene(bool reconstruct, OrdinaryCause cause, bool committedTransition = false);
 	Composition composeJourneyScene(bool reconstruct);
+	// DOS 0x8c52 (Direction Sense): a word, amount or travel-digit prompt is open.
+	bool textPromptOpen() const;
 	template<class Result> IndexedFrame drive(Result result, bool automatic, bool reconstruct = false,
 		OrdinaryCause cause = OrdinaryCause::None, bool committedTransition = false);
 	IndexedFrame presentationFailed(const std::exception &exception);

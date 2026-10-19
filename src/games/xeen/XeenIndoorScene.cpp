@@ -175,6 +175,22 @@ XeenIndoorScene::sampleWalls(XeenWorld &world, const XeenCamera &camera, bool sc
 	return result;
 }
 
+namespace {
+bool sampledThinWall(XeenWorld &world, const XeenCamera &camera,
+		const std::array<XeenIndoorWallSample, XeenIndoorScene::kWallSampleCount> &samples) {
+	const auto &ahead=samples[7];
+	std::optional<std::array<std::uint8_t,4>> walls;
+	if(const auto cell=world.sceneCell(camera.mapId,ahead.sourceX,ahead.sourceY))
+		walls=std::array<std::uint8_t,4>{wallAt(*cell->cell,XeenDirection::North),wallAt(*cell->cell,XeenDirection::East),
+			wallAt(*cell->cell,XeenDirection::South),wallAt(*cell->cell,XeenDirection::West)};
+	return XeenIndoorScene::thinWall(samples[2].wallValue,walls);
+}
+}
+
+bool XeenIndoorScene::thinWall(XeenWorld &world, const XeenCamera &camera) const {
+	return sampledThinWall(world,camera,sampleWalls(world,camera,true));
+}
+
 XeenActorView XeenIndoorScene::classifyActors(XeenWorld &world, const XeenCamera &camera,
 		const std::vector<XeenActor> &actors) const {
 	return classifySceneActors(world,camera,actors,false);
@@ -269,6 +285,7 @@ std::vector<XeenIndoorDrawCommand> XeenIndoorScene::build(
 	const auto samples = sampleWalls(world, camera,true);
 	const MazeBits maze = buildMazeBits(samples);
 	const auto &wo = maze.active;
+	world.scenePresentation().thinWall=sampledThinWall(world,camera,samples);
 
 	std::vector<XeenIndoorDrawCommand> commands;
 	commands.reserve(48);

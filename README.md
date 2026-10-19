@@ -344,7 +344,15 @@ through a character's Items dialog, and use charged items through the combat
 Use button (U). The Quests button (V, or Q in Items) shows quest items,
 including three Phirna Roots, current quests and Auto Notes. The first member
 has more than nine awards, including Warzone wins and a race award: open
-Awards on that character's sheet and scroll with Up/Down.
+Awards on that character's sheet and scroll with Up/Down. The party has
+Direction Sense, Spot Secret Doors and Danger Sense: the facing letter shows
+below the view (hidden while a text or number prompt is open), and the top
+border gem lights after the first step or turn while a monster is within
+three cells. Spot Secret Doors lights only indoors, facing a plain wall with
+open space behind it; Vertigo has none, so try it in an Event developer
+session, whose original party also has the skill:
+`.\build-rel\mmodern.exe --event-fixture "F:/Games/gog/Might and Magic 4-5" 30 6 7 north`
+(Rivercity).
 
 ```powershell
 .\build-rel\mmodern_test_save.exe combat-items "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/combat-items.mmsave"

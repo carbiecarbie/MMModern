@@ -32,8 +32,8 @@ entry. Dialog identifiers below are reference identifiers, not commercial text.
 | Arena / PyramidLocation | unsupported | Arena choice; switch sides | — |
 | Reaper / Golem / Dwarf / Sphinx locations | unsupported | Scripted location sequences | — |
 | OtherOptions / endings | unsupported | Clouds/Darkside intros and endings; World ending; Escape works | XeenTitleFlow |
-| Exploration main screen | partial | Movement, strafe, Shoot, Cast, Rest, Bash, Quests, Map, Info, Quick Ref, gem, portraits work; Dismiss refuses | XeenEventFlow |
-| Combat main screen | partial | Attack, Block, Shoot effects, Cast, charged-item Use (including Town Portal), Quick Fight/options, targets, turns, Info, Quick Ref; Run outdoors only | XeenEncounterFlow |
+| Exploration main screen | partial | Movement, strafe, Shoot, Cast, Rest, Bash, Quests, Map, Info, Quick Ref, gem, portraits, Danger Sense/Spot Secret Doors/Direction Sense indicators work; Dismiss refuses | XeenEventFlow |
+| Combat main screen | partial | Attack, Block, Shoot effects, Cast, charged-item Use (including Town Portal), Quick Fight/options, targets, turns, Info, Quick Ref, skill indicators; Run outdoors only | XeenEncounterFlow |
 | CharacterInfo | supported | Stats and popups, Items, Awards, Quick Ref, Exchange, Exit; original combat Exchange refusal | XeenCharacterDialogFlow |
 | ControlPanel | partial | Save, Save As, Load, Quit work; Efx, Music, Speech, Text, Mr Wizard unavailable | XeenEventFlow |
 | ItemsDialog | partial | Categories, Equip, Remove, Discard, transfer, Use, Quest, Exit; free combat equipment/Discard/transfer, combat-party recipients, main-screen Use; sheet Use refused in combat; Recharge/Enchant/Gold supported | XeenInventoryFlow |

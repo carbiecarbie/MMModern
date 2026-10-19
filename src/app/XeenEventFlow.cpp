@@ -601,6 +601,8 @@ bool XeenEventFlow::serviceManualStep() {
    step.opportunity->staged=true;
   }
   auto &op=*step.opportunity;
+  // The detached world draws this step; Event publication adopts the flag.
+  if(op.dangerSense)work.world->scenePresentation().dangerSense=*op.dangerSense;
   if(!op.service(draw)) {
    if(op.impactApplied)step.characters=op.characters;
    retain();
@@ -1062,9 +1064,16 @@ IndexedFrame XeenEventFlow::refresh(bool reconstruct) {
 	return frameCopy();
 }
 
+bool XeenEventFlow::textPromptOpen() const {
+	return _presenter.wordInputActive() || (_smithUi && _smithUi->phase==SmithUi::Phase::Amount) ||
+		(_travelUi && _travelUi->spell!=XeenLearnedSpell::LloydsBeacon && _travelUi->refusal.empty());
+}
+
 XeenEventFlow::Composition XeenEventFlow::composeJourneyScene(bool reconstruct) {
+ _world.scenePresentation().textPrompt=textPromptOpen();
  if(_transition && _transition->manualStep && !_transition->terrainDone) {
   auto &work=*_transition;checkTransitionCandidate();
+  work.world->scenePresentation().textPrompt=textPromptOpen();
   XeenRestoreGuard::Providers providers(*work.guard,*work.world,[&] {_encounter->journeySavePreimage().check();});
   work.world->scenePresentation().composeFromRetained(reconstruct && !_sceneAdvancePending);
   auto frame=_transitionCompose(*work.world,work.party,work.camera,_ordinary.phase,_encounter->appearance());
@@ -1125,6 +1134,7 @@ bool XeenEventFlow::refreshScene(bool reconstruct, OrdinaryCause cause, bool com
 			stepped) {
 		// Always use the committed camera, never logicalAddress/workingCamera.
 		_world.scenePresentation().composeFromRetained(!stepped && !_sceneAdvancePending);
+		_world.scenePresentation().textPrompt=textPromptOpen();
 		const auto composition = _compose(_ordinary.phase);
 		requireCurrentOwners();
 		_ordinary.containsOrdinaryAnimation = composition.containsOrdinaryAnimation;

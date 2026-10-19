@@ -76,6 +76,9 @@ struct XeenRegionalOpportunityCandidate {
 	std::array<XeenRegionalRangedShot,36> shots{};
 	unsigned shotCount=0;
 	XeenActorView view;
+	// The movement pass's Danger Sense result; empty when the pass returned
+	// early. Published with the moved actors to the scene presentation.
+	std::optional<bool> dangerSense;
 	XeenRegionalOpportunityCandidate(const XeenMap &, const std::vector<XeenActor> &,
 		const XeenCamera &, const XeenConsequenceCharacters &, const XeenConsequenceInputs &,
 		unsigned year, unsigned participantMask, const std::array<bool,6> &blocked = {}, XeenActorOpportunityContext context = {},const XeenGameplayContext &partyContext = {});
@@ -119,6 +122,7 @@ struct XeenRegionalActionCandidate {
 	unsigned shotCount=0, remaining=0, pending=0;
 	bool classify=false, timeDone=false, timeNoticePublished=false, sleeping=false, noTargets=false;
     bool stepTimePending=false;
+	std::optional<bool> dangerSense; // The last completed movement pass's result.
 	std::uint64_t revision=0;
 };
 

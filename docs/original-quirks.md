@@ -329,7 +329,8 @@ in Part A, while Quests, Awards and indicators remain for Parts B-C.
   (`0x1ba1e..0x1baab`, `0x1c402..0x1c410`, `0x1d4c4..0x1d4d2`). **ScummVM:**
   differs; `assembleBorder` draws Danger Sense with the Spot Doors counter
   after incrementing it, one frame ahead. Frame identities, not a DOSBox
-  animation capture.
+  animation capture. MMModern follows DOS in M77 Part C
+  (`CloudsMapComposer::drawInterfaceLayers`).
 - <a id="sv-quest-award-scroll-keys"></a> **Quests and Awards scroll with the
   arrow keys and buttons, not with U and D.** The Quests key table
   (`0x3402e`) holds Escape, I, Q, A, Home, End, Page Up, Page Down and the
@@ -350,7 +351,8 @@ in Part A, while Quests, Awards and indicators remain for Parts B-C.
   (`0x12303..0x1231e`); outdoor scenes never clear it. The pin's `_thinWall`
   behaves the same. Static only, not observed in DOSBox; see the
   [open question](rules/evidence.md#open-questions-from-this-check). Follow
-  the code path unless the maintainer decides otherwise.
+  the code path unless the maintainer decides otherwise. M77 Part C keeps it:
+  only `XeenIndoorScene::build` writes the scene presentation's `thinWall`.
 - **Combat Items dialog rules match the pin** apart from the Discard test
   above: Equip, Remove, Discard, transfer and Quest are free actions in
   combat; only a successful Use ends the turn; the main-screen Use dialog

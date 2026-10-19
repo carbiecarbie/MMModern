@@ -1466,6 +1466,7 @@ XeenCombatResult XeenCombat::serviceConsequences(const Ticket &t) {
                     if((!op.travelPresented && !op.travelPublished) || op.impactApplied) {
                         auto liveActors=op.actors,expectedActors=op.actors;d.probeFor(t);
                         d.activeActors().swap(liveActors);d.actors.swap(expectedActors);
+                        if(op.dangerSense)d.world.scenePresentation().dangerSense=*op.dangerSense;
                         if(op.impactApplied)d.publishCharacters(op.characters);
                         d.rng=c.rng;d.expectedRandom=d.session()._journeyRandom=c.rng.continuation();
                         d.published();
@@ -1576,7 +1577,10 @@ XeenCombatResult XeenCombat::serviceConsequences(const Ticket &t) {
 			d.actors.at(r.monster.recordIndex)=actor;d.acted[d.turn]=true;
 		}
 		if(c.enemy) d.publishCharacters(c.enemy->characters);
-		if(c.movement) { d.activeActors().swap(c.movement->actors);d.actors.swap(expectedActors);d.publishCharacters(c.movement->characters); }
+		if(c.movement) {
+			d.activeActors().swap(c.movement->actors);d.actors.swap(expectedActors);d.publishCharacters(c.movement->characters);
+			if(c.movement->dangerSense)d.world.scenePresentation().dangerSense=*c.movement->dangerSense;
+		}
 		if(c.time) {
    for(unsigned n=0;n<6;++n) {
     const auto id=d.owners[n];d.party.roster.at(id)=d.expected.roster.at(id)=c.time->characters[n];

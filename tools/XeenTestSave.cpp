@@ -166,6 +166,10 @@ void prepare(XeenSaveSnapshot &snapshot,const std::string &preset) {
         member.awards.fill(0);
         for(unsigned id=0;id<20;++id)member.awards[id]=id==9?23:1;
         member.awards[XeenCharacter::awardIndex(73)]=1;member.awards[XeenCharacter::awardIndex(81)]=1;
+        // The three border indicators: Direction Sense (6), Spot Secret Doors (16), Danger Sense (17).
+        snapshot.characters[snapshot.activeRosterIds[1]].skills[6]=1;
+        snapshot.characters[snapshot.activeRosterIds[2]].skills[16]=1;
+        snapshot.characters[snapshot.activeRosterIds[3]].skills[17]=1;
         return;
     }
     if(preset=="party-healing") {

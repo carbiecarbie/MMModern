@@ -151,6 +151,9 @@ XeenScenePresentation XeenWorld::prepareSpawnPresentation(const XeenWorld &candi
 	auto prepared=_scenePresentation;
 	prepared.objectFlips=candidate._scenePresentation.objectFlips;
 	prepared.objectFrames=candidate._scenePresentation.objectFrames;
+	// Indicator sources written while the detached world moved and drew.
+	prepared.dangerSense=candidate._scenePresentation.dangerSense;
+	prepared.thinWall=candidate._scenePresentation.thinWall;
 	for(const auto id:candidate._spawnedPresentationSlots)
 		prepared.copySpawn(candidate._sessionState.regionalActors(id.mapId).at(id.recordIndex),candidate._scenePresentation);
 	if(!candidate._spawnedPresentationSlots.empty())prepared.copySpawnRandom(candidate._scenePresentation);

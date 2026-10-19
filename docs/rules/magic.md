@@ -573,6 +573,22 @@ in phase; the pin draws Danger Sense from the Spot Secret Doors counter after
 incrementing it, one frame ahead
 ([quirk](../original-quirks.md#sv-danger-sense-frame)).
 
+In the CD data, value 8 is the ordinary wall and `0x8888` a solid block, so
+Spot Secret Doors lights only in front of a plain wall with open space behind
+it: 43 walkable cell sides on the Clouds indoor maps, none in Vertigo (for
+example Rivercity (6,7) facing North).
+
+MMModern implements the three indicators in M77 Part C on these rules
+(`CloudsMapComposer.cpp`; Danger Sense from `XeenActorApproach::dangerSense`
+in the movement candidate, Spot Secret Doors from `XeenIndoorScene::build`).
+DOS keeps the two sources in memory and never saves them; MMModern keeps
+them in the scene presentation, which a load starts afresh, so after a load
+Danger Sense stays off until the first step, turn or round and Spot Secret
+Doors until the first indoor draw. **Unknown:** whether a DOS load inside a
+running game shows the previous in-memory value until then. The Levitate, Spot Secret Doors and Danger Sense counters
+start together and are not yet zeroed at the service screens' redraws
+(`0x1c402`, `0x1d4c4`, the pin's `BaseLocation::drawBackground`).
+
 The four buff counters advance modulo 4 while active; elemental indicators
 are static presence tests. Clairvoyance reads each cell's two HED hint bytes
 when the corresponding Yes/No, Who Will or location prompt installs them;

@@ -14,7 +14,10 @@ namespace mmodern {
 namespace {
 std::vector<XeenActor> regionalMove(const std::vector<XeenActor> &before,const XeenCamera &camera,
  const XeenActorApproach::Terrain &terrain,const XeenActorApproach::BeforeMovement &observe,
- XeenActorOpportunityContext context) {
+ XeenActorOpportunityContext context,std::optional<bool> &dangerSense) {
+ // The pass's early returns (0x1fdc7..0x1fde4) precede its Danger Sense
+ // clear, so the indicator keeps its value; moved monsters stay in the window.
+ if(context.movementEnabled && !context.charactersShooting)dangerSense=XeenActorApproach::dangerSense(before,camera);
  // Keep ordinary movement's existing external entry and replay probe. An
  // intra-translation-unit call from the new overload cannot be linker-wrapped.
  if(!context.sleeping && context.movementEnabled && !context.charactersShooting)
@@ -292,7 +295,7 @@ XeenRegionalOpportunityCandidate::XeenRegionalOpportunityCandidate(XeenWorld &wo
 		shot.distance=unsigned(std::abs(a.x-c.x)+std::abs(a.y-c.y));
 		shot.direction=a.x>c.x?XeenDirection::East:a.x<c.x?XeenDirection::West:
 			a.y>c.y?XeenDirection::North:XeenDirection::South;
-	},context);
+	},context,dangerSense);
 }
 XeenRegionalOpportunityCandidate::XeenRegionalOpportunityCandidate(const XeenMap &map,
 		const std::vector<XeenActor> &before,const XeenCamera &c,const XeenConsequenceCharacters &p,
@@ -317,7 +320,7 @@ XeenRegionalOpportunityCandidate::XeenRegionalOpportunityCandidate(const XeenMap
 		auto &shot=shots.at(shotCount++);shot.source=a.id;shot.x=a.x;shot.y=a.y;
 		shot.distance=unsigned(std::abs(a.x-c.x)+std::abs(a.y-c.y));
 		shot.direction=a.x>c.x ? XeenDirection::East : a.x<c.x ? XeenDirection::West : a.y>c.y ? XeenDirection::North : XeenDirection::South;
-	},context);
+	},context,dangerSense);
 }
 bool XeenRegionalOpportunityCandidate::service(XeenConsequenceDraw &draw) {
 	// DOS 0x20ca9..0x20cf1: all original slots, irrespective of lifecycle,

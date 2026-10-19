@@ -2,9 +2,11 @@
 #define MMODERN_GAMES_XEEN_CLOUDS_MAP_COMPOSER_H
 
 #include "core/IndexedFrame.h"
+#include "formats/xeen/XeenFontFormat.h"
 #include "games/xeen/XeenIndoorScene.h"
 #include "games/xeen/XeenOutdoorScene.h"
 #include <cstdint>
+#include <memory>
 #include <optional>
 
 namespace mmodern {
@@ -37,6 +39,11 @@ public:
 	void drawInterfaceLayers(XeenAssetSource &assets,
 		const XeenPartyState &partyState,
 		const XeenCharacterRulesContext &context,XeenScenePresentation *presentation=nullptr) const;
+	// Direction Sense's facing letter, written after the border layers.
+	IndexedFrame drawDirectionSense(XeenAssetSource &assets,IndexedFrame frame,
+		const XeenPartyState &partyState,const XeenCamera &camera,const XeenScenePresentation &presentation) const;
+private:
+	mutable std::shared_ptr<const XeenFontFormat> _font; // Loaded on first use.
 };
 
 } // namespace mmodern

@@ -5,6 +5,8 @@
 #include "games/xeen/XeenIndoorScene.h"
 #include "games/xeen/XeenWorld.h"
 #include "games/xeen/XeenMapView.h"
+#include "games/xeen/XeenSkills.h"
+#include "games/xeen/XeenTextRenderer.h"
 #include <algorithm>
 
 namespace mmodern {
@@ -55,8 +57,15 @@ void CloudsMapComposer::drawInterfaceLayers(XeenAssetSource &assets,
     unsigned phase=0;
     const auto levitate=XeenScenePresentation::levitateBorderFrame(buffs && buffs->effects[XeenPartyEffect::Levitate],presentation?presentation->levitateFrame:phase);
     assets.drawSprite("border.icn",levitate,0,82);
-	assets.drawSprite("border.icn", 28, 194, 91); // Secret-door indicator, inactive.
-	assets.drawSprite("border.icn", 40, 107,  9); // Danger-sense indicator, inactive.
+	// Spot Secret Doors (skill 16) and Danger Sense (skill 17), each from its
+	// own counter (0x1ba1e..0x1baab); not from one shared counter as in the pin.
+	unsigned spotPhase=0,dangerPhase=0;
+	const auto spot=XeenScenePresentation::animatedBorderFrame(presentation && presentation->thinWall &&
+		xeenPartyHasSkill(partyState,16),28,presentation?presentation->spotDoorsFrame:spotPhase);
+	assets.drawSprite("border.icn",spot,194,91);
+	const auto danger=XeenScenePresentation::animatedBorderFrame(presentation && presentation->dangerSense &&
+		xeenPartyHasSkill(partyState,17),40,presentation?presentation->dangerSenseFrame:dangerPhase);
+	assets.drawSprite("border.icn",danger,107,9);
 	assets.drawSprite("border.icn",  0,   0, 32); // Left clairvoyance statue, inactive.
 	assets.drawSprite("border.icn",  8, 215, 32); // Right clairvoyance statue, inactive.
 	// Default (no active resistance) corner indicators from assembleBorder().
@@ -73,6 +82,21 @@ void CloudsMapComposer::drawInterfaceLayers(XeenAssetSource &assets,
     }
 	// The compass/main button at y=137 overlaps the scene border in the original UI.
 	CloudsUiComposer().drawInterface(assets, partyState, context);
+}
+
+IndexedFrame CloudsMapComposer::drawDirectionSense(XeenAssetSource &assets,IndexedFrame frame,
+		const XeenPartyState &partyState,const XeenCamera &camera,const XeenScenePresentation &presentation) const {
+	// The border's last write (0x1bdb8..0x1bdfd, format 0x52a8a): skill 6 and
+	// no open text or number prompt; the first letter of the facing's name.
+	if(presentation.textPrompt || !xeenPartyHasSkill(partyState,6))return frame;
+	const auto direction=static_cast<unsigned>(camera.direction);
+	if(direction>3)throw std::invalid_argument("Invalid Direction Sense facing");
+	if(!_font)_font=std::make_shared<const XeenFontFormat>(assets.readArchiveResource("fnt"));
+	XeenTextRenderOptions options;options.originalControls=true;options.bounds={0,0,320,200};
+	const std::string text=std::string("\x02\f08\x03" "c\v139\t116")+"NESW"[direction]+"\fd\x01";
+	auto rendered=XeenTextRenderer(*_font).render(frame,text,options);
+	if(rendered.pages.size()!=1 || !rendered.diagnostics.empty())throw std::runtime_error("Direction Sense letter overflow");
+	return std::move(rendered.pages.front());
 }
 
 IndexedFrame CloudsMapComposer::compose(XeenAssetSource &assets,
@@ -125,7 +149,10 @@ IndexedFrame CloudsMapComposer::compose(XeenAssetSource &assets,
 	drawInterfaceLayers(assets, partyState, context,&world.scenePresentation());
     if(partyState.encounterContext)for(auto i:{XeenPartyEffect::Levitate,XeenPartyEffect::Bless,XeenPartyEffect::PowerShield,XeenPartyEffect::HolyBonus,XeenPartyEffect::Heroism})
         emittedAnimation=emittedAnimation || partyState.encounterContext->effects[i]!=0;
-	auto result = drawXeenMinimap(world,camera,assets.snapshot(),
+	const auto &indicators=world.scenePresentation();
+	emittedAnimation=emittedAnimation || (indicators.thinWall && xeenPartyHasSkill(partyState,16)) ||
+		(indicators.dangerSense && xeenPartyHasSkill(partyState,17));
+	auto result = drawXeenMinimap(world,camera,drawDirectionSense(assets,assets.snapshot(),partyState,camera,indicators),
         partyState.encounterContext && partyState.encounterContext->effects[XeenPartyEffect::AutomapOn]!=0,
         [&](IndexedFrame &frame,const char *name,unsigned index,int x,int y) {
             assets.drawDialogSprite(frame,name,index,x,y,xeenPictureArchive(camera.mapId));

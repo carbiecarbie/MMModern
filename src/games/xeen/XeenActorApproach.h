@@ -102,6 +102,11 @@ public:
 	static std::vector<XeenActor> move(const std::vector<XeenActor> &actors,
 		const XeenCamera &camera, const Terrain &terrain, bool movementEnabled,
 		const BeforeMovement &beforeMovement, XeenActorOpportunityContext context);
+	// Danger Sense's source (DOS 0x1fdc1, 0x1fe49, 0x1fefb): the movement pass
+	// sets it for any present monster in the 7x7 window around the party,
+	// before its attacking, asleep and line-of-sight tests. Only the movement
+	// pass evaluates it, and not when that pass returns early.
+	static bool dangerSense(const std::vector<XeenActor> &actors, const XeenCamera &camera) noexcept;
 	static void validateDomain(XeenWorld &world, const XeenPartyState &party,
 		const XeenGameplayContext &context, const std::vector<XeenActor> &actors,
 		const XeenEventFile &events);

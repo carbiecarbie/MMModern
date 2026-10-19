@@ -256,7 +256,9 @@ global `0xf604`), SetChar 8..127 (WhoWill), Darkside character flags (107)
 and GiveMulti 67. Every skill grant and removal is supported: it only writes
 the skill byte, which the save keeps. Arms Master, Direction Sense, Merchant,
 Mountaineer, Swimmer, Tracker, Spot Secret Doors and Danger Sense are granted
-and saved, but their passive effects are not implemented yet.
+and saved; Direction Sense, Spot Secret Doors and Danger Sense light their
+border indicators ([rules](magic.md#border-and-information-screens)), the
+other passive effects are not implemented yet.
 The live mainland path also refuses item, gold, food, flag, time and random
 writes outside its existing capabilities.
 
