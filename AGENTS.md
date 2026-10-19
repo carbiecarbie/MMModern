@@ -135,7 +135,9 @@ recurring, stop and propose a milestone instead.
 - **Completion requirement.** A production-code change is never complete
   without a passing complete CTest suite, run through the test-runner protocol
   in `tools/AGENTS.md` (which also says when and on which builds).
-- Tests run on `build-rel` (RelWithDebInfo, `-O2 -g` without `-DNDEBUG`).
+- Tests run on `build-rel` (RelWithDebInfo, `-O2 -g` without `-DNDEBUG`);
+  only `mmodern.exe` keeps its debug information, test and tool executables
+  link without it (`-DMMODERN_TEST_DEBUG_INFO=ON` keeps it to debug them).
   The maintainer's play-tests and release packages use `build-rel` too;
   `build-m44` (Debug, `-O0`) stays for debugging only. Setup is in
   `docs/dependencies.md`.

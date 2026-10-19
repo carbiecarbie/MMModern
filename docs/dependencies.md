@@ -357,7 +357,12 @@ cmake --build build-rel --target mmodern_test_save   # optional tool, not built 
 ctest --test-dir build-rel -L fast -j 8 --output-on-failure
 ```
 
-`build-rel/build.ninja` must not contain `NDEBUG`. The complete suite runs
+`build-rel/build.ninja` must not contain `NDEBUG`. Outside Debug builds, test
+and tool executables are linked with `-Wl,--strip-debug`: debug information is
+about 97% of each one, and writing it dominated incremental builds (one source
+change relinked 183 executables in 505 s). The generated code is unchanged and
+`mmodern.exe` keeps its debug information. Configure with
+`-DMMODERN_TEST_DEBUG_INFO=ON` to debug a test or tool in `build-rel`. The complete suite runs
 through `tools/run-full-ctest.ps1 -BuildDir build-rel`, as described in
 `tools/AGENTS.md`: by default in parallel (half the logical processors, at
 most 8 jobs); CMake runs the real-clock and native-window tests alone and gives

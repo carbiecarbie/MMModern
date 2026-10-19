@@ -31,8 +31,10 @@ rerunning its failed tests, and when acting as its test runner. The root
   test a generous hang-guard timeout (1800 s process, 300 s fast) that no
   machine load can break; a timeout is therefore a hang, never load.
 - The complete suite runs outside any agent sandbox: in Codex, request
-  escalation once for the validation phase and give it to the runner. A
-  sandboxed run is invalid, not a test result: process tests fail with Windows
+  escalation once for the validation phase and give it to the runner. The
+  script refuses to start when `TEMP` points into an app sandbox and puts the
+  configured compiler's directory on `PATH` itself. A sandboxed run is
+  invalid, not a test result: process tests fail with Windows
   error 5 (save directory, save publication, junction creation), temporary
   paths point into `AppData\Local\Packages\sandbox.{...}\AC\Temp`, and
   `xeen_item_catalog_generation` hangs to its 300 s timeout. Do not diagnose or

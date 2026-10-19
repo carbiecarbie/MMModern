@@ -8,8 +8,10 @@
 # tests that share a fixed path, so the jobs never interfere; every timeout is
 # a hang guard independent of load (CMakeLists.txt, test policy block).
 #
+# The script refuses to run inside an agent sandbox and puts the configured
+# compiler's directory on PATH itself.
+#
 # Example:
-#   $env:PATH = "C:\msys64\ucrt64\bin;$env:PATH"
 #   .\tools\run-full-ctest.ps1 -BuildDir build-rel
 [CmdletBinding()]
 param(
@@ -24,11 +26,28 @@ if ($Jobs -lt 1) {
     $Jobs = [math]::Max(1, [math]::Min(8, [int][math]::Floor([Environment]::ProcessorCount / 2)))
 }
 $build = (Resolve-Path -LiteralPath $BuildDir).Path
-$ctestExe = (Get-Command $CTest -CommandType Application | Select-Object -First 1).Source
 
 if (-not (Test-Path -LiteralPath (Join-Path $build 'CTestTestfile.cmake'))) {
     throw "No CTest configuration in $build"
 }
+
+# A sandboxed run is invalid, not a test result (tools/AGENTS.md): refuse it
+# before spending minutes on failures it would cause.
+if ("$env:TEMP" -match '\\AppData\\Local\\Packages\\') {
+    throw "TEMP points into an app sandbox ($env:TEMP); run the complete suite unsandboxed"
+}
+
+# Test executables need the toolchain's runtime DLLs; without its directory on
+# PATH they fail with 0xc0000139. Prepend the configured compiler's directory.
+$compilerLine = Select-String -LiteralPath (Join-Path $build 'CMakeCache.txt') `
+    -Pattern '^CMAKE_CXX_COMPILER:\w+=(.+)$' | Select-Object -First 1
+if ($compilerLine) {
+    $toolchainBin = Split-Path -Parent $compilerLine.Matches[0].Groups[1].Value
+    if (Test-Path -LiteralPath $toolchainBin) {
+        $env:PATH = "$toolchainBin;$env:PATH"
+    }
+}
+$ctestExe = (Get-Command $CTest -CommandType Application | Select-Object -First 1).Source
 
 $runId = (Get-Date -Format 'yyyyMMdd-HHmmss') + '-' +
     [guid]::NewGuid().ToString('N').Substring(0, 8)

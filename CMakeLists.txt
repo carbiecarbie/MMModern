@@ -1164,3 +1164,24 @@ if(BUILD_TESTING)
 	set_tests_properties(xeen_reward_gameplay xeen_reward_sdl PROPERTIES RESOURCE_LOCK reward_gameplay_dir)
 	set_tests_properties(xeen_combat_impact_original xeen_resource_cold_original PROPERTIES RESOURCE_LOCK consequence_temp_saves)
 endif()
+
+# Debug information is about 97% of every test and tool executable, and writing
+# it on each relink dominated incremental builds (measured 2026-10-19: 505 s to
+# relink 183 executables after one source change). The game keeps it; set
+# MMODERN_TEST_DEBUG_INFO=ON to debug a test or tool outside a Debug build.
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+	set(mmodern_test_debug_info_default ON)
+else()
+	set(mmodern_test_debug_info_default OFF)
+endif()
+option(MMODERN_TEST_DEBUG_INFO "Keep debug information in test and tool executables"
+	${mmodern_test_debug_info_default})
+if(MINGW AND NOT MMODERN_TEST_DEBUG_INFO)
+	get_property(mmodern_executables DIRECTORY PROPERTY BUILDSYSTEM_TARGETS)
+	foreach(mmodern_target IN LISTS mmodern_executables)
+		get_target_property(mmodern_target_type ${mmodern_target} TYPE)
+		if(mmodern_target_type STREQUAL "EXECUTABLE" AND NOT mmodern_target STREQUAL "mmodern")
+			target_link_options(${mmodern_target} PRIVATE -Wl,--strip-debug)
+		endif()
+	endforeach()
+endif()
