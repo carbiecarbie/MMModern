@@ -165,10 +165,14 @@ XeenItemDescription XeenItemCatalog::describe(XeenInventoryCategory category,
 	}
 
 	detail::XeenBoundedText text(kDescriptionLimit);
-	if (result.broken)
+	if (result.broken) {
 		text.append(decoration(kItemBroken, "\f32"));
-	if (result.cursed)
+		result.brokenEnd = text.value().size();
+	}
+	if (result.cursed) {
 		text.append(decoration(kItemCursed, "\f09"));
+		result.cursedEnd = text.value().size();
+	}
 
 	if (category == XeenInventoryCategory::Miscellaneous) {
 		const bool containerKnown = item.material >= 1 && item.material <= 11;
@@ -236,6 +240,35 @@ XeenItemDescription XeenItemCatalog::describe(XeenInventoryCategory category,
 	text.capitalizeFirstAsciiLetter();
 	result.displayName = text.value();
 	result.truncated = text.truncated();
+	return result;
+}
+
+std::string XeenItemDescription::coloredName(unsigned lineColor) const {
+	const unsigned color = lineColor % 100;
+	std::string code = "\f";
+	code += char('0' + color / 10);
+	code += char('0' + color % 10);
+	if (!brokenEnd && !cursedEnd)
+		return code + displayName;
+	// Each original prefix keeps its trailing space ("\f32broken ").
+	const auto end = [&](std::size_t value) {
+		value = std::min(value, displayName.size());
+		return value < displayName.size() && displayName[value] == ' ' ? value + 1 : value;
+	};
+	std::string result;
+	std::size_t at = 0;
+	if (brokenEnd) {
+		result += "\f32";
+		result.append(displayName, 0, end(brokenEnd));
+		at = end(brokenEnd);
+	}
+	if (end(cursedEnd) > at) {
+		result += "\f09";
+		result.append(displayName, at, end(cursedEnd) - at);
+		at = end(cursedEnd);
+	}
+	result += code;
+	result.append(displayName, at, std::string::npos);
 	return result;
 }
 

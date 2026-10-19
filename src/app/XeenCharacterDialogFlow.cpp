@@ -162,7 +162,7 @@ void XeenEventFlow::performItemOption(unsigned option) {
         }
         if(!journey()) {dialogError("Discard requires an active Journey");return;}
         if(!_equipmentSelection || !validEquipmentSelection(*_equipmentSelection)) {invalidateInventorySelection();return;}
-        _discardPrompt=xeenDialogFormat(dosText().scalar("PERMANENTLY_DISCARD"),{_catalog.describe(_inventory.category,_inventory.record).displayName});
+        _discardPrompt=xeenDialogFormat(dosText().scalar("PERMANENTLY_DISCARD"),{_catalog.describe(_inventory.category,_inventory.record).coloredName(4)});
         _discardConfirm=true;return;
     }
     if(option!=2) return;
@@ -175,7 +175,7 @@ void XeenEventFlow::performItemOption(unsigned option) {
         dialogError(std::string(xeenDialogText(dosText(),XeenDialogText::UseInCombat)));return;
     }
     if(admission==XeenItemUseAdmission::NoAbility) {
-        dialogError(xeenDialogFormat(xeenDialogText(dosText(),XeenDialogText::NoSpecialAbilities),{_catalog.describe(_inventory.category,_inventory.record).displayName}));return;
+        dialogError(xeenDialogFormat(xeenDialogText(dosText(),XeenDialogText::NoSpecialAbilities),{_catalog.describe(_inventory.category,_inventory.record).coloredName(15)}));return;
     }
     if(!journey() || !xeenItemUseSupported(_inventory.record)) {dialogError("Item effect: not supported yet");return;}
     if(!_combatItems) if(const auto spell=xeenItemUseSpell(_inventory.record.id);spell && XeenLearnedSpellRules::target(static_cast<std::uint8_t>(*spell))==XeenSpellTarget::Contact) {

@@ -171,6 +171,29 @@ void presentation(Inputs &in) {
         else check(same(learned,item,{24,0,215,146}),"Item travel dialog kept the inventory underneath");
         if(spell==69)check(same(learned,item,{52,149,268,198}),"Item Teleport prompt differs from learned");
     }
+    // Town Portal uses window 20, Rect(72,37,248,163) (TownPortal::execute),
+    // and Input::show centers its one-digit field at x 160 on the last row.
+    scenario="Town Portal window 20";
+    const auto changed=[](const IndexedFrame &a,const IndexedFrame &b,Rect region) {
+        Rect box{320,200,-1,-1};
+        for(int y=region.top;y<region.bottom;++y)for(int x=region.left;x<region.right;++x)if(a.pixels[y*320+x]!=b.pixels[y*320+x]) {
+            box.left=std::min(box.left,x);box.top=std::min(box.top,y);box.right=std::max(box.right,x+1);box.bottom=std::max(box.bottom,y+1);
+        }
+        return box;
+    };
+    const auto equal=[](Rect a,Rect b){return a.left==b.left && a.top==b.top && a.right==b.right && a.bottom==b.bottom;};
+    auto s=source(in,71);s.characters[s.activeRosterIds[0]].miscellaneous[0]={1,55,2,0};
+    Fixture f(in,s);wire(f);const auto before=f.flow->frame();
+    openTravel(f,true);check(XeenRestTestAccess::teleport(*f.flow),"Town Portal dialog absent");
+    const auto open=f.flow->frame();
+    // The party bar below row 146 also redraws; the box's own edges are exact.
+    check(equal(changed(before,open,{0,0,320,146}),{72,37,248,146}) &&
+        equal(changed(before,open,{72,160,320,163}),{72,160,248,163}) &&
+        changed(before,open,{248,0,320,146}).right<0,"Town Portal is not drawn in window 20");
+    key(f,'3');const auto three=f.flow->frame();key(f,8);key(f,'4');
+    const auto digit=changed(three,f.flow->frame(),{0,0,320,200});
+    check(digit.right>0 && digit.top>140 && digit.bottom<=155 && std::abs(digit.left+digit.right-320)<=2,
+        "Town Portal input not centered at x 160 on the window's last row");
 }
 void exploration(Inputs &in) {
     for(auto pair:{std::pair{66u,48u},{21u,58u},{70u,39u},{69u,42u}})for(bool item:{false,true})for(bool restricted:{false,true}) {

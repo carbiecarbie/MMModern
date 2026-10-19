@@ -119,6 +119,8 @@ struct QueueHarness {
    else if(std::holds_alternative<CancelInteractionAction>(action))kind='E';
    else if(std::holds_alternative<QuickFightAction>(action))kind='F';
    else if(std::holds_alternative<QuickFightOptionsAction>(action))kind='O';
+   else if(std::holds_alternative<UseItemAction>(action))kind='u';
+   else if(std::holds_alternative<CastSpellAction>(action))kind='C';
    else if(std::holds_alternative<UnsupportedMainScreenAction>(action))kind='U';
    else if(std::holds_alternative<ControlPanelAction>(action))kind='P';
    else if(std::holds_alternative<InfoAction>(action))kind='I';
@@ -388,6 +390,17 @@ void quickFightKeys() {
   else if(h.stage==10){h.check(h.delivered==std::vector<char>{'O','n','n',char(InputKey::Enter)},"Options fresh Next/Return parity");h.quit();}
  });
 }
+// Every combat button click reaches the flow as its key does; Use (U, the
+// potion button) opens the combat Use dialog through the same action.
+void combatButtonClicks() {
+ QueueHarness h;h.ready=true;h.screen=MainScreen::Combat;
+ h.run("combat-button-clicks-and-Use-key-parity",[](auto &h){
+  constexpr std::pair<int,int> buttons[]{{236,76},{261,76},{287,76},{236,97},{261,97},{287,97},{236,118},{261,118},{287,118},{110,138}};
+  if(h.stage==0)h.tap(SDLK_u,100);
+  else if(h.stage>=2 && h.stage<22 && h.stage%2==0)h.click(buttons[(h.stage-2)/2].first,buttons[(h.stage-2)/2].second,SDL_BUTTON_LEFT,100);
+  else if(h.stage==24){h.check(h.delivered==std::vector<char>{'u','F','C','X','u','R','B','O','I','Q','P'},"Combat button click lost");h.quit();}
+ });
+}
 void callerEscapeAndAcknowledgment() {
  QueueHarness yes;yes.ready=true;yes.queueable=false;
  DialogInput confirm;confirm.keys={'y','n',InputKey::Escape};
@@ -624,7 +637,7 @@ void pushKey(std::atomic<bool> &finished, SDL_Keycode key, std::uint8_t repeat,
 
 int main(int argc,char **) {
 	probe_fired::expect("SDL_GetTicks");
- if(argc>1){journalKeys();mouseHitAreas();mouseQueuePolicies();strictDialogPolicies();pressedButtonFeedback();strafeAndSummaryKeys();quickFightKeys();callerEscapeAndAcknowledgment();return 0;}
+ if(argc>1){journalKeys();mouseHitAreas();mouseQueuePolicies();strictDialogPolicies();pressedButtonFeedback();strafeAndSummaryKeys();quickFightKeys();combatButtonClicks();callerEscapeAndAcknowledgment();return 0;}
  semanticBoundaryKeys();
  boundedQueuePolicies();
  navigationObligations();

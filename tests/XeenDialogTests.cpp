@@ -8,6 +8,7 @@
 #include "formats/xeen/XeenAssetSource.h"
 #include "formats/xeen/XeenCharacterFormat.h"
 #include <iostream>
+#include <set>
 #include <stdexcept>
 #include <fstream>
 using namespace mmodern;
@@ -254,6 +255,47 @@ void original(const char *path){
    check(markers==(cursor<20?1u:0u),"sheet marker count");
   }
   check(assets.spriteFrameCount("view.icn")==50,"view.icn carries frames 48/49");
+ }
+ {
+  // DOSBox shows "Cursed" in yellow and "Broken" in red in the Items dialog:
+  // the pin's \f09 and \f32 prefixes, through the original font palette.
+  assets.loadPalette("mm4.pal");const auto palette=assets.snapshot().palette;
+  auto &c=p.roster.at(p.party.activeRosterIds()[0]);const auto weapons=c.weapons;
+  XeenInventorySelection selection;selection.mode=XeenInventoryMode::Browse;selection.source=0;selection.sourceOwner=c.rosterId;
+  selection.category=XeenInventoryCategory::Weapons;
+  const auto colors=[&](XeenItem first,XeenItem second) {
+   c.weapons={};c.weapons[0]=first;c.weapons[1]=second;
+   const auto frame=drawXeenItems(assets.uiText(),base,font,catalog,p,selection,draw);
+   std::set<unsigned> used;for(int y=8;y<100;++y)for(int x=8;x<312;++x)used.insert(frame.pixels[y*320+x]);
+   return used;
+  };
+  const auto plain=colors({0,1,0,0},{0,2,0,0}),marked=colors({0,1,0x40,0},{0,2,0x80,0});
+  bool yellow=false,red=false;
+  for(unsigned index:marked)if(!plain.count(index)) {
+   const unsigned r=palette[index*3],g=palette[index*3+1],b=palette[index*3+2];
+   yellow|=r>150 && g>150 && b<80;red|=r>150 && g<100 && b<100;
+  }
+  check(yellow && red,"Items dialog Cursed/Broken prefixes not yellow/red");
+  c.weapons=weapons;
+  // DOSBox Discard prompt: "Broken" red, the rest of the name white (color 4),
+  // and a plain item's whole name white.
+  // Only the pixels that differ from the same prompt with the uncolored name.
+  const auto prompt=[&](XeenItem item) {
+   const auto description=catalog.describe(XeenInventoryCategory::Weapons,item);
+   const auto confirm=[&](const std::string &name) {
+    return drawXeenConfirm(base,font,xeenDialogFormat(xeenDialogText(assets.uiText(),XeenDialogText::PermanentlyDiscard),{name}),false,draw);
+   };
+   const auto colored=confirm(description.coloredName(4)),plain=confirm(description.displayName);
+   bool white=false,crimson=false;
+   for(std::size_t i=0;i<colored.pixels.size();++i)if(colored.pixels[i]!=plain.pixels[i]) {
+    const unsigned index=colored.pixels[i];
+    const unsigned r=palette[index*3],g=palette[index*3+1],b=palette[index*3+2];
+    white|=r>200 && g>200 && b>200;crimson|=r>150 && g<100 && b<100;
+   }
+   return std::pair{white,crimson};
+  };
+  check(prompt({0,2,0x80,0})==std::pair{true,true} && prompt({0,2,0,0})==std::pair{true,false},
+   "Discard prompt item colors differ from DOS");
  }
  check(p.food==(pty[618]|(pty[619]<<8)),"original food bytes");
  check(p.food==90,"Supplied original initial food is 90");

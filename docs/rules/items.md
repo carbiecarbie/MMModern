@@ -145,6 +145,14 @@ The DOS confirmation-verb table is ordered Identify then Fix; the pinned English
 table swaps them. See [original quirks](../original-quirks.md) for formatter and
 proficiency offsets.
 
+**DOS play (maintainer screenshots, 2026-10-19):** item lists draw the Cursed
+prefix in yellow and Broken in red, the pin's `\f09` and `\f32` before the line's
+own color (`getFullDescription`). The Discard prompt uses the same formatter
+with color 4: "Broken" red and the rest of the name white, and a plain item's
+whole name white. **Reference only:** the pin passes it with color 15 to the
+Buy, Sell, Fix/Identify, Identify, No Need of This and No Special Abilities
+prompts; MMModern follows it there too (`XeenItemDescription::coloredName`).
+
 **Reference only:** Smith departure costs one day even when the player cancels
 all transactions. Individual transactions do not themselves advance time.
 Source: [BaseLocation::show][locations], after the Smith dialog returns. This is a service-exit

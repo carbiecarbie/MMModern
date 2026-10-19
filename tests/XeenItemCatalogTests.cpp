@@ -88,6 +88,15 @@ void testRepresentativeNames() {
 		{10, 37, 129, 7});
 	check(hiddenMisc.displayName.find("antidotes") == std::string::npos,
 		"suppressed special name leaked");
+	// List lines color the prefixes as the pin's getFullDescription does:
+	// broken \f32, cursed \f09, then the line's own color.
+	check(hiddenEquipment.coloredName(15) == "\f32Broken \f09cursed \f15dagger",
+		"broken cursed list colors");
+	check(catalog.describe(XeenInventoryCategory::Miscellaneous, {10, 37, 64, 0}).coloredName(0) ==
+		"\f09Cursed \f00potion", "cursed list colors");
+	check(hiddenMisc.coloredName(0) == "\f32Broken \f00potion", "broken list colors");
+	check(catalog.describe(XeenInventoryCategory::Weapons, {77, 12, 1, 0}).coloredName(4) ==
+		"\f04Burning dagger Dragon Slayer", "undecorated item color");
 }
 
 void testDomainsAndFallbacks() {

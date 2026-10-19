@@ -30,8 +30,9 @@ IndexedFrame XeenEventFlow::drawTravelDialog(const IndexedFrame &base) const {
         const auto &c=_party.roster.at(ui.owner);
         XeenTextRenderOptions options;options.originalControls=true;options.drawWindow=true;
         const bool beacon=ui.spell==XeenLearnedSpell::LloydsBeacon;
-        options.windowBounds=beacon?XeenTextRect{226,0,320,146}:XeenTextRect{80,28,256,148};
-        options.bounds=beacon?XeenTextRect{234,8,312,138}:XeenTextRect{88,36,248,140};options.x=options.bounds.left;options.y=options.bounds.top;options.stopAtBottom=true;
+        // TownPortal::execute and LloydsBeacon::execute: windows[20] and [10].
+        options.windowBounds=beacon?XeenTextRect{226,0,320,146}:XeenTextRect{72,37,248,163};
+        options.bounds=beacon?XeenTextRect{234,8,312,138}:XeenTextRect{80,45,240,155};options.x=options.bounds.left;options.y=options.bounds.top;options.stopAtBottom=true;
         const auto text=beacon?xeenDialogFormat(dosText().scalar("LLOYDS_BEACON"),{ui.names[0],std::to_string(c.lloydX),std::to_string(c.lloydY)}):
             xeenDialogFormat(dosText().scalar("TOWN_PORTAL"),{ui.names[0],ui.names[1],ui.names[2],ui.names[3],ui.names[4]});
         // Window 10 redraws the protection corners and covers the right statue,

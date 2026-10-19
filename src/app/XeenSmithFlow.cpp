@@ -696,7 +696,7 @@ std::string XeenEventFlow::smithText() const {
         const auto &visit=*_encounter->_smith;
         const auto &item=ui.mode==SmithUi::Mode::Buy?visit.purchase->result.offer:visit.result.before;
         return xeenServiceConfirm(dosText(),ui.itemAction(),
-            ui.catalog.describe(ui.category,item).displayName,
+            ui.catalog.describe(ui.category,item).coloredName(15),
             ui.mode==SmithUi::Mode::Buy?visit.purchase->result.price:visit.result.price);
     }
     return xeenLocationText(dosText(),ui.mode==SmithUi::Mode::Heal?XeenLocationDialog::Temple:XeenLocationDialog::Smith,_party,ui.member,_camera.mapId);
@@ -819,13 +819,13 @@ IndexedFrame XeenEventFlow::handleSmith(const PlayerAction &action,std::uint64_t
                 } else {
                     if(ui.mode==SmithUi::Mode::Identify) {
                         const auto details=xeenIdentifiedDetails(dosText(),c,ui.category,item,*_encounter->journeySavePreimage().learnedNames);
-                        ui.itemDetails=xeenDialogFormat(dosText().scalar("IDENTIFY_ITEM_MSG"),{ui.catalog.describe(ui.category,item).displayName,details});
+                        ui.itemDetails=xeenDialogFormat(dosText().scalar("IDENTIFY_ITEM_MSG"),{ui.catalog.describe(ui.category,item).coloredName(15),details});
                     }
                     _encounter->quoteSmith(ui.member,ui.slot,ui.category,ui.itemAction());
                     const auto outcome=_encounter->_smith->result.outcome;
                     if(_encounter->_smith->quoted) ui.phase=SmithUi::Phase::Confirm;
                     else if(outcome==XeenArmorRepairOutcome::Intact)ui.feedback=std::string(xeenDialogText(dosText(),XeenDialogText::ItemNotBroken));
-                    else if(outcome==XeenArmorRepairOutcome::Refused)ui.feedback=xeenDialogFormat(dosText().scalar("NO_NEED_OF_THIS"),{ui.catalog.describe(ui.category,item).displayName});
+                    else if(outcome==XeenArmorRepairOutcome::Refused)ui.feedback=xeenDialogFormat(dosText().scalar("NO_NEED_OF_THIS"),{ui.catalog.describe(ui.category,item).coloredName(15)});
                     else ui.feedback="Item service: not supported yet";
                 }
             }

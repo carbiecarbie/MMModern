@@ -468,6 +468,7 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
                 std::holds_alternative<RevisitCompletedAction>(*action) || std::holds_alternative<WaitAction>(*action) ||
                 std::holds_alternative<QuickFightAction>(*action) || std::holds_alternative<QuickFightOptionsAction>(*action) ||
                 std::holds_alternative<CastSpellAction>(*action) || std::holds_alternative<SelectMemberAction>(*action) ||
+                (context.mainScreen==MainScreen::Combat && std::holds_alternative<UseItemAction>(*action)) ||
                 std::holds_alternative<UnsupportedMainScreenAction>(*action) ||
                 (context.dialog && (std::holds_alternative<DialogKeyAction>(*action) ||
                     std::holds_alternative<AcknowledgeAction>(*action) || std::holds_alternative<CancelInteractionAction>(*action))) ||

@@ -65,6 +65,12 @@ struct XeenItemDescription {
 	XeenCatalogAvailability catalogAvailability = XeenCatalogAvailability::Available;
 	XeenMaterialAvailability materialAvailability = XeenMaterialAvailability::Missing;
 	bool truncated = false;
+	// End of the "broken " and "cursed " prefixes within displayName.
+	std::size_t brokenEnd = 0, cursedEnd = 0;
+	// The pin's getFullDescription: "broken" in color 32, "cursed" in color
+	// 09, the rest in the given color (the list line's, 4 in the Discard
+	// prompt, 15 in the other item prompts; DOS shows the same).
+	std::string coloredName(unsigned lineColor) const;
 };
 
 class XeenItemCatalog {

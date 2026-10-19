@@ -526,7 +526,7 @@ IndexedFrame drawXeenBuy(const XeenDosText &text,const IndexedFrame &base,const 
         if(description.empty) args.push_back(i==0?str(text.scalar("NO_ITEMS_AVAILABLE")):"");
         else {
             const auto cost=xeenItemPrice(selection.category,items[i],action,c.skills[8]).value_or(0);
-            args.push_back(xeenDialogFormat(text.scalar("ITEMS_DIALOG_LINE2"),{n(selection.slot==i?15:0),n(i+1),description.displayName,n(std::max(1u,cost))}));
+            args.push_back(xeenDialogFormat(text.scalar("ITEMS_DIALOG_LINE2"),{n(selection.slot==i?15:0),n(i+1),description.coloredName(selection.slot==i?15:0),n(std::max(1u,cost))}));
         }
     }
     frame=render(frame,font,xeenDialogFormat(repair?text.scalar("X_FOR_Y"):text.scalar("AVAILABLE_GOLD_COST"),args),{0,0,320,108},{8,8,312,100});
@@ -779,7 +779,7 @@ IndexedFrame drawXeenItems(const XeenDosText &text,const IndexedFrame &base,cons
         const auto description=catalog.describe(selection.category,items[i]);
         if(description.empty) args.push_back(i==0?str(text.scalar("NO_ITEMS_AVAILABLE")):"");
         else {
-            std::vector<std::string> line{n(selection.slot==i?15:0),n(i+1),description.displayName};
+            std::vector<std::string> line{n(selection.slot==i?15:0),n(i+1),description.coloredName(selection.slot==i?15:0)};
             if(mode==11)line.push_back(n(xeenItemPrice(selection.category,items[i],XeenItemService::Buy).value_or(1)));
             else if(misc)line.push_back(n(description.counter));
             args.push_back(xeenDialogFormat(misc || mode==11?text.scalar("ITEMS_DIALOG_LINE2"):text.scalar("ITEMS_DIALOG_LINE1"),line));
