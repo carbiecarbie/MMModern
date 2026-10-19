@@ -1,6 +1,8 @@
 #include "XeenEncounterTestSupport.h"
 #include "games/xeen/XeenLearnedSpellRules.h"
 #include "games/xeen/XeenItemServiceRules.h"
+#include "games/xeen/XeenCombat.h"
+#include "games/xeen/XeenEventTrigger.h"
 #include <iostream>
 using namespace encounter_test;
 namespace {
@@ -87,5 +89,27 @@ void handlers() {
     check(R::cost(66,7).sp==15 && R::cost(66,7).gems==5 && R::cost(21,7).sp==30 && R::cost(21,7).gems==10 &&
         R::cost(70,7).sp==8 && !R::cost(70,7).gems && R::cost(69,7).sp==10 && !R::cost(69,7).gems,"C1 exact fixed costs");
 }
+void runDestinations() {
+    // Combat Run lands on the current map's own run position, indoors or out.
+    for(bool outdoor:{false,true}) {
+        auto source=map();source.geometry.id=outdoor?23:28;source.geometry.flags2=outdoor?0x8000:0;
+        source.geometry.runX=10;source.geometry.runY=12;source.geometry.neighbors.fill(0);
+        const XeenCamera camera{outdoor?23u:28u,3,4,XeenDirection::South};
+        XeenEventFile events;events.mapId=camera.mapId;events.resourcePresent=true;
+        {XeenWorld w([&](auto){return source;});const auto to=xeenRunDestination(w,events,camera);
+            check(to && to->mapId==camera.mapId && to->x==10 && to->y==12 && to->direction==camera.direction,"Run uses the map's run X/Y and keeps facing");
+            const auto absent=xeenRunDestination(w,XeenEventFile{},camera);check(absent && absent->x==10 && absent->y==12,"An absent Event file has no destination Event");}
+        XeenEventRecord record;record.x=10;record.y=12;record.direction=4;events.records.push_back(record);
+        {XeenWorld w([&](auto){return source;});check(bool(xeenRunDestination(w,events,camera)),"A non-automatic destination Event does not block Run");}
+        source.geometry.cells[12*16+10].rawAttributes=kXeenAutomaticEventFlag;
+        {XeenWorld w([&](auto){return source;});check(!xeenRunDestination(w,events,camera),"An automatic destination Event refuses Run");}
+        events.records.back().direction=unsigned(XeenDirection::North);
+        {XeenWorld w([&](auto){return source;});check(bool(xeenRunDestination(w,events,camera)),"An automatic Event for another facing does not block Run");}
+        events.records.clear();
+        {XeenWorld w([&](auto){return source;});check(bool(xeenRunDestination(w,events,camera)),"An automatic flag without an Event does not block Run");}
+        source.geometry.cells[12*16+10].rawAttributes=0;source.geometry.runX=outdoor?16:32;
+        {XeenWorld w([&](auto){return source;});check(!xeenRunDestination(w,events,camera),"A run position outside the map refuses Run");}
+    }
 }
-int main(){try{mapTravel();handlers();std::cout<<"M76 shelter and travel handler rules passed\n";return 0;}catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}
+}
+int main(){try{mapTravel();handlers();runDestinations();std::cout<<"M76 shelter and travel handler rules passed\n";return 0;}catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}

@@ -201,6 +201,8 @@ public:
 	XeenCombatRandom random() const noexcept;
 	XeenCombatResult beginCombat(const Ticket &);
 	XeenCombatResult command(const Ticket &,XeenCombatCommand);
+	// False when a Run that empties the party would have no admitted destination.
+	bool runAvailable() const;
 	XeenCombatResult configureQuickFight(const Ticket &,std::size_t);
 	XeenCombatResult toggleAutomap(const Ticket &);
 	XeenCombatResult selectTarget(const Ticket &, unsigned row);
@@ -264,5 +266,10 @@ private:
 	std::unique_ptr<Impl> impl;
 	XeenCombatResult serviceConsequences(const Ticket &);
 };
+// Where a Run that empties the combat party lands: the current map's own run
+// position, facing unchanged (reference Party::moveToRunLocation; DOS
+// 0x1691f). Empty when the map is not admitted or an automatic Event for
+// that facing waits there.
+std::optional<XeenCamera> xeenRunDestination(XeenWorld &,const XeenEventFile &,const XeenCamera &);
 }
 #endif

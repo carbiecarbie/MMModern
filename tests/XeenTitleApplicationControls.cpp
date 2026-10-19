@@ -125,13 +125,19 @@ bool panelGameplay(const IndexedFrame &first,const SdlWindow::FrameUpdateHandler
   check(XeenSaveFormat::encode(snapshot)==state.saved && state.seeds==0,"in-game Load changed state/time/RNG or reran initialization");
   send(ControlPanelAction{});expectNotice(state.name);key('s');checkNotice();key(27);
   check(XeenSaveFormat::encode(XeenSaveFile::read(state.slot))==state.saved,"immediate in-game Load/re-save differs");
+  // Mr Wizard closes the panel and moves the party to Vertigo's run position.
+  key('w');key('y');
+  check(!handler.inputContext(visible.presentation()).dialog && state.camera->mapId==XeenMapIdentity(28) &&
+   state.camera->direction==XeenDirection::East && state.party->monsterTreasure->gems==0,"panel Mr Wizard did not move the party");
+  for(unsigned i=0;i<10;++i)if(auto next=idle()){visible=*next;present();}
+  send(ControlPanelAction{});
   key('q');key('y');check(handler.finished(),"panel Quit did not finish native session");state.shown=true;return true;
  }
  const auto before=capture();
  const auto originalSlot=state.slot;const auto originalWire=XeenSaveFormat::encode(XeenSaveFile::read(originalSlot));
  send(ControlPanelAction{});preview(visible,"native-panel");
  const auto retained=visible.presentation();
- key('e');key(27);key('w');key('n');key('w');key('y');key(27);key('q');key('n');
+ key('e');key(27);key('w');key('n');key('q');key('n');
  const auto input=handler.displayedInput();check(bool(input),"panel input ticket after cancellation");
  check(!handler.withPresentedInput(DialogKeyAction{'q'},*input,retained),"stale panel input accepted");
  for(unsigned i=0;i<10;++i)idle();check(capture()==before,"panel idle/deferred/decline changed gameplay");

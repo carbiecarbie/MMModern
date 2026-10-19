@@ -105,6 +105,8 @@ public:
 	IndexedFrame refresh(bool reconstruct = false);
 	IndexedFrame acceptManual(XeenManualEventResult result);
 	IndexedFrame acceptAutomatic(XeenAutomaticEventResult result);
+	// Control panel Mr Wizard; empty when it is refused with nothing published.
+	std::optional<IndexedFrame> mrWizard();
 	const IndexedFrame &frame() const { return _frame; }
 	bool blocksGameplay() const { return (_encounter && (!journey() || !_encounter->journeyQuiet())) ||
 		_pending.has_value() || _dispatching || _saving || _handoffPending || inventoryOpen() || _summary || _fatal; }

@@ -371,6 +371,15 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
       *services.outcome={XeenSessionOutcome::Kind::Load,0,request};finished=true;
      }catch(const std::exception &e){checkPanel();panel->loadFailure(e.what());}
     } else if(request.kind==XeenSessionEntry::Kind::Exit)finished=true;
+    else if(request.kind==XeenSessionEntry::Kind::MrWizard) {
+     checkPanel();
+     // The original closes the panel and moves the party in one step.
+     if(auto moved=flow.mrWizard()) {
+      panel.reset();panelGuard.reset();panelTicket.reset();flow._queueContext.reset();
+      return moved;
+     }
+     panel->panelFailure("not supported yet");
+    }
    }
    checkPanel();return panel->frame();
   };

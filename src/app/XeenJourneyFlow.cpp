@@ -199,6 +199,47 @@ bool XeenEncounterFlow::toggleAutomap(const Ticket &entry) {
 	_journeyPreimage->check();_party.encounterContext->effects[XeenPartyEffect::AutomapOn]=prepared->context->effects[XeenPartyEffect::AutomapOn];
 	++_generation;_journeyPreimage.swap(prepared);_journeyPreimage->adoptMutationBoundary();return true;
 }
+// Mr Wizard: DOS 0x1f236..0x1f29b loads Vertigo, faces East, moves to its run
+// position (0x1691f) and zeroes the party's gems, with no time, Event or
+// monster turn. Its FX 51 stays silent until audio exists.
+bool XeenEncounterFlow::mrWizard(const Ticket &entry) {
+	if(!current(entry) || !journeyMutable() || !_boundary.quiet() || !journeyCapacity())return false;
+	BusyJourney busy(_busy);
+	try {
+		_journeyPreimage->check();
+		XeenCamera destination;
+		{XeenRestoreGuard::Providers providers(*_journeyPreimage,_world);
+			auto requested=_camera;requested.mapId=XeenMapIdentity(28);requested.direction=XeenDirection::East;
+			const auto admitted=_world.prepareEventTransition(requested,true);_journeyPreimage->check();
+			if(!admitted)return false;
+			destination=admitted.destination;}
+		// The original always reloads the map, Vertigo included.
+		auto candidate=_world.transitionCandidate();
+		XeenPartyState party;candidate->copyEventParty(_party,party);
+		auto camera=_camera;auto flags=_flags;
+		XeenActorView arrival;std::vector<XeenExploredTile> exploration;XeenEventFile events;
+		{XeenRestoreGuard guard(*candidate,party,camera,flags);
+			XeenRestoreGuard::EventProviders providers(*candidate,party,camera,flags,guard,
+				[&]{_journeyPreimage->check();},[&]{_journeyPreimage->failed=true;});
+			candidate->loadEventDestination(_camera.mapId,destination.mapId);
+			events=_travelEventsProvider(destination.mapId);_journeyPreimage->check();
+			if(events.mapId!=destination.mapId)throw std::logic_error("Mr Wizard Events identity changed");
+			camera=destination;
+			arrival=candidate->prepareTransitionArrival(camera);
+			exploration=candidate->explorationAfterStep(party,camera);}
+		auto prepared=std::make_shared<XeenRestoreGuard>(_world,_party,_camera,_flags);
+		prepared->retainResources(*_journeyPreimage);
+		prepared->prepareSpellMapPublication(*candidate);prepared->cameraValue=camera;
+		prepared->treasure->gems=0;prepared->s.assignExploration(exploration);
+		_journeyPreimage->check();
+		_world.publishTransition(*candidate);_camera=camera;_journeyEvents=std::move(events);
+		_party.monsterTreasure->gems=0;
+		XeenMutationWatch::write(&_world);_world._sessionState.publishExploration(exploration);
+		++_generation;_journeyPreimage.swap(prepared);_journeyPreimage->adoptMutationBoundary();
+		publishArrival(arrival);
+		return true;
+	} catch (...) { closeJourney();throw; }
+}
 void XeenEncounterFlow::adoptJourneyFlowBorrow() {
 	// EventFlow checked this guard immediately before acquiring its one borrow.
 	// Admit exactly that revision increment, retaining every value and identity.

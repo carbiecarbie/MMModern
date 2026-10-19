@@ -83,6 +83,8 @@ public:
 	bool rememberSpell(const Ticket &,std::size_t,unsigned);
 	bool configureQuickFight(const Ticket &,std::size_t);
 	bool toggleAutomap(const Ticket &);
+	// Control panel Mr Wizard outside combat; false refuses with nothing published.
+	bool mrWizard(const Ticket &);
 	XeenTransferResult journeyTransfer(const Ticket &, std::size_t, std::size_t, XeenInventoryCategory, std::size_t);
 	bool journeyDiscard(const Ticket &,std::size_t,XeenInventoryCategory,std::size_t,const XeenItem &);
 	struct ItemUseSelection {

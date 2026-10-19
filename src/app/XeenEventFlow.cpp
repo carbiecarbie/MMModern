@@ -822,6 +822,11 @@ void XeenEventFlow::finishOrdinaryDraw() {
     _world.scenePresentation().composeFromRetained(true);
 }
 
+std::optional<IndexedFrame> XeenEventFlow::mrWizard() {
+	if(!journey() || _encounter->combat() || _pending || _castingUi || _barrier || inventoryOpen() ||
+		!_encounter->mrWizard(_encounter->ticket()))return std::nullopt;
+	return renderEncounter();
+}
 IndexedFrame XeenEventFlow::renderEncounter(bool report, bool cosmeticInput, bool reconstruct) {
     syncSpellItems();
     if(_encounter && !_encounter->_rest &&

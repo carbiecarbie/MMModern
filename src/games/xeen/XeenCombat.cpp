@@ -757,11 +757,27 @@ XeenCombatResult XeenCombat::toggleAutomap(const Ticket &t) {
         d.published();return d.adopt(d.observation(Status::Advanced));
     }catch(...) {return fail(t,Failure::Integrity);}
 }
+std::optional<XeenCamera> xeenRunDestination(XeenWorld &world,const XeenEventFile &events,const XeenCamera &camera) {
+	const auto admitted=world.prepareEventTransition(camera,true);
+	if(!admitted || admitted.destination.mapId!=camera.mapId)return std::nullopt;
+	const auto &to=admitted.destination;
+	// DOS runs the landing cell's automatic Event only when door text was up
+	// as combat began (0x2e62d, 0x2ec18..0x2ec37). That flag is not modelled,
+	// so a landing whose Event could run refuses Run instead.
+	const auto cell=world.sampleCell(to.mapId,to.x,to.y);
+	if(!cell || ((cell->cell->rawAttributes&kXeenAutomaticEventFlag) &&
+		events.resourcePresent && xeenRegionalEvent(events,to)))return std::nullopt;
+	return to;
+}
+bool XeenCombat::runAvailable() const {
+	auto &d=*impl;
+	try {return xeenRunDestination(d.world,d.events,d.camera).has_value();}catch(...){return false;}
+}
 XeenCombatResult XeenCombat::command(const Ticket &t,XeenCombatCommand action) {
 	auto &d=*impl;if(!current(t))return d.observation(Status::Stale);
 	if(d.busy||d.phase!=Phase::PlayerReady||(action!=XeenCombatCommand::Attack&&action!=XeenCombatCommand::Block&&action!=XeenCombatCommand::Run&&action!=XeenCombatCommand::Skip))return d.observation(Status::Refused);
-	if(action==XeenCombatCommand::Run && d.indoor())return d.observation(Status::Refused);
 	if(action==XeenCombatCommand::Run && (d.turn<0 || d.turn>=6 || !(d.participants&(1u<<d.turn)) || !d.character(d.turn).canAct() || d.playerSpeeds[d.turn]<=0)) return d.observation(Status::Refused);
+	if(action==XeenCombatCommand::Run && !runAvailable())return d.observation(Status::Refused);
 	if(!d.exact()||!d.boundary.quiet())return fail(t,Failure::Integrity);
 	try {d.capacity();}catch(...){return fail(t,Failure::Overflow);}
 	// Consume this intent before any random/provider callback.
@@ -1620,19 +1636,17 @@ XeenCombatResult XeenCombat::finishDisengagement(const Ticket &t) {
    d.work==Work::FinishDisengagement && !d.consequences && !d.moveDue && !d.chargeRound &&
    d.contact[0] && !d.continuingParticipants() && !d.defeated() && d.participants!=0x3f &&
    d.exitCause!=XeenCombatExitCause::None,"Incomplete disengagement obligations");
-  const auto map=d.world.map(d.camera.mapId);d.probeFor(t);
-  const auto &g=map.geometry;
-  require(d.camera.mapId==XeenMapIdentity(23) && g.runX==10 && g.runY==12 && g.difficulties[7]==100,
-   "Original Run metadata changed");
-  XeenCamera destination=d.camera;destination.x=g.runX;destination.y=g.runY;
-  require(XeenMovement::component(map,9,11,xeenJourneyContent().traversal)[destination.y*16+destination.x] &&
-   !xeenRegionalEvent(d.events,destination) && !hasAutomaticTrigger(g,destination.x,destination.y),
-   "Original Run destination is incompatible");
+  // Run admission refused a facing landing Event; a later turn lands as DOS
+  // does without door text up.
+  const auto run=d.world.prepareEventTransition(d.camera,true);d.probeFor(t);
+  require(run && run.destination.mapId==d.camera.mapId,"Run destination is unavailable");
+  const auto destination=run.destination;
+  const auto origin=d.world.sampleCell(d.camera.mapId,d.camera.x,d.camera.y);
   auto characters=d.characters();auto r=d.observation(Status::Advanced);
   r.oldRevision=d.revision();r.operation=Operation::FinishDisengagement;r.exitCause=d.exitCause;
   r.origin=XeenCombatLocation{d.camera.mapId,d.camera.x,d.camera.y,d.camera.direction};
   r.destination=XeenCombatLocation{destination.mapId,destination.x,destination.y,destination.direction};
-  r.originAutomaticSuperseded=hasAutomaticTrigger(g,d.camera.x,d.camera.y) && xeenRegionalEvent(d.events,d.camera).has_value();
+  r.originAutomaticSuperseded=origin && (origin->cell->rawAttributes&kXeenAutomaticEventFlag) && xeenRegionalEvent(d.events,d.camera).has_value();
   for(unsigned i=0;i<6;++i) if(d.participants&(1u<<i)) {
    const auto condition=characters[i].worstCondition();
    if(condition==XeenCondition::Asleep || condition==XeenCondition::Paralyzed ||
@@ -1656,7 +1670,7 @@ XeenCombatResult XeenCombat::finishDisengagement(const Ticket &t) {
   candidate.firstSerializedCount=d.party.firstSerializedCount;candidate.effectiveSerializedCount=d.party.effectiveSerializedCount;
   for(const auto &c:characters) candidate.roster.at(c.rosterId).conditions=c.conditions;
   candidate.monsterTreasure=treasure;xeenValidateJourneyParty(candidate);
-  auto actors=d.actors;const auto view=XeenActorApproach::classify(actors,destination);
+  auto actors=d.actors;const auto view=d.classify(actors,destination);
   for(unsigned i=0;i<actors.size();++i) actors[i].activated=actors[i].activated || view.activation[i];
   auto expectedActors=actors;
   d.probeFor(t);

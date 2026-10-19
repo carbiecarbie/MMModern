@@ -411,8 +411,11 @@ bool XeenEncounterFlow::handleCombat(const PlayerAction &physical, std::optional
         if(!_combat || _combat->phase()!=XeenCombatPhase::PlayerReady || _combat->participant()<0)return false;
         const auto option=_party.party.member(_party.roster,_combat->participant()).quickOption;
         if(option==1)return false;
-        if(option==3 && !_world.map(_camera.mapId).geometry.isOutdoors()) {_combatCastRefusal="Quick Fight Run: indoor escape not supported yet";return true;}
         input=option==0?PlayerAction{AttackAction{}}:option==2?PlayerAction{BlockAction{}}:PlayerAction{RunAction{}};
+    }
+    if(std::holds_alternative<RunAction>(input) && _combat && _combat->phase()==XeenCombatPhase::PlayerReady &&
+        !_busy && !terminal() && !_combat->cast() && !_combat->runAvailable()) {
+        _combatCastRefusal="Run: escape destination not supported yet";return true;
     }
 	using P = XeenCombatPhase;
 	_combatOperationStale = false;

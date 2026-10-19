@@ -106,7 +106,10 @@ void panelControls(XeenAssetSource &assets,const XeenFontFormat &font) {
   d.click(it->left,it->top);check(d.flow.screen()==Screen::Notice && !d.flow.entry(),"deferred control must refuse");d.key(27);
  }
  d.key('w');check(d.flow.screen()==Screen::Wizard,"Mr Wizard confirmation first");d.key('n');
- d.key('w');d.key('y');check(d.flow.screen()==Screen::Notice && !d.flow.entry(),"rescue must refuse after Yes");d.key(27);
+ d.key('w');d.key('y');check(d.flow.entry() && d.flow.entry()->kind==XeenSessionEntry::Kind::MrWizard,"Mr Wizard request after Yes");
+ d.flow.panelFailure("not supported yet");d.present();check(d.flow.screen()==Screen::Notice && !d.flow.entry(),"refused Mr Wizard notice");d.key(27);
+ {Driver c(services(true));c.key('w');c.key('y');
+  check(c.flow.screen()==Screen::Notice && !c.flow.entry(),"combat Mr Wizard must refuse after Yes");}
  d.key('q');d.key(27);check(d.flow.screen()==Screen::Panel,"Quit cancel");
  d.key('a');check(d.flow.screen()==Screen::SaveSlots,"Save As chooser");
  d.key('1');d.key(13);check(d.flow.screen()==Screen::Overwrite,"Save As overwrite before name");

@@ -426,11 +426,42 @@ void orderedShootBarrierTreasure(Inputs &in) {
   check(!XeenPartyInterfaceTestAccess::reward(*loot.flow) && loot.p.monsterTreasure->gold==gold+20,"Final acknowledgment credits retained currency exactly once");
  }
 }
-void unsupportedQuickRun(Inputs &in) {
+void indoorQuickRun(Inputs &in) {
  auto s=emptyCity(in);auto &actor=s.map(28).monsters->slots.at(0);actor.x=10;actor.y=10;actor.lifecycle=XeenActorLifecycle::Present;actor.accounted=false;
  for(auto owner:s.activeRosterIds){s.characters[owner].quickOption=3;s.journey->supplements[owner].inputs.speed={30,0};}
- Fixture f(in,s);f.act(WaitAction{});ready(f);const auto *combat=f.flow->encounter()->combat();const auto member=combat->participant();const auto rng=f.w.sessionState().journeyRandom();const auto time=*f.p.encounterContext;
- f.act(QuickFightAction{});check(combat->participant()==member && combat->phase()==XeenCombatPhase::PlayerReady && f.w.sessionState().journeyRandom()==rng && *f.p.encounterContext==time && f.flow->encounter()->notice().find("not supported yet")!=std::string::npos,"Unsupported indoor Quick Run visibly retains turn/time/RNG");
+ Fixture f(in,s);f.act(WaitAction{});ready(f);const auto rng=f.w.sessionState().journeyRandom();
+ check(!f.flow->mrWizard() && f.w.sessionState().journeyRandom()==rng,"Mr Wizard is not admitted in combat yet");
+ const auto &g=f.w.map(28).geometry;auto run=f.c;run.x=std::int8_t(std::uint8_t(g.runX));run.y=std::int8_t(std::uint8_t(g.runY));
+ check(run.x!=f.c.x || run.y!=f.c.y,"Vertigo run position differs from the fight");
+ // Vertigo's run position (18,4) holds an East-facing automatic door-text Event: Run facing East refuses.
+ {auto east=run;east.direction=XeenDirection::East;check(!xeenRunDestination(f.w,in.city,east) && xeenRunDestination(f.w,in.city,run),"Vertigo Run admission follows the landing Event's facing");}
+ // Every member flees by Quick Fight Run; the party lands on Vertigo's own run position.
+ for(unsigned n=0;n<2000 && f.flow->encounter()->combat();++n) {
+  const auto *combat=f.flow->encounter()->combat();
+  if(combat->phase()==XeenCombatPhase::PlayerReady && !combat->cast())f.act(QuickFightAction{});else pulse(f);
+  check(f.flow->encounter()->notice().find("not supported yet")==std::string::npos,"Indoor Quick Run is admitted");
+ }
+ quiet(f);
+ check(!f.flow->encounter()->combat() && f.c.mapId==run.mapId && f.c.x==run.x && f.c.y==run.y && f.c.direction==run.direction,
+  "Indoor Run lands on the current map's run position, facing unchanged");
+ check(f.w.sessionState().journeyRandom()!=rng,"Indoor Run draws its chance");
+}
+void mrWizard(Inputs &in) {
+ for(bool city:{false,true}) {
+  auto s=city?emptyCity(in):in.base();s.journey->treasure->gems=25;
+  Fixture f(in,s);
+  const auto time=*f.p.encounterContext;const auto rng=f.w.sessionState().journeyRandom();const auto gold=f.p.monsterTreasure->gold;
+  const auto moved=f.flow->mrWizard();check(bool(moved),"Mr Wizard is admitted outside combat");f.present(*moved);
+  const auto &g=f.w.map(28).geometry;
+  check(f.c.mapId==XeenMapIdentity(28) && f.c.x==std::int8_t(std::uint8_t(g.runX)) && f.c.y==std::int8_t(std::uint8_t(g.runY)) &&
+   f.c.direction==XeenDirection::East,"Mr Wizard lands on Vertigo's run position facing East");
+  check(f.p.monsterTreasure->gems==0 && f.p.monsterTreasure->gold==gold,"Mr Wizard zeroes the gems only");
+  check(*f.p.encounterContext==time && f.w.sessionState().journeyRandom()==rng,"Mr Wizard spends no time or draw");
+  quiet(f);
+  Fixture restored(in,f.snapshot());
+  check(restored.c.mapId==f.c.mapId && restored.c.x==f.c.x && restored.c.y==f.c.y && restored.c.direction==f.c.direction &&
+   restored.p.monsterTreasure->gems==0,"Mr Wizard result saves and restores");
+ }
 }
 void spellChecks(Inputs &in) {
  auto p=XeenPartyLoader().loadInitialCloudsParty(in.assets);auto c=p.roster.at(11);c.characterClass=XeenCharacterClass::Sorcerer;c.hasSpells=true;c.currentSp=300;c.permanentLevel=10;c.learnedSpells.emplace();for(auto &flag:*c.learnedSpells)flag=1;
@@ -449,6 +480,6 @@ void spellChecks(Inputs &in) {
 int main(int argc,char **argv){try{
  check(argc==2,"usage: party-interface-tests <installation>");auto game=xeenTestInstallationDetector().detect(argv[1]);check(bool(game),"Missing installation");Inputs in(*game);
  std::ostringstream captured;auto *before=std::cout.rdbuf(captured.rdbuf());
- try{const auto run=[&](const char *name,auto fn){try{fn(in);}catch(const std::exception &e){throw std::runtime_error(std::string(name)+": "+e.what());}};run("original item drops",originalMonsterDropReceipts);run("exchange",exchangeAndSave);run("time/rest",reorderedTimeAndRest);run("combat/options",combatAndOptions);run("quick casting",quickCasting);run("M73 quick casting",m73QuickCasting);run("ordered consequences",orderedShootBarrierTreasure);run("indoor quick Run",unsupportedQuickRun);run("spell checks",spellChecks);}catch(...){std::cout.rdbuf(before);throw;}
+ try{const auto run=[&](const char *name,auto fn){try{fn(in);}catch(const std::exception &e){throw std::runtime_error(std::string(name)+": "+e.what());}};run("original item drops",originalMonsterDropReceipts);run("exchange",exchangeAndSave);run("time/rest",reorderedTimeAndRest);run("combat/options",combatAndOptions);run("quick casting",quickCasting);run("M73 quick casting",m73QuickCasting);run("ordered consequences",orderedShootBarrierTreasure);run("indoor quick Run",indoorQuickRun);run("Mr Wizard",mrWizard);run("spell checks",spellChecks);}catch(...){std::cout.rdbuf(before);throw;}
  std::cout.rdbuf(before);std::cout<<"Exchange, ordered ownership, Quick Fight, v8 and stale input passed\n";return 0;
 }catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}
