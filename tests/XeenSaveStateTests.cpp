@@ -391,9 +391,10 @@ XeenSaveMonsterTable mobTable(unsigned monsters) {
 }
 // M69 decision 5: capture, encode, decode, restore, capture again. Both the
 // mainland and the city hold state in every table restore accepts: monster
-// tables (a defeated, accounted record), moved and removed objects, cells (indoor only; outdoor cells and
-// surface flags have no producer), wall items, arbitrary Event opcodes, explored bits, the
-// head cache and a dormant treasure item's source identity.
+// tables (a defeated, accounted record), moved and removed objects, indoor and
+// outdoor cells (wall faces, the unlocked bit, the outdoor surface nibble), wall
+// items, arbitrary Event opcodes, explored bits, the head cache and a dormant
+// treasure item's source identity. mapEventRoundTrips produces these through Events.
 void genericRoundTrip(){
  auto s=currentSnapshot();
  for(unsigned i=0;i<30;++i) {auto &c=s.characters[i];c.lloydMap=23+i;c.lloydX=i;c.lloydY=31-i;c.lloydSide=i%2;}
@@ -523,10 +524,14 @@ void replacedOpcodePublication(){
  check(delivered==1,"The replaced GiveEnchanted opcode must grant exactly once across suspension and deletion");
 }
 // Each producer runs through the normal detached Event/publication flow,
-// leaves the indoor map, returns, then uses the current serializer/restore.
+// leaves the indoor map, returns, then uses the current serializer/restore:
+// MoveWallObj, called MakeNothingHere, AlterMap direction 4 through a neighbour,
+// indoor AlterCellFlag, nonzero AlterEvent, Spawn, outdoor AlterCellFlag/AlterMap
+// and MoveObj (a move and a same-position flip).
 void mapEventRoundTrips(){
- for(unsigned operation=0;operation<9;++operation) {
-  const XeenMapIdentity active=operation>=7?23:28,other=operation>=7?28:23;
+ for(unsigned operation=0;operation<10;++operation) {
+  const bool outdoor=operation==7 || operation==8;
+  const XeenMapIdentity active=outdoor?23:28,other=outdoor?28:23;
   auto initial=currentSnapshot();initial.camera={active,9,11,XeenDirection::North};
   initial.map(28).monsters=mobTable(4);
   if(operation==5) {auto &a=initial.map(28).monsters->slots[0];a.x=a.y=-128;a.lifecycle=XeenActorLifecycle::Defeated;a.accounted=true;}
@@ -544,12 +549,14 @@ void mapEventRoundTrips(){
   case 6:add(9,11,0,16,{7,5,6,0});break;
   case 7:add(9,11,0,35,{3,4,6});add(9,11,1,19,{17,4,0,8});break;
   case 8:add(9,11,0,16,{22,5,6,0});break;
+  // MOB record 1 moves from (2,2); record 2 is already at (3,3), so it flips.
+  case 9:add(9,11,0,11,{1,4,5});add(9,11,1,11,{2,3,3});break;
   }
   // Called deletion clears the physical suffix: that case leaves/returns in
   // a separate candidate below; all others use actual travel publication.
-  if(operation==1)add(9,11,1,18);else add(9,11,operation==7?2:1,7,{std::uint8_t(other.number),9,11});
+  if(operation==1)add(9,11,1,18);else add(9,11,operation==7 || operation==9?2:1,7,{std::uint8_t(other.number),9,11});
   add(9,11,3,0,{2,12,12});
-  if(operation>=7)add(9,11,99,5,{0,0,0,1,0});
+  if(outdoor)add(9,11,99,5,{0,0,0,1,0});
   auto mainland=regional_test::events(other);mainland.records.clear();
   auto travel=record(9,11,0,7,{std::uint8_t(active.number),9,11});travel.direction=4;mainland.records.push_back(travel);
   mainland.records.push_back(record(9,11,99,5,{0,0,0,1,0}));
@@ -607,6 +614,8 @@ void mapEventRoundTrips(){
    revisit->sampleCell(24,1,4)->cell->rawWord==1 && !snapshot.find(24),"Outdoor surface or visit-only neighbour lifetime failed v13 capture");
   if(operation==8)check(snapshot.find(23)->monsters->slots.size()==snapshot.find(23)->monsters->originalCount,
    "Outdoor Spawn past the MOB count materialized or persisted a slot");
+  if(operation==9)check(map->objects==std::vector<XeenSaveObjectOverride>{{1,4,5,false},{2,3,3,true}} &&
+   revisit->effectiveObject({28,1}).x==4 && revisit->effectiveObjectFlip({28,2}),"MoveObj position or flip lost after leave/return");
   auto neutral=snapshot;neutral.maps=initial.maps;neutral.camera=initial.camera;
   auto expected=initial;
   // One indoor completion for called deletion; otherwise one indoor and one
@@ -616,6 +625,8 @@ void mapEventRoundTrips(){
   check(XeenSaveFormat::encode(neutral)==XeenSaveFormat::encode(expected),"Map Event changed more than its completed Space scheduling or consumed Journey RNG");
   CurrentDestination loaded;configure(loaded);loaded.restore(XeenSaveFormat::decode(bytes));loaded.bind();
   check(XeenSaveFormat::encode(loaded.capture())==bytes,"Persistent Event did not round-trip exactly through v13");
+  if(operation==9)check(loaded.world.effectiveObject({28,1}).y==5 && !loaded.world.effectiveObjectFlip({28,1}) &&
+   loaded.world.effectiveObject({28,2}).x==3 && loaded.world.effectiveObjectFlip({28,2}),"Restored MoveObj position or flip differs");
  }
 }
 // M70 Part C: every travel form reaches the normal quiet capture boundary.

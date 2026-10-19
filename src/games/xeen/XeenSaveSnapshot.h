@@ -86,7 +86,7 @@ struct XeenSaveObjectOverride {
 	}
 };
 
-// MOB wall-item position. No producer before world Events (M69: format only).
+// MOB wall-item position, written by the MoveWallObj Event.
 struct XeenSaveWallItemOverride {
 	std::uint16_t record = 0;
 	int x = 0, y = 0;
@@ -96,7 +96,10 @@ struct XeenSaveWallItemOverride {
 };
 
 // Effective DAT word and attribute byte of one cell, with the original
-// preimage they replace. An entry always differs from its preimage.
+// preimage they replace. An entry always differs from its preimage. Producers:
+// doors (wall faces, unlocked bit), AlterMap and outdoor AlterCellFlag (wall
+// word), indoor AlterCellFlag (surface bits 0-2). Outdoor writes to a
+// neighbouring tile last only for the visit and are never saved.
 struct XeenSaveCellOverride {
 	std::uint8_t cell = 0;
 	std::uint16_t word = 0;
@@ -109,7 +112,8 @@ struct XeenSaveCellOverride {
 	}
 };
 
-// EVT record opcode; 0 is MakeNothingHere. Only 0 has a producer in M69.
+// Effective EVT record opcode. 0 is a deleted record (Remove, MakeNothingHere,
+// AlterEvent to 0); a nonzero value is an AlterEvent replacement.
 struct XeenSaveEventOverride {
 	std::uint16_t record = 0;
 	std::uint8_t opcode = 0;

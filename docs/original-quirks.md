@@ -101,7 +101,7 @@ settle these other counters. See [the precise boundary](rules/time-and-condition
 This research records the mismatch without changing behavior or granting an
 exception to the root condition-counter fallback rule.
 
-**Per-map write-back (M69):** the pinned reference writes a map's EVT, its
+<a id="per-map-write-back"></a>**Per-map write-back (M69):** the pinned reference writes a map's EVT, its
 primary DAT (indoors also its eight neighbour tiles) and its MOB into the save
 archive on every map load and save (`map.cpp::Map::load/saveMaze`,
 `saves.cpp::saveGame`), but never its HED: AlterHed changes last until the next
@@ -481,10 +481,20 @@ stays documented here and in the plan that implements it.
   positions, cells as their effective DAT word and attribute byte with the
   original preimage, Event record opcodes and explored bits. Restore rebinds
   every override to its map's resources, so the result is observably the
-  same. Monster HP and wake state are not saved (decision 8 above). Wall-item
-  and nonzero Event-opcode overrides, and cell changes other than wall faces
-  and the unlocked bit, have no producer yet; the format represents them and
-  restore refuses them until world Events add their producers. **ScummVM:** approved deviation.
+  same. Monster HP and wake state are not saved (decision 8 above). The
+  overrides cover every map change the game produces today: MoveObj and
+  Remove (objects), MoveWallObj (wall items), doors, AlterMap and
+  AlterCellFlag (cell walls, the unlocked bit, the outdoor surface nibble and
+  the indoor surface bits), and AlterEvent, MakeNothingHere and Remove (Event
+  opcodes); restore accepts each, and `XeenSaveStateTests` round-trips each
+  through a real Event. As in the reference, which writes only the primary
+  outdoor DAT, an outdoor write to a neighbouring tile lasts only for the
+  visit and is not saved. Restore still refuses cell attribute changes no
+  producer makes (bits 3-6, clearing an original unlocked bit, an outdoor
+  attribute byte). The reference saves no HED, and AlterHed changes are kept
+  only in the current map's head cache ([per-map write-back](#per-map-write-back)).
+  Any future mechanic that changes map data some other way must extend these
+  overrides. **ScummVM:** approved deviation.
 
 ## Reference behavior not reproduced
 
