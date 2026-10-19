@@ -327,7 +327,7 @@ void mouseNotices(Inputs &in) {
  auto source=in.service();source.camera={28,10,9,XeenDirection::North};Fixture f(in,source,true);
  std::string reported;f.flow->reportText=[&](const auto &text){reported=text;};
  const auto before=XeenSaveFormat::encode(f.snapshot());
- for(const auto label:{"Dismiss","View Quests"}) {
+ for(const auto label:{"Dismiss"}) {
   f.now+=110; // Poll input after the acquired draw's wait, before another draw.
   const auto pixels=f.flow->frame().pixels;
   f.act(UnsupportedMainScreenAction{label});

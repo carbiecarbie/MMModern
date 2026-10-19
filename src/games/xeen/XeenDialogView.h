@@ -56,6 +56,30 @@ enum class XeenDialogText {
 std::string_view xeenDialogText(const XeenDosText &text,XeenDialogText);
 std::string xeenDialogFormat(std::string_view,const std::vector<std::string> &);
 DialogInput xeenSheetInput();
+enum class XeenJournalPage { Items, Quests, Notes, Awards };
+// Display snapshot only. Darkside counters/quests are zero in the Clouds owner.
+struct XeenQuestDisplay {
+    std::array<std::uint32_t,85> items{};
+    std::array<bool,57> quests{};
+    std::array<bool,129> notes{};
+};
+XeenQuestDisplay xeenQuestDisplay(const XeenPartyState &);
+struct XeenJournalUi {
+    XeenJournalPage page=XeenJournalPage::Items;
+    std::size_t top=0;
+    void key(unsigned,std::size_t count);
+};
+std::vector<std::string> xeenJournalStrings(const std::vector<std::uint8_t> &,bool awards);
+std::vector<std::string> xeenQuestLines(const XeenDosText &,const XeenQuestDisplay &,
+    XeenJournalPage,const std::vector<std::string> &notes);
+std::vector<std::string> xeenAwardLines(const XeenDosText &,const XeenCharacter &,
+    const std::vector<std::string> &awards);
+DialogInput xeenJournalInput(bool awards);
+std::string xeenJournalText(const XeenDosText &,const XeenJournalUi &,
+    const std::vector<std::string> &,const XeenCharacter *member=nullptr);
+IndexedFrame drawXeenJournal(const XeenDosText &,const IndexedFrame &,const XeenFontFormat &,
+    const XeenJournalUi &,const std::vector<std::string> &,const XeenDialogSpriteDraw &,
+    const XeenCharacter *member=nullptr);
 DialogInput xeenExchangeInput();
 DialogInput xeenQuickFightInput();
 struct XeenSpellListUi {

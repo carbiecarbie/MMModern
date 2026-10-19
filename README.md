@@ -341,7 +341,10 @@ near monsters. The party carries weapons and armor to swap, a cursed weapon,
 the Xeen Slayer Sword, and charged damage, healing and Town Portal items.
 The last member has full packs. Enter combat with Wait, manage equipment
 through a character's Items dialog, and use charged items through the combat
-Use button (U).
+Use button (U). The Quests button (V, or Q in Items) shows quest items,
+including three Phirna Roots, current quests and Auto Notes. The first member
+has more than nine awards, including Warzone wins and a race award: open
+Awards on that character's sheet and scroll with Up/Down.
 
 ```powershell
 .\build-rel\mmodern_test_save.exe combat-items "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/combat-items.mmsave"

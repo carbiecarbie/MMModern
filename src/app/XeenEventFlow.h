@@ -70,6 +70,7 @@ public:
 	std::function<void(IndexedFrame &)> drawTempleArt;
 	std::function<void(IndexedFrame &)> drawTavernArt,drawBankArt,drawGuildArt;
     std::function<std::vector<std::uint8_t>()> loadSpellDescriptions;
+    std::function<std::vector<std::uint8_t>(bool awards)> loadJournalText;
 	std::function<std::string()> tavernFoodOffer;
     std::function<std::string(std::size_t)> tavernString;
 	std::function<void(IndexedFrame &)> drawCombatButtons;
@@ -397,7 +398,7 @@ private:
 		std::uint64_t deadline=0;
 	};
 	std::optional<CharacterSheetUi> _sheet;
-	enum class SummaryDialog { QuickReference, Info, Map };
+	enum class SummaryDialog { QuickReference, Info, Map, Quests, Awards };
 	std::optional<SummaryDialog> _summary;
 	std::uint64_t _mapPhase=0,_mapDeadline=0;
 	std::string _mapName;
@@ -407,6 +408,10 @@ private:
 	IndexedFrame drawQuickFightOptions(const IndexedFrame &) const;
 	IndexedFrame handleQuickFightOptions(const PlayerAction &);
 	IndexedFrame _summaryUnderlay;
+	XeenJournalUi _journalUi;
+	std::vector<std::string> _journalStrings;
+	void openJournal(bool awards);
+	std::vector<std::string> journalLines() const;
 	IndexedFrame drawSummary(const IndexedFrame &) const;
 	bool _itemsVisible=false, _combatItems=false;
 	std::optional<XeenDialogPopup> _statPopup;

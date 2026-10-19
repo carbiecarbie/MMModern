@@ -149,7 +149,11 @@ InputContext XeenEventFlow::inputContext(const IndexedFrame::Presentation &origi
          (_encounter && _encounter->monsterReward())))
         dialog=std::make_shared<const DialogInput>(_presenter.input());
     if(_quickFightMember)dialog=std::make_shared<const DialogInput>(xeenQuickFightInput());
-    if(_summary) {DialogInput input;input.anyKey=input.anyClick=input.keyMouseWait=true;dialog=std::make_shared<const DialogInput>(std::move(input));}
+    if(_summary) {DialogInput input;
+        if(*_summary==SummaryDialog::Quests || *_summary==SummaryDialog::Awards)input=xeenJournalInput(*_summary==SummaryDialog::Awards);
+        else input.anyKey=input.anyClick=input.keyMouseWait=true;
+        dialog=std::make_shared<const DialogInput>(std::move(input));
+    }
     const bool whoWill=_pending && _pending->state.pendingPresentation &&
         _pending->state.pendingPresentation->request.kind==XeenPresentationKind::CharacterSelection;
     if(whoWill || (_barrier && _barrier->rule && _barrier->rule->selection)) {
@@ -2413,7 +2417,16 @@ IndexedFrame XeenEventFlow::handle(const PlayerAction &physicalAction, std::opti
         }
     }
 	if(_summary && !_dispatching && !_fatal && !_saving) {
-		_summary.reset();_summaryUnderlay={};
+        if(*_summary==SummaryDialog::Quests || *_summary==SummaryDialog::Awards) {
+            const auto *key=std::get_if<DialogKeyAction>(&action);
+            if(!std::holds_alternative<CancelInteractionAction>(action) && (!key || key->key!=InputKey::Escape)) {
+                DispatchScope dispatch(_dispatching);
+                if(key)_journalUi.key(key->key,journalLines().size());
+                if(_encounter)return renderEncounter();
+                _frame=drawSummary(_summaryUnderlay);return _frame;
+            }
+        }
+		_summary.reset();_summaryUnderlay={};_journalStrings.clear();
 		DispatchScope dispatch(_dispatching);
 		if(_encounter)return renderEncounter();
 		if(inventoryOpen())drawInventory();else refreshScene(true,OrdinaryCause::None);
@@ -2485,12 +2498,18 @@ IndexedFrame XeenEventFlow::handle(const PlayerAction &physicalAction, std::opti
         }
         return frameCopy();
     }
-    if(std::holds_alternative<QuickReferenceAction>(action) || std::holds_alternative<InfoAction>(action) || std::holds_alternative<MapAction>(action)) {
+    if(std::holds_alternative<QuickReferenceAction>(action) || std::holds_alternative<InfoAction>(action) || std::holds_alternative<MapAction>(action) || std::holds_alternative<QuestsAction>(action)) {
         const bool quiet=!_pending && !_castingUi && !inventoryOpen() && !_barrier &&
             (!_encounter || (_encounter->combat() ? _encounter->combat()->phase()==XeenCombatPhase::PlayerReady &&
                 !_encounter->combat()->cast() : _encounter->journeyMutable()));
         if(!quiet)return frameCopy();
         _summaryUnderlay=_frame;
+        if(std::holds_alternative<QuestsAction>(action)) {
+            if(_encounter && _encounter->combat())return frameCopy();
+            openJournal(false);
+            if(_encounter)return renderEncounter();
+            _frame=drawSummary(_frame);return _frame;
+        }
         if(std::holds_alternative<MapAction>(action)) {
             if(!mapName)throw std::logic_error("Map name provider is missing");
             if(_encounter)_encounter->guardCallback(_encounter->ticket(),[&]{_mapName=mapName(_camera.mapId);_mapDeadline=PresentationClock::afterMilliseconds(_clock(),2);});

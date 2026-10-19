@@ -160,6 +160,12 @@ void prepare(XeenSaveSnapshot &snapshot,const std::string &preset) {
                 c.accessories[slot]={0,1,0,0};c.miscellaneous[slot]={1,3,5,0};
             }
         }
+        snapshot.questItems[0]=1;snapshot.questItems[17]=3;snapshot.questItems[26]=1;
+        for(unsigned flag:{2u,3u,29u})snapshot.questFlags[flag]=true;
+        for(unsigned flag:{1u,2u,23u,72u})journey.worldFlags->values[flag]=true;
+        member.awards.fill(0);
+        for(unsigned id=0;id<20;++id)member.awards[id]=id==9?23:1;
+        member.awards[XeenCharacter::awardIndex(73)]=1;member.awards[XeenCharacter::awardIndex(81)]=1;
         return;
     }
     if(preset=="party-healing") {

@@ -659,6 +659,24 @@ void originalEvents(Inputs &in) {
   !gunther.p.questFlags.isSet(29) && gunther.p.questFlags.isSet(1),"Original Gunther rewards/next quest diverged");
  for(auto owner:gunther.p.party.activeRosterIds())check(gunther.p.roster.at(owner).awards[6]==1 &&
   gunther.p.roster.combatInputs(owner)->experience==xp[owner]+5000,"Original Gunther XP/award lost member");
+ // M77: the earned reward is visible through the character-sheet Awards path.
+ const auto beforeAwards=XeenSaveFormat::encode(gunther.snapshot());
+ const auto previousDraw=gunther.flow->drawDialogSprite;
+ gunther.flow->drawDialogSprite=[&](auto &f,const char *name,unsigned i,int x,int y){
+  if(std::string(name)=="award.icn")in.assets.drawDialogSprite(f,name,i,x,y,XeenSceneArchive::DarksideOnly);
+  else previousDraw(f,name,i,x,y);
+ };
+ gunther.flow->loadJournalText=[&](bool awards){return in.assets.readArchiveResource(awards?"award.bin":"qnotes.bin",XeenSceneArchive::DarksideOnly);};
+ gunther.act(SelectMemberAction{0});const auto sheet=gunther.flow->frame();gunther.act(DialogKeyAction{1015});
+ const auto awardText=xeenJournalStrings(in.assets.readArchiveResource("award.bin",XeenSceneArchive::DarksideOnly),true);
+ const auto &recipient=gunther.p.party.member(gunther.p.roster,0);
+ const auto rows=xeenAwardLines(in.assets.uiText(),recipient,awardText);
+ check(std::find(rows.begin(),rows.end(),awardText[6])!=rows.end(),"Gunther award absent from Awards list");
+ check(gunther.flow->frame().pixels==drawXeenJournal(in.assets.uiText(),sheet,in.font,{XeenJournalPage::Awards},rows,gunther.flow->drawDialogSprite,&recipient).pixels,
+  "Gunther reward Awards screen differs");
+ gunther.act(CancelInteractionAction{});gunther.act(CancelInteractionAction{});
+ check(XeenSaveFormat::encode(gunther.snapshot())==beforeAwards,"Gunther Awards view changes saved state");
+ gunther.flow->drawDialogSprite=previousDraw;
  const auto awarded=gunther.snapshot();interact(gunther);
  check(sameAfterSpace(in,XeenSaveFormat::encode(awarded),gunther.snapshot(),true),"Repeated Gunther regranted reward or erased next quest");
  Fixture reload(in,awarded);interact(reload);

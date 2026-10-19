@@ -320,6 +320,18 @@ void checkpoint(XeenAssetSource &assets, const std::filesystem::path &output, in
 	}
 	};
 	interact(true);
+    if(!roots) {
+        // M77: the original request's quest flag is shown by the live Quests screen.
+        flow.loadJournalText=[&](bool awards){return assets.readArchiveResource(awards?"award.bin":"qnotes.bin",XeenSceneArchive::DarksideOnly);};
+        flow.drawDialogSprite=[&](auto &f,const char *n,unsigned i,int x,int y){assets.drawDialogSprite(f,n,i,x,y,XeenSceneArchive::DarksideOnly);};
+        const auto underlay=flow.frame();acquire();flow.handle(QuestsAction{});acquire();flow.handle(DialogKeyAction{'q'});acquire();
+        const auto notes=xeenJournalStrings(assets.readArchiveResource("qnotes.bin",XeenSceneArchive::DarksideOnly),false);
+        const auto rows=xeenQuestLines(assets.uiText(),xeenQuestDisplay(party),XeenJournalPage::Quests,notes);
+        check(std::find(rows.begin(),rows.end(),notes[1])!=rows.end(),"Myra request missing from Current Quests");
+        check(flow.frame().pixels==drawXeenJournal(assets.uiText(),underlay,font,{XeenJournalPage::Quests},rows,flow.drawDialogSprite).pixels,"Myra Current Quests screen differs");
+        flow.handle(CancelInteractionAction{});acquire();unchanged();
+        flow.drawDialogSprite={};
+    }
 	// Completed-state reconstruction followed by the original revisit, also via SDL.
 	rebuild();const auto oldScripts=scripts,oldStrings=strings;interact(false);
 	check(scripts>oldScripts && strings>oldStrings,"independent dispatch did not reload scripts/text");frontier();

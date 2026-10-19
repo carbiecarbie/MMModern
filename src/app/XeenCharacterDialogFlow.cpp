@@ -25,8 +25,25 @@ IndexedFrame XeenEventFlow::handleQuickFightOptions(const PlayerAction &action) 
     }
     return renderEncounter();
 }
+void XeenEventFlow::openJournal(bool awards) {
+    if(!loadJournalText)throw std::logic_error("Journal text provider is missing");
+    std::vector<std::string> strings;
+    const auto load=[&]{strings=xeenJournalStrings(loadJournalText(awards),awards);};
+    if(_encounter)_encounter->guardCallback(_encounter->ticket(),load);else load();
+    _journalStrings=std::move(strings);
+    _journalUi={awards?XeenJournalPage::Awards:XeenJournalPage::Items,0};
+    _summaryUnderlay=_frame;_summary=awards?SummaryDialog::Awards:SummaryDialog::Quests;
+}
+std::vector<std::string> XeenEventFlow::journalLines() const {
+    if(_journalUi.page==XeenJournalPage::Awards)
+        return xeenAwardLines(dosText(),_party.party.member(_party.roster,_inventory.source),_journalStrings);
+    return xeenQuestLines(dosText(),xeenQuestDisplay(_party),_journalUi.page,_journalStrings);
+}
 IndexedFrame XeenEventFlow::drawSummary(const IndexedFrame &base) const {
     if(!_summary)return base;
+    if(*_summary==SummaryDialog::Quests || *_summary==SummaryDialog::Awards)
+        return drawXeenJournal(dosText(),_summaryUnderlay,_inventoryFont,_journalUi,journalLines(),drawDialogSprite,
+            *_summary==SummaryDialog::Awards?&_party.party.member(_party.roster,_inventory.source):nullptr);
     if(*_summary==SummaryDialog::Map)
         return drawXeenMap(_world,_camera,_summaryUnderlay,_inventoryFont,dosText(),drawDialogSprite,_mapPhase,_mapName);
     if(*_summary==SummaryDialog::Info) {
@@ -119,7 +136,7 @@ IndexedFrame XeenEventFlow::handleCharacterDialog(const PlayerAction &action) {
         // The original permits the cursor to move to cell 20, which has no
         // glyph. Avoid its expandStat assertion while retaining navigation.
         if(_sheet->cursor<20) {
-            if(_sheet->cursor==14) dialogError("Awards: not supported yet");
+            if(_sheet->cursor==14) openJournal(true);
             else _statPopup=xeenSheetPopup(dosText(),_party,_inventory.source,_sheet->cursor);
         }
     } else if(key=='i') {

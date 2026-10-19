@@ -95,6 +95,12 @@ void preset(const GameInstallation &installation,const std::string &name,const f
             const auto &c=party.roster.at(owner);
             check(c.canAct() && c.weapons[0].id && c.armor[0].id && c.miscellaneous[0].id==3,"Combat item preset lacks usable gear/damage power");
         }
+        check(party.questItems.at(0)==1 && party.questItems.at(17)==3 && party.questItems.at(26)==1 &&
+            party.questFlags.isSet(2) && party.questFlags.isSet(3) && party.questFlags.isSet(29) &&
+            party.worldFlags->values[1] && party.worldFlags->values[72],"Combat preset journal sources");
+        check(member.awards[9]==23 && member.awards[17] && member.awards[126] && member.awards[127] &&
+            xeenAwardLines(inputs.assets.uiText(),member,xeenJournalStrings(inputs.assets.readArchiveResource("award.bin",XeenSceneArchive::DarksideOnly),true)).size()>9,
+            "Combat preset needs scrollable awards");
         check(member.weapons[2].state==0x40 && member.weapons[3].id==34,"Combat preset lacks curse/Slayer Sword");
         check(member.miscellaneous[1].id==9 && member.miscellaneous[2].id==55,"Combat preset lacks healing/Portal powers");
         const auto &full=party.roster.at(party.party.activeRosterIds()[5]);

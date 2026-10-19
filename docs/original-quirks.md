@@ -339,7 +339,12 @@ in Part A, while Quests, Awards and indicators remain for Parts B-C.
   dialogs' Up/Down buttons carry the same codes. **ScummVM:** differs; its
   Quests dialog also accepts U and D, and its Awards dialog accepts only U
   and D (its buttons are `KEYCODE_u`/`KEYCODE_d`). MMModern follows DOS in
-  M77 Part B.
+  M77 Part B (`XeenJournalView.cpp`: `xeenJournalInput`, `XeenJournalUi::key`).
+- **Auto Notes flag 128 reads quest flag 0.** DOS's loop at
+  `0x33d8c..0x33f3c` reads one bit beyond the 128-bit world array, into the
+  following quest array; no Clouds script sets that bit. The display adapter
+  in `XeenJournalView.cpp` preserves this alias from the existing v15 state.
+  See [M77 evidence](rules/evidence.md#m77-combat-items-quests-awards-and-skill-indicators).
 - **Spot Secret Doors keeps its last indoor evaluation outdoors.** The
   thin-wall flag `0xf496` is written only by the indoor scene setup
   (`0x12303..0x1231e`); outdoor scenes never clear it. The pin's `_thinWall`

@@ -66,6 +66,7 @@ std::optional<PlayerAction> playerAction(const SDL_KeyboardEvent &key, MainScree
 	case SDLK_i: return InfoAction{};
 	case SDLK_q: return QuickReferenceAction{};
 	case SDLK_m: return MapAction{};
+    case SDLK_v: return screen==MainScreen::Exploration ? std::optional<PlayerAction>{QuestsAction{}} : std::nullopt;
 	case SDLK_EQUALS: case SDLK_KP_EQUALS: return ToggleAutomapAction{};
 	case SDLK_KP_4: return NavigationAction::StrafeLeft;
 	case SDLK_KP_6: return NavigationAction::StrafeRight;
@@ -118,6 +119,8 @@ unsigned inputKey(SDL_Keycode key) {
     case SDLK_LEFT: case SDLK_KP_4: return InputKey::Left;
     case SDLK_RIGHT: case SDLK_KP_6: return InputKey::Right;
     case SDLK_KP_ENTER: return InputKey::Enter;
+    case SDLK_HOME: case SDLK_KP_7: return InputKey::Home;
+    case SDLK_END: case SDLK_KP_1: return InputKey::End;
     case SDLK_PAGEUP: case SDLK_KP_9: return InputKey::PageUp;
     case SDLK_PAGEDOWN: case SDLK_KP_3: return InputKey::PageDown;
     default: return static_cast<unsigned>(key);
@@ -461,7 +464,7 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
                 std::holds_alternative<BlockAction>(*action) || std::holds_alternative<BashAction>(*action) || std::holds_alternative<ShootAction>(*action) ||
                 std::holds_alternative<RestAction>(*action) || std::holds_alternative<ControlPanelAction>(*action) ||
                 std::holds_alternative<QuickReferenceAction>(*action) || std::holds_alternative<InfoAction>(*action) ||
-                std::holds_alternative<MapAction>(*action) || std::holds_alternative<ToggleAutomapAction>(*action) ||
+                std::holds_alternative<MapAction>(*action) || std::holds_alternative<QuestsAction>(*action) || std::holds_alternative<ToggleAutomapAction>(*action) ||
                 std::holds_alternative<RevisitCompletedAction>(*action) || std::holds_alternative<WaitAction>(*action) ||
                 std::holds_alternative<QuickFightAction>(*action) || std::holds_alternative<QuickFightOptionsAction>(*action) ||
                 std::holds_alternative<CastSpellAction>(*action) || std::holds_alternative<SelectMemberAction>(*action) ||

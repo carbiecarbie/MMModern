@@ -124,6 +124,7 @@ struct QueueHarness {
    else if(std::holds_alternative<InfoAction>(action))kind='I';
    else if(std::holds_alternative<QuickReferenceAction>(action))kind='Q';
    else if(std::holds_alternative<MapAction>(action))kind='M';
+   else if(std::holds_alternative<QuestsAction>(action))kind='V';
    else if(std::holds_alternative<ToggleAutomapAction>(action))kind='=';
    else if(std::holds_alternative<AcknowledgeAction>(action))kind='K';
    else if(std::holds_alternative<TextInputAction>(action))kind='t';
@@ -217,6 +218,34 @@ void pressedButtonFeedback(){
   }
  }
 }
+void journalKeys() {
+ QueueHarness main;main.ready=true;main.screen=MainScreen::Exploration;
+ main.run("main-Quests-key-and-mouse",[](auto &h){
+  if(h.stage==0)h.tap(SDLK_v,100);
+  else if(h.stage==2)h.click(286,96,SDL_BUTTON_LEFT,100);
+  else if(h.stage==4){h.check(h.delivered==std::vector<char>{'V','V'},"main Quests V/mouse route");h.quit();}
+ });
+ for(bool awards:{false,true}) {
+  QueueHarness h;h.queueable=false;h.ready=true;
+  h.dialog=std::make_shared<const DialogInput>(xeenJournalInput(awards));
+  const std::vector<SDL_Keycode> keys=awards?
+   std::vector<SDL_Keycode>{SDLK_UP,SDLK_KP_8,SDLK_DOWN,SDLK_KP_2,SDLK_u,SDLK_d,SDLK_F1,SDLK_HOME,SDLK_ESCAPE}:
+   std::vector<SDL_Keycode>{SDLK_UP,SDLK_KP_8,SDLK_DOWN,SDLK_KP_2,SDLK_HOME,SDLK_END,SDLK_PAGEUP,SDLK_PAGEDOWN,SDLK_u,SDLK_d,SDLK_F1,SDLK_ESCAPE};
+  h.run("journal-DOS-scroll-keys",[&](auto &h){
+   // A strict dialog needs the returned frame acquired before another fresh key.
+   if(h.stage<keys.size()*2) {if(h.stage%2==0)h.tap(keys[h.stage/2],100);}
+   else {
+    std::vector<char> expected{char(InputKey::Up),char(InputKey::Up),char(InputKey::Down),char(InputKey::Down)};
+    if(!awards)for(auto k:{InputKey::Home,InputKey::End,InputKey::PageUp,InputKey::PageDown})expected.push_back(char(k));
+    expected.push_back('E');
+    std::string detail="journal SDL keypad/scroll/ignored keys awards="+std::to_string(awards)+" actual:";
+    for(auto k:h.delivered)detail+=" "+std::to_string(static_cast<unsigned char>(k));
+    detail+=" expected:";for(auto k:expected)detail+=" "+std::to_string(static_cast<unsigned char>(k));
+    h.check(h.delivered==expected,detail.c_str());h.quit();
+   }
+  });
+ }
+}
 void strictDialogPolicies(){
  QueueHarness h;h.queueable=false;h.ready=true;
  DialogInput input;input.hits.push_back({10,10,30,30,'e'});input.keys={'e',InputKey::Escape};
@@ -274,7 +303,7 @@ void mouseHitAreas(){
  const std::vector<Area> areas={
   {235,75,259,95,ShootAction{},QuickFightAction{}},{260,75,284,95,CastSpellAction{},CastSpellAction{}},
   {286,75,310,95,RestAction{},AttackAction{}},{235,96,259,116,BashAction{},UseItemAction{}},
-  {260,96,284,116,u("Dismiss"),RevisitCompletedAction{}},{286,96,310,116,u("View Quests"),BlockAction{}},
+  {260,96,284,116,u("Dismiss"),RevisitCompletedAction{}},{286,96,310,116,QuestsAction{},BlockAction{}},
   {235,117,259,137,MapAction{},QuickFightOptionsAction{}},{260,117,284,137,InfoAction{},InfoAction{}},
   {286,117,310,137,QuickReferenceAction{},QuickReferenceAction{}},{109,137,122,147,ControlPanelAction{},ControlPanelAction{}},
   {235,148,259,168,NavigationAction::TurnLeft,NavigationAction::TurnLeft},
@@ -595,7 +624,7 @@ void pushKey(std::atomic<bool> &finished, SDL_Keycode key, std::uint8_t repeat,
 
 int main(int argc,char **) {
 	probe_fired::expect("SDL_GetTicks");
- if(argc>1){mouseHitAreas();mouseQueuePolicies();strictDialogPolicies();pressedButtonFeedback();strafeAndSummaryKeys();quickFightKeys();callerEscapeAndAcknowledgment();return 0;}
+ if(argc>1){journalKeys();mouseHitAreas();mouseQueuePolicies();strictDialogPolicies();pressedButtonFeedback();strafeAndSummaryKeys();quickFightKeys();callerEscapeAndAcknowledgment();return 0;}
  semanticBoundaryKeys();
  boundedQueuePolicies();
  navigationObligations();

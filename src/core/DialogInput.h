@@ -9,7 +9,7 @@ namespace mmodern {
 namespace InputKey {
 inline constexpr unsigned Escape=27, Enter=13, Space=32;
 inline constexpr unsigned F1=256, Up=272, Down=273, Left=274, Right=275;
-inline constexpr unsigned PageUp=276, PageDown=277;
+inline constexpr unsigned PageUp=276, PageDown=277, Home=278, End=279;
 }
 // DOS keyboard feedback has no tick dwell; mouse feedback waits for release.
 // DAT 0x0e1ca..0x0e2b1 and 0x0e41e..0x0e430.

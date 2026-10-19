@@ -14,6 +14,7 @@ inline std::vector<std::uint8_t> fixture() {
  const auto fill=[&](std::size_t begin,std::size_t end,const char *signature) {
   std::string token;
   for(const char *p=signature;*p;++p) {if(p==signature || p[-1]==',')token+='%';if(*p!=',')token+=*p;else token+=' ';}
+  while(token.size()>=end-begin && token.find(' ')!=std::string::npos)token.erase(token.find(' '),1);
   check(token.size()<end-begin,"synthetic field capacity");token.resize(end-begin-1,'\x05');
   std::copy(token.begin(),token.end(),b.begin()+begin);b[end-1]=0;
  };

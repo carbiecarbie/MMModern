@@ -25,17 +25,25 @@ void seed(Fixture &f) {
 }
 void gameplay() {
  Fixture f;seed(f);f.ordinary=true;auto services=f.services();XeenPartyState *live=nullptr;unsigned reports=0;
+ const auto configure=services.configureFlow;
+ services.configureFlow=[&](auto &flow,const auto &camera){
+  configure(flow,camera);
+  flow.loadJournalText=[](bool awards){return Bytes(awards?88:184,0);};
+ };
  services.observeGameplay=[&](auto &,auto &,const auto &p,auto &,const auto &){live=&const_cast<XeenPartyState &>(p);};
  services.show=[&](const auto &,const auto &handle,const auto &escape,const auto &idle,const auto &status){
   const auto before=remove_test::partySnapshot(*live);
   handle(SelectMemberAction{0});check(f.flow->inventoryOpen() && escape(),"F1 sheet opens");
   handle(DialogKeyAction{'q'});handle(DialogKeyAction{InputKey::Escape});
   handle(DialogKeyAction{'e'});handle(DialogKeyAction{InputKey::Escape});
-  check(remove_test::partySnapshot(*live)==before,"unsupported sheet actions mutated");
+  check(remove_test::partySnapshot(*live)==before,"read-only sheet actions mutated");
   handle(DialogKeyAction{'i'});check(f.flow->inventorySelection().mode==Mode::Browse,"I sheet items");
   handle(DialogKeyAction{'d'});handle(DialogKeyAction{'1'});handle(DialogKeyAction{InputKey::Escape});
-  handle(DialogKeyAction{'q'});handle(DialogKeyAction{InputKey::Escape});
-  check(remove_test::partySnapshot(*live)==before,"unsupported items mutated");
+  handle(DialogKeyAction{'q'});
+  const auto quest=f.flow->inputContext(f.flow->frame().presentation()).dialog;
+  check(quest && quest->hits.size()==6 && !quest->anyKey,"Items Q did not open Quests");
+  handle(DialogKeyAction{InputKey::Escape});
+  check(remove_test::partySnapshot(*live)==before,"Quest view mutated items");
   handle(DialogKeyAction{'1'}); // Discard selection remained highlighted; deselect.
   handle(DialogKeyAction{'1'});handle(SaveGameAction{});check(status().find("inventory")!=std::string::npos,"modal save refused");
   const auto selected=f.flow->inventorySelection().record;idle();check(xeenSameItem(selected,f.flow->inventorySelection().record),"idle changed selection");

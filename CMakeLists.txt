@@ -77,6 +77,7 @@ add_library(mmodern_xeen STATIC
 	src/games/xeen/XeenAntidoteUse.cpp
 	src/games/xeen/XeenEquipment.cpp
 	src/games/xeen/XeenDialogView.cpp
+	src/games/xeen/XeenJournalView.cpp
     src/games/xeen/XeenMapView.cpp
 	src/games/xeen/XeenEventPresenter.cpp
 	src/games/xeen/XeenEventLoader.cpp
@@ -535,6 +536,11 @@ if(BUILD_TESTING)
 	add_executable(mmodern_equipment_gameplay_tests tests/XeenEquipmentGameplayTests.cpp)
 	target_link_libraries(mmodern_equipment_gameplay_tests PRIVATE mmodern_app mmodern_xeen mmodern_platform_sdl SDL2::SDL2 ZLIB::ZLIB)
 	add_test(NAME xeen_equipment_gameplay COMMAND mmodern_equipment_gameplay_tests)
+    add_executable(mmodern_journal_tests tests/XeenJournalTests.cpp)
+    target_link_libraries(mmodern_journal_tests PRIVATE mmodern_app mmodern_xeen)
+    add_test(NAME xeen_journal COMMAND mmodern_journal_tests)
+    add_test(NAME xeen_journal_original COMMAND mmodern_journal_tests "${MMODERN_XEEN_DATA_DIR}")
+    set_tests_properties(xeen_journal xeen_journal_original PROPERTIES LABELS "fast")
 	add_executable(mmodern_dialog_tests tests/XeenDialogTests.cpp)
 	add_executable(mmodern_party_interface_tests tests/XeenPartyInterfaceTests.cpp)
 	add_executable(mmodern_exploration_tests tests/XeenExplorationTests.cpp)

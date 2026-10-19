@@ -297,7 +297,7 @@ IndexedFrame XeenEventFlow::handleInventory(const PlayerAction &action) {
   } else if(!_itemOption && (key=='w' || key=='a' || key=='c' || key=='m')) {
    advanceInventoryEpoch();_inventory.slot.reset();_inventory.record={};
    _inventory.category=key=='w'?XeenInventoryCategory::Weapons:key=='a'?XeenInventoryCategory::Armor:key=='c'?XeenInventoryCategory::Accessories:XeenInventoryCategory::Miscellaneous;
-  } else if(!_itemOption && key=='q') dialogError("Quest: not supported yet");
+  } else if(!_itemOption && key=='q') openJournal(false);
   else if(!_itemOption && (key=='e' || key=='r' || key=='u' || key=='d')) {
    const bool misc=_inventory.category==XeenInventoryCategory::Miscellaneous;
    if((key=='e' && misc) || (key=='u' && !misc)) return _frame;

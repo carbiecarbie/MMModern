@@ -481,7 +481,11 @@ int Application::gameplay(const std::filesystem::path &gameDirectory, XeenCamera
                 flow.tavernFoodOffer = [&] { return assets.tavernFoodOffer(); };
                 flow.tavernString = [&](std::size_t index) {return assets.tavernString(index);};
                 flow.drawCombatButtons = [&](IndexedFrame &frame) { CloudsUiComposer().drawCombatButtons(assets,frame); };
-                flow.drawDialogSprite = [&](IndexedFrame &frame,const char *name,unsigned index,int x,int y) { assets.drawDialogSprite(frame,name,index,x,y); };
+                flow.drawDialogSprite = [&](IndexedFrame &frame,const char *name,unsigned index,int x,int y) {
+                    const bool journal=std::string_view(name)=="quest.icn" || std::string_view(name)=="award.icn";
+                    assets.drawDialogSprite(frame,name,index,x,y,journal?XeenSceneArchive::DarksideOnly:XeenSceneArchive::Current);
+                };
+                flow.loadJournalText = [&](bool awards) {return assets.readArchiveResource(awards?"award.bin":"qnotes.bin",XeenSceneArchive::DarksideOnly);};
                 flow.mapName = [&](XeenMapIdentity id) { return assets.mapName(id); };
                 flow.loadRestDream = [&] { return assets.restDreamImage(); };
                 flow.loadSampleDuration = [&](const char *name,XeenSceneArchive archive) {
