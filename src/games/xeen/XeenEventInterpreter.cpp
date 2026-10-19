@@ -1383,8 +1383,7 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 			};
 			if(const auto e=lastLine("TakeOrGive"))return *e;
 			const bool regionalCombo=(neutral(takeOrGive->first) && (takeOrGive->second.mode==20 || takeOrGive->second.mode==21 ||
-				takeOrGive->second.mode==104 || (takeOrGive->second.mode==8 && takeOrGive->second.value==25) ||
-				(takeOrGive->second.mode==103 && takeOrGive->second.value==16))) ||
+				takeOrGive->second.mode==104)) ||
 				((takeOrGive->first.mode==20 || takeOrGive->first.mode==21 || takeOrGive->first.mode==104) && neutral(takeOrGive->second));
 			if(liveJourney && regionalCombo && neutral(takeOrGive->third)) {
 				const bool setFlag = neutral(takeOrGive->first) &&
@@ -1399,40 +1398,6 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 					neutral(takeOrGive->second) && neutral(takeOrGive->third);
 				const bool clearQuestFlag = takeOrGive->first.mode == 104 &&
 					neutral(takeOrGive->second) && neutral(takeOrGive->third);
-				const bool giveWellHp = neutral(takeOrGive->first) && takeOrGive->second.mode==8 &&
-					takeOrGive->second.value==25 && neutral(takeOrGive->third);
-				const bool setWellFlag = neutral(takeOrGive->first) && takeOrGive->second.mode==103 &&
-					takeOrGive->second.value==16 && neutral(takeOrGive->third);
-				if (giveWellHp || setWellFlag) {
-					if (!publication || !partyState.worldFlags || logical.mapId!=XeenMapIdentity(23))
-						return error(XeenEventExecutionErrorKind::UnsupportedExecutionContext,
-							"regional well effect is unavailable",instructionCount,logical,decoded.source);
-					if (giveWellHp) {
-						if (!state.activeCharacterIndex || *state.activeCharacterIndex>=partyState.party.size())
-							return error(XeenEventExecutionErrorKind::InvalidPresentationResponse,
-								"well recipient is unavailable",instructionCount,logical,decoded.source);
-	                    const auto owner=partyState.party.activeRosterIds()[*state.activeCharacterIndex];
-	                    if(!state.portraitProgress && !(state.sparkledOwners&(1u<<owner))) {
-	                        state.sparkledOwners|=1u<<owner;
-	                        state.portraitProgress=XeenEventPortraitProgress{1u<<*state.activeCharacterIndex,unsigned(*state.activeCharacterIndex),XeenEventPortraitProgress::Phase::WellAfterSparkle};
-	                        return portraitRequest(XeenEventPortraitStage::Sparkle,owner,0,decoded.source);
-	                    }
-	                    state.portraitProgress.reset();
-						auto &member=partyState.roster.at(owner);
-						const auto after=xeenWellHpAfter(member.currentHp);
-						if (!after)
-							return error(XeenEventExecutionErrorKind::UnsupportedOperationMode,
-								"well HP addition overflows int16",instructionCount,logical,decoded.source);
-						publication->prepareWellHp(owner,member.currentHp,*after);
-						member.currentHp=*after;
-						publication->wellHpWritten(owner,member.currentHp);
-					} else {
-						publication->prepareWellFlag();
-						partyState.worldFlags->values[16]=true;
-						publication->wellFlagWritten();
-					}
-					++logical.line; missingPolicy=MissingInstructionPolicy::NaturalCompletion; continue;
-				}
 				if (setQuestFlag || clearQuestFlag) {
 					const auto index = setQuestFlag ? takeOrGive->second.value : takeOrGive->first.value;
 					if (!XeenCloudsQuestFlags::validIndex(index))

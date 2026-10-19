@@ -809,8 +809,8 @@ void travelRoundTrips() {
  }
 }
 
-// M70 Part B: the value operations publish through the city's detached
-// candidate (and one live mainland write), then round-trip exactly through
+// M70 Part B: the value operations publish through the city's or the
+// mainland's detached candidate, then round-trip exactly through
 // v13 without replaying any Event, reward, time or draw.
 void valueRoundTrips(){
  for(unsigned operation=0;operation<8;++operation) {
@@ -827,11 +827,11 @@ void valueRoundTrips(){
   case 2:add(0,23,{4,1,5});add(1,20,{101,15,0,106,5,0,0,0});add(2,18);add(5,20,{100,10,0,0,0,0,0});add(6,18);break;
   case 3:add(0,12,{0,0,76,1});add(1,18);break;
   case 4:add(0,12,{0,0,21,90});add(1,12,{21,90,0,0});add(2,18);break;
-  // The live mainland runs only its admitted interactions; an NPC record makes (9,11) Myra's.
-  case 5:add(0,12,{0,0,11,5});add(1,10,{11,5,3});add(2,12,{0,0,11,1});add(3,18);add(99,5,{0,0,0,1,0});break;
+  // Any bound mainland record runs through the same detached candidate as the city.
+  case 5:add(0,12,{0,0,11,5});add(1,10,{11,5,3});add(2,12,{0,0,11,1});add(3,18);break;
   // Skills whose effects are not implemented are still granted and saved as bytes.
-  // The live mainland path uses the same quest byte rule: 0 - 1 = 255 and 255 + 1 = 0.
-  case 7:add(0,12,{21,90});add(1,12,{0,0,21,91});add(2,18);add(99,5,{0,0,0,1,0});initial.questItems[8]=0;initial.questItems[9]=255;break;
+  // The mainland uses the same quest byte rule: 0 - 1 = 255 and 255 + 1 = 0.
+  case 7:add(0,12,{21,90});add(1,12,{0,0,21,91});add(2,18);initial.questItems[8]=0;initial.questItems[9]=255;break;
   case 6:{add(0,15,{0});unsigned line=1;for(std::uint8_t skill:{1,6,8,9,14,15,16,17})add(line++,12,{0,0,13,skill});add(line,18);break;}
   }
   const auto configure=[&](CurrentDestination &f) {
@@ -879,9 +879,9 @@ void valueRoundTrips(){
    snapshot.journey->context->year!=before.journey->context->year,"Time advance not published");
   if(operation==4)check(snapshot.questItems==before.questItems,"Quest grant and take did not cancel");
   if(operation==5)check(snapshot.characters[first].temporaryLevel==before.characters[first].temporaryLevel+
-   (before.characters[first].temporaryLevel+5<=5?5:6),("Live mainland write or If3 test failed: "+
+   (before.characters[first].temporaryLevel+5<=5?5:6),("Mainland write or If3 test failed: "+
    std::to_string(before.characters[first].temporaryLevel)+" -> "+std::to_string(snapshot.characters[first].temporaryLevel)).c_str());
-  if(operation==7)check(snapshot.questItems[8]==255 && snapshot.questItems[9]==0,"Live quest counters are not byte arithmetic");
+  if(operation==7)check(snapshot.questItems[8]==255 && snapshot.questItems[9]==0,"Mainland quest counters are not byte arithmetic");
   if(operation==6)for(const auto id:ids)for(unsigned skill:{1u,6u,8u,9u,14u,15u,16u,17u})
    check(snapshot.characters[id].skills[skill]==std::uint8_t(before.characters[id].skills[skill]+1),"Skill grant not published");
   CurrentDestination loaded;configure(loaded);loaded.restore(XeenSaveFormat::decode(bytes));loaded.bind();

@@ -352,7 +352,7 @@ void stagedRangedItemResponse(Inputs &in) {
 void jumpArrival(Inputs &in) {
     auto s=source(in,16,false);s.camera={23,5,7,XeenDirection::North};s.characters[s.activeRosterIds[0]].skills[4]=1;
     Fixture f(in,s);unsigned signs=0;
-    f.flow->reportAutomatic=[&](const XeenAutomaticEventResult &result) {
+    f.flow->reportManual=[&](const XeenManualEventResult &result) {
         if(const auto *v=std::get_if<XeenEventExecutionSuspended>(&result))if(v->request.kind==XeenPresentationKind::SceneLabelSign)++signs;
     };
     open(f);key(f,'u');quiet(f);

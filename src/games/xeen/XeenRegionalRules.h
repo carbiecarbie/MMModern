@@ -32,12 +32,11 @@ std::array<std::optional<XeenMonsterIdentity>,12> xeenSpellTargets(XeenWorld &,
 bool xeenIndoorRangedRay(XeenWorld &, const XeenCamera &, const XeenActor &);
 std::optional<std::size_t> xeenRegionalEvent(const XeenEventFile &, const XeenCamera &);
 bool xeenRegionalSign(const XeenEventFile &, const XeenCamera &);
-enum class XeenRegionalInteraction { None, Sign, Myra, Phirna, Well, VertigoEntrance, VertigoDoor, VertigoExit, Ironworks, Training, Temple, TempleLabel, Event, Tavern, Bank, Guild };
+enum class XeenRegionalInteraction { None, VertigoEntrance, VertigoDoor, VertigoExit, Ironworks, Training, Temple, TempleLabel, Event, Tavern, Bank, Guild };
 // Classify direct entries for presentation only; entries with preludes use the
 // generic Event path. Only the interpreter issues a terminal Service request.
 std::optional<std::uint8_t> xeenRegionalService(const XeenEventFile &, const XeenCamera &);
 XeenRegionalInteraction xeenRegionalInteraction(const XeenEventFile &, const XeenCamera &);
-std::optional<std::int16_t> xeenWellHpAfter(std::int16_t before) noexcept;
 void xeenValidateRegionalActors(const XeenMap &, const XeenObjectFile &, const std::vector<XeenActor> &,
 	const std::set<XeenMonsterIdentity> &accounted, const std::vector<XeenMonsterRecord> &statistics);
 // Validates an indoor map's complete monster table against its MOB and MON.

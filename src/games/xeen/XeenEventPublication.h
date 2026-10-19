@@ -207,23 +207,6 @@ public:
 			integrity("Deferred audio has no dispatched audio instruction");
 		consume();
 	}
-	void prepareWellHp(std::uint8_t owner,std::int16_t before,std::int16_t after) const {
-		check();
-		const auto effect=takeOrGive();
-		if (!neutral(effect.first) || effect.second.mode!=8 || effect.second.value!=25 || !neutral(effect.third) || owner>=30 ||
-			guard.characters[owner].currentHp!=before || std::int32_t(before)+25!=after)
-			integrity("Regional well HP site or preimage changed");
-		consume();
-	}
-	void wellHpWritten(std::uint8_t owner,std::int16_t after) const noexcept { guard.characters[owner].currentHp=after;guard.adoptMutationBoundary();portraitEffectOwners|=1u<<owner; }
-	void prepareWellFlag() const {
-		check();
-		const auto effect=takeOrGive();
-		if (!neutral(effect.first) || effect.second.mode!=103 || effect.second.value!=16 || !neutral(effect.third) || !guard.recovery)
-			integrity("Regional well flag site changed");
-		consume();
-	}
-	void wellFlagWritten() const noexcept { guard.recovery->values[16]=true;guard.adoptMutationBoundary(); }
 	void prepareRewardEnqueue(const XeenEventExecutionState &state,const XeenItem &item) const {
 		check();
 		const auto operation=decodedOperation();

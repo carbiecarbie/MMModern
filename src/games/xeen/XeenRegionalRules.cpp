@@ -6,7 +6,6 @@
 #include "formats/xeen/XeenEventFormat.h"
 #include "games/xeen/XeenStateEquality.h"
 #include "games/xeen/XeenIndoorScene.h"
-#include "games/xeen/XeenEventDecoder.h"
 
 // Adapted from the ScummVM developers' GPL-3.0-or-later Xeen combat.cpp
 // at 6814ee9ba54582f5b5adcffab49efbbd8f589edd: canMonsterMove/stopAttack.
@@ -401,11 +400,6 @@ std::shared_ptr<const XeenRegionalObservation> XeenRegionalOpportunityCandidate:
 }
 }
 namespace mmodern {
-std::optional<std::int16_t> xeenWellHpAfter(std::int16_t before) noexcept {
-	const int after=int(before)+25;
-	if(after>std::numeric_limits<std::int16_t>::max())return {};
-	return static_cast<std::int16_t>(after);
-}
 std::optional<std::uint8_t> xeenRegionalService(const XeenEventFile &events,const XeenCamera &camera) {
 	const auto first=xeenRegionalEvent(events,camera);
 	if(!first || events.mapId!=camera.mapId || camera.mapId!=XeenMapIdentity(28))return {};
@@ -433,27 +427,6 @@ XeenRegionalInteraction xeenRegionalInteraction(const XeenEventFile &events,cons
 	};
 	if(camera.mapId==XeenMapIdentity(28))return teleportsTo(23)?XeenRegionalInteraction::VertigoExit:XeenRegionalInteraction::Event;
 	if(camera.mapId==XeenMapIdentity(23) && teleportsTo(28))return XeenRegionalInteraction::VertigoEntrance;
-	if (xeenRegionalSign(events,camera)) return XeenRegionalInteraction::Sign;
-
-	// Coordinates are the logical interaction identity; record ordering is transport data.
-	// Validate semantic operations at that address, allowing presentation records before them.
-	bool npc=false, grant=false, remove=false, hp=false, selection=false;
-	for (std::size_t i=0;i<events.records.size();++i) {
-		const auto &r=events.records[i];
-		if(r.x!=camera.x || r.y!=camera.y || (r.direction!=4 && r.direction!=unsigned(camera.direction)))continue;
-		const auto decoded=XeenEventDecoder::decode(r,{events.mapId,events.resourceName,i,true});
-		const auto *instruction=std::get_if<XeenDecodedEventInstruction>(&decoded);if(!instruction)continue;
-		npc=npc || std::holds_alternative<XeenEventNpc>(instruction->operation);
-		remove=remove || std::holds_alternative<XeenEventRemove>(instruction->operation);
-		selection=selection || std::holds_alternative<XeenEventWhoWill>(instruction->operation);
-		if(const auto *effect=std::get_if<XeenEventTakeOrGive>(&instruction->operation)) {
-			grant=grant || effect->second.mode==21;
-			hp=hp || effect->second.mode==8;
-		}
-	}
-	if(camera.x==9 && camera.y==11 && npc)return XeenRegionalInteraction::Myra;
-	if(camera.x==8 && camera.y==2 && grant && remove)return XeenRegionalInteraction::Phirna;
-	if(camera.x==7 && camera.y==7 && hp && selection)return XeenRegionalInteraction::Well;
-	return XeenRegionalInteraction::None;
+	return XeenRegionalInteraction::Event;
 }
 }

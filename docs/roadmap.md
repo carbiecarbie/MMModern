@@ -106,8 +106,8 @@ accepted).
 Audio comes after this arc (Tier A: music, sounds and CD tracks on the
 existing clock); the original durations are already kept.
 
-Also left from the release list: the F3 fountains, bottles, outpost and
-statues, and Run inside Vertigo; they join the step whose mechanic they need.
+Also left from the release list: Run inside Vertigo; it joins the step whose
+mechanic it needs.
 
 ## Medium-term objective
 

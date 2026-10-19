@@ -452,7 +452,7 @@ std::string report(const Census &clouds,const Census &darkside) {
         "Clouds fixtures admit only their selected map; ordinary map-admission restrictions remain separate. "
         "Off-map subroutines use physical callers found in the resource. Original line numbers are retained, with inert suffixes at sequential and branch destinations; "
         "isolated true self-targets retain the 1024-dispatch safety limit and remain unclassified census limits. This is not a reachability or full-playthrough proof. "
-        "Terminal Vertigo services are also checked through the live EventFlow handoff. The mainland legacy well uses live Flow publication. "
+        "Terminal Vertigo services are also checked through the live EventFlow handoff. "
         "Original quest-counter refusals, proficiency and equipment conflicts are gameplay rules, not missing implementation. "
         "When the same mechanic is admitted elsewhere, its engine refusal is partial in that context instead of a globally missing mechanic. "
         "Audio remains partial because its original timing/animation runs silently. Records rejected as malformed and evidence not classifiable by engine checks remain unclassified.\n\n"

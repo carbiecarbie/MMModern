@@ -37,14 +37,12 @@ an empty bank. **Load** continues a saved game from the same slot list.
   attack, secondary effect and movement kind in the original data, including
   ranged attacks and flying. Every map load rebuilds its monsters at full HP
   and asleep, as the original does.
-- **Events.** In Vertigo, every Event operation the Clouds scripts use runs
-  as in the original, other than audio and the ending: signs, NPC
-  conversations, moved walls and objects, monster spawns, conditions, rewards,
-  random Events, teleports, the magic mirror and password prompts.
-  Destinations in maps that are not open yet refuse without changing
-  anything. On the mainland, play still runs only the sign, Myra, the Phirna
-  Roots, the well and the Vertigo gate; its other Events show a clear notice,
-  and the game keeps running.
+- **Events.** In Vertigo and on the mainland, every Event operation the
+  Clouds scripts use runs as in the original, other than audio, the entrance
+  scenes and the ending: signs, fountains, statues, NPC conversations, moved
+  walls and objects, monster spawns, conditions, rewards, random Events,
+  teleports, the magic mirror and password prompts. Destinations in maps that
+  are not open yet refuse without changing anything.
 - **Space** at an empty cell passes time and lets monsters act, as in DOS.
 
 ### Combat
@@ -288,10 +286,6 @@ and its support status. Build and run instructions are in
   unopened maps refuse. Jump says "Spell not supported yet" when it would land
   outside the open area. Combat Run refuses indoors. Dark maps and light-drain cells
   come with the areas that have them.
-- **Mainland Events.** Apart from the sign, Myra, the Phirna Roots, the well
-  and the Vertigo gate, F3's Events, such as its fountains and statues, say
-  "This Event is not supported yet" in play, although the developer Event
-  fixture runs them.
 - **Inn and party.** There is no Inn, recruiting or character creation:
   Tavern Sign In and Dismiss say "not supported yet".
 - **Town scenes.** The entrance scenes (Reaper, Golem, Dwarf Mine, Sphinx and

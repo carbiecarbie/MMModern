@@ -261,8 +261,6 @@ border indicators ([rules](magic.md#border-and-information-screens)), Merchant
 sells at full value and Swimmer lets the whole party onto water. Mountaineer's
 passage over blocking terrain is not implemented yet; the reference gives Arms
 Master and Tracker no passive effect.
-The live mainland path also refuses item, gold, food, flag, time and random
-writes outside its existing capabilities.
 
 ### Part B worked examples
 

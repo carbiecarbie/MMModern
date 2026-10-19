@@ -503,9 +503,7 @@ void XeenEventFlow::prepareJourneyTransition() {
   !_encounter->monsterReward() && !_encounter->state().pending() && _encounter->state().phase()==XeenEncounterPhase::Exploring) {
   _encounter->beginJourneyEvent();_journeyEventLayers=true;
   journeyEventWork([&] {
-   if(_world.developerEventMap() || _camera.mapId==XeenMapIdentity(28))
-    drive(beginVertigoEvent(xeenRegionalInteraction(_encounter->_journeyEvents,_camera),true),true);
-   else drive(_events.runAutomaticEvent(_world,_party,_camera,_flags,_eventPublication),true);
+   drive(beginVertigoEvent(xeenRegionalInteraction(_encounter->_journeyEvents,_camera),true),true);
   },true);
  }
  if(_encounter->_shootIntent && !_encounter->state().pending() && !_encounter->_regionalWork && !_encounter->projectilesPending()) _encounter->beginShoot();
@@ -1402,6 +1400,7 @@ void XeenEventFlow::prepareVertigoResult(const XeenManualEventResult &result) tr
 	}
 	if(std::holds_alternative<XeenManualSpecialInteractionUnsupported>(result) || std::holds_alternative<XeenManualEventNoEvent>(result)) {
 		_encounter->_journeyRefusal="Door or grate: not supported yet";
+		_candidateResultRefused=true;
 		_transition.reset();return;
 	}
 	const auto *done=std::get_if<XeenManualEventCompleted>(&result);
@@ -1607,6 +1606,8 @@ IndexedFrame XeenEventFlow::journeyEventWork(const std::function<void()> &operat
 		_pending->state.pendingPresentation->request.kind==XeenPresentationKind::TrainingService && !_trainingUi)
 		prepareTraining();
 	if (!_pending && !_transition) {
+		// A refused candidate's notice replaces its retired Event windows.
+		if (_candidateResultRefused && _journeyEventLayers) { _presenter.clear(); _journeyEventLayers=false; }
 		_serviceEventContinuation.reset();_serviceEventOwner=nullptr;
 		if (_arrivalPending) _encounter->publishArrival(_encounter->_result.view);
 		_encounter->endJourneyEvent();

@@ -578,10 +578,7 @@ XeenEncounterResult XeenActorApproach::regionalTransition(XeenWorld &world,XeenP
 					const auto sampled=indoor ? world.sampleCell(c.camera.mapId,c.camera.x,c.camera.y) : std::optional<XeenCellSample>{};
 					if(indoor ? (sampled && (sampled->cell->rawAttributes & kXeenAutomaticEventFlag)!=0) :
 						hasAutomaticTrigger(map.geometry,c.camera.x,c.camera.y)) {
-						const auto event=xeenRegionalEvent(events,c.camera);
-						if(!indoor && !world.developerEventMap() && event && !xeenRegionalSign(events,c.camera))
-							{ refused.reason=XeenEncounterStop::Domain;return refused; }
-						c.result.automaticEvent=event.has_value();
+						c.result.automaticEvent=xeenRegionalEvent(events,c.camera).has_value();
 					}
 				}
 			}

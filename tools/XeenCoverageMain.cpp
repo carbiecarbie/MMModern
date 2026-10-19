@@ -158,8 +158,6 @@ void events(Census &c,const std::vector<XeenEventRecord> &records,XeenMapIdentit
                 "Physical Return has no CallEvent caller in this resource"}:
             fixtureFailure?unavailable:
             eventSupport(r,original,eventContext.world,eventContext.party,[&](auto map){return eventContext.text(map);},caller);
-        if(support.reason=="regional well effect is unavailable" && physical(r.x,r.y))
-            support=context.replayRoot({id,r.x,r.y,r.direction<4?XeenDirection(r.direction):XeenDirection::North});
         if(support.service && id==XeenMapIdentity(28)) {
             auto entry=caller.value_or(XeenCamera{id,r.x,r.y,r.direction<4?XeenDirection(r.direction):XeenDirection::North});
             auto live=context.replayRoot(entry);

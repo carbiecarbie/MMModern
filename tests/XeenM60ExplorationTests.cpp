@@ -98,7 +98,8 @@ void jumpEvent(Inputs &in) {
  auto s=source(in,40,false);s.camera={23,5,7,XeenDirection::North};
  s.characters[s.activeRosterIds[4]].skills[4]=1;
  Fixture f(in,s);unsigned signRuns=0;
- f.flow->reportAutomatic=[&](const XeenAutomaticEventResult &result) {
+ // The automatic sign runs through the detached candidate, which reports manual results.
+ f.flow->reportManual=[&](const XeenManualEventResult &result) {
   if(const auto *v=std::get_if<XeenEventExecutionSuspended>(&result))if(v->request.kind==XeenPresentationKind::SceneLabelSign)++signRuns;
  };
  begin(f);check(f.c.x==5 && f.c.y==9,"Jump did not reach original sign cell");

@@ -113,7 +113,7 @@ struct XeenEventPortraitEffect {
     bool operator==(const XeenEventPortraitEffect &other) const noexcept {return stage==other.stage && owner==other.owner && frame==other.frame;}
 };
 struct XeenEventPortraitProgress {
-    enum class Phase { Recipients, WellAfterSparkle, DamageApply, DamageDone };
+    enum class Phase { Recipients, DamageApply, DamageDone };
     unsigned mask=0,next=0;
     Phase phase=Phase::Recipients;
     bool operator==(const XeenEventPortraitProgress &other) const noexcept {return mask==other.mask && next==other.next && phase==other.phase;}

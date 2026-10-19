@@ -229,9 +229,6 @@ void walkersNextToFlyers() {
 	for (unsigned i=0;i<4;++i) check(XeenActorApproach::move(actors,camera,terrain,true)[i].x==moved[i].x,"Approach is deterministic");
 }
 void events() {
-	check(xeenWellHpAfter(2)==27 && xeenWellHpAfter(32742)==32767 &&
-		!xeenWellHpAfter(32743) && !xeenWellHpAfter(32767),
-		"Well HP addition is checked and unclamped");
 	XeenEventFile file;file.mapId=23;file.resourcePresent=true;file.records.reserve(58);file.records.resize(57);
 	for(auto &r:file.records){r.x=255;r.y=255;}
 	auto &sign=file.records[56];sign={495,6,5,9,0,0,4,{16}};
@@ -246,6 +243,22 @@ void events() {
 	check(!xeenRegionalSign(file,{23,5,9,XeenDirection::North}),"Grant is not sign admission");
 	sign.opcode=4;sign.parameters={17};
 	check(!xeenRegionalSign(file,{23,5,9,XeenDirection::North}),"Sign text index exact");
+	// The mainland classifies by its bound records, as every other map does:
+	// any bound entry is an Event, and only the Vertigo gate stays distinct.
+	sign.parameters={16};
+	file.records.push_back({510,8,0,1,4,0,0x0c,{0,0,8,25,0,0,0}}); // A fountain-like give.
+	file.records.push_back({520,8,12,2,4,0,0x05,{0,0,0,1,0}});    // A statue-like NPC.
+	file.records.push_back({530,6,14,4,1,0,0x07,{28,1,1}});        // A teleport to Vertigo.
+	const auto kind=[&](int x,int y,XeenDirection d){return xeenRegionalInteraction(file,{23,x,y,d});};
+	check(kind(5,9,XeenDirection::North)==XeenRegionalInteraction::Event,"Mainland sign is an ordinary Event");
+	check(kind(5,9,XeenDirection::East)==XeenRegionalInteraction::None,"Unbound mainland facing has no Event");
+	for(unsigned d=0;d<4;++d) {
+		check(kind(0,1,XeenDirection(d))==XeenRegionalInteraction::Event,"Mainland fountain is an Event");
+		check(kind(12,2,XeenDirection(d))==XeenRegionalInteraction::Event,"Mainland statue is an Event");
+	}
+	check(kind(14,4,XeenDirection::East)==XeenRegionalInteraction::VertigoEntrance,"Vertigo gate stays distinct");
+	check(kind(14,4,XeenDirection::North)==XeenRegionalInteraction::None,"Gate binds only its facing");
+	check(kind(3,3,XeenDirection::North)==XeenRegionalInteraction::None,"Empty mainland cell has no Event");
 }
 void structuralResources() {
 	std::vector<std::uint8_t> dat(892);dat[768]=23;dat[781]=0x80;

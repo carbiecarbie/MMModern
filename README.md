@@ -128,9 +128,6 @@ to view that member. The acting member and selected enemy use the original icons
   original time, in silence.
 - The intros, Mr Wizard's help and the control panel's sound and text options
   are not available.
-- F3 Events: apart from the sign, Myra, the Phirna Roots, the well and the
-  Vertigo gate, the area's Events, such as its fountains and statues, say
-  "This Event is not supported yet".
 - Inn and party: there is no Inn, recruiting or character creation. Tavern
   Sign In and Dismiss say "not supported yet".
 - Entrance scenes: the Dwarf Mine and Pyramid entrances in F3 say "not
