@@ -269,6 +269,11 @@ Most of the scripts concerned are in areas MMModern has not opened yet.
 - **Spell lists** have no dead line between rows: a click between two spells
   selects one of them, while ScummVM's rows leave a one-line gap.
   [Evidence](original-quirks.md#sv-spell-row-height). Pin: differs; master not rechecked.
+- **Indoor minimap edges.** The original fills the minimap's partial left
+  column and top row along their whole length and keeps the party arrow on top
+  of the party's own cell walls; ScummVM draws only one edge tile on each side
+  and draws the arrow under those walls.
+  [Evidence](original-quirks.md#sv-indoor-minimap-edges). Pin: differs; master not rechecked.
 - **Scenery animation** includes its last frame, which ScummVM skips.
   [Evidence](original-quirks.md#sv-scenery-terminal-frame). Master: differs.
 - **Original text and layout.** Item charge titles (without a stray glyph),

@@ -33,12 +33,12 @@ std::string tiles(const XeenMapGeometry &g) {
     if(unsigned(g.wallKind)>=names.size())throw std::runtime_error("Invalid map tile wall kind");
     return names[g.wallKind];
 }
-int wallFrame(unsigned v,unsigned animation,bool top=false,bool leftEdge=false,bool miniLeft=false) {
+int wallFrame(unsigned v,unsigned animation,bool top=false,bool leftEdge=false) {
     constexpr int frames[]{-1,18,34,22,16,2,30,32,2,20,28,14,4,16,24,26};
     if(v>=std::size(frames))return -1;
-    if(leftEdge && v==2)return -1; // Pinned partial-left switch omits grass.
+    // The partial left column omits grass (DOS table cs:0x1308 at 0x13ffe).
+    if(leftEdge && v==2)return -1;
     int frame=frames[v];
-    if(miniLeft && v==9)frame=24;
     if(v==12)frame+=animation;
     return frame<0?frame:frame+int(top);
 }
@@ -65,42 +65,48 @@ void indoors(std::vector<XeenMapDrawCommand> &out,XeenWorld &world,const XeenCam
     const int dx=small?3:7,dy=small?3:7;
     const int animation=int((phase*2+(small?0:2))%8);
     const auto &primary=world.map(camera.mapId).geometry;
+    // The original lookup returns 0x8888 for a missing cell, so a solid block whose
+    // raw word is 0x8888 also skips ground and surface and gets the unexplored tile
+    // (DOS 0x13db2, 0x13e30, 0x142fd); its walls still draw from the shifted word.
+    const auto blank=[](const Lookup &v) {return !v.valid || v.word==0x8888;};
     const auto each=[&](const auto &draw) {
         for(int row=0;row<size;++row)for(int col=0;col<size;++col)
             draw(lookup(world,camera,pt.x-dx+col,pt.y+dy-row,eye),col,row);
     };
-    each([&](const Lookup &v,int col,int row) {if(v.valid && v.stepped)append(out,name,0,left+col*10,top+row*8,small);});
+    each([&](const Lookup &v,int col,int row) {if(!blank(v) && v.stepped)append(out,name,0,left+col*10,top+row*8,small);});
     const auto surface=[&](int mx,int my,int xp,int yp) {
         const auto v=lookup(world,camera,mx,my,eye);
-        if(v.valid && v.surface && v.stepped)append(out,name,36+primary.surfaceTypes[v.surface],xp,yp,small);
+        if(!blank(v) && v.surface && v.stepped)append(out,name,36+primary.surfaceTypes[v.surface],xp,yp,small);
     };
     if(!small)for(int row=0;row<size;++row)surface(pt.x-8,pt.y+7-row,75,top+5+row*8);
     if(!small)surface(pt.x-8,pt.y+8,75,35);
     if(!small)for(int col=0;col<size;++col)surface(pt.x-7+col,pt.y+8,left+5+col*10,35);
     each([&](const Lookup &v,int col,int row) {
-        if(v.valid && v.surface && v.stepped)append(out,name,36+primary.surfaceTypes[v.surface],left+5+col*10,top+5+row*8,small);
+        if(!blank(v) && v.surface && v.stepped)append(out,name,36+primary.surfaceTypes[v.surface],left+5+col*10,top+5+row*8,small);
     });
     if(small) {
         surface(pt.x-4,pt.y+4,left-5,top-3);
         for(int row=0;row<size;++row)surface(pt.x-4,pt.y+3-row,left-5,top+5+row*8);
         for(int col=0;col<size;++col)surface(pt.x-3+col,pt.y+4,left+5+col*10,top-3);
     }
-    // Preserve the reference's one-iteration minimap edge loop and TFLR frame.
-    for(int i=0;i<(small?1:15);++i) {
-        const auto a=lookup(world,camera,pt.x-(small?4:8),small?pt.y+3:pt.y-8+i,eye);
-        if(a.valid && a.stepped)append(out,name,wallFrame(layer(a,12,small?65535:15),animation,false,true,small),small?left-15:70,small?top+48:top+120-i*8,small);
+    // The partial left column and top row cover every row and column, bottom
+    // row first (DOS 0x13fcc..0x1411c); the pin draws only one of each.
+    for(int i=0;i<(small?7:15);++i) {
+        const auto a=lookup(world,camera,pt.x-(small?4:8),pt.y-(small?3:8)+i,eye);
+        if(a.valid && a.stepped)append(out,name,wallFrame(layer(a,12,small?65535:15),animation,false,true),small?left-15:70,top+(small?48:120)-i*8,small);
         const auto b=lookup(world,camera,pt.x-dx+i,pt.y+(small?4:8),eye);
         if(b.valid && b.stepped)append(out,name,wallFrame(layer(b,0),animation,true),left+i*10,top-8,small);
     }
     each([&](const Lookup &v,int col,int row) {
-        if(small && col==3 && row==3)append(out,"global.icn",unsigned(camera.direction)+1,left+35,top+28,true);
+        // DOS draws the arrow before cell (4,4), over the party cell's own walls (0x1413c).
+        if(small && col==4 && row==4)append(out,"global.icn",unsigned(camera.direction)+1,left+35,top+28,true);
         if(!small && ((phase?((phase-1)/3):0)&1) && pt.arrowX/10==col && 14-pt.arrowY/10==row)
             append(out,"global.icn",unsigned(camera.direction)+1,pt.arrowX+81,pt.arrowY+29,false);
         if(!v.valid || !v.stepped)return;
         append(out,name,wallFrame(layer(v,12,small?65535:15),animation),left+col*10,top+row*8,small);
         append(out,name,wallFrame(layer(v,0),animation,true),left+col*10,top+row*8,small);
     });
-    each([&](const Lookup &v,int col,int row) {if(!v.valid || !v.stepped)append(out,name,1,left+col*10,top+row*8,small);});
+    each([&](const Lookup &v,int col,int row) {if(blank(v) || !v.stepped)append(out,name,1,left+col*10,top+row*8,small);});
 }
 void execute(IndexedFrame &frame,const std::vector<XeenMapDrawCommand> &commands,const XeenDialogSpriteDraw &draw) {
     if(!draw)return;

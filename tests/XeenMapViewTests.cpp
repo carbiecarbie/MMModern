@@ -60,6 +60,45 @@ void eye() {
  check(!has(xeenMinimapCommands(outside,c,true,0,true),"outdoor.til",1,267,36),"outdoor automap suppresses Eye");
  check(outside.sessionState().exploredTiles().empty(),"outdoor Eye writes no exploration");
 }
+// DOS indoor minimap (WORLD/XEEN.DAT 0x13fcc..0x1411c, 0x1413c): the partial left
+// column and top row cover all seven rows/columns, left-column wall type 9 uses
+// frame 20, and the arrow follows the party cell's walls but precedes cell (4,4).
+void minimapEdges() {
+ auto m=indoor(1);
+ for(auto &cell:m.geometry.cells)cell.stepped=true;
+ for(int i=0;i<7;++i) {m.geometry.cells[(5+i)*16+4].rawWord=0x9000;m.geometry.cells[12*16+5+i].rawWord=0x0001;}
+ m.geometry.cells[8*16+8].rawWord=0x1003;m.geometry.cells[7*16+9].rawWord=0x1000;
+ XeenWorld w([m](auto){return m;});XeenCamera c{1,8,8,XeenDirection::North};
+ const auto commands=xeenMinimapCommands(w,c,true);
+ for(int i=0;i<7;++i) {
+  check(has(commands,"town.til",20,222,60-8*i),"minimap left column covers every row with DOS frame 20");
+  check(has(commands,"town.til",19,237+10*i,4),"minimap top row covers every column");
+ }
+ const auto at=[&](const char *r,unsigned f,int x,int y) {
+  return std::find_if(commands.begin(),commands.end(),[&](const auto &v){return v.resource==r && v.frame==f && v.x==x && v.y==y;})-commands.begin();
+ };
+ const auto arrow=at("global.icn",1,272,40);
+ check(arrow<std::ptrdiff_t(commands.size()) && at("town.til",18,267,36)<arrow && arrow<at("town.til",18,277,44),
+  "minimap arrow is drawn over the party cell's walls and under later cells");
+}
+// A solid block whose raw word is 0x8888 reads as the original lookup's missing
+// cell: no ground or surface, walls from the shifted word, then the unexplored
+// tile over them (WORLD/XEEN.DAT 0x13db2, 0x13e30, 0x142fd), explored or not.
+void solidBlocks() {
+ auto m=indoor(1);m.geometry.surfaceTypes[2]=6;
+ for(auto &cell:m.geometry.cells)cell.stepped=true;
+ auto &solid=m.geometry.cells[9*16+8];solid.rawWord=0x8888;solid.surfaceIndex=2;
+ XeenWorld w([m](auto){return m;});XeenCamera c{1,8,8,XeenDirection::North};
+ const auto commands=xeenMinimapCommands(w,c,true);
+ const auto at=[&](unsigned f,int x,int y) {
+  return std::find_if(commands.begin(),commands.end(),[&](const auto &v){return v.resource=="town.til" && v.frame==f && v.x==x && v.y==y;})-commands.begin();
+ };
+ const auto end=std::ptrdiff_t(commands.size());
+ check(at(0,267,28)==end && at(42,272,33)==end,"solid 0x8888 block draws no ground or surface");
+ check(at(2,267,28)<end && at(3,267,28)<end,"solid 0x8888 block keeps its wall strips");
+ check(at(1,267,28)<end && at(2,267,28)<at(1,267,28) && at(3,267,28)<at(1,267,28),"solid 0x8888 block is covered by the unexplored tile");
+ check(has(commands,"town.til",0,267,36) && !has(commands,"town.til",1,267,36),"ordinary explored cell is unchanged");
+}
 void seams() {
  auto a=indoor(1),b=indoor(2);a.geometry.neighbors[1]=2;b.geometry.neighbors[3]=1;
  b.geometry.cells[8*16].stepped=true;b.geometry.cells[8*16].rawWord=0x2000;
@@ -100,4 +139,4 @@ void original(const char *root) {
  }
 }
 }
-int main(int argc,char **argv) {try {masks();eye();seams();outdoor();if(argc>1)original(argv[1]);std::cout<<"Map masks, layers, seams, edges, markers, clipping and original resource rendering passed\n";return 0;}catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}
+int main(int argc,char **argv) {try {masks();eye();minimapEdges();solidBlocks();seams();outdoor();if(argc>1)original(argv[1]);std::cout<<"Map masks, layers, seams, edges, markers, clipping and original resource rendering passed\n";return 0;}catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}
