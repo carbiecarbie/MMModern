@@ -379,7 +379,7 @@ original-data and process tests cover their subjects.
 Validation of the pinned commit completed with:
 
 - full MMModern build: passed
-- complete CTest suite: 32/32 passed
+- complete CTest suite of that time: 32/32 passed
 - all real-data smoke targets of that time: built and passed
 - real archive text, party, flags, indoor map, navigation, event script,
   interpreter, and event-system checks: passed

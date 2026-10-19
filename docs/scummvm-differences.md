@@ -79,8 +79,8 @@ mainland; many items apply there, others wait for areas not open yet.
 - **Poison Volley and negative hit totals.** DOS treats the final accuracy
   total as an unsigned word, so a negative total can become a hit; the pin's
   signed comparison misses. This belongs to the shared player accuracy
-  helper. **Implemented (M74 Part B)** for melee and Shoot; Poison Volley
-  remains unsupported until Part C.
+  helper. **Implemented** for melee and Shoot (M74 Part B) and Poison Volley
+  (M74 Part C).
   [Evidence](original-quirks.md#sv-hit-total-unsigned). Pin: differs; master not rechecked.
 - **Holy Word against the wrong species.** DOS enters the miss path for a
   non-undead target; the pin skips it. Neither damages the target or draws
@@ -241,12 +241,12 @@ Most of the scripts concerned are in areas MMModern has not opened yet.
   at half in ScummVM. [Evidence](original-quirks.md#sv-combat-name-colors). Master: differs.
 - **Danger Sense animation** runs in phase with the Spot Secret Doors
   indicator in the original; ScummVM draws it one frame ahead. Rule
-  established in M77 Part 0; to be implemented in M77.
+  established in M77 Part 0 and implemented in M77 Part C.
   [Evidence](original-quirks.md#sv-danger-sense-frame). Pin: differs; master not rechecked.
 - **Quests and Awards scrolling** uses the Up and Down arrows (and keypad 8
   and 2) and the on-screen buttons in the original; ScummVM also accepts U
-  and D in Quests and only U and D in Awards. Rule established in M77 Part 0;
-  to be implemented in M77.
+  and D in Quests and only U and D in Awards. Rule established in M77 Part 0
+  and implemented in M77 Part B.
   [Evidence](original-quirks.md#sv-quest-award-scroll-keys). Pin: differs; master not rechecked.
 - **Choosing a member who cannot act** brings a refusal and a new choice in the
   original; ScummVM waits silently.
@@ -326,10 +326,11 @@ in [project status](project-status.md#known-gaps):
   the rest of Clouds of Xeen and all of Darkside of Xeen are not.
 - **Sound:** no music, effects or CD speech yet (speech keeps its duration in
   silence); no intros, ending or Mr Wizard's help.
-- **Services and magic:** no Inn, recruiting or Tavern Sign In;
-  most spells and some item powers say "not supported yet".
-- **Combat and world:** no moving in combat; terrain falls
-  into areas outside the admitted mainland remain unavailable.
+- **Services and party:** no Inn, recruiting, character creation, Tavern
+  Sign In or Dismiss.
+- **World:** no entrance scenes (Reaper, Golem, Dwarf Mine, Sphinx, Pyramid);
+  Run does not work indoors; not every monster drops items yet; Mountaineer
+  has no effect.
 - **Platforms and editions:** MMModern runs on 64-bit Windows with the English
   World of Xeen CD; ScummVM covers many platforms, editions and languages, and
   Swords of Xeen.

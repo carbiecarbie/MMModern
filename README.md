@@ -16,19 +16,26 @@ public versions, and they do not replace the original games yet.
 A new Clouds game starts in Vertigo, as in the original. You can play the
 whole town and the F3 area around it.
 
-In combat you can fight and run. Around town you can bash or unlock grates and
-doors, search crates and trees, and rest, which uses food and restores the
-party. Myra's quest, Joe's proof and Gunther's reward can all be finished. The
-Tavern sells food, the Bank holds gold and gems, the Ironworks buys, sells,
-identifies and fixes items, and Training and the Temple work too. Teachers
-teach Cartography and Pathfinder, and the map fills in as you explore. You can
-buy spells, cast the supported ones from the original Cast dialog and use
-charged items.
+Combat follows the original rules: attack, block, shoot, run outdoors, cast
+spells, change equipment and use charged items with the Use button. Monsters
+use every attack and ability the original data gives them. Around town you can
+bash or unlock grates and doors, search crates and trees, and rest, which uses
+food and restores the party. Myra's quest, Joe's proof and Gunther's reward can
+all be finished.
 
-The original title screen, main screen, character sheet, Items dialog and
-service screens all work with mouse or keyboard, including strafing, Exchange,
-Quick Reference, Info and Quick Fight. Saved games continue exactly where you
-left off. Everything else is listed under [What is missing](#what-is-missing).
+Every Vertigo service except the Inn works: the Tavern sells food and drinks
+and gives tips and rumors, the Bank holds gold and gems, the Ironworks buys,
+sells, identifies and fixes items, Training raises levels, the Temple heals,
+blesses and uncurses, and the Guild sells spells. Teachers teach Cartography
+and Pathfinder, and the map fills in as you explore. All 76 Clouds spells can
+be cast from the original Cast dialog, and charged items cast their powers.
+
+The original title screen, main screen, character sheet, Items dialog, Quests
+and Awards screens and service screens all work with mouse or keyboard,
+including strafing, Exchange, Quick Reference, Info and Quick Fight. The
+border lights Danger Sense, Spot Secret Doors and Direction Sense as in the
+original. Saved games continue exactly where you left off. Everything else is
+listed under [What is missing](#what-is-missing).
 
 ## Download and play
 
@@ -72,7 +79,7 @@ with, and it does not work with the original games or ScummVM.
 
 | Key | Action |
 | --- | --- |
-| Up / Down | Move forward/back outside combat; in combat they show "not supported yet" |
+| Up / Down | Move forward/back outside combat |
 | Left / Right | Turn, also during combat |
 | Ctrl+Left / Ctrl+Right, keypad 4 / 6 | Strafe outside combat |
 | Arrows in the sheet | Select a stat |
@@ -87,8 +94,12 @@ with, and it does not work with the original games or ScummVM.
 | R | Rest in exploration; Run in combat outdoors |
 | B | Bash in exploration; Block in combat |
 | C | Learned spells |
+| U in combat | Use a charged item |
 | I | Info; Items from the character sheet |
 | Q | Quick Reference |
+| V | Quests; Q in Items |
+| M | Map |
+| = | Toggle the automap |
 | E in the character sheet | Exchange with another member |
 | F / O in combat | Quick Fight / Quick Fight Options |
 | W/A/C/M in Items | Weapons, Armor, Accessories, Misc |
@@ -110,26 +121,23 @@ to view that member. The acting member and selected enemy use the original icons
 
 ## What is missing
 
-- Areas: only Vertigo and F3 are playable, and Run does not work indoors.
+- Areas: only Vertigo and F3 are open. Teleports, Town Portal and the magic
+  mirror refuse destinations that are not open yet. Run does not work indoors.
 - Sound: there is no audio. Where the CD would play speech, a short notice
   appears. Speech, shop voices, the dream and the death laugh still take their
   original time, in silence.
-- The intros and Mr Wizard's help are not available.
-- Services: there is no Inn or recruiting. Temple Donation and Uncurse, and
-  Tavern Drink, Tip, Rumors and Sign In, say "not supported yet". The Temple
-  heals only the conditions modeled so far.
-- Magic and items: most spells are missing, and monsters cannot yet be put to
-  sleep, paralyzed or controlled. Light,
-  Sleep, Insect Spray, Protection from Elements, Sparks, Toxic Cloud and
-  Suppress Poison can be bought but say "not supported yet" when cast. Item
-  powers that rely on missing spells say the same.
-- World: terrain hazards on arrival (space, lava, sky, cloud, desert), the
-  fountains in F3 and locked-chest locks and traps are not implemented.
-- Combat: you cannot move, equip items or use the Use button during combat.
-  The original allows equipping and Use.
-- Skills: only Cartography and the skills existing rules use (Thievery,
-  Navigator, Bodybuilder and others that affect HP or SP) do anything.
-  Swimming, Mountaineer and the rest are recorded but have no effect yet.
+- The intros, Mr Wizard's help and the control panel's sound and text options
+  are not available.
+- F3 Events: apart from the sign, Myra, the Phirna Roots, the well and the
+  Vertigo gate, the area's Events, such as its fountains and statues, say
+  "This Event is not supported yet".
+- Inn and party: there is no Inn, recruiting or character creation. Tavern
+  Sign In and Dismiss say "not supported yet".
+- Entrance scenes: the Dwarf Mine and Pyramid entrances in F3 say "not
+  supported yet".
+- Monster treasure: not every monster drops items yet, and drops of higher
+  treasure levels and accessories are missing.
+- Skills: Mountaineer does not yet let the party cross mountains.
 - Darkside gameplay is not supported.
 
 The [project status](https://github.com/carbiecarbie/MMModern/blob/main/docs/project-status.md)
@@ -329,6 +337,8 @@ the casters carry five-charge items for all ten M75 powers.
 .\build-rel\mmodern_test_save.exe party-healing "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/party-healing.mmsave"
 ```
 
+For example, to create the play-test folder, generate the `train-ready` save
+and load it:
 
 ```powershell
 New-Item -ItemType Directory -Force D:/MModern-playtest

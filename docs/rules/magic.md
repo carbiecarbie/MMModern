@@ -414,7 +414,7 @@ candidate preserves weapon dice and accuracy draws, substitutes the 10
 Poison base, adds resisted missile elemental damage and halves the total
 on a save. No missile weapon is required; neither the magic-resistance gate
 nor physical resistance reduces the base. Target settlement remains inside
-the existing exploration and combat owners; saves stay v14.
+the existing exploration and combat owners.
 These implementation checks add no DOS evidence.
 
 For Finger of Death, the first save and the damage-stage save are distinct

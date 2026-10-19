@@ -79,8 +79,8 @@ do not re-execute these Events.
 
 Wall items and Events belong to the logical MOB/EVT map and original record.
 Walls and surfaces belong to the resolved physical DAT tile and cell. The
-existing v13 save records carry the resulting positions, opcodes and effective
-word/attribute pairs; no format, schema or content change is needed.
+save records carry the resulting positions, opcodes and effective
+word/attribute pairs.
 
 M69's lifetime decisions still apply: indoor neighbour DAT changes are retained;
 outdoor neighbour DAT changes expire when leaving the logical map and are
@@ -256,9 +256,11 @@ global `0xf604`), SetChar 8..127 (WhoWill), Darkside character flags (107)
 and GiveMulti 67. Every skill grant and removal is supported: it only writes
 the skill byte, which the save keeps. Arms Master, Direction Sense, Merchant,
 Mountaineer, Swimmer, Tracker, Spot Secret Doors and Danger Sense are granted
-and saved; Direction Sense, Spot Secret Doors and Danger Sense light their
-border indicators ([rules](magic.md#border-and-information-screens)), the
-other passive effects are not implemented yet.
+and saved. Direction Sense, Spot Secret Doors and Danger Sense light their
+border indicators ([rules](magic.md#border-and-information-screens)), Merchant
+sells at full value and Swimmer lets the whole party onto water. Mountaineer's
+passage over blocking terrain is not implemented yet; the reference gives Arms
+Master and Tracker no passive effect.
 The live mainland path also refuses item, gold, food, flag, time and random
 writes outside its existing capabilities.
 
@@ -413,7 +415,7 @@ Worked original Clouds scripts:
   not establish another prompt or a durable mirror selection. The census lists
   it separately from missing mechanics, alongside caller/safety limits.
 
-Travel/input need no new durable fields: save v13/schema 9/content 14 remains.
+Travel and input need no durable fields.
 Prompt text, mirror selection, call frames and pending rewards are transient;
 saving is unavailable while those owners are active. Quiet capture and restore
 do not replay an Event, reward, elapsed time or draw.

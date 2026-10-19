@@ -342,8 +342,8 @@ field at `0x2c3e2` and passes it as makeItem's level. The far call at
 (`0x2c402` onward). All supported sources share `XeenItemCandidate`, including
 level-1 monster drops. Higher-level drops and accessory staging remain unsupported.
 
-Stored merchant and pending-loot Misc records accept 1-10 charges so existing
-v13/schema 9/content 14 saves keep their exact stock and loot. Generation produces
+Stored merchant and pending-loot Misc records accept 1-10 charges so saves
+keep their exact stock and loot. Generation produces
 3-10. Restore does not regenerate items, deliver rewards or move the RNG cursor;
 old stock changes only through normal purchases and restock. Party inventory's
 charge domain is unchanged.
@@ -364,7 +364,7 @@ segment. The generator writes these fields and returns category 3. This rule
 is generic, not specific to the Orc witness or one map. **Implemented (M61
 Part C):** Misc monster drops use their own pending array and the existing
 shared delivery rules, preserving all generation draws. Pending Misc survives
-Run and current v13 save/load. Part D implements DOS delivery as follows.
+Run and save/load. Part D implements DOS delivery as follows.
 
 **DOS static, high confidence; implemented (M61 Part D):** Event rewards and
 monster loot share one delivery rule, in staged category/slot order. Global

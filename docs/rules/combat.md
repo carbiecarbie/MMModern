@@ -504,8 +504,8 @@ and loading a game re-enters the main loop, which loads the current map
 full HP and asleep after the party leaves its map and returns, and after a game
 is loaded; while the party stays on the map, its wound persists. The arrival
 view then wakes the monsters it sees. **M73 Part A:** every slot
-clears status, regardless of lifecycle, and Spawn resets it too. Save v14
-(schema 9/content 14) validates live statuses and captures Physical, retaining
+clears status, regardless of lifecycle, and Spawn resets it too. The save
+validates live statuses and captures Physical, retaining
 its existing bytes without replaying RNG or time. Same as the pin
 ([`MonsterObjectData::synchronize`](https://github.com/scummvm/scummvm/blob/6814ee9ba54582f5b5adcffab49efbbd8f589edd/engines/mm/xeen/map.cpp#L500)).
 The maintainer's DOSBox check is pending. Offsets and calibration are in
@@ -591,8 +591,8 @@ inclusive random helper supplies the chance and item draws. **Implemented
 Events: category/subcategory `R(1,100)` and Misc charges `R(1,8)+2`.
 The existing 10% chance, source accounting, publication and delivery remain;
 higher-level drops and accessory staging remain unsupported (DOS stages
-accessories in their own array, `0x2c4a6`). Pending Misc charges 1-10 retain
-old and corrected v13 saves without regenerating loot. A successful level-1
+accessories in their own array, `0x2c4a6`). Pending Misc charges 1-10 restore
+from a save without regenerating loot. A successful level-1
 drop is covered by unit draw tapes only; no gameplay test reaches item
 generation yet, and adding one needs an ordinary-gameplay route.
 
