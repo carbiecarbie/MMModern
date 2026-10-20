@@ -157,6 +157,11 @@ mainland; many items apply there, others wait for areas not open yet.
   empty. The pin clears all staged items on Load.
   [Evidence](original-quirks.md#sv-loot-load-process-state). Pin: differs; master
   not rechecked. Not implemented yet.
+- **Unused monster drop fields.** No Clouds monster uses drop fields 7-21; the
+  pin gives them a zero chance, while MMModern refuses such a record as
+  malformed data. No original record and no drop rule is affected.
+  [Evidence](original-quirks.md#sv-unused-drop-fields). Pin: differs; master
+  not rechecked.
 - **Miscellaneous monster drops.** A monster can drop a miscellaneous item,
   such as a wand, in the original; ScummVM stages a copy of an accessory slot
   instead and loses it. [Evidence](original-quirks.md#sv-misc-monster-loot). Master: differs.

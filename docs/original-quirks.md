@@ -117,7 +117,8 @@ uses zero. Neither establishes item generation at those levels, so MMModern
 refuses such a record as malformed monster data; no original record is
 affected. Staged and purse gold and gems are 32-bit add/carry sums without
 saturation (`0x2c2c2..0x2c307`, `0x2486a..0x24884`); MMModern keeps the same
-widths. [Evidence](rules/evidence.md#m81-monster-treasure).
+widths, wrapping modulo 2^32. [Evidence](rules/evidence.md#m81-monster-treasure).
+**ScummVM:** differs only on malformed input outside the original Clouds records.
 
 ## Unconfirmed in DOS, following the reference
 
