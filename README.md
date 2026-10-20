@@ -322,6 +322,24 @@ spell or item cost; an unset beacon defaults to Vertigo even on cancel.
 .\build-rel\mmodern_test_save.exe m76-spells "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/m76-spells.mmsave"
 ```
 
+The `m80-playtest` preset starts at the Reaper entrance on Clouds map 24
+`(10,9)` facing North. It has the party's quest items 1-7, the M78 travel
+party and books, 10,000 SP per caster and 5,000 gems. The Sorcerer has
+Lloyd's Beacon and Jump in its book, plus a Town Portal item with 63 charges
+in its ninth miscellaneous slot. Town Portal is clerical; the Cleric also
+has it in its book. Space enters map 51 `(7,12)` facing South.
+Quest items belong to the party;
+Exchange does not change which keys it holds. For a keyless Clouds scene,
+use `--event-fixture` with the desired map, position and facing (for example
+`24 10 9 north`); its initial party has no entrance keys. Reaper sites on
+maps 7/13, Golem 19 and Sphinx 2 always play the keyless refusal: their
+Darkside keys are outside the Clouds quest counters.
+
+```powershell
+.\build-rel\mmodern_test_save.exe m80-playtest "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/m80-playtest.mmsave"
+.\build-rel\mmodern.exe --load-game "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/m80-playtest.mmsave"
+```
+
 The `m79-playtest` preset starts at Rivercity Training, map 30 `(12,12)`
 facing North, with 100,000 gold, 5,000 gems and one ration. Permanent levels
 repeat 9, 14 and 19, with enough XP for the three Training caps. Members 1,

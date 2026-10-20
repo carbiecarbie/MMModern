@@ -12,8 +12,9 @@ namespace mmodern {
 // samples use unsigned mono PCM, time constant 188 (68 microseconds/sample).
 inline std::uint64_t xeenVocDurationNanoseconds(const std::vector<std::uint8_t> &bytes) {
     const auto invalid=[] {throw std::invalid_argument("Invalid or unsupported VOC timing data");};
-    constexpr char signature[]="Creative Voice File\x1a";
-    if(bytes.size()<26 || !std::equal(signature,signature+20,bytes.begin()))invalid();
+    // DOS plays structurally valid samples regardless of descriptor text.
+    // Clouds sphinx13.voc has a damaged descriptor; see original-quirks.md.
+    if(bytes.size()<26)invalid();
     const auto little=[&](std::size_t at,unsigned count) {
         if(at>bytes.size() || count>bytes.size()-at)invalid();
         std::uint64_t value=0;

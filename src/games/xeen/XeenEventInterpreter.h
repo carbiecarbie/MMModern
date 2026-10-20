@@ -62,7 +62,8 @@ enum class XeenPresentationKind {
 	DeferredAudio,
 	RewardGeneration,
 	PortraitEffect,
-	WordInput
+	WordInput,
+    EntranceScene
 };
 
 enum class XeenPresentationResponseRequirement {
@@ -120,6 +121,7 @@ struct XeenEventPortraitProgress {
 };
 
 struct XeenPresentationRequest {
+    std::optional<std::uint8_t> entranceAction;
 	XeenPresentationKind kind = XeenPresentationKind::CenteredMessage;
 	XeenPresentationResponseRequirement response =
 		XeenPresentationResponseRequirement::Presented;

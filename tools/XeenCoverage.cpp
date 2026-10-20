@@ -1,4 +1,5 @@
 #include "XeenCoverage.h"
+#include "games/xeen/XeenEntranceScene.h"
 #include "XeenCoverageScreens.h"
 #include "games/xeen/XeenEventDiagnostics.h"
 #include "games/xeen/XeenWorld.h"
@@ -252,6 +253,11 @@ Support eventSupport(const XeenEventRecord &original,const XeenEventFile &origin
                 "New Game Journey candidate completes with original world, owners and RNG"};
             if(pending->request.kind==XeenPresentationKind::DeferredAudio)
                 return {Status::Partial,pending->request.text};
+            if(pending->request.kind==XeenPresentationKind::EntranceScene) {
+                if(!xeenEntranceSite(*pending->request.entranceAction,pending->state.workingCamera))
+                    return {Status::Unclassified,"Entrance request has no shared site row"};
+                return {Status::Supported,"Original terminal entrance scene and map load admitted by the shared site table"};
+            }
             // A service request is the engine's terminal Event-to-Service handoff.
             // Service actions are counted separately from admission to the location.
             if(pending->state.pendingPresentation->continuation==XeenEventPendingContinuation::Terminate &&
@@ -456,7 +462,7 @@ std::string report(const Census &clouds,const Census &darkside) {
         "Original quest-counter refusals, proficiency and equipment conflicts are gameplay rules, not missing implementation. "
         "When the same mechanic is admitted elsewhere, its engine refusal is partial in that context instead of a globally missing mechanic. "
         "Audio remains partial because its original timing/animation runs silently. Records rejected as malformed and evidence not classifiable by engine checks remain unclassified.\n\n"
-        "M70 Clouds Event exclusions: audio (6/40/60), town services (17, actions beyond 0-5 and untabled rule values), and the ending (30 plus ConfirmWord ending keywords). "
+        "Clouds Event exclusions: audio (6/40/60), town scenes (17, actions 6/12/13 and untabled sites), and the ending (30 plus ConfirmWord ending keywords). "
         "Darkside-only operations and durable banks are outside Clouds scope. Destination-map admission is separate: shared travel refusals preserve candidate state and RNG. "
         "Residual census limits are off-map records without a discovered physical caller, real isolated self-loops (1024 dispatches), and mirror transfers without a local ConfirmWord prefix. "
         "No unresolved in-scope Clouds Event mechanic is accepted as an exclusion.\n\n"

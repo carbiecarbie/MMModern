@@ -2,6 +2,7 @@
 #include "games/xeen/XeenFoodBank.h"
 #include "games/xeen/XeenTempleHeal.h"
 #include "games/xeen/XeenTraining.h"
+#include "games/xeen/XeenEntranceScene.h"
 #include <stdexcept>
 #include <limits>
 #include "formats/xeen/XeenMapFormat.h"
@@ -403,6 +404,7 @@ std::shared_ptr<const XeenRegionalObservation> XeenRegionalOpportunityCandidate:
 }
 namespace mmodern {
 bool xeenTownServiceKnown(XeenMapIdentity map,std::uint8_t action) noexcept {
+    if(action>=8 && action<=11)return xeenEntranceSite(action,{map,0,0,XeenDirection::North})!=nullptr;
     return map.side==XeenSide::Clouds && action<=5 &&
         (action!=3 || xeenTavernFoodOffer(map).has_value());
 }
@@ -412,7 +414,7 @@ std::optional<std::uint8_t> xeenRegionalService(const XeenEventFile &events,cons
     const auto &r=events.records[*first];
     if(r.opcode!=0x11 || r.parameters.size()!=1)return {};
     const auto action=r.parameters[0];
-    if(xeenTownServiceKnown(camera.mapId,action))return action;
+    if(action<=5 && xeenTownServiceKnown(camera.mapId,action))return action;
     return {};
 }
 XeenRegionalInteraction xeenRegionalInteraction(const XeenEventFile &events,const XeenCamera &camera) {

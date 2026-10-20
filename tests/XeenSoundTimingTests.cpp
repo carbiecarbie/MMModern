@@ -30,13 +30,19 @@ int main() {try {
     auto continued=sample(2);continued.pop_back();
     continued.insert(continued.end(),{2,3,0,0,128,128,128,3,3,0,0,1,0,188,0});
     check(xeenVocDurationNanoseconds(continued)==7*68000ULL,"PCM continuation/silence timing");
-    for(unsigned fault=0;fault<5;++fault) {
+    auto damagedDescriptor=sample(2);
+    std::fill_n(damagedDescriptor.begin(),20,0);
+    check(xeenVocDurationNanoseconds(damagedDescriptor)==2*68000ULL,"Descriptor text must not gate valid PCM timing");
+    for(unsigned fault=0;fault<7;++fault) {
         auto broken=sample(2);
-        if(fault==0)broken[0]=0;
+        std::fill_n(broken.begin(),20,0);
+        if(fault==0)broken.resize(25);
         if(fault==1)broken[20]=255;
         if(fault==2)broken[31]=1;
         if(fault==3)broken.pop_back();
         if(fault==4)broken[27]=255;
+        if(fault==5)broken[20]=25;
+        if(fault==6)broken[26]=2; // Continuation before any rate is established.
         bool rejected=false;try{(void)xeenVocDurationNanoseconds(broken);}catch(const std::invalid_argument &){rejected=true;}
         check(rejected,"Malformed or unsupported VOC accepted");
     }

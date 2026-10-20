@@ -626,6 +626,25 @@ Victory/maxed exits use the newly loaded map 28's run position
 High confidence; the reference also excludes map 85 from maze saving.
 Map 85's header carries the no-save flag `0x8000` (resource inspection).
 
+<a id="sv-sphinx13-descriptor"></a>
+### The Sphinx plays a sample with a damaged VOC descriptor
+
+Clouds `sphinx13.voc`, the first refusal sample, differs from the VOC
+descriptor text only at bytes 0..7. Its data offset (26), single type-1 PCM
+block (length 39,245, codec 0, time constant 188) and terminator are intact.
+The 39,243 audio bytes last 2.668524 seconds; `sphinx14.voc` adds 1.275068
+seconds. The maintainer's [DOSBox refusal capture](rules/evidence.md#entrance-scenes-and-the-arena-2026-10-20)
+shows about 4.1-4.4 seconds of speech animation, consistent with both samples
+and not with the second alone. DOS plays the first sample in full without
+checking the descriptor text; follow DOS (maintainer, 2026-10-20).
+
+`xeenVocDurationNanoseconds` ignores descriptor text while retaining its
+minimum-size, data-offset, block-type, length, codec, rate-continuity and
+terminator checks. No resource-name exception or invented duration is used.
+**ScummVM:** pinned `6814ee9b`, `Audio::checkVOCHeader`, requires `Creative`
+at bytes 0..7 and rejects this sample, skipping its speech interval. Master
+not rechecked.
+
 <a id="sv-scene-speech-cadence"></a>
 ### Entrance speech animation consumes gameplay randomness
 

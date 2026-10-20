@@ -110,6 +110,18 @@ void prepare(XeenSaveSnapshot &snapshot,const std::string &preset) {
     auto &journey=*snapshot.journey;
     const auto first=snapshot.activeRosterIds.at(0),second=snapshot.activeRosterIds.at(1);
     auto &member=snapshot.characters[first];
+    if(preset=="m80-playtest") {
+        prepare(snapshot,"m78-playtest");
+        snapshot.camera={24,10,9,XeenDirection::North};
+        for(unsigned item=1;item<=7;++item)snapshot.questItems[item]=1;
+        for(auto owner:snapshot.activeRosterIds)if(snapshot.characters[owner].learnedSpells)
+            snapshot.characters[owner].currentSp=10000;
+        // Town Portal is clerical; a Wizardry caster uses its existing charged
+        // item spell so one member can perform all three requested travels.
+        for(auto owner:snapshot.activeRosterIds)if(snapshot.characters[owner].characterClass==XeenCharacterClass::Sorcerer)
+            snapshot.characters[owner].miscellaneous[8]={1,55,63,0};
+        return;
+    }
     if(preset=="m79-playtest") {
         snapshot.camera={30,12,12,XeenDirection::North};snapshot.food=1;
         journey.treasure->gold=100000;journey.treasure->gems=5000;
@@ -329,7 +341,7 @@ void prepare(XeenSaveSnapshot &snapshot,const std::string &preset) {
 
 void generateTestSave(const GameInstallation &installation,const std::string &preset,
         const std::filesystem::path &output) {
-    if (preset!="broken-armor" && preset!="train-ready" && preset!="injured-dead" && preset!="poisoned" && preset!="monster-control" && preset!="monster-damage" && preset!="party-healing" && preset!="m76-spells" && preset!="combat-items" && preset!="m78-playtest" && preset!="m78-one-holder" && preset!="m79-playtest")
+    if (preset!="broken-armor" && preset!="train-ready" && preset!="injured-dead" && preset!="poisoned" && preset!="monster-control" && preset!="monster-damage" && preset!="party-healing" && preset!="m76-spells" && preset!="combat-items" && preset!="m78-playtest" && preset!="m78-one-holder" && preset!="m79-playtest" && preset!="m80-playtest")
         throw std::invalid_argument("Unknown test-save preset: "+preset);
     const auto target=XeenSaveFile::resolve(output,installation);
     // Reuse the native alias/reparse-aware path guard for the repository too.
@@ -349,9 +361,10 @@ void generateTestSave(const GameInstallation &installation,const std::string &pr
             nearby.lifecycle=XeenActorLifecycle::Present;nearby.accounted=false;
         }
     }
-    if(preset=="m79-playtest") {
-        const auto actors=XeenActorApproach::actorsFromResources(inputs.maps.loadObjects(inputs.assets,30),inputs.resources.loadMonsterStatistics());
-        auto &table=candidate.map(30).monsters;
+    if(preset=="m79-playtest" || preset=="m80-playtest") {
+        const auto map=candidate.camera.mapId;
+        const auto actors=XeenActorApproach::actorsFromResources(inputs.maps.loadObjects(inputs.assets,map),inputs.resources.loadMonsterStatistics());
+        auto &table=candidate.map(map).monsters;
         table.emplace(XeenSaveMonsterTable{std::uint16_t(actors.size()),{}});
         for(const auto &actor:actors)table->slots.push_back({actor.x,actor.y,actor.lifecycle,actor.status,false,-1});
     }

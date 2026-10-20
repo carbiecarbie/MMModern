@@ -13,6 +13,7 @@
 #include "games/xeen/XeenInventoryState.h"
 #include "games/xeen/XeenDialogView.h"
 #include "games/xeen/XeenServiceAnimation.h"
+#include "games/xeen/XeenEntranceScene.h"
 #include "games/xeen/XeenEquipment.h"
 #include "app/XeenEncounterFlow.h"
 #include <memory>
@@ -76,6 +77,7 @@ public:
     std::function<std::string(std::size_t)> tavernString;
 	std::function<void(IndexedFrame &)> drawCombatButtons;
 	XeenDialogSpriteDraw drawDialogSprite;
+    std::function<void(IndexedFrame &,const char *,unsigned,int,int,int)> drawEntranceSprite;
 	std::function<std::string(XeenMapIdentity)> mapName;
  // Borrowed from the existing asset owner, before any dialog is presented.
  const XeenDosText *dialogText = nullptr;
@@ -143,6 +145,15 @@ public:
 	std::function<void(const XeenEquipmentResult &)> reportEquipment;
 	std::function<void(XeenMovementResult)> reportMovement;
 private:
+    struct EntranceUi {
+        XeenEntranceAnimation animation;
+        IndexedFrame saved,zoom,art;
+        explicit EntranceUi(XeenEntranceAnimation value,const IndexedFrame &frame):animation(std::move(value)),saved(frame),art(frame) {}
+    };
+    std::optional<EntranceUi> _entranceUi;
+    void prepareEntrance();
+    bool advanceEntrance();
+    std::optional<IndexedFrame> updateEntrance();
 	friend struct XeenRestTestAccess;
 	friend struct XeenPartyInterfaceTestAccess;
 	IndexedFrame drawRest(const IndexedFrame &);
@@ -248,7 +259,7 @@ private:
 		bool refused = false;
 		bool cancelled = false;
 		bool presentationRetry = false;
-		bool automatic=false, terrainDone=false, manualStepDone=false;
+		bool automatic=false, terrainDone=false, manualStepDone=false, entrance=false;
 		std::optional<XeenTerrainArrivalCandidate> terrain;
 		std::optional<XeenRegionalActionCandidate> manualStep;
         // The old observable party/RNG prefix, retained until the final fall
@@ -338,6 +349,7 @@ private:
 	friend class Application;
 	friend struct XeenTemplePriceStateTestAccess;
 	friend struct XeenTrainingTestAccess;
+    friend struct XeenEntranceTestAccess;
 	friend struct XeenMonsterTestAccess;
 	friend struct XeenCityEventTestAccess;
 	friend struct XeenPurchaseTestAccess;

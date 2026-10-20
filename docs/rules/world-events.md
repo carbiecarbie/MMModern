@@ -418,6 +418,69 @@ Prompt text, mirror selection, call frames and pending rewards are transient;
 saving is unavailable while those owners are active. Quiet capture and restore
 do not replay an Event, reward, elapsed time or draw.
 
+## Entrance scenes
+
+**Evidence: DOS static and maintainer DOSBox captures (2026-10-20)**,
+with the frame/coordinate tables from the pinned `locations.cpp` Clouds
+branches. [M80 evidence](evidence.md#entrance-scenes-and-the-arena-2026-10-20)
+settles the sites, timing, random draws and DOS corrections.
+
+`DoTownEvent` actions 8-11 terminate the entire Event, including its call
+stack. A shared table selects the scene, quest counter and destination:
+
+| Action | Site map | Quest counter | Destination and facing |
+| --- | --- | --- | --- |
+| 8 Reaper | 12 / 15 / 24 | 3 / 2 / 1 | 55 `(3,8)` E / 59 `(11,8)` W / 51 `(7,12)` S |
+| 8 Reaper | 7 / 13 | 46 / 45 | Darkside 113 / 117 `(7,4)` N; always keyless in Clouds |
+| 9 Golem | 8 / 12 / 20 | 6 / 5 / 7 | 81 `(1,17)` E / 80 `(29,16)` W / 79 `(5,16)` E |
+| 9 Golem | 19 | 50 | Darkside 121 `(18,0)` N; always keyless in Clouds |
+| 10 Dwarf Mine | 14 | none | 37 `(1,4)` E |
+| 10 Dwarf Mine | 18, x=9 / other x | none | 35 `(1,12)` E / 36 `(7,1)` N |
+| 10 Dwarf Mine | 23, x=5 / other x | none | 33 `(7,1)` N / 34 `(7,30)` S |
+| 11 Sphinx | 5 | 4 | 82 `(7,5)` N |
+| 11 Sphinx | 2 | 51 | Darkside 125 `(7,6)` N; always keyless in Clouds |
+
+A key is held when its party quest counter is nonzero. Clouds keeps only
+counters 0-34; indices 45, 46, 50 and 51 are never held (maintainer decision,
+2026-10-20). A keyed entrance loads its destination; refusal plays its full
+scene, then reloads the current map at the party's own position and facing.
+Both use the Event map-load owner: monsters are rebuilt, defeated monsters
+stay defeated, and stepped is set. There is no service time charge.
+Actions 6 (Arena), 12 (Pyramid) and 13 remain outside Part A and refuse
+before effects.
+
+One presenter uses Clouds `tower.vga`/`freap.vga`,
+`golmback.vga`/`golem.vga`, `dwarf1.vga`/`dwarf3.vga`/`dwarf2.vga`
+and `sphinx.vga`, saving the screen and restoring gameplay on return.
+Reaper zooms 13..0, slides from 200 by -16, speaks twice, and retreats
+0..13 only on refusal. Golem zooms 11..0, slides from -200 by +16,
+speaks twice with its intervening growl, and retreats 0..11 on refusal.
+Dwarf zooms 12..0, rises 15..0 and speaks three phases. Sphinx zooms
+8..0, speaks three keyed or two refusal phases and retreats 0..8 on refusal.
+
+Explicit waits use the existing 18.2065-Hz BIOS clock: zooms and slides
+with explicit waits use one tick, Reaper/Dwarf speech two, and Reaper's
+inter-speech pause seven. Dwarf's three-tick phase check uses the phase's
+existing mark, not a new pause after speech. Loops without explicit waits
+use two 70-Hz retraces per iteration, the maintainer's DOSBox-derived rate.
+Each speech phase follows its original VOC duration silently through the
+existing duration loader and passive voice-audio notice. No captions appear.
+VOC descriptor text does not gate timing: DOS plays the structurally intact
+`sphinx13.voc` in full despite its damaged descriptor
+([evidence and reference difference](../original-quirks.md#sv-sphinx13-descriptor)).
+Effects-off captions wait for audio. The approved omission of the load-time
+"Please Wait..." box also applies here.
+
+Frames and jitter consume gameplay randomness. Reaper draws frame 0..4
+once per speech iteration. Golem's 13 slide iterations each draw Y 0..9
+minus 5, then X 0..9 minus 5; each speech iteration draws Y 0..9 minus 3,
+then X 0..5 minus 3. Dwarf draws 0..9 and Sphinx 2..10 per speech iteration.
+Direct counts are respectively `N1+N2`, `26+2*(N1+N2)`, and the sum of
+speech iterations for Dwarf/Sphinx. Sample durations and acquisition cadence
+determine those iterations; ordinary map-load draws remain additional.
+The cursor, screens and speech intervals are transient; the save remains
+v16, schema 9, content 14.
+
 ## Quests and Awards screens
 
 **Evidence: DOS static (2026-10-18), high confidence**; offsets and

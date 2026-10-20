@@ -34,7 +34,7 @@ public:
  IndexedFrame cursorImage(XeenSceneArchive selection);
  IndexedFrame restDreamImage();
 	void drawNpc(IndexedFrame &frame, std::uint8_t portraitId, std::size_t portraitFrame);
-	void drawDialogSprite(IndexedFrame &,const char *,unsigned,int,int, XeenSceneArchive selection = XeenSceneArchive::Current);
+	void drawDialogSprite(IndexedFrame &,const char *,unsigned,int,int, XeenSceneArchive selection = XeenSceneArchive::Current,int scale=0);
 	void drawSmith(IndexedFrame &frame);
 	void drawTraining(IndexedFrame &frame);
 	void drawTemple(IndexedFrame &frame);

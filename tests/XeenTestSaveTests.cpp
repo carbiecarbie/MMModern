@@ -5,6 +5,7 @@
 #include "games/xeen/CloudsMapComposer.h"
 #include "games/xeen/XeenActorApproach.h"
 #include "games/xeen/XeenSkills.h"
+#include "games/xeen/XeenItemServiceRules.h"
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
@@ -58,11 +59,32 @@ void preset(const GameInstallation &installation,const std::string &name,const f
     check(flow.prepareJourneyFrame(flow.ticket(),[]{}) && flow.presentJourney(flow.ticket()),"restored preset is not quiet");
     const auto captured=XeenSaveState::capture(inputs.signature,party,camera,flags,world);
     check(XeenSaveFormat::encode(saved)==XeenSaveFormat::encode(captured),"restore replayed or changed state");
-    check((name=="monster-control" || name=="monster-damage" || name=="party-healing" || name=="m76-spells" || name=="m79-playtest") || save_test::sameCamera(camera,xeenJourneyContent().entry),"fresh Journey camera changed");
+    check((name=="monster-control" || name=="monster-damage" || name=="party-healing" || name=="m76-spells" || name=="m79-playtest" || name=="m80-playtest") || save_test::sameCamera(camera,xeenJourneyContent().entry),"fresh Journey camera changed");
     const auto first=party.party.activeRosterIds()[0],second=party.party.activeRosterIds()[1];
     const auto &member=party.roster.at(first);
     const auto gold=party.monsterTreasure->gold;
     const auto context=*party.encounterContext;
+    if(name=="m80-playtest") {
+        check(camera.mapId==24 && camera.x==10 && camera.y==9 && camera.direction==XeenDirection::North,"M80 entrance position");
+        for(unsigned item=1;item<=7;++item)check(party.questItems.at(item)==1,"M80 Clouds key missing");
+        for(unsigned item=8;item<XeenCloudsQuestItems::kCount;++item)check(party.questItems.at(item)==0,"M80 extra quest item");
+        bool travel=false;
+        for(auto owner:party.party.activeRosterIds()) {
+            const auto &c=party.roster.at(owner);
+            const auto category=XeenLearnedSpellRules::categoryForClass(c.characterClass);
+            bool spells=category.has_value();
+            for(const auto spell:{XeenLearnedSpell::Jump,XeenLearnedSpell::LloydsBeacon}) {
+                const auto slot=category?XeenLearnedSpellRules::slotForSpell(*category,static_cast<unsigned>(spell)):std::nullopt;
+                spells=spells && slot && XeenLearnedSpellRules::known(c,*slot);
+            }
+            bool portal=false;
+            for(const auto &item:c.miscellaneous)portal=portal || (item.material && (item.state&63)==63 &&
+                xeenItemUseSpell(item.id)==XeenLearnedSpell::TownPortal);
+            travel=travel || (spells && portal && c.canAct() && c.currentSp>=10000);
+        }
+        check(travel && party.monsterTreasure->gems>=5000,"M80 travel caster/SP/gems missing");
+        return;
+    }
     if(name=="m79-playtest") {
         check(camera.mapId==30 && camera.x==12 && camera.y==12,"M79 Rivercity position");
         check(gold==100000 && party.monsterTreasure->gems==5000 && party.food==1,"M79 purse/food");

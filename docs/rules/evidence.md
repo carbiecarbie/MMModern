@@ -1224,6 +1224,17 @@ decoding every frame (outside the repository):
   MMModern omits it as an
   [approved deviation](../original-quirks.md#dev-no-please-wait).
 
+**Sphinx sample descriptor (maintainer, 2026-10-20).** The refusal capture
+has about 4.1-4.4 seconds of speech animation. `sphinx13.voc` has damaged
+descriptor bytes 0..7, but its offset, single uncompressed PCM block and
+terminator are intact: 39,243 audio bytes at 68 microseconds each, or
+2.668524 seconds. Together with `sphinx14.voc` (1.275068 seconds), this
+matches the capture; the second sample alone does not. DOS plays the first
+sample in full without checking descriptor text. The pinned
+`Audio::checkVOCHeader` instead rejects it. Maintainer decision: follow DOS;
+the duration reader ignores descriptor text while retaining every structural
+check. [Quirk](../original-quirks.md#sv-sphinx13-descriptor).
+
 Caption disappearance with Effects off was not captured.
 
 ### 4. Arena dialog, generation and exits

@@ -19,7 +19,7 @@ documented in its source. Each item links to its entry in
 
 **Revisions.** MMModern pins ScummVM `6814ee9b` (2026-09-06). Every item was
 rechecked against ScummVM master `55895ab0` on 2026-10-16, except the new
-terrain/Tavern/Temple/recovery/spell/movement entries explicitly marked "pin: differs; master not
+terrain/Tavern/Temple/recovery/spell/movement/entrance entries explicitly marked "pin: differs; master not
 rechecked". At that check, since the pin the
 Xeen engine has had only a code-style edit and the Xeen data in `mm.dat` is
 unchanged apart from its version number, so the earlier entries are marked
@@ -248,6 +248,18 @@ Most of the scripts concerned are in areas MMModern has not opened yet.
 
 ## Presentation
 
+- [Sphinx refusal sample](original-quirks.md#sv-sphinx13-descriptor): DOS
+  plays all of `sphinx13.voc` despite its damaged descriptor, preserving its
+  2.67-second speech interval. The pin rejects its header and skips that
+  interval. Pin: differs; master not rechecked.
+- [Entrance speech cadence](original-quirks.md#sv-scene-speech-cadence):
+  Reaper and Dwarf speech use two BIOS ticks per iteration; loops without
+  explicit waits use the DOSBox-observed two retraces at 70 Hz. The pin
+  uses `WAIT(1)`. DOS retreats on Reaper refusal and draws Sphinx retreat
+  indices 0..8; the pin retreats on Reaper success and draws Sphinx 0..7.
+  Installed DOS defaults show no captions; Effects-off captions remain
+  deferred with audio. Pin: differs; master not rechecked.
+
 - **Control panel and saves.** MMModern uses the original panel, Save As
   included, and its ten-slot chooser; ScummVM rearranges the panel and uses its
   own save dialog, shared by all its games.
@@ -342,25 +354,14 @@ apart from the fidelity differences above.
 ## What ScummVM has that MMModern does not yet
 
 The [M80 DOS check](rules/evidence.md#entrance-scenes-and-the-arena-2026-10-20)
-also establishes three differences to preserve when implementing the
-entrance scenes and Arena. These are **not implemented MMModern differences
-yet**; comparison is with pinned `6814ee9b`, not a new master check:
+also establishes two differences for the Arena, which awaits Part B.
+Comparison is with pinned `6814ee9b`, not a new master check:
 
 - [Arena species pool](original-quirks.md#sv-arena-species-pool): DOS chooses
   five species first, then assigns monsters to those slots; the pin chooses
   a species for each monster.
 - [Arena ordinal suffix](original-quirks.md#sv-arena-ordinal): DOS displays
   21st/22nd/23rd, while the pin uses `th` for every count above nine.
-- [Entrance speech cadence](original-quirks.md#sv-scene-speech-cadence):
-  DOS Reaper/Dwarf speech loops explicitly wait two BIOS ticks and use
-  conditional text-cursor continuation; other scene loops wait for VGA
-  retrace. Installed defaults suppress entrance captions; Effects off
-  enables them, while Speech/Text are separate controls. DOS advances one
-  character per text step; the pin advances two for the Dwarf line.
-  DOS also retreats on Reaper refusal and draws Sphinx retreat indices
-  0..8; the pin retreats on Reaper success and draws Sphinx 0..7.
-  Exact text-box pixel disappearance and measured DOSBox cadence remain
-  unverified; the static waits and settings are settled.
 
 ScummVM plays the whole game today; MMModern is young. The full list of gaps is
 in [project status](project-status.md#known-gaps):

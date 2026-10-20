@@ -5,6 +5,7 @@
 #include "games/xeen/XeenCharacterRules.h"
 #include "games/xeen/XeenSkills.h"
 #include "games/xeen/XeenCombatRules.h"
+#include "games/xeen/XeenEntranceScene.h"
 
 #include <limits>
 #include <algorithm>
@@ -498,6 +499,22 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 			if (partyState.party.size() > 1) state.preferredRewardRecipient = index;
 		}
 		state.pendingPresentation.reset();
+		if(pending.request.kind==XeenPresentationKind::EntranceScene) {
+            const auto *site=xeenEntranceSite(pending.request.entranceAction.value(),workingCamera);
+            if(!site || !world.detachedEventCandidate())
+                return error(XeenEventExecutionErrorKind::UnsupportedOperand,"Entrance scene requires a detached travel candidate",instructionCount,logical,pending.request.source);
+            auto destination=xeenEntranceDestination(*site,workingCamera,partyState.questItems);
+            try {
+                const auto transition=world.prepareEventTransition(destination);
+                if(!transition)return error(XeenEventExecutionErrorKind::UnsupportedTeleportDestination,transition.reason,instructionCount,logical,pending.request.source);
+                // Unlike ordinary same-map teleport, refusal is a real map load.
+                world.loadEventDestination(workingCamera.mapId,destination.mapId);
+                workingCamera=transition.destination;state.selectedObject.reset();
+            } catch(const std::exception &e) {
+                return error(XeenEventExecutionErrorKind::MapLoadFailed,e.what(),instructionCount,logical,pending.request.source);
+            }
+            return finalize();
+        }
 		if (pending.continuation == XeenEventPendingContinuation::Terminate)
 			return finalize();
 		if (pending.continuation == XeenEventPendingContinuation::NpcChoice) {
@@ -610,7 +627,8 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 		if (const auto *service=std::get_if<XeenEventTownService>(&decoded.operation)) {
 			const bool smith=service->action==1,training=service->action==5,temple=service->action==4;
 			const bool tavern=service->action==3,bank=service->action==0,guild=service->action==2;
-			if ((!publication && !world.detachedEventCandidate()) || (!smith && !training && !temple && !tavern && !bank && !guild) ||
+            const auto *entrance=xeenEntranceSite(service->action,workingCamera);
+			if ((!publication && !world.detachedEventCandidate()) || (!entrance && !smith && !training && !temple && !tavern && !bank && !guild) ||
 				!xeenTownServiceKnown(logical.mapId,service->action) || workingCamera.mapId!=logical.mapId || state.pendingRewards.hasWork())
 				return error(XeenEventExecutionErrorKind::UnsupportedOperand,
 					"Town service is outside the admitted service Event",instructionCount,logical,decoded.source);
@@ -618,6 +636,7 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 			request.kind=guild?XeenPresentationKind::GuildService:bank?XeenPresentationKind::BankService:tavern?XeenPresentationKind::TavernService:temple?XeenPresentationKind::TempleService:
 				training?XeenPresentationKind::TrainingService:XeenPresentationKind::ArmorRepairService;
 			request.response=XeenPresentationResponseRequirement::Acknowledgment;
+            if(entrance){request.kind=XeenPresentationKind::EntranceScene;request.response=XeenPresentationResponseRequirement::Presented;request.entranceAction=service->action;}
 			request.mapId=logical.mapId;request.source=decoded.source;
 			state.pendingPresentation=XeenEventPendingPresentation{request,XeenEventPendingContinuation::Terminate,{}};
 			return XeenEventExecutionSuspended{state,request};

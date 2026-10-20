@@ -54,6 +54,7 @@ add_library(mmodern_xeen STATIC
 	src/formats/xeen/XeenMaterialNames.cpp
 	src/games/xeen/XeenObjectVisual.cpp
 	src/games/xeen/XeenServiceAnimation.cpp
+    src/games/xeen/XeenEntranceScene.cpp
 	src/formats/xeen/XeenCharacterFormat.cpp
 	src/formats/xeen/XeenQuestItemFormat.cpp
 	src/formats/xeen/XeenQuestFlagFormat.cpp
@@ -202,7 +203,7 @@ if(BUILD_TESTING)
  add_compile_definitions(MMODERN_TEST_UI_DATA="${MMODERN_XEEN_UI_DATA}")
 	add_executable(mmodern_test_save_tests tests/XeenTestSaveTests.cpp)
 	target_link_libraries(mmodern_test_save_tests PRIVATE mmodern_test_save_support)
-	foreach(preset broken-armor train-ready injured-dead poisoned monster-control monster-damage party-healing m76-spells combat-items m79-playtest paths)
+	foreach(preset broken-armor train-ready injured-dead poisoned monster-control monster-damage party-healing m76-spells combat-items m79-playtest m80-playtest paths)
 		add_test(NAME xeen_test_save_${preset} COMMAND mmodern_test_save_tests
 			"${MMODERN_XEEN_DATA_DIR}" ${preset} "${CMAKE_CURRENT_SOURCE_DIR}")
 	endforeach()
@@ -837,6 +838,7 @@ if(BUILD_TESTING)
 	add_executable(mmodern_event_decoder_tests
 		tests/XeenEventDecoderTests.cpp
 		src/games/xeen/XeenEventDecoder.cpp
+        src/games/xeen/XeenEntranceScene.cpp
 	)
 	target_link_libraries(mmodern_event_decoder_tests PRIVATE mmodern_core)
 	add_test(NAME xeen_event_decoder COMMAND mmodern_event_decoder_tests)
@@ -883,6 +885,10 @@ if(BUILD_TESTING)
 	add_executable(mmodern_sdl_input_tests tests/SdlInputTests.cpp)
  add_executable(mmodern_presentation_clock_tests tests/PresentationClockTests.cpp)
  add_executable(mmodern_sound_timing_tests tests/XeenSoundTimingTests.cpp)
+ add_executable(mmodern_entrance_scene_tests tests/XeenEntranceSceneTests.cpp)
+ target_link_libraries(mmodern_entrance_scene_tests PRIVATE mmodern_app mmodern_xeen)
+ add_test(NAME xeen_entrance_scene COMMAND mmodern_entrance_scene_tests)
+ add_test(NAME xeen_entrance_scene_original COMMAND mmodern_entrance_scene_tests "${MMODERN_XEEN_DATA_DIR}")
  target_include_directories(mmodern_sound_timing_tests PRIVATE src)
  add_test(NAME xeen_sound_timing COMMAND mmodern_sound_timing_tests)
  set_tests_properties(xeen_sound_timing PROPERTIES LABELS fast)
@@ -958,6 +964,7 @@ if(BUILD_TESTING)
 		src/games/xeen/XeenMovement.cpp
 		src/games/xeen/XeenWorld.cpp
 		src/games/xeen/XeenEventDecoder.cpp
+        src/games/xeen/XeenEntranceScene.cpp
 	)
 	target_link_libraries(mmodern_movement_tests PRIVATE mmodern_core)
 	add_test(NAME xeen_movement COMMAND mmodern_movement_tests)
@@ -965,6 +972,7 @@ if(BUILD_TESTING)
 		tests/XeenWorldTests.cpp
 		src/games/xeen/XeenWorld.cpp
 		src/games/xeen/XeenEventDecoder.cpp
+        src/games/xeen/XeenEntranceScene.cpp
 	)
 	target_link_libraries(mmodern_world_tests PRIVATE mmodern_core)
 	add_test(NAME xeen_world COMMAND mmodern_world_tests)

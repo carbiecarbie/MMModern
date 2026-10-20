@@ -1,4 +1,5 @@
 #include "XeenCoverage.h"
+#include "games/xeen/XeenEntranceScene.h"
 #include "XeenCoverageContext.h"
 #include "XeenCoverageReference.h"
 #include "formats/xeen/XeenAssetSource.h"
@@ -179,6 +180,12 @@ void events(Census &c,const std::vector<XeenEventRecord> &records,XeenMapIdentit
         }
         c.add("Events",eventMechanic(r),support,id.number);
         if(r.opcode==0x11 && !r.parameters.empty())c.add("Map features","Town service action="+std::to_string(r.parameters[0]),support,id.number);
+        if(r.opcode==0x11 && !r.parameters.empty()) {
+            const auto site=xeenEntranceSite(r.parameters[0],{id,r.x,r.y,XeenDirection::North});
+            if(site && site->quest>=int(XeenCloudsQuestItems::kCount))
+                c.add("Map features","Entrance action="+std::to_string(site->action)+" keyed quest item="+std::to_string(site->quest),
+                    {Status::Partial,"Event quest item is outside the Clouds items"},id.number);
+        }
         if(support.service)for(const auto key:xeenLocationInput(*support.service).keys) {
             if(const auto refusal=xeenLocationUnsupportedAction(*support.service,key))
                 c.add("Services",refusal->substr(0,refusal->find(':')),{Status::Unsupported,*refusal},id.number);

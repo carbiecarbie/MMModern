@@ -172,6 +172,7 @@ InputContext XeenEventFlow::inputContext(const IndexedFrame::Presentation &origi
         dialog=std::make_shared<const DialogInput>(std::move(input));
     }
     bool hideCursor=false;
+    if(_entranceUi){ready=false;navigationReady=false;dialog=std::make_shared<const DialogInput>();hideCursor=true;}
     if(_encounter && _encounter->_rest) {
         using P=XeenEncounterFlow::RestContinuation::Phase;const auto &rest=*_encounter->_rest;
         ready=ready && (rest.phase==P::Confirm || rest.phase==P::Refused || rest.phase==P::Complete);
@@ -208,6 +209,7 @@ std::uint64_t XeenEventFlow::presentationNow() {
 }
 std::optional<std::uint64_t> XeenEventFlow::nextPresentationDeadline() {
     const auto now=presentationNow();
+    if(_entranceUi)return _entranceUi->animation.awaitingFrame()?std::optional<std::uint64_t>{}:_entranceUi->animation.deadline();
     if(_travelUi) {if(!_travelUi->refusal.empty())return std::nullopt;if(_travelUi->spell==XeenLearnedSpell::LloydsBeacon)return std::nullopt;const auto at=_travelUi->digits.deadline();return at?PresentationClock::fromMilliseconds(*at):now;}
     if(_presenter.wordInputActive()) {
         const auto deadline=_presenter.wordDeadline();
@@ -642,6 +644,7 @@ void XeenEventFlow::framePresented(const IndexedFrame::Presentation &presented, 
 	requireCurrentOwners();
 	if (_dispatching || _saving) throw std::logic_error("Frame handoff during dispatch");
 	if (!encounterFrameCurrent()) throw std::logic_error("Stale successful frame handoff");
+    if(_entranceUi)_entranceUi->animation.acquired(presentationNow());
     if(_smithUi && (_smithUi->animation.awaitingFrame || _smithUi->animation.resetAfterFrame)) {
         _smithUi->animation.deadline=PresentationClock::after(presentationNow(),3);
         _smithUi->animation.resetAfterFrame=false;
@@ -921,6 +924,7 @@ IndexedFrame XeenEventFlow::renderEncounter(bool report, bool cosmeticInput, boo
                 if(_travelUi)rendered=drawTravelDialog(rendered);
 				if (_smithUi) rendered=drawSmith(composed.frame);
 				if (_trainingUi) rendered=drawTraining(composed.frame);
+                if(_entranceUi)rendered=_presenter.rebase(_entranceUi->art);
 				if(_summary)rendered=drawSummary(rendered);
                 if(_quickFightMember)rendered=drawQuickFightOptions(rendered);
 				if(partyDeathRequired() || _death)rendered=drawDeath(composed.frame);
@@ -1361,7 +1365,9 @@ void XeenEventFlow::prepareDetachedResult(const XeenManualEventResult &result) t
 			suspended->request.kind==XeenPresentationKind::RewardWarning)
 			publishEventSequencePrefix(suspended->state);
         if(suspended->request.kind==XeenPresentationKind::PortraitEffect)publishEventSequencePrefix(suspended->state);
-		const bool service=suspended->state.pendingPresentation->request.source.opcode==0x11;
+		const bool scene=suspended->request.kind==XeenPresentationKind::EntranceScene;
+        if(scene)work.entrance=true;
+		const bool service=suspended->state.pendingPresentation->request.source.opcode==0x11 && !scene;
 		if(service) {
             if(suspended->state.pendingPresentation->continuation!=XeenEventPendingContinuation::Terminate ||
                 suspended->state.workingCamera.mapId!=work.initialCamera.mapId ||
@@ -1404,7 +1410,7 @@ void XeenEventFlow::prepareDetachedResult(const XeenManualEventResult &result) t
 		throw std::logic_error("Event completion metadata or prelude boundary changed");
 	// perform Space calls doStepCode once after the whole manual Event chain;
 	// an automatic Event was already reached through movement's arrival suffix.
-	if(!work.automatic && !work.terrainDone) {
+	if(!work.automatic && !work.entrance && !work.terrainDone) {
         if(!work.manualStepDone && !serviceManualStep())return;
 		if(!work.terrain) {
 			XeenConsequenceCharacters characters;XeenConsequenceInputs inputs;
@@ -1653,6 +1659,7 @@ XeenRewardReceipt XeenEventFlow::cleanup(XeenRewardDiscard reason) noexcept {
 		_pending.reset();
 	}
     _portraitSequence.reset();
+    _entranceUi.reset();
 	_presenter.discardTransient();
 	_npcSequence.reset();
 	_npcResponse.reset();
@@ -1709,6 +1716,10 @@ IndexedFrame XeenEventFlow::presentationFailed(const std::exception &exception) 
 XeenPresentationUpdate XeenEventFlow::presentPendingEvent() {
     _presenter.originalAssets(dialogText,drawDialogSprite);
 	auto request=_pending->state.pendingPresentation->request;
+    if(request.kind==XeenPresentationKind::EntranceScene) {
+        prepareEntrance();
+        return {_presenter.rebase(_entranceUi->art),std::nullopt,true};
+    }
     if(!_cdSpeechSide || *_cdSpeechSide!=request.mapId.side) {
         _cdSpeechSide=request.mapId.side;_cdSpeechCue.reset();_cdSpeechEnd=0;
     }
@@ -1981,6 +1992,63 @@ IndexedFrame XeenEventFlow::consumeNpcResponse() {
     }
     return journey()?renderEncounter():frameCopy();
 }
+void XeenEventFlow::prepareEntrance() {
+    if(_entranceUi)return;
+    if(!_transition || !loadSampleDuration || !drawEntranceSprite)
+        throw std::invalid_argument("Original entrance scene providers are absent");
+    const auto action=*_pending->state.pendingPresentation->request.entranceAction;
+    const auto *site=xeenEntranceSite(action,_pending->state.workingCamera);
+    if(!site)throw std::logic_error("Entrance scene site is absent");
+    checkTransitionCandidate();
+    XeenEntranceAnimation animation(action,xeenEntranceKey(*site,_transition->party.questItems),[&](const char *name) {
+        const auto value=loadSampleDuration(name,XeenSceneArchive::Clouds);
+        _eventPublication->check();checkTransitionCandidate();return value;
+    });
+    _entranceUi.emplace(std::move(animation),_frame);
+    _presenter.clear();_journeyEventLayers=false;
+    // Reuse the passive voice deferral already used by Event speech. It adds
+    // neither a caption nor an input wait; sample intervals remain silent.
+    XeenPresentationRequest notice;notice.kind=XeenPresentationKind::DeferredAudio;
+    notice.text="Voice audio not supported yet";notice.response=XeenPresentationResponseRequirement::Presented;
+    _presenter.originalAssets(dialogText,drawDialogSprite);
+    _presenter.present(_frame,notice);
+    advanceEntrance();
+}
+bool XeenEventFlow::advanceEntrance() {
+    checkTransitionCandidate();_eventPublication->check();
+    auto animation=_entranceUi->animation;
+    XeenCombatRandom random(*_transition->world->sessionState().journeyRandom());
+    const auto command=animation.advance(presentationNow(),[&](unsigned lo,unsigned hi) {
+        const auto value=random.draw(lo,hi);
+        if(!value)throw std::logic_error("Entrance frame conversion was rejected");return *value;
+    });
+    if(!command){_entranceUi->animation=std::move(animation);return false;}
+    const auto zoom=command->saveZoom?_entranceUi->art:_entranceUi->zoom;
+    auto frame=command->restore?(command->phase==XeenEntranceAnimation::Phase::Rise?zoom:_entranceUi->saved):_entranceUi->art;
+    for(const auto &sprite:command->sprites) {
+        drawEntranceSprite(frame,sprite.resource,sprite.frame,sprite.x,sprite.y,sprite.scale);
+        _eventPublication->check();checkTransitionCandidate();
+    }
+    const auto ending=random.continuation();
+    _transition->guard->prepareEventAnimationRandom(ending);
+    _transition->world->retainEventRandom(ending);_transition->guard->adoptMutationBoundary();
+    _entranceUi->zoom=zoom;_entranceUi->art=std::move(frame);_entranceUi->animation=std::move(animation);
+    return true;
+}
+std::optional<IndexedFrame> XeenEventFlow::updateEntrance() {
+    if(_dispatching || _fatal || _saving || _handoffPending || _entranceUi->animation.awaitingFrame() ||
+        presentationNow()<_entranceUi->animation.deadline())return {};
+    DispatchScope dispatch(_dispatching);
+    return journeyEventWork([&] {
+        advanceEntrance();
+        if(_entranceUi->animation.finished()) {
+            _frame=_entranceUi->saved;_presenter.clear();
+            resumePending(_pending->generation,XeenPresentationResponse::Presented);
+            _entranceUi.reset();
+        }
+    });
+}
+
 void XeenEventFlow::startServiceSample(ServiceArtState &state,const char *name,bool resetIndex) {
     // A missing provider models the original sound-unavailable status (zero).
     std::uint64_t duration=0;
@@ -2037,6 +2105,7 @@ bool XeenEventFlow::pulseServiceArt(ServiceArtState &state, IndexedFrame &art) {
 }
 std::optional<IndexedFrame> XeenEventFlow::updatePresentation() {
     requireCurrentOwners();
+    if(_entranceUi)return updateEntrance();
     if(_presenter.wordInputActive() && !_dispatching && !_fatal && !_saving && !_handoffPending &&
        _presenter.animateWord(_clock())) {
         DispatchScope dispatch(_dispatching);return renderEncounter(false,true);
@@ -2307,8 +2376,11 @@ bool XeenEventFlow::resumePending(std::uint64_t generation, XeenPresentationResp
 	// Service continuations belong exclusively to their registered settlement,
 	// regardless of the service kind or the response supplied by this caller.
 	if(_serviceEventContinuation || _serviceEventOwner || (_pending && _pending->state.pendingPresentation &&
-		_pending->state.pendingPresentation->request.source.opcode==0x11))
+		_pending->state.pendingPresentation->request.source.opcode==0x11 &&
+        _pending->state.pendingPresentation->request.kind!=XeenPresentationKind::EntranceScene))
 		throw std::logic_error("Service Event continuation may only resume through its settlement owner");
+    if(_pending && _pending->state.pendingPresentation && _pending->state.pendingPresentation->request.kind==XeenPresentationKind::EntranceScene &&
+        (!_entranceUi || !_entranceUi->animation.finished()))throw std::logic_error("Entrance scene has not finished its acquired sequence");
 	if (!_pending || _pending->generation != generation) return false;
 	if (!_pending->state.pendingPresentation ||
 		!xeenResponseMatches(_pending->state.pendingPresentation->request.response, response)) return false;
@@ -2437,6 +2509,7 @@ IndexedFrame XeenEventFlow::handle(const PlayerAction &physicalAction, std::opti
 	if(_quickFightMember && !_dispatching && !_fatal && !_saving) {DispatchScope dispatch(_dispatching);return handleQuickFightOptions(action);}
 	if (std::holds_alternative<SaveGameAction>(action) || _dispatching || _fatal || _saving) return frameCopy();
     if(_travelUi) {DispatchScope dispatch(_dispatching);return handleTravelDialog(action,*displayedInput);}
+    if(_entranceUi)return frameCopy();
 	if(_encounter && _encounter->_needsRestNotice) {
   _encounter->_needsRestNotice=false;
   DispatchScope dispatch(_dispatching);return renderEncounter(); // Consume acknowledgment without leaking an action.

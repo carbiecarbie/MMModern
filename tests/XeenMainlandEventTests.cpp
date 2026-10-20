@@ -81,11 +81,10 @@ void automatic(Inputs &in) {
  roundTrip(in,f,"F3 automatic Event did not restore exactly");
 }
 }
-// The Dwarf Mine (maze0023.evt @0, Space at (5,13) facing North) and Pyramid
-// (@14, (8,10) North) entrance scenes, DoTownEvent 10 and 12, keep a visible
-// refusal that changes nothing. (@7 at (7,15) lies outside the open area.)
+// The Pyramid remains outside Part A. The Dwarf Mine is exercised by
+// XeenEntranceSceneTests through its original script.
 void entrances(Inputs &in) {
- for(const XeenCamera camera:{XeenCamera{23,5,13,XeenDirection::North},XeenCamera{23,8,10,XeenDirection::North}}) {
+ for(const XeenCamera camera:{XeenCamera{23,8,10,XeenDirection::North}}) {
   auto s=mainland(in,camera);Fixture f(in,s);
   unsigned errors=0;
   f.flow->reportManual=[&](const XeenManualEventResult &result){if(std::get_if<XeenEventExecutionError>(&result))++errors;};
