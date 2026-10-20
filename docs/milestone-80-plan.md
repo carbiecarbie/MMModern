@@ -24,9 +24,8 @@ sites; Part 0 confirms them in DOS:
 
 Without the key a scene plays its refusal and reloads the current map with
 the party where it was, rebuilding its monsters and setting stepped, as DOS
-does; no scene charges service time. A site whose key leads to Darkside plays the refusal without the key
-and, with the key, keeps a "not supported yet" refusal before any effect.
-Those destinations are Darkside-archive maps (113 Darkstone Tower, 117
+does; no scene charges service time. A site whose key leads to Darkside
+always plays the keyless refusal. Those destinations are Darkside-archive maps (113 Darkstone Tower, 117
 Dragon Tower, 121 Dungeon of Death, 125 Southern Sphinx), and their keys
 (quest items 45, 46, 50, 51) are granted only by Darkside Events, so Clouds
 play always reaches the keyless refusal. Clouds keys 1-7 are granted by
@@ -48,9 +47,12 @@ the work for the maintainer.
 
 - Map 85's per-map state is dropped as above; the save stays v16 without
   an independent review, and the Arena stays Tier B.
-- A Darkside key at a cross-side site keeps the "not supported yet"
-  refusal: the World CD would load the Darkside map, and Clouds Events
-  never grant those keys.
+- Darkside keys count as never held: the party's saved quest counters
+  cover the Clouds items 0-34 only, and Clouds Events never grant items
+  45, 46, 50 or 51, so those four sites always play the keyless refusal.
+  The keyed outcome (the World CD loads the Darkside map) waits for the
+  Darkside arc; no preset or save change carries those keys (2026-10-20,
+  after Part A stopped on the save rule).
 - Scenes show no captions, as the installed DOS default (Effects on) does;
   the Effects-off captions wait for step 12 (audio) and its Efx button.
 - Loops without an explicit wait (Sphinx zoom, speech and retreat; the
@@ -78,7 +80,8 @@ the work for the maintainer.
       per-scene data table (resources, frame tables, speech, destination
       rows from Part 0), not four copies; quest-item check and destination
       load through the existing map-load and travel owners; random draws
-      and timing per Part 0; Darkside-with-key refusal before any effect.
+      and timing per Part 0; Darkside rows always resolve to the keyless
+      refusal.
 - [ ] **Part B - Arena.** Battle Master dialogs, numeric prompts, the DOS
       generation order, award and ordinal, and exits on the existing
       dialog, Event text, actor and award owners; map 85 empties its
@@ -99,10 +102,10 @@ the work for the maintainer.
   keyless refusal reloading the map with the party in place, one Dwarf
   Mine branch, an Arena fight from prompt to award, and leaving and
   re-entering map 85 finding it empty.
-- Actions 12 and 13, and Darkside sites with the key, still refuse without
-  changing state, time or random draws.
-- The census lists every Clouds action 6 and 8-11 site as supported, except
-  the Darkside-with-key outcome. One complete suite per `tools/AGENTS.md`;
+- Actions 12 and 13 still refuse without changing state, time or random
+  draws; each Darkside row resolves to the keyless refusal.
+- The census lists every Clouds action 6 and 8-11 site as supported; the
+  keyed Darkside outcome is classified as outside the Clouds quest items. One complete suite per `tools/AGENTS.md`;
   M44 digests unchanged.
 - Maintainer play-test with `m80-playtest`: each scene with and without its
   key, both Dwarf branches, and an Arena fight won, declined and repeated,
