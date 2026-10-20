@@ -559,3 +559,74 @@ not expose that optional dialog. **Evidence: reference only**; M78 Part B did
 not add a DOS observation. Location: `XeenEventInterpreter`, the shared
 `XeenEventProtectionCheck` dispatch. The map-28 admission guard is removed;
 this does not introduce a second protection policy for other maps.
+
+## Entrance scenes and the Arena
+
+These rules are **DOS static, 2026-10-20**, calibrated against the settled
+town-service dispatch in the World CD executable. Full provenance,
+offsets and unresolved boundaries: [M80 evidence](rules/evidence.md#entrance-scenes-and-the-arena-2026-10-20).
+They are implementation rules, not a claim that these features are playable.
+
+<a id="scene-refusal-reload"></a>
+### A keyless entrance reloads the map
+
+Reaper, Golem and Sphinx preserve the current destination on refusal but
+still call the map loader (`0x2afe1`, `0x2a5db`, `0x29a57`). Ordinary
+maze state is saved; runtime monsters are rebuilt, including frame/effect
+randomization. This does not imply respawning dead monsters. Map load sets
+stepped (`0xf58b`), redraw consumes it (`0x1184f`), and the Event caller
+sets it again (`0x27b32`). The scenes bypass the town-service day charge.
+Preserve the reload and lighting behavior. High confidence; the reference
+also reloads. A Darkside key at a cross-side site is outside the World CD
+reference's Clouds play (only Darkside Events grant those keys).
+
+<a id="sv-arena-species-pool"></a>
+### The Arena chooses five species before choosing monsters
+
+DOS draws five species slots with the 67/59/28 adjustments, then generates
+monsters using a random slot ID 0..4. Species selection precedes all
+position/frame/effect draws (`0x2ba4b..0x2bb81`, `0x2bb8c..0x2bd1c`).
+Duplicate species slots are allowed; a one-monster fight still draws five.
+Direct generation uses `5 + 4*count + nonzeroEffectCount` draws.
+High confidence. **ScummVM:** the pin's `ArenaLocation::show` chooses
+one species per monster instead. DOS is the implementation rule; this
+evidence-only change does not implement it. Master not rechecked.
+
+<a id="sv-arena-ordinal"></a>
+### Arena ordinals use the units digit except in the teens
+
+DOS uses `th` for 11..19 and the units digit otherwise, including
+21st/22nd/23rd (`0x2b830..0x2b87a`). Award index 9's 99 check prevents
+starting a fight; victory increments the byte without saturation
+(`0x2b818..0x2b82e`, `0x2b891..0x2b89d`). High confidence.
+**ScummVM:** the pin uses `th` for every count >=10. DOS is the
+implementation rule; this evidence-only change does not implement it.
+Master not rechecked.
+
+<a id="arena-visit-reset"></a>
+### The Clouds Arena fight is discarded when leaving
+
+DOS excludes Clouds map 85 from maze saving (`0x26600..0x26610`) and
+resets its species slots and monster count on load (`0xfb8a..0xfba9`).
+Generated monsters do not survive a return; a completed fight cannot yield
+another award by leaving and returning. Character awards survive normally.
+Victory/maxed exits use the newly loaded map 28's run position
+(`0x2b8b7..0x2b8bf`, `0x2bd2c..0x2bd36`, `0x1691f..0x1692b`).
+High confidence; the reference also excludes map 85 from maze saving.
+Map 85's header carries the no-save flag `0x8000` (resource inspection).
+
+<a id="sv-scene-speech-cadence"></a>
+### Entrance speech animation consumes gameplay randomness
+
+DOS uses gameplay helper `0x45b9a` for scene frames/jitter. Loop counts
+depend on speech and, on some phases, the text cursor; reload can add
+further draws. Reaper speech explicitly waits two BIOS ticks
+(`0x2ac94..0x2ac9c`, `0x2adf5..0x2adfd`), as does Dwarf
+(`0x2b65a..0x2b662`). Conditional `special.bin` text rendering at
+`0xdca3..0xdd52` precludes assuming the CD program is always speech-only.
+High confidence for these branches, not for effective frame cadence,
+literal subtitle lines or a fixed whole-invocation draw count.
+**ScummVM:** the pin uses `WAIT(1)` in those speech loops and different
+subtitle continuation logic. These DOS constraints apply when implementing
+the scenes; unresolved presentation details remain unresolved.
+Master not rechecked.

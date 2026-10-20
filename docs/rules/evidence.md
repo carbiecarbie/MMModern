@@ -906,6 +906,234 @@ The price row is therefore process state, not save state: it starts at
 zero when the program starts, survives New Game and Load, and is never
 written to a save.
 
+## Entrance scenes and the Arena (2026-10-20)
+
+**DOS static, high confidence only for the paths explicitly settled below.**
+MMModern began on clean `main` at
+`a7b9bc365a52b305d431e400a52deb8cd95ff228` (also `origin/main`), parent
+`93398ced8d324da91893b87fd6553fa603512247`. The separate ScummVM checkout was
+clean at `6814ee9ba54582f5b5adcffab49efbbd8f589edd`.
+`WORLD/XEEN.DAT` was read directly: 353,511 bytes, SHA-256
+`8bf78b4850d5973cbb063c7dd96b9aaef4e94791d748334187eef74acf528d27`.
+WSL Python 3 / Capstone 5.0.7 decoded bounded 16-bit ranges. Mapping:
+file `= 0x56c0 + segment*16 + offset`; Ghidra linear `= file + 0xa940`.
+No game execution or other original-resource inspection was performed.
+Scripts, disassemblies, table comparison and findings are external at
+`D:/MModern-re/m80-scenes-20261020/`. This is evidence, not implementation
+or milestone acceptance.
+
+**Calibration.** Event caller `0x27b1f..0x27b3b` passes the action to
+`0x1cea5`. Dispatch `0x1d02a..0x1d038`, table `[0x1d7e2,0x1d7fe)`,
+routes 0..5 to the Smith, Bank, Guild, Tavern, Temple and Training setup
+blocks respectively. The option dispatch at `0x1ab24..0x1ab36`, table
+`[0x1b9b8,0x1b9c6)`, and quote dispatch at `0x1c858..0x1c869`, table
+`[0x1ce97,0x1cea5)`, preserve that ordering. Temple action 4 reaches
+`0x1c9ce`, then the settled surcharge selector `0x1c9f5`: Clouds keys
+28/30/49/73 and the four M79 rows agree (table `0x1ce87`).
+Tavern action 3 reaches `0x1b057`; its T option reaches `0x1b349`,
+including the settled Tip selector `0x1b49e`. Ordinary service exit still
+adds 1,440 at `0x1d78e` and calls time at `0x1d798`.
+Actions 6/8/9/10/11 instead call
+`0x2b784`/`0x2a66a`/`0x29ab6`/`0x2b052`/`0x2968b`.
+**Calibration passes; same as the settled reference/service evidence.**
+
+### 1. Entrance sites
+
+**High confidence; same as the reference's Clouds branch and the plan.**
+Quest bytes are indexed from `DS:f077`. The last column identifies the
+archive requested on successful entry, not the archive containing the scene.
+
+| Action/site | Quest item | Destination, position, facing | Archive | File offsets |
+| --- | --- | --- | --- | --- |
+| Reaper 12 | 3 | 55 `(3,8)` E | Clouds | `0x2a7db..0x2a7f6` |
+| Reaper 15 | 2 | 59 `(11,8)` W | Clouds | `0x2a7f9..0x2a805`, shared `0x2a6d5..0x2a6e7` |
+| Reaper 24 | 1 | 51 `(7,12)` S | Clouds | `0x2a765..0x2a780` |
+| Reaper 7 | 46 | 113 `(7,4)` N | Darkside | `0x2a7a5..0x2a7b6`, `0x2a7c9..0x2a7d8` |
+| Reaper 13 | 45 | 117 `(7,4)` N | Darkside | `0x2a7b8..0x2a7d8` |
+| Golem 8 | 6 | 81 `(1,17)` E | Clouds | `0x29c11..0x29c27`, `0x29b89` |
+| Golem 12 | 5 | 80 `(29,16)` W | Clouds | `0x29c2a..0x29c45` |
+| Golem 20 | 7 | 79 `(5,16)` E | Clouds | `0x29c6a..0x29c80`, `0x29b89` |
+| Golem 19 | 50 | 121 `(18,0)` N | Darkside | `0x29bee..0x29c0e` |
+| Dwarf 14 | none | 37 `(1,4)` E | Clouds | `0x2b0e9..0x2b0fb` |
+| Dwarf 18, x=9 / other x | none | 35 `(1,12)` E / 36 `(7,1)` N | Clouds | `0x2b0ce..0x2b0e7`, `0x2b0a7..0x2b0b6` |
+| Dwarf 23, x=5 / other x | none | 33 `(7,1)` N / 34 `(7,30)` S | Clouds | `0x2b09d..0x2b0cb` |
+| Sphinx 5 | 4 | 82 `(7,5)` N | Clouds | `0x296ec..0x2970a` |
+| Sphinx 2 | 51 | 125 `(7,6)` N | Darkside | `0x2972e..0x29749` |
+
+Reaper Clouds switch keys/targets are `[0x2b02a,0x2b03e)`;
+Golem's dense switch is `[0x2a63a,0x2a654)`. Dwarf dispatch is
+`0x2b07d..0x2b0fb`; Sphinx dispatch is `0x296dd..0x29749`.
+The four cross-side branches set `DS:96e2=1` before loading.
+
+### 2. Refusal, map reload and time
+
+**High confidence for the installed World CD normal return path.** A failed
+key check preserves map/position/facing as the eventual load target
+(`0x2a783..0x2a7a3`, `0x29c48..0x29c68`, `0x2970c..0x2972c`).
+It does not skip loading: Reaper `0x2afe1`, Golem `0x2a5db`, Sphinx
+`0x29a57` call the ordinary loader; Dwarf loads at `0x2b70f`.
+The loader saves ordinary maze state (`0xf595 -> 0x265f4`), clears the live
+monster buffer (`0xf5be..0xf5cc`) and reconstructs records from MOB data
+(`0xfa07..0xfb84`, including frame/effect randomization). Thus reload
+rebuilds runtime monsters; it does not imply respawning killed monsters.
+This agrees with the reference's unconditional `setNewLocation()`.
+
+Map load sets stepped at `0xf58b`. Final scene redraw calls are Reaper
+`0x2b005`, Golem `0x2a615`, Dwarf `0x2b74b`, Sphinx `0x29a91`;
+redraw consumes stepped at the already calibrated `0x1184f`. The Event
+caller then sets it again at `0x27b32`. These are not state-neutral refusals.
+Actions 8..11 return through `0x1d426..0x1d42b -> 0x1ceb8`, bypassing
+the service time charge. No direct elapsed-game-time addition occurs in
+these scene handlers; this does not erase the ordinary redraw/lighting
+effects described above.
+
+**Outside the reference edition:** the result with a Darkside key in a
+Clouds-only installation. The installed program requests the Darkside
+destination; the loader also branches on installation state
+(`0xf616..0xf77b`), and archive selection has an installation-dependent
+override (`0xe89e..0xe8b0`). MMModern's reference is the World of Xeen CD,
+where both archives are installed, and Clouds Events never grant these keys
+(quest items 45, 46, 50 and 51 come only from Darkside Events), so the
+Clouds-only failure does not bound M80. MMModern's refusal at those sites
+is an unsupported-feature notice until the Darkside arc, not a DOS claim.
+
+### 3. Presentation and random draws
+
+**High confidence for the following constants and explicit control flow;
+not a complete timing certification.** Clouds resource pointers name
+`tower.vga`/`freap.vga`, `golmback.vga`/`golem.vga`, and
+`dwarf1.vga`/`dwarf3.vga`/`dwarf2.vga` at
+`0x53c56..0x53c7e`; Sphinx names `sphinx.vga` at `0x53dec`.
+Scene loaders select by current side, before destination archive loading
+(`0x2a808..0x2a843`, `0x29ae1..0x29b1c`, `0x2b1cc..0x2b226`,
+`0x296b6..0x296c4`). Clouds therefore uses Clouds scene assets even at the
+four cross-side sites. The Clouds branches have no night-dependent frame
+selection; Reaper's night-frame selection belongs to the Darkside branch
+(`0x2aa56..0x2aa60`). Resource choices agree with the reference.
+
+All 16 named coordinate arrays in the reference match contiguous signed
+words in the DAT, including both side rows: Reaper X1/Y1/X2/X3 at
+`0x4d360/0x4d3dc/0x4d3a0/0x4d3c0`; Golem X1/Y1/X2 at
+`0x4d55c/0x4d5bc/0x4d58c`; Dwarf X0/X1/X2/Y at
+`0x4d4c0/0x4d4f4/0x4d4a0/0x4d528`; Dwarf2 X/Y at
+`0x4d414/0x4d454`; Sphinx X1/Y1/X2 at
+`0x4d5f0/0x4d630/0x4d610`.
+
+| Scene | Confirmed order and direct scene RNG calls | Timing evidence and reference comparison |
+| --- | --- | --- |
+| Reaper | Zoom indices 13..0, slide x=200 downward by 16 while nonnegative, speech over base frame 0 with random frame 0..4; keyed retreat uses indices 0..13. `0x2a92c..0x2aa84`, `0x2ab3a..0x2abaf`, `0x2ac05..0x2acb8`, `0x2ad6b..0x2ae0f`, `0x2ae48..0x2af92`. One random draw per iteration of each speech loop: `N1+N2`. | Zoom waits 1 BIOS tick (`0x2aa70..0x2aa78`); speech loops explicitly wait 2 (`0x2ac94..0x2ac9c`, `0x2adf5..0x2adfd`); inter-speech pause 7 (`0x2acfe..0x2ad06`). Reference speech uses `WAIT(1)`: different explicit pacing. |
+| Golem | Zoom 11..0; 13 slide iterations from -200 by +16. Slide draws Y `R(0,9)-5`, then X `slideX+R(0,9)-5`, with frame 2 over frames 0/1. Speech draws Y `R(0,9)-3`, then X `R(0,5)-3`, also frame 2. Direct total `26+2*(N1+N2)`. `0x29d46..0x29fac`, `0x2a114..0x2a17d`, `0x2a34f..0x2a3a3`. | Explicit 1-tick waits at `0x29e72`, `0x29f9f`, `0x2a154`, `0x2a384`; formulas and visible sequence agree with the reference. |
+| Dwarf | Zoom 12..0, second zoom 15..0, then frame `R(0,9)` over the second sprite's frame 0. Three speech phases when speech configuration permits, otherwise the phase loop exits early. Direct total is the sum of executed speech-loop iterations. `0x2b2e3..0x2b530`, `0x2b533..0x2b6aa`; RNG `0x2b634`. | Speech waits 2 ticks (`0x2b65a..0x2b662`), unlike reference `WAIT(1)`. Phase loop also checks elapsed 3 ticks (`0x2b68e..0x2b696`). |
+| Sphinx | Zoom 8..0; frames 0/1 plus `R(2,10)` during speech; refusal retreat indices 0..7. Three keyed or two refusal phases, subject to the same speech-configuration early exit. `0x297bb..0x29836`, `0x29840..0x29981`, `0x29993..0x29a20`. Direct total is the sum of executed speech-loop iterations. | No explicit BIOS-tick wait in these zoom/speech loop bodies; update/input helpers are called. Reference has `WAIT(1)`. Effective frame cadence remains unresolved. |
+
+These are loop indices and draw formulas, not a fixed total for an entire
+Event invocation. All direct calls use the gameplay range helper
+`0x45b9a`; its underlying generator at `0x45be5` mixes DOS time with
+shared state. Speech duration, configuration and text completion can alter
+iteration counts. Reload can make additional monster-frame/effect draws
+(`0xfab0`, `0xfb3d`). Do not budget one fixed gameplay RNG count per scene.
+
+Speech names agree with the reference: Reaper keyed
+`reaper12.voc`, `reaper13.voc`, refusal `reaper14.voc`, `reaper15.voc`
+(`0x2a884..0x2a8e9`, `0x2ad1b..0x2ad68`); Golem keyed
+`golem15.voc`, `golem16.voc`, refusal `golem13.voc`, `golem14.voc`,
+plus the entry sound (`0x29c9d..0x29cea`, `0x29e92..0x29fae`);
+Dwarf `dwarf10.voc`, `dwarf11.voc`, `dwarf12.voc`
+(`0x2b232..0x2b244`, `0x2b5b3..0x2b5fe`); Sphinx keyed
+`sphinx10.voc`, `sphinx11.voc`, `sphinx12.voc`, refusal
+`sphinx13.voc`, `sphinx14.voc` (`0x2974b..0x29799`,
+`0x29845..0x298ab`).
+
+DOS has a conditional text renderer, not an unconditional speech-only
+implementation. It loads `special.bin` (`0x53de0`, loader `0x20cf2`)
+and uses its NUL-separated records: Dwarf 1, Reaper 2/3, Golem 4/5,
+Sphinx 6/7 (success/refusal). The text-offset table starts at
+`40d4:165c`; callers use `1660..166a`, with Dwarf's index at
+`0x2b28a..0x2b2bf`. The shared renderer `0xdca3..0xdd52` suppresses
+text when `DS:ed9a != 0 && DS:8d38 >= 2`; otherwise it advances a
+modulo-length character cursor after more than one timer tick and draws
+a text box. First speech loops test both audio and that cursor; later
+Reaper/Golem loops test audio alone. Dwarf/Sphinx can skip later samples
+when speech is disabled/unavailable by that configuration test.
+The reference's subtitle handling is not equivalent to these DOS branches.
+**Unresolved:** the literal lines, the CD installation's default
+configuration and exact on-screen text timing; `special.bin` is outside
+this DAT-only investigation. A CD DOSBox capture with speech on/off and
+the configuration recorded would settle those questions.
+
+Scene screen capture uses `0xdd72 -> 0x43fe5`; restores use `0x4405f`
+(e.g. Reaper `0x2afeb`, Golem `0x2a5e5`, Sphinx `0x29a61`,
+Dwarf `0x2b509`), followed by map/party-view reconstruction. The reference
+also saves/restores a background. Complete pixel/timing equivalence,
+including the effective cadence of loops without explicit waits, is
+**unresolved** and needs a frame-stepped DOSBox capture.
+
+### 4. Arena dialog, generation and exits
+
+**High confidence; same as the reference except the species pool and
+ordinal suffix below.** Map Event text indices 0..4 provide offer, decline,
+fight start, victory format and unfinished-fight message:
+`0x2b8cf..0x2b93b`, `0x2b9d5..0x2ba05`,
+`0x2b7b3..0x2b80e`. Fixed title, maxed message and numeric prompts are
+at `0x53f4a`, `0x53f6d`, `0x53fa2`, `0x53fc2`. Both numeric prompts
+use window 11, two characters and argument 200; levels above 10 or counts
+above 20 reprompt; zero exits (`0x2b95d..0x2b9d3`). Escape clears the
+numeric input (`0x1e246..0x1e27d`), so cancels without generation.
+
+DOS draws **five species slots first**, irrespective of the requested
+monster count (`0x2ba4b..0x2bb81`). Each is
+`R(1,7)+(level-1)*7`, then subtract 3 if above 67, replace 59 by 60,
+replace 28 by 29. It loads each slot's normal/attack sprites. Only then,
+in monster order, it draws X `R(3,11)`, Y `R(2,10)`, changes Y to 5
+when X is 5 or 10 and Y is 4 or 8, draws slot ID `R(0,4)`, obtains
+species and HP from that slot, draws frame `R(0,7)`, copies the species'
+animation effect to effects 1/2, and draws effect 3 `R(0,7)` only for
+nonzero animation effect (`0x2bb8c..0x2bd11`). It sets the attacking/awake
+byte at record offset 4 to 1 (`0x2bd17`). There is no effect-3 assignment
+on the zero-effect branch and no blanket record clear in generation;
+map load initially clears the live buffer.
+Direct generation draw count is `5 + 4*count + nonzeroEffectCount`.
+The reference instead draws a species per monster, interleaved with its
+other fields. This is a material difference, not just equivalent sampling.
+
+Award byte `character+0x42` is index 9 of the packed award region
+(`0x2b818..0x2b82e`, first-member read `0x2b830`; character stride
+`0x162`). Every active member receives an increment on victory. The
+99 check is a pre-generation guard for any active member
+(`0x2b891..0x2b89d`), not a saturating increment. DOS formats a five-digit
+count, tests the tens digit for 1, otherwise uses the units digit to select
+the suffix (`0x2b830..0x2b87a`, suffix pointers `0x53c8e..0x53cb6`,
+format `0x53f68`). Thus 11..19 use `th`, but 21/22/23 use `st/nd/rd`.
+The reference uses `th` for all counts >=10.
+
+Victory and maxed exit load 28 (`0x2b8b7..0x2b8bf`) and then use **map
+28's** run position, facing East (`0x2bd2c..0x2bd36`,
+run helper `0x1691f..0x1692b`). Decline loads 6 and explicitly places
+`(12,4)` West, bypassing that common exit (`0x2b93e..0x2b95a`).
+Zero/cancel, unfinished fight and successful generation use map 85's run
+position, facing East. These exits agree with the reference.
+
+### 5. Arena persistence and remaining boundary
+
+**High confidence; same as the reference, correcting the plan's persistence
+premise.** DOS skips saving the Clouds maze 85 entirely at
+`0x26600..0x26610`. On loading it, `0xfb8a..0xfba9` clears the species
+slots and sets monster count to zero, even after the normal MOB load.
+Leaving and returning therefore discards the generated fight. Returning
+after victory cannot repeat the award without a new generated fight.
+The reference also excludes Clouds 85 in `Map::saveMaze/saveMap`.
+Awards persist as ordinary character data; level/count are invocation
+locals (`0x2b784`, `0x2b984..0x2b999`), not new saved Arena fields.
+
+**Resource flag (settled by resource inspection, 2026-10-20):** map 85's
+header carries flag `0x8000` (`mmodern --inspect-map <game-dir> 85` prints
+`Flags: 0x8000`), the bit MMModern's control panel already treats as "saving
+forbidden here". Do not conflate the loader's `0x8000` mask at
+`0xf85b..0xf861` with the Save UI's restriction; a DOSBox save attempt in
+map 85 would confirm the visible prohibition. No exhaustive claim about
+every save entry is made beyond the settled maze exclusion and ordinary
+award persistence.
+
 ## Other playable-rules confirmations
 
 The same external report/index retains calibrated, independently checked reads

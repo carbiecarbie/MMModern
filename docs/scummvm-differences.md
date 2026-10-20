@@ -339,6 +339,21 @@ apart from the fidelity differences above.
 
 ## What ScummVM has that MMModern does not yet
 
+The [M80 DOS check](rules/evidence.md#entrance-scenes-and-the-arena-2026-10-20)
+also establishes three differences to preserve when implementing the
+entrance scenes and Arena. These are **not implemented MMModern differences
+yet**; comparison is with pinned `6814ee9b`, not a new master check:
+
+- [Arena species pool](original-quirks.md#sv-arena-species-pool): DOS chooses
+  five species first, then assigns monsters to those slots; the pin chooses
+  a species for each monster.
+- [Arena ordinal suffix](original-quirks.md#sv-arena-ordinal): DOS displays
+  21st/22nd/23rd, while the pin uses `th` for every count above nine.
+- [Entrance speech cadence](original-quirks.md#sv-scene-speech-cadence):
+  DOS Reaper/Dwarf speech loops explicitly wait two BIOS ticks and use
+  conditional text-cursor continuation; the pin uses one-tick waits and
+  different subtitle logic. Full presentation timing remains unresolved.
+
 ScummVM plays the whole game today; MMModern is young. The full list of gaps is
 in [project status](project-status.md#known-gaps):
 

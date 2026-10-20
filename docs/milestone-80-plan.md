@@ -22,8 +22,9 @@ sites; Part 0 confirms them in DOS:
 | Sphinx (11) | 5: item 4 -> 82 `(7,5)` N; 2: item 51 -> Darkside |
 | Arena (6) | 85 The Warzone: Battle Master dialog, level and count prompts, generated monsters, Warzone award; exits to 28 or 6 `(12,4)` W |
 
-Without the key a scene plays its refusal and returns the party where it
-was. A site whose key leads to Darkside plays the refusal without the key
+Without the key a scene plays its refusal and reloads the current map with
+the party where it was, rebuilding its monsters and setting stepped, as DOS
+does; no scene charges service time. A site whose key leads to Darkside plays the refusal without the key
 and, with the key, keeps a "not supported yet" refusal before any effect.
 Those destinations are Darkside-archive maps (113 Darkstone Tower, 117
 Dragon Tower, 121 Dungeon of Death, 125 Southern Sphinx), and their keys
@@ -34,45 +35,50 @@ The Pyramid (action 12) and the Darkside-only action 13 keep their refusal.
 Audio stays out (step 12): speech keeps its original duration silently, with
 the existing speech notice, as the dream and NPC speech do.
 
-**Save:** the scenes add no durable value; the save stays v16 (schema 9,
-content 14). The Arena replaces map 85's monster table with generated
-monsters (the reference clears the MOB records). Map 85 forbids saving
-(flag `0x8000`), but its per-map state outlives the visit. Whether the
-existing per-map monster table (MOB records followed by script-created
-slots) holds that table without a new layout or meaning is Part B's first
-question. **M44:** digests are expected unchanged; any change stops the work
-for the maintainer.
+**Save:** the save stays v16 (schema 9, content 14). The scenes add no
+durable value. DOS never saves Clouds map 85 and empties its monster table
+on every load, so a generated fight lives only while the party is there;
+saving is refused there (flag `0x8000`). MMModern keeps no per-map state
+for map 85: capture never writes it, and restore accepts and drops a map-85
+entry from an older v16 save, which no play can observe because the map
+resets on load. **M44:** digests are expected unchanged; any change stops
+the work for the maintainer.
+
+## Maintainer decisions (2026-10-20)
+
+- Map 85's per-map state is dropped as above; the save stays v16 without
+  an independent review, and the Arena stays Tier B.
+- A Darkside key at a cross-side site keeps the "not supported yet"
+  refusal: the World CD would load the Darkside map, and Clouds Events
+  never grant those keys.
+- A short static follow-up (Part 0b) settles scene text and cadence; the
+  maintainer records a DOSBox capture of the Dwarf Mine and Sphinx scenes
+  as backup evidence.
 
 ## Tasks
 
-- [ ] **Part 0 - DOS check (read-only, delegated, calibrated against a
-      settled `DoTownEvent` service routine, cited offsets).** (1) Each
-      scene's site/quest-item/destination table, the Dwarf position tests,
-      and which Clouds sites lead to Darkside. (2) Without the key, and
-      at a Darkside site with the key: whether DOS reloads the current map
-      (rebuilding its monsters), steps or passes time. (3) Presentation:
-      sprite resources, frame order and pacing, whether animation frames
-      draw from the gameplay random state and how many draws a scene makes,
-      and whether the CD shows subtitle text (source and timing) or only
-      speech. (4) Arena: text sources, prompt limits, monster generation
-      (species formula, positions, id, frame, wake state) and its random
-      draw order, the award index and ordinal suffix, the victory, decline
-      and maxed exits and whose run position applies, and whether the
-      generated table survives leaving and re-entering map 85 (and whether
-      the award can then repeat). Record results in `docs/rules/` and
-      `docs/original-quirks.md`.
+- [x] **Part 0 - DOS check** ([evidence](rules/evidence.md#entrance-scenes-and-the-arena-2026-10-20)).
+      Site table confirmed; keyless refusal reloads the map and sets
+      stepped; scene frames draw from the gameplay random state, with
+      loop counts tied to speech; the Arena draws five species first and
+      formats 21st/22nd/23rd (both unlike the reference); map 85 is never
+      saved and resets on load.
+- [ ] **Part 0b - scene text and cadence (static, closed questions).** The
+      initial value and source of the two configuration bytes that gate
+      `special.bin` text, what the control panel's Speech and Text buttons
+      change, and the effective wait inside the Sphinx (and other
+      no-explicit-wait) loops. Unresolved items fall back to the
+      maintainer's DOSBox capture.
 - [ ] **Part A - entrance scenes.** One scene presenter driven by a
       per-scene data table (resources, frame tables, speech, destination
       rows from Part 0), not four copies; quest-item check and destination
       load through the existing map-load and travel owners; random draws
       and timing per Part 0; Darkside-with-key refusal before any effect.
-- [ ] **Part B - Arena.** First, without code, establish whether map 85's
-      generated table fits the v16 per-map state with unchanged layout and
-      meaning. If not, stop: the Arena becomes a Tier A part with its own
-      design note, independent plan and implementation reviews, and a save
-      version increment, decided by the maintainer. Otherwise implement the
-      Battle Master dialogs, numeric prompts, generation, award and exits on
-      the existing dialog, Event text, actor and award owners.
+- [ ] **Part B - Arena.** Battle Master dialogs, numeric prompts, the DOS
+      generation order, award and ordinal, and exits on the existing
+      dialog, Event text, actor and award owners; map 85 empties its
+      monster table on load and keeps no per-map state, as above. If this
+      needs a new save layout or meaning, stop for the maintainer.
 - [ ] Developer test save `m80-playtest`: the Clouds quest items 1-7, one
       member without them reachable by Exchange, and Town Portal or Lloyd's
       Beacon to reach each site; README entry.
@@ -82,10 +88,12 @@ for the maintainer.
 
 - Unit tests: the site table (with and without key, Dwarf positions,
   Darkside sites), the Arena generation from a fixed random state, award
-  counting and the maxed exit.
+  counting, ordinals and the maxed exit, and a v16 save carrying map-85
+  state restoring without it.
 - Original-data tests: one keyed scene loading its destination, one
-  keyless refusal leaving the party in place, one Dwarf Mine branch, and an
-  Arena fight from prompt to award.
+  keyless refusal reloading the map with the party in place, one Dwarf
+  Mine branch, an Arena fight from prompt to award, and leaving and
+  re-entering map 85 finding it empty.
 - Actions 12 and 13, and Darkside sites with the key, still refuse without
   changing state, time or random draws.
 - The census lists every Clouds action 6 and 8-11 site as supported, except
