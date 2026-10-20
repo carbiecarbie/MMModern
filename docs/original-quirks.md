@@ -109,6 +109,23 @@ retained arrays. [Full trace and boundaries](rules/evidence.md#m81-monster-treas
 `Treasure::reset`, which also clears the arrays. Run and New Game agree. Not implemented
 yet: MMModern currently saves pending loot.
 
+<a id="sv-event-loot-stash"></a>**Event treasure shares the monster staging, and
+pending monster currency makes it duplicate or lose loot (M81, 2026-10-20).**
+Calibrated DOS static analysis, high confidence: every Event run (`0x26774`)
+stashes pending currency, readiness and the forty staged slots when any of them
+is set, clears only currency and readiness, stages Event items in the same arrays,
+delivers after the Events and restores the stash over the arrays. With stashed
+monster currency, an Event reward that delivers hands the monster items over, and
+the restore stages them again with their currency, so they are delivered twice; if
+an occupied attack slot defers delivery, the restore overwrites the Event's
+treasure, which is lost. Without stashed currency, an Event reward also delivers
+dormant monster items. [Trace](rules/evidence.md#event-processing-stash).
+Kept on purpose as an original bug (maintainer, 2026-10-20); **QoL candidate**
+for a later opt-in correction. Which branch an arrival Event after a teleport
+takes is not established yet. Not implemented yet: MMModern gives Event rewards
+their own queue. **ScummVM:** differs: the pin stashes only when `gold & gems`
+is nonzero.
+
 <a id="sv-unused-drop-fields"></a>**Unused monster drop fields and currency
 widths (M81 Part 0).** No Clouds monster uses drop fields 7-21. The DOS chance
 lookup (`0x2c37a..0x2c39a`, base `0x4d650`) has no bound: 7-17 read zero and

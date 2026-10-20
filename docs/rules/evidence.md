@@ -902,6 +902,54 @@ path; the nearest clears end at `0x9970` (`0x3054d`) or start after `0x9a19`
 (`0x21d2f`). Calibrated against the startup, play-entry, Run and Load ranges
 above. Pinned `SavesManager::newGame` does not reset treasure either.
 
+### Event processing stash
+
+**2026-10-20, DOS static, high confidence for the paths below.** MMModern
+baseline `30c548ab8bc85637a8f45051b9ae8a00eb938b6d`; same DAT hash as
+[Exact baseline](#exact-baseline); hash-checked Capstone reads under WSL, no
+DOSBox execution. Bounded disassemblies stay in `D:\MModern-re\m81-partA\`.
+`0x26774` is the general Event-processing routine (the pin's
+`Scripts::checkEvents`), not a map-change routine: it runs every Event at the
+party position, and its event loop is skipped when attack slot DS:`98b4` is
+occupied (`0x26abd`), like the pin.
+
+- **Stash.** On entry, if pending gold, gems or hasItems is nonzero
+  (`0x267b1..0x267cc`; the pin tests `gold & gems`), it copies both currency
+  pairs, hasItems and all forty three-byte slots of the four arrays into a far
+  stash (`0x267d1..0x26a1b`), then clears currency and hasItems only
+  (`0x26a1e..0x26a30`). **The live arrays are not cleared.** Otherwise it
+  zeroes the stashed currency and flag (`0x26a35..0x26a5d`).
+- **Event items share the arrays.** GiveEnchanted inside the routine scans the
+  same live arrays for the first empty slot (weapon `0x287f9..0x28855`, armor
+  `0x28858..0x288bb`, accessory `0x288be..0x28922`, Misc `0x28925..`) and sets
+  hasItems (`0x28844`); the weapon-34 grant at `0x2808a..0x280bb` does the same.
+  Pending and dormant monster items therefore occupy Event capacity.
+- **Delivery after the Events.** If live currency or hasItems is nonzero, the
+  routine calls delivery `0x24128` (`0x28d70..0x28d8d`). Delivery transfers
+  every occupied slot, monster items included, credits only the live (Event)
+  currency, and finally clears all four arrays (`0x2489f..0x248d7`). Its gate
+  (`0x24158..0x24259`) defers it while any of the 26 attack slots
+  DS:`98b4..98cd` is occupied, a wider test than the event-loop skip.
+- **Restore.** If the stash is nonzero, `0x28f22..0x291a6` copies currency,
+  hasItems and all forty slots back, overwriting the live arrays.
+- **Map change stays inside one invocation.** TeleportAndContinue (opcode 31)
+  loads the map (`0x270f3`, `0x0f542`), sets the position and restarts the
+  event scan at the arrival cell (`0x27117..0x27127`, back to `0x26a8e`);
+  another opcode path (call `0x0ca60`) also restarts, at `0x28afc..0x28b08`. Arrival Events thus run
+  under the entry stash; TeleportAndExit ends processing (`0x2711c`).
+
+**Consequences.** Without Event treasure the restore reproduces the live state:
+retention is unchanged. With stashed monster currency and an Event that gives
+treasure, either (a) delivery runs and hands over the Event treasure together
+with the monster items, after which the restore re-stages those monster items
+with their currency, so they are delivered a second time; or (b) delivery is
+deferred by an occupied attack slot and the restore overwrites the Event's
+currency and items, which are lost. Whether the arrival refresh (`0x10bc3`)
+recomputes the attack slots (filled by `0x14406`, called from `0xd0bd`,
+`0x11495`, `0x2ea8c`) was not traced, so which branch an arrival takes is not
+established. Without stashed currency, an Event reward delivers dormant monster
+items with it.
+
 ## Treasure delivery
 
 **DOS static, high confidence; implemented (M61 Part D).** The 2026-10-12

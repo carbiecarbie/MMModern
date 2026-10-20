@@ -157,6 +157,12 @@ mainland; many items apply there, others wait for areas not open yet.
   empty. The pin clears all staged items on Load.
   [Evidence](original-quirks.md#sv-loot-load-process-state). Pin: differs; master
   not rechecked. Not implemented yet.
+- **Event treasure and pending monster loot.** In the original, an Event reward
+  delivers staged monster items too, and with monster gold pending it can deliver
+  them twice or lose the Event's treasure; MMModern keeps this original bug. The
+  pin saves and restores pending treasure around Events only when gold and gems
+  are both nonzero. [Evidence](original-quirks.md#sv-event-loot-stash). Pin:
+  differs; master not rechecked. Not implemented yet.
 - **Unused monster drop fields.** No Clouds monster uses drop fields 7-21; the
   pin gives them a zero chance, while MMModern refuses such a record as
   malformed data. No original record and no drop rule is affected.

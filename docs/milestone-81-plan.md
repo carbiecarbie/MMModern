@@ -9,8 +9,9 @@ Baseline: clean `main`, `b137201651bce60b0b4b8bcd2edd57150558d8c1`, equal to `or
 Every Clouds monster uses its original drop field and shared [M71 generator](archive/milestone-71-plan.md),
 including levels 2-6/accessories; deliver items, gold and gems through original screens.
 This covers ordinary resource-defined rewards in every kill path, including
-exploration Shoot and group spells; it does not admit otherwise unsupported
-monster abilities, Darkside gameplay or ending scenes. Lord Xeen's fixed Scepter
+exploration Shoot and group spells, and Event treasure, which shares the monster
+staging arrays as in DOS. It does not admit otherwise unsupported monster
+abilities, Darkside gameplay or ending scenes. Lord Xeen's fixed Scepter
 (weapon 90) and quest-item 8 increment wait for roadmap step 14 with the ending
 (maintainer, 2026-10-20).
 Planning does not authorize implementation. Independent plan/implementation reviews,
@@ -33,12 +34,17 @@ complete tests and maintainer play-test are required.
   weapons/armor/Misc inventories. `XeenEncounterFlow::beginMonsterReward`,
   `advanceMonsterReward`, `acknowledgeMonsterReward` and `XeenEventFlow::frameCopy`
   supply the existing phased screens; both currency fields must reach them.
-- Party `monsterTreasure` holds purse and pending loot. The party is created per
-  gameplay session ([XeenGameplay.cpp](../src/app/XeenGameplay.cpp)): control-panel
-  Load and title New replace it. `XeenSaveState` saves and restores pending loot
-  and validates its contributors; `XeenRestoreGuard` compares it. Ordinary map
-  transitions keep pending loot (`XeenWorld.cpp` copies it into the candidate).
-  `XeenPartyInterfaceTests::originalMonsterDropReceipts` proves Orc melee/group-spell drops.
+- Party `monsterTreasure` is one value holding both the purse and pending loot;
+  Ironworks, Training, Temple, casting, combat and Event values read and write its
+  purse. The party is created per gameplay session ([XeenGameplay.cpp](../src/app/XeenGameplay.cpp)):
+  control-panel Load and title New replace it. `XeenSaveState` saves and restores
+  pending loot and validates its contributors; `XeenRestoreGuard` compares it.
+  Map transitions copy the whole value into the candidate and write back only the
+  purse (`XeenWorld.cpp`). M79's `XeenTemplePriceState` runs from `main.cpp`
+  through `Application` to the sessions and flows; test support headers and the
+  `XeenTestSave`/coverage tools declare their own instances.
+- Event rewards use a separate queue per Event run (`XeenEventInterpreter::pendingRewards`),
+  not the monster staging.
 
 ## Original rules and evidence
 
@@ -65,7 +71,7 @@ DOS evidence is calibrated static analysis, high confidence, no DOSBox play
 | Staging | Four ten-slot arrays, first empty slot; generation precedes the capacity test, so a full category loses the item with its draws spent. Readiness is set only on insertion. Keep the DOS Misc branch, not the pin's accessory copy. |
 | Delivery and screens | Unchanged M61/M63 rules: category/slot order, unrestricted recipient fallback, full-pack loss with currency still credited, original holds and a separate final acknowledgment. |
 | Run, Save, Load, New Game | Full-party Run clears pending currency and readiness, keeping the arrays. Save has its ordinary guards only and writes no pending loot; an open receipt cannot reach Save. Load and New Game in the running program clear currency and readiness and keep the arrays; a program start is empty. |
-| Map transitions | DOS stashes pending treasure around the map-change Event processing (`0x26774`: stash `0x26832..0x26a33`, temporary currency/readiness clear `0x26a20..0x26a30`, restore `0x28f56..0x291a9` when the stash is nonzero). Part A traces how an arrival Event's own treasure combines with the restore. |
+| Event processing | Every Event run (`0x26774`, the pin's `checkEvents`) stashes pending currency, readiness and the forty slots when any of them is set (the pin tests `gold & gems`), clears currency and readiness only, stages Event items into the same arrays, delivers after the Events (deferred while any of the 26 attack slots is occupied), then restores the stash over the arrays. Arrival Events after a teleport run inside the same stash ([trace](rules/evidence.md#event-processing-stash)). |
 
 **RNG contract (DOS-confirmed):** after a successful chance draw, category d100,
 subcategory d100 (d80 at level 6), optional base-ID draw, enchantment d100,
@@ -83,22 +89,24 @@ target's death/drop before the next; capacity loss never refunds RNG.
   state prevents duplicate rewards (`XeenJourneyProgression.h` rejects accounted or
   absent actors); lethal publication keeps committing accounting and treasure together.
   Combat keeps damage/death order and Flow the display. No per-route gate or second generator.
-- Use a category value throughout monster staging, receipts and inventory
-  publication: four ten-slot arrays, up to forty delivery records, pending gold and
-  gems as 32-bit sums. Remove the twelve-Orc source/mask and per-source provenance:
-  the DOS arrays carry no contributor identity. Remove the overflow refusal for
-  monster sums and their purse credit; both wrap modulo 2^32.
-- **Program-lifetime owner (stated reason: the party is recreated per session).**
-  Pending loot (arrays, pending gold/gems, readiness) moves out of the party into
-  one value created in `Application` next to M79's `XeenTemplePriceState` and
-  borrowed by each gameplay session; purse and inventory stay in the party and the
-  save. A successful game entry (title New and Load, control-panel Load,
-  `--new-game`, `--load-game`, `--journey-region`) clears currency and readiness
-  and keeps the arrays. A failed or cancelled entry leaves it untouched. Each
-  process starts empty, which covers the developer fixtures. Save and F9 omit it
-  without changing it. `XeenRestoreGuard`/`XeenMutation` observe this owner instead
-  of party fields, so stale prepared work still cannot publish; cross-save
-  carryover is intended and never rejected ([quirk](original-quirks.md#sv-loot-load-process-state)).
+- Use a category value throughout staging, receipts and inventory publication:
+  four ten-slot arrays, up to forty delivery records, pending gold and gems as
+  32-bit sums. Remove the twelve-Orc source/mask and per-source provenance: the
+  DOS arrays carry no contributor identity. Remove the overflow refusal for
+  staged sums and their purse credit; both wrap modulo 2^32.
+- **One running-program state owner** (maintainer, 2026-10-20). Extend M79's
+  `XeenTemplePriceState` into a single owner of the running program's state,
+  holding the last Temple prices and the pending loot (arrays, pending gold/gems,
+  readiness); M79 behavior is unchanged. Split `monsterTreasure`: the purse stays
+  in the party and the save, the pending loot moves to this owner, borrowed by
+  every session through the existing Temple wiring. A successful game entry
+  (title New and Load, control-panel Load, `--new-game`, `--load-game`,
+  `--journey-region`) clears currency and readiness and keeps the arrays; a failed
+  or cancelled entry leaves them untouched. Each process starts empty, which covers
+  the developer fixtures. Save and F9 omit the loot without changing it.
+  `XeenRestoreGuard`/`XeenMutation` observe this owner instead of party fields, so
+  stale prepared work still cannot publish; cross-save carryover is intended and
+  never rejected ([quirk](original-quirks.md#sv-loot-load-process-state)).
 - **Layout changes: v16 -> v17; schema 9 and content 14 stay unchanged.** The save
   holds no staged arrays, pending currency, readiness or contributor fields; it keeps
   purse, inventory, defeated/accounted actors, time and Journey RNG. Restore performs
@@ -106,9 +114,17 @@ target's death/drop before the next; capacity loss never refunds RNG.
   `XeenUnsupportedSave::Older`; protect newer/unknown files. Current capture checks
   that reject ready loot stay as scheduling invariants (ready loot delivers before
   input), not a loot guard.
-- Map transitions keep the current retention; Part A adds the DOS stash rule only
-  where its trace shows a different result with an arrival Event reward. Load and
-  New Game clearing is never reused as a transition reset.
+- **Event treasure shares the staging** (maintainer, 2026-10-20). Event item and
+  currency rewards stage into the owner's arrays instead of a per-run queue, and
+  each Event run follows the DOS stash, delivery and restore above, including the
+  OR test and the 26-slot deferral. Dormant monster items therefore deliver with an
+  Event reward. **The original's duplicate-or-lose result is kept on purpose**
+  ([quirk](original-quirks.md#sv-event-loot-stash)): with stashed monster currency,
+  an Event reward that delivers hands the monster items over again after the
+  restore, and a deferred one loses the Event's treasure. Before implementing it,
+  a static trace of the arrival refresh (`0x10bc3`, attack-slot fill `0x14406`)
+  settles which branch an arrival Event takes. Load and New Game clearing is never
+  reused inside Event processing.
 - Dormant items deliver with a later currency/readiness trigger; a failed insertion
   with no currency does not reactivate them. Keep original screens/names for
   accessories and Misc, interruptible timed pages, the initial full-pack warning
@@ -117,15 +133,16 @@ target's death/drop before the next; capacity loss never refunds RNG.
 
 ## Parts and acceptance
 
-Each part starts in a fresh session; A may continue in a second one. No part
+Each part starts in a fresh session and may continue in a second one. No part
 leaves a failing check for a later part.
 
 | Part | Work and acceptance |
 | --- | --- |
-| 0 - evidence | **Completed and accepted 2026-10-20.** Calibrated static analysis of `WORLD/XEEN.DAT`, no DOSBox play (maintainer decision): all 90 records, chance table, staging, currency, Arena, Run, Save, Load and New Game. |
-| A - state, lifetime and save | Preserve the pre-A build for the digest audit. Trace the map-transition stash (static, recorded in `rules/evidence.md`). Implement the program-lifetime owner and its wiring, four category arrays and receipts, modulo-2^32 sums, guard observation, v17 encoder/decoder/rejection, and every compile-required receipt/call-site change, keeping Orc-only production. Audit the four M44 digests and obtain maintainer approval of their replacement before the complete suite. Acceptance: tests below for state, lifetime, save and transitions; complete suite green. |
-| B - production and presentation | Generic record-driven drops/currency in melee, arrows, exploration and group spells; map-85 exclusion; all four category transfers/screens and page acknowledgments. Acceptance: original-data kills produce levels 1-6, accessories and mixed currency; capacity loss preserves draws; dormant items deliver with a later trigger; restore grants and draws nothing. Re-audit M44 digests for gameplay deltas, with maintainer approval. |
-| C - validation and closure | Update census admission and regenerate [coverage](coverage.md) with `mmodern_census`; independent implementation review and complete suite; maintainer play-test of higher-level drops, accessories, full packs, Load and New Game carryover. Update status/roadmap/history and condense this plan only after acceptance. |
+| 0 - evidence | **Completed and accepted 2026-10-20.** Calibrated static analysis of `WORLD/XEEN.DAT`, no DOSBox play (maintainer decision): all 90 records, chance table, staging, currency, Arena, Run, Save, Load, New Game and Event processing. |
+| A - state, owner and save | Using the pre-A build preserved in `D:/M44-audits/m81-partA-pre-30c548a`: extend the Temple owner, split the purse from pending loot, four category arrays and receipts, modulo-2^32 sums, guard observation, v17 encoder/decoder/rejection, and every compile-required call-site change, keeping Orc-only production and the current Event queue. Audit the four M44 digests and obtain maintainer approval of their replacement before the complete suite. Acceptance: the state, lifetime and save tests below; complete suite green. |
+| B - Event treasure | Trace `0x10bc3` first (static, recorded in `rules/evidence.md`); then move Event rewards onto the shared staging with the DOS stash, delivery and restore, the kept duplicate-or-lose result and the arrival branch the trace settles. Acceptance: the Event tests below; M44 digests re-audited with maintainer approval; complete suite green. |
+| C - production and presentation | Generic record-driven drops/currency in melee, arrows, exploration and group spells; map-85 exclusion; all four category transfers/screens and page acknowledgments. Acceptance: original-data kills produce levels 1-6, accessories and mixed currency; capacity loss preserves draws; dormant items deliver with a later trigger; restore grants and draws nothing. Re-audit M44 digests with maintainer approval. |
+| D - validation and closure | Update census admission and regenerate [coverage](coverage.md) with `mmodern_census`; independent implementation review and complete suite; maintainer play-test of higher-level drops, accessories, full packs, Event rewards, Load and New Game carryover. Update status/roadmap/history and condense this plan only after acceptance. |
 
 ## Tests and validation
 
@@ -144,12 +161,16 @@ leaves a failing check for a later part.
   contributor checks without weakening other mutation protection.
 - One application-level lifecycle test: stage items, Save, stage different items,
   Load; the later items survive, currency/readiness clear, nothing is granted or
-  drawn. Also New Game, a failed Load (no change) and a fresh start (empty).
-- Map transition with pending and dormant loot plus an arrival Event reward:
-  capacity, delivery and draw count follow the Part A trace.
+  drawn. Also New Game, a failed Load (no change), a fresh start (empty) and the
+  Temple prices still carried as in M79.
+- Event treasure: no Event reward leaves pending and dormant loot unchanged; an
+  Event reward with dormant monster items delivers both; with stashed monster
+  currency, a delivering Event reward hands the monster items over twice and a
+  deferred one loses the Event's treasure; an arrival Event after a teleport follows
+  the `0x10bc3` trace; Event capacity counts monster items; no extra draws.
 - M44 digests: all four change in A (they hash raw saves) and may change again in
-  B; audit with `tools/m44-digest-audit.ps1`, explain every delta and replace hashes
-  only with maintainer approval.
+  B and C; audit with `tools/m44-digest-audit.ps1`, explain every delta and replace
+  hashes only with maintainer approval.
 - Each part: affected targets/tests, fast suite, then the complete `build-rel`
   CTest via [tools/AGENTS.md](../tools/AGENTS.md); no completion with failures.
 
@@ -161,8 +182,12 @@ leaves a failing check for a later part.
 2. **Save fidelity (decided 2026-10-20, settled by Part 0):** pending loot follows
    DOS: never saved, kept across Load and New Game in the running program. This
    is not a deviation. Any other unverifiable original rule stops for the maintainer.
-3. **Technical risks:** moving pending loot out of the party touches restores,
-   snapshots, guards, receipts and tests; the session wiring must hand the same
-   owner to every entry path. Carryover between games is intended; tests and guards
-   must not treat it as a leak. Explain downstream RNG/combat/M44 changes; never
-   freeze old loot.
+3. **Event treasure (decided 2026-10-20):** Event rewards share the monster
+   staging within M81, and the duplicate-or-lose result is an original bug kept on
+   purpose, a QoL candidate for a later opt-in correction.
+4. **Technical risks:** splitting the purse from pending loot touches every purse
+   user, restores, snapshots, guards and receipts; extending the Temple owner
+   touches its whole wiring and the test helpers that declare it. Replacing the
+   Event reward queue touches Event publication and continuation. Carryover between
+   games is intended; tests and guards must not treat it as a leak. Explain
+   downstream RNG/combat/M44 changes; never freeze old loot.
