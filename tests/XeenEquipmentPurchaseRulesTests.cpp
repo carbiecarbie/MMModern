@@ -36,7 +36,8 @@ void prices() {
         const auto category=static_cast<XeenInventoryCategory>(c);
         check(xeenSupportedEquipmentOffer(0,0,category,item)==expected,"plain offer domain differs");
         check(bool(xeenEquipmentPurchasePrice(category,item))==expected,"excluded modifier/category gained a price");
-        check(!xeenSupportedEquipmentOffer(1,0,category,item) && !xeenSupportedEquipmentOffer(0,1,category,item),"other site gained Buy");
+        check(!xeenSupportedEquipmentOffer(1,0,category,item),"Darkside gained Buy");
+        for(unsigned shop=1;shop<4;++shop)check(xeenSupportedEquipmentOffer(0,shop,category,item)==expected,"Clouds shop offer differs");
     }
 }
 void pinnedReference(const std::filesystem::path &source) {

@@ -10,13 +10,16 @@ std::uint32_t nextXp(const XeenCharacter &c) {
     return xpBases[static_cast<unsigned>(c.characterClass)]*(std::uint32_t(1)<<(c.permanentLevel-1));
 }
 }
+unsigned xeenTrainingCap(XeenMapIdentity map) noexcept {
+    return map.number==28?10:map.number==30?15:20;
+}
 void xeenValidateTrainingSource(const std::vector<std::uint8_t> &bytes) {
     if(bytes.size()!=30*XeenCharacter::kSerializedSize)
         throw std::invalid_argument("Training requires thirty complete original characters");
     // Every resistance pair is now a saved live supplement.
 }
 XeenTrainingResult xeenQuoteTraining(const XeenCharacter &c,const XeenCombatInputs &i,std::uint32_t gold,
-        const XeenGameplayContext &context) {
+        const XeenGameplayContext &context,XeenMapIdentity map) {
     XeenCharacterRules::validateForUse(c,{context.year});
     const int level=c.permanentLevel;
     const unsigned cls=static_cast<unsigned>(c.characterClass);
@@ -26,7 +29,7 @@ XeenTrainingResult xeenQuoteTraining(const XeenCharacter &c,const XeenCombatInpu
     r.hpBefore=r.hpAfter=c.currentHp;r.spBefore=r.spAfter=c.currentSp;
     r.maxHpBefore=r.maxHpAfter=XeenCharacterRules::maxHp(c,{context.year});
     r.maxSpBefore=r.maxSpAfter=XeenCharacterRules::maxSp(c,{context.year});
-    if(level>=10){r.outcome=XeenTrainingOutcome::Cap;return r;}
+    if(level>=xeenTrainingCap(map)){r.outcome=XeenTrainingOutcome::Cap;return r;}
     const std::uint32_t next=nextXp(c);
     const std::uint32_t previous=level==1?0:next/2;
     const auto current=static_cast<std::uint32_t>(std::uint64_t(previous)+r.xpBefore);
@@ -35,14 +38,14 @@ XeenTrainingResult xeenQuoteTraining(const XeenCharacter &c,const XeenCombatInpu
         gold<r.cost?XeenTrainingOutcome::InsufficientGold:XeenTrainingOutcome::Quoted;
     return r;
 }
-XeenTrainingCandidate xeenPrepareTraining(const XeenPartyState &party,std::uint8_t owner,const XeenGameplayContext &context) {
+XeenTrainingCandidate xeenPrepareTraining(const XeenPartyState &party,std::uint8_t owner,const XeenGameplayContext &context,XeenMapIdentity map) {
 
     xeenValidateJourneyParty(party);
     if(owner>=30 || !party.roster.combatInputs(owner) || !party.monsterTreasure)
         throw std::invalid_argument("Missing Training owner");
     XeenTrainingCandidate candidate;candidate.context=context;
     auto &r=candidate.result;
-    r=xeenQuoteTraining(party.roster.at(owner),*party.roster.combatInputs(owner),party.monsterTreasure->gold,context);
+    r=xeenQuoteTraining(party.roster.at(owner),*party.roster.combatInputs(owner),party.monsterTreasure->gold,context,map);
     if(r.outcome==XeenTrainingOutcome::Quoted)xeenResetPartyTemps(candidate.context);
     std::bitset<30> seen;
     for(auto id:party.party.activeRosterIds()) {

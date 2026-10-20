@@ -115,7 +115,7 @@ public:
                 // suspension before this terminate-only settlement. A prelude
                 // may have called subroutines; cmdDoTownEvent exits all of them.
                 if(!xeen_state::sameCamera(state.workingCamera,guard.cameraValue) ||
-                    state.workingGameFlags.values()!=guard.flagValues || address.mapId!=XeenMapIdentity(28) ||
+                    state.workingGameFlags.values()!=guard.flagValues || address.mapId!=guard.cameraValue.mapId ||
                     !state.instructionCount ||
                     state.instructionCount>XeenEventInterpreter::kMaximumInstructions || state.pendingRewards.hasWork() ||
                     (state.pendingPresentation && state.pendingPresentation->continuation!=XeenEventPendingContinuation::Terminate))

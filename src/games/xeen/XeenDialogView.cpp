@@ -1,4 +1,5 @@
 #include "games/xeen/XeenDialogView.h"
+#include "games/xeen/XeenEquipmentPurchase.h"
 #include "games/xeen/XeenCharacterRules.h"
 #include "games/xeen/XeenPartyLoader.h"
 #include "games/xeen/XeenTraining.h"
@@ -266,8 +267,8 @@ IndexedFrame drawXeenCast(const XeenDosText &text,const IndexedFrame &base,const
 }
 IndexedFrame drawXeenSpellList(const XeenDosText &text,const IndexedFrame &base,const XeenFontFormat &font,
         const XeenCharacter &c,const XeenLearnedSpellNames &names,const XeenSpellListUi &ui,std::uint32_t money,
-        bool guild,bool info,const XeenDialogSpriteDraw &draw,std::uint32_t year) {
-    const auto rows=XeenLearnedSpellRules::rows(c,guild,info);
+        bool guild,bool info,const XeenDialogSpriteDraw &draw,std::uint32_t year,XeenMapIdentity map) {
+    const auto rows=XeenLearnedSpellRules::rows(c,guild,info,map);
     const bool noncaster=R::maxSp(c,{year})==0;
     const auto error=noncaster?text.scalar("NOT_A_SPELL_CASTER"):text.scalar(guild?"SPELLS_LEARNED_ALL":"NO_KNOWN_SPELLS");
     const bool empty=rows.empty() || (noncaster && !guild);
@@ -355,8 +356,10 @@ DialogInput xeenBuyInput(XeenItemService action) {
     input.hits[selected].button->frame=selected*2+1;
     return input;
 }
-bool xeenVertigoGuildMember(const XeenPartyState &p,std::size_t member) {
-    return p.party.member(p.roster,member).awards[0]!=0;
+bool xeenGuildMember(const XeenPartyState &p,std::size_t member,XeenMapIdentity map) {
+    if(member>=p.party.size() || map.side!=XeenSide::Clouds)return false;
+    const unsigned award=map.number==49?5:map.number>=28 && map.number<=32?map.number-28:255;
+    return award<6 && p.party.member(p.roster,member).awards[award]!=0;
 }
 std::optional<std::string> xeenLocationUnsupportedAction(XeenLocationDialog location,unsigned key) {
     if(location==XeenLocationDialog::Tavern) {
@@ -479,7 +482,7 @@ std::string xeenLocationText(const XeenDosText &text,XeenLocationDialog location
     }
     if(location==XeenLocationDialog::Tavern) return xeenDialogFormat(text.scalar("TAVERN_TEXT"),{c.name,tavernStatus.empty()?str(text.scalar("FOOD_AND_DRINK")):str(tavernStatus),money});
     if(location==XeenLocationDialog::Guild) {
-        const auto description=xeenVertigoGuildMember(p,member)?xeenDialogFormat(text.scalar("GUILD_TEXT"),{c.name}):str(text.scalar("GUILD_NOT_MEMBER_TEXT"));
+        const auto description=xeenGuildMember(p,member,map)?xeenDialogFormat(text.scalar("GUILD_TEXT"),{c.name}):str(text.scalar("GUILD_NOT_MEMBER_TEXT"));
         return xeenDialogFormat(text.scalar("GUILD_OPTIONS"),{description,money});
     }
     if(location==XeenLocationDialog::Smith) return xeenDialogFormat(text.scalar("BLACKSMITH_TEXT"),{c.name,money});
@@ -488,9 +491,9 @@ std::string xeenLocationText(const XeenDosText &text,XeenLocationDialog location
         const auto uncurse=xeenTempleUncurseCost(c,map);
         return xeenDialogFormat(text.scalar("TEMPLE_TEXT"),{c.name,n(heal.price),n(templeBlessed?0:xeenTempleSurcharges(map).donation),uncurse>9999?n(uncurse/1000)+"k":n(uncurse),money});
     }
-    const auto r=xeenQuoteTraining(c,*p.roster.combatInputs(c.rosterId),purse,*p.encounterContext);
+    const auto r=xeenQuoteTraining(c,*p.roster.combatInputs(c.rosterId),purse,*p.encounterContext,map);
     std::string message;
-    if(c.permanentLevel>=10) message=xeenDialogFormat(text.scalar("TRAINING_LEARNED_ALL"),{c.name});
+    if(r.outcome==XeenTrainingOutcome::Cap) message=xeenDialogFormat(text.scalar("TRAINING_LEARNED_ALL"),{c.name});
     else if(r.missing) message=xeenDialogFormat(text.scalar("EXPERIENCE_FOR_LEVEL"),{c.name,n(r.missing),n(c.permanentLevel+1)});
     else message=xeenDialogFormat(text.scalar("ELIGIBLE_FOR_LEVEL"),{c.name,n(c.permanentLevel+1),n(r.cost)});
     return xeenDialogFormat(text.scalar("TRAINING_TEXT"),{message,money});
@@ -513,11 +516,11 @@ std::uint32_t xeenBuyDisplayCost(XeenInventoryCategory category,const XeenItem &
     return xeenItemPrice(category,item,XeenItemService::Buy).value_or(0);
 }
 IndexedFrame drawXeenBuy(const XeenDosText &text,const IndexedFrame &base,const XeenFontFormat &font,const XeenItemCatalog &catalog,
-        const XeenPartyState &p,const XeenInventorySelection &selection,XeenItemService action,const XeenDialogSpriteDraw &draw) {
+        const XeenPartyState &p,const XeenInventorySelection &selection,XeenItemService action,const XeenDialogSpriteDraw &draw,XeenMapIdentity map) {
     const bool repair=action!=XeenItemService::Buy;
     auto frame=render(base,font,xeenDialogFormat(text.scalar("ITEMS_DIALOG_TEXT1"),{str(text.scalar("BTN_BUY")),str(text.scalar("BTN_SELL")),str(text.scalar("BTN_IDENTIFY")),str(text.scalar("BTN_FIX"))}),{0,101,320,146},{8,109,312,138});
     const auto &c=p.party.member(p.roster,selection.source);
-    const auto &items=repair?*xeenInventoryItems(c,selection.category):p.serviceEconomy->wares[0][0][static_cast<unsigned>(selection.category)];
+    const auto &items=repair?*xeenInventoryItems(c,selection.category):p.serviceEconomy->wares[0][xeenIronworksShop(map)][static_cast<unsigned>(selection.category)];
     std::vector<std::string> args{str(text.table("CATEGORY_NAMES")[static_cast<unsigned>(selection.category)]),repair?std::string(c.name):n(gold(p))};
     if(repair) args.push_back(str(text.scalar("COST")));
     else args.insert(args.begin()+1,"");

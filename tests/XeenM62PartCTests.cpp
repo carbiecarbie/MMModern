@@ -115,7 +115,7 @@ struct Shop6 : Fixture {
 		flow->drawTavernArt = [&in](auto &image) { in.assets.drawTavern(image); };
 		flow->drawBankArt = [&in](auto &image) { in.assets.drawBank(image); };
 		flow->drawGuildArt = [&in](auto &image) { in.assets.drawGuild(image); };
-		flow->tavernFoodOffer = [&in] { return in.assets.tavernFoodOffer(); };
+		flow->tavernFoodOffer = [&in](unsigned index) { return in.assets.tavernFoodOffer(index); };
 		flow->loadRestDream = [&in] { return in.assets.restDreamImage(); };
 	}
 	bool admitted() const {

@@ -57,8 +57,8 @@ entry. Dialog identifiers below are reference identifiers, not commercial text.
 | Bank | supported | Deposit, Withdraw, Gold, Gems, amount, Exit | XeenEventFlow |
 | Temple | supported | Heal, Donation, Uncurse, member selection, Exit | XeenSmithFlow |
 | Blacksmith | supported | Browse, Buy, Sell, Identify, Fix, Exit | XeenSmithFlow |
-| Guild | supported | Buy Spells, Spell Info, member selection, Exit; Vertigo catalogue | XeenCastingUi |
-| Training | supported | Train, member, Exit; Vertigo cap | XeenTrainingFlow |
+| Guild | supported | Buy Spells, Spell Info, member selection, Exit; catalogue and membership by map | XeenCastingUi |
+| Training | supported | Train, member, Exit; cap by map | XeenTrainingFlow |
 | World/CD main menu | supported | Start, Load, Credits, Other Options | XeenTitleFlow |
 | Save/load chooser | supported | Slots, names, overwrite/cancel; original DOS presentation | XeenTitleFlow |
 

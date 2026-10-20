@@ -202,7 +202,7 @@ if(BUILD_TESTING)
  add_compile_definitions(MMODERN_TEST_UI_DATA="${MMODERN_XEEN_UI_DATA}")
 	add_executable(mmodern_test_save_tests tests/XeenTestSaveTests.cpp)
 	target_link_libraries(mmodern_test_save_tests PRIVATE mmodern_test_save_support)
-	foreach(preset broken-armor train-ready injured-dead poisoned monster-control monster-damage party-healing m76-spells combat-items paths)
+	foreach(preset broken-armor train-ready injured-dead poisoned monster-control monster-damage party-healing m76-spells combat-items m79-playtest paths)
 		add_test(NAME xeen_test_save_${preset} COMMAND mmodern_test_save_tests
 			"${MMODERN_XEEN_DATA_DIR}" ${preset} "${CMAKE_CURRENT_SOURCE_DIR}")
 	endforeach()

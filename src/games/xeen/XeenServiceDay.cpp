@@ -44,10 +44,10 @@ bool XeenServiceDayCandidate::service(unsigned budget,const std::function<void()
 	generationDeferred=false;completed=true;return true;
 }
 XeenServiceDayCandidate XeenServiceDayCandidate::rebindPurchase(const XeenServiceEconomy &after,
-		XeenInventoryCategory category,std::size_t slot,const XeenItem &expected) const {
+		XeenInventoryCategory category,std::size_t slot,const XeenItem &expected,unsigned side,unsigned shop) const {
 	if(!completed)throw std::invalid_argument("Equipment Buy requires a complete purchase departure");
 	validateReservation();
-	xeenValidateEquipmentPurchaseEconomyDelta(originalEconomy,after,category,slot,expected);
+	xeenValidateEquipmentPurchaseEconomyDelta(originalEconomy,after,category,slot,expected,side,shop);
 	xeenValidateCurrentServiceEconomy(after);
 	// Copy the completed random/generation state; never construct/service another
 	// generation or recalculate interest. Triggered ending stock remains exact.

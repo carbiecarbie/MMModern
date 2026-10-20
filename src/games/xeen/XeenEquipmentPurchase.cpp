@@ -13,8 +13,14 @@ bool sameCategory(const XeenItemCategory &a,const XeenItemCategory &b) noexcept 
     return true;
 }
 }
+unsigned xeenIronworksShop(XeenMapIdentity map) noexcept {
+    if(map.side!=XeenSide::Clouds)return 0;
+    switch(static_cast<unsigned>(map.number)) {
+    case 30:return 1;case 73:return 2;case 49:return 3;default:return 0;
+    }
+}
 bool xeenSupportedEquipmentOffer(unsigned side,unsigned shop,XeenInventoryCategory category,const XeenItem &item) noexcept {
-    return side==0 && shop==0 && item.frame==0 &&
+    return side==0 && shop<4 && item.frame==0 &&
         !(category==XeenInventoryCategory::Weapons && item.id>=34) &&
         xeenItemPrice(category,item,XeenItemService::Buy).has_value();
 }
@@ -63,7 +69,7 @@ XeenEquipmentPurchaseCandidate xeenPrepareEquipmentPurchase(const XeenPartyState
     r.recipientAfter.back()=delivered;xeenCompactItems(r.recipientAfter);
     r.stockAfter[slot]={};xeenCompactItems(r.stockAfter);
     candidate.economyAfter.wares[side][shop][static_cast<unsigned>(category)]=r.stockAfter;
-    xeenValidateEquipmentPurchaseEconomyDelta(candidate.economyBefore,candidate.economyAfter,category,slot,r.offer);
+    xeenValidateEquipmentPurchaseEconomyDelta(candidate.economyBefore,candidate.economyAfter,category,slot,r.offer,side,shop);
     xeenValidateCurrentServiceEconomy(candidate.economyAfter);
     // All other party fields are unchanged and the original party passed full
     // admission. Validate the only changed character without copying a marked
@@ -76,15 +82,15 @@ XeenEquipmentPurchaseCandidate xeenPrepareEquipmentPurchase(const XeenPartyState
     return candidate;
 }
 void xeenValidateEquipmentPurchaseEconomyDelta(const XeenServiceEconomy &before,const XeenServiceEconomy &after,
-        XeenInventoryCategory category,std::size_t slot,const XeenItem &expected) {
+        XeenInventoryCategory category,std::size_t slot,const XeenItem &expected,unsigned side,unsigned shop) {
     const unsigned c=static_cast<unsigned>(category);
-    if(c>=4 || slot>=8 || !xeenSupportedEquipmentOffer(0,0,category,expected) ||
-        !xeenSameItem(before.wares[0][0][c][slot],expected))
+    if(c>=4 || slot>=8 || side>=2 || shop>=4 || !xeenSupportedEquipmentOffer(side,shop,category,expected) ||
+        !xeenSameItem(before.wares[side][shop][c][slot],expected))
         throw std::invalid_argument("Equipment Buy source preimage is invalid");
-    auto depleted=before.wares[0][0][c];depleted[slot]={};xeenCompactItems(depleted);
+    auto depleted=before.wares[side][shop][c];depleted[slot]={};xeenCompactItems(depleted);
     if(before.bank!=after.bank)throw std::invalid_argument("Equipment Buy changed bank balances");
     for(unsigned s=0;s<2;++s)for(unsigned p=0;p<4;++p)for(unsigned a=0;a<4;++a)
-        if(!sameCategory(s==0 && p==0 && a==c?depleted:before.wares[s][p][a],after.wares[s][p][a]))
+        if(!sameCategory(s==side && p==shop && a==c?depleted:before.wares[s][p][a],after.wares[s][p][a]))
             throw std::invalid_argument("Equipment Buy changed an unauthorized merchant record");
 }
 }

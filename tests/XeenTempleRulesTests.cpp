@@ -99,8 +99,8 @@ int main() {
         check(combination.price==30+4*30+350,
             "combined conditions or severity multiplication differs");
         // Surcharges (0x1ca13..0x1cab3): HP term adds heal, Dead/Stoned add
-        // resurrect, Eradicated adds eradicate. Clouds Nightshadow (30),
-        // Rivercity (49), Asp (73); Darkside 29/31/37 and other maps.
+        // resurrect, Eradicated adds eradicate. Clouds Rivercity (30),
+        // Shangri-La (49), Newcastle price-table case (73); Darkside 29/31/37 and other maps.
         const struct {XeenMapIdentity map;std::int16_t heal,resurrect,eradicate,uncurse,donation;} table[]{
             {{XeenSide::Clouds,28},0,0,0,0,10},{{XeenSide::Clouds,30},10,50,500,100,25},
             {{XeenSide::Clouds,49},100,500,5000,300,100},{{XeenSide::Clouds,73},20,100,1000,200,50},
@@ -111,7 +111,7 @@ int main() {
             check(s.heal==row.heal && s.resurrect==row.resurrect && s.eradicate==row.eradicate &&
                 s.uncurse==row.uncurse && s.donation==row.donation,"Temple surcharge table differs");
         }
-        // Asp, level 3, HP 0, Dead 1 and Eradicated 1:
+        // Newcastle price-table case, level 3, HP 0, Dead 1 and Eradicated 1:
         // (30+20) + (300+50+100) + (3000+500+1000) = 5000.
         c.conditions.fill(0);c.conditions[13]=1;c.conditions[15]=1;
         check(xeenQuoteTempleHeal(c,UINT32_MAX,context,XeenMapIdentity(XeenSide::Clouds,73)).price==5000,
@@ -126,7 +126,7 @@ int main() {
         check(!c.conditions[0] && c.weapons[0].material==37 && c.weapons[0].id==1 &&
             c.weapons[0].state==0x83 && c.weapons[0].frame==4 && c.armor[8].state==0 &&
             c.armor[8].material==8 && c.armor[8].frame==7,"Uncurse changed other item bytes");
-        check(!xeenTempleUncurseCost(c),"Uncursed character still priced");
+        check(!xeenTempleUncurseCost(c,XeenMapIdentity(28)),"Uncursed character still priced");
         auto donation=context;donation.day=8;donation.effects[XeenPartyEffect::Heroism]=99;donation.lightAndResistances[0]=100;
         std::uint8_t counter=0;
         for(unsigned count=1;count<=8;++count)check(xeenTempleDonationBlessing(donation,counter)==(count==8),"Donation threshold differs");

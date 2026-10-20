@@ -95,7 +95,7 @@ Support OriginalContext::replayRoot(XeenCamera entry) {
         session.drawTavernArt=[this](auto &frame){assets.drawTavern(frame);};
         session.drawBankArt=[this](auto &frame){assets.drawBank(frame);};
         session.drawGuildArt=[this](auto &frame){assets.drawGuild(frame);};
-        session.tavernFoodOffer=[this]{return assets.tavernFoodOffer();};
+        session.tavernFoodOffer=[this](unsigned index){return assets.tavernFoodOffer(index);};
         session.loadSampleDuration=[this](const char *name,XeenSceneArchive archive){return xeenVocDurationNanoseconds(assets.readArchiveResource(name,archive));};
         session.loadSpellDescriptions=[this]{return assets.readArchiveResource("spldesc.bin");};
         std::optional<Support> result;std::optional<XeenPresentationResponseRequirement> request;

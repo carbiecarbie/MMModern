@@ -35,6 +35,7 @@ bool xeenRegionalSign(const XeenEventFile &, const XeenCamera &);
 enum class XeenRegionalInteraction { None, Ironworks, Training, Temple, Event, Tavern, Bank, Guild };
 // Classify direct entries for presentation only; entries with preludes use the
 // generic Event path. Only the interpreter issues a terminal Service request.
+bool xeenTownServiceKnown(XeenMapIdentity,std::uint8_t action) noexcept;
 std::optional<std::uint8_t> xeenRegionalService(const XeenEventFile &, const XeenCamera &);
 XeenRegionalInteraction xeenRegionalInteraction(const XeenEventFile &, const XeenCamera &);
 void xeenValidateRegionalActors(const XeenMap &, const XeenObjectFile &, const std::vector<XeenActor> &,

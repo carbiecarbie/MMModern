@@ -300,9 +300,10 @@ void currentDepletion() {
 	auto refill=emptyShop;for(unsigned i=0;i<8;++i)refill.wares[0][0][0][i]={37,1,0,0};
 	rejects([&]{xeenValidateCurrentServiceEconomy(refill);});
 	for(unsigned side=0;side<2;++side)for(unsigned shop=0;shop<4;++shop) {
-		if(!side && !shop)continue;
 		auto depleted=literal;depleted.wares[side][shop][1][7]={};
-		rejects([&]{xeenValidateCurrentServiceEconomy(depleted);});
+		if(!side)xeenValidateCurrentServiceEconomy(depleted);
+		else rejects([&]{xeenValidateCurrentServiceEconomy(depleted);});
+		rejects([&]{xeenValidateServiceEconomy(depleted);});
 	}
 	for(unsigned category:{2u,3u}) {
 		// Fifteen L1 Armor calls fill A to eight. Five L2 calls each insert

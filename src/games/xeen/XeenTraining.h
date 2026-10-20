@@ -24,9 +24,10 @@ struct XeenTrainingCandidate {
     std::array<XeenCombatInputs,6> inputs;
     unsigned count=0;
 };
+unsigned xeenTrainingCap(XeenMapIdentity) noexcept;
 XeenTrainingResult xeenQuoteTraining(const XeenCharacter &,const XeenCombatInputs &,std::uint32_t gold,
-    const XeenGameplayContext &);
-XeenTrainingCandidate xeenPrepareTraining(const XeenPartyState &,std::uint8_t owner,const XeenGameplayContext &);
+    const XeenGameplayContext &,XeenMapIdentity map=XeenMapIdentity(28));
+XeenTrainingCandidate xeenPrepareTraining(const XeenPartyState &,std::uint8_t owner,const XeenGameplayContext &,XeenMapIdentity map=XeenMapIdentity(28));
 void xeenValidateTrainingSource(const std::vector<std::uint8_t> &);
 }
 #endif

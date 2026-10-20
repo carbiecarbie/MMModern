@@ -57,21 +57,19 @@ bool completeShop(const XeenMerchantWares::Shop &stock,unsigned side,unsigned sh
 	}
 	return current[index(lengths[0],lengths[1],lengths[2],lengths[3])];
 }
-bool purchaseDepletedShop(const XeenMerchantWares::Shop &stock) {
+bool purchaseDepletedShop(const XeenMerchantWares::Shop &stock,unsigned side,unsigned shop) {
     const auto lengths=shape(stock);
     std::array<bool,6561> current{},next{};current[0]=true;
-    bool possible[2][4][8]{};
-    for(unsigned level=1;level<=2;++level)for(unsigned category=0;category<4;++category)
+    bool possible[6][4][8]{};
+    for(unsigned level=1;level<=6;++level)for(unsigned category=0;category<4;++category)
     for(unsigned slot=0;slot<lengths[category];++slot)
         possible[level-1][category][slot]=xeenPossibleMerchantItem(level,category,stock[category][slot]);
-    // Current Ironworks stock is a subsequence of fifteen L1 then five L2
-    // draws, with purchases allowed in every category. Missing draws can be
-    // assigned without overflowing: L1 W/A/M have 24 slots, at most five
-    // reserved for retained L2 items; after fifteen L1 draws all four L2
-    // categories still have at least seventeen slots. Thus no generated-count
-    // dimensions or historical purchase metadata are needed for this site.
-    for(unsigned call=0;call<20;++call) {
-        const unsigned level=call<15?1:2;next=current; // Purchased draw.
+    // Retained stock is an ordered subsequence of this shop's twenty draws.
+    // Missing draws may have been bought in any category. Clouds has at most
+    // fifteen L1 draws (24 eligible slots); later bands allow all categories,
+    // so a completion can place every missing item without forced overflow.
+    for(unsigned band=0;band<4;++band)for(unsigned call=0;call<merchant::counts[side][band][shop];++call) {
+        const unsigned level=merchant::level(side,shop,band);next=current;
         for(unsigned w=0;w<=lengths[0];++w)for(unsigned a=0;a<=lengths[1];++a)
         for(unsigned x=0;x<=lengths[2];++x)for(unsigned m=0;m<=lengths[3];++m) {
             std::array<unsigned,4> consumed{{w,a,x,m}};
@@ -112,7 +110,7 @@ void xeenValidateMerchantWares(const XeenMerchantWares &wares) {
 void xeenValidateCurrentServiceEconomy(const XeenServiceEconomy &economy) {
 
 	for(unsigned side=0;side<2;++side)for(unsigned shop=0;shop<4;++shop) {
-		const bool valid=side==0 && shop==0 ? purchaseDepletedShop(economy.wares[side][shop]) :
+		const bool valid=side==0 ? purchaseDepletedShop(economy.wares[side][shop],side,shop) :
 			completeShop(economy.wares[side][shop],side,shop);
 		if(!valid)throw std::invalid_argument("Invalid current merchant economy");
 	}

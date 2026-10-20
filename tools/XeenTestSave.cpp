@@ -108,6 +108,32 @@ void prepare(XeenSaveSnapshot &snapshot,const std::string &preset) {
     auto &journey=*snapshot.journey;
     const auto first=snapshot.activeRosterIds.at(0),second=snapshot.activeRosterIds.at(1);
     auto &member=snapshot.characters[first];
+    if(preset=="m79-playtest") {
+        snapshot.camera={30,12,12,XeenDirection::North};snapshot.food=1;
+        journey.treasure->gold=100000;journey.treasure->gems=5000;
+        for(unsigned n=0;n<snapshot.activeRosterIds.size();++n) {
+            const auto owner=snapshot.activeRosterIds[n];auto &c=snapshot.characters[owner];
+            c.conditions.fill(0);c.permanentLevel=std::array<unsigned,3>{9,14,19}[n%3];c.temporaryLevel=0;
+            journey.supplements[owner].inputs.experience=1000000000;
+            c.awards.fill(0);if(n%2==0)for(unsigned award=0;award<6;++award)c.awards[award]=1;
+            if(n>=4)c.characterClass=XeenCharacterClass::Sorcerer;
+            if(const auto category=XeenLearnedSpellRules::categoryForClass(c.characterClass)) {
+                c.hasSpells=true;c.learnedSpells.emplace();c.learnedSpells->fill(0);
+                for(unsigned id:{1u,26u,42u,44u,71u})if(const auto slot=XeenLearnedSpellRules::slotForSpell(*category,id))c.learnedSpells->at(*slot)=1;
+                c.currentSpell=*XeenLearnedSpellRules::slotForSpell(*category,n>=4?44:26);
+            }
+            c.weapons={};c.armor={};c.accessories={};c.miscellaneous={};
+            c.weapons[0]={0,1,0,0};c.armor[0]={0,1,0,0};
+            if(n==0)c.weapons[0].state=0x40;
+            if(n==1)c.armor[0].state=0x80;
+            c.currentHp=std::max(1,XeenCharacterRules::maxHp(c,{journey.context->year})/2);
+            c.currentSp=XeenCharacterRules::maxSp(c,{journey.context->year});
+            if(n>=4) {
+                c.lloydMap=n==4?49:73;c.lloydX=n==4?14:11;c.lloydY=n==4?8:7;c.lloydSide=0;
+            }
+        }
+        return;
+    }
     if(preset=="m76-spells") {
         snapshot.camera={28,18,4,XeenDirection::West};journey.treasure->gems=1000;
         constexpr unsigned spells[]{3,30,31,53,55,12,13,42,41,74,4,15,34,19,57,39,66,21,70,69,44,71};
@@ -301,7 +327,7 @@ void prepare(XeenSaveSnapshot &snapshot,const std::string &preset) {
 
 void generateTestSave(const GameInstallation &installation,const std::string &preset,
         const std::filesystem::path &output) {
-    if (preset!="broken-armor" && preset!="train-ready" && preset!="injured-dead" && preset!="poisoned" && preset!="monster-control" && preset!="monster-damage" && preset!="party-healing" && preset!="m76-spells" && preset!="combat-items" && preset!="m78-playtest" && preset!="m78-one-holder")
+    if (preset!="broken-armor" && preset!="train-ready" && preset!="injured-dead" && preset!="poisoned" && preset!="monster-control" && preset!="monster-damage" && preset!="party-healing" && preset!="m76-spells" && preset!="combat-items" && preset!="m78-playtest" && preset!="m78-one-holder" && preset!="m79-playtest")
         throw std::invalid_argument("Unknown test-save preset: "+preset);
     const auto target=XeenSaveFile::resolve(output,installation);
     // Reuse the native alias/reparse-aware path guard for the repository too.
@@ -320,6 +346,12 @@ void generateTestSave(const GameInstallation &installation,const std::string &pr
             auto &nearby=table->slots.at(0);nearby.x=17;nearby.y=4;
             nearby.lifecycle=XeenActorLifecycle::Present;nearby.accounted=false;
         }
+    }
+    if(preset=="m79-playtest") {
+        const auto actors=XeenActorApproach::actorsFromResources(inputs.maps.loadObjects(inputs.assets,30),inputs.resources.loadMonsterStatistics());
+        auto &table=candidate.map(30).monsters;
+        table.emplace(XeenSaveMonsterTable{std::uint16_t(actors.size()),{}});
+        for(const auto &actor:actors)table->slots.push_back({actor.x,actor.y,actor.lifecycle,actor.status,false,-1});
     }
     // Publish only a snapshot recaptured from restored, validated current owners.
     const auto snapshot=inputs.validated(candidate);

@@ -57,11 +57,30 @@ void preset(const GameInstallation &installation,const std::string &name,const f
     check(flow.prepareJourneyFrame(flow.ticket(),[]{}) && flow.presentJourney(flow.ticket()),"restored preset is not quiet");
     const auto captured=XeenSaveState::capture(inputs.signature,party,camera,flags,world);
     check(XeenSaveFormat::encode(saved)==XeenSaveFormat::encode(captured),"restore replayed or changed state");
-    check((name=="monster-control" || name=="monster-damage" || name=="party-healing" || name=="m76-spells") || save_test::sameCamera(camera,xeenJourneyContent().entry),"fresh Journey camera changed");
+    check((name=="monster-control" || name=="monster-damage" || name=="party-healing" || name=="m76-spells" || name=="m79-playtest") || save_test::sameCamera(camera,xeenJourneyContent().entry),"fresh Journey camera changed");
     const auto first=party.party.activeRosterIds()[0],second=party.party.activeRosterIds()[1];
     const auto &member=party.roster.at(first);
     const auto gold=party.monsterTreasure->gold;
     const auto context=*party.encounterContext;
+    if(name=="m79-playtest") {
+        check(camera.mapId==30 && camera.x==12 && camera.y==12,"M79 Rivercity position");
+        check(gold==100000 && party.monsterTreasure->gems==5000 && party.food==1,"M79 purse/food");
+        for(unsigned n=0;n<6;++n) {
+            const auto owner=party.party.activeRosterIds()[n];const auto &c=party.roster.at(owner);
+            check(c.permanentLevel==std::array<unsigned,3>{9,14,19}[n%3] && party.roster.combatInputs(owner)->experience==1000000000,"M79 Training readiness");
+            check(c.currentHp>0 && c.currentHp<XeenCharacterRules::maxHp(c,{context.year}),"M79 injuries");
+            for(unsigned award=0;award<6;++award)check(bool(c.awards[award])==(n%2==0),"M79 mixed Guild membership");
+            if(c.learnedSpells)check(std::count(c.learnedSpells->begin(),c.learnedSpells->end(),0)>0,"M79 partial books");
+            if(n>=4) {
+                check(XeenLearnedSpellRules::known(c,*XeenLearnedSpellRules::slotForSpell(XeenSpellCategory::Wizardry,71)) &&
+                    XeenLearnedSpellRules::known(c,*XeenLearnedSpellRules::slotForSpell(XeenSpellCategory::Wizardry,44)),"M79 travel spells");
+                check(c.lloydMap==(n==4?49:73) && c.lloydSide==0 && c.lloydX==(n==4?14:11) && c.lloydY==(n==4?8:7),"M79 service beacons");
+                check(bool(world.sampleCell(XeenMapIdentity(c.lloydMap),c.lloydX,c.lloydY)),"M79 beacon cell absent");
+            }
+        }
+        check(member.weapons[0].state==0x40 && party.roster.at(second).armor[0].state==0x80,"M79 cursed/broken items");
+        return;
+    }
     if (name=="broken-armor") {
         bool found=false;
         for (auto owner:party.party.activeRosterIds()) for (const auto &item:party.roster.at(owner).armor)

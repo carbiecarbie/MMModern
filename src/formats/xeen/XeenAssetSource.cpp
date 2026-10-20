@@ -192,7 +192,7 @@ void XeenAssetSource::drawSmith(IndexedFrame &frame) {
 void XeenAssetSource::drawTraining(IndexedFrame &frame) {
 	_impl->bridge.drawTraining(frame);
 }
-std::string XeenAssetSource::tavernFoodOffer() {return tavernString(75);}
+std::string XeenAssetSource::tavernFoodOffer(unsigned index) {return tavernString(index);}
 std::string XeenAssetSource::tavernString(std::size_t wanted) {
  if(wanted>77)throw std::out_of_range("Tavern string index");
  const auto bytes=readArchiveResource("tavern.bin",XeenSceneArchive::Clouds);

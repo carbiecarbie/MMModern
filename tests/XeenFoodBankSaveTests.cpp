@@ -47,7 +47,7 @@ void visit(training_test::Inputs &in,bool tavern,XeenSmithBoundary fault) {
             flow=&configured;flow->dialogText=&in.assets.uiText();
             flow->drawTavernArt=[&](auto &image){in.assets.drawTavern(image);};
             flow->drawBankArt=[&](auto &image){in.assets.drawBank(image);};
-            flow->tavernFoodOffer=[&]{return in.assets.tavernFoodOffer();};
+            flow->tavernFoodOffer=[&](unsigned index) {return in.assets.tavernFoodOffer(index);};
             flow->drawDialogSprite=[&](auto &image,const char *resource,unsigned frame,int sx,int sy){in.assets.drawDialogSprite(image,resource,frame,sx,sy);};
         }, {},[&](auto &,auto &,const auto &live,auto &,const auto &){party=&live;}};
     services.composeEncounter=[](auto &,const auto &,const auto &,auto,auto){return XeenEventFlow::Composition{training_test::frame(),false};};

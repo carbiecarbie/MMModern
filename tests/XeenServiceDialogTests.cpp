@@ -1,6 +1,7 @@
 #include "XeenTestInstallation.h"
 #include "XeenPurchaseTestSupport.h"
 #include "formats/xeen/XeenVocDuration.h"
+#include "games/xeen/XeenFoodBank.h"
 #include <fstream>
 #include <iostream>
 using namespace purchase_test;
@@ -107,6 +108,175 @@ void layout(Inputs &in) {
     check(drawXeenErrorScroll(base,in.font,xeenNotEnoughGold(in.assets.uiText())).isValid(),"gold refusal layout");
     check(drawXeenConfirm(base,in.font,xeenServiceConfirm(in.assets.uiText(),true,"Plate Armor",200),false,draw).isValid(),"Fix Confirm layout");
 }
+// M79: numeric rules and original service Events share the current map.
+void placeRules(Inputs &in) {
+    auto source=in.service();training_test::Fixture f(in,source);
+    auto c=f.p.roster.at(source.activeRosterIds[0]);auto inputs=*f.p.roster.combatInputs(c.rosterId);
+    inputs.experience=1000000000;
+    for(unsigned map:{28u,29u,30u,31u,32u,49u,73u,74u,99u}) {
+        const unsigned cap=map==28?10:map==30?15:20;
+        check(xeenTrainingCap(map)==cap,"Training map cap");
+        c.permanentLevel=cap-1;
+        const auto quote=xeenQuoteTraining(c,inputs,100000,*f.p.encounterContext,map);
+        check(quote.outcome==XeenTrainingOutcome::Quoted && quote.cost==10*(cap-1)*(cap-1),"Training map quote");
+        c.permanentLevel=cap;
+        check(xeenQuoteTraining(c,inputs,100000,*f.p.encounterContext,map).outcome==XeenTrainingOutcome::Cap,"Training cap not enforced");
+        check(xeenIronworksShop(map)==(map==30?1:map==73?2:map==49?3:0),"Ironworks shop/fallback");
+        const auto offer=xeenTavernFoodOffer(map);
+        if(map==28 || map==30 || map==49) {
+            const unsigned amount=map==28?15:map==30?60:120,price=map==28?10:map==30?50:100;
+            check(offer && offer->perMember==amount && offer->gold==price && offer->text==(map==28?75:map==30?76:77),"Food table");
+            const auto bought=xeenBuyFood(6,1,1000,true,map);
+            check(bought.outcome==XeenFoodOutcome::Purchased && bought.foodAfter==amount*6 && bought.goldAfter==1000-price,"Food refill/price");
+            check(xeenBuyFood(6,amount*6,1000,true,map).outcome==XeenFoodOutcome::Full,"Full Food charged");
+            check(xeenBuyFood(6,0,price-1,true,map).outcome==XeenFoodOutcome::InsufficientGold,"Food insufficient gold");
+        } else {
+            const auto refused=xeenBuyFood(6,1,1000,true,map);
+            check(!offer && refused.outcome==XeenFoodOutcome::SupportLimit && refused.foodAfter==1 && refused.goldAfter==1000,"Untabled Food mutated");
+        }
+        check(xeenTemplePricesKnown(map)==(map==28 || map==30 || map==49 || map==73),"Temple price admission");
+    }
+    using R=XeenLearnedSpellRules;
+    const std::vector<std::vector<unsigned>> catalogues{
+        {1,10,20,26,27,38,40,42,45,50,55,59,60,61,62,68,72,75},
+        {3,4,5,14,15,25,30,31,34,41,49,51,53,67,73,75},
+        {4,8,9,12,13,22,23,24,28,34,41,44,52,70,73,74},
+        {6,7,9,11,12,13,17,21,22,24,29,36,56,58,64,71},
+        {6,7,9,11,12,13,18,21,29,32,36,37,46,51,56,58,69}};
+    for(unsigned map:{28u,29u,30u,31u,32u,49u})for(auto cls:{XeenCharacterClass::Cleric,XeenCharacterClass::Sorcerer,XeenCharacterClass::Druid,XeenCharacterClass::Paladin,XeenCharacterClass::Archer,XeenCharacterClass::Ranger}) {
+        c.characterClass=cls;c.learnedSpells.emplace();c.learnedSpells->fill(0);
+        const auto cat=*R::categoryForClass(cls);std::vector<std::size_t> expected;
+        const auto append=[&](unsigned id){if(auto slot=R::slotForSpell(cat,id))expected.push_back(*slot);};
+        if(map==49)for(unsigned id=0;id<76;++id)append(id);
+        else for(auto id:catalogues[map-28])append(id);
+        check(R::rows(c,true,false,map)==expected,"Guild map/class catalogue order");
+        for(auto slot:expected)c.learnedSpells->at(slot)=1;
+        check(R::rows(c,true,false,map).empty() && R::rows(c,true,true,map)==expected,"Guild Info must include learned spells");
+        auto &member=f.p.roster.at(source.activeRosterIds[0]);member.awards.fill(0);
+        member.awards[map==49?5:map-28]=1;
+        for(unsigned other:{28u,29u,30u,31u,32u,49u})check(xeenGuildMember(f.p,0,other)==(other==map),"Guild award map isolation");
+    }
+    check(R::rows(c,true,true,74).empty() && !xeenGuildMember(f.p,0,74),"Untabled Guild fallback");
+    // Purchases in every shop survive the ordinary current-format restore exactly.
+    for(unsigned shop=1;shop<4;++shop) {
+        auto saved=in.service();saved.journey->treasure->gold=1000000;
+        training_test::Fixture before(in,saved);
+        const auto original=*before.p.serviceEconomy;bool checkedPartial=false;
+        for(unsigned category=0;category<4;++category) {
+            while(before.p.serviceEconomy->wares[0][shop][category][0].id) {
+                const auto owner=before.p.party.activeRosterIds()[0];
+                *xeenInventoryItems(before.p.roster.at(owner),XeenInventoryCategory(category))={};
+                const auto bought=xeenPrepareEquipmentPurchase(before.p,0,XeenInventoryCategory(category),0,0,shop);
+                check(bought.result.outcome==XeenEquipmentPurchaseOutcome::Purchased && bought.result.shop==shop,"Buy other shop");
+                *before.p.serviceEconomy=bought.economyAfter;
+                *xeenInventoryItems(before.p.roster.at(owner),XeenInventoryCategory(category))=bought.result.recipientAfter;
+                before.p.monsterTreasure->gold=bought.result.goldAfter;
+                if(!checkedPartial) {
+                    auto partial=saved;partial.journey->serviceEconomy=bought.economyAfter;
+                    partial.journey->treasure->gold=bought.result.goldAfter;
+                    for(auto id:partial.activeRosterIds)partial.characters[id]=before.p.roster.at(id);
+                    training_test::Fixture restored(in,partial);
+                    check(XeenSaveFormat::encode(partial)==XeenSaveFormat::encode(restored.snapshot()),"Partially depleted shop restore changed bytes");
+                    checkedPartial=true;
+                }
+            }
+        }
+        saved.journey->serviceEconomy=*before.p.serviceEconomy;
+        saved.journey->treasure->gold=before.p.monsterTreasure->gold;
+        for(auto owner:saved.activeRosterIds)saved.characters[owner]=before.p.roster.at(owner);
+        const auto state=saved;training_test::Fixture restored(in,state);
+        check(XeenSaveFormat::encode(state)==XeenSaveFormat::encode(restored.snapshot()),"Depleted shop restore changed bytes");
+        for(unsigned other=0;other<4;++other)if(other!=shop)for(unsigned cat=0;cat<4;++cat)for(unsigned slot=0;slot<9;++slot)check(xeenSameItem(restored.p.serviceEconomy->wares[0][other][cat][slot],original.wares[0][other][cat][slot]),"Purchase changed other shop");
+    }
+}
+XeenSaveSnapshot townService(Inputs &in,unsigned map,unsigned x,unsigned y,XeenDirection direction=XeenDirection::North) {
+    auto source=in.base();source.camera={map,int(x),int(y),direction};source.food=1;
+    source.journey->context->day=8;source.journey->treasure->gold=100000;
+    const auto actors=XeenActorApproach::actorsFromResources(in.maps.loadObjects(in.assets,map),in.statistics);
+    auto &table=source.map(map).monsters;
+    table.emplace(XeenSaveMonsterTable{std::uint16_t(actors.size()),{}});
+    for(const auto &actor:actors)table->slots.push_back({actor.x,actor.y,actor.lifecycle,actor.status,false,-1});
+    return source;
+}
+void townProviders(training_test::Fixture &f,Inputs &in) {
+    f.flow->drawSmithArt=[&](auto &image){in.assets.drawSmith(image);};
+    f.flow->drawBankArt=[&](auto &image){in.assets.drawBank(image);};
+    f.flow->drawGuildArt=[&](auto &image){in.assets.drawGuild(image);};
+    f.flow->drawTempleArt=[&](auto &image){in.assets.drawTemple(image);};
+    f.flow->drawTavernArt=[&](auto &image){in.assets.drawTavern(image);};
+    f.flow->tavernFoodOffer=[&](unsigned text){return in.assets.tavernFoodOffer(text);};
+}
+void otherTownServices(Inputs &in) {
+    {
+        auto source=townService(in,30,12,12);training_test::Fixture f(in,source);
+        const auto before=XeenSaveFormat::encode(f.snapshot());std::string notice;
+        f.flow->reportText=[&](const auto &text){notice=text;};f.now+=110;f.act(UnsupportedMainScreenAction{"Dismiss"});
+        check(notice=="Dismiss: not supported yet",("Town Dismiss notice: "+notice).c_str());check(before==XeenSaveFormat::encode(f.snapshot()),"Town Dismiss changed state/time/RNG");
+    }
+    {
+        auto source=townService(in,30,12,12);const auto owner=source.activeRosterIds[0];
+        source.characters[owner].permanentLevel=14;source.journey->supplements[owner].inputs.experience=1000000000;
+        training_test::Fixture f(in,source);f.enter();f.train(0);
+        check(f.p.roster.at(owner).permanentLevel==15 && f.p.monsterTreasure->gold==100000-1960,"Rivercity Training to cap");
+        const Owners capped(f);f.train(0);capped.unchanged(f);
+        check(XeenTrainingTestAccess::text(*f.flow).find(source.characters[owner].name)!=std::string::npos,"Rivercity Training text");
+        f.act(CancelInteractionAction{});f.finishDeparture();
+    }
+    {
+        auto source=townService(in,49,14,8);training_test::Fixture f(in,source);townProviders(f,in);f.enter();
+        keyboard(f,'b');keyboard(f,'1');check(XeenPurchaseTestAccess::quote(*f.flow),"Shangri-La Buy quote");
+        const auto quote=XeenPurchaseTestAccess::facts(*f.flow);
+        check(quote.shop==3 && xeenSameItem(quote.offer,source.journey->serviceEconomy->wares[0][3][0][0]),"Shangri-La stock identity");
+        keyboard(f,'y');check(f.p.monsterTreasure->gold==100000-quote.price,"Shangri-La Buy settlement");
+        keyboard(f,InputKey::Escape);keyboard(f,InputKey::Escape);f.finishDeparture();
+        const auto saved=f.snapshot();training_test::Fixture restored(in,saved);
+        check(XeenSaveFormat::encode(saved)==XeenSaveFormat::encode(restored.snapshot()),"Shangri-La depleted save");
+    }
+    {
+        auto source=townService(in,74,5,8);training_test::Fixture f(in,source);townProviders(f,in);f.enter();
+        keyboard(f,'d');keyboard(f,'o');f.act(TextInputAction{"123"});keyboard(f,InputKey::Enter);
+        check(f.p.serviceEconomy->bank.gold==123 && f.p.monsterTreasure->gold==99877,"Newcastle Bank deposit");
+        keyboard(f,InputKey::Escape);keyboard(f,InputKey::Escape);f.finishDeparture();
+    }
+    {
+        auto source=townService(in,29,12,4);const auto owner=source.activeRosterIds[0];auto &c=source.characters[owner];
+        c.weapons={};c.armor={};c.accessories={};c.miscellaneous={};c.characterClass=XeenCharacterClass::Cleric;c.hasSpells=true;c.learnedSpells.emplace();c.learnedSpells->fill(0);c.currentSpell=255;c.awards.fill(0);
+        training_test::Fixture f(in,source);townProviders(f,in);f.enter();
+        const Owners refused(f);keyboard(f,'b');refused.unchanged(f);check(XeenPurchaseTestAccess::lobby(*f.flow),"Guild admitted nonmember");
+        // Enter again through startup with the matching award; no mutation bypass in a live visit.
+        keyboard(f,InputKey::Escape);f.finishDeparture();
+        source.characters[owner].awards[1]=1;
+        training_test::Fixture member(in,source);townProviders(member,in);member.enter();
+        const auto slot=XeenLearnedSpellRules::rows(member.p.roster.at(owner),true,false,29).front();
+        const auto spell=*XeenLearnedSpellRules::spellForSlot(XeenSpellCategory::Clerical,slot);
+        keyboard(member,'b');keyboard(member,'1');keyboard(member,'y');
+        check(XeenLearnedSpellRules::known(member.p.roster.at(owner),slot) && member.p.monsterTreasure->gold==100000-XeenLearnedSpellRules::purchasePrice(spell,XeenCharacterClass::Cleric),"Nightshadow Guild purchase");
+        keyboard(member,InputKey::Escape);keyboard(member,InputKey::Escape);member.finishDeparture();
+    }
+    {
+        auto source=townService(in,30,24,16);training_test::Fixture f(in,source);townProviders(f,in);f.enter();
+        const Owners signIn(f);keyboard(f,'s');signIn.unchanged(f);keyboard(f,InputKey::Enter);
+        keyboard(f,'f');keyboard(f,'y');
+        check(f.p.food==360 && f.p.monsterTreasure->gold==99950,"Rivercity Food 60/50");
+        keyboard(f,InputKey::Escape);f.finishDeparture();
+    }
+    for(const auto camera:{XeenCamera{74,4,4,XeenDirection::North},XeenCamera{49,7,14,XeenDirection::North}}) {
+        auto source=townService(in,camera.mapId.number,camera.x,camera.y,camera.direction);
+        training_test::Fixture f(in,source);townProviders(f,in);const auto before=XeenSaveFormat::encode(f.snapshot());
+        std::string notice;f.flow->reportText=[&](const auto &text){notice=text;};
+        f.flow->reportManual=[&](const auto &result){if(const auto *error=std::get_if<XeenEventExecutionError>(&result))notice=error->message;};
+        f.act(InteractionAction{});for(unsigned n=0;n<30;++n){f.flow->beginCycle(++f.cycle);if(auto next=f.flow->updatePresentation())f.present(*next);}
+
+        check(notice.find("not supported yet")!=std::string::npos && f.flow->canSave() && before==XeenSaveFormat::encode(f.snapshot()),"Unsupported original town Event changed state/time/RNG");
+    }
+    for(unsigned action:{6u,8u,9u,10u,11u,12u}) {
+        auto source=in.service();XeenEventFile events=in.city;
+        events.records.clear();XeenEventRecord record;record.x=10;record.y=11;record.direction=4;record.line=0;record.opcode=0x11;record.parameters={std::uint8_t(action)};record.lengthField=6;events.records.push_back(record);
+        training_test::Fixture f(in,source,false,&events);const auto before=XeenSaveFormat::encode(f.snapshot());
+        f.act(InteractionAction{});for(unsigned n=0;n<30;++n){f.flow->beginCycle(++f.cycle);if(auto next=f.flow->updatePresentation())f.present(*next);}
+        check(f.flow->canSave() && before==XeenSaveFormat::encode(f.snapshot()),"Unsupported service action changed state/time/RNG");
+    }
+}
 void originalServiceSequences(Inputs &in) {
     for(unsigned action=0;action<7;++action) {
         const unsigned service=action==6?1:action;
@@ -127,7 +297,7 @@ void originalServiceSequences(Inputs &in) {
         f.flow->drawBankArt=[&](auto &image){in.assets.drawBank(image);};
         f.flow->drawGuildArt=[&](auto &image){in.assets.drawGuild(image);};
         f.flow->drawTavernArt=[&](auto &image){in.assets.drawTavern(image);};
-        f.flow->tavernFoodOffer=[&]{return in.assets.tavernFoodOffer();};
+        f.flow->tavernFoodOffer=[&](unsigned index) {return in.assets.tavernFoodOffer(index);};
         f.flow->drawTempleArt=[&](auto &image){in.assets.drawTemple(image);};
         std::vector<std::string> samples;
         f.flow->loadSampleDuration=[&](const char *name,XeenSceneArchive archive){
@@ -175,7 +345,7 @@ void originalServiceSequences(Inputs &in) {
             check(samples.back()=="coina.voc" && f.p.serviceEconomy->bank.gold==5,"Bank action did not replace the active sample");
             f.act(CancelInteractionAction{}); // Currency -> lobby.
         } else if(action==2) {
-            check(!xeenVertigoGuildMember(f.p,1),"Guild refusal fixture unexpectedly has membership");
+            check(!xeenGuildMember(f.p,1,f.c.mapId),"Guild refusal fixture unexpectedly has membership");
             f.act(SelectMemberAction{1});check(samples.back()=="guild11.voc","Guild refusal did not replace the greeting");
         } else if(action==3) {
             f.act(DialogKeyAction{'f'});f.act(YesAction{});
@@ -350,7 +520,7 @@ void spellDialogs(Inputs &in,bool mouse) {
     for(unsigned kind=0;kind<7;++kind) {
         auto source=in.service();source.camera={28,20,13,XeenDirection::North};source.journey->treasure->gold=1000;
         const auto owner=source.activeRosterIds[0];auto &c=source.characters[owner];
-        c.characterClass=XeenCharacterClass::Cleric;c.hasSpells=true;c.learnedSpells.emplace();c.awards[0]=1;
+        c.weapons={};c.armor={};c.accessories={};c.miscellaneous={};c.characterClass=XeenCharacterClass::Cleric;c.hasSpells=true;c.learnedSpells.emplace();c.awards[0]=1;
         c.weapons={};c.armor={};c.accessories={};c.miscellaneous={};
         if(kind==0)source.journey->treasure->gold=99;
         if(kind==1)c.learnedSpells->fill(1);
@@ -426,5 +596,5 @@ void spellDialogs(Inputs &in,bool mouse) {
 }
 int main(int argc,char **argv){try{
     check(argc==2,"usage: service-dialogs <installation>");const auto installation=xeenTestInstallationDetector().detect(argv[1]);check(bool(installation),"installation unavailable");Inputs in(*installation);
-    layout(in);originalServiceSequences(in);refusals(in);dialogs(in,false);dialogs(in,true);spellDialogs(in,false);spellDialogs(in,true);std::cout<<"Original service layouts, hit actions, Buy/Fix, one-step Training and Heal passed\n";return 0;
+    layout(in);placeRules(in);otherTownServices(in);originalServiceSequences(in);refusals(in);dialogs(in,false);dialogs(in,true);spellDialogs(in,false);spellDialogs(in,true);std::cout<<"Original service layouts, hit actions, Buy/Fix, one-step Training and Heal passed\n";return 0;
 }catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}

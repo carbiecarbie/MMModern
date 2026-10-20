@@ -6,9 +6,13 @@
 #include <limits>
 #include <stdexcept>
 namespace mmodern {
+bool xeenTemplePricesKnown(XeenMapIdentity map) noexcept {
+    return map.side==XeenSide::Darkside || (map.side==XeenSide::Clouds &&
+        (map.number==28 || map.number==30 || map.number==49 || map.number==73));
+}
 XeenTempleSurcharges xeenTempleSurcharges(XeenMapIdentity temple) {
     // DOS XEEN.DAT 0x1c9f5..0x1cab3. Clouds maps go through the switch at
-    // 0x1ca30 (table 0x1d187); Darkside maps compare 29/31/37 and fall back to
+    // 0x1ca30 (table 0x1ce87); Darkside maps compare 29/31/37 and fall back to
     // the most expensive temple. Matches ScummVM createLocationText.
     const XeenTempleSurcharges vertigo{0,0,0,0,10},low{10,50,500,100,25},
         middle{20,100,1000,200,50},high{100,500,5000,300,100};

@@ -71,7 +71,7 @@ public:
 	std::function<void(IndexedFrame &)> drawTavernArt,drawBankArt,drawGuildArt;
     std::function<std::vector<std::uint8_t>()> loadSpellDescriptions;
     std::function<std::vector<std::uint8_t>(bool awards)> loadJournalText;
-	std::function<std::string()> tavernFoodOffer;
+	std::function<std::string(unsigned)> tavernFoodOffer;
     std::function<std::string(std::size_t)> tavernString;
 	std::function<void(IndexedFrame &)> drawCombatButtons;
 	XeenDialogSpriteDraw drawDialogSprite;

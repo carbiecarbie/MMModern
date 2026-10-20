@@ -28,7 +28,7 @@ void XeenEncounterFlow::advanceTraining() noexcept {
 }
 bool XeenEncounterFlow::beginTraining(const std::function<void()> &preflight) {
     if(!journeyEvent() || _busy || _training || _trainingPreparation || _smith || !current(ticket()) ||
-        _camera.mapId!=XeenMapIdentity(28) || !smithCapacity(17,4))return false;
+        !xeenTownServiceKnown(_camera.mapId,5) || !smithCapacity(17,4))return false;
     TrainingBusy busy(_busy);_journeyPreimage->check();
     if(!xeenPrepareSmithDeparture(*_party.encounterContext))return false;
     xeenValidateJourneyParty(_party);
@@ -71,7 +71,7 @@ void XeenEncounterFlow::quoteTraining(std::size_t member) {
     TrainingBusy busy(_busy);_journeyPreimage->check();xeenValidateJourneyParty(_party);
     const auto owner=_party.party.activeRosterIds()[member];
     auto result=xeenQuoteTraining(_party.roster.at(owner),*_party.roster.combatInputs(owner),
-        _party.monsterTreasure->gold,*_party.encounterContext);
+        _party.monsterTreasure->gold,*_party.encounterContext,_camera.mapId);
     if(result.outcome==XeenTrainingOutcome::Quoted && !_training->trained.test(owner) &&
         !xeenPrepareSmithDeparture(_training->departure->context()))result.outcome=XeenTrainingOutcome::Capacity;
     _training->owner=owner;_training->result=result;_training->quoted=result.outcome==XeenTrainingOutcome::Quoted;
@@ -93,7 +93,7 @@ void XeenEncounterFlow::confirmTraining() {
             _training->result.outcome=XeenTrainingOutcome::Capacity;_training->quoted=false;advanceTraining();return;
         }
     }
-    auto delta=std::make_unique<XeenTrainingCandidate>(xeenPrepareTraining(_party,_training->owner,context));
+    auto delta=std::make_unique<XeenTrainingCandidate>(xeenPrepareTraining(_party,_training->owner,context,_camera.mapId));
     if(delta->result.outcome!=XeenTrainingOutcome::Trained) {
         _journeyPreimage->failed=true;throw std::logic_error("Training quoted owner preimage changed");
     }
@@ -199,7 +199,7 @@ void XeenEventFlow::prepareTraining() {
         _encounter->_trainingBoundary=[this](XeenTrainingBoundary stage){if(trainingBoundary)trainingBoundary(stage);};
         const bool admitted=_encounter->beginTraining([&] {
             if(!drawTrainingArt)throw std::runtime_error("Training artwork provider unavailable");
-            const auto text=_events.textForMap(28);_encounter->journeySavePreimage().admitVertigoText(text);
+            const auto text=_events.textForMap(_camera.mapId);_encounter->journeySavePreimage().admitEventText(text);
             TrainingUi ui;ui.art=_frame;ui.animation.kind=XeenServiceArt::Training;
             try {drawTrainingArt(ui.art);}catch(const std::invalid_argument &){_encounter->journeySavePreimage().failed=true;throw;}
             _encounter->journeySavePreimage().check();
@@ -274,7 +274,7 @@ IndexedFrame XeenEventFlow::handleTraining(const PlayerAction &action,std::uint6
                 ui.member=key-InputKey::F1;_encounter->_training->quoted=false;_encounter->advanceTraining();
             } else if(key=='t') {
                 const auto &c=_party.party.member(_party.roster,ui.member);
-                const auto quote=xeenQuoteTraining(c,*_party.roster.combatInputs(c.rosterId),_party.monsterTreasure->gold,*_party.encounterContext);
+                const auto quote=xeenQuoteTraining(c,*_party.roster.combatInputs(c.rosterId),_party.monsterTreasure->gold,*_party.encounterContext,_camera.mapId);
                 if(quote.outcome==XeenTrainingOutcome::Cap || quote.outcome==XeenTrainingOutcome::MissingExperience)
                     startServiceSample(ui.animation,quote.outcome==XeenTrainingOutcome::Cap?"trainin1.voc":"trainin0.voc",true);
                 else if(quote.outcome==XeenTrainingOutcome::InsufficientGold) ui.feedback=xeenNotEnoughGold(dosText());

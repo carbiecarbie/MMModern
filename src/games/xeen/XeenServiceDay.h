@@ -38,7 +38,7 @@ public:
 	// preserves the existing reservation while copying/validating a replacement;
 	// the Flow supplies and atomically publishes its checked identity increment.
 	XeenServiceDayCandidate rebindPurchase(const XeenServiceEconomy &after,
-		XeenInventoryCategory,std::size_t slot,const XeenItem &expected) const;
+		XeenInventoryCategory,std::size_t slot,const XeenItem &expected,unsigned side=0,unsigned shop=0) const;
 	// Copy an already generated triggering reservation; otherwise start a fresh
 	// private generation from the same live entry preimage.
 	XeenServiceDayCandidate upgradeTemplePaid() const;

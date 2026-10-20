@@ -44,7 +44,7 @@ public:
 	void drawSmith(IndexedFrame &frame);
 	void drawTraining(IndexedFrame &frame);
 	void drawTemple(IndexedFrame &frame);
-	std::string tavernFoodOffer();
+	std::string tavernFoodOffer(unsigned index=75);
     std::string tavernString(std::size_t index);
 	void drawTavern(IndexedFrame &frame);
 	void drawBank(IndexedFrame &frame);

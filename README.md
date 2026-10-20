@@ -324,6 +324,23 @@ spell or item cost; an unset beacon defaults to Vertigo even on cancel.
 .\build-rel\mmodern_test_save.exe m76-spells "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/m76-spells.mmsave"
 ```
 
+The `m79-playtest` preset starts at Rivercity Training, map 30 `(12,12)`
+facing North, with 100,000 gold, 5,000 gems and one ration. Permanent levels
+repeat 9, 14 and 19, with enough XP for the three Training caps. Members 1,
+3 and 5 have all six Clouds Guild memberships; the others have none. Books
+are partial, members are injured, member 1 carries a cursed weapon and member
+2 a broken armor item. Members 5 and 6 are Sorcerers with Town Portal and
+Lloyd's Beacon: their beacons reach Shangri-La Ironworks `(14,8)` on map 49
+and Newcastle Training `(11,7)` on map 73. Use Town Portal for the five towns;
+use the two beacons for Shangri-La and Newcastle, then the original stairs to
+Newcastle Level 2's Bank. Its Temple still says "not supported yet" until M79
+Part C. Interact with Space at a service, and use its original buttons or keys.
+
+```powershell
+.\build-rel\mmodern_test_save.exe m79-playtest "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/m79-playtest.mmsave"
+.\build-rel\mmodern.exe --load-game "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/m79-playtest.mmsave"
+```
+
 The `m78-playtest` preset is a travel party at map 23 `(9,11)` facing West:
 the original six at level 30 with full HP and SP, Obsidian weapons and armor
 equipped as each class allows, every spell of each caster's list, 100,000

@@ -15,7 +15,7 @@ struct Visit : Fixture {
         : Fixture(inputs, source, false, city) {
         flow->drawTavernArt = [&inputs](auto &image) { inputs.assets.drawTavern(image); };
         flow->drawBankArt = [&inputs](auto &image) { inputs.assets.drawBank(image); };
-        flow->tavernFoodOffer = [&inputs] { return inputs.assets.tavernFoodOffer(); };
+        flow->tavernFoodOffer = [&inputs](unsigned index) { return inputs.assets.tavernFoodOffer(index); };
         flow->tavernString = [&inputs](std::size_t index) { return inputs.assets.tavernString(index); };
         flow->loadRestDream = [&inputs] { return inputs.assets.restDreamImage(); };
     }

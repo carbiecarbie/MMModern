@@ -176,7 +176,7 @@ struct Fixture {
     void enter(){trained.reset();act(InteractionAction{});prepare();check(w.sessionState().journeyActivity()==XeenJourneyActivity::Service,"Training service not admitted");}
     void train(unsigned member){
         const auto owner=p.party.activeRosterIds()[member];const int before=p.roster.at(owner).permanentLevel;
-        const auto quote=xeenQuoteTraining(p.roster.at(owner),*p.roster.combatInputs(owner),p.monsterTreasure->gold,*p.encounterContext);
+        const auto quote=xeenQuoteTraining(p.roster.at(owner),*p.roster.combatInputs(owner),p.monsterTreasure->gold,*p.encounterContext,c.mapId);
         const bool eligible=quote.outcome==XeenTrainingOutcome::Quoted;
         act(SelectMemberAction{member});act(DialogKeyAction{'t'});
         if(eligible && p.roster.at(owner).permanentLevel==before) {

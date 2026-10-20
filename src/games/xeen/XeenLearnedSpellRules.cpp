@@ -230,12 +230,25 @@ std::uint32_t XeenLearnedSpellRules::purchasePrice(std::uint8_t id,XeenCharacter
     const unsigned base=kSp[id]<0?500*unsigned(-kSp[id]):100*unsigned(kSp[id]);
     return base*((c==XeenCharacterClass::Paladin || c==XeenCharacterClass::Archer || c==XeenCharacterClass::Ranger)?2:1);
 }
-std::vector<std::size_t> XeenLearnedSpellRules::rows(const XeenCharacter &c,bool guild,bool info) {
+std::vector<std::size_t> XeenLearnedSpellRules::rows(const XeenCharacter &c,bool guild,bool info,XeenMapIdentity map) {
     std::vector<std::size_t> result;const auto category=categoryForClass(c.characterClass);
     if(!category || !c.learnedSpells)return result;
     if(guild) {
-        constexpr std::uint8_t catalogue[]{1,10,20,26,27,38,40,42,45,50,55,59,60,61,62,68,72,75};
-        for(auto id:catalogue)if(const auto slot=slotForSpell(*category,id);slot && (info || !known(c,*slot)))result.push_back(*slot);
+        // DOS-verified CLOUDS_GUILD_SPELLS rows, including their stored order.
+        constexpr int catalogue[5][20]{
+            {1,10,20,26,27,38,40,42,45,50,55,59,60,61,62,68,72,75,77,77},
+            {3,4,5,14,15,25,30,31,34,41,49,51,53,67,73,75,-1,-1,-1,-1},
+            {4,8,9,12,13,22,23,24,28,34,41,44,52,70,73,74,-1,-1,-1,-1},
+            {6,7,9,11,12,13,17,21,22,24,29,36,56,58,64,71,-1,-1,-1,-1},
+            {6,7,9,11,12,13,18,21,29,32,36,37,46,51,56,58,69,-1,-1,-1}};
+        const auto append=[&](unsigned id) {
+            if(const auto slot=slotForSpell(*category,id);slot && (info || !known(c,*slot)))result.push_back(*slot);
+        };
+        if(map.side==XeenSide::Clouds) {
+            if(map.number==49)for(unsigned id=0;id<76;++id)append(id);
+            else if(map.number>=28 && map.number<=32)
+                for(int id:catalogue[map.number-28])if(id>=0 && id<76)append(id);
+        }
     } else for(std::size_t slot=0;slot<39;++slot)if(known(c,slot))result.push_back(slot);
     return result;
 }

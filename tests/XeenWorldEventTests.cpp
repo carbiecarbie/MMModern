@@ -43,7 +43,7 @@ struct Fixture : training_test::Fixture {
   flow->drawGuildArt=[&in](auto &image){in.assets.drawGuild(image);};
   flow->drawSmithArt=[&in](auto &image){in.assets.drawSmith(image);};
   flow->drawTavernArt=[&in](auto &image){in.assets.drawTavern(image);};
-  flow->tavernFoodOffer=[&in]{return in.assets.tavernFoodOffer();};
+  flow->tavernFoodOffer=[&in](unsigned index) {return in.assets.tavernFoodOffer(index);};
  }
  void act(PlayerAction action) {
   for(unsigned n=0;n<100 && !flow->inputContext(flow->frame().presentation()).readyForAction;++n) {

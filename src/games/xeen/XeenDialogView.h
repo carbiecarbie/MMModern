@@ -100,7 +100,7 @@ IndexedFrame drawXeenCast(const XeenDosText &,const IndexedFrame &,const XeenFon
     const XeenCharacter &,std::size_t,const XeenLearnedSpellNames &,const XeenDialogSpriteDraw &);
 IndexedFrame drawXeenSpellList(const XeenDosText &,const IndexedFrame &,const XeenFontFormat &,
     const XeenCharacter &,const XeenLearnedSpellNames &,const XeenSpellListUi &,std::uint32_t gold,
-    bool guild,bool info,const XeenDialogSpriteDraw &,std::uint32_t year=610);
+    bool guild,bool info,const XeenDialogSpriteDraw &,std::uint32_t year=610,XeenMapIdentity map=XeenMapIdentity(28));
 IndexedFrame drawXeenSpellConfirm(const IndexedFrame &,const XeenFontFormat &,const std::string &,bool info,const XeenDialogSpriteDraw &);
 IndexedFrame drawXeenSpellTarget(const XeenDosText &,const IndexedFrame &,const XeenFontFormat &);
 std::vector<std::string> xeenSpellDescriptions(const std::vector<std::uint8_t> &);
@@ -112,7 +112,7 @@ enum class XeenLocationDialog { Smith, Training, Temple, Tavern, Bank, Guild };
 // Missing action implementations shared by runtime feedback and coverage tools.
 // Conditional eligibility (for example no cursed items) remains with the caller.
 std::optional<std::string> xeenLocationUnsupportedAction(XeenLocationDialog,unsigned key);
-bool xeenVertigoGuildMember(const XeenPartyState &,std::size_t);
+bool xeenGuildMember(const XeenPartyState &,std::size_t,XeenMapIdentity);
 DialogInput xeenLocationInput(XeenLocationDialog);
 DialogInput xeenBankInput();
 DialogInput xeenFoodConfirmInput();
@@ -140,7 +140,7 @@ IndexedFrame drawXeenTavernPopup(const IndexedFrame &,const XeenFontFormat &,con
 IndexedFrame drawXeenBuy(const XeenDosText &text,const IndexedFrame &,const XeenFontFormat &,const XeenItemCatalog &,
     const XeenPartyState &,const XeenInventorySelection &,bool repair,const XeenDialogSpriteDraw &);
 IndexedFrame drawXeenBuy(const XeenDosText &,const IndexedFrame &,const XeenFontFormat &,const XeenItemCatalog &,
-    const XeenPartyState &,const XeenInventorySelection &,XeenItemService,const XeenDialogSpriteDraw &);
+    const XeenPartyState &,const XeenInventorySelection &,XeenItemService,const XeenDialogSpriteDraw &,XeenMapIdentity map=XeenMapIdentity(28));
 DialogInput xeenConfirmInput(bool large=false);
 std::optional<bool> xeenConfirmAnswer(unsigned key);
 struct XeenDialogPopup { std::string text; XeenTextRect bounds; };

@@ -6,19 +6,30 @@
 #include <stdexcept>
 
 namespace mmodern {
+std::optional<XeenFoodOffer> xeenTavernFoodOffer(XeenMapIdentity map) noexcept {
+    if(map.side!=XeenSide::Clouds)return {};
+    switch(static_cast<unsigned>(map.number)) {
+    case 28:return XeenFoodOffer{15,10,75};
+    case 30:return XeenFoodOffer{60,50,76};
+    case 49:return XeenFoodOffer{120,100,77};
+    default:return {};
+    }
+}
 XeenFoodResult xeenBuyFood(std::size_t activeMembers, std::uint16_t food,
-        std::uint32_t gold, bool yes) {
+        std::uint32_t gold, bool yes,XeenMapIdentity map) {
     XeenFoodResult result{XeenFoodOutcome::Cancelled, food, gold};
+    const auto offer=xeenTavernFoodOffer(map);
+    if(!offer){result.outcome=XeenFoodOutcome::SupportLimit;return result;}
     if (!yes) return result;
-    if (activeMembers > std::numeric_limits<std::uint16_t>::max() / 15u)
+    if (activeMembers > std::numeric_limits<std::uint16_t>::max() / offer->perMember)
         throw std::invalid_argument("Food offer exceeds party food storage");
-    const auto limit = static_cast<std::uint16_t>(activeMembers * 15u);
+    const auto limit = static_cast<std::uint16_t>(activeMembers * offer->perMember);
     if (food >= limit) result.outcome = XeenFoodOutcome::Full;
-    else if (gold < 10u) result.outcome = XeenFoodOutcome::InsufficientGold;
+    else if (gold < offer->gold) result.outcome = XeenFoodOutcome::InsufficientGold;
     else {
         result.outcome = XeenFoodOutcome::Purchased;
         result.foodAfter = limit;
-        result.goldAfter = gold - 10u;
+        result.goldAfter = gold - offer->gold;
     }
     return result;
 }

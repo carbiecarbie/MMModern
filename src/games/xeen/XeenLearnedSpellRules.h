@@ -118,7 +118,7 @@ public:
 	static XeenSpellCost cost(std::uint8_t id, unsigned level) noexcept;
 	static std::optional<std::size_t> slotForSpell(XeenSpellCategory,std::uint8_t) noexcept;
 	static std::uint32_t purchasePrice(std::uint8_t,XeenCharacterClass) noexcept;
-	static std::vector<std::size_t> rows(const XeenCharacter &,bool guild=false,bool info=false);
+	static std::vector<std::size_t> rows(const XeenCharacter &,bool guild=false,bool info=false,XeenMapIdentity map=XeenMapIdentity(28));
 	static XeenQuickSpellCheck check(const XeenCharacter &,std::size_t slot,std::uint32_t gems,bool combat) noexcept;
 	static XeenSpellRange range(std::uint8_t) noexcept;
 	static XeenSpellTarget target(std::uint8_t) noexcept;
