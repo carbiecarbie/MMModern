@@ -854,6 +854,58 @@ read-only against the same identified DAT; the star branch is `0x2476e`.
 Derived bounds/identity are retained in the external Part B
 `quest-name-metadata.json`; original names remain loaded from the installation.
 
+## Other town services (2026-10-20)
+
+**DOS static, high confidence for the stated paths.** MMModern baseline
+`2632944256be55a830d82a35024c227e4ba692b0`, clean `main`; `origin/main`
+`093d5175aede27223e7b4097d27dbe97cc9f95a1`. The separate ScummVM checkout
+was clean at `6814ee9ba54582f5b5adcffab49efbbd8f589edd`. The original DAT
+matches the size/hash in [Exact baseline](#exact-baseline). Analysis used
+WSL Python 3 and Capstone 5.0.7; file offsets below use the mapping above.
+No game execution, original-data mutation, code change or tests were involved.
+Details, work copy and bounded disassemblies:
+`D:/MModern-re/m79-services-20261020/findings.md`.
+
+Calibration preceded the new conclusions. Temple selection
+`0x1c9f5..0x1cab3` reproduces the settled four surcharge rows. Its Clouds
+keys/targets are at **`0x1ce87..0x1ce96`**, not the previously cited
+`0x1d187`: the service code segment's file base is `0x1aa80`, and the
+table is at `CS:2407`. Tip `0x1b49e..0x1b525` confirms maps 28/30/49,
+bases 30/45/60 and the stored remainder after the byte increment. Rumors
+`0x1b626..0x1b6ad` confirms bases 0/10/20 plus `day%10`. Donation
+`0x1ae8f..0x1af73` confirms the modulo-ten visit counter and blessing latch;
+exit `0x1d78e..0x1d79c` adds 1,440 and calls the settled time routine.
+The original Event sites/facing/line are taken from the M79 plan, not rescanned.
+
+| Question | Original file offsets | Result and pin comparison |
+| --- | --- | --- |
+| Training | Clouds selector `0x1c8a7..0x1c8cb`; cap checks `0x1c8e6..0x1c935`; quote `0x1c935..0x1c95d`; payment `0x1ab7c..0x1abb2` | 28 -> 10, 30 -> 15, others -> 20; both cost paths use permanent level squared times ten. No map-dependent XP/cost factor. Pin `locations.cpp::TrainingLocation` agrees. |
+| Food | Selector `0x1b1ac..0x1b247`; text `0x1b248..0x1b28b`; Full/payment/assignment `0x1b2be..0x1b2e8`; action prologue `0x1ab24..0x1ab3a` | 28: 15/10/75; **30: 60/50/76**; 49: 120/100/77. Pin `TavernLocation::doOptions` uses 50/50/76 at 30. Full is unsigned `food >= target`. Untabled Clouds skips target/price/text-index assignments; no defined DOS text index is established. Pin's explicit 15/10/75 fallback remains **Reference only** for that unreachable path. |
+| Guild | Row table `[0x4d6e0,0x4d744)`, class tables `[0x4f8ae,0x4f926)`; row builder `0x343de..0x344ce`; all-class scan `0x342ff..0x343ce`; membership `0x1aa80..0x1ab15`; Buy/Info callers `0x1b7f3..0x1b84c` | All 100 row entries and 120 class-table entries match the pin (byte padding interpreted as signed where appropriate). Rows 0..4 for 28..32, ascending global IDs at 49, class filtering, learned filtering only for Buy, same catalogue for Info; awards 0..4 and 5. Pin `dialogs_spells.cpp`, `character.cpp` and `locations.cpp` agree. |
+| Ironworks | Map table `[0x4d6d0,0x4d6d8)`; two stock selectors `0x326c0..0x32701`, `0x32944..0x32985`; complete price routine `0x3c67d..0x3cc27` | First four table entries 28/30/73/49 select 0/1/2/3, else 0. Price routine uses item/action/Merchant, not the map. Pin `party.cpp::BlacksmithWares::getSlotIndex` agrees; existing DOS price corrections are unchanged. |
+| Temple 74 | Map-preserving visit setup/quote calls `0x1cee0..0x1cef4`, `0x1d4ae..0x1d4c3`, `0x1d5d3..0x1d5f2`; map read/switch miss `0x1ca30..0x1ca4d`; startup `0x5762..0x577d`; current-state Save `0xe951..0xe982`, Load `0xf03b..0xf069`; initialization buffers `0xd7d9..0xd7f7`, `0xd899..0xd8ab` | Price routine sees 74. Five process globals survive the miss and ordinary New/Load/Save/map changes; startup alone zeroes them outside the table assignments. They are absent from original saves. Pin constructs/destroys the location per visit and zeroes its members, so 74 always uses zero surcharges and zero Donation. |
+
+Temple globals are **DS-relative offsets**, not initialized file positions:
+`f64e` Donation, `f650` Uncurse, `f652` Eradicate, `f654` Resurrect,
+`f656` Heal. Startup sets DS to module segment `0x481d` and zeroes
+`[DS:8c4c,DS:fd78)`; all five lie inside that BSS interval. Direct-reference
+and address-taking sweeps across code, followed by instruction-boundary
+checks, identify no other price-global writer. Normal New/Load/Save and map
+paths use other buffers, not a whole-DS snapshot. Save writes `maze.pty`
+from `DS:ed8c` through the archive entry's length (writer
+`0x45e36..0x45eae`, DOS write at `0x45ea4`); Load reads its bounded file
+into the same pointer (`0xe035..0xe07b`, `0x3ff37..0x3ff58`, read
+`0x45f1c..0x45f43`). Party sizes `0x32c`/expanded `0x5fa` end at
+`DS:f0b8`/`DS:f386`, both below `f64e`; roster/name/map data use separate
+buffers. The existing Clouds/Darkside CUR directory entries corroborate
+those two sizes. No copy of the price globals into those buffers was found.
+These are static normal-path conclusions, not observations of DOSBox play
+or guarantees for corrupted files/memory.
+
+The price row is therefore process state, not save state: it starts at
+zero when the program starts, survives New Game and Load, and is never
+written to a save.
+
 ## Other playable-rules confirmations
 
 The same external report/index retains calibrated, independently checked reads

@@ -581,6 +581,42 @@ simulate all intervening days. DOS file offsets `0x2329c`, `0x21043`,
 jail observation. No invented daily rolls, merchant regeneration or bank
 interest belongs in this path. Temporary age and torch count survive.
 
+## Training
+
+**DOS static (2026-10-20), high confidence.** Clouds map 28 permits training
+to permanent level 10, map 30 to 15, and every other map to 20 (including
+Newcastle 73). The cap is the only map-dependent numeric Training rule.
+Both the displayed quote and payment use `10 * L * L`, with `L` the
+current permanent level; XP requirements and the level increase use the
+same character routines everywhere. The pinned `locations.cpp::TrainingLocation`
+agrees. Vertigo's existing cap 10 supplies the gameplay calibration.
+[Offsets and comparison](evidence.md#other-town-services-2026-10-20).
+
+## Tavern Food
+
+**DOS static (2026-10-20), high confidence for the tabled Clouds maps.**
+The offer fills food to the listed amount times the active-party count,
+without filtering disabled or terminal members. The price is for the whole
+refill, not per member or missing ration. Text indices address `tavern.bin`.
+
+| Clouds map | Food per active member | Gold | Offer text index | Pin 6814ee9b |
+| --- | --- | --- | --- | --- |
+| 28 Vertigo | 15 | 10 | 75 | Same |
+| 30 Rivercity | 60 | 50 | 76 | 50 / 50 / 76 |
+| 49 Shangri-La | 120 | 100 | 77 | Same |
+
+After Yes, compare the unsigned food word with the target: `food >= target`
+shows Full without payment. Otherwise, successful payment replaces food
+with the target; it does not add that amount. The pin agrees on this test
+and settlement.
+
+On an untabled Clouds map (29, 31, 32, 73, 74 or any other), DOS skips all
+three offer assignments: the target and price globals retain their prior
+values, and the automatic text selector has not been initialized on this
+path. **Reference only** for a usable fallback: the pin explicitly supplies
+15 / 10 / 75, but an exact DOS text index is not established. No original
+Clouds Tavern uses this path. [Evidence and limits](evidence.md#other-town-services-2026-10-20).
+
 ## Temple Heal price
 
 **DOS static (2026-10-16), high confidence.** Price routine
@@ -598,20 +634,53 @@ tests. `L` is the permanent plus temporary level byte, never negative
 
 Cursed and cursed items enter only the Uncurse price (`20*L + uncurse
 surcharge`, `0x1cc22..0x1cce4`). Surcharges come from the current map
-(`0x1c9f5..0x1cab3`; Clouds switch table at file offset `0x1d187`):
+(`0x1c9f5..0x1cab3`; Clouds switch table at file offset `0x1ce87`,
+corrected by the 2026-10-20 calibration):
 
-| Temple | Heal | Resurrect | Eradicate | Uncurse | Donation |
+| Price selector | Heal | Resurrect | Eradicate | Uncurse | Donation |
 | --- | --- | --- | --- | --- | --- |
 | Clouds 28 (Vertigo), Darkside 29 | 0 | 0 | 0 | 0 | 10 |
 | Clouds 30, Darkside 31 | 10 | 50 | 500 | 100 | 25 |
 | Clouds 73, Darkside 37 | 20 | 100 | 1000 | 200 | 50 |
 | Clouds 49, any other Darkside map | 100 | 500 | 5000 | 300 | 100 |
 
-A Clouds map outside the table keeps the previous temple's values in DOS;
-MMModern refuses to price it. Donation is 0 after this visit's blessing
+Clouds temples are on maps **28, 30, 49 and 74**; map 73 is a price-table
+case, not an original Temple site. Map 74 reaches the routine with
+`DS:ed99 = 74` and misses every case. **DOS static (2026-10-20), high
+confidence:** it keeps five process globals: `DS:f656` Heal, `f654`
+Resurrect, `f652` Eradicate, `f650` Uncurse and `f64e` Donation. Entry resets
+quotes and the visit blessing latch, not these globals.
+
+At map 74 the selected member pays the formulas above with the last
+assigned surcharges; Donation uses the last fixed price:
+
+| Last Temple visited in this process | Heal surcharge | Resurrect surcharge (each Dead/Stoned term) | Eradicate surcharge | Uncurse surcharge | Donation |
+| --- | --- | --- | --- | --- | --- |
+| None since program start | 0 | 0 | 0 | 0 | 0 |
+| Clouds 28 | 0 | 0 | 0 | 0 | 10 |
+| Clouds 30 | 10 | 50 | 500 | 100 | 25 |
+| Clouds 49 | 100 | 500 | 5000 | 300 | 100 |
+
+Another visit to 74 preserves the same row. The same assignments occur at
+Darkside 29, 31, 37 and other Darkside maps, respectively selecting the
+zero/low/middle/high rows of the first table. With no previous assignment,
+Heal and Uncurse still charge their base formulas; a zero Donation quote
+does nothing, as the Donation action refuses a zero quote.
+
+Startup zeroes all five. Normal New Game, Load, Save, map changes and other
+locations do not reset or write them. They are **absent from the original
+save**. A fresh process followed by New or Load and no Temple visit gives
+the zero row; a Load or New inside a process that already visited a Temple
+retains that process's row, even if the loaded party visited a different
+Temple when saved. The pin instead constructs a new `TempleLocation` for
+each visit and initializes its corresponding members to zero: map 74 always
+gets the zero row there. This corrects the previous claim of equivalent
+carry-over. [Evidence and save bounds](evidence.md#other-town-services-2026-10-20).
+
+Donation is 0 after this visit's blessing
 latch is set (byte at `0x47ad:0`), independently of an existing party
-Blessed effect. The pinned reference agrees except for the signed HP
-comparison and the full-width Eradicated product; see
+Blessed effect. On the tabled maps the pinned reference agrees except for
+the signed HP comparison and the full-width Eradicated product; see
 [original quirks](../original-quirks.md). Worked examples: level 3 at HP -15,
 Unconscious and Dead 1 at Vertigo costs `30 + 350 = 380`; the same character
 at HP 0 costs 410. Implementation: `xeenTempleSurcharges` and

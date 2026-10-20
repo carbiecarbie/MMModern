@@ -211,6 +211,17 @@ Most of the scripts concerned are in areas MMModern has not opened yet.
 
 ## Services
 
+- **Rivercity Food** fills to 60 rations per active member for 50 gold in DOS;
+  the pin fills to 50, with the same offer text.
+  [Evidence](original-quirks.md#sv-rivercity-food). Pin: differs; master not rechecked.
+- **Newcastle's Temple prices** retain the last Temple's surcharges and
+  Donation price in the DOS process, even across New Game or Load; a fresh
+  process starts with all five zero. The pin resets them on every visit.
+  [Evidence](original-quirks.md#sv-temple-map74-carry). Pin: differs; master not rechecked.
+- **Food on an untabled Clouds map** skips the offer assignments in DOS;
+  the pin assigns 15 rations per member for 10 gold and text 75. No original
+  Clouds Tavern uses this path, and its exact DOS text is not established.
+  [Evidence](original-quirks.md#sv-untabled-food). Pin: differs in control flow; master not rechecked.
 - **Tavern tips cycle through the original list.** DOS advances the map's
   index modulo 15 on Clouds; the pin divides and repeats the early tips.
   The original also selects the proper tip group for Clouds town 30.

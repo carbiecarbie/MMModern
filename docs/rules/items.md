@@ -121,6 +121,22 @@ arbitrary arithmetic overflow. Table addresses: weapon `0x4fa2e`, armor
 `0x4fa74`, accessory `0x4fa90`, container `0x4faa6`, power `0x4fb7c`,
 attribute bonus `0x4f9e6`; action divisors at `0x4d880`.
 
+## Ironworks stock by map
+
+**DOS static (2026-10-20), high confidence.** Clouds stock selection scans
+the four entries of `BLACKSMITH_MAP_IDS`: map 28 -> shop 0, 30 -> shop 1,
+73 -> shop 2, 49 -> shop 3. Any other map (including 29, 31, 32 and 74)
+falls back to shop 0. The same selection is used when copying stock into
+the merchant's temporary character and when writing it back.
+
+Buy, Sell, Identify and Fix use the shared price routine above, with no map
+factor. The map changes the available item records, not the price of an
+identical record with identical action and Merchant skill. Pinned
+`party.cpp::BlacksmithWares::getSlotIndex` and
+`dialogs/dialogs_items.cpp::calcItemCost` agree on map selection and price
+independence; the previously documented attribute-material discrepancy
+still applies. [Offsets](evidence.md#other-town-services-2026-10-20).
+
 ## Buying, selling, identifying and repairing
 
 **Evidence: Reference only** for transaction sequencing and refusals unless

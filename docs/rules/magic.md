@@ -88,6 +88,35 @@ The cost and refund routines index these tables at `0x2f2de..0x2f2e9` and
 | 36 | Incinerate | 35 | 10 | 74 | Walk on Water | 7 | 0 |
 | 37 | Inferno | 75 | 10 | 75 | Wizard Eye | 5 | 2 |
 
+## Clouds Guild catalogues and membership
+
+**DOS static (2026-10-20), high confidence.** The 100 catalogue entries
+match pinned `CLOUDS_GUILD_SPELLS`; the three 40-entry class tables match
+`SPELLS_ALLOWED`. These establish catalogue identity and ordering, not
+every Guild pricing or book-storage rule.
+
+| Map | Catalogue source | Membership award |
+| --- | --- | --- |
+| 28 Vertigo | `CLOUDS_GUILD_SPELLS[0]` | 0 |
+| 29 Nightshadow | Row 1 | 1 |
+| 30 Rivercity | Row 2 | 2 |
+| 31 Asp | Row 3 | 3 |
+| 32 Winterkill | Row 4 | 4 |
+| 49 Shangri-La | All global spell IDs 0..75 allowed by the selected class | 5 |
+
+For maps 28..32, visit the row's 20 entries in stored order and keep only
+spells in that class book; unmatched padding is skipped. Shangri-La scans
+global IDs in ascending order and keeps the class's spells. Buy omits
+already learned spells. Spell Info uses the same source and order, including
+learned spells (mode `0x80`); it does not list only the member's learned book.
+Both actions require the selected member's membership award. Other Clouds
+maps have no original Guild; DOS/pin membership arithmetic remains `map-28`,
+but the catalogue is not a verified fallback outside the rows above.
+
+Pinned `dialogs/dialogs_spells.cpp::setSpellText`,
+`character.cpp::guildMember` and `locations.cpp::GuildLocation::doOptions`
+agree. [Offsets and table comparison](evidence.md#other-town-services-2026-10-20).
+
 ## Admission, targeting and cancellation
 
 **Evidence: Reference only**, except the explicitly marked DOS corrections.
