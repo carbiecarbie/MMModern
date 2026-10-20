@@ -1,6 +1,6 @@
 # Milestone 81 plan - Monster treasure
 
-**Tier A. Status: planned (not started)**
+**Tier A. Status: Part 0 completed and accepted (2026-10-20); Part A not started**
 Roadmap [step 11](roadmap.md#next-arc-finishing-the-games-systems).
 Baseline: clean `main`, `b137201651bce60b0b4b8bcd2edd57150558d8c1`, equal to `origin/main`.
 
@@ -60,14 +60,14 @@ Original `DARK.CC/xeen.mon` inventory (90 records; full table: `build-rel/m81-cl
 
 | Rule | Evidence and decision |
 | --- | --- |
-| Per-monster inputs | **Reference only** interpretation, verified original-resource inventory above: 60-byte record, gold LE16 at 42, gems at 44, drop at 45. Orc reads 10 gold/0 gems/level 1. Use the record, never a species-specific runtime table; Part 0 calibrates these fields in DOS. |
-| Chance and level | **Reference only** thresholds: field 0 skips the chance draw; 1/2/3 give 10/20/50%; 4/5/6 give 100%; 7-21 consume a chance draw but never generate. **DOS-confirmed** field `+0x2d` supplies both chance selection and makeItem level (`0x2c36c..0x2c3ec`); thresholds need Part 0 calibration. |
-| Currency and Arena | **Reference only:** outside map 85 stage each killed monster's fixed gold/gems before item generation; inside 85 skip ordinary treasure and its draws. No random currency roll. Check DOS accumulator widths and overflow in Part 0. |
+| Per-monster inputs | **DOS-confirmed, calibrated static:** 60-byte stride; gold LE16 at 42 (`0x2c2be`), gems at 44 (`0x2c2fc`), drop at 45 (`0x2c36c`). All 90 original records match the planning CSV; Orc is 10 gold/0 gems/field 1. Use the resource record. |
+| Chance and level | **DOS-confirmed, calibrated static:** field 0 skips the draw; 1/2/3 have thresholds 10/20/50; 4/5/6 have 100 and still draw; Lookup at `0x4d650`, gate `0x2c373..0x2c39a`, same field passed as level at `0x2c3e2..0x2c3ec`. No Clouds record uses 7-21; the unbounded DOS lookup reads 0 for 7-17 and 5/4/5/5 for 18-21, so MMModern refuses such a record as malformed. [Boundary](rules/evidence.md#m81-monster-treasure). |
+| Currency and Arena | **DOS-confirmed, calibrated static:** map 85 branches past ordinary currency/generation at `0x2c283..0x2c28a`, after XP. Otherwise fixed gold/gems accumulate before chance in two 32-bit fields (`0x2c2be..0x2c307`); purse credit is also 32-bit (`0x2486a..0x24884`). MMModern keeps these widths. |
 | Categories and generation | **DOS-confirmed:** reuse `XeenItemCandidate` unchanged; all four categories from level 2, but ordinary level 6 cannot select Misc. Preserve material/effectiveness tables and Misc charges 3-10; see [generation rules](rules/items.md#generation-and-reward-delivery). |
-| Staging | **DOS-confirmed** category dispatch at `0x2c402/0x2c457/0x2c4a6/0x2c4f5`: separate arrays, first empty category slot; generate before testing capacity. **Reference only** complete four-by-ten bound pending Part 0 loop checks. Keep the DOS Misc branch, not the pin's accessory-copy bug. |
+| Staging | **DOS-confirmed, calibrated static:** four separate ten-slot arrays, first empty slot; all loop bounds checked at `0x2c44e/0x2c49d/0x2c4ed/0x2c53c`. Generate before capacity; a full category loses the new item with all draws consumed. Set hasItems only on insertion. Keep the DOS Misc branch, not the pin's accessory-copy bug. |
 | Delivery | **DOS-confirmed:** category/slot order, no preferred monster recipient; unrestricted capacity fallback includes disabled/dead members. Category-only fullness replaces member zero's final slot, preserving frame. Global fullness discards remaining ordinary items but still credits currency. [Evidence](rules/evidence.md#treasure-delivery). |
 | Presentation | **DOS-confirmed:** clear entry input; transfer before one-tick blank hold, sort before ten-tick found hold, then separate final acknowledgment credits currency. Keyboard/either mouse may interrupt a hold without acknowledging the final page. [Quirk](original-quirks.md#sv-treasure-waits). |
-| Run, saving and deferred loot | **Reference only:** full-party Run clears currency/hasItems but leaves item arrays; reference load resets treasure. **Unknown:** DOS save availability and reload result with deferred/dormant loot or an open receipt; Part 0 settles them and MMModern follows DOS (maintainer, 2026-10-20). |
+| Run, saving and deferred loot | **DOS-confirmed, calibrated static:** full-party Run clears currency/hasItems, retaining arrays (`0x2e928..0x2e949`). Normal Save checks combat and map restrictions, not loot (`0x1f1cb..0x1f1e6`, `0x1ebcf`); synchronous delivery cannot dispatch Save. The save excludes all pending loot. In-process Load clears currency/hasItems but retains the current live arrays as dormant items (`0xb819..0xb839`, `0xcfe3..0xcff7`); a fresh process cannot recover them. This differs from the pin's full reset. [Evidence and save consequence](rules/evidence.md#m81-monster-treasure). |
 
 **DOS-confirmed RNG contract:** after a successful chance draw, category d100,
 subcategory d100 (d80 at level 6), optional base-ID draw, enchantment d100,
@@ -86,27 +86,26 @@ before the next; capacity loss never refunds RNG. Counts exclude attack/resistan
   state prevents duplicate rewards; combat retains damage/death order, party retains
   treasure, Flow retains display. No new owner, per-route gate or second generator.
 - Use a category value throughout monster staging, receipts and inventory
-  publication; four ten-slot arrays and up to forty delivery records. Remove
-  the twelve-Orc source/mask assumption. Canonical contributions keyed by full
-  map/record identity retain owed currency and item provenance, bounded by retained
-  map records rather than twelve kills. Shared item validation covers higher materials/powers.
-- **Layout really changes: v16 -> v17; schema 9 and content 14 stay unchanged.**
-  Save four category arrays, pending gems as well as gold, contribution identities
-  and Part 0's readiness/dormancy state, with purse, items, defeated/accounted actors
-  and Journey RNG. Remove mask/popcount validation; canonicalize identities and
-  validate totals, extents and references. Per-source contribution identities go
-  beyond the original's shape (four arrays, gold, gems): Part A keeps them only if
-  defeated/accounted actor state cannot prevent duplicates or prune sources, and
-  states why; otherwise the save holds the original shape.
-  Update source pruning and beyond-MOB-count cleanup for actual contributions.
-- Part 0 establishes legal save boundaries and DOS pending-loot persistence.
-  **Follow DOS** (maintainer, 2026-10-20): if a DOS reload discards deferred or
-  dormant loot, MMModern does not save it either; exact restoration covers what
-  the save holds, not more than DOS keeps. Part 0's result may therefore remove
-  pending loot from the v17 layout; amend this plan before Part A. Add no receipt cursor speculatively: if DOS permits
-  saving during delivery, amend this plan for exact transferred-prefix/cursor state.
-  Restore never replays generation, rewards, time or RNG; recapture must be byte-exact.
-  No legacy reader: v16/earlier return `XeenUnsupportedSave::Older`; protect newer/unknown files.
+  publication; four ten-slot arrays and up to forty delivery records, with pending
+  gold and gems as 32-bit sums. Remove the twelve-Orc source/mask assumption and
+  per-source provenance: the DOS arrays carry no contributor identity, and World
+  defeated/accounted state already prevents duplicate rewards. Shared item
+  validation covers higher materials/powers; drop fields above 6 refuse the record.
+- **Layout changes: v16 -> v17; schema 9 and content 14 stay unchanged.**
+  Pending loot leaves the save, as DOS writes none (Part 0): no staged arrays,
+  pending gold/gems, readiness or contributor fields. The save keeps purse,
+  inventory, defeated/accounted actors and Journey RNG. Restore never replays
+  generation, rewards, time or RNG; recapture must be byte-exact. No legacy
+  reader: v16/earlier return `XeenUnsupportedSave::Older`; protect newer/unknown files.
+- **Pending loot is running-program state** (follow DOS, maintainer 2026-10-20;
+  [quirk](original-quirks.md#sv-loot-load-process-state)). Save keeps its ordinary
+  combat and map guards and no loot guard; an open receipt cannot reach Save, so
+  there is no receipt cursor. Loading a game in the running program clears pending
+  gold, gems and readiness but keeps the staged arrays as dormant items, which the
+  next drop delivers with its own; a program start begins empty. New Game does the
+same as Load: it clears currency and readiness and keeps the arrays.
+  Like Newcastle Level 2's Temple prices (M79), this state lives with the party
+  owner for the program's lifetime, outside the save.
 - Keep original screens/names for accessories and Misc, automatic interruptible
   timed pages, initial full-pack warning and a separate final acknowledgment.
   Currency-only/mixed rewards credit once. The DOS weapon-ID-34 full-pack exception
@@ -118,9 +117,9 @@ Each part takes one fresh session; amend if scope changes. Start only after plan
 
 | Part | Work and acceptance |
 | --- | --- |
-| 0 - evidence | Read-only inventory of every Clouds monster's ID/name/gold/gems/drop field; validate against Orc and guaranteed-drop records. In DOSBox check a higher-level/accessory drop, mixed currency, full packs, Run then another fight, and saving/reloading deferred loot. Calibrate `WORLD/XEEN.DAT` analysis against the established Orc/generator and delivery offsets; trace chance table, all staging loops, accumulator widths, Arena exclusion and Run/save/load. Record confidence/file offsets and settled rules in `rules/`/`original-quirks.md`; add tagged differences where needed. Accept only with an explicit rule table and resolved blockers; tables/logs stay under build/scratch, original bytes/decompilation outside the repository. |
-| A - state and save | Generalize party treasure, category receipts, canonical contributors and validation; implement v17 encoder/decoder/rejection and exact generic round-trip. Retain old production eligibility until B. Acceptance: four categories, >12 sources, higher item fields, pending gold/gems and dormant state round-trip; malformed references/counts/old versions reject clearly; existing delivery remains coherent. |
-| B - production and presentation | Generic record-driven drops/currency in melee, arrows, exploration and group spells; map-85 exclusion; all four category transfers/screens and page acknowledgments. Acceptance: original-data kills produce real levels 1-6, accessories and mixed currency; capacity loss preserves draws, Run follows Part 0, repeated input/reload cannot duplicate rewards. Lord Xeen's death reward stays out (step 14). |
+| 0 - evidence | **Completed and accepted 2026-10-20.** Calibrated static analysis of `WORLD/XEEN.DAT`, no DOSBox play (maintainer decision): all 90 monster records, chance table, staging loops, currency widths, Arena, Run, Save, Load and New Game. Rules in [evidence](rules/evidence.md#m81-monster-treasure) and [quirks](original-quirks.md#sv-loot-load-process-state). |
+| A - state and save | Generalize party treasure to four category arrays held as running-program state, category receipts and validation; remove the twelve-source mask and the pending-loot save fields; implement v17 encoder/decoder/rejection and the exact generic round-trip; implement Load, New Game and program start as decided above. Retain old production eligibility until B. Acceptance: four categories, higher item fields and more than twelve staged kills; the v17 file holds no pending loot; Load in the running program keeps the arrays and clears currency/readiness; New Game does the same; a fresh program starts empty; malformed records and old versions reject clearly; existing delivery remains coherent. |
+| B - production and presentation | Generic record-driven drops/currency in melee, arrows, exploration and group spells; map-85 exclusion; all four category transfers/screens and page acknowledgments. Acceptance: original-data kills produce real levels 1-6, accessories and mixed currency; capacity loss preserves draws, Run and Load leave dormant items that the next drop delivers, repeated input/reload cannot duplicate rewards. Lord Xeen's death reward stays out (step 14). |
 | C - validation and closure | Update census admission and regenerate [coverage](coverage.md) with `mmodern_census`; fix stale rules evidence labels/witness note. Audit M44 digests, complete scheduled independent implementation review and suite, then maintainer play-test across higher-level drops, accessories, full packs and save/load. Accept only after explicit maintainer acceptance; update status/roadmap/history and condense this plan at closure. |
 
 ## Tests and validation
@@ -128,15 +127,19 @@ Each part takes one fresh session; amend if scope changes. Start only after plan
 - Extend `XeenConsequenceRulesTests`/generation tests with independent tapes: zero/no
   draw; threshold boundaries; levels 1-6/zero-chance fields; four categories;
   exact draw order/count and suspended draws;
-  ten-slot overflow, >12 contributors, 40-item delivery and mixed currency.
+  ten-slot overflow, >12 staged kills, 40-item delivery, mixed currency and
+  refused drop fields above 6.
 - Extend the existing Orc gameplay witness with a few original-data higher-level
   kills covering accessories, guaranteed drops, gems and multi-target order;
   table/unit tests cover all species/levels without a process witness per feature.
   Exercise Arrow/spell/melee, Arena suppression, recipient fallback and stale input;
   global/category-only full packs, including filling midway: preserve the transferred
   prefix, discard remaining items and credit currency once after final acknowledgment.
-- Extend the generic `XeenSaveStateTests` round-trip and format rejection tests;
-  compare items, provenance, currency, accounting, time/RNG at legal pending/dormant boundaries.
+- Extend the generic `XeenSaveStateTests` round-trip and format rejection tests:
+  a save taken with loot pending or dormant holds none of it and restores purse,
+  inventory, accounting, time and RNG exactly. Add rules tests for the running
+  program: Load and New Game keep dormant arrays and clear currency/readiness,
+  and a fresh start is empty.
 - All four pre-M44 baseline scenario **digests must change**: they hash raw saves,
   so v17 changes bytes even without gameplay changes. New non-Orc draws/rewards may
   change routes/items/currency. Preserve the baseline build before implementation;
@@ -152,9 +155,10 @@ Each part takes one fresh session; amend if scope changes. Start only after plan
 1. **Special boss scope (decided 2026-10-20):** Lord Xeen's fixed Scepter and
    quest-item 8 increment, a death hook in the pin outside the ordinary drop
    field, move to roadmap step 14 with the ending.
-2. **Save fidelity (decided 2026-10-20):** pending loot across save/load follows
-   DOS, as Part 0 establishes it; this is not a deviation. Do not silently widen
-   save eligibility. Any other unverifiable original rule still stops for the maintainer.
-3. **Technical risks:** twelve-source assumptions affect restores, snapshots, receipts/tests;
-   uint32 purse totals do not prove DOS accumulator width. Audit those boundaries and
-   ghost-source cleanup. Explain downstream RNG/combat/M44 changes; never freeze old loot.
+2. **Save fidelity (decided 2026-10-20, settled by Part 0):** pending loot follows
+   DOS: never saved, kept across Load in the running program. This is not a
+   deviation. Any other unverifiable original rule still stops for the maintainer.
+3. **Technical risks:** twelve-source assumptions affect restores, snapshots,
+   receipts and tests. Items from one game reaching another after Load are
+   intended, as in DOS; tests must not treat them as a leak, and restore guards
+   must not reject them. Explain downstream RNG/combat/M44 changes; never freeze old loot.

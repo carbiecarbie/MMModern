@@ -151,6 +151,12 @@ mainland; many items apply there, others wait for areas not open yet.
 
 ## Items and treasure
 
+- **Loading leaves dormant loot in the running DOS process.** Pending loot is
+  absent from DOS saves. Loading clears its currency/readiness but retains the
+  current staged items, even if acquired after that save; a fresh launch starts
+  empty. The pin clears all staged items on Load.
+  [Evidence](original-quirks.md#sv-loot-load-process-state). Pin: differs; master
+  not rechecked. Not implemented yet.
 - **Miscellaneous monster drops.** A monster can drop a miscellaneous item,
   such as a wand, in the original; ScummVM stages a copy of an accessory slot
   instead and loses it. [Evidence](original-quirks.md#sv-misc-monster-loot). Master: differs.

@@ -781,7 +781,9 @@ treasure in its own category. The pinned `Combat::attack2` Misc case instead
 copies the temporary character's accessory record into staged accessories.
 **Implemented (M61 Part C):** MMModern stages Misc in its own ten-slot array
 and delivers it with the existing shared rules, preserving the generation draws
-and their order. Pending Misc is retained in the save. Part D implements the separately traced delivery rules below.
+and their order. Current MMModern retains pending Misc in the save; the
+[M81 DOS trace](#m81-monster-treasure) establishes a different file/process
+boundary. Part D implements the separately traced delivery rules below.
 
 The original attack/death routine starts at `0x2bdf8`. Its generation-result
 dispatch is at `0x2c3f1..0x2c401`. The table at `0x2c592` uses code-segment
@@ -809,6 +811,96 @@ the meaning of the fields and excludes an accessory/Misc labeling mistake.
 The conclusion is deliberately about **generation and staging**. It does not
 prove full-pack delivery, recipient eligibility, overflow handling or every
 monster's resource-defined drop chance in DOS. Those require separate traces; delivery is now covered below.
+
+## M81 monster treasure
+
+**2026-10-20; DOS-confirmed by calibrated static analysis, high confidence,
+within the bounds below.** MMModern baseline `29f5b308568678f9f891476e9acec9ac3c72aab5`;
+same installed DAT hash as [Exact baseline](#exact-baseline). No DOSBox execution.
+REA identified the input/hash, but its new load-image query timed out; it supplies
+no new successful image-verification record. A read-only, no-analysis query of the
+existing Ghidra project independently matched the hash, 16-bit language, drop
+field loads `0x2c36c/0x2c370`, delivery entry/return `0x24128/0x248f2`, currency
+operands, Save map guard and play-entry reset. Ghidra has no defined instruction
+at the four staging entries; bounded Capstone decoding and the actual dispatch
+table, rather than inferred Ghidra function bodies, establish those loops.
+The cited ScummVM files match pinned Git blobs after CRLF normalization;
+the external checkout's unrelated dirty files are not used as authority.
+Original instructions/projects stay in `D:\MModern-re\m81-part0\`;
+derived inventories and lookup tables stay in `build-rel/m81-part0/`.
+
+**Resource calibration.** Installed `DARK.CC`: 11,217,676 bytes,
+SHA-256 `7cbaffab761e54c3f31a994ce25a6795f92dbc696181a5c74cc318bba688bf0e`.
+The decrypted CC index has 1,171 entries; resource `xeen.mon` (ID `0xc5d8`)
+starts at archive offset 5,516,454 and has 5,400 decoded bytes, SHA-256
+`fd04e2408a444cb9ff8b3f5f16badfc6733bc3d973e56c3275edfa787daef52b`.
+All 90 sixty-byte records match the planning CSV's ID/name/gold/gems/drop.
+Orc #6 is 10/0/1. Guaranteed-drop IDs are 43, 45, 50, 76, 80 (field 4),
+82, 84, 85 (5), and 87 Darzog (6, 0 gold/50 gems). There are no mismatches.
+The death routine's stride 60, gold word at `+0x2a`, gem byte at `+0x2c`
+and drop byte at `+0x2d` calibrate the interpretation, not just the CSV.
+
+| Rule | Result, file offsets and evidence boundary |
+| --- | --- |
+| Chance | Field zero branches past the random call (`0x2c373..0x2c377`). Every nonzero field, including 4-6, draws inclusive `R(1,100)` (`0x2c38b..0x2c394`), then accepts draw <= unsigned-byte threshold (`0x2c398..0x2c39a`; zero-extension makes the signed comparison harmless). Same drop byte supplies generation level (`0x2c3e2..0x2c3ec`). **DOS static, high confidence.** |
+| Complete lookup boundary | Lookup base is file `0x4d650` (module `47f9:0000`), indexed by field minus one without a bound. Fields 1/2/3 read 10/20/50; 4/5/6 read 100; 7-17 read 0; 18/19/20/21 read 5/4/5/5 at `0x4d661..0x4d664`. The last four contradict the pin's zeros. These are exact memory-lookup observations, not evidence that generating at those levels is safe or reachable. No Clouds resource uses 7-21. |
+| Capacity | Weapon/armor/accessory/Misc entry `0x2c402/0x2c457/0x2c4a6/0x2c4f5`; each starts at index 0, advances four-byte slots and stops at index 10 (`0x2c44e..0x2c452`, `0x2c49d..0x2c4a1`, `0x2c4ed..0x2c4f1`, `0x2c53c..0x2c540`). Equipment tests ID, Misc tests container. First empty slot receives three payload bytes; frame is untouched. All full paths exit without insertion or setting hasItems. Generation already completed at `0x2c3e7`; no retry/refund. **DOS static, high confidence.** |
+| Currency | Gold word load `0x2c2be`, add/carry to DS:`9a16/9a18` at `0x2c2c2..0x2c2c6`; gem byte zero-extension and add/carry to `9a12/9a14` at `0x2c2fc..0x2c307`. Both are 32-bit accumulators, updated before chance, without currency draws or caps. Final acknowledgment adds them to 32-bit purse gold `f00a/f00c` and gems `f00e/f010` (`0x2486a..0x24884`), then clears them. **DOS static, high confidence for ordinary sums and widths.** |
+| Overflow boundary | The instruction pairs discard carry beyond 32 bits; hardware arithmetic would wrap modulo 2^32. Ordinary-play reachability of staged or purse overflow is not established. The pin's treasure fields are signed `int`, purse fields unsigned `uint`, with no explicit overflow policy. |
+| Arena | Map byte DS:`ed99` == 85 branches from `0x2c283..0x2c28a` to death cleanup `0x2c542`, after XP and before gold, gems and chance. It skips all ordinary treasure draws, not attack/XP or Arena generation. **DOS static, high confidence.** |
+| Run | After Run/next-character, interactive-mode test `0x2e928..0x2e92f` admits full-party escape. `0x2e932..0x2e946` clears both currency pairs and hasItems only, then moves to the run position (`0x2e949`). Four item arrays survive, dormant until a later readiness/currency trigger; they occupy capacity meanwhile. **DOS static, high confidence; agrees with pin.** |
+
+### Save and load boundary
+
+**DOS static, high confidence.** Normal control-panel Save checks the combat
+guard and displays the combat refusal (`0x1f1cb..0x1f1e6`); the called Save
+routine checks maze restriction `0x8000` (`0x1ebcf..0x1ebf5`). Neither checks
+pending currency, hasItems or item arrays. Thus deferred or dormant loot adds no
+Save restriction where the ordinary guards permit it. Ready loot normally
+delivers before the exploration input dispatch (`0xd1b7`); enemy-slot checks can
+defer it (`0x24158` onward). This does not authorize saving in combat.
+
+An open receipt is synchronous. Entry, timed holds, final input and return
+remain within `0x24128..0x248f2`; the input poll `0xe0a3..0xe2cb` returns
+keys/buttons to that caller and does not dispatch the control panel. Escape/Save
+input cannot open Save during delivery. No transferred-prefix/receipt cursor is
+saved; already transferred items are ordinary character inventory.
+
+The Save routine preserves live party bytes across its roster preparation
+(`0x1ec2f..0x1ec8f`), copies characters, flushes maze data (`0x1ed29`) and
+calls the save snapshot (`0x1ed2e`). Snapshot `0xe951..0xe982` writes only
+`maze.nam` from DS:`96c5` (31 bytes), `maze.chr` from the roster allocation
+(10,620 bytes), and `maze.pty` from DS:`ed8c` (1,530 bytes). Archive writer
+`0x45e36..0x45eae` obtains each member's size from its CC index, then writes
+that source range. Load and slot inspection independently expose these sizes
+(`0xf013..0xf069`, `0xf0e9..0xf13d`); the party-copy size is also explicit
+at `0x1ec37`. None includes staging DS:`9970..9a19`. Ordinary purse and
+character inventory are saved; staged currency, flag and forty items are not.
+
+**Load does not reset everything.** Selected Load returns through
+`0x1f18e`, `0xd2fa..0xd305` and the outer loop `0xb819..0xb839`.
+Resource/roster reload `0x392f7..0x394c8` / `0xf013..0xf076` replaces the
+saved ranges and characters; its clears (`0x39390`, `0x393b6`, `0x39c37`)
+are other buffers. Play entry `0xcfe3..0xcff7` zeros pending currency and
+hasItems, **not the four arrays**. Consequently an in-process Load retains
+whatever items are currently staged, as dormant process state. It neither
+recovers items present at the time of Save nor clears items staged afterward.
+A fresh process starts those arrays empty: startup `0x576c..0x577c` zeroes
+DS:`[8c4c,fd78)`, including every treasure field. It cannot recover them from a save.
+The pin's `SavesManager::loadGameState -> Treasure::reset` instead clears all
+four arrays. [Quirk](../original-quirks.md#sv-loot-load-process-state).
+
+**New Game keeps them too (2026-10-20, DOS static, high confidence).** The
+title menu (`0xbcce..0xc766`, key table `0xc77c`) starts a game through the
+slot chooser `0x2042d`; its start branch `0x20a2b..0x20c43` loads the new
+party resources (`0x20bb0..0x20bea`), clears character items (`0x373e0`,
+DS:`eda8..f27c`) and writes the slot (`0xe938`), then play enters through the
+outer loop (`0xb829`) and the same play entry `0xcfe3..0xcff7`, which zeros
+currency and hasItems only. A sweep of every reference to the four array
+bases and of every memset and `rep stos` site finds no other writer on that
+path; the nearest clears end at `0x9970` (`0x3054d`) or start after `0x9a19`
+(`0x21d2f`). Calibrated against the startup, play-entry, Run and Load ranges
+above. Pinned `SavesManager::newGame` does not reset treasure either.
 
 ## Treasure delivery
 

@@ -585,16 +585,21 @@ chance and also supplies the generation level to `Character::makeItem`.
 **DOS static (2026-10-16), high confidence:** the drop field at monster-record
 `+0x2d` is loaded at `0x2c36c..0x2c370`, the chance comparison is at
 `0x2c38b..0x2c39a`, and the field is passed again at `0x2c3e2..0x2c3ec`
-to makeItem (far target `1b98:4c68`, file `0x25ca8`). The same calibrated
+to makeItem (far target `1b98:4c68`, file `0x25ca8`). **M81 Part 0, calibrated
+DOS static, high confidence:** map 85 skips currency and chance at
+`0x2c283..0x2c28a`; fixed gold/gems accumulate as 32-bit values before the
+item check (`0x2c2be..0x2c307`). Zero skips the draw; nonzero fields,
+including guaranteed fields 4-6, consume it. The same calibrated
 inclusive random helper supplies the chance and item draws. **Implemented
 (M71):** supported level-1 drops share `XeenItemCandidate` with shops and
 Events: category/subcategory `R(1,100)` and Misc charges `R(1,8)+2`.
 The existing 10% chance, source accounting, publication and delivery remain;
 higher-level drops and accessory staging remain unsupported (DOS stages
-accessories in their own array, `0x2c4a6`). Pending Misc charges 1-10 restore
-from a save without regenerating loot. A successful level-1
-drop is covered by unit draw tapes only; no gameplay test reaches item
-generation yet, and adding one needs an ordinary-gameplay route.
+accessories in their own array, `0x2c4a6`). The current implementation saves
+pending loot, Misc charges 1-10 included, and restores it without regenerating;
+DOS never writes pending loot into a save
+([load boundary](evidence.md#save-and-load-boundary)). Successful Orc melee and group-spell
+drops are covered by `XeenPartyInterfaceTests::originalMonsterDropReceipts`.
 
 | Item-drop field | Chance from one `R(1,100)` |
 | --- | --- |
@@ -602,11 +607,21 @@ generation yet, and adding one needs an ordinary-gameplay route.
 | 2 | 20% |
 | 3 | 50% |
 | 4, 5, 6 | 100% |
-| 7-21 | 0% (the chance draw still occurs) |
+| 7-21 | Unused by Clouds records; refused as malformed data |
+
+Fields 1-6 are **DOS-confirmed static**: lookup `0x4d650`, gate
+`0x2c373..0x2c39a`. No Clouds record uses 7-21; the DOS lookup has no bound
+(7-17 read 0, 18-21 read 5/4/5/5) and the pin uses 0, so neither establishes
+generation at those levels and MMModern refuses such a record. Staged and purse
+gold and gems are 32-bit sums, as in DOS.
+[Evidence](evidence.md#m81-monster-treasure).
 
 Generation precedes checking for an empty staged category slot, so generation
 RNG remains consumed if staging is full. Weapons, armor and accessories use the
-first empty slot of their own category. The pinned Misc branch incorrectly copies
+first empty slot of their own category. **M81 Part 0, DOS static high confidence:**
+all four arrays have ten four-byte slots; bounds are at
+`0x2c44e/0x2c49d/0x2c4ed/0x2c53c`. A full category discards the newly generated
+item without changing readiness or refunding draws. The pinned Misc branch incorrectly copies
 the temporary character's accessory slot into staged accessories, losing the
 actually generated Misc item.
 
@@ -626,6 +641,12 @@ remaining items but still credit gold/gems (`0x2433e..0x2437b`,
 `0x2486a..0x24884`). The check occurs before each slot. See
 [delivery evidence](evidence.md#treasure-delivery) for all category writes and
 the special sword/quest branches outside current ordinary reward content.
+
+**M81 Part 0, DOS static high confidence:** full-party Run clears staged gold,
+gems and hasItems at `0x2e932..0x2e946`, retaining all four item arrays. Their
+items remain dormant until a later currency/readiness trigger; they still occupy
+staging slots. Saving and in-process reload are distinct from persisting these
+items in a file; see [the full boundary](evidence.md#save-and-load-boundary).
 
 ### Lord Xeen and scripted death hooks
 

@@ -379,8 +379,11 @@ treasure container/power/state at `0x9970/0x9971/0x9972` relative to the data
 segment. The generator writes these fields and returns category 3. This rule
 is generic, not specific to the Orc witness or one map. **Implemented (M61
 Part C):** Misc monster drops use their own pending array and the existing
-shared delivery rules, preserving all generation draws. Pending Misc survives
-Run and save/load. Part D implements DOS delivery as follows.
+shared delivery rules, preserving all generation draws. Current MMModern saves
+pending Misc. DOS preserves it across Run and an in-process Load as dormant
+process state, but never writes it into the save; a fresh process cannot restore
+it; see [the calibrated persistence trace](evidence.md#m81-monster-treasure).
+Part D implements DOS delivery as follows.
 
 **DOS static, high confidence; implemented (M61 Part D):** Event rewards and
 monster loot share one delivery rule, in staged category/slot order. Global
@@ -409,6 +412,19 @@ Continue in category/slot order. Only the separate final acknowledgment credits
 currency and clears staged treasure; interrupting a timed hold does neither
 (`0x24128..0x248f2`, helper `0x264c5`). The full-pack modal/capacity rules above
 remain shared by Event and monster rewards.
+
+**DOS static (M81 Part 0), high confidence:** all four monster staging arrays
+have ten slots. Generation precedes every capacity check; a full category loses
+the new item without refunding any draws or changing readiness. Fixed gold and
+gems accumulate separately in 32-bit fields before the item-chance roll, then
+credit the 32-bit purse after final acknowledgment. Arena map 85 bypasses both
+currency and ordinary item draws. Full-party Run clears staged currency and
+hasItems, retaining the arrays. Ordinary Save restrictions do not inspect loot;
+the synchronous receipt cannot open Save. A save holds purse and received
+inventory, but excludes all pending loot. In-process Load clears currency and
+readiness while retaining the current arrays as dormant items, even when they
+were staged after Save. [Offsets and boundaries](evidence.md#m81-monster-treasure).
+Not implemented yet beyond the Orc's level-1 drops, which MMModern saves.
 
 Quest grants participate in this sequence after their quest count has already
 changed. Their display record must not grant the quest again or copy it into
