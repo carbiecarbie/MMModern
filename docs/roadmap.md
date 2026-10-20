@@ -120,7 +120,8 @@ to Vertigo.
     saved party, including Poison Volley shooting for the active party size
     (M74 assumes six).
 14. **Intros and the Clouds ending**: the Other Options intros and the ending
-    (`CutsceneEndClouds`) with its score.
+    (`CutsceneEndClouds`) with its score, and Lord Xeen's death reward (the
+    Scepter and its quest item, deferred from M81).
 
 ## Medium-term objective
 
