@@ -51,9 +51,14 @@ the work for the maintainer.
 - A Darkside key at a cross-side site keeps the "not supported yet"
   refusal: the World CD would load the Darkside map, and Clouds Events
   never grant those keys.
-- A short static follow-up (Part 0b) settles scene text and cadence; the
-  maintainer records a DOSBox capture of the Dwarf Mine and Sphinx scenes
-  as backup evidence.
+- Scenes show no captions, as the installed DOS default (Effects on) does;
+  the Effects-off captions wait for step 12 (audio) and its Efx button.
+- Loops without an explicit wait (Sphinx zoom, speech and retreat; the
+  Dwarf zooms; the Reaper and Golem retreats) run at the DOSBox-observed
+  two retraces per iteration (about 35 Hz); explicit BIOS-tick waits keep
+  their DOS values.
+- No "Please Wait..." box on map loads
+  ([approved deviation](original-quirks.md#dev-no-please-wait)).
 
 ## Tasks
 
@@ -63,12 +68,12 @@ the work for the maintainer.
       loop counts tied to speech; the Arena draws five species first and
       formats 21st/22nd/23rd (both unlike the reference); map 85 is never
       saved and resets on load.
-- [ ] **Part 0b - scene text and cadence (static, closed questions).** The
-      initial value and source of the two configuration bytes that gate
-      `special.bin` text, what the control panel's Speech and Text buttons
-      change, and the effective wait inside the Sphinx (and other
-      no-explicit-wait) loops. Unresolved items fall back to the
-      maintainer's DOSBox capture.
+- [x] **Part 0b - scene text and cadence**, with the maintainer's DOSBox
+      captures of the Dwarf Mine and the Sphinx refusal. The installed
+      default shows no captions; Speech and Text do not gate them; loops
+      without an explicit wait wait one retrace, observed as two; the
+      Reaper retreats on refusal and the Sphinx refusal draws indices 0..8
+      (both unlike the reference).
 - [ ] **Part A - entrance scenes.** One scene presenter driven by a
       per-scene data table (resources, frame tables, speech, destination
       rows from Part 0), not four copies; quest-item check and destination

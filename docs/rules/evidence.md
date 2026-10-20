@@ -1021,10 +1021,10 @@ words in the DAT, including both side rows: Reaper X1/Y1/X2/X3 at
 
 | Scene | Confirmed order and direct scene RNG calls | Timing evidence and reference comparison |
 | --- | --- | --- |
-| Reaper | Zoom indices 13..0, slide x=200 downward by 16 while nonnegative, speech over base frame 0 with random frame 0..4; keyed retreat uses indices 0..13. `0x2a92c..0x2aa84`, `0x2ab3a..0x2abaf`, `0x2ac05..0x2acb8`, `0x2ad6b..0x2ae0f`, `0x2ae48..0x2af92`. One random draw per iteration of each speech loop: `N1+N2`. | Zoom waits 1 BIOS tick (`0x2aa70..0x2aa78`); speech loops explicitly wait 2 (`0x2ac94..0x2ac9c`, `0x2adf5..0x2adfd`); inter-speech pause 7 (`0x2acfe..0x2ad06`). Reference speech uses `WAIT(1)`: different explicit pacing. |
+| Reaper | Zoom indices 13..0, slide x=200 downward by 16 while nonnegative, speech over base frame 0 with random frame 0..4; **keyless** retreat uses indices 0..13 (corrected by Part 0b). `0x2a92c..0x2aa84`, `0x2ab3a..0x2abaf`, `0x2ac05..0x2acb8`, `0x2ad6b..0x2ae0f`, `0x2ae48..0x2af92`. One random draw per iteration of each speech loop: `N1+N2`. | Zoom waits 1 BIOS tick (`0x2aa70..0x2aa78`); speech loops explicitly wait 2 (`0x2ac94..0x2ac9c`, `0x2adf5..0x2adfd`); inter-speech pause 7 (`0x2acfe..0x2ad06`). Reference speech uses `WAIT(1)`: different explicit pacing. |
 | Golem | Zoom 11..0; 13 slide iterations from -200 by +16. Slide draws Y `R(0,9)-5`, then X `slideX+R(0,9)-5`, with frame 2 over frames 0/1. Speech draws Y `R(0,9)-3`, then X `R(0,5)-3`, also frame 2. Direct total `26+2*(N1+N2)`. `0x29d46..0x29fac`, `0x2a114..0x2a17d`, `0x2a34f..0x2a3a3`. | Explicit 1-tick waits at `0x29e72`, `0x29f9f`, `0x2a154`, `0x2a384`; formulas and visible sequence agree with the reference. |
-| Dwarf | Zoom 12..0, second zoom 15..0, then frame `R(0,9)` over the second sprite's frame 0. Three speech phases when speech configuration permits, otherwise the phase loop exits early. Direct total is the sum of executed speech-loop iterations. `0x2b2e3..0x2b530`, `0x2b533..0x2b6aa`; RNG `0x2b634`. | Speech waits 2 ticks (`0x2b65a..0x2b662`), unlike reference `WAIT(1)`. Phase loop also checks elapsed 3 ticks (`0x2b68e..0x2b696`). |
-| Sphinx | Zoom 8..0; frames 0/1 plus `R(2,10)` during speech; refusal retreat indices 0..7. Three keyed or two refusal phases, subject to the same speech-configuration early exit. `0x297bb..0x29836`, `0x29840..0x29981`, `0x29993..0x29a20`. Direct total is the sum of executed speech-loop iterations. | No explicit BIOS-tick wait in these zoom/speech loop bodies; update/input helpers are called. Reference has `WAIT(1)`. Effective frame cadence remains unresolved. |
+| Dwarf | Zoom 12..0, second zoom 15..0, then frame `R(0,9)` over the second sprite's frame 0. Three speech phases when Effects/driver configuration permits, otherwise the phase loop exits early. Direct total is the sum of executed speech-loop iterations. `0x2b2e3..0x2b530`, `0x2b533..0x2b6aa`; RNG `0x2b634`. | Speech waits 2 ticks (`0x2b65a..0x2b662`), unlike reference `WAIT(1)`. Phase loop also checks elapsed 3 ticks (`0x2b68e..0x2b696`). |
+| Sphinx | Zoom 8..0; frames 0/1 plus `R(2,10)` during speech; refusal retreat indices **0..8** (corrected by Part 0b). Three keyed or two refusal phases, subject to the same audio-configuration early exit. `0x297bb..0x29836`, `0x29840..0x29981`, `0x29993..0x29a20`. Direct total is the sum of executed speech-loop iterations. | No explicit BIOS-tick wait in these zoom/speech loop bodies. Part 0b establishes one retrace per iteration, nominally 70 Hz; the reference has `WAIT(1)`. |
 
 These are loop indices and draw formulas, not a fixed total for an entire
 Event invocation. All direct calls use the gameplay range helper
@@ -1054,19 +1054,175 @@ text when `DS:ed9a != 0 && DS:8d38 >= 2`; otherwise it advances a
 modulo-length character cursor after more than one timer tick and draws
 a text box. First speech loops test both audio and that cursor; later
 Reaper/Golem loops test audio alone. Dwarf/Sphinx can skip later samples
-when speech is disabled/unavailable by that configuration test.
+when Effects are off or the driver selection is below 2; this is not the
+control panel's separate Speech setting.
 The reference's subtitle handling is not equivalent to these DOS branches.
-**Unresolved:** the literal lines, the CD installation's default
-configuration and exact on-screen text timing; `special.bin` is outside
-this DAT-only investigation. A CD DOSBox capture with speech on/off and
-the configuration recorded would settle those questions.
+Part 0b below settles the installed startup configuration, cursor clock
+and record lengths. Literal lines were deliberately not extracted; exact
+pixel disappearance in nondefault text mode still needs a capture.
 
 Scene screen capture uses `0xdd72 -> 0x43fe5`; restores use `0x4405f`
 (e.g. Reaper `0x2afeb`, Golem `0x2a5e5`, Sphinx `0x29a61`,
 Dwarf `0x2b509`), followed by map/party-view reconstruction. The reference
-also saves/restores a background. Complete pixel/timing equivalence,
-including the effective cadence of loops without explicit waits, is
-**unresolved** and needs a frame-stepped DOSBox capture.
+also saves/restores a background. Part 0b settles the waits in the
+no-explicit-wait loops. Complete pixel equivalence remains **unresolved**.
+
+#### Part 0b: text settings and cadence (2026-10-20)
+
+**DOS static, high confidence except the explicitly bounded pixel/runtime
+questions below.** Clean `main` and `origin/main` were
+`3d6b6ee4f750d002b5a64a515ccadb016d3c8070`. The DAT size and SHA-256 above
+were rechecked by the reused Capstone script; the reference checkout was
+clean at the same pin. Calibration re-decoded `0x2ac94..0x2ac9c`:
+the Reaper loop retries the elapsed-time helper until its result is at
+least 2; `0x440dc..0x440f4` reads BIOS time and subtracts the timer mark.
+This reproduces Part 0's two-tick wait. New external notes:
+`D:/MModern-re/m80-scenes-20261020/findings-0b.md`.
+No execution of the game, tests, code edits or original-data writes.
+
+**1. Settings and default text.** `DS:ed9a` is the Effects enable byte,
+set to 1 at startup (`0xb63c`); the sample-play wrapper also tests it
+(`0xdea9..0xdecc`). `DS:8d38` is a **word**, the installed effects-driver
+selection, not a Text or Speech toggle. Initialization clears the 29-byte
+configuration block (`0x3d2f3..0x3d300`), opens the configured
+`xeen.cfg` name (pointer `0x50214`, string `0x51a2d`) and reads 29 bytes
+into `DS:8d38` (`0x3d303..0x3d348`).
+The installed `WORLD/XEEN.CFG` is 29 bytes, SHA-256
+`da316ffed9d11ee80bff6fdd0928ac6e992b72ec475368832d902ced14f81384`;
+its first word is **10**. The driver switch (`0xb506..0xb575`,
+table `0xb9de`) maps 10 to the `prosnd` resource (`0x51f42`).
+This establishes the installed startup values, not the settings of an
+arbitrary loaded save or an unexamined retail installer.
+
+The control-panel key dispatch `0x1f036..0x1f047`, table
+`[0x1f332,0x1f360)`, distinguishes these controls:
+
+| Control | DOS state change | Effect on entrance text gate |
+| --- | --- | --- |
+| Effects (E) | Toggle `DS:ed9a`, `0x1f061..0x1f078` | Yes: Effects off allows text and disables the scene's sample wrapper. |
+| Music (M) | Toggle `DS:ed9b`, `0x1f07b..0x1f09e` | None. |
+| Text (T) | Toggle `DS:f384`, `0x1f04c`; zero displays as on (`0x1ee35..0x1ee68`) | Not tested by this scene renderer. |
+| Speech (P) | Toggle `DS:f385`, `0x1f054`; zero is off (`0x1ee00..0x1ee2b`) | Not tested by this scene renderer or its sample wrapper. Speech off also forces Text on (`0x1ee2b..0x1ee32`). |
+
+No panel action changes the driver-selection word. Speech's exit path
+refreshes speech/map setup (`0x1f315..0x1f32a`, `0xf383`), rather than
+changing either gate operand. Therefore **with the installed startup
+settings, none of the four entrance scenes draws `special.bin` text.
+Turning Speech off alone does not enable these captions or disable their
+VOC samples.** Effects off is the relevant switch. The pin's configurable
+`Sound::_subtitles` / `Subtitles::show` path differs from this gate.
+
+**2. Text timing.** In the default configuration there is no text box to
+time. When the gate permits text, `0xdca3..0xdd52` draws `box.vga` at
+`(36,189)`, writes the text, then updates the screen. The shared cursor
+advances by **one character**, modulo the record's byte length, only when
+the elapsed timer is greater than 1 (`0xdcba..0xdccf`). It resets that
+timer at `0xdd1a`; the timer reads BIOS ticks (`0x4411d..0x44144`).
+Thus the threshold is two 18.2065-Hz BIOS ticks, about 109.85 ms, sampled
+by the scene loop, without catch-up increments. Scene setup marks time
+before the zoom, so this is not a fresh two-tick delay from speech onset.
+
+| Scene | Calls and lifetime when text is enabled |
+| --- | --- |
+| Reaper | First speech loop draws text at `0x2ac87` after its sprite draw and continues while audio is active or cursor is nonzero (`0x2aca2..0x2acb8`). The seven-tick pause and second sample follow; the second loop updates without calling the text renderer (`0x2ade8..0x2ae0f`). No new caption phase is started there. |
+| Golem | First speech loop calls the renderer at `0x2a14c` and uses the same audio-or-cursor continuation (`0x2a167..0x2a17d`). The second speech loop updates without the renderer (`0x2a37c..0x2a3a3`). |
+| Dwarf | Text renderer at `0x2b64d` is inside the speech loop. Audio-or-cursor continuation is `0x2b664..0x2b679`; after completion, the Effects/driver test exits the phase loop early in text mode (`0x2b67b..0x2b6aa`). With Effects off, one complete caption replaces the normal three sample phases. |
+| Sphinx | Text renderer at `0x29909` is inside the speech loop. Audio-or-cursor continuation is `0x29916..0x2992b`; the same test skips later samples (`0x2992d..0x29940`). With Effects off, one complete caption replaces the normal two refusal or three success sample phases. |
+
+**Unresolved:** the exact frame on which already drawn box pixels disappear
+in text mode. Stopping renderer calls is not proof that another sprite
+erases the whole box. Background restores/map reconstruction eventually
+replace it; no sprite-pixel inspection was authorized for this follow-up.
+The pin also differs in cursor behavior: `Subtitles::show` uses
+`1 + lineLength/100` characters per step, so the 107-byte Clouds Dwarf
+record advances two at a time there, versus one in DOS.
+
+**3. Effective cadence.** Screen update with argument 0
+(`0x462b6..0x46323`) calls `0x44145`; after copying the screen it calls
+`0x43fca` at `0x4437e`. This polls VGA status port `0x3da`, first until
+retrace ends, then until the next retrace begins (`0x43fca..0x43fdf`),
+before flipping the display page. It is a retrace wait, not a BIOS wait.
+The text renderer reaches this same update even when text is suppressed
+(`0xdd48..0xdd50`).
+
+All four scenes disable the mouse at entry (Reaper `0x2a675`, Golem
+`0x29abc`, Dwarf `0x2b058`, Sphinx `0x29691`). That helper clears
+`CS:16be` (`0x438f1..0x43913`). Input polling therefore takes the
+mouse-disabled return (`0x43855..0x4385d -> 0x438e5..0x438ef`), not the
+mouse-enabled redraw at `0x438d4/0x438d9`. The idle keyboard path reads
+its queue and returns (`0x4549c..0x45505`); normal no-input return is
+`0xe18f..0xe196 -> 0xe2c7`. There is no second retrace or BIOS wait in
+that idle input path.
+
+| No-explicit-BIOS-wait loop | File offsets | Settled cadence |
+| --- | --- | --- |
+| Sphinx zoom | `0x29826..0x29836` | One retrace per iteration. |
+| Sphinx speech | `0x29904..0x2992b` | One retrace through the text renderer, including with text suppressed. |
+| Sphinx refusal retreat | `0x299fb..0x29a0c` | One retrace per iteration. |
+| Dwarf first / second zoom | `0x2b449..0x2b45b` / `0x2b4e8..0x2b4fa` | One retrace per iteration. |
+| Reaper / Golem retreat | `0x2af94..0x2afa7` / `0x2a565..0x2a586` | One retrace per iteration. |
+
+On the settled 70-Hz display clock this is **nominally 14.286 ms per
+iteration**, provided drawing completes before the next retrace. Slow
+execution can miss retraces; static analysis does not promise a measured
+frame rate on every DOSBox cycle setting. These loops are retrace-paced,
+not unbounded host-speed loops. The pin's corresponding `WAIT(1)` loops
+use its game-frame clock instead. Explicit BIOS waits elsewhere remain
+as recorded in Part 0; a retrace call does not remove them.
+
+This trace also corrects two Part 0 summaries. Reaper's
+`0x2ae50..0x2ae57` skips retreat when the key is present; refusal iterates
+0..13 (`0x2afa1..0x2afa7`). The pin retreats on success.
+Sphinx refusal iterates **0..8**, because `0x29a08..0x29a0c` compares the
+incremented index with 9; the pin iterates 0..7. Both are high-confidence
+DOS-versus-reference differences.
+
+**4. Record metadata only.** Read-only index decoding of the installed
+root `XEEN.CC`, using the pin's CC format, located `special.bin` ID
+`0x4c23`: directory entry at archive offset `0x1bb2`, payload at
+`0xb54145`, size 1,318 bytes. It contains 11 NUL-terminated records.
+Zero-based lengths excluding terminators are
+`390, 107, 76, 78, 72, 73, 73, 50, 159, 155, 74`.
+Thus DOS indices 1 (Dwarf), 2/3 (Reaper), 4/5 (Golem), 6/7 (Sphinx)
+are valid; the lengths corroborate Part 0's callers. The pin reads this
+resource but splits record 0 into several intro subtitles, shifting its
+later line numbers. No payload text or original bytes were written into
+the repository or printed in the report.
+
+**Remaining observation.** The requested default-then-Speech-off captures
+at Dwarf map 14 `(9,9)` E and Sphinx map 5 `(12,8)` S should show no
+scene caption in either setting. Include the Effects setting in the
+capture. To settle caption disappearance, an additional **Effects-off**
+pass is necessary; capture the first/last box frame and the phase exit.
+Frame-step the zooms/retreat at the recorded DOSBox cycle setting to check
+actual retrace misses. These pixel/runtime observations remain unresolved;
+the settings branches, cursor threshold, retrace calls and record metadata
+above are settled statically.
+
+**DOSBox capture (maintainer, 2026-10-20).** Two DOSBox ZMBV captures at
+70.09 frames per second, default settings: the Dwarf Mine entry (map 14,
+no key, to map 37) and the Sphinx refusal (map 5, no key). Measured by
+decoding every frame (outside the repository):
+
+- **No caption** appears in either scene, as the static default predicts.
+- **Dwarf speech** changes frame every 7-8 captured frames, with multiples
+  when the random frame repeats: two BIOS ticks (7.7 frames), confirming
+  the explicit wait.
+- **Sphinx speech** changes frame every 2 captured frames (4 when the
+  random frame repeats): **two retraces per iteration, about 35 Hz**, at
+  the maintainer's cycle setting. The zoom and retreat run at irregular
+  1-3 frame intervals. This is the observed DOSBox rate for the one-retrace
+  wait above.
+- The original **"Please Wait..." box** appears while the scene's map
+  load runs: over the dwarf before the destination view, and over the
+  restored view during the Sphinx refusal's reload, for 16 and 14 captured
+  frames (about 0.2 s, load-time dependent). The maintainer confirms DOS
+  shows it on every map load, including outdoor region changes and
+  stairs. The pinned reference loads this string but never shows it;
+  MMModern omits it as an
+  [approved deviation](../original-quirks.md#dev-no-please-wait).
+
+Caption disappearance with Effects off was not captured.
 
 ### 4. Arena dialog, generation and exits
 

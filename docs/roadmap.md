@@ -112,7 +112,8 @@ to Vertigo.
     on the shared generator from [M71](archive/milestone-71-plan.md).
 12. **Audio** (Tier A): music and sound effects, CD speech and CD tracks on
     the existing clock, which already keeps the original durations, and the
-    control panel's Efx, Music, Speech and Text buttons.
+    control panel's Efx, Music, Speech and Text buttons, including the
+    entrance-scene captions DOS shows with Effects off (M80).
 13. **Inn, recruiting and character creation** (Tier A, high): Tavern Sign
     In, Dismiss, attribute rolls, the creation screens and changes to the
     saved party, including Poison Volley shooting for the active party size

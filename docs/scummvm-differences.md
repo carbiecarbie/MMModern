@@ -336,6 +336,8 @@ apart from the fidelity differences above.
 - **One password prompt.** A Clouds prompt with only an alternate answer always
   takes the ordinary success path; in the original an uninitialized value
   could rarely pick another. [Details](original-quirks.md#dev-confirmword-alternate)
+- **No "Please Wait..." box.** Maps load without the original loading box,
+  as in ScummVM. [Details](original-quirks.md#dev-no-please-wait)
 
 ## What ScummVM has that MMModern does not yet
 
@@ -351,8 +353,14 @@ yet**; comparison is with pinned `6814ee9b`, not a new master check:
   21st/22nd/23rd, while the pin uses `th` for every count above nine.
 - [Entrance speech cadence](original-quirks.md#sv-scene-speech-cadence):
   DOS Reaper/Dwarf speech loops explicitly wait two BIOS ticks and use
-  conditional text-cursor continuation; the pin uses one-tick waits and
-  different subtitle logic. Full presentation timing remains unresolved.
+  conditional text-cursor continuation; other scene loops wait for VGA
+  retrace. Installed defaults suppress entrance captions; Effects off
+  enables them, while Speech/Text are separate controls. DOS advances one
+  character per text step; the pin advances two for the Dwarf line.
+  DOS also retreats on Reaper refusal and draws Sphinx retreat indices
+  0..8; the pin retreats on Reaper success and draws Sphinx 0..7.
+  Exact text-box pixel disappearance and measured DOSBox cadence remain
+  unverified; the static waits and settings are settled.
 
 ScummVM plays the whole game today; MMModern is young. The full list of gaps is
 in [project status](project-status.md#known-gaps):

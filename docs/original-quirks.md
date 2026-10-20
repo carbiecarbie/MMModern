@@ -521,6 +521,17 @@ stays documented here and in the plan that implements it.
   Any future mechanic that changes map data some other way must extend these
   overrides. **ScummVM:** approved deviation.
 
+- <a id="dev-no-please-wait"></a> **No "Please Wait..." box on map loads** (maintainer, 2026-10-20). DOS
+  draws the original "Please Wait..." box while it loads a map: on outdoor
+  region changes and stairs (maintainer's DOSBox play) and on the entrance
+  scenes' destination load and keyless reload, where the M80 captures show
+  it for 16 and 14 frames at 70 Hz, about 0.2 s set by the emulated load
+  time ([capture](rules/evidence.md#entrance-scenes-and-the-arena-2026-10-20)).
+  MMModern loads maps without delay and shows no box, so map changes are
+  about that much faster than in DOS; the load itself, its timing in game
+  time and every other effect are unchanged. **ScummVM:** approved
+  deviation; the pin loads the string but never shows it either.
+
 ## Reference behavior not reproduced
 
 Places where the pinned ScummVM code differs from the DOS original or contains
@@ -624,9 +635,36 @@ further draws. Reaper speech explicitly waits two BIOS ticks
 (`0x2ac94..0x2ac9c`, `0x2adf5..0x2adfd`), as does Dwarf
 (`0x2b65a..0x2b662`). Conditional `special.bin` text rendering at
 `0xdca3..0xdd52` precludes assuming the CD program is always speech-only.
-High confidence for these branches, not for effective frame cadence,
-literal subtitle lines or a fixed whole-invocation draw count.
-**ScummVM:** the pin uses `WAIT(1)` in those speech loops and different
-subtitle continuation logic. These DOS constraints apply when implementing
-the scenes; unresolved presentation details remain unresolved.
-Master not rechecked.
+
+Part 0b rechecks the two-tick calibration and settles the gate: startup
+sets Effects (`DS:ed9a`) to 1 at `0xb63c`; the installed `XEEN.CFG`
+supplies effects-driver word `DS:8d38=10` via `0x3d343`.
+**The installed default therefore shows no entrance captions.** Effects
+off enables them. Speech (`DS:f385`) and Text (`DS:f384`) are separate
+controls (`0x1f04c..0x1f078`); Speech off forces Text on for its own
+uses but does not change these scene captions or their VOC sample gate.
+Do not wire the scene text gate to the Speech/Text controls. M80 shows no
+captions, as this default does; Effects-off captions wait for audio
+(maintainer, 2026-10-20). The M80 DOSBox captures observe the one-retrace
+loops as two retraces per iteration (about 35 Hz); M80 uses that rate.
+
+When enabled, the DOS cursor advances one character per two BIOS ticks
+(`0xdcba..0xdccf`, `0xdd1a`, `0x4411d..0x44144`). The no-explicit-wait
+loops use one VGA retrace per update (`0x4437e -> 0x43fca`), nominally
+70 Hz; scene entry disables the mouse so input does not add another
+redraw (`0x438f1..0x43913`, `0x43855..0x438ef`). This applies to
+Sphinx zoom/speech/retreat, both Dwarf zooms and Reaper/Golem retreats.
+Slow execution can miss retraces; actual DOSBox frame rate is not certified.
+Record lengths are verified without extracting text: Clouds Dwarf is
+107 bytes; the full metadata is in the evidence section.
+
+Part 0b also corrects Part 0's retreat summaries: Reaper retreats **on
+refusal**, skipping that animation with the key (`0x2ae50..0x2ae57`);
+Sphinx refusal draws indices **0..8** (`0x29a08..0x29a0c`).
+**ScummVM:** the pin uses `WAIT(1)`, its own subtitle setting/continuation
+logic, two-character steps for the 107-byte Dwarf line, Reaper retreat on
+success and Sphinx retreat 0..7. These DOS constraints apply when
+implementing the scenes. Exact box-pixel disappearance in Effects-off
+mode still requires a capture; default and Speech-off alone cannot expose
+it. High confidence for the stated static paths, not pixel equivalence
+or a fixed whole-invocation RNG count. Master not rechecked.
