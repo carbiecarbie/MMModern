@@ -1,10 +1,11 @@
 # MMModern - Project Status
 
-This describes what can be played and done now. **M79 is the latest completed
-and accepted milestone** ([plan](milestone-79-plan.md)): every Clouds town's
-services work, from Rivercity and Shangri-La to the Guilds of Nightshadow,
-Asp and Winterkill and the Newcastle levels. The whole of Clouds is open,
-with its monsters, Events and every travel path (M78). Earlier
+This describes what can be played and done now. **M80 is the latest completed
+and accepted milestone** ([plan](milestone-80-plan.md)): the Reaper, Golem,
+Dwarf Mine and Sphinx entrance scenes lead to the dungeons they guard, and
+the Warzone Arena runs its fights. Every Clouds town's services work (M79),
+and the whole of Clouds is open, with its monsters, Events and every travel
+path (M78). Earlier
 milestones are in [project history](project-history.md), direction is in the
 [roadmap](roadmap.md), and build and dependency setup is in
 [dependencies](dependencies.md).
@@ -43,12 +44,21 @@ an empty bank. **Load** continues a saved game from the same slot list.
   ranged attacks and flying. Every map load rebuilds its monsters at full HP
   and asleep, as the original does.
 - **Events.** Every Event operation the Clouds scripts use runs as in the
-  original, other than audio, the entrance scenes, the Arena and the
-  ending: signs, fountains, statues, NPC conversations, moved
+  original, other than audio, the Pyramid and the ending: signs, fountains, statues, NPC conversations, moved
   walls and objects, monster spawns, conditions, rewards, random Events,
   teleports, stairs, the magic mirror and password prompts. Those exceptions
   say "not supported yet" without changing anything.
 - **Space** at an empty cell passes time and lets monsters act, as in DOS.
+- **Entrance scenes.** The Reaper, Golem, Dwarf Mine and Sphinx play their
+  original animations, with the speech silent for its original length.
+  With the right quest item the party enters the dungeon behind them;
+  without it the guardian refuses and the map reloads, as in the original.
+  Four entrances lead to Darkside dungeons whose keys only Darkside gives,
+  so they always refuse.
+- **The Warzone Arena.** The Battle Master offers fights of a chosen level
+  and size, generated as in the original; each win adds to every member's
+  Warzone award, up to the original limit of 99. Leaving the Warzone
+  discards an unfinished fight, and it cannot be saved there.
 
 ### Combat
 
@@ -310,9 +320,9 @@ and its support status. Build and run instructions are in
 
 - **Inn and party.** There is no Inn, recruiting or character creation:
   Tavern Sign In and Dismiss say "not supported yet".
-- **Town scenes.** The entrance scenes (Reaper, Golem, Dwarf Mine, Sphinx and
-  Pyramid), the Arena and the Clouds ending are not implemented; they say
-  "not supported yet".
+- **Town scenes.** The Pyramid entrance and the Clouds ending are not
+  implemented; they say "not supported yet". Entrance-scene captions, which
+  DOS shows only with sound effects off, wait for audio.
 - **Monster treasure.** Item drops come only from some monsters and only at
   the lowest treasure level, without accessories.
 - **Skills.** Arms Master and Tracker

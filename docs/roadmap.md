@@ -1,6 +1,6 @@
 # MMModern - Roadmap
 
-**M79 is the latest completed and accepted milestone.**
+**M80 is the latest completed and accepted milestone.**
 [Project status](project-status.md) describes what is playable now;
 [project history](project-history.md) records completed milestones. Reference
 provenance belongs to [dependencies](dependencies.md).
@@ -103,10 +103,11 @@ to Vertigo.
    Nightshadow, Asp, Winterkill and Newcastle work with each place's
    original values; Newcastle Level 2's Temple keeps the last Temple prices
    of the running program, as DOS does.
-10. **Entrance scenes and the Arena** (Tier B): `DoTownEvent` 8 to 11
-    (Reaper, Golem, Dwarf Mine, Sphinx) with their quest-item checks and the
-    maps they lead to, and the Arena (action 6, map 85). The Pyramid (action
-    12) switches to Darkside and keeps a clear refusal until the Darkside arc.
+10. **Entrance scenes and the Arena**: completed and accepted in
+    [M80](milestone-80-plan.md) (save v16 unchanged). The Reaper, Golem,
+    Dwarf Mine and Sphinx lead to the Clouds dungeons they guard, and the
+    Warzone Arena runs as in DOS. The Pyramid (action 12) and the four
+    entrances whose keys come from Darkside wait for the Darkside arc.
 11. **Monster treasure** (Tier A, changes the save): item drops for every
     monster and drop levels 2 to 6, including accessories in staged treasure,
     on the shared generator from [M71](archive/milestone-71-plan.md).

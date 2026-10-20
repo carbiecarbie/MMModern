@@ -131,8 +131,8 @@ to view that member. The acting member and selected enemy use the original icons
   available.
 - Inn and party: there is no Inn, recruiting or character creation. Tavern
   Sign In and Dismiss say "not supported yet".
-- Entrance scenes and the Arena: the Reaper, Golem, Dwarf Mine, Sphinx and
-  Pyramid entrances and the Arena say "not supported yet".
+- The Pyramid entrance says "not supported yet", and entrance scenes show
+  no captions until audio arrives.
 - Monster treasure: not every monster drops items yet, and drops of higher
   treasure levels and accessories are missing.
 - Darkside gameplay is not supported.

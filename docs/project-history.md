@@ -407,3 +407,13 @@ works: Rivercity's six, Shangri-La's four, the Guilds of Nightshadow, Asp and
 Winterkill, and Newcastle's two levels. Newcastle Level 2's Temple keeps the
 last Temple prices of the running program, as DOS does. Save v16 is
 unchanged. [Plan](milestone-79-plan.md).
+
+**M80 - Entrance scenes and the Arena** (`a7b9bc3` plan, `3d6b6ee`,
+`b09dec7`, `4126973`, `81bc644`, `041bc22`). Two DOS checks and the
+maintainer's DOSBox captures settled the site table, the timing and the
+Arena rules first. The Reaper, Golem, Dwarf Mine and Sphinx now lead to the
+Clouds dungeons they guard, refusing and reloading the map without their
+key; the four whose keys come from Darkside always refuse. The Warzone
+Battle Master generates fights as DOS does, which differs from the
+reference, and awards each win. The "Please Wait..." box is omitted as an
+approved deviation. Save v16 is unchanged. [Plan](milestone-80-plan.md).
