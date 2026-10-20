@@ -185,7 +185,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
                         bool leaveCasualty=false;
                         for(auto owner:kXeenCombatOwners) {
                             const auto &c=party->roster.at(owner);
-                            const auto q=xeenQuoteTraining(c,*party->roster.combatInputs(owner),party->monsterTreasure->gold,*party->encounterContext);
+                            const auto q=xeenQuoteTraining(c,*party->roster.combatInputs(owner),party->monsterTreasure->gold,*party->encounterContext,XeenMapIdentity(28));
                             leaveCasualty=leaveCasualty || (q.levelBefore==3 && !q.missing &&
                                 (c.conditions[8] || c.conditions[12] || c.conditions[13]));
                         }
@@ -202,7 +202,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
                 }
                 bool eligible=false;for(unsigned member=0;member<6;++member) {
                     const auto owner=kXeenCombatOwners[member];const auto quote=xeenQuoteTraining(party->roster.at(owner),
-                        *party->roster.combatInputs(owner),party->monsterTreasure->gold,*party->encounterContext);
+                        *party->roster.combatInputs(owner),party->monsterTreasure->gold,*party->encounterContext,XeenMapIdentity(28));
                     const auto &learner=party->roster.at(owner);
                     if(!quote.missing && quote.levelBefore==3 && (learner.conditions[12] || learner.conditions[13])) {*trainingMember=member;eligible=true;break;}
                 }

@@ -101,7 +101,7 @@ IndexedFrame drawXeenCast(const XeenDosText &,const IndexedFrame &,const XeenFon
     const XeenCharacter &,std::size_t,const XeenLearnedSpellNames &,const XeenDialogSpriteDraw &);
 IndexedFrame drawXeenSpellList(const XeenDosText &,const IndexedFrame &,const XeenFontFormat &,
     const XeenCharacter &,const XeenLearnedSpellNames &,const XeenSpellListUi &,std::uint32_t gold,
-    bool guild,bool info,const XeenDialogSpriteDraw &,std::uint32_t year=610,XeenMapIdentity map=XeenMapIdentity(28));
+    bool guild,bool info,const XeenDialogSpriteDraw &,std::uint32_t year,XeenMapIdentity map);
 IndexedFrame drawXeenSpellConfirm(const IndexedFrame &,const XeenFontFormat &,const std::string &,bool info,const XeenDialogSpriteDraw &);
 IndexedFrame drawXeenSpellTarget(const XeenDosText &,const IndexedFrame &,const XeenFontFormat &);
 std::vector<std::string> xeenSpellDescriptions(const std::vector<std::uint8_t> &);
@@ -142,9 +142,9 @@ IndexedFrame drawXeenLocation(const XeenDosText &text,const IndexedFrame &,const
     const XeenTempleSurcharges *templePrices=nullptr);
 IndexedFrame drawXeenTavernPopup(const IndexedFrame &,const XeenFontFormat &,const std::string &);
 IndexedFrame drawXeenBuy(const XeenDosText &text,const IndexedFrame &,const XeenFontFormat &,const XeenItemCatalog &,
-    const XeenPartyState &,const XeenInventorySelection &,bool repair,const XeenDialogSpriteDraw &);
+    const XeenPartyState &,const XeenInventorySelection &,bool repair,const XeenDialogSpriteDraw &,XeenMapIdentity map);
 IndexedFrame drawXeenBuy(const XeenDosText &,const IndexedFrame &,const XeenFontFormat &,const XeenItemCatalog &,
-    const XeenPartyState &,const XeenInventorySelection &,XeenItemService,const XeenDialogSpriteDraw &,XeenMapIdentity map=XeenMapIdentity(28));
+    const XeenPartyState &,const XeenInventorySelection &,XeenItemService,const XeenDialogSpriteDraw &,XeenMapIdentity map);
 DialogInput xeenConfirmInput(bool large=false);
 std::optional<bool> xeenConfirmAnswer(unsigned key);
 struct XeenDialogPopup { std::string text; XeenTextRect bounds; };

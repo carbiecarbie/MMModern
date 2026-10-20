@@ -10,7 +10,8 @@ std::uint32_t nextXp(const XeenCharacter &c) {
     return xpBases[static_cast<unsigned>(c.characterClass)]*(std::uint32_t(1)<<(c.permanentLevel-1));
 }
 }
-unsigned xeenTrainingCap(XeenMapIdentity map) noexcept {
+unsigned xeenTrainingCap(XeenMapIdentity map) {
+    if(map.side!=XeenSide::Clouds)throw std::invalid_argument("Training cap is not known outside Clouds");
     return map.number==28?10:map.number==30?15:20;
 }
 void xeenValidateTrainingSource(const std::vector<std::uint8_t> &bytes) {

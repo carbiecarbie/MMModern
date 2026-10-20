@@ -91,9 +91,9 @@ void preset(const GameInstallation &installation,const std::string &name,const f
             }
         check(found,"no equipped broken armor");
     } else if (name=="train-ready") {
-        check(xeenQuoteTraining(member,*party.roster.combatInputs(first),gold,context).outcome==XeenTrainingOutcome::Quoted,
+        check(xeenQuoteTraining(member,*party.roster.combatInputs(first),gold,context,XeenMapIdentity(28)).outcome==XeenTrainingOutcome::Quoted,
             "member lacks XP/gold to train");
-        check(xeenPrepareTraining(party,first,context).result.outcome==XeenTrainingOutcome::Trained,"training candidate refused");
+        check(xeenPrepareTraining(party,first,context,XeenMapIdentity(28)).result.outcome==XeenTrainingOutcome::Trained,"training candidate refused");
     } else if (name=="injured-dead") {
         const auto &dead=party.roster.at(second);
         check(member.currentHp==0 && member.worstCondition()==XeenCondition::Unconscious,"first member is not unconscious");

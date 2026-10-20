@@ -76,7 +76,7 @@ void preparedRules(training_test::Inputs &inputs) {
     for(unsigned c=0;c<2;++c)for(unsigned slot=0;slot<(c?8u:7u);++slot) {
         const auto category=static_cast<XeenInventoryCategory>(c);
         const auto record=initialEconomy.wares[0][0][c][slot];
-        const auto candidate=xeenPrepareEquipmentPurchase(p,0,category,slot);
+        const auto candidate=xeenPrepareEquipmentPurchase(p,0,category,slot,0,0);
         const auto &r=candidate.result;
         check(r.outcome==Outcome::Purchased,"actual plain physical offer refused");
         if(r.outcome!=Outcome::Purchased)continue;
@@ -84,35 +84,35 @@ void preparedRules(training_test::Inputs &inputs) {
             r.activeRosterIds==std::array<std::uint8_t,6>{0,18,14,11,1,6},"physical/member identity missing");
         sameCategory(r.stockAfter,removeOracle(initialEconomy.wares[0][0][c],slot),"every physical removal-position oracle differs");
         check(candidate.economyBefore==initialEconomy && candidate.economyAfter.bank==initialEconomy.bank,"candidate changed bank/preimage");
-        xeenValidateEquipmentPurchaseEconomyDelta(initialEconomy,candidate.economyAfter,category,slot,record);
+        xeenValidateEquipmentPurchaseEconomyDelta(initialEconomy,candidate.economyAfter,category,slot,record,0,0);
     }
     for(auto category:{XeenInventoryCategory::Accessories,XeenInventoryCategory::Miscellaneous}) {
-        const auto r=xeenQuoteEquipmentPurchase(p,0,category,0);
+        const auto r=xeenQuoteEquipmentPurchase(p,0,category,0,0,0);
         check(r.outcome==Outcome::Quoted && r.price>0,"generated category refused Buy");
     }
-    check(xeenQuoteEquipmentPurchase(p,0,XeenInventoryCategory::Armor,8).outcome==Outcome::Empty,"empty physical row not distinguished");
-    check(xeenQuoteEquipmentPurchase(p,6,XeenInventoryCategory::Weapons,0).outcome==Outcome::InvalidParticipant,"inactive recipient admitted");
-    check(xeenQuoteEquipmentPurchase(p,0,static_cast<XeenInventoryCategory>(255),0).outcome==Outcome::InvalidCategory,"invalid category admitted");
-    check(xeenQuoteEquipmentPurchase(p,0,XeenInventoryCategory::Weapons,9).outcome==Outcome::InvalidSlot,"invalid physical slot admitted");
-    check(xeenQuoteEquipmentPurchase(p,0,XeenInventoryCategory::Weapons,1).outcome==Outcome::Quoted,
+    check(xeenQuoteEquipmentPurchase(p,0,XeenInventoryCategory::Armor,8,0,0).outcome==Outcome::Empty,"empty physical row not distinguished");
+    check(xeenQuoteEquipmentPurchase(p,6,XeenInventoryCategory::Weapons,0,0,0).outcome==Outcome::InvalidParticipant,"inactive recipient admitted");
+    check(xeenQuoteEquipmentPurchase(p,0,static_cast<XeenInventoryCategory>(255),0,0,0).outcome==Outcome::InvalidCategory,"invalid category admitted");
+    check(xeenQuoteEquipmentPurchase(p,0,XeenInventoryCategory::Weapons,9,0,0).outcome==Outcome::InvalidSlot,"invalid physical slot admitted");
+    check(xeenQuoteEquipmentPurchase(p,0,XeenInventoryCategory::Weapons,1,0,0).outcome==Outcome::Quoted,
         "content-14 physical Buy offer refused");
     for(unsigned price:{60u,200u})for(int delta:{-1,0,1}) {
         p.monsterTreasure->gold=price+delta;
         const auto category=price==60?XeenInventoryCategory::Weapons:XeenInventoryCategory::Armor;
         const unsigned slot=price==60?3:1;
-        const auto quote=xeenQuoteEquipmentPurchase(p,0,category,slot);
-        const auto candidate=xeenPrepareEquipmentPurchase(p,0,category,slot);
+        const auto quote=xeenQuoteEquipmentPurchase(p,0,category,slot,0,0);
+        const auto candidate=xeenPrepareEquipmentPurchase(p,0,category,slot,0,0);
         check(quote.outcome==Outcome::Quoted && quote.price==price && quote.shortfall==(delta<0?1u:0u) &&
             quote.goldAfter==(delta<0?price-1:unsigned(delta)),"funds quote underflow/shortfall differs");
         check(candidate.result.outcome==(delta<0?Outcome::InsufficientGold:Outcome::Purchased) &&
             candidate.result.goldAfter==(delta<0?price-1:unsigned(delta)),"59/60/61 or 199/200/201 funds differ");
     }
     p.monsterTreasure->gold=UINT32_MAX;
-    check(xeenPrepareEquipmentPurchase(p,0,XeenInventoryCategory::Weapons,3).result.goldAfter==4294967235u,"u32-high purse was narrowed");
+    check(xeenPrepareEquipmentPurchase(p,0,XeenInventoryCategory::Weapons,3,0,0).result.goldAfter==4294967235u,"u32-high purse was narrowed");
     p.monsterTreasure->gold=0;p.monsterTreasure->gems=UINT32_MAX;p.serviceEconomy->bank={UINT32_MAX,UINT32_MAX};
-    check(xeenPrepareEquipmentPurchase(p,0,XeenInventoryCategory::Weapons,3).result.outcome==Outcome::InsufficientGold,"gems/bank paid Buy");
+    check(xeenPrepareEquipmentPurchase(p,0,XeenInventoryCategory::Weapons,3,0,0).result.outcome==Outcome::InsufficientGold,"gems/bank paid Buy");
     p.monsterTreasure->gold=59;p.monsterTreasure->pendingGold=10;p.monsterTreasure->pendingMask=1;p.monsterTreasure->sources[0]={23,0};
-    check(xeenPrepareEquipmentPurchase(p,0,XeenInventoryCategory::Weapons,3).result.outcome==Outcome::InsufficientGold,"pending treasure paid Buy");
+    check(xeenPrepareEquipmentPurchase(p,0,XeenInventoryCategory::Weapons,3,0,0).result.outcome==Outcome::InsufficientGold,"pending treasure paid Buy");
     p.monsterTreasure->pendingGold=0;p.monsterTreasure->pendingMask=0;p.monsterTreasure->sources[0]={};
     p.monsterTreasure->gold=10000;
     auto &recipient=p.roster.at(0);recipient.weapons={};
@@ -123,7 +123,7 @@ void preparedRules(training_test::Inputs &inputs) {
     recipient.characterClass=XeenCharacterClass::Sorcerer;
     {
         XeenMutationWatch watch;watch.add(&p,sizeof(p));
-        const auto candidate=xeenPrepareEquipmentPurchase(p,0,XeenInventoryCategory::Weapons,3);
+        const auto candidate=xeenPrepareEquipmentPurchase(p,0,XeenInventoryCategory::Weapons,3,0,0);
         const XeenItemCategory expected{{{0,7,0,0},{0,12,0,0},{0,6,0,0},{},{},{},{},{},{}}};
         check(candidate.result.outcome==Outcome::Purchased && candidate.result.recipientSlot==2 && watch.current(),"condition/proficiency/above-maximum changed Buy or live owners");
         sameCategory(candidate.result.recipientAfter,expected,"free tail with holes did not compact/append exact bytes");
@@ -131,7 +131,7 @@ void preparedRules(training_test::Inputs &inputs) {
             "candidate normalized untouched metadata/current stats");
     }
     recipient.weapons[8]={0,15,0,0};p.monsterTreasure->gold=0;
-    const auto full=xeenQuoteEquipmentPurchase(p,0,XeenInventoryCategory::Weapons,3);
+    const auto full=xeenQuoteEquipmentPurchase(p,0,XeenInventoryCategory::Weapons,3,0,0);
     check(full.outcome==Outcome::DestinationFull && full.price==0 && full.goldAfter==0,"tail/full-before-funds precedence differs");
     // All pure operations above retain stock, all nonselected owners and time.
     check(*p.serviceEconomy==XeenServiceEconomy{initialEconomy.wares,{UINT32_MAX,UINT32_MAX}} && *p.encounterContext==initialContext,"pure candidate changed stock/context");
@@ -141,13 +141,13 @@ void preparedRules(training_test::Inputs &inputs) {
     p.serviceEconomy->wares[0][0][0][1]={0,6,0,0};
     p.serviceEconomy->wares[0][0][0][4]={0,6,0,0};
     p.roster.at(0).weapons={};p.roster.at(0).conditions[8]=0;p.monsterTreasure->gold=120;
-    const auto first=xeenPrepareEquipmentPurchase(p,0,XeenInventoryCategory::Weapons,1);
+    const auto first=xeenPrepareEquipmentPurchase(p,0,XeenInventoryCategory::Weapons,1,0,0);
     p.serviceEconomy=first.economyAfter;p.roster.at(0).weapons=first.result.recipientAfter;p.monsterTreasure->gold=first.result.goldAfter;
     check(p.serviceEconomy->wares[0][0][0][1].id==9 && p.serviceEconomy->wares[0][0][0][3].id==6,"duplicate physical shift differs");
-    const auto second=xeenPrepareEquipmentPurchase(p,0,XeenInventoryCategory::Weapons,3);
+    const auto second=xeenPrepareEquipmentPurchase(p,0,XeenInventoryCategory::Weapons,3,0,0);
     check(second.result.outcome==Outcome::Purchased && second.result.goldAfter==0 && second.result.recipientSlot==1,
         "second duplicate quantity failed");
-    rejects([&]{xeenValidateEquipmentPurchaseEconomyDelta(*p.serviceEconomy,second.economyAfter,XeenInventoryCategory::Weapons,1,first.result.offer);});
+    rejects([&]{xeenValidateEquipmentPurchaseEconomyDelta(*p.serviceEconomy,second.economyAfter,XeenInventoryCategory::Weapons,1,first.result.offer,0,0);});
 }
 XeenServiceEconomy generated() {
     XeenCombatRandom rng(7);XeenMerchantStockCandidate stock;
@@ -164,10 +164,10 @@ void rebinds() {
     for(unsigned day:{8u,9u,10u,97u,98u}) {
         context.day=day;XeenServiceDayCandidate old(context,economy,cursor);
         const bool trigger=day==10;
-        if(trigger)rejects([&]{old.rebindPurchase(after,XeenInventoryCategory::Armor,3,offer);});
+        if(trigger)rejects([&]{old.rebindPurchase(after,XeenInventoryCategory::Armor,3,offer,0,0);});
         while(!old.complete())old.service(64);
         const auto reservedEconomy=old.economy();const auto reservedCursor=old.continuation();
-        auto rebound=old.rebindPurchase(after,XeenInventoryCategory::Armor,3,offer);
+        auto rebound=old.rebindPurchase(after,XeenInventoryCategory::Armor,3,offer,0,0);
         check(old.beforeEconomy()==economy && old.economy()==reservedEconomy && old.continuation()==reservedCursor,"rebind mutated retained obligation");
         check(rebound.complete() && rebound.triggered()==trigger && rebound.beforeEconomy()==after &&
             rebound.beforeContext()==context && rebound.beforeRandom()==cursor && rebound.context()==old.context(),"rebind lost complete candidate/preimages");
@@ -176,7 +176,7 @@ void rebinds() {
             rebound.economy().bank==XeenBankBalances{200,0},"trigger rebind rerolled/restocked/repeated bank");
         else check(rebound.economy()==after && rebound.continuation()==cursor,"nontrigger rebind lost depletion");
         auto afterTwice=after;const auto second=afterTwice.wares[0][0][0][1];afterTwice.wares[0][0][0]=removeOracle(afterTwice.wares[0][0][0],1);
-        auto twice=rebound.rebindPurchase(afterTwice,XeenInventoryCategory::Weapons,1,second);
+        auto twice=rebound.rebindPurchase(afterTwice,XeenInventoryCategory::Weapons,1,second,0,0);
         check(twice.beforeEconomy()==afterTwice && twice.economy()==(trigger?reservedEconomy:afterTwice) && twice.continuation()==reservedCursor,"repeated purchase rebind changed reserved work");
         const auto retained=twice.economy();check(twice.service(0) && twice.economy()==retained && twice.continuation()==reservedCursor,"completed rebound repeated RNG/interest");
     }
@@ -185,11 +185,11 @@ void rebinds() {
     for(unsigned s=0;s<2;++s)for(unsigned p=0;p<4;++p)for(unsigned c=0;c<4;++c)for(unsigned slot=0;slot<9;++slot)for(unsigned field=0;field<4;++field) {
         auto tampered=after;auto &item=tampered.wares[s][p][c][slot];
         auto &value=field==0?item.material:field==1?item.id:field==2?item.state:item.frame;value^=1;
-        rejects([&]{old.rebindPurchase(tampered,XeenInventoryCategory::Armor,3,offer);});
+        rejects([&]{old.rebindPurchase(tampered,XeenInventoryCategory::Armor,3,offer,0,0);});
     }
-    auto badBank=after;++badBank.bank.gold;rejects([&]{old.rebindPurchase(badBank,XeenInventoryCategory::Armor,3,offer);});
-    auto unchanged=economy;rejects([&]{old.rebindPurchase(unchanged,XeenInventoryCategory::Armor,3,offer);});
-    rejects([&]{old.rebindPurchase(after,XeenInventoryCategory::Armor,2,offer);});
+    auto badBank=after;++badBank.bank.gold;rejects([&]{old.rebindPurchase(badBank,XeenInventoryCategory::Armor,3,offer,0,0);});
+    auto unchanged=economy;rejects([&]{old.rebindPurchase(unchanged,XeenInventoryCategory::Armor,3,offer,0,0);});
+    rejects([&]{old.rebindPurchase(after,XeenInventoryCategory::Armor,2,offer,0,0);});
     for(unsigned day:{8u,10u})for(unsigned fault=0;fault<4;++fault) {
         context.day=day;XeenServiceDayCandidate tampered(context,economy,cursor);
         while(!tampered.complete())tampered.service(64);
@@ -197,7 +197,7 @@ void rebinds() {
         if(fault==1)++const_cast<XeenServiceEconomy &>(tampered.economy()).bank.gold;
         if(fault==2)const_cast<XeenServiceEconomy &>(tampered.economy()).wares[1][3][3][8].frame=1;
         if(fault==3)++const_cast<XeenGameplayContext &>(tampered.beforeContext()).minutes;
-        rejects([&]{tampered.rebindPurchase(after,XeenInventoryCategory::Armor,3,offer);});
+        rejects([&]{tampered.rebindPurchase(after,XeenInventoryCategory::Armor,3,offer,0,0);});
     }
 }
 }

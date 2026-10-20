@@ -35,7 +35,7 @@ void costsAndCatalogue() {
     auto p=fixture();auto &c=p.roster.at(1);
     for(const auto cls:{C::Cleric,C::Sorcerer,C::Druid,C::Paladin,C::Archer,C::Ranger}) {
         c.characterClass=cls;c.learnedSpells.emplace();const auto cat=*R::categoryForClass(cls);
-        const auto rows=R::rows(c,true);std::vector<std::size_t> expected;
+        const auto rows=R::rows(c,true,false,XeenMapIdentity(28));std::vector<std::size_t> expected;
         for(unsigned i=0;i<catalogue.size();++i) {
             const auto id=std::uint8_t(catalogue[i]);const auto slot=R::slotForSpell(cat,id);
             check(R::purchasePrice(id,cls)==prices[i]*((cls==C::Paladin || cls==C::Archer || cls==C::Ranger)?2:1),"Catalogue price/hybrid factor differs");
@@ -43,7 +43,7 @@ void costsAndCatalogue() {
         }
         check(rows==expected,"Guild catalogue/class intersection order differs");
         for(const auto slot:rows)c.learnedSpells->at(slot)=255;
-        check(R::rows(c,true).empty() && R::rows(c,true,true)==expected,"Buy learned filtering/Info inclusion differs");
+        check(R::rows(c,true,false,XeenMapIdentity(28)).empty() && R::rows(c,true,true,XeenMapIdentity(28))==expected,"Buy learned filtering/Info inclusion differs");
         c.currentSp=0;
         for(unsigned slot=0;slot<39;++slot) {
             const auto id=*R::spellForSlot(cat,slot);c.currentSpell=slot;

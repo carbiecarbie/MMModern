@@ -57,12 +57,12 @@ void layout(Inputs &in) {
             XeenInventorySelection selection;selection.source=member;
             for(unsigned category=0;category<4;++category)for(bool repair:{false,true}) {
                 selection.category=static_cast<XeenInventoryCategory>(category);
-                check(drawXeenBuy(in.assets.uiText(),rendered,in.font,loadXeenItemCatalog(in.assets).catalog,f.p,selection,repair,draw).isValid(),"original Buy/Fix template overflow");
+                check(drawXeenBuy(in.assets.uiText(),rendered,in.font,loadXeenItemCatalog(in.assets).catalog,f.p,selection,repair,draw,XeenMapIdentity(28)).isValid(),"original Buy/Fix template overflow");
             }
         }
     }
     const auto &text=in.assets.uiText();
-    const auto offer=in.assets.tavernFoodOffer();check(!offer.empty(),"missing original Tavern offer");
+    const auto offer=in.assets.tavernFoodOffer(75);check(!offer.empty(),"missing original Tavern offer");
     check(drawXeenFoodOffer(base,in.font,offer,draw).isValid(),"original Food offer layout");
     check(drawXeenErrorScroll(base,in.font,std::string(text.scalar("FOOD_PACKS_FULL"))).isValid(),"full packs layout");
     for(bool withdrawal:{false,true}) {
@@ -135,6 +135,11 @@ void placeRules(Inputs &in) {
             check(!offer && refused.outcome==XeenFoodOutcome::SupportLimit && refused.foodAfter==1 && refused.goldAfter==1000,"Untabled Food mutated");
         }
         check(xeenTownServiceKnown(map,4),"Clouds Temple carry-over admission");
+    }
+    for(unsigned map:{28u,29u,30u,74u}) {
+        bool rejected=false;
+        try{(void)xeenTrainingCap(XeenMapIdentity(XeenSide::Darkside,static_cast<std::uint16_t>(map)));}catch(const std::invalid_argument &){rejected=true;}
+        check(rejected,"Training cap outside Clouds");
     }
     using R=XeenLearnedSpellRules;
     const std::vector<std::vector<unsigned>> catalogues{
@@ -355,7 +360,7 @@ void originalServiceSequences(Inputs &in) {
             check(samples.back()=="ahh.voc" && f.p.roster.at(source.activeRosterIds[0]).currentHp>1,"Temple action did not replace the sample after healing");
         } else if(action==5) {
             check(xeenQuoteTraining(f.p.roster.at(source.activeRosterIds[0]),*f.p.roster.combatInputs(source.activeRosterIds[0]),
-                f.p.monsterTreasure->gold,*f.p.encounterContext).outcome==XeenTrainingOutcome::MissingExperience,"Training refusal fixture XP differs");
+                f.p.monsterTreasure->gold,*f.p.encounterContext,XeenMapIdentity(28)).outcome==XeenTrainingOutcome::MissingExperience,"Training refusal fixture XP differs");
             f.act(DialogKeyAction{'t'});check(samples.back()=="trainin0.voc","Training experience refusal did not replace greeting");
             f.act(SelectMemberAction{1});f.act(DialogKeyAction{'t'});f.prepare();
             check(samples.back()=="trainin2.voc" && f.p.roster.at(18).permanentLevel==4,"Successful Training sample/recovery differs");
@@ -471,10 +476,10 @@ void spellDialogs(Inputs &in,bool mouse) {
         c.hasSpells=true;c.learnedSpells.emplace();c.awards[0]=1;
         c.weapons={};c.armor={};c.accessories={};c.miscellaneous={};
         Fixture f(in,source);f.flow->drawGuildArt=[&in](auto &image){in.assets.drawGuild(image);};
-        check(drawXeenSpellList(text,training_test::frame(),in.font,f.p.roster.at(owner),in.names,{},20000,true,true,f.flow->drawDialogSprite,f.p.encounterContext->year).isValid(),"Guild list layout");
+        check(drawXeenSpellList(text,training_test::frame(),in.font,f.p.roster.at(owner),in.names,{},20000,true,true,f.flow->drawDialogSprite,f.p.encounterContext->year,XeenMapIdentity(28)).isValid(),"Guild list layout");
         f.act(InteractionAction{});f.prepare();
         const auto before=Owners(f);choose(f,'s');preview(in,f.flow->frame(),"guild-info-list-"+std::to_string(book));
-        const auto offers=XeenLearnedSpellRules::rows(f.p.roster.at(owner),true,true);
+        const auto offers=XeenLearnedSpellRules::rows(f.p.roster.at(owner),true,true,XeenMapIdentity(28));
         for(std::size_t row=0;row<std::min<std::size_t>(10,offers.size());++row) {
             const auto id=*XeenLearnedSpellRules::spellForSlot(static_cast<XeenSpellCategory>(book),offers[row]);
             const auto &name=in.names.names[id];const int x=35+(row?10:11),y=29+9*row;
@@ -503,7 +508,7 @@ void spellDialogs(Inputs &in,bool mouse) {
         check(f.p.roster.at(owner).learnedSpells->at(slot)==1 && f.p.monsterTreasure->gold==19900,"Guild buy did not debit and learn once");
         check(*f.p.encounterContext==before.context && *f.w.sessionState().journeyRandom()==before.random,"Guild purchase changed clock/RNG");
         const auto paid=Owners(f);f.flow->beginCycle(++f.cycle);f.present(f.flow->handle(DialogKeyAction{'y'},epoch,old));paid.unchanged(f);
-        const auto remaining=XeenLearnedSpellRules::rows(f.p.roster.at(owner),true);
+        const auto remaining=XeenLearnedSpellRules::rows(f.p.roster.at(owner),true,false,XeenMapIdentity(28));
         // Every spell in Vertigo's original catalogue is now supported.
         // A second purchase still checks row refresh, price and saved knowledge.
         check(!remaining.empty(),"second purchase fixture missing");

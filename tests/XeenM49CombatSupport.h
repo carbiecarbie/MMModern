@@ -23,7 +23,7 @@ inline std::optional<mmodern::PlayerAction> finishSpell(const mmodern::XeenComba
     const auto slot=knownSlot(party.roster.at(cast.owner),spell);
     if(!slot)throw std::runtime_error("Witness caster lost learned spell");
     if(cast.phase==XeenCombatCastPhase::Learned) {
-        const auto rows=XeenLearnedSpellRules::rows(party.roster.at(cast.owner));
+        const auto rows=XeenLearnedSpellRules::rows(party.roster.at(cast.owner),false,false,XeenMapIdentity(28));
         const auto it=std::find(rows.begin(),rows.end(),*slot);
         if(it==rows.end())throw std::runtime_error("Witness learned row absent");
         const auto row=std::size_t(it-rows.begin());

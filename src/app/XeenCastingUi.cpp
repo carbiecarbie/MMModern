@@ -248,7 +248,7 @@ IndexedFrame XeenEventFlow::drawCasting(const IndexedFrame &base) const {
         }
         auto frame=ui.phase==P::ChooseTarget?drawXeenSpellTarget(dosText(),underlay,_inventoryFont):
             drawXeenCast(dosText(),underlay,_inventoryFont,c,ui.caster,names,drawDialogSprite);
-        if(ui.phase==P::New)frame=drawXeenSpellList(dosText(),frame,_inventoryFont,c,names,ui.list,_party.monsterTreasure->gold,false,false,drawDialogSprite,_party.encounterContext->year);
+        if(ui.phase==P::New)frame=drawXeenSpellList(dosText(),frame,_inventoryFont,c,names,ui.list,_party.monsterTreasure->gold,false,false,drawDialogSprite,_party.encounterContext->year,_camera.mapId);
         if(!ui.refusal.empty())frame=drawXeenErrorScroll(frame,_inventoryFont,refusal(dosText(),c,names,ui.refusal));
         return frame;
     }
@@ -268,7 +268,7 @@ IndexedFrame XeenEventFlow::drawCasting(const IndexedFrame &base) const {
     unsigned portrait=0;for(unsigned i=0;i<v.participant;++i)portrait+=bool(_encounter->combat()->participants()&(1u<<i));
     auto frame=v.phase==P::PartyTarget?drawXeenSpellTarget(dosText(),underlay,_inventoryFont):
         drawXeenCast(dosText(),underlay,_inventoryFont,c,portrait,names,drawDialogSprite);
-    if(v.phase==P::Learned)frame=drawXeenSpellList(dosText(),frame,_inventoryFont,c,names,{v.top,v.selection},_party.monsterTreasure->gold,false,false,drawDialogSprite,_party.encounterContext->year);
+    if(v.phase==P::Learned)frame=drawXeenSpellList(dosText(),frame,_inventoryFont,c,names,{v.top,v.selection},_party.monsterTreasure->gold,false,false,drawDialogSprite,_party.encounterContext->year,_camera.mapId);
     if(!v.refusal.empty())frame=drawXeenErrorScroll(frame,_inventoryFont,refusal(dosText(),c,names,v.refusal));
     return frame;
 }
@@ -313,7 +313,7 @@ IndexedFrame XeenEventFlow::handleCasting(const PlayerAction &action,std::uint64
     if(ui.phase==P::New) {
         if(key==InputKey::Escape){ui.phase=P::Cast;ui.list.selection.reset();return renderEncounter();}
         const auto &c=_party.party.member(_party.roster,ui.caster);
-        const auto rows=XeenCharacterRules::maxSp(c,{_party.encounterContext->year})?XeenLearnedSpellRules::rows(c):std::vector<std::size_t>{};
+        const auto rows=XeenCharacterRules::maxSp(c,{_party.encounterContext->year})?XeenLearnedSpellRules::rows(c,false,false,_camera.mapId):std::vector<std::size_t>{};
         ui.list.scroll(key,rows.size());
         if(const auto row=ui.list.row(key,rows.size()))ui.list.selection=*row;
         if((key=='s' || key==InputKey::Enter) && ui.list.selection && *ui.list.selection<rows.size()) {

@@ -188,7 +188,7 @@ void quickCasting(Inputs &in) {
  check(!combat->cast() && combat->participant()!=0 && heal.p.roster.at(owner).currentSp==sp-1,"Quick First Aid settles and advances once");
  // Browsing/cancelling keeps the remembered slot; accepting a selection publishes it before outer cancellation.
  Fixture remember(in,source);engage(remember);combat=remember.flow->encounter()->combat();const auto prior=remember.p.roster.at(owner).currentSpell;
- remember.act(CastSpellAction{});remember.act(DialogKeyAction{'n'});remember.act(DialogKeyAction{'1'});const auto chosen=XeenLearnedSpellRules::rows(remember.p.roster.at(owner)).front();
+ remember.act(CastSpellAction{});remember.act(DialogKeyAction{'n'});remember.act(DialogKeyAction{'1'});const auto chosen=XeenLearnedSpellRules::rows(remember.p.roster.at(owner),false,false,XeenMapIdentity(28)).front();
  check(chosen!=prior,"Spell browsing fixture");remember.act(CancelInteractionAction{});check(remember.p.roster.at(owner).currentSpell==prior,"Cancelled spell selection preserves remembered slot");
  remember.act(CancelInteractionAction{});remember.act(CastSpellAction{});remember.act(DialogKeyAction{'n'});remember.act(DialogKeyAction{'1'});remember.act(DialogKeyAction{'s'});
  check(remember.p.roster.at(owner).currentSpell==chosen,"Accepted spell selection is tracked immediately");remember.act(CancelInteractionAction{});remember.act(CancelInteractionAction{});

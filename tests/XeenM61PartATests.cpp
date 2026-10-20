@@ -140,7 +140,7 @@ void services(Inputs &in,bool mouse) {
         const auto stock=f.p.serviceEconomy->wares[0][0][c];
         check(stock[0].id!=0,"original seeded stock category absent");
         key(f,InputKey::F1+2,mouse); // empty recipient categories in the original roster
-        const auto quote=xeenQuoteEquipmentPurchase(f.p,2,C(c),0);check(quote.outcome==XeenEquipmentPurchaseOutcome::Quoted,"generated Buy category refused");
+        const auto quote=xeenQuoteEquipmentPurchase(f.p,2,C(c),0,0,0);check(quote.outcome==XeenEquipmentPurchaseOutcome::Quoted,"generated Buy category refused");
         const auto before=*f.p.monsterTreasure;key(f,'1',mouse);const auto frame=f.flow->frame().presentation();const auto input=f.flow->displayedInput();key(f,'y',mouse);
         check(f.p.monsterTreasure->gold==before.gold-quote.price,"Buy debit differs");replay(f,frame,input);
         bool found=false;for(const auto &item:*xeenInventoryItems(f.p.party.member(f.p.roster,2),C(c)))found|=xeenSameItem(item,stock[0]);check(found,"Buy lost item bytes");

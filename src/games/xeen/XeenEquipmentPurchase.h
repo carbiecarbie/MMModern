@@ -34,13 +34,13 @@ unsigned xeenIronworksShop(XeenMapIdentity) noexcept;
 bool xeenSupportedEquipmentOffer(unsigned side,unsigned shop,XeenInventoryCategory,const XeenItem &) noexcept;
 std::optional<std::uint32_t> xeenEquipmentPurchasePrice(XeenInventoryCategory,const XeenItem &) noexcept;
 XeenEquipmentPurchaseResult xeenQuoteEquipmentPurchase(const XeenPartyState &,std::size_t member,
-    XeenInventoryCategory,std::size_t slot,unsigned side=0,unsigned shop=0);
+    XeenInventoryCategory,std::size_t slot,unsigned side,unsigned shop);
 XeenEquipmentPurchaseCandidate xeenPrepareEquipmentPurchase(const XeenPartyState &,std::size_t member,
-    XeenInventoryCategory,std::size_t slot,unsigned side=0,unsigned shop=0);
+    XeenInventoryCategory,std::size_t slot,unsigned side,unsigned shop);
 // Exact authorized economy delta, independent of snapshot existence proof.
 // Neither bank nor any other shop/category/side may change. expected binds the
 // selected physical source; an identical item elsewhere is not a substitute.
 void xeenValidateEquipmentPurchaseEconomyDelta(const XeenServiceEconomy &before,
-    const XeenServiceEconomy &after,XeenInventoryCategory,std::size_t slot,const XeenItem &expected,unsigned side=0,unsigned shop=0);
+    const XeenServiceEconomy &after,XeenInventoryCategory,std::size_t slot,const XeenItem &expected,unsigned side,unsigned shop);
 }
 #endif

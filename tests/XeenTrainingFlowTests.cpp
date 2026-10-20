@@ -43,7 +43,7 @@ int main(int argc,char **argv) {
             s.characters[18].weapons={};s.characters[18].armor={};s.characters[18].accessories={};s.characters[18].miscellaneous={};
             const unsigned debit=bases[cls]*(1u<<(level==1?0:level-2));
             s.journey->supplements[18].inputs.experience=debit+1;s.journey->treasure->gold=10*level*level;
-            Fixture fixture(inputs,s);const auto delta=xeenPrepareTraining(fixture.p,18,*fixture.p.encounterContext);
+            Fixture fixture(inputs,s);const auto delta=xeenPrepareTraining(fixture.p,18,*fixture.p.encounterContext,XeenMapIdentity(28));
             check(delta.result.outcome==XeenTrainingOutcome::Trained && delta.result.levelAfter==level+1 &&
                 delta.result.xpAfter==1 && delta.result.goldAfter==0 && delta.result.maxHpAfter==delta.result.hpAfter &&
                 delta.result.maxSpAfter==delta.result.spAfter,"class/level progression debit/remainder/exact funds/derived refill differs");
@@ -120,7 +120,7 @@ int main(int argc,char **argv) {
             m42_test::sameCategory(stock,purchase_test::removeOffer(generated.wares[0][0][1],
                 purchase_test::plainOffer(generated.wares[0][0][1],3)));
             Fixture fixture(inputs,s);save_test::sameSnapshot(s,fixture.snapshot());
-            check(xeenPrepareTraining(fixture.p,18,*fixture.p.encounterContext).result.outcome==XeenTrainingOutcome::Trained,
+            check(xeenPrepareTraining(fixture.p,18,*fixture.p.encounterContext,XeenMapIdentity(28)).result.outcome==XeenTrainingOutcome::Trained,
                 "actual successor Training candidate rejected depleted economy");
             const auto before=*fixture.p.serviceEconomy;const auto cursor=*fixture.w.sessionState().journeyRandom();
             fixture.enter();fixture.train(1);

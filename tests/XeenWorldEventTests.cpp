@@ -1207,7 +1207,7 @@ void partBVernGuild(Inputs &in) {
  check(enrollment.p.roster.at(casterOwner).awards[0]==1 && enrollment.p.monsterTreasure->gold==975,"Vern did not enroll funded caster");
  auto enrolled=enrollment.snapshot();enrolled.camera={28,20,13,XeenDirection::North};Fixture shop(in,enrolled);shop.act(InteractionAction{});shop.prepare();
  shop.act(DialogKeyAction{InputKey::F1+caster});shop.act(DialogKeyAction{'b'});
- const auto offered=XeenLearnedSpellRules::rows(shop.p.roster.at(casterOwner),true);
+ const auto offered=XeenLearnedSpellRules::rows(shop.p.roster.at(casterOwner),true,false,XeenMapIdentity(28));
  const auto category=*XeenLearnedSpellRules::categoryForClass(shop.p.roster.at(casterOwner).characterClass);
  const auto purchase=std::find(offered.begin(),offered.end(),*XeenLearnedSpellRules::slotForSpell(category,55));
  check(purchase!=offered.end() && purchase-offered.begin()<10,"original Protection from Elements offer missing");const auto bought=*purchase;

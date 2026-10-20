@@ -552,8 +552,8 @@ IndexedFrame drawXeenBuy(const XeenDosText &text,const IndexedFrame &base,const 
     highlight(frame,selection.source,draw);return frame;
 }
 IndexedFrame drawXeenBuy(const XeenDosText &text,const IndexedFrame &base,const XeenFontFormat &font,const XeenItemCatalog &catalog,
-        const XeenPartyState &p,const XeenInventorySelection &selection,bool repair,const XeenDialogSpriteDraw &draw) {
-    return drawXeenBuy(text,base,font,catalog,p,selection,repair?XeenItemService::Fix:XeenItemService::Buy,draw);
+        const XeenPartyState &p,const XeenInventorySelection &selection,bool repair,const XeenDialogSpriteDraw &draw,XeenMapIdentity map) {
+    return drawXeenBuy(text,base,font,catalog,p,selection,repair?XeenItemService::Fix:XeenItemService::Buy,draw,map);
 }
 unsigned xeenCombatHealthColor(int hp,int maxHp) {
     // DOS 0x2e211..0x2e272; the middle color begins at floor(maxHP/4).

@@ -151,7 +151,7 @@ int freshStartGameplay(const Application *app, const XeenGameplayServices &origi
                 act(DialogKeyAction{'b'});
                 std::optional<XeenEquipmentPurchaseResult> offer;
                 for (unsigned slot = 0; slot < 8; ++slot) {
-                    const auto quote = xeenQuoteEquipmentPurchase(*party,0,XeenInventoryCategory::Weapons,slot);
+                    const auto quote = xeenQuoteEquipmentPurchase(*party,0,XeenInventoryCategory::Weapons,slot,0,0);
                     if (quote.outcome == XeenEquipmentPurchaseOutcome::Quoted && !quote.shortfall) { offer = quote; break; }
                 }
                 check(offer.has_value(), "M52 affordable original offer");

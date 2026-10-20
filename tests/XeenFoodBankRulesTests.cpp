@@ -40,21 +40,21 @@ int main() {
         for (std::size_t members = 1; members <= 6; ++members) {
             const auto limit = static_cast<std::uint16_t>(15u * members);
             for (std::uint16_t food : {std::uint16_t(0), std::uint16_t(limit - 1)}) {
-                foodResult(xeenBuyFood(members, food, 10, true), XeenFoodOutcome::Purchased, limit, 0);
-                foodResult(xeenBuyFood(members, food, maximum, true), XeenFoodOutcome::Purchased, limit, maximum - 10);
-                foodResult(xeenBuyFood(members, food, 9, true), XeenFoodOutcome::InsufficientGold, food, 9);
-                foodResult(xeenBuyFood(members, food, 10, false), XeenFoodOutcome::Cancelled, food, 10);
+                foodResult(xeenBuyFood(members, food, 10, true, XeenMapIdentity(28)), XeenFoodOutcome::Purchased, limit, 0);
+                foodResult(xeenBuyFood(members, food, maximum, true, XeenMapIdentity(28)), XeenFoodOutcome::Purchased, limit, maximum - 10);
+                foodResult(xeenBuyFood(members, food, 9, true, XeenMapIdentity(28)), XeenFoodOutcome::InsufficientGold, food, 9);
+                foodResult(xeenBuyFood(members, food, 10, false, XeenMapIdentity(28)), XeenFoodOutcome::Cancelled, food, 10);
             }
             for (std::uint16_t food : {limit, std::uint16_t(limit + 1), std::uint16_t(65535)})
                 for (std::uint32_t gold : {0u, 9u, 10u, maximum}) {
-                    foodResult(xeenBuyFood(members, food, gold, true), XeenFoodOutcome::Full, food, gold);
-                    foodResult(xeenBuyFood(members, food, gold, false), XeenFoodOutcome::Cancelled, food, gold);
+                    foodResult(xeenBuyFood(members, food, gold, true, XeenMapIdentity(28)), XeenFoodOutcome::Full, food, gold);
+                    foodResult(xeenBuyFood(members, food, gold, false, XeenMapIdentity(28)), XeenFoodOutcome::Cancelled, food, gold);
                 }
         }
-        foodResult(xeenBuyFood(0, 0, 10, true), XeenFoodOutcome::Full, 0, 10);
+        foodResult(xeenBuyFood(0, 0, 10, true, XeenMapIdentity(28)), XeenFoodOutcome::Full, 0, 10);
         // Party sizes outside the food storage domain cannot silently truncate.
         bool invalidSize = false;
-        try { xeenBuyFood(std::numeric_limits<std::size_t>::max(), 0, 10, true); }
+        try { xeenBuyFood(std::numeric_limits<std::size_t>::max(), 0, 10, true, XeenMapIdentity(28)); }
         catch (const std::invalid_argument &) { invalidSize = true; }
         check(invalidSize, "Food limit overflow admitted");
 

@@ -299,13 +299,13 @@ void prepare(XeenSaveSnapshot &snapshot,const std::string &preset) {
     }
     if (preset=="train-ready") {
         auto &inputs=journey.supplements.at(first).inputs;
-        const auto quote=xeenQuoteTraining(member,inputs,journey.treasure->gold,*journey.context);
+        const auto quote=xeenQuoteTraining(member,inputs,journey.treasure->gold,*journey.context,snapshot.camera.mapId);
         const auto xp=std::uint64_t(inputs.experience)+quote.missing;
         if (member.permanentLevel>=10 || xp>std::numeric_limits<std::uint32_t>::max())
             throw std::runtime_error("Fresh member cannot represent trainable XP");
         inputs.experience=static_cast<std::uint32_t>(xp);
         journey.treasure->gold=std::max<std::uint32_t>(journey.treasure->gold,quote.cost);
-        if (xeenQuoteTraining(member,inputs,journey.treasure->gold,*journey.context).outcome!=XeenTrainingOutcome::Quoted)
+        if (xeenQuoteTraining(member,inputs,journey.treasure->gold,*journey.context,snapshot.camera.mapId).outcome!=XeenTrainingOutcome::Quoted)
             throw std::runtime_error("Training preset is not eligible");
         return;
     }

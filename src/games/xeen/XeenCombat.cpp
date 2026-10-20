@@ -1006,7 +1006,7 @@ XeenCombatResult XeenCombat::respondCast(CastResponse &response,XeenCombatCastIn
             return d.adopt(d.observation(Status::Advanced));
         }
         if(v.phase==CP::Learned) {
-            const auto rows=XeenCharacterRules::maxSp(ch,{d.party.encounterContext->year})?XeenLearnedSpellRules::rows(ch):std::vector<std::size_t>{};
+            const auto rows=XeenCharacterRules::maxSp(ch,{d.party.encounterContext->year})?XeenLearnedSpellRules::rows(ch,false,false,d.camera.mapId):std::vector<std::size_t>{};
             if(action==CI::Up && v.top)--v.top;
             if(action==CI::Down && rows.size()>v.top+10)++v.top;
             if(action==CI::PageUp)v.top=v.top>=10?v.top-10:0;
