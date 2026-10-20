@@ -13,10 +13,13 @@ quality-of-life features may come later, and they will be off by default.
 MMModern is incomplete and experimental. The 0.1 releases are its first
 public versions, and they do not replace the original games yet.
 
-A new Clouds game starts in Vertigo, as in the original. You can play the
-whole town and the F3 area around it.
+A new Clouds game starts in Vertigo, as in the original. Every Clouds map is
+open: walk across the outdoor borders, take stairs, teleports and the magic
+mirror, or travel by Town Portal, Lloyd's Beacon and the other travel spells.
+Mountaineer and Pathfinder cross mountains and outdoor walls, and dark
+dungeons need light.
 
-Combat follows the original rules: attack, block, shoot, run outdoors, cast
+Combat follows the original rules: attack, block, shoot, run, cast
 spells, change equipment and use charged items with the Use button. Monsters
 use every attack and ability the original data gives them. Around town you can
 bash or unlock grates and doors, search crates and trees, and rest, which uses
@@ -121,20 +124,19 @@ to view that member. The acting member and selected enemy use the original icons
 
 ## What is missing
 
-- Areas: only Vertigo and F3 are open. Teleports, Town Portal and the magic
-  mirror refuse destinations that are not open yet. Run does not work indoors.
+- Other towns: Nightshadow, Rivercity, Asp and Winterkill have no services
+  yet; they say "not supported yet".
 - Sound: there is no audio. Where the CD would play speech, a short notice
   appears. Speech, shop voices, the dream and the death laugh still take their
   original time, in silence.
-- The intros, Mr Wizard's help and the control panel's sound and text options
-  are not available.
+- The intros and the control panel's sound and text options are not
+  available.
 - Inn and party: there is no Inn, recruiting or character creation. Tavern
   Sign In and Dismiss say "not supported yet".
-- Entrance scenes: the Dwarf Mine and Pyramid entrances in F3 say "not
-  supported yet".
+- Entrance scenes and the Arena: the Reaper, Golem, Dwarf Mine, Sphinx and
+  Pyramid entrances and the Arena say "not supported yet".
 - Monster treasure: not every monster drops items yet, and drops of higher
   treasure levels and accessories are missing.
-- Skills: Mountaineer does not yet let the party cross mountains.
 - Darkside gameplay is not supported.
 
 The [project status](https://github.com/carbiecarbie/MMModern/blob/main/docs/project-status.md)
@@ -296,9 +298,7 @@ including for an item cast whose charge remains spent; later Escape keeps
 the cost. An original Vertigo monster stands one
 step west, at `(17,4)`, for combat casting, Quick Fight and item Use.
 On mainland map 23, stand at `(12,9)` facing West to try
-Walk on Water onto the shallow water at `(11,9)`. The open mainland and
-Vertigo components have no deep-water or cloud cells; those consumers have
-automated tests with synthetic terrain.
+Walk on Water onto the shallow water at `(11,9)`.
 
 The third member's first six Misc slots hold five-charge Super Shelter,
 Etherealize, Time Distortion, Teleport, Lloyd's Beacon and Town Portal items. On mainland map 23,
@@ -306,22 +306,35 @@ Etherealize, Time Distortion, Teleport, Lloyd's Beacon and Town Portal items. On
 Super Shelter sleeps eight hours without monster interruption opportunities.
 Time Distortion returns to `(10,12)` without changing facing. Teleport asks
 for one digit (1-9); empty, zero or Escape keeps the cost and cancels.
-Destinations outside the open region refuse before payment. Etherealize
+Etherealize
 moves one cell forward, ignoring walls. Only Time Distortion is admitted
 from these six travel spells in the learned book or Quick Fight during combat.
 
 The Cleric's beacon starts in Vertigo `(18,4)`, the Sorcerer's on mainland 23
-`(9,11)`, and the third member's on unopened map 29. The third member also
+`(9,11)`, and the third member's in Nightshadow (map 29). The third member also
 knows Lloyd's Beacon. Transfer the Beacon item to the Cleric to use his stored
 Vertigo destination. Set uses S/T or the original Set button; Return uses R
 or its button and keeps facing. Same-map Return keeps live monster HP and
 status; cross-map Return reloads. Town Portal accepts 1-5 followed by Enter;
-Vertigo always reloads, including from Vertigo. The other towns and unopened
-or Darkside beacons refuse without spending resources. Escape keeps the
+Vertigo always reloads, including from Vertigo. Darkside beacons refuse
+without spending resources. Escape keeps the
 spell or item cost; an unset beacon defaults to Vertigo even on cancel.
 
 ```powershell
 .\build-rel\mmodern_test_save.exe m76-spells "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/m76-spells.mmsave"
+```
+
+The `m78-playtest` preset is a travel party at map 23 `(9,11)` facing West:
+the original six at level 30 with full HP and SP, Obsidian weapons and armor
+equipped as each class allows, every spell of each caster's list, 100,000
+gold and 5,000 gems. Arturius and Tyro hold Mountaineer and Pathfinder,
+everyone can swim, and Badger has the information skills. `m78-one-holder`
+is the same party with Mountaineer and Pathfinder on Arturius only, so the
+mountains and outdoor wall types 3 and 6 stay closed until a teacher adds a
+second holder.
+
+```powershell
+.\build-rel\mmodern_test_save.exe m78-playtest "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/m78-playtest.mmsave"
 ```
 
 The `party-healing` preset also starts at Vertigo (18,4). A Cleric and a

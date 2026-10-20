@@ -386,3 +386,14 @@ work, and the Danger Sense, Spot Secret Doors and Direction Sense indicators
 light on the border. Play-test fixes followed DOSBox screenshots: the Town
 Portal window, the combat Use click and the Cursed and Broken colors. Save
 v15 is unchanged. [Plan](milestone-77-plan.md).
+
+**M78 - Opening areas** (`612a4ac` plan, `a0872f1`, `48a2784`,
+`4d38594`). A DOS check first settled Mountaineer, Pathfinder and the
+dark view: each skill needs two members, Pathfinder crosses outdoor wall
+types 3 and 6 (the reference has no such rule), and dark maps stay black
+until the party has light. Every Clouds map now opens from the original data,
+with outdoor borders, multi-tile dungeons, Event teleports and stairs, the
+mirror, Town Portal's five towns, Lloyd's Beacon, the travel spells, Run, Mr
+Wizard and falls. Other towns' services and the entrance scenes refuse
+without changing anything. Save v16 changes only the version.
+[Plan](milestone-78-plan.md).

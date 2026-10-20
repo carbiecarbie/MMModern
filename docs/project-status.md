@@ -1,10 +1,10 @@
 # MMModern - Project Status
 
-This describes what can be played and done now. **M77 is the latest completed
-and accepted milestone** ([plan](milestone-77-plan.md)): the party manages and
-uses its items in combat, including Town Portal from an item, reads its quests
-and awards on the original Quests and Awards screens, and the Danger Sense,
-Spot Secret Doors and Direction Sense indicators light on the border. Earlier
+This describes what can be played and done now. **M78 is the latest completed
+and accepted milestone** ([plan](milestone-78-plan.md)): the whole of Clouds is
+open, with its monsters, Events and every travel path; Mountaineer and
+Pathfinder let the party cross mountains and outdoor wall types 3 and 6, and
+dark maps stay black until the party has light. Earlier
 milestones are in [project history](project-history.md), direction is in the
 [roadmap](roadmap.md), and build and dependency setup is in
 [dependencies](dependencies.md).
@@ -13,8 +13,7 @@ MMModern aims to be a faithful reimplementation of the original games; any
 approved deviation is noted where it applies. It is not yet a general
 replacement for them. A **new game** of Might and Magic IV: Clouds of Xeen,
 read from the World of Xeen two-CD talkie edition, starts as in the original.
-The playable area is the whole town of Vertigo and the connected mainland of
-map 23 (F3). Darkside gameplay is not supported.
+Every Clouds map is playable. Darkside gameplay is not supported.
 
 ## What can be played
 
@@ -32,23 +31,29 @@ an empty bank. **Load** continues a saved game from the same slot list.
 - **Maps.** Terrain, walls, objects, monsters and text come from the original
   resources. Every surface works as in the original: lava burns, sky and
   clouds drop the party to the land below, space kills and the desert costs
-  time. Water needs Swimming for the whole party or Walk on Water.
+  time. Water needs Swimming for the whole party or Walk on Water. Mountains
+  need Mountaineer and outdoor wall types 3 and 6 need Pathfinder, each from
+  two members, as in DOS. Dark maps show a black view until Light or the
+  party's remaining light clears it.
+- **Areas.** Every Clouds map opens from the original data: walking across
+  an outdoor border loads the next map, and larger dungeons span several
+  original tiles as one map. Each map load rebuilds its monsters.
 - **Monsters** wake, approach and attack on the original rules, with every
   attack, secondary effect and movement kind in the original data, including
   ranged attacks and flying. Every map load rebuilds its monsters at full HP
   and asleep, as the original does.
-- **Events.** In Vertigo and on the mainland, every Event operation the
-  Clouds scripts use runs as in the original, other than audio, the entrance
-  scenes and the ending: signs, fountains, statues, NPC conversations, moved
+- **Events.** Every Event operation the Clouds scripts use runs as in the
+  original, other than audio, the entrance scenes, the Arena, the other towns'
+  services and the ending: signs, fountains, statues, NPC conversations, moved
   walls and objects, monster spawns, conditions, rewards, random Events,
-  teleports, the magic mirror and password prompts. Destinations in maps that
-  are not open yet refuse without changing anything.
+  teleports, stairs, the magic mirror and password prompts. Those exceptions
+  say "not supported yet" without changing anything.
 - **Space** at an empty cell passes time and lets monsters act, as in DOS.
 
 ### Combat
 
 Combat starts on contact and is turn-based per party member: Attack, Block,
-Run (outdoors), Cast, Use and Quick Fight. Shoot works in exploration, indoors
+Run, Cast, Use and Quick Fight. Shoot works in exploration, indoors
 too. Monsters choose their targets and number of attacks from their original
 data, and the party can turn during combat. Equipped weapons, armor, rings and
 amulets count with their metal, element and enchantment. Wounds, conditions,
@@ -56,9 +61,11 @@ broken armor, XP, gold and generated items stay on the characters, the party
 and the world. Monster treasure appears when the fight is over and must be
 acknowledged page by page.
 
-**Run** is per member; the others keep fighting. If the whole party leaves, it
-moves to the original fixed destination `(10,12)` with its facing unchanged,
-and survivors keep their wounds.
+**Run** is per member; the others keep fighting. Each map's original run
+position and chance apply, indoors too. If the whole party leaves, it moves to
+that position with its facing unchanged, and survivors keep their wounds.
+Run says "not supported yet" when that cell has an automatic Event for the
+party's facing.
 
 In combat, equipping, removing, discarding and transferring items cost no
 turn. The Use button (U, the potion) uses a charged item and ends the member's
@@ -88,9 +95,10 @@ original selection, and the original Cast dialog casts them. By theme:
   open the original screens.
 - **Items.** Enchant Item, Recharge Item and Item to Gold work through the
   Items dialog.
-- **Travel.** Jump, Etherealize, Time Distortion and Teleport move the party on
-  its map, each character keeps their own Lloyd's Beacon, Super Shelter sleeps
-  where Rest is refused, and Town Portal reaches Vertigo.
+- **Travel.** Jump, Etherealize, Time Distortion and Teleport move the party,
+  crossing outdoor borders as walking does; each character keeps their own
+  Lloyd's Beacon, Super Shelter sleeps where Rest is refused, and Town Portal
+  reaches all five towns.
 
 The [magic rules](rules/magic.md) give each spell's effect, cost and evidence.
 
@@ -174,8 +182,9 @@ Tab or the gem opens the original control panel when nothing else is open:
 **Save** writes the current game's slot, **Save As** picks a slot and a new
 name, **Load** replaces the running game with a saved one, and **Quit** asks
 for confirmation. Saving is refused in combat, during service visits and on
-maps that forbid it. Efx, Music, Speech, Text and Mr Wizard say "not supported
-yet". Slots live under Local AppData (`MMModern/Saves/`); a damaged or foreign
+maps that forbid it. **Mr Wizard** returns the party to Vertigo's run position
+facing East and takes all its gems; in combat it says "not supported yet", as
+do Efx, Music, Speech and Text. Slots live under Local AppData (`MMModern/Saves/`); a damaged or foreign
 slot is shown as unavailable and never overwritten. Loading continues exactly,
 without replaying any Event, reward, time or random draw.
 
@@ -219,7 +228,7 @@ The [README](../README.md#entry-modes) gives every option.
 
 ## Save format
 
-There is **one current save format**, v15. It keeps the party, the world and
+There is **one current save format**, v16. It keeps the party, the world and
 one generic state per visited map: monster positions and lifecycle, removed or
 moved objects, changed cells, disabled Events, explored cells and the Tavern
 tip index. Monster HP and wake state are not saved, because every map load
@@ -259,8 +268,9 @@ Ownership, from state outward:
   value snapshot at a quiet boundary and restores it into fresh owners before
   gameplay starts. `XeenRestoreGuard` and `XeenMutation` detect state that
   changed while work was prepared, so stale work cannot publish.
-- **Journey content** (`XeenJourneyContent`): an immutable description of the
-  open area, the map-23 mainland and the whole of Vertigo.
+- **Journey content** (`XeenJourneyContent`): the immutable prepared start used
+  by the test mode. Map admission comes from the original resources in
+  `XeenWorld`, not from a list of maps.
 
 Presentation draws into a 320x200 indexed frame that SDL scales. Presented
 frames carry an identity so input from a stale frame is dropped.
@@ -280,23 +290,20 @@ and its support status. Build and run instructions are in
 
 ## Known gaps
 
-- **Areas.** Only the map-23 mainland and Vertigo are playable; other maps
-  appear only through `--render-map` and the developer fixtures. Teleports,
-  the mirror, Town Portal's other four towns and Lloyd's Beacons set in
-  unopened maps refuse. Jump says "Spell not supported yet" when it would land
-  outside the open area. Combat Run refuses indoors. Dark maps and light-drain cells
-  come with the areas that have them.
+- **Other towns.** Nightshadow, Rivercity, Asp and Winterkill have no services
+  yet: their shops, Temple, Training, Bank, Tavern and Guild say "not
+  supported yet".
 - **Inn and party.** There is no Inn, recruiting or character creation:
   Tavern Sign In and Dismiss say "not supported yet".
 - **Town scenes.** The entrance scenes (Reaper, Golem, Dwarf Mine, Sphinx and
-  Pyramid), the Arena and the Clouds ending are not implemented; F3 has the
-  Dwarf Mine and Pyramid entrances.
+  Pyramid), the Arena and the Clouds ending are not implemented; they say
+  "not supported yet".
 - **Monster treasure.** Item drops come only from some monsters and only at
   the lowest treasure level, without accessories.
-- **Skills.** Mountaineer does not open mountains yet. Arms Master and Tracker
+- **Skills.** Arms Master and Tracker
   are kept but do nothing; the reference gives them no effect either, and DOS
   has not been checked.
-- **Presentation.** There is no audio, intro or Mr Wizard's help. Where the CD
+- **Presentation.** There is no audio or intro. Where the CD
   plays speech, a short notice appears; speech, shop voices, the dream and the
   death laugh keep their original duration silently, and NPC faces move for
   as long as the CD speech would play.

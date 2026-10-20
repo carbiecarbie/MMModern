@@ -1,6 +1,6 @@
 # MMModern - Roadmap
 
-**M77 is the latest completed and accepted milestone.**
+**M78 is the latest completed and accepted milestone.**
 [Project status](project-status.md) describes what is playable now;
 [project history](project-history.md) records completed milestones. Reference
 provenance belongs to [dependencies](dependencies.md).
@@ -88,19 +88,16 @@ next areas, since they check a quest item and load the next map. The Inn,
 recruiting and character creation do not block progress: the starting party
 of six can play the game. The steps after M77 are reordered accordingly.
 
-Before step 8, a maintenance fix lets combat Run use each map's own run
-position and chance, indoors included, as the reference does, and adds Mr
-Wizard's return to Vertigo.
+Before step 8, a maintenance fix (`bb22c52`) let combat Run use each map's
+own run position and chance, indoors included, and added Mr Wizard's return
+to Vertigo.
 
-8. **Opening areas** (Tier A; its plan decides whether to split it):
-   replace the fixed map 23/28 admission with an open area derived from the
-   original data; every travel destination (teleports, the mirror, Town
-   Portal's five towns, Lloyd's Beacon, Jump, falls); Mountaineer and
-   Pathfinder outdoor traversal (two members with the skill, as in the
-   reference); the original dark view of dark maps and light-drain cells
-   (the census counts neither yet). The plan says whether the Journey
-   content changes the save. Then play-test by sampling rather than map by
-   map.
+8. **Opening areas**: completed and accepted in
+   [M78](milestone-78-plan.md) (save v16). Every Clouds map opens from the
+   original data with every travel path; Mountaineer crosses mountains and
+   Pathfinder outdoor wall types 3 and 6, each with two members, as DOS
+   shows (the reference has no Pathfinder movement); dark maps and light
+   drain follow DOS.
 9. **Services of the other towns** (Tier B): Nightshadow, Rivercity, Asp and
    Winterkill with their own Training caps, Temple prices, Guild catalogues
    and merchant stock.
