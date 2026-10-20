@@ -48,6 +48,8 @@ work for the maintainer.
 - Depletion in shops 1-3 widens restore validation only; the save stays v16
   without an independent review.
 - Scope adds Shangri-La and Newcastle to roadmap step 9's four towns.
+- Part C keeps the Temple price revision check, and its cleanup of map-28
+  defaults goes in a separate commit (after the independent plan review).
 
 ## Tasks
 
@@ -67,6 +69,79 @@ work for the maintainer.
       Temple prices, how the Temple Flow reads and replaces them, and why New
       Game, Load and restore leave them alone. Then implement it; map 74
       refuses until Part C lands.
+      - **Authority.** Implement option A from the
+        [settled charges](rules/time-and-conditions.md#temple-heal-price),
+        [DOS evidence](rules/evidence.md#other-town-services-2026-10-20) and
+        [carry-over quirk](original-quirks.md#sv-temple-map74-carry).
+      - **Owner.** Add one noncopyable `XeenTemplePriceState` in the service
+        rules layer: a zero-initialized `XeenTempleSurcharges` row and an
+        unsaved revision. `main` (or a member of `Application`, outside
+        `run()` and `gameplay()`) creates it once per process, before the
+        title loop, so title return, New Game and panel Load never reset it.
+        Sessions borrow it by reference through `XeenGameplayServices`,
+        `XeenEventFlow` and `XeenEncounterFlow`; no `mutable`, per-session
+        fallback or second copy. Each test case or fixture creates its own
+        owner (one owner = one process); the census creates one per run.
+        Existing Party, World and Flow owners end with a game session, so
+        none can own this DOS program state. This is the reason for the owner.
+      - **Prepare.** `beginSmith` computes the visit's row before calling the
+        preflight: tabled Clouds 28/30/49/73 and every Darkside map use
+        `xeenTempleSurcharges`; an untabled Clouds Temple copies the owner's
+        current row. It stores that row and the owner's base revision in
+        `SmithContinuation`. Staging changes neither owner nor revision.
+      - **Publish.** In `serviceSmithPreparation`, check every capacity,
+        including the revision's, before `_boundary.hold`. After the hold and
+        before `checkSmithBoundary(AfterAdmission)`, write row and revision in
+        the same nonthrowing, callback-free step as `_smith=std::move(...)`
+        and the Service activity. Every fallible check and hook that can
+        refuse comes before that step; a refusal, exception or stale
+        preparation leaves row and revision unchanged. A failure in
+        `AfterAdmission` cannot undo it: the row stays published and the
+        visit stays usable.
+      - **Read.** One accessor serves every Temple read (text, Heal
+        quote/prepare/confirm, Uncurse, Donation): before admission it returns
+        the visit's prepared row; after admission the same row, checking that
+        the owner's row equals it and the revision matches. Redraws during
+        preparation therefore show the visit's own prices. Rendering never
+        writes. Zero surcharges keep the Heal and Uncurse base charges; zero
+        Donation returns NoAction before counter, blessing, gold, time or
+        sound. `xeenTemplePricesKnown`'s table gate becomes state-backed Temple
+        pricing; `xeenTownServiceKnown` admits Clouds Temple carry-over, while
+        Food and every other untabled refusal stays. Darkside selection is a
+        rule only, without admitting play.
+      - **Lifetime and stale work.** Load and New Game do not touch the owner,
+        so its revision cannot detect old-session work. That protection is the
+        existing one: `playGameplay` destroys the Flow and session owners
+        before the next session, plus the session tickets. The revision only
+        catches a publication between a visit's preparation and its use,
+        which with one exclusive visit at a time would be a defect. Developer
+        entry modes start at zero in a fresh process; inspection performs no
+        assignment. Row and revision stay outside `XeenSaveState`, save
+        bytes, restore guard preimages and their `XeenMutation` ranges.
+        Restore never replays Temple admission. Save v16/schema 9/content 14,
+        M44 digests, RNG order and timing stay unchanged.
+      - **Tests.** Unit: zero initialization, every table assignment,
+        carry-over and stale revision rejection. Flow: fresh-owner map 74 at
+        zero; Rivercity and Shangri-La carry-over through New Game and panel
+        Load; redraw during preparation showing the visit's row; quotes and
+        text agreeing; Uncurse charging `20*L` with the zero row; zero
+        Donation changing no counter, gold, time or sound; refused, failed
+        and stale admission leaving the row unchanged; a failing
+        `AfterAdmission` hook leaving the row published and the visit usable.
+        Save bytes from the same restored snapshot with and without a prior
+        Temple visit (excluding the visit's own effects) are identical. One
+        original-data Temple test at 74 `(4,4)`; the census marks it
+        supported. Title, New Game and the Temple go into the implementation
+        review checklist if `Application`'s loop is not testable.
+      - **Docs in the same change.** Update the `XeenTempleHeal.h` comment
+        that says MMModern does not model the carry-over, and point the
+        `sv-temple-map74-carry` quirk at `XeenTemplePriceState`.
+      - **Separate cleanup commit.** Remove the `XeenMapIdentity(28)` default
+        arguments in `XeenDialogView.h`, `XeenFoodBank.h`,
+        `XeenLearnedSpellRules.h` and `XeenTraining.h` (callers pass the map;
+        `XeenRestoreGuard`'s map 28 text admission is not a service rule and
+        stays). `xeenTrainingCap` throws `invalid_argument` outside Clouds and
+        loses `noexcept`, with a test. Remove README's Part C Temple caveat.
 - [ ] Developer test save `m79-playtest`, starting in Rivercity: members
       below each cap with the XP to train, partial spell books, guild
       awards for some members only, one cursed item, one broken item and
