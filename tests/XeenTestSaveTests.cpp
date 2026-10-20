@@ -59,11 +59,21 @@ void preset(const GameInstallation &installation,const std::string &name,const f
     check(flow.prepareJourneyFrame(flow.ticket(),[]{}) && flow.presentJourney(flow.ticket()),"restored preset is not quiet");
     const auto captured=XeenSaveState::capture(inputs.signature,party,camera,flags,world);
     check(XeenSaveFormat::encode(saved)==XeenSaveFormat::encode(captured),"restore replayed or changed state");
-    check((name=="monster-control" || name=="monster-damage" || name=="party-healing" || name=="m76-spells" || name=="m79-playtest" || name=="m80-playtest") || save_test::sameCamera(camera,xeenJourneyContent().entry),"fresh Journey camera changed");
+    check((name=="monster-control" || name=="monster-damage" || name=="party-healing" || name=="m76-spells" || name=="m79-playtest" || name=="m80-playtest" || name=="m80-arena" || name=="m80-arena-maxed") || save_test::sameCamera(camera,xeenJourneyContent().entry),"fresh Journey camera changed");
     const auto first=party.party.activeRosterIds()[0],second=party.party.activeRosterIds()[1];
     const auto &member=party.roster.at(first);
     const auto gold=party.monsterTreasure->gold;
     const auto context=*party.encounterContext;
+    if(name=="m80-arena" || name=="m80-arena-maxed") {
+        check(camera.mapId==6 && camera.x==13 && camera.y==4 && camera.direction==XeenDirection::West,"Arena preset position");
+        check(!world.sessionState().hasRegionalActors(85),"Arena preset contains Warzone state");
+        for(auto owner:party.party.activeRosterIds()) {
+            const auto &c=party.roster.at(owner);
+            check(c.awards[9]==(name=="m80-arena-maxed" && owner==first?98:0),"Arena preset award");
+            check(c.permanentLevel==30 && c.canAct() && c.currentHp>0,"Arena preset party strength");
+        }
+        return;
+    }
     if(name=="m80-playtest") {
         check(camera.mapId==24 && camera.x==10 && camera.y==9 && camera.direction==XeenDirection::North,"M80 entrance position");
         for(unsigned item=1;item<=7;++item)check(party.questItems.at(item)==1,"M80 Clouds key missing");

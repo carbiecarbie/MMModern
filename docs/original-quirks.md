@@ -600,8 +600,8 @@ position/frame/effect draws (`0x2ba4b..0x2bb81`, `0x2bb8c..0x2bd1c`).
 Duplicate species slots are allowed; a one-monster fight still draws five.
 Direct generation uses `5 + 4*count + nonzeroEffectCount` draws.
 High confidence. **ScummVM:** the pin's `ArenaLocation::show` chooses
-one species per monster instead. DOS is the implementation rule; this
-evidence-only change does not implement it. Master not rechecked.
+one species per monster instead. MMModern follows DOS in `XeenArenaRules`
+and the detached Battle Master Event continuation. Master not rechecked.
 
 <a id="sv-arena-ordinal"></a>
 ### Arena ordinals use the units digit except in the teens
@@ -610,8 +610,8 @@ DOS uses `th` for 11..19 and the units digit otherwise, including
 21st/22nd/23rd (`0x2b830..0x2b87a`). Award index 9's 99 check prevents
 starting a fight; victory increments the byte without saturation
 (`0x2b818..0x2b82e`, `0x2b891..0x2b89d`). High confidence.
-**ScummVM:** the pin uses `th` for every count >=10. DOS is the
-implementation rule; this evidence-only change does not implement it.
+**ScummVM:** the pin uses `th` for every count >=10. MMModern follows DOS
+in `XeenArenaRules`; the suffix strings come from the original UI data.
 Master not rechecked.
 
 <a id="arena-visit-reset"></a>

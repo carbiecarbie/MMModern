@@ -340,6 +340,29 @@ Darkside keys are outside the Clouds quest counters.
 .\build-rel\mmodern.exe --load-game "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/m80-playtest.mmsave"
 ```
 
+The `m80-arena` and `m80-arena-maxed` presets start beside the Warzone
+entrance on Clouds map 6 at `(13,4)` facing West, with the level-30 M78
+party, equipped Obsidian gear and full HP/SP. Step forward to `(12,4)`,
+then press Space and answer Yes. This original entrance is a manual Event;
+walking onto it alone does not open the question. It loads map 85 at
+`(10,10)`. Walk west to x=7, then south to `(7,6)` and press Space to talk
+to the Battle Master. Choose Yes, level 1 and count 1 to try a fight.
+After winning, talk again for the award and the return to Vertigo.
+
+`m80-arena` starts every member's Warzone count at zero.
+`m80-arena-maxed` starts the first member at 98: one win reaches 99; return
+to the Warzone and talk again to check the maximum-count exit. Awards appear
+on the character sheet's Awards screen. Also try declining, entering zero,
+Escape at either number prompt, and talking before a fight is finished.
+Leaving the Warzone discards the fight. Saving there is forbidden; both
+presets use the unchanged current save format and start outside it.
+
+```powershell
+.\build-rel\mmodern_test_save.exe m80-arena "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/m80-arena.mmsave"
+.\build-rel\mmodern_test_save.exe m80-arena-maxed "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/m80-arena-maxed.mmsave"
+.\build-rel\mmodern.exe --load-game "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/m80-arena.mmsave"
+```
+
 The `m79-playtest` preset starts at Rivercity Training, map 30 `(12,12)`
 facing North, with 100,000 gold, 5,000 gems and one ration. Permanent levels
 repeat 9, 14 and 19, with enough XP for the three Training caps. Members 1,

@@ -13,6 +13,7 @@
 #include "games/xeen/XeenItemGeneration.h"
 #include "games/xeen/XeenCombatRules.h"
 #include "games/xeen/XeenRecordIdentity.h"
+#include "games/xeen/XeenArenaRules.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -63,7 +64,9 @@ enum class XeenPresentationKind {
 	RewardGeneration,
 	PortraitEffect,
 	WordInput,
-    EntranceScene
+    EntranceScene,
+    ArenaNumber,
+    ArenaPreparation
 };
 
 enum class XeenPresentationResponseRequirement {
@@ -121,6 +124,7 @@ struct XeenEventPortraitProgress {
 };
 
 struct XeenPresentationRequest {
+    std::optional<XeenArenaPrompt> arena;
     std::optional<std::uint8_t> entranceAction;
 	XeenPresentationKind kind = XeenPresentationKind::CenteredMessage;
 	XeenPresentationResponseRequirement response =

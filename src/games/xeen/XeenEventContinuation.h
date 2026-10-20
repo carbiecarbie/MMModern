@@ -91,7 +91,7 @@ private:
 	}
 	static bool presentation(const XeenEventPendingPresentation &a,const XeenEventPendingPresentation &b) {
 		const auto &x=a.request;const auto &y=b.request;
-		if(x.entranceAction!=y.entranceAction)return false;
+		if(x.entranceAction!=y.entranceAction || x.arena!=y.arena)return false;
 		if(x.mirrors!=y.mirrors || x.alternate!=y.alternate || !optional(x.word,y.word,[](const auto &p,const auto &q){return std::tie(p.inputType,p.targetLine,p.alternateText,p.titleText)==std::tie(q.inputType,q.targetLine,q.alternateText,q.titleText);}) || a.continuation!=b.continuation || x.rewardWaitTicks!=y.rewardWaitTicks || !optional(x.portrait,y.portrait,[](const auto &p,const auto &q){return p==q;}) || !optional(a.conditional,b.conditional,conditional) ||
 			!optional(x.cdSpeech,y.cdSpeech,speech) ||
 			std::tie(x.kind,x.response,x.mapId,x.textIndex,x.text,x.layoutValue,x.verbIndex,x.refusal,x.title,x.notEnough,x.lockPicked)!=

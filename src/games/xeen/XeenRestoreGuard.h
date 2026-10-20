@@ -375,12 +375,17 @@ private:
 		check();candidate.check();
 		auto retainedTreasure=candidate.treasure;
 		if(retainedTreasure && treasure) {retainedTreasure->gold=treasure->gold;retainedTreasure->gems=treasure->gems;}
+        auto explored=s.exploredTiles();
+        // The existing visit-only map lifetime also drops its explored cells.
+        // All retained maps, and same-map Event continuations, stay exact.
+        if(candidate.cameraValue.mapId!=cameraValue.mapId && !xeenRetainsMapState(cameraValue.mapId))
+            explored.erase(std::remove_if(explored.begin(),explored.end(),[&](const auto &tile){return tile.mapId==cameraValue.mapId;}),explored.end());
 		// Event capabilities permit the Event-owned character fields and inputs,
 		// calendar and party effects, purse, food, quest counters, merchant/bank
 		// time effects, retained RNG, quest/camera/game flags and World
 		// overlays/Spawn. All other inputs retain their preimages.
 		if(candidate.membership!=membership || candidate.marked!=marked ||
-			candidate.s.exploredTiles()!=s.exploredTiles() ||
+			candidate.s.exploredTiles()!=explored ||
 			bool(candidate.recovery)!=bool(recovery) || bool(candidate.context)!=bool(context) || retainedTreasure!=treasure ||
 			bool(candidate.economy)!=bool(economy) || candidate.first!=first || candidate.effective!=effective ||
 			candidate.diagnostics!=diagnostics || bool(candidate.s._journeyRandom)!=bool(s._journeyRandom)) {

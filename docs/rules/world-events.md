@@ -38,8 +38,26 @@ moved, attacked, fought, counted or saved, and map load zeroes the whole
 never stores it. Saves from older builds that hold such slots load without
 them. Vertigo's exit script spawns slots 50 and 51 past its 46 records, so
 they stay invisible. Only the Warzone arena prompt changes the count
-(`0x2b9d5..0x2ba0b`), and a Warzone load sets it to 0 (`0x0fb90..0x0fba9`);
-neither is implemented yet.
+(`0x2b9d5..0x2ba0b`), and a Warzone load sets it to 0 (`0x0fb90..0x0fba9`).
+The Battle Master generates that visit's table; every load clears it after
+the normal MOB load. Leaving discards it, including explored cells, and no
+Warzone state is saved.
+
+The Battle Master (`DoTownEvent` action 6) offers a level from 1 to 10 and
+1 to 20 monsters. Zero or Escape cancels. An unfinished fight refuses a new
+one; a completed fight increments each active member's Warzone award byte,
+without saturation. With no fight, any active member's count of 99 or more
+prevents another. Victory and the maximum-count refusal load Vertigo at its
+run position facing East; declining loads map 6 at `(12,4)` facing West.
+Other outcomes use the Warzone's run position facing East.
+
+Generation draws five species slots before any monster's position, slot,
+frame and conditional effect phase, all from gameplay randomness. The DOS
+species adjustments and ordinal suffixes differ from the pin; see the
+[Arena evidence](evidence.md#4-arena-dialog-generation-and-exits) and
+[recorded quirks](../original-quirks.md#sv-arena-species-pool). The original
+map-6 entrance at `(12,4)` facing West is a manual Event: its attribute byte
+is zero, so Space opens its confirmation after walking there.
 
 Spawn may also stack monsters: it has no occupancy test, so a cell can
 hold four or more (Winterkill's waves, Tower of High Magic level 1). Only a

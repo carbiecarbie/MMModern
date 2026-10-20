@@ -55,6 +55,7 @@ add_library(mmodern_xeen STATIC
 	src/games/xeen/XeenObjectVisual.cpp
 	src/games/xeen/XeenServiceAnimation.cpp
     src/games/xeen/XeenEntranceScene.cpp
+    src/games/xeen/XeenArenaRules.cpp
 	src/formats/xeen/XeenCharacterFormat.cpp
 	src/formats/xeen/XeenQuestItemFormat.cpp
 	src/formats/xeen/XeenQuestFlagFormat.cpp
@@ -203,7 +204,7 @@ if(BUILD_TESTING)
  add_compile_definitions(MMODERN_TEST_UI_DATA="${MMODERN_XEEN_UI_DATA}")
 	add_executable(mmodern_test_save_tests tests/XeenTestSaveTests.cpp)
 	target_link_libraries(mmodern_test_save_tests PRIVATE mmodern_test_save_support)
-	foreach(preset broken-armor train-ready injured-dead poisoned monster-control monster-damage party-healing m76-spells combat-items m79-playtest m80-playtest paths)
+	foreach(preset broken-armor train-ready injured-dead poisoned monster-control monster-damage party-healing m76-spells combat-items m79-playtest m80-playtest m80-arena m80-arena-maxed paths)
 		add_test(NAME xeen_test_save_${preset} COMMAND mmodern_test_save_tests
 			"${MMODERN_XEEN_DATA_DIR}" ${preset} "${CMAKE_CURRENT_SOURCE_DIR}")
 	endforeach()
@@ -885,6 +886,10 @@ if(BUILD_TESTING)
 	add_executable(mmodern_sdl_input_tests tests/SdlInputTests.cpp)
  add_executable(mmodern_presentation_clock_tests tests/PresentationClockTests.cpp)
  add_executable(mmodern_sound_timing_tests tests/XeenSoundTimingTests.cpp)
+ add_executable(mmodern_arena_tests tests/XeenArenaTests.cpp)
+ target_link_libraries(mmodern_arena_tests PRIVATE mmodern_app mmodern_xeen)
+ add_test(NAME xeen_arena COMMAND mmodern_arena_tests)
+ add_test(NAME xeen_arena_original COMMAND mmodern_arena_tests "${MMODERN_XEEN_DATA_DIR}")
  add_executable(mmodern_entrance_scene_tests tests/XeenEntranceSceneTests.cpp)
  target_link_libraries(mmodern_entrance_scene_tests PRIVATE mmodern_app mmodern_xeen)
  add_test(NAME xeen_entrance_scene COMMAND mmodern_entrance_scene_tests)

@@ -404,6 +404,7 @@ std::shared_ptr<const XeenRegionalObservation> XeenRegionalOpportunityCandidate:
 }
 namespace mmodern {
 bool xeenTownServiceKnown(XeenMapIdentity map,std::uint8_t action) noexcept {
+    if(action==6)return map==XeenMapIdentity(85);
     if(action>=8 && action<=11)return xeenEntranceSite(action,{map,0,0,XeenDirection::North})!=nullptr;
     return map.side==XeenSide::Clouds && action<=5 &&
         (action!=3 || xeenTavernFoodOffer(map).has_value());

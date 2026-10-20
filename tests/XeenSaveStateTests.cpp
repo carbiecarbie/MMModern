@@ -956,8 +956,9 @@ void warzoneLifetime(){
  check(!candidate->sessionState().mapState(85) && candidate->sessionState().isObjectDisabled({85,0})==false,
   "Leaving the Warzone drops its state");
  candidate->stageIndoorMonsters(candidate->objectFile(85),stats());
- check(candidate->sessionState().monsters(85).size()==4 && !candidate->sessionState().isObjectDisabled({85,1}),
-  "Re-entering the Warzone starts from its resources");
+ check(candidate->objectFile(85).entities.monsters.size()==4 && candidate->sessionState().monsters(85).empty() &&
+  candidate->sessionState().mapState(85)->originalMonsterCount==0 && !candidate->sessionState().isObjectDisabled({85,1}),
+  "Re-entering the Warzone clears the monster table after loading its resources");
  auto forged=currentSnapshot();forged.map(85).explored.emplace();XeenSaveFormat::encode(forged);
  CurrentDestination refused;usePerMapResources(refused,4);
  rejects([&]{refused.restore(forged);},"Warzone");

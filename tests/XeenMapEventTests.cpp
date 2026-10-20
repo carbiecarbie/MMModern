@@ -9,7 +9,7 @@
 using namespace mmodern;
 namespace mmodern {
 struct XeenTrainingTestAccess {
- static void seed(XeenWorld &w) {w._sessionState._journeyRandom=XeenJourneyRandomState{7,0};}
+ static void seed(XeenWorld &w) {w._sessionState._journeyRandom=XeenJourneyRandomState{1,7,0};}
  static void developer(XeenWorld &w,XeenMapIdentity id) {w._developerEventMap=id;}
  static void defeat(XeenWorld &w,XeenMapIdentity id) {
   auto &a=w._sessionState.mutableMonsters(id).at(0);
@@ -164,6 +164,10 @@ void outdoorAndSpawn() {
  check(w.effectiveWallItem({85,0}).x==0 && w.sampleCell(85,4,5)->cell->rawWord==0x1234,"Warzone state survived its visit");
  Fixture warzone(85);XeenEventFile warEvents{85,"synthetic.evt",true,{row(4,5,0,18)}};
  warzone.w->applyAlterEvent({85,4,5,XeenDirection::North},0,34,warEvents);
+ check(warzone.w->sessionState().monsters(85).empty(),"Warzone load must clear its MOB monsters");
+ warzone.w->applySpawn(85,1,5,6,0);
+ check(warzone.w->sessionState().monsters(85).empty(),"Spawn must not extend the empty Warzone count");
+ warzone.w->generateArena({8,8,8,8,8},2);
  warzone.w->applySpawn(85,1,5,6,0);XeenTrainingTestAccess::defeat(*warzone.w,85);
  warzone.w->leaveMap(85);
  check(!warzone.w->sessionState().mapState(85) && !warzone.w->sessionState().accountedMonsters().count({85,0}),

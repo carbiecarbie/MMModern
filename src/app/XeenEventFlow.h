@@ -78,6 +78,7 @@ public:
 	std::function<void(IndexedFrame &)> drawCombatButtons;
 	XeenDialogSpriteDraw drawDialogSprite;
     std::function<void(IndexedFrame &,const char *,unsigned,int,int,int)> drawEntranceSprite;
+    std::function<void(std::uint8_t)> loadArenaSprites;
 	std::function<std::string(XeenMapIdentity)> mapName;
  // Borrowed from the existing asset owner, before any dialog is presented.
  const XeenDosText *dialogText = nullptr;
@@ -350,6 +351,7 @@ private:
 	friend struct XeenTemplePriceStateTestAccess;
 	friend struct XeenTrainingTestAccess;
     friend struct XeenEntranceTestAccess;
+    friend struct XeenArenaTestAccess;
 	friend struct XeenMonsterTestAccess;
 	friend struct XeenCityEventTestAccess;
 	friend struct XeenPurchaseTestAccess;

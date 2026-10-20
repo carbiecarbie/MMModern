@@ -3,6 +3,7 @@
 #include "games/xeen/XeenRegionalRules.h"
 #include "games/xeen/XeenIndoorScene.h"
 #include "games/xeen/XeenTerrainRules.h"
+#include "games/xeen/XeenArenaRules.h"
 #include <bitset>
 #include <algorithm>
 #include <stdexcept>
@@ -92,6 +93,12 @@ XeenActorView XeenWorld::prepareTransitionArrival(const XeenCamera &camera) {
 
 void XeenWorld::reloadMapMonsters(XeenMapIdentity mapId) {
 	if (!_detachedEventCandidate) throw std::logic_error("Map load requires a detached transition");
+    // DOS 0xfb8a..0xfba9: after the normal MOB load, Warzone starts empty.
+    if(mapId==XeenMapIdentity(85)) {
+        _sessionState.mutableMonsters(mapId).clear();
+        _sessionState._mapStates.state(mapId).originalMonsterCount=0;
+        return;
+    }
 	for (auto &actor:_sessionState.mutableMonsters(mapId)) xeenRefillLoadedMonster(actor);
 }
 
@@ -130,8 +137,29 @@ void XeenWorld::stageMapMonsters(const XeenObjectFile &mob,
 	auto actors=XeenActorApproach::actorsFromResources(mob,statistics);
 	_cityStatistics=statistics;
 	xeenValidateIndoorActors(*this,mob.mapId,actors);
+	if(mob.mapId==XeenMapIdentity(85))actors.clear();
 	const bool outdoors=map(mob.mapId).geometry.isOutdoors();
-	_sessionState.stageMonsters(mob.mapId,std::move(actors),mob.entities.monsters.size(),outdoors);
+	const auto count=actors.size();
+	_sessionState.stageMonsters(mob.mapId,std::move(actors),count,outdoors);
+}
+
+void XeenWorld::generateArena(const std::array<unsigned,5> &pool,unsigned count) {
+    if(!detachedEventCandidate() || !_sessionState.hasRegionalActors(85) ||
+        !_sessionState.regionalActors(85).empty())throw std::logic_error("Arena generation requires an empty detached Warzone");
+    XeenCombatRandom random(*_sessionState.journeyRandom());
+    const auto generated=xeenArenaMonsters(pool,count,_cityStatistics,[&](unsigned lo,unsigned hi) {
+        auto value=random.draw(lo,hi);if(!value)throw std::logic_error("Arena random conversion rejected");return *value;
+    });
+    auto &actors=_sessionState.mutableMonsters(85);
+    for(const auto &monster:generated) {
+        actors.push_back(monster.actor);
+        _scenePresentation.arenaMonster(monster.actor,monster.animation);
+        _spawnedPresentationSlots.insert(monster.actor.id);
+    }
+    // The Arena, unlike Spawn, sets the live monster-count byte (DOS 0x2b9d5).
+    // This map is visit-only, so the generated count never reaches the save.
+    _sessionState._mapStates.state(85).originalMonsterCount=count;
+    retainEventRandom(random.continuation());
 }
 
 void XeenWorld::applySpawn(XeenMapIdentity mapId, std::uint8_t slot, int x, int y, std::uint8_t) {
@@ -179,14 +207,19 @@ XeenScenePresentation XeenWorld::prepareSpawnPresentation(const XeenWorld &candi
 void xeenValidateIndoorActors(XeenWorld &world,XeenMapIdentity mapId,const std::vector<XeenActor> &actors) {
 	const auto &mob=world.objectFile(mapId);
 	const auto &map=world.map(mapId);
+    const bool arena=mapId==XeenMapIdentity(85) && world.sessionState().hasRegionalActors(mapId);
 	if(!world.regionalJourney() || mob.mapId!=mapId ||
-		actors.size()!=mob.entities.monsters.size() || actors.size()>XeenActorApproach::kCapacity ||
+		(!arena && actors.size()!=mob.entities.monsters.size()) || actors.size()>XeenActorApproach::kCapacity ||
 		world._cityStatistics.empty()) throw std::invalid_argument("Invalid resource-bound city actor collection");
 	for(unsigned i=0;i<actors.size();++i) {
 		const auto &a=actors[i];
 		if(!(a.id==XeenMonsterIdentity{mapId,i}) || !xeenActorStatusSupported(a.status))
 			throw std::invalid_argument("Vertigo actor identity/status changed");
-		const auto &original=mob.entities.monsters[i];
+		const auto &original=arena?a.original:mob.entities.monsters[i];
+        if(arena && (actors.size()>20 || a.original.tableIndex>4 || a.original.resourceId<1 ||
+            a.original.resourceId>67 || a.original.resourceId==28 || a.original.resourceId==59 ||
+            a.original.x<3 || a.original.x>11 || a.original.y<2 || a.original.y>10))
+            throw std::invalid_argument("Invalid generated Arena monster binding");
 		if(a.original.x!=original.x || a.original.y!=original.y ||
 			a.original.direction!=original.direction || a.original.tableIndex!=original.tableIndex ||
 			a.original.resourceId!=original.resourceId)

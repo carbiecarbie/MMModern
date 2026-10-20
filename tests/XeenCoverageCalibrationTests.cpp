@@ -37,7 +37,7 @@ int main(int argc,char **argv) {
         std::ifstream input(argv[1]);require(bool(input),"Cannot read coverage report");
         std::string line,dimension;bool clouds=false,darkside=false;unsigned gaps=0,unused=0,waterDragon=0,vultureRoc=0,movement=0;
         std::set<std::string> supported,supportedServices,skillWalls,lightingRows;
-        std::array<unsigned,6> townSites{};
+        std::array<unsigned,6> townSites{};unsigned arenaSites=0;
         while(std::getline(input,line)) {
             if(line=="## Clouds detail")clouds=true;
             if(line=="## Darkside detail") {clouds=false;darkside=true;}
@@ -98,6 +98,10 @@ int main(int argc,char **argv) {
                     require(status=="supported","Unexpected Clouds service gap: "+mechanic+" / "+reason);
                     townSites[action]+=std::stoul(columns[3]);
                 }
+                if(action==6) {
+                    require(status=="supported" && maps==std::set<unsigned>{85},"Arena admission missing from Clouds map 85");
+                    arenaSites+=std::stoul(columns[3]);
+                }
             }
             if(maps.count(28)) {
                 if(status=="partial" || status=="unsupported") {
@@ -122,6 +126,7 @@ int main(int argc,char **argv) {
         for(const auto action:{"Drink","Tip","Rumors","Donation","Uncurse"})
             require(supportedServices.count(action),std::string("Implemented Vertigo service missing: ")+action);
         require(townSites==std::array<unsigned,6>{3,4,6,3,4,3},"Clouds service site inventory changed");
+        require(arenaSites==1,"Clouds Battle Master site inventory changed");
         require(gaps==4 && unused==4,"Vertigo documented gap/subroutine inventory changed; explain and recalibrate");
         require(waterDragon==2 && vultureRoc==2,"Species 59 species and movement rows are missing from the census");
         require(movement>=4,"Monster movement rows are missing from the census");

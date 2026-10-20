@@ -258,6 +258,8 @@ Support eventSupport(const XeenEventRecord &original,const XeenEventFile &origin
                     return {Status::Unclassified,"Entrance request has no shared site row"};
                 return {Status::Supported,"Original terminal entrance scene and map load admitted by the shared site table"};
             }
+            if(pending->request.arena)
+                return {Status::Supported,"Original Battle Master dialog admitted with visit-only Arena actors and ordinary character awards"};
             // A service request is the engine's terminal Event-to-Service handoff.
             // Service actions are counted separately from admission to the location.
             if(pending->state.pendingPresentation->continuation==XeenEventPendingContinuation::Terminate &&

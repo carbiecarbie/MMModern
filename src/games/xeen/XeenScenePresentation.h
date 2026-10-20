@@ -225,6 +225,9 @@ public:
 		if(found==candidate._actors.end())throw std::logic_error("Spawn animation is absent");
 		_actors.insert_or_assign(actor.id,found->second);
 	}
+    void arenaMonster(const XeenActor &actor,const XeenMonsterAnimation &animation) {
+        _actors.insert_or_assign(actor.id,Entry{*actor.statistics,animation,actor.status});
+    }
 	void copySpawnRandom(const XeenScenePresentation &candidate) {
 		// Publish the consumed cosmetic cursor without replacing live animation phases.
 		_random=candidate._random;

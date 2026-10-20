@@ -382,6 +382,7 @@ XeenEventDecodeResult XeenEventDecoder::decode(const XeenEventRecord &record,
 		if (record.parameters.size()!=1) return wrongSize(record,context,1);
 		if (record.parameters[0]!=0 && record.parameters[0]!=1 && record.parameters[0]!=2 && record.parameters[0]!=3 && record.parameters[0]!=5 &&
 			!(record.parameters[0]==4 && context.templeRecovery) &&
+            !(record.parameters[0]==6 && context.mapId==XeenMapIdentity(85)) &&
             !(context.mapId && xeenEntranceSite(record.parameters[0],{*context.mapId,record.x,record.y,XeenDirection::North})))
 			return makeError(record,context,XeenEventDecodeErrorKind::UnsupportedOperand,
 				"Town service is not supported yet");

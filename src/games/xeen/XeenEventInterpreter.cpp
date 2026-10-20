@@ -426,6 +426,58 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 				instructionCount, logical, pending.request.source);
 		}
 		if (pending.continuation == XeenEventPendingContinuation::RewardFinalization) return finalize();
+        if(pending.request.arena) {
+            auto prompt=*pending.request.arena;
+            using P=XeenArenaPhase;
+            const auto suspend=[&](P phase)->XeenEventExecutionStepResult {
+                auto request=pending.request;prompt.phase=phase;request.arena=prompt;
+                request.kind=phase==P::Level || phase==P::Count?XeenPresentationKind::ArenaNumber:
+                    phase==P::Pool?XeenPresentationKind::ArenaPreparation:XeenPresentationKind::NpcAcknowledgment;
+                request.response=phase==P::Level || phase==P::Count?XeenPresentationResponseRequirement::WordInput:
+                    phase==P::Pool?XeenPresentationResponseRequirement::Presented:XeenPresentationResponseRequirement::Acknowledgment;
+                request.npc->confirmationMode=phase==P::Level || phase==P::Count?2:1;
+                request.text.clear();request.textIndex.reset();
+                if(phase==P::Decline || phase==P::Start) {
+                    const auto texts=textProvider(logical.mapId);
+                    const auto index=phase==P::Decline?1u:2u;
+                    if(texts.mapId!=logical.mapId || !texts.stringAt(index))throw std::invalid_argument("Arena Event text is absent");
+                    request.text=*texts.stringAt(index);request.textIndex=index;
+                }
+                state.pendingPresentation=XeenEventPendingPresentation{request,XeenEventPendingContinuation::Terminate,{}};
+                return XeenEventExecutionSuspended{state,request};
+            };
+            const auto exit=[&](unsigned map,bool run)->XeenEventExecutionStepResult {
+                const XeenCamera destination{map,run?0:12,run?0:4,run?XeenDirection::East:XeenDirection::West};
+                const auto travel=world.prepareEventTransition(destination,run);
+                if(!travel)throw std::invalid_argument(travel.reason);
+                if(workingCamera.mapId!=destination.mapId)world.loadEventDestination(workingCamera.mapId,destination.mapId);
+                world.scenePresentation().markLightingStep();
+                workingCamera=travel.destination;state.selectedObject.reset();state.pendingPresentation.reset();
+                return finalize();
+            };
+            switch(prompt.phase) {
+            case P::Offer:return suspend(*response==XeenPresentationResponse::Yes?P::Level:P::Decline);
+            case P::Decline:return exit(6,false);
+            case P::Unfinished:return exit(85,true);
+            case P::Victory:case P::Maxed:return exit(28,true);
+            case P::Level:case P::Count: {
+                const auto value=xeenArenaNumber(std::get<XeenWordInput>(response->value).text,prompt.phase==P::Level?10:20);
+                if(!value)return suspend(prompt.phase);
+                if(!*value)return exit(85,true);
+                if(prompt.phase==P::Level){prompt.level=*value;return suspend(P::Count);}
+                prompt.count=*value;return suspend(P::Start);
+            }
+            case P::Start: {
+                XeenCombatRandom random(*world.sessionState().journeyRandom());
+                prompt.pool=xeenArenaPool(prompt.level,[&](unsigned lo,unsigned hi) {
+                    auto value=random.draw(lo,hi);if(!value)throw std::logic_error("Arena random conversion rejected");return *value;
+                });
+                world.retainEventRandom(random.continuation());
+                return suspend(P::Pool);
+            }
+            case P::Pool:world.generateArena(prompt.pool,prompt.count);return exit(85,true);
+            }
+        }
         if(pending.continuation==XeenEventPendingContinuation::ConfirmWord) {
             const auto &word=*pending.request.word;
             const auto &input=std::get<XeenWordInput>(response->value).text;
@@ -628,7 +680,8 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 			const bool smith=service->action==1,training=service->action==5,temple=service->action==4;
 			const bool tavern=service->action==3,bank=service->action==0,guild=service->action==2;
             const auto *entrance=xeenEntranceSite(service->action,workingCamera);
-			if ((!publication && !world.detachedEventCandidate()) || (!entrance && !smith && !training && !temple && !tavern && !bank && !guild) ||
+            const bool arena=service->action==6 && workingCamera.mapId==XeenMapIdentity(85);
+			if ((!publication && !world.detachedEventCandidate()) || (!arena && !entrance && !smith && !training && !temple && !tavern && !bank && !guild) ||
 				!xeenTownServiceKnown(logical.mapId,service->action) || workingCamera.mapId!=logical.mapId || state.pendingRewards.hasWork())
 				return error(XeenEventExecutionErrorKind::UnsupportedOperand,
 					"Town service is outside the admitted service Event",instructionCount,logical,decoded.source);
@@ -638,6 +691,22 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 			request.response=XeenPresentationResponseRequirement::Acknowledgment;
             if(entrance){request.kind=XeenPresentationKind::EntranceScene;request.response=XeenPresentationResponseRequirement::Presented;request.entranceAction=service->action;}
 			request.mapId=logical.mapId;request.source=decoded.source;
+            if(arena) {
+                if(!world.detachedEventCandidate() || !textProvider)throw std::invalid_argument("Arena requires detached Event resources");
+                const auto texts=textProvider(logical.mapId);
+                if(texts.mapId!=logical.mapId || !texts.resourcePresent || texts.strings.size()<5)throw std::invalid_argument("Arena Event text is absent");
+                const auto &actors=world.sessionState().regionalActors(85);
+                XeenArenaPrompt prompt;unsigned index=0;
+                if(!actors.empty()) {
+                    const bool alive=std::any_of(actors.begin(),actors.end(),[](const auto &a){return a.lifecycle==XeenActorLifecycle::Present;});
+                    prompt.phase=alive?XeenArenaPhase::Unfinished:XeenArenaPhase::Victory;index=alive?4:3;
+                    if(!alive)prompt.wins=xeenArenaAward(partyState);
+                } else if(xeenArenaMaxed(partyState))prompt.phase=XeenArenaPhase::Maxed;
+                request.arena=prompt;request.kind=XeenPresentationKind::NpcAcknowledgment;
+                request.response=prompt.phase==XeenArenaPhase::Offer?XeenPresentationResponseRequirement::YesNo:XeenPresentationResponseRequirement::Acknowledgment;
+                request.npc=XeenEventNpc{};request.npc->portraitId=27;request.npc->confirmationMode=prompt.phase==XeenArenaPhase::Offer?0:1;
+                request.textIndex=index;request.text=texts.strings[index];
+            }
 			state.pendingPresentation=XeenEventPendingPresentation{request,XeenEventPendingContinuation::Terminate,{}};
 			return XeenEventExecutionSuspended{state,request};
 		}

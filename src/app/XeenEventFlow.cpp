@@ -1365,7 +1365,7 @@ void XeenEventFlow::prepareDetachedResult(const XeenManualEventResult &result) t
 			suspended->request.kind==XeenPresentationKind::RewardWarning)
 			publishEventSequencePrefix(suspended->state);
         if(suspended->request.kind==XeenPresentationKind::PortraitEffect)publishEventSequencePrefix(suspended->state);
-		const bool scene=suspended->request.kind==XeenPresentationKind::EntranceScene;
+		const bool scene=suspended->request.kind==XeenPresentationKind::EntranceScene || suspended->request.arena.has_value();
         if(scene)work.entrance=true;
 		const bool service=suspended->state.pendingPresentation->request.source.opcode==0x11 && !scene;
 		if(service) {
@@ -1716,6 +1716,22 @@ IndexedFrame XeenEventFlow::presentationFailed(const std::exception &exception) 
 XeenPresentationUpdate XeenEventFlow::presentPendingEvent() {
     _presenter.originalAssets(dialogText,drawDialogSprite);
 	auto request=_pending->state.pendingPresentation->request;
+    if(request.arena) {
+        using P=XeenArenaPhase;const auto &arena=*request.arena;
+        if(arena.phase==P::Pool) {
+            if(!_transition || !loadArenaSprites)throw std::invalid_argument("Arena sprite provider is absent");
+            for(auto species:arena.pool) {
+                loadArenaSprites(_encounter->_journeyStatistics.at(species).image());
+                _eventPublication->check();checkTransitionCandidate();
+            }
+            return {_frame,XeenPresentationResponse::Presented,true};
+        }
+        request.title=dosText().scalar("WARZONE_BATTLE_MASTER");
+        if(arena.phase==P::Level || arena.phase==P::Count || arena.phase==P::Maxed)
+            request.text=dosText().scalar(arena.phase==P::Level?"WARZONE_LEVEL":arena.phase==P::Count?"WARZONE_HOW_MANY":"WARZONE_MAXED");
+        if(arena.phase==P::Victory)request.text=xeenDialogFormat(request.text,
+            {std::to_string(arena.wins),dosText().table("WARZONE_SUFFIXES").at(xeenArenaSuffix(arena.wins))});
+    }
     if(request.kind==XeenPresentationKind::EntranceScene) {
         prepareEntrance();
         return {_presenter.rebase(_entranceUi->art),std::nullopt,true};
@@ -1723,7 +1739,7 @@ XeenPresentationUpdate XeenEventFlow::presentPendingEvent() {
     if(!_cdSpeechSide || *_cdSpeechSide!=request.mapId.side) {
         _cdSpeechSide=request.mapId.side;_cdSpeechCue.reset();_cdSpeechEnd=0;
     }
-    if(request.kind==XeenPresentationKind::NpcAcknowledgment && !request.cdSpeech)
+	if(request.kind==XeenPresentationKind::NpcAcknowledgment && !request.cdSpeech && !request.arena)
         request.cdSpeech=_cdSpeechCue;
     if(request.kind==XeenPresentationKind::PortraitEffect) {
         if(!request.portrait)throw std::logic_error("Event portrait request lost its retained effect");
@@ -2377,6 +2393,7 @@ bool XeenEventFlow::resumePending(std::uint64_t generation, XeenPresentationResp
 	// regardless of the service kind or the response supplied by this caller.
 	if(_serviceEventContinuation || _serviceEventOwner || (_pending && _pending->state.pendingPresentation &&
 		_pending->state.pendingPresentation->request.source.opcode==0x11 &&
+        !_pending->state.pendingPresentation->request.arena &&
         _pending->state.pendingPresentation->request.kind!=XeenPresentationKind::EntranceScene))
 		throw std::logic_error("Service Event continuation may only resume through its settlement owner");
     if(_pending && _pending->state.pendingPresentation && _pending->state.pendingPresentation->request.kind==XeenPresentationKind::EntranceScene &&

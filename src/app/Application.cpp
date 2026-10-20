@@ -486,6 +486,7 @@ int Application::gameplay(const std::filesystem::path &gameDirectory, XeenCamera
                     assets.drawDialogSprite(frame,name,index,x,y,journal?XeenSceneArchive::DarksideOnly:XeenSceneArchive::Current);
                 };
                 flow.loadJournalText = [&](bool awards) {return assets.readArchiveResource(awards?"award.bin":"qnotes.bin",XeenSceneArchive::DarksideOnly);};
+                flow.loadArenaSprites = [&](std::uint8_t image) {assets.validateNormalMonster(image);assets.validateAttackMonster(image);};
                 flow.drawEntranceSprite = [&](IndexedFrame &frame,const char *name,unsigned index,int x,int y,int scale) {
                     assets.drawDialogSprite(frame,name,index,x,y,XeenSceneArchive::Clouds,scale);
                 };

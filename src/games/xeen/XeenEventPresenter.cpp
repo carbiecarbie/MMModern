@@ -112,9 +112,9 @@ IndexedFrame XeenEventPresenter::overlayNotices(IndexedFrame frame) const {
     return frame;
 }
 
-IndexedFrame XeenEventPresenter::drawConfirmation(const IndexedFrame &base) const {
+IndexedFrame XeenEventPresenter::drawConfirmation(const IndexedFrame &base, const XeenPresentationRequest &request) const {
     auto result=base;
-    if (_request.response==XeenPresentationResponseRequirement::YesNo && _spriteDraw) {
+    if (request.response==XeenPresentationResponseRequirement::YesNo && _spriteDraw) {
         _spriteDraw(result,"global.icn",7,232,74);
         _spriteDraw(result,"confirm.icn",0,235,75);
         _spriteDraw(result,"confirm.icn",2,260,75);
@@ -124,6 +124,19 @@ IndexedFrame XeenEventPresenter::drawConfirmation(const IndexedFrame &base) cons
 
 IndexedFrame XeenEventPresenter::drawWord(const IndexedFrame &base) const {
     if(!_dosText)throw std::invalid_argument("Word input requires original DOS UI text");
+    if(_request.kind==XeenPresentationKind::ArenaNumber) {
+        // LocationMessage mode 2 leaves window 11 open. NumericInput uses its
+        // saved writer position and a centered 200-pixel field (argument 200).
+        auto o=optionsFor(XeenPresentationRequest{ });
+        o.originalControls=true;o.drawWindow=true;o.stopAtBottom=true;
+        o.windowBounds={8,8,224,140};o.bounds={16,16,216,132};o.x=16;o.y=16;
+        const auto text=xeenDialogFormat(_dosText->scalar("NPC_DIALOG"),{_request.title,_request.text});
+        auto prompt=_renderer.render(base,text,o);
+        if(prompt.pages.size()!=1 || !prompt.diagnostics.empty())throw std::runtime_error("Arena numeric prompt overflow");
+        auto frame=prompt.pages.front();_npcDraw(frame,27,0);
+        o.drawWindow=false;o.x=prompt.writeX;o.y=prompt.writeY;o.size=prompt.writeSize;o.colorIndex=prompt.writeColor;
+        return _wordInput.render(frame,_font,"\3l\t000\4" "200\3c",o);
+    }
     XeenTextRenderOptions o;o.originalControls=true;o.drawWindow=true;
     // Original window 6: a 200-pixel input field within the dialog's inner margins.
     o.windowBounds={52,149,268,198};o.bounds={60,157,260,190};o.x=60;o.y=157;
@@ -195,7 +208,7 @@ XeenPresentationUpdate XeenEventPresenter::present(const IndexedFrame &base,
 	_layers.push_back({request, retainedNpcPage});
 	_page = retainedNpcPage;
 	_diagnostics.clear();
-	if(request.kind==XeenPresentationKind::WordInput) {
+	if(request.kind==XeenPresentationKind::WordInput || request.kind==XeenPresentationKind::ArenaNumber) {
         _wordInput.clear();_wordInput.begin();_pages={drawWord(base)};
     } else if (request.kind == XeenPresentationKind::NpcAcknowledgment) {
 		_npcTiming = {};
@@ -206,13 +219,13 @@ XeenPresentationUpdate XeenEventPresenter::present(const IndexedFrame &base,
 		_pages = rendered.pages;
 		_diagnostics = rendered.diagnostics;
 	} else if (request.kind == XeenPresentationKind::Confirmation) {
-		_pages = {drawConfirmation(base)};
+		_pages = {drawConfirmation(base, request)};
 	} else {
 		const auto rendered = drawText(base, request);
 		_pages = rendered.pages;
 		_diagnostics = rendered.diagnostics;
 	}
-	_frame = request.kind == XeenPresentationKind::NpcAcknowledgment ? drawNpcPage() : _pages.front();
+	_frame = request.kind == XeenPresentationKind::NpcAcknowledgment ? drawNpcPage(request, _page) : _pages.front();
 	_frame = overlayNotices(std::move(_frame));
 	const bool waitsBetweenPages = !(request.npc && request.npc->confirmationMode==2) && _pages.size() > 1 &&
 		request.response == XeenPresentationResponseRequirement::Presented;
@@ -234,11 +247,15 @@ XeenPresentationUpdate XeenEventPresenter::handle(const PlayerAction &action, bo
     if(wordInputActive()) {
         std::optional<XeenPresentationResponse> response;
         if(std::holds_alternative<CancelInteractionAction>(action))response=XeenWordInput{};
-        else if(const auto *typed=std::get_if<TextInputAction>(&action))_wordInput.type(typed->text,_font,30,true);
+        else if(const auto *typed=std::get_if<TextInputAction>(&action)) {
+            if(_request.kind!=XeenPresentationKind::ArenaNumber || std::all_of(typed->text.begin(),typed->text.end(),[](unsigned char c){return c>='0' && c<='9';}))
+                _wordInput.type(typed->text,_font,_request.kind==XeenPresentationKind::ArenaNumber?2:30,true);
+        }
         else if(const auto *key=std::get_if<DialogKeyAction>(&action)) {
             if(key->key==InputKey::Enter)response=XeenWordInput{_wordInput.value()};
             else if(key->key==InputKey::Escape)response=XeenWordInput{};
             else if(key->key==8 || key->key==127)_wordInput.backspace();
+            else if(_request.kind==XeenPresentationKind::ArenaNumber && key->key>='0' && key->key<='9')_wordInput.type(std::string(1,char(key->key)),_font,2);
         }
         if(response) {
             if(finishResponse)finishPresentation();
@@ -283,7 +300,7 @@ XeenPresentationUpdate XeenEventPresenter::handle(const PlayerAction &action, bo
 			const auto beforePage=_page;const auto beforeTiming=_npcTiming;
 			try {
 				++_page;startNpcPage();
-				auto frame=drawNpcPage();
+				auto frame=drawNpcPage(_request, _page);
 				_layers.back().page=_page;_frame=std::move(frame);
 			} catch(...) {_page=beforePage;_npcTiming=beforeTiming;throw;}
 			update.frame = _frame;
@@ -332,7 +349,7 @@ XeenPresentationUpdate XeenEventPresenter::handle(const PlayerAction &action, bo
 IndexedFrame XeenEventPresenter::finishPresentation() {
 	if (!_active) return _frame; // handle() and respond() may finish the same request.
 	_active = false;
-	if (_request.kind == XeenPresentationKind::WordInput || _request.kind == XeenPresentationKind::NpcAcknowledgment ||
+	if (_request.kind == XeenPresentationKind::ArenaNumber || _request.kind == XeenPresentationKind::WordInput || _request.kind == XeenPresentationKind::NpcAcknowledgment ||
 			_request.kind == XeenPresentationKind::RewardWarning ||
 			_request.kind == XeenPresentationKind::RewardReceipt ||
 			_request.kind == XeenPresentationKind::CharacterSelection ||
@@ -369,15 +386,14 @@ IndexedFrame XeenEventPresenter::rebase(const IndexedFrame &base) {
 		_underlay = current;
 		if (layer.request.kind == XeenPresentationKind::NpcAcknowledgment) {
 			layoutNpc(current, layer.request);
-			current = _pages.at(layer.page);
-			_npcDraw(current,layer.request.npc->portraitId,_npcTiming.displayedFrame);
+			current = drawNpcPage(layer.request, layer.page);
 			continue;
-		} else if(layer.request.kind==XeenPresentationKind::WordInput)
+		} else if(layer.request.kind==XeenPresentationKind::WordInput || layer.request.kind==XeenPresentationKind::ArenaNumber)
             _pages={drawWord(current)};
         else if (layer.request.kind == XeenPresentationKind::CharacterSelection)
 			_pages = drawSelection(current, layer.request).pages;
 		else if (layer.request.kind == XeenPresentationKind::Confirmation)
-			_pages = {drawConfirmation(current)};
+			_pages = {drawConfirmation(current, layer.request)};
 		else
 			_pages = drawText(current, layer.request).pages;
 		current = _pages.at(layer.page);
@@ -411,12 +427,12 @@ void XeenEventPresenter::layoutNpc(const IndexedFrame &base,
     } while(offset<request.text.size());
 }
 
-IndexedFrame XeenEventPresenter::drawNpcPage() const {
-	auto frame = _pages.at(_page);
-	_npcDraw(frame, _request.npc->portraitId, _npcTiming.displayedFrame);
+IndexedFrame XeenEventPresenter::drawNpcPage(const XeenPresentationRequest &request, std::size_t page) const {
+	auto frame = _pages.at(page);
+	_npcDraw(frame, request.npc->portraitId, _npcTiming.displayedFrame);
 	// Confirmation mode 0 adds the Yes/No buttons after the last page's text.
-	if (_request.npc->confirmationMode == 0 && _page + 1 == _pages.size())
-		frame = drawConfirmation(frame);
+	if (request.npc->confirmationMode == 0 && page + 1 == _pages.size())
+		frame = drawConfirmation(frame, request);
 	return overlayNotices(std::move(frame));
 }
 
@@ -430,7 +446,7 @@ std::optional<IndexedFrame> XeenEventPresenter::updateNpc(const NpcTiming &timin
 	const auto previous=_npcTiming;_npcTiming=timing;
 	try {
 		auto frame = _frame;
-		if(_request.kind==XeenPresentationKind::NpcAcknowledgment)frame=drawNpcPage();
+		if(_request.kind==XeenPresentationKind::NpcAcknowledgment)frame=drawNpcPage(_request, _page);
 		else for(const auto &layer:_layers)if(layer.request.npc && layer.request.npc->confirmationMode==2)
 			_npcDraw(frame,layer.request.npc->portraitId,_npcTiming.displayedFrame);
 		_frame=std::move(frame);
@@ -451,7 +467,7 @@ IndexedFrame XeenEventPresenter::discardNpc() {
 void XeenEventPresenter::discardTransient() noexcept {
 	if (_layers.empty()) return;
 	const auto &request = _layers.back().request;
-	if (request.kind == XeenPresentationKind::WordInput || request.kind == XeenPresentationKind::RewardWarning || request.kind == XeenPresentationKind::RewardReceipt ||
+	if (request.kind == XeenPresentationKind::ArenaNumber || request.kind == XeenPresentationKind::WordInput || request.kind == XeenPresentationKind::RewardWarning || request.kind == XeenPresentationKind::RewardReceipt ||
 		request.kind == XeenPresentationKind::NpcAcknowledgment || request.kind == XeenPresentationKind::CharacterSelection ||
 		request.kind == XeenPresentationKind::Confirmation || request.response == XeenPresentationResponseRequirement::YesNo) {
 		_layers.pop_back();

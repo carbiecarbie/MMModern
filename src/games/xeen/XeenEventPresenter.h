@@ -65,7 +65,7 @@ public:
 		_dosText=text; _spriteDraw=std::move(draw);
 	}
 	DialogInput input() const;
-    bool wordInputActive() const {return _active && _request.kind==XeenPresentationKind::WordInput;}
+    bool wordInputActive() const {return _active && (_request.kind==XeenPresentationKind::WordInput || _request.kind==XeenPresentationKind::ArenaNumber);}
     std::optional<std::uint64_t> wordDeadline() const {return _wordInput.deadline();}
     bool animateWord(std::uint64_t now) {return wordInputActive() && _wordInput.animate(now);}
 
@@ -76,12 +76,12 @@ private:
 	IndexedFrame overlayNotices(IndexedFrame) const;
 	IndexedFrame drawWord(const IndexedFrame &) const;
 	XeenTextInput _wordInput;
-	IndexedFrame drawConfirmation(const IndexedFrame &base) const;
+	IndexedFrame drawConfirmation(const IndexedFrame &base, const XeenPresentationRequest &) const;
 	XeenTextRenderResult drawSelection(const IndexedFrame &base,
 		const XeenPresentationRequest &request) const;
 	bool isAcknowledge(const PlayerAction &action) const;
 	void layoutNpc(const IndexedFrame &base, const XeenPresentationRequest &request);
-	IndexedFrame drawNpcPage() const;
+	IndexedFrame drawNpcPage(const XeenPresentationRequest &, std::size_t page) const;
 	void startNpcPage();
 	NpcDraw _npcDraw;
 	const XeenDosText *_dosText=nullptr;

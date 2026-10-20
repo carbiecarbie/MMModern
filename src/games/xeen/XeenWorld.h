@@ -286,6 +286,7 @@ public:
 	void stageIndoorMonsters(const XeenObjectFile &, const std::vector<XeenMonsterRecord> &);
 	void stageMapMonsters(const XeenObjectFile &, const std::vector<XeenMonsterRecord> &);
 	void applySpawn(XeenMapIdentity mapId, std::uint8_t slot, int x, int y, std::uint8_t unused);
+    void generateArena(const std::array<unsigned,5> &,unsigned count);
 	void applyAlterEvent(const XeenCamera &physical, std::uint8_t line, std::uint8_t replacement,
 		const XeenEventFile &);
 	void publishTransition(XeenWorld &candidate) noexcept;
