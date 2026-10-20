@@ -29,6 +29,7 @@ public:
 	void drawSprite(const std::string &resourceName, std::size_t frame, int x, int y,
 		const XeenSpriteDrawOptions &options);
 	IndexedFrame snapshot() const;
+ void blackenScene();
  IndexedFrame cursorImage();
  IndexedFrame cursorImage(XeenSceneArchive selection);
  IndexedFrame restDreamImage();

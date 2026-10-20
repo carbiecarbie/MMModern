@@ -531,6 +531,12 @@ falls and Run retain their own continuations. See [travel lighting checks](evide
 Exact MMModern snapshot restore derives darkness without inventing a step;
 the [native-load evidence limit](evidence.md#restore-boundary) is distinct.
 
+`XeenWorldPresentation` derives blackness from the primary map and saved light
+word; `CloudsMapComposer` obscures the scene before assembling the border.
+The existing Encounter and combat owners publish a pending drain check through
+their mutation guards. Stepped is transient presentation state, cleared by a
+completed redraw and by exact restore; the save format is unchanged.
+
 The initial Clouds resources contain 36 dark physical DAT maps and no drain
 cells (128 DAT maps inspected). See [the complete ID list and traversal
 witnesses](evidence.md#clouds-darkness-and-traversal-resource-inventory).

@@ -46,6 +46,9 @@ struct XeenRestTestAccess {
 };
 }
 namespace {
+// Rest fixtures retain the pre-M78 dryland component. Standing and resting at
+// an admitted saved location do not require the skills needed to walk there.
+constexpr XeenMovement::Capabilities kRestFixtureTraversal{false,false,false,true};
 void wire(Fixture &f){
  f.flow->loadRestDream=[&]{return f.in.assets.restDreamImage();};
  f.flow->loadSampleDuration=[&](const char *name,XeenSceneArchive archive){
@@ -81,7 +84,7 @@ std::vector<XeenActor> actors(Inputs &in,const XeenSaveSnapshot &s) {
 }
 XeenSaveSnapshot source(Inputs &in,bool indoor,bool nearby=false,bool ranged=false,bool seam=false) {
  auto s=indoor?in.service():in.base();XeenWorld world(in.mapLoader(),in.objectLoader());
- const auto live=actors(in,s);const auto mainland=XeenMovement::component(world.map(23),9,11,{});
+ const auto live=actors(in,s);const auto mainland=XeenMovement::component(world.map(23),9,11,kRestFixtureTraversal);
  for(int y=1;y<(indoor?31:15);++y)for(int x=1;x<(indoor?31:15);++x)for(unsigned d=0;d<4;++d) {
   if(!indoor && !mainland[y*16+x])continue;
   if(seam && x<16 && y<16)continue;
@@ -353,7 +356,7 @@ void terrain(Inputs &in) {
  // Scan a superset of Vertigo's reachable cells, including all neighbor tiles,
  // and the mainland traversal component. Use the primary map's surface table.
  XeenWorld world(in.mapLoader(),in.objectLoader());
- const auto mainland=XeenMovement::component(world.map(23),9,11,{});
+ const auto mainland=XeenMovement::component(world.map(23),9,11,kRestFixtureTraversal);
  for(bool indoor:{false,true}) {
   std::array<unsigned,16> count{};unsigned cells=0;
   const auto primary=indoor?28u:23u;

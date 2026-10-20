@@ -426,6 +426,7 @@ struct XeenCombat::Impl {
 		if(probe && journey) {
 			if(!exact())throw IntegrityError("combat preimage changed before callback");
 			XeenRestoreGuard guard(world,party,camera,*flags);
+            XeenRestoreGuard::LightingObservation lighting(guard);
 			const auto check=[&] {
 				if(!guard.current()) {
 					lifetime->failed=true;
@@ -548,7 +549,25 @@ bool XeenCombat::stepped() const noexcept {return impl->stepped;}
 XeenMovementCountdown &XeenCombat::countdownForScheduling() noexcept {return impl->countdown;}
 void XeenCombat::setProbe(std::function<void()> p) { require(!impl->busy,"cannot replace an in-flight probe");impl->probe=std::move(p); }
 void XeenCombat::preparePresentation(const Ticket &t,const std::function<void()> &compose) {
+ auto &d=*impl;
+ require(current(t) && !d.busy,"Stale combat scene preparation");
+ if(d.journey) {
+  require(d.exact(),"Combat lighting preimage changed");
+  if(d.casting)d.checkCast(t);
+  std::uint16_t light;
+  guardCallback(t,[&] {light=d.world.lightAfterScenePreparation(d.party,d.camera);});
+  if(light!=d.party.encounterContext->lightAndResistances[0]) {
+   d.party.encounterContext->lightAndResistances[0]=light;
+   d.expected.encounterContext->lightAndResistances[0]=light;
+   d.lifetime->context->lightAndResistances[0]=light;d.lifetime->adoptMutationBoundary();
+   if(d.casting) {d.casting->guard->context->lightAndResistances[0]=light;d.casting->guard->adoptMutationBoundary();}
+  }
+ }
+ d.world.scenePresentation().lightingPrepared=true;
+ if(d.journey) {d.lifetime->adoptMutationBoundary();if(d.casting)d.casting->guard->adoptMutationBoundary();}
  guardCallback(t,compose);
+ d.world.scenePresentation().completeLightingDraw();
+ if(d.journey) {d.lifetime->adoptMutationBoundary();if(d.casting)d.casting->guard->adoptMutationBoundary();}
 }
 void XeenCombat::guardCallback(const Ticket &t,const std::function<void()> &callback) {
  auto &d=*impl;
@@ -679,7 +698,7 @@ XeenCombatResult XeenCombat::rotate(const Ticket &t,NavigationAction action) {
         XeenMutationWatch::write(&d.world);d.world._sessionState.publishExploration(exploration);
         d.countdown.clear();
         if(flush) {d.phase=Phase::PendingRound;d.work=Work::Movement;}
-        else {d.activeActors().swap(visible);d.actors.swap(expectedActors);d.stepped=true;d.reconcile();}
+        else {d.activeActors().swap(visible);d.actors.swap(expectedActors);d.stepped=true;d.world.scenePresentation().markLightingStep();d.reconcile();}
         d.published();prepared->adoptJourneyCoordination();d.lifetime.swap(prepared);
         return d.adopt(r,flush?Status::Pending:Status::Advanced);
     }catch(...){return fail(t,!d.exact()?Failure::Integrity:Failure::Preparation);}
@@ -1121,7 +1140,8 @@ XeenCombatResult XeenCombat::settleCast(const Ticket &t,std::optional<unsigned> 
                 ++d.generation;return d.adopt(c.operation,Status::Pending);
             }
             effect=*healing;
-        } else if(!itemSpell && !c.dispatchRefused)effect=XeenLearnedSpellRules::prepareEffect(static_cast<XeenLearnedSpell>(reserved.spell),d.party,element?std::nullopt:target,d.party.encounterContext->year,reserved.owner);
+        } else if(!itemSpell && !c.dispatchRefused)effect=XeenLearnedSpellRules::prepareEffect(static_cast<XeenLearnedSpell>(reserved.spell),d.party,element?std::nullopt:target,d.party.encounterContext->year,reserved.owner,
+            reserved.spell==42 && d.world.sceneIsBlack(d.party,d.camera));
         if(reserved.spell==unsigned(XeenLearnedSpell::MoonRay)) {
             XeenConsequenceDraw draw{c.random,64,[&]{d.probeFor(t);d.checkCastReservation(t,reserved,true);}};
             if(!c.healing.service(draw,d.party,d.party.encounterContext->year)) {
@@ -1214,6 +1234,7 @@ XeenCombatResult XeenCombat::settleCast(const Ticket &t,std::optional<unsigned> 
         }
         if(relocation) {d.camera=d.expectedCamera=*relocation;d.stepped=true;d.spellRelocated=true;result.noop=false;}
         if(effect.stepped)d.stepped=true;
+        if(effect.stepped || relocation)d.world.scenePresentation().markLightingStep();
         d.rng=c.random;d.expectedRandom=d.session()._journeyRandom=c.random.continuation();
         d.acted[reserved.participant]=true;d.playerSpeeds=speeds;c.view.result=result;
         d.reserveCastSuccessor();c.view.phase=XeenCombatCastPhase::Result;c.view.information=std::move(information);
@@ -1623,7 +1644,7 @@ XeenCombatResult XeenCombat::serviceConsequences(const Ticket &t) {
 				d.turn=selected;d.phase=Phase::PlayerReady;d.work=Work::None;
 			} else d.selectNext();
 		}
-        if(operation==Operation::Rotate)d.stepped=true;
+        if(operation==Operation::Rotate) {d.stepped=true;d.world.scenePresentation().markLightingStep();}
 		d.published();return d.adopt(r,d.phase==Phase::Defeat?Status::Defeat:end?Status::Victory:Status::Advanced);
 	} catch(...) { d.clearResourceCheck();return fail(t,!d.exact()?Failure::Integrity:Failure::Preparation); }
 }

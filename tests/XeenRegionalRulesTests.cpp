@@ -31,9 +31,9 @@ void geometry() {
 	for (unsigned middle=0;middle<16;++middle) for (unsigned surface=0;surface<16;++surface) {
 		auto &cell=map.geometry.cells[0];
 		cell.geometry=XeenOutdoorLayers{static_cast<std::uint8_t>(surface),static_cast<std::uint8_t>(middle),0,0};
-		const bool mountain=middle==1 || middle==7 || middle==9 || middle==10 || middle==12;
+		const bool skillWall=middle==1 || middle==7 || middle==9 || middle==10 || middle==12 || middle==3 || middle==6;
 		const bool checks=middle==0 || middle==2 || middle==4 || middle==5 || middle==8 || middle==11 || middle==13 || middle==14;
-		const auto expected=mountain ? XeenMovementResult::BlockedByTerrain : checks && (surface==0 || surface==8 || surface==15) ? XeenMovementResult::BlockedBySurface : XeenMovementResult::Moved;
+		const auto expected=skillWall ? XeenMovementResult::BlockedByTerrain : checks && (surface==0 || surface==8 || surface==15) ? XeenMovementResult::BlockedBySurface : XeenMovementResult::Moved;
 		check(XeenMovement::outdoorDestination(map.geometry,cell,{})==expected,"Literal collision precedence");
 	}
 	for (int y=0;y<16;++y) for (int x=0;x<16;++x)

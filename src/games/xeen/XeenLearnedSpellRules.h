@@ -46,7 +46,7 @@ struct XeenSpellPreparation {
 	bool failed = false;
 	std::vector<XeenSpellEffect> effects;
 	std::optional<std::uint16_t> food;
-    bool stepped=false; // Light on the open, illuminated maps (obscurity is nonzero).
+    bool stepped=false; // Light marks stepped only outside complete blackness.
 };
 
 // Disposable spell-screen data, captured before the ordinary monster response.
@@ -134,7 +134,7 @@ public:
 		std::size_t targetIndex,std::uint32_t currentYear,unsigned casterLevel,XeenConsequenceDraw &);
 	static XeenSpellPreparation prepareEffect(XeenLearnedSpell,const XeenPartyState &,
 		std::optional<std::size_t> targetIndex,std::uint32_t currentYear,
-		std::optional<std::uint8_t> casterOwner = {});
+		std::optional<std::uint8_t> casterOwner = {},bool viewBlack=false);
 	static void applyPartyEffect(XeenLearnedSpell,XeenGameplayContext &, unsigned level=1,
         std::optional<unsigned> element = {});
 };

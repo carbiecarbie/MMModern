@@ -273,6 +273,10 @@ public:
 	// Original Map::getCell neighbor queries, for scene observation only.
 	// Movement and mechanic admission continue to use sampleCell.
 	std::optional<XeenCellSample> sceneCell(XeenMapIdentity mapId, int x, int y);
+ // Read-only lighting preparation. The existing gameplay owner publishes the
+ // returned counter through its guard before calling the scene composer.
+ std::uint16_t lightAfterScenePreparation(const XeenPartyState &,const XeenCamera &);
+ bool sceneIsBlack(const XeenPartyState &,const XeenCamera &);
 	std::size_t cachedMapCount() const { return _maps.size(); }
 	// Unpublished Vertigo Event candidate; callers retain a live owner guard.
 	std::unique_ptr<XeenWorld> transitionCandidate() const;

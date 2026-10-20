@@ -258,7 +258,11 @@ struct Scenario { const char *name; std::uint32_t seed; const char *sha256; };
 inline constexpr std::array<Scenario,4> scenarios{{
     {"mainland-combat-myra-phirna",3626689381u,"202b6d402a0a160aedced163ac604a561858878d18e8b486060320e96f66e2da"},
     // M75: a member woken after its skipped slot waits for the next round (DOS turn order).
-    {"vertigo-buy-repair-training",7u,"de7e4a64d04dc7cf8b3dd22e20969022c271291943533f49ddeb05df08b5bfa6"},
+    // M78 Part A: maintainer approved the services replacement on 2026-10-20.
+    // Pathfinder wall 3 reroutes the one-holder party; time/exploration and an
+    // extra merchant generation explain all fields. Native reload/re-save is exact.
+    // Local audit: build-rel/m78-digest-comparison and m78-services-causal-audit.json.
+    {"vertigo-buy-repair-training",7u,"d944d13cd03ce31fe2b9bfa83c7a0cfcf9baa16b98e949a980bcd5d15bed0717"},
     {"temple-recovery",3626689381u,"4afaf0a9824e7d56bd1ab4836f0de6d53f186f719345c52ca58e3af955c40165"},
     {"vertigo-f3-roundtrip",3626689381u,"d70cc74ce934d45a3731954a8dc1eccb1289d64339cf470c4ae5a9fb1d64a52b"}
 }};

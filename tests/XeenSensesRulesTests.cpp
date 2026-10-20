@@ -45,6 +45,31 @@ void handlers() {
     }
 }
 void movementAndArrival() {
+    XeenPartyState holders;holders.party=XeenParty::fromRosterIds({0,1,2});
+    holders.roster.at(0).conditions[13]=1; // Dead holders count.
+    holders.roster.at(1).conditions[12]=1; // Unconscious holders count.
+    XeenMapGeometry outdoor;outdoor.flags2=0x8000;outdoor.surfaceTypes[0]=0;
+    XeenMapCell destination;destination.geometry=XeenOutdoorLayers{};
+    for(unsigned skill:{9u,11u})for(unsigned count:{0u,1u,2u}) {
+        for(unsigned id=0;id<3;++id)holders.roster.at(id).skills[skill]=id<count?1:0;
+        const auto caps=XeenMovement::capabilities(holders);
+        check((skill==9?caps.mountaineer:caps.pathfinder)==(count==2),"Traversal counts two holders regardless of conditions");
+        for(unsigned wall:skill==9?std::vector<unsigned>{1,7,9,10,12}:std::vector<unsigned>{3,6}) {
+            xeenGet<XeenOutdoorLayers>(destination.geometry).middle=wall;
+            check((XeenMovement::outdoorDestination(outdoor,destination,caps)==XeenMovementResult::Moved)==(count==2),
+                "Every skill wall requires two holders and bypasses its surface check");
+            XeenWorld crossing([&](auto id) {XeenMap m;m.geometry.id=id.number;m.geometry=outdoor;m.geometry.id=id.number;
+                m.geometry.cells.fill(destination);return m;});
+            for(auto action:{NavigationAction::MoveForward,NavigationAction::MoveBackward,NavigationAction::StrafeLeft,NavigationAction::StrafeRight}) {
+                XeenCamera c{23,8,8,XeenDirection::North};
+                check((XeenMovement().apply(crossing,c,action,caps)==XeenMovementResult::Moved)==(count==2),"Strafe/backward share the skill check");
+                if(count<2)check(c.x==8 && c.y==8 && c.mapId==XeenMapIdentity(23) && c.direction==XeenDirection::North,"Refused skill move changed camera");
+            }
+        }
+    }
+    xeenGet<XeenOutdoorLayers>(destination.geometry).middle=5;
+    check(XeenMovement::outdoorDestination(outdoor,destination,{false,false,true,true})==XeenMovementResult::BlockedBySurface,
+        "Clouds wall five retains its surface check");
     XeenMapGeometry map;map.flags2=0x8000; // outdoor geometry
     XeenMapCell cell;cell.geometry=XeenOutdoorLayers{};
     for(unsigned surface:{0u,8u,15u})for(bool swim:{false,true})for(bool walk:{false,true}) {
@@ -127,5 +152,29 @@ void border() {
         check(XeenScenePresentation::clairvoyanceFrames(left,right,phase,true).second==52,"Overlapping window right statue");
     }
 }
+void lighting() {
+    using P=XeenScenePresentation;
+    for(unsigned flags:{0u,0x4000u,0x8000u,0xc000u})for(unsigned light:{0u,1u,65535u})
+        check(P::blackView(flags,light)==(bool(flags&0x4000) && light==0),"Only the dark flag with zero light makes a black view");
+    for(bool pending:{false,true})for(unsigned attr:{0u,0x20u})for(unsigned light:{0u,1u,2u,65535u})
+        check(P::checkedLight(light,attr,pending)==light-unsigned(pending && attr && light),"Drain spends one nonzero light word at a pending check");
+    check(!XeenLearnedSpellRules::prepareEffect(XeenLearnedSpell::Light,{}, {},610,{},true).stepped,"Light in blackness does not mark stepped");
+    check(XeenLearnedSpellRules::prepareEffect(XeenLearnedSpell::Light,{}, {},610,{},false).stepped,"Light in a clear view marks stepped");
+    XeenWorld world([](auto id) {XeenMap m;m.geometry.id=id.number;m.geometry.flags2=0xc000;
+        for(auto &cell:m.geometry.cells) {cell.geometry=XeenOutdoorLayers{};cell.rawAttributes=0x20;}return m;});
+    XeenPartyState p;p.encounterContext.emplace();p.encounterContext->lightAndResistances[0]=2;
+    XeenCamera camera{23,8,8,XeenDirection::North};
+    check(world.lightAfterScenePreparation(p,camera)==2,"Fresh/restored presentation never invents a step");
+    world.scenePresentation().markLightingStep();
+    p.encounterContext->lightAndResistances[0]=world.lightAfterScenePreparation(p,camera);
+    check(p.encounterContext->lightAndResistances[0]==1 && !world.sceneIsBlack(p,camera),"First stepped drain remains clear");
+    world.scenePresentation().lightingPrepared=true;
+    check(world.lightAfterScenePreparation(p,camera)==1,"Retry retains its prepared counter");
+    world.scenePresentation().completeLightingDraw();
+    check(world.lightAfterScenePreparation(p,camera)==1,"Redraw spends no light");
+    world.scenePresentation().markLightingStep();
+    p.encounterContext->lightAndResistances[0]=world.lightAfterScenePreparation(p,camera);
+    check(world.sceneIsBlack(p,camera),"Drain to zero makes the scene black immediately");
 }
-int main() {try {handlers();movementAndArrival();information();border();std::cout<<"M76 senses handlers and consumers passed\n";return 0;}catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}
+}
+int main() {try {handlers();movementAndArrival();information();border();lighting();std::cout<<"Senses, traversal and lighting rules passed\n";return 0;}catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}

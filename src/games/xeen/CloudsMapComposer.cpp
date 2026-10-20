@@ -131,8 +131,6 @@ IndexedFrame CloudsMapComposer::compose(XeenAssetSource &assets,
 		emittedAnimation = true; // The default outdoor water layer always animates.
 		drawOutdoorCommands(assets, commands);
 	} else {
-		// Indoor darkness is deliberately ignored in Milestone 12D: the scene is
-		// rendered illuminated so its geometry can be validated without gameplay.
 		const auto resolver = XeenObjectVisualResolver::load(assets);
 		const auto commands = XeenIndoorScene().build(
 			world, camera, &resolver, objectDiagnostics,ordinaryPhase,actorFrame,night,
@@ -146,6 +144,8 @@ IndexedFrame CloudsMapComposer::compose(XeenAssetSource &assets,
 		drawIndoorCommands(assets, commands);
 	}
 
+ // Obscure after scene/monsters, before overlapping border indicators.
+ if(world.sceneIsBlack(partyState,camera))assets.blackenScene();
 	drawInterfaceLayers(assets, partyState, context,&world.scenePresentation());
     if(partyState.encounterContext)for(auto i:{XeenPartyEffect::Levitate,XeenPartyEffect::Bless,XeenPartyEffect::PowerShield,XeenPartyEffect::HolyBonus,XeenPartyEffect::Heroism})
         emittedAnimation=emittedAnimation || partyState.encounterContext->effects[i]!=0;

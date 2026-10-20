@@ -1519,6 +1519,7 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
                 if(workingCamera.mapId!=destination.mapId && world.detachedEventCandidate())
                     world.loadEventDestination(workingCamera.mapId,destination.mapId);
                 workingCamera=destination;
+                world.scenePresentation().markLightingStep();
                 state.selectedObject.reset();
                 if(continueExecution)state.selectedObject=world.selectObject(workingCamera);
             } catch(const std::exception &e) {
@@ -1544,6 +1545,11 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
    state.entireParty=false;state.lookupDirection=workingCamera.direction;
    state.activeCharacterIndex = partyState.party.size() ? std::optional<std::size_t>{0} : std::nullopt;
 			state.continuedAtDestination=true; // DAT 0x2711f..0x27127: redraw, then restart.
+            // Continue prepares each intermediate scene before restarting its
+            // Event chain, even when no text suspends there for a visible frame.
+            if(partyState.encounterContext)
+                partyState.encounterContext->lightAndResistances[0]=world.lightAfterScenePreparation(partyState,workingCamera);
+            world.scenePresentation().completeLightingDraw();
 			logical = {workingCamera.mapId, workingCamera.x, workingCamera.y, 0};
 			try {
 				script.emplace(scriptProvider(logical.mapId));

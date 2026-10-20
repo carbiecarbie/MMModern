@@ -35,7 +35,7 @@ int main(int argc,char **argv) {
         require(!documentedGap("Events","17 DoTownEvent action=0","unsupported","opcode 17 is outside the supported decoder subset"),"Missing service handoff must fail calibration");
         std::ifstream input(argv[1]);require(bool(input),"Cannot read coverage report");
         std::string line,dimension;bool clouds=false,darkside=false;unsigned gaps=0,unused=0,waterDragon=0,vultureRoc=0,movement=0;
-        std::set<std::string> supported,supportedServices;
+        std::set<std::string> supported,supportedServices,skillWalls,lightingRows;
         while(std::getline(input,line)) {
             if(line=="## Clouds detail")clouds=true;
             if(line=="## Darkside detail") {clouds=false;darkside=true;}
@@ -60,6 +60,22 @@ int main(int argc,char **argv) {
                 if(darkside && mechanic.rfind("dark.mon 59 ",0)==0) {require(status=="supported","Vulture Roc species is not supported: "+reason);++vultureRoc;}
             }
             if(!clouds)continue;
+            if(dimension=="Map features") {
+                if(mechanic=="Dark physical DAT tile" || mechanic=="Dark primary map" || mechanic=="Light-drain cell") {
+                    require(status=="supported","Lighting consumer probe is not supported: "+mechanic);
+                    const auto count=mechanic=="Dark physical DAT tile"?"36":mechanic=="Dark primary map"?"20":"0";
+                    require(columns[3]==count,"Clouds lighting resource inventory changed: "+mechanic);
+                    lightingRows.insert(mechanic);
+                }
+                if(mechanic.rfind("Mountaineer wall=",0)==0 || mechanic.rfind("Pathfinder wall=",0)==0) {
+                    const std::map<std::string,unsigned> uses{{"Mountaineer wall=1",422},{"Mountaineer wall=7",40},
+                        {"Mountaineer wall=9",0},{"Mountaineer wall=10",110},{"Mountaineer wall=12",0},
+                        {"Pathfinder wall=3",516},{"Pathfinder wall=6",0}};
+                    require(status=="supported" && uses.count(mechanic) && std::stoul(columns[3])==uses.at(mechanic),
+                        "Traversal skill probe or original Clouds inventory changed: "+mechanic);
+                    skillWalls.insert(mechanic);
+                }
+            }
             if(dimension=="Events" && status!="supported") {
                 const auto opcode=mechanic.substr(0,mechanic.find(' '));
                 const bool excluded=opcode=="6" || opcode=="40" || opcode=="60" || opcode=="17" || opcode=="30";
@@ -99,6 +115,7 @@ int main(int argc,char **argv) {
         require(gaps==4 && unused==4,"Vertigo documented gap/subroutine inventory changed; explain and recalibrate");
         require(waterDragon==2 && vultureRoc==2,"Species 59 species and movement rows are missing from the census");
         require(movement>=4,"Monster movement rows are missing from the census");
+        require(lightingRows.size()==3 && skillWalls.size()==7,"Lighting/traversal consumer census rows are missing");
         std::cout<<"Vertigo calibration: "<<gaps<<" documented gap rows; "<<unused<<" unresolved-subroutine exceptions; accepted effects and services supported\n";
         return 0;
     }catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}

@@ -111,17 +111,18 @@ XeenMovementResult applyIndoor(XeenWorld &world, XeenCamera &camera,
 } // namespace
 
 XeenMovement::Capabilities XeenMovement::capabilities(const XeenPartyState &party) {
-    return {xeenPartyHasSkill(party,14),party.encounterContext && party.encounterContext->effects[XeenPartyEffect::WalkOnWater]!=0,false};
+    return {xeenPartyHasSkill(party,14),party.encounterContext && party.encounterContext->effects[XeenPartyEffect::WalkOnWater]!=0,
+        xeenPartyHasSkill(party,9),xeenPartyHasSkill(party,11)};
 }
 
 XeenMovementResult XeenMovement::outdoorDestination(const XeenMapGeometry &geometry,
 		const XeenMapCell &cell, Capabilities capabilities) {
-	if (capabilities.mountaineer)
-		throw std::invalid_argument("Unsupported outdoor traversal capability");
 	const auto *layers = xeenGetIf<XeenOutdoorLayers>(&cell.geometry);
 	if (!geometry.isOutdoors() || !layers || layers->surface >= 16 || layers->middle >= 16)
 		throw std::invalid_argument("Invalid outdoor destination geometry");
-	if (blocksWithoutMountaineer(layers->middle)) return XeenMovementResult::BlockedByTerrain;
+	if (blocksWithoutMountaineer(layers->middle) && !capabilities.mountaineer) return XeenMovementResult::BlockedByTerrain;
+	// DOS 0x0cf38..0x0cf50; the pin omits these two wall consumers.
+	if ((layers->middle==3 || layers->middle==6) && !capabilities.pathfinder) return XeenMovementResult::BlockedByTerrain;
 	if (checksSurface(layers->middle) && blockedSurface(geometry.surfaceTypes[layers->surface],capabilities))
 		return XeenMovementResult::BlockedBySurface;
 	return XeenMovementResult::Moved;

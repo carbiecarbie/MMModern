@@ -184,6 +184,7 @@ void XeenAssetSource::drawSprite(const std::string &resourceName,
 IndexedFrame XeenAssetSource::snapshot() const {
 	return _impl->bridge.snapshot();
 }
+void XeenAssetSource::blackenScene() { _impl->bridge.blackenScene(); }
 
 void XeenAssetSource::drawSmith(IndexedFrame &frame) {
 	_impl->bridge.drawSmith(frame);

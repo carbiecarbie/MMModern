@@ -226,7 +226,7 @@ void testTerrainAndSurfaceCollision() {
 			"terreno deveria consultar a superficie de agua");
 	}
 
-	const std::array<std::uint8_t, 3> passableTerrain = {3, 6, 15};
+	const std::array<std::uint8_t, 1> passableTerrain = {15};
 	for (const auto terrain : passableTerrain) {
 		auto map = freeMap();
 		map.geometry.surfaceTypes[5] = 0;
@@ -237,7 +237,7 @@ void testTerrainAndSurfaceCollision() {
 		camera = before;
 		require(movement.apply(terrainWorld, camera, mmodern::NavigationAction::MoveForward) ==
 			mmodern::XeenMovementResult::Moved,
-			"terreno transitavel consultou a superficie indevidamente");
+			"Passable terrain checked the surface unexpectedly");
 	}
 }
 

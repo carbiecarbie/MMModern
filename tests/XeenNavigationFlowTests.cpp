@@ -196,9 +196,10 @@ void testBlockedAndRotatedActions() {
 	const auto blockedResult = blocked.flow.processNavigationAction(blocked.world, blocked.party,
 		blockedCamera, blockedFlags, NavigationAction::MoveForward);
 	check(blockedResult.movementResult == XeenMovementResult::BlockedByTerrain &&
-		blockedFlags.isSet(25), "blocked movement still executes current trigger");
+		!blockedFlags.isSet(25) && std::holds_alternative<XeenAutomaticEventNoTrigger>(blockedResult.automaticEvent),
+        "Blocked movement must skip the automatic arrival Event");
 	checkCamera(blockedCamera, 1, 1, 1, XeenDirection::North,
-		"automatic event executes exactly once after blocked movement");
+		"Blocked movement preserves the camera");
 
 	for (const auto action : {NavigationAction::TurnLeft,
 			NavigationAction::TurnRight}) {

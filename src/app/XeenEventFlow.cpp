@@ -1076,11 +1076,22 @@ XeenEventFlow::Composition XeenEventFlow::composeJourneyScene(bool reconstruct) 
  _world.scenePresentation().textPrompt=textPromptOpen();
  if(_transition && _transition->manualStep && !_transition->terrainDone) {
   auto &work=*_transition;checkTransitionCandidate();
+  {
+   XeenRestoreGuard::EventProviders providers(*work.world,work.party,work.camera,work.flags,*work.guard,
+       [&] {_encounter->journeySavePreimage().check();},[&] {_encounter->journeySavePreimage().failed=true;});
+   const auto light=work.world->lightAfterScenePreparation(work.party,work.camera);
+   _encounter->journeySavePreimage().check();
+   work.party.encounterContext->lightAndResistances[0]=light;work.world->scenePresentation().lightingPrepared=true;
+  }
+  {
+   auto prepared=std::make_unique<XeenRestoreGuard>(*work.world,work.party,work.camera,work.flags);
+   prepared->retainResources(*work.guard);work.guard.swap(prepared);
+  }
   work.world->scenePresentation().textPrompt=textPromptOpen();
   XeenRestoreGuard::Providers providers(*work.guard,*work.world,[&] {_encounter->journeySavePreimage().check();});
   work.world->scenePresentation().composeFromRetained(reconstruct && !_sceneAdvancePending);
   auto frame=_transitionCompose(*work.world,work.party,work.camera,_ordinary.phase,_encounter->appearance());
-  checkTransitionCandidate();return frame;
+  checkTransitionCandidate();work.world->scenePresentation().completeLightingDraw();work.guard->adoptMutationBoundary();return frame;
  }
 
 	if(_transition && _pending && _pending->state.continuedAtDestination) {
@@ -1138,7 +1149,12 @@ bool XeenEventFlow::refreshScene(bool reconstruct, OrdinaryCause cause, bool com
 		// Always use the committed camera, never logicalAddress/workingCamera.
 		_world.scenePresentation().composeFromRetained(!stepped && !_sceneAdvancePending);
 		_world.scenePresentation().textPrompt=textPromptOpen();
+		if(_party.encounterContext) {
+            _party.encounterContext->lightAndResistances[0]=_world.lightAfterScenePreparation(_party,_camera);
+            _world.scenePresentation().lightingPrepared=true;
+        }
 		const auto composition = _compose(_ordinary.phase);
+		_world.scenePresentation().completeLightingDraw();
 		requireCurrentOwners();
 		_ordinary.containsOrdinaryAnimation = composition.containsOrdinaryAnimation;
 		if (cameraChanged && !_pending) _presenter.clear();
@@ -1489,6 +1505,13 @@ void XeenEventFlow::prepareVertigoResult(const XeenManualEventResult &result) tr
 	// The arrival's map load and wake writes belong to the retained candidate:
 	// a recoverable failure below retries from here with this preimage.
 	{
+        XeenRestoreGuard::EventProviders providers(*work.world,work.party,work.camera,work.flags,*work.guard,
+            [&] {_eventPublication->check();},[&] {_encounter->journeySavePreimage().failed=true;});
+        const auto light=work.world->lightAfterScenePreparation(work.party,work.camera);
+        _eventPublication->check();work.party.encounterContext->lightAndResistances[0]=light;
+        work.world->scenePresentation().lightingPrepared=true;
+    }
+	{
 		auto prepared=std::make_unique<XeenRestoreGuard>(*work.world,work.party,work.camera,work.flags);
 		prepared->retainResources(*work.guard);work.guard.swap(prepared);
 	}
@@ -1508,6 +1531,7 @@ void XeenEventFlow::prepareVertigoResult(const XeenManualEventResult &result) tr
 		} catch (...) { candidateGuard.check();throw; }
 	}();
 	if(!composed.frame.isValid())throw std::runtime_error("Vertigo destination frame is invalid");
+    work.world->scenePresentation().completeLightingDraw();candidateGuard.adoptMutationBoundary();work.guard->adoptMutationBoundary();
 	_eventPublication->check();
 	if(!_encounter->current(before))throw std::logic_error("Stale Vertigo preparation");
 	// Storage and the destination frame are ready. No provider or callback follows

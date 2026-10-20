@@ -536,6 +536,13 @@ IndexedFrame ScummVmXeenBridge::snapshot() const {
 
 	return frame;
 }
+void ScummVmXeenBridge::blackenScene() {
+ if(_impl->surface.w<224 || _impl->surface.h<140)throw std::invalid_argument("Scene surface is too small");
+ for(int y=8;y<140;++y) {
+  auto *row=static_cast<std::uint8_t *>(_impl->surface.getBasePtr(8,y));
+  std::fill(row,row+216,0);
+ }
+}
 
 void ScummVmXeenBridge::drawTraining(IndexedFrame &frame) {
 	if(!frame.isValid() || frame.width!=320 || frame.height!=200)throw std::invalid_argument("Invalid Training draw context");

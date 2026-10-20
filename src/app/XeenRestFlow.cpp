@@ -159,7 +159,7 @@ bool XeenEncounterFlow::serviceRest() {
    if(rest.terrain->rule.damage)for(auto owner:rest.owners)
     _world.scenePresentation().portraitDamage(owner,rest.terrain->rule.type==XeenDamageType::Fire?1u:0u,_lastTime);
    rest.consumed=recovery.consumed;rest.starving=recovery.starving;rest.phase=P::Complete;
-   session.publishExploration(exploration);restPublication();return true;
+   session.publishExploration(exploration);_world.scenePresentation().markLightingStep();restPublication();return true;
   }
   if(rest.phase==P::Charges && !_regionalWork) {
    auto candidate=std::make_unique<XeenRegionalActionCandidate>();auto &c=*candidate;

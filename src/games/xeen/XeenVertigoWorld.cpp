@@ -22,6 +22,7 @@ void XeenWorld::retainEventStep(XeenPartyState &party,const XeenRegionalActionCa
 
 void XeenWorld::publishTerrainArrival(XeenPartyState &party,const XeenTerrainArrivalCandidate &arrival,const XeenJourneyRandomState &random) {
  if(!detachedEventCandidate())throw std::logic_error("Terrain arrival requires detached publication");
+ _scenePresentation.markLightingStep();
  for(unsigned n=0;n<6;++n) {
   const auto owner=arrival.characters[n].rosterId;
   party.roster.at(owner)=arrival.characters[n];party.roster._combatInputs[owner]=arrival.inputs[n];
@@ -63,6 +64,7 @@ void XeenWorld::loadEventDestination(XeenMapIdentity from,XeenMapIdentity to) {
     leaveMap(from);
     reloadMapMonsters(to);
     reloadHeads(to);
+    _scenePresentation.markLightingStep();
 }
 
 XeenActorView XeenWorld::prepareTransitionArrival(const XeenCamera &camera) {
@@ -154,6 +156,8 @@ XeenScenePresentation XeenWorld::prepareSpawnPresentation(const XeenWorld &candi
 	// Indicator sources written while the detached world moved and drew.
 	prepared.dangerSense=candidate._scenePresentation.dangerSense;
 	prepared.thinWall=candidate._scenePresentation.thinWall;
+ prepared.lightingStepped=candidate._scenePresentation.lightingStepped;
+ prepared.lightingPrepared=candidate._scenePresentation.lightingPrepared;
 	for(const auto id:candidate._spawnedPresentationSlots)
 		prepared.copySpawn(candidate._sessionState.regionalActors(id.mapId).at(id.recordIndex),candidate._scenePresentation);
 	if(!candidate._spawnedPresentationSlots.empty())prepared.copySpawnRandom(candidate._scenePresentation);

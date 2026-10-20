@@ -25,7 +25,7 @@ public:
 	// The admitted ordinary Clouds capability value. Other abilities require
 	// their actual consumers rather than silently changing this predicate.
 	struct Capabilities {
-		bool swimming = false, walkOnWater = false, mountaineer = false;
+		bool swimming = false, walkOnWater = false, mountaineer = false, pathfinder = false;
 	};
 	static Capabilities capabilities(const XeenPartyState &);
 	static XeenMovementResult outdoorDestination(const XeenMapGeometry &geometry,
@@ -35,7 +35,7 @@ public:
 	static std::bitset<256> component(const XeenMap &map, int anchorX, int anchorY,
 		Capabilities capabilities);
 	XeenMovementResult apply(XeenWorld &world, XeenCamera &camera,
-		NavigationAction action, Capabilities capabilities = {false,false,false}) const;
+		NavigationAction action, Capabilities capabilities = {false,false,false,false}) const;
 };
 
 } // namespace mmodern

@@ -135,7 +135,11 @@ void XeenSaveState::restoreJourney(const XeenSaveSnapshot &source, const Resourc
 		if (party.roster.combatInputs(i)) throw std::logic_error("Journey destination has detached supplements");
 	XeenRestoreGuard destination(world,party,camera,flags,true);
 	if (!resources.loadInitialParty) throw std::invalid_argument("Restoration requires original character display data");
-	XeenPartyState p = resources.loadInitialParty();
+	XeenPartyState p = [&] {
+        XeenRestoreGuard::LightingObservation lighting(destination);
+        try {auto value=resources.loadInitialParty();destination.check();return value;}
+        catch (...) {destination.check();throw;}
+    }();
 	destination.check();
 	XeenCamera c = snapshot.camera;
 	XeenGameFlags f(snapshot.gameFlags);
@@ -167,6 +171,7 @@ void XeenSaveState::restoreJourney(const XeenSaveSnapshot &source, const Resourc
 	};
 	adopt();
 	const auto callback = [&](auto &&provider) {
+		XeenRestoreGuard::LightingObservation sourceLighting(destination),candidateLighting(*prepared);
 		destination.check(); prepared->check();
 		try {
 			auto returned = provider(); destination.check(); prepared->check();
@@ -317,8 +322,12 @@ void XeenSaveState::restoreJourney(const XeenSaveSnapshot &source, const Resourc
 	adopt();
 	if(p.monsterTreasure && p.monsterTreasure->ready() && std::none_of(view.slots.begin(),view.slots.end(),[](const auto &v){return bool(v);})) throw std::invalid_argument("Quiet treasure is immediately collectable");
 	for (unsigned i=0;i<active.size();++i) if (view.activation[i] && !active[i].activated) throw std::invalid_argument("Quiet actor activation missing");
-	try { presentation(w,p,c,f); }
-	catch (...) { destination.check(); prepared->check(); throw; }
+	{
+        XeenRestoreGuard::LightingObservation sourceLighting(destination),candidateLighting(*prepared);
+        try { presentation(w,p,c,f); }
+        catch (...) { destination.check(); prepared->check(); throw; }
+        destination.check(); prepared->check();
+    }
 	destination.check(); prepared->check();
 	// Prepare the complete handoff and its FINAL-owner preimage before any stores.
 	auto binding = std::make_shared<XeenJourneyRestoration>();

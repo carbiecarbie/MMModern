@@ -14,7 +14,7 @@
 
 namespace mmodern {
 void XeenEncounterFlow::itemTravelRead(const std::function<void()> &read) {
-    if(_combat)_combat->preparePresentation(_combat->ticket(),read);
+    if(_combat)_combat->guardCallback(_combat->ticket(),read);
     else {XeenRestoreGuard::Providers providers(*_journeyPreimage,_world);read();_journeyPreimage->check();}
 }
 bool XeenEncounterFlow::prepareCombatItem(const ItemUseSelection &selection,unsigned choice) {
@@ -331,7 +331,8 @@ bool XeenEncounterFlow::publishAwaken(const Ticket &entry) {
 	BusyCast busy(_busy);
 	try {
 		_journeyPreimage->check();
-		const auto effect=XeenLearnedSpellRules::prepareEffect(_casting->spell,_party,{},_party.encounterContext->year,_casting->casterOwner);
+		const auto effect=XeenLearnedSpellRules::prepareEffect(_casting->spell,_party,{},_party.encounterContext->year,_casting->casterOwner,
+            _casting->spell==XeenLearnedSpell::Light && _world.sceneIsBlack(_party,_camera));
         std::optional<XeenSpellInformation> information;
         if(_casting->spell==XeenLearnedSpell::DetectMonster || _casting->spell==XeenLearnedSpell::IdentifyMonster) {
             const auto &actors=_world.sessionState().regionalActors(_camera.mapId);
@@ -358,6 +359,7 @@ bool XeenEncounterFlow::publishAwaken(const Ticket &entry) {
         _journeyPreimage->check();
         if(effect.food)_party.food=*effect.food;
         XeenLearnedSpellRules::applyPartyEffect(_casting->spell,*_party.encounterContext,_party.roster.at(_casting->casterOwner).currentLevel());
+        if(effect.stepped || (_casting->spell==XeenLearnedSpell::Jump && _casting->jumpDestination))_world.scenePresentation().markLightingStep();
         if(_casting->spell==XeenLearnedSpell::Jump) {
           _casting->failed=!_casting->jumpDestination;
         }
@@ -495,6 +497,7 @@ bool XeenEncounterFlow::serviceCasting() {
 		for(unsigned n=0;n<6;++n)_party.roster._combatInputs[work.owners[n]]=work.time->inputs[n];
 		auto &session=_world._sessionState;
 		session.publishExploration(exploration);
+        _world.scenePresentation().markLightingStep();
 		session._journeyRandom=continuation;
         if(work.terrain->rule.damage)for(auto owner:work.owners)
             _world.scenePresentation().portraitDamage(owner,work.terrain->rule.type==XeenDamageType::Fire?1u:0u,_lastTime);

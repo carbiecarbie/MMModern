@@ -19,6 +19,9 @@ XeenNavigationFlowResult XeenNavigationFlow::processNavigationAction(
 		XeenGameFlags &gameFlags, NavigationAction action) {
 	const XeenMovementResult movementResult = _movement.apply(world, camera, action,XeenMovement::capabilities(partyState));
 	const auto cameraAfterMovement = camera;
+ if(movementResult!=XeenMovementResult::Moved && movementResult!=XeenMovementResult::Turned)
+     return {movementResult,{},cameraAfterMovement};
+ world.scenePresentation().markLightingStep();
 	return {movementResult,
 		_eventSystem.runAutomaticEvent(world, partyState, camera, gameFlags), cameraAfterMovement};
 }

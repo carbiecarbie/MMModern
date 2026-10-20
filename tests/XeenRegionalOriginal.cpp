@@ -36,7 +36,9 @@ int main(int argc,char **argv) {
 		const auto statistics=XeenMonsterFormat::parse(*mon);
 		xeenValidateRegionalManifest(map,mob,events,statistics,assets.readInitialResource("maze0023.dat"),
 			assets.readInitialResource("maze0023.mob"),assets.readInitialResource("maze0023.evt"));
-		const auto component=XeenMovement::component(map,9,11,{});
+		// Keep this original-resource inventory's historical dry mainland area;
+        // the ordinary no-Pathfinder movement component is now smaller.
+		const auto component=XeenMovement::component(map,9,11,{false,false,false,true});
 		std::set<std::pair<int,int>> addresses;
 		unsigned automaticCells=0;
 		for (int y=0;y<16;++y) for(int x=0;x<16;++x) if(component[y*16+x]) {

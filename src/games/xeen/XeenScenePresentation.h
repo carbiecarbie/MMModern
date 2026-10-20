@@ -15,7 +15,8 @@
 namespace mmodern {
 // Adapted from ScummVM's interface_scene.cpp and constants.cpp at
 // 6814ee9ba54582f5b5adcffab49efbbd8f589edd, GPL-3.0-or-later.
-// Disposable presentation state; never included in the session/save or guards.
+// Unsaved presentation state. Lighting flags participate in the containing
+// World's mutation guard; the other fields remain disposable cosmetic state.
 struct XeenMonsterAnimation {
 	unsigned frame=0, postAttackDelay=0, effect1=0, effect2=0, effect3=0;
 	bool reverse=false;
@@ -60,6 +61,17 @@ struct XeenMonsterAnimation {
 
 class XeenScenePresentation {
 public:
+ // DS:3067 is an unsaved pending lighting check, separate from exploration.
+ // A failed composition may retry its prepared light value without spending again.
+ XeenMutable<bool> lightingStepped=false, lightingPrepared=false;
+ void markLightingStep() noexcept {lightingStepped=true;lightingPrepared=false;}
+ void completeLightingDraw() noexcept {lightingStepped=lightingPrepared=false;}
+ static bool blackView(unsigned flags2,unsigned light) noexcept {
+     return (flags2&0x4000) && !light;
+ }
+ static std::uint16_t checkedLight(unsigned light,unsigned attributes,bool pending) noexcept {
+     return static_cast<std::uint16_t>(light-(pending && (attributes&0x20) && light ? 1u:0u));
+ }
  std::map<XeenObjectIdentity,bool> objectFlips;
  // giveExt's chest frame (0x235f6, 0x23703): open while the lock is picked,
  // until the map is loaded again. Not saved, as in DOS.

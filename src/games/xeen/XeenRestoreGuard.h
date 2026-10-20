@@ -486,14 +486,23 @@ private:
 	static std::size_t mutationRangeCapacity(const std::map<XeenMapIdentity,XeenMap> &mapValues,
 			const std::map<XeenMapIdentity,XeenObjectFile> &objectValues) {
 		// Fixed owners plus every per-map entry the bounded table can hold.
-		std::size_t count=6+XeenMapTable::kObservedRangesPerMap*XeenMapTable::kMaximumMaps+4*objectValues.size();
+		std::size_t count=8+XeenMapTable::kObservedRangesPerMap*XeenMapTable::kMaximumMaps+4*objectValues.size();
 		for(const auto &entry:mapValues) count+=5+entry.second.instructions.size();
 		return count;
 	}
 	void prepareMutationRanges() { mutations.prepare(mutationRangeCapacity(maps,objects)); }
 	void refreshMutationRanges() const noexcept {
 		mutations.clearRanges();
-		mutations.add(&w,sizeof(w));mutations.add(&p,sizeof(p));
+        // Lighting is allowed to complete between retained service frames.
+        // Observe these transients during callbacks, when only the gameplay
+        // owner may prepare/complete a check, rather than invalidating every
+        // retained service guard on an ordinary redraw.
+        const auto *begin=reinterpret_cast<const char *>(&w);
+        const auto *lightingBegin=reinterpret_cast<const char *>(&w._scenePresentation.lightingStepped);
+        const auto *lightingEnd=reinterpret_cast<const char *>(&w._scenePresentation.lightingPrepared)+sizeof(w._scenePresentation.lightingPrepared);
+        mutations.add(begin,lightingBegin-begin);mutations.add(lightingEnd,begin+sizeof(w)-lightingEnd);
+        if(lightingObservers)mutations.add(lightingBegin,lightingEnd-lightingBegin);
+        mutations.add(&p,sizeof(p));
 		mutations.add(&c,sizeof(c));mutations.add(&f,sizeof(f));
 		const auto &members=p.party.activeRosterIds();
 		mutations.add(members.data(),members.size()*sizeof(XeenMutable<std::uint8_t>));
@@ -559,11 +568,20 @@ private:
 	std::array<std::uint64_t, 5> borrowRevisions;
 	mutable bool failed = false;
 	mutable XeenMutationWatch mutations;
+    mutable unsigned lightingObservers=0;
+    class LightingObservation {
+    public:
+        explicit LightingObservation(const XeenRestoreGuard &guard):g(guard) {++g.lightingObservers;if(g.ownersAlive())g.refreshMutationRanges();else g.mutations.clearRanges();}
+        ~LightingObservation() {--g.lightingObservers;if(g.ownersAlive())g.refreshMutationRanges();else g.mutations.clearRanges();}
+        LightingObservation(const LightingObservation &)=delete;
+    private:
+        const XeenRestoreGuard &g;
+    };
 };
 class XeenRestoreGuard::Providers {
 public:
 	Providers(XeenRestoreGuard &guard, XeenWorld &world, std::function<void()> authorization = {}) :
-		g(guard), w(world), maps(w._loader), objects(w._objectLoader), authorization(std::move(authorization)) {
+		g(guard), w(world), maps(w._loader), objects(w._objectLoader), authorization(std::move(authorization)),lighting(guard) {
 		check();
 		XeenWorld::MapLoader map = [this](XeenMapIdentity id) {
 			check();
@@ -585,6 +603,7 @@ private:
 	XeenRestoreGuard &g; XeenWorld &w;
 	XeenWorld::MapLoader maps; XeenWorld::ObjectLoader objects;
 	std::function<void()> authorization;
+    LightingObservation lighting;
 	void check() const { if (authorization) authorization(); g.check(); }
 };
 // Event execution owns intentional candidate writes between provider calls.
@@ -601,6 +620,7 @@ public:
 		XeenWorld::MapLoader map=[this](XeenMapIdentity id) {
 			XeenRestoreGuard guard(w,p,c,f);
 			guard.retainResources(this->retained);
+            LightingObservation lighting(guard);
 			check();
 			try {auto value=maps(id);check();guard.check();guard.admitMap(id,value);return value;}
 			catch (const std::logic_error &) {this->integrity();throw;}
@@ -610,6 +630,7 @@ public:
 		if (objects) object=[this](XeenMapIdentity id) {
 			XeenRestoreGuard guard(w,p,c,f);
 			guard.retainResources(this->retained);
+            LightingObservation lighting(guard);
 			check();
 			try {auto value=objects(id);check();guard.check();guard.admitObjects(id,value);return value;}
 			catch (const std::logic_error &) {this->integrity();throw;}

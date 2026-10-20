@@ -686,7 +686,7 @@ XeenEncounterResult XeenActorApproach::regionalTransition(XeenWorld &world,XeenP
 			for(unsigned n=0;n<6;++n)party.roster._combatInputs[c.owners[n]]=c.inputs[n];
 			if(c.result.terrainFall)c.pending=0;
 		}
-		if(c.exploration)session.publishExploration(*c.exploration);
+		if(c.exploration) {session.publishExploration(*c.exploration);world.scenePresentation().markLightingStep();}
                     if(c.time && c.timeDone)party.serviceEconomy=c.time->economy;
                     if(c.time && c.timeDone)for(unsigned n=0;n<6;++n)party.roster._combatInputs[c.owners[n]]=c.inputs[n];
 		for(const auto &value:c.characters) { auto &owner=party.roster.at(value.rosterId);publishInjured(owner,value);

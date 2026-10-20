@@ -291,6 +291,7 @@ bool XeenEncounterFlow::serviceShoot() {
   if(!living) { _state._phase=XeenEncounterPhase::SupportStopped;_state._reason=XeenEncounterStop::Defeat;session._encounterTerminal=true; }
   ++session._encounterRevision;_state._revision=session._encounterRevision;++session._journeyGeneration;++_generation;
   session.publishExploration(exploration);
+  _world.scenePresentation().markLightingStep();
   _shoot.reset();session._journeyActivity=XeenJourneyActivity::Presentation;retainJourney();return true;
  } catch(...) { closeJourney();throw; }
 }

@@ -180,8 +180,8 @@ mainland; many items apply there, others wait for areas not open yet.
 ## Magic
 
 - **Pathfinder movement.** DOS requires two Pathfinder holders to cross outdoor
-  wall types 3 and 6; the pin permits them without the skill. Rule established;
-  the movement consumer is not yet implemented in MMModern.
+  wall types 3 and 6; the pin permits them without the skill. MMModern implements
+  the DOS wall consumer and counts holders regardless of condition.
   [Evidence](original-quirks.md#sv-pathfinder-movement). Pin: differs; master not rechecked.
 - **Pain** does 8 physical damage to the first monster group in the original,
   with normal resistance and save; in ScummVM it does nothing.

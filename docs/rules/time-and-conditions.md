@@ -420,8 +420,10 @@ The four movement callers skip position writes, time charging, the explicit
 action-driven monster opportunity and terrain arrival on false. Ordinary
 redraw/idle monster scheduling still runs; a refusal does not freeze it.
 The pin agrees on Mountaineer and skill aggregation
-but omits the Pathfinder wall consumer. MMModern has not implemented that
-consumer at the research baseline. See [offsets and calibration](evidence.md#outdoor-movement-skills)
+but omits the Pathfinder wall consumer. MMModern implements both consumers in
+`XeenMovement`, using `XeenSkills` for holder counts; FX 21 remains silent until
+audio exists. Fixed area admission still applies after a successful skill check.
+See [offsets and calibration](evidence.md#outdoor-movement-skills)
 and [the original/reference difference](../original-quirks.md#sv-pathfinder-movement).
 
 ### Stepped and lighting

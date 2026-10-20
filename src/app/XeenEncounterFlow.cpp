@@ -66,6 +66,9 @@ bool XeenEncounterFlow::fail(const Ticket &entry, XeenEncounterStop) noexcept {
 
 void XeenEncounterFlow::guardCallback(const Ticket &entry, const std::function<void()> &callback) {
 	if (!current(entry)) throw std::logic_error("Stale encounter callback preimage");
+    const auto retained=_journeyPreimage;
+    std::optional<XeenRestoreGuard::LightingObservation> lighting;
+    if(retained && !_combat)lighting.emplace(*retained);
 	try {
 		if (_combat) _combat->guardCallback(*entry.combat,callback);
 		else callback();

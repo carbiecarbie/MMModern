@@ -267,12 +267,36 @@ Census census(const GameInstallation &original,XeenSide side,OriginalContext &co
         return {};
     };
     // Reference map IDs are bytes. A CC hash match is not enough: DAT identity must agree.
+    const Support lighting=XeenScenePresentation::blackView(0x4000,0) &&
+        !XeenScenePresentation::blackView(0x4000,1) && !XeenScenePresentation::blackView(0,0) &&
+        XeenScenePresentation::checkedLight(1,0x20,true)==0 &&
+        XeenScenePresentation::checkedLight(1,0x20,false)==1 &&
+        XeenScenePresentation::checkedLight(0,0x20,true)==0 ?
+        Support{Status::Supported,"XeenScenePresentation black/clear and stepped drain probes accept"}:
+        Support{Status::Unsupported,"Lighting rule probe failed"};
+    c.add("Map features","Light-drain cell",lighting,0,0);
+    std::map<unsigned,Support> skillTraversal;
+    for(unsigned wall:{1u,7u,9u,10u,12u,3u,6u}) {
+        XeenMapGeometry probe;probe.flags2=0x8000;probe.surfaceTypes[0]=2;
+        XeenMapCell cell;cell.geometry=XeenOutdoorLayers{0,std::uint8_t(wall),0,0};
+        XeenMovement::Capabilities enabled;enabled.mountaineer=wall!=3 && wall!=6;enabled.pathfinder=!enabled.mountaineer;
+        const bool accepts=XeenMovement::outdoorDestination(probe,cell,{})==XeenMovementResult::BlockedByTerrain &&
+            XeenMovement::outdoorDestination(probe,cell,enabled)==XeenMovementResult::Moved;
+        const Support support{accepts?Status::Supported:Status::Unsupported,"XeenMovement skill capability refusal/admission probe"};
+        skillTraversal.emplace(wall,support);
+        c.add("Map features",std::string(enabled.pathfinder?"Pathfinder":"Mountaineer")+" wall="+std::to_string(wall),support,0,0);
+    }
     for(unsigned number=1;number<=255;++number) {
         const auto dat=read(resource(number,"dat"));if(!dat)continue;
         const XeenMapIdentity id{side,static_cast<std::uint16_t>(number)};
         XeenMapGeometry geometry;
         try {geometry=XeenMapFormat::parseDat(*dat);if(geometry.id!=number)continue;}
         catch(const std::exception &e) {c.add("Unclassified","DAT candidate "+std::to_string(number),rejected(e));continue;}
+        if(geometry.flags2&0x4000) {
+            c.add("Map features","Dark physical DAT tile",lighting,number);
+            // Original naming separates primary mazeNNNN from mazexNNN tiles.
+            if(number<100)c.add("Map features","Dark primary map",lighting,number);
+        }
         auto &entry=c.maps[number];
         try {entry.name=assets.mapName(id);}catch(const std::exception &) {entry.name="(name unavailable)";}
         try {
@@ -298,6 +322,7 @@ Census census(const GameInstallation &original,XeenSide side,OriginalContext &co
         }
         std::map<unsigned,Support> arrivalSupportBySurface;
         for(const auto &cell:geometry.cells) {
+            if(cell.rawAttributes&0x20)c.add("Map features","Light-drain cell",lighting,number);
             const unsigned surface=geometry.surfaceTypes[cell.surfaceIndex];
             if(geometry.isOutdoors()) {
                 const auto &layers=xeenGet<XeenOutdoorLayers>(cell.geometry);
@@ -306,13 +331,20 @@ Census census(const GameInstallation &original,XeenSide side,OriginalContext &co
                     const auto ordinary=XeenMovement::outdoorDestination(geometry,cell,{});
                     if(ordinary==XeenMovementResult::BlockedByTerrain || ordinary==XeenMovementResult::BlockedBySurface) {
                         XeenMovement::Capabilities capabilities;
-                        capabilities.mountaineer=ordinary==XeenMovementResult::BlockedByTerrain;
-                        capabilities.swimming=ordinary==XeenMovementResult::BlockedBySurface;
-                        try {(void)XeenMovement::outdoorDestination(geometry,cell,capabilities);}
+                        capabilities.mountaineer=true;capabilities.pathfinder=true;
+                        capabilities.swimming=true;capabilities.walkOnWater=true;
+                        try {
+                            const auto enabled=XeenMovement::outdoorDestination(geometry,cell,capabilities);
+                            if(enabled!=XeenMovementResult::Moved && !(enabled==XeenMovementResult::BlockedBySurface && surface==15))
+                                traversal={Status::Partial,"Traversal capability probe refused"};
+                        }
                         catch(const std::exception &e) {traversal={Status::Partial,e.what()};}
                     }
                 } catch(const std::exception &e) {traversal=rejected(e);}
                 c.add("Map features","Traversal middle="+std::to_string(layers.middle)+" surface="+std::to_string(surface),traversal,number);
+                const auto wall=unsigned(layers.middle);
+                if(wall==1 || wall==7 || wall==9 || wall==10 || wall==12 || wall==3 || wall==6)
+                    c.add("Map features",std::string(wall==3 || wall==6?"Pathfinder":"Mountaineer")+" wall="+std::to_string(wall),skillTraversal.at(wall),number);
             }
             c.add("Map features","Rest surface="+std::to_string(surface),
                 restSupport(surface,geometry.isOutdoors()),number);

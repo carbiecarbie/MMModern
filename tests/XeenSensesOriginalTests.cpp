@@ -1,6 +1,8 @@
 #include "XeenTrainingTestSupport.h"
 #include "XeenTestInstallation.h"
 #include "games/xeen/XeenItemServiceRules.h"
+#include "games/xeen/CloudsMapComposer.h"
+#include "games/xeen/XeenIndoorScene.h"
 #include <iostream>
 #include <sstream>
 using namespace training_test;
@@ -130,10 +132,98 @@ void presentation(Inputs &in) {
     for(const char *key:{"LIGHT_COUNT_TEXT","CLAIRVOYANCE_TEXT","LEVITATE_TEXT","WALK_ON_WATER_TEXT"})check(!in.assets.uiText().scalar(key).empty(),"Original DOS Info effect text");
     check(popup.bounds.bottom==161,"Info four-effect height");
 }
+void traversalAndDarkness(Inputs &in) {
+    XeenWorld world(in.mapLoader(),in.objectLoader());
+    auto party=XeenPartyLoader().loadInitialCloudsParty(in.assets);
+    party.encounterContext=XeenGameplayContextFormat::parse(in.pty);
+    for(auto id:party.party.activeRosterIds()) {party.roster.at(id).skills[9]=0;party.roster.at(id).skills[11]=0;}
+    const auto ids=party.party.activeRosterIds();
+    const auto admitted=XeenMovement::component(world.map(23),9,11,kXeenAdmittedAreaTraversal);
+    for(const auto start:{XeenCamera{23,2,12,XeenDirection::North},XeenCamera{23,1,1,XeenDirection::East}}) {
+        const unsigned skill=start.direction==XeenDirection::North?9u:11u;
+        for(unsigned count:{0u,1u,2u}) {
+            for(unsigned n=0;n<ids.size();++n)party.roster.at(ids[n]).skills[skill]=n<count?1:0;
+            auto camera=start;
+            const auto result=XeenMovement().apply(world,camera,NavigationAction::MoveForward,XeenMovement::capabilities(party));
+            check((result==XeenMovementResult::Moved)==(count==2),"Original map-23 skill crossing requires two holders");
+            if(count<2)check(camera.x==start.x && camera.y==start.y,"Original skill refusal changed position");
+        }
+        auto s=source(in,42);s.camera=start;
+        for(auto &c:s.characters) {c.skills[9]=0;c.skills[11]=0;}
+        s.characters[s.activeRosterIds[0]].skills[skill]=1;
+        Fixture one(in,s);const auto before=XeenSaveFormat::encode(one.snapshot());
+        one.act(NavigationAction::MoveForward);quiet(one);
+        check(before==XeenSaveFormat::encode(one.snapshot()),"Original one-holder refusal changed position/time/RNG/monsters");
+        s.characters[s.activeRosterIds[1]].skills[skill]=1;
+        Fixture two(in,s);two.act(NavigationAction::MoveForward);quiet(two);
+        const int x=start.x+(start.direction==XeenDirection::East),y=start.y+(start.direction==XeenDirection::North);
+        check((two.c.x==x && two.c.y==y)==bool(admitted[y*16+x]),"Two-holder crossing bypassed fixed area admission");
+    }
+    party.encounterContext->lightAndResistances[0]=0;
+    party.encounterContext->effects[XeenPartyEffect::AutomapOn]=1;
+    XeenCamera dark{33,1,1,XeenDirection::North};
+    const auto actors=world.sceneActors(33,[&]{return in.statistics;});
+    // Find an original view containing a monster, then verify it is obscured.
+    bool visible=false;
+    for(int y=0;y<16 && !visible;++y)for(int x=0;x<16 && !visible;++x)for(unsigned d=0;d<4 && !visible;++d) {
+        XeenCamera view{33,x,y,static_cast<XeenDirection>(d)};
+        const auto commands=XeenIndoorScene().build(world,view);
+        for(const auto &command:commands)if(command.actor()) {dark=view;visible=true;break;}
+    }
+    check(visible,"Dark original map fixture must include a visible monster");
+    CloudsMapComposer composer;
+    auto black=composer.compose(in.assets,world,party,dark,{610},nullptr,0);
+    unsigned blackPixels=0;
+    for(int y=8;y<140;++y)for(int x=8;x<224;++x)blackPixels+=black.pixels[y*320+x]==0;
+    check(blackPixels>24000,"Dark view did not obscure geometry and monsters");
+    const auto effect=R::prepareEffect(XeenLearnedSpell::Light,party,{},610,{},world.sceneIsBlack(party,dark));
+    check(!effect.stepped,"Original dark view Light must not mark its handler step");
+    R::applyPartyEffect(XeenLearnedSpell::Light,*party.encounterContext);
+    const auto clear=composer.compose(in.assets,world,party,dark,{610},nullptr,0);
+    const auto beforeMask=in.assets.snapshot();in.assets.blackenScene();const auto masked=in.assets.snapshot();
+    for(int y=0;y<200;++y)for(int x=0;x<320;++x) {
+        const bool inside=x>=8 && x<224 && y>=8 && y<140;
+        check(masked.pixels[y*320+x]==(inside?0:beforeMask.pixels[y*320+x]),"Black obscurer must cover the exact rectangle including monster pixels");
+    }
+    unsigned changed=0;
+    for(int y=8;y<140;++y)for(int x=8;x<224;++x)changed+=black.pixels[y*320+x]!=clear.pixels[y*320+x];
+    check(changed>1000 && !world.sceneIsBlack(party,dark),"Light did not clear original dark map");
+    bool minimapPresent=false;
+    for(int y=9;y<73;++y)for(int x=232;x<308;++x) {
+        check(black.pixels[y*320+x]==clear.pixels[y*320+x],"Darkness changed minimap");
+        minimapPresent=minimapPresent || black.pixels[y*320+x]!=0;
+    }
+    check(minimapPresent,"Darkness fixture lost minimap");
+    unsigned edits=0,drainOperands=0;
+    for(unsigned map=1;map<=255;++map)for(const auto &r:in.events.load(map).records)if(r.opcode==35 && r.parameters.size()==3) {
+        ++edits;drainOperands+=bool(r.parameters[2]&0x20);
+    }
+    check(edits>0 && drainOperands==0,"Clouds Event drain-bit inventory changed; inspect its witness");
+    std::cerr<<"Clouds drain-bit Event audit: "<<edits<<" AlterCellFlag records, "<<drainOperands<<" drain-bit operands\n";
+}
+void detachedLighting(Inputs &in) {
+    for(bool continued:{false,true}) {
+        auto s=source(in,42);s.journey->context->lightAndResistances[0]=1;
+        XeenEventFile city{28,"maze0028.evt",true,{}};
+        city.records.push_back({0,8,18,4,3,0,std::uint8_t(continued?31:7),{28,19,4}});
+        if(continued)city.records.push_back({9,8,19,4,3,0,7,{28,20,4}});
+        const auto geometry=[&](auto id) {
+            auto m=in.maps.loadGeometryMap(in.assets,id);m.geometry.flags2|=0x4000;
+            // Synthetic drain destination on the physical tile. The Exit in
+            // the Continue case leaves it before the final scene is prepared.
+            m.geometry.cells[4*16+3].rawAttributes|=0x20;return m;
+        };
+        Fixture f(in,s,false,&city,geometry,[](const auto &,const auto &,const auto &,const auto &){});
+        f.act(InteractionAction{});quiet(f);
+        check(f.c.x==(continued?20:19) && f.c.y==4 && f.p.encounterContext->lightAndResistances[0]==0,
+            "Detached Event scene lost a final or intermediate destination drain");
+        check(!f.w.scenePresentation().lightingStepped,"Detached completed redraw retained a lighting step");
+    }
+}
 }
 int main(int argc,char **argv) {try {
     check(argc==2,"usage: senses-original <installation>");const auto installation=xeenTestInstallationDetector().detect(argv[1]);check(bool(installation),"Missing installation");Inputs in(*installation);
     std::ostringstream captured;auto *old=std::cout.rdbuf(captured.rdbuf());
-    try {booksAndItems(in);combat(in);water(in);presentation(in);}catch(...) {std::cout.rdbuf(old);throw;}
+    try {booksAndItems(in);combat(in);water(in);presentation(in);traversalAndDarkness(in);detachedLighting(in);}catch(...) {std::cout.rdbuf(old);throw;}
     std::cout.rdbuf(old);std::cout<<"M76 senses book/items, combat/Quick Fight, real water/monsters, dialogs and restore passed\n";return 0;
 }catch(const std::exception &e) {std::cerr<<e.what()<<'\n';return 1;}}

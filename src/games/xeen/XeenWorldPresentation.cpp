@@ -1,5 +1,15 @@
 #include "games/xeen/XeenWorld.h"
 namespace mmodern {
+bool XeenWorld::sceneIsBlack(const XeenPartyState &party,const XeenCamera &camera) {
+ return XeenScenePresentation::blackView(map(camera.mapId).geometry.flags2,
+     party.encounterContext?unsigned(party.encounterContext->lightAndResistances[0]):0u);
+}
+std::uint16_t XeenWorld::lightAfterScenePreparation(const XeenPartyState &party,const XeenCamera &camera) {
+ const auto cell=sampleCell(camera.mapId,camera.x,camera.y);
+ if(!cell)throw std::invalid_argument("Lighting has no occupied physical cell");
+ return XeenScenePresentation::checkedLight(party.encounterContext?unsigned(party.encounterContext->lightAndResistances[0]):0u,
+     cell->cell->rawAttributes,_scenePresentation.lightingStepped && !_scenePresentation.lightingPrepared);
+}
 std::optional<XeenCellSample> XeenWorld::sceneCell(XeenMapIdentity mapId,int x,int y) {
 	return sampleCell(mapId,x,y);
 }

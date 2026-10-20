@@ -58,11 +58,17 @@ before implementing it and maintain the save-dump visitor as needed.
 Follow [the M44 audit protocol](../tools/AGENTS.md#m44-digest-audits): Preserve
 at the start of each production part, with its old helpers, in a new external
 directory; Compare after its changes and each later hash-affecting task.
-Part A expects zero differences: the currently open maps are neither dark nor
-draining; treat differences as defects until explained. Part B expects only
-version/CRC differences plus explained traces from the unified Vertigo transition.
-Audit every changed field/checkpoint and native reload/re-save equality; unexplained
-gameplay changes block completion. Replacement digests need explicit maintainer approval.
+Part A expects mainland, Temple and roundtrip to remain unchanged. Services
+changes because the DOS two-holder Pathfinder requirement for outdoor walls 3/6
+changes its map-23 route: `(4,2)` remains passable, but the former continuation
+through `(3,2)` is blocked. The detour changes exploration, timing and merchant
+regeneration. Audit every changed field/checkpoint and native reload/re-save
+equality; differences outside these consequences remain defects. Save v15/schema
+9/content 14 remain unchanged. Replacement digests require explicit maintainer
+approval.
+
+Part B expects only version/CRC differences plus explained traces from the
+unified Vertigo transition.
 
 ## Part 0 - Read-only rules check
 

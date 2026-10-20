@@ -16,6 +16,8 @@ bool matches(const XeenServiceDayCandidate &day,const XeenPartyState &p,const Xe
 
 }
 void XeenEncounterFlow::checkTrainingBoundary(XeenTrainingBoundary boundary) {
+    const auto retained=_journeyPreimage;
+    XeenRestoreGuard::LightingObservation lighting(*retained);
     _journeyPreimage->check();
     try {if(_trainingBoundary)_trainingBoundary(boundary);}catch(...){_journeyPreimage->check();throw;}
     _journeyPreimage->check();

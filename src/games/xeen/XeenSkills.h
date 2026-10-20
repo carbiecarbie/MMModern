@@ -5,8 +5,8 @@ namespace mmodern {
 // A skill is one stored byte. Granting or removing one only writes that byte;
 // effects are read where the rules use them. Direction Sense (6), Spot Secret
 // Doors (16) and Danger Sense (17) light the border indicators (CloudsMapComposer).
-// Arms Master (1), Merchant (8), Mountaineer (9) and Tracker (15) have no
-// implemented effect yet (docs/project-status.md).
+// Mountaineer (9) and Pathfinder (11) check outdoor walls in XeenMovement.
+// Arms Master (1) and Tracker (15) have no implemented effect.
 // Crusader (5) and Linguist (7) are only read by Event tests: the DOS
 // checkSkill callers (0xc983..0x1bdba) test skills 4, 6, 9, 10, 11, 14, 16, 17.
 inline bool xeenCharacterHasSkill(const XeenCharacter &character,unsigned skill) noexcept {

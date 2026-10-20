@@ -176,11 +176,14 @@ void XeenEncounterFlow::recordJourneyStep() {
 	std::vector<XeenExploredTile> values;
 	{XeenRestoreGuard::Providers providers(*_journeyPreimage,_world);
 		values=_world.explorationAfterStep(_party,_camera);_journeyPreimage->check();}
-	if(values==_world._sessionState.exploredTiles())return;
+	if(values==_world._sessionState.exploredTiles()) {
+        _world.scenePresentation().markLightingStep();_journeyPreimage->adoptMutationBoundary();return;
+    }
 	auto prepared=std::make_shared<XeenRestoreGuard>(_world,_party,_camera,_flags);
 	prepared->retainResources(*_journeyPreimage);prepared->s.assignExploration(values);
 	_journeyPreimage->check();
 	XeenMutationWatch::write(&_world);_world._sessionState.publishExploration(values);
+ _world.scenePresentation().markLightingStep();
 	_journeyPreimage.swap(prepared);_journeyPreimage->adoptMutationBoundary();
 }
 void XeenEncounterFlow::publishJourneyExploration(std::vector<XeenExploredTile> &values,
@@ -428,7 +431,8 @@ bool XeenEncounterFlow::settleItemUse(const Ticket &entry,std::uint64_t generati
                 if(!healing)return true;
                 effect=*healing;
                 _world._sessionState._journeyRandom=_itemUse->opportunity->random.continuation();
-            } else effect=XeenLearnedSpellRules::prepareEffect(spell,_party,itemUseNeedsElement()?std::nullopt:targetIndex,_party.encounterContext->year,_itemUse->sourceOwner);
+            } else effect=XeenLearnedSpellRules::prepareEffect(spell,_party,itemUseNeedsElement()?std::nullopt:targetIndex,_party.encounterContext->year,_itemUse->sourceOwner,
+                spell==XeenLearnedSpell::Light && _world.sceneIsBlack(_party,_camera));
 			bool automaticArrival=false;
 			if(_itemUse->jumpDestination) {
 				XeenRestoreGuard::Providers providers(*_journeyPreimage,_world);
@@ -455,6 +459,9 @@ bool XeenEncounterFlow::settleItemUse(const Ticket &entry,std::uint64_t generati
                 _party.monsterTreasure->gems+=refund->gems;
 			}
 			if(_itemUse->jumpDestination)_camera=*_itemUse->jumpDestination;
+            // The used-item sheet close marks stepped (DOS 0x3a493),
+            // independently of the learned-cast terrain-arrival suffix.
+            _world.scenePresentation().markLightingStep();
 			_itemUse->failed=_itemUse->failed || effect.failed || (spell==XeenLearnedSpell::Jump && !_itemUse->jumpDestination);
 			_itemUse->automaticArrival=automaticArrival;
 			_projectiles.swap(_itemUse->appearances);_projectileDeadline=0;
@@ -742,8 +749,21 @@ bool XeenEncounterFlow::prepareJourneyFrame(const Ticket &entry, const std::func
 	if (!cosmetic) _journeyFramePrepared = false;
 	if (_itemUse && !cosmetic) { _itemUse->selectorTicket.reset(); _itemUse->selectorFrame.reset(); }
 	try {
+		std::uint16_t light;
+		{XeenRestoreGuard::Providers providers(*_journeyPreimage,_world);
+			light=_world.lightAfterScenePreparation(_party,_camera);_journeyPreimage->check();}
+		if(light!=_party.encounterContext->lightAndResistances[0]) {
+			auto prepared=std::make_shared<XeenRestoreGuard>(_world,_party,_camera,_flags);
+			prepared->retainResources(*_journeyPreimage);prepared->context->lightAndResistances[0]=light;
+			_journeyPreimage->check();_party.encounterContext->lightAndResistances[0]=light;
+			_journeyPreimage.swap(prepared);_journeyPreimage->adoptMutationBoundary();
+		}
+		_world.scenePresentation().lightingPrepared=true;
+		_journeyPreimage->adoptMutationBoundary();
 		XeenRestoreGuard::Providers providers(*_journeyPreimage,_world);
 		compose(); _journeyPreimage->check();
+		_world.scenePresentation().completeLightingDraw();
+		_journeyPreimage->adoptMutationBoundary();
 		if (!current(entry)) throw std::logic_error("Stale Journey frame preparation");
 		if (!cosmetic) _journeyFramePrepared = true;
 		else _journeyFrameRetry = false;
@@ -985,6 +1005,7 @@ bool XeenEncounterFlow::retireJourney(const Ticket &entry) {
 		if(disengaged && _regionalAutomatic && !_combat->result().originAutomaticSuperseded) throw std::logic_error("Finish did not supersede the origin event");
 		if(disengaged) _combat->retireDisengagedJourney(*entry.combat,_state);
 		else _combat->retireJourney(*entry.combat,_state);
+        if(disengaged)_world.scenePresentation().markLightingStep();
 		if(disengaged) { _regionalAutomatic=false;_regionalAutomaticAddress.reset();_combatObservation=_combat->result(); }
 		_retiredCombatResult = _combat->result(); _combat.reset(); ++_generation;
 		_disengagementNoticeRevision = disengaged ? std::optional<std::uint64_t>{_state.revision()} : std::nullopt;

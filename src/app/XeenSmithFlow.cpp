@@ -23,6 +23,8 @@ bool samePurchaseQuote(const XeenEquipmentPurchaseResult &a,const XeenEquipmentP
 }
 }
 void XeenEncounterFlow::checkSmithBoundary(XeenSmithBoundary boundary) {
+ const auto retained=_journeyPreimage;
+ XeenRestoreGuard::LightingObservation lighting(*retained);
  _journeyPreimage->check();
  try { if (_smithBoundary) _smithBoundary(boundary); }
  catch (...) { _journeyPreimage->check();throw; }

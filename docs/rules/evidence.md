@@ -93,7 +93,9 @@ success at `0x215e4`. This distinguishes Pathfinder (11) from Navigator (10).
 
 The pin's `party.cpp::checkSkill` agrees on aggregation and condition handling.
 Its `interface.cpp::canMove` omits wall cases 3 and 6, which pass through
-the default path. MMModern's movement has no Pathfinder check at this baseline.
+the default path. MMModern implements the DOS consumer in `XeenMovement`;
+`XeenSensesRulesTests` and `XeenSensesOriginalTests` cover holder counts and
+both original map-23 crossings without widening area admission.
 See [movement rules](time-and-conditions.md#outdoor-movement-skills) and
 [the indexed difference](../original-quirks.md#sv-pathfinder-movement).
 These are static control-flow findings, not DOSBox observations. Wall numbers
@@ -156,10 +158,10 @@ also calls `Map::load`, which sets stepped, before the later scene check.
 
 **MMModern current-format policy, not native-DOS-save evidence:** exact snapshot
 restore must retain the saved light word and derive darkness without replaying
-an arrival or manufacturing a step. At the research baseline,
-`XeenSaveState::restoreJourney` copies the saved encounter context and prepares
-presentation through read-only inputs; no lighting drain consumer exists yet.
-Part A must preserve that requirement when adding lighting. This check does not
+an arrival or manufacturing a step. `XeenSaveState::restoreJourney` copies the
+saved encounter context; `XeenWorld::swapPreparedState` clears the transient
+lighting step before presentation. `XeenTraversalLightingTests` checks exact
+restore and redraw on a synthetic drain cell. This check does not
 authorize changing restore semantics, the planned layout or the plan. Any claim
 that native DOS restore itself never reaches drain still needs clarification/
 evidence before being used as a fidelity rule.
@@ -202,6 +204,15 @@ There are **128 DAT maps**: 85 primary IDs and 43 indoor neighbor tiles.
 **No initial DAT map has a drain cell: 0 maps, 0 cells**, over 32,768 cells.
 This is not a claim about arbitrary runtime cell edits, saved mutations or
 Darkside. There is no natural initial Clouds drain-cell play-test witness.
+
+The engine census now reports dark primary maps, dark physical DAT tiles,
+drain cells (including the zero-use Clouds row), and each outdoor skill wall
+consumer. `XeenSensesOriginalTests` also checks all byte-ID Clouds Event files
+for drain-bit operands in AlterCellFlag; none writes the drain bit. That
+operation changes the indoor surface's low three bits (outdoors, a wall
+nibble); other map-edit operations change walls, not attribute bit `0x20`.
+Drain behavior therefore uses synthetic fixtures, not a claimed natural
+Clouds Event witness.
 
 - Mountaineer teacher: Rivercity, logical map 30 `(30,30)` North (physical
   tile 114 `(14,14)`). `maze0030.evt` record @228 takes 5,000 gold (mode 34),

@@ -309,8 +309,8 @@ XeenSpellPreparation divineIntervention(const XeenPartyState &,std::uint8_t,std:
 }
 
 XeenSpellPreparation XeenLearnedSpellRules::prepareEffect(XeenLearnedSpell spell,const XeenPartyState &party,
-        std::optional<std::size_t> target,std::uint32_t year,std::optional<std::uint8_t> casterOwner) {
-    if(spell==XeenLearnedSpell::Light)return {false,{}, {},true};
+        std::optional<std::size_t> target,std::uint32_t year,std::optional<std::uint8_t> casterOwner,bool viewBlack) {
+    if(spell==XeenLearnedSpell::Light)return {false,{}, {},!viewBlack};
     if(spell==XeenLearnedSpell::Awaken)return prepareAwaken(party);
     if(spell==XeenLearnedSpell::CreateFood)return {false,{},static_cast<std::uint16_t>(party.food+party.party.size())};
     if(spell==XeenLearnedSpell::DivineIntervention) {
