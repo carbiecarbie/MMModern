@@ -358,6 +358,15 @@ field at `0x2c3e2` and passes it as makeItem's level. The far call at
 (`0x2c402` onward). All supported sources share `XeenItemCandidate`, including
 level-1 monster drops. Higher-level drops and accessory staging remain unsupported.
 
+<a id="monster-drop-draws"></a>**Monster drop draw counts (DOS-confirmed, M81).**
+Every nonzero drop field consumes one chance draw, even at 100%; field zero
+none. After a successful chance draw makeItem consumes its draws as above:
+fixed IDs skip the base-ID draw, singleton random ranges still consume one.
+Level-1 equipment costs 4 draws and Misc 6; at levels 2-6 armor and
+accessories cost 5 or 6, weapons 7 or 8 and reachable Misc 6. Each target's
+death and drop finish before the next target's; capacity loss never refunds
+a draw.
+
 Stored merchant and pending-loot Misc records accept 1-10 charges so saves
 keep their exact stock and loot. Generation produces
 3-10. Restore does not regenerate items, deliver rewards or move the RNG cursor;

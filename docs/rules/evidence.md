@@ -928,8 +928,16 @@ occupied (`0x26abd`), like the pin.
   routine calls delivery `0x24128` (`0x28d70..0x28d8d`). Delivery transfers
   every occupied slot, monster items included, credits only the live (Event)
   currency, and finally clears all four arrays (`0x2489f..0x248d7`). Its gate
-  (`0x24158..0x24259`) defers it while any of the 26 attack slots
-  DS:`98b4..98cd` is occupied, a wider test than the event-loop skip.
+  (`0x24158..0x24259`) defers delivery while any of the 26 attack slots
+  DS:`98b4..98cd` is occupied, but only outside mode 9: `0x2414e` compares the
+  mode byte DS:`9a1c` with 9 and `0x24155` jumps past the slot tests to
+  delivery. The Event loop writes mode 9 at `0x26bf9`, just before it runs an
+  Event (the only write of 9 to that byte in the program), and restores the
+  entry mode at `0x28e8f`, after this delivery; it saved it at `0x2679b`.
+  Combat writes modes 2 and 1 (`0x2e63e`, `0x2eaf0`). So delivery after the
+  Events is not deferred by monsters, as in the pin's
+  `_mode != MODE_SCRIPT_IN_PROGRESS` test. Checked in the plan review of
+  2026-10-20 against the hash-checked image.
 - **Restore.** If the stash is nonzero, `0x28f22..0x291a6` copies currency,
   hasItems and all forty slots back, overwriting the live arrays.
 - **Map change stays inside one invocation.** TeleportAndContinue (opcode 31)
@@ -940,15 +948,17 @@ occupied (`0x26abd`), like the pin.
 
 **Consequences.** Without Event treasure the restore reproduces the live state:
 retention is unchanged. With stashed monster currency and an Event that gives
-treasure, either (a) delivery runs and hands over the Event treasure together
-with the monster items, after which the restore re-stages those monster items
-with their currency, so they are delivered a second time; or (b) delivery is
-deferred by an occupied attack slot and the restore overwrites the Event's
-currency and items, which are lost. Whether the arrival refresh (`0x10bc3`)
-recomputes the attack slots (filled by `0x14406`, called from `0xd0bd`,
-`0x11495`, `0x2ea8c`) was not traced, so which branch an arrival takes is not
-established. Without stashed currency, an Event reward delivers dormant monster
-items with it.
+treasure, delivery hands over the Event treasure together with the monster
+items, and the restore then re-stages those monster items with their currency,
+so the items are delivered a second time and the monster currency once. The
+Event's treasure would be lost only if an Event opcode left the mode other than
+9 before `0x28d70`; the other mode writers (`0x236a3`, `0x24c87`, `0x25008`
+and register restores) are not traced. Monster currency is pending when an
+Event starts only if its own delivery was deferred: a kill while another
+monster still holds an attack slot. Whether that leads to the duplicate also
+depends on the main-loop order of Events and ordinary delivery
+(`0xd0bd..0xd1b7`), not traced; the pin runs Events first (`xeen.cpp`). Without
+stashed currency, an Event reward delivers dormant monster items with it.
 
 ## Treasure delivery
 
