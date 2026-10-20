@@ -251,6 +251,7 @@ void integratedTextErrors() {
 }
 
 void directResponses() {
+    mmodern::XeenTemplePriceState templePriceState;
 	for(int mode=0;mode<5;++mode) {
 		Fixture direct, input;
 		const auto records=std::vector<XeenEventRecord>{record(1,1,0,0x04,{0}),
@@ -258,9 +259,9 @@ void directResponses() {
 				record(1,1,1,9,{44,static_cast<std::uint8_t>(mode==2?1:0),2}),
 			record(1,1,2,0x12)};
 		direct.set(records);input.set(records);
-		XeenEventFlow a(direct.world,direct.events,direct.members,direct.camera,direct.flags,direct.font,[&](std::uint64_t){return XeenEventFlow::Composition{direct.base, false};});
+		XeenEventFlow a(templePriceState,direct.world,direct.events,direct.members,direct.camera,direct.flags,direct.font,[&](std::uint64_t){return XeenEventFlow::Composition{direct.base, false};});
 		a.dialogText=&dos_test::text();
-		XeenEventFlow b(input.world,input.events,input.members,input.camera,input.flags,input.font,[&](std::uint64_t){return XeenEventFlow::Composition{input.base, false};});
+		XeenEventFlow b(templePriceState,input.world,input.events,input.members,input.camera,input.flags,input.font,[&](std::uint64_t){return XeenEventFlow::Composition{input.base, false};});
 		b.dialogText=&dos_test::text();
 		bool completed=false;
 		a.reportManual=[&](const auto &result) {
@@ -288,9 +289,10 @@ void directResponses() {
 }
 
 void passiveSelectionInputs() {
+    mmodern::XeenTemplePriceState templePriceState;
 	Fixture f;f.set({record(1,1,0,0x04,{0}),record(1,1,1,0x12)});
 	int compositions=0;
-	XeenEventFlow flow(f.world,f.events,f.members,f.camera,f.flags,f.font,[&](std::uint64_t){++compositions;return XeenEventFlow::Composition{f.base, false};});
+	XeenEventFlow flow(templePriceState,f.world,f.events,f.members,f.camera,f.flags,f.font,[&](std::uint64_t){++compositions;return XeenEventFlow::Composition{f.base, false};});
  flow.dialogText=&dos_test::text();
 	flow.handle(InteractionAction{});const auto frame=flow.frame();const auto count=compositions;
 	check(!flow.blocksGameplay() && frame.pixels!=f.base.pixels,"passive fixture missing label");
@@ -304,11 +306,12 @@ void passiveSelectionInputs() {
 }
 
 void productionFlow() {
+    mmodern::XeenTemplePriceState templePriceState;
 	for(bool automatic : {false,true}) {
 		Fixture f;f.text.strings[1]=std::string(1200,'A');
 		f.set({record(1,1,0,0x20,{0,0}),record(1,1,1,0x01,{1}),record(1,1,2,9,{44,1,3}),
 			record(1,1,3,9,{9,20,5}),record(1,1,4,0xff),record(1,1,5,0x0c,{0,0,21,100}),record(1,1,6,0x12)});
-		XeenEventFlow flow(f.world,f.events,f.members,f.camera,f.flags,f.font,[&](std::uint64_t){return XeenEventFlow::Composition{f.base, false};});
+		XeenEventFlow flow(templePriceState,f.world,f.events,f.members,f.camera,f.flags,f.font,[&](std::uint64_t){return XeenEventFlow::Composition{f.base, false};});
 		flow.dialogText=&dos_test::text();
 		int line=-1;bool done=false;std::optional<XeenEventExecutionState> suspended;
 		auto report=[&](const auto &r) {
@@ -352,7 +355,7 @@ void productionFlow() {
 	}
 	for(int mode=0;mode<4;++mode) {
 		Fixture f;f.set({record(1,1,0,0x20,{0,0}),record(1,1,1,0x0c,{0,0,21,100})});
-		XeenEventFlow flow(f.world,f.events,f.members,f.camera,f.flags,f.font,[&](std::uint64_t){return XeenEventFlow::Composition{f.base, false};});
+		XeenEventFlow flow(templePriceState,f.world,f.events,f.members,f.camera,f.flags,f.font,[&](std::uint64_t){return XeenEventFlow::Composition{f.base, false};});
 		flow.dialogText=&dos_test::text();
 		bool failed=false;flow.reportManual=[&](const auto &r){failed=std::holds_alternative<XeenEventExecutionError>(r);};
 		flow.handle(InteractionAction{});const auto old=*flow.presentationGeneration();
@@ -389,6 +392,7 @@ void presentationLayout() {
 }
 
 void priorEffects() {
+    mmodern::XeenTemplePriceState templePriceState;
 	for(bool cancel : {false,true}) for(bool remove : {false,true}) {
 		Fixture f;
 		f.set({record(1,1,0,0x1f,{2,1,1})});
@@ -397,7 +401,7 @@ void priorEffects() {
 			record(7,8,2,0x0c,{0,0,21,100}),record(7,8,3,remove?0x0e:0),
 			record(7,8,4,0),record(7,8,5,0x20,{0,0}),record(7,8,6,0x0c,{0,0,21,100})},2);
 		f.text.mapId=2;
-		XeenEventFlow flow(f.world,f.events,f.members,f.camera,f.flags,f.font,[&](std::uint64_t){return XeenEventFlow::Composition{f.base, false};});
+		XeenEventFlow flow(templePriceState,f.world,f.events,f.members,f.camera,f.flags,f.font,[&](std::uint64_t){return XeenEventFlow::Composition{f.base, false};});
 		flow.dialogText=&dos_test::text();
 		bool failed=false;std::optional<XeenEventExecutionState> suspended;
 		flow.reportManual=[&](const auto &r){failed=std::holds_alternative<XeenEventExecutionError>(r);
@@ -417,12 +421,13 @@ void priorEffects() {
 }
 
 void sdlFlow() {
+    mmodern::XeenTemplePriceState templePriceState;
 	for (int mode=0; mode<3; ++mode) {
 		std::cerr << "SDL scenario " << mode << '\n';
 		Fixture f;f.automaticCell=false;f.members=party(2);f.members.roster.at(0).conditions[8]=1;
 		f.set({record(1,1,0,0x20,{0,0}),record(1,1,1,9,{44,1,2}),
 			record(1,1,2,9,{9,20,4}),record(1,1,3,0xff),record(1,1,4,0x0c,{0,0,21,100})});
-		XeenEventFlow flow(f.world,f.events,f.members,f.camera,f.flags,f.font,[&](std::uint64_t){return XeenEventFlow::Composition{f.base, false};});
+		XeenEventFlow flow(templePriceState,f.world,f.events,f.members,f.camera,f.flags,f.font,[&](std::uint64_t){return XeenEventFlow::Composition{f.base, false};});
 		flow.dialogText=&dos_test::text();
 		flow.reportManual=[](const auto &r) { check(!std::holds_alternative<XeenEventExecutionError>(r),"SDL flow execution error"); };
 		std::vector<SDL_Keycode> keys{SDLK_SPACE,SDLK_UP,SDLK_RETURN,SDLK_y,SDLK_n,SDLK_F6,SDLK_F1};

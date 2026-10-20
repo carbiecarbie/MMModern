@@ -8,12 +8,13 @@ using namespace mmodern;
 inline void require(bool value,const char *message) {if(!value)throw std::runtime_error(message);}
 inline void run(const std::function<XeenPartyState()> &initial,const XeenJourneySetup &setup,
  const XeenWorld::MapLoader &maps,const XeenWorld::ObjectLoader &objects,XeenSaveResourceSignature signature, XeenSaveState::Resources resources = {}) {
+    mmodern::XeenTemplePriceState templePriceState;
  const auto home=xeenJourneyContent().entry.mapId;
  const XeenMapIdentity neighbor{XeenSide::Clouds,static_cast<std::uint16_t>(home.number-1)};
  XeenEventPresenter::Clock clock=[]{return 0;};
  XeenSaveSnapshot source;
  {auto p=initial();auto c=xeenJourneyContent().entry;XeenGameFlags f;XeenWorld w(maps,objects);
-  XeenEncounterFlow flow(w,p,c,f,clock,setup);
+  XeenEncounterFlow flow(templePriceState,w,p,c,f,clock,setup);
   require(flow.prepareJourneyFrame(flow.ticket(),[]{}) && flow.presentJourney(flow.ticket()),"Source frame");
   source=XeenSaveState::capture(signature,p,c,f,w);
  }
@@ -39,8 +40,8 @@ inline void run(const std::function<XeenPartyState()> &initial,const XeenJourney
   if(restored) {
    resources.signature=signature; resources.loadMonsterStatistics=[&]{return setup.statistics;};
    XeenSaveState::restoreBeforeGameplay(source,resources,p,c,f,w,[](auto &,const auto &,const auto &,const auto &){});
-   flow=std::make_unique<XeenEncounterFlow>(w,p,c,f,clock,XeenJourneyRestoreTag{});
-  } else {p=initial();flow=std::make_unique<XeenEncounterFlow>(w,p,c,f,clock,setup);}
+   flow=std::make_unique<XeenEncounterFlow>(templePriceState,w,p,c,f,clock,XeenJourneyRestoreTag{});
+  } else {p=initial();flow=std::make_unique<XeenEncounterFlow>(templePriceState,w,p,c,f,clock,setup);}
   const auto loadAll=[&]{(void)w.map(home);(void)w.objectFile(home);(void)w.map(neighbor);(void)w.objectFile(neighbor);};
   require(flow->prepareJourneyFrame(flow->ticket(),loadAll) && flow->presentJourney(flow->ticket()),"Admit all immutable resources");
   w.discardMapCache();

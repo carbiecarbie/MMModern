@@ -15,6 +15,7 @@ inline XeenObjectFile objects(){return regional_test::objects();}
 inline XeenEventFile events(){return regional_test::events(23);}
 enum class Seam { Initial, Chr, Pty, Mon, Map, Mob, Evt, Preflight };
 struct Destination {
+    mmodern::XeenTemplePriceState templePriceState;
  XeenPartyState party=XeenPartyLoader().loadFromResources(chr(),pty());
  XeenCamera camera{23,9,11,XeenDirection::West};XeenGameFlags flags;
  XeenMap terrain=map();XeenObjectFile mob=objects();
@@ -31,7 +32,7 @@ struct Destination {
  }
  XeenSaveSnapshot capture(){
   if(world.sessionState().journey()){
-   if(!flow){flow=std::make_unique<XeenEncounterFlow>(world,party,camera,flags,clock,XeenJourneyRestoreTag{});
+   if(!flow){flow=std::make_unique<XeenEncounterFlow>(templePriceState,world,party,camera,flags,clock,XeenJourneyRestoreTag{});
     check(flow->prepareJourneyFrame(flow->ticket(),[]{}),"Restored frame prepared");check(flow->presentJourney(flow->ticket()),"Restored frame presented");}
    return XeenSaveState::capture(regional_test::signature(),party,camera,flags,world);
   }
@@ -49,6 +50,7 @@ struct Destination {
  }
 };
 void crossWorldBorrowFreshness() {
+    mmodern::XeenTemplePriceState templePriceState;
 	const auto snapshot = regional_test::snapshot();
 	XeenFontFormat font(Bytes(XeenFontFormat::kMinimumSize));
 	for (unsigned alias = 0; alias < 4; ++alias) {
@@ -59,7 +61,7 @@ void crossWorldBorrowFreshness() {
 		XeenEventSystem eventSystem([](XeenMapIdentity id) { auto e = events(); e.mapId = id; return XeenEventScript(e); },
 			[](XeenMapIdentity id) { return XeenEventTextFile{id, "synthetic.txt", true, {}}; });
 		{
-			XeenEventFlow flow(other.world, eventSystem, party, camera, flags, font,
+			XeenEventFlow flow(templePriceState,other.world, eventSystem, party, camera, flags, font,
 				[](std::uint64_t) { return XeenEventFlow::Composition{IndexedFrame{320, 200, Bytes(64000)}, false}; });
 			const auto before = d.capture(); const auto calls = d.calls;
 			rejects([&] { d.restore(snapshot); }, "unborrowed");
@@ -76,7 +78,7 @@ void crossWorldBorrowFreshness() {
 		Destination d, other;
 		XeenEventSystem eventSystem([](XeenMapIdentity id) { auto e = events(); e.mapId = id; return XeenEventScript(e); },
 			[](XeenMapIdentity id) { return XeenEventTextFile{id, "synthetic.txt", true, {}}; });
-		auto flow = [&] { return std::make_unique<XeenEventFlow>(other.world, eventSystem, d.party, d.camera, d.flags, font,
+		auto flow = [&] { return std::make_unique<XeenEventFlow>(templePriceState,other.world, eventSystem, d.party, d.camera, d.flags, font,
 			[](std::uint64_t) { return XeenEventFlow::Composition{IndexedFrame{320, 200, Bytes(64000)}, false}; }); };
 		auto old = flow();
 		d.party.~XeenPartyState(); new (&d.party) XeenPartyState(XeenPartyLoader().loadFromResources(chr(), pty()));
@@ -96,6 +98,7 @@ void crossWorldBorrowFreshness() {
 	}
 }
 void staleFlowOwnerLifetimes() {
+    mmodern::XeenTemplePriceState templePriceState;
 	const auto snapshot = regional_test::snapshot();
 	XeenFontFormat font(Bytes(XeenFontFormat::kMinimumSize));
 	const auto compose = [](std::uint64_t) { return XeenEventFlow::Composition{IndexedFrame{320,200,Bytes(64000)}, false}; };
@@ -105,14 +108,14 @@ void staleFlowOwnerLifetimes() {
 		Destination d;
 		XeenEventSystem eventSystem(eventProvider, textProvider);
 		auto camera = std::make_unique<XeenCamera>(d.camera);
-		XeenEventFlow old(d.world, eventSystem, d.party, *camera, d.flags, font, compose);
+		XeenEventFlow old(templePriceState,d.world, eventSystem, d.party, *camera, d.flags, font, compose);
 		camera.reset(); // No replacement storage exists to inspect.
 		rejects([&] { old.handle(NavigationAction::TurnRight); }, "borrowed owner lifetime");
 	}
 	{
 		Destination d, other;
 		XeenEventSystem eventSystem(eventProvider, textProvider);
-		auto old = std::make_unique<XeenEventFlow>(other.world, eventSystem, other.party, d.camera, other.flags, font, compose);
+		auto old = std::make_unique<XeenEventFlow>(templePriceState,other.world, eventSystem, other.party, d.camera, other.flags, font, compose);
 		d.camera.~XeenCamera(); new (&d.camera) XeenCamera{23,9,11,XeenDirection::West};
 		d.restore(snapshot);
 		const auto before = d.capture(); const auto calls = d.calls;
@@ -136,7 +139,7 @@ void staleFlowOwnerLifetimes() {
 	for (unsigned owner = 0; owner < 5; ++owner) {
 		Destination d;
 		XeenEventSystem eventSystem(eventProvider, textProvider);
-		auto makeFlow = [&] { return std::make_unique<XeenEventFlow>(d.world, eventSystem, d.party, d.camera, d.flags, font, compose); };
+		auto makeFlow = [&] { return std::make_unique<XeenEventFlow>(templePriceState,d.world, eventSystem, d.party, d.camera, d.flags, font, compose); };
 		auto old = makeFlow();
 		if (owner == 0) { d.world.~XeenWorld(); new (&d.world) XeenWorld([](XeenMapIdentity) { return map(); }, [](XeenMapIdentity) { return objects(); }); }
 		if (owner == 1) { d.party.~XeenPartyState(); new (&d.party) XeenPartyState(XeenPartyLoader().loadFromResources(chr(), pty())); }

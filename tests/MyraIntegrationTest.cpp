@@ -23,6 +23,7 @@ using namespace remove_test;
 namespace {
 void checkpoint(XeenAssetSource &assets, const std::filesystem::path &output, int roots,
 		bool requested, SDL_Keycode dismiss, bool sdl, int lossFixture=0) {
+    mmodern::XeenTemplePriceState templePriceState;
 	auto party=XeenPartyLoader().loadInitialCloudsParty(assets);
 	check(party.questItems.at(17)==0,"fresh original party inherited a Root");
 	const auto originalParty=assets.readInitialResource("maze.pty");
@@ -95,7 +96,7 @@ void checkpoint(XeenAssetSource &assets, const std::filesystem::path &output, in
 	auto draw=[&](IndexedFrame &f,std::uint8_t portrait,std::size_t index){
 		if(failDraw)throw std::runtime_error("injected NPC asset failure");assets.drawNpc(f,portrait,index);};
 	XeenEventPresenter::Clock clock=[&]{return time;};
-	XeenEventFlow flow(world,events,party,camera,flags,font,compose,draw,clock,[&]{return random++%4;});
+	XeenEventFlow flow(templePriceState,world,events,party,camera,flags,font,compose,draw,clock,[&]{return random++%4;});
 	flow.dialogText=&assets.uiText();
 	auto acquire=[&]{flow.framePresented(flow.frame().presentation());};
 	std::vector<SDL_Event> nativeKeys;std::uint64_t nativeCycle=0;
@@ -343,7 +344,7 @@ void checkpoint(XeenAssetSource &assets, const std::filesystem::path &output, in
 	XeenEventSystem newEvents(scriptProvider,textProvider);
 	std::uint64_t freshPhase=0;
 	auto freshCompose=[&](std::uint64_t phase){freshPhase=phase;XeenEventFlow::Composition r;r.frame=composer.compose(assets,world,party,camera,rules,nullptr,phase,&r.containsOrdinaryAnimation);return r;};
-	XeenEventFlow fresh(world,newEvents,party,camera,flags,font,freshCompose,draw,[&]{return time;},[]{return 1;});
+	XeenEventFlow fresh(templePriceState,world,newEvents,party,camera,flags,font,freshCompose,draw,[&]{return time;},[]{return 1;});
 	fresh.dialogText=&assets.uiText();
 	fresh.reportManual=report;fresh.reportText=flow.reportText;
 	check(!fresh.blocksGameplay() && !fresh.presentationGeneration() && !fresh.updatePresentation(),"new flow inherited pending work");

@@ -1,5 +1,6 @@
 #ifndef MMODERN_APP_XEEN_ENCOUNTER_FLOW_H
 #define MMODERN_APP_XEEN_ENCOUNTER_FLOW_H
+#include "games/xeen/XeenTemplePriceState.h"
 #include "core/PresentationClock.h"
 
 #include "core/PlayerAction.h"
@@ -57,9 +58,9 @@ class XeenEncounterFlow {
 public:
 	struct Ticket { XeenEncounterState state; std::uint64_t generation; std::optional<XeenCombat::Ticket> combat;
 		std::uint64_t boundaryGeneration = 0; };
-	XeenEncounterFlow(XeenWorld &, XeenPartyState &, XeenCamera &, const XeenGameFlags &,
+	XeenEncounterFlow(XeenTemplePriceState &, XeenWorld &, XeenPartyState &, XeenCamera &, const XeenGameFlags &,
 		const XeenEventPresenter::Clock &, const XeenJourneySetup &, const PresentationClock::Source * = nullptr);
-	XeenEncounterFlow(XeenWorld &, XeenPartyState &, XeenCamera &, const XeenGameFlags &,
+	XeenEncounterFlow(XeenTemplePriceState &, XeenWorld &, XeenPartyState &, XeenCamera &, const XeenGameFlags &,
 		const XeenEventPresenter::Clock &, XeenJourneyRestoreTag, const PresentationClock::Source * = nullptr);
 	~XeenEncounterFlow();
 	bool journeyQuiet() const noexcept;
@@ -171,6 +172,7 @@ private:
 	friend class XeenEventFlow;
 	friend struct XeenRestTestAccess;
 	friend struct XeenPartyInterfaceTestAccess;
+	friend struct XeenTemplePriceStateTestAccess;
 	friend struct XeenTrainingTestAccess;
 	friend struct XeenMonsterTestAccess;
 	friend struct XeenPurchaseTestAccess;
@@ -249,6 +251,8 @@ private:
 		bool quoted=false, departed=false, published=false, buy=false,temple=false,paid=false;
 		std::uint8_t serviceAction=1,donationCounter=0;
         bool boughtDrink=false,templeBlessed=false;
+        XeenTempleSurcharges templePrices;
+        std::uint64_t templePriceRevision=0;
 		XeenArmorRepairCandidate result;
 		XeenTempleHealResult healResult;
 		std::unique_ptr<XeenTempleHealCandidate> healPending;
@@ -289,7 +293,9 @@ private:
     XeenSimpleServiceOutcome simpleService(std::size_t member,char action);
     bool buySpell(std::size_t member,std::size_t slot);
 	void transferBank(bool withdrawal,bool gems,std::uint64_t amount);
-	bool serviceSmithPreparation();
+	bool serviceSmithPreparation(std::uint64_t &uiTempleRevision);
+    const XeenTempleSurcharges &templePrices(const XeenTempleSurcharges *settledRow=nullptr,
+        std::uint64_t settledRevision=0) const;
 	void authorizeSmithFrame(std::uint64_t,const IndexedFrame::Presentation &);
 	bool consumeSmithFrame(std::uint64_t,const IndexedFrame::Presentation &);
 	void quoteSmith(std::size_t,std::size_t,XeenInventoryCategory=XeenInventoryCategory::Armor,XeenItemService=XeenItemService::Fix);
@@ -452,6 +458,7 @@ private:
 	bool prepareTime(const Ticket &, std::uint64_t &now);
 	void guardCallback(const Ticket &, const std::function<void()> &);
 	void schedule(std::uint64_t now) noexcept;
+	XeenTemplePriceState &_templePrices;
 	XeenWorld &_world;
 	XeenPartyState &_party;
 	XeenCamera &_camera;

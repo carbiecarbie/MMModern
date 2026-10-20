@@ -36,7 +36,7 @@ void physicalPresentationControls(Source &source,const std::filesystem::path &ga
    check(h.flow->canSave(),"Pending movement/ranged/projectile work returns Quiet");const auto previous=h.camera->direction;press(NavigationAction::TurnRight);check(h.camera->direction!=previous,"Fresh command after projectile/pending work accepted");
    return true;
   };
-  check(Application().playGameplay(services,{},path,true)==0,"Original production presentation control");
+  check(Application(services.templePrices).playGameplay(services,{},path,true)==0,"Original production presentation control");
  }
  std::filesystem::remove(path);
  std::cout<<"PHYSICAL controls: original SignLabel nonmodal (ARTIFICIAL positioning); fresh empty Shoot POW rows0..3 and next Quiet input PASS\n";

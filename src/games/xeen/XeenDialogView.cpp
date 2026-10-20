@@ -472,6 +472,14 @@ std::string xeenServiceConfirm(const XeenDosText &text,XeenItemService action,co
     if(action==XeenItemService::Sell)return xeenDialogFormat(text.scalar("SELL_X_FOR_Y_GOLD"),{name,n(price)});
     return xeenDialogFormat(text.scalar("FIX_IDENTIFY_GOLD"),{text.table("FIX_IDENTIFY")[0],name,n(price)});
 }
+std::string xeenTempleText(const XeenDosText &text,const XeenPartyState &p,std::size_t member,
+        const XeenTempleSurcharges &prices,bool templeBlessed) {
+    const auto &c=p.party.member(p.roster,member);
+    const auto purse=gold(p);const auto money=purse>=1000000?n(purse/1000000)+" mil":n(purse);
+    const auto heal=xeenQuoteTempleHeal(c,purse,*p.encounterContext,prices);
+    const auto uncurse=xeenTempleUncurseCost(c,prices);
+    return xeenDialogFormat(text.scalar("TEMPLE_TEXT"),{c.name,n(heal.price),n(templeBlessed?0:prices.donation),uncurse>9999?n(uncurse/1000)+"k":n(uncurse),money});
+}
 std::string xeenLocationText(const XeenDosText &text,XeenLocationDialog location,const XeenPartyState &p,std::size_t member,
         XeenMapIdentity map,bool templeBlessed,std::string_view tavernStatus) {
     const auto &c=p.party.member(p.roster,member);
@@ -486,11 +494,8 @@ std::string xeenLocationText(const XeenDosText &text,XeenLocationDialog location
         return xeenDialogFormat(text.scalar("GUILD_OPTIONS"),{description,money});
     }
     if(location==XeenLocationDialog::Smith) return xeenDialogFormat(text.scalar("BLACKSMITH_TEXT"),{c.name,money});
-    if(location==XeenLocationDialog::Temple) {
-        const auto heal=xeenQuoteTempleHeal(c,purse,*p.encounterContext,map);
-        const auto uncurse=xeenTempleUncurseCost(c,map);
-        return xeenDialogFormat(text.scalar("TEMPLE_TEXT"),{c.name,n(heal.price),n(templeBlessed?0:xeenTempleSurcharges(map).donation),uncurse>9999?n(uncurse/1000)+"k":n(uncurse),money});
-    }
+    if(location==XeenLocationDialog::Temple)
+        return xeenTempleText(text,p,member,xeenTempleSurcharges(map),templeBlessed);
     const auto r=xeenQuoteTraining(c,*p.roster.combatInputs(c.rosterId),purse,*p.encounterContext,map);
     std::string message;
     if(r.outcome==XeenTrainingOutcome::Cap) message=xeenDialogFormat(text.scalar("TRAINING_LEARNED_ALL"),{c.name});
@@ -500,10 +505,11 @@ std::string xeenLocationText(const XeenDosText &text,XeenLocationDialog location
 }
 IndexedFrame drawXeenLocation(const XeenDosText &text,const IndexedFrame &base,const IndexedFrame &art,const XeenFontFormat &font,
         XeenLocationDialog location,const XeenPartyState &p,std::size_t member,XeenMapIdentity map,
-        const XeenDialogSpriteDraw &draw,bool templeBlessed,std::string_view tavernStatus) {
+        const XeenDialogSpriteDraw &draw,bool templeBlessed,std::string_view tavernStatus,const XeenTempleSurcharges *templePrices) {
     auto frame=base;
     for(int y=8;y<140;++y) std::copy_n(art.pixels.data()+y*320+8,216,frame.pixels.data()+y*320+8);
-    frame=render(frame,font,xeenLocationText(text,location,p,member,map,templeBlessed,tavernStatus),{226,0,320,146},{234,8,312,138});
+    frame=render(frame,font,location==XeenLocationDialog::Temple && templePrices ?
+        xeenTempleText(text,p,member,*templePrices,templeBlessed):xeenLocationText(text,location,p,member,map,templeBlessed,tavernStatus),{226,0,320,146},{234,8,312,138});
     if(draw) for(const auto &hit:xeenLocationInput(location).hits) if(hit.button) {
         const auto &b=*hit.button;draw(frame,b.resource,b.frame,b.x,b.y);
     }

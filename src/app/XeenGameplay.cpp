@@ -205,7 +205,7 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
    }
   }
 
-  XeenEventFlow flow(world, events, party, camera, flags, services.font,
+  XeenEventFlow flow(services.templePrices,world, events, party, camera, flags, services.font,
    [&](std::uint64_t phase) { return services.compose(world, party, camera, phase); }, services.npcDraw, services.clock, {}, services.catalog,
    [&](std::uint64_t ordinary, XeenMonsterAppearance actor) {
     const auto observedCamera = camera;

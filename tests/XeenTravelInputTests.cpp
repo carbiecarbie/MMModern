@@ -236,7 +236,7 @@ void originalSession(const char *directory,XeenCamera start,const std::string &w
   }
   return true;
  };
- check(Application().playGameplay(s,{}, {},false,XeenEncounterEntry::Journey,7)==0,"Original travel Application session failed");
+ check(Application(s.templePrices).playGameplay(s,{}, {},false,XeenEncounterEntry::Journey,7)==0,"Original travel Application session failed");
 }
 // Worked Clouds operands, preserving the original ConfirmWord bytes while
 // isolating its two outcomes so the comparison is checked independently of

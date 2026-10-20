@@ -51,7 +51,7 @@ void observerLifetimeAndRecovery() {
 			check(f.flow->inventoryOpen()!=throws,"observer recovery state");
 			if(throws){handle(InspectInventoryAction{});check(f.flow->inventoryOpen()&&party->roster.at(0).armor[0].frame==9,"reopen lost published frame");}
 			return true;
-		};Quiet quiet;check(Application().playGameplay(services,start,{},false)==0,"equipment observer recovery");
+		};Quiet quiet;check(Application(services.templePrices).playGameplay(services,start,{},false)==0,"equipment observer recovery");
 	}
 }
 
@@ -81,7 +81,7 @@ void certificateInvalidationMatrix() {
 			check(reports==0,"consumed stale certificate replayed");return true;
 		};
 		f.flow=nullptr;services.configureFlow=[&](auto &flow,const auto &){f.flow=&flow;flow.dialogText=&dos_test::text();flow.reportEquipment=[&](const auto &){++reports;};};
-		Quiet quiet;check(Application().playGameplay(services,start,{},false)==0,name);
+		Quiet quiet;check(Application(services.templePrices).playGameplay(services,start,{},false)==0,name);
 	}
 	// Reconstruct, close/reopen, invalid F-key and exhaustion all disarm without
 	// authorizing a retained viewing highlight.
@@ -97,7 +97,7 @@ void certificateInvalidationMatrix() {
 			handle(EquipmentInventoryAction{});check(reports==0,"invalidation path replayed equipment");return true;
 		};
 		services.configureFlow=[&](auto &flow,const auto &){f.flow=&flow;flow.dialogText=&dos_test::text();flow.reportEquipment=[&](const auto &){++reports;};};
-		Quiet quiet;check(Application().playGameplay(services,start,{},false)==0,"certificate invalidation path");
+		Quiet quiet;check(Application(services.templePrices).playGameplay(services,start,{},false)==0,"certificate invalidation path");
 	}
 	// An actual ordinary-animation idle rebase preserves the certificate.
 	{
@@ -109,7 +109,7 @@ void certificateInvalidationMatrix() {
 			check(reports==1&&f.flow->equipmentResult()->status==Status::Success,"ordinary rebase invalidated certificate");return true;
 		};
 		services.configureFlow=[&](auto &flow,const auto &){f.flow=&flow;flow.dialogText=&dos_test::text();flow.reportEquipment=[&](const auto &){++reports;};};
-		Quiet quiet;check(Application().playGameplay(services,start,{},false)==0,"timed equipment rebase");
+		Quiet quiet;check(Application(services.templePrices).playGameplay(services,start,{},false)==0,"timed equipment rebase");
 	}
 }
 
@@ -129,7 +129,7 @@ void publicationFailureAndHud() {
 			f.font=XeenFontFormat(fontBytes());handle(InspectInventoryAction{});check(f.flow->inventoryOpen(),"layout recovery could not reopen");return true;
 		};
 		services.configureFlow=[&](auto &flow,const auto &){f.flow=&flow;flow.dialogText=&dos_test::text();flow.reportEquipment=[&](const auto &){++reports;};};
-		Quiet quiet;check(Application().playGameplay(services,start,{},false)==0,"equipment layout recovery");
+		Quiet quiet;check(Application(services.templePrices).playGameplay(services,start,{},false)==0,"equipment layout recovery");
 	}
 	// The first clean-scene composition may fail after publication; one bounded
 	// recovery composition succeeds without replaying the helper.
@@ -142,7 +142,7 @@ void publicationFailureAndHud() {
 			handle(EquipmentInventoryAction{});check(failures==1&&reports==1&&party->roster.at(0).armor[0].frame==9&&!f.flow->inventoryOpen(),"bounded scene recovery");
 			handle(InspectInventoryAction{});check(f.flow->inventoryOpen(),"scene recovery could not reopen");return true;};
 		services.configureFlow=[&](auto &flow,const auto &){f.flow=&flow;flow.dialogText=&dos_test::text();flow.reportEquipment=[&](const auto &){++reports;};};
-		Quiet quiet;check(Application().playGameplay(services,start,{},false)==0,"equipment scene recovery");
+		Quiet quiet;check(Application(services.templePrices).playGameplay(services,start,{},false)==0,"equipment scene recovery");
 	}
 	// A failed clean-base recovery is terminal to the Application handler and a
 	// later F9 cannot write, while the already published frame remains observed.
@@ -155,7 +155,7 @@ void publicationFailureAndHud() {
 			try{handle(EquipmentInventoryAction{});check(false,"fatal recovery did not throw");}catch(const std::runtime_error &){}
 			check(reports==1&&published.frame==9&&!handle(SaveGameAction{})&&!std::filesystem::exists(target),"fatal equipment flow remained saveable/replayed");return true;};
 		services.configureFlow=[&](auto &flow,const auto &){f.flow=&flow;flow.dialogText=&dos_test::text();flow.reportEquipment=[&](const auto &r){++reports;published=*r.afterItem;};};
-		Quiet quiet;check(Application().playGameplay(services,start,target,false)==0,"fatal equipment recovery harness");
+		Quiet quiet;check(Application(services.templePrices).playGameplay(services,start,target,false)==0,"fatal equipment recovery harness");
 	}
 	// Recomposition exposes the changed maximum to the HUD while preserving a
 	// current value above the lowered maximum after contextual removal.
@@ -171,7 +171,7 @@ void publicationFailureAndHud() {
 			check(maxima.back()==16&&f.flow->frame().pixels[182*320+13]==0,"equip HUD maximum not recomposed");
 			handle(SelectInventorySlotAction{0});handle(DialogKeyAction{'r'});
 			check(maxima.back()==12&&f.flow->frame().pixels[182*320+13]==3&&party->roster.at(0).currentHp==16,"remove normalized current HP or stale HUD");return true;};
-		Quiet quiet;check(Application().playGameplay(services,start,{},false)==0,"equipment HUD recomposition");
+		Quiet quiet;check(Application(services.templePrices).playGameplay(services,start,{},false)==0,"equipment HUD recomposition");
 	}
 }
 
@@ -186,7 +186,7 @@ void representativeRulesAndFeedback() {
 			handle(InspectInventoryAction{});handle(DialogKeyAction{'a'});handle(SelectInventorySlotAction{0});handle(EquipmentInventoryAction{});
 			check(f.flow->equipmentResult()&&f.flow->equipmentResult()->status==Status::Success,"modeled integration success");
 			return true;
-		};Quiet quiet;check(Application().playGameplay(services,start,{},false)==0,"modeled feedback gameplay");
+		};Quiet quiet;check(Application(services.templePrices).playGameplay(services,start,{},false)==0,"modeled feedback gameplay");
 	}
 	{
 		Fixture f;character(f.initial.roster.at(0),0);character(f.initial.roster.at(1),1);
@@ -202,7 +202,7 @@ void representativeRulesAndFeedback() {
 				f.flow->equipmentResult()->conflict->physicalSlot==0,"shield/two-handed conflict feedback facts");
 			// Original equipError: conflicting base name first, then the selected base name.
 			check(refusal.rfind("bardiche  shield ",0)==0,"conflict refusal did not use original base names in order");return true;
-		};Quiet quiet;check(Application().playGameplay(services,start,{},false)==0,"two-handed integration");
+		};Quiet quiet;check(Application(services.templePrices).playGameplay(services,start,{},false)==0,"two-handed integration");
 	}
 	{
 		Fixture f;character(f.initial.roster.at(0),0);character(f.initial.roster.at(1),1);
@@ -216,7 +216,7 @@ void representativeRulesAndFeedback() {
 			party->roster.at(0).accessories[0].frame==12,"cursed remove published");handle(AcknowledgeAction{});
 			handle(SelectInventorySlotAction{4});handle(EquipmentInventoryAction{});check(f.flow->equipmentResult()->status==Status::MedalLimit&&
 			f.flow->equipmentResult()->matchingFrameCount==2,"ID-zero/opaque medal capacity");return true;
-		};Quiet quiet;check(Application().playGameplay(services,start,{},false)==0,"curse/medal integration");
+		};Quiet quiet;check(Application(services.templePrices).playGameplay(services,start,{},false)==0,"curse/medal integration");
 	}
 	{
 		Fixture f;character(f.initial.roster.at(0),0);character(f.initial.roster.at(1),1);
@@ -226,7 +226,7 @@ void representativeRulesAndFeedback() {
 			handle(InspectInventoryAction{});handle(DialogKeyAction{'a'});handle(SelectInventorySlotAction{0});handle(EquipmentInventoryAction{});
 			check(f.flow->equipmentResult()&&f.flow->equipmentResult()->status==Status::UnsafeRules&&f.initial.roster.at(0).armor[0].frame==0,
 				"unsafe proposed rules published");return true;
-		};Quiet quiet;check(Application().playGameplay(services,start,{},false)==0,"unsafe integration");
+		};Quiet quiet;check(Application(services.templePrices).playGameplay(services,start,{},false)==0,"unsafe integration");
 	}
 }
 
@@ -248,7 +248,7 @@ int persistenceChild(const std::filesystem::path &path, bool resume) {
   else {check(f.flow->inventorySelection().sourceOwner==0&&f.flow->inventorySelection().record.frame==13,"consumer did not inspect restored equipment");f.flow->refresh(true);f.present(raw);check(f.party->roster.at(0).weapons[0].frame==13,"refresh normalized restored frame");}
   handle(CancelInteractionAction{});sameSnapshot(expected,f.capture());if(!resume)handle(SaveGameAction{});sameSnapshot(expected,XeenSaveFile::read(path));return true;
  };
- Quiet quiet;const int result=Application().playGameplay(services,{},path,true);if(result)std::cerr<<quiet.out.str();return result;
+ Quiet quiet;const int result=Application(services.templePrices).playGameplay(services,{},path,true);if(result)std::cerr<<quiet.out.str();return result;
 }
 
 void persistenceRestart(const std::filesystem::path &exe) {

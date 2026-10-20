@@ -127,7 +127,7 @@ void sessionAndRefusal(bool publishedPrefix,bool continuedDestination=false) {
         check(h.camera->direction==XeenDirection::East,"Developer session could not continue after refusal");
         return true;
     };
-    check(Application().playGameplay(s,{}, {},false,XeenEncounterEntry::Journey,7)==0 && shown,
+    check(Application(s.templePrices).playGameplay(s,{}, {},false,XeenEncounterEntry::Journey,7)==0 && shown,
         "Developer session did not use the normal Application startup");
 }
 void integrity() {
@@ -135,19 +135,19 @@ void integrity() {
     s.show=[&](const auto &,const auto &,const auto &,const auto &,const auto &){shown=true;return true;};
     const auto maps=s.maps;
     s.maps=[&](auto id){auto value=maps(id);if(id==XeenMapIdentity(30))value.geometry.id=31;return value;};
-    check(Application().playGameplay(s,{}, {},false,XeenEncounterEntry::Journey,7)!=0 && !shown,
+    check(Application(s.templePrices).playGameplay(s,{}, {},false,XeenEncounterEntry::Journey,7)!=0 && !shown,
         "Selected-map admission bypassed resource identity validation");
     auto dark=h.services();dark.eventFixture->mapId={XeenSide::Darkside,30};
-    check(Application().playGameplay(dark,{}, {},false,XeenEncounterEntry::Journey,7)!=0,"Developer session admitted Darkside");
+    check(Application(dark.templePrices).playGameplay(dark,{}, {},false,XeenEncounterEntry::Journey,7)!=0,"Developer session admitted Darkside");
     auto outside=h.services();outside.eventFixture->x=32;
-    check(Application().playGameplay(outside,{}, {},false,XeenEncounterEntry::Journey,7)!=0,"Developer session admitted an invalid position");
+    check(Application(outside.templePrices).playGameplay(outside,{}, {},false,XeenEncounterEntry::Journey,7)!=0,"Developer session admitted an invalid position");
     auto edge=h.services();edge.eventFixture=XeenCamera{30,15,8,XeenDirection::East};
     edge.maps=[&](auto id){auto map=maps(id);if(id==XeenMapIdentity(30))map.geometry.neighbors.fill(0);return map;};
     edge.objects=[](auto id) {
         auto mob=regional_test::objects(id);
         if(id==XeenMapIdentity(30))mob.entities.monsters.push_back({16,8,0,0,8});return mob;
     };
-    check(Application().playGameplay(edge,{}, {},false,XeenEncounterEntry::Journey,7)!=0,
+    check(Application(edge.templePrices).playGameplay(edge,{}, {},false,XeenEncounterEntry::Journey,7)!=0,
         "Startup published an activated monster outside the DAT footprint");
 }
 void originalSessions(const char *directory) {
@@ -259,7 +259,7 @@ void originalSessions(const char *directory) {
                 check(h.world->sessionState().journeyRandom()->count>random->count,"Part B random operation drew nothing");
             return true;
         };
-        check(Application().playGameplay(s,{}, {},false,XeenEncounterEntry::Journey,7)==0 && shown,
+        check(Application(s.templePrices).playGameplay(s,{}, {},false,XeenEncounterEntry::Journey,7)==0 && shown,
             ("Original-data developer session startup failed: scenario "+std::to_string(scenario)).c_str());
     }
 }

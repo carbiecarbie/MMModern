@@ -21,6 +21,7 @@ struct Sentinel {
     }
 };
 void visit(training_test::Inputs &in,bool tavern,XeenSmithBoundary fault) {
+    mmodern::XeenTemplePriceState templePriceState;
     auto source=in.service(10);source.food=1;source.journey->treasure->gold=100;
     const int x=tavern?24:26,y=tavern?5:17;
     bool found=false;
@@ -38,7 +39,7 @@ void visit(training_test::Inputs &in,bool tavern,XeenSmithBoundary fault) {
     const auto statistics=resources.loadMonsterStatistics;resources.loadMonsterStatistics=[&]{++providers;return statistics();};
     const auto regional=resources.loadRegionalText;resources.loadRegionalText=[&](auto id){++providers;return regional(id);};
     const auto names=resources.loadLearnedSpellNames;resources.loadLearnedSpellNames=[&]{++providers;return names();};
-    XeenGameplayServices services{resources,[]{return XeenGameFlags{};},
+    XeenGameplayServices services{templePriceState,resources,[]{return XeenGameFlags{};},
         [&](auto id){++providers;return in.maps.loadGeometryMap(in.assets,id);},
         [&](auto id){++providers;return in.maps.loadObjects(in.assets,id);},
         [&](auto id){++providers;return in.texts.load(id);},in.font,
@@ -109,7 +110,7 @@ void visit(training_test::Inputs &in,bool tavern,XeenSmithBoundary fault) {
         target.unchanged();check(!stages && !panels && !writes,"Blocked Application save reached persistence");
         flow->smithBoundary={};return true;
     };
-    check(Application{}.playGameplay(services,source.camera,target.path,true)==0,"Food/Bank Application save-denial scenario failed");
+    check(Application(services.templePrices).playGameplay(services,source.camera,target.path,true)==0,"Food/Bank Application save-denial scenario failed");
     target.unchanged();
 }
 }

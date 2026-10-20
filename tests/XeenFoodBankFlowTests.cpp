@@ -365,6 +365,7 @@ void directionPrelude(Inputs &in) {
 }
 
 XeenSaveSnapshot fresh(Inputs &in) {
+    mmodern::XeenTemplePriceState templePriceState;
     auto party=XeenPartyLoader().loadFromResources(in.chr,in.pty);
     auto camera=XeenCharacterFormat::parsePartyLocation(in.pty);XeenGameFlags flags;
     XeenWorld world(in.mapLoader(),in.objectLoader());
@@ -374,7 +375,7 @@ XeenSaveSnapshot fresh(Inputs &in) {
     setup.regionalText=in.texts.load(23);setup.learnedNames=in.names;setup.learnedNamesProvider=[&in]{return in.names;};
     setup.cityEventsProvider=[&in]{return in.city;};
     setup.mainlandEventsProvider=[&in]{return in.mainland;};
-    XeenEncounterFlow flow(world,party,camera,flags,[]{return 0;},setup);
+    XeenEncounterFlow flow(templePriceState,world,party,camera,flags,[]{return 0;},setup);
     check(flow.prepareJourneyFrame(flow.ticket(),[]{}) && flow.presentJourney(flow.ticket()),"Original New Game frame");
     check(party.food==90 && party.monsterTreasure->gold==800 && camera.mapId==XeenMapIdentity(28),"Original New Game state");
     return XeenSaveState::capture(in.signature,party,camera,flags,world);

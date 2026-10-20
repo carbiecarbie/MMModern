@@ -104,6 +104,7 @@ struct Scenario {
 };
 // The production entry: Application::playGameplay with synthetic providers.
 struct Harness {
+    mmodern::XeenTemplePriceState templePriceState;
 	Scenario scenario;
 	XeenFontFormat font{gameplay_test::fontBytes()};
 	XeenItemCatalog catalog;
@@ -111,7 +112,7 @@ struct Harness {
 	std::uint64_t cycle=0,now=0;
 	explicit Harness(Scenario s):scenario(std::move(s)) {}
 	XeenGameplayServices services() {
-		XeenGameplayServices s{scenario.resources(),[]{return XeenGameFlags{};},scenario.maps,scenario.objectLoader(),regional_test::texts,font,
+		XeenGameplayServices s{templePriceState,scenario.resources(),[]{return XeenGameFlags{};},scenario.maps,scenario.objectLoader(),regional_test::texts,font,
 			[](auto &,const auto &,const auto &,auto){return XeenEventFlow::Composition{IndexedFrame{320,200,Bytes(64000)},true};}, {},
 			[&](auto &f,const auto &){flow=&f;f.dialogText=&dos_test::text();
 				f.loadRestDream=[]{return IndexedFrame{320,200,Bytes(64000)};};
@@ -135,11 +136,12 @@ struct Harness {
 	int run(const std::function<void(const SdlWindow::FrameUpdateHandler &,const SdlWindow::IdleFrameHandler &)> &drive) {
 		auto s=services();
 		s.show=[&](const auto &,const auto &handler,const auto &,const auto &idle,const auto &){present(handler);drive(handler,idle);return true;};
-		return Application().playGameplay(s,xeenJourneyContent().entry,{},false,XeenEncounterEntry::Journey,56);
+		return Application(s.templePrices).playGameplay(s,xeenJourneyContent().entry,{},false,XeenEncounterEntry::Journey,56);
 	}
 };
 // A restored copy through the same providers, for exact round trips.
 struct Restored {
+    mmodern::XeenTemplePriceState templePriceState;
 	Scenario scenario;
 	XeenPartyState p;XeenCamera camera;XeenGameFlags flags;
 	XeenWorld w;
@@ -147,7 +149,7 @@ struct Restored {
 	std::unique_ptr<XeenEncounterFlow> flow;
 	Restored(const Scenario &s,const XeenSaveSnapshot &saved):scenario(s),w(scenario.maps,scenario.objectLoader()) {
 		XeenSaveState::restoreBeforeGameplay(saved,scenario.resources(),p,camera,flags,w,[](auto &,const auto &,const auto &,const auto &){});
-		flow=std::make_unique<XeenEncounterFlow>(w,p,camera,flags,clock,XeenJourneyRestoreTag{});
+		flow=std::make_unique<XeenEncounterFlow>(templePriceState,w,p,camera,flags,clock,XeenJourneyRestoreTag{});
 		check(flow->prepareJourneyFrame(flow->ticket(),[]{}) && flow->presentJourney(flow->ticket()),"restored frame");
 	}
 	XeenSaveSnapshot capture() { return XeenSaveState::capture(regional_test::signature(),p,camera,flags,w); }
@@ -441,6 +443,7 @@ void restActivation() {
 	}
 }
 void originalFixture(const std::filesystem::path &game) {
+    mmodern::XeenTemplePriceState templePriceState;
 	const auto installation=xeenTestInstallationDetector().detect(game);
 	check(installation && installation->hasDarkside(),"World of Xeen installation");
 	training_test::Inputs in(*installation);
@@ -495,7 +498,7 @@ void originalFixture(const std::filesystem::path &game) {
 		manifest(w.map(23),w.objectFile(23),in.mainland,in.statistics);
 		auto p=XeenPartyLoader().loadInitialCloudsParty(in.assets);auto c=placement.start;XeenGameFlags f;
 		auto setup=in.setup();setup.regionalManifest=manifest;setup.start=placement.start;
-		XeenEncounterFlow flow(w,p,c,f,[]{return 0;},setup);
+		XeenEncounterFlow flow(templePriceState,w,p,c,f,[]{return 0;},setup);
 		check(flow.prepareJourneyFrame(flow.ticket(),[]{}) && flow.presentJourney(flow.ticket()),"fixture Journey frame");
 		const auto &actors=w.sessionState().monsters(23);
 		check(actors.size()==originalEntities.monsters.size() && actors[record].original.resourceId==int(species) && actors[record].statistics->name()==in.statistics[species].name(),"Fixture species is the live actor at the chosen record");
@@ -507,7 +510,7 @@ void originalFixture(const std::filesystem::path &game) {
 		XeenWorld restored(in.mapLoader(),objectLoader);XeenPartyState rp;XeenCamera rc;XeenGameFlags rf;
 		auto resources=in.resources();resources.regionalManifest=manifest;
 		XeenSaveState::restoreBeforeGameplay(saved,resources,rp,rc,rf,restored,[](auto &,const auto &,const auto &,const auto &){});
-		XeenEncounterFlow again(restored,rp,rc,rf,[]{return 0;},XeenJourneyRestoreTag{});
+		XeenEncounterFlow again(templePriceState,restored,rp,rc,rf,[]{return 0;},XeenJourneyRestoreTag{});
 		check(again.prepareJourneyFrame(again.ticket(),[]{}) && again.presentJourney(again.ticket()),"restored fixture frame");
 		check(XeenSaveFormat::encode(XeenSaveState::capture(in.signature,rp,rc,rf,restored))==XeenSaveFormat::encode(saved),"Fixture round trip through the same provider");
 		// The original resource no longer matches a fixture world.

@@ -16,6 +16,7 @@
 namespace combat_gameplay_test {
 using namespace combat_test;
 struct Harness {
+    mmodern::XeenTemplePriceState templePriceState;
  XeenFontFormat font{gameplay_test::fontBytes()};
  std::unique_ptr<XeenAssetSource> assets;
  std::unique_ptr<XeenEventLoader> eventLoader;
@@ -49,7 +50,7 @@ struct Harness {
    if(!assets->hasInitialResource(name))return {};return assets->readInitialResource(name);});
  }
  XeenGameplayServices services(unsigned seed=1) {
-  XeenGameplayServices s{
+  XeenGameplayServices s{templePriceState,
    {signature,[&]{return assets?XeenPartyLoader().loadInitialCloudsParty(*assets):XeenPartyLoader().loadFromResources(chr(),pty());},
     [&](XeenMapIdentity id){return assets?eventLoader->load(id):events();}},
    [&]{return assets?XeenGameFlagsLoader().loadInitialCloudsFlags(*assets):XeenGameFlags{};},

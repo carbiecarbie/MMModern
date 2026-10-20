@@ -42,6 +42,7 @@ void paths(const GameInstallation &installation,const fs::path &repository,const
 }
 
 void preset(const GameInstallation &installation,const std::string &name,const fs::path &directory) {
+    mmodern::XeenTemplePriceState templePriceState;
     const auto output=directory/(name+".mmsave");
     developer::generateTestSave(installation,name,output);
     const auto saved=XeenSaveFile::read(XeenSaveFile::resolve(output,installation.root));
@@ -53,7 +54,7 @@ void preset(const GameInstallation &installation,const std::string &name,const f
         [&](auto &w,const auto &p,const auto &c,const auto &) {
             (void)CloudsMapComposer().compose(inputs.assets,w,p,c,{p.encounterContext->year});
         });
-    XeenEncounterFlow flow(world,party,camera,flags,[]{return 0;},XeenJourneyRestoreTag{});
+    XeenEncounterFlow flow(templePriceState,world,party,camera,flags,[]{return 0;},XeenJourneyRestoreTag{});
     check(flow.prepareJourneyFrame(flow.ticket(),[]{}) && flow.presentJourney(flow.ticket()),"restored preset is not quiet");
     const auto captured=XeenSaveState::capture(inputs.signature,party,camera,flags,world);
     check(XeenSaveFormat::encode(saved)==XeenSaveFormat::encode(captured),"restore replayed or changed state");

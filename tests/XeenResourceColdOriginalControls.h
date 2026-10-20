@@ -33,7 +33,7 @@ void coldVertigo(Source &source) {
    "Cold Vertigo exit did not publish mainland destination");
   completed=true;return true;
  };
- check(Application().playGameplay(services,{},path,true)==0 && completed,"Cold Vertigo production entry/exit");
+ check(Application(services.templePrices).playGameplay(services,{},path,true)==0 && completed,"Cold Vertigo production entry/exit");
  std::filesystem::remove(path);
  std::cout<<"Cold Vertigo entry/exit with original composition PASS\n";
 }

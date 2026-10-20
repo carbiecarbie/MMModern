@@ -34,6 +34,7 @@ using S=XeenLearnedSpell;
 
 // Local resource overrides exercise the real Flow without changing shared fixtures.
 struct EventFixture {
+    mmodern::XeenTemplePriceState templePriceState;
     Inputs &in;std::map<XeenMapIdentity,XeenEventFile> files;
     XeenWorld w;XeenPartyState p;XeenCamera c;XeenGameFlags f;XeenEventSystem events;
     std::unique_ptr<XeenEventFlow> flow;std::uint64_t cycle=0,now=0;
@@ -44,7 +45,7 @@ struct EventFixture {
         events([this](auto id){return XeenEventScript(script(id));},[this](auto id){return in.texts.load(id);}) {
         auto resources=in.resources();resources.loadEvents=[this](auto id){return script(id);};
         XeenSaveState::restoreBeforeGameplay(source,resources,p,c,f,w,[](auto &,const auto &,const auto &,const auto &){});
-        flow=std::make_unique<XeenEventFlow>(w,events,p,c,f,in.font,[](auto){return XeenEventFlow::Composition{frame(),false};},
+        flow=std::make_unique<XeenEventFlow>(templePriceState,w,events,p,c,f,in.font,[](auto){return XeenEventFlow::Composition{frame(),false};},
             XeenEventPresenter::NpcDraw{},[this]{return now;},XeenEventPresenter::RandomFrame{},nullptr,
             [](auto,auto){return XeenEventFlow::Composition{frame(),false};},nullptr,
             [](auto &,const auto &,const auto &,auto,auto){return XeenEventFlow::Composition{frame(),false};});
@@ -205,7 +206,7 @@ void crossing(Inputs &in) {
 }
 
 void flowRefusals(Inputs &in) {
-    for(unsigned action:{3u,4u,6u,8u,9u,10u,11u,12u,255u,256u}) {
+    for(unsigned action:{3u,6u,8u,9u,10u,11u,12u,255u,256u}) {
         const bool neighbor=action==256;
         auto source=in.base();source.camera=neighbor?XeenCamera{23,9,11,XeenDirection::East}:quietCell(in,29);
         table(in,source,source.camera.mapId);
@@ -313,11 +314,12 @@ void crossingBudget(Inputs &in) {
 }
 
 void atomicRefusals(Inputs &in) {
-    // On map 29 Food/Temple have no tabled rule; scene actions remain excluded.
+    // On map 29 Food has no tabled rule; scene actions remain excluded.
+    // Temple uses process prices, including on untabled Clouds maps.
     // M79 admits Bank, Ironworks, Guild and Training through their shared owners.
     auto source=in.base();source.camera=quietCell(in,29);table(in,source,29);
     Fixture fixture(in,source);
-    for(unsigned action:{3u,4u,6u,8u,9u,10u,11u,12u,255u}) {
+    for(unsigned action:{3u,6u,8u,9u,10u,11u,12u,255u}) {
         auto world=fixture.w.transitionCandidate();XeenPartyState party;world->copyEventParty(fixture.p,party);
         auto camera=fixture.c;auto flags=fixture.f;
         XeenRestoreGuard before(*world,party,camera,flags);

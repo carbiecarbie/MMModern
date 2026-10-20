@@ -1,14 +1,23 @@
 // Adapted from ScummVM TempleLocation::createLocationText and doOptions, GPL-3.0-or-later,
 // revision 6814ee9ba54582f5b5adcffab49efbbd8f589edd.
-#include "games/xeen/XeenTempleHeal.h"
+#include "games/xeen/XeenTemplePriceState.h"
 #include "games/xeen/XeenJourneyRules.h"
 #include <algorithm>
 #include <limits>
 #include <stdexcept>
 namespace mmodern {
-bool xeenTemplePricesKnown(XeenMapIdentity map) noexcept {
-    return map.side==XeenSide::Darkside || (map.side==XeenSide::Clouds &&
-        (map.number==28 || map.number==30 || map.number==49 || map.number==73));
+XeenTempleSurcharges XeenTemplePriceState::prepare(XeenMapIdentity map) const {
+    if(map.side==XeenSide::Clouds && map.number!=28 && map.number!=30 && map.number!=49 && map.number!=73)
+        return _row;
+    return xeenTempleSurcharges(map);
+}
+void XeenTemplePriceState::checkPublication(std::uint64_t base) const {
+    if(base!=_revision)throw std::logic_error("Temple price preparation is stale");
+    if(_revision==std::numeric_limits<std::uint64_t>::max())
+        throw std::overflow_error("Temple price revision exhausted");
+}
+void XeenTemplePriceState::checkVisit(const XeenTempleSurcharges &row,std::uint64_t revision) const {
+    if(revision!=_revision || !(row==_row))throw std::logic_error("Temple visit prices changed");
 }
 XeenTempleSurcharges xeenTempleSurcharges(XeenMapIdentity temple) {
     // DOS XEEN.DAT 0x1c9f5..0x1cab3. Clouds maps go through the switch at
@@ -36,10 +45,13 @@ bool xeenTempleDonationBlessing(XeenGameplayContext &context,std::uint8_t &count
     return true;
 }
 std::uint32_t xeenTempleUncurseCost(const XeenCharacter &c,XeenMapIdentity temple) {
+    return xeenTempleUncurseCost(c,xeenTempleSurcharges(temple));
+}
+std::uint32_t xeenTempleUncurseCost(const XeenCharacter &c,const XeenTempleSurcharges &row) {
     bool cursed=c.conditions[0]!=0;
     for(const auto *items:{&c.weapons,&c.armor,&c.accessories,&c.miscellaneous})
         for(const auto &item:*items)cursed|=(item.state&0x40)!=0;
-    return cursed?c.currentLevel()*20+xeenTempleSurcharges(temple).uncurse:0;
+    return cursed?c.currentLevel()*20+row.uncurse:0;
 }
 void xeenTempleClearCurse(XeenCharacter &c) noexcept {
     // DOS 0x1afa2..1b01b clears the state bit in all 36 slots, even empty ones.
@@ -49,8 +61,11 @@ void xeenTempleClearCurse(XeenCharacter &c) noexcept {
 }
 XeenTempleHealResult xeenQuoteTempleHeal(const XeenCharacter &c,std::uint32_t gold,
         const XeenGameplayContext &context,XeenMapIdentity temple) {
+    return xeenQuoteTempleHeal(c,gold,context,xeenTempleSurcharges(temple));
+}
+XeenTempleHealResult xeenQuoteTempleHeal(const XeenCharacter &c,std::uint32_t gold,
+        const XeenGameplayContext &context,const XeenTempleSurcharges &surcharge) {
     XeenCharacterRules::validateForUse(c,{context.year});
-    const auto surcharge=xeenTempleSurcharges(temple);
     XeenTempleHealResult r;
     r.owner=c.rosterId;r.goldBefore=r.goldAfter=gold;
     r.hpBefore=r.hpAfter=c.currentHp;r.spBefore=r.spAfter=c.currentSp;
@@ -81,6 +96,10 @@ XeenTempleHealResult xeenQuoteTempleHeal(const XeenCharacter &c,std::uint32_t go
 XeenTempleHealCandidate xeenPrepareTempleHeal(const XeenPartyState &party,std::uint8_t owner,
         const XeenGameplayContext &context,XeenMapIdentity temple) {
 
+    return xeenPrepareTempleHeal(party,owner,context,xeenTempleSurcharges(temple));
+}
+XeenTempleHealCandidate xeenPrepareTempleHeal(const XeenPartyState &party,std::uint8_t owner,
+        const XeenGameplayContext &context,const XeenTempleSurcharges &surcharge) {
     xeenValidateJourneyParty(party);
     if(owner>=30 || !party.roster.combatInputs(owner) || !party.monsterTreasure)
         throw std::invalid_argument("Missing Temple Heal owner");
@@ -90,7 +109,7 @@ XeenTempleHealCandidate xeenPrepareTempleHeal(const XeenPartyState &party,std::u
     XeenTempleHealCandidate out;
     out.character=party.roster.at(owner);out.inputs=*party.roster.combatInputs(owner);
     auto &r=out.result;
-    r=xeenQuoteTempleHeal(out.character,party.monsterTreasure->gold,context,temple);
+    r=xeenQuoteTempleHeal(out.character,party.monsterTreasure->gold,context,surcharge);
     if(r.outcome!=XeenTempleHealOutcome::Quoted)return out;
     auto &c=out.character;auto &i=out.inputs;
     c.intellect.temporary=0;c.personality.temporary=0;c.endurance.temporary=0;

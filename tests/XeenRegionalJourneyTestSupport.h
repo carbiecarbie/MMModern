@@ -17,6 +17,7 @@ inline XeenObjectFile regionalObjects(){
     m.entities.monsters[5]={13,2,0,0,8};return m;
 }
 struct Fixture {
+    mmodern::XeenTemplePriceState templePriceState;
 	Bytes bytes;
 	XeenPartyState p;
 	XeenCamera camera = XeenCamera{23,13,1,XeenDirection::North};
@@ -45,7 +46,7 @@ struct Fixture {
         for(unsigned i=0;i<19;++i){saved.map(23).monsters->slots[i].x=actors[i].x;saved.map(23).monsters->slots[i].y=actors[i].y;}
         auto r=regional_test::resources();r.loadEvents=[this](auto id){return id==XeenMapIdentity(23)?event:regional_test::events(id);};
         XeenSaveState::restoreBeforeGameplay(saved,r,p,camera,flags,w,[](auto &,const auto &,const auto &,const auto &){});
-        flow=std::make_unique<XeenEncounterFlow>(w,p,camera,flags,clock,XeenJourneyRestoreTag{});
+        flow=std::make_unique<XeenEncounterFlow>(templePriceState,w,p,camera,flags,clock,XeenJourneyRestoreTag{});
 		check(!flow->journeyQuiet(), "initial frame lease must block");
 		check(flow->prepareJourneyFrame(flow->ticket(),[] {}), "initial frame preparation");
 		check(flow->presentJourney(flow->ticket()), "initial Journey frame");

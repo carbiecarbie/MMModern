@@ -98,6 +98,7 @@ struct Inputs {
 };
 
 struct Graph {
+    mmodern::XeenTemplePriceState templePriceState;
 	XeenPartyState p;
 	XeenCamera c{23,9,11,XeenDirection::West};XeenGameFlags flags;
 	std::function<void()> mapFault,objectFault;
@@ -109,12 +110,12 @@ struct Graph {
 		if(initial)p=i.ordinary();
 	}
 	void present() {check(flow && flow->prepareJourneyFrame(flow->ticket(),[]{}) && flow->presentJourney(flow->ticket()),"headless concrete Journey frame");}
-	void fresh(const XeenJourneySetup &setup) {flow=std::make_unique<XeenEncounterFlow>(world,p,c,flags,[]{return 0;},setup);present();}
+	void fresh(const XeenJourneySetup &setup) {flow=std::make_unique<XeenEncounterFlow>(templePriceState,world,p,c,flags,[]{return 0;},setup);present();}
 	XeenSaveSnapshot capture(Inputs &i) {return XeenSaveState::capture(i.signature,p,c,flags,world);}
 	void restore(Inputs &i,const XeenSaveSnapshot &s,unsigned &freshCalls,const XeenSaveState::Preflight &extra={}) {
 		XeenSaveState::restoreBeforeGameplay(s,i.restoreResources(freshCalls),p,c,flags,world,
 			[&](auto &w,const auto &p,const auto &c,const auto &f) {if(extra)extra(w,p,c,f);});
-		flow=std::make_unique<XeenEncounterFlow>(world,p,c,flags,[]{return 0;},XeenJourneyRestoreTag{});present();
+		flow=std::make_unique<XeenEncounterFlow>(templePriceState,world,p,c,flags,[]{return 0;},XeenJourneyRestoreTag{});present();
 	}
 };
 
@@ -228,6 +229,7 @@ void postPublicationFailure(Inputs &i) {
  }
 }
 void freshPublicationAllocationSweep(Inputs &i) {
+    mmodern::XeenTemplePriceState templePriceState;
 	// Exercise every allocating preparation from the admitted resource callback
 	// through detached stock generation, final-owner guard and capture storage.
 	// A failure at any allocation must precede party/economy/RNG publication.
@@ -237,7 +239,7 @@ void freshPublicationAllocationSweep(Inputs &i) {
 			manifest(m,o,e,s);allocation_test::triggered=false;allocation_test::countdown=skipped;
 		};
 		bool failed=false;allocation_test::publication=&g.p;
-		try {g.flow=std::make_unique<XeenEncounterFlow>(g.world,g.p,g.c,g.flags,[]{return 0;},setup);}
+		try {g.flow=std::make_unique<XeenEncounterFlow>(templePriceState,g.world,g.p,g.c,g.flags,[]{return 0;},setup);}
 		catch(const std::bad_alloc &) {failed=true;}
 		allocation_test::countdown=-1;allocation_test::publication=nullptr;
 		if(!failed) {

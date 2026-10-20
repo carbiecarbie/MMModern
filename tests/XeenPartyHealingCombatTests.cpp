@@ -94,7 +94,7 @@ void run(unsigned spell,unsigned target,unsigned targetSpeed,bool quick,bool can
     };
     const auto directory=child_test::freshDirectory(std::filesystem::current_path()/"m75-combat");h.runDirectories.push_back(directory);
     const auto path=directory/"fixture.mmsave";XeenSaveFile::write(path,saved);
-    check(Application().playGameplay(services,{},path,true)==0,"M75 synthetic combat flow failed");
+    check(Application(services.templePrices).playGameplay(services,{},path,true)==0,"M75 synthetic combat flow failed");
 }
 }
 int main() {try {

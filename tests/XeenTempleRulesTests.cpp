@@ -1,4 +1,5 @@
-#include "games/xeen/XeenTempleHeal.h"
+#include "games/xeen/XeenTemplePriceState.h"
+#include <type_traits>
 #include "games/xeen/XeenServiceDay.h"
 #include "games/xeen/XeenArmorRepair.h"
 #include "games/xeen/XeenJourneyContent.h"
@@ -7,6 +8,14 @@
 using namespace mmodern;
 using save_test::check;
 using save_test::rejects;
+namespace mmodern {
+struct XeenTemplePriceStateTestAccess {
+    static void publish(XeenTemplePriceState &state,const XeenTempleSurcharges &row) {
+        state.checkPublication(state.revision());state.publish(row);
+    }
+    static void exhaust(XeenTemplePriceState &state) {state._revision=UINT64_MAX;}
+};
+}
 namespace {
 XeenServiceEconomy completeEconomy() {
     XeenCombatRandom random(XeenJourneyRandomState{1,7,0});XeenMerchantStockCandidate stock;
@@ -106,11 +115,29 @@ int main() {
             {{XeenSide::Clouds,49},100,500,5000,300,100},{{XeenSide::Clouds,73},20,100,1000,200,50},
             {{XeenSide::Darkside,29},0,0,0,0,10},{{XeenSide::Darkside,31},10,50,500,100,25},
             {{XeenSide::Darkside,37},20,100,1000,200,50},{{XeenSide::Darkside,28},100,500,5000,300,100}};
+        XeenTemplePriceState prices;
+        static_assert(!std::is_copy_constructible_v<XeenTemplePriceState> &&
+            !std::is_move_constructible_v<XeenTemplePriceState>);
+        check(prices.row()==XeenTempleSurcharges{} && prices.revision()==0,"Process prices did not start at zero");
+        check(prices.prepare(74)==XeenTempleSurcharges{} && prices.revision()==0,"Preparation mutated process prices");
         for(const auto &row:table) {
             const auto s=xeenTempleSurcharges(row.map);
             check(s.heal==row.heal && s.resurrect==row.resurrect && s.eradicate==row.eradicate &&
                 s.uncurse==row.uncurse && s.donation==row.donation,"Temple surcharge table differs");
         }
+        for(const auto &entry:table) {
+            const auto before=prices.revision();const auto row=prices.prepare(entry.map);
+            check(prices.revision()==before,"Table preparation published prices");
+            prices.checkPublication(before);XeenTemplePriceStateTestAccess::publish(prices,row);
+            prices.checkVisit(row,before+1);
+            check(prices.row()==xeenTempleSurcharges(entry.map) && prices.prepare(74)==row &&
+                prices.prepare(99)==row,"Table assignment or untabled carry-over differs");
+            rejects([&]{prices.checkPublication(before);},"stale");
+            rejects([&]{prices.checkVisit(row,before);},"changed");
+        }
+        const auto last=prices.row();XeenTemplePriceStateTestAccess::exhaust(prices);
+        rejects([&]{prices.checkPublication(UINT64_MAX);},"exhausted");
+        check(prices.row()==last,"Exhausted publication changed prices");
         // Newcastle price-table case, level 3, HP 0, Dead 1 and Eradicated 1:
         // (30+20) + (300+50+100) + (3000+500+1000) = 5000.
         c.conditions.fill(0);c.conditions[13]=1;c.conditions[15]=1;

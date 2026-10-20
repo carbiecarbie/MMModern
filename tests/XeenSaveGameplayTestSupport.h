@@ -14,6 +14,7 @@ using save_test::Bytes; using save_test::check; using save_test::sameSnapshot;
 using remove_test::record;
 inline Bytes fontBytes(){Bytes b(XeenFontFormat::kMinimumSize);for(int c=0;c<128;++c){b[0x1000+c]=6;b[0x1080+c]=3;for(int y=0;y<8;++y)b[c*16+y*2]=0x55;}return b;}
 struct Fixture {
+    mmodern::XeenTemplePriceState templePriceState;
  XeenFontFormat font{fontBytes()};
  XeenItemCatalog catalog;
  XeenPartyState initial;
@@ -33,7 +34,7 @@ struct Fixture {
   initial.roster.at(0).currentHp=10; initial.roster.at(1).currentHp=10;
   scripts[1]={record(1,1,0,0x12)};scripts[2]={record(1,1,0,0x12)};
  }
- XeenGameplayServices services(){auto result=XeenGameplayServices{
+ XeenGameplayServices services(){auto result=XeenGameplayServices{templePriceState,
   {signature,[&]{return initial;},[&](XeenMapIdentity id){++eventReads;return XeenEventFile{id,"test.evt",true,scripts.at(id)};}},
   []{return XeenGameFlags{};},
   [&](XeenMapIdentity id){++mapReads;auto m=remove_test::map(id);m.geometry.cells[17].rawAttributes=automatic?0x10:0;m.geometry.surfaceTypes[0]=1;return m;},

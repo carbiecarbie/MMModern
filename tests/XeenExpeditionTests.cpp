@@ -35,11 +35,12 @@ XeenSaveSnapshot initial(){PauseTape pause;
  saved.journey->context->minutes=480;return saved;
 }
 struct Domain {
+    mmodern::XeenTemplePriceState templePriceState;
  XeenWorld w{regional_test::map,objects};XeenPartyState p;XeenCamera c;XeenGameFlags f;
  XeenEventPresenter::Clock clock=[]{return 0;};std::unique_ptr<XeenEncounterFlow> flow;
  explicit Domain(const std::optional<XeenSaveSnapshot> &saved={}) {PauseTape pause;
   XeenSaveState::restoreBeforeGameplay(saved?*saved:initial(),resources(),p,c,f,w,[](auto &,const auto &,const auto &,const auto &){});
-  flow=std::make_unique<XeenEncounterFlow>(w,p,c,f,clock,XeenJourneyRestoreTag{});present();
+  flow=std::make_unique<XeenEncounterFlow>(templePriceState,w,p,c,f,clock,XeenJourneyRestoreTag{});present();
  }
  void present(){if(w.sessionState().journeyActivity()==XeenJourneyActivity::Presentation)check(flow->prepareJourneyFrame(flow->ticket(),[] {})&&flow->presentJourney(flow->ticket()),"regional group frame");}
  XeenSaveSnapshot save(){return XeenSaveState::capture(signature,p,c,f,w);}

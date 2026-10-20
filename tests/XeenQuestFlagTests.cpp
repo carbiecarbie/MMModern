@@ -30,6 +30,7 @@ XeenEventRecord set(int line=0,int index=2,int x=1,int y=1) {
 	return record(x,y,line,0x0c,{0,0,104,static_cast<std::uint8_t>(index)});
 }
 struct Fixture {
+    mmodern::XeenTemplePriceState templePriceState;
 	std::uint64_t now=0;
 	XeenPartyState members=party();XeenCamera camera{1,1,1,XeenDirection::North};XeenGameFlags flags;
 	std::map<XeenMapIdentity,XeenEventScript> scripts;
@@ -45,7 +46,7 @@ struct Fixture {
 		[&](XeenMapIdentity id){return scripts.at(id);},{},line);}
 	XeenEventExecutionStepResult resume(XeenEventExecutionState s){return interpreter.resume(std::move(s),XeenPresentationResponse::Acknowledged,
 		members,world,[&](XeenMapIdentity id){return scripts.at(id);},{});}
-	XeenEventFlow flow(){return XeenEventFlow(world,events,members,camera,flags,font,[&](std::uint64_t){return XeenEventFlow::Composition{base, false};},
+	XeenEventFlow flow(){return XeenEventFlow(templePriceState,world,events,members,camera,flags,font,[&](std::uint64_t){return XeenEventFlow::Composition{base, false};},
 		[](IndexedFrame&,std::uint8_t,std::size_t){},[&]{return now;},[]{return 0;});}
 };
 void error(const XeenEventExecutionStepResult&r,Kind kind){const auto*e=std::get_if<XeenEventExecutionError>(&r);
@@ -166,6 +167,7 @@ void clearing() {
 }
 
 void lifetimeAndCancellation() {
+    mmodern::XeenTemplePriceState templePriceState;
 	Fixture f;f.members=party(6);f.scriptAt({record(1,1,0,0x20,{0,0}),record(1,1,1,0x19,{7,8,0}),
 		record(1,1,2,0x12),set(0,2,7,8),record(7,8,1,5,{0,1,9,1,99}),record(7,8,2,0x1a)});
 	auto flow=f.flow();flow.dialogText=&dos_test::text();flow.handle(InteractionAction{});flow.handle(SelectMemberAction{5});
@@ -177,7 +179,7 @@ void lifetimeAndCancellation() {
 	check(f.members.questFlags.isSet(29) && !flow.blocksGameplay(),"continuation restored old party state");
 	flow.handle(InteractionAction{});flow.handle(CancelInteractionAction{});check(f.members.questFlags.isSet(2),"later cancellation erased request");
 	XeenEventSystem replacement([&](XeenMapIdentity id){return f.scripts.at(id);});
-	XeenEventFlow newFlow(f.world,replacement,f.members,f.camera,f.flags,f.font,[&](std::uint64_t){return XeenEventFlow::Composition{f.base, false};});
+	XeenEventFlow newFlow(templePriceState,f.world,replacement,f.members,f.camera,f.flags,f.font,[&](std::uint64_t){return XeenEventFlow::Composition{f.base, false};});
 	newFlow.dialogText=&dos_test::text();
 	check(!newFlow.blocksGameplay() && f.members.questFlags.isSet(2) && f.members.questFlags.isSet(29),"new event owner reset party");
 	Fixture cancel;cancel.members=party(2);cancel.scriptAt({record(1,1,0,0x1f,{2,1,1})});

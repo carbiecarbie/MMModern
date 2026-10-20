@@ -22,18 +22,26 @@ struct XeenTempleHealCandidate {
 // recorded for the other Temple options.
 struct XeenTempleSurcharges {
     std::int16_t heal=0,resurrect=0,eradicate=0,uncurse=0,donation=0;
+    bool operator==(const XeenTempleSurcharges &b) const noexcept {
+        return heal==b.heal && resurrect==b.resurrect && eradicate==b.eradicate &&
+            uncurse==b.uncurse && donation==b.donation;
+    }
 };
-// Throws for a Clouds map without a temple entry: DOS keeps the previous
-// temple's values there, which MMModern does not model.
+// Table selection only. Untabled Clouds visits use XeenTemplePriceState's
+// process-lifetime row (DOS globals DS:f64e..f656), never the save state.
 XeenTempleSurcharges xeenTempleSurcharges(XeenMapIdentity);
-bool xeenTemplePricesKnown(XeenMapIdentity) noexcept;
 // Donation overwrites these spell effects, rather than taking their maximum.
 bool xeenTempleDonationBlessing(XeenGameplayContext &,std::uint8_t &counter);
 std::uint32_t xeenTempleUncurseCost(const XeenCharacter &,XeenMapIdentity temple);
+std::uint32_t xeenTempleUncurseCost(const XeenCharacter &,const XeenTempleSurcharges &);
 void xeenTempleClearCurse(XeenCharacter &) noexcept;
 XeenTempleHealResult xeenQuoteTempleHeal(const XeenCharacter &,std::uint32_t gold,
     const XeenGameplayContext &,XeenMapIdentity temple);
 XeenTempleHealCandidate xeenPrepareTempleHeal(const XeenPartyState &,std::uint8_t owner,
     const XeenGameplayContext &,XeenMapIdentity temple);
+XeenTempleHealResult xeenQuoteTempleHeal(const XeenCharacter &,std::uint32_t gold,
+    const XeenGameplayContext &,const XeenTempleSurcharges &);
+XeenTempleHealCandidate xeenPrepareTempleHeal(const XeenPartyState &,std::uint8_t owner,
+    const XeenGameplayContext &,const XeenTempleSurcharges &);
 }
 #endif

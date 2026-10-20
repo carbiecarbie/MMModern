@@ -11,9 +11,9 @@ void olderPolicy(const fs::path &path){
  const auto old=save_test::nonzeroLegacy();writeBytes(path,old);
  regional_save_test::Fixture f;auto services=f.services();bool shown=false;
  services.show=[&](const auto&,const auto&,const auto&,const auto&,const auto&){shown=true;return true;};
- check(Application().playGameplay(services,{},path,true)==3&&!shown&&diskBytes(path)==old,"older startup published or rewrote file");
+ check(Application(services.templePrices).playGameplay(services,{},path,true)==3&&!shown&&diskBytes(path)==old,"older startup published or rewrote file");
  services.show=[&](const auto&,const auto &handle,const auto&,const auto&,const auto &status){f.present(handle);f.send(handle,SaveGameAction{});check(status().find("Saved")!=std::string::npos,"F9 older overwrite failed");sameSnapshot(f.capture(),XeenSaveFile::read(path));return true;};
- check(Application().playGameplay(services,{},path,false,XeenEncounterEntry::Journey,1)==0,"fresh Journey older overwrite");
+ check(Application(services.templePrices).playGameplay(services,{},path,false,XeenEncounterEntry::Journey,1)==0,"fresh Journey older overwrite");
 }
 void startup(const fs::path &path){
  std::vector<Bytes> frames;
@@ -41,7 +41,7 @@ void startup(const fs::path &path){
    check(mapReads>maps&&objectReads>objects&&eventReads>scripts&&textReads>texts,"cache reconstruction did not call each provider");
    f.send(handle,SaveGameAction{});check(status().find("Saved")!=std::string::npos&&diskBytes(path)==original,"eligible F9 changed durable state");return true;
   };
-  check(Application().playGameplay(services,{},path,true)==0,"current startup graph failed");
+  check(Application(services.templePrices).playGameplay(services,{},path,true)==0,"current startup graph failed");
  }
  check(frames[0]!=frames[1],"equal-count identities collapsed");
 }
@@ -52,11 +52,11 @@ void failures(const fs::path &path){
   auto services=f.services();auto compose=services.composeEncounter;
   services.composeEncounter=[&](auto &w,const auto &p,const auto &c,auto phase,auto actor){if(mode==5)throw std::runtime_error("injected first-frame failure");auto frame=compose(w,p,c,phase,actor);if(mode==6)frame.frame.width=0;return frame;};
   bool shown=false;services.show=[&](const auto&,const auto&,const auto&,const auto&,const auto&){shown=true;return true;};
-  check(Application().playGameplay(services,{},path,true)==3&&!shown,"failed resume exposed gameplay or fell back");
+  check(Application(services.templePrices).playGameplay(services,{},path,true)==3&&!shown,"failed resume exposed gameplay or fell back");
  }
  fs::remove(path);regional_save_test::Fixture f;auto services=f.services();
  services.show=[&](const auto&,const auto &h,const auto&,const auto&,const auto &status){f.present(h);writeBytes(path,{'u','n','k','n','o','w','n'});const auto old=diskBytes(path);f.send(h,SaveGameAction{});check(status().find("Save failed")!=std::string::npos&&diskBytes(path)==old,"unknown destination protection");f.send(h,NavigationAction::TurnRight);fs::remove(path);f.send(h,SaveGameAction{});check(XeenSaveFile::read(path).camera.direction==XeenDirection::North,"write failure stopped current gameplay");return true;};
- check(Application().playGameplay(services,{},path,false,XeenEncounterEntry::Journey,1)==0,"recoverable current write failure");
+ check(Application(services.templePrices).playGameplay(services,{},path,false,XeenEncounterEntry::Journey,1)==0,"recoverable current write failure");
 }
 void pending(const fs::path &path){
  for(int kind=0;kind<7;++kind){
@@ -92,10 +92,10 @@ void pending(const fs::path &path){
    const auto retained=f.flow->frame().pixels;handle(SaveGameAction{});
    check(!fs::exists(path)&&retained==f.flow->frame().pixels,"unsaveable explorer F9 cleared retained label");return true;
   };
-  check(Application().playGameplay(services,start,path,false)==0,"pending Application path");
+  check(Application(services.templePrices).playGameplay(services,start,path,false)==0,"pending Application path");
  }
  Fixture f;auto services=f.services();services.show=[&](const auto&,const auto &handle,const auto&,const auto&,const auto &status){handle(SaveGameAction{});check(status().find("Map exploration cannot save.")!=std::string::npos,"no-target feedback");return true;};
- check(Application().playGameplay(services,start,std::nullopt,false)==0,"no target session");
+ check(Application(services.templePrices).playGameplay(services,start,std::nullopt,false)==0,"no target session");
 }
 void dispatchBoundaries(const fs::path &path){
  fs::remove(path);Fixture f;auto services=f.services();
@@ -110,7 +110,7 @@ void dispatchBoundaries(const fs::path &path){
   check(!fs::exists(path)&&status().find("idle gameplay boundary")!=std::string::npos,"event callback saved reentrantly");
   handle(SaveGameAction{});check(!fs::exists(path),"unsaveable explorer wrote after dispatch");current={};return true;
  };
- check(Application().playGameplay(services,start,path,false)==0,"dispatch guard");
+ check(Application(services.templePrices).playGameplay(services,start,path,false)==0,"dispatch guard");
  // A fatal automatic report retains prior movement, but production exits and may not save afterward.
  fs::remove(path);Fixture fatal;auto fatalServices=fatal.services();auto mapProvider=fatalServices.maps;
  fatalServices.maps=[&](XeenMapIdentity id){auto m=mapProvider(id);m.geometry.cells[33].rawAttributes=0x10;return m;};
@@ -121,7 +121,7 @@ void dispatchBoundaries(const fs::path &path){
   handle(SaveGameAction{});check(!fs::exists(path)&&status().find("idle gameplay boundary")!=std::string::npos,"fatal failure allowed saving");
   return false;
  };
- check(Application().playGameplay(fatalServices,start,path,false)==4,"fatal shutdown result");
+ check(Application(fatalServices.templePrices).playGameplay(fatalServices,start,path,false)==4,"fatal shutdown result");
 }
 void currentSaveBoundary(const fs::path &path){
  fs::remove(path);regional_save_test::Fixture f;auto services=f.services();unsigned clocks=0;services.clock=[&]{++clocks;return f.now;};Bytes initial;
@@ -134,10 +134,10 @@ void currentSaveBoundary(const fs::path &path){
   check(diskBytes(path)==initial&&f.flow->frame().pixels==pixels,"F9 changed current durable or presentation state");
   const auto n=f.phases.size();idle();check(f.phases.size()==n,"F9 moved deadline earlier");f.now=220;idle();f.present(h);check(f.phases.back()==2&&XeenSaveFormat::encode(f.capture())==initial,"F9 rearmed deadline");return true;
  };
- check(Application().playGameplay(services,{},path,false,XeenEncounterEntry::Journey,1)==0,"current save animation boundary");
+ check(Application(services.templePrices).playGameplay(services,{},path,false,XeenEncounterEntry::Journey,1)==0,"current save animation boundary");
  regional_save_test::Fixture restored;restored.now=500;auto resumed=restored.services();
  resumed.show=[&](const auto &first,const auto &h,const auto&,const auto &idle,const auto&){restored.present(h);check(first.pixels[20]==0&&restored.phases==std::vector<std::uint64_t>({0,0}),"restored phase/preflight");restored.now=PresentationClock::afterMilliseconds(restored.now,2);idle();restored.present(h);check(restored.phases.back()==1,"restored first idle tick");const auto due=PresentationClock::afterMilliseconds(restored.now,2);restored.now=due-1;const auto n=restored.phases.size();idle();check(restored.phases.size()==n,"restored early deadline");restored.now=due;idle();restored.present(h);check(restored.phases.back()==2,"restored scheduled tick");return true;};
- check(Application().playGameplay(resumed,{},path,true)==0&&diskBytes(path)==initial,"current restored startup changed file");
+ check(Application(resumed.templePrices).playGameplay(resumed,{},path,true)==0&&diskBytes(path)==initial,"current restored startup changed file");
 }
 void developerTarget(const fs::path &path) {
  fs::remove(path);
@@ -150,6 +150,6 @@ void developerTarget(const fs::path &path) {
   check(status().find("Saved")!=std::string::npos && diskBytes(loose)==original && diskBytes(path)==original,
    "managed current slot redirected/disabled explicit developer F9");return true;
  };
- check(Application().playGameplay(services,{},path,true)==0,"independent loose developer save path");
+ check(Application(services.templePrices).playGameplay(services,{},path,true)==0,"independent loose developer save path");
 }
 int main(){try{const auto dir=fs::current_path()/"save-flow-tests";fs::create_directories(dir);const auto path=dir/"session.mmsave";fs::remove(path);olderPolicy(path);startup(path);pending(path);failures(path);dispatchBoundaries(path);currentSaveBoundary(dir/"animation.mmsave");developerTarget(dir/"managed.mmsave");std::cout<<"Current Application startup, save eligibility, overwrite and failure paths passed\n";return 0;}catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}

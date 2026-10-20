@@ -89,7 +89,8 @@ struct Inputs {
         setup.learnedNames=resources.loadLearnedSpellNames();
         setup.learnedNamesProvider=resources.loadLearnedSpellNames;
         setup.cityEventsProvider=[this] {return resources.loadEvents(28);};
-        XeenEncounterFlow flow(world,party,camera,flags,[]{return 0;},setup);
+        XeenTemplePriceState templePrices;
+        XeenEncounterFlow flow(templePrices,world,party,camera,flags,[]{return 0;},setup);
         present(flow);
         return XeenSaveState::capture(resources.signature,party,camera,flags,world);
     }
@@ -98,7 +99,8 @@ struct Inputs {
         XeenPartyState party; XeenCamera camera; XeenGameFlags flags;
         XeenSaveState::restoreBeforeGameplay(candidate,resources,party,camera,flags,world,
             [this](auto &w,const auto &p,const auto &c,const auto &) {preflight(w,p,c);});
-        XeenEncounterFlow flow(world,party,camera,flags,[]{return 0;},XeenJourneyRestoreTag{});
+        XeenTemplePriceState templePrices;
+        XeenEncounterFlow flow(templePrices,world,party,camera,flags,[]{return 0;},XeenJourneyRestoreTag{});
         present(flow);
         return XeenSaveState::capture(resources.signature,party,camera,flags,world);
     }

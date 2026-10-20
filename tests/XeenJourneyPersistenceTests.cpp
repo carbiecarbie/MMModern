@@ -41,6 +41,7 @@ XeenSaveSnapshot ended() {
 	return capture(f);
 }
 struct Destination {
+    mmodern::XeenTemplePriceState templePriceState;
 	XeenPartyState p;
 	XeenCamera c{23,14,2,XeenDirection::West};
 	XeenGameFlags f;
@@ -73,7 +74,7 @@ struct Destination {
 	}
 	void bind() {
 		replay_test::Scope scope;
-		flow=std::make_unique<XeenEncounterFlow>(w,p,c,f,clock,XeenJourneyRestoreTag{});
+		flow=std::make_unique<XeenEncounterFlow>(templePriceState,w,p,c,f,clock,XeenJourneyRestoreTag{});
 		check(!XeenSaveState::canCapture(p,c,w),"restored binding awaits frame");
 		check(flow->prepareJourneyFrame(flow->ticket(),[] {}) && flow->presentJourney(flow->ticket()),"restored frame handoff");
 	}
@@ -95,6 +96,7 @@ void same(const XeenSaveSnapshot &s, Destination &d) {
 	check(XeenSaveFormat::encode(s)==XeenSaveFormat::encode(d.capture()),"all exact detached fields");
 }
 void roundtrips() {
+    mmodern::XeenTemplePriceState templePriceState;
 	for(auto s:{moved(),ended()}) {
 		for(unsigned i=0;i<30;++i) {
 			s.journey->supplements[i].inputs.experience=i==0?0:i==29?0xfffffff0u:1000+i;
@@ -117,9 +119,9 @@ void roundtrips() {
 	{
 		replay_test::Scope scope;
 		XeenPartyState otherParty; XeenCamera otherCamera=movedOwner.c; XeenGameFlags otherFlags=movedOwner.f;
-		rejects([&]{XeenEncounterFlow wrong(movedOwner.w,otherParty,movedOwner.c,movedOwner.f,movedOwner.clock,XeenJourneyRestoreTag{});});
-		rejects([&]{XeenEncounterFlow wrong(movedOwner.w,movedOwner.p,otherCamera,movedOwner.f,movedOwner.clock,XeenJourneyRestoreTag{});});
-		rejects([&]{XeenEncounterFlow wrong(movedOwner.w,movedOwner.p,movedOwner.c,otherFlags,movedOwner.clock,XeenJourneyRestoreTag{});});
+		rejects([&]{XeenEncounterFlow wrong(templePriceState,movedOwner.w,otherParty,movedOwner.c,movedOwner.f,movedOwner.clock,XeenJourneyRestoreTag{});});
+		rejects([&]{XeenEncounterFlow wrong(templePriceState,movedOwner.w,movedOwner.p,otherCamera,movedOwner.f,movedOwner.clock,XeenJourneyRestoreTag{});});
+		rejects([&]{XeenEncounterFlow wrong(templePriceState,movedOwner.w,movedOwner.p,movedOwner.c,otherFlags,movedOwner.clock,XeenJourneyRestoreTag{});});
 		check(!XeenSaveState::canCapture(movedOwner.p,movedOwner.c,movedOwner.w),"wrong owners cannot consume restoration handoff");
 	}
 	movedOwner.bind(); same(s,movedOwner);
@@ -289,6 +291,7 @@ void failures() {
 	});
 }
 struct ApplicationFixture {
+    mmodern::XeenTemplePriceState templePriceState;
 	gameplay_test::Fixture presentation;
 	Bytes bytes=chr(); XeenPartyState p=XeenPartyLoader().loadFromResources(bytes,pty());
 	XeenCamera c=regional_test::snapshot().camera; XeenGameFlags f;
@@ -302,7 +305,7 @@ struct ApplicationFixture {
 	std::unique_ptr<XeenEventFlow> flow;
 	ApplicationFixture() {
 		auto saved=moved();XeenSaveState::restoreBeforeGameplay(saved,services().resources,p,c,f,w,Destination::compose);
-		flow=std::make_unique<XeenEventFlow>(w,eventsOwner,p,c,f,presentation.font,
+		flow=std::make_unique<XeenEventFlow>(templePriceState,w,eventsOwner,p,c,f,presentation.font,
 			[](auto){return XeenEventFlow::Composition{};},XeenEventPresenter::NpcDraw{},XeenEventPresenter::Clock{[]{return 0;}},
 			XeenEventPresenter::RandomFrame{},nullptr,[](auto,auto){return XeenEventFlow::Composition{IndexedFrame{320,200,Bytes(64000)},false};},nullptr);
 		check(!flow->canSave(),"Application initial handoff closed"); flow->framePresented(flow->frame().presentation()); check(flow->canSave(),"Application presented Journey");

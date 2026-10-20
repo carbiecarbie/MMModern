@@ -15,6 +15,7 @@ using remove_test::check;
 using remove_test::record;
 namespace {
 struct Fixture {
+    mmodern::XeenTemplePriceState templePriceState;
  gameplay_test::Fixture data;
  std::uint64_t now=0;
  bool animated=true, fail=false, blocked=false, indoor=false, automatic=false;
@@ -29,7 +30,7 @@ struct Fixture {
   return m;},[&](XeenMapIdentity id){XeenObjectFile f{id,"test.mob",true,{}};f.entities.objects=std::vector<XeenMapEntity>{{1,1,0,0,111}};return f;}};
  XeenEventSystem events{[&](XeenMapIdentity id){return remove_test::script(id,data.scripts[id]);},
   [&](XeenMapIdentity id){auto t=data.text;t.mapId=id;return t;}};
- XeenEventFlow flow{world,events,data.initial,camera,flags,data.font,[&](std::uint64_t phase){
+ XeenEventFlow flow{templePriceState,world,events,data.initial,camera,flags,data.font,[&](std::uint64_t phase){
   phases.push_back(phase);if(fail)throw std::runtime_error("animation composition fault");
   IndexedFrame f;f.width=320;f.height=200;f.pixels.assign(64000,static_cast<std::uint8_t>(phase%251));
   return XeenEventFlow::Composition{f,animated};},{},[&]{return now;}};
@@ -170,16 +171,17 @@ void realComposition(bool sdl){
   },status);
   return ok && done;
  };
- check(Application().playGameplay(services,{1,1,1,XeenDirection::North},{},false)==0,"Application real animation run");
+ check(Application(services.templePrices).playGameplay(services,{1,1,1,XeenDirection::North},{},false)==0,"Application real animation run");
  check(phases==std::vector<std::uint64_t>({0,1,2,3}) && selected==std::vector<std::size_t>({0,1,2,0}),"logical idle cycle");
  check(frames[0].pixels!=frames[1].pixels && frames[1].pixels!=frames[2].pixels && frames[0].pixels==frames[3].pixels,"real cycle pixels/wrap");
  std::cout<<"Application/Flow/"<<(sdl?"SDL":"direct")<<" phase 0/1/2/3, selected frames 0/1/2/0 and native pixel cycle passed\n";
 }
 void warmedMalformedFrame(){
+    mmodern::XeenTemplePriceState templePriceState;
  RealScene resources(true);XeenAssetSource assets(resources.installation,320,200);CloudsMapComposer composer;
  Fixture f;std::uint64_t now=0;std::vector<std::uint64_t> phases;
  XeenWorld world([](auto id){return remove_test::map(id);},[](auto id){XeenObjectFile o{id,"test.mob",true,{}};o.entities.objects=std::vector<XeenMapEntity>{{1,1,0,0,110}};return o;});
- XeenEventFlow flow(world,f.events,f.data.initial,f.camera,f.flags,f.data.font,[&](std::uint64_t phase){phases.push_back(phase);XeenEventFlow::Composition r;r.frame=composer.compose(assets,world,{},f.camera,{},nullptr,phase,&r.containsOrdinaryAnimation);return r;},{},[&]{return now;});
+ XeenEventFlow flow(templePriceState,world,f.events,f.data.initial,f.camera,f.flags,f.data.font,[&](std::uint64_t phase){phases.push_back(phase);XeenEventFlow::Composition r;r.frame=composer.compose(assets,world,{},f.camera,{},nullptr,phase,&r.containsOrdinaryAnimation);return r;},{},[&]{return now;});
  flow.dialogText=&dos_test::text();
  const auto loads=assets.spriteLoadCount();now=110;bool failed=false;
  try{flow.updatePresentation();}catch(const std::runtime_error&){failed=true;}
@@ -187,6 +189,7 @@ void warmedMalformedFrame(){
  now=220;check(bool(flow.updatePresentation()) && phases.back()==2,"later valid selected frame did not use logical decision");
 }
 void retainedSceneCommands() {
+    mmodern::XeenTemplePriceState templePriceState;
  gameplay_test::Fixture data;XeenCamera camera{1,1,1,XeenDirection::North};XeenGameFlags flags;
  std::uint64_t now=0;bool fail=false;
  XeenMonsterRecord monster;monster.raw[20]=10;monster.raw[46]=1;monster.raw[47]=42;monster.raw[49]=1;
@@ -197,7 +200,7 @@ void retainedSceneCommands() {
  world.sceneActors(1,[&]{return std::vector<XeenMonsterRecord>{monster};});
  world.scenePresentation().hitSplat(0,7,0,false);world.scenePresentation().splats[0].duration=1;
  XeenEventSystem events([&](auto id){return remove_test::script(id,{});},[&](auto id){auto text=data.text;text.mapId=id;return text;});
- XeenEventFlow flow(world,events,data.initial,camera,flags,data.font,[&](auto phase){
+ XeenEventFlow flow(templePriceState,world,events,data.initial,camera,flags,data.font,[&](auto phase){
   world.sceneActors(1,[&]{return std::vector<XeenMonsterRecord>{monster};});
   const auto commands=XeenOutdoorScene().build(world,camera,nullptr,nullptr,phase);
   const auto actor=std::find_if(commands.begin(),commands.end(),[](const auto &c){return c.actor()!=nullptr;});

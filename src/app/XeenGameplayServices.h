@@ -10,6 +10,7 @@ class XeenTitleFlow;
 // Production binds original assets and SDL; synthetic tests bind bounded fixtures.
 // No live gameplay owner or saved snapshot is stored here.
 struct XeenGameplayServices {
+ XeenTemplePriceState &templePrices;
  XeenSaveState::Resources resources;
  std::function<XeenGameFlags()> initialFlags;
  XeenWorld::MapLoader maps;

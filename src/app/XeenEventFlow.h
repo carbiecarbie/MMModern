@@ -1,5 +1,6 @@
 #ifndef MMODERN_APP_XEEN_EVENT_FLOW_H
 #define MMODERN_APP_XEEN_EVENT_FLOW_H
+#include "games/xeen/XeenTemplePriceState.h"
 
 #include "app/XeenNavigationFlow.h"
 #include "formats/xeen/XeenSpriteDrawOptions.h"
@@ -35,7 +36,7 @@ public:
 	using EncounterCompose = std::function<Composition(std::uint64_t ordinaryPhase, XeenMonsterAppearance actorFrame)>;
 	using TransitionCompose = std::function<Composition(XeenWorld &, const XeenPartyState &,
 		const XeenCamera &, std::uint64_t, XeenMonsterAppearance)>;
-	XeenEventFlow(XeenWorld &world, XeenEventSystem &events,
+	XeenEventFlow(XeenTemplePriceState &templePrices, XeenWorld &world, XeenEventSystem &events,
 		XeenPartyState &party, XeenCamera &camera, XeenGameFlags &flags,
 		const XeenFontFormat &font, Compose compose,
 		XeenEventPresenter::NpcDraw npcDraw = {}, XeenEventPresenter::Clock clock = {},
@@ -198,6 +199,8 @@ private:
 		XeenTextInput amountCursor;
 		bool withdrawal=false,gems=false,bankRefreshed=false;
         bool goodbye=false;
+        XeenTempleSurcharges templePrices;
+        std::uint64_t templePriceRevision=0;
         bool spellInfo=false;
         ServiceArtState animation;
         XeenSpellListUi spells;
@@ -333,6 +336,7 @@ private:
 	std::uint64_t _saveOperation = 0;
 	std::optional<SaveBoundary> _saveBoundary;
 	friend class Application;
+	friend struct XeenTemplePriceStateTestAccess;
 	friend struct XeenTrainingTestAccess;
 	friend struct XeenMonsterTestAccess;
 	friend struct XeenCityEventTestAccess;
@@ -500,6 +504,7 @@ private:
 	bool pendingNpc() const;
 	struct Pending { XeenEventExecutionState state; bool automatic; std::uint64_t generation; };
 	std::uint64_t _generation = 0;
+	XeenTemplePriceState &_templePrices;
 	XeenWorld &_world;
 	std::unique_ptr<XeenWorld::GameplayBorrow> _gameplayBorrow;
 	XeenEventSystem &_events;

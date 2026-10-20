@@ -453,7 +453,7 @@ int Application::gameplay(const std::filesystem::path &gameDirectory, XeenCamera
         bool journeyControls = entry == XeenEncounterEntry::Journey;
         const auto catalog = loadXeenItemCatalog(assets);
         if (!catalog.diagnostic.empty()) std::cerr << "Item catalog: " << catalog.diagnostic << '\n';
-        XeenGameplayServices services{
+        XeenGameplayServices services{_templePrices,
             {signature, [&] { return XeenPartyLoader().loadInitialCloudsParty(assets); },
                 [&](XeenMapIdentity id) { return events.load(id); }},
             [&] { return XeenGameFlagsLoader().loadInitialCloudsFlags(assets); },

@@ -53,7 +53,7 @@ void gameplay() {
   const auto after=remove_test::partySnapshot(*live);handle(AcknowledgeAction{});check(remove_test::partySnapshot(*live)==after,"Enter replay");
   handle(DialogKeyAction{InputKey::Escape});check(f.flow->inventoryOpen(),"items Esc returns sheet");
   handle(DialogKeyAction{InputKey::Escape});check(!f.flow->inventoryOpen(),"sheet Esc closes");return true;
- };Quiet quiet;check(Application().playGameplay(services,start,{},false)==0,"original inventory flow");
+ };Quiet quiet;check(Application(services.templePrices).playGameplay(services,start,{},false)==0,"original inventory flow");
 }
 void windowTitle() {
  for(bool managed:{false,true}) {
@@ -65,7 +65,7 @@ void windowTitle() {
    if(managed)check(status()=="MMModern","title-menu play showed a save diagnostic");
    else check(status().find("inventory")!=std::string::npos,"developer entry lost its save diagnostic");
    return true;
-  };Quiet quiet;check(Application().playGameplay(services,start,{},false)==0,"window title gameplay");
+  };Quiet quiet;check(Application(services.templePrices).playGameplay(services,start,{},false)==0,"window title gameplay");
  }
 }
 void invalidation() {
@@ -79,7 +79,7 @@ void invalidation() {
   else XeenInventoryTestAccess::exhaust(*f.flow);
   const auto before=remove_test::partySnapshot(*live);handle(SelectMemberAction{1});
   check(remove_test::partySnapshot(*live)==before,"stale transfer mutated");return true;
- };Quiet quiet;check(Application().playGameplay(services,start,{},false)==0,"transfer invalidation");}
+ };Quiet quiet;check(Application(services.templePrices).playGameplay(services,start,{},false)==0,"transfer invalidation");}
 }
 void failure(){
  Fixture f;seed(f);auto services=f.services();const XeenPartyState *live=nullptr;
@@ -89,14 +89,14 @@ void failure(){
   f.flow->reportInventory=[](const auto &){throw std::runtime_error("transfer reporting fault");};
   handle(SelectMemberAction{1});check(!f.flow->inventoryOpen() && live->roster.at(1).weapons[0].id==37,"published transfer recovery");
   handle(InspectInventoryAction{});handle(AcknowledgeAction{});check(live->roster.at(1).weapons[1].id==0,"recovery replay");return true;
- };Quiet quiet;check(Application().playGameplay(services,start,{},false)==0,"transfer recovery");
+ };Quiet quiet;check(Application(services.templePrices).playGameplay(services,start,{},false)==0,"transfer recovery");
 }
 void automaticGuard(){
  Fixture f;seed(f);f.automatic=true;f.scripts[1]={record(1,1,0,9,{44,1,1}),record(1,1,1,0x12)};auto services=f.services();
  services.show=[&](const auto &,const auto &handle,const auto &,const auto &,const auto &){
   const auto gen=f.flow->presentationGeneration();handle(SelectMemberAction{0});handle(InspectInventoryAction{});
   check(!f.flow->inventoryOpen() && f.flow->presentationGeneration()==gen,"sheet disturbed automatic Event");return true;
- };Quiet quiet;check(Application().playGameplay(services,start,{},false)==0,"automatic guard");
+ };Quiet quiet;check(Application(services.templePrices).playGameplay(services,start,{},false)==0,"automatic guard");
 }
 void sdl(){
  Fixture f;seed(f);f.ordinary=true;f.initial.roster.at(0).name="Source";auto services=f.services();unsigned index=0,loops=0;bool queued=false;
@@ -113,7 +113,7 @@ void sdl(){
    else {e.type=SDL_KEYDOWN;e.key.keysym.sym=keys[index];SDL_PushEvent(&e);e.key.repeat=1;SDL_PushEvent(&e);e.type=SDL_KEYUP;e.key.repeat=0;SDL_PushEvent(&e);queued=true;}};}
    return idle();
   },status);
- };Quiet quiet;check(Application().playGameplay(services,start,{},false)==0 && index==keys.size(),"SDL sheet/item strict lifecycle");
+ };Quiet quiet;check(Application(services.templePrices).playGameplay(services,start,{},false)==0 && index==keys.size(),"SDL sheet/item strict lifecycle");
 }
 int child(const fs::path &path,bool resume) {
  regional_save_test::Fixture f;
@@ -144,7 +144,7 @@ int child(const fs::path &path,bool resume) {
   if(!resume){check(XeenSaveFormat::encode(XeenSaveFile::read(path))==original,"deferred save");handle(SaveGameAction{});check(status().find("Saved")!=std::string::npos&&preflightReentered,"production F9/preflight guard failed");}
   sameSnapshot(expected,XeenSaveFile::read(path));return true;
  };
- Quiet quiet;const int result=Application().playGameplay(services,{},path,true);if(result)std::cerr<<quiet.out.str();return result;
+ Quiet quiet;const int result=Application(services.templePrices).playGameplay(services,{},path,true);if(result)std::cerr<<quiet.out.str();return result;
 }
 void restart(const fs::path &exe) {
 	const auto dir=fs::current_path()/("inventory-restart-"+std::to_string(GetCurrentProcessId())+"-"+std::to_string(GetTickCount64()));fs::create_directory(dir);

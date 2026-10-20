@@ -39,7 +39,7 @@ void application(const fs::path &path,bool fullPacks){
 		check(!fs::exists(path),"deferred save occurred");handle(InspectInventoryAction{});++inspections;handle(CancelInteractionAction{});
 		handle(SaveGameAction{});check(status().find("Map exploration cannot save.")!=std::string::npos&&!fs::exists(path),"ordinary reward flow became saveable");
 		check(flags->isSet(7)&&live->roster.at(1).miscellaneous[0].id==(fullPacks?0:37)&&live->roster.at(29).miscellaneous[3].id==254,"reward flow lost inserted/inactive items");return true;};
-	check(Application().playGameplay(services,start,path,false)==0&&reentrant&&inspections==2,"Application reward flow");
+	check(Application(services.templePrices).playGameplay(services,start,path,false)==0&&reentrant&&inspections==2,"Application reward flow");
 
 }
 void actualProducerGuards(){
@@ -76,7 +76,7 @@ void actualProducerGuards(){
 		handle(CancelInteractionAction{});handle(SaveGameAction{});check(status().find("Map exploration cannot save.")!=std::string::npos,"actual post-cleanup F9 guard");
 		return true;
 	};
-	check(Application().playGameplay(services,start,{},false)==0 && reentrant,"actual producer Application guards");
+	check(Application(services.templePrices).playGameplay(services,start,{},false)==0 && reentrant,"actual producer Application guards");
 }
 void setupOrder(){
 	Fixture f;f.automatic=true;f.scripts[1]={record(1,1,0,12,{0,0,21,99}),record(1,1,1,0x12)};
@@ -89,7 +89,7 @@ void setupOrder(){
 		while(f.flow->blocksGameplay())handle(AcknowledgeAction{});
 		handle(InspectInventoryAction{});
 		check(f.flow->inventoryOpen() && f.eventReads==count,"items not live/read-only");return true;};
-	check(Application().playGameplay(services,start,{},false)==0,"setup ordering");
+	check(Application(services.templePrices).playGameplay(services,start,{},false)==0,"setup ordering");
 }
 void cleanupSaving(const fs::path &path){
 	for(bool automatic:{false,true})for(bool afterDelivery:{false,true}){
@@ -114,7 +114,7 @@ void cleanupSaving(const fs::path &path){
 			if(automatic)check(!fs::exists(path)&&status().find("idle gameplay boundary")!=std::string::npos,"fatal automatic state saveable");
 			else {check(!fs::exists(path)&&status().find("Map exploration cannot save.")!=std::string::npos&&live->roster.at(0).miscellaneous.back().id==(afterDelivery?37:0),"recoverable cleanup lost inserted items");}
 			return !automatic;};
-		check(Application().playGameplay(services,start,path,false)==(automatic?4:0),"cleanup Application outcome");
+		check(Application(services.templePrices).playGameplay(services,start,path,false)==(automatic?4:0),"cleanup Application outcome");
 	}
 }
 void sdl(const fs::path &path,bool fullPacks){
@@ -139,7 +139,7 @@ void sdl(const fs::path &path,bool fullPacks){
 			return frame;
 		},escape,idle,status);
 		finished=true;sender.join();check(live->roster.at(0).miscellaneous[0].id==(fullPacks?0:37),"SDL reward inventory");return ok;};
-	check(Application().playGameplay(services,start,path,false)==0&&seeded&&refused==(fullPacks?3U:2U)&&saved==1,"actual SDL F9 reward flow");
+	check(Application(services.templePrices).playGameplay(services,start,path,false)==0&&seeded&&refused==(fullPacks?3U:2U)&&saved==1,"actual SDL F9 reward flow");
 	check(!fs::exists(path),"SDL ordinary reward flow wrote a save");
 }
 int main(int argc,char**){try{const auto dir=fs::current_path()/"reward-gameplay-tests";fs::create_directories(dir);

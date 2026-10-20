@@ -45,7 +45,7 @@ int main(){try{
    },status);
    check(quitSent,"SDL quit was not sent");return result;
   };
-  check(Application().playGameplay(services,{},path,true)==0,"SDL Application failed");
+  check(Application(services.templePrices).playGameplay(services,{},path,true)==0,"SDL Application failed");
   check(saves==(quitFirst?0U:2U)&&!refused&&blockedKeys==(quitFirst?0U:2U),"F9 repeats/quit ordering or strict WhoWill input suppression");
   sameSnapshot(f.saved,XeenSaveFile::read(path));
   if(!quitFirst){check(titleSeen,"native window title not updated");check(XeenSaveFile::read(path).questItems[17]==0,"SDL save changed gameplay");}

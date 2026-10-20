@@ -109,6 +109,16 @@ work for the maintainer.
         pricing; `xeenTownServiceKnown` admits Clouds Temple carry-over, while
         Food and every other untabled refusal stays. Darkside selection is a
         rule only, without admitting play.
+
+        Departure to settlement: `departSmith` destroys `SmithContinuation`, but
+        the Temple screen lives until the Event settlement completes and may
+        be redrawn there (for example a `BeforeEventSettlement` retry). `SmithUi`
+        keeps the visit's published row and revision from admission until
+        settlement ends; in that window the accessor returns them after
+        checking that the owner's row and revision still equal them. No quote,
+        payment, Uncurse or Donation is possible then, and settlement
+        completion discards them with `SmithUi`. Before admission the prepared
+        row is the source, as already described.
       - **Lifetime and stale work.** Load and New Game do not touch the owner,
         so its revision cannot detect old-session work. That protection is the
         existing one: `playGameplay` destroys the Flow and session owners

@@ -116,7 +116,7 @@ void synthetic(bool ran=false,bool healing=false,bool cancel=false,unsigned powe
     };
     auto directory=child_test::freshDirectory(std::filesystem::current_path()/"m77-items");h.runDirectories.push_back(directory);
     auto path=directory/"fixture.mmsave";XeenSaveFile::write(path,saved);
-    check(Application().playGameplay(services,{},path,true)==0,"Combat Items gameplay failed");
+    check(Application(services.templePrices).playGameplay(services,{},path,true)==0,"Combat Items gameplay failed");
 }
 void original(const std::filesystem::path &game) {
     const auto installation=xeenTestInstallationDetector().detect(game);check(bool(installation),"Original installation missing");

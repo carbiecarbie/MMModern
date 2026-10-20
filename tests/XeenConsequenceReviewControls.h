@@ -203,7 +203,7 @@ void shootRevalidation(Source &source) {
   check(h.flow->encounter()->notice().find("no awake eligible missile user")!=std::string::npos,"Firing revalidation reports lost eligibility");
   return true;
  };
- check(Application().playGameplay(services,{},path,true)==0 && shown,"Production typed/idle Flow revalidation");
+ check(Application(services.templePrices).playGameplay(services,{},path,true)==0 && shown,"Production typed/idle Flow revalidation");
  std::filesystem::remove(path);
  std::cout<<"REVIEW typed/idle/EventFlow: old shot disables sole missile user; no volley/charge; Quiet capture restored PASS\n";
 }

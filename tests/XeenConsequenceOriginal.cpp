@@ -73,6 +73,7 @@ auto currentServices(combat_gameplay_test::Harness &h,Source &source){
  r.loadInitialBankBalances=[&source]{return XeenCharacterFormat::parseBankBalances(source.pty);};services.resources=r;services.texts=r.loadRegionalText;return services;
 }
 struct Domain {
+    mmodern::XeenTemplePriceState templePriceState;
  Source &source;XeenWorld world;XeenPartyState party;XeenCamera camera{23,9,11,XeenDirection::West};XeenGameFlags flags;
  std::uint64_t now=0;XeenEventPresenter::Clock clock=[this]{return now;};std::unique_ptr<XeenEncounterFlow> flow;
  // afterRestore: a live fixture change after the game load (decision 8 keeps
@@ -83,7 +84,7 @@ struct Domain {
   if(!saved)state.journey->random=XeenJourneyRandomState{1,1,0};
   XeenSaveState::restoreBeforeGameplay(state,s.resources(),party,camera,flags,world,[](auto &,const auto &,const auto &,const auto &){});
   if(afterRestore)afterRestore(world);
-  flow=std::make_unique<XeenEncounterFlow>(world,party,camera,flags,clock,XeenJourneyRestoreTag{});
+  flow=std::make_unique<XeenEncounterFlow>(templePriceState,world,party,camera,flags,clock,XeenJourneyRestoreTag{});
   present();
  }
  void present(){check(flow->prepareJourneyFrame(flow->ticket(),[]{}) && flow->presentJourney(flow->ticket()),"Artificial control presentation");}

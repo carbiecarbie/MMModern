@@ -333,8 +333,10 @@ are partial, members are injured, member 1 carries a cursed weapon and member
 Lloyd's Beacon: their beacons reach Shangri-La Ironworks `(14,8)` on map 49
 and Newcastle Training `(11,7)` on map 73. Use Town Portal for the five towns;
 use the two beacons for Shangri-La and Newcastle, then the original stairs to
-Newcastle Level 2's Bank. Its Temple still says "not supported yet" until M79
-Part C. Interact with Space at a service, and use its original buttons or keys.
+Newcastle Level 2's Bank and Temple. The Temple keeps the prices of the last
+Temple visited in the running program, including across New Game and Load;
+in a fresh program it has zero surcharges and no Donation charge. Interact
+with Space at a service, and use its original buttons or keys.
 
 ```powershell
 .\build-rel\mmodern_test_save.exe m79-playtest "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/m79-playtest.mmsave"

@@ -183,7 +183,7 @@ void disengagementSemanticInput(Source &source) {
   check(combat->phase()==XeenCombatPhase::PreparingAction && combat->result().actingOwner==kXeenCombatOwners[1],"Fresh displayed typed Run reaches the next stable owner");
   press(SaveGameAction{});check(!h.saves,"Pending fresh Run F9 invokes no providers");checked=true;return true;
  };
- check(Application().playGameplay(services,{},path,true)==0 && checked,"M34 original-resource semantic input control");
+ check(Application(services.templePrices).playGameplay(services,{},path,true)==0 && checked,"M34 original-resource semantic input control");
  std::filesystem::remove(path);
  std::cout<<"M34 ARTIFICIAL semantic/native-R equivalence, stale and previous-frame refusal, fresh next-owner input, zero blocked F9 providers PASS\n";
 }
@@ -243,7 +243,7 @@ void disengagementNativeInput(Source &source) {
  const char *video=SDL_getenv("SDL_VIDEODRIVER"),*renderer=SDL_getenv("SDL_RENDER_DRIVER");
  const std::string oldVideo=video?video:"",oldRenderer=renderer?renderer:"";
  SDL_setenv("SDL_VIDEODRIVER","dummy",1);SDL_setenv("SDL_RENDER_DRIVER","software",1);
- const int result=Application().playGameplay(services,{},path,true);taped=false;
+ const int result=Application(services.templePrices).playGameplay(services,{},path,true);taped=false;
  SDL_setenv("SDL_VIDEODRIVER",oldVideo.c_str(),1);SDL_setenv("SDL_RENDER_DRIVER",oldRenderer.c_str(),1);
  check(result==0 && stage==16,"M34 native input sequence completed");
  std::filesystem::remove(path);
@@ -374,7 +374,7 @@ void disengagementFinishPresentation(Source &source,bool injectFault=true) {
    }
    completed=true;return true;
   };
-  check(Application().playGameplay(services,{},path,true)==0 && completed,"Actual EventFlow finish handoff regression");
+  check(Application(services.templePrices).playGameplay(services,{},path,true)==0 && completed,"Actual EventFlow finish handoff regression");
   std::filesystem::remove(path);
  }
  std::cout<<"M34 ARTIFICIAL EventFlow occupied/normal DirectRun/Attrition, repeated finishes, exact frame and retry feedback PASS\n";

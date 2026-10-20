@@ -129,6 +129,7 @@ inline XeenSaveState::Resources resources(){
     return r;
 }
 struct Fixture{
+    mmodern::XeenTemplePriceState templePriceState;
     Bytes bytes=characterBytes();
     std::vector<XeenMonsterRecord> monsters=statistics();
     XeenEventFile event=events(23);
@@ -143,7 +144,7 @@ struct Fixture{
     explicit Fixture(const std::optional<XeenSaveSnapshot> &saved={}){
         if(saved){
             XeenSaveState::restoreBeforeGameplay(*saved,resources(),p,camera,flags,w,[](auto &,const auto &,const auto &,const auto &){});
-            flow=std::make_unique<XeenEncounterFlow>(w,p,camera,flags,clock,XeenJourneyRestoreTag{});
+            flow=std::make_unique<XeenEncounterFlow>(templePriceState,w,p,camera,flags,clock,XeenJourneyRestoreTag{});
         }else{
             p=XeenPartyLoader().loadFromResources(bytes,partyBytes());
             const auto r=resources();
@@ -152,7 +153,7 @@ struct Fixture{
             setup.regionalText=texts(23);setup.learnedNames=XeenLearnedSpellNames{};
             setup.learnedNamesProvider=r.loadLearnedSpellNames;
             setup.bank=XeenBankBalances{};setup.cityEventsProvider=[]{return events(28);};
-            flow=std::make_unique<XeenEncounterFlow>(w,p,camera,flags,clock,setup);
+            flow=std::make_unique<XeenEncounterFlow>(templePriceState,w,p,camera,flags,clock,setup);
         }
         present();
     }

@@ -68,7 +68,7 @@ void controls(const fs::path &path) {
   check(injected&&h.flow->encounter()->combat()->phase()!=Phase::Failed,"one guarded rebuild retains result");
   const auto after=*h.world->sessionState().journeyRandom();std::vector<XeenActor> actors=h.world->sessionState().monsters(23);handler.withDisplayedInput(InteractionAction{},old);
   check(*h.world->sessionState().journeyRandom()==after&&xeen_state::sameActor(actors[9],h.world->sessionState().monsters(23)[9]),"stale frame cannot replay published attack");return true;};
- check(Application().playGameplay(s,{},path,true)==0,"production postpublication rebuild");}
+ check(Application(s.templePrices).playGameplay(s,{},path,true)==0,"production postpublication rebuild");}
  // A second composition failure closes capture while retaining the published RNG/result.
  {Harness h;auto s=services(h);bool failed=false;std::uint64_t initialCount=0;
  const auto compose=s.composeEncounter;s.composeEncounter=[&](auto &w,const auto &p,const auto &c,auto ordinary,auto appearance){
@@ -82,7 +82,7 @@ void controls(const fs::path &path) {
   const auto after=*h.world->sessionState().journeyRandom();const auto stages=h.saves;
   handler.withDisplayedInput(SaveGameAction{},old);handler.withDisplayedInput(InteractionAction{},old);
   check(h.saves==stages&&*h.world->sessionState().journeyRandom()==after,"failed frame cannot save or replay");return true;};
- check(Application().playGameplay(s,{},path,true)==0,"production fatal frame closure");}
+ check(Application(s.templePrices).playGameplay(s,{},path,true)==0,"production fatal frame closure");}
  // Real SDL poll batches and held keys at a two-target contact.
  {Harness h;auto s=services(h);unsigned stage=0,loops=0,stable=0,queuedAttacks=0;std::uint64_t rng=0;int participant=0;
  const auto key=[](SDL_Keycode code,Uint32 type=SDL_KEYDOWN,Uint8 repeat=0){SDL_Event e{};e.type=type;e.key.keysym.sym=code;e.key.timestamp=SDL_GetTicks()+1;e.key.repeat=repeat;check(SDL_PushEvent(&e)==1,"SDL target key queue");};
@@ -109,7 +109,7 @@ void controls(const fs::path &path) {
    default:check(c->selectedTarget()==XeenMonsterIdentity{23,16}&&c->participant()==participant,"released fresh target accepted without turn");{SDL_Event e{};e.type=SDL_QUIT;SDL_PushEvent(&e);}break;
    }return frame;};
   return SdlWindow().showInteractive(first,"M30B target controls",native,escape,driver,status);};
- check(Application().playGameplay(s,{},path,true)==0&&stage>=7,"real SDL target generation safety");}
+ check(Application(s.templePrices).playGameplay(s,{},path,true)==0&&stage>=7,"real SDL target generation safety");}
 }
 void deathControl(const fs::path &path) {
  auto saved=XeenSaveFile::read(path);
@@ -131,7 +131,7 @@ void deathControl(const fs::path &path) {
   check(h.flow->encounter()->combat()->phase()==Phase::Defeat&&h.party->roster.at(1).conditions[13]&&h.flow->encounter()->notice().find("Dead")!=std::string::npos,"production injury sets and presents death");
   check(h.flow->encounter()->combatObservation().armorCount&&h.flow->encounter()->notice().find("items changed 2")!=std::string::npos,"production lethal injury presents armor breakage");
   const auto stages=h.saves;handler.withDisplayedInput(SaveGameAction{},*handler.displayedInput());check(!h.flow->canSave()&&stages==h.saves&&diskBytes(path)==before,"death cannot save or recover");return true;};
- check(Application().playGameplay(s,{},path,true)==0,"synthetic successor death production control");
+ check(Application(s.templePrices).playGameplay(s,{},path,true)==0,"synthetic successor death production control");
 }
 }
 int main(){try{

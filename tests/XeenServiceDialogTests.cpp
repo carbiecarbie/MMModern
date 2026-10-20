@@ -134,7 +134,7 @@ void placeRules(Inputs &in) {
             const auto refused=xeenBuyFood(6,1,1000,true,map);
             check(!offer && refused.outcome==XeenFoodOutcome::SupportLimit && refused.foodAfter==1 && refused.goldAfter==1000,"Untabled Food mutated");
         }
-        check(xeenTemplePricesKnown(map)==(map==28 || map==30 || map==49 || map==73),"Temple price admission");
+        check(xeenTownServiceKnown(map,4),"Clouds Temple carry-over admission");
     }
     using R=XeenLearnedSpellRules;
     const std::vector<std::vector<unsigned>> catalogues{
@@ -260,7 +260,7 @@ void otherTownServices(Inputs &in) {
         check(f.p.food==360 && f.p.monsterTreasure->gold==99950,"Rivercity Food 60/50");
         keyboard(f,InputKey::Escape);f.finishDeparture();
     }
-    for(const auto camera:{XeenCamera{74,4,4,XeenDirection::North},XeenCamera{49,7,14,XeenDirection::North}}) {
+    for(const auto camera:{XeenCamera{49,7,14,XeenDirection::North}}) {
         auto source=townService(in,camera.mapId.number,camera.x,camera.y,camera.direction);
         training_test::Fixture f(in,source);townProviders(f,in);const auto before=XeenSaveFormat::encode(f.snapshot());
         std::string notice;f.flow->reportText=[&](const auto &text){notice=text;};

@@ -8,6 +8,7 @@ XeenJourneySetup freshSetup(Source &s,XeenDifficulty difficulty) {
  setup.cityEventsProvider=[&s]{return s.city;};setup.mainlandEventsProvider=[&s]{return s.mainland;};return setup;
 }
 struct FreshDomain {
+    mmodern::XeenTemplePriceState templePriceState;
  Source &source;XeenWorld world;XeenPartyState party;XeenCamera camera;XeenGameFlags flags;
  std::uint64_t now=0;
  XeenEventPresenter::Clock clock=[this]{return now;};
@@ -15,7 +16,7 @@ struct FreshDomain {
  FreshDomain(Source &s,XeenDifficulty difficulty):source(s),world(s.mapLoader(),s.objectLoader()),
   party(XeenPartyLoader().loadFromResources(s.chr,s.pty)),camera(XeenCharacterFormat::parsePartyLocation(s.pty)) {
   auto setup=freshSetup(s,difficulty);
-  flow=std::make_unique<XeenEncounterFlow>(world,party,camera,flags,clock,setup);
+  flow=std::make_unique<XeenEncounterFlow>(templePriceState,world,party,camera,flags,clock,setup);
   present();
  }
  void present(){check(flow->prepareJourneyFrame(flow->ticket(),[]{}) && flow->presentJourney(flow->ticket()),"Fresh original presentation");}
@@ -68,7 +69,7 @@ void freshSaveControls(Source &source) {
    check(XeenSaveFormat::encode(XeenSaveFile::read(path))==before,"Immediate F9 without move or pulse");
    freshState(source,*h.party,*h.camera,*h.flags,*h.world,difficulty);shown=true;return true;
   };
-  check(Application().playGameplay(services,{},path,false,XeenEncounterEntry::Journey)==0 && shown,"Fresh application hook");
+  check(Application(services.templePrices).playGameplay(services,{},path,false,XeenEncounterEntry::Journey)==0 && shown,"Fresh application hook");
   services.originalStart.reset();shown=false;
   services.show=[&](const auto &,const auto &handler,const auto &,const auto &,const auto &) {
    handler.framePresented(h.flow->frame().presentation());
@@ -76,7 +77,7 @@ void freshSaveControls(Source &source) {
    handler.beginCycle(++h.cycle);handler.withDisplayedInput(SaveGameAction{},*handler.displayedInput());
    check(XeenSaveFormat::encode(XeenSaveFile::read(path))==before,"Restore/re-save retains every v6 byte");shown=true;return true;
   };
-  check(Application().playGameplay(services,{},path,true)==0 && shown,"Immediate saved original resume");
+  check(Application(services.templePrices).playGameplay(services,{},path,true)==0 && shown,"Immediate saved original resume");
   std::filesystem::remove(path);
  }
 }
@@ -107,7 +108,7 @@ void titlePublicationControls(Source &source) {
      XeenSaveFormat::encode(XeenSaveFile::read(path))==XeenSaveFormat::encode(shown),"New initial save differs from first presented state");
     freshState(source,*h.party,*h.camera,*h.flags,*h.world,difficulty);return true;
    };
-   check(Application().playGameplay(services,{},path,false,XeenEncounterEntry::Journey)==(cancel?5:0),"New publication/cancel outcome");
+   check(Application(services.templePrices).playGameplay(services,{},path,false,XeenEncounterEntry::Journey)==(cancel?5:0),"New publication/cancel outcome");
    check(seeds==1 && presentations==(cancel?0u:1u),"New repeated initialization or exposed cancelled candidate");
    if(!cancel) {
     services.originalStart.reset();services.publishInitial={};services.restoreSnapshot=std::make_shared<const XeenSaveSnapshot>(*initialized);
@@ -117,13 +118,14 @@ void titlePublicationControls(Source &source) {
      auto restored=XeenSaveState::capture(source.signature,*h.party,*h.camera,*h.flags,*h.world);restored.name=initialized->name;
      check(XeenSaveFormat::encode(restored)==XeenSaveFormat::encode(*initialized),"Title snapshot restore changed gameplay");return true;
     };
-    check(Application().playGameplay(services,{},path,true)==0 && seeds==1,"Title Load reopened path or sampled RNG");
+    check(Application(services.templePrices).playGameplay(services,{},path,true)==0 && seeds==1,"Title Load reopened path or sampled RNG");
    }
    std::filesystem::remove(path);
   }
  }
 }
 void freshFailureControls(Source &s) {
+    mmodern::XeenTemplePriceState templePriceState;
  for(unsigned fault=0;fault<5;++fault) {
   auto p=XeenPartyLoader().loadFromResources(s.chr,s.pty);const auto before=p.roster.characters();
   auto c=XeenCharacterFormat::parsePartyLocation(s.pty);XeenGameFlags f;
@@ -135,7 +137,7 @@ void freshFailureControls(Source &s) {
   setup.mainlandEventsProvider=[&]{auto e=s.mainland;if(fault==1)e.mapId=28;return e;};
   if(fault==2)setup.cityEventsProvider=[&]{auto e=s.city;e.records[0].opcode^=1;return e;};
   if(fault==3)setup.cityEventsProvider=[&]()->XeenEventFile{throw std::bad_alloc();};
-  bool failed=false;try{XeenEncounterFlow flow(w,p,c,f,[]{return 0;},setup);}catch(const std::exception &){failed=true;}
+  bool failed=false;try{XeenEncounterFlow flow(templePriceState,w,p,c,f,[]{return 0;},setup);}catch(const std::exception &){failed=true;}
   check(failed && !w.sessionState().encounterInitialized() && w.sessionState().monsters(23).empty() &&
    !w.sessionState().hasRegionalActors(28) && !p.roster.combatMarked() && !p.encounterContext && !p.serviceEconomy && !p.monsterTreasure && !p.worldFlags,"Failed fresh preparation publishes no gameplay candidate");
   for(unsigned n=0;n<30;++n)check(xeen_state::sameCharacter(before[n],p.roster.at(n)),"Failed fresh preparation retains original CHR");

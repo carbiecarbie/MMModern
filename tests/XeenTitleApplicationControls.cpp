@@ -33,9 +33,17 @@ extern "C" bool wrappedTitleShow(const SdlWindow *,const IndexedFrame &,const st
  const std::function<bool()> &,const SdlWindow::IdleFrameHandler &,const std::function<std::string()> &) asm("__wrap_" SHOW_SYMBOL);
 extern "C" fs::path realTitleDirectory(const GameInstallation &,const fs::path &,const std::optional<fs::path> &) asm("__real_" DIRECTORY_SYMBOL);
 extern "C" fs::path wrappedTitleDirectory(const GameInstallation &,const fs::path &,const std::optional<fs::path> &) asm("__wrap_" DIRECTORY_SYMBOL);
+namespace mmodern {
+struct XeenTemplePriceStateTestAccess {
+ static void seed(XeenTemplePriceState &prices,unsigned map) {
+  prices.checkPublication(prices.revision());prices.publish(prices.prepare(XeenMapIdentity(map)));
+ }
+};
+}
 namespace {
 struct State {
  bool enabled=false,loading=false,mouse=false,shown=false;
+ XeenTemplePriceState *templePrices=nullptr;XeenTempleSurcharges templeRow;
  bool panelMode=false,failPreflight=false,failWrite=false;
  bool failNotice=false;
  unsigned noticeAttempts=0,writes=0;
@@ -188,6 +196,8 @@ extern "C" int wrappedTitlePlay(const Application *app,const XeenGameplayService
  const std::optional<fs::path> &target,bool resume,XeenEncounterEntry entry,std::optional<std::uint32_t> seed) {
  if(!state.enabled)return realTitlePlay(app,original,camera,target,resume,entry,seed);
  check(resume==state.loading && target.has_value() && !seed,"title session entry");
+ check(&original.templePrices==state.templePrices && original.templePrices.row()==state.templeRow &&
+  original.templePrices.revision()==1,"Title/New Game/panel Load replaced or reset process Temple prices");
  state.slot=*target;state.signature=original.resources.signature;
  auto services=original;
  state.font=&services.font;
@@ -230,7 +240,9 @@ extern "C" int wrappedTitlePlay(const Application *app,const XeenGameplayService
   state.world=&world;state.party=&party;state.camera=&camera;state.flags=&flags;
  };
  struct Clear {~Clear(){state.world=nullptr;state.party=nullptr;state.camera=nullptr;state.flags=nullptr;}} clear;
- return realTitlePlay(app,services,camera,target,resume,entry,seed);
+ const auto result=realTitlePlay(app,services,camera,target,resume,entry,seed);
+ check(original.templePrices.row()==state.templeRow && original.templePrices.revision()==1,"Game initialization or Load changed process Temple prices");
+ return result;
 }
 extern "C" bool wrappedTitleShow(const SdlWindow *window,const IndexedFrame &first,const std::string &label,
  const SdlWindow::FrameUpdateHandler &handler,const std::function<bool()> &escape,const SdlWindow::IdleFrameHandler &idle,
@@ -303,17 +315,23 @@ void titleApplicationControls(const char *game) {
  fs::create_directory(state.base);
  struct Cleanup {~Cleanup(){state.enabled=false;removeTestTree(state.base);}} cleanup;
  for(auto difficulty:{XeenDifficulty::Adventurer,XeenDifficulty::Warrior}) {
+  XeenTemplePriceState templePriceState;
+  XeenTemplePriceStateTestAccess::seed(templePriceState,difficulty==XeenDifficulty::Adventurer?30:49);
+  state.templePrices=&templePriceState;state.templeRow=templePriceState.row();
   state.difficulty=difficulty;state.mouse=difficulty==XeenDifficulty::Warrior;
   state.loading=false;state.shown=false;state.seeds=0;
-  check(Application().run(game)==0 && state.shown,"native title/New Application loop");
+  check(Application(templePriceState).run(game)==0 && state.shown,"native title/New Application loop");
   state.loading=true;state.shown=false;state.seeds=0;
-  check(Application().run(game)==0 && state.shown,"native title/Load Application loop");
+  check(Application(templePriceState).run(game)==0 && state.shown,"native title/Load Application loop");
  }
  state.panelMode=true;
  for(const auto &name:std::vector<std::string>{"A","Twenty CharacterName",std::string(20,'W')}) {
+  XeenTemplePriceState templePriceState;
+  XeenTemplePriceStateTestAccess::seed(templePriceState,name=="A"?30:49);
+  state.templePrices=&templePriceState;state.templeRow=templePriceState.row();
   state.loading=false;state.shown=false;state.seeds=0;state.name=name;state.saveAsName=name;
   state.notice.clear();state.writes=0;
-  check(Application().run(game)==0 && state.loading && state.shown,"panel Save/Save As/Load real saved notices");
+  check(Application(templePriceState).run(game)==0 && state.loading && state.shown,"panel Save/Save As/Load real saved notices");
   fs::remove(XeenSaveFile::slotPath(state.slot.parent_path(),2));
   fs::remove(XeenSaveFile::slotPath(state.slot.parent_path(),8));
  }

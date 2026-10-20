@@ -346,6 +346,7 @@ void retainedCombatCaches() {
 	check(!retired && !retirement.flow->journeyQuiet(), "retirement checks retained cache values after successful End");
 }
 void initializationAliases() {
+    mmodern::XeenTemplePriceState templePriceState;
     auto bytes=regional_test::characterBytes();auto party=XeenPartyLoader().loadFromResources(bytes,regional_test::partyBytes());
     auto camera=xeenJourneyContent().entry;XeenGameFlags flags;
     auto monsters=regional_test::statistics();auto event=regional_test::events(23);
@@ -356,7 +357,7 @@ void initializationAliases() {
     setup.bank=XeenBankBalances{};setup.cityEventsProvider=[]{return regional_test::events(28);};
     XeenWorld world([&](auto id){setup.context.minutes=960;bytes[348]=99;monsters.clear();return regional_test::map(id);},regional_test::objects);
     XeenEventPresenter::Clock clock=[]{return 0;};
-    XeenEncounterFlow flow(world,party,camera,flags,clock,setup);
+    XeenEncounterFlow flow(templePriceState,world,party,camera,flags,clock,setup);
     check(setup.context.minutes==960&&party.encounterContext->minutes==480&&party.roster.combatInputs(0)->experience==1000,
         "initialization publishes detached context and supplements with current starting XP");
     check(world.sessionState().monsters(23).size()==19&&world.sessionState().monsters(23)[5].hp==20,"initialization retains detached statistics");

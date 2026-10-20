@@ -4,6 +4,189 @@
 #include <iostream>
 using namespace training_test;
 using save_test::sameSnapshot;
+namespace mmodern {
+struct XeenTemplePriceStateTestAccess {
+    static void publish(XeenTemplePriceState &state,XeenMapIdentity map) {
+        state.checkPublication(state.revision());state.publish(state.prepare(map));
+    }
+    static void exhaust(XeenTemplePriceState &state) {state._revision=UINT64_MAX;}
+    static const XeenTempleSurcharges &prices(const XeenEventFlow &flow) {
+        const auto *ui=flow._smithUi?&*flow._smithUi:nullptr;
+        return flow._encounter->templePrices(ui && flow._smithSettlement && ui->phase==XeenEventFlow::SmithUi::Phase::Departure?
+            &ui->templePrices:nullptr,ui?ui->templePriceRevision:0);
+    }
+    static bool settlement(const XeenEventFlow &flow) {return flow._smithSettlement && !flow._encounter->_smith && bool(flow._smithUi);}
+    static bool uiRetained(const XeenEventFlow &flow) {return bool(flow._smithUi);}
+    static void withoutVisit(const XeenEventFlow &flow) {(void)flow._encounter->templePrices();}
+    static void quoteWithoutVisit(XeenEventFlow &flow) {flow._encounter->quoteTempleHeal(0);}
+    static void actionWithoutVisit(XeenEventFlow &flow,char key) {(void)flow._encounter->simpleService(0,key);}
+    static IndexedFrame settlementPanel(XeenEventFlow &flow) {
+        const auto feedback=std::exchange(flow._smithUi->feedback,{});
+        auto panel=flow.drawSmith(IndexedFrame{320,200,save_test::Bytes(64000)});
+        flow._smithUi->feedback=feedback;return panel;
+    }
+    static IndexedFrame expectedPanel(XeenEventFlow &flow,const XeenTempleSurcharges &row) {
+        const auto &ui=*flow._smithUi;
+        return drawXeenLocation(flow.dosText(),IndexedFrame{320,200,save_test::Bytes(64000)},ui.art,flow._inventoryFont,
+            XeenLocationDialog::Temple,flow._party,ui.member,flow._camera.mapId,flow.drawDialogSprite,false,{},&row);
+    }
+    static std::uint8_t donations(const XeenEventFlow &flow) {return flow._encounter->_smith->donationCounter;}
+    static std::string text(const XeenEventFlow &flow) {return flow.smithText();}
+    static bool admitted(const XeenEventFlow &flow) {return bool(flow._encounter->_smith);}
+    static void quote(XeenEventFlow &flow) {flow._encounter->_smith->frame.reset();flow._encounter->quoteTempleHeal(0);}
+    static std::uint32_t quoted(const XeenEventFlow &flow) {return flow._encounter->_smith->healResult.price;}
+};
+}
+namespace {
+using PriceAccess=XeenTemplePriceStateTestAccess;
+XeenSaveSnapshot templeSource(Inputs &in,unsigned map) {
+    auto source=in.base();source.camera=map==30?XeenCamera{30,6,21,XeenDirection::North}:
+        map==49?XeenCamera{49,15,3,XeenDirection::North}:XeenCamera{74,4,4,XeenDirection::North};
+    source.journey->context->day=8;source.journey->treasure->gold=100000;
+    auto &c=source.characters[source.activeRosterIds[0]];c.currentHp=0;c.conditions[0]=1;
+    const auto actors=XeenActorApproach::actorsFromResources(in.maps.loadObjects(in.assets,map),in.statistics);
+    auto &table=source.map(map).monsters;table.emplace(XeenSaveMonsterTable{std::uint16_t(actors.size()),{}});
+    for(const auto &actor:actors)table->slots.push_back({actor.x,actor.y,actor.lifecycle,actor.status,false,-1});
+    return source;
+}
+// One process owner is borrowed by successive sessions; no session fallback.
+struct PriceSession {
+    Inputs &in;XeenWorld w;XeenPartyState p;XeenCamera c;XeenGameFlags flags;XeenEventSystem events;
+    std::uint64_t cycle=0,now=0;std::unique_ptr<XeenEventFlow> flow;
+    PriceSession(Inputs &in,XeenTemplePriceState &prices,const XeenSaveSnapshot &source):in(in),
+        w(in.mapLoader(),in.objectLoader()),events([&](auto id){return XeenEventScript(in.events.load(id));},[&](auto id){return in.texts.load(id);}) {
+        XeenSaveState::restoreBeforeGameplay(XeenSaveFormat::decode(XeenSaveFormat::encode(source)),in.resources(),p,c,flags,w,
+            [](auto &,const auto &,const auto &,const auto &){});
+        flow=std::make_unique<XeenEventFlow>(prices,w,events,p,c,flags,in.font,[](auto){return XeenEventFlow::Composition{frame(),false};},
+            XeenEventPresenter::NpcDraw{},[&]{return now;},XeenEventPresenter::RandomFrame{},nullptr,
+            [](auto,auto){return XeenEventFlow::Composition{frame(),false};},nullptr,
+            [](auto &,const auto &,const auto &,auto,auto){return XeenEventFlow::Composition{frame(),false};});
+        flow->dialogText=&in.assets.uiText();
+        flow->drawTempleArt=[&](auto &image){in.assets.drawTemple(image);};
+        flow->drawDialogSprite=[&](auto &image,const char *resource,unsigned id,int x,int y){in.assets.drawDialogSprite(image,resource,id,x,y);};
+        present(flow->frame());
+    }
+    void present(const IndexedFrame &f){if(f.presentation())flow->framePresented(f.presentation());}
+    void act(PlayerAction a){flow->beginCycle(++cycle);present(flow->handle(a,flow->displayedInput(),flow->frame().presentation()));}
+    void step(){flow->beginCycle(++cycle);if(auto f=flow->updatePresentation())present(*f);}
+    void enter(){act(InteractionAction{});for(unsigned n=0;n<1000 && !PriceAccess::admitted(*flow);++n)step();check(PriceAccess::admitted(*flow),"Original Temple was not admitted");}
+    void leave(){act(CancelInteractionAction{});for(unsigned n=0;n<1000 && !flow->canSave();++n)step();check(flow->canSave(),"Temple did not return Quiet");}
+    XeenSaveSnapshot snapshot(){return XeenSaveState::capture(in.signature,p,c,flags,w);}
+};
+void settlementPrices(Inputs &in) {
+    for(unsigned map:{30u,74u}) {
+        XeenTemplePriceState prices;
+        if(map==74) {PriceSession prior(in,prices,templeSource(in,30));prior.enter();prior.leave();}
+        PriceSession s(in,prices,templeSource(in,map));s.enter();
+        const auto row=prices.row();const auto revision=prices.revision();
+        check(row==xeenTempleSurcharges(30),"Settlement test lacks Rivercity prices");
+        unsigned faults=0,redraws=0;
+        const auto draw=s.flow->drawDialogSprite;
+        s.flow->drawDialogSprite=[&](auto &image,const char *resource,unsigned id,int x,int y){
+            if(PriceAccess::settlement(*s.flow)) {
+                ++redraws;check(PriceAccess::prices(*s.flow)==row,"Settlement redraw lost visit prices");
+            }
+            draw(image,resource,id,x,y);
+        };
+        s.flow->smithBoundary=[&](auto boundary){if(boundary==XeenSmithBoundary::BeforeEventSettlement){++faults;throw std::runtime_error("Temple settlement retry");}};
+        s.act(CancelInteractionAction{});
+        for(unsigned n=0;n<1000 && !faults;++n)s.step();
+        check(faults==1 && redraws>0 && PriceAccess::settlement(*s.flow),"Settlement failure did not redraw retained Temple");
+        check(PriceAccess::settlementPanel(*s.flow).pixels==PriceAccess::expectedPanel(*s.flow,row).pixels,"Settlement screen uses different Temple prices");
+        check(prices.row()==row && prices.revision()==revision,"Settlement failure republished process prices");
+        save_test::rejects([&]{PriceAccess::withoutVisit(*s.flow);},"require");
+        save_test::rejects([&]{PriceAccess::quoteWithoutVisit(*s.flow);},"unavailable");
+        for(char key:{'D','u'})save_test::rejects([&]{PriceAccess::actionWithoutVisit(*s.flow,key);},"unavailable");
+        s.act(AcknowledgeAction{});
+        check(faults==2 && prices.row()==row && prices.revision()==revision,"Repeated settlement changed process row");
+        s.flow->smithBoundary={};s.act(AcknowledgeAction{});
+        for(unsigned n=0;n<1000 && !s.flow->canSave();++n)s.step();
+        check(s.flow->canSave() && !PriceAccess::uiRetained(*s.flow),"Settlement did not discard Temple UI");
+        check(prices.row()==row && prices.revision()==revision,"Completed settlement changed process row");
+        save_test::rejects([&]{PriceAccess::prices(*s.flow);},"require");
+    }
+}
+void processPrices(Inputs &in) {
+    {
+        XeenTemplePriceState prices;const auto source=templeSource(in,74);PriceSession s(in,prices,source);
+        unsigned sounds=0;s.flow->loadSampleDuration=[&](const char *,XeenSceneArchive){++sounds;return std::uint64_t(0);};
+        s.enter();check(prices.row()==XeenTempleSurcharges{} && prices.revision()==1,"Fresh map 74 did not publish zero row");
+        const auto context=*s.p.encounterContext;const auto gold=s.p.monsterTreasure->gold;
+        const auto random=*s.w.sessionState().journeyRandom();const auto soundBefore=sounds;
+        const auto text=PriceAccess::text(*s.flow);
+        check(text==xeenTempleText(in.assets.uiText(),s.p,0,prices.row()),"Temple text does not use visit row");
+        s.act(DialogKeyAction{'d'});
+        check(!PriceAccess::donations(*s.flow) && *s.p.encounterContext==context && s.p.monsterTreasure->gold==gold &&
+            *s.w.sessionState().journeyRandom()==random && sounds==soundBefore,"Zero Donation changed counter, effects, gold, time, RNG or sound");
+        const auto uncurse=xeenTempleUncurseCost(s.p.party.member(s.p.roster,0),prices.row());
+        check(uncurse==20*s.p.party.member(s.p.roster,0).currentLevel(),"Zero row removed Uncurse base charge");
+        s.act(DialogKeyAction{'u'});check(s.p.monsterTreasure->gold==gold-uncurse && !s.p.party.member(s.p.roster,0).conditions[0],"Zero-row Uncurse charge differs");
+        const auto heal=xeenQuoteTempleHeal(s.p.party.member(s.p.roster,0),s.p.monsterTreasure->gold,*s.p.encounterContext,prices.row()).price;
+        check(heal>0,"Zero row removed Heal base charge");
+        // The one-step action must spend exactly the quote displayed by the panel.
+        s.act(DialogKeyAction{'h'});for(unsigned n=0;n<1000 && s.p.monsterTreasure->gold==gold-uncurse;++n)s.step();
+        check(s.p.monsterTreasure->gold==gold-uncurse-heal,"Map 74 Heal and displayed quote differ");s.leave();
+    }
+    for(unsigned map:{30u,49u}) {
+        XeenTemplePriceState prices;const auto row=xeenTempleSurcharges(map);
+        const auto source=templeSource(in,74);const auto bytes=XeenSaveFormat::encode(source);
+        {
+            PriceSession s(in,prices,templeSource(in,map));bool redrawn=false;
+            const auto draw=s.flow->drawDialogSprite;
+            s.flow->drawDialogSprite=[&](auto &image,const char *resource,unsigned id,int x,int y){
+                if(!PriceAccess::admitted(*s.flow)) {
+                    redrawn=true;check(prices.row()==XeenTempleSurcharges{} && prices.revision()==0,"Rendering published process prices");
+                    check(PriceAccess::prices(*s.flow)==row && PriceAccess::text(*s.flow)==xeenTempleText(in.assets.uiText(),s.p,0,row),"Preparation redraw used old process prices");
+                }
+                draw(image,resource,id,x,y);
+            };
+            s.enter();check(redrawn && prices.row()==row,"Tabled Temple did not publish its prepared row");
+            PriceAccess::quote(*s.flow);
+            check(PriceAccess::quoted(*s.flow)==xeenQuoteTempleHeal(s.p.party.member(s.p.roster,0),s.p.monsterTreasure->gold,*s.p.encounterContext,row).price,"Temple quote and text row disagree");
+        }
+        // New session owners and canonical restore do not own the process row.
+        const auto revision=prices.revision();
+        for(unsigned session=0;session<2;++session) {
+            PriceSession s(in,prices,source);
+            check(prices.revision()==revision+session && XeenSaveFormat::encode(s.snapshot())==bytes,"Restore saved or reset process prices");
+            s.enter();check(prices.row()==row && PriceAccess::prices(*s.flow)==row,"Session replacement lost Temple carry-over");
+        }
+        XeenTemplePriceState fresh;PriceSession without(in,fresh,source);PriceSession with(in,prices,source);
+        check(XeenSaveFormat::encode(without.snapshot())==XeenSaveFormat::encode(with.snapshot()),"Prior visit entered save bytes");
+    }
+    for(unsigned fault=0;fault<5;++fault) {
+        XeenTemplePriceState prices;PriceSession s(in,prices,templeSource(in,30));
+        bool injected=false;const auto initial=prices.row();
+        if(fault==0)s.flow->drawTempleArt=[](auto &){throw std::runtime_error("preflight refusal");};
+        if(fault==3)PriceAccess::exhaust(prices);
+        s.flow->smithBoundary=[&](auto boundary){
+            if(boundary==XeenSmithBoundary::BankPrepared && (fault==1 || fault==2)) {
+                injected=true;
+                if(fault==1)throw std::runtime_error("failed admission");
+                PriceAccess::publish(prices,49); // A different publication makes this preparation stale.
+            }
+            if(boundary==XeenSmithBoundary::AfterAdmission && fault==4){injected=true;throw std::runtime_error("post-admission failure");}
+        };
+        s.act(InteractionAction{});for(unsigned n=0;n<20 && !s.flow->canSave() && !PriceAccess::admitted(*s.flow);++n)s.step();
+        if(fault==4) {
+            check(injected && prices.row()==xeenTempleSurcharges(30) && prices.revision()==1 && PriceAccess::admitted(*s.flow),"AfterAdmission rolled back prices or visit");
+            s.flow->smithBoundary={};s.act(AcknowledgeAction{});s.act(DialogKeyAction{'u'});
+            check(s.p.monsterTreasure->gold<100000,"Post-admission failure stranded usable visit");s.leave();
+        } else {
+            const auto expected=fault==2?xeenTempleSurcharges(49):initial;
+            const auto revision=fault==2?1:fault==3?UINT64_MAX:0;
+            check(!PriceAccess::admitted(*s.flow) && prices.row()==expected && prices.revision()==revision,"Refused, failed or stale admission published prices");
+            if(fault==1 || fault==2)check(injected,"Admission fault was not reached");
+        }
+    }
+    {
+        XeenTemplePriceState prices;auto source=templeSource(in,30);source.journey->context->year=65535;source.journey->context->day=99;
+        PriceSession s(in,prices,source);s.act(InteractionAction{});for(unsigned n=0;n<20;++n)s.step();
+        check(prices.revision()==0 && prices.row()==XeenTempleSurcharges{},"Refused departure published Temple row");
+    }
+}
+}
+
 namespace {
 XeenSaveSnapshot injured(Inputs &in,unsigned day=8) {
     auto s=in.service(day);
@@ -236,6 +419,7 @@ int main(int argc,char **argv) {
         check(argc==2 || argc==3,"usage: temple-flow <original-installation> [retries|revisions|preview|refused-date|refused-rng]");
         const auto installation=xeenTestInstallationDetector().detect(argv[1]);
         check(bool(installation),"original installation unavailable");Inputs in(*installation);
+        if(argc==2){processPrices(in);settlementPrices(in);}
         if(argc==3) {
             const std::string regression=argv[2];
             if(regression=="retries")departureRetries(in);

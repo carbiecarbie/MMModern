@@ -86,7 +86,7 @@ Run mine(const char *directory,const Vein &vein,std::uint32_t seed,unsigned atte
 		run.draws=h.world->sessionState().journeyRandom()->count-random->count;
 		return true;
 	};
-	check(Application().playGameplay(s,{}, {},false,XeenEncounterEntry::Journey,seed)==0 && shown,
+	check(Application(s.templePrices).playGameplay(s,{}, {},false,XeenEncounterEntry::Journey,seed)==0 && shown,
 		"Original-data Gold Vein session startup failed");
 	return run;
 }

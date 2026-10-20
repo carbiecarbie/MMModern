@@ -1,6 +1,7 @@
 #ifndef MMODERN_XEEN_DIALOG_VIEW_H
 #define MMODERN_XEEN_DIALOG_VIEW_H
 #include "games/xeen/XeenTempleHeal.h"
+#include "games/xeen/XeenTempleHeal.h"
 #include "games/xeen/XeenInventoryState.h"
 #include "games/xeen/XeenMapIdentity.h"
 #include "games/xeen/XeenTextRenderer.h"
@@ -126,6 +127,8 @@ DialogInput xeenBuyInput(bool repair=false);
 DialogInput xeenBuyInput(XeenItemService);
 std::string xeenLocationText(const XeenDosText &text,XeenLocationDialog,const XeenPartyState &,std::size_t,
     XeenMapIdentity,bool templeBlessed=false,std::string_view tavernStatus={});
+std::string xeenTempleText(const XeenDosText &,const XeenPartyState &,std::size_t,
+    const XeenTempleSurcharges &,bool templeBlessed=false);
 std::string xeenNotEnoughGold(const XeenDosText &text);
 // Party::notEnough (0x1e8bb): consumable 0 gold, 1 gems, 2 food, in the party.
 std::string xeenNotEnough(const XeenDosText &text,unsigned consumable);
@@ -135,7 +138,8 @@ std::string xeenIdentifiedDetails(const XeenDosText &,const XeenCharacter &,Xeen
 IndexedFrame drawXeenIdentifiedDetails(const IndexedFrame &,const XeenFontFormat &,const std::string &);
 std::uint32_t xeenBuyDisplayCost(XeenInventoryCategory,const XeenItem &);
 IndexedFrame drawXeenLocation(const XeenDosText &text,const IndexedFrame &,const IndexedFrame &,const XeenFontFormat &,
-    XeenLocationDialog,const XeenPartyState &,std::size_t,XeenMapIdentity,const XeenDialogSpriteDraw &,bool templeBlessed=false,std::string_view tavernStatus={});
+    XeenLocationDialog,const XeenPartyState &,std::size_t,XeenMapIdentity,const XeenDialogSpriteDraw &,bool templeBlessed=false,std::string_view tavernStatus={},
+    const XeenTempleSurcharges *templePrices=nullptr);
 IndexedFrame drawXeenTavernPopup(const IndexedFrame &,const XeenFontFormat &,const std::string &);
 IndexedFrame drawXeenBuy(const XeenDosText &text,const IndexedFrame &,const XeenFontFormat &,const XeenItemCatalog &,
     const XeenPartyState &,const XeenInventorySelection &,bool repair,const XeenDialogSpriteDraw &);

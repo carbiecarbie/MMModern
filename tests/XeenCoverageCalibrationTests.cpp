@@ -37,7 +37,7 @@ int main(int argc,char **argv) {
         std::ifstream input(argv[1]);require(bool(input),"Cannot read coverage report");
         std::string line,dimension;bool clouds=false,darkside=false;unsigned gaps=0,unused=0,waterDragon=0,vultureRoc=0,movement=0;
         std::set<std::string> supported,supportedServices,skillWalls,lightingRows;
-        std::array<unsigned,6> townSites{};unsigned untabledTemple=0;
+        std::array<unsigned,6> townSites{};
         while(std::getline(input,line)) {
             if(line=="## Clouds detail")clouds=true;
             if(line=="## Darkside detail") {clouds=false;darkside=true;}
@@ -95,12 +95,8 @@ int main(int argc,char **argv) {
             if(dimension=="Events" && mechanic.rfind("17 DoTownEvent action=",0)==0) {
                 const auto action=std::stoul(mechanic.substr(std::string("17 DoTownEvent action=").size()));
                 if(action<=5) {
-                    if(status=="supported")townSites[action]+=std::stoul(columns[3]);
-                    else {
-                        require(action==4 && maps==std::set<unsigned>{74} && status=="partial" && columns[3]=="1",
-                            "Unexpected Clouds service gap: "+mechanic+" / "+reason);
-                        ++untabledTemple;
-                    }
+                    require(status=="supported","Unexpected Clouds service gap: "+mechanic+" / "+reason);
+                    townSites[action]+=std::stoul(columns[3]);
                 }
             }
             if(maps.count(28)) {
@@ -125,7 +121,7 @@ int main(int argc,char **argv) {
         }
         for(const auto action:{"Drink","Tip","Rumors","Donation","Uncurse"})
             require(supportedServices.count(action),std::string("Implemented Vertigo service missing: ")+action);
-        require(townSites==std::array<unsigned,6>{3,4,6,3,3,3} && untabledTemple==1,"Clouds service site inventory changed");
+        require(townSites==std::array<unsigned,6>{3,4,6,3,4,3},"Clouds service site inventory changed");
         require(gaps==4 && unused==4,"Vertigo documented gap/subroutine inventory changed; explain and recalibrate");
         require(waterDragon==2 && vultureRoc==2,"Species 59 species and movement rows are missing from the census");
         require(movement>=4,"Monster movement rows are missing from the census");

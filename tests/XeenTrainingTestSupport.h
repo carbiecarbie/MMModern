@@ -95,6 +95,7 @@ namespace training_test {
 using namespace mmodern;
 using save_test::check;
 struct Inputs {
+    mmodern::XeenTemplePriceState templePriceState;
     XeenAssetSource assets;XeenMapLoader maps;XeenEventLoader events;XeenEventTextLoader texts;
     std::vector<std::uint8_t> chr,pty;std::vector<XeenMonsterRecord> statistics;
     XeenEventFile mainland,city;XeenLearnedSpellNames names;XeenFontFormat font;XeenSaveResourceSignature signature;
@@ -129,7 +130,7 @@ struct Inputs {
     }
     XeenSaveSnapshot base(){
         auto p=XeenPartyLoader().loadInitialCloudsParty(assets);auto c=xeenJourneyContent().entry;XeenGameFlags f;
-        XeenWorld w(mapLoader(),objectLoader());auto value=setup();XeenEncounterFlow flow(w,p,c,f,[]{return 0;},value);
+        XeenWorld w(mapLoader(),objectLoader());auto value=setup();XeenEncounterFlow flow(templePriceState,w,p,c,f,[]{return 0;},value);
         check(flow.prepareJourneyFrame(flow.ticket(),[]{}) && flow.presentJourney(flow.ticket()),"synthetic base frame");
         return XeenSaveState::capture(signature,p,c,f,w);
     }
@@ -147,6 +148,7 @@ inline IndexedFrame frame(){IndexedFrame f;f.width=320;f.height=200;f.pixels.res
 // Clearly synthetic owner/date/XP fixtures restored through the canonical codec.
 // They are independent of the earned original-resource/process witness.
 struct Fixture {
+    mmodern::XeenTemplePriceState templePriceState;
     Inputs &in;XeenWorld w;XeenPartyState p;XeenCamera c;XeenGameFlags f;XeenEventSystem events;
     std::unique_ptr<XeenEventFlow> flow;std::uint64_t cycle=0,now=0;
     std::bitset<30> trained;
@@ -156,7 +158,7 @@ struct Fixture {
         if(manifestFixture)resources.regionalManifest=std::move(manifestFixture);
         if(city)resources.loadEvents=[&in,city](auto id){return id==XeenMapIdentity(28)?*city:in.events.load(id);};
         XeenSaveState::restoreBeforeGameplay(XeenSaveFormat::decode(XeenSaveFormat::encode(source)),resources,p,c,f,w,[](auto &,const auto &,const auto &,const auto &){});
-        flow=std::make_unique<XeenEventFlow>(w,events,p,c,f,in.font,[](auto){return XeenEventFlow::Composition{frame(),false};},
+        flow=std::make_unique<XeenEventFlow>(templePriceState,w,events,p,c,f,in.font,[](auto){return XeenEventFlow::Composition{frame(),false};},
             std::move(npcDraw),[this]{return now;},XeenEventPresenter::RandomFrame{},catalog,
             [animated](auto,auto){return XeenEventFlow::Composition{frame(),animated};},nullptr,
             [animated](auto &,const auto &,const auto &,auto,auto){return XeenEventFlow::Composition{frame(),animated};});

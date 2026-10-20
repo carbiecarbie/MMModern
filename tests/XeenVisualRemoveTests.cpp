@@ -37,6 +37,7 @@ GameInstallation installation(const std::filesystem::path &dir, bool animated=fa
 	GameInstallation i;i.xeenArchive=dir/"xeen.cc";i.darkArchive=dir/"dark.cc";return i;
 }
 struct Fixture {
+    mmodern::XeenTemplePriceState templePriceState;
 	int maps=0,objects=0,scripts=0,texts=0,compositions=0,completed=0;
 	std::uint64_t now=0,phase=0;
 	bool automatic=false;
@@ -56,7 +57,7 @@ struct Fixture {
 	XeenPartyState party;
 	XeenFontFormat font{fontBytes()};
 	CloudsMapComposer composer;
-	XeenEventFlow flow{world,events,party,camera,flags,font,[this](std::uint64_t currentPhase){phase=currentPhase;++compositions;XeenEventFlow::Composition result;result.frame=composer.compose(assets,world,party,camera,{},nullptr,phase,&result.containsOrdinaryAnimation);return result;},{},[this]{return now;}};
+	XeenEventFlow flow{templePriceState,world,events,party,camera,flags,font,[this](std::uint64_t currentPhase){phase=currentPhase;++compositions;XeenEventFlow::Composition result;result.frame=composer.compose(assets,world,party,camera,{},nullptr,phase,&result.containsOrdinaryAnimation);return result;},{},[this]{return now;}};
 	explicit Fixture(XeenAssetSource &a):assets(a){flow.reportManual=[this](const auto &r){if(std::holds_alternative<XeenManualEventCompleted>(r))++completed;};}
 	void absent(const IndexedFrame &f) {
 		const auto reference=composer.compose(assets,world,party,camera,{});

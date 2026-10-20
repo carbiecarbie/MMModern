@@ -31,6 +31,7 @@ XeenPartyState party() {
 }
 XeenEventRecord npc(int line=0,int x=1,int y=1) { return record(x,y,line,5,{0,1,9,1,99}); }
 struct Fixture {
+    mmodern::XeenTemplePriceState templePriceState;
 	XeenPartyState members=party();
 	XeenCamera camera{1,1,1,XeenDirection::North};
 	XeenGameFlags flags;
@@ -59,7 +60,7 @@ struct Fixture {
 		if(ordinary)for(int y=80;y<100;++y)for(int x=80;x<100;++x)f.pixels[y*320+x]=20+phase%10;
 		return f;
 	}
-	XeenEventFlow flow(){return XeenEventFlow(world,events,members,camera,flags,font,
+	XeenEventFlow flow(){return XeenEventFlow(templePriceState,world,events,members,camera,flags,font,
 		[&](std::uint64_t phase){++composes;phases.push_back(phase);return XeenEventFlow::Composition{ordinaryBase(phase), ordinary};},draw(),[&]{return time;},[&]{++randomReads;return random;},nullptr,{},nullptr,{},&dos_test::npcText());}
     void acquire(XeenEventFlow &flow) {flow.framePresented(flow.frame().presentation());}
     void tap(XeenEventFlow &flow,const PlayerAction &action) {
@@ -256,6 +257,7 @@ void presentationAndTiming() {
 	check(ink==8*32,"pagination discarded or duplicated body glyphs");
 }
 void ordinaryCoexistence() {
+    mmodern::XeenTemplePriceState templePriceState;
  for(bool ordinary:{false,true})for(bool npcActive:{false,true}) {
   Fixture f;f.ordinary=ordinary;auto flow=f.flow();
   if(npcActive){flow.handle(InteractionAction{});f.acquire(flow);}
@@ -299,7 +301,7 @@ void ordinaryCoexistence() {
  // Both consumers call the one stored mutable clock, rather than independent copies.
  Fixture shared;std::vector<unsigned> calls;
  XeenEventPresenter::Clock clock=[n=0U,&calls]() mutable {calls.push_back(++n);return n;};
- XeenEventFlow sharing(shared.world,shared.events,shared.members,shared.camera,shared.flags,shared.font,
+ XeenEventFlow sharing(templePriceState,shared.world,shared.events,shared.members,shared.camera,shared.flags,shared.font,
   [&](std::uint64_t){return XeenEventFlow::Composition{shared.base,true};},shared.draw(),clock,{},nullptr,{},nullptr,{},&dos_test::npcText());
  sharing.handle(InteractionAction{});sharing.updatePresentation();
  check(calls.size()>=4,"shared clock consumers were not exercised");
@@ -342,6 +344,7 @@ void cdLifetime() {
  check(paged.presenter().npcTiming().remaining==3066666667ULL,"Same-disc Event boundary discarded retained CD operands");
 }
 void failuresAndOwners() {
+    mmodern::XeenTemplePriceState templePriceState;
 	for(int when=0;when<4;++when) {
 		Fixture f;f.set({record(1,1,0,0x0c,{0,0,21,99}),npc(1),record(1,1,2,0x0c,{0,0,21,100})});
 		if(when==3)f.text.strings[1]=std::string(900,'W');
@@ -363,7 +366,7 @@ void failuresAndOwners() {
 		flow.abandonPresentation();auto fresh=f.flow();check(!fresh.blocksGameplay() && f.members.questItems.at(17)==2,"fresh flow erased party owner");
 	}
 	Fixture f;f.set({npc(),record(1,1,1,0x0c,{0,0,21,99})});
-	{XeenEventFlow noAssets(f.world,f.events,f.members,f.camera,f.flags,f.font,[&](std::uint64_t){return XeenEventFlow::Composition{f.base, false};});
+	{XeenEventFlow noAssets(templePriceState,f.world,f.events,f.members,f.camera,f.flags,f.font,[&](std::uint64_t){return XeenEventFlow::Composition{f.base, false};});
 		bool failed=false;noAssets.reportManual=[&](const auto&r){if(auto e=std::get_if<XeenEventExecutionError>(&r))failed=e->kind==Kind::PresentationFailed;};
 		noAssets.handle(InteractionAction{});check(failed && !noAssets.blocksGameplay() && noAssets.frame().pixels==f.base.pixels,
 			"missing NPC asset callback accepted");}
@@ -418,9 +421,10 @@ void assets() {
 	std::filesystem::remove(dir/"xeen.cc");std::filesystem::remove(dir);
 }
 void sdl() {
+    mmodern::XeenTemplePriceState templePriceState;
 	Fixture f;f.text.strings[1]="one two three four";f.set({npc(),npc(1),record(1,1,2,0x0c,{0,0,21,99})});
 	// Production clock + SDL's actual idle callback; no keyboard event starts animation.
-	XeenEventFlow flow(f.world,f.events,f.members,f.camera,f.flags,f.font,[&](std::uint64_t){return XeenEventFlow::Composition{f.base, false};},f.draw(),{},[]{return 3;},nullptr,{},nullptr,{},&dos_test::npcText());
+	XeenEventFlow flow(templePriceState,f.world,f.events,f.members,f.camera,f.flags,f.font,[&](std::uint64_t){return XeenEventFlow::Composition{f.base, false};},f.draw(),{},[]{return 3;},nullptr,{},nullptr,{},&dos_test::npcText());
 	flow.handle(InteractionAction{});bool changed=false;int actions=0,idles=0;std::uint32_t started=0;
 	auto push=[](SDL_Keycode key,int repeat=0){SDL_Event e{};e.type=SDL_KEYDOWN;e.key.keysym.sym=key;e.key.repeat=repeat;SDL_PushEvent(&e);};
 	SdlWindow::FrameUpdateHandler handler=[&](const PlayerAction&a)->std::optional<IndexedFrame>{++actions;auto result=flow.handle(a);

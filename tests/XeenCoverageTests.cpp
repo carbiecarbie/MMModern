@@ -14,7 +14,8 @@ void fixtureContexts(const char *directory) {
     const auto installation=xeenTestInstallationDetector().detect(directory);
     check(installation.has_value(),"fixture original installation");
     const XeenCamera start{27,10,10,XeenDirection::North};
-    OriginalContext context(*installation,start);
+    XeenTemplePriceState templePrices;
+    OriginalContext context(templePrices,*installation,start);
     check(arrivalSupport(5,true,start,context.world).status==Status::Supported,
         "lava arrival has a production rule query");
     check(arrivalSupport(10,true,{25,0,0,XeenDirection::North},context.world).status==Status::Supported,

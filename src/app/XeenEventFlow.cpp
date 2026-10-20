@@ -1015,7 +1015,7 @@ IndexedFrame XeenEventFlow::renderEncounter(bool report, bool cosmeticInput, boo
 	throw std::logic_error("Unreachable encounter recovery");
 }
 
-XeenEventFlow::XeenEventFlow(XeenWorld &world, XeenEventSystem &events,
+XeenEventFlow::XeenEventFlow(XeenTemplePriceState &templePrices, XeenWorld &world, XeenEventSystem &events,
 		XeenPartyState &party, XeenCamera &camera, XeenGameFlags &flags,
 		const XeenFontFormat &font, Compose compose, XeenEventPresenter::NpcDraw npcDraw,
 		XeenEventPresenter::Clock clock, XeenEventPresenter::RandomFrame randomFrame, const XeenItemCatalog *catalog,
@@ -1023,7 +1023,7 @@ XeenEventFlow::XeenEventFlow(XeenWorld &world, XeenEventSystem &events,
 		TransitionCompose transitionCompose, const XeenDosText *text, PresentationClock::Source presentationClock) :
 	_transitionCompose(std::move(transitionCompose)),
 	_inventoryFont(font), _catalog(catalog ? *catalog : fallbackCatalog()),
-	_world(world), _gameplayBorrow(world.sessionState().journey() ? nullptr : new XeenWorld::GameplayBorrow(world,party,camera,flags)),
+	_templePrices(templePrices), _world(world), _gameplayBorrow(world.sessionState().journey() ? nullptr : new XeenWorld::GameplayBorrow(world,party,camera,flags)),
 	_events(events), _party(party), _camera(camera), _flags(flags),
 	_navigation(events), _clock(clock ? clock : XeenEventPresenter::Clock{[] {
 		return static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -1040,8 +1040,8 @@ XeenEventFlow::XeenEventFlow(XeenWorld &world, XeenEventSystem &events,
 	if (journey || world.sessionState().journey()) {
 		if (!encounterCompose) throw std::invalid_argument("Journey requires exclusive presentation setup");
 		_encounterCompose = std::move(encounterCompose);
-		if (journey) _encounter = std::make_unique<XeenEncounterFlow>(world,party,camera,flags,_clock,*journey,&_presentationClock);
-		else _encounter = std::make_unique<XeenEncounterFlow>(world,party,camera,flags,_clock,XeenJourneyRestoreTag{},&_presentationClock);
+		if (journey) _encounter = std::make_unique<XeenEncounterFlow>(_templePrices,world,party,camera,flags,_clock,*journey,&_presentationClock);
+		else _encounter = std::make_unique<XeenEncounterFlow>(_templePrices,world,party,camera,flags,_clock,XeenJourneyRestoreTag{},&_presentationClock);
         _encounter->_travelEventsProvider=[this](XeenMapIdentity id){return _events.scriptForMap(id).file();};
 	}
     _ordinary.deadline=PresentationClock::after(_presentationClock(),2);
@@ -2165,7 +2165,7 @@ std::optional<IndexedFrame> XeenEventFlow::updatePresentation() {
 		try {
 			if (!xeenSmithAuthorityRoom(_inputGeneration,9))
 				throw std::overflow_error("Smith admission would consume mandatory input authority");
-			if (!_encounter->serviceSmithPreparation()) return std::nullopt;
+			if (!_encounter->serviceSmithPreparation(_smithUi->templePriceRevision)) return std::nullopt;
 			_smithUi->phase=SmithUi::Phase::Lobby;
             startServiceSample(_smithUi->animation,XeenServiceAnimation::greeting(_smithUi->animation.kind));
             serviceInputPolled(_smithUi->animation);

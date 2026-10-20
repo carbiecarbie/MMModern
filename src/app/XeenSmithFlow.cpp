@@ -22,6 +22,20 @@ bool samePurchaseQuote(const XeenEquipmentPurchaseResult &a,const XeenEquipmentP
   a.goldBefore==b.goldBefore && a.goldAfter==b.goldAfter && a.shortfall==b.shortfall;
 }
 }
+const XeenTempleSurcharges &XeenEncounterFlow::templePrices(
+        const XeenTempleSurcharges *settledRow,std::uint64_t settledRevision) const {
+    const auto *visit=_smith ? _smith.get() : _smithPreparation.get();
+    if(!visit) {
+        if(settledRow && journeyEvent() && _smithEventSettlement) {
+            _templePrices.checkVisit(*settledRow,settledRevision);
+            return *settledRow;
+        }
+        throw std::logic_error("Temple prices require a prepared visit or pending settlement");
+    }
+    if(!visit->temple)throw std::logic_error("Temple prices require a Temple visit");
+    if(_smith)_templePrices.checkVisit(visit->templePrices,visit->templePriceRevision);
+    return visit->templePrices;
+}
 void XeenEncounterFlow::checkSmithBoundary(XeenSmithBoundary boundary) {
  const auto retained=_journeyPreimage;
  XeenRestoreGuard::LightingObservation lighting(*retained);
@@ -89,12 +103,13 @@ XeenSimpleServiceOutcome XeenEncounterFlow::simpleService(std::size_t member,cha
         } else tip=xeenTavernNextTip(_camera.mapId,_world.tavernTipIndex(_camera.mapId));
     } else if(action=='D') {
         if(blessed)return XeenSimpleServiceOutcome::NoAction;
-        const auto price=static_cast<std::uint32_t>(xeenTempleSurcharges(_camera.mapId).donation);
+        const auto price=static_cast<std::uint32_t>(templePrices().donation);
+        if(!price)return XeenSimpleServiceOutcome::NoAction;
         if(afterGold<price)return XeenSimpleServiceOutcome::InsufficientGold;
         afterGold-=price;blessed=xeenTempleDonationBlessing(afterContext,counter);
         departure=std::make_unique<XeenServiceDayCandidate>(visit.departure->rebindContext(afterContext));
     } else {
-        const auto price=xeenTempleUncurseCost(character,_camera.mapId);
+        const auto price=xeenTempleUncurseCost(character,templePrices());
         if(!price)return XeenSimpleServiceOutcome::NoAction;
         if(afterGold<price)return XeenSimpleServiceOutcome::InsufficientGold;
         afterGold-=price;xeenTempleClearCurse(afterCharacter);
@@ -218,6 +233,10 @@ bool XeenEncounterFlow::beginSmith(const std::function<void()> &preflight,std::u
 	checkSmithBoundary(XeenSmithBoundary::BeforeReservation);
 	auto next=std::make_unique<SmithContinuation>();
 	next->temple=temple;next->serviceAction=service;
+    if(temple) {
+        next->templePrices=_templePrices.prepare(_camera.mapId);
+        next->templePriceRevision=_templePrices.revision();
+    }
     {
         if (!_party.serviceEconomy || !_world.sessionState().journeyRandom())
             throw std::logic_error("Missing service-day owners");
@@ -228,12 +247,12 @@ bool XeenEncounterFlow::beginSmith(const std::function<void()> &preflight,std::u
 	checkSmithBoundary(XeenSmithBoundary::AfterReservation);
  checkSmithBoundary(XeenSmithBoundary::BeforeAdmission);
 	// Event remains exclusive throughout resource and first-frame preparation.
-	try { XeenRestoreGuard::Providers providers(*_journeyPreimage,_world);preflight();_journeyPreimage->check(); }
-	catch (...) { _journeyPreimage->check();throw; }
-    _smithPreparation=std::move(next);
+	_smithPreparation=std::move(next);
+    try { XeenRestoreGuard::Providers providers(*_journeyPreimage,_world);preflight();_journeyPreimage->check(); }
+	catch (...) { _smithPreparation.reset();_journeyPreimage->check();throw; }
     return true;
 }
-bool XeenEncounterFlow::serviceSmithPreparation() {
+bool XeenEncounterFlow::serviceSmithPreparation(std::uint64_t &uiTempleRevision) {
     if (!_smithPreparation || _smith || _busy || !journeyEvent() ||
         !current(ticket()) || !journeyCapacity()) return false;
     SmithBusy busy(_busy);
@@ -250,7 +269,14 @@ bool XeenEncounterFlow::serviceSmithPreparation() {
     xeenValidateCurrentServiceEconomy(day.economy());
     _smithPreparation->binding.emplace(day);
     _journeyPreimage->check();
+    if(_smithPreparation->temple)_templePrices.checkPublication(_smithPreparation->templePriceRevision);
     _smithPreparation->lease=_boundary.hold(XeenCombatBoundary::Work::Service);
+    // No fallible checks or callbacks between the lease and admission publication.
+    if(_smithPreparation->temple) {
+        _templePrices.publish(_smithPreparation->templePrices);
+        _smithPreparation->templePriceRevision=_templePrices.revision();
+        uiTempleRevision=_smithPreparation->templePriceRevision;
+    }
     _smith=std::move(_smithPreparation);
     _world._sessionState._journeyActivity=XeenJourneyActivity::Service;
     ++_world._sessionState._journeyGeneration;++_generation;
@@ -421,9 +447,9 @@ void XeenEncounterFlow::quoteTempleHeal(std::size_t member) {
 	xeenValidateJourneyParty(_party);
 	const auto owner=_party.party.activeRosterIds()[member];
 	auto quote=xeenQuoteTempleHeal(_party.roster.at(owner),_party.monsterTreasure->gold,
-		*_party.encounterContext,_camera.mapId);
+		*_party.encounterContext,templePrices());
 	if(quote.outcome==XeenTempleHealOutcome::Quoted) {
-		quote=xeenPrepareTempleHeal(_party,owner,*_party.encounterContext,_camera.mapId).result;
+		quote=xeenPrepareTempleHeal(_party,owner,*_party.encounterContext,templePrices()).result;
 		quote.outcome=XeenTempleHealOutcome::Quoted;quote.goldAfter=quote.goldBefore;
 	}
 	_smith->owner=owner;_smith->healResult=quote;
@@ -439,7 +465,7 @@ bool XeenEncounterFlow::confirmTempleHeal() {
 	SmithBusy busy(_busy);_journeyPreimage->check();checkSmithReservation();
 	const auto &quoted=_smith->healResult;
 	const auto current=xeenQuoteTempleHeal(_party.roster.at(_smith->owner),
-		_party.monsterTreasure->gold,*_party.encounterContext,_camera.mapId);
+		_party.monsterTreasure->gold,*_party.encounterContext,templePrices());
 	if(_smith->quoteOperation!=_smith->operation || _smith->quoteReservation!=_smith->reservation ||
 		quoted.owner!=current.owner || quoted.price!=current.price ||
 		quoted.goldBefore!=current.goldBefore || quoted.hpBefore!=current.hpBefore ||
@@ -453,7 +479,7 @@ bool XeenEncounterFlow::confirmTempleHeal() {
 		_smith->quoted=false;advanceSmith();return true;
 	}
 	auto delta=std::make_unique<XeenTempleHealCandidate>(
-		xeenPrepareTempleHeal(_party,_smith->owner,*_party.encounterContext,_camera.mapId));
+		xeenPrepareTempleHeal(_party,_smith->owner,*_party.encounterContext,templePrices()));
 	if(delta->result.outcome!=XeenTempleHealOutcome::Healed ||
 		delta->result.price!=quoted.price) {
 		_journeyPreimage->failed=true;
@@ -605,7 +631,11 @@ void XeenEventFlow::prepareSmith() {
 			_encounter->journeySavePreimage().admitEventText(text);
 			SmithUi ui;ui.catalog=_catalog;ui.art=_frame;
 			ui.animation.kind=guild?XeenServiceArt::Guild:food?XeenServiceArt::Tavern:bank?XeenServiceArt::Bank:temple?XeenServiceArt::Temple:XeenServiceArt::Smith;
-			if(temple)ui.mode=SmithUi::Mode::Heal;
+			if(temple) {
+                ui.mode=SmithUi::Mode::Heal;
+                ui.templePrices=_encounter->templePrices();
+                ui.templePriceRevision=_encounter->_smithPreparation->templePriceRevision;
+            }
             if(food){ui.mode=SmithUi::Mode::Food;ui.foodOffer=tavernFoodOffer(xeenTavernFoodOffer(_camera.mapId)->text);}
             if(bank)ui.mode=SmithUi::Mode::Bank;
             if(guild)ui.mode=SmithUi::Mode::Guild;
@@ -700,12 +730,18 @@ std::string XeenEventFlow::smithText() const {
             ui.catalog.describe(ui.category,item).coloredName(15),
             ui.mode==SmithUi::Mode::Buy?visit.purchase->result.price:visit.result.price);
     }
-    return xeenLocationText(dosText(),ui.mode==SmithUi::Mode::Heal?XeenLocationDialog::Temple:XeenLocationDialog::Smith,_party,ui.member,_camera.mapId);
+    if(ui.mode==SmithUi::Mode::Heal) {
+        const auto *visit=_encounter->_smith ? _encounter->_smith.get() : _encounter->_smithPreparation.get();
+        return xeenTempleText(dosText(),_party,ui.member,_encounter->templePrices(
+            _smithSettlement && ui.phase==SmithUi::Phase::Departure?&ui.templePrices:nullptr,ui.templePriceRevision),visit && visit->templeBlessed);
+    }
+    return xeenLocationText(dosText(),XeenLocationDialog::Smith,_party,ui.member,_camera.mapId);
 }
 IndexedFrame XeenEventFlow::drawSmith(const IndexedFrame &world) const {
     const auto &ui=*_smithUi;
     auto frame=drawXeenLocation(dosText(),world,ui.art,_inventoryFont,
-        ui.mode==SmithUi::Mode::Guild?XeenLocationDialog::Guild:ui.mode==SmithUi::Mode::Food?XeenLocationDialog::Tavern:ui.mode==SmithUi::Mode::Bank?XeenLocationDialog::Bank:ui.mode==SmithUi::Mode::Heal?XeenLocationDialog::Temple:XeenLocationDialog::Smith,_party,ui.member,_camera.mapId,drawDialogSprite,_encounter->_smith && _encounter->_smith->templeBlessed,ui.tavernStatus);
+        ui.mode==SmithUi::Mode::Guild?XeenLocationDialog::Guild:ui.mode==SmithUi::Mode::Food?XeenLocationDialog::Tavern:ui.mode==SmithUi::Mode::Bank?XeenLocationDialog::Bank:ui.mode==SmithUi::Mode::Heal?XeenLocationDialog::Temple:XeenLocationDialog::Smith,_party,ui.member,_camera.mapId,drawDialogSprite,_encounter->_smith && _encounter->_smith->templeBlessed,ui.tavernStatus,ui.mode==SmithUi::Mode::Heal?&_encounter->templePrices(
+            _smithSettlement && ui.phase==SmithUi::Phase::Departure?&ui.templePrices:nullptr,ui.templePriceRevision):nullptr);
     if(ui.mode==SmithUi::Mode::Guild && (ui.phase==SmithUi::Phase::Browse || ui.phase==SmithUi::Phase::Confirm)) {
         frame=drawXeenSpellList(dosText(),frame,_inventoryFont,_party.party.member(_party.roster,ui.member),
             *_encounter->journeySavePreimage().learnedNames,ui.spells,_party.monsterTreasure->gold,true,ui.spellInfo,drawDialogSprite,_party.encounterContext->year,_camera.mapId);

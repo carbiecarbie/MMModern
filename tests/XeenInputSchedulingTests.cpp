@@ -48,13 +48,14 @@ extern "C" int __real_SDL_RenderCopy(SDL_Renderer *,SDL_Texture *,const SDL_Rect
 extern "C" int __wrap_SDL_RenderCopy(SDL_Renderer *r,SDL_Texture *t,const SDL_Rect *s,const SDL_Rect *d){probe_fired::hit("SDL_RenderCopy");if(copyHook)copyHook();return __real_SDL_RenderCopy(r,t,s,d);}
 namespace {
 struct Harness {
+    mmodern::XeenTemplePriceState templePriceState;
  Inputs &in;XeenEventFlow *flow=nullptr;XeenWorld *world=nullptr;const XeenPartyState *party=nullptr;const XeenGameFlags *flags=nullptr;XeenCamera *camera=nullptr;
  std::function<void()> composeHook;
  IndexedFrame::Presentation observedOrigin;
  std::uint64_t liveCompositionMicros=0,maxLiveCompositionMicros=0;
  explicit Harness(Inputs &i):in(i){}
  XeenGameplayServices services() {
-  XeenGameplayServices s{in.resources(),[]{return XeenGameFlags{};},in.mapLoader(),in.objectLoader(),[&](auto id){return in.texts.load(id);},in.font,
+  XeenGameplayServices s{templePriceState,in.resources(),[]{return XeenGameFlags{};},in.mapLoader(),in.objectLoader(),[&](auto id){return in.texts.load(id);},in.font,
    [](auto &,const auto &,const auto &,auto){return XeenEventFlow::Composition{frame(),false};},{},
    [&](auto &f,const auto &){flow=&f;f.dialogText=&in.assets.uiText();f.drawTrainingArt=[&](auto &b){in.assets.drawTraining(b);};
     f.drawCombatButtons=[&](auto &b){CloudsUiComposer().drawCombatButtons(in.assets,b);};},{},
@@ -78,7 +79,7 @@ struct Harness {
  int run(XeenGameplayServices &s,const XeenSaveSnapshot &source,const std::string &name) {
   const auto path=std::filesystem::absolute("scheduling-"+name+".mmsave");
   XeenSaveFile::write(path,source);
-  const auto result=Application().playGameplay(s,source.camera,path,true);
+  const auto result=Application(s.templePrices).playGameplay(s,source.camera,path,true);
   std::filesystem::remove(path);return result;
  }
 };

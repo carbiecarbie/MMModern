@@ -26,9 +26,9 @@ bool sameEvents(const XeenEventFile &a,const XeenEventFile &b) {
 	return true;
 }
 }
-XeenEncounterFlow::XeenEncounterFlow(XeenWorld &w, XeenPartyState &p, XeenCamera &c, const XeenGameFlags &flags,
+XeenEncounterFlow::XeenEncounterFlow(XeenTemplePriceState &templePrices, XeenWorld &w, XeenPartyState &p, XeenCamera &c, const XeenGameFlags &flags,
 		const XeenEventPresenter::Clock &clock, const XeenJourneySetup &setup, const PresentationClock::Source *highResolution) :
-	_journey(true), _journeyStatistics(setup.statistics), _learnedNamesProvider(setup.learnedNamesProvider), _world(w), _party(p), _camera(c), _flags(flags),
+	_journey(true), _journeyStatistics(setup.statistics), _learnedNamesProvider(setup.learnedNamesProvider), _templePrices(templePrices), _world(w), _party(p), _camera(c), _flags(flags),
 	_clock(clock), _nanosecondClock(highResolution), _events(_journeyEvents), _boundary(w,p,c) {
 	// Detach preparation arguments before compatibility/provider callbacks.
 	const auto characters=setup.characters;
@@ -141,9 +141,9 @@ XeenEncounterFlow::XeenEncounterFlow(XeenWorld &w, XeenPartyState &p, XeenCamera
 	} catch (...) { closeJourney(); throw; }
 }
 XeenEncounterFlow::~XeenEncounterFlow() { if (_journey) closeJourney(); }
-XeenEncounterFlow::XeenEncounterFlow(XeenWorld &w, XeenPartyState &p, XeenCamera &c, const XeenGameFlags &f,
+XeenEncounterFlow::XeenEncounterFlow(XeenTemplePriceState &templePrices, XeenWorld &w, XeenPartyState &p, XeenCamera &c, const XeenGameFlags &f,
 		const XeenEventPresenter::Clock &clock, XeenJourneyRestoreTag, const PresentationClock::Source *highResolution) :
-	_journey(true), _world(w), _party(p), _camera(c), _flags(f), _clock(clock), _nanosecondClock(highResolution), _events(_journeyEvents), _boundary(w,p,c) {
+	_journey(true), _templePrices(templePrices), _world(w), _party(p), _camera(c), _flags(f), _clock(clock), _nanosecondClock(highResolution), _events(_journeyEvents), _boundary(w,p,c) {
 	const auto binding = w._journeyRestoration;
 	if (!binding || !binding->guard || !binding->guard->current() ||
 		&binding->guard->w != &w || &binding->guard->p != &p || &binding->guard->c != &c || &binding->guard->f != &f ||
