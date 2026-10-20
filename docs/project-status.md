@@ -1,10 +1,10 @@
 # MMModern - Project Status
 
-This describes what can be played and done now. **M78 is the latest completed
-and accepted milestone** ([plan](milestone-78-plan.md)): the whole of Clouds is
-open, with its monsters, Events and every travel path; Mountaineer and
-Pathfinder let the party cross mountains and outdoor wall types 3 and 6, and
-dark maps stay black until the party has light. Earlier
+This describes what can be played and done now. **M79 is the latest completed
+and accepted milestone** ([plan](milestone-79-plan.md)): every Clouds town's
+services work, from Rivercity and Shangri-La to the Guilds of Nightshadow,
+Asp and Winterkill and the Newcastle levels. The whole of Clouds is open,
+with its monsters, Events and every travel path (M78). Earlier
 milestones are in [project history](project-history.md), direction is in the
 [roadmap](roadmap.md), and build and dependency setup is in
 [dependencies](dependencies.md).
@@ -43,8 +43,8 @@ an empty bank. **Load** continues a saved game from the same slot list.
   ranged attacks and flying. Every map load rebuilds its monsters at full HP
   and asleep, as the original does.
 - **Events.** Every Event operation the Clouds scripts use runs as in the
-  original, other than audio, the entrance scenes, the Arena, the other towns'
-  services and the ending: signs, fountains, statues, NPC conversations, moved
+  original, other than audio, the entrance scenes, the Arena and the
+  ending: signs, fountains, statues, NPC conversations, moved
   walls and objects, monster spawns, conditions, rewards, random Events,
   teleports, stairs, the magic mirror and password prompts. Those exceptions
   say "not supported yet" without changing anything.
@@ -75,7 +75,7 @@ turn; Town Portal from an item loads the town and ends the fight.
 
 All 76 Clouds spells work from the learned book, Quick Fight and charged
 items, in exploration and in combat where the original allows them, with the
-original prompts, refusals, refunds and costs. The Vertigo Guild sells its
+original prompts, refusals, refunds and costs. Each town's Guild sells its
 original selection, and the original Cast dialog casts them. By theme:
 
 - **Attack spells** fly forward to the first monster or group in reach, or up
@@ -162,6 +162,24 @@ by mouse or keyboard:
 
 Each visit costs the original departure time, and merchant stock and bank
 interest follow the original schedule.
+
+### The other towns
+
+The other towns' services use the same screens, with each place's original
+values:
+
+- **Rivercity** has all six: Training up to level 15, Food filling 60 rations
+  per member for 50 gold, and its own Ironworks stock, Temple prices, Guild
+  catalogue, tips and rumors.
+- **Shangri-La** has a Temple with the highest prices, an Ironworks, a
+  Tavern (120 rations per member for 100 gold) and a Guild that sells every
+  spell of the class.
+- **Nightshadow, Asp and Winterkill** each have a Guild with its own
+  catalogue; each Guild admits only its own members.
+- **Newcastle** has an Ironworks and Training up to level 20 on Level 1, and
+  a Temple and the shared Bank on Level 2. As in DOS, Level 2's Temple uses
+  the prices of the last Temple visited since the program started (none
+  before any visit), across New Game and Load.
 
 ### Rest, food and time
 
@@ -290,9 +308,6 @@ and its support status. Build and run instructions are in
 
 ## Known gaps
 
-- **Other towns.** Nightshadow, Rivercity, Asp and Winterkill have no services
-  yet: their shops, Temple, Training, Bank, Tavern and Guild say "not
-  supported yet".
 - **Inn and party.** There is no Inn, recruiting or character creation:
   Tavern Sign In and Dismiss say "not supported yet".
 - **Town scenes.** The entrance scenes (Reaper, Golem, Dwarf Mine, Sphinx and

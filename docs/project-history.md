@@ -397,3 +397,13 @@ mirror, Town Portal's five towns, Lloyd's Beacon, the travel spells, Run, Mr
 Wizard and falls. Other towns' services and the entrance scenes refuse
 without changing anything. Save v16 changes only the version.
 [Plan](milestone-78-plan.md).
+
+**M79 - Services of the other towns** (`2632944` plan, `30d0580`,
+`d3c607e`, `5a965ef`, `ae87434`, `75a5829`). A DOS check first settled each
+place's values: Training caps 10, 15 and 20, the Ironworks stock shops, the
+Guild catalogues and memberships, and Rivercity's Food, which fills 60
+rations per member where the reference has 50. Every Clouds town service now
+works: Rivercity's six, Shangri-La's four, the Guilds of Nightshadow, Asp and
+Winterkill, and Newcastle's two levels. Newcastle Level 2's Temple keeps the
+last Temple prices of the running program, as DOS does. Save v16 is
+unchanged. [Plan](milestone-79-plan.md).
