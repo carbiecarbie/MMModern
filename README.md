@@ -124,8 +124,6 @@ to view that member. The acting member and selected enemy use the original icons
 
 ## What is missing
 
-- Other towns: Nightshadow, Rivercity, Asp and Winterkill have no services
-  yet; they say "not supported yet".
 - Sound: there is no audio. Where the CD would play speech, a short notice
   appears. Speech, shop voices, the dream and the death laugh still take their
   original time, in silence.
