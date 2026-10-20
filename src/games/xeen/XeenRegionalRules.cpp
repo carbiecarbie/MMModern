@@ -412,21 +412,10 @@ std::optional<std::uint8_t> xeenRegionalService(const XeenEventFile &events,cons
 XeenRegionalInteraction xeenRegionalInteraction(const XeenEventFile &events,const XeenCamera &camera) {
 	const auto first=xeenRegionalEvent(events,camera);
 	if (!first) return XeenRegionalInteraction::None;
-	if (camera.mapId!=XeenMapIdentity(23) && camera.mapId!=XeenMapIdentity(28)) return XeenRegionalInteraction::Event;
 	if(const auto service=xeenRegionalService(events,camera)) {
 		return *service==2?XeenRegionalInteraction::Guild:*service==0?XeenRegionalInteraction::Bank:*service==3?XeenRegionalInteraction::Tavern:*service==1?XeenRegionalInteraction::Ironworks:
 			*service==4?XeenRegionalInteraction::Temple:XeenRegionalInteraction::Training;
 	}
-	// Classify supported region transitions from original operands at this
-	// physical interaction. Neighbor geometry tiles are never destinations.
-	const auto teleportsTo=[&](unsigned map) {
-		for(const auto &r:events.records)
-			if(r.x==camera.x && r.y==camera.y && (r.direction==4 || r.direction==unsigned(camera.direction)) &&
-				r.opcode==0x07 && r.parameters.size()==3 && r.parameters[0]==map)return true;
-		return false;
-	};
-	if(camera.mapId==XeenMapIdentity(28))return teleportsTo(23)?XeenRegionalInteraction::VertigoExit:XeenRegionalInteraction::Event;
-	if(camera.mapId==XeenMapIdentity(23) && teleportsTo(28))return XeenRegionalInteraction::VertigoEntrance;
 	return XeenRegionalInteraction::Event;
 }
 }

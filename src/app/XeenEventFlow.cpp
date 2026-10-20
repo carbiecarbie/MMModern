@@ -503,7 +503,7 @@ void XeenEventFlow::prepareJourneyTransition() {
   !_encounter->monsterReward() && !_encounter->state().pending() && _encounter->state().phase()==XeenEncounterPhase::Exploring) {
   _encounter->beginJourneyEvent();_journeyEventLayers=true;
   journeyEventWork([&] {
-   drive(beginVertigoEvent(xeenRegionalInteraction(_encounter->_journeyEvents,_camera),true),true);
+   drive(beginDetachedEvent(xeenRegionalInteraction(_encounter->_journeyEvents,_camera),true),true);
   },true);
  }
  if(_encounter->_shootIntent && !_encounter->state().pending() && !_encounter->_regionalWork && !_encounter->projectilesPending()) _encounter->beginShoot();
@@ -555,7 +555,6 @@ void XeenEventFlow::retainManualPrefix(bool party) {
 void XeenEventFlow::publishManualPrefix() {
  auto &work=*_transition;if(work.automatic)return;checkTransitionCandidate();
  if(work.observed)_eventPublication->publishSequencePrefix(_world,_party,*work.observed->guard);
- if(work.observedPrelude)_eventPublication->publishPrelude(_flags,*work.observedPrelude,*work.observedPreludeContinuation);
 }
 
 bool XeenEventFlow::serviceManualStep() {
@@ -1185,7 +1184,7 @@ template<class Result> IndexedFrame XeenEventFlow::drive(Result result, bool aut
 	for (;;) {
 		if constexpr (std::is_same_v<Result, XeenManualEventResult>)
 			if (_transition) {
-                prepareVertigoResult(result);
+                prepareDetachedResult(result);
                 if(_transition && _transition->completion)return frameCopy();
             }
 		// Adopt ownership before composition, reporting or presentation can fail.
@@ -1247,7 +1246,7 @@ template<class Result> IndexedFrame XeenEventFlow::drive(Result result, bool aut
 		auto pending = std::move(*_pending);
 		_pending.reset(); // Consume before calling into the execution system.
 		if constexpr (std::is_same_v<Result, XeenManualEventResult>)
-			result = _transition ? resumeVertigoEvent(std::move(pending.state),*update.response) :
+			result = _transition ? resumeDetachedEvent(std::move(pending.state),*update.response) :
 				_events.resumeManualEvent(std::move(pending.state), *update.response,
 					_world, _party, _camera, _flags, _eventPublication);
 		else
@@ -1267,30 +1266,30 @@ void XeenEventFlow::checkTransitionCandidate() {
 	catch (...) { _encounter->journeySavePreimage().failed=true; throw; }
 }
 
-XeenManualEventResult XeenEventFlow::beginVertigoEvent(XeenRegionalInteraction kind, bool automatic) try {
+XeenEventSystem XeenEventFlow::detachedEventResources() {
+    return XeenEventSystem([this](XeenMapIdentity id) {
+        _eventPublication->check();auto script=_events.scriptForMap(id);
+        if(id==_encounter->_journeyEvents.mapId)_eventPublication->script(script.file());
+        _eventPublication->check();return script;
+    },[this](XeenMapIdentity id) {
+        _eventPublication->check();auto text=_events.textForMap(id);
+        _eventPublication->check();_eventPublication->text(text);return text;
+    });
+}
+
+XeenManualEventResult XeenEventFlow::beginDetachedEvent(XeenRegionalInteraction kind, bool automatic) try {
 	if (_transition || !_eventPublication || !_encounter->journeyEvent() ||
 		!_transitionCompose)
 		throw std::logic_error("Vertigo Event candidate is unavailable");
 	_candidateResultRefused=false;
 	_eventPublication->script(_events.scriptForMap(_camera.mapId).file());
 	auto work=std::make_unique<TransitionCandidate>();
-	const auto mainland=_events.scriptForMap(23).file();
-	const auto city=_events.scriptForMap(28).file();
-	_eventPublication->check();
-	const auto mainText=_events.textForMap(23),cityText=_events.textForMap(28);
-	_eventPublication->check();
-	if(mainText.mapId!=XeenMapIdentity(23) || mainText.strings.size()!=44 ||
-		cityText.mapId!=XeenMapIdentity(28) || cityText.strings.size()!=64)
-		throw std::invalid_argument("Vertigo original text catalog changed");
-	_eventPublication->text(mainText);_eventPublication->text(cityText);
 	work->kind=kind;work->automatic=automatic;
 	work->world=_world.transitionCandidate();
 	work->camera=_camera;work->flags=_flags;
 	work->initialCamera=_camera;work->initialFlags=_flags;
 	const auto root=xeenRegionalEvent(_encounter->_journeyEvents,_camera);
 	if(!root)throw std::logic_error("Detached Event has no bound original entry");
-	work->preludeRequired=kind==XeenRegionalInteraction::VertigoExit &&
-		_encounter->_journeyEvents.records[*root].opcode==0x19;
 	work->world->copyEventParty(_party,work->party);
 	{
 		XeenRestoreGuard guard(*work->world,work->party,work->camera,work->flags);
@@ -1299,32 +1298,15 @@ XeenManualEventResult XeenEventFlow::beginVertigoEvent(XeenRegionalInteraction k
 		work->guard=std::make_unique<XeenRestoreGuard>(*work->world,work->party,work->camera,work->flags);
 		work->guard->retainResources(guard);
 	}
-	const auto destination=kind==XeenRegionalInteraction::VertigoExit ? XeenMapIdentity(23) : XeenMapIdentity(28);
-	work->destinationEvents=_events.scriptForMap(destination).file();
-	_eventPublication->check();
-	work->guard->check();
-	{
-		XeenRestoreGuard::EventProviders providers(*work->world,work->party,work->camera,work->flags,
-			*work->guard,[&] {_eventPublication->check();},
-			[&] {_encounter->journeySavePreimage().failed=true;});
-		for(int y=0;y<32;++y)for(int x=0;x<32;++x)
-			if(!work->world->sampleCell(28,x,y))throw std::invalid_argument("Vertigo geometry tile is missing");
-		const auto &cityMob=work->world->objectFile(28);
-		if(!cityMob.resourcePresent || cityMob.mapId!=XeenMapIdentity(28) ||
-			cityMob.entities.monsters.size()>XeenActorApproach::kCapacity)
-			throw std::invalid_argument("Invalid city MOB resource identity or capacity");
-		if(kind==XeenRegionalInteraction::VertigoEntrance && !work->world->sessionState().hasRegionalActors(destination))
-			work->world->stageIndoorMonsters(cityMob,_encounter->_journeyStatistics);
-	}
-	_eventPublication->check();
 	_transition=std::move(work);
 	XeenRestoreGuard::EventProviders providers(*_transition->world,_transition->party,_transition->camera,
 		_transition->flags,*_transition->guard,[&] {_eventPublication->check();},
 		[&] {_encounter->journeySavePreimage().failed=true;});
 	const auto execute=[&]() -> XeenManualEventResult {
-		if(!automatic)return _events.runManualEvent(*_transition->world,_transition->party,_transition->camera,
+		auto events=detachedEventResources();
+		if(!automatic)return events.runManualEvent(*_transition->world,_transition->party,_transition->camera,
 			_transition->flags,nullptr);
-		auto result=_events.runAutomaticEvent(*_transition->world,_transition->party,_transition->camera,
+		auto result=events.runAutomaticEvent(*_transition->world,_transition->party,_transition->camera,
 			_transition->flags,nullptr);
 		if(const auto *done=std::get_if<XeenAutomaticEventCompleted>(&result))
 			return XeenManualEventCompleted{done->instructionCount,done->cameraChanged,done->flagsChanged};
@@ -1341,7 +1323,7 @@ XeenManualEventResult XeenEventFlow::beginVertigoEvent(XeenRegionalInteraction k
 	throw;
 }
 
-XeenManualEventResult XeenEventFlow::resumeVertigoEvent(XeenEventExecutionState state,
+XeenManualEventResult XeenEventFlow::resumeDetachedEvent(XeenEventExecutionState state,
 		XeenPresentationResponse response) {
 	if (!_transition || !_eventPublication) throw std::logic_error("Vertigo Event continuation is absent");
 	_eventPublication->check();
@@ -1359,7 +1341,8 @@ XeenManualEventResult XeenEventFlow::resumeVertigoEvent(XeenEventExecutionState 
 	XeenRestoreGuard::EventProviders providers(*_transition->world,_transition->party,_transition->camera,
 		_transition->flags,*_transition->guard,[&] {_eventPublication->check();},
 		[&] {_encounter->journeySavePreimage().failed=true;});
-	auto result=_events.resumeManualEvent(std::move(state),response,*_transition->world,
+	auto events=detachedEventResources();
+	auto result=events.resumeManualEvent(std::move(state),response,*_transition->world,
 		_transition->party,_transition->camera,_transition->flags,nullptr);
 	_eventPublication->check();
 	auto prepared=std::make_unique<XeenRestoreGuard>(*_transition->world,_transition->party,_transition->camera,_transition->flags);
@@ -1367,7 +1350,7 @@ XeenManualEventResult XeenEventFlow::resumeVertigoEvent(XeenEventExecutionState 
 	return result;
 }
 
-void XeenEventFlow::prepareVertigoResult(const XeenManualEventResult &result) try {
+void XeenEventFlow::prepareDetachedResult(const XeenManualEventResult &result) try {
 	if (!_transition || !_eventPublication) return;
 	checkTransitionCandidate();
 	auto &work=*_transition;
@@ -1377,20 +1360,6 @@ void XeenEventFlow::prepareVertigoResult(const XeenManualEventResult &result) tr
 		if(suspended->request.kind==XeenPresentationKind::RewardReceipt ||
 			suspended->request.kind==XeenPresentationKind::RewardWarning)
 			publishEventSequencePrefix(suspended->state);
-		const auto root=xeenRegionalEvent(_encounter->_journeyEvents,work.initialCamera);
-		if(!root)throw std::logic_error("Detached Event suspension lost its original entry");
-		const auto &entry=_encounter->_journeyEvents.records[*root];
-		const auto &logical=suspended->state.logicalAddress;
-		const auto &source=suspended->state.pendingPresentation->request.source;
-		if(work.preludeRequired && !work.preludePublished &&
-			logical.mapId==work.initialCamera.mapId && logical.x==work.initialCamera.x && logical.y==work.initialCamera.y &&
-			logical.line==entry.line+2 && source.x==work.initialCamera.x && source.y==work.initialCamera.y &&
-			source.line==entry.line+1 && source.opcode==0x01 && suspended->state.callStack.empty()) {
-			// Return from the original flag prelude is its own publication boundary.
-			if(work.automatic)_eventPublication->publishPrelude(_flags,suspended->state,*work.continuation);
-            else {work.observedPrelude=suspended->state;work.observedPreludeContinuation=*work.continuation;}
-			work.preludePublished=true;
-		}
         if(suspended->request.kind==XeenPresentationKind::PortraitEffect)publishEventSequencePrefix(suspended->state);
 		const bool service=suspended->state.pendingPresentation->request.source.opcode==0x11;
 		if(service) {
@@ -1431,8 +1400,7 @@ void XeenEventFlow::prepareVertigoResult(const XeenManualEventResult &result) tr
 	// failures. Retrying prepares/publicizes this value, never re-executes Events.
 	work.completion=*done;
 	if(!work.terrainDone && !work.terrain && !work.manualStep && (done->cameraChanged!=!xeen_state::sameCamera(work.camera,work.initialCamera) ||
-		done->flagsChanged!=(work.flags.values()!=work.initialFlags.values()) ||
-		(work.preludeRequired && !work.preludePublished)))
+		done->flagsChanged!=(work.flags.values()!=work.initialFlags.values())))
 		throw std::logic_error("Event completion metadata or prelude boundary changed");
 	// perform Space calls doStepCode once after the whole manual Event chain;
 	// an automatic Event was already reached through movement's arrival suffix.
@@ -1465,8 +1433,7 @@ void XeenEventFlow::prepareVertigoResult(const XeenManualEventResult &result) tr
 	}
 	const bool sameMap=work.camera.mapId==work.initialCamera.mapId;
 	if(sameMap) {
-		if(!work.world->sampleCell(work.camera.mapId,work.camera.x,work.camera.y) ||
-			((work.kind==XeenRegionalInteraction::VertigoEntrance || work.kind==XeenRegionalInteraction::VertigoExit) && !work.refused))
+		if(!work.world->sampleCell(work.camera.mapId,work.camera.x,work.camera.y))
 			throw std::logic_error("Same-map Event escaped its physical continuation capability");
 		work.destinationEvents=_encounter->_journeyEvents;
 	} else {
@@ -1475,11 +1442,6 @@ void XeenEventFlow::prepareVertigoResult(const XeenManualEventResult &result) tr
 			_encounter->_journeyRefusal=transition.reason;
 			_candidateResultRefused=true;
 			_transition.reset();return;
-		}
-		if (!_world.developerEventMap() && work.kind!=XeenRegionalInteraction::Event) {
-			const auto expected=work.kind==XeenRegionalInteraction::VertigoExit?XeenMapIdentity(23):XeenMapIdentity(28);
-			if(work.camera.mapId!=expected || (work.kind!=XeenRegionalInteraction::VertigoExit && work.kind!=XeenRegionalInteraction::VertigoEntrance))
-				throw std::logic_error("Event ended outside its resource-defined transition capability");
 		}
 		work.destinationEvents=_events.scriptForMap(work.camera.mapId).file();
 		_eventPublication->check();
@@ -2369,7 +2331,7 @@ bool XeenEventFlow::resumePending(std::uint64_t generation, XeenPresentationResp
 	auto pending = std::move(*_pending);
 	_pending.reset();
 	if (_transition)
-		drive(resumeVertigoEvent(std::move(pending.state),response),pending.automatic);
+		drive(resumeDetachedEvent(std::move(pending.state),response),pending.automatic);
 	else if (pending.automatic)
 		drive(_events.resumeAutomaticEvent(std::move(pending.state), response,
 			_world, _party, _camera, _flags, _eventPublication), true);
@@ -2665,7 +2627,7 @@ IndexedFrame XeenEventFlow::handle(const PlayerAction &physicalAction, std::opti
 						_encounter->beginJourneyEvent();_journeyEventLayers=true;
 						const auto interaction=xeenRegionalInteraction(_encounter->_journeyEvents,_camera);
 						return journeyEventWork([&] {
-							drive(beginVertigoEvent(interaction),false);
+							drive(beginDetachedEvent(interaction),false);
 						});
 					}
                     bool noEvent=false;

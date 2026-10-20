@@ -42,6 +42,7 @@ struct XeenJourneySetup {
 	// Transient construction choice; never saved. Default retains prepared Journey.
 	bool prepared = true;
 	std::function<XeenEventFile()> mainlandEventsProvider;
+	std::function<XeenEventFile(XeenMapIdentity)> eventsProvider;
 	// Developer monster fixture only: a prepared-Journey start other than the
 	// entry, inside the mainland component. Never saved as a setting.
 	std::optional<XeenCamera> start;

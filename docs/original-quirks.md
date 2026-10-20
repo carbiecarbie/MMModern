@@ -546,3 +546,14 @@ a port defect; MMModern follows the original instead.
 | <a id="sv-pain"></a> Pain (spell 50) prepares zero damage and appears to do nothing. | DOS prepares 8 physical damage against the first group, with the normal physical resistance and saving throw. Original program analysis, 2026-10-11, `WORLD/XEEN.DAT` `0x33558`, `0x2f5e9`, `0x2cd81`. | M60 Part B, `XeenSpellDamageCandidate` **ScummVM:** differs. |
 | <a id="sv-suppress-poison"></a> Suppress Poison's target dialog passes First Aid's ID, refunding 1 SP on cancel, and reduces Poison by 2 when it is at least 4. | DOS passes ID 68, refunds 4 SP on cancel and subtracts 3. Original program analysis, 2026-10-11, `WORLD/XEEN.DAT` `0x2f62f`, `0x2f146`, `0x2f34b`, `0x2f67b`. Follow-up 2026-10-17 confirms zero unchanged (`0x2f663..0x2f669`), 1..3 set to 1 (`0x2f673`), 4+ subtract 3 (`0x2f683`), all selected-target paths reaching healing(0) at `0x2f69b`. Zero/1..3 and the unconditional helper match the pin; no extra zero-path discrepancy. | `XeenLearnedSpellRules` and own-ID casting refunds, implemented in M75 Part A. **ScummVM:** differs; master not rechecked. |
 | The pin's `_currentCantRest` tests a flag its cell loader cannot set. | DOS differs: cell bit `0x40` is loaded and tested. See [Rest cell flag](#sv-rest-cell-flag). | MMModern follows DOS in `XeenRestFlow::beginRest`, including Super Shelter's bypass. |
+
+## World CD protection Events
+
+The copy-protection Event (`ProtectionCheck`, opcode `0x2f`) is a no-op on
+all admitted Clouds maps, as it already was in Vertigo. This follows the
+pinned reference's default World CD configuration: `Scripts::copyProtectionCheck`
+returns success unless copy protection was explicitly enabled. MMModern does
+not expose that optional dialog. **Evidence: reference only**; M78 Part B did
+not add a DOS observation. Location: `XeenEventInterpreter`, the shared
+`XeenEventProtectionCheck` dispatch. The map-28 admission guard is removed;
+this does not introduce a second protection policy for other maps.

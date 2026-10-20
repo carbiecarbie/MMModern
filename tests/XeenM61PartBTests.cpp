@@ -124,7 +124,9 @@ void refusal(Inputs &in) {
         check(f.p.roster.at(s.activeRosterIds[1]).currentHp==0,"Terminal member healed");
         check(f.p.roster.at(s.activeRosterIds[0]).currentSp==(cancel?(power==4?1:power==37?8:0):0),"Verified healing-item cancellation, not a failed effect, refunds SP");
     }
-    auto s=source(in,16,false);s.camera={23,11,11,XeenDirection::East};Fixture f(in,s);
+    auto s=source(in,16,false);s.camera={23,15,11,XeenDirection::East};
+    const auto original=in.mapLoader();
+    Fixture f(in,s,false,nullptr,[original](auto id){auto m=original(id);if(id==XeenMapIdentity(23))m.geometry.neighbors[1]=0;return m;});
     const auto before=XeenSaveFormat::encode(f.snapshot());open(f);key(f,'u');
     check(!f.flow->encounter()->itemUseActive(),"Unsafe item Jump admitted");f.act(AcknowledgeAction{});key(f,InputKey::Escape);key(f,InputKey::Escape);quiet(f);
     check(before==XeenSaveFormat::encode(f.snapshot()),"Unsafe item Jump spent anything");

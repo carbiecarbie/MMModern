@@ -256,7 +256,7 @@ void events() {
 		check(kind(0,1,XeenDirection(d))==XeenRegionalInteraction::Event,"Mainland fountain is an Event");
 		check(kind(12,2,XeenDirection(d))==XeenRegionalInteraction::Event,"Mainland statue is an Event");
 	}
-	check(kind(14,4,XeenDirection::East)==XeenRegionalInteraction::VertigoEntrance,"Vertigo gate stays distinct");
+	check(kind(14,4,XeenDirection::East)==XeenRegionalInteraction::Event,"Vertigo gate uses the generic Event transition");
 	check(kind(14,4,XeenDirection::North)==XeenRegionalInteraction::None,"Gate binds only its facing");
 	check(kind(3,3,XeenDirection::North)==XeenRegionalInteraction::None,"Empty mainland cell has no Event");
 }

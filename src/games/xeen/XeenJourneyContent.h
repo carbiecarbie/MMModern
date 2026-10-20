@@ -6,12 +6,6 @@
 namespace mmodern {
 // Reference coordinate capacity. World resolves tile presence and passage.
 inline bool xeenIndoorCoordinate(int x,int y) noexcept { return x>=0 && x<32 && y>=0 && y<32; }
-// Admitted mainland area: the component reachable from the entry with water
-// open, independent of the party's current abilities. Movement arrival,
-// save restore and same-map spell destinations share it.
-// Part A retains the pre-M78 component: wall 3/6 were passable in that
-// predicate, mountains were not. Actual movement still checks party skills.
-inline constexpr XeenMovement::Capabilities kXeenAdmittedAreaTraversal{true,true,false,true};
 // Immutable Journey setup, never a gameplay owner.
 struct XeenJourneyContent {
 	XeenCamera entry;

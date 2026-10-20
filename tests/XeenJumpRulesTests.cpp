@@ -32,7 +32,7 @@ void rules() {
     check(run().admission==XeenJumpAdmission::Blocked,"zero destination surface blocks");
     for(const auto type:{5,6,10,13,15}) {
         m=outdoor();m.geometry.surfaceTypes[2]=type;xeenGet<XeenOutdoorLayers>(m.geometry.cells[11*16+11].geometry).surface=2;
-        check(run().admission==(type==15?XeenJumpAdmission::Unsupported:XeenJumpAdmission::Ready),"Hazardous Jump uses shared arrival; ordinary space stays outside admitted footprint");
+        check(run().admission==XeenJumpAdmission::Ready,"Hazardous Jump uses the shared terrain arrival owner");
         xeenGet<XeenOutdoorLayers>(m.geometry.cells[11*16+10].geometry).middle=1;
         check(run().admission==XeenJumpAdmission::Blocked,"original wall failure precedes terrain support");
     }
@@ -40,7 +40,7 @@ void rules() {
     // Destination is ordinary terrain, isolated from the saved mainland by
     // an original middle layer Jump itself does not block.
     for(int y=0;y<16;++y)xeenGet<XeenOutdoorLayers>(m.geometry.cells[y*16+10].geometry).middle=7;
-    check(run().admission==XeenJumpAdmission::Unsupported,"destination outside saved walking component");
+    check(run().admission==XeenJumpAdmission::Ready,"Jump admission is independent of walking components and skills");
     m=indoor();const XeenCamera city{28,8,8,XeenDirection::East};
     const auto cityRun=[&] {XeenWorld world([&](auto){return m;});return xeenJumpPreflight(world,city);};
     check(cityRun().admission==XeenJumpAdmission::Ready,"indoor Jump");
@@ -57,7 +57,7 @@ void rules() {
 void original(const char *root) {
     const auto install=XeenInstallationDetector().detect(root);check(bool(install),"original installation required");
     XeenAssetSource assets(*install,320,200);XeenWorld world([&](auto id){return XeenMapLoader().loadGeometryMap(assets,id);});
-    check(xeenJumpPreflight(world,{23,11,11,XeenDirection::East}).admission==XeenJumpAdmission::Unsupported,"original Jump onto space is precharge unsupported");
+    check(xeenJumpPreflight(world,{23,11,11,XeenDirection::East}).admission==XeenJumpAdmission::Ready,"Original space landing reaches the shared terrain owner");
     check(xeenJumpPreflight(world,{23,9,11,XeenDirection::East}).admission==XeenJumpAdmission::Ready,"original mainland successful Jump");
     check(world.sessionState().exploredTiles().empty(),"original preflight changed exploration");
 }

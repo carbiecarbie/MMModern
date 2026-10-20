@@ -94,7 +94,7 @@ void route(Inputs &in) {
  XeenCamera exit;bool found=false;
  for(const auto &r:in.city.records)if(r.line==0)for(unsigned d=0;d<4;++d) {
   XeenCamera at{28,int(r.x),int(r.y),XeenDirection(d)};
-  if(xeenRegionalInteraction(in.city,at)==XeenRegionalInteraction::VertigoExit){exit=at;found=true;break;}
+  if(at.x==15 && at.y==0 && at.direction==XeenDirection::South && xeenRegionalInteraction(in.city,at)==XeenRegionalInteraction::Event){exit=at;found=true;break;}
   if(found)break;
  }
  check(found,"Original Vertigo exit exists");walk(restored,exit);restored.act(InteractionAction{});
@@ -141,7 +141,7 @@ void vertigoLoop(Inputs &in) {
  XeenCamera exit;bool found=false;
  for(const auto &r:in.city.records)if(r.line==0)for(unsigned d=0;d<4 && !found;++d) {
   XeenCamera at{28,int(r.x),int(r.y),XeenDirection(d)};
-  if(xeenRegionalInteraction(in.city,at)==XeenRegionalInteraction::VertigoExit){exit=at;found=true;}
+  if(at.x==15 && at.y==0 && at.direction==XeenDirection::South && xeenRegionalInteraction(in.city,at)==XeenRegionalInteraction::Event){exit=at;found=true;}
  }
  check(found,"Original Vertigo exit exists");walk(*city,exit);city->act(InteractionAction{});
  if(city->flow->presentationGeneration())city->act(YesAction{});quiet(*city);

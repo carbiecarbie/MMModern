@@ -197,7 +197,7 @@ bool XeenEncounterFlow::serviceRest() {
    return !_failure && generation==_generation && boundaryGeneration==_boundary.generation() && _journeyPreimage->ownersAlive();
   };
   _journeyPreimage->adoptJourneyCoordination();
-  auto result=XeenActorApproach::regionalTransition(_world,_party,_camera,_state,_events,{},_regionalWork);
+  auto result=XeenActorApproach::regionalTransition(_world,_party,_camera,_state,_journeyEvents,{},_regionalWork,_travelEventsProvider);
   if(!_journeyPreimage->ownersAlive() || boundaryGeneration!=_boundary.generation() ||
    result.outcome==XeenEncounterOutcome::Stale || result.outcome==XeenEncounterOutcome::Refused)
    throw std::logic_error("Sleeping opportunity lost publication authority");

@@ -138,7 +138,6 @@ void traversalAndDarkness(Inputs &in) {
     party.encounterContext=XeenGameplayContextFormat::parse(in.pty);
     for(auto id:party.party.activeRosterIds()) {party.roster.at(id).skills[9]=0;party.roster.at(id).skills[11]=0;}
     const auto ids=party.party.activeRosterIds();
-    const auto admitted=XeenMovement::component(world.map(23),9,11,kXeenAdmittedAreaTraversal);
     for(const auto start:{XeenCamera{23,2,12,XeenDirection::North},XeenCamera{23,1,1,XeenDirection::East}}) {
         const unsigned skill=start.direction==XeenDirection::North?9u:11u;
         for(unsigned count:{0u,1u,2u}) {
@@ -157,7 +156,7 @@ void traversalAndDarkness(Inputs &in) {
         s.characters[s.activeRosterIds[1]].skills[skill]=1;
         Fixture two(in,s);two.act(NavigationAction::MoveForward);quiet(two);
         const int x=start.x+(start.direction==XeenDirection::East),y=start.y+(start.direction==XeenDirection::North);
-        check((two.c.x==x && two.c.y==y)==bool(admitted[y*16+x]),"Two-holder crossing bypassed fixed area admission");
+        check(two.c.x==x && two.c.y==y,"Two-holder crossing did not enter the original terrain");
     }
     party.encounterContext->lightAndResistances[0]=0;
     party.encounterContext->effects[XeenPartyEffect::AutomapOn]=1;

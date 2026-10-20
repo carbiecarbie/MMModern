@@ -12,11 +12,12 @@ void mapTravel() {
         const unsigned flag=spell==S::LloydsBeacon?0x800:0x100;
         const auto loader=[&](auto id){auto m=map();m.geometry.id=id.number;m.geometry.flags=id==XeenMapIdentity(23)?flag:0;
             m.geometry.runX=18;m.geometry.runY=4;
-            m.geometry.flags2=0;m.geometry.neighbors.fill(0);if(id==XeenMapIdentity(28))m.geometry.neighbors[1]=109;return m;};
+            m.geometry.flags2=0;m.geometry.neighbors.fill(0);if(id.number>=28 && id.number<=32)m.geometry.neighbors[1]=109;return m;};
         XeenWorld blocked(loader);XeenCharacter caster;const XeenCamera here{23,9,11,XeenDirection::West};
         const auto refused=R::travel(blocked,here,spell,1,&caster);
         check(refused.failed && !refused.beacon && !refused.destination && !caster.lloydMap,"Restriction precedes dialog/default write");
-        XeenWorld w([&](auto id){auto m=loader(id);m.geometry.flags=0;return m;});
+        XeenWorld w([&](auto id){if(id==XeenMapIdentity(99))throw std::runtime_error("Missing DAT");auto m=loader(id);m.geometry.flags=0;return m;});
+        w.markEncounterSession(XeenEncounterEntry::Journey);
         const auto cancel=R::travel(w,here,spell,0,&caster);
         check(!cancel.failed && !cancel.destination && (spell!=S::LloydsBeacon || cancel.beacon==std::array<std::uint8_t,4>{28,18,4,0}),"Paid dialog cancel/default initialization");
         const auto cost=R::cost(unsigned(spell),17);
@@ -30,13 +31,17 @@ void mapTravel() {
             check(same.destination && !same.reload && same.destination->direction==here.direction,"Same map Return never reloads or turns");
             const auto cross=R::travel(w,{28,18,4,XeenDirection::South},spell,2,&caster);
             check(cross.destination && cross.reload && cross.destination->direction==XeenDirection::South,"Cross map Return loads and keeps facing");
-            for(unsigned side:{0u,1u}) {caster.lloydMap=side?23:29;caster.lloydSide=side;
-                check(R::travel(w,here,spell,2,&caster).unsupported,"Unopened or Darkside beacon must refuse before payment");}
+            for(unsigned side:{0u,1u}) {caster.lloydMap=side?23:99;caster.lloydSide=side;
+                check(R::travel(w,here,spell,2,&caster).unsupported,"Absent or Darkside beacon must refuse before payment");}
         } else {
             const auto town=R::travel(w,here,spell,1,&caster);
             const auto same=R::travel(w,{28,18,4,XeenDirection::East},spell,1,&caster);
             check(town.reload && town.destination && town.destination->mapId==XeenMapIdentity(28) && town.destination->x==18 && town.destination->y==4 && same.reload,"Portal always loads Vertigo");
-            for(unsigned town=2;town<=5;++town)check(R::travel(w,here,spell,town,&caster).unsupported,"Unopened towns refuse before payment");
+            for(unsigned choice=2;choice<=5;++choice) {
+                const auto town=R::travel(w,here,spell,choice,&caster);
+                check(!town.unsupported && town.reload && town.destination && town.destination->mapId==XeenMapIdentity(27+choice) &&
+                    town.destination->x==18 && town.destination->y==4 && town.destination->direction==here.direction,"All five towns use their own run location and retain facing");
+            }
         }
     }
     for(auto pair:{std::pair{28,S::LloydsBeacon},{55,S::TownPortal}}) {
@@ -76,7 +81,7 @@ void handlers() {
         check(bool(R::supportedIn(unsigned(pair.second),true))==(pair.first==39),"Learned/Quick Fight combat admission");
     }
     XeenWorld seams([](auto id){auto m=map();m.geometry.id=id.number;m.geometry.flags2=0;
-        m.geometry.neighbors.fill(0);if(id==XeenMapIdentity(28))m.geometry.neighbors[1]=109;
+        m.geometry.neighbors.fill(0);if(id.number>=28 && id.number<=32)m.geometry.neighbors[1]=109;
         m.geometry.runX=18;m.geometry.runY=4;
         for(auto &cell:m.geometry.cells){cell.rawWord=0x1111;cell.surfaceIndex=1;cell.geometry=XeenIndoorWalls{{1,1,1,1}};}
         return m;});

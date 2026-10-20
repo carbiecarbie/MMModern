@@ -32,15 +32,13 @@ XeenJumpPreflight xeenJumpPreflight(XeenWorld &world,const XeenCamera &camera) {
     result.admission=XeenJumpAdmission::Unsupported;
     if(!destination)return result;
     if(map.geometry.isOutdoors()) {
-        if(camera.mapId!=world.developerEventMap() && (camera.mapId!=XeenMapIdentity(23) || destination->mapId!=XeenMapIdentity(23) ||
-            x<0 || x>=16 || y<0 || y>=16 ||
-            !XeenMovement::component(map,9,11,kXeenAdmittedAreaTraversal)[y*16+x]))return result;
         result.destination.mapId=destination->mapId;
         result.destination.x=destination->x;result.destination.y=destination->y;
     } else {
-        if((camera.mapId!=XeenMapIdentity(28) && camera.mapId!=world.developerEventMap()) || !xeenIndoorCoordinate(x,y))return result;
+        if(!xeenIndoorCoordinate(x,y))return result;
         result.destination.x=x;result.destination.y=y;
     }
+    if(!world.prepareEventTransition(result.destination))return result;
     result.admission=XeenJumpAdmission::Ready;
     return result;
 }

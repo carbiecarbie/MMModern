@@ -218,10 +218,16 @@ void originalSession(const char *directory,XeenCamera start,const std::string &w
   if(start.mapId==XeenMapIdentity(28) && start.x==14) {
    check(prompts==1,"Mirror must ask exactly once");
    if(!refused) {
-    const XeenCamera expected=word=="vertigo"?XeenCamera{28,18,4,XeenDirection::West}:
-     word=="magic delta"?XeenCamera{23,9,6,XeenDirection::West}:
-     word=="toad meadow"?XeenCamera{23,7,2,XeenDirection::West}:
-     word=="ever blossom orchard"?XeenCamera{23,5,12,XeenDirection::West}:start;
+    auto expected=start;
+    const auto mirrors=XeenEventTextLoader::parseMirrors(h.assets->readArchiveResource("xeenmirr.txt",XeenSceneArchive::DarksideOnly));
+    for(const auto &mirror:mirrors)if(mirror.name==word && mirror.map) {
+        expected.mapId=XeenMapIdentity(mirror.map);expected.x=mirror.x;expected.y=mirror.y;
+        if(mirror.direction!=-1)expected.direction=XeenDirection(mirror.direction);
+        if(!mirror.x && !mirror.y) {
+            const auto &g=h.world->map(expected.mapId).geometry;expected.x=g.runX;expected.y=g.runY;
+        }
+        break;
+    }
     check(xeen_state::sameCamera(*h.camera,expected),"Original mirror map/x/y/facing: "+word);
    }
    if(refused)check(xeen_state::sameCamera(*h.camera,start) && *h.world->sessionState().journeyRandom()==random &&
@@ -273,7 +279,7 @@ void original(const char *directory) {
   if(r.opcode==21 && r.parameters[0]) {XeenEventTextLoader t([&](const std::string &name)->std::optional<std::vector<std::uint8_t>> {if(!h.assets->hasArchiveResource(name))return {};return h.assets->readArchiveResource(name);});auto text=t.load(id);std::cout<<"PASSWORD primary="<<(text.stringAt(r.parameters[0])?*text.stringAt(r.parameters[0]):"[absent]")<<" alternate="<<(text.stringAt(r.parameters[2])?*text.stringAt(r.parameters[2]):"[absent]")<<'\n';}
  }
  for(const auto &word:{"vertigo","magic delta","toad meadow","ever blossom orchard","nightshadow","dragon tower","i lost it"})
-  originalSession(directory,{28,14,10,XeenDirection::West},word,std::string(word)=="nightshadow" || std::string(word)=="dragon tower");
+  originalSession(directory,{28,14,10,XeenDirection::West},word);
  originalSession(directory,{69,9,15,XeenDirection::West},"wrong");
  originalSession(directory,{28,12,12,XeenDirection::North},"");
  // Actual railway records, quest flag 221 set / 220 clear: line 4 Continue,

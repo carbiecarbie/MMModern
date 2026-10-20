@@ -25,9 +25,9 @@ entry. Dialog identifiers below are reference identifiers, not commercial text.
 | Quests | supported | Quest Items, Current Quests, Auto Notes; arrows/keypad, Page Up/Down, Home/End, mouse buttons, Exit; exploration and Items, including combat | XeenEventFlow |
 | Choose123 / HowMuch | unsupported | General Event choice and amount input | XeenEventInterpreter |
 | SelectElement | unsupported | Fire, Electricity, Cold, Acid, cancel | — |
-| LloydsBeacon | partial | Set, Return; Return to a beacon in an unopened map refuses | XeenCastingUi |
+| LloydsBeacon | supported | Set and Return across resource-backed Clouds primary maps; same-map Return retains actors | XeenCastingUi |
 | Teleport | supported | Distance, cancel | XeenCastingUi |
-| TownPortal | partial | Town choice, cancel; only Vertigo is open, the other four towns refuse | XeenCastingUi |
+| TownPortal | supported | Five towns, each town's run position, cancel and item use in combat | XeenCastingUi |
 | IdentifyMonster / DetectMonsters | supported | Monster information, acknowledge | XeenCastingUi |
 | Arena / PyramidLocation | unsupported | Arena choice; switch sides | — |
 | Reaper / Golem / Dwarf / Sphinx locations | unsupported | Scripted location sequences | — |

@@ -32,7 +32,7 @@ std::array<std::optional<XeenMonsterIdentity>,12> xeenSpellTargets(XeenWorld &,
 bool xeenIndoorRangedRay(XeenWorld &, const XeenCamera &, const XeenActor &);
 std::optional<std::size_t> xeenRegionalEvent(const XeenEventFile &, const XeenCamera &);
 bool xeenRegionalSign(const XeenEventFile &, const XeenCamera &);
-enum class XeenRegionalInteraction { None, VertigoEntrance, VertigoDoor, VertigoExit, Ironworks, Training, Temple, TempleLabel, Event, Tavern, Bank, Guild };
+enum class XeenRegionalInteraction { None, Ironworks, Training, Temple, Event, Tavern, Bank, Guild };
 // Classify direct entries for presentation only; entries with preludes use the
 // generic Event path. Only the interpreter issues a terminal Service request.
 std::optional<std::uint8_t> xeenRegionalService(const XeenEventFile &, const XeenCamera &);
@@ -104,6 +104,9 @@ private:
 // Retained preparation of one existing action/pulse publication. Flow holds the
 // continuation while Approach retains sole authority to publish world deltas.
 struct XeenRegionalActionCandidate {
+	// An outdoor border load stays detached until the whole step can publish.
+	std::shared_ptr<XeenWorld> destinationWorld;
+	std::optional<XeenEventFile> destinationEvents;
 	std::optional<std::vector<XeenExploredTile>> exploration;
 	XeenPartyOrder owners{};
 	XeenCamera camera;

@@ -176,6 +176,7 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
    journeySetup->regionalManifest=services.resources.regionalManifest;
    journeySetup->start=services.journeyStart;
    journeySetup->eventFixture=services.eventFixture;
+   journeySetup->eventsProvider=services.resources.loadEvents;
    if (services.eventFixture) journeySetup->mainlandEventsProvider=[&] {return services.resources.loadEvents(23);};
 	journeySetup->prepared=!original;
 	if(original) {

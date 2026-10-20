@@ -32,11 +32,11 @@ XeenSpellTravel XeenLearnedSpellRules::travel(XeenWorld &world,const XeenCamera 
             result.reload=to.mapId!=camera.mapId;
         } else {
             if(!distance)return result;
-            if(distance>1) {result.unsupported=true;return result;}
-            to.mapId=28;to.x=18;to.y=4;result.reload=true;
+            if(distance>5) {result.unsupported=true;return result;}
+            to.mapId=27+distance;result.reload=true;
         }
-        if(to.mapId.side!=XeenSide::Clouds || (to.mapId!=XeenMapIdentity(23) && to.mapId!=XeenMapIdentity(28) && to.mapId!=world.developerEventMap()))result.unsupported=true;
-        else {const auto admitted=world.prepareEventTransition(to,spell==XeenLearnedSpell::TownPortal);result.unsupported=!admitted;to=admitted.destination;}
+        const auto admitted=world.prepareEventTransition(to,spell==XeenLearnedSpell::TownPortal);
+        result.unsupported=!admitted;to=admitted.destination;
         if(!result.unsupported)result.destination=to;
         return result;
     }
@@ -60,11 +60,10 @@ XeenSpellTravel XeenLearnedSpellRules::travel(XeenWorld &world,const XeenCamera 
             surface==0 || surface==8:word==0x8888))) {result.failed=true;return result;}
     result.unsupported=!cell;
     if(map.geometry.isOutdoors()) {
-        if(camera.mapId!=world.developerEventMap() && (camera.mapId!=XeenMapIdentity(23) || !cell ||
-            cell->mapId!=camera.mapId || to.x<0 || to.x>=16 || to.y<0 || to.y>=16 ||
-            !XeenMovement::component(map,9,11,kXeenAdmittedAreaTraversal)[to.y*16+to.x]))result.unsupported=true;
-    } else if((camera.mapId!=XeenMapIdentity(28) && camera.mapId!=world.developerEventMap()) ||
-        !xeenIndoorCoordinate(to.x,to.y))result.unsupported=true;
+        if(cell) {to.mapId=cell->mapId;to.x=cell->x;to.y=cell->y;}
+    } else if(!xeenIndoorCoordinate(to.x,to.y))result.unsupported=true;
+    if(!result.unsupported)result.unsupported=!world.prepareEventTransition(to);
+    result.reload=to.mapId!=camera.mapId;
     if(!result.unsupported)result.destination=to;
     return result;
 }

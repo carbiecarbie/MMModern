@@ -6,6 +6,8 @@
 #include "formats/xeen/XeenQuestFlagFormat.h"
 #include "games/xeen/CloudsMapComposer.h"
 #include "games/xeen/XeenEventLoader.h"
+#include "games/xeen/XeenEquipment.h"
+#include "games/xeen/XeenItemTransfer.h"
 #include "games/xeen/XeenEventTextLoader.h"
 #include "games/xeen/XeenGameFlagsLoader.h"
 #include "games/xeen/XeenItemRewards.h"
@@ -142,6 +144,47 @@ void prepare(XeenSaveSnapshot &snapshot,const std::string &preset) {
         misc[6]={1,4,2,0};misc[7]={1,4,0x42,0};misc[8]={1,4,0x82,0};
         return;
     }
+    if(preset=="m78-playtest" || preset=="m78-one-holder") {
+        // The original six at level 30, Obsidian gear equipped through the shared
+        // equipment rule, every slot of each caster's list and the outdoor skills.
+        // The one-holder variant keeps Mountaineer/Pathfinder on the first member.
+        journey.treasure->gold=100000;journey.treasure->gems=5000;
+        const bool one=preset=="m78-one-holder";
+        const XeenCharacterRulesContext rules{std::uint32_t(journey.context->year)};
+        XeenPartyState party;
+        for(auto owner:snapshot.activeRosterIds)party.roster.at(owner)=snapshot.characters[owner];
+        party.party=XeenParty::fromRosterIds(snapshot.activeRosterIds);
+        using C=XeenInventoryCategory;
+        const auto equip=[&](unsigned n,C category,std::initializer_list<unsigned> ids,std::uint8_t material) {
+            auto &items=*xeenInventoryItems(party.roster.at(snapshot.activeRosterIds[n]),category);
+            const auto slot=std::find_if(items.begin(),items.end(),[](const XeenItem &item) {return !item.id;});
+            if(slot==items.end())throw std::logic_error("Play-test inventory is full");
+            for(auto id:ids) {
+                *slot={material,static_cast<std::uint8_t>(id),0,0};
+                if(xeenSetEquipment(party,n,category,std::size_t(slot-items.begin()),XeenEquipmentOperation::Equip).status==XeenEquipmentStatus::Success)return;
+            }
+            *slot={};
+        };
+        for(unsigned n=0;n<snapshot.activeRosterIds.size();++n) {
+            auto &c=party.roster.at(snapshot.activeRosterIds[n]);
+            c.conditions.fill(0);c.permanentLevel=30;c.temporaryLevel=0;
+            c.weapons={};c.armor={};c.accessories={};
+            equip(n,C::Weapons,{1,13,12,7,24},58);equip(n,C::Weapons,{31,32,33},58);
+            equip(n,C::Armor,{7,6,5,4,3,2,1},58);
+            for(unsigned id:{8u,9u,10u,11u,13u})equip(n,C::Armor,{id},58);
+            for(unsigned id:{1u,1u,10u,2u})equip(n,C::Accessories,{id},0);
+            if(XeenLearnedSpellRules::categoryForClass(c.characterClass)) {
+                c.hasSpells=true;c.learnedSpells.emplace();c.learnedSpells->fill(1);
+            }
+            c.skills[14]=1; // Swimmer
+            // Exact Mountaineer/Pathfinder holders; Badger's original Pathfinder is cleared.
+            const std::uint8_t holder=n==0 || (n==1 && !one);c.skills[9]=holder;c.skills[11]=holder;
+            if(n==2)for(unsigned skill:{4u,6u,7u,8u,10u,15u,16u,17u})c.skills[skill]=1;
+            c.currentHp=XeenCharacterRules::maxHp(c,rules);c.currentSp=XeenCharacterRules::maxSp(c,rules);
+            snapshot.characters[snapshot.activeRosterIds[n]]=c;
+        }
+        return;
+    }
     if(preset=="combat-items") {
         snapshot.camera={23,9,11,XeenDirection::West};
         for(unsigned i=0;i<6;++i) {
@@ -258,7 +301,7 @@ void prepare(XeenSaveSnapshot &snapshot,const std::string &preset) {
 
 void generateTestSave(const GameInstallation &installation,const std::string &preset,
         const std::filesystem::path &output) {
-    if (preset!="broken-armor" && preset!="train-ready" && preset!="injured-dead" && preset!="poisoned" && preset!="monster-control" && preset!="monster-damage" && preset!="party-healing" && preset!="m76-spells" && preset!="combat-items")
+    if (preset!="broken-armor" && preset!="train-ready" && preset!="injured-dead" && preset!="poisoned" && preset!="monster-control" && preset!="monster-damage" && preset!="party-healing" && preset!="m76-spells" && preset!="combat-items" && preset!="m78-playtest" && preset!="m78-one-holder")
         throw std::invalid_argument("Unknown test-save preset: "+preset);
     const auto target=XeenSaveFile::resolve(output,installation);
     // Reuse the native alias/reparse-aware path guard for the repository too.

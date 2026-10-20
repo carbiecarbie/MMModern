@@ -85,6 +85,15 @@ void worldLifetimeAndNavigation() {
 	bool rejected = false;
 	try { wrong.map(dark); } catch (const std::runtime_error &) { rejected = true; }
 	check(rejected && wrong.cachedMapCount() == 0, "wrong-side map accepted");
+	XeenWorld generic([](XeenMapIdentity id) {return map(id);});
+	for(const auto id:{XeenMapIdentity(109),XeenMapIdentity(XeenSide::Darkside,109),
+		XeenMapIdentity(XeenSide::Darkside,119),XeenMapIdentity(XeenSide::Darkside,125)})
+		check(bool(generic.prepareEventTransition({id,1,1,XeenDirection::North})),
+			"Clouds Journey naming rule restricted a generic World session");
+	generic.markEncounterSession(XeenEncounterEntry::Journey);
+	check(!generic.prepareEventTransition({109,1,1,XeenDirection::North}) &&
+		!generic.prepareEventTransition({{XeenSide::Darkside,109},1,1,XeenDirection::North}),
+		"Generic World support bypassed Clouds Journey admission");
 }
 
 void eventCachesCallsAndResume() {

@@ -24,7 +24,7 @@ public:
 class XeenSaveFormat {
 public:
 	// M72 adds the original per-map Tavern tip cursor; schema/content retained.
-	static constexpr std::uint16_t kJourneyVersion = 15;
+	static constexpr std::uint16_t kJourneyVersion = 16;
 	static constexpr std::uint16_t kJourneySchema = 9;
 	static constexpr std::uint16_t kJourneyContent = 14;
 	static constexpr std::size_t kHeaderSize = 20;

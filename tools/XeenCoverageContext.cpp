@@ -59,6 +59,7 @@ OriginalContext::OriginalContext(const GameInstallation &installation, std::opti
     setup.learnedNamesProvider=[this]{return XeenLearnedSpellNames::parse(*assets.readLearnedSpellNamesFromDarkArchive());};
     setup.cityEventsProvider=[this]{return events.load(28);};
     setup.mainlandEventsProvider=[this]{return events.load(23);};
+    setup.eventsProvider=[this](auto id){return events.load(id);};
     flow=std::make_unique<XeenEncounterFlow>(world,party,camera,flags,clock,setup);
     if(!flow->prepareJourneyFrame(flow->ticket(),[]{}) || !flow->presentJourney(flow->ticket()))
         throw std::runtime_error("Census New Game presentation boundary failed");

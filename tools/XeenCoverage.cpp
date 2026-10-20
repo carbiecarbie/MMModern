@@ -449,7 +449,7 @@ std::string report(const Census &clouds,const Census &darkside) {
         "Read-only World of Xeen CD census. Original resources are never exported. The report retains only counts, identifiers and in-game names.\n\n"
         "Support comes from engine decoders and execution with original New Game owners or prepared Clouds developer Event-fixture owners, geometry, actors and Journey RNG (seed 7), "
         "initialized by XeenEncounterFlow. Each operation uses a fresh detached candidate; mutations never reach the retained source or disk. "
-        "Clouds fixtures admit only their selected map; ordinary map-admission restrictions remain separate. "
+        "Clouds fixtures select a starting map; ordinary admission derives from primary DAT resources, independently of census results. "
         "Off-map subroutines use physical callers found in the resource. Original line numbers are retained, with inert suffixes at sequential and branch destinations; "
         "isolated true self-targets retain the 1024-dispatch safety limit and remain unclassified census limits. This is not a reachability or full-playthrough proof. "
         "Terminal Vertigo services are also checked through the live EventFlow handoff. "

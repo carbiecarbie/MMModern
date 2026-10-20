@@ -52,7 +52,7 @@ public:
 		food(other.food), first(std::move(other.first)), effective(std::move(other.effective)), diagnostics(std::move(other.diagnostics)),
 		cameraValue(std::move(other.cameraValue)), flagValues(std::move(other.flagValues)), combatCheck(std::move(other.combatCheck)),
 		combatAuthorized(std::move(other.combatAuthorized)), maps(std::move(other.maps)), objects(std::move(other.objects)),
-		cityStatistics(std::move(other.cityStatistics)), regionalText(std::move(other.regionalText)), vertigoText(std::move(other.vertigoText)), developerText(std::move(other.developerText)),
+		cityStatistics(std::move(other.cityStatistics)), regionalText(std::move(other.regionalText)), vertigoText(std::move(other.vertigoText)), eventTexts(std::move(other.eventTexts)),
 		learnedNames(std::move(other.learnedNames)), cacheRevision(std::move(other.cacheRevision)), exactCaches(std::move(other.exactCaches)),
 		borrowOwners(std::move(other.borrowOwners)), borrowStates(other.borrowStates), borrowRevisions(std::move(other.borrowRevisions)),
 		failed(std::move(other.failed)), mutations(std::move(other.mutations)) {
@@ -163,16 +163,17 @@ public:
 		if (value.mapId==XeenMapIdentity(23)) {admitRegionalText(value);return;}
 		if (value.mapId==XeenMapIdentity(28)) {admitVertigoText(value);return;}
 		check();
-		if (value.mapId!=developerEventMap || value.resourceName!=XeenEventTextLoader::resourceNameForMap(value.mapId) ||
+		auto found=eventTexts.find(value.mapId);
+		if (!value.mapId || value.resourceName!=XeenEventTextLoader::resourceNameForMap(value.mapId) ||
 			(!value.resourcePresent && !value.strings.empty())) {
-			if (developerText) failed=true;
-			throw std::invalid_argument("Developer map text resource identity changed");
+			if (found!=eventTexts.end()) failed=true;
+			throw std::invalid_argument("Map text resource identity changed");
 		}
-		if (developerText && (developerText->mapId!=value.mapId || developerText->resourceName!=value.resourceName ||
-			developerText->resourcePresent!=value.resourcePresent || developerText->strings!=value.strings || developerText->mirrors!=value.mirrors)) {
-			failed=true;throw std::logic_error("Developer map text resource changed");
+		if (found!=eventTexts.end() && (found->second.resourceName!=value.resourceName ||
+			found->second.resourcePresent!=value.resourcePresent || found->second.strings!=value.strings || found->second.mirrors!=value.mirrors)) {
+			failed=true;throw std::logic_error("Map text resource changed");
 		}
-		if (!developerText) developerText=value;
+		eventTexts.emplace(value.mapId,value);
 	}
 	void admitRegionalText(const XeenEventTextFile &value) {
 		check();
@@ -285,7 +286,7 @@ private:
 		}
 		if (previous.regionalText) admitRegionalText(*previous.regionalText);
 		if (previous.vertigoText) admitVertigoText(*previous.vertigoText);
-		if (previous.developerText) admitEventText(*previous.developerText);
+		for(const auto &entry:previous.eventTexts) admitEventText(entry.second);
 		if (previous.learnedNames) admitLearnedSpellNames(*previous.learnedNames);
 		prepareMutationRanges();
 	}
@@ -322,6 +323,7 @@ private:
 	// Prepare a final-destination preimage before publication. Only the private
 	// SaveState swaps below are anticipated; no callback mutation is adopted.
 	void prepareJourneyPublication(const XeenRestoreGuard &candidate) {
+		for(const auto &entry:candidate.eventTexts) admitEventText(entry.second);
 		s = candidate.s; characters = candidate.characters; inputs = candidate.inputs;
 		marked = candidate.marked; membership = candidate.membership;
 		quests = candidate.quests; questFlags = candidate.questFlags; recovery = candidate.recovery; context = candidate.context; treasure = candidate.treasure;
@@ -559,7 +561,7 @@ private:
 	std::vector<XeenMonsterRecord> cityStatistics;
 	std::optional<XeenEventTextFile> regionalText;
 	std::optional<XeenEventTextFile> vertigoText;
-	std::optional<XeenEventTextFile> developerText;
+	std::map<XeenMapIdentity,XeenEventTextFile> eventTexts;
 	std::optional<XeenLearnedSpellNames> learnedNames;
 	std::uint64_t cacheRevision;
 	bool exactCaches;

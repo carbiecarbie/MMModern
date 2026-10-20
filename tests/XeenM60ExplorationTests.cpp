@@ -377,7 +377,10 @@ void m74Empty(Inputs &in) {
 }
 void jump(Inputs &in) {
  for(bool unsupported:{false,true}) {
-  auto s=source(in,40,false);s.camera={23,unsupported?11:9,11,XeenDirection::East};Fixture f(in,s);
+  auto s=source(in,40,false);s.camera={23,unsupported?15:9,11,XeenDirection::East};
+  const auto original=in.mapLoader();
+  const XeenWorld::MapLoader loader=unsupported?XeenWorld::MapLoader{[original](auto id){auto m=original(id);if(id==XeenMapIdentity(23))m.geometry.neighbors[1]=0;return m;}}:XeenWorld::MapLoader{};
+  Fixture f(in,s,false,nullptr,loader);
   const auto before=XeenSaveFormat::encode(f.snapshot());begin(f);
   if(unsupported) {
    check(!f.flow->encounter()->castingCommitted(),"Unsupported Jump charged");

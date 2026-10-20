@@ -190,7 +190,9 @@ bool XeenEncounterFlow::confirmCasting(const Ticket &entry, std::size_t casterIn
           if(*spell==XeenLearnedSpell::Jump) {
             const auto preflight=xeenJumpPreflight(_world,_camera);_journeyPreimage->check();
             if(preflight.admission==XeenJumpAdmission::Unsupported)return false;
-            if(preflight.admission==XeenJumpAdmission::Ready)jump=preflight.destination;
+            if(preflight.admission==XeenJumpAdmission::Ready) {
+                jump=preflight.destination;travel.destination=jump;travel.reload=jump->mapId!=_camera.mapId;
+            }
           }
           if(*id==44 || *id==71 || *id==21 || *id==66 || *id==69 || *id==70) {
             travel=XeenLearnedSpellRules::travel(_world,_camera,*spell,distance,&caster);

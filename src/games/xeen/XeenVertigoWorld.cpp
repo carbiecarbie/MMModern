@@ -43,18 +43,32 @@ XeenTerrainArrival XeenWorld::prepareTerrainArrival(const XeenCamera &camera,
 
 XeenTransitionResult XeenWorld::prepareEventTransition(const XeenCamera &requested,bool runLocation) {
     auto destination=requested;
-	if (regionalJourney() && destination.mapId!=XeenMapIdentity(23) &&
-		destination.mapId!=XeenMapIdentity(28) && destination.mapId!=_developerEventMap)
-		return {XeenTransitionResult::Status::Unavailable,destination,"Destination map is not admitted yet"};
-	const auto &resource=map(destination.mapId);
+	// In the Clouds data, mazeNNNN resources below 100 are primary maps;
+	// mazexNNN resources are physical extensions reached through a logical map.
+	// This Journey admission rule does not restrict generic World clients.
+	if (!destination.mapId || (regionalJourney() &&
+		(destination.mapId.side!=XeenSide::Clouds ||
+		(destination.mapId.number>=100 && destination.mapId!=_developerEventMap))))
+		return {XeenTransitionResult::Status::Unavailable,destination,"Destination map is not supported yet"};
+	const XeenMap *loaded=nullptr;
+	try { loaded=&map(destination.mapId); }
+	catch (const std::runtime_error &) {
+		if(!regionalJourney())throw;
+		return {XeenTransitionResult::Status::Unavailable,destination,"Destination resources are not supported yet"};
+	}
+	const auto &resource=*loaded;
 	if(runLocation) {destination.x=static_cast<std::int8_t>(static_cast<std::uint8_t>(resource.geometry.runX));destination.y=static_cast<std::int8_t>(static_cast<std::uint8_t>(resource.geometry.runY));}
 	const int limit=resource.geometry.isOutdoors()?16:32;
 	if (unsigned(destination.direction)>3 || destination.x<0 || destination.y<0 ||
-		destination.x>=limit || destination.y>=limit || !sampleCell(destination.mapId,destination.x,destination.y))
+		destination.x>=limit || destination.y>=limit)
 		return {XeenTransitionResult::Status::Unavailable,destination,"Destination has no map cell"};
-	if (regionalJourney() && destination.mapId!=_developerEventMap && destination.mapId==XeenMapIdentity(23) &&
-		!XeenMovement::component(resource,9,11,kXeenAdmittedAreaTraversal)[destination.y*16+destination.x])
-		return {XeenTransitionResult::Status::Unavailable,destination,"Destination is outside the admitted mainland"};
+	try {
+		if(!sampleCell(destination.mapId,destination.x,destination.y))
+			return {XeenTransitionResult::Status::Unavailable,destination,"Destination has no map cell"};
+	} catch (const std::runtime_error &) {
+		if(!regionalJourney())throw;
+		return {XeenTransitionResult::Status::Unavailable,destination,"Destination resources are not supported yet"};
+	}
 	return {XeenTransitionResult::Status::Available,destination,{}};
 }
 
@@ -117,8 +131,6 @@ void XeenWorld::stageMapMonsters(const XeenObjectFile &mob,
 	_cityStatistics=statistics;
 	xeenValidateIndoorActors(*this,mob.mapId,actors);
 	const bool outdoors=map(mob.mapId).geometry.isOutdoors();
-	if (outdoors && mob.mapId!=XeenMapIdentity(23) && mob.mapId!=_developerEventMap)
-		throw std::logic_error("Outdoor map is not admitted");
 	_sessionState.stageMonsters(mob.mapId,std::move(actors),mob.entities.monsters.size(),outdoors);
 }
 
@@ -167,7 +179,7 @@ XeenScenePresentation XeenWorld::prepareSpawnPresentation(const XeenWorld &candi
 void xeenValidateIndoorActors(XeenWorld &world,XeenMapIdentity mapId,const std::vector<XeenActor> &actors) {
 	const auto &mob=world.objectFile(mapId);
 	const auto &map=world.map(mapId);
-	if(!world.regionalJourney() || !mob.resourcePresent || mob.mapId!=mapId ||
+	if(!world.regionalJourney() || mob.mapId!=mapId ||
 		actors.size()!=mob.entities.monsters.size() || actors.size()>XeenActorApproach::kCapacity ||
 		world._cityStatistics.empty()) throw std::invalid_argument("Invalid resource-bound city actor collection");
 	for(unsigned i=0;i<actors.size();++i) {

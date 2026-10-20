@@ -153,7 +153,8 @@ private:
 		const std::optional<XeenMonsterTreasure> &, const std::optional<XeenBankBalances> &,
 		const FreshPublicationPreparation &, const XeenCamera &start);
 	static XeenEncounterResult regionalTransition(XeenWorld &, XeenPartyState &, XeenCamera &, XeenEncounterState &,
-		const XeenEventFile &, std::optional<XeenEncounterAction>, std::unique_ptr<XeenRegionalActionCandidate> &);
+		XeenEventFile &, std::optional<XeenEncounterAction>, std::unique_ptr<XeenRegionalActionCandidate> &,
+		const std::function<XeenEventFile(XeenMapIdentity)> &);
 	static XeenEncounterResult transition(XeenWorld &, XeenPartyState &, XeenCamera &,
 		XeenEncounterState &, XeenEncounterAction, const XeenEventFile &, bool pulse);
 };

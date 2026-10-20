@@ -6,7 +6,7 @@
 
 namespace mmodern {
 bool XeenEventFlow::beginBarrier(bool bash) {
-	if(_barrier || !_encounter->journeyQuiet() || (_camera.mapId!=XeenMapIdentity(28) && (!bash || _camera.mapId!=XeenMapIdentity(23))))return false;
+	if(_barrier || !_encounter->journeyQuiet())return false;
 	auto work=std::make_unique<BarrierWork>();work->bash=bash;
 	work->world=_world.transitionCandidate();work->world->copyEventParty(_party,work->party);
 	work->camera=_camera;work->flags=_flags;work->context=*_party.encounterContext;

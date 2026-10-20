@@ -121,7 +121,6 @@ void XeenSaveState::restoreJourney(const XeenSaveSnapshot &source, const Resourc
 	validateJourneyValues(snapshot);
 	const auto monsters = resources.loadMonsterStatistics;
 	const auto eventProvider = resources.loadEvents;
-	const auto regionalManifest = resources.regionalManifest;
 	const auto presentation = preflight;
 	if (!monsters || !eventProvider || !presentation || !world._objectLoader)
 		throw std::invalid_argument("Journey restoration requires MON/MOB/EVT and presentation providers");
@@ -225,42 +224,25 @@ void XeenSaveState::restoreJourney(const XeenSaveSnapshot &source, const Resourc
 	}
 	w.restoreHeads(snapshot.headCache,c);adopt();
 	auto statistics = callback(monsters);
-	const auto &policy=xeenJourneyContent();
-	// The Vertigo transition's two destinations remain the only admitted
-	// camera maps until whole maps are admitted.
-	const XeenMapIdentity city(28);
-	auto evt = events(policy.entry.mapId);
+	auto evt = events(c.mapId);
 	{
 		if(!resources.loadInitialCharacters)
 			throw std::invalid_argument("Missing Training restoration resources");
 		xeenValidateTrainingSource(callback(resources.loadInitialCharacters));
-		// Bind resources even when the saved Journey has never entered the city.
 		adopt();
-		const auto cityEvents=events(city);
-		if(!cityEvents.resourcePresent || cityEvents.mapId!=city)
-			throw std::invalid_argument("Missing city Event resource");
 	}
 	{
 		if (!resources.loadRegionalText) throw std::invalid_argument("Missing regional text restoration provider");
-		prepared->admitRegionalText(callback([&] { return resources.loadRegionalText(policy.entry.mapId); }));
+		prepared->admitEventText(callback([&] { return resources.loadRegionalText(c.mapId); }));
 	}
 	{
 		if (!resources.loadLearnedSpellNames) throw std::invalid_argument("Missing learned spell names restoration provider");
 		prepared->admitLearnedSpellNames(callback(resources.loadLearnedSpellNames));
 	}
 	{
-		if (!regionalManifest) throw std::invalid_argument("Missing regional restoration manifest");
-		callback([&] { regionalManifest(w.map(policy.entry.mapId),w.objectFile(policy.entry.mapId),evt,statistics);return true; });
-		if (c.mapId!=policy.entry.mapId && c.mapId!=city)
-			throw std::invalid_argument("Saved camera map is not admitted");
-		if (w.map(c.mapId).geometry.isOutdoors() ? (c.x>15 || c.y>15) : !w.sampleCell(c.mapId,c.x,c.y))
-			throw std::invalid_argument("Saved camera outside its map");
-		if (c.mapId==policy.entry.mapId &&
-			!XeenMovement::component(w.map(policy.entry.mapId),9,11,kXeenAdmittedAreaTraversal)[c.y*16+c.x])
-			throw std::invalid_argument("Regional camera outside mainland");
+		const auto admitted=callback([&] { return w.prepareEventTransition(c); });
+		if (!admitted) throw std::invalid_argument(admitted.reason);
 	}
-	const auto *entryState=snapshot.find(policy.entry.mapId);
-	if (!entryState || !entryState->monsters) throw std::invalid_argument("Journey requires complete original actor collection");
 	static_cast<void>(CloudsUiComposer::buildPortraitPlacements(p));
 	auto &s = w._sessionState;
 	w._cityStatistics=statistics;
@@ -275,6 +257,8 @@ void XeenSaveState::restoreJourney(const XeenSaveSnapshot &source, const Resourc
 	struct Loaded { const XeenSaveMapState *saved; XeenObjectFile mob; bool outdoors; };
 	std::vector<Loaded> tables;
 	for (const auto &m:snapshot.maps) if (m.monsters) {
+		const auto admitted=callback([&] { return w.prepareEventTransition({m.id,0,0,XeenDirection::North}); });
+		if (!admitted) throw std::invalid_argument("Saved actor table is not a primary gameplay map");
 		auto mob=callback([&] { return w.objectFile(m.id); });
 		const bool outdoors=callback([&] { return w.map(m.id).geometry.isOutdoors(); });
 		tables.push_back({&m,std::move(mob),outdoors});
@@ -298,7 +282,7 @@ void XeenSaveState::restoreJourney(const XeenSaveSnapshot &source, const Resourc
 	adopt(); // The complete saved tables precede checked geometry callbacks.
 	for (const auto &table:tables) {
 		const auto id=table.saved->id;
-		const auto mapEvents=id==policy.entry.mapId ? evt : events(id);
+		const auto mapEvents=id==c.mapId ? evt : events(id);
 		XeenActorApproach::validateEnvironment(w,s.mutableMonsters(id),mapEvents);
 	}
 	adopt();
@@ -309,11 +293,6 @@ void XeenSaveState::restoreJourney(const XeenSaveSnapshot &source, const Resourc
 			throw std::invalid_argument("Noncanonical monster treasure source");
 	}
 	// The camera map's own table and Events, as every reader resolves them.
-	const bool entryActive=c.mapId==policy.entry.mapId;
-	std::optional<XeenEventFile> activeEvents;
-	if(!entryActive) {
-		activeEvents=events(c.mapId);
-	}
 	auto &active=s.mutableMonsters(c.mapId);
 	const auto view=!s.mapState(c.mapId)->outdoors ? XeenIndoorScene().classifyActors(w,c,active) : XeenActorApproach::classify(active,c);
 	if (view.engaged()) throw std::invalid_argument("Quiet restore has active contact");
@@ -332,8 +311,8 @@ void XeenSaveState::restoreJourney(const XeenSaveSnapshot &source, const Resourc
 	// Prepare the complete handoff and its FINAL-owner preimage before any stores.
 	auto binding = std::make_shared<XeenJourneyRestoration>();
 	binding->capture.reset(new XeenJourneyCapture);
-	binding->capture->admittedActors = s.monsters(policy.entry.mapId);
-	binding->statistics = std::move(statistics); binding->events = entryActive ? std::move(evt) : std::move(*activeEvents);
+	binding->statistics = std::move(statistics); binding->events = std::move(evt);
+	binding->eventsProvider=resources.loadEvents;
 	binding->learnedNamesProvider=resources.loadLearnedSpellNames;
 	binding->guard = std::make_shared<XeenRestoreGuard>(world,party,camera,flags);
 	binding->guard->prepareJourneyPublication(*prepared);
@@ -436,9 +415,6 @@ XeenSaveSnapshot XeenSaveState::captureImpl(const XeenSaveResourceSignature &res
 		j.content=XeenSaveFormat::kJourneyContent; j.schema=XeenSaveFormat::kJourneySchema; j.random=state.journeyRandom();j.treasure=party.monsterTreasure;j.worldFlags=party.worldFlags;
 		j.serviceEconomy=party.serviceEconomy;
 		for (unsigned i = 0; i < 30; ++i) j.supplements[i] = {static_cast<std::uint8_t>(i), *party.roster.combatInputs(i)};
-		// Admitted MOB topology survives authorized eviction of resource caches.
-		if (state.monsters(xeenJourneyContent().entry.mapId).size()!=authority->admittedActors.size())
-			throw std::logic_error("Journey actor collection changed");
 		// The live treasure names its sources by monster identity.
 		if (j.treasure) j.treasure=xeenCanonicalMonsterTreasure(*j.treasure);
 		snapshot.journey = std::move(j);

@@ -126,7 +126,7 @@ void mapTravel(Inputs &in) {
             f.p.encounterContext->minutes==600 && f.w.sessionState().journeyRandom()==rng &&
             (!item || f.p.roster.at(owner).miscellaneous[0].state==2),"Stale beacon work published payment/time/RNG");
     }
-    for(unsigned spell:{44u,71u})for(bool item:{false,true})for(unsigned operation=0;operation<4;++operation) {
+    for(unsigned spell:{44u,71u})for(bool item:{false,true})for(unsigned operation=0;operation<2;++operation) {
         scenario="map travel guard/cancel spell="+std::to_string(spell)+" operation="+std::to_string(operation);
         auto s=source(in,spell);const auto owner=s.activeRosterIds[0];s.characters[owner].lloydMap=0;
         if(operation==0)s.camera={28,18,4,XeenDirection::West};
@@ -264,7 +264,7 @@ void rest(Inputs &in) {
 void water(Inputs &in) {
     // Same-map destinations use the water-admitting area, not party abilities.
     XeenWorld w(in.mapLoader(),in.objectLoader());const auto &map=w.map(23);
-    const auto dry=XeenMovement::component(map,9,11,{}),area=XeenMovement::component(map,9,11,kXeenAdmittedAreaTraversal);
+    const auto dry=XeenMovement::component(map,9,11,{}),area=XeenMovement::component(map,9,11,XeenMovement::Capabilities{true,true,false,true});
     check(area[9*16+12] && !dry[9*16+11] && area[9*16+11],"Mainland (11,9) is no longer admitted water");
     std::optional<std::pair<XeenCamera,unsigned>> teleport;
     for(int y=0;y<16 && !teleport;++y)for(int x=0;x<16 && !teleport;++x)if(dry[y*16+x])for(unsigned d=0;d<4 && !teleport;++d)for(unsigned n=1;n<10 && !teleport;++n) {
@@ -289,19 +289,18 @@ void water(Inputs &in) {
     }
 }
 void jumpWater(Inputs &in) {
-    // Jump shares the water-admitting area; a destination outside it stays unsupported.
+    // Find an original Jump landing beyond the dry walking component.
     scenario="Jump water fixture search";
     XeenWorld w(in.mapLoader(),in.objectLoader());const auto &map=w.map(23);
-    const auto dry=XeenMovement::component(map,9,11,{}),area=XeenMovement::component(map,9,11,kXeenAdmittedAreaTraversal);
-    std::optional<XeenCamera> water,outside;
+    const auto dry=XeenMovement::component(map,9,11,{}),area=XeenMovement::component(map,9,11,XeenMovement::Capabilities{true,true,false,true});
+    std::optional<XeenCamera> water;
     for(int y=0;y<16;++y)for(int x=0;x<16;++x)if(dry[y*16+x])for(unsigned d=0;d<4;++d) {
         const XeenCamera camera{23,x,y,XeenDirection(d)};constexpr int dx[]{0,1,0,-1},dy[]{1,0,-1,0};
         const int tx=x+2*dx[d],ty=y+2*dy[d];const bool inside=tx>=0 && tx<16 && ty>=0 && ty<16;
         const auto admission=xeenJumpPreflight(w,camera).admission;
         if(!water && inside && !dry[ty*16+tx] && area[ty*16+tx] && admission==XeenJumpAdmission::Ready)water=camera;
-        if(!outside && inside && !area[ty*16+tx] && admission==XeenJumpAdmission::Unsupported)outside=camera;
     }
-    check(bool(water),"No original Jump destination beyond water");check(bool(outside),"No original Jump destination outside the admitted area");
+    check(bool(water),"No original Jump destination beyond water");
     for(bool item:{false,true}) {
         scenario="Jump admitted water item "+std::to_string(item);
         auto s=source(in,40);const auto owner=s.activeRosterIds[0];s.camera=*water;
@@ -312,36 +311,7 @@ void jumpWater(Inputs &in) {
         check(f.p.roster.at(owner).currentSp==1000-int(item?0:R::cost(40,10).sp),"Water Jump cost");
         if(item)check(f.p.roster.at(owner).miscellaneous[0].state==1,"Water Jump item charge");
         roundtrip(in,f);
-        scenario="Jump outside admitted area item "+std::to_string(item);
-        auto r=source(in,40);r.camera=*outside;if(item)r.characters[owner].miscellaneous[0]={1,16,2,0};
-        Fixture g(in,r);const auto rng=g.w.sessionState().journeyRandom();cast(g,item);
-        check(g.c.x==r.camera.x && g.c.y==r.camera.y && g.p.roster.at(owner).currentSp==1000 && g.p.monsterTreasure->gems==1000 &&
-            g.p.encounterContext->minutes==600 && g.w.sessionState().journeyRandom()==rng,"Outside-area Jump spent position/SP/gems/time/RNG");
-        if(item)check(g.p.roster.at(owner).miscellaneous[0].state==2,"Outside-area Jump spent an item charge");
-    }
-}
-void unsupported(Inputs &in) {
-    for(unsigned spell:{21u,69u})for(bool item:{false,true}) {
-        scenario="unopened destination "+std::to_string(spell)+" item "+std::to_string(item);
-        auto s=source(in,spell);unsigned distance=9;
-        if(spell==21) {
-            XeenWorld w(in.mapLoader(),in.objectLoader());const auto area=XeenMovement::component(w.map(23),9,11,{});bool found=false;
-            for(int y=8;y<16 && !found;++y)for(int x=0;x<16 && !found;++x)if(area[y*16+x])for(unsigned d=0;d<4 && !found;++d) {
-                const XeenCamera camera{23,x,y,XeenDirection(d)};
-                constexpr int dx[]{0,1,0,-1},dy[]{1,0,-1,0};const int tx=x+dx[d],ty=y+dy[d];
-                const bool outside=tx<0 || tx>=16 || ty<0 || ty>=16 || !XeenMovement::component(w.map(23),9,11,kXeenAdmittedAreaTraversal)[ty*16+tx];
-                if(outside && R::travel(w,camera,S::Etherealize).unsupported) {s.camera=camera;found=true;}
-            }
-            check(found,"No original unopened Etherealize destination");
-        }
-        const auto owner=s.activeRosterIds[0];if(item)s.characters[owner].miscellaneous[0]={1,std::uint8_t(spell==21?58:42),2,0};
-        Fixture f(in,s);const auto rng=f.w.sessionState().journeyRandom();
-        if(item){f.act(SelectMemberAction{0});key(f,'i');key(f,'m');key(f,'1');key(f,'u');}else{f.act(CastSpellAction{});f.act(SelectMemberAction{0});key(f,'c');}
-        if(spell==69){key(f,'0'+distance);key(f,InputKey::Enter);}
-        check(f.c.x==s.camera.x && f.c.y==s.camera.y && f.p.roster.at(owner).currentSp==1000 &&
-            f.p.monsterTreasure->gems==1000 && f.p.encounterContext->minutes==600 && f.w.sessionState().journeyRandom()==rng,
-            "Unopened-area refusal spent position/SP/gems/time/RNG");
-        if(item)check(f.p.roster.at(owner).miscellaneous[0].state==2,"Unopened destination spent an item charge");
+
     }
 }
 void shelterOrder(Inputs &in) {
@@ -408,6 +378,6 @@ void combat(Inputs &in) {
 }
 }
 int main(int argc,char **argv){try{check(argc==2,"usage: travel-original <installation>");const auto detected=xeenTestInstallationDetector().detect(argv[1]);check(bool(detected),"Missing installation");Inputs in(*detected);
-    std::ostringstream out;auto *old=std::cout.rdbuf(out.rdbuf());try{mapTravel(in);presentation(in);exploration(in);rest(in);water(in);jumpWater(in);unsupported(in);shelterOrder(in);combat(in);}catch(...){std::cout.rdbuf(old);throw;}std::cout.rdbuf(old);
+    std::ostringstream out;auto *old=std::cout.rdbuf(out.rdbuf());try{mapTravel(in);presentation(in);exploration(in);rest(in);water(in);jumpWater(in);shelterOrder(in);combat(in);}catch(...){std::cout.rdbuf(old);throw;}std::cout.rdbuf(old);
     std::cout<<"M76 same-map travel, Jump over water, Shelter, Rest cell refusal, costs, items and exact restore passed\n";return 0;
 }catch(const std::exception &e){std::cerr<<scenario<<": "<<e.what()<<'\n';return 1;}}

@@ -121,8 +121,18 @@ void synthetic(bool ran=false,bool healing=false,bool cancel=false,unsigned powe
 void original(const std::filesystem::path &game) {
     const auto installation=xeenTestInstallationDetector().detect(game);check(bool(installation),"Original installation missing");
     training_test::Inputs in(*installation);
-    for(bool portal:{false,true}) {
+    for(unsigned choice=0;choice<=5;++choice) {
+        const bool portal=choice!=0;
         auto saved=in.service();saved.camera={23,9,11,XeenDirection::West};inventory(saved);
+        if(choice>1) {
+            const auto id=XeenMapIdentity(27+choice);
+            const auto actors=XeenActorApproach::actorsFromResources(in.maps.loadObjects(in.assets,id),in.statistics);
+            auto &table=saved.map(id).monsters;table.emplace(XeenSaveMonsterTable{std::uint16_t(actors.size()),{}});
+            for(const auto &a:actors) {
+                const bool defeated=a.lifecycle==XeenActorLifecycle::Present;
+                table->slots.push_back({defeated?-128:int(a.x),defeated?-128:int(a.y),defeated?XeenActorLifecycle::Defeated:XeenActorLifecycle(a.lifecycle),a.status,defeated,-1});
+            }
+        }
         for(auto &a:saved.map(23).monsters->slots){a.x=a.y=-128;a.lifecycle=XeenActorLifecycle::Defeated;a.accounted=true;}
         auto &monster=saved.map(23).monsters->slots[5];monster.x=8;monster.y=11;monster.lifecycle=XeenActorLifecycle::Present;monster.accounted=false;
         training_test::Fixture f(in,saved);
@@ -143,10 +153,8 @@ void original(const std::filesystem::path &game) {
         const auto hpBefore=f.w.sessionState().regionalActors(23)[5].hp;
         f.act(UseItemAction{});key(portal?'3':'1');key('u');
         if(portal) {
-            f.act(AcknowledgeAction{});key('2');key(InputKey::Enter);
-            check(f.p.roster.at(owner).miscellaneous[2].state==2 && f.c.mapId==23,"Unavailable town charged/moved");
-            f.act(AcknowledgeAction{});key(8);key('1');key(InputKey::Enter);
-            check(f.c.mapId==28 && !f.flow->inventoryOpen(),"Town Portal did not load before finishing Use");
+            f.act(AcknowledgeAction{});key('0'+choice);key(InputKey::Enter);
+            check(f.c.mapId==XeenMapIdentity(27+choice) && !f.flow->inventoryOpen(),"Town Portal did not load the selected town before finishing Use");
         } else {
             for(unsigned n=0;n<1500 && f.flow->encounter()->combat() && f.flow->encounter()->combat()->cast();++n)tick();
             check(f.w.sessionState().regionalActors(23)[5].hp<hpBefore,"Original combat damage item did no damage");
@@ -160,7 +168,10 @@ void original(const std::filesystem::path &game) {
         if(!f.flow->canSave() || f.flow->encounter()->combat())throw std::runtime_error("Original item combat did not finish: portal="+std::to_string(portal)+" map="+std::to_string(f.c.mapId.number)+" activity="+std::to_string(unsigned(f.w.sessionState().journeyActivity()))+" inventory="+std::to_string(f.flow->inventoryOpen())+" combat="+(f.flow->encounter()->combat()?std::to_string(unsigned(f.flow->encounter()->combat()->phase())):"retired"));
         check(f.p.roster.at(owner).miscellaneous[portal?2:0].state==1,"Original item spent wrong charge count");
         check(f.p.roster.at(owner).currentSp==sp && f.p.monsterTreasure->gems==gems,"Original combat item charged SP/gems");
-        if(portal)check(f.c.mapId==28 && f.c.x==18 && f.c.y==4 && f.p.encounterContext->minutes==minute+1,"Town Portal did not reach Vertigo with ordinary end minute");
+        if(portal) {
+            const auto &g=f.w.map(27+choice).geometry;
+            check(f.c.mapId==XeenMapIdentity(27+choice) && f.c.x==g.runX && f.c.y==g.runY && f.p.encounterContext->minutes==minute+1,"Combat Portal run location or ordinary End minute differs");
+        }
         const auto bytes=XeenSaveFormat::encode(f.snapshot());training_test::Fixture restored(in,XeenSaveFormat::decode(bytes));
         check(bytes==XeenSaveFormat::encode(restored.snapshot()),"Combat item save/load replayed time/effects/RNG");
     }

@@ -44,7 +44,8 @@ XeenEncounterFlow::XeenEncounterFlow(XeenWorld &w, XeenPartyState &p, XeenCamera
 	const auto preparedStart=setup.prepared;
 	const auto mainlandProvider=setup.mainlandEventsProvider;
 	const auto cityProvider=setup.cityEventsProvider;
-	_travelEventsProvider=[mainlandProvider,cityProvider,fixture=setup.eventFixture,original=setup.events](XeenMapIdentity id) {
+	_travelEventsProvider=[provider=setup.eventsProvider,mainlandProvider,cityProvider,fixture=setup.eventFixture,original=setup.events](XeenMapIdentity id) {
+        if(provider)return provider(id);
         if(fixture && id==fixture->mapId)return original;
         if(id==XeenMapIdentity(23) && mainlandProvider)return mainlandProvider();
         if(id==XeenMapIdentity(28) && cityProvider)return cityProvider();
@@ -89,7 +90,6 @@ XeenEncounterFlow::XeenEncounterFlow(XeenWorld &w, XeenPartyState &p, XeenCamera
 			auto prepared=std::make_shared<XeenRestoreGuard>(w,p,c,flags);
 			prepared->retainResources(*_journeyPreimage);
 			prepared->prepareFreshJourneyPublication(candidate,actors,random,city,statistics);
-			_journeyCapture->admittedActors=actors;
 			_journeyPreimage->check();
 			publishedPreimage.swap(prepared);
 		};
@@ -156,6 +156,7 @@ XeenEncounterFlow::XeenEncounterFlow(XeenWorld &w, XeenPartyState &p, XeenCamera
 	_journeyCapture.swap(binding->capture);
 	_journeyCapture->bind(w,p,c,_state,_boundary,_busy,_journeyPreimage,&_needsRestNotice);
 	_journeyStatistics.swap(binding->statistics); std::swap(_journeyEvents,binding->events);
+	_travelEventsProvider.swap(binding->eventsProvider);
 	_learnedNamesProvider.swap(binding->learnedNamesProvider);
 	_journeyPreimage.swap(binding->guard);
 	_state._world = &w; _state._party = &p; _state._camera = &c; _state._revision = 1;
@@ -326,7 +327,10 @@ std::optional<std::uint64_t> XeenEncounterFlow::beginItemUse(const Ticket &entry
 			if(next->spell==XeenLearnedSpell::Jump) {
 				const auto jump=xeenJumpPreflight(_world,_camera);_journeyPreimage->check();
 				if(jump.admission==XeenJumpAdmission::Unsupported)return {};
-				if(jump.admission==XeenJumpAdmission::Ready)next->jumpDestination=jump.destination;
+				if(jump.admission==XeenJumpAdmission::Ready) {
+					next->jumpDestination=jump.destination;travel.destination=jump.destination;
+					travel.reload=jump.destination.mapId!=_camera.mapId;
+				}
 			}
             if(next->spell && (*next->spell==XeenLearnedSpell::LloydsBeacon || *next->spell==XeenLearnedSpell::TownPortal || *next->spell==XeenLearnedSpell::Etherealize || *next->spell==XeenLearnedSpell::TimeDistortion || *next->spell==XeenLearnedSpell::SuperShelter || *next->spell==XeenLearnedSpell::Teleport)) {
                 travel=XeenLearnedSpellRules::travel(_world,_camera,*next->spell,distance,&source);
@@ -522,7 +526,7 @@ bool XeenEncounterFlow::serviceItemUse() {
 		XeenEncounterResult result;
 		{
 			XeenRestoreGuard::Providers providers(*_journeyPreimage,_world);
-			result=XeenActorApproach::regionalTransition(_world,_party,_camera,_state,_events,{},_regionalWork);
+			result=XeenActorApproach::regionalTransition(_world,_party,_camera,_state,_journeyEvents,{},_regionalWork,_travelEventsProvider);
 		}
 		if (!_journeyPreimage->ownersAlive() || _boundary.generation()!=boundaryGeneration ||
 			result.outcome==XeenEncounterOutcome::Stale || result.outcome==XeenEncounterOutcome::Refused ||
@@ -580,7 +584,7 @@ void XeenEncounterFlow::beginJourneyEvent(bool barrier) {
 		_state.pending()==0 && _state.phase()==XeenEncounterPhase::Exploring : journeyQuiet();
 	const auto interaction = xeenRegionalInteraction(_events,_camera);
 	if (!ready || !journeyCapacity() || (interaction==XeenRegionalInteraction::None && !barrier) ||
-		(barrier && (_regionalAutomatic || (_camera.mapId!=XeenMapIdentity(28) && _camera.mapId!=XeenMapIdentity(23)))) ||
+		(barrier && _regionalAutomatic) ||
 		(_regionalAutomatic && interaction==XeenRegionalInteraction::None))
 		throw std::logic_error("Journey objective admission unavailable");
 	if (!_regionalAutomatic) retireCastingFeedback();
@@ -793,8 +797,8 @@ XeenEncounterResult XeenEncounterFlow::advanceJourney(const Ticket &entry, std::
         // quiet admission applies only when starting new work.
         if(!_regionalWork) {
 		    xeenValidateJourneyParty(_party);
-		    const auto mainland=s.monsters(xeenJourneyContent().entry.mapId);
-		    if (std::any_of(mainland.begin(),mainland.end(),[&](const XeenActor &a) { return a.lifecycle == XeenActorLifecycle::Present; })) xeenValidateJourneyMelee(_party);
+		    const auto active=s.monsters(_camera.mapId);
+		    if (std::any_of(active.begin(),active.end(),[&](const XeenActor &a) { return a.lifecycle == XeenActorLifecycle::Present; })) xeenValidateJourneyMelee(_party);
         }
 	} catch (const std::invalid_argument &e) { _journeyRefusal = "This action is not supported yet for this party."; refused.reason = XeenEncounterStop::Domain; return refused; }
 	_journeyRefusal.clear();
@@ -813,7 +817,7 @@ XeenEncounterResult XeenEncounterFlow::advanceJourney(const Ticket &entry, std::
 		XeenEncounterResult result;
 		{
 			XeenRestoreGuard::Providers providers(*_journeyPreimage,_world);
-			result = XeenActorApproach::regionalTransition(_world,_party,_camera,_state,_events,action,_regionalWork);
+			result = XeenActorApproach::regionalTransition(_world,_party,_camera,_state,_journeyEvents,action,_regionalWork,_travelEventsProvider);
 		}
 		if (!_journeyPreimage->ownersAlive()) { closeJourney(); return refused; }
 		// A replaced boundary belongs to newer work. Leave its coordination alone.

@@ -115,26 +115,26 @@ XeenPresentationKind presentationKind(XeenEventDisplayKind kind) {
 // Inspect every reachable suffix (including both answers and call returns)
 // before a prefix can Spawn, disable an Event or change a flag. This is a
 // capability query over resource instructions, never a list of admitted cells.
-std::optional<XeenEventExecutionError> preflightCityEvent(XeenWorld &world,
-		const XeenEventScript &script, const XeenCamera &camera) {
+std::optional<XeenEventExecutionError> preflightEvent(XeenWorld &world,
+		const XeenEventScript &script, const XeenCamera &camera,unsigned initialLine=0,std::size_t executed=0) {
 	using Address=std::tuple<int,int,int>;
 	using Path=std::vector<Address>;
 	// Include return addresses: a service called from a subroutine exits the
 	// entire Event, so its caller's suffix must never be inspected or executed.
-	std::vector<Path> pending{{{camera.x,camera.y,0}}};
+	std::vector<Path> pending{{{camera.x,camera.y,int(initialLine)}}};
 	std::set<Path> visited;
 	while(!pending.empty()) {
 		auto path=std::move(pending.back());pending.pop_back();
 		if(!visited.insert(path).second)continue;
 		if(visited.size()>4096 || path.size()>XeenEventInterpreter::kMaximumCallDepth+1)
 			return error(XeenEventExecutionErrorKind::InstructionLimitExceeded,
-				"Event preflight exceeds the supported control-flow bound",0,{camera.mapId,camera.x,camera.y,0});
+				"Event preflight exceeds the supported control-flow bound",executed,{camera.mapId,camera.x,camera.y,0});
 		const auto address=path.back();path.pop_back();
 		const auto [x,y,line]=address;
 		const auto enqueue=[&](int nx,int ny,int nl) {auto next=path;next.emplace_back(nx,ny,nl);pending.push_back(std::move(next));};
 		if(x<0 || x>255 || y<0 || y>255 || line<0 || line>255)
 			return error(XeenEventExecutionErrorKind::InvalidJumpTarget,
-				"Event preflight address is outside the lookup domain",0,{camera.mapId,x,y,line});
+				"Event preflight address is outside the lookup domain",executed,{camera.mapId,x,y,line});
 		const auto site=script.findInstructionIndex(x,y,camera.direction,line);
 		if(!site)continue; // Runtime distinguishes natural closure from bad jumps.
 		const auto effective=world.effectiveEvent({camera.mapId,*site},script.records()[*site]);
@@ -142,16 +142,16 @@ std::optional<XeenEventExecutionError> preflightCityEvent(XeenWorld &world,
 			{camera.mapId,script.file().resourceName,*site,true,effective.opcode!=script.records()[*site].opcode});
 		const XeenEventExecutionAddress logical{camera.mapId,x,y,line};
 		if(const auto *bad=std::get_if<XeenEventDecodeError>(&decoded))
-			return error(executionKind(bad->kind),bad->message,0,logical,bad->source);
+			return error(executionKind(bad->kind),bad->message,executed,logical,bad->source);
 		const auto &instruction=std::get<XeenDecodedEventInstruction>(decoded);
 		const auto &op=instruction.operation;
 		const auto unsupported=[&](const char *message) {
-			return error(XeenEventExecutionErrorKind::UnsupportedOperand,message,0,logical,instruction.source);
+			return error(XeenEventExecutionErrorKind::UnsupportedOperand,message,executed,logical,instruction.source);
 		};
 		if(std::holds_alternative<XeenEventExit>(op))continue;
 		if(std::holds_alternative<XeenEventReturn>(op)) {if(!path.empty())pending.push_back(std::move(path));continue;}
 		if(const auto *service=std::get_if<XeenEventTownService>(&op)) {
-			if(service->action!=0 && service->action!=1 && service->action!=2 && service->action!=3 && service->action!=4 && service->action!=5)
+			if(camera.mapId!=XeenMapIdentity(28) || service->action>5)
 				return unsupported("Dependent service effects are not supported yet");
 			continue;
 		}
@@ -159,9 +159,10 @@ std::optional<XeenEventExecutionError> preflightCityEvent(XeenWorld &world,
         // a fresh destination run, rather than a suffix of this logical script.
         if(std::holds_alternative<XeenEventTeleportAndExit>(op) ||
            std::holds_alternative<XeenEventTeleportAndContinue>(op))continue;
-		if(std::holds_alternative<XeenEventGiveEnchanted>(op) ||
-			std::holds_alternative<XeenEventRemove>(op))
-			return unsupported("Event effect is not supported yet in this context");
+		if(const auto *alter=std::get_if<XeenEventAlterCellFlag>(&op))
+			if(world.map(camera.mapId).geometry.isOutdoors() &&
+				(alter->x<0 || alter->x>=16 || alter->y<0 || alter->y>=16))
+				return unsupported("Outdoor AlterCellFlag neighbour operand is not supported yet");
 		if(const auto *npc=std::get_if<XeenEventNpc>(&op)) {
 			if(npc->confirmationMode>2)return unsupported("NPC mode is not supported yet");
 			if(npc->confirmationMode==0)enqueue(x,y,npc->targetLine);
@@ -204,11 +205,7 @@ std::optional<XeenEventExecutionError> preflightCityEvent(XeenWorld &world,
 				if(!(p.mode==0 && p.value==0) && (p.mode==67 || ((p.mode==66 || p.mode==100 || p.mode==101 || p.mode==106) && !p.value) ||
 					(p.mode==66 && p.value>7) || (p.mode!=34 && p.mode!=35 && p.mode!=66 && p.mode!=100 && p.mode!=101 && p.mode!=106 && !giveSupported(p))))
 					return unsupported("GiveMulti effect is not supported yet");
-			const auto selected=world.selectObject(camera);
-			if(selected && selected->recordIndex!=0) {
-				const auto sprite=world.effectiveObject(*selected).resourceId;
-				if(sprite==16 || sprite==58 || sprite==73)return unsupported("GiveMulti locked chest is not supported yet");
-			}
+
 		}
 		if(const auto *move=std::get_if<XeenEventMoveObject>(&op)) {
 			try {static_cast<void>(world.effectiveObject({camera.mapId,move->record}));}
@@ -269,7 +266,7 @@ XeenEventExecutionStepResult XeenEventInterpreter::begin(
 		return error(XeenEventExecutionErrorKind::ScriptLoadFailed,
 			"script provider is absent", 0, state.logicalAddress);
 	}
-	const bool city=world.regionalJourney() && initialCamera.mapId==XeenMapIdentity(28);
+	const bool journey=world.regionalJourney();
 	if (!world.eventCameraAdmitted(initialCamera)) {
 		return error(XeenEventExecutionErrorKind::InvalidInitialCamera,
 			"initial camera is outside the supported Xeen map domain", 0,
@@ -304,8 +301,8 @@ XeenEventExecutionStepResult XeenEventInterpreter::begin(
 			std::string("failed to resolve interaction object: ") + exception.what(),
 			0, state.logicalAddress);
 	}
-	if(city) {
-		if(const auto refused=preflightCityEvent(world,*state.currentScript,initialCamera))return *refused;
+	if(journey) {
+		if(const auto refused=preflightEvent(world,*state.currentScript,initialCamera,initialLine))return *refused;
 	}
 	return run(std::move(state), std::nullopt, partyState, world,
 		scriptProvider, textProvider, publication);
@@ -890,9 +887,6 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
    ++logical.line;missingPolicy=MissingInstructionPolicy::NaturalCompletion;continue;
   }
 		if (std::holds_alternative<XeenEventProtectionCheck>(decoded.operation)) {
-			if (logical.mapId!=XeenMapIdentity(28))
-				return error(XeenEventExecutionErrorKind::UnsupportedExecutionContext,
-					"protection check is outside the admitted profile",instructionCount,logical,decoded.source);
 			++logical.line;missingPolicy=MissingInstructionPolicy::NaturalCompletion;continue;
 		}
 		if (const auto *spawn=std::get_if<XeenEventSpawn>(&decoded.operation)) {
@@ -912,6 +906,10 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 			++logical.line;missingPolicy=MissingInstructionPolicy::NaturalCompletion;continue;
 		}
 		if(const auto *alter=std::get_if<XeenEventAlterCellFlag>(&decoded.operation)) {
+			if(world.map(logical.mapId).geometry.isOutdoors() &&
+				(alter->x<0 || alter->x>=16 || alter->y<0 || alter->y>=16))
+				return error(XeenEventExecutionErrorKind::UnsupportedOperand,
+					"Outdoor AlterCellFlag neighbour operand is not supported yet",instructionCount,logical,decoded.source);
 			world.applyAlterCellFlag(logical.mapId,alter->x,alter->y,alter->surface);
 			++logical.line;missingPolicy=MissingInstructionPolicy::NaturalCompletion;continue;
 		}
@@ -1564,6 +1562,8 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 					"destination event script map ID differs from requested map",
 					instructionCount, logical, decoded.source, logical);
 			}
+			if(world.regionalJourney())
+				if(const auto refused=preflightEvent(world,*script,workingCamera,0,instructionCount))return *refused;
 			missingPolicy = MissingInstructionPolicy::NaturalCompletion;
 			pendingTransferSource.reset();
 			continue;

@@ -27,7 +27,7 @@ struct Fixture : regional_save_test::Fixture {
         s.eventFixture=XeenCamera{30,20,20,XeenDirection::North};
         s.saveUnavailable="disabled in the Event developer session";
         s.maps=[this](auto id) {
-            if (id==XeenMapIdentity(31)) ++unavailableLoads;
+            if (id==XeenMapIdentity(31)) {++unavailableLoads;throw std::runtime_error("Absent fixture DAT");}
             auto map=regional_test::map(id);
             if (id!=XeenMapIdentity(23)) {
 				map.heads.emplace();
@@ -55,7 +55,7 @@ struct Fixture : regional_save_test::Fixture {
         return s;
     }
 };
-void sessionAndRefusal(bool publishedPrefix) {
+void sessionAndRefusal(bool publishedPrefix,bool continuedDestination=false) {
     Fixture h;
     // XP's sparkle is a published script prefix. Quest flags after it remain
     // candidate-only and must be discarded when the travel operation refuses.
@@ -64,8 +64,22 @@ void sessionAndRefusal(bool publishedPrefix) {
     const auto line=1u;
     h.script.records.push_back(record(line,0x0b,{0,6,6}));
     h.script.records.push_back(record(line+1,12,{0,0,104,3}));
-    h.script.records.push_back(record(line+2,7,{31,1,1}));
+    h.script.records.push_back(record(line+2,continuedDestination?0x1f:7,{31,1,1}));
+    // This linear prefix executes every source record, including the transfer.
+    const auto executedPrefixCount=h.script.records.size();
     auto s=h.services();bool shown=false,prefixSeen=false;unsigned errors=0;
+    if(continuedDestination) {
+        const auto maps=s.maps;
+        s.maps=[&,maps](auto id) {if(id==XeenMapIdentity(31)){++h.unavailableLoads;return regional_test::map(id);}return maps(id);};
+        s.resources.loadEvents=[&](auto id) {
+            if(id==XeenMapIdentity(31)) {
+                auto write=record(0,0x1b,{34,123,0,0,0}),service=record(1,0x11,{8});
+                write.x=write.y=service.x=service.y=1;
+                return XeenEventFile{31,"maze0031.evt",true,{write,service}};
+            }
+            return id==h.script.mapId?h.script:regional_test::events(id);
+        };
+    }
     s.show=[&](const auto &,const auto &handler,const auto &,const auto &idle,const auto &status) {
         shown=true;
         check(h.world->developerEventMap()==XeenMapIdentity(30) && h.camera->x==20 && h.camera->y==20,
@@ -91,9 +105,9 @@ void sessionAndRefusal(bool publishedPrefix) {
             if(const auto *pending=std::get_if<XeenEventExecutionSuspended>(&result))
                 if(pending->request.kind==XeenPresentationKind::PortraitEffect) prefixSeen=true;
             if(const auto *failure=std::get_if<XeenEventExecutionError>(&result)) {
-                ++errors;check(failure->kind==XeenEventExecutionErrorKind::UnsupportedTeleportDestination,
+                ++errors;check(failure->kind==(continuedDestination?XeenEventExecutionErrorKind::UnsupportedOperand:XeenEventExecutionErrorKind::UnsupportedTeleportDestination),
                     "Unavailable travel was reported as an integrity failure");
-                check(failure->instructionCount==4,"Refusal did not execute the candidate RNG and map prefix");
+                check(failure->instructionCount==executedPrefixCount,"Travel refusal count differs from the executed source prefix");
             }
         };
         h.send(handler,InteractionAction{});
@@ -105,7 +119,7 @@ void sessionAndRefusal(bool publishedPrefix) {
             std::to_string(h.flow->blocksGameplay())+", quiet="+std::to_string(h.flow->encounter()->journeyQuiet()));
         check(h.camera->mapId==XeenMapIdentity(30) && h.camera->x==20 && h.camera->y==20 &&
             !h.party->questFlags.isSet(3) && h.party->monsterTreasure->gold==gold && *h.world->sessionState().journeyRandom()==random &&
-            xeen_state::sameMapStates(h.world->sessionState().mapStates(),before->sessionState().mapStates()) && !h.unavailableLoads,
+            xeen_state::sameMapStates(h.world->sessionState().mapStates(),before->sessionState().mapStates()) && h.unavailableLoads,
             "Unavailable destination leaked candidate map, flag, party or random values");
         check(h.party->roster.combatInputs(0)->experience==xp+(publishedPrefix?1u:0u) && prefixSeen==publishedPrefix,
             "Refused travel lost or replayed an already published XP prefix");
@@ -166,6 +180,14 @@ void originalSessions(const char *directory) {
             s.maps=[=](auto id){auto map=maps(id);if(id==XeenMapIdentity(27))
                 for(auto &surface:map.geometry.surfaceTypes)if(surface==13)surface=0;return map;};
         }
+        if(start.mapId==XeenMapIdentity(27) && scenario!=10) {
+            // Synthetic endurance keeps this original cloud/fall witness alive;
+            // the maps, actors, scripts and fall damage remain original.
+            const auto original=s.resources.loadInitialParty;
+            s.resources.loadInitialParty=[original] {auto p=original();
+                for(auto owner:p.party.activeRosterIds())p.roster.at(owner).endurance.permanent=250;
+                return p;};
+        }
         s.eventFixture=start;s.saveUnavailable="disabled in the Event developer session";bool shown=false;
         s.show=[&](const auto &frame,const auto &handler,const auto &,const auto &idle,const auto &) {
             shown=true;h.flow->prepareJourneySprites();
@@ -217,17 +239,17 @@ void originalSessions(const char *directory) {
                 check(cell && h.world->map(27).geometry.surfaceTypes[cell->cell->surfaceIndex]==(scenario==5?13:0),
                     "Original MakeNothingHere cloud/safe-floor fixture changed");
                 for(unsigned i=0;i<file.records.size();++i)if(file.records[i].x==30 && file.records[i].y==30) {
-                    check(h.world->isEventDisabled({27,i})==(scenario==10),
-                        "Original cloud suffix published refused MakeNothingHere or lost safe-floor completion");++cleared;
+                    check(h.world->isEventDisabled({27,i}),
+                        "Original MakeNothingHere completion lost its disabled records");++cleared;
                 }
                 check(cleared==10,"Original MakeNothingHere witness no longer names its ten original records");
                 if(scenario==5) {
-                    check(xeen_state::sameMapStates(h.world->sessionState().mapStates(),before->sessionState().mapStates()) &&
-                        h.party->encounterContext==clock && h.world->sessionState().journeyRandom()==random &&
-                        xeen_state::sameCamera(*h.camera,start),"Refused original cloud fall leaked map/time/RNG/camera");
+                    check(h.camera->mapId==XeenMapIdentity(15) && h.camera->x==4 && h.camera->y==12 &&
+                        h.camera->direction==XeenDirection::South && h.party->encounterContext->minutes==clock->minutes+1 &&
+                        h.world->sessionState().journeyRandom()==random,"Original cloud fall destination, time or RNG differs");
                     unsigned n=0;for(auto owner:h.party->party.activeRosterIds())
-                        check(xeen_state::sameCharacter(h.party->roster.at(owner),characters[n++]),
-                            "Refused original cloud fall leaked character effects");
+                        check(h.party->roster.at(owner).currentHp==characters[n++].currentHp-100,
+                            "Original cloud fall did not apply its 100 Physical damage exactly once");
                 } else check(h.party->encounterContext->minutes==clock->minutes+1,
                     "Safe-floor original MakeNothingHere omitted completed Space charge");
             }
@@ -238,13 +260,13 @@ void originalSessions(const char *directory) {
             return true;
         };
         check(Application().playGameplay(s,{}, {},false,XeenEncounterEntry::Journey,7)==0 && shown,
-            "Original-data developer session startup failed");
+            ("Original-data developer session startup failed: scenario "+std::to_string(scenario)).c_str());
     }
 }
 }
 int main(int argc,char **argv) {
     std::ostringstream output;auto *stream=std::cout.rdbuf(output.rdbuf());
-    try {sessionAndRefusal(false);sessionAndRefusal(true);integrity();if(argc==2)originalSessions(argv[1]);
+    try {sessionAndRefusal(false);sessionAndRefusal(true);sessionAndRefusal(false,true);sessionAndRefusal(true,true);integrity();if(argc==2)originalSessions(argv[1]);
         std::cout.rdbuf(stream);std::cout<<"Event developer session, unavailable travel, published prefix and integrity checks passed\n";return 0;
     }catch(const std::exception &error){std::cout.rdbuf(stream);std::cerr<<error.what()<<'\n';return 1;}
 }

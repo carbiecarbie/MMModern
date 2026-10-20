@@ -329,18 +329,15 @@ void sleepingHit(Inputs &in) {
   f.p.food==start.food,"Rest must continue after sleepy hit until later contact");
  std::cout<<"Sleeping hit continues after charge 1; contact interrupts charge 3\n";
 }
-// Refusal controls need an actually blocked destination now that water is
-// admitted geography. This is a synthetic mountain cell, not original data.
-XeenMap blockedFallLanding(XeenMap map) {
- if(map.identity()==XeenMapIdentity(23))xeenGet<XeenOutdoorLayers>(map.geometry.cells[10*16+12].geometry).middle=1;
- return map;
+// Admission is independent of traversal skills. Refusal controls instead
+// simulate a missing destination resource, with no retained destination state.
+void omitFallDestination(XeenSaveSnapshot &state) {
+ state.maps.erase(std::remove_if(state.maps.begin(),state.maps.end(),
+  [](const XeenSaveMapState &m){return m.id==XeenMapIdentity(23);}),state.maps.end());
 }
-XeenRegionalManifest blockedFallManifest(Inputs &in) {
- return [&in](const auto &m,const auto &o,const auto &e,const auto &stats) {
-  check(xeenGet<XeenOutdoorLayers>(m.geometry.cells[10*16+12].geometry).middle==1,"Synthetic blocked fall destination changed");
-  auto original=m;original.geometry.cells[10*16+12]=in.maps.loadGeometryMap(in.assets,23).geometry.cells[10*16+12];
-  xeenValidateRegionalManifest(original,o,e,stats,in.assets.readInitialResource("maze0023.dat"),in.assets.readInitialResource("maze0023.mob"),in.assets.readInitialResource("maze0023.evt"));
- };
+XeenMap missingFallLanding(XeenMap map) {
+ if(map.identity()==XeenMapIdentity(23))throw std::runtime_error("Synthetic missing fall destination resource");
+ return map;
 }
 void terrain(Inputs &in) {
  const auto manifest=[&](unsigned surface) -> XeenRegionalManifest {
@@ -373,16 +370,17 @@ void terrain(Inputs &in) {
   auto start=source(in,indoor);
   for(auto owner:start.activeRosterIds)start.characters[owner].permanentLevel=100;
   if(surface==13)start.journey->context->effects[XeenPartyEffect::Levitate]=1;
-  const bool blockedLanding=indoor && (surface==10 || surface==13);
+  const bool unavailableLanding=indoor && (surface==10 || surface==13);
+  if(unavailableLanding)omitFallDestination(start);
   const auto loader=[&](auto id) {
    auto map=in.maps.loadGeometryMap(in.assets,id);if(id==start.camera.mapId)map.geometry.surfaceTypes.fill(surface);
-   return blockedLanding?blockedFallLanding(std::move(map)):map;
+   return unavailableLanding?missingFallLanding(std::move(map)):map;
   };
-  Fixture f(in,start,false,nullptr,loader,blockedLanding?blockedFallManifest(in):indoor?XeenRegionalManifest{}:manifest(surface));wire(f);unsigned providers=0;
+  Fixture f(in,start,false,nullptr,loader,indoor?XeenRegionalManifest{}:manifest(surface));wire(f);unsigned providers=0;
   f.flow->loadRestDream=[&]{++providers;return in.assets.restDreamImage();};
   const auto before=XeenSaveFormat::encode(f.snapshot());f.act(RestAction{});
   if(indoor && (surface==10 || surface==13)) {
-   check(XeenRestTestAccess::refused(*f.flow) && !providers,"Unadmitted mainland fall was not refused before Rest");
+   check(XeenRestTestAccess::refused(*f.flow) && !providers,"Missing fall destination was not refused before Rest");
    f.act(AcknowledgeAction{});finish(f);check(XeenSaveFormat::encode(f.snapshot())==before,"Refused fall leaked Rest state");continue;
   }
   check(!XeenRestTestAccess::refused(*f.flow) && providers,"Hazardous surface incorrectly refuses Rest");
@@ -435,8 +433,8 @@ void terrain(Inputs &in) {
   check(f.p.encounterContext->minutes==start.journey->context->minutes+480,"Navigator did not suppress desert addTime");
  }
  // Actual original map13 lava, and a map25 sky fall use original geometry,
- // not synthetic resource replacements. Shared admission refuses unopened fall
- // destinations before callers spend time, food, SP or the random continuation.
+ // not synthetic resource replacements. Shared Journey admission must resolve
+ // the same destination without applying the arrival itself.
  XeenWorld original(in.mapLoader(),in.objectLoader());const auto start=in.base();
  XeenConsequenceCharacters c;XeenConsequenceInputs inputs;
  for(unsigned n=0;n<6;++n){const auto owner=start.activeRosterIds[n];c[n]=start.characters[owner];inputs[n]=start.journey->supplements[owner].inputs;c[n].currentHp=1000;}
@@ -457,8 +455,11 @@ void terrain(Inputs &in) {
   if(!rule.falling)continue;
   check(rule.transition.destination.mapId==XeenMapIdentity(24) && rule.transition.destination.x==11 && rule.transition.destination.y==9,"Original map25 fall destination");
   original.markEncounterSession(XeenEncounterEntry::Journey);
-  const auto refused=original.prepareTerrainArrival({25,x,y,XeenDirection::West},c,*start.journey->context);
-  check(!refused && !refused.transition.reason.empty(),"Original fall uses shared unopened-map refusal");found=true;
+  const auto admitted=original.prepareTerrainArrival({25,x,y,XeenDirection::West},c,*start.journey->context);
+  check(admitted && admitted.transition.destination.mapId==XeenMapIdentity(24) &&
+   admitted.transition.destination.x==11 && admitted.transition.destination.y==9 &&
+   admitted.transition.destination.direction==XeenDirection::West && admitted.damage==100,
+   "Original fall uses shared Journey destination admission");found=true;
  }
  check(found,"Original map25 sky witness absent");
  {
@@ -531,6 +532,7 @@ void terrainCallsites(Inputs &in) {
  };
  for(unsigned kind=0;kind<3;++kind) {
   auto state=armed(true);const bool automatic=kind==1,refused=kind==2;if(automatic)state.camera.y=19;
+  if(refused)omitFallDestination(state);
   XeenEventFile script{28,"maze0028.evt",true,automatic?
    std::vector<XeenEventRecord>{row(20,20,0x12)}:
    std::vector<XeenEventRecord>{row(20,20,0x1f,{28,20,21}),row(20,21,0x1f,{28,20,22}),row(20,22,0x12)}};
@@ -541,9 +543,9 @@ void terrainCallsites(Inputs &in) {
     // Logical(20,19) is physical(4,3), the automatic move's safe source.
     auto &start=m.geometry.cells[3*16+4];start.rawAttributes=0;start.surfaceIndex=0;
     if(automatic && id==XeenMapIdentity(111))m.geometry.cells[4*16+4].rawAttributes|=kXeenAutomaticEventFlag;
-   }return refused?blockedFallLanding(std::move(m)):m;
+   }return refused?missingFallLanding(std::move(m)):m;
   };
-  Fixture f(in,state,false,&script,loader,refused?blockedFallManifest(in):XeenRegionalManifest{});wire(f);const auto before=XeenSaveFormat::encode(f.snapshot());
+  Fixture f(in,state,false,&script,loader);wire(f);const auto before=XeenSaveFormat::encode(f.snapshot());
   f.act(automatic?PlayerAction{NavigationAction::MoveForward}:PlayerAction{InteractionAction{}});finish(f);
   if(refused)check(XeenSaveFormat::encode(f.snapshot())==before,"Refused final Event fall leaked teleport/RNG/party state");
   else {
@@ -575,16 +577,17 @@ void terrainCallsites(Inputs &in) {
   for(auto owner:state.activeRosterIds)check(f.p.roster.at(owner).currentHp==900,"Post-dawn Space fall must apply physical100 once");
  }
  // A flag and a visible physical damage prefix remain detached when the
- // completed manual chain would fall outside admission. No prefix may leak.
+ // completed manual chain has a missing fall destination. No prefix may leak.
  {
   auto state=armed(true);state.questFlags[3]=false;
+  omitFallDestination(state);
   auto flag=row(20,20,0x0c,{0,0,104,3});auto damage=row(20,20,0x16,{10,0,0});damage.line=1;
   auto teleport=row(20,20,0x1f,{28,20,22});teleport.line=2;
   XeenEventFile script{28,"maze0028.evt",true,{flag,damage,teleport,row(20,22,0x12)}};
   const auto loader=[&](auto id){auto m=in.maps.loadGeometryMap(in.assets,id);if(!m.geometry.isOutdoors()) {
    m.geometry.surfaceTypes.fill(10);for(auto &c:m.geometry.cells){c.rawWord=0;c.geometry=XeenIndoorWalls{};c.flags=0;}
-  }return blockedFallLanding(std::move(m));};
-  Fixture f(in,state,false,&script,loader,blockedFallManifest(in));wire(f);const auto bytes=XeenSaveFormat::encode(f.snapshot());
+  }return missingFallLanding(std::move(m));};
+  Fixture f(in,state,false,&script,loader);wire(f);const auto bytes=XeenSaveFormat::encode(f.snapshot());
   f.act(InteractionAction{});bool portrait=false;
   for(unsigned n=0;!f.flow->canSave();++n){check(n<1000,"Refused prefix fixture did not settle");portrait=portrait || XeenRestTestAccess::eventPortrait(*f.flow);pulse(f);}
   check(portrait,"Refused fall fixture did not reach its visible damage prefix");

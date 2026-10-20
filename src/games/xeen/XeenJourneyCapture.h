@@ -22,7 +22,6 @@ class XeenJourneyCapture {
 	std::uint64_t generation = 0;
 	bool closed = false;
 	bool initializationPending = false;
-	std::vector<XeenActor> admittedActors;
 	XeenJourneyCapture() = default;
 	XeenJourneyCapture(const XeenWorld &w, const XeenPartyState &p, const XeenCamera &c,
 		const XeenEncounterState &state, const XeenCombatBoundary &boundary, const bool &busy,
@@ -44,10 +43,6 @@ class XeenJourneyCapture {
 		// Reuse the retained guard's monotonic failure latch. Flow checks this same
 		// guard before any later publication; equal bytes cannot revive its ticket.
 		try { (*preimage)->check(); } catch (...) { return false; }
-		// Admitted actors are the Journey entry map's MOB table.
-		const auto actors = w->sessionState().monsters(xeenJourneyContent().entry.mapId);
-		const auto expected=admittedActors.size();
-		if (!expected || expected>XeenActorApproach::kCapacity || actors.size() != expected) return false;
 		for (auto id:w->sessionState().accountedMonsters()) {
 			if(!w->sessionState().hasRegionalActors(id.mapId)) return false;
 			const auto owned=w->sessionState().regionalActors(id.mapId);
@@ -84,6 +79,7 @@ struct XeenJourneyRestoration {
 	std::shared_ptr<XeenRestoreGuard> guard;
 	std::vector<XeenMonsterRecord> statistics;
 	XeenEventFile events;
+	std::function<XeenEventFile(XeenMapIdentity)> eventsProvider;
 	std::function<XeenLearnedSpellNames()> learnedNamesProvider;
 };
 }

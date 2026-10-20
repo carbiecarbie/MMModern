@@ -242,10 +242,8 @@ private:
 		std::unique_ptr<XeenRestoreGuard> guard;
 		std::optional<XeenEventContinuation> continuation;
 		std::optional<XeenManualEventCompleted> completion;
-		bool preludePublished = false;
 		bool refused = false;
 		bool cancelled = false;
-		bool preludeRequired = false;
 		bool presentationRetry = false;
 		bool automatic=false, terrainDone=false, manualStepDone=false;
 		std::optional<XeenTerrainArrivalCandidate> terrain;
@@ -258,8 +256,6 @@ private:
             std::unique_ptr<XeenRestoreGuard> guard;
         };
         std::unique_ptr<ObservedPrefix> observed;
-        std::optional<XeenEventExecutionState> observedPrelude;
-        std::optional<XeenEventContinuation> observedPreludeContinuation;
 	};
 	std::unique_ptr<TransitionCandidate> _transition;
 	void prepareTerrainTransition();
@@ -324,9 +320,10 @@ private:
     std::optional<NpcResponse> _npcResponse;
     IndexedFrame consumeNpcResponse();
  bool drawPendingHeads(IndexedFrame &);
-	XeenManualEventResult beginVertigoEvent(XeenRegionalInteraction, bool automatic=false);
-	XeenManualEventResult resumeVertigoEvent(XeenEventExecutionState, XeenPresentationResponse);
-	void prepareVertigoResult(const XeenManualEventResult &);
+	XeenManualEventResult beginDetachedEvent(XeenRegionalInteraction, bool automatic=false);
+	XeenEventSystem detachedEventResources();
+	XeenManualEventResult resumeDetachedEvent(XeenEventExecutionState, XeenPresentationResponse);
+	void prepareDetachedResult(const XeenManualEventResult &);
 	void claimServiceContinuation(const void *owner);
 	void requireServiceSettlementOwner(const void *owner) const;
 	void requireServiceSettlementEntry(const void *owner) const;

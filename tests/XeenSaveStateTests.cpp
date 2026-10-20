@@ -708,7 +708,7 @@ void travelRoundTrips() {
   const bool refused=form>=12,continued=lateRefused || form%2;
   const bool mirror=(form>=6 && form<12) || (form>=14 && form<16),run=(form>=2 && form<4) || (form>=8 && form<12);
   const bool same=(form>=4 && form<6) || (form>=10 && form<12) || form>=18;
-  const XeenMapIdentity destination=refused && !lateRefused?29:same?28:23;
+  const XeenMapIdentity destination=refused && !lateRefused?99:same?28:23;
   auto initial=currentSnapshot();initial.camera={28,9,11,XeenDirection::West};initial.map(28).monsters=mobTable(4);
   XeenEventFile source{28,"synthetic.evt",true,{}};
   const auto add=[&](unsigned x,unsigned y,unsigned line,unsigned op,Bytes args={}) {
@@ -725,15 +725,15 @@ void travelRoundTrips() {
   auto message=record(10,11,0,1,{0});message.direction=4;target.records.push_back(message);
   auto prompt=record(10,11,1,21,{1,3,0,0});prompt.direction=4;target.records.push_back(prompt);
   auto wrong=record(10,11,2,18);wrong.direction=4;target.records.push_back(wrong);
-  auto write=lateRefused && !publishedPrefix?record(10,11,3,7,{29,1,1}):
+  auto write=lateRefused && !publishedPrefix?record(10,11,3,7,{99,1,1}):
    record(10,11,3,12,publishedPrefix?Bytes{0,0,65,1}:Bytes{0,0,21,99});
   write.direction=4;target.records.push_back(write);
-  auto exit=lateRefused && publishedPrefix?record(10,11,4,7,{29,1,1}):record(10,11,4,18);
+  auto exit=lateRefused && publishedPrefix?record(10,11,4,7,{99,1,1}):record(10,11,4,18);
   exit.direction=4;target.records.push_back(exit);
   if(same)source.records.insert(source.records.end(),target.records.begin(),target.records.end());
   const auto configure=[&](CurrentDestination &f) {
    usePerMapResources(f,4);
-   f.mapProvider=[](auto id){auto map=indoorMap(id);map.geometry.runX=10;map.geometry.runY=11;
+   f.mapProvider=[](auto id){if(id==XeenMapIdentity(99))throw std::runtime_error("Absent fixture DAT");auto map=indoorMap(id);map.geometry.runX=10;map.geometry.runY=11;
     if(id==XeenMapIdentity(28))map.geometry.neighbors=std::array<std::uint16_t,4>{30,29,0,0};
     if(id==XeenMapIdentity(30))map.geometry.neighbors[1]=31;
     if(id==XeenMapIdentity(29))map.geometry.neighbors[0]=31;return map;};
@@ -955,18 +955,19 @@ void warzoneLifetime(){
  rejects([&]{refused.restore(forged);},"Warzone");
  check(!refused.world.hasEncounterState(),"A refused Warzone save published nothing");
 }
-// Risk "size and time": every retained Clouds map 1..128 holds state
-// (monsters, a removed object, a MakeNothingHere record, explored bits); the
-// Warzone, 85, is never saved (decision 2). Restore loads each map's DAT, MOB
-// and EVT and must stay under one second.
+// Risk "size and time": primary maps hold actors, objects and Events;
+// neighboring physical tiles hold exploration. Every retained identity 1..128
+// has state, except Warzone 85. Restore must stay under one second.
 void allCloudsMaps(){
  constexpr unsigned kMonsters=20;
  auto s=currentSnapshot();
  for(unsigned number=1;number<=128;++number) {
   if(!xeenRetainsMapState(static_cast<std::uint16_t>(number)))continue;
   auto &m=s.map(static_cast<std::uint16_t>(number));
-  if(number!=23)m.monsters=mobTable(kMonsters);
-  m.objects={{0,-128,-128,false}};m.events={{0,0}};
+  if(number<100) {
+   if(number!=23)m.monsters=mobTable(kMonsters);
+   m.objects={{0,-128,-128,false}};m.events={{0,0}};
+  }
   m.explored=std::array<std::uint8_t,32>{};(*m.explored)[number%32]=1;
  }
  const auto bytes=XeenSaveFormat::encode(s);
@@ -1045,8 +1046,9 @@ void invalidResourceAndState(){
 
 int main() {
 	try {
-		liveStatusRoundTrip(); fullRestoration(); explicitItems(); invalidResourceAndState(); characterPreflight(); mutationPolicies(); journeyBorrowRefusal();
-		genericRoundTrip(); replacedOpcodePublication(); mapEventRoundTrips(); removeThenMoveRoundTrip(); travelRoundTrips(); valueRoundTrips(); sourceIdentityCases(); unsupportedMapState(); warzoneLifetime(); allCloudsMaps();
+        const auto run=[](const char *name,auto function) {try {function();}catch(const std::exception &e){throw std::runtime_error(std::string(name)+": "+e.what());}};
+		run("liveStatusRoundTrip",liveStatusRoundTrip); run("fullRestoration",fullRestoration); run("explicitItems",explicitItems); run("invalidResourceAndState",invalidResourceAndState); run("characterPreflight",characterPreflight); run("mutationPolicies",mutationPolicies); run("journeyBorrowRefusal",journeyBorrowRefusal);
+		run("genericRoundTrip",genericRoundTrip); run("replacedOpcodePublication",replacedOpcodePublication); run("mapEventRoundTrips",mapEventRoundTrips); run("removeThenMoveRoundTrip",removeThenMoveRoundTrip); run("travelRoundTrips",travelRoundTrips); run("valueRoundTrips",valueRoundTrips); run("sourceIdentityCases",sourceIdentityCases); run("unsupportedMapState",unsupportedMapState); run("warzoneLifetime",warzoneLifetime); run("allCloudsMaps",allCloudsMaps);
 		std::cout << "Current save state: atomic preparation, resource identities, rules and owner/flow lifetimes passed\n";
 		return 0;
 	} catch (const std::exception &error) {

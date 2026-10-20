@@ -301,9 +301,13 @@ Census census(const GameInstallation &original,XeenSide side,OriginalContext &co
         try {entry.name=assets.mapName(id);}catch(const std::exception &) {entry.name="(name unavailable)";}
         try {
             requireCloudsMap(id);
-            XeenEventFile f{id,"census",true,{}};
-            (void)xeenRegionalEvent(f,{id,0,0,XeenDirection::North});
-            c.add("Map features","Journey map admission",{Status::Supported,"xeenRegionalEvent accepts map"},number);
+            if(number>=100) {
+                c.add("Map features","Physical indoor geometry",{Status::Supported,"Neighbor DAT tile; gameplay retains the primary logical map identity"},number);
+            } else {
+                const auto admitted=context.world.prepareEventTransition({id,0,0,XeenDirection::North});
+                c.add("Map features","Journey map admission",{admitted?Status::Supported:Status::Unsupported,
+                    admitted?"XeenWorld admits the original primary DAT and coordinate":admitted.reason},number);
+            }
         } catch(const std::exception &e) {c.add("Map features","Journey map admission",{Status::Unsupported,e.what()},number);}
         XeenMapEntities entities;bool mobDecoded=false;
         if(const auto mob=read(resource(number,"mob"))) {

@@ -57,7 +57,8 @@ void activate(std::vector<XeenActor> &actors, const XeenActorView &view) noexcep
 
 std::vector<XeenActor> XeenActorApproach::actorsFromResources(const XeenObjectFile &mob,
 		const std::vector<XeenMonsterRecord> &statistics) {
-	require(mob.resourcePresent && bool(mob.mapId), "missing original monster MOB");
+	// An absent optional MOB represents the same empty table at arrival and restore.
+	require(bool(mob.mapId) && (mob.resourcePresent || mob.entities.monsters.empty()), "missing original monster MOB");
 	require(mob.entities.monsters.size() <= kCapacity, "monster simulation capacity exceeded");
 	require(!statistics.empty() && statistics.size() <= XeenMonsterFormat::kMaximumBytes / 60,
 		"invalid monster statistics count");
@@ -198,13 +199,6 @@ void XeenActorApproach::validateDomain(XeenWorld &world, const XeenPartyState &p
 		require(xeenRegionalContext(context),"Unsupported regional context");
 		xeenValidateJourneyParty(party);
 		validateEnvironment(world,actors,events);
-		// The retained mainland table stays valid while the party is elsewhere.
-		const auto entry=xeenJourneyContent().entry.mapId;
-		if(events.mapId!=entry) {
-			std::set<XeenMonsterIdentity> mainland;
-			for(const auto id:world.sessionState().accountedMonsters())if(id.mapId==entry)mainland.insert(id);
-			xeenValidateRegionalActors(world.map(entry),world.objectFile(entry),world.sessionState().monsters(entry),mainland,world._cityStatistics);
-		}
 		return;
 	}
 }
@@ -214,18 +208,13 @@ void XeenActorApproach::validateEnvironment(XeenWorld &world,
 	const auto entry=xeenJourneyContent().entry.mapId;
 	// An admitted indoor map: its monster table is staged with indoor geometry.
 	const auto *state=world.sessionState().mapState(events.mapId);
-	if (events.mapId==world.developerEventMap() && state && state->monsters) {
-		require(events.resourcePresent,"Developer map Event resource is absent");
-		xeenValidateIndoorActors(world,events.mapId,actors);
-		return;
-	}
-	if(events.mapId!=entry && state && state->monsters && !state->outdoors) {
-		require(events.resourcePresent,"Indoor Event resource is absent");
+	if(state && state->monsters) {
+		require(events.resourcePresent || events.records.empty(),"Absent Event resource has records");
 		xeenValidateIndoorActors(world,events.mapId,actors);
 		return;
 	}
 	{
-		// The admitted outdoor area is the Journey's mainland component.
+		// Fresh prepared Journey setup, before its actor table is installed.
 		bounded(actors,xeenJourneyContent().entry);
 		require(events.mapId==entry && events.resourcePresent && !events.records.empty(),"Regional event topology changed");
 		const auto &map=world.map(entry);
@@ -517,8 +506,9 @@ XeenEncounterResult XeenActorApproach::transition(XeenWorld &world, XeenPartySta
 }
 
 XeenEncounterResult XeenActorApproach::regionalTransition(XeenWorld &world,XeenPartyState &party,
-		XeenCamera &camera,XeenEncounterState &state,const XeenEventFile &events,
-		std::optional<XeenEncounterAction> action,std::unique_ptr<XeenRegionalActionCandidate> &work) {
+		XeenCamera &camera,XeenEncounterState &state,XeenEventFile &events,
+		std::optional<XeenEncounterAction> action,std::unique_ptr<XeenRegionalActionCandidate> &work,
+		const std::function<XeenEventFile(XeenMapIdentity)> &eventProvider) {
 	auto &session=world._sessionState;XeenEncounterResult refused;
 	if(action && static_cast<unsigned>(*action)>static_cast<unsigned>(XeenEncounterAction::StrafeRight))return refused;
 	if(!world._combatCheck || !world._combatAuthorized || !world._combatAuthorized() ||
@@ -558,35 +548,33 @@ XeenEncounterResult XeenActorApproach::regionalTransition(XeenWorld &world,XeenP
 						const auto navigation=*action==XeenEncounterAction::Forward?NavigationAction::MoveForward:
 							*action==XeenEncounterAction::Backward?NavigationAction::MoveBackward:
 							*action==XeenEncounterAction::StrafeLeft?NavigationAction::StrafeLeft:NavigationAction::StrafeRight;
-						const unsigned d=(unsigned(camera.direction)+(*action==XeenEncounterAction::Backward?2u:
-							*action==XeenEncounterAction::StrafeLeft?3u:*action==XeenEncounterAction::StrafeRight?1u:0u))&3u;
-						constexpr int dx[]{0,1,0,-1},dy[]{1,0,-1,0};const int x=camera.x+dx[d],y=camera.y+dy[d];
-						if(indoor) {
-							result=XeenMovement().apply(world,c.camera,navigation,XeenMovement::capabilities(party));
-						} else {
-							result=XeenMovement::localOutdoor(map,camera.x,camera.y,x,y,XeenMovement::capabilities(party));
-							if(result==XeenMovementResult::Moved) { c.camera.x=x;c.camera.y=y; }
-						}
+                        result=XeenMovement().apply(world,c.camera,navigation,XeenMovement::capabilities(party));
+                        if(c.camera.mapId!=camera.mapId) {
+                            const auto admitted=world.prepareEventTransition(c.camera);check();
+                            if(!admitted) {refused.arrivalRefusal="Destination is not supported yet";return refused;}
+                            c.destinationWorld=world.transitionCandidate();
+                            c.destinationWorld->loadEventDestination(camera.mapId,c.camera.mapId);check();
+                            if(!eventProvider) {refused.arrivalRefusal="Destination Events are not supported yet";return refused;}
+                            c.destinationEvents=eventProvider(c.camera.mapId);check();
+                            require(c.destinationEvents->mapId==c.camera.mapId,"Border Event identity changed");
+                            c.actors=c.destinationWorld->sessionState().regionalActors(c.camera.mapId);
+                        }
 					} else result=XeenMovement().apply(world,c.camera,*action==XeenEncounterAction::Left?NavigationAction::TurnLeft:NavigationAction::TurnRight);
 					charge=result==XeenMovementResult::Moved;stepTime=charge || result==XeenMovementResult::Turned;
 					if(!stepTime) c.result.outcome=XeenEncounterOutcome::Blocked;
-					if(indoor ? !xeenIndoorCoordinate(c.camera.x,c.camera.y) :
-						(c.camera.x<0 || c.camera.x>=16 || c.camera.y<0 || c.camera.y>=16 ||
-						 (c.camera.mapId!=world.developerEventMap() && (c.camera.mapId!=xeenJourneyContent().entry.mapId ||
-						 !XeenMovement::component(map,9,11,kXeenAdmittedAreaTraversal)[c.camera.y*16+c.camera.x]))))
-						{ refused.reason=XeenEncounterStop::Envelope;return refused; }
-					const auto sampled=indoor ? world.sampleCell(c.camera.mapId,c.camera.x,c.camera.y) : std::optional<XeenCellSample>{};
-					if(indoor ? (sampled && (sampled->cell->rawAttributes & kXeenAutomaticEventFlag)!=0) :
-						hasAutomaticTrigger(map.geometry,c.camera.x,c.camera.y)) {
-						c.result.automaticEvent=xeenRegionalEvent(events,c.camera).has_value();
-					}
+                    auto &destination=c.destinationWorld?*c.destinationWorld:world;
+                    const auto admitted=destination.prepareEventTransition(c.camera);check();
+                    if(!admitted) {refused.arrivalRefusal="Destination is not supported yet";return refused;}
+                    const auto sampled=destination.sampleCell(c.camera.mapId,c.camera.x,c.camera.y);
+                    if(sampled && (sampled->cell->rawAttributes & kXeenAutomaticEventFlag))
+                        c.result.automaticEvent=xeenRegionalEvent(c.destinationEvents?*c.destinationEvents:events,c.camera).has_value();
 				}
 			}
 			if(stepTime) {
 				auto ending=xeenPrepareTime(c.context,charge?(indoor?1u:10u):0u);
 				if(ending.dailyProcessing)xeenResetPartyTemps(ending.context);
 				c.terrainRule=world.prepareTerrainArrival(c.camera,c.characters,ending.context);check();
-				if(!*c.terrainRule) {refused.arrivalRefusal="Terrain destination is not admitted yet";return refused;}
+				if(!*c.terrainRule) {refused.arrivalRefusal="Terrain destination is not supported yet";return refused;}
 			}
 			if(charge) {
 				static_cast<void>(xeenPrepareTime(c.context,indoor?1:10));
@@ -599,10 +587,12 @@ XeenEncounterResult XeenActorApproach::regionalTransition(XeenWorld &world,XeenP
             // before stepTime/arrival. Keep this suffix behind retained work.
             c.stepTimePending=stepTime;
 			if(!action && c.pending && --c.pending==0) ++c.remaining;
-			c.classify=!action || *action==XeenEncounterAction::Wait;
+			c.classify=bool(c.destinationWorld) || !action || *action==XeenEncounterAction::Wait;
 			check();work.swap(candidate);
 		}
 		auto &c=*work;require(c.revision==entry._revision,"Stale regional continuation");
+		auto &activeWorld=c.destinationWorld?*c.destinationWorld:world;
+		const auto activeMap=activeWorld.map(c.camera.mapId);check();
 		XeenConsequenceDraw draw{c.random,64,check};
 		const auto pending=[&] { auto r=c.result;r.outcome=XeenEncounterOutcome::Pending;r.revision=entry._revision;c.result.needsRest=false;return r; };
 		if(c.time && !c.timeDone) {
@@ -613,11 +603,14 @@ XeenEncounterResult XeenActorApproach::regionalTransition(XeenWorld &world,XeenP
 		}
 		while(c.remaining) {
 			if(!c.opportunity) {
-				if(indoor)c.opportunity.emplace(world,c.actors,c.camera,c.characters,c.inputs,c.context.year,0x3f,std::array<bool,6>{},XeenActorOpportunityContext{c.sleeping},c.context);
-				else c.opportunity.emplace(map,c.actors,c.camera,c.characters,c.inputs,c.context.year,0x3f,std::array<bool,6>{},XeenActorOpportunityContext{c.sleeping},c.context);
-				c.opportunity->staged=true;
+				if(indoor)c.opportunity.emplace(activeWorld,c.actors,c.camera,c.characters,c.inputs,c.context.year,0x3f,std::array<bool,6>{},XeenActorOpportunityContext{c.sleeping},c.context);
+				else c.opportunity.emplace(activeMap,c.actors,c.camera,c.characters,c.inputs,c.context.year,0x3f,std::array<bool,6>{},XeenActorOpportunityContext{c.sleeping},c.context);
+				c.opportunity->staged=!c.destinationWorld;
 			}
 			if(!c.opportunity->service(draw)) {
+                // A draw-budget yield must retain the entire border step.
+                // Only same-map opportunities may publish visible prefixes.
+                if(c.destinationWorld)return pending();
                 auto &op=*c.opportunity;
                 c.result.consequences.reset();
                 if((!op.travelPresented && !op.travelPublished) || (op.impactOwner && !op.portraitPublished))c.result.consequences=op.presentation();
@@ -649,7 +642,7 @@ XeenEncounterResult XeenActorApproach::regionalTransition(XeenWorld &world,XeenP
 		}
         if(c.stepTimePending) {
             if(!c.terrain) {
-                auto rule=world.prepareTerrainArrival(c.camera,c.characters,c.context);
+                auto rule=activeWorld.prepareTerrainArrival(c.camera,c.characters,c.context);
                 if(!rule)throw std::logic_error("Arrival admission changed during action");
                 if(rule.falling) {c.result.terrainFall=std::make_shared<XeenTerrainArrival>(rule);rule.damage=0;}
                 c.terrain.emplace(rule,c.characters,c.inputs,c.context,
@@ -660,10 +653,10 @@ XeenEncounterResult XeenActorApproach::regionalTransition(XeenWorld &world,XeenP
             if(c.terrain->rule.damage)c.result.terrainPortrait=c.terrain->rule.type==XeenDamageType::Fire?1u:0u;
             if(c.time)c.time->economy=c.terrain->economy;
             c.context.ctr24=(c.context.ctr24+1)%24;
-            c.exploration=world.explorationAfterStep(party,c.camera);
+            c.exploration=activeWorld.explorationAfterStep(party,c.camera);
             c.stepTimePending=false;
         }
-		if(c.classify && !c.result.terrainFall) { c.result.view=indoor ? XeenIndoorScene().classifyActors(world,c.camera,c.actors) : classify(c.actors,c.camera);activate(c.actors,c.result.view); }
+		if(c.classify && !c.result.terrainFall) { c.result.view=indoor ? XeenIndoorScene().classifyActors(activeWorld,c.camera,c.actors) : classify(c.actors,c.camera);activate(c.actors,c.result.view); }
 		bool living=false;for(const auto &owner:c.characters) living=living || xeenCombatTargetable(owner);
         living=living && !(c.terrain && c.terrain->rule.dead);
 		const bool engaged=living && c.classify && c.result.view.engaged();
@@ -673,12 +666,21 @@ XeenEncounterResult XeenActorApproach::regionalTransition(XeenWorld &world,XeenP
 		// that actually returns control because no target remains.
 		const bool defeat=!living && (!c.sleeping || c.result.view.engaged() || c.noTargets);
 		if(defeat) { c.result.outcome=XeenEncounterOutcome::Stopped;c.result.reason=XeenEncounterStop::Defeat;c.pending=0; }
-		validateEnvironment(world,c.actors,events);
+		validateEnvironment(activeWorld,c.actors,c.destinationEvents?*c.destinationEvents:events);
 		auto observation=std::make_shared<XeenRegionalObservation>();observation->shots=c.shots;observation->count=c.shotCount;observation->after=c.characters;
-		c.result.consequences=std::move(observation);check();
+		c.result.consequences=std::move(observation);
+        std::optional<XeenScenePresentation> presentation;
+        if(c.destinationWorld)presentation=world.prepareSpawnPresentation(*c.destinationWorld);
+        check();
 		c.result.revision=entry._revision+1;
 		// One nonthrowing publication spans both opportunities and the full tick.
-		regionalActors.swap(c.actors);session._journeyRandom=c.random.continuation();
+		if(c.destinationWorld) {
+            c.destinationWorld->_sessionState.mutableMonsters(c.camera.mapId).swap(c.actors);
+            world.publishTransition(*c.destinationWorld);
+            world.scenePresentation()=std::move(*presentation);
+            std::swap(events,*c.destinationEvents);
+        } else regionalActors.swap(c.actors);
+        session._journeyRandom=c.random.continuation();
 		camera=c.camera;party.encounterContext=c.context;
 		if(c.dangerSense)world.scenePresentation().dangerSense=*c.dangerSense;
 		if(c.terrain) {
