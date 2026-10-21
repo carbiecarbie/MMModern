@@ -7,6 +7,8 @@
 #include "games/xeen/XeenMutation.h"
 #include "games/xeen/XeenRecordIdentity.h"
 #include "games/xeen/XeenItemGeneration.h"
+#include "games/xeen/XeenMapIdentity.h"
+#include "formats/xeen/XeenMonsterFormat.h"
 namespace mmodern {
 enum class XeenRewardCategory : std::uint8_t { Weapons, Armor, Accessories, Miscellaneous };
 // The party's carried gold and gems (DOS DS:f00a/f00e), saved with the party.
@@ -24,6 +26,14 @@ struct XeenTreasureStaging {
 	using Items = std::array<XeenItem, kSlots>;
 	XeenMutable<std::uint32_t> gold = 0, gems = 0;
 	XeenMutable<bool> ready = false;
+	// WhoWill (DOS 47c9:0008): the 1-based member a WhoWill dialog last chose,
+	// 0 for none; every delivery prefers it (0x243d5). Each Event run clears it
+	// (0x26797); only the dialog sets it (0x252d2). The Event stash, Run, Load,
+	// New Game, map changes and deliveries leave it alone.
+	XeenMutable<std::uint8_t> whoWill = 0;
+	std::optional<std::size_t> preferredRecipient() const noexcept {
+		return whoWill ? std::optional<std::size_t>(whoWill - 1u) : std::nullopt;
+	}
 	Items weapons{}, armor{}, accessories{}, miscellaneous{};
 	Items &items(XeenRewardCategory) noexcept;
 	const Items &items(XeenRewardCategory) const noexcept;
@@ -45,7 +55,7 @@ struct XeenTreasureStaging {
 				if (x[i].material != y[i].material || x[i].id != y[i].id || x[i].state != y[i].state || x[i].frame != y[i].frame) return false;
 			return true;
 		};
-		return a.gold == b.gold && a.gems == b.gems && a.ready == b.ready && same(a.weapons, b.weapons) &&
+		return a.gold == b.gold && a.gems == b.gems && a.ready == b.ready && a.whoWill == b.whoWill && same(a.weapons, b.weapons) &&
 			same(a.armor, b.armor) && same(a.accessories, b.accessories) && same(a.miscellaneous, b.miscellaneous);
 	}
 	friend bool operator!=(const XeenTreasureStaging &a, const XeenTreasureStaging &b) noexcept { return !(a == b); }
@@ -75,6 +85,9 @@ private:
 };
 struct XeenConsequenceDraw;
 enum class XeenMonsterDropOutcome { None, Item, CategoryCapacityLoss };
+// One lethal target's treasure (DOS death routine 0x2c283..0x2c540): the
+// record's fixed gold and gems, then one chance draw per nonzero drop field
+// and makeItem at that level. The Arena (map 85) skips all of it.
 struct XeenMonsterDropCandidate {
 	XeenTreasureStaging treasure;
 	XeenMonsterDropOutcome outcome = XeenMonsterDropOutcome::None;
@@ -82,13 +95,14 @@ struct XeenMonsterDropCandidate {
 	XeenRewardCategory category{};
 	// The staging revision this copy was taken at; publication checks it.
 	std::uint64_t base = 0;
-	explicit XeenMonsterDropCandidate(const XeenTreasureStaging &, std::uint64_t base = 0);
-	explicit XeenMonsterDropCandidate(const XeenTreasureStagingState &state) :
-		XeenMonsterDropCandidate(state.value(), state.revision()) {}
+	XeenMonsterDropCandidate(const XeenTreasureStaging &, const XeenMonsterRecord &, XeenMapIdentity, std::uint64_t base = 0);
+	XeenMonsterDropCandidate(const XeenTreasureStagingState &state, const XeenMonsterRecord &record, XeenMapIdentity map) :
+		XeenMonsterDropCandidate(state.value(), record, map, state.revision()) {}
 	bool service(XeenConsequenceDraw &);
 private:
 	enum class Step { Drop, Generate, Store, Done };
-	Step step = Step::Drop;
+	Step step = Step::Done;
+	unsigned level = 0;
 	XeenItemCandidate item{1};
 };
 // Final acknowledgment of a delivery: credits the staged gold/gems to the purse

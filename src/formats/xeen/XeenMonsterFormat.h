@@ -20,6 +20,13 @@ struct XeenMonsterRecord {
 	std::uint16_t baseHp() const;
 	std::uint16_t strikes() const;
 	std::uint16_t gold() const;
+	// Treasure inputs read by the death routine (DOS 0x2c2be..0x2c3ec): gems
+	// byte 44 and drop field 45, which gives both the item chance and the
+	// makeItem level. Clouds uses fields 0-6; dropLevel() refuses any higher
+	// field (the original lookup at 0x4d650 has no bound; Darkside's Doom
+	// Knight and Sandro use field 7, outside the M81 Clouds scope).
+	std::uint8_t gems() const { return raw[44]; }
+	unsigned dropLevel() const;
 	std::uint8_t image() const { return raw[47]; }
 	bool supportsApproach() const;
 	bool supportsMovement() const;

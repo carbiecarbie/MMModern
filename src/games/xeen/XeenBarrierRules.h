@@ -14,7 +14,7 @@ struct XeenBarrierCandidate {
 	std::optional<XeenTypedDamageCandidate> injury;
 	unsigned year=610,wall=0,targetWall=0,target=0,portraitMask=0,portraitFrame=0,animation=0;
 	int threshold=0,trapDamage=0;
-	bool bash=false,selection=false,handled=false,opened=false,moved=false,done=false,deferInjury=false;
+	bool bash=false,selection=false,chosen=false,handled=false,opened=false,moved=false,done=false,deferInjury=false;
 	bool damagePauseReady=false,damagePauseAcknowledged=false;
 	enum class Step { Select, Trap, Type, Damage, DamagePause, Unlock, BashRoll, Done } step=Step::Done;
 	XeenBarrierCandidate(XeenWorld &world,const XeenCamera &c,const XeenConsequenceCharacters &chars,
@@ -72,7 +72,7 @@ struct XeenBarrierCandidate {
 	}
 	void choose(unsigned member) {
 		if(step!=Step::Select || member>=6 || !characters[member].canAct())throw std::logic_error("Stale or ineligible unlock selection");
-		target=member;selection=false;step=Step::Trap;
+		target=member;selection=false;chosen=true;step=Step::Trap;
 	}
 	bool service(XeenConsequenceDraw &draw) {
 		if(done)return true;

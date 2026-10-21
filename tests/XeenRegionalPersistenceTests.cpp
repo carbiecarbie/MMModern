@@ -1,3 +1,4 @@
+#include "XeenTreasureDeliveryTestSupport.h"
 #include "XeenSaveTestSupport.h"
 #include "games/xeen/XeenItemRewards.h"
 #include <iostream>
@@ -88,7 +89,7 @@ int main(){try{
  const auto deliveredCharacters=[](const XeenTreasureStaging &staged,const std::array<XeenCharacter,6> &c) {
   XeenPartyState party;std::vector<std::uint8_t> ids;
   for(const auto &v:c){party.roster.at(v.rosterId)=v;ids.push_back(v.rosterId);}
-  party.party=XeenParty::fromRosterIds(ids);xeenDeliverTreasure(staged,party);
+  party.party=XeenParty::fromRosterIds(ids);xeenTestDeliverTreasure(staged,party);
   std::array<XeenCharacter,6> result;for(unsigned i=0;i<6;++i)result[i]=party.roster.at(c[i].rosterId);return result;
  };
  const auto delivery=deliveredCharacters(staged,recipients);

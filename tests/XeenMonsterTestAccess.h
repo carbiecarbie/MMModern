@@ -44,6 +44,12 @@ struct XeenMonsterTestAccess {
 		actor.hp=hp;actor.activated=activated;
 		guard.s._mapStates=world._sessionState._mapStates;guard.adoptMutationBoundary();
 	}
+	template<class EventFlow>
+	static void statusLive(EventFlow &flow, XeenWorld &world, XeenMapIdentity map, std::size_t index, XeenActorStatus status) {
+		auto &guard=*flow._encounter->_journeyPreimage;
+		guard.check();world._sessionState.mutableMonsters(map).at(index).status=status;
+		guard.s._mapStates=world._sessionState._mapStates;guard.adoptMutationBoundary();
+	}
 	// Running-program pending treasure at a quiet boundary: the live Journey
 	// preimage adopts exactly this publication, like status() and setLive().
 	static void stageTreasure(XeenRestoreGuard &guard, XeenWorld &world, const XeenTreasureStaging &value) {

@@ -183,8 +183,8 @@ public:
 		XeenPartyState detached;detached.party=XeenParty::fromRosterIds(guard.membership);
 		for(auto id:guard.membership)detached.roster.at(id)=guard.characters[id];
 		auto reward=state.reward;
-		if(begin)xeenBeginTreasureDelivery(reward,state.treasure,detached,state.preferredRewardRecipient);
-		else xeenAdvanceTreasureDelivery(reward,detached,state.preferredRewardRecipient);
+		if(begin)xeenBeginTreasureDelivery(reward,state.treasure,detached,state.treasure.preferredRecipient());
+		else xeenAdvanceTreasureDelivery(reward,detached,state.treasure.preferredRecipient());
 		check();
 		for(auto id:guard.membership)for(unsigned category=0;category<4;++category) {
 			const auto kind=static_cast<XeenRewardCategory>(category);
@@ -265,6 +265,10 @@ private:
 				{static_cast<std::uint8_t>(effect->itemCode-60),effect->specialId,1,0});
 		}
 		expected.gold=state.treasure.gold;expected.gems=state.treasure.gems;
+		// WhoWill: cleared at entry, then only a dispatched selection of an active member.
+		if(std::size_t(state.treasure.whoWill)>XeenParty::kMaximumVisibleMembers)
+			integrity("Regional WhoWill outside the party");
+		expected.whoWill=state.treasure.whoWill;
 		if(expected!=state.treasure)integrity("Regional reward staging differs from its dispatched effects");
 	}
 	[[noreturn]] void integrity(const char *message) const { guard.failed=true; throw std::logic_error(message); }

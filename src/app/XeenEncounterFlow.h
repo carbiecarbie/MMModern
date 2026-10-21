@@ -418,7 +418,7 @@ private:
 	std::uint64_t _rewardLease=0;
 	bool beginShoot();
 	bool serviceShoot();
-	bool beginMonsterReward(const XeenItemCatalog &);
+	bool beginMonsterReward();
 	void acknowledgeMonsterReward();
 	void advanceMonsterReward();
 	bool monsterReward() const noexcept { return _monsterReceipt.has_value(); }

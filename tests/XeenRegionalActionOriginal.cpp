@@ -1,5 +1,6 @@
 // Original resources with explicit artificial durable-state controls. These
 // isolate regional action settlement; they are not production route evidence.
+#include "XeenTreasureDeliveryTestSupport.h"
 #include "XeenCombatGameplayTestSupport.h"
 #include "XeenMonsterTestAccess.h"
 #include "formats/xeen/XeenCharacterFormat.h"
@@ -200,7 +201,7 @@ void arrival(const fs::path &game,const fs::path &save,const XeenSaveSnapshot &i
    const auto deliveredCharacters=[](const XeenTreasureStaging &staged,const XeenConsequenceCharacters &c) {
     XeenPartyState party;std::vector<std::uint8_t> ids;
     for(const auto &v:c){party.roster.at(v.rosterId)=v;ids.push_back(v.rosterId);}
-    party.party=XeenParty::fromRosterIds(ids);xeenDeliverTreasure(staged,party);
+    party.party=XeenParty::fromRosterIds(ids);xeenTestDeliverTreasure(staged,party);
     XeenConsequenceCharacters result;for(unsigned i=0;i<6;++i)result[i]=party.roster.at(c[i].rosterId);return result;
    };
    const auto delivered=deliveredCharacters(liveTreasure,opportunity->characters);

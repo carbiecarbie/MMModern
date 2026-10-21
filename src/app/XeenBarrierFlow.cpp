@@ -291,6 +291,13 @@ void XeenEncounterFlow::publishBarrier(const Ticket &entry,XeenWorld &candidate,
 			throw std::logic_error("Barrier object resource changed at publication");
 		objects.emplace(entry);
 	}
+	// The grate's WhoWill dialog (0xc794 -> 0x2507a) writes WhoWill for a party of
+	// two or more; nothing resets it before the next Event run.
+	std::optional<XeenTreasureStaging> staging;
+	if(rule.chosen && _party.party.size()>1) {
+		_world.checkTransitionTreasure(candidate);
+		staging=_world.treasureStaging().value();staging->whoWill=static_cast<std::uint8_t>(rule.target+1);
+	}
 	auto retained=std::make_shared<XeenRestoreGuard>(_world,_party,_camera,_flags);
 	retained->retainResources(*_journeyPreimage);
 	retained->maps.swap(maps);retained->objects.swap(objects);
@@ -303,9 +310,11 @@ void XeenEncounterFlow::publishBarrier(const Ticket &entry,XeenWorld &candidate,
 		retained->characters[rule.characters[n].rosterId]=rule.characters[n];
 		retained->inputs[rule.characters[n].rosterId]=rule.inputs[n];
 	}
+	if(staging)retained->prepareStagingPublication(*staging);
 	retained->prepareMutationRanges();
 	_journeyPreimage->check();prepared.check();
 	XeenMutationWatch::write(&_world);
+	if(staging)_world.treasureStaging().publish(*staging);
 	for(auto &[tile,values]:cells)_world._sessionState._mapStates.find(tile)->cells.swap(values);
 	_world._sessionState.publishExploration(exploration);
 	liveActors.swap(actors);

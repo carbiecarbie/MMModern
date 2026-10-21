@@ -138,7 +138,7 @@ bool XeenEncounterFlow::serviceShoot() {
     if(!work.attackDone) {
      if(work.spellAttack ? !work.spellAttack->service(draw) : !work.attack->service(draw)) return true;
      work.impactRandom=work.random.continuation();
-     if(damage()>=actor.hp && actor.original.resourceId==6) work.drop.emplace(_world.treasureStaging());
+     if(damage()>=actor.hp) work.drop.emplace(_world.treasureStaging(),*actor.statistics,_camera.mapId);
      work.attackDone=true;
     }
     // Lethal drop requests belong after the acquired post-HP draw, never
@@ -153,7 +153,9 @@ bool XeenEncounterFlow::serviceShoot() {
      work.feedback="Shoot owner "+std::to_string(owner)+" -> actor "+std::to_string(id->recordIndex)+
       (hit()?" hit ":" miss ")+std::to_string(damage())+(work.lethal?" defeated":"");
      if(work.drop) {
-      work.feedback+="; gold +10 pending";
+      const auto gold=work.drop->treasure.gold-_world.treasureStaging().value().gold,gems=work.drop->treasure.gems-_world.treasureStaging().value().gems;
+      if(gold)work.feedback+="; gold +"+std::to_string(gold)+" pending";
+      if(gems)work.feedback+="; gems +"+std::to_string(gems)+" pending";
       if(work.drop->outcome==XeenMonsterDropOutcome::CategoryCapacityLoss)work.feedback+="; full category: drop lost";
      }
      if(work.spell)work.feedback.clear();
@@ -280,7 +282,7 @@ bool XeenEncounterFlow::serviceShoot() {
   _shoot.reset();session._journeyActivity=XeenJourneyActivity::Presentation;retainJourney();return true;
  } catch(...) { closeJourney();throw; }
 }
-bool XeenEncounterFlow::beginMonsterReward(const XeenItemCatalog &) {
+bool XeenEncounterFlow::beginMonsterReward() {
  if(monsterReward() || _combat || _busy || _failure || _regionalWork || projectilesPending() ||
   _state.pending() || _state.phase()!=XeenEncounterPhase::Exploring || (_shoot && !_shoot->volleyDone) || !_boundary.quiet()) return false;
  if(!_world.treasureStaging().value().pending()) return false;
@@ -295,7 +297,7 @@ bool XeenEncounterFlow::beginMonsterReward(const XeenItemCatalog &) {
   // transfer; the staging stays intact until the final acknowledgment.
   XeenTreasureDelivery delivery;
   _journeyPreimage->check();
-  xeenBeginTreasureDelivery(delivery,_world.treasureStaging().value(),_party);
+  xeenBeginTreasureDelivery(delivery,_world.treasureStaging().value(),_party,_world.treasureStaging().value().preferredRecipient());
   _monsterReceiptBase=_world.treasureStaging().revision();
   _rewardLease=_boundary.hold(XeenCombatBoundary::Work::Reward);_world._sessionState._journeyActivity=XeenJourneyActivity::Reward;
   _monsterReceipt.emplace(delivery);
@@ -309,7 +311,9 @@ void XeenEncounterFlow::acknowledgeMonsterReward() {
   _journeyPreimage->check();
   _world.treasureStaging().check(_monsterReceiptBase);
   const auto credited=xeenCreditTreasure(*_party.purse,_world.treasureStaging().value());
-  *_party.purse=credited;_world.treasureStaging().publish(XeenTreasureStaging{});_monsterReceipt.reset();
+  // Delivery empties the arrays and currency (0x2489f..0x248d7), not WhoWill.
+  XeenTreasureStaging emptied;emptied.whoWill=_world.treasureStaging().value().whoWill;
+  *_party.purse=credited;_world.treasureStaging().publish(emptied);_monsterReceipt.reset();
   _world._sessionState._journeyActivity=_shoot?XeenJourneyActivity::Shoot:XeenJourneyActivity::Presentation;
   _boundary.release(XeenCombatBoundary::Work::Reward,_rewardLease);_rewardLease=0;
   ++_world._sessionState._journeyGeneration;++_generation;retainJourney();
@@ -321,7 +325,7 @@ void XeenEncounterFlow::advanceMonsterReward() {
  ConsequenceScope busy(_busy);
  try {
   _journeyPreimage->check();
-  xeenAdvanceTreasureDelivery(*_monsterReceipt,_party);
+  xeenAdvanceTreasureDelivery(*_monsterReceipt,_party,_world.treasureStaging().value().preferredRecipient());
   ++_world._sessionState._journeyGeneration;++_generation;retainJourney();
  }catch(...) {closeJourney();throw;}
 }

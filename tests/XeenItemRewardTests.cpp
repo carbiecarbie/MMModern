@@ -1,3 +1,4 @@
+#include "XeenTreasureDeliveryTestSupport.h"
 #include "XeenRewardTestSupport.h"
 #include "XeenPartySnapshotTestSupport.h"
 #include <iostream>
@@ -29,7 +30,7 @@ void recipients(){
 	{Fixture f;save_test::distinctiveInitialItems(f.initial.roster);
 		f.initial.roster.at(0).miscellaneous={};f.initial.roster.at(1).conditions[13]=1;
 		const auto before=f.initial.roster.characters();XeenTreasureStaging q;q.insert(XeenRewardCategory::Miscellaneous,{10,37,193,7});
-		xeenDeliverTreasure(q,f.initial,{});
+		xeenTestDeliverTreasure(q,f.initial,{});
 		for(unsigned id=0;id<30;++id){auto expected=before[id];if(id==0)expected.miscellaneous[0]={10,37,193,7};
 			remove_test::checkSameCharacter(expected,f.initial.roster.at(id));}}
 	for(int variant=0;variant<7;++variant){
@@ -42,7 +43,7 @@ void recipients(){
 		if(variant==4){p.roster.at(4).conditions[8]=1;p.roster.at(4).conditions[10]=1;}
 		XeenTreasureStaging q;for(int i=0;i<10;++i)q.insert(XeenRewardCategory::Miscellaneous,{10,static_cast<std::uint8_t>(37+i),193,7});
 		const auto untouched=p.roster.at(29).miscellaneous;
-		const auto r=xeenDeliverTreasure(q,p,variant<3?std::optional<std::size_t>(1):variant==5?std::optional<std::size_t>(99):std::nullopt);
+		const auto r=xeenTestDeliverTreasure(q,p,variant<3?std::optional<std::size_t>(1):variant==5?std::optional<std::size_t>(99):std::nullopt);
 		const int first=variant==0?2:4;
 		check(r.entries[0].owner==first&&r.delivered==10,"recipient preference/fallback/eligibility");
 		check(p.party.activeRosterIds()==std::vector<std::uint8_t>({4,2,4}),"membership altered");
@@ -52,12 +53,12 @@ void recipients(){
 	for(int condition=0;condition<17;++condition){Fixture f;f.initial.party=XeenParty::fromRosterIds({0});
 		if(condition<16)f.initial.roster.at(0).conditions[condition]=1;
 		XeenTreasureStaging q;q.insert(XeenRewardCategory::Miscellaneous,{1,2,3,4});
-		auto r=xeenDeliverTreasure(q,f.initial,{});check(r.delivered==1,"Unrestricted fallback accepts every condition");}
+		auto r=xeenTestDeliverTreasure(q,f.initial,{});check(r.delivered==1,"Unrestricted fallback accepts every condition");}
 	for(int kind=0;kind<4;++kind){Fixture f;if(kind<2)full(f.initial,kind==1);
 		if(kind==2)for(auto id:f.initial.party.activeRosterIds())f.initial.roster.at(id).conditions[13]=1;
 		if(kind==3)f.initial.party=XeenParty::fromRosterIds({});
 		check(xeenPacksGloballyFull(f.initial)==(kind==1),"global full distinct from recipient availability");
-		XeenTreasureStaging q;q.insert(XeenRewardCategory::Miscellaneous,{1,2,3,4});auto r=xeenDeliverTreasure(q,f.initial,{});
+		XeenTreasureStaging q;q.insert(XeenRewardCategory::Miscellaneous,{1,2,3,4});auto r=xeenTestDeliverTreasure(q,f.initial,{});
 		check(r.delivered==unsigned(kind==0||kind==2) && r.lost==unsigned(kind==1||kind==3),"Only global fullness or empty party loses items");
 		if(r.lost)check(r.entries[0].loss==(kind==1?XeenRewardLoss::GloballyFull:XeenRewardLoss::EmptyParty),"loss classification");}
 }
@@ -69,7 +70,7 @@ void categories(){
       check(!q.insert(XeenRewardCategory(category),{1,11,3,0}),"Per-category capacity");
     }
     q.gold+=100u;q.gems+=7u;
-    const auto r=xeenDeliverTreasure(q,p,1);
+    const auto r=xeenTestDeliverTreasure(q,p,1);
     check(r.count==40 && r.delivered==40 && r.gold==100 && r.gems==7 && p.purse->gold==100 && p.purse->gems==7,"Four-category settlement");
     for(unsigned category=0;category<4;++category) {
       check(r.entries[category*10].category==XeenRewardCategory(category) && r.entries[category*10].owner==1,"Category order/preference");
@@ -78,13 +79,13 @@ void categories(){
     }
     Fixture fullPacks;fullPacks.initial.purse=XeenPurse{};full(fullPacks.initial,true);
     XeenTreasureStaging gold;gold.gold=100;gold.gems=5;
-    auto lost=xeenDeliverTreasure(gold,fullPacks.initial,{});
+    auto lost=xeenTestDeliverTreasure(gold,fullPacks.initial,{});
     check(lost.gold==100 && lost.gems==5 && fullPacks.initial.purse->gold==100 && fullPacks.initial.purse->gems==5,"Globally full packs retain staged currency");
     for(auto owner:fullPacks.initial.party.activeRosterIds())for(unsigned category=0;category<4;++category)
       xeenRewardItems(fullPacks.initial.roster.at(owner),XeenRewardCategory(category)).fill({1,1,0,0});
     auto &last=fullPacks.initial.roster.at(fullPacks.initial.party.activeRosterIds()[0]).miscellaneous;last[8]={};
     XeenTreasureStaging filling;filling.gold=100;filling.insert(XeenRewardCategory::Miscellaneous,{1,1,1,0});
-    lost=xeenDeliverTreasure(filling,fullPacks.initial,{});
+    lost=xeenTestDeliverTreasure(filling,fullPacks.initial,{});
     check(lost.delivered==1 && lost.gold==100,"Filling the last free slot retains currency");
     Fixture finalSlot;auto &lastParty=finalSlot.initial;lastParty.party=XeenParty::fromRosterIds({0,1});
     lastParty.purse=XeenPurse{};
@@ -92,7 +93,7 @@ void categories(){
       xeenRewardItems(lastParty.roster.at(owner),XeenRewardCategory(category)).fill({1,1,0,0});
     lastParty.roster.at(0).miscellaneous={};lastParty.roster.at(1).miscellaneous[8]={};
     XeenTreasureStaging lastTen;for(unsigned i=0;i<10;++i)lastTen.insert(XeenRewardCategory::Miscellaneous,{1,1,0,0});lastTen.gold=100;
-    const auto final=xeenDeliverTreasure(lastTen,lastParty,{});
+    const auto final=xeenTestDeliverTreasure(lastTen,lastParty,{});
     check(final.delivered==10 && final.gold==100 && xeenPacksGloballyFull(lastParty),
       "Last miscellaneous slot must not add a further capacity check");
 }
@@ -102,16 +103,16 @@ void dosDelivery() {
   for(int preference=0;preference<3;++preference)for(unsigned condition:{8u,11u,12u,13u,14u,15u}) {
    Fixture f;f.initial.roster.at(0).conditions[condition]=1;
    XeenTreasureStaging q;q.insert(kind,{3,2,5,0});
-   const auto r=xeenDeliverTreasure(q,f.initial,preference==0?std::optional<std::size_t>{}:preference==1?99:0);
+   const auto r=xeenTestDeliverTreasure(q,f.initial,preference==0?std::optional<std::size_t>{}:preference==1?99:0);
    check(r.entries[0].owner==(preference==2?1:0),"Valid preferred uses eligible scan; absent/invalid goes straight to capacity");
    f.initial.roster.at(1).conditions[13]=1;q={};q.insert(kind,{3,2,5,0});
-   check(xeenDeliverTreasure(q,f.initial,0).entries[0].owner==0,"Valid preferred exhausted eligible scan falls back to disabled/dead");
+   check(xeenTestDeliverTreasure(q,f.initial,0).entries[0].owner==0,"Valid preferred exhausted eligible scan falls back to disabled/dead");
   }
   Fixture f;auto &p=f.initial;p.purse=XeenPurse{};
   for(auto id:p.party.activeRosterIds())xeenRewardItems(p.roster.at(id),kind).fill({0,1,0,0});
   auto &tail=xeenRewardItems(p.roster.at(0),kind).back();tail.frame=category==0?4:category==1?3:category==2?8:7;
   const auto frame=tail.frame;XeenTreasureStaging q;q.insert(kind,{3,2,5,0});q.gold=23;q.gems=7;
-  const auto r=xeenDeliverTreasure(q,p,1);
+  const auto r=xeenTestDeliverTreasure(q,p,1);
   check(r.entries[0].owner==0 && r.delivered==1 && same(tail,{3,2,5,frame}) && same(r.entries[0].item,tail),"Category replacement keeps first owner's equipped mark and receipt bytes");
   auto saved=save_test::sample();
   for(unsigned owner=0;owner<30;++owner)for(unsigned category=0;category<4;++category)
@@ -125,7 +126,7 @@ void dosDelivery() {
   xeenRewardItems(f.initial.roster.at(id),XeenRewardCategory(category)).fill({1,1,1,0});
  f.initial.roster.at(0).weapons[8]={};
  XeenTreasureStaging q;q.insert(XeenRewardCategory::Weapons,{0,2,0,0});q.insert(XeenRewardCategory::Miscellaneous,{1,2,3,0});q.gold=9;q.gems=4;
- auto r=xeenDeliverTreasure(q,f.initial,{});
+ auto r=xeenTestDeliverTreasure(q,f.initial,{});
  check(r.delivered==1 && r.lost==1 && r.entries[1].loss==XeenRewardLoss::GloballyFull && r.gold==9 && r.gems==4,"Becoming globally full discards remaining items only");
 }
 void stagedDelivery() {

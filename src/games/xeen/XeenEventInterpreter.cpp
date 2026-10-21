@@ -260,6 +260,7 @@ XeenEventExecutionStepResult XeenEventInterpreter::begin(
 	XeenEventExecutionState state;
 	// 0x267b1..0x26a5d: with currency or readiness pending, stash the whole staging
 	// and clear only those; the arrays stay live and hold Event treasure too.
+	// Entry also clears WhoWill (0x26797), published with the completed run.
 	state.stash=world.treasureStaging().value();state.stashed=state.stash.pending();
 	state.treasure=state.treasureBase();
 	state.logicalAddress = {initialCamera.mapId, initialCamera.x, initialCamera.y, initialLine};
@@ -376,10 +377,12 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
     };
 
 	// The stash returns over the staging (0x28f22..0x291a6); without one the
-	// delivered (emptied) or untouched live staging remains.
+	// delivered (emptied) or untouched live staging remains. WhoWill is outside
+	// the stash and the delivery clear: the run's value stays.
 	const auto settleTreasure=[&](bool delivered) {
 		auto final=delivered?XeenTreasureStaging{}:state.treasure;
 		if(state.stashed)final=state.stash;
+		final.whoWill=state.treasure.whoWill;
 		if(final==world.treasureStaging().value())return;
 		if(publication && partyState.worldFlags)publication->publishTreasure(world,state,final);
 		else world.treasureStaging().publish(final);
@@ -403,8 +406,8 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 		}
 		const bool begin=reward.phase==XeenRewardPhase::Running;
 		if(publication && partyState.worldFlags)publication->advanceRewardDelivery(state,partyState,begin);
-		else if(begin)xeenBeginTreasureDelivery(reward,state.treasure,partyState,state.preferredRewardRecipient);
-		else xeenAdvanceTreasureDelivery(reward,partyState,state.preferredRewardRecipient);
+		else if(begin)xeenBeginTreasureDelivery(reward,state.treasure,partyState,state.treasure.preferredRecipient());
+		else xeenAdvanceTreasureDelivery(reward,partyState,state.treasure.preferredRecipient());
 		XeenPresentationRequest request;
 		request.response = XeenPresentationResponseRequirement::Acknowledgment;
 		request.mapId = workingCamera.mapId;
@@ -548,7 +551,8 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 			}
 			state.activeCharacterIndex = index;
 			state.entireParty=false;
-			if (partyState.party.size() > 1) state.preferredRewardRecipient = index;
+			// 0x2507a: a one-member party never shows the dialog nor writes WhoWill.
+			if (partyState.party.size() > 1) state.treasure.whoWill = static_cast<std::uint8_t>(index + 1);
 		}
 		state.pendingPresentation.reset();
 		if(pending.request.kind==XeenPresentationKind::EntranceScene) {

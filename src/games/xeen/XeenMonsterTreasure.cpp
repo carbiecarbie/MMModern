@@ -42,18 +42,27 @@ void XeenTreasureStagingState::check(std::uint64_t base) const {
 
 #include "games/xeen/XeenCombatRules.h"
 namespace mmodern {
-// Fixed gold accumulates before the chance draw (DOS 0x2c2be..0x2c2c6), in a
-// 32-bit sum that wraps without refusal.
-XeenMonsterDropCandidate::XeenMonsterDropCandidate(const XeenTreasureStaging &before, std::uint64_t revision) :
-		treasure(before), base(revision) {
-	treasure.gold += 10u;
+namespace {
+// Drop chance by field (lookup 0x4d650): 10/20/50%, then 100% for fields 4-6.
+constexpr std::array<unsigned,7> kDropChance{0,10,20,50,100,100,100};
+}
+// Arena map 85 leaves after XP, before any currency or draw (0x2c283..0x2c28a).
+// Otherwise fixed gold and gems accumulate before the chance draw
+// (0x2c2be..0x2c307), in 32-bit sums that wrap without refusal.
+XeenMonsterDropCandidate::XeenMonsterDropCandidate(const XeenTreasureStaging &before, const XeenMonsterRecord &record,
+		XeenMapIdentity map, std::uint64_t revision) : treasure(before), base(revision) {
+	const auto field=record.dropLevel();
+	if (map.number==85) return;
+	treasure.gold+=std::uint32_t(record.gold());treasure.gems+=std::uint32_t(record.gems());
+	if (field) { level=field;item=XeenItemCandidate(level);step=Step::Drop; }
 }
 bool XeenMonsterDropCandidate::service(XeenConsequenceDraw &draw) {
 	while (step!=Step::Done && draw.remaining) switch (step) {
-	case Step::Drop: { const auto n=draw.draw(1,100);if (n) step=*n<=10 ? Step::Generate : Step::Done;break; }
+	// Every nonzero field draws once, even at 100% (0x2c38b..0x2c39a).
+	case Step::Drop: { const auto n=draw.draw(1,100);if (n) step=*n<=kDropChance[level] ? Step::Generate : Step::Done;break; }
 	case Step::Generate:
-		// DOS 0x2c3e2..0x2c3ec passes the monster's drop level to makeItem
-		// before checking capacity. Current admitted drops are level 1 only.
+		// DOS 0x2c3e2..0x2c3ec passes the same drop field to makeItem as its
+		// level before checking capacity.
 		if (item.service(draw)) {
 			generated=item.item();category=static_cast<XeenRewardCategory>(item.category());step=Step::Store;
 		}

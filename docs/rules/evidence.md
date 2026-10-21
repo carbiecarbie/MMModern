@@ -991,6 +991,38 @@ CD `XEEN.CC` map scripts, no DOSBox execution. Work files stay in
   items, the restore stages them again, and ordinary delivery hands them over
   once more in the same iteration.
 
+<a id="preferred-recipient-after-the-events"></a>**Preferred recipient after the Events (M81 Part C, 2026-10-21; DOS static, high
+confidence).** MMModern baseline `1447735cdfea42cc5636f943ece28535cf7da278`;
+same DAT hash; hash-checked Capstone reads under WSL, no DOSBox execution. Work
+files stay in `D:\MModern-re\m81-partC\`. Calibration: delivery's preferred-index
+test (`0x243d5..0x243f2`, [Treasure delivery](#treasure-delivery)) reads the
+WhoWill byte `47c9:0008` (file `0x4d358`), decrements it and falls back to the
+capacity scan when it is negative or not below the party size; the pin's
+`Party::giveTreasure` reads `Scripts::_whoWill` the same way. The raw segment
+value occurs four times in the program and no other paragraph aliases the byte,
+so these are all its references:
+
+- the delivery test above is the only reader; makeItem's Misc power table at
+  `47c9:0000` (`0x2621d..0x26224`, indexed by level) is the fourth use;
+- Event-routine entry `0x26774` writes 0 at `0x26797`, on every call (main loop
+  `0xd1a5`, action dispatch `0xd2be`, `0x1184a`, `0x2ec37`);
+- the WhoWill dialog `0x2507a` stores the 1-based selection at `0x252d2`; a
+  one-member party returns 1 without writing (`0x25082..0x2508c`) and Cancel
+  skips the store (`0x2528c`). Its callers are the WhoWill opcode (`0x285ae`),
+  SetChar's ask (`0x27a1c`) and the grate routine `0xc794` (message 13, from the
+  exploration action dispatch `0xd260..0xd2b1`), which ends with `f5fe=0`
+  (`0xc911`) so the dispatcher skips the Event run.
+
+Nothing writes the byte at Event exit (`0x28d50..0x291a6`), play entry, Run,
+Load, New Game or a map change; it is initialized data (0) outside the startup
+BSS clear and every save range. **DOS therefore does not reset the preferred
+recipient after the Events:** ordinary delivery in the same iteration
+(`0xd1b7`), and every later one until the next Event run, prefers the member
+last chosen by a WhoWill dialog, inside an Event or at a grate, under the
+existing validity, `canAct` and capacity tests. The pin agrees: only
+`dialogs_whowill.cpp` sets `_whoWill`, and only the `Scripts` constructor and
+`checkEvents` entry reset it.
+
 ## Treasure delivery
 
 **DOS static, high confidence; implemented (M61 Part D).** The 2026-10-12

@@ -253,7 +253,11 @@ void originals(training_test::Inputs &in) {
     }
     {Fixture f(in,start(in,98),false,nullptr,{}, {},npc(in));setup(f);generated(f);
         // Original awake actor approaches via ordinary time/turns and is killed
-        // through player combat commands, with all normal treasure settlement.
+        // through player combat commands. Map 85 leaves the death routine after
+        // XP, before its record's gold, gems and drop draw (0x2c283..0x2c28a).
+        const auto &record=*f.w.sessionState().regionalActors(85).front().statistics;
+        check(record.gold() || record.gems() || record.dropLevel(),"Arena witness monster carries no treasure to suppress");
+        const auto staging=f.w.treasureStaging().value();const auto gold=f.p.purse->gold,gems=f.p.purse->gems;
         for(unsigned n=0;n<200;++n) {
             const auto &a=f.w.sessionState().regionalActors(85).front();
             if(a.lifecycle==XeenActorLifecycle::Defeated && !f.flow->blocksGameplay())break;
@@ -263,6 +267,7 @@ void originals(training_test::Inputs &in) {
             pump(f,10);
         }
         check(f.w.sessionState().regionalActors(85).front().lifecycle==XeenActorLifecycle::Defeated,"Original Arena fight did not finish");
+        check(f.w.treasureStaging().value()==staging && f.p.purse->gold==gold && f.p.purse->gems==gems,"An Arena kill staged or credited treasure");
         walk(f,7,6,XeenDirection::North);answer(f,InteractionAction{});waitsForAcknowledgment(f,XeenArenaPhase::Victory);
         dismiss(f);
         const auto &g=f.w.map(28).geometry;check(f.c.mapId==28 && f.c.x==g.runX && f.c.y==g.runY && f.c.direction==XeenDirection::East,"Victory destination");

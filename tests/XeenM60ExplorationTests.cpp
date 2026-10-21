@@ -130,16 +130,16 @@ void impacts(Inputs &in) {
     *XeenLearnedSpellRules::supported(spell),actor.statistics->physicalResistance(),actor.status,actor.statistics->monsterType(),nullptr,actor.hp);
    XeenConsequenceDraw draw{expected};check(candidate.service(draw) && candidate.damage>=1,"Live spell fixture must be lethal");
    xp+=actor.statistics->experience()/6;
-   if(actor.original.resourceId==6) {
-    // Checks the drop-chance draw and RNG continuation after an exploration
-    // spell kill. This kill fails the 10% chance, so it never reaches item
-    // generation; successful drops are covered only by the unit tapes in
-    // XeenConsequenceRulesTests (M71 review).
+   {
+    // Checks the record-driven drop draws and RNG continuation after an
+    // exploration spell kill, with an independent chance table and generator.
+    constexpr unsigned chance[]{0,10,20,50,100,100,100};
+    const unsigned field=actor.statistics->raw[45];
     m42_test::StockOracle oracle{expected.state(),expected.position()};
-    const bool generated=oracle.draw(1,100)<=10;
+    const bool generated=field && oracle.draw(1,100)<=chance[field];
     std::optional<std::pair<unsigned,XeenItem>> item;
-    if(generated)item=oracle.item(1);
-    XeenMonsterDropCandidate drop(treasure);check(drop.service(draw),"Live spell bounded drop");
+    if(generated)item=oracle.item(field);
+    XeenMonsterDropCandidate drop(treasure,*actor.statistics,actor.id.mapId);check(drop.service(draw),"Live spell bounded drop");
     check(expected.continuation()==XeenJourneyRandomState{1,oracle.state,oracle.count} &&
      (item?xeenSameItem(drop.generated,item->second):drop.outcome==XeenMonsterDropOutcome::None),"Independent spell/drop generation and RNG differ");
     treasure=drop.treasure;
@@ -227,7 +227,7 @@ void m73Live(Inputs &in) {
       *XeenLearnedSpellRules::supported(spell),a.statistics->physicalResistance(),a.status,a.statistics->monsterType(),&preparation);
     XeenConsequenceDraw draw{expected};check(effect.service(draw),"Exploration expected cast did not finish");
     hp[i]=std::max(hp[i]-effect.damage,0);status[i]=effect.status;
-    if(!hp[i]){XeenMonsterDropCandidate drop(treasure);check(drop.service(draw),"Target settlement did not finish");treasure=drop.treasure;}
+    if(!hp[i]){XeenMonsterDropCandidate drop(treasure,*a.statistics,a.id.mapId);check(drop.service(draw),"Target settlement did not finish");treasure=drop.treasure;}
     if(spell!=51)break;
     volley.settle(!effect.miss);
    }while(hp[i]>0);

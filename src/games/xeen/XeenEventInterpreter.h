@@ -220,9 +220,10 @@ struct XeenEventExecutionState {
 	// arrays, is delivered after the Events and the stash is restored over it.
 	XeenTreasureStaging treasure, stash;
 	bool stashed=false;
-	XeenTreasureStaging treasureBase() const { auto base=stash;base.clearPending();return base; }
-	bool treasureChanged() const { return treasure!=treasureBase(); }
-	std::optional<std::size_t> preferredRewardRecipient;
+	// The run's entry clear (0x26797) is part of the base; WhoWill selections
+	// are checked apart from the arrays, so they never count as treasure.
+	XeenTreasureStaging treasureBase() const { auto base=stash;base.clearPending();base.whoWill=0;return base; }
+	bool treasureChanged() const { auto live=treasure;live.whoWill=0;return live!=treasureBase(); }
 	XeenTreasureDelivery reward;
 	XeenEventExecutionAddress logicalAddress;
 	XeenDirection lookupDirection = XeenDirection::North;

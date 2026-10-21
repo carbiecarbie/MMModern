@@ -509,7 +509,7 @@ void XeenEventFlow::prepareJourneyTransition() {
    drive(beginDetachedEvent(xeenRegionalInteraction(_encounter->_journeyEvents,_camera),true),true);
   },true);
  }
- if(!_transition)_encounter->beginMonsterReward(_catalog);
+ if(!_transition)_encounter->beginMonsterReward();
  if(_encounter->_shootIntent && !_encounter->state().pending() && !_encounter->_regionalWork && !_encounter->projectilesPending()) _encounter->beginShoot();
 }
 

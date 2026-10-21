@@ -3,6 +3,7 @@
 #include "XeenTrainingTestSupport.h"
 #include "XeenMonsterTestAccess.h"
 #include "XeenM42Evidence.h"
+#include "XeenM49CombatSupport.h"
 #include "games/xeen/XeenJourneyRules.h"
 #include "games/xeen/XeenCharacterRules.h"
 #include "platform/sdl/XeenMainScreenInput.h"
@@ -31,6 +32,14 @@ struct XeenPartyInterfaceTestAccess {
 }
 namespace {
 void pulse(Fixture &f){f.now+=125;f.flow->beginCycle(++f.cycle);if(auto frame=f.flow->updatePresentation())f.present(*frame);}
+// Acknowledges every phase of a monster delivery once its input is accepted.
+void quietTreasure(Fixture &f) {
+ for(unsigned n=0;n<200 && XeenPartyInterfaceTestAccess::reward(*f.flow);++n) {
+  f.now=std::max(f.now,PresentationClock::ceilMilliseconds(XeenPartyInterfaceTestAccess::rewardInputDeadline(*f.flow)))+125;
+  f.act(AcknowledgeAction{});pulse(f);
+ }
+ check(!XeenPartyInterfaceTestAccess::reward(*f.flow),"Monster delivery did not finish");
+}
 void quiet(Fixture &f) {
  for(unsigned n=0;n<2000 && !f.flow->canSave();++n) {
   if(XeenPartyInterfaceTestAccess::restConfirm(*f.flow))f.act(DialogKeyAction{'y'});
@@ -228,7 +237,7 @@ void m73QuickCasting(Inputs &in) {
     *XeenLearnedSpellRules::supported(spell),a.statistics->physicalResistance(),a.status,a.statistics->monsterType(),&preparation);
    XeenConsequenceDraw draw{expected};check(effect.service(draw),"M73 parity expected cast did not finish");
    hp[i]=std::max(a.hp-effect.damage,0);statuses[i]=effect.status;
-   if(!hp[i] && a.original.resourceId==6){XeenMonsterDropCandidate drop(treasure);check(drop.service(draw),"M73 parity drop did not finish");treasure=drop.treasure;}
+   if(!hp[i]){XeenMonsterDropCandidate drop(treasure,*a.statistics,a.id.mapId);check(drop.service(draw),"M73 parity drop did not finish");treasure=drop.treasure;}
   }
   if(spell==48){XeenMoonRayHealing healing;XeenConsequenceDraw draw{expected};check(healing.service(draw,manual.p,time.year),"Combat Moon Ray healing incomplete");}
   quick.act(QuickFightAction{});manual.act(CastSpellAction{});manual.act(DialogKeyAction{'c'});
@@ -250,111 +259,178 @@ void m73QuickCasting(Inputs &in) {
  }
 }
 
+// M81 Part C: the 90 original Clouds records drive drops through their own
+// fields (plan table): the IDs per drop field, Orc 10/0/1, Darzog 0/50/6. In the
+// Arena every record stages nothing and draws nothing.
+void originalTreasureRecords(Inputs &in) {
+ check(in.statistics.size()==90,"Clouds xeen.mon holds 90 records");
+ const std::array<std::vector<unsigned>,7> fields{std::vector<unsigned>{},{5,6,7},{10,17,18,74},{24,25,29,30,31,35,38,42,75},{43,45,50,76,80},{82,84,85},{87}};
+ for(unsigned id=0;id<in.statistics.size();++id) {
+  const auto &record=in.statistics[id];unsigned expected=0;
+  for(unsigned field=1;field<fields.size();++field)if(std::count(fields[field].begin(),fields[field].end(),id))expected=field;
+  check(record.dropLevel()==expected,("Original drop field differs for monster "+std::to_string(id)).c_str());
+  XeenCombatRandom none(std::vector<XeenCombatRandom::Draw>{});XeenConsequenceDraw draw{none,64,{}};
+  XeenMonsterDropCandidate arena(XeenTreasureStaging{},record,XeenMapIdentity(85));
+  check(arena.service(draw) && !none.position() && arena.treasure==XeenTreasureStaging{},"An Arena record staged treasure or drew");
+ }
+ check(in.statistics[6].gold()==10 && !in.statistics[6].gems() && in.statistics[87].gems()==50 && !in.statistics[87].gold() && !in.statistics[89].dropLevel(),
+  "Orc, Darzog and Lord Xeen treasure inputs");
+}
+// Kills original monsters of the given resources by melee or one group Sparks
+// and follows their treasure through the real Flow receipt. Seed selection uses
+// the ordinary attack rules, the original record (gold, gems, drop field) and
+// the independent M71 makeItem oracle. No staged treasure or scripted drop.
+// With fillMidway every pack is full but one slot of the first item's category:
+// that item fills it and the rest are lost (0x2431b), the currency still credited.
+void monsterDropReceipts(Inputs &in,XeenMapIdentity map,const std::vector<unsigned> &resources,unsigned first,bool group,unsigned wantItems,bool wantAccessory,bool fillMidway=false) {
+ auto s=casterSource(in,XeenCharacterClass::Druid,62);
+ const auto originals=XeenActorApproach::actorsFromResources(in.maps.loadObjects(in.assets,map),in.statistics);
+ if(!s.map(map).monsters) {
+  // An unvisited map: its original table, every slot where the MOB places it.
+  XeenSaveMonsterTable table;table.originalCount=std::uint16_t(originals.size());
+  for(const auto &a:originals)table.slots.push_back({a.x,a.y,XeenActorLifecycle::Defeated,a.status,true,-1});
+  s.map(map).monsters=table;
+ }
+ for(auto &a:s.map(map).monsters->slots){a.x=a.y=-128;a.lifecycle=XeenActorLifecycle::Defeated;a.accounted=true;}
+ std::vector<unsigned> slots;
+ for(const auto resource:resources) {
+  const auto before=slots.size();
+  for(unsigned i=first;i<originals.size();++i)
+   if(originals[i].original.resourceId==resource && originals[i].lifecycle!=XeenActorLifecycle::Disabled &&
+    std::find(slots.begin(),slots.end(),i)==slots.end()){slots.push_back(i);break;}
+  check(slots.size()==before+1,"Drop fixture resource absent from the original map");
+ }
+ const unsigned count=unsigned(slots.size());
+ const auto records=in.events.load(map).records;
+ XeenWorld query(in.mapLoader());std::bitset<256> common;common.set();
+ for(const auto slot:slots)common &= xeenActorClosure(query.map(map),originals[slot]);
+ bool placed=false;
+ for(int y=0;y<16 && !placed;++y)for(int x=0;x<14 && !placed;++x)if(common[y*16+x] && common[y*16+x+1] && common[y*16+x+2]) {
+  if(std::any_of(records.begin(),records.end(),[&](const auto &r){return r.y==y && (r.x==x+1 || r.x==x+2);}))continue;
+  s.camera={map,x+2,y,XeenDirection::West};
+  if(xeenPlayerRayRows(query,s.camera)<3)continue;
+  for(const auto slot:slots){auto &a=s.map(map).monsters->slots[slot];a.x=x;a.y=y;a.lifecycle=XeenActorLifecycle::Present;a.accounted=false;}
+  placed=true;
+ }
+ check(placed,"Original monster closure has no quiet contact approach");
+ const auto owner=s.activeRosterIds[0];const auto &caster=s.characters[owner];
+ auto approachActors=originals;
+ for(auto &a:approachActors){a.x=a.y=-128;a.hp=0;a.lifecycle=XeenActorLifecycle::Defeated;a.activated=false;}
+ for(const auto slot:slots){auto &a=approachActors[slot];a.x=s.camera.x-2;a.y=s.camera.y;a.hp=1;a.lifecycle=XeenActorLifecycle::Present;a.activated=true;}
+ XeenConsequenceCharacters characters;XeenConsequenceInputs inputs;
+ for(unsigned i=0;i<6;++i){characters[i]=s.characters[s.activeRosterIds[i]];inputs[i]=s.journey->supplements[s.activeRosterIds[i]].inputs;}
+ auto contact=s.camera;--contact.x;
+ constexpr unsigned chance[]{0,10,20,50,100,100,100};
+ std::uint32_t gold=0,gems=0;
+ for(const auto slot:slots){gold+=originals[slot].statistics->gold();gems+=originals[slot].statistics->gems();}
+ std::vector<std::pair<unsigned,XeenItem>> items;
+ std::optional<XeenJourneyRandomState> contactRandom,finalRandom;
+ for(unsigned seed=1;seed<20000 && !finalRandom;++seed) {
+  XeenCombatRandom random(seed);std::vector<std::pair<unsigned,XeenItem>> generated;bool lethal=true;
+  XeenRegionalOpportunityCandidate approach(query.map(map),approachActors,contact,characters,inputs,s.journey->context->year,63);
+  XeenConsequenceDraw approachDraw{random};check(approach.service(approachDraw),"Drop contact response oracle incomplete");
+  const auto afterContact=random.continuation();
+  for(unsigned i=0;i<count;++i) {
+   const auto &a=originals[slots[i]];XeenConsequenceDraw draw{random};
+   if(group) {
+    XeenSpellDamageCandidate hit(caster.permanentLevel,caster.temporaryLevel,a.statistics->magicResistance(),a.original.resourceId,XeenLearnedSpell::Sparks,a.statistics->physicalResistance());
+    check(hit.service(draw),"Drop spell seed oracle incomplete");lethal=hit.damage>=1;
+   } else {
+    XeenPhysicalPlayerCandidate hit(caster,s.journey->supplements[owner].inputs,*a.statistics,a.original.resourceId,s.journey->context->year,false,s.journey->context->difficulty);
+    check(hit.service(draw),"Drop melee seed oracle incomplete");lethal=hit.hit && hit.damage>=1;
+   }
+   if(!lethal)break;
+   const unsigned field=a.statistics->raw[45];
+   m42_test::StockOracle oracle{random.state(),random.position()};
+   if(field && oracle.draw(1,100)<=chance[field])generated.push_back(oracle.item(field));
+   random=XeenCombatRandom(XeenJourneyRandomState{1,oracle.state,oracle.count});
+  }
+  const bool accessory=std::any_of(generated.begin(),generated.end(),[](const auto &v){return v.first==2;});
+  if(lethal && generated.size()==wantItems && (!wantAccessory || accessory)) {
+   s.journey->random=XeenCombatRandom(seed).continuation();contactRandom=afterContact;finalRandom=random.continuation();items=generated;
+  }
+ }
+ check(finalRandom.has_value(),"No original item-drop seed with the requested drops");
+ // Receipt delivery walks weapon, armor, accessory, then Misc staging,
+ // preserving the target order within each category.
+ std::stable_sort(items.begin(),items.end(),[](const auto &a,const auto &b){return a.first<b.first;});
+ if(fillMidway) {
+  for(auto id:s.activeRosterIds) {
+   auto &c=s.characters[id];c.weapons.fill({0,1,0,0});c.armor.fill({0,1,0,0});c.accessories.fill({0,1,0,0});c.miscellaneous.fill({1,1,3,0});
+  }
+  auto &c=s.characters[owner];
+  auto &free=items[0].first==0?c.weapons:items[0].first==1?c.armor:items[0].first==2?c.accessories:c.miscellaneous;free.back()={};
+ }
+ const std::size_t delivered=fillMidway?1:items.size();
+ Fixture f(in,s);
+ for(const auto slot:slots)XeenMonsterTestAccess::setLive(*f.flow,f.w,map,slot,1,true);
+ const auto purseGold=f.p.purse->gold;const auto purseGems=f.p.purse->gems;
+ f.act(NavigationAction::MoveForward);ready(f);
+ check(f.flow->encounter()->combat()->participant()==0 && f.w.sessionState().journeyRandom()==contactRandom,("Contact approach: participant="+std::to_string(f.flow->encounter()->combat()->participant())+" rng="+std::to_string(f.w.sessionState().journeyRandom()->count)+" initial="+std::to_string(contactRandom->count)).c_str());
+ if(group){f.act(CastSpellAction{});f.act(DialogKeyAction{'c'});}else f.act(AttackAction{});
+ for(unsigned n=0;n<1000 && !XeenPartyInterfaceTestAccess::reward(*f.flow);++n) {
+  const auto *combat=f.flow->encounter()->combat();
+  if(combat && combat->cast() && combat->cast()->phase==XeenCombatCastPhase::Result)f.act(AcknowledgeAction{});
+  else pulse(f);
+ }
+ check(XeenPartyInterfaceTestAccess::reward(*f.flow),"Successful drop did not reach real Flow receipt");
+ for(const auto slot:slots)check(f.w.sessionState().monsters(map)[slot].lifecycle==XeenActorLifecycle::Defeated,"Every original target must die");
+ check(f.w.sessionState().journeyRandom()==finalRandom,"Original attack/drop target order or makeItem RNG differs");
+ check(f.w.treasureStaging().value().gold==gold && f.w.treasureStaging().value().gems==gems,"Staged record gold and gems differ");
+ using Phase=XeenRewardPhase;
+ for(unsigned i=0;i<delivered;++i)for(unsigned stage=0;stage<2;++stage) {
+  const auto phase=stage?Phase::Found:Phase::Blank;
+  check(XeenPartyInterfaceTestAccess::rewardPhase(*f.flow)==phase && XeenPartyInterfaceTestAccess::rewardCursor(*f.flow)==i,"Original receipt order differs");
+  const auto record=XeenPartyInterfaceTestAccess::rewardRecord(*f.flow);
+  check(record.owner==owner && xeenSameItem(record.item,items[i].second) &&
+   unsigned(record.category)==items[i].first,"Found line lost original generated item/category/recipient");
+  const auto wait=XeenPartyInterfaceTestAccess::rewardWait(*f.flow);
+  check(wait && wait->acquired && wait->ticks==(stage?10u:1u) &&
+   wait->deadline==PresentationClock::after(PresentationClock::fromMilliseconds(f.now),wait->ticks),"Receipt hold did not start on acquired frame with original ticks");
+  const auto end=PresentationClock::ceilMilliseconds(wait->deadline);
+  f.now=end-1;f.flow->beginCycle(++f.cycle);
+  if(auto frame=f.flow->updatePresentation())f.present(*frame);
+  check(XeenPartyInterfaceTestAccess::rewardPhase(*f.flow)==phase && XeenPartyInterfaceTestAccess::rewardCursor(*f.flow)==i,"Receipt advanced before its hold elapsed");
+  f.now=std::max(end,PresentationClock::ceilMilliseconds(XeenPartyInterfaceTestAccess::rewardInputDeadline(*f.flow)));f.flow->beginCycle(++f.cycle);
+  if(auto frame=f.flow->updatePresentation())f.present(*frame);
+  check(f.w.sessionState().journeyRandom()==finalRandom && f.p.purse->gold==purseGold &&
+   !f.flow->canSave(),"Receipt hold consumed RNG, credited early or exposed save");
+ }
+ check(XeenPartyInterfaceTestAccess::rewardPhase(*f.flow)==Phase::Receipt && !XeenPartyInterfaceTestAccess::rewardWait(*f.flow),"Timed item holds did not reach final acknowledgment");
+ const auto &receipt=XeenPartyInterfaceTestAccess::monsterReceipt(*f.flow);
+ for(std::size_t i=0;i<items.size();++i)check(bool(receipt.entries[i].owner)==(i<delivered) &&
+  (i<delivered || receipt.entries[i].loss==XeenRewardLoss::GloballyFull),"Packs filling midway must lose exactly the later items");
+ f.now+=125;f.act(AcknowledgeAction{});quiet(f);
+ check(f.p.purse->gold==purseGold+gold && !f.w.treasureStaging().value().pending() && !f.w.treasureStaging().value().storedItems() &&
+  f.w.sessionState().journeyRandom()==finalRandom && f.p.purse->gems==purseGems+gems-(group?1:0),"Final receipt repeated drop, item, gold, gems, gem cost or RNG");
+ const auto &recipient=f.p.roster.at(owner);
+ if(fillMidway)check(std::count_if(recipient.weapons.begin(),recipient.weapons.end(),[&](const auto &v){return xeenSameItem(v,items[0].second);})+
+  std::count_if(recipient.armor.begin(),recipient.armor.end(),[&](const auto &v){return xeenSameItem(v,items[0].second);})+
+  std::count_if(recipient.accessories.begin(),recipient.accessories.end(),[&](const auto &v){return xeenSameItem(v,items[0].second);})+
+  std::count_if(recipient.miscellaneous.begin(),recipient.miscellaneous.end(),[&](const auto &v){return xeenSameItem(v,items[0].second);})==1,
+  "The first item did not fill the last free slot");
+ else for(unsigned category=0;category<4;++category) {
+  const auto &actual=category==0?recipient.weapons:category==1?recipient.armor:category==2?recipient.accessories:recipient.miscellaneous;
+  const auto occupied=[&](const XeenItem &v){return category==3?v.material!=0:v.id!=0;};
+  check(std::count_if(actual.begin(),actual.end(),occupied)==
+   std::count_if(items.begin(),items.end(),[&](const auto &v){return v.first==category;}),"Receipt did not deliver each generated item exactly once");
+  for(const auto &item:items)if(item.first==category)check(std::count_if(actual.begin(),actual.end(),[&](const auto &v){return xeenSameItem(v,item.second);})==
+   std::count_if(items.begin(),items.end(),[&](const auto &v){return v.first==category && xeenSameItem(v.second,item.second);}),"Delivered inventory differs from independent makeItem oracle");
+ }
+ const auto saved=XeenSaveFormat::encode(f.snapshot());Fixture restored(in,XeenSaveFormat::decode(saved));
+ check(saved==XeenSaveFormat::encode(restored.snapshot()),"Successful original item receipt did not restore exactly");
+ f.act(NavigationAction::TurnLeft);quiet(f);check(f.flow->canSave(),"Gameplay did not continue after original item receipt");
+}
 void originalMonsterDropReceipts(Inputs &in) {
  std::string failures;
- for(bool group:{false,true})try {
-  auto s=casterSource(in,XeenCharacterClass::Druid,62);
-  for(auto &a:s.map(23).monsters->slots){a.x=a.y=-128;a.lifecycle=XeenActorLifecycle::Defeated;a.accounted=true;}
-  const auto originals=XeenActorApproach::actorsFromResources(in.maps.loadObjects(in.assets,23),in.statistics);
-  const unsigned count=group?3:1;const std::array<unsigned,3> slots{7,8,9};
-  XeenWorld query(in.mapLoader());std::bitset<256> common;common.set();
-  for(unsigned i=0;i<count;++i){check(originals[slots[i]].original.resourceId==6,"Drop fixture must use original Orc slots");common &= xeenActorClosure(query.map(23),originals[slots[i]]);}
-  bool placed=false;
-  for(int y=0;y<16 && !placed;++y)for(int x=0;x<14 && !placed;++x)if(common[y*16+x] && common[y*16+x+1] && common[y*16+x+2]) {
-   if(std::any_of(in.mainland.records.begin(),in.mainland.records.end(),[&](const auto &r){return r.y==y && (r.x==x+1 || r.x==x+2);}))continue;
-   s.camera={23,x+2,y,XeenDirection::West};
-   if(xeenPlayerRayRows(query,s.camera)<3)continue;
-   for(unsigned i=0;i<count;++i){auto &a=s.map(23).monsters->slots[slots[i]];a.x=x;a.y=y;a.lifecycle=XeenActorLifecycle::Present;a.accounted=false;}
-   placed=true;
-  }
-  check(placed,"Original Orc closure has no quiet contact approach");
-  // Seed selection uses the ordinary attack rules and the independent M71
-  // makeItem oracle. No staged treasure or scripted drop is injected.
-  const auto owner=s.activeRosterIds[0];const auto &caster=s.characters[owner];
-  auto approachActors=originals;
-  for(auto &a:approachActors){a.x=a.y=-128;a.hp=0;a.lifecycle=XeenActorLifecycle::Defeated;a.activated=false;}
-  for(unsigned i=0;i<count;++i){auto &a=approachActors[slots[i]];a.x=s.camera.x-2;a.y=s.camera.y;a.hp=1;a.lifecycle=XeenActorLifecycle::Present;a.activated=true;}
-  XeenConsequenceCharacters characters;XeenConsequenceInputs inputs;
-  for(unsigned i=0;i<6;++i){characters[i]=s.characters[s.activeRosterIds[i]];inputs[i]=s.journey->supplements[s.activeRosterIds[i]].inputs;}
-  auto contact=s.camera;--contact.x;
-  std::vector<std::pair<unsigned,XeenItem>> items;
-  std::optional<XeenJourneyRandomState> contactRandom,finalRandom;
-  for(unsigned seed=1;seed<10000 && !finalRandom;++seed) {
-   XeenCombatRandom random(seed);std::vector<std::pair<unsigned,XeenItem>> generated;bool lethal=true;
-   XeenRegionalOpportunityCandidate approach(query.map(23),approachActors,contact,characters,inputs,s.journey->context->year,63);
-   XeenConsequenceDraw approachDraw{random};check(approach.service(approachDraw),"Drop contact response oracle incomplete");
-   const auto afterContact=random.continuation();
-   for(unsigned i=0;i<count;++i) {
-    const auto &a=originals[slots[i]];XeenConsequenceDraw draw{random};
-    if(group) {
-     XeenSpellDamageCandidate hit(caster.permanentLevel,caster.temporaryLevel,a.statistics->magicResistance(),6,XeenLearnedSpell::Sparks,a.statistics->physicalResistance());
-     check(hit.service(draw),"Drop spell seed oracle incomplete");lethal=hit.damage>=1;
-    } else {
-     XeenPhysicalPlayerCandidate hit(caster,s.journey->supplements[owner].inputs,*a.statistics,6,s.journey->context->year,false,s.journey->context->difficulty);
-     check(hit.service(draw),"Drop melee seed oracle incomplete");lethal=hit.hit && hit.damage>=1;
-    }
-    if(!lethal)break;
-    m42_test::StockOracle oracle{random.state(),random.position()};
-    if(oracle.draw(1,100)<=10)generated.push_back(oracle.item(1));
-    random=XeenCombatRandom(XeenJourneyRandomState{1,oracle.state,oracle.count});
-   }
-   if(lethal && generated.size()==(group?2u:1u)) {
-    s.journey->random=XeenCombatRandom(seed).continuation();contactRandom=afterContact;finalRandom=random.continuation();items=generated;
-   }
-  }
-  check(finalRandom.has_value(),"No successful original Orc item-drop seed");
-  // Receipt delivery walks weapon, armor, then Misc staging, preserving the
-  // target order within each category. Level-1 makeItem generates no accessory.
-  std::stable_sort(items.begin(),items.end(),[](const auto &a,const auto &b){return a.first<b.first;});
-  Fixture f(in,s);
-  for(unsigned i=0;i<count;++i)XeenMonsterTestAccess::setLive(*f.flow,f.w,23,slots[i],1,true);
-  const auto gold=f.p.purse->gold;const auto gems=f.p.purse->gems;
-  f.act(NavigationAction::MoveForward);ready(f);
-  check(f.flow->encounter()->combat()->participant()==0 && f.w.sessionState().journeyRandom()==contactRandom,("Contact approach: participant="+std::to_string(f.flow->encounter()->combat()->participant())+" rng="+std::to_string(f.w.sessionState().journeyRandom()->count)+" initial="+std::to_string(contactRandom->count)).c_str());
-  if(group){f.act(CastSpellAction{});f.act(DialogKeyAction{'c'});}else f.act(AttackAction{});
-  for(unsigned n=0;n<1000 && !XeenPartyInterfaceTestAccess::reward(*f.flow);++n) {
-   const auto *combat=f.flow->encounter()->combat();
-   if(combat && combat->cast() && combat->cast()->phase==XeenCombatCastPhase::Result)f.act(AcknowledgeAction{});
-   else pulse(f);
-  }
-  check(XeenPartyInterfaceTestAccess::reward(*f.flow),"Successful Orc drop did not reach real Flow receipt");
-  for(unsigned i=0;i<count;++i)check(f.w.sessionState().monsters(23)[slots[i]].lifecycle==XeenActorLifecycle::Defeated,"Group spell must kill every original Orc");
-  check(f.w.sessionState().journeyRandom()==finalRandom,"Original attack/drop target order or makeItem RNG differs");
-  using Phase=XeenRewardPhase;
-  for(unsigned i=0;i<items.size();++i)for(unsigned stage=0;stage<2;++stage) {
-   const auto phase=stage?Phase::Found:Phase::Blank;
-   check(XeenPartyInterfaceTestAccess::rewardPhase(*f.flow)==phase && XeenPartyInterfaceTestAccess::rewardCursor(*f.flow)==i,"Original receipt order differs");
-   const auto record=XeenPartyInterfaceTestAccess::rewardRecord(*f.flow);
-   check(record.owner==owner && xeenSameItem(record.item,items[i].second) &&
-    unsigned(record.category)==items[i].first,"Found line lost original generated item/category/recipient");
-   const auto wait=XeenPartyInterfaceTestAccess::rewardWait(*f.flow);
-   check(wait && wait->acquired && wait->ticks==(stage?10u:1u) &&
-    wait->deadline==PresentationClock::after(PresentationClock::fromMilliseconds(f.now),wait->ticks),"Receipt hold did not start on acquired frame with original ticks");
-   const auto end=PresentationClock::ceilMilliseconds(wait->deadline);
-   f.now=end-1;f.flow->beginCycle(++f.cycle);
-   if(auto frame=f.flow->updatePresentation())f.present(*frame);
-   check(XeenPartyInterfaceTestAccess::rewardPhase(*f.flow)==phase && XeenPartyInterfaceTestAccess::rewardCursor(*f.flow)==i,"Receipt advanced before its hold elapsed");
-   f.now=std::max(end,PresentationClock::ceilMilliseconds(XeenPartyInterfaceTestAccess::rewardInputDeadline(*f.flow)));f.flow->beginCycle(++f.cycle);
-   if(auto frame=f.flow->updatePresentation())f.present(*frame);
-   check(f.w.sessionState().journeyRandom()==finalRandom && f.p.purse->gold==gold &&
-    !f.flow->canSave(),"Receipt hold consumed RNG, credited early or exposed save");
-  }
-  check(XeenPartyInterfaceTestAccess::rewardPhase(*f.flow)==Phase::Receipt && !XeenPartyInterfaceTestAccess::rewardWait(*f.flow),"Timed item holds did not reach final acknowledgment");
-  f.now+=125;f.act(AcknowledgeAction{});quiet(f);
-  check(f.p.purse->gold==gold+10*count && !f.w.treasureStaging().value().pending() && !f.w.treasureStaging().value().storedItems() &&
-   f.w.sessionState().journeyRandom()==finalRandom && f.p.purse->gems==gems-(group?1:0),"Final receipt repeated drop, item, gold, gem cost or RNG");
-  const auto &recipient=f.p.roster.at(owner);
-  for(unsigned category:{0u,1u,3u}) {
-   const auto &actual=category==0?recipient.weapons:category==1?recipient.armor:recipient.miscellaneous;
-   check(std::count_if(actual.begin(),actual.end(),[](const auto &v){return v.id!=0;})==
-    std::count_if(items.begin(),items.end(),[&](const auto &v){return v.first==category;}),"Receipt did not deliver each generated item exactly once");
-   for(const auto &item:items)if(item.first==category)check(std::count_if(actual.begin(),actual.end(),[&](const auto &v){return xeenSameItem(v,item.second);})==
-    std::count_if(items.begin(),items.end(),[&](const auto &v){return v.first==category && xeenSameItem(v.second,item.second);}),"Delivered inventory differs from independent makeItem oracle");
-  }
-  const auto saved=XeenSaveFormat::encode(f.snapshot());Fixture restored(in,XeenSaveFormat::decode(saved));
-  check(saved==XeenSaveFormat::encode(restored.snapshot()),"Successful original item receipt did not restore exactly");
-  f.act(NavigationAction::TurnLeft);quiet(f);check(f.flow->canSave(),"Gameplay did not continue after original item receipt");
- }catch(const std::exception &e){failures+=(group?"group: ":"melee: ")+std::string(e.what())+"; ";}
+ // Map 23 Orcs (field 1, slots 7-9 share a cell); map 3 Barbarians (field 4,
+ // guaranteed): a higher level, record gold, accessories
+ // and multi-target order.
+ for(bool group:{false,true})try {monsterDropReceipts(in,23,group?std::vector<unsigned>{6,6,6}:std::vector<unsigned>{6},7,group,group?2:1,false);}
+  catch(const std::exception &e){failures+=(group?"Orc group: ":"Orc melee: ")+std::string(e.what())+"; ";}
+ for(bool group:{false,true})try {monsterDropReceipts(in,3,group?std::vector<unsigned>{45,45}:std::vector<unsigned>{45},0,group,group?2:1,group);}
+  catch(const std::exception &e){failures+=(group?"Map 3 group: ":"Map 3 melee: ")+std::string(e.what())+"; ";}
+ try {monsterDropReceipts(in,3,{45,45},0,true,2,false,true);}catch(const std::exception &e){failures+="Map 3 full packs: "+std::string(e.what())+"; ";}
  if(!failures.empty())throw std::runtime_error(failures);
 }
 void orderedShootBarrierTreasure(Inputs &in) {
@@ -363,11 +439,24 @@ void orderedShootBarrierTreasure(Inputs &in) {
  const auto eligible=XeenPartyInterfaceTestAccess::shootEligible(*shoot.flow);const auto lanes=XeenPartyInterfaceTestAccess::lanes(*shoot.flow);
  for(unsigned n=0;n<6;++n){bool missile=false;for(const auto &w:shoot.p.roster.at(source.activeRosterIds[n]).weapons)missile=missile || w.frame==4;check(eligible[n]==missile,"Shoot eligibility follows new positions");check(std::any_of(lanes.begin(),lanes.end(),[&](const auto &p){return p.lane==n;})==missile,"Shoot lane follows new position");}quiet(shoot);
  auto city=emptyCity(in);city.activeRosterIds=source.activeRosterIds;city.camera={28,20,1,XeenDirection::East};
- const unsigned selected=0;const auto owner=city.activeRosterIds[selected];city.characters[owner].permanentLevel=10;
+ const unsigned selected=1;const auto owner=city.activeRosterIds[selected];city.characters[owner].permanentLevel=10;
  unsigned seed=1;for(;seed<10000;++seed){XeenCombatRandom r(seed);if(r.draw(1,4)!=1 && r.draw(1,20)>=10)break;}city.journey->random=XeenCombatRandom(seed).continuation();
  Fixture barrier(in,city);const auto xp=barrier.p.roster.combatInputs(owner)->experience;barrier.act(InteractionAction{});barrier.act(SelectMemberAction{selected});quiet(barrier);
  check(barrier.p.roster.combatInputs(owner)->experience==xp+100,"Barrier selection/unlock XP writes reordered owner");
- for(unsigned n=1;n<6;++n)check(barrier.p.roster.combatInputs(city.activeRosterIds[n])->experience==city.journey->supplements[city.activeRosterIds[n]].inputs.experience,"Barrier preserves other owners");
+ // The grate's WhoWill dialog (0xc794 -> 0x252d2) leaves its choice preferred:
+ // later monster treasure goes first to that member (0x243d5).
+ check(barrier.w.treasureStaging().value().whoWill==selected+1,"Barrier selection did not set WhoWill");
+ {
+  XeenTreasureStaging loot=barrier.w.treasureStaging().value();loot.gold=5;loot.armor[0]={0,2,0,0};loot.ready=true;
+  XeenMonsterTestAccess::stageTreasureLive(*barrier.flow,barrier.w,loot);
+  for(unsigned n=0;n<100 && !XeenPartyInterfaceTestAccess::reward(*barrier.flow);++n)pulse(barrier);
+  check(XeenPartyInterfaceTestAccess::reward(*barrier.flow) && XeenPartyInterfaceTestAccess::rewardRecord(*barrier.flow).owner==owner,
+   "Monster treasure after the grate did not prefer its WhoWill member");
+  quietTreasure(barrier);
+  XeenTreasureStaging left;left.whoWill=selected+1;
+  check(barrier.w.treasureStaging().value()==left,"Delivery cleared WhoWill");
+ }
+ for(unsigned n=0;n<6;++n)if(n!=selected)check(barrier.p.roster.combatInputs(city.activeRosterIds[n])->experience==city.journey->supplements[city.activeRosterIds[n]].inputs.experience,"Barrier preserves other owners");
  // Defeated/accounted Orcs; their treasure is staged in the running program.
  source.camera={23,7,10,XeenDirection::North};for(auto &a:source.map(23).monsters->slots){a.x=a.y=-128;a.lifecycle=XeenActorLifecycle::Defeated;a.accounted=true;}
  auto &survivor=source.map(23).monsters->slots[8];survivor.x=7;survivor.y=11;survivor.lifecycle=XeenActorLifecycle::Present;survivor.accounted=false;
@@ -478,20 +567,15 @@ void spellChecks(Inputs &in) {
  c.currentSp=0;check(XeenLearnedSpellRules::quickSpellCheck(c,1000)==Q::InsufficientSp,"Quick Cast insufficient SP");
 }
 }
-// M81 Part B, original maze0023.evt: the Root Event ahead of (8,2), entered with
-// Space (WhoWill, then the quest give). A monster in view defers ordinary delivery
-// (0x24158) but not the delivery after the Events, which run in mode 9 (0x2414e).
-// Monster loot is pending (a kill while that monster held an attack slot) or
-// dormant (left by a full-party Run).
-void eventTreasureOrder(Inputs &in) {
+/// The party on (8,2) facing the Root Event, with the first original monster
+// and terrain cell ahead that keeps that monster in view without contact.
+struct EventView { XeenSaveSnapshot source; std::size_t survivor=0; };
+EventView eventView(Inputs &in) {
  auto source=in.service();source.camera={23,8,2,XeenDirection::North};
  for(auto &a:source.map(23).monsters->slots){a.x=a.y=-128;a.lifecycle=XeenActorLifecycle::Defeated;a.accounted=true;}
  for(auto id:source.activeRosterIds)source.characters[id].armor={};
- const XeenItem armor{0,2,0,0};
- // The first original monster and terrain cell ahead of the party that keeps it in view.
- std::optional<XeenSaveSnapshot> placed;
  const auto original=in.service();const auto &slots=original.map(23).monsters->slots;
- for(std::size_t slot=0;slot<slots.size() && !placed;++slot)for(int y=5;y<=6 && !placed;++y)for(int x=6;x<=10 && !placed;++x) {
+ for(std::size_t slot=0;slot<slots.size();++slot)for(int y=5;y<=6;++y)for(int x=6;x<=10;++x) {
   if(std::abs(slots[slot].x-x)+std::abs(slots[slot].y-y)>8)continue;
   auto candidate=source;auto &survivor=candidate.map(23).monsters->slots[slot];
   survivor.x=x;survivor.y=y;survivor.lifecycle=XeenActorLifecycle::Present;survivor.accounted=false;
@@ -499,63 +583,234 @@ void eventTreasureOrder(Inputs &in) {
    Fixture probe(in,candidate);XeenTreasureStaging ready;ready.gold=1;
    XeenMonsterTestAccess::stageTreasureLive(*probe.flow,probe.w,ready);
    for(unsigned n=0;n<20;++n)pulse(probe);
-   if(!XeenPartyInterfaceTestAccess::reward(*probe.flow) && probe.flow->canSave())placed=candidate;
+   if(!XeenPartyInterfaceTestAccess::reward(*probe.flow) && probe.flow->canSave())return {candidate,slot};
   } catch(const std::exception &) {}
  }
- check(placed.has_value(),"No original cell keeps a monster in view ahead of the treasure Event");
+ throw std::runtime_error("No original cell keeps a monster in view ahead of the treasure Event");
+}
+// Answers the Event's WhoWill and confirmation, records the Event and monster
+// receipts, and stops once quiet (after the Event receipt unless turned away
+// or walking).
+struct EventReceipts { std::optional<XeenRewardReceipt> event,monster; };
+void driveEventTreasure(Fixture &f,bool turned,EventReceipts &receipts,bool walking=false) {
+ for(unsigned n=0;n<3000;++n) {
+  const auto *state=XeenPartyInterfaceTestAccess::event(*f.flow);
+  if(state && state->pendingPresentation) {
+   check(!XeenPartyInterfaceTestAccess::reward(*f.flow),"Monster delivery began while the Event ran");
+   const auto &request=state->pendingPresentation->request;
+   if(request.kind==XeenPresentationKind::CharacterSelection)f.act(SelectMemberAction{0});
+   else if(request.response==XeenPresentationResponseRequirement::YesNo)f.act(YesAction{});
+   else {
+    if(state->reward.phase==XeenRewardPhase::Receipt)receipts.event=state->reward.receipt;
+    f.act(AcknowledgeAction{});pulse(f);
+   }
+   continue;
+  }
+  if(XeenPartyInterfaceTestAccess::reward(*f.flow)) {
+   check(turned,"Ordinary delivery ignored the monster in view");
+   if(XeenPartyInterfaceTestAccess::rewardPhase(*f.flow)==XeenRewardPhase::Receipt)
+    receipts.monster=XeenPartyInterfaceTestAccess::monsterReceipt(*f.flow);
+   f.act(AcknowledgeAction{});pulse(f);continue;
+  }
+  if(f.flow->canSave() && (turned || walking || receipts.event))return;
+  pulse(f);
+ }
+ throw std::runtime_error("Event treasure order did not settle at "+std::to_string(f.c.x)+","+std::to_string(f.c.y)+
+  (f.flow->encounter()->combat()?" in combat":"")+": "+f.flow->encounter()->notice());
+}
+unsigned carried(Fixture &f,XeenRewardCategory category,const XeenItem &item) {
+ unsigned count=0;
+ for(auto id:f.p.party.activeRosterIds())for(const auto &v:xeenRewardItems(f.p.roster.at(id),category))count+=xeenSameItem(v,item);
+ return count;
+}
+// M81 Part B, original maze0023.evt: the Root Event ahead of (8,2), entered with
+// Space (a confirmation, then the quest give). A monster in view defers ordinary delivery
+// (0x24158) but not the delivery after the Events, which run in mode 9 (0x2414e).
+// Monster loot is pending (a kill while that monster held an attack slot) or
+// dormant (left by a full-party Run).
+void eventTreasureOrder(Inputs &in) {
+ const auto view=eventView(in);
+ const XeenItem armor{0,2,0,0};
  for(bool dormant:{false,true}) {
-  Fixture f(in,*placed);const auto gold=f.p.purse->gold;const auto roots=f.p.questItems.at(17);
+  Fixture f(in,view.source);const auto gold=f.p.purse->gold;const auto roots=f.p.questItems.at(17);
   XeenTreasureStaging staged;staged.armor[0]=armor;if(!dormant){staged.gold=20;staged.ready=true;}
   XeenMonsterTestAccess::stageTreasureLive(*f.flow,f.w,staged);
   for(unsigned n=0;n<20;++n)pulse(f);
   check(!XeenPartyInterfaceTestAccess::reward(*f.flow),"A monster in view did not defer ordinary delivery");
-  std::optional<XeenRewardReceipt> eventReceipt,monsterReceipt;
-  const auto drive=[&](bool turned) {
-   for(unsigned n=0;n<3000;++n) {
-    const auto *state=XeenPartyInterfaceTestAccess::event(*f.flow);
-    if(state && state->pendingPresentation) {
-     check(!XeenPartyInterfaceTestAccess::reward(*f.flow),"Monster delivery began while the Event ran");
-     const auto &request=state->pendingPresentation->request;
-     if(request.kind==XeenPresentationKind::CharacterSelection)f.act(SelectMemberAction{0});
-     else if(request.response==XeenPresentationResponseRequirement::YesNo)f.act(YesAction{});
-     else {
-      if(state->reward.phase==XeenRewardPhase::Receipt)eventReceipt=state->reward.receipt;
-      f.act(AcknowledgeAction{});pulse(f);
-     }
-     continue;
-    }
-    if(XeenPartyInterfaceTestAccess::reward(*f.flow)) {
-     check(turned,"Ordinary delivery ignored the monster in view");
-     if(XeenPartyInterfaceTestAccess::rewardPhase(*f.flow)==XeenRewardPhase::Receipt)
-      monsterReceipt=XeenPartyInterfaceTestAccess::monsterReceipt(*f.flow);
-     f.act(AcknowledgeAction{});pulse(f);continue;
-    }
-    if(f.flow->canSave() && (turned || eventReceipt))return;
-    pulse(f);
-   }
-   throw std::runtime_error("Event treasure order did not settle");
-  };
-  f.act(InteractionAction{});drive(false);
-  check(eventReceipt.has_value(),("Original treasure Event did not deliver: "+f.flow->encounter()->notice()).c_str());
+  EventReceipts receipts;
+  f.act(InteractionAction{});driveEventTreasure(f,false,receipts);
+  check(receipts.event.has_value(),("Original treasure Event did not deliver: "+f.flow->encounter()->notice()).c_str());
   // Delivery order is weapons (the quest item, raw ID 99), then armor.
-  check(eventReceipt->count==2 && eventReceipt->entries[0].quest && eventReceipt->entries[0].item.id==99 &&
-   xeenSameItem(eventReceipt->entries[1].item,armor) && !eventReceipt->gold && f.p.questItems.at(17)==roots+1,
+  check(receipts.event->count==2 && receipts.event->entries[0].quest && receipts.event->entries[0].item.id==99 &&
+   xeenSameItem(receipts.event->entries[1].item,armor) && !receipts.event->gold && f.p.questItems.at(17)==roots+1,
    "The Event receipt must hold its quest item and the monster item, without monster gold");
   check(f.w.treasureStaging().value()==(dormant?XeenTreasureStaging{}:staged),"The Event did not restore exactly the stash");
-  f.act(NavigationAction::TurnLeft);drive(true);
-  unsigned armors=0;for(auto id:f.p.party.activeRosterIds())for(const auto &item:f.p.roster.at(id).armor)armors+=xeenSameItem(item,armor);
-  if(dormant)check(!monsterReceipt && armors==1 && f.p.purse->gold==gold,"Dormant monster items deliver once, with the Event treasure");
+  f.act(NavigationAction::TurnLeft);driveEventTreasure(f,true,receipts);
+  const auto armors=carried(f,XeenRewardCategory::Armor,armor);
+  if(dormant)check(!receipts.monster && armors==1 && f.p.purse->gold==gold,"Dormant monster items deliver once, with the Event treasure");
   else {
-   check(monsterReceipt && monsterReceipt->count==1 && xeenSameItem(monsterReceipt->entries[0].item,armor) && monsterReceipt->gold==20,
+   check(receipts.monster && receipts.monster->count==1 && xeenSameItem(receipts.monster->entries[0].item,armor) && receipts.monster->gold==20,
     "Ordinary delivery after the Event did not hand the monster item over again");
    check(armors==2 && f.p.purse->gold==gold+20 && f.w.treasureStaging().value()==XeenTreasureStaging{},
     "Monster items must arrive twice and their gold once (original bug kept)");
   }
  }
 }
+// M81 Part C: the same order after a real kill. A Shoot kills an original Orc
+// beside the monster in view, so its record gold and generated item stay
+// pending (delivery deferred); Space then runs the treasure Event.
+void liveKillEventTreasure(Inputs &in) {
+ const auto view=eventView(in);
+ const auto originals=XeenActorApproach::actorsFromResources(in.maps.loadObjects(in.assets,23),in.statistics);
+ std::size_t target=0;
+ while(target<originals.size() && (target==view.survivor || originals[target].original.resourceId!=6))++target;
+ check(target<originals.size(),"No second original Orc");
+ const auto &survivor=view.source.map(23).monsters->slots[view.survivor];
+ std::optional<XeenSaveSnapshot> chosen;std::string seen;
+ // The target stands in the Shoot line ahead, rows 1-3.
+ for(std::uint32_t attempt=0;attempt<900 && !chosen;++attempt) {
+  const std::uint32_t seed=attempt/3+1;const int row=3+int(attempt%3);
+  auto s=view.source;auto &a=s.map(23).monsters->slots[target];
+  a.x=8;a.y=row;a.lifecycle=XeenActorLifecycle::Present;a.accounted=false;
+  s.journey->random=XeenCombatRandom(seed).continuation();
+  Fixture f(in,s);XeenMonsterTestAccess::setLive(*f.flow,f.w,23,target,1,true);
+  f.act(ShootAction{});
+  for(unsigned n=0;n<2000 && !f.flow->canSave() && !XeenPartyInterfaceTestAccess::reward(*f.flow);++n)pulse(f);
+  const auto &staging=f.w.treasureStaging().value();
+  const bool killed=f.w.sessionState().monsters(23)[target].lifecycle==XeenActorLifecycle::Defeated;
+  if(attempt<6)seen+=" row "+std::to_string(row)+" seed "+std::to_string(seed)+": killed="+std::to_string(killed)+" gold="+std::to_string(staging.gold)+
+   " items="+std::to_string(staging.storedItems())+" reward="+std::to_string(XeenPartyInterfaceTestAccess::reward(*f.flow))+
+   " quiet="+std::to_string(f.flow->canSave())+" at "+std::to_string(survivor.x)+","+std::to_string(survivor.y)+
+   " hp "+std::to_string(f.w.sessionState().monsters(23)[target].hp)+"/"+std::to_string(f.w.sessionState().monsters(23)[view.survivor].hp)+
+   " slots "+std::to_string(target)+"/"+std::to_string(view.survivor)+" rng "+std::to_string(f.w.sessionState().journeyRandom()->count);
+  if(killed && staging.storedItems() && staging.gold==10 && !XeenPartyInterfaceTestAccess::reward(*f.flow) && f.flow->canSave())chosen=s;
+ }
+ check(chosen.has_value(),("No Shoot seed kills the Orc with an item while the other stays in view:"+seen).c_str());
+ Fixture f(in,*chosen);XeenMonsterTestAccess::setLive(*f.flow,f.w,23,target,1,true);
+ const auto gold=f.p.purse->gold;
+ f.act(ShootAction{});
+ for(unsigned n=0;n<2000 && !f.flow->canSave();++n)pulse(f);
+ const auto staged=f.w.treasureStaging().value();
+ check(staged.ready && staged.gold==10 && staged.storedItems(),"The live kill did not stage the Orc's treasure");
+ XeenRewardCategory category=XeenRewardCategory::Weapons;XeenItem item;
+ for(unsigned c=0;c<4;++c)for(const auto &v:staged.items(XeenRewardCategory(c)))
+  if(!XeenTreasureStaging::emptySlot(v,XeenRewardCategory(c))){category=XeenRewardCategory(c);item=v;}
+ const auto before=carried(f,category,item);
+ EventReceipts receipts;
+ f.act(InteractionAction{});driveEventTreasure(f,false,receipts);
+ // Category then slot order: a weapon drop precedes the quest item it shares the array with.
+ check(receipts.event && receipts.event->count==2 && receipts.event->entries[0].quest!=receipts.event->entries[1].quest &&
+  xeenSameItem(receipts.event->entries[receipts.event->entries[0].quest?1:0].item,item) && !receipts.event->gold,
+  "The Event receipt must hold its quest item and the killed Orc's item, without its gold");
+ check(f.w.treasureStaging().value()==staged,"The Event did not restore the live kill's staging");
+ f.act(NavigationAction::TurnLeft);driveEventTreasure(f,true,receipts);
+ check(receipts.monster && receipts.monster->count==1 && xeenSameItem(receipts.monster->entries[0].item,item) && receipts.monster->gold==10,
+  "Ordinary delivery did not hand the killed Orc's item over again with its gold");
+ check(carried(f,category,item)==before+2 && f.p.purse->gold==gold+10 && f.w.treasureStaging().value()==XeenTreasureStaging{},
+  "The killed Orc's item must arrive twice and its gold once (original bug kept)");
+}
+//// One step toward (x,y) facing `facing` on map 23, never through a cell within
+// one step of `avoid`; nothing once there.
+std::optional<PlayerAction> stepAround(XeenWorld &world,const XeenCamera &camera,int x,int y,XeenDirection facing,int ax,int ay) {
+ if(camera.x==x && camera.y==y)return camera.direction==facing?std::optional<PlayerAction>{}:std::optional<PlayerAction>{NavigationAction::TurnRight};
+ const auto &map=world.map(23);constexpr int dx[]{0,1,0,-1},dy[]{1,0,-1,0};
+ std::array<int,256> first;first.fill(-1);std::queue<int> pending;
+ const int start=camera.y*16+camera.x;first[start]=4;pending.push(start);
+ while(!pending.empty() && first[y*16+x]<0) {
+  const auto cell=pending.front();pending.pop();const int cx=cell%16,cy=cell/16;
+  for(unsigned direction=0;direction<4;++direction) {
+   const int nx=cx+dx[direction],ny=cy+dy[direction];
+   if(nx<0 || nx>=16 || ny<0 || ny>=16 || first[ny*16+nx]>=0 || std::abs(nx-ax)+std::abs(ny-ay)<=1 ||
+    XeenMovement::localOutdoor(map,cx,cy,nx,ny,xeenJourneyContent().traversal)!=XeenMovementResult::Moved)continue;
+   first[ny*16+nx]=cell==start?int(direction):first[cell];pending.push(ny*16+nx);
+  }
+ }
+ const auto direction=first[y*16+x];
+ if(direction<0)throw std::runtime_error("No route around the sleeping Orc");
+ return unsigned(camera.direction)==unsigned(direction)?PlayerAction{NavigationAction::MoveForward}:PlayerAction{NavigationAction::TurnRight};
+}
+// M81 Part C: an Orc killed in combat while the other Orc fights on, then the
+// whole party Runs (0x2e932..0x2e946): its gold and readiness clear and the item
+// stays dormant. Back at the treasure Event, that item is delivered once with
+// the Event's own. The remaining Orc is put to sleep at a quiet boundary and
+// the walk back keeps away from it; it is never the treasure source.
+void runKillEventTreasure(Inputs &in) {
+ auto source=eventView(in).source;
+ for(auto &a:source.map(23).monsters->slots){a.x=a.y=-128;a.lifecycle=XeenActorLifecycle::Defeated;a.accounted=true;}
+ const auto originals=XeenActorApproach::actorsFromResources(in.maps.loadObjects(in.assets,23),in.statistics);
+ XeenWorld query(in.mapLoader());const auto &geometry=query.map(23).geometry;
+ // Contact as in monsterDropReceipts: two original Orcs on a cell of their
+ // common closure, the party two cells east facing West, far from the Event
+ // and the run position, off Event cells.
+ struct Fight { int x,y; std::array<std::size_t,2> orcs; };
+ std::vector<Fight> fights;
+ std::vector<std::size_t> all;
+ for(std::size_t i=0;i<originals.size();++i)if(originals[i].original.resourceId==6)all.push_back(i);
+ for(std::size_t i=0;i+1<all.size() && fights.size()<8;++i) {
+  const auto common=xeenActorClosure(query.map(23),originals[all[i]]) & xeenActorClosure(query.map(23),originals[all[i+1]]);
+  for(int y=0;y<16;++y)for(int x=0;x<14;++x) {
+   if(!common[y*16+x] || !common[y*16+x+1] || !common[y*16+x+2])continue;
+   if(std::abs(x-8)+std::abs(y-2)<6 || std::abs(x+2-int(geometry.runX))+std::abs(y-int(geometry.runY))<4)continue;
+   if(std::any_of(in.mainland.records.begin(),in.mainland.records.end(),[&](const auto &r){return r.y==y && (r.x==x+1 || r.x==x+2);}))continue;
+   if(xeenPlayerRayRows(query,XeenCamera{23,x+2,y,XeenDirection::West})<3)continue;
+   fights.push_back({x,y,{all[i],all[i+1]}});x=14;y=16;
+  }
+ }
+ check(!fights.empty(),"No quiet contact for two original Orcs away from the Event");
+ std::string failures;
+ for(std::uint32_t attempt=0;attempt<std::min<std::size_t>(240,30*fights.size());++attempt) {
+  const auto &fight=fights[attempt%fights.size()];const std::uint32_t seed=attempt/std::uint32_t(fights.size())+1;
+  const auto &orcs=fight.orcs;
+  auto s=source;s.journey->random=XeenCombatRandom(seed).continuation();s.camera={23,fight.x+2,fight.y,XeenDirection::West};
+  for(auto orc:orcs){auto &a=s.map(23).monsters->slots[orc];a.x=fight.x;a.y=fight.y;a.lifecycle=XeenActorLifecycle::Present;a.accounted=false;}
+  bool arranged=false;
+  try {
+   Fixture f(in,s);for(auto orc:orcs)XeenMonsterTestAccess::setLive(*f.flow,f.w,23,orc,1,true);
+   const auto gold=f.p.purse->gold;
+   f.act(NavigationAction::MoveForward);ready(f);
+   bool attacked=false;
+   for(unsigned n=0;n<3000 && f.flow->encounter()->combat();++n) {
+    const auto *combat=f.flow->encounter()->combat();
+    if(combat->phase()==XeenCombatPhase::PlayerReady && !combat->cast()) {
+     if(!attacked && combat->participant()==0){attacked=true;f.act(AttackAction{});}else f.act(RunAction{});
+    } else pulse(f);
+   }
+   quiet(f);
+   const auto &monsters=f.w.sessionState().monsters(23);
+   const bool first=monsters[orcs[0]].lifecycle==XeenActorLifecycle::Defeated,second=monsters[orcs[1]].lifecycle==XeenActorLifecycle::Defeated;
+   const auto staged=f.w.treasureStaging().value();
+   if(first==second || !staged.dormant() || f.c.x!=geometry.runX || f.c.y!=geometry.runY)continue;
+   const auto survivor=first?orcs[1]:orcs[0];const auto &rest=monsters[survivor];
+   XeenRewardCategory category=XeenRewardCategory::Weapons;XeenItem item;
+   for(unsigned c=0;c<4;++c)for(const auto &v:staged.items(XeenRewardCategory(c)))
+    if(!XeenTreasureStaging::emptySlot(v,XeenRewardCategory(c))){category=XeenRewardCategory(c);item=v;}
+   const auto before=carried(f,category,item);
+   XeenMonsterTestAccess::statusLive(*f.flow,f.w,23,survivor,XeenActorStatus::Sleep);
+   EventReceipts receipts;
+   for(unsigned n=0;n<200;++n) {
+    const auto step=stepAround(f.w,f.c,8,2,XeenDirection::North,rest.x,rest.y);
+    if(!step)break;
+    f.act(*step);driveEventTreasure(f,false,receipts,true);
+    check(!f.flow->encounter()->combat(),"The walk back met the sleeping Orc");
+   }
+   // From here on a failure is a real one, not a rejected arrangement.
+   arranged=true;
+   check(f.c.x==8 && f.c.y==2 && f.c.direction==XeenDirection::North && !receipts.event,"The walk back reached the Event cell without treasure");
+   check(f.w.treasureStaging().value()==staged,"Walking changed the dormant staging");
+   f.act(InteractionAction{});driveEventTreasure(f,false,receipts);
+   check(receipts.event && receipts.event->count==2 && receipts.event->entries[0].quest!=receipts.event->entries[1].quest &&
+    xeenSameItem(receipts.event->entries[receipts.event->entries[0].quest?1:0].item,item) && !receipts.event->gold && !receipts.monster,
+    "The Event receipt must deliver the dormant Orc item once with its own, without the Orc's gold");
+   check(carried(f,category,item)==before+1 && f.p.purse->gold==gold && f.w.treasureStaging().value()==XeenTreasureStaging{},
+    "A Run-dormant item must arrive once and its gold never");
+   return;
+  } catch(const std::exception &e) {if(arranged)throw;if(failures.size()<600)failures+=std::string(" ")+e.what();}
+ }
+ throw std::runtime_error("No seed kills one Orc with an item, lets the whole party Run and walk back:"+failures);
+}
 int main(int argc,char **argv){try{
  check(argc==2,"usage: party-interface-tests <installation>");auto game=xeenTestInstallationDetector().detect(argv[1]);check(bool(game),"Missing installation");Inputs in(*game);
  std::ostringstream captured;auto *before=std::cout.rdbuf(captured.rdbuf());
- try{const auto run=[&](const char *name,auto fn){try{fn(in);}catch(const std::exception &e){throw std::runtime_error(std::string(name)+": "+e.what());}};run("original item drops",originalMonsterDropReceipts);run("Event treasure order",eventTreasureOrder);run("exchange",exchangeAndSave);run("time/rest",reorderedTimeAndRest);run("combat/options",combatAndOptions);run("quick casting",quickCasting);run("M73 quick casting",m73QuickCasting);run("ordered consequences",orderedShootBarrierTreasure);run("indoor quick Run",indoorQuickRun);run("Mr Wizard",mrWizard);run("spell checks",spellChecks);}catch(...){std::cout.rdbuf(before);throw;}
+ try{const auto run=[&](const char *name,auto fn){try{fn(in);}catch(const std::exception &e){throw std::runtime_error(std::string(name)+": "+e.what());}};run("original treasure records",originalTreasureRecords);run("original item drops",originalMonsterDropReceipts);run("Event treasure order",eventTreasureOrder);run("live kill Event treasure",liveKillEventTreasure);run("Run kill Event treasure",runKillEventTreasure);run("exchange",exchangeAndSave);run("time/rest",reorderedTimeAndRest);run("combat/options",combatAndOptions);run("quick casting",quickCasting);run("M73 quick casting",m73QuickCasting);run("ordered consequences",orderedShootBarrierTreasure);run("indoor quick Run",indoorQuickRun);run("Mr Wizard",mrWizard);run("spell checks",spellChecks);}catch(...){std::cout.rdbuf(before);throw;}
  std::cout.rdbuf(before);std::cout<<"Exchange, ordered ownership, Quick Fight, v8 and stale input passed\n";return 0;
 }catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}

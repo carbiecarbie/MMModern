@@ -12,6 +12,8 @@ namespace {
 using D=XeenCombatRandom::Draw;
 void check(bool value,const char *message) { if(!value)throw std::runtime_error(message); }
 bool same(const XeenItem &a,const XeenItem &b) { return a.material==b.material && a.id==b.id && a.state==b.state && a.frame==b.frame; }
+// Orc treasure inputs (resource 6): 10 gold, no gems, drop field 1.
+XeenMonsterRecord orc() {XeenMonsterRecord r;r.raw[42]=10;r.raw[45]=1;return r;}
 template<class F> void rejects(F f) { bool rejected=false;try{f();}catch(const std::exception &){rejected=true;}check(rejected,"invalid merchant candidate accepted"); }
 void itemTape(unsigned level,unsigned category,XeenItem expected,std::vector<D> tape) {
 	const auto attempts=tape.size();XeenCombatRandom random(std::move(tape));XeenMerchantItemCandidate candidate(level);
@@ -452,12 +454,12 @@ void sharedDropInterleaving() {
 	// Mutation: using the old duplicate generator changes this interleaved item and request tape.
 	XeenCombatRandom random(XeenJourneyRandomState{1,3686439625u,2109});XeenConsequenceDraw draw{random,64,{}};
 	XeenMagicArrowCandidate arrow(6,0,0,6);check(arrow.service(draw) && arrow.damage==8 && random.continuation()==XeenJourneyRandomState{1,2493262264u,2110},"synthetic Arrow continuation mismatch");
-	XeenMonsterDropCandidate drop(XeenTreasureStaging{});check(drop.service(draw) && drop.outcome==XeenMonsterDropOutcome::Item && drop.category==XeenRewardCategory::Weapons &&
+	XeenMonsterDropCandidate drop(XeenTreasureStaging{},orc(),XeenMapIdentity(23));check(drop.service(draw) && drop.outcome==XeenMonsterDropOutcome::Item && drop.category==XeenRewardCategory::Weapons &&
 		same(drop.generated,{0,5,0,0}) && drop.treasure.gold==10 && drop.treasure.ready && same(drop.treasure.weapons[0],{0,5,0,0}) &&
 		random.continuation()==XeenJourneyRandomState{1,1051044860u,2115},"synthetic Arrow->shared Orc drop semantics changed");
 	XeenCombatRandom raw(std::vector<D>{{1,56,2493262264u,true},{1,100,617549005u,true},
 		{1,100,1871643302u,true},{1,100,1957375019u,true},{1,6,887542588u,true},{1,100,1051044860u,true}});
-	XeenConsequenceDraw trace{raw,64,{}};XeenMagicArrowCandidate tracedArrow(6,0,0,6);XeenMonsterDropCandidate tracedDrop(XeenTreasureStaging{});
+	XeenConsequenceDraw trace{raw,64,{}};XeenMagicArrowCandidate tracedArrow(6,0,0,6);XeenMonsterDropCandidate tracedDrop(XeenTreasureStaging{},orc(),XeenMapIdentity(23));
 	check(tracedArrow.service(trace) && tracedDrop.service(trace) && raw.position()==6 && tracedDrop.category==XeenRewardCategory::Weapons &&
 		same(tracedDrop.generated,{0,5,0,0}),"independent interleaved exact request/raw tape mismatch");
 }

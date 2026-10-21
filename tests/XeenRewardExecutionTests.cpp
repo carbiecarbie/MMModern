@@ -1,3 +1,4 @@
+#include "XeenTreasureDeliveryTestSupport.h"
 #include "XeenRewardTestSupport.h"
 #include <iostream>
 using namespace reward_test;
@@ -9,13 +10,13 @@ void terminals(){
 		if(terminal==3)records.push_back(record(1,1,1,0x20,{0,1}));
 		if(terminal==4)records.push_back(record(1,1,1,0x31,{1,0}));
 		auto s=e.seed(records);s.workingGameFlags.set(7);
-		s.preferredRewardRecipient=1;
+		s.treasure.whoWill=2;
 		auto r=e.resume(s);
 		if(terminal==3)r=e.resume(pending(r),CharacterSelectionCancelled{});
 		if(terminal==4)r=e.resume(pending(r),XeenPresentationResponse::Acknowledged);
 		s=pending(r);
 		check(s.reward.phase==XeenRewardPhase::Receipt&&s.treasure.pending()&&s.reward.receipt.delivered==1,"successful terminal omitted delivery");
-		check(s.reward.receipt.entries[0].owner==1&&s.preferredRewardRecipient==1,"cancel changed preference");
+		check(s.reward.receipt.entries[0].owner==1&&s.treasure.whoWill==2,"cancel changed preference");
 		check(e.f.initial.roster.at(1).miscellaneous[0].id==37&&!e.flags.isSet(7),"insertion before receipt ACK");
 		const auto count=s.instructionCount;auto done=e.resume(s);
 		const auto &c=std::get<XeenEventExecutionCompleted>(done);
@@ -39,11 +40,11 @@ void continuations(){
 			!x.f.initial.roster.at(0).miscellaneous[0].id&&!x.flags.isSet(7),"error delivered or lost accounting");
 	}
 	Execution who;auto state=who.seed({record(1,1,0,0x20,{0,1}),record(1,1,1,0x12)});
-	check(!state.preferredRewardRecipient&&state.activeCharacterIndex==0,"initial reward preference present");
+	check(!state.treasure.whoWill&&state.activeCharacterIndex==0,"initial reward preference present");
 	state=pending(who.resume(state,SelectedCharacter{1}));check(state.reward.receipt.entries[0].owner==1,"WhoWill reward preference");
 	Execution single;single.f.initial.party=XeenParty::fromRosterIds({0});
-	state=single.seed({pause(),record(1,1,1,0x20,{0,1}),record(1,1,2,0x12)});state.preferredRewardRecipient=5;
-	state=pending(single.resume(state));check(state.preferredRewardRecipient==5&&state.reward.receipt.entries[0].owner==0,"single WhoWill overwrote preference");
+	state=single.seed({pause(),record(1,1,1,0x20,{0,1}),record(1,1,2,0x12)});state.treasure.whoWill=6;
+	state=pending(single.resume(state));check(state.treasure.whoWill==6&&state.reward.receipt.entries[0].owner==0,"single WhoWill overwrote preference");
 	Execution reordered;state=reordered.seed({record(1,1,0,0x20,{0,1}),pause(1),record(1,1,2,0x12)});
 	state=pending(reordered.resume(state,SelectedCharacter{1}));
 	reordered.f.initial.party=XeenParty::fromRosterIds({1,0,1});
@@ -239,7 +240,7 @@ void sharedStaging(){
 			"The Event did not stash the monster currency and readiness");
 		check(std::holds_alternative<XeenEventExecutionCompleted>(e.resume(s)) && e.world.treasureStaging().value()==staged &&
 			weapons30(e.f.initial)==1 && !e.f.initial.purse->gold,"The stash was not restored over the delivered staging");
-		const auto again=xeenDeliverTreasure(e.world.treasureStaging().value(),e.f.initial);
+		const auto again=xeenTestDeliverTreasure(e.world.treasureStaging().value(),e.f.initial);
 		check(again.count==1 && weapons30(e.f.initial)==2 && e.f.initial.purse->gold==10 && e.f.initial.purse->gems==2,
 			"Ordinary delivery after the Event must hand the monster items over a second time, currency once");
 	}

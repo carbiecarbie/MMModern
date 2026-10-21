@@ -38,7 +38,7 @@ struct XeenCombatPresentationTestAccess {
  static void readyTreasure(XeenEncounterFlow &f) {
   auto value=f._world.treasureStaging().value();value.gold=value.gold+10;stage(f,value);
  }
- static bool beginTreasure(XeenEncounterFlow &f){return f.beginMonsterReward(XeenItemCatalog{});}
+ static bool beginTreasure(XeenEncounterFlow &f){return f.beginMonsterReward();}
  static const auto &treasure(const XeenEncounterFlow &f){return *f._monsterReceipt;}
  static void advanceTreasure(XeenEncounterFlow &f){f.advanceMonsterReward();}
  static void finishTreasure(XeenEncounterFlow &f){f.acknowledgeMonsterReward();}

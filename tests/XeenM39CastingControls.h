@@ -92,10 +92,8 @@ bool m39CastControls(const std::string &control,const IndexedFrame &first,const 
                     groupHp[i]=std::max(groupHp[i]-candidate.damage,0);status=candidate.status;
                     if(!groupHp[i]) {
                         expectedAccounted.insert(actor.id);xpPerMember+=actor.statistics->experience()/6;
-                        if(actor.original.resourceId==6) {
-                            XeenMonsterDropCandidate drop(expectedTreasure);
-                            check(drop.service(draws),"M60 expected bounded drop");expectedTreasure=drop.treasure;
-                        }
+                        XeenMonsterDropCandidate drop(expectedTreasure,*actor.statistics,actor.id.mapId);
+                        check(drop.service(draws),"M60 expected bounded drop");expectedTreasure=drop.treasure;
                     }
                     if(spell!=51)break;
                     volley.settle(!candidate.miss);

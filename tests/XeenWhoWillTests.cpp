@@ -369,6 +369,31 @@ void productionFlow() {
 	}
 }
 
+// M81 Part C: WhoWill outlives its Event run (DOS 47c9:0008): a selection of a
+// party of two or more is published with the completed run, the next run's
+// entry clears it (0x26797), and an aborted run leaves the staging untouched.
+void treasurePreference() {
+	Fixture f;f.set({record(1,1,0,0x20,{0,0}),record(1,1,1,0x12)});
+	XeenTreasureStaging before;before.whoWill=5;before.armor[0]={0,2,0,0};f.world.treasureStaging().publish(before);
+	complete(f.resume(pending(f.begin()),SelectedCharacter{2}));
+	auto expected=before;expected.whoWill=3;
+	check(f.world.treasureStaging().value()==expected,"Event WhoWill selection not published or arrays changed");
+	f.set({record(1,1,0,0x12)});complete(f.begin());
+	expected.whoWill=0;check(f.world.treasureStaging().value()==expected,"Next Event run did not clear WhoWill");
+	f.set({record(1,1,0,0x20,{0,0}),record(1,1,1,0x12)});
+	complete(f.resume(pending(f.begin()),CharacterSelectionCancelled{}));
+	check(f.world.treasureStaging().value()==expected,"Cancelled WhoWill wrote a member");
+	f.world.treasureStaging().publish(before);
+	f.set({record(1,1,0,0x20,{0,0}),record(1,1,1,0xff)});
+	error(f.resume(pending(f.begin()),SelectedCharacter{1}),Kind::UnsupportedOpcode);
+	check(f.world.treasureStaging().value()==before,"Aborted Event changed WhoWill");
+	Fixture single;single.members=party(1);single.set({record(1,1,0,0x20,{0,0}),record(1,1,1,0x12)});
+	single.world.treasureStaging().publish(before);
+	const auto r=single.begin();
+	if(std::holds_alternative<XeenEventExecutionSuspended>(r))complete(single.resume(pending(r),SelectedCharacter{0}));else complete(r);
+	expected=before;expected.whoWill=0;
+	check(single.world.treasureStaging().value()==expected,"A one-member party wrote WhoWill");
+}
 void presentationLayout() {
 	Fixture f;f.set({record(1,1,0,0x20,{0,0})});
 	const auto request=pending(f.begin()).pendingPresentation->request;
@@ -474,7 +499,7 @@ int main(int argc, char **argv) {
 		if(argc==2 && std::string(argv[1])=="passive-inputs") { passiveSelectionInputs();return 0; }
 		if(argc==2 && std::string(argv[1])=="sdl") { sdlFlow();std::cout<<"18A integrated SDL passed\n";return 0; }
 		integratedTextErrors();directResponses();passiveSelectionInputs();
-		decoderAndCardinality();eligibilityAndProtocol();contextLifetime();productionFlow();presentationLayout();priorEffects();
+		decoderAndCardinality();eligibilityAndProtocol();contextLifetime();treasurePreference();productionFlow();presentationLayout();priorEffects();
 		std::cout<<"18A decoder, cardinality, eligibility, selected SP, continuations and production generations passed\n";
 		return 0;
 	} catch(const std::exception &e) { std::cerr<<e.what()<<'\n';return 1; }

@@ -134,13 +134,6 @@ void xeenAdvanceTreasureDelivery(XeenTreasureDelivery &delivery,XeenPartyState &
 	default: throw std::logic_error("Treasure delivery has no presentation step to advance");
 	}
 }
-XeenRewardReceipt xeenDeliverTreasure(const XeenTreasureStaging &staged,XeenPartyState &party,
-		std::optional<std::size_t> preferred) {
-	auto result=xeenPrepareRewardReceipt(staged);
-	for(std::size_t i=0;i<result.count;++i)xeenDeliverRewardEntry(result,i,party,preferred,true);
-	if(party.purse)*party.purse=xeenCreditTreasure(*party.purse,staged);
-	return result;
-}
 void xeenDiscardRewards(XeenRewardReceipt &receipt,const XeenTreasureStaging &staged,
 		const XeenTreasureStaging &base,XeenRewardDiscard reason) noexcept {
 	if(staged==base && !receipt.count)return;

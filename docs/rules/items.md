@@ -356,7 +356,8 @@ its chance with `R(1,100)` at `0x2c38b..0x2c39a`, then reloads that same
 field at `0x2c3e2` and passes it as makeItem's level. The far call at
 `0x2c3e7` resolves to file `0x25ca8`. Staging capacity is checked afterward
 (`0x2c402` onward). All supported sources share `XeenItemCandidate`, including
-level-1 monster drops. Higher-level drops and accessory staging remain unsupported.
+level-1 monster drops. **Implemented (M81 Part C):** every monster record
+generates at its own drop field, levels 1-6, accessories included.
 
 <a id="monster-drop-draws"></a>**Monster drop draw counts (DOS-confirmed, M81).**
 Every nonzero drop field consumes one chance draw, even at 100%; field zero
@@ -403,7 +404,17 @@ remaining items are discarded; gold and gems are still credited
 A valid preferred recipient is tried with capacity and `canAct` eligibility,
 then other eligible members in party order. If neither succeeds, or the preferred
 index is absent/invalid, scan capacity alone: sleeping, disabled and dead members
-can receive items (`0x243d5..0x24565`). Monster loot has no preferred recipient.
+can receive items (`0x243d5..0x24565`).
+
+**DOS static (M81 Part C), high confidence; agrees with the pin; implemented:**
+the preferred recipient is the WhoWill byte, which every delivery reads,
+monster loot included. A WhoWill dialog sets it when the party has two or more
+members, inside an Event or when unlocking a grate; Cancel and a one-member
+party leave it alone. Only the next Event run clears it, at its entry; Run,
+Load, New Game, map changes and deliveries keep it, and no save holds it.
+MMModern keeps it in the running program's staging value, outside the Event
+stash, and an aborted Event leaves it unchanged.
+[Evidence](evidence.md#preferred-recipient-after-the-events).
 
 If every member's received category is full while another category has space,
 replace the first member's last item in that category (`0x24567`). Preserve the
@@ -433,8 +444,9 @@ the synchronous receipt cannot open Save. A save holds purse and received
 inventory, but excludes all pending loot. In-process Load clears currency and
 readiness while retaining the current arrays as dormant items, even when they
 were staged after Save. [Offsets and boundaries](evidence.md#m81-monster-treasure).
-**Implemented (M81 Part A)** for the state, lifetime and save; production is
-still the Orc's level-1 drop.
+**Implemented (M81 Part A)** for the state, lifetime and save, and **(M81
+Part C)** for every monster record's currency, chance and generation, with the
+Arena exclusion.
 
 **DOS static (M81 Part B), high confidence; implemented:** Event treasure uses
 the same arrays. Each Event run stashes the staging when currency or readiness

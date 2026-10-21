@@ -13,6 +13,7 @@
 #include "games/xeen/XeenRegionalRules.h"
 #include "games/xeen/XeenRestRules.h"
 #include "games/xeen/XeenCombatRules.h"
+#include "games/xeen/XeenMonsterTreasure.h"
 #include "games/xeen/XeenObjectVisual.h"
 #include <cstdio>
 #include <filesystem>
@@ -117,8 +118,13 @@ void monster(Census &c,const XeenMonsterRecord &m,unsigned index,unsigned map,st
         }
         c.add("Monsters","Resistance field="+std::to_string(resistance-34),support,map,count,source);
     }
-    if(m.raw[45])c.add("Items","Monster random treasure level="+std::to_string(m.raw[45]),
-        {Status::Unclassified,"No generic monster-drop admission query; item identity depends on runtime RNG"},map,count,source);
+    if(m.raw[45]) {
+        // The generic lethal drop (M81) reads the record's drop field; item
+        // identity still depends on runtime RNG.
+        Support drop{Status::Supported,"XeenMonsterDropCandidate stages this level through XeenItemCandidate; item identity depends on runtime RNG"};
+        try {(void)XeenMonsterDropCandidate(XeenTreasureStaging{},m,XeenMapIdentity(static_cast<std::uint16_t>(map)));}catch(const std::exception &e) {drop={Status::Unsupported,e.what()};}
+        c.add("Items","Monster random treasure level="+std::to_string(m.raw[45]),drop,map,count,source);
+    }
 }
 void events(Census &c,const std::vector<XeenEventRecord> &records,XeenMapIdentity id,
         const XeenMapEntities &entities,const XeenItemCatalog &catalog,const XeenLearnedSpellNames &names,OriginalContext &context,bool outdoors) {

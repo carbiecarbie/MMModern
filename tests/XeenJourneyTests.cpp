@@ -1,3 +1,4 @@
+#include "XeenTreasureDeliveryTestSupport.h"
 #include "XeenRegionalJourneyTestSupport.h"
 #include "XeenCombatTestSupport.h"
 #include "XeenRemoveTestSupport.h"
@@ -423,7 +424,7 @@ void carriedConsequences() {
 		check(std::holds_alternative<XeenEventExecutionCompleted>(result), "controlled prior event completes");
 		f.flags = std::get<XeenEventExecutionCompleted>(result).finalGameFlags;
 		XeenTreasureStaging rewards; rewards.insert(XeenRewardCategory::Miscellaneous,{10,37,1,0});
-		check(xeenDeliverTreasure(rewards,f.p,0).delivered == 1, "controlled prior reward delivered");
+		check(xeenTestDeliverTreasure(rewards,f.p,0).delivered == 1, "controlled prior reward delivered");
 		f.w.disableObject({23,0}); f.w.disableEventsAtCell({23,10,10,XeenDirection::North},f.event);
 		f.p.roster.at(29).intellect.permanent = -12345; // Existing inactive storage is not an active rule input.
 	});

@@ -1,3 +1,4 @@
+#include "XeenTreasureDeliveryTestSupport.h"
 #include "XeenTestInstallation.h"
 #include "XeenRewardTestSupport.h"
 #include "XeenVisualRemoveTestSupport.h"
@@ -176,7 +177,7 @@ void animationFailures(){
 void presentation(const XeenFontFormat &font,IndexedFrame b,const std::filesystem::path &output){
 	Fixture f;f.initial.roster.at(0).name="Owner Alpha";f.initial.roster.at(1).name="Owner Beta";
 	XeenTreasureStaging q;for(unsigned i=0;i<12;++i)q.insert(XeenRewardCategory::Miscellaneous,{255,static_cast<std::uint8_t>(200+i),255,255});
-	const auto receipt=xeenDeliverTreasure(q,f.initial,{});
+	const auto receipt=xeenTestDeliverTreasure(q,f.initial,{});
 	for(auto kind:{XeenPresentationKind::RewardWarning,XeenPresentationKind::RewardReceipt})for(int key=0;key<3;++key){
 		XeenEventPresenter p(font);XeenPresentationRequest label;label.kind=XeenPresentationKind::SceneLabelSign;label.text="Retained underlay";
 		p.present(b,label);const auto underlay=p.frame();

@@ -593,12 +593,16 @@ including guaranteed fields 4-6, consume it. The same calibrated
 inclusive random helper supplies the chance and item draws. **Implemented
 (M71):** supported level-1 drops share `XeenItemCandidate` with shops and
 Events: category/subcategory `R(1,100)` and Misc charges `R(1,8)+2`.
-The existing 10% chance, accounting, publication and delivery remain;
-higher-level drops remain unsupported. **M81 Part A:** staging has the four
+**M81 Part A:** staging has the four
 ten-slot DOS arrays (accessories included, `0x2c4a6`) and 32-bit gold/gems
 that wrap; it is running-program state that no save holds
-([load boundary](evidence.md#save-and-load-boundary)). Successful Orc melee and group-spell
-drops are covered by `XeenPartyInterfaceTests::originalMonsterDropReceipts`.
+([load boundary](evidence.md#save-and-load-boundary)). **Implemented (M81 Part
+C):** every lethal path (melee, Shoot, combat and exploration spells, single
+and group targets) stages the record's gold and gems, draws the chance of a
+nonzero field and generates at that field's level, finishing each target
+before the next; map 85 stages and draws nothing. Original Orc and Barbarian
+melee and group-spell kills, an Arena kill and a live kill before a treasure
+Event are covered by `XeenPartyInterfaceTests` and `XeenArenaTests`.
 
 | Item-drop field | Chance from one `R(1,100)` |
 | --- | --- |
@@ -606,12 +610,14 @@ drops are covered by `XeenPartyInterfaceTests::originalMonsterDropReceipts`.
 | 2 | 20% |
 | 3 | 50% |
 | 4, 5, 6 | 100% |
-| 7-21 | Unused by Clouds records; refused as malformed data |
+| 7-21 | Unused by Clouds records; refused as not supported yet |
 
 Fields 1-6 are **DOS-confirmed static**: lookup `0x4d650`, gate
 `0x2c373..0x2c39a`. No Clouds record uses 7-21; the DOS lookup has no bound
 (7-17 read 0, 18-21 read 5/4/5/5) and the pin uses 0, so neither establishes
-generation at those levels and MMModern refuses such a record. Staged and purse
+generation at those levels and MMModern refuses such a record before any
+target selection or draw. Darkside's Doom Knight and Sandro use field 7,
+outside the Clouds scope. Staged and purse
 gold and gems are 32-bit sums, as in DOS.
 [Evidence](evidence.md#m81-monster-treasure).
 

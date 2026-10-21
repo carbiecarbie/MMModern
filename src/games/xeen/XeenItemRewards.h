@@ -54,9 +54,6 @@ void xeenBeginTreasureDelivery(XeenTreasureDelivery &,const XeenTreasureStaging 
 	std::optional<std::size_t> preferred = {});
 void xeenAdvanceTreasureDelivery(XeenTreasureDelivery &,XeenPartyState &,
 	std::optional<std::size_t> preferred = {});
-// The whole delivery without presentation: items, then the purse credit.
-XeenRewardReceipt xeenDeliverTreasure(const XeenTreasureStaging &,XeenPartyState &,
-	std::optional<std::size_t> preferred = {});
 // Counts the staged Event items an abandoned run never delivered.
 void xeenDiscardRewards(XeenRewardReceipt &receipt,const XeenTreasureStaging &staged,
 	const XeenTreasureStaging &base,XeenRewardDiscard reason) noexcept;
