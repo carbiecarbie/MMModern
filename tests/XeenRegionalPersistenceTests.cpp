@@ -111,9 +111,9 @@ int main(){try{
  badByte(1624,2);badByte(1752,29);badByte(1753,1);badByte(1793,0);badByte(2953,29);badByte(2954,1);badByte(2957,0);badByte(3044,3);
  badByte(8079,2);badByte(8082,0);badByte(8084,2);badByte(8085,20);badByte(8087,108);
  for(unsigned i=0;i<19;++i){const auto at=8089+7*i;badByte(at+2,4);badByte(at+3,2);badByte(at+4,2);badByte(at+5,0);if(i!=3 && i!=9)badByte(at+4,1);}
- for(unsigned mode=0;mode<15;++mode){if(mode>=4 && mode<=9)continue;auto bad=populated;auto &j=*bad.journey;
+ for(unsigned mode=0;mode<9;++mode){auto bad=populated;auto &j=*bad.journey;
   switch(mode){case 0:j.skeletonSeed=1;break;case 1:j.supplements[0].inputs.luck.reset();break;case 2:j.purse.reset();break;case 3:j.supplements[29].inputs.resistances.reset();break;
-   case 10:j.worldFlags.reset();break;case 11:bad.characters[29].learnedSpells.reset();break;case 12:j.supplements[29].inputs.poisonResistance.reset();break;case 13:j.serviceEconomy.reset();break;case 14:j.random.reset();break;}
+   case 4:j.worldFlags.reset();break;case 5:bad.characters[29].learnedSpells.reset();break;case 6:j.supplements[29].inputs.poisonResistance.reset();break;case 7:j.serviceEconomy.reset();break;case 8:j.random.reset();break;}
   rejected(bad);}
  // The format is map-agnostic: city object and Event overrides need no
  // retained city table (restore binds them to the city's MOB and EVT).

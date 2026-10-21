@@ -167,7 +167,6 @@ void clearing() {
 }
 
 void lifetimeAndCancellation() {
-    mmodern::XeenProgramState programState;
 	Fixture f;f.members=party(6);f.scriptAt({record(1,1,0,0x20,{0,0}),record(1,1,1,0x19,{7,8,0}),
 		record(1,1,2,0x12),set(0,2,7,8),record(7,8,1,5,{0,1,9,1,99}),record(7,8,2,0x1a)});
 	auto flow=f.flow();flow.dialogText=&dos_test::text();flow.handle(InteractionAction{});flow.handle(SelectMemberAction{5});
@@ -179,7 +178,7 @@ void lifetimeAndCancellation() {
 	check(f.members.questFlags.isSet(29) && !flow.blocksGameplay(),"continuation restored old party state");
 	flow.handle(InteractionAction{});flow.handle(CancelInteractionAction{});check(f.members.questFlags.isSet(2),"later cancellation erased request");
 	XeenEventSystem replacement([&](XeenMapIdentity id){return f.scripts.at(id);});
-	XeenEventFlow newFlow(programState,f.world,replacement,f.members,f.camera,f.flags,f.font,[&](std::uint64_t){return XeenEventFlow::Composition{f.base, false};});
+	XeenEventFlow newFlow(f.programState,f.world,replacement,f.members,f.camera,f.flags,f.font,[&](std::uint64_t){return XeenEventFlow::Composition{f.base, false};});
 	newFlow.dialogText=&dos_test::text();
 	check(!newFlow.blocksGameplay() && f.members.questFlags.isSet(2) && f.members.questFlags.isSet(29),"new event owner reset party");
 	Fixture cancel;cancel.members=party(2);cancel.scriptAt({record(1,1,0,0x1f,{2,1,1})});

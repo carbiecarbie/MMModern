@@ -10,7 +10,6 @@
 #include <stdexcept>
 using namespace mmodern;
 namespace {
-// F3 monster identity for the synthetic drop sources below.
 void check(bool v,const char *m) { if (!v) throw std::runtime_error(m); }
 template<class F> void rejects(F f) { bool refused=false;try { f(); } catch (const std::exception &) { refused=true; } check(refused,"Expected refusal"); }
 // Explicit artificial rule fixtures; these are not original-resource journeys.

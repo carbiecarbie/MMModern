@@ -359,6 +359,7 @@ private:
 	}
 	// A travel load changes only the existing world's map state and resource caches.
     void prepareSpellMapPublication(const XeenWorld &candidate) {
+        if(candidate.transitionTreasureChanged())prepareStagingPublication(candidate.treasureStaging().value());
         s._mapStates=candidate._sessionState._mapStates;
         s._accountedMonsters=candidate._sessionState._accountedMonsters;
         s._headCache=candidate._sessionState._headCache;
@@ -482,8 +483,9 @@ private:
 		adoptMutationBoundary();
 	}
 	// The restored world joins the running program: observe its staging owner.
+	// Earlier observed writes stay recorded; only the observed ranges move.
 	void adoptStagingOwner(const XeenTreasureStagingState &state) noexcept {
-		stagingOwner=&state;staging=state.value();stagingRevision=state.revision();adoptMutationBoundary();
+		stagingOwner=&state;staging=state.value();stagingRevision=state.revision();refreshMutationRanges();
 	}
 	// Anticipates one XeenTreasureStagingState::publish of the observed owner.
 	void prepareStagingPublication(const XeenTreasureStaging &value) { staging=value; ++stagingRevision; }
@@ -499,7 +501,7 @@ private:
 	static std::size_t mutationRangeCapacity(const std::map<XeenMapIdentity,XeenMap> &mapValues,
 			const std::map<XeenMapIdentity,XeenObjectFile> &objectValues) {
 		// Fixed owners plus every per-map entry the bounded table can hold.
-		std::size_t count=8+XeenMapTable::kObservedRangesPerMap*XeenMapTable::kMaximumMaps+4*objectValues.size();
+		std::size_t count=9+XeenMapTable::kObservedRangesPerMap*XeenMapTable::kMaximumMaps+4*objectValues.size();
 		for(const auto &entry:mapValues) count+=5+entry.second.instructions.size();
 		return count;
 	}

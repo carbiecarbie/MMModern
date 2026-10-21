@@ -11,10 +11,11 @@ struct Support;
 // The same original New Game or developer Event-fixture initialization as gameplay,
 // retained only in memory. The fixture admits its Clouds map through normal owners.
 // Each probe receives a fresh detached candidate including actors and Journey RNG.
+// The context and every replay probe own their running-program state.
 class OriginalContext {
 public:
-    explicit OriginalContext(XeenProgramState &, const GameInstallation &, std::optional<XeenCamera> fixture = {});
-    XeenProgramState &program;
+    explicit OriginalContext(const GameInstallation &, std::optional<XeenCamera> fixture = {});
+    XeenProgramState program;
     const GameInstallation installation;
     XeenAssetSource assets;
     XeenAssetSource darkAssets;

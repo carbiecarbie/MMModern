@@ -177,9 +177,10 @@ void XeenWorld::restoreSessionState(const std::vector<XeenObjectIdentity> &objec
 
 void XeenWorld::borrowTreasureStaging(XeenTreasureStagingState &state) {
 	if (_treasureStaging == &state) return;
-	// Guards that observed the previous owner become stale; nothing is copied.
-	if (_treasureStaging == &_ownTreasureStaging &&
-		(_ownTreasureStaging.value() != XeenTreasureStaging{} || _ownTreasureStaging.revision()))
+	// One running program owns a world's pending treasure for its lifetime.
+	if (_treasureStaging != &_ownTreasureStaging)
+		throw std::logic_error("World already borrows another pending treasure owner");
+	if (_ownTreasureStaging.value() != XeenTreasureStaging{} || _ownTreasureStaging.revision())
 		throw std::logic_error("World pending treasure changed before the session borrowed it");
 	_treasureStaging=&state;
 	// A restore that preceded the session hands its binding preimage over with the world.
@@ -597,6 +598,8 @@ std::unique_ptr<XeenWorld> XeenWorld::transitionCandidate() const {
 	candidate->_scenePresentation=_scenePresentation;
 	// Detached work stages on a copy; publishTransition returns it.
 	candidate->_ownTreasureStaging.publish(treasureStaging().value());
+	candidate->_transitionTreasureBase=treasureStaging().revision();
+	candidate->_transitionTreasureCopy=candidate->_ownTreasureStaging.revision();
 	return candidate;
 }
 
@@ -740,8 +743,7 @@ void XeenWorld::publishTransition(XeenWorld &candidate) noexcept {
 	_cityStatistics.swap(candidate._cityStatistics);
 	_maps.swap(candidate._maps);_objects.swap(candidate._objects);
 	// Map transitions keep pending treasure; only a changed copy is published.
-	if(candidate.treasureStaging().value()!=treasureStaging().value())
-		treasureStaging().publish(candidate.treasureStaging().value());
+	if(candidate.transitionTreasureChanged()) treasureStaging().publish(candidate.treasureStaging().value());
 	++_ownerRevision;
 }
 

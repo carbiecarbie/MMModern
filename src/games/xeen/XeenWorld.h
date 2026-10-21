@@ -230,6 +230,13 @@ public:
 	XeenTreasureStagingState &treasureStaging() noexcept { return *_treasureStaging; }
 	const XeenTreasureStagingState &treasureStaging() const noexcept { return *_treasureStaging; }
 	void borrowTreasureStaging(XeenTreasureStagingState &);
+	// A transition candidate stages on a copy taken at a live revision. Callers
+	// check that revision before their nonthrowing stores; publishTransition
+	// returns the copy only when the detached work changed it.
+	void checkTransitionTreasure(const XeenWorld &candidate) const { treasureStaging().check(candidate._transitionTreasureBase); }
+	bool transitionTreasureChanged() const noexcept {
+		return _detachedEventCandidate && _ownTreasureStaging.revision() != _transitionTreasureCopy;
+	}
 	// Transient developer admission; never serialized or offered by the title.
 	std::optional<XeenMapIdentity> developerEventMap() const noexcept { return _developerEventMap; }
 	bool eventCameraAdmitted(const XeenCamera &) const noexcept;
@@ -334,6 +341,7 @@ private:
 	XeenSessionWorldState _sessionState;
 	XeenTreasureStagingState _ownTreasureStaging;
 	XeenTreasureStagingState *_treasureStaging = &_ownTreasureStaging;
+	std::uint64_t _transitionTreasureBase = 0, _transitionTreasureCopy = 0;
 	// Immutable loaded MON catalog for mainland, original city and script-created city slots.
 	std::vector<XeenMonsterRecord> _cityStatistics;
 	// Derived from checked immutable city resources; never gameplay authority.

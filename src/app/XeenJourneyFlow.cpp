@@ -239,7 +239,7 @@ bool XeenEncounterFlow::mrWizard(const Ticket &entry) {
 		prepared->retainResources(*_journeyPreimage);
 		prepared->prepareSpellMapPublication(*candidate);prepared->cameraValue=camera;
 		prepared->purse->gems=0;prepared->s.assignExploration(exploration);
-		_journeyPreimage->check();
+		_world.checkTransitionTreasure(*candidate);_journeyPreimage->check();
 		_world.publishTransition(*candidate);_camera=camera;_journeyEvents=std::move(events);
 		_party.purse->gems=0;
 		XeenMutationWatch::write(&_world);_world._sessionState.publishExploration(exploration);
@@ -372,6 +372,7 @@ std::optional<std::uint64_t> XeenEncounterFlow::beginItemUse(const Ticket &entry
         prepared->characters[selection.sourceOwner].miscellaneous=items;
         travel.applyBeacon(prepared->characters[selection.sourceOwner]);
         if(mapWork.world) {prepared->prepareSpellMapPublication(*mapWork.world);prepared->cameraValue=*next->jumpDestination;}
+        if(mapWork.world)_world.checkTransitionTreasure(*mapWork.world);
         _journeyPreimage->check();
         if(mapWork.world) {_world.publishTransition(*mapWork.world);_camera=*next->jumpDestination;_journeyEvents=std::move(mapWork.events);}
         travel.applyBeacon(_party.roster.at(selection.sourceOwner));

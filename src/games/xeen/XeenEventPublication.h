@@ -45,6 +45,7 @@ public:
    if(effect.spellFrame<4 && !effect.spellDeadline)portraitEffectOwners|=1u<<owner;
   }
 		const XeenCloudsQuestFlags questFlags(candidate.questFlags);
+		world.checkTransitionTreasure(candidateWorld);
 		check();candidate.check();
 		guard.prepareVertigoPublication(candidate);
 		world.publishTransition(candidateWorld);

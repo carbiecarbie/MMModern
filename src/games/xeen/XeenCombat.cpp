@@ -1165,7 +1165,7 @@ XeenCombatResult XeenCombat::settleCast(const Ticket &t,std::optional<unsigned> 
         if(c.sourceItem && reserved.spell==unsigned(XeenLearnedSpell::TownPortal)) {
             relocation=c.travel.destination;travelFailed=c.travel.failed;
             if(relocation)prepared->cameraValue=*relocation;
-            if(c.mapWorld)prepared->prepareSpellMapPublication(*c.mapWorld);
+            if(c.mapWorld){d.world.checkTransitionTreasure(*c.mapWorld);prepared->prepareSpellMapPublication(*c.mapWorld);}
         }
         if(reserved.spell==unsigned(XeenLearnedSpell::TimeDistortion)) {
             XeenRestoreGuard::Providers providers(*prepared,d.world);

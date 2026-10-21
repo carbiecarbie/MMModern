@@ -228,6 +228,7 @@ bool XeenEncounterFlow::confirmCasting(const Ticket &entry, std::size_t casterIn
         _casting->jumpDestination=jump;
         _casting->failed=travel.failed;_casting->shelterPending=travel.shelter;
 		_casting->random=XeenCombatRandom(*_world.sessionState().journeyRandom());
+		if(mapWork.world)_world.checkTransitionTreasure(*mapWork.world);
 		_journeyPreimage->check();
 		if(mapWork.world) {_world.publishTransition(*mapWork.world);_camera=*jump;_journeyEvents=std::move(mapWork.events);}
         travel.applyBeacon(_party.roster.at(owner));

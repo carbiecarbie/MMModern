@@ -474,8 +474,8 @@ void genericRoundTrip(){
  XeenMonsterTestAccess::stageTreasure(*live.flow,live.world,staged);
  check(XeenSaveFormat::encode(live.capture())==bytes && live.world.treasureStaging().value()==staged,
   "Pending treasure reached the save or changed on capture");
- // Map transitions keep it: a candidate stages on its own copy, an abandoned
- // candidate leaves the owner unchanged, an unchanged copy publishes nothing.
+ // Map transitions keep it: a candidate stages on its own copy and an
+ // abandoned candidate leaves the owner unchanged.
  {
   auto candidate=live.world.transitionCandidate();const auto revision=live.world.treasureStaging().revision();
   check(&candidate->treasureStaging()!=&live.world.treasureStaging() && candidate->treasureStaging().value()==staged,
@@ -483,6 +483,32 @@ void genericRoundTrip(){
   auto changed=staged;changed.gold=5;candidate->treasureStaging().publish(changed);candidate.reset();
   check(live.world.treasureStaging().value()==staged && live.world.treasureStaging().revision()==revision,
    "Abandoned transition changed pending treasure");
+ }
+ // A published candidate returns only its own staging changes, and only while
+ // the live revision it copied is current; a stale copy never restores an
+ // older value.
+ {
+  CurrentDestination transit;usePerMapResources(transit,4);transit.restore(XeenSaveFormat::decode(bytes));transit.bind();
+  auto &w=transit.world;XeenMonsterTestAccess::stageTreasure(*transit.flow,w,staged);
+  auto unchanged=w.transitionCandidate();const auto revision=w.treasureStaging().revision();
+  w.checkTransitionTreasure(*unchanged);w.publishTransition(*unchanged);
+  check(w.treasureStaging().value()==staged && w.treasureStaging().revision()==revision,"An unchanged transition copy published pending treasure");
+  auto stale=w.transitionCandidate();auto later=staged;later.gold=20;w.treasureStaging().publish(later);
+  rejects([&]{w.checkTransitionTreasure(*stale);});
+  w.publishTransition(*stale);
+  check(w.treasureStaging().value()==later,"A stale unchanged transition copy restored older pending treasure");
+  auto moved=later;moved.armor[5]={0,4,0,0};
+  auto changed=w.transitionCandidate();changed->treasureStaging().publish(moved);
+  w.checkTransitionTreasure(*changed);w.publishTransition(*changed);
+  check(w.treasureStaging().value()==moved,"A changed transition copy was not published");
+ }
+ // A write between restore and the flow's binding, even one that restores its
+ // value, leaves the restoration stale when the world joins the program.
+ {
+  CurrentDestination touched;usePerMapResources(touched,4);touched.restore(XeenSaveFormat::decode(bytes));
+  ++touched.party.food;--touched.party.food;
+  bool refused=false;try{touched.bind();}catch(const std::logic_error &){refused=true;}
+  check(refused,"A write between restore and flow binding was adopted");
  }
  // AlterMap deliberately writes just one selected cell, without mirroring.
  auto oneSided=s;oneSided.map(28).cells.pop_back();

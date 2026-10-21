@@ -671,6 +671,7 @@ XeenEncounterResult XeenActorApproach::regionalTransition(XeenWorld &world,XeenP
 		c.result.consequences=std::move(observation);
         std::optional<XeenScenePresentation> presentation;
         if(c.destinationWorld)presentation=world.prepareSpawnPresentation(*c.destinationWorld);
+        if(c.destinationWorld)world.checkTransitionTreasure(*c.destinationWorld);
         check();
 		c.result.revision=entry._revision+1;
 		// One nonthrowing publication spans both opportunities and the full tick.

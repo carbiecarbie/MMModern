@@ -19,7 +19,7 @@ std::string resource(XeenMapIdentity id,const char *extension) {
     char name[32];std::snprintf(name,sizeof(name),id.number>=100?"mazex%03u.%s":"maze%04u.%s",unsigned(id.number),extension);return name;
 }
 }
-OriginalContext::OriginalContext(XeenProgramState &state, const GameInstallation &installation, std::optional<XeenCamera> fixture):program(state),installation(installation),assets(installation),
+OriginalContext::OriginalContext(const GameInstallation &installation, std::optional<XeenCamera> fixture):installation(installation),assets(installation),
     darkAssets(darkInstallation(installation)),
     events([this](const std::string &name)->std::optional<std::vector<std::uint8_t>> {
         if(!assets.hasInitialResource(name))return {};return assets.readInitialResource(name);
@@ -76,6 +76,7 @@ OriginalContext::OriginalContext(XeenProgramState &state, const GameInstallation
 Support OriginalContext::replayRoot(XeenCamera entry) {
     try {
         auto snapshot=*initial;snapshot.camera=entry;
+        XeenProgramState probe;
         XeenWorld w([this](auto id){return maps.loadGeometryMap(assets,id);},[this](auto id){return maps.loadObjects(assets,id);});
         XeenPartyState p;XeenCamera c;XeenGameFlags f;
         XeenSaveState::restoreBeforeGameplay(snapshot,resources,p,c,f,w,[](auto &,const auto &,const auto &,const auto &){});
@@ -84,7 +85,7 @@ Support OriginalContext::replayRoot(XeenCamera entry) {
         const auto catalogue=loadXeenItemCatalog(assets);
         const auto blank=[] {IndexedFrame frame;frame.width=320;frame.height=200;frame.pixels.resize(64000);return frame;};
         std::uint64_t now=0,cycle=0;
-        XeenEventFlow session(program,w,system,p,c,f,font,[&](auto){return XeenEventFlow::Composition{blank(),false};},
+        XeenEventFlow session(probe,w,system,p,c,f,font,[&](auto){return XeenEventFlow::Composition{blank(),false};},
             {},[&]{return now;},{},&catalogue.catalog,[&](auto,auto){return XeenEventFlow::Composition{blank(),false};},
             nullptr,[&](auto &,const auto &,const auto &,auto,auto){return XeenEventFlow::Composition{blank(),false};});
         session.dialogText=&assets.uiText();

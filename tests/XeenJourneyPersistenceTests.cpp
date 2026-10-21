@@ -96,7 +96,6 @@ void same(const XeenSaveSnapshot &s, Destination &d) {
 	check(XeenSaveFormat::encode(s)==XeenSaveFormat::encode(d.capture()),"all exact detached fields");
 }
 void roundtrips() {
-    mmodern::XeenProgramState programState;
 	for(auto s:{moved(),ended()}) {
 		for(unsigned i=0;i<30;++i) {
 			s.journey->supplements[i].inputs.experience=i==0?0:i==29?0xfffffff0u:1000+i;
@@ -119,9 +118,9 @@ void roundtrips() {
 	{
 		replay_test::Scope scope;
 		XeenPartyState otherParty; XeenCamera otherCamera=movedOwner.c; XeenGameFlags otherFlags=movedOwner.f;
-		rejects([&]{XeenEncounterFlow wrong(programState,movedOwner.w,otherParty,movedOwner.c,movedOwner.f,movedOwner.clock,XeenJourneyRestoreTag{});});
-		rejects([&]{XeenEncounterFlow wrong(programState,movedOwner.w,movedOwner.p,otherCamera,movedOwner.f,movedOwner.clock,XeenJourneyRestoreTag{});});
-		rejects([&]{XeenEncounterFlow wrong(programState,movedOwner.w,movedOwner.p,movedOwner.c,otherFlags,movedOwner.clock,XeenJourneyRestoreTag{});});
+		rejects([&]{XeenEncounterFlow wrong(movedOwner.programState,movedOwner.w,otherParty,movedOwner.c,movedOwner.f,movedOwner.clock,XeenJourneyRestoreTag{});});
+		rejects([&]{XeenEncounterFlow wrong(movedOwner.programState,movedOwner.w,movedOwner.p,otherCamera,movedOwner.f,movedOwner.clock,XeenJourneyRestoreTag{});});
+		rejects([&]{XeenEncounterFlow wrong(movedOwner.programState,movedOwner.w,movedOwner.p,movedOwner.c,otherFlags,movedOwner.clock,XeenJourneyRestoreTag{});});
 		check(!XeenSaveState::canCapture(movedOwner.p,movedOwner.c,movedOwner.w),"wrong owners cannot consume restoration handoff");
 	}
 	movedOwner.bind(); same(s,movedOwner);
