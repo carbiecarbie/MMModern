@@ -11,6 +11,23 @@ void end(RegionalCombatFixture &f){
     check(f.combat->phase()==Phase::VictoryAwaitingEnd,"lethal remains distinct from End");
     check(f.service().status==Status::Victory&&f.p.encounterContext->minutes==491,"End charges exactly once");
 }
+void combatSoundOptions() {
+    RegionalCombatFixture f{XeenCombatRandom(victoryTape())};f.enter();
+    check(f.combat->phase()==Phase::PlayerReady,"Sound panel needs the acquired player turn");
+    const auto old=f.flow->ticket();const auto random=f.combat->random().position();
+    const auto context=*f.p.encounterContext;const auto participant=f.combat->participant();
+    const XeenSoundOptions options{false,false,true,false};
+    check(f.flow->configureSound(old,options) && XeenSoundOptions(f.p.soundOptions)==options,
+          "Combat sound options failed guarded party publication");
+    check(!f.flow->configureSound(old,XeenSoundOptions{}) && XeenSoundOptions(f.p.soundOptions)==options,
+          "Stale panel ticket replaced combat options");
+    check(f.combat->phase()==Phase::PlayerReady && f.combat->participant()==participant &&
+          f.combat->random().position()==random && *f.p.encounterContext==context &&
+          f.flow->current(f.flow->ticket()),"Combat sound toggle consumed time, RNG or the player's action");
+    f.action(Command::Attack);f.action(Command::Attack);check(f.service().status==Status::Victory,"Combat after sound toggle");
+    check(f.flow->retireJourney(f.flow->ticket()),"Combat options invalidated retirement guards");f.present();
+    check(f.snapshot().soundOptions==options,"Combat options lost at quiet save boundary");
+}
 void captureBoundaries(){
     RegionalCombatFixture f{XeenCombatRandom(victoryTape())};
     const auto initial=f.snapshot();check(initial.journey&&initial.journey->schema==9&&initial.journey->content==14,"current quiet snapshot");
@@ -27,7 +44,7 @@ void captureBoundaries(){
     auto saved=f.snapshot();tape=prior;
     check(saved.journey&&saved.map(23).monsters->slots[5].accounted&&saved.journey->context==f.p.encounterContext,"current capture fields");
     for(unsigned i=0;i<30;++i)check(saved.journey->supplements[i].owner==i&&xeen_state::sameInputs(saved.journey->supplements[i].inputs,*f.p.roster.combatInputs(i)),"all supplements captured");
-    const auto bytes=XeenSaveFormat::encode(saved);check(bytes[8]==17,"current envelope");
+    const auto bytes=XeenSaveFormat::encode(saved);check(bytes[8]==18,"current envelope");
     check(XeenSaveFormat::encode(XeenSaveFormat::decode(bytes))==bytes,"current encode/decode exactness");
     auto detached=XeenPartyLoader().loadFromResources(chr(),pty());auto copied=f.camera;
     check(!XeenSaveState::canCapture(detached,f.camera,f.w)&&!XeenSaveState::canCapture(f.p,copied,f.w)&&XeenSaveState::canCapture(f.p,f.camera,f.w),"capture bound to exact owners");
@@ -78,4 +95,4 @@ void overlayCallbackGuards(){
     check(calls==0,"detached destination marker refuses before providers");
 }
 }
-int main(){probe_fired::expect("XeenCombatRandom::draw");try{captureBoundaries();retirementAndIntegrity();overlayCallbackGuards();std::cout<<"Regional combat capture and restore guards passed\n";return 0;}catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}
+int main(){probe_fired::expect("XeenCombatRandom::draw");try{combatSoundOptions();captureBoundaries();retirementAndIntegrity();overlayCallbackGuards();std::cout<<"Regional combat capture and restore guards passed\n";return 0;}catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}

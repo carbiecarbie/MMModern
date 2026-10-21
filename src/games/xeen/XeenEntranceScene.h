@@ -30,10 +30,11 @@ public:
         unsigned iteration;
         bool restore=false,saveZoom=false;
         std::vector<Sprite> sprites;
+        std::optional<unsigned> caption;
     };
     using Duration=std::function<std::uint64_t(const char *)>;
     using Draw=std::function<unsigned(unsigned,unsigned)>;
-    XeenEntranceAnimation(unsigned action,bool keyed,const Duration &);
+    XeenEntranceAnimation(unsigned action,bool keyed,const Duration &,bool efx=true,unsigned captionLength=0);
     // Once per acquired iteration; a late wake advances only one iteration.
     std::optional<Frame> advance(std::uint64_t now,const Draw &);
     void acquired(std::uint64_t now);
@@ -44,6 +45,10 @@ public:
 private:
     struct Step {Phase kind; unsigned count,ticks; const char *sample=nullptr; std::uint64_t duration=0;};
     unsigned _action,_iteration=0;
+    bool _efx=true,_captionComplete=false,_clockMarked=false;
+    unsigned _captionLength=0,_cursor=0;
+    std::uint64_t _captionMark=0;
+    std::size_t _firstSpeech=0;
     bool _awaiting=false,_started=false;
     std::size_t _phase=0;
     std::uint64_t _deadline=0,_sampleEnd=0,_minimumEnd=0,_entryEnd=0,_entryDuration=0;

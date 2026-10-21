@@ -3,6 +3,7 @@
 #include "formats/xeen/XeenAssetSource.h"
 #include "games/xeen/XeenInstallationDetector.h"
 #include "app/XeenAudio.h"
+#include "app/XeenTitleFlow.h"
 #include "app/XeenFmSource.h"
 #include "XeenSaveGameplayTestSupport.h"
 #include "formats/xeen/XeenMapFormat.h"
@@ -145,6 +146,7 @@ int main(int argc,char **argv) {
   const Bytes module((std::istreambuf_iterator<char>(moduleInput)),{});
   unsigned loads=0;
   const auto loader=[&](const std::string &name,XeenSceneArchive archive){++loads;return assets.readArchiveResource(name,archive);};
+  assert(XeenSoundOptions(XeenPartyLoader().loadInitialCloudsParty(assets).soundOptions)==XeenSoundOptions{});
   XeenAudio owner(3,resource,loader,module,0,false);assert(!owner.outputActive());
   assert(XeenOpl3::systemIsNull());
   const char *byKind[]{"town.m","cavern.m","dungeon.m","castle.m","dungeon.m","outday1.m"};
@@ -172,6 +174,29 @@ int main(int argc,char **argv) {
   owner.enterTitle(PromusDriver::clockBoundary(701));assert(owner.loadedName()=="newbrigh.m");
   const auto current=owner.currentName();owner.leaveTitle(PromusDriver::clockBoundary(702));
   owner.advance(PromusDriver::clockBoundary(900));assert(owner.loadedName()=="twnnitea.m"&&owner.currentName()==current);
+  {
+   std::vector<PromusDriver::Write> trace;
+   XeenAudio options(3,resource,loader,module,0,false,[&](const auto &w){trace.push_back(w);});
+   options.enterTitle(0);const auto playing=trace.size();
+   XeenSoundOptions value;value.music=false;options.observeOptions(value);
+   assert(trace.size()==playing); // Loaded Music-off alone sends no stop.
+   options.requestSong("town.m",XeenSceneArchive::Clouds,207,0);assert(options.pending());
+   options.toggleMusic(false,0);assert(options.pending()); // Off cancels fade, keeps load.
+   options.advance(0,1000000000);assert(options.pending()); // CD wait still holds it.
+   options.toggleMusic(true,0);
+   assert(!options.pending() && options.loadedName()=="newbrigh.m" && options.currentName()=="town.m");
+   options.requestSong("TOWN.M",XeenSceneArchive::Clouds,207,0);assert(!options.pending());
+   options.requestInn(0);options.toggleMusic(false,0);options.advance(0);
+   assert(!options.pending() && options.loadedName()=="inn.m");
+   options.toggleMusic(true,0);assert(options.loadedName()=="inn.m");
+   value.efx=false;options.observeOptions(value);const auto before=trace.size();
+   options.effect(20,0);assert(trace.size()==before); // No new FX and no stop.
+   value.efx=true;options.observeOptions(value);trace.clear();options.effect(20,0);
+   std::vector<PromusDriver::Write> expected;
+   PromusDriver direct(resource,[&](const auto &w){expected.push_back(w);});expected.clear();direct.effect(20);
+   assert(trace.size()==expected.size() && !trace.empty());
+   for(unsigned i=0;i<trace.size();++i)assert(trace[i].reg==expected[i].reg && trace[i].value==expected[i].value);
+  }
   {
    XeenAudio epochs(3,resource,loader,module,1000000000000ULL,false);
    epochs.requestInn(1000000000000ULL);
@@ -263,6 +288,42 @@ int main(int argc,char **argv) {
    };
    assert(Application(services.program).playGameplay(services,{1,1,1,XeenDirection::North},{},false)==0);
    assert(fixture.programState.audio->ticks()==before+100);
+  }
+  {
+   // Exercise the actual panel-to-party-to-audio path with a recording sink.
+   gameplay_test::Fixture fixture;fixture.initial.soundOptions={false,true,false,true};
+   std::uint64_t now=0;std::vector<PromusDriver::Write> trace;
+   fixture.programState.audio=std::make_shared<XeenAudio>(3,resource,loader,module,SdlWindow::presentationNanoseconds(),false,
+       [&](const auto &w){trace.push_back(w);});
+   const XeenFontFormat font(assets.readArchiveResource("fnt"));
+   auto services=fixture.services();services.presentationClock=[&]{return now;};
+   const XeenPartyState *party=nullptr;
+   services.observeGameplay=[&](auto &,auto &,const auto &p,const auto &,auto &){party=&p;};
+   services.panel=[&](const IndexedFrame &base,bool,bool,bool,std::optional<unsigned>,const std::string &) {
+    XeenTitleFlow::Services s{assets.uiText(),font,base,{}, {},
+      [&](auto &frame,const char *name,unsigned index,int x,int y){assets.drawDialogSprite(frame,name,index,x,y);},[]{return std::array<XeenSaveFile::Slot,10>{};},[](unsigned){return std::filesystem::path{};}};
+    s.panel=true;return std::make_unique<XeenTitleFlow>(std::move(s));
+   };
+   services.show=[&](auto visible,const auto &h,const auto &,const auto &,const auto &) {
+    const auto present=[&]{h.framePresented(visible.presentation());h.completeInputHandoff(visible.presentation());};present();
+    const auto send=[&](const PlayerAction &action) {
+     const auto next=h(action);assert(next);visible=*next;present();
+    };
+    const auto key=[&](unsigned key){const auto context=h.inputContext(visible.presentation());assert(context.dialog);
+     const auto action=context.dialog->key(key);assert(action);send(*action);};
+    send(ControlPanelAction{});trace.clear();key('e');
+    assert(XeenSoundOptions(party->soundOptions).efx && !trace.empty());
+    std::vector<PromusDriver::Write> expected;
+    PromusDriver direct(resource,[&](const auto &w){expected.push_back(w);});expected.clear();direct.effect(20);
+    assert(trace.size()==expected.size());
+    for(unsigned i=0;i<trace.size();++i)assert(trace[i].reg==expected[i].reg && trace[i].value==expected[i].value);
+    trace.clear();key('e');assert(!XeenSoundOptions(party->soundOptions).efx && trace.empty());
+    key('p');assert(!XeenSoundOptions(party->soundOptions).speech && XeenSoundOptions(party->soundOptions).text);
+    key('t');assert(XeenSoundOptions(party->soundOptions).text);
+    key('p');key('t');assert(!XeenSoundOptions(party->soundOptions).text && XeenSoundOptions(party->soundOptions).speech);
+    key(27);h.closed();return true;
+   };
+   assert(Application(services.program).playGameplay(services,{1,1,1,XeenDirection::North},{},false)==0);
   }
   for(const auto &name:{"promus-startup","promus-inn","promus-outdoors","promus-fx20-alone","promus-wall-bump","promus-fx20-over-music"}) {
    const auto events=dro(std::filesystem::u8path(argv[2])/(std::string(name)+".dro"));

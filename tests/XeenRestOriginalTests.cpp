@@ -678,7 +678,7 @@ void terrainCallsites(Inputs &in) {
  }
 
 }
-void rolloverAndDream(Inputs &in) {
+void rolloverAndDream(Inputs &in,bool efx=true) {
  auto start=source(in,true);start.food=3;start.journey->context->day=99;start.journey->context->minutes=1439;
  start.journey->context->effects[XeenPartyEffect::WizardEye]=1;start.journey->context->lightAndResistances[0]=4;
  start.characters[start.activeRosterIds[0]].conditions[2]=255;
@@ -705,7 +705,10 @@ void rolloverAndDream(Inputs &in) {
   check(random.position()==0 && random.draw(1,20)==1,"Healthy tick leaves the first draw for the dream");
  }
  check(chosen,"Fixed dream seed absent");dreamStart.journey->random=XeenCombatRandom(chosen).continuation();
- Fixture dream(in,dreamStart);wire(dream);XeenRestTestAccess::scene(*dream.flow,*dream.p.encounterContext);
+ dreamStart.soundOptions.efx=efx;
+ Fixture dream(in,dreamStart);wire(dream);
+ unsigned sampleReads=0;const auto originalDuration=dream.flow->loadSampleDuration;
+ dream.flow->loadSampleDuration=[&](const char *name,XeenSceneArchive archive){++sampleReads;return originalDuration(name,archive);};XeenRestTestAccess::scene(*dream.flow,*dream.p.encounterContext);
  dream.act(RestAction{});
  using D=XeenRestTestAccess::Dream;
  unsigned frames=0,fadeFrames=0,intervals=0,retries=0;
@@ -748,7 +751,7 @@ void rolloverAndDream(Inputs &in) {
    ++intervals;
    const auto now=PresentationClock::fromMilliseconds(dream.now);
    const auto expected=stage==D::BeforeDreams || stage==D::AfterLaff?PresentationClock::after(now,7):
-    PresentationClock::checkedAdd(now,stage==D::Dreams?1664504000ULL:1966764000ULL);
+    PresentationClock::checkedAdd(now,efx?(stage==D::Dreams?1664504000ULL:1966764000ULL):0);
    check(deadline==expected,"Dream single-reset seven ticks or exact sequential VOC duration");
   }
   // A repaint is not another original palette write, and the deadline is a
@@ -779,11 +782,12 @@ void rolloverAndDream(Inputs &in) {
  finish(dream);const auto after=XeenSaveFormat::encode(dream.snapshot());
  dream.flow->handle(AcknowledgeAction{},recoveryInput,recoveryFrame);
  check(XeenSaveFormat::encode(dream.snapshot())==after && dream.p.food==2,"Dream recovery must publish exactly once despite stale input");
+ check(efx?sampleReads==2:sampleReads==0,"Efx-off Rest queried VOC metadata/busy span");
  std::cout<<"Dream seed="<<chosen<<" four 33-level retrace fades; 7 ticks, 1.664504s, 1.966764s, 7 ticks passed\n";
 }
 }
 int main(int argc,char **argv) {try {
  check(argc==2,"Rest original usage: installation");const auto installation=xeenTestInstallationDetector().detect(argv[1]);check(bool(installation),"Original installation absent");
- Inputs in(*installation);sleepingHit(in);terrain(in);terrainCallsites(in);success(in,false);success(in,true);entry(in);interruption(in,false,0);interruption(in,true,3);interruption(in,false,0,true);rolloverAndDream(in);reentrant(in);sampleFailure(in);combatOutcomes(in,true);combatOutcomes(in,false);conditionDeath(in);noTargets(in);
+ Inputs in(*installation);sleepingHit(in);terrain(in);terrainCallsites(in);success(in,false);success(in,true);entry(in);interruption(in,false,0);interruption(in,true,3);interruption(in,false,0,true);rolloverAndDream(in);rolloverAndDream(in,false);reentrant(in);sampleFailure(in);combatOutcomes(in,true);combatOutcomes(in,false);conditionDeath(in);noTargets(in);
  std::cout<<"Original-resource Rest, interruption, food, UI path and mid-sequence save tests passed\n";return 0;
  }catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}

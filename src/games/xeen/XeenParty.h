@@ -1,5 +1,6 @@
 #ifndef MMODERN_GAMES_XEEN_XEEN_PARTY_H
 #define MMODERN_GAMES_XEEN_XEEN_PARTY_H
+#include "games/xeen/XeenSoundOptions.h"
 
 #include "games/xeen/XeenCharacter.h"
 #include "games/xeen/XeenGameplayContext.h"
@@ -163,6 +164,7 @@ struct XeenPartyState {
 	XeenMutable<std::uint8_t> effectiveSerializedCount = 0;
 	XeenMutableDiagnostics diagnostics;
 	XeenMutable<std::uint16_t> food = 0;
+	XeenMutable<XeenSoundOptions> soundOptions;
 private:
 	friend class XeenPartyLoader;
 	friend class XeenSaveState;

@@ -67,16 +67,17 @@ const Art &art(unsigned action) {
     return entries[action-8];
 }
 }
-XeenEntranceAnimation::XeenEntranceAnimation(unsigned action,bool keyed,const Duration &duration):_action(action) {
+XeenEntranceAnimation::XeenEntranceAnimation(unsigned action,bool keyed,const Duration &duration,bool efx,unsigned captionLength):_action(action),_efx(efx),_captionLength(captionLength) {
     const auto &a=art(action);
+    if(!_efx && !_captionLength)throw std::invalid_argument("Missing entrance caption record");
     const auto add=[&](Phase phase,unsigned count,unsigned ticks,const char *sample=nullptr) {
-        const auto length=sample?duration(sample):0;
-        if(sample && !length)throw std::invalid_argument("Invalid entrance sample duration");
+        const auto length=sample && _efx?duration(sample):0;
+        if(sample && _efx && !length)throw std::invalid_argument("Invalid entrance sample duration");
         _phases.push_back({phase,count,ticks,sample,length});
     };
     add(Phase::Zoom,a.zoom,action<10?1:0);
     if(action==8 || action==9)add(Phase::Slide,13,1);
-    if(action==9){_entryDuration=duration("ogre.voc");if(!_entryDuration)throw std::invalid_argument("Invalid entrance growl duration");add(Phase::EntryTail,1,0);}
+    if(action==9){_entryDuration=_efx?duration("ogre.voc"):0;if(_efx && !_entryDuration)throw std::invalid_argument("Invalid entrance growl duration");add(Phase::EntryTail,1,0);}
     if(action==10)add(Phase::Rise,16,0);
     static const char *samples[4][2][3]={
         {{"reaper14.voc","reaper15.voc",nullptr},{"reaper12.voc","reaper13.voc",nullptr}},
@@ -89,7 +90,9 @@ XeenEntranceAnimation::XeenEntranceAnimation(unsigned action,bool keyed,const Du
             if(action==8)add(Phase::Pause,1,7);
             if(action==9){add(Phase::Pause,1,1);add(Phase::Growl,1,0,"ogre.voc");}
         }
+        if(!_firstSpeech)_firstSpeech=_phases.size();
         add(Phase::Speech,0,a.speechTicks,sample);
+        if(!_efx && action>=10)break;
     }
     if(action==8)add(Phase::Pause,1,1);
     if(!keyed && action!=10)add(Phase::Retreat,a.zoom,0);
@@ -97,18 +100,29 @@ XeenEntranceAnimation::XeenEntranceAnimation(unsigned action,bool keyed,const Du
 }
 std::optional<XeenEntranceAnimation::Frame> XeenEntranceAnimation::advance(std::uint64_t now,const Draw &draw) {
     if(finished() || _awaiting || (_started && now<_deadline))return {};
+    if(!_clockMarked){_captionMark=PresentationClock::tick(now);_clockMarked=true;}
     if(_started) {
         const auto &step=_phases[_phase];
         const bool speech=step.kind==Phase::Speech;
-        if(speech && now>=_sampleEnd && now<_minimumEnd){_deadline=_minimumEnd;return {};}
-        if(speech?now>=std::max(_sampleEnd,_minimumEnd):++_iteration>=step.count) {
+        const bool captionBusy=!_efx && _phase==_firstSpeech && !_captionComplete;
+        if(speech && !captionBusy && now>=_sampleEnd && now<_minimumEnd){_deadline=_minimumEnd;return {};}
+        if(speech?(!captionBusy && now>=std::max(_sampleEnd,_minimumEnd)):++_iteration>=step.count) {
             ++_phase;_iteration=0;_started=false;
             if(finished())return {};
         } else if(speech)++_iteration;
     }
     // Skip an already elapsed growl tail without inventing an extra wait.
     if(_phases[_phase].kind==Phase::EntryTail && now>=_entryEnd){++_phase;_iteration=0;_started=false;}
-    auto frame=compose(draw);_awaiting=true;
+    auto frame=compose(draw);
+    if(!_efx && _phase==_firstSpeech) {
+        const auto tick=PresentationClock::tick(now);
+        if(tick-_captionMark>1) {
+            _cursor=(_cursor+1)%_captionLength;_captionMark=tick;
+            _captionComplete=_cursor==0;
+        }
+        frame.caption=_cursor;
+    }
+    _awaiting=true;
     return frame;
 }
 void XeenEntranceAnimation::acquired(std::uint64_t now) {

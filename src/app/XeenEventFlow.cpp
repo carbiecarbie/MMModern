@@ -295,9 +295,9 @@ IndexedFrame XeenEventFlow::drawDeath(const IndexedFrame &base) {
     if(!_death) {
         if(!loadSampleDuration || !drawDialogSprite)throw std::invalid_argument("Original death providers are absent");
         DeathContinuation candidate;candidate.gameplay=base;
-        const auto fireDuration=loadSampleDuration("fire.voc",XeenSceneArchive::Clouds);
-        candidate.laughDuration=loadSampleDuration("xeenlaff.voc",XeenSceneArchive::Clouds);
-        if(!fireDuration || !candidate.laughDuration)throw std::invalid_argument("Invalid original death sample duration");
+        const auto fireDuration=XeenSoundOptions(_party.soundOptions).efx?loadSampleDuration("fire.voc",XeenSceneArchive::Clouds):0;
+        candidate.laughDuration=XeenSoundOptions(_party.soundOptions).efx?loadSampleDuration("xeenlaff.voc",XeenSceneArchive::Clouds):0;
+        if(XeenSoundOptions(_party.soundOptions).efx && (!fireDuration || !candidate.laughDuration))throw std::invalid_argument("Invalid original death sample duration");
         // The final pair 34/35 is drawn over the last fire composition (all
         // seventeen death.vga pairs), not over the gameplay: pin
         // WorldOfXeenEngine::death and the DOS capture Morte.mkv (2026-10-13).
@@ -853,6 +853,14 @@ void XeenEventFlow::finishOrdinaryDraw() {
     _world.scenePresentation().composeFromRetained(true);
 }
 
+bool XeenEventFlow::configureSound(XeenSoundOptions value) {
+ if(_encounter) {
+  if(!_encounter->configureSound(_encounter->ticket(),value))return false;
+  _encounterFrame=_encounter->ticket();
+  if(_encounter->combat())_displayedCombat=_encounter->combat()->ticket();
+ }else _party.soundOptions=value;
+ return true;
+}
 std::optional<IndexedFrame> XeenEventFlow::mrWizard() {
 	if(!journey() || _encounter->combat() || _pending || _castingUi || _barrier || inventoryOpen() ||
 		!_encounter->mrWizard(_encounter->ticket()))return std::nullopt;
@@ -1248,6 +1256,22 @@ template<class Result> IndexedFrame XeenEventFlow::drive(Result result, bool aut
 			return frameCopy(); // Exclusive Event transfers to Service after its final guard check.
 		if(suspended && suspended->request.kind==XeenPresentationKind::RewardGeneration)
 			return frameCopy(); // Bounded generation resumes on the next idle update.
+        if(suspended && suspended->request.kind==XeenPresentationKind::DeferredAudio &&
+            suspended->request.source.opcode==60 && !XeenSoundOptions(_party.soundOptions).speech) {
+            // Op60 retains its operands even when the speech wrapper does
+            // nothing. Consume it without a notice, scene draw or clock wait.
+            const auto side=suspended->request.mapId.side;
+            if(!_cdSpeechSide || *_cdSpeechSide!=side) {_cdSpeechSide=side;_cdSpeechEnd=0;}
+            _cdSpeechCue=_pending->state.cdSpeech;
+            auto pending=std::move(*_pending);_pending.reset();
+            if constexpr(std::is_same_v<Result,XeenManualEventResult>)
+                result=_transition?resumeDetachedEvent(std::move(pending.state),XeenPresentationResponse::Presented):
+                    _events.resumeManualEvent(std::move(pending.state),XeenPresentationResponse::Presented,
+                        _world,_party,_camera,_flags,_eventPublication);
+            else result=_events.resumeAutomaticEvent(std::move(pending.state),XeenPresentationResponse::Presented,
+                    _world,_party,_camera,_flags,_eventPublication);
+            continue;
+        }
 		try {
 		refreshScene(reconstruct, cause, committedTransition);
 		reconstruct = false;
@@ -1817,10 +1841,11 @@ XeenPresentationUpdate XeenEventFlow::presentPendingEvent() {
         next.generation=_pending->generation;
         next.deadline=PresentationClock::after(now,3);
         next.timing.deadline=PresentationClock::ceilMilliseconds(next.deadline);
-        if(request.cdSpeech && (request.cdSpeech->track || request.cdSpeech->start || request.cdSpeech->finish)) {
+        if(XeenSoundOptions(_party.soundOptions).speech && request.cdSpeech && (request.cdSpeech->track || request.cdSpeech->start || request.cdSpeech->finish)) {
             const auto duration=xeenCdSpeechDurationNanoseconds(*request.cdSpeech);
             _cdSpeechEnd=PresentationClock::checkedAdd(now,duration);
         }
+        if(!XeenSoundOptions(_party.soundOptions).speech)_cdSpeechEnd=0;
         next.speechEnd=_cdSpeechEnd;
         next.timing.remaining=now<_cdSpeechEnd?_cdSpeechEnd-now:0;
         _npcSequence=next;
@@ -2044,18 +2069,26 @@ void XeenEventFlow::prepareEntrance() {
     const auto *site=xeenEntranceSite(action,_pending->state.workingCamera);
     if(!site)throw std::logic_error("Entrance scene site is absent");
     checkTransitionCandidate();
-    XeenEntranceAnimation animation(action,xeenEntranceKey(*site,_transition->party.questItems),[&](const char *name) {
+    const bool keyed=xeenEntranceKey(*site,_transition->party.questItems);
+    const bool efx=XeenSoundOptions(_transition->party.soundOptions).efx;
+    std::string caption;
+    if(!efx) {
+        if(!loadEntranceCaption || !drawEntranceCaption)throw std::invalid_argument("Original caption providers are absent");
+        caption=loadEntranceCaption(action,keyed);_eventPublication->check();checkTransitionCandidate();
+    }
+    XeenEntranceAnimation animation(action,keyed,[&](const char *name) {
         const auto value=loadSampleDuration(name,XeenSceneArchive::Clouds);
         _eventPublication->check();checkTransitionCandidate();return value;
-    });
+    },efx,caption.size());
     _entranceUi.emplace(std::move(animation),_frame);
+    _entranceUi->caption=std::move(caption);
     _presenter.clear();_journeyEventLayers=false;
     // Reuse the passive voice deferral already used by Event speech. It adds
     // neither a caption nor an input wait; sample intervals remain silent.
     XeenPresentationRequest notice;notice.kind=XeenPresentationKind::DeferredAudio;
     notice.text="Voice audio not supported yet";notice.response=XeenPresentationResponseRequirement::Presented;
     _presenter.originalAssets(dialogText,drawDialogSprite);
-    _presenter.present(_frame,notice);
+    if(efx)_presenter.present(_frame,notice);
     advanceEntrance();
 }
 bool XeenEventFlow::advanceEntrance() {
@@ -2071,6 +2104,11 @@ bool XeenEventFlow::advanceEntrance() {
     auto frame=command->restore?(command->phase==XeenEntranceAnimation::Phase::Rise?zoom:_entranceUi->saved):_entranceUi->art;
     for(const auto &sprite:command->sprites) {
         drawEntranceSprite(frame,sprite.resource,sprite.frame,sprite.x,sprite.y,sprite.scale);
+        _eventPublication->check();checkTransitionCandidate();
+    }
+    if(command->caption) {
+        const auto end=*command->caption,start=end>40?end-40:0;
+        drawEntranceCaption(frame,_entranceUi->caption.substr(start,end-start));
         _eventPublication->check();checkTransitionCandidate();
     }
     const auto ending=random.continuation();
@@ -2096,7 +2134,7 @@ std::optional<IndexedFrame> XeenEventFlow::updateEntrance() {
 void XeenEventFlow::startServiceSample(ServiceArtState &state,const char *name,bool resetIndex) {
     // A missing provider models the original sound-unavailable status (zero).
     std::uint64_t duration=0;
-    if(loadSampleDuration)_encounter->guardCallback(_encounter->ticket(),[&]{duration=loadSampleDuration(name,XeenSceneArchive::Clouds);});
+    if(XeenSoundOptions(_party.soundOptions).efx && loadSampleDuration)_encounter->guardCallback(_encounter->ticket(),[&]{duration=loadSampleDuration(name,XeenSceneArchive::Clouds);});
     state.sample.start(presentationNow(),duration);
     if(resetIndex)state.index=XeenServiceAnimation::modulus(state.kind)-1;
 }

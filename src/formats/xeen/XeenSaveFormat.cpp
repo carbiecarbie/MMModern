@@ -386,6 +386,8 @@ std::vector<std::uint8_t> XeenSaveFormat::encode(const XeenSaveSnapshot &s) {
 	for (const auto count : s.questItems) out.u32(count);
 	for (const bool value : s.questFlags) out.u8(value);
 	for (const bool value : s.gameFlags) out.u8(value);
+	out.u8(s.soundOptions.efx);out.u8(s.soundOptions.music);
+	out.u8(s.soundOptions.text);out.u8(s.soundOptions.speech);
 
 	const auto &j = *s.journey;
 	out.u8(3); out.u16(j.schema); out.u16(j.content); out.u8(1);
@@ -488,6 +490,7 @@ XeenSaveSnapshot XeenSaveFormat::decode(const std::vector<std::uint8_t> &bytes) 
 	for (auto &count : s.questItems) count = in.u32();
 	for (auto &value : s.questFlags) value = in.boolean();
 	for (auto &value : s.gameFlags) value = in.boolean();
+	s.soundOptions={in.boolean(),in.boolean(),in.boolean(),in.boolean()};
 
 	// Fixed Journey bytes: domain/schema/content/context marker 6, context and
 	// food 36, supplements 1230, RNG 13, resistances 331, purse 8,

@@ -88,7 +88,8 @@ struct Dump {
         // compare its gold/gems with older builds; pending treasure is not saved.
         value(p + ".treasure", v.purse);
         F(worldFlags); F(serviceEconomy);)
-    V(XeenSaveSnapshot, F(resources); F(name); F(food); F(camera); F(activeRosterIds); F(characters);
+    V(XeenSoundOptions, F(efx); F(music); F(text); F(speech);)
+    V(XeenSaveSnapshot, F(soundOptions); F(resources); F(name); F(food); F(camera); F(activeRosterIds); F(characters);
         F(questItems); F(questFlags); F(gameFlags); F(headCache); F(journey); F(maps);)
 #undef V
 #undef F

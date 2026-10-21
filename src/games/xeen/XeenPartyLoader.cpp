@@ -28,6 +28,8 @@ XeenPartyState XeenPartyLoader::loadFromResources(
 	state.firstSerializedCount = header.firstCount;
 	state.effectiveSerializedCount = header.effectiveCount;
 	if (partyBytes.size() < 620) throw std::runtime_error("maze.pty truncated before food");
+	// Clouds overlays only its short template; the CD tail defaults survive.
+	state.soundOptions=XeenSoundOptions{partyBytes.at(14)!=0,partyBytes.at(15)!=0,false,true};
 	state.food = std::uint16_t(partyBytes[618]) | (std::uint16_t(partyBytes[619])<<8);
 
 	if (header.firstCount != header.effectiveCount) {

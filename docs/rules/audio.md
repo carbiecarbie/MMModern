@@ -416,9 +416,21 @@ Reaper and Golem draw captions in the first speech loop, not their second
 sample loop (`0x2ac87`, `0x2a14c`, continuations `0x2aca2..0x2acb8` and
 `0x2a167..0x2a17d`). Dwarf and Sphinx exit later sample phases in text mode
 after one cursor cycle (`0x2b67b..0x2b6aa`, `0x2992d..0x29940`). These are
-logical wait lengths. **Unknown:** the exact frame on which previously
-drawn caption-box pixels disappear; cessation of renderer calls does not
-prove erasure. The earlier evidence expressly leaves that observation open.
+logical wait lengths.
+
+**DOSBox video, Dwarf only (2026-10-21):** maintainer captures
+`D:/MModern-re/audio-m82/captures/dwarf-efx-off.avi` and
+`dwarf-efx-on.avi`, classic DOSBox 0.74-2 ZMBV, decoded with the maintainer's
+pure-Python `D:/MModern-re/tools/zmbv.py`. At 14,268 microseconds per frame,
+zero-based frame 136 first shows the box after the rise, in the first speech
+loop. Frame 137 briefly shows the actor redraw without it; frames 138..960
+show the strip, empty after the cursor wraps at the end. Frame 961 redraws
+the final Dwarf body/mouth without the box, before the later "Please Wait"
+overlay and map reconstruction. The Efx-on control shows no caption.
+Thus the Dwarf box lasts through its caption speech loop and is erased by
+its final redraw, not by a universal timeout or the map load. Other guardians'
+box erasure is **not video-confirmed**; retain their original sprite/restore
+compositions. Decoded frames and analysis remain outside the repository.
 
 ## Missing configuration and remaining evidence
 

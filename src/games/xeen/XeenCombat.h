@@ -205,6 +205,7 @@ public:
 	bool runAvailable() const;
 	XeenCombatResult configureQuickFight(const Ticket &,std::size_t);
 	XeenCombatResult toggleAutomap(const Ticket &);
+ XeenCombatResult configureSound(const Ticket &,XeenSoundOptions);
 	XeenCombatResult selectTarget(const Ticket &, unsigned row);
     XeenCombatResult rotate(const Ticket &,NavigationAction);
     unsigned movementCountdown() const noexcept;

@@ -103,8 +103,10 @@ void panelControls(XeenAssetSource &assets,const XeenFontFormat &font) {
  for(unsigned key:{'e','m','p','t'}) {
   const auto it=std::find_if(hits->hits.begin(),hits->hits.end(),[&](const auto &h){return h.key==key;});
   check(it!=hits->hits.end() && it->button && it->button->pressedFrame()==1,"panel pressed frame");
-  d.click(it->left,it->top);check(d.flow.screen()==Screen::Notice && !d.flow.entry(),"deferred control must refuse");d.key(27);
+  d.click(it->left,it->top);check(d.flow.screen()==Screen::Panel && !d.flow.entry(),"sound toggle must remain on panel");
  }
+ check(d.flow.soundOptions()==XeenSoundOptions{false,false,true,false},"Speech off forces Text on, including Text toggle redraw");
+ d.key('p');d.key('t');check(d.flow.soundOptions()==XeenSoundOptions{false,false,false,true},"Text off allowed with Speech on");
  d.key('w');check(d.flow.screen()==Screen::Wizard,"Mr Wizard confirmation first");d.key('n');
  d.key('w');d.key('y');check(d.flow.entry() && d.flow.entry()->kind==XeenSessionEntry::Kind::MrWizard,"Mr Wizard request after Yes");
  d.flow.panelFailure("not supported yet");d.present();check(d.flow.screen()==Screen::Notice && !d.flow.entry(),"refused Mr Wizard notice");d.key(27);
@@ -214,7 +216,7 @@ void mappedHotkeys(const GameInstallation &installation,XeenAssetSource &assets,
  check(load.flow.screen()==Screen::Credits,"DAT-index Credits mapping");for(unsigned page=0;page<4;++page)load.key(27);load.fade();load.key('k');load.key('c');load.key(13);
  check(load.flow.entry() && load.flow.entry()->kind==XeenSessionEntry::Kind::Load,"DAT-index title Load mapping");
  Driver p(services(true));
- for(unsigned key:{'a','b','g','h'}){p.key(key);check(p.flow.screen()==Screen::Notice,"DAT-index deferred panel mapping");p.key(27);}
+ for(unsigned key:{'a','b','g','h'}){p.key(key);check(p.flow.screen()==Screen::Panel,"DAT-index sound panel mapping");}
  p.key('f');check(p.flow.screen()==Screen::Quit,"DAT-index Quit mapping");p.key('n');
  p.key('i');check(p.flow.screen()==Screen::Wizard,"DAT-index Wizard mapping");p.key('n');
  p.key('d');check(p.flow.entry() && p.flow.entry()->kind==XeenSessionEntry::Kind::Save,"DAT-index direct Save mapping");

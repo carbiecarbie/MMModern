@@ -493,6 +493,24 @@ int Application::gameplay(const std::filesystem::path &gameDirectory, XeenCamera
                 };
                 flow.mapName = [&](XeenMapIdentity id) { return assets.mapName(id); };
                 flow.loadRestDream = [&] { return assets.restDreamImage(); };
+                flow.loadEntranceCaption = [&](unsigned action,bool keyed) {
+                    const auto bytes=assets.readArchiveResource("special.bin",XeenSceneArchive::Clouds);
+                    const unsigned record=action==10?1:action==8?(keyed?2:3):action==9?(keyed?4:5):(keyed?6:7);
+                    std::size_t begin=0;
+                    for(unsigned i=0;i<record;++i) {
+                        while(begin<bytes.size() && bytes[begin])++begin;
+                        if(begin==bytes.size())throw std::runtime_error("Missing original entrance caption");
+                        ++begin;
+                    }
+                    auto end=begin;while(end<bytes.size() && bytes[end])++end;
+                    if(end==bytes.size() || end==begin)throw std::runtime_error("Invalid original entrance caption");
+                    return std::string(bytes.begin()+begin,bytes.begin()+end);
+                };
+                flow.drawEntranceCaption = [&](IndexedFrame &frame,const std::string &value) {
+                    assets.drawDialogSprite(frame,"box.vga",0,36,189,XeenSceneArchive::Clouds);
+                    XeenTextRenderOptions options;options.originalControls=true;options.bounds={0,0,320,200};
+                    frame=XeenTextRenderer(font).render(frame,std::string("\f35\3c\v190\t000")+value,options).pages.front();
+                };
                 flow.loadSampleDuration = [&](const char *name,XeenSceneArchive archive) {
                     return xeenVocDurationNanoseconds(assets.readArchiveResource(name,archive));
                 };

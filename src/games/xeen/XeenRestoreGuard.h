@@ -24,7 +24,7 @@ public:
 		marked(p.roster.combatMarked()), membership(p.party.activeRosterIds()),
 		quests(p.questItems.counts()), questFlags(p.questFlags.values()), recovery(p.worldFlags), context(p.encounterContext), purse(p.purse), staging(w.treasureStaging().value()), stagingRevision(w.treasureStaging().revision()),
 		stagingOwner(&w.treasureStaging()), economy(p.serviceEconomy),
-		food(p.food), first(p.firstSerializedCount), effective(p.effectiveSerializedCount), diagnostics(p.diagnostics),
+		soundOptions(p.soundOptions), food(p.food), first(p.firstSerializedCount), effective(p.effectiveSerializedCount), diagnostics(p.diagnostics),
 		cameraValue(c), flagValues(f.values()), combatCheck(bool(w._combatCheck)), combatAuthorized(bool(w._combatAuthorized)),
 		maps(w._maps), objects(w._objects), cityStatistics(w._cityStatistics), cacheRevision(w._cacheRevision), exactCaches(exactCaches),
 		borrowOwners{&w._gameplayBorrow, &p._gameplayBorrow, &p.roster._gameplayBorrow, &c.gameplayBorrow, &f._gameplayBorrow} {
@@ -51,7 +51,7 @@ public:
 		quests(std::move(other.quests)), questFlags(std::move(other.questFlags)), recovery(std::move(other.recovery)),
 		context(std::move(other.context)), purse(std::move(other.purse)), staging(other.staging), stagingRevision(other.stagingRevision),
 		stagingOwner(other.stagingOwner), economy(std::move(other.economy)),
-		food(other.food), first(std::move(other.first)), effective(std::move(other.effective)), diagnostics(std::move(other.diagnostics)),
+		soundOptions(other.soundOptions), food(other.food), first(std::move(other.first)), effective(std::move(other.effective)), diagnostics(std::move(other.diagnostics)),
 		cameraValue(std::move(other.cameraValue)), flagValues(std::move(other.flagValues)), combatCheck(std::move(other.combatCheck)),
 		combatAuthorized(std::move(other.combatAuthorized)), maps(std::move(other.maps)), objects(std::move(other.objects)),
 		cityStatistics(std::move(other.cityStatistics)), regionalText(std::move(other.regionalText)), vertigoText(std::move(other.vertigoText)), eventTexts(std::move(other.eventTexts)),
@@ -77,7 +77,7 @@ public:
 			!(p.encounterContext == context) || p.purse != purse ||
 			&w.treasureStaging() != stagingOwner || w.treasureStaging().revision() != stagingRevision ||
 			w.treasureStaging().value() != staging || p.serviceEconomy != economy || p.firstSerializedCount != first ||
-			p.food!=food || p.effectiveSerializedCount != effective || p.diagnostics != diagnostics ||
+			p.soundOptions!=soundOptions || p.food!=food || p.effectiveSerializedCount != effective || p.diagnostics != diagnostics ||
 			!sameCamera(c, cameraValue) || f.values() != flagValues ||
 			bool(w._combatCheck) != combatCheck || bool(w._combatAuthorized) != combatAuthorized ||
 			w._cityStatistics.size()!=cityStatistics.size()) return false;
@@ -309,7 +309,7 @@ private:
 		quests=candidate.questItems.counts();questFlags=candidate.questFlags.values();
 		recovery=candidate.worldFlags;context=candidate.encounterContext;
 		purse=candidate.purse;economy=candidate.serviceEconomy;
-		food=candidate.food;first=candidate.firstSerializedCount;effective=candidate.effectiveSerializedCount;diagnostics=candidate.diagnostics;
+		soundOptions=candidate.soundOptions;food=candidate.food;first=candidate.firstSerializedCount;effective=candidate.effectiveSerializedCount;diagnostics=candidate.diagnostics;
 		// The staged tables of an original start, or the admitted (outdoor)
 		// mainland table alone for a prepared start.
 		auto tables=staged;
@@ -332,7 +332,7 @@ private:
 		marked = candidate.marked; membership = candidate.membership;
 		quests = candidate.quests; questFlags = candidate.questFlags; recovery = candidate.recovery; context = candidate.context; purse = candidate.purse;
 		economy = candidate.economy;
-		food=candidate.food;first = candidate.first; effective = candidate.effective; diagnostics = candidate.diagnostics;
+		soundOptions=candidate.soundOptions;food=candidate.food;first = candidate.first; effective = candidate.effective; diagnostics = candidate.diagnostics;
 		cameraValue = candidate.cameraValue; flagValues = candidate.flagValues;
 		maps = candidate.maps; objects = candidate.objects;
 		cityStatistics = candidate.cityStatistics;
@@ -446,7 +446,7 @@ private:
 		s._journeyRandom=candidate.s._journeyRandom;
 		maps.swap(nextMaps);objects.swap(nextObjects);cityStatistics.swap(statistics);
 		cameraValue=candidate.cameraValue;flagValues=candidate.flagValues;++worldRevision;
-		context=candidate.context;recovery=candidate.recovery;food=candidate.food;economy=candidate.economy;
+		context=candidate.context;recovery=candidate.recovery;soundOptions=candidate.soundOptions;food=candidate.food;economy=candidate.economy;
 		quests=candidate.quests;questFlags=candidate.questFlags;
 	}
 	// Sequence boundaries publish the interpreter's known party/RNG prefix while
@@ -475,7 +475,7 @@ private:
 			if(inputs[owner])*inputs[owner]=*candidate.inputs[owner];
 		}
 		quests=candidate.quests;questFlags=candidate.questFlags;context=candidate.context;recovery=candidate.recovery;
-		food=candidate.food;economy=candidate.economy;
+		soundOptions=candidate.soundOptions;food=candidate.food;economy=candidate.economy;
 		purse=candidate.purse;
 		s._journeyRandom=candidate.s._journeyRandom;
 	}
@@ -577,6 +577,7 @@ private:
 	std::uint64_t stagingRevision;
 	const XeenTreasureStagingState *stagingOwner;
 	std::optional<XeenServiceEconomy> economy;
+	XeenSoundOptions soundOptions;
 	std::uint16_t food=0;
 	std::uint8_t first, effective;
 	std::vector<std::string> diagnostics;

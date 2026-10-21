@@ -282,12 +282,12 @@ Most of the scripts concerned are in areas MMModern has not opened yet.
   but its audible transfer function is not established by the OPL captures.
   The pin uses its own software scaling. Pin: differs; master not rechecked.
   [Details](original-quirks.md#sv-promus-pas-mixer)
-- **CD party audio options (not implemented).** DOS saves four party options;
+- **CD party audio options.** DOS saves four party options;
   New Clouds defaults to Efx/Music on, Text off and Speech on. Efx off gates
   playback/status without stopping active sound. The pin uses global settings
   and stops FM FX. Pin: differs; master not rechecked.
   [Details](original-quirks.md#sv-cd-audio-party-options)
-- **Song process state (panel options still pending).** DOS keeps same-name music, handles
+- **Song process state.** DOS keeps same-name music, handles
   pending fade/CD waits while accepting input, and restarts the loaded buffer
   when Music is enabled. Load does not replay a Music-off toggle. The pin
   ignores fade arguments and clears the current name on stop.
@@ -303,8 +303,8 @@ Most of the scripts concerned are in areas MMModern has not opened yet.
   explicit waits use the DOSBox-observed two retraces at 70 Hz. The pin
   uses `WAIT(1)`. DOS retreats on Reaper refusal and draws Sphinx retreat
   indices 0..8; the pin retreats on Reaper success and draws Sphinx 0..7.
-  Installed DOS defaults show no captions; Effects-off captions remain
-  deferred with audio. Pin: differs; master not rechecked.
+  Installed DOS defaults show no captions; Effects-off captions advance
+  one character per qualifying two-BIOS-tick interval, including long records. Pin: differs; master not rechecked.
 
 - **Control panel and saves.** MMModern uses the original panel, Save As
   included, and its ten-slot chooser; ScummVM rearranges the panel and uses its
@@ -414,6 +414,10 @@ Comparison is with pinned `6814ee9b`, not a new master check:
   a species for each monster.
 - [Arena ordinal suffix](original-quirks.md#sv-arena-ordinal): DOS displays
   21st/22nd/23rd, while the pin uses `th` for every count above nine.
+
+- [Temporary visible text](original-quirks.md#sv-m82-visible-text): M82 saves
+  the original Text option but keeps dialog text visible until M83 provides
+  CD speech (maintainer approval, 2026-10-21; pin `6814ee9b`, master not rechecked).
 
 ScummVM plays the whole game today; MMModern is young. The full list of gaps is
 in [project status](project-status.md#known-gaps):

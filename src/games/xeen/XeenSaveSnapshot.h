@@ -160,6 +160,7 @@ struct XeenSaveSnapshot {
 	// v7: absent only for explicit developer loose saves. Never a filesystem name.
 	std::optional<std::string> name;
 	std::uint16_t food=0;
+	XeenSoundOptions soundOptions;
 	XeenCamera camera;
 	std::vector<std::uint8_t> activeRosterIds;
 	std::array<XeenCharacter, XeenRoster::kCharacterCount> characters{};

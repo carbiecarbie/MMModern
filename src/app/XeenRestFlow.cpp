@@ -49,8 +49,8 @@ bool XeenEncounterFlow::beginRest(const std::function<IndexedFrame()> &dream,
     RestContinuation::Phase::Confirm:shelter?RestContinuation::Phase::Remainder:RestContinuation::Phase::Charges;
    if(_party.encounterContext->profile==XeenBehaviorProfile::WorldOfXeenClouds) {
     if(!dream || !durations)throw std::invalid_argument("Original Rest dream providers are absent");
-    candidate->sampleDurations=durations();
-    if(!candidate->sampleDurations[0] || !candidate->sampleDurations[1])
+    candidate->sampleDurations=XeenSoundOptions(_party.soundOptions).efx?durations():std::array<std::uint64_t,2>{0,0};
+    if(XeenSoundOptions(_party.soundOptions).efx && (!candidate->sampleDurations[0] || !candidate->sampleDurations[1]))
      throw std::invalid_argument("Invalid original Rest sample duration");
     candidate->dream=dream();
     if(candidate->dream.width!=320 || candidate->dream.height!=200 || !candidate->dream.isValid())

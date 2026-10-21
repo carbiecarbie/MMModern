@@ -162,8 +162,10 @@ void XeenTitleFlow::render(bool semantic) {
   for(const auto &hit:dialog().hits)if(hit.button){const auto &b=*hit.button;_services.draw(frame,b.resource,b.frame,b.x,b.y);}
  } else if(_screen==Screen::Panel) {
   // DOS window 23: code-segment arrays at 0x3dc2c/8c/ec, 0x3dd4c (80,28,176,140).
-  const auto state=str(dos.scalar("PANEL_OFF"));
-  const auto buttons=xeenDialogFormat(dos.scalar("PANEL_BUTTON_TEXT"),{state,state,state,state});
+  _services.soundOptions.panelRedraw();
+  const auto label=[&](bool on){return str(dos.scalar(on?"PANEL_ON":"PANEL_OFF"));};
+  const auto o=_services.soundOptions;
+  const auto buttons=xeenDialogFormat(dos.scalar("PANEL_BUTTON_TEXT"),{label(o.efx),label(o.music),label(o.text),label(o.speech)});
   frame=text(frame,font,xeenDialogFormat(dos.scalar("PANEL_TEXT"),{buttons,_services.currentName}),
    {80,28,256,168},{88,36,248,160},true,false,true);
   for(const auto &hit:dialog().hits)if(hit.button){const auto &b=*hit.button;_services.draw(frame,b.resource,b.frame,b.x,b.y);}
@@ -285,7 +287,7 @@ std::optional<IndexedFrame> XeenTitleFlow::handle(const PlayerAction &action,con
   if(escape){_closed=true;_inputFrame.reset();return {};}
   if(button==5){setScreen(Screen::Quit);break;}
   if(button==8){setScreen(Screen::Wizard);break;}
-  if(button==0 || button==1 || button==6 || button==7){notice("not supported yet",Screen::Panel);break;}
+  if(button==0 || button==1 || button==6 || button==7){_services.soundOptions.toggle(*button);_soundToggle=*button;render();break;}
   if(button!=2 && button!=3 && button!=4)return {};
   const bool load=button==2;
   if(_services.combat){notice(str(_services.text.scalar(load?"NO_LOADING_IN_COMBAT":"NO_SAVING_IN_COMBAT")),Screen::Panel);break;}
@@ -384,3 +386,5 @@ std::optional<IndexedFrame> XeenTitleFlow::animateAt(std::uint64_t nanoseconds) 
  _phase=(_phase+1)%_services.animation.size();_animationAcquired=false;render(false);return _frame;
 }
 }
+
+namespace mmodern { void XeenTitleFlow::soundOptions(XeenSoundOptions value) {_services.soundOptions=value;render();} }

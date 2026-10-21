@@ -48,8 +48,8 @@ XeenSaveSnapshot conditionDeathSource(Inputs &in) {
  for(auto owner:source.activeRosterIds)source.characters[owner].conditions[2]=255;
  for(auto &actor:source.map(28).monsters->slots){actor.x=actor.y=-128;actor.lifecycle=XeenActorLifecycle::Defeated;actor.accounted=true;}
  return source;
-}void sequence(Inputs &in,bool longSample,bool skipScroll) {
- const auto source=conditionDeathSource(in);
+}void sequence(Inputs &in,bool longSample,bool skipScroll,bool efx=true) {
+ auto source=conditionDeathSource(in);source.soundOptions.efx=efx;
  Fixture f(in,source);wire(f,longSample?10000000000ULL:0);
  f.flow->loadRestDream=[&]{return in.assets.restDreamImage();};
  f.act(RestAction{});check(Access::confirmRest(*f.flow),"Original all-member Rest danger confirmation");f.act(YesAction{});
@@ -122,7 +122,7 @@ XeenSaveSnapshot conditionDeathSource(Inputs &in) {
  }
  check(f.flow->partyDeathComplete() && fires==18 && finals==1 && restores==1 && closed==1 && fades==33 && retries==1,
   "Original death fire/final/restore/fade frame counts");
- check(sampleReads==2 && sawRestart && (longSample?laughs==34:laughs<34),"Original sample gate/restart/bounded laugh loop");
+ check(efx?(sampleReads==2 && sawRestart && (longSample?laughs==34:laughs<34)):(sampleReads==0 && !sawRestart && laughs==1),"Original sample gate/restart/bounded laugh loop");
  check(scrolls==(skipScroll?1u:22u),"Original closing hand sequence count");
  if(longSample)check(PresentationClock::fromMilliseconds(f.now)<sampleEnd,"Bounded laugh loop invented a final sample-wait tail");
  std::cout<<"Clouds death fire="<<fires<<" laugh="<<laughs<<" scroll="<<scrolls<<" fade="<<fades<<" passed\n";
@@ -192,6 +192,6 @@ void applicationOutcome(Inputs &in) {
 }
 int main(int argc,char **argv){try {
  check(argc==2,"Death original usage: installation");const auto installation=xeenTestInstallationDetector().detect(argv[1]);check(bool(installation),"Original installation absent");
- Inputs in(*installation);sequence(in,false,false);sequence(in,true,false);sequence(in,false,true);refusal(in);titleReturn(in);applicationOutcome(in);
+ Inputs in(*installation);sequence(in,false,false);sequence(in,true,false);sequence(in,false,true);sequence(in,false,false,false);refusal(in);titleReturn(in);applicationOutcome(in);
  std::cout<<"Original death timing, restart, input, frame retry and title-return tests passed\n";return 0;
  }catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}

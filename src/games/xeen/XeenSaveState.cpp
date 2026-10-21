@@ -118,7 +118,7 @@ void XeenSaveState::restoreJourney(const XeenSaveSnapshot &source, const Resourc
 		p.roster.at(i)._originalDetails = details;
 	}
 	p.party = XeenParty::fromRosterIds(snapshot.activeRosterIds);
-	p.food=snapshot.food;
+	p.food=snapshot.food; p.soundOptions=snapshot.soundOptions;
 	p.questItems = XeenCloudsQuestItems(snapshot.questItems); p.questFlags = XeenCloudsQuestFlags(snapshot.questFlags);
 	p.worldFlags = snapshot.journey->worldFlags;
 	p.firstSerializedCount = p.effectiveSerializedCount = 6;
@@ -324,7 +324,7 @@ XeenSaveSnapshot XeenSaveState::captureImpl(const XeenSaveResourceSignature &res
 	snapshot.camera = camera;
 	snapshot.activeRosterIds = party.party.activeRosterIds();
 	snapshot.characters = party.roster.characters();
-	snapshot.food=party.food;
+	snapshot.food=party.food; snapshot.soundOptions=party.soundOptions;
 	snapshot.questItems = party.questItems.counts();
 	snapshot.questFlags = party.questFlags.values();
 	snapshot.gameFlags = flags.values();

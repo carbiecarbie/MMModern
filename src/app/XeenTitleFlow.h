@@ -24,6 +24,7 @@ public:
   std::string saveUnavailable="not supported yet"; // Panel notice while !saveable
   std::optional<unsigned> currentSlot;
   std::string currentName;
+  XeenSoundOptions soundOptions;
  };
  enum class Screen { Menu, Background, Other, Credits, NewSlots, LoadSlots, Overwrite, Name, Difficulty, Notice, PublicationFailure, Panel, SaveSlots, Quit, Wizard, SavedNotice };
  explicit XeenTitleFlow(Services services);
@@ -50,6 +51,9 @@ public:
  void drawButton(IndexedFrame &frame,const InputButton &button) const {
   _services.draw(frame,button.resource,button.pressedFrame(),button.x,button.y);
  }
+ void soundOptions(XeenSoundOptions);
+ XeenSoundOptions soundOptions() const {return _services.soundOptions;}
+ std::optional<unsigned> takeSoundToggle() {auto value=_soundToggle;_soundToggle.reset();return value;}
  void newSlots();
  void returnToTitle();
  void cancelPublication();
@@ -61,6 +65,7 @@ public:
  void panelCurrent(unsigned slot,std::string name);
 private:
  Services _services;
+ std::optional<unsigned> _soundToggle;
  Screen _screen=Screen::Background,_noticeReturn=Screen::Menu;
  std::optional<XeenSessionEntry> _entry;
  std::array<XeenSaveFile::Slot,10> _slots;

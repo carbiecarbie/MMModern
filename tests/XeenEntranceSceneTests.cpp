@@ -22,6 +22,9 @@ struct XeenEntranceTestAccess {
         }
         throw std::runtime_error("No distant original monster at the entrance");
     }
+    static std::uint64_t serviceSample(XeenEventFlow &flow) {
+        XeenEventFlow::ServiceArtState state;flow.startServiceSample(state,"hello.voc");return state.sample.deadline();
+    }
     static bool active(const XeenEventFlow &flow){return flow._entranceUi.has_value();}
 };
 }
@@ -141,14 +144,60 @@ XeenSaveSnapshot entranceSave(training_test::Inputs &in,const XeenCamera &camera
     for(const auto &a:actors)table->slots.push_back({a.x,a.y,a.lifecycle,a.status,false,-1});
     return s;
 }
-void original(training_test::Inputs &in,XeenCamera camera,unsigned action,bool keyed,bool wounded=false) {
-    auto save=entranceSave(in,camera,keyed,action);training_test::Fixture f(in,save);
+void captions() {
+    using A=XeenEntranceAnimation;using P=A::Phase;
+    for(unsigned action=8;action<=11;++action)for(bool keyed:{false,true}) {
+        const unsigned length=action==10?107:action==8?(keyed?76:78):action==9?(keyed?72:73):(keyed?73:50);
+        unsigned sampleCalls=0,advances=0,prior=0,speechPhases=0;
+        std::uint64_t now=0,lastMark=0;bool inSpeech=false;
+        A a(action,keyed,[&](const char *){++sampleCalls;return 1000000000ULL;},false,length);
+        for(unsigned count=0;count<2000 && !a.finished();++count) {
+            auto frame=a.advance(now,[](unsigned lo,unsigned){return lo;});
+            if(frame) {
+                if(frame->phase==P::Speech && !inSpeech)++speechPhases;
+                inSpeech=frame->phase==P::Speech;
+                if(frame->caption && *frame->caption!=prior) {
+                    const auto tick=PresentationClock::tick(now);
+                    if(advances)check(tick-lastMark>=2,"Caption advanced before two BIOS ticks");
+                    check(*frame->caption==(prior+1)%length,"Caption skipped a character or failed record wrap");
+                    lastMark=tick;prior=*frame->caption;++advances;
+                    // Late wake must still advance just one character.
+                    if(advances==3)now+=1000000000ULL;
+                }
+                a.acquired(now);
+            }
+            now=std::max(now,a.deadline());
+        }
+        check(a.finished() && !sampleCalls && advances==length && prior==0,"Efx-off caption cycle/sample gate");
+        check(speechPhases==(action>=10?1u:2u),"Dwarf/Sphinx later phases not skipped or Reaper/Golem second loop lost");
+    }
+}
+void original(training_test::Inputs &in,XeenCamera camera,unsigned action,bool keyed,bool wounded=false,bool efx=true) {
+    auto save=entranceSave(in,camera,keyed,action);save.soundOptions.efx=efx;training_test::Fixture f(in,save);
+    unsigned captions=0;
+    f.flow->loadEntranceCaption=[&](unsigned kind,bool hasKey) {
+        const auto bytes=in.assets.readArchiveResource("special.bin",XeenSceneArchive::Clouds);
+        const unsigned record=kind==10?1:kind==8?(hasKey?2:3):kind==9?(hasKey?4:5):(hasKey?6:7);
+        std::size_t start=0;
+        for(unsigned i=0;i<record;++i){while(bytes.at(start))++start;++start;}
+        auto end=start;while(bytes.at(end))++end;
+        const unsigned expected=kind==10?107:kind==8?(hasKey?76:78):kind==9?(hasKey?72:73):(hasKey?73:50);
+        check(end-start==expected,"Original entrance record length");
+        return std::string(bytes.begin()+start,bytes.begin()+end);
+    };
+    f.flow->drawEntranceCaption=[&](IndexedFrame &frame,const std::string &text) {
+        ++captions;in.assets.drawDialogSprite(frame,"box.vga",0,36,189,XeenSceneArchive::Clouds);
+        XeenTextRenderOptions options;options.originalControls=true;options.bounds={0,0,320,200};
+        frame=XeenTextRenderer(in.font).render(frame,std::string("\f35\3c\v190\t000")+text,options).pages.front();
+    };
     f.flow->drawEntranceSprite=[&](auto &frame,const char *name,unsigned id,int x,int y,int scale){in.assets.drawDialogSprite(frame,name,id,x,y,XeenSceneArchive::Clouds,scale);};
     std::vector<std::pair<std::string,std::uint64_t>> samples;
     f.flow->loadSampleDuration=[&](const char *name,XeenSceneArchive archive){
         const auto duration=xeenVocDurationNanoseconds(in.assets.readArchiveResource(name,archive));
         samples.emplace_back(name,duration);return duration;
     };
+    if(!efx)check(XeenEntranceTestAccess::serviceSample(*f.flow)==f.flow->presentationNow() && samples.empty(),
+                  "Efx-off service greeting retained a VOC-busy interval");
     unsigned failures=0;
     f.flow->reportManual=[&](const auto &r){if(const auto *e=std::get_if<XeenEventExecutionError>(&r)){++failures;std::cerr<<e->message<<'\n';}};
     std::optional<unsigned> hurt;if(wounded)hurt=XeenEntranceTestAccess::wound(*f.flow);
@@ -165,7 +214,8 @@ void original(training_test::Inputs &in,XeenCamera camera,unsigned action,bool k
     check(xeen_state::sameCamera(f.c,xeenEntranceDestination(*xeenEntranceSite(action,camera),camera,XeenCloudsQuestItems(save.questItems))),"Original entrance destination/position/facing");
     check(f.p.encounterContext->day==time.day && f.p.encounterContext->minutes==time.minutes && f.p.encounterContext->year==time.year,"Entrance charged game/service time");
     check(f.w.sessionState().journeyRandom()->count>rng.count,"Scene did not consume gameplay RNG");
-    if(action==11 && !keyed) {
+    if(!efx)check(samples.empty() && captions>0,"Efx-off entrance resolved samples or omitted caption");
+    if(efx && action==11 && !keyed) {
         check(samples==std::vector<std::pair<std::string,std::uint64_t>>{{"sphinx13.voc",2668524000ULL},{"sphinx14.voc",1275068000ULL}},
             "Sphinx refusal must retain the damaged-descriptor sample's full PCM duration");
         check(f.now>=3943,"Sphinx refusal skipped a speech phase");
@@ -179,7 +229,7 @@ void original(training_test::Inputs &in,XeenCamera camera,unsigned action,bool k
 }
 }
 int main(int argc,char **argv) {try {
-    sites();for(unsigned action=8;action<=11;++action)for(bool keyed:{false,true})if(action!=10 || keyed)animation(action,keyed);
+    sites();captions();for(unsigned action=8;action<=11;++action)for(bool keyed:{false,true})if(action!=10 || keyed)animation(action,keyed);
     if(argc>1) {
         const auto installation=xeenTestInstallationDetector().detect(argv[1]);check(bool(installation),"Missing original installation");
         training_test::Inputs in(*installation);
@@ -187,6 +237,7 @@ int main(int argc,char **argv) {try {
         original(in,{24,10,9,XeenDirection::North},8,true);
         original(in,{24,10,9,XeenDirection::North},8,false,true);
         original(in,{23,5,13,XeenDirection::North},10,true);
+        original(in,{23,5,13,XeenDirection::North},10,true,false,false);
         original(in,{5,12,8,XeenDirection::South},11,false);
         for(const auto map:{8u,5u}) {
             const unsigned action=map==8?9:11;const auto events=in.events.load(map);

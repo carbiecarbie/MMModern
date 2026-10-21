@@ -48,6 +48,7 @@ inline void sameSnapshot(const XeenSaveSnapshot &a, const XeenSaveSnapshot &b) {
 	check(a.name == b.name, "save name changed");
 	check(a.resources == b.resources && sameCamera(a.camera, b.camera), "signature/camera changed");
 	check(a.food==b.food,"food changed");
+ check(a.soundOptions==b.soundOptions,"sound options changed");
 	check(a.activeRosterIds == b.activeRosterIds, "membership order changed");
 	check(a.maps==b.maps,"per-map state changed");
 	check(a.headCache==b.headCache,"head cache changed");
@@ -206,7 +207,7 @@ inline XeenSaveSnapshot sample() {
 // Wire offset of the Journey domain byte: header, fingerprints, camera, member
 // and roster counts, members, characters, quest counters/flags and game flags.
 inline std::size_t journeyOffset(const XeenSaveSnapshot &s) {
-	std::size_t n=20+25+6+2+s.activeRosterIds.size()+4*s.questItems.size()+s.questFlags.size()+s.gameFlags.size();
+	std::size_t n=20+25+6+2+s.activeRosterIds.size()+4*s.questItems.size()+s.questFlags.size()+s.gameFlags.size()+4;
 	for(const auto &c:s.characters)n+=232+c.name.size();
 	return n;
 }

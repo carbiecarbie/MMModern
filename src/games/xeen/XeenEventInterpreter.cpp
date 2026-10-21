@@ -883,6 +883,11 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 			if (logical.line==255)
 				return error(XeenEventExecutionErrorKind::LineOverflow,
 					"audio sequential event line overflow",instructionCount,logical,decoded.source);
+            const XeenSoundOptions sound=partyState.soundOptions;
+            const auto *cd=std::get_if<XeenEventCdSpeech>(&decoded.operation);
+            if(!cd && !sound.efx) {
+                ++logical.line;missingPolicy=MissingInstructionPolicy::NaturalCompletion;continue;
+            }
 			if (publication) publication->deferredAudio();
 			if(const auto *cue=std::get_if<XeenEventCdSpeech>(&decoded.operation))state.cdSpeech=*cue;
 			XeenPresentationRequest request;

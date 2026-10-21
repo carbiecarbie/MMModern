@@ -317,12 +317,27 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
     std::make_shared<XeenRestoreGuard>(world,party,camera,flags);
    if(flow.encounter())panelTicket=flow.encounter()->ticket();
   };
+  const auto publishSound=[&] {
+   const auto value=panel->soundOptions();const XeenSoundOptions before=party.soundOptions;
+   const auto toggle=panel->takeSoundToggle();
+   if(value!=before) {
+    checkPanel();
+    if(!flow.configureSound(value))throw std::logic_error("Control panel sound publication refused");
+    handoff.retain();retainPanel();
+   }
+   if(const auto &audio=services.program.audio) {
+    if(toggle==1)audio->toggleMusic(value.music,flow.presentationNow());
+    audio->observeOptions(value);
+    if(toggle==0 && value.efx)audio->effect(20,flow.presentationNow());
+   }
+  };
   const auto panelAction=[&](const PlayerAction &action,const IndexedFrame::Presentation &origin) -> std::optional<IndexedFrame> {
    if(!panel->acceptsInput(origin))return {};
    checkPanel();
    {XeenRestoreGuard::Providers providers(*panelGuard,world,checkPanel);
     try {panel->handle(action,origin);checkPanel();}
     catch(const std::exception &e){checkPanel();panel->panelFailure(e.what());}}
+   publishSound();
    if(!panel->current()) {
     panel.reset();panelGuard.reset();panelTicket.reset();flow._queueContext.reset();return flow.frame();
    }
@@ -445,6 +460,7 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
      panel=services.panel(flow.frame(),combat,bool(world.map(camera.mapId).geometry.flags&0x8000),
       flow.journey() && !services.saveUnavailable,services.currentSlot,services.saveName.value_or(""));
      panelGuard->check();}
+    panel->soundOptions(party.soundOptions);publishSound();
     checkPanel();return panel->frame();
    }
    if (std::holds_alternative<SaveGameAction>(action)) {
@@ -506,6 +522,7 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
   std::optional<XeenMapIdentity> soundMap;
   const auto updateAudio=[&] {
    const auto &audio=services.program.audio;if(!audio)return;
+   audio->observeOptions(party.soundOptions);
    const auto now=flow.presentationNow();audio->advance(now,flow.cdSpeechEnd());
    const auto location=flow.audioLocation();
    if(location!=soundLocation || soundMap!=camera.mapId) {

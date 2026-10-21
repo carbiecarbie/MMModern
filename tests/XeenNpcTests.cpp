@@ -307,6 +307,29 @@ void ordinaryCoexistence() {
  for(unsigned i=0;i<calls.size();++i)check(calls[i]==i+1,"stateful clock copied between Flow and NPC");
 
 }
+void speechOff() {
+ Fixture f;f.members.soundOptions=XeenSoundOptions{true,true,false,false};
+ f.set({record(1,1,0,60,{19,30,0,54,1}),npc(1),record(1,1,2,0x12)});
+ auto flow=f.flow();flow.handle(InteractionAction{});f.acquire(flow);
+ check(flow.blocksGameplay() && flow.presenter().npcTiming().remaining==0 && flow.cdSpeechEnd()==0,
+       "Speech-off created a CD wait");
+ const auto reads=f.randomReads;f.tick(flow,165);
+ check(f.randomReads==reads,"Speech-off animated a busy voice");
+ flow.abandonPresentation();
+ // The disabled command must still replace the retained same-disc operands,
+ // including when there is no NPC in the event that issued the command.
+ Fixture retained;retained.members.soundOptions=XeenSoundOptions{true,true,false,false};
+ retained.set({record(1,1,0,60,{19,30,0,54,1}),record(1,1,1,0x12)});
+ auto later=retained.flow();later.handle(InteractionAction{});retained.acquire(later);
+ check(!later.blocksGameplay() && later.cdSpeechEnd()==0 && later.frame().pixels==retained.base.pixels,
+       "Disabled op60 drew a speech notice or created a wait");
+ check(later.configureSound(XeenSoundOptions{}),"Enable Speech after the silent command");
+ retained.set({npc(),record(1,1,1,0x12)});
+ later.handle(InteractionAction{});retained.acquire(later);
+ check(later.presenter().npcTiming().remaining==3066666667ULL,
+       "Speech-off op60 lost the retained cue used by a later same-disc NPC");
+ later.abandonPresentation();
+}
 void cdLifetime() {
  // Mode 2 starts CD and leaves the passive portrait behind WhoWill.
  Fixture f;auto offer=npc(1);offer.parameters={0,1,9,2};
@@ -447,7 +470,7 @@ void sdl() {
 int main(int argc,char **argv) {
 	try {
 		if(argc>1 && std::string(argv[1])=="sdl")sdl();
-		else {skillComparisons();decoderAndExecution();contextAndEffects();presentationAndTiming();ordinaryCoexistence();cdLifetime();failuresAndOwners();assets();}
+		else {skillComparisons();decoderAndExecution();contextAndEffects();presentationAndTiming();ordinaryCoexistence();speechOff();cdLifetime();failuresAndOwners();assets();}
 		std::cout<<"M19A NPC tests passed\n";return 0;
 	}catch(const std::exception&e){std::cerr<<e.what()<<'\n';return 1;}
 }

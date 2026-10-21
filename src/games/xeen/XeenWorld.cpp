@@ -618,7 +618,7 @@ void XeenWorld::copyEventParty(const XeenPartyState &source, XeenPartyState &can
 	candidate.encounterContext=source.encounterContext;candidate.purse=source.purse;
 	candidate.serviceEconomy=source.serviceEconomy;candidate.questItems=source.questItems;
 	candidate.questFlags=source.questFlags;candidate.worldFlags=source.worldFlags;
-	candidate.food=source.food;
+	candidate.food=source.food;candidate.soundOptions=source.soundOptions;
 	candidate.firstSerializedCount=source.firstSerializedCount;candidate.effectiveSerializedCount=source.effectiveSerializedCount;
 	candidate.diagnostics=source.diagnostics;
 }
@@ -760,7 +760,7 @@ void XeenWorld::publishEventParty(XeenPartyState &live,const XeenPartyState &can
 		if(live.roster._combatInputs[owner])*live.roster._combatInputs[owner]=*candidate.roster._combatInputs[owner];
 	}
 	live.encounterContext=candidate.encounterContext;live.worldFlags=candidate.worldFlags;
-	live.food=candidate.food;live.questItems=candidate.questItems;
+	live.food=candidate.food;live.soundOptions=candidate.soundOptions;live.questItems=candidate.questItems;
 	if(live.serviceEconomy && candidate.serviceEconomy)*live.serviceEconomy=*candidate.serviceEconomy;
 	if(live.purse && candidate.purse)*live.purse=*candidate.purse;
 }

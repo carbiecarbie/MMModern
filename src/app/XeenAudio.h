@@ -1,6 +1,7 @@
 #ifndef MMODERN_XEEN_AUDIO_H
 #define MMODERN_XEEN_AUDIO_H
 #include "games/xeen/PromusDriver.h"
+#include "games/xeen/XeenSoundOptions.h"
 #include "core/GameInstallation.h"
 #include "formats/xeen/XeenSpriteDrawOptions.h"
 #include <string>
@@ -26,6 +27,8 @@ public:
  void enterTitle(std::uint64_t now);
  void leaveTitle(std::uint64_t now);
  void effect(unsigned,std::uint64_t now);
+ void observeOptions(XeenSoundOptions);
+ void toggleMusic(bool on,std::uint64_t now);
  void advance(std::uint64_t now,std::uint64_t cdSpeechEnd=0);
  // At a session/title clock-source handoff, retain elapsed driver time and
  // fractional phase while accepting the next source's independent epoch.

@@ -147,7 +147,7 @@ bool panelGameplay(const IndexedFrame &first,const SdlWindow::FrameUpdateHandler
  const auto originalSlot=state.slot;const auto originalWire=XeenSaveFormat::encode(XeenSaveFile::read(originalSlot));
  send(ControlPanelAction{});preview(visible,"native-panel");
  const auto retained=visible.presentation();
- key('e');key(27);key('w');key('n');key('q');key('n');
+ key('e');key('e');key('w');key('n');key('q');key('n');
  const auto input=handler.displayedInput();check(bool(input),"panel input ticket after cancellation");
  check(!handler.withPresentedInput(DialogKeyAction{'q'},*input,retained),"stale panel input accepted");
  for(unsigned i=0;i<10;++i)idle();check(capture()==before,"panel idle/deferred/decline changed gameplay");

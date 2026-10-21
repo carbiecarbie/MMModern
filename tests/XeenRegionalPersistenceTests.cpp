@@ -10,7 +10,7 @@ std::size_t baseSize(const XeenSaveSnapshot &s){
  // Header 20, fingerprints 25, camera 6, member and roster counts 2, then the
  // members, quest counters and flags and game flags; v13 writes no top-level
  // overlay list before the Journey block.
- std::size_t n=20+25+6+2+s.activeRosterIds.size()+4*s.questItems.size()+s.questFlags.size()+s.gameFlags.size();
+ std::size_t n=20+25+6+2+s.activeRosterIds.size()+4*s.questItems.size()+s.questFlags.size()+s.gameFlags.size()+4;
  // v15 adds four mutable beacon bytes per character before the Journey block.
  for(const auto &c:s.characters)n+=232+c.name.size();return n;
 }

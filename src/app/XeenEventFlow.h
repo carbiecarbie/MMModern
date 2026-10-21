@@ -90,6 +90,8 @@ public:
  }
 	std::function<IndexedFrame()> loadRestDream;
     std::function<std::uint64_t(const char*,XeenSceneArchive)> loadSampleDuration;
+    std::function<std::string(unsigned,bool)> loadEntranceCaption;
+    std::function<void(IndexedFrame &,const std::string &)> drawEntranceCaption;
 	std::function<void(XeenTrainingBoundary)> trainingBoundary;
 	bool canSave() const noexcept;
 	bool serviceSaveBlocked() const noexcept { return _smithUi.has_value() || _trainingUi.has_value() || _dispatching || _handoffPending || _saving || _fatal; }
@@ -113,6 +115,7 @@ public:
 	IndexedFrame acceptAutomatic(XeenAutomaticEventResult result);
 	// Control panel Mr Wizard; empty when it is refused with nothing published.
 	std::optional<IndexedFrame> mrWizard();
+ bool configureSound(XeenSoundOptions);
 	const IndexedFrame &frame() const { return _frame; }
 	bool blocksGameplay() const { return (_encounter && (!journey() || !_encounter->journeyQuiet())) ||
 		_pending.has_value() || _dispatching || _saving || _handoffPending || inventoryOpen() || _summary || _fatal; }
@@ -150,6 +153,7 @@ public:
 private:
     struct EntranceUi {
         XeenEntranceAnimation animation;
+        std::string caption;
         IndexedFrame saved,zoom,art;
         explicit EntranceUi(XeenEntranceAnimation value,const IndexedFrame &frame):animation(std::move(value)),saved(frame),art(frame) {}
     };

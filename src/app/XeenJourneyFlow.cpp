@@ -196,6 +196,16 @@ void XeenEncounterFlow::publishJourneyExploration(std::vector<XeenExploredTile> 
 	_world._sessionState.publishExploration(values);
 	_journeyPreimage->s.publishExploration(retained);_journeyPreimage->adoptMutationBoundary();
 }
+bool XeenEncounterFlow::configureSound(const Ticket &entry,XeenSoundOptions value) {
+ if(!current(entry) || _busy)return false;
+ if(_combat)return acceptCombatResult(_combat->configureSound(*entry.combat,value));
+ if(!journeyMutable() || !journeyCapacity())return false;
+ _journeyPreimage->check();
+ auto prepared=std::make_shared<XeenRestoreGuard>(_world,_party,_camera,_flags);
+ prepared->retainResources(*_journeyPreimage);prepared->soundOptions=value;
+ _journeyPreimage->check();_party.soundOptions=value;
+ ++_generation;_journeyPreimage.swap(prepared);_journeyPreimage->adoptMutationBoundary();return true;
+}
 bool XeenEncounterFlow::toggleAutomap(const Ticket &entry) {
 	if(!current(entry) || _busy)return false;
 	if(_combat)return acceptCombatResult(_combat->toggleAutomap(*entry.combat));

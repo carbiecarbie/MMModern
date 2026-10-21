@@ -400,6 +400,7 @@ XeenSaveMonsterTable mobTable(unsigned monsters) {
 // treasure item's source identity. mapEventRoundTrips produces these through Events.
 void genericRoundTrip(){
  auto s=currentSnapshot();
+ s.soundOptions={false,false,true,false};
  for(unsigned i=0;i<30;++i) {auto &c=s.characters[i];c.lloydMap=23+i;c.lloydX=i;c.lloydY=31-i;c.lloydSide=i%2;}
  auto &f3=s.map(23);
  auto &orc=f3.monsters->slots[2];orc.x=orc.y=-128;orc.lifecycle=XeenActorLifecycle::Defeated;orc.accounted=true;
@@ -423,6 +424,7 @@ void genericRoundTrip(){
  s.headCache=XeenHeadCache{23,{}};s.headCache->overrides[9]=XeenHeadIndicators{1,2};
  const auto bytes=XeenSaveFormat::encode(s);
  CurrentDestination live;usePerMapResources(live,4);live.restore(XeenSaveFormat::decode(bytes));live.bind();
+ check(XeenSoundOptions(live.party.soundOptions)==s.soundOptions,"Sound options restored exactly");
  const auto &state=live.world.sessionState();
  check(state.mapState(28)->cells.size()==2 && state.mapState(28)->cells[0].mask==2 && state.mapState(28)->cells[1].mask==8 &&
   state.mapState(28)->cells[0].unlocked && state.isObjectDisabled({28,2}) && !state.isObjectDisabled({28,1}) &&

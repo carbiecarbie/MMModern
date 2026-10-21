@@ -19,6 +19,7 @@ std::vector<std::uint8_t> read(const ReadOnlyDataFile &file) {
 }
 }
 struct XeenAudio::Impl {
+ XeenSoundOptions options;
  unsigned id;Loader loader;std::uint64_t elapsed=0,last=0,speechEnd=0;
  std::vector<std::string> maps,locations;std::array<unsigned,6> kinds{};
  std::unique_ptr<PromusDriver> clockDriver;
@@ -71,9 +72,9 @@ struct XeenAudio::Impl {
   if(pending && (!clockDriver || !clockDriver->fadeSpeed()) && now>=speechEnd) {
    auto song=std::move(*pending);pending.reset();
    if(titleExit) {
-    command(0);load(song,false);titleExit=false;
+    if(options.music)command(0);load(song,false);titleExit=false;
     if(afterTitle){auto next=std::move(*afterTitle);afterTitle.reset();command(next.fade);pending=std::move(next);}
-   }else load(song);
+   }else load(song,options.music);
   }
   flush();
  }
@@ -108,9 +109,18 @@ void XeenAudio::requestSong(std::string name,XeenSceneArchive archive,unsigned f
 void XeenAudio::requestMap(const XeenMapGeometry &map,std::uint64_t now) {const auto name=mapSong(map);_impl->mapName=name;requestSong(name,XeenSceneArchive::Clouds,207,now);}
 void XeenAudio::requestLocation(unsigned action,std::uint64_t now) {requestSong(locationSong(action),XeenSceneArchive::Clouds,223,now);}
 void XeenAudio::requestInn(std::uint64_t now) {requestSong("inn.m",XeenSceneArchive::Clouds,128,now);}
-void XeenAudio::enterTitle(std::uint64_t now) {advance(now);_impl->pending.reset();_impl->afterTitle.reset();_impl->titleExit=false;_impl->load({"newbrigh.m",XeenSceneArchive::DarksideOnly,0});_impl->flush();}
-void XeenAudio::leaveTitle(std::uint64_t now) {advance(now);_impl->command(207);_impl->titleExit=true;_impl->pending=Impl::Song{"twnnitea.m",XeenSceneArchive::DarksideOnly,207};_impl->flush();}
-void XeenAudio::effect(unsigned id,std::uint64_t now) {advance(now,_impl->speechEnd);if(_impl->clockDriver)_impl->clockDriver->effect(id);_impl->flush();}
+void XeenAudio::enterTitle(std::uint64_t now) {advance(now);_impl->pending.reset();_impl->afterTitle.reset();_impl->titleExit=false;_impl->load({"newbrigh.m",XeenSceneArchive::DarksideOnly,0},_impl->options.music);_impl->flush();}
+void XeenAudio::leaveTitle(std::uint64_t now) {advance(now);if(_impl->options.music)_impl->command(207);_impl->titleExit=true;_impl->pending=Impl::Song{"twnnitea.m",XeenSceneArchive::DarksideOnly,207};_impl->flush();}
+void XeenAudio::effect(unsigned id,std::uint64_t now) {advance(now,_impl->speechEnd);if(_impl->options.efx && _impl->clockDriver)_impl->clockDriver->effect(id);_impl->flush();}
+void XeenAudio::observeOptions(XeenSoundOptions value) {_impl->options=value;}
+void XeenAudio::toggleMusic(bool on,std::uint64_t now) {
+ advance(now,_impl->speechEnd);_impl->options.music=on;
+ if(on) {
+  _impl->pending.reset();_impl->afterTitle.reset();_impl->titleExit=false;
+  if(_impl->buffer && _impl->clockDriver)_impl->clockDriver->load(_impl->buffer,true);
+ }else _impl->command(0);
+ _impl->flush();
+}
 void XeenAudio::advance(std::uint64_t now,std::uint64_t cdEnd) {_impl->advance(now,cdEnd);}
 void XeenAudio::rebaseClock(std::uint64_t now) noexcept {_impl->last=now;_impl->speechEnd=0;}
 std::optional<std::uint64_t> XeenAudio::deadline() const {
