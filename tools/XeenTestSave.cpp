@@ -13,9 +13,11 @@
 #include "games/xeen/XeenItemRewards.h"
 #include "games/xeen/XeenMapLoader.h"
 #include "games/xeen/XeenPartyLoader.h"
+#include "games/xeen/XeenRegionalRules.h"
 #include "games/xeen/XeenSaveState.h"
 #include "platform/XeenSaveFile.h"
 #include <algorithm>
+#include <bitset>
 #include <limits>
 #include <stdexcept>
 
@@ -106,10 +108,40 @@ struct Inputs {
     }
 };
 
+// m81-event: Orc 0 two cells ahead, and the first seed whose first Shoot after
+// loading kills it with a generated item (found as liveKillEventTreasure does).
+constexpr std::uint32_t kM81EventSeed=4;
+constexpr int kM81EventOrcRow=4;
+
 void prepare(XeenSaveSnapshot &snapshot,const std::string &preset) {
     auto &journey=*snapshot.journey;
     const auto first=snapshot.activeRosterIds.at(0),second=snapshot.activeRosterIds.at(1);
     auto &member=snapshot.characters[first];
+    if(preset=="m81-drops" || preset=="m81-fullpacks" || preset=="m81-event") {
+        // The M78 party; map-3 camera and monsters are placed by generateTestSave.
+        prepare(snapshot,"m78-playtest");
+        for(auto owner:snapshot.activeRosterIds)if(snapshot.characters[owner].learnedSpells)snapshot.characters[owner].currentSp=1000;
+        // Every pack full except the second member's last weapon slot: one drop
+        // can fill it, a drop of another category replaces the first member's
+        // last item of that category (DOS 0x24567), and once full the rest is lost.
+        if(preset=="m81-fullpacks")for(unsigned n=0;n<snapshot.activeRosterIds.size();++n) {
+            auto &c=snapshot.characters[snapshot.activeRosterIds[n]];
+            for(auto *items:{&c.weapons,&c.armor,&c.accessories})for(auto &item:*items)if(!item.id)item={0,1,0,0};
+            for(auto &item:c.miscellaneous)if(!item.material)item={1,1,3,0};
+            if(n==1)c.weapons.back()={};
+        }
+        if(preset=="m81-event") {
+            // Before the Root Event; Orc 7 stays in view without contact (as the
+            // party-interface eventView finds) and Orc 0 stands in the Shoot line.
+            // The seed makes the first Shoot after loading kill Orc 0 with an item.
+            snapshot.camera={23,8,2,XeenDirection::North};journey.random=XeenCombatRandom(kM81EventSeed).continuation();
+            for(auto &a:snapshot.map(23).monsters->slots){a.x=a.y=-128;a.lifecycle=XeenActorLifecycle::Defeated;a.accounted=true;}
+            auto &slots=snapshot.map(23).monsters->slots;
+            slots.at(7).x=6;slots.at(7).y=5;slots.at(0).x=8;slots.at(0).y=kM81EventOrcRow;
+            for(auto slot:{0u,7u}){slots.at(slot).lifecycle=XeenActorLifecycle::Present;slots.at(slot).accounted=false;}
+        }
+        return;
+    }
     if(preset=="m80-arena" || preset=="m80-arena-maxed") {
         prepare(snapshot,"m78-playtest");
         snapshot.camera={6,13,4,XeenDirection::West};
@@ -348,7 +380,7 @@ void prepare(XeenSaveSnapshot &snapshot,const std::string &preset) {
 
 void generateTestSave(const GameInstallation &installation,const std::string &preset,
         const std::filesystem::path &output) {
-    if (preset!="broken-armor" && preset!="train-ready" && preset!="injured-dead" && preset!="poisoned" && preset!="monster-control" && preset!="monster-damage" && preset!="party-healing" && preset!="m76-spells" && preset!="combat-items" && preset!="m78-playtest" && preset!="m78-one-holder" && preset!="m79-playtest" && preset!="m80-playtest" && preset!="m80-arena" && preset!="m80-arena-maxed")
+    if (preset!="broken-armor" && preset!="train-ready" && preset!="injured-dead" && preset!="poisoned" && preset!="monster-control" && preset!="monster-damage" && preset!="party-healing" && preset!="m76-spells" && preset!="combat-items" && preset!="m78-playtest" && preset!="m78-one-holder" && preset!="m79-playtest" && preset!="m80-playtest" && preset!="m80-arena" && preset!="m80-arena-maxed" && preset!="m81-drops" && preset!="m81-fullpacks" && preset!="m81-event")
         throw std::invalid_argument("Unknown test-save preset: "+preset);
     const auto target=XeenSaveFile::resolve(output,installation);
     // Reuse the native alias/reparse-aware path guard for the repository too.
@@ -374,6 +406,39 @@ void generateTestSave(const GameInstallation &installation,const std::string &pr
         auto &table=candidate.map(map).monsters;
         table.emplace(XeenSaveMonsterTable{std::uint16_t(actors.size()),{}});
         for(const auto &actor:actors)table->slots.push_back({actor.x,actor.y,actor.lifecycle,actor.status,false,-1});
+    }
+    if(preset=="m81-drops" || preset=="m81-fullpacks") {
+        // Map 3's first two Barbarians (drop field 4, guaranteed) and first Ninja
+        // (field 3) on one cell of their common closure, two cells ahead of the
+        // party facing West, off Event cells: Shoot reaches them and one step
+        // forward starts combat. Every other map-3 monster keeps its MOB place.
+        const auto actors=XeenActorApproach::actorsFromResources(inputs.maps.loadObjects(inputs.assets,3),inputs.resources.loadMonsterStatistics());
+        auto &table=candidate.map(3).monsters;
+        table.emplace(XeenSaveMonsterTable{std::uint16_t(actors.size()),{}});
+        for(const auto &actor:actors)table->slots.push_back({actor.x,actor.y,actor.lifecycle,actor.status,false,-1});
+        std::vector<std::size_t> group;
+        for(unsigned resource:{45u,45u,24u})for(std::size_t i=0;i<actors.size();++i)
+            if(actors[i].original.resourceId==resource && actors[i].lifecycle!=XeenActorLifecycle::Disabled && std::find(group.begin(),group.end(),i)==group.end()) {group.push_back(i);break;}
+        if(group.size()!=3)throw std::runtime_error("Map 3 lacks its original Barbarians or Ninja");
+        XeenWorld query(inputs.mapLoader());std::bitset<256> common;common.set();
+        for(auto slot:group)common&=xeenActorClosure(query.map(3),actors[slot]);
+        // The cell nearest the first Barbarian's MOB place, at least four steps
+        // from every other monster.
+        const auto records=inputs.events.load(3).records;
+        std::optional<std::pair<int,int>> best;
+        const auto distance=[](int ax,int ay,int bx,int by){return std::abs(ax-bx)+std::abs(ay-by);};
+        for(int y=0;y<16;++y)for(int x=0;x<14;++x) {
+            if(!common[y*16+x] || !common[y*16+x+1] || !common[y*16+x+2] ||
+                std::any_of(records.begin(),records.end(),[&](const auto &r){return r.y==y && (r.x==x+1 || r.x==x+2);}))continue;
+            if(xeenPlayerRayRows(query,XeenCamera{3,x+2,y,XeenDirection::West})<3)continue;
+            bool alone=true;
+            for(std::size_t i=0;i<actors.size();++i)alone=alone && (std::find(group.begin(),group.end(),i)!=group.end() ||
+                actors[i].lifecycle==XeenActorLifecycle::Disabled || distance(actors[i].x,actors[i].y,x+2,y)>=4);
+            if(alone && (!best || distance(x,y,actors[group[0]].x,actors[group[0]].y)<distance(best->first,best->second,actors[group[0]].x,actors[group[0]].y)))best={x,y};
+        }
+        if(!best)throw std::runtime_error("Map 3 has no quiet approach to its Barbarians and Ninja");
+        candidate.camera={3,best->first+2,best->second,XeenDirection::West};
+        for(auto slot:group){table->slots[slot].x=best->first;table->slots[slot].y=best->second;}
     }
     // Publish only a snapshot recaptured from restored, validated current owners.
     const auto snapshot=inputs.validated(candidate);

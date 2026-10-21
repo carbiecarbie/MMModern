@@ -363,6 +363,51 @@ presets use the unchanged current save format and start outside it.
 .\build-rel\mmodern.exe --load-game "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/m80-arena.mmsave"
 ```
 
+The `m81-drops` and `m81-fullpacks` presets start on Clouds map 3 at
+`(5,12)` facing West with the level-30 M78 party, equipped Obsidian gear,
+full HP and 1,000 SP per caster. Two original Barbarians and a Ninja stand
+together two cells ahead at `(3,12)`. A Barbarian always drops an item from
+level 4 (accessories included) and 25 gold; a Ninja drops a level-3 item half
+of the time and 50 gold. The other map-3 monsters keep their places,
+including eight more Barbarians to the south-east and five Ninjas to the east.
+The first four members carry bows: press S to Shoot from here, step forward to
+fight in melee, or cast a group attack spell in combat. Treasure appears on
+the original screens after the fight; outside combat it waits while a monster
+is in view.
+
+`m81-drops` leaves at least three free slots in every pack. `m81-fullpacks`
+fills every pack except the second member's last weapon slot. A weapon drop
+fills that slot. While it is free, an armor, accessory or Misc item for which
+no member has room replaces the first member's last item of that category, as
+the original does. Once no slot is left, the full-pack warning appears and the
+remaining items are lost, but gold and gems are still credited.
+
+```powershell
+.\build-rel\mmodern_test_save.exe m81-drops "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/m81-drops.mmsave"
+.\build-rel\mmodern_test_save.exe m81-fullpacks "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/m81-fullpacks.mmsave"
+.\build-rel\mmodern.exe --load-game "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/m81-drops.mmsave"
+```
+
+The `m81-event` preset starts on mainland map 23 at `(8,2)` facing North,
+before the Root Event, with the same party. Only two original Orcs remain: one
+at `(6,5)` in view, which keeps ordinary treasure delivery waiting, and one
+two cells ahead at `(8,4)`. The saved random seed makes the first Shoot (S)
+after loading kill the near Orc with a generated item and 10 gold; any other
+action first changes the draws, and an Orc then drops an item only 10% of the
+time. Press Space at once and answer the Event: its treasure screen shows the
+roots and the Orc's item without the gold. Turn away to get the ordinary
+delivery: the same item again, with the 10 gold. The doubled item is an
+original bug kept on purpose ([quirk](docs/original-quirks.md#sv-event-loot-stash)).
+For the dormant case, after the Shoot press `.` (wait) until the other Orc
+attacks, Run with the whole party (Run can fail; repeat it), walk back to
+`(8,2)` facing North and press Space: the item arrives once with the Event's
+own and the gold never.
+
+```powershell
+.\build-rel\mmodern_test_save.exe m81-event "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/m81-event.mmsave"
+.\build-rel\mmodern.exe --load-game "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/m81-event.mmsave"
+```
+
 The `m79-playtest` preset starts at Rivercity Training, map 30 `(12,12)`
 facing North, with 100,000 gold, 5,000 gems and one ration. Permanent levels
 repeat 9, 14 and 19, with enough XP for the three Training caps. Members 1,

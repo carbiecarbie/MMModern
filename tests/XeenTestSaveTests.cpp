@@ -1,6 +1,7 @@
 #include "XeenTestInstallation.h"
 #include "tools/XeenTestSave.h"
 #include "XeenTrainingTestSupport.h"
+#include "games/xeen/XeenRegionalRules.h"
 #include "games/xeen/XeenGameFlagsLoader.h"
 #include "games/xeen/CloudsMapComposer.h"
 #include "games/xeen/XeenActorApproach.h"
@@ -19,7 +20,13 @@ using save_test::check;
 using save_test::rejects;
 namespace fs=std::filesystem;
 
+namespace mmodern {
+struct XeenPartyInterfaceTestAccess {
+    static bool reward(const XeenEventFlow &f) {return f._encounter->monsterReward();}
+};
+}
 namespace {
+void pulse(training_test::Fixture &f) {f.now+=125;f.flow->beginCycle(++f.cycle);if(auto frame=f.flow->updatePresentation())f.present(*frame);}
 struct TemporaryDirectory {
     fs::path path=fs::temp_directory_path()/
         ("mmodern-test-save-"+std::to_string(GetCurrentProcessId())+"-"+std::to_string(GetTickCount64()));
@@ -59,11 +66,61 @@ void preset(const GameInstallation &installation,const std::string &name,const f
     check(flow.prepareJourneyFrame(flow.ticket(),[]{}) && flow.presentJourney(flow.ticket()),"restored preset is not quiet");
     const auto captured=XeenSaveState::capture(inputs.signature,party,camera,flags,world);
     check(XeenSaveFormat::encode(saved)==XeenSaveFormat::encode(captured),"restore replayed or changed state");
-    check((name=="monster-control" || name=="monster-damage" || name=="party-healing" || name=="m76-spells" || name=="m79-playtest" || name=="m80-playtest" || name=="m80-arena" || name=="m80-arena-maxed") || save_test::sameCamera(camera,xeenJourneyContent().entry),"fresh Journey camera changed");
+    check((name=="monster-control" || name=="monster-damage" || name=="party-healing" || name=="m76-spells" || name=="m79-playtest" || name=="m80-playtest" || name=="m80-arena" || name=="m80-arena-maxed" || name=="m81-drops" || name=="m81-fullpacks" || name=="m81-event") || save_test::sameCamera(camera,xeenJourneyContent().entry),"fresh Journey camera changed");
     const auto first=party.party.activeRosterIds()[0],second=party.party.activeRosterIds()[1];
     const auto &member=party.roster.at(first);
     const auto gold=party.purse->gold;
     const auto context=*party.encounterContext;
+    if(name=="m81-drops" || name=="m81-fullpacks" || name=="m81-event") {
+        const auto map=camera.mapId;
+        const auto originals=XeenActorApproach::actorsFromResources(inputs.maps.loadObjects(inputs.assets,map),inputs.statistics);
+        const auto &slots=saved.map(map).monsters->slots;
+        bool shooter=false;
+        for(auto owner:party.party.activeRosterIds()) {
+            const auto &c=party.roster.at(owner);
+            check(c.permanentLevel==30 && c.canAct() && (!c.learnedSpells || c.currentSp==1000),"M81 party strength/SP");
+            for(const auto &w:c.weapons)shooter=shooter || w.frame==4;
+        }
+        check(shooter && xeenPlayerRayRows(world,camera)>=3,"M81 preset cannot Shoot ahead");
+        if(name=="m81-event") {
+            check(camera.mapId==23 && camera.x==8 && camera.y==2 && camera.direction==XeenDirection::North,"M81 Event preset position");
+            for(std::size_t slot=0;slot<slots.size();++slot) {
+                const auto &a=slots[slot];const bool kept=slot==0 || slot==7;
+                check((a.lifecycle==XeenActorLifecycle::Present)==kept && a.accounted!=kept,"M81 Event preset monsters");
+                if(kept)check(originals[slot].original.resourceId==6 && a.x==(slot?6:8) && a.y==(slot?5:4),"M81 Event preset Orc cells");
+            }
+            // The first Shoot after loading kills Orc 0 with an item; Orc 7 in view
+            // keeps ordinary delivery deferred for the Root Event.
+            training_test::Fixture f(inputs,saved);const auto random=f.w.sessionState().journeyRandom();
+            for(unsigned n=0;n<20;++n)pulse(f);
+            check(f.flow->canSave() && f.w.sessionState().journeyRandom()==random,"M81 Event preset idles with a draw");
+            f.act(ShootAction{});
+            for(unsigned n=0;n<2000 && !f.flow->canSave() && !XeenPartyInterfaceTestAccess::reward(*f.flow);++n)pulse(f);
+            const auto &staging=f.w.treasureStaging().value();
+            check(f.w.sessionState().monsters(23)[0].lifecycle==XeenActorLifecycle::Defeated && staging.ready && staging.gold==10 &&
+                staging.storedItems() && !XeenPartyInterfaceTestAccess::reward(*f.flow) && f.flow->canSave(),"M81 Event preset Shoot is not a deferred item kill");
+            return;
+        }
+        check(camera.mapId==3 && camera.direction==XeenDirection::West,"M81 drop preset position");
+        std::vector<unsigned> group;
+        for(std::size_t slot=0;slot<slots.size();++slot)if(slots[slot].x==camera.x-2 && slots[slot].y==camera.y && slots[slot].lifecycle==XeenActorLifecycle::Present)
+            group.push_back(originals[slot].original.resourceId);
+        std::sort(group.begin(),group.end());
+        check(group==std::vector<unsigned>{24,45,45},"M81 drop preset Barbarians and Ninja two cells ahead");
+        unsigned free=0;
+        for(unsigned n=0;n<6;++n) {
+            auto c=party.roster.at(party.party.activeRosterIds()[n]);
+            for(unsigned category=0;category<4;++category) {
+                const auto &items=xeenRewardItems(c,XeenRewardCategory(category));
+                const auto empty=std::count_if(items.begin(),items.end(),[&](const XeenItem &v){return XeenTreasureStaging::emptySlot(v,XeenRewardCategory(category));});
+                if(name=="m81-drops")check(empty>=3,"M81 drop preset packs lack room");
+                free+=unsigned(empty);
+            }
+            if(name=="m81-fullpacks")check(!c.weapons.back().id==(n==1),"M81 full-pack free slot");
+        }
+        if(name=="m81-fullpacks")check(free==1 && !xeenPacksGloballyFull(party),"M81 full-pack preset must leave exactly one slot");
+        return;
+    }
     if(name=="m80-arena" || name=="m80-arena-maxed") {
         check(camera.mapId==6 && camera.x==13 && camera.y==4 && camera.direction==XeenDirection::West,"Arena preset position");
         check(!world.sessionState().hasRegionalActors(85),"Arena preset contains Warzone state");
