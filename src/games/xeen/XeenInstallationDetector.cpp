@@ -215,10 +215,13 @@ std::optional<GameInstallation> XeenInstallationDetector::detect(const Path &roo
   if(!modules.empty())ui=modules[0];
  }
  if(ui.empty()||!std::filesystem::is_regular_file(ui))throw std::runtime_error("CD UI module missing: supply installed uncompressed English WORLD/XEEN.DAT with --ui-data");
+ const auto cfg=child(ui.parent_path(),"xeen.cfg");
+ if(cfg.empty())throw std::runtime_error("CD configuration missing: installed WORLD/XEEN.CFG is required (never created by MMModern)");
  GameInstallation result;result.root=std::filesystem::weakly_canonical(root);result.edition=GameEdition::WorldOfXeen;
  result.cloudsData=candidates[0].files[0];result.darksideData=candidates[0].files[1];result.introData=candidates[0].files[2];
  result.xeenArchive=result.cloudsData->physicalPath;result.darkArchive=result.darksideData->physicalPath;
  result.uiModule=ReadOnlyDataFile::plain(ui);result.sourceOrigin=candidates[0].origin+"; UI "+result.uiModule->physicalPath.u8string();
+ result.configuration=ReadOnlyDataFile::plain(cfg);
  result.protectedDirectories.push_back(result.root);
  for(const auto &candidate:candidates)for(const auto &file:candidate.files)result.protectedDirectories.push_back(file.physicalPath.parent_path());
  result.protectedDirectories.push_back(result.uiModule->physicalPath.parent_path());return result;

@@ -87,6 +87,9 @@ from the pin (`6814ee9ba54582f5b5adcffab49efbbd8f589edd`). In short:
   promus's PAS mixer writes (initialization and command `0x100`) change the
   audible FM level; if they do, the mix applies them, otherwise they are
   recorded as unmodelled in `original-quirks.md`.
+  **Maintainer, 2026-10-21:** retain command `0x100`'s value, but leave PAS
+  mixer writes and PCM gain unmodelled: the DOSBox reference does not emulate
+  that mixer. Revisit FM/PCM balance in M83 against DOSBox by ear.
 - **Owners.** The platform layer opens the SDL audio device and pulls mixed
   samples from the audio owner. A program-lifetime audio owner next to
   `XeenProgramState` (the loaded driver is running-program state in DOS)
@@ -173,6 +176,9 @@ inventory exceeds two parts; the fade wait cannot be modelled from the clock.
    and its `twnnitea.m` preload are in scope; Darkside map music is not.
 5. **Text off stopgap (approved 2026-10-21):** text stays visible until M83
    as a temporary restriction, recorded in `original-quirks.md` by Part B.
+   **Inn scope clarification (maintainer, 2026-10-21):** Part A provides and
+   tests the `inn.m` request; the unsupported sign-in/roster screen stays out
+   of scope. The Tavern itself uses `tavern.m`.
 6. **Technical risks:** audio-thread races (one queue, no shared game state);
    the link closure of `nuked.cpp` (objects compiled but never instantiated) and
    GPL notices; latency between a request and the heard sound, which never

@@ -44,7 +44,11 @@ int main(int argc,char **argv){try{
  const auto source=readCueCdArchives(root/"disc.ins");const char *names[]{"XEEN.CC","DARK.CC","INTRO.CC"};
  for(unsigned role=0;role<3;++role){check(bytes(source[role])==fixture.archives[role],"cross-sector complete payload");write(root/names[role],fixture.archives[role]);const auto plain=ReadOnlyDataFile::plain(root/names[role]);check(bytes(plain)==bytes(source[role]),"plain/raw payload equality");
   auto stream=source[role].open();check(stream->seek(2047),"boundary seek");std::array<std::uint8_t,3> cross{};check(stream->read(cross.data(),cross.size())==3,"boundary read");check(cross[0]==fixture.archives[role][2047]&&cross[2]==fixture.archives[role][2049],"boundary values");check(!stream->seek(stream->size()+1),"bounded seek");check(bytes(source[role])==fixture.archives[role],"repeated cold open");}
- text(root/"ui.dat","MZsynthetic detector module");const auto installation=XeenInstallationDetector(root/"ui.dat").detect(root);check(installation&&installation->cloudsData->transport==ReadOnlyDataFile::Transport::Mode1Raw,"cue selected ahead of root files");
+ text(root/"ui.dat","MZsynthetic detector module");
+ refuses([&]{XeenInstallationDetector(root/"ui.dat").detect(root);},"missing CFG must refuse");
+ check(!std::filesystem::exists(root/"xeen.cfg"),"detector must not create CFG");
+ write(root/"xeen.cfg",Bytes(29,0));
+ const auto installation=XeenInstallationDetector(root/"ui.dat").detect(root);check(installation&&installation->configuration&&installation->cloudsData->transport==ReadOnlyDataFile::Transport::Mode1Raw,"cue selected ahead of root files");
  refuses([&]{XeenInstallationDetector{}.detect(root);},"missing DAT must refuse");
  // Malformed raw sync and truncation are read errors, never treated as absence.
  auto corrupt=fixture.raw;corrupt[(3+24)*2352+15]=2;write(root/"track.raw",corrupt);refuses([&]{bytes(source[0]);},"bad MODE1 must refuse");write(root/"track.raw",fixture.raw);

@@ -191,6 +191,11 @@ write still addresses the requested voice. This original indexing defect
 is exercised by FX 9 and its aliases 60..65; it is not merely malformed-data
 behavior. The external resource survey decoded every admitted FX stream to
 its first terminator without overruns; all voice commands used 7 or 8.
+Music opcode 8 masks its emitted word with `0x1fff` (`0x762..0x771`), while
+FX opcode 7 clears only key-on with `0xdfff` (`0x73b..0x750`). The distinction
+matters after the faulty FX cache write introduces high bits into a music
+voice's cached high byte. Neither operation should be replaced with the
+other's mask.
 
 Slides are postprocessed only for voices 8 and 7 (`0xa19..0xabd`). A byte
 phase, initially 255 when enabled, adds the rate; carry applies the signed
@@ -222,6 +227,12 @@ steps at `0x194`. On every eligible postprocessing tick the phase adds
 speed modulo 256. Carry decrements remaining steps; a negative result stops
 music, cancels fade and keys off music channels. Earlier carries increase
 each bank's cached carrier attenuation toward 63 (`0x9cc..0xa19`).
+The write uses the previous cached byte: `0x9f4/0xa04` load AH before the
+cache increment at `0x9fd/0xa0d`, and `0x503/0x514` emit that retained AH.
+The cache reaching 63 suppresses further level writes; completion still keys
+off the music. This preserves the original one-carry lag, rather than applying
+the incremented cache value immediately (DOS static, high, same calibrated
+INTRO promus resource).
 
 For initial phase p and speed s, completion requires
 `ceil((64 * 256 - p) / s)` **eligible** ticks. Command 207 therefore takes:

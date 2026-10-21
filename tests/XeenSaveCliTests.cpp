@@ -118,6 +118,7 @@ int main(int argc,char **argv){try{
  sprite_test::archive(game/"intro.cc",{{"synthetic",Bytes{0}}});
  fs::create_directories(dir/"WORLD");
  {const auto ui=dos_test::fixture();std::ofstream out(dir/"WORLD"/"XEEN.DAT",std::ios::binary);out.write(reinterpret_cast<const char *>(ui.data()),ui.size());}
+ {std::ofstream out(dir/"WORLD"/"XEEN.CFG",std::ios::binary);const char cfg[6]{};out.write(cfg,sizeof(cfg));} // Synthetic nullmus configuration.
  installation.darkArchive=game/"dark.cc";installation.edition=GameEdition::WorldOfXeen;
  auto s=regional_test::snapshot();s.resources=XeenSaveFile::fingerprint(installation);
  const auto run=[&](const char *message){const auto r=launch(exe,{L"--load-game",game.wstring(),path.wstring()},log);check(r.exit==3&&r.output.find(message)!=std::string::npos&&r.output.find("Resumed ")==std::string::npos,"CLI startup failure/fallback content");};

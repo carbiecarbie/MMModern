@@ -64,6 +64,26 @@ function(add_mmodern_scummvm_xeen_bridge target_name)
 		EXTERNAL_OBJECT TRUE
 	)
 
+	# Keep only Nuked's plain OPL3 core. The class adapter in the same source
+	# requires ScummVM's mixer and g_system; neither is used by MMModern audio.
+	set(nuked_source "${SCUMMVM_SOURCE_DIR}/audio/softsynth/opl/nuked.cpp")
+	set(nuked_full "${sprite_object_dir}/nuked.full.o")
+	set(nuked_core "${sprite_object_dir}/nuked.core.o")
+	add_custom_command(OUTPUT "${nuked_core}"
+		COMMAND "${CMAKE_COMMAND}" -E make_directory "${sprite_object_dir}"
+		COMMAND "${CMAKE_CXX_COMPILER}" -std=gnu++11 -DWIN32 -DUNICODE -D_UNICODE
+			-O2 -ffunction-sections -fdata-sections
+			-I "${SCUMMVM_BUILD_DIR}" -I "${SCUMMVM_SOURCE_DIR}"
+			-c "${nuked_source}" -o "${nuked_full}"
+		COMMAND "${SCUMMVM_OBJCOPY}"
+			"--remove-section=*3OPL5NUKED3OPL*"
+			"--remove-section=*5Audio*" "--remove-section=*_ZT*"
+			"--remove-section=*refptr*" "${nuked_full}" "${nuked_core}"
+		COMMAND "${CMAKE_COMMAND}" -E rm -f "${nuked_full}"
+		DEPENDS "${nuked_source}" "${SCUMMVM_SOURCE_DIR}/audio/softsynth/opl/nuked.h"
+		VERBATIM)
+	set_source_files_properties("${nuked_core}" PROPERTIES GENERATED TRUE EXTERNAL_OBJECT TRUE)
+
 	add_library(${target_name} STATIC
 		"${CMAKE_CURRENT_SOURCE_DIR}/src/core/ReadOnlyData.cpp"
 		"${CMAKE_CURRENT_SOURCE_DIR}/src/core/GameInstallation.cpp"
@@ -72,6 +92,8 @@ function(add_mmodern_scummvm_xeen_bridge target_name)
 		"${CMAKE_CURRENT_SOURCE_DIR}/src/formats/xeen/XeenObjectSpriteSafety.cpp"
 		"${SCUMMVM_SOURCE_DIR}/engines/mm/shared/xeen/cc_archive.cpp"
 		"${sprite_stream_object}"
+		"${nuked_core}"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/compat/scummvm/XeenOpl3.cpp"
 	)
 	target_include_directories(${target_name}
 		PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src"

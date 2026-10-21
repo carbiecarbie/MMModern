@@ -1,6 +1,7 @@
 // One original-data Application/SDL path for both New difficulties and title
 // Load. Only seed sampling and the Local AppData test directory are substituted.
 #include "app/Application.h"
+#include "app/XeenAudio.h"
 #include "app/XeenGameplayServices.h"
 #include "formats/xeen/XeenSaveFormat.h"
 #include "platform/XeenSaveFile.h"
@@ -42,6 +43,7 @@ struct XeenTemplePriceStateTestAccess {
 }
 namespace {
 struct State {
+ XeenProgramState *program=nullptr;
  bool enabled=false,loading=false,mouse=false,shown=false;
  XeenTemplePriceState *templePrices=nullptr;XeenTempleSurcharges templeRow;
  bool panelMode=false,failPreflight=false,failWrite=false;
@@ -250,9 +252,20 @@ extern "C" bool wrappedTitleShow(const SdlWindow *window,const IndexedFrame &fir
  if(!state.enabled)return realTitleShow(window,first,label,handler,escape,idle,status);
  const bool title=!status; // Only gameplay supplies a status line.
  auto native=handler;IndexedFrame::Presentation presented;unsigned step=0;
+ std::uint64_t heldAudioTick=0;
  std::vector<SDL_Event> pendingEvents;
  native.beginCycle=[&](auto cycle){
   if(handler.beginCycle)handler.beginCycle(cycle);
+  if(title && state.program) {
+   if(cycle==2)heldAudioTick=state.program->audio->ticks();
+   if(cycle==8)check(state.program->audio->ticks()>heldAudioTick,"held title mouse stopped audio publication");
+   if(cycle==1 || cycle==8) {
+    // Middle mouse has no title action, but holds the native release wait
+    // and suppresses visual idle. Audio must still advance each loop cycle.
+    SDL_Event held{};held.type=cycle==1?SDL_MOUSEBUTTONDOWN:SDL_MOUSEBUTTONUP;
+    held.button.button=SDL_BUTTON_MIDDLE;check(SDL_PushEvent(&held)==1,"held title mouse queue");
+   }
+  }
   // The script plans its next physical input during idle. Send it only after
   // that iteration's upload/acquisition completes, with a fresh SDL timestamp.
   for(auto &event:pendingEvents)check(SDL_PushEvent(&event)==1,"native title input after acquisition");
@@ -316,6 +329,7 @@ void titleApplicationControls(const char *game) {
  struct Cleanup {~Cleanup(){state.enabled=false;removeTestTree(state.base);}} cleanup;
  for(auto difficulty:{XeenDifficulty::Adventurer,XeenDifficulty::Warrior}) {
   XeenProgramState programState;
+  state.program=&programState;
   XeenTemplePriceStateTestAccess::seed(programState.templePrices,difficulty==XeenDifficulty::Adventurer?30:49);
   state.templePrices=&programState.templePrices;state.templeRow=programState.templePrices.row();
   state.difficulty=difficulty;state.mouse=difficulty==XeenDifficulty::Warrior;
@@ -327,6 +341,7 @@ void titleApplicationControls(const char *game) {
  state.panelMode=true;
  for(const auto &name:std::vector<std::string>{"A","Twenty CharacterName",std::string(20,'W')}) {
   XeenProgramState programState;
+  state.program=&programState;
   XeenTemplePriceStateTestAccess::seed(programState.templePrices,name=="A"?30:49);
   state.templePrices=&programState.templePrices;state.templeRow=programState.templePrices.row();
   state.loading=false;state.shown=false;state.seeds=0;state.name=name;state.saveAsName=name;

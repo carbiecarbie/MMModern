@@ -150,7 +150,7 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
 	}
 
 	SDL_SetMainReady();
-	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS) != 0) {
+	if (SDL_InitSubSystem(SDL_INIT_VIDEO | SDL_INIT_EVENTS) != 0) {
 		std::cerr << "SDL_Init failed: " << SDL_GetError() << '\n';
 		return false;
 	}
@@ -166,7 +166,7 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
 			if (texture) SDL_DestroyTexture(texture);
 			if (renderer) SDL_DestroyRenderer(renderer);
 			if (window) SDL_DestroyWindow(window);
-			SDL_Quit();
+			SDL_QuitSubSystem(SDL_INIT_VIDEO | SDL_INIT_EVENTS);
 		}
 	} resources;
 	SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "0");

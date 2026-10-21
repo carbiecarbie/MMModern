@@ -278,7 +278,7 @@ struct ScummVmXeenBridge::Impl {
 				if (!sceneDark) sceneDark.reset(new SceneInstalledArchive(*sceneDarkPath));
 				if (sceneDark->hasFile(path)) return {sceneDark.get(), "dark.cc"};
 			}
-		} else if (archive.hasFile(path)) return {&archive, "xeen.cc"};
+		} else if (selection != XeenSceneArchive::IntroOnly && archive.hasFile(path)) return {&archive, "xeen.cc"};
 		if (selection == XeenSceneArchive::DarksideOnly) return {nullptr, {}};
 		if (sceneIntroPath.has_value()) {
 			if (!sceneIntro) sceneIntro.reset(new SceneInstalledArchive(*sceneIntroPath));

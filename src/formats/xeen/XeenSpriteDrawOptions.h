@@ -5,7 +5,7 @@
 namespace mmodern {
 
 // File::open's explicit CC selection, scoped to a presentation command.
-enum class XeenSceneArchive { Current, Clouds, Darkside, DarksideOnly };
+enum class XeenSceneArchive { Current, Clouds, Darkside, DarksideOnly, IntroOnly };
 
 // Platform-neutral options. ScummVM flags are deliberately confined to the bridge.
 struct XeenSpriteDrawOptions {

@@ -13,6 +13,21 @@
 #include <algorithm>
 
 namespace mmodern {
+std::optional<unsigned> XeenEventFlow::audioLocation() const {
+ if(_trainingUi)return 5;
+ if(_smithUi) {
+  switch(_smithUi->animation.kind) {
+  case XeenServiceArt::Bank:return 0;
+  case XeenServiceArt::Smith:return 1;
+  case XeenServiceArt::Guild:return 2;
+  case XeenServiceArt::Tavern:return 3;
+  case XeenServiceArt::Temple:return 4;
+  default:break;
+  }
+ }
+ if(_pending && _pending->state.pendingPresentation && _pending->state.pendingPresentation->request.arena)return 6;
+ return {};
+}
 namespace {
 const XeenItemCatalog &fallbackCatalog() {
 	static const auto catalog = XeenItemCatalog::unavailable();

@@ -64,6 +64,8 @@ public:
 	InputContext inputContext(const IndexedFrame::Presentation &);
     std::uint64_t presentationNow();
     std::optional<std::uint64_t> nextPresentationDeadline();
+    std::optional<unsigned> audioLocation() const;
+    std::uint64_t cdSpeechEnd() const {return _cdSpeechEnd;}
 	bool journeyInputCurrent(std::optional<std::uint64_t>) const noexcept;
 	std::function<void()> prepareJourneySprites;
 	std::function<void(IndexedFrame &)> drawSmithArt;

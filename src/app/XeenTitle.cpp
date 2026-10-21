@@ -1,4 +1,5 @@
 #include "app/Application.h"
+#include "app/XeenAudio.h"
 #include "app/XeenTitleFlow.h"
 #include "formats/xeen/XeenAssetSource.h"
 #include "formats/xeen/XeenFontFormat.h"
@@ -12,7 +13,8 @@ std::uint64_t now() {
  return static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(
   std::chrono::steady_clock::now().time_since_epoch()).count());
 }
-std::optional<XeenSessionEntry> showTitle(XeenTitleFlow &flow,XeenAssetSource &assets) {
+std::optional<XeenSessionEntry> showTitle(XeenTitleFlow &flow,XeenAssetSource &assets,XeenAudio &audio) {
+ audio.enterTitle(SdlWindow::presentationNanoseconds());
  assets.loadPalette(std::string(assets.uiText().scalar("TITLE_PALETTE")),XeenSceneArchive::DarksideOnly);
  SdlWindow::FrameUpdateHandler handler=[&](const PlayerAction &action){return flow.handle(action,flow.frame().presentation());};
  handler.withPresentedInput=[&](const PlayerAction &action,std::uint64_t,const auto &origin){return flow.handle(action,origin);};
@@ -24,12 +26,14 @@ std::optional<XeenSessionEntry> showTitle(XeenTitleFlow &flow,XeenAssetSource &a
  handler.completeInputHandoff=[&](const auto &p){flow.completeInput(p);};
  handler.frameCurrent=[&]{return flow.current();};
  handler.finished=[&]{return flow.entry().has_value();};
+ handler.beginCycle=[&](auto){audio.advance(SdlWindow::presentationNanoseconds());};
  handler.failed=[&]{flow.close();};handler.closed=[&]{flow.close();};
  handler.protectAllKeys=true;handler.cursorImage=[&]{return assets.cursorImage(XeenSceneArchive::DarksideOnly);};
- handler.nextPresentationDeadline=[&]{return flow.nextPresentationDeadline();};
+ handler.nextPresentationDeadline=[&]{auto next=flow.nextPresentationDeadline();const auto sound=audio.deadline();if(sound && (!next||*sound<*next))next=sound;return next;};
  handler.drawButton=[&](IndexedFrame &frame,const InputButton &button){flow.drawButton(frame,button);};
  if(!SdlWindow().showInteractive(flow.frame(),"MMModern",handler,[]{return true;},
-  [&]{return flow.animateAt(SdlWindow::presentationNanoseconds());}))throw std::runtime_error("Title presentation failed");
+  [&]{const auto now=SdlWindow::presentationNanoseconds();audio.advance(now);return flow.animateAt(now);}))throw std::runtime_error("Title presentation failed");
+ if(flow.entry())audio.leaveTitle(SdlWindow::presentationNanoseconds());
  return flow.entry();
 }
 }
@@ -41,6 +45,7 @@ int Application::run(const std::filesystem::path &gameDirectory) const {
   const auto directory=XeenSaveFile::createSlotDirectory(*installation,repository);
   const auto signature=XeenSaveFile::fingerprint(*installation);
   XeenAssetSource assets(*installation,320,200);
+  if(!_program.audio)_program.audio=XeenAudio::installed(*installation,assets,SdlWindow::presentationNanoseconds());
   const XeenFontFormat font(assets.readArchiveResource("fnt",XeenSceneArchive::DarksideOnly));
   const auto path=[&](unsigned slot) {
    return XeenSaveFile::resolve(XeenSaveFile::resolve(XeenSaveFile::slotPath(directory,slot),*installation),repository);
@@ -58,7 +63,7 @@ int Application::run(const std::filesystem::path &gameDirectory) const {
   bool inGameLoad=false;
   for(;;) {
    if(entry.kind==XeenSessionEntry::Kind::Title) {
-    const auto selected=showTitle(title,assets);
+    const auto selected=showTitle(title,assets,*_program.audio);
     if(!selected)return 0;entry=*selected;inGameLoad=false;
    }
    if(entry.kind==XeenSessionEntry::Kind::Exit)return 0;
@@ -76,7 +81,7 @@ int Application::run(const std::filesystem::path &gameDirectory) const {
       check();std::string message=e.what();
       if(message.find("Windows error 112")!=std::string::npos || message.find("Windows error 39")!=std::string::npos)
        message=std::string(assets.uiText().scalar("NEW_SPACE"));
-      title.publicationFailure(message);const auto retry=showTitle(title,assets);check();
+      title.publicationFailure(message);const auto retry=showTitle(title,assets,*_program.audio);check();
       if(!retry){exitRequested=true;return false;}
       if(retry->kind!=XeenSessionEntry::Kind::Retry)return false;
      }

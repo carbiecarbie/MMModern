@@ -266,24 +266,28 @@ Most of the scripts concerned are in areas MMModern has not opened yet.
 
 ## Presentation
 
-- **CD FM driver (approved for M82; not implemented).** The maintainer chose
+- **CD FM driver.** The maintainer chose
   INTRO.CC `promus` on pinned Nuked in OPL3 stereo on 2026-10-21; admus and
   blastmus move to roadmap step 16. DOS uses two patches/banks per voice,
   22-byte FX definitions and its own FX dispatch/cache quirks. The pin uses
   OPL2 and blastmus data. Pin: differs; master not rechecked. No listening
   comparison is claimed.
   [Details](original-quirks.md#sv-cd-promus-fm-banks)
-- **FM timing and fade (not implemented).** DOS runs approximately 72.80 Hz
+- **FM timing and fade.** DOS runs approximately 72.80 Hz
   and fades on byte carry with persistent phase; the pin runs 72 Hz and tests
   an integer's sign. FX countdown skipping on music-due ticks agrees with DOS.
   Pin: differs; master not rechecked.
   [Details](original-quirks.md#sv-cd-fm-tick-fade)
+- **PAS card mixer (unmodelled).** The card-mixer command value is retained,
+  but its audible transfer function is not established by the OPL captures.
+  The pin uses its own software scaling. Pin: differs; master not rechecked.
+  [Details](original-quirks.md#sv-promus-pas-mixer)
 - **CD party audio options (not implemented).** DOS saves four party options;
   New Clouds defaults to Efx/Music on, Text off and Speech on. Efx off gates
   playback/status without stopping active sound. The pin uses global settings
   and stops FM FX. Pin: differs; master not rechecked.
   [Details](original-quirks.md#sv-cd-audio-party-options)
-- **Song process state (not implemented).** DOS keeps same-name music, handles
+- **Song process state (panel options still pending).** DOS keeps same-name music, handles
   pending fade/CD waits while accepting input, and restarts the loaded buffer
   when Music is enabled. Load does not replay a Music-off toggle. The pin
   ignores fade arguments and clears the current name on stop.

@@ -1,4 +1,5 @@
 #include "app/Application.h"
+#include "app/XeenAudio.h"
 #include "app/XeenGameplayServices.h"
 #include "app/XeenTitleFlow.h"
 #include "platform/XeenSaveFile.h"
@@ -483,6 +484,38 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
   // Copied native callbacks retain only a liveness token after this scope ends.
   // Check it before touching any borrowed Flow/owner/dispatcher reference.
   const auto alive=std::make_shared<bool>(true);
+  struct AudioClockScope {
+   std::shared_ptr<XeenAudio> audio;
+   XeenEventFlow &flow;PresentationClock::Source source;bool finished=false;
+   void finish() {
+    // Native close may already have retired the Flow's encounter ticket.
+    // Consume time from its retained clock source, without reentering owners.
+    if(audio){audio->advance(source(),flow.cdSpeechEnd());audio->rebaseClock(SdlWindow::presentationNanoseconds());}
+    finished=true;
+   }
+   ~AudioClockScope() {
+    if(!finished)try{finish();}catch(...){if(audio)audio->rebaseClock(SdlWindow::presentationNanoseconds());}
+   }
+  } audioClock{services.program.audio,flow,services.presentationClock?services.presentationClock:
+    PresentationClock::Source{[clock=services.clock]{return PresentationClock::fromMilliseconds(clock());}}};
+  if(audioClock.audio) {
+   audioClock.audio->advance(SdlWindow::presentationNanoseconds());
+   audioClock.audio->rebaseClock(flow.presentationNow());
+  }
+  std::optional<unsigned> soundLocation;
+  std::optional<XeenMapIdentity> soundMap;
+  const auto updateAudio=[&] {
+   const auto &audio=services.program.audio;if(!audio)return;
+   const auto now=flow.presentationNow();audio->advance(now,flow.cdSpeechEnd());
+   const auto location=flow.audioLocation();
+   if(location!=soundLocation || soundMap!=camera.mapId) {
+    if(location)audio->requestLocation(*location,now);
+    else if(soundLocation)audio->requestSong(audio->mapSong(world.map(camera.mapId).geometry),XeenSceneArchive::Clouds,223,now);
+    else audio->requestMap(world.map(camera.mapId).geometry,now);
+    soundLocation=location;soundMap=camera.mapId;
+   }
+  };
+  updateAudio();
   struct CallbackLifetime {std::shared_ptr<bool> alive;~CallbackLifetime(){*alive=false;}} callbackLifetime{alive};
   SdlWindow::FrameUpdateHandler handler = [&,alive](const PlayerAction &action) -> std::optional<IndexedFrame> {
    if(!*alive)return {};return dispatch(action,{});
@@ -507,13 +540,19 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
    if(panel){checkPanel();panel->completeInput(frame);}else {flow.completeInputHandoff(frame);handoff.retain();}
   };
   handler.protectAllKeys = flow.journey();
-  handler.nextPresentationDeadline=[&,alive] {return *alive && !panel ? flow.nextPresentationDeadline() : std::nullopt;};
+  handler.nextPresentationDeadline=[&,alive]() -> std::optional<std::uint64_t> {
+   if(!*alive)return {};
+   auto next=!panel?flow.nextPresentationDeadline():std::nullopt;
+   if(services.program.audio){const auto sound=services.program.audio->deadline();if(sound && (!next||*sound<*next))next=sound;}
+   return next;
+  };
   handler.presentationClock=[&,alive] {return *alive?flow.presentationNow():SdlWindow::presentationNanoseconds();};
   handler.withDisplayedInput = [&,alive](const PlayerAction &action,std::uint64_t input) -> std::optional<IndexedFrame> { if(!*alive)return {};return dispatch(action,input); };
   handler.withPresentedInput = [&,alive](const PlayerAction &action,std::uint64_t input,const auto &frame) -> std::optional<IndexedFrame> { if(!*alive)return {};return dispatch(action,input,frame); };
   handler.beginCycle = [&,alive](std::uint64_t cycle) {
    if(!*alive)return;
    if (!active) throw std::runtime_error("Gameplay session is closed");
+   updateAudio();
    if(panel)checkPanel();else flow.beginCycle(cycle);
   };
   handler.frameCurrent = [&,alive] { if(!*alive)return false;if(panel)checkPanel();return active && flow.encounterFrameCurrent(); };
@@ -527,6 +566,7 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
   const auto idle = [&,alive]() -> std::optional<IndexedFrame> {
    if(!*alive)return {};
    if (!active || dispatching) return std::nullopt;
+   updateAudio();
    GameplayScope scope(dispatching);
    if(panel) {
     try {
@@ -554,6 +594,7 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
    if(!*alive)return shown("MMModern - Session closed");
    try { return shown(status); } catch (...) { handoff.fail(); active = false; throw; }
   });
+  audioClock.finish();
   if (!ok) handler.failed();
   flow.closeGameplay();
   active = false;

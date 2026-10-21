@@ -10,7 +10,7 @@ enum class XeenArchiveRole { Clouds, Darkside, Intro };
 struct GameInstallation {
  std::filesystem::path root, xeenArchive, darkArchive;
  GameEdition edition=GameEdition::CloudsOfXeen;
- std::optional<ReadOnlyDataFile> cloudsData, darksideData, introData, uiModule;
+ std::optional<ReadOnlyDataFile> cloudsData, darksideData, introData, uiModule, configuration;
  std::string sourceOrigin;
  std::vector<std::filesystem::path> protectedDirectories;
  bool hasXeen() const { return cloudsData.has_value() || !xeenArchive.empty(); }

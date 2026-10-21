@@ -11,6 +11,9 @@ $repository = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $version = ([regex]::Match((Get-Content (Join-Path $repository 'CMakeLists.txt') -Raw), 'project\(MMModern VERSION ([0-9.]+)')).Groups[1].Value
 $scummvm = ([regex]::Match((Get-Content (Join-Path $repository 'docs/dependencies.md') -Raw), 'checkout --detach ([0-9a-f]{40})')).Groups[1].Value
 if (-not $version -or -not $scummvm) { throw 'Cannot read the project version or pinned ScummVM revision' }
+$cacheText = Get-Content (Join-Path (Join-Path $repository $BuildDir) 'CMakeCache.txt') -Raw
+$scummvmSource = ([regex]::Match($cacheText, '(?m)^SCUMMVM_SOURCE_DIR:PATH=(.+)\r?$')).Groups[1].Value.Trim()
+if (-not (Test-Path (Join-Path $scummvmSource 'LICENSES/COPYING.LGPL'))) { throw 'Cannot find the pinned Nuked LGPL license' }
 $output = [IO.Path]::GetFullPath($OutputDir)
 if ($output.StartsWith($repository, [StringComparison]::OrdinalIgnoreCase)) { throw 'Output must be outside the repository' }
 $name = "MMModern-$version-windows-x64"
@@ -37,6 +40,7 @@ Copy-Item (Join-Path $repository 'README.md') (Join-Path $stage 'README.md')
 # Upstream license texts as installed by MSYS2, next to the libraries they cover.
 $licenses = Join-Path $stage 'licenses'
 New-Item -ItemType Directory $licenses | Out-Null
+Copy-Item (Join-Path $scummvmSource 'LICENSES/COPYING.LGPL') (Join-Path $licenses 'Nuked-LGPL.txt')
 $share = Join-Path (Split-Path $Ucrt64) 'share\licenses'
 foreach ($pair in @(@('SDL2\LICENSE.txt', 'SDL2.txt'), @('zlib\LICENSE', 'zlib.txt'),
 		@('winpthreads\COPYING', 'winpthreads.txt'), @('gcc-libs\COPYING.RUNTIME', 'GCC-runtime-exception.txt'))) {
@@ -51,6 +55,10 @@ MMModern $version - third-party notices
 MMModern is free software under the GNU General Public License version 3 or
 later (LICENSE.txt). It contains portions of ScummVM (https://www.scummvm.org/),
 also licensed GPL-3.0-or-later.
+
+The statically linked Nuked OPL3 core is LGPL-2.1-or-later
+(licenses\Nuked-LGPL.txt), copyright 2013-2020 Nuke.YKT and 2026 Tony Gies.
+It is the Nuked-OPL3-fast 1.8-fast.2 core from the pinned ScummVM source below.
 
 Corresponding source:
   MMModern  https://github.com/carbiecarbie/MMModern  tag v$version

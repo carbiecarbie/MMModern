@@ -12,6 +12,7 @@ set(SCUMMVM_BUILD_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../build-xeen-probe-sdl"
 	CACHE PATH "Path to the configured minimal ScummVM build tree")
 set(MMODERN_XEEN_DATA_DIR "" CACHE PATH "Required read-only World of Xeen CD source for original-data tests")
 set(MMODERN_XEEN_UI_DATA "" CACHE FILEPATH "Optional installed uncompressed English XEEN.DAT for CD copies")
+set(MMODERN_PROMUS_CAPTURES_DIR "" CACHE PATH "External DOSBox DRO v2 promus captures")
 
 find_package(SDL2 CONFIG REQUIRED)
 find_package(ZLIB REQUIRED)
@@ -25,6 +26,7 @@ include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/MMModernItemCatalog.cmake")
 add_mmodern_item_catalog_generation()
 
 add_library(mmodern_xeen STATIC
+	src/games/xeen/PromusDriver.cpp
 	src/formats/xeen/XeenDosText.cpp
 	src/formats/xeen/XeenMonsterFormat.cpp
 	src/formats/xeen/XeenGameplayContextFormat.cpp
@@ -110,11 +112,14 @@ add_dependencies(mmodern_xeen mmodern_item_catalog_data mmodern_dialog_drawing_d
 target_link_libraries(mmodern_xeen PUBLIC mmodern_core PRIVATE mmodern_scummvm_xeen ZLIB::ZLIB)
 
 add_library(mmodern_platform_sdl STATIC
+	src/platform/sdl/SdlAudioDevice.cpp
 	src/platform/sdl/SdlWindow.cpp
 )
 target_link_libraries(mmodern_platform_sdl PUBLIC mmodern_core PRIVATE SDL2::SDL2)
 
 add_library(mmodern_app STATIC
+	src/app/XeenAudio.cpp
+	src/app/XeenFmSource.cpp
 	src/app/XeenTitle.cpp
 	src/app/XeenTitleFlow.cpp
 	src/platform/XeenSaveFile.cpp
@@ -885,6 +890,10 @@ if(BUILD_TESTING)
 	add_test(NAME xeen_navigation_flow COMMAND mmodern_navigation_flow_tests)
 	add_executable(mmodern_sdl_input_tests tests/SdlInputTests.cpp)
  add_executable(mmodern_presentation_clock_tests tests/PresentationClockTests.cpp)
+ add_executable(mmodern_promus_tests tests/PromusDriverTests.cpp)
+ target_link_libraries(mmodern_promus_tests PRIVATE mmodern_app mmodern_xeen mmodern_scummvm_xeen)
+ add_test(NAME xeen_promus COMMAND mmodern_promus_tests "${MMODERN_XEEN_DATA_DIR}" "${MMODERN_PROMUS_CAPTURES_DIR}")
+ set_tests_properties(xeen_promus PROPERTIES ENVIRONMENT "SDL_AUDIODRIVER=dummy")
  add_executable(mmodern_sound_timing_tests tests/XeenSoundTimingTests.cpp)
  add_executable(mmodern_arena_tests tests/XeenArenaTests.cpp)
  target_link_libraries(mmodern_arena_tests PRIVATE mmodern_app mmodern_xeen)

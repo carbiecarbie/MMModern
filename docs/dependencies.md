@@ -2,8 +2,9 @@
 
 MMModern is an independent SDL application. It does not use ScummVM's SDL
 backend or instantiate its engine. The compatibility target reuses only the
-Xeen archive/sprite code and the Common, Graphics, and Image libraries from a
-separately configured ScummVM build.
+Xeen archive/sprite code, the plain Nuked OPL3 core, and the Common, Graphics,
+and Image libraries from a separately configured ScummVM build. Audio never
+instantiates ScummVM's audio classes or OSystem; `g_system` remains null.
 
 ## Pinned ScummVM revision
 
@@ -90,11 +91,52 @@ MMModern compiles these ScummVM source files directly from
 
 - `engines/mm/shared/xeen/cc_archive.cpp`
 - `engines/mm/shared/xeen/sprites.cpp`
+- `audio/softsynth/opl/nuked.cpp`
 
-The latter is compiled into a generated private object and filtered as
+The sprite source is compiled into a generated private object and filtered as
 described below. The compatibility code includes the corresponding Xeen
 archive, sprite, surface, and file headers as well as their transitive Common
 and Graphics headers.
+
+### Nuked OPL3 core
+
+`cmake/ScummVmXeen.cmake` compiles the pinned `nuked.cpp` with GNU++11,
+`-O2 -ffunction-sections -fdata-sections`, then objcopy removes sections
+matching `*3OPL5NUKED3OPL*` (the class adapter and thunks), `*5Audio*`,
+`*_ZT*` (RTTI/vtables) and `*refptr*`. The generated `nuked.core.o` retains
+the plain core functions and tables. No source patch, ScummVM mixer, backend
+or additional audio translation unit is required. The unused undefined symbol
+names left in the object have no relocations from retained sections.
+
+`XeenOpl3` owns only the plain chip struct. It calls `OPL3_Reset` at native
+49716 Hz, unbuffered `OPL3_WriteReg`, and `OPL3_Generate`. No stereo-extension
+define is supplied; the header's default is zero. MMModern's promus interpreter
+places interrupts using the exact ratio `49716 * 16390 / 1193182`. SDL owns one
+resampler for the FM source, and MMModern mixes its output at the device rate.
+One interpreter advances by an exact integer native-sample accumulator on the
+presentation clock. Its timestamped register writes and completed sample count
+cross one queue to the chip consumer. A pull ahead of published time emits
+silence without advancing the chip; callback size and device prebuffering
+cannot move commands onto a different driver tick. Output latency never delays
+the game or its fade waits.
+Title/SDL and gameplay/injected clocks may have different epochs. Explicit
+session handoffs consume the outgoing clock's final interval, then rebase the
+source counter while retaining elapsed driver time and fractional phase;
+ordinary backwards movement within a source is rejected.
+
+The retained core is Nuked-OPL3-fast 1.8-fast.2 (upstream 1.8, cfedb09),
+copyright Nuke.YKT (2013-2020) and Tony Gies (2026), licensed LGPL-2.1-or-later.
+Preserve these notices and the pinned corresponding source; releases include
+the pin's `LICENSES/COPYING.LGPL` alongside the GPL and runtime-library notices.
+MMModern's existing ScummVM adaptations remain GPL-3.0-or-later.
+
+The external DRO v2 validation data is configured with
+`-DMMODERN_PROMUS_CAPTURES_DIR=<capture-directory>`, alongside
+`MMODERN_XEEN_DATA_DIR`. Captures and derived register streams are never bundled.
+The comparison removes DOSBox's initial register snapshot and unchanged writes,
+aligns the sustained song/effect suffix and PIT phase, and compares both banks
+through capture end. The startup's EXE intro is outside M82. The supplied
+`promus-inn` records the Tavern song; `promus-wall-bump` records effect 46.
 
 ## `xeen_probe` provenance and replacement
 
