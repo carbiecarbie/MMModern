@@ -466,147 +466,171 @@ intro drivers or indirect dispatch. EXE SHA-256:
 `c5ade865b4d1f63201ce3a421df5182cf1d2923f3343deb82a5a06be22eea235`.
 
 All effect IDs below are decimal. Expressions denote runtime IDs. The Efx
-Off panel branch's ID 0 is gated out. Owner labels are existing coordinator
-associations, not new APIs or implemented calls. Medium labels retain action
-or upstream-route uncertainty; they must be refined before wiring effects.
-The spell cluster's common coordinator does not imply every call originates
-in combat. No site is excluded as an intro merely because of its address.
+Off panel branch's ID 0 is gated out. The function column identifies the
+existing action owner, including shared helpers reached by spells, Events or
+ordinary actions. C1 has 40 non-spell or
+shared gameplay sites; C2 has 86 casting/spell-handler sites. Seven sites are
+not reachable yet: Darkside smith animation, character creation, Inn
+recruitment, two fall-animation cues, the temporary opening-door redraw and
+combat Mr Wizard. The last four await the roadmap's "Complete Clouds" objective
+(maintainer classification, 2026-10-21). No scanned call was discarded as a non-effect. Confidence refers
+to the stated original action and argument paths, not implementation coverage.
 
-| DAT file offset | Effect id / expression | Existing MMModern owner | Operation | Confidence / limitation |
-| --- | --- | --- | --- | --- |
-| `0x0b2f1` | 33 | `XeenEventFlow (death continuation)` | Clouds death laugh frames 1 and 11 | High: DAT branch; pin WorldOfXeenEngine death sequence |
-| `0x0b308` | 34 | `XeenEventFlow (death continuation)` | Clouds death laugh frame 15 | High: DAT branch; pin WorldOfXeenEngine death sequence |
-| `0x0c903` | 10 | `XeenJourneyFlow (party interaction)` | gameplay character/item interaction | Medium |
-| `0x0cf48` | 21 | `XeenEventFlow / XeenBarrierFlow` | barrier check/refusal | High |
-| `0x0cfa9` | 47 | `XeenEventFlow / XeenBarrierFlow` | barrier state interaction | High |
-| `0x0d442` | 7 or 8 = 7 + step-toggle bit | `XeenEncounterFlow (journey stepping presentation)` | gameplay movement | High |
-| `0x0d5c1` | 21 | `XeenEncounterFlow (journey action/pulse)` | gameplay interaction; exact action unresolved | Medium |
-| `0x11692` | 11 | `XeenEncounterFlow (falling/travel presentation)` | gameplay falling | High |
-| `0x11716` | 31 | `XeenEncounterFlow (falling/travel presentation)` | gameplay falling sequence | High |
-| `0x1b1a1` | 28 | `XeenEventFlow (Tavern service)` | Drink increments Drunk after random result below 26 | High: condition +0x14a and pin Tavern Drink |
-| `0x1c4b5` | 45 | `XeenEventFlow (location/service presentation)` | gameplay service | High |
-| `0x1c4d3` | 45 | `XeenEventFlow (location/service presentation)` | gameplay service | High |
-| `0x1d918` | 49 | `XeenEncounterFlow (party/actor action resolution)` | gameplay; exact action unresolved | Medium |
-| `0x1d922` | 21 | `XeenEncounterFlow (party/actor action resolution)` | gameplay; exact action unresolved | Medium |
-| `0x1db60` | 46 | `XeenEventFlow / XeenBarrierFlow` | gameplay barrier/door interaction | Medium |
-| `0x1e8d2` | 21 | `XeenEventFlow (shared service/resource notice)` | Insufficient or absent party/bank resource | High: DAT 0x1e8bb..0x1e940, message pointers DS:597a/599b |
-| `0x1f073` | 20 when Efx becomes on; 0 when off | `XeenTitleFlow` | control-panel Efx toggle | High (calibrated) |
-| `0x1f249` | 51 | `XeenTitleFlow dispatch -> XeenEventFlow / XeenEncounterFlow::mrWizard` | Mr Wizard confirmation; outside-combat map transition | High — settled original-quirks DOS finding |
-| `0x1f881` | 38 | `XeenEncounterFlow (character damage/condition presentation)` | gameplay character condition | High |
-| `0x21107` | 20 | `XeenEncounterFlow (party reward publication)` | gameplay treasure/item award | High |
-| `0x236c6` | 10 (stack local initialized to 10) | `XeenEventFlow / XeenBarrierFlow` | gameplay lock success | High |
-| `0x236d8` | 21 | `XeenEventFlow / XeenBarrierFlow` | gameplay lock failure | High |
-| `0x23eb8` | type-selected: 22,23,24,26,25,27,29,38 | `XeenEncounterFlow` | gameplay typed combat damage | High |
-| `0x240fe` | 51 | `XeenEventFlow (dialog/text response)` | gameplay response UI; exact action unresolved | Medium |
-| `0x2428e` | 54 | `XeenEncounterFlow (party treasure award)` | gameplay reward | High |
-| `0x2456b` | 20 | `XeenEncounterFlow (party distribution/reward)` | gameplay reward | Medium |
-| `0x26ff3` | event parameter byte (record + 6) | `XeenEventFlow (event interpreter)` | gameplay Event PlayFX opcode | High semantic; value data-driven |
-| `0x270a8` | 51 | `XeenEventFlow (event interpreter)` | gameplay event/dialog presentation | Medium |
-| `0x270ea` | 44 | `XeenEventFlow (event/location presentation)` | gameplay service/event feedback | Medium |
-| `0x28f1c` | 21 | `XeenEventFlow (event interpreter)` | gameplay refusal/feedback | Medium |
-| `0x2c105` | 60 + weapon-power table value at current weapon index | `XeenEncounterFlow` | gameplay combat missile/power effect | High semantic; table-backed |
-| `0x2c17c` | 6 | `XeenEncounterFlow (combat ranged action)` | gameplay combat projectile/action | Medium |
-| `0x2c23c` | 4 | `XeenEncounterFlow (combat ranged action)` | gameplay combat projectile/action | Medium |
-| `0x2d379` | type-selected: 22,23,24,25,26,27 | `XeenEncounterFlow` | gameplay typed combat damage | High |
-| `0x2d5f0` | 37 | `XeenEncounterFlow` | gameplay monster attack/condition | Medium |
-| `0x2d62e` | 37 | `XeenEncounterFlow` | gameplay monster attack/condition | Medium |
-| `0x2d65e` | 38 | `XeenEncounterFlow` | gameplay monster attack/condition | Medium |
-| `0x2d6af` | 37 | `XeenEncounterFlow` | gameplay monster attack/condition | Medium |
-| `0x2dc0b` | 6 | `XeenEncounterFlow (combat action)` | gameplay combat | Medium |
-| `0x2e1fe` | 51 | `XeenEncounterFlow (combat turn/action transition)` | gameplay combat presentation | Medium |
-| `0x2e7e6` | monster-record byte at +0x32 | `XeenEncounterFlow (monster action in combat)` | gameplay monster FX | High semantic; data-driven |
-| `0x2ec42` | 51 | `XeenEncounterFlow::mrWizard` | Mr Wizard combat exit tail and map transition | High — settled original-quirks DOS finding |
-| `0x2f1d3` | 21 | `XeenEncounterFlow (shared spell/effect continuation)` | gameplay spell/combat effect handler | Medium; exact entry route may be exploration, combat, or item spell |
-| `0x2f25c` | 21 | `XeenEncounterFlow (shared spell/effect continuation)` | gameplay spell/combat effect handler | Medium; exact entry route may be exploration, combat, or item spell |
-| `0x2f3ac` | 39 | `XeenEncounterFlow (shared spell/effect continuation)` | gameplay spell/combat effect handler | Medium; exact entry route may be exploration, combat, or item spell |
-| `0x2f3ee` | 30 | `XeenEncounterFlow (shared spell/effect continuation)` | gameplay spell/combat effect handler | Medium; exact entry route may be exploration, combat, or item spell |
-| `0x2f44a` | 30 | `XeenEncounterFlow (shared spell/effect continuation)` | gameplay spell/combat effect handler | Medium; exact entry route may be exploration, combat, or item spell |
-| `0x2f476` | 18 | `XeenEncounterFlow (shared spell/effect continuation)` | gameplay spell/combat effect handler | Medium; exact entry route may be exploration, combat, or item spell |
-| `0x2f496` | 30 | `XeenEncounterFlow (shared spell/effect continuation)` | gameplay spell/combat effect handler | Medium; exact entry route may be exploration, combat, or item spell |
-| `0x2f53a` | 30 | `XeenEncounterFlow (shared spell/effect continuation)` | gameplay spell/combat effect handler | Medium; exact entry route may be exploration, combat, or item spell |
-| `0x2f575` | 14 | `XeenEncounterFlow (shared spell/effect continuation)` | gameplay spell/combat effect handler | Medium; exact entry route may be exploration, combat, or item spell |
-| `0x2f5b7` | 16 | `XeenEncounterFlow (shared spell/effect continuation)` | gameplay spell/combat effect handler | Medium; exact entry route may be exploration, combat, or item spell |
-| `0x2f5da` | 18 | `XeenEncounterFlow (shared spell/effect continuation)` | gameplay spell/combat effect handler | Medium; exact entry route may be exploration, combat, or item spell |
-| `0x2f5fd` | 18 | `XeenEncounterFlow (shared spell/effect continuation)` | gameplay spell/combat effect handler | Medium; exact entry route may be exploration, combat, or item spell |
-| `0x2f620` | 17 | `XeenEncounterFlow (shared spell/effect continuation)` | gameplay spell/combat effect handler | Medium; exact entry route may be exploration, combat, or item spell |
-| `0x2f68c` | 20 | `XeenEncounterFlow (shared spell/effect continuation)` | gameplay spell/combat effect handler | Medium; exact entry route may be exploration, combat, or item spell |
-| `0x2f6fb` | 20 | `XeenEncounterFlow (shared spell/effect continuation)` | gameplay spell/combat effect handler | Medium; exact entry route may be exploration, combat, or item spell |
-| `0x2f72e` | 18 | `XeenEncounterFlow (shared spell/effect continuation)` | gameplay spell/combat effect handler | Medium; exact entry route may be exploration, combat, or item spell |
-| `0x2f825` | 51 | `XeenEncounterFlow (shared spell/effect continuation)` | gameplay spell/combat effect handler | Medium; exact entry route may be exploration, combat, or item spell |
-| `0x2f895` | 20 | `XeenEncounterFlow (shared spell/effect continuation)` | gameplay spell/combat effect handler | Medium; exact entry route may be exploration, combat, or item spell |
-| `0x2f8b7` | 30 | `XeenEncounterFlow (shared spell/effect continuation)` | gameplay spell/combat effect handler | Medium; exact entry route may be exploration, combat, or item spell |
-| `0x2f8d8` | 20 | `XeenEncounterFlow (shared spell/effect continuation)` | gameplay spell/combat effect handler | Medium; exact entry route may be exploration, combat, or item spell |
-| `0x2f8eb` | 20 | `XeenEncounterFlow (shared spell/effect continuation)` | gameplay spell/combat effect handler | Medium; exact entry route may be exploration, combat, or item spell |
-| `0x2fa69` | 20 | `XeenEncounterFlow (shared spell/effect continuation)` | gameplay spell/combat effect handler | Medium; exact entry route may be exploration, combat, or item spell |
-| `0x2faf6` | 30 | `XeenEncounterFlow (shared spell/effect continuation)` | gameplay spell/combat effect handler | Medium; exact entry route may be exploration, combat, or item spell |
-| `0x2fb65` | 30 | `XeenEncounterFlow (shared spell/effect continuation)` | gameplay spell/combat effect handler | Medium; exact entry route may be exploration, combat, or item spell |
-| `0x2fbf3` | 30 | `XeenEncounterFlow (shared spell/effect continuation)` | gameplay spell/combat effect handler | Medium; exact entry route may be exploration, combat, or item spell |
-| `0x2fc3e` | 14 | `XeenEncounterFlow (shared spell/effect continuation)` | gameplay spell/combat effect handler | Medium; exact entry route may be exploration, combat, or item spell |
-| `0x2fc4f` | 30 | `XeenEncounterFlow (shared spell/effect continuation)` | gameplay spell/combat effect handler | Medium; exact entry route may be exploration, combat, or item spell |
-| `0x2fc70` | 20 | `XeenEncounterFlow (shared spell/effect continuation)` | gameplay spell/combat effect handler | Medium; exact entry route may be exploration, combat, or item spell |
-| `0x2fc8b` | 15 | `XeenEncounterFlow (shared spell/effect continuation)` | gameplay spell/combat effect handler | Medium; exact entry route may be exploration, combat, or item spell |
-| `0x2fee7` | 51 | `XeenEncounterFlow (shared spell/effect continuation)` | gameplay spell/combat effect handler | Medium; exact entry route may be exploration, combat, or item spell |
-| `0x2ff65` | 20 | `XeenEncounterFlow (shared spell/effect continuation)` | gameplay spell/combat effect handler | Medium; exact entry route may be exploration, combat, or item spell |
-| `0x2ffc5` | 20 | `XeenEncounterFlow (shared spell/effect continuation)` | gameplay spell/combat effect handler | Medium; exact entry route may be exploration, combat, or item spell |
-| `0x2fff0` | 30 | `XeenEncounterFlow (shared spell/effect continuation)` | gameplay spell/combat effect handler | Medium; exact entry route may be exploration, combat, or item spell |
-| `0x30072` | 13 | `XeenEncounterFlow (shared spell/effect continuation)` | gameplay spell/combat effect handler | Medium; exact entry route may be exploration, combat, or item spell |
-| `0x301ee` | 20 | `XeenEncounterFlow (shared spell/effect continuation)` | gameplay spell/combat effect handler | Medium; exact entry route may be exploration, combat, or item spell |
-| `0x30250` | 17 | `XeenEncounterFlow (shared spell/effect continuation)` | gameplay spell/combat effect handler | Medium; exact entry route may be exploration, combat, or item spell |
-| `0x30292` | 15 | `XeenEncounterFlow (shared spell/effect continuation)` | gameplay spell/combat effect handler | Medium; exact entry route may be exploration, combat, or item spell |
-| `0x302b2` | 30 | `XeenEncounterFlow (shared spell/effect continuation)` | gameplay spell/combat effect handler | Medium; exact entry route may be exploration, combat, or item spell |
-| `0x30316` | 51 | `XeenEncounterFlow (shared spell/effect continuation)` | gameplay spell/combat effect handler | Medium; exact entry route may be exploration, combat, or item spell |
-| `0x30339` | 13 | `XeenEncounterFlow (shared spell/effect continuation)` | gameplay spell/combat effect handler | Medium; exact entry route may be exploration, combat, or item spell |
-| `0x30557` | 51 | `XeenEncounterFlow (shared spell/effect continuation)` | gameplay spell/combat effect handler | Medium; exact entry route may be exploration, combat, or item spell |
-| `0x3057c` | 18 | `XeenEncounterFlow (shared spell/effect continuation)` | gameplay spell/combat effect handler | Medium; exact entry route may be exploration, combat, or item spell |
-| `0x3059c` | 30 | `XeenEncounterFlow (shared spell/effect continuation)` | gameplay spell/combat effect handler | Medium; exact entry route may be exploration, combat, or item spell |
-| `0x3060c` | 30 | `XeenEncounterFlow (shared spell/effect continuation)` | gameplay spell/combat effect handler | Medium; exact entry route may be exploration, combat, or item spell |
-| `0x30633` | 13 | `XeenEncounterFlow (shared spell/effect continuation)` | gameplay spell/combat effect handler | Medium; exact entry route may be exploration, combat, or item spell |
-| `0x3064d` | 20 | `XeenEncounterFlow (shared spell/effect continuation)` | gameplay spell/combat effect handler | Medium; exact entry route may be exploration, combat, or item spell |
-| `0x3076e` | 51 | `XeenEncounterFlow (shared spell/effect continuation)` | gameplay spell/combat effect handler | Medium; exact entry route may be exploration, combat, or item spell |
-| `0x30836` | 30 | `XeenEncounterFlow (shared spell/effect continuation)` | gameplay spell/combat effect handler | Medium; exact entry route may be exploration, combat, or item spell |
-| `0x308ee` | 15 | `XeenEncounterFlow (shared spell/effect continuation)` | gameplay spell/combat effect handler | Medium; exact entry route may be exploration, combat, or item spell |
-| `0x3095d` | 30 | `XeenEncounterFlow (shared spell/effect continuation)` | gameplay spell/combat effect handler | Medium; exact entry route may be exploration, combat, or item spell |
-| `0x30a01` | 51 | `XeenEncounterFlow (shared spell/effect continuation)` | gameplay spell/combat effect handler | Medium; exact entry route may be exploration, combat, or item spell |
-| `0x30a43` | 18 | `XeenEncounterFlow (shared spell/effect continuation)` | gameplay spell/combat effect handler | Medium; exact entry route may be exploration, combat, or item spell |
-| `0x30a6f` | 18 | `XeenEncounterFlow (shared spell/effect continuation)` | gameplay spell/combat effect handler | Medium; exact entry route may be exploration, combat, or item spell |
-| `0x30a93` | 16 | `XeenEncounterFlow (shared spell/effect continuation)` | gameplay spell/combat effect handler | Medium; exact entry route may be exploration, combat, or item spell |
-| `0x30aa7` | 30 | `XeenEncounterFlow (shared spell/effect continuation)` | gameplay spell/combat effect handler | Medium; exact entry route may be exploration, combat, or item spell |
-| `0x30af4` | 18 | `XeenEncounterFlow (shared spell/effect continuation)` | gameplay spell/combat effect handler | Medium; exact entry route may be exploration, combat, or item spell |
-| `0x30b6c` | 13 | `XeenEncounterFlow (shared spell/effect continuation)` | gameplay spell/combat effect handler | Medium; exact entry route may be exploration, combat, or item spell |
-| `0x30baa` | Storm FX lookup indexed by `rand(2..5)-2` = {13,14,15,17} | `XeenEncounterFlow` (combat spell effect)` | gameplay Storm spell typed damage | High semantic; matches ScummVM `spells.cpp` `STORM_FX_LIST` |
-| `0x30bdf` | 18 | `XeenEncounterFlow (shared spell/effect continuation)` | gameplay spell/combat effect handler | Medium; exact entry route may be exploration, combat, or item spell |
-| `0x30c38` | 30 | `XeenEncounterFlow (shared spell/effect continuation)` | gameplay spell/combat effect handler | Medium; exact entry route may be exploration, combat, or item spell |
-| `0x30cb4` | 14 | `XeenEncounterFlow (shared spell/effect continuation)` | gameplay spell/combat effect handler | Medium; exact entry route may be exploration, combat, or item spell |
-| `0x30cd7` | 13 | `XeenEncounterFlow (shared spell/effect continuation)` | gameplay spell/combat effect handler | Medium; exact entry route may be exploration, combat, or item spell |
-| `0x30cfa` | 16 | `XeenEncounterFlow (shared spell/effect continuation)` | gameplay spell/combat effect handler | Medium; exact entry route may be exploration, combat, or item spell |
-| `0x30d1d` | 18 | `XeenEncounterFlow (shared spell/effect continuation)` | gameplay spell/combat effect handler | Medium; exact entry route may be exploration, combat, or item spell |
-| `0x30d40` | 13 | `XeenEncounterFlow (shared spell/effect continuation)` | gameplay spell/combat effect handler | Medium; exact entry route may be exploration, combat, or item spell |
-| `0x30de2` | 20 | `XeenEncounterFlow (shared spell/effect continuation)` | gameplay spell/combat effect handler | Medium; exact entry route may be exploration, combat, or item spell |
-| `0x30e07` | 18 | `XeenEncounterFlow (shared spell/effect continuation)` | gameplay spell/combat effect handler | Medium; exact entry route may be exploration, combat, or item spell |
-| `0x30e1d` | 20 | `XeenEncounterFlow (shared spell/effect continuation)` | gameplay spell/combat effect handler | Medium; exact entry route may be exploration, combat, or item spell |
-| `0x30e53` | 20 | `XeenEncounterFlow (shared spell/effect continuation)` | gameplay spell/combat effect handler | Medium; exact entry route may be exploration, combat, or item spell |
-| `0x30e82` | 20 | `XeenEncounterFlow (shared spell/effect continuation)` | gameplay spell/combat effect handler | Medium; exact entry route may be exploration, combat, or item spell |
-| `0x30e9d` | 18 | `XeenEncounterFlow (shared spell/effect continuation)` | gameplay spell/combat effect handler | Medium; exact entry route may be exploration, combat, or item spell |
-| `0x30edb` | 16 | `XeenEncounterFlow (shared spell/effect continuation)` | gameplay spell/combat effect handler | Medium; exact entry route may be exploration, combat, or item spell |
-| `0x30efe` | 18 | `XeenEncounterFlow (shared spell/effect continuation)` | gameplay spell/combat effect handler | Medium; exact entry route may be exploration, combat, or item spell |
-| `0x30f21` | 22 | `XeenEncounterFlow (shared spell/effect continuation)` | gameplay spell/combat effect handler | Medium; exact entry route may be exploration, combat, or item spell |
-| `0x30f44` | 17 | `XeenEncounterFlow (shared spell/effect continuation)` | gameplay spell/combat effect handler | Medium; exact entry route may be exploration, combat, or item spell |
-| `0x30fd7` | 49 | `XeenEncounterFlow (shared spell/effect continuation)` | gameplay spell/combat effect handler | Medium; exact entry route may be exploration, combat, or item spell |
-| `0x31009` | 16 | `XeenEncounterFlow (shared spell/effect continuation)` | gameplay spell/combat effect handler | Medium; exact entry route may be exploration, combat, or item spell |
-| `0x31bfd` | 20 | `XeenEncounterFlow (shared spell/effect continuation)` | gameplay spell/combat effect handler | Medium; exact entry route may be exploration, combat, or item spell |
-| `0x31c44` | 21 | `XeenEncounterFlow (shared spell/effect continuation)` | gameplay spell/combat effect handler | Medium; exact entry route may be exploration, combat, or item spell |
-| `0x31d3d` | 19 | `XeenEncounterFlow (shared spell/effect continuation)` | gameplay spell/combat effect handler | Medium; exact entry route may be exploration, combat, or item spell |
-| `0x31dc3` | 21 | `XeenEncounterFlow (shared spell/effect continuation)` | gameplay spell/combat effect handler | Medium; exact entry route may be exploration, combat, or item spell |
-| `0x31e1e` | 21 | `XeenEncounterFlow (shared spell/effect continuation)` | gameplay spell/combat effect handler | Medium; exact entry route may be exploration, combat, or item spell |
-| `0x31e4c` | 20 | `XeenEncounterFlow (shared spell/effect continuation)` | gameplay spell/combat effect handler | Medium; exact entry route may be exploration, combat, or item spell |
-| `0x31ea9` | 20 | `XeenEncounterFlow (shared spell/effect continuation)` | gameplay spell/combat effect handler | Medium; exact entry route may be exploration, combat, or item spell |
-| `0x31f07` | 20 | `XeenEncounterFlow (shared spell/effect continuation)` | gameplay spell/combat effect handler | Medium; exact entry route may be exploration, combat, or item spell |
-| `0x31f61` | 20 | `XeenEncounterFlow (shared spell/effect continuation)` | gameplay spell/combat effect handler | Medium; exact entry route may be exploration, combat, or item spell |
-| `0x32d5b` | 31 | `XeenEventFlow / XeenBarrierFlow` | gameplay bash/barrier action | High |
-| `0x34d71` | 21 | `XeenEventFlow / XeenEncounterFlow::buySpell` | Guild spell purchase resource-subtraction failure | High: DAT 0x34cd3..0x34cea, pin SpellsDialog purchase branch |
-| `0x368c3` | 21 | `XeenEventFlow (event/dialog input)` | gameplay event refusal | Medium |
-| `0x36a07` | Attack type 0..6 maps to 49,18,13,14,15,17,16 | `XeenEncounterFlow (monster ranged presentation)` | 36-entry shooting queue; MON +0x1d indexes table at file 0x50017 | High: DAT 0x3694f..0x36a0c; pin Combat::monstersAttack |
-| `0x39bda` | 21 | `XeenEncounterFlow (party/member transition)` | gameplay party action refusal | Medium |
+**DOS static, high (C1 reconciliation, 2026-10-21):** incoming branches matter:
+`0xcf6a/0xcf6c` feed effect 46 to call `0xcf48`, bypassing the push of 21 at
+`0xcf46`. The maintainer's Part A DOSBox `promus-wall-bump` capture also matches
+46 ([capture configuration](../dependencies.md)). Likewise,
+`0x270e4/0x270e6` feed 45 to `0x270ea`, and the secondary-attack call at
+`0x2d6af` merges several different pushes. The wrapper at `0xdece..0xdee6`
+was calibrated against the saved Efx byte `DS:ed9a` (party +0x0e); the original
+DAT hash remains the evidence baseline. Monster misses at `0x2dc0b` are separate
+from the player attack2 zero-total cue at `0x2c17c`. Missed player missiles
+(`0x2cb86 -> 0x2ccc4`) bypass attack2; melee still submits its zero total.
+The projectile loop checks the next wall (`0x1db3e..0x1db84`) before testing
+whether any arrows remain. Single/Group spells stop before that check after
+dispatching a target; All spells continue. Thus a spent last arrow can still
+request 46 at the immediately following wall, but cannot reach a farther wall.
+ Named spell handlers were traced from
+the original 76-entry dispatcher table at `0x3382b`, with the M74-M77 handler
+evidence; item-target helpers were decoded separately. External semantic notes
+and bounded instruction evidence stay under `D:/MModern-re/audio-m82/c1/` and
+`c1-spell-inventory-86.tsv`; no original code or bytes are kept here.
+
+| DAT file offset | Effect id / expression | Existing MMModern function | DOS action | Class | Confidence / evidence |
+| --- | --- | --- | --- | --- | --- |
+| `0x0b2f1` | 33 | `XeenEventFlow::advanceDeath` | Clouds death laugh frames 1 and 11 | C1 | High: DAT frame branches 0xb2e5..0xb2f1; pinned death sequence |
+| `0x0b308` | 34 | `XeenEventFlow::advanceDeath` | Clouds death laugh frame 15 | C1 | High: DAT 0xb301..0xb308 |
+| `0x0c903` | 10 | `XeenEventFlow::serviceBarrier` | successful grate opening, after both wall faces change and before redraw | C1 | High: DAT 0xc794..0xc91a; grate evidence in evidence.md |
+| `0x0cf48` | 21 from 0xcf46; 46 from 0xcf6a via 0xcf6c | `XeenMovement::apply; XeenEncounterFlow::advanceJourney` | outdoor admission refusal (21); indoor wall or swamp refusal without Swimming/Walk on Water (46) | C1 | High: DAT 0xcf46..0xcf91; Part A DOSBox promus-wall-bump matches effect 46 |
+| `0x0cfa9` | 47 | none; absent animation/combat action | forward opening-door redraw during admitted indoor movement | Not reachable yet: roadmap long-term 2 (Complete Clouds) | High: DAT 0xcf93..0xcfb7; pinned checkMoveDirection |
+| `0x0d442` | 7 + toggled stepping bit (7 or 8) | `XeenEncounterFlow::advanceJourney; XeenEventFlow::serviceBarrier` | movement/turn step-time suffix, including passable indoor B, excluding Space and W; toggle before request | C1 | High: DAT 0xd42b..0xd448; pinned stepTime |
+| `0x0d5c1` | 21 | `XeenEncounterFlow::beginShoot` | Shoot refused because no active member can shoot | C1 | High: DAT 0xd558..0xd5c7; pinned perform(S) |
+| `0x11692` | 11 | none; absent animation/combat action | falling animation starts after view setup | Not reachable yet: roadmap long-term 2 (Complete Clouds) | High: DAT 0x11686..0x11697; pinned startFalling |
+| `0x11716` | 31 | none; absent animation/combat action | fall impact after animation and sample stop | Not reachable yet: roadmap long-term 2 (Complete Clouds) | High: DAT 0x11706..0x1171b; pinned startFalling |
+| `0x1b1a1` | 28 | `XeenEncounterFlow::simpleService` | Drink result below 26 increments Drunk; redraw then burp | C1 | High: DAT 0x1b18f..0x1b1a6; pinned Tavern |
+| `0x1c4b5` | 45 | `XeenEventFlow::pulseServiceArt` | Clouds smith background frames 3 and 9 | C1 | High: DAT 0x1c46e..0x1c4bb; pinned BaseLocation::drawAnim |
+| `0x1c4d3` | 45 | `none; Darkside services` | Darkside smith background frames 4 and 13 | Not reachable yet: roadmap long-term 3 (Darkside) | High: DAT 0x1c4bd..0x1c4d8 |
+| `0x1d918` | 49 | `XeenEncounterFlow::beginShoot` | arrow projectile start after at least one shooting lane is selected | C1 | High: DAT 0x1d8c0..0x1d91e; pinned rangedAttack(POW_ARROW) |
+| `0x1d922` | 21 | `XeenEncounterFlow::beginShoot` | arrow projectile refused when no shooting lane can be selected | C1 | High: DAT 0x1d912..0x1d927; pinned rangedAttack(POW_ARROW) |
+| `0x1db60` | 46 | `XeenEncounterFlow::serviceShoot` | projectile hits an outdoor blocking wall or indoor no-pass wall; shared with spell projectiles | C1 | High: DAT 0x1db3e..0x1db84; M74 projectile evidence |
+| `0x1e8d2` | 21 | `XeenEventFlow::presentPendingEvent` | insufficient or absent carried/banked resource notice | C1 | High: DAT 0x1e8bb..0x1e940; DS 0x597a/0x599b |
+| `0x1f073` | 20 on enabling Efx; off branch 0 is gated out | `XeenGameplay control-panel publishSound` | Efx toggle feedback (Part B) | C1 | High: DAT 0x1f061..0x1f073; wrapper Efx gate |
+| `0x1f249` | 51 | `XeenEncounterFlow::mrWizard` | Mr Wizard confirmed outside combat, before map transition | C1 | High: settled Mr Wizard entry in original-quirks.md |
+| `0x1f881` | 38 | `xeenApplyPhysicalInjury` | HP subtraction leaves a member unconscious, before armor-break handling | C1 | High: DAT 0x1f812..0x1f887; pinned subtractHitPoints |
+| `0x21107` | 20 | `XeenEventFlow::preparePortraitSequence` | eligible member portrait sparkle starts; shared by spells, Events and services | C1 | High: DAT 0x210bc..0x21169; existing portrait evidence |
+| `0x236c6` | 10 | `XeenEventInterpreter::execute` | GiveMulti chest lock succeeds, before redraw | C1 | High: DAT local 0x235e7 and call 0x236c3..0x236ce |
+| `0x236d8` | 21 | `XeenEventInterpreter::execute` | GiveMulti chest lock fails before failure notice | C1 | High: DAT 0x236d6..0x23726 |
+| `0x23eb8` | Physical 29; Magical 27; Fire 22; Electrical 23; Cold 24; Poison 26; Energy 25; fallback 38 | `XeenTypedDamageCandidate::service` | typed party damage overlay after resistance saves, before injury | C1 | High: DAT 0x23e09..0x23edf |
+| `0x240fe` | 51 | `XeenEventInterpreter::execute` | valid mirror-name input matched against original mirror list | C1 | High: DAT 0x23fa5..0x24127, 0x240d5..0x24103; pin StringInput differs |
+| `0x2428e` | 54 | `xeenBeginTreasureDelivery` | currency delivery begins when gold or gems are nonzero, before item delivery | C1 | High: DAT 0x2426a..0x24294; pinned giveTreasure |
+| `0x2456b` | 20 | `xeenDeliverRewardItem` | each delivered treasure item, before copy/message | C1 | High: DAT 0x24567..0x2464d; pinned giveTreasureToCharacter |
+| `0x26ff3` | Event record parameter byte +6 | `XeenEventInterpreter::execute` | PlayFX Event opcode | C1 | High: DAT 0x26fe9..0x26ff8; pinned cmdPlayFX |
+| `0x270a8` | 51 | `XeenEventInterpreter::execute` | mirror teleport only: after destination resolution, before map-change test | C1 | High: DAT mirror branch 0x27000..0x270b9; pinned cmdTeleport |
+| `0x270ea` | 45 for selected object sprite 47; 44 for sprite 48 | `XeenEventInterpreter::execute` | teleport changes map through stair object, before load | C1 | High: DAT 0x270be..0x270f8; both incoming pushes 0x270e4/0x270e8 |
+| `0x28f1c` | 21 | `XeenEventSystem::runManualEvent` | interaction object has no matching facing script and current cell is not an Event | C1 | High: DAT 0x28efd..0x28f21; pinned checkEvents refusal |
+| `0x2c105` | 60 + byte at DAT 0x4d660[attack weapon ID] | `XeenEncounterFlow::serviceShoot; XeenCombat::servicePresented; XeenCombat::serviceCast` | positive monster damage after pre-HP redraw and before HP subtraction; ordinary spells retain the previous weapon selector | C1 | High: DAT 0x2c0f6..0x2c112; pinned attack2 |
+| `0x2c17c` | 6 | `XeenPhysicalPlayerCandidate::service; XeenSpellDamageCandidate::service` | attack2 damage is nonpositive, including boss refusal; magic-resistance rejection bypasses this call | C1 | High: DAT attack2 zero-damage branches into 0x2c16c..0x2c181 |
+| `0x2c23c` | 4 | `XeenEncounterFlow::serviceShoot; XeenCombat::servicePresented` | monster death, after boss-specific quest writes and before XP/treasure generation | C1 | High: DAT 0x2c1b0..0x2c247; pin omits cue |
+| `0x2d379` | Physical 29; Magical 27; Fire 22; Electrical 23; Cold 24; Poison 26; Energy 25 | `XeenEnemyAttackCandidate::service` | monster damage overlay after saves, before Power Shield and secondary attack | C1 | High: DAT 0x2d2ab..0x2d3a1; pinned doCharDamage |
+| `0x2d5f0` | 37 | `XeenEnemyAttackCandidate::service` | Eradicate secondary effect after breaking inventory, before zeroing positive HP | C1 | High: DAT 0x2d5c6..0x2d60e |
+| `0x2d62e` | 37 | `XeenEnemyAttackCandidate::service` | Stone secondary effect before zeroing positive HP | C1 | High: DAT 0x2d611..0x2d63f; pin uses 38 |
+| `0x2d65e` | 38 | `XeenEnemyAttackCandidate::service` | Death secondary effect before zeroing positive HP | C1 | High: DAT 0x2d641..0x2d66f |
+| `0x2d6af` | 26 Poison/Disease; 28 Insane/Confuse; 36 Sleep/Weaken; 37 CurseItem/DrainSP/Curse/Paralyze/Unconscious/BreakWeapon/Aging | `XeenEnemyAttackCandidate::service` | shared tail of successful secondary-attack branches | C1 | High: DAT switch 0x2d43d, pushes 0x2d45d/0x2d4df/0x2d55c/0x2d6ad |
+| `0x2dc0b` | 6 | `XeenEnemyAttackCandidate::service` | monster physical attack misses on a natural 1 or failed AC check, including the second check after a critical first hit | C1 | High: DAT 0x2d9ea..0x2dc11; monster +0x1d physical gate; hit calls party-damage helper 0x2d22d; pin doMonsterTurn |
+| `0x2e1fe` | 51 | `XeenRunCandidate::service` | successful combat Run removes current participant | C1 | High: DAT 0x2e1c0..0x2e204; pinned run |
+| `0x2e7e6` | monster-record byte +0x32 | `XeenEncounterFlow::observeCombat` | monster melee attack starts before frame 8 redraw | C1 | High: DAT 0x2e7df..0x2e7eb; pinned doCombat |
+| `0x2ec42` | 51 | none; absent animation/combat action | Mr Wizard combat-exit tail before destination load | Not reachable yet: roadmap long-term 2 (Complete Clouds) | High: settled Mr Wizard entry in original-quirks.md |
+| `0x2f1d3` | 21 | `XeenCombat::respondCast` | casting refused while engaged | C2 | High: DAT 0x2f1b6..0x2f23e; message DS 0x6887 |
+| `0x2f25c` | 21 | `XeenEncounterFlow::confirmCasting; XeenCombat::respondCast` | casting refused for insufficient SP or gems | C2 | High: DAT 0x2f23f..0x2f2c3; message DS 0x68aa |
+| `0x2f3ac` | 39 | `XeenLearnedSpellRules::prepareEffect; XeenLearnedSpellRules::applyPartyEffect; XeenEncounterFlow::publishAwaken; XeenEncounterFlow::publishCastingTarget` | Light | C2 | High: Learned dispatcher 0x3382b maps ID to handler; M74/M76 entry labels; local call predecessor/branch |
+| `0x2f3ee` | 30 | `XeenLearnedSpellRules::prepareEffect; XeenLearnedSpellRules::applyPartyEffect; XeenEncounterFlow::publishAwaken; XeenEncounterFlow::publishCastingTarget` | Awaken | C2 | High: Learned dispatcher 0x3382b maps ID to handler; M74/M76 entry labels; local call predecessor/branch |
+| `0x2f44a` | 30 | `XeenLearnedSpellRules::prepareEffect; XeenLearnedSpellRules::applyPartyEffect; XeenEncounterFlow::publishAwaken; XeenEncounterFlow::publishCastingTarget` | First Aid | C2 | High: Learned dispatcher 0x3382b maps ID to handler; M74/M76 entry labels; local call predecessor/branch |
+| `0x2f476` | 18 | `XeenSpellDamagePreparation::service; XeenEncounterFlow::serviceShoot; XeenCombat::serviceCast` | Flying Fist | C2 | High: Learned dispatcher 0x3382b maps ID to handler; M74/M76 entry labels; local call predecessor/branch |
+| `0x2f496` | 30 | `XeenLearnedSpellRules::prepareEffect; XeenLearnedSpellRules::applyPartyEffect; XeenEncounterFlow::publishAwaken; XeenEncounterFlow::publishCastingTarget` | Revitalize | C2 | High: Learned dispatcher 0x3382b maps ID to handler; M74/M76 entry labels; local call predecessor/branch |
+| `0x2f53a` | 30 | `XeenLearnedSpellRules::prepareEffect; XeenLearnedSpellRules::applyPartyEffect; XeenEncounterFlow::publishAwaken; XeenEncounterFlow::publishCastingTarget` | Cure Wounds | C2 | High: Learned dispatcher 0x3382b maps ID to handler; M74/M76 entry labels; local call predecessor/branch |
+| `0x2f575` | 14 | `XeenSpellDamagePreparation::service; XeenEncounterFlow::serviceShoot; XeenCombat::serviceCast` | Sparks | C2 | High: Learned dispatcher 0x3382b maps ID to handler; M74/M76 entry labels; local call predecessor/branch |
+| `0x2f5b7` | 16 | `XeenSpellDamagePreparation::service; XeenEncounterFlow::serviceShoot; XeenCombat::serviceCast` | Energy Blast | C2 | High: Learned dispatcher 0x3382b maps ID to handler; M74/M76 entry labels; local call predecessor/branch |
+| `0x2f5da` | 18 | `XeenSpellDamagePreparation::service; XeenEncounterFlow::serviceShoot; XeenCombat::serviceCast` | Sleep | C2 | High: Learned dispatcher 0x3382b maps ID to handler; M74/M76 entry labels; local call predecessor/branch |
+| `0x2f5fd` | 18 | `XeenSpellDamagePreparation::service; XeenEncounterFlow::serviceShoot; XeenCombat::serviceCast` | Pain | C2 | High: Learned dispatcher 0x3382b maps ID to handler; M74/M76 entry labels; local call predecessor/branch |
+| `0x2f620` | 17 | `XeenSpellDamagePreparation::service; XeenEncounterFlow::serviceShoot; XeenCombat::serviceCast` | Toxic Cloud | C2 | High: Learned dispatcher 0x3382b maps ID to handler; M74/M76 entry labels; local call predecessor/branch |
+| `0x2f68c` | 20 | `XeenLearnedSpellRules::prepareEffect; XeenLearnedSpellRules::applyPartyEffect; XeenEncounterFlow::publishAwaken; XeenEncounterFlow::publishCastingTarget` | Suppress Poison | C2 | High: Learned dispatcher 0x3382b maps ID to handler; M74/M76 entry labels; local call predecessor/branch |
+| `0x2f6fb` | 20 | `XeenLearnedSpellRules::prepareEffect; XeenLearnedSpellRules::applyPartyEffect; XeenEncounterFlow::publishAwaken; XeenEncounterFlow::publishCastingTarget` | Protection from Elements | C2 | High: Learned dispatcher 0x3382b maps ID to handler; M74/M76 entry labels; local call predecessor/branch |
+| `0x2f72e` | 18 | `XeenSpellDamagePreparation::service; XeenEncounterFlow::serviceShoot; XeenCombat::serviceCast` | Turn Undead | C2 | High: Learned dispatcher 0x3382b maps ID to handler; M74/M76 entry labels; local call predecessor/branch |
+| `0x2f825` | 51 | `XeenLearnedSpellRules::travel; XeenEncounterFlow::confirmCasting; XeenEncounterFlow::publishAwaken` | Jump | C2 | High: Learned dispatcher 0x3382b maps ID to handler; M74/M76 entry labels; local call predecessor/branch |
+| `0x2f895` | 20 | `XeenLearnedSpellRules::prepareEffect; XeenLearnedSpellRules::applyPartyEffect; XeenEncounterFlow::publishAwaken; XeenEncounterFlow::publishCastingTarget` | Suppress Disease | C2 | High: Learned dispatcher 0x3382b maps ID to handler; M74/M76 entry labels; local call predecessor/branch |
+| `0x2f8b7` | 30 | `XeenLearnedSpellRules::prepareEffect; XeenLearnedSpellRules::applyPartyEffect; XeenEncounterFlow::publishAwaken; XeenEncounterFlow::publishCastingTarget` | Bless | C2 | High: Learned dispatcher 0x3382b maps ID to handler; M74/M76 entry labels; local call predecessor/branch |
+| `0x2f8d8` | 20 | `XeenLearnedSpellRules::prepareEffect; XeenLearnedSpellRules::applyPartyEffect; XeenEncounterFlow::publishAwaken; XeenEncounterFlow::publishCastingTarget` | Levitate | C2 | High: Learned dispatcher 0x3382b maps ID to handler; M74/M76 entry labels; local call predecessor/branch |
+| `0x2f8eb` | 20 | `XeenLearnedSpellRules::prepareEffect; XeenLearnedSpellRules::applyPartyEffect; XeenEncounterFlow::publishAwaken; XeenEncounterFlow::publishCastingTarget` | Wizard Eye | C2 | High: Learned dispatcher 0x3382b maps ID to handler; M74/M76 entry labels; local call predecessor/branch |
+| `0x2fa69` | 20 | `XeenLearnedSpellRules::information; XeenEncounterFlow::publishAwaken` | Identify Monster | C2 | High: Learned dispatcher 0x3382b maps ID to handler; M74/M76 entry labels; local call predecessor/branch |
+| `0x2faf6` | 30 | `XeenLearnedSpellRules::prepareEffect; XeenLearnedSpellRules::applyPartyEffect; XeenEncounterFlow::publishAwaken; XeenEncounterFlow::publishCastingTarget` | Holy Bonus | C2 | High: Learned dispatcher 0x3382b maps ID to handler; M74/M76 entry labels; local call predecessor/branch |
+| `0x2fb65` | 30 | `XeenLearnedSpellRules::preparePowerCure; XeenEncounterFlow::publishCastingTarget; XeenCombat::settleCast` | Power Cure | C2 | High: Learned dispatcher 0x3382b maps ID to handler; M74/M76 entry labels; local call predecessor/branch |
+| `0x2fbf3` | 30 | `XeenLearnedSpellRules::prepareEffect; XeenLearnedSpellRules::applyPartyEffect; XeenEncounterFlow::publishAwaken; XeenEncounterFlow::publishCastingTarget` | Nature's Cure | C2 | High: Learned dispatcher 0x3382b maps ID to handler; M74/M76 entry labels; local call predecessor/branch |
+| `0x2fc3e` | 14 | `XeenSpellDamagePreparation::service; XeenEncounterFlow::serviceShoot; XeenCombat::serviceCast` | Lightning Bolt | C2 | High: Learned dispatcher 0x3382b maps ID to handler; M74/M76 entry labels; local call predecessor/branch |
+| `0x2fc4f` | 30 | `XeenLearnedSpellRules::applyPartyEffect; XeenEncounterFlow::publishAwaken; XeenCombat::settleCast` | Heroism | C2 | High: Learned dispatcher 0x3382b maps ID to handler; M74/M76 entry labels; local call predecessor/branch |
+| `0x2fc70` | 20 | `XeenLearnedSpellRules::applyPartyEffect; XeenEncounterFlow::publishAwaken; XeenCombat::settleCast` | Walk on Water | C2 | High: Learned dispatcher 0x3382b maps ID to handler; M74/M76 entry labels; local call predecessor/branch |
+| `0x2fc8b` | 15 | `XeenSpellDamagePreparation::service; XeenEncounterFlow::serviceShoot; XeenCombat::serviceCast` | Item power 33 Frostbite | C2 | High: M74 item-power range; local handler branch; not learned-spell dispatch |
+| `0x2fee7` | 51 | `XeenLearnedSpellRules::travel; XeenEncounterFlow::confirmCasting` | Lloyd's Beacon | C2 | High: Learned dispatcher 0x3382b maps ID to handler; M74/M76 entry labels; local call predecessor/branch; incoming branch has ID 51 only; branch at 0x2fee5 bypasses push |
+| `0x2ff65` | 20 | `XeenLearnedSpellRules::travel; XeenEncounterFlow::confirmCasting` | Lloyd's Beacon | C2 | High: Learned dispatcher 0x3382b maps ID to handler; M74/M76 entry labels; local call predecessor/branch |
+| `0x2ffc5` | 20 | `XeenLearnedSpellRules::prepareEffect; XeenLearnedSpellRules::applyPartyEffect; XeenEncounterFlow::publishAwaken; XeenEncounterFlow::publishCastingTarget` | Power Shield | C2 | High: Learned dispatcher 0x3382b maps ID to handler; M74/M76 entry labels; local call predecessor/branch |
+| `0x2fff0` | 30 | `XeenLearnedSpellRules::prepareEffect; XeenLearnedSpellRules::applyPartyEffect; XeenEncounterFlow::publishAwaken; XeenEncounterFlow::publishCastingTarget` | Cure Poison | C2 | High: Learned dispatcher 0x3382b maps ID to handler; M74/M76 entry labels; local call predecessor/branch |
+| `0x30072` | 13 | `XeenSpellDamagePreparation::service; XeenEncounterFlow::serviceShoot; XeenCombat::serviceCast` | Fireball | C2 | High: Learned dispatcher 0x3382b maps ID to handler; M74/M76 entry labels; local call predecessor/branch |
+| `0x301ee` | 20 | `XeenLearnedSpellRules::information; XeenEncounterFlow::publishAwaken` | Detect Monster | C2 | High: Learned dispatcher 0x3382b maps ID to handler; M74/M76 entry labels; local call predecessor/branch |
+| `0x30250` | 17 | `XeenSpellDamagePreparation::service; XeenEncounterFlow::serviceShoot; XeenCombat::serviceCast` | Acid Spray | C2 | High: Learned dispatcher 0x3382b maps ID to handler; M74/M76 entry labels; local call predecessor/branch |
+| `0x30292` | 15 | `XeenSpellDamagePreparation::service; XeenEncounterFlow::serviceShoot; XeenCombat::serviceCast` | Cold Ray | C2 | High: Learned dispatcher 0x3382b maps ID to handler; M74/M76 entry labels; local call predecessor/branch |
+| `0x302b2` | 30 | `XeenLearnedSpellRules::prepareEffect; XeenLearnedSpellRules::applyPartyEffect; XeenEncounterFlow::publishAwaken; XeenEncounterFlow::publishCastingTarget` | Cure Disease | C2 | High: Learned dispatcher 0x3382b maps ID to handler; M74/M76 entry labels; local call predecessor/branch |
+| `0x30316` | 51 | `XeenLearnedSpellRules::travel; XeenEncounterFlow::confirmCasting; XeenCombat::settleCast` | Time Distortion | C2 | High: Learned dispatcher 0x3382b maps ID to handler; M74/M76 entry labels; local call predecessor/branch |
+| `0x30339` | 13 | `XeenSpellDamagePreparation::service; XeenEncounterFlow::serviceShoot; XeenCombat::serviceCast` | Deadly Swarm | C2 | High: Learned dispatcher 0x3382b maps ID to handler; M74/M76 entry labels; local call predecessor/branch |
+| `0x30557` | 51 | `XeenLearnedSpellRules::travel; XeenEncounterFlow::confirmCasting` | Teleport | C2 | High: Learned dispatcher 0x3382b maps ID to handler; M74/M76 entry labels; local call predecessor/branch |
+| `0x3057c` | 18 | `XeenSpellDamagePreparation::service; XeenEncounterFlow::serviceShoot; XeenCombat::serviceCast` | Finger of Death | C2 | High: Learned dispatcher 0x3382b maps ID to handler; M74/M76 entry labels; local call predecessor/branch |
+| `0x3059c` | 30 | `XeenLearnedSpellRules::prepareEffect; XeenLearnedSpellRules::applyPartyEffect; XeenEncounterFlow::publishAwaken; XeenEncounterFlow::publishCastingTarget` | Cure Paralysis | C2 | High: Learned dispatcher 0x3382b maps ID to handler; M74/M76 entry labels; local call predecessor/branch |
+| `0x3060c` | 30 | `XeenLearnedSpellRules::travel; XeenEncounterFlow::confirmCasting` | Super Shelter | C2 | High: Learned dispatcher 0x3382b maps ID to handler; M74/M76 entry labels; local call predecessor/branch |
+| `0x30633` | 13 | `XeenSpellDamagePreparation::service; XeenEncounterFlow::serviceShoot; XeenCombat::serviceCast` | Fiery Flail | C2 | High: Learned dispatcher 0x3382b maps ID to handler; M74/M76 entry labels; local call predecessor/branch |
+| `0x3064d` | 20 | `XeenLearnedSpellRules::prepareEffect; XeenLearnedSpellRules::applyPartyEffect; XeenEncounterFlow::publishAwaken; XeenEncounterFlow::publishCastingTarget` | Create Food | C2 | High: Learned dispatcher 0x3382b maps ID to handler; M74/M76 entry labels; local call predecessor/branch |
+| `0x3076e` | 51 | `XeenLearnedSpellRules::travel; XeenEncounterFlow::confirmCasting; XeenCombat::settleCast` | Town Portal | C2 | High: Learned dispatcher 0x3382b maps ID to handler; M74/M76 entry labels; local call predecessor/branch |
+| `0x30836` | 30 | `XeenLearnedSpellRules::prepareEffect; XeenLearnedSpellRules::applyPartyEffect; XeenEncounterFlow::publishAwaken; XeenEncounterFlow::publishCastingTarget` | Stone to Flesh | C2 | High: Learned dispatcher 0x3382b maps ID to handler; M74/M76 entry labels; local call predecessor/branch |
+| `0x308ee` | 15 | `XeenSpellDamagePreparation::service; XeenEncounterFlow::serviceShoot; XeenCombat::serviceCast` | Fantastic Freeze | C2 | High: Learned dispatcher 0x3382b maps ID to handler; M74/M76 entry labels; local call predecessor/branch |
+| `0x3095d` | 30 | `XeenLearnedSpellRules::prepareEffect; XeenLearnedSpellRules::applyPartyEffect; XeenEncounterFlow::publishAwaken; XeenEncounterFlow::publishCastingTarget` | Raise Dead | C2 | High: Learned dispatcher 0x3382b maps ID to handler; M74/M76 entry labels; local call predecessor/branch |
+| `0x30a01` | 51 | `XeenLearnedSpellRules::travel; XeenEncounterFlow::confirmCasting` | Etherealize | C2 | High: Learned dispatcher 0x3382b maps ID to handler; M74/M76 entry labels; local call predecessor/branch |
+| `0x30a43` | 18 | `XeenSpellDamagePreparation::service; XeenEncounterFlow::serviceShoot; XeenCombat::serviceCast` | Dancing Sword | C2 | High: Learned dispatcher 0x3382b maps ID to handler; M74/M76 entry labels; local call predecessor/branch |
+| `0x30a6f` | 18 | `XeenSpellDamagePreparation::service; XeenEncounterFlow::serviceShoot; XeenCombat::serviceCast` | Prismatic Light | C2 | High: Learned dispatcher 0x3382b maps ID to handler; M74/M76 entry labels; local call predecessor/branch |
+| `0x30a93` | 16 | `XeenSpellDamagePreparation::service; XeenEncounterFlow::serviceShoot; XeenCombat::serviceCast` | Moon Ray | C2 | High: Learned dispatcher 0x3382b maps ID to handler; M74/M76 entry labels; local call predecessor/branch |
+| `0x30aa7` | 30 | `XeenMoonRayHealing::service; XeenEncounterFlow::serviceShoot; XeenCombat::settleCast` | Moon Ray | C2 | High: Learned dispatcher 0x3382b maps ID to handler; M74/M76 entry labels; local call predecessor/branch |
+| `0x30af4` | 18 | `XeenSpellDamagePreparation::service; XeenEncounterFlow::serviceShoot; XeenCombat::serviceCast` | Mass Distortion | C2 | High: Learned dispatcher 0x3382b maps ID to handler; M74/M76 entry labels; local call predecessor/branch |
+| `0x30b6c` | 13 | `XeenSpellDamagePreparation::service; XeenEncounterFlow::serviceShoot; XeenCombat::serviceCast` | Item power 64 Incinerate | C2 | High: M74 item-power range; local handler branch; not learned-spell dispatch |
+| `0x30baa` | stormFx[rand(2..5)-2] = {13,14,15,17} | `XeenSpellDamagePreparation::service; XeenEncounterFlow::serviceShoot; XeenCombat::serviceCast` | Elemental Storm | C2 | High: Learned dispatcher 0x3382b maps ID to handler; M74/M76 entry labels; local call predecessor/branch |
+| `0x30bdf` | 18 | `XeenSpellDamagePreparation::service; XeenEncounterFlow::serviceShoot; XeenCombat::serviceCast` | Holy Word | C2 | High: Learned dispatcher 0x3382b maps ID to handler; M74/M76 entry labels; local call predecessor/branch |
+| `0x30c38` | 30 | `XeenLearnedSpellRules::prepareEffect; XeenLearnedSpellRules::applyPartyEffect; XeenEncounterFlow::publishAwaken; XeenEncounterFlow::publishCastingTarget` | Resurrection | C2 | High: Learned dispatcher 0x3382b maps ID to handler; M74/M76 entry labels; local call predecessor/branch |
+| `0x30cb4` | 14 | `XeenSpellDamagePreparation::service; XeenEncounterFlow::serviceShoot; XeenCombat::serviceCast` | Mega Volts | C2 | High: Learned dispatcher 0x3382b maps ID to handler; M74/M76 entry labels; local call predecessor/branch |
+| `0x30cd7` | 13 | `XeenSpellDamagePreparation::service; XeenEncounterFlow::serviceShoot; XeenCombat::serviceCast` | Inferno | C2 | High: Learned dispatcher 0x3382b maps ID to handler; M74/M76 entry labels; local call predecessor/branch |
+| `0x30cfa` | 16 | `XeenSpellDamagePreparation::service; XeenEncounterFlow::serviceShoot; XeenCombat::serviceCast` | Sun Ray | C2 | High: Learned dispatcher 0x3382b maps ID to handler; M74/M76 entry labels; local call predecessor/branch |
+| `0x30d1d` | 18 | `XeenSpellDamagePreparation::service; XeenEncounterFlow::serviceShoot; XeenCombat::serviceCast` | Implosion | C2 | High: Learned dispatcher 0x3382b maps ID to handler; M74/M76 entry labels; local call predecessor/branch |
+| `0x30d40` | 13 | `XeenSpellDamagePreparation::service; XeenEncounterFlow::serviceShoot; XeenCombat::serviceCast` | Star Burst | C2 | High: Learned dispatcher 0x3382b maps ID to handler; M74/M76 entry labels; local call predecessor/branch |
+| `0x30de2` | 20 | `XeenLearnedSpellRules::prepareEffect; XeenLearnedSpellRules::applyPartyEffect; XeenEncounterFlow::publishAwaken; XeenEncounterFlow::publishCastingTarget` | Divine Intervention | C2 | High: Learned dispatcher 0x3382b maps ID to handler; M74/M76 entry labels; local call predecessor/branch |
+| `0x30e07` | 18 | `XeenSpellDamagePreparation::service; XeenEncounterFlow::serviceShoot; XeenCombat::serviceCast` | Beast Master | C2 | High: Learned dispatcher 0x3382b maps ID to handler; M74/M76 entry labels; local call predecessor/branch |
+| `0x30e1d` | 20 | `XeenLearnedSpellRules::prepareEffect; XeenLearnedSpellRules::applyPartyEffect; XeenEncounterFlow::publishAwaken; XeenEncounterFlow::publishCastingTarget` | Clairvoyance | C2 | High: Learned dispatcher 0x3382b maps ID to handler; M74/M76 entry labels; local call predecessor/branch |
+| `0x30e53` | 20 | `XeenLearnedSpellRules::prepareEffect; XeenLearnedSpellRules::applyPartyEffect; XeenEncounterFlow::publishAwaken; XeenEncounterFlow::publishCastingTarget` | Day of Protection | C2 | High: Learned dispatcher 0x3382b maps ID to handler; M74/M76 entry labels; local call predecessor/branch |
+| `0x30e82` | 20 | `XeenLearnedSpellRules::prepareEffect; XeenLearnedSpellRules::applyPartyEffect; XeenEncounterFlow::publishAwaken; XeenEncounterFlow::publishCastingTarget` | Day of Sorcery | C2 | High: Learned dispatcher 0x3382b maps ID to handler; M74/M76 entry labels; local call predecessor/branch |
+| `0x30e9d` | 18 | `XeenSpellDamagePreparation::service; XeenEncounterFlow::serviceShoot; XeenCombat::serviceCast` | Dragon Sleep | C2 | High: Learned dispatcher 0x3382b maps ID to handler; M74/M76 entry labels; local call predecessor/branch |
+| `0x30edb` | 16 | `XeenSpellDamagePreparation::service; XeenEncounterFlow::serviceShoot; XeenCombat::serviceCast` | Golem Stopper | C2 | High: Learned dispatcher 0x3382b maps ID to handler; M74/M76 entry labels; local call predecessor/branch |
+| `0x30efe` | 18 | `XeenSpellDamagePreparation::service; XeenEncounterFlow::serviceShoot; XeenCombat::serviceCast` | Hypnotize | C2 | High: Learned dispatcher 0x3382b maps ID to handler; M74/M76 entry labels; local call predecessor/branch |
+| `0x30f21` | 22 | `XeenSpellDamagePreparation::service; XeenEncounterFlow::serviceShoot; XeenCombat::serviceCast` | Incinerate | C2 | High: Learned dispatcher 0x3382b maps ID to handler; M74/M76 entry labels; local call predecessor/branch |
+| `0x30f44` | 17 | `XeenSpellDamagePreparation::service; XeenEncounterFlow::serviceShoot; XeenCombat::serviceCast` | Insect Spray | C2 | High: Learned dispatcher 0x3382b maps ID to handler; M74/M76 entry labels; local call predecessor/branch |
+| `0x30fd7` | 49 | `XeenSpellDamagePreparation::service; XeenEncounterFlow::serviceShoot; XeenCombat::serviceCast` | Poison Volley | C2 | High: Learned dispatcher 0x3382b maps ID to handler; M74/M76 entry labels; local call predecessor/branch |
+| `0x31009` | 16 | `XeenSpellDamagePreparation::service; XeenEncounterFlow::serviceShoot; XeenCombat::serviceCast` | Shrapmetal | C2 | High: Learned dispatcher 0x3382b maps ID to handler; M74/M76 entry labels; local call predecessor/branch |
+| `0x31bfd` | 20 | `XeenEncounterFlow::serviceSpellItem; XeenItemSpellPreparation::service; XeenCombat::settleCast` | Recharge Item initial cue after charge draw, before category/eligibility checks | C2 | High: M76 item handler ranges; local code/data flow and category branch |
+| `0x31c44` | 21 | `XeenEncounterFlow::serviceSpellItem; XeenItemSpellPreparation::service; XeenCombat::settleCast` | Recharge Item refusal, after initial effect 20 | C2 | High: M76 item handler ranges; local code/data flow and category branch |
+| `0x31d3d` | 19 | `XeenEncounterFlow::serviceSpellItem; XeenItemSpellPreparation::service; XeenCombat::settleCast` | Enchant Item | C2 | High: M76 item handler ranges; local code/data flow and category branch |
+| `0x31dc3` | 21 | `XeenEncounterFlow::serviceSpellItem; XeenItemSpellPreparation::service; XeenCombat::settleCast` | Enchant Item | C2 | High: M76 item handler ranges; local code/data flow and category branch |
+| `0x31e1e` | 21 | `XeenEncounterFlow::serviceSpellItem; XeenItemSpellPreparation::service; XeenCombat::settleCast` | Item to Gold | C2 | High: M76 item handler ranges; local code/data flow and category branch; frame weapon offset 0xa7 |
+| `0x31e4c` | 20 | `XeenEncounterFlow::serviceSpellItem; XeenItemSpellPreparation::service; XeenCombat::settleCast` | Item to Gold | C2 | High: M76 item handler ranges; local code/data flow and category branch; weapon offset 0xa7 |
+| `0x31ea9` | 20 | `XeenEncounterFlow::serviceSpellItem; XeenItemSpellPreparation::service; XeenCombat::settleCast` | Item to Gold | C2 | High: M76 item handler ranges; local code/data flow and category branch; armor offset 0xcb |
+| `0x31f07` | 20 | `XeenEncounterFlow::serviceSpellItem; XeenItemSpellPreparation::service; XeenCombat::settleCast` | Item to Gold | C2 | High: M76 item handler ranges; local code/data flow and category branch; accessory offset 0xef |
+| `0x31f61` | 20 | `XeenEncounterFlow::serviceSpellItem; XeenItemSpellPreparation::service; XeenCombat::settleCast` | Item to Gold | C2 | High: M76 item handler ranges; local code/data flow and category branch; miscellaneous offset 0x112 |
+| `0x32d5b` | 31 | `XeenBarrierCandidate::XeenBarrierCandidate` | blocked-wall indoor Bash after the first charge; passable B takes the step suffix; outdoor Bash is silent | C1 | High: DAT 0xd516..0xd547; passable B jumps at 0xd534 to 0xd3aa; blocked path reaches 0x32d4f..0x32d60 |
+| `0x34d71` | 21 | `XeenEncounterFlow::buySpell` | Guild Buy spell cannot subtract required resource | C1 | High: DAT 0x34cd3..0x34cea; pin SpellsDialog purchase |
+| `0x368c3` | 21 | `none; character creation` | unrecognized key in character creation after failing 26-key dispatch lookup | Not reachable yet: roadmap step 14 | High: DAT 0x362a5..0x362bb; create.raw at DS 0x75c2 |
+| `0x36a07` | attack type 0..6 maps to 49,18,13,14,15,17,16 | `XeenEncounterFlow::observeRanged` | each original shooting-queue entry requests type sound before projectile animation | C1 | High: DAT 0x3694f..0x36a0c; MON +0x1d and table 0x50017 |
+| `0x39bda` | 21 | `none; Inn roster screen` | recruiting refused because party already contains six members | Not reachable yet: roadmap step 14 | High: DAT 0x39b76..0x39beb, party-full message DS 0x7cd1 |
 
 The pin inventory contains about 145 gameplay calls plus cutscenes, rather
 than 133 corresponding source lines. Its 73 spell-file calls correspond
@@ -616,8 +640,8 @@ Identified correspondences include step toggle, falls, barrier refusal,
 Event PlayFX, typed damage, weapon-power effects, monster-record effects,
 monster shooting, Efx-on, Mr Wizard, Tavern Drink, Guild purchase and death.
 
-**Unknown:** a complete per-function reconciliation of every pin gameplay
-site and every medium-confidence DOS owner association. The count difference
-is not proof of missing behavior or permission to omit sites. Full decoded
-contexts, the checked ID table and grouped source crosswalk remain outside
-the repository under `D:/MModern-re/audio-m82/fx-inventory-pass2/`.
+The physical wrapper count does not equal the pin's source-line count:
+several original branches share one call, while helpers have multiple callers.
+C1/C2 classify action semantics, not an address band or the active mode. In
+particular, common injury, sparkle and projectile helpers remain C1 because
+ordinary non-spell actions reach them too; C2 must reuse those helpers.

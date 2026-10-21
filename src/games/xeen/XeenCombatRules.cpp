@@ -1,6 +1,7 @@
 // Adapted from ScummVM developers (upstream COPYRIGHT), GPL-3.0-or-later.
 // Pin 6814ee9ba54582f5b5adcffab49efbbd8f589edd, combat.cpp, character.cpp and constants.cpp.
 #include "games/xeen/XeenCombatRules.h"
+#include "games/xeen/XeenFmEffects.h"
 #include "games/xeen/XeenStateEquality.h"
 #include "games/xeen/XeenItemTransfer.h"
 #include "games/xeen/XeenCharacterRules.h"
@@ -15,7 +16,7 @@ XeenWeaponDice xeenOrdinaryWeaponDice(unsigned id) {
 	if (id > 34) throw std::invalid_argument("Unsupported ordinary physical weapon ID");
 	return {count[id], sides[id]};
 }
-void xeenApplyPhysicalInjury(XeenCharacter &c, int damage, unsigned year) {
+void xeenApplyPhysicalInjury(XeenCharacter &c, int damage, unsigned year,const std::function<void(unsigned)> &effect) {
 	const auto hp = std::int64_t(c.currentHp) - damage;
 	if (damage < 0 || hp < std::numeric_limits<std::int16_t>::min())
 		throw std::overflow_error("Physical damage exceeds HP storage");
@@ -24,11 +25,12 @@ void xeenApplyPhysicalInjury(XeenCharacter &c, int damage, unsigned year) {
 	if (hp < 1) {
 		dead = std::int64_t(XeenCharacterRules::maxHp(c,{year})) + hp < 1;
 		c.conditions[dead ? 13 : 12] = 1;
+        if(!dead)xeenEmitFmEffect(effect,38);
 	}
 	if (dead || hp <= -10)
 		for (auto &item : c.armor) if (item.id && item.frame) item.state |= 0x80;
 }
-void xeenApplySpecialAttack(XeenCharacter &c, unsigned special) {
+void xeenApplySpecialAttack(XeenCharacter &c, unsigned special,const std::function<void(unsigned)> &effect) {
 	// DOS: inc al; jnz; mov 0xff: the byte saturates instead of wrapping to zero.
 	const auto bump=[&](unsigned condition) { if (c.conditions[condition]!=255) ++c.conditions[condition]; };
 	const auto zeroHp=[&] { if (c.currentHp>0) c.currentHp=0; };
@@ -61,15 +63,18 @@ void xeenApplySpecialAttack(XeenCharacter &c, unsigned special) {
 			c.accessories[slot].state|=0x80; c.accessories[slot].frame=0;
 			c.miscellaneous[slot].state|=0x80; // frame (charges) untouched
 		}
+		xeenEmitFmEffect(effect,37);
 		zeroHp();
 		break;
 	case 20:                  // Aging (0x2d592..0x2d59b): plain byte increment, 255 wraps to 0
 		c.temporaryAge=int(static_cast<std::uint8_t>(unsigned(c.temporaryAge)+1));
 		break;
-	case 21: bump(13); zeroHp(); break; // Death
-	case 22: bump(14); zeroHp(); break; // Stone
+	case 21: bump(13); xeenEmitFmEffect(effect,38); zeroHp(); break; // Death
+	case 22: bump(14); xeenEmitFmEffect(effect,37); zeroHp(); break; // Stone
 	default: break;           // 0-4, 6 and 11 (In Love) reach no handler
 	}
+    if(special!=19 && special!=21 && special!=22)
+        if(const auto fx=xeenSecondaryFmEffect(special))xeenEmitFmEffect(effect,*fx);
 }
 void xeenRecordItemChanges(XeenCombatResult &result, const XeenCharacter &before, const XeenCharacter &after) {
 	for (unsigned category=0;category<4;++category) {
@@ -161,13 +166,14 @@ bool XeenTypedDamageCandidate::service(XeenConsequenceDraw &draw) {
 		}
 		case Step::Injury: {
 			auto &c=characters[target];
+            if(!injuryReady && !injuryAcknowledged)draw.effect(xeenDamageFmEffect(unsigned(type)));
 			if (deferInjury && !injuryAcknowledged) {impactOwner=c.rosterId;injuryReady=true;return false;}
 			injuryReady=injuryAcknowledged=false;
 			damage=std::max(physicalChecked(std::int64_t(damage)-protection.powerShield),0);
 			const auto previous=c;
 			XeenCombatDamage injury;injury.owner=c.rosterId;injury.amount=damage;
 			injury.beforeHp=c.currentHp;injury.beforeAc=beforeAc;injury.beforeSp=injury.afterSp=c.currentSp;injury.beforeAge=injury.afterAge=c.temporaryAge;
-			xeenApplyPhysicalInjury(c,damage,year);
+			xeenApplyPhysicalInjury(c,damage,year,draw.fmEffect);
 			injury.afterHp=c.currentHp;injury.afterAc=Rules::sheetArmorClass(c,&inputs[target],{year,protection.blessed});injury.conditions=c.conditions;
 			result.injuries.at(result.injuryCount++)=injury;result.targetedMembers|=std::uint8_t(1u<<target);result.targetOwner=c.rosterId;
 			result.damage=physicalChecked(std::int64_t(result.damage)+damage);
@@ -336,6 +342,7 @@ bool XeenSpellDamageCandidate::service(XeenConsequenceDraw &draw) {
             step=Step::Damage;continue;
         }
         if(step==Step::Damage) {
+            attack2Entered=true;
             entersDamage=acceptedDamage!=0;
             // Every spell projectile supplies a nonzero attack-range argument,
             // including Single. Refuse after Finger's first save, before waking.
@@ -370,6 +377,7 @@ bool XeenSpellDamageCandidate::service(XeenConsequenceDraw &draw) {
             step=Step::Done;
         }
     }
+    if(step==Step::Done && !fmDone){fmDone=true;if(attack2Entered && damage<=0)draw.effect(6);}
     return step==Step::Done;
 }
 XeenRunCandidate::XeenRunCandidate(int signedThreshold) : threshold(signedThreshold) {
@@ -378,7 +386,7 @@ XeenRunCandidate::XeenRunCandidate(int signedThreshold) : threshold(signedThresh
 bool XeenRunCandidate::service(XeenConsequenceDraw &draw) {
 	while (!roll && draw.remaining) {
 		const auto accepted=draw.draw(1,100);
-		if (accepted) { roll=*accepted; success=int(roll)<threshold; }
+		if (accepted) { roll=*accepted; success=int(roll)<threshold;if(success)draw.effect(51); }
 	}
 	return roll!=0;
 }
@@ -435,7 +443,8 @@ XeenEnemyAttackCandidate::XeenEnemyAttackCandidate(const XeenConsequenceCharacte
 // After the saves: Power Shield and the zero clamp, then
 // the acknowledged portrait, the secondary save (positive damage, nonzero
 // special) or the HP subtraction.
-XeenEnemyAttackCandidate::Step XeenEnemyAttackCandidate::afterSaves() {
+XeenEnemyAttackCandidate::Step XeenEnemyAttackCandidate::afterSaves(XeenConsequenceDraw &draw) {
+    draw.effect(xeenDamageFmEffect(unsigned(type)));
 	damage=std::max(physicalChecked(std::int64_t(damage)-partyContext.effects[XeenPartyEffect::PowerShield]),0);
 	if (deferInjury) return Step::Portrait;
 	return damage>0 && monster.specialAttack() ? Step::Special : Step::Injury;
@@ -473,7 +482,7 @@ bool XeenEnemyAttackCandidate::service(XeenConsequenceDraw &draw) {
 		case Step::Roll: {
 			const auto n=draw.draw(1,20); if (!n) break;
 			roll=*n; result.critical=result.critical || roll==20;
-			if (roll==1) step=Step::Next;
+			if (roll==1) {draw.effect(6);step=Step::Next;}
 			else if (roll==20) { characters[target].conditions[8]=0; afterInjury=Step::Parameter; step=Step::Dice; }
 			else step=Step::Parameter;
 			break;
@@ -485,14 +494,14 @@ bool XeenEnemyAttackCandidate::service(XeenConsequenceDraw &draw) {
 				(blocked[target] ? c.currentLevel()/2+15 : 10);
 			if (std::int64_t(roll)+monster.hitParameter()/4+*n>=threshold) {
 				characters[target].conditions[8]=0; afterInjury=Step::Next; step=Step::Dice;
-			} else step=Step::Next;
+			} else {draw.effect(6);step=Step::Next;}
 			break;
 		}
 		case Step::Dice: {
             if(!dice) { beforeDamageAc=Rules::combatArmorClass(characters[target],inputs[target],{year,partyContext.effects[XeenPartyEffect::Bless]}); before=characters[target]; }
 			const auto n=draw.draw(1,monster.damageDie()); if (!n) break;
 			damage=physicalChecked(std::int64_t(damage)+*n);
-			if (++dice==monster.strikes()) step=type==XeenDamageType::Physical ? afterSaves() : Step::InitialSave;
+			if (++dice==monster.strikes()) step=type==XeenDamageType::Physical ? afterSaves(draw) : Step::InitialSave;
 			break;
 		}
 		case Step::InitialSave: {
@@ -514,7 +523,7 @@ bool XeenEnemyAttackCandidate::service(XeenConsequenceDraw &draw) {
 			ruleRequire(r>=0 && r<=std::numeric_limits<int>::max()-40,"Invalid element save interval");
 			const auto n=draw.draw(1,unsigned(r)+40); if (!n) break;
 			if (int(*n)<=r) { damage/=2; if (damage!=0) break; }
-			step=afterSaves();
+			step=afterSaves(draw);
 			break;
 		}
         case Step::Portrait:
@@ -525,7 +534,9 @@ bool XeenEnemyAttackCandidate::service(XeenConsequenceDraw &draw) {
 			auto &c=characters[target];
 			const auto v=physicalSave(c);
 			const auto n=draw.draw(1,unsigned(v+20)); if (!n) break;
-			if (std::int64_t(*n)>v) xeenApplySpecialAttack(c,monster.specialAttack());
+			if (std::int64_t(*n)>v) {
+                xeenApplySpecialAttack(c,monster.specialAttack(),draw.fmEffect);
+            }
 			step=Step::Injury; break;
 		}
 		case Step::Injury: {
@@ -534,7 +545,7 @@ bool XeenEnemyAttackCandidate::service(XeenConsequenceDraw &draw) {
 			injury.attackOrdinal=attackOrdinal;
 			injury.beforeHp=before->currentHp; injury.beforeAc=beforeDamageAc;
 			injury.beforeSp=before->currentSp; injury.beforeAge=before->temporaryAge;
-			xeenApplyPhysicalInjury(c,damage,year);
+			xeenApplyPhysicalInjury(c,damage,year,draw.fmEffect);
 			injury.afterHp=c.currentHp; injury.afterAc=Rules::combatArmorClass(c,inputs[target],{year,partyContext.effects[XeenPartyEffect::Bless]}); injury.conditions=c.conditions;
 			injury.afterSp=c.currentSp; injury.afterAge=c.temporaryAge;
 			result.injuries.at(result.injuryCount++)=injury;
@@ -608,7 +619,7 @@ bool XeenPhysicalPlayerCandidate::service(XeenConsequenceDraw &draw) {
 			// getWeaponDamage: clamp below 1 to 0, then Adventurer triples and adds 5 to hit.
 			if (weapon<1) weapon=0;
 			weapon=physicalChecked(std::int64_t(weapon)*(adventurer?3:1));
-			hitTotal=physicalChecked(std::int64_t(baseHit)+hitBonus);step=Step::Hit;break;
+			hitTotal=physicalChecked(std::int64_t(baseHit)+hitBonus);xeenEmitFmEffect(draw.weaponSelected,attackWeaponId);step=Step::Hit;break;
 		}
 		const auto &item=character.weapons[slot++];
 		if (shoot ? item.frame!=4 : item.frame!=1 && item.frame!=13) break;
@@ -663,6 +674,11 @@ bool XeenPhysicalPlayerCandidate::service(XeenConsequenceDraw &draw) {
 	}
 	case Step::Done: break;
 	}
+    if(step==Step::Done && !fmDone) {
+        fmDone=true;
+        // A missed missile bypasses attack2; melee still submits its zero total.
+        if(!damage && (!shoot || hit))draw.effect(6);
+    }
 	return step==Step::Done;
 }
 // Party::resetTemps, shared with Rest and Training.

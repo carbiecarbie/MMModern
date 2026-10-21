@@ -508,7 +508,7 @@ XeenEncounterResult XeenActorApproach::transition(XeenWorld &world, XeenPartySta
 XeenEncounterResult XeenActorApproach::regionalTransition(XeenWorld &world,XeenPartyState &party,
 		XeenCamera &camera,XeenEncounterState &state,XeenEventFile &events,
 		std::optional<XeenEncounterAction> action,std::unique_ptr<XeenRegionalActionCandidate> &work,
-		const std::function<XeenEventFile(XeenMapIdentity)> &eventProvider) {
+		const std::function<XeenEventFile(XeenMapIdentity)> &eventProvider,const std::function<void(unsigned)> &effect,const std::function<void()> &stepEffect) {
 	auto &session=world._sessionState;XeenEncounterResult refused;
 	if(action && static_cast<unsigned>(*action)>static_cast<unsigned>(XeenEncounterAction::StrafeRight))return refused;
 	if(!world._combatCheck || !world._combatAuthorized || !world._combatAuthorized() ||
@@ -561,7 +561,10 @@ XeenEncounterResult XeenActorApproach::regionalTransition(XeenWorld &world,XeenP
                         }
 					} else result=XeenMovement().apply(world,c.camera,*action==XeenEncounterAction::Left?NavigationAction::TurnLeft:NavigationAction::TurnRight);
 					charge=result==XeenMovementResult::Moved;stepTime=charge || result==XeenMovementResult::Turned;
-					if(!stepTime) c.result.outcome=XeenEncounterOutcome::Blocked;
+					if(!stepTime) {
+                        c.result.outcome=XeenEncounterOutcome::Blocked;
+                        if(result!=XeenMovementResult::BlockedByMapBoundary)xeenEmitFmEffect(effect,indoor?46:21);
+                    }
                     auto &destination=c.destinationWorld?*c.destinationWorld:world;
                     const auto admitted=destination.prepareEventTransition(c.camera);check();
                     if(!admitted) {refused.arrivalRefusal="Destination is not supported yet";return refused;}
@@ -586,6 +589,7 @@ XeenEncounterResult XeenActorApproach::regionalTransition(XeenWorld &world,XeenP
             // chargeStep services the prior opportunity at the reached position
             // before stepTime/arrival. Keep this suffix behind retained work.
             c.stepTimePending=stepTime;
+            c.fmStep=stepTime && action && *action!=XeenEncounterAction::Wait;
 			if(!action && c.pending && --c.pending==0) ++c.remaining;
 			c.classify=bool(c.destinationWorld) || !action || *action==XeenEncounterAction::Wait;
 			check();work.swap(candidate);
@@ -593,7 +597,7 @@ XeenEncounterResult XeenActorApproach::regionalTransition(XeenWorld &world,XeenP
 		auto &c=*work;require(c.revision==entry._revision,"Stale regional continuation");
 		auto &activeWorld=c.destinationWorld?*c.destinationWorld:world;
 		const auto activeMap=activeWorld.map(c.camera.mapId);check();
-		XeenConsequenceDraw draw{c.random,64,check};
+		XeenConsequenceDraw draw{c.random,64,check,effect};
 		const auto pending=[&] { auto r=c.result;r.outcome=XeenEncounterOutcome::Pending;r.revision=entry._revision;c.result.needsRest=false;return r; };
 		if(c.time && !c.timeDone) {
 			if(!c.time->service(draw)) return pending();
@@ -653,6 +657,7 @@ XeenEncounterResult XeenActorApproach::regionalTransition(XeenWorld &world,XeenP
             if(c.terrain->rule.damage)c.result.terrainPortrait=c.terrain->rule.type==XeenDamageType::Fire?1u:0u;
             if(c.time)c.time->economy=c.terrain->economy;
             c.context.ctr24=(c.context.ctr24+1)%24;
+            if(c.fmStep && stepEffect)stepEffect();
             c.exploration=activeWorld.explorationAfterStep(party,c.camera);
             c.stepTimePending=false;
         }

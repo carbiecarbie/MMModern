@@ -11,6 +11,7 @@ namespace mmodern {
 // It anticipates known effects in retained guard storage, never adopts callback state.
 class XeenEventPublication {
 public:
+ std::function<void(unsigned)> fmEffect;
  mutable std::array<std::optional<unsigned>,30> damageEffects{};
  mutable std::uint32_t portraitEffectOwners=0; // Published spellFX recipients, presentation only.
 	~XeenEventPublication() {if(retainedHistory)retainedHistory->swap(dispatchedRecords);}
@@ -157,6 +158,12 @@ public:
 	void text(const XeenEventTextFile &file) const {
 		guard.admitEventText(file);
 	}
+    void playFx() const {
+        check();const auto operation=decodedOperation();
+        const auto *cue=std::get_if<XeenEventSoundCue>(&operation);
+        if(!cue)integrity("FM effect has no dispatched PlayFX instruction");
+        consume();xeenEmitFmEffect(fmEffect,cue->index);
+    }
 	void deferredAudio() const {
 		check();
 		const auto operation=decodedOperation();
@@ -183,8 +190,8 @@ public:
 		XeenPartyState detached;detached.party=XeenParty::fromRosterIds(guard.membership);
 		for(auto id:guard.membership)detached.roster.at(id)=guard.characters[id];
 		auto reward=state.reward;
-		if(begin)xeenBeginTreasureDelivery(reward,state.treasure,detached,state.treasure.preferredRecipient());
-		else xeenAdvanceTreasureDelivery(reward,detached,state.treasure.preferredRecipient());
+		if(begin)xeenBeginTreasureDelivery(reward,state.treasure,detached,state.treasure.preferredRecipient(),fmEffect);
+		else xeenAdvanceTreasureDelivery(reward,detached,state.treasure.preferredRecipient(),fmEffect);
 		check();
 		for(auto id:guard.membership)for(unsigned category=0;category<4;++category) {
 			const auto kind=static_cast<XeenRewardCategory>(category);

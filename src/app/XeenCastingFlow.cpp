@@ -77,6 +77,7 @@ std::unique_ptr<XeenShootCandidate> XeenEncounterFlow::prepareSpellProjectile(
     work.charge=charge;
     work.random=XeenCombatRandom(*_world.sessionState().journeyRandom());
     work.rows=xeenPlayerRayRows(_world,_camera);work.projectileEnd.fill(work.rows-1);
+    work.blockedRow=xeenPlayerRayWall(_world,_camera,work.rows);
     work.spellPreparation.emplace(spell,_party.roster.at(owner).currentLevel());
     return projectile;
 }
@@ -274,7 +275,7 @@ bool XeenEncounterFlow::publishCastingTarget() {
         }
 		XeenSpellPreparation preparedEffect;
         if(_casting->spell==XeenLearnedSpell::PowerCure && targetIndex) {
-            XeenConsequenceDraw draw{_casting->random,64,[&]{_journeyPreimage->check();}};
+            XeenConsequenceDraw draw{_casting->random,64,[&]{_journeyPreimage->check();},[this](unsigned id){fmEffect(id);},[this](unsigned id){fmSelectWeapon(id);}};
             const auto effect=XeenLearnedSpellRules::preparePowerCure(_party,*targetIndex,_party.encounterContext->year,
                 _party.roster.at(_casting->casterOwner).currentLevel(),draw);
             if(!effect)return true;
@@ -413,7 +414,7 @@ bool XeenEncounterFlow::serviceSpellItem() {
     if(!work.selected)return false;
     _journeyPreimage->check();
     auto &random=_casting?_casting->random:_itemUse->opportunity->random;
-    XeenConsequenceDraw draw{random,64,[&]{_journeyPreimage->check();}};
+    XeenConsequenceDraw draw{random,64,[&]{_journeyPreimage->check();},[this](unsigned id){fmEffect(id);},[this](unsigned id){fmSelectWeapon(id);}};
     if(work.preparation && !work.preparation->service(draw))return true;
     auto prepared=std::make_shared<XeenRestoreGuard>(_world,_party,_camera,_flags);
     prepared->retainResources(*_journeyPreimage);
@@ -451,7 +452,7 @@ bool XeenEncounterFlow::serviceCasting() {
 		auto &work=*_casting;
         if(!work.effectDone)return publishCastingTarget();
 		if (!work.time) work.time.emplace(*_party.encounterContext,(_world.map(_camera.mapId).geometry.isOutdoors()?10:1),activeCharacters(_party,work.owners),activeInputs(_party,work.owners),&*_party.serviceEconomy);
-		XeenConsequenceDraw draw{work.random,64,[&] { _journeyPreimage->check(); }};
+		XeenConsequenceDraw draw{work.random,64,[&] { _journeyPreimage->check(); },[this](unsigned id){fmEffect(id);},[this](unsigned id){fmSelectWeapon(id);}};
 		if (!work.time->service(draw)) return true;
         if(!work.terrain) {
             auto rule=_world.prepareTerrainArrival(_camera,work.time->characters,work.time->context);

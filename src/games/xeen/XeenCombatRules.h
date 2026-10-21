@@ -3,6 +3,7 @@
 #include "games/xeen/XeenCombat.h"
 #include "games/xeen/XeenLearnedSpellRules.h"
 #include "games/xeen/XeenCharacterRules.h"
+#include "games/xeen/XeenFmEffects.h"
 #include <limits>
 #include <stdexcept>
 namespace mmodern {
@@ -15,12 +16,13 @@ inline bool xeenCombatTargetable(const XeenCharacter &c) noexcept {
 struct XeenWeaponDice { unsigned count, sides; };
 XeenWeaponDice xeenOrdinaryWeaponDice(unsigned id);
 // Shared checked HP consequences after wake/special changes are prepared.
-void xeenApplyPhysicalInjury(XeenCharacter &, int damage, unsigned year);
+void xeenApplyPhysicalInjury(XeenCharacter &, int damage, unsigned year,
+    const std::function<void(unsigned)> &effect = {});
 // Monster secondary attack after a failed Physical save (DOS WORLD/XEEN.DAT
 // doCharDamage dispatch table 0x2d6d9, entries for specials 5-22). Conditions
 // saturate at 255; Aging wraps the byte; Eradicate, Death and Stone zero positive
 // HP before the ordinary subtraction. Specials 0-4, 6 and 11 change nothing.
-void xeenApplySpecialAttack(XeenCharacter &, unsigned special);
+void xeenApplySpecialAttack(XeenCharacter &, unsigned special,const std::function<void(unsigned)> &effect = {});
 // Record every inventory slot (all four categories) that differs between the
 // two character values, merging an earlier entry for the same owner/slot.
 void xeenRecordItemChanges(XeenCombatResult &, const XeenCharacter &before, const XeenCharacter &after);
@@ -47,6 +49,9 @@ struct XeenConsequenceDraw {
 	XeenCombatRandom &random;
 	unsigned remaining = 64;
 	std::function<void()> check;
+    std::function<void(unsigned)> fmEffect;
+    std::function<void(unsigned)> weaponSelected;
+    void effect(unsigned id) const noexcept {xeenEmitFmEffect(fmEffect,id);}
 	std::optional<unsigned> draw(unsigned lo, unsigned hi);
 };
 using XeenConsequenceCharacters = std::array<XeenCharacter,6>;
@@ -131,6 +136,7 @@ struct XeenPhysicalPlayerCandidate {
 	bool service(XeenConsequenceDraw &);
 private:
 	enum class Step { Weapon, Hit, Save, Done };
+    bool fmDone=false;
 	Step step = Step::Weapon;
 	XeenCharacter character;
 	XeenMonsterRecord monster;
@@ -183,7 +189,7 @@ private:
     bool clouds;
     bool halveOnSave=true;
     bool entersDamage=true;
-    bool physicalDamage=false, damagePrepared=false;
+    bool physicalDamage=false, damagePrepared=false, attack2Entered=false, fmDone=false;
     unsigned species;
     XeenLearnedSpell spell;
     XeenActorStatus control=XeenActorStatus::Physical;
@@ -228,7 +234,7 @@ private:
 	enum class Step { Target, Begin, Roll, Dice, InitialSave, ElementSave, Portrait, Special, Injury, Parameter,
 		Next, Done };
 	Step step = Step::Target, afterInjury = Step::Next;
-	Step afterSaves();
+	Step afterSaves(XeenConsequenceDraw &);
 	XeenConsequenceInputs inputs;
 	XeenMonsterRecord monster;
 	unsigned year;

@@ -1,4 +1,5 @@
 #include "games/xeen/XeenItemRewards.h"
+#include "games/xeen/XeenFmEffects.h"
 #include <algorithm>
 #include <sstream>
 #include <limits>
@@ -56,7 +57,7 @@ bool xeenPacksGloballyFull(const XeenPartyState &party) {
 }
 std::optional<std::size_t> xeenDeliverRewardItem(XeenCharacter *const *owners,
 		std::size_t count, XeenItem &item, XeenRewardCategory category,
-		std::optional<std::size_t> preferred, bool sort, bool quest) noexcept {
+		std::optional<std::size_t> preferred, bool sort, bool quest,const std::function<void(unsigned)> &effect) noexcept {
 	if (!count || !item.id || xeenPacksGloballyFull(owners,count)) return {};
 	const auto capacity=[&](std::size_t i) {return xeenItemHasTailCapacity(xeenRewardItems(*owners[i],category));};
 	std::optional<std::size_t> recipient;
@@ -71,6 +72,7 @@ std::optional<std::size_t> xeenDeliverRewardItem(XeenCharacter *const *owners,
 	if (!recipient) recipient=0;
 	// Quest counters were already granted by GiveTake. Their Weapons staging
 	// entry only supplies the recipient/found line; it is never inventory data.
+	xeenEmitFmEffect(effect,20);
 	if(quest)return recipient;
 	auto &items=xeenRewardItems(*owners[*recipient],category);
 	if (items.back().id) item.frame=items.back().frame; // 0x245aa..0x245cc leaves frame intact.
@@ -93,13 +95,13 @@ XeenRewardReceipt xeenPrepareRewardReceipt(const XeenTreasureStaging &staged) no
 	return result;
 }
 void xeenDeliverRewardEntry(XeenRewardReceipt &receipt,std::size_t index,XeenPartyState &party,
-		std::optional<std::size_t> preferred) {
+		std::optional<std::size_t> preferred,const std::function<void(unsigned)> &effect) {
 	if(index>=receipt.count)throw std::out_of_range("Reward receipt index");
 	auto &entry=receipt.entries[index];
 	if(entry.owner || entry.loss!=XeenRewardLoss::None)throw std::logic_error("Reward entry already published");
 	const auto &ids=party.party.activeRosterIds();std::array<XeenCharacter *,XeenParty::kMaximumVisibleMembers> owners{};
 	for(std::size_t i=0;i<ids.size();++i)owners[i]=&party.roster.at(ids[i]);
-	const auto recipient=xeenDeliverRewardItem(owners.data(),ids.size(),entry.item,entry.category,preferred,false,entry.quest);
+	const auto recipient=xeenDeliverRewardItem(owners.data(),ids.size(),entry.item,entry.category,preferred,false,entry.quest,effect);
 	if(recipient) {entry.owner=ids[*recipient];++receipt.delivered;}
 	else {entry.loss=ids.empty()?XeenRewardLoss::EmptyParty:XeenRewardLoss::GloballyFull;++receipt.lost;}
 }
@@ -109,28 +111,29 @@ void xeenSortRewardEntry(const XeenRewardEntry &entry,XeenPartyState &party) {
 namespace {
 // DOS 0x2431b..0x24565: each slot in turn; an item without a recipient is lost
 // and the scan continues. A transfer is followed by the blank hold.
-void deliverNext(XeenTreasureDelivery &delivery,XeenPartyState &party,std::optional<std::size_t> preferred) {
+void deliverNext(XeenTreasureDelivery &delivery,XeenPartyState &party,std::optional<std::size_t> preferred,const std::function<void(unsigned)> &effect) {
 	for(;delivery.cursor<delivery.receipt.count;++delivery.cursor) {
-		xeenDeliverRewardEntry(delivery.receipt,delivery.cursor,party,preferred);
+		xeenDeliverRewardEntry(delivery.receipt,delivery.cursor,party,preferred,effect);
 		if(delivery.receipt.entries[delivery.cursor].owner) {delivery.phase=XeenRewardPhase::Blank;return;}
 	}
 	delivery.phase=XeenRewardPhase::Receipt;
 }
 }
 void xeenBeginTreasureDelivery(XeenTreasureDelivery &delivery,const XeenTreasureStaging &staged,XeenPartyState &party,
-		std::optional<std::size_t> preferred) {
+		std::optional<std::size_t> preferred,const std::function<void(unsigned)> &effect) {
 	if(!staged.pending())throw std::invalid_argument("Treasure is not ready for delivery");
 	delivery=XeenTreasureDelivery{};delivery.receipt=xeenPrepareRewardReceipt(staged);
+    if(staged.gold || staged.gems)xeenEmitFmEffect(effect,54);
 	if(xeenPacksGloballyFull(party))delivery.phase=XeenRewardPhase::Warning;
-	else deliverNext(delivery,party,preferred);
+	else deliverNext(delivery,party,preferred,effect);
 }
-void xeenAdvanceTreasureDelivery(XeenTreasureDelivery &delivery,XeenPartyState &party,std::optional<std::size_t> preferred) {
+void xeenAdvanceTreasureDelivery(XeenTreasureDelivery &delivery,XeenPartyState &party,std::optional<std::size_t> preferred,const std::function<void(unsigned)> &effect) {
 	switch(delivery.phase) {
-	case XeenRewardPhase::Warning: deliverNext(delivery,party,preferred);return;
+	case XeenRewardPhase::Warning: deliverNext(delivery,party,preferred,effect);return;
 	case XeenRewardPhase::Blank:
 		// Sorting and the found text precede the ten-tick hold (0x247ed..0x247f4).
 		xeenSortRewardEntry(delivery.receipt.entries[delivery.cursor],party);delivery.phase=XeenRewardPhase::Found;return;
-	case XeenRewardPhase::Found: ++delivery.cursor;deliverNext(delivery,party,preferred);return;
+	case XeenRewardPhase::Found: ++delivery.cursor;deliverNext(delivery,party,preferred,effect);return;
 	default: throw std::logic_error("Treasure delivery has no presentation step to advance");
 	}
 }

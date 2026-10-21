@@ -1,6 +1,7 @@
 #ifndef MMODERN_XEEN_ITEM_REWARDS_H
 #define MMODERN_XEEN_ITEM_REWARDS_H
 #include "games/xeen/XeenParty.h"
+#include <functional>
 
 namespace mmodern {
 XeenItemCategory &xeenRewardItems(XeenCharacter &,XeenRewardCategory) noexcept;
@@ -38,22 +39,22 @@ bool xeenPacksGloballyFull(XeenCharacter *const *owners, std::size_t count) noex
 // Shared DOS delivery. Returns active index; updates item to the delivered bytes.
 std::optional<std::size_t> xeenDeliverRewardItem(XeenCharacter *const *owners,
 	std::size_t count, XeenItem &item, XeenRewardCategory category,
-	std::optional<std::size_t> preferred = {}, bool sort = true, bool quest = false) noexcept;
+	std::optional<std::size_t> preferred = {}, bool sort = true, bool quest = false,const std::function<void(unsigned)> &effect = {}) noexcept;
 // Event quest items stage as raw weapon IDs 82..116 (0x22883); their counts are
 // granted first, so delivery only names a recipient (0x245f8..0x24610).
 bool xeenTreasureQuest(const XeenItem &, XeenRewardCategory) noexcept;
 // Preparing a receipt does not transfer items, credit currency or clear the staging.
 XeenRewardReceipt xeenPrepareRewardReceipt(const XeenTreasureStaging &) noexcept;
 void xeenDeliverRewardEntry(XeenRewardReceipt &,std::size_t,XeenPartyState &,
-	std::optional<std::size_t> preferred = {});
+	std::optional<std::size_t> preferred = {},const std::function<void(unsigned)> &effect = {});
 void xeenSortRewardEntry(const XeenRewardEntry &,XeenPartyState &);
 // Starts a delivery: the full-pack warning, or the first item transferred to its
 // recipient. Each advance completes one presentation step; Receipt follows the
 // last item. The caller credits and empties the staging on its acknowledgment.
 void xeenBeginTreasureDelivery(XeenTreasureDelivery &,const XeenTreasureStaging &,XeenPartyState &,
-	std::optional<std::size_t> preferred = {});
+	std::optional<std::size_t> preferred = {},const std::function<void(unsigned)> &effect = {});
 void xeenAdvanceTreasureDelivery(XeenTreasureDelivery &,XeenPartyState &,
-	std::optional<std::size_t> preferred = {});
+	std::optional<std::size_t> preferred = {},const std::function<void(unsigned)> &effect = {});
 // Counts the staged Event items an abandoned run never delivered.
 void xeenDiscardRewards(XeenRewardReceipt &receipt,const XeenTreasureStaging &staged,
 	const XeenTreasureStaging &base,XeenRewardDiscard reason) noexcept;

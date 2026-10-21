@@ -419,13 +419,19 @@ Comparison is with pinned `6814ee9b`, not a new master check:
   the original Text option but keeps dialog text visible until M83 provides
   CD speech (maintainer approval, 2026-10-21; pin `6814ee9b`, master not rechecked).
 
+- **Mirror, Stone and monster-death sounds.** DOS confirms a mirror name
+  with effect 51, uses 37 for a monster's Stone attack and requests 4 when a
+  monster dies. MMModern follows those calls; the pin uses 61/35, 38 and no
+  death cue respectively. [Evidence](original-quirks.md#sv-dos-fm-effects).
+  Pin: differs; master not rechecked.
+
 ScummVM plays the whole game today; MMModern is young. The full list of gaps is
 in [project status](project-status.md#known-gaps):
 
 - **The whole game:** only Vertigo and the surrounding mainland are playable;
   the rest of Clouds of Xeen and all of Darkside of Xeen are not.
-- **Sound:** no music, effects or CD speech yet (speech keeps its duration in
-  silence); no intros, ending or Mr Wizard's help.
+- **Sound:** individual spell FM cues and VOC/CD playback await C2/M83;
+  speech keeps its duration in silence. Only the promus OPL3 device is supported.
 - **Services and party:** no Inn, recruiting, character creation, Tavern
   Sign In or Dismiss.
 - **World:** no entrance scenes (Reaper, Golem, Dwarf Mine, Sphinx, Pyramid);

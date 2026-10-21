@@ -174,6 +174,7 @@ private:
         std::optional<XeenJourneyRandomState> randomBefore,randomAfter;
         bool awaitingFrame=false,randomPublished=false,resetAfterFrame=false;
 	};
+    std::string serviceNotEnoughGold();
 	bool pulseServiceArt(ServiceArtState &, IndexedFrame &art);
     void startServiceSample(ServiceArtState &,const char *,bool resetIndex=false);
     void serviceInputPolled(ServiceArtState &);
@@ -292,6 +293,7 @@ private:
 	TransitionCompose _transitionCompose;
 	bool _arrivalPending = false;
 	struct BarrierWork {
+        bool fmOpened=false;
 		std::unique_ptr<XeenWorld> world;
 		XeenPartyState party;
 		XeenCamera camera;
@@ -409,6 +411,7 @@ private:
         IndexedFrame gameplay,final;
     };
     std::optional<DeathContinuation> _death;
+    std::optional<std::uint64_t> _fmPresentationGeneration;
     bool partyDeathRequired() const noexcept;
     IndexedFrame drawDeath(const IndexedFrame &);
     bool advanceDeath();

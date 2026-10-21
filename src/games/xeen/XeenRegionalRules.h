@@ -27,6 +27,8 @@ std::bitset<256> xeenActorClosure(const XeenMap &, const XeenActor &);
 unsigned xeenPlayerRayRows(const XeenMap &, const XeenCamera &);
 bool xeenOutdoorRangedRay(const XeenMap &, const XeenCamera &, const XeenActor &);
 unsigned xeenPlayerRayRows(XeenWorld &, const XeenCamera &);
+// First real blocking row, or four for a clear ray or a map edge.
+unsigned xeenPlayerRayWall(XeenWorld &, const XeenCamera &,unsigned rows);
 std::array<std::optional<XeenMonsterIdentity>,12> xeenSpellTargets(XeenWorld &,
  const XeenCamera &,const std::vector<XeenActor> &,std::optional<XeenMonsterIdentity>,XeenSpellRange);
 bool xeenIndoorRangedRay(XeenWorld &, const XeenCamera &, const XeenActor &);
@@ -105,6 +107,7 @@ private:
 // Retained preparation of one existing action/pulse publication. Flow holds the
 // continuation while Approach retains sole authority to publish world deltas.
 struct XeenRegionalActionCandidate {
+ bool fmStep=false;
 	// An outdoor border load stays detached until the whole step can publish.
 	std::shared_ptr<XeenWorld> destinationWorld;
 	std::optional<XeenEventFile> destinationEvents;
@@ -142,7 +145,7 @@ struct XeenShootCandidate {
 	 enum class Stage { Travel, Impact, PostImpact };
 	 Stage stage=Stage::Travel;
 	 bool presented=false;
-	 bool advanceDraw=false, suffixPrepared=false;
+	 bool advanceDraw=false, suffixPrepared=false,deathFx=false;
 	 unsigned row=0,rows=4,charge=10;
 	 std::uint64_t deadline=0;
 	 std::optional<XeenActor> bound;

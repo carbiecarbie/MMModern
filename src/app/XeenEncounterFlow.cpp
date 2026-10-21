@@ -342,6 +342,11 @@ bool XeenEncounterFlow::observeCombat() {
 	// Only a published attack starts an effect. Pending RNG prefixes, retained
 	// feedback, round work and redraws cannot restart it.
 	if(r.attackStage==XeenCombatAttackStage::MonsterPose1 || r.attackStage==XeenCombatAttackStage::MonsterPose2) {
+        if(r.attackStage==XeenCombatAttackStage::MonsterPose1 && _fmAttackGeneration!=r.generation && r.actingMonster) {
+            _fmAttackGeneration=r.generation;
+            const auto &actor=_world.sessionState().regionalActors(r.actingMonster->mapId).at(r.actingMonster->recordIndex);
+            fmEffect(actor.statistics->raw[0x32]);
+        }
 		_appearanceIdentity=r.actingMonster;
 		_frame=r.attackStage==XeenCombatAttackStage::MonsterPose1?8:9;
 		_appearanceStep=r.attackStage==XeenCombatAttackStage::MonsterPose1?0:1;

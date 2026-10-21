@@ -110,6 +110,13 @@ unsigned xeenPlayerRayRows(XeenWorld &world,const XeenCamera &camera) {
  }
  return 4;
 }
+unsigned xeenPlayerRayWall(XeenWorld &world,const XeenCamera &camera,unsigned rows) {
+ if(rows>=4)return 4;
+ constexpr int dx[]{0,1,0,-1},dy[]{1,0,-1,0};const auto d=unsigned(camera.direction);
+ const int x=camera.x+dx[d]*int(rows),y=camera.y+dy[d]*int(rows);
+ const bool indoor=!world.map(camera.mapId).geometry.isOutdoors();
+ return (indoor?bool(world.sampleCell(camera.mapId,x,y)):local(x,y))?rows:4;
+}
 std::array<std::optional<XeenMonsterIdentity>,12> xeenSpellTargets(XeenWorld &world,
  const XeenCamera &camera,const std::vector<XeenActor> &actors,
  std::optional<XeenMonsterIdentity> selected,XeenSpellRange range) {

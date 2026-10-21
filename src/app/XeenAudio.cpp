@@ -20,6 +20,8 @@ std::vector<std::uint8_t> read(const ReadOnlyDataFile &file) {
 }
 struct XeenAudio::Impl {
  XeenSoundOptions options;
+ XeenAudio::EffectSink effectSink;
+ std::array<unsigned,35> weaponEffects{};
  unsigned id;Loader loader;std::uint64_t elapsed=0,last=0,speechEnd=0;
  std::vector<std::string> maps,locations;std::array<unsigned,6> kinds{};
  std::unique_ptr<PromusDriver> clockDriver;
@@ -34,6 +36,7 @@ struct XeenAudio::Impl {
  std::unique_ptr<SdlAudioDevice> device;
  Impl(unsigned i,PromusDriver::Bytes resource,Loader l,std::vector<std::uint8_t> module,std::uint64_t n,bool deviceOutput,PromusDriver::Sink trace,std::shared_ptr<XeenFmSource> source):id(i),loader(std::move(l)),last(n),output(source?source:std::make_shared<XeenFmSource>()),retainOutput(bool(source)) {
   const XeenDosText text(module);maps=text.table("CLOUDS_MUSIC");locations=text.table("CLOUDS_LOCATION_MUSIC");
+  for(unsigned w=0;w<weaponEffects.size();++w)weaponEffects[w]=60+module.at(0x4d660+w);
   for(unsigned k=0;k<6;++k){kinds[k]=module.at(0x4f10a+k);if(kinds[k]>=maps.size())throw std::runtime_error("Invalid Clouds music wall-kind table");}
   if(id==3) {
    clockDriver=std::make_unique<PromusDriver>(resource,[this,trace=std::move(trace)](const auto &w){
@@ -111,7 +114,16 @@ void XeenAudio::requestLocation(unsigned action,std::uint64_t now) {requestSong(
 void XeenAudio::requestInn(std::uint64_t now) {requestSong("inn.m",XeenSceneArchive::Clouds,128,now);}
 void XeenAudio::enterTitle(std::uint64_t now) {advance(now);_impl->pending.reset();_impl->afterTitle.reset();_impl->titleExit=false;_impl->load({"newbrigh.m",XeenSceneArchive::DarksideOnly,0},_impl->options.music);_impl->flush();}
 void XeenAudio::leaveTitle(std::uint64_t now) {advance(now);if(_impl->options.music)_impl->command(207);_impl->titleExit=true;_impl->pending=Impl::Song{"twnnitea.m",XeenSceneArchive::DarksideOnly,207};_impl->flush();}
-void XeenAudio::effect(unsigned id,std::uint64_t now) {advance(now,_impl->speechEnd);if(_impl->options.efx && _impl->clockDriver)_impl->clockDriver->effect(id);_impl->flush();}
+void XeenAudio::effect(unsigned id,std::uint64_t now) {
+ // Use the action's existing clock sample, without querying a gameplay clock.
+ advance(std::max(now,_impl->last),_impl->speechEnd);
+ if(!_impl->options.efx)return;
+ if(_impl->effectSink)try {_impl->effectSink(id);}catch(...) {}
+ if(_impl->clockDriver)_impl->clockDriver->effect(id);
+ _impl->flush();
+}
+void XeenAudio::effectSink(EffectSink sink) {_impl->effectSink=std::move(sink);}
+void XeenAudio::weaponEffect(unsigned weapon,std::uint64_t now) {effect(_impl->weaponEffects.at(weapon),now);}
 void XeenAudio::observeOptions(XeenSoundOptions value) {_impl->options=value;}
 void XeenAudio::toggleMusic(bool on,std::uint64_t now) {
  advance(now,_impl->speechEnd);_impl->options.music=on;

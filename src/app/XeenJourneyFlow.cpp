@@ -1,4 +1,5 @@
 #include "app/XeenEncounterFlow.h"
+#include "app/XeenAudio.h"
 #include "games/xeen/XeenJourneyRules.h"
 #include "games/xeen/XeenJourneyCapture.h"
 #include "games/xeen/XeenInventoryState.h"
@@ -14,6 +15,14 @@
 #include <sstream>
 
 namespace mmodern {
+void XeenEncounterFlow::fmEffect(unsigned id) noexcept {
+    try {if(_program.audio){_program.audio->observeOptions(_party.soundOptions);_program.audio->effect(id,_lastNanoseconds);}}
+    catch(...) {} // An FM output failure cannot abort a gameplay action.
+}
+void XeenEncounterFlow::fmWeaponEffect() noexcept {
+    try {if(_program.audio){_program.audio->observeOptions(_party.soundOptions);_program.audio->weaponEffect(_program.attackWeaponFx,_lastNanoseconds);}}
+    catch(...) {}
+}
 namespace {
 struct BusyJourney { bool &value; explicit BusyJourney(bool &v) : value(v) { value = true; } ~BusyJourney() { value = false; } };
 bool sameEvents(const XeenEventFile &a,const XeenEventFile &b) {
@@ -250,6 +259,7 @@ bool XeenEncounterFlow::mrWizard(const Ticket &entry) {
 		prepared->prepareSpellMapPublication(*candidate);prepared->cameraValue=camera;
 		prepared->purse->gems=0;prepared->s.assignExploration(exploration);
 		_world.checkTransitionTreasure(*candidate);_journeyPreimage->check();
+        fmEffect(51);
 		_world.publishTransition(*candidate);_camera=camera;_journeyEvents=std::move(events);
 		_party.purse->gems=0;
 		XeenMutationWatch::write(&_world);_world._sessionState.publishExploration(exploration);
@@ -444,7 +454,7 @@ bool XeenEncounterFlow::settleItemUse(const Ticket &entry,std::uint64_t generati
             if(spell==XeenLearnedSpell::PowerCure && targetIndex) {
                 _itemUse->targetPending=true;_itemUse->targetIndex=targetIndex;
                 _itemUse->selectorFrame.reset();_itemUse->selectorTicket.reset();
-                XeenConsequenceDraw draw{_itemUse->opportunity->random,64,[&]{_journeyPreimage->check();}};
+                XeenConsequenceDraw draw{_itemUse->opportunity->random,64,[&]{_journeyPreimage->check();},[this](unsigned id){fmEffect(id);},[this](unsigned id){fmSelectWeapon(id);}};
                 const auto healing=XeenLearnedSpellRules::preparePowerCure(_party,*targetIndex,_party.encounterContext->year,
                     _party.roster.at(_itemUse->sourceOwner).currentLevel(),draw);
                 if(!healing)return true;
@@ -541,7 +551,7 @@ bool XeenEncounterFlow::serviceItemUse() {
 		XeenEncounterResult result;
 		{
 			XeenRestoreGuard::Providers providers(*_journeyPreimage,_world);
-			result=XeenActorApproach::regionalTransition(_world,_party,_camera,_state,_journeyEvents,{},_regionalWork,_travelEventsProvider);
+			result=XeenActorApproach::regionalTransition(_world,_party,_camera,_state,_journeyEvents,{},_regionalWork,_travelEventsProvider,[this](unsigned id){fmEffect(id);});
 		}
 		if (!_journeyPreimage->ownersAlive() || _boundary.generation()!=boundaryGeneration ||
 			result.outcome==XeenEncounterOutcome::Stale || result.outcome==XeenEncounterOutcome::Refused ||
@@ -835,7 +845,8 @@ XeenEncounterResult XeenEncounterFlow::advanceJourney(const Ticket &entry, std::
 		XeenEncounterResult result;
 		{
 			XeenRestoreGuard::Providers providers(*_journeyPreimage,_world);
-			result = XeenActorApproach::regionalTransition(_world,_party,_camera,_state,_journeyEvents,action,_regionalWork,_travelEventsProvider);
+			result = XeenActorApproach::regionalTransition(_world,_party,_camera,_state,_journeyEvents,action,_regionalWork,_travelEventsProvider,
+                [this](unsigned id){fmEffect(id);},[this]{fmStepEffect();});
 		}
 		if (!_journeyPreimage->ownersAlive()) { closeJourney(); return refused; }
 		// A replaced boundary belongs to newer work. Leave its coordination alone.
@@ -993,6 +1004,8 @@ bool XeenEncounterFlow::attachJourney(const Ticket &entry, const std::function<v
 		checkBoundary();
 		_journeyPreimage->check();
 		_combat.reset(new XeenCombat(_world,_party,_camera,_boundary,_flags,_state,_journeyStatistics,_events));
+        _fmAttackGeneration.reset(); // Combat generations are local to this new instance.
+        _combat->fmEffects([this](unsigned id){fmEffect(id);},[this]{fmWeaponEffect();},[this](unsigned weapon){fmSelectWeapon(weapon);});
         _combat->inheritResources(_combat->ticket(),*_journeyPreimage);
 		++_generation;
 		if (!acceptCombatResult(_combat->beginCombat(_combat->ticket()))) return false;

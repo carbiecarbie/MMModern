@@ -27,6 +27,10 @@ public:
  void enterTitle(std::uint64_t now);
  void leaveTitle(std::uint64_t now);
  void effect(unsigned,std::uint64_t now);
+ // Observe admitted requests after the Efx gate; never drives gameplay.
+ using EffectSink=std::function<void(unsigned)>;
+ void effectSink(EffectSink);
+ void weaponEffect(unsigned weapon,std::uint64_t now);
  void observeOptions(XeenSoundOptions);
  void toggleMusic(bool on,std::uint64_t now);
  void advance(std::uint64_t now,std::uint64_t cdSpeechEnd=0);

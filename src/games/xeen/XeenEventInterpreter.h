@@ -307,6 +307,7 @@ using XeenEventExecutionStepResult = std::variant<
 class XeenEventPublication;
 class XeenEventInterpreter {
 public:
+    std::function<void(unsigned)> fmEffect; // Optional presentation sink for detached Event execution.
 	static constexpr std::size_t kMaximumInstructions = 1024;
 	static constexpr std::size_t kMaximumCallDepth = 64;
 
@@ -329,6 +330,7 @@ public:
 		const TextProvider &textProvider, const XeenEventPublication *publication = nullptr) const;
 
 private:
+    void emitFmEffect(const XeenEventPublication *,unsigned) const noexcept;
 	XeenEventExecutionStepResult runInstructions(XeenEventExecutionState &state,
 		std::optional<XeenPresentationResponse> response,
 		XeenPartyState &partyState, XeenWorld &world,

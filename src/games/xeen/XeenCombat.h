@@ -258,6 +258,7 @@ private:
         const XeenSpellTravel &,std::unique_ptr<XeenWorld>,XeenEventFile);
 	XeenCombat(XeenWorld &, XeenPartyState &, XeenCamera &, XeenCombatBoundary &, const XeenGameFlags &,
 		const XeenEncounterState &, const std::vector<XeenMonsterRecord> &, const XeenEventFile &);
+    void fmEffects(std::function<void(unsigned)>,std::function<void()>,std::function<void(unsigned)>);
 	void retireJourney(const Ticket &, XeenEncounterState &);
 	void retireDisengagedJourney(const Ticket &, XeenEncounterState &);
 	XeenCombatResult finishDisengagement(const Ticket &);

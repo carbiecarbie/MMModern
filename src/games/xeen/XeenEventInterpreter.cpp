@@ -16,6 +16,10 @@
 #include <vector>
 
 namespace mmodern {
+void XeenEventInterpreter::emitFmEffect(const XeenEventPublication *publication,unsigned id) const noexcept {
+    xeenEmitFmEffect(publication && publication->fmEffect ? publication->fmEffect : fmEffect,id);
+}
+
 namespace {
 
 using MissingInstructionPolicy = XeenEventMissingInstructionPolicy;
@@ -406,8 +410,8 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 		}
 		const bool begin=reward.phase==XeenRewardPhase::Running;
 		if(publication && partyState.worldFlags)publication->advanceRewardDelivery(state,partyState,begin);
-		else if(begin)xeenBeginTreasureDelivery(reward,state.treasure,partyState,state.treasure.preferredRecipient());
-		else xeenAdvanceTreasureDelivery(reward,partyState,state.treasure.preferredRecipient());
+		else if(begin)xeenBeginTreasureDelivery(reward,state.treasure,partyState,state.treasure.preferredRecipient(),[&](unsigned id){emitFmEffect(publication,id);});
+		else xeenAdvanceTreasureDelivery(reward,partyState,state.treasure.preferredRecipient(),[&](unsigned id){emitFmEffect(publication,id);});
 		XeenPresentationRequest request;
 		request.response = XeenPresentationResponseRequirement::Acknowledgment;
 		request.mapId = workingCamera.mapId;
@@ -505,7 +509,9 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
                     const unsigned first=workingCamera.mapId.side==XeenSide::Clouds && workingCamera.mapId.number>32?0x26:0;
                     const unsigned bound=std::min<unsigned>(pending.request.mirrors.size(),workingCamera.mapId.side==XeenSide::Clouds?63:pending.request.mirrors.size());
                     for(unsigned i=first;i<bound;++i)if(equal(input,pending.request.mirrors[i].name)) {
-                        result=i+1;state.mirrorDestination=pending.request.mirrors[i];break;
+                        result=i+1;state.mirrorDestination=pending.request.mirrors[i];
+                        emitFmEffect(publication,51);
+                        break;
                     }
                 }
             }
@@ -877,8 +883,16 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 			missingPolicy = MissingInstructionPolicy::NaturalCompletion;
 			continue;
 		}
+        if(std::holds_alternative<XeenEventSoundCue>(decoded.operation)) {
+            if(logical.line==255)return error(XeenEventExecutionErrorKind::LineOverflow,
+                "audio sequential event line overflow",instructionCount,logical,decoded.source);
+            if(XeenSoundOptions(partyState.soundOptions).efx) {
+                if(publication)publication->playFx();
+                else emitFmEffect(nullptr,std::get<XeenEventSoundCue>(decoded.operation).index);
+            }
+            ++logical.line;missingPolicy=MissingInstructionPolicy::NaturalCompletion;continue;
+        }
 		if (std::holds_alternative<XeenEventVoiceCue>(decoded.operation) ||
-			std::holds_alternative<XeenEventSoundCue>(decoded.operation) ||
 			std::holds_alternative<XeenEventCdSpeech>(decoded.operation)) {
 			if (logical.line==255)
 				return error(XeenEventExecutionErrorKind::LineOverflow,
@@ -895,8 +909,7 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 			request.mapId=logical.mapId;
 			request.source=decoded.source;
 			request.text=std::holds_alternative<XeenEventCdSpeech>(decoded.operation) ?
-				"CD speech not supported yet" : std::holds_alternative<XeenEventSoundCue>(decoded.operation) ?
-				"Sound effects not supported yet" : "Voice audio not supported yet";
+				"CD speech not supported yet" : "Voice audio not supported yet";
 			// Existing Presented response is automatic: no input, clock or RNG.
 			++logical.line;
 			missingPolicy=MissingInstructionPolicy::NaturalCompletion;
@@ -941,7 +954,7 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
    }
    if(progress.phase==P::Phase::DamageApply) {state.portraitDamage->injuryAcknowledged=true;progress.phase=P::Phase::Recipients;}
    for(;;) {
-       XeenConsequenceDraw draw{*state.portraitRandom,generationBudget,{}};
+       XeenConsequenceDraw draw{*state.portraitRandom,generationBudget,{},[&](unsigned id){emitFmEffect(publication,id);}};
        const bool ready=state.portraitDamage->service(draw);generationBudget=draw.remaining;
        world.publishEventDamagePrefix(partyState,*state.portraitDamage,state.portraitRandom->continuation());
        if(ready) {
@@ -1224,7 +1237,7 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 				}
 				XeenItemCandidate candidate(giveValue,state.scriptValues.itemType?std::optional<int>(state.scriptValues.itemType):std::nullopt);
 				XeenCombatRandom random(*world.sessionState().journeyRandom());
-				for(;;) {XeenConsequenceDraw draw{random,64,{}};if(candidate.service(draw))break;}
+				for(;;) {XeenConsequenceDraw draw{random,64,{},[&](unsigned id){emitFmEffect(publication,id);}};if(candidate.service(draw))break;}
 				world.retainEventRandom(random.continuation());
 				const auto category=static_cast<XeenRewardCategory>(candidate.category());
 				if(!state.treasure.insert(category,candidate.item())) {done(true);return std::nullopt;}
@@ -1244,7 +1257,7 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 				XeenConditionTimeCandidate time(*partyState.encounterContext,minutes,characters,inputs,
 					partyState.serviceEconomy?&*partyState.serviceEconomy:nullptr,XeenTimeMode::Script,XeenTimeCall::Add);
 				XeenCombatRandom random(*world.sessionState().journeyRandom());
-				for(;;) {XeenConsequenceDraw draw{random,64,{}};if(time.service(draw))break;}
+				for(;;) {XeenConsequenceDraw draw{random,64,{},[&](unsigned id){emitFmEffect(publication,id);}};if(time.service(draw))break;}
 				world.retainEventRandom(random.continuation());
 				world.publishEventTime(partyState,time);
 				done(false);return std::nullopt;
@@ -1325,6 +1338,7 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 						const int level=std::max(0,int(member.permanentLevel)+int(member.temporaryLevel));
 						inputs->experience=inputs->experience+static_cast<std::uint16_t>(level*box*10);
 					} else world.objectFrameDrawn(lock.object,0);
+                    emitFmEffect(publication,lock.picked?10:21);
 					lock.phase=L::Message;
 					XeenPresentationRequest request;
 					request.kind=XeenPresentationKind::CenteredMessage;
@@ -1378,7 +1392,7 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 					if(!world.sessionState().journeyRandom())throw std::invalid_argument("Event treasure has no Journey RNG");
 					state.rewardRandom.emplace(*world.sessionState().journeyRandom());
 				}
-				XeenConsequenceDraw draw{*state.rewardRandom,generationBudget,{}};
+				XeenConsequenceDraw draw{*state.rewardRandom,generationBudget,{},[&](unsigned id){emitFmEffect(publication,id);}};
 				bool ready=false;std::optional<unsigned> amount;
 				if(pair.mode==66) {
 					if(state.scriptValues.itemType && state.treasure.full(XeenRewardCategory::Miscellaneous)) {
@@ -1606,12 +1620,17 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
                 destination.mapId.number=mirror.map;destination.x=mirror.x;destination.y=mirror.y;
                 if(mirror.direction!=-1)destination.direction=static_cast<XeenDirection>(mirror.direction);
                 if(!destination.x && !destination.y)destination.x=-1;
+                emitFmEffect(publication,51);
             }
             try {
                 const auto transition=world.prepareEventTransition(destination,destination.x==-1);
                 if(!transition)return error(XeenEventExecutionErrorKind::UnsupportedTeleportDestination,transition.reason,instructionCount,logical,decoded.source,
                     XeenEventExecutionAddress{destination.mapId,destination.x,destination.y,0});
                 destination=transition.destination;
+                if(workingCamera.mapId!=destination.mapId && state.selectedObject) {
+                    const auto sprite=world.effectiveObject(*state.selectedObject).resourceId;
+                    if(sprite==47 || sprite==48)emitFmEffect(publication,sprite==47?45:44);
+                }
                 if(workingCamera.mapId!=destination.mapId && world.detachedEventCandidate())
                     world.loadEventDestination(workingCamera.mapId,destination.mapId);
                 workingCamera=destination;

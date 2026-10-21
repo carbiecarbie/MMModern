@@ -374,6 +374,8 @@ bool XeenEventFlow::advanceDeath() {
     case P::Done:return false;
     }
     death.acquired=false;
+    if(death.phase==P::Laugh && (death.laugh==1 || death.laugh==11))_encounter->fmEffect(33);
+    if(death.phase==P::Laugh && death.laugh==15)_encounter->fmEffect(34);
     if(death.phase==P::Laugh)death.deadline=PresentationClock::after(now,2);
     else if(death.phase==P::Scroll)death.deadline=PresentationClock::after(now,1);
     return true;
@@ -555,7 +557,7 @@ void XeenEventFlow::prepareTerrainTransition() {
  for(unsigned n=0;n<6;++n) {characters[n]=work->party.roster.at(owners[n]);inputs[n]=*work->party.roster.combatInputs(owners[n]);}
  XeenCombatRandom random(*work->world->sessionState().journeyRandom());
  XeenTerrainArrivalCandidate arrival(rule,characters,inputs,*work->party.encounterContext,&*work->party.serviceEconomy);
- XeenConsequenceDraw draw{random,64,[&] {_eventPublication->check();}};
+ XeenConsequenceDraw draw{random,64,[&] {_eventPublication->check();},[this](unsigned id){_encounter->fmEffect(id);},[this](unsigned id){_encounter->fmSelectWeapon(id);}};
  if(!arrival.service(draw))throw std::logic_error("Physical terrain fall requested random continuation");
  work->world->publishTerrainArrival(work->party,arrival,random.continuation());
  for(const auto owner:owners)_eventPublication->damageEffects[owner]=0;
@@ -612,7 +614,7 @@ bool XeenEventFlow::serviceManualStep() {
   step.remaining=1+unsigned(_encounter->state().pending()!=0);work.manualStep.emplace(std::move(step));
  }
  auto &step=*work.manualStep;
- XeenConsequenceDraw draw{step.random,64,[&] {_eventPublication->check();work.guard->check();}};
+ XeenConsequenceDraw draw{step.random,64,[&] {_eventPublication->check();work.guard->check();},[this](unsigned id){_encounter->fmEffect(id);},[this](unsigned id){_encounter->fmSelectWeapon(id);}};
  if(!step.timeDone) {
   if(!step.time->service(draw))return false;
   const auto ctr=step.context.ctr24;step.context=step.time->context;step.context.ctr24=ctr;
@@ -678,6 +680,9 @@ void XeenEventFlow::framePresented(const IndexedFrame::Presentation &presented, 
         _smithUi->animation.deadline=PresentationClock::after(presentationNow(),3);
         _smithUi->animation.resetAfterFrame=false;
         _smithUi->animation.awaitingFrame=false;_smithUi->animation.pendingIndex.reset();
+    }
+    if(_smithUi && _encounter && _encounter->_smith && _encounter->_smith->burpPending) {
+        _encounter->_smith->burpPending=false;_encounter->fmEffect(28); // DOS redraw precedes the burp.
     }
     if(_trainingUi && (_trainingUi->animation.awaitingFrame || _trainingUi->animation.resetAfterFrame)) {
         _trainingUi->animation.deadline=PresentationClock::after(presentationNow(),3);
@@ -1323,7 +1328,7 @@ void XeenEventFlow::checkTransitionCandidate() {
 }
 
 XeenEventSystem XeenEventFlow::detachedEventResources() {
-    return XeenEventSystem([this](XeenMapIdentity id) {
+    auto result=XeenEventSystem([this](XeenMapIdentity id) {
         _eventPublication->check();auto script=_events.scriptForMap(id);
         if(id==_encounter->_journeyEvents.mapId)_eventPublication->script(script.file());
         _eventPublication->check();return script;
@@ -1331,6 +1336,8 @@ XeenEventSystem XeenEventFlow::detachedEventResources() {
         _eventPublication->check();auto text=_events.textForMap(id);
         _eventPublication->check();_eventPublication->text(text);return text;
     });
+    result._interpreter.fmEffect=[this](unsigned id){_encounter->fmEffect(id);};
+    return result;
 }
 
 XeenManualEventResult XeenEventFlow::beginDetachedEvent(XeenRegionalInteraction kind, bool automatic) try {
@@ -1478,7 +1485,7 @@ void XeenEventFlow::prepareDetachedResult(const XeenManualEventResult &result) t
 			work.terrain.emplace(rule,characters,inputs,*work.party.encounterContext,&*work.party.serviceEconomy);
 		}
 		XeenCombatRandom random(*work.world->sessionState().journeyRandom());
-		XeenConsequenceDraw draw{random,64,[&] {_eventPublication->check();}};
+		XeenConsequenceDraw draw{random,64,[&] {_eventPublication->check();},[this](unsigned id){_encounter->fmEffect(id);},[this](unsigned id){_encounter->fmSelectWeapon(id);}};
 		if(!work.terrain->service(draw)) {work.world->retainEventRandom(random.continuation());
 			work.guard=std::make_unique<XeenRestoreGuard>(*work.world,work.party,work.camera,work.flags);return;}
 		work.terrain->context.ctr24=(work.terrain->context.ctr24+1)%24;
@@ -1610,6 +1617,7 @@ IndexedFrame XeenEventFlow::journeyEventWork(const std::function<void()> &operat
 			if (!_dispatching || !_encounter->journeyEvent() || !_encounter->current(entry))
 				throw std::logic_error("Stale Journey event continuation");
 		},beforeRewardStaging,&_regionalExecutedRecords);
+        publication.fmEffect=[this](unsigned id){_encounter->fmEffect(id);};
 		if(_pending)publication.continuation(_pending->state,*_regionalEventContinuation,bool(_transition));
 		XeenRestoreGuard::Providers providers(_encounter->journeySavePreimage(),_world,[&] { publication.check(); });
 		_eventPublication=&publication;
@@ -1768,6 +1776,9 @@ IndexedFrame XeenEventFlow::presentationFailed(const std::exception &exception) 
 XeenPresentationUpdate XeenEventFlow::presentPendingEvent() {
     _presenter.originalAssets(dialogText,drawDialogSprite);
 	auto request=_pending->state.pendingPresentation->request;
+    if(request.notEnough && _fmPresentationGeneration!=_pending->generation) {
+        _fmPresentationGeneration=_pending->generation;_encounter->fmEffect(21);
+    }
     if(request.arena) {
         using P=XeenArenaPhase;const auto &arena=*request.arena;
         if(arena.phase==P::Pool) {
@@ -1941,6 +1952,7 @@ void XeenEventFlow::preparePortraitSequence(const XeenEventPortraitEffect &effec
     if(effect.stage==XeenEventPortraitStage::Sparkle)presentation.spellFrame(effect.owner,0);
     else if(effect.stage==XeenEventPortraitStage::DamageOverlay)presentation.portraitDamage(effect.owner,effect.frame);
     _portraitSequence=sequence; // Retain admission before fallible draw/provider work.
+    if(effect.stage==XeenEventPortraitStage::Sparkle)_encounter->fmEffect(20);
     if(effect.stage!=XeenEventPortraitStage::DamageOverlay && !sequence.window11)
         updateOrdinaryPhase(OrdinaryCause::Action,false,now);
 }
@@ -2182,6 +2194,7 @@ bool XeenEventFlow::pulseServiceArt(ServiceArtState &state, IndexedFrame &art) {
         state.randomPublished=true;
     }
     art=std::move(candidate);state.index=*state.pendingIndex;state.awaitingFrame=true;
+    if(state.kind==XeenServiceArt::Smith && (state.index==3 || state.index==9))_encounter->fmEffect(45);
     state.deadline=PresentationClock::after(presentationNow(),3); // Reset after work; no catch-up.
     return true;
 }
@@ -2795,7 +2808,12 @@ IndexedFrame XeenEventFlow::handle(const PlayerAction &physicalAction, std::opti
                         validation.script(_events.scriptForMap(_camera.mapId).file());
                         noEvent=!xeenRegionalEvent(_encounter->_journeyEvents,_camera);
                         if(!noEvent)_encounter->_journeyRefusal="This Event is not supported yet.";
-                        else if(reportManual)reportManual(XeenManualEventNoEvent{});
+                        else {
+                            validation.fmEffect=[this](unsigned id){_encounter->fmEffect(id);};
+                            // Reuse the Event owner's wrong-facing object refusal. No instruction can run here.
+                            _events.runManualEvent(_world,_party,_camera,_flags,&validation);
+                            if(reportManual)reportManual(XeenManualEventNoEvent{});
+                        }
                     }); } catch(...) {
                         if(!_encounter->current(_encounter->ticket()))throw;
                         noEvent=false;_encounter->_journeyRefusal="Regional interaction failed; no Event executed";

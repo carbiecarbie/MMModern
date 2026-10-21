@@ -15,8 +15,7 @@ std::string trim(std::string s) {
 bool documentedGap(const std::string &dimension,const std::string &mechanic,const std::string &status,const std::string &reason) {
     // Expectations only, never classification inputs: audio and deferred Sign In.
     if(dimension=="Events") {
-        const std::map<std::string,std::string> audio{{"6 PlayFX","Sound effects not supported yet"},
-            {"40 PlayEventVoc","Voice audio not supported yet"},{"60 PlayCD","CD speech not supported yet"}};
+        const std::map<std::string,std::string> audio{{"40 PlayEventVoc","Voice audio not supported yet"},{"60 PlayCD","CD speech not supported yet"}};
         if(const auto i=audio.find(mechanic);i!=audio.end())return status=="partial" && reason.find(i->second)!=std::string::npos;
     }
     const std::set<std::string> actions{"Sign In"};
@@ -118,6 +117,7 @@ int main(int argc,char **argv) {
                 require(status=="supported","Accepted mainland operation misclassified: "+mechanic+" / "+reason);
         }
         for(unsigned action=0;action<6;++action)require(supported.count("17 DoTownEvent action="+std::to_string(action)),"Vertigo service missing from supported set");
+        require(supported.count("6 PlayFX"),"Implemented FM Event cue missing from supported set");
         require(supported.count("22 Damage type=5"),"Vertigo well damage not supported");
         for(const auto prefix:{"12 TakeOrGive modes=0,16,0","12 TakeOrGive modes=0,15,0","16 Spawn slot="}) {
             bool found=false;for(const auto &name:supported)found=found || name.rfind(prefix,0)==0;
@@ -127,7 +127,7 @@ int main(int argc,char **argv) {
             require(supportedServices.count(action),std::string("Implemented Vertigo service missing: ")+action);
         require(townSites==std::array<unsigned,6>{3,4,6,3,4,3},"Clouds service site inventory changed");
         require(arenaSites==1,"Clouds Battle Master site inventory changed");
-        require(gaps==4 && unused==4,"Vertigo documented gap/subroutine inventory changed; explain and recalibrate");
+        require(gaps==3 && unused==4,"Vertigo documented gap/subroutine inventory changed; explain and recalibrate");
         require(waterDragon==2 && vultureRoc==2,"Species 59 species and movement rows are missing from the census");
         require(movement>=4,"Monster movement rows are missing from the census");
         require(lightingRows.size()==3 && skillWalls.size()==7,"Lighting/traversal consumer census rows are missing");

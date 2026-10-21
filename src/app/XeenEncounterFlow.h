@@ -170,6 +170,10 @@ public:
 	std::string notice() const;
 	std::string playerNotice() const;
 private:
+    void fmEffect(unsigned) noexcept;
+    void fmStepEffect() noexcept {_program.steppingFx^=1;fmEffect(7+_program.steppingFx);}
+    void fmWeaponEffect() noexcept;
+    void fmSelectWeapon(unsigned id) noexcept {_program.attackWeaponFx=id;}
 	void recordJourneyStep();
 	void publishJourneyExploration(std::vector<XeenExploredTile> &,std::vector<XeenExploredTile> &) noexcept;
 	friend class XeenEventFlow;
@@ -254,7 +258,7 @@ private:
 		XeenItemService itemAction=XeenItemService::Fix;
 		bool quoted=false, departed=false, published=false, buy=false,temple=false,paid=false;
 		std::uint8_t serviceAction=1,donationCounter=0;
-        bool boughtDrink=false,templeBlessed=false;
+        bool boughtDrink=false,templeBlessed=false,burpPending=false;
         XeenTempleSurcharges templePrices;
         std::uint64_t templePriceRevision=0;
 		XeenArmorRepairCandidate result;
@@ -453,7 +457,7 @@ private:
 	bool observeCombat();
  unsigned _hitRow=0;
  bool _hitAlternatePosition=false;
- std::optional<std::uint64_t> _feedbackGeneration;
+ std::optional<std::uint64_t> _feedbackGeneration, _fmAttackGeneration;
 	void advanceAppearance() noexcept;
 	XeenCombatResult _combatObservation, _combatAward, _retiredCombatResult;
 	// Presentation-only binding for the already published finish. Never retirement authority.

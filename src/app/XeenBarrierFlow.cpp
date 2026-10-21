@@ -58,14 +58,14 @@ bool XeenEventFlow::serviceBarrier() {
 		_encounter->journeySavePreimage().check();work.guard->check();
 	};
 	check();
-	XeenConsequenceDraw draw{work.random,64,check};
+	XeenConsequenceDraw draw{work.random,64,check,[this](unsigned id){_encounter->fmEffect(id);},[this](unsigned id){_encounter->fmSelectWeapon(id);}};
 	if(work.time) {
 		if(!work.time->service(draw))return true;
 		work.characters=work.time->characters;work.inputs=work.time->inputs;work.context=work.time->context;
 		work.economy=work.time->economy;work.dailyReset=work.dailyReset || work.time->resetTemps;work.needsRest=work.needsRest || work.time->needsRest;work.time.reset();
 		if(!work.rule) {
 			XeenRestoreGuard::Providers providers(*work.guard,*work.world,check);
-			work.rule.emplace(*work.world,work.camera,work.characters,work.inputs,work.random.continuation(),work.context,true);
+			work.rule.emplace(*work.world,work.camera,work.characters,work.inputs,work.random.continuation(),work.context,true,[this](unsigned id){_encounter->fmEffect(id);});
 		}
 	}
 	auto &rule=*work.rule;
@@ -109,6 +109,7 @@ bool XeenEventFlow::serviceBarrier() {
 		XeenRestoreGuard::Providers providers(*work.guard,*work.world,check);
 		if(rule.opened)work.world->setBarrier(work.camera,rule.targetWall,!work.bash);
 	}
+    if(rule.opened && !work.bash && !work.fmOpened){work.fmOpened=true;_encounter->fmEffect(10);}
 	// Candidate mutation is intentional and finished. Retain all immutable
 	// resources across the exact new candidate preimage before composition.
 	auto next=std::make_unique<XeenRestoreGuard>(*work.world,work.party,work.camera,work.flags);
@@ -143,6 +144,7 @@ bool XeenEventFlow::serviceBarrier() {
 	const bool pause=work.bash && !rule.moved && rule.portraitMask;
 	if(work.needsRest)_encounter->_needsRestNotice=true;
 	work.published=true;work.deadline=pause?PresentationClock::afterMilliseconds(now,2):now;
+    if(work.bash && rule.moved)_encounter->fmStepEffect();
 	_presenter.clear();_journeyEventLayers=false;
 	if(rule.moved)_world.scenePresentation().navigation(NavigationAction::MoveForward,true);
 	if(!pause) {

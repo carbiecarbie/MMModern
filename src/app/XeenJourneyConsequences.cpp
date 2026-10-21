@@ -1,4 +1,5 @@
 #include "app/XeenEncounterFlow.h"
+#include "games/xeen/XeenFmEffects.h"
 #include "games/xeen/XeenJourneyProgression.h"
 #include "games/xeen/XeenJourneyCapture.h"
 #include "games/xeen/XeenItemCatalog.h"
@@ -34,8 +35,8 @@ bool XeenEncounterFlow::beginShoot() {
   }
   // Nobody can shoot: the original only plays sound effect 21, with no message
   // (pin interface.cpp Shoot `!party.canShoot()`; maintainer DOSBox CD play,
-  // 2026-10-15). Audio arrives with the audio arc; until then this is silent.
-  if(!eligible)return true;
+  // 2026-10-15).
+  if(!eligible){fmEffect(21);return true;}
   {
    XeenRestoreGuard::Providers providers(*_journeyPreimage,_world);
    auto ending=xeenPrepareTime(*_party.encounterContext,charge);
@@ -56,20 +57,14 @@ bool XeenEncounterFlow::beginShoot() {
   candidate->rows=rows;
   std::vector<XeenProjectileAppearance> projectile;
   for(unsigned i=0;i<6;++i)if(candidate->volley.eligible[i])projectile.push_back({false,0,i,3,{}});
-  // Preserve the existing notice distinction: reaching the map edge is empty,
-  // while an in-map obstruction identifies its blocked row.
-  if(rows<4) {
-   constexpr int dx[]{0,1,0,-1},dy[]{1,0,-1,0};const auto d=unsigned(_camera.direction);
-   const int x=_camera.x+dx[d]*int(rows),y=_camera.y+dy[d]*int(rows);
-   if(indoor ? bool(_world.sampleCell(_camera.mapId,x,y)) : x>=0 && x<16 && y>=0 && y<16) candidate->blockedRow=rows;
-  }
+  candidate->blockedRow=xeenPlayerRayWall(_world,_camera,rows);
   for(unsigned row=0;row<rows;++row)
    for(unsigned slot=0;slot<3;++slot) candidate->targets[row*3+slot]=view.slots[row*3+slot];
   candidate->random=XeenCombatRandom(*_world.sessionState().journeyRandom());_journeyPreimage->check();
   retireCastingFeedback();_shoot.swap(candidate);_world._sessionState._journeyActivity=XeenJourneyActivity::Shoot;
   _projectiles.swap(projectile);_projectileDeadline=0;
   ++_world._sessionState._journeyGeneration;++_generation;_journeyPreimage->adoptJourneyCoordination();
-  _journeyRefusal.clear();return true;
+  fmEffect(49);_journeyRefusal.clear();return true;
  } catch(const std::invalid_argument &e) {
   if(!_journeyPreimage->current()) { closeJourney();throw; }_journeyRefusal="Shoot is not supported yet for this party.";return true;
  }
@@ -89,7 +84,7 @@ bool XeenEncounterFlow::serviceShoot() {
   if(work.stage==XeenShootCandidate::Stage::PostImpact && work.bound)admission.at(work.bound->id.recordIndex)=*work.bound;
   XeenActorApproach::validateEnvironment(_world,admission,_events);
   const auto check=[&] { _journeyPreimage->check(); };
-  XeenConsequenceDraw draw{work.random,64,check};
+  XeenConsequenceDraw draw{work.random,64,check,[this](unsigned id){fmEffect(id);},[this](unsigned id){fmSelectWeapon(id);}};
   if(work.spell && !work.spellTargetsPrepared) {
    if(!work.spellPreparation->service(draw))return true;
    const auto targets=xeenSpellTargets(_world,_camera,active,{},XeenLearnedSpellRules::range(std::uint8_t(*work.spell)));
@@ -143,7 +138,10 @@ bool XeenEncounterFlow::serviceShoot() {
     }
     // Lethal drop requests belong after the acquired post-HP draw, never
     // before attack2 publishes damage (0x2c184..0x2c54e).
-    if(work.stage==Stage::PostImpact && work.drop && !work.drop->service(draw)) return true;
+    if(work.stage==Stage::PostImpact && work.drop) {
+        if(!work.deathFx){work.deathFx=true;fmEffect(4);}
+        if(!work.drop->service(draw))return true;
+    }
     if(!work.suffixPrepared) {
      if(damage()>=actor.hp) {
       std::array<const XeenCharacter *,6> owners{};
@@ -187,6 +185,7 @@ bool XeenEncounterFlow::serviceShoot() {
      if(hit()) {work.presented=false;++_generation;return true;}
     }
     if(work.stage==Stage::Impact) {
+     fmWeaponEffect();
      check();liveActors.at(id->recordIndex).hp=std::max(actor.hp-damage(),0);
      liveActors.at(id->recordIndex).status=status();
      session._journeyRandom=work.impactRandom;
@@ -219,7 +218,7 @@ bool XeenEncounterFlow::serviceShoot() {
      if(!remaining) {work.target=12;if(XeenLearnedSpellRules::range(std::uint8_t(*work.spell))!=XeenSpellRange::All)work.row=work.rows-1;}
     }
     else work.volley.settle(hit());
-    work.spellAttack.reset();work.attack.reset();work.drop.reset();work.bound.reset();work.lethal.reset();work.attackDone=work.suffixPrepared=false;work.stage=Stage::Travel;
+    work.spellAttack.reset();work.attack.reset();work.drop.reset();work.bound.reset();work.lethal.reset();work.attackDone=work.suffixPrepared=work.deathFx=false;work.stage=Stage::Travel;
     _frame=0;_appearanceIdentity.reset();
     // Hit accounting is developer output, never a player-facing refusal.
     retainJourney();
@@ -229,6 +228,15 @@ bool XeenEncounterFlow::serviceShoot() {
     ++work.row;work.presented=false;return true;
    }
    check();
+   if(work.spell && work.spell!=XeenLearnedSpell::PoisonVolley) {
+    const bool dispatched=std::any_of(work.targets.begin(),work.targets.end(),[](const auto &id){return bool(id);});
+    if(work.blockedRow<4 && (!dispatched || XeenLearnedSpellRules::range(std::uint8_t(*work.spell))==XeenSpellRange::All))fmEffect(46);
+   } else {
+    unsigned lastHit=4;
+    for(unsigned lane=0;lane<6;++lane)if(work.volley.eligible[lane] && work.volley.spent[lane])
+     lastHit=lastHit==4?work.projectileEnd[lane]:std::max(lastHit,work.projectileEnd[lane]);
+    if(xeenMissileReachesFmWall(work.blockedRow,work.volley.remaining(),lastHit))fmEffect(46);
+   }
    _projectiles.clear();
    _journeyRefusal.clear();
    work.volleyDone=true;return true;
@@ -304,7 +312,7 @@ bool XeenEncounterFlow::beginMonsterReward() {
   // transfer; the staging stays intact until the final acknowledgment.
   XeenTreasureDelivery delivery;
   _journeyPreimage->check();
-  xeenBeginTreasureDelivery(delivery,_world.treasureStaging().value(),_party,_world.treasureStaging().value().preferredRecipient());
+  xeenBeginTreasureDelivery(delivery,_world.treasureStaging().value(),_party,_world.treasureStaging().value().preferredRecipient(),[this](unsigned id){fmEffect(id);});
   _monsterReceiptBase=_world.treasureStaging().revision();
   _rewardLease=_boundary.hold(XeenCombatBoundary::Work::Reward);_world._sessionState._journeyActivity=XeenJourneyActivity::Reward;
   _monsterReceipt.emplace(delivery);
@@ -332,7 +340,7 @@ void XeenEncounterFlow::advanceMonsterReward() {
  ConsequenceScope busy(_busy);
  try {
   _journeyPreimage->check();
-  xeenAdvanceTreasureDelivery(*_monsterReceipt,_party,_world.treasureStaging().value().preferredRecipient());
+  xeenAdvanceTreasureDelivery(*_monsterReceipt,_party,_world.treasureStaging().value().preferredRecipient(),[this](unsigned id){fmEffect(id);});
   ++_world._sessionState._journeyGeneration;++_generation;retainJourney();
  }catch(...) {closeJourney();throw;}
 }
@@ -346,6 +354,11 @@ void XeenEncounterFlow::observeRanged(std::shared_ptr<const XeenRegionalObservat
   _rangedObservation=std::move(observation);return;
  }
  if(observation->stage==XeenRegionalObservation::Stage::Published) {_rangedObservation=std::move(observation);return;}
+ if(observation->stage==XeenRegionalObservation::Stage::Travel)
+  for(unsigned i=0;i<observation->count;++i) {
+   const auto &actor=world.sessionState().regionalActors(observation->shots[i].source.mapId).at(observation->shots[i].source.recordIndex);
+   fmEffect(xeenRangedFmEffect(actor.statistics->raw[29]));
+  }
  std::vector<XeenProjectileAppearance> prepared;
  unsigned pow=12;
  // Original monstersAttack chooses the first non-physical projectile resource

@@ -228,7 +228,7 @@ calibration, retained REA records and limitations are in
 | <a id="sv-cd-song-process-state"></a> Song names/buffers are process state. Same-name map music continues even when Music is off; fades do not block input. Music-on cancels a pending load and restarts whichever buffer is already loaded. | Calibrated DOS static, high: map `0x10276..0x104fc`, request `0x3790f..0x37955`, input `0xe0a3..0xe0c2`, deferred loader `0xe590..0xe5ee`, panel `0x1f07b..0x1f0a5`. Names change before buffers, so On during a pending fade/CD wait can leave new name/old buffer. Load with Music off sends no stop solely because that byte changed; the main Load return bypasses `0xb8b5`, and ordinary command wrapper `0xde65` is Music-gated. Wall kind 5 selects adjacent-table `outday1.m`; a missing song exits through `0x45c8a..0x45cfd`. [Names, title/Inn and transitions](rules/audio.md#song-names-and-asynchronous-changes). **ScummVM:** pin requires the same song to be playing for continuation, ignores the fade argument, does not defer loading for CD speech, and clears the current name on stop. Master not rechecked. | `XeenAudio` owns current name, loaded buffer and pending requests across sessions, with title/preload and map/location selection. Panel On deliberately cancels pending and restarts the loaded buffer; restoring an off byte sends no stop. Inn music is exposed and tested; the sign-in screen stays unsupported (maintainer, 2026-10-21). |
 | Entrance captions advance one character per qualifying two-BIOS-tick interval, including long records; Efx off removes VOC-busy waits but leaves cursor/fixed scene waits. | Retained calibrated DOS evidence, high: renderer `0xdca3..0xdd52`, VOC gate `0xdea9..0xdecd`; Dwarf/Sphinx early exits `0x2b67b..0x2b6aa`, `0x2992d..0x29940`. [Lengths and timing](rules/audio.md#efx-voc-waits-and-entrance-captions), including the Dwarf video-erasure finding. | `XeenEntranceAnimation` advances one character per qualifying interval; Dwarf/Sphinx skip later sample phases in caption mode. Dwarf video frames 136..960 show the box; frame 961 erases it in the final redraw. Other guardians' erasure is not video-confirmed. The tagged entrance-cadence entry below owns the comparison with ScummVM. |
 | A Run that empties the combat party lands on the current map's run position, indoors and outdoors alike, facing unchanged. | Static `WORLD/XEEN.DAT` analysis, 2026-10-19: the combat exit (`0x2eb11..0x2eb1f`) calls the run-location routine `0x1691f`, which copies the loaded map's run X/Y into the party position; nothing tests indoor or outdoor. The landing cell's automatic Event runs only when door text was up as combat began: combat entry saves and clears that flag (`0x2e62d..0x2e634`, set by the door-text opcodes at `0x26f7a`), and the exit's cell lookup and Event check (`0x2ec18..0x2ec37`) depend on it. The pin's `Party::moveToRunLocation` and `upDoorText` agree. | Implemented for every admitted map by `xeenRunDestination`. The door-text flag is not modelled, so Run says "not supported yet" when the landing cell has an automatic Event for the party's facing; if the party turns after an admitted Run, it lands without that Event, as DOS does when no door text was up. F3's `(10,12)` has none; Vertigo's `(18,4)` has an East-facing door-text Event, so there only Run facing East refuses. |
-| Mr Wizard loads Vertigo facing East at its run position and zeroes the party's gems, without passing time. In combat it ends the fight first and then does the same. | Static `WORLD/XEEN.DAT` analysis, 2026-10-19, calibrated on the Run exit above, which calls the same routine `0x1691f`. The panel handler (`0x1f218..0x1f29b`) confirms with `MR_WIZARD` (`0x1f228`). Outside combat it plays FX 51, loads map 28 (`0x1f26f`), faces East (`0x1f282`) and moves to the run position (`0x1f285`); a flag set at startup when the other game is installed (`0x0b3d5`) selects Vertigo and East over map 29 and South. Both paths zero the 32-bit gems (`0x1f28a..0x1f290`) and return 2. In combat, the caller leaves combat on 2 (`0x2e98e..0x2e996`) and the exit tail repeats FX 51, map 28, East and the run position (`0x2ec3c..0x2ec7e`). The pin's combat `reloadMap` branch (`interface.cpp` ~1910) omits `moveToRunLocation`, so there the party keeps its coordinates on the new map. | Outside combat it is implemented in `XeenEncounterFlow::mrWizard`; FX 51 is silent. In combat the panel says "not supported yet". When combat support is added, follow DOS and move the party to the run position. |
+| Mr Wizard loads Vertigo facing East at its run position and zeroes the party's gems, without passing time. In combat it ends the fight first and then does the same. | Static `WORLD/XEEN.DAT` analysis, 2026-10-19, calibrated on the Run exit above, which calls the same routine `0x1691f`. The panel handler (`0x1f218..0x1f29b`) confirms with `MR_WIZARD` (`0x1f228`). Outside combat it plays FX 51, loads map 28 (`0x1f26f`), faces East (`0x1f282`) and moves to the run position (`0x1f285`); a flag set at startup when the other game is installed (`0x0b3d5`) selects Vertigo and East over map 29 and South. Both paths zero the 32-bit gems (`0x1f28a..0x1f290`) and return 2. In combat, the caller leaves combat on 2 (`0x2e98e..0x2e996`) and the exit tail repeats FX 51, map 28, East and the run position (`0x2ec3c..0x2ec7e`). The pin's combat `reloadMap` branch (`interface.cpp` ~1910) omits `moveToRunLocation`, so there the party keeps its coordinates on the new map. | Outside combat it is implemented in `XeenEncounterFlow::mrWizard`; FX 51 is requested before the transition. In combat the panel says "not supported yet". When combat support is added, follow DOS and move the party to the run position. |
 | AlterEvent with no matching physical cell/direction/line silently changes nothing. | DOS scan `WORLD/XEEN.DAT` `0x28189..0x28356`, bounded static check, 2026-10-15, confirms the pinned `scripts.cpp::cmdAlterEvent` no-op. Original Darkside map 33 records at offsets 698 and 722 request absent lines 144 and 200. | `XeenWorld::applyAlterEvent` follows DOS generically on both sides. The map-116 record at offset 90 has a South-facing target and remains a resolved census context limit. |
 | <a id="sv-misc-monster-loot"></a> Generated Misc monster loot is staged in its own treasure array. | DOS category-3 branch `0x2c4f5`, power/container/state writes `0x2c513`, `0x2c524`, `0x2c535`; generator and record layout independently agree. The pin instead copies an accessory into accessory treasure. [Full trace](rules/evidence.md#monster-treasure-staging). | **Implemented (M61 Part C).** `XeenMonsterTreasure.cpp` stages and delivers Misc through the existing shared rules, preserving draws and order. Pending Misc stays in the running program's staging across Run, Load and New Game and is never saved, as the [M81 persistence finding](#sv-loot-load-process-state) establishes. Since M81 Part C every monster record's drop, at levels 1-6, stages Misc this way. M61 Part D implements the separately confirmed DOS delivery rules below. **ScummVM:** differs. |
 | Escaping a First Aid item's target prompt spends the charge and grants the user 1 SP without an initial SP debit or maximum-SP clamp. | DOS item caller `0x313ce..0x314ce`, power-4 branch `0x39e79`, First Aid prompt ID 26 at `0x2f3fa`, Escape `0x2f146`, shared refund `0x2f34b` and SP write `0x2f386`. [Full trace](rules/evidence.md#spell-and-item-control-flow). | **Implemented (M61 Part C)** in `XeenJourneyFlow.cpp::settleItemUse`, only for First Aid item cancellation. Rechecked read-only in the persistent Ghidra project, same image hash and offsets. M75 separately establishes eight more targeted item paths in the healing evidence; implementation support is unchanged by that analysis. **QoL candidate** for a future opt-in correction to the original exploit. |
@@ -772,3 +772,49 @@ implementing the scenes. Exact box-pixel disappearance in Effects-off
 mode still requires a capture; default and Speech-off alone cannot expose
 it. High confidence for the stated static paths, not pixel equivalence
 or a fixed whole-invocation RNG count. Master not rechecked.
+
+### DOS FM call arguments and retained presentation state
+
+**DOS static, high, 2026-10-21.** The calibrated Efx wrapper at DAT
+`0xdece..0xdee6` gates every request with the party Effects byte. The
+[133-site inventory](rules/audio.md#dos-fm-effect-call-sites) distinguishes
+shared helpers from spell-handler cues. Movement refusal at `0xcf48` receives
+21 from `0xcf46`, or 46 from `0xcf6a/0xcf6c` for indoor walls and swamp
+refusal. The maintainer's Part A DOSBox `promus-wall-bump` capture matches 46.
+The step suffix (`0xd42b..0xd448`) toggles its bit before choosing 7/8, even
+with Efx off. Passable indoor B skips Bash at `0xd534 -> 0xd3aa`
+and reaches this movement suffix; it does not request Bash's 31. Only the
+blocked indoor branch calls Bash (`0xd547 -> 0x32d49`), after the first charge,
+and reaches 31 at `0x32d5b`; outdoor Bash returns before that cue. Neither the
+step bit nor the attack weapon selector is saved.
+
+Positive monster damage requests `60 + original table[attack weapon ID]`
+(`0x2c0ef..0x2c105`, table `0x4d660`). The weapon helper clears the selector
+at `0x2dfff` and assigns equipped IDs at `0x2e0ee`. Ordinary spell delivery
+(`0x2cf94..0x2cf9f`) bypasses that helper and retains the previous selector;
+Poison Volley runs the physical helper. Zero/nonpositive attack2 damage
+reaches effect 6 (`0x2be33..0x2be3b`, `0x2c06e..0x2c07f`, `0x2c17c`). A
+magic-resistance rejection (`0x2cd74 -> 0x2cfa7`) bypasses attack2 and is
+silent at this shared site. Monster misses use a separate 6 (`0x2dc0b`), on
+natural 1 or failed AC checks, including the second check after a critical
+first damage application. Missed player missiles and Poison Volley bypass
+attack2 (`0x2cb86 -> 0x2ccc4`); melee submits its zero total and requests 6.
+The projectile loop checks the next wall before its spent-arrow exit
+(`0x1db3e..0x1db84`): a wall immediately beyond the last consuming hit still
+requests 46; a farther one does not. Single/Group spells with a dispatched
+target return before this check; All spells continue. C2 owns individual spell cues. MMModern
+retains these audio selectors in program state, separate from save v18.
+Instruction slices and semantic notes remain in `D:/MModern-re/audio-m82/`.
+
+<a id="sv-dos-fm-effects"></a>
+### Mirror confirmation, Stone and monster-death FM cues
+
+**DOS static, high, 2026-10-21.** A valid mirror-name selection requests 51
+(`0x240fe`), in addition to the teleport's separate 51 (`0x270a8`). A
+successful Stone secondary attack requests 37 (`0x2d62e`); Death requests 38
+(`0x2d65e`). Monster death requests 4 after boss-specific quest writes and
+before XP/treasure (`0x2c23c`). The calibrated wrapper and bounded caller
+branches establish the arguments; the full references are in the audio
+inventory. MMModern requests these through the existing Event and combat
+owners. **ScummVM:** pin `6814ee9b` uses 61/35 for mirror confirmation,
+38 for Stone and omits the monster-death FM request. Master not rechecked.

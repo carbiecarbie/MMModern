@@ -18,7 +18,8 @@ struct XeenBarrierCandidate {
 	bool damagePauseReady=false,damagePauseAcknowledged=false;
 	enum class Step { Select, Trap, Type, Damage, DamagePause, Unlock, BashRoll, Done } step=Step::Done;
 	XeenBarrierCandidate(XeenWorld &world,const XeenCamera &c,const XeenConsequenceCharacters &chars,
-		const XeenConsequenceInputs &in,const XeenJourneyRandomState &rng,const XeenGameplayContext &context,bool b) :
+		const XeenConsequenceInputs &in,const XeenJourneyRandomState &rng,const XeenGameplayContext &context,bool b,
+        const std::function<void(unsigned)> &effect={}) :
 		characters(chars),inputs(in),random(rng),camera(c),year(context.year),bash(b) {
 		if(unsigned(c.direction)>3)throw std::invalid_argument("Invalid barrier facing");
 		const auto sample=world.sampleCell(c.mapId,c.x,c.y);
@@ -41,12 +42,13 @@ struct XeenBarrierCandidate {
 				// perform(B): a passable forward wall moves without checkMoveDirection's surface test.
 				camera.x+=dx[unsigned(c.direction)];camera.y+=dy[unsigned(c.direction)];moved=true;done=true;return;
 			}
+            xeenEmitFmEffect(effect,31); // perform(B) calls Bash only for a blocked wall.
 			unsigned count=0;
 			for(unsigned n=0;n<6 && count<2;++n) {
 				const auto condition=characters[n].worstCondition();
 				if(condition==XeenCondition::Asleep || (condition>=XeenCondition::Paralyzed && condition<=XeenCondition::Eradicated))continue;
 				if(!count)target=n;
-				portraitMask|=1u<<n;++count;xeenApplyPhysicalInjury(characters[n],2,year);
+				portraitMask|=1u<<n;++count;xeenApplyPhysicalInjury(characters[n],2,year,effect);
 			}
 			if(!count)throw std::invalid_argument("No member can Bash");
 			constexpr int dx[]{0,1,0,-1},dy[]{1,0,-1,0};
