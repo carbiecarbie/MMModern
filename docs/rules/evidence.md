@@ -944,7 +944,9 @@ occupied (`0x26abd`), like the pin.
   loads the map (`0x270f3`, `0x0f542`), sets the position and restarts the
   event scan at the arrival cell (`0x27117..0x27127`, back to `0x26a8e`);
   another opcode path (call `0x0ca60`) also restarts, at `0x28afc..0x28b08`. Arrival Events thus run
-  under the entry stash; TeleportAndExit ends processing (`0x2711c`).
+  under the entry stash; TeleportAndExit ends processing (`0x2711c`) by jumping
+  to `0x28d50`, which falls through to the delivery test at `0x28d70`, so it
+  still delivers and restores.
 
 **Consequences.** Without Event treasure the restore reproduces the live state:
 retention is unchanged. With stashed monster currency and an Event that gives

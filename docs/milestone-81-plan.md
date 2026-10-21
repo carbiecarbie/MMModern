@@ -89,7 +89,7 @@ DOS evidence is calibrated static analysis, high confidence, no DOSBox play
   refused during an Event run (`canSave`), so the stash never reaches a save.
   Capture checks that reject ready loot stay as scheduling invariants.
 - **Event treasure.** Sources staging into the shared arrays: GiveEnchanted (Misc
-  codes 70/71), Give mode 21 including quest items, mode 66, GiveMulti 34/35/100/101
+  codes 70/71), Give mode 21 including quest items, mode 66, GiveMulti 34/35/66/100/101
   and the weapon-34 grant; readiness only on insertion, so the queue's overflow and
   invalid counters go. The Event run keeps a snapshot of the staging taken at
   entry; integrity checks (`validateRewardPrefix`, continuation equality, the
@@ -116,7 +116,7 @@ maintainer approval, before that part's complete suite.
 | 0 - evidence | **Completed and accepted 2026-10-20.** Calibrated static analysis, no DOSBox play (maintainer decision). |
 | A - state, owner and save | `XeenProgramState`, `XeenPurse`, the staging value and prepared-work publication, guard observation, v17, and every compile-required call-site change; production stays Orc-only and Events keep their queue. Acceptance: the state, lifetime, save and transition tests below. |
 | B - Event treasure | First trace, statically, which mode writers an Event can reach before delivery and the DOS main-loop order of Events and ordinary delivery (`0xd0bd..0xd1b7`), recorded in `rules/evidence.md`; if a trace contradicts this plan, stop for the maintainer. Then move Event rewards onto the shared staging and the single delivery; `prepareVertigoPublication` and `prepareEventSequencePrefix` check the staging against the Event snapshot before publishing. Acceptance: the Event tests below. |
-| C - production and presentation | Generic record-driven drops/currency in melee, arrows, exploration and group spells; map-85 exclusion; all four category screens. Acceptance: original-data kills produce levels 1-6, accessories and mixed currency; capacity loss preserves draws; drop fields above 6 refuse the record (with the drop-level accessor). |
+| C - production and presentation | Generic record-driven drops/currency in melee, arrows, exploration and group spells; map-85 exclusion; all four category screens. Acceptance: original-data kills produce levels 1-6, accessories and mixed currency; capacity loss preserves draws; drop fields above 6 refuse the record (with the drop-level accessor); a live kill while another monster holds an attack slot, then a treasure Event, delivers the monster items twice and the gold once, and the same after a full-party Run. Also: a static check of whether DOS resets the preferred recipient after Event processing (WhoWill before ordinary delivery), applied if it differs; tests drive the production `xeenBeginTreasureDelivery`/`xeenAdvanceTreasureDelivery` instead of the test-only `xeenDeliverTreasure`; drop `beginMonsterReward`'s unused catalog parameter. |
 | D - validation and closure | Census admission and [coverage](coverage.md) regenerated with `mmodern_census`; independent implementation review; maintainer play-test of drops, accessories, full packs, Event rewards and Load/New Game carryover. Close only after acceptance. |
 
 ## Tests
