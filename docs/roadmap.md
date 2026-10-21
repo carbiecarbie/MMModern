@@ -111,15 +111,25 @@ to Vertigo.
 11. **Monster treasure** (Tier A, changes the save): item drops for every
     monster and drop levels 2 to 6, including accessories in staged treasure,
     on the shared generator from [M71](archive/milestone-71-plan.md).
-12. **Audio** (Tier A): music and sound effects, CD speech and CD tracks on
+12. **Event dispatch as in DOS** (Tier A, two milestones). A 2026-10-21
+    static analysis found that DOS runs a cell's Events again on every
+    processed key while the party stands on a flagged cell (traps hurt
+    again, NPCs and door text return; the maintainer confirms traps from
+    DOS play), and twice after combat; MMModern runs them only on arrival,
+    turning or Space. First milestone: the per-key re-run. Second: the two
+    post-combat runs, which also remove the Run refusal on cells with an
+    automatic Event. Evidence: `D:/MModern-re/event-dispatch/findings.md`,
+    to be recorded in `docs/rules/` by the first milestone. Open at planning:
+    the re-run right after a Load against the exact-restore rule.
+13. **Audio** (Tier A): music and sound effects, CD speech and CD tracks on
     the existing clock, which already keeps the original durations, and the
     control panel's Efx, Music, Speech and Text buttons, including the
     entrance-scene captions DOS shows with Effects off (M80).
-13. **Inn, recruiting and character creation** (Tier A, high): Tavern Sign
+14. **Inn, recruiting and character creation** (Tier A, high): Tavern Sign
     In, Dismiss, attribute rolls, the creation screens and changes to the
     saved party, including Poison Volley shooting for the active party size
     (M74 assumes six).
-14. **Intros and the Clouds ending**: the Other Options intros and the ending
+15. **Intros and the Clouds ending**: the Other Options intros and the ending
     (`CutsceneEndClouds`) with its score, and Lord Xeen's death reward (the
     Scepter and its quest item, deferred from M81).
 
