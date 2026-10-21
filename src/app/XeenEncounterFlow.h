@@ -419,6 +419,8 @@ private:
 	bool beginShoot();
 	bool serviceShoot();
 	bool beginMonsterReward();
+	// An Event-routine call that runs no record still clears WhoWill (DOS 0x26797).
+	void clearWhoWill();
 	void acknowledgeMonsterReward();
 	void advanceMonsterReward();
 	bool monsterReward() const noexcept { return _monsterReceipt.has_value(); }

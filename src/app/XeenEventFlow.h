@@ -245,6 +245,9 @@ private:
 	std::optional<IndexedFrame> advanceTreasureWait();
 	void publishEventSequencePrefix(const XeenEventExecutionState &);
 	bool _journeyEventLayers = false;
+	// The position whose Event-flag WhoWill clear was last evaluated (a DOS
+	// main-loop pass, 0xd18c..0xd1a5); empty at entry, so the first pass counts.
+	std::optional<XeenCamera> _whoWillPass;
 	struct TransitionCandidate {
 		XeenRegionalInteraction kind = XeenRegionalInteraction::None;
 		std::unique_ptr<XeenWorld> world;

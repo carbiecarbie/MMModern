@@ -1023,6 +1023,28 @@ existing validity, `canAct` and capacity tests. The pin agrees: only
 `dialogs_whowill.cpp` sets `_whoWill`, and only the `Scripts` constructor and
 `checkEvents` entry reset it.
 
+*When the Event routine runs (review of the Part C implementation, 2026-10-21;
+same DAT, same method).* Its entry clear precedes any record scan, and its four
+callers run it whether or not a record matches the position and facing:
+
+1. Main loop `0xd1a5`: every pass looks up the party cell (`0x11f04`; attribute
+   bit `0x10` becomes `f482` at `0x11ffc`) and calls the routine when the bit is
+   set, whatever the facing, before ordinary delivery `0xd1b7`. Idle input
+   waiting loops back after this check, so a pass is one processed input. Pin
+   `xeen.cpp:328`.
+2. Space, or a click inside the 3D view (`0xd1f4..0xd23d`): the wall ahead
+   selects through table `cs:0xf14` (code base `0xc790`); walls 1/6/9/13
+   indoors go to the grate routine `0xc794`, all others call the routine at
+   `0xd2be`. After the grate routine Events still run unless it zeroed the
+   input word at `0xc911`; its early refusals (`0xc7a7`, `0xc7be`) do not.
+   Pin `interface.cpp:393-431`.
+3. After combat in modes 1/5, when an Event run was cut by attack slot 0
+   (byte `9756`, the pin's `_eventSkipped`): `0x1184a`. Pin
+   `interface.cpp:1381-1389`.
+4. At combat end, when door text was up at combat entry (byte `3066`, saved at
+   `0x2e631`): a cell lookup, then the routine if bit `0x10`, at `0x2ec37`. Pin
+   `interface.cpp:1904-1907`.
+
 ## Treasure delivery
 
 **DOS static, high confidence; implemented (M61 Part D).** The 2026-10-12

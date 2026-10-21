@@ -1,4 +1,5 @@
 #include "app/XeenEventFlow.h"
+#include "games/xeen/XeenEventTrigger.h"
 #include "games/xeen/XeenEventPublication.h"
 #include "games/xeen/CloudsUiComposer.h"
 #include "games/xeen/XeenCharacterRules.h"
@@ -500,10 +501,21 @@ void XeenEventFlow::prepareJourneyTransition() {
   closeInventory();
   if(!_encounter->attachJourney(_encounter->ticket(),prepareJourneySprites)) throw std::runtime_error("Journey attachment failed");
  }
+ // A pass over a cell with the Event flag calls the Event routine even when no
+ // record matches, clearing WhoWill (0x11f04/0xd1a5, 0x26797). MMModern takes a
+ // pass on arrival at each new position; later passes on the same cell are not
+ // modelled (original-quirks.md#dev-whowill-event-passes).
+ if(!_encounter->combat() && _encounter->journeyQuiet() && (!_whoWillPass || !xeen_state::sameCamera(*_whoWillPass,_camera))) {
+  _whoWillPass=_camera;
+  const auto sample=_world.sampleCell(_camera.mapId,_camera.x,_camera.y);
+  if(!_encounter->_regionalAutomatic && sample && (sample->cell->rawAttributes&kXeenAutomaticEventFlag))_encounter->clearWhoWill();
+ }
  // The original runs the cell's Events before ordinary delivery (0xd1a5, 0xd1b7);
  // delivery waits while an Event candidate is in progress.
  if(!_encounter->combat() && _encounter->_regionalAutomatic && !_encounter->_regionalWork && !_encounter->_shoot &&
   !_encounter->monsterReward() && !_encounter->state().pending() && _encounter->state().phase()==XeenEncounterPhase::Exploring) {
+  // This run is the pass's Event call; its own WhoWill choice must survive.
+  _whoWillPass=_camera;
   _encounter->beginJourneyEvent();_journeyEventLayers=true;
   journeyEventWork([&] {
    drive(beginDetachedEvent(xeenRegionalInteraction(_encounter->_journeyEvents,_camera),true),true);
@@ -2735,6 +2747,9 @@ IndexedFrame XeenEventFlow::handle(const PlayerAction &physicalAction, std::opti
                         if(!_encounter->current(_encounter->ticket()))throw;
                         noEvent=false;_encounter->_journeyRefusal="Regional interaction failed; no Event executed";
                     }
+                    // Space not taken by a grate calls the Event routine, which clears
+                    // WhoWill even when no record runs (0xd2be, 0x26797).
+                    _encounter->clearWhoWill();
                     if(!noEvent)return renderEncounter();
                 }
                 action=WaitAction{};

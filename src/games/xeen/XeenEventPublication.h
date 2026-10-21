@@ -249,13 +249,14 @@ private:
 	// Live staging = the Event's entry snapshot plus its dispatched effects, each
 	// at the first empty slot of its category, in dispatch order.
 	void validateRewardPrefix(const XeenEventExecutionState &state,std::size_t before) const {
-		auto expected=state.treasureBase();
+		auto expected=state.treasureBase();bool selection=false;
 		for(std::size_t i=0;i<before;++i) {
 			const auto &dispatch=dispatchedRecords.at(i);const auto retained=dispatch.record;if(!retained)continue;
 			const auto site=*retained;
 			const auto result=XeenEventDecoder::decode(dispatchedRecord(site,dispatch.opcode),
 				{original.mapId,original.resourceName,site,true,dispatch.opcode!=original.records.at(site).opcode});
 			const auto *instruction=std::get_if<XeenDecodedEventInstruction>(&result);if(!instruction)continue;
+			selection=selection || std::holds_alternative<XeenEventWhoWill>(instruction->operation);
 			const auto *effect=std::get_if<XeenEventGiveEnchanted>(&instruction->operation);
 			const auto *give=std::get_if<XeenEventTakeOrGive>(&instruction->operation);
 			const bool quest=give && neutral(give->first) && give->second.mode==21 &&
@@ -265,9 +266,10 @@ private:
 				{static_cast<std::uint8_t>(effect->itemCode-60),effect->specialId,1,0});
 		}
 		expected.gold=state.treasure.gold;expected.gems=state.treasure.gems;
-		// WhoWill: cleared at entry, then only a dispatched selection of an active member.
-		if(std::size_t(state.treasure.whoWill)>XeenParty::kMaximumVisibleMembers)
-			integrity("Regional WhoWill outside the party");
+		// WhoWill: cleared at entry; nonzero only after a dispatched WhoWill
+		// instruction, naming a visible party slot.
+		if(state.treasure.whoWill && (!selection || std::size_t(state.treasure.whoWill)>XeenParty::kMaximumVisibleMembers))
+			integrity("Regional WhoWill differs from its dispatched selections");
 		expected.whoWill=state.treasure.whoWill;
 		if(expected!=state.treasure)integrity("Regional reward staging differs from its dispatched effects");
 	}

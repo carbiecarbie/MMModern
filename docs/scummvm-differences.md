@@ -164,8 +164,9 @@ mainland; many items apply there, others wait for areas not open yet.
   so for example 5 gold and 2 gems are not saved. [Evidence](original-quirks.md#sv-event-loot-stash). Pin:
   differs; master not rechecked.
 - **Unused monster drop fields.** No Clouds monster uses drop fields 7-21; the
-  pin gives them a zero chance, while MMModern refuses such a record as
-  malformed data. No original record and no drop rule is affected.
+  pin gives them a zero chance, while MMModern refuses such a record as not
+  supported yet, before any draw. No Clouds record is affected; Darkside's Doom
+  Knight and Sandro use field 7 and are refused until Darkside gameplay.
   [Evidence](original-quirks.md#sv-unused-drop-fields). Pin: differs; master
   not rechecked.
 - **Miscellaneous monster drops.** A monster can drop a miscellaneous item,
@@ -367,6 +368,11 @@ apart from the fidelity differences above.
   could rarely pick another. [Details](original-quirks.md#dev-confirmword-alternate)
 - **No "Please Wait..." box.** Maps load without the original loading box,
   as in ScummVM. [Details](original-quirks.md#dev-no-please-wait)
+- **When the treasure recipient choice clears.** The member a WhoWill dialog
+  chose clears on arrival over an Event cell, on Space and in every Event run,
+  but not on each later command while standing on an Event cell or after
+  combat, as in the original and ScummVM.
+  [Details](original-quirks.md#dev-whowill-event-passes)
 
 ## What ScummVM has that MMModern does not yet
 

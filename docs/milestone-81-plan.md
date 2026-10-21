@@ -12,7 +12,7 @@ This covers ordinary resource-defined rewards in every kill path, including
 exploration Shoot and group spells, and Event treasure, which shares the monster
 staging arrays as in DOS. It does not admit otherwise unsupported monster
 abilities, Darkside gameplay or ending scenes. Lord Xeen's fixed Scepter
-(weapon 90) and quest-item 8 increment wait for roadmap step 14 with the ending
+(weapon 90) and quest-item 8 increment wait for roadmap step 15 with the ending
 (maintainer, 2026-10-20).
 
 ## Current state
@@ -49,7 +49,7 @@ DOS evidence is calibrated static analysis, high confidence, no DOSBox play
 
 | Rule | Decision |
 | --- | --- |
-| Inputs and level | Gold LE16 at record byte 42, gems at 44, drop field at 45, which gives chance and makeItem level. Fields 7-21 (unused by Clouds) refuse the record as malformed. |
+| Inputs and level | Gold LE16 at record byte 42, gems at 44, drop field at 45, which gives chance and makeItem level. Fields 7-21 (unused by Clouds; Darkside's Doom Knight and Sandro use 7) refuse the record as not supported yet. |
 | Draws | As in [monster drop draws](rules/items.md#monster-drop-draws) on the shared `XeenItemCandidate`. |
 | Currency and Arena | Fixed gold/gems accumulate before the chance draw; staged sums and purse credit are 32-bit, modulo 2^32. Map 85 skips currency and every ordinary loot draw, after XP. |
 | Staging | Four ten-slot arrays, first empty slot; a full category loses the item with its draws spent; readiness is set only on insertion. Keep the DOS Misc branch. |
@@ -142,7 +142,7 @@ maintainer approval, before that part's complete suite.
 
 ## Decisions and risks
 
-1. Lord Xeen's Scepter and quest item move to roadmap step 14 (2026-10-20).
+1. Lord Xeen's Scepter and quest item move to roadmap step 15 (2026-10-20).
 2. Pending loot follows DOS: never saved, kept across Load and New Game (2026-10-20).
 3. Event rewards share the staging; the duplicate is kept as an original bug,
    a QoL candidate (2026-10-20).

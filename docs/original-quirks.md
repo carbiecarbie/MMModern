@@ -494,6 +494,21 @@ original post-dream poll.
 Deliberate differences from the original that the maintainer approved; each
 stays documented here and in the plan that implements it.
 
+- <a id="dev-whowill-event-passes"></a> **WhoWill clears only on arrival and
+  on Space, not on every Event-routine call** (maintainer, 2026-10-21, M81 Part
+  C review). DOS calls the Event routine `0x26774`, which clears WhoWill at
+  entry (`0x26797`), on every main-loop pass over a cell with the Event flag,
+  on Space or a 3D-view click not taken by a grate, after combat when attack
+  slot 0 skipped an Event, and at combat end when door text was up
+  ([trace](rules/evidence.md#preferred-recipient-after-the-events)). MMModern
+  runs a cell's Events only on arrival or Space with a matching record, so it
+  clears WhoWill on arrival at each new position over a flagged cell, on Space
+  not taken by a grate, and in every Event run (`XeenEventFlow::
+  prepareJourneyTransition`, `XeenEncounterFlow::clearWhoWill`). Further passes
+  while standing on a flagged cell and the two post-combat calls do not clear
+  it: a delivery there, in a later pass than its WhoWill dialog, still prefers
+  that member. Event dispatch per main-loop pass is separate work.
+  **ScummVM:** differs: the pin clears in all four cases, like DOS.
 - <a id="dev-confirmword-alternate"></a> **ConfirmWord opcode 21 takes ordinary success on an alternate-only match**
   (maintainer, 2026-10-16). The DOS marker is an uninitialized Event-function
   local: `0x27f15` skips `0x27f09`'s assignment; `0x27fba` passes it;

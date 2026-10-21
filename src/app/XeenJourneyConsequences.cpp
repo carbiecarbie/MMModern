@@ -282,6 +282,13 @@ bool XeenEncounterFlow::serviceShoot() {
   _shoot.reset();session._journeyActivity=XeenJourneyActivity::Presentation;retainJourney();return true;
  } catch(...) { closeJourney();throw; }
 }
+void XeenEncounterFlow::clearWhoWill() {
+ auto value=_world.treasureStaging().value();
+ if(!value.whoWill)return;
+ if(!journeyQuiet())throw std::logic_error("WhoWill clear outside a quiet boundary");
+ _journeyPreimage->check();value.whoWill=0;
+ _journeyPreimage->prepareStagingPublication(value);_world.treasureStaging().publish(value);_journeyPreimage->adoptMutationBoundary();
+}
 bool XeenEncounterFlow::beginMonsterReward() {
  if(monsterReward() || _combat || _busy || _failure || _regionalWork || projectilesPending() ||
   _state.pending() || _state.phase()!=XeenEncounterPhase::Exploring || (_shoot && !_shoot->volleyDone) || !_boundary.quiet()) return false;

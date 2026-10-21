@@ -5,6 +5,7 @@
 #include "XeenM42Evidence.h"
 #include "XeenM49CombatSupport.h"
 #include "games/xeen/XeenJourneyRules.h"
+#include "games/xeen/XeenEventTrigger.h"
 #include "games/xeen/XeenCharacterRules.h"
 #include "platform/sdl/XeenMainScreenInput.h"
 #include <algorithm>
@@ -259,6 +260,36 @@ void m73QuickCasting(Inputs &in) {
  }
 }
 
+// M81 Part C: arriving over a cell with the Event flag calls the Event routine
+// (0xd1a5) and clears WhoWill even when no record matches the new facing; an
+// unflagged cell keeps it (approved: later passes are not modelled).
+void whoWillArrival(Inputs &in) {
+ auto source=in.service();
+ for(auto &a:source.map(23).monsters->slots){a.x=a.y=-128;a.lifecycle=XeenActorLifecycle::Defeated;a.accounted=true;}
+ XeenWorld query(in.mapLoader());const auto &map=query.map(23);
+ constexpr int dx[]{0,1,0,-1},dy[]{1,0,-1,0};
+ const auto standable=[&](int x,int y){
+  for(unsigned d=0;d<4;++d)if(XeenMovement::localOutdoor(map,x,y,x+dx[d],y+dy[d],xeenJourneyContent().traversal)==XeenMovementResult::Moved)return true;
+  return false;
+ };
+ for(bool flagged:{true,false}) {
+  std::optional<XeenCamera> start;
+  for(int y=1;y<15 && !start;++y)for(int x=1;x<15 && !start;++x) {
+   const auto sample=query.sampleCell(23,x,y);
+   if(!sample || bool(sample->cell->rawAttributes&kXeenAutomaticEventFlag)!=flagged || !standable(x,y))continue;
+   // Neither the starting facing nor the one a right turn reaches runs a record.
+   for(unsigned d=0;d<4 && !start;++d)
+    if(!xeenRegionalEvent(in.mainland,XeenCamera{23,x,y,XeenDirection(d)}) && !xeenRegionalEvent(in.mainland,XeenCamera{23,x,y,XeenDirection((d+1)%4)}))
+     start=XeenCamera{23,x,y,XeenDirection(d)};
+  }
+  check(start.has_value(),"No original map-23 cell and facings without Event records for the WhoWill arrival test");
+  auto s=source;s.camera=*start;
+  Fixture f(in,s);quiet(f);
+  XeenTreasureStaging chosen;chosen.whoWill=3;XeenMonsterTestAccess::stageTreasureLive(*f.flow,f.w,chosen);
+  f.act(NavigationAction::TurnRight);for(unsigned n=0;n<20;++n)pulse(f);quiet(f);
+  check(f.w.treasureStaging().value().whoWill==(flagged?0:3),flagged?"Arrival over an Event cell kept WhoWill":"An unflagged cell cleared WhoWill");
+ }
+}
 // M81 Part C: the 90 original Clouds records drive drops through their own
 // fields (plan table): the IDs per drop field, Orc 10/0/1, Darzog 0/50/6. In the
 // Arena every record stages nothing and draws nothing.
@@ -301,6 +332,9 @@ void monsterDropReceipts(Inputs &in,XeenMapIdentity map,const std::vector<unsign
   check(slots.size()==before+1,"Drop fixture resource absent from the original map");
  }
  const unsigned count=unsigned(slots.size());
+ // The party acts before every target, so the oracle needs no monster turn.
+ unsigned fastest=0;for(const auto slot:slots)fastest=std::max(fastest,originals[slot].statistics->speed());
+ for(auto id:s.activeRosterIds){auto &speed=s.journey->supplements[id].inputs.speed;if(speed.permanent<=int(fastest))speed={int(fastest+1),0};}
  const auto records=in.events.load(map).records;
  XeenWorld query(in.mapLoader());std::bitset<256> common;common.set();
  for(const auto slot:slots)common &= xeenActorClosure(query.map(map),originals[slot]);
@@ -424,13 +458,16 @@ void monsterDropReceipts(Inputs &in,XeenMapIdentity map,const std::vector<unsign
 void originalMonsterDropReceipts(Inputs &in) {
  std::string failures;
  // Map 23 Orcs (field 1, slots 7-9 share a cell); map 3 Barbarians (field 4,
- // guaranteed): a higher level, record gold, accessories
- // and multi-target order.
+ // guaranteed) and a Ninja (field 3): higher levels, record gold, accessories
+ // and multi-target order. Levels 2, 5 and 6 live on indoor maps; the rules
+ // tapes cover them.
  for(bool group:{false,true})try {monsterDropReceipts(in,23,group?std::vector<unsigned>{6,6,6}:std::vector<unsigned>{6},7,group,group?2:1,false);}
   catch(const std::exception &e){failures+=(group?"Orc group: ":"Orc melee: ")+std::string(e.what())+"; ";}
  for(bool group:{false,true})try {monsterDropReceipts(in,3,group?std::vector<unsigned>{45,45}:std::vector<unsigned>{45},0,group,group?2:1,group);}
   catch(const std::exception &e){failures+=(group?"Map 3 group: ":"Map 3 melee: ")+std::string(e.what())+"; ";}
  try {monsterDropReceipts(in,3,{45,45},0,true,2,false,true);}catch(const std::exception &e){failures+="Map 3 full packs: "+std::string(e.what())+"; ";}
+ // Map 3 Ninja (field 3, 50%): a level-3 drop.
+ try {monsterDropReceipts(in,3,{24},0,false,1,false);}catch(const std::exception &e){failures+="Map 3 Ninja: "+std::string(e.what())+"; ";}
  if(!failures.empty())throw std::runtime_error(failures);
 }
 void orderedShootBarrierTreasure(Inputs &in) {
@@ -455,6 +492,25 @@ void orderedShootBarrierTreasure(Inputs &in) {
   quietTreasure(barrier);
   XeenTreasureStaging left;left.whoWill=selected+1;
   check(barrier.w.treasureStaging().value()==left,"Delivery cleared WhoWill");
+  // Space at a wall with no grate and no Event still calls the Event routine
+  // (0xd2be), which clears WhoWill: later loot goes to the first member again.
+  bool spaced=false;
+  // The unlocked grate faces East; a turn over an Event cell may already clear,
+  // so the grate's choice is restored before each Space.
+  for(unsigned turn=0;turn<4 && !spaced;++turn) {
+   barrier.act(NavigationAction::TurnLeft);quiet(barrier);
+   if(barrier.c.direction==XeenDirection::East || xeenRegionalEvent(in.city,barrier.c))continue;
+   XeenMonsterTestAccess::stageTreasureLive(*barrier.flow,barrier.w,left);
+   barrier.act(InteractionAction{});quiet(barrier);
+   spaced=!barrier.w.treasureStaging().value().whoWill;
+  }
+  check(spaced,"Space without a grate or Event did not clear WhoWill");
+  loot.whoWill=0;XeenMonsterTestAccess::stageTreasureLive(*barrier.flow,barrier.w,loot);
+  for(unsigned n=0;n<100 && !XeenPartyInterfaceTestAccess::reward(*barrier.flow);++n)pulse(barrier);
+  check(XeenPartyInterfaceTestAccess::reward(*barrier.flow) &&
+   XeenPartyInterfaceTestAccess::rewardRecord(*barrier.flow).owner==barrier.p.party.activeRosterIds()[0],
+   "Loot after the WhoWill clear did not return to the first member");
+  quietTreasure(barrier);
  }
  for(unsigned n=0;n<6;++n)if(n!=selected)check(barrier.p.roster.combatInputs(city.activeRosterIds[n])->experience==city.journey->supplements[city.activeRosterIds[n]].inputs.experience,"Barrier preserves other owners");
  // Defeated/accounted Orcs; their treasure is staged in the running program.
@@ -567,7 +623,7 @@ void spellChecks(Inputs &in) {
  c.currentSp=0;check(XeenLearnedSpellRules::quickSpellCheck(c,1000)==Q::InsufficientSp,"Quick Cast insufficient SP");
 }
 }
-/// The party on (8,2) facing the Root Event, with the first original monster
+// The party on (8,2) facing the Root Event, with the first original monster
 // and terrain cell ahead that keeps that monster in view without contact.
 struct EventView { XeenSaveSnapshot source; std::size_t survivor=0; };
 EventView eventView(Inputs &in) {
@@ -665,8 +721,7 @@ void liveKillEventTreasure(Inputs &in) {
  std::size_t target=0;
  while(target<originals.size() && (target==view.survivor || originals[target].original.resourceId!=6))++target;
  check(target<originals.size(),"No second original Orc");
- const auto &survivor=view.source.map(23).monsters->slots[view.survivor];
- std::optional<XeenSaveSnapshot> chosen;std::string seen;
+ std::optional<XeenSaveSnapshot> chosen;
  // The target stands in the Shoot line ahead, rows 1-3.
  for(std::uint32_t attempt=0;attempt<900 && !chosen;++attempt) {
   const std::uint32_t seed=attempt/3+1;const int row=3+int(attempt%3);
@@ -678,14 +733,9 @@ void liveKillEventTreasure(Inputs &in) {
   for(unsigned n=0;n<2000 && !f.flow->canSave() && !XeenPartyInterfaceTestAccess::reward(*f.flow);++n)pulse(f);
   const auto &staging=f.w.treasureStaging().value();
   const bool killed=f.w.sessionState().monsters(23)[target].lifecycle==XeenActorLifecycle::Defeated;
-  if(attempt<6)seen+=" row "+std::to_string(row)+" seed "+std::to_string(seed)+": killed="+std::to_string(killed)+" gold="+std::to_string(staging.gold)+
-   " items="+std::to_string(staging.storedItems())+" reward="+std::to_string(XeenPartyInterfaceTestAccess::reward(*f.flow))+
-   " quiet="+std::to_string(f.flow->canSave())+" at "+std::to_string(survivor.x)+","+std::to_string(survivor.y)+
-   " hp "+std::to_string(f.w.sessionState().monsters(23)[target].hp)+"/"+std::to_string(f.w.sessionState().monsters(23)[view.survivor].hp)+
-   " slots "+std::to_string(target)+"/"+std::to_string(view.survivor)+" rng "+std::to_string(f.w.sessionState().journeyRandom()->count);
   if(killed && staging.storedItems() && staging.gold==10 && !XeenPartyInterfaceTestAccess::reward(*f.flow) && f.flow->canSave())chosen=s;
  }
- check(chosen.has_value(),("No Shoot seed kills the Orc with an item while the other stays in view:"+seen).c_str());
+ check(chosen.has_value(),"No Shoot seed kills the Orc with an item while the other stays in view");
  Fixture f(in,*chosen);XeenMonsterTestAccess::setLive(*f.flow,f.w,23,target,1,true);
  const auto gold=f.p.purse->gold;
  f.act(ShootAction{});
@@ -709,7 +759,7 @@ void liveKillEventTreasure(Inputs &in) {
  check(carried(f,category,item)==before+2 && f.p.purse->gold==gold+10 && f.w.treasureStaging().value()==XeenTreasureStaging{},
   "The killed Orc's item must arrive twice and its gold once (original bug kept)");
 }
-//// One step toward (x,y) facing `facing` on map 23, never through a cell within
+// One step toward (x,y) facing `facing` on map 23, never through a cell within
 // one step of `avoid`; nothing once there.
 std::optional<PlayerAction> stepAround(XeenWorld &world,const XeenCamera &camera,int x,int y,XeenDirection facing,int ax,int ay) {
  if(camera.x==x && camera.y==y)return camera.direction==facing?std::optional<PlayerAction>{}:std::optional<PlayerAction>{NavigationAction::TurnRight};
@@ -811,6 +861,6 @@ void runKillEventTreasure(Inputs &in) {
 int main(int argc,char **argv){try{
  check(argc==2,"usage: party-interface-tests <installation>");auto game=xeenTestInstallationDetector().detect(argv[1]);check(bool(game),"Missing installation");Inputs in(*game);
  std::ostringstream captured;auto *before=std::cout.rdbuf(captured.rdbuf());
- try{const auto run=[&](const char *name,auto fn){try{fn(in);}catch(const std::exception &e){throw std::runtime_error(std::string(name)+": "+e.what());}};run("original treasure records",originalTreasureRecords);run("original item drops",originalMonsterDropReceipts);run("Event treasure order",eventTreasureOrder);run("live kill Event treasure",liveKillEventTreasure);run("Run kill Event treasure",runKillEventTreasure);run("exchange",exchangeAndSave);run("time/rest",reorderedTimeAndRest);run("combat/options",combatAndOptions);run("quick casting",quickCasting);run("M73 quick casting",m73QuickCasting);run("ordered consequences",orderedShootBarrierTreasure);run("indoor quick Run",indoorQuickRun);run("Mr Wizard",mrWizard);run("spell checks",spellChecks);}catch(...){std::cout.rdbuf(before);throw;}
+ try{const auto run=[&](const char *name,auto fn){try{fn(in);}catch(const std::exception &e){throw std::runtime_error(std::string(name)+": "+e.what());}};run("original treasure records",originalTreasureRecords);run("WhoWill arrival",whoWillArrival);run("original item drops",originalMonsterDropReceipts);run("Event treasure order",eventTreasureOrder);run("live kill Event treasure",liveKillEventTreasure);run("Run kill Event treasure",runKillEventTreasure);run("exchange",exchangeAndSave);run("time/rest",reorderedTimeAndRest);run("combat/options",combatAndOptions);run("quick casting",quickCasting);run("M73 quick casting",m73QuickCasting);run("ordered consequences",orderedShootBarrierTreasure);run("indoor quick Run",indoorQuickRun);run("Mr Wizard",mrWizard);run("spell checks",spellChecks);}catch(...){std::cout.rdbuf(before);throw;}
  std::cout.rdbuf(before);std::cout<<"Exchange, ordered ownership, Quick Fight, v8 and stale input passed\n";return 0;
 }catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}
