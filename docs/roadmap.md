@@ -115,7 +115,8 @@ to Vertigo.
     DOS, and Event treasure shares it, keeping the original's duplicate of
     monster items. Lord Xeen's Scepter waits for step 15.
 12. **Audio** (Tier A, moved ahead of Event dispatch by the maintainer on
-    2026-10-21): [M82](milestone-82-plan.md) FM music and effects and the
+    2026-10-21): [M82](milestone-82-plan.md) FM music and effects (OPL3
+    stereo, as the CD's installed driver plays them) and the
     control panel's Efx, Music, Speech and Text buttons, then digital sounds,
     speech and CD tracks on the existing clock, with the entrance-scene
     captions DOS shows with Effects off (M80).
@@ -138,7 +139,8 @@ to Vertigo.
     (`CutsceneEndClouds`) with its score, and Lord Xeen's death reward (the
     Scepter and its quest item, deferred from M81).
 16. **Other sound devices** (after step 12): the original's other drivers
-    (MT-32 with the player's ROMs, PC speaker and the rest), chosen as the
+    (AdLib and Sound Blaster FM, MT-32 with the player's ROMs, PC speaker and
+    the rest; M82 plays the CD's Pro Audio Spectrum driver), chosen as the
     installer did; an opt-in switch while playing would be an approved
     deviation (maintainer, 2026-10-21).
 
