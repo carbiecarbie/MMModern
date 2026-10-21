@@ -495,8 +495,8 @@ then X 0..5 minus 3. Dwarf draws 0..9 and Sphinx 2..10 per speech iteration.
 Direct counts are respectively `N1+N2`, `26+2*(N1+N2)`, and the sum of
 speech iterations for Dwarf/Sphinx. Sample durations and acquisition cadence
 determine those iterations; ordinary map-load draws remain additional.
-The cursor, screens and speech intervals are transient; the save remains
-v16, schema 9, content 14.
+The cursor, screens and speech intervals are transient; M80 left the save
+unchanged (v16, schema 9, content 14).
 
 ## Quests and Awards screens
 

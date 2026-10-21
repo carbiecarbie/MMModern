@@ -93,13 +93,13 @@ XeenRewardReceipt xeenPrepareRewardReceipt(const XeenTreasureStaging &staged) no
 	return result;
 }
 void xeenDeliverRewardEntry(XeenRewardReceipt &receipt,std::size_t index,XeenPartyState &party,
-		std::optional<std::size_t> preferred,bool sort) {
+		std::optional<std::size_t> preferred) {
 	if(index>=receipt.count)throw std::out_of_range("Reward receipt index");
 	auto &entry=receipt.entries[index];
 	if(entry.owner || entry.loss!=XeenRewardLoss::None)throw std::logic_error("Reward entry already published");
 	const auto &ids=party.party.activeRosterIds();std::array<XeenCharacter *,XeenParty::kMaximumVisibleMembers> owners{};
 	for(std::size_t i=0;i<ids.size();++i)owners[i]=&party.roster.at(ids[i]);
-	const auto recipient=xeenDeliverRewardItem(owners.data(),ids.size(),entry.item,entry.category,preferred,sort,entry.quest);
+	const auto recipient=xeenDeliverRewardItem(owners.data(),ids.size(),entry.item,entry.category,preferred,false,entry.quest);
 	if(recipient) {entry.owner=ids[*recipient];++receipt.delivered;}
 	else {entry.loss=ids.empty()?XeenRewardLoss::EmptyParty:XeenRewardLoss::GloballyFull;++receipt.lost;}
 }
@@ -111,7 +111,7 @@ namespace {
 // and the scan continues. A transfer is followed by the blank hold.
 void deliverNext(XeenTreasureDelivery &delivery,XeenPartyState &party,std::optional<std::size_t> preferred) {
 	for(;delivery.cursor<delivery.receipt.count;++delivery.cursor) {
-		xeenDeliverRewardEntry(delivery.receipt,delivery.cursor,party,preferred,false);
+		xeenDeliverRewardEntry(delivery.receipt,delivery.cursor,party,preferred);
 		if(delivery.receipt.entries[delivery.cursor].owner) {delivery.phase=XeenRewardPhase::Blank;return;}
 	}
 	delivery.phase=XeenRewardPhase::Receipt;

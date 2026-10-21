@@ -690,7 +690,7 @@ std::string XeenEncounterFlow::journeyInspection() const {
  if(_combat)out<<"Participants="<<unsigned(_combat->participants())<<" exit="<<unsigned(_combat->exitCause())<<'\n';
  const auto describe=[&](const XeenCombatResult &r) {
   if(r.operation==XeenCombatOperation::PlayerRun)out<<"Run owner="<<unsigned(*r.actingOwner)<<" roll="<<r.runRoll<<" success="<<r.runSuccess<<" mask="<<unsigned(r.participantsBefore)<<"->"<<unsigned(r.participantsAfter)<<'\n';
-  if(r.operation==XeenCombatOperation::FinishDisengagement)out<<"Disengaged cause="<<unsigned(r.exitCause)<<" casualties="<<unsigned(r.casualties)<<" forfeitedGold="<<r.forfeitedGold<<'\n';
+  if(r.operation==XeenCombatOperation::FinishDisengagement)out<<"Disengaged cause="<<unsigned(r.exitCause)<<" casualties="<<unsigned(r.casualties)<<" forfeitedGold="<<r.forfeitedGold<<" forfeitedGems="<<r.forfeitedGems<<'\n';
   if(r.monsterDrop)out<<"Drop outcome="<<unsigned(*r.monsterDrop)<<" category="<<unsigned(r.generatedCategory)<<" M/ID/S/F="<<unsigned(r.generatedItem.material)<<'/'<<unsigned(r.generatedItem.id)<<'/'<<unsigned(r.generatedItem.state)<<'/'<<unsigned(r.generatedItem.frame)<<'\n';
   for(unsigned i=0;i<r.injuryCount;++i){const auto &v=r.injuries[i];out<<"Injury owner="<<unsigned(v.owner)<<" amount="<<v.amount<<" HP="<<v.beforeHp<<"->"<<v.afterHp<<" AC="<<v.beforeAc<<"->"<<v.afterAc<<" conditions=";for(auto c:v.conditions)out<<unsigned(c)<<',';out<<'\n';}
   for(unsigned i=0;i<r.armorCount;++i){const auto &v=r.armor[i];out<<"Item change owner="<<unsigned(v.owner)<<" category="<<unsigned(v.category)<<" slot="<<unsigned(v.slot)<<" state="<<unsigned(v.before.state)<<"->"<<unsigned(v.after.state)<<" frame="<<unsigned(v.before.frame)<<"->"<<unsigned(v.after.frame)<<'\n';}

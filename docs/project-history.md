@@ -417,3 +417,15 @@ key; the four whose keys come from Darkside always refuse. The Warzone
 Battle Master generates fights as DOS does, which differs from the
 reference, and awards each win. The "Please Wait..." box is omitted as an
 approved deviation. Save v16 is unchanged. [Plan](milestone-80-plan.md).
+
+**M81 - Monster treasure** (`29f5b30` plan, `cf256e1`, `be7e9bf`,
+`22bc04a`, `b206193`, `831ec0c`, `83856b0`). A DOS check first settled the
+drop table, the staging and what the original keeps outside its saves. Every
+Clouds monster now drops the gold, gems and items of its original record, at
+treasure levels 1 to 6 with accessories, in every kill path; the Warzone
+gives none. Pending treasure lives in the running program, as in DOS: it is
+not saved, and undelivered items survive Load and New Game. Event treasure shares it, keeping
+the original's duplicate of monster items on purpose, and runs before
+ordinary delivery; the "who will" recipient follows DOS, with an approved
+deviation until Event dispatch is reworked. Save v17.
+[Plan](milestone-81-plan.md).

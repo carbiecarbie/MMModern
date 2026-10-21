@@ -137,15 +137,15 @@ void stagedDelivery() {
  auto receipt=xeenPrepareRewardReceipt(pending);
  check(receipt.count==2 && receipt.entries[1].quest && !receipt.delivered && !party.purse->gold,
   "Preparing treasure published rewards");
- xeenDeliverRewardEntry(receipt,0,party,{},false);
+ xeenDeliverRewardEntry(receipt,0,party);
  auto &weapons=party.roster.at(0).weapons;
  check(weapons.back().id==6 && !weapons.front().id && receipt.delivered==1 && !party.purse->gold,
   "Transfer must precede sorting and currency");
- bool duplicate=false;try{xeenDeliverRewardEntry(receipt,0,party,{},false);}catch(const std::logic_error &){duplicate=true;}
+ bool duplicate=false;try{xeenDeliverRewardEntry(receipt,0,party);}catch(const std::logic_error &){duplicate=true;}
  check(duplicate,"Duplicate item publication accepted");
  xeenSortRewardEntry(receipt.entries[0],party);
  check(weapons.front().id==6 && !weapons.back().id,"Found-line transition did not sort inventory");
- const auto inventory=weapons;xeenDeliverRewardEntry(receipt,1,party,{},false);xeenSortRewardEntry(receipt.entries[1],party);
+ const auto inventory=weapons;xeenDeliverRewardEntry(receipt,1,party);xeenSortRewardEntry(receipt.entries[1],party);
  check(std::equal(weapons.begin(),weapons.end(),inventory.begin(),same) && party.questItems.at(17)==1 && receipt.delivered==2 && !party.purse->gold,
   "Quest presentation inserted inventory or granted its counter twice");
  *party.purse=xeenCreditTreasure(*party.purse,pending);

@@ -68,7 +68,7 @@ void producedFlow(){
 		const auto first=*flow.presentationGeneration();flow.handle(AcknowledgeAction{});
 		check(e.f.initial.questItems.at(17)==0 && !e.f.initial.questFlags.isSet(2) &&
 			xeenPrepareRewardReceipt(XeenRewardTestAccess::state(flow).treasure).count==1,"actual Flow production");
-		if(outcome==2){flow.abandonPresentation();check(!e.f.initial.roster.at(0).miscellaneous[0].id,"abandon delivered queue");}
+		if(outcome==2){flow.abandonPresentation();check(!e.f.initial.roster.at(0).miscellaneous[0].id,"abandon delivered staging");}
 		else {
 			if(outcome==3)for(auto id:e.f.initial.party.activeRosterIds())e.f.initial.roster.at(id).conditions[static_cast<std::size_t>(XeenCondition::Dead)]=1;
 			flow.handle(AcknowledgeAction{});

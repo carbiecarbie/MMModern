@@ -1570,7 +1570,7 @@ IndexedFrame XeenEventFlow::journeyEventWork(const std::function<void()> &operat
 		XeenEventPublication publication(_encounter->journeySavePreimage(),_encounter->_journeyEvents,[&] {
 			if (!_dispatching || !_encounter->journeyEvent() || !_encounter->current(entry))
 				throw std::logic_error("Stale Journey event continuation");
-		},beforeRewardEnqueue,&_regionalExecutedRecords);
+		},beforeRewardStaging,&_regionalExecutedRecords);
 		if(_pending)publication.continuation(_pending->state,*_regionalEventContinuation,bool(_transition));
 		XeenRestoreGuard::Providers providers(_encounter->journeySavePreimage(),_world,[&] { publication.check(); });
 		_eventPublication=&publication;

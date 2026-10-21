@@ -433,7 +433,7 @@ std::string XeenEncounterFlow::consequenceNotice() const {
   for(unsigned i=0;i<rows.size();++i)if(rows[i]) {const auto &a=_world.sessionState().regionalActors(rows[i]->mapId).at(rows[i]->recordIndex);out<<(rows[i]==_combat->selectedTarget()?">":"")<<i+1<<' '<<a.statistics->name()<<" #"<<a.id.recordIndex<<" HP"<<a.hp<<'\n';}
   const auto &r=_combatObservation;
   if(r.operation==XeenCombatOperation::PlayerRun && r.runRoll)out<<_party.roster.at(*r.actingOwner).name<<(r.runSuccess?" escaped":" Run failed")<<" ("<<r.runRoll<<")\n";
-  else if(r.monsterDrop)out<<"Orc +10 gold pending; "<<(*r.monsterDrop==XeenMonsterDropOutcome::CategoryCapacityLoss?"full category: lost":*r.monsterDrop==XeenMonsterDropOutcome::Item?"item produced":"no item")<<'\n';
+  else if(r.monsterDrop)out<<"Treasure pending "<<_world.treasureStaging().value().gold<<" gold, "<<_world.treasureStaging().value().gems<<" gems; "<<(*r.monsterDrop==XeenMonsterDropOutcome::CategoryCapacityLoss?"full category: lost":*r.monsterDrop==XeenMonsterDropOutcome::Item?"item produced":"no item")<<'\n';
   else if(r.injuryCount)out<<"Damage "<<r.damage<<"; items changed "<<r.armorCount<<'\n';
   else if(!r.monsterDrop && r.targetMonster && r.attackOutcome!=XeenCombatAttackOutcome::NotApplicable)out<<"Actor "<<r.targetMonster->recordIndex<<(r.attackOutcome==XeenCombatAttackOutcome::Miss?" missed":" damage ")<<r.damage<<'\n';
 
@@ -451,7 +451,7 @@ std::string XeenEncounterFlow::consequenceNotice() const {
   if(visible)out<<'\n';
   const auto &staged=_world.treasureStaging().value();
   if(staged.dormant())out<<"Dormant items; no gold owed\n";
- if(staged.pending())out<<"Ready treasure: +"<<staged.gold<<" gold\n";
+  if(staged.pending())out<<"Ready treasure: +"<<staged.gold<<" gold, +"<<staged.gems<<" gems\n";
   if(!_journeyRefusal.empty())out<<_journeyRefusal<<'\n';
   if(_rangedObservation && _rangedObservation->stage==XeenRegionalObservation::Stage::Published && _rangedObservation->count) {const auto &v=_rangedObservation->shots[(_lastTime/500)%_rangedObservation->count];out<<"Enemy shot #"<<v.source.recordIndex<<" from "<<"NESW"[unsigned(v.direction)]<<" damage "<<v.attack.damage<<'\n';}
  }
@@ -469,14 +469,14 @@ std::string XeenEncounterFlow::consequenceNotice() const {
   (_combat ? _disengagementNoticeCombat && _combat->current(*_disengagementNoticeCombat) :
    *_disengagementNoticeRevision==_state.revision());
  if(!stopped && finishNotice) {
-  out<<"Disengaged; gold forfeited "<<_retiredCombatResult.forfeitedGold<<'\n';
+  out<<"Disengaged; gold forfeited "<<_retiredCombatResult.forfeitedGold<<", gems forfeited "<<_retiredCombatResult.forfeitedGems<<'\n';
   if(_retiredCombatResult.casualties) {
    out<<"Abandoned:";for(unsigned i=0;i<6;++i)if(_retiredCombatResult.casualties&(1u<<i))out<<' '<<_party.roster.at(_party.party.activeRosterIds()[i]).name;
    out<<'\n';
   }
   const auto &staged=_world.treasureStaging().value();
   if(_combat && staged.dormant())out<<"Dormant items; no gold owed\n";
-  if(_combat && staged.pending())out<<"Ready treasure: +"<<staged.gold<<" gold\n";
+  if(_combat && staged.pending())out<<"Ready treasure: +"<<staged.gold<<" gold, +"<<staged.gems<<" gems\n";
  }
  auto text=out.str();if(!text.empty()&&text.back()=='\n')text.pop_back();text+="\n\n";
  unsigned participantSlot=0;

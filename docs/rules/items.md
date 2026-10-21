@@ -368,8 +368,8 @@ accessories cost 5 or 6, weapons 7 or 8 and reachable Misc 6. Each target's
 death and drop finish before the next target's; capacity loss never refunds
 a draw.
 
-Stored merchant and pending-loot Misc records accept 1-10 charges so saves
-keep their exact stock and loot. Generation produces
+Stored merchant Misc records accept 1-10 charges so saves keep their exact
+stock. Generation produces
 3-10. Restore does not regenerate items, deliver rewards or move the RNG cursor;
 old stock changes only through normal purchases and restock. Party inventory's
 charge domain is unchanged.
@@ -389,11 +389,11 @@ treasure container/power/state at `0x9970/0x9971/0x9972` relative to the data
 segment. The generator writes these fields and returns category 3. This rule
 is generic, not specific to the Orc witness or one map. **Implemented (M61
 Part C):** Misc monster drops use their own pending array and the existing
-shared delivery rules, preserving all generation draws. Current MMModern saves
-pending Misc. DOS preserves it across Run and an in-process Load as dormant
-process state, but never writes it into the save; a fresh process cannot restore
-it; see [the calibrated persistence trace](evidence.md#m81-monster-treasure).
-Part D implements DOS delivery as follows.
+shared delivery rules, preserving all generation draws. As in DOS, pending Misc survives Run, an
+in-process Load and New Game as dormant running-program state and is never
+saved (M81); a fresh process starts empty; see
+[the calibrated persistence trace](evidence.md#m81-monster-treasure).
+M61 Part D implements DOS delivery as follows.
 
 **DOS static, high confidence; implemented (M61 Part D):** Event rewards and
 monster loot share one delivery rule, in staged category/slot order. Global

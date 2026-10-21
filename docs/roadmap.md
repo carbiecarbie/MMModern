@@ -1,6 +1,6 @@
 # MMModern - Roadmap
 
-**M80 is the latest completed and accepted milestone.**
+**M81 is the latest completed and accepted milestone.**
 [Project status](project-status.md) describes what is playable now;
 [project history](project-history.md) records completed milestones. Reference
 provenance belongs to [dependencies](dependencies.md).
@@ -108,9 +108,12 @@ to Vertigo.
     Dwarf Mine and Sphinx lead to the Clouds dungeons they guard, and the
     Warzone Arena runs as in DOS. The Pyramid (action 12) and the four
     entrances whose keys come from Darkside wait for the Darkside arc.
-11. **Monster treasure** (Tier A, changes the save): item drops for every
-    monster and drop levels 2 to 6, including accessories in staged treasure,
-    on the shared generator from [M71](archive/milestone-71-plan.md).
+11. **Monster treasure**: completed and accepted in
+    [M81](milestone-81-plan.md) (save v17). Every Clouds monster drops the
+    gold, gems and items of its original record, at treasure levels 1 to 6
+    with accessories; pending treasure stays in the running program as in
+    DOS, and Event treasure shares it, keeping the original's duplicate of
+    monster items. Lord Xeen's Scepter waits for step 15.
 12. **Event dispatch as in DOS** (Tier A, two milestones). A 2026-10-21
     static analysis found that DOS runs a cell's Events again on every
     processed key while the party stands on a flagged cell (traps hurt

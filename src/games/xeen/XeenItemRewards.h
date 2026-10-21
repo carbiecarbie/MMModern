@@ -45,7 +45,7 @@ bool xeenTreasureQuest(const XeenItem &, XeenRewardCategory) noexcept;
 // Preparing a receipt does not transfer items, credit currency or clear the staging.
 XeenRewardReceipt xeenPrepareRewardReceipt(const XeenTreasureStaging &) noexcept;
 void xeenDeliverRewardEntry(XeenRewardReceipt &,std::size_t,XeenPartyState &,
-	std::optional<std::size_t> preferred = {}, bool sort = true);
+	std::optional<std::size_t> preferred = {});
 void xeenSortRewardEntry(const XeenRewardEntry &,XeenPartyState &);
 // Starts a delivery: the full-pack warning, or the first item transferred to its
 // recipient. Each advance completes one presentation step; Receipt follows the

@@ -165,7 +165,7 @@ public:
 			integrity("Deferred audio has no dispatched audio instruction");
 		consume();
 	}
-	void prepareRewardEnqueue(const XeenEventExecutionState &state,const XeenItem &item) const {
+	void prepareRewardStaging(const XeenEventExecutionState &state,const XeenItem &item) const {
 		check();
 		const auto operation=decodedOperation();
 		const auto *effect=std::get_if<XeenEventGiveEnchanted>(&operation);
@@ -174,7 +174,7 @@ public:
 			integrity("Regional reward production changed");
 		validateRewardPrefix(state,dispatchedRecords.size()-1);
 		consume();
-		if (beforeRewardEnqueue) { beforeRewardEnqueue(); check(); }
+		if (beforeRewardStaging) { beforeRewardStaging(); check(); }
 	}
 	// One delivery step on a detached copy of the observed party, then the
 	// anticipated inventory stores (the shared delivery 0x24128).
@@ -276,16 +276,16 @@ private:
 	[[noreturn]] void integrity(const char *message) const { guard.failed=true; throw std::logic_error(message); }
 	friend class XeenEventFlow;
 	XeenEventPublication(XeenRestoreGuard &guard, const XeenEventFile &original, std::function<void()> authority,
-		std::function<void()> beforeRewardEnqueue={}, std::vector<XeenEventDispatchRecord> *history=nullptr) :
+		std::function<void()> beforeRewardStaging={}, std::vector<XeenEventDispatchRecord> *history=nullptr) :
 		guard(guard), original(original), authority(std::move(authority)),
-		beforeRewardEnqueue(std::move(beforeRewardEnqueue)), retainedHistory(history),
+		beforeRewardStaging(std::move(beforeRewardStaging)), retainedHistory(history),
 		dispatchedRecords(history ? *history : std::vector<XeenEventDispatchRecord>{}) {
 		check();selectedObject=const_cast<XeenWorld &>(guard.w).selectObject(guard.cameraValue);check();
 	}
 	XeenRestoreGuard &guard;
 	const XeenEventFile &original;
 	std::function<void()> authority;
-	std::function<void()> beforeRewardEnqueue;
+	std::function<void()> beforeRewardStaging;
 	mutable bool removal=false, delivered=false;
 	std::vector<XeenEventDispatchRecord> *retainedHistory;
 	mutable std::vector<XeenEventDispatchRecord> dispatchedRecords;

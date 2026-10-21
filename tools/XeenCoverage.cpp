@@ -474,7 +474,7 @@ std::string report(const Census &clouds,const Census &darkside) {
         "Calibration exceptions: PlayFX, PlayEventVoc and PlayCD preserve presentation but lack audio; "
         "four Event row types (Return, Display0x01, If2 mode 44 and WhoWill) remain unclassified because their off-map subroutines have no physical caller in the resource. "
         "No missing owner, RNG, publication or service provider is an allowed Vertigo exception. "
-        "Generic arrival effects, object/wall behavior, resistance and drop rows still carry explicit unknowns; they do not certify a map as playable.\n\n"
+        "Generic arrival effects, object/wall behavior and resistance rows still carry explicit unknowns; they do not certify a map as playable.\n\n"
         "Rows split when the same mechanic has different support reasons. Uses mean instruction records, monster placements (including disabled spawn slots), "
         "terrain cells, object/wall placements or explicit item references, as appropriate. Catalogue entries have zero uses unless referenced. "
         "Monster maps include encounter-table membership even when no placed actor uses a slot (zero additional placements). "
@@ -484,7 +484,7 @@ std::string report(const Census &clouds,const Census &darkside) {
         "Darkside counts describe resources; Clouds-only engine admission remains a separate map blocker.\n\n"
         "Monsters have no party-spell ID in the reference format: their magic is represented by attack type, special and range rows. "
         "No monster-to-party-spell crosswalk is inferred. Spell uses count book references and item powers, not casting frequency. "
-        "Unclassified rows identify the missing evidence: arrival effects, object/wall behavior, resistances, generic monster drops and rejected resource candidates. "
+        "Unclassified rows identify the missing evidence: arrival effects, object/wall behavior, resistances and rejected resource candidates. "
         "No route simulation or random-drop expansion is performed.\n\n"+
         "## Clouds detail\n\n"+a.substr(ap)+"\n## Darkside detail\n\n"+b.substr(bp)+screenText;
 }

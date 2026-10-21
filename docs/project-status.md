@@ -1,11 +1,11 @@
 # MMModern - Project Status
 
-This describes what can be played and done now. **M80 is the latest completed
-and accepted milestone** ([plan](milestone-80-plan.md)): the Reaper, Golem,
-Dwarf Mine and Sphinx entrance scenes lead to the dungeons they guard, and
-the Warzone Arena runs its fights. Every Clouds town's services work (M79),
-and the whole of Clouds is open, with its monsters, Events and every travel
-path (M78). Earlier
+This describes what can be played and done now. **M81 is the latest completed
+and accepted milestone** ([plan](milestone-81-plan.md)): every monster drops
+the treasure its original record gives, with Event treasure sharing it as in
+the original. The entrance scenes and the Warzone Arena work (M80), every
+Clouds town's services work (M79), and the whole of Clouds is open, with its
+monsters, Events and every travel path (M78). Earlier
 milestones are in [project history](project-history.md), direction is in the
 [roadmap](roadmap.md), and build and dependency setup is in
 [dependencies](dependencies.md).
@@ -68,8 +68,26 @@ too. Monsters choose their targets and number of attacks from their original
 data, and the party can turn during combat. Equipped weapons, armor, rings and
 amulets count with their metal, element and enchantment. Wounds, conditions,
 broken armor, XP, gold and generated items stay on the characters, the party
-and the world. Monster treasure appears when the fight is over and must be
-acknowledged page by page.
+and the world.
+
+**Treasure.** Every monster killed by melee, arrows, Shoot or a spell, alone
+or in a group, adds the gold and gems of its original record and may drop an
+item at its original chance and treasure level (1 to 6, accessories
+included). Kills in the Warzone give no treasure. The treasure appears on the
+original screens when the fight is over, or outside combat once no monster is
+in view, and must be acknowledged page by page. Items go to the member last
+chosen in a "who will" prompt when there is one. The original also forgets
+that choice on every later key press on an Event cell and after some fights;
+MMModern does not yet, an
+[approved deviation](original-quirks.md#dev-whowill-event-passes) until
+roadmap step 12. With full packs the original warning appears and items are
+lost or replace the last one in their category, while gold and gems are still
+credited. Event treasure shares the monster
+treasure as in the original: an Event reward also hands over pending monster
+items, and when monster gold is pending those items arrive twice, an original
+bug kept on purpose. As in DOS, undelivered items are not saved and stay in
+the running program across Load and New Game, where a later treasure can
+deliver them.
 
 **Run** is per member; the others keep fighting. Each map's original run
 position and chance apply, indoors too. If the whole party leaves, it moves to
@@ -256,14 +274,14 @@ The [README](../README.md#entry-modes) gives every option.
 
 ## Save format
 
-There is **one current save format**, v16. It keeps the party, the world and
+There is **one current save format**, v17. It keeps the party, the world and
 one generic state per visited map: monster positions and lifecycle, removed or
 moved objects, changed cells, disabled Events, explored cells and the Tavern
 tip index. Monster HP and wake state are not saved, because every map load
-rebuilds them. During 0.x, older formats are not read: a save from an older
-build is rejected before anything is restored, a save from a newer or
-unrecognized build is rejected and left alone, and F9 overwrites only a
-recognizable older MMModern save. Saves are tied to the original archives by
+rebuilds them, and pending treasure is not saved, as in the original. During
+0.x, older formats are not read: a save from an older build is rejected before
+anything is restored, a save from a newer or unrecognized build is rejected and
+left alone, and F9 overwrites only a recognizable older MMModern save. Saves are tied to the original archives by
 fingerprint, are written atomically, and are not compatible with the original
 games or ScummVM. There is no autosave.
 
@@ -282,6 +300,9 @@ Ownership, from state outward:
 - **World** (`XeenWorld`, `XeenSessionWorldState`): map and object caches, the
   live actors, per-map state, merchant and bank economy, the calendar and the
   world random state.
+- **Running program** (`XeenProgramState`, created by `main`): what the
+  original keeps outside its saves, the last Temple prices and the pending
+  treasure, each with its own revision; sessions borrow it.
 - **Rules** (pure, in `games/xeen`): combat, monster approach and treasure,
   item generation, equipment, services, spells, terrain, Rest and time.
 - **Events**: `XeenEventSystem` decodes and runs the original Event scripts;
@@ -308,10 +329,11 @@ frames carry an identity so input from a stale frame is dropped.
 CTest covers rules and synthetic fixtures without original data, and
 original-data integration and process tests that need a legally obtained
 installation. Every test is labelled `fast` or `process`: use `ctest -L fast`
-while iterating and the complete suite before closing a milestone. Three
-original-data scenarios (mainland, Vertigo services, Temple) compare their
-final saves with digests recorded before M44 and re-save byte-identically
-after a reload, guarding against unintended behavior changes. The generated
+while iterating and the complete suite before closing a milestone. Four
+original-data scenarios (mainland, Vertigo services, Temple and a Vertigo
+round trip) compare their final saves with approved digests and re-save
+byte-identically after a reload, guarding against unintended behavior
+changes. The generated
 [coverage report](coverage.md) counts every mechanic the original data uses
 and its support status. Build and run instructions are in
 [dependencies](dependencies.md).
@@ -323,8 +345,6 @@ and its support status. Build and run instructions are in
 - **Town scenes.** The Pyramid entrance and the Clouds ending are not
   implemented; they say "not supported yet". Entrance-scene captions, which
   DOS shows only with sound effects off, wait for audio.
-- **Monster treasure.** Item drops come only from some monsters and only at
-  the lowest treasure level, without accessories.
 - **Skills.** Arms Master and Tracker
   are kept but do nothing; the reference gives them no effect either, and DOS
   has not been checked.

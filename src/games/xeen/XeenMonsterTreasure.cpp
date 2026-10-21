@@ -1,6 +1,5 @@
 #include "games/xeen/XeenMonsterTreasure.h"
-#include "games/xeen/XeenJourneyContent.h"
-#include "games/xeen/XeenItemRewards.h"
+#include "games/xeen/XeenCombatRules.h"
 #include <stdexcept>
 namespace mmodern {
 namespace {
@@ -38,10 +37,6 @@ bool XeenTreasureStaging::storedItems() const noexcept {
 void XeenTreasureStagingState::check(std::uint64_t base) const {
 	if (base != _revision) throw std::logic_error("Stale pending treasure");
 }
-}
-
-#include "games/xeen/XeenCombatRules.h"
-namespace mmodern {
 namespace {
 // Drop chance by field (lookup 0x4d650): 10/20/50%, then 100% for fields 4-6.
 constexpr std::array<unsigned,7> kDropChance{0,10,20,50,100,100,100};

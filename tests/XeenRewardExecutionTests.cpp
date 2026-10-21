@@ -29,7 +29,7 @@ void continuations(){
 	auto s=e.seed({pause(),record(1,1,1,0x19,{2,2,0}),pause(2),record(1,1,3,0x12),
 		record(2,2,0,0x1a)});
 	auto r=e.resume(s);s=pending(r);
-	check(xeenPrepareRewardReceipt(s.treasure).count==1&&s.reward.phase==XeenRewardPhase::Running&&s.callStack.empty()&&s.instructionCount==4,"Call/Return delivered early or lost queue");
+	check(xeenPrepareRewardReceipt(s.treasure).count==1&&s.reward.phase==XeenRewardPhase::Running&&s.callStack.empty()&&s.instructionCount==4,"Call/Return delivered early or lost staging");
 	s=pending(e.resume(s));check(s.reward.receipt.delivered==1&&s.instructionCount==5,"Call/Return finalization count");
 	for(auto bad:std::vector<XeenEventRecord>{record(1,1,1,0x1a),record(1,1,1,0x19,{99,99,0}),
 		record(1,1,1,9,{20,7,99}),record(1,1,1,0x2c,{69,37,0,1}),record(1,1,1,12,{21,117,0,0}),
@@ -70,7 +70,7 @@ void production(){
 			{static_cast<std::uint8_t>(70+i%2),static_cast<std::uint8_t>(1+i),255,193}));
 		records.push_back(pause(n));
 		auto s=pending(begin(e,records));
-		check(s.instructionCount==n+1 && xeenPrepareRewardReceipt(s.treasure).count==std::min(n,10) && s.treasure.full(XeenRewardCategory::Miscellaneous)==(n>=10),"real production queue/overflow");
+		check(s.instructionCount==n+1 && xeenPrepareRewardReceipt(s.treasure).count==std::min(n,10) && s.treasure.full(XeenRewardCategory::Miscellaneous)==(n>=10),"real production staging/overflow");
 		for(int i=0;i<std::min(n,10);++i) {
 			const auto item=s.treasure.miscellaneous[i];
 			check(item.material==10+i%2 && item.id==1+i && item.state==1 && item.frame==0,"deterministic fields/order/suffix");
@@ -89,7 +89,7 @@ void production(){
 		const auto failure=std::get<XeenEventExecutionError>(begin(e,records));
 		check(failure.kind==(bytes.size()<2 || bytes.size()>4?XeenEventExecutionErrorKind::MalformedInstruction:XeenEventExecutionErrorKind::UnsupportedOperand) &&
 			failure.instructionCount==10 && failure.source && failure.source->line==10 && failure.rewards.discarded==10 &&
-			!e.f.initial.roster.at(0).miscellaneous[0].id,"full queue operand validation/accounting");
+			!e.f.initial.roster.at(0).miscellaneous[0].id,"full staging operand validation/accounting");
 	}
 	for(int fault=0;fault<5;++fault) {
 		Execution e;auto s=pending(begin(e,{pause(),record(1,1,1,0x2c,{70,37})}));
@@ -100,7 +100,7 @@ void production(){
 		if(fault==3){s.instructionCount=1024;kind=XeenEventExecutionErrorKind::InstructionLimitExceeded;}
 		if(fault==4){s.logicalAddress.line=254;s.pendingPresentation->conditional->targetLine=255;s.currentScript=script(1,{record(1,1,255,0x2c,{70,37})});kind=XeenEventExecutionErrorKind::LineOverflow;}
 		const auto failure=std::get<XeenEventExecutionError>(e.resume(s));
-		check(failure.kind==kind && failure.rewards.discarded==0 && !e.f.initial.roster.at(0).miscellaneous[0].id,"production guard enqueued");
+		check(failure.kind==kind && failure.rewards.discarded==0 && !e.f.initial.roster.at(0).miscellaneous[0].id,"production guard staged");
 	}
 	{
 		Execution e;e.f.initial.questItems.increment(17);

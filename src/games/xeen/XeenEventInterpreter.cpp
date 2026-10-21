@@ -913,7 +913,7 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 			item.material = enchanted->itemCode - 60;
 			item.id = enchanted->specialId;
 			item.state = 1;
-			if (publication && partyState.worldFlags) publication->prepareRewardEnqueue(state,item);
+			if (publication && partyState.worldFlags) publication->prepareRewardStaging(state,item);
 			// 0x287f9..0x28925: the first empty Misc slot, monster items included.
 			state.treasure.insert(XeenRewardCategory::Miscellaneous,item);
 			++logical.line;

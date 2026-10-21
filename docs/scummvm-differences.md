@@ -156,7 +156,7 @@ mainland; many items apply there, others wait for areas not open yet.
   current staged items, even if acquired after that save; a fresh launch starts
   empty. The pin clears all staged items on Load.
   [Evidence](original-quirks.md#sv-loot-load-process-state). Pin: differs; master
-  not rechecked. Not implemented yet.
+  not rechecked.
 - **Event treasure and pending monster loot.** In the original, an Event reward
   delivers staged monster items too, and with monster gold pending it delivers
   them twice; MMModern keeps this original bug. The pin saves and restores
@@ -369,9 +369,10 @@ apart from the fidelity differences above.
 - **No "Please Wait..." box.** Maps load without the original loading box,
   as in ScummVM. [Details](original-quirks.md#dev-no-please-wait)
 - **When the treasure recipient choice clears.** The member a WhoWill dialog
-  chose clears on arrival over an Event cell, on Space and in every Event run,
-  but not on each later command while standing on an Event cell or after
-  combat, as in the original and ScummVM.
+  chose clears on arrival at or turning over an Event cell, on Space and in
+  every Event run. The original and ScummVM also clear it on each later
+  command while standing on an Event cell and after combat; MMModern does not
+  yet.
   [Details](original-quirks.md#dev-whowill-event-passes)
 
 ## What ScummVM has that MMModern does not yet

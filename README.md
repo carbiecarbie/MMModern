@@ -133,8 +133,6 @@ to view that member. The acting member and selected enemy use the original icons
   Sign In and Dismiss say "not supported yet".
 - The Pyramid entrance says "not supported yet", and entrance scenes show
   no captions until audio arrives.
-- Monster treasure: not every monster drops items yet, and drops of higher
-  treasure levels and accessories are missing.
 - Darkside gameplay is not supported.
 
 The [project status](https://github.com/carbiecarbie/MMModern/blob/main/docs/project-status.md)

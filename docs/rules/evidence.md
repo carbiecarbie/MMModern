@@ -781,9 +781,9 @@ treasure in its own category. The pinned `Combat::attack2` Misc case instead
 copies the temporary character's accessory record into staged accessories.
 **Implemented (M61 Part C):** MMModern stages Misc in its own ten-slot array
 and delivers it with the existing shared rules, preserving the generation draws
-and their order. Current MMModern retains pending Misc in the save; the
-[M81 DOS trace](#m81-monster-treasure) establishes a different file/process
-boundary. Part D implements the separately traced delivery rules below.
+and their order. Since M81, MMModern keeps pending Misc as running-program state, never
+saved, as the [M81 DOS trace](#m81-monster-treasure) establishes. M61 Part D
+implements the separately traced delivery rules below.
 
 The original attack/death routine starts at `0x2bdf8`. Its generation-result
 dispatch is at `0x2c3f1..0x2c401`. The table at `0x2c592` uses code-segment
