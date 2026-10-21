@@ -1,9 +1,10 @@
 # Milestone 82 plan - Audio, part 1: FM music and effects
 
-**Tier A. Status: Part 0 in progress**
+**Tier A. Status: Part 0 completed; Parts A-D not started**
 Roadmap [step 12](roadmap.md#next-arc-finishing-the-games-systems), first of
 its two milestones. Plan `61112d9`, on `main` after M81 (`f2bee4b`); amended
-2026-10-21 for the promus driver after Part 0's OPL3 stop.
+`d5bba59` for the promus driver after Part 0's OPL3 stop, and at Part 0's
+closure for its decisions.
 
 ## Goal and scope
 
@@ -14,7 +15,8 @@ Speech and Text buttons work and are saved as in DOS. Digital sound (VOC
 samples, voices), CD speech and CD tracks are the second milestone (M83).
 Other devices, the AdLib (`admus`) and Sound Blaster (`blastmus`) FM drivers
 included, and switching device while playing are roadmap step 16; M82 only
-keeps the design ready for them. Darkside music and the intros stay out.
+keeps the design ready for them. Darkside map music and the intros stay out;
+the CD title song is in.
 Planning does not authorize implementation. Independent plan and
 implementation reviews, the complete suite and a maintainer play-test are
 required.
@@ -35,20 +37,20 @@ required.
 
 ## Original rules and evidence
 
-Static analysis of `WORLD/XEEN.DAT`/`XEEN.EXE`, calibrated on known behaviors
-(Reaper wait, config read, panel table, RNG; 2026-10-21,
-`D:/MModern-re/audio-m82/dos-findings.md`); ScummVM inventory in
-`D:/MModern-re/audio-m82/scummvm-inventory.md`. Pin
-`6814ee9ba54582f5b5adcffab49efbbd8f589edd`, `engines/mm/shared/xeen/sound*.cpp`
-and `engines/mm/xeen/map.cpp`. DOS overrides the pin where they differ.
+Part 0 (completed 2026-10-21) settled the rules from calibrated static
+analysis of `WORLD/XEEN.DAT`, `XEEN.EXE` and the INTRO.CC `promus` resource,
+plus six DOSBox DRO captures; [audio rules](rules/audio.md) hold them with
+offsets and evidence labels, and the tagged entries in
+[original quirks](original-quirks.md#sv-cd-promus-fm-banks) the differences
+from the pin (`6814ee9ba54582f5b5adcffab49efbbd8f589edd`). In short:
 
-| Rule | Evidence and decision |
+| Rule | Settled (DOS, high unless noted) |
 | --- | --- |
-| Device | **DOS, high:** `XEEN.CFG` word +0x04 selects the music driver (1 admus, 2 blastmus, 3 promus, 4 rolmus, 5 canmus, 6 specmus, 7 ibmmus, 8 wavemus, 9 tapmus, other ids nullmus); FM effect data belongs to the driver. The GOG install selects 3, `promus`, which enables OPL3 and drives both register banks with opposite stereo outputs (**high**, [audio rules](rules/audio.md#cd-fm-driver-hardware)). The driver is loaded from INTRO.CC at startup (**medium-high**; the INTRO and XEEN copies differ; the pin reads `blastmus` from the current archive: tagged difference). MMModern only reads `XEEN.CFG`, never writes it (DOS rewrites it at the intro and ending). |
-| Timer | **DOS, high:** every music driver sets PIT channel 0 to 72.80 Hz and chains the BIOS tick, which still averages 18.2065 Hz. The clock stays unchanged; the driver ticks at 72.80 Hz from the sample count. The pin runs 72 Hz: tagged difference. |
-| Toggles | **DOS, high:** Efx, Music, Text and Speech live in the saved party block, not in `XEEN.CFG` (1530-byte block: +0x0e, +0x0f, +0x5f8 with 0 = on, +0x5f9). Efx on plays effect 20; Efx off stops nothing but gates FM effects and VOC samples. Music off silences at once (driver command 0); Music on restarts the loaded song from its start. Speech off forces Text on at redraw; Text off with Speech on is allowed; Speech off skips CD speech. Labels "on"/"off" are original text. **Medium-high:** Load replaces all four. **Unknown:** the New-game Text/Speech values, since the 812-byte Clouds block has no such bytes; Part 0 settles them and confirms Efx/Music offsets there. |
-| Music choice | **DOS, high:** Clouds outdoors plays `outdoors.m`; indoors the wall-kind index table selects a name from the table in `XEEN.DAT`. No day/night. The same name (case-insensitive) continues, even with Music off. A new name fades the old song (command 207), waits for the fade and for CD speech, then loads it and plays it only when Music is on. Tag the Clouds-relevant differences from the pin (continuation rule, waiting for CD speech). **Unknown:** wall-kind index 5, a name missing from the archive, and what Music on plays after a name change while Music was off. |
-| Pin's driver | **DOS, high:** `SoundDriverAdlib` requests one OPL2 and cannot reproduce `promus`. It remains a reference for the shared song and effect format only; three suspected defects (fade accumulator sign, FX subroutine base, FX countdown on music ticks) and the 72 Hz rate are **Unknown** until Part 0 compares them with `promus`. |
+| Device | `XEEN.CFG` word +0x04 selects the driver (ids outside 1-9: nullmus); the GOG install selects 3, `promus`, loaded from INTRO.CC (a loose file overrides it). It enables OPL3, drives both banks with opposite stereo outputs and owns the FM effect data. A missing `XEEN.CFG` exits; MMModern refuses to start with a clear message (maintainer, 2026-10-21) and never writes it. |
+| Driver | [Commands, voices, patches, bytecode](rules/audio.md#promus-commands-and-voices): music on voices 0-6, effects on 7-8, two 11-byte patches per voice, 22-byte effect definitions, effect ids 0-180 over 68 streams. Ticks at about 72.80 Hz; music-due ticks skip the effect countdown; fade 207 takes 78-80 ticks on a byte carry. No OPL status or timer reads. The original effect opcode 6 cache-indexing defect is kept. The pin's fade sign test and effect call opcode are not imported. |
+| Options | Efx, Music, Text and Speech are saved party bytes (+0x0e, +0x0f, +0x5f8 with 0 = on, +0x5f9); New Clouds starts Efx on, Music on, Text off, Speech on; Load replaces them without replaying a toggle. Efx on plays effect 20; Efx off gates new FM effects, VOC samples and VOC-busy waits without stopping sound. Music off silences voices 0-6 and cancels a fade but keeps a pending load; Music on restarts the loaded buffer and cancels a pending load. Speech off forces Text on and skips CD speech. |
+| Songs | [Names and changes](rules/audio.md#song-names-and-asynchronous-changes): Clouds outdoors `outdoors.m`, indoors by wall kind (kind 5, unused in Clouds, reads `outday1.m`), locations and the Inn (`inn.m`) from the `XEEN.DAT` tables. The same name continues even with Music off; a new name fades, waits for the fade and CD speech while input stays active, then loads. A missing song exits with a resource error. Song state is process state. The CD title plays DARK.CC `newbrigh.m` and preloads `twnnitea.m` on exit, in M82's scope (maintainer, 2026-10-21). |
+| Captions | Entrance captions advance one character per qualifying two-tick interval; Efx off removes VOC-busy waits but keeps fixed scene waits. When the box pixels disappear is settled in Part B. |
 
 ## Design decisions
 
@@ -95,16 +97,16 @@ Each part takes one fresh session; amend this plan if the scope changes.
 
 | Part | Work and acceptance |
 | --- | --- |
-| 0 - evidence | Read-only for code and original data. Done: `promus` needs OPL3 and both banks; CD resource identities ([audio rules](rules/audio.md)). Remaining: the complete `promus` semantics (commands, voice and bank allocation, stereo, instrument and effect tables, tick handling, fade length, any OPL status or timer reads) and its differences from the pin's driver, the three defects included; raise the INTRO.CC copy to high confidence. Inventory every DOS FM effect site with its id and MMModern owner. Settle every **Unknown** above, plus: title and location songs; whether input blocks during a fade; New/Load and the current song (Load with Music off sends no stop); a pending fade when Music goes off; whether Efx off removes VOC waits and how long entrance captions stay; a missing `XEEN.CFG`. Obtain DOSBox raw OPL (DRO) captures of a few `promus` songs and effects, with the maintainer if needed. Record rules in `docs/rules/`, quirks and tagged differences. |
-| A - audio foundation | ScummVM audio sources, `OSystem`, SDL output, the audio owner and the `promus` driver on Nuked OPL3 at 72.80 Hz; songs for maps, locations, title and Inn by the DOS rules, with the fade. Acceptance: songs play and change as in DOS; same-name continuation; register streams match the DRO captures; identical timing and traces with and without a device. |
-| B - toggles and save | The four panel buttons with original labels and rules; save v18; New and Load values; Speech off skips CD speech waits; Efx off as Part 0 settles for VOC waits and entrance captions. Text off is stored, shown, saved and coupled, but text stays visible until M83 plays CD speech (temporary restriction approved by the maintainer, recorded in `original-quirks.md`), so the DOS defaults never leave a player without text or speech. |
-| C - FM effects | Every DOS FM effect site from Part 0's inventory, gated by Efx, in movement, combat, spells, items, dialogs and services; C1/C2 if large. Acceptance: each site's effect id matches DOS; none plays with Efx off. |
+| 0 - evidence | **Completed 2026-10-21**, read-only: the rules above, the [audio chapter](rules/audio.md), tagged quirks and six DRO captures in `D:/MModern-re/audio-m82/captures/`. Moved on: the per-function effect-site reconciliation opens Part C; the caption pixel lifetime goes to Part B; the per-tick DRO comparison is Part A's acceptance. |
+| A - audio foundation | ScummVM audio sources, `OSystem`, SDL output, the audio owner and the `promus` driver on Nuked OPL3 at 72.80 Hz; songs for maps, locations, title (with the preload) and Inn by the DOS rules, with the fade; a missing `XEEN.CFG` refuses startup with a clear message. Acceptance: songs play and change as in DOS; same-name continuation; register streams match the DRO captures; identical timing and traces with and without a device. |
+| B - toggles and save | The four panel buttons with original labels and rules; save v18; New and Load values; Speech off skips CD speech waits; Efx off removes VOC-busy waits; entrance captions with Efx off, their box lifetime settled from a maintainer video of the Dwarf or Sphinx scene with Effects off. Text off is stored, shown, saved and coupled, but text stays visible until M83 plays CD speech (temporary restriction approved by the maintainer, recorded in `original-quirks.md`), so the DOS defaults never leave a player without text or speech. |
+| C - FM effects | First reconcile Part 0's 133 direct DOS sites function by function with MMModern owners (several are provisional). Then every site, gated by Efx, in movement, combat, spells, items, dialogs and services; C1/C2 if large. Acceptance: each site's effect id matches DOS; none plays with Efx off. |
 | D - closure | Dependencies, quirks and differences documents; M44 digest audit; scheduled independent implementation review; complete suite; maintainer play-test against DOSBox. Update status, roadmap and history and condense this plan only after acceptance. |
 
 **Stop rules** (stop and ask the maintainer): `promus` relies on OPL behavior
 the pinned Nuked emulator cannot reproduce (status or timer reads, write
-timing); the DRO captures contradict the static reading; an Unknown stays
-unsettled; the audio link needs ScummVM `backends/` or `gui/` code beyond
+timing); the DRO captures contradict the static reading; a moved boundary
+(effect reconciliation, caption lifetime) cannot be settled; the audio link needs ScummVM `backends/` or `gui/` code beyond
 headers; a non-null `g_system` changes any existing output or test; the effect
 inventory exceeds two parts; the fade wait cannot be modelled from the clock.
 
@@ -115,7 +117,8 @@ inventory exceeds two parts; the fade wait cannot be modelled from the clock.
   rules (Speech/Text coupling, Efx on effect 20), device ids and nullmus.
 - Driver fidelity: per-tick OPL3 register streams, both banks, for a few
   songs and effects compared with the DOSBox `promus` DRO captures (DOS
-  evidence for the rate, stereo routing and defects). PCM hashes only guard regressions and may differ across platforms.
+  evidence for the rate, stereo routing and defects), aligned to the PIT
+  grid. PCM hashes only guard regressions and may differ across platforms.
 - Effect sites: a table test mapping each Part 0 site to its id, plus a few
   original-data gameplay witnesses recording requested effects through a
   recording sink. A timing test runs one route with and without a device.
@@ -137,11 +140,13 @@ inventory exceeds two parts; the fade wait cannot be modelled from the clock.
 2. **Driver (decided 2026-10-21, after Part 0's OPL3 stop):** M82 reproduces
    `promus` in OPL3 stereo on the Nuked emulator, the installed CD
    configuration; `admus` and `blastmus` move to step 16.
-3. **Missing `XEEN.CFG`:** DOS refuses to start; MMModern starts today. Part 0
-   reports the options and the maintainer decides before Part A.
-4. **Text off stopgap (approved 2026-10-21):** text stays visible until M83
+3. **Missing `XEEN.CFG` (decided 2026-10-21):** MMModern refuses to start
+   with a clear message, as DOS does; it never writes the file.
+4. **Title song (decided 2026-10-21):** the CD title's DARK.CC `newbrigh.m`
+   and its `twnnitea.m` preload are in scope; Darkside map music is not.
+5. **Text off stopgap (approved 2026-10-21):** text stays visible until M83
    as a temporary restriction, recorded in `original-quirks.md` by Part B.
-5. **Technical risks:** audio-thread races (one queue, no shared game state);
+6. **Technical risks:** audio-thread races (one queue, no shared game state);
    ScummVM's transitive audio dependencies (QuickTime/WAV decoders, zlib) and
    GPL notices; latency between a request and the heard sound, which never
    delays gameplay; effect coverage drifting from DOS without the inventory.

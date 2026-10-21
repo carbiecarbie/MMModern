@@ -19,7 +19,7 @@ documented in its source. Each item links to its entry in
 
 **Revisions.** MMModern pins ScummVM `6814ee9b` (2026-09-06). Every item was
 rechecked against ScummVM master `55895ab0` on 2026-10-16, except the new
-terrain/Tavern/Temple/recovery/spell/movement/entrance entries explicitly marked "pin: differs; master not
+terrain/Tavern/Temple/recovery/spell/movement/entrance/audio entries explicitly marked "pin: differs; master not
 rechecked". At that check, since the pin the
 Xeen engine has had only a code-style edit and the Xeen data in `mm.dat` is
 unchanged apart from its version number, so the earlier entries are marked
@@ -265,6 +265,30 @@ Most of the scripts concerned are in areas MMModern has not opened yet.
   [Evidence](original-quirks.md#sv-bank-amount-entry). Master: differs.
 
 ## Presentation
+
+- **CD FM driver (approved for M82; not implemented).** The maintainer chose
+  INTRO.CC `promus` on pinned Nuked in OPL3 stereo on 2026-10-21; admus and
+  blastmus move to roadmap step 16. DOS uses two patches/banks per voice,
+  22-byte FX definitions and its own FX dispatch/cache quirks. The pin uses
+  OPL2 and blastmus data. Pin: differs; master not rechecked. No listening
+  comparison is claimed.
+  [Details](original-quirks.md#sv-cd-promus-fm-banks)
+- **FM timing and fade (not implemented).** DOS runs approximately 72.80 Hz
+  and fades on byte carry with persistent phase; the pin runs 72 Hz and tests
+  an integer's sign. FX countdown skipping on music-due ticks agrees with DOS.
+  Pin: differs; master not rechecked.
+  [Details](original-quirks.md#sv-cd-fm-tick-fade)
+- **CD party audio options (not implemented).** DOS saves four party options;
+  New Clouds defaults to Efx/Music on, Text off and Speech on. Efx off gates
+  playback/status without stopping active sound. The pin uses global settings
+  and stops FM FX. Pin: differs; master not rechecked.
+  [Details](original-quirks.md#sv-cd-audio-party-options)
+- **Song process state (not implemented).** DOS keeps same-name music, handles
+  pending fade/CD waits while accepting input, and restarts the loaded buffer
+  when Music is enabled. Load does not replay a Music-off toggle. The pin
+  ignores fade arguments and clears the current name on stop.
+  Pin: differs; master not rechecked.
+  [Details](original-quirks.md#sv-cd-song-process-state)
 
 - [Sphinx refusal sample](original-quirks.md#sv-sphinx13-descriptor): DOS
   plays all of `sphinx13.voc` despite its damaged descriptor, preserving its

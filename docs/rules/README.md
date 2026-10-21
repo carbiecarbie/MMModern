@@ -15,6 +15,7 @@ is implemented.
 | [Items and equipment](items.md) | Item representation, equipment slots, prices, Smith transactions, charges, Discard, generation and treasure delivery |
 | [Time, rest and conditions](time-and-conditions.md) | Calendar, eight-hour checks, per-action recovery, fatigue, temporary effects, Rest, terrain arrival and falls, food, bank interest, Tavern options and Temple prices/effects |
 | [World Events](world-events.md) | Wall items, cell walls and surfaces, physical Event replacement/deletion, Spawn and map-state lifetimes; If/SetVar/TakeOrGive value modes, rewards, lock picking and random draws; teleports, mirrors and typed passwords; the Quests and Awards screens |
+| [Audio](audio.md) | CD promus commands, stereo, ticks/fades, song selection, saved options, VOC/caption waits, effect-site evidence and remaining gaps |
 | [Evidence and unresolved questions](evidence.md) | Exact original identity, REA evidence, calibration, original file offsets, limitations and the next questions to resolve |
 
 The reading order for implementation is the relevant rule, its evidence label,
