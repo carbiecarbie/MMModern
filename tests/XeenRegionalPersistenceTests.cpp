@@ -1,4 +1,5 @@
 #include "XeenSaveTestSupport.h"
+#include "games/xeen/XeenItemRewards.h"
 #include <iostream>
 #include <map>
 using namespace save_test;
@@ -84,9 +85,15 @@ int main(){try{
  for(unsigned i=0;i<6;++i){recipients[i]=delivered.characters[i];recipients[i].weapons.fill({0,1,0,0});recipients[i].armor.fill({0,1,0,0});recipients[i].miscellaneous.fill({1,1,1,0});recipients[i].accessories={};}
  recipients[0].weapons.back().frame=4;recipients[0].armor.back().frame=3;recipients[0].miscellaneous.back().frame=7;
  XeenTreasureStaging staged;staged.gold=10;staged.ready=true;staged.miscellaneous[0]={3,8,7,0};
- const auto delivery=xeenPrepareMonsterDelivery(staged,recipients);
- for(unsigned i=0;i<6;++i)delivered.characters[i]=delivery.characters[i];
- delivered.journey->purse=xeenPrepareMonsterCredit(*delivered.journey->purse,delivery.treasure).purse;
+ const auto deliveredCharacters=[](const XeenTreasureStaging &staged,const std::array<XeenCharacter,6> &c) {
+  XeenPartyState party;std::vector<std::uint8_t> ids;
+  for(const auto &v:c){party.roster.at(v.rosterId)=v;ids.push_back(v.rosterId);}
+  party.party=XeenParty::fromRosterIds(ids);xeenDeliverTreasure(staged,party);
+  std::array<XeenCharacter,6> result;for(unsigned i=0;i<6;++i)result[i]=party.roster.at(c[i].rosterId);return result;
+ };
+ const auto delivery=deliveredCharacters(staged,recipients);
+ for(unsigned i=0;i<6;++i)delivered.characters[i]=delivery[i];
+ delivered.journey->purse=xeenCreditTreasure(*delivered.journey->purse,staged);
  check(delivered.journey->purse->gold==0x12345682u,"Delivery credit");verify(delivered);
  auto city=populated;city.camera={28,16,2,XeenDirection::North};city.map(28).monsters=XeenSaveMonsterTable{46,{}};
  for(unsigned i=0;i<46;++i)city.map(28).monsters->slots.push_back({int(i%16),int(i/16),XeenActorLifecycle::Present,XeenActorStatus::Physical,false,-1});verify(city,true);

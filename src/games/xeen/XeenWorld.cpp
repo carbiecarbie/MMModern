@@ -599,6 +599,7 @@ std::unique_ptr<XeenWorld> XeenWorld::transitionCandidate() const {
 	// Detached work stages on a copy; publishTransition returns it.
 	candidate->_ownTreasureStaging.publish(treasureStaging().value());
 	candidate->_transitionTreasureBase=treasureStaging().revision();
+	candidate->_transitionTreasureSnapshot=treasureStaging().value();
 	candidate->_transitionTreasureCopy=candidate->_ownTreasureStaging.revision();
 	return candidate;
 }

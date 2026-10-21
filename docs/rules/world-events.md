@@ -214,8 +214,9 @@ instead of clearing (an original defect); no Clouds script removes an award.
 1, any other value increments; 13..15 also zero positive HP (`0x22782`,
 `0x239ed`). Take 18 clears the byte.
 
-**Items and treasure.** Give 21 queues a weapon, armor or accessory by ID in
-the treasure; a quest ID first increments its counter, then shows as a weapon
+**Items and treasure.** Give 21 stages a weapon, armor or accessory by ID in
+the first empty slot of the shared treasure arrays (a full category fails the
+give); a quest ID first increments its counter, then shows as a weapon
 (`0x22883..0x22967`). Take 21 removes the first matching item and sorts the
 category (`0x221fa..0x22343`). Quest counters are bytes in both directions on
 every execution path: give 21 (`0x22967..0x2296e`) and GiveEnchanted's quest

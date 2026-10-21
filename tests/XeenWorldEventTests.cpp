@@ -815,7 +815,7 @@ void treasure(Inputs &in) {
    if(!f.flow->presentationGeneration())return;
    check(f.p.purse->gold==oldGold && f.p.purse->gems==oldGems,"Every Event treasure page keeps live currency private until final acknowledgment");
    const auto state=XeenTrainingTestAccess::serviceState(*f.flow);
-   if(state.rewardPhase==XeenRewardPhase::Receipt && state.pendingPresentation->request.kind==XeenPresentationKind::RewardReceipt &&
+   if(state.reward.phase==XeenRewardPhase::Receipt && state.pendingPresentation->request.kind==XeenPresentationKind::RewardReceipt &&
     f.flow->presenter().blocksGameplay() && f.flow->presenter().pageIndex()+1==f.flow->presenter().pageCount())finalSeen=true;
   });
   check(finalSeen,"Generated Event reward reaches a separate final acknowledgment");
@@ -849,15 +849,15 @@ void treasure(Inputs &in) {
  XeenItemCandidate item(7);check(item.service(many),"Bounded item oracle");
  bounded.act(InteractionAction{});auto pending=XeenTrainingTestAccess::serviceState(*bounded.flow);
  check(pending.generatingReward && pending.rewardItem && pending.rewardRandom && pending.rewardRandom->position()==initialPosition+64 &&
-  pending.instructionCount==22 && pending.pendingRewards.gold()==63 && !bounded.flow->canSave(),"Raw draw budget or instruction continuation differs");
+  pending.instructionCount==22 && pending.treasure.gold==63 && !bounded.flow->canSave(),"Raw draw budget or instruction continuation differs");
  XeenEventContinuation guard(pending,true);
  for(unsigned field=0;field<5;++field) {
   auto altered=pending;
   if(field==0)altered.rewardPair++;
   if(field==1)altered.rewardRandom->draw(1,1);
   if(field==2)altered.rewardItem.emplace(1);
-  if(field==3)altered.pendingRewards.credit(34,1);
-  if(field==4)altered.pendingRewards.enqueue({1,1,0,0},XeenRewardCategory::Weapons);
+  if(field==3)altered.treasure.gold+=1u;
+  if(field==4)altered.treasure.insert(XeenRewardCategory::Weapons,{1,1,0,0});
   save_test::rejects([&]{guard.check(altered);});
  }
  check(!XeenSaveState::canCapture(bounded.p,bounded.c,bounded.w) && !bounded.f.isSet(199) &&

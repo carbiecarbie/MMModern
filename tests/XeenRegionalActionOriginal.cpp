@@ -197,8 +197,14 @@ void arrival(const fs::path &game,const fs::path &save,const XeenSaveSnapshot &i
    input(AcknowledgeAction{});
    check(h.flow->canSave() && h.world->treasureStaging().value()==XeenTreasureStaging{} && h.party->purse->gold==gold+10,
     "Receipt acknowledgment failed to settle source-qualified gold");
-   const auto delivered=xeenPrepareMonsterDelivery(liveTreasure,opportunity->characters);
-   for(unsigned n=0;n<6;++n)check(xeen_state::sameCharacter(h.party->roster.at(owners[n]),delivered.characters[n]),
+   const auto deliveredCharacters=[](const XeenTreasureStaging &staged,const XeenConsequenceCharacters &c) {
+    XeenPartyState party;std::vector<std::uint8_t> ids;
+    for(const auto &v:c){party.roster.at(v.rosterId)=v;ids.push_back(v.rosterId);}
+    party.party=XeenParty::fromRosterIds(ids);xeenDeliverTreasure(staged,party);
+    XeenConsequenceCharacters result;for(unsigned i=0;i<6;++i)result[i]=party.roster.at(c[i].rosterId);return result;
+   };
+   const auto delivered=deliveredCharacters(liveTreasure,opportunity->characters);
+   for(unsigned n=0;n<6;++n)check(xeen_state::sameCharacter(h.party->roster.at(owners[n]),delivered[n]),
     "Final receipt did not retain exactly the sorted single-item transfer");
    input(AcknowledgeAction{});
    check(h.party->purse->gold==gold+10,"Repeated receipt acknowledgment duplicated gold");

@@ -415,15 +415,15 @@ void carriedConsequences() {
 		for(const auto phase:{XeenRewardPhase::Blank,XeenRewardPhase::Found,XeenRewardPhase::Receipt}) {
 			const auto *pending=std::get_if<XeenEventExecutionSuspended>(&result);
 			check(pending && pending->request.kind==XeenPresentationKind::RewardReceipt &&
-				pending->state.rewardPhase==phase && pending->state.instructionCount==3 &&
+				pending->state.reward.phase==phase && pending->state.instructionCount==3 &&
 				f.p.questItems.at(17)==1 && f.p.questFlags.isSet(2),"controlled prior quest grant phases publish once");
 			result=interpreter.resume(pending->state,XeenPresentationResponse::Acknowledged,f.p,f.w,
 				[&](XeenMapIdentity){return XeenEventScript(f.event);},{});
 		}
 		check(std::holds_alternative<XeenEventExecutionCompleted>(result), "controlled prior event completes");
 		f.flags = std::get<XeenEventExecutionCompleted>(result).finalGameFlags;
-		XeenPendingRewards rewards; rewards.enqueue({10,37,1,0});
-		check(xeenDeliverRewards(rewards,f.p,0).delivered == 1, "controlled prior reward delivered");
+		XeenTreasureStaging rewards; rewards.insert(XeenRewardCategory::Miscellaneous,{10,37,1,0});
+		check(xeenDeliverTreasure(rewards,f.p,0).delivered == 1, "controlled prior reward delivered");
 		f.w.disableObject({23,0}); f.w.disableEventsAtCell({23,10,10,XeenDirection::North},f.event);
 		f.p.roster.at(29).intellect.permanent = -12345; // Existing inactive storage is not an active rule input.
 	});

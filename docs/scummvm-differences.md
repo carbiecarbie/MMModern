@@ -162,7 +162,7 @@ mainland; many items apply there, others wait for areas not open yet.
   them twice; MMModern keeps this original bug. The pin saves and restores
   pending treasure around Events only when the bitwise `gold & gems` is nonzero,
   so for example 5 gold and 2 gems are not saved. [Evidence](original-quirks.md#sv-event-loot-stash). Pin:
-  differs; master not rechecked. Not implemented yet.
+  differs; master not rechecked.
 - **Unused monster drop fields.** No Clouds monster uses drop fields 7-21; the
   pin gives them a zero chance, while MMModern refuses such a record as
   malformed data. No original record and no drop rule is affected.

@@ -500,7 +500,8 @@ void XeenEventFlow::prepareJourneyTransition() {
   closeInventory();
   if(!_encounter->attachJourney(_encounter->ticket(),prepareJourneySprites)) throw std::runtime_error("Journey attachment failed");
  }
- _encounter->beginMonsterReward(_catalog);
+ // The original runs the cell's Events before ordinary delivery (0xd1a5, 0xd1b7);
+ // delivery waits while an Event candidate is in progress.
  if(!_encounter->combat() && _encounter->_regionalAutomatic && !_encounter->_regionalWork && !_encounter->_shoot &&
   !_encounter->monsterReward() && !_encounter->state().pending() && _encounter->state().phase()==XeenEncounterPhase::Exploring) {
   _encounter->beginJourneyEvent();_journeyEventLayers=true;
@@ -508,6 +509,7 @@ void XeenEventFlow::prepareJourneyTransition() {
    drive(beginDetachedEvent(xeenRegionalInteraction(_encounter->_journeyEvents,_camera),true),true);
   },true);
  }
+ if(!_transition)_encounter->beginMonsterReward(_catalog);
  if(_encounter->_shootIntent && !_encounter->state().pending() && !_encounter->_regionalWork && !_encounter->projectilesPending()) _encounter->beginShoot();
 }
 
@@ -891,22 +893,23 @@ IndexedFrame XeenEventFlow::renderEncounter(bool report, bool cosmeticInput, boo
 						_presenter.clear();XeenPresentationRequest request;
 						request.kind=XeenPresentationKind::RewardReceipt;request.response=XeenPresentationResponseRequirement::Acknowledgment;
 						request.mapId=_camera.mapId;
-                        const auto &receipt=*_encounter->_monsterReceipt;
+                        const auto &delivery=*_encounter->_monsterReceipt;const auto &receipt=delivery.receipt;
                         request.treasure.emplace();auto &treasure=*request.treasure;
-                        using Phase=XeenMonsterDeliveryCandidate::Phase;
-                        request.kind=receipt.phase==Phase::Warning?XeenPresentationKind::RewardWarning:XeenPresentationKind::RewardReceipt;
-                        treasure.gold=receipt.treasure.gold;treasure.gems=receipt.treasure.gems;
-                        treasure.stage=receipt.phase==Phase::Blank?XeenTreasureDisplay::Stage::Blank:
-                            receipt.phase==Phase::Found?XeenTreasureDisplay::Stage::Found:XeenTreasureDisplay::Stage::Final;
-                        unsigned first=receipt.cursor;
-                        if(receipt.phase==Phase::Final)for(unsigned i=receipt.count;i>0;--i)if(receipt.records[i-1].recipient){first=i-1;break;}
-                        for(unsigned i=first;i<receipt.count && i==first;++i) {
-                            const auto &entry=receipt.records[i];if(!entry.recipient)continue;
-                            treasure.items.push_back({_party.roster.at(*entry.recipient).name,
-                                _catalog.foundName(static_cast<XeenInventoryCategory>(entry.category),entry.item),false});
+                        using Phase=XeenRewardPhase;
+                        request.kind=delivery.phase==Phase::Warning?XeenPresentationKind::RewardWarning:XeenPresentationKind::RewardReceipt;
+                        treasure.gold=receipt.gold;treasure.gems=receipt.gems;
+                        treasure.stage=delivery.phase==Phase::Blank?XeenTreasureDisplay::Stage::Blank:
+                            delivery.phase==Phase::Found?XeenTreasureDisplay::Stage::Found:XeenTreasureDisplay::Stage::Final;
+                        std::size_t first=delivery.cursor;
+                        if(delivery.phase==Phase::Receipt)for(std::size_t i=receipt.count;i>0;--i)if(receipt.entries[i-1].owner){first=i-1;break;}
+                        for(std::size_t i=first;i<receipt.count && i==first;++i) {
+                            const auto &entry=receipt.entries[i];if(!entry.owner)continue;
+                            treasure.items.push_back({_party.roster.at(*entry.owner).name,
+                                entry.quest?dosText().table("QUEST_ITEM_NAMES").at(entry.item.id-82):
+                                _catalog.foundName(static_cast<XeenInventoryCategory>(entry.category),entry.item),entry.quest});
                         }
                         prepareTreasureWait(_encounter->_rewardLease,
-                            receipt.phase==Phase::Blank?1:receipt.phase==Phase::Found?10:0,true);
+                            delivery.phase==Phase::Blank?1:delivery.phase==Phase::Found?10:0,true);
                         _presenter.originalAssets(dialogText,drawDialogSprite);
 						rendered=_presenter.present(composed.frame,request).frame;_monsterReceiptPresented=true;
 					} else rendered=_presenter.rebase(composed.frame);
@@ -1370,7 +1373,7 @@ void XeenEventFlow::prepareDetachedResult(const XeenManualEventResult &result) t
             if(suspended->state.pendingPresentation->continuation!=XeenEventPendingContinuation::Terminate ||
                 suspended->state.workingCamera.mapId!=work.initialCamera.mapId ||
                 suspended->state.workingCamera.x!=work.initialCamera.x || suspended->state.workingCamera.y!=work.initialCamera.y ||
-                !xeen_state::sameCamera(work.camera,work.initialCamera) || suspended->state.pendingRewards.hasWork())
+                !xeen_state::sameCamera(work.camera,work.initialCamera) || suspended->state.treasureChanged())
                 throw std::logic_error("Detached terminal service capability changed");
             _serviceEventContinuation=work.continuation;
             // Flags remain in the interpreter until completion. Prepare their
@@ -1652,8 +1655,8 @@ bool XeenEventFlow::handlesEscape() const {
 XeenRewardReceipt XeenEventFlow::cleanup(XeenRewardDiscard reason) noexcept {
 	XeenRewardReceipt outcome;
 	if (_pending) {
-		xeenDiscardRewards(_pending->state.pendingRewards, _pending->state.rewardReceipt, reason);
-		outcome = _pending->state.rewardReceipt;
+		xeenDiscardRewards(_pending->state.reward.receipt, _pending->state.treasure, _pending->state.treasureBase(), reason);
+		outcome = _pending->state.reward.receipt;
 		_pending.reset();
 	}
     _portraitSequence.reset();
@@ -1748,15 +1751,15 @@ XeenPresentationUpdate XeenEventFlow::presentPendingEvent() {
         request.text.clear();request.treasure.emplace();auto &treasure=*request.treasure;
         const auto &state=_pending->state;
         if(request.kind==XeenPresentationKind::RewardWarning) {
-            treasure.gold=state.pendingRewards.gold();treasure.gems=state.pendingRewards.gems();
+            treasure.gold=state.treasure.gold;treasure.gems=state.treasure.gems;
         } else {
             const auto &party=_transition?_transition->party:_party;
-            treasure.gold=state.rewardReceipt.gold;treasure.gems=state.rewardReceipt.gems;
-            treasure.stage=state.rewardPhase==XeenRewardPhase::Blank?XeenTreasureDisplay::Stage::Blank:
-                state.rewardPhase==XeenRewardPhase::Found?XeenTreasureDisplay::Stage::Found:XeenTreasureDisplay::Stage::Final;
-            const auto first=state.rewardPhase==XeenRewardPhase::Receipt && state.rewardCursor?state.rewardCursor-1:state.rewardCursor;
-            for(std::size_t i=first;i<state.rewardReceipt.count && i==first;++i) {
-                const auto &entry=state.rewardReceipt.entries[i];if(!entry.owner)continue;
+            treasure.gold=state.reward.receipt.gold;treasure.gems=state.reward.receipt.gems;
+            treasure.stage=state.reward.phase==XeenRewardPhase::Blank?XeenTreasureDisplay::Stage::Blank:
+                state.reward.phase==XeenRewardPhase::Found?XeenTreasureDisplay::Stage::Found:XeenTreasureDisplay::Stage::Final;
+            const auto first=state.reward.phase==XeenRewardPhase::Receipt && state.reward.cursor?state.reward.cursor-1:state.reward.cursor;
+            for(std::size_t i=first;i<state.reward.receipt.count && i==first;++i) {
+                const auto &entry=state.reward.receipt.entries[i];if(!entry.owner)continue;
                 treasure.items.push_back({party.roster.at(*entry.owner).name,
                     entry.quest?dosText().table("QUEST_ITEM_NAMES").at(entry.item.id-82):
                     _catalog.foundName(static_cast<XeenInventoryCategory>(entry.category),entry.item),entry.quest});
@@ -2676,7 +2679,7 @@ IndexedFrame XeenEventFlow::handle(const PlayerAction &physicalAction, std::opti
 				const auto update=_presenter.handle(action);
 				if(update.response) {
 					_treasureWait.reset();
-					if(_encounter->_monsterReceipt->phase==XeenMonsterDeliveryCandidate::Phase::Final) {
+					if(_encounter->_monsterReceipt->phase==XeenRewardPhase::Receipt) {
 						_encounter->acknowledgeMonsterReward();_presenter.clear();prepareJourneyTransition();
 					} else _encounter->advanceMonsterReward();
 					_monsterReceiptPresented=false;

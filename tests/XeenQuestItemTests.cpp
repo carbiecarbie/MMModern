@@ -88,7 +88,7 @@ struct Fixture {
 		const auto counts=members.questItems.counts();
 		for(const auto phase:{XeenRewardPhase::Blank,XeenRewardPhase::Found,XeenRewardPhase::Receipt}) {
 			const auto *s=std::get_if<XeenEventExecutionSuspended>(&result);
-			check(s && s->state.rewardPhase==phase && s->request.kind==XeenPresentationKind::RewardReceipt &&
+			check(s && s->state.reward.phase==phase && s->request.kind==XeenPresentationKind::RewardReceipt &&
 				s->request.rewardWaitTicks==(phase==XeenRewardPhase::Blank?1u:phase==XeenRewardPhase::Found?10u:0u),"quest reward boundary");
 			result=resume(s->state);check(members.questItems.counts()==counts,"treasure re-granted quest counter");
 		}

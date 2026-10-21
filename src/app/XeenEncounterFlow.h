@@ -413,9 +413,8 @@ private:
     void projectilesPresented();
 	bool animateProjectiles();
 	bool projectilesPending() const noexcept { for(const auto &p:_projectiles)if(p.active)return true;return false; }
-	std::optional<XeenMonsterDeliveryCandidate> _monsterReceipt;
+	std::optional<XeenTreasureDelivery> _monsterReceipt;
 	std::uint64_t _monsterReceiptBase=0;
-	std::string _monsterReceiptText;
 	std::uint64_t _rewardLease=0;
 	bool beginShoot();
 	bool serviceShoot();

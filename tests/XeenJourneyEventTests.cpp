@@ -144,7 +144,7 @@ void modalSdlReturn(const fs::path &path,const XeenSaveSnapshot &saved) {
   const auto report=h.flow->reportManual;
   h.flow->reportManual=[&](const auto &result){
    if(const auto *pending=std::get_if<XeenEventExecutionSuspended>(&result)) {
-    if(pending->request.kind==XeenPresentationKind::RewardReceipt)rewardPhase=pending->state.rewardPhase;
+    if(pending->request.kind==XeenPresentationKind::RewardReceipt)rewardPhase=pending->state.reward.phase;
    } else rewardPhase.reset();
    if(report)report(result);
   };

@@ -436,6 +436,19 @@ were staged after Save. [Offsets and boundaries](evidence.md#m81-monster-treasur
 **Implemented (M81 Part A)** for the state, lifetime and save; production is
 still the Orc's level-1 drop.
 
+**DOS static (M81 Part B), high confidence; implemented:** Event treasure uses
+the same arrays. Each Event run stashes the staging when currency or readiness
+is pending and clears only those; Event items take the first empty slot of
+their category, so pending and dormant monster items count against Event
+capacity. After the Events, a pending staging is delivered with the shared rule
+above, monster items included, whatever monsters are in view (the Event loop
+runs in mode 9); the stash then returns over the arrays. With pending monster
+currency the monster items are therefore delivered twice and their currency
+once, an original bug kept on purpose
+([quirk](../original-quirks.md#sv-event-loot-stash)). The cell's Events run
+before ordinary delivery, and an aborted Event leaves the staging as it found
+it. [Evidence](evidence.md#event-processing-stash).
+
 Quest grants participate in this sequence after their quest count has already
 changed. Their display record must not grant the quest again or copy it into
 ordinary inventory. The DOS formatter indexes raw quest IDs 82..116 in its

@@ -46,8 +46,8 @@ struct Fixture {
 	XeenEventExecutionStepResult finishRewards(XeenEventExecutionStepResult result) {
 		const auto counts=members.questItems.counts();unsigned holds=0;
 		while(const auto *s=std::get_if<XeenEventExecutionSuspended>(&result)) {
-			check(++holds<=3*s->state.rewardReceipt.count+1,"quest treasure did not finish");
-			const auto phase=s->state.rewardPhase;
+			check(++holds<=3*s->state.reward.receipt.count+1,"quest treasure did not finish");
+			const auto phase=s->state.reward.phase;
 			check(s->request.kind==XeenPresentationKind::RewardReceipt &&
 				((phase==XeenRewardPhase::Blank && s->request.rewardWaitTicks==1) ||
 				 (phase==XeenRewardPhase::Found && s->request.rewardWaitTicks==10) ||
@@ -242,7 +242,7 @@ void presentationNoReplay() {
 		flow.handle(AcknowledgeAction{});check(flow.blocksGameplay(),"ack answered Yes/No");
 		flow.handle(yes?PlayerAction{YesAction{}}:PlayerAction{NoAction{}});
 		for(const auto phase:{XeenRewardPhase::Blank,XeenRewardPhase::Found,XeenRewardPhase::Receipt}) {
-			check(!completed && flow.blocksGameplay() && suspended && suspended->rewardPhase==phase &&
+			check(!completed && flow.blocksGameplay() && suspended && suspended->reward.phase==phase &&
 				f.members.questItems.at(17)==1,"quest treasure sequence missing or replayed grant");
 			check(suspended->pendingPresentation->request.rewardWaitTicks==(phase==XeenRewardPhase::Blank?1u:phase==XeenRewardPhase::Found?10u:0u),"quest treasure hold duration");
 			flow.handle(AcknowledgeAction{});

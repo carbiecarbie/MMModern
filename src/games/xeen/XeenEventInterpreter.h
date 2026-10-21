@@ -180,8 +180,6 @@ struct XeenEventCallFrame {
 	XeenEventExecutionAddress returnAddress;
 };
 
-enum class XeenRewardPhase { Running, Warning, Blank, Found, Receipt, Completed };
-
 // giveExt's lock picking (0x235ac..0x23726): trap, then the attempt and its message.
 struct XeenEventLockProgress {
 	enum class Phase { Trap, Attempt, Message };
@@ -217,11 +215,15 @@ struct XeenEventExecutionState {
 	std::optional<XeenItemCandidate> rewardItem;
 	unsigned rewardPair=0;
 	bool generatingReward=false;
-	XeenPendingRewards pendingRewards;
+	// Event processing (0x26774) stashes the pending treasure when its currency or
+	// readiness is set and clears only those; Event treasure stages into the same
+	// arrays, is delivered after the Events and the stash is restored over it.
+	XeenTreasureStaging treasure, stash;
+	bool stashed=false;
+	XeenTreasureStaging treasureBase() const { auto base=stash;base.clearPending();return base; }
+	bool treasureChanged() const { return treasure!=treasureBase(); }
 	std::optional<std::size_t> preferredRewardRecipient;
-	XeenRewardPhase rewardPhase = XeenRewardPhase::Running;
-	XeenRewardReceipt rewardReceipt;
-	std::size_t rewardCursor=0;
+	XeenTreasureDelivery reward;
 	XeenEventExecutionAddress logicalAddress;
 	XeenDirection lookupDirection = XeenDirection::North;
 	XeenCamera workingCamera;

@@ -83,7 +83,7 @@ void finishQuestReward(XeenEventFlow &flow,const XeenPartyState &members,
 		const std::optional<XeenEventExecutionState> &suspended) {
 	const auto counts=members.questItems.counts();
 	for(const auto phase:{XeenRewardPhase::Blank,XeenRewardPhase::Found,XeenRewardPhase::Receipt}) {
-		check(flow.blocksGameplay() && suspended && suspended->rewardPhase==phase &&
+		check(flow.blocksGameplay() && suspended && suspended->reward.phase==phase &&
 			suspended->pendingPresentation->request.kind==XeenPresentationKind::RewardReceipt &&
 			suspended->pendingPresentation->request.rewardWaitTicks==(phase==XeenRewardPhase::Blank?1u:phase==XeenRewardPhase::Found?10u:0u),
 			"WhoWill quest treasure boundary");

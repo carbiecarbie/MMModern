@@ -95,15 +95,15 @@ void words() {
  Fixture sword;sword.texts.mirrors.resize(62);sword.texts.mirrors[58].name="Sword";
  sword.script(28,{record(1,1,0,21,{0,2,0,0}),record(1,1,1,18),record(1,1,2,0x30)});
  const auto reward=sword.answer(sword.begin(),"sword");const auto *pending=std::get_if<XeenEventExecutionSuspended>(&reward);
- check(pending && pending->state.rewardReceipt.count==1 && pending->state.rewardReceipt.entries[0].item.id==34,"Sword must enter ordinary treasure delivery and exit");
+ check(pending && pending->state.reward.receipt.count==1 && pending->state.reward.receipt.entries[0].item.id==34,"Sword must enter ordinary treasure delivery and exit");
 }
 void swordCapacityAndEndings() {
  Fixture f;f.texts.mirrors.resize(62);f.texts.mirrors[58].name="Sword";
  f.script(28,{record(1,1,0,21,{0,2,0,3}),record(1,1,1,18),record(1,1,2,1,{3})});
  auto prompt=f.begin();auto &state=std::get<XeenEventExecutionSuspended>(prompt).state;
- for(unsigned i=0;i<10;++i)state.pendingRewards.enqueue({0,1,0,0},XeenRewardCategory::Weapons);
+ for(unsigned i=0;i<10;++i)state.treasure.insert(XeenRewardCategory::Weapons,{0,1,0,0});
  const auto full=f.answer(std::move(prompt),"sword");const auto *p=std::get_if<XeenEventExecutionSuspended>(&full);
- check(p && p->state.logicalAddress.line==3 && p->state.pendingRewards.count(XeenRewardCategory::Weapons)==10,
+ check(p && p->state.logicalAddress.line==3 && p->state.treasure.full(XeenRewardCategory::Weapons),
   "Full sword treasure category must jump to success without another item");
  for(unsigned ending:{39,59,60,61}) {
   Fixture e;e.texts.mirrors.resize(62);e.texts.mirrors[ending].name="Ending";

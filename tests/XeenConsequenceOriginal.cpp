@@ -247,13 +247,13 @@ void individualMonsterTreasure(Source &source) {
   XeenCombatPresentationTestAccess::readyTreasure(*d.flow);
   const auto ready=d.world.treasureStaging().value();
   check(XeenCombatPresentationTestAccess::beginTreasure(*d.flow),"Ready original-resource monster treasure did not begin");
-  using Phase=XeenMonsterDeliveryCandidate::Phase;
+  using Phase=XeenRewardPhase;
   const auto phase=[&]{return XeenCombatPresentationTestAccess::treasure(*d.flow).phase;};
   const auto advance=[&]{XeenCombatPresentationTestAccess::advanceTreasure(*d.flow);};
   check(!d.flow->canSave() && d.world.treasureStaging().value()==ready,"First monster item altered staged treasure or exposed save");
   if(full) {
    check(phase()==Phase::Warning,"Full monster packs omitted original warning");advance();
-   check(phase()==Phase::Final,"Full-pack acknowledgment did not stop at final currency acknowledgment");
+   check(phase()==Phase::Receipt,"Full-pack acknowledgment did not stop at final currency acknowledgment");
   } else {
    const auto owner=d.party.party.activeOrder()[0];
    check(phase()==Phase::Blank && d.party.roster.at(owner).armor.back().id==2 &&
@@ -263,7 +263,7 @@ void individualMonsterTreasure(Source &source) {
    advance();check(phase()==Phase::Found && d.party.roster.at(owner).armor.front().id==2,"Monster found line did not sort exactly its recipient");
    advance();check(phase()==Phase::Blank && d.party.roster.at(owner).armor.back().id==3,"Monster found completion did not transfer exactly next item");
    advance();check(phase()==Phase::Found,"Second monster found line missing");advance();
-   check(phase()==Phase::Final && d.party.purse->gold==gold,"Final monster hold acknowledged itself");
+   check(phase()==Phase::Receipt && d.party.purse->gold==gold,"Final monster hold acknowledged itself");
   }
   XeenCombatPresentationTestAccess::finishTreasure(*d.flow);
   check(d.party.purse->gold==gold+10 && !d.world.treasureStaging().value().pending() &&

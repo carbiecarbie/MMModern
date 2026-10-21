@@ -950,15 +950,44 @@ occupied (`0x26abd`), like the pin.
 retention is unchanged. With stashed monster currency and an Event that gives
 treasure, delivery hands over the Event treasure together with the monster
 items, and the restore then re-stages those monster items with their currency,
-so the items are delivered a second time and the monster currency once. The
-Event's treasure would be lost only if an Event opcode left the mode other than
-9 before `0x28d70`; the other mode writers (`0x236a3`, `0x24c87`, `0x25008`
-and register restores) are not traced. Monster currency is pending when an
-Event starts only if its own delivery was deferred: a kill while another
-monster still holds an attack slot. Whether that leads to the duplicate also
-depends on the main-loop order of Events and ordinary delivery
-(`0xd0bd..0xd1b7`), not traced; the pin runs Events first (`xeen.cpp`). Without
+so the items are delivered a second time and the monster currency once.
+Monster currency is pending when an Event starts only if its own delivery was
+deferred: a kill while another monster still holds an attack slot. Without
 stashed currency, an Event reward delivers dormant monster items with it.
+
+**Delivery mode and main-loop order (M81 Part B, 2026-10-20; DOS static, high
+confidence for Clouds).** MMModern baseline `d210bf169f3e927e24e94710b2eced57029a2150`;
+same DAT hash; hash-checked Capstone reads under WSL and a read-only sweep of the
+CD `XEEN.CC` map scripts, no DOSBox execution. Work files stay in
+`D:\MModern-re\m81-partB\`.
+
+- *No Clouds Event reaches delivery outside mode 9.* All 77 writes of the mode
+  byte were swept and the direct-call closure of `0x26774` followed. Reachable
+  writers either save and restore the mode on every exit (`0x249bf`,
+  `0x24c71`, `0x24fef`, the town services `0x1cea5` with mode 17, and every
+  writer nested inside them), are the delivery itself (`0x24128`, called only
+  at `0x28d8d`), or start movement and combat only in modes 1, 2 or 5
+  (draw routine `0x10bc3`: `0x10c01..0x10c2d`, `0x11817..0x1183e`). The one
+  non-restoring writer an Event line reaches is giveExt's lock pick
+  (`0x2358e`, mode 7 at `0x236a3`, called from GiveMulti at `0x27ea3`;
+  success continues at `0x28d30` to the next line). Every Clouds GiveMulti
+  line on a box (sprites 16, 58, 73: 65 lines on 76 boxes) is followed by a line
+  that always matches, so `0x26bf9` writes 9 again before delivery. The
+  between-line abort for attack slot 0 (`0x26abd`) cannot newly trigger there:
+  the draw routine recomputes the slots (`0x14406`, `0x1692c`), but monsters
+  move only in modes 1 and 2 and no box script moves the party. Ten indirect
+  call sites (runtime and driver code) were not followed; Dark Side boxes
+  (sprite 15) are outside Clouds.
+- *Events run before ordinary delivery.* The exploration loop
+  (`0xd18c..0xd5e5`) looks up the party cell (`0x11f04`, the only writer of the
+  Event-cell flag DS:`f482`, at `0x11ffc`), runs the Events (`0xd1a5`) when the
+  cell has any, leaves the loop if they return nonzero (`0xd5e8`), then calls
+  ordinary delivery (`0xd1b7`) before the input wait (`0xd1c9..0xd1f2`, whose
+  back edge `0xd1bc` follows delivery). Every iteration therefore runs Events
+  first, as the pin's `gameLoop` does. With monster currency pending and no
+  monster in an attack slot, an Event treasure is delivered with the monster
+  items, the restore stages them again, and ordinary delivery hands them over
+  once more in the same iteration.
 
 ## Treasure delivery
 

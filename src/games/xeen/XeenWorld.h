@@ -234,6 +234,8 @@ public:
 	// check that revision before their nonthrowing stores; publishTransition
 	// returns the copy only when the detached work changed it.
 	void checkTransitionTreasure(const XeenWorld &candidate) const { treasureStaging().check(candidate._transitionTreasureBase); }
+	// The staging value the candidate copied: an Event's entry snapshot.
+	const XeenTreasureStaging &transitionTreasureSnapshot() const noexcept { return _transitionTreasureSnapshot; }
 	bool transitionTreasureChanged() const noexcept {
 		return _detachedEventCandidate && _ownTreasureStaging.revision() != _transitionTreasureCopy;
 	}
@@ -342,6 +344,7 @@ private:
 	XeenTreasureStagingState _ownTreasureStaging;
 	XeenTreasureStagingState *_treasureStaging = &_ownTreasureStaging;
 	std::uint64_t _transitionTreasureBase = 0, _transitionTreasureCopy = 0;
+	XeenTreasureStaging _transitionTreasureSnapshot;
 	// Immutable loaded MON catalog for mainland, original city and script-created city slots.
 	std::vector<XeenMonsterRecord> _cityStatistics;
 	// Derived from checked immutable city resources; never gameplay authority.

@@ -183,16 +183,16 @@ void checkpoint(XeenAssetSource &assets, const std::filesystem::path &output, in
 					q.text==text.strings.at(returning?3:0) && q.npc && q.npc->portraitId==17,"ordinary line-0 NPC frontier");
 			} else if(q.kind==XeenPresentationKind::RewardReceipt) {
 				check(returning && p->state.instructionCount==cd_myra_test::returnCount &&
-					p->state.rewardReceipt.overflow==0 && p->state.pendingRewards.size()==5,"original return receipt/count");
-				expectDelivery(p->state.rewardReceipt.delivered,p->state.rewardPhase!=XeenRewardPhase::Blank);
-				if(p->state.rewardPhase==XeenRewardPhase::Receipt) {
-					++receipts;check(receipts==1 && p->state.rewardReceipt.delivered==(lossFixture==1?0U:5U) &&
-						p->state.rewardReceipt.lost==(lossFixture==1?5U:0U),"final receipt totals");
+					xeenPrepareRewardReceipt(p->state.treasure).count==5,"original return receipt/count");
+				expectDelivery(p->state.reward.receipt.delivered,p->state.reward.phase!=XeenRewardPhase::Blank);
+				if(p->state.reward.phase==XeenRewardPhase::Receipt) {
+					++receipts;check(receipts==1 && p->state.reward.receipt.delivered==(lossFixture==1?0U:5U) &&
+						p->state.reward.receipt.lost==(lossFixture==1?5U:0U),"final receipt totals");
 				}
 			} else if(q.kind==XeenPresentationKind::RewardWarning) {
 				++warnings;check(returning && lossFixture==1 && warnings==1 &&
-					p->state.instructionCount==cd_myra_test::returnCount && p->state.pendingRewards.size()==5 &&
-					!p->state.rewardReceipt.delivered,"original capacity warning phase");
+					p->state.instructionCount==cd_myra_test::returnCount && xeenPrepareRewardReceipt(p->state.treasure).count==5 &&
+					!p->state.reward.receipt.delivered,"original capacity warning phase");
 				expectDelivery(); // Quest mutations precede warning; prepared items remain unchanged.
 			} else throw std::runtime_error("unexpected Myra presentation kind");
 		}else if(const auto*e=std::get_if<XeenEventExecutionError>(&r))terminal=*e;

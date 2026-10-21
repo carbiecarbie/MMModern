@@ -24,17 +24,17 @@ void application(const fs::path &path,bool fullPacks){
 			output.text.str().find("Owner 29  inactive")!=std::string::npos&&output.text.str().find("ID=254")!=std::string::npos,"setup owner/alias snapshot");
 		const auto reads=f.eventReads;handle(InspectInventoryAction{});++inspections;check(reads==f.eventReads,"I dispatched event");handle(CancelInteractionAction{});
 		handle(InteractionAction{});XeenRewardTestAccess::seed(*f.flow,10);
-		const auto refused=[&]{const auto gen=f.flow->presentationGeneration();const auto phase=XeenRewardTestAccess::state(*f.flow).rewardPhase;
+		const auto refused=[&]{const auto gen=f.flow->presentationGeneration();const auto phase=XeenRewardTestAccess::state(*f.flow).reward.phase;
 			const auto n=f.eventReads,c=f.compositions;const auto out=output.text.str();handle(InspectInventoryAction{});handle(EquipmentInventoryAction{});
 			check(output.text.str()==out,"pending I produced snapshot");handle(SaveGameAction{});
-			check(!fs::exists(path)&&f.eventReads==n&&f.compositions==c&&f.flow->presentationGeneration()==gen&&XeenRewardTestAccess::state(*f.flow).rewardPhase==phase,"refused F9 captured/advanced/I/O");};
+			check(!fs::exists(path)&&f.eventReads==n&&f.compositions==c&&f.flow->presentationGeneration()==gen&&XeenRewardTestAccess::state(*f.flow).reward.phase==phase,"refused F9 captured/advanced/I/O");};
 		refused();
 		f.flow->reportManual=[&](const auto &result){if(const auto *s=std::get_if<XeenEventExecutionSuspended>(&result)){
 			if(s->request.kind==XeenPresentationKind::RewardReceipt){handle(SaveGameAction{});check(!fs::exists(path)&&status().find("idle gameplay boundary")!=std::string::npos,"reentrant save allowed");reentrant=true;}}};
 		handle(AcknowledgeAction{});check(escape(),"reward Escape not intercepted");refused();
-		if(fullPacks){while(XeenRewardTestAccess::state(*f.flow).rewardPhase==XeenRewardPhase::Warning)handle(CancelInteractionAction{});refused();}
-		else while(XeenRewardTestAccess::state(*f.flow).rewardPhase!=XeenRewardPhase::Receipt)handle(CancelInteractionAction{});
-		check(XeenRewardTestAccess::state(*f.flow).rewardReceipt.delivered==(fullPacks?0U:10U),"production receipt result");
+		if(fullPacks){while(XeenRewardTestAccess::state(*f.flow).reward.phase==XeenRewardPhase::Warning)handle(CancelInteractionAction{});refused();}
+		else while(XeenRewardTestAccess::state(*f.flow).reward.phase!=XeenRewardPhase::Receipt)handle(CancelInteractionAction{});
+		check(XeenRewardTestAccess::state(*f.flow).reward.receipt.delivered==(fullPacks?0U:10U),"production receipt result");
 		while(f.flow->blocksGameplay())handle(CancelInteractionAction{});
 		check(!fs::exists(path),"deferred save occurred");handle(InspectInventoryAction{});++inspections;handle(CancelInteractionAction{});
 		handle(SaveGameAction{});check(status().find("Map exploration cannot save.")!=std::string::npos&&!fs::exists(path),"ordinary reward flow became saveable");
@@ -69,7 +69,7 @@ void actualProducerGuards(){
 		};
 		handle(AcknowledgeAction{});refused();
 		check(live->questItems.at(17)==0 && !live->questFlags.isSet(2) && live->roster.at(0).miscellaneous.back().id==37 &&
-			XeenRewardTestAccess::state(*f.flow).rewardPhase==XeenRewardPhase::Blank,"actual production transfer before sort");
+			XeenRewardTestAccess::state(*f.flow).reward.phase==XeenRewardPhase::Blank,"actual production transfer before sort");
 		unsigned acks=0;while(f.flow->blocksGameplay()){check(++acks<100,"actual receipt bound");handle(AcknowledgeAction{});}
 		const auto before=output.text.str().size();handle(InspectInventoryAction{});
 		check(f.flow->inventoryOpen() && live->questItems.at(17)==0 && !live->questFlags.isSet(2),"actual post-cleanup items");
@@ -133,7 +133,7 @@ void sdl(const fs::path &path,bool fullPacks){
 				else{++saved;SDL_Event q{};q.type=SDL_QUIT;SDL_PushEvent(&q);}
 			}else if(std::holds_alternative<AcknowledgeAction>(action)){delivered=true;receiptSeen=!fullPacks;key(SDLK_F9);}
 			else if(std::holds_alternative<CancelInteractionAction>(action)){
-				if(f.flow->blocksGameplay()&&XeenRewardTestAccess::state(*f.flow).rewardPhase==XeenRewardPhase::Receipt&&!receiptSeen){receiptSeen=true;key(SDLK_F9);}
+				if(f.flow->blocksGameplay()&&XeenRewardTestAccess::state(*f.flow).reward.phase==XeenRewardPhase::Receipt&&!receiptSeen){receiptSeen=true;key(SDLK_F9);}
 				else key(f.flow->blocksGameplay()?SDLK_ESCAPE:SDLK_F9);
 			}
 			return frame;

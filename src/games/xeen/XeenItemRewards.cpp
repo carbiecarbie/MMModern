@@ -5,9 +5,6 @@
 
 namespace mmodern {
 namespace {
-void increment(std::size_t &value) noexcept {
-	if (value != std::numeric_limits<std::size_t>::max()) ++value;
-}
 // Roster names are data, not font control sequences in diagnostic presentation.
 std::string diagnosticName(const std::string &name) {
 	std::string result;
@@ -20,16 +17,6 @@ void fields(std::ostream &out, XeenItem item, bool misc) {
 		<< (misc ? " charges=" : " counter=") << unsigned(item.state & 63)
 		<< " cursed=" << bool(item.state & 64) << " broken=" << bool(item.state & 128);
 }
-}
-XeenRewardEnqueue XeenPendingRewards::enqueue(XeenItem item) noexcept {
-	return enqueue(item,XeenRewardCategory::Miscellaneous);
-}
-XeenRewardEnqueue XeenPendingRewards::enqueue(XeenItem item,XeenRewardCategory category) noexcept {
-	if (!item.id) { increment(_invalid); return XeenRewardEnqueue::InvalidEmpty; }
-	const auto index=static_cast<unsigned>(category);
-	if(index>=4 || _counts[index]==kCapacity) {increment(_overflow);return XeenRewardEnqueue::IgnoredOverflow;}
-	++_counts[index];_categories[_size]=category;_items[_size++] = item;
-	return XeenRewardEnqueue::Accepted;
 }
 XeenItemCategory &xeenRewardItems(XeenCharacter &c,XeenRewardCategory category) noexcept {
 	switch(category) {
@@ -91,13 +78,18 @@ std::optional<std::size_t> xeenDeliverRewardItem(XeenCharacter *const *owners,
 	if(sort)xeenCompactItems(items);
 	return recipient;
 }
-XeenRewardReceipt xeenPrepareRewardReceipt(const XeenPendingRewards &pending) noexcept {
-	XeenRewardReceipt result;result.count=pending.size();result.overflow=pending.overflow();result.invalid=pending.invalid();
-	result.gold=pending.gold();result.gems=pending.gems();std::size_t next=0;
-	for(unsigned category=0;category<4;++category)for(std::size_t i=0;i<pending.size();++i)
-		if(static_cast<unsigned>(pending.categoryAt(i))==category) {
-			auto &entry=result.entries[next++];entry.item=pending.at(i);entry.category=pending.categoryAt(i);entry.quest=pending.questAt(i);
+bool xeenTreasureQuest(const XeenItem &item,XeenRewardCategory category) noexcept {
+	return category==XeenRewardCategory::Weapons && item.id>=82;
+}
+XeenRewardReceipt xeenPrepareRewardReceipt(const XeenTreasureStaging &staged) noexcept {
+	XeenRewardReceipt result;result.gold=staged.gold;result.gems=staged.gems;
+	for(unsigned category=0;category<4;++category) {
+		const auto kind=static_cast<XeenRewardCategory>(category);
+		for(const auto &item:staged.items(kind)) {
+			if(XeenTreasureStaging::emptySlot(item,kind))continue;
+			auto &entry=result.entries[result.count++];entry.item=item;entry.category=kind;entry.quest=xeenTreasureQuest(item,kind);
 		}
+	}
 	return result;
 }
 void xeenDeliverRewardEntry(XeenRewardReceipt &receipt,std::size_t index,XeenPartyState &party,
@@ -114,53 +106,59 @@ void xeenDeliverRewardEntry(XeenRewardReceipt &receipt,std::size_t index,XeenPar
 void xeenSortRewardEntry(const XeenRewardEntry &entry,XeenPartyState &party) {
 	if(entry.owner)xeenCompactItems(xeenRewardItems(party.roster.at(*entry.owner),entry.category));
 }
-void xeenCreditRewardCurrency(XeenPendingRewards &pending,const XeenRewardReceipt &receipt,XeenPartyState &party) noexcept {
-	if(party.purse){party.purse->gold+=receipt.gold;party.purse->gems+=receipt.gems;}
-	pending={};
-}
-XeenRewardReceipt xeenDeliverRewards(XeenPendingRewards &pending,
-		XeenPartyState &party, std::optional<std::size_t> preferred) {
-	XeenRewardReceipt result;
-	result.count = pending.size(); result.overflow = pending.overflow(); result.invalid = pending.invalid();
-	const auto &ids = party.party.activeRosterIds();
-	// Membership is validated by XeenParty; resolve all owners before mutation.
-	std::array<XeenCharacter *, XeenParty::kMaximumVisibleMembers> owners{};
-	for (std::size_t i = 0; i < ids.size(); ++i) owners[i] = &party.roster.at(ids[i]);
-	std::size_t entryIndex=0;
-	for(unsigned category=0;category<4;++category)for(std::size_t i=0;i<pending.size();++i)
-		if(static_cast<unsigned>(pending.categoryAt(i))==category) {
-			auto &entry=result.entries[entryIndex++];entry.item=pending.at(i);entry.category=pending.categoryAt(i);entry.quest=pending.questAt(i);
-		}
-	// Everything below is bounded, allocation-free and nonthrowing.
-	for (std::size_t i = 0; i < result.count; ++i) {
-		auto &entry = result.entries[i];
-		const auto recipient=xeenDeliverRewardItem(owners.data(),ids.size(),entry.item,entry.category,preferred,true,entry.quest);
-		if (recipient) {
-			entry.owner = ids[*recipient]; ++result.delivered;
-		} else {
-			entry.loss = ids.empty() ? XeenRewardLoss::EmptyParty : XeenRewardLoss::GloballyFull;
-			++result.lost;
-		}
+namespace {
+// DOS 0x2431b..0x24565: each slot in turn; an item without a recipient is lost
+// and the scan continues. A transfer is followed by the blank hold.
+void deliverNext(XeenTreasureDelivery &delivery,XeenPartyState &party,std::optional<std::size_t> preferred) {
+	for(;delivery.cursor<delivery.receipt.count;++delivery.cursor) {
+		xeenDeliverRewardEntry(delivery.receipt,delivery.cursor,party,preferred,false);
+		if(delivery.receipt.entries[delivery.cursor].owner) {delivery.phase=XeenRewardPhase::Blank;return;}
 	}
-	// DOS 0x2433e..0x2437b clears only items; 0x2486a..0x24884 still credits money.
-	result.gold=pending.gold();result.gems=pending.gems();
-	if(party.purse) {party.purse->gold+=result.gold;party.purse->gems+=result.gems;}
-	pending = {};
+	delivery.phase=XeenRewardPhase::Receipt;
+}
+}
+void xeenBeginTreasureDelivery(XeenTreasureDelivery &delivery,const XeenTreasureStaging &staged,XeenPartyState &party,
+		std::optional<std::size_t> preferred) {
+	if(!staged.pending())throw std::invalid_argument("Treasure is not ready for delivery");
+	delivery=XeenTreasureDelivery{};delivery.receipt=xeenPrepareRewardReceipt(staged);
+	if(xeenPacksGloballyFull(party))delivery.phase=XeenRewardPhase::Warning;
+	else deliverNext(delivery,party,preferred);
+}
+void xeenAdvanceTreasureDelivery(XeenTreasureDelivery &delivery,XeenPartyState &party,std::optional<std::size_t> preferred) {
+	switch(delivery.phase) {
+	case XeenRewardPhase::Warning: deliverNext(delivery,party,preferred);return;
+	case XeenRewardPhase::Blank:
+		// Sorting and the found text precede the ten-tick hold (0x247ed..0x247f4).
+		xeenSortRewardEntry(delivery.receipt.entries[delivery.cursor],party);delivery.phase=XeenRewardPhase::Found;return;
+	case XeenRewardPhase::Found: ++delivery.cursor;deliverNext(delivery,party,preferred);return;
+	default: throw std::logic_error("Treasure delivery has no presentation step to advance");
+	}
+}
+XeenRewardReceipt xeenDeliverTreasure(const XeenTreasureStaging &staged,XeenPartyState &party,
+		std::optional<std::size_t> preferred) {
+	auto result=xeenPrepareRewardReceipt(staged);
+	for(std::size_t i=0;i<result.count;++i)xeenDeliverRewardEntry(result,i,party,preferred,true);
+	if(party.purse)*party.purse=xeenCreditTreasure(*party.purse,staged);
 	return result;
 }
-void xeenDiscardRewards(XeenPendingRewards &pending, XeenRewardReceipt &receipt,
-		XeenRewardDiscard reason) noexcept {
-	if (pending.hasWork()) {
-		const auto published=std::min(receipt.count,receipt.delivered+receipt.lost);
-		receipt.discarded = receipt.count ? receipt.count-published : pending.size(); receipt.overflow = pending.overflow();
-		receipt.invalid = pending.invalid(); receipt.discardReason = reason;
+void xeenDiscardRewards(XeenRewardReceipt &receipt,const XeenTreasureStaging &staged,
+		const XeenTreasureStaging &base,XeenRewardDiscard reason) noexcept {
+	if(staged==base && !receipt.count)return;
+	if(receipt.count)receipt.discarded=receipt.count-std::min(receipt.count,receipt.delivered+receipt.lost);
+	else {
+		receipt.discarded=0;
+		for(unsigned category=0;category<4;++category) {
+			const auto kind=static_cast<XeenRewardCategory>(category);
+			for(std::size_t i=0;i<XeenTreasureStaging::kSlots;++i)
+				if(!XeenTreasureStaging::emptySlot(staged.items(kind)[i],kind) && XeenTreasureStaging::emptySlot(base.items(kind)[i],kind))
+					++receipt.discarded;
+		}
 	}
-	pending = {};
+	receipt.discardReason=reason;
 }
 std::string xeenRewardReceiptText(const XeenRewardReceipt &receipt, const XeenRoster &roster) {
 	std::ostringstream out;
-	out << "Reward receipt\nDelivered=" << receipt.delivered << " Lost=" << receipt.lost
-		<< " Overflow=" << receipt.overflow << " Invalid empty=" << receipt.invalid << '\n';
+	out << "Reward receipt\nDelivered=" << receipt.delivered << " Lost=" << receipt.lost << '\n';
 	out << "M=material S=state F=frame\n";
 	if(receipt.gold || receipt.gems)
 		out<<"Gold="<<receipt.gold<<" Gems="<<receipt.gems<<'\n';
@@ -173,8 +171,6 @@ std::string xeenRewardReceiptText(const XeenRewardReceipt &receipt, const XeenRo
 		constexpr const char *names[]={"Weapons","Armor","Accessories","Miscellaneous"};
 		out << '\n'<<names[static_cast<unsigned>(e.category)]<<' '; fields(out, e.item,e.category==XeenRewardCategory::Miscellaneous); out << '\n';
 	}
-	if (receipt.overflow) out << "Overflow ignored: pending capacity 10 per category.\n";
-	if (receipt.invalid) out << "Empty typed input rejected: ID zero.\n";
 	out << "Space / Enter / Escape: next or done";
 	return out.str();
 }

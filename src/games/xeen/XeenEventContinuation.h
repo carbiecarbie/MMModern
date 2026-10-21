@@ -15,18 +15,17 @@ struct XeenEventDispatchRecord {
 class XeenEventContinuation {
 public:
 	explicit XeenEventContinuation(const XeenEventExecutionState &state,bool regionalRewards=false) : expected(state) {
-		if(!state.currentScript || !state.pendingPresentation || (!regionalRewards && (state.pendingRewards.hasWork() ||
-			state.rewardPhase!=XeenRewardPhase::Running || state.rewardReceipt.count ||
-			state.rewardReceipt.delivered || state.rewardReceipt.lost || state.rewardReceipt.overflow ||
-			state.rewardReceipt.invalid || state.rewardReceipt.discarded ||
-			state.rewardReceipt.discardReason!=XeenRewardDiscard::None)) ||
+		if(!state.currentScript || !state.pendingPresentation || (!regionalRewards && (state.treasureChanged() ||
+			state.reward.phase!=XeenRewardPhase::Running || state.reward.receipt.count ||
+			state.reward.receipt.delivered || state.reward.receipt.lost || state.reward.receipt.discarded ||
+			state.reward.receipt.discardReason!=XeenRewardDiscard::None)) ||
 			state.instructionCount>XeenEventInterpreter::kMaximumInstructions ||
 			state.callStack.size()>XeenEventInterpreter::kMaximumCallDepth)
 			throw std::logic_error("Unsupported detached Event continuation");
 	}
 	void check(const XeenEventExecutionState &state) const {
 		const auto &a=state;const auto &b=expected;
-		bool same=optional(a.portraitDamage,b.portraitDamage,[](const auto &x,const auto &y){return x==y;}) && optional(a.portraitRandom,b.portraitRandom,[](const auto &x,const auto &y){return x==y;}) && a.sparkledOwners==b.sparkledOwners && optional(a.portraitProgress,b.portraitProgress,[](const auto &x,const auto &y){return x==y;}) && queue(a.pendingRewards,b.pendingRewards) && a.rewardPhase==b.rewardPhase && a.rewardCursor==b.rewardCursor &&
+		bool same=optional(a.portraitDamage,b.portraitDamage,[](const auto &x,const auto &y){return x==y;}) && optional(a.portraitRandom,b.portraitRandom,[](const auto &x,const auto &y){return x==y;}) && a.sparkledOwners==b.sparkledOwners && optional(a.portraitProgress,b.portraitProgress,[](const auto &x,const auto &y){return x==y;}) && a.treasure==b.treasure && a.stash==b.stash && a.stashed==b.stashed && a.reward.phase==b.reward.phase && a.reward.cursor==b.reward.cursor &&
 			optional(a.cdSpeech,b.cdSpeech,speech) &&
 			optional(a.rewardRandom,b.rewardRandom,[](const auto &x,const auto &y){return x==y;}) &&
 			optional(a.rewardItem,b.rewardItem,[](const auto &x,const auto &y){return x==y;}) &&
@@ -43,9 +42,9 @@ public:
 			a.callStack.size()==b.callStack.size() &&
 			optional(a.pendingPresentation,b.pendingPresentation,presentation);
 		for(unsigned i=0;same && i<a.callStack.size();++i)same=address(a.callStack[i].returnAddress,b.callStack[i].returnAddress);
-		const auto &r=a.rewardReceipt;const auto &s=b.rewardReceipt;
+		const auto &r=a.reward.receipt;const auto &s=b.reward.receipt;
 		same=same && r.count==s.count && r.delivered==s.delivered && r.lost==s.lost && r.gold==s.gold && r.gems==s.gems &&
-			r.overflow==s.overflow && r.invalid==s.invalid && r.discarded==s.discarded && r.discardReason==s.discardReason;
+			r.discarded==s.discarded && r.discardReason==s.discardReason;
 		for(unsigned i=0;same && i<r.entries.size();++i) {
 			const auto &x=r.entries[i];const auto &y=s.entries[i];
 			same=x.owner==y.owner && x.loss==y.loss && x.category==y.category && x.quest==y.quest && x.item.material==y.item.material &&
@@ -67,15 +66,6 @@ private:
 		return std::tie(a.track,a.start,a.finish)==std::tie(b.track,b.start,b.finish);
 	}
 	XeenEventExecutionState expected;
-	static bool queue(const XeenPendingRewards &a,const XeenPendingRewards &b) {
-		if(a.size()!=b.size() || a.overflow()!=b.overflow() || a.invalid()!=b.invalid() || a.gold()!=b.gold() || a.gems()!=b.gems())return false;
-		for(std::size_t i=0;i<a.size();++i) {
-			const auto &x=a.at(i),&y=b.at(i);
-			if(a.categoryAt(i)!=b.categoryAt(i) || a.questAt(i)!=b.questAt(i))return false;
-			if(std::tie(x.material,x.id,x.state,x.frame)!=std::tie(y.material,y.id,y.state,y.frame))return false;
-		}
-		return true;
-	}
 	static bool address(const XeenEventExecutionAddress &a,const XeenEventExecutionAddress &b) {
 		return std::tie(a.mapId,a.x,a.y,a.line)==std::tie(b.mapId,b.x,b.y,b.line);
 	}

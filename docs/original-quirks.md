@@ -124,7 +124,10 @@ with their currency, so the items are delivered twice and the currency once.
 Without stashed currency, an Event reward also delivers dormant monster items.
 [Trace](rules/evidence.md#event-processing-stash). Kept on purpose as an
 original bug (maintainer, 2026-10-20); **QoL candidate** for a later opt-in
-correction. Not implemented yet: MMModern gives Event rewards their own queue.
+correction. **Implemented (M81 Part B):** each Event run keeps its stash and
+entry snapshot in `XeenEventExecutionState`, stages into the shared arrays and
+delivers with the shared monster/Event delivery; the cell's Events run before
+ordinary monster delivery, and an aborted run leaves the staging unchanged.
 **ScummVM:** differs: the pin stashes only when the bitwise `gold & gems` is
 nonzero.
 

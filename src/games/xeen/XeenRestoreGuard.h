@@ -376,8 +376,15 @@ private:
 			throw std::logic_error("Service prelude moved outside its physical Event");
 		cameraValue=after;flagValues=flags.values();
 	}
+	// An Event candidate staged on a copy of the running program's treasure: the
+	// observed owner must still hold the Event's entry snapshot.
+	void checkEventStaging(const XeenRestoreGuard &candidate) const {
+		if(candidate.w.detachedEventCandidate() && w.treasureStaging().value()!=candidate.w.transitionTreasureSnapshot()) {
+			failed=true;throw std::logic_error("Event treasure snapshot changed");
+		}
+	}
 	void prepareVertigoPublication(const XeenRestoreGuard &candidate) {
-		check();candidate.check();
+		check();candidate.check();checkEventStaging(candidate);
         auto explored=s.exploredTiles();
         // The existing visit-only map lifetime also drops its explored cells.
         // All retained maps, and same-map Event continuations, stay exact.
@@ -435,6 +442,7 @@ private:
 			if(inputs[owner])*inputs[owner]=*candidate.inputs[owner];
 		}
 		purse=candidate.purse;
+		if(candidate.w.transitionTreasureChanged())prepareStagingPublication(candidate.w.treasureStaging().value());
 		s._journeyRandom=candidate.s._journeyRandom;
 		maps.swap(nextMaps);objects.swap(nextObjects);cityStatistics.swap(statistics);
 		cameraValue=candidate.cameraValue;flagValues=candidate.flagValues;++worldRevision;
@@ -444,7 +452,7 @@ private:
 	// Sequence boundaries publish the interpreter's known party/RNG prefix while
 	// camera, game flags and World overlays remain owned by final settlement.
 	void prepareEventSequencePrefix(const XeenRestoreGuard &candidate) {
-		check();candidate.check();
+		check();candidate.check();checkEventStaging(candidate);
 		if(candidate.membership!=membership || candidate.marked!=marked ||
 			bool(candidate.recovery)!=bool(recovery) || bool(candidate.context)!=bool(context) || bool(candidate.purse)!=bool(purse) ||
 			bool(candidate.economy)!=bool(economy) || candidate.first!=first || candidate.effective!=effective ||

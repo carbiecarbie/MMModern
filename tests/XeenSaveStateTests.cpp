@@ -227,7 +227,7 @@ void mutationPolicies() {
 		if (outcome == 2) {
 			check(flow.canCancelInteraction(), "missing WhoWill"); flow.handle(CancelInteractionAction{});
 			for(const auto phase:{XeenRewardPhase::Blank,XeenRewardPhase::Found,XeenRewardPhase::Receipt}) {
-				check(flow.blocksGameplay() && suspended && suspended->rewardPhase==phase &&
+				check(flow.blocksGameplay() && suspended && suspended->reward.phase==phase &&
 					suspended->pendingPresentation->request.rewardWaitTicks==(phase==XeenRewardPhase::Blank?1u:phase==XeenRewardPhase::Found?10u:0u) &&
 					f.party.questItems.at(17)==1 && !f.flags.isSet(7) && f.camera.mapId==XeenMapIdentity(1),
 					"cancelled WhoWill skipped treasure, re-granted or committed camera/flags early");

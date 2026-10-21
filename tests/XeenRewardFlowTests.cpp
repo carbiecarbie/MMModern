@@ -37,13 +37,13 @@ void flows(){
 			const auto page=flow.presenter().pageIndex();flow.handle(a);check(flow.presenter().pageIndex()==page,"unrelated input advanced receipt");}
 		if(global){
 			check(XeenRewardTestAccess::state(flow).pendingPresentation->request.text.find("Remaining items will be lost. Gold and gems are still credited.")!=std::string::npos,"Full-pack warning preserves currency");
-			check(XeenRewardTestAccess::state(flow).rewardPhase==XeenRewardPhase::Warning&&XeenRewardTestAccess::state(flow).pendingRewards.size()==10,"warning inserted/lost early");
-			while(XeenRewardTestAccess::state(flow).rewardPhase==XeenRewardPhase::Warning)flow.handle(CancelInteractionAction{});
-			check(flow.presenter().pageIndex()==0&&XeenRewardTestAccess::state(flow).rewardReceipt.lost==10,"one input consumed warning and receipt");
+			check(XeenRewardTestAccess::state(flow).reward.phase==XeenRewardPhase::Warning&&xeenPrepareRewardReceipt(XeenRewardTestAccess::state(flow).treasure).count==10,"warning inserted/lost early");
+			while(XeenRewardTestAccess::state(flow).reward.phase==XeenRewardPhase::Warning)flow.handle(CancelInteractionAction{});
+			check(flow.presenter().pageIndex()==0&&XeenRewardTestAccess::state(flow).reward.receipt.lost==10,"one input consumed warning and receipt");
 		}else {
-			check(XeenRewardTestAccess::state(flow).rewardReceipt.delivered<=2,"Input transferred more than the next item");
-			while(XeenRewardTestAccess::state(flow).rewardPhase!=XeenRewardPhase::Receipt)flow.handle(CancelInteractionAction{});
-			check(XeenRewardTestAccess::state(flow).rewardReceipt.delivered==10,"receipt missing insertion");
+			check(XeenRewardTestAccess::state(flow).reward.receipt.delivered<=2,"Input transferred more than the next item");
+			while(XeenRewardTestAccess::state(flow).reward.phase!=XeenRewardPhase::Receipt)flow.handle(CancelInteractionAction{});
+			check(XeenRewardTestAccess::state(flow).reward.receipt.delivered==10,"receipt missing insertion");
 		}
 		const auto snapshot=xeenInventoryInspection(e.f.initial);const auto receiptGen=flow.presentationGeneration();
 		flow.refresh(true);check(snapshot==xeenInventoryInspection(e.f.initial)&&receiptGen==flow.presentationGeneration(),"rebase replayed delivery");
@@ -66,7 +66,7 @@ void producedFlow(){
 		check(e.f.initial.questItems.at(17)==1 && e.f.initial.questFlags.isSet(2),"pre-ACK quest mutation");
 		const auto first=*flow.presentationGeneration();flow.handle(AcknowledgeAction{});
 		check(e.f.initial.questItems.at(17)==0 && !e.f.initial.questFlags.isSet(2) &&
-			XeenRewardTestAccess::state(flow).pendingRewards.size()==1,"actual Flow production");
+			xeenPrepareRewardReceipt(XeenRewardTestAccess::state(flow).treasure).count==1,"actual Flow production");
 		if(outcome==2){flow.abandonPresentation();check(!e.f.initial.roster.at(0).miscellaneous[0].id,"abandon delivered queue");}
 		else {
 			if(outcome==3)for(auto id:e.f.initial.party.activeRosterIds())e.f.initial.roster.at(id).conditions[static_cast<std::size_t>(XeenCondition::Dead)]=1;
@@ -139,7 +139,7 @@ void animatedRewardLayers(){
   now=110;flow.updatePresentation();
   check(phase==1 && flow.frame().pixels==expected.pixels && flow.presentationGeneration()==gen && flow.presenter().pageIndex()==page &&
    xeenInventoryInspection(e.f.initial)==inventory,"animated warning/receipt rebase changed response or delivery");
-  check(XeenRewardTestAccess::state(flow).rewardPhase==(warning?XeenRewardPhase::Warning:XeenRewardPhase::Receipt),"animated reward phase changed");
+  check(XeenRewardTestAccess::state(flow).reward.phase==(warning?XeenRewardPhase::Warning:XeenRewardPhase::Receipt),"animated reward phase changed");
   flow.abandonPresentation();check(flow.frame().pixels==expectedBase.pixels,"reward dismissal revealed stale base");
  }
 }
@@ -175,8 +175,8 @@ void animationFailures(){
 }
 void presentation(const XeenFontFormat &font,IndexedFrame b,const std::filesystem::path &output){
 	Fixture f;f.initial.roster.at(0).name="Owner Alpha";f.initial.roster.at(1).name="Owner Beta";
-	XeenPendingRewards q;for(unsigned i=0;i<12;++i)q.enqueue({255,static_cast<std::uint8_t>(200+i),255,255});q.enqueue({});
-	const auto receipt=xeenDeliverRewards(q,f.initial,{});
+	XeenTreasureStaging q;for(unsigned i=0;i<12;++i)q.insert(XeenRewardCategory::Miscellaneous,{255,static_cast<std::uint8_t>(200+i),255,255});
+	const auto receipt=xeenDeliverTreasure(q,f.initial,{});
 	for(auto kind:{XeenPresentationKind::RewardWarning,XeenPresentationKind::RewardReceipt})for(int key=0;key<3;++key){
 		XeenEventPresenter p(font);XeenPresentationRequest label;label.kind=XeenPresentationKind::SceneLabelSign;label.text="Retained underlay";
 		p.present(b,label);const auto underlay=p.frame();
@@ -203,33 +203,33 @@ void presentation(const XeenFontFormat &font,IndexedFrame b,const std::filesyste
 void timedItems() {
     mmodern::XeenProgramState programState;
  Execution e;e.f.initial.purse=XeenPurse{};
- auto state=e.seed({pause(),record(1,1,1,0x12)},2);state.pendingRewards.credit(34,19);
+ auto state=e.seed({pause(),record(1,1,1,0x12)},2);state.treasure.gold+=19u;
  XeenEventSystem events(e.scripts,e.texts);auto b=base();std::uint64_t now=0;
  XeenEventFlow flow(programState,e.world,events,e.f.initial,e.camera,e.flags,e.f.font,
   [&](std::uint64_t){return XeenEventFlow::Composition{b,true};},{},[&]{return now;});
  flow.dialogText=&dos_test::text();flow.acceptManual(XeenEventExecutionSuspended{state,state.pendingPresentation->request});
- flow.handle(AcknowledgeAction{});check(XeenRewardTestAccess::state(flow).rewardPhase==XeenRewardPhase::Blank,"First timed item missing");
+ flow.handle(AcknowledgeAction{});check(XeenRewardTestAccess::state(flow).reward.phase==XeenRewardPhase::Blank,"First timed item missing");
  const auto blank=*flow.presentationGeneration();const auto inventory=xeenInventoryInspection(e.f.initial);
  flow.updatePresentation();
  check(flow.presentationGeneration()==blank && xeenInventoryInspection(e.f.initial)==inventory,"Unacquired blank advanced treasure");
  now=0;flow.framePresented(flow.frame().presentation());now=109;flow.updatePresentation();
  check(flow.presentationGeneration()==blank,"One-tick blank bypassed nested two-tick scene draw");
  now=110;flow.updatePresentation();
- check(XeenRewardTestAccess::state(flow).rewardPhase==XeenRewardPhase::Found &&
-  XeenRewardTestAccess::state(flow).rewardReceipt.delivered==1,"Blank auto completion published another item");
+ check(XeenRewardTestAccess::state(flow).reward.phase==XeenRewardPhase::Found &&
+  XeenRewardTestAccess::state(flow).reward.receipt.delivered==1,"Blank auto completion published another item");
  flow.framePresented(flow.frame().presentation());now=220;flow.updatePresentation();
- check(XeenRewardTestAccess::state(flow).rewardPhase==XeenRewardPhase::Found,"Found hold omitted ten ticks");
+ check(XeenRewardTestAccess::state(flow).reward.phase==XeenRewardPhase::Found,"Found hold omitted ten ticks");
  now=10000;flow.updatePresentation();
- check(XeenRewardTestAccess::state(flow).rewardPhase==XeenRewardPhase::Blank &&
-  XeenRewardTestAccess::state(flow).rewardReceipt.delivered==2,"Late wake caught up multiple treasure frames");
+ check(XeenRewardTestAccess::state(flow).reward.phase==XeenRewardPhase::Blank &&
+  XeenRewardTestAccess::state(flow).reward.receipt.delivered==2,"Late wake caught up multiple treasure frames");
  const auto second=*flow.presentationGeneration();flow.updatePresentation();
  check(flow.presentationGeneration()==second,"Late unacquired item caught up");
  flow.framePresented(flow.frame().presentation());now+=110;flow.updatePresentation();
  const auto found=*flow.presentationGeneration();
- check(XeenRewardTestAccess::state(flow).rewardPhase==XeenRewardPhase::Found,"Second found line missing");
+ check(XeenRewardTestAccess::state(flow).reward.phase==XeenRewardPhase::Found,"Second found line missing");
  flow.framePresented(flow.frame().presentation());now+=110;
  flow.handle(CancelInteractionAction{});
- check(XeenRewardTestAccess::state(flow).rewardPhase==XeenRewardPhase::Receipt && !e.f.initial.purse->gold,
+ check(XeenRewardTestAccess::state(flow).reward.phase==XeenRewardPhase::Receipt && !e.f.initial.purse->gold,
   "Skipping found hold manufactured final acknowledgment");
  check(!flow.respond(found,XeenPresentationResponse::Acknowledged) && !e.f.initial.purse->gold,
   "Stale found frame credited currency");

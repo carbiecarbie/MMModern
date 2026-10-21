@@ -118,7 +118,7 @@ public:
                 if(!xeen_state::sameCamera(state.workingCamera,guard.cameraValue) ||
                     state.workingGameFlags.values()!=guard.flagValues || address.mapId!=guard.cameraValue.mapId ||
                     !state.instructionCount ||
-                    state.instructionCount>XeenEventInterpreter::kMaximumInstructions || state.pendingRewards.hasWork() ||
+                    state.instructionCount>XeenEventInterpreter::kMaximumInstructions || state.treasureChanged() ||
                     (state.pendingPresentation && state.pendingPresentation->continuation!=XeenEventPendingContinuation::Terminate))
                     integrity("Service terminal continuation changed");
                 script(state.currentScript->file());currentSite=terminalSite;return;
@@ -136,8 +136,8 @@ public:
 				static_cast<std::uint8_t>(state.logicalAddress.y),state.lookupDirection,static_cast<std::uint8_t>(state.logicalAddress.line));
 			if(!site && state.missingInstructionPolicy!=XeenEventMissingInstructionPolicy::NaturalCompletion)
 				integrity("Regional event closure is not natural");
-			if(state.rewardPhase==XeenRewardPhase::Running || state.rewardPhase==XeenRewardPhase::Warning)
-				validateRewardPrefix(state.pendingRewards,dispatchedRecords.size());
+			if(state.reward.phase==XeenRewardPhase::Running || state.reward.phase==XeenRewardPhase::Warning)
+				validateRewardPrefix(state,dispatchedRecords.size());
 			currentSite=site;
 		}
 	}
@@ -170,58 +170,42 @@ public:
 		const auto operation=decodedOperation();
 		const auto *effect=std::get_if<XeenEventGiveEnchanted>(&operation);
 		if(!effect || item.material!=effect->itemCode-60 || item.id!=effect->specialId || item.state!=1 || item.frame!=0 ||
-			state.rewardPhase!=XeenRewardPhase::Running || dispatchedRecords.empty())
+			state.reward.phase!=XeenRewardPhase::Running || dispatchedRecords.empty())
 			integrity("Regional reward production changed");
-		validateRewardPrefix(state.pendingRewards,dispatchedRecords.size()-1);
+		validateRewardPrefix(state,dispatchedRecords.size()-1);
 		consume();
 		if (beforeRewardEnqueue) { beforeRewardEnqueue(); check(); }
 	}
-	XeenRewardReceipt deliverRewards(XeenPendingRewards &pending,XeenPartyState &party,
-		std::optional<std::size_t> preferred) const {
-		check();
-		if(preferred || delivered)integrity("Regional reward delivery changed");
-		validateRewardPrefix(pending,dispatchedRecords.size());
-		delivered=true;
-		XeenPartyState detached;
-		detached.party=XeenParty::fromRosterIds(guard.membership);
-		for (auto id:guard.membership) detached.roster.at(id)=guard.characters[id];
-		auto detachedQueue=pending;
-		auto receipt=xeenDeliverRewards(detachedQueue,detached,preferred);
-		check();
-		for (auto id:guard.membership) {
-			guard.characters[id].miscellaneous=detached.roster.at(id).miscellaneous;
-			party.roster.at(id).miscellaneous=detached.roster.at(id).miscellaneous;
-		}
-		pending={};
-		guard.adoptMutationBoundary();
-		return receipt;
-	}
-	void deliverRewardEntry(XeenEventExecutionState &state,XeenPartyState &party) const {
-		check();validateRewardPrefix(state.pendingRewards,dispatchedRecords.size());
+	// One delivery step on a detached copy of the observed party, then the
+	// anticipated inventory stores (the shared delivery 0x24128).
+	void advanceRewardDelivery(XeenEventExecutionState &state,XeenPartyState &party,bool begin) const {
+		check();validateRewardPrefix(state,dispatchedRecords.size());
 		XeenPartyState detached;detached.party=XeenParty::fromRosterIds(guard.membership);
 		for(auto id:guard.membership)detached.roster.at(id)=guard.characters[id];
-		auto receipt=state.rewardReceipt;xeenDeliverRewardEntry(receipt,state.rewardCursor,detached,state.preferredRewardRecipient,false);
+		auto reward=state.reward;
+		if(begin)xeenBeginTreasureDelivery(reward,state.treasure,detached,state.preferredRewardRecipient);
+		else xeenAdvanceTreasureDelivery(reward,detached,state.preferredRewardRecipient);
 		check();
 		for(auto id:guard.membership)for(unsigned category=0;category<4;++category) {
 			const auto kind=static_cast<XeenRewardCategory>(category);
 			xeenRewardItems(guard.characters[id],kind)=xeenRewardItems(detached.roster.at(id),kind);
 			xeenRewardItems(party.roster.at(id),kind)=xeenRewardItems(detached.roster.at(id),kind);
 		}
-		state.rewardReceipt=receipt;guard.adoptMutationBoundary();
-	}
-	void sortRewardEntry(const XeenRewardEntry &entry,XeenPartyState &party) const {
-		check();if(!entry.owner)return;
-		auto items=xeenRewardItems(guard.characters[*entry.owner],entry.category);xeenCompactItems(items);
-		check();xeenRewardItems(guard.characters[*entry.owner],entry.category)=items;
-		xeenRewardItems(party.roster.at(*entry.owner),entry.category)=items;guard.adoptMutationBoundary();
+		state.reward=reward;guard.adoptMutationBoundary();
 	}
 	void creditRewardCurrency(XeenEventExecutionState &state,XeenPartyState &party) const {
-		check();validateRewardPrefix(state.pendingRewards,dispatchedRecords.size());
+		check();validateRewardPrefix(state,dispatchedRecords.size());
 		if(party.purse) {
-			guard.purse->gold+=state.rewardReceipt.gold;guard.purse->gems+=state.rewardReceipt.gems;
+			*guard.purse=xeenCreditTreasure(*guard.purse,state.treasure);
 			party.purse->gold=guard.purse->gold;party.purse->gems=guard.purse->gems;
 		}
-		state.pendingRewards={};guard.adoptMutationBoundary();
+		guard.adoptMutationBoundary();
+	}
+	// The Event's final staging (its restored stash, or the emptied delivery).
+	void publishTreasure(XeenWorld &world,const XeenEventExecutionState &state,const XeenTreasureStaging &value) const {
+		check();validateRewardPrefix(state,dispatchedRecords.size());
+		if(&world!=&guard.w)integrity("Event treasure owner changed");
+		guard.prepareStagingPublication(value);world.treasureStaging().publish(value);guard.adoptMutationBoundary();
 	}
 	void prepareRemove(const XeenCamera &physical, std::optional<XeenObjectIdentity> selected,
 		const XeenEventFile &file) const {
@@ -262,9 +246,10 @@ private:
 	XeenEventRecord dispatchedRecord(std::size_t site,std::uint8_t opcode) const {
 		auto record=original.records.at(site);record.opcode=opcode;return record;
 	}
-	void validateRewardPrefix(const XeenPendingRewards &pending,std::size_t before) const {
-		std::size_t count=0;
-		if(pending.overflow() || pending.invalid())integrity("Regional reward queue is malformed");
+	// Live staging = the Event's entry snapshot plus its dispatched effects, each
+	// at the first empty slot of its category, in dispatch order.
+	void validateRewardPrefix(const XeenEventExecutionState &state,std::size_t before) const {
+		auto expected=state.treasureBase();
 		for(std::size_t i=0;i<before;++i) {
 			const auto &dispatch=dispatchedRecords.at(i);const auto retained=dispatch.record;if(!retained)continue;
 			const auto site=*retained;
@@ -275,17 +260,12 @@ private:
 			const auto *give=std::get_if<XeenEventTakeOrGive>(&instruction->operation);
 			const bool quest=give && neutral(give->first) && give->second.mode==21 &&
 				give->second.value>=82 && neutral(give->third);
-			if(!effect && !quest)continue;
-			if(count>=pending.size())integrity("Regional reward prefix loses dispatched effect");
-			const auto index=count++;const auto &item=pending.at(index);
-			if(quest) {
-				if(!pending.questAt(index) || pending.categoryAt(index)!=XeenRewardCategory::Weapons ||
-					item.id!=give->second.value || item.material || item.state || item.frame)
-					integrity("Regional quest reward differs from dispatched operands");
-			} else if(pending.questAt(index) || item.material!=effect->itemCode-60 || item.id!=effect->specialId || item.state!=1 || item.frame!=0)
-				integrity("Regional reward item differs from dispatched operands");
+			if(quest)expected.insert(XeenRewardCategory::Weapons,{0,static_cast<std::uint8_t>(give->second.value),0,0});
+			else if(effect)expected.insert(XeenRewardCategory::Miscellaneous,
+				{static_cast<std::uint8_t>(effect->itemCode-60),effect->specialId,1,0});
 		}
-		if(count!=pending.size())integrity("Regional reward prefix adds an undispatched effect");
+		expected.gold=state.treasure.gold;expected.gems=state.treasure.gems;
+		if(expected!=state.treasure)integrity("Regional reward staging differs from its dispatched effects");
 	}
 	[[noreturn]] void integrity(const char *message) const { guard.failed=true; throw std::logic_error(message); }
 	friend class XeenEventFlow;

@@ -258,6 +258,10 @@ XeenEventExecutionStepResult XeenEventInterpreter::begin(
 	if (world.sessionState().journey() && !publication) throw std::logic_error("Journey event requires live continuation authority");
 	if (publication) publication->check();
 	XeenEventExecutionState state;
+	// 0x267b1..0x26a5d: with currency or readiness pending, stash the whole staging
+	// and clear only those; the arrays stay live and hold Event treasure too.
+	state.stash=world.treasureStaging().value();state.stashed=state.stash.pending();
+	state.treasure=state.treasureBase();
 	state.logicalAddress = {initialCamera.mapId, initialCamera.x, initialCamera.y, initialLine};
 	state.lookupDirection = initialCamera.direction;
 	state.workingCamera = initialCamera;
@@ -329,15 +333,15 @@ XeenEventExecutionStepResult XeenEventInterpreter::run(
 	try {
 		auto result = runInstructions(state, response, partyState, world, scriptProvider, textProvider, publication);
 		if (auto *failure = std::get_if<XeenEventExecutionError>(&result)) {
-			xeenDiscardRewards(state.pendingRewards, state.rewardReceipt, XeenRewardDiscard::ExecutionError);
-			failure->rewards = state.rewardReceipt;
+			xeenDiscardRewards(state.reward.receipt, state.treasure, state.treasureBase(), XeenRewardDiscard::ExecutionError);
+			failure->rewards = state.reward.receipt;
 		}
 		return result;
 	} catch (const std::exception &e) {
-		xeenDiscardRewards(state.pendingRewards, state.rewardReceipt, XeenRewardDiscard::PresentationFailure);
+		xeenDiscardRewards(state.reward.receipt, state.treasure, state.treasureBase(), XeenRewardDiscard::PresentationFailure);
 		auto failure = error(XeenEventExecutionErrorKind::PresentationFailed, e.what(),
 			state.instructionCount, state.logicalAddress);
-		failure.rewards = state.rewardReceipt;
+		failure.rewards = state.reward.receipt;
 		return failure;
 	}
 }
@@ -371,49 +375,46 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
         return XeenEventExecutionSuspended{state,request};
     };
 
+	// The stash returns over the staging (0x28f22..0x291a6); without one the
+	// delivered (emptied) or untouched live staging remains.
+	const auto settleTreasure=[&](bool delivered) {
+		auto final=delivered?XeenTreasureStaging{}:state.treasure;
+		if(state.stashed)final=state.stash;
+		if(final==world.treasureStaging().value())return;
+		if(publication && partyState.worldFlags)publication->publishTreasure(world,state,final);
+		else world.treasureStaging().publish(final);
+	};
 	const auto finalize = [&]() -> XeenEventExecutionStepResult {
 		if (publication) publication->execution(state);
 		state.pendingPresentation.reset();
-		if (!state.pendingRewards.hasWork() && state.rewardPhase == XeenRewardPhase::Running)
+		auto &reward=state.reward;
+		// 0x28d70..0x28d8d: delivery after the Events needs live currency or readiness.
+		// The Event loop runs in mode 9, so attack slots never defer it (0x2414e).
+		if (reward.phase == XeenRewardPhase::Running && !state.treasure.pending()) {
+			settleTreasure(false);
 			return completed(workingCamera, workingGameFlags, instructionCount);
+		}
+		if(reward.phase==XeenRewardPhase::Receipt) {
+			if(publication && partyState.worldFlags)publication->creditRewardCurrency(state,partyState);
+			else if(partyState.purse)*partyState.purse=xeenCreditTreasure(*partyState.purse,state.treasure);
+			reward.phase = XeenRewardPhase::Completed;
+			settleTreasure(true);
+			return completed(workingCamera, workingGameFlags, instructionCount);
+		}
+		const bool begin=reward.phase==XeenRewardPhase::Running;
+		if(publication && partyState.worldFlags)publication->advanceRewardDelivery(state,partyState,begin);
+		else if(begin)xeenBeginTreasureDelivery(reward,state.treasure,partyState,state.preferredRewardRecipient);
+		else xeenAdvanceTreasureDelivery(reward,partyState,state.preferredRewardRecipient);
 		XeenPresentationRequest request;
 		request.response = XeenPresentationResponseRequirement::Acknowledgment;
 		request.mapId = workingCamera.mapId;
-		request.kind=XeenPresentationKind::RewardReceipt;
-		bool foundLine=false;
-		if(state.rewardPhase==XeenRewardPhase::Receipt) {
-			if(publication && partyState.worldFlags)publication->creditRewardCurrency(state,partyState);
-			else xeenCreditRewardCurrency(state.pendingRewards,state.rewardReceipt,partyState);
-			state.rewardPhase = XeenRewardPhase::Completed;
-			return completed(workingCamera, workingGameFlags, instructionCount);
-		}
-		if(state.rewardPhase==XeenRewardPhase::Running) {
-			state.rewardReceipt=xeenPrepareRewardReceipt(state.pendingRewards);state.rewardCursor=0;
-			if(xeenPacksGloballyFull(partyState)) {
-				state.rewardPhase=XeenRewardPhase::Warning;request.kind=XeenPresentationKind::RewardWarning;
-				if(!world.detachedEventCandidate())request.text="Reward capacity warning\nAll four category tails are full across active members.\n"
-					"Remaining items will be lost. Gold and gems are still credited.\nSpace / Enter / Escape: continue";
-			}
-		} else if(state.rewardPhase==XeenRewardPhase::Blank) {
-			const auto &entry=state.rewardReceipt.entries[state.rewardCursor];
-			if(publication && partyState.worldFlags)publication->sortRewardEntry(entry,partyState);
-			else xeenSortRewardEntry(entry,partyState);
-			state.rewardPhase=XeenRewardPhase::Found;request.rewardWaitTicks=10;
-			foundLine=true;
-		} else if(state.rewardPhase==XeenRewardPhase::Found)++state.rewardCursor;
-		if(request.kind!=XeenPresentationKind::RewardWarning && !foundLine) {
-			while(state.rewardCursor<state.rewardReceipt.count) {
-				if(publication && partyState.worldFlags)publication->deliverRewardEntry(state,partyState);
-				else xeenDeliverRewardEntry(state.rewardReceipt,state.rewardCursor,partyState,state.preferredRewardRecipient,false);
-				if(state.rewardReceipt.entries[state.rewardCursor].owner) {
-					state.rewardPhase=XeenRewardPhase::Blank;request.rewardWaitTicks=1;break;
-				}
-				++state.rewardCursor;
-			}
-			if(state.rewardCursor==state.rewardReceipt.count)state.rewardPhase=XeenRewardPhase::Receipt;
-		}
-		if(!world.detachedEventCandidate() && state.rewardPhase==XeenRewardPhase::Receipt)
-			request.text=xeenRewardReceiptText(state.rewardReceipt,partyState.roster);
+		request.kind=reward.phase==XeenRewardPhase::Warning?XeenPresentationKind::RewardWarning:XeenPresentationKind::RewardReceipt;
+		request.rewardWaitTicks=reward.phase==XeenRewardPhase::Blank?1:reward.phase==XeenRewardPhase::Found?10:0;
+		if(!world.detachedEventCandidate() && reward.phase==XeenRewardPhase::Warning)
+			request.text="Reward capacity warning\nAll four category tails are full across active members.\n"
+				"Remaining items will be lost. Gold and gems are still credited.\nSpace / Enter / Escape: continue";
+		if(!world.detachedEventCandidate() && reward.phase==XeenRewardPhase::Receipt)
+			request.text=xeenRewardReceiptText(reward.receipt,partyState.roster);
 		state.pendingPresentation = XeenEventPendingPresentation{request, XeenEventPendingContinuation::RewardFinalization, {}};
 		return XeenEventExecutionSuspended{state, std::move(request)};
 	};
@@ -508,11 +509,10 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
             if(!word.inputType && workingCamera.mapId.side==XeenSide::Clouds &&
                 (result==40 || result==60 || result==61 || result==62))
                 return error(XeenEventExecutionErrorKind::UnsupportedOperand,"Ending mirror code is not supported yet",instructionCount,logical,pending.request.source);
+            // 0x2808a..0x280bb: weapon 34 in the first empty weapon slot, when one is free.
             if(!word.inputType && workingCamera.mapId.side==XeenSide::Clouds && result==59 &&
-                state.pendingRewards.count(XeenRewardCategory::Weapons)<XeenPendingRewards::kCapacity) {
-                state.pendingRewards.enqueue(XeenItem{0,34,0,0},XeenRewardCategory::Weapons);
+                state.treasure.insert(XeenRewardCategory::Weapons,XeenItem{0,34,0,0}))
                 return finalize();
-            }
             state.pendingPresentation.reset();
             if(result) {
                 logical.line=word.targetLine;missingPolicy=MissingInstructionPolicy::ExplicitJump;
@@ -682,7 +682,7 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
             const auto *entrance=xeenEntranceSite(service->action,workingCamera);
             const bool arena=service->action==6 && workingCamera.mapId==XeenMapIdentity(85);
 			if ((!publication && !world.detachedEventCandidate()) || (!arena && !entrance && !smith && !training && !temple && !tavern && !bank && !guild) ||
-				!xeenTownServiceKnown(logical.mapId,service->action) || workingCamera.mapId!=logical.mapId || state.pendingRewards.hasWork())
+				!xeenTownServiceKnown(logical.mapId,service->action) || workingCamera.mapId!=logical.mapId || state.treasureChanged())
 				return error(XeenEventExecutionErrorKind::UnsupportedOperand,
 					"Town service is outside the admitted service Event",instructionCount,logical,decoded.source);
 			XeenPresentationRequest request;
@@ -910,7 +910,8 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 			item.id = enchanted->specialId;
 			item.state = 1;
 			if (publication && partyState.worldFlags) publication->prepareRewardEnqueue(state,item);
-			state.pendingRewards.enqueue(item);
+			// 0x287f9..0x28925: the first empty Misc slot, monster items included.
+			state.treasure.insert(XeenRewardCategory::Miscellaneous,item);
 			++logical.line;
 			missingPolicy = MissingInstructionPolicy::NaturalCompletion;
 			continue;
@@ -1196,22 +1197,20 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 					if(member>=partyState.party.size())
 						return std::optional<XeenEventExecutionStepResult>(refuse(K::EmptyParty,"Event quest item requires an active party member"));
 					partyState.questItems.eventGrant(*index);
-					if(state.pendingRewards.count(category)==XeenPendingRewards::kCapacity) {done(true);return std::nullopt;}
-					state.pendingRewards.enqueueQuest(static_cast<std::uint8_t>(giveValue));
+					if(!state.treasure.insert(category,XeenItem{0,static_cast<std::uint8_t>(giveValue),0,0})) {done(true);return std::nullopt;}
 					done(false);return std::nullopt;
 				}
 				if(giveValue>=60)return fail("Event Misc item grant is not supported yet");
 				if(giveValue<35)item.id=static_cast<std::uint8_t>(giveValue);
 				else if(giveValue<49) {category=XeenRewardCategory::Armor;item.id=static_cast<std::uint8_t>(giveValue-35);}
 				else {category=XeenRewardCategory::Accessories;item.id=static_cast<std::uint8_t>(giveValue-49);}
-				if(!item.id || state.pendingRewards.count(category)==XeenPendingRewards::kCapacity) {done(true);return std::nullopt;}
-				state.pendingRewards.enqueue(item,category);
+				if(!item.id || !state.treasure.insert(category,item)) {done(true);return std::nullopt;}
 				done(false);return std::nullopt;
 			}
 			case 66: {
 				// 0x23006: a generated item; ItemType makes it a special-event item.
 				if(giveValue<1 || giveValue>7 || !canDraw())return fail("Event item generation is not supported in this context");
-				if(state.scriptValues.itemType && state.pendingRewards.count(XeenRewardCategory::Miscellaneous)==XeenPendingRewards::kCapacity) {
+				if(state.scriptValues.itemType && state.treasure.full(XeenRewardCategory::Miscellaneous)) {
 					done(true);return std::nullopt;
 				}
 				XeenItemCandidate candidate(giveValue,state.scriptValues.itemType?std::optional<int>(state.scriptValues.itemType):std::nullopt);
@@ -1219,8 +1218,7 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 				for(;;) {XeenConsequenceDraw draw{random,64,{}};if(candidate.service(draw))break;}
 				world.retainEventRandom(random.continuation());
 				const auto category=static_cast<XeenRewardCategory>(candidate.category());
-				if(state.pendingRewards.count(category)==XeenPendingRewards::kCapacity) {done(true);return std::nullopt;}
-				state.pendingRewards.enqueue(candidate.item(),category);
+				if(!state.treasure.insert(category,candidate.item())) {done(true);return std::nullopt;}
 				done(false);return std::nullopt;
 			}
 			case 76: {
@@ -1340,7 +1338,11 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 				const auto &pair=pairs[state.rewardPair];
 				if(state.giveTake) {state.giveTake.reset();continue;} // A suspended default give completed.
 				if(pair.mode==0 && pair.value==0)continue;
-				if(pair.mode==34 || pair.mode==35) {state.pendingRewards.credit(pair.mode,pair.value);continue;}
+				// 0x23770, 0x237c5: 32-bit treasure gold and gems.
+				const auto credit=[&](std::uint8_t mode,std::uint32_t value) {
+					if(mode==34)state.treasure.gold+=value;else state.treasure.gems+=value;
+				};
+				if(pair.mode==34 || pair.mode==35) {credit(pair.mode,pair.value);continue;}
 				if(pair.mode!=66 && pair.mode!=100 && pair.mode!=101 && pair.mode!=106) {
 					// Every other mode is giveTake(0,0,mode,value) (0x238b3); a failure ends the Event.
 					if(pair.mode==67)return refuse(XeenEventExecutionErrorKind::UnsupportedOperationMode,"GiveMulti effect is not supported yet");
@@ -1370,7 +1372,7 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 				XeenConsequenceDraw draw{*state.rewardRandom,generationBudget,{}};
 				bool ready=false;std::optional<unsigned> amount;
 				if(pair.mode==66) {
-					if(state.scriptValues.itemType && state.pendingRewards.count(XeenRewardCategory::Miscellaneous)==XeenPendingRewards::kCapacity) {
+					if(state.scriptValues.itemType && state.treasure.full(XeenRewardCategory::Miscellaneous)) {
 						state.generatingReward=false;state.rewardRandom.reset();return finalize();
 					}
 					if(!state.rewardItem)state.rewardItem.emplace(pair.value,state.scriptValues.itemType?
@@ -1387,11 +1389,10 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 				}
 				// 0x23770, 0x237c5: treasure gold and gems; 0x2379d: food straight to the party.
 				if(amount && pair.mode==106)partyState.food=static_cast<std::uint16_t>(partyState.food+*amount);
-				else if(amount)state.pendingRewards.credit(pair.mode==100?34:35,xeenEventSignedWord(*amount));
+				else if(amount)credit(pair.mode==100?34:35,xeenEventSignedWord(*amount));
 				else {
 					const auto category=static_cast<XeenRewardCategory>(state.rewardItem->category());
-					const bool full=state.pendingRewards.count(category)==XeenPendingRewards::kCapacity;
-					if(!full)state.pendingRewards.enqueue(state.rewardItem->item(),category);
+					const bool full=!state.treasure.insert(category,state.rewardItem->item());
 					state.rewardItem.reset();
 					if(full) {state.generatingReward=false;state.rewardRandom.reset();return finalize();}
 				}

@@ -4,10 +4,6 @@
 #include <stdexcept>
 namespace mmodern {
 namespace {
-// DOS tests the equipment ID byte, but the Misc container byte (0x2c4f5..0x2c53c).
-bool emptySlot(const XeenItem &item, XeenRewardCategory category) noexcept {
-	return category == XeenRewardCategory::Miscellaneous ? !item.material : !item.id;
-}
 constexpr std::array<XeenRewardCategory,4> kCategories{XeenRewardCategory::Weapons, XeenRewardCategory::Armor,
 	XeenRewardCategory::Accessories, XeenRewardCategory::Miscellaneous};
 }
@@ -21,6 +17,18 @@ XeenTreasureStaging::Items &XeenTreasureStaging::items(XeenRewardCategory catego
 }
 const XeenTreasureStaging::Items &XeenTreasureStaging::items(XeenRewardCategory category) const noexcept {
 	return const_cast<XeenTreasureStaging &>(*this).items(category);
+}
+bool XeenTreasureStaging::emptySlot(const XeenItem &item, XeenRewardCategory category) noexcept {
+	return category == XeenRewardCategory::Miscellaneous ? !item.material : !item.id;
+}
+bool XeenTreasureStaging::full(XeenRewardCategory category) const noexcept {
+	for (const auto &item : items(category)) if (emptySlot(item, category)) return false;
+	return true;
+}
+bool XeenTreasureStaging::insert(XeenRewardCategory category, const XeenItem &item) noexcept {
+	for (auto &entry : items(category))
+		if (emptySlot(entry, category)) { entry = item; ready = true; return true; }
+	return false;
 }
 bool XeenTreasureStaging::storedItems() const noexcept {
 	for (const auto category : kCategories)
@@ -51,39 +59,18 @@ bool XeenMonsterDropCandidate::service(XeenConsequenceDraw &draw) {
 		}
 		break;
 	case Step::Store: {
-		outcome=XeenMonsterDropOutcome::CategoryCapacityLoss;
 		// DOS WORLD/XEEN.DAT 0x2c402..0x2c540: first empty slot of the generated
 		// category; readiness is set only on insertion.
-		for (auto &entry:treasure.items(category))
-			if (emptySlot(entry,category)) { entry=generated;treasure.ready=true;outcome=XeenMonsterDropOutcome::Item;break; }
+		outcome=treasure.insert(category,generated)?XeenMonsterDropOutcome::Item:XeenMonsterDropOutcome::CategoryCapacityLoss;
 		step=Step::Done;break;
 	}
 	case Step::Done: break;
 	}
 	return step==Step::Done;
 }
-XeenMonsterDeliveryCandidate xeenPrepareMonsterDelivery(const XeenTreasureStaging &before,
-		const std::array<XeenCharacter,6> &characters) {
-	if (!before.pending()) throw std::invalid_argument("Monster treasure is not ready for delivery");
-	XeenMonsterDeliveryCandidate result; result.characters=characters;result.treasure=before;
-	std::array<XeenCharacter *,6> owners{};
-	for (std::size_t i=0;i<owners.size();++i) owners[i]=&result.characters[i];
-	result.globallyFull=xeenPacksGloballyFull(owners.data(),owners.size());
-	for (const auto category:kCategories) for (auto &entry:result.treasure.items(category)) {
-		if (emptySlot(entry,category)) continue;
-		auto &record=result.records.at(result.count++);record.item=entry;record.category=category;
-		const auto recipient=xeenDeliverRewardItem(owners.data(),owners.size(),record.item,category);
-		if (recipient) record.recipient=result.characters[*recipient].rosterId;
-		else record.loss=XeenMonsterDeliveryLoss::GloballyFull;
-		entry={};
-	}
-	return result;
-}
-XeenMonsterCredit xeenPrepareMonsterCredit(const XeenPurse &purse, const XeenTreasureStaging &before) {
-	if (before.storedItems()) throw std::invalid_argument("Monster items must be delivered before gold credit");
-	XeenMonsterCredit result{purse,before};
-	result.purse.gold+=std::uint32_t(before.gold);result.purse.gems+=std::uint32_t(before.gems);
-	result.treasure.clearPending();
+XeenPurse xeenCreditTreasure(const XeenPurse &purse, const XeenTreasureStaging &staged) noexcept {
+	XeenPurse result=purse;
+	result.gold+=std::uint32_t(staged.gold);result.gems+=std::uint32_t(staged.gems);
 	return result;
 }
 }

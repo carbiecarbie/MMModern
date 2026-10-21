@@ -6,10 +6,10 @@ namespace mmodern {
 // suspension. No production grant/dispatch/replay entry point is added.
 struct XeenRewardTestAccess {
 	static void seed(XeenEventFlow &flow, unsigned count = 1) {
-		gameplay_test::check(flow._pending && flow._pending->state.rewardPhase == XeenRewardPhase::Running &&
-			!flow._pending->state.pendingRewards.hasWork(), "seed requires fresh ordinary suspension");
+		gameplay_test::check(flow._pending && flow._pending->state.reward.phase == XeenRewardPhase::Running &&
+			!flow._pending->state.treasureChanged(), "seed requires fresh ordinary suspension");
 		for (unsigned i = 0; i < count; ++i)
-			flow._pending->state.pendingRewards.enqueue({10, static_cast<std::uint8_t>(37+i), 193, 7});
+			flow._pending->state.treasure.insert(XeenRewardCategory::Miscellaneous,{10, static_cast<std::uint8_t>(37+i), 193, 7});
 	}
 	static const XeenEventExecutionState &state(const XeenEventFlow &flow) { return flow._pending->state; }
 };
@@ -40,7 +40,7 @@ struct Execution {
 	XeenEventExecutionState seed(std::vector<XeenEventRecord> records, unsigned count=1) {
 		f.scripts[1]=std::move(records);
 		auto s=pending(interpreter.begin(camera,f.initial,flags,world,scripts,texts));
-		for(unsigned i=0;i<count;++i)s.pendingRewards.enqueue({10,static_cast<std::uint8_t>(37+i),193,7});
+		for(unsigned i=0;i<count;++i)s.treasure.insert(XeenRewardCategory::Miscellaneous,{10,static_cast<std::uint8_t>(37+i),193,7});
 		return s;
 	}
 	XeenEventExecutionStepResult resumeOne(XeenEventExecutionState state,
@@ -52,9 +52,9 @@ struct Execution {
 	XeenEventExecutionStepResult resume(XeenEventExecutionState state,
 		XeenPresentationResponse response=XeenPresentationResponse::Acknowledged) {
 		auto result=resumeOne(std::move(state),response);
-		for(unsigned i=0;i<2*XeenPendingRewards::kTotalCapacity;++i) {
+		for(unsigned i=0;i<8*XeenTreasureStaging::kSlots;++i) {
 			auto *s=std::get_if<XeenEventExecutionSuspended>(&result);
-			if(!s || (s->state.rewardPhase!=XeenRewardPhase::Blank && s->state.rewardPhase!=XeenRewardPhase::Found))return result;
+			if(!s || (s->state.reward.phase!=XeenRewardPhase::Blank && s->state.reward.phase!=XeenRewardPhase::Found))return result;
 			result=resumeOne(std::move(s->state));
 		}
 		throw std::runtime_error("Reward intermediate hold bound");

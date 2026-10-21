@@ -27,7 +27,13 @@ struct XeenTreasureStaging {
 	Items weapons{}, armor{}, accessories{}, miscellaneous{};
 	Items &items(XeenRewardCategory) noexcept;
 	const Items &items(XeenRewardCategory) const noexcept;
+	// DOS tests the equipment ID byte, but the Misc container byte (0x2c4f5..0x2c53c).
+	static bool emptySlot(const XeenItem &, XeenRewardCategory) noexcept;
 	bool storedItems() const noexcept;
+	bool full(XeenRewardCategory) const noexcept;
+	// The first empty slot of the category receives the item and readiness is set;
+	// a full category refuses it (monster 0x2c402..0x2c540, Event 0x287f9..0x28925).
+	bool insert(XeenRewardCategory, const XeenItem &) noexcept;
 	// DOS delivery and Event stash trigger (0x2412e..0x24149): currency or readiness.
 	bool pending() const noexcept { return ready || gold || gems; }
 	bool dormant() const noexcept { return storedItems() && !pending(); }
@@ -85,28 +91,8 @@ private:
 	Step step = Step::Drop;
 	XeenItemCandidate item{1};
 };
-enum class XeenMonsterDeliveryLoss { None, GloballyFull };
-struct XeenMonsterDeliveryRecord {
-	XeenItem item;
-	XeenRewardCategory category{};
-	std::optional<std::uint8_t> recipient;
-	XeenMonsterDeliveryLoss loss = XeenMonsterDeliveryLoss::None;
-};
-struct XeenMonsterDeliveryCandidate {
-	enum class Phase { Warning, Blank, Found, Final };
-	std::array<XeenCharacter,6> characters;
-	XeenTreasureStaging treasure;
-	std::array<XeenMonsterDeliveryRecord,4*XeenTreasureStaging::kSlots> records{};
-	unsigned count = 0;
-	XeenMutable<bool> globallyFull = false;
-	Phase phase=Phase::Final;
-	unsigned cursor=0;
-};
-XeenMonsterDeliveryCandidate xeenPrepareMonsterDelivery(const XeenTreasureStaging &,
-	const std::array<XeenCharacter,6> &);
-// Final acknowledgment: credits staged gold/gems to the purse modulo 2^32 and
-// clears currency and readiness (DOS 0x2486a..0x2489c). Items are delivered first.
-struct XeenMonsterCredit { XeenPurse purse; XeenTreasureStaging treasure; };
-XeenMonsterCredit xeenPrepareMonsterCredit(const XeenPurse &, const XeenTreasureStaging &);
+// Final acknowledgment of a delivery: credits the staged gold/gems to the purse
+// modulo 2^32 (DOS 0x2486a..0x24884); the staging is then emptied (0x2489f..0x248d7).
+XeenPurse xeenCreditTreasure(const XeenPurse &, const XeenTreasureStaging &) noexcept;
 }
 #endif

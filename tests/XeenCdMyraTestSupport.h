@@ -20,7 +20,7 @@ inline void checkAudio(const XeenEventExecutionSuspended &s, bool returning) {
     q.text!="CD speech not supported yet" || q.npc ||
     s.state.instructionCount!=(returning?2U:3U) ||
     s.state.logicalAddress.line!=(returning?10:6) ||
-    s.state.pendingRewards.hasWork() || s.state.rewardReceipt.count)
+    s.state.treasureChanged() || s.state.reward.receipt.count)
   throw std::runtime_error("CD Myra PlayCD presentation/continuation differs");
 }
 // The explicit unsupported-audio notice is passive in original error window 6.
