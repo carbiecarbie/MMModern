@@ -61,7 +61,7 @@ abilities stayed out.
   MMModern clears it on arrival at each new position over a flagged cell and
   on Space not taken by a grate; the per-pass and post-combat Event calls
   stay an [approved deviation](original-quirks.md#dev-whowill-event-passes)
-  (maintainer, 2026-10-21) until roadmap step 12.
+  (maintainer, 2026-10-21) until roadmap step 13 (Event dispatch).
 
 ## Parts
 

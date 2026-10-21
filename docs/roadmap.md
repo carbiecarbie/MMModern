@@ -114,7 +114,12 @@ to Vertigo.
     with accessories; pending treasure stays in the running program as in
     DOS, and Event treasure shares it, keeping the original's duplicate of
     monster items. Lord Xeen's Scepter waits for step 15.
-12. **Event dispatch as in DOS** (Tier A, two milestones). A 2026-10-21
+12. **Audio** (Tier A, moved ahead of Event dispatch by the maintainer on
+    2026-10-21): [M82](milestone-82-plan.md) FM music and effects and the
+    control panel's Efx, Music, Speech and Text buttons, then digital sounds,
+    speech and CD tracks on the existing clock, with the entrance-scene
+    captions DOS shows with Effects off (M80).
+13. **Event dispatch as in DOS** (Tier A, two milestones). A 2026-10-21
     static analysis found that DOS runs a cell's Events again on every
     processed key while the party stands on a flagged cell (traps hurt
     again, NPCs and door text return; the maintainer confirms traps from
@@ -123,11 +128,8 @@ to Vertigo.
     post-combat runs, which also remove the Run refusal on cells with an
     automatic Event. Evidence: `D:/MModern-re/event-dispatch/findings.md`,
     to be recorded in `docs/rules/` by the first milestone. Open at planning:
-    the re-run right after a Load against the exact-restore rule.
-13. **Audio** (Tier A): music and sound effects, CD speech and CD tracks on
-    the existing clock, which already keeps the original durations, and the
-    control panel's Efx, Music, Speech and Text buttons, including the
-    entrance-scene captions DOS shows with Effects off (M80).
+    the re-run right after a Load against the exact-restore rule. Events that
+    play sounds will then repeat them as DOS does.
 14. **Inn, recruiting and character creation** (Tier A, high): Tavern Sign
     In, Dismiss, attribute rolls, the creation screens and changes to the
     saved party, including Poison Volley shooting for the active party size
@@ -135,6 +137,10 @@ to Vertigo.
 15. **Intros and the Clouds ending**: the Other Options intros and the ending
     (`CutsceneEndClouds`) with its score, and Lord Xeen's death reward (the
     Scepter and its quest item, deferred from M81).
+16. **Other sound devices** (after step 12): the original's other drivers
+    (MT-32 with the player's ROMs, PC speaker and the rest), chosen as the
+    installer did; an opt-in switch while playing would be an approved
+    deviation (maintainer, 2026-10-21).
 
 ## Medium-term objective
 

@@ -80,7 +80,7 @@ chosen in a "who will" prompt when there is one. The original also forgets
 that choice on every later key press on an Event cell and after some fights;
 MMModern does not yet, an
 [approved deviation](original-quirks.md#dev-whowill-event-passes) until
-roadmap step 12. With full packs the original warning appears and items are
+roadmap step 13 (Event dispatch). With full packs the original warning appears and items are
 lost or replace the last one in their category, while gold and gems are still
 credited. Event treasure shares the monster
 treasure as in the original: an Event reward also hands over pending monster
