@@ -257,21 +257,37 @@
 // Native reload/re-save and both roundtrip continuations are exact.
 // Local evidence: build-rel/m78-b-m44-compare/{digest-audit.json,summary.txt,
 // m78-byte-proof.json}. Original-data saves remain local and uncommitted.
+// M81 Part A: maintainer approved all four v17 replacements on 2026-10-20.
+// Pending treasure became running-program state: save v17 holds the purse
+// only (schema 9/content 14 unchanged). Preserved pre-A 30c548a helpers at
+// D:/M44-audits/m81-partA-pre-30c548a reproduced all four v16 hashes.
+// Every one of the 14 checkpoints changes the envelope version (16 -> 17),
+// payload length and CRC and deletes the 12-byte pending block (mask, pending
+// gold and source/item counts); the roundtrip final also loses one 5-byte
+// source identity (a ready Orc, 23:5, 10 gold). Decoded fields: 0 changed,
+// 0 added; only pending fields removed. Per-map views equal; trace line counts
+// equal, the only differences being the third TREASURE field (pending mask
+// -> readiness). Native reload/re-save and both roundtrip resumes are exact.
+// Local audit: build-rel/m81-partA/digest-comparison/digest-audit.json.
+// Mainland old: a4bc263a8e7b19c74754c3497e76359b1b0194bc4d525fd4e81b99b0191999a9
+// Services old: 70cd62a34b7dcef561819fa104489187cbe53a6a037f97565e513ed2dd26bbe7
+// Temple old: 8e34764db2821118943a73ffb0f6f13ed47ee68d3f9b124b3a0be7b9bd24290f
+// Roundtrip old: e6341c7cc5633639291fa2a0516f7e766fc23be59f0e7a793db7662fe7216c4a
 #include <array>
 #include <cstdint>
 namespace m44_baseline {
-inline constexpr const char *revision = "M78 Part B (save v16), baseline 48a2784";
+inline constexpr const char *revision = "M81 Part A (save v17), baseline 30c548a";
 struct Scenario { const char *name; std::uint32_t seed; const char *sha256; };
 inline constexpr std::array<Scenario,4> scenarios{{
-    {"mainland-combat-myra-phirna",3626689381u,"a4bc263a8e7b19c74754c3497e76359b1b0194bc4d525fd4e81b99b0191999a9"},
+    {"mainland-combat-myra-phirna",3626689381u,"719c59668e9a3b1456b424756a92dedb4220d447346e38e193e4a9a1238fb44c"},
     // M75: a member woken after its skipped slot waits for the next round (DOS turn order).
     // M78 Part A: maintainer approved the services replacement on 2026-10-20.
     // Pathfinder wall 3 reroutes the one-holder party; time/exploration and an
     // extra merchant generation explain all fields. Native reload/re-save is exact.
     // Local audit: build-rel/m78-digest-comparison and m78-services-causal-audit.json.
-    {"vertigo-buy-repair-training",7u,"70cd62a34b7dcef561819fa104489187cbe53a6a037f97565e513ed2dd26bbe7"},
-    {"temple-recovery",3626689381u,"8e34764db2821118943a73ffb0f6f13ed47ee68d3f9b124b3a0be7b9bd24290f"},
-    {"vertigo-f3-roundtrip",3626689381u,"e6341c7cc5633639291fa2a0516f7e766fc23be59f0e7a793db7662fe7216c4a"}
+    {"vertigo-buy-repair-training",7u,"edefd3b8f93511155bec5ab61a2cccb13400424f3f22be59660b21eeb957a2b5"},
+    {"temple-recovery",3626689381u,"b05326c6e2bac02767da286875c6292b4e70801f8d948fc7d6059d726eb40677"},
+    {"vertigo-f3-roundtrip",3626689381u,"fb726e4ce688e34b054fc5215979e1d2fc0d386de840cc1bfe69296e13bcf0e0"}
 }};
 }
 #endif

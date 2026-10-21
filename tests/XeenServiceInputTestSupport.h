@@ -39,7 +39,7 @@ void paid(const F &f,bool smith) {
         // offer, duplicate its independent 200-gold debit, or erase another row.
         armorPaid(static_cast<const Fixture &>(f));
         check(XeenPurchaseTestAccess::browse(*f.flow),"Buy payment/delivery/depletion/result removal differs");
-    } else check(f.p.monsterTreasure->gold==710 && f.p.roster.at(18).permanentLevel==4 &&
+    } else check(f.p.purse->gold==710 && f.p.roster.at(18).permanentLevel==4 &&
         f.p.roster.combatInputs(18)->experience==6000 && f.p.encounterContext->day==9 &&
         XeenTrainingTestAccess::menu(*f.flow),"one-step Training payment/XP/member-day differs");
 }

@@ -31,7 +31,7 @@ int main(int argc,char **argv) {
         const auto diskBefore=m40_test::diskBytes(source);
         const auto d=XeenSaveFile::read(source);
         child_test::require(d.journey && d.journey->schema==9 && d.journey->content==14 && d.journey->context->day==12 &&
-            d.journey->treasure->gold==829 && d.characters[1].armor[0].state==0 && d.characters[1].armor[1].state==0,
+            d.journey->purse->gold==829 && d.characters[1].armor[0].state==0 && d.characters[1].armor[1].state==0,
             "Clock regression source is not genuine post-service D");
         const auto run=[&](const std::string &control,bool healthy=false) {
             const auto save=dir/(control+".mmsave");fs::copy_file(source,save);

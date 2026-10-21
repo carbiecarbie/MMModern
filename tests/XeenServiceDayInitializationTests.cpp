@@ -90,7 +90,7 @@ struct Inputs {
 		r.loadInitialParty=[&]{return XeenPartyLoader().loadFromResources(chr,pty);};
 		r.loadInitialCharacters=[&]{return chr;};
 		r.loadInitialContext=[&]{++freshCalls;throw std::runtime_error("restore called fresh context");return XeenGameplayContext{};};
-		r.loadInitialPurse=[&]{++freshCalls;throw std::runtime_error("restore called fresh purse");return XeenMonsterTreasure{};};
+		r.loadInitialPurse=[&]{++freshCalls;throw std::runtime_error("restore called fresh purse");return XeenPurse{};};
 		r.loadInitialWorldFlags=[&]{++freshCalls;throw std::runtime_error("restore called fresh recovery");return XeenWorldFlags{};};
 		r.loadInitialBankBalances=[&]{++freshCalls;throw std::runtime_error("restore called fresh bank");return XeenBankBalances{};};
 		return r;
@@ -98,7 +98,7 @@ struct Inputs {
 };
 
 struct Graph {
-    mmodern::XeenTemplePriceState templePriceState;
+    mmodern::XeenProgramState programState;
 	XeenPartyState p;
 	XeenCamera c{23,9,11,XeenDirection::West};XeenGameFlags flags;
 	std::function<void()> mapFault,objectFault;
@@ -110,12 +110,12 @@ struct Graph {
 		if(initial)p=i.ordinary();
 	}
 	void present() {check(flow && flow->prepareJourneyFrame(flow->ticket(),[]{}) && flow->presentJourney(flow->ticket()),"headless concrete Journey frame");}
-	void fresh(const XeenJourneySetup &setup) {flow=std::make_unique<XeenEncounterFlow>(templePriceState,world,p,c,flags,[]{return 0;},setup);present();}
+	void fresh(const XeenJourneySetup &setup) {flow=std::make_unique<XeenEncounterFlow>(programState,world,p,c,flags,[]{return 0;},setup);present();}
 	XeenSaveSnapshot capture(Inputs &i) {return XeenSaveState::capture(i.signature,p,c,flags,world);}
 	void restore(Inputs &i,const XeenSaveSnapshot &s,unsigned &freshCalls,const XeenSaveState::Preflight &extra={}) {
 		XeenSaveState::restoreBeforeGameplay(s,i.restoreResources(freshCalls),p,c,flags,world,
 			[&](auto &w,const auto &p,const auto &c,const auto &f) {if(extra)extra(w,p,c,f);});
-		flow=std::make_unique<XeenEncounterFlow>(templePriceState,world,p,c,flags,[]{return 0;},XeenJourneyRestoreTag{});present();
+		flow=std::make_unique<XeenEncounterFlow>(programState,world,p,c,flags,[]{return 0;},XeenJourneyRestoreTag{});present();
 	}
 };
 
@@ -150,7 +150,7 @@ void parserAndFresh(Inputs &i) {
 			check(c.currentHp==XeenCharacterRules::maxHp(c,{610}) && c.currentSp==XeenCharacterRules::maxSp(c,{610}),"fresh prepared HP/SP mismatch");
 		else check(c.currentHp==initial.currentHp && c.currentSp==initial.currentSp,"fresh inactive HP/SP changed");
 	}
-	check(s.journey->treasure->gold==800 && s.journey->treasure->gems==10,"fresh carried purse changed");
+	check(s.journey->purse->gold==800 && s.journey->purse->gems==10,"fresh carried purse changed");
 	std::cout<<"M40 original PTY/ordinary-loader, complete fresh post-generation cursor/stock, thirty original owners initialization checks passed\n";
 }
 
@@ -229,7 +229,7 @@ void postPublicationFailure(Inputs &i) {
  }
 }
 void freshPublicationAllocationSweep(Inputs &i) {
-    mmodern::XeenTemplePriceState templePriceState;
+    mmodern::XeenProgramState programState;
 	// Exercise every allocating preparation from the admitted resource callback
 	// through detached stock generation, final-owner guard and capture storage.
 	// A failure at any allocation must precede party/economy/RNG publication.
@@ -239,7 +239,7 @@ void freshPublicationAllocationSweep(Inputs &i) {
 			manifest(m,o,e,s);allocation_test::triggered=false;allocation_test::countdown=skipped;
 		};
 		bool failed=false;allocation_test::publication=&g.p;
-		try {g.flow=std::make_unique<XeenEncounterFlow>(templePriceState,g.world,g.p,g.c,g.flags,[]{return 0;},setup);}
+		try {g.flow=std::make_unique<XeenEncounterFlow>(programState,g.world,g.p,g.c,g.flags,[]{return 0;},setup);}
 		catch(const std::bad_alloc &) {failed=true;}
 		allocation_test::countdown=-1;allocation_test::publication=nullptr;
 		if(!failed) {

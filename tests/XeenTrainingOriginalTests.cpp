@@ -15,7 +15,7 @@ int main(int argc,char **argv) {
         const auto &successor=base;
         check(successor.journey->schema==9 && successor.journey->content==14 &&
             *successor.journey->random==XeenJourneyRandomState{1,2000247898u,875} &&
-            successor.journey->treasure->gold==800 && successor.journey->treasure->gems==10 &&
+            successor.journey->purse->gold==800 && successor.journey->purse->gems==10 &&
             successor.journey->serviceEconomy->bank==XeenBankBalances{0,0},"fresh successor changed independently recorded seed-7 initialization");
         const auto original=XeenActorApproach::actorsFromResources(in.maps.loadObjects(in.assets,28),in.statistics);
         xeenValidateTrainingSource(in.chr);

@@ -21,8 +21,8 @@ struct Sentinel {
     }
 };
 void visit(training_test::Inputs &in,bool tavern,XeenSmithBoundary fault) {
-    mmodern::XeenTemplePriceState templePriceState;
-    auto source=in.service(10);source.food=1;source.journey->treasure->gold=100;
+    mmodern::XeenProgramState programState;
+    auto source=in.service(10);source.food=1;source.journey->purse->gold=100;
     const int x=tavern?24:26,y=tavern?5:17;
     bool found=false;
     for(const auto &record:in.city.records)if(record.x==x && record.y==y && !record.line) {
@@ -39,7 +39,7 @@ void visit(training_test::Inputs &in,bool tavern,XeenSmithBoundary fault) {
     const auto statistics=resources.loadMonsterStatistics;resources.loadMonsterStatistics=[&]{++providers;return statistics();};
     const auto regional=resources.loadRegionalText;resources.loadRegionalText=[&](auto id){++providers;return regional(id);};
     const auto names=resources.loadLearnedSpellNames;resources.loadLearnedSpellNames=[&]{++providers;return names();};
-    XeenGameplayServices services{templePriceState,resources,[]{return XeenGameFlags{};},
+    XeenGameplayServices services{programState,resources,[]{return XeenGameFlags{};},
         [&](auto id){++providers;return in.maps.loadGeometryMap(in.assets,id);},
         [&](auto id){++providers;return in.maps.loadObjects(in.assets,id);},
         [&](auto id){++providers;return in.texts.load(id);},in.font,
@@ -100,8 +100,8 @@ void visit(training_test::Inputs &in,bool tavern,XeenSmithBoundary fault) {
             denied();dismiss();
         };
         transact();
-        if(party->monsterTreasure->gold==100)transact(); // Before-publication failure retries the original attempt.
-        check(party->monsterTreasure->gold==90,"Application transaction retry lost/repeated payment");
+        if(party->purse->gold==100)transact(); // Before-publication failure retries the original attempt.
+        check(party->purse->gold==90,"Application transaction retry lost/repeated payment");
         for(unsigned n=0;n<100 && !flow->canSave();++n){
             denied();dismiss();if(!flow->canSave())send(CancelInteractionAction{});if(!flow->canSave())pulse();
         }
@@ -110,7 +110,7 @@ void visit(training_test::Inputs &in,bool tavern,XeenSmithBoundary fault) {
         target.unchanged();check(!stages && !panels && !writes,"Blocked Application save reached persistence");
         flow->smithBoundary={};return true;
     };
-    check(Application(services.templePrices).playGameplay(services,source.camera,target.path,true)==0,"Food/Bank Application save-denial scenario failed");
+    check(Application(services.program).playGameplay(services,source.camera,target.path,true)==0,"Food/Bank Application save-denial scenario failed");
     target.unchanged();
 }
 }

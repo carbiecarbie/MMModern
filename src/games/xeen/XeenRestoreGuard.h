@@ -22,7 +22,8 @@ public:
 		partyReplacement(p._replacement), rosterReplacement(p.roster._replacement),
 		s(w._sessionState), characters(p.roster.characters()), inputs(p.roster._combatInputs),
 		marked(p.roster.combatMarked()), membership(p.party.activeRosterIds()),
-		quests(p.questItems.counts()), questFlags(p.questFlags.values()), recovery(p.worldFlags), context(p.encounterContext), treasure(p.monsterTreasure), economy(p.serviceEconomy),
+		quests(p.questItems.counts()), questFlags(p.questFlags.values()), recovery(p.worldFlags), context(p.encounterContext), purse(p.purse), staging(w.treasureStaging().value()), stagingRevision(w.treasureStaging().revision()),
+		stagingOwner(&w.treasureStaging()), economy(p.serviceEconomy),
 		food(p.food), first(p.firstSerializedCount), effective(p.effectiveSerializedCount), diagnostics(p.diagnostics),
 		cameraValue(c), flagValues(f.values()), combatCheck(bool(w._combatCheck)), combatAuthorized(bool(w._combatAuthorized)),
 		maps(w._maps), objects(w._objects), cityStatistics(w._cityStatistics), cacheRevision(w._cacheRevision), exactCaches(exactCaches),
@@ -48,7 +49,8 @@ public:
 		rosterReplacement(std::move(other.rosterReplacement)), s(std::move(other.s)), characters(std::move(other.characters)),
 		inputs(std::move(other.inputs)), marked(std::move(other.marked)), membership(std::move(other.membership)),
 		quests(std::move(other.quests)), questFlags(std::move(other.questFlags)), recovery(std::move(other.recovery)),
-		context(std::move(other.context)), treasure(std::move(other.treasure)), economy(std::move(other.economy)),
+		context(std::move(other.context)), purse(std::move(other.purse)), staging(other.staging), stagingRevision(other.stagingRevision),
+		stagingOwner(other.stagingOwner), economy(std::move(other.economy)),
 		food(other.food), first(std::move(other.first)), effective(std::move(other.effective)), diagnostics(std::move(other.diagnostics)),
 		cameraValue(std::move(other.cameraValue)), flagValues(std::move(other.flagValues)), combatCheck(std::move(other.combatCheck)),
 		combatAuthorized(std::move(other.combatAuthorized)), maps(std::move(other.maps)), objects(std::move(other.objects)),
@@ -72,7 +74,9 @@ public:
 			p._replacement != partyReplacement || p.roster._replacement != rosterReplacement ||
 			p.roster.combatMarked() != marked || p.party.activeRosterIds() != membership ||
 			p.questItems.counts() != quests || p.questFlags.values() != questFlags || p.worldFlags != recovery ||
-			!(p.encounterContext == context) || p.monsterTreasure != treasure || p.serviceEconomy != economy || p.firstSerializedCount != first ||
+			!(p.encounterContext == context) || p.purse != purse ||
+			&w.treasureStaging() != stagingOwner || w.treasureStaging().revision() != stagingRevision ||
+			w.treasureStaging().value() != staging || p.serviceEconomy != economy || p.firstSerializedCount != first ||
 			p.food!=food || p.effectiveSerializedCount != effective || p.diagnostics != diagnostics ||
 			!sameCamera(c, cameraValue) || f.values() != flagValues ||
 			bool(w._combatCheck) != combatCheck || bool(w._combatAuthorized) != combatAuthorized ||
@@ -304,7 +308,7 @@ private:
 		marked=candidate.roster.combatMarked();membership=candidate.party.activeRosterIds();
 		quests=candidate.questItems.counts();questFlags=candidate.questFlags.values();
 		recovery=candidate.worldFlags;context=candidate.encounterContext;
-		treasure=candidate.monsterTreasure;economy=candidate.serviceEconomy;
+		purse=candidate.purse;economy=candidate.serviceEconomy;
 		food=candidate.food;first=candidate.firstSerializedCount;effective=candidate.effectiveSerializedCount;diagnostics=candidate.diagnostics;
 		// The staged tables of an original start, or the admitted (outdoor)
 		// mainland table alone for a prepared start.
@@ -326,7 +330,7 @@ private:
 		for(const auto &entry:candidate.eventTexts) admitEventText(entry.second);
 		s = candidate.s; characters = candidate.characters; inputs = candidate.inputs;
 		marked = candidate.marked; membership = candidate.membership;
-		quests = candidate.quests; questFlags = candidate.questFlags; recovery = candidate.recovery; context = candidate.context; treasure = candidate.treasure;
+		quests = candidate.quests; questFlags = candidate.questFlags; recovery = candidate.recovery; context = candidate.context; purse = candidate.purse;
 		economy = candidate.economy;
 		food=candidate.food;first = candidate.first; effective = candidate.effective; diagnostics = candidate.diagnostics;
 		cameraValue = candidate.cameraValue; flagValues = candidate.flagValues;
@@ -373,8 +377,6 @@ private:
 	}
 	void prepareVertigoPublication(const XeenRestoreGuard &candidate) {
 		check();candidate.check();
-		auto retainedTreasure=candidate.treasure;
-		if(retainedTreasure && treasure) {retainedTreasure->gold=treasure->gold;retainedTreasure->gems=treasure->gems;}
         auto explored=s.exploredTiles();
         // The existing visit-only map lifetime also drops its explored cells.
         // All retained maps, and same-map Event continuations, stay exact.
@@ -386,7 +388,7 @@ private:
 		// overlays/Spawn. All other inputs retain their preimages.
 		if(candidate.membership!=membership || candidate.marked!=marked ||
 			candidate.s.exploredTiles()!=explored ||
-			bool(candidate.recovery)!=bool(recovery) || bool(candidate.context)!=bool(context) || retainedTreasure!=treasure ||
+			bool(candidate.recovery)!=bool(recovery) || bool(candidate.context)!=bool(context) || bool(candidate.purse)!=bool(purse) ||
 			bool(candidate.economy)!=bool(economy) || candidate.first!=first || candidate.effective!=effective ||
 			candidate.diagnostics!=diagnostics || bool(candidate.s._journeyRandom)!=bool(s._journeyRandom)) {
 			failed=true;throw std::logic_error("Event candidate changed an unowned party or RNG field");
@@ -431,7 +433,7 @@ private:
 			xeenEventCopyOwnedCharacter(characters[owner],candidate.characters[owner]);
 			if(inputs[owner])*inputs[owner]=*candidate.inputs[owner];
 		}
-		if(treasure) {treasure->gold=candidate.treasure->gold;treasure->gems=candidate.treasure->gems;}
+		purse=candidate.purse;
 		s._journeyRandom=candidate.s._journeyRandom;
 		maps.swap(nextMaps);objects.swap(nextObjects);cityStatistics.swap(statistics);
 		cameraValue=candidate.cameraValue;flagValues=candidate.flagValues;++worldRevision;
@@ -442,10 +444,8 @@ private:
 	// camera, game flags and World overlays remain owned by final settlement.
 	void prepareEventSequencePrefix(const XeenRestoreGuard &candidate) {
 		check();candidate.check();
-		auto retainedTreasure=candidate.treasure;
-		if(retainedTreasure && treasure){retainedTreasure->gold=treasure->gold;retainedTreasure->gems=treasure->gems;}
 		if(candidate.membership!=membership || candidate.marked!=marked ||
-			bool(candidate.recovery)!=bool(recovery) || bool(candidate.context)!=bool(context) || retainedTreasure!=treasure ||
+			bool(candidate.recovery)!=bool(recovery) || bool(candidate.context)!=bool(context) || bool(candidate.purse)!=bool(purse) ||
 			bool(candidate.economy)!=bool(economy) || candidate.first!=first || candidate.effective!=effective ||
 			candidate.diagnostics!=diagnostics || bool(candidate.s._journeyRandom)!=bool(s._journeyRandom)) {
 			failed=true;throw std::logic_error("Event sequence changed an unowned party field");
@@ -467,7 +467,7 @@ private:
 		}
 		quests=candidate.quests;questFlags=candidate.questFlags;context=candidate.context;recovery=candidate.recovery;
 		food=candidate.food;economy=candidate.economy;
-		if(treasure){treasure->gold=candidate.treasure->gold;treasure->gems=candidate.treasure->gems;}
+		purse=candidate.purse;
 		s._journeyRandom=candidate.s._journeyRandom;
 	}
 	// Only the coordinator's checked, callback-free authority transitions may adopt these fields.
@@ -481,6 +481,12 @@ private:
 		combatCheck = bool(w._combatCheck); combatAuthorized = bool(w._combatAuthorized);
 		adoptMutationBoundary();
 	}
+	// The restored world joins the running program: observe its staging owner.
+	void adoptStagingOwner(const XeenTreasureStagingState &state) noexcept {
+		stagingOwner=&state;staging=state.value();stagingRevision=state.revision();adoptMutationBoundary();
+	}
+	// Anticipates one XeenTreasureStagingState::publish of the observed owner.
+	void prepareStagingPublication(const XeenTreasureStaging &value) { staging=value; ++stagingRevision; }
     void prepareEventAnimationRandom(const XeenJourneyRandomState &ending) {
         check();s._journeyRandom=ending;
     }
@@ -510,6 +516,7 @@ private:
         mutations.add(begin,lightingBegin-begin);mutations.add(lightingEnd,begin+sizeof(w)-lightingEnd);
         if(lightingObservers)mutations.add(lightingBegin,lightingEnd-lightingBegin);
         mutations.add(&p,sizeof(p));
+        mutations.add(&w.treasureStaging(),sizeof(XeenTreasureStagingState));
 		mutations.add(&c,sizeof(c));mutations.add(&f,sizeof(f));
 		const auto &members=p.party.activeRosterIds();
 		mutations.add(members.data(),members.size()*sizeof(XeenMutable<std::uint8_t>));
@@ -553,7 +560,12 @@ private:
 	XeenCloudsQuestFlags::Values questFlags;
 	std::optional<XeenWorldFlags> recovery;
 	std::optional<XeenGameplayContext> context;
-	std::optional<XeenMonsterTreasure> treasure;
+	std::optional<XeenPurse> purse;
+	// The running program's pending treasure is observed, never retained across
+	// games: carryover is intended, staleness within one owner is not.
+	XeenTreasureStaging staging;
+	std::uint64_t stagingRevision;
+	const XeenTreasureStagingState *stagingOwner;
 	std::optional<XeenServiceEconomy> economy;
 	std::uint16_t food=0;
 	std::uint8_t first, effective;

@@ -48,8 +48,8 @@ void highlight(IndexedFrame &frame,std::size_t member,const XeenDialogSpriteDraw
     if(draw && member<6) { constexpr int x[]{10,45,81,117,153,189};draw(frame,"global.icn",8,x[member]-1,149); }
 }
 const auto &conditions(const XeenDosText &text,const XeenCharacter &) { return text.table("CONDITION_NAMES"); }
-std::uint32_t gold(const XeenPartyState &p) { return p.monsterTreasure?std::uint32_t(p.monsterTreasure->gold):0u; }
-std::uint32_t gems(const XeenPartyState &p) { return p.monsterTreasure?std::uint32_t(p.monsterTreasure->gems):0u; }
+std::uint32_t gold(const XeenPartyState &p) { return p.purse?std::uint32_t(p.purse->gold):0u; }
+std::uint32_t gems(const XeenPartyState &p) { return p.purse?std::uint32_t(p.purse->gems):0u; }
 }
 // Screen layout from pinned dialogs_spells.cpp/window.cpp; DOS Part 0 confirms
 // the screen contents, marker positions, slot guard and any-key/mouse wait.

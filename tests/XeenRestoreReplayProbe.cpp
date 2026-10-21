@@ -19,15 +19,15 @@ using FreshPreparation=std::function<void(const XeenPartyState &,const std::vect
 	const std::optional<XeenJourneyRandomState> &)>;
 XeenEncounterResult real_freshPublicationInitialize(XeenWorld &,XeenPartyState &,XeenCamera &,XeenEncounterState &,
 	const std::vector<std::uint8_t> &,const XeenGameplayContext &,const std::vector<XeenMonsterRecord> &,
-	const XeenEventFile &,std::uint32_t,const std::optional<XeenMonsterTreasure> &,
+	const XeenEventFile &,std::uint32_t,const std::optional<XeenPurse> &,
 	const std::optional<XeenBankBalances> &,const FreshPreparation &) asm("__real_" XEEN_REPLAY_FRESH_PUBLICATION_INITIALIZE);
 XeenEncounterResult probe_freshPublicationInitialize(XeenWorld &,XeenPartyState &,XeenCamera &,XeenEncounterState &,
 	const std::vector<std::uint8_t> &,const XeenGameplayContext &,const std::vector<XeenMonsterRecord> &,
-	const XeenEventFile &,std::uint32_t,const std::optional<XeenMonsterTreasure> &,
+	const XeenEventFile &,std::uint32_t,const std::optional<XeenPurse> &,
 	const std::optional<XeenBankBalances> &,const FreshPreparation &) asm("__wrap_" XEEN_REPLAY_FRESH_PUBLICATION_INITIALIZE);
 XeenEncounterResult probe_freshPublicationInitialize(XeenWorld &w,XeenPartyState &p,XeenCamera &c,XeenEncounterState &s,
 	const std::vector<std::uint8_t> &chr,const XeenGameplayContext &ctx,const std::vector<XeenMonsterRecord> &mon,
-	const XeenEventFile &evt,std::uint32_t seed,const std::optional<XeenMonsterTreasure> &purse,
+	const XeenEventFile &evt,std::uint32_t seed,const std::optional<XeenPurse> &purse,
 	const std::optional<XeenBankBalances> &bank,const FreshPreparation &prepare) {
 	probe_fired::hit("XEEN_REPLAY_FRESH_PUBLICATION_INITIALIZE");observe();++journeyInitializations;return real_freshPublicationInitialize(w,p,c,s,chr,ctx,mon,evt,seed,purse,bank,prepare);
 }

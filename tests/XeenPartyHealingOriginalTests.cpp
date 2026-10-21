@@ -30,7 +30,7 @@ XeenSaveSnapshot source(Inputs &in,unsigned spell,bool combat=false) {
     caster.learnedSpells.emplace();caster.learnedSpells->fill(0);
     caster.currentSpell=*R::slotForSpell(XeenSpellCategory::Clerical,spell);caster.learnedSpells->at(caster.currentSpell)=1;
     s.characters[s.activeRosterIds[1]].permanentLevel=30;
-    s.journey->treasure->gems=1000;s.journey->context->ctr24=23;s.journey->context->minutes=600;
+    s.journey->purse->gems=1000;s.journey->context->ctr24=23;s.journey->context->minutes=600;
     save_test::clearExplored(s);return s;
 }
 void roundtrip(Inputs &in,Fixture &f) {
@@ -73,10 +73,10 @@ void books(Inputs &in) {
         }
         const auto cost=R::cost(spell,7);
         f.act(CastSpellAction{});f.act(SelectMemberAction{0});f.act(DialogKeyAction{'c'});
-        check(f.flow->encounter()->castingCommitted() && f.p.roster.at(s.activeRosterIds[0]).currentSp==1000-int(cost.sp) && f.p.monsterTreasure->gems==1000-cost.gems,"Exploration paid own spell cost");
+        check(f.flow->encounter()->castingCommitted() && f.p.roster.at(s.activeRosterIds[0]).currentSp==1000-int(cost.sp) && f.p.purse->gems==1000-cost.gems,"Exploration paid own spell cost");
         if(member)f.act(cancel?PlayerAction{CancelInteractionAction{}}:PlayerAction{SelectMemberAction{1}});
         quiet(f);
-        check(f.p.roster.at(s.activeRosterIds[0]).currentSp==1000-int(cancel?0:cost.sp) && f.p.monsterTreasure->gems==1000-(cancel?0:cost.gems),"Exploration cancellation SP/gems refund");
+        check(f.p.roster.at(s.activeRosterIds[0]).currentSp==1000-int(cancel?0:cost.sp) && f.p.purse->gems==1000-(cancel?0:cost.gems),"Exploration cancellation SP/gems refund");
         if(f.p.encounterContext->minutes!=601 || f.w.sessionState().journeyRandom()!=expected.continuation())
             throw std::runtime_error("Exploration healing spell="+std::to_string(spell)+" cancel="+std::to_string(cancel)+" minute="+std::to_string(f.p.encounterContext->minutes)+" RNG="+std::to_string(f.w.sessionState().journeyRandom()->count)+" expected="+std::to_string(expected.position()));
         matches(f.p,effect);
@@ -118,7 +118,7 @@ void items(Inputs &in) {
         check(f.p.roster.at(user).miscellaneous[0].state==charges-1,"Item charge was not spent before target/cancel");
         if(member)f.act(cancel?PlayerAction{CancelInteractionAction{}}:PlayerAction{SelectMemberAction{1}});
         quiet(f);const auto refund=R::cost(spell,7);
-        check(f.p.roster.at(user).currentSp==3+int(cancel?refund.sp:0) && f.p.monsterTreasure->gems==1000+(cancel?refund.gems:0),"Item own-ID cancellation refund/level source");
+        check(f.p.roster.at(user).currentSp==3+int(cancel?refund.sp:0) && f.p.purse->gems==1000+(cancel?refund.gems:0),"Item own-ID cancellation refund/level source");
         check(f.p.roster.at(user).miscellaneous[0].state==charges-1 && bool(f.p.roster.at(user).miscellaneous[0].id)==(charges>1) && f.p.encounterContext->minutes==600 && f.w.sessionState().journeyRandom()==expected.continuation(),"Item repeated charge, last-charge removal, charged time or wrong RNG");
         matches(f.p,effect);
         if(cancel && (power==57 || power==66)) {
@@ -138,7 +138,7 @@ void failedRevival(Inputs &in) {
         f.act(CastSpellAction{});f.act(SelectMemberAction{0});f.act(DialogKeyAction{'c'});f.act(SelectMemberAction{1});
         quiet(f);
         const auto &after=f.p.roster.at(owner);
-        check(f.p.roster.at(s.activeRosterIds[0]).currentSp==1000-int(cost.sp) && f.p.monsterTreasure->gems==1000-cost.gems,"Failed revival refunded its cost");
+        check(f.p.roster.at(s.activeRosterIds[0]).currentSp==1000-int(cost.sp) && f.p.purse->gems==1000-cost.gems,"Failed revival refunded its cost");
         check(after.currentHp==before.currentHp && after.conditions==before.conditions && after.endurance.permanent==before.endurance.permanent && after.temporaryAge==before.temporaryAge,"Failed revival changed a living target");
         roundtrip(in,f);
     }

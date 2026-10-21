@@ -134,7 +134,7 @@ void original(const char *path) {
         const auto beforeDialogs=combat?std::vector<std::uint8_t>{}:XeenSaveFormat::encode(f.snapshot());
         const auto beforeCharacters=f.p.roster.characters();const auto beforeContext=f.p.encounterContext;
         const auto beforeQuests=xeenQuestDisplay(f.p);const auto beforeWorld=f.p.worldFlags;
-        const auto beforeTreasure=f.p.monsterTreasure;const auto beforeFood=f.p.food;
+        const auto beforeTreasure=f.p.purse;const auto beforeFood=f.p.food;
         const auto beforeEconomy=f.p.serviceEconomy;const auto beforeMembers=f.p.party.activeRosterIds();
         const auto beforeCamera=f.c;const auto beforeFlags=f.f.values();
         const auto beforeRandom=f.w.sessionState().journeyRandom();
@@ -166,7 +166,7 @@ void original(const char *path) {
         if(!combat)check(XeenSaveFormat::encode(f.snapshot())==beforeDialogs,"nested screens change saved state/time/RNG");
         check(f.p.encounterContext==beforeContext && xeenQuestDisplay(f.p).items==beforeQuests.items &&
             xeenQuestDisplay(f.p).quests==beforeQuests.quests && f.p.worldFlags==beforeWorld &&
-            f.p.monsterTreasure==beforeTreasure && f.p.food==beforeFood &&
+            f.p.purse==beforeTreasure && f.p.food==beforeFood &&
             f.p.serviceEconomy==beforeEconomy && f.p.party.activeRosterIds()==beforeMembers &&
             xeen_state::sameCamera(f.c,beforeCamera) && f.f.values()==beforeFlags && f.w.sessionState().journeyRandom()==beforeRandom,
             "nested screens changed party/world/time/RNG");

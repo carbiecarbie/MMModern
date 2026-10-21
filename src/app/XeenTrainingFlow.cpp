@@ -71,7 +71,7 @@ void XeenEncounterFlow::quoteTraining(std::size_t member) {
     TrainingBusy busy(_busy);_journeyPreimage->check();xeenValidateJourneyParty(_party);
     const auto owner=_party.party.activeRosterIds()[member];
     auto result=xeenQuoteTraining(_party.roster.at(owner),*_party.roster.combatInputs(owner),
-        _party.monsterTreasure->gold,*_party.encounterContext,_camera.mapId);
+        _party.purse->gold,*_party.encounterContext,_camera.mapId);
     if(result.outcome==XeenTrainingOutcome::Quoted && !_training->trained.test(owner) &&
         !xeenPrepareSmithDeparture(_training->departure->context()))result.outcome=XeenTrainingOutcome::Capacity;
     _training->owner=owner;_training->result=result;_training->quoted=result.outcome==XeenTrainingOutcome::Quoted;
@@ -129,7 +129,7 @@ bool XeenEncounterFlow::serviceTrainingLevel() {
         const auto id=delta.characters[n].rosterId;
         prepared->characters[id]=delta.characters[n];prepared->inputs[id]=delta.inputs[n];
     }
-    prepared->treasure->gold=delta.result.goldAfter;
+    prepared->purse->gold=delta.result.goldAfter;
     const bool memberDay=bool(visit.nextDeparture);
     if(memberDay) {
         prepared->economy=visit.departure->economy();
@@ -141,7 +141,7 @@ bool XeenEncounterFlow::serviceTrainingLevel() {
     const XeenMutableOptional<XeenServiceEconomy> endingEconomy=prepared->economy;
     const XeenMutableOptional<XeenJourneyRandomState> endingRandom=prepared->s._journeyRandom;
     _journeyPreimage->check();checkTrainingBoundary(XeenTrainingBoundary::BeforeLevel);
-    _party.monsterTreasure->gold=delta.result.goldAfter;
+    _party.purse->gold=delta.result.goldAfter;
     _party.encounterContext=endingContext;
     if(memberDay) {
         _party.serviceEconomy=endingEconomy;
@@ -274,7 +274,7 @@ IndexedFrame XeenEventFlow::handleTraining(const PlayerAction &action,std::uint6
                 ui.member=key-InputKey::F1;_encounter->_training->quoted=false;_encounter->advanceTraining();
             } else if(key=='t') {
                 const auto &c=_party.party.member(_party.roster,ui.member);
-                const auto quote=xeenQuoteTraining(c,*_party.roster.combatInputs(c.rosterId),_party.monsterTreasure->gold,*_party.encounterContext,_camera.mapId);
+                const auto quote=xeenQuoteTraining(c,*_party.roster.combatInputs(c.rosterId),_party.purse->gold,*_party.encounterContext,_camera.mapId);
                 if(quote.outcome==XeenTrainingOutcome::Cap || quote.outcome==XeenTrainingOutcome::MissingExperience)
                     startServiceSample(ui.animation,quote.outcome==XeenTrainingOutcome::Cap?"trainin1.voc":"trainin0.voc",true);
                 else if(quote.outcome==XeenTrainingOutcome::InsufficientGold) ui.feedback=xeenNotEnoughGold(dosText());

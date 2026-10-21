@@ -182,7 +182,7 @@ bool XeenEncounterFlow::confirmCasting(const Ticket &entry, std::size_t casterIn
 		const auto spell=id ? XeenLearnedSpellRules::supportedIn(*id,false) : std::nullopt;
 		if (!spell) return false;
 		const auto cost=XeenLearnedSpellRules::cost(*id,caster.currentLevel());
-        if(XeenLearnedSpellRules::check(caster,slot,_party.monsterTreasure->gems,false)!=XeenQuickSpellCheck::Supported)return false;
+        if(XeenLearnedSpellRules::check(caster,slot,_party.purse->gems,false)!=XeenQuickSpellCheck::Supported)return false;
         std::optional<XeenCamera> jump;
         XeenSpellTravel travel;
         std::unique_ptr<XeenShootCandidate> projectile;
@@ -220,7 +220,7 @@ bool XeenEncounterFlow::confirmCasting(const Ticket &entry, std::size_t casterIn
 		auto prepared=std::make_shared<XeenRestoreGuard>(_world,_party,_camera,_flags);
 		prepared->retainResources(*_journeyPreimage);
 		prepared->characters[owner].currentSp=after;
-        prepared->treasure->gems-=cost.gems;
+        prepared->purse->gems-=cost.gems;
         travel.applyBeacon(prepared->characters[owner]);
         if(mapWork.world) {prepared->prepareSpellMapPublication(*mapWork.world);prepared->cameraValue=*jump;}
 		_casting->casterOwner=owner;_casting->slot=static_cast<std::uint8_t>(slot);
@@ -232,7 +232,7 @@ bool XeenEncounterFlow::confirmCasting(const Ticket &entry, std::size_t casterIn
 		if(mapWork.world) {_world.publishTransition(*mapWork.world);_camera=*jump;_journeyEvents=std::move(mapWork.events);}
         travel.applyBeacon(_party.roster.at(owner));
         _party.roster.at(owner).currentSp=after;
-        _party.monsterTreasure->gems-=cost.gems;
+        _party.purse->gems-=cost.gems;
         if(projectile) {
           _projectiles.swap(projectiles);_projectileDeadline=0;
           _shoot=std::move(projectile);
@@ -288,7 +288,7 @@ bool XeenEncounterFlow::publishCastingTarget() {
 			if (_party.roster.at(_casting->casterOwner).currentSp!=_casting->originalSp-int(cost.sp))
 				throw std::logic_error("Casting refund preimage changed");
 			prepared->characters[_casting->casterOwner].currentSp=_casting->originalSp;
-            prepared->treasure->gems+=cost.gems;
+            prepared->purse->gems+=cost.gems;
 			result="Spell target cancelled; SP and gems refunded";
 		} else if(element) {
             XeenLearnedSpellRules::applyPartyEffect(_casting->spell,*prepared->context,
@@ -308,7 +308,7 @@ bool XeenEncounterFlow::publishCastingTarget() {
         _world._sessionState._journeyRandom=_casting->random.continuation();
         if (!targetIndex) {
             _party.roster.at(_casting->casterOwner).currentSp=_casting->originalSp;
-            _party.monsterTreasure->gems+=cost.gems;
+            _party.purse->gems+=cost.gems;
         }
 		else if(element) *_party.encounterContext=*prepared->context;
         else for (const auto &effect:preparedEffect.effects) {
@@ -421,14 +421,14 @@ bool XeenEncounterFlow::serviceSpellItem() {
         auto &items=*xeenInventoryItems(prepared->characters[owner],work.selection->category);
         items.at(work.selection->slot)=work.preparation->item;
         if(work.preparation->gold)xeenCompactItems(items);
-        prepared->treasure->gold+=work.preparation->gold;
+        prepared->purse->gold+=work.preparation->gold;
     }
     prepared->s._journeyRandom=random.continuation();
     _journeyPreimage->check();
     if(work.preparation && !work.preparation->failed) {
         *xeenInventoryItems(_party.roster.at(owner),work.selection->category)=
             *xeenInventoryItems(prepared->characters[owner],work.selection->category);
-        _party.monsterTreasure->gold=prepared->treasure->gold;
+        _party.purse->gold=prepared->purse->gold;
     }
     _world._sessionState._journeyRandom=random.continuation();
     const bool failed=work.preparation && work.preparation->failed;

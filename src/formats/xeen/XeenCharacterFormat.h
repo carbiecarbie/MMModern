@@ -24,7 +24,7 @@ public:
 		bool includeLuck = false, bool includeResistances = false, bool includePoison = false);
 	static XeenCharacter::XeenLearnedSpells parseLearnedSpells(const std::vector<std::uint8_t> &bytes,
 		std::size_t owner);
-	static XeenMonsterTreasure parseMonsterPurse(const std::vector<std::uint8_t> &bytes);
+	static XeenPurse parseMonsterPurse(const std::vector<std::uint8_t> &bytes);
 	// Only the checked original fresh Clouds PTY supplies bank input.
 	static XeenBankBalances parseBankBalances(const std::vector<std::uint8_t> &bytes);
 	static PartyHeader parsePartyHeader(const std::vector<std::uint8_t> &bytes);

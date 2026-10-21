@@ -138,7 +138,7 @@ void events(Census &c,const std::vector<XeenEventRecord> &records,XeenMapIdentit
             for(const auto &actor:entities.monsters)
                 if(actor.isActive() && actor.x==start.x && actor.y==start.y) {empty=false;break;}
         }
-        try {fixture=std::make_unique<OriginalContext>(context.templePrices,context.installation,start);}
+        try {fixture=std::make_unique<OriginalContext>(context.program,context.installation,start);}
         catch(const std::exception &e) {fixtureFailure=e.what();}
     }
     auto &eventContext=fixture?*fixture:context;
@@ -392,8 +392,8 @@ int main(int argc,char **argv) {
         }
         const auto installation=XeenInstallationDetector().detect(argv[1]);
         if(!installation || !installation->hasXeen() || !installation->hasDarkside())throw std::runtime_error("World of Xeen CD installation required");
-        XeenTemplePriceState templePrices;
-        OriginalContext context(templePrices,*installation);
+        XeenProgramState program;
+        OriginalContext context(program,*installation);
         auto clouds=census(*installation,XeenSide::Clouds,context);
         auto darkside=census(*installation,XeenSide::Darkside,context);
         reconcileContexts(clouds,darkside);

@@ -124,7 +124,7 @@ int freshStartGameplay(const Application *app, const XeenGameplayServices &origi
         } else {
             check(xeen_state::sameCamera(*position,{28,18,4,XeenDirection::West}) &&
                 party->encounterContext->difficulty == *original.originalStart && party->encounterContext->day == 1 &&
-                party->encounterContext->minutes == 480 && party->food == 90 && party->monsterTreasure->gold == 800,
+                party->encounterContext->minutes == 480 && party->food == 90 && party->purse->gold == 800,
                 "M52 public original first frame/default or explicit difficulty");
         }
         if (!target) {
@@ -155,12 +155,12 @@ int freshStartGameplay(const Application *app, const XeenGameplayServices &origi
                     if (quote.outcome == XeenEquipmentPurchaseOutcome::Quoted && !quote.shortfall) { offer = quote; break; }
                 }
                 check(offer.has_value(), "M52 affordable original offer");
-                const auto gold = party->monsterTreasure->gold;
+                const auto gold = party->purse->gold;
                 unsigned recipient = 0;
                 for (const auto &item : party->roster.at(0).weapons) if (item.id) ++recipient;
                 auto delivered = offer->offer; delivered.frame = 0;
                 act(SelectInventorySlotAction{offer->offerSlot}); act(YesAction{});
-                check(party->monsterTreasure->gold == gold-offer->price &&
+                check(party->purse->gold == gold-offer->price &&
                     xeenSameItem(party->roster.at(0).weapons[recipient],delivered), "M52 paid service delivery");
                 act(CancelInteractionAction{}); act(CancelInteractionAction{}); settle();
                 const auto before = XeenSaveFormat::encode(snapshot());

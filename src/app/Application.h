@@ -17,7 +17,7 @@ struct XeenGameplayServices;
 class XeenAssetSource;
 class Application {
 public:
- explicit Application(XeenTemplePriceState &templePrices, std::filesystem::path uiData = {}) : _templePrices(templePrices), _uiData(std::move(uiData)) {}
+ explicit Application(XeenProgramState &program, std::filesystem::path uiData = {}) : _program(program), _uiData(std::move(uiData)) {}
 	int run(const std::filesystem::path &gameDirectory) const;
 	int newGame(const std::filesystem::path &gameDirectory,
 		XeenDifficulty difficulty = XeenDifficulty::Adventurer,
@@ -49,7 +49,7 @@ public:
 		XeenEncounterEntry entry = XeenEncounterEntry::Ordinary, std::optional<std::uint32_t> seed = {}) const;
 private:
  using InitialPublication=std::function<bool(const XeenSaveSnapshot &,const std::function<void()> &)>;
- XeenTemplePriceState &_templePrices;
+ XeenProgramState &_program;
  std::filesystem::path _uiData;
 	int gameplay(const std::filesystem::path &, XeenCamera,
 		const std::optional<std::filesystem::path> &, bool resume,

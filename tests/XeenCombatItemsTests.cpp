@@ -23,7 +23,7 @@ void inventory(XeenSaveSnapshot &s) {
     for(auto &item:full.weapons)item={0,1,0,0};
     auto &wizard=s.characters[s.activeRosterIds[2]];wizard.characterClass=XeenCharacterClass::Sorcerer;
     wizard.accessories[0]={0,1,0,8};wizard.accessories[1]={0,1,0,8};wizard.accessories[2]={0,1,0,0};
-    s.journey->treasure->gems=123;
+    s.journey->purse->gems=123;
 }
 void admission() {
     XeenItem item{1,3,2,0};XeenCharacter c;
@@ -106,7 +106,7 @@ void synthetic(bool ran=false,bool healing=false,bool cancel=false,unsigned powe
             else tick();
         }
         check(h.retired() || !h.fight().cast(),"Combat item effect failed to settle");
-        check(h.party->roster.at(*user).currentSp==(cancel?4:3) && h.party->monsterTreasure->gems==123,"Item charged SP/gems or lost cancellation refund");
+        check(h.party->roster.at(*user).currentSp==(cancel?4:3) && h.party->purse->gems==123,"Item charged SP/gems or lost cancellation refund");
         if(!h.retired())check(h.fight().pending()==Work::Movement,"Item Use skipped its normal monster response");
         if(power==16 || power==21)check(h.party->encounterContext->effects==effects,"Combat-prohibited item applied its effect");
         for(unsigned n=0;n<1000 && !h.retired() && h.phase()!=Phase::PlayerReady;++n)tick();
@@ -116,7 +116,7 @@ void synthetic(bool ran=false,bool healing=false,bool cancel=false,unsigned powe
     };
     auto directory=child_test::freshDirectory(std::filesystem::current_path()/"m77-items");h.runDirectories.push_back(directory);
     auto path=directory/"fixture.mmsave";XeenSaveFile::write(path,saved);
-    check(Application(services.templePrices).playGameplay(services,{},path,true)==0,"Combat Items gameplay failed");
+    check(Application(services.program).playGameplay(services,{},path,true)==0,"Combat Items gameplay failed");
 }
 void original(const std::filesystem::path &game) {
     const auto installation=xeenTestInstallationDetector().detect(game);check(bool(installation),"Original installation missing");
@@ -143,7 +143,7 @@ void original(const std::filesystem::path &game) {
         for(unsigned n=0;n<1500 && (!f.flow->encounter()->combat() || f.flow->encounter()->combat()->phase()!=Phase::PlayerReady);++n)tick();
         check(f.flow->encounter()->combat() && f.flow->encounter()->combat()->phase()==Phase::PlayerReady,"Original mainland combat did not start");
         const auto actor=f.flow->encounter()->combat()->participant();const auto owner=saved.activeRosterIds[actor];
-        const auto minute=f.p.encounterContext->minutes;const auto sp=f.p.roster.at(owner).currentSp;const auto gems=f.p.monsterTreasure->gems;
+        const auto minute=f.p.encounterContext->minutes;const auto sp=f.p.roster.at(owner).currentSp;const auto gems=f.p.purse->gems;
         bool slayerRefusal=false;f.flow->reportText=[&](const auto &text){if(text==in.assets.uiText().scalar("CANNOT_DISCARD_XEEN_SLAYER"))slayerRefusal=true;};
         f.act(SelectMemberAction{0});key('i');key('4');key('d');
         check(slayerRefusal,"Combat Slayer Discard used wrong text");
@@ -167,7 +167,7 @@ void original(const std::filesystem::path &game) {
         }
         if(!f.flow->canSave() || f.flow->encounter()->combat())throw std::runtime_error("Original item combat did not finish: portal="+std::to_string(portal)+" map="+std::to_string(f.c.mapId.number)+" activity="+std::to_string(unsigned(f.w.sessionState().journeyActivity()))+" inventory="+std::to_string(f.flow->inventoryOpen())+" combat="+(f.flow->encounter()->combat()?std::to_string(unsigned(f.flow->encounter()->combat()->phase())):"retired"));
         check(f.p.roster.at(owner).miscellaneous[portal?2:0].state==1,"Original item spent wrong charge count");
-        check(f.p.roster.at(owner).currentSp==sp && f.p.monsterTreasure->gems==gems,"Original combat item charged SP/gems");
+        check(f.p.roster.at(owner).currentSp==sp && f.p.purse->gems==gems,"Original combat item charged SP/gems");
         if(portal) {
             const auto &g=f.w.map(27+choice).geometry;
             check(f.c.mapId==XeenMapIdentity(27+choice) && f.c.x==g.runX && f.c.y==g.runY && f.p.encounterContext->minutes==minute+1,"Combat Portal run location or ordinary End minute differs");

@@ -3,10 +3,11 @@
 void repaint(Domain &d) { d.flow->holdJourneyFrame();d.present(); }
 // Durable values plus the live monsters, whose HP and wake state a save no
 // longer holds (decision 8).
-struct LiveValues : XeenSaveSnapshot { std::vector<XeenActor> actors; };
+struct LiveValues : XeenSaveSnapshot { std::vector<XeenActor> actors; XeenTreasureStaging staging; };
 void sameLive(const Domain &d,const LiveValues &before) {
  for(unsigned i=0;i<30;++i){check(xeen_state::sameCharacter(d.party.roster.at(i),before.characters[i]),"Unpublished character changed");check(xeen_state::sameInputs(*d.party.roster.combatInputs(i),before.journey->supplements[i].inputs),"Unpublished supplemental owner changed");}
- check(d.party.encounterContext==before.journey->context && d.party.monsterTreasure==before.journey->treasure && d.world.sessionState().journeyRandom()==before.journey->random,"Unpublished time/purse/RNG changed");
+ check(d.party.encounterContext==before.journey->context && d.party.purse==before.journey->purse && d.world.sessionState().journeyRandom()==before.journey->random &&
+  d.world.treasureStaging().value()==before.staging,"Unpublished time/purse/pending treasure/RNG changed");
  for(unsigned i=0;i<19;++i){const auto &a=d.world.sessionState().monsters(23)[i];const auto &b=before.actors.at(i);check(a.x==b.x && a.y==b.y && a.hp==b.hp && a.activated==b.activated && a.lifecycle==b.lifecycle,"Unpublished actor changed");}
 }
 void refusedPendingShoot(Source &s) {
@@ -203,7 +204,7 @@ void shootRevalidation(Source &source) {
   check(h.flow->encounter()->notice().find("no awake eligible missile user")!=std::string::npos,"Firing revalidation reports lost eligibility");
   return true;
  };
- check(Application(services.templePrices).playGameplay(services,{},path,true)==0 && shown,"Production typed/idle Flow revalidation");
+ check(Application(services.program).playGameplay(services,{},path,true)==0 && shown,"Production typed/idle Flow revalidation");
  std::filesystem::remove(path);
  std::cout<<"REVIEW typed/idle/EventFlow: old shot disables sole missile user; no volley/charge; Quiet capture restored PASS\n";
 }
@@ -257,11 +258,14 @@ XeenSaveSnapshot runAuthorityFixture(Source &s,bool occupied=false) {
  auto &a=saved.map(23).monsters->slots[9];a.x=occupied?10:8;a.y=occupied?12:11; // Decision 8: no saved wound.
  if(occupied)saved.camera={23,10,11,XeenDirection::North};
  auto &dead=saved.map(23).monsters->slots[3];dead.x=dead.y=-128;dead.lifecycle=XeenActorLifecycle::Defeated;dead.accounted=true;
- auto &treasure=*saved.journey->treasure;treasure.pendingMask=8;treasure.pendingGold=10;treasure.armor[0]={3,{0,2,0,0}};
- save_test::bindTreasureSources(saved);
  return saved;
 }
+// The ready treasure of monster 3: its gold and the armor item it dropped.
+XeenTreasureStaging runAuthorityTreasure() {
+ XeenTreasureStaging value;value.gold=10;value.ready=true;value.armor[0]={0,2,0,0};return value;
+}
 XeenCombat &runAuthorityReady(Domain &d,bool *automatic=nullptr) {
+ XeenCombatPresentationTestAccess::stage(*d.flow,runAuthorityTreasure());
  const auto movement=d.flow->journeyAction(d.flow->ticket(),XeenEncounterAction::Forward);
  if(automatic)*automatic=movement.automaticEvent;
  if(d.flow->state().phase()==XeenEncounterPhase::Exploring)d.flow->journeyPulse(d.flow->ticket());
@@ -272,9 +276,9 @@ XeenCombat &runAuthorityReady(Domain &d,bool *automatic=nullptr) {
 }
 LiveValues runAuthorityValues(const Domain &d,const XeenSaveSnapshot &base) {
  LiveValues value;static_cast<XeenSaveSnapshot &>(value)=base;value.camera=d.camera;value.characters=d.party.roster.characters();
- value.journey->context=d.party.encounterContext;value.journey->treasure=d.party.monsterTreasure;value.journey->random=d.world.sessionState().journeyRandom();
+ value.journey->context=d.party.encounterContext;value.journey->purse=d.party.purse;value.journey->random=d.world.sessionState().journeyRandom();
  for(unsigned i=0;i<30;++i)value.journey->supplements[i].inputs=*d.party.roster.combatInputs(i);
- value.actors=d.world.sessionState().monsters(23);
+ value.actors=d.world.sessionState().monsters(23);value.staging=d.world.treasureStaging().value();
  return value;
 }
 XeenCombatResult runAuthorityPublish(XeenCombat &c) {
@@ -375,7 +379,7 @@ void runAuthorityControls(Source &s) {
   const auto old=c.ticket();runAuthorityPublish(c);const auto before=runAuthorityValues(d,setup);
   check(c.service(old).status==XeenCombatStatus::Stale,"Stale pre-Run service cannot finish");sameLive(d,before);
   const auto result=c.service(c.ticket());check(result.status==XeenCombatStatus::Advanced && c.phase()==XeenCombatPhase::Disengaged,"Successful nonvictory finish");
-  check(result.forfeitedGold==10 && d.party.monsterTreasure->dormant() && d.party.roster.at(kXeenCombatOwners[2]).conditions[13]==7,"Finish retains dormant items and prior Dead counter");
+  check(result.forfeitedGold==10 && d.world.treasureStaging().value().dormant() && d.party.roster.at(kXeenCombatOwners[2]).conditions[13]==7,"Finish retains dormant items and prior Dead counter");
   check(d.camera.x==10 && d.camera.y==12 && d.camera.direction==setup.camera.direction,"Fixed destination preserves facing");
   const auto after=runAuthorityValues(d,setup);c.preparePresentation(c.ticket(),[]{});
   bool failed=false;try{c.preparePresentation(c.ticket(),[]{throw std::bad_alloc();});}catch(const std::bad_alloc &){failed=true;}

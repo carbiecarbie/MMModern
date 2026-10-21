@@ -15,7 +15,7 @@ void run(unsigned spell,unsigned target,unsigned targetSpeed,bool quick,bool can
     caster.characterClass=XeenCharacterClass::Cleric;caster.hasSpells=true;caster.currentSp=1000;caster.permanentLevel=7;
     caster.learnedSpells.emplace();caster.learnedSpells->fill(0);
     caster.currentSpell=*R::slotForSpell(XeenSpellCategory::Clerical,spell);caster.learnedSpells->at(caster.currentSpell)=1;caster.quickOption=1;
-    saved.journey->treasure->gems=1000;
+    saved.journey->purse->gems=1000;
     for(unsigned i=0;i<6;++i) {
         const auto id=saved.activeRosterIds[i];auto &c=saved.characters[id];c.conditions.fill(0);c.currentHp=500;
         saved.journey->supplements[id].inputs.speed={int(60-i*5),0};
@@ -61,7 +61,7 @@ void run(unsigned spell,unsigned target,unsigned targetSpeed,bool quick,bool can
         }
         for(unsigned n=0;n<1000 && h.fight().cast();++n)tick();
         if(h.fight().cast())throw std::runtime_error("M75 combat effect did not settle: spell="+std::to_string(spell)+" quick="+std::to_string(quick)+" phase="+std::to_string(unsigned(h.fight().cast()->phase)));
-        check(h.party->roster.at(owner).currentSp==1000-int(cancel?0:cost.sp) && h.party->monsterTreasure->gems==1000-(cancel?0:cost.gems),"Combat cancellation did not refund its own SP and gems");
+        check(h.party->roster.at(owner).currentSp==1000-int(cancel?0:cost.sp) && h.party->purse->gems==1000-(cancel?0:cost.gems),"Combat cancellation did not refund its own SP and gems");
         if(cancel){check(h.fight().random()==rng,"Cancelled Power Cure drew");return true;}
         if(spell==52) {
             auto expected=rng;std::optional<std::uint32_t> amount;while(!amount)amount=expected.draw(2,12);
@@ -94,7 +94,7 @@ void run(unsigned spell,unsigned target,unsigned targetSpeed,bool quick,bool can
     };
     const auto directory=child_test::freshDirectory(std::filesystem::current_path()/"m75-combat");h.runDirectories.push_back(directory);
     const auto path=directory/"fixture.mmsave";XeenSaveFile::write(path,saved);
-    check(Application(services.templePrices).playGameplay(services,{},path,true)==0,"M75 synthetic combat flow failed");
+    check(Application(services.program).playGameplay(services,{},path,true)==0,"M75 synthetic combat flow failed");
 }
 }
 int main() {try {

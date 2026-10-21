@@ -516,7 +516,7 @@ void testSelectedFrameFailuresAndRecovery(const GameInstallation &installation) 
 }
 
 void testCombinedIndoorRemoveLifecycle(const GameInstallation &installation) {
-    mmodern::XeenTemplePriceState templePriceState;
+    mmodern::XeenProgramState programState;
 	const XeenObjectIdentity target{33,0};
 	const XeenObjectIdentity sibling{33,1};
 	const XeenCamera initialCamera{33,8,8,XeenDirection::North};
@@ -556,7 +556,7 @@ void testCombinedIndoorRemoveLifecycle(const GameInstallation &installation) {
 	}), "shared-resource indoor identities were not spatially distinguishable");
 
 	std::vector<XeenManualEventResult> reports;
-	XeenEventFlow flow(templePriceState,world, events, party, camera, flags, font,
+	XeenEventFlow flow(programState,world, events, party, camera, flags, font,
 		[&](std::uint64_t phase) {
 			XeenEventFlow::Composition result;
 			result.frame = composer.compose(assets, world, party, camera, context,
@@ -687,7 +687,7 @@ void testCombinedIndoorRemoveLifecycle(const GameInstallation &installation) {
 		[&](XeenMapIdentity id) { return XeenEventScript(freshSources.loadEvents(id)); },
 		[&](XeenMapIdentity id) { return freshSources.loadText(id); });
 	std::vector<XeenManualEventResult> freshReports;
-	XeenEventFlow freshFlow(templePriceState,freshWorld, freshEvents, freshParty, freshCamera, freshFlags, font,
+	XeenEventFlow freshFlow(programState,freshWorld, freshEvents, freshParty, freshCamera, freshFlags, font,
 		[&](std::uint64_t phase) {
 			XeenEventFlow::Composition result;
 			result.frame = composer.compose(freshAssets, freshWorld, freshParty,

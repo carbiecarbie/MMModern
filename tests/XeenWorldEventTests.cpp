@@ -404,10 +404,10 @@ void rules(Inputs &in) {
  check(cancelledBytes==XeenSaveFormat::encode(f.snapshot()),"Retired selector published staged rewards");
  const auto rng=f.w.sessionState().journeyRandom();
  const auto xp=f.p.roster.combatInputs(0)->experience;
- const auto gold=f.p.monsterTreasure->gold,gems=f.p.monsterTreasure->gems;
+ const auto gold=f.p.purse->gold,gems=f.p.purse->gems;
  interact(f,true);
- check(f.p.roster.combatInputs(0)->experience==std::uint32_t(xp+5000) && f.p.monsterTreasure->gold==gold+4000 &&
-  f.p.monsterTreasure->gems==gems+50 && f.p.questFlags.isSet(29) && f.w.sessionState().journeyRandom()==rng,
+ check(f.p.roster.combatInputs(0)->experience==std::uint32_t(xp+5000) && f.p.purse->gold==gold+4000 &&
+  f.p.purse->gems==gems+50 && f.p.questFlags.isSet(29) && f.w.sessionState().journeyRandom()==rng,
   "Detached fixed rewards lost XP/purse/quest/RNG ordering");
  for(auto owner:f.p.party.activeRosterIds())check(f.p.roster.at(owner).awards[126]==1,"SetChar/award remapping lost party member");
  check(!f.p.roster.at(29).awards[126] && f.w.effectiveObject({28,0}).x==20,"Inactive award owner or MoveObj identity changed");
@@ -426,12 +426,12 @@ void rules(Inputs &in) {
    check(!world.sessionState().objectOverrides().empty(),"Final candidate lost its staged MoveObj");
    authorizedPrefix.emplace();world.copyEventParty(tampered.p,*authorizedPrefix);
    prefixRandom=tampered.w.sessionState().journeyRandom();
-   check(!tampered.p.questFlags.isSet(29) && party.questFlags.isSet(29) && tampered.p.monsterTreasure->gold==gold &&
+   check(!tampered.p.questFlags.isSet(29) && party.questFlags.isSet(29) && tampered.p.purse->gold==gold &&
     tampered.w.sessionState().objectOverrides().empty(),"Pre-composer reward prefix crossed currency/world settlement");
    injected=true;auto &p=const_cast<XeenPartyState &>(party);
    // Write/restore attacks must remain observable even with identical values.
    if(field==0){auto &a=p.roster.at(0).awards[6];const auto before=std::uint8_t(a);a=1;a=before;}
-   if(field==1){auto &g=p.monsterTreasure->gold;const auto before=std::uint32_t(g);++g;g=before;}
+   if(field==1){auto &g=p.purse->gold;const auto before=std::uint32_t(g);++g;g=before;}
    if(field==2){auto &o=const_cast<XeenObjectOverride &>([&]()->const XeenObjectOverride & {
     for(const auto &entry:world.sessionState().mapStates())if(!entry.second.objectOverrides.empty())return entry.second.objectOverrides.front();
     throw std::logic_error("No live object override");}());const auto x=int(o.x);o.x=0;o.x=x;}
@@ -445,7 +445,7 @@ void rules(Inputs &in) {
   tampered.act(InteractionAction{});save_test::rejects([&]{tampered.act(SelectMemberAction{0});settle(tampered);});
   check(injected && authorizedPrefix && !tampered.flow->canSave() &&
    tampered.p.questFlags.values()==authorizedPrefix->questFlags.values() && tampered.p.questItems.counts()==authorizedPrefix->questItems.counts() &&
-   tampered.p.monsterTreasure==authorizedPrefix->monsterTreasure && tampered.p.encounterContext==authorizedPrefix->encounterContext &&
+   tampered.p.purse==authorizedPrefix->purse && tampered.p.encounterContext==authorizedPrefix->encounterContext &&
    tampered.p.worldFlags==authorizedPrefix->worldFlags && tampered.p.serviceEconomy==authorizedPrefix->serviceEconomy &&
    tampered.p.food==authorizedPrefix->food && tampered.p.party.activeRosterIds()==authorizedPrefix->party.activeRosterIds() &&
    tampered.w.sessionState().journeyRandom()==prefixRandom && tampered.w.sessionState().objectOverrides().empty(),
@@ -462,8 +462,8 @@ void rules(Inputs &in) {
  retry.act(InteractionAction{});retry.act(SelectMemberAction{0});
  for(unsigned n=0;!attempts && n<8;++n)retry.act(AcknowledgeAction{});
  check(attempts==1,"Final composition retry fixture did not reach its retained failure boundary");
- check(!retry.flow->canSave() && retry.p.monsterTreasure->gold==gold && !retry.p.questFlags.isSet(29) && XeenCityEventTestAccess::visible(*retry.flow).questFlags.isSet(29) && retry.w.sessionState().objectOverrides().empty(),"Failed final presentation lost its retained prefix or published currency/world");
- settle(retry);check(attempts==2 && retry.p.monsterTreasure->gold==gold+4000 &&
+ check(!retry.flow->canSave() && retry.p.purse->gold==gold && !retry.p.questFlags.isSet(29) && XeenCityEventTestAccess::visible(*retry.flow).questFlags.isSet(29) && retry.w.sessionState().objectOverrides().empty(),"Failed final presentation lost its retained prefix or published currency/world");
+ settle(retry);check(attempts==2 && retry.p.purse->gold==gold+4000 &&
   retry.p.roster.combatInputs(0)->experience==s.journey->supplements[0].inputs.experience+5000,"Presentation retry repeated or lost fixed rewards");
  const auto once=XeenSaveFormat::encode(retry.snapshot());retry.act(AcknowledgeAction{});retry.act(AcknowledgeAction{});
  check(once==XeenSaveFormat::encode(retry.snapshot()),"Repeated receipt regranted fixed rewards");
@@ -488,9 +488,9 @@ void rules(Inputs &in) {
  const auto beforeXp=std::uint32_t(grants.roster.combatInputs(selected)->experience);
  xeenEventGive(owners,16,0xffffffffu,0);
  check(grants.roster.combatInputs(selected)->experience==std::uint32_t(beforeXp-1),"XP arithmetic did not wrap as uint32");
- const auto beforeGold=std::uint32_t(grants.monsterTreasure->gold);
+ const auto beforeGold=std::uint32_t(grants.purse->gold);
  xeenEventGive(owners,34,0xffffffffu,0);
- check(grants.monsterTreasure->gold==std::uint32_t(beforeGold-1),"Purse arithmetic did not wrap as uint32");
+ check(grants.purse->gold==std::uint32_t(beforeGold-1),"Purse arithmetic did not wrap as uint32");
  grants.roster.at(selected).skills[4]=254;
  for(const auto expected:{255,0}) {
   xeenEventGive(owners,13,4,0);
@@ -542,7 +542,7 @@ void teachers(Inputs &in) {
  for(const auto teacher:std::array<std::array<unsigned,4>,2>{{{{8,16,4,100}},{{25,26,11,2000}}}}) {
   const auto x=teacher[0],y=teacher[1],skill=teacher[2],price=teacher[3];
   auto source=at(in,x,y);const unsigned selected=3,owner=source.activeRosterIds.at(selected);
-  source.characters[owner].skills[skill]=0;source.journey->treasure->gold=price*3;
+  source.characters[owner].skills[skill]=0;source.journey->purse->gold=price*3;
    if(skill==4) {save_test::clearExplored(source);for(auto &c:source.characters)c.skills[4]=0;}
   Fixture f(in,source);const auto before=XeenSaveFormat::encode(f.snapshot());
   const auto rng=f.w.sessionState().journeyRandom();const auto time=f.p.encounterContext;
@@ -561,7 +561,7 @@ void teachers(Inputs &in) {
    teacherPrompt(f);check(f.flow->canCancelInteraction(),"Repeated teacher WhoWill unavailable");
    f.act(SelectMemberAction{selected});settle(f);
    check(f.w.scenePresentation().portraits[owner].spellFrame==4,"Original teacher did not sparkle selected portrait");
-   check(f.p.roster.at(owner).skills[skill]==lesson && f.p.monsterTreasure->gold==price*(3-lesson),"Original paid lesson debit/increment changed");
+   check(f.p.roster.at(owner).skills[skill]==lesson && f.p.purse->gold==price*(3-lesson),"Original paid lesson debit/increment changed");
    check(npcRandomOnly(*rng,*f.w.sessionState().journeyRandom()) && f.p.encounterContext->minutes==time->minutes+lesson && f.p.encounterContext->ctr24==(time->ctr24+lesson)%24,"Teacher changed RNG or omitted the completed Space suffix");
    check(f.p.roster.at(owner).currentHp==source.characters[owner].currentHp &&
     f.p.roster.at(owner).currentSp==source.characters[owner].currentSp &&
@@ -581,10 +581,10 @@ void teachers(Inputs &in) {
      "Later stepped action after Mylo does not reveal another physical cell");
    }
   for(const auto gold:{price-1,price}) {
-   auto boundary=source;boundary.journey->treasure->gold=gold;Fixture b(in,boundary);
+   auto boundary=source;boundary.journey->purse->gold=gold;Fixture b(in,boundary);
    const auto preimage=XeenSaveFormat::encode(b.snapshot());
    teacherPrompt(b);b.act(SelectMemberAction{selected});settle(b);
-   check(b.p.roster.at(owner).skills[skill]==(gold==price?1:0) && b.p.monsterTreasure->gold==(gold==price?0:gold),"Teacher gold boundary changed");
+   check(b.p.roster.at(owner).skills[skill]==(gold==price?1:0) && b.p.purse->gold==(gold==price?0:gold),"Teacher gold boundary changed");
    if(gold<price) {
     Fixture expected(in,XeenSaveFormat::decode(preimage));expected.act(WaitAction{});settle(expected);
     check(sameExceptNpcRandom(XeenSaveFormat::encode(expected.snapshot()),b.snapshot()),"Insufficient lesson changed more than the completed Space suffix");
@@ -635,7 +635,7 @@ void originalEvents(Inputs &in) {
  interact(proof,true);check(proof.f.isSet(9) && proof.w.effectiveObject({28,0}).x==9 && proof.w.effectiveObject({28,0}).y==22 &&
   proof.w.sessionState().journeyRandom()==rng,"Original proof flag/object or fixed RNG diverged");
  stage="Gunther";auto next=proof.snapshot();next.camera={28,14,5,XeenDirection::West};Fixture gunther(in,next);
- const auto gold=gunther.p.monsterTreasure->gold,gems=gunther.p.monsterTreasure->gems;
+ const auto gold=gunther.p.purse->gold,gems=gunther.p.purse->gems;
  std::array<std::uint32_t,30> xp{};for(unsigned owner=0;owner<30;++owner)xp[owner]=gunther.p.roster.combatInputs(owner)->experience;
  // DOS capture: one sparkle pass over portraits 1-6 (XP, line 15), then the
  // "+ 5,000 experience" side-panel text (line 18); award 6 (line 20) is latched.
@@ -655,7 +655,7 @@ void originalEvents(Inputs &in) {
  check(gunther.p.party.size()==6 && sequence.size()==25,"Gunther reward did not sparkle exactly once per member before its text");
  for(unsigned n=0;n<24;++n)check(sequence[n]=="S"+std::to_string(n/4)+std::to_string(n%4),"Gunther sparkle order");
  check(sequence[24]=="T+ 5,000 experience","Gunther experience text is not the side-panel window 38 message");
- check(gunther.f.isSet(10) && gunther.p.monsterTreasure->gold==gold+4000 && gunther.p.monsterTreasure->gems==gems+50 &&
+ check(gunther.f.isSet(10) && gunther.p.purse->gold==gold+4000 && gunther.p.purse->gems==gems+50 &&
   !gunther.p.questFlags.isSet(29) && gunther.p.questFlags.isSet(1),"Original Gunther rewards/next quest diverged");
  for(auto owner:gunther.p.party.activeRosterIds())check(gunther.p.roster.at(owner).awards[6]==1 &&
   gunther.p.roster.combatInputs(owner)->experience==xp[owner]+5000,"Original Gunther XP/award lost member");
@@ -703,7 +703,7 @@ RandomRun randomRun(Inputs &in,std::vector<XeenEventRecord> records,XeenJourneyR
  auto source=at(in,20,20);source.journey->random=start;
  XeenEventFile city{28,"maze0028.evt",true,std::move(records)};
  Fixture f(in,source,false,&city);f.act(InteractionAction{});settle(f);
- return {*f.w.sessionState().journeyRandom(),std::uint32_t(f.p.monsterTreasure->gold),std::uint32_t(f.p.monsterTreasure->gems),f.flow->canSave()};
+ return {*f.w.sessionState().journeyRandom(),std::uint32_t(f.p.purse->gold),std::uint32_t(f.p.purse->gems),f.flow->canSave()};
 }
 XeenJourneyRandomState afterDraws(XeenJourneyRandomState state,const std::vector<std::pair<std::uint32_t,std::uint32_t>> &draws) {
  XeenCombatRandom random(state);
@@ -714,7 +714,7 @@ void rewardRandomOwnership(Inputs &in) {
  stage="GiveMulti shared random stream";
  const XeenJourneyRandomState seed{1,7,0};
  const auto base=at(in,20,20);
- const auto gems=std::uint32_t(base.journey->treasure->gems),gold=std::uint32_t(base.journey->treasure->gold);
+ const auto gems=std::uint32_t(base.journey->purse->gems),gold=std::uint32_t(base.journey->purse->gold);
  check(base.activeRosterIds.size()==6,"Shared stream regression needs six members");
  const auto gems1=record(0,0x14,{101,1,0});
  // GiveMulti(101,1), SelectRandomChar, GiveMulti(101,1), Exit: three draws in order.
@@ -783,7 +783,7 @@ void treasure(Inputs &in) {
   if(full)for(auto owner:source.activeRosterIds)for(unsigned c=0;c<4;++c)
    xeenRewardItems(source.characters[owner],XeenRewardCategory(c)).fill({1,1,0,0});
   Fixture f(in,source,false,&city);const auto before=XeenSaveFormat::encode(f.snapshot());
-  const auto oldGold=std::uint32_t(f.p.monsterTreasure->gold),oldGems=std::uint32_t(f.p.monsterTreasure->gems);
+  const auto oldGold=std::uint32_t(f.p.purse->gold),oldGems=std::uint32_t(f.p.purse->gems);
   f.act(InteractionAction{});const auto selector=f.flow->frame().presentation();const auto input=f.flow->displayedInput();
   unsigned presentationAttempts=0;
   XeenCityEventTestAccess::presenter(*f.flow,[&](auto,auto) {
@@ -802,7 +802,7 @@ void treasure(Inputs &in) {
   };
   f.act(SelectMemberAction{1});
   check(!f.flow->canSave() && !XeenSaveState::canCapture(f.p,f.c,f.w) &&
-   f.p.monsterTreasure->gold==oldGold && f.p.monsterTreasure->gems==oldGems &&
+   f.p.purse->gold==oldGold && f.p.purse->gems==oldGems &&
    !f.f.isSet(199) && f.w.sessionState().objectOverrides().empty() &&
    XeenCityEventTestAccess::visibleRandom(*f.flow)==random.continuation(),"Reward prefix lost its retained generation RNG or published final world/currency early");
   unsigned attempts=0;
@@ -813,7 +813,7 @@ void treasure(Inputs &in) {
   bool finalSeen=false;
   settle(f,[&] {
    if(!f.flow->presentationGeneration())return;
-   check(f.p.monsterTreasure->gold==oldGold && f.p.monsterTreasure->gems==oldGems,"Every Event treasure page keeps live currency private until final acknowledgment");
+   check(f.p.purse->gold==oldGold && f.p.purse->gems==oldGems,"Every Event treasure page keeps live currency private until final acknowledgment");
    const auto state=XeenTrainingTestAccess::serviceState(*f.flow);
    if(state.rewardPhase==XeenRewardPhase::Receipt && state.pendingPresentation->request.kind==XeenPresentationKind::RewardReceipt &&
     f.flow->presenter().blocksGameplay() && f.flow->presenter().pageIndex()+1==f.flow->presenter().pageCount())finalSeen=true;
@@ -821,7 +821,7 @@ void treasure(Inputs &in) {
   check(finalSeen,"Generated Event reward reaches a separate final acknowledgment");
   check(presentationAttempts>=2 && attempts==2 && f.f.isSet(199) && f.w.effectiveObject({28,8}).x==20 &&
    f.w.sessionState().journeyRandom()==random.continuation(),"Generated reward retry rerolled or lost world group");
-  check(f.p.monsterTreasure->gold==oldGold+*gold && f.p.monsterTreasure->gems==oldGems+5,"Full packs preserve generated currency and RNG order");
+  check(f.p.purse->gold==oldGold+*gold && f.p.purse->gems==oldGems+5,"Full packs preserve generated currency and RNG order");
   if(!full)check(sameItem(xeenRewardItems(f.p.roster.at(f.p.party.activeRosterIds()[1]),
    XeenRewardCategory(generated.category()))[0],generated.item()),"Generated category or selected recipient differs");
   const auto paid=XeenSaveFormat::encode(f.snapshot());
@@ -862,10 +862,10 @@ void treasure(Inputs &in) {
  }
  check(!XeenSaveState::canCapture(bounded.p,bounded.c,bounded.w) && !bounded.f.isSet(199) &&
   bounded.w.sessionState().journeyRandom()==oracle.w.sessionState().journeyRandom() &&
-  bounded.p.monsterTreasure->gold==s.journey->treasure->gold,"Suspended generator published live state");
+  bounded.p.purse->gold==s.journey->purse->gold,"Suspended generator published live state");
  settle(bounded);
  check(bounded.f.isSet(199) && bounded.w.sessionState().journeyRandom()==expected.continuation() &&
-  bounded.p.monsterTreasure->gold==s.journey->treasure->gold+63,"Suspended generation replayed a pair or instruction");
+  bounded.p.purse->gold==s.journey->purse->gold+63,"Suspended generation replayed a pair or instruction");
  // A full ten-item category still consumes makeItem, then exits the script before later pairs/effects.
  city.records.clear();for(unsigned line=0;line<40;++line)
   city.records.push_back(record(line,0x14,{34,1,0,0,0,66,1,35,1,0}));
@@ -879,8 +879,8 @@ void treasure(Inputs &in) {
  }
  interact(overflow);
  check(attempted==accepted+1 && !overflow.f.isSet(199) && itemCount(overflow.p)==accepted &&
-  overflow.p.monsterTreasure->gold==s.journey->treasure->gold+attempted &&
-  overflow.p.monsterTreasure->gems==s.journey->treasure->gems+accepted &&
+  overflow.p.purse->gold==s.journey->purse->gold+attempted &&
+  overflow.p.purse->gems==s.journey->purse->gems+accepted &&
   overflow.w.sessionState().journeyRandom()==overflowRandom.continuation(),"Category overflow changed termination, pair order or RNG");
 }
 unsigned itemCount(const XeenPartyState &p) {
@@ -895,10 +895,10 @@ void treeFlags(Inputs &in) {
   (r.parameters[3]>=232 || r.parameters[3]==57 || r.parameters[3]==58)) {
   const auto flag=r.parameters[3];if(paid[flag])continue;paid.set(flag);
   auto s=at(in,r.x,r.y);s.gameFlags[231]=true;
-  Fixture f(in,s);const auto gold=std::uint32_t(f.p.monsterTreasure->gold);
+  Fixture f(in,s);const auto gold=std::uint32_t(f.p.purse->gold);
   XeenCombatRandom random(*f.w.sessionState().journeyRandom());XeenConsequenceDraw draw{random,64,{}};
   const auto amount=draw.draw(1,10);check(bool(amount),"Tree gold oracle");
-  interact(f,true);check(f.f.isSet(flag) && f.p.monsterTreasure->gold==gold+*amount &&
+  interact(f,true);check(f.f.isSet(flag) && f.p.purse->gold==gold+*amount &&
    f.w.sessionState().journeyRandom()==random.continuation(),"Original tree flag/payment/RNG differs");
   const auto once=XeenSaveFormat::encode(f.snapshot());interact(f);
   check(sameAfterSpace(in,once,f.snapshot()),"Original tree repeated payment beyond its Space suffix");
@@ -908,7 +908,7 @@ void treeFlags(Inputs &in) {
  check(paid.count()==26 && paid[57] && paid[58] && paid[232] && paid[255],"Original tree family incomplete");
 }
 XeenSaveSnapshot fresh(Inputs &in) {
-    mmodern::XeenTemplePriceState templePriceState;
+    mmodern::XeenProgramState programState;
  auto party=XeenPartyLoader().loadFromResources(in.chr,in.pty);
  auto camera=XeenCharacterFormat::parsePartyLocation(in.pty);XeenGameFlags flags;
  XeenWorld world(in.mapLoader(),in.objectLoader());
@@ -918,9 +918,9 @@ XeenSaveSnapshot fresh(Inputs &in) {
  setup.regionalText=in.texts.load(23);setup.learnedNames=in.names;setup.learnedNamesProvider=[&in]{return in.names;};
  setup.cityEventsProvider=[&in]{return in.city;};
  setup.mainlandEventsProvider=[&in]{return in.mainland;};
- XeenEncounterFlow flow(templePriceState,world,party,camera,flags,[]{return 0;},setup);
+ XeenEncounterFlow flow(programState,world,party,camera,flags,[]{return 0;},setup);
  check(flow.prepareJourneyFrame(flow.ticket(),[]{}) && flow.presentJourney(flow.ticket()),"Original New Game frame");
- check(party.food==90 && party.monsterTreasure->gold==800 && camera.mapId==XeenMapIdentity(28),"Original New Game state");
+ check(party.food==90 && party.purse->gold==800 && camera.mapId==XeenMapIdentity(28),"Original New Game state");
  return XeenSaveState::capture(in.signature,party,camera,flags,world);
 }
 void face(Fixture &f,XeenDirection direction) {
@@ -1017,12 +1017,12 @@ void originalJourney(Inputs &in) {
  check(f.p.questFlags.isSet(29),"New Game Gunther quest missing");
  walk(f,8,18);interact(f);walk(f,9,22);interact(f,true);
  check(f.f.isSet(9),"New Game proof did not advance Joe quest");
- walk(f,14,5);face(f,XeenDirection::West);const auto gold=f.p.monsterTreasure->gold;
+ walk(f,14,5);face(f,XeenDirection::West);const auto gold=f.p.purse->gold;
  std::set<int> questPortraits;const auto draw=f.flow->drawDialogSprite;
  f.flow->drawDialogSprite=[&](auto &image,const char *name,unsigned frame,int x,int y){if(std::string(name)=="spellfx.icn")questPortraits.insert(x);draw(image,name,frame,x,y);};
  interact(f);f.flow->drawDialogSprite=draw;
  check(questPortraits.size()==f.p.party.size(),"Original quest XP did not sparkle every party portrait");
- check(f.f.isSet(10) && f.p.monsterTreasure->gold==gold+4000 && f.p.questFlags.isSet(1),"New Game Gunther reward missing");
+ check(f.f.isSet(10) && f.p.purse->gold==gold+4000 && f.p.questFlags.isSet(1),"New Game Gunther reward missing");
  const auto awarded=XeenSaveFormat::encode(f.snapshot());interact(f);
  check(sameAfterSpace(in,awarded,f.snapshot(),true),"New Game repeat Gunther regranted rewards");
  stage="New Game crate";walk(f,9,28);
@@ -1045,7 +1045,7 @@ void originalJourney(Inputs &in) {
  const auto lootOwner=f.p.party.activeRosterIds()[lootMember];
  const auto loot=(*xeenInventoryItems(f.p.roster.at(lootOwner),XeenInventoryCategory(lootCategory)))[lootSlot];
  walk(f,8,4);face(f,XeenDirection::West);f.act(InteractionAction{});f.prepare();
- const auto serviceGold=std::uint32_t(f.p.monsterTreasure->gold);
+ const auto serviceGold=std::uint32_t(f.p.purse->gold);
  const auto serviceMinutes=f.p.encounterContext->minutes;
  const auto identifyPrice=*xeenItemPrice(XeenInventoryCategory(lootCategory),loot,XeenItemService::Identify);
  const auto sellPrice=*xeenItemPrice(XeenInventoryCategory(lootCategory),loot,XeenItemService::Sell,f.p.roster.at(lootOwner).skills[8]);
@@ -1053,10 +1053,10 @@ void originalJourney(Inputs &in) {
  constexpr unsigned tabs[]{'w','a','c','m'};f.act(DialogKeyAction{tabs[lootCategory]});f.act(DialogKeyAction{'i'});
  f.act(SelectInventorySlotAction{lootSlot});f.act(YesAction{});
  check(f.flow->inputContext(f.flow->frame().presentation()).dialog->anyKey &&
-  f.p.monsterTreasure->gold==serviceGold-identifyPrice &&
+  f.p.purse->gold==serviceGold-identifyPrice &&
   xeenSameItem((*xeenInventoryItems(f.p.roster.at(lootOwner),XeenInventoryCategory(lootCategory)))[lootSlot],loot),"Earned loot Identify changed bytes or lost detail/payment");
  f.act(AcknowledgeAction{});f.act(DialogKeyAction{'s'});f.act(SelectInventorySlotAction{lootSlot});f.act(YesAction{});
- check(f.p.monsterTreasure->gold==serviceGold-identifyPrice+sellPrice && f.p.encounterContext->minutes==serviceMinutes,"Earned loot Sell credit or transaction timing differs");
+ check(f.p.purse->gold==serviceGold-identifyPrice+sellPrice && f.p.encounterContext->minutes==serviceMinutes,"Earned loot Sell credit or transaction timing differs");
  for(unsigned n=0;n<100 && !f.flow->canSave();++n)f.act(CancelInteractionAction{});
  check(f.flow->canSave(),"Earned loot Ironworks departure did not settle");
  f.act(RestAction{});settle(f);
@@ -1082,14 +1082,14 @@ void originalJourney(Inputs &in) {
   auto expected=actors[i];xeenRefillLoadedMonster(expected);expected.activated=retained[i].activated;
   check(xeen_state::sameActor(retained[i],expected),"Flag 9 town exit respawned actors");
  }
- walk(reload,14,5);face(reload,XeenDirection::West);const auto purse=reload.p.monsterTreasure->gold;
- interact(reload);check(reload.p.monsterTreasure->gold==purse && reload.p.questFlags.isSet(1),"Reload/re-entry repeated reward");
+ walk(reload,14,5);face(reload,XeenDirection::West);const auto purse=reload.p.purse->gold;
+ interact(reload);check(reload.p.purse->gold==purse && reload.p.questFlags.isSet(1),"Reload/re-entry repeated reward");
  stage="earned crate reload";walk(reload,9,28);const auto openedAgain=XeenSaveFormat::encode(reload.snapshot());interact(reload);
  check(sameAfterSpace(in,openedAgain,reload.snapshot()) && reload.w.effectiveObject({28,8}).x==9,
   "Travel/reload reopened paid crate");
  stage="earned tree cycle";check(reload.f.isSet(231),"Town departure did not initialize tree cycle");
- walk(reload,13,2);const auto beforeTree=std::uint32_t(reload.p.monsterTreasure->gold);interact(reload,true);
- check(reload.f.isSet(232) && reload.p.monsterTreasure->gold>beforeTree && reload.p.monsterTreasure->gold<=beforeTree+10,"Earned tree payment absent");
+ walk(reload,13,2);const auto beforeTree=std::uint32_t(reload.p.purse->gold);interact(reload,true);
+ check(reload.f.isSet(232) && reload.p.purse->gold>beforeTree && reload.p.purse->gold<=beforeTree+10,"Earned tree payment absent");
  walk(reload,24,5);const auto tavern=std::find_if(in.city.records.begin(),in.city.records.end(),[](const auto &r){return r.x==24 && r.y==5 && r.line==0;});
  check(tavern!=in.city.records.end(),"Original Tavern entry missing");if(tavern->direction<4)face(reload,XeenDirection(tavern->direction));
  reload.act(InteractionAction{});
@@ -1109,7 +1109,7 @@ void partBVernGuild(Inputs &in) {
  stage="M59 Vern selected payment";
  auto source=at(in,16,11,XeenDirection::East);const unsigned selected=3,owner=source.activeRosterIds[selected];
  for(auto &c:source.characters)c.awards[0]=0;
- source.journey->treasure->gold=75;
+ source.journey->purse->gold=75;
  Fixture f(in,source);const auto initial=XeenSaveFormat::encode(f.snapshot());const auto random=f.w.sessionState().journeyRandom();const auto time=f.p.encounterContext;
  teacherPrompt(f);check(f.flow->canCancelInteraction(),"Vern WhoWill unavailable");
  auto pending=XeenTrainingTestAccess::serviceState(*f.flow);
@@ -1132,7 +1132,7 @@ void partBVernGuild(Inputs &in) {
   for(auto pixel:f.flow->frame().pixels)for(unsigned channel=0;channel<3;++channel){const unsigned char c=palette[pixel*3+channel]*4;out.write(reinterpret_cast<const char *>(&c),1);}
  }
  const auto staleFrame=f.flow->frame().presentation();const auto staleInput=f.flow->displayedInput();
- f.act(NoAction{});check(f.p.monsterTreasure->gold==75 && f.p.roster.at(owner).awards[0]==0,"No charged Vern dues");
+ f.act(NoAction{});check(f.p.purse->gold==75 && f.p.roster.at(owner).awards[0]==0,"No charged Vern dues");
  f.act(DialogKeyAction{InputKey::Escape});settle(f);check(sameExceptNpcRandom(initial,f.snapshot()),"Vern cancellation changed state");
  f.flow->handle(SelectMemberAction{selected},staleInput,staleFrame);check(sameExceptNpcRandom(initial,f.snapshot()),"Stale Vern selection charged dues");
  for(unsigned n=1;n<=2;++n) {
@@ -1141,15 +1141,15 @@ void partBVernGuild(Inputs &in) {
   const auto choice=n==1?controls->click(118,151):controls->key(InputKey::F1+selected);
   check(bool(choice),"WhoWill portrait hit absent");f.act(*choice);settle(f);
   check(f.w.scenePresentation().portraits[owner].spellFrame==4,"Vern reached quiet boundary before its sparkle finished");
-  check(f.p.monsterTreasure->gold==75-25*n && f.p.roster.at(owner).awards[0]==1,"Vern repeat payment/award differs");
+  check(f.p.purse->gold==75-25*n && f.p.roster.at(owner).awards[0]==1,"Vern repeat payment/award differs");
   for(auto id:f.p.party.activeRosterIds())if(id!=owner)check(f.p.roster.at(id).awards[0]==0,"Vern enrolled an unselected owner");
   check(f.p.encounterContext->minutes==time->minutes+n && f.p.encounterContext->ctr24==(time->ctr24+n)%24,"Vern omitted the completed Space suffix");
   check(npcRandomOnly(*random,*f.w.sessionState().journeyRandom()),"Vern consumed random requests beyond original NPC animation");
  }
  for(unsigned gold:{24u,25u}) {
-  auto boundary=source;boundary.journey->treasure->gold=gold;Fixture b(in,boundary);const auto before=XeenSaveFormat::encode(b.snapshot());
+  auto boundary=source;boundary.journey->purse->gold=gold;Fixture b(in,boundary);const auto before=XeenSaveFormat::encode(b.snapshot());
   teacherPrompt(b);b.act(SelectMemberAction{selected});settle(b);
-  check(b.p.monsterTreasure->gold==(gold==25?0:24) && b.p.roster.at(owner).awards[0]==(gold==25),"Vern exact/insufficient gold boundary");
+  check(b.p.purse->gold==(gold==25?0:24) && b.p.roster.at(owner).awards[0]==(gold==25),"Vern exact/insufficient gold boundary");
   if(gold==24) {
    Fixture expected(in,XeenSaveFormat::decode(before));expected.act(WaitAction{});settle(expected);
    check(sameExceptNpcRandom(XeenSaveFormat::encode(expected.snapshot()),b.snapshot()),"Insufficient Vern dues changed more than the completed Space suffix");
@@ -1167,10 +1167,10 @@ void partBVernGuild(Inputs &in) {
  // Fail composition at publication; payment and membership must remain one unit.
  Fixture retry(in,source);teacherPrompt(retry);unsigned failures=0;
  XeenCityEventTestAccess::composer(*retry.flow,[&](auto &,const auto &,const auto &,auto,auto){
-  check((retry.p.monsterTreasure->gold==75 && retry.p.roster.at(owner).awards[0]==0) ||
-   (retry.p.monsterTreasure->gold==50 && retry.p.roster.at(owner).awards[0]==1),"Vern published only half a transaction");
+  check((retry.p.purse->gold==75 && retry.p.roster.at(owner).awards[0]==0) ||
+   (retry.p.purse->gold==50 && retry.p.roster.at(owner).awards[0]==1),"Vern published only half a transaction");
   if(!failures++)throw std::runtime_error("Vern frame retry");return XeenEventFlow::Composition{frame(),false};});
- retry.act(SelectMemberAction{selected});settle(retry);check(failures && retry.p.monsterTreasure->gold==50 && retry.p.roster.at(owner).awards[0]==1,"Vern retry double-paid or lost award");
+ retry.act(SelectMemberAction{selected});settle(retry);check(failures && retry.p.purse->gold==50 && retry.p.roster.at(owner).awards[0]==1,"Vern retry double-paid or lost award");
  stage="M59 mixed-membership Guild";
  auto guild=f.snapshot();guild.camera={28,20,13,XeenDirection::North};guild.journey->context->day=10;
  Fixture g(in,guild);XeenServiceDayCandidate expected(*guild.journey->context,*guild.journey->serviceEconomy,*guild.journey->random);
@@ -1182,8 +1182,8 @@ void partBVernGuild(Inputs &in) {
  check(!g.flow->canSave() && !XeenSaveState::canCapture(g.p,g.c,g.w),"Guild allowed a transient save");
  const auto text=[&]{return XeenTrainingTestAccess::templeText(*g.flow);};
  check(text().find("You have to be a member to shop here")!=std::string::npos,"Guild admitted non-member");
- const auto purse=g.p.monsterTreasure->gold;g.act(DialogKeyAction{'b'});g.act(DialogKeyAction{'s'});
- check(text().find("You have to be a member")!=std::string::npos && g.p.monsterTreasure->gold==purse,"Non-member Guild action changed state");
+ const auto purse=g.p.purse->gold;g.act(DialogKeyAction{'b'});g.act(DialogKeyAction{'s'});
+ check(text().find("You have to be a member")!=std::string::npos && g.p.purse->gold==purse,"Non-member Guild action changed state");
  const auto choose=[&](unsigned key,bool mouse) {
   if(!mouse){g.act(DialogKeyAction{key});return;}
   for(const auto &hit:input()->hits)if(hit.key==key){const auto action=input()->click((hit.left+hit.right)/2,(hit.top+hit.bottom)/2);check(bool(action),"Guild mouse hit absent");g.act(*action);return;}
@@ -1197,14 +1197,14 @@ void partBVernGuild(Inputs &in) {
  choose(InputKey::F1,false);check(text().find("You have to be a member")!=std::string::npos,"Guild retained previous member's membership");
  choose(InputKey::F1+selected,false);choose(InputKey::Escape,true);
  for(unsigned n=0;n<1000 && !g.flow->canSave();++n){g.act(CancelInteractionAction{});g.flow->beginCycle(++g.cycle);if(auto image=g.flow->updatePresentation())g.present(*image);}
- check(g.flow->canSave() && g.p.monsterTreasure->gold==purse && *g.p.encounterContext==expected.context() && *g.p.serviceEconomy==expected.economy() && *g.w.sessionState().journeyRandom()==expected.continuation(),"Guild departure did not settle exactly once");
+ check(g.flow->canSave() && g.p.purse->gold==purse && *g.p.encounterContext==expected.context() && *g.p.serviceEconomy==expected.economy() && *g.w.sessionState().journeyRandom()==expected.continuation(),"Guild departure did not settle exactly once");
  Fixture restored(in,g.snapshot());check(XeenSaveFormat::encode(restored.snapshot())==XeenSaveFormat::encode(g.snapshot()),"Guild membership/day restore is not exact");
 
  // Original Vern -> Guild input path with a synthetic purse large enough to buy.
  stage="Vern membership and original Protection from Elements purchase";
- auto funded=source;funded.journey->treasure->gold=1000;const unsigned caster=4,casterOwner=funded.activeRosterIds[caster];
+ auto funded=source;funded.journey->purse->gold=1000;const unsigned caster=4,casterOwner=funded.activeRosterIds[caster];
  Fixture enrollment(in,funded);teacherPrompt(enrollment);enrollment.act(SelectMemberAction{caster});settle(enrollment);
- check(enrollment.p.roster.at(casterOwner).awards[0]==1 && enrollment.p.monsterTreasure->gold==975,"Vern did not enroll funded caster");
+ check(enrollment.p.roster.at(casterOwner).awards[0]==1 && enrollment.p.purse->gold==975,"Vern did not enroll funded caster");
  auto enrolled=enrollment.snapshot();enrolled.camera={28,20,13,XeenDirection::North};Fixture shop(in,enrolled);shop.act(InteractionAction{});shop.prepare();
  shop.act(DialogKeyAction{InputKey::F1+caster});shop.act(DialogKeyAction{'b'});
  const auto offered=XeenLearnedSpellRules::rows(shop.p.roster.at(casterOwner),true,false,XeenMapIdentity(28));
@@ -1215,7 +1215,7 @@ void partBVernGuild(Inputs &in) {
  check(spell==55 && XeenLearnedSpellRules::supported(spell),"original Protection from Elements purchase identity/support");
  const auto price=XeenLearnedSpellRules::purchasePrice(spell,shop.p.roster.at(casterOwner).characterClass);
  shop.act(DialogKeyAction{'1'+unsigned(purchase-offered.begin())});shop.act(DialogKeyAction{'y'});
- check(shop.p.roster.at(casterOwner).learnedSpells->at(bought)==1 && shop.p.monsterTreasure->gold==975-price,"original Guild purchase did not learn/debit selected book");
+ check(shop.p.roster.at(casterOwner).learnedSpells->at(bought)==1 && shop.p.purse->gold==975-price,"original Guild purchase did not learn/debit selected book");
  shop.act(CancelInteractionAction{});shop.act(CancelInteractionAction{});
  for(unsigned n=0;n<1000 && !shop.flow->canSave();++n){shop.flow->beginCycle(++shop.cycle);if(auto image=shop.flow->updatePresentation())shop.present(*image);}
  check(shop.flow->canSave(),"Purchased Guild departure did not settle");

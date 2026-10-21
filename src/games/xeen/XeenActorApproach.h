@@ -78,11 +78,11 @@ public:
 	static XeenEncounterResult initializeJourney(XeenWorld &, XeenPartyState &, XeenCamera &,
 		XeenEncounterState &, const std::vector<std::uint8_t> &, const XeenGameplayContext &,
 		const std::vector<XeenMonsterRecord> &, const XeenEventFile &, std::uint32_t,
-		const std::optional<XeenMonsterTreasure> &);
+		const std::optional<XeenPurse> &);
 	static XeenEncounterResult initializeJourney(XeenWorld &, XeenPartyState &, XeenCamera &,
 		XeenEncounterState &, const std::vector<std::uint8_t> &, const XeenGameplayContext &,
 		const std::vector<XeenMonsterRecord> &, const XeenEventFile &, std::uint32_t,
-		const std::optional<XeenMonsterTreasure> &, const std::optional<XeenBankBalances> &);
+		const std::optional<XeenPurse> &, const std::optional<XeenBankBalances> &);
 	static constexpr std::size_t kCapacity = 107;
 	// Read-only authorization, including terminal states. Never adopts a revision.
 	static bool authoritative(const XeenWorld &, const XeenPartyState &, const XeenCamera &,
@@ -138,19 +138,19 @@ private:
 	static XeenEncounterResult initializeStart(XeenWorld &, XeenPartyState &, XeenCamera &,
 		XeenEncounterState &, const std::vector<std::uint8_t> &, const XeenGameplayContext &,
 		const std::vector<XeenMonsterRecord> &, const XeenEventFile &, const XeenEventFile &,
-		std::uint32_t, const std::optional<XeenMonsterTreasure> &, const std::optional<XeenBankBalances> &,
+		std::uint32_t, const std::optional<XeenPurse> &, const std::optional<XeenBankBalances> &,
 		bool prepared, const std::optional<XeenWorldFlags> &, const StartPublicationPreparation &,
 		const std::optional<XeenCamera> &start = {});
 	static XeenEncounterResult initializeJourney(XeenWorld &, XeenPartyState &, XeenCamera &,
 		XeenEncounterState &, const std::vector<std::uint8_t> &, const XeenGameplayContext &,
 		const std::vector<XeenMonsterRecord> &, const XeenEventFile &, std::uint32_t,
-		const std::optional<XeenMonsterTreasure> &, const std::optional<XeenBankBalances> &,
+		const std::optional<XeenPurse> &, const std::optional<XeenBankBalances> &,
 		const FreshPublicationPreparation &);
 	// Developer monster fixture: the same initialization from a chosen mainland start.
 	static XeenEncounterResult initializeJourney(XeenWorld &, XeenPartyState &, XeenCamera &,
 		XeenEncounterState &, const std::vector<std::uint8_t> &, const XeenGameplayContext &,
 		const std::vector<XeenMonsterRecord> &, const XeenEventFile &, std::uint32_t,
-		const std::optional<XeenMonsterTreasure> &, const std::optional<XeenBankBalances> &,
+		const std::optional<XeenPurse> &, const std::optional<XeenBankBalances> &,
 		const FreshPublicationPreparation &, const XeenCamera &start);
 	static XeenEncounterResult regionalTransition(XeenWorld &, XeenPartyState &, XeenCamera &, XeenEncounterState &,
 		XeenEventFile &, std::optional<XeenEncounterAction>, std::unique_ptr<XeenRegionalActionCandidate> &,

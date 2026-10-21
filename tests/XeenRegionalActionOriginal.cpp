@@ -1,6 +1,7 @@
 // Original resources with explicit artificial durable-state controls. These
 // isolate regional action settlement; they are not production route evidence.
 #include "XeenCombatGameplayTestSupport.h"
+#include "XeenMonsterTestAccess.h"
 #include "formats/xeen/XeenCharacterFormat.h"
 #include "formats/xeen/XeenQuestFlagFormat.h"
 #include "games/xeen/XeenCharacterRules.h"
@@ -46,7 +47,7 @@ XeenSaveSnapshot baseline(const fs::path &game) {
   check(h.flow->canSave(),"Initial content-14 source must be Quiet");
   saved=XeenSaveState::capture(h.signature,*h.party,*h.camera,*h.flags,*h.world);return true;
  };
- check(Application(s.templePrices).playGameplay(s,{}, {},false,XeenEncounterEntry::Journey,56)==0,"Original content-14 startup");
+ check(Application(s.program).playGameplay(s,{}, {},false,XeenEncounterEntry::Journey,56)==0,"Original content-14 startup");
  // Eliminate incidental outdoor battles in these action-only controls. The
  // twelve mainland Orc identities remain canonical defeated/accounted actors.
  for(unsigned i=0;i<12;++i) {
@@ -56,7 +57,6 @@ XeenSaveSnapshot baseline(const fs::path &game) {
  saved.camera={23,10,12,XeenDirection::North};
  saved.journey->context->minutes=500;saved.journey->context->ctr24=0;
  saved.journey->context->newDay=false;
- saved.journey->treasure->pendingGold=0;saved.journey->treasure->pendingMask=0;
  const auto mob=s.objects(28);const auto mon=s.resources.loadMonsterStatistics();
  saved.map(28).monsters.emplace(XeenSaveMonsterTable{46,{}});
  for(unsigned i=0;i<46;++i) {
@@ -97,14 +97,11 @@ void arrival(const fs::path &game,const fs::path &save,const XeenSaveSnapshot &i
   actor.x=exit?10:9;actor.y=exit?12:15;
   actor.lifecycle=XeenActorLifecycle::Present;actor.accounted=false;
  }
- // The live treasure names its source by record; the save by identity.
- auto liveTreasure=*fixture.journey->treasure;
- if(treasure) {
-  auto &reward=*fixture.journey->treasure;
-  reward.pendingMask=1u<<1;reward.pendingGold=10;
-  reward.weapons[0]={1,{0,30,0,0}};
-  save_test::bindTreasureSources(fixture);liveTreasure=save_test::liveTreasure(fixture);
- }
+ // Monster 1's gold and dropped weapon, staged in the running program after
+ // the load (an entry clears pending currency and readiness); the other
+ // arrivals carry a dormant item that every transition must retain.
+ XeenTreasureStaging liveTreasure;liveTreasure.weapons[0]={0,30,0,0};
+ if(treasure) {liveTreasure.gold=10;liveTreasure.ready=true;}
  XeenSaveFile::write(save,fixture);
  Harness h(game);auto s=services(h);
  const auto compose=s.composeEncounter;
@@ -134,6 +131,7 @@ void arrival(const fs::path &game,const fs::path &save,const XeenSaveSnapshot &i
    handler.withDisplayedInput(SaveGameAction{},*token);
    check(h.saves==before,"F9 saved mandatory arrival work");
   };
+  XeenMonsterTestAccess::stageTreasureLive(*h.flow,*h.world,liveTreasure);
   present();check(h.flow->canSave(),"Arrival source fixture is not Quiet");
   const auto rng=*h.world->sessionState().journeyRandom();
   const auto context=*h.party->encounterContext;
@@ -152,7 +150,7 @@ void arrival(const fs::path &game,const fs::path &save,const XeenSaveSnapshot &i
   for(;;){XeenConsequenceDraw draw{opportunityRandom,64,{}};if(opportunity->service(draw))break;}
   check(opportunityRandom.continuation()==rng,"Arrival control unexpectedly has ranged randomness");
   const std::vector<XeenActor> source=h.world->sessionState().regionalActors(exit?28:23);
-  const auto gold=h.party->monsterTreasure->gold;
+  const auto gold=h.party->purse->gold;
   duringComposition=denied;
   input(InteractionAction{});denied();
   input(YesAction{},false);
@@ -167,7 +165,7 @@ void arrival(const fs::path &game,const fs::path &save,const XeenSaveSnapshot &i
   if(mode==Arrival::TreasureClear) {
    // The first visible transfer has not reached the Found-stage inventory sort.
    std::array<XeenCharacter *,6> recipients{};for(unsigned n=0;n<6;++n)recipients[n]=&expectedCharacters[n];
-   auto item=liveTreasure.weapons[0].item;
+   auto item=liveTreasure.weapons[0];
    const auto recipient=xeenDeliverRewardItem(recipients.data(),recipients.size(),item,XeenRewardCategory::Weapons,{},false);
    check(recipient==0 && expectedCharacters[0].weapons[8].id==30,"Controlled treasure did not use owner0 slot8 before sorting");
   }
@@ -180,36 +178,34 @@ void arrival(const fs::path &game,const fs::path &save,const XeenSaveSnapshot &i
     h.flow->encounter()->combat()->phase()!=XeenCombatPhase::SupportStopped,
     "Destination contact was not attached before presentation");
    present();denied();present();denied();
-   check(h.flow->encounter()->combat(),"Presentation erased mandatory contact");
+   check(h.flow->encounter()->combat() && h.world->treasureStaging().value()==liveTreasure,"Presentation erased mandatory contact or pending treasure");
   } else if(mode==Arrival::TreasureClear) {
    check(h.world->sessionState().journeyActivity()==XeenJourneyActivity::Reward,
     "Unobstructed city arrival did not begin source-qualified mainland delivery");
-   check(h.party->monsterTreasure->pendingMask==2 && h.party->monsterTreasure->pendingGold==10 &&
-    h.party->monsterTreasure->gold==gold,"Arrival prematurely credited pending gold");
+   check(h.world->treasureStaging().value()==liveTreasure &&
+    h.party->purse->gold==gold,"Arrival prematurely credited pending gold");
    present();denied();present();denied();
    // One item has a transfer/blank stage, its found stage, then the final receipt.
    // They are distinct publications rather than pages of an atomic batch.
    for(unsigned stage=0;stage<2;++stage) {
     h.now+=110;
     input(AcknowledgeAction{});
-    check(!h.flow->canSave() && h.party->monsterTreasure->gold==gold && h.party->monsterTreasure->pendingGold==10,
+    check(!h.flow->canSave() && h.party->purse->gold==gold && h.world->treasureStaging().value().gold==10,
      "Arrival item/warning acknowledgment prematurely credits currency");
    }
    h.now+=110;
    input(AcknowledgeAction{});
-   check(h.flow->canSave() && h.party->monsterTreasure->pendingMask==0 &&
-    h.party->monsterTreasure->pendingGold==0 && h.party->monsterTreasure->gold==gold+10,
+   check(h.flow->canSave() && h.world->treasureStaging().value()==XeenTreasureStaging{} && h.party->purse->gold==gold+10,
     "Receipt acknowledgment failed to settle source-qualified gold");
    const auto delivered=xeenPrepareMonsterDelivery(liveTreasure,opportunity->characters);
    for(unsigned n=0;n<6;++n)check(xeen_state::sameCharacter(h.party->roster.at(owners[n]),delivered.characters[n]),
     "Final receipt did not retain exactly the sorted single-item transfer");
    input(AcknowledgeAction{});
-   check(h.party->monsterTreasure->gold==gold+10,"Repeated receipt acknowledgment duplicated gold");
+   check(h.party->purse->gold==gold+10,"Repeated receipt acknowledgment duplicated gold");
   } else {
    present();check(h.flow->canSave(),"Non-contact arrival remained unavailable after presentation");
-   if(mode==Arrival::TreasureBlocked)
-    check(*h.party->monsterTreasure==liveTreasure,
-     "Selected live city obstruction did not preserve mainland pending provenance");
+   check(h.world->treasureStaging().value()==liveTreasure,
+    "Transition did not retain pending or dormant treasure exactly");
    if(mode==Arrival::EntryVisible || mode==Arrival::TreasureBlocked) {
     const auto &actor=h.world->sessionState().regionalActors(28)[35];
     check(actor.x==15 && actor.y==1 && actor.activated && actor.hp==2,
@@ -219,7 +215,7 @@ void arrival(const fs::path &game,const fs::path &save,const XeenSaveSnapshot &i
   if(!contact) {input(SaveGameAction{});check(h.saves==3,"Settled arrival F9 failed");}
   duringComposition={};return true;
  };
- check(Application(s.templePrices).playGameplay(s,{},save,true)==0,"Original transition arrival control failed");
+ check(Application(s.program).playGameplay(s,{},save,true)==0,"Original transition arrival control failed");
 }
 void run(const fs::path &game,const fs::path &save,const XeenSaveSnapshot &initial,
   bool indoor,Action action,unsigned minute=500) {
@@ -293,7 +289,7 @@ void run(const fs::path &game,const fs::path &save,const XeenSaveSnapshot &initi
   check(XeenSaveFile::read(save).journey->context==h.party->encounterContext,"F9 preserved wrong calendar");
   return true;
  };
- check(Application(s.templePrices).playGameplay(s,{},save,true)==0,"Regional action Application failed");
+ check(Application(s.program).playGameplay(s,{},save,true)==0,"Regional action Application failed");
 }
 }
 int main(int argc,char **argv) {

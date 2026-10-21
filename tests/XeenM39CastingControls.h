@@ -59,7 +59,7 @@ bool m39CastControls(const std::string &control,const IndexedFrame &first,const 
         if(casterIndex==5) {respond(BlockAction{});ready(casterIndex);}
         const auto owner=party.party.activeRosterIds().at(casterIndex);
         const auto beforeSp=party.roster.at(owner).currentSp;
-        const auto beforeGems=party.monsterTreasure->gems;
+        const auto beforeGems=party.purse->gems;
         const auto beforeRandom=*world.sessionState().journeyRandom();
         const auto monster=*fight().selectedTarget();
         const auto beforeActor=world.sessionState().monsters(23).at(monster.recordIndex);
@@ -69,7 +69,7 @@ bool m39CastControls(const std::string &control,const IndexedFrame &first,const 
         auto expectedRandom=fight().random();int expectedDamage=0;
         const auto groupTargets=xeenSpellTargets(world,camera,world.sessionState().monsters(23),fight().selectedTarget(),XeenLearnedSpellRules::range(spell));
         std::array<int,12> groupHp{};unsigned groupCount=0;
-        auto expectedTreasure=*party.monsterTreasure;
+        auto expectedTreasure=world.treasureStaging().value();
         const auto accounted=world.sessionState().accountedMonsters();std::set<XeenMonsterIdentity> expectedAccounted(accounted.begin(),accounted.end());
         std::array<std::uint32_t,6> beforeXp{};std::uint32_t xpPerMember=0;
         for(unsigned i=0;i<6;++i)beforeXp[i]=party.roster.combatInputs(party.party.activeRosterIds().at(i))->experience;
@@ -93,7 +93,7 @@ bool m39CastControls(const std::string &control,const IndexedFrame &first,const 
                     if(!groupHp[i]) {
                         expectedAccounted.insert(actor.id);xpPerMember+=actor.statistics->experience()/6;
                         if(actor.original.resourceId==6) {
-                            XeenMonsterDropCandidate drop(expectedTreasure,actor.id);
+                            XeenMonsterDropCandidate drop(expectedTreasure);
                             check(drop.service(draws),"M60 expected bounded drop");expectedTreasure=drop.treasure;
                         }
                     }
@@ -104,7 +104,7 @@ bool m39CastControls(const std::string &control,const IndexedFrame &first,const 
         }
         if(quick)respond(QuickFightAction{});else {respond(CastSpellAction{});castSelected();}
         check(view().committed && party.roster.at(owner).currentSp==beforeSp-int(price.sp) &&
-            party.monsterTreasure->gems==beforeGems-price.gems,"M60 exact debit");
+            party.purse->gems==beforeGems-price.gems,"M60 exact debit");
         check(!flow.canSave(),"M60 paid cast allowed Save");
         if(member)respond(SelectMemberAction{0});
         else for(unsigned i=0;i<100 && fight().cast() && view().phase!=XeenCombatCastPhase::Result;++i) {
@@ -124,7 +124,7 @@ bool m39CastControls(const std::string &control,const IndexedFrame &first,const 
                 check(groupCount==3,"M60 grouped fixture needs three targets");
                 for(unsigned i=0;i<groupCount;++i)check(world.sessionState().monsters(23).at(groupTargets[i]->recordIndex).hp==groupHp[i],"M60 group target damage");
                 check(world.sessionState().accountedMonsters()==expectedAccounted,"M60 grouped death publication");
-                check(party.monsterTreasure->pendingGold==expectedTreasure.pendingGold,"M60 grouped loot publication");
+                check(world.treasureStaging().value().gold==expectedTreasure.gold,"M60 grouped loot publication");
                 check(fight().participants()==0x3f,"M60 group XP fixture participants");
                 for(unsigned i=0;i<6;++i)check(party.roster.combatInputs(party.party.activeRosterIds().at(i))->experience==beforeXp[i]+xpPerMember*(party.roster.at(party.party.activeRosterIds().at(i)).permanentLevel<15?2:1),"M60 grouped XP exactly once");
             }
@@ -149,7 +149,7 @@ bool m39CastControls(const std::string &control,const IndexedFrame &first,const 
             auto &r=const_cast<XeenCombatResult &>(result);
             r.actorHpBefore=17;r.actorHpAfter=99;r.damage=99;r.participant=0;r.actingOwner=29;
             r.monster={23,15};r.targetMonster=XeenMonsterIdentity{23,15};r.participantsAfter=0;r.xpCount=6;
-            r.xp[0]={29,0,0xffffffffu};r.generatedArmor=true;r.generation=0;
+            r.xp[0]={29,0,0xffffffffu};r.generatedCategory=XeenRewardCategory::Armor;r.generation=0;
         };
         const bool arrow=control=="observation-target" || control=="observation-hp" ||
             control=="observation-yield" || control=="observation-successor" || control=="observation-guard";
@@ -238,12 +238,12 @@ bool m39CastControls(const std::string &control,const IndexedFrame &first,const 
                 check(view().phase==XeenCombatCastPhase::PostImpact && world.sessionState().monsters(23)[9].hp==0 &&
                     world.sessionState().monsters(23)[9].lifecycle==XeenActorLifecycle::Present &&
                     flow.encounter()->appearance().impactSnapshot && !world.sessionState().accountedMonsters().count({23,9}) &&
-                    party.monsterTreasure->pendingGold==0,"M49 post-HP frame removed/rewarded lethal actor");
+                    world.treasureStaging().value().gold==0,"M49 post-HP frame removed/rewarded lethal actor");
                 for(unsigned i=0;i<6;++i)check(party.roster.combatInputs(kXeenCombatOwners[i])->experience==(i==1 || i==4?2000u:1000u),"M49 post-HP frame credited XP");
                 deny();tick();laneAt(3);const auto settled=*world.sessionState().journeyRandom();
                 check(requests.back()==std::pair<unsigned,unsigned>{1,100},"Arrow drop omitted original post-HP call point");
                 check(view().phase==XeenCombatCastPhase::Result && world.sessionState().accountedMonsters().count({23,9}) &&
-                    world.sessionState().monsters(23)[9].lifecycle==XeenActorLifecycle::Defeated && party.monsterTreasure->pendingGold==10,"M49 lethal accounting/removal did not settle once");
+                    world.sessionState().monsters(23)[9].lifecycle==XeenActorLifecycle::Defeated && world.treasureStaging().value().gold==10,"M49 lethal accounting/removal did not settle once");
                 for(unsigned i=0;i<6;++i)check(party.roster.combatInputs(kXeenCombatOwners[i])->experience==(i==1 || i==4?2066u:1066u),"M49 final Arrow XP recipients changed");
                 auto receipt=fight().cast();auto &&receiptResult=fight().result();poison(receipt,receiptResult);
                 tick();check(flow.encounter()->appearance().projectiles.empty(),"Magic Arrow endAttack did not clear the acquired lethal removal lane");
@@ -298,9 +298,9 @@ bool m39CastControls(const std::string &control,const IndexedFrame &first,const 
     }else if(control.rfind("arrow-",0)==0 || control=="projectile-retry") {
         respond(BlockAction{});ready(5);respond(CastSpellAction{});select(3);castSelected();
         check(view().phase==XeenCombatCastPhase::Preparing && party.roster.at(6).currentSp==25 && world.sessionState().monsters(23)[9].hp==7 && world.sessionState().journeyRandom()==cursor,"M39 Arrow debit/effect separation");
-        if(control.rfind("arrow-fail-",0)==0 || control=="arrow-xp-overflow" || control=="arrow-drop-overflow") {
+        if(control.rfind("arrow-fail-",0)==0 || control=="arrow-xp-overflow") {
             tick();check(view().phase==XeenCombatCastPhase::Projectile,"Arrow failure fixture missing travel draw");
-            const auto limit=(control=="arrow-xp-overflow" || control=="arrow-drop-overflow")?0:unsigned(std::stoul(control.substr(11)));auto calls=std::make_shared<unsigned>(0);
+            const auto limit=control=="arrow-xp-overflow"?0:unsigned(std::stoul(control.substr(11)));auto calls=std::make_shared<unsigned>(0);
             fight().setProbe([calls,limit]{if(++*calls==limit)throw std::runtime_error("M39 Arrow draw/drop pre-store failure");});
             try{for(unsigned i=0;i<6 && fight().phase()!=XeenCombatPhase::Failed;++i)tick();}catch(const std::exception &){}
             check(fight().phase()==XeenCombatPhase::Failed && party.roster.at(6).currentSp==25 && world.sessionState().monsters(23)[9].hp==7 &&
@@ -325,7 +325,7 @@ bool m39CastControls(const std::string &control,const IndexedFrame &first,const 
                 fight().setProbe([]{throw std::runtime_error("M39 independent owed End failure");});
                 try{tick();}catch(const std::exception &){}
                 check(fight().phase()==XeenCombatPhase::Failed && party.roster.at(6).currentSp==25 &&
-                    world.sessionState().monsters(23)[9].hp==0 && world.sessionState().accountedMonsters().count({23,9}) && party.monsterTreasure->pendingGold==10,
+                    world.sessionState().monsters(23)[9].hp==0 && world.sessionState().accountedMonsters().count({23,9}) && world.treasureStaging().value().gold==10,
                     "M39 independent End failure rolled back cast lethal unit");
             }
             check(party.roster.at(6).currentSp==25 && *world.sessionState().journeyRandom()==settled,"M39 successor/report retry replayed effect");

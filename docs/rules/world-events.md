@@ -73,9 +73,7 @@ monster outside slots 0-2, with no occupancy condition (`0x1ff7c..0x1ff98`).
 The row-or-column test (`0x1ff27..0x1ff38`) admits the party's own cell, so a
 hidden fourth ranged monster stacked there fires, indoors and outdoors; only
 the three front-slot monsters are excluded. The `.mob` writer saves every
-stacked position. Saves from older builds
-that hold pending treasure from a slot past the MOB count load without that
-treasure (pending gold bit and items), with a console warning.
+stacked position.
 
 AlterEvent and MakeNothingHere end at `0x28356`, which also sets the
 interpreter's script-executed flag (`-0x4f`), as every operation ending at

@@ -150,7 +150,8 @@ struct XeenPartyState {
 	friend void swap(XeenPartyState &a, XeenPartyState &b) { a.swap(b); }
 	// Only explicit encounter preparation installs this; ordinary loading/restoration does not.
 	XeenMutableOptional<XeenGameplayContext> encounterContext;
-	XeenMutableOptional<XeenMonsterTreasure> monsterTreasure;
+	// Installed with the party by the fresh Journey and restore; saved.
+	XeenMutableOptional<XeenPurse> purse;
 	// The fresh Journey lifecycle installs merchant stock/shared bank.
 	XeenMutableOptional<XeenServiceEconomy> serviceEconomy;
 	XeenRoster roster;

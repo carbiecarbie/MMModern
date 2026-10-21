@@ -113,13 +113,13 @@ struct XeenCombatResult {
 	std::uint8_t participantsBefore=0x3f, participantsAfter=0x3f, casualties=0;
 	XeenCombatExitCause exitCause=XeenCombatExitCause::None;
 	XeenMutableOptional<XeenCombatLocation> origin, destination;
-	std::uint32_t forfeitedGold=0, forfeitedMask=0;
+	std::uint32_t forfeitedGold=0, forfeitedGems=0;
 	bool originAutomaticSuperseded=false;
 	std::uint8_t targetedMembers=0; // Published physical target mask, including misses.
     std::uint8_t blockedMembers=0; // Detached current Block observation.
 	std::optional<XeenMonsterDropOutcome> monsterDrop;
-	XeenMonsterTreasureItem generatedItem;
-	bool generatedArmor=false;
+	XeenItem generatedItem;
+	XeenRewardCategory generatedCategory{};
 	XeenCombatStatus status=XeenCombatStatus::Refused;
 	XeenCombatPhase phase=XeenCombatPhase::Engaged;
 	XeenCombatFailure failure=XeenCombatFailure::None;

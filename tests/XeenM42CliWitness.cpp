@@ -108,13 +108,13 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
                 failUpload=control.rfind("upload-",0)==0;failCopy=control.rfind("copy-",0)==0;
             }
             if(boundary==XeenSmithBoundary::AfterPurchase || boundary==XeenSmithBoundary::AfterDeparture)
-                std::cout<<"PUBLICATION "<<int(boundary)<<' '<<party->encounterContext->day<<' '<<party->monsterTreasure->gold<<' '
+                std::cout<<"PUBLICATION "<<int(boundary)<<' '<<party->encounterContext->day<<' '<<party->purse->gold<<' '
                     <<world->sessionState().journeyRandom()->state<<':'<<world->sessionState().journeyRandom()->count<<'\n';
             if(boundary==XeenSmithBoundary::StockComplete || boundary==XeenSmithBoundary::BankPrepared)
                 std::cout<<"PREPARATION departure "<<(boundary==XeenSmithBoundary::StockComplete?"stock-ready":"bank-ready")
                     <<" current-day "<<party->encounterContext->day<<" current-RNG "<<world->sessionState().journeyRandom()->state<<':'<<world->sessionState().journeyRandom()->count<<'\n';
             if(boundary==XeenSmithBoundary::Quote)
-                std::cout<<"PREPARATION quote prepared current-day "<<party->encounterContext->day<<" purse "<<party->monsterTreasure->gold
+                std::cout<<"PREPARATION quote prepared current-day "<<party->encounterContext->day<<" purse "<<party->purse->gold
                     <<" RNG "<<world->sessionState().journeyRandom()->state<<':'<<world->sessionState().journeyRandom()->count<<'\n';
         };
         f.reportInventory=[&](const auto &r){std::cout<<"TRANSFER "<<int(r.status)<<' '<<unsigned(r.sourceOwner)<<':'<<unsigned(r.destinationOwner)<<':'<<unsigned(r.destinationSlot)<<'\n';};
@@ -222,7 +222,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
         constexpr unsigned wellSpaceMinutes=5*10;
         constexpr unsigned cityPrefixMinutes=wellSpaceMinutes+1;
         const auto expect=[&](unsigned day,unsigned minute,std::uint32_t gold,std::uint32_t state,std::uint64_t count) {
-            check(party->encounterContext->day==day && party->encounterContext->minutes==minute && party->monsterTreasure->gold==gold &&
+            check(party->encounterContext->day==day && party->encounterContext->minutes==minute && party->purse->gold==gold &&
                 world->sessionState().journeyRandom()->state==state && world->sessionState().journeyRandom()->count==count,"M42 literal context/purse/RNG checkpoint differs");
             check(party->serviceEconomy->bank.gold==0 && party->serviceEconomy->bank.gems==0,"M42 production bank differs");
         };
@@ -302,7 +302,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
             inspect([&,beforePurchase]{deny();expect(31,808+cityPrefixMinutes,570,3497300660u,3771);check(xeenSameItem(party->roster.at(0).weapons[1],{0,31,0,0}),"M42 actual missile purchase physical delivery differs");
                 auto expected=*beforePurchase->journey->serviceEconomy;expected.wares[0][0][0]=removed(expected.wares[0][0][0],findPlain(expected.wares[0][0][0],31));check(expected==*party->serviceEconomy,"M42 missile purchase changed untouched stock/bank or depleted wrong quantity");
                 for(unsigned owner=0;owner<30;++owner){auto c=beforePurchase->characters[owner];if(owner==0)c.weapons[1]={0,31,0,0};check(xeen_state::sameCharacter(c,party->roster.at(owner)) && xeen_state::sameInputs(beforePurchase->journey->supplements[owner].inputs,*party->roster.combatInputs(owner)),"M42 missile purchase changed other owner fields");}
-                std::cout<<"PREPARATION purchase committed Weapons physical0 expected-price100\nOPERATION Buy Weapons physical0 price100 payment "<<beforePurchase->journey->treasure->gold<<"->"<<party->monsterTreasure->gold<<" delivery0:1 raw0:31:0:0 stable depletion\n";
+                std::cout<<"PREPARATION purchase committed Weapons physical0 expected-price100\nOPERATION Buy Weapons physical0 price100 payment "<<beforePurchase->journey->purse->gold<<"->"<<party->purse->gold<<" delivery0:1 raw0:31:0:0 stable depletion\n";
             });
             action(CancelInteractionAction{},true);action(CancelInteractionAction{},true);settle();
             inspect([&]{expect(32,808+cityPrefixMinutes,570,3497300660u,3771);check(interestCalls==2,"M42 missile purchase visit repeated restock interest");});checkpoint("S");
@@ -347,7 +347,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
                     const unsigned price=ordinal==1?60:100;
                     for(unsigned slot=1;slot<=ordinal;++slot)check(xeenSameItem(party->roster.at(0).weapons[slot],{0,std::uint8_t(slot==1?6:3),0,0}),"M42 paid Weapon6 physical delivery differs");
                     std::cout<<"PREPARATION purchase committed Weapons physical"<<physical<<" expected-price"<<price<<"\nOPERATION Buy Weapons physical"<<physical
-                        <<" price"<<price<<" payment "<<beforePurchase->journey->treasure->gold-(ordinal==1?0:60)<<"->"<<party->monsterTreasure->gold
+                        <<" price"<<price<<" payment "<<beforePurchase->journey->purse->gold-(ordinal==1?0:60)<<"->"<<party->purse->gold
                         <<" delivery0:"<<ordinal<<" raw0:"<<(ordinal==1?6:3)<<":0:0 depletion"<<8-ordinal<<"->"<<7-ordinal<<" stable\n";
                 };
                 selectOffer(XeenInventoryCategory::Weapons,6);action(YesAction{},true);inspect([paidWeapon]{paidWeapon(1,3);});
@@ -366,13 +366,13 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
                 inspect([&]{check(xeenSameItem(party->roster.at(18).weapons[1],{0,6,0,1}),"M42 weapon legal equip differs");const auto d=xeenOrdinaryWeaponDice(6);check(d.count==4 && d.sides==2,"M42 weapon-6 independent 4d2 differs");});checkpoint("W1");
             } else {
                 action(DialogKeyAction{'a'},true);selectOffer(XeenInventoryCategory::Armor,3);inspect(deny);action(CancelInteractionAction{},true);
-                inspect([&,beforePurchase]{for(unsigned owner=0;owner<30;++owner)check(xeen_state::sameCharacter(beforePurchase->characters[owner],party->roster.at(owner)) && xeen_state::sameInputs(beforePurchase->journey->supplements[owner].inputs,*party->roster.combatInputs(owner)),"M42 cancelled quote changed owner");check(*party->serviceEconomy==*beforePurchase->journey->serviceEconomy,"M42 cancelled quote changed wares");expect(8,808+cityPrefixMinutes,870,4180726993u,1109);std::cout<<"PREPARATION purchase discarded Armor physical1 expected-price200\nOPERATION Cancel Armor physical1 payment "<<beforePurchase->journey->treasure->gold<<"->"<<party->monsterTreasure->gold<<" delivery-none depletion-none\n";});
+                inspect([&,beforePurchase]{for(unsigned owner=0;owner<30;++owner)check(xeen_state::sameCharacter(beforePurchase->characters[owner],party->roster.at(owner)) && xeen_state::sameInputs(beforePurchase->journey->supplements[owner].inputs,*party->roster.combatInputs(owner)),"M42 cancelled quote changed owner");check(*party->serviceEconomy==*beforePurchase->journey->serviceEconomy,"M42 cancelled quote changed wares");expect(8,808+cityPrefixMinutes,870,4180726993u,1109);std::cout<<"PREPARATION purchase discarded Armor physical1 expected-price200\nOPERATION Cancel Armor physical1 payment "<<beforePurchase->journey->purse->gold<<"->"<<party->purse->gold<<" delivery-none depletion-none\n";});
                 action(SelectInventorySlotAction{4},true);action(CancelInteractionAction{},true);selectOffer(XeenInventoryCategory::Armor,3);action(YesAction{},true);inspect(deny);
                 inspect([&,beforePurchase]{expect(8,808+cityPrefixMinutes,670,4180726993u,1109);m42_test::sameCategory(party->serviceEconomy->wares[0][0][1],m42_test::armorAfter());
                     check(xeenSameItem(party->roster.at(0).armor[4],{0,3,0,0}),"M42 unequipped physical Armor delivery differs");
                     auto expected=*beforePurchase->journey->serviceEconomy;expected.wares[0][0][1]=m42_test::armorAfter();check(expected==*party->serviceEconomy,"M42 purchase changed untouched economy");
                     for(unsigned owner=0;owner<30;++owner){auto c=beforePurchase->characters[owner];if(owner==0)c.armor[4]={0,3,0,0};check(xeen_state::sameCharacter(c,party->roster.at(owner)) && xeen_state::sameInputs(beforePurchase->journey->supplements[owner].inputs,*party->roster.combatInputs(owner)),"M42 purchase changed other owner fields");}
-                    std::cout<<"PREPARATION purchase committed Armor physical1 expected-price200\nOPERATION Buy Armor physical1 price200 payment "<<beforePurchase->journey->treasure->gold<<"->"<<party->monsterTreasure->gold<<" delivery0:4 raw0:3:0:0 depletion8->7 stable\n";
+                    std::cout<<"PREPARATION purchase committed Armor physical1 expected-price200\nOPERATION Buy Armor physical1 price200 payment "<<beforePurchase->journey->purse->gold<<"->"<<party->purse->gold<<" delivery0:4 raw0:3:0:0 depletion8->7 stable\n";
                 });
                 action(SelectInventorySlotAction{0},true);action(YesAction{},true);
                 inspect([&]{expect(8,808+cityPrefixMinutes,670,4180726993u,1109);m42_test::sameCategory(party->serviceEconomy->wares[0][0][1],m42_test::armorAfter());});action(AcknowledgeAction{},true);

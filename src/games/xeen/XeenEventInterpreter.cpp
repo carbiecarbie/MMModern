@@ -1250,8 +1250,8 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 				// 0x232bc: party gold, a random amount from the operand's low word, no sparkle.
 				const auto bound=xeenEventWordDrawBound(giveValue);
 				if(!bound)return fail("Event random gold of a zero word divides by zero");
-				if(!canDraw() || !partyState.monsterTreasure)return fail("Event random gold is not supported in this context");
-				partyState.monsterTreasure->gold=partyState.monsterTreasure->gold+xeenEventSignedWord(randomDraw(1,*bound));
+				if(!canDraw() || !partyState.purse)return fail("Event random gold is not supported in this context");
+				partyState.purse->gold=partyState.purse->gold+xeenEventSignedWord(randomDraw(1,*bound));
 				done(false);return std::nullopt;
 			}
 			case 25: case 82: return fail("Event give mode is not supported yet");

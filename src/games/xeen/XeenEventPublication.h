@@ -216,9 +216,9 @@ public:
 	}
 	void creditRewardCurrency(XeenEventExecutionState &state,XeenPartyState &party) const {
 		check();validateRewardPrefix(state.pendingRewards,dispatchedRecords.size());
-		if(party.monsterTreasure) {
-			guard.treasure->gold+=state.rewardReceipt.gold;guard.treasure->gems+=state.rewardReceipt.gems;
-			party.monsterTreasure->gold=guard.treasure->gold;party.monsterTreasure->gems=guard.treasure->gems;
+		if(party.purse) {
+			guard.purse->gold+=state.rewardReceipt.gold;guard.purse->gems+=state.rewardReceipt.gems;
+			party.purse->gold=guard.purse->gold;party.purse->gems=guard.purse->gems;
 		}
 		state.pendingRewards={};guard.adoptMutationBoundary();
 	}

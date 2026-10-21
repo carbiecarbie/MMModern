@@ -69,7 +69,7 @@ int main(int argc,char **argv) {
 		const auto pty=assets.readInitialResource("maze.pty");
 		const auto context=XeenGameplayContextFormat::parse(pty);
 		const auto purse=XeenCharacterFormat::parseMonsterPurse(pty);
-		if (purse.gold!=800 || purse.gems!=10 || purse.pending()) throw std::runtime_error("Original purse mismatch");
+		if (purse.gold!=800 || purse.gems!=10) throw std::runtime_error("Original purse mismatch");
 		constexpr std::array<unsigned,6> activeResistances{7,10,2,5,7,0};
 		for (unsigned owner=0;owner<30;++owner) {
 			const auto input=XeenCharacterFormat::parseCombatInputs(chr,owner,true,true);

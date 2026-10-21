@@ -43,7 +43,7 @@ void paths(const GameInstallation &installation,const fs::path &repository,const
 }
 
 void preset(const GameInstallation &installation,const std::string &name,const fs::path &directory) {
-    mmodern::XeenTemplePriceState templePriceState;
+    mmodern::XeenProgramState programState;
     const auto output=directory/(name+".mmsave");
     developer::generateTestSave(installation,name,output);
     const auto saved=XeenSaveFile::read(XeenSaveFile::resolve(output,installation.root));
@@ -55,14 +55,14 @@ void preset(const GameInstallation &installation,const std::string &name,const f
         [&](auto &w,const auto &p,const auto &c,const auto &) {
             (void)CloudsMapComposer().compose(inputs.assets,w,p,c,{p.encounterContext->year});
         });
-    XeenEncounterFlow flow(templePriceState,world,party,camera,flags,[]{return 0;},XeenJourneyRestoreTag{});
+    XeenEncounterFlow flow(programState,world,party,camera,flags,[]{return 0;},XeenJourneyRestoreTag{});
     check(flow.prepareJourneyFrame(flow.ticket(),[]{}) && flow.presentJourney(flow.ticket()),"restored preset is not quiet");
     const auto captured=XeenSaveState::capture(inputs.signature,party,camera,flags,world);
     check(XeenSaveFormat::encode(saved)==XeenSaveFormat::encode(captured),"restore replayed or changed state");
     check((name=="monster-control" || name=="monster-damage" || name=="party-healing" || name=="m76-spells" || name=="m79-playtest" || name=="m80-playtest" || name=="m80-arena" || name=="m80-arena-maxed") || save_test::sameCamera(camera,xeenJourneyContent().entry),"fresh Journey camera changed");
     const auto first=party.party.activeRosterIds()[0],second=party.party.activeRosterIds()[1];
     const auto &member=party.roster.at(first);
-    const auto gold=party.monsterTreasure->gold;
+    const auto gold=party.purse->gold;
     const auto context=*party.encounterContext;
     if(name=="m80-arena" || name=="m80-arena-maxed") {
         check(camera.mapId==6 && camera.x==13 && camera.y==4 && camera.direction==XeenDirection::West,"Arena preset position");
@@ -92,12 +92,12 @@ void preset(const GameInstallation &installation,const std::string &name,const f
                 xeenItemUseSpell(item.id)==XeenLearnedSpell::TownPortal);
             travel=travel || (spells && portal && c.canAct() && c.currentSp>=10000);
         }
-        check(travel && party.monsterTreasure->gems>=5000,"M80 travel caster/SP/gems missing");
+        check(travel && party.purse->gems>=5000,"M80 travel caster/SP/gems missing");
         return;
     }
     if(name=="m79-playtest") {
         check(camera.mapId==30 && camera.x==12 && camera.y==12,"M79 Rivercity position");
-        check(gold==100000 && party.monsterTreasure->gems==5000 && party.food==1,"M79 purse/food");
+        check(gold==100000 && party.purse->gems==5000 && party.food==1,"M79 purse/food");
         for(unsigned n=0;n<6;++n) {
             const auto owner=party.party.activeRosterIds()[n];const auto &c=party.roster.at(owner);
             check(c.permanentLevel==std::array<unsigned,3>{9,14,19}[n%3] && party.roster.combatInputs(owner)->experience==1000000000,"M79 Training readiness");
@@ -165,7 +165,7 @@ void preset(const GameInstallation &installation,const std::string &name,const f
     }
     if(name=="m76-spells") {
         check(camera.mapId==28 && camera.x==18 && camera.y==4,"M76 preset position");
-        check(party.monsterTreasure->gems==1000,"M76 preset gems");
+        check(party.purse->gems==1000,"M76 preset gems");
         for(unsigned id:{3u,30u,31u,53u,55u,12u,13u,42u,41u,74u,4u,15u,34u,19u,57u,39u,66u,21u,70u,69u,44u,71u}) {
             bool found=false;
             for(auto owner:{first,second}) {
@@ -198,7 +198,7 @@ void preset(const GameInstallation &installation,const std::string &name,const f
     if(name=="party-healing") {
         check(camera.mapId==28 && camera.x==18 && camera.y==4,"Healing preset position");
         check(party.roster.at(first).characterClass==XeenCharacterClass::Cleric && party.roster.at(second).characterClass==XeenCharacterClass::Druid,"Healing preset casters");
-        check(party.monsterTreasure->gems==1000,"Healing preset gems");
+        check(party.purse->gems==1000,"Healing preset gems");
         for(unsigned id:{6u,7u,8u,9u,16u,49u,52u,56u,58u,64u,67u,68u}) {
             const auto &caster=party.roster.at(first);const auto slot=XeenLearnedSpellRules::slotForSpell(XeenSpellCategory::Clerical,id);
             check(slot && XeenLearnedSpellRules::known(caster,*slot) && caster.currentSp==1000,"Healing preset spell knowledge/SP");
@@ -215,7 +215,7 @@ void preset(const GameInstallation &installation,const std::string &name,const f
     }
     if((name=="monster-control" || name=="monster-damage")) {
         check(camera.mapId==XeenMapIdentity(28) && camera.x==18 && camera.y==4,"Control fixture must stand in Vertigo");
-        check(party.monsterTreasure->gems==1000,"Control fixture lacks gems");
+        check(party.purse->gems==1000,"Control fixture lacks gems");
         unsigned covered=0;
         const std::vector<unsigned> spells=name=="monster-damage" ? std::vector<unsigned>{0u,5u,11u,14u,18u,22u,23u,24u,25u,28u,29u,32u,35u,36u,37u,43u,46u,47u,48u,51u,54u,63u,65u} : std::vector<unsigned>{2u,17u,33u,38u,61u,62u,72u,73u};
         for(unsigned id:spells) {
@@ -238,7 +238,7 @@ void preset(const GameInstallation &installation,const std::string &name,const f
         for (auto owner:unmodified.activeRosterIds) unmodified.characters[owner].armor=baseline.characters[owner].armor;
     } else if (name=="train-ready") {
         unmodified.journey->supplements[first]=baseline.journey->supplements[first];
-        unmodified.journey->treasure->gold=baseline.journey->treasure->gold;
+        unmodified.journey->purse->gold=baseline.journey->purse->gold;
     } else if (name=="injured-dead") {
         unmodified.characters[first]=baseline.characters[first];unmodified.characters[second]=baseline.characters[second];
     } else {

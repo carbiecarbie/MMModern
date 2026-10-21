@@ -125,22 +125,22 @@ void staleProvider(bool throws){
     }
 }
 void nestedInitialization(){
-    mmodern::XeenTemplePriceState templePriceState;for(bool mutation:{false,true}){
+    mmodern::XeenProgramState programState;for(bool mutation:{false,true}){
     auto bytes=regional_test::characterBytes();auto p=XeenPartyLoader().loadFromResources(bytes,regional_test::partyBytes());
     auto camera=xeenJourneyContent().entry;XeenGameFlags flags;
     const auto resources=regional_test::resources();auto monsters=regional_test::statistics();auto event=regional_test::events(23);
     XeenJourneySetup setup{bytes,XeenGameplayContextFormat::parse(regional_test::partyBytes()),monsters,event,1,resources.regionalManifest};
-    setup.purse=XeenMonsterTreasure{};setup.worldFlags=XeenWorldFlags{};setup.regionalText=regional_test::texts(23);
+    setup.purse=XeenPurse{};setup.worldFlags=XeenWorldFlags{};setup.regionalText=regional_test::texts(23);
     setup.learnedNames=XeenLearnedSpellNames{};setup.learnedNamesProvider=resources.loadLearnedSpellNames;
     setup.bank=XeenBankBalances{};setup.cityEventsProvider=[]{return regional_test::events(28);};
     XeenEventPresenter::Clock clock=[]{return 0;};bool fired=false;XeenWorld *world=nullptr;
-    XeenWorld w([&](auto id){if(!fired){fired=true;if(mutation)++p.roster.at(0).currentHp;else rejects([&]{XeenEncounterFlow nested(templePriceState,*world,p,camera,flags,clock,setup);},"fresh");}return regional_test::map(id);},regional_test::objects);world=&w;
+    XeenWorld w([&](auto id){if(!fired){fired=true;if(mutation)++p.roster.at(0).currentHp;else rejects([&]{XeenEncounterFlow nested(programState,*world,p,camera,flags,clock,setup);},"fresh");}return regional_test::map(id);},regional_test::objects);world=&w;
     if(mutation){
-        rejects([&]{XeenEncounterFlow flow(templePriceState,w,p,camera,flags,clock,setup);});
+        rejects([&]{XeenEncounterFlow flow(programState,w,p,camera,flags,clock,setup);});
         check(fired&&w.hasEncounterState()&&!p.encounterContext&&!p.roster.combatInputs(0)&&p.roster.at(0).currentHp==11,"failed admission keeps external mutation without partial owner attachment");
         w.discardMapCache();(void)w.map(23);continue;
     }
-    XeenEncounterFlow flow(templePriceState,w,p,camera,flags,clock,setup);
+    XeenEncounterFlow flow(programState,w,p,camera,flags,clock,setup);
     check(fired&&w.sessionState().monsters(23).size()==19&&p.encounterContext->minutes==480,"nested initialization cannot overwrite fresh publication");
     check(flow.prepareJourneyFrame(flow.ticket(),[]{})&&flow.presentJourney(flow.ticket())&&flow.journeyQuiet(),"outer fresh initialization remains usable");
 }}

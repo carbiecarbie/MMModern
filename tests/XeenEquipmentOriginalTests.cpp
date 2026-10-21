@@ -60,7 +60,7 @@ XeenSaveSnapshot buy(Inputs &in,std::size_t &member) {
   f.quote(category,0,member);f.act(YesAction{});
   check(XeenPurchaseTestAccess::result(*f.flow),"Level-2 purchase did not publish");
   expected-=*xeenEquipmentPurchasePrice(category,item);
-  check(f.p.monsterTreasure->gold==expected,"Level-2 purchase price differs from the item rules");
+  check(f.p.purse->gold==expected,"Level-2 purchase price differs from the item rules");
   (void)slot;
  };
  purchase(Category::Weapons,0,kSword);purchase(Category::Weapons,0,kCrossbow);purchase(Category::Armor,0,kArmor);

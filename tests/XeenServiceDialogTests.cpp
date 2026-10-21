@@ -164,7 +164,7 @@ void placeRules(Inputs &in) {
     check(R::rows(c,true,true,74).empty() && !xeenGuildMember(f.p,0,74),"Untabled Guild fallback");
     // Purchases in every shop survive the ordinary current-format restore exactly.
     for(unsigned shop=1;shop<4;++shop) {
-        auto saved=in.service();saved.journey->treasure->gold=1000000;
+        auto saved=in.service();saved.journey->purse->gold=1000000;
         training_test::Fixture before(in,saved);
         const auto original=*before.p.serviceEconomy;bool checkedPartial=false;
         for(unsigned category=0;category<4;++category) {
@@ -175,10 +175,10 @@ void placeRules(Inputs &in) {
                 check(bought.result.outcome==XeenEquipmentPurchaseOutcome::Purchased && bought.result.shop==shop,"Buy other shop");
                 *before.p.serviceEconomy=bought.economyAfter;
                 *xeenInventoryItems(before.p.roster.at(owner),XeenInventoryCategory(category))=bought.result.recipientAfter;
-                before.p.monsterTreasure->gold=bought.result.goldAfter;
+                before.p.purse->gold=bought.result.goldAfter;
                 if(!checkedPartial) {
                     auto partial=saved;partial.journey->serviceEconomy=bought.economyAfter;
-                    partial.journey->treasure->gold=bought.result.goldAfter;
+                    partial.journey->purse->gold=bought.result.goldAfter;
                     for(auto id:partial.activeRosterIds)partial.characters[id]=before.p.roster.at(id);
                     training_test::Fixture restored(in,partial);
                     check(XeenSaveFormat::encode(partial)==XeenSaveFormat::encode(restored.snapshot()),"Partially depleted shop restore changed bytes");
@@ -187,7 +187,7 @@ void placeRules(Inputs &in) {
             }
         }
         saved.journey->serviceEconomy=*before.p.serviceEconomy;
-        saved.journey->treasure->gold=before.p.monsterTreasure->gold;
+        saved.journey->purse->gold=before.p.purse->gold;
         for(auto owner:saved.activeRosterIds)saved.characters[owner]=before.p.roster.at(owner);
         const auto state=saved;training_test::Fixture restored(in,state);
         check(XeenSaveFormat::encode(state)==XeenSaveFormat::encode(restored.snapshot()),"Depleted shop restore changed bytes");
@@ -196,7 +196,7 @@ void placeRules(Inputs &in) {
 }
 XeenSaveSnapshot townService(Inputs &in,unsigned map,unsigned x,unsigned y,XeenDirection direction=XeenDirection::North) {
     auto source=in.base();source.camera={map,int(x),int(y),direction};source.food=1;
-    source.journey->context->day=8;source.journey->treasure->gold=100000;
+    source.journey->context->day=8;source.journey->purse->gold=100000;
     const auto actors=XeenActorApproach::actorsFromResources(in.maps.loadObjects(in.assets,map),in.statistics);
     auto &table=source.map(map).monsters;
     table.emplace(XeenSaveMonsterTable{std::uint16_t(actors.size()),{}});
@@ -222,7 +222,7 @@ void otherTownServices(Inputs &in) {
         auto source=townService(in,30,12,12);const auto owner=source.activeRosterIds[0];
         source.characters[owner].permanentLevel=14;source.journey->supplements[owner].inputs.experience=1000000000;
         training_test::Fixture f(in,source);f.enter();f.train(0);
-        check(f.p.roster.at(owner).permanentLevel==15 && f.p.monsterTreasure->gold==100000-1960,"Rivercity Training to cap");
+        check(f.p.roster.at(owner).permanentLevel==15 && f.p.purse->gold==100000-1960,"Rivercity Training to cap");
         const Owners capped(f);f.train(0);capped.unchanged(f);
         check(XeenTrainingTestAccess::text(*f.flow).find(source.characters[owner].name)!=std::string::npos,"Rivercity Training text");
         f.act(CancelInteractionAction{});f.finishDeparture();
@@ -232,7 +232,7 @@ void otherTownServices(Inputs &in) {
         keyboard(f,'b');keyboard(f,'1');check(XeenPurchaseTestAccess::quote(*f.flow),"Shangri-La Buy quote");
         const auto quote=XeenPurchaseTestAccess::facts(*f.flow);
         check(quote.shop==3 && xeenSameItem(quote.offer,source.journey->serviceEconomy->wares[0][3][0][0]),"Shangri-La stock identity");
-        keyboard(f,'y');check(f.p.monsterTreasure->gold==100000-quote.price,"Shangri-La Buy settlement");
+        keyboard(f,'y');check(f.p.purse->gold==100000-quote.price,"Shangri-La Buy settlement");
         keyboard(f,InputKey::Escape);keyboard(f,InputKey::Escape);f.finishDeparture();
         const auto saved=f.snapshot();training_test::Fixture restored(in,saved);
         check(XeenSaveFormat::encode(saved)==XeenSaveFormat::encode(restored.snapshot()),"Shangri-La depleted save");
@@ -240,7 +240,7 @@ void otherTownServices(Inputs &in) {
     {
         auto source=townService(in,74,5,8);training_test::Fixture f(in,source);townProviders(f,in);f.enter();
         keyboard(f,'d');keyboard(f,'o');f.act(TextInputAction{"123"});keyboard(f,InputKey::Enter);
-        check(f.p.serviceEconomy->bank.gold==123 && f.p.monsterTreasure->gold==99877,"Newcastle Bank deposit");
+        check(f.p.serviceEconomy->bank.gold==123 && f.p.purse->gold==99877,"Newcastle Bank deposit");
         keyboard(f,InputKey::Escape);keyboard(f,InputKey::Escape);f.finishDeparture();
     }
     {
@@ -255,14 +255,14 @@ void otherTownServices(Inputs &in) {
         const auto slot=XeenLearnedSpellRules::rows(member.p.roster.at(owner),true,false,29).front();
         const auto spell=*XeenLearnedSpellRules::spellForSlot(XeenSpellCategory::Clerical,slot);
         keyboard(member,'b');keyboard(member,'1');keyboard(member,'y');
-        check(XeenLearnedSpellRules::known(member.p.roster.at(owner),slot) && member.p.monsterTreasure->gold==100000-XeenLearnedSpellRules::purchasePrice(spell,XeenCharacterClass::Cleric),"Nightshadow Guild purchase");
+        check(XeenLearnedSpellRules::known(member.p.roster.at(owner),slot) && member.p.purse->gold==100000-XeenLearnedSpellRules::purchasePrice(spell,XeenCharacterClass::Cleric),"Nightshadow Guild purchase");
         keyboard(member,InputKey::Escape);keyboard(member,InputKey::Escape);member.finishDeparture();
     }
     {
         auto source=townService(in,30,24,16);training_test::Fixture f(in,source);townProviders(f,in);f.enter();
         const Owners signIn(f);keyboard(f,'s');signIn.unchanged(f);keyboard(f,InputKey::Enter);
         keyboard(f,'f');keyboard(f,'y');
-        check(f.p.food==360 && f.p.monsterTreasure->gold==99950,"Rivercity Food 60/50");
+        check(f.p.food==360 && f.p.purse->gold==99950,"Rivercity Food 60/50");
         keyboard(f,InputKey::Escape);f.finishDeparture();
     }
     for(const auto camera:{XeenCamera{49,7,14,XeenDirection::North}}) {
@@ -360,7 +360,7 @@ void originalServiceSequences(Inputs &in) {
             check(samples.back()=="ahh.voc" && f.p.roster.at(source.activeRosterIds[0]).currentHp>1,"Temple action did not replace the sample after healing");
         } else if(action==5) {
             check(xeenQuoteTraining(f.p.roster.at(source.activeRosterIds[0]),*f.p.roster.combatInputs(source.activeRosterIds[0]),
-                f.p.monsterTreasure->gold,*f.p.encounterContext,XeenMapIdentity(28)).outcome==XeenTrainingOutcome::MissingExperience,"Training refusal fixture XP differs");
+                f.p.purse->gold,*f.p.encounterContext,XeenMapIdentity(28)).outcome==XeenTrainingOutcome::MissingExperience,"Training refusal fixture XP differs");
             f.act(DialogKeyAction{'t'});check(samples.back()=="trainin0.voc","Training experience refusal did not replace greeting");
             f.act(SelectMemberAction{1});f.act(DialogKeyAction{'t'});f.prepare();
             check(samples.back()=="trainin2.voc" && f.p.roster.at(18).permanentLevel==4,"Successful Training sample/recovery differs");
@@ -385,7 +385,7 @@ void originalServiceSequences(Inputs &in) {
 
 void refusals(Inputs &in) {
     for(bool temple:{false,true}) {
-        auto source=in.service();source.journey->treasure->gold=0;
+        auto source=in.service();source.journey->purse->gold=0;
         if(temple) {source.camera={28,15,28,XeenDirection::North};source.characters[6].currentHp=-15;
             source.characters[6].conditions[13]=1;source.characters[6].armor[0].state|=64;}
         Fixture f(in,source);f.flow->drawTempleArt=[&](auto &image){in.assets.drawTemple(image);};
@@ -396,7 +396,7 @@ void refusals(Inputs &in) {
         if(temple) {keyboard(f,'u');check(notice==xeenNotEnoughGold(in.assets.uiText()),"Uncurse lacks original gold refusal");before.unchanged(f);keyboard(f,InputKey::Enter);}
         keyboard(f,InputKey::Escape);check(f.flow->canSave() && f.p.encounterContext->day==9,"refused service lost unpaid departure");
     }
-    auto source=service(in);source.journey->treasure->gold=0;
+    auto source=service(in);source.journey->purse->gold=0;
     Fixture f(in,source);f.enter();keyboard(f,'b');keyboard(f,'c');const Owners before(f);
     std::string notice;f.flow->reportText=[&](const auto &text){notice=text;};keyboard(f,'1');
     check(XeenPurchaseTestAccess::quote(*f.flow),"Accessories Buy lacks quote");keyboard(f,'y');
@@ -422,7 +422,7 @@ void dialogs(Inputs &in,bool mouse) {
     if(mouse)click(smith,251,110);else keyboard(smith,'f');
     if(mouse)click(smith,20,21);else keyboard(smith,'1');
     if(mouse)click(smith,130,113);else keyboard(smith,'y');
-    check(smith.p.monsterTreasure->gold==650 && !smith.p.roster.at(0).armor[0].state,"Fix did not apply inherited twenty-gold repair");
+    check(smith.p.purse->gold==650 && !smith.p.roster.at(0).armor[0].state,"Fix did not apply inherited twenty-gold repair");
     std::string notice;smith.flow->reportText=[&](const auto &text){notice=text;};
     keyboard(smith,'1');check(notice==xeenDialogText(in.assets.uiText(),XeenDialogText::ItemNotBroken),"intact Fix lacks original refusal");keyboard(smith,InputKey::Enter);
     keyboard(smith,'b');keyboard(smith,'m');const auto paid=Owners(smith);
@@ -431,9 +431,9 @@ void dialogs(Inputs &in,bool mouse) {
     training_test::Fixture train(in,in.service());train.enter();
     if(mouse)click(train,46,151);else keyboard(train,InputKey::F1+1);
     if(mouse)click(train,243,109);else keyboard(train,'t');train.prepare();
-    check(train.p.roster.at(18).permanentLevel==4 && train.p.monsterTreasure->gold==710 && train.p.encounterContext->day==9 && XeenTrainingTestAccess::menu(*train.flow),"one-step Training differs");
+    check(train.p.roster.at(18).permanentLevel==4 && train.p.purse->gold==710 && train.p.encounterContext->day==9 && XeenTrainingTestAccess::menu(*train.flow),"one-step Training differs");
     if(mouse)click(train,282,109);else keyboard(train,InputKey::Escape);check(train.flow->canSave() && train.p.encounterContext->day==10,"Training departure differs");
-    auto templeSource=in.service();templeSource.camera={28,15,28,XeenDirection::North};templeSource.journey->treasure->gold=810;
+    auto templeSource=in.service();templeSource.camera={28,15,28,XeenDirection::North};templeSource.journey->purse->gold=810;
     templeSource.characters[6].currentHp=-15;templeSource.characters[6].conditions[12]=templeSource.characters[6].conditions[13]=1;
     templeSource.characters[1].currentHp=0;templeSource.characters[1].conditions[12]=1;
     Fixture temple(in,templeSource);temple.flow->drawTempleArt=[&](auto &image){in.assets.drawTemple(image);};temple.act(InteractionAction{});temple.prepare();
@@ -446,7 +446,7 @@ void dialogs(Inputs &in,bool mouse) {
         check(XeenTrainingTestAccess::templeLobby(*temple.flow),"Heal retained result screen");
     }
     // DOS unsigned HP comparison: Seymour at HP -15 pays 380, Rebecca 60.
-    check(temple.p.monsterTreasure->gold==360 && temple.p.roster.at(6).currentHp==15 && !temple.p.roster.at(6).conditions[13] && temple.p.roster.at(1).currentHp==21,"one-step Donation/Heal/resurrection differs");
+    check(temple.p.purse->gold==360 && temple.p.roster.at(6).currentHp==15 && !temple.p.roster.at(6).conditions[13] && temple.p.roster.at(1).currentHp==21,"one-step Donation/Heal/resurrection differs");
     if(mouse)click(temple,262,109);else keyboard(temple,InputKey::Escape);
     temple.finishDeparture();
     check(temple.flow->canSave() && temple.p.encounterContext->day==11,"two paid Temple actions require three farewell days");
@@ -470,7 +470,7 @@ void spellDialogs(Inputs &in,bool mouse) {
     };
     for(unsigned book=0;book<3;++book) {
         auto source=in.service();source.camera={28,20,13,XeenDirection::North};
-        source.journey->treasure->gold=20000;
+        source.journey->purse->gold=20000;
         const auto owner=source.activeRosterIds[0];auto &c=source.characters[owner];
         c.characterClass=book==0?XeenCharacterClass::Cleric:book==1?XeenCharacterClass::Sorcerer:XeenCharacterClass::Druid;
         c.hasSpells=true;c.learnedSpells.emplace();c.awards[0]=1;
@@ -505,7 +505,7 @@ void spellDialogs(Inputs &in,bool mouse) {
         choose(f,InputKey::Enter); // dismiss retry notice
         choose(f,'1');choose(f,'y');
         const auto slot=*XeenLearnedSpellRules::slotForSpell(static_cast<XeenSpellCategory>(book),1);
-        check(f.p.roster.at(owner).learnedSpells->at(slot)==1 && f.p.monsterTreasure->gold==19900,"Guild buy did not debit and learn once");
+        check(f.p.roster.at(owner).learnedSpells->at(slot)==1 && f.p.purse->gold==19900,"Guild buy did not debit and learn once");
         check(*f.p.encounterContext==before.context && *f.w.sessionState().journeyRandom()==before.random,"Guild purchase changed clock/RNG");
         const auto paid=Owners(f);f.flow->beginCycle(++f.cycle);f.present(f.flow->handle(DialogKeyAction{'y'},epoch,old));paid.unchanged(f);
         const auto remaining=XeenLearnedSpellRules::rows(f.p.roster.at(owner),true,false,XeenMapIdentity(28));
@@ -517,17 +517,17 @@ void spellDialogs(Inputs &in,bool mouse) {
         const unsigned nextRow=0;
         for(unsigned page=0;page<nextRow/10;++page)choose(f,InputKey::PageDown);
         choose(f,nextRow%10==9?'0':'1'+nextRow%10);choose(f,'y');
-        check(f.p.roster.at(owner).learnedSpells->at(nextSlot)==1 && f.p.monsterTreasure->gold==19900-XeenLearnedSpellRules::purchasePrice(nextId,c.characterClass),"second catalogue spell was not purchasable");
+        check(f.p.roster.at(owner).learnedSpells->at(nextSlot)==1 && f.p.purse->gold==19900-XeenLearnedSpellRules::purchasePrice(nextId,c.characterClass),"second catalogue spell was not purchasable");
         choose(f,InputKey::F1+1);check(XeenPurchaseTestAccess::lobby(*f.flow),"Guild did not refresh selected character membership");
         f.leave();check(f.p.encounterContext->day==9,"Guild departed with wrong charge");
         Fixture restored(in,f.snapshot());check(XeenSaveFormat::encode(restored.snapshot())==XeenSaveFormat::encode(f.snapshot()),"Purchased book restore is not exact");
     }
     for(unsigned kind=0;kind<7;++kind) {
-        auto source=in.service();source.camera={28,20,13,XeenDirection::North};source.journey->treasure->gold=1000;
+        auto source=in.service();source.camera={28,20,13,XeenDirection::North};source.journey->purse->gold=1000;
         const auto owner=source.activeRosterIds[0];auto &c=source.characters[owner];
         c.weapons={};c.armor={};c.accessories={};c.miscellaneous={};c.characterClass=XeenCharacterClass::Cleric;c.hasSpells=true;c.learnedSpells.emplace();c.awards[0]=1;
         c.weapons={};c.armor={};c.accessories={};c.miscellaneous={};
-        if(kind==0)source.journey->treasure->gold=99;
+        if(kind==0)source.journey->purse->gold=99;
         if(kind==1)c.learnedSpells->fill(1);
         if(kind==2){c.characterClass=XeenCharacterClass::Knight;c.hasSpells=false;}
         if(kind==3)c.conditions[8]=1;
@@ -549,7 +549,7 @@ void spellDialogs(Inputs &in,bool mouse) {
             choose(f,'y');
             if(kind==0){before.unchanged(f);check(XeenPurchaseTestAccess::text(*f.flow)==xeenNotEnoughGold(text),"Guild lacks gold refusal");choose(f,InputKey::Enter);}
             else {
-                check(f.p.roster.at(owner).learnedSpells->at(1)==1 && f.p.monsterTreasure->gold==(kind==4?800:900),"zero-SP/published Guild purchase differs");
+                check(f.p.roster.at(owner).learnedSpells->at(1)==1 && f.p.purse->gold==(kind==4?800:900),"zero-SP/published Guild purchase differs");
                 if(kind==6){check(published,"post-publication fault absent");const auto paid=Owners(f);f.flow->smithBoundary={};choose(f,InputKey::Enter);choose(f,'y');paid.unchanged(f);}
             }
             choose(f,InputKey::Escape);
@@ -565,7 +565,7 @@ void spellDialogs(Inputs &in,bool mouse) {
     const auto owner=source.activeRosterIds[4];auto &caster=source.characters[owner];
     caster.characterClass=XeenCharacterClass::Cleric;caster.hasSpells=true;caster.currentSp=30;caster.learnedSpells.emplace();
     for(auto &flag:*caster.learnedSpells)flag=1;caster.currentSpell=255;
-    source.journey->treasure->gems=0; // Town Portal is supported, but cannot be afforded.
+    source.journey->purse->gems=0; // Town Portal is supported, but cannot be afforded.
     Fixture cast(in,source);const auto initial=Owners(cast);
     cast.act(CastSpellAction{});check(!cast.flow->canSave(),"Cast permits Save");
     choose(cast,InputKey::F1+4);choose(cast,'n');choose(cast,InputKey::PageDown);choose(cast,InputKey::Up);

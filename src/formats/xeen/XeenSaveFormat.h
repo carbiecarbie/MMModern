@@ -23,8 +23,8 @@ public:
 
 class XeenSaveFormat {
 public:
-	// M72 adds the original per-map Tavern tip cursor; schema/content retained.
-	static constexpr std::uint16_t kJourneyVersion = 16;
+	// M81 removes pending treasure from the save (purse only); schema/content retained.
+	static constexpr std::uint16_t kJourneyVersion = 17;
 	static constexpr std::uint16_t kJourneySchema = 9;
 	static constexpr std::uint16_t kJourneyContent = 14;
 	static constexpr std::size_t kHeaderSize = 20;
@@ -35,7 +35,6 @@ public:
 	// to its MOB or EVT count.
 	static constexpr std::size_t kMaximumOverrides = 65535;
 	static constexpr std::size_t kMaximumCells = 256;
-	static constexpr std::size_t kMaximumTreasureSources = 12;
 
 	// Throws before returning a value on malformed input. No live state access.
 	static XeenSaveSnapshot decode(const std::vector<std::uint8_t> &bytes);

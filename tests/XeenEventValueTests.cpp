@@ -38,8 +38,8 @@ XeenPartyState party() {
  }
  for(unsigned i=0;i<6;++i)p.roster.at(i).learnedSpells=XeenCharacter::XeenLearnedSpells{};
  XeenGameplayContext context;context.year=610;context.day=8;context.minutes=480;
- p.encounterContext=context;p.monsterTreasure=XeenMonsterTreasure{};p.worldFlags=XeenWorldFlags{};
- p.monsterTreasure->gold=500;p.monsterTreasure->gems=10;p.food=20;
+ p.encounterContext=context;p.purse=XeenPurse{};p.worldFlags=XeenWorldFlags{};
+ p.purse->gold=500;p.purse->gems=10;p.food=20;
  return p;
 }
 struct Owners {
@@ -146,9 +146,9 @@ void writes() {
  const auto give=xeenEventGive(w,47,20,3);check(o.c(3).personality.permanent==255 && give.sparkle,"stat grant saturates at 255 and sparkles");
  xeenEventTake(w,47,0x100+3,3);check(o.c(3).personality.permanent==252,"take subtracts the low byte");
  check(!xeenEventGive(w,12,1,3).sparkle && xeenEventGive(w,11,1,3).sparkle && xeenEventGive(w,34,1,3).sparkle,"sparkle table");
- check(o.p.monsterTreasure->gold==501,"give 34 credits the purse");
+ check(o.p.purse->gold==501,"give 34 credits the purse");
  const auto taken=xeenEventTake(w,35,11,0);
- check(taken.status==XeenEventWriteStatus::NotEnough && taken.consumable==1 && o.p.monsterTreasure->gems==10,"too few gems refuse unchanged");
+ check(taken.status==XeenEventWriteStatus::NotEnough && taken.consumable==1 && o.p.purse->gems==10,"too few gems refuse unchanged");
  check(xeenEventTake(w,65,5,0).status==XeenEventWriteStatus::Applied && o.p.food==15,"food is taken");
  // Give 74 activates Walk on Water; take 74 clears it.
  xeenEventGive(w,74,1,0);check(o.p.encounterContext->effects[XeenPartyEffect::WalkOnWater]==1 && o.p.encounterContext->lightAndResistances[2]==1,"give 74");
@@ -304,7 +304,7 @@ void flowOperations() {
  {
   World f;auto p=party();XeenGameFlags flags;
   const auto r=run(*f.w,p,flags,{row(0,15,{0}),row(1,12,{0,0,34,100,0,0,0}),row(2,12,{34,0xe8,0x03,0,0,0,0}),row(3,12,{0,0,20,1})});
-  check(completed(r) && p.monsterTreasure->gold==600 && !finalFlags(r).isSet(1),"gold given once; failed take ends the Event");
+  check(completed(r) && p.purse->gold==600 && !finalFlags(r).isSet(1),"gold given once; failed take ends the Event");
   check(r.requests.back().notEnough==std::uint8_t(0),"gold refusal message");
  }
  // maze0030.evt @2292: (0,0)/(18,3) poisons the selected member only.
@@ -343,7 +343,7 @@ void flowOperations() {
   XeenCombatRandom expected(*f.w->sessionState().journeyRandom());std::optional<std::uint32_t> gems,food;
   while(!gems)gems=expected.draw(1,15);while(!food)food=expected.draw(1,6);
   const auto r=run(*f.w,p,flags,{row(0,20,{35,10,0,101,15,0,106,6,0})});
-  check(completed(r) && p.monsterTreasure->gems==10+10+*gems && p.food==20+*food,"GiveMulti random gems and food");
+  check(completed(r) && p.purse->gems==10+10+*gems && p.food==20+*food,"GiveMulti random gems and food");
  }
  // ItemType 3 then a level-4 item (maze0025.evt @1516): a special-event Club.
  {
@@ -371,7 +371,7 @@ void lockPicking() {
    check(completed(r) && *f.w->sessionState().journeyRandom()==expected.continuation(),"lock draws once each in order");
    bool message=false;for(const auto &q:r.requests)message=message || (q.lockPicked==picked && q.title==p.roster.at(0).name);
    check(message,"lock message names the recipient");
-   check(p.monsterTreasure->gold==(picked?600u:500u),"a failed pick ends the Event before the gold");
+   check(p.purse->gold==(picked?600u:500u),"a failed pick ends the Event before the gold");
    check(p.roster.combatInputs(0)->experience==(picked?1000u+5u*2u*10u:1000u),"a pick adds level x difficulty x 10 experience");
    check(f.w->objectFrame({XeenMapIdentity(map),1})==std::optional<unsigned>(picked?1u:0u),"the chest stays open only when picked");
   }

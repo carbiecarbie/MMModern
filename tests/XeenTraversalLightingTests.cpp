@@ -4,7 +4,7 @@
 using namespace regional_test;
 namespace {
 struct LightingFixture {
-    mmodern::XeenTemplePriceState templePriceState;
+    mmodern::XeenProgramState programState;
  XeenPartyState p;XeenCamera camera=xeenJourneyContent().entry;XeenGameFlags flags;
  XeenWorld w{[](auto id) {auto m=map(id);m.geometry.flags2|=0x4000;
      for(auto &cell:m.geometry.cells)cell.rawAttributes|=0x20;
@@ -15,15 +15,15 @@ struct LightingFixture {
  explicit LightingFixture(const std::optional<XeenSaveSnapshot> &saved={}) {
   if(saved) {
    XeenSaveState::restoreBeforeGameplay(*saved,resources(),p,camera,flags,w,[](auto &,const auto &,const auto &,const auto &){});
-   flow=std::make_unique<XeenEncounterFlow>(templePriceState,w,p,camera,flags,[]{return 0;},XeenJourneyRestoreTag{});
+   flow=std::make_unique<XeenEncounterFlow>(programState,w,p,camera,flags,[]{return 0;},XeenJourneyRestoreTag{});
   } else {
    auto bytes=characterBytes();p=XeenPartyLoader().loadFromResources(bytes,partyBytes());
    const auto r=resources();
    XeenJourneySetup setup{bytes,XeenGameplayContextFormat::parse(partyBytes()),statistics(),events(23),1,r.regionalManifest};
-   setup.purse=XeenMonsterTreasure{};setup.worldFlags=XeenWorldFlags{};setup.regionalText=texts(23);
+   setup.purse=XeenPurse{};setup.worldFlags=XeenWorldFlags{};setup.regionalText=texts(23);
    setup.learnedNames=XeenLearnedSpellNames{};setup.learnedNamesProvider=r.loadLearnedSpellNames;
    setup.bank=XeenBankBalances{};setup.cityEventsProvider=[]{return events(28);};
-   flow=std::make_unique<XeenEncounterFlow>(templePriceState,w,p,camera,flags,[]{return 0;},setup);
+   flow=std::make_unique<XeenEncounterFlow>(programState,w,p,camera,flags,[]{return 0;},setup);
   }
   present();
  }

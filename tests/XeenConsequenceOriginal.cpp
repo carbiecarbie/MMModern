@@ -31,9 +31,12 @@ struct XeenCombatRotationTestAccess {
  static void acquired(XeenCombat &c) {c.rangedPresented(c.ticket(),true);}
 };
 struct XeenCombatPresentationTestAccess {
+ // Artificial running-program staging between presented frames.
+ static void stage(XeenEncounterFlow &f,const XeenTreasureStaging &value) {
+  XeenMonsterTestAccess::stageTreasure(f,f._world,value);
+ }
  static void readyTreasure(XeenEncounterFlow &f) {
-  f._party.monsterTreasure->pendingMask=512;f._party.monsterTreasure->pendingGold=10;f._party.monsterTreasure->sources[9]={23,9};
-  f.retainJourney();
+  auto value=f._world.treasureStaging().value();value.gold=value.gold+10;stage(f,value);
  }
  static bool beginTreasure(XeenEncounterFlow &f){return f.beginMonsterReward(XeenItemCatalog{});}
  static const auto &treasure(const XeenEncounterFlow &f){return *f._monsterReceipt;}
@@ -73,7 +76,7 @@ auto currentServices(combat_gameplay_test::Harness &h,Source &source){
  r.loadInitialBankBalances=[&source]{return XeenCharacterFormat::parseBankBalances(source.pty);};services.resources=r;services.texts=r.loadRegionalText;return services;
 }
 struct Domain {
-    mmodern::XeenTemplePriceState templePriceState;
+    mmodern::XeenProgramState programState;
  Source &source;XeenWorld world;XeenPartyState party;XeenCamera camera{23,9,11,XeenDirection::West};XeenGameFlags flags;
  std::uint64_t now=0;XeenEventPresenter::Clock clock=[this]{return now;};std::unique_ptr<XeenEncounterFlow> flow;
  // afterRestore: a live fixture change after the game load (decision 8 keeps
@@ -84,7 +87,7 @@ struct Domain {
   if(!saved)state.journey->random=XeenJourneyRandomState{1,1,0};
   XeenSaveState::restoreBeforeGameplay(state,s.resources(),party,camera,flags,world,[](auto &,const auto &,const auto &,const auto &){});
   if(afterRestore)afterRestore(world);
-  flow=std::make_unique<XeenEncounterFlow>(templePriceState,world,party,camera,flags,clock,XeenJourneyRestoreTag{});
+  flow=std::make_unique<XeenEncounterFlow>(programState,world,party,camera,flags,clock,XeenJourneyRestoreTag{});
   present();
  }
  void present(){check(flow->prepareJourneyFrame(flow->ticket(),[]{}) && flow->presentJourney(flow->ticket()),"Artificial control presentation");}
@@ -153,13 +156,13 @@ void combatPublicationFaults(Source &source) {
   for(unsigned failAt=1;failAt<=calls;++failAt){
    Domain d(source,saved);ready(d);auto &c=*d.flow->combat();
    const auto chars=d.party.roster.characters();const std::vector<XeenActor> actors=d.world.sessionState().monsters(23);
-   const auto random=d.world.sessionState().journeyRandom();const auto purse=d.party.monsterTreasure;const auto context=d.party.encounterContext;
+   const auto random=d.world.sessionState().journeyRandom();const auto purse=d.party.purse;const auto context=d.party.encounterContext;
    unsigned n=0;c.setProbe([&]{if(++n==failAt)throw std::bad_alloc();});
    XeenCombatResult result;do{result=c.service(c.ticket());}while(result.status==XeenCombatStatus::Pending);
    check(n==failAt && result.status==XeenCombatStatus::Failed,"Every injected preparation boundary fails closed");
    for(unsigned i=0;i<30;++i)check(xeen_state::sameCharacter(chars[i],d.party.roster.at(i)),"No partial party-wide or lethal publication");
    for(unsigned i=0;i<actors.size();++i)check(xeen_state::sameActor(actors[i],d.world.sessionState().monsters(23)[i]),"Unpublished actor candidate unchanged");
-   check(d.world.sessionState().journeyRandom()==random && d.party.monsterTreasure==purse && d.party.encounterContext==context,"Failed unit preserves RNG/purse/time predecessor");
+   check(d.world.sessionState().journeyRandom()==random && d.party.purse==purse && d.party.encounterContext==context,"Failed unit preserves RNG/purse/time predecessor");
    check(!XeenSaveState::canCapture(d.party,d.camera,d.world),"Failure latch excludes capture");
   }
   std::cout<<"ARTIFICIAL "<<(toad?"party-wide Toad":"lethal Orc")<<" per-callback failure controls PASS count="<<calls<<'\n';
@@ -170,7 +173,7 @@ void combatPublicationFaults(Source &source) {
    if(fault==0)--d.party.roster.at(29).currentHp;
    if(fault==1){bool denied=false;try{auto replacement=d.party;d.party=replacement;}catch(const std::logic_error &){denied=true;}check(denied,"Marked party replacement refused before ABA");continue;}
    if(fault==2){bool denied=false;try{auto replacement=d.party.roster;d.party.roster=replacement;}catch(const std::logic_error &){denied=true;}check(denied,"Marked roster replacement refused before ABA");continue;}
-   if(fault==3)++d.party.monsterTreasure->gold;
+   if(fault==3)++d.party.purse->gold;
    if(fault==4)++const_cast<XeenCombatInputs &>(*d.party.roster.combatInputs(29)).resistances->coldPermanent;
    if(fault==5)const_cast<XeenMap &>(d.world.map(23)).geometry.runX^=1;
    if(fault==6){c.preparePresentation(old,[&]{check(c.service(old).status==XeenCombatStatus::Refused,"Reentrant combat service refused");});continue;}
@@ -193,7 +196,7 @@ void combatPublicationFaults(Source &source) {
 
 void restoreConsequences(Source &source,const std::optional<std::filesystem::path> &fixture) {
  Domain original(source);const auto saved=original.save();
- for(unsigned mode=0;mode<8;++mode){auto bad=saved;
+ for(unsigned mode=0;mode<7;++mode){auto bad=saved;
   if(mode==0)bad.characters[0].conditions[0]=1;
   if(mode==1)bad.characters[0].conditions[12]=1;
   if(mode==2)bad.characters[0].currentHp=0;
@@ -201,10 +204,9 @@ void restoreConsequences(Source &source,const std::optional<std::filesystem::pat
   if(mode==4)bad.map(23).monsters->slots[9].status=XeenActorStatus::Unsupported; // v13 saves no HP (decision 8).
   if(mode==5)for(auto id:kXeenCombatOwners)bad.characters[id].conditions[13]=2;
   if(mode==6)bad.journey->context->minutes=1260;
-  if(mode==7){auto &a=bad.map(23).monsters->slots[9];a.x=a.y=-128;a.lifecycle=XeenActorLifecycle::Defeated;a.accounted=true;bad.journey->treasure->pendingMask=512;bad.journey->treasure->pendingGold=10;save_test::bindTreasureSources(bad);}
   const bool canonical=mode==0 || mode==3 || mode==6;
   bool failed=false;try{Domain d(source,bad);if(canonical)save_test::sameSnapshot(bad,d.save());}catch(const std::exception &){failed=true;}
-  check(failed!=canonical,"Canonical conditions/night restore; malformed/currently collectable state refused");
+  check(failed!=canonical,"Canonical conditions/night restore; malformed state refused");
  }
  auto sleep=saved;for(auto id:kXeenCombatOwners)sleep.characters[id].conditions[8]=1;
  Domain sleeping(source,sleep);save_test::sameSnapshot(sleep,sleeping.save());
@@ -212,10 +214,13 @@ void restoreConsequences(Source &source,const std::optional<std::filesystem::pat
  check(sleeping.flow->journeyRefusal().find("no awake eligible")!=std::string::npos,"Empty eligibility has readable refusal and no time/RNG charge");
  auto pending=saved;auto &dead=pending.map(23).monsters->slots[9];dead.x=dead.y=-128;dead.lifecycle=XeenActorLifecycle::Defeated;dead.accounted=true;
  auto &survivor=pending.map(23).monsters->slots[8];survivor.x=7;survivor.y=11;
- pending.journey->treasure->pendingMask=512;pending.journey->treasure->pendingGold=10;pending.journey->treasure->armor[0]={9,{0,2,0,0}};
- save_test::bindTreasureSources(pending);
  Domain delayed(source,pending);save_test::sameSnapshot(pending,delayed.save());
- check(XeenSaveFormat::encode(pending)==XeenSaveFormat::encode(delayed.save()),"Artificial pending item/provenance exact bytes");
+ // Pending treasure is running-program state: a selected survivor admits the
+ // save, and the bytes are those of the same game without it.
+ XeenTreasureStaging staged;staged.gold=10;staged.ready=true;staged.armor[0]={0,2,0,0};
+ XeenCombatPresentationTestAccess::stage(*delayed.flow,staged);
+ check(XeenSaveFormat::encode(pending)==XeenSaveFormat::encode(delayed.save()) &&
+  delayed.world.treasureStaging().value()==staged,"Pending treasure reached the save or changed on capture");
  if(fixture)XeenSaveFile::write(*fixture,delayed.save());
  std::cout<<"ARTIFICIAL malformed consequence restores, all-asleep Quiet and selected-survivor treasure PASS\n";
 }
@@ -225,8 +230,6 @@ void individualMonsterTreasure(Source &source) {
   auto saved=base;saved.camera={23,0,0,XeenDirection::South};
   for(unsigned source:{8u,9u}) {auto &dead=saved.map(23).monsters->slots[source];dead.x=dead.y=-128;
    dead.lifecycle=XeenActorLifecycle::Defeated;dead.accounted=true;}
-  saved.journey->treasure->armor[0]={9,{0,2,0,0}};
-  saved.journey->treasure->armor[1]={8,{0,3,0,0}};save_test::bindTreasureSources(saved);
   for(auto id:kXeenCombatOwners) {
    saved.characters[id].weapons={};saved.characters[id].armor={};saved.characters[id].miscellaneous={};
    if(full) {
@@ -235,17 +238,19 @@ void individualMonsterTreasure(Source &source) {
     saved.characters[id].miscellaneous.fill({0,1,0,0});
    }
   }
-  Domain d(source,saved);const auto staged=*d.party.monsterTreasure;
-  const auto rng=d.world.sessionState().journeyRandom();const auto gold=staged.gold;
+  Domain d(source,saved);
+  XeenTreasureStaging dormant;dormant.armor[0]={0,2,0,0};dormant.armor[1]={0,3,0,0};
+  XeenCombatPresentationTestAccess::stage(*d.flow,dormant);
+  const auto rng=d.world.sessionState().journeyRandom();const auto gold=d.party.purse->gold;
   // Artificial ready transition only: original resources and the restored dormant
   // inventory/provenance remain the production inputs to every delivery phase.
   XeenCombatPresentationTestAccess::readyTreasure(*d.flow);
-  const auto ready=*d.party.monsterTreasure;
+  const auto ready=d.world.treasureStaging().value();
   check(XeenCombatPresentationTestAccess::beginTreasure(*d.flow),"Ready original-resource monster treasure did not begin");
   using Phase=XeenMonsterDeliveryCandidate::Phase;
   const auto phase=[&]{return XeenCombatPresentationTestAccess::treasure(*d.flow).phase;};
   const auto advance=[&]{XeenCombatPresentationTestAccess::advanceTreasure(*d.flow);};
-  check(!d.flow->canSave() && *d.party.monsterTreasure==ready,"First monster item altered durable staged treasure or exposed save");
+  check(!d.flow->canSave() && d.world.treasureStaging().value()==ready,"First monster item altered staged treasure or exposed save");
   if(full) {
    check(phase()==Phase::Warning,"Full monster packs omitted original warning");advance();
    check(phase()==Phase::Final,"Full-pack acknowledgment did not stop at final currency acknowledgment");
@@ -254,15 +259,15 @@ void individualMonsterTreasure(Source &source) {
    check(phase()==Phase::Blank && d.party.roster.at(owner).armor.back().id==2 &&
     !d.party.roster.at(owner).armor.front().id,"First monster item did not transfer before blank/sort");
    bool refused=false;try{XeenCombatPresentationTestAccess::finishTreasure(*d.flow);}catch(const std::logic_error &){refused=true;}
-   check(refused && d.party.monsterTreasure->gold==gold,"Intermediate monster hold credited currency");
+   check(refused && d.party.purse->gold==gold,"Intermediate monster hold credited currency");
    advance();check(phase()==Phase::Found && d.party.roster.at(owner).armor.front().id==2,"Monster found line did not sort exactly its recipient");
    advance();check(phase()==Phase::Blank && d.party.roster.at(owner).armor.back().id==3,"Monster found completion did not transfer exactly next item");
    advance();check(phase()==Phase::Found,"Second monster found line missing");advance();
-   check(phase()==Phase::Final && d.party.monsterTreasure->gold==gold,"Final monster hold acknowledged itself");
+   check(phase()==Phase::Final && d.party.purse->gold==gold,"Final monster hold acknowledged itself");
   }
   XeenCombatPresentationTestAccess::finishTreasure(*d.flow);
-  check(d.party.monsterTreasure->gold==gold+10 && !d.party.monsterTreasure->pending() &&
-   !d.party.monsterTreasure->storedItems() && d.world.sessionState().journeyRandom()==rng,
+  check(d.party.purse->gold==gold+10 && !d.world.treasureStaging().value().pending() &&
+   !d.world.treasureStaging().value().storedItems() && d.world.sessionState().journeyRandom()==rng,
    "Final monster acknowledgment changed RNG or failed exact currency/item settlement");
  }
  std::cout<<"ARTIFICIAL original-resource individual monster treasure/full packs/final currency PASS\n";
@@ -322,7 +327,7 @@ void shootLethalPreparation(Source &source) {
   // Decision 8: the target's wound and wake state are live fixture values.
   Domain d(source,input,{},[&](XeenWorld &w){XeenMonsterTestAccess::set(w,23,9,lethal?1:25,true);});
   const auto rng=d.world.sessionState().journeyRandom();
-  const auto chars=d.party.roster.characters();const auto purse=d.party.monsterTreasure;
+  const auto chars=d.party.roster.characters();const auto purse=d.party.purse;
   tape={{1,2,1},{1,2,1},{1,2,1},{1,20,19},{1,56,56},{1,100,100}};
   cursor=0;taped=true;check(d.flow->handle(ShootAction{}),"Lethal Shoot starts");d.present();
   d.now+=110;d.flow->idle();
@@ -331,7 +336,7 @@ void shootLethalPreparation(Source &source) {
   bool failed=false;try{d.flow->idle();}catch(const std::overflow_error &){failed=true;}
   if(overflow) {
    check(failed && d.world.sessionState().monsters(23)[9].hp==1 &&
-    d.world.sessionState().journeyRandom()==rng && d.party.monsterTreasure==purse &&
+    d.world.sessionState().journeyRandom()==rng && d.party.purse==purse &&
     !d.world.sessionState().accountedMonsters().count({23,9}),"Failed lethal preparation published HP/RNG/reward");
    for(unsigned n=0;n<30;++n)check(xeen_state::sameCharacter(chars[n],d.party.roster.at(n)),"Failed Shoot lethal preparation changed party");
   }else {

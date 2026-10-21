@@ -31,37 +31,6 @@ bool XeenWorld::journeyCaptureEligible(const XeenPartyState &party, const XeenCa
 }
 
 namespace {
-// Older builds kept Spawn slots past a map's MOB count, so their saves may hold
-// pending treasure from a monster DOS never had (count byte 0x9c59, which Spawn
-// never raises). Restoration drops those slots; drop what they left pending too.
-XeenMonsterTreasure withoutBeyondCountSources(const XeenSaveSnapshot &snapshot, XeenMonsterTreasure value) {
-	std::uint32_t dropped = 0;
-	for (unsigned k = 0; k < value.sources.size(); ++k) {
-		const auto id = value.sources[k];
-		const auto *map = id.mapId ? snapshot.find(id.mapId) : nullptr;
-		if (!map || !map->monsters || id.recordIndex < map->monsters->originalCount) continue;
-		if (!(value.referencedSources() & (1u << k))) continue;
-		dropped |= 1u << k;
-		std::cerr << "Warning: discarded pending monster treasure from "
-			<< (id.mapId.side == XeenSide::Clouds ? "Clouds" : "Darkside") << " map " << id.mapId.number
-			<< " slot " << id.recordIndex << ", past its MOB monster count\n";
-	}
-	if (!dropped) return value;
-	for (unsigned k = 0; k < 12; ++k) if ((dropped & value.pendingMask) & (1u << k)) {
-		value.pendingMask = value.pendingMask & ~(1u << k);
-		value.pendingGold = value.pendingGold - 10;
-	}
-	for (auto *entries : {&value.weapons, &value.armor, &value.miscellaneous}) {
-		std::array<XeenMonsterTreasureItem,10> kept{};
-		unsigned n = 0;
-		for (const auto &entry : *entries)
-			if (entry.item.id && !(entry.source < 32 && (dropped & (1u << entry.source)))) kept[n++] = entry;
-		*entries = kept;
-	}
-	xeenPruneMonsterTreasureSources(value);
-	return value;
-}
-
 // A barrier override as the generic effective word/attribute pair of its cell.
 XeenSaveCellOverride savedCell(const XeenBarrierOverride &v) {
 	return {v.cell, v.word(false), v.attributes(), v.originalWord, v.originalAttributes};
@@ -154,9 +123,8 @@ void XeenSaveState::restoreJourney(const XeenSaveSnapshot &source, const Resourc
 	p.worldFlags = snapshot.journey->worldFlags;
 	p.firstSerializedCount = p.effectiveSerializedCount = 6;
 	p.encounterContext = snapshot.journey->context;
-	// The saved treasure names its sources in identity order; the live owner
-	// keeps each in its production slot.
-	p.monsterTreasure=xeenLiveMonsterTreasure(withoutBeyondCountSources(snapshot,*snapshot.journey->treasure));
+	// Pending treasure is running-program state: restore grants and draws nothing.
+	p.purse=snapshot.journey->purse;
 	p.serviceEconomy=snapshot.journey->serviceEconomy;
 	p.roster._combatMarked = true;
 	for (const auto &r : snapshot.journey->supplements) p.roster._combatInputs[r.owner] = r.inputs;
@@ -286,12 +254,6 @@ void XeenSaveState::restoreJourney(const XeenSaveSnapshot &source, const Resourc
 		XeenActorApproach::validateEnvironment(w,s.mutableMonsters(id),mapEvents);
 	}
 	adopt();
-	// Each treasure source is a defeated, accounted monster of its own map.
-	for (const auto &id:p.monsterTreasure->sources) if (id.mapId) {
-		const auto &a=s.mutableMonsters(id.mapId).at(id.recordIndex);
-		if (a.lifecycle!=XeenActorLifecycle::Defeated || !s._accountedMonsters.count(a.id))
-			throw std::invalid_argument("Noncanonical monster treasure source");
-	}
 	// The camera map's own table and Events, as every reader resolves them.
 	auto &active=s.mutableMonsters(c.mapId);
 	const auto view=!s.mapState(c.mapId)->outdoors ? XeenIndoorScene().classifyActors(w,c,active) : XeenActorApproach::classify(active,c);
@@ -299,7 +261,6 @@ void XeenSaveState::restoreJourney(const XeenSaveSnapshot &source, const Resourc
 	// The game load wakes what the arrival view sees, as a map entry does.
 	for (unsigned i=0;i<active.size();++i) if (view.activation[i]) active[i].activated=true;
 	adopt();
-	if(p.monsterTreasure && p.monsterTreasure->ready() && std::none_of(view.slots.begin(),view.slots.end(),[](const auto &v){return bool(v);})) throw std::invalid_argument("Quiet treasure is immediately collectable");
 	for (unsigned i=0;i<active.size();++i) if (view.activation[i] && !active[i].activated) throw std::invalid_argument("Quiet actor activation missing");
 	{
         XeenRestoreGuard::LightingObservation sourceLighting(destination),candidateLighting(*prepared);
@@ -412,11 +373,9 @@ XeenSaveSnapshot XeenSaveState::captureImpl(const XeenSaveResourceSignature &res
 		xeenValidateJourneyParty(party);
 		XeenSaveJourney j;
 		j.context = party.encounterContext; j.skeletonSeed = state.skeletonSeed();
-		j.content=XeenSaveFormat::kJourneyContent; j.schema=XeenSaveFormat::kJourneySchema; j.random=state.journeyRandom();j.treasure=party.monsterTreasure;j.worldFlags=party.worldFlags;
+		j.content=XeenSaveFormat::kJourneyContent; j.schema=XeenSaveFormat::kJourneySchema; j.random=state.journeyRandom();j.purse=party.purse;j.worldFlags=party.worldFlags;
 		j.serviceEconomy=party.serviceEconomy;
 		for (unsigned i = 0; i < 30; ++i) j.supplements[i] = {static_cast<std::uint8_t>(i), *party.roster.combatInputs(i)};
-		// The live treasure names its sources by monster identity.
-		if (j.treasure) j.treasure=xeenCanonicalMonsterTreasure(*j.treasure);
 		snapshot.journey = std::move(j);
 		validateJourneyValues(snapshot);
 	}
@@ -427,7 +386,7 @@ XeenSaveSnapshot XeenSaveState::captureImpl(const XeenSaveResourceSignature &res
 void XeenSaveState::restoreBeforeGameplay(const XeenSaveSnapshot &snapshot,
 		const Resources &resources, XeenPartyState &party, XeenCamera &camera,
 		XeenGameFlags &flags, XeenWorld &world, const Preflight &preflight) {
-	if (world.hasEncounterState() || party.encounterContext || party.monsterTreasure || party.serviceEconomy || party.roster.combatMarked())
+	if (world.hasEncounterState() || party.encounterContext || party.purse || party.serviceEconomy || party.roster.combatMarked())
 		throw std::logic_error("MMModern save: cannot restore into encounter owners");
 	XeenSaveFormat::validate(snapshot);
 	if (!(snapshot.resources == resources.signature))

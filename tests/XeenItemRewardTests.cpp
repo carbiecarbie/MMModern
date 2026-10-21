@@ -57,7 +57,7 @@ void recipients(){
 		if(r.lost)check(r.entries[0].loss==(kind==1?XeenRewardLoss::GloballyFull:XeenRewardLoss::EmptyParty),"loss classification");}
 }
 void categories(){
-    Fixture f;auto &p=f.initial;p.monsterTreasure=XeenMonsterTreasure{};
+    Fixture f;auto &p=f.initial;p.purse=XeenPurse{};
     XeenPendingRewards q;
     for(unsigned category=0;category<4;++category) {
       for(unsigned i=0;i<10;++i)check(q.enqueue({1,std::uint8_t(i+1),3,0},XeenRewardCategory(category))==XeenRewardEnqueue::Accepted,"Category staging capacity");
@@ -71,10 +71,10 @@ void categories(){
       check(xeenRewardItems(p.roster.at(1),XeenRewardCategory(category))[8].id==9,"Nine inventory slots");
       check(xeenRewardItems(p.roster.at(0),XeenRewardCategory(category))[0].id==10,"Party fallback");
     }
-    Fixture fullPacks;fullPacks.initial.monsterTreasure=XeenMonsterTreasure{};full(fullPacks.initial,true);
+    Fixture fullPacks;fullPacks.initial.purse=XeenPurse{};full(fullPacks.initial,true);
     XeenPendingRewards gold;gold.credit(34,100);gold.credit(35,5);
     auto lost=xeenDeliverRewards(gold,fullPacks.initial,{});
-    check(lost.gold==100 && lost.gems==5 && fullPacks.initial.monsterTreasure->gold==100 && fullPacks.initial.monsterTreasure->gems==5,"Globally full packs retain staged currency");
+    check(lost.gold==100 && lost.gems==5 && fullPacks.initial.purse->gold==100 && fullPacks.initial.purse->gems==5,"Globally full packs retain staged currency");
     for(auto owner:fullPacks.initial.party.activeRosterIds())for(unsigned category=0;category<4;++category)
       xeenRewardItems(fullPacks.initial.roster.at(owner),XeenRewardCategory(category)).fill({1,1,0,0});
     auto &last=fullPacks.initial.roster.at(fullPacks.initial.party.activeRosterIds()[0]).miscellaneous;last[8]={};
@@ -82,7 +82,7 @@ void categories(){
     lost=xeenDeliverRewards(filling,fullPacks.initial,{});
     check(lost.delivered==1 && lost.gold==100,"Filling the last free slot retains currency");
     Fixture finalSlot;auto &lastParty=finalSlot.initial;lastParty.party=XeenParty::fromRosterIds({0,1});
-    lastParty.monsterTreasure=XeenMonsterTreasure{};
+    lastParty.purse=XeenPurse{};
     for(auto owner:lastParty.party.activeRosterIds())for(unsigned category=0;category<4;++category)
       xeenRewardItems(lastParty.roster.at(owner),XeenRewardCategory(category)).fill({1,1,0,0});
     lastParty.roster.at(0).miscellaneous={};lastParty.roster.at(1).miscellaneous[8]={};
@@ -102,7 +102,7 @@ void dosDelivery() {
    f.initial.roster.at(1).conditions[13]=1;q.enqueue({3,2,5,0},kind);
    check(xeenDeliverRewards(q,f.initial,0).entries[0].owner==0,"Valid preferred exhausted eligible scan falls back to disabled/dead");
   }
-  Fixture f;auto &p=f.initial;p.monsterTreasure=XeenMonsterTreasure{};
+  Fixture f;auto &p=f.initial;p.purse=XeenPurse{};
   for(auto id:p.party.activeRosterIds())xeenRewardItems(p.roster.at(id),kind).fill({0,1,0,0});
   auto &tail=xeenRewardItems(p.roster.at(0),kind).back();tail.frame=category==0?4:category==1?3:category==2?8:7;
   const auto frame=tail.frame;XeenPendingRewards q;q.enqueue({3,2,5,0},kind);q.credit(34,23);q.credit(35,7);
@@ -111,11 +111,11 @@ void dosDelivery() {
   auto saved=save_test::sample();
   for(unsigned owner=0;owner<30;++owner)for(unsigned category=0;category<4;++category)
    xeenRewardItems(saved.characters[owner],XeenRewardCategory(category))=xeenRewardItems(p.roster.at(owner),XeenRewardCategory(category));
-  saved.journey->treasure->gold=p.monsterTreasure->gold;saved.journey->treasure->gems=p.monsterTreasure->gems;
+  saved.journey->purse->gold=p.purse->gold;saved.journey->purse->gems=p.purse->gems;
   const auto bytes=XeenSaveFormat::encode(saved);
   sameSnapshot(saved,XeenSaveFormat::decode(bytes));check(XeenSaveFormat::encode(XeenSaveFormat::decode(bytes))==bytes,"Delivered inventory generic save round-trip");
  }
- Fixture f;f.initial.monsterTreasure=XeenMonsterTreasure{};
+ Fixture f;f.initial.purse=XeenPurse{};
  for(auto id:f.initial.party.activeRosterIds())for(unsigned category=0;category<4;++category)
   xeenRewardItems(f.initial.roster.at(id),XeenRewardCategory(category)).fill({1,1,1,0});
  f.initial.roster.at(0).weapons[8]={};
@@ -124,26 +124,26 @@ void dosDelivery() {
  check(r.delivered==1 && r.lost==1 && r.entries[1].loss==XeenRewardLoss::GloballyFull && r.gold==9 && r.gems==4,"Becoming globally full discards remaining items only");
 }
 void stagedDelivery() {
- Fixture f;auto &party=f.initial;party.monsterTreasure=XeenMonsterTreasure{};
+ Fixture f;auto &party=f.initial;party.purse=XeenPurse{};
  party.questItems.increment(17);
  XeenPendingRewards pending;pending.enqueue({0,6,0,0},XeenRewardCategory::Weapons);
  pending.enqueueQuest(99);pending.credit(34,27);pending.credit(35,4);
  auto receipt=xeenPrepareRewardReceipt(pending);
- check(receipt.count==2 && receipt.entries[1].quest && !receipt.delivered && !party.monsterTreasure->gold,
+ check(receipt.count==2 && receipt.entries[1].quest && !receipt.delivered && !party.purse->gold,
   "Preparing treasure published rewards");
  xeenDeliverRewardEntry(receipt,0,party,{},false);
  auto &weapons=party.roster.at(0).weapons;
- check(weapons.back().id==6 && !weapons.front().id && receipt.delivered==1 && !party.monsterTreasure->gold,
+ check(weapons.back().id==6 && !weapons.front().id && receipt.delivered==1 && !party.purse->gold,
   "Transfer must precede sorting and currency");
  bool duplicate=false;try{xeenDeliverRewardEntry(receipt,0,party,{},false);}catch(const std::logic_error &){duplicate=true;}
  check(duplicate,"Duplicate item publication accepted");
  xeenSortRewardEntry(receipt.entries[0],party);
  check(weapons.front().id==6 && !weapons.back().id,"Found-line transition did not sort inventory");
  const auto inventory=weapons;xeenDeliverRewardEntry(receipt,1,party,{},false);xeenSortRewardEntry(receipt.entries[1],party);
- check(std::equal(weapons.begin(),weapons.end(),inventory.begin(),same) && party.questItems.at(17)==1 && receipt.delivered==2 && !party.monsterTreasure->gold,
+ check(std::equal(weapons.begin(),weapons.end(),inventory.begin(),same) && party.questItems.at(17)==1 && receipt.delivered==2 && !party.purse->gold,
   "Quest presentation inserted inventory or granted its counter twice");
  xeenCreditRewardCurrency(pending,receipt,party);
- check(!pending.hasWork() && party.monsterTreasure->gold==27 && party.monsterTreasure->gems==4,
+ check(!pending.hasWork() && party.purse->gold==27 && party.purse->gems==4,
   "Final acknowledgment did not settle staged currency");
 }
 int main(){try{model();recipients();categories();dosDelivery();stagedDelivery();std::cout<<"Bounded item model and staged recipient matrix passed\n";return 0;}catch(const std::exception&e){std::cerr<<e.what()<<'\n';return 1;}}

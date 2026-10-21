@@ -6,7 +6,7 @@
 namespace regional_save_test {
 using namespace gameplay_test;
 struct Fixture {
-    mmodern::XeenTemplePriceState templePriceState;
+    mmodern::XeenProgramState programState;
  XeenFontFormat font{fontBytes()};
  XeenItemCatalog catalog;
  XeenEventFlow *flow=nullptr; XeenWorld *world=nullptr; XeenEventSystem *events=nullptr;
@@ -15,7 +15,7 @@ struct Fixture {
  std::vector<std::uint64_t> phases;
  XeenSaveSnapshot saved=regional_test::snapshot();
  XeenGameplayServices services(){
-  XeenGameplayServices s{templePriceState,regional_test::resources(),[]{return XeenGameFlags{};},regional_test::map,regional_test::objects,regional_test::texts,font,
+  XeenGameplayServices s{programState,regional_test::resources(),[]{return XeenGameFlags{};},regional_test::map,regional_test::objects,regional_test::texts,font,
    [](auto &,const auto &,const auto &,auto){return XeenEventFlow::Composition{IndexedFrame{320,200,Bytes(64000)},true};}, {},
    [&](auto &f,const auto &){flow=&f;f.dialogText=&dos_test::text();}, {},
    [&](auto &w,auto &e,const auto &p,auto &c,const auto &g){events=&e;world=&w;party=&p;camera=&c;flags=&g;}};

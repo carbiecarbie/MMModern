@@ -6,7 +6,7 @@
 namespace regional_gameplay_test {
 using namespace combat_test;
 struct Harness {
-    mmodern::XeenTemplePriceState templePriceState;
+    mmodern::XeenProgramState programState;
  XeenFontFormat font{gameplay_test::fontBytes()};
  XeenEventFlow *flow=nullptr;
  XeenCombatBoundary *combatBoundary=nullptr;
@@ -24,7 +24,7 @@ struct Harness {
  ~Harness(){if(!std::uncaught_exceptions())for(const auto &directory:runDirectories)child_test::removePassedRun(directory);}
  XeenGameplayServices services(unsigned value=1) {
   seed=value;
-  XeenGameplayServices s{templePriceState,regional_test::resources(),[]{return XeenGameFlags{};},regional_test::map,regional_test::objects,
+  XeenGameplayServices s{programState,regional_test::resources(),[]{return XeenGameFlags{};},regional_test::map,regional_test::objects,
    regional_test::texts,font,
    [](auto &,const auto &,const auto &,auto){return XeenEventFlow::Composition{IndexedFrame{320,200,Bytes(64000)},true};}, {},
    [&](auto &f,const auto &){flow=&f;f.dialogText=&dos_test::text();combatBoundary=&const_cast<XeenEncounterFlow *>(f.encounter())->boundary();}, {},
@@ -42,7 +42,7 @@ struct Harness {
   XeenSaveFile::write(path,saved);
   struct Tape {XeenCombatRandom *old=regional_combat_test::tape;~Tape(){regional_combat_test::tape=old;}} scope;
   regional_combat_test::tape=random?&*random:nullptr;
-  return Application(s.templePrices).playGameplay(s,{},path,true);
+  return Application(s.program).playGameplay(s,{},path,true);
  }
  bool retired() const {return flow&&!flow->encounter()->combat();}
  Phase phase() const {return retired()?Phase::Victory:fight().phase();}

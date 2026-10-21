@@ -1,6 +1,6 @@
 #ifndef MMODERN_APP_XEEN_ENCOUNTER_FLOW_H
 #define MMODERN_APP_XEEN_ENCOUNTER_FLOW_H
-#include "games/xeen/XeenTemplePriceState.h"
+#include "games/xeen/XeenProgramState.h"
 #include "core/PresentationClock.h"
 
 #include "core/PlayerAction.h"
@@ -33,7 +33,7 @@ struct XeenJourneySetup {
 	const XeenEventFile &events;
 	std::uint32_t seed;
 	XeenRegionalManifest regionalManifest;
-	std::optional<XeenMonsterTreasure> purse;
+	std::optional<XeenPurse> purse;
 	std::optional<XeenWorldFlags> worldFlags;
 	std::optional<XeenEventTextFile> regionalText;
 	std::optional<XeenLearnedSpellNames> learnedNames;
@@ -53,14 +53,16 @@ struct XeenJourneySetup {
 };
 struct XeenJourneyRestoreTag {};
 
+// Binds the session world to the running program's pending treasure.
+XeenProgramState &xeenBorrowProgram(XeenProgramState &, XeenWorld &);
 // Bounded coordinator. World/party/camera and the normalized clock remain borrowed.
 class XeenEncounterFlow {
 public:
 	struct Ticket { XeenEncounterState state; std::uint64_t generation; std::optional<XeenCombat::Ticket> combat;
 		std::uint64_t boundaryGeneration = 0; };
-	XeenEncounterFlow(XeenTemplePriceState &, XeenWorld &, XeenPartyState &, XeenCamera &, const XeenGameFlags &,
+	XeenEncounterFlow(XeenProgramState &, XeenWorld &, XeenPartyState &, XeenCamera &, const XeenGameFlags &,
 		const XeenEventPresenter::Clock &, const XeenJourneySetup &, const PresentationClock::Source * = nullptr);
-	XeenEncounterFlow(XeenTemplePriceState &, XeenWorld &, XeenPartyState &, XeenCamera &, const XeenGameFlags &,
+	XeenEncounterFlow(XeenProgramState &, XeenWorld &, XeenPartyState &, XeenCamera &, const XeenGameFlags &,
 		const XeenEventPresenter::Clock &, XeenJourneyRestoreTag, const PresentationClock::Source * = nullptr);
 	~XeenEncounterFlow();
 	bool journeyQuiet() const noexcept;
@@ -412,6 +414,7 @@ private:
 	bool animateProjectiles();
 	bool projectilesPending() const noexcept { for(const auto &p:_projectiles)if(p.active)return true;return false; }
 	std::optional<XeenMonsterDeliveryCandidate> _monsterReceipt;
+	std::uint64_t _monsterReceiptBase=0;
 	std::string _monsterReceiptText;
 	std::uint64_t _rewardLease=0;
 	bool beginShoot();
@@ -459,7 +462,7 @@ private:
 	bool prepareTime(const Ticket &, std::uint64_t &now);
 	void guardCallback(const Ticket &, const std::function<void()> &);
 	void schedule(std::uint64_t now) noexcept;
-	XeenTemplePriceState &_templePrices;
+	XeenProgramState &_program;
 	XeenWorld &_world;
 	XeenPartyState &_party;
 	XeenCamera &_camera;

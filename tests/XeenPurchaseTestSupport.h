@@ -70,7 +70,7 @@ using namespace mmodern;
 using save_test::check;
 using Inputs=training_test::Inputs;
 inline XeenSaveSnapshot service(Inputs &in,unsigned day=8,std::uint32_t gold=870) {
-    auto s=in.service(day);s.journey->content=14;s.camera={28,8,4,XeenDirection::West};s.journey->treasure->gold=gold;return s;
+    auto s=in.service(day);s.journey->content=14;s.camera={28,8,4,XeenDirection::West};s.journey->purse->gold=gold;return s;
 }
 // Select semantic offers, independent of makeItem's random physical order.
 // Mutations caught: wrong offer identity, skipped depletion/compaction, and a
@@ -115,21 +115,21 @@ struct Fixture:training_test::Fixture {
 struct Owners {
     std::array<XeenCharacter,30> characters;
     std::array<XeenCombatInputs,30> inputs;
-    XeenMonsterTreasure treasure;XeenGameplayContext context;XeenServiceEconomy economy;XeenJourneyRandomState random;
+    XeenPurse treasure;XeenGameplayContext context;XeenServiceEconomy economy;XeenJourneyRandomState random;
     XeenCamera camera;
-    explicit Owners(const training_test::Fixture &f):treasure(*f.p.monsterTreasure),context(*f.p.encounterContext),
+    explicit Owners(const training_test::Fixture &f):treasure(*f.p.purse),context(*f.p.encounterContext),
         economy(*f.p.serviceEconomy),random(*f.w.sessionState().journeyRandom()),camera(f.c) {
         for(unsigned n=0;n<30;++n){characters[n]=f.p.roster.at(n);inputs[n]=*f.p.roster.combatInputs(n);}
     }
     void unchanged(const training_test::Fixture &f) const {
         for(unsigned n=0;n<30;++n)check(xeen_state::sameCharacter(characters[n],f.p.roster.at(n)) &&
             xeen_state::sameInputs(inputs[n],*f.p.roster.combatInputs(n)),"modal action changed character/supplement without publication");
-        check(treasure==*f.p.monsterTreasure && context==*f.p.encounterContext && economy==*f.p.serviceEconomy &&
+        check(treasure==*f.p.purse && context==*f.p.encounterContext && economy==*f.p.serviceEconomy &&
             random==*f.w.sessionState().journeyRandom() && save_test::sameCamera(camera,f.c),"modal action changed purse/stock/time/RNG/camera without publication");
     }
 };
 inline void armorDelivery(const Fixture &f) {
-    check(f.p.monsterTreasure->gold==670 && f.p.roster.at(0).armor[4].id==3 && !f.p.roster.at(0).armor[4].frame,"Armor payment/delivery missing/duplicated");
+    check(f.p.purse->gold==670 && f.p.roster.at(0).armor[4].id==3 && !f.p.roster.at(0).armor[4].frame,"Armor payment/delivery missing/duplicated");
 }
 inline void armorPaid(const Fixture &f) {
     armorDelivery(f);check(

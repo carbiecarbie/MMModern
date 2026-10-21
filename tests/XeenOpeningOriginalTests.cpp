@@ -34,7 +34,7 @@ using S=XeenLearnedSpell;
 
 // Local resource overrides exercise the real Flow without changing shared fixtures.
 struct EventFixture {
-    mmodern::XeenTemplePriceState templePriceState;
+    mmodern::XeenProgramState programState;
     Inputs &in;std::map<XeenMapIdentity,XeenEventFile> files;
     XeenWorld w;XeenPartyState p;XeenCamera c;XeenGameFlags f;XeenEventSystem events;
     std::unique_ptr<XeenEventFlow> flow;std::uint64_t cycle=0,now=0;
@@ -45,7 +45,7 @@ struct EventFixture {
         events([this](auto id){return XeenEventScript(script(id));},[this](auto id){return in.texts.load(id);}) {
         auto resources=in.resources();resources.loadEvents=[this](auto id){return script(id);};
         XeenSaveState::restoreBeforeGameplay(source,resources,p,c,f,w,[](auto &,const auto &,const auto &,const auto &){});
-        flow=std::make_unique<XeenEventFlow>(templePriceState,w,events,p,c,f,in.font,[](auto){return XeenEventFlow::Composition{frame(),false};},
+        flow=std::make_unique<XeenEventFlow>(programState,w,events,p,c,f,in.font,[](auto){return XeenEventFlow::Composition{frame(),false};},
             XeenEventPresenter::NpcDraw{},[this]{return now;},XeenEventPresenter::RandomFrame{},nullptr,
             [](auto,auto){return XeenEventFlow::Composition{frame(),false};},nullptr,
             [](auto &,const auto &,const auto &,auto,auto){return XeenEventFlow::Composition{frame(),false};});
@@ -272,7 +272,7 @@ void crossingArrivals(Inputs &in) {
         } else {
             quiet(f);
             check(f.w.sessionState().regionalActors(6).empty(),"Missing optional MOB did not stage an empty table");
-            if(kind==1)check(xeen_state::sameCamera(f.c,to) && completed==1 && f.p.monsterTreasure->gold==123,
+            if(kind==1)check(xeen_state::sameCamera(f.c,to) && completed==1 && f.p.purse->gold==123,
                 "Border automatic Event did not execute exactly once in its destination");
             else {
                 check(f.c.mapId==XeenMapIdentity(23) && f.c.x==12 && f.c.y==10 && f.c.direction==XeenDirection::North,

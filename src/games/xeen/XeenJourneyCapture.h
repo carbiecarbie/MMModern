@@ -57,14 +57,15 @@ class XeenJourneyCapture {
 				const auto view=XeenIndoorScene().classifyActors(*const_cast<XeenWorld *>(w),*c,city);
 				if (view.engaged()) return false;
 				for(unsigned i=0;i<city.size();++i) if(view.activation[i] && !city[i].activated) return false;
-				if(p->monsterTreasure && p->monsterTreasure->ready()) {
+				// Scheduling invariant: ready loot delivers before input, so no save sees it.
+				if(w->treasureStaging().value().pending()) {
 					bool selected=false;for(const auto &slot:view.slots)selected=selected || bool(slot);
 					if(!selected)return false;
 				}
 			} catch (...) { return false; }
 			return true;
 		}
-		if(p->monsterTreasure && p->monsterTreasure->ready()) {
+		if(w->treasureStaging().value().pending()) {
 			const auto view=XeenActorApproach::classify(*mapState->monsters,*c);bool selected=false;
 			for(const auto &v:view.slots) selected=selected || bool(v);if(!selected) return false;
 		}

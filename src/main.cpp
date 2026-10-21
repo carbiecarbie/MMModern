@@ -105,8 +105,8 @@ int main(int argc, char *argv[]) {
  }
  pointers.clear();for(auto &argument:arguments)pointers.push_back(argument.data());
  argc=static_cast<int>(pointers.size());argv=pointers.data();
- mmodern::XeenTemplePriceState templePrices;
- const mmodern::Application application(templePrices,uiData.value_or(std::filesystem::path{}));
+ mmodern::XeenProgramState program;
+ const mmodern::Application application(program,uiData.value_or(std::filesystem::path{}));
 	// Plain launch enters the original title. Overrides require developer entry.
 	if (argc >= 2 && (std::string(argv[1]) == "--new-game" ||
 			std::string(argv[1]).rfind("--", 0) != 0)) {

@@ -7,23 +7,23 @@
 using namespace reward_test;
 IndexedFrame base(){IndexedFrame b;b.width=320;b.height=200;b.pixels.assign(64000,90);for(int i=0;i<256;++i)for(int j=0;j<3;++j)b.palette[i*3+j]=i;return b;}
 void portraitRequiresOwner(){
-    mmodern::XeenTemplePriceState templePriceState;
+    mmodern::XeenProgramState programState;
  Execution e;auto state=e.seed({pause()},0);
  state.pendingPresentation->request.kind=XeenPresentationKind::PortraitEffect;
  state.pendingPresentation->request.portrait=XeenEventPortraitEffect{XeenEventPortraitStage::Sparkle,0,0};
  state.pendingPresentation->request.response=XeenPresentationResponseRequirement::Presented;
  XeenEventSystem events(e.scripts,e.texts);auto image=base();
- XeenEventFlow flow(templePriceState,e.world,events,e.f.initial,e.camera,e.flags,e.f.font,[&](auto){return XeenEventFlow::Composition{image,false};});
+ XeenEventFlow flow(programState,e.world,events,e.f.initial,e.camera,e.flags,e.f.font,[&](auto){return XeenEventFlow::Composition{image,false};});
  bool rejected=false;try{flow.acceptManual(XeenEventExecutionSuspended{state,state.pendingPresentation->request});}
  catch(const std::logic_error &error){rejected=std::string(error.what()).find("Encounter-owned presentation")!=std::string::npos;}
  check(rejected,"Injected legacy portrait request bypassed its Encounter ownership fence");
 }
 void flows(){
-    mmodern::XeenTemplePriceState templePriceState;
+    mmodern::XeenProgramState programState;
 	for(bool global:{false,true}){Execution e;if(global)full(e.f.initial,true);
 		auto s=e.seed({pause(),record(1,1,1,12,{0,0,20,7}),record(1,1,2,0x12)},10);
 		XeenEventSystem events(e.scripts,e.texts);auto b=base();
-		XeenEventFlow flow(templePriceState,e.world,events,e.f.initial,e.camera,e.flags,e.f.font,[&](std::uint64_t){return XeenEventFlow::Composition{b, false};});
+		XeenEventFlow flow(programState,e.world,events,e.f.initial,e.camera,e.flags,e.f.font,[&](std::uint64_t){return XeenEventFlow::Composition{b, false};});
   flow.dialogText=&dos_test::text();
 		flow.acceptManual(XeenEventExecutionSuspended{s,s.pendingPresentation->request});
 		const auto ordinary=*flow.presentationGeneration();flow.handle(AcknowledgeAction{});
@@ -53,14 +53,14 @@ void flows(){
 	}
 }
 void producedFlow(){
-    mmodern::XeenTemplePriceState templePriceState;
+    mmodern::XeenProgramState programState;
 	for(int outcome=0;outcome<4;++outcome) {
 		Execution e;e.f.initial.questItems.increment(17);e.f.initial.questFlags.set(2);
 		if(outcome==1)full(e.f.initial,true);
 		e.f.scripts[1]={pause(),record(1,1,1,12,{21,99}),record(1,1,2,12,{104,2}),record(1,1,3,0x2c,{70,37,0,1}),
 			pause(4),record(1,1,5,12,{0,0,20,7})};
 		XeenEventSystem events(e.scripts,e.texts);auto b=base();
-		XeenEventFlow flow(templePriceState,e.world,events,e.f.initial,e.camera,e.flags,e.f.font,[&](std::uint64_t){return XeenEventFlow::Composition{b, false};});
+		XeenEventFlow flow(programState,e.world,events,e.f.initial,e.camera,e.flags,e.f.font,[&](std::uint64_t){return XeenEventFlow::Composition{b, false};});
   flow.dialogText=&dos_test::text();
 		flow.handle(InteractionAction{});
 		check(e.f.initial.questItems.at(17)==1 && e.f.initial.questFlags.isSet(2),"pre-ACK quest mutation");
@@ -93,7 +93,7 @@ void producedFlow(){
 	}
 }
 void failures(){
-    mmodern::XeenTemplePriceState templePriceState;
+    mmodern::XeenProgramState programState;
 	// Composition/rebase before presentation; reporting before layout; layout
 	// failure after transient layer push; and abandonment on both sides of insertion.
 	for(int fault=0;fault<6;++fault)for(bool delivered:{false,true}){
@@ -101,7 +101,7 @@ void failures(){
 		if(delivered)s=pending(e.resume(s));
 		if(fault==5&&!delivered){full(e.f.initial,true);s=pending(e.resume(s));}
 		XeenEventSystem events(e.scripts,e.texts);auto b=base();bool failCompose=false;
-		XeenEventFlow flow(templePriceState,e.world,events,e.f.initial,e.camera,e.flags,e.f.font,[&](std::uint64_t){if(failCompose)throw std::runtime_error("compose fault");return XeenEventFlow::Composition{b, false};});
+		XeenEventFlow flow(programState,e.world,events,e.f.initial,e.camera,e.flags,e.f.font,[&](std::uint64_t){if(failCompose)throw std::runtime_error("compose fault");return XeenEventFlow::Composition{b, false};});
   flow.dialogText=&dos_test::text();
 		std::optional<XeenEventExecutionError> error;unsigned reports=0;
 		flow.reportManual=[&](const auto &r){if(const auto *v=std::get_if<XeenEventExecutionError>(&r))error=*v;else if(fault==1&&++reports==1)throw std::runtime_error("report fault");};
@@ -118,7 +118,7 @@ void failures(){
 		check(flow.frame().pixels==b.pixels,"failed transient layer survived rebase");
 	}
 	Execution e;auto s=e.seed({pause(),record(1,1,1,0x12)});XeenEventSystem events(e.scripts,e.texts);auto b=base();
-	XeenEventFlow flow(templePriceState,e.world,events,e.f.initial,e.camera,e.flags,e.f.font,[&](std::uint64_t){return XeenEventFlow::Composition{b, false};});
+	XeenEventFlow flow(programState,e.world,events,e.f.initial,e.camera,e.flags,e.f.font,[&](std::uint64_t){return XeenEventFlow::Composition{b, false};});
   flow.dialogText=&dos_test::text();
 	flow.acceptManual(XeenEventExecutionSuspended{s,s.pendingPresentation->request});const auto generation=flow.presentationGeneration();
 	bool rejected=false;try{flow.acceptManual(XeenManualEventNoEvent{});}catch(const std::logic_error&){rejected=true;}
@@ -126,12 +126,12 @@ void failures(){
 	flow.handle(InteractionAction{});check(flow.presentationGeneration()!=generation,"explicit abandonment did not permit fresh dispatch");
 }
 void animatedRewardLayers(){
-    mmodern::XeenTemplePriceState templePriceState;
+    mmodern::XeenProgramState programState;
  for(bool warning:{false,true}){
   Execution e;if(warning)full(e.f.initial,true);
   auto state=e.seed({pause(),record(1,1,1,0x12)},3);state=pending(e.resume(state));
   XeenEventSystem events(e.scripts,e.texts);auto b=base();std::uint64_t now=0,phase=0;
-  XeenEventFlow flow(templePriceState,e.world,events,e.f.initial,e.camera,e.flags,e.f.font,[&](std::uint64_t value){phase=value;auto current=b;current.pixels[100]=value;return XeenEventFlow::Composition{current,true};},{},[&]{return now;});
+  XeenEventFlow flow(programState,e.world,events,e.f.initial,e.camera,e.flags,e.f.font,[&](std::uint64_t value){phase=value;auto current=b;current.pixels[100]=value;return XeenEventFlow::Composition{current,true};},{},[&]{return now;});
   flow.dialogText=&dos_test::text();
   flow.acceptManual(XeenEventExecutionSuspended{state,state.pendingPresentation->request});
   const auto gen=flow.presentationGeneration();const auto page=flow.presenter().pageIndex();const auto inventory=xeenInventoryInspection(e.f.initial);
@@ -144,13 +144,13 @@ void animatedRewardLayers(){
  }
 }
 void animationFailures(){
-    mmodern::XeenTemplePriceState templePriceState;
+    mmodern::XeenProgramState programState;
  for(bool automatic:{false,true})for(bool delivered:{false,true}){
   Execution e;auto state=e.seed({pause(),record(1,1,1,0x12)},3);
   if(delivered)state=pending(e.resume(state));
   XeenEventSystem events(e.scripts,e.texts);auto b=base();std::uint64_t now=0;bool fail=false;
   std::vector<std::uint64_t> phases;unsigned reports=0;
-  XeenEventFlow flow(templePriceState,e.world,events,e.f.initial,e.camera,e.flags,e.f.font,[&](std::uint64_t phase){
+  XeenEventFlow flow(programState,e.world,events,e.f.initial,e.camera,e.flags,e.f.font,[&](std::uint64_t phase){
    phases.push_back(phase);if(fail)throw std::runtime_error("idle animation fault");return XeenEventFlow::Composition{b,true};},{},[&]{return now;});
   flow.dialogText=&dos_test::text();
   auto suspension=XeenEventExecutionSuspended{state,state.pendingPresentation->request};
@@ -167,7 +167,7 @@ void animationFailures(){
  // An initial input refresh that cleans pending execution cannot dispatch that input anew.
  Execution e;auto state=e.seed({pause(),record(1,1,1,0x12)},1);XeenEventSystem events(e.scripts,e.texts);auto b=base();bool fail=false;
  unsigned compositions=0,reports=0;
- XeenEventFlow flow(templePriceState,e.world,events,e.f.initial,e.camera,e.flags,e.f.font,[&](std::uint64_t){++compositions;if(fail)throw std::runtime_error("rebase failure");return XeenEventFlow::Composition{b,true};});
+ XeenEventFlow flow(programState,e.world,events,e.f.initial,e.camera,e.flags,e.f.font,[&](std::uint64_t){++compositions;if(fail)throw std::runtime_error("rebase failure");return XeenEventFlow::Composition{b,true};});
   flow.dialogText=&dos_test::text();
  flow.acceptManual(XeenEventExecutionSuspended{state,state.pendingPresentation->request});
  flow.reportManual=[&](const auto&){++reports;};e.camera.x=2;fail=true;const auto before=compositions;
@@ -201,11 +201,11 @@ void presentation(const XeenFontFormat &font,IndexedFrame b,const std::filesyste
 	}
 }
 void timedItems() {
-    mmodern::XeenTemplePriceState templePriceState;
- Execution e;e.f.initial.monsterTreasure=XeenMonsterTreasure{};
+    mmodern::XeenProgramState programState;
+ Execution e;e.f.initial.purse=XeenPurse{};
  auto state=e.seed({pause(),record(1,1,1,0x12)},2);state.pendingRewards.credit(34,19);
  XeenEventSystem events(e.scripts,e.texts);auto b=base();std::uint64_t now=0;
- XeenEventFlow flow(templePriceState,e.world,events,e.f.initial,e.camera,e.flags,e.f.font,
+ XeenEventFlow flow(programState,e.world,events,e.f.initial,e.camera,e.flags,e.f.font,
   [&](std::uint64_t){return XeenEventFlow::Composition{b,true};},{},[&]{return now;});
  flow.dialogText=&dos_test::text();flow.acceptManual(XeenEventExecutionSuspended{state,state.pendingPresentation->request});
  flow.handle(AcknowledgeAction{});check(XeenRewardTestAccess::state(flow).rewardPhase==XeenRewardPhase::Blank,"First timed item missing");
@@ -229,18 +229,18 @@ void timedItems() {
  check(XeenRewardTestAccess::state(flow).rewardPhase==XeenRewardPhase::Found,"Second found line missing");
  flow.framePresented(flow.frame().presentation());now+=110;
  flow.handle(CancelInteractionAction{});
- check(XeenRewardTestAccess::state(flow).rewardPhase==XeenRewardPhase::Receipt && !e.f.initial.monsterTreasure->gold,
+ check(XeenRewardTestAccess::state(flow).rewardPhase==XeenRewardPhase::Receipt && !e.f.initial.purse->gold,
   "Skipping found hold manufactured final acknowledgment");
- check(!flow.respond(found,XeenPresentationResponse::Acknowledged) && !e.f.initial.monsterTreasure->gold,
+ check(!flow.respond(found,XeenPresentationResponse::Acknowledged) && !e.f.initial.purse->gold,
   "Stale found frame credited currency");
  flow.framePresented(flow.frame().presentation());now+=110;flow.handle(AcknowledgeAction{});
- check(!flow.blocksGameplay() && e.f.initial.monsterTreasure->gold==19,"Final acknowledgment did not credit currency");
+ check(!flow.blocksGameplay() && e.f.initial.purse->gold==19,"Final acknowledgment did not credit currency");
  auto abandoned=e.seed({pause(),record(1,1,1,0x12)},1);
  flow.acceptManual(XeenEventExecutionSuspended{abandoned,abandoned.pendingPresentation->request});
  flow.handle(AcknowledgeAction{});flow.framePresented(flow.frame().presentation());
  const auto prefix=xeenInventoryInspection(e.f.initial);
  flow.abandonPresentation();now+=10000;flow.updatePresentation();
- check(!flow.blocksGameplay() && xeenInventoryInspection(e.f.initial)==prefix && e.f.initial.monsterTreasure->gold==19,
+ check(!flow.blocksGameplay() && xeenInventoryInspection(e.f.initial)==prefix && e.f.initial.purse->gold==19,
   "Abandoned timed hold resumed or replayed its committed prefix");
 }
 int main(int argc,char **argv){try{

@@ -101,7 +101,7 @@ XeenTempleHealCandidate xeenPrepareTempleHeal(const XeenPartyState &party,std::u
 XeenTempleHealCandidate xeenPrepareTempleHeal(const XeenPartyState &party,std::uint8_t owner,
         const XeenGameplayContext &context,const XeenTempleSurcharges &surcharge) {
     xeenValidateJourneyParty(party);
-    if(owner>=30 || !party.roster.combatInputs(owner) || !party.monsterTreasure)
+    if(owner>=30 || !party.roster.combatInputs(owner) || !party.purse)
         throw std::invalid_argument("Missing Temple Heal owner");
     bool active=false;
     for(auto id:party.party.activeRosterIds())if(id==owner)active=true;
@@ -109,7 +109,7 @@ XeenTempleHealCandidate xeenPrepareTempleHeal(const XeenPartyState &party,std::u
     XeenTempleHealCandidate out;
     out.character=party.roster.at(owner);out.inputs=*party.roster.combatInputs(owner);
     auto &r=out.result;
-    r=xeenQuoteTempleHeal(out.character,party.monsterTreasure->gold,context,surcharge);
+    r=xeenQuoteTempleHeal(out.character,party.purse->gold,context,surcharge);
     if(r.outcome!=XeenTempleHealOutcome::Quoted)return out;
     auto &c=out.character;auto &i=out.inputs;
     c.intellect.temporary=0;c.personality.temporary=0;c.endurance.temporary=0;

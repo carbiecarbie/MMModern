@@ -167,12 +167,12 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
         };
         recursiveProbe=[&] {
             const auto providers=providerCalls,saves=saveCalls;
-            const auto gold=std::uint32_t(party->monsterTreasure->gold);const auto date=*party->encounterContext;
+            const auto gold=std::uint32_t(party->purse->gold);const auto date=*party->encounterContext;
             const auto stock=m40_test::stockBytes(*party->serviceEconomy);const auto rng=*world->sessionState().journeyRandom();
             handler.withDisplayedInput(SaveGameAction{},flow->displayedInput().value_or(0));
             handler.withDisplayedInput(AcknowledgeAction{},flow->displayedInput().value_or(0));
             handler.withDisplayedInput(CancelInteractionAction{},flow->displayedInput().value_or(0));
-            check(providers==providerCalls && saves==saveCalls && gold==party->monsterTreasure->gold && date==*party->encounterContext &&
+            check(providers==providerCalls && saves==saveCalls && gold==party->purse->gold && date==*party->encounterContext &&
                 stock==m40_test::stockBytes(*party->serviceEconomy) && rng==*world->sessionState().journeyRandom(),"M40 recursive response/save reached provider/publication");
         };
         const auto act=[&](PlayerAction a) {
@@ -240,7 +240,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
                 SDL_Event e{};e.type=SDL_KEYUP;e.key.keysym.sym=SDLK_F9;e.key.keysym.scancode=SDL_SCANCODE_F9;SDL_PushEvent(&e);
                 fs::copy_file(*target,target->parent_path()/(target->stem().string()+"-"+label+".mmsave"),fs::copy_options::overwrite_existing);
                 std::cout<<"M40 CHECKPOINT "<<label<<" day="<<party->encounterContext->day<<" minute="<<party->encounterContext->minutes<<" ctr="<<party->encounterContext->ctr24
-                    <<" gold="<<party->monsterTreasure->gold<<" rng="<<world->sessionState().journeyRandom()->state<<':'<<world->sessionState().journeyRandom()->count<<'\n';
+                    <<" gold="<<party->purse->gold<<" rng="<<world->sessionState().journeyRandom()->state<<':'<<world->sessionState().journeyRandom()->count<<'\n';
                 return true;
             });
         };
@@ -252,10 +252,10 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
         constexpr unsigned resetReadyMinutes=1314+prefixMinutes+11+10+10+1+3;
         constexpr unsigned resetEndMinutes=1340+prefixMinutes+10+1;
         const auto expectDate=[&](unsigned day,unsigned minute,unsigned ctr,std::uint32_t state,std::uint64_t count,std::uint32_t gold) {
-            std::cout<<"M49 CHECK actual "<<party->encounterContext->year<<":"<<party->encounterContext->day<<":"<<party->encounterContext->minutes<<":"<<party->encounterContext->ctr24<<" "<<world->sessionState().journeyRandom()->state<<":"<<world->sessionState().journeyRandom()->count<<" "<<party->monsterTreasure->gold
+            std::cout<<"M49 CHECK actual "<<party->encounterContext->year<<":"<<party->encounterContext->day<<":"<<party->encounterContext->minutes<<":"<<party->encounterContext->ctr24<<" "<<world->sessionState().journeyRandom()->state<<":"<<world->sessionState().journeyRandom()->count<<" "<<party->purse->gold
                 <<" expected "<<day<<":"<<minute<<":"<<ctr<<" "<<state<<":"<<count<<" "<<gold<<'\n';
             check(party->encounterContext->year==610 && party->encounterContext->day==day && party->encounterContext->minutes==minute && party->encounterContext->ctr24==ctr &&
-                world->sessionState().journeyRandom()->state==state && world->sessionState().journeyRandom()->count==count && party->monsterTreasure->gold==gold,"M40 literal checkpoint date/purse/RNG differs");
+                world->sessionState().journeyRandom()->state==state && world->sessionState().journeyRandom()->count==count && party->purse->gold==gold,"M40 literal checkpoint date/purse/RNG differs");
         };
         const auto dismissServiceNotice=[&] {steps.push_back([&] {
             const auto context=handler.inputContext(presented);
@@ -293,7 +293,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
             if(control=="fail-before-repair" && slot==0)action(YesAction{});
             dismissServiceNotice();
             inspect([&,slot,goldAfter,ac] {
-                check(party->monsterTreasure->gold==goldAfter && party->roster.at(1).armor[slot].state==0 &&
+                check(party->purse->gold==goldAfter && party->roster.at(1).armor[slot].state==0 &&
                     XeenCharacterRules::combatArmorClass(party->roster.at(1),*party->roster.combatInputs(1),{610})==*ac+(slot?1:4),"M40 real repair payment/item/AC differs");
                 if(control=="fail-after-repair" && slot==0)check(party->encounterContext->day==10,"M40 later failure refunded/settled repair");
             });
@@ -302,7 +302,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
                 control=="fail-departure-published" || control=="fail-before-event-settlement" || control=="fail-after-event-settlement"))action(AcknowledgeAction{});
             settle();
             inspect([&,before,slot,goldAfter] {
-                before->characters[1].armor[slot].state=0;before->journey->treasure->gold=goldAfter;++before->journey->context->day;
+                before->characters[1].armor[slot].state=0;before->journey->purse->gold=goldAfter;++before->journey->context->day;
                 if(slot==0) {
                     m42_test::StockOracle oracle{before->journey->random->state,before->journey->random->count,{}};
                     auto stock=oracle.generate();stock.bank=before->journey->serviceEconomy->bank;
@@ -324,7 +324,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
                 m42_test::StockOracle fresh{*seed,0,{}};const auto stock=fresh.generate();
                 expectDate(8,480,0,fresh.state,fresh.count,800);
                 check(m40_test::stockBytes(*party->serviceEconomy)==m40_test::stockBytes(stock),"M71 fresh stock oracle: catches item errors or missing/extra generation draws");
-                check(party->monsterTreasure->gems==10 && party->serviceEconomy->bank.gold==0 && party->serviceEconomy->bank.gems==0 && !interestOperations && bankInputCalls==1 &&
+                check(party->purse->gems==10 && party->serviceEconomy->bank.gold==0 && party->serviceEconomy->bank.gems==0 && !interestOperations && bankInputCalls==1 &&
                     m40_test::stockBytes(*party->serviceEconomy)==m40_test::stockBytes(stock),"M40 fresh economy literal oracle differs");
                 std::cout<<"M40 FRESH GENERATED ECONOMY EXACT\n";
             }
@@ -348,7 +348,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
    steps.push_back([&]{if(!flow->canSave()){settleStep();return false;}
     if(const auto input=m49_combat::toward(*world,*position,9,11,XeenDirection::West)){act(*input);return false;}return true;});
    route("UFUDD");
-   inspect([&]{check(party->monsterTreasure->gold==840,"M40 production earned gold mismatch");});
+   inspect([&]{check(party->purse->gold==840,"M40 production earned gold mismatch");});
    route("LLULUU");action(InteractionAction{});action(YesAction{});settle();route("URULUUULUUU");
    route("UUUUU");inspect([&]{check(position->x==8 && position->y==4,"M40 five-cell corridor endpoint");
     expectDate(8,1296+prefixMinutes,(14+prefixSteps)%24,1902939615u,1225,840);});checkpoint("A");
@@ -362,10 +362,8 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
                     // Capture remains correctly forbidden while Service owns
                     // the graph. Compare borrowed durable fields directly.
                     const auto &saved=*before->journey;
-                    // The saved treasure orders its sources by identity; live keeps production slots.
-                    const auto liveTreasure=xeenLiveMonsterTreasure(*saved.treasure);
                     check(*party->encounterContext==*saved.context && *world->sessionState().journeyRandom()==*saved.random &&
-                        *party->serviceEconomy==*saved.serviceEconomy && *party->monsterTreasure==liveTreasure &&
+                        *party->serviceEconomy==*saved.serviceEconomy && *party->purse==*saved.purse &&
                         *party->worldFlags==*saved.worldFlags && party->party.activeRosterIds()==before->activeRosterIds &&
                         position->mapId==before->camera.mapId && position->x==before->camera.x && position->y==before->camera.y &&
                         position->direction==before->camera.direction,"M40 detached preparation changed durable party/date/economy/RNG/camera");
@@ -400,7 +398,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
                     ++before->journey->context->day;before->journey->random=XeenJourneyRandomState{1,oracle.state,oracle.count};before->journey->serviceEconomy=stock;
                     exact(*before);
                     if(firstGeneration) {expectDate(11,1296+prefixMinutes,(14+prefixSteps)%24,3311496048u,2106,840);check(m40_test::stockBytes(*party->serviceEconomy)==m40_test::stockBytes(m42_test::StockOracle{1902939615u,1225,{}}.generate()),"M40 empty10->11 stock literal oracle differs");}
-                    check(party->roster.at(1).armor[0].state==128 && party->roster.at(1).armor[1].state==128 && party->monsterTreasure->gold==840,
+                    check(party->roster.at(1).armor[0].state==128 && party->roster.at(1).armor[1].state==128 && party->purse->gold==840,
                         "M40 zero-transaction service repaired/debited carried purse");
                 });
             };
@@ -526,7 +524,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
         }
         if(control.rfind("upload-",0)==0 || control.rfind("copy-",0)==0) {
             check(faultFired && nativeFailed && !ok && !flow->canSave(),"M40 native failure exposed Quiet");
-            check(party->monsterTreasure->gold==(control.find("admission")!=std::string::npos?840u:830u) &&
+            check(party->purse->gold==(control.find("admission")!=std::string::npos?840u:830u) &&
                 party->encounterContext->day==(control.find("departure")!=std::string::npos?11:10),"M40 native failure refunded/replayed repair/departure prefix");
             if(control.find("departure")!=std::string::npos)check(world->sessionState().journeyRandom()->count==2106 &&
                 m40_test::stockBytes(*party->serviceEconomy)==m40_test::stockBytes(m42_test::StockOracle{1902939615u,1225,{}}.generate()),"M40 native failure repeated/dropped stock/RNG prefix");

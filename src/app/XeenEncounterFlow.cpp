@@ -245,7 +245,7 @@ bool XeenEncounterFlow::respondCombatCast(const PlayerAction &action,std::uint64
     XeenCombat::CastResponse authorization(source);
     if(quick) {
         const auto &c=_party.party.member(_party.roster,_combat->participant());
-        const auto check=XeenLearnedSpellRules::quickSpellCheck(c,_party.monsterTreasure->gems);
+        const auto check=XeenLearnedSpellRules::quickSpellCheck(c,_party.purse->gems);
         using Q=XeenQuickSpellCheck;
         if(check!=Q::Supported) {
             if(check==Q::Unsupported) {_combatCastRefusal="Quick Fight Cast: spell not supported yet";return true;}

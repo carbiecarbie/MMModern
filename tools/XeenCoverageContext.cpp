@@ -19,7 +19,7 @@ std::string resource(XeenMapIdentity id,const char *extension) {
     char name[32];std::snprintf(name,sizeof(name),id.number>=100?"mazex%03u.%s":"maze%04u.%s",unsigned(id.number),extension);return name;
 }
 }
-OriginalContext::OriginalContext(XeenTemplePriceState &prices, const GameInstallation &installation, std::optional<XeenCamera> fixture):templePrices(prices),installation(installation),assets(installation),
+OriginalContext::OriginalContext(XeenProgramState &state, const GameInstallation &installation, std::optional<XeenCamera> fixture):program(state),installation(installation),assets(installation),
     darkAssets(darkInstallation(installation)),
     events([this](const std::string &name)->std::optional<std::vector<std::uint8_t>> {
         if(!assets.hasInitialResource(name))return {};return assets.readInitialResource(name);
@@ -60,7 +60,7 @@ OriginalContext::OriginalContext(XeenTemplePriceState &prices, const GameInstall
     setup.cityEventsProvider=[this]{return events.load(28);};
     setup.mainlandEventsProvider=[this]{return events.load(23);};
     setup.eventsProvider=[this](auto id){return events.load(id);};
-    flow=std::make_unique<XeenEncounterFlow>(templePrices,world,party,camera,flags,clock,setup);
+    flow=std::make_unique<XeenEncounterFlow>(program,world,party,camera,flags,clock,setup);
     if(!flow->prepareJourneyFrame(flow->ticket(),[]{}) || !flow->presentJourney(flow->ticket()))
         throw std::runtime_error("Census New Game presentation boundary failed");
     resources.signature=XeenSaveFile::fingerprint(installation);
@@ -84,7 +84,7 @@ Support OriginalContext::replayRoot(XeenCamera entry) {
         const auto catalogue=loadXeenItemCatalog(assets);
         const auto blank=[] {IndexedFrame frame;frame.width=320;frame.height=200;frame.pixels.resize(64000);return frame;};
         std::uint64_t now=0,cycle=0;
-        XeenEventFlow session(templePrices,w,system,p,c,f,font,[&](auto){return XeenEventFlow::Composition{blank(),false};},
+        XeenEventFlow session(program,w,system,p,c,f,font,[&](auto){return XeenEventFlow::Composition{blank(),false};},
             {},[&]{return now;},{},&catalogue.catalog,[&](auto,auto){return XeenEventFlow::Composition{blank(),false};},
             nullptr,[&](auto &,const auto &,const auto &,auto,auto){return XeenEventFlow::Composition{blank(),false};});
         session.dialogText=&assets.uiText();

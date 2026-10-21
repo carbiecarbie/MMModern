@@ -136,7 +136,7 @@ bool panelGameplay(const IndexedFrame &first,const SdlWindow::FrameUpdateHandler
   // Mr Wizard closes the panel and moves the party to Vertigo's run position.
   key('w');key('y');
   check(!handler.inputContext(visible.presentation()).dialog && state.camera->mapId==XeenMapIdentity(28) &&
-   state.camera->direction==XeenDirection::East && state.party->monsterTreasure->gems==0,"panel Mr Wizard did not move the party");
+   state.camera->direction==XeenDirection::East && state.party->purse->gems==0,"panel Mr Wizard did not move the party");
   for(unsigned i=0;i<10;++i)if(auto next=idle()){visible=*next;present();}
   send(ControlPanelAction{});
   key('q');key('y');check(handler.finished(),"panel Quit did not finish native session");state.shown=true;return true;
@@ -196,8 +196,8 @@ extern "C" int wrappedTitlePlay(const Application *app,const XeenGameplayService
  const std::optional<fs::path> &target,bool resume,XeenEncounterEntry entry,std::optional<std::uint32_t> seed) {
  if(!state.enabled)return realTitlePlay(app,original,camera,target,resume,entry,seed);
  check(resume==state.loading && target.has_value() && !seed,"title session entry");
- check(&original.templePrices==state.templePrices && original.templePrices.row()==state.templeRow &&
-  original.templePrices.revision()==1,"Title/New Game/panel Load replaced or reset process Temple prices");
+ check(&original.program.templePrices==state.templePrices && original.program.templePrices.row()==state.templeRow &&
+  original.program.templePrices.revision()==1,"Title/New Game/panel Load replaced or reset process Temple prices");
  state.slot=*target;state.signature=original.resources.signature;
  auto services=original;
  state.font=&services.font;
@@ -241,7 +241,7 @@ extern "C" int wrappedTitlePlay(const Application *app,const XeenGameplayService
  };
  struct Clear {~Clear(){state.world=nullptr;state.party=nullptr;state.camera=nullptr;state.flags=nullptr;}} clear;
  const auto result=realTitlePlay(app,services,camera,target,resume,entry,seed);
- check(original.templePrices.row()==state.templeRow && original.templePrices.revision()==1,"Game initialization or Load changed process Temple prices");
+ check(original.program.templePrices.row()==state.templeRow && original.program.templePrices.revision()==1,"Game initialization or Load changed process Temple prices");
  return result;
 }
 extern "C" bool wrappedTitleShow(const SdlWindow *window,const IndexedFrame &first,const std::string &label,
@@ -315,23 +315,23 @@ void titleApplicationControls(const char *game) {
  fs::create_directory(state.base);
  struct Cleanup {~Cleanup(){state.enabled=false;removeTestTree(state.base);}} cleanup;
  for(auto difficulty:{XeenDifficulty::Adventurer,XeenDifficulty::Warrior}) {
-  XeenTemplePriceState templePriceState;
-  XeenTemplePriceStateTestAccess::seed(templePriceState,difficulty==XeenDifficulty::Adventurer?30:49);
-  state.templePrices=&templePriceState;state.templeRow=templePriceState.row();
+  XeenProgramState programState;
+  XeenTemplePriceStateTestAccess::seed(programState.templePrices,difficulty==XeenDifficulty::Adventurer?30:49);
+  state.templePrices=&programState.templePrices;state.templeRow=programState.templePrices.row();
   state.difficulty=difficulty;state.mouse=difficulty==XeenDifficulty::Warrior;
   state.loading=false;state.shown=false;state.seeds=0;
-  check(Application(templePriceState).run(game)==0 && state.shown,"native title/New Application loop");
+  check(Application(programState).run(game)==0 && state.shown,"native title/New Application loop");
   state.loading=true;state.shown=false;state.seeds=0;
-  check(Application(templePriceState).run(game)==0 && state.shown,"native title/Load Application loop");
+  check(Application(programState).run(game)==0 && state.shown,"native title/Load Application loop");
  }
  state.panelMode=true;
  for(const auto &name:std::vector<std::string>{"A","Twenty CharacterName",std::string(20,'W')}) {
-  XeenTemplePriceState templePriceState;
-  XeenTemplePriceStateTestAccess::seed(templePriceState,name=="A"?30:49);
-  state.templePrices=&templePriceState;state.templeRow=templePriceState.row();
+  XeenProgramState programState;
+  XeenTemplePriceStateTestAccess::seed(programState.templePrices,name=="A"?30:49);
+  state.templePrices=&programState.templePrices;state.templeRow=programState.templePrices.row();
   state.loading=false;state.shown=false;state.seeds=0;state.name=name;state.saveAsName=name;
   state.notice.clear();state.writes=0;
-  check(Application(templePriceState).run(game)==0 && state.loading && state.shown,"panel Save/Save As/Load real saved notices");
+  check(Application(programState).run(game)==0 && state.loading && state.shown,"panel Save/Save As/Load real saved notices");
   fs::remove(XeenSaveFile::slotPath(state.slot.parent_path(),2));
   fs::remove(XeenSaveFile::slotPath(state.slot.parent_path(),8));
  }

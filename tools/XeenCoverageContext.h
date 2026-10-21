@@ -13,8 +13,8 @@ struct Support;
 // Each probe receives a fresh detached candidate including actors and Journey RNG.
 class OriginalContext {
 public:
-    explicit OriginalContext(XeenTemplePriceState &, const GameInstallation &, std::optional<XeenCamera> fixture = {});
-    XeenTemplePriceState &templePrices;
+    explicit OriginalContext(XeenProgramState &, const GameInstallation &, std::optional<XeenCamera> fixture = {});
+    XeenProgramState &program;
     const GameInstallation installation;
     XeenAssetSource assets;
     XeenAssetSource darkAssets;

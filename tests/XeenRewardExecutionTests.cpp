@@ -163,12 +163,12 @@ void publication(){
 	}
 }
 void individualPublication() {
- Execution e;e.f.initial.monsterTreasure=XeenMonsterTreasure{};
+ Execution e;e.f.initial.purse=XeenPurse{};
  auto state=e.seed({pause(),record(1,1,1,0x12)},2);state.pendingRewards.credit(34,31);
  state=pending(e.resumeOne(state));
  check(state.rewardPhase==XeenRewardPhase::Blank && state.rewardCursor==0 && state.rewardReceipt.delivered==1 &&
   state.pendingPresentation->request.rewardWaitTicks==1 && e.f.initial.roster.at(0).miscellaneous.back().id==37 &&
-  !e.f.initial.roster.at(0).miscellaneous.front().id && !e.f.initial.monsterTreasure->gold,
+  !e.f.initial.roster.at(0).miscellaneous.front().id && !e.f.initial.purse->gold,
   "First item did not publish before the blank one-tick hold");
  state=pending(e.resumeOne(state));
  check(state.rewardPhase==XeenRewardPhase::Found && state.rewardReceipt.delivered==1 &&
@@ -179,8 +179,8 @@ void individualPublication() {
   "Found completion did not publish exactly the next item");
  state=pending(e.resumeOne(state));state=pending(e.resumeOne(state));
  check(state.rewardPhase==XeenRewardPhase::Receipt && !state.pendingPresentation->request.rewardWaitTicks &&
-  state.pendingRewards.hasWork() && !e.f.initial.monsterTreasure->gold,"Item skips manufactured final currency acknowledgment");
- check(std::holds_alternative<XeenEventExecutionCompleted>(e.resumeOne(state)) && e.f.initial.monsterTreasure->gold==31,
+  state.pendingRewards.hasWork() && !e.f.initial.purse->gold,"Item skips manufactured final currency acknowledgment");
+ check(std::holds_alternative<XeenEventExecutionCompleted>(e.resumeOne(state)) && e.f.initial.purse->gold==31,
   "Final currency settlement failed");
  for(bool packsFull:{false,true}) {
   Execution quest;if(packsFull)full(quest.f.initial,true);

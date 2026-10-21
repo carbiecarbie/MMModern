@@ -8,7 +8,7 @@ using namespace encounter_test;
 using Action=XeenEncounterAction;
 namespace {
 struct Production {
-    mmodern::XeenTemplePriceState templePriceState;
+    mmodern::XeenProgramState programState;
     XeenPartyState p;XeenCamera camera;XeenGameFlags flags;
     XeenMap terrain=regional_journey_test::regionalMap();
     XeenObjectFile objects=regional_journey_test::regionalObjects();
@@ -28,7 +28,7 @@ struct Production {
         const auto saved=XeenSaveState::capture(regional_test::signature(),source.p,source.camera,source.flags,source.w);
         XeenSaveState::restoreBeforeGameplay(saved,regional_test::resources(),p,camera,flags,world,[](auto &,const auto &,const auto &,const auto &){});
         ++initializations;
-        flow=std::make_unique<XeenEventFlow>(templePriceState,world,system,p,camera,flags,font,
+        flow=std::make_unique<XeenEventFlow>(programState,world,system,p,camera,flags,font,
             [](std::uint64_t)->XeenEventFlow::Composition{throw std::runtime_error("ordinary composer reached");},
             XeenEventPresenter::NpcDraw{},[&]{if(onClock){auto callback=onClock;callback();}return now;},XeenEventPresenter::RandomFrame{},nullptr,
             [&](std::uint64_t ordinary,XeenMonsterAppearance appearance){
@@ -197,11 +197,11 @@ void failures(){
     }
 }
 void ordinaryWait() {
-    mmodern::XeenTemplePriceState templePriceState;
+    mmodern::XeenProgramState programState;
 	Fixture f;XeenFontFormat font{gameplay_test::fontBytes()};XeenGameFlags flags;
 	XeenEventSystem events([](XeenMapIdentity){return XeenEventScript(encounter_test::events());},[](XeenMapIdentity){return XeenEventTextFile{};});
 	unsigned compositions=0,clocks=0;
-	XeenEventFlow flow(templePriceState,f.world,events,f.p,f.camera,flags,font,[&](std::uint64_t){
+	XeenEventFlow flow(programState,f.world,events,f.p,f.camera,flags,font,[&](std::uint64_t){
 		++compositions;XeenEventFlow::Composition c;c.frame.width=320;c.frame.height=200;c.frame.pixels.resize(64000);return c;
 	},{},[&]{++clocks;return std::uint64_t{0};});
 	for(bool inventory:{false,true}) {

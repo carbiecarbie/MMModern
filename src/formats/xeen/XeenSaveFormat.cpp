@@ -89,20 +89,6 @@ void validateMapStates(const std::vector<XeenSaveMapState> &maps) {
 	}
 }
 
-// Leading referenced source slots; the saved form has no gap after them.
-unsigned treasureSourceCount(const XeenMonsterTreasure &t) {
-	unsigned count = 0;
-	while (count < t.sources.size() && (t.referencedSources() & (1u << count))) ++count;
-	return count;
-}
-
-const XeenSaveMonster *findMonster(const std::vector<XeenSaveMapState> &maps, XeenMonsterIdentity id) {
-	for (const auto &m : maps)
-		if (m.id == id.mapId && m.monsters && id.recordIndex < m.monsters->slots.size())
-			return &m.monsters->slots[id.recordIndex];
-	return nullptr;
-}
-
 std::uint32_t checksum(const std::uint8_t *data, std::size_t size) {
 	return static_cast<std::uint32_t>(crc32(crc32(0L, Z_NULL, 0), data, static_cast<uInt>(size)));
 }
@@ -372,22 +358,7 @@ void XeenSaveFormat::validate(const XeenSaveSnapshot &s) {
 			require(v >= 0 && v <= 255, "Journey supplement outside byte range");
 	}
 	require(j.skeletonSeed == 0 && j.random && j.random->algorithm == 1 && j.random->state != 0, "invalid Journey random representation");
-	require(j.treasure.has_value(),"Journey treasure presence mismatch");
-	xeenValidateMonsterTreasure(*j.treasure);
-	// The saved form: pending bits and stored items refer to source slots
-	// 0..n-1 exactly, ordered by identity, each a defeated, accounted slot of
-	// its own map.
-	const auto &sources = j.treasure->sources;
-	const auto used = j.treasure->referencedSources();
-	const auto count = treasureSourceCount(*j.treasure);
-	require(used == (1u << count) - 1, "Monster treasure sources differ from their references");
-	for (std::size_t i = 0; i < count; ++i) {
-		validateMap(sources[i].mapId);
-		require(sources[i].recordIndex < kMaximumMonsters && (i == 0 || sources[i - 1] < sources[i]),
-			"Monster treasure sources must be strictly ordered");
-		const auto *a = findMonster(s.maps, sources[i]);
-		require(a && a->lifecycle == XeenActorLifecycle::Defeated && a->accounted, "Noncanonical monster treasure source");
-	}
+	require(j.purse.has_value(),"Journey purse presence mismatch");
 
 	for (const auto &character : s.characters) {
 		require(character.learnedSpells.has_value(), "Journey learned-spell presence mismatch");
@@ -439,20 +410,7 @@ std::vector<std::uint8_t> XeenSaveFormat::encode(const XeenSaveSnapshot &s) {
 		out.u8(v.coldPermanent);out.u8(v.coldTemporary);out.u8(v.electricalPermanent);out.u8(v.electricalTemporary);
 		out.u8(v.firePermanent);out.u8(v.fireTemporary);out.u8(v.energyPermanent);out.u8(v.energyTemporary);out.u8(v.magicPermanent);out.u8(v.magicTemporary);
 	}
-	const auto &v=*j.treasure;out.u32(v.gold);out.u32(v.gems);out.u32(v.pendingMask);out.u32(v.pendingGold);
-	// v13: the monster identities that pending bits and item sources index.
-	const auto sourceCount=treasureSourceCount(v);out.u8(static_cast<std::uint8_t>(sourceCount));
-	for(unsigned i=0;i<sourceCount;++i) {out.map(v.sources[i].mapId);out.u16(static_cast<std::uint16_t>(v.sources[i].recordIndex));}
-	unsigned weapons=0,armor=0;for(const auto &r:v.weapons) weapons+=r.item.id!=0;for(const auto &r:v.armor) armor+=r.item.id!=0;
-	out.u8(weapons);out.u8(armor);
-	for(unsigned category=0;category<2;++category) for(const auto &r:category?v.armor:v.weapons) if(r.item.id) {
-		out.u8(r.source);out.u8(r.item.material);out.u8(r.item.id);out.u8(r.item.state);out.u8(r.item.frame);
-	}
-	unsigned miscellaneous=0;for(const auto &r:v.miscellaneous) miscellaneous+=r.item.id!=0;
-	out.u8(miscellaneous);
-	for(const auto &r:v.miscellaneous) if(r.item.id) {
-		out.u8(r.source);out.u8(r.item.material);out.u8(r.item.id);out.u8(r.item.state);out.u8(r.item.frame);
-	}
+	out.u32(j.purse->gold);out.u32(j.purse->gems);
 	for (bool flag:j.worldFlags->values) out.u8(flag);
 
 	out.u8(30);
@@ -532,10 +490,10 @@ XeenSaveSnapshot XeenSaveFormat::decode(const std::vector<std::uint8_t> &bytes) 
 	for (auto &value : s.gameFlags) value = in.boolean();
 
 	// Fixed Journey bytes: domain/schema/content/context marker 6, context and
-	// food 36, supplements 1230, RNG 13, resistances 331, treasure counts 20,
+	// food 36, supplements 1230, RNG 13, resistances 331, purse 8,
 	// world flags 128, learned spells 1201, poison 91, economy 1164, awards
 	// 3871, map count 2, head-cache flag 1 and name length 1.
-	constexpr std::size_t kFixedJourneyBytes = 8095;
+	constexpr std::size_t kFixedJourneyBytes = 8083;
 	const auto suffixSize = in.remaining();
 	XeenSaveJourney j;
 	require(in.u8() == 3, "invalid v4 domain");
@@ -568,26 +526,7 @@ XeenSaveSnapshot XeenSaveFormat::decode(const std::vector<std::uint8_t> &bytes) 
 		require(in.u8()==owner,"Invalid resistance owner order");
 		j.supplements[owner].inputs.resistances=XeenCombatResistances{in.u8(),in.u8(),in.u8(),in.u8(),in.u8(),in.u8(),in.u8(),in.u8(),in.u8(),in.u8()};
 	}
-	XeenMonsterTreasure v;v.gold=in.u32();v.gems=in.u32();v.pendingMask=in.u32();v.pendingGold=in.u32();
-	const unsigned sourceCount=in.u8();
-	require(sourceCount<=kMaximumTreasureSources,"too many monster treasure sources");
-	for(unsigned i=0;i<sourceCount;++i) {
-		const auto mapId=in.map();
-		v.sources[i]={mapId,in.u16()};
-	}
-	const unsigned weapons=in.u8(),armor=in.u8();
-	require(weapons<=10 && armor<=10 && weapons+armor<=12,"Invalid treasure extent");
-	for(unsigned category=0;category<2;++category) for(unsigned i=0;i<(category?armor:weapons);++i) {
-		auto &r=(category?v.armor:v.weapons)[i];r.source=in.u8();r.item={in.u8(),in.u8(),in.u8(),in.u8()};
-		require(r.item.id!=0,"Empty wire treasure");
-	}
-	const unsigned miscellaneous=in.u8();
-	require(miscellaneous<=10 && weapons+armor+miscellaneous<=12,"Invalid treasure extent");
-	for(unsigned i=0;i<miscellaneous;++i) {
-		auto &r=v.miscellaneous[i];r.source=in.u8();r.item={in.u8(),in.u8(),in.u8(),in.u8()};
-		require(r.item.id!=0,"Empty wire treasure");
-	}
-	j.treasure=v;
+	XeenPurse v;v.gold=in.u32();v.gems=in.u32();j.purse=v;
 	j.worldFlags.emplace();
 	for (auto &flag:j.worldFlags->values) flag=in.boolean();
 
@@ -634,7 +573,7 @@ XeenSaveSnapshot XeenSaveFormat::decode(const std::vector<std::uint8_t> &bytes) 
 		require(validName(*s.name), "invalid save name");
 	}
 	// The payload extent is computed from the decoded counts.
-	std::size_t expected=kFixedJourneyBytes+5*sourceCount+5*(weapons+armor+miscellaneous)+headSize+nameLength;
+	std::size_t expected=kFixedJourneyBytes+headSize+nameLength;
 	for(const auto &m:s.maps)expected+=mapStateBytes(m);
 	require(suffixSize==expected,"Invalid Journey suffix length");
 

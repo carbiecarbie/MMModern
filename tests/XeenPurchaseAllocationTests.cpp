@@ -40,18 +40,18 @@ int main(int argc,char **argv) {
                     else XeenPurchaseTestAccess::confirm(*f.flow);
                 }catch(const std::bad_alloc &){}
                 allocation_test::countdown=-1;
-                const bool paid=f.p.monsterTreasure->gold==670;
-                if(stage==0)check(f.p.monsterTreasure->gold==870 && !f.p.roster.at(0).armor[4].id &&
+                const bool paid=f.p.purse->gold==670;
+                if(stage==0)check(f.p.purse->gold==870 && !f.p.roster.at(0).armor[4].id &&
                     xeen_state::sameItemCategory(f.p.serviceEconomy->wares[0][0][1],armorBefore),"quote allocation failure changed a durable owner");
-                if(stage==1)check(f.p.monsterTreasure->gold==(paid?670u:870u) && f.p.roster.at(0).armor[4].id==(paid?3:0) &&
+                if(stage==1)check(f.p.purse->gold==(paid?670u:870u) && f.p.roster.at(0).armor[4].id==(paid?3:0) &&
                     xeen_state::sameItemCategory(f.p.serviceEconomy->wares[0][0][1],paid?armorAfter:armorBefore) && XeenPurchaseTestAccess::reservation(*f.flow)==(paid?2u:1u),
                     "allocation exposed partial payment/delivery/depletion/reservation");
-                if(stage==2)check(f.p.monsterTreasure->gold==670 && f.p.roster.at(0).armor[4].id==3 &&
+                if(stage==2)check(f.p.purse->gold==670 && f.p.roster.at(0).armor[4].id==3 &&
                     xeen_state::sameItemCategory(f.p.serviceEconomy->wares[0][0][1],armorAfter) && (f.p.encounterContext->day==8 || f.p.encounterContext->day==9),
                     "departure allocation lost purchase or exposed partial day");
                 if(stage==3) {
-                    const bool twice=f.p.monsterTreasure->gold==610;
-                    check(f.p.monsterTreasure->gold==(twice?610u:670u) && f.p.roster.at(0).armor[4].id==3 &&
+                    const bool twice=f.p.purse->gold==610;
+                    check(f.p.purse->gold==(twice?610u:670u) && f.p.roster.at(0).armor[4].id==3 &&
                         xeen_state::sameItemCategory(f.p.serviceEconomy->wares[0][0][1],armorAfter) && xeen_state::sameItemCategory(f.p.serviceEconomy->wares[0][0][0],twice?weaponAfter:weaponBefore) &&
                         XeenPurchaseTestAccess::reservation(*f.flow)==(twice?3u:2u),"later allocation lost prior purchase or published a partial second one");
                 }

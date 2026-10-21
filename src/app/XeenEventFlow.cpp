@@ -895,17 +895,15 @@ IndexedFrame XeenEventFlow::renderEncounter(bool report, bool cosmeticInput, boo
                         request.treasure.emplace();auto &treasure=*request.treasure;
                         using Phase=XeenMonsterDeliveryCandidate::Phase;
                         request.kind=receipt.phase==Phase::Warning?XeenPresentationKind::RewardWarning:XeenPresentationKind::RewardReceipt;
-                        treasure.gold=receipt.treasure.pendingGold;
+                        treasure.gold=receipt.treasure.gold;treasure.gems=receipt.treasure.gems;
                         treasure.stage=receipt.phase==Phase::Blank?XeenTreasureDisplay::Stage::Blank:
                             receipt.phase==Phase::Found?XeenTreasureDisplay::Stage::Found:XeenTreasureDisplay::Stage::Final;
                         unsigned first=receipt.cursor;
                         if(receipt.phase==Phase::Final)for(unsigned i=receipt.count;i>0;--i)if(receipt.records[i-1].recipient){first=i-1;break;}
                         for(unsigned i=first;i<receipt.count && i==first;++i) {
                             const auto &entry=receipt.records[i];if(!entry.recipient)continue;
-                            const auto category=entry.miscellaneous?XeenInventoryCategory::Miscellaneous:
-                                entry.armor?XeenInventoryCategory::Armor:XeenInventoryCategory::Weapons;
                             treasure.items.push_back({_party.roster.at(*entry.recipient).name,
-                                _catalog.foundName(category,entry.production.item),false});
+                                _catalog.foundName(static_cast<XeenInventoryCategory>(entry.category),entry.item),false});
                         }
                         prepareTreasureWait(_encounter->_rewardLease,
                             receipt.phase==Phase::Blank?1:receipt.phase==Phase::Found?10:0,true);
@@ -1019,7 +1017,7 @@ IndexedFrame XeenEventFlow::renderEncounter(bool report, bool cosmeticInput, boo
 	throw std::logic_error("Unreachable encounter recovery");
 }
 
-XeenEventFlow::XeenEventFlow(XeenTemplePriceState &templePrices, XeenWorld &world, XeenEventSystem &events,
+XeenEventFlow::XeenEventFlow(XeenProgramState &program, XeenWorld &world, XeenEventSystem &events,
 		XeenPartyState &party, XeenCamera &camera, XeenGameFlags &flags,
 		const XeenFontFormat &font, Compose compose, XeenEventPresenter::NpcDraw npcDraw,
 		XeenEventPresenter::Clock clock, XeenEventPresenter::RandomFrame randomFrame, const XeenItemCatalog *catalog,
@@ -1027,7 +1025,7 @@ XeenEventFlow::XeenEventFlow(XeenTemplePriceState &templePrices, XeenWorld &worl
 		TransitionCompose transitionCompose, const XeenDosText *text, PresentationClock::Source presentationClock) :
 	_transitionCompose(std::move(transitionCompose)),
 	_inventoryFont(font), _catalog(catalog ? *catalog : fallbackCatalog()),
-	_templePrices(templePrices), _world(world), _gameplayBorrow(world.sessionState().journey() ? nullptr : new XeenWorld::GameplayBorrow(world,party,camera,flags)),
+	_program(xeenBorrowProgram(program,world)), _world(world), _gameplayBorrow(world.sessionState().journey() ? nullptr : new XeenWorld::GameplayBorrow(world,party,camera,flags)),
 	_events(events), _party(party), _camera(camera), _flags(flags),
 	_navigation(events), _clock(clock ? clock : XeenEventPresenter::Clock{[] {
 		return static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -1044,8 +1042,8 @@ XeenEventFlow::XeenEventFlow(XeenTemplePriceState &templePrices, XeenWorld &worl
 	if (journey || world.sessionState().journey()) {
 		if (!encounterCompose) throw std::invalid_argument("Journey requires exclusive presentation setup");
 		_encounterCompose = std::move(encounterCompose);
-		if (journey) _encounter = std::make_unique<XeenEncounterFlow>(_templePrices,world,party,camera,flags,_clock,*journey,&_presentationClock);
-		else _encounter = std::make_unique<XeenEncounterFlow>(_templePrices,world,party,camera,flags,_clock,XeenJourneyRestoreTag{},&_presentationClock);
+		if (journey) _encounter = std::make_unique<XeenEncounterFlow>(_program,world,party,camera,flags,_clock,*journey,&_presentationClock);
+		else _encounter = std::make_unique<XeenEncounterFlow>(_program,world,party,camera,flags,_clock,XeenJourneyRestoreTag{},&_presentationClock);
         _encounter->_travelEventsProvider=[this](XeenMapIdentity id){return _events.scriptForMap(id).file();};
 	}
     _ordinary.deadline=PresentationClock::after(_presentationClock(),2);

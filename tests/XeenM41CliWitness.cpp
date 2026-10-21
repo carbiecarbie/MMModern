@@ -204,7 +204,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
         constexpr unsigned wellSpaceMinutes=5*10;
         constexpr unsigned cityPrefixMinutes=wellSpaceMinutes+1;
         const auto expect=[&](unsigned day,unsigned minute,std::uint32_t gold,std::uint32_t state,std::uint64_t count) {
-            check(party->encounterContext->day==day && party->encounterContext->minutes==minute && party->monsterTreasure->gold==gold &&
+            check(party->encounterContext->day==day && party->encounterContext->minutes==minute && party->purse->gold==gold &&
                 world->sessionState().journeyRandom()->state==state && world->sessionState().journeyRandom()->count==count,"M41 literal date/gold/RNG checkpoint mismatch");
         };
         auto serviceCursor=std::make_shared<XeenJourneyRandomState>();
@@ -266,7 +266,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
             inspect([&,beforeCharacters,beforeInputs]{for(unsigned id=0;id<30;++id){(*beforeCharacters)[id]=party->roster.at(id);(*beforeInputs)[id]=*party->roster.combatInputs(id);}});
             action(SelectMemberAction{member},true);inspect(deny);action(DialogKeyAction{'t'});inspect(deny);
             steps.push_back([&,owner,day,gold,hp,sp,beforeCharacters,beforeInputs]{deny();if(party->roster.at(owner).permanentLevel!=4)return false;
-                check(party->roster.combatInputs(owner)->experience==348 && party->monsterTreasure->gold==gold &&
+                check(party->roster.combatInputs(owner)->experience==348 && party->purse->gold==gold &&
                     party->roster.at(owner).currentHp==hp && party->roster.at(owner).currentSp==sp && party->encounterContext->day==day,
                     "M41 paid level/reset/refill/day mismatch");
                 for(unsigned id=0;id<30;++id) {
@@ -358,7 +358,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
         action(SelectMemberAction{4});action(DialogKeyAction{'t'});
         action(CancelInteractionAction{});settle();inspect([&]{observeService=false;const auto oracle=serviceOracle(false);
             check(world->sessionState().journeyRandom()->state==oracle.state && world->sessionState().journeyRandom()->count==oracle.count,"M41 empty service RNG differs");
-            check(party->encounterContext->day==12 && party->monsterTreasure->gold==690,
+            check(party->encounterContext->day==12 && party->purse->gold==690,
             "M41 later empty service added training/debit");});checkpoint("C");
         inspect([&]{std::cout<<"M41 PRODUCTION WITNESS PASSED\n";SDL_Event e{};e.type=SDL_QUIT;SDL_PushEvent(&e);});
         auto native=handler;native.closed={};
@@ -417,7 +417,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
             check(nativeFailed && !ok && !flow->canSave(),"M41 native failure exposed Quiet");
             const bool admitted=control.find("admission")!=std::string::npos,departed=control.find("departure")!=std::string::npos;
             check(party->roster.at(18).permanentLevel==(admitted?3:4) && party->roster.combatInputs(18)->experience==(admitted?3348:348) &&
-                party->monsterTreasure->gold==(admitted?870:departed?690:780) && party->encounterContext->day==(admitted?8:departed?11:9),
+                party->purse->gold==(admitted?870:departed?690:780) && party->encounterContext->day==(admitted?8:departed?11:9),
                 "M41 native failure lost committed prefix");
             deny();std::cout<<"M41 NATIVE FAILURE PRESERVATION PASSED\n";
         }

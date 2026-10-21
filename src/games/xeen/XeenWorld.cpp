@@ -1,6 +1,7 @@
 #include "games/xeen/XeenWorld.h"
 #include "games/xeen/XeenEventValues.h"
 #include "games/xeen/XeenRestoreGuard.h"
+#include "games/xeen/XeenJourneyCapture.h"
 #include "games/xeen/XeenActorApproach.h"
 #include "games/xeen/XeenEventPublication.h"
 #include "games/xeen/XeenStateEquality.h"
@@ -172,6 +173,17 @@ void XeenWorld::restoreSessionState(const std::vector<XeenObjectIdentity> &objec
 			[&](const auto &v){return live.disabledEvents.count(v.id)!=0;}),live.eventOverrides.end());
 	}
 	++_ownerRevision;
+}
+
+void XeenWorld::borrowTreasureStaging(XeenTreasureStagingState &state) {
+	if (_treasureStaging == &state) return;
+	// Guards that observed the previous owner become stale; nothing is copied.
+	if (_treasureStaging == &_ownTreasureStaging &&
+		(_ownTreasureStaging.value() != XeenTreasureStaging{} || _ownTreasureStaging.revision()))
+		throw std::logic_error("World pending treasure changed before the session borrowed it");
+	_treasureStaging=&state;
+	// A restore that preceded the session hands its binding preimage over with the world.
+	if (_journeyRestoration && _journeyRestoration->guard) _journeyRestoration->guard->adoptStagingOwner(state);
 }
 
 void XeenWorld::swapPreparedState(XeenWorld &candidate) noexcept {
@@ -583,6 +595,8 @@ std::unique_ptr<XeenWorld> XeenWorld::transitionCandidate() const {
 	candidate->_maps=_maps;candidate->_objects=_objects;
 	candidate->_cityStatistics=_cityStatistics;
 	candidate->_scenePresentation=_scenePresentation;
+	// Detached work stages on a copy; publishTransition returns it.
+	candidate->_ownTreasureStaging.publish(treasureStaging().value());
 	return candidate;
 }
 
@@ -597,7 +611,7 @@ void XeenWorld::copyEventParty(const XeenPartyState &source, XeenPartyState &can
 	}
 	candidate.roster._combatMarked=source.roster._combatMarked;
 	candidate.party=source.party;
-	candidate.encounterContext=source.encounterContext;candidate.monsterTreasure=source.monsterTreasure;
+	candidate.encounterContext=source.encounterContext;candidate.purse=source.purse;
 	candidate.serviceEconomy=source.serviceEconomy;candidate.questItems=source.questItems;
 	candidate.questFlags=source.questFlags;candidate.worldFlags=source.worldFlags;
 	candidate.food=source.food;
@@ -725,6 +739,9 @@ void XeenWorld::publishTransition(XeenWorld &candidate) noexcept {
 	_sessionState._headCache.swap(candidate._sessionState._headCache);
 	_cityStatistics.swap(candidate._cityStatistics);
 	_maps.swap(candidate._maps);_objects.swap(candidate._objects);
+	// Map transitions keep pending treasure; only a changed copy is published.
+	if(candidate.treasureStaging().value()!=treasureStaging().value())
+		treasureStaging().publish(candidate.treasureStaging().value());
 	++_ownerRevision;
 }
 
@@ -742,10 +759,7 @@ void XeenWorld::publishEventParty(XeenPartyState &live,const XeenPartyState &can
 	live.encounterContext=candidate.encounterContext;live.worldFlags=candidate.worldFlags;
 	live.food=candidate.food;live.questItems=candidate.questItems;
 	if(live.serviceEconomy && candidate.serviceEconomy)*live.serviceEconomy=*candidate.serviceEconomy;
-	if(live.monsterTreasure) {
-		live.monsterTreasure->gold=candidate.monsterTreasure->gold;
-		live.monsterTreasure->gems=candidate.monsterTreasure->gems;
-	}
+	if(live.purse && candidate.purse)*live.purse=*candidate.purse;
 }
 
 XeenHeadIndicators XeenWorld::headIndicators(const XeenCamera &camera) {

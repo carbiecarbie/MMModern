@@ -68,8 +68,7 @@ struct Dump {
     V(XeenGameplayContext, F(profile); F(difficulty); F(ctr24); F(day); F(year); F(minutes);
         F(effects); F(lightAndResistances); F(rested); F(newDay);)
     V(XeenJourneyRandomState, F(algorithm); F(state); F(count);)
-    V(XeenMonsterTreasureItem, F(source); F(item);)
-    V(XeenMonsterTreasure, F(gold); F(gems); F(pendingMask); F(pendingGold); F(weapons); F(armor); F(miscellaneous);)
+    V(XeenPurse, F(gold); F(gems);)
     V(XeenHeadIndicators, F(left); F(right);)
     V(XeenHeadCache, F(mapId); F(overrides);)
     V(XeenWorldFlags, F(values);)
@@ -84,11 +83,10 @@ struct Dump {
     V(XeenSaveEventOverride, F(record); F(opcode);)
     V(XeenSaveMapState, F(id); F(monsters); F(objects); F(wallItems); F(cells); F(events); F(explored); F(tavernTips);)
     V(XeenSaveJourney, F(entry); F(schema); F(content); F(context); F(supplements); F(skeletonSeed);
-        F(random); F(treasure);
-        // The saved source slots 0..n-1 keep the B build's `treasureSources` paths.
-        if (v.treasure) { std::vector<XeenMonsterIdentity> sources;
-            for (const auto &id : v.treasure->sources) if (id.mapId) sources.push_back(id);
-            value(p + ".treasureSources", sources); }
+        F(random);
+        // v17 saves the purse alone under the earlier `treasure` path, so audits
+        // compare its gold/gems with older builds; pending treasure is not saved.
+        value(p + ".treasure", v.purse);
         F(worldFlags); F(serviceEconomy);)
     V(XeenSaveSnapshot, F(resources); F(name); F(food); F(camera); F(activeRosterIds); F(characters);
         F(questItems); F(questFlags); F(gameFlags); F(headCache); F(journey); F(maps);)
@@ -175,7 +173,7 @@ void selfTest() {
     s.journey->random->count = 0xffffffffffffffffULL;
     s.journey->serviceEconomy->bank.gold = 123;
     auto &orc=s.map(23).monsters->slots[2];orc.x=orc.y=-128;orc.accounted=true;orc.lifecycle=XeenActorLifecycle::Defeated;
-    s.journey->treasure->miscellaneous[0]={0,{9,15,8,0}};s.journey->treasure->sources[0]={23,2};
+    s.journey->purse->gold=0xfedcba98u;s.journey->purse->gems=7;
     s.map(28).cells.push_back({255,0x1999,0x80,0x9999,0});
     const auto b = decoded(XeenSaveFormat::encode(s)).fields;
     save_test::check(b.at("maps[0:23].tavernTips")=="14" && b.at("maps[0:28].tavernTips")=="0" &&
@@ -186,11 +184,9 @@ void selfTest() {
     save_test::check(b.at("snapshot.characters[29].awards[127]") == "7", "award omitted");
     save_test::check(b.at("snapshot.journey.value.random.value.count") == "18446744073709551615", "uint64 truncated");
     save_test::check(b.at("snapshot.journey.value.serviceEconomy.value.bank.gold") == "123", "bank omitted");
-    const std::string misc="snapshot.journey.value.treasure.value.miscellaneous";
-    save_test::check(b.at(misc+"[0].source")=="0" && b.at(misc+"[0].item.material")=="9" &&
-        b.at(misc+"[0].item.id")=="15" && b.at(misc+"[0].item.state")=="8" && b.at(misc+"[9].item.frame")=="0","Pending Misc omitted");
-    save_test::check(b.at("snapshot.journey.value.treasureSources[0].mapId.number")=="23" &&
-        b.at("snapshot.journey.value.treasureSources[0].recordIndex")=="2","Treasure source omitted");
+    const std::string purse="snapshot.journey.value.treasure.value";
+    save_test::check(b.at(purse+".gold")=="4275878552" && b.at(purse+".gems")=="7" &&
+        !b.count(purse+".pendingGold") && !b.count("snapshot.journey.value.treasureSources[0].recordIndex"),"Purse omitted or pending treasure dumped");
     // The per-map view keys the table by map identity and record.
     save_test::check(b.at("maps[0:23].monsters[2].lifecycle")==std::to_string(unsigned(XeenActorLifecycle::Defeated)) &&
         b.at("maps[0:23].monsters[2].accounted")=="1" && b.at("maps[0:23].monsters.present")=="1" &&

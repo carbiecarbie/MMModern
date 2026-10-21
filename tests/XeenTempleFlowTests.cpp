@@ -42,7 +42,7 @@ using PriceAccess=XeenTemplePriceStateTestAccess;
 XeenSaveSnapshot templeSource(Inputs &in,unsigned map) {
     auto source=in.base();source.camera=map==30?XeenCamera{30,6,21,XeenDirection::North}:
         map==49?XeenCamera{49,15,3,XeenDirection::North}:XeenCamera{74,4,4,XeenDirection::North};
-    source.journey->context->day=8;source.journey->treasure->gold=100000;
+    source.journey->context->day=8;source.journey->purse->gold=100000;
     auto &c=source.characters[source.activeRosterIds[0]];c.currentHp=0;c.conditions[0]=1;
     const auto actors=XeenActorApproach::actorsFromResources(in.maps.loadObjects(in.assets,map),in.statistics);
     auto &table=source.map(map).monsters;table.emplace(XeenSaveMonsterTable{std::uint16_t(actors.size()),{}});
@@ -53,7 +53,7 @@ XeenSaveSnapshot templeSource(Inputs &in,unsigned map) {
 struct PriceSession {
     Inputs &in;XeenWorld w;XeenPartyState p;XeenCamera c;XeenGameFlags flags;XeenEventSystem events;
     std::uint64_t cycle=0,now=0;std::unique_ptr<XeenEventFlow> flow;
-    PriceSession(Inputs &in,XeenTemplePriceState &prices,const XeenSaveSnapshot &source):in(in),
+    PriceSession(Inputs &in,XeenProgramState &prices,const XeenSaveSnapshot &source):in(in),
         w(in.mapLoader(),in.objectLoader()),events([&](auto id){return XeenEventScript(in.events.load(id));},[&](auto id){return in.texts.load(id);}) {
         XeenSaveState::restoreBeforeGameplay(XeenSaveFormat::decode(XeenSaveFormat::encode(source)),in.resources(),p,c,flags,w,
             [](auto &,const auto &,const auto &,const auto &){});
@@ -75,9 +75,9 @@ struct PriceSession {
 };
 void settlementPrices(Inputs &in) {
     for(unsigned map:{30u,74u}) {
-        XeenTemplePriceState prices;
-        if(map==74) {PriceSession prior(in,prices,templeSource(in,30));prior.enter();prior.leave();}
-        PriceSession s(in,prices,templeSource(in,map));s.enter();
+        XeenProgramState program;auto &prices=program.templePrices;
+        if(map==74) {PriceSession prior(in,program,templeSource(in,30));prior.enter();prior.leave();}
+        PriceSession s(in,program,templeSource(in,map));s.enter();
         const auto row=prices.row();const auto revision=prices.revision();
         check(row==xeenTempleSurcharges(30),"Settlement test lacks Rivercity prices");
         unsigned faults=0,redraws=0;
@@ -108,30 +108,30 @@ void settlementPrices(Inputs &in) {
 }
 void processPrices(Inputs &in) {
     {
-        XeenTemplePriceState prices;const auto source=templeSource(in,74);PriceSession s(in,prices,source);
+        XeenProgramState program;auto &prices=program.templePrices;const auto source=templeSource(in,74);PriceSession s(in,program,source);
         unsigned sounds=0;s.flow->loadSampleDuration=[&](const char *,XeenSceneArchive){++sounds;return std::uint64_t(0);};
         s.enter();check(prices.row()==XeenTempleSurcharges{} && prices.revision()==1,"Fresh map 74 did not publish zero row");
-        const auto context=*s.p.encounterContext;const auto gold=s.p.monsterTreasure->gold;
+        const auto context=*s.p.encounterContext;const auto gold=s.p.purse->gold;
         const auto random=*s.w.sessionState().journeyRandom();const auto soundBefore=sounds;
         const auto text=PriceAccess::text(*s.flow);
         check(text==xeenTempleText(in.assets.uiText(),s.p,0,prices.row()),"Temple text does not use visit row");
         s.act(DialogKeyAction{'d'});
-        check(!PriceAccess::donations(*s.flow) && *s.p.encounterContext==context && s.p.monsterTreasure->gold==gold &&
+        check(!PriceAccess::donations(*s.flow) && *s.p.encounterContext==context && s.p.purse->gold==gold &&
             *s.w.sessionState().journeyRandom()==random && sounds==soundBefore,"Zero Donation changed counter, effects, gold, time, RNG or sound");
         const auto uncurse=xeenTempleUncurseCost(s.p.party.member(s.p.roster,0),prices.row());
         check(uncurse==20*s.p.party.member(s.p.roster,0).currentLevel(),"Zero row removed Uncurse base charge");
-        s.act(DialogKeyAction{'u'});check(s.p.monsterTreasure->gold==gold-uncurse && !s.p.party.member(s.p.roster,0).conditions[0],"Zero-row Uncurse charge differs");
-        const auto heal=xeenQuoteTempleHeal(s.p.party.member(s.p.roster,0),s.p.monsterTreasure->gold,*s.p.encounterContext,prices.row()).price;
+        s.act(DialogKeyAction{'u'});check(s.p.purse->gold==gold-uncurse && !s.p.party.member(s.p.roster,0).conditions[0],"Zero-row Uncurse charge differs");
+        const auto heal=xeenQuoteTempleHeal(s.p.party.member(s.p.roster,0),s.p.purse->gold,*s.p.encounterContext,prices.row()).price;
         check(heal>0,"Zero row removed Heal base charge");
         // The one-step action must spend exactly the quote displayed by the panel.
-        s.act(DialogKeyAction{'h'});for(unsigned n=0;n<1000 && s.p.monsterTreasure->gold==gold-uncurse;++n)s.step();
-        check(s.p.monsterTreasure->gold==gold-uncurse-heal,"Map 74 Heal and displayed quote differ");s.leave();
+        s.act(DialogKeyAction{'h'});for(unsigned n=0;n<1000 && s.p.purse->gold==gold-uncurse;++n)s.step();
+        check(s.p.purse->gold==gold-uncurse-heal,"Map 74 Heal and displayed quote differ");s.leave();
     }
     for(unsigned map:{30u,49u}) {
-        XeenTemplePriceState prices;const auto row=xeenTempleSurcharges(map);
+        XeenProgramState program;auto &prices=program.templePrices;const auto row=xeenTempleSurcharges(map);
         const auto source=templeSource(in,74);const auto bytes=XeenSaveFormat::encode(source);
         {
-            PriceSession s(in,prices,templeSource(in,map));bool redrawn=false;
+            PriceSession s(in,program,templeSource(in,map));bool redrawn=false;
             const auto draw=s.flow->drawDialogSprite;
             s.flow->drawDialogSprite=[&](auto &image,const char *resource,unsigned id,int x,int y){
                 if(!PriceAccess::admitted(*s.flow)) {
@@ -142,20 +142,20 @@ void processPrices(Inputs &in) {
             };
             s.enter();check(redrawn && prices.row()==row,"Tabled Temple did not publish its prepared row");
             PriceAccess::quote(*s.flow);
-            check(PriceAccess::quoted(*s.flow)==xeenQuoteTempleHeal(s.p.party.member(s.p.roster,0),s.p.monsterTreasure->gold,*s.p.encounterContext,row).price,"Temple quote and text row disagree");
+            check(PriceAccess::quoted(*s.flow)==xeenQuoteTempleHeal(s.p.party.member(s.p.roster,0),s.p.purse->gold,*s.p.encounterContext,row).price,"Temple quote and text row disagree");
         }
         // New session owners and canonical restore do not own the process row.
         const auto revision=prices.revision();
         for(unsigned session=0;session<2;++session) {
-            PriceSession s(in,prices,source);
+            PriceSession s(in,program,source);
             check(prices.revision()==revision+session && XeenSaveFormat::encode(s.snapshot())==bytes,"Restore saved or reset process prices");
             s.enter();check(prices.row()==row && PriceAccess::prices(*s.flow)==row,"Session replacement lost Temple carry-over");
         }
-        XeenTemplePriceState fresh;PriceSession without(in,fresh,source);PriceSession with(in,prices,source);
+        XeenProgramState fresh;PriceSession without(in,fresh,source);PriceSession with(in,program,source);
         check(XeenSaveFormat::encode(without.snapshot())==XeenSaveFormat::encode(with.snapshot()),"Prior visit entered save bytes");
     }
     for(unsigned fault=0;fault<5;++fault) {
-        XeenTemplePriceState prices;PriceSession s(in,prices,templeSource(in,30));
+        XeenProgramState program;auto &prices=program.templePrices;PriceSession s(in,program,templeSource(in,30));
         bool injected=false;const auto initial=prices.row();
         if(fault==0)s.flow->drawTempleArt=[](auto &){throw std::runtime_error("preflight refusal");};
         if(fault==3)PriceAccess::exhaust(prices);
@@ -171,7 +171,7 @@ void processPrices(Inputs &in) {
         if(fault==4) {
             check(injected && prices.row()==xeenTempleSurcharges(30) && prices.revision()==1 && PriceAccess::admitted(*s.flow),"AfterAdmission rolled back prices or visit");
             s.flow->smithBoundary={};s.act(AcknowledgeAction{});s.act(DialogKeyAction{'u'});
-            check(s.p.monsterTreasure->gold<100000,"Post-admission failure stranded usable visit");s.leave();
+            check(s.p.purse->gold<100000,"Post-admission failure stranded usable visit");s.leave();
         } else {
             const auto expected=fault==2?xeenTempleSurcharges(49):initial;
             const auto revision=fault==2?1:fault==3?UINT64_MAX:0;
@@ -180,8 +180,8 @@ void processPrices(Inputs &in) {
         }
     }
     {
-        XeenTemplePriceState prices;auto source=templeSource(in,30);source.journey->context->year=65535;source.journey->context->day=99;
-        PriceSession s(in,prices,source);s.act(InteractionAction{});for(unsigned n=0;n<20;++n)s.step();
+        XeenProgramState program;auto &prices=program.templePrices;auto source=templeSource(in,30);source.journey->context->year=65535;source.journey->context->day=99;
+        PriceSession s(in,program,source);s.act(InteractionAction{});for(unsigned n=0;n<20;++n)s.step();
         check(prices.revision()==0 && prices.row()==XeenTempleSurcharges{},"Refused departure published Temple row");
     }
 }
@@ -192,7 +192,7 @@ XeenSaveSnapshot injured(Inputs &in,unsigned day=8) {
     auto s=in.service(day);
     s.journey->content=14;
     s.camera={28,15,28,XeenDirection::North};
-    s.journey->treasure->gold=810;
+    s.journey->purse->gold=810;
     auto &seymour=s.characters[6];
     seymour.currentHp=-15;seymour.conditions[12]=1;seymour.conditions[13]=1;
     auto &rebecca=s.characters[1];
@@ -256,7 +256,7 @@ void revisionLimits(Inputs &in) {
     for(bool alreadyPaid:{false,true})for(bool afterFault:{false,true})for(unsigned room:{1u,2u,3u}) {
         TempleFixture fixture(in,injured(in));fixture.enter();if(alreadyPaid)fixture.heal(5);
         fixture.act(SelectMemberAction{alreadyPaid?4u:5u});
-        const auto gold=fixture.p.monsterTreasure->gold;
+        const auto gold=fixture.p.purse->gold;
         const auto owner=alreadyPaid?1u:6u;
         const auto before=fixture.p.roster.at(owner);
         XeenTrainingTestAccess::templeRevision(*fixture.flow,UINT64_MAX-room);
@@ -265,7 +265,7 @@ void revisionLimits(Inputs &in) {
             throw std::runtime_error("post-publication Temple revision fault");};
         fixture.act(DialogKeyAction{'h'});
         if(room==1) {
-            check(fixture.p.monsterTreasure->gold==gold &&
+            check(fixture.p.purse->gold==gold &&
                 xeen_state::sameCharacter(before,fixture.p.roster.at(owner)) &&
                 !XeenTrainingTestAccess::templePending(*fixture.flow),
                 "Temple confirmation paid without room for Upgrade and Result revisions");
@@ -273,7 +273,7 @@ void revisionLimits(Inputs &in) {
             check(XeenTrainingTestAccess::templeRevision(*fixture.flow)==UINT64_MAX-room+1,
                 "Temple confirmation did not reserve the first UI revision");
             fixture.prepare();
-            check(fixture.p.monsterTreasure->gold==gold-(alreadyPaid?60u:380u) &&
+            check(fixture.p.purse->gold==gold-(alreadyPaid?60u:380u) &&
                 XeenTrainingTestAccess::templeRevision(*fixture.flow)==UINT64_MAX-room+2,
                 "Temple paid Result revision wrapped or debit differed");
             fixture.act(AcknowledgeAction{});
@@ -291,11 +291,11 @@ void revisionLimits(Inputs &in) {
     pending.act(DialogKeyAction{'h'});
     XeenTrainingTestAccess::templeRevision(*pending.flow,UINT64_MAX);
     pending.flow->beginCycle(++pending.cycle);
-    check(!pending.flow->updatePresentation() && pending.p.monsterTreasure->gold==810 &&
+    check(!pending.flow->updatePresentation() && pending.p.purse->gold==810 &&
         pending.p.roster.at(6).currentHp==-15 && XeenTrainingTestAccess::templePending(*pending.flow),
         "Temple publication ignored exhausted Result UI revision");
     pending.act(CancelInteractionAction{});pending.leave();
-    check(pending.p.encounterContext->day==9 && pending.p.monsterTreasure->gold==810,
+    check(pending.p.encounterContext->day==9 && pending.p.purse->gold==810,
         "Temple publication capacity failure lost unpaid exit reservation");
 }
 void quotePreview(Inputs &in) {
@@ -319,7 +319,7 @@ void quotePreview(Inputs &in) {
         fixture.act(DialogKeyAction{'h'});fixture.prepare();
         check(fixture.p.roster.at(6).currentHp==hp[scenario] &&
             fixture.p.roster.at(6).currentSp==27 &&
-            fixture.p.monsterTreasure->gold==810-prices[scenario] &&
+            fixture.p.purse->gold==810-prices[scenario] &&
             XeenTrainingTestAccess::templeLobby(*fixture.flow),
             "one-step Temple Heal differs from independent candidate or retains result phase");
         fixture.leave();
@@ -331,21 +331,21 @@ void refusedResult(Inputs &in,bool exhaustedRandom) {
     TempleFixture fixture(in,source);
     const auto before=fixture.p.roster.at(6);
     const auto inputs=*fixture.p.roster.combatInputs(6);
-    const auto gold=fixture.p.monsterTreasure->gold;
+    const auto gold=fixture.p.purse->gold;
     const auto maximum=XeenCharacterRules::maxHp(before,{610});
     const auto expected=xeenPrepareTempleHeal(fixture.p,6,*fixture.p.encounterContext,XeenMapIdentity(28));
     fixture.enter();fixture.act(SelectMemberAction{5});fixture.act(DialogKeyAction{'h'});
     if(XeenTrainingTestAccess::templePending(*fixture.flow))fixture.prepare();
     if(!exhaustedRandom) {
         fixture.leave();check(fixture.p.encounterContext->day==0 && fixture.p.encounterContext->year==611 &&
-            fixture.p.monsterTreasure->gold==expected.result.goldAfter &&
+            fixture.p.purse->gold==expected.result.goldAfter &&
             xeen_state::sameCharacter(expected.character,fixture.p.roster.at(6)),"Paid Temple Heal year rollover");
         const auto saved=fixture.snapshot();TempleFixture restored(in,saved);sameSnapshot(saved,restored.snapshot());return;
     }
     const auto text=XeenTrainingTestAccess::templeText(*fixture.flow);
     check(xeen_state::sameCharacter(before,fixture.p.roster.at(6)) &&
         xeen_state::sameInputs(inputs,*fixture.p.roster.combatInputs(6)) &&
-        fixture.p.monsterTreasure->gold==gold &&
+        fixture.p.purse->gold==gold &&
         fixture.w.sessionState().journeyRandom()==source.journey->random &&
         *fixture.p.encounterContext==*source.journey->context,
         "Temple refusal changed live owners before departure");
@@ -353,13 +353,13 @@ void refusedResult(Inputs &in,bool exhaustedRandom) {
         "Temple date/RNG refusal lacks a visible notice");
     fixture.act(AcknowledgeAction{});fixture.leave();
     check(xeen_state::sameCharacter(before,fixture.p.roster.at(6)) &&
-        fixture.p.monsterTreasure->gold==gold &&
+        fixture.p.purse->gold==gold &&
         fixture.p.encounterContext->day==(exhaustedRandom?9:99),
         "Temple refusal lost the unchanged recipient/purse or mandatory one-day exit");
 }
 void templeOptions(Inputs &in) {
     auto source=in.service(8);source.camera={28,15,28,XeenDirection::North};
-    source.journey->treasure->gold=1000;
+    source.journey->purse->gold=1000;
     TempleFixture donation(in,source);donation.enter();
     const auto cursor=*donation.w.sessionState().journeyRandom();
     const auto acknowledge=[&](TempleFixture &v) {
@@ -367,20 +367,20 @@ void templeOptions(Inputs &in) {
         if(dialog && dialog->anyKey)v.act(AcknowledgeAction{});
     };
     for(unsigned n=0;n<7;++n){donation.act(DialogKeyAction{'d'});acknowledge(donation);}
-    check(donation.p.monsterTreasure->gold==930 && donation.p.encounterContext->effects[XeenPartyEffect::PowerShield]==0,
+    check(donation.p.purse->gold==930 && donation.p.encounterContext->effects[XeenPartyEffect::PowerShield]==0,
         "Donation blessed before day-modulo counter matched");
     donation.act(DialogKeyAction{'d'});acknowledge(donation);
-    check(donation.p.monsterTreasure->gold==920 && donation.p.encounterContext->effects[XeenPartyEffect::PowerShield]==8 &&
+    check(donation.p.purse->gold==920 && donation.p.encounterContext->effects[XeenPartyEffect::PowerShield]==8 &&
         donation.p.encounterContext->lightAndResistances[0]==1 && donation.p.encounterContext->effects[XeenPartyEffect::Clairvoyance]==1 && !donation.p.encounterContext->effects[XeenPartyEffect::Levitate] &&
         *donation.w.sessionState().journeyRandom()==cursor,"Donation price, blessing, light or draw differs");
     donation.act(SelectMemberAction{1});donation.act(DialogKeyAction{'d'});acknowledge(donation);
-    check(donation.p.monsterTreasure->gold==920,"blessed visit charged again after member selection");
+    check(donation.p.purse->gold==920,"blessed visit charged again after member selection");
     donation.leave();check(donation.p.encounterContext->day==9,"Donation added a paid farewell day");
     const auto saved=donation.snapshot();TempleFixture restored(in,saved);
     check(XeenSaveFormat::encode(saved)==XeenSaveFormat::encode(restored.snapshot()),
         "Donation v14 restore replayed effect, time, debit or RNG");
     restored.enter();restored.act(DialogKeyAction{'d'});acknowledge(restored);
-    check(restored.p.monsterTreasure->gold==910,"new visit inherited the free Donation latch");
+    check(restored.p.purse->gold==910,"new visit inherited the free Donation latch");
     restored.leave();
 
     TempleFixture selected(in,source);selected.enter();
@@ -389,7 +389,7 @@ void templeOptions(Inputs &in) {
     for(unsigned n=0;n<7;++n){selected.act(DialogKeyAction{'d'});acknowledge(selected);}
     check(selected.p.encounterContext->effects[XeenPartyEffect::PowerShield]==0,"same-member F-key did not reset Donation counter");
     selected.act(DialogKeyAction{'d'});acknowledge(selected);
-    check(selected.p.encounterContext->effects[XeenPartyEffect::PowerShield]==8 && selected.p.monsterTreasure->gold==890,
+    check(selected.p.encounterContext->effects[XeenPartyEffect::PowerShield]==8 && selected.p.purse->gold==890,
         "Donation counter did not restart after same-member selection");
     selected.leave();
 
@@ -403,10 +403,10 @@ void templeOptions(Inputs &in) {
     TempleFixture uncurse(in,source);uncurse.enter();
     const auto before=*uncurse.w.sessionState().journeyRandom();
     uncurse.act(DialogKeyAction{'u'});acknowledge(uncurse);
-    check(uncurse.p.monsterTreasure->gold==900 && xeen_state::sameCharacter(expected,uncurse.p.roster.at(owner)) &&
+    check(uncurse.p.purse->gold==900 && xeen_state::sameCharacter(expected,uncurse.p.roster.at(owner)) &&
         *uncurse.w.sessionState().journeyRandom()==before,"Uncurse changed item bytes, charged incorrectly or drew");
     uncurse.act(SelectMemberAction{1});uncurse.act(DialogKeyAction{'u'});acknowledge(uncurse);
-    check(uncurse.p.monsterTreasure->gold==840 && !uncurse.p.roster.at(second).conditions[0],
+    check(uncurse.p.purse->gold==840 && !uncurse.p.roster.at(second).conditions[0],
         "second paid Uncurse failed");
     uncurse.leave();check(uncurse.p.encounterContext->day==11,"two paid Uncurses did not cost three farewell days");
     const auto final=uncurse.snapshot();TempleFixture loaded(in,final);
@@ -434,7 +434,7 @@ int main(int argc,char **argv) {
         refusedResult(in,false);refusedResult(in,true);
         auto source=injured(in);
         TempleFixture f(in,source);
-        const auto quote=xeenQuoteTempleHeal(f.p.roster.at(6),f.p.monsterTreasure->gold,*f.p.encounterContext,XeenMapIdentity(28));
+        const auto quote=xeenQuoteTempleHeal(f.p.roster.at(6),f.p.purse->gold,*f.p.encounterContext,XeenMapIdentity(28));
         // Level 3, HP -15: no HP term (DOS unsigned comparison), Unconscious 30,
         // Dead 300+50; Vertigo surcharges are zero.
         check(quote.outcome==XeenTempleHealOutcome::Quoted && quote.price==380,"Dead/Unconscious quote differs");
@@ -445,22 +445,22 @@ int main(int argc,char **argv) {
             "selected resurrection result differs");
         f.enter();f.heal(5);
         check(f.p.roster.at(6).currentHp==15 && f.p.roster.at(6).currentSp==27 &&
-            !f.p.roster.at(6).conditions[13] && f.p.monsterTreasure->gold==430 &&
+            !f.p.roster.at(6).conditions[13] && f.p.purse->gold==430 &&
             f.p.encounterContext->day==8,"first Heal mutated wrong owners or charged time early");
         f.heal(4);
         check(f.p.roster.at(1).currentHp==21 && f.p.roster.at(1).currentSp==21 &&
-            !f.p.roster.at(1).conditions[12] && f.p.monsterTreasure->gold==370,
+            !f.p.roster.at(1).conditions[12] && f.p.purse->gold==370,
             "second Heal mutated wrong owner or price");
-        check(xeenQuoteTempleHeal(f.p.roster.at(6),f.p.monsterTreasure->gold,*f.p.encounterContext,XeenMapIdentity(28)).outcome==
+        check(xeenQuoteTempleHeal(f.p.roster.at(6),f.p.purse->gold,*f.p.encounterContext,XeenMapIdentity(28)).outcome==
             XeenTempleHealOutcome::NoCharge,"healthy recipient gained an extra paid quote");
         f.leave();
-        check(f.p.encounterContext->day==11 && f.p.monsterTreasure->gold==370,
+        check(f.p.encounterContext->day==11 && f.p.purse->gold==370,
             "two paid Temple actions did not make one three-day departure");
         const auto saved=f.snapshot();TempleFixture restored(in,saved);sameSnapshot(saved,restored.snapshot());
         {
             auto noPay=injured(in);TempleFixture refused(in,noPay);
             refused.enter();refused.leave();
-            check(refused.p.encounterContext->day==9 && refused.p.monsterTreasure->gold==810,
+            check(refused.p.encounterContext->day==9 && refused.p.purse->gold==810,
                 "unpaid Temple visit did not make one one-day departure");
         }
 		{
@@ -485,7 +485,7 @@ int main(int argc,char **argv) {
 				}
 				check(faults>=2 && XeenTrainingTestAccess::templePending(*retry.flow) &&
 					XeenTrainingTestAccess::templeOneDayReserved(*retry.flow) &&
-					retry.p.monsterTreasure->gold==810 && !retry.flow->canSave(),
+					retry.p.purse->gold==810 && !retry.flow->canSave(),
 					"persistent upgrade fault lost the unpaid reservation or published Heal");
 				retry.act(CancelInteractionAction{});
 				check(XeenTrainingTestAccess::templeLobby(*retry.flow) &&
@@ -500,7 +500,7 @@ int main(int argc,char **argv) {
             auto near=injured(in,98);TempleFixture refused(in,near);
             refused.enter();refused.act(SelectMemberAction{5});refused.act(DialogKeyAction{'h'});
             refused.prepare();refused.leave();
-            check(refused.p.encounterContext->day==0 && refused.p.encounterContext->year==611 && refused.p.monsterTreasure->gold<810 &&
+            check(refused.p.encounterContext->day==0 && refused.p.encounterContext->year==611 && refused.p.purse->gold<810 &&
                 !refused.p.roster.at(6).conditions[13],"Paid Heal failed at year rollover");
         }
         {
@@ -519,7 +519,7 @@ int main(int argc,char **argv) {
             fixture.enter();fixture.heal(5);fixture.leave();
             check(fixture.p.roster.at(6).currentHp==6 &&
                 XeenCharacterRules::maxHp(fixture.p.roster.at(6),{610})==9 &&
-                fixture.p.roster.at(6).currentSp==27 && fixture.p.monsterTreasure->gold==750,
+                fixture.p.roster.at(6).currentSp==27 && fixture.p.purse->gold==750,
                 "published Disease Heal changed the required HP order or SP");
         }
         {
@@ -558,7 +558,7 @@ int main(int argc,char **argv) {
             }};
             fixture.act(SelectMemberAction{5});fixture.act(DialogKeyAction{'h'});
             save_test::rejects([&]{fixture.prepare();});
-            check(calls==1 && !fixture.flow->canSave() && fixture.p.monsterTreasure->gold==810 &&
+            check(calls==1 && !fixture.flow->canSave() && fixture.p.purse->gold==810 &&
                 fixture.p.roster.at(6).currentHp==-15 && fixture.p.roster.at(1).currentHp==0,
                 "Temple BeforeHeal mutation-reversion reached payment or Quiet");
         }
@@ -573,12 +573,12 @@ int main(int argc,char **argv) {
                 "Temple cosmetic redraw did not preserve semantic input authority");
             fixture.flow->beginCycle(++fixture.cycle);
             fixture.present(fixture.flow->handle(DialogKeyAction{'h'},semantic,old));
-            check(fixture.p.monsterTreasure->gold==810 && !fixture.flow->canSave(),
+            check(fixture.p.purse->gold==810 && !fixture.flow->canSave(),
                 "stale Temple confirmation paid or exposed Quiet");
             fixture.flow->beginCycle(++fixture.cycle);
             fixture.present(fixture.flow->handle(DialogKeyAction{'h'},semantic,current));
             fixture.prepare();
-            check(fixture.p.monsterTreasure->gold==430,
+            check(fixture.p.purse->gold==430,
                 "current concrete Temple confirmation did not publish Heal");
             fixture.act(AcknowledgeAction{});fixture.leave();
             check(fixture.p.encounterContext->day==10,

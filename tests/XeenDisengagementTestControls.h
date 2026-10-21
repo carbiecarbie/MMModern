@@ -183,7 +183,7 @@ void disengagementSemanticInput(Source &source) {
   check(combat->phase()==XeenCombatPhase::PreparingAction && combat->result().actingOwner==kXeenCombatOwners[1],"Fresh displayed typed Run reaches the next stable owner");
   press(SaveGameAction{});check(!h.saves,"Pending fresh Run F9 invokes no providers");checked=true;return true;
  };
- check(Application(services.templePrices).playGameplay(services,{},path,true)==0 && checked,"M34 original-resource semantic input control");
+ check(Application(services.program).playGameplay(services,{},path,true)==0 && checked,"M34 original-resource semantic input control");
  std::filesystem::remove(path);
  std::cout<<"M34 ARTIFICIAL semantic/native-R equivalence, stale and previous-frame refusal, fresh next-owner input, zero blocked F9 providers PASS\n";
 }
@@ -243,7 +243,7 @@ void disengagementNativeInput(Source &source) {
  const char *video=SDL_getenv("SDL_VIDEODRIVER"),*renderer=SDL_getenv("SDL_RENDER_DRIVER");
  const std::string oldVideo=video?video:"",oldRenderer=renderer?renderer:"";
  SDL_setenv("SDL_VIDEODRIVER","dummy",1);SDL_setenv("SDL_RENDER_DRIVER","software",1);
- const int result=Application(services.templePrices).playGameplay(services,{},path,true);taped=false;
+ const int result=Application(services.program).playGameplay(services,{},path,true);taped=false;
  SDL_setenv("SDL_VIDEODRIVER",oldVideo.c_str(),1);SDL_setenv("SDL_RENDER_DRIVER",oldRenderer.c_str(),1);
  check(result==0 && stage==16,"M34 native input sequence completed");
  std::filesystem::remove(path);
@@ -269,12 +269,13 @@ void disengagementFinishPresentation(Source &source,bool injectFault=true) {
    const auto tick=[&]{h.now+=1000;handler.beginCycle(++h.cycle);idle();};
    const auto values=[&]{
     auto value=saved;value.camera=*h.camera;value.characters=h.party->roster.characters();value.activeRosterIds=h.party->party.activeRosterIds();
-    value.journey->context=h.party->encounterContext;value.journey->treasure=h.party->monsterTreasure;value.journey->random=h.world->sessionState().journeyRandom();
+    value.journey->context=h.party->encounterContext;value.journey->purse=h.party->purse;value.journey->random=h.world->sessionState().journeyRandom();
     for(unsigned i=0;i<30;++i)value.journey->supplements[i].inputs=*h.party->roster.combatInputs(i);
     for(unsigned i=0;i<19;++i){const auto &a=h.world->sessionState().monsters(23)[i];auto &b=value.map(23).monsters->slots[i];b.x=a.x;b.y=a.y;b.lifecycle=a.lifecycle;b.status=a.status;b.accounted=h.world->sessionState().accountedMonsters().count(a.id);}
     return value;
    };
    if(occupied)check(northLoads==0,"North neighbor must remain cold before contact");
+   XeenMonsterTestAccess::stageTreasureLive(*h.flow,*h.world,runAuthorityTreasure());
    present();press(NavigationAction::MoveForward);
    for(unsigned n=0;n<80 && (!h.flow->encounter()->combat() || h.flow->encounter()->combat()->phase()!=XeenCombatPhase::PlayerReady);++n){tick();present();}
    // Decision 8: the game load restores the survivor at its MON HP.
@@ -309,9 +310,9 @@ void disengagementFinishPresentation(Source &source,bool injectFault=true) {
     if(!exit)for(unsigned slot:{1u,3u,4u,5u})check(notice.find(h.party->roster.at(kXeenCombatOwners[slot]).name,notice.find("Abandoned:"))!=std::string::npos,"Casualty names survive destination attachment");
     const bool ready=attrition && !exit;
     check(notice.find(ready?"Ready treasure: +10 gold":"Dormant items; no gold owed")!=std::string::npos,"Matching ready/dormant consequence is visible");
-    check(h.party->monsterTreasure->gold==saved.journey->treasure->gold && h.party->monsterTreasure->pendingGold==(ready?10:0) &&
-     h.party->monsterTreasure->armor==save_test::liveTreasure(saved).armor &&
-     h.party->monsterTreasure->miscellaneous==save_test::liveTreasure(saved).miscellaneous,"Feedback does not credit, forfeit twice or alter item provenance");
+    const auto &staged=h.world->treasureStaging().value();auto expected=runAuthorityTreasure();
+    if(!ready)expected.clearPending();
+    check(h.party->purse->gold==saved.journey->purse->gold && staged==expected,"Feedback does not credit, forfeit twice or alter staged items");
     check(h.party->roster.at(kXeenCombatOwners[2]).conditions[13]==7,"Feedback preserves existing Dead counter");
     check(h.camera->x==10 && h.camera->y==12 && h.world->sessionState().monsters(23)[9].hp==survivorHp,"Relocation and survivor remain published exactly once");
     auto *replacement=h.flow->encounter()->combat();
@@ -374,7 +375,7 @@ void disengagementFinishPresentation(Source &source,bool injectFault=true) {
    }
    completed=true;return true;
   };
-  check(Application(services.templePrices).playGameplay(services,{},path,true)==0 && completed,"Actual EventFlow finish handoff regression");
+  check(Application(services.program).playGameplay(services,{},path,true)==0 && completed,"Actual EventFlow finish handoff regression");
   std::filesystem::remove(path);
  }
  std::cout<<"M34 ARTIFICIAL EventFlow occupied/normal DirectRun/Attrition, repeated finishes, exact frame and retry feedback PASS\n";

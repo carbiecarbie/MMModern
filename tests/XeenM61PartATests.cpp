@@ -119,7 +119,7 @@ void services(Inputs &in,bool mouse) {
         if(fault==1){before.unchanged(f);check(fired,"before-publication fault absent");key(f,'y',mouse);}
         if(fault==2)check(fired,"after-publication fault absent");
         f.flow->smithBoundary={};
-        check(f.p.monsterTreasure->gold==(action==1?10000+price:10000-price),"payment/credit not exactly once");
+        check(f.p.purse->gold==(action==1?10000+price:10000-price),"payment/credit not exactly once");
         const auto &items=*xeenInventoryItems(f.p.roster.at(0),C(c));
         if(action==1)check(xeenSameItem(items[0],(*xeenInventoryItems(source.characters[0],C(c)))[1]),"Sell compaction bytes differ");
         else {auto expected=raw;if(action==3)expected.state&=0x7f;check(xeenSameItem(items[0],expected),"paid service changed wrong bytes");}
@@ -141,12 +141,12 @@ void services(Inputs &in,bool mouse) {
         check(stock[0].id!=0,"original seeded stock category absent");
         key(f,InputKey::F1+2,mouse); // empty recipient categories in the original roster
         const auto quote=xeenQuoteEquipmentPurchase(f.p,2,C(c),0,0,0);check(quote.outcome==XeenEquipmentPurchaseOutcome::Quoted,"generated Buy category refused");
-        const auto before=*f.p.monsterTreasure;key(f,'1',mouse);const auto frame=f.flow->frame().presentation();const auto input=f.flow->displayedInput();key(f,'y',mouse);
-        check(f.p.monsterTreasure->gold==before.gold-quote.price,"Buy debit differs");replay(f,frame,input);
+        const auto before=*f.p.purse;key(f,'1',mouse);const auto frame=f.flow->frame().presentation();const auto input=f.flow->displayedInput();key(f,'y',mouse);
+        check(f.p.purse->gold==before.gold-quote.price,"Buy debit differs");replay(f,frame,input);
         bool found=false;for(const auto &item:*xeenInventoryItems(f.p.party.member(f.p.roster,2),C(c)))found|=xeenSameItem(item,stock[0]);check(found,"Buy lost item bytes");
     }
     f.leave();check(f.p.encounterContext->day==9,"four Buy operations charged extra days");
-    auto source=inventorySource(in);source.journey->treasure->gold=1000000;
+    auto source=inventorySource(in);source.journey->purse->gold=1000000;
     auto &recipient=source.characters[source.activeRosterIds[2]];
     recipient.weapons={};recipient.armor={};recipient.accessories={};recipient.miscellaneous={};
     Fixture depleted(in,source);depleted.enter();key(depleted,'b',mouse);key(depleted,InputKey::F1+2,mouse);
@@ -183,7 +183,7 @@ void details(Inputs &in) {
 void refusals(Inputs &in,bool mouse) {
     constexpr unsigned tabs[]{'w','a','c','m'};
     for(unsigned c=0;c<4;++c) {
-        auto source=inventorySource(in);source.journey->treasure->gold=0;
+        auto source=inventorySource(in);source.journey->purse->gold=0;
         (*xeenInventoryItems(source.characters[0],C(c)))[0].state=0xc5;
         Fixture f(in,source);f.enter();key(f,'b',mouse);key(f,tabs[c],mouse);
         const Owners before(f);
@@ -199,7 +199,7 @@ void refusals(Inputs &in,bool mouse) {
         }
         f.leave();
         // A full physical tail wins over insufficient gold in every category.
-        source=inventorySource(in);source.journey->treasure->gold=0;
+        source=inventorySource(in);source.journey->purse->gold=0;
         auto &items=*xeenInventoryItems(source.characters[0],C(c));items[8]=items[1];
         Fixture full(in,source);full.enter();key(full,'b',mouse);key(full,tabs[c],mouse);const Owners fullBefore(full);key(full,'1',mouse);
         check(!XeenPurchaseTestAccess::quote(*full.flow) && full.flow->inputContext(full.flow->frame().presentation()).dialog->anyKey,"full category admitted Buy");fullBefore.unchanged(full);full.leave();
@@ -222,7 +222,7 @@ void sheet(Inputs &in,bool mouse) {
         key(f,'d',mouse);key(f,'1',mouse);const auto frame=f.flow->frame().presentation();const auto input=f.flow->displayedInput();key(f,'y',mouse);
         const auto &items=*xeenInventoryItems(f.p.roster.at(0),C(c));
         check(xeenSameItem(items[0],(*xeenInventoryItems(s.characters[0],C(c)))[1]) && !items[1].id,"Discard lost compaction/removed wrong item");
-        check(f.p.monsterTreasure->gold==before.treasure.gold && *f.p.encounterContext==before.context && *f.w.sessionState().journeyRandom()==before.random,"Discard charged money/time/RNG");
+        check(f.p.purse->gold==before.treasure.gold && *f.p.encounterContext==before.context && *f.w.sessionState().journeyRandom()==before.random,"Discard charged money/time/RNG");
         replay(f,frame,input);key(f,InputKey::Escape,mouse);key(f,InputKey::Escape,mouse);
         check(f.flow->canSave(),"Discard did not settle inventory");
         const auto saved=f.snapshot();Fixture restored(in,saved);save_test::sameSnapshot(saved,restored.snapshot());

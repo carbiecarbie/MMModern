@@ -236,21 +236,21 @@ XeenEncounterResult XeenActorApproach::initializeJourney(XeenWorld &world, XeenP
 		XeenCamera &camera, XeenEncounterState &state, const std::vector<std::uint8_t> &chr,
 		const XeenGameplayContext &context, const std::vector<XeenMonsterRecord> &statistics,
 		const XeenEventFile &events, std::uint32_t seed,
-		const std::optional<XeenMonsterTreasure> &purse) {
+		const std::optional<XeenPurse> &purse) {
 	return initializeJourney(world,party,camera,state,chr,context,statistics,events,seed,purse,{});
 }
 XeenEncounterResult XeenActorApproach::initializeJourney(XeenWorld &world, XeenPartyState &party,
 		XeenCamera &camera, XeenEncounterState &state, const std::vector<std::uint8_t> &chr,
 		const XeenGameplayContext &context, const std::vector<XeenMonsterRecord> &statistics,
 		const XeenEventFile &events, std::uint32_t seed,
-		const std::optional<XeenMonsterTreasure> &purse, const std::optional<XeenBankBalances> &bankInput) {
+		const std::optional<XeenPurse> &purse, const std::optional<XeenBankBalances> &bankInput) {
 	return initializeJourney(world,party,camera,state,chr,context,statistics,events,seed,purse,bankInput,{});
 }
 XeenEncounterResult XeenActorApproach::initializeJourney(XeenWorld &world, XeenPartyState &party,
 		XeenCamera &camera, XeenEncounterState &state, const std::vector<std::uint8_t> &chr,
 		const XeenGameplayContext &context, const std::vector<XeenMonsterRecord> &statistics,
 		const XeenEventFile &events, std::uint32_t seed,
-		const std::optional<XeenMonsterTreasure> &purse, const std::optional<XeenBankBalances> &bankInput,
+		const std::optional<XeenPurse> &purse, const std::optional<XeenBankBalances> &bankInput,
 		const FreshPublicationPreparation &beforePublication) {
 	return initializeStart(world,party,camera,state,chr,context,statistics,events,events,seed,purse,bankInput,true,party.worldFlags,
 		[&](const auto &candidate,const auto &actors,const auto &random,const auto &,const auto &) {
@@ -261,7 +261,7 @@ XeenEncounterResult XeenActorApproach::initializeJourney(XeenWorld &world, XeenP
 		XeenCamera &camera, XeenEncounterState &state, const std::vector<std::uint8_t> &chr,
 		const XeenGameplayContext &context, const std::vector<XeenMonsterRecord> &statistics,
 		const XeenEventFile &events, std::uint32_t seed,
-		const std::optional<XeenMonsterTreasure> &purse, const std::optional<XeenBankBalances> &bankInput,
+		const std::optional<XeenPurse> &purse, const std::optional<XeenBankBalances> &bankInput,
 		const FreshPublicationPreparation &beforePublication, const XeenCamera &start) {
 	return initializeStart(world,party,camera,state,chr,context,statistics,events,events,seed,purse,bankInput,true,party.worldFlags,
 		[&](const auto &candidate,const auto &actors,const auto &random,const auto &,const auto &) {
@@ -272,7 +272,7 @@ XeenEncounterResult XeenActorApproach::initializeStart(XeenWorld &world, XeenPar
 		XeenCamera &camera, XeenEncounterState &state, const std::vector<std::uint8_t> &chr,
 		const XeenGameplayContext &context, const std::vector<XeenMonsterRecord> &statistics,
 		const XeenEventFile &events, const XeenEventFile &mainlandEvents, std::uint32_t seed,
-		const std::optional<XeenMonsterTreasure> &purse, const std::optional<XeenBankBalances> &bankInput,
+		const std::optional<XeenPurse> &purse, const std::optional<XeenBankBalances> &bankInput,
 		bool prepared, const std::optional<XeenWorldFlags> &recovery, const StartPublicationPreparation &beforePublication,
 		const std::optional<XeenCamera> &start) {
 	const auto bank=bankInput; // Detach before all further compatibility callbacks.
@@ -310,7 +310,7 @@ XeenEncounterResult XeenActorApproach::initializeStart(XeenWorld &world, XeenPar
 	XeenPartyState candidate(party);
 	if(!prepared) {require(bool(recovery) && !party.worldFlags,"Original recovery preparation mismatch");candidate.worldFlags=recovery;}
 	require(bool(purse),"Fresh consequence purse presence mismatch");
-	candidate.monsterTreasure=purse;
+	candidate.purse=purse;
 	{
 		require(chr.size()==30*354 && context.year==610 && context.day==1 && !context.rested && !context.newDay &&
 			context.effects==std::array<std::uint8_t,9>{} && context.lightAndResistances==std::array<std::uint16_t,6>{},"Regional original CHR/PTY prerequisites changed");
@@ -395,7 +395,7 @@ XeenEncounterResult XeenActorApproach::initializeStart(XeenWorld &world, XeenPar
 	static_assert(std::is_nothrow_copy_assignable_v<decltype(party.serviceEconomy)> &&
 		std::is_nothrow_copy_assignable_v<decltype(party.encounterContext)> &&
 		std::is_nothrow_copy_assignable_v<decltype(party.roster._combatInputs)> &&
-		std::is_nothrow_copy_assignable_v<decltype(party.monsterTreasure)> &&
+		std::is_nothrow_copy_assignable_v<decltype(party.purse)> &&
 		std::is_nothrow_copy_assignable_v<decltype(world._sessionState._journeyRandom)>);
 	auto &s = world._sessionState;
 	if(prepared)for (auto id:kXeenCombatOwners) {
@@ -407,7 +407,7 @@ XeenEncounterResult XeenActorApproach::initializeStart(XeenWorld &world, XeenPar
 	for (unsigned id = 0; id < 30; ++id)
 		party.roster.at(id).learnedSpells = candidate.roster.at(id).learnedSpells;
 	party.roster._combatMarked = true; party.encounterContext = candidate.encounterContext;
-	party.monsterTreasure=candidate.monsterTreasure;
+	party.purse=candidate.purse;
 	party.serviceEconomy=candidate.serviceEconomy;
 	if(!prepared)party.worldFlags=candidate.worldFlags;
 	world._cityStatistics.swap(cityStatistics);

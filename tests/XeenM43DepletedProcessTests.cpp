@@ -25,7 +25,7 @@ int main(int argc,char **argv) {
         const auto original=XeenSaveFile::read(b);
         child_test::require(original.journey && original.journey->schema==9 &&
             original.journey->content==14 && original.journey->context->day==9 &&
-            original.journey->treasure->gold==670 && original.journey->random->state==4180726993u &&
+            original.journey->purse->gold==670 && original.journey->random->state==4180726993u &&
             original.journey->random->count==1109,
             "real bought checkpoint is not the exact content-14 depleted preimage");
         m42_test::sameCategory(original.journey->serviceEconomy->wares[0][0][1],m42_test::armorAfter());
@@ -53,7 +53,7 @@ int main(int argc,char **argv) {
                 m42_test::StockOracle oracle{original.journey->random->state,original.journey->random->count,{}};
                 const auto generated=oracle.generate();
                 child_test::require(trained.journey && trained.journey->context->day==12 &&
-                    trained.journey->treasure->gold==490 && trained.characters[18].permanentLevel==4 &&
+                    trained.journey->purse->gold==490 && trained.characters[18].permanentLevel==4 &&
                     trained.characters[1].permanentLevel==4 &&
                     m40_test::stockBytes(*trained.journey->serviceEconomy)==m40_test::stockBytes(generated) &&
                     trained.journey->random->state==oracle.state && trained.journey->random->count==oracle.count &&

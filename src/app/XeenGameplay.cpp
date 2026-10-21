@@ -136,7 +136,16 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
    throw std::invalid_argument("Event developer sessions require isolated unsaveable owners");
   if (seed && (resume || entry != XeenEncounterEntry::Journey || !*seed)) throw std::invalid_argument("Invalid Journey seed override");
   if (entry == XeenEncounterEntry::Journey) camera = original ? callback(services.loadInitialCamera) : services.eventFixture.value_or(services.journeyStart.value_or(xeenJourneyContent().entry));
+  // A successful game entry clears pending currency and readiness and keeps the
+  // four arrays (DOS play entry 0xcfe3..0xcff7); a failed or cancelled entry
+  // leaves the running program's pending treasure exactly as it was.
+  struct TreasureEntry {
+   XeenTreasureStagingState &state;XeenTreasureStagingState::Saved before;bool committed=false;
+   ~TreasureEntry(){if(!committed)state.restore(before);}
+  } treasureEntry{services.program.treasure,services.program.treasure.save()};
+  treasureEntry.state.enterGame();
   XeenWorld world(services.maps, services.objects);
+  world.borrowTreasureStaging(services.program.treasure);
   XeenPartyState party;
   XeenGameFlags flags;
   const auto preflight = [&](XeenWorld &w, const XeenPartyState &p, const XeenCamera &c, const XeenGameFlags &) {
@@ -205,7 +214,7 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
    }
   }
 
-  XeenEventFlow flow(services.templePrices,world, events, party, camera, flags, services.font,
+  XeenEventFlow flow(services.program,world, events, party, camera, flags, services.font,
    [&](std::uint64_t phase) { return services.compose(world, party, camera, phase); }, services.npcDraw, services.clock, {}, services.catalog,
    [&](std::uint64_t ordinary, XeenMonsterAppearance actor) {
     const auto observedCamera = camera;
@@ -271,6 +280,7 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
    if(!published)return 5; // Cancellation discards only this unpublished session.
    services.currentSlot=services.initialSlot;
   }
+  treasureEntry.committed=true;
   if (services.observeGameplay) services.observeGameplay(world, events, party, camera, flags);
   handoff.verify();
   std::cout << "Map " << camera.mapId << ": camera X=" << camera.x << " Y=" << camera.y

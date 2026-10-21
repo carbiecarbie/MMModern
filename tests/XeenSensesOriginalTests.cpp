@@ -34,7 +34,7 @@ XeenSaveSnapshot source(Inputs &in,unsigned spell,bool combat=false) {
     caster.currentSpell=*R::slotForSpell(*R::categoryForClass(caster.characterClass),spell);
     caster.learnedSpells->at(caster.currentSpell)=1;caster.quickOption=1;
     s.journey->supplements[caster.rosterId].inputs.speed={250,0};
-    s.journey->treasure->gems=1000;s.journey->context->ctr24=23;s.journey->context->minutes=600;
+    s.journey->purse->gems=1000;s.journey->context->ctr24=23;s.journey->context->minutes=600;
     s.journey->context->effects.fill(0);s.journey->context->lightAndResistances.fill(0);
     if(combat) {auto &enemy=s.map(23).monsters->slots[5];enemy.x=8;enemy.y=11;enemy.lifecycle=XeenActorLifecycle::Present;enemy.accounted=false;}
     save_test::clearExplored(s);return s;
@@ -60,7 +60,7 @@ void booksAndItems(Inputs &in) {
         }
         quiet(f);const auto cost=R::cost(spell,7);
         check(f.p.roster.at(owner).currentSp==(item?3:1000-int(cost.sp)),"Senses debit, including Identify failure, no refund");
-        check(f.p.monsterTreasure->gems==1000-(item?0:cost.gems),"Senses gems");
+        check(f.p.purse->gems==1000-(item?0:cost.gems),"Senses gems");
         check(f.p.encounterContext->minutes==(item?600:601) && f.w.sessionState().journeyRandom()==random,"Senses time/RNG");
         if(item)check(!f.p.roster.at(owner).miscellaneous[0].id,"Information failure still consumes last charge");
         if(spell==42)check(f.p.encounterContext->lightAndResistances[0]==1,"Published Light");
@@ -94,7 +94,7 @@ void combat(Inputs &in) {
         for(unsigned n=0;n<1000 && fight().cast();++n)tick(f);
         check(!fight().cast() && fight().phase()!=XeenCombatPhase::Failed,"Combat senses settles");
         const auto cost=R::cost(spell,7);
-        check(f.p.roster.at(s.activeRosterIds[0]).currentSp==1000-int(cost.sp) && f.p.monsterTreasure->gems==1000-cost.gems,"Combat senses cost");
+        check(f.p.roster.at(s.activeRosterIds[0]).currentSp==1000-int(cost.sp) && f.p.purse->gems==1000-cost.gems,"Combat senses cost");
         check(fight().random()==random && f.p.encounterContext->minutes==minute,"Combat senses consumes no RNG/round time");
         if(spell==42)check(fight().stepped(),"Light marks party stepped");
     }

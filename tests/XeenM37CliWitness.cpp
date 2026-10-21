@@ -95,7 +95,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
      auto &random=const_cast<XeenMutableOptional<XeenJourneyRandomState> &>(w.sessionState().journeyRandom());
      ++random->count;--random->count;
     } else if(stage=="candidate-aba-treasure") {
-     auto &gold=const_cast<XeenPartyState &>(p).monsterTreasure->gold;++gold;--gold;
+     auto &gold=const_cast<XeenPartyState &>(p).purse->gold;++gold;--gold;
     } else {
      auto &actor=const_cast<XeenActor &>(w.sessionState().regionalActors(28).at(35));
      ++actor.hp;

@@ -3,7 +3,6 @@
 #include "games/xeen/XeenParty.h"
 
 namespace mmodern {
-enum class XeenRewardCategory : std::uint8_t { Weapons, Armor, Accessories, Miscellaneous };
 XeenItemCategory &xeenRewardItems(XeenCharacter &,XeenRewardCategory) noexcept;
 bool xeenInsertReward(XeenCharacter &,XeenItem,XeenRewardCategory) noexcept;
 enum class XeenRewardEnqueue { Accepted, InvalidEmpty, IgnoredOverflow };

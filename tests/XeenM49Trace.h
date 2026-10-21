@@ -73,7 +73,8 @@ inline void frame(const mmodern::XeenWorld &world,const mmodern::XeenPartyState 
     }
     for(const auto &a:world.sessionState().regionalActors(camera.mapId))
         *out<<"ACTOR "<<a.id.recordIndex<<' '<<a.x<<' '<<a.y<<' '<<a.hp<<' '<<unsigned(a.lifecycle)<<' '<<a.activated<<'\n';
-    if(auto treasure=party.monsterTreasure)*out<<"TREASURE "<<treasure->gold<<' '<<treasure->pendingGold<<' '<<treasure->pendingMask<<'\n';
+    const auto &staged=world.treasureStaging().value();
+    if(party.purse)*out<<"TREASURE "<<party.purse->gold<<' '<<staged.gold<<' '<<staged.ready<<'\n';
 }
 }
 #endif

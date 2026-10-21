@@ -149,9 +149,8 @@ struct XeenSaveJourney {
 	std::array<XeenSaveCombatSupplement, 30> supplements{};
 	std::uint32_t skeletonSeed = 0;
 	std::optional<XeenJourneyRandomState> random;
-	// v13: the saved form of the live treasure: its source slots 0..n-1 hold
-	// exactly the referenced defeated, accounted monsters, ordered by identity.
-	std::optional<XeenMonsterTreasure> treasure;
+	// v17: the purse only; pending treasure is running-program state, never saved.
+	std::optional<XeenPurse> purse;
 	std::optional<XeenWorldFlags> worldFlags;
 	std::optional<XeenServiceEconomy> serviceEconomy;
 };

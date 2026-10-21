@@ -42,7 +42,7 @@ XeenSaveSnapshot source(Inputs &in,unsigned spell,bool combat=false) {
     auto &recipient=s.characters[s.activeRosterIds[1]];recipient.permanentLevel=1;recipient.temporaryLevel=0;
     recipient.weapons[0]={0,1,0,1};recipient.weapons[1]={0,2,0,0};
     recipient.armor[0]={0,1,0,0};recipient.miscellaneous[0]={1,4,2,0};
-    s.journey->treasure->gems=1000;s.journey->context->ctr24=23;s.journey->context->minutes=600;
+    s.journey->purse->gems=1000;s.journey->context->ctr24=23;s.journey->context->minutes=600;
     if(combat) {auto &enemy=s.map(23).monsters->slots[5];enemy.x=8;enemy.y=11;enemy.lifecycle=XeenActorLifecycle::Present;enemy.accounted=false;}
     save_test::clearExplored(s);return s;
 }
@@ -55,7 +55,7 @@ void begin(Fixture &f,bool item,unsigned spell,bool mouse) {
     else {f.act(CastSpellAction{});f.act(SelectMemberAction{0});key(f,'c',mouse);}
     const auto cost=R::cost(spell,12);
     const auto owner=f.p.party.activeRosterIds()[0];
-    check(f.p.roster.at(owner).currentSp==(item?3:1000-int(cost.sp)) && f.p.monsterTreasure->gems==1000-(item?0:cost.gems),"Cost is spent before the member prompt");
+    check(f.p.roster.at(owner).currentSp==(item?3:1000-int(cost.sp)) && f.p.purse->gems==1000-(item?0:cost.gems),"Cost is spent before the member prompt");
 }
 void exploration(Inputs &in) {
     for(unsigned spell:{19u,57u,39u})for(bool item:{false,true})for(unsigned path=0;path<6;++path) {
@@ -69,7 +69,7 @@ void exploration(Inputs &in) {
         if(path==5) {if(spell==57)target.miscellaneous[0].state=0x42;else target.weapons[0].state=spell==19?0x80:0x40;}
         const C category=spell==57?C::Miscellaneous:spell==19 && path==4?C::Armor:C::Weapons;
         const XeenItem selected=xeenInventoryItems(target,category)->at(0);
-        const auto gold=s.journey->treasure->gold;
+        const auto gold=s.journey->purse->gold;
         Fixture f(in,s);const auto before=f.w.sessionState().journeyRandom();auto expected=XeenCombatRandom(*before);
         begin(f,item,spell,mouse);
         if(path==0)key(f,InputKey::Escape,mouse);
@@ -90,14 +90,14 @@ void exploration(Inputs &in) {
                 check(work.service(draws),"Expected item preparation");
                 check(xeenSameItem(xeenInventoryItems(f.p.roster.at(recipient),category)->at(0),
                     work.gold?target.weapons[1]:work.item),"Published item change/refusal/compaction");
-                check(f.p.monsterTreasure->gold==gold+work.gold,"Gold credited exactly once");
+                check(f.p.purse->gold==gold+work.gold,"Gold credited exactly once");
                 if(work.failed) {check(after.dialog && after.dialog->anyKey,"Original refusal awaits acknowledgment");tick(f);check(f.p.encounterContext->minutes==600,"Refusal waits before time/response");}
                 if(spell==57 && path==4)check(f.p.roster.at(recipient).miscellaneous[0].state==0xbf,"Broken Recharge fills to 63 in real flow");
             }
         }
         quiet(f);const auto cost=R::cost(spell,12);const bool refunded=path==0;
         check(f.p.roster.at(owner).currentSp==(item?3+int(refunded?cost.sp:0):1000-int(refunded?0:cost.sp)),"Member Escape refunds; later Escape/refusal keeps SP");
-        check(f.p.monsterTreasure->gems==1000+(item?(refunded?cost.gems:0):0)-(item?0:(refunded?0:cost.gems)),"Own-ID gem refund including item cancellation");
+        check(f.p.purse->gems==1000+(item?(refunded?cost.gems:0):0)-(item?0:(refunded?0:cost.gems)),"Own-ID gem refund including item cancellation");
         if(item)check(path==0?!f.p.roster.at(owner).miscellaneous[0].material:f.p.roster.at(owner).miscellaneous[0].state==1,"Refund does not restore the spent charge");
         check(f.w.sessionState().journeyRandom()==expected.continuation(),"Item spell DOS draw order without extra response draws");
         check(f.p.encounterContext->minutes==(item?600:601),"Existing book/item time suffix");roundtrip(in,f);
@@ -117,7 +117,7 @@ void combat(Inputs &in) {
         if(fight().cast() && fight().cast()->phase==XeenCombatCastPhase::Confirm)key(f,'c');
         if(spell==19) {
             check(!fight().cast() || !fight().cast()->committed,"Learned Enchant forbidden in combat/Quick Fight");
-            check(f.p.roster.at(owner).currentSp==1000 && f.p.monsterTreasure->gems==1000 && fight().random()==random,"Forbidden Enchant costs nothing");continue;
+            check(f.p.roster.at(owner).currentSp==1000 && f.p.purse->gems==1000 && fight().random()==random,"Forbidden Enchant costs nothing");continue;
         }
         check(fight().cast() && fight().cast()->phase==XeenCombatCastPhase::PartyTarget,"Combat original member prompt");
         if(path==0)key(f,InputKey::Escape);
@@ -132,7 +132,7 @@ void combat(Inputs &in) {
         }
         check(!fight().cast() && fight().phase()!=XeenCombatPhase::Failed,"Combat item spell settles into its successor");
         const auto cost=R::cost(spell,12);
-        check(f.p.roster.at(owner).currentSp==1000-int(path?cost.sp:0) && f.p.monsterTreasure->gems==1000-(path?cost.gems:0),"Combat own-ID refund and kept late cost");
+        check(f.p.roster.at(owner).currentSp==1000-int(path?cost.sp:0) && f.p.purse->gems==1000-(path?cost.gems:0),"Combat own-ID refund and kept late cost");
         auto expected=random;
         if(path==2) {
             const C category=spell==57?C::Miscellaneous:C::Weapons;

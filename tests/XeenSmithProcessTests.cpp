@@ -57,7 +57,7 @@ int main(int argc,char **argv) {
   const auto a=XeenSaveFile::read(dir/"production-A.mmsave");
   child_test::require(a.journey && a.journey->schema==9 && a.journey->content==14 &&
    a.journey->context->day==8 && a.journey->context->minutes==1397 && a.journey->context->ctr24==1 &&
-   a.journey->treasure->gold==840 && a.characters[1].armor[0].state==128 &&
+   a.journey->purse->gold==840 && a.characters[1].armor[0].state==128 &&
    a.characters[1].armor[1].state==128,"M38 production-input checkpoint differs from content");
   // Windows may recycle a terminated process PID; creation time identifies its incarnation.
   std::set<std::pair<DWORD,std::uint64_t>> processes{{fresh.pid,fresh.created}};
@@ -86,18 +86,10 @@ int main(int argc,char **argv) {
    else child_test::require(bytes(restored)==bytes(route),"M38 uninterrupted/resumed bytes differ");
   }
   for(const auto gold:{0u,1u,0xffffffffu}) for(bool hole:{false,true}) {
-   auto artificial=a;artificial.journey->treasure->gold=gold;
+   auto artificial=a;artificial.journey->purse->gold=gold;
    for(unsigned slot=2;slot<9;++slot)artificial.characters[1].armor[slot]={38,1,0xc5,0};
    if(hole)artificial.characters[1].armor[2]={255,0,255,0};
    artificial.characters[29].armor[8]=artificial.characters[1].armor[8];
-   bool source=false;
-   // v13: the stored item's source indexes the saved monster identities.
-   const auto &slots=artificial.map(23).monsters->slots;
-   for(unsigned id=0;id<slots.size() && id<12;++id)if(slots[id].accounted) {
-    artificial.journey->treasure->sources[0]={23,id};artificial.journey->treasure->armor[0].source=0;
-    artificial.journey->treasure->armor[0].item={0,1,0,0};source=true;break;
-   }
-   child_test::require(source,"M38 synthetic dormant fixture needs a legitimate defeated source");
    const auto name=std::string("synthetic-")+std::to_string(gold)+(hole?"-hole":"-full");
    const auto input=dir/(name+"-input.mmsave");XeenSaveFile::write(input,artificial);
    run(name,gold==0 && hole?"synthetic-native":"synthetic",input);

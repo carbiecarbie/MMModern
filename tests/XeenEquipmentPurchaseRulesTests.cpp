@@ -72,7 +72,7 @@ void preparedRules(training_test::Inputs &inputs) {
     sameCategory(initialEconomy.wares[0][0][0],literalWeapons,"seed-7 literal weapons differ");
     sameCategory(initialEconomy.wares[0][0][1],literalArmor,"seed-7 literal armor differs");
     check(source.journey->random==XeenJourneyRandomState{1,2000247898u,875},"seed-7 generation cursor differs");
-    p.monsterTreasure->gold=10000;
+    p.purse->gold=10000;
     for(unsigned c=0;c<2;++c)for(unsigned slot=0;slot<(c?8u:7u);++slot) {
         const auto category=static_cast<XeenInventoryCategory>(c);
         const auto record=initialEconomy.wares[0][0][c][slot];
@@ -97,7 +97,7 @@ void preparedRules(training_test::Inputs &inputs) {
     check(xeenQuoteEquipmentPurchase(p,0,XeenInventoryCategory::Weapons,1,0,0).outcome==Outcome::Quoted,
         "content-14 physical Buy offer refused");
     for(unsigned price:{60u,200u})for(int delta:{-1,0,1}) {
-        p.monsterTreasure->gold=price+delta;
+        p.purse->gold=price+delta;
         const auto category=price==60?XeenInventoryCategory::Weapons:XeenInventoryCategory::Armor;
         const unsigned slot=price==60?3:1;
         const auto quote=xeenQuoteEquipmentPurchase(p,0,category,slot,0,0);
@@ -107,14 +107,11 @@ void preparedRules(training_test::Inputs &inputs) {
         check(candidate.result.outcome==(delta<0?Outcome::InsufficientGold:Outcome::Purchased) &&
             candidate.result.goldAfter==(delta<0?price-1:unsigned(delta)),"59/60/61 or 199/200/201 funds differ");
     }
-    p.monsterTreasure->gold=UINT32_MAX;
+    p.purse->gold=UINT32_MAX;
     check(xeenPrepareEquipmentPurchase(p,0,XeenInventoryCategory::Weapons,3,0,0).result.goldAfter==4294967235u,"u32-high purse was narrowed");
-    p.monsterTreasure->gold=0;p.monsterTreasure->gems=UINT32_MAX;p.serviceEconomy->bank={UINT32_MAX,UINT32_MAX};
+    p.purse->gold=0;p.purse->gems=UINT32_MAX;p.serviceEconomy->bank={UINT32_MAX,UINT32_MAX};
     check(xeenPrepareEquipmentPurchase(p,0,XeenInventoryCategory::Weapons,3,0,0).result.outcome==Outcome::InsufficientGold,"gems/bank paid Buy");
-    p.monsterTreasure->gold=59;p.monsterTreasure->pendingGold=10;p.monsterTreasure->pendingMask=1;p.monsterTreasure->sources[0]={23,0};
-    check(xeenPrepareEquipmentPurchase(p,0,XeenInventoryCategory::Weapons,3,0,0).result.outcome==Outcome::InsufficientGold,"pending treasure paid Buy");
-    p.monsterTreasure->pendingGold=0;p.monsterTreasure->pendingMask=0;p.monsterTreasure->sources[0]={};
-    p.monsterTreasure->gold=10000;
+    p.purse->gold=10000;
     auto &recipient=p.roster.at(0);recipient.weapons={};
     recipient.weapons[2]={0,7,0,0};recipient.weapons[6]={0,12,0,0};
     recipient.weapons[0]={255,0,255,0};recipient.armor[8]={241,0,242,0};
@@ -130,7 +127,7 @@ void preparedRules(training_test::Inputs &inputs) {
         check(recipient.armor[8].material==241 && recipient.armor[8].state==242 && recipient.currentHp==30000 && recipient.currentSp==30000,
             "candidate normalized untouched metadata/current stats");
     }
-    recipient.weapons[8]={0,15,0,0};p.monsterTreasure->gold=0;
+    recipient.weapons[8]={0,15,0,0};p.purse->gold=0;
     const auto full=xeenQuoteEquipmentPurchase(p,0,XeenInventoryCategory::Weapons,3,0,0);
     check(full.outcome==Outcome::DestinationFull && full.price==0 && full.goldAfter==0,"tail/full-before-funds precedence differs");
     // All pure operations above retain stock, all nonselected owners and time.
@@ -140,9 +137,9 @@ void preparedRules(training_test::Inputs &inputs) {
     // no longer happens to contain duplicate weapon-6 offers.
     p.serviceEconomy->wares[0][0][0][1]={0,6,0,0};
     p.serviceEconomy->wares[0][0][0][4]={0,6,0,0};
-    p.roster.at(0).weapons={};p.roster.at(0).conditions[8]=0;p.monsterTreasure->gold=120;
+    p.roster.at(0).weapons={};p.roster.at(0).conditions[8]=0;p.purse->gold=120;
     const auto first=xeenPrepareEquipmentPurchase(p,0,XeenInventoryCategory::Weapons,1,0,0);
-    p.serviceEconomy=first.economyAfter;p.roster.at(0).weapons=first.result.recipientAfter;p.monsterTreasure->gold=first.result.goldAfter;
+    p.serviceEconomy=first.economyAfter;p.roster.at(0).weapons=first.result.recipientAfter;p.purse->gold=first.result.goldAfter;
     check(p.serviceEconomy->wares[0][0][0][1].id==9 && p.serviceEconomy->wares[0][0][0][3].id==6,"duplicate physical shift differs");
     const auto second=xeenPrepareEquipmentPurchase(p,0,XeenInventoryCategory::Weapons,3,0,0);
     check(second.result.outcome==Outcome::Purchased && second.result.goldAfter==0 && second.result.recipientSlot==1,

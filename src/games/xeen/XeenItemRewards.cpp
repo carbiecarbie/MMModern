@@ -115,7 +115,7 @@ void xeenSortRewardEntry(const XeenRewardEntry &entry,XeenPartyState &party) {
 	if(entry.owner)xeenCompactItems(xeenRewardItems(party.roster.at(*entry.owner),entry.category));
 }
 void xeenCreditRewardCurrency(XeenPendingRewards &pending,const XeenRewardReceipt &receipt,XeenPartyState &party) noexcept {
-	if(party.monsterTreasure){party.monsterTreasure->gold+=receipt.gold;party.monsterTreasure->gems+=receipt.gems;}
+	if(party.purse){party.purse->gold+=receipt.gold;party.purse->gems+=receipt.gems;}
 	pending={};
 }
 XeenRewardReceipt xeenDeliverRewards(XeenPendingRewards &pending,
@@ -144,7 +144,7 @@ XeenRewardReceipt xeenDeliverRewards(XeenPendingRewards &pending,
 	}
 	// DOS 0x2433e..0x2437b clears only items; 0x2486a..0x24884 still credits money.
 	result.gold=pending.gold();result.gems=pending.gems();
-	if(party.monsterTreasure) {party.monsterTreasure->gold+=result.gold;party.monsterTreasure->gems+=result.gems;}
+	if(party.purse) {party.purse->gold+=result.gold;party.purse->gems+=result.gems;}
 	pending = {};
 	return result;
 }

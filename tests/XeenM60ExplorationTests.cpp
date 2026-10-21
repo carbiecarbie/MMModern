@@ -33,7 +33,7 @@ XeenSaveSnapshot source(Inputs &in,unsigned spell,bool indoor) {
  for(auto *items:{&caster.weapons,&caster.armor,&caster.accessories})for(auto &item:*items)item.frame=0;
  caster.learnedSpells.emplace();caster.currentSpell=*XeenLearnedSpellRules::slotForSpell(*XeenLearnedSpellRules::categoryForClass(caster.characterClass),spell);
  caster.learnedSpells->at(caster.currentSpell)=1;
- s.journey->treasure->gems=100;s.journey->context->ctr24=23;
+ s.journey->purse->gems=100;s.journey->context->ctr24=23;
  return s;
 }
 void begin(Fixture &f) {
@@ -51,7 +51,7 @@ void effects(Inputs &in) {
   if(id==10 || id==59)f.act(SelectMemberAction{0});
   quiet(f);
   check(f.p.roster.at(s.activeRosterIds[4]).currentSp==100-int(cost.sp),"M60 SP debit differs");
-  check(f.p.monsterTreasure->gems==100-cost.gems,"M60 gem debit differs");
+  check(f.p.purse->gems==100-cost.gems,"M60 gem debit differs");
   check(f.p.encounterContext->minutes==minute+(indoor?1:10) && f.p.encounterContext->ctr24==23,"Cast time/counter differs");
   check(f.w.sessionState().journeyRandom()==random,"Empty/healing spell consumed intrinsic RNG");
   check(f.w.sessionState().exploredTiles().empty(),"Eye/cast without Cartography wrote explored bits");
@@ -74,7 +74,7 @@ void blockedProjectiles(Inputs &in) {
  for(unsigned id:{20u,27u,45u,50u,60u,2u,17u,33u,38u,61u,62u,72u,73u}) {
   auto s=source(in,id,true);s.camera=*blocked;Fixture f(in,s);const auto random=f.w.sessionState().journeyRandom();
   const auto cost=XeenLearnedSpellRules::cost(id,f.p.roster.at(s.activeRosterIds[4]).currentLevel());begin(f);quiet(f);
-  check(f.p.roster.at(s.activeRosterIds[4]).currentSp==100-int(cost.sp) && f.p.monsterTreasure->gems==100-cost.gems &&
+  check(f.p.roster.at(s.activeRosterIds[4]).currentSp==100-int(cost.sp) && f.p.purse->gems==100-cost.gems &&
    f.p.encounterContext->minutes==s.journey->context->minutes+1 && f.w.sessionState().journeyRandom()==random,
    "Blocked projectile cost/time/draw semantics differ");
  }
@@ -90,7 +90,7 @@ void eyeExpiry(Inputs &in) {
 void refunds(Inputs &in) {
  for(unsigned id:{10u,59u}) {
   auto s=source(in,id,true);Fixture f(in,s);begin(f);f.act(CancelInteractionAction{});quiet(f);
-  check(f.p.roster.at(s.activeRosterIds[4]).currentSp==100 && f.p.monsterTreasure->gems==100,"Member target Escape refund differs");
+  check(f.p.roster.at(s.activeRosterIds[4]).currentSp==100 && f.p.purse->gems==100,"Member target Escape refund differs");
   check(f.p.encounterContext->minutes==s.journey->context->minutes+1,"Refund lost paid cast time");
  }
 }
@@ -123,7 +123,7 @@ void impacts(Inputs &in) {
   // Disclosed live wounds on original Vertigo monsters; current HP drives Mass Distortion.
   if(spell==46)for(unsigned i=0;i<count;++i)XeenMonsterTestAccess::setLive(*f.flow,f.w,28,35+i,1,true);
   XeenCombatRandom expected(*f.w.sessionState().journeyRandom());
-  auto treasure=*f.p.monsterTreasure;unsigned xp=0;
+  auto treasure=f.w.treasureStaging().value();unsigned xp=0;
   for(unsigned i=0;i<count;++i) {
    const auto &actor=f.w.sessionState().regionalActors(28).at(35+i);const auto &caster=f.p.roster.at(s.activeRosterIds[4]);
    XeenSpellDamageCandidate candidate(caster.permanentLevel,caster.temporaryLevel,actor.statistics->magicResistance(),actor.original.resourceId,
@@ -139,18 +139,18 @@ void impacts(Inputs &in) {
     const bool generated=oracle.draw(1,100)<=10;
     std::optional<std::pair<unsigned,XeenItem>> item;
     if(generated)item=oracle.item(1);
-    XeenMonsterDropCandidate drop(treasure,actor.id);check(drop.service(draw),"Live spell bounded drop");
+    XeenMonsterDropCandidate drop(treasure);check(drop.service(draw),"Live spell bounded drop");
     check(expected.continuation()==XeenJourneyRandomState{1,oracle.state,oracle.count} &&
-     (item?xeenSameItem(drop.generated.item,item->second):drop.outcome==XeenMonsterDropOutcome::None),"Independent spell/drop generation and RNG differ");
+     (item?xeenSameItem(drop.generated,item->second):drop.outcome==XeenMonsterDropOutcome::None),"Independent spell/drop generation and RNG differ");
     treasure=drop.treasure;
    }
   }
   std::array<unsigned,6> priorXp{};for(unsigned i=0;i<6;++i)priorXp[i]=f.p.roster.combatInputs(s.activeRosterIds[i])->experience;
-  const auto gold=f.p.monsterTreasure->gold;begin(f);try{quiet(f);}catch(const std::exception &e){throw std::runtime_error("spell="+std::to_string(spell)+" distance="+std::to_string(distance)+" "+e.what());}
+  const auto gold=f.p.purse->gold;begin(f);try{quiet(f);}catch(const std::exception &e){throw std::runtime_error("spell="+std::to_string(spell)+" distance="+std::to_string(distance)+" "+e.what());}
   for(unsigned i=0;i<count;++i)check(f.w.sessionState().regionalActors(28).at(35+i).lifecycle==XeenActorLifecycle::Defeated &&
    f.w.sessionState().accountedMonsters().count({28,35+i}),"Live spell death was not accounted");
   for(unsigned i=0;i<6;++i)check(f.p.roster.combatInputs(s.activeRosterIds[i])->experience==priorXp[i]+xp*(f.p.roster.at(s.activeRosterIds[i]).permanentLevel<15?2:1),"Live spell XP duplicated or lost");
-  check(f.p.monsterTreasure->gold==gold+treasure.pendingGold,"Live spell reward duplicated or lost");
+  check(f.p.purse->gold==gold+treasure.gold,"Live spell reward duplicated or lost");
   check(f.w.sessionState().journeyRandom()==expected.continuation(),"Live spell impact/drop draw tape differs");
   const auto saved=XeenSaveFormat::encode(f.snapshot());Fixture restored(in,XeenSaveFormat::decode(saved));
   check(saved==XeenSaveFormat::encode(restored.snapshot()),"Live spell restore replayed impacts/rewards");
@@ -158,13 +158,13 @@ void impacts(Inputs &in) {
 }
 void m73Guild(Inputs &in) {
  for(unsigned spell:{38u,61u,62u,72u}) {
-  auto s=source(in,spell,true);s.camera={28,20,13,XeenDirection::North};s.journey->treasure->gold=20000;
+  auto s=source(in,spell,true);s.camera={28,20,13,XeenDirection::North};s.journey->purse->gold=20000;
   auto &c=s.characters[s.activeRosterIds[4]];c.awards[0]=1;c.learnedSpells->fill(1);c.learnedSpells->at(c.currentSpell)=0;
   Fixture guild(in,s);guild.flow->drawGuildArt=[&in](auto &image){in.assets.drawGuild(image);};
   guild.act(InteractionAction{});guild.prepare();guild.act(SelectMemberAction{4});
   guild.act(DialogKeyAction{'b'});guild.act(DialogKeyAction{'1'});guild.act(DialogKeyAction{'y'});
   check(XeenLearnedSpellRules::known(guild.p.roster.at(s.activeRosterIds[4]),c.currentSpell),"Vertigo Guild did not teach M73 spell");
-  check(guild.p.monsterTreasure->gold==20000-XeenLearnedSpellRules::purchasePrice(spell,c.characterClass),"Vertigo Guild M73 price differs");
+  check(guild.p.purse->gold==20000-XeenLearnedSpellRules::purchasePrice(spell,c.characterClass),"Vertigo Guild M73 price differs");
   guild.act(CancelInteractionAction{});guild.act(CancelInteractionAction{});quiet(guild);
   auto learned=guild.snapshot();learned.camera={28,15,0,XeenDirection::North};
   const auto original=XeenActorApproach::actorsFromResources(in.maps.loadObjects(in.assets,28),in.statistics);
@@ -172,12 +172,12 @@ void m73Guild(Inputs &in) {
   check(bug!=original.end(),"Vertigo has no original Doom Bug");
   auto &a=learned.map(28).monsters->slots.at(bug->id.recordIndex);a.x=15;a.y=3;a.lifecycle=XeenActorLifecycle::Present;a.accounted=false;
   Fixture fight(in,learned);XeenMonsterTestAccess::setLive(*fight.flow,fight.w,28,bug->id.recordIndex,1,false);
-  const auto sp=fight.p.roster.at(s.activeRosterIds[4]).currentSp;const auto gems=fight.p.monsterTreasure->gems;
+  const auto sp=fight.p.roster.at(s.activeRosterIds[4]).currentSp;const auto gems=fight.p.purse->gems;
   const auto minutes=fight.p.encounterContext->minutes;begin(fight);quiet(fight);
   const auto &after=fight.w.sessionState().monsters(28).at(bug->id.recordIndex);
   check(spell==61?(after.hp==1 && after.status==XeenActorStatus::Physical):after.lifecycle==XeenActorLifecycle::Defeated,"Purchased spell/Doom Bug effect differs");
   const auto cost=XeenLearnedSpellRules::cost(spell,c.currentLevel());
-  check(fight.p.roster.at(s.activeRosterIds[4]).currentSp==sp-int(cost.sp) && fight.p.monsterTreasure->gems==gems-cost.gems &&
+  check(fight.p.roster.at(s.activeRosterIds[4]).currentSp==sp-int(cost.sp) && fight.p.purse->gems==gems-cost.gems &&
    fight.p.encounterContext->minutes==minutes+1,"Purchased M73 spell costs differ");
  }
 }
@@ -210,7 +210,7 @@ void m73Live(Inputs &in) {
   Fixture f(in,s);
   for(auto slot:slots)XeenMonsterTestAccess::setLive(*f.flow,f.w,23,slot,1,true);
   const auto &caster=f.p.roster.at(s.activeRosterIds[4]);
-  auto expected=XeenCombatRandom(*f.w.sessionState().journeyRandom());auto treasure=*f.p.monsterTreasure;
+  auto expected=XeenCombatRandom(*f.w.sessionState().journeyRandom());auto treasure=f.w.treasureStaging().value();
   std::array<XeenActorStatus,3> status{};std::array<int,3> hp{1,1,1};
   XeenSpellDamagePreparation preparation(*XeenLearnedSpellRules::supported(spell),caster.currentLevel());
   XeenConsequenceDraw preparationDraw{expected};check(preparation.service(preparationDraw),"Cast-wide preparation incomplete");
@@ -227,7 +227,7 @@ void m73Live(Inputs &in) {
       *XeenLearnedSpellRules::supported(spell),a.statistics->physicalResistance(),a.status,a.statistics->monsterType(),&preparation);
     XeenConsequenceDraw draw{expected};check(effect.service(draw),"Exploration expected cast did not finish");
     hp[i]=std::max(hp[i]-effect.damage,0);status[i]=effect.status;
-    if(!hp[i]){XeenMonsterDropCandidate drop(treasure,a.id);check(drop.service(draw),"Target settlement did not finish");treasure=drop.treasure;}
+    if(!hp[i]){XeenMonsterDropCandidate drop(treasure);check(drop.service(draw),"Target settlement did not finish");treasure=drop.treasure;}
     if(spell!=51)break;
     volley.settle(!effect.miss);
    }while(hp[i]>0);
@@ -243,7 +243,7 @@ void m73Live(Inputs &in) {
   XeenRegionalOpportunityCandidate response(query.map(23),anticipated,s.camera,characters,inputs,f.p.encounterContext->year,63);
   for(unsigned n=0;n<100;++n){XeenConsequenceDraw draw{expected};if(response.service(draw))break;}
   for(unsigned i=0;i<3;++i)status[i]=response.actors.at(slots[i]).status;
-  const auto minutes=f.p.encounterContext->minutes;const auto sp=caster.currentSp;const auto gems=f.p.monsterTreasure->gems;
+  const auto minutes=f.p.encounterContext->minutes;const auto sp=caster.currentSp;const auto gems=f.p.purse->gems;
   if(item){f.act(SelectMemberAction{4});f.act(DialogKeyAction{'i'});f.act(DialogKeyAction{'m'});f.act(DialogKeyAction{'1'});f.act(DialogKeyAction{'u'});}
   else begin(f);
   quiet(f);
@@ -252,7 +252,7 @@ void m73Live(Inputs &in) {
   if(spell==2 || spell==33 || spell==61)check(std::any_of(status.begin(),status.end(),[](auto s){return s!=XeenActorStatus::Physical;}),"M73 real-cast fixture must retain a successful control at save");
   const auto cost=XeenLearnedSpellRules::cost(spell,caster.currentLevel());
   check(f.p.encounterContext->minutes==minutes+(item?0:10) && caster.currentSp==sp-(item?0:int(cost.sp)) &&
-   f.p.monsterTreasure->gems==gems-(item?0:cost.gems),"M73 exploration/item costs differ");
+   f.p.purse->gems==gems-(item?0:cost.gems),"M73 exploration/item costs differ");
   if(item)check(caster.miscellaneous[0].state==1,"M73 item did not spend exactly one charge");
   const auto saved=XeenSaveFormat::encode(f.snapshot());Fixture restored(in,XeenSaveFormat::decode(saved));
   check(saved==XeenSaveFormat::encode(restored.snapshot()),"M73 cast status restore replayed RNG/time/rewards");
@@ -370,7 +370,7 @@ void m74Empty(Inputs &in) {
   XeenMoonRayHealing healing;if(spell==48)check(healing.service(draw,f.p,f.p.encounterContext->year),"Empty Moon Ray incomplete");
   const auto cost=XeenLearnedSpellRules::cost(spell,f.p.roster.at(owner).currentLevel());
   begin(f);quiet(f);
-  check(f.p.roster.at(owner).currentSp==1000-int(cost.sp) && f.p.monsterTreasure->gems==100-cost.gems && f.p.encounterContext->minutes==s.journey->context->minutes+10,"Empty M74 cast refunded cost or changed time");
+  check(f.p.roster.at(owner).currentSp==1000-int(cost.sp) && f.p.purse->gems==100-cost.gems && f.p.encounterContext->minutes==s.journey->context->minutes+10,"Empty M74 cast refunded cost or changed time");
   check(f.w.sessionState().journeyRandom()==expected.continuation(),"Empty M74 preparation/healing RNG differs");
   for(const auto &effect:healing.result.effects)check(f.p.roster.at(effect.owner).currentHp==effect.hp,"Moon Ray did not use ordinary healing");
  }

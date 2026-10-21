@@ -26,9 +26,13 @@ bool sameEvents(const XeenEventFile &a,const XeenEventFile &b) {
 	return true;
 }
 }
-XeenEncounterFlow::XeenEncounterFlow(XeenTemplePriceState &templePrices, XeenWorld &w, XeenPartyState &p, XeenCamera &c, const XeenGameFlags &flags,
+XeenProgramState &xeenBorrowProgram(XeenProgramState &program, XeenWorld &world) {
+	world.borrowTreasureStaging(program.treasure);
+	return program;
+}
+XeenEncounterFlow::XeenEncounterFlow(XeenProgramState &program, XeenWorld &w, XeenPartyState &p, XeenCamera &c, const XeenGameFlags &flags,
 		const XeenEventPresenter::Clock &clock, const XeenJourneySetup &setup, const PresentationClock::Source *highResolution) :
-	_journey(true), _journeyStatistics(setup.statistics), _learnedNamesProvider(setup.learnedNamesProvider), _templePrices(templePrices), _world(w), _party(p), _camera(c), _flags(flags),
+	_journey(true), _journeyStatistics(setup.statistics), _learnedNamesProvider(setup.learnedNamesProvider), _program(xeenBorrowProgram(program,w)), _world(w), _party(p), _camera(c), _flags(flags),
 	_clock(clock), _nanosecondClock(highResolution), _events(_journeyEvents), _boundary(w,p,c) {
 	// Detach preparation arguments before compatibility/provider callbacks.
 	const auto characters=setup.characters;
@@ -141,9 +145,9 @@ XeenEncounterFlow::XeenEncounterFlow(XeenTemplePriceState &templePrices, XeenWor
 	} catch (...) { closeJourney(); throw; }
 }
 XeenEncounterFlow::~XeenEncounterFlow() { if (_journey) closeJourney(); }
-XeenEncounterFlow::XeenEncounterFlow(XeenTemplePriceState &templePrices, XeenWorld &w, XeenPartyState &p, XeenCamera &c, const XeenGameFlags &f,
+XeenEncounterFlow::XeenEncounterFlow(XeenProgramState &program, XeenWorld &w, XeenPartyState &p, XeenCamera &c, const XeenGameFlags &f,
 		const XeenEventPresenter::Clock &clock, XeenJourneyRestoreTag, const PresentationClock::Source *highResolution) :
-	_journey(true), _templePrices(templePrices), _world(w), _party(p), _camera(c), _flags(f), _clock(clock), _nanosecondClock(highResolution), _events(_journeyEvents), _boundary(w,p,c) {
+	_journey(true), _program(xeenBorrowProgram(program,w)), _world(w), _party(p), _camera(c), _flags(f), _clock(clock), _nanosecondClock(highResolution), _events(_journeyEvents), _boundary(w,p,c) {
 	const auto binding = w._journeyRestoration;
 	if (!binding || !binding->guard || !binding->guard->current() ||
 		&binding->guard->w != &w || &binding->guard->p != &p || &binding->guard->c != &c || &binding->guard->f != &f ||
@@ -234,10 +238,10 @@ bool XeenEncounterFlow::mrWizard(const Ticket &entry) {
 		auto prepared=std::make_shared<XeenRestoreGuard>(_world,_party,_camera,_flags);
 		prepared->retainResources(*_journeyPreimage);
 		prepared->prepareSpellMapPublication(*candidate);prepared->cameraValue=camera;
-		prepared->treasure->gems=0;prepared->s.assignExploration(exploration);
+		prepared->purse->gems=0;prepared->s.assignExploration(exploration);
 		_journeyPreimage->check();
 		_world.publishTransition(*candidate);_camera=camera;_journeyEvents=std::move(events);
-		_party.monsterTreasure->gems=0;
+		_party.purse->gems=0;
 		XeenMutationWatch::write(&_world);_world._sessionState.publishExploration(exploration);
 		++_generation;_journeyPreimage.swap(prepared);_journeyPreimage->adoptMutationBoundary();
 		publishArrival(arrival);
@@ -460,7 +464,7 @@ bool XeenEncounterFlow::settleItemUse(const Ticket &entry,std::uint64_t generati
             if(!targetIndex) if(const auto refund=xeenItemCancellationRefund(id,_party.roster.at(_itemUse->sourceOwner).currentLevel())) {
                 auto &user=_party.roster.at(_itemUse->sourceOwner);
                 user.currentSp=static_cast<std::int16_t>(user.currentSp+refund->sp);
-                _party.monsterTreasure->gems+=refund->gems;
+                _party.purse->gems+=refund->gems;
 			}
 			if(_itemUse->jumpDestination)_camera=*_itemUse->jumpDestination;
             // The used-item sheet close marks stepped (DOS 0x3a493),
@@ -674,16 +678,19 @@ std::string XeenEncounterFlow::journeyInspection() const {
 		out << "Actor " << a.id.recordIndex << " map=" << a.id.mapId << ' ' << a.x << ' ' << a.y << " HP=" << a.hp
 			<< " active=" << a.activated << " lifecycle=" << unsigned(a.lifecycle) << " status=" << unsigned(a.status)
 			<< " accounted=" << _world.sessionState().accountedMonsters().count(a.id) << '\n';
- if(_party.monsterTreasure) {
-  const auto &v=*_party.monsterTreasure;out<<"Purse gold="<<v.gold<<" gems="<<v.gems<<" pendingMask="<<v.pendingMask<<" pendingGold="<<v.pendingGold<<'\n';
-  for(unsigned category=0;category<2;++category)for(const auto &r:category?v.armor:v.weapons)out<<"Pending "<<(category?"armor":"weapon")<<" source="<<unsigned(r.source)<<" M/ID/S/F="<<unsigned(r.item.material)<<'/'<<unsigned(r.item.id)<<'/'<<unsigned(r.item.state)<<'/'<<unsigned(r.item.frame)<<'\n';
-  for(const auto &r:v.miscellaneous)if(r.item.id)out<<"Pending misc source="<<unsigned(r.source)<<" M/ID/S/F="<<unsigned(r.item.material)<<'/'<<unsigned(r.item.id)<<'/'<<unsigned(r.item.state)<<'/'<<unsigned(r.item.frame)<<'\n';
+ if(_party.purse)out<<"Purse gold="<<_party.purse->gold<<" gems="<<_party.purse->gems<<'\n';
+ {
+  const auto &v=_world.treasureStaging().value();
+  out<<"Pending gold="<<v.gold<<" gems="<<v.gems<<" ready="<<bool(v.ready)<<'\n';
+  const char *names[]={"weapon","armor","accessory","misc"};
+  for(unsigned category=0;category<4;++category)for(const auto &item:v.items(static_cast<XeenRewardCategory>(category)))
+   if(item.id || item.material)out<<"Pending "<<names[category]<<" M/ID/S/F="<<unsigned(item.material)<<'/'<<unsigned(item.id)<<'/'<<unsigned(item.state)<<'/'<<unsigned(item.frame)<<'\n';
  }
  if(_combat)out<<"Participants="<<unsigned(_combat->participants())<<" exit="<<unsigned(_combat->exitCause())<<'\n';
  const auto describe=[&](const XeenCombatResult &r) {
   if(r.operation==XeenCombatOperation::PlayerRun)out<<"Run owner="<<unsigned(*r.actingOwner)<<" roll="<<r.runRoll<<" success="<<r.runSuccess<<" mask="<<unsigned(r.participantsBefore)<<"->"<<unsigned(r.participantsAfter)<<'\n';
   if(r.operation==XeenCombatOperation::FinishDisengagement)out<<"Disengaged cause="<<unsigned(r.exitCause)<<" casualties="<<unsigned(r.casualties)<<" forfeitedGold="<<r.forfeitedGold<<'\n';
-  if(r.monsterDrop)out<<"Drop source="<<unsigned(r.generatedItem.source)<<" outcome="<<unsigned(*r.monsterDrop)<<" armor="<<r.generatedArmor<<" M/ID/S/F="<<unsigned(r.generatedItem.item.material)<<'/'<<unsigned(r.generatedItem.item.id)<<'/'<<unsigned(r.generatedItem.item.state)<<'/'<<unsigned(r.generatedItem.item.frame)<<'\n';
+  if(r.monsterDrop)out<<"Drop outcome="<<unsigned(*r.monsterDrop)<<" category="<<unsigned(r.generatedCategory)<<" M/ID/S/F="<<unsigned(r.generatedItem.material)<<'/'<<unsigned(r.generatedItem.id)<<'/'<<unsigned(r.generatedItem.state)<<'/'<<unsigned(r.generatedItem.frame)<<'\n';
   for(unsigned i=0;i<r.injuryCount;++i){const auto &v=r.injuries[i];out<<"Injury owner="<<unsigned(v.owner)<<" amount="<<v.amount<<" HP="<<v.beforeHp<<"->"<<v.afterHp<<" AC="<<v.beforeAc<<"->"<<v.afterAc<<" conditions=";for(auto c:v.conditions)out<<unsigned(c)<<',';out<<'\n';}
   for(unsigned i=0;i<r.armorCount;++i){const auto &v=r.armor[i];out<<"Item change owner="<<unsigned(v.owner)<<" category="<<unsigned(v.category)<<" slot="<<unsigned(v.slot)<<" state="<<unsigned(v.before.state)<<"->"<<unsigned(v.after.state)<<" frame="<<unsigned(v.before.frame)<<"->"<<unsigned(v.after.frame)<<'\n';}
  };

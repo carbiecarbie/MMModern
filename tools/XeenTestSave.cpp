@@ -89,8 +89,8 @@ struct Inputs {
         setup.learnedNames=resources.loadLearnedSpellNames();
         setup.learnedNamesProvider=resources.loadLearnedSpellNames;
         setup.cityEventsProvider=[this] {return resources.loadEvents(28);};
-        XeenTemplePriceState templePrices;
-        XeenEncounterFlow flow(templePrices,world,party,camera,flags,[]{return 0;},setup);
+        XeenProgramState program;
+        XeenEncounterFlow flow(program,world,party,camera,flags,[]{return 0;},setup);
         present(flow);
         return XeenSaveState::capture(resources.signature,party,camera,flags,world);
     }
@@ -99,8 +99,8 @@ struct Inputs {
         XeenPartyState party; XeenCamera camera; XeenGameFlags flags;
         XeenSaveState::restoreBeforeGameplay(candidate,resources,party,camera,flags,world,
             [this](auto &w,const auto &p,const auto &c,const auto &) {preflight(w,p,c);});
-        XeenTemplePriceState templePrices;
-        XeenEncounterFlow flow(templePrices,world,party,camera,flags,[]{return 0;},XeenJourneyRestoreTag{});
+        XeenProgramState program;
+        XeenEncounterFlow flow(program,world,party,camera,flags,[]{return 0;},XeenJourneyRestoreTag{});
         present(flow);
         return XeenSaveState::capture(resources.signature,party,camera,flags,world);
     }
@@ -131,7 +131,7 @@ void prepare(XeenSaveSnapshot &snapshot,const std::string &preset) {
     }
     if(preset=="m79-playtest") {
         snapshot.camera={30,12,12,XeenDirection::North};snapshot.food=1;
-        journey.treasure->gold=100000;journey.treasure->gems=5000;
+        journey.purse->gold=100000;journey.purse->gems=5000;
         for(unsigned n=0;n<snapshot.activeRosterIds.size();++n) {
             const auto owner=snapshot.activeRosterIds[n];auto &c=snapshot.characters[owner];
             c.conditions.fill(0);c.permanentLevel=std::array<unsigned,3>{9,14,19}[n%3];c.temporaryLevel=0;
@@ -156,7 +156,7 @@ void prepare(XeenSaveSnapshot &snapshot,const std::string &preset) {
         return;
     }
     if(preset=="m76-spells") {
-        snapshot.camera={28,18,4,XeenDirection::West};journey.treasure->gems=1000;
+        snapshot.camera={28,18,4,XeenDirection::West};journey.purse->gems=1000;
         constexpr unsigned spells[]{3,30,31,53,55,12,13,42,41,74,4,15,34,19,57,39,66,21,70,69,44,71};
         constexpr unsigned powers[]{22,30,25,29,14,49,50,1,20,32,18,34,23,63,53};
         for(unsigned i=0;i<2;++i) {
@@ -195,7 +195,7 @@ void prepare(XeenSaveSnapshot &snapshot,const std::string &preset) {
         // The original six at level 30, Obsidian gear equipped through the shared
         // equipment rule, every slot of each caster's list and the outdoor skills.
         // The one-holder variant keeps Mountaineer/Pathfinder on the first member.
-        journey.treasure->gold=100000;journey.treasure->gems=5000;
+        journey.purse->gold=100000;journey.purse->gems=5000;
         const bool one=preset=="m78-one-holder";
         const XeenCharacterRulesContext rules{std::uint32_t(journey.context->year)};
         XeenPartyState party;
@@ -263,7 +263,7 @@ void prepare(XeenSaveSnapshot &snapshot,const std::string &preset) {
         return;
     }
     if(preset=="party-healing") {
-        snapshot.camera={28,18,4,XeenDirection::West};journey.treasure->gems=1000;
+        snapshot.camera={28,18,4,XeenDirection::West};journey.purse->gems=1000;
         constexpr unsigned spells[]{6,7,8,9,16,49,52,56,58,64,67,68};
         constexpr unsigned powers[]{26,27,37,41,44,51,56,57,66,73};
         for(unsigned i=0;i<2;++i) {
@@ -294,7 +294,7 @@ void prepare(XeenSaveSnapshot &snapshot,const std::string &preset) {
     }
     if ((preset=="monster-control" || preset=="monster-damage")) {
         snapshot.camera={28,18,4,XeenDirection::West};
-        journey.treasure->gems=1000;
+        journey.purse->gems=1000;
         for(auto owner:snapshot.activeRosterIds) {
             auto &caster=snapshot.characters[owner];
             const auto category=XeenLearnedSpellRules::categoryForClass(caster.characterClass);
@@ -310,7 +310,7 @@ void prepare(XeenSaveSnapshot &snapshot,const std::string &preset) {
     if (preset=="broken-armor") {
         // Physical injury can break equipped armor; Temple Heal leaves that bit set.
         for (auto owner:snapshot.activeRosterIds) for (auto &item:snapshot.characters[owner].armor)
-            if (item.id && item.frame && xeenQuoteArmorRepair(XeenInventoryCategory::Armor,item,journey.treasure->gold).outcome==XeenArmorRepairOutcome::Intact) {
+            if (item.id && item.frame && xeenQuoteArmorRepair(XeenInventoryCategory::Armor,item,journey.purse->gold).outcome==XeenArmorRepairOutcome::Intact) {
                 item.state|=0x80;
                 return;
             }
@@ -318,13 +318,13 @@ void prepare(XeenSaveSnapshot &snapshot,const std::string &preset) {
     }
     if (preset=="train-ready") {
         auto &inputs=journey.supplements.at(first).inputs;
-        const auto quote=xeenQuoteTraining(member,inputs,journey.treasure->gold,*journey.context,snapshot.camera.mapId);
+        const auto quote=xeenQuoteTraining(member,inputs,journey.purse->gold,*journey.context,snapshot.camera.mapId);
         const auto xp=std::uint64_t(inputs.experience)+quote.missing;
         if (member.permanentLevel>=10 || xp>std::numeric_limits<std::uint32_t>::max())
             throw std::runtime_error("Fresh member cannot represent trainable XP");
         inputs.experience=static_cast<std::uint32_t>(xp);
-        journey.treasure->gold=std::max<std::uint32_t>(journey.treasure->gold,quote.cost);
-        if (xeenQuoteTraining(member,inputs,journey.treasure->gold,*journey.context,snapshot.camera.mapId).outcome!=XeenTrainingOutcome::Quoted)
+        journey.purse->gold=std::max<std::uint32_t>(journey.purse->gold,quote.cost);
+        if (xeenQuoteTraining(member,inputs,journey.purse->gold,*journey.context,snapshot.camera.mapId).outcome!=XeenTrainingOutcome::Quoted)
             throw std::runtime_error("Training preset is not eligible");
         return;
     }

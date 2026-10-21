@@ -153,7 +153,7 @@ void playback(Inputs &in, const XeenSaveSnapshot &source, Art art, const char *l
 	IndexedFrame oracle = frame();
 	oracle = drawn(in, oracle, XeenServiceAnimation::compose(art, 0));
 	artRegionMatches(shop.flow->frame(), oracle, label);
-	const auto gold = shop.p.monsterTreasure->gold;
+	const auto gold = shop.p.purse->gold;
 	const auto day = shop.p.encounterContext->day;
 	const auto minutes = shop.p.encounterContext->minutes;
 	// The fixture clock stays at 0 while the visit opens, so the first call at 0 can only arm
@@ -176,7 +176,7 @@ void playback(Inputs &in, const XeenSaveSnapshot &source, Art art, const char *l
 	}
 	// A stalled host does not trigger catch-up redraws.
 	check(shop.tick(now + 100000).has_value() && !shop.tick(now + 100001), "pulse caught up after a stall");
-	check(shop.p.monsterTreasure->gold == gold && shop.p.encounterContext->day == day && shop.p.encounterContext->minutes == minutes,
+	check(shop.p.purse->gold == gold && shop.p.encounterContext->day == day && shop.p.encounterContext->minutes == minutes,
 		"base-frame pulse changed gold or service-day accounting");
 	std::cout << label << " base cycle passed\n";
 }

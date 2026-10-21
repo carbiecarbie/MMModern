@@ -198,7 +198,7 @@ void characterPreflight() {
 
 
 void mutationPolicies() {
-    mmodern::XeenTemplePriceState templePriceState;
+    mmodern::XeenProgramState programState;
 	for (int outcome = 0; outcome < 3; ++outcome) {
 		Fixture f;
 		f.evt[1] = eventBytes({record(1, 1, 0, 0x1f, {2, 1, 1})});
@@ -216,7 +216,7 @@ void mutationPolicies() {
 		XeenEventSystem events([&](XeenMapIdentity id) { return XeenEventScript(f.loadEvents(id)); },
 			[](XeenMapIdentity id) { return XeenEventTextFile{id, "synthetic.txt", true, {"Choose"}}; });
 		auto textFont = font();
-		XeenEventFlow flow(templePriceState,f.world, events, f.party, f.camera, f.flags, textFont,
+		XeenEventFlow flow(programState,f.world, events, f.party, f.camera, f.flags, textFont,
 			[&](std::uint64_t) { return XeenEventFlow::Composition{Fixture::compose(f.world, f.party, f.camera, f.flags), false}; });
 		flow.dialogText=&dos_test::text();
 		bool failed = false;std::optional<XeenEventExecutionState> suspended;
@@ -247,7 +247,7 @@ void mutationPolicies() {
 		record(1, 2, 2, 12, {0, 0, 104, 2}), record(1, 2, 3, 0xff)});
 	XeenEventSystem events([&](XeenMapIdentity id) { return XeenEventScript(moved.loadEvents(id)); });
 	auto textFont = font();
-	XeenEventFlow flow(templePriceState,moved.world, events, moved.party, moved.camera, moved.flags, textFont,
+	XeenEventFlow flow(programState,moved.world, events, moved.party, moved.camera, moved.flags, textFont,
 		[&](std::uint64_t) { return XeenEventFlow::Composition{Fixture::compose(moved.world, moved.party, moved.camera, moved.flags), false}; });
 	flow.dialogText=&dos_test::text();
 	bool failed = false;
@@ -260,12 +260,12 @@ void mutationPolicies() {
 
 
 void journeyBorrowRefusal() {
-    mmodern::XeenTemplePriceState templePriceState;
+    mmodern::XeenProgramState programState;
 	Fixture f;
 	XeenEventSystem events([&](XeenMapIdentity id) { return XeenEventScript(f.loadEvents(id)); },
 		[](XeenMapIdentity id) { return XeenEventTextFile{id, "synthetic.txt", true, {}}; });
 	auto textFont = font();
-	XeenEventFlow flow(templePriceState,f.world, events, f.party, f.camera, f.flags, textFont,
+	XeenEventFlow flow(programState,f.world, events, f.party, f.camera, f.flags, textFont,
 		[&](std::uint64_t) { return XeenEventFlow::Composition{Fixture::compose(f.world, f.party, f.camera, f.flags), false}; });
 	flow.dialogText=&dos_test::text();
 	auto snapshot = regional_test::snapshot(); snapshot.resources = f.signature;
@@ -283,7 +283,7 @@ void journeyBorrowRefusal() {
 
 
 struct CurrentDestination {
-    mmodern::XeenTemplePriceState templePriceState;
+    mmodern::XeenProgramState programState;
  XeenPartyState party;XeenCamera camera{23,9,11,XeenDirection::West};XeenGameFlags flags;
  unsigned maps=0,objects=0,events=0,monsters=0,preflights=0;
  std::function<XeenMap(XeenMapIdentity)> mapProvider=regional_test::map;
@@ -299,7 +299,7 @@ struct CurrentDestination {
    if(custom)custom(w,p,c,f);
   });
  }
- void bind(){flow=std::make_unique<XeenEncounterFlow>(templePriceState,world,party,camera,flags,[]{return 0;},XeenJourneyRestoreTag{});
+ void bind(){flow=std::make_unique<XeenEncounterFlow>(programState,world,party,camera,flags,[]{return 0;},XeenJourneyRestoreTag{});
   check(flow->prepareJourneyFrame(flow->ticket(),[]{}),"restore frame preparation");
   check(flow->presentJourney(flow->ticket()),"restore frame publication");}
  XeenSaveSnapshot capture(){return XeenSaveState::capture(resources.signature,party,camera,flags,world);}
@@ -407,7 +407,7 @@ void genericRoundTrip(){
  f3.cells={{17,0x0906,0,1,0}}; // Outdoor surface plus an independent wall-word layer.
  f3.explored=std::array<std::uint8_t,32>{};(*f3.explored)[9]=0x10;
  f3.tavernTips=14;
- s.journey->treasure->weapons[0]={0,{0,30,0,0}};s.journey->treasure->sources[0]={23,2};
+ s.journey->purse->gold=0x12345678;s.journey->purse->gems=0x87654321;
  auto &city=s.map(28);
  city.monsters=mobTable(4);
  auto &slime=city.monsters->slots[1];slime.x=slime.y=-128;slime.lifecycle=XeenActorLifecycle::Defeated;slime.accounted=true;
@@ -429,8 +429,9 @@ void genericRoundTrip(){
   live.world.effectiveObject({28,1}).x==4 && live.world.effectiveObjectFlip({28,1}) && state.isEventDisabled({28,764}) &&
   state.isEventDisabled({23,1}) && state.isObjectDisabled({23,0}) && state.monsters(28).size()==4 &&
   state.accountedMonsters().count({28,1}) &&
-  state.mapState(28)->originalMonsterCount==4 && live.party.monsterTreasure->weapons[0].source==2,
-  "Restore distributes every table to its own map, with live record sources");
+  state.mapState(28)->originalMonsterCount==4 && *live.party.purse==*s.journey->purse &&
+  live.world.treasureStaging().value()==XeenTreasureStaging{},
+  "Restore distributes every table to its own map and the purse, granting no pending treasure");
  check(live.world.effectiveWallItem({28,0}).x==-128 && live.world.effectiveWallItem({28,2}).y==10 &&
   live.world.effectiveWallItem({37,1}).y==-2 && live.world.effectiveEvent({28,763},indoorEvents(28).records[763]).opcode==42 &&
   live.world.effectiveEvent({37,1},indoorEvents(37).records[1]).opcode==255 && !state.mapState(37)->monsters,
@@ -466,15 +467,23 @@ void genericRoundTrip(){
  CurrentDestination four;usePerMapResources(four,4);four.restore(XeenSaveFormat::decode(XeenSaveFormat::encode(stacked)));four.bind();
  check(XeenActorApproach::occupancy(four.world.sessionState().monsters(28))[5*32+5]==4 &&
   XeenSaveFormat::encode(four.capture())==XeenSaveFormat::encode(stacked),"A stacked cell of four did not round-trip exactly");
- // Treasure pending from the dropped, defeated slot 6 is discarded with it; the
- // valid dormant weapon from F3 record 2 keeps its source and loads exactly.
- auto pending=older;auto &t=*pending.journey->treasure;
- t.sources[1]={28,6};t.pendingMask=2;t.pendingGold=10;t.armor[0]={1,{0,2,0,0}};
- CurrentDestination discarded;usePerMapResources(discarded,4);
- discarded.restore(XeenSaveFormat::decode(XeenSaveFormat::encode(pending)));discarded.bind();
- const auto &kept=*discarded.party.monsterTreasure;
- check(!kept.pendingMask && !kept.pendingGold && !kept.armor[0].item.id && kept.weapons[0].item.id==30 &&
-  XeenSaveFormat::encode(discarded.capture())==bytes,"Pending treasure from a slot past the MOB count was not discarded exactly");
+ // Pending treasure is running-program state: states that differ only in it
+ // capture the same bytes, capture leaves it unchanged, and a later restore
+ // into the same program neither grants nor clears the staged items.
+ XeenTreasureStaging staged;staged.weapons[0]={0,30,0,0};staged.accessories[9]={0,1,0,0};staged.miscellaneous[0]={3,8,7,0};
+ XeenMonsterTestAccess::stageTreasure(*live.flow,live.world,staged);
+ check(XeenSaveFormat::encode(live.capture())==bytes && live.world.treasureStaging().value()==staged,
+  "Pending treasure reached the save or changed on capture");
+ // Map transitions keep it: a candidate stages on its own copy, an abandoned
+ // candidate leaves the owner unchanged, an unchanged copy publishes nothing.
+ {
+  auto candidate=live.world.transitionCandidate();const auto revision=live.world.treasureStaging().revision();
+  check(&candidate->treasureStaging()!=&live.world.treasureStaging() && candidate->treasureStaging().value()==staged,
+   "Transition candidate does not stage on a copy");
+  auto changed=staged;changed.gold=5;candidate->treasureStaging().publish(changed);candidate.reset();
+  check(live.world.treasureStaging().value()==staged && live.world.treasureStaging().revision()==revision,
+   "Abandoned transition changed pending treasure");
+ }
  // AlterMap deliberately writes just one selected cell, without mirroring.
  auto oneSided=s;oneSided.map(28).cells.pop_back();
  CurrentDestination single;usePerMapResources(single,4);single.restore(oneSided);single.bind();
@@ -489,7 +498,7 @@ void genericRoundTrip(){
 // suspend for its reward, then Remove its cell. Publication checks must retain
 // the effective dispatch after deletion and across every presentation resume.
 void replacedOpcodePublication(){
-    mmodern::XeenTemplePriceState templePriceState;
+    mmodern::XeenProgramState programState;
  auto initial=currentSnapshot();initial.map(23).events={{0,0x2c}};
  auto source=regional_test::events(23);
  source.records.clear();
@@ -505,7 +514,7 @@ void replacedOpcodePublication(){
  XeenEventSystem events([&](auto id){return XeenEventScript(live.resources.loadEvents(id));},regional_test::texts);
  const auto display=font();IndexedFrame image;image.width=320;image.height=200;image.pixels.resize(64000);
  std::uint64_t now=0,cycle=0;
- XeenEventFlow flow(templePriceState,live.world,events,live.party,live.camera,live.flags,display,
+ XeenEventFlow flow(programState,live.world,events,live.party,live.camera,live.flags,display,
   [&](auto){return XeenEventFlow::Composition{image,false};},{},[&]{return now;},{},nullptr,
   [&](auto,auto){return XeenEventFlow::Composition{image,false};},nullptr,
   [&](auto &,const auto &,const auto &,auto,auto){return XeenEventFlow::Composition{image,false};});
@@ -533,7 +542,7 @@ void replacedOpcodePublication(){
 // indoor AlterCellFlag, nonzero AlterEvent, Spawn, outdoor AlterCellFlag/AlterMap
 // and MoveObj (a move and a same-position flip).
 void mapEventRoundTrips(){
-    mmodern::XeenTemplePriceState templePriceState;
+    mmodern::XeenProgramState programState;
  for(unsigned operation=0;operation<10;++operation) {
   const bool outdoor=operation==7 || operation==8;
   const XeenMapIdentity active=outdoor?23:28,other=outdoor?28:23;
@@ -585,7 +594,7 @@ void mapEventRoundTrips(){
   XeenEventSystem events([&](auto id){return XeenEventScript(live.resources.loadEvents(id));},live.resources.loadRegionalText);
   const auto display=font();IndexedFrame image;image.width=320;image.height=200;image.pixels.resize(64000);
   std::uint64_t now=0,cycle=0;
-  XeenEventFlow flow(templePriceState,live.world,events,live.party,live.camera,live.flags,display,
+  XeenEventFlow flow(programState,live.world,events,live.party,live.camera,live.flags,display,
    [&](auto){return XeenEventFlow::Composition{image,false};},{},[&]{return now;},{},nullptr,
    [&](auto,auto){return XeenEventFlow::Composition{image,false};},nullptr,
    [&](auto &,const auto &,const auto &,auto,auto){return XeenEventFlow::Composition{image,false};});
@@ -637,7 +646,7 @@ void mapEventRoundTrips(){
 // Remove only writes the (-128,-128) position (scripts.cpp cmdRemove), so a
 // later MoveObj on the same object shows it again; one position per record.
 void removeThenMoveRoundTrip(){
-    mmodern::XeenTemplePriceState templePriceState;
+    mmodern::XeenProgramState programState;
  const auto script=[](XeenMapIdentity id,std::vector<XeenEventRecord> records) {
   XeenEventFile file{id,"synthetic.evt",true,{}};
   for(auto &r:records){r.direction=4;file.records.push_back(r);}
@@ -657,7 +666,7 @@ void removeThenMoveRoundTrip(){
   XeenEventSystem events([&](auto id){return XeenEventScript(f.resources.loadEvents(id));},f.resources.loadRegionalText);
   const auto display=font();IndexedFrame image;image.width=320;image.height=200;image.pixels.resize(64000);
   std::uint64_t now=0,cycle=0;
-  XeenEventFlow flow(templePriceState,f.world,events,f.party,f.camera,f.flags,display,
+  XeenEventFlow flow(programState,f.world,events,f.party,f.camera,f.flags,display,
    [&](auto){return XeenEventFlow::Composition{image,false};},{},[&]{return now;},{},nullptr,
    [&](auto,auto){return XeenEventFlow::Composition{image,false};},nullptr,
    [&](auto &,const auto &,const auto &,auto,auto){return XeenEventFlow::Composition{image,false};});
@@ -709,7 +718,7 @@ void removeThenMoveRoundTrip(){
 }
 // M70 Part C: every travel form reaches the normal quiet capture boundary.
 void travelRoundTrips() {
-    mmodern::XeenTemplePriceState templePriceState;
+    mmodern::XeenProgramState programState;
  for(unsigned form=0;form<20;++form) {
   const bool lateRefused=form>=16,publishedPrefix=lateRefused && form%2;
   const bool refused=form>=12,continued=lateRefused || form%2;
@@ -757,7 +766,7 @@ void travelRoundTrips() {
    composedWorld=&world;composedCamera=camera;return XeenEventFlow::Composition{image,false};
   };
   XeenEventSystem events([&](auto id){return XeenEventScript(live.resources.loadEvents(id));},live.resources.loadRegionalText);
-  XeenEventFlow flow(templePriceState,live.world,events,live.party,live.camera,live.flags,display,
+  XeenEventFlow flow(programState,live.world,events,live.party,live.camera,live.flags,display,
    [&](auto){return compose(live.world,live.camera);},{},[&]{return now;},{},nullptr,
    [&](auto,auto){return compose(live.world,live.camera);},nullptr,
    [&](auto &world,const auto &,const auto &camera,auto,auto){return compose(world,camera);});
@@ -810,7 +819,7 @@ void travelRoundTrips() {
   auto expectedClock=*initial.journey->context;
   expectedClock.minutes+=same?1:10;expectedClock.ctr24=(expectedClock.ctr24+1)%24;
   check(snapshot.journey->random==initial.journey->random && snapshot.journey->context==expectedClock &&
-   snapshot.journey->treasure==initial.journey->treasure,"Travel changed time, rewards or RNG");
+   snapshot.journey->purse==initial.journey->purse,"Travel changed time, rewards or RNG");
   CurrentDestination restored;configure(restored);restored.restore(XeenSaveFormat::decode(bytes));restored.bind();
   check(XeenSaveFormat::encode(restored.capture())==bytes,"Travel v13 restore replayed Event, reward, time or draw");
  }
@@ -820,7 +829,7 @@ void travelRoundTrips() {
 // mainland's detached candidate, then round-trip exactly through
 // v13 without replaying any Event, reward, time or draw.
 void valueRoundTrips(){
-    mmodern::XeenTemplePriceState templePriceState;
+    mmodern::XeenProgramState programState;
  for(unsigned operation=0;operation<8;++operation) {
   const XeenMapIdentity active=operation==5 || operation==7?23:28;
   auto initial=currentSnapshot();initial.camera={active,9,11,XeenDirection::North};
@@ -857,7 +866,7 @@ void valueRoundTrips(){
   XeenEventSystem events([&](auto id){return XeenEventScript(live.resources.loadEvents(id));},live.resources.loadRegionalText);
   const auto display=font();IndexedFrame image;image.width=320;image.height=200;image.pixels.resize(64000);
   std::uint64_t now=0,cycle=0;
-  XeenEventFlow flow(templePriceState,live.world,events,live.party,live.camera,live.flags,display,
+  XeenEventFlow flow(programState,live.world,events,live.party,live.camera,live.flags,display,
    [&](auto){return XeenEventFlow::Composition{image,false};},{},[&]{return now;},{},nullptr,
    [&](auto,auto){return XeenEventFlow::Composition{image,false};},nullptr,
    [&](auto &,const auto &,const auto &,auto,auto){return XeenEventFlow::Composition{image,false};});
@@ -881,7 +890,7 @@ void valueRoundTrips(){
   }
   if(operation==1)check(snapshot.journey->context->effects[XeenPartyEffect::Levitate]==1 && snapshot.journey->context->effects[XeenPartyEffect::WalkOnWater]==1 &&
    snapshot.journey->context->day==42 && snapshot.food==std::uint16_t(before.food+10) &&
-   snapshot.journey->treasure->gems==before.journey->treasure->gems+5,"Party values not published");
+   snapshot.journey->purse->gems==before.journey->purse->gems+5,"Party values not published");
   if(operation==2)check(snapshot.journey->random->count>before.journey->random->count,"Random operations drew nothing");
   if(operation==3)check(snapshot.journey->context->day!=before.journey->context->day ||
    snapshot.journey->context->year!=before.journey->context->year,"Time advance not published");
@@ -894,30 +903,6 @@ void valueRoundTrips(){
    check(snapshot.characters[id].skills[skill]==std::uint8_t(before.characters[id].skills[skill]+1),"Skill grant not published");
   CurrentDestination loaded;configure(loaded);loaded.restore(XeenSaveFormat::decode(bytes));loaded.bind();
   check(XeenSaveFormat::encode(loaded.capture())==bytes,"Value Event did not round-trip exactly through v13");
- }
-}
-// Review finding 1: treasure sources keep their full identity. F3 and the city
-// both hold a defeated, accounted record 2; the saved source names one, the
-// other or both, with the city record a non-Orc (no Orc to prefer) or the only
-// Orc (MON 6, wrong map for an F3 source). Each restores and re-saves exactly.
-void sourceIdentityCases(){
- for(bool cityOrc:{false,true})for(unsigned named=0;named<3;++named) {
-  auto s=currentSnapshot();
-  auto &f3=s.map(23).monsters->slots[2];f3.x=f3.y=-128;f3.lifecycle=XeenActorLifecycle::Defeated;f3.accounted=true;
-  s.map(28).monsters=mobTable(4);
-  auto &city=s.map(28).monsters->slots[2];city.x=city.y=-128;city.lifecycle=XeenActorLifecycle::Defeated;city.accounted=true;
-  auto &t=*s.journey->treasure;
-  t.weapons[0]={0,{0,30,0,0}};t.sources[0]=named==1?XeenMonsterIdentity{28,2}:XeenMonsterIdentity{23,2};
-  if(named==2){t.armor[0]={1,{0,2,0,0}};t.sources[1]={28,2};}
-  const auto bytes=XeenSaveFormat::encode(s);
-  CurrentDestination f;usePerMapResources(f,4);
-  if(cityOrc)f.objectProvider=[](auto id){auto o=indoorObjects(id,4);if(id==XeenMapIdentity(28))o.entities.monsters[2].resourceId=6;return o;};
-  f.resources.loadMonsterStatistics=[&f]{++f.monsters;auto r=regional_test::statistics();r[0]=r[8];r[6]=r[8];return r;};
-  f.restore(XeenSaveFormat::decode(bytes));f.bind();
-  const auto &live=*f.party.monsterTreasure;
-  check(live.sources[live.weapons[0].source]==(named==1?XeenMonsterIdentity{28,2}:XeenMonsterIdentity{23,2}),
-   "The live treasure keeps the saved source identity");
-  check(XeenSaveFormat::encode(f.capture())==bytes,"Same-record cross-map treasure sources re-save exactly");
  }
 }
 // Decision 6 and the remaining producer-less cell states are refused; MOB/EVT
@@ -1057,7 +1042,7 @@ int main() {
 	try {
         const auto run=[](const char *name,auto function) {try {function();}catch(const std::exception &e){throw std::runtime_error(std::string(name)+": "+e.what());}};
 		run("liveStatusRoundTrip",liveStatusRoundTrip); run("fullRestoration",fullRestoration); run("explicitItems",explicitItems); run("invalidResourceAndState",invalidResourceAndState); run("characterPreflight",characterPreflight); run("mutationPolicies",mutationPolicies); run("journeyBorrowRefusal",journeyBorrowRefusal);
-		run("genericRoundTrip",genericRoundTrip); run("replacedOpcodePublication",replacedOpcodePublication); run("mapEventRoundTrips",mapEventRoundTrips); run("removeThenMoveRoundTrip",removeThenMoveRoundTrip); run("travelRoundTrips",travelRoundTrips); run("valueRoundTrips",valueRoundTrips); run("sourceIdentityCases",sourceIdentityCases); run("unsupportedMapState",unsupportedMapState); run("warzoneLifetime",warzoneLifetime); run("allCloudsMaps",allCloudsMaps);
+		run("genericRoundTrip",genericRoundTrip); run("replacedOpcodePublication",replacedOpcodePublication); run("mapEventRoundTrips",mapEventRoundTrips); run("removeThenMoveRoundTrip",removeThenMoveRoundTrip); run("travelRoundTrips",travelRoundTrips); run("valueRoundTrips",valueRoundTrips); run("unsupportedMapState",unsupportedMapState); run("warzoneLifetime",warzoneLifetime); run("allCloudsMaps",allCloudsMaps);
 		std::cout << "Current save state: atomic preparation, resource identities, rules and owner/flow lifetimes passed\n";
 		return 0;
 	} catch (const std::exception &error) {

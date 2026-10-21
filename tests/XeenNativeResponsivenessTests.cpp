@@ -103,7 +103,7 @@ void training(Inputs &in) {
     press(f,SDLK_F2);
     press(f,SDLK_t,true);f.prepare();
     check(f.p.roster.at(18).permanentLevel==4 && f.p.roster.combatInputs(18)->experience==6000 &&
-        f.p.monsterTreasure->gold==710 && f.p.encounterContext->day==9 &&
+        f.p.purse->gold==710 && f.p.encounterContext->day==9 &&
         XeenTrainingTestAccess::menu(*f.flow),"fresh T did not train exactly once and return to the location");
     std::cout<<"First Space/F2/T passed\n";
 }

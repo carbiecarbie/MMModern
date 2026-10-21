@@ -66,7 +66,7 @@ Run mine(const char *directory,const Vein &vein,std::uint32_t seed,unsigned atte
 		};
 		const auto hp=[&] {int total=0;for(auto id:h.party->party.activeRosterIds())total+=h.party->roster.at(id).currentHp;return total;};
 		for(unsigned attempt=0;attempt<attempts;++attempt) {
-			const auto gold=std::uint32_t(h.party->monsterTreasure->gold);const int health=hp();bool selected=false;
+			const auto gold=std::uint32_t(h.party->purse->gold);const int health=hp();bool selected=false;
 			press(InteractionAction{});
 			for(unsigned n=0;n<1000 && h.flow->blocksGameplay();++n) {
 				h.now+=125;handler.beginCycle(++h.cycle);idle();
@@ -78,7 +78,7 @@ Run mine(const char *directory,const Vein &vein,std::uint32_t seed,unsigned atte
 				}
 			}
 			check(!failures && !h.flow->blocksGameplay(),"Gold Vein Event did not return session input");
-			const auto gained=std::uint32_t(h.party->monsterTreasure->gold)-gold;
+			const auto gained=std::uint32_t(h.party->purse->gold)-gold;
 			run.attempts.push_back({gained?Outcome::Gold:hp()<health?Outcome::CaveIn:Outcome::Nothing,gained});
 			if(!selected) {run.exhausted=true;break;}
 		}
@@ -86,7 +86,7 @@ Run mine(const char *directory,const Vein &vein,std::uint32_t seed,unsigned atte
 		run.draws=h.world->sessionState().journeyRandom()->count-random->count;
 		return true;
 	};
-	check(Application(s.templePrices).playGameplay(s,{}, {},false,XeenEncounterEntry::Journey,seed)==0 && shown,
+	check(Application(s.program).playGameplay(s,{}, {},false,XeenEncounterEntry::Journey,seed)==0 && shown,
 		"Original-data Gold Vein session startup failed");
 	return run;
 }

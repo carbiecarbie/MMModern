@@ -49,7 +49,7 @@ XeenSaveSnapshot source(Inputs &in,unsigned spell,bool combat=false) {
     auto &c=s.characters[s.activeRosterIds[0]];c.characterClass=spell==71?XeenCharacterClass::Cleric:XeenCharacterClass::Sorcerer;c.hasSpells=true;
     c.currentSp=1000;c.permanentLevel=10;c.temporaryLevel=0;c.learnedSpells.emplace();c.learnedSpells->fill(0);
     c.currentSpell=*R::slotForSpell(spell==71?XeenSpellCategory::Clerical:XeenSpellCategory::Wizardry,spell);c.learnedSpells->at(c.currentSpell)=1;c.quickOption=1;
-    s.journey->supplements[c.rosterId].inputs.speed={250,0};s.journey->context->minutes=600;s.journey->treasure->gems=1000;
+    s.journey->supplements[c.rosterId].inputs.speed={250,0};s.journey->context->minutes=600;s.journey->purse->gems=1000;
     auto &a=s.map(23).monsters->slots.at(7);a.x=1;a.y=1;a.lifecycle=XeenActorLifecycle::Present;a.accounted=false;
     if(combat){s.camera.direction=XeenDirection::West;auto &enemy=s.map(23).monsters->slots.at(5);enemy.x=8;enemy.y=11;enemy.lifecycle=XeenActorLifecycle::Present;enemy.accounted=false;}
     save_test::clearExplored(s);return s;
@@ -86,7 +86,7 @@ void mapTravel(Inputs &in) {
         const auto &monster=same.w.sessionState().regionalActors(23).at(7);
         check(monster.hp==1 && monster.status==XeenActorStatus::Sleep,"Same-map Return reloaded live monsters");
         check(same.p.encounterContext->minutes==600+(item?0:30),"Beacon learned suffix/item response timing");
-        check(same.p.roster.at(owner).currentSp==1000-(item?0:18) && same.p.monsterTreasure->gems==1000-(item?0:6),"Beacon paid Set and both Returns exactly once");
+        check(same.p.roster.at(owner).currentSp==1000-(item?0:18) && same.p.purse->gems==1000-(item?0:6),"Beacon paid Set and both Returns exactly once");
         if(item)check(same.p.roster.at(owner).miscellaneous[0].state==2,"Beacon charges spent exactly once");
     }
     for(bool item:{false,true})for(bool inside:{false,true}) {
@@ -97,7 +97,7 @@ void mapTravel(Inputs &in) {
         Fixture f(in,s);wire(f);XeenTrainingTestAccess::woundTravel(*f.flow);
         openTravel(f,item);key(f,'1');key(f,InputKey::Enter);quiet(f);roundtrip(in,f);
         check(f.c.mapId==XeenMapIdentity(28) && f.c.x==18 && f.c.y==4 && f.c.direction==s.camera.direction,"Portal Vertigo destination/facing");
-        check(f.p.roster.at(owner).currentSp==1000-(item?0:30) && f.p.monsterTreasure->gems==1000-(item?0:5),"Portal paid once");
+        check(f.p.roster.at(owner).currentSp==1000-(item?0:30) && f.p.purse->gems==1000-(item?0:5),"Portal paid once");
         // A second Portal while already in Vertigo must still call Map::load.
         auto again=f.snapshot();Fixture reload(in,again);wire(reload);
         const auto before=reload.w.sessionState().regionalActors(28).at(0).hp;
@@ -113,7 +113,7 @@ void mapTravel(Inputs &in) {
         if(retry){key(f,'6');key(f,InputKey::Enter);check(XeenRestTestAccess::teleport(*f.flow),"Portal must retry digit above 5");}
         key(f,'0');key(f,InputKey::Enter);quiet(f);roundtrip(in,f);
         check(f.c.mapId==XeenMapIdentity(23) && f.c.x==9 && f.c.y==11 &&
-            f.p.roster.at(owner).currentSp==1000-(item?0:30) && f.p.monsterTreasure->gems==1000-(item?0:5),"Portal numeric cancel moved/refunded");
+            f.p.roster.at(owner).currentSp==1000-(item?0:30) && f.p.purse->gems==1000-(item?0:5),"Portal numeric cancel moved/refunded");
     }
     for(bool item:{false,true}) {
         scenario="beacon stale dialog provider";auto s=source(in,44);const auto owner=s.activeRosterIds[0];
@@ -122,7 +122,7 @@ void mapTravel(Inputs &in) {
         f.flow->mapName=[&](auto id){++f.p.roster.at(owner).lloydX;--f.p.roster.at(owner).lloydX;return in.assets.mapName(id);};
         bool rejected=false;try{openTravel(f,item);}catch(const std::exception &e){
             const std::string message=e.what();if(message.find("preimage")==std::string::npos && message.find("integrity")==std::string::npos)throw;rejected=true;}
-        check(rejected && f.p.roster.at(owner).currentSp==1000 && f.p.monsterTreasure->gems==1000 &&
+        check(rejected && f.p.roster.at(owner).currentSp==1000 && f.p.purse->gems==1000 &&
             f.p.encounterContext->minutes==600 && f.w.sessionState().journeyRandom()==rng &&
             (!item || f.p.roster.at(owner).miscellaneous[0].state==2),"Stale beacon work published payment/time/RNG");
     }
@@ -140,13 +140,13 @@ void mapTravel(Inputs &in) {
         else {
             const auto context=*f.p.encounterContext;const auto sp=f.p.roster.at(owner).currentSp;
             if(spell==44)key(f,'r');else {key(f,'0'+operation);key(f,InputKey::Enter);}
-            check(f.p.roster.at(owner).currentSp==sp && f.p.monsterTreasure->gems==1000 && f.w.sessionState().journeyRandom()==rng &&
+            check(f.p.roster.at(owner).currentSp==sp && f.p.purse->gems==1000 && f.w.sessionState().journeyRandom()==rng &&
                 f.p.encounterContext->minutes==context.minutes && (!item || f.p.roster.at(owner).miscellaneous[0].state==3),"Unsupported destination spent cost/time/charge/RNG");
             f.act(AcknowledgeAction{});key(f,InputKey::Escape);
         }
         quiet(f);roundtrip(in,f);
         check(f.p.roster.at(owner).currentSp==1000-(item?0:spell==44?6:30),"Restricted/cancelled travel refunded cost");
-        check(f.p.monsterTreasure->gems==1000-(item?0:spell==44?2:5),"Restricted/cancelled travel gem cost");
+        check(f.p.purse->gems==1000-(item?0:spell==44?2:5),"Restricted/cancelled travel gem cost");
         if(spell==44 && operation==1)check(f.p.roster.at(owner).lloydMap==28 && f.p.roster.at(owner).lloydX==18 && f.p.roster.at(owner).lloydY==4,"Escape failed to retain default beacon");
     }
 }
@@ -212,7 +212,7 @@ void exploration(Inputs &in) {
         quiet(f);
         const auto cost=R::cost(pair.first,10);
         if(pair.first!=66 || restricted)check(f.p.roster.at(owner).currentSp==1000-int(item?0:cost.sp),"Failed or successful cast keeps fixed SP cost");
-        check(f.p.monsterTreasure->gems==1000-(item?0:cost.gems),"Travel gems charged once");
+        check(f.p.purse->gems==1000-(item?0:cost.gems),"Travel gems charged once");
         if(item)check(f.p.roster.at(owner).miscellaneous[0].state==1,"Travel charge spent on success/failure");
         if(restricted)check(f.c.x==original.x && f.c.y==original.y,"Restricted travel published movement");
         else if(pair.first==70)check(f.c.x==10 && f.c.y==12,"Mainland run X/Y outside combat");
@@ -372,8 +372,8 @@ void combat(Inputs &in) {
         if(occupied){check(fight().contacts()[0] && fight().contacts()[0]->recordIndex==7,"Time Distortion did not recheck destination attack slots");continue;}
         for(unsigned n=0;n<1000 && f.flow->encounter()->combat();++n)tick(f);
         quiet(f);roundtrip(in,f);
-        check(f.p.encounterContext->minutes==minutes+1 && f.p.monsterTreasure->gold==s.journey->treasure->gold &&
-            f.p.monsterTreasure->gems==1000,"Relocation End changed normal time/reward bookkeeping");
+        check(f.p.encounterContext->minutes==minutes+1 && f.p.purse->gold==s.journey->purse->gold &&
+            f.p.purse->gems==1000,"Relocation End changed normal time/reward bookkeeping");
     }
 }
 }

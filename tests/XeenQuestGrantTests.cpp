@@ -175,7 +175,7 @@ void prevalidationAndVisibility() {
 }
 
 void immediateErrors() {
-    mmodern::XeenTemplePriceState templePriceState;
+    mmodern::XeenProgramState programState;
 	for(bool automatic:{false,true})for(int mode=0;mode<3;++mode){
 		Fixture f;f.set({record(1,1,0,0x1f,{2,1,1})});
 		// Logical call is distinct from physical Remove: restart sees owned root
@@ -185,7 +185,7 @@ void immediateErrors() {
 			record(7,8,3,mode==0?0xff:mode==1?9:0x0e,mode==1?Bytes{44,1,4}:Bytes{}),
 			record(7,8,4,0x0e),record(7,8,5,0xff)},2);
 		XeenFontFormat font(fontBytes());IndexedFrame base;base.width=320;base.height=200;base.pixels.resize(64000);
-		XeenEventFlow flow(templePriceState,f.world,f.events,f.members,f.camera,f.flags,font,[&](std::uint64_t){return XeenEventFlow::Composition{base, false};});
+		XeenEventFlow flow(programState,f.world,f.events,f.members,f.camera,f.flags,font,[&](std::uint64_t){return XeenEventFlow::Composition{base, false};});
 		flow.dialogText=&dos_test::text();
 		std::optional<XeenEventExecutionState> suspended;
 		bool failed=false;auto report=[&](const auto &r){
@@ -215,14 +215,14 @@ void immediateErrors() {
 }
 
 void presentationNoReplay() {
-    mmodern::XeenTemplePriceState templePriceState;
+    mmodern::XeenProgramState programState;
 	for(bool automatic:{false,true})for(bool yes:{false,true}){
 		Fixture f;f.message=std::string(1600,'A');
 		f.set({record(1,1,0,0x0c,{0,0,21,99}),record(1,1,1,0x01,{0}),record(1,1,2,9,{44,1,3}),
 			record(1,1,3,9,{44,0,6}),record(1,1,4,9,{21,99,8}),record(1,1,5,0xff),
 			record(1,1,6,9,{21,99,8}),record(1,1,7,0xff),record(1,1,8,0x12)});
 		XeenFontFormat font(fontBytes());IndexedFrame base;base.width=320;base.height=200;base.pixels.resize(64000);
-		XeenEventFlow flow(templePriceState,f.world,f.events,f.members,f.camera,f.flags,font,[&](std::uint64_t){return XeenEventFlow::Composition{base, false};});
+		XeenEventFlow flow(programState,f.world,f.events,f.members,f.camera,f.flags,font,[&](std::uint64_t){return XeenEventFlow::Composition{base, false};});
 		flow.dialogText=&dos_test::text();
 		std::optional<XeenEventExecutionState> suspended;
 		int line=-1;bool completed=false;auto report=[&](const auto &r){

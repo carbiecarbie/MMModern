@@ -224,6 +224,12 @@ public:
 	XeenWorld(const XeenWorld &) = delete;
 	XeenWorld &operator=(const XeenWorld &) = delete;
 	const XeenSessionWorldState &sessionState() const { return _sessionState; }
+	// The running program's pending treasure, borrowed by each gameplay session
+	// (never swapped, saved or copied with session state). A world outside a
+	// session, such as a scratch, tool or Event candidate world, uses its own.
+	XeenTreasureStagingState &treasureStaging() noexcept { return *_treasureStaging; }
+	const XeenTreasureStagingState &treasureStaging() const noexcept { return *_treasureStaging; }
+	void borrowTreasureStaging(XeenTreasureStagingState &);
 	// Transient developer admission; never serialized or offered by the title.
 	std::optional<XeenMapIdentity> developerEventMap() const noexcept { return _developerEventMap; }
 	bool eventCameraAdmitted(const XeenCamera &) const noexcept;
@@ -326,6 +332,8 @@ private:
 	// Retained combat authorization, separate from domain validity.
 	std::function<bool()> _combatAuthorized;
 	XeenSessionWorldState _sessionState;
+	XeenTreasureStagingState _ownTreasureStaging;
+	XeenTreasureStagingState *_treasureStaging = &_ownTreasureStaging;
 	// Immutable loaded MON catalog for mainland, original city and script-created city slots.
 	std::vector<XeenMonsterRecord> _cityStatistics;
 	// Derived from checked immutable city resources; never gameplay authority.

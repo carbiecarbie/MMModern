@@ -42,11 +42,11 @@ XeenTrainingResult xeenQuoteTraining(const XeenCharacter &c,const XeenCombatInpu
 XeenTrainingCandidate xeenPrepareTraining(const XeenPartyState &party,std::uint8_t owner,const XeenGameplayContext &context,XeenMapIdentity map) {
 
     xeenValidateJourneyParty(party);
-    if(owner>=30 || !party.roster.combatInputs(owner) || !party.monsterTreasure)
+    if(owner>=30 || !party.roster.combatInputs(owner) || !party.purse)
         throw std::invalid_argument("Missing Training owner");
     XeenTrainingCandidate candidate;candidate.context=context;
     auto &r=candidate.result;
-    r=xeenQuoteTraining(party.roster.at(owner),*party.roster.combatInputs(owner),party.monsterTreasure->gold,context,map);
+    r=xeenQuoteTraining(party.roster.at(owner),*party.roster.combatInputs(owner),party.purse->gold,context,map);
     if(r.outcome==XeenTrainingOutcome::Quoted)xeenResetPartyTemps(candidate.context);
     std::bitset<30> seen;
     for(auto id:party.party.activeRosterIds()) {

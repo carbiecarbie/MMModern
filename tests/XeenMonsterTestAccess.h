@@ -44,6 +44,20 @@ struct XeenMonsterTestAccess {
 		actor.hp=hp;actor.activated=activated;
 		guard.s._mapStates=world._sessionState._mapStates;guard.adoptMutationBoundary();
 	}
+	// Running-program pending treasure at a quiet boundary: the live Journey
+	// preimage adopts exactly this publication, like status() and setLive().
+	static void stageTreasure(XeenRestoreGuard &guard, XeenWorld &world, const XeenTreasureStaging &value) {
+		guard.check();world.treasureStaging().publish(value);
+		guard.staging=value;guard.stagingRevision=world.treasureStaging().revision();guard.adoptMutationBoundary();
+	}
+	template<class EncounterFlow>
+	static void stageTreasure(EncounterFlow &flow, XeenWorld &world, const XeenTreasureStaging &value) {
+		stageTreasure(*flow._journeyPreimage, world, value);
+	}
+	template<class EventFlow>
+	static void stageTreasureLive(EventFlow &flow, XeenWorld &world, const XeenTreasureStaging &value) {
+		stageTreasure(*flow._encounter->_journeyPreimage, world, value);
+	}
 };
 }
 #endif

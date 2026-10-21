@@ -32,8 +32,8 @@ int main(int argc,char **argv) {
                     if(stage==2)while(!XeenTrainingTestAccess::depart(*fixture.flow)){}
                 }catch(const std::bad_alloc &){}
                 allocation_test::countdown=-1;
-                const bool paid=fixture.p.monsterTreasure->gold==710;
-                check(fixture.p.monsterTreasure->gold==(paid?710u:800u) && fixture.p.roster.at(18).permanentLevel==(paid?4:3) &&
+                const bool paid=fixture.p.purse->gold==710;
+                check(fixture.p.purse->gold==(paid?710u:800u) && fixture.p.roster.at(18).permanentLevel==(paid?4:3) &&
                     fixture.p.roster.combatInputs(18)->experience==(paid?6000u:9000u) &&
                     fixture.p.roster.at(18).currentHp==(paid?64:int(source.characters[18].currentHp)),"allocation failure exposed partial level/payment/refill");
                 const unsigned day=fixture.p.encounterContext->day;
@@ -54,7 +54,7 @@ int main(int argc,char **argv) {
             allocation_test::countdown=-1;
             const auto cursor=*fixture.w.sessionState().journeyRandom();
             check(cursor==before || cursor==after,"Speaking publication allocation fault exposed partial RNG");
-            check(fixture.p.encounterContext->day==9 && fixture.p.monsterTreasure->gold==800 &&
+            check(fixture.p.encounterContext->day==9 && fixture.p.purse->gold==800 &&
                 fixture.p.roster.at(18).permanentLevel==3,"Speaking allocation fault changed service gameplay");
             if(cursor==before)XeenTrainingTestAccess::publishServiceRandom(*fixture.flow,before,after);
             check(*fixture.w.sessionState().journeyRandom()==after,"Speaking retry did not publish exactly one retained cursor");

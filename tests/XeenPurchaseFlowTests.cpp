@@ -20,7 +20,7 @@ void limits(Inputs &in) {
         XeenPurchaseTestAccess::limit(*f.flow,counter,UINT64_MAX-need-margin);
         if(!phase)f.present(XeenPurchaseTestAccess::restartPreparation(*f.flow));
         if(!f.flow->canSave())f.prepare();
-        if(margin<0)check(f.flow->canSave() && f.p.encounterContext->day==8 && f.p.monsterTreasure->gold==870,"insufficient admission acquired debt");
+        if(margin<0)check(f.flow->canSave() && f.p.encounterContext->day==8 && f.p.purse->gold==870,"insufficient admission acquired debt");
         else {check(XeenPurchaseTestAccess::lobby(*f.flow),"exact/one-more admission refused");f.leave();check(f.p.encounterContext->day==9,"admission bound lost mandatory departure");}
     }
     for(unsigned counter=0;counter<7;++counter)for(int margin:{-1,0,1}) {
@@ -30,18 +30,18 @@ void limits(Inputs &in) {
         if(counter>=5){f.quote(XeenInventoryCategory::Armor,f.armorOffer());if(counter==5){f.act(CancelInteractionAction{});}}
         const unsigned need=counter<2?(confirmation?19:18):counter==2?10:counter==3?4:1;
         XeenPurchaseTestAccess::limit(*f.flow,counter,UINT64_MAX-need-margin);
-        const auto before=f.p.monsterTreasure->gold;
+        const auto before=f.p.purse->gold;
         if(counter==5)f.act(SelectInventorySlotAction{f.armorOffer()});
         else if(confirmation)f.act(YesAction{});
         else f.act(SelectMemberAction{1});
-        if(margin<0)check(XeenPurchaseTestAccess::departure(*f.flow) && f.p.monsterTreasure->gold==before,"optional exhaustion consumed departure authority");
+        if(margin<0)check(XeenPurchaseTestAccess::departure(*f.flow) && f.p.purse->gold==before,"optional exhaustion consumed departure authority");
         else if(counter==5)check(XeenPurchaseTestAccess::quote(*f.flow),"exact/one-more operation ID refused quote");
         else if(confirmation)armorPaid(f);
         else check(!XeenPurchaseTestAccess::departure(*f.flow),"exact/one-more optional selection refused");
         const auto input=f.flow->displayedInput();const auto revision=XeenPurchaseTestAccess::revision(*f.flow);
         for(unsigned n=0;n<30;++n)f.act(NavigationAction::MoveForward);
         check(input==f.flow->displayedInput() && revision==XeenPurchaseTestAccess::revision(*f.flow),"wrong key consumed reserved suffix");
-        f.leave();check(f.p.encounterContext->day==9 && f.p.monsterTreasure->gold==(confirmation && margin>=0?670u:870u),"authority boundary lost/repeated payment/departure");
+        f.leave();check(f.p.encounterContext->day==9 && f.p.purse->gold==(confirmation && margin>=0?670u:870u),"authority boundary lost/repeated payment/departure");
     }
     // Confirmed publication reserves its own 3/2 increment bound independently
     // of operation/reservation exhaustion and every other counter.
@@ -50,7 +50,7 @@ void limits(Inputs &in) {
         Fixture f(in,service(in));f.enter();f.quote(XeenInventoryCategory::Armor,f.armorOffer());
         const unsigned need=counter<2?19:counter==2?10:4;
         XeenPurchaseTestAccess::limit(*f.flow,counter,UINT64_MAX-need-margin);f.act(YesAction{});
-        if(margin<0)check(XeenPurchaseTestAccess::departure(*f.flow) && f.p.monsterTreasure->gold==870,"confirmation headroom shortage published");else armorPaid(f);
+        if(margin<0)check(XeenPurchaseTestAccess::departure(*f.flow) && f.p.purse->gold==870,"confirmation headroom shortage published");else armorPaid(f);
         f.leave();check(f.p.encounterContext->day==9,"confirmation threshold lost settlement");
     }
 }
@@ -94,8 +94,8 @@ void connectedSynthetic(Inputs &in) {
         Fixture f(in,source);f.enter();f.purchaseArmor();armorPaid(f);f.act(YesAction{});f.act(CancelInteractionAction{});
         f.act(DialogKeyAction{'b'});f.act(DialogKeyAction{'a'});f.act(DialogKeyAction{'f'});f.act(SelectInventorySlotAction{0});f.act(YesAction{});f.act(YesAction{});
         // Plain ID 3 has literal base cost 200; inherited repair is 200/10=20.
-        check(f.p.monsterTreasure->gold==650 && !f.p.roster.at(0).armor[0].state,"Buy/Repair coexistence lost old repair arithmetic");
-        f.leave();check(f.p.encounterContext->day==9 && f.p.monsterTreasure->gold==650 && f.p.roster.at(0).armor[4].id==3,"coexistence paid two departures/lost purchase");
+        check(f.p.purse->gold==650 && !f.p.roster.at(0).armor[0].state,"Buy/Repair coexistence lost old repair arithmetic");
+        f.leave();check(f.p.encounterContext->day==9 && f.p.purse->gold==650 && f.p.roster.at(0).armor[4].id==3,"coexistence paid two departures/lost purchase");
     }
     {
         const auto source=service(in,8,40);unsigned count=0;for(const auto &item:source.characters[0].armor)if(item.id)++count;
@@ -106,9 +106,9 @@ void connectedSynthetic(Inputs &in) {
         for(unsigned quantity=0;quantity<2;++quantity)expectedStock=removeOffer(expectedStock,plainOffer(expectedStock,1));
         const auto duplicate=[&]{return plainOffer(f.p.serviceEconomy->wares[0][0][1],1);};
         f.quote(XeenInventoryCategory::Armor,duplicate());f.act(YesAction{});
-        check(f.p.monsterTreasure->gold==20,"first duplicate payment differs");f.act(YesAction{});
+        check(f.p.purse->gold==20,"first duplicate payment differs");f.act(YesAction{});
         f.act(SelectInventorySlotAction{duplicate()});f.act(YesAction{});f.act(YesAction{});
-        check(f.p.monsterTreasure->gold==0 && f.p.roster.at(0).armor[count].id==1 && f.p.roster.at(0).armor[count+1].id==1,
+        check(f.p.purse->gold==0 && f.p.roster.at(0).armor[count].id==1 && f.p.roster.at(0).armor[count+1].id==1,
             "two physical duplicate offers were not delivered separately");
         // Mutation: a duplicate-specific third delivery or removal of both
         // identical rows during the first purchase must change this full oracle.
@@ -136,7 +136,7 @@ void faults(Inputs &in) {
         check(XeenPurchaseTestAccess::lobby(*f.flow),"admission fault lost service continuation");
         f.quote(XeenInventoryCategory::Armor,f.armorOffer());f.act(YesAction{});
         if(XeenPurchaseTestAccess::quote(*f.flow))f.act(YesAction{});
-        armorPaid(f);f.leave();check(fired && f.p.encounterContext->day==11 && f.p.monsterTreasure->gold==670,"boundary fault lost/duplicated committed prefix/departure");
+        armorPaid(f);f.leave();check(fired && f.p.encounterContext->day==11 && f.p.purse->gold==670,"boundary fault lost/duplicated committed prefix/departure");
     }
     for(auto boundary:{XeenSmithBoundary::BeforeRebind,XeenSmithBoundary::AfterRebind,XeenSmithBoundary::BeforePurchase}) {
         Fixture f(in,service(in));f.enter();f.quote(XeenInventoryCategory::Armor,f.armorOffer());const Owners before(f);unsigned faults=0;
@@ -152,7 +152,7 @@ void faults(Inputs &in) {
         f.act(YesAction{});f.act(CancelInteractionAction{});f.act(CancelInteractionAction{});
         const auto input=f.flow->displayedInput();while(!f.flow->canSave()){f.act(CancelInteractionAction{});check(failures<=13,"mandatory retry bound exceeded");
             if(!f.flow->canSave())check(input==f.flow->displayedInput(),"same settlement retry consumed semantic authority");}
-        check(f.p.encounterContext->day==9 && f.p.monsterTreasure->gold==670,"postcommit/departure retries repeated payment/day");
+        check(f.p.encounterContext->day==9 && f.p.purse->gold==670,"postcommit/departure retries repeated payment/day");
     }
     {
         Fixture f(in,service(in));f.enter();f.quote(XeenInventoryCategory::Armor,f.armorOffer());const auto old=f.flow->frame().presentation();const auto input=f.flow->displayedInput();bool called=false;
@@ -166,7 +166,7 @@ void faults(Inputs &in) {
         Fixture f(in,service(in,day));f.enter();f.quote(XeenInventoryCategory::Armor,f.armorOffer());
         auto &reserved=XeenPurchaseTestAccess::day(*f.flow);
         ++const_cast<XeenServiceEconomy &>(reserved.economy()).bank.gold;
-        save_test::rejects([&]{f.act(YesAction{});});check(!f.flow->canSave() && f.p.monsterTreasure->gold==870,"tampered departure published or became Quiet");
+        save_test::rejects([&]{f.act(YesAction{});});check(!f.flow->canSave() && f.p.purse->gold==870,"tampered departure published or became Quiet");
     }
 }
 void feedbackRetries(Inputs &in) {
@@ -237,7 +237,7 @@ void integrity(Inputs &in) {
             case 0:++f.p.roster.at(2).temporaryAge;--f.p.roster.at(2).temporaryAge;break;
             case 1:{auto &i=const_cast<XeenCombatInputs &>(*f.p.roster.combatInputs(2));++i.experience;--i.experience;break;}
             case 2:f.p.roster.at(2).learnedSpells->at(38)^=1;f.p.roster.at(2).learnedSpells->at(38)^=1;break;
-            case 3:++f.p.monsterTreasure->pendingGold;--f.p.monsterTreasure->pendingGold;break;
+            case 3:{auto &g=const_cast<XeenTreasureStaging &>(f.w.treasureStaging().value()).gold;++g;--g;break;}
             case 4:++f.p.serviceEconomy->bank.gold;--f.p.serviceEconomy->bank.gold;break;
             case 5:f.p.serviceEconomy->wares[1][3][3][8].material^=1;f.p.serviceEconomy->wares[1][3][3][8].material^=1;break;
             case 6:++f.c.x;--f.c.x;break;
@@ -254,12 +254,12 @@ void integrity(Inputs &in) {
             case 17:f.p.roster.at(2).temporaryAge=f.p.roster.at(2).temporaryAge;break;
             case 18:{const bool v=f.f.isSet(0);f.f.set(0);f.f.clear(0);if(v)f.f.set(0);break;}
             case 19:f.p.party=f.p.party;break;
-            case 20:++f.p.monsterTreasure->gold;--f.p.monsterTreasure->gold;break;
+            case 20:++f.p.purse->gold;--f.p.purse->gold;break;
             case 21:f.p.roster.at(0).armor[4].id^=1;f.p.roster.at(0).armor[4].id^=1;break;
             }
             if(throwing)throw std::runtime_error("Purchase ABA exceptional exit");
         };
-        save_test::rejects([&]{f.act(YesAction{});});check(fired && !f.flow->canSave() && f.p.monsterTreasure->gold==670 &&
+        save_test::rejects([&]{f.act(YesAction{});});check(fired && !f.flow->canSave() && f.p.purse->gold==670 &&
             f.p.roster.at(0).armor[4].id==3 && f.p.encounterContext->day==8,"ABA failure lost prior purchase or published/adopted another");
     }
 }

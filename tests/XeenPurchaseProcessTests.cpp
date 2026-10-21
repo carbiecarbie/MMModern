@@ -51,7 +51,7 @@ int main(int argc,char **argv) {
         const auto a=XeenSaveFile::read(directory/"fresh-A.mmsave"),b=XeenSaveFile::read(directory/"fresh-B.mmsave"),
             b1=XeenSaveFile::read(directory/"fresh-B1.mmsave"),c=XeenSaveFile::read(directory/"fresh-C.mmsave"),d=XeenSaveFile::read(directory/"fresh-D.mmsave");
         context(a,8,4180726993u,1109);context(b,9,4180726993u,1109);context(b1,9,4180726993u,1109);context(c,10,4180726993u,1109);context(d,11,247205451u,1992);
-        check(a.journey->treasure->gold==870 && b.journey->treasure->gold==670 && b1.journey->treasure->gold==670 && c.journey->treasure->gold==670 && d.journey->treasure->gold==670,"M42 earned/debited purse literal differs");
+        check(a.journey->purse->gold==870 && b.journey->purse->gold==670 && b1.journey->purse->gold==670 && c.journey->purse->gold==670 && d.journey->purse->gold==670,"M42 earned/debited purse literal differs");
         m42_test::sameCategory(a.journey->serviceEconomy->wares[0][0][0],m42_test::weaponsBefore());
         m42_test::sameCategory(a.journey->serviceEconomy->wares[0][0][1],m42_test::armorBefore());
         for(const auto *s:{&b,&b1,&c})m42_test::sameCategory(s->journey->serviceEconomy->wares[0][0][1],m42_test::armorAfter());

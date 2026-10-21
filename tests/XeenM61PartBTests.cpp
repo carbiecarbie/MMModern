@@ -40,7 +40,7 @@ XeenSaveSnapshot source(Inputs &in,unsigned power,bool indoor,unsigned charges=1
     c.characterClass=XeenCharacterClass::Knight;c.hasSpells=false;c.learnedSpells.emplace();c.learnedSpells->fill(0);c.currentSp=0;
     c.miscellaneous={};c.miscellaneous[0]={1,std::uint8_t(power),std::uint8_t(charges),17};
     c.miscellaneous[1]={2,1,3,19}; // exact compaction witness
-    s.journey->treasure->gems=0;s.journey->context->ctr24=23;save_test::clearExplored(s);
+    s.journey->purse->gems=0;s.journey->context->ctr24=23;save_test::clearExplored(s);
     return s;
 }
 void key(Fixture &f,unsigned k,bool mouse=false) {
@@ -80,7 +80,7 @@ void effects(Inputs &in) {
         }
         quiet(f);
         const auto &c=f.p.roster.at(s.activeRosterIds[0]);
-        check(c.currentSp==0 && !c.hasSpells && std::all_of(c.learnedSpells->begin(),c.learnedSpells->end(),[](auto v){return v==0;}) && f.p.monsterTreasure->gems==0,"Item required/debited a book/SP/gem");
+        check(c.currentSp==0 && !c.hasSpells && std::all_of(c.learnedSpells->begin(),c.learnedSpells->end(),[](auto v){return v==0;}) && f.p.purse->gems==0,"Item required/debited a book/SP/gem");
         check(*f.p.encounterContext==context || (power==21 && f.p.encounterContext->minutes==context.minutes),"Item charged time/counter");
         check(f.p.encounterContext->minutes==context.minutes && f.p.encounterContext->ctr24==23,"Item charged indoor/outdoor time");
         check(f.flow->encounter()->result().movementOpportunities==1 && !f.flow->encounter()->state().pending(),"Item response was not exactly one");
@@ -145,7 +145,7 @@ void itemCancellation(Inputs &in) {
         check(f.p.roster.at(owner).currentSp==expected,"First Aid and Cure Poison Escape grant their uncapped own-cost refunds");
         replay(f,frame,input,CancelInteractionAction{});quiet(f);
         const auto &user=f.p.roster.at(owner);
-        check(user.currentSp==expected && f.p.monsterTreasure->gems==0,"Cancellation replay changed refund or gems");
+        check(user.currentSp==expected && f.p.purse->gems==0,"Cancellation replay changed refund or gems");
         check(charges==1?xeenSameItem(user.miscellaneous[0],s.characters[owner].miscellaneous[1]):user.miscellaneous[0].state==1,
             "Escape must spend exactly one charge and compact exhausted item");
         check(*f.p.encounterContext==context && f.w.sessionState().journeyRandom()==rng &&
@@ -157,17 +157,15 @@ void itemCancellation(Inputs &in) {
 void miscTreasure(Inputs &in) {
     auto s=source(in,4,false);const auto owner=s.activeRosterIds[0];
     s.characters[owner].miscellaneous={};
-    auto &treasure=*s.journey->treasure;treasure.pendingMask=1;treasure.pendingGold=10;
-    treasure.miscellaneous[0]={0,{3,8,7,0}};
+    XeenTreasureStaging treasure;treasure.gold=10;treasure.ready=true;treasure.miscellaneous[0]={3,8,7,0};
     // A visible distant survivor keeps pending treasure at a legal Quiet boundary.
     auto &survivor=s.map(23).monsters->slots[8];survivor.x=12;survivor.y=11;
     survivor.lifecycle=XeenActorLifecycle::Present;survivor.accounted=false;
-    save_test::bindTreasureSources(s);
-    const auto gold=treasure.gold;const auto rng=s.journey->random;
-    Fixture f(in,s);f.act(NavigationAction::TurnLeft);quiet(f);
-    check(xeenSameItem(f.p.roster.at(owner).miscellaneous[0],treasure.miscellaneous[0].item),"Misc receipt did not publish original item bytes");
-    check(f.p.monsterTreasure->gold==gold+10 && !f.p.monsterTreasure->storedItems() &&
-        !f.p.monsterTreasure->pending() && f.w.sessionState().journeyRandom()==rng,"Misc receipt repeated gold or RNG");
+    const auto gold=s.journey->purse->gold;const auto rng=s.journey->random;
+    Fixture f(in,s);XeenMonsterTestAccess::stageTreasureLive(*f.flow,f.w,treasure);f.act(NavigationAction::TurnLeft);quiet(f);
+    check(xeenSameItem(f.p.roster.at(owner).miscellaneous[0],treasure.miscellaneous[0]),"Misc receipt did not publish original item bytes");
+    check(f.p.purse->gold==gold+10 && !f.w.treasureStaging().value().storedItems() &&
+        !f.w.treasureStaging().value().pending() && f.w.sessionState().journeyRandom()==rng,"Misc receipt repeated gold or RNG");
     const auto saved=XeenSaveFormat::encode(f.snapshot());Fixture restored(in,XeenSaveFormat::decode(saved));
     check(saved==XeenSaveFormat::encode(restored.snapshot()),"Delivered Misc did not restore exactly");
 }
@@ -222,7 +220,7 @@ void castingParity(Inputs &in) {
         if(!XeenLearnedSpellRules::slotForSpell(*XeenLearnedSpellRules::categoryForClass(c.characterClass),std::uint8_t(spell)))
             c.characterClass=XeenLearnedSpellRules::slotForSpell(XeenSpellCategory::Wizardry,std::uint8_t(spell))?XeenCharacterClass::Sorcerer:XeenCharacterClass::Cleric;
         c.currentSpell=*XeenLearnedSpellRules::slotForSpell(*XeenLearnedSpellRules::categoryForClass(c.characterClass),static_cast<std::uint8_t>(spell));c.learnedSpells->at(c.currentSpell)=1;
-        s.journey->treasure->gems=100;s.characters[s.activeRosterIds[1]].currentHp=1;s.characters[s.activeRosterIds[1]].conditions[2]=3;s.characters[s.activeRosterIds[1]].conditions[8]=1;
+        s.journey->purse->gems=100;s.characters[s.activeRosterIds[1]].currentHp=1;s.characters[s.activeRosterIds[1]].conditions[2]=3;s.characters[s.activeRosterIds[1]].conditions[8]=1;
         Fixture item(in,s),cast(in,s);open(item);key(item,'u');
         if(item.flow->encounter()->itemUseNeedsTarget())item.act(SelectMemberAction{1});quiet(item);
         cast.act(CastSpellAction{});cast.act(SelectMemberAction{0});cast.act(DialogKeyAction{'c'});
@@ -231,7 +229,7 @@ void castingParity(Inputs &in) {
             item.p.roster.at(owner).conditions==cast.p.roster.at(owner).conditions,"Item/casting HP or condition parity differs");
         check(item.c.mapId==cast.c.mapId && item.c.x==cast.c.x && item.c.y==cast.c.y && item.c.direction==cast.c.direction && item.p.encounterContext->effects==cast.p.encounterContext->effects &&
             item.w.sessionState().journeyRandom()==cast.w.sessionState().journeyRandom(),"Item/casting destination/effect/RNG parity differs");
-        check(item.p.roster.at(s.activeRosterIds[0]).currentSp==100 && item.p.monsterTreasure->gems==100 &&
+        check(item.p.roster.at(s.activeRosterIds[0]).currentSp==100 && item.p.purse->gems==100 &&
             item.p.encounterContext->minutes==s.journey->context->minutes,"Parity item used casting costs/time");
     }
 }
@@ -423,10 +421,10 @@ void found(Inputs &in) {
     auto used=expected;--used.state;
     check(xeenSameItem(f.p.roster.at(owner).miscellaneous[slot],used) && f.p.encounterContext->minutes==minute,"Found item Use charge/time differs");
     f.act(InteractionAction{});f.prepare();f.act(DialogKeyAction{'b'});f.act(SelectMemberAction{member});f.act(DialogKeyAction{'m'});f.act(DialogKeyAction{'s'});
-    const auto gold=f.p.monsterTreasure->gold;
+    const auto gold=f.p.purse->gold;
     const auto price=*xeenItemPrice(XeenInventoryCategory::Miscellaneous,used,XeenItemService::Sell,f.p.roster.at(owner).skills[8]);
     f.act(SelectInventorySlotAction{slot});f.act(YesAction{});
-    check(!f.p.roster.at(owner).miscellaneous[slot].id && f.p.monsterTreasure->gold==gold+price,"Found used item Sell differs");
+    check(!f.p.roster.at(owner).miscellaneous[slot].id && f.p.purse->gold==gold+price,"Found used item Sell differs");
     for(unsigned n=0;n<100 && !f.flow->canSave();++n)f.act(CancelInteractionAction{});quiet(f);
     const auto saved=XeenSaveFormat::encode(f.snapshot());Fixture restored(in,XeenSaveFormat::decode(saved));
     check(saved==XeenSaveFormat::encode(restored.snapshot()),"Found-item run did not restore exactly");

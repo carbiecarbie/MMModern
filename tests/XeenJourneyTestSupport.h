@@ -5,7 +5,7 @@
 namespace journey_test {
 using namespace combat_test;
 struct Fixture {
-    mmodern::XeenTemplePriceState templePriceState;
+    mmodern::XeenProgramState programState;
 	Bytes bytes;
 	XeenPartyState p;
 	XeenCamera camera = xeenJourneyContent().entry;
@@ -20,7 +20,7 @@ struct Fixture {
 	std::unique_ptr<XeenEncounterFlow> flow;
 	explicit Fixture(Bytes data = chr(), const std::function<void(Fixture &)> &prepare = {}) : bytes(std::move(data)), p(XeenPartyLoader().loadFromResources(bytes,pty())) {
 		if (prepare) prepare(*this);
-		flow = std::make_unique<XeenEncounterFlow>(templePriceState,w,p,camera,flags,clock,
+		flow = std::make_unique<XeenEncounterFlow>(programState,w,p,camera,flags,clock,
 			XeenJourneySetup{bytes,XeenGameplayContextFormat::parse(pty()),monsters,event,56});
 		check(!flow->journeyQuiet(), "initial frame lease must block");
 		check(flow->prepareJourneyFrame(flow->ticket(),[] {}), "initial frame preparation");

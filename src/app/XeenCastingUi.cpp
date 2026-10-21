@@ -248,7 +248,7 @@ IndexedFrame XeenEventFlow::drawCasting(const IndexedFrame &base) const {
         }
         auto frame=ui.phase==P::ChooseTarget?drawXeenSpellTarget(dosText(),underlay,_inventoryFont):
             drawXeenCast(dosText(),underlay,_inventoryFont,c,ui.caster,names,drawDialogSprite);
-        if(ui.phase==P::New)frame=drawXeenSpellList(dosText(),frame,_inventoryFont,c,names,ui.list,_party.monsterTreasure->gold,false,false,drawDialogSprite,_party.encounterContext->year,_camera.mapId);
+        if(ui.phase==P::New)frame=drawXeenSpellList(dosText(),frame,_inventoryFont,c,names,ui.list,_party.purse->gold,false,false,drawDialogSprite,_party.encounterContext->year,_camera.mapId);
         if(!ui.refusal.empty())frame=drawXeenErrorScroll(frame,_inventoryFont,refusal(dosText(),c,names,ui.refusal));
         return frame;
     }
@@ -268,7 +268,7 @@ IndexedFrame XeenEventFlow::drawCasting(const IndexedFrame &base) const {
     unsigned portrait=0;for(unsigned i=0;i<v.participant;++i)portrait+=bool(_encounter->combat()->participants()&(1u<<i));
     auto frame=v.phase==P::PartyTarget?drawXeenSpellTarget(dosText(),underlay,_inventoryFont):
         drawXeenCast(dosText(),underlay,_inventoryFont,c,portrait,names,drawDialogSprite);
-    if(v.phase==P::Learned)frame=drawXeenSpellList(dosText(),frame,_inventoryFont,c,names,{v.top,v.selection},_party.monsterTreasure->gold,false,false,drawDialogSprite,_party.encounterContext->year,_camera.mapId);
+    if(v.phase==P::Learned)frame=drawXeenSpellList(dosText(),frame,_inventoryFont,c,names,{v.top,v.selection},_party.purse->gold,false,false,drawDialogSprite,_party.encounterContext->year,_camera.mapId);
     if(!v.refusal.empty())frame=drawXeenErrorScroll(frame,_inventoryFont,refusal(dosText(),c,names,v.refusal));
     return frame;
 }
@@ -338,7 +338,7 @@ IndexedFrame XeenEventFlow::handleCasting(const PlayerAction &action,std::uint64
           const auto jump=xeenJumpPreflight(_world,_camera);_encounter->journeySavePreimage().check();
           if(jump.admission==XeenJumpAdmission::Unsupported) {ui.refusal="Spell not supported yet";return renderEncounter();}
         }
-        using Q=XeenQuickSpellCheck;const auto admission=XeenLearnedSpellRules::check(c,c.currentSpell,_party.monsterTreasure->gems,false);
+        using Q=XeenQuickSpellCheck;const auto admission=XeenLearnedSpellRules::check(c,c.currentSpell,_party.purse->gems,false);
         if(admission!=Q::Supported) {
             ui.refusal=admission==Q::NoSpell?"":admission==Q::InsufficientSp?"SP":admission==Q::InsufficientGems?"gems":"Spell not supported yet";
             return renderEncounter();

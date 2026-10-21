@@ -33,7 +33,7 @@ XeenEquipmentPurchaseResult xeenQuoteEquipmentPurchase(const XeenPartyState &par
 
     xeenValidateJourneyParty(party);
     XeenEquipmentPurchaseResult r;r.category=category;
-    r.goldBefore=r.goldAfter=party.monsterTreasure->gold;
+    r.goldBefore=r.goldAfter=party.purse->gold;
     if(member>=party.party.size()){r.outcome=XeenEquipmentPurchaseOutcome::InvalidParticipant;return r;}
     if(static_cast<unsigned>(category)>=4){r.outcome=XeenEquipmentPurchaseOutcome::InvalidCategory;return r;}
     if(slot>=9){r.outcome=XeenEquipmentPurchaseOutcome::InvalidSlot;return r;}

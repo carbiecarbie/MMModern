@@ -110,7 +110,7 @@ void audio(const XeenEventRecord &original,const XeenFontFormat &font,const Xeen
  const auto done=vm.resume(pending->state,*shown.response,p,w,provider,{});
  const auto complete=std::get_if<XeenEventExecutionCompleted>(&done);
  check(complete && complete->instructionCount==2 && complete->finalGameFlags.values()==XeenGameFlags{}.values() &&
-  !p.monsterTreasure && w.sessionState().disabledEvents().empty() && w.sessionState().disabledObjects().empty(),
+  !p.purse && w.sessionState().disabledEvents().empty() && w.sessionState().disabledObjects().empty(),
   "Audio continues to Exit without rewards or overlays");
  // Extra/truncated speech refuses before dispatch, with no partially published work.
  for(unsigned size=0;size<8;++size)if(size!=(original.opcode==0x3c?5u:1u)) {
@@ -130,7 +130,7 @@ void refusal(const XeenEventRecord &original) {
  const auto result=vm.begin({1,1,1,XeenDirection::North},party,{},w,[&](auto){return XeenEventScript(f);},{});
  const auto error=std::get_if<XeenEventExecutionError>(&result);
  check(error && error->instructionCount==0 && error->source && error->source->opcode==original.opcode &&
-  !party.monsterTreasure && w.sessionState().disabledEvents().empty(),
+  !party.purse && w.sessionState().disabledEvents().empty(),
   "First unsupported/malformed decoded mechanic must refuse before dispatch or effects");
 }
 void choice(const XeenEventRecord &original) {

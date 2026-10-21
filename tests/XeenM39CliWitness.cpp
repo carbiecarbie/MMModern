@@ -78,7 +78,7 @@ void checkRestoredFields(const XeenSaveSnapshot &disk,const XeenSaveSnapshot &li
         disk.camera.direction==live.camera.direction && disk.questItems==live.questItems && disk.questFlags==live.questFlags &&
         disk.gameFlags==live.gameFlags &&
         a.schema==b.schema && a.content==b.content &&
-        a.context==b.context && a.random==b.random && a.treasure==b.treasure && a.worldFlags==b.worldFlags,
+        a.context==b.context && a.random==b.random && a.purse==b.purse && a.worldFlags==b.worldFlags,
         "M39 pre-input domain/camera/context/flags/treasure/RNG mismatch");
 }
 }
@@ -142,7 +142,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
                 else if(which=="aba-item"){c.miscellaneous[8].material^=1;c.miscellaneous[8].material^=1;}
                 else if(which=="aba-supplement"){auto &v=const_cast<XeenCombatInputs &>(*p.roster.combatInputs(29));++v.experience;--v.experience;}
                 else if(which=="aba-membership"){auto original=p.party;p.party=XeenParty::fromRosterIds({0,1,2,3,4,5});p.party=original;}
-                else if(which=="aba-purse"){++p.monsterTreasure->gold;--p.monsterTreasure->gold;}
+                else if(which=="aba-purse"){++p.purse->gold;--p.purse->gold;}
                 else if(which=="aba-context"){++p.encounterContext->minutes;--p.encounterContext->minutes;}
                 else if(which=="aba-flags"){auto &f=const_cast<XeenGameFlags &>(*flags);auto original=f;f.set(255);f=original;}
                 else if(which=="aba-rng"){auto &r=const_cast<XeenMutableOptional<XeenJourneyRandomState> &>(world->sessionState().journeyRandom());++r->count;--r->count;}
@@ -233,7 +233,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
                 fs::copy_file(*target,target->parent_path()/(target->stem().string()+"-"+label+".mmsave"),fs::copy_options::overwrite_existing);
                 std::cout<<"M39 CHECKPOINT "<<label<<" map="<<position->mapId<<" x="<<position->x<<" y="<<position->y
                     <<" minute="<<party->encounterContext->minutes<<" ctr="<<party->encounterContext->ctr24
-                    <<" SP="<<party->roster.at(1).currentSp<<','<<party->roster.at(6).currentSp<<" gold="<<party->monsterTreasure->gold
+                    <<" SP="<<party->roster.at(1).currentSp<<','<<party->roster.at(6).currentSp<<" gold="<<party->purse->gold
                     <<" rng="<<world->sessionState().journeyRandom()->state<<':'<<world->sessionState().journeyRandom()->count<<'\n';
                 return true;
             });
@@ -364,7 +364,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
                     inspect([&]{check(party->roster.at(6).currentHp==15 && party->roster.at(1).currentSp==20,"M39 A First Aid publication");});
                     action(AcknowledgeAction{});untilActor(5,false);arrow(9);
                     inspect([&]{check(party->roster.at(6).currentSp==25 && world->sessionState().monsters(23)[9].hp==0 &&
-                        world->sessionState().accountedMonsters().count({23,9}) && party->monsterTreasure->pendingGold==10,"M39 A lethal publication");
+                        world->sessionState().accountedMonsters().count({23,9}) && world->treasureStaging().value().gold==10,"M39 A lethal publication");
                         for(unsigned i=0;i<6;++i)check(party->roster.combatInputs(kXeenCombatOwners[i])->experience==(i==1 || i==4?2066u:1066u),"M39 Orc exact XP split");
                         check(party->encounterContext->minutes==510 && party->encounterContext->ctr24==2,"M39 cast charged time/ctr");
                         std::cout<<"M39 A ORC LETHAL: HP7->0 SP27->25 XP66 EACH GOLD10\n";});

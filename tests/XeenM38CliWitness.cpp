@@ -136,7 +136,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
    else if(control=="aba-cache") {world->discardMapCache();auto &map=const_cast<XeenMap &>(world->map(28));map.geometry.cells[0].rawAttributes^=1;map.geometry.cells[0].rawAttributes^=1;}
    else if(control=="aba-object-cache") {world->discardMapCache();auto &mob=const_cast<XeenObjectFile &>(world->objectFile(28));++mob.entities.objects[53].x;--mob.entities.objects[53].x;}
    else if(control=="aba-membership") {const auto saved=p.party;p.party=XeenParty::fromRosterIds({0,1,2,3,4,5});p.party=saved;}
-   else if(control=="aba-purse") {++p.monsterTreasure->gold;--p.monsterTreasure->gold;}
+   else if(control=="aba-purse") {++p.purse->gold;--p.purse->gold;}
    else if(control=="aba-context") {++p.encounterContext->minutes;--p.encounterContext->minutes;}
    else if(control=="aba-city") {auto &a=const_cast<XeenActor &>(world->sessionState().regionalActors(28).at(0));++a.hp;--a.hp;}
    else if(control=="aba-item" || control=="aba-after-repair" || control=="aba-quote" || control=="aba-departure") {p.roster.at(1).armor[0].frame^=1;p.roster.at(1).armor[0].frame^=1;}
@@ -155,12 +155,12 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
   check(world->sessionState().journey(),"M38 inherited content mismatch");
   recursiveProbe=[&] {
    const auto calls=providerCalls,saves=saveCalls;
-   const auto gold=std::uint32_t(party->monsterTreasure->gold);
+   const auto gold=std::uint32_t(party->purse->gold);
    const auto date=*party->encounterContext;
    handler.withDisplayedInput(SaveGameAction{},flow->displayedInput().value_or(0));
    handler.withDisplayedInput(AcknowledgeAction{},flow->displayedInput().value_or(0));
    handler.withDisplayedInput(CancelInteractionAction{},flow->displayedInput().value_or(0));
-   check(calls==providerCalls && saves==saveCalls && gold==party->monsterTreasure->gold && date==*party->encounterContext,
+   check(calls==providerCalls && saves==saveCalls && gold==party->purse->gold && date==*party->encounterContext,
     "M38 recursive provider response/save reached work or publication");
   };
   std::deque<std::function<bool()>> steps;
@@ -174,12 +174,12 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
    if(wasService || world->sessionState().journeyActivity()==XeenJourneyActivity::Service) {
     const auto beforeCalls=providerCalls;const auto beforeSave=saveCalls;
     handler.withDisplayedInput(SaveGameAction{},*token); // Pending unpresented handoff must refuse before provider work.
-    const auto gold=std::uint32_t(party->monsterTreasure->gold);
+    const auto gold=std::uint32_t(party->purse->gold);
     const auto context=*party->encounterContext;
     flow->handle(action,*token); // Consumed or unpresented direct seam.
     flow->handle(AcknowledgeAction{},flow->displayedInput());
     if(const auto pending=flow->presentationGeneration())check(!flow->respond(*pending,XeenPresentationResponse::Acknowledged),"M38 direct Event seam escaped service");
-    check(beforeCalls==providerCalls && beforeSave==saveCalls && gold==party->monsterTreasure->gold && context==*party->encounterContext,
+    check(beforeCalls==providerCalls && beforeSave==saveCalls && gold==party->purse->gold && context==*party->encounterContext,
      "M38 stale/unpresented response invoked a provider or publication");
     auto forged=std::make_shared<const IndexedFrame>(flow->frame());
     check(!flow->acceptsFrame(forged),"M38 equal foreign frame was authority");
@@ -317,7 +317,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
     const auto copy=target->parent_path()/(target->stem().string()+"-"+label+".mmsave");
     fs::copy_file(*target,copy,fs::copy_options::overwrite_existing);
     std::cout<<"M38 CHECKPOINT "<<label<<" day="<<party->encounterContext->day<<" minute="<<party->encounterContext->minutes
-     <<" gold="<<party->monsterTreasure->gold<<" rng="<<world->sessionState().journeyRandom()->count<<'\n';
+     <<" gold="<<party->purse->gold<<" rng="<<world->sessionState().journeyRandom()->count<<'\n';
     return true;
    });
   };
@@ -334,7 +334,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
     // while this denied F9 is sampled; only completed departure may replace
     // the token, and the denied key must still leave providers/disk untouched.
     check(*handler.displayedInput()==*input || (departureRecovery && !XeenTrainingTestAccess::admitted(*flow) &&
-     party->encounterContext->day==9 && party->monsterTreasure->gold==830),"M38 ignored F9 consumed service authority");
+     party->encounterContext->day==9 && party->purse->gold==830),"M38 ignored F9 consumed service authority");
     check(saveCalls==*count && *prior==XeenSaveFormat::encode(XeenSaveFile::read(*target)),"M38 ignored F9 performed work or changed disk");
     pushKey(SDLK_F9,false);return true;
    });
@@ -373,7 +373,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
    steps.push_back([&]{if(!flow->canSave()){settleStep();return false;}
     if(const auto input=m49_combat::toward(*world,*position,9,11,XeenDirection::West)){act(*input);return false;}return true;});
    route("UFUDD");
-   inspect([&]{std::cout<<"M49 EARNED PURSE "<<party->monsterTreasure->gold<<'\n';check(party->monsterTreasure->gold==840,"M38 production earned gold mismatch");});
+   inspect([&]{std::cout<<"M49 EARNED PURSE "<<party->purse->gold<<'\n';check(party->purse->gold==840,"M38 production earned gold mismatch");});
    route("LLULUU");action(InteractionAction{});action(YesAction{});settle();
    route("URULUUULUUU");
    // Ten completed outdoor well interactions charge10 each; city entry charges1.
@@ -408,16 +408,16 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
    action(SelectInventorySlotAction{slot});deniedSave();action(YesAction{});
    if(control=="fail-before-repair" && slot==0)action(YesAction{});
    dismissServiceNotice();
-   inspect([&,slot,goldAfter,ac]{check(XeenCharacterRules::combatArmorClass(party->roster.at(1),*party->roster.combatInputs(1),{party->encounterContext->year})==*ac+(slot==0?4:1),"M38 repaired AC contribution");check(party->monsterTreasure->gold==goldAfter && party->roster.at(1).armor[slot].state==0,
+   inspect([&,slot,goldAfter,ac]{check(XeenCharacterRules::combatArmorClass(party->roster.at(1),*party->roster.combatInputs(1),{party->encounterContext->year})==*ac+(slot==0?4:1),"M38 repaired AC contribution");check(party->purse->gold==goldAfter && party->roster.at(1).armor[slot].state==0,
     "M38 payment/item publication mismatch");});
    deniedSave();action(SelectInventorySlotAction{slot}); // Original intact refusal.
-   inspect([&,goldAfter]{check(party->monsterTreasure->gold==goldAfter,"M38 intact repeat charged gold");});
+   inspect([&,goldAfter]{check(party->purse->gold==goldAfter,"M38 intact repeat charged gold");});
    action(AcknowledgeAction{});action(CancelInteractionAction{});action(CancelInteractionAction{});
    if(slot==0 && (control=="fail-before-departure" || control=="fail-after-departure" || control=="fail-return")) {deniedSave(true);action(AcknowledgeAction{});}
    settle();
    inspect([&,before,slot,goldAfter]{
     auto expected=*before;expected.characters[1].armor[slot].state=0;
-    expected.journey->treasure->gold=goldAfter;++expected.journey->context->day;
+    expected.journey->purse->gold=goldAfter;++expected.journey->context->day;
     finishSmith(expected);
     const auto actual=XeenSaveState::capture(original.resources.signature,*party,*position,*flags,*world);
     check(XeenSaveFormat::encode(actual)==XeenSaveFormat::encode(expected),"M38 visit changed unrelated durable state");
@@ -429,12 +429,12 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
    action(InteractionAction{});waitService();action(SelectMemberAction{4});browseRepair();
    for(unsigned slot=0;slot<2;++slot) {
     action(SelectInventorySlotAction{slot});action(YesAction{});deniedSave();
-    inspect([&,slot]{check(party->encounterContext->day==8 && party->monsterTreasure->gold==(slot?829u:830u),
+    inspect([&,slot]{check(party->encounterContext->day==8 && party->purse->gold==(slot?829u:830u),
      "M38 multiple repairs settled early or rolled back earlier payment");});
    }
    action(CancelInteractionAction{});action(CancelInteractionAction{});settle();
    inspect([&,expected]{expected->characters[1].armor[0].state=0;expected->characters[1].armor[1].state=0;
-    expected->journey->treasure->gold=829;expected->journey->context->day=9;
+    expected->journey->purse->gold=829;expected->journey->context->day=9;
     finishSmith(*expected);
     check(XeenSaveFormat::encode(*expected)==XeenSaveFormat::encode(XeenSaveState::capture(original.resources.signature,*party,*position,*flags,*world)),
      "M38 multiple repairs did not preserve unrelated durable state");});checkpoint('M');
@@ -470,10 +470,10 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
    action(InteractionAction{});waitService();deniedSave();action(SelectMemberAction{4});browseRepair();deniedSave();
    action(SelectInventorySlotAction{8});deniedSave();action(YesAction{});
    inspect([&,expected]{
-    if(expected->journey->treasure->gold) {
-     --expected->journey->treasure->gold;expected->characters[1].armor[8].state=0x45;
+    if(expected->journey->purse->gold) {
+     --expected->journey->purse->gold;expected->characters[1].armor[8].state=0x45;
     }
-    check(party->monsterTreasure->gold==expected->journey->treasure->gold &&
+    check(party->purse->gold==expected->journey->purse->gold &&
      party->roster.at(1).armor[8].state==expected->characters[1].armor[8].state,
      "M38 artificial exact/insufficient/full-u32 payment");
    });
@@ -496,7 +496,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
    inspect([&,expected]{++expected->journey->context->day;finishSmith(*expected);
     check(XeenSaveFormat::encode(*expected)==XeenSaveFormat::encode(XeenSaveState::capture(original.resources.signature,*party,*position,*flags,*world)),"M38 empty visit changed unrelated durable state");
     check(party->encounterContext->day==9 && party->encounterContext->minutes==1397 &&
-    party->monsterTreasure->gold==840 && party->roster.at(1).armor[0].state==128 &&
+    party->purse->gold==840 && party->roster.at(1).armor[0].state==128 &&
     party->roster.at(1).armor[1].state==128,"M38 transaction-free departure mismatch");});
    checkpoint('E');
    }
@@ -528,7 +528,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
    if(!resume || (stage=="A" || stage=="native")) {visit(0,830);checkpoint('B');}
    if(!resume || stage=="A" || stage=="B" || stage=="native") {visit(1,829);checkpoint('C');}
    inspect([&]{check(party->encounterContext->day==10 && party->encounterContext->minutes==1397 &&
-    party->monsterTreasure->gold==829 && *world->sessionState().journeyRandom()==expectedSmithRandom,
+    party->purse->gold==829 && *world->sessionState().journeyRandom()==expectedSmithRandom,
     "M38 two-visit date/purse/RNG witness mismatch");});
   }
   checkpoint('D');
@@ -569,7 +569,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
     const bool ok=original.show(first,native,escape,drive,status);
   if(control.rfind("upload-",0)==0 || control.rfind("copy-",0)==0) {
    check(faultFired && nativeFailed && !ok && !flow->canSave(),"M38 native failure exposed Quiet");
-   check(party->monsterTreasure->gold==(control.find("admission")!=std::string::npos?840u:830u) &&
+   check(party->purse->gold==(control.find("admission")!=std::string::npos?840u:830u) &&
     party->encounterContext->day==(control.find("departure")!=std::string::npos?9:8),
     "M38 native failure rolled back or repeated publication");
    const auto calls=providerCalls,saves=saveCalls;
@@ -579,7 +579,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
   }
   if(control.rfind("aba-",0)==0 || control=="immutable-art") {
    check(faultFired && !ok && !flow->canSave(),"M38 ABA did not fail monotonically");
-   check(party->monsterTreasure->gold==(control=="aba-after-repair" || control=="aba-departure"?830u:840u),"M38 ABA crossed payment boundary");
+   check(party->purse->gold==(control=="aba-after-repair" || control=="aba-departure"?830u:840u),"M38 ABA crossed payment boundary");
    check(party->encounterContext->day==8,"M38 ABA incorrectly settled departure");
    std::cout<<"M38 ABA UNSAVEABLE PRESERVATION PASSED\n";
   }

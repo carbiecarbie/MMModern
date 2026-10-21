@@ -180,7 +180,7 @@ void originalSession(const char *directory,XeenCamera start,const std::string &w
    handler.framePresented(h.flow->frame().presentation());handler.completeInputHandoff(h.flow->frame().presentation());handler.beginCycle(++h.cycle);
    handler.withDisplayedInput(action,*handler.displayedInput());handler.framePresented(h.flow->frame().presentation());handler.completeInputHandoff(h.flow->frame().presentation());
   };
-  const auto random=*h.world->sessionState().journeyRandom();const auto purse=*h.party->monsterTreasure;
+  const auto random=*h.world->sessionState().journeyRandom();const auto purse=*h.party->purse;
   const auto year=h.party->encounterContext->year;
   auto before=h.world->transitionCandidate();
   const auto swords=[&] {unsigned count=0;for(auto id:h.party->party.activeRosterIds())for(const auto &item:h.party->roster.at(id).weapons)if(item.id==34)++count;return count;};
@@ -231,12 +231,12 @@ void originalSession(const char *directory,XeenCamera start,const std::string &w
     check(xeen_state::sameCamera(*h.camera,expected),"Original mirror map/x/y/facing: "+word);
    }
    if(refused)check(xeen_state::sameCamera(*h.camera,start) && *h.world->sessionState().journeyRandom()==random &&
-    *h.party->monsterTreasure==purse && xeen_state::sameMapStates(h.world->sessionState().mapStates(),before->sessionState().mapStates()),"Refused original mirror leaked state/RNG");
+    *h.party->purse==purse && xeen_state::sameMapStates(h.world->sessionState().mapStates(),before->sessionState().mapStates()),"Refused original mirror leaked state/RNG");
    std::cout<<"PLAY "<<word<<" -> "<<h.camera->mapId.number<<" ("<<h.camera->x<<","<<h.camera->y<<") facing "<<unsigned(h.camera->direction)<<" refusal="<<failures<<'\n';
   }
   return true;
  };
- check(Application(s.templePrices).playGameplay(s,{}, {},false,XeenEncounterEntry::Journey,7)==0,"Original travel Application session failed");
+ check(Application(s.program).playGameplay(s,{}, {},false,XeenEncounterEntry::Journey,7)==0,"Original travel Application session failed");
 }
 // Worked Clouds operands, preserving the original ConfirmWord bytes while
 // isolating its two outcomes so the comparison is checked independently of

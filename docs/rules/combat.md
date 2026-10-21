@@ -593,11 +593,10 @@ including guaranteed fields 4-6, consume it. The same calibrated
 inclusive random helper supplies the chance and item draws. **Implemented
 (M71):** supported level-1 drops share `XeenItemCandidate` with shops and
 Events: category/subcategory `R(1,100)` and Misc charges `R(1,8)+2`.
-The existing 10% chance, source accounting, publication and delivery remain;
-higher-level drops and accessory staging remain unsupported (DOS stages
-accessories in their own array, `0x2c4a6`). The current implementation saves
-pending loot, Misc charges 1-10 included, and restores it without regenerating;
-DOS never writes pending loot into a save
+The existing 10% chance, accounting, publication and delivery remain;
+higher-level drops remain unsupported. **M81 Part A:** staging has the four
+ten-slot DOS arrays (accessories included, `0x2c4a6`) and 32-bit gold/gems
+that wrap; it is running-program state that no save holds
 ([load boundary](evidence.md#save-and-load-boundary)). Successful Orc melee and group-spell
 drops are covered by `XeenPartyInterfaceTests::originalMonsterDropReceipts`.
 

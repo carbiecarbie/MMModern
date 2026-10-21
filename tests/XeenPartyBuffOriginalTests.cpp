@@ -32,7 +32,7 @@ XeenSaveSnapshot source(Inputs &in,unsigned spell,bool combat=false) {
     caster.currentSpell=*R::slotForSpell(*R::categoryForClass(caster.characterClass),spell);
     caster.learnedSpells->at(caster.currentSpell)=1;caster.quickOption=1;
     s.journey->supplements[caster.rosterId].inputs.speed={250,0};
-    s.journey->treasure->gems=1000;s.journey->context->ctr24=23;s.journey->context->minutes=600;
+    s.journey->purse->gems=1000;s.journey->context->ctr24=23;s.journey->context->minutes=600;
     s.journey->context->effects.fill(0);s.journey->context->lightAndResistances.fill(0);
     if(combat) {auto &enemy=s.map(23).monsters->slots[5];enemy.x=8;enemy.y=11;enemy.lifecycle=XeenActorLifecycle::Present;enemy.accounted=false;}
     save_test::clearExplored(s);return s;
@@ -72,7 +72,7 @@ void booksAndItems(Inputs &in) {
         if(spell==55)chooseElement(f,element,element%2==1);
         quiet(f);const bool cancel=spell==55 && element<0;const auto cost=R::cost(spell,7);
         check(f.p.roster.at(owner).currentSp==(item?3+int(cancel?cost.sp:0):1000-int(cancel?0:cost.sp)),"Book/item SP debit/refund");
-        check(f.p.monsterTreasure->gems==1000+(item?int(cancel?cost.gems:0):-int(cancel?0:cost.gems)),"Book/item gem debit/refund");
+        check(f.p.purse->gems==1000+(item?int(cancel?cost.gems:0):-int(cancel?0:cost.gems)),"Book/item gem debit/refund");
         check(f.p.encounterContext->minutes==(item?600:601) && f.w.sessionState().journeyRandom()==random,"Buff time/RNG");
         if(item)check(!f.p.roster.at(owner).miscellaneous[0].id,"Last item charge consumed even on cancellation");
         effects(*f.p.encounterContext,spell,element,cancel);roundtrip(in,f);
@@ -93,7 +93,7 @@ void combat(Inputs &in) {
         for(unsigned n=0;n<1000 && fight().cast();++n)tick(f);
         check(!fight().cast() && fight().phase()!=XeenCombatPhase::Failed,"Combat buff did not settle");
         const bool cancel=spell==55 && element<0;const auto cost=R::cost(spell,7);
-        check(f.p.roster.at(s.activeRosterIds[0]).currentSp==1000-int(cancel?0:cost.sp) && f.p.monsterTreasure->gems==1000-(cancel?0:cost.gems),"Combat cost/refund");
+        check(f.p.roster.at(s.activeRosterIds[0]).currentSp==1000-int(cancel?0:cost.sp) && f.p.purse->gems==1000-(cancel?0:cost.gems),"Combat cost/refund");
         check(fight().random()==random && f.p.encounterContext->minutes==minute,"Combat buff drew or advanced round time");
         effects(*f.p.encounterContext,spell,element,cancel);
     }

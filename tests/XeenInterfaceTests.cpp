@@ -10,12 +10,12 @@ using namespace training_test;
 namespace {
 void summaries(Inputs &in) {
  auto p=XeenPartyLoader().loadInitialCloudsParty(in.assets);const auto &text=in.assets.uiText();
- p.monsterTreasure.emplace();p.monsterTreasure->gold=321;p.monsterTreasure->gems=123;
+ p.purse.emplace();p.purse->gold=321;p.purse->gems=123;
  const std::vector<std::size_t> members{0,1,2,3,4,5};
  for(unsigned food:{0u,17u,18u,35u,36u,90u}) {
   p.food=food;const auto days=food/6/3;
   const auto result=xeenQuickReferenceText(text,p,members);
-  std::vector<std::string> args(8);args.insert(args.end(),{std::to_string(unsigned(p.monsterTreasure->gold)),std::to_string(unsigned(p.monsterTreasure->gems)),std::to_string(days),std::string(text.scalar(days==1?"DAY_SINGULAR":"DAY_PLURAL"))});
+  std::vector<std::string> args(8);args.insert(args.end(),{std::to_string(unsigned(p.purse->gold)),std::to_string(unsigned(p.purse->gems)),std::to_string(days),std::string(text.scalar(days==1?"DAY_SINGULAR":"DAY_PLURAL"))});
   const auto footer=xeenDialogFormat(text.scalar("QUICK_REFERENCE"),args);
   check(result.find(footer.substr(footer.find('\v',footer.find('\v')+1)))!=std::string::npos,"Quick Reference food rounding/suffix");
  }

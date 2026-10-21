@@ -60,7 +60,7 @@ inline void sameSnapshot(const XeenSaveSnapshot &a, const XeenSaveSnapshot &b) {
 	if(a.journey) {
 		const auto &x=*a.journey,&y=*b.journey;
 		check(x.entry==y.entry&&x.schema==y.schema&&x.content==y.content&&x.context==y.context&&
-			x.skeletonSeed==y.skeletonSeed && x.random==y.random && x.treasure==y.treasure &&
+			x.skeletonSeed==y.skeletonSeed && x.random==y.random && x.purse==y.purse &&
 			x.worldFlags==y.worldFlags && x.serviceEconomy==y.serviceEconomy,"Journey header/economy values changed");
 		for(unsigned i=0;i<30;++i) check(x.supplements[i].owner==y.supplements[i].owner&&
 			sameInputs(x.supplements[i].inputs,y.supplements[i].inputs),"Journey supplements changed");
@@ -120,32 +120,6 @@ inline void setDisabledEvents(XeenSaveSnapshot &s,const std::vector<XeenEventIde
 	for(const auto id:ids)addDisabledEvent(s,id);
 	prune(s);
 }
-// Fixtures set treasure sources by record slot, as the drop rules produce
-// F3's Orcs; a v13 save orders source identities instead. Binds each record
-// slot to the first defeated, accounted slot of that record in identity order
-// (F3 first) and converts the fixture to its saved form.
-inline void bindTreasureSources(XeenSaveSnapshot &s) {
-	if(!s.journey || !s.journey->treasure)return;
-	auto &t=*s.journey->treasure;std::uint32_t records=t.pendingMask;
-	for(const auto *items:{&t.weapons,&t.armor,&t.miscellaneous})for(const auto &v:*items)if(v.item.id)records|=1u<<v.source;
-	std::vector<std::pair<XeenMonsterIdentity,unsigned>> found;
-	for(unsigned r=0;r<32;++r)if(records&(1u<<r)) {
-		XeenMonsterIdentity id{{},std::size_t(r)};bool bound=false;
-		for(const auto &m:s.maps)if(m.monsters && r<m.monsters->slots.size()) {
-			const auto &a=m.monsters->slots[r];
-			if(a.lifecycle==XeenActorLifecycle::Defeated && a.accounted){id.mapId=m.id;bound=true;break;}
-		}
-		check(bound,"Fixture treasure source is not a defeated monster");
-		found.push_back({id,r});
-	}
-	// The live form names record slot r's monster; save its canonical form.
-	t.sources={};for(const auto &value:found)if(value.second<12)t.sources[value.second]=value.first;
-	t=xeenCanonicalMonsterTreasure(t);
-}
-// The live form of a saved treasure: each source back in its production slot.
-inline XeenMonsterTreasure liveTreasure(const XeenSaveSnapshot &s) {
-	return xeenLiveMonsterTreasure(*s.journey->treasure);
-}
 inline void clearExplored(XeenSaveSnapshot &s) {
 	for(auto &m:s.maps)m.explored.reset();
 	prune(s);
@@ -174,7 +148,7 @@ inline XeenSaveSnapshot currentWireSnapshot() {
  for(unsigned i=0;i<30;++i){j.supplements[i].owner=i;auto &v=j.supplements[i].inputs;
   v.luck.emplace();v.resistances.emplace();v.poisonResistance.emplace();s.characters[i].learnedSpells.emplace();}
  j.random.emplace();s.map(23).monsters=monsterTable(19);
- j.treasure.emplace();j.worldFlags.emplace();j.serviceEconomy=literalMerchantEconomy();return s;
+ j.purse.emplace();j.worldFlags.emplace();j.serviceEconomy=literalMerchantEconomy();return s;
 }
 
 inline XeenSaveSnapshot sample() {

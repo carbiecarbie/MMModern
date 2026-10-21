@@ -123,13 +123,13 @@ inline XeenSaveState::Resources resources(){
     r.loadRegionalText=texts;r.loadLearnedSpellNames=[]{return XeenLearnedSpellNames{};};
     r.loadInitialParty=[]{return XeenPartyLoader().loadFromResources(characterBytes(),partyBytes());};
     r.loadInitialContext=[]{return XeenGameplayContextFormat::parse(partyBytes());};
-    r.loadInitialPurse=[]{return XeenMonsterTreasure{};};
+    r.loadInitialPurse=[]{return XeenPurse{};};
     r.loadInitialWorldFlags=[]{return XeenWorldFlags{};};
     r.loadInitialBankBalances=[]{return XeenBankBalances{};};
     return r;
 }
 struct Fixture{
-    mmodern::XeenTemplePriceState templePriceState;
+    mmodern::XeenProgramState programState;
     Bytes bytes=characterBytes();
     std::vector<XeenMonsterRecord> monsters=statistics();
     XeenEventFile event=events(23);
@@ -144,16 +144,16 @@ struct Fixture{
     explicit Fixture(const std::optional<XeenSaveSnapshot> &saved={}){
         if(saved){
             XeenSaveState::restoreBeforeGameplay(*saved,resources(),p,camera,flags,w,[](auto &,const auto &,const auto &,const auto &){});
-            flow=std::make_unique<XeenEncounterFlow>(templePriceState,w,p,camera,flags,clock,XeenJourneyRestoreTag{});
+            flow=std::make_unique<XeenEncounterFlow>(programState,w,p,camera,flags,clock,XeenJourneyRestoreTag{});
         }else{
             p=XeenPartyLoader().loadFromResources(bytes,partyBytes());
             const auto r=resources();
             XeenJourneySetup setup{bytes,XeenGameplayContextFormat::parse(partyBytes()),monsters,event,1,r.regionalManifest};
-            setup.purse=XeenMonsterTreasure{};setup.worldFlags=XeenWorldFlags{};
+            setup.purse=XeenPurse{};setup.worldFlags=XeenWorldFlags{};
             setup.regionalText=texts(23);setup.learnedNames=XeenLearnedSpellNames{};
             setup.learnedNamesProvider=r.loadLearnedSpellNames;
             setup.bank=XeenBankBalances{};setup.cityEventsProvider=[]{return events(28);};
-            flow=std::make_unique<XeenEncounterFlow>(templePriceState,w,p,camera,flags,clock,setup);
+            flow=std::make_unique<XeenEncounterFlow>(programState,w,p,camera,flags,clock,setup);
         }
         present();
     }

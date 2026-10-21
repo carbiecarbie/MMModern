@@ -97,14 +97,14 @@ void finishEvent(Harness &h,const Handler &handler,const SdlWindow::IdleFrameHan
 XeenSaveSnapshot objective(const fs::path &path) {
  Harness h;auto s=services(h);std::optional<XeenSaveSnapshot> saved;
  s.show=[&](const auto &,const auto &handler,const auto &,const auto &,const auto &){handler.framePresented(h.flow->frame().presentation());saved=snapshot(h);return true;};
- check(Application(s.templePrices).playGameplay(s,{},path,false,XeenEncounterEntry::Journey,1)==0&&saved.has_value(),"production fresh fixture source");
+ check(Application(s.program).playGameplay(s,{},path,false,XeenEncounterEntry::Journey,1)==0&&saved.has_value(),"production fresh fixture source");
  saved->camera={23,8,2,XeenDirection::North};
  for(auto &a:saved->map(23).monsters->slots){a.x=a.y=-128;a.lifecycle=XeenActorLifecycle::Defeated;a.accounted=true;}
  return *saved;
 }
 void run(const fs::path &path,const XeenSaveSnapshot &saved,const std::function<void(Harness &,XeenGameplayServices &)> &configure,int expected=0){
  XeenSaveFile::write(path,saved);Harness h;auto s=services(h);configure(h,s);s.resources.loadRegionalText=s.texts;bool shown=false;const auto show=s.show;s.show=[&](const auto &frame,const auto &handler,const auto &escape,const auto &idle,const auto &status){const bool result=show(frame,handler,escape,idle,status);shown=true;return result;};
- check(Application(s.templePrices).playGameplay(s,{},path,true)==expected&&shown,"objective Application test completed after all show assertions");
+ check(Application(s.program).playGameplay(s,{},path,true)==expected&&shown,"objective Application test completed after all show assertions");
 }
 void authority(const fs::path &path,const XeenSaveSnapshot &saved){
  run(path,saved,[&](Harness &h,XeenGameplayServices &s){s.show=[&](const auto &,const auto &handler,const auto &,const auto &,const auto &){
@@ -289,7 +289,7 @@ void shiftedSourceAuthority(const fs::path &path,const XeenSaveSnapshot &saved) 
 			}
 			return true;
 		};
-		check(Application(s.templePrices).playGameplay(s,{},path,true)==0,"shifted source Application controls");
+		check(Application(s.program).playGameplay(s,{},path,true)==0,"shifted source Application controls");
 	}
 }
 

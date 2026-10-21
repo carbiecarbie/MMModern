@@ -132,10 +132,10 @@ void refusal(Inputs &in) {
  check(!Access::required(*f.flow) && !Access::active(*f.flow) && !f.flow->partyDeathComplete(),"Living party entered death sequence");
 }
 void applicationOutcome(Inputs &in) {
-    mmodern::XeenTemplePriceState templePriceState;
+    mmodern::XeenProgramState programState;
  std::uint64_t now=0;XeenEventFlow *flow=nullptr;XeenSessionOutcome outcome;
  SdlWindow::FrameUpdateHandler retired;SdlWindow::IdleFrameHandler retiredIdle;
- XeenGameplayServices services{templePriceState,in.resources(),{},in.mapLoader(),in.objectLoader(),
+ XeenGameplayServices services{programState,in.resources(),{},in.mapLoader(),in.objectLoader(),
   [&](auto id){return in.texts.load(id);},in.font,
   [](auto &,const auto &,const auto &,auto){return XeenEventFlow::Composition{frame(),false};},{},
   [&](XeenEventFlow &f,const auto &) {
@@ -162,7 +162,7 @@ void applicationOutcome(Inputs &in) {
  services.composeEncounter=[](auto &,const auto &,const auto &,auto,auto){return XeenEventFlow::Composition{frame(),false};};
  services.validateEncounterSprite=[](auto){};services.validateCombatSprite=[](auto){};
  services.restoreSnapshot=std::make_shared<const XeenSaveSnapshot>(conditionDeathSource(in));
- const auto status=Application(services.templePrices).playGameplay(services,{},std::filesystem::path("synthetic-death-slot"),true);
+ const auto status=Application(services.program).playGameplay(services,{},std::filesystem::path("synthetic-death-slot"),true);
  check(status==0 && outcome.kind==XeenSessionOutcome::Kind::Title,"Completed death must emit Title outcome instead of Exit/Load");
  check(retired.finished() && !retired.displayedInput() && !retiredIdle(),"Retired death callbacks touched destroyed gameplay owners");
  retired.closed();

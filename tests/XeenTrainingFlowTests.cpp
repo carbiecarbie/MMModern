@@ -42,7 +42,7 @@ int main(int argc,char **argv) {
             auto s=source;s.characters[18].characterClass=static_cast<XeenCharacterClass>(cls);s.characters[18].permanentLevel=level;
             s.characters[18].weapons={};s.characters[18].armor={};s.characters[18].accessories={};s.characters[18].miscellaneous={};
             const unsigned debit=bases[cls]*(1u<<(level==1?0:level-2));
-            s.journey->supplements[18].inputs.experience=debit+1;s.journey->treasure->gold=10*level*level;
+            s.journey->supplements[18].inputs.experience=debit+1;s.journey->purse->gold=10*level*level;
             Fixture fixture(inputs,s);const auto delta=xeenPrepareTraining(fixture.p,18,*fixture.p.encounterContext,XeenMapIdentity(28));
             check(delta.result.outcome==XeenTrainingOutcome::Trained && delta.result.levelAfter==level+1 &&
                 delta.result.xpAfter==1 && delta.result.goldAfter==0 && delta.result.maxHpAfter==delta.result.hpAfter &&
@@ -50,7 +50,7 @@ int main(int argc,char **argv) {
         }
         // Independent reset matrix with nonzero selected, other active and
         // inactive fields, raw books/items, age and conditions preserved.
-        auto matrix=source;matrix.journey->treasure->gold=90;matrix.characters[18].currentHp=100;
+        auto matrix=source;matrix.journey->purse->gold=90;matrix.characters[18].currentHp=100;
         for(unsigned id:{18u,0u,2u}) {
             auto &c=matrix.characters[id];auto &i=matrix.journey->supplements[id].inputs;
             c.temporaryLevel=2;c.intellect.temporary=3;c.personality.temporary=4;c.endurance.temporary=5;c.temporaryAge=6;
@@ -74,7 +74,7 @@ int main(int argc,char **argv) {
             for(auto effect:kXeenPartyEffects)if(effect!=XeenPartyEffect::AutomapOn)check(!fixture.p.encounterContext->effects[effect],"Training party effect survived");
             for(unsigned n:{0u,2u,3u,4u,5u})check(!fixture.p.encounterContext->lightAndResistances[n],"Training party light/resistance survived");
             check(fixture.p.roster.at(18).permanentLevel==4 && fixture.p.roster.at(18).currentHp==64 && fixture.p.roster.at(18).currentSp==0 &&
-                fixture.p.roster.combatInputs(18)->experience==0 && fixture.p.monsterTreasure->gold==0 && fixture.p.encounterContext->day==9,"exact funds/reset/refill/progression mismatch");
+                fixture.p.roster.combatInputs(18)->experience==0 && fixture.p.purse->gold==0 && fixture.p.encounterContext->day==9,"exact funds/reset/refill/progression mismatch");
             for(auto id:kXeenCombatOwners) {
                 const auto &c=fixture.p.roster.at(id);const auto &i=*fixture.p.roster.combatInputs(id);
                 check(!c.temporaryLevel && !c.intellect.temporary && !c.personality.temporary && !c.endurance.temporary && !i.might.temporary &&
@@ -114,7 +114,7 @@ int main(int argc,char **argv) {
             auto s=source;s.journey->content=14;s.journey->context->day=9;
             auto &stock=s.journey->serviceEconomy->wares[0][0][1];
             stock=purchase_test::removeOffer(stock,purchase_test::plainOffer(stock,3));
-            s.characters[0].armor[4]={0,3,0,0};s.journey->treasure->gold=670;
+            s.characters[0].armor[4]={0,3,0,0};s.journey->purse->gold=670;
             // Mutation: reject accidental regeneration/depletion loss before training.
             m42_test::StockOracle initial{7,0,{}};const auto generated=initial.generate();
             m42_test::sameCategory(stock,purchase_test::removeOffer(generated.wares[0][0][1],
@@ -125,7 +125,7 @@ int main(int argc,char **argv) {
             const auto before=*fixture.p.serviceEconomy;const auto cursor=*fixture.w.sessionState().journeyRandom();
             fixture.enter();fixture.train(1);
             check(fixture.p.encounterContext->day==10 && *fixture.p.serviceEconomy==before &&
-                *fixture.w.sessionState().journeyRandom()==cursor && fixture.p.monsterTreasure->gold==580 &&
+                *fixture.w.sessionState().journeyRandom()==cursor && fixture.p.purse->gold==580 &&
                 xeenSameItem(fixture.p.roster.at(0).armor[4],{0,3,0,0}),"nontrigger successor Training changed depletion/delivery/RNG");
             m42_test::StockOracle oracle{cursor.state,cursor.count,{}};
             auto expected=oracle.generate();expected.bank=before.bank;
@@ -133,7 +133,7 @@ int main(int argc,char **argv) {
             // Mutations: skipped/duplicate restock and an extra/premature RNG publication.
             check(*fixture.w.sessionState().journeyRandom()==XeenJourneyRandomState{1,oracle.state,oracle.count},"Training restock RNG differs");
             check(fixture.flow->canSave() && fixture.p.encounterContext->day==11 && *fixture.p.serviceEconomy==expected &&
-                fixture.p.serviceEconomy->bank==before.bank && fixture.p.monsterTreasure->gold==580 &&
+                fixture.p.serviceEconomy->bank==before.bank && fixture.p.purse->gold==580 &&
                 xeenSameItem(fixture.p.roster.at(0).armor[4],{0,3,0,0}),"successor Training trigger missed restock or changed bought inventory");
             xeenValidateServiceEconomy(*fixture.p.serviceEconomy);
             const auto settled=fixture.snapshot();check(settled.journey->schema==9 && settled.journey->content==14,"Training silently remapped successor content");
@@ -149,7 +149,7 @@ int main(int argc,char **argv) {
             auto s=source;s.journey->content=14;s.journey->context->day=9;
             auto &stock=s.journey->serviceEconomy->wares[0][0][1];
             stock=purchase_test::removeOffer(stock,purchase_test::plainOffer(stock,3));
-            s.characters[0].armor[4]={0,3,0,0};s.journey->treasure->gold=670;
+            s.characters[0].armor[4]={0,3,0,0};s.journey->purse->gold=670;
             s.journey->serviceEconomy->bank={199,100};
             Fixture training(inputs,s);const auto depleted=*training.p.serviceEconomy;
             const auto cursor=*training.w.sessionState().journeyRandom();
@@ -157,10 +157,10 @@ int main(int argc,char **argv) {
             auto restocked=oracle.generate();restocked.bank={200,101};
             training.enter();training.train(1);
             check(training.p.encounterContext->day==10 && *training.p.serviceEconomy==depleted &&
-                *training.w.sessionState().journeyRandom()==cursor && training.p.monsterTreasure->gold==580,
+                *training.w.sessionState().journeyRandom()==cursor && training.p.purse->gold==580,
                 "first successor member day changed depleted stock/RNG");
             training.train(4);
-            check(training.p.encounterContext->day==11 && training.p.monsterTreasure->gold==490 &&
+            check(training.p.encounterContext->day==11 && training.p.purse->gold==490 &&
                 *training.p.serviceEconomy==restocked &&
                 *training.w.sessionState().journeyRandom()==XeenJourneyRandomState{1,oracle.state,oracle.count},
                 "second successor member day missed independently expected full restock/interest/RNG");
@@ -190,7 +190,7 @@ int main(int argc,char **argv) {
                 removed[retained++]=restocked.wares[0][0][0][slot];
             expected.characters[0].weapons=delivered;
             expected.journey->serviceEconomy->wares[0][0][0]=removed;
-            expected.journey->treasure->gold=490-price;expected.journey->context->day=13;
+            expected.journey->purse->gold=490-price;expected.journey->context->day=13;
             // Cartography records the Smith return cell: physical tile 28,
             // (8,4) is bit 72, byte 9, mask 1. Keep every earlier cell exact.
             auto &explored=expected.map(28).explored;
@@ -198,7 +198,7 @@ int main(int argc,char **argv) {
                 "Training fixture must retain its tile without the Smith return cell");
             (*explored)[9]|=1;
             smith.enter();smith.quote(XeenInventoryCategory::Weapons,offerSlot);smith.act(YesAction{});
-            check(smith.p.monsterTreasure->gold==490-price &&
+            check(smith.p.purse->gold==490-price &&
                 xeenSameItem(smith.p.roster.at(0).weapons[recipient],offer),
                 "Buy following actual successor Training/restock changed quote/payment/delivery");
             smith.leave();save_test::sameSnapshot(expected,smith.snapshot());
@@ -215,12 +215,12 @@ int main(int argc,char **argv) {
             const auto checkpoint=original.snapshot();
             purchase_test::Fixture restored(inputs,checkpoint);save_test::sameSnapshot(checkpoint,restored.snapshot());
             auto expected=checkpoint;expected.characters[0].armor[0].state=0;
-            expected.journey->treasure->gold=650;expected.journey->context->day=10;
+            expected.journey->purse->gold=650;expected.journey->context->day=10;
             restored.enter();restored.act(DialogKeyAction{'b'});restored.act(DialogKeyAction{'a'});restored.act(DialogKeyAction{'f'});restored.act(SelectInventorySlotAction{0});
             check(XeenPurchaseTestAccess::text(*restored.flow).find("20")!=std::string::npos,
                 "fresh-owner depleted Repair quote differs from literal base200/divisor10");
             restored.act(YesAction{});
-            check(restored.p.monsterTreasure->gold==650 && !restored.p.roster.at(0).armor[0].state &&
+            check(restored.p.purse->gold==650 && !restored.p.roster.at(0).armor[0].state &&
                 *restored.p.serviceEconomy==*checkpoint.journey->serviceEconomy &&
                 restored.w.sessionState().journeyRandom()==checkpoint.journey->random,
                 "fresh-owner depleted Repair lost exact twenty-gold repair/stock/RNG semantics");
@@ -238,7 +238,7 @@ int main(int argc,char **argv) {
             check(input==fixture.flow->displayedInput(),"wrong key drained mandatory suffix");
             fixture.act(CancelInteractionAction{});fixture.finishDeparture();
             check(fixture.flow->canSave() && fixture.p.encounterContext->day==9 && fixture.p.roster.at(18).permanentLevel==3 &&
-                fixture.p.monsterTreasure->gold==800,"finite authority made reserved departure unpayable");
+                fixture.p.purse->gold==800,"finite authority made reserved departure unpayable");
         }
         for(unsigned counter=0;counter<4;++counter)for(bool sufficient:{false,true}) {
             Fixture fixture(inputs,source);fixture.act(InteractionAction{});
@@ -246,7 +246,7 @@ int main(int argc,char **argv) {
             XeenTrainingTestAccess::limit(*fixture.flow,counter,UINT64_MAX-needed+(sufficient?0:1));fixture.prepare();
             if(sufficient){check(!fixture.flow->canSave(),"sufficient admission suffix refused");fixture.act(SelectMemberAction{1});fixture.act(CancelInteractionAction{});
                 check(fixture.flow->canSave() && fixture.p.encounterContext->day==9,"admission threshold lost departure suffix");}
-            else check(fixture.flow->canSave() && fixture.p.encounterContext->day==8 && fixture.p.monsterTreasure->gold==800,"insufficient admission suffix acquired debt");
+            else check(fixture.flow->canSave() && fixture.p.encounterContext->day==8 && fixture.p.purse->gold==800,"insufficient admission suffix acquired debt");
         }
         // RNG exhaustion in a replacement leaves the old complete departure;
         // exhaustion in admission has no debt, level, payment or private draws.
@@ -256,7 +256,7 @@ int main(int argc,char **argv) {
             if(day==10)check(fixture.flow->canSave() && fixture.p.encounterContext->day==10,"failed mandatory reservation acquired debt");
             else {fixture.train(1);fixture.act(CancelInteractionAction{});
                 check(fixture.flow->canSave() && fixture.p.encounterContext->day==10 && fixture.p.roster.at(18).permanentLevel==3 &&
-                    fixture.p.monsterTreasure->gold==800 && fixture.w.sessionState().journeyRandom()->count==UINT64_MAX-1,"replacement exhaustion changed prefix/reservation/live RNG");}
+                    fixture.p.purse->gold==800 && fixture.w.sessionState().journeyRandom()->count==UINT64_MAX-1,"replacement exhaustion changed prefix/reservation/live RNG");}
         }
         for(auto boundary:{XeenTrainingBoundary::BeforeDeparture,XeenTrainingBoundary::Return,XeenTrainingBoundary::BeforeEventSettlement}) {
             Fixture fixture(inputs,source);fixture.enter();unsigned failures=0;
@@ -282,7 +282,7 @@ int main(int argc,char **argv) {
             fixture.act(CancelInteractionAction{});
             if(!fixture.flow->canSave())fixture.act(CancelInteractionAction{});
             fixture.finishDeparture();
-            check(fired && fixture.flow->canSave() && fixture.p.roster.at(18).permanentLevel==4 && fixture.p.monsterTreasure->gold==710 &&
+            check(fired && fixture.flow->canSave() && fixture.p.roster.at(18).permanentLevel==4 && fixture.p.purse->gold==710 &&
                 fixture.p.roster.combatInputs(18)->experience==6000 && fixture.p.encounterContext->day==11,"hook retry lost/duplicated committed prefix");
         }
         // Reentrant operations consume no second frame and no payment/day.
@@ -292,7 +292,7 @@ int main(int argc,char **argv) {
             fixture.flow->trainingBoundary=[&](auto here){if(here==boundary && !failed)armed=true;};
             fixture.flow->beforeEncounterFrameCopy=[&]{if(armed && !failed){failed=true;throw std::runtime_error("Synthetic healthy render retry");}};
             fixture.enter();fixture.train(1);fixture.act(CancelInteractionAction{});fixture.finishDeparture();
-            check(failed && fixture.flow->canSave() && fixture.p.roster.at(18).permanentLevel==4 && fixture.p.monsterTreasure->gold==710 &&
+            check(failed && fixture.flow->canSave() && fixture.p.roster.at(18).permanentLevel==4 && fixture.p.purse->gold==710 &&
                 fixture.p.encounterContext->day==10,"render reconstruction duplicated/lost Training publication");
         }
         {
@@ -301,7 +301,7 @@ int main(int argc,char **argv) {
             fixture.act(InteractionAction{});check(fixture.flow->canSave() && fixture.p.encounterContext->day==8,"unadmitted resource fault created debt");
             fixture.enter();fixture.act(SelectMemberAction{1});fixture.act(CancelInteractionAction{});fixture.finishDeparture();
             check(fixture.flow->canSave() && fixture.p.encounterContext->day==9 && fixture.p.roster.at(0).permanentLevel==3 &&
-                fixture.p.monsterTreasure->gold==800,"cancelled quote set trainee bit/payment/day");
+                fixture.p.purse->gold==800,"cancelled quote set trainee bit/payment/day");
         }
         {
             Fixture fixture(inputs,source);fixture.enter();bool called=false;
@@ -310,7 +310,7 @@ int main(int argc,char **argv) {
                 fixture.flow->handle(CancelInteractionAction{},fixture.flow->displayedInput());
                 check(!fixture.flow->canSave(),"reentrant F9 exposed capture");
             }};
-            fixture.train(1);check(called && fixture.p.monsterTreasure->gold==710 && fixture.p.encounterContext->day==9,"reentrant payment/day duplicated");
+            fixture.train(1);check(called && fixture.p.purse->gold==710 && fixture.p.encounterContext->day==9,"reentrant payment/day duplicated");
         }
         // Full mutation->reversion guard families, including inactive owners.
         for(unsigned family=0;family<20;++family)for(bool throwing:{false,true}) {
@@ -320,7 +320,7 @@ int main(int argc,char **argv) {
                 case 0:++fixture.p.roster.at(2).temporaryAge;--fixture.p.roster.at(2).temporaryAge;break;
                 case 1:{auto &i=const_cast<XeenCombatInputs &>(*fixture.p.roster.combatInputs(2));++i.experience;--i.experience;break;}
                 case 2:fixture.p.roster.at(2).learnedSpells->at(38)^=1;fixture.p.roster.at(2).learnedSpells->at(38)^=1;break;
-                case 3:++fixture.p.monsterTreasure->pendingGold;--fixture.p.monsterTreasure->pendingGold;break;
+                case 3:{auto &g=const_cast<XeenTreasureStaging &>(fixture.w.treasureStaging().value()).gold;++g;--g;break;}
                 case 4:++fixture.p.serviceEconomy->bank.gold;--fixture.p.serviceEconomy->bank.gold;break;
                 case 5:fixture.p.serviceEconomy->wares[1][3][3][8].material^=1;fixture.p.serviceEconomy->wares[1][3][3][8].material^=1;break;
                 case 6:++fixture.c.x;--fixture.c.x;break;
@@ -341,7 +341,7 @@ int main(int argc,char **argv) {
                 if(throwing)throw std::runtime_error("ABA exceptional exit");
             };
             rejects([&]{fixture.train(1);});check(fired && !fixture.flow->canSave() && fixture.p.roster.at(18).permanentLevel==3 &&
-                fixture.p.monsterTreasure->gold==800 && fixture.p.encounterContext->day==8,"ABA failure published/reopened Quiet");
+                fixture.p.purse->gold==800 && fixture.p.encounterContext->day==8,"ABA failure published/reopened Quiet");
         }
         std::cout<<"Training synthetic reset/day/repeat/fault/reentrant/ABA fixtures passed\n";return 0;
     } catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}

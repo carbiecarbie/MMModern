@@ -21,11 +21,10 @@ void contribution(bool supported, unsigned owner, const char *category, unsigned
 void xeenValidateJourneyParty(const XeenPartyState &party) {
 
 	require(party.roster.combatMarked() && party.encounterContext.has_value(), "Journey requires complete owner state");
-	require(bool(party.monsterTreasure), "Journey consequence presence mismatch");
+	require(bool(party.purse), "Journey purse presence mismatch");
 	require(bool(party.worldFlags), "Journey recovery presence mismatch");
 	require(bool(party.serviceEconomy), "Journey service-economy presence mismatch");
 	if (party.serviceEconomy) xeenValidateCurrentServiceEconomy(*party.serviceEconomy);
-	if (party.monsterTreasure) xeenValidateMonsterTreasure(*party.monsterTreasure);
 	const auto &context = *party.encounterContext;
 	require(xeenRegionalContext(context),"Noncanonical Journey calendar");
 	require(context.profile == XeenBehaviorProfile::WorldOfXeenClouds && static_cast<unsigned>(context.difficulty)<=1 &&

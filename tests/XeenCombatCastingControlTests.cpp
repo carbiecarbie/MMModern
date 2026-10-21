@@ -33,7 +33,7 @@ int main(int argc,char **argv){try{
     if(selected.empty() || selected=="faults" || selected=="effects")
     for(const std::string control:{"aba-hp","aba-inactive","aba-sp","aba-book","aba-presence","aba-class","aba-item","aba-supplement",
         "aba-membership","aba-purse","aba-context","aba-flags","aba-rng","aba-mainland","aba-city","aba-statistics","aba-map","aba-mob","aba-event",
-        "names","reservation-retry","before-debit","target-fail","refund-fail","arrow-fail-1","arrow-fail-2","arrow-fail-3","arrow-yield","arrow-xp-overflow","arrow-drop-overflow","arrow-successor-fail","partial",
+        "names","reservation-retry","before-debit","target-fail","refund-fail","arrow-fail-1","arrow-fail-2","arrow-fail-3","arrow-yield","arrow-xp-overflow","arrow-successor-fail","partial",
         "recursive","target-retry","result-retry","projectile-retry","arrow-quit-travel",
         "observation-payer","observation-selection","observation-target","observation-hp","observation-refund",
         "observation-recovery","observation-awaken","observation-yield","observation-successor","observation-guard"}) {
@@ -41,11 +41,10 @@ int main(int argc,char **argv){try{
         SetEnvironmentVariableW(L"MMODERN_M39_CONTROL",fs::path(control).c_str());
         const auto save=dir/(control+".mmsave");
         std::vector<std::wstring> args{L"--journey-region",L"--combat-seed",L"1",fs::absolute(argv[2]).wstring(),L"--save-file",save.wstring()};
-        if(control=="arrow-xp-overflow" || control=="arrow-drop-overflow" || control=="aba-city") {
+        if(control=="arrow-xp-overflow" || control=="aba-city") {
             // Disclosed detached synthetic save fixture; no live owner edit.
             auto fixture=mmodern::XeenSaveFile::read(dir/"aba-hp.mmsave");
             if(control=="arrow-xp-overflow")fixture.journey->supplements[0].inputs.experience=0xffffffffu;
-            else if(control=="arrow-drop-overflow")fixture.journey->treasure->gold=0xffffffffu;
             else fixture.map(28).monsters=mmodern::XeenSaveFile::read(dir/"city-source-city.mmsave").map(28).monsters;
             mmodern::XeenSaveFile::write(save,fixture);args={L"--load-game",fs::absolute(argv[2]).wstring(),save.wstring()};
         }
@@ -64,7 +63,7 @@ int main(int argc,char **argv){try{
         auto &caster=fixture.characters[owner];
         if(spell==24 || spell==29 || spell==32 || spell==46 || spell==51) {
             caster.characterClass=mmodern::XeenLearnedSpellRules::slotForSpell(mmodern::XeenSpellCategory::Wizardry,std::uint8_t(spell))?mmodern::XeenCharacterClass::Sorcerer:mmodern::XeenCharacterClass::Cleric;
-            caster.currentSp=1000;fixture.journey->treasure->gems=1000;
+            caster.currentSp=1000;fixture.journey->purse->gems=1000;
         }
         const auto category=*mmodern::XeenLearnedSpellRules::categoryForClass(caster.characterClass);
         const auto slot=*mmodern::XeenLearnedSpellRules::slotForSpell(category,std::uint8_t(spell));

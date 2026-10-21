@@ -24,7 +24,7 @@ void equal(const fs::path &a,const fs::path &b) {
         left.journey->worldFlags==right.journey->worldFlags,"M39 camera/domain/recovery/quest comparison differs");
     child_test::require(left.journey->random==right.journey->random && left.journey->context==right.journey->context &&
         left.activeRosterIds==right.activeRosterIds && left.gameFlags==right.gameFlags &&
-        left.journey->treasure==right.journey->treasure,"M39 context/flags/RNG/treasure differs");
+        left.journey->purse==right.journey->purse,"M39 context/flags/RNG/treasure differs");
 }
 }
 int main(int argc,char **argv) {
@@ -53,7 +53,7 @@ int main(int argc,char **argv) {
         const auto orc=XeenSaveFile::read(dir/"A-A.mmsave");
         child_test::require(orc.journey && orc.journey->schema==schema && orc.journey->content==content && orc.characters[1].currentSp==20 &&
             orc.characters[6].currentSp==25 && orc.map(23).monsters->slots[9].accounted && orc.map(23).monsters->slots[9].lifecycle==XeenActorLifecycle::Defeated &&
-            orc.journey->treasure->gold==810 && orc.journey->context->minutes==511 && orc.journey->context->ctr24==2 &&
+            orc.journey->purse->gold==810 && orc.journey->context->minutes==511 && orc.journey->context->ctr24==2 &&
             orc.journey->random->state==82049198u && orc.journey->random->count==14,"M39 genuine Orc Quiet checkpoint differs");
         equal(a,run("A-from-orc","A","A",dir/"A-A.mmsave"));
         child_test::require(drawsAfter(dir/"A.log","M39 CHECKPOINT A ")==drawsAfter(dir/"A-from-orc.log","M39 RESTORE EXACT BEFORE INPUT"),"M39 mainland continuation RNG request trace differs");

@@ -97,13 +97,13 @@ XeenCharacter::XeenLearnedSpells XeenCharacterFormat::parseLearnedSpells(
 	return flags;
 }
 
-XeenMonsterTreasure XeenCharacterFormat::parseMonsterPurse(const std::vector<std::uint8_t> &bytes) {
+XeenPurse XeenCharacterFormat::parseMonsterPurse(const std::vector<std::uint8_t> &bytes) {
 	if (bytes.size() < 646) throw std::invalid_argument("maze.pty truncated before carried purse");
 	const auto u32 = [&](std::size_t offset) {
 		return std::uint32_t(bytes[offset]) | (std::uint32_t(bytes[offset+1]) << 8) |
 			(std::uint32_t(bytes[offset+2]) << 16) | (std::uint32_t(bytes[offset+3]) << 24);
 	};
-	XeenMonsterTreasure result;
+	XeenPurse result;
 	result.gold = u32(638); result.gems = u32(642);
 	return result;
 }

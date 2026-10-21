@@ -106,15 +106,15 @@ int main(int argc,char **argv) {
         constexpr unsigned resetEndMinutes=1340+prefixMinutes+10+1;
         child_test::require(a.journey && a.journey->schema==9 && a.journey->content==14 && a.journey->serviceEconomy &&
             a.journey->context->day==8 && a.journey->context->minutes==1296+prefixMinutes && a.journey->context->ctr24==(14+prefixSteps)%24 &&
-            a.journey->treasure->gold==840 && a.characters[1].armor[0].state==128 && a.characters[1].armor[1].state==128 &&
+            a.journey->purse->gold==840 && a.characters[1].armor[0].state==128 && a.characters[1].armor[1].state==128 &&
             a.journey->random->state==1902939615u && a.journey->random->count==1225,"M40 A original-resource checkpoint differs");
-        child_test::require(b.journey->context->day==11 && b.journey->context->minutes==1296+prefixMinutes && b.journey->treasure->gold==830 &&
+        child_test::require(b.journey->context->day==11 && b.journey->context->minutes==1296+prefixMinutes && b.journey->purse->gold==830 &&
             b.characters[1].armor[0].state==0 && b.characters[1].armor[1].state==128 && b.journey->random->state==3311496048u && b.journey->random->count==2106,"M40 B generating departure checkpoint differs");
         child_test::require(c.journey->context->day==11 && c.journey->context->minutes==1310+prefixMinutes && c.journey->context->ctr24==(4+prefixSteps)%24 &&
-            d.journey->context->day==12 && d.journey->context->minutes==1310+prefixMinutes && d.journey->treasure->gold==829 && d.characters[1].armor[1].state==0 &&
+            d.journey->context->day==12 && d.journey->context->minutes==1310+prefixMinutes && d.journey->purse->gold==829 && d.characters[1].armor[1].state==0 &&
             c.journey->random==d.journey->random,"M40 C/D later navigation/repair checkpoint differs");
         child_test::require(e.journey->context->day==12+resetEndMinutes/1440 && e.journey->context->minutes==resetEndMinutes%1440 && e.journey->context->ctr24==(prefixSteps+2)%24 &&
-            e.journey->treasure->gold==829 && e.characters[1].currentSp==16 && e.characters[6].currentSp==24 &&
+            e.journey->purse->gold==829 && e.characters[1].currentSp==16 && e.characters[6].currentSp==24 &&
             e.journey->random->state==3052845306u && e.journey->random->count==2123 && e.map(28).monsters->slots.size()==46 &&
             e.map(28).monsters->slots.at(36).lifecycle==XeenActorLifecycle::Defeated,"M40 E reset-Slime combat/casting checkpoint differs");
         // Mutation: incorrect item/material/charges, extra/missing generation

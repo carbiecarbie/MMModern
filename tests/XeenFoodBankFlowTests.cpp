@@ -101,14 +101,14 @@ XeenSaveSnapshot source(Inputs &in,unsigned action,unsigned day=8) {
 }
 void checkBalances(const Visit &v,std::uint32_t gold,std::uint32_t gems,
         std::uint32_t bankGold,std::uint32_t bankGems) {
-    check(v.p.monsterTreasure->gold==gold && v.p.monsterTreasure->gems==gems &&
+    check(v.p.purse->gold==gold && v.p.purse->gems==gems &&
         v.p.serviceEconomy->bank.gold==bankGold && v.p.serviceEconomy->bank.gems==bankGems,
         "Bank transfer balances differ");
 }
 void tavern(Inputs &in) {
     stage="Original Tavern full/refill/cancel and mouse parity";
     for(bool mouse:{false,true}) {
-        auto s=source(in,3);s.food=90;s.journey->treasure->gold=30;
+        auto s=source(in,3);s.food=90;s.journey->purse->gold=30;
         s.gameFlags[57]=s.gameFlags[58]=s.gameFlags[232]=s.gameFlags[255]=true;
         Visit v(in,s);unsigned handoffs=0;
         v.flow->smithBoundary=[&](auto boundary) {
@@ -124,19 +124,19 @@ void tavern(Inputs &in) {
             check(v.dialog() && v.dialog()->anyKey,"Deferred Tavern command has no notice");v.dismiss();owners.check();
         }
         v.choose(InputKey::F1+1,mouse);v.food(true,mouse);
-        check(v.p.food==90 && v.p.monsterTreasure->gold==30,"Full packs charged or reduced food");
-        v.dismiss();v.food(false,mouse);check(v.p.food==90 && v.p.monsterTreasure->gold==30,"No charged food");
+        check(v.p.food==90 && v.p.purse->gold==30,"Full packs charged or reduced food");
+        v.dismiss();v.food(false,mouse);check(v.p.food==90 && v.p.purse->gold==30,"No charged food");
         v.dismiss();v.choose('f',mouse);v.act(CancelInteractionAction{});
-        check(v.p.food==90 && v.p.monsterTreasure->gold==30,"Cancelled offer changed food/gold");
+        check(v.p.food==90 && v.p.purse->gold==30,"Cancelled offer changed food/gold");
         v.leave();check(v.p.encounterContext->day==9 && v.p.encounterContext->minutes==s.journey->context->minutes,
             "Unpaid Tavern visit did not cost exactly one day");
     }
     for(unsigned food:{0u,89u,90u,91u}) for(unsigned gold:{9u,10u}) {
-        auto s=source(in,3);s.food=food;s.journey->treasure->gold=gold;
+        auto s=source(in,3);s.food=food;s.journey->purse->gold=gold;
         s.characters[s.activeRosterIds[0]].conditions[13]=1;s.characters[s.activeRosterIds[0]].currentHp=0;
         Visit v(in,s);v.open();v.food(true);
         const bool paid=food<90 && gold>=10;
-        check(v.p.food==(paid?90:food) && v.p.monsterTreasure->gold==(paid?gold-10:gold),
+        check(v.p.food==(paid?90:food) && v.p.purse->gold==(paid?gold-10:gold),
             "Food full/insufficient/selected-dead-member rule differs");v.leave();
     }
     auto s=source(in,3);s.food=1;
@@ -147,7 +147,7 @@ void tavern(Inputs &in) {
 void tavernOptions(Inputs &in) {
     stage="Original Tavern Drink, Tip, Rumors and exact saved cursor";
     for(bool mouse:{false,true}) {
-        auto s=source(in,3);s.journey->treasure->gold=100;
+        auto s=source(in,3);s.journey->purse->gold=100;
         s.journey->random=XeenJourneyRandomState{1,1,0};
         const auto owner=s.activeRosterIds[0];s.characters[owner].conditions[7]=0;
         Visit v(in,s);v.open();
@@ -156,41 +156,41 @@ void tavernOptions(Inputs &in) {
         XeenCombatRandom expected(before);std::optional<std::uint32_t> roll;
         do {roll=expected.draw(1,100);} while(!roll);
         v.choose('d',mouse);
-        check(v.p.monsterTreasure->gold==99 && *v.w.sessionState().journeyRandom()==expected.continuation() &&
+        check(v.p.purse->gold==99 && *v.w.sessionState().journeyRandom()==expected.continuation() &&
             v.p.roster.at(owner).conditions[7]==(*roll<26?1u:0u),
             "Drink payment, single original draw or Drunk increment differs");
         check(*roll>=26,"Tavern fixture seed must leave its member sober");
         v.dismiss();const auto beforeTip=*v.w.sessionState().journeyRandom();
         v.choose('t',mouse);
-        check(v.p.monsterTreasure->gold==98 && v.w.tavernTipIndex(28)==std::uint8_t(std::uint8_t(initialTip+1)%15) &&
+        check(v.p.purse->gold==98 && v.w.tavernTipIndex(28)==std::uint8_t(std::uint8_t(initialTip+1)%15) &&
             *v.w.sessionState().journeyRandom()==beforeTip,"Tip did not retain DOS modulo cursor without a draw");
         v.dismiss();v.choose('t',mouse);v.dismiss();
-        check(v.p.monsterTreasure->gold==98 && *v.w.sessionState().journeyRandom()==beforeTip,
+        check(v.p.purse->gold==98 && *v.w.sessionState().journeyRandom()==beforeTip,
             "Tip without another Drink charged or drew");
         v.choose('r',mouse);const auto rumor=v.flow->frame().pixels;v.dismiss();
         v.choose('r',mouse);check(rumor==v.flow->frame().pixels,"same-day Rumors changed text");v.dismiss();
-        check(v.p.monsterTreasure->gold==98 && *v.w.sessionState().journeyRandom()==beforeTip,"Rumors paid or drew");
+        check(v.p.purse->gold==98 && *v.w.sessionState().journeyRandom()==beforeTip,"Rumors paid or drew");
         v.leave();const auto saved=v.snapshot();const auto bytes=XeenSaveFormat::encode(saved);
         Visit restored(in,XeenSaveFormat::decode(bytes));
         check(bytes==XeenSaveFormat::encode(restored.snapshot()) && restored.w.tavernTipIndex(28)==v.w.tavernTipIndex(28),
             "Tavern v14 restore replayed a payment, tip, time or draw");
     }
-    auto s=source(in,3);s.journey->treasure->gold=10;
+    auto s=source(in,3);s.journey->purse->gold=10;
     const auto owner=s.activeRosterIds[0];s.characters[owner].conditions[7]=1;
     Visit drunk(in,s);drunk.open();const auto tip=drunk.w.tavernTipIndex(28);
     drunk.choose('d');drunk.dismiss();const auto random=*drunk.w.sessionState().journeyRandom();
     drunk.choose('t');drunk.dismiss();drunk.choose('t');drunk.dismiss();
-    check(drunk.p.monsterTreasure->gold==9 && drunk.w.tavernTipIndex(28)==tip &&
+    check(drunk.p.purse->gold==9 && drunk.w.tavernTipIndex(28)==tip &&
         *drunk.w.sessionState().journeyRandom()==random,"Drunk Tip charged, advanced or drew");
     drunk.leave();
-    auto unable=source(in,3);unable.journey->treasure->gold=10;
+    auto unable=source(in,3);unable.journey->purse->gold=10;
     unable.characters[unable.activeRosterIds[0]].conditions[13]=1;
     unable.characters[unable.activeRosterIds[0]].currentHp=0;
     Visit disabled(in,unable);disabled.open();
     const auto untouched=*disabled.w.sessionState().journeyRandom();
     for(const auto action:{'d','t'}) {
         disabled.choose(action);
-        check(disabled.dialog() && disabled.dialog()->anyKey && disabled.p.monsterTreasure->gold==10 &&
+        check(disabled.dialog() && disabled.dialog()->anyKey && disabled.p.purse->gold==10 &&
             *disabled.w.sessionState().journeyRandom()==untouched,"disabled Tavern member needs a notice without payment or draw");
         disabled.dismiss();
     }
@@ -199,7 +199,7 @@ void tavernOptions(Inputs &in) {
 void bank(Inputs &in) {
     stage="Original Bank transactions and amount input";
     for(bool mouse:{false,true}) {
-        auto s=source(in,0);s.journey->treasure->gold=500;s.journey->treasure->gems=50;
+        auto s=source(in,0);s.journey->purse->gold=500;s.journey->purse->gems=50;
         s.journey->serviceEconomy->bank={100,10};Visit v(in,s);v.open();
         v.currency(false,false,mouse);v.amount("125",!mouse);checkBalances(v,375,50,225,10);
         v.choose('e',mouse);v.amount("50");checkBalances(v,375,0,225,60);
@@ -221,15 +221,15 @@ void bank(Inputs &in) {
             "Bank transactions added time or departure was not one day");
         Visit restored(in,v.snapshot());save_test::sameSnapshot(v.snapshot(),restored.snapshot());
     }
-    auto s=source(in,0);s.journey->treasure->gold=100;s.journey->serviceEconomy->bank.gold=UINT32_MAX;
+    auto s=source(in,0);s.journey->purse->gold=100;s.journey->serviceEconomy->bank.gold=UINT32_MAX;
     Visit v(in,s);v.open();v.currency(false,false);v.amount("1");
-    check(v.p.serviceEconomy->bank.gold==0 && v.p.monsterTreasure->gold==99,"Bank destination arithmetic did not wrap uint32");v.leave();
+    check(v.p.serviceEconomy->bank.gold==0 && v.p.purse->gold==99,"Bank destination arithmetic did not wrap uint32");v.leave();
 }
 void departure(Inputs &in) {
     stage="Bank final balances, stock/RNG order and settlement retry";
     for(unsigned day:{8u,10u,99u}) for(bool withdrawal:{false,true}) {
         stage="Bank departure day="+std::to_string(day)+" withdrawal="+std::to_string(withdrawal);
-        auto s=source(in,0,day);s.journey->treasure->gold=500;s.journey->serviceEconomy->bank={1000,200};
+        auto s=source(in,0,day);s.journey->purse->gold=500;s.journey->serviceEconomy->bank={1000,200};
         Visit v(in,s);v.open();v.currency(withdrawal,false);v.amount("250");
         auto finalEconomy=*s.journey->serviceEconomy;finalEconomy.bank.gold=withdrawal?750:1250;
         XeenServiceDayCandidate expected(*s.journey->context,finalEconomy,*s.journey->random);
@@ -242,13 +242,13 @@ void departure(Inputs &in) {
             XeenSmithBoundary::AfterDeparture,XeenSmithBoundary::Return,
             XeenSmithBoundary::BeforeEventSettlement,XeenSmithBoundary::AfterEventSettlement}) {
         stage="Bank departure boundary="+std::to_string(unsigned(boundary));
-        auto s=source(in,0,10);s.journey->treasure->gold=500;s.journey->serviceEconomy->bank.gold=1000;
+        auto s=source(in,0,10);s.journey->purse->gold=500;s.journey->serviceEconomy->bank.gold=1000;
         Visit v(in,s);v.open();v.currency(false,false);v.amount("200");
         unsigned faults=0,completed=0;v.flow->reportManual=[&](const auto &result) {
             if(std::holds_alternative<XeenManualEventCompleted>(result))++completed;
         };
         v.flow->smithBoundary=[&](auto here) {v.denied();if(here==boundary && faults++==0)throw std::bad_alloc();};
-        v.leave();check(faults && completed==1 && v.p.monsterTreasure->gold==300 &&
+        v.leave();check(faults && completed==1 && v.p.purse->gold==300 &&
             v.p.serviceEconomy->bank.gold==1212 && v.p.encounterContext->day==11,
             "Settlement retry lost or repeated transfer/interest/day/Event completion");
     }
@@ -256,20 +256,20 @@ void departure(Inputs &in) {
 void transactionFaults(Inputs &in) {
     stage="Food/Bank transaction publication retries";
     for(unsigned action:{0u,3u}) for(auto boundary:{XeenSmithBoundary::BeforePurchase,XeenSmithBoundary::AfterPurchase}) {
-        auto s=source(in,action);s.food=1;s.journey->treasure->gold=100;
+        auto s=source(in,action);s.food=1;s.journey->purse->gold=100;
         Visit v(in,s);v.open();unsigned faults=0;
         v.flow->smithBoundary=[&](auto here){v.denied();if(here==boundary && faults++==0)throw std::bad_alloc();};
         if(action==3)v.food(true);else{v.currency(false,false);v.amount("10");}
         check(faults,"Transaction publication seam was not reached");
         const bool published=boundary==XeenSmithBoundary::AfterPurchase;
-        check(v.p.monsterTreasure->gold==(published?90:100) &&
+        check(v.p.purse->gold==(published?90:100) &&
             (action==3?v.p.food==(published?90:1):v.p.serviceEconomy->bank.gold==(published?10:0)),
             "Transaction fault changed publication atomicity");
         v.dismiss();v.flow->smithBoundary={};
         if(!published) {
             if(action==3)v.food(true);else{v.choose('o');v.amount("10");}
         }
-        v.leave();check(v.p.monsterTreasure->gold==90 &&
+        v.leave();check(v.p.purse->gold==90 &&
             (action==3?v.p.food==90:v.p.serviceEconomy->bank.gold==10),
             "Transaction retry lost or repeated paid publication");
     }
@@ -365,7 +365,7 @@ void directionPrelude(Inputs &in) {
 }
 
 XeenSaveSnapshot fresh(Inputs &in) {
-    mmodern::XeenTemplePriceState templePriceState;
+    mmodern::XeenProgramState programState;
     auto party=XeenPartyLoader().loadFromResources(in.chr,in.pty);
     auto camera=XeenCharacterFormat::parsePartyLocation(in.pty);XeenGameFlags flags;
     XeenWorld world(in.mapLoader(),in.objectLoader());
@@ -375,9 +375,9 @@ XeenSaveSnapshot fresh(Inputs &in) {
     setup.regionalText=in.texts.load(23);setup.learnedNames=in.names;setup.learnedNamesProvider=[&in]{return in.names;};
     setup.cityEventsProvider=[&in]{return in.city;};
     setup.mainlandEventsProvider=[&in]{return in.mainland;};
-    XeenEncounterFlow flow(templePriceState,world,party,camera,flags,[]{return 0;},setup);
+    XeenEncounterFlow flow(programState,world,party,camera,flags,[]{return 0;},setup);
     check(flow.prepareJourneyFrame(flow.ticket(),[]{}) && flow.presentJourney(flow.ticket()),"Original New Game frame");
-    check(party.food==90 && party.monsterTreasure->gold==800 && camera.mapId==XeenMapIdentity(28),"Original New Game state");
+    check(party.food==90 && party.purse->gold==800 && camera.mapId==XeenMapIdentity(28),"Original New Game state");
     return XeenSaveState::capture(in.signature,party,camera,flags,world);
 }
 void settle(Visit &v) {
@@ -422,14 +422,14 @@ void walk(Visit &v,int x,int y) {
 void originalJourney(Inputs &in) {
     stage="Original New Game -> Tavern -> Rest -> refill -> Bank -> save/load";
     Visit v(in,fresh(in));const auto tavern=entrance(in.city,3),bank=entrance(in.city,0);
-    walk(v,tavern.x,tavern.y);face(v,tavern.direction);const auto gold=v.p.monsterTreasure->gold;
-    v.open();v.food(true);check(v.p.food==90 && v.p.monsterTreasure->gold==gold,"New Game full packs charged");v.leave();
+    walk(v,tavern.x,tavern.y);face(v,tavern.direction);const auto gold=v.p.purse->gold;
+    v.open();v.food(true);check(v.p.food==90 && v.p.purse->gold==gold,"New Game full packs charged");v.leave();
     // Economic fixtures intentionally have no shop sound provider. This original
     // route supplies the actual VOC headers for the complete Rest sequence.
     v.flow->loadSampleDuration=[&](const char *name,XeenSceneArchive archive){return xeenVocDurationNanoseconds(in.assets.readArchiveResource(name,archive));};
     v.act(RestAction{});settle(v);v.flow->loadSampleDuration={};check(v.p.food<90,"Original Rest did not consume food");
-    const auto refillGold=v.p.monsterTreasure->gold;v.open();v.food(true);
-    check(v.p.food==90 && v.p.monsterTreasure->gold==refillGold-10,"Original post-Rest refill failed");v.leave();
+    const auto refillGold=v.p.purse->gold;v.open();v.food(true);
+    check(v.p.food==90 && v.p.purse->gold==refillGold-10,"Original post-Rest refill failed");v.leave();
     walk(v,bank.x,bank.y);face(v,bank.direction);v.open();
     v.currency(false,false);v.amount("10");v.choose('e');v.amount("1");
     v.act(CancelInteractionAction{});v.currency(true,false);v.amount("1");v.choose('e');v.amount("1");v.leave();
@@ -437,7 +437,7 @@ void originalJourney(Inputs &in) {
     Visit restored(in,XeenSaveFormat::decode(bytes));save_test::sameSnapshot(saved,restored.snapshot());
     check(bytes==XeenSaveFormat::encode(restored.snapshot()) && v.f.isSet(231),
         "Food/balances/flags/time/RNG did not restore byte-exactly");
-    check(XeenSaveFormat::kJourneyVersion==16 && XeenSaveFormat::kJourneySchema==9 && XeenSaveFormat::kJourneyContent==14,
+    check(XeenSaveFormat::kJourneyVersion==17 && XeenSaveFormat::kJourneySchema==9 && XeenSaveFormat::kJourneyContent==14,
         "Food/Bank did not retain the current save format");
 }
 }

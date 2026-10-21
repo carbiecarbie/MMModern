@@ -146,9 +146,9 @@ XeenGameplayContext *context(const XeenEventValueOwners &o, std::string &reason)
 	return &*o.party.encounterContext;
 }
 
-XeenMonsterTreasure *purse(const XeenEventValueOwners &o, std::string &reason) {
-	if (!o.party.monsterTreasure) { reason = "Event party purse is absent"; return nullptr; }
-	return &*o.party.monsterTreasure;
+XeenPurse *purse(const XeenEventValueOwners &o, std::string &reason) {
+	if (!o.party.purse) { reason = "Event party purse is absent"; return nullptr; }
+	return &*o.party.purse;
 }
 
 XeenEventWrite unsupported(std::string reason, XeenEventRefusal refusal = XeenEventRefusal::Mode) {

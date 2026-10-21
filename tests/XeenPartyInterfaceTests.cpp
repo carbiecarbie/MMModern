@@ -174,7 +174,7 @@ XeenSaveSnapshot casterSource(Inputs &in,XeenCharacterClass cls,unsigned id) {
  auto s=in.base();std::swap(s.activeRosterIds[0],s.activeRosterIds[4]);const auto owner=s.activeRosterIds[0];
  for(auto id:s.activeRosterIds)s.journey->supplements[id].inputs.speed={30,0};
  auto &c=s.characters[owner];c.characterClass=cls;c.weapons={};c.armor={};c.accessories={};c.miscellaneous={};c.hasSpells=true;c.learnedSpells.emplace();c.learnedSpells->fill(1);c.currentSp=300;c.quickOption=1;c.currentSpell=id==255?255:spellSlot(cls,id);
- s.journey->treasure->gems=1000;return s;
+ s.journey->purse->gems=1000;return s;
 }
 void quickCasting(Inputs &in) {
  using CP=XeenCombatCastPhase;
@@ -202,7 +202,7 @@ void quickCasting(Inputs &in) {
  for(unsigned kind=0;kind<5;++kind) {
   auto s=casterSource(in,XeenCharacterClass::Sorcerer,kind==0?255:kind==1?45:kind==2?40:kind==3?44:20);
   if(kind==1)s.characters[s.activeRosterIds[0]].currentSp=0;
-  if(kind==4)s.journey->treasure->gems=0;
+  if(kind==4)s.journey->purse->gems=0;
   Fixture skip(in,s);engage(skip);combat=skip.flow->encounter()->combat();const auto before=skip.p.roster.at(s.activeRosterIds[0]);const auto cursor=skip.w.sessionState().journeyRandom();const auto minutes=skip.p.encounterContext->minutes;
   skip.act(QuickFightAction{});
   check(xeen_state::sameCharacter(before,skip.p.roster.at(s.activeRosterIds[0])) && cursor==skip.w.sessionState().journeyRandom() && minutes==skip.p.encounterContext->minutes,"Quick Cast refusal/skip has no debit, effect or RNG");
@@ -215,9 +215,9 @@ void m73QuickCasting(Inputs &in) {
   auto source=casterSource(in,cls,spell);Fixture quick(in,source),manual(in,source);engage(quick);engage(manual);
   auto &fight=*manual.flow->encounter()->combat();
   const auto owner=source.activeRosterIds[0];const auto before=manual.p.roster.at(owner);
-  const auto time=*manual.p.encounterContext;const auto gems=manual.p.monsterTreasure->gems;
+  const auto time=*manual.p.encounterContext;const auto gems=manual.p.purse->gems;
   const auto targets=xeenSpellTargets(manual.w,manual.c,manual.w.sessionState().monsters(23),fight.selectedTarget(),XeenLearnedSpellRules::range(spell));
-  XeenCombatRandom expected(*manual.w.sessionState().journeyRandom());auto treasure=*manual.p.monsterTreasure;
+  XeenCombatRandom expected(*manual.w.sessionState().journeyRandom());auto treasure=manual.w.treasureStaging().value();
   std::array<int,12> hp{};std::array<XeenActorStatus,12> statuses{};
   XeenSpellDamagePreparation preparation(*XeenLearnedSpellRules::supported(spell),before.currentLevel());XeenConsequenceDraw preparationDraw{expected};check(preparation.service(preparationDraw),"Quick preparation incomplete");
   for(unsigned i=0;i<targets.size() && targets[i];++i) {
@@ -226,7 +226,7 @@ void m73QuickCasting(Inputs &in) {
     *XeenLearnedSpellRules::supported(spell),a.statistics->physicalResistance(),a.status,a.statistics->monsterType(),&preparation);
    XeenConsequenceDraw draw{expected};check(effect.service(draw),"M73 parity expected cast did not finish");
    hp[i]=std::max(a.hp-effect.damage,0);statuses[i]=effect.status;
-   if(!hp[i] && a.original.resourceId==6){XeenMonsterDropCandidate drop(treasure,a.id);check(drop.service(draw),"M73 parity drop did not finish");treasure=drop.treasure;}
+   if(!hp[i] && a.original.resourceId==6){XeenMonsterDropCandidate drop(treasure);check(drop.service(draw),"M73 parity drop did not finish");treasure=drop.treasure;}
   }
   if(spell==48){XeenMoonRayHealing healing;XeenConsequenceDraw draw{expected};check(healing.service(draw,manual.p,time.year),"Combat Moon Ray healing incomplete");}
   quick.act(QuickFightAction{});manual.act(CastSpellAction{});manual.act(DialogKeyAction{'c'});
@@ -236,7 +236,7 @@ void m73QuickCasting(Inputs &in) {
   check(manual.w.sessionState().journeyRandom()==expected.continuation() && quick.w.sessionState().journeyRandom()==expected.continuation(),"M73 Cast/Quick Fight tape differs");
   const auto cost=XeenLearnedSpellRules::cost(spell,before.currentLevel());
   for(auto *f:{&manual,&quick}) {
-   check(f->p.roster.at(owner).currentSp==before.currentSp-int(cost.sp) && f->p.monsterTreasure->gems==gems-cost.gems && *f->p.encounterContext==time,"M73 combat cost/time differs");
+   check(f->p.roster.at(owner).currentSp==before.currentSp-int(cost.sp) && f->p.purse->gems==gems-cost.gems && *f->p.encounterContext==time,"M73 combat cost/time differs");
    for(unsigned i=0;i<targets.size() && targets[i];++i){const auto &a=f->w.sessionState().monsters(23).at(targets[i]->recordIndex);check(a.hp==hp[i] && a.status==statuses[i],"M73 Cast/Quick Fight effect differs");}
   }
   const auto successor=fight.cast()->successorPhase;
@@ -306,7 +306,7 @@ void originalMonsterDropReceipts(Inputs &in) {
   std::stable_sort(items.begin(),items.end(),[](const auto &a,const auto &b){return a.first<b.first;});
   Fixture f(in,s);
   for(unsigned i=0;i<count;++i)XeenMonsterTestAccess::setLive(*f.flow,f.w,23,slots[i],1,true);
-  const auto gold=f.p.monsterTreasure->gold;const auto gems=f.p.monsterTreasure->gems;
+  const auto gold=f.p.purse->gold;const auto gems=f.p.purse->gems;
   f.act(NavigationAction::MoveForward);ready(f);
   check(f.flow->encounter()->combat()->participant()==0 && f.w.sessionState().journeyRandom()==contactRandom,("Contact approach: participant="+std::to_string(f.flow->encounter()->combat()->participant())+" rng="+std::to_string(f.w.sessionState().journeyRandom()->count)+" initial="+std::to_string(contactRandom->count)).c_str());
   if(group){f.act(CastSpellAction{});f.act(DialogKeyAction{'c'});}else f.act(AttackAction{});
@@ -323,8 +323,8 @@ void originalMonsterDropReceipts(Inputs &in) {
    const auto phase=stage?Phase::Found:Phase::Blank;
    check(XeenPartyInterfaceTestAccess::rewardPhase(*f.flow)==phase && XeenPartyInterfaceTestAccess::rewardCursor(*f.flow)==i,"Original receipt order differs");
    const auto record=XeenPartyInterfaceTestAccess::rewardRecord(*f.flow);
-   check(record.recipient==owner && xeenSameItem(record.production.item,items[i].second) &&
-    (record.miscellaneous?3u:record.armor?1u:0u)==items[i].first,"Found line lost original generated item/category/recipient");
+   check(record.recipient==owner && xeenSameItem(record.item,items[i].second) &&
+    unsigned(record.category)==items[i].first,"Found line lost original generated item/category/recipient");
    const auto wait=XeenPartyInterfaceTestAccess::rewardWait(*f.flow);
    check(wait && wait->acquired && wait->ticks==(stage?10u:1u) &&
     wait->deadline==PresentationClock::after(PresentationClock::fromMilliseconds(f.now),wait->ticks),"Receipt hold did not start on acquired frame with original ticks");
@@ -334,13 +334,13 @@ void originalMonsterDropReceipts(Inputs &in) {
    check(XeenPartyInterfaceTestAccess::rewardPhase(*f.flow)==phase && XeenPartyInterfaceTestAccess::rewardCursor(*f.flow)==i,"Receipt advanced before its hold elapsed");
    f.now=std::max(end,PresentationClock::ceilMilliseconds(XeenPartyInterfaceTestAccess::rewardInputDeadline(*f.flow)));f.flow->beginCycle(++f.cycle);
    if(auto frame=f.flow->updatePresentation())f.present(*frame);
-   check(f.w.sessionState().journeyRandom()==finalRandom && f.p.monsterTreasure->gold==gold &&
+   check(f.w.sessionState().journeyRandom()==finalRandom && f.p.purse->gold==gold &&
     !f.flow->canSave(),"Receipt hold consumed RNG, credited early or exposed save");
   }
   check(XeenPartyInterfaceTestAccess::rewardPhase(*f.flow)==Phase::Final && !XeenPartyInterfaceTestAccess::rewardWait(*f.flow),"Timed item holds did not reach final acknowledgment");
   f.now+=125;f.act(AcknowledgeAction{});quiet(f);
-  check(f.p.monsterTreasure->gold==gold+10*count && !f.p.monsterTreasure->pending() && !f.p.monsterTreasure->storedItems() &&
-   f.w.sessionState().journeyRandom()==finalRandom && f.p.monsterTreasure->gems==gems-(group?1:0),"Final receipt repeated drop, item, gold, gem cost or RNG");
+  check(f.p.purse->gold==gold+10*count && !f.w.treasureStaging().value().pending() && !f.w.treasureStaging().value().storedItems() &&
+   f.w.sessionState().journeyRandom()==finalRandom && f.p.purse->gems==gems-(group?1:0),"Final receipt repeated drop, item, gold, gem cost or RNG");
   const auto &recipient=f.p.roster.at(owner);
   for(unsigned category:{0u,1u,3u}) {
    const auto &actual=category==0?recipient.weapons:category==1?recipient.armor:recipient.miscellaneous;
@@ -366,19 +366,18 @@ void orderedShootBarrierTreasure(Inputs &in) {
  Fixture barrier(in,city);const auto xp=barrier.p.roster.combatInputs(owner)->experience;barrier.act(InteractionAction{});barrier.act(SelectMemberAction{selected});quiet(barrier);
  check(barrier.p.roster.combatInputs(owner)->experience==xp+100,"Barrier selection/unlock XP writes reordered owner");
  for(unsigned n=1;n<6;++n)check(barrier.p.roster.combatInputs(city.activeRosterIds[n])->experience==city.journey->supplements[city.activeRosterIds[n]].inputs.experience,"Barrier preserves other owners");
- // Canonical defeated/accounted Orc provenance, restored before gameplay.
+ // Defeated/accounted Orcs; their treasure is staged in the running program.
  source.camera={23,7,10,XeenDirection::North};for(auto &a:source.map(23).monsters->slots){a.x=a.y=-128;a.lifecycle=XeenActorLifecycle::Defeated;a.accounted=true;}
  auto &survivor=source.map(23).monsters->slots[8];survivor.x=7;survivor.y=11;survivor.lifecycle=XeenActorLifecycle::Present;survivor.accounted=false;
- source.journey->treasure->pendingMask=512;source.journey->treasure->pendingGold=10;source.journey->treasure->armor[0]={9,{0,2,0,0}};
- source.journey->treasure->pendingMask|=8;source.journey->treasure->pendingGold=20;
- source.journey->treasure->miscellaneous[0]={3,{2,9,7,0}};save_test::bindTreasureSources(source);
+ // Two Orcs' gold, the armor one dropped and the Misc item the other dropped.
+ XeenTreasureStaging staged;staged.gold=20;staged.ready=true;staged.armor[0]={0,2,0,0};staged.miscellaneous[0]={2,9,7,0};
  for(bool full:{false,true}) {
   auto start=source;
   for(auto id:start.activeRosterIds) {
    auto &c=start.characters[id];c.armor={};c.miscellaneous={};
    if(full) {c.weapons.fill({0,1,0,0});c.armor.fill({0,1,0,0});c.accessories.fill({0,1,0,0});c.miscellaneous.fill({10,37,7,0});}
   }
-  Fixture loot(in,start);const auto gold=loot.p.monsterTreasure->gold;
+  Fixture loot(in,start);const auto gold=loot.p.purse->gold;XeenMonsterTestAccess::stageTreasureLive(*loot.flow,loot.w,staged);
   loot.act(NavigationAction::TurnLeft);for(unsigned n=0;n<100 && !XeenPartyInterfaceTestAccess::reward(*loot.flow);++n)pulse(loot);
   check(XeenPartyInterfaceTestAccess::reward(*loot.flow),"Reordered treasure delivery admitted");
   using RewardPhase=XeenMonsterDeliveryCandidate::Phase;
@@ -390,7 +389,7 @@ void orderedShootBarrierTreasure(Inputs &in) {
     phase==4?RewardPhase::Final:phase%2?RewardPhase::Found:RewardPhase::Blank;
    check(XeenPartyInterfaceTestAccess::reward(*loot.flow) &&
     XeenPartyInterfaceTestAccess::rewardPhase(*loot.flow)==expected &&
-    loot.p.monsterTreasure->gold==gold && !loot.flow->canSave() &&
+    loot.p.purse->gold==gold && !loot.flow->canSave() &&
     loot.w.sessionState().journeyRandom()==random,"Warning/item/final phases preserve currency, RNG and save fence");
    if(!full) {
     // Transfer writes the original tail before Blank; Found compacts it.
@@ -419,11 +418,11 @@ void orderedShootBarrierTreasure(Inputs &in) {
     const auto cursor=XeenPartyInterfaceTestAccess::rewardCursor(*loot.flow);
     loot.flow->handle(AcknowledgeAction{},oldInput,oldFrame);
     check(XeenPartyInterfaceTestAccess::rewardPhase(*loot.flow)==retained &&
-     XeenPartyInterfaceTestAccess::rewardCursor(*loot.flow)==cursor && loot.p.monsterTreasure->gold==gold &&
+     XeenPartyInterfaceTestAccess::rewardCursor(*loot.flow)==cursor && loot.p.purse->gold==gold &&
      loot.w.sessionState().journeyRandom()==random,"Stale phase input cannot skip, credit treasure or consume RNG");
    }
   }
-  check(!XeenPartyInterfaceTestAccess::reward(*loot.flow) && loot.p.monsterTreasure->gold==gold+20,"Final acknowledgment credits retained currency exactly once");
+  check(!XeenPartyInterfaceTestAccess::reward(*loot.flow) && loot.p.purse->gold==gold+20,"Final acknowledgment credits retained currency exactly once");
  }
 }
 void indoorQuickRun(Inputs &in) {
@@ -448,19 +447,19 @@ void indoorQuickRun(Inputs &in) {
 }
 void mrWizard(Inputs &in) {
  for(bool city:{false,true}) {
-  auto s=city?emptyCity(in):in.base();s.journey->treasure->gems=25;
+  auto s=city?emptyCity(in):in.base();s.journey->purse->gems=25;
   Fixture f(in,s);
-  const auto time=*f.p.encounterContext;const auto rng=f.w.sessionState().journeyRandom();const auto gold=f.p.monsterTreasure->gold;
+  const auto time=*f.p.encounterContext;const auto rng=f.w.sessionState().journeyRandom();const auto gold=f.p.purse->gold;
   const auto moved=f.flow->mrWizard();check(bool(moved),"Mr Wizard is admitted outside combat");f.present(*moved);
   const auto &g=f.w.map(28).geometry;
   check(f.c.mapId==XeenMapIdentity(28) && f.c.x==std::int8_t(std::uint8_t(g.runX)) && f.c.y==std::int8_t(std::uint8_t(g.runY)) &&
    f.c.direction==XeenDirection::East,"Mr Wizard lands on Vertigo's run position facing East");
-  check(f.p.monsterTreasure->gems==0 && f.p.monsterTreasure->gold==gold,"Mr Wizard zeroes the gems only");
+  check(f.p.purse->gems==0 && f.p.purse->gold==gold,"Mr Wizard zeroes the gems only");
   check(*f.p.encounterContext==time && f.w.sessionState().journeyRandom()==rng,"Mr Wizard spends no time or draw");
   quiet(f);
   Fixture restored(in,f.snapshot());
   check(restored.c.mapId==f.c.mapId && restored.c.x==f.c.x && restored.c.y==f.c.y && restored.c.direction==f.c.direction &&
-   restored.p.monsterTreasure->gems==0,"Mr Wizard result saves and restores");
+   restored.p.purse->gems==0,"Mr Wizard result saves and restores");
  }
 }
 void spellChecks(Inputs &in) {

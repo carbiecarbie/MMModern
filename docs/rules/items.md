@@ -433,7 +433,8 @@ the synchronous receipt cannot open Save. A save holds purse and received
 inventory, but excludes all pending loot. In-process Load clears currency and
 readiness while retaining the current arrays as dormant items, even when they
 were staged after Save. [Offsets and boundaries](evidence.md#m81-monster-treasure).
-Not implemented yet beyond the Orc's level-1 drops, which MMModern saves.
+**Implemented (M81 Part A)** for the state, lifetime and save; production is
+still the Orc's level-1 drop.
 
 Quest grants participate in this sequence after their quest count has already
 changed. Their display record must not grant the quest again or copy it into

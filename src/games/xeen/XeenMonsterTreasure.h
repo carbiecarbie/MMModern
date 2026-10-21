@@ -8,58 +8,77 @@
 #include "games/xeen/XeenRecordIdentity.h"
 #include "games/xeen/XeenItemGeneration.h"
 namespace mmodern {
-// Durable produced consequences. The party owns this value; runtime receipts
-// and partially executed delivery never belong here.
-struct XeenMonsterTreasureItem {
-	XeenMutable<std::uint8_t> source = 0;
-	XeenItem item;
-	friend bool operator==(const XeenMonsterTreasureItem &a, const XeenMonsterTreasureItem &b) noexcept {
-		return a.source == b.source && a.item.material == b.item.material && a.item.id == b.item.id &&
-			a.item.state == b.item.state && a.item.frame == b.item.frame;
-	}
+enum class XeenRewardCategory : std::uint8_t { Weapons, Armor, Accessories, Miscellaneous };
+// The party's carried gold and gems (DOS DS:f00a/f00e), saved with the party.
+// Both are 32-bit and wrap modulo 2^32 like the original add/carry pairs.
+struct XeenPurse {
+	XeenMutable<std::uint32_t> gold = 0, gems = 0;
+	friend bool operator==(const XeenPurse &a, const XeenPurse &b) noexcept { return a.gold == b.gold && a.gems == b.gems; }
+	friend bool operator!=(const XeenPurse &a, const XeenPurse &b) noexcept { return !(a == b); }
 };
-struct XeenMonsterTreasure {
-	XeenMutable<std::uint32_t> gold = 0, gems = 0, pendingMask = 0, pendingGold = 0;
-	std::array<XeenMonsterTreasureItem,10> weapons{}, armor{}, miscellaneous{};
-	// The monster each source slot names (M69): pending bits and stored items
-	// index these slots. A referenced slot names a distinct monster; an
-	// unreferenced slot is empty.
-	std::array<XeenMonsterIdentity,12> sources{};
-	// Bit k set when a pending bit or a stored item refers to slot k.
-	std::uint32_t referencedSources() const noexcept {
-		std::uint32_t used = pendingMask;
-		for (const auto *entries : {&weapons, &armor, &miscellaneous})
-			for (const auto &entry : *entries) if (entry.item.id && entry.source < 32) used |= 1u << entry.source;
-		return used;
+// Pending treasure (DOS DS:9970..9a19): four ten-slot category arrays filled at
+// the first empty slot, pending gold/gems and the readiness flag. Running-program
+// state, never saved; the arrays carry no contributor identity.
+struct XeenTreasureStaging {
+	static constexpr std::size_t kSlots = 10;
+	using Items = std::array<XeenItem, kSlots>;
+	XeenMutable<std::uint32_t> gold = 0, gems = 0;
+	XeenMutable<bool> ready = false;
+	Items weapons{}, armor{}, accessories{}, miscellaneous{};
+	Items &items(XeenRewardCategory) noexcept;
+	const Items &items(XeenRewardCategory) const noexcept;
+	bool storedItems() const noexcept;
+	// DOS delivery and Event stash trigger (0x2412e..0x24149): currency or readiness.
+	bool pending() const noexcept { return ready || gold || gems; }
+	bool dormant() const noexcept { return storedItems() && !pending(); }
+	// Run, Load and New Game clear currency and readiness and keep the arrays.
+	void clearPending() noexcept { gold = 0; gems = 0; ready = false; }
+	friend bool operator==(const XeenTreasureStaging &a, const XeenTreasureStaging &b) noexcept {
+		const auto same = [](const Items &x, const Items &y) {
+			for (std::size_t i = 0; i < x.size(); ++i)
+				if (x[i].material != y[i].material || x[i].id != y[i].id || x[i].state != y[i].state || x[i].frame != y[i].frame) return false;
+			return true;
+		};
+		return a.gold == b.gold && a.gems == b.gems && a.ready == b.ready && same(a.weapons, b.weapons) &&
+			same(a.armor, b.armor) && same(a.accessories, b.accessories) && same(a.miscellaneous, b.miscellaneous);
 	}
-	bool ready() const noexcept { return pendingMask != 0; }
-	bool pending() const noexcept { return ready(); }
-	bool storedItems() const noexcept { return weapons[0].item.id || armor[0].item.id || miscellaneous[0].item.id; }
-	bool dormant() const noexcept { return storedItems() && !ready(); }
-	friend bool operator==(const XeenMonsterTreasure &a, const XeenMonsterTreasure &b) noexcept {
-		return a.gold == b.gold && a.gems == b.gems && a.pendingMask == b.pendingMask &&
-			a.pendingGold == b.pendingGold && a.weapons == b.weapons && a.armor == b.armor &&
-			a.miscellaneous == b.miscellaneous && a.sources == b.sources;
-	}
-	friend bool operator!=(const XeenMonsterTreasure &a, const XeenMonsterTreasure &b) noexcept { return !(a == b); }
+	friend bool operator!=(const XeenTreasureStaging &a, const XeenTreasureStaging &b) noexcept { return !(a == b); }
 };
-// Structural validation only; the caller separately binds gold AND item sources to
-// canonical world-owned defeated/accounted Orcs.
-void xeenValidateMonsterTreasure(const XeenMonsterTreasure &);
-// Empties every source slot nothing refers to any more.
-void xeenPruneMonsterTreasureSources(XeenMonsterTreasure &) noexcept;
-// The saved form: referenced slots are exactly 0..n-1, ordered by identity.
-XeenMonsterTreasure xeenCanonicalMonsterTreasure(const XeenMonsterTreasure &);
-// The live form of a saved treasure: each source in its production slot.
-XeenMonsterTreasure xeenLiveMonsterTreasure(const XeenMonsterTreasure &);
+// The staging value with its own revision. The running program owns one
+// (XeenProgramState); prepared work stages on a copy taken at a revision and
+// publishes it only while that revision is still current.
+class XeenTreasureStagingState {
+public:
+	XeenTreasureStagingState() = default;
+	XeenTreasureStagingState(const XeenTreasureStagingState &) = delete;
+	XeenTreasureStagingState &operator=(const XeenTreasureStagingState &) = delete;
+	const XeenTreasureStaging &value() const noexcept { return _value; }
+	std::uint64_t revision() const noexcept { return _revision; }
+	void check(std::uint64_t base) const;
+	// Callers check the base revision first; the store itself cannot fail.
+	void publish(const XeenTreasureStaging &value) noexcept { _value = value; ++_revision; }
+	// A successful game entry: currency and readiness clear, the arrays stay.
+	void enterGame() noexcept { _value.clearPending(); ++_revision; }
+	// Restores the exact value and revision captured before an entry that failed.
+	struct Saved { XeenTreasureStaging value; std::uint64_t revision = 0; };
+	Saved save() const { return {_value, _revision}; }
+	void restore(const Saved &saved) noexcept { _value = saved.value; _revision = saved.revision; }
+private:
+	XeenTreasureStaging _value;
+	std::uint64_t _revision = 0;
+};
 struct XeenConsequenceDraw;
 enum class XeenMonsterDropOutcome { None, Item, CategoryCapacityLoss };
 struct XeenMonsterDropCandidate {
-	XeenMonsterTreasure treasure;
+	XeenTreasureStaging treasure;
 	XeenMonsterDropOutcome outcome = XeenMonsterDropOutcome::None;
-	XeenMonsterTreasureItem generated;
-	XeenMutable<bool> armor = false;
-	XeenMonsterDropCandidate(const XeenMonsterTreasure &, XeenMonsterIdentity source);
+	XeenItem generated;
+	XeenRewardCategory category{};
+	// The staging revision this copy was taken at; publication checks it.
+	std::uint64_t base = 0;
+	explicit XeenMonsterDropCandidate(const XeenTreasureStaging &, std::uint64_t base = 0);
+	explicit XeenMonsterDropCandidate(const XeenTreasureStagingState &state) :
+		XeenMonsterDropCandidate(state.value(), state.revision()) {}
 	bool service(XeenConsequenceDraw &);
 private:
 	enum class Step { Drop, Generate, Store, Done };
@@ -68,25 +87,26 @@ private:
 };
 enum class XeenMonsterDeliveryLoss { None, GloballyFull };
 struct XeenMonsterDeliveryRecord {
-	XeenMonsterTreasureItem production;
-	XeenMutable<bool> armor = false;
-	XeenMutable<bool> miscellaneous = false;
+	XeenItem item;
+	XeenRewardCategory category{};
 	std::optional<std::uint8_t> recipient;
 	XeenMonsterDeliveryLoss loss = XeenMonsterDeliveryLoss::None;
 };
 struct XeenMonsterDeliveryCandidate {
 	enum class Phase { Warning, Blank, Found, Final };
 	std::array<XeenCharacter,6> characters;
-	XeenMonsterTreasure treasure;
-	std::array<XeenMonsterDeliveryRecord,12> records{};
+	XeenTreasureStaging treasure;
+	std::array<XeenMonsterDeliveryRecord,4*XeenTreasureStaging::kSlots> records{};
 	unsigned count = 0;
 	XeenMutable<bool> globallyFull = false;
 	Phase phase=Phase::Final;
 	unsigned cursor=0;
 };
-XeenMonsterDeliveryCandidate xeenPrepareMonsterDelivery(const XeenMonsterTreasure &,
+XeenMonsterDeliveryCandidate xeenPrepareMonsterDelivery(const XeenTreasureStaging &,
 	const std::array<XeenCharacter,6> &);
-XeenMonsterTreasure xeenPrepareMonsterGoldCredit(const XeenMonsterTreasure &);
-XeenMonsterTreasure xeenPrepareMonsterGoldForfeiture(const XeenMonsterTreasure &);
+// Final acknowledgment: credits staged gold/gems to the purse modulo 2^32 and
+// clears currency and readiness (DOS 0x2486a..0x2489c). Items are delivered first.
+struct XeenMonsterCredit { XeenPurse purse; XeenTreasureStaging treasure; };
+XeenMonsterCredit xeenPrepareMonsterCredit(const XeenPurse &, const XeenTreasureStaging &);
 }
 #endif

@@ -189,7 +189,7 @@ void wireContract() {
 	// block follows directly (no top-level overlay lists).
 	Bytes v2(7439, 0);
 	std::copy_n(expected.begin(), 53, v2.begin());
-	v2[8] = 16;
+	v2[8] = 17;
 	for (unsigned i = 0; i < 30; ++i) {v2[53 + 232 * i] = i;v2[53+232*i+227]=255;}
 	const auto current=XeenSaveFormat::encode(s);
 	check(current[7439]==3,"Journey domain byte follows the game flags");
@@ -214,7 +214,7 @@ void wireContract() {
 void asymmetricBase() {
 	// Independent offsets: three members, 14 name bytes, 232 fixed bytes/character.
 	Bytes bytes(7439 + 3 + 14, 0);
-	const Bytes prefix{'M','M','M','S','A','V','E',0,16,0,0,0};
+	const Bytes prefix{'M','M','M','S','A','V','E',0,17,0,0,0};
 	std::copy(prefix.begin(), prefix.end(), bytes.begin());
 	bytes[20] = 99; bytes[28] = 88; bytes[46] = 23;
 	bytes[51] = 3; bytes[52] = 18; bytes[53] = 0; bytes[54] = 18; bytes[55] = 30;
@@ -349,7 +349,7 @@ void malformedBytes() {
     rejects([&]{XeenSaveFormat::decode(v14);},"This save was created by an older MMModern build and is no longer supported.");
     auto bad = good;
 	bad[0] ^= 1; rejects([&] { XeenSaveFormat::decode(bad); }, "unrecognized format");
-	bad = good; bad[8] = 17; rejects([&] { XeenSaveFormat::decode(bad); }, "newer or unsupported");
+	bad = good; bad[8] = 18; rejects([&] { XeenSaveFormat::decode(bad); }, "newer or unsupported");
 	bad = good; bad[8] = 3; rejects([&] { XeenSaveFormat::decode(bad); }); // v1 payload is not v3.
 	bad = good; bad[8] = 2; rejects([&] { XeenSaveFormat::decode(bad); }); // v1 payload is not v2.
 	bad = good; bad[8] = 0; rejects([&] { XeenSaveFormat::decode(bad); }, "newer or unsupported");
@@ -482,11 +482,11 @@ void fingerprints() {
 
 // Bytes of the minimal Journey suffix of currentWireSnapshot(), from the domain
 // byte to the end: the fixed v14 Journey block (6 domain/schema/content/context
-// marker, 36 context and food, 1230 supplements, 13 RNG, 331 resistances, 20
-// treasure counts, 128 world flags, 1201 learned spells, 91 poison, 1164
+// marker, 36 context and food, 1230 supplements, 13 RNG, 331 resistances, 8
+// purse, 128 world flags, 1201 learned spells, 91 poison, 1164
 // economy, 3871 awards), the per-map table (count 2 and map 23's 151-byte
 // entry with 19 slots), the head-cache flag and the name length.
-constexpr std::size_t kMinimalSuffix = 8091 + 2 + 151 + 1 + 1;
+constexpr std::size_t kMinimalSuffix = 8079 + 2 + 151 + 1 + 1;
 // The economy block (shape 4, wares 1152, bank 8) to the end of the minimal save.
 constexpr std::size_t kMinimalEconomyTail = 1164 + 3871 + 2 + 151 + 1 + 1;
 // A map entry is 14 bytes without a monster table; a table adds 4 + 7 per slot.
@@ -499,12 +499,12 @@ XeenSaveMonsterTable cityTable(unsigned count) {
 }
 
 void rejectedVersions() {
- // v13 and every earlier envelope are recognizable older formats: no legacy
+ // v16 and every earlier envelope are recognizable older formats: no legacy
  // reader, the existing clear rejection.
- for(unsigned version:{0u,1u,2u,3u,4u,5u,6u,7u,8u,9u,10u,11u,12u,13u,14u,15u,17u,65535u}) {
+ for(unsigned version:{0u,1u,2u,3u,4u,5u,6u,7u,8u,9u,10u,11u,12u,13u,14u,15u,16u,18u,65535u}) {
   auto bytes=golden();bytes[8]=version;bytes[9]=version>>8;
   // Only recognizable earlier envelopes are "older"; others may be newer builds.
-  rejects([&]{XeenSaveFormat::decode(bytes);},version>=1 && version<=15?"no longer supported":"newer or unsupported");
+  rejects([&]{XeenSaveFormat::decode(bytes);},version>=1 && version<=16?"no longer supported":"newer or unsupported");
  }
  {
   auto v12=golden();v12[8]=12;fixIndependentEnvelope(v12);
@@ -568,29 +568,22 @@ void mainlandTopologyCounts() {
 
 void serviceEconomyWireContract() {
 	// M71 mutations: reject old charges 1/2, truncate new 9/10, regenerate
-	// restored stock, replay pending rewards, or move the saved RNG cursor.
-	// Both legacy and corrected records use the same v14/schema9/content14 wire.
-	for(unsigned charges:{1u,2u,9u,10u})for(bool pending:{false,true}) {
+	// restored stock or move the saved RNG cursor. Both legacy and corrected
+	// records use the same schema9/content14 wire; pending treasure is not saved.
+	for(unsigned charges:{1u,2u,9u,10u}) {
 		auto state=currentWireSnapshot();
 		state.journey->serviceEconomy->wares[0][0][3][0]={1,1,std::uint8_t(charges),0};
 		auto &actor=state.map(23).monsters->slots[0];
 		actor.accounted=true;actor.lifecycle=XeenActorLifecycle::Defeated;actor.x=actor.y=-128;
-		auto &loot=*state.journey->treasure;
-		loot.sources[0]={23,0};loot.miscellaneous[0]={0,{9,15,std::uint8_t(charges),0}};
-		if(pending) {loot.pendingMask=1;loot.pendingGold=10;}
 		roundTrip(state);
 		const auto wire=XeenSaveFormat::encode(state);
-		// Literal v14 positions: stock's first Misc state and treasure's sole
-		// Misc state after its five-byte source identity and category counts.
+		// Literal position of stock's first Misc state.
 		const auto stockCharge=wire.size()-kMinimalEconomyTail+4+3*9*4+2;
-		const auto lootCharge=journeyOffset(state)+6+36+1230+13+331+16+1+5+2+1+3;
-		check(wire.at(stockCharge)==charges && wire.at(lootCharge)==charges,"v14 charge wire positions differ");
+		check(wire.at(stockCharge)==charges,"charge wire position differs");
 		for(unsigned invalid:{0u,11u,64u,128u,255u}) {
 			auto bad=state;bad.journey->serviceEconomy->wares[0][0][3][0].state=invalid;
 			rejects([&]{XeenSaveFormat::encode(bad);});
-			bad=state;bad.journey->treasure->miscellaneous[0].item.state=invalid;
-			rejects([&]{XeenSaveFormat::encode(bad);});
-			for(auto offset:{stockCharge,lootCharge}) {
+			for(auto offset:{stockCharge}) {
 				auto corrupt=wire;corrupt.at(offset)=invalid;fixIndependentEnvelope(corrupt);
 				rejects([&]{XeenSaveFormat::decode(corrupt);});
 			}
@@ -603,7 +596,7 @@ void serviceEconomyWireContract() {
 		s.journey->supplements[owner].inputs.poisonResistance=XeenAttributeValue{int(owner),int(255-owner)};
 	}
 	const auto bytes=XeenSaveFormat::encode(s);const auto start=bytes.size()-kMinimalSuffix;
-	check(bytes[8]==16 && bytes[start+1]==9 && bytes[start+3]==content,"exact v16/schema9/content selectors");
+	check(bytes[8]==17 && bytes[start+1]==9 && bytes[start+3]==content,"exact v17/schema9/content selectors");
 	auto expected=bytes;expected.resize(expected.size()-kMinimalEconomyTail);
 	expected.insert(expected.end(),{2,4,4,9});
 	// Literal wire recipe is independent of the production encoder and validator.
@@ -671,12 +664,10 @@ void serviceEconomyWireContract() {
 		}
 		for(unsigned source=0;source<pending;++source) {
 			auto &actor=state.map(23).monsters->slots[source];actor.accounted=true;actor.lifecycle=XeenActorLifecycle::Defeated;actor.x=actor.y=-128;
-			auto &entry=source<10?state.journey->treasure->weapons[source]:state.journey->treasure->armor[source-10];entry.source=source;entry.item.id=1;
-			state.journey->treasure->sources[source]={23,source};
 		}
 		const auto wire=XeenSaveFormat::encode(state);
-		// Each pending source adds its five-byte identity and its five-byte item.
-		check(wire.size()==start+kMinimalSuffix+(cityCount?mapEntryBytes(cityCount):0)+10*pending+(cityCount==52?3:0),"v14 exact city/pending suffix extent");
+		// Defeated monsters change slot bytes only; no treasure follows them.
+		check(wire.size()==start+kMinimalSuffix+(cityCount?mapEntryBytes(cityCount):0)+(cityCount==52?3:0),"exact city/defeated suffix extent");
 		sameSnapshot(state,XeenSaveFormat::decode(wire));
 	}
 	for(unsigned day=8;day<=99;++day) {
@@ -694,7 +685,7 @@ void purchaseDepletedWireContract() {
 	// The city entry follows map 23's at the end of the payload.
 	const auto economyOffset=complete.size()-(kMinimalEconomyTail+mapEntryBytes(46));
 	const auto start=complete.size()-(kMinimalSuffix+mapEntryBytes(46));
-	check(complete[8]==16 && complete[start+1]==9 && complete[start+3]==14,"purchase selector/extent differs");
+	check(complete[8]==17 && complete[start+1]==9 && complete[start+3]==14,"purchase selector/extent differs");
 	// Literal eight L1 Weapon source from twenty Weapon calls. Removing one
 	// inserted plain record leaves seven; old generated-only meaning rejects it.
 	state.journey->serviceEconomy->wares[0][0][0][7]={};
