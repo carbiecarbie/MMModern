@@ -397,7 +397,10 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
       if(!services.outcome)throw std::logic_error("Missing Load session outcome");
       *services.outcome={XeenSessionOutcome::Kind::Load,0,request};finished=true;
      }catch(const std::exception &e){checkPanel();panel->loadFailure(e.what());}
-    } else if(request.kind==XeenSessionEntry::Kind::Exit)finished=true;
+    } else if(request.kind==XeenSessionEntry::Kind::Exit) {
+     if(services.program.audio)services.program.audio->stopCd(flow.presentationNow());
+     finished=true;
+    }
     else if(request.kind==XeenSessionEntry::Kind::MrWizard) {
      checkPanel();
      // The original closes the panel and moves the party in one step.
@@ -507,7 +510,7 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
    void finish() {
     // Native close may already have retired the Flow's encounter ticket.
     // Consume time from its retained clock source, without reentering owners.
-    if(audio){audio->advance(source(),flow.cdSpeechEnd());audio->rebaseClock(SdlWindow::presentationNanoseconds());}
+    if(audio){audio->advance(source());audio->rebaseClock(SdlWindow::presentationNanoseconds());}
     finished=true;
    }
    ~AudioClockScope() {
@@ -524,7 +527,9 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
   const auto updateAudio=[&] {
    const auto &audio=services.program.audio;if(!audio)return;
    audio->observeOptions(party.soundOptions);
-   const auto now=flow.presentationNow();audio->advance(now,flow.cdSpeechEnd());
+   const auto now=flow.presentationNow();
+   audio->selectCdDisc(camera.mapId.side==XeenSide::Clouds?1:2,now);
+   audio->advance(now);
    const auto location=flow.audioLocation();
    if(location!=soundLocation || soundMap!=camera.mapId) {
     if(location)audio->requestLocation(*location,now);

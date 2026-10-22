@@ -13,9 +13,15 @@ set(SCUMMVM_BUILD_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../build-xeen-probe-sdl"
 set(MMODERN_XEEN_DATA_DIR "" CACHE PATH "Required read-only World of Xeen CD source for original-data tests")
 set(MMODERN_XEEN_UI_DATA "" CACHE FILEPATH "Optional installed uncompressed English XEEN.DAT for CD copies")
 set(MMODERN_PROMUS_CAPTURES_DIR "" CACHE PATH "External DOSBox DRO v2 promus captures")
+set(MMODERN_XEEN_AUDIO_DIR "${MMODERN_XEEN_DATA_DIR}" CACHE PATH "Required GOG cue sheets and MUSIC directory for CD audio validation")
 
 find_package(SDL2 CONFIG REQUIRED)
 find_package(ZLIB REQUIRED)
+# Explicit static Vorbis boundary: no ScummVM backend or g_system dependency.
+find_path(MMODERN_VORBIS_INCLUDE_DIR vorbis/vorbisfile.h REQUIRED)
+find_library(MMODERN_VORBISFILE_LIBRARY NAMES libvorbisfile.a REQUIRED)
+find_library(MMODERN_VORBIS_LIBRARY NAMES libvorbis.a REQUIRED)
+find_library(MMODERN_OGG_LIBRARY NAMES libogg.a REQUIRED)
 
 add_library(mmodern_core INTERFACE)
 target_include_directories(mmodern_core INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/src")
@@ -26,6 +32,7 @@ include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/MMModernItemCatalog.cmake")
 add_mmodern_item_catalog_generation()
 
 add_library(mmodern_xeen STATIC
+	src/formats/xeen/XeenCdAudio.cpp
 	src/games/xeen/PromusDriver.cpp
 	src/formats/xeen/XeenDosText.cpp
 	src/formats/xeen/XeenMonsterFormat.cpp
@@ -108,6 +115,8 @@ add_library(mmodern_xeen STATIC
 	src/games/xeen/XeenInstallationDetector.cpp
 )
 target_include_directories(mmodern_xeen PRIVATE "${MMODERN_ITEM_CATALOG_GENERATED_DIR}")
+target_include_directories(mmodern_xeen PRIVATE "${MMODERN_VORBIS_INCLUDE_DIR}")
+target_link_libraries(mmodern_xeen PRIVATE "${MMODERN_VORBISFILE_LIBRARY}" "${MMODERN_VORBIS_LIBRARY}" "${MMODERN_OGG_LIBRARY}")
 add_dependencies(mmodern_xeen mmodern_item_catalog_data mmodern_dialog_drawing_data)
 target_link_libraries(mmodern_xeen PUBLIC mmodern_core PRIVATE mmodern_scummvm_xeen ZLIB::ZLIB)
 
@@ -170,6 +179,9 @@ target_include_directories(mmodern_coverage_support PUBLIC "${CMAKE_CURRENT_SOUR
 add_executable(mmodern_census tools/XeenCoverageMain.cpp)
 target_link_libraries(mmodern_census PRIVATE mmodern_coverage_support)
 if(BUILD_TESTING)
+ if(NOT IS_DIRECTORY "${MMODERN_XEEN_AUDIO_DIR}/MUSIC" OR NOT EXISTS "${MMODERN_XEEN_AUDIO_DIR}/GAME1.INS" OR NOT EXISTS "${MMODERN_XEEN_AUDIO_DIR}/GAME2.INS")
+  message(FATAL_ERROR "CD audio validation requires MMODERN_XEEN_AUDIO_DIR with both GAME*.INS and MUSIC/")
+ endif()
     add_executable(mmodern_coverage_tests tests/XeenCoverageTests.cpp)
     target_link_libraries(mmodern_coverage_tests PRIVATE mmodern_coverage_support)
     add_test(NAME xeen_coverage COMMAND mmodern_coverage_tests)
@@ -208,6 +220,10 @@ if(BUILD_TESTING)
   message(FATAL_ERROR "MMODERN_XEEN_UI_DATA is missing")
  endif()
  add_compile_definitions(MMODERN_TEST_UI_DATA="${MMODERN_XEEN_UI_DATA}")
+ add_executable(mmodern_cd_audio_tests tests/XeenCdAudioTests.cpp)
+ target_link_libraries(mmodern_cd_audio_tests PRIVATE mmodern_app mmodern_xeen)
+ add_test(NAME xeen_cd_audio COMMAND mmodern_cd_audio_tests "${MMODERN_XEEN_AUDIO_DIR}" "${CMAKE_CURRENT_BINARY_DIR}/cd-audio-tests" "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/cd-silence.ogg")
+ set_tests_properties(xeen_cd_audio PROPERTIES LABELS fast ENVIRONMENT "SDL_AUDIODRIVER=dummy")
 	add_executable(mmodern_test_save_tests tests/XeenTestSaveTests.cpp)
 	target_link_libraries(mmodern_test_save_tests PRIVATE mmodern_test_save_support)
 	foreach(preset broken-armor train-ready injured-dead poisoned monster-control monster-damage party-healing m76-spells combat-items m79-playtest m80-playtest m80-arena m80-arena-maxed m81-drops m81-fullpacks m81-event paths)

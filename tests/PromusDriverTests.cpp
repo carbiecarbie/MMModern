@@ -169,8 +169,9 @@ int main(int argc,char **argv) {
   owner.requestInn(PromusDriver::clockBoundary(82));
   owner.advance(PromusDriver::clockBoundary(400));assert(owner.loadedName()=="inn.m");
   owner.requestLocation(0,PromusDriver::clockBoundary(401));
-  owner.advance(PromusDriver::clockBoundary(600),PromusDriver::clockBoundary(700));assert(owner.pending());
-  owner.advance(PromusDriver::clockBoundary(700),PromusDriver::clockBoundary(700));assert(owner.loadedName()=="bank.m");
+  owner.retainCdCue({19,25,3000});owner.startCd(PromusDriver::clockBoundary(401));
+  owner.advance(PromusDriver::clockBoundary(600));assert(owner.pending());
+  owner.stopCd(PromusDriver::clockBoundary(700));owner.advance(PromusDriver::clockBoundary(700));assert(owner.loadedName()=="bank.m");
   owner.enterTitle(PromusDriver::clockBoundary(701));assert(owner.loadedName()=="newbrigh.m");
   const auto current=owner.currentName();owner.leaveTitle(PromusDriver::clockBoundary(702));
   owner.advance(PromusDriver::clockBoundary(900));assert(owner.loadedName()=="twnnitea.m"&&owner.currentName()==current);
@@ -182,11 +183,11 @@ int main(int argc,char **argv) {
    assert(trace.size()==playing); // Loaded Music-off alone sends no stop.
    options.requestSong("town.m",XeenSceneArchive::Clouds,207,0);assert(options.pending());
    options.toggleMusic(false,0);assert(options.pending()); // Off cancels fade, keeps load.
-   options.advance(0,1000000000);assert(options.pending()); // CD wait still holds it.
+   options.retainCdCue({19,25,100});options.startCd(0);options.advance(0);assert(options.pending()); // CD wait still holds it.
    options.toggleMusic(true,0);
    assert(!options.pending() && options.loadedName()=="newbrigh.m" && options.currentName()=="town.m");
    options.requestSong("TOWN.M",XeenSceneArchive::Clouds,207,0);assert(!options.pending());
-   options.requestInn(0);options.toggleMusic(false,0);options.advance(0);
+   options.stopCd(0);options.requestInn(0);options.toggleMusic(false,0);options.advance(0);
    assert(!options.pending() && options.loadedName()=="inn.m");
    options.toggleMusic(true,0);assert(options.loadedName()=="inn.m");
    value.efx=false;options.observeOptions(value);const auto before=trace.size();
@@ -218,8 +219,9 @@ int main(int argc,char **argv) {
    if(mode)assert(route.outputActive());
    route.enterTitle(0);route.leaveTitle(PromusDriver::clockBoundary(20));
    route.requestSong("town.m",XeenSceneArchive::Clouds,207,PromusDriver::clockBoundary(21));
+   route.retainCdCue({19,25,3000});route.startCd(PromusDriver::clockBoundary(21));
    for(unsigned t=22;t<900;++t) {
-    const auto now=PromusDriver::clockBoundary(t);route.advance(now,t<400?PromusDriver::clockBoundary(400):0);
+    const auto now=PromusDriver::clockBoundary(t);if(t==400)route.stopCd(now);route.advance(now);
     if(t==450)route.requestLocation(3,now);
     if(t==600)route.effect(20,now);
     timing[mode].push_back(route.loadedName()+":"+std::to_string(route.pending())+":"+std::to_string(route.ticks()));

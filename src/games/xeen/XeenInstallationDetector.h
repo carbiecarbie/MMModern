@@ -12,6 +12,7 @@ namespace mmodern {
 
 // Explicit cue entrypoint for independent disc/source validation.
 std::array<ReadOnlyDataFile,3> readCueCdArchives(const std::filesystem::path &cue);
+std::vector<XeenCdTrack> readXeenCdTracks(const std::filesystem::path &cue,unsigned disc);
 
 class XeenInstallationDetector {
 public:

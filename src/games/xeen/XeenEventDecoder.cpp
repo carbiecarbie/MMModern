@@ -403,8 +403,8 @@ XeenEventDecodeResult XeenEventDecoder::decode(const XeenEventRecord &record,
 		reader.readUint8(speech.track);
 		reader.readUint16LE(speech.start);
 		reader.readUint16LE(speech.finish);
-		// Pinned cmdPlayCD applies +30 for Darkside tracks below 31 and
-		// requires a final track <=60. Audio itself is explicitly deferred.
+		// Retain the operand bound; the installed disc table resolves playback.
+		// Clouds uses disc 1. Darkside presentation remains outside scope.
 		if (speech.track>60)
 			return makeError(record,context,XeenEventDecodeErrorKind::UnsupportedOperand,
 				"CD speech track is outside 0..60");

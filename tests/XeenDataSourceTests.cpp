@@ -50,6 +50,20 @@ int main(int argc,char **argv){try{
  write(root/"xeen.cfg",Bytes(29,0));
  const auto installation=XeenInstallationDetector(root/"ui.dat").detect(root);check(installation&&installation->configuration&&installation->cloudsData->transport==ReadOnlyDataFile::Transport::Mode1Raw,"cue selected ahead of root files");
  refuses([&]{XeenInstallationDetector{}.detect(root);},"missing DAT must refuse");
+ // Unknown audio metadata disables only that disc's speech, not its archives.
+ const std::string dataCue="FILE \"track.raw\" BINARY\nTRACK 01 MODE1/2352\nINDEX 01 00:00:03\n";
+ for(const auto &audio:std::vector<std::string>{
+  "TRACK 02 AUDIO\nINDEX 01 00:00:00\nUNEXPECTED AUDIO METADATA\n",
+  "TRACK 02 AUDIO\nINDEX 01 00:60:00\n",
+  "TRACK 02 AUDIO\nINDEX 01 00:00:00\nTRACK 02 AUDIO\nINDEX 01 00:00:00\n"}) {
+  text(root/"GAME1.INS",dataCue+"FILE \"missing.ogg\" MP3\n"+audio);
+  const auto unavailable=XeenInstallationDetector(root/"ui.dat").detect(root);
+  check(unavailable && unavailable->cdTracks.size()==1 && !unavailable->cdTracks[0].error.empty() &&
+        bytes(*unavailable->cloudsData)==fixture.archives[0],"Malformed audio blocked usable data or lost fallback diagnostic");
+ }
+ text(root/"GAME1.INS",dataCue+"UNEXPECTED DATA METADATA\n");
+ refuses([&]{XeenInstallationDetector(root/"ui.dat").detect(root);},"Malformed data metadata must still refuse");
+ std::filesystem::remove(root/"GAME1.INS");
  // Malformed raw sync and truncation are read errors, never treated as absence.
  auto corrupt=fixture.raw;corrupt[(3+24)*2352+15]=2;write(root/"track.raw",corrupt);refuses([&]{bytes(source[0]);},"bad MODE1 must refuse");write(root/"track.raw",fixture.raw);
  corrupt.resize((3+24)*2352+18);write(root/"track.raw",corrupt);refuses([&]{bytes(source[0]);},"short raw stream must refuse");write(root/"track.raw",fixture.raw);

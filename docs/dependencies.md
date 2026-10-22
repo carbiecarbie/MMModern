@@ -47,6 +47,18 @@ The pinned revision was validated with:
 - SDL2 2.32.10, linked through the shared `SDL2::SDL2` CMake target and
   `libSDL2.dll.a`; `SDL2.dll` is required at runtime
 - zlib 1.3.2, linked through `ZLIB::ZLIB` and `libz.dll.a`
+- libvorbis 1.3.7 and libogg 1.3.6 from MSYS2 UCRT64. CMake links
+  `libvorbisfile.a`, `libvorbis.a`, then `libogg.a` explicitly for CD cue
+  decoding. No ScummVM audio backend is linked and `g_system` stays null.
+  `MMODERN_VORBIS_INCLUDE_DIR` and the three `MMODERN_*_LIBRARY` cache
+  paths select these static artifacts through `find_library`; normal toolchain
+  search paths apply, with no hard-coded MSYS2 installation directory.
+
+CD audio tests require `MMODERN_XEEN_AUDIO_DIR` (defaulting to
+`MMODERN_XEEN_DATA_DIR`) with `GAME1.INS`, `GAME2.INS` and `MUSIC/`.
+Configuration rejects an absent source. Validation decodes every audio track;
+missing or malformed tracks fail rather than skip. Runtime still accepts a
+plain CD `GAME` copy, with timed speech and visible text when tracks are absent.
 
 The ScummVM build uses GNU++11. MMModern uses GNU++17 and must use an
 ABI-compatible compiler/toolchain when compiling ScummVM source directly and

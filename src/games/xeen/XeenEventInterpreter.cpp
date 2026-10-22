@@ -920,7 +920,7 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 			request.kind=XeenPresentationKind::DeferredAudio;
 			request.mapId=logical.mapId;
 			request.source=decoded.source;
-			request.text="CD speech not supported yet";
+			// Operand publication only. The NPC invocation starts the retained cue.
 			// Existing Presented response is automatic: no input, clock or RNG.
 			++logical.line;
 			missingPolicy=MissingInstructionPolicy::NaturalCompletion;

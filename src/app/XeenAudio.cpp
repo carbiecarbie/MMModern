@@ -11,6 +11,9 @@
 #include <iostream>
 #include <stdexcept>
 #include <mutex>
+#include <thread>
+#include <condition_variable>
+#include <chrono>
 namespace mmodern {
 namespace {
 PromusDriver::Bytes bytes(std::vector<std::uint8_t> b){return std::make_shared<const std::vector<std::uint8_t>>(std::move(b));}
@@ -27,7 +30,7 @@ struct XeenAudio::Impl {
  XeenAudio::DigitalSink digitalSink;
  std::array<std::string,6> eventVoices;
  std::array<unsigned,35> weaponEffects{};
- unsigned id;Loader loader;std::uint64_t elapsed=0,last=0,speechEnd=0;
+ unsigned id;Loader loader;std::uint64_t elapsed=0,last=0;
  std::vector<std::string> maps,locations;std::array<unsigned,6> kinds{};
  std::unique_ptr<PromusDriver> clockDriver;
  std::shared_ptr<XeenFmSource> output;bool retainOutput;
@@ -37,6 +40,21 @@ struct XeenAudio::Impl {
  std::optional<Song> pending,afterTitle;bool titleExit=false;
  std::uint64_t sample=0,phase=0;
  std::uint64_t digitalEnd=0; // Elapsed presentation time, survives clock rebases.
+ std::uint64_t cdEnd=0;
+ unsigned cdDisc=1;
+ std::optional<XeenEventCdSpeech> cdCue;
+ std::vector<XeenCdExtent> cdTracks;
+ std::string cdNotice;
+ std::mutex cdMutex;bool cdChanged=false;
+ std::condition_variable cdWake;
+ struct CdJob {std::uint64_t generation;XeenCdRequest request;};
+ std::optional<CdJob> cdJob;
+ std::uint64_t cdGeneration=0;
+ bool cdClosing=false,cdDecoding=false;
+ CdDecoder cdDecoder;
+ std::thread cdWorker;
+ std::shared_ptr<const std::vector<std::int16_t>> cdRequest,cdVoice;
+ std::size_t cdCursor=0;
  // Producer publishes only the latest digital command. Each request owns its
  // decoded PCM; the consumer retains its own reference until stop/replacement.
  std::mutex digitalMutex;bool digitalChanged=false;
@@ -44,10 +62,11 @@ struct XeenAudio::Impl {
  std::shared_ptr<const XeenVocSample> digitalVoice;
  std::uint64_t digitalPhase=0;
  std::unique_ptr<SdlAudioStream> fmStream;
+ std::unique_ptr<SdlAudioStream> cdStream;
  int mixRate=0;
  // Last member: close/join the callback before its driver, chip and queue die.
  std::unique_ptr<SdlAudioDevice> device;
- Impl(unsigned i,PromusDriver::Bytes resource,Loader l,std::vector<std::uint8_t> module,std::uint64_t n,bool deviceOutput,PromusDriver::Sink trace,std::shared_ptr<XeenFmSource> source):id(i),loader(std::move(l)),last(n),output(source?source:std::make_shared<XeenFmSource>()),retainOutput(bool(source)) {
+ Impl(unsigned i,PromusDriver::Bytes resource,Loader l,std::vector<std::uint8_t> module,std::uint64_t n,bool deviceOutput,PromusDriver::Sink trace,std::shared_ptr<XeenFmSource> source,CdDecoder decoder):id(i),loader(std::move(l)),last(n),output(source?source:std::make_shared<XeenFmSource>()),retainOutput(bool(source)),cdDecoder(std::move(decoder)) {
   const XeenDosText text(module);maps=text.table("CLOUDS_MUSIC");locations=text.table("CLOUDS_LOCATION_MUSIC");
   for(unsigned w=0;w<weaponEffects.size();++w)weaponEffects[w]=60+module.at(0x4d660+w);
   // DAT 0x508cc: six far pointers into the original data segment.
@@ -68,6 +87,53 @@ struct XeenAudio::Impl {
   device=std::make_unique<SdlAudioDevice>([this](auto *out,auto frames,int rate){render(out,frames,rate);},deviceOutput,
    [this](int rate){return prepareRender(rate);});
   retainOutput=retainOutput||device->active();
+  cdWorker=std::thread([this]{decodeCd();});
+ }
+ ~Impl() {
+  device.reset(); // Join the callback before releasing any consumer references.
+  {std::lock_guard<std::mutex> lock(cdMutex);cdClosing=true;}
+  cdWake.notify_one();
+  if(cdWorker.joinable())cdWorker.join();
+ }
+ void decodeCd() {
+  // This extra owner prevents the callback from freeing a large buffer on
+  // replacement or EOF. Reclaim unreferenced PCM only on this worker.
+  std::vector<std::shared_ptr<const std::vector<std::int16_t>>> owners;
+  for(;;) {
+   std::optional<CdJob> job;
+   {
+    std::unique_lock<std::mutex> lock(cdMutex);
+    cdWake.wait_for(lock,std::chrono::milliseconds(20),[&]{return cdClosing || cdJob.has_value();});
+    if(cdClosing)return;
+    job=std::move(cdJob);cdJob.reset();
+   }
+   owners.erase(std::remove_if(owners.begin(),owners.end(),[](const auto &p){return p.use_count()==1;}),owners.end());
+   if(!job)continue;
+   std::shared_ptr<const std::vector<std::int16_t>> pcm;
+   std::string error;
+   try {
+    pcm=std::make_shared<const std::vector<std::int16_t>>(cdDecoder(job->request));
+    if(pcm->empty())throw std::runtime_error("Empty CD cue");
+   } catch(const std::exception &e) {error=std::string("CD speech unavailable: ")+e.what();}
+   std::shared_ptr<const std::vector<std::int16_t>> retired;
+   {
+    std::lock_guard<std::mutex> lock(cdMutex);
+    if(cdClosing || job->generation!=cdGeneration)continue;
+    cdDecoding=false;cdNotice=std::move(error);
+    if(cdNotice.empty()) {
+     owners.push_back(pcm);
+     retired=std::move(cdRequest);cdRequest=std::move(pcm);cdChanged=true;
+    }
+   }
+  }
+ }
+ void cancelCd() {
+  std::shared_ptr<const std::vector<std::int16_t>> retired;
+  {
+   std::lock_guard<std::mutex> lock(cdMutex);
+   ++cdGeneration;cdJob.reset();cdDecoding=false;cdNotice.clear();
+   retired=std::move(cdRequest);cdChanged=true;
+  }
  }
  std::uint64_t logicalNow(std::uint64_t now) const {
   if(now<last) {
@@ -92,8 +158,9 @@ struct XeenAudio::Impl {
   if(rate<=0)return false;
   if(mixRate)return mixRate==rate;
   auto stream=std::make_unique<SdlAudioStream>(49716,rate);
-  if(!stream->valid())return false;
-  fmStream=std::move(stream);mixRate=rate;return true;
+  auto cd=std::make_unique<SdlAudioStream>(44100,rate);
+  if(!stream->valid() || !cd->valid())return false;
+  fmStream=std::move(stream);cdStream=std::move(cd);mixRate=rate;return true;
  }
  void render(std::int16_t *stereo,std::size_t frames,int rate) {
   if(!fmStream || rate!=mixRate)throw std::logic_error("Audio mix rate was not prepared");
@@ -109,6 +176,24 @@ struct XeenAudio::Impl {
     if(digitalChanged){retired=std::move(digitalVoice);digitalVoice=std::move(digitalRequest);digitalChanged=false;digitalPhase=0;}
    }
    retired.reset(); // Release potentially large PCM only after unlocking.
+   // Worker owners pin both old and new PCM; dropping a callback reference
+   // here or at EOF cannot destroy the allocation.
+   std::shared_ptr<const std::vector<std::int16_t>> retiredCd;
+   bool changed=false;
+   {
+    std::lock_guard<std::mutex> lock(cdMutex);
+    if(cdChanged){retiredCd=std::move(cdVoice);cdVoice=std::move(cdRequest);cdChanged=false;cdCursor=0;changed=true;}
+   }
+   if(changed)cdStream->clear();
+   std::array<std::int16_t,256> cd{};
+   cdStream->pull([this](auto *pcm,auto frames) {
+    std::fill_n(pcm,frames*2,0);
+    if(cdVoice) {
+     const auto count=std::min(frames*2,cdVoice->size()-cdCursor);
+     std::copy_n(cdVoice->data()+cdCursor,count,pcm);cdCursor+=count;
+     if(cdCursor==cdVoice->size())cdVoice.reset();
+    }
+   },cd.data(),count);
    // Exact rational zero-order hold at 1000000/68 Hz. Do not round the source
    // rate to an integer Hz or prebuffer converted VOC: stop/replacement must
    // discard the previous voice at the next mix block, including its tail.
@@ -121,9 +206,8 @@ struct XeenAudio::Impl {
       digital=(int(digitalVoice->pcm[index])-128)*256;digitalPhase+=1000000;
      }else digitalVoice.reset();
     }
-    // Part B adds the independently resampled CD stream here, before clipping.
     for(unsigned channel=0;channel<2;++channel)
-     out[f*2+channel]=std::clamp(int(out[f*2+channel])+digital,-32768,32767);
+     out[f*2+channel]=std::clamp(int(out[f*2+channel])+digital+cd[f*2+channel],-32768,32767);
    }
    offset+=count;
   }
@@ -154,9 +238,9 @@ struct XeenAudio::Impl {
    if(phase>=threshold){phase-=threshold;if(clockDriver)clockDriver->tick();}
   }
  }
- void advance(std::uint64_t now,std::uint64_t cdEnd) {
-  advanceClock(now);speechEnd=cdEnd;device->check();output->check();
-  if(pending && (!clockDriver || !clockDriver->fadeSpeed()) && now>=speechEnd) {
+ void advance(std::uint64_t now) {
+  advanceClock(now);device->check();output->check();
+  if(pending && (!clockDriver || !clockDriver->fadeSpeed()) && elapsed>=cdEnd) {
    // Read first: a missing song stays pending and fails every later advance,
    // so the main loop reports it even when an effect's advance swallowed it.
    auto data=read(*pending);
@@ -169,8 +253,8 @@ struct XeenAudio::Impl {
   }
  }
 };
-XeenAudio::XeenAudio(unsigned id,PromusDriver::Bytes driver,Loader l,std::vector<std::uint8_t> module,std::uint64_t now,bool device,PromusDriver::Sink trace,std::shared_ptr<XeenFmSource> output):
- _impl(new Impl(id,std::move(driver),std::move(l),std::move(module),now,device,std::move(trace),std::move(output))){}
+XeenAudio::XeenAudio(unsigned id,PromusDriver::Bytes driver,Loader l,std::vector<std::uint8_t> module,std::uint64_t now,bool device,PromusDriver::Sink trace,std::shared_ptr<XeenFmSource> output,CdDecoder decoder):
+ _impl(new Impl(id,std::move(driver),std::move(l),std::move(module),now,device,std::move(trace),std::move(output),std::move(decoder))){}
 XeenAudio::~XeenAudio()=default;
 std::shared_ptr<XeenAudio> XeenAudio::installed(const GameInstallation &installation,XeenAssetSource &,std::uint64_t now,bool device) {
  if(!installation.configuration)throw std::runtime_error("Missing installed WORLD/XEEN.CFG");
@@ -188,25 +272,26 @@ std::shared_ptr<XeenAudio> XeenAudio::installed(const GameInstallation &installa
   try{return source->readArchiveResource(name,archive);}catch(const std::exception &e){throw std::runtime_error("Original audio resource "+name+": "+e.what());}
  };
  auto resource=id==3?bytes(loader("promus",XeenSceneArchive::IntroOnly)):PromusDriver::Bytes{};
- return std::make_shared<XeenAudio>(id,resource,std::move(loader),read(*installation.uiModule),now,device);
+ auto result=std::make_shared<XeenAudio>(id,resource,std::move(loader),read(*installation.uiModule),now,device);
+ result->cdTracks(inspectXeenCdTracks(installation.cdTracks));return result;
 }
 unsigned XeenAudio::deviceId() const{return _impl->id;}
 bool XeenAudio::outputActive() const{return _impl->device->active();}
 std::string XeenAudio::mapSong(const XeenMapGeometry &m) const {return _impl->maps.at(m.isOutdoors()?0:_impl->kinds.at(m.wallKind));}
 std::string XeenAudio::locationSong(unsigned action) const{return _impl->locations.at(action);}
-void XeenAudio::requestSong(std::string name,XeenSceneArchive archive,unsigned fade,std::uint64_t now) {advance(now,_impl->speechEnd);_impl->begin({std::move(name),archive,fade});}
+void XeenAudio::requestSong(std::string name,XeenSceneArchive archive,unsigned fade,std::uint64_t now) {advance(now);_impl->begin({std::move(name),archive,fade});}
 void XeenAudio::requestMap(const XeenMapGeometry &map,std::uint64_t now) {const auto name=mapSong(map);_impl->mapName=name;requestSong(name,XeenSceneArchive::Clouds,207,now);}
 void XeenAudio::requestLocation(unsigned action,std::uint64_t now) {requestSong(locationSong(action),XeenSceneArchive::Clouds,223,now);}
 void XeenAudio::requestInn(std::uint64_t now) {requestSong("inn.m",XeenSceneArchive::Clouds,128,now);}
 void XeenAudio::enterTitle(std::uint64_t now) {advance(now);_impl->pending.reset();_impl->afterTitle.reset();_impl->titleExit=false;_impl->load({"newbrigh.m",XeenSceneArchive::DarksideOnly,0},_impl->options.music);}
 void XeenAudio::leaveTitle(std::uint64_t now) {advance(now);if(_impl->options.music)_impl->command(207);_impl->titleExit=true;_impl->pending=Impl::Song{"twnnitea.m",XeenSceneArchive::DarksideOnly,207};}
 bool XeenAudio::titleTeardownReady(std::uint64_t now) {
- advance(now,_impl->speechEnd);
+ advance(now);
  return !digitalBusy(now); // DAT 0xb933..0xb947, before releasing session resources.
 }
 void XeenAudio::effect(unsigned id,std::uint64_t now) {
  // Use the action's existing clock sample, without querying a gameplay clock.
- advance(std::max(now,_impl->last),_impl->speechEnd);
+ advance(std::max(now,_impl->last));
  if(!_impl->options.efx)return;
  if(_impl->effectSink)try {_impl->effectSink(id);}catch(...) {}
  if(_impl->clockDriver)_impl->clockDriver->effect(id);
@@ -249,22 +334,55 @@ std::optional<std::uint64_t> XeenAudio::digitalDeadline(std::uint64_t now) const
  return PresentationClock::checkedAdd(now,_impl->digitalEnd-_impl->logicalNow(now));
 }
 void XeenAudio::digitalSink(DigitalSink sink) {_impl->digitalSink=std::move(sink);}
+void XeenAudio::cdTracks(std::vector<XeenCdExtent> tracks) {_impl->cdTracks=std::move(tracks);}
+void XeenAudio::retainCdCue(XeenEventCdSpeech cue) {_impl->cdCue=cue;}
+std::optional<XeenEventCdSpeech> XeenAudio::retainedCdCue() const {return _impl->cdCue;}
+void XeenAudio::selectCdDisc(unsigned disc,std::uint64_t now) {
+ auto &s=*_impl;if(!s.options.speech || disc==s.cdDisc)return;
+ stopCd(now);s.cdDisc=disc;s.cdCue.reset();
+}
+bool XeenAudio::startCd(std::uint64_t now) {
+ auto &s=*_impl;
+ if(!s.options.speech || !s.cdCue || (!s.cdCue->track && !s.cdCue->start && !s.cdCue->finish))return false;
+ const auto time=s.digitalTime(now);
+ const auto request=mapXeenCdCue(s.cdTracks,s.cdDisc,*s.cdCue);
+ s.cdEnd=PresentationClock::checkedAdd(time,request.duration);
+ s.cancelCd();
+ if(request.refused)return false;
+ {
+  std::lock_guard<std::mutex> lock(s.cdMutex);
+  if(!request.error.empty()) {s.cdNotice="CD speech unavailable: "+request.error;return false;}
+  s.cdDecoding=true;s.cdJob=Impl::CdJob{s.cdGeneration,request};
+ }
+ s.cdWake.notify_one();return true;
+}
+void XeenAudio::stopCd(std::uint64_t now) {auto &s=*_impl;s.digitalTime(now);s.cdEnd=0;s.cancelCd();}
+bool XeenAudio::cdBusy(std::uint64_t now) const {return _impl->logicalNow(now)<_impl->cdEnd;}
+std::optional<std::uint64_t> XeenAudio::cdDeadline() const {return cdDeadline(_impl->last);}
+std::optional<std::uint64_t> XeenAudio::cdDeadline(std::uint64_t now) const {
+ if(!cdBusy(now))return {};
+ return PresentationClock::checkedAdd(now,_impl->cdEnd-_impl->logicalNow(now));
+}
+std::string XeenAudio::takeCdNotice() {std::lock_guard<std::mutex> lock(_impl->cdMutex);auto text=std::move(_impl->cdNotice);_impl->cdNotice.clear();return text;}
+bool XeenAudio::cdDecodePending() const {std::lock_guard<std::mutex> lock(_impl->cdMutex);return _impl->cdDecoding;}
 void XeenAudio::render(std::int16_t *out,std::size_t frames,int rate) {_impl->render(out,frames,rate);}
 bool XeenAudio::prepareRender(int rate) {return _impl->prepareRender(rate);}
 void XeenAudio::observeOptions(XeenSoundOptions value) {_impl->options=value;}
 void XeenAudio::toggleMusic(bool on,std::uint64_t now) {
- advance(now,_impl->speechEnd);_impl->options.music=on;
+ advance(now);_impl->options.music=on;
  if(on) {
   _impl->pending.reset();_impl->afterTitle.reset();_impl->titleExit=false;
   if(_impl->buffer)_impl->loadBuffer(true);
  }else _impl->command(0);
 }
-void XeenAudio::advance(std::uint64_t now,std::uint64_t cdEnd) {_impl->advance(now,cdEnd);}
-void XeenAudio::rebaseClock(std::uint64_t now) noexcept {_impl->last=now;_impl->speechEnd=0;}
+void XeenAudio::advance(std::uint64_t now) {_impl->advance(now);}
+void XeenAudio::rebaseClock(std::uint64_t now) noexcept {_impl->last=now;}
 std::optional<std::uint64_t> XeenAudio::deadline() const {
  if(!_impl->pending)return {};
  const auto tick=_impl->clockDriver?_impl->clockDriver->ticks()+1:PromusDriver::clockTicks(_impl->elapsed)+1;
- return std::max(PresentationClock::checkedAdd(_impl->last,PromusDriver::clockBoundary(tick)-_impl->elapsed),_impl->speechEnd);
+ auto result=PresentationClock::checkedAdd(_impl->last,PromusDriver::clockBoundary(tick)-_impl->elapsed);
+ if(auto cd=cdDeadline(_impl->last))result=std::max(result,*cd);
+ return result;
 }
 const std::string &XeenAudio::currentName() const{return _impl->current;}
 const std::string &XeenAudio::loadedName() const{return _impl->loaded;}

@@ -470,14 +470,14 @@ by the report's capture requirements.
 | <a id="sv-whowill-refusal"></a> WhoWill shows the incapacitated-member refusal and returns to selection; the pin silently retries. Intermediate NPC Escape/right click advances a page, while final confirmation declines. | `0x2507a..0x252f6`, refusal `0x50aae`; door/grate action pointers `0x5023c..0x5024c`, selection `0x250ff..0x25109`, callers `0x0d25b..0x0d2b4`; NPC `0x256cd..0x25ca7` | `XeenEventFlow` and door/grate callers retain the window-6 refusal and reselection; `XeenEventPresenter` uses the original window-11 writer continuation. Supported NPC modes remain 1/2; final mode-0 confirmation is evidence for future admission only. **ScummVM:** differs. |
 | Combat row clicks use `[239,312)` × `[27,37)`, `[37,47)`, `[47,57)`; Escape/right click leaves combat active. | Combat button tables `0x4f20c`, `0x4f236`, `0x4f24a`, `0x4f25e`, entries 17..19, installed at `0x2e686` through `0x38904`; lower-inclusive/upper-exclusive decoder `0x0e32d..0x0e396`, calibrated against YesNo's known 24×20 records at `0x4f4b0`. Dispatch table `0x2ecad..0x2ecd6` omits Escape; right maps to Escape at `0x0e0dc`. Maintainer capture `monsters test.mkv`, 2026-10-13 (SHA256 `3846733d16461ad0ba0be8305df29cf631b50bff45a80c27ad9bcd97fea17abc`), corroborates row selection around 3/4/5 and 8/9 seconds. | `XeenMainScreenInput`, unchanged rectangles; `XeenEventFlow::handlesEscape` and SDL caller routing. Exact bounds are settled by calibrated program evidence; pixels alone do not identify the pressed key or mouse button. |
 | <a id="sv-service-speaking-animation"></a> Clouds Smith replaces base art with blck2 frames 5..7 while speaking; Training overlays trng2 8..12 while speaking. The pin omits Smith's branch and reverses Training's sound condition. | `0x1c03b..0x1c12c`, `0x1c309..0x1c390`; sound status calibrated against dream/death loops | `XeenServiceAnimation` and existing Service/Flow continuations use adopted driver-count intervals, three-tick input-interruptible waits and retained Journey RNG choices. Bank 7..11, Temple 2..4 and Training 8..12 overlay base art; Smith 5..7 replaces it while its logical index advances. Guild/Tavern have no Clouds speaking overlay. Greeting/action/refusal publish audible VOC and replace the active interval; Tavern goodbye holds the last screen and polls XeenAudio's logical busy, never the output device. Merchant generation stays at departure, after eligible speaking requests. **ScummVM:** differs. |
-| <a id="sv-cd-speech-timing"></a> NPC face activity follows MSCDEX busy, not the pin's word countdown. Normal CD cues parse MMSSFF and request end minus start plus 25 sectors; the pin treats the last digits as centiseconds. | `0x1c417..0x1c45c`, `0x3d5fd`, `0x3daec..0x3dbbf`, command packet `0x3d9b4..0x3d9e8`; maintainer Gunther capture identifies track 19/cue 370..2161, duration 18.213333 s. [Measurements and limits](rules/evidence.md#death-and-cd-speech-captures-2026-10-13). | `XeenEventFlow` retains the exact requested interval from the original playback call and samples it at three-tick polls; pages do not restart it. Each fresh NPC invocation restarts a valid cue; mode 2 starts it and returns without stopping, ordinary final dismissal stops it, and an all-zero cue is a no-op (`0x256ec`, `0x25ae8..0x25af3`, `0x25aa8`, `0x25c94`, `0x3da98..0x3daa7`). WhoWill retains window 11; Event completion closes it and ends visible face activity (`0x251a8..0x251bf`, `0x28e92`, `0x0dd80`). Original face choices consume the existing Journey RNG once per eligible call. Maintainer approved this boundary on 2026-10-13: additional driver/capture latency could not be isolated, so no fixed startup delay or instrumented capture is required. **ScummVM:** differs. |
+| <a id="sv-cd-speech-timing"></a> NPC face activity follows MSCDEX busy, not the pin's word countdown. Normal CD cues parse MMSSFF and request end minus start plus 25 sectors; the pin treats the last digits as centiseconds. | `0x1c417..0x1c45c`, `0x3d5fd`, `0x3daec..0x3dbbf`, command packet `0x3d9b4..0x3d9e8`; maintainer Gunther capture identifies track 19/cue 370..2161, duration 18.213333 s. [Measurements and limits](rules/evidence.md#death-and-cd-speech-captures-2026-10-13). | `XeenAudio` retains the exact requested interval from the original playback call. `XeenEventFlow` samples it at three-tick Text-on polls or one-tick ordinary Text-off polls; retained passive faces keep their helper cadence. Pages do not restart it. The branch and timer calibration is in [the Text-off rules](rules/audio.md#text-off-byte-readers-and-presentation). Each fresh NPC invocation restarts a valid cue; mode 2 starts it and returns without stopping, ordinary final dismissal stops it, and an all-zero cue is a no-op (`0x256ec`, `0x25ae8..0x25af3`, `0x25aa8`, `0x25c94`, `0x3da98..0x3daa7`). WhoWill retains window 11; Event completion closes it and ends visible face activity (`0x251a8..0x251bf`, `0x28e92`, `0x0dd80`). Original face choices consume the existing Journey RNG once per eligible call. Maintainer approved this boundary on 2026-10-13: additional driver/capture latency could not be isolated, so no fixed startup delay or instrumented capture is required. **ScummVM:** differs. |
 | <a id="sv-treasure-waits"></a> Treasure blank/found waits are 1/10 BIOS ticks, not the pin's 5/8; item transfer precedes its own message and currency follows final acknowledgment. | `0x24128..0x248f2`, `0x264c5..0x264ed`; quest name table `[0x4fd5c,0x4fde8)`, raw-ID indexing `0x245f8..0x24610` and star `0x2476e` | Existing Event/Encounter/Flow owners publish each transfer before its blank hold, sort before its found hold, and credit currency only at the separate final acknowledgment. Input interrupts a hold without becoming the final acknowledgment. Quest counts are already granted; their retained display records never grant again or enter ordinary inventory. M61 full-pack mechanics remain shared. **ScummVM:** differs. |
 | Clouds death uses fire pairs 0..35, rising death pairs at the DOS Y table, final 34/35 and death1 frames 0..21; stored death1 frame 22 is not executed. | Calibrated UI report, DAT routine `0x0b02f..0x0b39a`, Y table `0x47a44`; original CD sprite headers corroborate capacities; maintainer `Morte.mkv`. | The existing `XeenEventFlow` publishes the fire/final/laugh sequence, then closing hands and fade-out. `Application` retires the gameplay owner and returns to World title idle, as the capture shows. The closing-hands poll can end early (`0x0afbd..0x0afc4`); fire and laughter have no local skip. [Capture measurements](rules/evidence.md#death-and-cd-speech-captures-2026-10-13). |
 | <a id="sv-damage-waits"></a> Both monster and Event/trap portrait damage wait 2 ticks; the pin's generic path waits 5. Recipient sparkles complete synchronously, not concurrently. | `0x23f73..0x23f7d`, `0x2d6c4..0x2d6ce`, `0x21087..0x21186` | `XeenEventFlow` retains recipient progress and chosen results, publishes each overlay/injury in order, and owns the acquired-frame hold. `XeenScenePresentation` composes the retained effect; host refresh does not advance it. Generic multi-recipient damage shares its final hold. A member already sparkled in the same Event run is skipped by the helper's latch (`0x210bc`/`0x2117f`, cleared at Event start/end `0x267a6`/`0x291e0`); M64 corrected M63's per-grant repeat (`XeenEventInterpreter.cpp`, maintainer capture `recompensa gunther.mkv`). Window-11 sparkles freeze NPC face activity because that branch omits draw3d (`0x2110f..0x21169`). **ScummVM:** differs. |
 | <a id="sv-indoor-minimap-edges"></a> The indoor minimap's partial left column and top row cover all seven rows and columns, bottom row first; a left-column wall of type 9 uses tile frame 20; the direction arrow is drawn after the party cell's walls and before cell (4,4). The pin draws one left and one top tile (its loop ends after one pass, and its first left tile takes the top row's map coordinate), uses frame 24 for type 9 there, and draws the arrow before the party cell's walls. | Static `WORLD/XEEN.DAT` analysis, 2026-10-19 (D:/MModern-re/minimap-20261019): indoor branch `0x13d6b..0x1438c`, edge loop `0x13fcc..0x1411c` (seven 10-pixel steps, left lookup `(x-4, y-3+i)` at `(222, 60-8i)`), left table `cs:0x1308` (frame 20 for type 9; base calibrated by its 15 jump targets), arrow test `0x1413c..0x14169`; main tables `cs:0x12cc`/`cs:0x12ae`, base, surface and unexplored passes and the maze lookup (`0x11d40`) match the pin. Calibrated by the minimap's known origin (237,12), 10x8 tiles and the far-call mapping to this routine (`0x1161d`). High confidence. Prompted by the maintainer's 2026-10-19 DOSBox comparison. | `XeenMapView` indoor minimap. The full Map dialog's edge loop is a separate DOS routine and is unchanged. **ScummVM:** differs. |
 | Indoor maps draw a cell whose raw wall word is 0x8888 (Vertigo's solid building blocks) as a missing cell: no ground or surface, its wall strips from the shifted word, then the unexplored tile over them, so blocks look solid. The original lookup returns 0x8888 for a missing cell and the map routines compare against it; the pin does the same. | Static `WORLD/XEEN.DAT` analysis, 2026-10-19: lookup `0x11d40` returns 0x8888 before shifting for a missing cell; minimap ground `0x13db2`, surface `0x13e30` and unexplored `0x142fd` compare the unshifted word; maintainer DOSBox screenshot of Vertigo, 2026-10-19. Pinned `INVALID_CELL` tests in `interface_minimap.cpp` and `dialogs_map.cpp`. | `XeenMapView` minimap and full Map. |
 | A closing marble sprite can expand a compressed row to 321 pixels although its declared visible width is 320. | Original loose/CD `marb04.vga`, cell `0x16`, row sources `0x3d6`/`0x54a`; CD resource offset `0xa1efe2`. The pinned sprite drawer uses a 960-entry work line starting at entry 320 and clips to declared width. | `XeenObjectSpriteSafety` validates expansion against that bounded work storage instead of rejecting all padding beyond visible width. Normal/flipped publication still clips the extra pixels; row/operand and scratch-edge checks remain enforced. |
-| Keyboard buttons have no explicit tick hold; mouse buttons wait for release. Fades synchronize to VGA retrace. World YesNo/WhoWill outer waits use 1 tick, location waits 3; NPC polling follows its 3-tick interval. | `0x0e1ca..0x0e2b1`, `0x0e41e..0x0e430`, `0x3fe0f..0x3ff02`, `0x43fca..0x43fdf`, `0x24bd7..0x24c16`, `0x251a3..0x25262`, `0x25b8f..0x25bad` | M63 Part A: `SdlWindow` restores keyboard feedback without a tick dwell and retains mouse feedback until physical release, servicing focus/close events. `PresentationClock` uses the capture-supported standard BIOS and separate 70 Hz retrace timelines; `XeenEventFlow` also retains the original dialog waits and NPC draw/reset/input order. |
+| Keyboard buttons have no explicit tick hold; mouse buttons wait for release. Fades synchronize to VGA retrace. World YesNo/WhoWill outer waits without a retained face use 1 tick; a retained face or location uses 3. Ordinary NPC Text-on polling uses 3 ticks; its separate Text-off face loop uses 1 tick, whether CD is busy or idle. | `0x0e1ca..0x0e2b1`, `0x0e41e..0x0e430`, `0x3fe0f..0x3ff02`, `0x43fca..0x43fdf`, `0x24bd7..0x24c16`, `0x251a3..0x25262`, Text on `0x25b8f..0x25bad`, Text off `0x25b02..0x25b8a`; calibrated INT 1Ah timer `0x440cd..0x440f4` | M63 Part A: `SdlWindow` restores keyboard feedback without a tick dwell and retains mouse feedback until physical release, servicing focus/close events. `PresentationClock` uses the capture-supported standard BIOS and separate 70 Hz retrace timelines; `XeenEventFlow` also retains the original dialog waits and NPC draw/reset/input order. |
 | <a id="sv-death-fire-pacing"></a> Death fire has no explicit 1-tick delay or final sound-wait tail; the pin adds both. CD title phase 0 draws background alone, and its first fade uses step 4. Dream waits for two sequential samples between its 7-tick holds and four step-4 retrace fades. | Death `0x0b02f..0x0b39a`; title `0x0be9a..0x0bf8d`; dream `0x1e605..0x1e72a` | `XeenTitleFlow` retains every acquired fade level, publishes phase one immediately after the initial fade, then waits four ticks per idle phase. `XeenEventFlow` uses retrace publication for death fire and sampled two-tick laugh iterations, with no added tail. `XeenRestFlow` waits 1.664504 s for dreams2 then 1.966764 s for laff1 between single-reset seven-tick holds; recovery follows the final acquired fade exactly once. Escape/right click advances each original credits page. **ScummVM:** differs. |
 
 The maintainer's 2026-10-13 normal DOSBox Staging CD play (`cpu_cycles 80000`,
@@ -492,16 +492,6 @@ displacement must not be added to the emulated silent holds.
 original post-dream poll.
 
 ## Approved temporary restrictions
-
-- <a id="sv-m82-visible-text"></a> **M82 Text off remains visible until M83.**
-  The maintainer approved this temporary restriction on 2026-10-21: store,
-  show, couple and save Text normally, but keep Event and dialog text visible
-  until M83 provides CD speech. New Clouds therefore retains the original
-  Efx/Music on, Text off, Speech on values without leaving the player with
-  neither text nor speech. `XeenSoundOptions`, `XeenTitleFlow` and the existing
-  Event presenter own these parts. **ScummVM:** the pin has speech playback
-  and separate global subtitle settings; this temporary restriction belongs
-  to MMModern. Pin `6814ee9b`; master not rechecked.
 
 - Jump destinations outside the current saved mainland remain refused before
   charge. M72 applies the original surface effects to admitted destinations;
@@ -819,7 +809,7 @@ This is static evidence, not a new capture. See the
 [address and source evidence](rules/audio.md#cd-disc-addressing-and-boundary-failures).
 **ScummVM:** pin `6814ee9b` uses centisecond conversion and direct track
 playback without DOS's 25-sector preroll, so it does not request this
-preceding-file tail. Part B rule; master not rechecked.
+preceding-file tail. `XeenCdAudio` preserves that cross-file request; master not rechecked.
 
 <a id="dev-cd-resource-read-timing"></a>
 ### CD intervals do not reproduce physical resource-read restarts
@@ -850,9 +840,8 @@ Unchanged-options Escape has no final stop (`0x1f2e8..0x1f331`), so that
 restart continues after the panel closes. **DOS static/resource, high:**
 the [lifecycle evidence](rules/audio.md#digital-and-cd-lifecycle-evidence)
 records the keyboard dispatch, resource and calls. **Maintainer decision,
-2026-10-22:** Part B keeps the uninterrupted replay interval and lets the
-cue continue after the panel closes, omitting the restart. It also adds
-F8 replay of the retained cue, absent from the current implementation.
+2026-10-22:** Part B omits resource-read restarts. The F8 route itself is
+[omitted separately](#dev-cd-f8-omitted).
 
 **ScummVM:** this is an approved approximation to DOS, not a new claim of
 different behavior from the pin. Its `cmdPlayCD` delegates playback to
@@ -873,8 +862,8 @@ driver stop. Efx off masks that drain; Speech off also does not stop
 active CD. The [lifecycle matrix](rules/audio.md#digital-and-cd-lifecycle-evidence)
 records the Load/New, service, map, Escape and termination branches.
 Part B keeps surviving process intervals across clock epochs under the
-approved resource-read approximation. F8 can replay a retained process
-cue, but fresh-process restore starts idle; no audio state is added to
+approved resource-read approximation. Later NPC invocations can use retained
+operands, but fresh-process restore starts idle; no audio state is added to
 saves. This does not claim sample-buffer waveform equivalence after DOS
 memory reuse.
 
@@ -905,10 +894,16 @@ spoken replacement for the omitted body. Panel Speech off normally forces
 Text on; Event messages and service greetings have no equivalent body gate
 in the direct reader inventory. The other readers reposition or restore
 an existing NPC window; see the [complete direct-access classification](rules/audio.md#text-off-byte-readers-and-presentation).
-M83 Part B's approved delivery-failure fallback will show the text in
-these no-speech cases. Current M82 still keeps text visible under its
-[temporary restriction](#sv-m82-visible-text); no implementation change is
-claimed here.
+`XeenAudio::startCd` and `XeenEventFlow::presentPendingEvent` apply the approved
+delivery fallback: a refused start, absent tracks or an undecodable cue
+restores NPC body text only, even with Text off. It does not change the
+one-tick ordinary Text-off face loop; fallback YesNo buttons stay at y=75
+(maintainer Q1, 2026-10-22). Missing or undecodable audio retains
+the requested interval and a notice; a refused start has no interval.
+The all-zero request and a skipped Speech-off start likewise leave text
+visible. This replaces M82's blanket visible-text restriction. Event messages
+and service greetings retain their text. Output loss during a cue is handled
+separately by Part C.
 **ScummVM:** the text fallback is an approved deviation from DOS
 (maintainer, 2026-10-22), not a demonstrated difference from the pin's
 delivery-failure presentation. That comparison is not established;
@@ -1008,3 +1003,31 @@ branches establish the arguments; the full references are in the audio
 inventory. MMModern requests these through the existing Event and combat
 owners. **ScummVM:** pin `6814ee9b` uses 61/35 for mirror confirmation,
 38 for Stone and omits the monster-death FM request. Master not rechecked.
+
+<a id="dev-cd-f8-omitted"></a>
+### Original F8 speech replay is omitted
+
+**Approved deviation (maintainer, 2026-10-22):** MMModern omits the original
+F8 speech replay feature. DOS exploration key table `0xd63c` dispatches
+F8 to `0xd4d0 -> 0x3da87`, replaying retained cue operands. Opcode 60
+retention and NPC invocation playback remain implemented; there is no
+player replay binding or action.
+**ScummVM:** the pinned reference also has no F8 speech replay binding
+in `engines/mm/xeen/interface.cpp` (nor a `KEYCODE_F8` handler in its
+Xeen engine). This is an approved omission of DOS behavior, not a new
+difference from the pin; master not rechecked.
+
+<a id="sv-cd-textoff-window"></a>
+### Text-off NPCs use the compact DOS window 40
+
+**DOS static and maintainer screenshot, high (2026-10-22):** window 40
+is [226,319) x [0,100), with an eight-pixel inner margin, frame at
+(248,12), face at (255,18), and centered title starting at y=64.
+The two-line Gunther title continues at y=74. Window selection
+`0x257b4`, table fields `0x3dc4e/0x3dcae/0x3dd0e/0x3dd6e/0x3de2e`,
+format `0x53b20`, and drawing calls are calibrated in the
+[Text-off rules](rules/audio.md#text-off-byte-readers-and-presentation).
+**ScummVM:** the pin defines window 40 as full-screen (0,0,320,200) in
+`window.cpp`; copying those bounds into this DOS CD path was incorrect.
+MMModern uses the compact DOS bounds without changing face polling or RNG.
+Master not rechecked.

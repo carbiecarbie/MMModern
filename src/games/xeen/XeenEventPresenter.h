@@ -49,6 +49,7 @@ public:
 	bool hasNpcOffer() const;
 	void closeNpcOffers();
     bool window11Enabled() const;
+    void restoreNpcText(const std::string &notice);
     void closeWindow12();
 	bool blocksGameplay() const { return _active; }
 	const IndexedFrame &frame() const { return _frame; }
@@ -82,6 +83,7 @@ private:
 	bool isAcknowledge(const PlayerAction &action) const;
 	void layoutNpc(const IndexedFrame &base, const XeenPresentationRequest &request);
 	IndexedFrame drawNpcPage(const XeenPresentationRequest &, std::size_t page) const;
+	void drawNpcPortrait(IndexedFrame &,const XeenPresentationRequest &) const;
 	void startNpcPage();
 	NpcDraw _npcDraw;
 	const XeenDosText *_dosText=nullptr;

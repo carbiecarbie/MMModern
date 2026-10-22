@@ -12,6 +12,7 @@ struct SdlAudioStream::Impl {
 SdlAudioStream::SdlAudioStream(int source,int output):_impl(new Impl(source,output)){}
 SdlAudioStream::~SdlAudioStream()=default;
 bool SdlAudioStream::valid() const {return _impl->stream!=nullptr;}
+void SdlAudioStream::clear() {if(valid())SDL_AudioStreamClear(_impl->stream);}
 void SdlAudioStream::pull(const Source &source,std::int16_t *stereo,std::size_t frames) {
  if(!valid())throw std::logic_error("Audio conversion stream was not prepared");
  std::array<std::int16_t,1024> native{};

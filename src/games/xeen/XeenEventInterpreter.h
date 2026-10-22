@@ -139,6 +139,8 @@ struct XeenPresentationRequest {
 	std::string refusal;
 	std::optional<XeenEventNpc> npc;
 	std::optional<XeenEventCdSpeech> cdSpeech;
+	bool npcBodyHidden=false;
+	std::string speechNotice;
 	std::string title;
 	std::optional<XeenTreasureDisplay> treasure;
 	unsigned rewardWaitTicks=0;

@@ -719,7 +719,7 @@ void XeenEventFlow::framePresented(const IndexedFrame::Presentation &presented, 
         auto &npc=*_npcSequence;
         if(!npc.acquired) {
             npc.acquired=true;npc.composed=false;npc.choice.reset();
-            npc.deadline=PresentationClock::after(presentationNow(),3);
+            npc.deadline=PresentationClock::after(presentationNow(),npc.textOffLoop?1:3);
             npc.timing.deadline=PresentationClock::ceilMilliseconds(npc.deadline);
             _presenter.retainNpcTiming(npc.timing);
         }
@@ -1281,12 +1281,15 @@ template<class Result> IndexedFrame XeenEventFlow::drive(Result result, bool aut
 		if(suspended && suspended->request.kind==XeenPresentationKind::RewardGeneration)
 			return frameCopy(); // Bounded generation resumes on the next idle update.
         if(suspended && suspended->request.kind==XeenPresentationKind::DeferredAudio &&
-            suspended->request.source.opcode==60 && !XeenSoundOptions(_party.soundOptions).speech) {
+            suspended->request.source.opcode==60) {
             // Op60 retains its operands even when the speech wrapper does
             // nothing. Consume it without a notice, scene draw or clock wait.
             const auto side=suspended->request.mapId.side;
-            if(!_cdSpeechSide || *_cdSpeechSide!=side) {_cdSpeechSide=side;_cdSpeechEnd=0;}
-            _cdSpeechCue=_pending->state.cdSpeech;
+            if(_program.audio && _pending->state.cdSpeech) {
+                _program.audio->observeOptions(_party.soundOptions);
+                _program.audio->selectCdDisc(side==XeenSide::Clouds?1:2,presentationNow());
+                _program.audio->retainCdCue(*_pending->state.cdSpeech);
+            }
             auto pending=std::move(*_pending);_pending.reset();
             if constexpr(std::is_same_v<Result,XeenManualEventResult>)
                 result=_transition?resumeDetachedEvent(std::move(pending.state),XeenPresentationResponse::Presented):
@@ -1820,11 +1823,12 @@ XeenPresentationUpdate XeenEventFlow::presentPendingEvent() {
         prepareEntrance();
         return {_presenter.rebase(_entranceUi->art),std::nullopt,true};
     }
-    if(!_cdSpeechSide || *_cdSpeechSide!=request.mapId.side) {
-        _cdSpeechSide=request.mapId.side;_cdSpeechCue.reset();_cdSpeechEnd=0;
+    if(_program.audio) {
+        _program.audio->observeOptions(_party.soundOptions);
+        _program.audio->selectCdDisc(request.mapId.side==XeenSide::Clouds?1:2,presentationNow());
     }
 	if(request.kind==XeenPresentationKind::NpcAcknowledgment && !request.cdSpeech && !request.arena)
-        request.cdSpeech=_cdSpeechCue;
+        request.cdSpeech=_program.audio?_program.audio->retainedCdCue():std::nullopt;
     if(request.kind==XeenPresentationKind::PortraitEffect) {
         if(!request.portrait)throw std::logic_error("Event portrait request lost its retained effect");
         preparePortraitSequence(*request.portrait,_pending->generation);
@@ -1861,11 +1865,8 @@ XeenPresentationUpdate XeenEventFlow::presentPendingEvent() {
 		request.text=xeenDialogFormat(dosText().scalar(*request.lockPicked?"PICKS_THE_LOCK":"UNABLE_TO_PICK_LOCK"),{request.title});
 	const auto retainedPage=request.kind==XeenPresentationKind::NpcAcknowledgment && _npcSequence &&
         _npcSequence->generation==_pending->generation?_npcSequence->page:0;
-	auto presented=_presenter.present(_frame,request,retainedPage);
     // Op60 only changes retained command operands. Playing/stopping does not
     // consume them; ordinary same-disc Event cleanup preserves this audio state.
-    if(request.kind==XeenPresentationKind::DeferredAudio && request.source.opcode==60)
-        _cdSpeechCue=_pending->state.cdSpeech;
     if(request.kind==XeenPresentationKind::NpcAcknowledgment &&
         (!_npcSequence || _npcSequence->generation!=_pending->generation)) {
         const auto now=presentationNow();
@@ -1873,17 +1874,32 @@ XeenPresentationUpdate XeenEventFlow::presentPendingEvent() {
         next.generation=_pending->generation;
         next.deadline=PresentationClock::after(now,3);
         next.timing.deadline=PresentationClock::ceilMilliseconds(next.deadline);
-        if(XeenSoundOptions(_party.soundOptions).speech && request.cdSpeech && (request.cdSpeech->track || request.cdSpeech->start || request.cdSpeech->finish)) {
-            const auto duration=xeenCdSpeechDurationNanoseconds(*request.cdSpeech);
-            _cdSpeechEnd=PresentationClock::checkedAdd(now,duration);
+        if(_program.audio && !request.arena) {
+            if(request.cdSpeech)_program.audio->retainCdCue(*request.cdSpeech);
+            const auto delivered=_program.audio->startCd(now);
+            next.bodyHidden=!XeenSoundOptions(_party.soundOptions).text && delivered;
+            next.speechNotice=_program.audio->takeCdNotice();
+            if(!next.speechNotice.empty())next.bodyHidden=false;
         }
-        if(!XeenSoundOptions(_party.soundOptions).speech)_cdSpeechEnd=0;
-        next.speechEnd=_cdSpeechEnd;
-        next.timing.remaining=now<_cdSpeechEnd?_cdSpeechEnd-now:0;
+        next.textOffLoop=!XeenSoundOptions(_party.soundOptions).text && request.npc->confirmationMode!=2;
+        if(next.textOffLoop)next.deadline=now; // DOS draws before the first one-tick hold.
+        next.speechEnd=_program.audio?_program.audio->cdDeadline(now).value_or(0):0;
+        next.timing.remaining=now<next.speechEnd?next.speechEnd-now:0;
         _npcSequence=next;
-        _presenter.retainNpcTiming(next.timing);
-    } else if(request.kind==XeenPresentationKind::NpcAcknowledgment && _npcSequence) {
-        if(const auto retained=_presenter.updateNpc(_npcSequence->timing))presented.frame=*retained;
+    }
+    if(request.kind==XeenPresentationKind::NpcAcknowledgment && _npcSequence) {
+        request.npcBodyHidden=_npcSequence->bodyHidden;request.speechNotice=_npcSequence->speechNotice;
+    }
+    if(request.response==XeenPresentationResponseRequirement::YesNo && _npcSequence)
+        request.npcBodyHidden=_npcSequence->bodyHidden;
+    auto presented=_presenter.present(_frame,request,retainedPage);
+    if(request.kind==XeenPresentationKind::NpcAcknowledgment && _npcSequence) {
+        _presenter.retainNpcTiming(_npcSequence->timing);
+        if(_npcSequence->textOffLoop && _npcSequence->timing.phase==0) {
+            _npcSequence->acquired=true;
+            advanceNpcSequence(_npcSequence->deadline);
+            presented.frame=_presenter.frame();
+        } else if(const auto retained=_presenter.updateNpc(_npcSequence->timing))presented.frame=*retained;
     }
  if(drawPendingHeads(presented.frame))_ordinary.containsOrdinaryAnimation=true;
  return presented;
@@ -2038,10 +2054,10 @@ std::optional<IndexedFrame> XeenEventFlow::advancePortraitSequence() {
     return renderEncounter(false,true);
 }
 
-bool XeenEventFlow::advanceNpcSequence() {
+bool XeenEventFlow::advanceNpcSequence(std::optional<std::uint64_t> sampledNow) {
     if(!_npcSequence || (!pendingNpc() && !_presenter.hasNpcOffer()))return false;
     auto &npc=*_npcSequence;
-    const auto now=presentationNow();
+    const auto now=sampledNow?*sampledNow:presentationNow();
     if(npc.composed)return false;
     if(!npc.choice && (!npc.acquired || now<npc.deadline))return false;
     if(!npc.choice) {
@@ -2077,7 +2093,7 @@ bool XeenEventFlow::advanceNpcSequence() {
     auto timing=npc.timing;
     timing.displayedFrame=timing.nextFrame=*npc.choice;
     ++timing.phase;
-    timing.deadline=PresentationClock::ceilMilliseconds(PresentationClock::after(now,3));
+    timing.deadline=PresentationClock::ceilMilliseconds(PresentationClock::after(now,npc.textOffLoop?1:3));
     const auto changed=_presenter.updateNpc(timing);
     if(!changed)return false;
     _frame=*changed;npc.timing=timing;npc.acquired=false;npc.composed=true;
@@ -2227,6 +2243,19 @@ bool XeenEventFlow::pulseServiceArt(ServiceArtState &state, IndexedFrame &art) {
 }
 std::optional<IndexedFrame> XeenEventFlow::updatePresentation() {
     requireCurrentOwners();
+    if(_program.audio && !_dispatching && !_fatal && !_saving && !_handoffPending) {
+        const auto notice=_program.audio->takeCdNotice();
+        if(!notice.empty()) {
+            DispatchScope dispatch(_dispatching);
+            if(_npcSequence) {
+                _npcSequence->bodyHidden=false;_npcSequence->speechNotice=notice;
+                _presenter.restoreNpcText(notice);
+            } else _mainScreenNotice=notice;
+            if(reportText)reportText(notice);
+            if(_encounter)return renderEncounter(false,true);
+            refreshScene(false,OrdinaryCause::None);return frameCopy();
+        }
+    }
     if(_entranceUi)return updateEntrance();
     if(_presenter.wordInputActive() && !_dispatching && !_fatal && !_saving && !_handoffPending &&
        _presenter.animateWord(_clock())) {
@@ -2517,9 +2546,11 @@ bool XeenEventFlow::resumePending(std::uint64_t generation, XeenPresentationResp
 	catch (const std::exception &e) { presentationFailed(e); return true; }
 	// DAT 0x25c94: final ordinary dismissal stops CD. Passive mode 2 returns
 	// through 0x25ac4 without this stop; pages never resume the interpreter.
-	if(_pending->state.pendingPresentation->request.kind==XeenPresentationKind::NpcAcknowledgment &&
-		_pending->state.pendingPresentation->request.npc->confirmationMode!=2) {
-		_cdSpeechEnd=0;
+	const auto &dismissed=_pending->state.pendingPresentation->request;
+	if((dismissed.kind==XeenPresentationKind::NpcAcknowledgment && dismissed.npc->confirmationMode!=2) ||
+        dismissed.response==XeenPresentationResponseRequirement::YesNo ||
+        dismissed.kind==XeenPresentationKind::CharacterSelection) {
+        if(_program.audio)_program.audio->stopCd(presentationNow());
 		if(_npcSequence){_npcSequence->speechEnd=0;_npcSequence->timing.remaining=0;}
 	}
 	requireCurrentOwners();

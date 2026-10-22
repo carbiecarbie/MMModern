@@ -50,13 +50,22 @@ gameplay playback sites and CD rules follow in Parts A2 and B:
   Part B; pin: differs; master not rechecked.
 - **Approved resource-read approximation.** Keep cue intervals instead of
   modelling any physical CD read interruptions and restarts, including
-  F8 replay through Tab/Escape. Explicit dialog dismissal still stops CD.
+  continuing NPC playback. Explicit dialog dismissal still stops CD.
   [Final decision and witnesses](original-quirks.md#dev-cd-resource-read-timing).
   This is an approved approximation to DOS; full equivalence with the
   pin's resource-load lifecycle is not asserted. Master not rechecked.
-- **Approved text delivery fallback.** Part B will show the NPC body when
+- **Approved F8 omission.** The maintainer omits DOS speech replay
+  (`0xd4d0 -> 0x3da87`, exploration table `0xd63c`). The pin also has no
+  F8 speech binding. [Decision](original-quirks.md#dev-cd-f8-omitted).
+  Part B; approved DOS omission; master not rechecked.
+- **Compact Text-off NPC window.** DOS uses the upper-right window 40
+  rather than the pin's full-screen window-40 definition.
+  [Geometry evidence](original-quirks.md#sv-cd-textoff-window).
+  Part B; pin: differs; master not rechecked.
+- **Approved text delivery fallback.** The NPC body is shown when
   speech cannot be delivered; DOS selects the title-only format without
-  testing playback success. [Decision and readers](original-quirks.md#dev-cd-text-delivery-fallback).
+  testing playback success. The fallback restores text only and keeps the
+  ordinary Text-off polling cadence. [Decision and readers](original-quirks.md#dev-cd-text-delivery-fallback).
   Approved deviation from DOS; comparison with the pin's failure
   presentation is not established. Master not rechecked.
 
@@ -459,10 +468,6 @@ Comparison is with pinned `6814ee9b`, not a new master check:
 - [Arena ordinal suffix](original-quirks.md#sv-arena-ordinal): DOS displays
   21st/22nd/23rd, while the pin uses `th` for every count above nine.
 
-- [Temporary visible text](original-quirks.md#sv-m82-visible-text): M82 saves
-  the original Text option but keeps dialog text visible until M83 provides
-  CD speech (maintainer approval, 2026-10-21; pin `6814ee9b`, master not rechecked).
-
 - **Mirror, Stone and monster-death sounds.** DOS confirms a mirror name
   with effect 51, uses 37 for a monster's Stone attack and requests 4 when a
   monster dies. MMModern follows those calls; the pin uses 61/35, 38 and no
@@ -474,9 +479,9 @@ in [project status](project-status.md#known-gaps):
 
 - **The whole game:** only Vertigo and the surrounding mainland are playable;
   the rest of Clouds of Xeen and all of Darkside of Xeen are not.
-- **Sound:** CD playback awaits M83 Part B; speech keeps its duration in
-  silence. VOC starts in implemented Clouds presentations are audible;
-  fall/landing and title lightning remain excluded with their absent
+- **Sound:** CD speech and VOC starts in implemented Clouds presentations
+  are audible; balance and output recovery remain M83 Part C.
+  Fall/landing and title lightning remain excluded with their absent
   presentations ([site inventory](rules/audio.md#voc-inventory-boundaries)).
   Only the promus OPL3 music device is supported.
 - **Services and party:** no Inn, recruiting, character creation, Tavern

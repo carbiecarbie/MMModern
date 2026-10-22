@@ -279,7 +279,7 @@ namespace m44_baseline {
 inline constexpr const char *revision = "M81 Part A (save v17), baseline 30c548a";
 struct Scenario { const char *name; std::uint32_t seed; const char *sha256; };
 inline constexpr std::array<Scenario,4> scenarios{{
-    {"mainland-combat-myra-phirna",3626689381u,"0acc855ec5c51c22222eaea8a72f8681a8a9648b5b918b61aa563f68014404f0"},
+    {"mainland-combat-myra-phirna",3626689381u,"c77d601069a5d49e0bf799b26e1842ae2eddfff98fa7d90d3a6de5374bc8be94"},
     // M75: a member woken after its skipped slot waits for the next round (DOS turn order).
     // M78 Part A: maintainer approved the services replacement on 2026-10-20.
     // Pathfinder wall 3 reroutes the one-holder party; time/exploration and an

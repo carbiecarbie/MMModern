@@ -100,8 +100,8 @@ int main(int argc,char **argv) {
 		check(injected && !tampered.flow->canSave() && !tampered.p.questFlags.isSet(3) &&
 			tampered.w.sessionState().regionalActors(28).size()==46 && !tampered.w.sessionState().disabledEventCount(),
 			"Candidate composer tampering published effects or reopened quiet authority");
-		// CD speech and an out-of-table voice are automatic notice prefixes; city
-		// preflight must admit them while retaining all dependent-effect checks.
+		// CD operands are retained silently; the out-of-table voice has one
+		// automatic notice. Preflight retains all dependent-effect checks.
 		city.records={record(0,0x3c,{1,0,0,1,0}),record(1,0x28,{255}),record(2,0x20,{0,0}),
 			record(3,0x0c,{0,0,104,3}),record(4,0x10,{50,13,15,0}),record(5,0x18,{2,0}),record(6,0x12)};
 		Fixture spoken(inputs,initial,false,&city);unsigned audioNotices=0;
@@ -111,13 +111,13 @@ int main(int argc,char **argv) {
 		};
 		const auto speechBefore=XeenSaveFormat::encode(spoken.snapshot());
 		spoken.act(InteractionAction{});
-		check(audioNotices==2 && spoken.flow->canCancelInteraction() && !spoken.p.questFlags.isSet(3),
+		check(audioNotices==1 && spoken.flow->canCancelInteraction() && !spoken.p.questFlags.isSet(3),
 			"City audio notices did not continue exactly once to the existing WhoWill");
 		spoken.act(CancelInteractionAction{});
 		check(spoken.flow->canSave() && speechBefore==XeenSaveFormat::encode(spoken.snapshot()),
 			"Audio/cancel changed time, rewards, RNG or overlays");
 		spoken.act(InteractionAction{});select(spoken);
-		check(audioNotices==4 && spoken.flow->canSave() && spoken.p.questFlags.isSet(3) &&
+		check(audioNotices==2 && spoken.flow->canSave() && spoken.p.questFlags.isSet(3) &&
 			spoken.w.sessionState().disabledEvents().count({28,2}) && spoken.w.sessionState().journeyRandom()==random,
 			"City speech prefix lost guarded effects or drew RNG");
 		for(const auto &suffix:std::vector<XeenEventRecord>{record(3,0x3c,{1,0,0}),record(3,0x14,{107,1})}) {

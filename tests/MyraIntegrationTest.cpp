@@ -1,5 +1,5 @@
 #include "XeenTestInstallation.h"
-#include "XeenCdMyraTestSupport.h"
+#include "app/XeenAudio.h"
 #include "XeenCheckpointTestSupport.h"
 #include "XeenVisualRemoveTestSupport.h"
 #include "XeenPartySnapshotTestSupport.h"
@@ -20,11 +20,21 @@
 
 using namespace mmodern;
 using namespace remove_test;
+namespace cd_myra_test {
+using namespace mmodern;
+// CD maze0023.evt (9,11,West): PlayCD line 5/offset 261 precedes
+// request NPC line 6/272; PlayCD line 9/299 precedes return NPC line 10/310.
+// Each branch executes one extra instruction: request 6, return/receipt 10.
+inline constexpr unsigned requestCount=6, returnCount=10;
+
+}
 namespace {
-void checkpoint(XeenAssetSource &assets, const std::filesystem::path &output, int roots,
+void checkpoint(const GameInstallation &installation,XeenAssetSource &assets, const std::filesystem::path &output, int roots,
 		bool requested, SDL_Keycode dismiss, bool sdl, int lossFixture=0) {
     mmodern::XeenProgramState programState;
+    programState.audio=XeenAudio::installed(installation,assets,0,false);
 	auto party=XeenPartyLoader().loadInitialCloudsParty(assets);
+    auto options=XeenSoundOptions(party.soundOptions);options.text=true;party.soundOptions=options; // This witness exercises visible-text pagination.
 	check(party.questItems.at(17)==0,"fresh original party inherited a Root");
 	const auto originalParty=assets.readInitialResource("maze.pty");
 	for(int i=0;i<30;++i)check(party.questFlags.isSet(i)==bool(originalParty.at(739+i/8)&(1u<<(i%8))),"original quest-flag loading");
@@ -89,9 +99,8 @@ void checkpoint(XeenAssetSource &assets, const std::filesystem::path &output, in
 	const XeenCharacterRulesContext rules{kCloudsInitialYear};std::uint64_t time=0;unsigned random=0;
 	std::uint64_t observedPhase=0;
 	auto compose=[&](std::uint64_t phase){observedPhase=phase;XeenEventFlow::Composition r;r.frame=composer.compose(assets,world,party,camera,rules,nullptr,phase,&r.containsOrdinaryAnimation);return r;};
-	bool audioShown=false;
 	auto cleanBase=[&]{const auto scene=composer.compose(assets,world,party,camera,rules,nullptr,observedPhase);
-		return audioShown?cd_myra_test::withNotice(font,scene):scene;};
+		return scene;};
 	bool failDraw=false;
 	auto draw=[&](IndexedFrame &f,std::uint8_t portrait,std::size_t index){
 		if(failDraw)throw std::runtime_error("injected NPC asset failure");assets.drawNpc(f,portrait,index);};
@@ -164,20 +173,16 @@ void checkpoint(XeenAssetSource &assets, const std::filesystem::path &output, in
 	std::optional<XeenEventExecutionSuspended> pending;
 	std::optional<XeenEventExecutionError> terminal;
 	bool completed=false;
-	int presentations=0,npcs=0,receipts=0,warnings=0,audio=0;
-	std::uint64_t audioTime=0;unsigned audioRandom=0;
+	int presentations=0,npcs=0,receipts=0,warnings=0;
 	flow.reportText=[](const std::string &s){throw std::runtime_error(s);};
 	auto report=[&](const XeenManualEventResult&r){
 		if(const auto*p=std::get_if<XeenEventExecutionSuspended>(&r)){
 			pending=*p;++presentations;const auto&q=p->request;
-			if(q.kind==XeenPresentationKind::DeferredAudio) {
-				cd_myra_test::checkAudio(*p,returning);
-				check(++audio==1 && presentations==1 && npcs==0,"CD speech must precede NPC once");
-				audioShown=true;audioTime=time;audioRandom=random;
-			} else if(q.kind==XeenPresentationKind::NpcAcknowledgment) {
-				++npcs;
-				check(audio==1,"CD Myra NPC skipped speech presentation");
-				check(time==audioTime && random==audioRandom,"CD speech continuation added time/RNG before NPC");
+            if(q.kind==XeenPresentationKind::NpcAcknowledgment) {
+                ++npcs;
+                const auto cue=programState.audio->retainedCdCue();
+                check(cue && cue->track==6 && cue->start==(returning?3153:1646) && cue->finish==(returning?3509:3132),
+                      "CD Myra operands were not retained before NPC invocation");
 				check(q.source.line==(returning?10:6) && q.source.fileOffset==(returning?310:272) &&
 					p->state.instructionCount==(returning?3:4) && q.title==text.strings.at(1) &&
 					q.text==text.strings.at(returning?3:0) && q.npc && q.npc->portraitId==17,"ordinary line-0 NPC frontier");
@@ -209,7 +214,7 @@ void checkpoint(XeenAssetSource &assets, const std::filesystem::path &output, in
 		check(geometrySnapshot(world.map(23).geometry)==geometry,"geometry mutation");sameEntities(objectFile.entities,world.objectFile(23).entities);
 		for(std::size_t i=0;i<original.records.size();++i)check(sameRecord(original.records[i],world.effectiveEvent({23,i},original.records[i])),"effective event mutation");};
 	auto frontier=[&]{
-		check(completed && !terminal && audio==1 && npcs==1 && receipts==(returning?1:0) && warnings==(returning && lossFixture==1?1:0) &&
+		check(completed && !terminal && npcs==1 && receipts==(returning?1:0) && warnings==(returning && lossFixture==1?1:0) &&
 			party.questFlags.isSet(2)==!returning,"original Myra phase/completion result");
 		check(!flow.blocksGameplay() && !flow.presentationGeneration(),"terminal Myra remained pending");
 		check(flow.frame().pixels==cleanBase().pixels,"NPC layer survived final acknowledgment");unchanged();save(flow.frame(),"dismissed");};
@@ -222,7 +227,7 @@ void checkpoint(XeenAssetSource &assets, const std::filesystem::path &output, in
 		check(flow.presentationGeneration()==gen && flow.frame().pixels==pixels && after.displayedFrame==timing.displayedFrame &&
 			after.nextFrame==timing.nextFrame && after.phase==timing.phase && after.remaining==timing.remaining && after.deadline==timing.deadline,
 			"pending reconstruction reset presentation");unchanged();save(flow.frame(),gen?"rebuilt":"completed-rebuilt");};
-	auto resetReport=[&]{terminal.reset();pending.reset();completed=false;deliveryStarted=false;deliveryCount=0;presentations=0;npcs=receipts=warnings=audio=0;returning=counts[17]>0;};
+	auto resetReport=[&]{terminal.reset();pending.reset();completed=false;deliveryStarted=false;deliveryCount=0;presentations=0;npcs=receipts=warnings=0;returning=counts[17]>0;};
 	// Failure and abandonment must be checked BEFORE the first successful write.
 	failDraw=true;flow.handle(InteractionAction{});
 	check(terminal && terminal->kind==XeenEventExecutionErrorKind::PresentationFailed && terminal->source &&
@@ -286,7 +291,7 @@ void checkpoint(XeenAssetSource &assets, const std::filesystem::path &output, in
 				push(SDLK_UP);push(SDLK_y);push(SDLK_n);push(SDLK_F1);stage=3;}
 			else if(stage==3){save(flow.frame(),std::string(pending->request.kind==XeenPresentationKind::RewardReceipt?"receipt-":pending->request.kind==XeenPresentationKind::RewardWarning?"warning-":"page-")+std::to_string(page++));push(dismiss);push(dismiss,1);}
 			return f;});
-		check(ok && stage==4 && changed && presentations==(returning?(lossFixture==1?4:13):2),"SDL CD speech plus original idle/input/repeat phases");
+		check(ok && stage==4 && changed && presentations==(returning?(lossFixture==1?3:12):1),"SDL CD speech plus original idle/input/repeat phases");
 		flow.abandonPresentation();
 	}else{
 		handle(InteractionAction{});check(flow.blocksGameplay() && pending,"original NPC absent");
@@ -351,7 +356,7 @@ void checkpoint(XeenAssetSource &assets, const std::filesystem::path &output, in
 	camera={1,1,14,XeenDirection::West};fresh.refresh();camera=start;fresh.refresh();
 	resetReport();fresh.handle(InteractionAction{});check(fresh.blocksGameplay() && fresh.presenter().npcTiming().displayedFrame==0,"new owner dispatch");
 	unsigned freshAcks=0;while(fresh.blocksGameplay()){check(++freshAcks<100,"new owner acknowledgment bound");fresh.framePresented(fresh.frame().presentation());if(const auto deadline=fresh.nextPresentationDeadline())time=PresentationClock::ceilMilliseconds(*deadline);fresh.handle(acknowledgment);fresh.framePresented(fresh.frame().presentation());fresh.updatePresentation();fresh.framePresented(fresh.frame().presentation());}
-	check(completed && !terminal && fresh.frame().pixels==cd_myra_test::withNotice(font,composer.compose(assets,world,party,camera,rules,nullptr,freshPhase)).pixels && !fresh.presentationGeneration(),"new owner did not finish CD path/passive speech strip");frontier();unchanged();
+	check(completed && !terminal && fresh.frame().pixels==composer.compose(assets,world,party,camera,rules,nullptr,freshPhase).pixels && !fresh.presentationGeneration(),"new owner did not finish CD path/passive speech strip");frontier();unchanged();
 	std::cout<<name<<": "<<(roots?"ten-instruction returns exhausted Roots; five records per return":"six-instruction request; Q2=true")
 		<<"; revisit, abandon/failure, reconstruction/fresh owners; "<<(sdl?"SDL":"direct")<<" OK; maps="<<maps<<" objects="<<objects<<" scripts="<<scripts<<" texts="<<strings<<'\n';
 }
@@ -364,8 +369,8 @@ int main(int argc,char **argv){try{
 	const std::vector<std::string> names{"maze.pty","maze.chr","maze0023.evt","maze0023.mob"};
 	std::vector<std::vector<std::uint8_t>> bytes;for(const auto&name:names)bytes.push_back(assets.readInitialResource(name));
 	for(int roots:{0,1,3})for(bool requested:{false,true})for(auto key:{SDLK_SPACE,SDLK_RETURN,SDLK_ESCAPE})
-		checkpoint(assets,argv[2],roots,requested,key,argc==4);
-	for(int loss:{1,2})checkpoint(assets,argv[2],1,true,SDLK_RETURN,argc==4,loss);
+		checkpoint(*installation,assets,argv[2],roots,requested,key,argc==4);
+	for(int loss:{1,2})checkpoint(*installation,assets,argv[2],1,true,SDLK_RETURN,argc==4,loss);
 	for(std::size_t i=0;i<names.size();++i)check(bytes[i]==assets.readInitialResource(names[i]),"original resource bytes changed");
 	std::cout<<"21C original Myra request/return matrix OK (18 matrix cases plus two loss fixtures and revisits per mode)\n";return 0;
 }catch(const std::exception&e){std::cerr<<e.what()<<'\n';return 1;}}

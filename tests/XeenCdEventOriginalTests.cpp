@@ -99,13 +99,27 @@ void audio(const XeenEventRecord &original,const XeenFontFormat &font,const Xeen
  auto pending=std::get_if<XeenEventExecutionSuspended>(&result);
  check(pending && pending->request.kind==XeenPresentationKind::DeferredAudio &&
   pending->request.response==XeenPresentationResponseRequirement::Presented &&
-  pending->request.text==(original.opcode==0x28?"Voice audio not supported yet":"CD speech not supported yet") &&
+  pending->request.text==(original.opcode==0x28?"Voice audio not supported yet":"") &&
   pending->state.instructionCount==1 && pending->state.logicalAddress.line==1,
   "Audio notice and exactly one sequential advance");
  XeenEventContinuation retained(pending->state);auto altered=pending->state;
  altered.pendingPresentation->request.source.opcode=0;
  bool rejected=false;try {retained.check(altered);}catch(const std::logic_error &){rejected=true;}
  check(rejected,"Audio continuation source preimage must remain guarded");
+ // Extra/truncated speech refuses before dispatch, with no partially published work.
+ for(unsigned size=0;size<8;++size)if(size!=(original.opcode==0x3c?5u:1u)) {
+  auto bad=f;bad.records[0].parameters.resize(size);
+  const auto failed=vm.begin({1,1,1,XeenDirection::North},p,{},w,[&](auto){return XeenEventScript(bad);},{});
+  const auto error=std::get_if<XeenEventExecutionError>(&failed);
+  check(error && error->kind==XeenEventExecutionErrorKind::MalformedInstruction && error->instructionCount==0,
+   "Malformed audio must refuse before any dispatch");
+ }
+ if(original.opcode==60) {
+  check(pending->state.cdSpeech.has_value(),"PlayCD lost retained operands");
+  const auto done=vm.resume(pending->state,XeenPresentationResponse::Presented,p,w,provider,{});
+  check(std::holds_alternative<XeenEventExecutionCompleted>(done),"Cue publication did not resume without a notice");
+  return;
+ }
  unsigned clockCalls=0,randomCalls=0;
  XeenEventPresenter presenter(font,{},[&]{++clockCalls;return 0;},[&]{++randomCalls;return 0;});
  IndexedFrame base;base.width=320;base.height=200;base.pixels.resize(64000);
@@ -128,14 +142,6 @@ void audio(const XeenEventRecord &original,const XeenFontFormat &font,const Xeen
  check(complete && complete->instructionCount==2 && complete->finalGameFlags.values()==XeenGameFlags{}.values() &&
   !p.purse && w.sessionState().disabledEvents().empty() && w.sessionState().disabledObjects().empty(),
   "Audio continues to Exit without rewards or overlays");
- // Extra/truncated speech refuses before dispatch, with no partially published work.
- for(unsigned size=0;size<8;++size)if(size!=(original.opcode==0x3c?5u:1u)) {
-  auto bad=f;bad.records[0].parameters.resize(size);
-  const auto failed=vm.begin({1,1,1,XeenDirection::North},p,{},w,[&](auto){return XeenEventScript(bad);},{});
-  const auto error=std::get_if<XeenEventExecutionError>(&failed);
-  check(error && error->kind==XeenEventExecutionErrorKind::MalformedInstruction && error->instructionCount==0,
-   "Malformed audio must refuse before any dispatch");
- }
  auto overflow=f;overflow.records[0].line=255;
  auto refused=vm.begin({1,1,1,XeenDirection::North},p,{},w,[&](auto){return XeenEventScript(overflow);},{},255);
  check(std::get<XeenEventExecutionError>(refused).kind==XeenEventExecutionErrorKind::LineOverflow,

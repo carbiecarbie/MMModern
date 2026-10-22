@@ -28,7 +28,7 @@ Path child(const Path &directory,const std::string &name,bool directoryWanted=fa
  }
  return result;
 }
-Path relativeImage(const Path &cue,const std::string &name) {
+Path relativeImage(const Path &cue,const std::string &name,bool missingAllowed=false) {
  const auto relative=std::filesystem::u8path(name);
  if(relative.is_absolute()) throw std::runtime_error("Cue image must be relative to its cue");
  auto resolved=cue.parent_path();
@@ -37,8 +37,8 @@ Path relativeImage(const Path &cue,const std::string &name) {
   if(component==".") continue;
   if(component=="..") {resolved=resolved.parent_path();continue;}
   const auto found=child(resolved,component.u8string(),std::next(part)!=relative.end());
-  if(found.empty()) throw std::runtime_error("Missing cue data image: "+name);
-  resolved=found;
+  if(found.empty()&&!missingAllowed) throw std::runtime_error("Missing cue data image: "+name);
+  resolved=found.empty()?resolved/component:found;
  }
  return resolved;
 }
@@ -136,12 +136,16 @@ std::array<ReadOnlyDataFile,3> cueSource(const Path &cue) {
   }
   else if(std::regex_match(line,match,trackPattern)) {
    if(file.empty()) throw std::runtime_error("Cue TRACK precedes FILE");
+   // Separate audio files cannot affect this already selected data extent.
+   // Leave their syntax/order validation to the audio reader and its fallback.
+   if(found && file!=dataImage && lower(match[2])=="audio") {mode="audio";dataIndex=false;continue;}
    const unsigned number=std::stoul(match[1]); if(!number||number<=lastTrack) throw std::runtime_error("Invalid cue track order"); lastTrack=number;
    if(mode=="mode1/2352"&&!dataIndex) throw std::runtime_error("Data track has no INDEX 01");
    mode=lower(match[2]); dataIndex=false;
    if(mode!="audio"&&mode!="mode1/2352") throw std::runtime_error("Unsupported cue data track format: "+mode);
    if(mode=="mode1/2352"&&(found||type!="binary")) throw std::runtime_error("Ambiguous or non-binary cue data track");
   } else if(std::regex_match(line,match,indexPattern)) {
+   if(found && mode=="audio" && file!=dataImage)continue;
    if(mode.empty()) throw std::runtime_error("Cue INDEX precedes TRACK");
    const auto index=std::stoul(match[1]); const auto minutes=std::stoull(match[2]),seconds=std::stoull(match[3]),frames=std::stoull(match[4]);
    if(seconds>=60||frames>=75||minutes>(std::numeric_limits<std::uint64_t>::max()-seconds*75-frames)/4500) throw std::runtime_error("Invalid cue index time");
@@ -154,6 +158,9 @@ std::array<ReadOnlyDataFile,3> cueSource(const Path &cue) {
   } else {
    const auto normalized=lower(line); const auto begin=normalized.find_first_not_of(" \t");
    if(begin==std::string::npos||normalized.compare(begin,3,"rem")==0)continue;
+   // Audio metadata cannot invalidate the already selected data source.
+   // The strict audio reader below records that disc as unavailable.
+   if(found && (mode=="audio" || file!=dataImage))continue;
    throw std::runtime_error("Unsupported or malformed cue metadata: "+line);
   }
  }
@@ -173,6 +180,38 @@ bool same(const ReadOnlyDataFile &left,const ReadOnlyDataFile &right) {
 }
 }
 std::array<ReadOnlyDataFile,3> readCueCdArchives(const Path &cue) {return cueSource(cue);}
+std::vector<XeenCdTrack> readXeenCdTracks(const Path &cue,unsigned disc) {
+ if(!disc || disc>2 || std::filesystem::file_size(cue)>1024*1024)throw std::runtime_error("Invalid CD cue sheet");
+ std::ifstream input(cue);
+ std::regex filePattern(R"cue(^\s*FILE\s+"([^"]+)"\s+(\S+)\s*$)cue",std::regex::icase);
+ std::regex trackPattern(R"(^\s*TRACK\s+([0-9]+)\s*(MODE1/2352|AUDIO)\s*$)",std::regex::icase);
+ std::regex indexPattern(R"(^\s*INDEX\s+01\s+([0-9]+):([0-9]+):([0-9]+)\s*$)",std::regex::icase);
+ std::vector<XeenCdTrack> tracks;std::set<Path> files;
+ std::string line,name;std::smatch match;unsigned number=0,last=0;bool audio=false,indexed=true;
+ while(std::getline(input,line)) {
+  if(!line.empty()&&line.back()=='\r')line.pop_back();
+  if(std::regex_match(line,match,filePattern)) {
+   if(!indexed)throw std::runtime_error("CD track missing INDEX 01");
+   name=match[1];number=0;
+  } else if(std::regex_match(line,match,trackPattern)) {
+   if(name.empty() || !indexed)throw std::runtime_error("Incomplete CD track");
+   number=std::stoul(match[1]);audio=lower(match[2])=="audio";
+   if(number<=last || number>99)throw std::runtime_error("Invalid CD track order");
+   last=number;indexed=false;
+  } else if(std::regex_match(line,match,indexPattern)) {
+   const auto m=std::stoull(match[1]),s=std::stoull(match[2]),f=std::stoull(match[3]);
+   if(!number || indexed || s>=60 || f>=75 || m>999)throw std::runtime_error("Invalid CD track index");
+   auto file=relativeImage(cue,name,audio);
+   if(!files.insert(file).second)throw std::runtime_error("CD audio requires separate-file cue tracks");
+   tracks.push_back({disc,number,audio,std::move(file),m*4500+s*75+f});indexed=true;
+  } else {
+   const auto normalized=lower(line);const auto begin=normalized.find_first_not_of(" \t");
+   if(begin!=std::string::npos && normalized.compare(begin,3,"rem")!=0)throw std::runtime_error("Unsupported CD cue metadata: "+line);
+  }
+ }
+ if(!input.eof() || !indexed || tracks.empty())throw std::runtime_error("Incomplete CD cue sheet");
+ return tracks;
+}
 std::optional<GameInstallation> XeenInstallationDetector::detect(const Path &root) const {
  if(!std::filesystem::is_directory(root))return std::nullopt;
  struct Candidate {std::string origin;std::array<ReadOnlyDataFile,3> files;}; std::vector<Candidate> candidates;
@@ -222,6 +261,18 @@ std::optional<GameInstallation> XeenInstallationDetector::detect(const Path &roo
  result.xeenArchive=result.cloudsData->physicalPath;result.darkArchive=result.darksideData->physicalPath;
  result.uiModule=ReadOnlyDataFile::plain(ui);result.sourceOrigin=candidates[0].origin+"; UI "+result.uiModule->physicalPath.u8string();
  result.configuration=ReadOnlyDataFile::plain(cfg);
+ for(const auto &cue:cues) {
+  const auto name=lower(cue.filename().u8string());
+  if(name!="game1.ins" && name!="game2.ins")continue;
+  const unsigned disc=name=="game1.ins"?1:2;
+  try {
+   auto tracks=readXeenCdTracks(cue,disc);
+   result.cdTracks.insert(result.cdTracks.end(),tracks.begin(),tracks.end());
+  } catch(const std::exception &e) {
+   XeenCdTrack unavailable;unavailable.disc=disc;unavailable.error=e.what();
+   result.cdTracks.push_back(std::move(unavailable));
+  }
+ }
  result.protectedDirectories.push_back(result.root);
  for(const auto &candidate:candidates)for(const auto &file:candidate.files)result.protectedDirectories.push_back(file.physicalPath.parent_path());
  result.protectedDirectories.push_back(result.uiModule->physicalPath.parent_path());return result;

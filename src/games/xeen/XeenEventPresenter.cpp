@@ -116,8 +116,16 @@ IndexedFrame XeenEventPresenter::drawConfirmation(const IndexedFrame &base, cons
     auto result=base;
     if (request.response==XeenPresentationResponseRequirement::YesNo && _spriteDraw) {
         _spriteDraw(result,"global.icn",7,232,74);
-        _spriteDraw(result,"confirm.icn",0,235,75);
-        _spriteDraw(result,"confirm.icn",2,260,75);
+        if(request.npcBodyHidden) {
+            // DAT 0x259bb..0x25a31 redraws window 40 over the button-panel
+            // backing. Preserve its title/portrait above the YesNo buttons.
+            for(int y=0;y<100;++y)
+                std::copy_n(base.pixels.begin()+y*base.width+226,93,
+                    result.pixels.begin()+y*result.width+226);
+        }
+        const auto y=request.npcBodyHidden?101:75;
+        _spriteDraw(result,"confirm.icn",0,235,y);
+        _spriteDraw(result,"confirm.icn",2,260,y);
     }
     return result;
 }
@@ -159,16 +167,27 @@ DialogInput XeenEventPresenter::input() const {
         input.anyKey=input.anyClick=input.keyMouseWait=true;
     } else if(_request.response==XeenPresentationResponseRequirement::YesNo) {
         input.keys={'y','n',InputKey::Escape};
-        input.hits={{235,75,259,95,'y',InputButton{"confirm.icn",0,235,75}},
-            {260,75,284,95,'n',InputButton{"confirm.icn",2,260,75}}};
+        const auto y=_request.npcBodyHidden?101:75;
+        input.hits={{235,y,259,y+20,'y',InputButton{"confirm.icn",0,235,y}},
+            {260,y,284,y+20,'n',InputButton{"confirm.icn",2,260,y}}};
     }
     return input;
 }
 
 bool XeenEventPresenter::window11Enabled() const {
     return std::any_of(_layers.begin(),_layers.end(),[](const auto &layer){
-        return layer.request.kind==XeenPresentationKind::MainWindowMessage || layer.request.kind==XeenPresentationKind::NpcAcknowledgment;
+        return layer.request.kind==XeenPresentationKind::MainWindowMessage ||
+            (layer.request.kind==XeenPresentationKind::NpcAcknowledgment && !layer.request.npcBodyHidden);
     });
+}
+
+void XeenEventPresenter::restoreNpcText(const std::string &notice) {
+    const auto restore=[&](auto &request) {
+        request.npcBodyHidden=false;
+        if(request.kind==XeenPresentationKind::NpcAcknowledgment)request.speechNotice=notice;
+    };
+    restore(_request);
+    for(auto &layer:_layers)restore(layer.request);
 }
 
 void XeenEventPresenter::closeWindow12() {
@@ -408,6 +427,25 @@ void XeenEventPresenter::layoutNpc(const IndexedFrame &base,
         throw std::invalid_argument("NPC presentation requires supported metadata and original assets");
     _pages.clear();_npcPageSourceEnds.clear();_diagnostics.clear();
     auto o=optionsFor(request);
+    if(request.npcBodyHidden) {
+        // DAT 0x257b4 selects window 40: table 0x3dc4e/0x3dcae/0x3dd0e/0x3dd6e,
+        // 93x100 at (226,0), with an eight-pixel margin (0x3de2e).
+        // The title format at 0x53b20 places its first line at inner y+56.
+        o.windowBounds={226,0,319,100};o.bounds={234,8,311,92};
+        o.x=234;o.y=8;o.drawWindow=true;
+        auto text=xeenDialogFormat(_dosText->scalar("NPC_TITLE_ONLY"),{request.title});
+        if(text.size()>1)text[1]=1; // 0x25820: normal font first pass.
+        for(std::size_t i=0;i+3<text.size();++i)if(text[i]=='\t' && text[i+1]!='0') {
+            text[i+1]=text[i+2]=text[i+3]='0';i+=3;
+        }
+        auto rendered=_renderer.render(base,text,o);
+        if(rendered.pageSourceEnds.back()<text.size()) {
+            text[1]=2;rendered=_renderer.render(base,text,o);
+        }
+        _pages.push_back(std::move(rendered.pages.front()));
+        _npcPageSourceEnds.push_back(request.text.size());
+        _diagnostics=std::move(rendered.diagnostics);return;
+    }
     std::size_t offset=0;
     do {
         const auto remaining=request.text.substr(offset);
@@ -427,12 +465,25 @@ void XeenEventPresenter::layoutNpc(const IndexedFrame &base,
     } while(offset<request.text.size());
 }
 
+void XeenEventPresenter::drawNpcPortrait(IndexedFrame &frame,const XeenPresentationRequest &request) const {
+	if(request.npcBodyHidden) {
+        if(!_spriteDraw)throw std::logic_error("Text-off NPC sprite provider absent");
+        const auto id=request.npc->portraitId;
+        const auto name="face"+std::string(id<10?"0":"")+std::to_string(id)+".fac";
+        _spriteDraw(frame,"frame.fac",0,248,12);
+        _spriteDraw(frame,name.c_str(),_npcTiming.displayedFrame,255,18);
+    } else _npcDraw(frame, request.npc->portraitId, _npcTiming.displayedFrame);
+}
 IndexedFrame XeenEventPresenter::drawNpcPage(const XeenPresentationRequest &request, std::size_t page) const {
 	auto frame = _pages.at(page);
-	_npcDraw(frame, request.npc->portraitId, _npcTiming.displayedFrame);
+    drawNpcPortrait(frame,request);
 	// Confirmation mode 0 adds the Yes/No buttons after the last page's text.
 	if (request.npc->confirmationMode == 0 && page + 1 == _pages.size())
 		frame = drawConfirmation(frame, request);
+	if(!request.speechNotice.empty()) {
+        XeenPresentationRequest notice;notice.kind=XeenPresentationKind::DeferredAudio;notice.text=request.speechNotice;
+        frame=drawText(frame,notice).pages.front();
+    }
 	return overlayNotices(std::move(frame));
 }
 
@@ -448,7 +499,7 @@ std::optional<IndexedFrame> XeenEventPresenter::updateNpc(const NpcTiming &timin
 		auto frame = _frame;
 		if(_request.kind==XeenPresentationKind::NpcAcknowledgment)frame=drawNpcPage(_request, _page);
 		else for(const auto &layer:_layers)if(layer.request.npc && layer.request.npc->confirmationMode==2)
-			_npcDraw(frame,layer.request.npc->portraitId,_npcTiming.displayedFrame);
+			drawNpcPortrait(frame,layer.request);
 		_frame=std::move(frame);
 	} catch(...) {_npcTiming=previous;throw;}
 	return _frame;

@@ -338,8 +338,8 @@ described below.
 Efx toggle (`0x1f061..0x1f073`) requests effect 20 when becoming on; its
 off branch's request 0 is suppressed by the Efx wrapper. It sends no stop.
 Speech off forces Text on at panel redraw (`0x1ee00..0x1ee32`); Text off
-with Speech on is allowed. M82's approved temporary visible-text restriction
-is an implementation decision, not the DOS default.
+with Speech on is allowed. M83 Part B removes M82's temporary visible-text
+restriction and applies the NPC reader and delivery-fallback rules below.
 
 ## Song names and asynchronous changes
 
@@ -549,6 +549,31 @@ included here.
 
 ## CD disc addressing and boundary failures
 
+`XeenInstallationDetector` retains separate disc identities from both INS
+files. `XeenCdAudio` measures cumulative separate-file extents, maps the cue
+to 44100 Hz sample windows and decodes only those windows with static
+libvorbisfile. `XeenAudio` publishes immutable PCM to its independently
+resampled CD mixer slot. File access and decoding never run in the callback.
+A worker decodes the requested cue window (at most seven minutes from the
+16-bit MMSSFF operands). NPC starts sample logical timing before
+queuing work; generations discard results after stop or replacement. The
+worker retains PCM owners until callback references retire, so replacement
+and EOF never free large CD buffers in the callback. Absolute starts
+can select a later track. At EOF, Staging only advances when at least two
+seconds remain; otherwise the valid prefix plays to EOF while the logical
+interval retains its approved duration. A started request reaching disc
+lead-out likewise keeps its playable prefix (`PlayNextAudioTrack`, lines
+1007..1014 of the pinned Staging source below); this differs from an initial
+start in lead-out, which is refused. INDEX 01 positions contribute to
+cumulative track starts; they do not seek ahead within a separate file.
+Unexpected audio-track metadata disables that disc's audio with a per-cue
+notice and text fallback; malformed data-track metadata still rejects the
+installation. A final rounded partial sector decodes to silence, and initial
+refusal follows the absolute starting track type, not the operand's track
+number (maintainer edge-case decision, 2026-10-22).
+Missing media preserves the logical interval and enables the text fallback;
+the two data-track refusals below have no interval.
+
 **DOS static, high (2026-10-22):** DAT `0x3d827` obtains the track's
 absolute MSF address. `0x3da0d..0x3da73` converts MSF to sectors;
 `0x3db3d` subtracts 175 from the start and `0x3db9a` subtracts 150
@@ -579,7 +604,7 @@ reports `0x8000`, with no busy bit. DOS retries only `0x810c`
 (`0x3dbcb..0x3dbf6`), rounding the encoded start to the next second once.
 This emulator error does not take that retry. **Maintainer decision,
 2026-10-22:** Part B plays nothing and starts no CD-busy interval or speech
-wait on this refusal, replacing the current unconditional 317/75-second
+wait on this refusal; this replaces the former unconditional 317/75-second
 interval. Show its text under the approved delivery-failure fallback.
 Do not clamp, shift or guess another start. This is high-confidence static
 inference for the installed emulator, not a newly captured DOS play-test;
@@ -610,6 +635,14 @@ every track; energy alone cannot certify them. Per-row operands, source
 offsets, durations and measurements are in the external `cues/` tables.
 
 ## Digital and CD lifecycle evidence
+
+`XeenAudio` retains cue operands and logical CD playback in process state.
+NPC invocations start them; F8 replay is omitted by maintainer decision
+(2026-10-22). Ordinary panel entry and Escape leave playback alone.
+Logical deadlines use accumulated presentation time, retaining their remaining
+duration across title/session epochs. NPC, YesNo and WhoWill dismissal stops
+playback, as does confirmed Quit; an actual disc change also clears operands.
+None of these values belongs to save v18 (schema 9, content 14).
 
 **DOS static, high:** Efx off masks sample starts, stops and queries at
 `0xdea9..0xdecd`; it does not issue a driver stop. Speech toggling at
@@ -702,11 +735,10 @@ This is distinct from Escape and from a resource-read restart.
 are process state, separate from saved party options at `DS:ed8c`.
 Opcode 60 writes them (`0x28b49..0x28b57`); disc change clears them.
 Same-process Load/New therefore does not restore an audio cursor or
-automatically start speech, but F8 can replay the still-retained cue.
-Part B must preserve surviving intervals by remaining duration across
+automatically start speech. A later NPC can use the retained operands.
+`XeenAudio` preserves surviving intervals by remaining duration across
 presentation-clock epochs and keep explicit stops separate. Current
-Clouds NPC paths already stop on dismissal; F8 is a new playback path,
-so this does not invalidate another existing ordinary Clouds wait.
+Clouds NPC paths already stop on dismissal; F8 replay is omitted.
 The approved driver-count and failed-start changes remain the only
 established corrections to current wait lengths. Exact waveform effects
 of DOS reusing a sample buffer during a masked-busy Load are unmeasured;
@@ -725,10 +757,11 @@ The panel accepts input without a CD-idle wait and its unchanged-options
 Escape return has no final CD stop (`0x1f2e8..0x1f331`). The restarted
 cue therefore continues while the panel is open and after Escape. The
 control flow is established; no audible restart or I/O delay was captured.
-**Maintainer decision, 2026-10-22:** Part B omits the restart, preserves
-the uninterrupted replay interval and lets the cue continue after panel
-closure. Current source has no F8 CD replay binding; Part B adds it using
-the retained operands, including their existing Speech and all-zero gates.
+**Maintainer decision, 2026-10-22:** F8 speech replay is omitted. The
+preceding DOS witness remains evidence for the resource-read behavior;
+MMModern has no F8 binding or action and does not reproduce that route.
+Opcode 60 retention and NPC-started playback remain implemented. See the
+[approved omission](../original-quirks.md#dev-cd-f8-omitted).
 
 **DOS static, high for the table:** Event opcode 40 selects six names at
 DAT `0x508cc..0x508e3`: 0 `ahh.voc`, 1 `whereto.voc`, 2 `gulp.voc`,
@@ -879,8 +912,8 @@ therefore comprises 29 implemented starts and six excluded starts.
 
 Opcode 40 reads the six far pointers at DAT `0x508cc`, publishes once and
 continues immediately. Its Clouds members use XEEN; the final `laff1.voc`
-member uses DARK, as in the Part 0 resource inventory. Opcode 60 retains
-its passive notice until Part B. Every original Clouds opcode 40 row
+member uses DARK, as in the Part 0 resource inventory. Opcode 60 publishes
+retained CD operands without a notice. Every original Clouds opcode 40 row
 (130 rows in 35 maps) has an index in 0..4. An out-of-table index (6 or
 more) retains the automatic "Voice audio not supported yet" notice and
 continues; Efx off skips that notice along with the start.
@@ -897,6 +930,68 @@ the M82 captions remain the Efx-off presentation. Death starts fire at
 entry to the retained death state, independently of drawing or retries.
 
 ## Text-off byte: readers and presentation
+
+`XeenEventFlow` selects the title-only NPC presentation for an admitted
+cue. A known media failure shows the body immediately; a worker decode
+failure restores it on the next presentation update, with one notice.
+The presenter uses the original title-only format and compact window 40.
+
+**DOS static calibrated against the maintainer Gunther screenshot, high
+confidence (2026-10-22):** `0x257a5..0x257c3` closes window 11 and opens
+window 40 when Text is off; `0x2585b..0x25861` writes its title. The original
+window table gives x=226 (`0x3dc4e`), y=0 (`0x3dcae`), width=93
+(`0x3dd0e`), height=100 (`0x3dd6e`) and margin=8 (`0x3de2e`).
+The bounds reader `0x4487e..0x448c1` derives inner bounds
+[234,311) x [8,92); the border writer at `0x44b60..0x44b73` places its
+rightmost eight-pixel tile at x=311. Thus the outer rectangle is
+[226,319) x [0,100), preserving the scene, party bar and remaining buttons.
+The format at `0x53b20` clears only that inner rectangle, chooses normal
+font, sets relative y=56 and centers the title: Gunther's resource newline produces two
+lines at y=64 and 74; `0x2582b..0x2584a` resets the resource tab to zero. The title writer retains the reduced-font retry
+(`0x25874..0x25880`). Frame position (248,12) comes from
+`0x258e3..0x2590f`; face position (255,18) from
+`0x256ef..0x25716`, drawn at `0x2591d..0x2592d`. These match the
+small upper-right parchment in `gunther-textoff-dos.webp`; the former
+full-screen bounds were borrowed incorrectly from the pin's window-40 table.
+Acknowledgment still accepts any key or mouse click. Mode-0 YesNo buttons
+and hit rectangles remain at x=235/260, y=101 (`0x25969..0x259ac`);
+The mode-0 redraw at `0x259bb..0x25a31` restores the compact window
+over the button-panel backing; the delivery fallback retains body text
+and y=75.
+
+The Text-off loop polls at one tick (`0x25b77`); the visible-text loop uses three ticks
+(`0x25b94`). Missing speech restores body text only: Text off still uses
+the one-tick ordinary loop, and fallback YesNo buttons stay at y=75
+(maintainer Q1, 2026-10-22). Event
+messages and service greetings do not use this NPC body gate.
+
+**DOS static, high confidence; recalibrated 2026-10-22:** the Text-off
+branch at `0x25af8..0x25aff` enters `0x25b02`, which resets the BIOS timer
+through `0x440cd`. It draws the face, polls input at `0x25b6d`, and tests
+elapsed time from `0x440dc` against **1** at `0x25b77`. Input can end the
+hold early; otherwise the loop repeats from the reset at `0x25b02`.
+Text on instead enters `0x25b8f..0x25bad`: wait for **3** ticks at
+`0x25b94`, draw through `0x1c038`, reset, then poll input. These are
+different loops, not two interpretations of the same interval. The earlier
+three-tick NPC entry describes the Text-on loop only.
+
+Both use the elapsed helper calibrated against the known Reaper two-tick
+wait at `0x2ac94..0x2ac9c`: `0x440cd..0x440db` records INT 1Ah's CX:DX
+tick counter and `0x440dc..0x440f4` subtracts that recorded counter.
+The Text-off CD-busy test (`0x25b0f..0x25b29`) selects one RNG draw in
+0..3 while busy, or face zero while idle; it does not change the one-tick
+cadence. Text-on face activity uses the busy gate at `0x1c417..0x1c45c`
+within its three-tick loop. The ordinary Text-off loop chooses its first
+face before its first hold. Passive NPC mode 2 returns at `0x25ac4`,
+before entering either ordinary NPC loop. A retained face in the YesNo
+helper uses the helper's three-tick hold (`0x24bd7..0x24c16`, constant
+at `0x24bec`), including with Text off; hiding its body does not transfer
+the ordinary NPC loop into that helper. The instruction bytes in external
+`audio-m83/npc-text-poll.dis` and `audio-m82/part0-calibration.dis` were
+rechecked against the installed `WORLD/XEEN.DAT`, SHA-256
+`8bf78b4850d5973cbb063c7dd96b9aaef4e94791d748334187eef74acf528d27`.
+This is calibrated program evidence, not a measured startup latency or an
+offset correction based on speech energy.
 
 **DOS static, high for direct scalar accesses:** the scan of `DS:f384`
 finds 29 accesses, including the option toggle and three plain writes.
@@ -1153,3 +1248,25 @@ several original branches share one call, while helpers have multiple callers.
 C1/C2 classify action semantics, not an address band or the active mode. In
 particular, common injury, sparkle and projectile helpers remain C1 because
 ordinary non-spell actions reach them too; C2 must reuse those helpers.
+
+## CD and Text presentation gaps
+
+These are existing presentation gaps, excluded from Part B under the
+maintainer's 2026-10-22 rule; they do not gate implemented Clouds dialogs.
+
+| Presentation | Evidence and current boundary |
+| --- | --- |
+| Auxiliary F10 | Explicit stop at `0x1be38`, resume command 0x88 at `0x1bf3d -> 0x3d984`. MMModern has no corresponding action or presentation; it does not synthesize this pause/resume sequence. F8 replay is also omitted by maintainer decision. |
+| Numeric Choose123 | Text readers `0x24cb9`, `0x24ccd`, `0x24cfb`, `0x24d0f` position controls and restore the retained NPC. The numeric-choice Event opcode 48 is outside `XeenEventDecoder`'s supported subset; its helper is not implemented. Arena number entry is a different presentation. |
+| Darkside map-29 exception | `0x26a7d`, `0x26a83`, `0x291d8` temporarily clear/restore Text off. Darkside is outside this part. |
+
+The implemented YesNo helper retains Text-off control placement; ordinary
+NPC modes 0/1 and passive mode 2 use their distinct polling paths. Ordinary
+Event messages and service greetings have no NPC body gate. Intros and
+endings remain outside this milestone part; resource-read stop/restart
+cycles are deliberately omitted everywhere, not left as implementation gaps.
+
+**Map 49 play-test fixture limitation (maintainer, 2026-10-22):** the
+(8,17) cue is not reachable with the play-test fixture. No further route
+investigation is required; the original-data automated cross-file test
+remains the witness for its track-2 tail followed by track 3.

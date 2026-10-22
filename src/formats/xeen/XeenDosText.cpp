@@ -81,6 +81,7 @@ const std::vector<XeenDosText::Field> &XeenDosText::layout() {
   {"X_FOUND_Y",0x53a75,0x53a8c,1,false,"s,s"},
   {"HIT_A_KEY",0x53a8c,0x53aab,1,false,""},
   {"NPC_DIALOG",0x53b08,0x53b20,1,false,"s,s"},
+  {"NPC_TITLE_ONLY",0x53b20,0x53b2b,1,false,"s"},
   {"COMBAT_ROW_1",0x54001,0x5400f,1,false,"2u,s"},
   {"COMBAT_ROW_2",0x5400f,0x5401d,1,false,"2u,s"},
   {"COMBAT_ROW_3",0x5401d,0x5402b,1,false,"2u,s"},

@@ -65,7 +65,6 @@ public:
     std::uint64_t presentationNow();
     std::optional<std::uint64_t> nextPresentationDeadline();
     std::optional<unsigned> audioLocation() const;
-    std::uint64_t cdSpeechEnd() const {return _cdSpeechEnd;}
 	bool journeyInputCurrent(std::optional<std::uint64_t>) const noexcept;
 	std::function<void()> prepareJourneySprites;
 	std::function<void(IndexedFrame &)> drawSmithArt;
@@ -334,15 +333,13 @@ private:
         std::uint64_t speechEnd=0, deadline=0, generation=0;
         std::optional<unsigned> choice;
         bool acquired=false, composed=false;
+        bool bodyHidden=false,textOffLoop=false;
+        std::string speechNotice;
         std::size_t page=0;
     };
     std::optional<NpcSequence> _npcSequence;
-    // Silent CD playback can outlive a passive NPC's window (DAT 0x25aa8).
-    std::uint64_t _cdSpeechEnd=0;
-    std::optional<XeenEventCdSpeech> _cdSpeechCue;
-    std::optional<XeenSide> _cdSpeechSide;
     XeenEventPresenter::RandomFrame _npcRandomFrame;
-    bool advanceNpcSequence();
+    bool advanceNpcSequence(std::optional<std::uint64_t> sampledNow = {});
     struct NpcResponse {PlayerAction action;std::uint64_t generation;};
     std::optional<NpcResponse> _npcResponse;
     IndexedFrame consumeNpcResponse();

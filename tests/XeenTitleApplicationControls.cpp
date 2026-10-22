@@ -47,6 +47,7 @@ struct State {
  bool enabled=false,loading=false,mouse=false,shown=false;
  XeenTemplePriceState *templePrices=nullptr;XeenTempleSurcharges templeRow;
  bool panelMode=false,failPreflight=false,failWrite=false;
+ bool retainedIdle=false;
  bool failNotice=false;
  unsigned noticeAttempts=0,writes=0;
  const XeenDosText *text=nullptr;
@@ -131,6 +132,8 @@ bool panelGameplay(const IndexedFrame &first,const SdlWindow::FrameUpdateHandler
   key(27);
  };
  if(state.loading) {
+  check(state.program->audio->retainedCdCue().has_value() && state.program->audio->cdBusy(SdlWindow::presentationNanoseconds()),
+   "Same-process panel Load discarded surviving CD playback/operands");
   auto snapshot=XeenSaveState::capture(state.signature,*state.party,*state.camera,*state.flags,*state.world);snapshot.name=state.name;
   check(XeenSaveFormat::encode(snapshot)==state.saved && state.seeds==0,"in-game Load changed state/time/RNG or reran initialization");
   send(ControlPanelAction{});expectNotice(state.name);key('s');checkNotice();key(27);
@@ -141,9 +144,19 @@ bool panelGameplay(const IndexedFrame &first,const SdlWindow::FrameUpdateHandler
    state.camera->direction==XeenDirection::East && state.party->purse->gems==0,"panel Mr Wizard did not move the party");
   for(unsigned i=0;i<10;++i)if(auto next=idle()){visible=*next;present();}
   send(ControlPanelAction{});
-  key('q');key('y');check(handler.finished(),"panel Quit did not finish native session");state.shown=true;return true;
+  key('q');key('y');check(handler.finished(),"panel Quit did not finish native session");
+  check(!state.program->audio->cdBusy(SdlWindow::presentationNanoseconds()),"Confirmed Quit did not stop CD");state.shown=true;return true;
+ }
+ const auto readyBegan=SDL_GetTicks();std::uint64_t readyCycle=0;
+ while(!handler.inputContext(visible.presentation()).readyForAction) {
+  check(SDL_GetTicks()-readyBegan<2000,"Panel witness never reached the ordinary input boundary");
+  handler.beginCycle(++readyCycle);SDL_Delay(1);
+  if(handler.inputContext(visible.presentation()).readyForAction)break;
+  if(auto next=idle()){visible=*next;present();}
  }
  const auto before=capture();
+ check(!state.program->audio->retainedCdCue() && !state.program->audio->cdBusy(SdlWindow::presentationNanoseconds()),
+  "New session replayed CD from template or fresh process");
  const auto originalSlot=state.slot;const auto originalWire=XeenSaveFormat::encode(XeenSaveFile::read(originalSlot));
  send(ControlPanelAction{});preview(visible,"native-panel");
  const auto retained=visible.presentation();
@@ -175,6 +188,8 @@ bool panelGameplay(const IndexedFrame &first,const SdlWindow::FrameUpdateHandler
  check(XeenSaveFormat::encode(XeenSaveFile::read(third))==saved,"failed confirmation/Load changed current slot or committed file");
  // Dismissal still returns to the panel, with the committed slot current.
  expectNotice(state.saveAsName);key('s');checkNotice();key(27);
+ state.program->audio->retainCdCue({19,370,2161});
+ state.program->audio->startCd(SdlWindow::presentationNanoseconds()); // Model surviving NPC playback before the Load handoff.
  key('l');key('3');key(13);check(handler.finished() && capture()==before,"successful Load did not return exact retained outcome");
  state.saved=saved;state.name=state.saveAsName;state.loading=true;state.shown=false;state.seeds=0;
  state.retired=handler;state.retiredIdle=idle;state.retiredFrame=visible.presentation();return true;
@@ -281,7 +296,12 @@ extern "C" bool wrappedTitleShow(const SdlWindow *window,const IndexedFrame &fir
    check(state.world && state.party && state.camera && state.flags,"title native gameplay owners");
    auto snapshot=XeenSaveState::capture(state.signature,*state.party,*state.camera,*state.flags,*state.world);snapshot.name=state.name;
    const auto wire=XeenSaveFormat::encode(snapshot);
-   if(state.loading)check(wire==state.saved && state.seeds==0,"title Load changed state/RNG or ran initialization");
+   if(state.loading) {
+    check(wire==state.saved && state.seeds==0,"title Load changed state/RNG or ran initialization");
+    check(!state.program->audio->cdBusy(SdlWindow::presentationNanoseconds()) &&
+     state.program->audio->retainedCdCue().has_value()==state.retainedIdle,
+     "Title Load replayed passive speech or changed process cue retention");
+   }
    else {
     check(snapshot.journey->context->difficulty==state.difficulty && state.seeds==1,"New sampled seed/difficulty");
     check(XeenSaveFormat::encode(XeenSaveFile::read(state.slot))==wire,"New write did not precede first presented state");state.saved=wire;
@@ -335,8 +355,21 @@ void titleApplicationControls(const char *game) {
   state.difficulty=difficulty;state.mouse=difficulty==XeenDifficulty::Warrior;
   state.loading=false;state.shown=false;state.seeds=0;
   check(Application(programState).run(game)==0 && state.shown,"native title/New Application loop");
+  const auto replayNow=SdlWindow::presentationNanoseconds();
+  programState.audio->retainCdCue({19,370,2161});
+  check(programState.audio->startCd(replayNow),"Passive speech before title Load did not play");
+  programState.audio->advance(replayNow+18213333334ULL);
+  programState.audio->rebaseClock(SdlWindow::presentationNanoseconds());
+  state.retainedIdle=true;
   state.loading=true;state.shown=false;state.seeds=0;
   check(Application(programState).run(game)==0 && state.shown,"native title/Load Application loop");
+  // The first Load deliberately removes its source after validation.
+  XeenSaveFile::write(state.slot,XeenSaveFormat::decode(state.saved),{},true);
+  XeenProgramState freshProgram;
+  XeenTemplePriceStateTestAccess::seed(freshProgram.templePrices,difficulty==XeenDifficulty::Adventurer?30:49);
+  state.program=&freshProgram;state.templePrices=&freshProgram.templePrices;
+  state.retainedIdle=false;state.shown=false;state.seeds=0;
+  check(Application(freshProgram).run(game)==0 && state.shown,"fresh program title/Load Application loop");
  }
  state.panelMode=true;
  for(const auto &name:std::vector<std::string>{"A","Twenty CharacterName",std::string(20,'W')}) {

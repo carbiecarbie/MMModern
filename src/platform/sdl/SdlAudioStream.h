@@ -13,6 +13,7 @@ public:
  SdlAudioStream(int sourceRate,int outputRate);
  ~SdlAudioStream();
  bool valid() const;
+ void clear();
  void pull(const Source &,std::int16_t *stereo,std::size_t frames);
 private:
  struct Impl;std::unique_ptr<Impl> _impl;

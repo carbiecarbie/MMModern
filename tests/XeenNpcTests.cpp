@@ -2,6 +2,7 @@
 #include "SyntheticXeenArchive.h"
 #include "XeenDosTextTestSupport.h"
 #include "app/XeenEventFlow.h"
+#include "app/XeenAudio.h"
 #include "formats/xeen/XeenAssetSource.h"
 #include "formats/xeen/XeenQuestItemFormat.h"
 #include "games/xeen/XeenPartyLoader.h"
@@ -48,7 +49,17 @@ struct Fixture {
 	XeenEventSystem events{[&](XeenMapIdentity id){return scripts.at(id);},
 		[&](XeenMapIdentity){++loads;return text;}};
 	XeenEventInterpreter interpreter;
-	Fixture(){base.width=320;base.height=200;base.pixels.assign(64000,90);set({npc(),record(1,1,1,0x12)});}
+	Fixture(){
+        auto options=XeenSoundOptions(members.soundOptions);options.text=true;members.soundOptions=options;
+        auto module=dos_test::fixture();
+        for(unsigned i=0;i<6;++i){
+            module[0x4f10a+i]=0;
+            dos_test::u16(module,0x508cc+4*i,0);
+            dos_test::u16(module,0x508ce + 4*i,0x481d);
+        }
+        programState.audio=std::make_shared<XeenAudio>(0,PromusDriver::Bytes{},
+            [](const auto &,auto){return Bytes{};},std::move(module),0,false);
+        base.width=320;base.height=200;base.pixels.assign(64000,90);set({npc(),record(1,1,1,0x12)});}
 	void set(std::vector<XeenEventRecord> rs){scripts.insert_or_assign(1,script(1,std::move(rs)));events.discardScriptCache();}
 	XeenEventPresenter::NpcDraw draw(){return [&](IndexedFrame &f,std::uint8_t id,std::size_t frame){
 		check(id==9,"portrait operand lost");++draws;if(failDraw)throw std::runtime_error("synthetic FAC failure");
@@ -311,7 +322,7 @@ void speechOff() {
  Fixture f;f.members.soundOptions=XeenSoundOptions{true,true,false,false};
  f.set({record(1,1,0,60,{19,30,0,54,1}),npc(1),record(1,1,2,0x12)});
  auto flow=f.flow();flow.handle(InteractionAction{});f.acquire(flow);
- check(flow.blocksGameplay() && flow.presenter().npcTiming().remaining==0 && flow.cdSpeechEnd()==0,
+ check(flow.blocksGameplay() && flow.presenter().npcTiming().remaining==0 && !f.programState.audio->cdDeadline(),
        "Speech-off created a CD wait");
  const auto reads=f.randomReads;f.tick(flow,165);
  check(f.randomReads==reads,"Speech-off animated a busy voice");
@@ -321,7 +332,7 @@ void speechOff() {
  Fixture retained;retained.members.soundOptions=XeenSoundOptions{true,true,false,false};
  retained.set({record(1,1,0,60,{19,30,0,54,1}),record(1,1,1,0x12)});
  auto later=retained.flow();later.handle(InteractionAction{});retained.acquire(later);
- check(!later.blocksGameplay() && later.cdSpeechEnd()==0 && later.frame().pixels==retained.base.pixels,
+ check(!later.blocksGameplay() && !retained.programState.audio->cdDeadline() && later.frame().pixels==retained.base.pixels,
        "Disabled op60 drew a speech notice or created a wait");
  check(later.configureSound(XeenSoundOptions{}),"Enable Speech after the silent command");
  retained.set({npc(),record(1,1,1,0x12)});
@@ -346,7 +357,7 @@ void cdLifetime() {
  auto normal=npc(1);normal.parameters[3]=1;
  f.set({record(1,1,0,60,{0,0,0,0,0}),normal,record(1,1,2,0x12)});
  flow.handle(InteractionAction{});f.acquire(flow);
- check(flow.presenter().npcTiming().remaining>0,"All-zero cue stopped the previous passive CD interval");
+ check(flow.presenter().npcTiming().remaining==0,"WhoWill exit failed to stop CD before the all-zero cue");
  f.tap(flow,CancelInteractionAction{});
  flow.handle(InteractionAction{});f.acquire(flow);
  check(flow.presenter().npcTiming().remaining==0,"Ordinary dismissal failed to stop CD");
