@@ -375,7 +375,9 @@ and its support status. Build and run instructions are in
   sound driver is supported; the original's other sound cards wait for roadmap
   step 16. Doors play their sound without the brief open-door picture, and
   falls and combat Mr Wizard are silent. If the Windows default output changes
-  to another sample rate during play, the sound may crackle until restart.
+  to another sample rate during play, the sound may crackle until restart. If
+  the sound output fails during play, the game session ends with an error; if
+  the output device is removed, the game continues silently until restart.
 - **Presentation.** There is no intro.
 - **Darkside** gameplay is not supported.
 

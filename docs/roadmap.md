@@ -120,7 +120,10 @@ to Vertigo.
     stereo, as the CD's installed driver plays them, the control panel's
     sound buttons and the Effects-off entrance captions. Next, M83: VOC
     samples, voices, CD speech and CD tracks on the existing clock, Text off
-    hiding text, and the FM/PCM balance checked by ear against DOSBox.
+    hiding text, and the FM/PCM balance checked by ear against DOSBox. M83
+    also decides whether an audio output failure only silences the sound
+    with a notice instead of ending the session, and whether a removed output
+    device is reopened.
 13. **Event dispatch as in DOS** (Tier A, two milestones). A 2026-10-21
     static analysis found that DOS runs a cell's Events again on every
     processed key while the party stands on a flagged cell (traps hurt
