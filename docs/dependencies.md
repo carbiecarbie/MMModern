@@ -114,14 +114,18 @@ writes, as its `OPL::writeReg` uses; see
 [original quirks](original-quirks.md#promus-write-spacing)), and
 `OPL3_Generate`. No stereo-extension
 define is supplied; the header's default is zero. MMModern's promus interpreter
-places interrupts using the exact ratio `49716 * 16390 / 1193182`. SDL owns one
-resampler for the FM source, and MMModern mixes its output at the device rate.
-One interpreter advances by an exact integer native-sample accumulator on the
-presentation clock. Its timestamped register writes and completed sample count
-cross one queue to the chip consumer. A pull ahead of published time emits
-silence without advancing the chip; callback size and device prebuffering
-cannot move commands onto a different driver tick. Output latency never delays
-the game or its fade waits.
+places interrupts using the exact ratio `49716 * 16390 / 1193182`. The SDL
+device opens at the default output's mix rate (`SDL_GetDefaultAudioInfo`,
+48000 when unreported) with no allowed changes, so the only resampler is
+MMModern's `SDL_AudioStream` from 49716 Hz; letting SDL accept 49716 made its
+WASAPI path resample internally and drop ~9 ms blocks. A later switch of the
+Windows default output to another rate falls back to SDL's internal resampling
+for that session. A timeline interpreter advances by an exact integer
+native-sample accumulator on the presentation clock and alone answers the game;
+a render interpreter in the FM source ticks from the device's own rendered
+samples and receives the timeline's operations through one queue (M82 C3), so
+output never waits for the game loop and never delays the game or its fade
+waits.
 Title/SDL and gameplay/injected clocks may have different epochs. Explicit
 session handoffs consume the outgoing clock's final interval, then rebase the
 source counter while retaining elapsed driver time and fractional phase;

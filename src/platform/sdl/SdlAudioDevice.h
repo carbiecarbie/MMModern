@@ -10,6 +10,10 @@ public:
  explicit SdlAudioDevice(Source source,bool open=true);
  ~SdlAudioDevice();
  bool active() const;
+ // The opened device's mix rate (0 when inactive); fm converts to it.
+ int rate() const;
+ // The device's reported mix rate, or 48000 when it reports none.
+ static int preferredRate(int reported);
  void check();
 private:
  struct Impl;std::unique_ptr<Impl> _impl;
