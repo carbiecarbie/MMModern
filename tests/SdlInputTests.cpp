@@ -696,7 +696,15 @@ int main(int argc,char **) {
 			pushKey(finished, SDLK_ESCAPE, 1);
 			pushKey(finished, SDLK_RIGHT, 0); // proves held Escape did not exit
 			pushKey(finished, SDLK_ESCAPE, 0, SDL_KEYUP);
-			pushKey(finished, SDLK_ESCAPE, 0);
+			pushKey(finished, SDLK_ESCAPE, 0); // nothing to cancel: ignored, never quits
+			pushKey(finished, SDLK_ESCAPE, 0, SDL_KEYUP);
+			pushKey(finished, SDLK_LEFT, 0); // proves that Escape did not exit
+			for (int attempt = 0; attempt < 100 && !finished; ++attempt) {
+				std::this_thread::sleep_for(std::chrono::milliseconds(10));
+				SDL_Event quit{};
+				quit.type = SDL_QUIT;
+				if (SDL_PushEvent(&quit) == 1) break;
+			}
 		} catch (...) {
 			senderError = std::current_exception();
 		}
@@ -742,7 +750,7 @@ int main(int argc,char **) {
 	sender.join();
 	if (senderError)
 		std::rethrow_exception(senderError);
-	if (!result || interactions != 2 || navigation != 2 || acknowledgments != 1 ||
+	if (!result || interactions != 2 || navigation != 3 || acknowledgments != 1 ||
 			yes != 1 || no != 1 || selections != 6 || cancellations != 1 || inspections != 1 || slots != 9 || transfers != 0 || equipment != 0 || uses != 1 || shots != 1 || casts != 1) {
 		std::cerr << "Space dispatch/repeat filtering failed: interactions="
 			<< interactions << " navigation=" << navigation

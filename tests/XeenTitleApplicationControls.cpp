@@ -84,7 +84,8 @@ void click(const DialogInput &dialog,unsigned value,std::vector<SDL_Event> &pend
  check(hit,"native title click target");
  SDL_Window *window=nullptr;for(unsigned id=1;id<100 && !window;++id)window=SDL_GetWindowFromID(id);check(window,"native title window");
  SDL_Event event{};event.type=SDL_MOUSEBUTTONDOWN;event.button.button=SDL_BUTTON_LEFT;event.button.windowID=SDL_GetWindowID(window);
- event.button.x=(hit->left+hit->right-1)*3/2;event.button.y=(hit->top+hit->bottom-1)*3/2;
+ check(SDL_GetRenderer(window),"native title renderer");
+ SDL_RenderLogicalToWindow(SDL_GetRenderer(window),(hit->left+hit->right)/2.0f,(hit->top+hit->bottom)/2.0f,&event.button.x,&event.button.y);
  pending.push_back(event);event.type=SDL_MOUSEBUTTONUP;pending.push_back(event);
 }
 bool panelGameplay(const IndexedFrame &first,const SdlWindow::FrameUpdateHandler &handler,

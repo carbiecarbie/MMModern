@@ -430,7 +430,9 @@ void windowFailures() {
    wrapped.failed=[&]{++failures;handler.failed();};wrapped.closed=[&]{++closes;handler.closed();};
    wrapped.beginCycle=[&](auto){check(++cycles==1,"Failed or closed window kept running");handler.beginCycle(++h.cycle);
     SDL_Event e{};if(mode==3)e.type=SDL_QUIT;else{e.type=SDL_KEYDOWN;e.key.keysym.sym=mode==4?SDLK_ESCAPE:SDLK_LEFT;}
-    check(SDL_PushEvent(&e)==1,"Window failure event");};
+    check(SDL_PushEvent(&e)==1,"Window failure event");
+    // Escape with nothing open is ignored; the window closes only on the following quit.
+    if(mode==4){SDL_Event quit{};quit.type=SDL_QUIT;check(SDL_PushEvent(&quit)==1,"Window failure quit");}};
    auto first=h.flow->frame();if(mode==2)first.pixels.clear();
    const bool ok=SdlWindow().showInteractive(first,"Regional window boundary",wrapped,escape,idle,[&]()->std::string{if(mode==1)throw std::runtime_error("Status failure");return status();});
    check(ok==(mode>=3)&&closes==1&&failures==(ok?0u:1u),"Exactly one failure/close notification");

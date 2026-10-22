@@ -474,7 +474,9 @@ void sdlFlow() {
 					push(e);e.key.repeat=1;push(e);
 					e.type=SDL_KEYUP;e.key.repeat=0;push(e);
 				}
-				SDL_Event exit{};exit.type=mode==2?SDL_QUIT:SDL_KEYDOWN;exit.key.keysym.sym=SDLK_ESCAPE;push(exit);
+				// Escape with nothing to cancel is ignored; only the quit closes the window.
+				if(mode!=2){SDL_Event escape{};escape.type=SDL_KEYDOWN;escape.key.keysym.sym=SDLK_ESCAPE;push(escape);}
+				SDL_Event exit{};exit.type=SDL_QUIT;push(exit);
 			} catch(...) { senderError=std::current_exception();SDL_Event e{};e.type=SDL_QUIT;SDL_PushEvent(&e); }
 		});
 		std::size_t calls=0;

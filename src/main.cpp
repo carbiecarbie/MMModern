@@ -1,4 +1,6 @@
 #include "app/Application.h"
+#include "platform/sdl/SdlWindow.h"
+#include "platform/sdl/SdlWindowPlacement.h"
 
 #include <cstdint>
 #include <iostream>
@@ -113,6 +115,8 @@ int main(int argc, char *argv[]) {
 		const int path = std::string(argv[1]) == "--new-game" ? 2 : 1;
 		if(path==1) {
 			if(argc!=2 || std::string(argv[1]).empty()){newGameUsage();return 1;}
+			// Only normal play remembers the window mode and size between runs.
+			mmodern::SdlWindow::rememberPlacement(mmodern::windowPlacementFile());
 			return application.run(std::filesystem::u8path(argv[1]));
 		}
 		bool valid = path < argc && std::string(argv[path]).size() &&

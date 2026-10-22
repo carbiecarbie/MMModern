@@ -5,6 +5,7 @@
 #include "core/PlayerAction.h"
 #include "core/InputContext.h"
 
+#include <filesystem>
 #include <functional>
 #include <optional>
 #include <string>
@@ -15,6 +16,10 @@ namespace mmodern {
 class SdlWindow {
 public:
     static std::uint64_t presentationNanoseconds();
+	// Fullscreen and the windowed size carry over to every later window of this
+	// process. Normal play also loads and saves them in this file; without one
+	// (tests, developer entries) they are kept in memory only.
+	static void rememberPlacement(std::optional<std::filesystem::path> file);
 	struct FrameUpdateHandler : std::function<std::optional<IndexedFrame>(const PlayerAction &)> {
 		using Function = std::function<std::optional<IndexedFrame>(const PlayerAction &)>;
 		using Function::Function;

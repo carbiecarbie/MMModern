@@ -124,8 +124,9 @@ add_library(mmodern_platform_sdl STATIC
 	src/platform/sdl/SdlAudioDevice.cpp
 	src/platform/sdl/SdlAudioStream.cpp
 	src/platform/sdl/SdlWindow.cpp
+	src/platform/sdl/SdlWindowPlacement.cpp
 )
-target_link_libraries(mmodern_platform_sdl PUBLIC mmodern_core PRIVATE SDL2::SDL2)
+target_link_libraries(mmodern_platform_sdl PUBLIC mmodern_core PRIVATE SDL2::SDL2 shell32 ole32)
 
 add_library(mmodern_app STATIC
 	src/app/XeenAudio.cpp
@@ -969,6 +970,11 @@ if(BUILD_TESTING)
 		"SDL_VIDEODRIVER=dummy;SDL_RENDER_DRIVER=software")
 	set_tests_properties(sdl_input sdl_main_screen PROPERTIES ENVIRONMENT
 		"SDL_VIDEODRIVER=dummy;SDL_RENDER_DRIVER=software")
+	add_executable(mmodern_sdl_window_placement_tests tests/SdlWindowPlacementTests.cpp)
+	target_link_libraries(mmodern_sdl_window_placement_tests PRIVATE mmodern_platform_sdl SDL2::SDL2)
+	add_test(NAME sdl_window_placement COMMAND mmodern_sdl_window_placement_tests)
+	set_tests_properties(sdl_window_placement PROPERTIES ENVIRONMENT
+		"SDL_VIDEODRIVER=dummy;SDL_RENDER_DRIVER=software")
 	add_executable(mmodern_game_flags_tests
 		tests/XeenGameFlagsTests.cpp
 		src/formats/xeen/XeenGameFlagsFormat.cpp
@@ -1229,7 +1235,7 @@ if(BUILD_TESTING)
 	# window never share the machine with another test.
 	set_tests_properties(xeen_input_scheduling xeen_main_screen xeen_native_responsiveness
 		xeen_title_flow xeen_myra_original_sdl xeen_save_cli xeen_combat_cli
-		sdl_input sdl_main_screen sdl_motion xeen_member_prompt_click PROPERTIES RUN_SERIAL TRUE)
+		sdl_input sdl_main_screen sdl_motion sdl_window_placement xeen_member_prompt_click PROPERTIES RUN_SERIAL TRUE)
 	# Tests that write the same fixed working-directory or temp path never overlap.
 	set_tests_properties(xeen_npc xeen_npc_sdl PROPERTIES RESOURCE_LOCK npc_asset_dir)
 	set_tests_properties(xeen_journey_gameplay xeen_journey_sdl PROPERTIES RESOURCE_LOCK journey_gameplay_dir)

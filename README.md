@@ -67,6 +67,14 @@ walk back in from `(10,13)` in F3 by facing North and pressing Space.
 A console window stays open next to the game and shows diagnostics. If the game
 cannot start, the console says why and waits for a key.
 
+The game window can be resized or maximized, and Alt+Enter switches between the
+window and borderless fullscreen. The picture keeps its proportions and grows in
+whole multiples of the original 320x200, with black borders around it, so every
+pixel stays sharp and clicks land on the right buttons at any size. The first window takes the
+largest multiple that fits your screen. The mode and window size are remembered
+in `%LOCALAPPDATA%\MMModern\window.ini`, apart from the saves; delete that file
+to start again from the defaults.
+
 ## Saving
 
 Press Tab, or click the gem, to open the control panel with Save, Save As, Load
@@ -117,7 +125,8 @@ with, and it does not work with the original games or ScummVM.
 | Digits, Backspace/Delete, Enter in Bank amount entry | Enter up to ten digits, edit, confirm; Escape cancels |
 | Tab | Control panel: Save, Save As, Load, Quit |
 | F9 | Save to the developer `--save-file` target |
-| Escape | Back, cancel or acknowledge; quit when nothing is open |
+| Escape | Back, cancel or acknowledge; nothing when nothing is open |
+| Alt+Enter | Switch between window and fullscreen |
 
 Main-screen buttons and portraits also work by mouse. Combat portraits show the
 remaining members after Run; click a portrait or press its corresponding F key

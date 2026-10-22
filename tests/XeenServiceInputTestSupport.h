@@ -88,7 +88,10 @@ void key(SDL_Keycode code,Uint32 type,bool repeat=false) {
 }
 void tap(SDL_Keycode code) {key(code,SDL_KEYUP);key(code,SDL_KEYDOWN);key(code,SDL_KEYUP);}
 void click(int x,int y,Uint8 button=SDL_BUTTON_LEFT) {
-    SDL_Event e{};e.type=SDL_MOUSEBUTTONDOWN;e.button.button=button;e.button.windowID=SDL_GetWindowID(SDL_GetWindowFromID(1));e.button.x=x*3;e.button.y=y*3;e.button.timestamp=100;
+    // Window coordinates of the logical pixel centre at the window's actual integer scale.
+    auto *window=SDL_GetWindowFromID(1);check(window && SDL_GetRenderer(window),"native service window absent");
+    SDL_Event e{};e.type=SDL_MOUSEBUTTONDOWN;e.button.button=button;e.button.windowID=SDL_GetWindowID(window);e.button.timestamp=100;
+    SDL_RenderLogicalToWindow(SDL_GetRenderer(window),x+0.5f,y+0.5f,&e.button.x,&e.button.y);
     check(SDL_PushEvent(&e)==1,"native service click enqueue failed");
     e.type=SDL_MOUSEBUTTONUP;check(SDL_PushEvent(&e)==1,"native service release enqueue failed");
 }

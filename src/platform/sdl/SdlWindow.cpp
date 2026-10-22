@@ -1,5 +1,6 @@
 #include "platform/sdl/SdlWindow.h"
 #include "platform/sdl/SdlAudioDevice.h"
+#include "platform/sdl/SdlWindowPlacement.h"
 #include "platform/sdl/XeenMainScreenInput.h"
 #include "core/PresentationClock.h"
 
@@ -24,6 +25,33 @@ namespace {
 // then (8 + 3) * 2 / 240 seconds. Independent of host OS repeat settings.
 constexpr std::uint64_t navigationRepeatDelay = 500000000;
 constexpr std::uint64_t navigationRepeatPeriod = (11000000000ULL + 119) / 120;
+
+// Host window presentation shared by the title and gameplay windows.
+struct PlacementMemory {
+	WindowPlacement placement, saved;
+	std::optional<std::filesystem::path> file;
+	bool loaded = false;
+};
+PlacementMemory &placementMemory() {
+	static PlacementMemory memory;
+	return memory;
+}
+void savePlacement() {
+	auto &memory = placementMemory();
+	if (!memory.file || memory.placement == memory.saved) return;
+	if (writeWindowPlacement(*memory.file, memory.placement)) memory.saved = memory.placement;
+	else std::cerr << "Cannot save window settings: " << memory.file->u8string() << '\n';
+}
+// Fullscreen, maximized and minimized sizes are not the windowed size.
+void recordWindowedSize(SDL_Window *window) {
+	if (SDL_GetWindowFlags(window) & (SDL_WINDOW_FULLSCREEN | SDL_WINDOW_MAXIMIZED | SDL_WINDOW_MINIMIZED)) return;
+	int width = 0, height = 0;
+	SDL_GetWindowSize(window, &width, &height);
+	if (width > 0 && height > 0) {
+		placementMemory().placement.width = width;
+		placementMemory().placement.height = height;
+	}
+}
 
 bool uploadFrame(SDL_Texture *texture, const IndexedFrame &frame,
 		int expectedWidth, int expectedHeight, std::vector<std::uint32_t> &pixels) {
@@ -151,6 +179,10 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
 	}
 
 	SDL_SetMainReady();
+#ifdef SDL_HINT_WINDOWS_DPI_AWARENESS
+	// Windows would otherwise blur-stretch the window on displays scaled above 100%.
+	SDL_SetHint(SDL_HINT_WINDOWS_DPI_AWARENESS, "permonitorv2");
+#endif
 	if (SDL_InitSubSystem(SDL_INIT_VIDEO | SDL_INIT_EVENTS) != 0) {
 		std::cerr << "SDL_Init failed: " << SDL_GetError() << '\n';
 		return false;
@@ -171,13 +203,26 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
 		}
 	} resources;
 	SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "0");
+	auto &placement = placementMemory();
+	if (placement.file && !placement.loaded) placement.placement = placement.saved = readWindowPlacement(*placement.file);
+	placement.loaded = true;
+	std::pair<int, int> windowed{initialFrame.width * 3, initialFrame.height * 3};
+	SDL_Rect usable{};
+	if (SDL_GetDisplayUsableBounds(0, &usable) == 0)
+		windowed = windowedSize(placement.placement, usable.w, usable.h, initialFrame.width, initialFrame.height);
 	SDL_Window *window = resources.window = SDL_CreateWindow(title.c_str(), SDL_WINDOWPOS_CENTERED,
-		SDL_WINDOWPOS_CENTERED, 960, 600,
-		SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);
+		SDL_WINDOWPOS_CENTERED, windowed.first, windowed.second,
+		SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI |
+		(placement.placement.fullscreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0));
 	if (!window) {
 		std::cerr << "SDL_CreateWindow failed: " << SDL_GetError() << '\n';
 		return false;
 	}
+	// Runs before Resources destroys the window.
+	struct PlacementRecord {
+		SDL_Window *window;
+		~PlacementRecord() { try { recordWindowedSize(window); savePlacement(); } catch (...) {} }
+	} placementRecord{window};
 	SDL_SetWindowMinimumSize(window, initialFrame.width, initialFrame.height);
 
 	SDL_Renderer *renderer = resources.renderer = SDL_CreateRenderer(window, -1,
@@ -229,6 +274,16 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
         if(logicalX<0 || logicalY<0 || logicalX>=initialFrame.width || logicalY>=initialFrame.height)return;
         SDL_Rect destination{int(logicalX),int(logicalY),cursorWidth,cursorHeight};
         if(SDL_RenderCopy(renderer,resources.cursor,nullptr,&destination)!=0)throw std::runtime_error("Original cursor presentation failed");
+    };
+    // Borderless desktop fullscreen keeps the display mode; SDL's logical size
+    // re-centers the integer-scaled frame and maps the mouse in either mode.
+    const auto toggleFullscreen=[&] {
+        const bool fullscreen=!(SDL_GetWindowFlags(window)&SDL_WINDOW_FULLSCREEN);
+        if(fullscreen)recordWindowedSize(window);
+        if(SDL_SetWindowFullscreen(window,fullscreen?SDL_WINDOW_FULLSCREEN_DESKTOP:0)!=0) {
+            std::cerr<<"Cannot change fullscreen mode: "<<SDL_GetError()<<'\n';return;
+        }
+        placementMemory().placement.fullscreen=fullscreen;savePlacement();
     };
 	std::vector<std::uint32_t> pixels;
 	if (handler.frameCurrent && !handler.frameCurrent()) throw std::runtime_error("Stale initial frame handoff");
@@ -380,6 +435,13 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
         if(event.type==SDL_AUDIODEVICEREMOVED && !event.adevice.iscapture) {
             SdlAudioDevice::removed(event.adevice.which);return;
         }
+        // Host window control, as in DOSBox: the game never receives Alt+Enter,
+        // including its repeats; a plain Enter is unaffected.
+        if(event.type==SDL_KEYDOWN && fullscreenToggleKey(event.key.keysym.sym,event.key.keysym.mod)) {
+            if(!event.key.repeat)toggleFullscreen();
+            return;
+        }
+        if(event.type==SDL_WINDOWEVENT && event.window.event==SDL_WINDOWEVENT_SIZE_CHANGED)recordWindowedSize(window);
         if(handler.finished && handler.finished())return;
         if (event.type == SDL_QUIT) {
             pendingActions.clear(); running = false;
@@ -545,7 +607,9 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
             if (handler.protectAllKeys && event.key.keysym.sym == SDLK_ESCAPE &&
                 (batchInput != (handler.displayedInput ? handler.displayedInput() : std::nullopt) || !inputCurrent(batchFrame))) return;
             if (!context.dialog && event.key.keysym.sym == SDLK_ESCAPE && !(handler && canCancelInteraction && canCancelInteraction())) {
-                running = false;
+                // Nothing to cancel: the original main screen ignores Escape (no
+                // Escape entry in the pinned Interface::perform). The game ends
+                // through the control panel's Quit, Alt+F4 or the close button.
             } else if (handler && action && ((!handler.acceptsFrame && !handler.withPresentedInput) || inputCurrent(batchFrame))) {
                 deliver(*action,batchInput,batchFrame,button);
             } else if(!action && button && handler.drawButton && context.readyForAction && inputCurrent(batchFrame)) {
@@ -726,9 +790,11 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
         const auto nextContext = contextFor(presentedFrame);
         synchronizeQueue(nextContext);
         if (handler.inputContext && acquiredContext.contextId != nextContext.contextId) {
-            // clearEvents boundary: retain releases and non-input events in order.
+            // clearEvents boundary: retain releases, non-input events and the
+            // host fullscreen toggle in order.
             SDL_FilterEvents([](void *, SDL_Event *queued) -> int {
-                return queued->type != SDL_KEYDOWN && queued->type != SDL_MOUSEBUTTONDOWN;
+                if(queued->type==SDL_KEYDOWN)return fullscreenToggleKey(queued->key.keysym.sym,queued->key.keysym.mod);
+                return queued->type != SDL_MOUSEBUTTONDOWN;
             },nullptr);
         }
         acquiredContext = nextContext;
@@ -751,6 +817,12 @@ std::uint64_t SdlWindow::presentationNanoseconds() {
     if(!frequency)throw std::runtime_error("SDL monotonic clock unavailable");
     const auto seconds=counter/frequency,remainder=counter%frequency;
     return seconds*1000000000+(remainder*1000000000)/frequency;
+}
+
+void SdlWindow::rememberPlacement(std::optional<std::filesystem::path> file) {
+	auto &memory = placementMemory();
+	memory.file = std::move(file);
+	memory.loaded = false;
 }
 
 bool SdlWindow::show(const IndexedFrame &frame, const std::string &title) const {
