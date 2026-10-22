@@ -526,7 +526,17 @@ void equippedContributions() {
   XeenPhysicalPlayerCandidate s(z[0],in[0],monster(),6,610,true,Warrior::Warrior);finish(s,zero,1);
   check(s.hit && s.damage==0 && zero.position()==4,"Metal 38 missile: 3-6 clamps to 0, hit at 1-4+18, a zero input draws no save");
   auto h=knight(true,45,0,30);XeenCombatRandom hit(std::vector<Draw>{{1,2,1},{1,2,1},{1,2,1},{1,20,8},{1,56,56}});
-  XeenPhysicalPlayerCandidate m(h[0],in[0],monster(),6,610,true,Warrior::Warrior);finish(m,hit,1);check(m.hit && m.damage==13,"Metal 45 missile: 10+3, hit at 1+6+8");}
+  XeenPhysicalPlayerCandidate m(h[0],in[0],monster(),6,610,true,Warrior::Warrior);finish(m,hit,1);check(m.hit && m.damage==13,"Metal 45 missile: 10+3, hit at 1+6+8");
+  // The Cursed count lowers the hit total before the d20 chain: Cursed 1 turns the
+  // 15 above into a miss; Cursed 30 reaches -15, which the unsigned comparison hits.
+  auto one=knight(true,45,0,30);one[0].conditions[unsigned(XeenCondition::Cursed)]=1;
+  XeenCombatRandom missTape(std::vector<Draw>{{1,2,1},{1,2,1},{1,2,1},{1,20,8}});
+  XeenPhysicalPlayerCandidate missed(one[0],in[0],monster(),6,610,true,Warrior::Warrior);finish(missed,missTape,1);
+  check(!missed.hit && missed.damage==0 && missTape.position()==4,"Cursed 1: 1+6-1+8 misses AC5+10");
+  auto many=knight(true,45,0,30);many[0].conditions[unsigned(XeenCondition::Cursed)]=30;
+  XeenCombatRandom wrapTape(std::vector<Draw>{{1,2,1},{1,2,1},{1,2,1},{1,20,8},{1,56,56}});
+  XeenPhysicalPlayerCandidate wrapped(many[0],in[0],monster(),6,610,true,Warrior::Warrior);finish(wrapped,wrapTape,1);
+  check(wrapped.hit && wrapped.damage==13 && wrapTape.position()==5,"Cursed 30: -15 is an unsigned word and hits");}
  // The Xeen Slayer Sword (34) bypasses physical resistance; ordinary IDs do not. Material above 130 adds nothing.
  {auto c=knight(false,0,0,34);auto in=in12();XeenCombatRandom rng(std::vector<Draw>{{1,4,1},{1,4,1},{1,4,1},{1,4,1},{1,4,1},{1,4,1},{1,20,14}});
   XeenPhysicalPlayerCandidate a(c[0],in[0],monster(50),6,610,false,Warrior::Warrior);finish(a,rng,1);check(a.hit && a.damage==8,"Slayer Sword ignores 50% physical resistance");

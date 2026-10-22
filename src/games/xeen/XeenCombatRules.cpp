@@ -603,7 +603,10 @@ XeenPhysicalPlayerCandidate::XeenPhysicalPlayerCandidate(const XeenCharacter &c,
 	ruleRequire(xeenActorStatusSupported(status),"Unsupported physical target status");
 	constexpr unsigned divisors[]{1,2,2,3,4,2,2,1,3,2};
 	ruleRequire(unsigned(c.characterClass)<10 && m.physicalResistance()<=100 && unsigned(difficulty)<=1,"Invalid physical player operands");
-	baseHit=physicalChecked(std::int64_t(Rules::physicalBonus(Rules::effectivePhysical(c,i,Rules::PhysicalAttribute::Accuracy,{year})))+(adventurer?5:0)+c.currentLevel()/divisors[unsigned(c.characterClass)]);
+	// DOS subtracts the Cursed count (0x2df5f..0x2df69) before the d20 chain;
+	// a negative total still reaches the unsigned comparison below.
+	baseHit=physicalChecked(std::int64_t(Rules::physicalBonus(Rules::effectivePhysical(c,i,Rules::PhysicalAttribute::Accuracy,{year})))+(adventurer?5:0)+c.currentLevel()/divisors[unsigned(c.characterClass)]
+		-c.conditions[unsigned(XeenCondition::Cursed)]);
 	hitTotal=baseHit;
 	might=shoot ? 0 : Rules::physicalBonus(Rules::effectivePhysical(c,i,Rules::PhysicalAttribute::Might,{year}));
 	attacks=shoot ? 1 : xeenCombatAttackCount(c.characterClass,c.currentLevel());
