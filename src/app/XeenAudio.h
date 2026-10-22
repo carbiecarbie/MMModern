@@ -41,6 +41,8 @@ public:
  const std::string &currentName() const;
  const std::string &loadedName() const;
  std::uint64_t ticks() const;
+ // Presentation-clock position, never taken from the device.
+ std::uint64_t samples() const;
  bool pending() const;
 private:
  struct Impl;std::unique_ptr<Impl> _impl;

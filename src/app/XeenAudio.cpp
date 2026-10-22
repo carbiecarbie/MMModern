@@ -26,7 +26,6 @@ struct XeenAudio::Impl {
  std::vector<std::string> maps,locations;std::array<unsigned,6> kinds{};
  std::unique_ptr<PromusDriver> clockDriver;
  std::shared_ptr<XeenFmSource> output;bool retainOutput;
- std::vector<XeenFmSource::Write> writes;
  std::string current,loaded;std::optional<std::string> mapName;
  PromusDriver::Bytes buffer;
  struct Song {std::string name;XeenSceneArchive archive;unsigned fade;};
@@ -39,23 +38,18 @@ struct XeenAudio::Impl {
   for(unsigned w=0;w<weaponEffects.size();++w)weaponEffects[w]=60+module.at(0x4d660+w);
   for(unsigned k=0;k<6;++k){kinds[k]=module.at(0x4f10a+k);if(kinds[k]>=maps.size())throw std::runtime_error("Invalid Clouds music wall-kind table");}
   if(id==3) {
-   clockDriver=std::make_unique<PromusDriver>(resource,[this,trace=std::move(trace)](const auto &w){
-    writes.push_back({w.interrupt?PromusDriver::sampleBoundary(w.tick):nativeSample(elapsed),w});
-    if(trace)trace(w);
-   });
+   clockDriver=std::make_unique<PromusDriver>(resource,std::move(trace));
   }else if(id>=1 && id<=9)std::cerr<<"Music device "<<id<<": not supported yet\n";
+  output->initialize(id==3?resource:PromusDriver::Bytes{});
   device=std::make_unique<SdlAudioDevice>([this](auto *out,auto frames){output->pull(out,frames);},deviceOutput);
-  retainOutput=retainOutput||device->active();flush();
+  retainOutput=retainOutput||device->active();
  }
- void flush() {
-  if(retainOutput)output->publish(sample,std::move(writes));
-  writes.clear();
- }
- void command(unsigned command) {if(clockDriver)clockDriver->command(command);}
+ void command(unsigned command) {if(clockDriver)clockDriver->command(command);if(retainOutput)output->command(command);}
+ void loadBuffer(bool play) {if(clockDriver)clockDriver->load(buffer,play);if(retainOutput)output->load(buffer,play);}
  void load(const Song &song,bool play=true) {
   buffer=bytes(loader(song.name,song.archive));if(buffer->empty())throw std::runtime_error("Missing or empty original song: "+song.name);
   loaded=song.name;
-  if(clockDriver)clockDriver->load(buffer,play);
+  loadBuffer(play);
  }
  void begin(Song song) {
   const auto name=lower(song.name);if(name==current)return;
@@ -65,7 +59,7 @@ struct XeenAudio::Impl {
  }
  void advance(std::uint64_t now,std::uint64_t cdEnd) {
   if(now<last)throw std::logic_error("Audio presentation clock moved backwards");
-  elapsed=PresentationClock::checkedAdd(elapsed,now-last);last=now;speechEnd=cdEnd;device->check();
+  elapsed=PresentationClock::checkedAdd(elapsed,now-last);last=now;speechEnd=cdEnd;device->check();output->check();
   const auto target=nativeSample(elapsed),threshold=PromusDriver::rate*PromusDriver::divisor;
   while(sample<target) {
    const auto count=std::min(target-sample,(threshold-phase+PromusDriver::pit-1)/PromusDriver::pit);
@@ -73,13 +67,13 @@ struct XeenAudio::Impl {
    if(phase>=threshold){phase-=threshold;if(clockDriver)clockDriver->tick();}
   }
   if(pending && (!clockDriver || !clockDriver->fadeSpeed()) && now>=speechEnd) {
+   if(retainOutput)output->fadeBarrier();
    auto song=std::move(*pending);pending.reset();
    if(titleExit) {
     if(options.music)command(0);load(song,false);titleExit=false;
     if(afterTitle){auto next=std::move(*afterTitle);afterTitle.reset();command(next.fade);pending=std::move(next);}
    }else load(song,options.music);
   }
-  flush();
  }
 };
 XeenAudio::XeenAudio(unsigned id,PromusDriver::Bytes driver,Loader l,std::vector<std::uint8_t> module,std::uint64_t now,bool device,PromusDriver::Sink trace,std::shared_ptr<XeenFmSource> output):
@@ -108,19 +102,19 @@ unsigned XeenAudio::deviceId() const{return _impl->id;}
 bool XeenAudio::outputActive() const{return _impl->device->active();}
 std::string XeenAudio::mapSong(const XeenMapGeometry &m) const {return _impl->maps.at(m.isOutdoors()?0:_impl->kinds.at(m.wallKind));}
 std::string XeenAudio::locationSong(unsigned action) const{return _impl->locations.at(action);}
-void XeenAudio::requestSong(std::string name,XeenSceneArchive archive,unsigned fade,std::uint64_t now) {advance(now,_impl->speechEnd);_impl->begin({std::move(name),archive,fade});_impl->flush();}
+void XeenAudio::requestSong(std::string name,XeenSceneArchive archive,unsigned fade,std::uint64_t now) {advance(now,_impl->speechEnd);_impl->begin({std::move(name),archive,fade});}
 void XeenAudio::requestMap(const XeenMapGeometry &map,std::uint64_t now) {const auto name=mapSong(map);_impl->mapName=name;requestSong(name,XeenSceneArchive::Clouds,207,now);}
 void XeenAudio::requestLocation(unsigned action,std::uint64_t now) {requestSong(locationSong(action),XeenSceneArchive::Clouds,223,now);}
 void XeenAudio::requestInn(std::uint64_t now) {requestSong("inn.m",XeenSceneArchive::Clouds,128,now);}
-void XeenAudio::enterTitle(std::uint64_t now) {advance(now);_impl->pending.reset();_impl->afterTitle.reset();_impl->titleExit=false;_impl->load({"newbrigh.m",XeenSceneArchive::DarksideOnly,0},_impl->options.music);_impl->flush();}
-void XeenAudio::leaveTitle(std::uint64_t now) {advance(now);if(_impl->options.music)_impl->command(207);_impl->titleExit=true;_impl->pending=Impl::Song{"twnnitea.m",XeenSceneArchive::DarksideOnly,207};_impl->flush();}
+void XeenAudio::enterTitle(std::uint64_t now) {advance(now);_impl->pending.reset();_impl->afterTitle.reset();_impl->titleExit=false;_impl->load({"newbrigh.m",XeenSceneArchive::DarksideOnly,0},_impl->options.music);}
+void XeenAudio::leaveTitle(std::uint64_t now) {advance(now);if(_impl->options.music)_impl->command(207);_impl->titleExit=true;_impl->pending=Impl::Song{"twnnitea.m",XeenSceneArchive::DarksideOnly,207};}
 void XeenAudio::effect(unsigned id,std::uint64_t now) {
  // Use the action's existing clock sample, without querying a gameplay clock.
  advance(std::max(now,_impl->last),_impl->speechEnd);
  if(!_impl->options.efx)return;
  if(_impl->effectSink)try {_impl->effectSink(id);}catch(...) {}
  if(_impl->clockDriver)_impl->clockDriver->effect(id);
- _impl->flush();
+ if(_impl->retainOutput)_impl->output->effect(id);
 }
 void XeenAudio::effectSink(EffectSink sink) {_impl->effectSink=std::move(sink);}
 void XeenAudio::weaponEffect(unsigned weapon,std::uint64_t now) {effect(_impl->weaponEffects.at(weapon),now);}
@@ -129,9 +123,8 @@ void XeenAudio::toggleMusic(bool on,std::uint64_t now) {
  advance(now,_impl->speechEnd);_impl->options.music=on;
  if(on) {
   _impl->pending.reset();_impl->afterTitle.reset();_impl->titleExit=false;
-  if(_impl->buffer && _impl->clockDriver)_impl->clockDriver->load(_impl->buffer,true);
+  if(_impl->buffer)_impl->loadBuffer(true);
  }else _impl->command(0);
- _impl->flush();
 }
 void XeenAudio::advance(std::uint64_t now,std::uint64_t cdEnd) {_impl->advance(now,cdEnd);}
 void XeenAudio::rebaseClock(std::uint64_t now) noexcept {_impl->last=now;_impl->speechEnd=0;}
@@ -143,5 +136,6 @@ std::optional<std::uint64_t> XeenAudio::deadline() const {
 const std::string &XeenAudio::currentName() const{return _impl->current;}
 const std::string &XeenAudio::loadedName() const{return _impl->loaded;}
 std::uint64_t XeenAudio::ticks() const{return _impl->clockDriver?_impl->clockDriver->ticks():PromusDriver::clockTicks(_impl->elapsed);}
+std::uint64_t XeenAudio::samples() const{return _impl->sample;}
 bool XeenAudio::pending() const{return bool(_impl->pending);}
 }

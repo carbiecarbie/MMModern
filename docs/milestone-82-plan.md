@@ -4,7 +4,8 @@
 Roadmap [step 12](roadmap.md#next-arc-finishing-the-games-systems), first of
 its two milestones. Plan `61112d9`, on `main` after M81 (`f2bee4b`); amended
 `d5bba59` for the promus driver after Part 0's OPL3 stop, `6792341` at
-Part 0's closure, and for the direct Nuked core after Part A's first attempt.
+Part 0's closure, for the direct Nuked core after Part A's first attempt, and
+for device-paced FM rendering after the 2026-10-22 play-test.
 
 ## Goal and scope
 
@@ -103,16 +104,53 @@ from the pin (`6814ee9ba54582f5b5adcffab49efbbd8f589edd`). In short:
   services, Inn), the title flow chooses the title song, and the toggles are
   party state in the snapshot. Requests cross to the audio thread through one
   queue.
-- **Timing never depends on the device.** The driver ticks from the FM sample
-  count with an exact integer accumulator (49716 x 16390 / 1193182, about
-  682.918 samples per tick), independent of callback size and wall time; a
-  tick's register writes apply at its sample boundary and are logged per tick
-  for the DRO comparison. Where DOS waits (the song fade, and its wait for CD
-  speech), the wait is computed from the driver's tick count and the existing
-  simulated CD-speech timing on the presentation clock, never by waiting on
-  real output. Without an output device (tests, the SDL dummy driver) the
-  game times, draws and saves exactly as with one; audio never feeds RNG,
-  Events or saves.
+- **Timing never depends on the device.** The timeline driver (below) ticks
+  from the FM sample count with an exact integer accumulator (49716 x 16390 /
+  1193182, about 682.918 samples per tick), independent of callback size and
+  wall time; a tick's register writes apply at its sample boundary and are
+  logged per tick for the DRO comparison. Where DOS waits (the song fade, and
+  its wait for CD speech), the wait is computed from that driver's tick count
+  and the existing simulated CD-speech timing on the presentation clock, never
+  by waiting on real output. Without an output device (tests, the SDL dummy
+  driver) the game times, draws and saves exactly as with one; audio never
+  feeds RNG, Events or saves.
+- **Output never depends on the game loop (amended 2026-10-22).** Part A
+  rendered the driver's writes only up to the time the main loop had last
+  advanced it, and the callback padded with silence whenever it got ahead,
+  never catching up. Idle waits and stalls inserted silent blocks (the
+  crackle) and delayed all later sound for good (late effects, late Music
+  off). As the DOS PIT ISR runs promus apart from the game, the owner keeps
+  two instances of `PromusDriver`, fed the same operations in the same order:
+  - The **timeline driver** is Part A's, on the presentation clock and main
+    thread. It alone answers what the game observes (ticks, fade end, pending
+    load, `deadline()`, CD-speech wait) and feeds the trace sink; its writes
+    no longer reach the chip.
+  - The **render driver** belongs to `XeenFmSource`, built with the promus
+    resource before the device opens; its sink captures only the source. Each
+    pull renders every requested frame and ticks it at `sampleBoundary(n)` of
+    its rendered samples, into the Nuked chip as before. After an exception
+    the source renders silence until `check()` rethrows it.
+  - Every timeline `load`, `command` and `effect` is also queued, a `load`
+    carrying its already-read buffer (no file access on the audio thread);
+    the mutex covers only appending and taking the queue. Each pull first
+    runs the tick due at its current sample (once), then applies the queued
+    operations, between two ticks as DOS calls the driver between ISR ticks,
+    then renders. A request's first writes are heard within one callback
+    period plus the device buffer, independent of history. Pulled in lockstep
+    with the game clock, the render driver's ticks and writes equal the
+    timeline's for any callback size.
+  - Only the load completing a pending change waits for the fade, as the DOS
+    poller does. When the timeline completes it, a fade barrier precedes the
+    operations it issues (title exit's stop and load, the after-title fade
+    command); the render driver holds them, and anything queued later, until
+    its own fade ends, about one callback period plus a tick later. An early
+    load would leave unused music voices keyed on at near-silent level. A
+    defensive limit, twice the longest fade in use (Inn, 128 ticks), releases
+    it. Music on/off and title entry/exit act immediately, as in DOS.
+  - Nullmus and unsupported ids have no render driver; without a device or an
+    injected source nothing is queued. `g_system` stays null; promus
+    semantics, DRO comparisons, timeline device/no-device equality and save
+    v18 are unchanged.
 - **Device choice ready, not exposed.** The owner creates and destroys the
   driver on request, keyed by the original device id, so step 16 can add
   devices and an opt-in live switch without new ownership. Ids outside 1-9
@@ -133,6 +171,7 @@ Each part takes one fresh session; amend this plan if the scope changes.
 | B - toggles and save | The four panel buttons with original labels and rules; save v18; New and Load values; Speech off skips CD speech waits; Efx off removes VOC-busy waits; entrance captions with Efx off, their box lifetime settled from a maintainer video of the Dwarf or Sphinx scene with Effects off. Text off is stored, shown, saved and coupled, but text stays visible until M83 plays CD speech (temporary restriction approved by the maintainer, recorded in `original-quirks.md`), so the DOS defaults never leave a player without text or speech. |
 | C1 - FM effects outside spells | Reconcile all 133 direct DOS sites at high confidence: 40 C1 shared/non-spell sites, 86 C2 spell sites, seven not reachable yet, no non-effect sites. Wire C1 through the existing audio owner and Efx gate. Save v18 and M44 digests stay unchanged. Acceptance: site table, original-data wall/combat/barrier or Event/service witnesses through a recording sink; effects off requests nothing; full suite and independent implementation review. Temporary door redraw, both fall-animation sites and combat Mr Wizard await "Complete Clouds" (maintainer, 2026-10-21); Darkside services await Darkside, creation and Inn recruitment await step 14. |
 | C2 - spell FM effects | The remaining 86 casting/spell-handler sites, using C1's shared impact/injury/treasure owners. Acceptance: each site's DOS effect id/expression and ordering; none plays with Efx off. |
+| C3 - device-paced output | The 2026-10-22 amendment: the timeline and render drivers, the queue and the fade barrier. Acceptance: `xeen_fm_output` and the lockstep tests pass; complete suite; M44 audit with zero differences; independent implementation review; maintainer re-play of music, a spell's effect timing and Music off. |
 | D - closure | Dependencies, quirks and differences documents; M44 digest audit; scheduled independent implementation review; complete suite; maintainer play-test against DOSBox. Update status, roadmap and history and condense this plan only after acceptance. |
 
 **Stop rules** (stop and ask the maintainer): `promus` relies on OPL behavior
@@ -154,6 +193,17 @@ inventory exceeds two parts; the fade wait cannot be modelled from the clock.
   grid. PCM hashes only guard regressions and may differ across platforms.
 - A guard test asserts `g_system` is still null after the audio owner and
   driver start.
+- Output pacing (`xeen_fm_output`, amended 2026-10-22): a simulated device
+  pulls 512-frame blocks with a two-block lead for 62 s while the game loop
+  advances in BIOS-tick steps with a 300 ms stall every 4 s. It requires
+  rendered PCM without gaps (identical up to the first effect to a run
+  without stalls), every Efx-on effect and Music off heard within the lead
+  plus one block and one tick, no growth, and no effect-voice writes between
+  effects. The rendered-trace, effect-20 energy and panel tests pull in
+  lockstep to a read-only timeline sample accessor in 127-, 512- and
+  2048-frame chunks and require the timeline's ticks, writes and identical
+  PCM. Fade-barrier tests: with the render driver behind, the new song starts
+  only after its fade's key-offs; ahead, nothing is held.
 - Effect sites: a table test mapping each Part 0 site to its id, plus a few
   original-data gameplay witnesses recording requested effects through a
   recording sink. A timing test runs one route with and without a device.
@@ -188,3 +238,7 @@ inventory exceeds two parts; the fade wait cannot be modelled from the clock.
    the link closure of `nuked.cpp` (objects compiled but never instantiated) and
    GPL notices; latency between a request and the heard sound, which never
    delays gameplay; effect coverage drifting from DOS without the inventory.
+   After the 2026-10-22 amendment, the music heard follows the device clock
+   rather than the presentation clock, as DOS music follows the PIT; the two
+   drivers may differ by a few ticks in when an operation lands, which only
+   the render side, never gameplay, sees.

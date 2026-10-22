@@ -230,8 +230,7 @@ int main(int argc,char **argv) {
   for(std::size_t i=0;i<traces[0].size();++i)assert(traces[0][i].tick==traces[1][i].tick&&traces[0][i].reg==traces[1][i].reg&&traces[0][i].value==traces[1][i].value);
   std::cout<<"Clouds maps="<<maps<<"; identical device/no-device route trace writes="<<traces[0].size()<<'\n';
   {
-   // Actual chip consumer, including pulls ahead of published presentation
-   // time. Padding must never advance the chip or the register timeline.
+   // Pull in lockstep to isolate callback partitioning from clock drift.
    std::array<std::vector<Write>,3> rendered;
    std::array<std::vector<std::int16_t>,3> pcm;
    for(unsigned mode=0;mode<3;++mode) {
@@ -239,28 +238,33 @@ int main(int argc,char **argv) {
     std::vector<Write> authoritative;
     XeenAudio route(3,resource,loader,module,0,false,[&](const auto &w){authoritative.push_back(w);},source);
     const unsigned frames=mode==0?127:mode==1?512:2048;
+    unsigned fullPulls=0;
     std::vector<std::int16_t> block(frames*2);
     const auto pull=[&] {
-     const auto before=source->samples();source->pull(block.data(),frames);
-     const auto valid=source->samples()-before;
-     pcm[mode].insert(pcm[mode].end(),block.begin(),block.begin()+valid*2);
-     assert(std::all_of(block.begin()+valid*2,block.end(),[](auto v){return v==0;}));
-     return valid;
+     while(source->samples()<route.samples()) {
+      const auto count=std::min<std::uint64_t>(frames,route.samples()-source->samples());
+      if(count==frames)++fullPulls;
+      source->pull(block.data(),count);source->check();
+      pcm[mode].insert(pcm[mode].end(),block.begin(),block.begin()+count*2);
+     }
+     source->pull(block.data(),0);source->check(); // Tick at the endpoint, once.
     };
-    route.enterTitle(0);
+    route.enterTitle(0);pull();
     for(unsigned t=1;t<=600;++t) {
-     if(mode==2){while(pull()){}const auto before=source->samples();assert(pull()==0&&source->samples()==before);}
      const auto now=PromusDriver::clockBoundary(t);
      route.advance(now);
+     // Five ticks permit full 2048-frame pulls across several ISR boundaries.
+     // Still land exactly on every externally requested operation.
+     if(t%5==0 || t==21)pull();
      if(t==20)route.leaveTitle(now);
      if(t==21)route.requestSong("town.m",XeenSceneArchive::Clouds,207,now);
      if(t==300)route.effect(20,now);
      if(t==400)route.requestInn(now);
-     while(pull()){}
+     if(t==20 || t==21 || t==300 || t==400)pull();
     }
-    // Include writes at the final boundary (the publication watermark is
-    // exclusive, so requests at that sample remain legal until time advances).
-    route.advance(PromusDriver::clockBoundary(600)+1000000);while(pull()){}
+    // Finish at the same sample, including the endpoint tick.
+    route.advance(PromusDriver::clockBoundary(600)+1000000);pull();
+    assert(fullPulls>0);
     assert(authoritative.size()==rendered[mode].size());
     for(std::size_t i=0;i<authoritative.size();++i) {
      const auto &a=authoritative[i],&b=rendered[mode][i];
@@ -349,27 +353,34 @@ int main(int argc,char **argv) {
     std::cout<<"effect20 energy="<<value<<" capture="<<reference<<'\n';
     return value>=reference/2 && value<=reference*2;
    };
-   std::vector<std::int16_t> block(1024);
-   const auto drain=[&](XeenFmSource &source,std::vector<std::int16_t> &pcm) {
-    for(;;) {
-     const auto before=source.samples();source.pull(block.data(),512);
-     const auto valid=source.samples()-before;pcm.insert(pcm.end(),block.begin(),block.begin()+valid*2);
-     if(!valid)return;
+   unsigned chunk=127,fullPulls=0;
+   std::vector<std::int16_t> block(4096);
+   const auto drain=[&](XeenFmSource &source,const XeenAudio &audio,std::vector<std::int16_t> &pcm) {
+    while(source.samples()<audio.samples()) {
+     const auto count=std::min<std::uint64_t>(chunk,audio.samples()-source.samples());
+     if(count==chunk)++fullPulls;
+     source.pull(block.data(),count);source.check();
+     pcm.insert(pcm.end(),block.begin(),block.begin()+count*2);
     }
+    source.pull(block.data(),0);source.check();
    };
-   {
+   std::vector<std::int16_t> aloneReference;
+   for(unsigned size:{127,512,2048}) {
+    chunk=size;fullPulls=0;
     auto source=std::make_shared<XeenFmSource>();std::vector<std::int16_t> pcm;
     XeenAudio alone(3,resource,loader,module,0,false,{},source);alone.effect(20,0);
-    for(unsigned t=1;t<=150;++t){alone.advance(PromusDriver::clockBoundary(t));drain(*source,pcm);}
+    for(unsigned t=1;t<=150;++t){alone.advance(PromusDriver::clockBoundary(t));if(t%5==0)drain(*source,alone,pcm);}
+    assert(fullPulls>0);
     assert(pcm.size()>=window*2 && comparable(energy(pcm.data(),window)));
+    if(aloneReference.empty())aloneReference=pcm;else assert(aloneReference==pcm);
    }
    // The actual panel-to-party-to-audio path, rendered by the chip consumer.
    const auto panel=[&](bool music) {
+    fullPulls=0;
     gameplay_test::Fixture fixture;fixture.initial.soundOptions={false,music,false,true};
     std::uint64_t now=0;std::size_t start=0,toggled=0;std::vector<Write> authoritative,rendered;std::vector<std::int16_t> pcm;
+    std::vector<std::pair<std::uint64_t,Write>> scheduled;
     auto source=std::make_shared<XeenFmSource>([&](const auto &w){rendered.push_back(w);});
-    fixture.programState.audio=std::make_shared<XeenAudio>(3,resource,loader,module,SdlWindow::presentationNanoseconds(),false,
-        [&](const auto &w){authoritative.push_back(w);},source);
     const XeenFontFormat font(assets.readArchiveResource("fnt"));
     auto services=fixture.services();services.presentationClock=[&]{return now;};
     services.panel=[&](const IndexedFrame &base,bool,bool,bool,std::optional<unsigned>,const std::string &) {
@@ -378,13 +389,23 @@ int main(int argc,char **argv) {
      s.panel=true;return std::make_unique<XeenTitleFlow>(std::move(s));
     };
     services.show=[&](auto visible,const auto &h,const auto &,const auto &idle,const auto &) {
+     // Attach after the real title-clock handoff; this panel witness uses
+     // only the injected presentation clock, for identical PCM across runs.
+     fixture.programState.audio=std::make_shared<XeenAudio>(3,resource,loader,module,now,false,
+         [&](const auto &w){
+          authoritative.push_back(w);
+          const auto sample=w.interrupt?PromusDriver::sampleBoundary(w.tick):fixture.programState.audio?fixture.programState.audio->samples():0;
+          scheduled.push_back({sample,w});
+         },source);
+     h.beginCycle(0);
      const auto present=[&]{h.framePresented(visible.presentation());h.completeInputHandoff(visible.presentation());};present();
      const auto send=[&](const PlayerAction &action){const auto next=h(action);assert(next);visible=*next;present();};
      const auto run=[&](unsigned from,unsigned to) {
       for(unsigned t=from;t<to;++t) {
        now=PromusDriver::clockBoundary(t);h.beginCycle(t);if(const auto next=idle()){visible=*next;present();}
-       drain(*source,pcm);
+       if(t%5==0)drain(*source,*fixture.programState.audio,pcm);
       }
+      drain(*source,*fixture.programState.audio,pcm); // Land before the panel action.
      };
      run(1,200);send(ControlPanelAction{});run(200,220);start=pcm.size();toggled=rendered.size();
      const auto action=h.inputContext(visible.presentation()).dialog->key('e');assert(action);send(*action);
@@ -392,16 +413,33 @@ int main(int argc,char **argv) {
     };
     assert(Application(services.program).playGameplay(services,{1,1,1,XeenDirection::North},{},false)==0);
     assert(authoritative.size()==rendered.size() && pcm.size()>=start+window*2);
+    assert(fullPulls>0);
     for(std::size_t i=0;i<rendered.size();++i)
      assert(authoritative[i].tick==rendered[i].tick && authoritative[i].reg==rendered[i].reg && authoritative[i].value==rendered[i].value);
     assert(std::any_of(rendered.begin()+toggled,rendered.end(),[](const auto &w){return voice(w.reg)>=7;}));
+    XeenOpl3 referenceChip;std::vector<std::int16_t> expected(pcm.size());std::size_t next=0;
+    for(std::size_t sample=0;sample<pcm.size()/2;++sample) {
+     while(next<scheduled.size() && scheduled[next].first<=sample) {
+      const auto &w=scheduled[next++].second;referenceChip.write(w.reg,w.value);
+     }
+     referenceChip.sample(expected.data()+sample*2);
+    }
+    assert(pcm==expected); // Same timeline PCM for every callback partition.
     pcm.erase(pcm.begin(),pcm.begin()+start);pcm.resize(window*2);return pcm;
    };
-   assert(comparable(energy(panel(false).data(),window)));
+   std::array<std::vector<std::int16_t>,2> panelReference;
+   for(unsigned size:{127,512,2048}) {
+    chunk=size;
+    for(unsigned music=0;music<2;++music) {
+     const auto pcm=panel(music!=0);
+     if(!music)assert(comparable(energy(pcm.data(),window)));
+     if(size==127)panelReference[music]=pcm;else assert(panelReference[music]==pcm);
+    }
+   }
    // Music shares the chip's write queue (its writes shift behind the effect's)
    // and may set voice 7/8 levels, so PCM cannot isolate the effect there;
    // every effect write must still be fed to the chip in order.
-   panel(true);
+
   }
   for(const auto &name:{"promus-startup","promus-inn","promus-outdoors","promus-fx20-alone","promus-wall-bump","promus-fx20-over-music"}) {
    const auto events=dro(std::filesystem::u8path(argv[2])/(std::string(name)+".dro"));
