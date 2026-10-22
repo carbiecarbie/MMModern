@@ -287,7 +287,9 @@ void noTargets(Inputs &in) {
  for(unsigned n=0;n<result.consequences->count;++n)
   check(!result.consequences->shots[n].attack.targetedMembers && !result.consequences->shots[n].attack.injuryCount,"noTargets unexpectedly selected/injured a member");
  check(f.p.food==start.food && f.p.encounterContext->minutes==489 && !f.p.encounterContext->rested && !f.flow->canSave(),"noTargets published recovery/completion or remaining hours");
- for(auto owner:start.activeRosterIds)check(f.p.roster.at(owner).conditions[13] && f.p.roster.at(owner).conditions[8],"noTargets cleared unhit sleep");
+ // The first charge crosses minute 480; that eight-hour block kills the members
+ // (Weak 254) and clears their sleep (DOS 0x253fb..0x25424), not the shots.
+ for(auto owner:start.activeRosterIds)check(f.p.roster.at(owner).conditions[13] && !f.p.roster.at(owner).conditions[8],"noTargets: the eight-hour block clears sleep");
  // The healthy condition block draws nothing. Each of the two shooters still
  // draws an initial target among participants before finding no eligible one.
  check(result.consequences->count==2 && f.w.sessionState().journeyRandom()->count==2 &&

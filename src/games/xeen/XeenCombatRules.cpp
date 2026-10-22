@@ -731,6 +731,9 @@ bool XeenConditionTimeCandidate::service(XeenConsequenceDraw &draw) {
    }
    if(c.conditions[1]) {c.conditions[1]=std::uint8_t(unsigned(c.conditions[1])+1);
     if(c.conditions[1]>10){c.conditions[1]=0;c.conditions[9]=1;}}
+   // DOS 0x253fb..0x25424: Confused, Asleep, Paralyzed and Weak clear before
+   // Poison; Weak then takes Drunk's count at 0x255ab.
+   c.conditions[10]=0;c.conditions[8]=0;c.conditions[11]=0;c.conditions[2]=0;
    step=Step::Poison;break;
   case Step::Poison: {
    // DOS WORLD/XEEN.DAT 0x25425/0x25473: per member, Poison then

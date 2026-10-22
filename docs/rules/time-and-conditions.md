@@ -164,13 +164,12 @@ that gameplay work. Retain chosen results across composition failure/retry.
 
 ## Eight-hour condition block
 
-**Evidence: Mixed.** The order and branches below are verified in
-[Party::changeTime][party] and MMModern's
+**Evidence: DOS static, high confidence.** Same DAT as below; routine
+`0x2533e..0x256cc`, member loop `0x2536b..0x255fe`, rechecked 2026-10-22 and
+calibrated against the Poison/Disease and Weak/Drunk sites below. The pin
+([Party::changeTime][party]) has the same order without step 3 and keeps
+live `int` counters. MMModern implements the DOS block in
 [XeenConditionTimeCandidate::service](../../src/games/xeen/XeenCombatRules.cpp).
-Poison/Disease and Weak/Drunk use the stronger DOS evidence below instead
-of the pin. Other ordinary branches are **Reference only**. Extreme byte-counter
-edges below describe current implementation choices separately; they are
-**not confirmed in DOS** or literally equivalent to the pin's live integers.
 
 Process active members in order. Finish all these steps for one member
 before beginning the next:
@@ -179,32 +178,30 @@ before beginning the next:
    Any value below 1 sets Dead to 1. Do not infer an HP assignment here.
 2. Increment nonzero Heart Broken; if the incremented count exceeds 10,
    clear it and set Depressed to 1.
-3. Process existing Poison, then existing Disease, using the DOS rule below.
-4. Increment nonzero Insane. Increment each nonzero Dead, Stoned and
-   Eradicated counter, retaining terminal saturation at 255 in MMModern.
-5. Increment nonzero In Love; above 10, clear it and set Heart Broken to 1.
-6. **DOS:** replace Weak with Drunk, then clear Drunk, unconditionally.
-7. Advance nonzero Depressed to `(count+1) % 4`.
+3. **DOS:** clear Confused, Asleep and Paralyzed, and Weak, which step 7
+   replaces (`0x253fb..0x25424`).
+4. Process existing Poison, then existing Disease, using the DOS rule below.
+5. Increment nonzero Insane. Increment each nonzero Dead, Stoned and
+   Eradicated counter.
+6. Increment nonzero In Love; above 10, clear it and set Heart Broken to 1.
+7. **DOS:** replace Weak with Drunk, then clear Drunk, unconditionally.
+8. Advance nonzero Depressed to `(count+1) % 4`.
 
 Consequences of order: Heart Broken 10 becomes Depressed 1 and then
 Depressed 2 in the same block. In Love 10 becomes Heart Broken 1 after the
 Heart Broken step, so it does not immediately advance again. A new Dead 1
 from the attribute check reaches Dead 2 later in that same block.
-Terminal members skip only the attribute-death test, not the later
-Poison/Disease or other counter steps.
+Terminal members skip only the attribute-death test, not the clear,
+Poison/Disease or other counter steps. After the block, the per-call
+Confused/Paralyzed recovery finds nothing to draw for.
 
-**Current MMModern arithmetic; DOS boundary behavior unknown.** Insane 255
-becomes 0; Heart Broken/In Love 255 wrap to 0 before their `>10` comparison;
-Dead/Stoned/Eradicated saturate at 255. These choices are explicit in
-`XeenConditionTimeCandidate::service` and `XeenDailyTimeOracles.h`.
-The pin instead stores live `int` counters and truncates them only when
-serializing. At 255, Insane and terminal counters become 256; Heart Broken
-and In Love cross the threshold and trigger their transitions. The pin's
-zero-to-minus-one terminal guard does not run at 255. It therefore does not
-establish MMModern's byte boundaries. The root reference-fallback instruction
-remains authoritative; this chapter reports the discrepancy without approving
-it. The retained DOS findings settle Poison/Disease and Weak/Drunk, not these
-other counters. See [original quirks](../original-quirks.md#unconfirmed-in-dos-following-the-reference).
+**Byte boundaries.** Every counter is a byte tested for zero before its
+increment, and the comparisons with 10 read the stored byte. Insane, Heart
+Broken and In Love wrap 255 to 0, so a wrapped Heart Broken or In Love
+triggers nothing; Dead, Stoned and Eradicated store 255 when the increment
+wraps, so they saturate (`0x253c7..0x253f6`, `0x254c7..0x25569`,
+`0x25574..0x255a6`). The pin's live counters reach 256 instead and cross the
+threshold ([quirk](../original-quirks.md#sv-condition-counter-bytes)).
 
 ### Poison and Disease
 
@@ -354,6 +351,8 @@ ten `chargeStep` opportunities, followed by 470 more minutes indoors or
 move/attack during those ten opportunities. If interrupted, retain elapsed
 time and attack consequences, and skip the suffix, dream, food and refill.
 Do not wake untouched sleepers merely because the action was interrupted.
+An eight-hour boundary crossed during those opportunities wakes everyone
+through the [eight-hour block](#eight-hour-condition-block)'s clear.
 
 Super Shelter instead calls `changeTime(480)` once, without those ten
 ordinary opportunities. The difference in call partitioning can matter for

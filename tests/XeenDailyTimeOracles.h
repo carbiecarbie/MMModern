@@ -35,6 +35,16 @@ void dailyTimeOracles() {
  check(each.characters[0].conditions[10]==0 && each.characters[0].conditions[11]==1 && confusion.position()==3,
   "Confused and Paralyzed process on every changeTime in active order");
  finish(each,confusion,1);check(confusion.position()==3,"Completed time never replays RNG");
+ // DOS 0x253fb..0x25424: an eight-hour block clears Confused, Asleep and
+ // Paralyzed for every member before the per-call recovery, which then draws nothing.
+ c=characters();
+ for(unsigned n=0;n<6;++n){c[n].conditions[8]=3;c[n].conditions[10]=2;c[n].conditions[11]=200;}
+ c[1].conditions[13]=1;t.minutes=479;
+ XeenCombatRandom cleared(std::vector<XeenCombatRandom::Draw>{});
+ XeenConditionTimeCandidate eight(t,1,c,in);finish(eight,cleared,1);
+ for(unsigned n=0;n<6;++n)check(!eight.characters[n].conditions[8] && !eight.characters[n].conditions[10] &&
+  !eight.characters[n].conditions[11],"Eight-hour block clears Asleep, Confused and Paralyzed");
+ check(!cleared.position(),"Cleared Confused and Paralyzed consume no recovery draws");
 
  // Same-call transitions: HeartBroken->Depressed then Depressed advances;
  // InLove->HeartBroken runs after HeartBroken's own branch.

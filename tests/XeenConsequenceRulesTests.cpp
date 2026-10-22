@@ -857,7 +857,7 @@ void timeAndInputs() {
 	for (auto &owner:c) { owner.conditions[2]=1;owner.conditions[8]=1; }
 	i[0].might.permanent=1;
 	XeenCombatRandom noDraws(std::vector<XeenCombatRandom::Draw>{});XeenConditionTimeCandidate death(context,10,c,i);finish(death,noDraws);
-	check(death.characters[0].conditions[13]==2 && death.characters[0].currentHp==50 && death.characters[0].conditions[8]==1 && noDraws.position()==0,"Stat death precedes Weak replacement and retains HP and Sleep");
+	check(death.characters[0].conditions[13]==2 && death.characters[0].currentHp==50 && death.characters[0].conditions[8]==0 && noDraws.position()==0,"Stat death precedes Weak replacement and retains HP; the block clears Sleep");
 	context.minutes=1250;XeenConditionTimeCandidate dusk(context,10,c,i);finish(dusk,noDraws);check(dusk.context.minutes==1260,"Dusk is playable");
 	std::vector<std::uint8_t> chr(30*354);chr[313]=7;chr[314]=2;chr[315]=9;chr[316]=3;
 	check(!XeenCharacterFormat::parseCombatInputs(chr,0,true).resistances,"Legacy optional absence");

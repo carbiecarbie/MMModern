@@ -183,6 +183,15 @@ gameplay playback sites and CD rules follow in Parts A2 and B:
   count, so weakness passes unless the character is drunk; ScummVM adds Drunk
   to Weak and clears Weak on Rest, a documented workaround.
   [Evidence](original-quirks.md#sv-condition-modifiers). Master: differs.
+- **Confusion, sleep and paralysis every eight hours.** The original clears
+  them for every character each time eight hours pass; ScummVM leaves them to
+  their gradual recovery. [Evidence](original-quirks.md#sv-eight-hour-clear).
+  Pin: differs; master not rechecked.
+- **Condition counters at 255.** The original keeps each condition count in a
+  byte, so long-lasting Insanity, heartbreak or love wraps to zero and death
+  counts stop at 255; ScummVM counts past 255 until the game is saved.
+  [Evidence](original-quirks.md#sv-condition-counter-bytes). Pin: differs;
+  master not rechecked.
 
 ## Monsters
 

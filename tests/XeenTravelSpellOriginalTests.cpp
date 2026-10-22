@@ -332,8 +332,11 @@ void shelterOrder(Inputs &in) {
     auto partition=source(in,66);partition.characters[partition.activeRosterIds[1]].conditions[11]=2;
     Fixture single(in,partition);wire(single);cast(single,false);
     for(unsigned n=0;!XeenRestTestAccess::complete(*single.flow);++n){check(n<1500,"Shelter partition did not finish");tick(single);}
-    // Reference-only per-call recovery: one Paralysis gate, then one dream draw.
-    check(single.w.sessionState().journeyRandom()->count==partition.journey->random->count+2,
+    // The single call's eight-hour block clears Paralysis before the per-call
+    // recovery (DOS 0x253fb..0x25424), so only the dream draws; a partitioned
+    // Shelter would draw Paralysis gates before reaching the boundary.
+    check(single.w.sessionState().journeyRandom()->count==partition.journey->random->count+1 &&
+        !single.p.roster.at(partition.activeRosterIds[1]).conditions[11],
         "Shelter partitioned 480 minutes into multiple changeTime calls");
     scenario="Shelter cloud arrival after Levitate";
     s=source(in,66);s.journey->context->effects[XeenPartyEffect::Levitate]=1;
