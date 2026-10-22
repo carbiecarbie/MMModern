@@ -2,7 +2,7 @@
 #include "XeenTrainingTestSupport.h"
 #include "games/xeen/XeenEntranceScene.h"
 #include "games/xeen/XeenStateEquality.h"
-#include "formats/xeen/XeenVocDuration.h"
+#include "formats/xeen/XeenVoc.h"
 #include <iostream>
 #include <map>
 
@@ -216,8 +216,8 @@ void original(training_test::Inputs &in,XeenCamera camera,unsigned action,bool k
     check(f.w.sessionState().journeyRandom()->count>rng.count,"Scene did not consume gameplay RNG");
     if(!efx)check(samples.empty() && captions>0,"Efx-off entrance resolved samples or omitted caption");
     if(efx && action==11 && !keyed) {
-        check(samples==std::vector<std::pair<std::string,std::uint64_t>>{{"sphinx13.voc",2668524000ULL},{"sphinx14.voc",1275068000ULL}},
-            "Sphinx refusal must retain the damaged-descriptor sample's full PCM duration");
+        check(samples==std::vector<std::pair<std::string,std::uint64_t>>{{"sphinx13.voc",(39245ULL-10+1)*68000},{"sphinx14.voc",(18753ULL-10+1)*68000}},
+            "Sphinx refusal must retain the damaged-descriptor sample's driver-count duration");
         check(f.now>=3943,"Sphinx refusal skipped a speech phase");
     }
     if(hurt) {

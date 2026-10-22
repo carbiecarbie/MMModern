@@ -1,5 +1,5 @@
 #include "XeenTestInstallation.h"
-#include "formats/xeen/XeenVocDuration.h"
+#include "formats/xeen/XeenVoc.h"
 #include "XeenTrainingTestSupport.h"
 #include "XeenMonsterTestAccess.h"
 #include "XeenM42Evidence.h"

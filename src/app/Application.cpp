@@ -3,7 +3,7 @@
 #include "app/XeenTitleFlow.h"
 #include "formats/xeen/XeenCharacterFormat.h"
 #include "app/XeenGameplayServices.h"
-#include "formats/xeen/XeenVocDuration.h"
+#include "formats/xeen/XeenVoc.h"
 #include "platform/XeenSaveFile.h"
 #include <chrono>
 #include <random>

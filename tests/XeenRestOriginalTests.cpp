@@ -1,5 +1,5 @@
 #include "XeenTestInstallation.h"
-#include "formats/xeen/XeenVocDuration.h"
+#include "formats/xeen/XeenVoc.h"
 #include "XeenTrainingTestSupport.h"
 #include "platform/sdl/XeenMainScreenInput.h"
 #include "games/xeen/XeenEventTrigger.h"
@@ -751,7 +751,7 @@ void rolloverAndDream(Inputs &in,bool efx=true) {
    ++intervals;
    const auto now=PresentationClock::fromMilliseconds(dream.now);
    const auto expected=stage==D::BeforeDreams || stage==D::AfterLaff?PresentationClock::after(now,7):
-    PresentationClock::checkedAdd(now,efx?(stage==D::Dreams?1664504000ULL:1966764000ULL):0);
+    PresentationClock::checkedAdd(now,efx?(stage==D::Dreams?(24480ULL-10+1)*68000:(28925ULL-10+1)*68000):0);
    check(deadline==expected,"Dream single-reset seven ticks or exact sequential VOC duration");
   }
   // A repaint is not another original palette write, and the deadline is a

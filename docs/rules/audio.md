@@ -485,10 +485,15 @@ therefore does not affect this driver.
 
 **Timing conflict, high confidence for the programmed counts:** the first
 block's low length word minus 10 is the count written to DMA and DSP
-(`0x21a..0x220`, `0x336..0x34c`). It is not the PCM payload length used by
-`xeenVocDurationNanoseconds`.
+(`0x21a..0x220`, `0x336..0x34c`). It is not the header PCM payload length.
+`XeenVoc.h` uses the low word minus 10 modulo 65536, plus one sample, for
+both owned unsigned 8-bit mono PCM and `xeenVocDurationNanoseconds`.
+**Maintainer decision, 2026-10-22:** a resource shorter than offset `0x20`
+plus its programmed count-plus-one transfer is a hard error. No audited
+Clouds sample hits this case; a corrupt installation fails clearly rather
+than padding, truncating or inventing PCM.
 
-| Clouds resource | Header PCM bytes | Programmed unsplit count | Existing header duration |
+| Clouds resource | Header PCM bytes | Programmed unsplit count | Former header duration |
 | --- | --- | --- | --- |
 | `sphinx13.voc` | 39243 | 39235 | 2.668524 s |
 | `sphinx14.voc` | 18751 | 18743 | 1.275068 s |
@@ -503,8 +508,27 @@ correction as a claim about every DOS allocation. **Maintainer decision,
 the allocation-dependent sub-millisecond difference is an
 [approved approximation](../original-quirks.md#dev-prosnd-dma-timing), with
 no further split investigation. Existing captures do not establish
-sub-millisecond agreement. Existing header waits and tests change in Part A,
-including investigation of any M44 digest effect; Part 0 changes no code.
+sub-millisecond agreement. MMModern's logical duration is exactly
+`(uint16(lengthWord - 10) + 1) * 68000` ns. Sphinx 13/14 therefore use
+2.668048/1.274592 seconds, respectively. All timing callers use this rule;
+M44 digests remain approval gates.
+
+`XeenAudio` owns the digital logical deadline on the presentation clock and
+mixes one owned PCM voice with FM at the device rate. Its digital command
+slot retains only the latest start or stop, separately from the FM queue and
+fade barrier. The VOC resampler uses exact rational zero-order hold at
+`1000000/68` Hz; the FM resampler uses 49716 Hz. Decoding and reads precede
+publication. Commands are taken before every mix block of at most 128
+output frames; stop/replacement discards the old voice without a converted
+tail. Closing
+the SDL device joins its callback before the owner's PCM, queues and
+resamplers are destroyed. Playback cursors never answer logical busy.
+Digital commands use their exact action timestamp even when it lags the
+latest presentation advance: logical time is `elapsed - (last - now)`,
+checked against underflow. Only future commands advance the clock
+(maintainer, 2026-10-22). The FM conversion stream is prepared through the
+SDL platform interface before the device callback starts; creation failure
+keeps output silent. Live mix-rate changes are deferred to M83 Part C.
 See the [driver quirk](../original-quirks.md#sv-prosnd-fixed-layout).
 
 **DOS resource audit, high (2026-10-22):** all 36 distinct VOC names

@@ -90,8 +90,8 @@ Do not investigate allocation-dependent DMA page splits further; their
 sub-millisecond difference is an [approved timing approximation](original-quirks.md#dev-prosnd-dma-timing).
 Audit all samples loaded during Clouds play for non-type-1 first blocks,
 length-word overflow or additional blocks, and report exceptions before
-choosing their behavior. Changes to `XeenVocDuration.h`, header-duration
-tests and any M44 digest effect belong to Part A, not Part 0.
+choosing their behavior. The implemented `XeenVoc.h` decoder, driver-count
+duration tests and any M44 digest effect belong to Part A, not Part 0.
 
 **CD timing decisions (maintainer, 2026-10-22):** Part B reproduces failed
 starts in the installed DOSBox Staging: if the absolute request begins
@@ -127,6 +127,10 @@ audio capture is claimed.
   never depend on FM being enabled. Requests own their payloads and never
   borrow Flow objects. The callback mixes at the device rate, with one
   resampler per source (FM 49716 Hz, VOC fixed time constant 188, CD 44100 Hz).
+  Create the FM conversion stream through `platform/sdl` while the newly
+  opened device is paused; creation failure leaves output silent and the
+  game running. A1 fixes the mix rate for that output lifetime. Part C owns
+  rate changes during play, resampler recreation and voice-position continuity.
   File reads and decoding stay out of the callback; Part A specifies the
   buffering, callback shutdown and recovery.
 - **Logical state on the presentation clock.** The interpreter retains its
@@ -138,8 +142,12 @@ audio capture is claimed.
   never the device: traces, RNG and saves are identical with and without
   one. Playback that survives a title/session handoff rebases its deadline
   by its remaining duration; stopped playback is cancelled explicitly.
+  Digital commands use the exact action moment, including a timestamp behind
+  the latest presentation advance: `elapsed - (last - now)`, checked against
+  underflow. Only a future command advances the audio clock (maintainer,
+  2026-10-22).
   Opcode 60 keeps retaining operands; invocation starts playback.
-- **Own sample decoder.** `XeenVocDuration.h` grows into a decoder producing
+- **Own sample decoder.** `XeenVoc.h` implements a decoder producing
   unsigned 8-bit mono PCM using the fixed `prosnd` layout and count above,
   including the damaged `sphinx13.voc` descriptor ScummVM rejects.
 - **CD tracks from the GOG cue sheets.** The installation reader maps both

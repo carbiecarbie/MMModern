@@ -1,6 +1,6 @@
 #include "XeenTestInstallation.h"
 #include "XeenPurchaseTestSupport.h"
-#include "formats/xeen/XeenVocDuration.h"
+#include "formats/xeen/XeenVoc.h"
 #include "games/xeen/XeenFoodBank.h"
 #include <fstream>
 #include <iostream>

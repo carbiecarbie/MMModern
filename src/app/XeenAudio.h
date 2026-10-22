@@ -31,6 +31,17 @@ public:
  using EffectSink=std::function<void(unsigned)>;
  void effectSink(EffectSink);
  void weaponEffect(unsigned weapon,std::uint64_t now);
+ // prosnd wrapper: replacement, no queue. Efx off masks all three commands
+ // without stopping a voice already playing. PCM is decoded before publication.
+ void startDigital(const std::string &,XeenSceneArchive,std::uint64_t now);
+ void stopDigital(std::uint64_t now);
+ bool digitalBusy(std::uint64_t now) const;
+ // Called before output starts, automatically for a device. False keeps
+ // silence. The rate stays fixed for this output lifetime (Part C handles changes).
+ bool prepareRender(int deviceRate);
+ // Single consumer: device callback, or a prepared device-free renderer. Never
+ // call concurrently with the device. Logical busy never consults this path.
+ void render(std::int16_t *stereo,std::size_t frames,int deviceRate);
  void observeOptions(XeenSoundOptions);
  void toggleMusic(bool on,std::uint64_t now);
  void advance(std::uint64_t now,std::uint64_t cdSpeechEnd=0);

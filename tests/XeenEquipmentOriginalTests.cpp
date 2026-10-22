@@ -3,7 +3,7 @@
 // explicitly artificial arrangement of items level-2 generation can produce.
 #include "XeenTestInstallation.h"
 #include "XeenPurchaseTestSupport.h"
-#include "formats/xeen/XeenVocDuration.h"
+#include "formats/xeen/XeenVoc.h"
 #include "games/xeen/XeenCombatRules.h"
 #include "games/xeen/XeenCharacterRules.h"
 #include "games/xeen/XeenJourneyRules.h"

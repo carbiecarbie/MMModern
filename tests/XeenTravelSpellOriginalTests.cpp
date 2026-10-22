@@ -1,6 +1,6 @@
 #include "XeenTrainingTestSupport.h"
 #include "XeenTestInstallation.h"
-#include "formats/xeen/XeenVocDuration.h"
+#include "formats/xeen/XeenVoc.h"
 #include "games/xeen/XeenJumpRules.h"
 #include <iostream>
 #include <sstream>

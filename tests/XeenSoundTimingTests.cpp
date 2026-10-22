@@ -1,50 +1,67 @@
-#include "formats/xeen/XeenVocDuration.h"
+#include "formats/xeen/XeenVoc.h"
 #include "games/xeen/XeenCdSpeechTiming.h"
+#include "formats/xeen/XeenAssetSource.h"
+#include "XeenTestInstallation.h"
+#include <algorithm>
 #include <iostream>
 
 using namespace mmodern;
 namespace {
 void check(bool value,const char *message) {if(!value)throw std::runtime_error(message);}
-std::vector<std::uint8_t> sample(unsigned count,unsigned constant=188) {
-    const std::string signature="Creative Voice File\x1a";
-    std::vector<std::uint8_t> bytes(signature.begin(),signature.end());
-    bytes.resize(26);bytes[20]=26;
-    bytes.push_back(1);
-    const auto length=count+2;
-    for(unsigned n=0;n<3;++n)bytes.push_back(length>>(8*n));
-    bytes.push_back(constant);bytes.push_back(0);
-    bytes.resize(bytes.size()+count,128);bytes.push_back(0);
+std::vector<std::uint8_t> sample(unsigned word,unsigned pcmBytes) {
+    // Independently specify the driver's length word and available bytes.
+    std::vector<std::uint8_t> bytes(0x20+pcmBytes,128);
+    bytes[0x1b]=word;bytes[0x1c]=word>>8;
     return bytes;
 }
 }
-int main() {try {
+int main(int argc,char **argv) {try {
     check(xeenCdSpeechDurationNanoseconds({0,0,0})==0,"All-zero CD request must be a no-op");
     check(xeenCdSpeechDurationNanoseconds({19,30,310})==3066666667ULL,"CD final digits are frames with 25-sector preroll");
     check(xeenCdSpeechDurationNanoseconds({19,370,2161})==18213333334ULL,"Gunther CD requested duration");
     check(xeenCdSpeechDurationNanoseconds({6,1118,1574})==5080000000ULL,"MMSSFF short carrier subrange");
-    check(xeenVocDurationNanoseconds(sample(24478))==1664504000ULL,"dreams2 header duration");
-    check(xeenVocDurationNanoseconds(sample(28923))==1966764000ULL,"laff1 header duration");
-    check(xeenVocDurationNanoseconds(sample(33173))==2255764000ULL,"Clouds laughter header duration");
-    check(xeenVocDurationNanoseconds(sample(14848))==1009664000ULL,"Tavern goodbye header duration");
-    check(xeenVocDurationNanoseconds(sample(7,156))==700000ULL,"Header rate was replaced by fixed rate");
-    auto continued=sample(2);continued.pop_back();
-    continued.insert(continued.end(),{2,3,0,0,128,128,128,3,3,0,0,1,0,188,0});
-    check(xeenVocDurationNanoseconds(continued)==7*68000ULL,"PCM continuation/silence timing");
-    auto damagedDescriptor=sample(2);
-    std::fill_n(damagedDescriptor.begin(),20,0);
-    check(xeenVocDurationNanoseconds(damagedDescriptor)==2*68000ULL,"Descriptor text must not gate valid PCM timing");
-    for(unsigned fault=0;fault<7;++fault) {
-        auto broken=sample(2);
-        std::fill_n(broken.begin(),20,0);
-        if(fault==0)broken.resize(25);
-        if(fault==1)broken[20]=255;
-        if(fault==2)broken[31]=1;
-        if(fault==3)broken.pop_back();
-        if(fault==4)broken[27]=255;
-        if(fault==5)broken[20]=25;
-        if(fault==6)broken[26]=2; // Continuation before any rate is established.
-        bool rejected=false;try{(void)xeenVocDurationNanoseconds(broken);}catch(const std::invalid_argument &){rejected=true;}
-        check(rejected,"Malformed or unsupported VOC accepted");
+    check(xeenVocDurationNanoseconds(sample(24480,24478))==24471*68000ULL,"dreams2 driver duration");
+    check(xeenVocDurationNanoseconds(sample(28925,28923))==28916*68000ULL,"laff1 driver duration");
+    check(xeenVocDurationNanoseconds(sample(33175,33173))==33166*68000ULL,"Clouds laughter driver duration");
+    check(xeenVocDurationNanoseconds(sample(14850,14848))==14841*68000ULL,"Tavern goodbye driver duration");
+    auto fixed=sample(13,12); // Programmed count 3, plays four samples.
+    fixed[0x20]=0;fixed[0x21]=127;fixed[0x22]=128;fixed[0x23]=255;
+    for(unsigned constant:{120,156,172,173,181,188}) {
+        fixed[30]=constant;fixed[31]=99;fixed[20]=255;fixed[26]=9;fixed[29]=255;
+        check(xeenVocDurationNanoseconds(fixed)==272000,"VOC metadata changed fixed timing");
+        auto decoded=decodeXeenVoc(fixed);
+        check(decoded.pcm==std::vector<std::uint8_t>({0,127,128,255}),"PCM offset/count or unsigned bytes changed");
+        check(decoded.durationNanoseconds()==272000,"Decoded and logical durations differ");
     }
-    std::cout<<"Silent sample timing passed\n";return 0;
+    check(decodeXeenVoc(sample(10,1)).pcm.size()==1,"Count zero still transfers one sample");
+    check(decodeXeenVoc(sample(9,65536)).pcm.size()==65536,"Length subtraction must wrap as a 16-bit word");
+    for(unsigned fault=0;fault<3;++fault) {
+        auto broken=sample(13,4);
+        if(fault==0)broken.resize(31);
+        if(fault==1)broken.pop_back();
+        if(fault==2)broken[0x1b]=14;
+        bool rejected=false;try{(void)xeenVocDurationNanoseconds(broken);}catch(const std::invalid_argument &){rejected=true;}
+        check(rejected,"Truncated prosnd layout accepted");
+        rejected=false;try{(void)decodeXeenVoc(broken);}catch(const std::invalid_argument &){rejected=true;}
+        check(rejected,"Decoder accepted truncated prosnd layout");
+    }
+    if(argc==2) {
+        const auto installation=xeenTestInstallationDetector().detect(std::filesystem::u8path(argv[1]));
+        check(bool(installation),"No original installation");XeenAssetSource assets(*installation);
+        for(const auto &entry:std::vector<std::pair<const char *,unsigned>>{
+            {"sphinx13.voc",188},{"blob.voc",120},{"boom1.voc",181},{"roc.voc",172},{"snakeman.voc",173}}) {
+            const auto bytes=assets.readArchiveResource(entry.first,XeenSceneArchive::Clouds);
+            check(bytes.at(30)==entry.second,"Original header rate differs from audited resource");
+            const auto decoded=decodeXeenVoc(bytes);
+            const unsigned word=unsigned(bytes.at(27))+256*unsigned(bytes.at(28));
+            check(word>=10 && decoded.pcm.size()==word-9,"Original transfer count differs");
+            check(decoded.durationNanoseconds()==(word-9)*68000ULL,"Original fixed-rate duration differs");
+            check(std::equal(decoded.pcm.begin(),decoded.pcm.end(),bytes.begin()+32),"Original PCM offset differs");
+            if(std::string(entry.first)=="sphinx13.voc") {
+                check(word==39245 && decoded.pcm.size()==39236,"Sphinx independently audited count differs");
+                check(!std::equal(bytes.begin(),bytes.begin()+8,"Creative"),"Sphinx damaged descriptor was repaired");
+            }
+        }
+    }
+    std::cout<<"Digital decoder and timing passed\n";return 0;
 }catch(const std::exception &error){std::cerr<<error.what()<<'\n';return 1;}}

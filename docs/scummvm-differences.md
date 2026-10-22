@@ -26,8 +26,8 @@ unchanged apart from its version number, so the earlier entries are marked
 "master: differs". MMModern currently plays Vertigo and the surrounding
 mainland; many items apply there, others wait for areas not open yet.
 
-M83's digital and CD playback rules apply in Parts A and B; current
-silent sample intervals still use VOC headers:
+M83's digital decoder and logical timing use the installed driver rules;
+gameplay playback sites and CD rules follow in Parts A2 and B:
 
 - **Fixed sample layout and rate.** The installed CD driver
   [ignores VOC blocks and header rates](original-quirks.md#sv-prosnd-fixed-layout).
@@ -35,7 +35,8 @@ silent sample intervals still use VOC headers:
 - **Approved timing approximation.** The maintainer adopted
   [unsplit driver-count timing](original-quirks.md#dev-prosnd-dma-timing),
   omitting the sub-millisecond effect of DOS allocation-dependent DMA splits.
-  The pin instead follows VOC header durations. Not yet implemented;
+  MMModern uses this timing; the pin instead follows VOC header durations.
+  Pin: differs;
   master not rechecked.
 - **Refused CD starts.** A request beginning in the data track plays
   nothing and starts no speech wait; the approved fallback shows its text.

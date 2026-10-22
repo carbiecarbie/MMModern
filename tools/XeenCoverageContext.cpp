@@ -3,7 +3,7 @@
 #include "app/XeenEventFlow.h"
 #include "platform/XeenSaveFile.h"
 #include "formats/xeen/XeenMapFormat.h"
-#include "formats/xeen/XeenVocDuration.h"
+#include "formats/xeen/XeenVoc.h"
 #include "games/xeen/XeenPartyLoader.h"
 #include "formats/xeen/XeenCharacterFormat.h"
 #include "formats/xeen/XeenGameplayContextFormat.h"

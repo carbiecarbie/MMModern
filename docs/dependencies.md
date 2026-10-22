@@ -116,8 +116,9 @@ writes, as its `OPL::writeReg` uses; see
 define is supplied; the header's default is zero. MMModern's promus interpreter
 places interrupts using the exact ratio `49716 * 16390 / 1193182`. The SDL
 device opens at the default output's mix rate (`SDL_GetDefaultAudioInfo`,
-48000 when unreported) with no allowed changes, so the only resampler is
-MMModern's `SDL_AudioStream` from 49716 Hz; letting SDL accept 49716 made its
+48000 when unreported) with no allowed changes. `XeenAudio` mixes FM through
+an `SDL_AudioStream` from 49716 Hz and unsigned mono VOC through an independent
+exact rational resampler from `1000000/68` Hz; letting SDL accept 49716 made its
 WASAPI path resample internally and drop ~9 ms blocks. A later switch of the
 Windows default output to another rate falls back to SDL's internal resampling
 for that session. A timeline interpreter advances by an exact integer

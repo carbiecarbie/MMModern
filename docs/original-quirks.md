@@ -486,7 +486,7 @@ agrees with the no-local-input-poll path at DAT `0x1e605..0x1e72a`; the video
 has no input overlay, so it does not timestamp the press or settle later queued
 input. [Capture measurements](rules/evidence.md#presentation-clock-captures-2026-10-13)
 support standard BIOS and approximately 70 Hz retrace timing. Updated recordings
-include the sequential dream samples at their header durations; a common A/V
+include the sequential dream samples at their driver-count durations; a common A/V
 displacement must not be added to the emulated silent holds.
 `XeenRestFlow` preserves that no-skip path and defers gameplay input until the
 original post-dream poll.
@@ -731,9 +731,10 @@ the descriptor text; follow DOS (maintainer, 2026-10-20). The capture does
 not resolve its final few samples; the [driver-count evidence](#sv-prosnd-fixed-layout)
 qualifies the earlier assumption that its exact length equals the header.
 
-`xeenVocDurationNanoseconds` ignores descriptor text while retaining its
-minimum-size, data-offset, block-type, length, codec, rate-continuity and
-terminator checks. No resource-name exception or invented duration is used.
+`XeenVoc.h` decodes and times the fixed `prosnd` layout without descriptor,
+data-offset, block-type, codec, header-rate or terminator checks. It rejects
+resources shorter than the fixed PCM offset plus the adopted transfer length.
+No resource-name exception or invented duration is used.
 **ScummVM:** pinned `6814ee9b`, `Audio::checkVOCHeader`, requires `Creative`
 at bytes 0..7 and rejects this sample, skipping its speech interval. Master
 not rechecked.
@@ -751,9 +752,8 @@ give the calibrated identity, count comparison and limits.
 
 **ScummVM:** pin `6814ee9b` uses `Audio::makeVOCStream` in
 `MM::Shared::Xeen::Sound::playVoice`; its VOC decoder parses blocks and
-header rates. Master not rechecked. **Implementation boundary:** MMModern
-still uses header-derived silent intervals; the maintainer adopted the
-driver-count model for M83 Part A on 2026-10-22, as qualified below.
+header rates. Master not rechecked. MMModern uses the driver-count model
+adopted for M83 Part A on 2026-10-22, as qualified below.
 
 <a id="dev-prosnd-dma-timing"></a>
 ### Digital timing uses the unsplit driver transfer count

@@ -1,5 +1,5 @@
 #include "XeenTestInstallation.h"
-#include "formats/xeen/XeenVocDuration.h"
+#include "formats/xeen/XeenVoc.h"
 #include "XeenTrainingTestSupport.h"
 #include "games/xeen/XeenRestoreGuard.h"
 #include <array>
@@ -425,7 +425,7 @@ void originalJourney(Inputs &in) {
     walk(v,tavern.x,tavern.y);face(v,tavern.direction);const auto gold=v.p.purse->gold;
     v.open();v.food(true);check(v.p.food==90 && v.p.purse->gold==gold,"New Game full packs charged");v.leave();
     // Economic fixtures intentionally have no shop sound provider. This original
-    // route supplies the actual VOC headers for the complete Rest sequence.
+    // route supplies the original driver counts for the complete Rest sequence.
     v.flow->loadSampleDuration=[&](const char *name,XeenSceneArchive archive){return xeenVocDurationNanoseconds(in.assets.readArchiveResource(name,archive));};
     v.act(RestAction{});settle(v);v.flow->loadSampleDuration={};check(v.p.food<90,"Original Rest did not consume food");
     const auto refillGold=v.p.purse->gold;v.open();v.food(true);

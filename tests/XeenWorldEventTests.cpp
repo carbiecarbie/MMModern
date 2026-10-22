@@ -1,6 +1,6 @@
 #include "games/xeen/XeenEventValues.h"
 #include "XeenTestInstallation.h"
-#include "formats/xeen/XeenVocDuration.h"
+#include "formats/xeen/XeenVoc.h"
 #include "XeenTrainingTestSupport.h"
 #include "games/xeen/XeenIndoorScene.h"
 #include "games/xeen/XeenObjectVisual.h"
@@ -35,7 +35,7 @@ struct Fixture : training_test::Fixture {
   training_test::Fixture(in,source,animated,city,{},{},[&in](auto &f,auto portrait,auto phase){in.assets.drawNpc(f,portrait,phase);}) {
   flow->loadRestDream=[&in]{return in.assets.restDreamImage();};
   // These mechanics fixtures intentionally leave shop samples unavailable;
-  // original Rest sequences use their actual archive/header durations.
+  // original Rest sequences use their original driver-count durations.
   flow->loadSampleDuration=[&in](const char *name,XeenSceneArchive archive)->std::uint64_t {
    if(std::string(name)!="dreams2.voc" && std::string(name)!="laff1.voc")return 0;
    return xeenVocDurationNanoseconds(in.assets.readArchiveResource(name,archive));

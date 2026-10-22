@@ -1,13 +1,16 @@
 #include "app/XeenAudio.h"
 #include "app/XeenFmSource.h"
 #include "platform/sdl/SdlAudioDevice.h"
+#include "platform/sdl/SdlAudioStream.h"
 #include "formats/xeen/XeenAssetSource.h"
 #include "formats/xeen/XeenDosText.h"
+#include "formats/xeen/XeenVoc.h"
 #include "games/xeen/XeenMap.h"
 #include "core/PresentationClock.h"
 #include <algorithm>
 #include <iostream>
 #include <stdexcept>
+#include <mutex>
 namespace mmodern {
 namespace {
 PromusDriver::Bytes bytes(std::vector<std::uint8_t> b){return std::make_shared<const std::vector<std::uint8_t>>(std::move(b));}
@@ -31,6 +34,15 @@ struct XeenAudio::Impl {
  struct Song {std::string name;XeenSceneArchive archive;unsigned fade;};
  std::optional<Song> pending,afterTitle;bool titleExit=false;
  std::uint64_t sample=0,phase=0;
+ std::uint64_t digitalEnd=0; // Elapsed presentation time, survives clock rebases.
+ // Producer publishes only the latest digital command. Each request owns its
+ // decoded PCM; the consumer retains its own reference until stop/replacement.
+ std::mutex digitalMutex;bool digitalChanged=false;
+ std::shared_ptr<const XeenVocSample> digitalRequest;
+ std::shared_ptr<const XeenVocSample> digitalVoice;
+ std::uint64_t digitalPhase=0;
+ std::unique_ptr<SdlAudioStream> fmStream;
+ int mixRate=0;
  // Last member: close/join the callback before its driver, chip and queue die.
  std::unique_ptr<SdlAudioDevice> device;
  Impl(unsigned i,PromusDriver::Bytes resource,Loader l,std::vector<std::uint8_t> module,std::uint64_t n,bool deviceOutput,PromusDriver::Sink trace,std::shared_ptr<XeenFmSource> source):id(i),loader(std::move(l)),last(n),output(source?source:std::make_shared<XeenFmSource>()),retainOutput(bool(source)) {
@@ -41,8 +53,68 @@ struct XeenAudio::Impl {
    clockDriver=std::make_unique<PromusDriver>(resource,std::move(trace));
   }else if(id>=1 && id<=9)std::cerr<<"Music device "<<id<<": not supported yet\n";
   output->initialize(id==3?resource:PromusDriver::Bytes{});
-  device=std::make_unique<SdlAudioDevice>([this](auto *out,auto frames){output->pull(out,frames);},deviceOutput);
+  device=std::make_unique<SdlAudioDevice>([this](auto *out,auto frames,int rate){render(out,frames,rate);},deviceOutput,
+   [this](int rate){return prepareRender(rate);});
   retainOutput=retainOutput||device->active();
+ }
+ std::uint64_t logicalNow(std::uint64_t now) const {
+  if(now<last) {
+   if(last-now>elapsed)throw std::underflow_error("Audio action predates presentation clock origin");
+   return elapsed-(last-now);
+  }
+  return PresentationClock::checkedAdd(elapsed,now-last);
+ }
+ std::uint64_t digitalTime(std::uint64_t now) {
+  const auto time=logicalNow(now);
+  if(now>last)advanceClock(now);
+  return time;
+ }
+ void publishDigital(std::shared_ptr<const XeenVocSample> pcm) {
+  std::shared_ptr<const XeenVocSample> retired;
+  {
+   std::lock_guard<std::mutex> lock(digitalMutex);
+   retired=std::move(digitalRequest);digitalRequest=std::move(pcm);digitalChanged=true;
+  }
+ }
+ bool prepareRender(int rate) {
+  if(rate<=0)return false;
+  if(mixRate)return mixRate==rate;
+  auto stream=std::make_unique<SdlAudioStream>(49716,rate);
+  if(!stream->valid())return false;
+  fmStream=std::move(stream);mixRate=rate;return true;
+ }
+ void render(std::int16_t *stereo,std::size_t frames,int rate) {
+  if(!fmStream || rate!=mixRate)throw std::logic_error("Audio mix rate was not prepared");
+  // Bound request latency within a large callback as well as between callbacks.
+  // Only FM uses XeenFmSource's queue/barrier; digital never enters that queue.
+  for(std::size_t offset=0;offset<frames;) {
+   const auto count=std::min<std::size_t>(128,frames-offset);
+   auto *out=stereo+offset*2;
+   fmStream->pull([this](auto *pcm,auto count){output->pull(pcm,count);},out,count);
+   std::shared_ptr<const XeenVocSample> retired;
+   {
+    std::lock_guard<std::mutex> lock(digitalMutex);
+    if(digitalChanged){retired=std::move(digitalVoice);digitalVoice=std::move(digitalRequest);digitalChanged=false;digitalPhase=0;}
+   }
+   retired.reset(); // Release potentially large PCM only after unlocking.
+   // Exact rational zero-order hold at 1000000/68 Hz. Do not round the source
+   // rate to an integer Hz or prebuffer converted VOC: stop/replacement must
+   // discard the previous voice at the next mix block, including its tail.
+   const auto denominator=68ULL*rate;
+   for(std::size_t f=0;f<count;++f) {
+    int digital=0;
+    if(digitalVoice) {
+     const auto index=digitalPhase/denominator;
+     if(index<digitalVoice->pcm.size()) {
+      digital=(int(digitalVoice->pcm[index])-128)*256;digitalPhase+=1000000;
+     }else digitalVoice.reset();
+    }
+    // Part B adds the independently resampled CD stream here, before clipping.
+    for(unsigned channel=0;channel<2;++channel)
+     out[f*2+channel]=std::clamp(int(out[f*2+channel])+digital,-32768,32767);
+   }
+   offset+=count;
+  }
  }
  void command(unsigned command) {if(clockDriver)clockDriver->command(command);if(retainOutput)output->command(command);}
  void loadBuffer(bool play) {if(clockDriver)clockDriver->load(buffer,play);if(retainOutput)output->load(buffer,play);}
@@ -60,15 +132,18 @@ struct XeenAudio::Impl {
   if(titleExit){afterTitle=std::move(song);return;}
   command(song.fade);pending=std::move(song);
  }
- void advance(std::uint64_t now,std::uint64_t cdEnd) {
+ void advanceClock(std::uint64_t now) {
   if(now<last)throw std::logic_error("Audio presentation clock moved backwards");
-  elapsed=PresentationClock::checkedAdd(elapsed,now-last);last=now;speechEnd=cdEnd;device->check();output->check();
+  elapsed=logicalNow(now);last=now;
   const auto target=nativeSample(elapsed),threshold=PromusDriver::rate*PromusDriver::divisor;
   while(sample<target) {
    const auto count=std::min(target-sample,(threshold-phase+PromusDriver::pit-1)/PromusDriver::pit);
    sample+=count;phase+=count*PromusDriver::pit;
    if(phase>=threshold){phase-=threshold;if(clockDriver)clockDriver->tick();}
   }
+ }
+ void advance(std::uint64_t now,std::uint64_t cdEnd) {
+  advanceClock(now);speechEnd=cdEnd;device->check();output->check();
   if(pending && (!clockDriver || !clockDriver->fadeSpeed()) && now>=speechEnd) {
    // Read first: a missing song stays pending and fails every later advance,
    // so the main loop reports it even when an effect's advance swallowed it.
@@ -123,6 +198,24 @@ void XeenAudio::effect(unsigned id,std::uint64_t now) {
 }
 void XeenAudio::effectSink(EffectSink sink) {_impl->effectSink=std::move(sink);}
 void XeenAudio::weaponEffect(unsigned weapon,std::uint64_t now) {effect(_impl->weaponEffects.at(weapon),now);}
+void XeenAudio::startDigital(const std::string &name,XeenSceneArchive archive,std::uint64_t now) {
+ auto &s=*_impl;
+ if(!s.options.efx)return;
+ const auto actionTime=s.digitalTime(now);
+ auto pcm=std::make_shared<const XeenVocSample>(decodeXeenVoc(s.loader(name,archive)));
+ const auto end=PresentationClock::checkedAdd(actionTime,pcm->durationNanoseconds());
+ s.digitalEnd=end;s.publishDigital(std::move(pcm));
+}
+void XeenAudio::stopDigital(std::uint64_t now) {
+ auto &s=*_impl;
+ if(!s.options.efx)return;
+ s.digitalTime(now);s.digitalEnd=0;s.publishDigital({});
+}
+bool XeenAudio::digitalBusy(std::uint64_t now) const {
+ const auto &s=*_impl;return s.options.efx && s.logicalNow(now)<s.digitalEnd;
+}
+void XeenAudio::render(std::int16_t *out,std::size_t frames,int rate) {_impl->render(out,frames,rate);}
+bool XeenAudio::prepareRender(int rate) {return _impl->prepareRender(rate);}
 void XeenAudio::observeOptions(XeenSoundOptions value) {_impl->options=value;}
 void XeenAudio::toggleMusic(bool on,std::uint64_t now) {
  advance(now,_impl->speechEnd);_impl->options.music=on;
