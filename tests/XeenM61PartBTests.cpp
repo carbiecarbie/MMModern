@@ -67,6 +67,7 @@ void effects(Inputs &in) {
         auto s=source(in,power,indoor,charges);auto &target=s.characters[s.activeRosterIds[1]];
         target.currentHp=1;target.conditions[2]=3;target.conditions[3]=2;target.conditions[8]=1;
         Fixture f(in,s);const auto rng=f.w.sessionState().journeyRandom();const auto context=*f.p.encounterContext;
+        XeenCombatRandom expected(*rng);if(power==6)while(!expected.draw(2,6)){}
         open(f,mouse);const auto before=f.flow->frame().presentation();const auto input=f.flow->displayedInput();key(f,'u',mouse);
         const bool member=power==4 || power==8 || power==9 || power==37;
         if(member) {
@@ -84,7 +85,7 @@ void effects(Inputs &in) {
         check(*f.p.encounterContext==context || (power==21 && f.p.encounterContext->minutes==context.minutes),"Item charged time/counter");
         check(f.p.encounterContext->minutes==context.minutes && f.p.encounterContext->ctr24==23,"Item charged indoor/outdoor time");
         check(f.flow->encounter()->result().movementOpportunities==1 && !f.flow->encounter()->state().pending(),"Item response was not exactly one");
-        check(f.w.sessionState().journeyRandom()==rng,"Empty/non-damage item drew RNG");
+        check(f.w.sessionState().journeyRandom()==expected.continuation(),"Empty/non-damage item preparation RNG differs");
         check(charges==1?xeenSameItem(c.miscellaneous[0],s.characters[s.activeRosterIds[0]].miscellaneous[1]):c.miscellaneous[0].state==1,"Settlement repeated charge/compaction");
         const auto &t=f.p.roster.at(s.activeRosterIds[1]);
         if(power==2)check(!t.conditions[8],"Awaken retained Sleep");
@@ -180,9 +181,11 @@ void impacts(Inputs &in) {
         if(power==61)for(unsigned n=0;n<count;++n)XeenMonsterTestAccess::setLive(*f.flow,f.w,28,35+n,1,true);
         XeenCombatRandom expected(*f.w.sessionState().journeyRandom());
         const auto &caster=f.p.roster.at(s.activeRosterIds[0]);
+        XeenSpellDamagePreparation preparation(spell,caster.currentLevel());
+        XeenConsequenceDraw preparationDraw{expected};check(preparation.service(preparationDraw),"Item preparation did not settle");
         for(unsigned n=0;n<count;++n) {
             const auto &a=f.w.sessionState().regionalActors(28).at(35+n);
-            XeenSpellDamageCandidate damage(caster.permanentLevel,caster.temporaryLevel,a.statistics->magicResistance(),a.original.resourceId,spell,a.statistics->physicalResistance(),a.status,a.statistics->monsterType(),nullptr,a.hp);
+            XeenSpellDamageCandidate damage(caster.permanentLevel,caster.temporaryLevel,a.statistics->magicResistance(),a.original.resourceId,spell,a.statistics->physicalResistance(),a.status,a.statistics->monsterType(),&preparation,a.hp);
             XeenConsequenceDraw draw{expected};check(damage.service(draw) && damage.damage>0,"Lethal item fixture failed");
         }
         open(f);key(f,'u');quiet(f);

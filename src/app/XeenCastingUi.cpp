@@ -19,8 +19,10 @@ bool XeenEventFlow::beginTravelDialog(XeenLearnedSpell spell,std::uint8_t owner,
     }
     });
     if(rule.failed)return false;
-    if(item && _combatItems && spell==XeenLearnedSpell::TownPortal)
+    if(item && _combatItems && spell==XeenLearnedSpell::TownPortal) {
         ui.refusal=xeenDialogFormat(dosText().scalar("CANT_CAST_WHILE_ENGAGED"),{_encounter->journeySavePreimage().learnedNames->names[unsigned(spell)]});
+        _encounter->fmEffect(21);
+    }
     if(spell==XeenLearnedSpell::LloydsBeacon && !_encounter->initializeBeacon(owner))return false;
     _travelUi=std::move(ui);return true;
 }
@@ -340,6 +342,7 @@ IndexedFrame XeenEventFlow::handleCasting(const PlayerAction &action,std::uint64
         }
         using Q=XeenQuickSpellCheck;const auto admission=XeenLearnedSpellRules::check(c,c.currentSpell,_party.purse->gems,false);
         if(admission!=Q::Supported) {
+             if(admission==Q::InsufficientSp || admission==Q::InsufficientGems)_encounter->fmEffect(21);
             ui.refusal=admission==Q::NoSpell?"":admission==Q::InsufficientSp?"SP":admission==Q::InsufficientGems?"gems":"Spell not supported yet";
             return renderEncounter();
         }

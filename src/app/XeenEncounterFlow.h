@@ -171,6 +171,8 @@ public:
 	std::string playerNotice() const;
 private:
     void fmEffect(unsigned) noexcept;
+    void fmEffectAfterFrame(unsigned id) noexcept {_fmAfterFrame=id;}
+    std::optional<unsigned> _fmAfterFrame;
     void fmStepEffect() noexcept {_program.steppingFx^=1;fmEffect(7+_program.steppingFx);}
     void fmWeaponEffect() noexcept;
     void fmSelectWeapon(unsigned id) noexcept {_program.attackWeaponFx=id;}
@@ -357,6 +359,7 @@ private:
 		std::size_t slot=0;
 		bool exhausted=false,ready=false;
 		bool effectDone=false,failed=false,automaticArrival=false;
+        bool fmRequested=false;
         bool shelterPending=false;
         bool targetPending=false;
         std::optional<std::size_t> targetIndex;
@@ -377,6 +380,7 @@ private:
 		XeenLearnedSpell spell=XeenLearnedSpell::Awaken;
 		std::int16_t originalSp=0;
 		bool committed=false,effectDone=false,failed=false;
+        bool fmRequested=false;
         bool shelterPending=false;
         bool targetPending=false;
         std::optional<std::size_t> targetIndex;

@@ -105,7 +105,10 @@ struct XeenSpellDamagePreparation {
     XeenSpellDamagePreparation(XeenLearnedSpell,unsigned level);
     bool service(XeenConsequenceDraw &);
     bool ready() const noexcept {return done;}
+    void requestFmEffect(XeenConsequenceDraw &,unsigned itemPower=0);
 private:
+    XeenLearnedSpell spell;
+    bool fmRequested=false;
     unsigned low=0,high=0,level=0;
     bool typeDraw=false,done=false;
 };

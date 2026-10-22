@@ -78,22 +78,26 @@ bool XeenItemSpellPreparation::service(XeenConsequenceDraw &draw) {
             failed=!item.id || item.material || item.state ||
                 (category!=XeenInventoryCategory::Weapons && category!=XeenInventoryCategory::Armor) ||
                 (category==XeenInventoryCategory::Weapons && item.id==34);
-            if(failed)return complete=true;
+            if(failed){draw.effect(21);return complete=true;}
             generated.emplace(std::min(*roll,5u),category==XeenInventoryCategory::Armor?
                 XeenItemCandidate::Enchant::Armor:XeenItemCandidate::Enchant::Weapon);
         }
         if(!generated->service(draw))return false;
         item.material=generated->item().material;item.state=generated->item().state;
+        draw.effect(19);
     } else if(spell==XeenLearnedSpell::RechargeItem) {
         failed=category!=XeenInventoryCategory::Miscellaneous || !item.material || item.material>9 || item.id==53;
         if(!failed) {
             const auto roll=draw.draw(1,6);if(!roll)return false;
+            draw.effect(20);
             // DOS 0x31c0d: drop curse (0x40), retain broken (0x80) for the cap.
             item.state=static_cast<std::uint8_t>((item.state&0xc0)|std::min(63u,unsigned(item.state&0xbf)+*roll));
-        }
+        } else draw.effect(21);
     } else if(spell==XeenLearnedSpell::ItemToGold) {
         failed=category==XeenInventoryCategory::Weapons && item.id==34;
+        if(failed)draw.effect(21);
         if(!failed) {
+            if(category==XeenInventoryCategory::Miscellaneous?item.material!=0:item.id!=0)draw.effect(20);
             const auto price=xeenItemPrice(category,item,XeenItemService::Buy);
             failed=!price;if(price) {gold=*price;item={};}
         }
@@ -478,9 +482,10 @@ XeenSpellPreparation XeenLearnedSpellRules::prepareRevitalize(const XeenPartySta
     return cure(party,index,year,2);
 }
 std::optional<XeenSpellPreparation> XeenLearnedSpellRules::preparePowerCure(const XeenPartyState &party,
-        std::size_t index,std::uint32_t year,unsigned level,XeenConsequenceDraw &draw) {
+        std::size_t index,std::uint32_t year,unsigned level,XeenConsequenceDraw &draw,bool *fmRequested) {
     const auto guard=prepareFirstAid(party,index,year,0);
     if(guard.failed)return guard;
+    if(fmRequested && !*fmRequested){*fmRequested=true;draw.effect(30);}
     while(draw.remaining)if(const auto value=draw.draw(2,12))
         return prepareFirstAid(party,index,year,*value*level);
     return {};

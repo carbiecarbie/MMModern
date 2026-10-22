@@ -6,6 +6,7 @@
 #include "games/xeen/XeenJourneyCapture.h"
 #include "games/xeen/XeenJourneyProgression.h"
 #include "games/xeen/XeenItemServiceRules.h"
+#include "games/xeen/XeenFmEffects.h"
 
 #include <algorithm>
 #include <limits>
@@ -231,11 +232,15 @@ bool XeenEncounterFlow::confirmCasting(const Ticket &entry, std::size_t casterIn
 		_casting->random=XeenCombatRandom(*_world.sessionState().journeyRandom());
 		if(mapWork.world)_world.checkTransitionTreasure(*mapWork.world);
 		_journeyPreimage->check();
+		if(xeenTravelFmBeforeRelocation(*spell))
+            if(const auto cue=xeenTravelFmEffect(*spell,travel.failed,bool(travel.destination),distance))fmEffect(*cue);
 		if(mapWork.world) {_world.publishTransition(*mapWork.world);_camera=*jump;_journeyEvents=std::move(mapWork.events);}
         travel.applyBeacon(_party.roster.at(owner));
         _party.roster.at(owner).currentSp=after;
         _party.purse->gems-=cost.gems;
         if(projectile) {
+          XeenConsequenceDraw draw{projectile->random,0,{},[this](unsigned id){fmEffect(id);}};
+          projectile->spellPreparation->requestFmEffect(draw);
           _projectiles.swap(projectiles);_projectileDeadline=0;
           _shoot=std::move(projectile);
         }
@@ -277,7 +282,7 @@ bool XeenEncounterFlow::publishCastingTarget() {
         if(_casting->spell==XeenLearnedSpell::PowerCure && targetIndex) {
             XeenConsequenceDraw draw{_casting->random,64,[&]{_journeyPreimage->check();},[this](unsigned id){fmEffect(id);},[this](unsigned id){fmSelectWeapon(id);}};
             const auto effect=XeenLearnedSpellRules::preparePowerCure(_party,*targetIndex,_party.encounterContext->year,
-                _party.roster.at(_casting->casterOwner).currentLevel(),draw);
+                _party.roster.at(_casting->casterOwner).currentLevel(),draw,&_casting->fmRequested);
             if(!effect)return true;
             preparedEffect=*effect;
         } else preparedEffect=XeenLearnedSpellRules::prepareEffect(_casting->spell,_party,element?std::nullopt:targetIndex,_party.encounterContext->year);
@@ -308,6 +313,7 @@ bool XeenEncounterFlow::publishCastingTarget() {
         prepared->s._journeyRandom=_casting->random.continuation();
         _journeyPreimage->check();
         _world._sessionState._journeyRandom=_casting->random.continuation();
+        if(const auto cue=xeenSpellResultFmEffect(_casting->spell,preparedEffect.failed,!targetIndex))fmEffect(*cue);
         if (!targetIndex) {
             _party.roster.at(_casting->casterOwner).currentSp=_casting->originalSp;
             _party.purse->gems+=cost.gems;
@@ -368,6 +374,8 @@ bool XeenEncounterFlow::publishAwaken(const Ticket &entry) {
           _casting->failed=!_casting->jumpDestination;
         }
         if(_casting->jumpDestination)_camera=*_casting->jumpDestination;
+        if(!xeenTravelFmBeforeRelocation(_casting->spell))
+            if(const auto cue=xeenTravelFmEffect(_casting->spell,_casting->failed,bool(_casting->jumpDestination)))fmEffect(*cue);
 		for (const auto &value:effect.effects) {
             if(value.healing)_world.scenePresentation().spellEffect(value.owner,_lastTime,true);
             value.apply(_party.roster.at(value.owner));
@@ -375,6 +383,10 @@ bool XeenEncounterFlow::publishAwaken(const Ticket &entry) {
 		_castingResult.swap(result);
         _casting->information=std::move(information);
         if(_casting->information && _casting->information->failed) {_casting->failed=true;_casting->information.reset();}
+        if(const auto cue=xeenSpellResultFmEffect(_casting->spell,_casting->failed)) {
+            if(_casting->spell==XeenLearnedSpell::Awaken)fmEffectAfterFrame(*cue);else fmEffect(*cue);
+        }
+        if(_casting->information)fmEffectAfterFrame(20);
         _casting->effectDone=true;
         _casting->displayedFrame.reset();_casting->displayedInput=0;
         ++_world._sessionState._journeyGeneration;++_generation;

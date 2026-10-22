@@ -251,6 +251,7 @@ bool XeenEncounterFlow::respondCombatCast(const PlayerAction &action,std::uint64
             if(check==Q::Unsupported) {_combatCastRefusal="Quick Fight Cast: spell not supported yet";return true;}
             auto skipped=_combat->command(source,XeenCombatCommand::Skip);
             if(!acceptCombatResult(skipped))return false;
+            if(check==Q::InsufficientSp || check==Q::InsufficientGems || check==Q::CombatForbidden)fmEffect(21);
             _combatCastRefusal=check==Q::InsufficientSp?"Quick Fight Cast: not enough Spell Points":check==Q::InsufficientGems?"Quick Fight Cast: not enough gems":check==Q::CombatForbidden?"Quick Fight Cast: cannot cast while engaged":"";
             scheduleCombat(_lastTime);return true;
         }

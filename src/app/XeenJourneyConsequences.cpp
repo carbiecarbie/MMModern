@@ -87,6 +87,7 @@ bool XeenEncounterFlow::serviceShoot() {
   XeenConsequenceDraw draw{work.random,64,check,[this](unsigned id){fmEffect(id);},[this](unsigned id){fmSelectWeapon(id);}};
   if(work.spell && !work.spellTargetsPrepared) {
    if(!work.spellPreparation->service(draw))return true;
+   work.spellPreparation->requestFmEffect(draw,work.itemPower);
    const auto targets=xeenSpellTargets(_world,_camera,active,{},XeenLearnedSpellRules::range(std::uint8_t(*work.spell)));
    std::array<unsigned,4> counts{};
    for(const auto &id:targets)if(id) {
@@ -245,6 +246,9 @@ bool XeenEncounterFlow::serviceShoot() {
    if(work.spell==XeenLearnedSpell::MoonRay) {
     if(!work.healing.service(draw,_party,_party.encounterContext->year))return true;
     check();
+    // Retain the existing batched preparation; the portrait owner orders each
+    // member's FX30 before its shared sparkle FX20, including terminal members.
+    for(auto owner:_party.party.activeRosterIds())_world.scenePresentation().spellCue(owner,30);
     for(const auto &effect:work.healing.result.effects) {
      auto &live=_party.roster.at(effect.owner);
      const bool sparkle=live.currentHp<=XeenCharacterRules::maxHp(live,{_party.encounterContext->year});

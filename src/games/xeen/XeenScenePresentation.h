@@ -76,7 +76,7 @@ public:
  // giveExt's chest frame (0x235f6, 0x23703): open while the lock is picked,
  // until the map is loaded again. Not saved, as in DOS.
  std::map<XeenObjectIdentity,unsigned> objectFrames;
- struct PortraitEffect {unsigned spellFrame=4, damageFrame=0, damageTicks=0;std::uint64_t spellDeadline=0,damageDeadline=0;};
+ struct PortraitEffect {unsigned spellFrame=4, damageFrame=0, damageTicks=0;std::uint64_t spellDeadline=0,damageDeadline=0;std::optional<unsigned> spellCue;};
  // One physical (frame 0) or spell splat per row, plus the original's separate
  // elemental weapon splat beside it (_elemFrame/_elemScale, M67).
  struct Splat {unsigned frame=0, duration=0;int damage=0;bool alternatePosition=false;std::uint64_t deadline=0;
@@ -109,7 +109,7 @@ public:
  }
  std::array<Splat,3> splats{};
  bool feedbackActive() const noexcept {
-  for(const auto &p:portraits)if(p.spellFrame<4 || p.damageTicks)return true;
+  for(const auto &p:portraits)if(p.spellFrame<4 || p.damageTicks || p.spellCue)return true;
   for(const auto &s:splats)if(s.duration)return true;
   return false;
  }
@@ -118,6 +118,7 @@ public:
   // zero-HP Cure Poison; giveTake's duplicate recipients remain suppressed.
   if(owner<portraits.size() && (reset || portraits[owner].spellFrame==4)) {portraits[owner].spellFrame=0;portraits[owner].spellDeadline=0;}
  }
+ void spellCue(unsigned owner,unsigned id) noexcept {if(owner<portraits.size())portraits[owner].spellCue=id;}
  void portraitDamage(unsigned owner,unsigned frame,std::uint64_t=0) noexcept {
   if(owner<portraits.size()) {portraits[owner].damageFrame=frame;portraits[owner].damageTicks=1;portraits[owner].damageDeadline=0;}
  }

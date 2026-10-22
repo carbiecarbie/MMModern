@@ -131,7 +131,7 @@ public:
 		std::uint32_t currentYear);
 	static XeenSpellPreparation prepareAwaken(const XeenPartyState &);
 	static std::optional<XeenSpellPreparation> preparePowerCure(const XeenPartyState &,
-		std::size_t targetIndex,std::uint32_t currentYear,unsigned casterLevel,XeenConsequenceDraw &);
+		std::size_t targetIndex,std::uint32_t currentYear,unsigned casterLevel,XeenConsequenceDraw &,bool *fmRequested=nullptr);
 	static XeenSpellPreparation prepareEffect(XeenLearnedSpell,const XeenPartyState &,
 		std::optional<std::size_t> targetIndex,std::uint32_t currentYear,
 		std::optional<std::uint8_t> casterOwner = {},bool viewBlack=false);

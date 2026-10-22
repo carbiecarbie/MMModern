@@ -46,13 +46,17 @@ void valuesAndDamage(){
   XeenCombatRandom miss(std::vector<Draw>{{1,20,1}});XeenPhysicalPlayerCandidate absent(c[0],in[0],high,6,610,false,XeenDifficulty::Warrior,status);finish(absent,miss);
   check(!absent.hit && absent.status==status,"Miss must not wake");
   for(auto spell:{XeenLearnedSpell::MagicArrow,XeenLearnedSpell::EnergyBlast,XeenLearnedSpell::Shrapmetal,XeenLearnedSpell::FlyingFist,XeenLearnedSpell::Pain}){
-   XeenCombatRandom save(std::vector<Draw>{{1,56,6}});XeenSpellDamageCandidate damage(1,0,0,6,spell,100,status);finish(damage,save);
-   check(damage.status==xeenActorStatusAfterDamage(status,true) && save.position()==1,"Existing spell wake/save order");
+   const bool energy=spell==XeenLearnedSpell::EnergyBlast;
+   XeenCombatRandom save(energy?std::vector<Draw>{{2,6,4},{1,56,6}}:std::vector<Draw>{{1,56,6}});
+   XeenSpellDamagePreparation prep(spell,1);finish(prep,save);
+   XeenSpellDamageCandidate damage(1,0,0,6,spell,100,status,0,&prep);finish(damage,save);
+   check(damage.status==xeenActorStatusAfterDamage(status,true) && save.position()==(energy?2u:1u),"Existing spell wake/save order");
   }
   XeenCombatRandom gate(std::vector<Draw>{{1,101,1}});XeenSpellDamageCandidate resisted(1,0,100,6,XeenLearnedSpell::MagicArrow,0,status);finish(resisted,gate);
   check(resisted.resisted && resisted.status==status,"Failed magic gate must not wake");
-  XeenCombatRandom none(std::vector<Draw>{});XeenSpellDamageCandidate levelZero(0,0,0,6,XeenLearnedSpell::EnergyBlast,0,status);finish(levelZero,none);
-  check(levelZero.status==status && !none.position(),"Zero base spell must not wake");
+  XeenCombatRandom none(std::vector<Draw>{{2,6,4}});XeenSpellDamagePreparation prep(XeenLearnedSpell::EnergyBlast,0);finish(prep,none);
+  XeenSpellDamageCandidate levelZero(0,0,0,6,XeenLearnedSpell::EnergyBlast,0,status,0,&prep);finish(levelZero,none);
+  check(levelZero.status==status && none.position()==1,"Zero base spell must prepare without waking or saving");
  }
  // A natural 20 still explodes, with the +20 added once after the final die.
  m.raw[22]=35;XeenCombatRandom explode(std::vector<Draw>{{1,20,20},{1,20,1}});

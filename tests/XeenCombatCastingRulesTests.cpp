@@ -140,7 +140,7 @@ void domainsAndBooks() {
 }
 void spellDamage() {
     using S=XeenLearnedSpell;using D=XeenCombatRandom::Draw;
-    for(auto spell:{S::EnergyBlast,S::Shrapmetal,S::FlyingFist,S::Pain}) {
+    for(auto spell:{S::Shrapmetal,S::FlyingFist,S::Pain}) {
         const int base=spell==S::FlyingFist?6:spell==S::Pain?8:14;
         for(unsigned physical:{0u,33u,50u,100u})for(unsigned save:{6u,7u}) {
             XeenCombatRandom random(std::vector<D>{{1,107,50},{1,56,save}});
@@ -148,7 +148,7 @@ void spellDamage() {
             XeenConsequenceDraw gate{random,1};
             check(!candidate.service(gate) && random.position()==1,"Spell did not retain accepted gate across yield");
             XeenConsequenceDraw finish{random};
-            int expected=spell==S::EnergyBlast?base:base*(100-physical)/100;
+            int expected=base*(100-physical)/100;
             if(save<=6)expected/=2;
             check(candidate.service(finish) && !candidate.resisted && candidate.damage==expected && random.position()==2,"Spell physical/save order or exact draw tape differs");
             check(candidate.service(finish) && random.position()==2,"Completed damage replayed a draw");
@@ -160,7 +160,7 @@ void spellDamage() {
         XeenSpellDamageCandidate freeGate(7,0,0,6,spell);XeenConsequenceDraw freeDraw{noGate};
         check(freeGate.service(freeDraw) && freeGate.damage==base/2 && noGate.position()==1,"Zero magic resistance drew gate");
     }
-    for(auto spell:{S::EnergyBlast,S::Shrapmetal}) {
+    for(auto spell:{S::Shrapmetal}) {
         XeenCombatRandom random(std::vector<D>{{1,100,50}});
         XeenSpellDamageCandidate zero(-3,2,50,6,spell);XeenConsequenceDraw draw{random};
         check(zero.service(draw) && zero.damage==0 && random.position()==1,"Zero base damage must gate without saving draw");
@@ -170,6 +170,40 @@ void spellDamage() {
         xeenSpellProjectile(S::Shrapmetal)==15,"Original projectile resource IDs differ");
     rejects([]{XeenSpellDamageCandidate c(3,0,0,6,S::Pain,101);});
     rejects([]{XeenSpellDamageCandidate c(3,0,0,6,S::FirstAid);});
+}
+void energyBlast() {
+    using S=XeenLearnedSpell;using D=XeenCombatRandom::Draw;
+    // The cast-wide scalar precedes every target's gate/save, even at level 0
+    // or with no target. Rejected RNG conversions retain that preparation.
+    for(unsigned level:{0u,7u})for(unsigned roll=2;roll<=6;++roll)
+        for(unsigned resistance:{0u,50u})for(unsigned gate:{49u,50u})for(unsigned save:{6u,7u}) {
+            const bool resisted=resistance && gate<resistance;
+            std::vector<D> tape{{2,6,roll}};
+            if(resistance)tape.push_back({1,100+level,gate});
+            if(!resisted && level)tape.push_back({1,56,save});
+            XeenCombatRandom random(tape);XeenSpellDamagePreparation prep(S::EnergyBlast,level);
+            check(!prep.ready(),"Energy Blast must prepare even without a target");
+            XeenConsequenceDraw scalar{random,1};
+            check(prep.service(scalar) && prep.type==6 && prep.damage==int(roll*level) && random.position()==1,
+                "Energy Blast must draw U(2,6) once and multiply current caster level");
+            XeenConsequenceDraw again{random,1};
+            check(prep.service(again) && random.position()==1,"Energy Blast preparation replayed");
+            XeenSpellDamageCandidate hit(level?5:0,level?2:0,resistance,6,S::EnergyBlast,100,
+                XeenActorStatus::Sleep,0,&prep);
+            for(unsigned n=0;n<3;++n) {XeenConsequenceDraw step{random,1};if(hit.service(step))break;}
+            const int expected=resisted?0:int(roll*level)/(save<=6?2:1);
+            check(hit.damage==expected && hit.resisted==resisted && random.position()==tape.size(),
+                "Energy Blast must retain gate/save order and ignore physical resistance");
+            XeenConsequenceDraw done{random};
+            check(hit.service(done) && random.position()==tape.size(),"Energy Blast resolution replayed");
+        }
+    std::vector<D> tape(64,{2,6,0,true});tape.push_back({2,6,5});
+    XeenCombatRandom random(tape);XeenSpellDamagePreparation prep(S::EnergyBlast,7);
+    XeenConsequenceDraw first{random};
+    check(!prep.service(first) && !prep.ready() && random.position()==64,"Energy Blast must yield on rejected draws");
+    XeenConsequenceDraw second{random};
+    check(prep.service(second) && prep.damage==35 && random.position()==65,"Energy Blast resumed with the wrong scalar");
+    rejects([]{XeenSpellDamageCandidate missing(7,0,0,6,S::EnergyBlast);});
 }
 void m74Spells() {
     using S=XeenLearnedSpell;using R=XeenSpellRange;using D=XeenCombatRandom::Draw;
@@ -308,4 +342,4 @@ void itemPowerMapping() {
 }
 
 }
-int main(){try{specialDamage();arrow();spellDamage();m73Spells();m74Spells();itemPowerMapping();domainsAndBooks();std::cout<<"Learned spell rule/context/RNG tests passed\n";return 0;}catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}
+int main(){try{specialDamage();arrow();spellDamage();energyBlast();m73Spells();m74Spells();itemPowerMapping();domainsAndBooks();std::cout<<"Learned spell rule/context/RNG tests passed\n";return 0;}catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}

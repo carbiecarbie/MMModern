@@ -152,6 +152,7 @@ struct XeenCombat::Impl {
 	bool busy=false;
 	bool presentedAttacks=false;
     std::function<void(unsigned)> fmEffect;
+    std::function<void(unsigned)> fmAfterFrame;
     std::function<void()> fmWeaponEffect;
     std::function<void(unsigned)> weaponSelected;
 	bool servicingPresented=false;
@@ -200,6 +201,7 @@ struct XeenCombat::Impl {
         XeenCombatResult operation;
         std::uint64_t lease=0,deadline=0;
         bool presented=false;
+        bool fmRequested=false;
         XeenCombatRandom random;
         std::optional<XeenSpellDamageCandidate> arrow;
         std::optional<XeenMonsterDropCandidate> drop;
@@ -491,8 +493,9 @@ struct XeenCombat::Impl {
 
 };
 
-void XeenCombat::fmEffects(std::function<void(unsigned)> effect,std::function<void()> impact,std::function<void(unsigned)> selected) {
+void XeenCombat::fmEffects(std::function<void(unsigned)> effect,std::function<void()> impact,std::function<void(unsigned)> selected,std::function<void(unsigned)> afterFrame) {
     impl->fmEffect=std::move(effect);impl->fmWeaponEffect=std::move(impact);impl->weaponSelected=std::move(selected);
+    impl->fmAfterFrame=std::move(afterFrame);
 }
 
 XeenCombat::XeenCombat(XeenWorld &w, XeenPartyState &p, XeenCamera &c, XeenCombatBoundary &b,
@@ -1060,6 +1063,7 @@ XeenCombatResult XeenCombat::respondCast(CastResponse &response,XeenCombatCastIn
         if(!spell || admission!=XeenQuickSpellCheck::Supported || (!item && !XeenLearnedSpellRules::eligible(d.party,v.participant,v.slot,true))) {
             using Q=XeenQuickSpellCheck;
             v.refusal=admission==Q::NoSpell?"":admission==Q::InsufficientSp?"SP":admission==Q::InsufficientGems?"gems":admission==Q::CombatForbidden?"engaged":"Spell not supported yet";
+            if(admission==Q::InsufficientSp || admission==Q::InsufficientGems || admission==Q::CombatForbidden)xeenEmitFmEffect(d.fmEffect,21);
             ++d.generation;return d.adopt(d.observation(Status::Advanced));
         }
         v.refusal.clear();
@@ -1166,7 +1170,7 @@ XeenCombatResult XeenCombat::settleCast(const Ticket &t,std::optional<unsigned> 
         if(reserved.spell==unsigned(XeenLearnedSpell::PowerCure) && target) {
             XeenConsequenceDraw draw{c.random,64,[&]{d.probeFor(t);d.checkCastReservation(t,reserved,true);},d.fmEffect,d.weaponSelected};
             const auto healing=XeenLearnedSpellRules::preparePowerCure(d.party,*target,d.party.encounterContext->year,
-                d.character(reserved.participant).currentLevel(),draw);
+                d.character(reserved.participant).currentLevel(),draw,&c.fmRequested);
             if(!healing) {
                 c.view.phase=XeenCombatCastPhase::Preparing;d.work=Work::Cast;
                 ++d.generation;return d.adopt(c.operation,Status::Pending);
@@ -1236,6 +1240,15 @@ XeenCombatResult XeenCombat::settleCast(const Ticket &t,std::optional<unsigned> 
         for(unsigned i=0;i<6;++i)speeds[i]=Rules::effectivePhysical(prepared->characters[d.owners[i]],d.inputs[i],Rules::PhysicalAttribute::Speed,{d.party.encounterContext->year});
         d.probeFor(t);d.checkCastReservation(t,reserved,true);
         require(c.partyTarget==target && (!target || element || d.party.party.activeRosterIds().at(*target)==*targetOwner),"Cast recovery reservation changed");
+        if(c.dispatchRefused)xeenEmitFmEffect(d.fmEffect,21);
+        else if(const auto cue=xeenSpellResultFmEffect(static_cast<XeenLearnedSpell>(reserved.spell),result.failed,result.refunded)) {
+            xeenEmitFmEffect(reserved.spell==unsigned(XeenLearnedSpell::Awaken)?d.fmAfterFrame:d.fmEffect,*cue);
+        }
+        if(information)xeenEmitFmEffect(d.fmAfterFrame,20);
+        if(reserved.spell==unsigned(XeenLearnedSpell::MoonRay))
+            for(auto owner:d.party.party.activeRosterIds())d.world.scenePresentation().spellCue(owner,30);
+        if(reserved.spell==unsigned(XeenLearnedSpell::TownPortal))
+            if(const auto cue=xeenTravelFmEffect(XeenLearnedSpell::TownPortal,result.failed,bool(relocation)))xeenEmitFmEffect(d.fmEffect,*cue);
         if(result.refunded) {
             d.party.roster.at(reserved.owner).currentSp=d.expected.roster.at(reserved.owner).currentSp=prepared->characters[reserved.owner].currentSp;
             d.party.purse->gems=d.expected.purse->gems=prepared->purse->gems;
@@ -1265,6 +1278,8 @@ XeenCombatResult XeenCombat::settleCast(const Ticket &t,std::optional<unsigned> 
             d.events=std::move(c.mapEvents);d.moveDue=d.chargeRound=false;
         }
         if(relocation) {d.camera=d.expectedCamera=*relocation;d.stepped=true;d.spellRelocated=true;result.noop=false;}
+        if(reserved.spell==unsigned(XeenLearnedSpell::TimeDistortion))
+            if(const auto cue=xeenTravelFmEffect(XeenLearnedSpell::TimeDistortion,result.failed,bool(relocation)))xeenEmitFmEffect(d.fmEffect,*cue);
         if(effect.stepped)d.stepped=true;
         if(effect.stepped || relocation)d.world.scenePresentation().markLightingStep();
         d.rng=c.random;d.expectedRandom=d.session()._journeyRandom=c.random.continuation();
@@ -1293,6 +1308,7 @@ XeenCombatResult XeenCombat::serviceCast(const Ticket &t,std::uint64_t now) {
         if(!c.targetsPrepared) {
             XeenConsequenceDraw draw{c.random,64,[&]{d.probeFor(t);d.checkCastReservation(t,reserved,true);},d.fmEffect,d.weaponSelected};
             if(!c.preparation->service(draw)){++d.generation;return d.adopt(c.operation,Status::Pending);}
+            c.preparation->requestFmEffect(draw,c.sourceItem?unsigned(c.sourceItem->id):0);
             c.targets=xeenSpellTargets(d.world,d.camera,d.actors,d.selected,XeenLearnedSpellRules::range(reserved.spell));
             c.view.enemy=c.targets[0];
             c.view.projectile=xeenSpellProjectile(static_cast<XeenLearnedSpell>(reserved.spell),c.preparation->type,c.sourceItem?unsigned(c.sourceItem->id):0);
@@ -1308,6 +1324,8 @@ XeenCombatResult XeenCombat::serviceCast(const Ticket &t,std::uint64_t now) {
             }
             c.targetsPrepared=true;
         }
+        {XeenConsequenceDraw draw{c.random,0,{},d.fmEffect};
+            c.preparation->requestFmEffect(draw,c.sourceItem?unsigned(c.sourceItem->id):0);}
         if(c.target==c.targets.size() || !c.targets[c.target]) {
             c.operation.attackOutcome=AttackOutcome::HitZeroDamage;
             if(stage==XeenCombatCastPhase::Preparing) {

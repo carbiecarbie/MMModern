@@ -52,7 +52,7 @@ mainland; many items apply there, others wait for areas not open yet.
   [Evidence](original-quirks.md#sv-recharge-broken). Pin: differs; master not rechecked. Rule established; implemented in M76.
 - **Town Portal items in combat.** DOS continues from the refusal notice
   into its normal town dialog and can load the selected town; the pin returns.
-  [Evidence](original-quirks.md#sv-town-portal-item-combat). Pin: differs; master not rechecked. Implemented in M77 Part A; DOSBox presentation remains unobserved. Combat ends at the first attacker re-evaluation after arrival, with its ordinary minute, by the maintainer's decision.
+  [Evidence](original-quirks.md#sv-town-portal-item-combat). Pin: differs; master not rechecked. Implemented in M77 Part A; M82 C2 adds the engaged notice's FX21, including cancellation. DOSBox presentation remains unobserved. Combat ends at the first attacker re-evaluation after arrival, with its ordinary minute, by the maintainer's decision.
 - **Rest's cell restriction.** DOS checks cell bit `0x40`, including on
   the mainland; the pin's cell test is ineffective. MMModern reads the DOS
   attribute bit, and Super Shelter bypasses both ordinary Rest restrictions.
@@ -85,18 +85,28 @@ mainland; many items apply there, others wait for areas not open yet.
 - **Holy Word against the wrong species.** DOS enters the miss path for a
   non-undead target; the pin skips it. Neither damages the target or draws
   a damage-stage save. The call difference is confirmed; its audible result
-  remains unplayed. **Implemented (M74 Part B)**; audio remains deferred.
+  remains unplayed. **Implemented (M74 Part B)**; M82 includes the shared FX6 miss cue.
   [Evidence](original-quirks.md#sv-holy-word-miss). Pin: differs; master not rechecked.
+- **Energy Blast damage.** DOS rolls 2–6 once per cast and multiplies by
+  current caster level; the pin uses fixed twice the level. MMModern keeps
+  that preparation draw even at level zero and with no target, before the
+  projectile and the existing resistance/save checks.
+  [Evidence](original-quirks.md#sv-energy-blast-roll). Pin: differs; master not rechecked.
 - **Frostbite's initial sound call.** The pin adds FX8 before the learned
   spell's projectile; DOS makes no such initial call. The item variant
-  matches. Both Frostbite projectiles are implemented; audio remains deferred
-  and unverified.
+  matches. Both projectile selectors and the distinct FM launch cues are implemented;
+  DOSBox listening remains unverified.
   [Evidence](original-quirks.md#sv-frostbite-initial-fx). Pin: differs; master not rechecked.
 - **Incinerate from an item.** DOS uses different sound/projectile selectors
   from the learned spell, while the pin shares the learned handler. Both
   prepare 250 Fire damage. MMModern uses item projectile 2 and learned
-  projectile 1. Audio remains deferred; DOS presentation has not been played.
+  projectile 1, with respective FM cues 13 and 22. DOS presentation has not been played.
   [Evidence](original-quirks.md#sv-item-incinerate-selectors). Pin: differs; master not rechecked.
+- **Moon Ray preparation.** MMModern batches member healing draws before the
+  portrait sequence; DOS and the pin interleave them with each member's healing.
+  FM cues follow the portrait order. This existing preparation gap is recorded
+  without changing it, not approved as a deviation. Pin: differs; master not rechecked.
+  [Evidence](original-quirks.md#sv-moon-ray-preparation).
 - **Controlled monsters recover on the DOS roll.** Recovery succeeds at a roll
   at most the monster resource ID; the pin reverses the inequality. Equality
   succeeds in both. The core scans every map slot before queued shots; learned
@@ -430,7 +440,7 @@ in [project status](project-status.md#known-gaps):
 
 - **The whole game:** only Vertigo and the surrounding mainland are playable;
   the rest of Clouds of Xeen and all of Darkside of Xeen are not.
-- **Sound:** individual spell FM cues and VOC/CD playback await C2/M83;
+- **Sound:** VOC/CD playback awaits M83;
   speech keeps its duration in silence. Only the promus OPL3 device is supported.
 - **Services and party:** no Inn, recruiting, character creation, Tavern
   Sign In or Dismiss.

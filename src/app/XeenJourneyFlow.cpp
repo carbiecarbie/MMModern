@@ -9,6 +9,7 @@
 #include "games/xeen/XeenItemServiceRules.h"
 #include "games/xeen/XeenJumpRules.h"
 #include "games/xeen/XeenEventTrigger.h"
+#include "games/xeen/XeenFmEffects.h"
 #include <limits>
 #include <algorithm>
 #include <stdexcept>
@@ -394,10 +395,13 @@ std::optional<std::uint64_t> XeenEncounterFlow::beginItemUse(const Ticket &entry
         if(mapWork.world) {prepared->prepareSpellMapPublication(*mapWork.world);prepared->cameraValue=*next->jumpDestination;}
         if(mapWork.world)_world.checkTransitionTreasure(*mapWork.world);
         _journeyPreimage->check();
+        if(next->spell && xeenTravelFmBeforeRelocation(*next->spell))
+            if(const auto cue=xeenTravelFmEffect(*next->spell,travel.failed,bool(travel.destination),distance))fmEffect(*cue);
         if(mapWork.world) {_world.publishTransition(*mapWork.world);_camera=*next->jumpDestination;_journeyEvents=std::move(mapWork.events);}
         travel.applyBeacon(_party.roster.at(selection.sourceOwner));
         _party.roster.at(selection.sourceOwner).miscellaneous=items;
 		_itemUse=std::move(next);_itemUseResult.reset();
+        if(_itemUse->information)fmEffectAfterFrame(20);
 		_world._sessionState._journeyActivity=XeenJourneyActivity::ItemUse;
 		++_world._sessionState._journeyGeneration;++_generation;
         prepared->adoptJourneyCoordination();_journeyPreimage.swap(prepared);
@@ -456,7 +460,7 @@ bool XeenEncounterFlow::settleItemUse(const Ticket &entry,std::uint64_t generati
                 _itemUse->selectorFrame.reset();_itemUse->selectorTicket.reset();
                 XeenConsequenceDraw draw{_itemUse->opportunity->random,64,[&]{_journeyPreimage->check();},[this](unsigned id){fmEffect(id);},[this](unsigned id){fmSelectWeapon(id);}};
                 const auto healing=XeenLearnedSpellRules::preparePowerCure(_party,*targetIndex,_party.encounterContext->year,
-                    _party.roster.at(_itemUse->sourceOwner).currentLevel(),draw);
+                    _party.roster.at(_itemUse->sourceOwner).currentLevel(),draw,&_itemUse->fmRequested);
                 if(!healing)return true;
                 effect=*healing;
                 _world._sessionState._journeyRandom=_itemUse->opportunity->random.continuation();
@@ -470,6 +474,8 @@ bool XeenEncounterFlow::settleItemUse(const Ticket &entry,std::uint64_t generati
 				automaticArrival=sample && (sample->cell->rawAttributes & kXeenAutomaticEventFlag) && bool(xeenRegionalEvent(_journeyEvents,destination));
 				_journeyPreimage->check();
 			}
+            const bool member=XeenLearnedSpellRules::target(std::uint8_t(spell))==XeenSpellTarget::Member;
+            if(member)if(const auto cue=xeenSpellResultFmEffect(spell,effect.failed,!targetIndex))fmEffect(*cue);
 			for(const auto &value:effect.effects) {
 				auto &live=_party.roster.at(value.owner);
 				if(value.healing)
@@ -479,6 +485,9 @@ bool XeenEncounterFlow::settleItemUse(const Ticket &entry,std::uint64_t generati
 			XeenLearnedSpellRules::applyPartyEffect(spell,*_party.encounterContext,_party.roster.at(_itemUse->sourceOwner).currentLevel(),
                 itemUseNeedsElement() && targetIndex?std::optional<unsigned>{unsigned(*targetIndex)}:std::nullopt);
 			if(effect.food)_party.food=*effect.food;
+            if(!member)if(const auto cue=xeenSpellResultFmEffect(spell,effect.failed)) {
+                if(spell==XeenLearnedSpell::Awaken)fmEffectAfterFrame(*cue);else fmEffect(*cue);
+            }
             const auto id=static_cast<std::uint8_t>(spell);
             // M61 First Aid and the M75 DOS item prompts refund without a debit.
             // Other pre-M75 item cancellation paths retain their existing policy.
@@ -488,12 +497,19 @@ bool XeenEncounterFlow::settleItemUse(const Ticket &entry,std::uint64_t generati
                 _party.purse->gems+=refund->gems;
 			}
 			if(_itemUse->jumpDestination)_camera=*_itemUse->jumpDestination;
+            if(!xeenTravelFmBeforeRelocation(spell))
+                if(const auto cue=xeenTravelFmEffect(spell,_itemUse->failed,bool(_itemUse->jumpDestination)))fmEffect(*cue);
             // The used-item sheet close marks stepped (DOS 0x3a493),
             // independently of the learned-cast terrain-arrival suffix.
             _world.scenePresentation().markLightingStep();
 			_itemUse->failed=_itemUse->failed || effect.failed || (spell==XeenLearnedSpell::Jump && !_itemUse->jumpDestination);
 			_itemUse->automaticArrival=automaticArrival;
 			_projectiles.swap(_itemUse->appearances);_projectileDeadline=0;
+			if(_itemUse->projectile) {
+                auto &projectile=*_itemUse->projectile;
+                XeenConsequenceDraw draw{projectile.random,0,{},[this](unsigned id){fmEffect(id);}};
+                projectile.spellPreparation->requestFmEffect(draw,projectile.itemPower);
+            }
 			_shoot=std::move(_itemUse->projectile);
 		} else {
 		const auto target=targetIndex ? std::optional<std::uint8_t>{ids[*targetIndex]} : std::nullopt;
@@ -1005,7 +1021,7 @@ bool XeenEncounterFlow::attachJourney(const Ticket &entry, const std::function<v
 		_journeyPreimage->check();
 		_combat.reset(new XeenCombat(_world,_party,_camera,_boundary,_flags,_state,_journeyStatistics,_events));
         _fmAttackGeneration.reset(); // Combat generations are local to this new instance.
-        _combat->fmEffects([this](unsigned id){fmEffect(id);},[this]{fmWeaponEffect();},[this](unsigned weapon){fmSelectWeapon(weapon);});
+        _combat->fmEffects([this](unsigned id){fmEffect(id);},[this]{fmWeaponEffect();},[this](unsigned weapon){fmSelectWeapon(weapon);},[this](unsigned id){fmEffectAfterFrame(id);});
         _combat->inheritResources(_combat->ticket(),*_journeyPreimage);
 		++_generation;
 		if (!acceptCombatResult(_combat->beginCombat(_combat->ticket()))) return false;

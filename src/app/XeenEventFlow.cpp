@@ -696,6 +696,10 @@ void XeenEventFlow::framePresented(const IndexedFrame::Presentation &presented, 
 		_treasureWait->acquired=true;
 	}
     if(_encounter)_encounter->projectilesPresented();
+    if(_encounter && _encounter->_fmAfterFrame) {
+        const auto id=*_encounter->_fmAfterFrame;_encounter->_fmAfterFrame.reset();
+        _encounter->fmEffect(id);
+    }
     if(_npcSequence && (pendingNpc() || _presenter.hasNpcOffer())) {
         auto &npc=*_npcSequence;
         if(!npc.acquired) {
@@ -1960,8 +1964,12 @@ void XeenEventFlow::prepareStandalonePortrait() {
     if(_portraitSequence || _barrier || !_encounter || (_pending && _pending->state.pendingPresentation &&
         _pending->state.pendingPresentation->request.kind==XeenPresentationKind::PortraitEffect))return;
     auto &presentation=_world.scenePresentation();
-    for(auto owner:_party.party.activeRosterIds())if(presentation.portraits[owner].spellFrame<4) {
-        preparePortraitSequence({XeenEventPortraitStage::Sparkle,owner,0});return;
+    for(auto owner:_party.party.activeRosterIds()) {
+        auto &portrait=presentation.portraits[owner];
+        if(portrait.spellCue) {
+            const auto cue=*portrait.spellCue;portrait.spellCue.reset();_encounter->fmEffect(cue);
+        }
+        if(portrait.spellFrame<4) {preparePortraitSequence({XeenEventPortraitStage::Sparkle,owner,0});return;}
     }
     if(_encounter->combat() && _encounter->combat()->result().attackStage==XeenCombatAttackStage::MonsterDamageOverlay) {
         const auto &result=_encounter->combat()->result();

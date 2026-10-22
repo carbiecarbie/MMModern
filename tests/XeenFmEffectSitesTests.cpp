@@ -52,18 +52,104 @@ void inventory(const std::filesystem::path &rules) {
         {"0x32d5b","31"},
         {"0x34d71","21"},
         {"0x36a07","attack type 0..6 maps to 49,18,13,14,15,17,16"},
+        {"0x2f1d3","21"},
+        {"0x2f25c","21"},
+        {"0x2f3ac","39"},
+        {"0x2f3ee","30"},
+        {"0x2f44a","30"},
+        {"0x2f476","18"},
+        {"0x2f496","30"},
+        {"0x2f53a","30"},
+        {"0x2f575","14"},
+        {"0x2f5b7","16"},
+        {"0x2f5da","18"},
+        {"0x2f5fd","18"},
+        {"0x2f620","17"},
+        {"0x2f68c","20"},
+        {"0x2f6fb","20"},
+        {"0x2f72e","18"},
+        {"0x2f825","51"},
+        {"0x2f895","20"},
+        {"0x2f8b7","30"},
+        {"0x2f8d8","20"},
+        {"0x2f8eb","20"},
+        {"0x2fa69","20"},
+        {"0x2faf6","30"},
+        {"0x2fb65","30"},
+        {"0x2fbf3","30"},
+        {"0x2fc3e","14"},
+        {"0x2fc4f","30"},
+        {"0x2fc70","20"},
+        {"0x2fc8b","15"},
+        {"0x2fee7","51"},
+        {"0x2ff65","20"},
+        {"0x2ffc5","20"},
+        {"0x2fff0","30"},
+        {"0x30072","13"},
+        {"0x301ee","20"},
+        {"0x30250","17"},
+        {"0x30292","15"},
+        {"0x302b2","30"},
+        {"0x30316","51"},
+        {"0x30339","13"},
+        {"0x30557","51"},
+        {"0x3057c","18"},
+        {"0x3059c","30"},
+        {"0x3060c","30"},
+        {"0x30633","13"},
+        {"0x3064d","20"},
+        {"0x3076e","51"},
+        {"0x30836","30"},
+        {"0x308ee","15"},
+        {"0x3095d","30"},
+        {"0x30a01","51"},
+        {"0x30a43","18"},
+        {"0x30a6f","18"},
+        {"0x30a93","16"},
+        {"0x30aa7","30"},
+        {"0x30af4","18"},
+        {"0x30b6c","13"},
+        {"0x30baa","stormFx[rand(2..5)-2] = {13,14,15,17}"},
+        {"0x30bdf","18"},
+        {"0x30c38","30"},
+        {"0x30cb4","14"},
+        {"0x30cd7","13"},
+        {"0x30cfa","16"},
+        {"0x30d1d","18"},
+        {"0x30d40","13"},
+        {"0x30de2","20"},
+        {"0x30e07","18"},
+        {"0x30e1d","20"},
+        {"0x30e53","20"},
+        {"0x30e82","20"},
+        {"0x30e9d","18"},
+        {"0x30edb","16"},
+        {"0x30efe","18"},
+        {"0x30f21","22"},
+        {"0x30f44","17"},
+        {"0x30fd7","49"},
+        {"0x31009","16"},
+        {"0x31bfd","20"},
+        {"0x31c44","21"},
+        {"0x31d3d","19"},
+        {"0x31dc3","21"},
+        {"0x31e1e","21"},
+        {"0x31e4c","20"},
+        {"0x31ea9","20"},
+        {"0x31f07","20"},
+        {"0x31f61","20"},
     };
-    check(std::size(sites)==40,"C1 inventory size changed");
+    check(std::size(sites)==126,"C1/C2 inventory size changed");
     const auto count=[&](const char *needle){unsigned n=0;for(std::size_t p=0;(p=text.find(needle,p))!=text.npos;p+=std::char_traits<char>::length(needle))++n;return n;};
     check(count(" | C1 | High:")==40 && count(" | C2 | High:")==86 && count(" | Not reachable yet:")==7,
         "full 133-site reconciliation changed");
     std::set<std::string> unique;
     for(const auto &[site,expression]:sites) {
-        check(unique.insert(site).second,"duplicate C1 site");
+        check(unique.insert(site).second,"duplicate FM site");
         const auto start=text.find(std::string("| `")+site+"` | ");
         check(start!=text.npos,"reconciled site missing from rules");
         const auto row=text.substr(start,text.find('\n',start)-start);
-        check(row.find(std::string("| ")+expression+" |")!=row.npos && row.find(" | C1 | High:")!=row.npos,
+        check(row.find(std::string("| ")+expression+" |")!=row.npos && (row.find(" | C1 | High:")!=row.npos || row.find(" | C2 | High:")!=row.npos),
             "site id/expression, classification or confidence changed");
     }
     constexpr unsigned damage[]{29,27,22,23,24,26,25,38};
@@ -289,12 +375,118 @@ void commonDamage(Inputs &in,const GameInstallation &installation) {
     check(fx.empty(),"audio owner did not gate every effect request");
     audio->observeOptions(XeenSoundOptions{});audio->effectSink([](unsigned){throw std::runtime_error("recording output failure");});audio->effect(20,0);
 }
+void spellSelectors() {
+    using S=XeenLearnedSpell;
+    const std::pair<S,unsigned> launches[]{
+        {S::FlyingFist,18},{S::Sparks,14},{S::EnergyBlast,16},{S::Sleep,18},{S::Pain,18},{S::ToxicCloud,17},
+        {S::TurnUndead,18},{S::LightningBolt,14},{S::Fireball,13},{S::AcidSpray,17},{S::ColdRay,15},
+        {S::DeadlySwarm,13},{S::FingerOfDeath,18},{S::FieryFlail,13},{S::FantasticFreeze,15},{S::DancingSword,18},
+        {S::PrismaticLight,18},{S::MoonRay,16},{S::MassDistortion,18},{S::HolyWord,18},{S::MegaVolts,14},
+        {S::Inferno,13},{S::SunRay,16},{S::Implosion,18},{S::StarBurst,13},{S::BeastMaster,18},
+        {S::DragonSleep,18},{S::GolemStopper,16},{S::Hypnotize,18},{S::Incinerate,22},{S::InsectSpray,17},
+        {S::PoisonVolley,49},{S::Shrapmetal,16}};
+    for(const auto &[spell,fx]:launches)check(xeenSpellLaunchFmEffect(spell,0)==fx,"spell launch selector differs");
+    check(!xeenSpellLaunchFmEffect(S::Frostbite,4) && xeenSpellLaunchFmEffect(S::Frostbite,4,33)==15 &&
+        xeenSpellLaunchFmEffect(S::Incinerate,2,64)==13 && !xeenSpellLaunchFmEffect(S::MagicArrow,0),"learned/item variants differ");
+    constexpr unsigned storm[]{13,14,15,17};
+    for(unsigned n=0;n<4;++n)check(xeenSpellLaunchFmEffect(S::ElementalStorm,n+2)==storm[n],"storm type must reuse its draw");
+    const std::pair<S,unsigned> results[]{
+        {S::Light,39},{S::Awaken,30},{S::FirstAid,30},{S::Revitalize,30},{S::CureWounds,30},{S::SuppressPoison,20},
+        {S::SuppressDisease,20},{S::Bless,30},{S::Levitate,20},{S::WizardEye,20},{S::HolyBonus,30},{S::NaturesCure,30},
+        {S::Heroism,30},{S::WalkOnWater,20},{S::PowerShield,20},{S::CurePoison,30},{S::CureDisease,30},
+        {S::CureParalysis,30},{S::CreateFood,20},{S::StoneToFlesh,30},{S::RaiseDead,30},{S::Resurrection,30},
+        {S::DivineIntervention,20},{S::Clairvoyance,20},{S::DayOfProtection,20},{S::DayOfSorcery,20}};
+    for(const auto &[spell,fx]:results) {
+        check(xeenSpellResultFmEffect(spell,false)==fx,"spell result selector differs");
+        check(!xeenSpellResultFmEffect(spell,true) && !xeenSpellResultFmEffect(spell,false,true),"failed/cancelled member emitted result cue");
+    }
+    check(xeenSpellResultFmEffect(S::ProtectionFromElements,false,true)==20,"element Escape must reach cue20");
+    for(auto spell:{S::Jump,S::TimeDistortion,S::Teleport,S::Etherealize,S::TownPortal})
+        check(xeenTravelFmEffect(spell,false,true)==51 && !xeenTravelFmEffect(spell,true,true) &&
+            !xeenTravelFmEffect(spell,false,false),"travel refusal/arrival cue differs");
+    check(xeenTravelFmEffect(S::LloydsBeacon,false,false,1)==20 && xeenTravelFmEffect(S::LloydsBeacon,false,true,2)==51 &&
+        !xeenTravelFmEffect(S::LloydsBeacon,false,false,0) && xeenTravelFmEffect(S::SuperShelter,false,false)==30,"Beacon/Shelter selector differs");
+    XeenCombatRandom random(std::vector<XeenCombatRandom::Draw>{{2,6,4}});
+    std::vector<unsigned> fx;XeenConsequenceDraw draw{random,64,{},[&](unsigned id){check(random.position()==1,"Energy cue preceded preparation draw");fx.push_back(id);}};
+    XeenSpellDamagePreparation energy(S::EnergyBlast,7);energy.requestFmEffect(draw);
+    check(fx.empty() && energy.service(draw),"Energy cue must await scalar");
+    energy.requestFmEffect(draw);energy.requestFmEffect(draw);
+    check(fx==std::vector<unsigned>{16} && random.position()==1,"launch cue repeated or drew RNG");
+    for(bool valid:{false,true}) {
+        XeenCombatRandom rng(valid?std::vector<XeenCombatRandom::Draw>{{1,6,4}}:std::vector<XeenCombatRandom::Draw>{});fx.clear();
+        XeenConsequenceDraw request{rng,64,{},[&](unsigned id){check(rng.position()==unsigned(valid),"Recharge cue/draw order differs");fx.push_back(id);}};
+        XeenItemSpellPreparation recharge(S::RechargeItem,7,XeenInventoryCategory::Miscellaneous,{1,std::uint8_t(valid?1:53),2,0});
+        check(recharge.service(request) && recharge.service(request) && fx==std::vector<unsigned>{valid?20u:21u},"Recharge success/refusal cue differs");
+    }
+}
+std::vector<std::uint8_t> spellWitness(Inputs &in,const GameInstallation &installation,unsigned mode,bool enabled) {
+    constexpr unsigned spells[]{20,10,21,10,10,1,55,48,20,20,44,71};const auto spell=spells[mode];
+    const bool combat=mode==0 || mode>=8;
+    auto s=in.service();s.camera={23,9,11,combat?XeenDirection::West:XeenDirection::East};s.soundOptions.efx=enabled;
+    for(auto map:{23u,28u})for(auto &a:s.map(map).monsters->slots){a.x=a.y=-128;a.lifecycle=XeenActorLifecycle::Defeated;a.accounted=true;}
+    // Original party/resources with disclosed spell books, SP and an injured target.
+    for(auto owner:s.activeRosterIds) {
+        auto &c=s.characters[owner];c.characterClass=XeenLearnedSpellRules::slotForSpell(XeenSpellCategory::Wizardry,spell)?XeenCharacterClass::Sorcerer:XeenCharacterClass::Cleric;
+        c.hasSpells=true;c.currentSp=100;c.learnedSpells.emplace();c.learnedSpells->fill(0);
+        c.currentSpell=*XeenLearnedSpellRules::slotForSpell(*XeenLearnedSpellRules::categoryForClass(c.characterClass),spell);
+        c.learnedSpells->at(c.currentSpell)=1;
+        c.quickOption=1;
+        if(mode==8)c.currentSp=0;
+        if(mode==11){c.miscellaneous={};c.miscellaneous[0]={1,55,2,0};}
+        if(mode==7)c.currentHp=1;
+        for(auto *items:{&c.weapons,&c.armor,&c.accessories})for(auto &item:*items)item.frame=0;
+    }
+    s.journey->purse->gems=100;s.characters[s.activeRosterIds[1]].currentHp=1;
+    if(mode==4)s.characters[s.activeRosterIds[4]].currentSp=0;
+    if(mode==9)s.journey->purse->gems=0;
+    if(combat) {auto &a=s.map(23).monsters->slots[5];a.x=8;a.y=11;a.lifecycle=XeenActorLifecycle::Present;a.accounted=false;}
+    if(mode==3){auto &items=s.characters[s.activeRosterIds[0]].miscellaneous;items={};items[0]={1,9,2,0};}
+    Fixture f(in,s);std::vector<unsigned> fx;attach(f,installation,fx);
+    if(combat) {
+        f.act(WaitAction{});bool cast=false;
+        for(unsigned n=0;n<2500;++n) {
+            if(f.flow->encounter()->combat() && f.flow->encounter()->combat()->phase()==XeenCombatPhase::PlayerReady) {
+                if(!cast){
+                    if(mode>=8 && mode<=10)f.act(QuickFightAction{});
+                    else if(mode==11) {
+                        f.flow->mapName=[&](auto id){return in.assets.mapName(id);};
+                        f.act(UseItemAction{});for(auto key:{'1','u'})f.act(DialogKeyAction{unsigned(key)});
+                        check(enabled?std::count(fx.begin(),fx.end(),21)==1:fx.empty(),"combat Portal item engaged notice cue");
+                        f.act(AcknowledgeAction{});f.act(DialogKeyAction{InputKey::Escape});
+                    } else {f.act(CastSpellAction{});f.act(DialogKeyAction{'c'});}
+                    cast=true;
+                }else f.act(AttackAction{});
+            }
+            const auto ui=f.flow->inputContext(f.flow->frame().presentation());if(ui.dialog && ui.dialog->anyKey)f.act(AcknowledgeAction{});
+            tick(f);if(cast && !f.flow->encounter()->combat() && f.flow->canSave())break;
+        }
+        check(f.flow->canSave(),"damage spell combat witness did not settle");
+    } else if(mode==3) {
+        f.act(SelectMemberAction{0});for(auto key:{'i','m','1','u'})f.act(DialogKeyAction{unsigned(key)});
+        f.act(SelectMemberAction{1});quiet(f);
+    } else {
+        f.act(CastSpellAction{});f.act(SelectMemberAction{4});f.act(DialogKeyAction{'c'});
+        if(mode==1)f.act(SelectMemberAction{1});
+        if(mode==4){f.act(AcknowledgeAction{});f.act(DialogKeyAction{InputKey::Escape});}
+        if(mode==6)f.act(DialogKeyAction{InputKey::Escape});
+        quiet(f);
+    }
+    constexpr unsigned expected[]{16,30,51,30,21,30,20,16,21,21,21,21};
+    check(enabled?heard(fx,expected[mode]):fx.empty(),("spell/item/travel/refusal cue missing or Efx gate failed (mode "+std::to_string(mode)+")").c_str());
+    if(mode!=0 && enabled)check(std::count(fx.begin(),fx.end(),expected[mode])==1,("spell cue repeated (mode "+std::to_string(mode)+")").c_str());
+    if(mode==7 && enabled) {
+        std::vector<unsigned> healing;for(auto cue:fx)if(cue==30 || cue==20)healing.push_back(cue);
+        check(healing==std::vector<unsigned>{30,20,30,20,30,20,30,20,30,20,30,20},"Moon Ray member cues must interleave with sparkle animations");
+    }
+    auto after=f.snapshot();after.soundOptions.efx=true;return XeenSaveFormat::encode(after);
+}
 }
 int main(int argc,char **argv) {
     try {
         check(argc==3,"usage: fm-effects <installation> <audio-rules>");inventory(argv[2]);
         const auto installation=xeenTestInstallationDetector().detect(argv[1]);check(bool(installation),"original installation unavailable");
-        Inputs in(*installation);missEffects();commonDamage(in,*installation);
+        Inputs in(*installation);missEffects();commonDamage(in,*installation);spellSelectors();
+        for(unsigned mode=0;mode<12;++mode)check(spellWitness(in,*installation,mode,true)==spellWitness(in,*installation,mode,false),"spell Efx setting altered gameplay snapshot");
         for(bool wall:{false,true})for(bool spell:{false,true})
             check(projectileWall(in,*installation,wall,spell,true)==projectileWall(in,*installation,wall,spell,false),"projectile wall Efx setting altered gameplay snapshot");
         check(wrongFacing(in,*installation,true)==wrongFacing(in,*installation,false),"wrong-facing Efx setting altered gameplay snapshot");
@@ -303,6 +495,6 @@ int main(int argc,char **argv) {
         check(passableBash(in,*installation,true)==passableBash(in,*installation,false),"passable Bash Efx setting altered gameplay snapshot");
         check(service(in,*installation,true)==service(in,*installation,false),"service Efx setting altered gameplay snapshot");
         check(combat(in,*installation,true)==combat(in,*installation,false),"combat Efx setting altered gameplay snapshot");
-        std::cout<<"40 reconciled C1 sites; original wall/Bash, Training and combat effects; Efx-off snapshots identical\n";
+        std::cout<<"126 reconciled C1/C2 sites; original spell/item/travel/refusal and C1 witnesses; Efx-off snapshots identical\n";
     }catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}
 }

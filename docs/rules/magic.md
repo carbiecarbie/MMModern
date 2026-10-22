@@ -240,7 +240,8 @@ Power Cure's one draw of 5 gives 35 healing before the HP cap.
 
 **Evidence: DOS static (2026-10-17), high confidence** for the 18 ordinary
 M74 spells' preparation, ranges, draws and costs; other rows remain
-**Reference only**, except Pain's retained DOS correction. Sources: [handlers][spells], [combat][combat]
+**Reference only**, except Pain's retained DOS correction and Energy Blast's
+calibrated DOS static correction below. Sources: [handlers][spells], [combat][combat]
 `rangedAttack`, `attack`, `attack2`, `getMonsterResistance`.
 The checked image and mapping are in [evidence](evidence.md#exact-baseline).
 Pain, the zero elemental contribution and item dispatch were recalibrated
@@ -258,7 +259,7 @@ single-target spell. Do not confuse that with the physical weapon
 | Dancing Sword | `U(6,14) * L` | Physical | Group |
 | Deadly Swarm | 40 | Physical | Group |
 | Elemental Storm | 150; one type draw across Fire/Electrical/Cold/Poison | Drawn type | All |
-| Energy Blast | `2L` | Energy | Single |
+| Energy Blast | `U(2,6) * L` | Energy | Single |
 | Fantastic Freeze | 40 | Cold | Group |
 | Fiery Flail | 100 | Fire | Single |
 | Fireball | `U(3,7) * L` | Fire | Group |
@@ -280,6 +281,15 @@ single-target spell. Do not confuse that with the physical weapon
 
 **DOS static, high confidence:** the scalar random draw in each variable-damage handler occurs once before
 projectile resolution, not once per monster or once per caster level.
+**Energy Blast: calibrated DOS static (2026-10-22), high confidence.**
+The learned ID-20 dispatcher entry at `0x33853` reaches `0x333ab`, then
+handler `0x2f584`: draw `U(2,6)` at `0x2f588`, read current caster level at
+`0x2f599`, multiply at `0x2f5a4`, then request effect 16 at `0x2f5b7` and
+projectile 13 at `0x2f5bf`. The RNG target is calibrated against Power Cure
+(`0x2fb6f`) and Recharge Item (`0x31bf0`); the level helper matches Sparks
+(`0x2f55a`). This preparation draw also occurs at level zero and without a
+target. The pin instead prepares fixed `2L`; MMModern uses the DOS draw in
+the shared learned/item, combat/exploration preparation owner.
 Cold Ray, Dancing Sword, Fireball and Lightning Bolt draw at `0x30263`,
 `0x30a14`, `0x30043` and `0x2fc0f`, then multiply by current level.
 Elemental Storm stores 150 before its one type draw `U(2,5)` (`0x30b7b..0x30b8d`);
@@ -326,7 +336,8 @@ but ignores its result and retains 8 damage (`0x30fa8`, `0x2cde4`,
 
 **Reference only, boundary cases:** zero-level Energy Blast/Shrapmetal/Sparks
 still draw a nonzero magic-resistance gate but do not enter damage handling
-and do not draw a save. **DOS static, high confidence:** nonzero prepared
+and do not draw a save. Energy Blast's earlier `U(2,6)` preparation draw is
+separately established by the DOS handler above. **DOS static, high confidence:** nonzero prepared
 damage reduced to zero by physical immunity does retain the save draw.
 Clouds resource ID 89 refuses nonzero damage supplied with a nonzero
 attack range argument (`0x2bdf8..0x2be33`). All spell projectiles, including
@@ -394,7 +405,7 @@ confirmed statically; its audible presentation has not been played.
 
 Sleep, Beast Master and Hypnotize affect the first reachable group (up to
 three targets); Dragon Sleep affects one target. All prepare zero damage,
-use Magic Orb (`pow7.icn`) and sound FX18 (audio deferred). After the nonzero-resistance gate,
+use Magic Orb (`pow7.icn`) and sound FX18. After the nonzero-resistance gate,
 check species, then draw `U(1,50+I)` only for compatible targets. Success
 (`> I`) replaces the single status; there is no damage-stage save, damage
 or allegiance change. **Evidence: Reference only** for application and
@@ -407,7 +418,7 @@ then consume the ordinary save without halving. Wrong-type Spray skips
 `attack2`; wrong-type Turn Undead enters it with zero, so draws no save and
 does not wake Sleep. **Evidence: Reference only** (`attack`, `attack2`).
 Both use group range; Insect Spray uses Spray (`pow10.icn`), sound FX17, while
-Turn Undead uses Energy Blast (`pow13.icn`), sound FX18. Audio remains deferred.
+Turn Undead uses Energy Blast (`pow13.icn`), sound FX18.
 
 Sparks prepares `2L` electrical damage, costs `L` SP and one gem, and uses
 Sparks (`pow5.icn`), sound FX14 (deferred). Toxic Cloud prepares 10 poison damage, costs four
@@ -433,8 +444,8 @@ exploration Cast and item Use (powers 43, 65, 61 and 45 respectively). The
 candidate uses the target's current HP and retains both Finger saves across
 bounded execution. Clouds ID89 refuses nonzero spell damage after dispatch
 and Finger's first save, before waking or the damage-stage save. Holy Word's
-wrong-species path records a miss without waking or drawing a damage save;
-audio remains deferred. Melee and Shoot compare the final hit total as a
+wrong-species path records a miss without waking or drawing a damage save.
+Melee and Shoot compare the final hit total as a
 16-bit unsigned word, also used by Poison Volley (M74 Part C).
 Poison Volley uses the shared party volley in exploration Cast/item Use
 (power 46) and combat Cast/Quick Fight: one successful shot per active
@@ -831,7 +842,8 @@ unverified by play.
 Power 0 is invalid. Power 33 calls the special Frostbite animation handler;
 its shared Frostbite damage uses projectile 9 instead of learned projectile 8.
 Item Incinerate similarly selects projectile 2 instead of learned projectile 1.
-Audio remains deferred. Learned books and SP/gem costs
+FM requests follow the [DOS site inventory](audio.md#dos-fm-effect-call-sites).
+Learned books and SP/gem costs
 are bypassed by item dispatch. See cancellation caveats above.
 
 | Power range | Effects in ascending power order |

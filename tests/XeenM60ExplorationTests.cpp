@@ -47,13 +47,14 @@ void effects(Inputs &in) {
   target.currentHp=1;target.conditions[2]=3;
   const auto cost=XeenLearnedSpellRules::cost(id,s.characters[s.activeRosterIds[4]].currentLevel());
   Fixture f(in,s);const auto random=f.w.sessionState().journeyRandom();const auto minute=f.p.encounterContext->minutes;
+  XeenCombatRandom expected(*random);if(id==20)while(!expected.draw(2,6)){}
   begin(f);check(f.flow->encounter()->castingCommitted(),"M60 spell failed paid admission");
   if(id==10 || id==59)f.act(SelectMemberAction{0});
   quiet(f);
   check(f.p.roster.at(s.activeRosterIds[4]).currentSp==100-int(cost.sp),"M60 SP debit differs");
   check(f.p.purse->gems==100-cost.gems,"M60 gem debit differs");
   check(f.p.encounterContext->minutes==minute+(indoor?1:10) && f.p.encounterContext->ctr24==23,"Cast time/counter differs");
-  check(f.w.sessionState().journeyRandom()==random,"Empty/healing spell consumed intrinsic RNG");
+  check(f.w.sessionState().journeyRandom()==expected.continuation(),"Empty/healing spell preparation RNG differs");
   check(f.w.sessionState().exploredTiles().empty(),"Eye/cast without Cartography wrote explored bits");
   if(id==10)check(f.p.roster.at(s.activeRosterIds[0]).currentHp==16,"Cure Wounds did not heal 15");
   if(id==59)check(f.p.roster.at(s.activeRosterIds[0]).conditions[2]==0,"Revitalize retained Weak");
@@ -73,9 +74,10 @@ void blockedProjectiles(Inputs &in) {
  check(bool(blocked),"Original blocked projectile fixture missing");
  for(unsigned id:{20u,27u,45u,50u,60u,2u,17u,33u,38u,61u,62u,72u,73u}) {
   auto s=source(in,id,true);s.camera=*blocked;Fixture f(in,s);const auto random=f.w.sessionState().journeyRandom();
+  XeenCombatRandom expected(*random);if(id==20)while(!expected.draw(2,6)){}
   const auto cost=XeenLearnedSpellRules::cost(id,f.p.roster.at(s.activeRosterIds[4]).currentLevel());begin(f);quiet(f);
   check(f.p.roster.at(s.activeRosterIds[4]).currentSp==100-int(cost.sp) && f.p.purse->gems==100-cost.gems &&
-   f.p.encounterContext->minutes==s.journey->context->minutes+1 && f.w.sessionState().journeyRandom()==random,
+   f.p.encounterContext->minutes==s.journey->context->minutes+1 && f.w.sessionState().journeyRandom()==expected.continuation(),
    "Blocked projectile cost/time/draw semantics differ");
  }
 }
@@ -123,11 +125,14 @@ void impacts(Inputs &in) {
   // Disclosed live wounds on original Vertigo monsters; current HP drives Mass Distortion.
   if(spell==46)for(unsigned i=0;i<count;++i)XeenMonsterTestAccess::setLive(*f.flow,f.w,28,35+i,1,true);
   XeenCombatRandom expected(*f.w.sessionState().journeyRandom());
+  const auto &caster=f.p.roster.at(s.activeRosterIds[4]);
+  XeenSpellDamagePreparation preparation(*XeenLearnedSpellRules::supported(spell),caster.currentLevel());
+  XeenConsequenceDraw preparationDraw{expected};check(preparation.service(preparationDraw),"Spell preparation did not settle");
   auto treasure=f.w.treasureStaging().value();unsigned xp=0;
   for(unsigned i=0;i<count;++i) {
-   const auto &actor=f.w.sessionState().regionalActors(28).at(35+i);const auto &caster=f.p.roster.at(s.activeRosterIds[4]);
+   const auto &actor=f.w.sessionState().regionalActors(28).at(35+i);
    XeenSpellDamageCandidate candidate(caster.permanentLevel,caster.temporaryLevel,actor.statistics->magicResistance(),actor.original.resourceId,
-    *XeenLearnedSpellRules::supported(spell),actor.statistics->physicalResistance(),actor.status,actor.statistics->monsterType(),nullptr,actor.hp);
+    *XeenLearnedSpellRules::supported(spell),actor.statistics->physicalResistance(),actor.status,actor.statistics->monsterType(),&preparation,actor.hp);
    XeenConsequenceDraw draw{expected};check(candidate.service(draw) && candidate.damage>=1,"Live spell fixture must be lethal");
    xp+=actor.statistics->experience()/6;
    {

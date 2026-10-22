@@ -225,7 +225,7 @@ unsigned xeenSpellProjectile(XeenLearnedSpell spell,unsigned type,unsigned itemP
     default: throw std::invalid_argument("Unsupported spell projectile");
     }
 }
-XeenSpellDamagePreparation::XeenSpellDamagePreparation(XeenLearnedSpell spell,unsigned casterLevel) : level(casterLevel) {
+XeenSpellDamagePreparation::XeenSpellDamagePreparation(XeenLearnedSpell spell,unsigned casterLevel) : spell(spell),level(casterLevel) {
     using S=XeenLearnedSpell;
     switch(spell) {
     case S::PoisonVolley: damage=10;type=5;break;
@@ -238,6 +238,8 @@ XeenSpellDamagePreparation::XeenSpellDamagePreparation(XeenLearnedSpell spell,un
     case S::DancingSword: low=6;high=14;break;
     case S::DeadlySwarm: damage=40;break;
     case S::ElementalStorm: damage=150;low=2;high=5;typeDraw=true;break;
+    // DOS DAT 0x2f584..0x2f5b7: one cast-wide roll before FX16/projectile.
+    case S::EnergyBlast: low=2;high=6;type=6;break;
     case S::FantasticFreeze: damage=40;type=4;break;
     case S::FieryFlail: damage=100;type=2;break;
     case S::Fireball: low=3;high=7;type=2;break;
@@ -261,6 +263,11 @@ bool XeenSpellDamagePreparation::service(XeenConsequenceDraw &draw) {
         done=true;
     }
     return done;
+}
+void XeenSpellDamagePreparation::requestFmEffect(XeenConsequenceDraw &draw,unsigned itemPower) {
+    if(!done || fmRequested)return;
+    fmRequested=true;
+    if(const auto effect=xeenSpellLaunchFmEffect(spell,type,itemPower))draw.effect(*effect);
 }
 bool XeenMoonRayHealing::service(XeenConsequenceDraw &draw,const XeenPartyState &party,std::uint32_t year) {
     while(member<party.party.size() && draw.remaining)if(const auto amount=draw.draw(1,30)) {
@@ -294,7 +301,6 @@ XeenSpellDamageCandidate::XeenSpellDamageCandidate(std::int64_t permanent, std::
     case XeenLearnedSpell::Sparks: acceptedDamage=physicalChecked(2*level);break;
     case XeenLearnedSpell::ToxicCloud: acceptedDamage=10;break;
     case XeenLearnedSpell::MagicArrow: acceptedDamage=8;halveOnSave=false;break;
-    case XeenLearnedSpell::EnergyBlast: acceptedDamage=physicalChecked(2*level);break;
     case XeenLearnedSpell::Shrapmetal: acceptedDamage=physicalChecked(2*level);physicalDamage=true;break;
     case XeenLearnedSpell::FlyingFist: acceptedDamage=6;physicalDamage=true;break;
     case XeenLearnedSpell::Pain: acceptedDamage=8;physicalDamage=true;break;

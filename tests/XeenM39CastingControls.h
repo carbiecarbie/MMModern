@@ -74,6 +74,9 @@ bool m39CastControls(const std::string &control,const IndexedFrame &first,const 
         std::array<std::uint32_t,6> beforeXp{};std::uint32_t xpPerMember=0;
         for(unsigned i=0;i<6;++i)beforeXp[i]=party.roster.combatInputs(party.party.activeRosterIds().at(i))->experience;
         if(!member) {
+            XeenSpellDamagePreparation preparation(*XeenLearnedSpellRules::supported(std::uint8_t(spell)),caster.currentLevel());
+            XeenConsequenceDraw preparationDraw{expectedRandom};
+            check(preparation.service(preparationDraw),"M60 expected cast-wide preparation");
             XeenPartyVolley volley;volley.eligible.fill(true);
             for(unsigned i=0;i<groupTargets.size() && groupTargets[i];++i) {
                 const auto &actor=world.sessionState().monsters(23).at(groupTargets[i]->recordIndex);
@@ -86,7 +89,7 @@ bool m39CastControls(const std::string &control,const IndexedFrame &first,const 
                         XeenSpellDamageCandidate(party.roster.at(shooter),*party.roster.combatInputs(shooter),*actor.statistics,actor.original.resourceId,party.encounterContext->year,party.encounterContext->difficulty,status,true) :
                         XeenSpellDamageCandidate(caster.permanentLevel,caster.temporaryLevel,
                             actor.statistics->magicResistance(),actor.original.resourceId,
-                            *XeenLearnedSpellRules::supported(std::uint8_t(spell)),actor.statistics->physicalResistance(),status,actor.statistics->monsterType(),nullptr,groupHp[i]);
+                            *XeenLearnedSpellRules::supported(std::uint8_t(spell)),actor.statistics->physicalResistance(),status,actor.statistics->monsterType(),&preparation,groupHp[i]);
                     XeenConsequenceDraw draws{expectedRandom};check(candidate.service(draws),"M60 expected bounded damage");
                     if(!i)expectedDamage+=candidate.damage;
                     groupHp[i]=std::max(groupHp[i]-candidate.damage,0);status=candidate.status;
