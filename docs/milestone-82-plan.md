@@ -12,13 +12,14 @@ milestones; M83 adds digital sound, speech and CD tracks.
 
 The game plays the original FM music and FM sound effects as the installed CD
 configuration does: the Pro Audio Spectrum driver `promus` on an OPL3 chip in
-stereo. Music follows maps, locations, the Inn and the CD title; 127 of the
-133 original effect calls play, in movement, combat, spells, items, Events,
-services and the panel. The control panel's Efx, Music, Speech and Text
-buttons work and travel with the party in save v18. VOC samples, voices, CD
-speech and CD tracks are M83; the other original sound devices and an opt-in
-live switch are roadmap step 16. Darkside map music and the intros stayed out.
-The rules, with DOS offsets, are in [audio](rules/audio.md).
+stereo. Music follows maps, locations and the CD title (the Inn's song waits
+for the Inn); 127 of the 133 original effect calls play, in movement, combat,
+spells, items, Events, services and the panel. The control panel's Efx,
+Music, Speech and Text buttons work and travel with the party in save v18.
+VOC samples, voices, CD speech and CD tracks are M83; the other original sound
+devices and an opt-in live switch are roadmap step 16. Darkside map music and
+the intros stayed out. The rules, with DOS offsets, are in
+[audio](rules/audio.md).
 
 ## Key decisions
 
@@ -66,7 +67,7 @@ The rules, with DOS offsets, are in [audio](rules/audio.md).
 | Part | Result |
 | --- | --- |
 | 0 - evidence | Driver hardware and semantics, options, song rules, captions and the effect-site inventory from static analysis; six DRO captures. |
-| A - FM music | Nuked core, SDL output, the audio owner, `PromusDriver`; map, location, Inn and title songs with fades and same-name continuation (`946ac81`). |
+| A - FM music | Nuked core, SDL output, the audio owner, `PromusDriver`; map, location and title songs with fades and same-name continuation (`946ac81`). |
 | B - options and save | The four panel buttons, save v18, Speech/Efx waits, entrance captions (`bcabfd6`). |
 | C1 - effects outside spells | All 133 sites reconciled; 40 wired (`3c4d7d0`), the door cue later (`861d607`). |
 | C2 - spell effects | 86 spell sites and the Energy Blast fix (`088cfb0`). |

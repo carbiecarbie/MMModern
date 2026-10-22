@@ -4,8 +4,7 @@ This chapter describes the pinned reference's rules and the explicitly identifie
 DOS confirmations below. **Reference only is not a claim of original DOS
 verification.** MMModern implementation coverage is narrower than this catalogue.
 The reference is ScummVM commit
-`6814ee9ba54582f5b5adcffab49efbbd8f589edd`; local implementation cross-checks use
-MMModern `9cc4def8c5c0253899c094efbe5b4d7e4513b22c`.
+`6814ee9ba54582f5b5adcffab49efbbd8f589edd`.
 
 `R(a,b)` means one inclusive random draw. Integer division truncates toward zero;
 for the nonnegative examples below this is floor division. Distinguish a monster's
@@ -14,9 +13,8 @@ character's current level is `L = max(permanent level + temporary level, 0)`.
 
 ## Sources and evidence boundaries
 
-**Evidence: Reference only, except the DOS-static findings explicitly
-identified in the spell interaction, treasure and monster movement terrain
-sections.** Source links are pinned, so future
+**Evidence: Reference only, except the DOS findings explicitly labelled in
+each section.** Source links are pinned, so future
 upstream changes cannot silently change this chapter.
 
 | Topic | Pinned source and symbols |
@@ -145,7 +143,9 @@ weapon damage before its hit roll, including attempts that miss.
    A good metal material 37-58 assigns its metal hit modifier and metal damage
    modifier, then the dice are added. Attribute materials do not supply a direct
    metal or elemental component. Heroism is added to the hit modifier for each
-   matching weapon slot. A later metal weapon can overwrite accumulated damage
+   matching weapon slot. DOS also adds Holy Bonus to the weapon damage for each
+   matching slot; the pin omits it ([Holy Bonus](../original-quirks.md#sv-holy-bonus-damage)).
+   A later metal weapon can overwrite accumulated damage
    and hit modifiers; do not replace the scan with an unordered sum.
 3. Roll each matching weapon's dice as `R(1, sides)`. Clamp the resulting weapon
    damage to at least zero. Adventurer adds 5 to hit and triples this weapon
@@ -154,7 +154,9 @@ weapon damage before its hit roll, including attempts that miss.
    divisor) - Cursed count`. Add `R(1,20)`, drawing and adding again after each
    20, until the first non-20. There is no automatic player miss on 1.
 5. Add 20 if the monster's current damage/status type is not Physical. Hit if
-   the total is at least `monster AC + 10`.
+   the total is at least `monster AC + 10`. DOS compares the total as an
+   unsigned 16-bit word, so a negative total hits; the pin compares signed
+   ([negative hit totals](../original-quirks.md#sv-hit-total-unsigned)).
 6. On a hit, add `max(B(Might) + weapon damage, 1)` to the action total. On a
    miss, add zero. Repeat from weapon calculation for the next attempt.
 7. Scan all equipped weapons for matching effectiveness counters. Dragon,
@@ -325,7 +327,8 @@ before its secondary save. For any other damage type, the exact order is:
    here; DOS does not.
 2. Subtract the matching party protection for Fire, Electrical, Cold or Poison.
    Magical and Energy do not subtract one of these party protection fields.
-   (No protection spell has an owner yet; the term is zero.)
+   Protection from Elements and Day of Protection set them
+   ([party effects](magic.md#party-effects-and-movement)).
 3. Enter the element save loop (`0x2d35e..0x2d374`): draw the element save once
    unconditionally, even at zero damage; on success halve and repeat while the
    damage stays nonzero; stop on the first failed save. The pinned reference
@@ -349,7 +352,7 @@ initial draw of 1..25 at most 5 halves to 11; party Fire protection 3 leaves 8;
 with fire resistance 10 a loop draw of 1..50 at most 10 halves to 4, a second
 success to 2, a failure stops; Power Shield 2 leaves 0 and no secondary save is
 drawn. The same 23 with a failed initial save and a failed first loop draw
-applies 20 (`23 - 3`) and, with a nonzero special, draws the secondary save.
+applies 18 (`23 - 3 - 2`) and, with a nonzero special, draws the secondary save.
 
 **Do not merge environmental and monster damage algorithms.** `giveCharDamage`
 subtracts party protection before its loop, evaluates the saving throw before
@@ -368,7 +371,7 @@ row below requires positive post-shield damage and a failed Physical save.
 
 | Special | Secondary attack | Effect before HP subtraction (DOS offsets) |
 | ---: | --- | --- |
-| 5, 7, 8, 9, 13, 14, 15, 16, 18 | Poison, Disease, Insane, Sleep, Curse, Paralyze, Unconscious, Confuse, Weaken | Increment the condition byte; `inc al; jnz` then `0xff`: a byte that reaches zero is set to 255, so the counter saturates (`0x2d442` and siblings). Sleep re-applies after the wake at entry. |
+| 5, 7, 8, 9, 13, 14, 15, 16, 18 | Poison, Disease, Insane, Sleep, Curse, Paralyze, Unconscious, Confuse, Weaken | Increment the condition byte; an increment that wraps to zero is replaced by 255, so the counter saturates (`0x2d442` and siblings). Sleep re-applies after the wake at entry. |
 | 10 | Curse Item | Set the cursed bit (`0x40`) in all nine slots of every category, empty slots included; a weapon slot holding ID 34 is left as is; frames stay (`0x2d671..0x2d6ab`). The reference instead clears that weapon's cursed bit. |
 | 12 | Drain SP | Current SP becomes zero (`0x2d561`). |
 | 17 | Break Weapon | Equipped (`frame != 0`), nonempty weapons whose ID is not 34: broken bit and frame cleared (`0x2d508..0x2d53e`). |
@@ -516,9 +519,9 @@ The maintainer's DOSBox check is pending. Offsets and calibration are in
 **DOS static (2026-10-18), high confidence.** The main-screen Use button and
 the character sheet's Items button open the same Items dialog on the acting
 member or the chosen combat-party member. Equip, Remove, Discard, transfer
-and Quest never spend the turn or pass time; only a successful Use does,
-through the ordinary item-use path (charge spent, monster response, turn
-cursor cleared, next actor). Use is refused from the character sheet in
+and Quest never spend the turn or pass time; only an admitted Use does,
+even if its effect is cancelled, through the ordinary item-use path (charge
+spent, monster response, turn cursor cleared, next actor). Use is refused from the character sheet in
 combat, and the main-screen Use dialog ignores F1-F6. The rules, refusals and
 offsets are in [the Items dialog in combat](items.md#the-items-dialog-in-combat);
 Town Portal ends combat at the first attacker re-evaluation after arrival,
@@ -539,7 +542,7 @@ The test runs once for each step the shared approach tries:
 
 - **Indoors** there is no flight rule. The wall nibble of the monster's current
   cell, in the step direction, passes only when it is **below** no-pass
-  (`0x1fd8f..0x1fd9b`: `cmp ax,dx; jle` refuses equality). Walkers and flyers
+  (`0x1fd8f..0x1fd9b`: the signed comparison refuses equality). Walkers and flyers
   share it.
 - **Outdoors** the destination's middle value decides (jump table `0x1fda3`):
 
@@ -671,7 +674,7 @@ statistics. Consult `attack2` before replacing death handling with only XP/loot.
 **Evidence: implementation inspection plus Unknown for the unresolved DOS
 questions.** This section distinguishes current code from the larger reference.
 
-At the inspected MMModern baseline,
+In MMModern,
 [XeenCombatRules.cpp](../../src/games/xeen/XeenCombatRules.cpp) implements plain and,
 since M67, enchanted weapon attacks (metal, elemental, attribute materials,
 effectiveness, the Slayer Sword bypass), the two-stage natural-20 enemy application,

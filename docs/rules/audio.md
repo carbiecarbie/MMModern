@@ -105,6 +105,8 @@ For command `0x100`, let h be `((argument & 0xf0) + 0x60) mod 256`;
 the mixer byte is `h + (h >> 4)` (`0x40f..0x438`). Init's nonzero mixer
 flag (installed XEEN.CFG word +`0x14` = 1) writes mixer registers
 `0x2e/0x22/0x26` to 255 and register `0x04` to 153 (`0x23c..0x265`).
+MMModern does not model these card-mixer writes; `PromusDriver` only retains
+the command `0x100` byte ([quirk](../original-quirks.md#sv-promus-pas-mixer)).
 
 There are nine logical two-operator voices, each backed by one channel in
 **each** OPL bank: music uses 0..6, effects use 7/8. Notes write both banks;
@@ -369,7 +371,9 @@ The seven Clouds location table entries at `0x4f110..0x4f128` are
 `endgame.m`. Location entry requests with fade 223 at `0x1d451`; exit
 copies the previous name and requests it with 223 at `0x1d750..0x1d778`.
 The Clouds Inn/sign-in path selects `inn.m` with fade 128 at
-`0x394d4..0x394f4` when its song-entry flag is clear. These names and the
+`0x394d4..0x394f4` when its song-entry flag is clear. `XeenAudio::requestInn`
+implements that request, but nothing calls it until the Tavern's Sign In
+screen exists (roadmap step 14). These names and the
 five Clouds map names are all present in CD XEEN.CC.
 
 **CD DAT title/menu:** startup selects DARK.CC and loads `newbrigh.m`
@@ -416,7 +420,9 @@ Other fixed delays and caption-cursor conditions remain. The FM wrapper
 
 The existing [entrance evidence](evidence.md#part-0b-text-settings-and-cadence-2026-10-20)
 establishes the separate caption gate: Efx off or digital-driver ID below 2
-allows captions; Text/Speech do not select them. The renderer advances one
+allows captions; Text/Speech do not select them. MMModern does not read the
+driver word and tests Efx alone, which matches the installed driver word 10.
+The renderer advances one
 character only after more than one BIOS tick, resets its time mark, and
 wraps modulo record length (`0xdca3..0xdd52`, timer `0x4411d..0x44144`).
 There is no catch-up or universal duration measured from speech onset;
@@ -943,7 +949,8 @@ gap below does not justify a third audio implementation part.
 at `0x116a0` after falling FM 11 (`0x11692`), explicitly stops it at
 `0x116ec`, starts `unnh.voc` at `0x1170c`, then requests landing FM 31
 at `0x11716`. Existing transition ownership is
-`XeenEventFlow::prepareTerrainTransition/beginTerrainTransition`, backed
+`XeenEventFlow::prepareTerrainTransition` and
+`XeenEncounterFlow::beginTerrainTransition`, backed
 by `XeenTerrainArrival`; encounter/rest/casting consequences hand off to
 that transition. There is no equivalent staged fall/landing presentation
 or sample publication point today. Record these two calls with that
@@ -957,8 +964,8 @@ animation.
 and stop `0xc029`.
 The current CD World title implements the 13-frame `world0/1/2` loop,
 not that sequence. No further flag tracing is claimed: retain lightning
-as an absent-presentation gap belonging to roadmap step 15 (intros,
-ending, Darkside), outside M83; never attach `elect.voc` to the CD loop.
+as an absent-presentation gap belonging to roadmap step 15 (intros and
+the Clouds ending), outside M83; never attach `elect.voc` to the CD loop.
 Its resource exists in DARK.CC (constant 188, codec 0). The physical
 inventory count above includes this excluded site, not 32 implemented starts.
 
@@ -1130,19 +1137,17 @@ never writes the file.
 
 **DOSBox DRO captures (2026-10-21):** the maintainer recorded six promus
 captures in classic DOSBox 0.74-2 (`oplmode=opl3`) in
-`D:/MModern-re/audio-m82/captures/`: startup to the title menu, Clouds Inn,
-town to outdoors with the fade, effect 20 alone, wall bump alone, and effect
-20 over music; durations are approximate. A first check agrees with the
+`D:/MModern-re/audio-m82/captures/`: startup to the title menu, the Tavern
+song (capture `promus-inn`), town to outdoors with the fade, effect 20
+alone, wall bump alone, and effect 20 over music; durations are approximate. A first check agrees with the
 static reading: the startup stream sets second-bank register 5 to 1 before
 any note, and channel registers C0..C8 carry routing `0x2_` in the first bank
 and `0x1_` in the second. DOSBox labels the header hardware type 1 (dual
 OPL2); the register stream, not that label, is the evidence. DRO delays need
-alignment to the PIT grid, not one write per tick. The per-tick comparison
-with MMModern's driver is M82 Part A's acceptance.
-
-Two boundaries move to the parts that consume them: the per-function
-effect-site/owner reconciliation below opens Part C, and the caption pixel
-lifetime is settled in Part B from an Effects-off Dwarf or Sphinx video.
+alignment to the PIT grid, not one write per tick. `xeen_promus` compares
+these captures' register writes with MMModern's driver, tick by tick. The
+effect-site/owner reconciliation follows below; the Dwarf Effects-off video
+[above](#efx-voc-waits-and-entrance-captions) settles the Dwarf caption lifetime.
 
 ## DOS FM effect call sites
 
@@ -1168,7 +1173,7 @@ to the stated original action and argument paths, not implementation coverage.
 
 **DOS static, high (C1 reconciliation, 2026-10-21):** incoming branches matter:
 `0xcf6a/0xcf6c` feed effect 46 to call `0xcf48`, bypassing the push of 21 at
-`0xcf46`. The maintainer's Part A DOSBox `promus-wall-bump` capture also matches
+`0xcf46`. The maintainer's DOSBox `promus-wall-bump` capture also matches
 46 ([capture configuration](../dependencies.md)). Likewise,
 `0x270e4/0x270e6` feed 45 to `0x270ea`, and the secondary-attack call at
 `0x2d6af` merges several different pushes. The wrapper at `0xdece..0xdee6`
@@ -1204,7 +1209,7 @@ and healing presentation per member. C2 keeps that preparation unchanged
 | `0x0b2f1` | 33 | `XeenEventFlow::advanceDeath` | Clouds death laugh frames 1 and 11 | C1 | High: DAT frame branches 0xb2e5..0xb2f1; pinned death sequence |
 | `0x0b308` | 34 | `XeenEventFlow::advanceDeath` | Clouds death laugh frame 15 | C1 | High: DAT 0xb301..0xb308 |
 | `0x0c903` | 10 | `XeenEventFlow::serviceBarrier` | successful grate opening, after both wall faces change and before redraw | C1 | High: DAT 0xc794..0xc91a; grate evidence in evidence.md |
-| `0x0cf48` | 21 from 0xcf46; 46 from 0xcf6a via 0xcf6c | `XeenMovement::apply; XeenEncounterFlow::advanceJourney` | outdoor admission refusal (21); indoor wall or swamp refusal without Swimming/Walk on Water (46) | C1 | High: DAT 0xcf46..0xcf91; Part A DOSBox promus-wall-bump matches effect 46 |
+| `0x0cf48` | 21 from 0xcf46; 46 from 0xcf6a via 0xcf6c | `XeenMovement::apply; XeenEncounterFlow::advanceJourney` | outdoor admission refusal (21); indoor wall or swamp refusal without Swimming/Walk on Water (46) | C1 | High: DAT 0xcf46..0xcf91; DOSBox promus-wall-bump matches effect 46 |
 | `0x0cfa9` | 47 | `XeenMovement::doorAhead; XeenEncounterFlow::advanceJourney` | admitted indoor forward move through a front door wall (types 4 and 13, the pin's `_wo[107]`), before the step suffix; the opening-door redraw itself is not drawn yet (Complete Clouds) | C1 | High: DAT 0xcf93..0xcfb7; pinned checkMoveDirection |
 | `0x0d442` | 7 + toggled stepping bit (7 or 8) | `XeenEncounterFlow::advanceJourney; XeenEventFlow::serviceBarrier` | movement/turn step-time suffix, including passable indoor B, excluding Space and W; toggle before request | C1 | High: DAT 0xd42b..0xd448; pinned stepTime |
 | `0x0d5c1` | 21 | `XeenEncounterFlow::beginShoot` | Shoot refused because no active member can shoot | C1 | High: DAT 0xd558..0xd5c7; pinned perform(S) |
@@ -1217,7 +1222,7 @@ and healing presentation per member. C2 keeps that preparation unchanged
 | `0x1d922` | 21 | `XeenEncounterFlow::beginShoot` | arrow projectile refused when no shooting lane can be selected | C1 | High: DAT 0x1d912..0x1d927; pinned rangedAttack(POW_ARROW) |
 | `0x1db60` | 46 | `XeenEncounterFlow::serviceShoot` | projectile hits an outdoor blocking wall or indoor no-pass wall; shared with spell projectiles | C1 | High: DAT 0x1db3e..0x1db84; M74 projectile evidence |
 | `0x1e8d2` | 21 | `XeenEventFlow::presentPendingEvent` | insufficient or absent carried/banked resource notice | C1 | High: DAT 0x1e8bb..0x1e940; DS 0x597a/0x599b |
-| `0x1f073` | 20 on enabling Efx; off branch 0 is gated out | `XeenGameplay control-panel publishSound` | Efx toggle feedback (Part B) | C1 | High: DAT 0x1f061..0x1f073; wrapper Efx gate |
+| `0x1f073` | 20 on enabling Efx; off branch 0 is gated out | `XeenGameplay control-panel publishSound` | Efx toggle feedback | C1 | High: DAT 0x1f061..0x1f073; wrapper Efx gate |
 | `0x1f249` | 51 | `XeenEncounterFlow::mrWizard` | Mr Wizard confirmed outside combat, before map transition | C1 | High: settled Mr Wizard entry in original-quirks.md |
 | `0x1f881` | 38 | `xeenApplyPhysicalInjury` | HP subtraction leaves a member unconscious, before armor-break handling | C1 | High: DAT 0x1f812..0x1f887; pinned subtractHitPoints |
 | `0x21107` | 20 | `XeenEventFlow::preparePortraitSequence` | eligible member portrait sparkle starts; shared by spells, Events and services | C1 | High: DAT 0x210bc..0x21169; existing portrait evidence |
@@ -1243,8 +1248,8 @@ and healing presentation per member. C2 keeps that preparation unchanged
 | `0x2e1fe` | 51 | `XeenRunCandidate::service` | successful combat Run removes current participant | C1 | High: DAT 0x2e1c0..0x2e204; pinned run |
 | `0x2e7e6` | monster-record byte +0x32 | `XeenEncounterFlow::observeCombat` | monster melee attack starts before frame 8 redraw | C1 | High: DAT 0x2e7df..0x2e7eb; pinned doCombat |
 | `0x2ec42` | 51 | none; absent animation/combat action | Mr Wizard combat-exit tail before destination load | Not reachable yet: roadmap long-term 2 (Complete Clouds) | High: settled Mr Wizard entry in original-quirks.md |
-| `0x2f1d3` | 21 | `XeenCombat::respondCast/settleCast; XeenEncounterFlow::castAction; XeenEventFlow::beginTravelDialog` | casting refused while engaged, including Quick Fight and the continuing Town Portal item notice | C2 | High: DAT 0x2f1b6..0x2f23e; message DS 0x6887; Portal item branch 0x3a058..0x3a075 |
-| `0x2f25c` | 21 | `XeenEventFlow::handleCasting; XeenCombat::respondCast; XeenEncounterFlow::castAction` | casting refused for insufficient SP or gems, including Quick Fight | C2 | High: DAT 0x2f23f..0x2f2c3; message DS 0x68aa |
+| `0x2f1d3` | 21 | `XeenCombat::respondCast/settleCast; XeenEncounterFlow::respondCombatCast; XeenEventFlow::beginTravelDialog` | casting refused while engaged, including Quick Fight and the continuing Town Portal item notice | C2 | High: DAT 0x2f1b6..0x2f23e; message DS 0x6887; Portal item branch 0x3a058..0x3a075 |
+| `0x2f25c` | 21 | `XeenEventFlow::handleCasting; XeenCombat::respondCast; XeenEncounterFlow::respondCombatCast` | casting refused for insufficient SP or gems, including Quick Fight | C2 | High: DAT 0x2f23f..0x2f2c3; message DS 0x68aa |
 | `0x2f3ac` | 39 | `XeenEncounterFlow::publishAwaken/publishCastingTarget/settleItemUse; XeenCombat::settleCast` | Light | C2 | High: Learned dispatcher 0x3382b maps ID to handler; M74/M76 entry labels; local call predecessor/branch |
 | `0x2f3ee` | 30 | `XeenEncounterFlow::publishAwaken/publishCastingTarget/settleItemUse; XeenCombat::settleCast` | Awaken, after the party redraw | C2 | High: DAT 0x2f3b3..0x2f3f4; party redraw at 0x2f3e6 precedes cue; emitted by framePresented |
 | `0x2f44a` | 30 | `XeenEncounterFlow::publishAwaken/publishCastingTarget/settleItemUse; XeenCombat::settleCast` | First Aid | C2 | High: Learned dispatcher 0x3382b maps ID to handler; M74/M76 entry labels; local call predecessor/branch |

@@ -20,9 +20,9 @@ Clairvoyance), information (Detect Monster, Identify Monster), item spells
 Distortion, Super Shelter, Teleport, Lloyd's Beacon, Town Portal), with
 their consumers in combat, movement, terrain, Rest and the border.
 
-Out of scope: the dark view of dark maps and light-drain cells (step 11;
-the open maps have neither), combat Equip/Use and Town Portal's combat item
-path (step 7), map admission, audio.
+Out of scope: the dark view of dark maps and light-drain cells (Opening
+areas step; the open maps have neither), combat Equip/Use and Town Portal's
+combat item path (step 7), map admission, audio.
 
 ## Key decisions
 
@@ -53,8 +53,8 @@ path (step 7), map admission, audio.
   mutable roster state, saved and protected by the restore guard. The four
   M44 digests were replaced after a format-only audit (traces and gameplay
   fields identical), with the maintainer's authorization.
-- **Darkness to step 11** (maintainer decision): on maps that are not dark
-  Light is complete as a counter.
+- **Darkness to the Opening areas step** (maintainer decision): on maps that
+  are not dark Light is complete as a counter.
 
 ## Results
 

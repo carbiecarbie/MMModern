@@ -150,17 +150,17 @@ to Vertigo.
 
 ## Medium-term objective
 
-A **normal-start Clouds foothold**: start a new game, play Vertigo and its
-surroundings continuously, with equipment buy/sell, recurring HP/SP recovery,
-spell acquisition, Training and original quest progress, and save/restore
-wherever it is safe. Adding a further area should mostly mean loading its
-resources and filling mechanic gaps, not writing a new coordinator or save shape.
+The first objective, a **normal-start Clouds foothold** (a new game played
+continuously with equipment, recovery, spells, Training, quests and saves),
+was reached in Vertigo by M64 and extended to all of Clouds by M78-M81; the
+remaining steps above are the medium term. A further area should mostly
+need its resources and mechanic gaps, not a new coordinator or save shape.
 
 ## Long-term direction
 
-1. **Broader Clouds play:** ordinary travel between regions, time/rest/food,
-   full economy and services, skills, item/monster effects, indoor hazards and
-   reusable quest/Event behavior.
+1. **Broader Clouds play** (reached apart from steps 13-14): ordinary travel
+   between regions, time/rest/food, full economy and services, skills,
+   item/monster effects, indoor hazards and reusable quest/Event behavior.
 2. **Complete Clouds:** all regions/dungeons, progression, quests and ending,
    including exceptional scripts/monsters, with faithful presentation and audio
    as maintainer priorities allow.

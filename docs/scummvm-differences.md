@@ -3,9 +3,9 @@
 MMModern is an open-source reimplementation of the World of Xeen engine (Might
 and Magic IV: Clouds of Xeen and V: Darkside of Xeen) that aims to play exactly
 like the original DOS game. It builds on ScummVM: it links ScummVM's Xeen
-archive and sprite code and its Common, Graphics and Image libraries, and
-ScummVM's Xeen engine, the fruit of years of reverse-engineering by its
-contributors, is MMModern's reference for how the game works.
+archive and sprite code, its Nuked OPL3 core and its Common, Graphics and Image
+libraries, and ScummVM's Xeen engine, the fruit of years of reverse-engineering
+by its contributors, is MMModern's reference for how the game works.
 
 Where a rule is unclear or the original seems to differ, MMModern checks the
 English World of Xeen CD edition itself: by playing it in DOSBox, and by
@@ -23,8 +23,8 @@ terrain/Tavern/Temple/recovery/spell/movement/entrance/audio entries explicitly 
 rechecked". At that check, since the pin the
 Xeen engine has had only a code-style edit and the Xeen data in `mm.dat` is
 unchanged apart from its version number, so the earlier entries are marked
-"master: differs". MMModern currently plays Vertigo and the surrounding
-mainland; many items apply there, others wait for areas not open yet.
+"master: differs". MMModern plays all of Clouds of Xeen; items that concern
+only Darkside wait for its gameplay.
 
 M83's digital decoder and logical timing use the installed driver rules;
 gameplay playback sites and CD rules follow in Parts A2 and B:
@@ -179,7 +179,10 @@ gameplay playback sites and CD rules follow in Parts A2 and B:
   attribute, Insane raises Might and Speed but lowers Intellect, Personality
   and Accuracy, and Drunk raises Personality and Luck but lowers the rest.
   ScummVM lowers every attribute for In Love and Drunk, and Might and Speed for
-  Insane. [Evidence](original-quirks.md#sv-condition-modifiers). Master: differs.
+  Insane. Every eight hours the original also replaces Weak with the Drunk
+  count, so weakness passes unless the character is drunk; ScummVM adds Drunk
+  to Weak and clears Weak on Rest, a documented workaround.
+  [Evidence](original-quirks.md#sv-condition-modifiers). Master: differs.
 
 ## Monsters
 
@@ -260,8 +263,6 @@ gameplay playback sites and CD rules follow in Parts A2 and B:
 
 ## Events
 
-Most of the scripts concerned are in areas MMModern has not opened yet.
-
 - **The Vowelless Knight.** ScummVM accepts either spelling of one riddle
   answer, a documented workaround for a data error; the original, and
   MMModern, accept only the spelling in the data.
@@ -279,6 +280,9 @@ Most of the scripts concerned are in areas MMModern has not opened yet.
 - **Clearing an Event spot.** A script that clears the party's spot keeps
   running in the original; ScummVM stops it.
   [Evidence](original-quirks.md#sv-make-nothing-here). Master: differs.
+- **The Sphinx sarcophagus.** Its strength test reads only temporary Might in
+  the original, like every such test; ScummVM reads full Might there, a
+  documented workaround. [Evidence](original-quirks.md#sv-sphinx-might). Pin: differs; master not rechecked.
 
 ## Services
 
@@ -316,6 +320,13 @@ Most of the scripts concerned are in areas MMModern has not opened yet.
 - **Huge Bank amounts** are refused in the original; ScummVM reads the entry as
   a signed number and handles them differently.
   [Evidence](original-quirks.md#sv-bank-amount-entry). Master: differs.
+- **Rings at the Smith.** ScummVM turns each ring in the Smith's stock into a
+  pendant when listing it, a slip for its icon; MMModern keeps the ring.
+  [Evidence](original-quirks.md#sv-smith-accessory-id). Pin: differs; master not rechecked.
+- **The Arena.** The original chooses five species before generating the
+  monsters and writes 21st, 22nd and 23rd; the pin chooses a species per
+  monster and uses `th` above nine. [Species](original-quirks.md#sv-arena-species-pool),
+  [ordinals](original-quirks.md#sv-arena-ordinal). Pin: differs; master not rechecked.
 
 ## Presentation
 
@@ -346,6 +357,11 @@ Most of the scripts concerned are in areas MMModern has not opened yet.
   ignores fade arguments and clears the current name on stop.
   Pin: differs; master not rechecked.
   [Details](original-quirks.md#sv-cd-song-process-state)
+- **Mirror, Stone and monster-death sounds.** DOS confirms a mirror name
+  with effect 51, uses 37 for a monster's Stone attack and requests 4 when a
+  monster dies. MMModern follows those calls; the pin uses 61/35, 38 and no
+  death cue respectively. [Evidence](original-quirks.md#sv-dos-fm-effects).
+  Pin: differs; master not rechecked.
 
 - [Sphinx refusal sample](original-quirks.md#sv-sphinx13-descriptor): DOS
   plays `sphinx13.voc` despite its damaged descriptor, preserving its
@@ -458,27 +474,11 @@ apart from the fidelity differences above.
 
 ## What ScummVM has that MMModern does not yet
 
-The [M80 DOS check](rules/evidence.md#entrance-scenes-and-the-arena-2026-10-20)
-also establishes two differences for the Arena, which awaits Part B.
-Comparison is with pinned `6814ee9b`, not a new master check:
-
-- [Arena species pool](original-quirks.md#sv-arena-species-pool): DOS chooses
-  five species first, then assigns monsters to those slots; the pin chooses
-  a species for each monster.
-- [Arena ordinal suffix](original-quirks.md#sv-arena-ordinal): DOS displays
-  21st/22nd/23rd, while the pin uses `th` for every count above nine.
-
-- **Mirror, Stone and monster-death sounds.** DOS confirms a mirror name
-  with effect 51, uses 37 for a monster's Stone attack and requests 4 when a
-  monster dies. MMModern follows those calls; the pin uses 61/35, 38 and no
-  death cue respectively. [Evidence](original-quirks.md#sv-dos-fm-effects).
-  Pin: differs; master not rechecked.
-
 ScummVM plays the whole game today; MMModern is young. The full list of gaps is
 in [project status](project-status.md#known-gaps):
 
-- **The whole game:** only Vertigo and the surrounding mainland are playable;
-  the rest of Clouds of Xeen and all of Darkside of Xeen are not.
+- **The whole game:** Clouds of Xeen is playable without its intro, Pyramid
+  entrance and ending; Darkside of Xeen is not.
 - **Sound:** CD speech and VOC starts in implemented Clouds presentations
   are audible; balance and output recovery remain M83 Part C.
   Fall/landing and title lightning remain excluded with their absent
@@ -486,9 +486,6 @@ in [project status](project-status.md#known-gaps):
   Only the promus OPL3 music device is supported.
 - **Services and party:** no Inn, recruiting, character creation, Tavern
   Sign In or Dismiss.
-- **World:** no entrance scenes (Reaper, Golem, Dwarf Mine, Sphinx, Pyramid);
-  Run does not work indoors; not every monster drops items yet; Mountaineer
-  has no effect.
 - **Platforms and editions:** MMModern runs on 64-bit Windows with the English
   World of Xeen CD; ScummVM covers many platforms, editions and languages, and
   Swords of Xeen.

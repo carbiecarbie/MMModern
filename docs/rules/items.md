@@ -45,9 +45,9 @@ was removed.
 | Other admitted weapons | Two-handed melee / 13 | Refuse existing melee or shield frame 2 |
 | Armor 1-7 | Body / 3 | One body armor |
 | Armor 8 | Shield / 2 | One; conflicts with two-handed weapon frame 13 |
-| Armor 9 | Cloak / 5 | One |
-| Armor 10 | Helm / 9 | One |
-| Armor 11-12 | Boots / 10 | One shared slot |
+| Armor 9 | Helm / 5 | One |
+| Armor 10 | Boots / 9 | One |
+| Armor 11-12 | Cloak, cape / 10 | One shared slot |
 | Armor 13 | Gauntlets / 6 | One |
 | Accessory 1 | Ring / 8 | Two |
 | Accessory 2 | Belt / 12 | One |
@@ -151,8 +151,9 @@ explicitly qualified below. Source: [ItemsDialog::doItemOptions][dialogs].
 
 **DOS play (retained, 2026-10-12):** broken items can be sold at normal value,
 identified with their full properties and repaired. No lasting identified
-state was observed. Cursed Sell/Discard refusal remains reference-only;
-the maintainer's ordinary play did not reach a cursed item.
+state was observed. Cursed Sell refusal remains reference-only (Discard's is
+[DOS static](#discard-recharge-and-enchant)); the maintainer's ordinary play
+did not reach a cursed item.
 
 **DOS static (retained):** broken/cursed weapon names hide both material and
 effectiveness suffix while retaining bad-state prefix and base name; Identify
@@ -246,15 +247,17 @@ page), Remove, Discard, Quest and Exit, and the same key table (`0x3b921`).
 | Quest (`Q`) | Opens the Quests screen from either caller (`0x3b401`). | - |
 | Exit, Escape | Returns to the caller with nothing changed. | - |
 
-**Turn cost.** Only a successful Use ends the acting member's turn: the item
+**Turn cost.** Only an admitted Use ends the acting member's turn: the item
 routine clears shooting, runs the monster response and sets the turn cursor
 to "nobody" (`0x314c9..0x314dd`), and the combat handler then restores the
 saved index and advances to the next actor (`0x2e909..0x2e91b`). Equip,
 Remove, Discard, transfer, Quest and Exit leave the cursor untouched, so the
 same member still acts; they pass no time and give monsters no opportunity.
-Depressed and Confused members may still Use (`0x31fee`). A cancelled or
-refused Use costs nothing. The charge is spent before the effect and is never
-refunded by the dialog; there is no SP or gem cost ([Item Use](#item-use-and-cancellation)).
+Depressed and Confused members may still Use (`0x31fee`). A Use refused at
+admission, or a dialog left without Use, costs nothing. An admitted Use spends
+the charge before the effect and ends the turn even if the effect is
+cancelled; the dialog never refunds the charge, and there is no SP or gem cost
+([Item Use](#item-use-and-cancellation)).
 
 **Town Portal from an item in combat** passes its combat notice and continues
 into the town dialog and the load ([M76](../original-quirks.md#sv-town-portal-item-combat)).
@@ -477,9 +480,9 @@ sequence retains its already executed grants and original selection identity.
 
 ## Limits
 
-The most useful remaining original checks are cursed-item refusals, complete
-Recharge/Enchant and Item to Gold settlement, all non-First-Aid cancellation
-paths, equipment class/slot edge cases and high-tier generation. Do not extend the observed price/item-use evidence
+The most useful remaining original checks are the cursed Sell refusal, item
+cancellation routes not traced above, equipment class/slot edge cases and
+high-tier generation. Do not extend the observed price/item-use evidence
 to these branches without tracing them.
 
 [itemh]: https://github.com/scummvm/scummvm/blob/6814ee9ba54582f5b5adcffab49efbbd8f589edd/engines/mm/xeen/item.h

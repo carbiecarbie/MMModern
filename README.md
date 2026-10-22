@@ -10,7 +10,7 @@ quality-of-life features may come later, and they will be off by default.
 
 ## What you can play
 
-MMModern is incomplete and experimental. The 0.1 releases are its first
+MMModern is incomplete and experimental. The 0.x releases are its first
 public versions, and they do not replace the original games yet.
 
 A new Clouds game starts in Vertigo, as in the original. Every Clouds map is
@@ -94,7 +94,7 @@ with, and it does not work with the original games or ScummVM.
 | 1-9 | Select an inventory or stock slot; 1-3 pick a combat target |
 | . | Wait |
 | S | Shoot in exploration |
-| R | Rest in exploration; Run in combat outdoors |
+| R | Rest in exploration; Run in combat |
 | B | Bash in exploration; Block in combat |
 | C | Learned spells |
 | U in combat | Use a charged item |
@@ -111,7 +111,7 @@ with, and it does not work with the original games or ScummVM.
 | B / S / I / F in the Smith Items dialog | Buy / Sell / Identify / Fix; rows open Y/N Confirm |
 | T in Training | Train the selected member immediately |
 | H / D / U in the Temple | Heal / Donation / Uncurse |
-| F in the Tavern | Buy food; Y/N confirms or cancels |
+| D / F / T / R in the Tavern | Drink / Food / Tip / Rumors; Y/N confirms or cancels Food |
 | D / W in the Bank, then O / E | Deposit / Withdraw, then Gold / Gems |
 | Digits, Backspace/Delete, Enter in Bank amount entry | Enter up to ten digits, edit, confirm; Escape cancels |
 | Tab | Control panel: Save, Save As, Load, Quit |
@@ -131,7 +131,8 @@ to view that member. The acting member and selected enemy use the original icons
 - The intros are not available.
 - Inn and party: there is no Inn, recruiting or character creation. Tavern
   Sign In and Dismiss say "not supported yet".
-- The Pyramid entrance says "not supported yet".
+- The Pyramid entrance, the Clouds ending and Mr Wizard in combat say "not
+  supported yet". The Arms Master and Tracker skills do nothing.
 - Darkside gameplay is not supported.
 
 The [project status](https://github.com/carbiecarbie/MMModern/blob/main/docs/project-status.md)
@@ -149,7 +150,7 @@ differences from the ScummVM reference.
 ### Game data sources
 
 At a GOG root, MMModern reads the cue-located ISO archives and the installed
-`WORLD/XEEN.DAT`, ahead of any co-located floppy archives. One complete disc
+`WORLD/XEEN.DAT`, never the co-located floppy archives. One complete disc
 suffices. A pre-existing CD `GAME` folder (or its parent) is also accepted with
 all three archives and an uncompressed English DOS UI module: supply
 `--ui-data <path-to-XEEN.DAT>` or an unambiguous `WORLD` sibling. A bare `GAME`
@@ -230,8 +231,9 @@ Floppy-bound saves are rejected before restoration with a data-edition diagnosti
 
 ### Tests
 
-Every CTest entry is labelled `fast` or `process`. `process` tests run original-data
-scenarios in child processes and take longer; they need the original installation.
+Every CTest entry is labelled `fast` or `process`. `process` tests take 30 seconds
+or more or drive child processes. Configuring the tests requires the original
+installation.
 Tests are independent, so run them in parallel; the few that assert real-clock
 behavior or open a native window are marked to run alone.
 
@@ -244,8 +246,10 @@ The complete suite is normally run through `tools/run-full-ctest.ps1`, which
 picks the job count and keeps a log and summary per run. Tests run on the
 optimized `build-rel` build (assertions kept); its setup is in
 [docs/dependencies.md](docs/dependencies.md#optimized-test-build-build-rel).
-Configure `MMODERN_XEEN_DATA_DIR` explicitly for required CD validation and,
-when needed, `MMODERN_XEEN_UI_DATA` for its installed UI module.
+Configure `MMODERN_XEEN_DATA_DIR` explicitly for required CD validation,
+`MMODERN_XEEN_AUDIO_DIR` when the CD audio tracks are elsewhere,
+`MMODERN_PROMUS_CAPTURES_DIR` for the six DOSBox music captures `xeen_promus`
+needs and, when needed, `MMODERN_XEEN_UI_DATA` for its installed UI module.
 
 ### Developer test saves
 

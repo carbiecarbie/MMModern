@@ -124,18 +124,18 @@ tests labelled `fast`/`process` with digest-checked original-data scenarios;
 closed plans archived and docs rewritten. Game behavior unchanged.
 [Plan](archive/milestone-44-plan.md).
 
-**M45 - Reliable input and play stability**. Buffered keyboard input in
-exploration and combat (up to five presses, applied when the game is ready,
-flushed on context changes), replacing silent dropping; integrity guards
-admit maps and object files loaded on demand, ending "Stale encounter frame"
-crashes near map edges. [Plan](archive/milestone-45-plan.md).
+**M45 - Reliable input and play stability** (`3ff28ec`, `6794617`). Buffered
+keyboard input in exploration and combat (up to five presses, applied when the
+game is ready, flushed on context changes), replacing silent dropping;
+integrity guards admit maps and object files loaded on demand, ending "Stale
+encounter frame" crashes near map edges. [Plan](archive/milestone-45-plan.md).
 
 **M46 - Clickable main screen** (`646ea1e`). Left clicks on the original
 main-screen buttons, combat buttons, targets and 3D view drive the existing
 actions through the M45 input path; unimplemented buttons say so.
 [Plan](archive/milestone-46-plan.md).
 
-**M47 - Original dialogs** (`02214e1` and the Part B commit). The original
+**M47 - Original dialogs** (`02214e1`, `d356466`). The original
 character sheet and items dialog replace the project inventory, and the
 Ironworks, Training and Temple use the original location screens and
 dialogs, by mouse or key; dialog text comes from a pinned build-time
@@ -311,7 +311,7 @@ monsters are rebuilt at full HP and asleep on every map or game load. A fourth
 M44 scenario travels Vertigo, F3 and back. Saves from 0.1.x are no longer
 read. [Plan](archive/milestone-69-plan.md).
 
-**M70 - World Events, Clouds** (`bf49eb3`, `a590e30`, `c8f1a19` and Part C).
+**M70 - World Events, Clouds** (`bf49eb3`, `a590e30`, `c8f1a19`, `c6c02ba`).
 Every Event operation the Clouds scripts use, other than audio, town services
 and the ending, runs as in DOS: moved walls and objects, cleared and altered
 cells, monster spawns anywhere, conditions, values, rewards and random draws,
@@ -319,7 +319,7 @@ Gold Vein tiers, teleports, the magic mirror and password prompts. A developer
 fixture starts an Event session on any Clouds cell. Save v13 is unchanged.
 [Plan](archive/milestone-70-plan.md).
 
-**M71 - Original item generation** (`697385f` plan and its implementation).
+**M71 - Original item generation** (`697385f` plan, `b8ac99e`).
 Shops, Event treasure, display cases and monster drops share one item
 generator with the original draws: categories from 1, the level-7 selector,
 weapon effectiveness and Misc charges 3 to 10. Monster drops lost their
@@ -327,7 +327,7 @@ duplicate generator. Tests that remembered one stock or one combat were
 rewritten to check rules, with no growth in the suite; save v13 and v0.2.0
 saves are unchanged. [Plan](archive/milestone-71-plan.md).
 
-**M72 - Terrain and simple services** (`e21f398` plan and its implementation).
+**M72 - Terrain and simple services** (`e21f398` plan, `043586f`).
 Every surface has its original arrival effect (lava, falls from sky and
 cloud, space, desert time) from every place the original applies it, and Rest
 runs on any surface. Pressing Space now passes time and gives monsters their
@@ -430,17 +430,17 @@ ordinary delivery; the "who will" recipient follows DOS, with an approved
 deviation until Event dispatch is reworked. Save v17.
 [Plan](milestone-81-plan.md).
 
-**M82 - Audio, FM music and effects** (`61112d9` plan, `d5bba59`,
-`6792341`, `a812944`, `946ac81`, `bcabfd6`, `3c4d7d0`, `6d71e82`, `088cfb0`,
-`57e161f`, `82eee2b`, `861d607`). Static analysis of the CD program and its
+**M82 - Audio, FM music and effects** (`61112d9` plan, `d5bba59`, `6792341`,
+`a812944`, `946ac81`, `bcabfd6`, `3c4d7d0`, `6d71e82`, `088cfb0`, `57e161f`,
+`82eee2b`, `861d607`, `3e9838a`). Static analysis of the CD program and its
 sound driver, checked against the maintainer's DOSBox captures, came first.
-The game now plays the original FM music and sound effects as the installed
-CD setup does: MMModern's own reproduction of the Pro Audio Spectrum driver on
-an emulated OPL3 chip, in stereo, without ScummVM's system layer. Songs follow
-maps, locations, the Inn and the title; 127 original effect calls play. Sound
-follows the device while the game keeps its own clock, so it never changes
-time, randomness or saves; listening found late effects and crackle, fixed by
-that split and by opening the device at its own rate. The Efx, Music, Speech
-and Text buttons work and are saved with the party (save v18), and Efx off
-shows the entrance captions. Energy Blast now deals 2-6 times the caster's
-level, as in DOS. [Plan](milestone-82-plan.md).
+The game now plays the original FM music and sound effects as the installed CD
+setup does: MMModern's own reproduction of the Pro Audio Spectrum driver on an
+emulated OPL3 chip, in stereo, without ScummVM's system layer. Songs follow
+maps, locations and the title; 127 original effect calls play. Sound follows
+the device while the game keeps its own clock, so it never changes time,
+randomness or saves; listening found late effects and crackle, fixed by that
+split and by opening the device at its own rate. The Efx, Music, Speech and
+Text buttons work and are saved with the party (save v18), and Efx off shows
+the entrance captions. Energy Blast now deals 2-6 times the caster's level, as
+in DOS. [Plan](milestone-82-plan.md).

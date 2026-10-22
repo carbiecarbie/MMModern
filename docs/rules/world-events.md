@@ -2,8 +2,9 @@
 
 **Evidence: DOS static**, installed English CD `WORLD/XEEN.DAT`, SHA-256
 `8bf78b4850d5973cbb063c7dd96b9aaef4e94791d748334187eef74acf528d27`.
-These rules were checked on Windows on 2026-10-15 using bounded 16-bit
-disassembly at the file offsets below. The Event dispatcher and signed-byte
+These rules were checked on Windows on 2026-10-15, the Battle Master and
+Warzone generation on 2026-10-20, using bounded 16-bit disassembly at the
+file offsets below. The Event dispatcher and signed-byte
 operand reads agree with the calibration in [the M70 plan](../archive/milestone-70-plan.md).
 They establish code paths, not a claim of DOSBox observation.
 
@@ -35,10 +36,10 @@ the Event scan at `0x287be`), and the `.mob` writer stores x/y only below it
 (`0x266e3..0x2671c`). A slot at or beyond the count is therefore never drawn,
 moved, attacked, fought, counted or saved, and map load zeroes the whole
 107-slot array (`0x0f5be..0x0f5c7`). MMModern keeps such a Spawn inert and
-never stores it. Saves from older builds that hold such slots load without
-them. Vertigo's exit script spawns slots 50 and 51 past its 46 records, so
-they stay invisible. Only the Warzone arena prompt changes the count
-(`0x2b9d5..0x2ba0b`), and a Warzone load sets it to 0 (`0x0fb90..0x0fba9`).
+never stores it. Vertigo's exit script spawns slots 50 and 51 past its 46
+records, so they stay invisible. Only the Warzone arena prompt changes the
+count (`0x2b9d5..0x2ba0b`), and a Warzone load sets it to 0
+(`0x0fb90..0x0fba9`).
 The Battle Master generates that visit's table; every load clears it after
 the normal MOB load. Leaving discards it, including explored cells, and no
 Warzone state is saved.
@@ -239,8 +240,7 @@ closes, "was unable to pick the lock" is shown and the Event ends
 (`0x23647..0x23726`). A test against 20 that follows the sprite table reads
 the same sprite byte and so never skips the lock; the reference reads it as
 the object's x position. The open frame lasts until the map is loaded again,
-as in DOS, and is not saved. The original lock sounds (10 and 21) are part of
-the deferred audio.
+as in DOS, and is not saved. A pick plays FX 10, a failure FX 21.
 
 **Taking gold, gems or food.** Party::subtract (`0x1e941`) refuses a shortfall
 with the original "not enough" message for that consumable and ends the Event.
@@ -266,18 +266,21 @@ before a 32-bit addition (`0x232c9`, `0x23791`, `0x237e6`): 32768 subtracts.
 A zero word divides by zero in DOS; MMModern refuses it before drawing.
 
 **Not supported yet.** These refuse with a notice rather than being guessed:
-HowMuch (a take of value 0), give 8/82 damage and take 8, take 25/76 and give
-25 (time going back), Misc item grants by give 21, a non-caster's spell test,
-grant or removal (DOS uses whichever book the program selected last,
-global `0xf604`), SetChar 8..127 (WhoWill), Darkside character flags (107)
-and GiveMulti 67. Every skill grant and removal is supported: it only writes
-the skill byte, which the save keeps. Arms Master, Direction Sense, Merchant,
-Mountaineer, Swimmer, Tracker, Spot Secret Doors and Danger Sense are granted
-and saved. Direction Sense, Spot Secret Doors and Danger Sense light their
-border indicators ([rules](magic.md#border-and-information-screens)), Merchant
-sells at full value and Swimmer lets the whole party onto water. Mountaineer's
-passage over blocking terrain is not implemented yet; the reference gives Arms
-Master and Tracker no passive effect.
+HowMuch (a take of value 0), take 8 and give 82 (damage), an HP grant through
+GiveMulti, take 25/76 and give 25 (time going back), SetVar 3..5, SetVar
+25, 74, 76 or 84 with an out-of-range value, Misc item grants by give 21, a
+non-caster's spell test, grant or removal (DOS uses whichever book the
+program selected last, global `0xf604`), SetChar 8..127 (WhoWill), Darkside
+character flags (107) and GiveMulti 67. Every skill grant and removal is
+supported: it only writes the skill byte, which the save keeps. Arms Master,
+Direction Sense, Merchant, Mountaineer, Swimmer, Tracker, Spot Secret Doors
+and Danger Sense are granted and saved. Direction Sense, Spot Secret Doors
+and Danger Sense light their border indicators
+([rules](magic.md#border-and-information-screens)), Merchant sells at full
+value, Swimmer lets the whole party onto water and two Mountaineer holders
+pass outdoor wall types 1/7/9/10/12
+([rules](time-and-conditions.md#outdoor-movement-skills)); the reference
+gives Arms Master and Tracker no passive effect.
 
 ### Part B worked examples
 
@@ -416,8 +419,7 @@ Worked original Clouds scripts:
   `vertigo` uses map 28's run location `(18,4)` West; `toad meadow` goes to
   map 23 `(7,2)` and `ever blossom orchard` to map 23 `(5,12)`, keeping facing.
   `magic delta` names map 23 `(9,6)`, in the mainland component connected
-  through water. It is admitted along with the other mainland destinations;
-  nonzero-map names targeting maps that are not open yet refuse.
+  through water.
 - `maze0069.evt`, `(9,15)` West line 0: type 8, success line 4, alternate 21,
   title 10. Primary `There wolf`; alternate 21 aliases text[0]. Either match
   takes line 4 under the approved marker decision.
@@ -463,8 +465,8 @@ counters 0-34; indices 45, 46, 50 and 51 are never held (maintainer decision,
 scene, then reloads the current map at the party's own position and facing.
 Both use the Event map-load owner: monsters are rebuilt, defeated monsters
 stay defeated, and stepped is set. There is no service time charge.
-Actions 6 (Arena), 12 (Pyramid) and 13 remain outside Part A and refuse
-before effects.
+Action 6 is the Battle Master described above; actions 12 (Pyramid) and 13
+refuse before effects.
 
 One presenter uses Clouds `tower.vga`/`freap.vga`,
 `golmback.vga`/`golem.vga`, `dwarf1.vga`/`dwarf3.vga`/`dwarf2.vga`
@@ -497,8 +499,7 @@ then X 0..5 minus 3. Dwarf draws 0..9 and Sphinx 2..10 per speech iteration.
 Direct counts are respectively `N1+N2`, `26+2*(N1+N2)`, and the sum of
 speech iterations for Dwarf/Sphinx. Sample durations and acquisition cadence
 determine those iterations; ordinary map-load draws remain additional.
-The cursor, screens and speech intervals are transient; M80 left the save
-unchanged (v16, schema 9, content 14).
+The cursor, screens and speech intervals are transient and never saved.
 
 ## Quests and Awards screens
 
@@ -544,7 +545,8 @@ plain text. With no awards the second line reads "No Awards". The header is
 "Awards for %s the %s" with name and class; nine lines show from the top
 index, Up moves up one, Down moves down one while nine lines still fit.
 
-All four sources are already in save v15: the 35 Clouds quest counters, the
-30 Clouds quest flags, the 128 world flags and each character's 128 award
-nibbles with the full Warzone byte. The Darkside counters and flags are only
-written by Darkside scripts and read as zero here.
+All four sources are in the current save format: the 35 Clouds quest
+counters, the 30 Clouds quest flags, the 128 world flags and each
+character's 128 award nibbles with the full Warzone byte. The Darkside
+counters and flags are only written by Darkside scripts and read as zero
+here.

@@ -1,8 +1,7 @@
 # Magic
 
 This chapter describes original-game rules, not MMModern's current support
-list. The baseline is MMModern `9cc4def8c5c0253899c094efbe5b4d7e4513b22c`
-and ScummVM `6814ee9ba54582f5b5adcffab49efbbd8f589edd`.
+list. The reference is ScummVM `6814ee9ba54582f5b5adcffab49efbbd8f589edd`.
 **Reference only** means verified in that source, not established in DOS.
 **DOS static (retained)** means calibrated original-program evidence already
 recorded in [original quirks](../original-quirks.md); this chapter did not
@@ -432,8 +431,8 @@ A level-zero Sparks still gates against nonzero magic resistance, then skips
 the damage save. Each target's damage, death and treasure draws finish
 before the next target's resistance gate.
 
-All eight spells are delivered through learned Cast (combat or exploration),
-Quick Fight, and exploration item Use. Costs/books retain the tables above;
+All eight spells are delivered through learned Cast and item Use (combat or
+exploration) and Quick Fight. Costs/books retain the tables above;
 item powers 7/17/31/40 and 12/19/10/13 deliver Sleep/Beast Master/Hypnotize/
 Dragon Sleep and Insect Spray/Turn Undead/Sparks/Toxic Cloud respectively.
 These are implementation witnesses, not additional DOS evidence.
@@ -447,8 +446,8 @@ and Finger's first save, before waking or the damage-stage save. Holy Word's
 wrong-species path records a miss without waking or drawing a damage save.
 Melee and Shoot compare the final hit total as a
 16-bit unsigned word, also used by Poison Volley (M74 Part C).
-Poison Volley uses the shared party volley in exploration Cast/item Use
-(power 46) and combat Cast/Quick Fight: one successful shot per active
+Poison Volley uses the shared party volley in Cast and item Use (power 46),
+in exploration or combat, and in Quick Fight: one successful shot per active
 member, with misses retaining their shot for later targets. Its missile
 candidate preserves weapon dice and accuracy draws, substitutes the 10
 Poison base, adds resisted missile elemental damage and halves the total
@@ -571,8 +570,9 @@ falls and Run retain their own continuations. See [travel lighting checks](evide
 Exact MMModern snapshot restore derives darkness without inventing a step;
 the [native-load evidence limit](evidence.md#restore-boundary) is distinct.
 
-`XeenWorldPresentation` derives blackness from the primary map and saved light
-word; `CloudsMapComposer` obscures the scene before assembling the border.
+`XeenWorld::sceneIsBlack` (`XeenWorldPresentation.cpp`) derives blackness from
+the primary map and saved light word; `CloudsMapComposer` obscures the scene
+before assembling the border.
 The existing Encounter and combat owners publish a pending drain check through
 their mutation guards. Stepped is transient presentation state, cleared by a
 completed redraw and by exact restore; the save format is unchanged.
@@ -751,19 +751,20 @@ Super Shelter's dying-risk confirmation likewise has no spell-cost refund
 on decline; it cancels sleeping/time/recovery before those begin.
 
 MMModern implements these six travel handlers in `XeenLearnedSpellRules::travel`;
-the existing casting, combat and item owners publish same-map movement without
-loading the map. Beacon stores map/X/Y/side on the caster's mutable roster record.
+the existing casting, combat and item owners publish the movement. Outdoors, a
+Teleport or Etherealize destination beyond the border enters the neighbouring
+map as walking does. Beacon stores map/X/Y/side on the caster's mutable roster record.
 Cross-map Return and every Town Portal selection load through the existing
 world transition, retaining per-map changes and rebuilding live monsters.
-Only Vertigo and the open mainland can be destinations; unopened maps and
-Darkside refuse before payment. M77 Part A admits Town Portal items in combat
+Every Clouds map can be a destination; Darkside and missing resources
+refuse before payment. M77 Part A admits Town Portal items in combat
 after the original notice; combat ends at the first attacker re-evaluation after
 the load, with its ordinary minute (maintainer decision, 2026-10-19).
 Travel dialogs hold payment until the chosen
-destination is admitted, so the engine's unopened-area refusal spends nothing.
+destination is admitted, so that refusal spends nothing.
 Empty/zero/Escape still commits the paid cancellation. Original-data automated
 checks in `XeenTravelSpellOriginalTests.cpp` cover same-map movement, map loads,
-per-character beacons and exact save v15 restore. They are implementation evidence,
+per-character beacons and exact restore of the current save format. They are implementation evidence,
 not an additional DOS observation. Destination Event timing after item travel
 remains unconfirmed in DOS; see [the retained limit](../original-quirks.md).
 
@@ -814,8 +815,9 @@ blanket safe traversal. Learned Jump reaches the successful-cast arrival
 suffix, including damage or a fall; item Jump returns through the item-use
 monster response, which does not call arrival. This distinction follows the
 calibrated DOS call sites `0x0d411`, `0x0d5ba`, `0x1e7df` and item dispatch
-`0x39e4b` (2026-10-17). Destinations outside the admitted area remain refused
-before charge. See [terrain arrival](time-and-conditions.md#terrain-arrival).
+`0x39e4b` (2026-10-17). MMModern enters a destination in a neighbouring
+outdoor map as walking does and refuses Darkside or missing resources before
+charge. See [terrain arrival](time-and-conditions.md#terrain-arrival).
 
 ## Item power lookup
 
@@ -878,8 +880,7 @@ MMModern cross-checks (implementation evidence, not DOS proof):
 [XeenCombatRules.cpp](../../src/games/xeen/XeenCombatRules.cpp),
 [XeenLearnedSpellRulesTests.cpp](../../tests/XeenLearnedSpellRulesTests.cpp).
 The tests cover cost/book identities, supported healing and condition
-semantics, and supported spell damage. Unsupported original spells in this
-chapter do not become implemented merely because their rules are listed.
+semantics, and supported spell damage.
 
 [spells]: https://github.com/scummvm/scummvm/blob/6814ee9ba54582f5b5adcffab49efbbd8f589edd/engines/mm/xeen/spells.cpp
 [constants]: https://github.com/scummvm/scummvm/blob/6814ee9ba54582f5b5adcffab49efbbd8f589edd/devtools/create_mm/create_xeen/constants.cpp

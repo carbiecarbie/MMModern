@@ -12,7 +12,7 @@ play-test fixes `0c89957`. Step 7 of the
 Item management and Use in combat, including Town Portal from an item; the
 Quests and Awards screens; the three skill indicators on the border (Danger
 Sense, Spot Secret Doors, Direction Sense). Out of scope: Dismiss (moved to
-step 8 with the Inn), party and character creation, Choose123/HowMuch,
+the Inn step), party and character creation, Choose123/HowMuch,
 control-panel audio toggles, intros and endings, map admission, audio. The
 save format stays v15: every source was already saved.
 
@@ -20,8 +20,8 @@ save format stays v15: every source was already saved.
 
 - **DOS check first** (Part 0, static analysis of `WORLD/XEEN.DAT`): the
   rules match the pin except Discard's Xeen Slayer refusal, the Quests and
-  Awards scroll keys (arrows, keypad, Home/End/Page keys; no U/D) and Danger
-  Sense's animation phase. Evidence is in
+  Awards scroll keys (arrows and keypad, plus Home/End/Page keys on Quests;
+  no U/D) and Danger Sense's animation phase. Evidence is in
   [items](rules/items.md#the-items-dialog-in-combat),
   [world Events](rules/world-events.md#quests-and-awards-screens),
   [magic](rules/magic.md#border-and-information-screens),

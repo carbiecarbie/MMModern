@@ -1,7 +1,6 @@
 # Time, rest and conditions
 
-Baseline: MMModern `9cc4def8c5c0253899c094efbe5b4d7e4513b22c`;
-ScummVM `6814ee9ba54582f5b5adcffab49efbbd8f589edd`. **Reference only**
+Reference: ScummVM `6814ee9ba54582f5b5adcffab49efbbd8f589edd`. **Reference only**
 means source-verified, not DOS-confirmed. **DOS static (retained)** denotes
 calibrated analysis recorded in [original quirks](../original-quirks.md),
 not fresh executable analysis by this chapter's author. **DOS play** is
@@ -35,8 +34,8 @@ mapping](evidence.md#exact-baseline) apply; all locations below are file offsets
 - Otherwise, wall 7, 14 or 15 changes the original wall animation counters and
   skips the roll (`0x32e5f..0x32e84`). Every other blocking wall can reach the
   roll. There is no wall-type whitelist.
-- Sum the selected members' effective Might **after the HP costs**, then draw
-  `R(1,30)` once (`0x32e87..0x32ece`, inclusive range helper `0x45b9a`).
+- Sum the selected members' effective Might **after the HP costs** and add one
+  `R(1,30)` draw (`0x32e87..0x32ece`, inclusive range helper `0x45b9a`).
   Attribute 0 reads the unsigned permanent/temporary Might bytes, adds age,
   equipment and condition modifiers, and clamps at zero (`0x21454..0x215a9`).
   The Bash sum and comparison use 16-bit words; there is no 8-bit sum truncation
@@ -44,8 +43,9 @@ mapping](evidence.md#exact-baseline) apply; all locations below are file offsets
 - The primary map's difficulty byte 5 is used for wall 9; byte 6 for every
   other rolled wall (`0x32ed0..0x32ef3`). These are DAT offsets 821 and 822,
   memory `ds:0xc101` and `ds:0xc102`, both **unsigned**. Vertigo has 30 in both,
-  matching the original initial state and inspected DOS `.CUR` files. Sum
-  greater than or equal to difficulty succeeds (`0x32ef5..0x32ef7`).
+  matching the original initial state and inspected DOS `.CUR` files.
+  `R(1,30)` plus the Might sum succeeds when greater than or equal to the
+  difficulty (`0x32ef5..0x32ef7`).
 - Success writes wall 3 on the current face and the opposite forward face
   (`0x32ef9..0x32f4c`); the writer has no additional eligibility check
   (`0x234dd..0x23550`). Failure keeps the walls and position. Both outcomes
@@ -339,7 +339,8 @@ Super Shelter uses a
 special entry mode that bypasses this ordinary refusal, after its own map
 restriction check.
 
-MMModern reads the DOS cell bit in `XeenRestFlow::beginRest`. Its Super Shelter
+MMModern reads the DOS cell bit in `XeenEncounterFlow::beginRest`
+(`XeenRestFlow.cpp`). Its Super Shelter
 mode reuses that Rest continuation, with a single 480-minute sleeping call.
 `XeenTravelSpellOriginalTests.cpp` checks the mainland refusal and shelter
 bypass, warning cancellation and exact restoration; this is implementation

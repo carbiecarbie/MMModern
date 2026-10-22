@@ -11,11 +11,11 @@ milestones are in [project history](project-history.md), direction is in the
 [roadmap](roadmap.md), and build and dependency setup is in
 [dependencies](dependencies.md).
 
-MMModern aims to be a faithful reimplementation of the original games; any
-approved deviation is noted where it applies. It is not yet a general
-replacement for them. A **new game** of Might and Magic IV: Clouds of Xeen,
-read from the World of Xeen two-CD talkie edition, starts as in the original.
-Every Clouds map is playable. Darkside gameplay is not supported.
+MMModern aims to be a faithful reimplementation of the original games; approved
+deviations are listed in [original quirks](original-quirks.md#approved-deviations).
+It is not yet a general replacement for them. A **new game** of Might and Magic
+IV: Clouds of Xeen, read from the World of Xeen two-CD talkie edition, starts as
+in the original. Every Clouds map is playable. Darkside gameplay is not supported.
 
 ## What can be played
 
@@ -52,10 +52,10 @@ an empty bank. **Load** continues a saved game from the same slot list.
 - **Space** at an empty cell passes time and lets monsters act, as in DOS.
 - **Entrance scenes.** The Reaper, Golem, Dwarf Mine and Sphinx play their
   original animations, with the speech silent for its original length.
-  With the right quest item the party enters the dungeon behind them;
-  without it the guardian refuses and the map reloads, as in the original.
-  Four entrances lead to Darkside dungeons whose keys only Darkside gives,
-  so they always refuse.
+  The Dwarf Mine always admits the party; at the others the right quest item
+  opens the dungeon behind them, and without it the guardian refuses and the
+  map reloads, as in the original. Four entrances lead to Darkside dungeons
+  whose keys only Darkside gives, so they always refuse.
 - **The Warzone Arena.** The Battle Master offers fights of a chosen level
   and size, generated as in the original; each win adds to every member's
   Warzone award, up to the original limit of 99. Leaving the Warzone
@@ -240,8 +240,8 @@ without replaying any Event, reward, time or random draw.
 
 The game plays the original FM music and sound effects as the CD
 installation's own sound setup does: the Pro Audio Spectrum driver on an OPL3
-chip, in stereo, read from the installed data. Each map, town location, the
-Inn and the title play their original song, fading between songs and
+chip, in stereo, read from the installed data. Each map, town location and
+the title play their original song, fading between songs and
 continuing when the next place uses the same one. Walking, doors, walls,
 grates, combat, every spell, items, Events, services, Mr Wizard and death play
 their original effects. Music off silences the music at once; Efx off silences
@@ -252,9 +252,9 @@ cards from the original installer are not supported yet. A missing
 
 ## Interface
 
-The [README](../README.md#controls) lists every key. Left clicks work as in
-the original on the main-screen buttons, the combat buttons and targets, the
-3D view, portraits and every dialog; the right button does nothing.
+The [README](../README.md#controls) lists every key. Clicks work as in the
+original: the left button on the main-screen buttons, the combat buttons and
+targets, the 3D view, portraits and every dialog, and the right one as Escape.
 
 **Presentation.** Terrain, sky, water, wall items, torches and monsters
 animate from their own data on every Clouds map. Missiles fly together, hits
@@ -304,10 +304,10 @@ games or ScummVM. There is no autosave.
 
 ## Architecture overview
 
-Source is under `src/`: `formats/xeen` (original resource and save formats),
-`games/xeen` (rules and state), `app` (coordination and presentation),
-`platform` (SDL window, save file I/O) and `compat` (the selected ScummVM
-components the project links).
+Source is under `src/`: `core` (input, frame and installation types),
+`formats/xeen` (original resource and save formats), `games/xeen` (rules and
+state), `app` (coordination and presentation), `platform` (SDL window and
+audio output, save file I/O) and `compat` (the linked ScummVM components).
 
 Ownership, from state outward:
 
@@ -319,8 +319,8 @@ Ownership, from state outward:
   world random state.
 - **Running program** (`XeenProgramState`, created by `main`): what the
   original keeps outside its saves, the last Temple prices and the pending
-  treasure, each with its own revision; sessions borrow it. Next to it the
-  audio owner (`XeenAudio`) holds the loaded music driver: a timeline
+  treasure, each with its own revision; sessions borrow it. It also keeps the
+  audio owner (`XeenAudio`), which holds the loaded music driver: a timeline
   `PromusDriver` answers the game on its clock, and a render driver in
   `XeenFmSource` follows the sound device through one request queue, so sound
   never changes time, randomness or saves.
@@ -336,7 +336,7 @@ Ownership, from state outward:
   the entry modes.
 - **Save** (`XeenSaveState`, `XeenSaveFormat`, `XeenSaveFile`): captures a
   value snapshot at a quiet boundary and restores it into fresh owners before
-  gameplay starts. `XeenRestoreGuard` and `XeenMutation` detect state that
+  gameplay starts. `XeenRestoreGuard` and `XeenMutationWatch` detect state that
   changed while work was prepared, so stale work cannot publish.
 - **Journey content** (`XeenJourneyContent`): the immutable prepared start used
   by the test mode. Map admission comes from the original resources in
@@ -354,31 +354,35 @@ while iterating and the complete suite before closing a milestone. Four
 original-data scenarios (mainland, Vertigo services, Temple and a Vertigo
 round trip) compare their final saves with approved digests and re-save
 byte-identically after a reload, guarding against unintended behavior
-changes. The generated
-[coverage report](coverage.md) counts every mechanic the original data uses
-and its support status. Build and run instructions are in
-[dependencies](dependencies.md).
+changes. The generated [coverage report](coverage.md) counts every mechanic
+the original data uses and its support status. Build and run instructions are
+in [dependencies](dependencies.md).
 
 ## Known gaps
 
 - **Inn and party.** There is no Inn, recruiting or character creation:
   Tavern Sign In and Dismiss say "not supported yet".
-- **Town scenes.** The Pyramid entrance and the Clouds ending are not
-  implemented; they say "not supported yet".
-- **Skills.** Arms Master and Tracker
-  are kept but do nothing; the reference gives them no effect either, and DOS
-  has not been checked.
+- **Scenes and commands.** The Pyramid entrance, the Clouds ending, Mr Wizard
+  in combat and Turn around (Ctrl+Down) say "not supported yet"; killing Lord
+  Xeen does not give his Scepter yet.
+- **Event repeats.** The original runs a flagged cell's Events again on every
+  key press and twice after combat; MMModern runs them only on arrival,
+  turning or Space (roadmap step 13).
+- **Skills.** Arms Master and Tracker are kept but do nothing; the reference
+  gives them no effect either, and DOS has not been checked.
 - **Sound.** There are no digital samples, voices or CD speech and tracks yet
   (M83): where the CD plays speech, a short notice appears, speech, shop voices,
   the dream and the death laugh keep their original duration silently, and
   Text off keeps text visible until speech plays. Only the CD installation's
   sound driver is supported; the original's other sound cards wait for roadmap
   step 16. Doors play their sound without the brief open-door picture, and
-  falls and combat Mr Wizard are silent. If the Windows default output changes
+  falls are silent. If the Windows default output changes
   to another sample rate during play, the sound may crackle until restart. If
   the sound output fails during play, the game session ends with an error; if
   the output device is removed, the game continues silently until restart.
-- **Presentation.** There is no intro.
+- **Presentation.** There is no intro and no falling animation. Unlike DOS,
+  Moon Ray rolls every member's healing before its sparkles, and the border
+  indicators do not restart their animation after a service screen.
 - **Darkside** gameplay is not supported.
 
 Next steps are in the [roadmap](roadmap.md).

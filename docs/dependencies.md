@@ -170,11 +170,15 @@ MMModern's existing ScummVM adaptations remain GPL-3.0-or-later.
 
 The external DRO v2 validation data is configured with
 `-DMMODERN_PROMUS_CAPTURES_DIR=<capture-directory>`, alongside
-`MMODERN_XEEN_DATA_DIR`. Captures and derived register streams are never bundled.
+`MMODERN_XEEN_DATA_DIR`. Configuration does not check it, but `xeen_promus`, and
+so the complete suite, needs six captures there: `promus-startup.dro`,
+`promus-inn.dro` (the Tavern song), `promus-outdoors.dro`,
+`promus-fx20-alone.dro`, `promus-wall-bump.dro` (effect 46) and
+`promus-fx20-over-music.dro` (effect 20 over town music). Captures and derived
+register streams are never bundled.
 The comparison removes DOSBox's initial register snapshot and unchanged writes,
 aligns the sustained song/effect suffix and PIT phase, and compares both banks
-through capture end. The startup's EXE intro is outside M82. The supplied
-`promus-inn` records the Tavern song; `promus-wall-bump` records effect 46.
+through capture end. The startup's EXE intro is outside M82.
 
 ## `xeen_probe` provenance and replacement
 
@@ -245,7 +249,8 @@ build include from the verified constants blob; text is read at runtime from DAT
 The separate item catalog keeps its existing pinned provenance below. No DOS
 strings or original-data fixtures are distributed.
 
-Save files remain envelope v6, schema 9, content 14. Archive fingerprints hash
+The current save format is named by `kJourneyVersion`, `kJourneySchema` and
+`kJourneyContent` in `src/formats/xeen/XeenSaveFormat.h`. Archive fingerprints hash
 size and CRC32 over logical encrypted CC bytes, so both discs and equal plain
 copies have identical signatures. Floppy-bound saves fail the data-edition check
 before restoration; signatures and resource-relative overlays are never translated.
@@ -350,31 +355,28 @@ Preserve that attribution and license, and supply the corresponding adapted
 source and pinned upstream source in distributions. Commercial resources are
 not part of these tables.
 
-## Bounded armor repair provenance
+## Bounded item table provenance
 
-`XeenArmorRepair.h` adapts the thirteen armor base costs in
-`LangConstants::ARMOR_BASE_COSTS` and repair divisor 10 from
-`devtools/create_mm/create_xeen/constants.cpp`, together with material-38
-integer division, minimum-price and broken-bit behavior in
-`engines/mm/xeen/dialogs/dialogs_items.cpp` (`ItemsDialog::calcItemCost`,
-repair handling), at pinned revision
-`6814ee9ba54582f5b5adcffab49efbbd8f589edd`. The adapted data and rules are
-GPL-3.0-or-later, attributed to the ScummVM developers in upstream `COPYRIGHT`,
-without warranty; preserve the corresponding source and attribution in
-redistribution. No merchant stock tables or commercial assets are embedded.
-The exact bounded dispatch, prices and separate departure operation belong in
-[M38's contract](archive/milestone-38-plan.md).
-
-`XeenEquipmentPurchase.cpp` additionally adapts the thirty-three ordinary
-weapon base costs from `LangConstants::WEAPON_BASE_COSTS` and the Buy divisor-0
-rule in `ItemsDialog::calcItemCost` at the same pinned revision. Armor Buy uses
-the shared thirteen-entry armor base-cost table, without Repair's divisor or
-material adjustment. These private numeric adaptations and rules remain
-ScummVM GPL-3.0-or-later-derived material attributed to the ScummVM developers
-in upstream `COPYRIGHT`; preserve their notices and corresponding source in
-redistributions. They embed no commercial resource or modifier/effect table.
-The plain-offer domain, immutable browsing adaptation, physical movement and
-content-specific stock admission belong in [M42's contract](archive/milestone-42-plan.md).
+`src/games/xeen/detail/XeenItemTables.h` adapts numeric tables from
+`devtools/create_mm/create_xeen/constants.cpp` at pinned revision
+`6814ee9ba54582f5b5adcffab49efbbd8f589edd`: the weapon, armor, accessory and
+misc base costs, the metal, elemental, attribute and resistance material
+tables, and the weapon damage, armor class, misc spell and category tables that
+combat and the item dialogs also read. `xeenItemPrice` in
+`XeenItemServiceRules.cpp` prices Buy, Sell, Identify and Fix for all four
+categories from them, adapting the material adjustments, action divisors,
+integer division and minimum price of `ItemsDialog::calcItemCost` in
+`engines/mm/xeen/dialogs/dialogs_items.cpp` at the same pin; attribute
+materials follow the original program instead
+([original quirks](original-quirks.md#sv-attribute-material-price)).
+`XeenArmorRepair.h` applies those prices with Fix's broken-bit rule and also
+carries the thirteen armor base costs; `XeenMerchantTables.h` adapts the
+stock-generation tables of `Character::makeItem` at the same pin. These
+adaptations are GPL-3.0-or-later, attributed to the ScummVM developers in
+upstream `COPYRIGHT`, without warranty; preserve their notices and
+corresponding source in redistribution. No commercial resource is embedded.
+The Smith dispatch and browsing contracts are in
+[M38](archive/milestone-38-plan.md) and [M42](archive/milestone-42-plan.md).
 
 ## Bounded actor interpretation and approach provenance
 
@@ -399,8 +401,7 @@ archive owner with a checked, explicitly named `xeen.mon` read. Its private
 extent/read helper is shared only with `mae.xen`; the material size limit and
 availability semantics remain unchanged. The 60-byte parser enforces the CC
 65535-byte member bound separately. Missing data, malformed bytes and I/O failures
-remain distinct. The existing archive-index-construction limitation documented
-above still applies. Actor admission/context/persistence contracts belong in
+remain distinct. Actor admission/context/persistence contracts belong in
 [M26](archive/milestone-26-plan.md#final-ownership-and-lifecycle).
 
 ## MMModern configuration and validation
@@ -413,7 +414,9 @@ cmake -S <mmodern-source> -B <mmodern-build> \
   -G "MSYS Makefiles" \
   -DCMAKE_BUILD_TYPE=Debug \
   -DSCUMMVM_SOURCE_DIR=<scummvm-source> \
-  -DSCUMMVM_BUILD_DIR=<scummvm-build>
+  -DSCUMMVM_BUILD_DIR=<scummvm-build> \
+  -DMMODERN_XEEN_DATA_DIR=<game-directory> \
+  -DMMODERN_PROMUS_CAPTURES_DIR=<capture-directory>
 cmake --build <mmodern-build> --parallel 4
 ctest --test-dir <mmodern-build> --output-on-failure
 ```
@@ -431,7 +434,9 @@ cmake -S . -B build-rel -G Ninja \
   -DCMAKE_BUILD_TYPE=RelWithDebInfo \
   "-DCMAKE_CXX_FLAGS_RELWITHDEBINFO=-O2 -g" \
   -DSCUMMVM_SOURCE_DIR=<scummvm-source> \
-  -DSCUMMVM_BUILD_DIR=<scummvm-build>
+  -DSCUMMVM_BUILD_DIR=<scummvm-build> \
+  -DMMODERN_XEEN_DATA_DIR=<game-directory> \
+  -DMMODERN_PROMUS_CAPTURES_DIR=<capture-directory>
 cmake --build build-rel
 cmake --build build-rel --target mmodern_test_save   # optional tool, not built by default
 ctest --test-dir build-rel -L fast -j 8 --output-on-failure

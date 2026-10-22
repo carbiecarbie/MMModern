@@ -161,8 +161,7 @@ restore must retain the saved light word and derive darkness without replaying
 an arrival or manufacturing a step. `XeenSaveState::restoreJourney` copies the
 saved encounter context; `XeenWorld::swapPreparedState` clears the transient
 lighting step before presentation. `XeenTraversalLightingTests` checks exact
-restore and redraw on a synthetic drain cell. This check does not
-authorize changing restore semantics, the planned layout or the plan. Any claim
+restore and redraw on a synthetic drain cell. Any claim
 that native DOS restore itself never reaches drain still needs clarification/
 evidence before being used as a fidelity rule.
 
@@ -315,6 +314,28 @@ Capture SHA-256: death
 NPC `3d3a2e8e671bffd9b73b82b3921385cee8c34be870fc5f72233098bb73ada7fd`.
 Frames, exact PTS, audio correlations and scripts remain under
 `D:/MModern-re/codex-m63-evidence/m63-part-b/`.
+
+### NPC CD invocation and window lifetime
+
+**DOS static, high confidence, 2026-10-13.** Bounded read of the baseline
+`WORLD/XEEN.DAT`; the calibrated Ghidra export was cross-checked against an
+independent i8086 decoding of the complete NPC function and its CD helpers.
+The invocation-local playback guard is initialized
+at `0x256ec`, tested/set at `0x25ae8..0x25af3`; page and input retries retain it.
+Mode 2 plays at `0x25aa8` and bypasses stop, while ordinary dismissal stops at
+`0x25c94`. The all-zero request returns without changing playback at
+`0x3da98..0x3daa7`. WhoWill retains window 11 (`0x251a8..0x251bf`); Event
+cleanup closes all windows (`0x28e92`, `0x0dd80`) without stopping CD.
+
+The original cue operands are audio globals, retained across normal play/stop
+and same-disc Event boundaries; disc initialization clears them (`0x3d7fa`,
+`0x3d800`, `0x3d806`). The installed maps 28 and 23 contain 29 NPC records,
+each with an immediately preceding same-context opcode 60, including all three
+mode-2 offers. This inventory establishes the normal supported paths, not every
+possible branch target or future map. Audio intervals and visual continuations
+are transient; it does not establish a new durable save field. The read-only
+follow-up and record metadata remain in
+`D:/MModern-re/codex-m63-evidence/m63-part-b/npc-evidence/`.
 
 ## Navigation typematic evidence (2026-10-13)
 
@@ -515,10 +536,10 @@ Block flags, calls `0x2e3e5`, resets both cursors and selects again
 `0x2ddb6..0x2ddcf`; defeat/exit remains possible. Rebuilding speed order
 alone (for example Run) is not the same as the next round's flag reset.
 These rules match the pin's `Interface::nextChar`/`Combat::allHaveGone`.
-They differ from current MMModern `XeenCombat.cpp::selectNext`, which starts
-over and leaves skipped members unmarked; M75 Part A brings it in line
-with DOS (maintainer decision). This concerns Awaken as
-well as Part A's Cure Paralysis/Stone to Flesh and Part B's revival spells.
+M75 Part A brought MMModern's `XeenCombat.cpp::selectNext`, which used to
+start over and leave skipped members unmarked, in line with DOS (maintainer
+decision). This concerns Awaken as well as M75's Cure Paralysis/Stone to
+Flesh and revival spells.
 
 **HP-only admission, DOS static, high confidence:** zero/negative HP alone
 does not deny a turn when no disabling condition remains. The party-defeat
@@ -555,7 +576,7 @@ No original-program execution, DOSBox play, build or tests were part of this che
 The subsequent C1 and C2 implementation checks live in
 `tests/XeenTravelSpellRulesTests.cpp` and `tests/XeenTravelSpellOriginalTests.cpp`.
 They exercise the documented handler/Rest rules, per-character Beacon state,
-map-load lifetimes and exact save v15 restore with synthetic cases and
+map-load lifetimes and exact save restore with synthetic cases and
 original resources; they do not upgrade the DOS evidence labels or settle
 the unknown post-item automatic-Event timing.
 
@@ -621,7 +642,8 @@ therefore also applies to these new shared prompt/refund paths.
 ### Party effect bytes
 
 **DOS static, high confidence (2026-10-18); same as the pin's
-`Party::synchronize`.** The nine bytes keep this order in saves (v15).
+`Party::synchronize`.** The nine bytes keep this order in the current save
+format.
 Calibration: Wizard Eye writes DS:`eda0` and clears DS:`ed9f` at
 `0x2f8df..0x2f8e4`; Event 69 tests DS:`ed9e` at `0x21a36`.
 Offsets below are file offsets in the installed CD `WORLD/XEEN.DAT`.
@@ -897,7 +919,7 @@ party resources (`0x20bb0..0x20bea`), clears character items (`0x373e0`,
 DS:`eda8..f27c`) and writes the slot (`0xe938`), then play enters through the
 outer loop (`0xb829`) and the same play entry `0xcfe3..0xcff7`, which zeros
 currency and hasItems only. A sweep of every reference to the four array
-bases and of every memset and `rep stos` site finds no other writer on that
+bases and of every memset and repeated string-store fill finds no other writer on that
 path; the nearest clears end at `0x9970` (`0x3054d`) or start after `0x9a19`
 (`0x21d2f`). Calibrated against the startup, play-entry, Run and Load ranges
 above. Pinned `SavesManager::newGame` does not reset treasure either.
@@ -1261,7 +1283,7 @@ words in the DAT, including both side rows: Reaper X1/Y1/X2/X3 at
 | Reaper | Zoom indices 13..0, slide x=200 downward by 16 while nonnegative, speech over base frame 0 with random frame 0..4; **keyless** retreat uses indices 0..13 (corrected by Part 0b). `0x2a92c..0x2aa84`, `0x2ab3a..0x2abaf`, `0x2ac05..0x2acb8`, `0x2ad6b..0x2ae0f`, `0x2ae48..0x2af92`. One random draw per iteration of each speech loop: `N1+N2`. | Zoom waits 1 BIOS tick (`0x2aa70..0x2aa78`); speech loops explicitly wait 2 (`0x2ac94..0x2ac9c`, `0x2adf5..0x2adfd`); inter-speech pause 7 (`0x2acfe..0x2ad06`). Reference speech uses `WAIT(1)`: different explicit pacing. |
 | Golem | Zoom 11..0; 13 slide iterations from -200 by +16. Slide draws Y `R(0,9)-5`, then X `slideX+R(0,9)-5`, with frame 2 over frames 0/1. Speech draws Y `R(0,9)-3`, then X `R(0,5)-3`, also frame 2. Direct total `26+2*(N1+N2)`. `0x29d46..0x29fac`, `0x2a114..0x2a17d`, `0x2a34f..0x2a3a3`. | Explicit 1-tick waits at `0x29e72`, `0x29f9f`, `0x2a154`, `0x2a384`; formulas and visible sequence agree with the reference. |
 | Dwarf | Zoom 12..0, second zoom 15..0, then frame `R(0,9)` over the second sprite's frame 0. Three speech phases when Effects/driver configuration permits, otherwise the phase loop exits early. Direct total is the sum of executed speech-loop iterations. `0x2b2e3..0x2b530`, `0x2b533..0x2b6aa`; RNG `0x2b634`. | Speech waits 2 ticks (`0x2b65a..0x2b662`), unlike reference `WAIT(1)`. Phase loop also checks elapsed 3 ticks (`0x2b68e..0x2b696`). |
-| Sphinx | Zoom 8..0; frames 0/1 plus `R(2,10)` during speech; refusal retreat indices **0..8** (corrected by Part 0b). Three keyed or two refusal phases, subject to the same audio-configuration early exit. `0x297bb..0x29836`, `0x29840..0x29981`, `0x29993..0x29a20`. Direct total is the sum of executed speech-loop iterations. | No explicit BIOS-tick wait in these zoom/speech loop bodies. Part 0b establishes one retrace per iteration, nominally 70 Hz; the reference has `WAIT(1)`. |
+| Sphinx | Zoom 8..0; frames 0/1 plus `R(2,10)` during speech; refusal retreat indices **0..8** (corrected by Part 0b). Three keyed or two refusal phases, subject to the same audio-configuration early exit. `0x297bb..0x29836`, `0x29840..0x29981`, `0x29993..0x29a20`. Direct total is the sum of executed speech-loop iterations. | No explicit BIOS-tick wait in these zoom/speech loop bodies. Part 0b finds one retrace wait per iteration; DOSBox shows two retraces per speech iteration, about 35 Hz (below). The reference has `WAIT(1)`. |
 
 These are loop indices and draw formulas, not a fixed total for an entire
 Event invocation. All direct calls use the gameplay range helper
@@ -1295,8 +1317,10 @@ when Effects are off or the driver selection is below 2; this is not the
 control panel's separate Speech setting.
 The reference's subtitle handling is not equivalent to these DOS branches.
 Part 0b below settles the installed startup configuration, cursor clock
-and record lengths. Literal lines were deliberately not extracted; exact
-pixel disappearance in nondefault text mode still needs a capture.
+and record lengths. Literal lines were deliberately not extracted. A
+[video](audio.md#efx-voc-waits-and-entrance-captions) settles when the
+Dwarf's box disappears in Effects-off mode; the other guardians' box
+erasure is not video-confirmed.
 
 Scene screen capture uses `0xdd72 -> 0x43fe5`; restores use `0x4405f`
 (e.g. Reaper `0x2afeb`, Golem `0x2a5e5`, Sphinx `0x29a61`,
@@ -1366,10 +1390,13 @@ before the zoom, so this is not a fresh two-tick delay from speech onset.
 | Dwarf | Text renderer at `0x2b64d` is inside the speech loop. Audio-or-cursor continuation is `0x2b664..0x2b679`; after completion, the Effects/driver test exits the phase loop early in text mode (`0x2b67b..0x2b6aa`). With Effects off, one complete caption replaces the normal three sample phases. |
 | Sphinx | Text renderer at `0x29909` is inside the speech loop. Audio-or-cursor continuation is `0x29916..0x2992b`; the same test skips later samples (`0x2992d..0x29940`). With Effects off, one complete caption replaces the normal two refusal or three success sample phases. |
 
-**Unresolved:** the exact frame on which already drawn box pixels disappear
-in text mode. Stopping renderer calls is not proof that another sprite
+**Settled for the Dwarf only:** its box lasts through the caption speech
+loop and the final redraw erases it
+([Audio](audio.md#efx-voc-waits-and-entrance-captions)). For Reaper, Golem
+and Sphinx the frame on which already drawn box pixels disappear remains
+**unresolved**: stopping renderer calls is not proof that another sprite
 erases the whole box. Background restores/map reconstruction eventually
-replace it; no sprite-pixel inspection was authorized for this follow-up.
+replace it.
 The pin also differs in cursor behavior: `Subtitles::show` uses
 `1 + lineLength/100` characters per step, so the 107-byte Clouds Dwarf
 record advances two at a time there, versus one in DOS.
@@ -1391,7 +1418,7 @@ its queue and returns (`0x4549c..0x45505`); normal no-input return is
 `0xe18f..0xe196 -> 0xe2c7`. There is no second retrace or BIOS wait in
 that idle input path.
 
-| No-explicit-BIOS-wait loop | File offsets | Settled cadence |
+| No-explicit-BIOS-wait loop | File offsets | Static wait per iteration |
 | --- | --- | --- |
 | Sphinx zoom | `0x29826..0x29836` | One retrace per iteration. |
 | Sphinx speech | `0x29904..0x2992b` | One retrace through the text renderer, including with text suppressed. |
@@ -1399,10 +1426,13 @@ that idle input path.
 | Dwarf first / second zoom | `0x2b449..0x2b45b` / `0x2b4e8..0x2b4fa` | One retrace per iteration. |
 | Reaper / Golem retreat | `0x2af94..0x2afa7` / `0x2a565..0x2a586` | One retrace per iteration. |
 
-On the settled 70-Hz display clock this is **nominally 14.286 ms per
-iteration**, provided drawing completes before the next retrace. Slow
+On the 70-Hz display clock this code path alone would give 14.286 ms per
+iteration, provided drawing completes before the next retrace. Slow
 execution can miss retraces; static analysis does not promise a measured
-frame rate on every DOSBox cycle setting. These loops are retrace-paced,
+frame rate on every DOSBox cycle setting. The DOSBox capture below observes
+two retraces per Sphinx speech iteration (about 35 Hz) and irregular zoom
+and retreat intervals; M80 uses two retraces for all of these loops
+([quirk](../original-quirks.md#sv-scene-speech-cadence)). These loops are retrace-paced,
 not unbounded host-speed loops. The pin's corresponding `WAIT(1)` loops
 use its game-frame clock instead. Explicit BIOS waits elsewhere remain
 as recorded in Part 0; a retrace call does not remove them.
@@ -1426,15 +1456,14 @@ resource but splits record 0 into several intro subtitles, shifting its
 later line numbers. No payload text or original bytes were written into
 the repository or printed in the report.
 
-**Remaining observation.** The requested default-then-Speech-off captures
-at Dwarf map 14 `(9,9)` E and Sphinx map 5 `(12,8)` S should show no
-scene caption in either setting. Include the Effects setting in the
-capture. To settle caption disappearance, an additional **Effects-off**
-pass is necessary; capture the first/last box frame and the phase exit.
-Frame-step the zooms/retreat at the recorded DOSBox cycle setting to check
-actual retrace misses. These pixel/runtime observations remain unresolved;
-the settings branches, cursor threshold, retrace calls and record metadata
-above are settled statically.
+**Remaining observation.** The default captures below show no scene
+caption and measure the retrace pacing. A Speech-off capture at Dwarf map
+14 `(9,9)` E or Sphinx map 5 `(12,8)` S should also show none; none is
+recorded. Effects-off passes for Reaper, Golem and Sphinx (first/last box
+frame and phase exit) remain open; the Dwarf's is recorded in
+[Audio](audio.md#efx-voc-waits-and-entrance-captions). The settings
+branches, cursor threshold, retrace calls and record metadata above are
+settled statically.
 
 **DOSBox capture (maintainer, 2026-10-20).** Two DOSBox ZMBV captures at
 70.09 frames per second, default settings: the Dwarf Mine entry (map 14,
@@ -1470,7 +1499,8 @@ sample in full without checking descriptor text. The pinned
 the duration reader ignores descriptor text while retaining every structural
 check. [Quirk](../original-quirks.md#sv-sphinx13-descriptor).
 
-Caption disappearance with Effects off was not captured.
+These captures did not include Effects off; the later Dwarf Effects-off
+capture is recorded in [Audio](audio.md#efx-voc-waits-and-entrance-captions).
 
 ### 4. Arena dialog, generation and exits
 
@@ -1540,17 +1570,19 @@ award persistence.
 
 ## Other playable-rules confirmations
 
-The same external report/index retains calibrated, independently checked reads
-for the following **DOS static, high-confidence** findings. Only delivery changes
-production behavior in Part D; the other findings update the rules reference.
+The 2026-10-12 playable-rules report and index under
+`D:\MModern-re\playable-rules-20261012\` retain calibrated, independently
+checked reads for the following **DOS static, high-confidence** findings. Only
+delivery changed production behavior, in M61 Part D; the other findings update
+the rules reference.
 
 | Finding | Original file offsets and boundary |
 | --- | --- |
 | Natural 20 damages before the ordinary comparison and fresh AC read | `0x2db45`, `0x2db55`, `0x2db65`, `0x2dbd7`; injury `0x1f8a7` and armor bad-state gate `0x21275..0x21281` confirm armor breakage affects the later check. |
-| Broken weapons retain base dice and equipped effectiveness | Bad-state material skip `0x2e057..0x2e05d`, base dice `0x2e0e9..0x2e134`, frame-only effectiveness `0x2c950`, selector `0x2c96f`, multiply `0x2caed..0x2cb00`. Break Weapon itself clears frame at `0x2d52c..0x2d532`; that ability is not admitted. |
+| Broken weapons retain base dice and equipped effectiveness | Bad-state material skip `0x2e057..0x2e05d`, base dice `0x2e0e9..0x2e134`, frame-only effectiveness `0x2c950`, selector `0x2c96f`, multiply `0x2caed..0x2cb00`. Break Weapon itself clears frame at `0x2d52c..0x2d532`; implemented since M68 Part A. |
 | Hatred 1 bypasses preference | Compare/branch `0x2d84b..0x2d852` reaches random dispatch `0x2d9a3`; this does not establish every party-size distribution. |
 | Run uses strict less-than | Inclusive draw `0x2e1c0..0x2e1c4`, unsigned threshold `0x2e1cc..0x2e1d0`, comparison/failure `0x2e1d2..0x2e1d4`. Threshold 100 accepts outcomes 1..99; no measured DOS RNG uniformity claim. |
-| Monster recovery differs from the pin | Caller `0x20ca9..0x20cf1`, helper `0x2e19b`, comparison `0x2e1b2..0x2e1b4`, clear `0x20ce1`: DOS clears at draw `<= ID`, the pin at `>= ID`. Not reachable with currently admitted monster states. |
+| Monster recovery differs from the pin | Caller `0x20ca9..0x20cf1`, helper `0x2e19b`, comparison `0x2e1b2..0x2e1b4`, clear `0x20ce1`: DOS clears at draw `<= ID`, the pin at `>= ID`. Implemented since M73 Part A ([quirk](../original-quirks.md#sv-monster-recovery)). |
 | Long time calls apply economy once | Calendar `0x263b3..0x26491`, stock `0x26401`, interest `0x26408`, latch `0x2640b..0x26411`, interest arithmetic `0x26492..0x264c4`. Confirmation is limited to word-sized arguments, including current 1,440/2,880-minute calls; a synthetic 144,000-minute call is not representable in DOS. |
 
 ## Monster damage and secondary attacks
@@ -1564,9 +1596,9 @@ item categories at `0xa7`, `0xcc`, `0xf0`, `0x114` with 4-byte slots).
 
 | Finding | Original file offsets and boundary |
 | --- | --- |
-| `doCharDamage` entry, Sleep clear, dice loop | `0x2d22d`; `mov byte [0x14b], 0` at `0x2d236`; `strikes` from monster offset `0x1a`, each `random(1, dmgPerStrike)` at `0x2d26c..0x2d27d`. |
+| `doCharDamage` entry, Sleep clear, dice loop | `0x2d22d`; the Sleep byte at character offset `0x14b` is cleared at `0x2d236`; `strikes` from monster offset `0x1a`, each `random(1, dmgPerStrike)` at `0x2d26c..0x2d27d`. |
 | Initial save uses the Physical selector | `0x2d2e4` pushes 0, calls `0x2d0c2`, halves on success at `0x2d2f7`; the type switch at `0x2d2f9..0x2d35c` subtracts party protection for types 2-5 and selects the frame/sound. |
-| Element save loop | `0x2d35e..0x2d374`: push type, call `0x2d0c2`, `je 0x2d376`, `sar di,1`, `or di,di`, `jne 0x2d35e`. Drawn once even at zero damage. |
+| Element save loop | `0x2d35e..0x2d374`: calls `0x2d0c2` with the damage type, leaves the loop for `0x2d376` when the save fails, otherwise halves the damage and repeats from `0x2d35e` while it stays nonzero. Drawn once even at zero damage. |
 | Power Shield and clamp | `0x2d3a9..0x2d3b5`; zero damage jumps to the subtraction at `0x2d6b5`. |
 | Secondary save and dispatch | special byte test `0x2d3e3`, Physical save `0x2d3ed..0x2d3fe`, `special - 5` bound `0x11` at `0x2d433`, jump table `0x2d6d9` (entries for specials 5..22). |
 | Handlers | Poison `0x2d442`, Sleep `0x2d462`, Disease `0x2d4a5`, Insane `0x2d486`, Confuse `0x2d4c4`, Curse `0x2d4e4`, Break Weapon `0x2d508`, Weaken `0x2d541`, Drain SP `0x2d561`, Paralyze `0x2d56e`, Aging `0x2d592`, Unconscious `0x2d5a2`, Eradicate `0x2d5c6` (helper `0x2bd6a`), Stone `0x2d611`, Death `0x2d641`, Curse Item `0x2d671`; specials 6 and 11 map to `0x2d6b5`. |
@@ -1595,34 +1627,16 @@ replacements for the control-flow interpretation above.
 
 | Area | Question to settle before extending a rule |
 | --- | --- |
-| Combat | Establish remaining enchanted multi-attack arithmetic. Eradicate equipment-frame behavior is settled above. |
+| Combat | Establish remaining enchanted multi-attack arithmetic. Eradicate equipment-frame behavior is settled in [Combat](combat.md#secondary-effects). |
 | Damage and targeting | Confirm ranged continuation, elemental multi-attack arithmetic and targeting distributions for every party size. |
 | Items | Trace the remaining unexamined item-prompt refunds and high-tier generation cases; M76 settles Recharge, Enchant and Item to Gold above. |
 | Treasure | Extend delivery evidence to the special sword and other editions' quest branches; the Clouds quest display/count boundary is established above. |
 | Magic | Extend control-spell duration and high-tier overflow checks. Holy Bonus is settled by [M76](#m76-spells); Poison Volley and Resurrection retain their earlier evidence. |
 | Travel | Calibrate the combat state after Town Portal's combat item route ([M77 open question](#open-questions-from-this-check)) and exact post-item automatic-Event timing. M76 settles handler relocation/load/admission; M77 settles the Use path and the slot test; terrain keeps its earlier evidence. |
 | Time | Verify remaining script-mode dawn behavior and uncalibrated condition-byte edges. Current MMModern wrapping/saturation is not literal equivalence with the pin's live integer counters; see the time chapter. |
-| Broader coverage | Event opcode catalogue, all services, AI/movement, character creation, Darkside/World transitions, audio and frame-level UI timing still need dedicated chapters and calibration. |
+| Broader coverage | A complete Event opcode catalogue beyond [World Events](world-events.md), all services, AI/movement, character creation, Darkside/World transitions and frame-level UI timing still need dedicated chapters and calibration; [Audio](audio.md) lists its own remaining gaps. |
 
 These are evidence gaps, not instructions to broaden an active milestone.
 Normal DOS play or calibrated static analysis should settle reachable disputes;
 only the condition-counter fallback explicitly authorized in
 [AGENTS.md](../../AGENTS.md) bypasses an otherwise unverifiable case.
-
-### NPC CD invocation and window lifetime
-
-**DOS static, 2026-10-13.** The invocation-local playback guard is initialized
-at `0x256ec`, tested/set at `0x25ae8..0x25af3`; page and input retries retain it.
-Mode 2 plays at `0x25aa8` and bypasses stop, while ordinary dismissal stops at
-`0x25c94`. The all-zero request returns without changing playback at
-`0x3da98..0x3daa7`. WhoWill retains window 11 (`0x251a8..0x251bf`); Event
-cleanup closes all windows (`0x28e92`, `0x0dd80`) without stopping CD.
-
-The original cue operands are audio globals, retained across normal play/stop
-and same-disc Event boundaries; disc initialization clears them (`0x3d7fa`,
-`0x3d800`, `0x3d806`). The installed maps 28 and 23 contain 29 NPC records,
-each with an immediately preceding same-context opcode 60, including all three
-mode-2 offers. This inventory establishes the normal supported paths, not every
-possible branch target or future map. Audio intervals and visual continuations
-are transient; it does not establish a new durable save field. The read-only
-follow-up and record metadata remain in the external capture work directory.
