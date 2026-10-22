@@ -474,8 +474,11 @@ in [project status](project-status.md#known-gaps):
 
 - **The whole game:** only Vertigo and the surrounding mainland are playable;
   the rest of Clouds of Xeen and all of Darkside of Xeen are not.
-- **Sound:** VOC/CD playback awaits M83;
-  speech keeps its duration in silence. Only the promus OPL3 device is supported.
+- **Sound:** CD playback awaits M83 Part B; speech keeps its duration in
+  silence. VOC starts in implemented Clouds presentations are audible;
+  fall/landing and title lightning remain excluded with their absent
+  presentations ([site inventory](rules/audio.md#voc-inventory-boundaries)).
+  Only the promus OPL3 music device is supported.
 - **Services and party:** no Inn, recruiting, character creation, Tavern
   Sign In or Dismiss.
 - **World:** no entrance scenes (Reaper, Golem, Dwarf Mine, Sphinx, Pyramid);

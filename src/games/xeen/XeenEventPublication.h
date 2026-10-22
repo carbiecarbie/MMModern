@@ -12,6 +12,7 @@ namespace mmodern {
 class XeenEventPublication {
 public:
  std::function<void(unsigned)> fmEffect;
+ std::function<void(unsigned)> eventVoice;
  mutable std::array<std::optional<unsigned>,30> damageEffects{};
  mutable std::uint32_t portraitEffectOwners=0; // Published spellFX recipients, presentation only.
 	~XeenEventPublication() {if(retainedHistory)retainedHistory->swap(dispatchedRecords);}
@@ -172,6 +173,13 @@ public:
 			integrity("Deferred audio has no dispatched audio instruction");
 		consume();
 	}
+    void playEventVoice() const {
+        check();const auto operation=decodedOperation();
+        const auto *cue=std::get_if<XeenEventVoiceCue>(&operation);
+        if(!cue)integrity("Voice has no dispatched PlayEventVoc instruction");
+        consume();if(eventVoice)eventVoice(cue->index);
+        check();
+    }
 	void prepareRewardStaging(const XeenEventExecutionState &state,const XeenItem &item) const {
 		check();
 		const auto operation=decodedOperation();

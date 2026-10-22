@@ -37,7 +37,7 @@ public:
     XeenEntranceAnimation(unsigned action,bool keyed,const Duration &,bool efx=true,unsigned captionLength=0);
     // Once per acquired iteration; a late wake advances only one iteration.
     std::optional<Frame> advance(std::uint64_t now,const Draw &);
-    void acquired(std::uint64_t now);
+    const char *acquired(std::uint64_t now);
     std::uint64_t deadline() const noexcept {return _deadline;}
     bool awaitingFrame() const noexcept {return _awaiting;}
     bool finished() const noexcept {return _phase>=_phases.size();}

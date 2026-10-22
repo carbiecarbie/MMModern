@@ -20,9 +20,20 @@ void XeenEncounterFlow::fmEffect(unsigned id) noexcept {
     try {if(_program.audio){_program.audio->observeOptions(_party.soundOptions);_program.audio->effect(id,_lastNanoseconds);}}
     catch(...) {} // An FM output failure cannot abort a gameplay action.
 }
-void XeenEncounterFlow::fmWeaponEffect() noexcept {
-    try {if(_program.audio){_program.audio->observeOptions(_party.soundOptions);_program.audio->weaponEffect(_program.attackWeaponFx,_lastNanoseconds);}}
-    catch(...) {}
+void XeenEncounterFlow::fmWeaponEffect() {
+    if(_program.audio){_program.audio->observeOptions(_party.soundOptions);_program.audio->weaponEffect(_program.attackWeaponFx,_lastNanoseconds);}
+}
+void XeenEncounterFlow::digitalSample(const std::string &name,XeenSceneArchive archive,std::optional<std::uint64_t> now) {
+    if(_program.audio){_program.audio->observeOptions(_party.soundOptions);_program.audio->startDigital(name,archive,now.value_or(_lastNanoseconds));}
+}
+void XeenEncounterFlow::digitalStop() {
+    if(_program.audio){_program.audio->observeOptions(_party.soundOptions);_program.audio->stopDigital(_lastNanoseconds);}
+}
+void XeenEncounterFlow::digitalMiss() {
+    if(_program.audio){_program.audio->observeOptions(_party.soundOptions);_program.audio->missEffect(_lastNanoseconds);}
+}
+void XeenEncounterFlow::eventVoice(unsigned index) {
+    if(_program.audio){_program.audio->observeOptions(_party.soundOptions);_program.audio->eventVoice(index,_lastNanoseconds);}
 }
 namespace {
 struct BusyJourney { bool &value; explicit BusyJourney(bool &v) : value(v) { value = true; } ~BusyJourney() { value = false; } };
@@ -1021,7 +1032,7 @@ bool XeenEncounterFlow::attachJourney(const Ticket &entry, const std::function<v
 		_journeyPreimage->check();
 		_combat.reset(new XeenCombat(_world,_party,_camera,_boundary,_flags,_state,_journeyStatistics,_events));
         _fmAttackGeneration.reset(); // Combat generations are local to this new instance.
-        _combat->fmEffects([this](unsigned id){fmEffect(id);},[this]{fmWeaponEffect();},[this](unsigned weapon){fmSelectWeapon(weapon);},[this](unsigned id){fmEffectAfterFrame(id);});
+        _combat->fmEffects([this](unsigned id){fmEffect(id);},[this]{fmWeaponEffect();},[this](unsigned weapon){fmSelectWeapon(weapon);},[this](unsigned id){fmEffectAfterFrame(id);},[this]{digitalMiss();});
         _combat->inheritResources(_combat->ticket(),*_journeyPreimage);
 		++_generation;
 		if (!acceptCombatResult(_combat->beginCombat(_combat->ticket()))) return false;

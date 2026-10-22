@@ -139,8 +139,9 @@ struct Shop6 : Fixture {
 };
 
 void artRegionMatches(const IndexedFrame &flowFrame, const IndexedFrame &oracle, const char *message) {
-	// Rows 8..100 and columns 8..224 are never covered by the location dialog or its buttons.
-	for (int y = 8; y < 100; ++y) for (int x = 8; x < 224; ++x)
+	// Compare the uncovered scene interior. The original border ornaments
+	// overlap the generic scene rectangle and are assembled after the art.
+	for (int y = 32; y < 100; ++y) for (int x = 32; x < 194; ++x)
 		if (flowFrame.pixels[y * 320 + x] != oracle.pixels[y * 320 + x])
 			throw std::runtime_error(std::string(message) + " at " + std::to_string(x) + "," + std::to_string(y) + " flow=" +
 				std::to_string(flowFrame.pixels[y * 320 + x]) + " oracle=" + std::to_string(oracle.pixels[y * 320 + x]));

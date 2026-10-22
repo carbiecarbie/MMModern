@@ -22,6 +22,7 @@
 #include "games/xeen/XeenRestRules.h"
 
 namespace mmodern {
+enum class XeenSceneArchive;
 struct XeenBarrierCandidate;
 class XeenItemCatalog;
 
@@ -174,7 +175,11 @@ private:
     void fmEffectAfterFrame(unsigned id) noexcept {_fmAfterFrame=id;}
     std::optional<unsigned> _fmAfterFrame;
     void fmStepEffect() noexcept {_program.steppingFx^=1;fmEffect(7+_program.steppingFx);}
-    void fmWeaponEffect() noexcept;
+    void fmWeaponEffect();
+    void digitalSample(const std::string &,XeenSceneArchive,std::optional<std::uint64_t> now={});
+    void digitalStop();
+    void digitalMiss();
+    void eventVoice(unsigned);
     void fmSelectWeapon(unsigned id) noexcept {_program.attackWeaponFx=id;}
 	void recordJourneyStep();
 	void publishJourneyExploration(std::vector<XeenExploredTile> &,std::vector<XeenExploredTile> &) noexcept;
@@ -184,6 +189,7 @@ private:
 	friend struct XeenTemplePriceStateTestAccess;
 	friend struct XeenTrainingTestAccess;
     friend struct XeenEntranceTestAccess;
+    friend struct XeenDigitalSitesTestAccess;
 	friend struct XeenMonsterTestAccess;
 	friend struct XeenPurchaseTestAccess;
 	friend struct XeenCombatPresentationTestAccess;

@@ -686,7 +686,7 @@ capture.
 | Numeric Choose123, ordinary messages, Event cleanup | No global Escape-triggered stop; explicit action samples still follow their own sites | No blanket cancellation: numeric return `0x24ee9`, Event cleanup `0x291d8`; a nested yes/no or NPC helper still has its explicit stop |
 | Main exploration Escape | Not a global audio action | Main key table `0xd63c` has no Escape action; generic input normalization does not stop CD |
 | Title animation Escape / menu return | Title lightning's explicit stop remains at `0xc029`; input is not a generic sample cancel | No generic CD stop in `0xbcce..0xc766`; a process exit is distinct |
-| Confirmed Quit / termination | Driver shutdown | Explicit stop at `0x21ecd`; this is process termination, not return to title |
+| Confirmed Quit / termination | Driver shutdown, without the title drain | Panel confirmation calls `0x21ecd` at `0x1f20d`; shutdown `0x21ecd..0x21efb` reaches runtime termination rather than returning through `0xb90f` |
 | Archive side selection / actual disc change | Neither stops the digital driver | Archive selector `0xe89e..0xe937` has no stop. With Speech on, `0xf383..0xf40e` checks the required disc; an actual change stops twice at `0x3d65f/0x3d664` and clears operands at `0x3d7fa..0x3d806`. Speech off skips that map/panel disc check |
 | Fresh process | Driver initialization starts idle | Startup stops CD (`0x3d45a`); operands begin zero. Saves contain options, not audio cursors or retained cue operands |
 
@@ -735,6 +735,18 @@ DAT `0x508cc..0x508e3`: 0 `ahh.voc`, 1 `whereto.voc`, 2 `gulp.voc`,
 3 `null.voc`, 4 `scream.voc`, 5 `laff1.voc`. Its handler stops the old
 sample, loads and starts the new one (`0x28724..0x2875a`), without a busy
 wait. The Clouds census has 130 rows on 35 maps, using indices 0..4.
+
+The title drain does not service input: `0xb933..0xb941` only polls busy,
+then frees the sample at `0xb943..0xb947`. MMModern rejects dispatch as
+soon as the gameplay outcome is finished, including Escape and F9,
+while its logical busy interval drains. Panel Load writes return code 2
+at `0xd2ff`, returns through `0xd5e8..0xd61b`, and branches from
+`0xb836..0xb839` directly to `0xb819`; it never reaches `0xb90f`.
+Confirmed panel Quit takes the termination branch above and likewise
+does not reach the title drain. The separate main-loop return-code-1
+cleanup (`0xb831..0xb834 -> 0xb83e`) has its own poll at
+`0xb892..0xb8a0`; it is not the confirmed panel Quit path. No title wait
+is added to the supported Load or Quit outcomes.
 
 ### VOC inventory boundaries
 
@@ -804,11 +816,85 @@ that transition. There is no equivalent staged fall/landing presentation
 or sample publication point today. Record these two calls with that
 existing presentation gap; do not attach them to every map transition,
 add a new audio owner, or silently expand A2 into implementing the fall
-animation. Title lightning, in contrast, belongs to the existing title
-presentation path using program-owned `XeenAudio`, with its DOS start/stop
-stages above. Its `elect.voc` resource is in DARK.CC (header constant
-188, codec 0), not missing from the installation; an earlier broad
-XEEN/INTRO-only scan was not a complete title-resource lookup.
+animation.
+
+**Title lightning outside M83 (maintainer, 2026-10-22):** DAT
+`0xbf90..0xbf99` tests byte `[DS:0x0095]`; a nonzero value jumps to
+`0xc056`, bypassing the 30-frame lightning sequence, start `0xbfcf`
+and stop `0xc029`.
+The current CD World title implements the 13-frame `world0/1/2` loop,
+not that sequence. No further flag tracing is claimed: retain lightning
+as an absent-presentation gap belonging to roadmap step 15 (intros,
+ending, Darkside), outside M83; never attach `elect.voc` to the CD loop.
+Its resource exists in DARK.CC (constant 188, codec 0). The physical
+inventory count above includes this excluded site, not 32 implemented starts.
+
+### Digital start sites implemented by A2
+
+Part 0 inventories physical DOS calls, not every alternative name. All starts
+use XeenAudio's Efx gate; Efx off also masks stop and busy without silencing
+an existing sample. PCM is loaded and decoded on the main thread. Existing
+flow waits retain the adopted driver-count duration; Tavern departure and
+gameplay teardown to title poll the program-owned logical voice. No wait
+consults the device and no playback state enters saves.
+
+| DOS start | Clouds/shared names | Gate | Owner | Coverage |
+| --- | --- | --- | --- | --- |
+| `0xb112` | fire.voc | Efx | XeenEventFlow | implemented |
+| `0xb294` | xeenlaff.voc | Efx | XeenEventFlow | implemented |
+| `0xbfcf` | elect.voc | Efx | Title lightning | gap: step 15 |
+| `0x116a0` | scream.voc | Efx | Fall presentation | gap |
+| `0x1170c` | unnh.voc | Efx | Landing presentation | gap |
+| `0x1abf7` | trainin2.voc | Efx | XeenTrainingFlow | implemented |
+| `0x1aedc` | coina.voc | Efx | XeenSmithFlow | implemented |
+| `0x1af54` | ahh.voc | Efx | XeenSmithFlow / Event bridge | implemented |
+| `0x1b0c9` | gulp.voc | Efx | XeenSmithFlow | implemented |
+| `0x1b31e` | thankyou.voc | Efx | XeenSmithFlow | implemented |
+| `0x1b469` | thankyou.voc | Efx | XeenSmithFlow | implemented |
+| `0x1b8d4` | trainin0.voc, trainin1.voc, guild11.voc | Efx | XeenTrainingFlow / XeenSmithFlow | implemented |
+| `0x1c7cb` | coina.voc | Efx | XeenSmithFlow | implemented |
+| `0x1d5c7` | banker.voc, whaddayo.voc, guild10.voc, hello.voc, maywe2.voc, training.voc | Efx | XeenServiceAnimation via XeenEventFlow | implemented |
+| `0x1d6b1` | goodbye.voc | Efx | XeenSmithFlow | implemented |
+| `0x1e66d` | dreams2.voc | Efx | XeenEventFlow / XeenRestFlow | implemented |
+| `0x1e6af` | laff1.voc | Efx | XeenEventFlow / XeenRestFlow | implemented |
+| `0x2875a` | ahh.voc, whereto.voc, gulp.voc, null.voc, scream.voc, laff1.voc | Efx | Event interpreter / XeenEventFlow | implemented |
+| `0x298ab` | sphinx10.voc, sphinx11.voc, sphinx12.voc, sphinx13.voc, sphinx14.voc | Efx | XeenEntranceScene | implemented |
+| `0x29e9f` | ogre.voc | Efx | XeenEntranceScene | implemented |
+| `0x29f97` | ogre.voc | Efx | XeenEntranceScene | implemented |
+| `0x2a06d` | golem15.voc, golem13.voc | Efx | XeenEntranceScene | implemented |
+| `0x2a250` | ogre.voc | Efx | XeenEntranceScene | implemented |
+| `0x2a2a2` | golem16.voc, golem14.voc | Efx | XeenEntranceScene | implemented |
+| `0x2abfd` | reaper12.voc, reaper14.voc | Efx | XeenEntranceScene | implemented |
+| `0x2ad63` | reaper13.voc, reaper15.voc | Efx | XeenEntranceScene | implemented |
+| `0x2b5f9` | dwarf10.voc, dwarf11.voc, dwarf12.voc | Efx | XeenEntranceScene | implemented |
+| `0x2c111` | pow0.voc, pow1.voc, pow2.voc, pow3.voc, pow4.voc, pow5.voc | Efx | XeenCombat impact / XeenAudio | implemented |
+| `0x2c172` | miss.voc | Efx | Player damage candidates / XeenAudio | implemented |
+| `0x2d802` | monster record +0x33 | Efx | XeenEncounterFlow::observeCombat | implemented |
+| `0x34881` | guild11.voc | Efx | XeenSmithFlow | implemented |
+| `0x34d32` | guild12.voc | Efx | XeenSmithFlow | implemented |
+
+Three further physical starts are Darkside-only (`0x1c500` spit1.voc,
+`0x1d6fe` come1.voc, `0x319f2` choice2.voc). The 35-call physical census
+therefore comprises 29 implemented starts and six excluded starts.
+
+Opcode 40 reads the six far pointers at DAT `0x508cc`, publishes once and
+continues immediately. Its Clouds members use XEEN; the final `laff1.voc`
+member uses DARK, as in the Part 0 resource inventory. Opcode 60 retains
+its passive notice until Part B. Every original Clouds opcode 40 row
+(130 rows in 35 maps) has an index in 0..4. An out-of-table index (6 or
+more) retains the automatic "Voice audio not supported yet" notice and
+continues; Efx off skips that notice along with the start.
+
+Combat pow stops the old voice at the existing positive-damage impact callback,
+requests FM 60+selector then VOC before HP publication. Player miss guards
+request VOC before FM 6; unrelated enemy misses do not request miss.voc.
+Monster voices publish only on guarded MonsterPose1, before target-selection
+RNG, once per attack, never per target, second pose or redraw. Missing
+or corrupt impact and miss samples raise the same resource error as
+other starts; the FM output-failure suppression does not cover VOC loads.
+Entrance guardians publish no unsupported-audio notice when Efx is on;
+the M82 captions remain the Efx-off presentation. Death starts fire at
+entry to the retained death state, independently of drawing or retries.
 
 ## Text-off byte: readers and presentation
 

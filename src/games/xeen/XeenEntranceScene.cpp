@@ -125,21 +125,26 @@ std::optional<XeenEntranceAnimation::Frame> XeenEntranceAnimation::advance(std::
     _awaiting=true;
     return frame;
 }
-void XeenEntranceAnimation::acquired(std::uint64_t now) {
-    if(!_awaiting)return;
+const char *XeenEntranceAnimation::acquired(std::uint64_t now) {
+    if(!_awaiting)return nullptr;
     const auto &step=_phases[_phase];
+    const char *sample=nullptr;
     if(!_started && step.sample) {
+        sample=step.sample;
         _sampleEnd=PresentationClock::checkedAdd(now,step.duration);
         // Dwarf's WAIT(3) checks the phase's game-counter mark, not a new
         // three-tick pause after the sample. The two-tick loop uses timer 5.
         _minimumEnd=_action==10?PresentationClock::after(now,3):0;
     }
-    if(step.kind==Phase::Slide && _action==9 && (!_iteration || now>=_entryEnd))
+    if(step.kind==Phase::Slide && _action==9 && (!_iteration || now>=_entryEnd)) {
+        sample="ogre.voc";
         _entryEnd=PresentationClock::checkedAdd(now,_entryDuration);
+    }
     _deadline=step.kind==Phase::Finish?now:step.kind==Phase::Growl?_sampleEnd:step.kind==Phase::EntryTail?_entryEnd:
         step.ticks?PresentationClock::after(now,step.ticks):
         PresentationClock::retraceAfter(PresentationClock::retraceAfter(now));
     _started=true;_awaiting=false;
+    return _efx?sample:nullptr;
 }
 XeenEntranceAnimation::Frame XeenEntranceAnimation::compose(const Draw &draw) const {
     const auto &a=art(_action);const auto phase=_phases[_phase].kind;

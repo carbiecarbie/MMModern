@@ -100,7 +100,7 @@ int main(int argc,char **argv) {
 		check(injected && !tampered.flow->canSave() && !tampered.p.questFlags.isSet(3) &&
 			tampered.w.sessionState().regionalActors(28).size()==46 && !tampered.w.sessionState().disabledEventCount(),
 			"Candidate composer tampering published effects or reopened quiet authority");
-		// M53 CD speech and existing voice are presentation-only prefixes; city
+		// CD speech and an out-of-table voice are automatic notice prefixes; city
 		// preflight must admit them while retaining all dependent-effect checks.
 		city.records={record(0,0x3c,{1,0,0,1,0}),record(1,0x28,{255}),record(2,0x20,{0,0}),
 			record(3,0x0c,{0,0,104,3}),record(4,0x10,{50,13,15,0}),record(5,0x18,{2,0}),record(6,0x12)};
@@ -112,7 +112,7 @@ int main(int argc,char **argv) {
 		const auto speechBefore=XeenSaveFormat::encode(spoken.snapshot());
 		spoken.act(InteractionAction{});
 		check(audioNotices==2 && spoken.flow->canCancelInteraction() && !spoken.p.questFlags.isSet(3),
-			"City audio did not continue exactly once to the existing WhoWill");
+			"City audio notices did not continue exactly once to the existing WhoWill");
 		spoken.act(CancelInteractionAction{});
 		check(spoken.flow->canSave() && speechBefore==XeenSaveFormat::encode(spoken.snapshot()),
 			"Audio/cancel changed time, rewards, RNG or overlays");

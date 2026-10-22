@@ -1,4 +1,5 @@
 #include "XeenTestInstallation.h"
+#include "app/XeenAudio.h"
 #include "formats/xeen/XeenVoc.h"
 #include "XeenTrainingTestSupport.h"
 #include "platform/sdl/XeenMainScreenInput.h"
@@ -678,7 +679,7 @@ void terrainCallsites(Inputs &in) {
  }
 
 }
-void rolloverAndDream(Inputs &in,bool efx=true) {
+void rolloverAndDream(Inputs &in,const GameInstallation &installation,bool efx=true,bool device=false) {
  auto start=source(in,true);start.food=3;start.journey->context->day=99;start.journey->context->minutes=1439;
  start.journey->context->effects[XeenPartyEffect::WizardEye]=1;start.journey->context->lightAndResistances[0]=4;
  start.characters[start.activeRosterIds[0]].conditions[2]=255;
@@ -707,6 +708,9 @@ void rolloverAndDream(Inputs &in,bool efx=true) {
  check(chosen,"Fixed dream seed absent");dreamStart.journey->random=XeenCombatRandom(chosen).continuation();
  dreamStart.soundOptions.efx=efx;
  Fixture dream(in,dreamStart);wire(dream);
+ std::vector<std::string> voices;
+ dream.programState.audio=XeenAudio::installed(installation,in.assets,0,device);
+ dream.programState.audio->digitalSink([&](const auto &name,auto){voices.push_back(name);});
  unsigned sampleReads=0;const auto originalDuration=dream.flow->loadSampleDuration;
  dream.flow->loadSampleDuration=[&](const char *name,XeenSceneArchive archive){++sampleReads;return originalDuration(name,archive);};XeenRestTestAccess::scene(*dream.flow,*dream.p.encounterContext);
  dream.act(RestAction{});
@@ -782,12 +786,13 @@ void rolloverAndDream(Inputs &in,bool efx=true) {
  finish(dream);const auto after=XeenSaveFormat::encode(dream.snapshot());
  dream.flow->handle(AcknowledgeAction{},recoveryInput,recoveryFrame);
  check(XeenSaveFormat::encode(dream.snapshot())==after && dream.p.food==2,"Dream recovery must publish exactly once despite stale input");
+ check(efx?voices==std::vector<std::string>{"dreams2.voc","laff1.voc"}:voices.empty(),"Dream digital starts/gate/repaint duplication");
  check(efx?sampleReads==2:sampleReads==0,"Efx-off Rest queried VOC metadata/busy span");
  std::cout<<"Dream seed="<<chosen<<" four 33-level retrace fades; 7 ticks, 1.664504s, 1.966764s, 7 ticks passed\n";
 }
 }
 int main(int argc,char **argv) {try {
  check(argc==2,"Rest original usage: installation");const auto installation=xeenTestInstallationDetector().detect(argv[1]);check(bool(installation),"Original installation absent");
- Inputs in(*installation);sleepingHit(in);terrain(in);terrainCallsites(in);success(in,false);success(in,true);entry(in);interruption(in,false,0);interruption(in,true,3);interruption(in,false,0,true);rolloverAndDream(in);rolloverAndDream(in,false);reentrant(in);sampleFailure(in);combatOutcomes(in,true);combatOutcomes(in,false);conditionDeath(in);noTargets(in);
+ Inputs in(*installation);sleepingHit(in);terrain(in);terrainCallsites(in);success(in,false);success(in,true);entry(in);interruption(in,false,0);interruption(in,true,3);interruption(in,false,0,true);rolloverAndDream(in,*installation);rolloverAndDream(in,*installation,false);rolloverAndDream(in,*installation,true,true);reentrant(in);sampleFailure(in);combatOutcomes(in,true);combatOutcomes(in,false);conditionDeath(in);noTargets(in);
  std::cout<<"Original-resource Rest, interruption, food, UI path and mid-sequence save tests passed\n";return 0;
  }catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}

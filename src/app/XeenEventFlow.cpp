@@ -1,4 +1,5 @@
 #include "app/XeenEventFlow.h"
+#include "app/XeenAudio.h"
 #include "games/xeen/XeenEventTrigger.h"
 #include "games/xeen/XeenEventPublication.h"
 #include "games/xeen/CloudsUiComposer.h"
@@ -235,7 +236,13 @@ std::optional<std::uint64_t> XeenEventFlow::nextPresentationDeadline() {
     if(_death)return _death->acquired?std::optional<std::uint64_t>{_death->deadline}:std::nullopt;
     if(_smithUi) {
         if(_smithUi->animation.pendingIndex && !_smithUi->animation.awaitingFrame)return now;
-        if(_smithUi->goodbye)return _smithUi->animation.sample.deadline();
+        if(_smithUi->goodbye) {
+            if(_program.audio) {
+                _program.audio->observeOptions(_party.soundOptions);
+                return _program.audio->digitalDeadline(now).value_or(now);
+            }
+            return _smithUi->animation.sample.deadline();
+        }
         if(_smithUi->phase==SmithUi::Phase::Preparation || _smithUi->phase==SmithUi::Phase::Upgrade ||
             _smithUi->phase==SmithUi::Phase::Departure)return now;
         auto next=_smithUi->animation.deadline;
@@ -290,8 +297,7 @@ bool XeenEventFlow::partyDeathRequired() const noexcept {
 bool XeenEventFlow::partyDeathComplete() const noexcept {
     return _death && _death->phase==DeathContinuation::Phase::Done;
 }
-IndexedFrame XeenEventFlow::drawDeath(const IndexedFrame &base) {
-    using P=DeathContinuation::Phase;
+void XeenEventFlow::beginDeath(const IndexedFrame &base) {
     if(!_death) {
         if(!loadSampleDuration || !drawDialogSprite)throw std::invalid_argument("Original death providers are absent");
         DeathContinuation candidate;candidate.gameplay=base;
@@ -303,7 +309,11 @@ IndexedFrame XeenEventFlow::drawDeath(const IndexedFrame &base) {
         // WorldOfXeenEngine::death and the DOS capture Morte.mkv (2026-10-13).
         candidate.final=drawXeenDeathFinal(drawXeenDeathFire(base,34,drawDialogSprite),drawDialogSprite);
         _death=std::move(candidate);
+        _encounter->digitalSample("fire.voc",XeenSceneArchive::Clouds);
     }
+}
+IndexedFrame XeenEventFlow::drawDeath(const IndexedFrame &) {
+    using P=DeathContinuation::Phase;
     const auto &death=*_death;
     if(death.phase==P::Fire)return drawXeenDeathFire(death.gameplay,death.fire,drawDialogSprite);
     if(death.phase==P::Laugh)return drawXeenDeathLaugh(death.final,
@@ -355,7 +365,8 @@ bool XeenEventFlow::advanceDeath() {
         if(death.fire<34)death.fire+=2;else death.phase=P::Final;
         break;
     case P::Final:
-        death.phase=P::Laugh;death.laughEnd=PresentationClock::checkedAdd(now,death.laughDuration);break;
+        death.phase=P::Laugh;death.laughEnd=PresentationClock::checkedAdd(now,death.laughDuration);
+        _encounter->digitalSample("xeenlaff.voc",XeenSceneArchive::Clouds);break;
     case P::Laugh:
         // DAT 0x0b2f7..0x0b346: sample status is sampled after the two-tick
         // draw hold, with one restart at index 10 and no final sound tail.
@@ -675,7 +686,11 @@ void XeenEventFlow::framePresented(const IndexedFrame::Presentation &presented, 
 	requireCurrentOwners();
 	if (_dispatching || _saving) throw std::logic_error("Frame handoff during dispatch");
 	if (!encounterFrameCurrent()) throw std::logic_error("Stale successful frame handoff");
-    if(_entranceUi)_entranceUi->animation.acquired(presentationNow());
+    if(_entranceUi) {
+        const auto now=presentationNow();
+        if(const auto *sample=_entranceUi->animation.acquired(now))
+            _encounter->digitalSample(sample,XeenSceneArchive::Clouds,now);
+    }
     if(_smithUi && (_smithUi->animation.awaitingFrame || _smithUi->animation.resetAfterFrame)) {
         _smithUi->animation.deadline=PresentationClock::after(presentationNow(),3);
         _smithUi->animation.resetAfterFrame=false;
@@ -972,7 +987,7 @@ IndexedFrame XeenEventFlow::renderEncounter(bool report, bool cosmeticInput, boo
                 if(_entranceUi)rendered=_presenter.rebase(_entranceUi->art);
 				if(_summary)rendered=drawSummary(rendered);
                 if(_quickFightMember)rendered=drawQuickFightOptions(rendered);
-				if(partyDeathRequired() || _death)rendered=drawDeath(composed.frame);
+				if(partyDeathRequired() || _death){beginDeath(composed.frame);rendered=drawDeath(composed.frame);}
 				if (report && !attempt) {
 					if (reportText) reportText(_encounter->notice());
 					if (!_encounter->current(t)) throw std::logic_error("Stale Journey reporting");
@@ -1023,7 +1038,7 @@ IndexedFrame XeenEventFlow::renderEncounter(bool report, bool cosmeticInput, boo
                 if(_encounter->_needsRestNotice)rendered=drawXeenErrorScroll(rendered,_inventoryFont,std::string(xeenDialogText(dosText(),XeenDialogText::PartyNeedsRest)));
 			if (!_encounter->current(entry)) throw std::runtime_error("Stale encounter report");
 			if(partyDeathRequired() || _death) {
-                auto deathBase=composed.frame;drawPartyPresentation(deathBase);rendered=drawDeath(deathBase);
+                auto deathBase=composed.frame;drawPartyPresentation(deathBase);beginDeath(deathBase);rendered=drawDeath(deathBase);
             }
             // Complete the fallible return copy before installing the frame.
 			if (!attempt && beforeEncounterFrameCopy) beforeEncounterFrameCopy();
@@ -1341,6 +1356,7 @@ XeenEventSystem XeenEventFlow::detachedEventResources() {
         _eventPublication->check();_eventPublication->text(text);return text;
     });
     result._interpreter.fmEffect=[this](unsigned id){_encounter->fmEffect(id);};
+    result._interpreter.eventVoice=[this](unsigned index){_encounter->eventVoice(index);};
     return result;
 }
 
@@ -1622,6 +1638,7 @@ IndexedFrame XeenEventFlow::journeyEventWork(const std::function<void()> &operat
 				throw std::logic_error("Stale Journey event continuation");
 		},beforeRewardStaging,&_regionalExecutedRecords);
         publication.fmEffect=[this](unsigned id){_encounter->fmEffect(id);};
+        publication.eventVoice=[this](unsigned index){_encounter->eventVoice(index);};
 		if(_pending)publication.continuation(_pending->state,*_regionalEventContinuation,bool(_transition));
 		XeenRestoreGuard::Providers providers(_encounter->journeySavePreimage(),_world,[&] { publication.check(); });
 		_eventPublication=&publication;
@@ -2103,12 +2120,7 @@ void XeenEventFlow::prepareEntrance() {
     _entranceUi.emplace(std::move(animation),_frame);
     _entranceUi->caption=std::move(caption);
     _presenter.clear();_journeyEventLayers=false;
-    // Reuse the passive voice deferral already used by Event speech. It adds
-    // neither a caption nor an input wait; sample intervals remain silent.
-    XeenPresentationRequest notice;notice.kind=XeenPresentationKind::DeferredAudio;
-    notice.text="Voice audio not supported yet";notice.response=XeenPresentationResponseRequirement::Presented;
     _presenter.originalAssets(dialogText,drawDialogSprite);
-    if(efx)_presenter.present(_frame,notice);
     advanceEntrance();
 }
 bool XeenEventFlow::advanceEntrance() {
@@ -2155,11 +2167,18 @@ void XeenEventFlow::startServiceSample(ServiceArtState &state,const char *name,b
     // A missing provider models the original sound-unavailable status (zero).
     std::uint64_t duration=0;
     if(XeenSoundOptions(_party.soundOptions).efx && loadSampleDuration)_encounter->guardCallback(_encounter->ticket(),[&]{duration=loadSampleDuration(name,XeenSceneArchive::Clouds);});
-    state.sample.start(presentationNow(),duration);
+    const auto now=presentationNow();state.sample.start(now,duration);
+    _encounter->digitalSample(name,XeenSceneArchive::Clouds,now);
     if(resetIndex)state.index=XeenServiceAnimation::modulus(state.kind)-1;
 }
 void XeenEventFlow::serviceInputPolled(ServiceArtState &state) {
     state.deadline=PresentationClock::after(presentationNow(),3);
+}
+bool XeenEventFlow::serviceSampleBusy(const ServiceArtState &state) {
+    const auto now=presentationNow();
+    if(!_program.audio)return XeenSoundOptions(_party.soundOptions).efx && state.sample.playing(now);
+    _program.audio->observeOptions(_party.soundOptions);
+    return _program.audio->digitalBusy(now);
 }
 bool XeenEventFlow::pulseServiceArt(ServiceArtState &state, IndexedFrame &art) {
     if(!drawDialogSprite || _dispatching || _fatal || _saving || _handoffPending || _cosmeticPending)return false;
@@ -2284,7 +2303,7 @@ std::optional<IndexedFrame> XeenEventFlow::updatePresentation() {
 		DispatchScope dispatch(_dispatching);return renderEncounter(false,true);
 	}
     if(_smithUi && _smithUi->phase==SmithUi::Phase::Departure && !_dispatching && !_fatal && !_saving && !_handoffPending) {
-        if(_smithUi->goodbye && _smithUi->animation.sample.playing(presentationNow()))return std::nullopt;
+        if(_smithUi->goodbye && serviceSampleBusy(_smithUi->animation))return std::nullopt;
         DispatchScope dispatch(_dispatching);
         if(_smithSettlement){_handoffPending=true;return settleSmithEvent();}
         if(_encounter->_smith && _encounter->_smith->frame)

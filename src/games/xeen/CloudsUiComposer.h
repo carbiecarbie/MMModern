@@ -5,6 +5,7 @@
 #include "games/xeen/XeenParty.h"
 
 #include <cstddef>
+#include <functional>
 #include <cstdint>
 #include <optional>
 #include <string>
@@ -44,6 +45,8 @@ public:
 	static std::optional<std::size_t> partyMemberAtSlot(const XeenPartyState &, unsigned memberMask, std::size_t slot);
 	static std::vector<PortraitPlacement> buildPartyFeedbackPlacements(const XeenPartyState &,
 		const XeenScenePresentation &, unsigned memberMask, int actingMember);
+    static void drawBorder(const XeenPartyState &,
+        const std::function<void(const char *,unsigned,int,int)> &,XeenScenePresentation * = nullptr);
 	void loadBackground(XeenAssetSource &assets) const;
 	// Replace the already composed main-screen controls with ICONS_COMBAT.
 	void drawCombatButtons(XeenAssetSource &assets, IndexedFrame &frame) const;

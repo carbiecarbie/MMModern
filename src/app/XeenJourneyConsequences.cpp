@@ -84,7 +84,7 @@ bool XeenEncounterFlow::serviceShoot() {
   if(work.stage==XeenShootCandidate::Stage::PostImpact && work.bound)admission.at(work.bound->id.recordIndex)=*work.bound;
   XeenActorApproach::validateEnvironment(_world,admission,_events);
   const auto check=[&] { _journeyPreimage->check(); };
-  XeenConsequenceDraw draw{work.random,64,check,[this](unsigned id){fmEffect(id);},[this](unsigned id){fmSelectWeapon(id);}};
+  XeenConsequenceDraw draw{work.random,64,check,[this](unsigned id){fmEffect(id);},[this](unsigned id){fmSelectWeapon(id);},[this]{digitalMiss();}};
   if(work.spell && !work.spellTargetsPrepared) {
    if(!work.spellPreparation->service(draw))return true;
    work.spellPreparation->requestFmEffect(draw,work.itemPower);

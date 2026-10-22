@@ -79,11 +79,27 @@ void audio(const XeenEventRecord &original,const XeenFontFormat &font,const Xeen
  // actual inserted PlayCD operand intact. Full original graph is checked above.
  auto f=control(original);auto w=world();XeenPartyState p;XeenEventInterpreter vm;
  const auto provider=[&](auto){return XeenEventScript(f);};
+ if(original.opcode==0x28 && original.parameters.at(0)<6) {
+  std::vector<unsigned> requested;vm.eventVoice=[&](unsigned i){requested.push_back(i);};
+  for(bool enabled:{true,false}) {
+   requested.clear();auto options=XeenSoundOptions(p.soundOptions);options.efx=enabled;p.soundOptions=options;
+   const auto done=vm.begin({1,1,1,XeenDirection::North},p,{},w,provider,{});
+   const auto *complete=std::get_if<XeenEventExecutionCompleted>(&done);
+   check(complete && complete->instructionCount==2,"PlayEventVoc must continue directly to Exit");
+   check(enabled?requested==std::vector<unsigned>{original.parameters.at(0)}:requested.empty(),"PlayEventVoc operand/Efx gate");
+  }
+  return;
+ }
+ if(original.opcode==0x28) {
+  auto options=XeenSoundOptions(p.soundOptions);options.efx=false;p.soundOptions=options;
+  check(std::holds_alternative<XeenEventExecutionCompleted>(vm.begin({1,1,1,XeenDirection::North},p,{},w,provider,{})),"Invalid voice Efx-off notice was not skipped");
+  options.efx=true;p.soundOptions=options;
+ }
  auto result=vm.begin({1,1,1,XeenDirection::North},p,{},w,provider,{});
  auto pending=std::get_if<XeenEventExecutionSuspended>(&result);
  check(pending && pending->request.kind==XeenPresentationKind::DeferredAudio &&
   pending->request.response==XeenPresentationResponseRequirement::Presented &&
-  pending->request.text==(original.opcode==0x3c?"CD speech not supported yet":"Voice audio not supported yet") &&
+  pending->request.text==(original.opcode==0x28?"Voice audio not supported yet":"CD speech not supported yet") &&
   pending->state.instructionCount==1 && pending->state.logicalAddress.line==1,
   "Audio notice and exactly one sequential advance");
  XeenEventContinuation retained(pending->state);auto altered=pending->state;
@@ -231,8 +247,8 @@ int main(int argc,char **argv) try {
   check(s && crc(*s)==expected.bytes,"Changed CD text/control stream map "+std::to_string(expected.map)+" entry "+std::to_string(expected.index));
   textMaps.insert(expected.map);
  }
- // Existing voice cues use the same generic nonblocking notice at any site/index.
- for(auto index:{0,10,255}) {XeenEventRecord r;r.opcode=0x28;r.parameters={static_cast<std::uint8_t>(index)};audio(r,font,assets.uiText());}
+ // Only out-of-table voice cues retain the automatic unsupported notice.
+ for(auto index:{0,5,6,10,255}) {XeenEventRecord r;r.opcode=0x28;r.parameters={static_cast<std::uint8_t>(index)};audio(r,font,assets.uiText());}
  // Metadata-only archive view: never load Darkside maps, party or actors.
  auto darkView=*installation;darkView.cloudsData=installation->darksideData;
  darkView.xeenArchive=installation->darkArchive;

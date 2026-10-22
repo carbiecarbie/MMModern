@@ -177,6 +177,7 @@ private:
     std::string serviceNotEnoughGold();
 	bool pulseServiceArt(ServiceArtState &, IndexedFrame &art);
     void startServiceSample(ServiceArtState &,const char *,bool resetIndex=false);
+    bool serviceSampleBusy(const ServiceArtState &);
     void serviceInputPolled(ServiceArtState &);
 	struct TrainingUi {
 		enum class Phase { Preparation, Menu, Candidate, Departure };
@@ -413,6 +414,7 @@ private:
     std::optional<DeathContinuation> _death;
     std::optional<std::uint64_t> _fmPresentationGeneration;
     bool partyDeathRequired() const noexcept;
+    void beginDeath(const IndexedFrame &);
     IndexedFrame drawDeath(const IndexedFrame &);
     bool advanceDeath();
     void deathPresented();

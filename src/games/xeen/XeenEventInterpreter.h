@@ -308,6 +308,7 @@ class XeenEventPublication;
 class XeenEventInterpreter {
 public:
     std::function<void(unsigned)> fmEffect; // Optional presentation sink for detached Event execution.
+    std::function<void(unsigned)> eventVoice;
 	static constexpr std::size_t kMaximumInstructions = 1024;
 	static constexpr std::size_t kMaximumCallDepth = 64;
 

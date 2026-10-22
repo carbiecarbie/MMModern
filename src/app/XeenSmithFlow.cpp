@@ -989,6 +989,7 @@ IndexedFrame XeenEventFlow::handleFoodBank(const PlayerAction &action,std::uint6
             else if(const auto answer=xeenConfirmAnswer(key)) {
                 if(*answer) {
                     if(!_encounter->buySpell(ui.member,ui.slot))ui.feedback=serviceNotEnoughGold();
+                    else startServiceSample(ui.animation,"guild12.voc");
                 }
                 ui.phase=SmithUi::Phase::Browse;
             }
@@ -1034,8 +1035,9 @@ IndexedFrame XeenEventFlow::handleFoodBank(const PlayerAction &action,std::uint6
         }
         if(ui.phase==SmithUi::Phase::Departure && (key==InputKey::Escape || key==InputKey::Enter)) {
             if(food && !ui.goodbye) {
+                _encounter->digitalStop();
                 startServiceSample(ui.animation,"goodbye.voc");ui.goodbye=true;
-                if(ui.animation.sample.playing(presentationNow()))return frameCopy();
+                if(serviceSampleBusy(ui.animation))return frameCopy();
             }
             if(ui.revision!=UINT64_MAX)++ui.revision;
             if(!_encounter->departSmith())return renderEncounter();_smithSettlement=true;return settleSmithEvent();

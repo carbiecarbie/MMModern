@@ -51,7 +51,9 @@ struct XeenConsequenceDraw {
 	std::function<void()> check;
     std::function<void(unsigned)> fmEffect;
     std::function<void(unsigned)> weaponSelected;
+    std::function<void()> playerMiss;
     void effect(unsigned id) const noexcept {xeenEmitFmEffect(fmEffect,id);}
+    void miss() const {if(playerMiss)playerMiss();else effect(6);}
 	std::optional<unsigned> draw(unsigned lo, unsigned hi);
 };
 using XeenConsequenceCharacters = std::array<XeenCharacter,6>;

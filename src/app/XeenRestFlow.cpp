@@ -121,9 +121,11 @@ bool XeenEncounterFlow::serviceRest() {
     case D::FadeInDream:
      rest.dreamPhase=D::BeforeDreams;rest.dreamDeadline=PresentationClock::after(_lastNanoseconds,7);break;
     case D::BeforeDreams:
-     rest.dreamPhase=D::Dreams;rest.dreamDeadline=PresentationClock::checkedAdd(_lastNanoseconds,rest.sampleDurations[0]);break;
+     rest.dreamPhase=D::Dreams;rest.dreamDeadline=PresentationClock::checkedAdd(_lastNanoseconds,rest.sampleDurations[0]);
+     digitalSample("dreams2.voc",XeenSceneArchive::Darkside);break;
     case D::Dreams:
-     rest.dreamPhase=D::Laff;rest.dreamDeadline=PresentationClock::checkedAdd(_lastNanoseconds,rest.sampleDurations[1]);break;
+     rest.dreamPhase=D::Laff;rest.dreamDeadline=PresentationClock::checkedAdd(_lastNanoseconds,rest.sampleDurations[1]);
+     digitalSample("laff1.voc",XeenSceneArchive::Darkside);break;
     case D::Laff:
      rest.dreamPhase=D::AfterLaff;rest.dreamDeadline=PresentationClock::after(_lastNanoseconds,7);break;
     case D::AfterLaff:rest.dreamPhase=D::FadeOutDream;break;

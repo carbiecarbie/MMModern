@@ -48,38 +48,7 @@ void CloudsMapComposer::drawIndoorCommands(XeenAssetSource &assets,
 void CloudsMapComposer::drawInterfaceLayers(XeenAssetSource &assets,
 		const XeenPartyState &partyState,
 		const XeenCharacterRulesContext &context,XeenScenePresentation *presentation) const {
-	// Interface::assembleBorder() redraws this frame after drawScene(). Parts of
-	// the corner gems intentionally overlap the generic scene clipping rectangle.
-	assets.drawSprite("global.icn", 0, 8, 8);
-	// Resting-state border overlays from Interface::assembleBorder(). These fill
-	// the intentionally transparent openings left by global.icn around the scene.
-    const auto *buffs=partyState.encounterContext?&*partyState.encounterContext:nullptr;
-    unsigned phase=0;
-    const auto levitate=XeenScenePresentation::levitateBorderFrame(buffs && buffs->effects[XeenPartyEffect::Levitate],presentation?presentation->levitateFrame:phase);
-    assets.drawSprite("border.icn",levitate,0,82);
-	// Spot Secret Doors (skill 16) and Danger Sense (skill 17), each from its
-	// own counter (0x1ba1e..0x1baab); not from one shared counter as in the pin.
-	unsigned spotPhase=0,dangerPhase=0;
-	const auto spot=XeenScenePresentation::animatedBorderFrame(presentation && presentation->thinWall &&
-		xeenPartyHasSkill(partyState,16),28,presentation?presentation->spotDoorsFrame:spotPhase);
-	assets.drawSprite("border.icn",spot,194,91);
-	const auto danger=XeenScenePresentation::animatedBorderFrame(presentation && presentation->dangerSense &&
-		xeenPartyHasSkill(partyState,17),40,presentation?presentation->dangerSenseFrame:dangerPhase);
-	assets.drawSprite("border.icn",danger,107,9);
-	assets.drawSprite("border.icn",  0,   0, 32); // Left clairvoyance statue, inactive.
-	assets.drawSprite("border.icn",  8, 215, 32); // Right clairvoyance statue, inactive.
-	// Default (no active resistance) corner indicators from assembleBorder().
-    assets.drawSprite("fecp.brd", buffs && buffs->lightAndResistances[2]?1:0,   2,   2); // Fire.
-	assets.drawSprite("fecp.brd", buffs && buffs->lightAndResistances[3]?3:2, 219,   2); // Electricity.
-	assets.drawSprite("fecp.brd", buffs && buffs->lightAndResistances[4]?5:4,   2, 134); // Cold.
-	assets.drawSprite("fecp.brd", buffs && buffs->lightAndResistances[5]?7:6, 219, 134); // Poison.
-	assets.drawSprite("bless.icn", 16, 33, 137); // Blessed indicator, inactive.
-
-	constexpr XeenPartyEffect indices[]{XeenPartyEffect::Bless,XeenPartyEffect::PowerShield,XeenPartyEffect::HolyBonus,XeenPartyEffect::Heroism};constexpr int x[]{33,55,160,182};
-    for(unsigned i=0;i<4;++i)if(buffs && buffs->effects[indices[i]]) {
-        const auto phase=presentation?(presentation->buffFrames[i]=(presentation->buffFrames[i]+1)%4):1;
-        assets.drawSprite("bless.icn",4*i+phase,x[i],137);
-    }
+    CloudsUiComposer::drawBorder(partyState,[&](const char *name,unsigned frame,int x,int y){assets.drawSprite(name,frame,x,y);},presentation);
 	// The compass/main button at y=137 overlaps the scene border in the original UI.
 	CloudsUiComposer().drawInterface(assets, partyState, context);
 }

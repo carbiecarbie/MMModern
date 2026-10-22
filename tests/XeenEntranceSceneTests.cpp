@@ -1,4 +1,5 @@
 #include "XeenTestInstallation.h"
+#include "app/XeenAudio.h"
 #include "XeenTrainingTestSupport.h"
 #include "games/xeen/XeenEntranceScene.h"
 #include "games/xeen/XeenStateEquality.h"
@@ -26,6 +27,7 @@ struct XeenEntranceTestAccess {
         XeenEventFlow::ServiceArtState state;flow.startServiceSample(state,"hello.voc");return state.sample.deadline();
     }
     static bool active(const XeenEventFlow &flow){return flow._entranceUi.has_value();}
+    static bool noNotice(const XeenEventFlow &flow){return flow._presenter.pageCount()==0;}
 };
 }
 namespace {
@@ -172,8 +174,11 @@ void captions() {
         check(speechPhases==(action>=10?1u:2u),"Dwarf/Sphinx later phases not skipped or Reaper/Golem second loop lost");
     }
 }
-void original(training_test::Inputs &in,XeenCamera camera,unsigned action,bool keyed,bool wounded=false,bool efx=true) {
+void original(training_test::Inputs &in,const GameInstallation &installation,XeenCamera camera,unsigned action,bool keyed,bool wounded=false,bool efx=true,bool device=false) {
     auto save=entranceSave(in,camera,keyed,action);save.soundOptions.efx=efx;training_test::Fixture f(in,save);
+    std::vector<std::string> voices;
+    f.programState.audio=XeenAudio::installed(installation,in.assets,0,device);
+    f.programState.audio->digitalSink([&](const auto &name,auto){voices.push_back(name);});
     unsigned captions=0;
     f.flow->loadEntranceCaption=[&](unsigned kind,bool hasKey) {
         const auto bytes=in.assets.readArchiveResource("special.bin",XeenSceneArchive::Clouds);
@@ -204,6 +209,7 @@ void original(training_test::Inputs &in,XeenCamera camera,unsigned action,bool k
     const auto time=*f.p.encounterContext;const auto rng=*f.w.sessionState().journeyRandom();
     f.act(InteractionAction{});
     check(XeenEntranceTestAccess::active(*f.flow) && !f.flow->canSave(),"Original Event did not enter scene");
+    if(efx)check(XeenEntranceTestAccess::noNotice(*f.flow),"Audible entrance published an unsupported-audio notice");
     const auto context=f.flow->inputContext(f.flow->frame().presentation());
     check(!context.readyForAction && context.hideCursor,"Entrance input/cursor policy");
     for(unsigned i=0;i<4000 && !f.flow->canSave();++i) {
@@ -215,6 +221,20 @@ void original(training_test::Inputs &in,XeenCamera camera,unsigned action,bool k
     check(f.p.encounterContext->day==time.day && f.p.encounterContext->minutes==time.minutes && f.p.encounterContext->year==time.year,"Entrance charged game/service time");
     check(f.w.sessionState().journeyRandom()->count>rng.count,"Scene did not consume gameplay RNG");
     if(!efx)check(samples.empty() && captions>0,"Efx-off entrance resolved samples or omitted caption");
+    if(!efx)check(voices.empty(),"Muted entrance published a sample");
+    else {
+        std::vector<std::string> expected;
+        for(const auto &sample:samples) {
+            if(sample.first=="ogre.voc")continue;
+            expected.push_back(sample.first);
+        }
+        auto spoken=voices;
+        if(action==9) {
+            spoken.erase(std::remove(spoken.begin(),spoken.end(),"ogre.voc"),spoken.end());
+            check(voices.front()=="ogre.voc" && std::count(voices.begin(),voices.end(),"ogre.voc")>=2,"Golem initial/repeated/between-speech growls missing");
+        }
+        check(spoken==expected,"Entrance starts differ from acquired speech/growl phases");
+    }
     if(efx && action==11 && !keyed) {
         check(samples==std::vector<std::pair<std::string,std::uint64_t>>{{"sphinx13.voc",(39245ULL-10+1)*68000},{"sphinx14.voc",(18753ULL-10+1)*68000}},
             "Sphinx refusal must retain the damaged-descriptor sample's driver-count duration");
@@ -234,16 +254,17 @@ int main(int argc,char **argv) {try {
         const auto installation=xeenTestInstallationDetector().detect(argv[1]);check(bool(installation),"Missing original installation");
         training_test::Inputs in(*installation);
         for(unsigned action=8;action<=11;++action)for(bool keyed:{false,true})if(action!=10 || keyed)animation(action,keyed,&in);
-        original(in,{24,10,9,XeenDirection::North},8,true);
-        original(in,{24,10,9,XeenDirection::North},8,false,true);
-        original(in,{23,5,13,XeenDirection::North},10,true);
-        original(in,{23,5,13,XeenDirection::North},10,true,false,false);
-        original(in,{5,12,8,XeenDirection::South},11,false);
+        original(in,*installation,{24,10,9,XeenDirection::North},8,true);
+        original(in,*installation,{24,10,9,XeenDirection::North},8,false,true);
+        original(in,*installation,{23,5,13,XeenDirection::North},10,true);
+        original(in,*installation,{23,5,13,XeenDirection::North},10,true,false,false);
+        original(in,*installation,{5,12,8,XeenDirection::South},11,false);
+        original(in,*installation,{5,12,8,XeenDirection::South},11,false,false,true,true);
         for(const auto map:{8u,5u}) {
             const unsigned action=map==8?9:11;const auto events=in.events.load(map);
             bool tested=false;
             for(const auto &r:events.records)if(r.opcode==0x11 && r.line==0 && r.parameters==std::vector<std::uint8_t>{std::uint8_t(action)}) {
-                original(in,{map,r.x,r.y,r.direction<4?XeenDirection(r.direction):XeenDirection::North},action,true);tested=true;break;
+                original(in,*installation,{map,r.x,r.y,r.direction<4?XeenDirection(r.direction):XeenDirection::North},action,true);tested=true;break;
             }
             check(tested,"No original Golem/Sphinx entrance record");
         }

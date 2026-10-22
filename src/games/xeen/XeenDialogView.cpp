@@ -1,4 +1,5 @@
 #include "games/xeen/XeenDialogView.h"
+#include "games/xeen/CloudsUiComposer.h"
 #include "games/xeen/XeenEquipmentPurchase.h"
 #include "games/xeen/XeenCharacterRules.h"
 #include "games/xeen/XeenPartyLoader.h"
@@ -508,6 +509,9 @@ IndexedFrame drawXeenLocation(const XeenDosText &text,const IndexedFrame &base,c
         const XeenDialogSpriteDraw &draw,bool templeBlessed,std::string_view tavernStatus,const XeenTempleSurcharges *templePrices) {
     auto frame=base;
     for(int y=8;y<140;++y) std::copy_n(art.pixels.data()+y*320+8,216,frame.pixels.data()+y*320+8);
+    // BaseLocation::drawWindow assembles the border after the town art. Its
+    // transparent ornaments overlap the scene rectangle, including speech.
+    if(draw)CloudsUiComposer::drawBorder(p,[&](const char *name,unsigned index,int x,int y){draw(frame,name,index,x,y);});
     frame=render(frame,font,location==XeenLocationDialog::Temple && templePrices ?
         xeenTempleText(text,p,member,*templePrices,templeBlessed):xeenLocationText(text,location,p,member,map,templeBlessed,tavernStatus),{226,0,320,146},{234,8,312,138});
     if(draw) for(const auto &hit:xeenLocationInput(location).hits) if(hit.button) {

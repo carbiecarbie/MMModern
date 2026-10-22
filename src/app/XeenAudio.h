@@ -26,16 +26,22 @@ public:
  void requestInn(std::uint64_t now);
  void enterTitle(std::uint64_t now);
  void leaveTitle(std::uint64_t now);
+ bool titleTeardownReady(std::uint64_t now);
  void effect(unsigned,std::uint64_t now);
  // Observe admitted requests after the Efx gate; never drives gameplay.
  using EffectSink=std::function<void(unsigned)>;
  void effectSink(EffectSink);
  void weaponEffect(unsigned weapon,std::uint64_t now);
+ void missEffect(std::uint64_t now);
+ void eventVoice(unsigned index,std::uint64_t now);
  // prosnd wrapper: replacement, no queue. Efx off masks all three commands
  // without stopping a voice already playing. PCM is decoded before publication.
  void startDigital(const std::string &,XeenSceneArchive,std::uint64_t now);
  void stopDigital(std::uint64_t now);
  bool digitalBusy(std::uint64_t now) const;
+ std::optional<std::uint64_t> digitalDeadline(std::uint64_t now) const;
+ using DigitalSink=std::function<void(const std::string &,XeenSceneArchive)>;
+ void digitalSink(DigitalSink);
  // Called before output starts, automatically for a device. False keeps
  // silence. The rate stays fixed for this output lifetime (Part C handles changes).
  bool prepareRender(int deviceRate);

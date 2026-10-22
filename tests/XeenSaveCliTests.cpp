@@ -117,7 +117,21 @@ int main(int argc,char **argv){try{
  sprite_test::archive(game/"dark.cc",{{"synthetic",Bytes{0}}});
  sprite_test::archive(game/"intro.cc",{{"synthetic",Bytes{0}}});
  fs::create_directories(dir/"WORLD");
- {const auto ui=dos_test::fixture();std::ofstream out(dir/"WORLD"/"XEEN.DAT",std::ios::binary);out.write(reinterpret_cast<const char *>(ui.data()),ui.size());}
+ {
+  auto ui=dos_test::fixture();
+  // Program audio reads this table even with nullmus. Neutral sample names
+  // keep the synthetic module complete; this startup-failure matrix never
+  // plays them. Append outside the fixture's established UI fields.
+  for(unsigned i=0;i<6;++i) {
+   const auto name="event"+std::to_string(i)+".voc";
+   dos_test::u16(ui,0x508cc+i*4,unsigned(ui.size()-0x4d890));
+   dos_test::u16(ui,0x508ce + i*4,0x481d);
+   ui.insert(ui.end(),name.begin(),name.end());ui.push_back(0);
+  }
+  dos_test::u16(ui,2,ui.size()%512);dos_test::u16(ui,4,(ui.size()+511)/512);
+  std::ofstream out(dir/"WORLD"/"XEEN.DAT",std::ios::binary);
+  out.write(reinterpret_cast<const char *>(ui.data()),ui.size());
+ }
  {std::ofstream out(dir/"WORLD"/"XEEN.CFG",std::ios::binary);const char cfg[6]{};out.write(cfg,sizeof(cfg));} // Synthetic nullmus configuration.
  installation.darkArchive=game/"dark.cc";installation.edition=GameEdition::WorldOfXeen;
  auto s=regional_test::snapshot();s.resources=XeenSaveFile::fingerprint(installation);

@@ -383,7 +383,7 @@ bool XeenSpellDamageCandidate::service(XeenConsequenceDraw &draw) {
             step=Step::Done;
         }
     }
-    if(step==Step::Done && !fmDone){fmDone=true;if(attack2Entered && damage<=0)draw.effect(6);}
+    if(step==Step::Done && !fmDone){fmDone=true;if(attack2Entered && damage<=0)draw.miss();}
     return step==Step::Done;
 }
 XeenRunCandidate::XeenRunCandidate(int signedThreshold) : threshold(signedThreshold) {
@@ -683,7 +683,7 @@ bool XeenPhysicalPlayerCandidate::service(XeenConsequenceDraw &draw) {
     if(step==Step::Done && !fmDone) {
         fmDone=true;
         // A missed missile bypasses attack2; melee still submits its zero total.
-        if(!damage && (!shoot || hit))draw.effect(6);
+        if(!damage && (!shoot || hit))draw.miss();
     }
 	return step==Step::Done;
 }

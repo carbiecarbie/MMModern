@@ -412,6 +412,7 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
   };
   const auto dispatch = [&](const PlayerAction &action, std::optional<std::uint64_t> input,
       const IndexedFrame::Presentation &inputFrame = {}) -> std::optional<IndexedFrame> {
+   if(finished)return {};
    if(panel) {
     if(!active || dispatching || finished)return {};
     GameplayScope scope(dispatching);
@@ -559,6 +560,8 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
   handler.protectAllKeys = flow.journey();
   handler.nextPresentationDeadline=[&,alive]() -> std::optional<std::uint64_t> {
    if(!*alive)return {};
+   if(finished && services.outcome && services.outcome->kind==XeenSessionOutcome::Kind::Title && services.program.audio)
+    return services.program.audio->digitalDeadline(audioClock.source());
    auto next=!panel?flow.nextPresentationDeadline():std::nullopt;
    if(services.program.audio){const auto sound=services.program.audio->deadline();if(sound && (!next||*sound<*next))next=sound;}
    return next;
@@ -577,13 +580,22 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
    if(!*alive)return;
    if(panel){checkPanel();panel->presented(frame);}else {flow.framePresented(frame,true);handoff.retain();}
   };
-  handler.finished=[&,alive]{return !*alive || finished;};
+  handler.finished=[&,alive]{
+   if(!*alive)return true;
+   if(!finished)return false;
+   if(services.outcome && services.outcome->kind==XeenSessionOutcome::Kind::Title && services.program.audio) {
+    services.program.audio->observeOptions(party.soundOptions);
+    return services.program.audio->titleTeardownReady(audioClock.source());
+   }
+   return true;
+  };
   handler.failed = [&,alive] { if(!*alive)return;handoff.fail(); active = false;*alive=false; };
   handler.closed = [&,alive] { if(!*alive)return;flow.closeGameplay(); active = false;*alive=false; };
   const auto idle = [&,alive]() -> std::optional<IndexedFrame> {
    if(!*alive)return {};
    if (!active || dispatching) return std::nullopt;
    updateAudio();
+   if(finished)return {}; // Drain the logical voice without further Flow work.
    GameplayScope scope(dispatching);
    if(panel) {
     try {

@@ -1,6 +1,8 @@
 #include "app/XeenEncounterFlow.h"
+#include "formats/xeen/XeenSpriteDrawOptions.h"
 #include "core/DialogInput.h"
 #include <limits>
+#include <algorithm>
 #include <stdexcept>
 #include <type_traits>
 #include "games/xeen/XeenCharacterRules.h"
@@ -347,6 +349,11 @@ bool XeenEncounterFlow::observeCombat() {
             _fmAttackGeneration=r.generation;
             const auto &actor=_world.sessionState().regionalActors(r.actingMonster->mapId).at(r.actingMonster->recordIndex);
             fmEffect(actor.statistics->raw[0x32]);
+            const auto &record=*actor.statistics;
+            const auto end=std::find(record.raw.begin()+0x33,record.raw.end(),0);
+            const std::string voice(record.raw.begin()+0x33,end);
+            digitalStop();
+            digitalSample(voice+".voc",XeenSceneArchive::Clouds);
         }
 		_appearanceIdentity=r.actingMonster;
 		_frame=r.attackStage==XeenCombatAttackStage::MonsterPose1?8:9;

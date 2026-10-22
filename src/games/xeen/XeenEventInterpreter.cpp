@@ -892,24 +892,35 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
             }
             ++logical.line;missingPolicy=MissingInstructionPolicy::NaturalCompletion;continue;
         }
-		if (std::holds_alternative<XeenEventVoiceCue>(decoded.operation) ||
-			std::holds_alternative<XeenEventCdSpeech>(decoded.operation)) {
+        if(const auto *voice=std::get_if<XeenEventVoiceCue>(&decoded.operation)) {
+            if(logical.line==255)return error(XeenEventExecutionErrorKind::LineOverflow,
+                "audio sequential event line overflow",instructionCount,logical,decoded.source);
+            if(XeenSoundOptions(partyState.soundOptions).efx && voice->index>=6) {
+                if(publication)publication->deferredAudio();
+                XeenPresentationRequest request;request.kind=XeenPresentationKind::DeferredAudio;
+                request.mapId=logical.mapId;request.source=decoded.source;
+                request.text="Voice audio not supported yet";
+                ++logical.line;missingPolicy=MissingInstructionPolicy::NaturalCompletion;
+                state.pendingPresentation=XeenEventPendingPresentation{request,XeenEventPendingContinuation::Advance,{}};
+                return XeenEventExecutionSuspended{state,request};
+            }
+            if(XeenSoundOptions(partyState.soundOptions).efx) {
+                if(publication)publication->playEventVoice();
+                else if(eventVoice)eventVoice(voice->index);
+            }
+            ++logical.line;missingPolicy=MissingInstructionPolicy::NaturalCompletion;continue;
+        }
+		if (std::holds_alternative<XeenEventCdSpeech>(decoded.operation)) {
 			if (logical.line==255)
 				return error(XeenEventExecutionErrorKind::LineOverflow,
 					"audio sequential event line overflow",instructionCount,logical,decoded.source);
-            const XeenSoundOptions sound=partyState.soundOptions;
-            const auto *cd=std::get_if<XeenEventCdSpeech>(&decoded.operation);
-            if(!cd && !sound.efx) {
-                ++logical.line;missingPolicy=MissingInstructionPolicy::NaturalCompletion;continue;
-            }
 			if (publication) publication->deferredAudio();
 			if(const auto *cue=std::get_if<XeenEventCdSpeech>(&decoded.operation))state.cdSpeech=*cue;
 			XeenPresentationRequest request;
 			request.kind=XeenPresentationKind::DeferredAudio;
 			request.mapId=logical.mapId;
 			request.source=decoded.source;
-			request.text=std::holds_alternative<XeenEventCdSpeech>(decoded.operation) ?
-				"CD speech not supported yet" : "Voice audio not supported yet";
+			request.text="CD speech not supported yet";
 			// Existing Presented response is automatic: no input, clock or RNG.
 			++logical.line;
 			missingPolicy=MissingInstructionPolicy::NaturalCompletion;

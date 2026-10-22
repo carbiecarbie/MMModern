@@ -43,7 +43,7 @@ void layout(Inputs &in) {
         else in.assets.drawBank(art);
         for(unsigned member=0;member<6;++member) {
             auto rendered=drawXeenLocation(in.assets.uiText(),base,art,in.font,location,f.p,member,XeenMapIdentity(28),draw);
-            for(int y=8;y<140;++y)for(int x=8;x<224;++x)
+            for(int y=32;y<130;++y)for(int x=32;x<194;++x)
                 check(rendered.pixels[y*320+x]==art.pixels[y*320+x],"location panel covers town art");
             check(rendered.pixels[155*320+230]==77,"location overwrites party strip");
             if(const auto *path=std::getenv("MMODERN_SERVICE_PREVIEW")) {
@@ -318,6 +318,7 @@ void originalServiceSequences(Inputs &in) {
         std::vector<XeenServiceSprite> sprites;const auto draw=f.flow->drawDialogSprite;bool failOnce=action==1;
         f.flow->drawDialogSprite=[&](auto &image,const char *resource,unsigned frame,int x,int y){
             if(std::string(resource).find(".twn")!=std::string::npos) {
+                check(x==8 && y==8,"Speaking overlay moved outside the original service origin");
                 sprites.push_back({resource,frame});
                 if(failOnce){failOnce=false;throw std::runtime_error("Synthetic service sprite failure");}
             }
@@ -381,6 +382,44 @@ void originalServiceSequences(Inputs &in) {
     capped.flow->loadSampleDuration=[&](const char *name,XeenSceneArchive archive){sample=name;return xeenVocDurationNanoseconds(in.assets.readArchiveResource(name,archive));};
     capped.enter();capped.act(DialogKeyAction{'t'});check(sample=="trainin1.voc","Training level-cap refusal sample differs");
     capped.act(CancelInteractionAction{});check(capped.now==0 && capped.flow->canSave(),"Active service sample made Escape uninterruptible");
+}
+
+void speakingWindow(Inputs &in) {
+    training_test::Fixture f(in,in.service());
+    const auto draw=[&](auto &image,const char *name,unsigned index,int x,int y){in.assets.drawDialogSprite(image,name,index,x,y);};
+    // Independent original border sprites: use two backgrounds to distinguish
+    // transparent pixels from opaque palette index zero.
+    auto border0=training_test::frame(),border1=border0;
+    std::fill(border1.pixels.begin(),border1.pixels.end(),255);
+    for(auto *image:{&border0,&border1}) {
+        draw(*image,"global.icn",0,8,8);
+        draw(*image,"border.icn",0,0,32);draw(*image,"border.icn",8,215,32);
+        draw(*image,"fecp.brd",0,2,2);draw(*image,"fecp.brd",2,219,2);
+        draw(*image,"fecp.brd",4,2,134);draw(*image,"fecp.brd",6,219,134);
+    }
+    unsigned overlap=0;
+    for(const auto kind:{XeenServiceArt::Smith,XeenServiceArt::Training}) {
+        const auto range=*XeenServiceAnimation::speaking(kind);
+        const auto location=kind==XeenServiceArt::Smith?XeenLocationDialog::Smith:XeenLocationDialog::Training;
+        const auto reference=drawXeenLocation(in.assets.uiText(),border0,training_test::frame(),in.font,location,f.p,0,28,draw);
+        for(unsigned mouth=range.first;mouth<=range.last;++mouth) {
+            auto art=training_test::frame();std::fill(art.pixels.begin(),art.pixels.end(),223);
+            for(const auto &sprite:XeenServiceAnimation::compose(kind,1,mouth))draw(art,sprite.resource.c_str(),sprite.frame,8,8);
+            const auto result=drawXeenLocation(in.assets.uiText(),border0,art,in.font,
+                location,f.p,0,28,draw);
+            if(mouth==range.first)preview(in,result,kind==XeenServiceArt::Smith?"smith-speech":"training-speech");
+            for(unsigned y=0;y<200;++y)for(unsigned x=0;x<320;++x) {
+                const auto i=y*320+x;
+                if(x<224 && y<140 && border0.pixels[i]==border1.pixels[i]) {
+                    check(result.pixels[i]==border0.pixels[i],"Service speech painted over an original frame ornament");
+                    overlap+=x>=8 && y>=8;
+                }
+                if(x<8 || x>=224 || y<8 || y>=140)
+                    check(result.pixels[i]==reference.pixels[i],"Service speech escaped the (8,8)-(224,140) draw rectangle");
+            }
+        }
+    }
+    check(overlap>0,"Service border witness missed the overlap inside the scene rectangle");
 }
 
 void refusals(Inputs &in) {
@@ -601,5 +640,5 @@ void spellDialogs(Inputs &in,bool mouse) {
 }
 int main(int argc,char **argv){try{
     check(argc==2,"usage: service-dialogs <installation>");const auto installation=xeenTestInstallationDetector().detect(argv[1]);check(bool(installation),"installation unavailable");Inputs in(*installation);
-    layout(in);placeRules(in);otherTownServices(in);originalServiceSequences(in);refusals(in);dialogs(in,false);dialogs(in,true);spellDialogs(in,false);spellDialogs(in,true);std::cout<<"Original service layouts, hit actions, Buy/Fix, one-step Training and Heal passed\n";return 0;
+    layout(in);placeRules(in);otherTownServices(in);originalServiceSequences(in);speakingWindow(in);refusals(in);dialogs(in,false);dialogs(in,true);spellDialogs(in,false);spellDialogs(in,true);std::cout<<"Original service layouts, hit actions, Buy/Fix, one-step Training and Heal passed\n";return 0;
 }catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}

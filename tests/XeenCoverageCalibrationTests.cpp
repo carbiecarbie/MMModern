@@ -15,7 +15,7 @@ std::string trim(std::string s) {
 bool documentedGap(const std::string &dimension,const std::string &mechanic,const std::string &status,const std::string &reason) {
     // Expectations only, never classification inputs: audio and deferred Sign In.
     if(dimension=="Events") {
-        const std::map<std::string,std::string> audio{{"40 PlayEventVoc","Voice audio not supported yet"},{"60 PlayCD","CD speech not supported yet"}};
+        const std::map<std::string,std::string> audio{{"60 PlayCD","CD speech not supported yet"}};
         if(const auto i=audio.find(mechanic);i!=audio.end())return status=="partial" && reason.find(i->second)!=std::string::npos;
     }
     const std::set<std::string> actions{"Sign In"};
@@ -79,7 +79,7 @@ int main(int argc,char **argv) {
             }
             if(dimension=="Events" && status!="supported") {
                 const auto opcode=mechanic.substr(0,mechanic.find(' '));
-                const bool excluded=opcode=="6" || opcode=="40" || opcode=="60" || opcode=="17" || opcode=="30";
+                const bool excluded=opcode=="60" || opcode=="17" || opcode=="30";
                 const bool admission=status=="partial" && (opcode=="7" || opcode=="31") &&
                     (reason.find("Destination map is not admitted yet")!=std::string::npos ||
                      reason.find("Destination is outside the admitted mainland")!=std::string::npos);
@@ -127,7 +127,7 @@ int main(int argc,char **argv) {
             require(supportedServices.count(action),std::string("Implemented Vertigo service missing: ")+action);
         require(townSites==std::array<unsigned,6>{3,4,6,3,4,3},"Clouds service site inventory changed");
         require(arenaSites==1,"Clouds Battle Master site inventory changed");
-        require(gaps==3 && unused==4,"Vertigo documented gap/subroutine inventory changed; explain and recalibrate");
+        require(gaps==2 && unused==4,"Vertigo documented gap/subroutine inventory changed; explain and recalibrate");
         require(waterDragon==2 && vultureRoc==2,"Species 59 species and movement rows are missing from the census");
         require(movement>=4,"Monster movement rows are missing from the census");
         require(lightingRows.size()==3 && skillWalls.size()==7,"Lighting/traversal consumer census rows are missing");

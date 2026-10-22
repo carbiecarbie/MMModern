@@ -1,4 +1,5 @@
 #include "XeenTestInstallation.h"
+#include "app/XeenAudio.h"
 #include "XeenTrainingTestSupport.h"
 #include "formats/xeen/XeenVoc.h"
 #include "app/XeenTitleFlow.h"
@@ -14,6 +15,7 @@ struct XeenRestTestAccess {
  static bool confirmRest(const XeenEventFlow &f){return f._encounter->_rest && f._encounter->_rest->phase==XeenEncounterFlow::RestContinuation::Phase::Confirm;}
  static bool completeRest(const XeenEventFlow &f){return f._encounter->_rest && f._encounter->_rest->phase==XeenEncounterFlow::RestContinuation::Phase::Complete;}
  static bool required(const XeenEventFlow &f){return f.partyDeathRequired();} static bool active(const XeenEventFlow &f){return f._death.has_value();}
+ static auto input(const XeenEventFlow &f){return f._inputGeneration;}
  static auto phase(const XeenEventFlow &f){return f._death->phase;}
  static auto fire(const XeenEventFlow &f){return f._death->fire;}
  static auto laugh(const XeenEventFlow &f){return f._death->laugh;}
@@ -48,9 +50,12 @@ XeenSaveSnapshot conditionDeathSource(Inputs &in) {
  for(auto owner:source.activeRosterIds)source.characters[owner].conditions[2]=255;
  for(auto &actor:source.map(28).monsters->slots){actor.x=actor.y=-128;actor.lifecycle=XeenActorLifecycle::Defeated;actor.accounted=true;}
  return source;
-}void sequence(Inputs &in,bool longSample,bool skipScroll,bool efx=true) {
+}void sequence(Inputs &in,const GameInstallation &installation,bool longSample,bool skipScroll,bool efx=true,bool device=false) {
  auto source=conditionDeathSource(in);source.soundOptions.efx=efx;
  Fixture f(in,source);wire(f,longSample?10000000000ULL:0);
+ std::vector<std::string> voices;
+ f.programState.audio=XeenAudio::installed(installation,in.assets,0,device);
+ f.programState.audio->digitalSink([&](const auto &name,auto){voices.push_back(name);});
  f.flow->loadRestDream=[&]{return in.assets.restDreamImage();};
  f.act(RestAction{});check(Access::confirmRest(*f.flow),"Original all-member Rest danger confirmation");f.act(YesAction{});
  for(unsigned n=0;!Access::completeRest(*f.flow);++n){check(n<500,"Original condition-death Rest completion");f.now+=100;f.flow->beginCycle(++f.cycle);if(const auto next=f.flow->updatePresentation())f.present(*next);}
@@ -123,6 +128,7 @@ XeenSaveSnapshot conditionDeathSource(Inputs &in) {
  check(f.flow->partyDeathComplete() && fires==18 && finals==1 && restores==1 && closed==1 && fades==33 && retries==1,
   "Original death fire/final/restore/fade frame counts");
  check(efx?(sampleReads==2 && sawRestart && (longSample?laughs==34:laughs<34)):(sampleReads==0 && !sawRestart && laughs==1),"Original sample gate/restart/bounded laugh loop");
+ check(efx?voices==std::vector<std::string>{"fire.voc","xeenlaff.voc"}:voices.empty(),"Death digital starts/gate/repaint duplication");
  check(scrolls==(skipScroll?1u:22u),"Original closing hand sequence count");
  if(longSample)check(PresentationClock::fromMilliseconds(f.now)<sampleEnd,"Bounded laugh loop invented a final sample-wait tail");
  std::cout<<"Clouds death fire="<<fires<<" laugh="<<laughs<<" scroll="<<scrolls<<" fade="<<fades<<" passed\n";
@@ -131,9 +137,10 @@ void refusal(Inputs &in) {
  Fixture f(in,in.service());wire(f);
  check(!Access::required(*f.flow) && !Access::active(*f.flow) && !f.flow->partyDeathComplete(),"Living party entered death sequence");
 }
-void applicationOutcome(Inputs &in) {
+void applicationOutcome(Inputs &in,const GameInstallation &installation) {
     mmodern::XeenProgramState programState;
- std::uint64_t now=0;XeenEventFlow *flow=nullptr;XeenSessionOutcome outcome;
+ programState.audio=XeenAudio::installed(installation,in.assets,SdlWindow::presentationNanoseconds(),false);
+ std::uint64_t now=0,drainEnd=0;XeenEventFlow *flow=nullptr;XeenSessionOutcome outcome;
  SdlWindow::FrameUpdateHandler retired;SdlWindow::IdleFrameHandler retiredIdle;
  XeenGameplayServices services{programState,in.resources(),{},in.mapLoader(),in.objectLoader(),
   [&](auto id){return in.texts.load(id);},in.font,
@@ -154,11 +161,26 @@ void applicationOutcome(Inputs &in) {
     if(Access::confirmRest(*flow)){action(YesAction{});continue;}
     if(Access::completeRest(*flow)){action(AcknowledgeAction{});continue;}
     now+=100;handler.beginCycle(++cycle);if(const auto value=idle())present(*value);
+    if(flow->partyDeathComplete() && !drainEnd) {
+     programState.audio->startDigital("xeenlaff.voc",XeenSceneArchive::Clouds,now*1000000ULL);
+     drainEnd=*programState.audio->digitalDeadline(now*1000000ULL);
+     check(!handler.finished(),"Gameplay teardown released a busy voice");
+     check(handler.nextPresentationDeadline()==drainEnd,"Title drain did not expose the logical deadline");
+     const auto pixels=flow->frame().pixels;
+     for(const PlayerAction attempt:{PlayerAction{WaitAction{}},PlayerAction{CancelInteractionAction{}},PlayerAction{SaveGameAction{}}}) {
+      handler.beginCycle(++cycle);
+      check(!handler.withPresentedInput(attempt,Access::input(*flow),displayed.presentation()),"Title drain dispatched input or F9");
+      check(!handler.withDisplayedInput(attempt,Access::input(*flow)),"Title drain dispatched legacy input or F9");
+      check(flow->frame().pixels==pixels && !handler.finished() && handler.nextPresentationDeadline()==drainEnd,
+       "Title drain input changed the retained frame or wait");
+     }
+    }
    }
-   check(flow->partyDeathComplete(),"Application returned before acquiring death completion");
+   check(flow->partyDeathComplete() && drainEnd && now*1000000ULL>=drainEnd,"Application returned before logical title drain completed");
    return true;
   }};
  services.clock=[&]{return now;};services.outcome=&outcome;
+ services.currentSlot=0;services.writeManaged=[](auto,const auto &,const auto &){throw std::runtime_error("Title drain reached the F9 save provider");};
  services.composeEncounter=[](auto &,const auto &,const auto &,auto,auto){return XeenEventFlow::Composition{frame(),false};};
  services.validateEncounterSprite=[](auto){};services.validateCombatSprite=[](auto){};
  services.restoreSnapshot=std::make_shared<const XeenSaveSnapshot>(conditionDeathSource(in));
@@ -192,6 +214,6 @@ void applicationOutcome(Inputs &in) {
 }
 int main(int argc,char **argv){try {
  check(argc==2,"Death original usage: installation");const auto installation=xeenTestInstallationDetector().detect(argv[1]);check(bool(installation),"Original installation absent");
- Inputs in(*installation);sequence(in,false,false);sequence(in,true,false);sequence(in,false,true);sequence(in,false,false,false);refusal(in);titleReturn(in);applicationOutcome(in);
+ Inputs in(*installation);sequence(in,*installation,false,false);sequence(in,*installation,true,false);sequence(in,*installation,false,true);sequence(in,*installation,false,false,false);sequence(in,*installation,false,false,true,true);refusal(in);titleReturn(in);applicationOutcome(in,*installation);
  std::cout<<"Original death timing, restart, input, frame retry and title-return tests passed\n";return 0;
  }catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}
