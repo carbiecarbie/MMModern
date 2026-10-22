@@ -444,3 +444,16 @@ split and by opening the device at its own rate. The Efx, Music, Speech and
 Text buttons work and are saved with the party (save v18), and Efx off shows
 the entrance captions. Energy Blast now deals 2-6 times the caster's level, as
 in DOS. [Plan](milestone-82-plan.md).
+
+**M83 - Digital sound and CD speech** (`9affd5f`, `69816ac`, `af987a0`,
+`aab321f`, `c1d0e83`; documentation audit `bc2536a` and the closure commit).
+Accepted by the maintainer on 2026-10-22 after play-testing A2, B and C;
+Part D changes nothing audible. Digital effects, service and entrance voices, the dream, death laugh and CD
+speech now mix with FM using the installed digital driver's fixed transfer
+layout. GOG cue sheets retain disc addresses and cross-file playback; Text off
+hides the NPC body replaced by speech, with readable text when delivery fails.
+Fixed source gains match the maintainer's DOSBox captures. Output failures
+silence audio with one notice, and removal/default changes recover at the new
+output rate without changing gameplay deadlines, RNG or saves (v18 unchanged).
+F8 replay and resource-read CD restarts are omitted by maintainer decision.
+[Plan](milestone-83-plan.md).

@@ -1,8 +1,9 @@
 # Audio
 
-This chapter describes original audio behavior and its evidence. M82
-implements it in `PromusDriver`, `XeenAudio` and `XeenFmSource`, except where
-an entry says otherwise. See the [milestone 82 plan](../milestone-82-plan.md)
+This chapter describes original audio behavior and its evidence. M82/M83
+implement it in `PromusDriver`, `XeenAudio`, `XeenFmSource`, `XeenVoc` and
+`XeenCdAudio`, with SDL output/conversion behind `platform/sdl`, except where
+an entry says otherwise. See the [milestone 83 plan](../milestone-83-plan.md)
 for scope and the [evidence labels](README.md#how-to-interpret-evidence).
 
 **Maintainer decision, 2026-10-21:** M82 reproduces CD `promus` (music device
@@ -340,7 +341,7 @@ described below.
 Efx toggle (`0x1f061..0x1f073`) requests effect 20 when becoming on; its
 off branch's request 0 is suppressed by the Efx wrapper. It sends no stop.
 Speech off forces Text on at panel redraw (`0x1ee00..0x1ee32`); Text off
-with Speech on is allowed. M83 Part B removes M82's temporary visible-text
+with Speech on is allowed. M83 removes M82's temporary visible-text
 restriction and applies the NPC reader and delivery-fallback rules below.
 
 ## Song names and asynchronous changes
@@ -538,8 +539,8 @@ keeps output silent. Live rate changes recreate the small-block converter and
 retain the rational VOC cursor, as described below.
 See the [driver quirk](../original-quirks.md#sv-prosnd-fixed-layout).
 
-**DOS resource audit, high (2026-10-22):** all 36 distinct VOC names
-currently loaded during Clouds play have a single type-1 block at offset
+**DOS resource audit, high (2026-10-22):** the samples in the initial
+36-name Clouds VOC census have a single type-1 block at offset
 26, codec 0, time constant 188, a length fitting the low word, and no
 additional blocks. This includes the dream's INTRO `dreams2.voc` and DARK
 `laff1.voc`, and the damaged Sphinx descriptor. No exception to the fixed
@@ -616,7 +617,7 @@ final sum. The gains total 0.8625, giving **1.28 dB nominal headroom** for
 coherent full-scale inputs (−28262..28260 after integer truncation);
 interpolation overshoot can consume that margin, and the final sum retains
 an S16 safety clamp. The simultaneous-source and synthetic inter-sample-peak
-tests cover both paths. The maintainer's Part C listening and Windows
+tests cover both paths. The maintainer's M83 Part C listening and Windows
 device play-test passed on 2026-10-22.
 
 **Output contract (maintainer decisions 1/2):** gameplay deadlines, RNG,
@@ -652,6 +653,14 @@ Promus call stack is reserved before callbacks. No source buffers are changed
 until the old callback has joined. A 48 kHz real-converter witness sweeps
 512-frame callback phases: effect 20 becomes audible within 32.92 ms
 (33 ms regression guard, including its initial attack).
+
+### SDL resampler rate limitation
+
+**Known limitation retained by maintainer decision, 2026-10-22:** SDL 2.32's
+resampler makes FM about 0.066% fast at 48 kHz (0.036% at 44.1 kHz) and CD
+about 0.050% fast at 48 kHz. This is unchanged since M82 and inaudible.
+The 512-frame refills remain; a bounded converter is a possible later fix.
+Logical deadlines, gameplay timing, RNG and saves remain independent of output.
 
 ## CD disc addressing and boundary failures
 
@@ -709,7 +718,7 @@ attribute. Its [MSCDEX status path](https://github.com/dosbox-staging/dosbox-sta
 reports `0x8000`, with no busy bit. DOS retries only `0x810c`
 (`0x3dbcb..0x3dbf6`), rounding the encoded start to the next second once.
 This emulator error does not take that retry. **Maintainer decision,
-2026-10-22:** Part B plays nothing and starts no CD-busy interval or speech
+2026-10-22:** MMModern plays nothing and starts no CD-busy interval or speech
 wait on this refusal; this replaces the former unconditional 317/75-second
 interval. Show its text under the approved delivery-failure fallback.
 Do not clamp, shift or guess another start. This is high-confidence static
@@ -794,7 +803,7 @@ it is about to dismiss that speech. This is a reachable code/data path,
 not a captured audible restart or a measured I/O delay. Nine Clouds
 PlayCD/NPC-mode-0 adjacent pairs are retained in the external
 `mode0-cd-witnesses.json`; this does not claim a complete read inventory.
-**Maintainer decision, 2026-10-22:** Part B omits the transient restart
+**Maintainer decision, 2026-10-22:** MMModern omits the transient restart
 for this witness and the nine mode-0 pairs, and keeps the final explicit
 dismissal stop. Dismissing the dialog stops its cue. Other read sites are
 listed externally under the same final approximation.
@@ -910,9 +919,10 @@ identified separately.
 | `XeenEntranceScene` | 9 |
 | Player-damage candidates / monster attack path | 3 |
 
-The current implementation's literal resource census is 36 distinct
-names: Entrance 17, Event flow 5, ServiceAnimation 6, Smith 6 and Training
-3, with `ahh.voc` shared. This corrects the approximate 40-name estimate;
+The implementation's literal resource census is 38 distinct names, plus
+dynamic weapon-hit and monster-voice names below. Entrance, Event flow,
+service greetings/actions, training refusals and shared damage sites use
+their existing owners. This corrects the approximate 40-name estimate;
 resource names and physical DOS calls are different counts.
 
 Dynamic player-hit names at `0x2c0c5..0x2c111` are `pow0.voc` through
@@ -931,17 +941,16 @@ The expanded audit finds header time constants 120, 181, 172 and 173 in
 codec 0. These differ from the driver-selected 188, already covered by
 the adopted fixed-rate rule. It finds no extra blocks,
 non-type-1 first block or length-word overflow in the identified monster
-and weapon set. The 36 currently loaded samples retain their clean
+and weapon set. The initial 36 literal samples retain their clean
 layout audit above. Broad string-scan candidates are not a reachable
-Clouds census and are not included in these claims. A1 (decoder/mixer)
-and A2 (sites) is the final recommendation; the explicit fall-presentation
-gap below does not justify a third audio implementation part.
+Clouds census and are not included in these claims. Fall/landing samples
+remain outside the implemented presentations, as documented below.
 
 **Publication mapping, DOS static/current source, high:**
 
 | Sample | DOS ordering and existing MMModern publication point |
 | --- | --- |
-| `pow0..5.voc` | Positive-damage gate precedes `0x2c082`; stop old VOC `0x2c0b2`, select/load sample, FM `60+selector` at `0x2c105`, VOC at `0x2c111`, then HP comparison/stores `0x2c129..0x2c15b`. Use the existing weapon-impact callback in `XeenCombat::serviceConsequences`: physical `PreHp` immediately before HP publication (`XeenCombat.cpp:1607`) or the nonsequenced positive result (`:1586`); in `XeenCombat::serviceCast`, use `Impact` before HP/status publication (`:1392`). `XeenEncounterFlow::fmWeaponEffect` in `XeenJourneyFlow.cpp` reaches `XeenAudio::weaponEffect`; extend that existing request to the sample, preserving its FM/VOC order and independent Efx gate. No new wait or RNG draw. |
+| `pow0..5.voc` | Positive-damage gate precedes `0x2c082`; stop old VOC `0x2c0b2`, select/load sample, FM `60+selector` at `0x2c105`, VOC at `0x2c111`, then HP comparison/stores `0x2c129..0x2c15b`. The existing weapon-impact callback in `XeenCombat::serviceConsequences` publishes physical `PreHp` immediately before HP publication (`XeenCombat.cpp:1609`) or the nonsequenced positive result (`:1588`); `XeenCombat::serviceCast` publishes `Impact` before HP/status publication (`:1394`). `XeenEncounterFlow::fmWeaponEffect` in `XeenJourneyFlow.cpp` reaches `XeenAudio::weaponEffect`; that request includes the sample, preserving its FM/VOC order and independent Efx gate. No new wait or RNG draw. |
 | `miss.voc` | VOC `0x2c172` precedes FM 6 `0x2c17c`. The exact candidates are `XeenPhysicalPlayerCandidate::service` (`XeenCombatRules.cpp:686`), condition `!damage && (!shoot || hit)`, and `XeenSpellDamageCandidate::service` (`:386`), condition `attack2Entered && damage<=0`. Publish once with the existing guarded effect request, before result publication. A missed missile or a spell rejection that never enters attack2 bypasses both cues; do not attach it to every displayed miss or every FM 6. |
 | Monster record `+0x33` voice | Pose frame 8 is set at `0x2d778`, scene calls at `0x2d793/0x2d79b`, old VOC stops at `0x2d7a5`, resource loads at `0x2d7f4`, and playback starts at `0x2d802`, before the target/attack loop. Current `XeenCombat` publishes `MonsterPose1` before enemy-candidate service (`XeenCombat.cpp:1543..1550`). The sample belongs to `XeenEncounterFlow::observeCombat`'s once-per-generation first-pose branch (`XeenEncounterFlow.cpp:345..353`), beside the existing record `+0x32` FM request and frame-8 presentation, before subsequent target-selection/RNG in `XeenEnemyAttackCandidate`. Do not replay at Pose2, per target, or on redraw. |
 
@@ -971,7 +980,7 @@ inventory count above includes this excluded site, not 32 implemented starts.
 
 ### Digital start sites implemented by A2
 
-Part 0 inventories physical DOS calls, not every alternative name. All starts
+M83 Part 0 inventories physical DOS calls, not every alternative name. All starts
 use XeenAudio's Efx gate; Efx off also masks stop and busy without silencing
 an existing sample. PCM is loaded and decoded on the main thread. Existing
 flow waits retain the adopted driver-count duration; Tavern departure and
@@ -1019,7 +1028,7 @@ therefore comprises 29 implemented starts and six excluded starts.
 
 Opcode 40 reads the six far pointers at DAT `0x508cc`, publishes once and
 continues immediately. Its Clouds members use XEEN; the final `laff1.voc`
-member uses DARK, as in the Part 0 resource inventory. Opcode 60 publishes
+member uses DARK, as in the M83 Part 0 resource inventory. Opcode 60 publishes
 retained CD operands without a notice. Every original Clouds opcode 40 row
 (130 rows in 35 maps) has an index in 0..4. An out-of-table index (6 or
 more) retains the automatic "Voice audio not supported yet" notice and
@@ -1124,7 +1133,7 @@ failure. Speech off normally forces Text on through the panel. An unusual
 raw option combination still follows the unconditional body-selection
 branch. Ordinary Event messages and service greetings have no Text-off
 body gate among these readers; their helpers can restore an existing NPC
-window without suppressing the new text. Part B applies the maintainer's
+window without suppressing the new text. MMModern applies the maintainer's
 decision-3 text fallback whenever speech cannot be delivered; this is an
 approved deviation, not evidence that DOS checks delivery.
 
@@ -1356,19 +1365,19 @@ ordinary non-spell actions reach them too; C2 must reuse those helpers.
 
 ## CD and Text presentation gaps
 
-These are existing presentation gaps, excluded from Part B under the
+These are existing presentation gaps, excluded from M83 under the
 maintainer's 2026-10-22 rule; they do not gate implemented Clouds dialogs.
 
 | Presentation | Evidence and current boundary |
 | --- | --- |
 | Auxiliary F10 | Explicit stop at `0x1be38`, resume command 0x88 at `0x1bf3d -> 0x3d984`. MMModern has no corresponding action or presentation; it does not synthesize this pause/resume sequence. F8 replay is also omitted by maintainer decision. |
 | Numeric Choose123 | Text readers `0x24cb9`, `0x24ccd`, `0x24cfb`, `0x24d0f` position controls and restore the retained NPC. The numeric-choice Event opcode 48 is outside `XeenEventDecoder`'s supported subset; its helper is not implemented. Arena number entry is a different presentation. |
-| Darkside map-29 exception | `0x26a7d`, `0x26a83`, `0x291d8` temporarily clear/restore Text off. Darkside is outside this part. |
+| Darkside map-29 exception | `0x26a7d`, `0x26a83`, `0x291d8` temporarily clear/restore Text off. Darkside is outside this milestone. |
 
 The implemented YesNo helper retains Text-off control placement; ordinary
 NPC modes 0/1 and passive mode 2 use their distinct polling paths. Ordinary
 Event messages and service greetings have no NPC body gate. Intros and
-endings remain outside this milestone part; resource-read stop/restart
+endings remain outside this milestone; resource-read stop/restart
 cycles are deliberately omitted everywhere, not left as implementation gaps.
 
 **Map 49 play-test fixture limitation (maintainer, 2026-10-22):** the

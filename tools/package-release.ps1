@@ -14,6 +14,28 @@ if (-not $version -or -not $scummvm) { throw 'Cannot read the project version or
 $cacheText = Get-Content (Join-Path (Join-Path $repository $BuildDir) 'CMakeCache.txt') -Raw
 $scummvmSource = ([regex]::Match($cacheText, '(?m)^SCUMMVM_SOURCE_DIR:PATH=(.+)\r?$')).Groups[1].Value.Trim()
 if (-not (Test-Path (Join-Path $scummvmSource 'LICENSES/COPYING.LGPL'))) { throw 'Cannot find the pinned Nuked LGPL license' }
+$pacman = Join-Path (Split-Path $Ldd) 'pacman.exe'
+$packageLines = @(& $pacman -Q mingw-w64-ucrt-x86_64-SDL2 mingw-w64-ucrt-x86_64-zlib mingw-w64-ucrt-x86_64-libwinpthread mingw-w64-ucrt-x86_64-gcc mingw-w64-ucrt-x86_64-libvorbis mingw-w64-ucrt-x86_64-libogg)
+if ($LASTEXITCODE) { throw 'pacman version query failed' }
+# Notices and retained license texts describe these upstream releases. MSYS2
+# package revisions may vary, but another upstream version needs a notice audit.
+$expectedAudioVersions = @{
+	'mingw-w64-ucrt-x86_64-libvorbis' = '1.3.7'
+	'mingw-w64-ucrt-x86_64-libogg' = '1.3.6'
+}
+foreach ($package in $expectedAudioVersions.Keys) {
+	$entry = @($packageLines | Where-Object { $_ -match "^$([regex]::Escape($package))\s+" })
+	if ($entry.Count -ne 1 -or $entry[0] -notmatch '^\S+\s+(\S+)$') {
+		throw "Cannot read pacman version for $package"
+	}
+	$installed = $Matches[1]
+	$upstream = ($installed -replace '^\d+:', '') -replace '-[^-]+$', ''
+	$expected = $expectedAudioVersions[$package]
+	if ($upstream -cne $expected) {
+		throw "Unsupported $package version $installed. Release notices and retained license texts require upstream $expected; audit them before packaging another version."
+	}
+}
+$packages = $packageLines -join "`r`n  "
 $output = [IO.Path]::GetFullPath($OutputDir)
 if ($output.StartsWith($repository, [StringComparison]::OrdinalIgnoreCase)) { throw 'Output must be outside the repository' }
 $name = "MMModern-$version-windows-x64"
@@ -41,14 +63,14 @@ Copy-Item (Join-Path $repository 'README.md') (Join-Path $stage 'README.md')
 $licenses = Join-Path $stage 'licenses'
 New-Item -ItemType Directory $licenses | Out-Null
 Copy-Item (Join-Path $scummvmSource 'LICENSES/COPYING.LGPL') (Join-Path $licenses 'Nuked-LGPL.txt')
+# MSYS2 libvorbis 1.3.7 omits COPYING; retain the upstream release text here.
+Copy-Item (Join-Path $PSScriptRoot 'release\licenses\Vorbis-COPYING.txt') (Join-Path $licenses 'Vorbis.txt')
 $share = Join-Path (Split-Path $Ucrt64) 'share\licenses'
 foreach ($pair in @(@('SDL2\LICENSE.txt', 'SDL2.txt'), @('zlib\LICENSE', 'zlib.txt'),
+		@('libogg\COPYING', 'Ogg.txt'),
 		@('winpthreads\COPYING', 'winpthreads.txt'), @('gcc-libs\COPYING.RUNTIME', 'GCC-runtime-exception.txt'))) {
 	Copy-Item (Join-Path $share $pair[0]) (Join-Path $licenses $pair[1])
 }
-$pacman = Join-Path (Split-Path $Ldd) 'pacman.exe'
-$packages = (& $pacman -Q mingw-w64-ucrt-x86_64-SDL2 mingw-w64-ucrt-x86_64-zlib mingw-w64-ucrt-x86_64-libwinpthread mingw-w64-ucrt-x86_64-gcc) -join "`r`n  "
-if ($LASTEXITCODE) { throw 'pacman version query failed' }
 @"
 MMModern $version - third-party notices
 
@@ -72,6 +94,14 @@ Bundled runtime libraries, MSYS2 UCRT64 builds (license texts in licenses\):
 The GCC runtime (libgcc, libstdc++) is linked statically under the GPL version 3
 with the GCC Runtime Library Exception, version 3.1
 (licenses\GCC-runtime-exception.txt).
+
+The statically linked libvorbisfile and libvorbis libraries are copyright
+2002-2020 Xiph.org Foundation, BSD-3-Clause (licenses\Vorbis.txt).
+libogg is linked statically, copyright 2002 Xiph.org Foundation,
+BSD-3-Clause (licenses\Ogg.txt).
+Upstream license/source releases:
+  https://github.com/xiph/vorbis/tree/v1.3.7
+  https://github.com/xiph/ogg/tree/v1.3.6
 
 Package versions:
   $packages

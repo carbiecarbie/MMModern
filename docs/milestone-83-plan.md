@@ -1,293 +1,94 @@
-# Milestone 83 plan - Audio, part 2: digital sound, voices and CD speech
+# Milestone 83 - Audio, part 2: digital sound, voices and CD speech
 
-**Tier A. Status: implementation authorized (2026-10-22); maintainer acceptance pending.**
-Roadmap [step 12](roadmap.md#next-arc-finishing-the-games-systems), second of
-its two milestones, after [M82](milestone-82-plan.md). Planned on `6015668`,
-committed in `87a77eb`, amended after the independent plan review
-(2026-10-22).
+**Tier A. Status: completed and accepted by the maintainer (2026-10-22)**
+after play-tests of A2, B and C; Part D changes nothing audible. Part 0
+`9affd5f`, A1 `69816ac`, A2 `af987a0`, B `aab321f`, C `c1d0e83`,
+documentation audit `bc2536a` and the closure commit. Roadmap
+[step 12](roadmap.md#next-arc-finishing-the-games-systems), after
+[M82](milestone-82-plan.md). Save v18, schema 9 and content 14 unchanged.
 
-## Goal and scope
+## Scope and results
 
-The game plays the CD edition's digital sound as the installed configuration
-does: VOC samples (shop and guild voices, entrance guardians, the death laugh,
-the dream, Event voices) through the digital driver, and CD speech from the
-disc's audio tracks, read from the GOG installation's OGG files. Text off
-hides the text that speech replaces, ending M82's temporary restriction. FM
-music, VOC samples and CD audio are mixed at a balance checked by ear against
-DOSBox. An audio output failure and a removed output device get a decided
-behavior. Out of scope: Darkside, the intros and the ending (step 15), the
-other sound devices and an output-device selector (step 16). Planning does not
-authorize implementation. Independent implementation reviews, the complete
-suite and a maintainer play-test are required.
+VOC effects and voices, service/entrance speech, the dream and death laugh,
+Event samples and GOG CD speech mix with the installed CD promus OPL3 path.
+Text off hides the NPC body replaced by speech. Logical waits stay on the
+presentation clock, independent of output, with no saved playback state.
+Darkside, intros/endings (step 15), other devices and a device selector (step 16)
+remain outside scope. Inn music awaits Sign In (step 14); fall/landing samples
+await their presentation, and title lightning belongs to step 15.
 
-## Current implementation boundary
+| Part | Commit | Result |
+| --- | --- | --- |
+| 0 - evidence | `9affd5f` | Calibrated original driver, sites, CD addresses and lifecycle |
+| A1 - decoder/mixer | `69816ac` | Fixed-layout VOC decoding, independent source mixing and logical timing |
+| A2 - digital sites | `af987a0` | Existing owners publish the original samples and gates |
+| B - CD speech/Text | `aab321f` | Cue decoding, refused starts, cross-file playback, Text-off readers and fallback |
+| C - balance/output | `c1d0e83` | Fixed gains, removal/default/rate recovery and failure containment |
+| Documentation audit | `bc2536a` | Audited documentation corrections retained |
+| D - closure | This change | Removal-cleanup guard, package notices, census and documentation |
 
-- `XeenAudio` owns FM, fixed-layout VOC playback and decoded CD cue windows
-  as process state. FM, VOC and CD mix at the current device rate through
-  independent paths; an FM fade barrier does not delay VOC or CD commands.
-- Opcode 40 plays its resource-selected voice; opcode 60 retains CD operands
-  without a notice or wait. NPC invocation starts the cue; F8 replay is omitted by maintainer decision.
-  Logical CD busy uses the approved presentation-clock interval, independent
-  of the device. Surviving playback rebases by remaining duration at
-  title/session handoffs. No playback state is saved.
-- Both INS files retain disc identity, repeated track numbers and their
-  `MUSIC/xeenNN.ogg` files, including `TRACK 21AUDIO`. Static UCRT64 Vorbis
-  and Ogg libraries decode bounded cue windows on a worker. Logical timing
-  is sampled before queuing; stopped/replaced generations cannot publish
-  late PCM. Large CD buffers are reclaimed outside the callback.
-  Plain GAME runtime sources use the text fallback; original-audio tests
-  require the configured GOG source and validate all required tracks.
-- Text off uses the original NPC title/portrait presentation when speech is
-  admitted; unavailable speech restores readable text only under decision 3,
-  retaining the one-tick ordinary Text-off loop (maintainer Q1).
-  Event messages and service greetings retain their text. The auxiliary F10
-  and numeric-choice presentation gaps are listed in the
-  [audio rules](rules/audio.md#cd-and-text-presentation-gaps).
-- Fixed FM/VOC/CD gains are 0.5/0.01875/0.34375, measured against the
-  supplied DOSBox Staging captures: VOC/FM gain ratio 0.0407/0.0375
-  (DOSBox/MMModern), −0.7 dB; CD/FM agrees within ±0.3 dB. Both meet
-  ±1.5 dB. Nominal headroom is 1.28 dB. The maintainer's Part C
-  listening and Windows device play-test passed on 2026-10-22.
-- Output errors silence audio with one notice while gameplay continues.
-  Main-thread removal recovery retains the current song; interrupted VOC/CD
-  remain silent until their next start. Default/rate changes recreate
-  conversion streams with source state and VOC phase retained. FM/CD use
-  M82's 512-native-frame refills; one small discontinuity at a live rate
-  change is accepted (maintainer, 2026-10-22).
-  Release notices remain Part D. Save v18/schema 9/content 14 are unchanged.
+## Key decisions
 
-## Original rules and evidence
+These are the maintainer's decisions of 2026-10-22.
 
-M82 Part 0 (`D:/MModern-re/audio-m82/dos-findings.md`) settled: `XEEN.CFG`
-word 0 = 10 selects the digital driver `prosnd` (Pro Audio Spectrum, DMA 1,
-IRQ 7, no PIT use), loaded from INTRO.CC; the VOC wrapper `0xdea9..0xdecd`
-gates playback and busy queries on Efx; CD speech goes through MSCDEX
-(packet `0x3d9b4..0x3d9e8`) and is skipped with Speech off; the pending song
-load waits for CD idle. Gunther (Vertigo `(14,5)` West, track 19, encoded
-370..2161) requests 25 sectors before the start: `xeen19.ogg` plays
-3.600000..21.813333 s, 1366/75 s
-([evidence](rules/evidence.md#death-and-cd-speech-captures-2026-10-13)).
-DOS overrides the pin (`6814ee9b`, `engines/mm/shared/xeen/sound*.cpp`,
-`cmdPlayEventVoc`, `cmdPlayCD`) where they differ.
+- `XeenAudio` remains the process owner. FM, VOC and CD are independent;
+  FM fades never hold digital starts. Payloads own their data; decoding and
+  file access stay outside callbacks, and shutdown joins before reclamation.
+- INTRO `prosnd` reads PCM at +`0x20`, takes the low length word at +`0x1b`
+  minus 10 modulo 65536, plus one sample, and fixes time constant 188
+  (`1000000/68` Hz). Descriptor/block/header-rate parsing is deliberately
+  absent. The unsplit count is an approved sub-millisecond DMA approximation;
+  insufficient data is a hard error. [Evidence](rules/audio.md#installed-digital-driver-command-and-length-rules).
+- Both GOG cue sheets retain disc identity, repeated track numbers and
+  absolute MSCDEX addresses. Static libvorbisfile/libvorbis/libogg decode
+  bounded OGG windows. Gunther uses xeen19.ogg 3.600000..21.813333 s; map 49
+  crosses files. Refused starts, including map 30's track-2 cues, create no
+  busy interval. Missing/undecodable audio retains the requested interval.
+- Retained operands and surviving playback follow the original lifecycle;
+  same-process handoffs rebase remaining deadlines, Load/New never replay
+  saved audio, actual disc changes stop/clear CD, and fresh processes start idle.
+- Resource-read CD stop/restart cycles, including audible restarts, are
+  deliberately omitted everywhere. The nine mode-0 PlayCD/NPC pairs retain
+  final dismissal stops. F8 replay is omitted by maintainer decision.
+- Unavailable speech, including output loss, restores readable text without
+  altering NPC polling or logical timing (approved delivery fallback).
+- FM/VOC/CD gains are 0.5/0.01875/0.34375. Against the maintainer's DOSBox
+  Staging captures, VOC/FM is -0.7 dB and CD/FM agrees within ±0.3 dB,
+  within the approved ±1.5 dB tolerance. This is not DOS hardware evidence.
+- Output failures silence all audio with one notice and keep gameplay running.
+  Removal reopens the current default at its rate, retaining the FM song;
+  VOC/CD stay silent until their next start. Default/rate changes preserve
+  source cursors, accepting one small converter discontinuity. FM latency
+  retains its 33 ms regression guard. Removal cleanup exceptions use the
+  same permanent-silence fallback.
 
-| Rule | Status |
-| --- | --- |
-| VOC playback | **DOS static, high:** `prosnd` replaces the sample, uses a fixed layout without block parsing, and programs time constant 188. The maintainer adopted driver-count timing below. |
-| Lifecycle | **DOS static, high for operations; medium for bounded absence of stops:** Load/New, location/side changes, Escape and title handoffs classified in the [matrix](rules/audio.md#digital-and-cd-lifecycle-evidence). Process playback/operands can survive; an actual disc change stops CD and clears its operands. Resource-read cycles are omitted by the final decision below. |
-| VOC sites | **DOS static/resource/current source:** 35 physical starts, 32 Clouds/shared; owner counts, dynamic names and exact combat publication points recorded in the [inventory](rules/audio.md#voc-inventory-boundaries). Two fall/landing calls are an explicit existing-presentation gap. Current 36-resource layout audit is clean; four monster samples have different header rates, covered by the adopted fixed-188 rule. A1/A2 is the final split. |
-| CD addressing | **DOS static and installed-emulator source, high:** absolute sector packets, MSF bias 150 plus start preroll 25, Clouds disc 1; cumulative separate-file positions reproduce Gunther. Two map 30 requests fail on the data track; map 49 plays the track-2 tail then track 3, preserving its 379/75-second request. See the CD timing decisions below. |
-| Text off | **DOS static, high:** all 29 direct scalar accesses classified; NPC body omitted independently of start success, other readers restore/position the NPC or manage the option. Event messages and service greetings have no equivalent body gate. See the [reader table](rules/audio.md#text-off-byte-readers-and-presentation). |
-| Balance | **Known:** promus sets PAS mixer registers (`0x23c..0x265`), which DOSBox does not emulate; the maintainer's DOSBox (`sb16`, `sbmixer=true`) is the listening reference (roadmap, 2026-10-22). |
+The small, inaudible SDL 2.32 resampler rate error remains unchanged since
+M82 by maintainer decision (2026-10-22). The 512-frame refills remain;
+a bounded converter is a possible later fix.
+See the [known limitation](rules/audio.md#sdl-resampler-rate-limitation).
 
-The established NPC page, mode-2, dismissal and all-zero-cue rules and the
-approved CD interval without guessed latency remain the baseline for
-successful playback; failed starts follow the CD timing decisions below.
+## Validation and acceptance
 
-**VOC timing decision (maintainer, 2026-10-22):** adopt INTRO `prosnd`'s
-fixed layout: PCM at +`0x20`, transfer count from the low length word at
-+`0x1b` minus 10, and fixed time constant 188 (`1000000/68` Hz), ignoring
-VOC blocks and header rates. Use the count-plus-one interpretation supported
-by the DSP/DMA command path, with its confidence recorded in the
-[audio rules](rules/audio.md#installed-digital-driver-command-and-length-rules).
-Do not investigate allocation-dependent DMA page splits further; their
-sub-millisecond difference is an [approved timing approximation](original-quirks.md#dev-prosnd-dma-timing).
-Audit all samples loaded during Clouds play for non-type-1 first blocks,
-length-word overflow or additional blocks, and report exceptions before
-choosing their behavior. The implemented `XeenVoc.h` decoder, driver-count
-duration tests and any M44 digest effect belong to Part A, not Part 0.
+Independent plan and implementation reviews are complete. The maintainer
+accepted M83 on 2026-10-22 after play-testing A2, B and C. Closure checks cover
+injected dummy-driver failures, source conversion/latency, static dependency
+notices/imports, an extracted package run without MSYS2 on PATH, regenerated
+coverage and validation via [tools/AGENTS.md](../tools/AGENTS.md).
+Closure validation passed: affected tests 3/3, fast suite 231/231 and the
+complete build-rel suite 269/269 (225 seconds, unsandboxed lightweight runner).
+The extracted package opened the title and exited normally with MSYS2 absent
+from PATH; imports retain only SDL2, zlib and winpthreads as non-system DLLs.
+Static Vorbis/Ogg licenses and package versions are included. No release is
+published or tagged.
 
-**CD timing decisions (maintainer, 2026-10-22):** Part B reproduces failed
-starts in the installed DOSBox Staging: if the absolute request begins
-outside an audio track and playback is refused, play nothing and start no
-CD-busy interval or speech wait. Show the text under decision 3. This
-includes map 30's two track-2 cues, encoded 24..416; do not clamp, shift
-or guess a replacement start. See the [address evidence](rules/audio.md#cd-disc-addressing-and-boundary-failures).
-Keep existing cue intervals across resource reads as an
-[approved approximation](original-quirks.md#dev-cd-resource-read-timing), since
-MMModern does not read from CD. **Final maintainer decision, 2026-10-22:**
-resource-read stop/restart cycles are never modelled, including audible
-restarts; this closes the class and no further read site triggers a stop.
-For the documented
-nine mode-0 PlayCD/NPC pairs, Part B omits the transient portrait-reload
-restart and keeps the final explicit dismissal stop: dismissing the dialog
-stops the cue. List other resource reads briefly in the external findings.
+M44 regression expectations stay unchanged by closure: mainland
+`c77d601069a5d49e0bf799b26e1842ae2eddfff98fa7d90d3a6de5374bc8be94`,
+with services, temple and roundtrip retaining their previous digests. M83 B's
+approved replacement met both conditions: the first divergence at Myra, map 23
+(9,11) West, is explained by the calibrated Text-off face-before-hold order;
+a Text-on run reproduces the former digest, with services, temple and roundtrip
+unchanged. The generic save round-trip and exact native continuation remain gates.
 
-**F8 replay decision (maintainer, 2026-10-22):** omit the original F8
-speech replay feature. DOS exploration dispatch at `0xd63c` reaches
-`0xd4d0 -> 0x3da87`; MMModern has no F8 binding or replay action. Opcode 60
-still retains operands and NPC invocation starts playback. This approved
-deviation is [recorded separately](original-quirks.md#dev-cd-f8-omitted).
-
-## Design decisions
-
-- **One owner, independent paths.** `XeenAudio` owns the mixer and every
-  playback resource and retained process cue; no new owner. One transport queue may carry requests,
-  but the FM fade barrier holds only dependent FM operations, and VOC and CD
-  never depend on FM being enabled. Requests own their payloads and never
-  borrow Flow objects. The callback mixes at the device rate, with one
-  resampler per source (FM 49716 Hz, VOC fixed time constant 188, CD 44100 Hz).
-  Create the FM conversion stream through `platform/sdl` while the newly
-  opened device is paused; creation failure leaves output silent and the
-  game running. Reopening joins the old callback before recreation; native
-  source state and VOC's rational phase survive. Conversion is recreated at
-  the new rate, accepting one small discontinuity instead of preserving
-  filter history. FM/CD refills stay at 512 native frames to retain M82's
-  effect latency; no whole rate-ratio periods or history replay are used.
-  File reads and decoding stay out of the callback; Part A specifies the
-  buffering, callback shutdown and recovery.
-- **Logical state on the presentation clock.** The interpreter retains its
-  Event operands while executing; published cue operands and playback belong
-  to the existing program audio owner so NPC invocations and same-process handoffs retain
-  them. Keep operands, logical busy deadlines and audio-thread render cursors
-  apart, following Part 0's lifecycle evidence.
-  Gameplay waits use approved driver-count and cue durations plus Part 0's transitions,
-  never the device: traces, RNG and saves are identical with and without
-  one. Playback that survives a title/session handoff rebases its deadline
-  by its remaining duration; stopped playback is cancelled explicitly.
-  Digital commands use the exact action moment, including a timestamp behind
-  the latest presentation advance: `elapsed - (last - now)`, checked against
-  underflow. Only a future command advances the audio clock (maintainer,
-  2026-10-22).
-  Opcode 60 keeps retaining operands; invocation starts playback.
-- **Own sample decoder.** `XeenVoc.h` implements a decoder producing
-  unsigned 8-bit mono PCM using the fixed `prosnd` layout and count above,
-  including the damaged `sphinx13.voc` descriptor ScummVM rejects.
-- **CD tracks from the GOG cue sheets.** The installation reader maps both
-  discs' audio tracks to their OGG files (track numbers repeat across
-  discs). MMSSFF conversion, the 25-sector preroll, disc and track choice,
-  file-relative `INDEX` values and absolute MSCDEX addresses are documented
-  separately. Static `libvorbisfile`/`libvorbis`/`libogg` through explicit
-  CMake linkage decode them; this is a dependency-boundary choice (the pin's
-  Vorbis decoder would not need `g_system` either), and the `g_system`-null
-  guard stays. Speech energy alone never justifies a per-track correction;
-  any correction needs evidence and the maintainer's approval, and the OGG
-  files are never changed.
-- **Text off as in DOS.** Each reader Part 0 finds hides text as DOS does.
-  Whenever speech cannot be delivered (no tracks, a missing or undecodable
-  OGG, output lost during a cue), the cue keeps its timing and the text is
-  shown (decision 3).
-- **Balance as fixed gains** for FM, VOC and CD, measured from maintainer
-  DOSBox recordings and confirmed by ear. Before Part C, the plan records
-  the capture settings, comparison windows, measurement method and the
-  maintainer's numeric tolerance (decision 4).
-- **Output failures** (decisions 1 and 2) distinguish a callback or
-  conversion failure, a backend disconnection, physical removal, a default
-  endpoint change (SDL 2.32's WASAPI backend may follow the default by
-  itself) and a failed reopen. Device events are handled on the main
-  thread; reopening waits for callback shutdown and keeps playback state.
-- **Save v18 unchanged** (schema 9, content 14) while the saved layout and
-  meaning stay the same; playing audio is process state. M44 digests are
-  regression gates: any difference (Text-off presentation, waits, RNG) is
-  investigated, never replaced automatically.
-
-## Parts and acceptance
-
-Each part takes one fresh session; amend this plan if the scope changes.
-
-| Part | Work and acceptance |
-| --- | --- |
-| 0 - evidence | Read-only static analysis of `WORLD/XEEN.DAT` and `prosnd`, calibrated on a known sample wait. Settle every **Unknown**; inventory VOC sites counted by owner; calibrate the DOSBox cue mapping; measure every Clouds cue against its OGG window. If the inventory is large, split Part A into A1 (decoder, mixer) and A2 (sites) before implementation. Ask the maintainer for short DOSBox recordings (FM alone, a shop voice over music, NPC speech over music). Record rules in `docs/rules/audio.md` and quirks. |
-| A1 - digital decoder and mixer | Mixer, resamplers, fixed-layout decoder, `prosnd` commands and logical timing. Acceptance: independently specified synthetic PCM/count/rate cases plus `sphinx13.voc`; simultaneous sources, replacement/stop, FM barrier independence and several callback sizes; traces identical without a device. Header-duration tests and any M44 effect are handled here. |
-| A2 - digital sites | Wire the inventoried starts and gates through existing owners, including the mapped combat publication points and PlayEventVoc without an added wait. Exclude the missing fall/landing presentation (`0x116a0`, `0x1170c`) and title lightning (`0xbfcf`, stop `0xc029`); lightning is not attached to the CD World `world0/1/2` loop (maintainer, 2026-10-22). Any start belonging to an unimplemented sequence, animation or menu stays a documented gap; continue with implemented presentations. Stop for an inventory/code placement disagreement only when that presentation exists. Acceptance: DOS site/name/gate table matched for implemented presentation, with explicit gaps retained; timing and RNG checked for affected flows. No new owner or third part. |
-| B - CD speech and Text off | Cue mapping, OGG decoding, PlayCD, Speech/Text options, fallback and handoffs. Implement refused starts with no busy interval; map 49's cross-file playback; omission of all resource-read cycles; final mode-0 dismissal stop; F8 replay omitted by maintainer decision (2026-10-22). Acceptance: Gunther decodes `xeen19.ogg` 3.600000..21.813333 s; Text off follows the reader table and delivery fallback; record removal of the M82 restriction and its approved deviation. Load/New never start audio from save/template state; surviving same-process playback and retained operands follow the matrix, actual disc changes stop/clear CD, and a fresh process starts idle. |
-| C - balance and output failures | Fixed gains within ±1.5 dB per source pair: VOC/FM −0.7 dB, CD/FM within ±0.3 dB, using source gain ratios under decision 4. Output failures and main-thread recovery retain gameplay timing/RNG. FM/CD use 512-frame native refills; live rate changes accept one small discontinuity. Maintainer Part C listening/removal/default/rate-change play-test passed on 2026-10-22. |
-| D - closure | Dependencies, package-release notices and package versions, executable imports checked and the extracted release run without MSYS2 on `PATH`; quirks and differences; census regeneration; scheduled independent implementation review; complete suite; maintainer listening play-test against DOSBox. Update status, roadmap and history and condense this plan only after acceptance. |
-
-**Stop rules** (stop and ask the maintainer): an Unknown stays unsettled;
-lifecycle evidence invalidates existing logical waits; the VOC inventory
-exceeds two parts; cue addresses need disc data the OGG files do not keep
-(track offsets, pregaps); a gameplay wait would need the device; playing
-audio would need saved state; Text off hides text with no speech replacing
-it in a case Part 0 cannot explain.
-
-## Tests and validation
-
-- Unit tests without a device: fixed-layout sample decoding and count-plus-one
-  timing (ignored descriptor/rate, low length word, PCM offset); report real
-  resource layout exceptions before choosing their handling. Cue sheets
-  (both discs, repeated track numbers, the track 21 line, bounds, preroll,
-  EOF, missing and undecodable
-  files); address mapping; resamplers, gains and clipping; queue barrier
-  independence; lifecycle transitions; the Text-off reader table and the
-  fallback.
-- Original-audio tests require a configured GOG cue and audio source with
-  `MUSIC/`: a missing configured directory fails configuration, missing or
-  malformed required tracks fail validation, never a skip. Plain `GAME`
-  runtime support stays, with its silent text fallback tested separately.
-- Original-data tests: the VOC site table against Part 0's inventory;
-  witnesses recording requested samples and cues through a sink with Efx and
-  Speech on and off; Gunther's window; one route timed with and without a
-  device; title/session handoffs with different clock epochs and pending
-  song loads.
-- Failure handling: injection on the SDL dummy driver; actual removal and
-  default changes in the Windows play-test.
-- Saves: the generic round-trip; same-process Load and fresh-process restore
-  at eligible boundaries after passive speech; M44 digests as gates.
-- Each production part: affected targets and tests, the fast suite, then the
-  complete `build-rel` suite through [tools/AGENTS.md](../tools/AGENTS.md).
-  This planning change checks links and `git diff --check` only.
-
-## M44 notes
-
-The maintainer approved the mainland replacement on 2026-10-22 after
-calibration of the ordinary Text-off loop at `0x25b77`: it chooses its first
-face before the first one-tick hold. Text on and retained passive dialog
-faces keep their separate three-tick loops; see the
-[calibration and offsets](rules/audio.md#text-off-byte-readers-and-presentation).
-
-The final candidate audit first diverges at Myra, map 23 `(9,11)` West,
-trace line 914: the new face draw `DRAW 886 0 3 3 7` precedes the former
-frame publication. The extra face RNG calls change later combat outcomes;
-no per-map fields change. The final-candidate diagnostic forcing only the
-Text-on presentation reproduces the former digest exactly:
-`0acc855ec5c51c22222eaea8a72f8681a8a9648b5b918b61aa563f68014404f0`.
-The diagnostic override is absent from production source and binaries.
-
-Both approved checks therefore hold. Only the mainland expectation becomes
-`c77d601069a5d49e0bf799b26e1842ae2eddfff98fa7d90d3a6de5374bc8be94`.
-Services, temple and roundtrip retain their previous digests, traces and
-checkpoint bytes. Native final reload/re-save is exact in all four routes;
-roundtrip checkpoint continuations also remain exact. Local evidence is in
-`build-rel/m83b-final-candidate-audit/` and
-`build-rel/m83b-final-text-on-isolation/`; no save format changes accompany
-this approved presentation correction.
-
-## Decisions
-
-1. **Output failure** (maintainer, 2026-10-22): a failure during play
-   silences all audio with one notice and the game continues, instead of
-   ending the session.
-2. **Removed device** (maintainer, 2026-10-22): reopen the new default output
-   at its own rate and continue the current song, instead of staying silent
-   until restart.
-3. **Text without speech** (maintainer, 2026-10-22; approved deviation): DOS
-   always has the disc. Whenever a cue cannot be heard, the text is shown, so
-   the player never has neither text nor speech.
-4. **Balance** (maintainer, 2026-10-22): ±1.5 dB for each relative source
-   pair, FM/VOC and FM/CD, with listening confirmation against DOSBox.
-   Before measurement: the supplied DOSBox Staging 0.83.0 captures in
-   `D:/MModern-re/audio-m83/` contain lossless PCM s16le, 48000 Hz stereo
-   in ZMBV AVI. `xeen-staging.conf` has no sblaster/mixer overrides.
-   The greeting in `ferreiro musiconefxon.avi` begins at 0.9377 s;
-   2.0..3.0 s identifies the smith song starting, not a greeting-level
-   window. Align music-only passages with
-   `ferreriromusiconefxoffspeechoff.avi` and fit the greeting waveform
-   separately. Fit Gunther's 18.213333 s cue within `gunther.avi`, using
-   voice-free intervals to establish the town music gain.
-   Render smith.m, whaddayo.voc, town.m and Gunther's
-   xeen19.ogg 3.600000..21.813333 s separately through the real,
-   device-free MMModern mixer at 48000 Hz. Use stereo mean-square power,
-   aligned music power and isolated voice correlation to report source gain
-   ratios, independent of the energy in any selected passage. DOSBox FM is
-   about 0.73..0.78 of unity FM; VOC/FM is 0.0407 versus MMModern's 0.0375
-   (−0.7 dB), and CD/FM agrees within ±0.3 dB. Common capture/output gain
-   cancels. Gains remain FM 0.5, VOC 0.01875, CD 0.34375.
-   The capture is the VOC-level authority; the approximately 28 dB below
-   the SB16 reset-level prediction is unexplained and not investigated
-   (maintainer, 2026-10-22). Measurement sources and intermediate evidence
-   are retained outside the repository in `D:/MModern-re/audio-m83/`.
-   Evidence is DOSBox-referenced, not DOS hardware.
-5. **Technical risks:** a shifted OGG rip (a trimmed or kept pregap; Vorbis
-   decoding removes the encoder's start padding), which Part 0's cue sweep
-   checks; audio-thread races; static Vorbis in the release and its notice;
-   audible latency, which never delays gameplay.
+Settled rules, approved approximations and remaining gaps live in
+[audio](rules/audio.md), [quirks](original-quirks.md) and
+[ScummVM differences](scummvm-differences.md), rather than in this closure summary.

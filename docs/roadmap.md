@@ -114,16 +114,13 @@ to Vertigo.
     with accessories; pending treasure stays in the running program as in
     DOS, and Event treasure shares it, keeping the original's duplicate of
     monster items. Lord Xeen's Scepter waits for step 15.
-12. **Audio** (Tier A, moved ahead of Event dispatch by the maintainer on
-    2026-10-21). First milestone completed and accepted in
-    [M82](milestone-82-plan.md) (save v18): FM music and effects in OPL3
-    stereo, as the CD's installed driver plays them, the control panel's
-    sound buttons and the Effects-off entrance captions. Next, M83: VOC
-    samples, voices, CD speech and CD tracks on the existing clock, Text off
-    hiding text, and the FM/PCM balance checked by ear against DOSBox. M83
-    also decides whether an audio output failure only silences the sound
-    with a notice instead of ending the session, and whether a removed output
-    device is reopened.
+12. **Audio** (Tier A). Completed and accepted in [M82](milestone-82-plan.md)
+    and [M83](milestone-83-plan.md) (maintainer, 2026-10-22):
+    installed CD OPL3 music/effects, VOC voices, CD speech, Text off, fixed
+    balance checked against DOSBox, and output recovery on the existing clock.
+    Save v18 is unchanged; the small SDL resampler rate error remains a known
+    limitation.
+    Next: step 13, Event dispatch as in DOS.
 13. **Event dispatch as in DOS** (Tier A, two milestones). A 2026-10-21
     static analysis found that DOS runs a cell's Events again on every
     processed key while the party stands on a flagged cell (traps hurt

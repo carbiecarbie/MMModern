@@ -42,12 +42,12 @@ gameplay playback sites and CD rules follow in Parts A2 and B:
   nothing and starts no speech wait; the approved fallback shows its text.
   The pin's direct track playback does not generate that DOS request.
   [Evidence and decision](original-quirks.md#sv-cd-failed-start).
-  Part B; pin: differs; master not rechecked.
+  M83 Part B; pin: differs; master not rechecked.
 - **Cross-file CD preroll.** Map 49 starts in the tail of track 2 and
   continues into track 3 in the installed DOSBox; the pin's direct track
   request omits that preceding-file tail.
   [Address and EOF evidence](original-quirks.md#sv-cd-cross-file-preroll).
-  Part B; pin: differs; master not rechecked.
+  M83 Part B; pin: differs; master not rechecked.
 - **Approved resource-read approximation.** Keep cue intervals instead of
   modelling any physical CD read interruptions and restarts, including
   continuing NPC playback. Explicit dialog dismissal still stops CD.
@@ -57,11 +57,11 @@ gameplay playback sites and CD rules follow in Parts A2 and B:
 - **Approved F8 omission.** The maintainer omits DOS speech replay
   (`0xd4d0 -> 0x3da87`, exploration table `0xd63c`). The pin also has no
   F8 speech binding. [Decision](original-quirks.md#dev-cd-f8-omitted).
-  Part B; approved DOS omission; master not rechecked.
+  M83 Part B; approved DOS omission; master not rechecked.
 - **Compact Text-off NPC window.** DOS uses the upper-right window 40
   rather than the pin's full-screen window-40 definition.
   [Geometry evidence](original-quirks.md#sv-cd-textoff-window).
-  Part B; pin: differs; master not rechecked.
+  M83 Part B; pin: differs; master not rechecked.
 - **Approved text delivery fallback.** The NPC body is shown when
   speech cannot be delivered; DOS selects the title-only format without
   testing playback success. The fallback restores text only and keeps the
@@ -489,7 +489,8 @@ in [project status](project-status.md#known-gaps):
 - **The whole game:** Clouds of Xeen is playable without its intro, Pyramid
   entrance and ending; Darkside of Xeen is not.
 - **Sound:** CD speech and VOC starts in implemented Clouds presentations
-  are audible; balance and output recovery remain M83 Part C.
+  are audible, with fixed balance checked against DOSBox and output recovery.
+  The Inn song awaits Sign In (step 14); F8 replay is deliberately omitted.
   Fall/landing and title lightning remain excluded with their absent
   presentations ([site inventory](rules/audio.md#voc-inventory-boundaries)).
   Only the promus OPL3 music device is supported.

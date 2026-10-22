@@ -23,21 +23,22 @@ entry. Dialog identifiers below are reference identifiers, not commercial text.
 | Dismiss | unsupported | Member choice, Exit | XeenEventFlow |
 | PartyDialog | unsupported | Roster, recruit, Delete, Remove, Create, Exit | — |
 | Quests | supported | Quest Items, Current Quests, Auto Notes; arrows/keypad, Page Up/Down, Home/End, mouse buttons, Exit; exploration and Items, including combat | XeenEventFlow |
-| Choose123 / HowMuch | unsupported | General Event choice and amount input | XeenEventInterpreter |
+| Choose123 / HowMuch | unsupported | Numeric Choose123 opcode 48 and TakeOrGive HowMuch unavailable | XeenEventInterpreter |
 | SelectElement | unsupported | Fire, Electricity, Cold, Acid, cancel | — |
 | LloydsBeacon | supported | Set and Return across resource-backed Clouds primary maps; same-map Return retains actors | XeenCastingUi |
 | Teleport | supported | Distance, cancel | XeenCastingUi |
 | TownPortal | supported | Five towns, each town's run position, cancel and item use in combat | XeenCastingUi |
 | IdentifyMonster / DetectMonsters | supported | Monster information, acknowledge | XeenCastingUi |
-| Arena / PyramidLocation | unsupported | Arena choice; switch sides | — |
-| Reaper / Golem / Dwarf / Sphinx locations | unsupported | Scripted location sequences | — |
+| Arena | supported | Battle Master level entry, Warzone, reward and exit | XeenEventFlow |
+| PyramidLocation | unsupported | Switch sides | — |
+| Reaper / Golem / Dwarf / Sphinx locations | supported | Keyed/refusal sequences, VOC speech and Effects-off captions | XeenEventFlow / XeenEntranceScene |
 | OtherOptions / endings | unsupported | Clouds/Darkside intros and endings; World ending; Escape works | XeenTitleFlow |
 | Exploration main screen | partial | Movement, strafe, Shoot, Cast, Rest, Bash, Quests, Map, Info, Quick Ref, gem, portraits, Danger Sense/Spot Secret Doors/Direction Sense indicators work; Dismiss refuses | XeenEventFlow |
 | Combat main screen | partial | Attack, Block, Run, Shoot effects, Cast, charged-item Use (including Town Portal), Quick Fight/options, targets, turns, Info, Quick Ref, skill indicators; Run refuses when the run position's automatic Event faces the party | XeenEncounterFlow |
 | CharacterInfo | supported | Stats and popups, Items, Awards, Quick Ref, Exchange, Exit; original combat Exchange refusal | XeenCharacterDialogFlow |
-| ControlPanel | partial | Save, Save As, Load, Quit, Mr Wizard work; Mr Wizard in combat, Efx, Music, Speech, Text unavailable | XeenEventFlow |
+| ControlPanel | partial | Save, Save As, Load, Quit, Mr Wizard, Efx, Music, Speech, Text work; Mr Wizard in combat unavailable | XeenEventFlow |
 | ItemsDialog | partial | Categories, Equip, Remove, Discard, transfer, Use, Quest, Exit; free combat equipment/Discard/transfer, combat-party recipients, main-screen Use; sheet Use refused in combat; Recharge/Enchant/Gold supported | XeenInventoryFlow |
-| Input / StringInput / NumericInput | partial | Save names, Bank amounts work; general Event inputs unavailable | XeenTitleFlow / XeenEventFlow |
+| Input / StringInput / NumericInput | partial | Save names, Bank amounts, Arena level, Event passwords and mirrors work; Choose123 and TakeOrGive HowMuch unavailable | XeenTitleFlow / XeenEventPresenter |
 | SpellsDialog / CastSpell / SpellOnWho | partial | Select, Buy, Info, rows, scroll, Cast, New, member choice, cancel work; effects limited by Spells dimension | XeenCastingUi |
 | Tavern | partial | Food, Drink, Tip, Rumors, member selection, Exit work; Sign In awaits the inn | XeenEventFlow |
 | LocationMessage / NPC | partial | Acknowledge and Yes/No; other NPC modes unavailable | XeenEventPresenter |

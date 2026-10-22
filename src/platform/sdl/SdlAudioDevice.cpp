@@ -64,7 +64,10 @@ struct SdlAudioDevice::Impl {
    return !(event->type==SDL_AUDIODEVICEREMOVED && !event->adevice.iscapture &&
             event->adevice.which==*static_cast<const SDL_AudioDeviceID *>(context));
   },&old);
-  if(removal && onRemoved)onRemoved();
+  try {
+   if(removal && onRemoved)onRemoved();
+  }catch(const std::exception &e){fail(std::string("removal cleanup failure (")+e.what()+")");return;}
+  catch(...){fail("unknown removal cleanup failure");return;}
   if(!open())fail("failed to reopen the default output");
  }
  ~Impl(){close();auto &list=devices();list.erase(std::remove(list.begin(),list.end(),this),list.end());if(initialized)SDL_QuitSubSystem(SDL_INIT_AUDIO);}

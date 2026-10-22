@@ -149,7 +149,7 @@ rate-ratio buffering is required. Fixed FM/CD gain precedes resampling and
 its S16 clamp. Dependency changes must revalidate callback allocation,
 effect latency, rate transitions and callback-size independence with
 `sdl_audio_device`, `xeen_digital_audio` and `xeen_cd_audio`.
-The maintainer's Part C Windows play-test passed on 2026-10-22.
+The maintainer's M83 Part C Windows play-test passed on 2026-10-22.
 
 A timeline interpreter advances by an exact integer
 native-sample accumulator on the presentation clock and alone answers the game;
@@ -498,9 +498,11 @@ The script strips debug information into a staging copy (`build-rel` keeps its
 unstripped binary), copies exactly the non-system DLLs that `ldd` resolves, and
 only from `C:\msys64\ucrt64\bin`, and adds `LICENSE.txt`, `README.md`,
 `THIRD-PARTY.txt` (bundled libraries, the GCC runtime exception, the `v<version>`
-tag and the pinned ScummVM revision), the MSYS2 license texts under `licenses\`
-and the launcher: `tools/release/MMModern-launcher.ps1` with two CRLF batch
-files that start it, `MMModern.bat` and `Change game folder.bat`. The launcher
+tag and the pinned ScummVM revision), static Vorbis/Ogg notices and package
+versions, license texts under `licenses\` (Vorbis COPYING is retained from
+the upstream v1.3.7 release because the MSYS2 package omits it), and the
+launcher: `tools/release/MMModern-launcher.ps1` with two CRLF batch files that
+start it, `MMModern.bat` and `Change game folder.bat`. The launcher
 finds the game through GOG's registry entries or a folder picker, accepts only
 a folder with `WORLD\XEEN.DAT` and remembers it in
 `%LOCALAPPDATA%\MMModern\game-folder.txt`. The output directory must be outside the

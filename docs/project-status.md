@@ -1,11 +1,11 @@
 # MMModern - Project Status
 
-This describes what can be played and done now. **M82 is the latest completed
-and accepted milestone** ([plan](milestone-82-plan.md)): the game plays the
-original FM music and sound effects, and the control panel's sound buttons
-work. Every monster drops the treasure its original record gives (M81), the
-entrance scenes and the Warzone Arena work (M80), every
-Clouds town's services work (M79), and the whole of Clouds is open, with its
+This describes what can be played and done now. **M83 is the latest completed
+and accepted milestone** (2026-10-22; [plan](milestone-83-plan.md)): digital
+voices, CD speech and output recovery join the original FM music and effects,
+and the control panel's sound buttons work. Every monster drops the treasure
+its original record gives (M81), the entrance scenes and the Warzone Arena
+work (M80), every Clouds town's services work (M79), and the whole of Clouds is open, with its
 monsters, Events and every travel path (M78). Earlier
 milestones are in [project history](project-history.md), direction is in the
 [roadmap](roadmap.md), and build and dependency setup is in
@@ -45,13 +45,13 @@ an empty bank. **Load** continues a saved game from the same slot list.
   ranged attacks and flying. Every map load rebuilds its monsters at full HP
   and asleep, as the original does.
 - **Events.** Every Event operation the Clouds scripts use runs as in the
-  original, other than digital sound and CD speech, the Pyramid and the ending: signs, fountains, statues, NPC conversations, moved
+  original, other than the Pyramid and the ending: signs, fountains, statues, NPC conversations, moved
   walls and objects, monster spawns, conditions, rewards, random Events,
   teleports, stairs, the magic mirror and password prompts. Those exceptions
   say "not supported yet" without changing anything.
 - **Space** at an empty cell passes time and lets monsters act, as in DOS.
 - **Entrance scenes.** The Reaper, Golem, Dwarf Mine and Sphinx play their
-  original animations, with the speech silent for its original length.
+  original animations and speech; Efx off shows the captions instead.
   The Dwarf Mine always admits the party; at the others the right quest item
   opens the dungeon behind them, and without it the guardian refuses and the
   map reloads, as in the original. Four entrances lead to Darkside dungeons
@@ -240,14 +240,19 @@ without replaying any Event, reward, time or random draw.
 
 The game plays the original FM music and sound effects as the CD
 installation's own sound setup does: the Pro Audio Spectrum driver on an OPL3
-chip, in stereo, read from the installed data. Each map, town location and
+chip, in stereo, read from the installed data. Maps, implemented town locations and
 the title play their original song, fading between songs and
 continuing when the next place uses the same one. Walking, doors, walls,
 grates, combat, every spell, items, Events, services, Mr Wizard and death play
 their original effects. Music off silences the music at once; Efx off silences
 new effects, skips the wait for digital samples and shows the entrance-scene
 captions instead; Speech off skips CD speech and turns Text on. Other sound
-cards from the original installer are not supported yet. A missing
+cards from the original installer are not supported yet. Digital effects, shop
+and guild voices, entrance speech, the dream, death laugh and Event samples
+are audible. CD speech reads the installed OGG tracks; Text off hides the
+NPC body it replaces, restoring text when speech cannot be delivered. Output
+failures silence audio with one notice; removal reopens the current default
+output, and default/rate changes retain the song. A missing
 `WORLD/XEEN.CFG` refuses to start, as the original does.
 
 ## Interface
@@ -322,8 +327,9 @@ Ownership, from state outward:
   treasure, each with its own revision; sessions borrow it. It also keeps the
   audio owner (`XeenAudio`), which holds the loaded music driver: a timeline
   `PromusDriver` answers the game on its clock, and a render driver in
-  `XeenFmSource` follows the sound device through one request queue, so sound
-  never changes time, randomness or saves.
+  `XeenFmSource` follows the sound device through one request queue. Independent
+  VOC and decoded CD paths mix with FM at the output rate; logical deadlines
+  never depend on audible delivery, so sound never changes time, randomness or saves.
 - **Rules** (pure, in `games/xeen`): combat, monster approach and treasure,
   item generation, equipment, services, spells, terrain, Rest and time.
 - **Events**: `XeenEventSystem` decodes and runs the original Event scripts;
@@ -370,16 +376,16 @@ in [dependencies](dependencies.md).
   turning or Space (roadmap step 13).
 - **Skills.** Arms Master and Tracker are kept but do nothing; the reference
   gives them no effect either, and DOS has not been checked.
-- **Sound.** There are no digital samples, voices or CD speech and tracks yet
-  (M83): where the CD plays speech, a short notice appears, speech, shop voices,
-  the dream and the death laugh keep their original duration silently, and
-  Text off keeps text visible until speech plays. Only the CD installation's
-  sound driver is supported; the original's other sound cards wait for roadmap
-  step 16. Doors play their sound without the brief open-door picture, and
-  falls are silent. If the Windows default output changes
-  to another sample rate during play, the sound may crackle until restart. If
-  the sound output fails during play, the game session ends with an error; if
-  the output device is removed, the game continues silently until restart.
+- **Sound.** The Inn song (`inn.m`) has no production caller until the Inn/Sign
+  In screen (step 14). Fall/landing samples await the falling presentation;
+  title lightning belongs to step 15. F8 speech replay is omitted by maintainer
+  decision. The return-code-1 exit drain remains unidentified, with no
+  MMModern path. SDL 2.32's resampler makes FM about 0.066% fast at 48 kHz
+  (0.036% at 44.1 kHz) and CD about 0.050% fast at 48 kHz, unchanged since
+  M82 and inaudible. A bounded converter is a possible later fix
+  ([audio rules](rules/audio.md#sdl-resampler-rate-limitation)). Only the
+  installed CD sound driver is supported (other devices: step 16).
+  Doors lack the brief open-door picture.
 - **Presentation.** There is no intro and no falling animation. Unlike DOS,
   Moon Ray rolls every member's healing before its sparkles, and the border
   indicators do not restart their animation after a service screen.

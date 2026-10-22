@@ -107,6 +107,27 @@ int main() {try {
   check(silentAfterFailure,"Partial callback output escaped after failure");
  }
  injectedFailure=false;
+ // A removal hook can fail while clearing a real SDL converter. It must
+ // silence/notify once without reopening or escaping a direct removed() call.
+ for(bool unknown:{false,true}) {
+  SdlAudioStream stream(49716,48000);std::array<std::int16_t,1024> pcm{};
+  stream.pull([](auto *p,auto n){std::fill_n(p,n*2,1234);},pcm.data(),512);
+  unsigned prepares=0;std::atomic<unsigned> calls{0};
+  SdlAudioDevice device([&](auto *,auto,auto){++calls;},true,[&](int){++prepares;return true;},[&]{
+   if(unknown)throw 7;
+   failConversion=true;stream.clear();
+  });
+  until([&]{return calls.load()>0;});
+  SdlAudioDevice::removed(opened);
+  const auto stopped=calls.load();
+  check(!device.active() && prepares==1,"Failed removal cleanup reopened output");
+  check(device.check().find("removal cleanup failure")!=std::string::npos,"Missing removal failure notice");
+  check(device.check().empty(),"Removal failure notice repeated");
+  SdlAudioDevice::removed(opened);
+  std::this_thread::sleep_for(std::chrono::milliseconds(20));
+  check(calls==stopped,"Failed removal cleanup kept callback running");
+ }
+ injectedFailure=false;
  // Native event loop filters capture/unrelated/stale events and recovers the
  // opened output on the main thread after its callback has joined.
  {

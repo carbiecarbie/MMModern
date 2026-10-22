@@ -30,8 +30,9 @@ Every Vertigo service except the Inn works: the Tavern sells food and drinks
 and gives tips and rumors, the Bank holds gold and gems, the Ironworks buys,
 sells, identifies and fixes items, Training raises levels, the Temple heals,
 blesses and uncurses, and the Guild sells spells. Teachers teach Cartography
-and Pathfinder, and the map fills in as you explore. All 76 Clouds spells can
-be cast from the original Cast dialog, and charged items cast their powers.
+and Pathfinder, and the map fills in as you explore. All 76 Clouds spells
+can be cast from the original Cast dialog, and charged items cast their
+powers.
 
 The original title screen, main screen, character sheet, Items dialog, Quests
 and Awards screens and service screens all work with mouse or keyboard,
@@ -122,12 +123,18 @@ Main-screen buttons and portraits also work by mouse. Combat portraits show the
 remaining members after Run; click a portrait or press its corresponding F key
 to view that member. The acting member and selected enemy use the original icons.
 
+The original FM music, digital effects, shop and entrance voices, dream, death
+laugh and CD speech play together. Text off hides the NPC text replaced by
+speech; unavailable speech restores readable text. Audio follows the Windows
+default output at its own rate, including changes during play. Output failures
+silence audio with one notice and keep the game running; device removal
+reopens the default output.
+
 ## What is missing
 
-- Sound: the original FM music and effects play, but there are no digital
-  samples, voices or CD speech yet. Where the CD would play speech, a short
-  notice appears; speech, shop voices, the dream and the death laugh still take
-  their original time, in silence, and Text off keeps text visible.
+- Sound: the Inn song awaits Sign In (step 14), fall/landing samples await
+  their presentation, and title lightning awaits step 15. F8 speech replay
+  is omitted by maintainer decision.
 - The intros are not available.
 - Inn and party: there is no Inn, recruiting or character creation. Tavern
   Sign In and Dismiss say "not supported yet".
@@ -160,7 +167,7 @@ Reading Darkside metadata does not enable Darkside gameplay.
 ### Building
 
 The validated development setup is Windows x86-64 with MSYS2 UCRT64, CMake, SDL2,
-zlib and a separate ScummVM source/build tree. MMModern reuses selected ScummVM
+zlib, libvorbis/libogg and a separate ScummVM source/build tree. MMModern reuses selected ScummVM
 Xeen and support components; it does not run ScummVM's engine or SDL backend.
 Build and dependency setup, including the pinned ScummVM revision and release
 packaging, is in [docs/dependencies.md](docs/dependencies.md).
@@ -506,5 +513,5 @@ belong to their respective copyright holders.
 MMModern is distributed under the GNU General Public License version 3 or, at
 your option, any later version (GPL-3.0-or-later). Reused ScummVM code is copyright
 its respective contributors and licensed under GPLv3 or later. The release zip's
-`THIRD-PARTY.txt` lists the bundled libraries, their licenses and the
-corresponding source.
+`THIRD-PARTY.txt` lists the bundled libraries, including static libvorbisfile,
+libvorbis and libogg, their licenses and corresponding source.

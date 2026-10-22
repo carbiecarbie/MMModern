@@ -242,7 +242,7 @@ phase-change evidence; fades are measured within the game image alone.
 | Title idle | 29.383..35.983 s, 30 intervals; mean 220.000 ms, population SD 10.773 ms, range 200..234 ms | Four standard BIOS ticks predict 219.702 ms. Inverting the mean gives 18.1818 Hz, compatible with 18.2065 Hz at capture precision; this is not a direct PIT measurement. |
 | Title initial fade | First brightening 28.917 s; full brightness about 29.383 s | Approximately 466 ms; compatible with step-4 VGA retrace fading near 70 Hz. |
 | Dream fades | Gameplay darkening 6.167..6.633 s; dream brightening 6.717..7.167 s; dream darkening about 11.500..11.933 s; gameplay brightening 12.017..12.467 s | Approximately 466/450/433/450 ms. Visible transition spans are not exact helper entry/return times. A 60 fps capture cannot resolve all 33 writes at 70 Hz. |
-| Dream samples | Matched `dreams2` onset about 7.690 s, end 9.355 s; `laff1` onset about 9.356 s, end 11.323 s (audio PTS) | Sequential, approximately 1.665 + 1.967 s; consistent with 24,478 and 28,923 samples at the header rate `1000000/68` Hz. |
+| Dream samples | Matched `dreams2` onset about 7.690 s, end 9.355 s; `laff1` onset about 9.356 s, end 11.323 s (audio PTS) | Sequential, approximately 1.665 + 1.967 s. The later driver analysis establishes 24,471 and 28,916 transferred samples at fixed `1000000/68` Hz (1.664028 + 1.966288 s); the capture cannot resolve the sub-millisecond difference from header lengths. |
 | Dream Escape | Maintainer reports Escape did not interrupt it | Confirms no local skip at `0x1e605..0x1e72a`; no input overlay timestamps the press or settles deferred input. |
 
 Audio alignment cross-correlates each original PCM sample against the decoded
@@ -291,7 +291,7 @@ paused death recording shows 50,000 cycles, but its window at 3.000 s shows
 | Observation | Exact video PTS / measurement | Established boundary |
 | --- | --- | --- |
 | Death fire | First visible fire 11.300 s; bare final scene 11.550 s | About 250 ms, consistent with eighteen retrace publications near 70 Hz; capture cannot resolve every phase. No one-tick-per-frame hold. |
-| Death laugh | Original sample template matches audio at 11.772792..14.028556 s | 33,173 samples at `1000000/68` Hz: 2.255764 s. Output displacement is not an extra emulated tail. |
+| Death laugh | Original sample template matches audio at 11.772792..14.028556 s | The former header estimate is 33,173 samples (2.255764 s); the adopted driver count is 33,166 samples at fixed `1000000/68` Hz (2.255288 s). Output displacement is not an extra emulated tail. |
 | Death return | First closing hands 13.950 s; closure about 15.217 s, fade through about 15.617 s; title usable around 15.800 s | Return is the World of Xeen idle title. It is not the load selector. |
 | Gunther CD cue | Vertigo `(14,5,West)`, Event line 5, script offset `0x61` (CD/XEEN offset `0xfd97`), track 19, encoded 370..2161 | Carrier `xeen19.ogg`, requested range 3.600000..21.813333 s; `(end-start+25)/75 = 1366/75 = 18.213333 s`. |
 | Gunther face boundary | Complete dialog 1.817 s; first observed nonzero face 2.300 s; last nonzero 20.117 s; permanently idle from 20.267 s | Four disjoint carrier windows identify track/cue. Requested audio output ends about 20.231833 s, between the last busy and first idle face. Speech energy ending earlier does not establish CD idle. |
@@ -329,10 +329,10 @@ cleanup closes all windows (`0x28e92`, `0x0dd80`) without stopping CD.
 
 The original cue operands are audio globals, retained across normal play/stop
 and same-disc Event boundaries; disc initialization clears them (`0x3d7fa`,
-`0x3d800`, `0x3d806`). The installed maps 28 and 23 contain 29 NPC records,
-each with an immediately preceding same-context opcode 60, including all three
-mode-2 offers. This inventory establishes the normal supported paths, not every
-possible branch target or future map. Audio intervals and visual continuations
+`0x3d800`, `0x3d806`). The initial maps 28/23 inventory contained 29 NPC records. The complete
+Clouds inventory also includes maps 30 and 49; all cue addresses and boundary
+failures are recorded in [Audio](audio.md#cd-disc-addressing-and-boundary-failures).
+This inventory establishes the supported paths, not every future map. Audio intervals and visual continuations
 are transient; it does not establish a new durable save field. The read-only
 follow-up and record metadata remain in
 `D:/MModern-re/codex-m63-evidence/m63-part-b/npc-evidence/`.
@@ -1494,10 +1494,12 @@ descriptor bytes 0..7, but its offset, single uncompressed PCM block and
 terminator are intact: 39,243 audio bytes at 68 microseconds each, or
 2.668524 seconds. Together with `sphinx14.voc` (1.275068 seconds), this
 matches the capture; the second sample alone does not. DOS plays the first
-sample in full without checking descriptor text. The pinned
+programmed sample transfer without checking descriptor text. The pinned
 `Audio::checkVOCHeader` instead rejects it. Maintainer decision: follow DOS;
-the duration reader ignores descriptor text while retaining every structural
-check. [Quirk](../original-quirks.md#sv-sphinx13-descriptor).
+the fixed-layout `XeenVoc.h` reader ignores descriptor text and block structure,
+checks the +`0x20` PCM offset and count-plus-one bounds, and uses the fixed
+68-microsecond period. The adopted durations are 2.668048 and 1.274592 s;
+see [Audio](audio.md#installed-digital-driver-command-and-length-rules). [Quirk](../original-quirks.md#sv-sphinx13-descriptor).
 
 These captures did not include Effects off; the later Dwarf Effects-off
 capture is recorded in [Audio](audio.md#efx-voc-waits-and-entrance-captions).
