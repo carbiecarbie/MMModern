@@ -1,9 +1,10 @@
 # MMModern - Project Status
 
-This describes what can be played and done now. **M81 is the latest completed
-and accepted milestone** ([plan](milestone-81-plan.md)): every monster drops
-the treasure its original record gives, with Event treasure sharing it as in
-the original. The entrance scenes and the Warzone Arena work (M80), every
+This describes what can be played and done now. **M82 is the latest completed
+and accepted milestone** ([plan](milestone-82-plan.md)): the game plays the
+original FM music and sound effects, and the control panel's sound buttons
+work. Every monster drops the treasure its original record gives (M81), the
+entrance scenes and the Warzone Arena work (M80), every
 Clouds town's services work (M79), and the whole of Clouds is open, with its
 monsters, Events and every travel path (M78). Earlier
 milestones are in [project history](project-history.md), direction is in the
@@ -44,7 +45,7 @@ an empty bank. **Load** continues a saved game from the same slot list.
   ranged attacks and flying. Every map load rebuilds its monsters at full HP
   and asleep, as the original does.
 - **Events.** Every Event operation the Clouds scripts use runs as in the
-  original, other than audio, the Pyramid and the ending: signs, fountains, statues, NPC conversations, moved
+  original, other than digital sound and CD speech, the Pyramid and the ending: signs, fountains, statues, NPC conversations, moved
   walls and objects, monster spawns, conditions, rewards, random Events,
   teleports, stairs, the magic mirror and password prompts. Those exceptions
   say "not supported yet" without changing anything.
@@ -229,10 +230,25 @@ Tab or the gem opens the original control panel when nothing else is open:
 name, **Load** replaces the running game with a saved one, and **Quit** asks
 for confirmation. Saving is refused in combat, during service visits and on
 maps that forbid it. **Mr Wizard** returns the party to Vertigo's run position
-facing East and takes all its gems; in combat it says "not supported yet", as
-do Efx, Music, Speech and Text. Slots live under Local AppData (`MMModern/Saves/`); a damaged or foreign
+facing East and takes all its gems; in combat it says "not supported yet".
+**Efx**, **Music**, **Speech** and **Text** switch as in the original and are
+saved with the party; a new game starts with Text off. Slots live under Local AppData (`MMModern/Saves/`); a damaged or foreign
 slot is shown as unavailable and never overwritten. Loading continues exactly,
 without replaying any Event, reward, time or random draw.
+
+### Sound
+
+The game plays the original FM music and sound effects as the CD
+installation's own sound setup does: the Pro Audio Spectrum driver on an OPL3
+chip, in stereo, read from the installed data. Each map, town location, the
+Inn and the title play their original song, fading between songs and
+continuing when the next place uses the same one. Walking, doors, walls,
+grates, combat, every spell, items, Events, services, Mr Wizard and death play
+their original effects. Music off silences the music at once; Efx off silences
+new effects, skips the wait for digital samples and shows the entrance-scene
+captions instead; Speech off skips CD speech and turns Text on. Other sound
+cards from the original installer are not supported yet. A missing
+`WORLD/XEEN.CFG` refuses to start, as the original does.
 
 ## Interface
 
@@ -274,7 +290,8 @@ The [README](../README.md#entry-modes) gives every option.
 
 ## Save format
 
-There is **one current save format**, v17. It keeps the party, the world and
+There is **one current save format**, v18. It keeps the party with its four
+sound options, the world and
 one generic state per visited map: monster positions and lifecycle, removed or
 moved objects, changed cells, disabled Events, explored cells and the Tavern
 tip index. Monster HP and wake state are not saved, because every map load
@@ -302,7 +319,11 @@ Ownership, from state outward:
   world random state.
 - **Running program** (`XeenProgramState`, created by `main`): what the
   original keeps outside its saves, the last Temple prices and the pending
-  treasure, each with its own revision; sessions borrow it.
+  treasure, each with its own revision; sessions borrow it. Next to it the
+  audio owner (`XeenAudio`) holds the loaded music driver: a timeline
+  `PromusDriver` answers the game on its clock, and a render driver in
+  `XeenFmSource` follows the sound device through one request queue, so sound
+  never changes time, randomness or saves.
 - **Rules** (pure, in `games/xeen`): combat, monster approach and treasure,
   item generation, equipment, services, spells, terrain, Rest and time.
 - **Events**: `XeenEventSystem` decodes and runs the original Event scripts;
@@ -343,15 +364,19 @@ and its support status. Build and run instructions are in
 - **Inn and party.** There is no Inn, recruiting or character creation:
   Tavern Sign In and Dismiss say "not supported yet".
 - **Town scenes.** The Pyramid entrance and the Clouds ending are not
-  implemented; they say "not supported yet". Entrance-scene captions, which
-  DOS shows only with sound effects off, wait for audio.
+  implemented; they say "not supported yet".
 - **Skills.** Arms Master and Tracker
   are kept but do nothing; the reference gives them no effect either, and DOS
   has not been checked.
-- **Presentation.** There is no audio or intro. Where the CD
-  plays speech, a short notice appears; speech, shop voices, the dream and the
-  death laugh keep their original duration silently, and NPC faces move for
-  as long as the CD speech would play.
+- **Sound.** There are no digital samples, voices or CD speech and tracks yet
+  (M83): where the CD plays speech, a short notice appears, speech, shop voices,
+  the dream and the death laugh keep their original duration silently, and
+  Text off keeps text visible until speech plays. Only the CD installation's
+  sound driver is supported; the original's other sound cards wait for roadmap
+  step 16. Doors play their sound without the brief open-door picture, and
+  falls and combat Mr Wizard are silent. If the Windows default output changes
+  to another sample rate during play, the sound may crackle until restart.
+- **Presentation.** There is no intro.
 - **Darkside** gameplay is not supported.
 
 Next steps are in the [roadmap](roadmap.md).

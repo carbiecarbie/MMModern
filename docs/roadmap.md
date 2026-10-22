@@ -1,6 +1,6 @@
 # MMModern - Roadmap
 
-**M81 is the latest completed and accepted milestone.**
+**M82 is the latest completed and accepted milestone.**
 [Project status](project-status.md) describes what is playable now;
 [project history](project-history.md) records completed milestones. Reference
 provenance belongs to [dependencies](dependencies.md).
@@ -115,11 +115,12 @@ to Vertigo.
     DOS, and Event treasure shares it, keeping the original's duplicate of
     monster items. Lord Xeen's Scepter waits for step 15.
 12. **Audio** (Tier A, moved ahead of Event dispatch by the maintainer on
-    2026-10-21): [M82](milestone-82-plan.md) FM music and effects (OPL3
-    stereo, as the CD's installed driver plays them) and the
-    control panel's Efx, Music, Speech and Text buttons, then digital sounds,
-    speech and CD tracks on the existing clock, with the entrance-scene
-    captions DOS shows with Effects off (M80).
+    2026-10-21). First milestone completed and accepted in
+    [M82](milestone-82-plan.md) (save v18): FM music and effects in OPL3
+    stereo, as the CD's installed driver plays them, the control panel's
+    sound buttons and the Effects-off entrance captions. Next, M83: VOC
+    samples, voices, CD speech and CD tracks on the existing clock, Text off
+    hiding text, and the FM/PCM balance checked by ear against DOSBox.
 13. **Event dispatch as in DOS** (Tier A, two milestones). A 2026-10-21
     static analysis found that DOS runs a cell's Events again on every
     processed key while the party stands on a flagged cell (traps hurt

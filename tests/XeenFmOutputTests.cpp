@@ -178,5 +178,16 @@ int main(int argc,char **argv) {try {
   XeenAudio silent(id,{},loader,module,0,false,{},output);silent.enterTitle(0);silent.effect(20,0);output->pull(pcm.data(),block);
   check(writes==0 && std::all_of(pcm.begin(),pcm.end(),[](auto v){return v==0;}),"Silent device created a render driver");
  }
+ // A missing song stays pending: an effect's advance may swallow the error,
+ // but the next ordinary advance must still report it (DOS exits).
+ {
+  const auto missing=[&](const std::string &name,XeenSceneArchive archive){return name=="absent.m"?Bytes{}:assets.readArchiveResource(name,archive);};
+  XeenAudio broken(3,resource,missing,module,0,false);
+  broken.requestSong("absent.m",XeenSceneArchive::Clouds,207,0);
+  try {broken.effect(20,10*second);} catch(...) {}
+  bool reported=false;
+  try {broken.advance(11*second);} catch(const std::runtime_error &e) {reported=std::string(e.what()).find("absent.m")!=std::string::npos;}
+  check(reported && broken.pending(),"A missing song was lost instead of reported");
+ }
  std::cout<<"FM output pacing passed\n";return 0;
 }catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}

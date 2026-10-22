@@ -429,3 +429,18 @@ the original's duplicate of monster items on purpose, and runs before
 ordinary delivery; the "who will" recipient follows DOS, with an approved
 deviation until Event dispatch is reworked. Save v17.
 [Plan](milestone-81-plan.md).
+
+**M82 - Audio, FM music and effects** (`61112d9` plan, `d5bba59`,
+`6792341`, `a812944`, `946ac81`, `bcabfd6`, `3c4d7d0`, `6d71e82`, `088cfb0`,
+`57e161f`, `82eee2b`, `861d607`). Static analysis of the CD program and its
+sound driver, checked against the maintainer's DOSBox captures, came first.
+The game now plays the original FM music and sound effects as the installed
+CD setup does: MMModern's own reproduction of the Pro Audio Spectrum driver on
+an emulated OPL3 chip, in stereo, without ScummVM's system layer. Songs follow
+maps, locations, the Inn and the title; 127 original effect calls play. Sound
+follows the device while the game keeps its own clock, so it never changes
+time, randomness or saves; listening found late effects and crackle, fixed by
+that split and by opening the device at its own rate. The Efx, Music, Speech
+and Text buttons work and are saved with the party (save v18), and Efx off
+shows the entrance captions. Energy Blast now deals 2-6 times the caster's
+level, as in DOS. [Plan](milestone-82-plan.md).

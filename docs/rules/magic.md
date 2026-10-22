@@ -421,8 +421,8 @@ Both use group range; Insect Spray uses Spray (`pow10.icn`), sound FX17, while
 Turn Undead uses Energy Blast (`pow13.icn`), sound FX18.
 
 Sparks prepares `2L` electrical damage, costs `L` SP and one gem, and uses
-Sparks (`pow5.icn`), sound FX14 (deferred). Toxic Cloud prepares 10 poison damage, costs four
-SP and one gem, and uses Spray, sound FX17 (deferred). Both use group range and the ordinary
+Sparks (`pow5.icn`), sound FX14. Toxic Cloud prepares 10 poison damage, costs four
+SP and one gem, and uses Spray, sound FX17. Both use group range and the ordinary
 halving save. **Evidence: Reference only** for preparation/presentation;
 **DOS static (retained)** for the zero elemental-resistance contribution.
 Visual monster tints follow `Combat::DAMAGE_TYPE_EFFECTS`: Insect Spray and

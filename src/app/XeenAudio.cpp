@@ -46,9 +46,12 @@ struct XeenAudio::Impl {
  }
  void command(unsigned command) {if(clockDriver)clockDriver->command(command);if(retainOutput)output->command(command);}
  void loadBuffer(bool play) {if(clockDriver)clockDriver->load(buffer,play);if(retainOutput)output->load(buffer,play);}
- void load(const Song &song,bool play=true) {
-  buffer=bytes(loader(song.name,song.archive));if(buffer->empty())throw std::runtime_error("Missing or empty original song: "+song.name);
-  loaded=song.name;
+ PromusDriver::Bytes read(const Song &song) {
+  auto data=bytes(loader(song.name,song.archive));if(data->empty())throw std::runtime_error("Missing or empty original song: "+song.name);
+  return data;
+ }
+ void load(const Song &song,bool play=true,PromusDriver::Bytes data={}) {
+  buffer=data?std::move(data):read(song);loaded=song.name;
   loadBuffer(play);
  }
  void begin(Song song) {
@@ -67,19 +70,22 @@ struct XeenAudio::Impl {
    if(phase>=threshold){phase-=threshold;if(clockDriver)clockDriver->tick();}
   }
   if(pending && (!clockDriver || !clockDriver->fadeSpeed()) && now>=speechEnd) {
+   // Read first: a missing song stays pending and fails every later advance,
+   // so the main loop reports it even when an effect's advance swallowed it.
+   auto data=read(*pending);
    if(retainOutput)output->fadeBarrier();
    auto song=std::move(*pending);pending.reset();
    if(titleExit) {
-    if(options.music)command(0);load(song,false);titleExit=false;
+    if(options.music)command(0);load(song,false,std::move(data));titleExit=false;
     if(afterTitle){auto next=std::move(*afterTitle);afterTitle.reset();command(next.fade);pending=std::move(next);}
-   }else load(song,options.music);
+   }else load(song,options.music,std::move(data));
   }
  }
 };
 XeenAudio::XeenAudio(unsigned id,PromusDriver::Bytes driver,Loader l,std::vector<std::uint8_t> module,std::uint64_t now,bool device,PromusDriver::Sink trace,std::shared_ptr<XeenFmSource> output):
  _impl(new Impl(id,std::move(driver),std::move(l),std::move(module),now,device,std::move(trace),std::move(output))){}
 XeenAudio::~XeenAudio()=default;
-std::shared_ptr<XeenAudio> XeenAudio::installed(const GameInstallation &installation,XeenAssetSource &assets,std::uint64_t now,bool device) {
+std::shared_ptr<XeenAudio> XeenAudio::installed(const GameInstallation &installation,XeenAssetSource &,std::uint64_t now,bool device) {
  if(!installation.configuration)throw std::runtime_error("Missing installed WORLD/XEEN.CFG");
  auto cfg=read(*installation.configuration);if(cfg.size()<6)throw std::runtime_error("Truncated WORLD/XEEN.CFG");
  const unsigned id=cfg[4]|unsigned(cfg[5])<<8;
@@ -95,7 +101,6 @@ std::shared_ptr<XeenAudio> XeenAudio::installed(const GameInstallation &installa
   try{return source->readArchiveResource(name,archive);}catch(const std::exception &e){throw std::runtime_error("Original audio resource "+name+": "+e.what());}
  };
  auto resource=id==3?bytes(loader("promus",XeenSceneArchive::IntroOnly)):PromusDriver::Bytes{};
- (void)assets;
  return std::make_shared<XeenAudio>(id,resource,std::move(loader),read(*installation.uiModule),now,device);
 }
 unsigned XeenAudio::deviceId() const{return _impl->id;}

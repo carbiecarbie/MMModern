@@ -421,8 +421,8 @@ action-driven monster opportunity and terrain arrival on false. Ordinary
 redraw/idle monster scheduling still runs; a refusal does not freeze it.
 The pin agrees on Mountaineer and skill aggregation
 but omits the Pathfinder wall consumer. MMModern implements both consumers in
-`XeenMovement`, using `XeenSkills` for holder counts; FX 21 remains silent until
-audio exists. Fixed area admission still applies after a successful skill check.
+`XeenMovement`, using `XeenSkills` for holder counts; the refusal plays FX 21
+(M82). Fixed area admission still applies after a successful skill check.
 See [offsets and calibration](evidence.md#outdoor-movement-skills)
 and [the original/reference difference](../original-quirks.md#sv-pathfinder-movement).
 

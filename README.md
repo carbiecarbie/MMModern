@@ -124,15 +124,14 @@ to view that member. The acting member and selected enemy use the original icons
 
 ## What is missing
 
-- Sound: there is no audio. Where the CD would play speech, a short notice
-  appears. Speech, shop voices, the dream and the death laugh still take their
-  original time, in silence.
-- The intros and the control panel's sound and text options are not
-  available.
+- Sound: the original FM music and effects play, but there are no digital
+  samples, voices or CD speech yet. Where the CD would play speech, a short
+  notice appears; speech, shop voices, the dream and the death laugh still take
+  their original time, in silence, and Text off keeps text visible.
+- The intros are not available.
 - Inn and party: there is no Inn, recruiting or character creation. Tavern
   Sign In and Dismiss say "not supported yet".
-- The Pyramid entrance says "not supported yet", and entrance scenes show
-  no captions until audio arrives.
+- The Pyramid entrance says "not supported yet".
 - Darkside gameplay is not supported.
 
 The [project status](https://github.com/carbiecarbie/MMModern/blob/main/docs/project-status.md)

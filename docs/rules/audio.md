@@ -1,7 +1,8 @@
 # Audio
 
-This chapter describes original audio behavior and its evidence. It does not
-claim that audio is implemented. See the [milestone 82 plan](../milestone-82-plan.md)
+This chapter describes original audio behavior and its evidence. M82
+implements it in `PromusDriver`, `XeenAudio` and `XeenFmSource`, except where
+an entry says otherwise. See the [milestone 82 plan](../milestone-82-plan.md)
 for scope and the [evidence labels](README.md#how-to-interpret-evidence).
 
 **Maintainer decision, 2026-10-21:** M82 reproduces CD `promus` (music device
@@ -293,8 +294,7 @@ factor of two (`xeen_promus`). No other audible equivalence is claimed.
 | Rate | Pin passes 72.8 to integer `Chip::start`, resulting in 72 Hz. DOS divisor gives approximately 72.80 Hz. |
 | Resource choice | DOS loads INTRO promus; pin's AdLib path loads `blastmus` from its active archive. |
 
-These are implementation requirements for the approved driver, not claims
-that MMModern already implements the differences. Master was not rechecked.
+MMModern's `PromusDriver` follows DOS in each row. Master was not rechecked.
 
 ## Party options and New or Load
 

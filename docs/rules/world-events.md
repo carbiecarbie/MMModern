@@ -481,11 +481,13 @@ inter-speech pause seven. Dwarf's three-tick phase check uses the phase's
 existing mark, not a new pause after speech. Loops without explicit waits
 use two 70-Hz retraces per iteration, the maintainer's DOSBox-derived rate.
 Each speech phase follows its original VOC duration silently through the
-existing duration loader and passive voice-audio notice. No captions appear.
+existing duration loader and passive voice-audio notice; with Effects off the
+VOC wait is skipped and the caption appears instead (M82, see
+[audio](audio.md#efx-voc-waits-and-entrance-captions)).
 VOC descriptor text does not gate timing: DOS plays the structurally intact
 `sphinx13.voc` in full despite its damaged descriptor
 ([evidence and reference difference](../original-quirks.md#sv-sphinx13-descriptor)).
-Effects-off captions wait for audio. The approved omission of the load-time
+The approved omission of the load-time
 "Please Wait..." box also applies here.
 
 Frames and jitter consume gameplay randomness. Reaper draws frame 0..4
