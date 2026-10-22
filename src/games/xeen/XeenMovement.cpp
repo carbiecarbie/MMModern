@@ -161,6 +161,14 @@ std::bitset<256> XeenMovement::component(const XeenMap &map, int anchorX, int an
 	return cells;
 }
 
+bool XeenMovement::doorAhead(XeenWorld &world, const XeenCamera &camera) {
+	if (world.map(camera.mapId).geometry.isOutdoors()) return false;
+	const auto source = world.sampleCell(camera.mapId,camera.x,camera.y);
+	if (!source) return false;
+	const auto wall = wallAt(*source->cell,camera.direction);
+	return wall == 4 || wall == 13;
+}
+
 XeenMovementResult XeenMovement::apply(XeenWorld &world, XeenCamera &camera,
 		NavigationAction action, Capabilities capabilities) const {
 	const XeenMap &currentMap = world.map(camera.mapId);

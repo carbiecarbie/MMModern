@@ -34,6 +34,9 @@ public:
 		int toX, int toY, Capabilities capabilities);
 	static std::bitset<256> component(const XeenMap &map, int anchorX, int anchorY,
 		Capabilities capabilities);
+	// Indoor front wall drawn as a door (types 4 and 13, the pin's _wo[107]);
+	// an admitted forward move through it requests FX47 (DAT 0x0cf93..0x0cfb7).
+	static bool doorAhead(XeenWorld &world, const XeenCamera &camera);
 	XeenMovementResult apply(XeenWorld &world, XeenCamera &camera,
 		NavigationAction action, Capabilities capabilities = {false,false,false,false}) const;
 };

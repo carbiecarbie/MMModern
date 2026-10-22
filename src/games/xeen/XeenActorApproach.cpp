@@ -548,7 +548,10 @@ XeenEncounterResult XeenActorApproach::regionalTransition(XeenWorld &world,XeenP
 						const auto navigation=*action==XeenEncounterAction::Forward?NavigationAction::MoveForward:
 							*action==XeenEncounterAction::Backward?NavigationAction::MoveBackward:
 							*action==XeenEncounterAction::StrafeLeft?NavigationAction::StrafeLeft:NavigationAction::StrafeRight;
+                        const bool door=*action==XeenEncounterAction::Forward && XeenMovement::doorAhead(world,c.camera);
                         result=XeenMovement().apply(world,c.camera,navigation,XeenMovement::capabilities(party));
+                        // The opening-door redraw itself is not drawn yet (Complete Clouds).
+                        if(door && result==XeenMovementResult::Moved)xeenEmitFmEffect(effect,47);
                         if(c.camera.mapId!=camera.mapId) {
                             const auto admitted=world.prepareEventTransition(c.camera);check();
                             if(!admitted) {refused.arrivalRefusal="Destination is not supported yet";return refused;}

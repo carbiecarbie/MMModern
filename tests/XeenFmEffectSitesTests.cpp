@@ -16,6 +16,7 @@ void inventory(const std::filesystem::path &rules) {
         {"0x0b308","34"},
         {"0x0c903","10"},
         {"0x0cf48","21 from 0xcf46; 46 from 0xcf6a via 0xcf6c"},
+        {"0x0cfa9","47"},
         {"0x0d442","7 + toggled stepping bit (7 or 8)"},
         {"0x0d5c1","21"},
         {"0x1b1a1","28"},
@@ -139,9 +140,9 @@ void inventory(const std::filesystem::path &rules) {
         {"0x31f07","20"},
         {"0x31f61","20"},
     };
-    check(std::size(sites)==126,"C1/C2 inventory size changed");
+    check(std::size(sites)==127,"C1/C2 inventory size changed");
     const auto count=[&](const char *needle){unsigned n=0;for(std::size_t p=0;(p=text.find(needle,p))!=text.npos;p+=std::char_traits<char>::length(needle))++n;return n;};
-    check(count(" | C1 | High:")==40 && count(" | C2 | High:")==86 && count(" | Not reachable yet:")==7,
+    check(count(" | C1 | High:")==41 && count(" | C2 | High:")==86 && count(" | Not reachable yet:")==6,
         "full 133-site reconciliation changed");
     std::set<std::string> unique;
     for(const auto &[site,expression]:sites) {
@@ -267,6 +268,32 @@ std::vector<std::uint8_t> passableBash(Inputs &in,const GameInstallation &instal
     check(f.c.x!=start.camera.x || f.c.y!=start.camera.y,"passable Bash did not move");
     check(enabled?fx==std::vector<unsigned>{8}:fx.empty(),"passable Bash must take the step FX path, without FX31");
     check(f.programState.steppingFx==1,"passable Bash did not toggle the process step bit while muted");
+    auto after=f.snapshot();after.soundOptions.efx=true;return XeenSaveFormat::encode(after);
+}
+std::vector<std::uint8_t> door(Inputs &in,const GameInstallation &installation,bool enabled) {
+    auto start=in.service();start.soundOptions.efx=enabled;
+    for(auto &a:start.map(28).monsters->slots){a.x=a.y=-128;a.lifecycle=XeenActorLifecycle::Defeated;a.accounted=true;}
+    XeenWorld query(in.mapLoader());bool found=false;
+    constexpr int dx[]{0,1,0,-1},dy[]{1,0,-1,0};
+    for(int y=1;y<31 && !found;++y)for(int x=1;x<31 && !found;++x)for(unsigned d=0;d<4;++d) {
+        const XeenCamera camera{28,x,y,XeenDirection(d)};
+        const auto cell=query.sampleCell(28,x,y),next=query.sampleCell(28,x+dx[d],y+dy[d]);
+        if(cell && next && XeenMovement::doorAhead(query,camera) &&
+            wallAt(*cell->cell,XeenDirection(d))<query.map(28).geometry.difficulties[0] && !(next->cell->rawAttributes&kXeenAutomaticEventFlag)) {
+            start.camera=camera;found=true;break;
+        }
+    }
+    check(found,"original Vertigo door fixture changed");
+    Fixture f(in,start);std::vector<unsigned> fx;attach(f,installation,fx);
+    f.act(NavigationAction::MoveForward);quiet(f);
+    check(f.c.x!=start.camera.x || f.c.y!=start.camera.y,"forward move through a door did not move");
+    check(enabled?fx==std::vector<unsigned>{47,8}:fx.empty(),"door must request 47 before the step suffix, through the Efx gate");
+    const auto back=f.c;f.act(NavigationAction::MoveBackward);quiet(f);
+    check(f.c.x==start.camera.x && f.c.y==start.camera.y && back.direction==f.c.direction,"backward return through the door failed");
+    check(enabled?fx==std::vector<unsigned>{47,8,7}:fx.empty(),"backward move through a door must not request 47");
+    f.act(NavigationAction::TurnRight);quiet(f);f.act(NavigationAction::StrafeLeft);quiet(f);
+    check(f.c.x!=start.camera.x || f.c.y!=start.camera.y,"strafe through a door did not move");
+    check(enabled?fx==std::vector<unsigned>{47,8,7,8,7}:fx.empty(),"strafe through a door must not request 47");
     auto after=f.snapshot();after.soundOptions.efx=true;return XeenSaveFormat::encode(after);
 }
 std::vector<std::uint8_t> projectileWall(Inputs &in,const GameInstallation &installation,bool wall,bool spell,bool enabled) {
@@ -493,8 +520,9 @@ int main(int argc,char **argv) {
         check(event(in,*installation,true)==event(in,*installation,false),"PlayFX Efx setting altered gameplay snapshot");
         check(wall(in,*installation,true)==wall(in,*installation,false),"wall/Bash Efx setting altered gameplay snapshot");
         check(passableBash(in,*installation,true)==passableBash(in,*installation,false),"passable Bash Efx setting altered gameplay snapshot");
+        check(door(in,*installation,true)==door(in,*installation,false),"door Efx setting altered gameplay snapshot");
         check(service(in,*installation,true)==service(in,*installation,false),"service Efx setting altered gameplay snapshot");
         check(combat(in,*installation,true)==combat(in,*installation,false),"combat Efx setting altered gameplay snapshot");
-        std::cout<<"126 reconciled C1/C2 sites; original spell/item/travel/refusal and C1 witnesses; Efx-off snapshots identical\n";
+        std::cout<<"127 reconciled C1/C2 sites; original spell/item/travel/refusal and C1 witnesses; Efx-off snapshots identical\n";
     }catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}
 }

@@ -481,12 +481,13 @@ intro drivers or indirect dispatch. EXE SHA-256:
 All effect IDs below are decimal. Expressions denote runtime IDs. The Efx
 Off panel branch's ID 0 is gated out. The function column identifies the
 existing action owner, including shared helpers reached by spells, Events or
-ordinary actions. C1 has 40 non-spell or
-shared gameplay sites; C2 has 86 casting/spell-handler sites. Seven sites are
+ordinary actions. C1 has 41 non-spell or
+shared gameplay sites; C2 has 86 casting/spell-handler sites. Six sites are
 not reachable yet: Darkside smith animation, character creation, Inn
-recruitment, two fall-animation cues, the temporary opening-door redraw and
-combat Mr Wizard. The last four await the roadmap's "Complete Clouds" objective
-(maintainer classification, 2026-10-21). No scanned call was discarded as a non-effect. Confidence refers
+recruitment, two fall-animation cues and combat Mr Wizard. The last three await
+the roadmap's "Complete Clouds" objective (maintainer classification,
+2026-10-21). The opening-door cue plays since 2026-10-22 (maintainer); its
+one-frame open-door redraw still awaits "Complete Clouds". No scanned call was discarded as a non-effect. Confidence refers
 to the stated original action and argument paths, not implementation coverage.
 
 **DOS static, high (C1 reconciliation, 2026-10-21):** incoming branches matter:
@@ -528,7 +529,7 @@ and healing presentation per member. C2 keeps that preparation unchanged
 | `0x0b308` | 34 | `XeenEventFlow::advanceDeath` | Clouds death laugh frame 15 | C1 | High: DAT 0xb301..0xb308 |
 | `0x0c903` | 10 | `XeenEventFlow::serviceBarrier` | successful grate opening, after both wall faces change and before redraw | C1 | High: DAT 0xc794..0xc91a; grate evidence in evidence.md |
 | `0x0cf48` | 21 from 0xcf46; 46 from 0xcf6a via 0xcf6c | `XeenMovement::apply; XeenEncounterFlow::advanceJourney` | outdoor admission refusal (21); indoor wall or swamp refusal without Swimming/Walk on Water (46) | C1 | High: DAT 0xcf46..0xcf91; Part A DOSBox promus-wall-bump matches effect 46 |
-| `0x0cfa9` | 47 | none; absent animation/combat action | forward opening-door redraw during admitted indoor movement | Not reachable yet: roadmap long-term 2 (Complete Clouds) | High: DAT 0xcf93..0xcfb7; pinned checkMoveDirection |
+| `0x0cfa9` | 47 | `XeenMovement::doorAhead; XeenEncounterFlow::advanceJourney` | admitted indoor forward move through a front door wall (types 4 and 13, the pin's `_wo[107]`), before the step suffix; the opening-door redraw itself is not drawn yet (Complete Clouds) | C1 | High: DAT 0xcf93..0xcfb7; pinned checkMoveDirection |
 | `0x0d442` | 7 + toggled stepping bit (7 or 8) | `XeenEncounterFlow::advanceJourney; XeenEventFlow::serviceBarrier` | movement/turn step-time suffix, including passable indoor B, excluding Space and W; toggle before request | C1 | High: DAT 0xd42b..0xd448; pinned stepTime |
 | `0x0d5c1` | 21 | `XeenEncounterFlow::beginShoot` | Shoot refused because no active member can shoot | C1 | High: DAT 0xd558..0xd5c7; pinned perform(S) |
 | `0x11692` | 11 | none; absent animation/combat action | falling animation starts after view setup | Not reachable yet: roadmap long-term 2 (Complete Clouds) | High: DAT 0x11686..0x11697; pinned startFalling |
