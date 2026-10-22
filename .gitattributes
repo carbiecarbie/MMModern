@@ -9,3 +9,5 @@ CMakeLists.txt text eol=lf
 *.md text eol=lf
 .gitignore text eol=lf
 .gitattributes text eol=lf
+# Upstream license texts ship byte-identical.
+tools/release/licenses/* -text
