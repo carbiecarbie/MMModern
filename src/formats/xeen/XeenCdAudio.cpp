@@ -57,10 +57,9 @@ std::vector<XeenCdExtent> inspectXeenCdTracks(const std::vector<XeenCdTrack> &tr
 XeenCdRequest mapXeenCdCue(const std::vector<XeenCdExtent> &tracks,unsigned disc,const XeenEventCdSpeech &cue) {
  XeenCdRequest result;result.duration=xeenCdSpeechDurationNanoseconds(cue);
  if(!result.duration)return result;
- for(const auto &extent:tracks)if(extent.track.disc==disc && !extent.track.error.empty()) {
-  result.error=extent.track.error;return result;
- }
- const auto requested=std::find_if(tracks.begin(),tracks.end(),[&](const auto &e){return e.track.disc==disc && e.track.number==cue.track;});
+ const bool badSheet=std::any_of(tracks.begin(),tracks.end(),[&](const auto &e){return e.track.disc==disc && !e.track.error.empty();});
+ // An unparsed sheet supplies no addresses, just like a disc without tracks.
+ const auto requested=badSheet?tracks.end():std::find_if(tracks.begin(),tracks.end(),[&](const auto &e){return e.track.disc==disc && e.track.number==cue.track;});
  const auto begin=std::int64_t(frames(cue.start))-25;
  // A plain GAME copy still has the known refused track-2/data boundary.
  if(requested==tracks.end()) {

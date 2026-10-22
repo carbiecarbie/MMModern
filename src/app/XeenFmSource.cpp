@@ -2,7 +2,7 @@
 #include "compat/scummvm/XeenOpl3.h"
 #include <algorithm>
 #include <atomic>
-#include <deque>
+#include <list>
 #include <exception>
 #include <mutex>
 #include <optional>
@@ -13,9 +13,11 @@ struct XeenFmSource::Impl {
  struct Operation {Kind kind;PromusDriver::Bytes bytes;unsigned value=0;};
  XeenOpl3 chip;PromusDriver::Sink trace;
  std::unique_ptr<PromusDriver> driver;
- std::vector<Operation> requests;std::mutex queue;
+ // Nodes are allocated by the producer. Splicing into the consumer queue
+ // transfers ownership without allocating in the audio callback.
+ std::list<Operation> requests;std::mutex queue;
  // Only the consumer touches pending operations, fade state and driver time.
- std::deque<Operation> pending;std::optional<std::uint64_t> barrierTick;
+ std::list<Operation> pending;std::optional<std::uint64_t> barrierTick;
  std::uint64_t sample=0;std::atomic<std::uint64_t> publishedSample{0};
  mutable std::mutex errors;std::exception_ptr failure;
  bool initialized=false,failed=false;
@@ -61,9 +63,7 @@ void XeenFmSource::pull(std::int16_t *stereo,std::size_t frames) {
  try {
   if(s.driver) {
    s.tickDue();
-   std::vector<Impl::Operation> incoming;
-   {std::lock_guard<std::mutex> lock(s.queue);incoming.swap(s.requests);}
-   for(auto &op:incoming)s.pending.push_back(std::move(op));
+   {std::lock_guard<std::mutex> lock(s.queue);s.pending.splice(s.pending.end(),s.requests);}
    s.apply();
    for(std::size_t i=0;i<frames;++i,++s.sample) {
     s.tickDue();s.apply();s.chip.sample(stereo+i*2);

@@ -1,6 +1,7 @@
 #include "formats/xeen/XeenCdAudio.h"
 #include "games/xeen/XeenInstallationDetector.h"
 #include "app/XeenAudio.h"
+#include "app/XeenFmSource.h"
 #include "app/XeenEventFlow.h"
 #include "games/xeen/XeenPartyLoader.h"
 #include "games/xeen/XeenEventLoader.h"
@@ -8,21 +9,94 @@
 #include "XeenRemoveTestSupport.h"
 #include "formats/xeen/XeenAssetSource.h"
 #include "XeenTestInstallation.h"
+#include "platform/sdl/SdlAudioDevice.h"
+#define SDL_MAIN_HANDLED
+#include <SDL.h>
 #include <algorithm>
 #include <chrono>
 #include <fstream>
 #include <iostream>
 #include <thread>
 #include <future>
+#include <cmath>
+#include <atomic>
 using namespace mmodern;
+namespace mmodern {
+struct XeenCdAudioTestAccess {static bool pending(const XeenAudio &audio){return audio.cdDecodePending();}};
+}
+namespace {SDL_AudioDeviceID openedDevice=0;bool failOpen=false;std::atomic<bool> conversionError{false};}
+extern "C" SDL_AudioDeviceID __real_SDL_OpenAudioDevice(const char *,int,const SDL_AudioSpec *,SDL_AudioSpec *,int);
+extern "C" SDL_AudioDeviceID __wrap_SDL_OpenAudioDevice(const char *name,int capture,const SDL_AudioSpec *want,SDL_AudioSpec *have,int changes) {
+ if(failOpen){SDL_SetError("injected reopen failure");return 0;}
+ openedDevice=__real_SDL_OpenAudioDevice(name,capture,want,have,changes);return openedDevice;
+}
+extern "C" int __real_SDL_AudioStreamGet(SDL_AudioStream *,void *,int);
+extern "C" int __wrap_SDL_AudioStreamGet(SDL_AudioStream *stream,void *out,int bytes) {
+ if(conversionError.exchange(false)){SDL_SetError("injected conversion failure");return -1;}
+ return __real_SDL_AudioStreamGet(stream,out,bytes);
+}
 namespace {
 void check(bool value,const char *message) {if(!value)throw std::runtime_error(message);}
 void decoded(XeenAudio &audio) {
  const auto limit=std::chrono::steady_clock::now()+std::chrono::seconds(5);
- while(audio.cdDecodePending() && std::chrono::steady_clock::now()<limit)std::this_thread::yield();
- check(!audio.cdDecodePending(),"CD worker did not finish");
+ while(XeenCdAudioTestAccess::pending(audio) && std::chrono::steady_clock::now()<limit)std::this_thread::yield();
+ check(!XeenCdAudioTestAccess::pending(audio),"CD worker did not finish");
 }
 template<class F> void rejects(F f) {bool failed=false;try{f();}catch(const std::exception &){failed=true;}check(failed,"Invalid input was accepted");}
+void failurePolling(const GameInstallation &installation,XeenAssetSource &assets,const std::vector<XeenCdExtent> &extents,
+                    const std::vector<std::uint8_t> &module) {
+ const XeenFontFormat font(assets.readArchiveResource("fnt"));
+ const auto loader=[&](const auto &name,auto archive){return assets.readArchiveResource(name,archive);};
+ const auto driver=std::make_shared<const std::vector<std::uint8_t>>(loader("promus",XeenSceneArchive::IntroOnly));
+ std::vector<std::uint64_t> expected;std::vector<PromusDriver::Write> expectedWrites;
+ for(unsigned failure=0;failure<6;++failure) {
+  std::atomic<bool> callbackError{false};std::vector<PromusDriver::Write> writes;
+  auto fm=std::make_shared<XeenFmSource>([&](const auto &){if(callbackError.exchange(false))throw std::runtime_error("injected callback failure");});
+  XeenProgramState program;
+  program.audio=std::make_shared<XeenAudio>(3,driver,loader,module,0,failure!=5,[&](const auto &w){writes.push_back(w);},fm);
+  program.audio->cdTracks(extents);program.audio->enterTitle(0);
+  auto party=XeenPartyLoader().loadInitialCloudsParty(assets);auto options=XeenSoundOptions{};options.text=false;party.soundOptions=options;
+  XeenCamera camera{1,1,1,XeenDirection::North};XeenGameFlags flags;
+  XeenWorld world([](auto id){return remove_test::map(id);});
+  const auto script=remove_test::script(1,{remove_test::record(1,1,0,60,{19,114,1,113,8}),
+    remove_test::record(1,1,1,5,{0,1,9,1,99}),remove_test::record(1,1,2,0x12)});
+  XeenEventSystem events([&](auto){return script;},[](auto){return XeenEventTextFile{1,"test.txt",true,{"Title","Body"}};});
+  IndexedFrame base(320,200,std::vector<std::uint8_t>(64000,90));std::uint64_t now=0;unsigned random=0;
+  XeenEventFlow flow(program,world,events,party,camera,flags,font,
+    [&](auto){return XeenEventFlow::Composition{base,false};},[](auto &,auto,auto){},{},[&]{++random;return 2;},
+    nullptr,{},nullptr,{},&assets.uiText(),[&]{return now;});
+  flow.drawDialogSprite=[](auto &,const char *,unsigned,int,int){};flow.handle(InteractionAction{});
+  decoded(*program.audio);flow.framePresented(flow.frame().presentation());
+  const auto end=std::chrono::steady_clock::now()+std::chrono::seconds(5);
+  if(failure>0 && failure<5) {
+   while(!fm->samples() && std::chrono::steady_clock::now()<end)std::this_thread::yield();
+   check(fm->samples()>0,"Failure witness callback never started");
+   if(failure==1)callbackError=true;
+   if(failure==2)conversionError=true;
+   if(failure>=3){failOpen=failure==4;SdlAudioDevice::removed(openedDevice);failOpen=false;}
+   if(failure!=3) {
+    while(program.audio->outputActive() && std::chrono::steady_clock::now()<end)std::this_thread::yield();
+    check(!program.audio->outputActive(),"Injected failure was not observed");
+   }
+  }
+  std::vector<std::uint64_t> trace;
+  for(unsigned tick:{1,2,3,5,10,20}) {
+   now=PresentationClock::after(0,tick);program.audio->advance(now);
+   // A notice may publish a cosmetic fallback frame. Servicing the same
+   // timestamp again must retain the very same NPC animation/RNG schedule.
+   for(unsigned cycle=0;cycle<2;++cycle)if(flow.updatePresentation())flow.framePresented(flow.frame().presentation());
+   trace.insert(trace.end(),{random,program.audio->cdDeadline(now).value_or(0),program.audio->samples(),program.audio->ticks(),flow.presenter().npcTiming().deadline});
+  }
+  if(failure>0 && failure<5)check(flow.presenter().window11Enabled(),"Output loss did not restore Text-off NPC body");
+  flow.respond(*flow.presentationGeneration(),XeenPresentationResponse::Acknowledged);
+  trace.push_back(program.audio->cdBusy(now));trace.push_back(random);
+  if(!failure){expected=trace;expectedWrites=writes;}
+  else {
+   check(trace==expected,"Output failure changed gameplay timing or RNG trace");
+   check(writes.size()==expectedWrites.size() && std::equal(writes.begin(),writes.end(),expectedWrites.begin(),[](const auto &a,const auto &b){return a.tick==b.tick && a.reg==b.reg && a.value==b.value && a.interrupt==b.interrupt;}),"Output failure changed logical FM trace");
+  }
+ }
+}
 void npcPolling(const GameInstallation &installation,XeenAssetSource &assets,
                 const std::vector<XeenCdExtent> &extents) {
  const XeenFontFormat font(assets.readArchiveResource("fnt"));
@@ -275,6 +349,7 @@ int main(int argc,char **argv) {try {
  std::ifstream moduleFile(installation->uiModule->physicalPath,std::ios::binary);
  const std::vector<std::uint8_t> module((std::istreambuf_iterator<char>(moduleFile)),{});
  const auto loader=[&](const std::string &name,XeenSceneArchive archive){return assets.readArchiveResource(name,archive);};
+ failurePolling(*installation,assets,extents,module);
  // A deliberately blocked decoder proves cue start does not wait for PCM and
  // a stopped request cannot publish after the worker completes.
  std::promise<void> release,entered;auto gate=release.get_future().share();auto started=entered.get_future();
@@ -315,6 +390,13 @@ int main(int argc,char **argv) {try {
  check(!audio.cdBusy(900000000002ULL) && !audio.retainedCdCue(),"Actual disc change did not stop/clear");
  // Missing/undecodable delivery produces one consumable notice per start.
  XeenCdTrack badSheet;badSheet.disc=1;badSheet.error="Unsupported audio metadata";
+ {
+  XeenAudio bad(0,{},loader,module,0,false);bad.cdTracks(inspectXeenCdTracks({badSheet}));
+  // Both map 30 sites issue this cue. Neither may acquire a logical wait.
+  for(unsigned site=0;site<2;++site) {
+   bad.retainCdCue({2,24,416});check(!bad.startCd(site) && !bad.cdBusy(site) && !bad.cdDeadline(site),"Unparsed disc metadata created map30 wait");
+  }
+ }
  for(auto media:{std::vector<XeenCdExtent>{},absent,inspectXeenCdTracks(damaged),inspectXeenCdTracks({badSheet})}) {
   XeenAudio unavailable(0,{},loader,module,0,false);unavailable.cdTracks(media);unavailable.retainCdCue({19,370,2161});
   check(!unavailable.startCd(0) && unavailable.cdBusy(0),"Unavailable start must keep the logical interval");
@@ -340,14 +422,60 @@ int main(int argc,char **argv) {try {
    XeenAudio mixer(0,{},loader,module,0,false);mixer.cdTracks(extents);mixer.retainCdCue({19,370,2161});
    check(mixer.prepareRender(rate) && mixer.startCd(0),"Mixer preparation failed");
    const auto readyUntil=std::chrono::steady_clock::now()+std::chrono::seconds(5);
-   while(mixer.cdDecodePending() && std::chrono::steady_clock::now()<readyUntil)std::this_thread::yield();
-   check(!mixer.cdDecodePending(),"CD worker did not finish");
+   while(XeenCdAudioTestAccess::pending(mixer) && std::chrono::steady_clock::now()<readyUntil)std::this_thread::yield();
+   check(!XeenCdAudioTestAccess::pending(mixer),"CD worker did not finish");
    std::vector<std::int16_t> output(4096*2);
    for(std::size_t f=0;f<4096;f+=block)mixer.render(output.data()+f*2,std::min<std::size_t>(block,4096-f),rate);
    if(expected.empty())expected=output;else check(output==expected,"CD PCM depends on callback size");
+   if(rate==44100) {
+    const auto raw=decodeXeenCdCue(gunther);
+    for(unsigned i=0;i<output.size();++i)check(output[i]==int(raw[i])*55/160,"CD gain was omitted or applied twice");
+   }
    mixer.stopCd(0);mixer.render(output.data(),4096,rate);
    check(std::all_of(output.begin(),output.end(),[](auto s){return s==0;}),"CD stop retained resampler tail");
   }
+ }
+ for(unsigned block:{1,73,512,2049}) {
+  XeenAudio mixer(0,{},loader,module,0,false,{}, {},[](const auto &) {
+   std::vector<std::int16_t> pcm(44100*4*2);
+   for(unsigned f=0;f<44100*4;++f)pcm[f*2]=pcm[f*2+1]=std::lround(16000*std::sin(f*100.0*6.283185307179586/44100));
+   return pcm;
+  });
+  mixer.cdTracks(extents);mixer.retainCdCue({19,370,2161});check(mixer.startCd(0),"Synthetic cue refused");decoded(mixer);
+  for(int rate:{48000,44100,96000,32000,48000}) {
+   check(mixer.prepareRender(rate),"Live CD rate change failed");
+   unsigned largestStep=0,peak=0;int previous=0;
+   for(unsigned f=0;f<5000;) {
+    const auto n=std::min(block,5000-f);std::vector<std::int16_t> pcm(n*2);mixer.render(pcm.data(),n,rate);
+    for(unsigned i=0;i<n;++i) {
+     // A single startup discontinuity is accepted. Once its short filter
+     // transient has passed, a 100 Hz tone must have no block-sized gaps.
+     if(f+i>100) {
+      largestStep=std::max(largestStep,unsigned(std::abs(int(pcm[i*2])-previous)));
+      peak=std::max(peak,unsigned(std::abs(int(pcm[i*2]))));
+     }
+     previous=pcm[i*2];
+    }
+    f+=n;
+   }
+   if(largestStep>=250 || peak<5490 || peak>5520)throw std::runtime_error("CD rate="+std::to_string(rate)+" step="+std::to_string(largestStep)+" peak="+std::to_string(peak));
+  }
+ }
+ // Every source reaches the real mixer exactly once, including the simultaneous
+ // high-amplitude case (the separate extrema check covers coherent full scale).
+ {
+  const auto constantLoader=[&](const std::string &name,XeenSceneArchive archive) {
+   if(name=="constant.voc") {std::vector<std::uint8_t> sample(60032,255);sample[27]=60009&255;sample[28]=60009>>8;return sample;}
+   return loader(name,archive);
+  };
+  const auto driver=std::make_shared<const std::vector<std::uint8_t>>(loader("promus",XeenSceneArchive::IntroOnly));
+  auto fm=std::make_shared<XeenFmSource>(),baseFm=std::make_shared<XeenFmSource>();
+  XeenAudio mix(3,driver,constantLoader,module,0,false,{},fm,[](const auto &){return std::vector<std::int16_t>(44100*2,32767);});
+  XeenAudio baseline(3,driver,constantLoader,module,0,false,{},baseFm);
+  mix.enterTitle(0);baseline.enterTitle(0);mix.cdTracks(extents);mix.retainCdCue({19,370,2161});mix.startCd(0);decoded(mix);
+  mix.startDigital("constant.voc",XeenSceneArchive::Clouds,0);mix.prepareRender(44100);baseline.prepareRender(44100);
+  std::vector<std::int16_t> actual(20000),music(20000);mix.render(actual.data(),10000,44100);baseline.render(music.data(),10000,44100);
+  for(unsigned i=0;i<actual.size();++i)check(actual[i]==music[i]+609+11263 && std::abs(int(actual[i]))<=28262,"Simultaneous sources clipped or gained twice");
  }
  std::cout<<"CD mapping, decoding, lifecycle and callback tests passed\n";return 0;
 }catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}

@@ -1,4 +1,5 @@
 #include "platform/sdl/SdlWindow.h"
+#include "platform/sdl/SdlAudioDevice.h"
 #include "platform/sdl/XeenMainScreenInput.h"
 #include "core/PresentationClock.h"
 
@@ -376,6 +377,9 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
     };
     const auto dispatchEvent = [&](const SDL_Event &event, const std::optional<std::uint64_t> &batchInput,
             const IndexedFrame::Presentation &batchFrame, const InputContext &batchContext) {
+        if(event.type==SDL_AUDIODEVICEREMOVED && !event.adevice.iscapture) {
+            SdlAudioDevice::removed(event.adevice.which);return;
+        }
         if(handler.finished && handler.finished())return;
         if (event.type == SDL_QUIT) {
             pendingActions.clear(); running = false;

@@ -528,7 +528,8 @@ latest presentation advance: logical time is `elapsed - (last - now)`,
 checked against underflow. Only future commands advance the clock
 (maintainer, 2026-10-22). The FM conversion stream is prepared through the
 SDL platform interface before the device callback starts; creation failure
-keeps output silent. Live mix-rate changes are deferred to M83 Part C.
+keeps output silent. Live rate changes recreate the small-block converter and
+retain the rational VOC cursor, as described below.
 See the [driver quirk](../original-quirks.md#sv-prosnd-fixed-layout).
 
 **DOS resource audit, high (2026-10-22):** all 36 distinct VOC names
@@ -546,6 +547,105 @@ Reproduction scripts, extracted resources, disassembly and full hashes are
 outside the repository in `D:/MModern-re/audio-m83/`; `findings.md` records
 the final evidence, decisions and remaining measurement limits. No original bytes or code are
 included here.
+
+## DOSBox-referenced balance and output recovery
+
+**DOSBox-referenced measurement, 2026-10-22; not DOS hardware:** the
+maintainer's DOSBox Staging 0.83.0 recordings and `xeen-staging.conf` are in
+`D:/MModern-re/audio-m83/`. The config contains no sblaster/mixer overrides.
+The version tag resolves to `7b40053b7ac580843d0461eba8c36a47a990e66c`.
+Its defaults are:
+
+| Setting | Versioned source and default |
+| --- | --- |
+| Sound Blaster | [soundblaster.cpp](https://github.com/dosbox-staging/dosbox-staging/blob/7b40053b7ac580843d0461eba8c36a47a990e66c/src/hardware/audio/soundblaster.cpp#L3763): `sb16`, `sbmixer=true`. `ctmixer_reset` sets master, FM, DAC and CD to 31/31, unity under `calc_vol`; programs can subsequently change them. |
+| OPL | [opl.cpp](https://github.com/dosbox-staging/dosbox-staging/blob/7b40053b7ac580843d0461eba8c36a47a990e66c/src/hardware/audio/opl.cpp#L843): `oplmode=auto` selects OPL3 for SB16; Nuked is the only emulator; channel scalar 1.5 (+3.52 dB). |
+| Channel and CD volume | [mixer.h](https://github.com/dosbox-staging/dosbox-staging/blob/7b40053b7ac580843d0461eba8c36a47a990e66c/src/audio/mixer.h#L349): user, application and base scalars start at 1. CD adds no OPL-style boost; [MSCDEX channel control](https://github.com/dosbox-staging/dosbox-staging/blob/7b40053b7ac580843d0461eba8c36a47a990e66c/src/dos/cdrom_image.cpp#L845) uses volume/255. |
+| Master and processing | [mixer.cpp](https://github.com/dosbox-staging/dosbox-staging/blob/7b40053b7ac580843d0461eba8c36a47a990e66c/src/audio/mixer.cpp#L162): master 0.5 (−6.02 dB); compressor and denoiser on; 20 Hz master high-pass. Reverb, chorus and crossfeed off. Windows defaults: 48000 Hz, 1024-frame blocks, 25 ms prebuffer, negotiation off (`init_mixer_config_settings`). |
+
+The PAS register writes documented above are not emulated as a PAS mixer
+by this SB16 backend. These defaults identify the listening reference;
+they do not imply that the running game's source levels equal their reset
+values. The measured source pairs determine MMModern's fixed balance.
+
+All three AVIs carry lossless PCM s16le, 48000 Hz stereo with ZMBV video:
+`ferreriromusiconefxoffspeechoff.avi` (13.869 s),
+`ferreiro musiconefxon.avi` (7.563 s), and `gunther.avi` (26.438 s).
+The method and ±1.5 dB per-pair tolerance were recorded in M83 decision 4
+before measurement. ffmpeg/ffprobe from `C:/msys64/ucrt64/bin` decoded them.
+Device-free `XeenAudio::render` produced isolated smith.m, whaddayo.voc,
+town.m and Gunther's 3.600000..21.813333 s cue at 48000 Hz, both before and
+after the fixed gains. Measurement scripts (`measure.py`, `local-fit.py`,
+`music-fit.py`, `final-measure.py`, supporting alignment scripts and
+`render.cpp`) and their PCM/array evidence are retained outside the
+repository in `D:/MModern-re/audio-m83/`.
+
+Local waveform correlation estimates voice amplitude against the isolated
+renderer; aligned music-only power estimates the FM amplitude. The greeting
+begins at **0.9377 s**. The 2..3 s interval principally identifies the smith
+song starting, and is not a greeting-level comparison window. Thirty-three
+correlated voice segments give a median amplitude near 0.0299 relative to
+unity VOC. Music-only alignment puts DOSBox FM at approximately 0.73..0.78
+of unity FM. Gunther begins near 1.102 s; 113 voice segments, compensating
+capture drift, give CD amplitude approximately 0.51, with the underlying
+town FM near 0.74. The results below are **source gain ratios**, independent
+of a selected passage's music/voice energy. Ratio differences use
+`20 log10(MMModern ratio / DOSBox ratio)`; common output gain cancels.
+
+| Source gain ratio | DOSBox | MMModern | Difference |
+| --- | ---: | ---: | ---: |
+| VOC/FM | 0.0407 | 0.0375 | −0.7 dB |
+| CD/FM | approximately 0.69 | 0.6875 | within ±0.3 dB |
+
+Both meet the maintainer's ±1.5 dB tolerance. **Maintainer decision,
+2026-10-22:** the capture is the authority for VOC level. Its approximately
+28 dB attenuation below the SB16 reset-level prediction is unexplained and
+was not investigated; no hardware explanation is inferred from this fit.
+
+FM **0.5**, VOC **0.01875** and CD **0.34375** are fixed constants, not options
+or per-track corrections. FM/CD gain is applied to native PCM **before**
+SDL resampling and its 16-bit output clamp, preserving inter-sample peaks
+that would otherwise clip before attenuation. VOC gain applies once at the
+final sum. The gains total 0.8625, giving **1.28 dB nominal headroom** for
+coherent full-scale inputs (−28262..28260 after integer truncation);
+interpolation overshoot can consume that margin, and the final sum retains
+an S16 safety clamp. The simultaneous-source and synthetic inter-sample-peak
+tests cover both paths. The maintainer's Part C listening and Windows
+device play-test passed on 2026-10-22.
+
+**Output contract (maintainer decisions 1/2):** gameplay deadlines, RNG,
+timing and save state never consult the device. `check()` reports an output
+failure once and keeps the session running; it no longer rethrows a callback
+error. The existing speech-notice path restores hidden NPC text on output
+loss without changing the NPC polling schedule.
+
+| Case | Behavior |
+| --- | --- |
+| Callback/FM renderer or conversion error | Zero the entire failed callback, latch silence, close/join on the main thread, report one notice. No further FM requests accumulate in an unconsumed queue. |
+| Backend STOPPED without a removal event | Allow 250 ms for SDL's removal notification, then close/join and report one notice. |
+| SDL_AUDIODEVICEREMOVED for the opened output | Main-thread close/join, discard already queued notices for the old ID, reopen the current default at its own rate. Capture and unrelated-device events are ignored. Continue the same FM driver/chip/song. VOC and CD stay silent until their next explicit start; logical deadlines and retained cue operands remain. An interrupted CD cue restores text. |
+| Windows default endpoint or mix-rate change | SDL WASAPI may follow it internally. Probe SDL's current default name/rate every 250 ms and reopen when either changes, retaining source state and VOC phase. Recreating FM/CD conversion discards its small queued tail; one small discontinuity is accepted. SDL cannot identify two endpoints with identical names/rates; its WASAPI default-generation tracking handles that case. |
+| Failed reopen or conversion preparation | Close the attempted output, remain silent, report one notice and continue gameplay. |
+
+SDL does not identify whether a removal notification came from unplugging
+hardware or a backend failure: [SDL_audio.c](https://github.com/libsdl-org/SDL/blob/release-2.32.10/src/audio/SDL_audio.c)
+uses the same event for disconnection. Recovery therefore follows the event,
+not an invented physical cause. [WASAPI recovery](https://github.com/libsdl-org/SDL/blob/release-2.32.10/src/audio/wasapi/SDL_wasapi.c#L135)
+and [fresh default endpoint queries](https://github.com/libsdl-org/SDL/blob/release-2.32.10/src/core/windows/SDL_immdevice.c#L489)
+stay behind `platform/sdl`; there is no new platform owner or saved state.
+
+**Maintainer decision, 2026-10-22:** preserve M82's FM latency. Both FM and CD
+conversion refill in **512 native frames**, using preallocated buffers and
+SDL workspace prepared before callbacks. Reconfiguration recreates conversion
+at the new output rate and discards the small buffered tail; no history/skip
+replay or whole rate-ratio periods remain. One small discontinuity is accepted
+instead of adding steady-state effect latency. The current FM driver/chip/song
+and rational VOC phase survive; gameplay never waits for the device. FM
+requests are transferred with producer-allocated queue nodes, and the bounded
+Promus call stack is reserved before callbacks. No source buffers are changed
+until the old callback has joined. A 48 kHz real-converter witness sweeps
+512-frame callback phases: effect 20 becomes audible within 32.92 ms
+(33 ms regression guard, including its initial attack).
 
 ## CD disc addressing and boundary failures
 

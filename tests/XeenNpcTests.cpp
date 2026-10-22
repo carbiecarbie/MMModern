@@ -322,7 +322,7 @@ void speechOff() {
  Fixture f;f.members.soundOptions=XeenSoundOptions{true,true,false,false};
  f.set({record(1,1,0,60,{19,30,0,54,1}),npc(1),record(1,1,2,0x12)});
  auto flow=f.flow();flow.handle(InteractionAction{});f.acquire(flow);
- check(flow.blocksGameplay() && flow.presenter().npcTiming().remaining==0 && !f.programState.audio->cdDeadline(),
+ check(flow.blocksGameplay() && flow.presenter().npcTiming().remaining==0 && !f.programState.audio->cdDeadline(f.time),
        "Speech-off created a CD wait");
  const auto reads=f.randomReads;f.tick(flow,165);
  check(f.randomReads==reads,"Speech-off animated a busy voice");
@@ -332,7 +332,7 @@ void speechOff() {
  Fixture retained;retained.members.soundOptions=XeenSoundOptions{true,true,false,false};
  retained.set({record(1,1,0,60,{19,30,0,54,1}),record(1,1,1,0x12)});
  auto later=retained.flow();later.handle(InteractionAction{});retained.acquire(later);
- check(!later.blocksGameplay() && !retained.programState.audio->cdDeadline() && later.frame().pixels==retained.base.pixels,
+ check(!later.blocksGameplay() && !retained.programState.audio->cdDeadline(retained.time) && later.frame().pixels==retained.base.pixels,
        "Disabled op60 drew a speech notice or created a wait");
  check(later.configureSound(XeenSoundOptions{}),"Enable Speech after the silent command");
  retained.set({npc(),record(1,1,1,0x12)});

@@ -1,4 +1,5 @@
 #include "app/XeenAudio.h"
+#include "app/XeenAudioMix.h"
 #include "app/XeenFmSource.h"
 #include "platform/sdl/SdlAudioDevice.h"
 #include "platform/sdl/SdlAudioStream.h"
@@ -44,7 +45,8 @@ struct XeenAudio::Impl {
  unsigned cdDisc=1;
  std::optional<XeenEventCdSpeech> cdCue;
  std::vector<XeenCdExtent> cdTracks;
- std::string cdNotice;
+ std::string cdNotice,outputNotice;
+ bool requiresDevice=false;
  std::mutex cdMutex;bool cdChanged=false;
  std::condition_variable cdWake;
  struct CdJob {std::uint64_t generation;XeenCdRequest request;};
@@ -85,7 +87,8 @@ struct XeenAudio::Impl {
   }else if(id>=1 && id<=9)std::cerr<<"Music device "<<id<<": not supported yet\n";
   output->initialize(id==3?resource:PromusDriver::Bytes{});
   device=std::make_unique<SdlAudioDevice>([this](auto *out,auto frames,int rate){render(out,frames,rate);},deviceOutput,
-   [this](int rate){return prepareRender(rate);});
+   [this](int rate){return prepareRender(rate);},[this]{removed();});
+  requiresDevice=deviceOutput;
   retainOutput=retainOutput||device->active();
   cdWorker=std::thread([this]{decodeCd();});
  }
@@ -156,11 +159,22 @@ struct XeenAudio::Impl {
  }
  bool prepareRender(int rate) {
   if(rate<=0)return false;
-  if(mixRate)return mixRate==rate;
-  auto stream=std::make_unique<SdlAudioStream>(49716,rate);
-  auto cd=std::make_unique<SdlAudioStream>(44100,rate);
+  if(mixRate==rate)return true;
+  if(mixRate) {
+   if(!fmStream->reconfigure(rate) || !cdStream->reconfigure(rate))return false;
+   digitalPhase=digitalPhase*std::uint64_t(rate)/mixRate;mixRate=rate;return true;
+  }
+  auto stream=std::make_unique<SdlAudioStream>(49716,rate,kXeenFmGain);
+  auto cd=std::make_unique<SdlAudioStream>(44100,rate,kXeenCdGain);
   if(!stream->valid() || !cd->valid())return false;
   fmStream=std::move(stream);cdStream=std::move(cd);mixRate=rate;return true;
+ }
+ void removed() {
+  // Main thread, old callback joined. Keep the song/chip and logical deadlines.
+  // Interrupted digital voices stay silent until their next explicit start.
+  {std::lock_guard<std::mutex> lock(digitalMutex);digitalRequest.reset();digitalVoice.reset();digitalChanged=false;}
+  cancelCd();cdVoice.reset();cdStream->clear();
+  if(elapsed<cdEnd)outputNotice="CD speech interrupted by output removal; text restored.";
  }
  void render(std::int16_t *stereo,std::size_t frames,int rate) {
   if(!fmStream || rate!=mixRate)throw std::logic_error("Audio mix rate was not prepared");
@@ -170,6 +184,7 @@ struct XeenAudio::Impl {
    const auto count=std::min<std::size_t>(128,frames-offset);
    auto *out=stereo+offset*2;
    fmStream->pull([this](auto *pcm,auto count){output->pull(pcm,count);},out,count);
+   output->check(); // Make a renderer failure silence every source in this callback.
    std::shared_ptr<const XeenVocSample> retired;
    {
     std::lock_guard<std::mutex> lock(digitalMutex);
@@ -207,7 +222,7 @@ struct XeenAudio::Impl {
      }else digitalVoice.reset();
     }
     for(unsigned channel=0;channel<2;++channel)
-     out[f*2+channel]=std::clamp(int(out[f*2+channel])+digital+cd[f*2+channel],-32768,32767);
+     out[f*2+channel]=mixXeenAudio(out[f*2+channel],digital,cd[f*2+channel]);
    }
    offset+=count;
   }
@@ -239,7 +254,9 @@ struct XeenAudio::Impl {
   }
  }
  void advance(std::uint64_t now) {
-  advanceClock(now);device->check();output->check();
+  advanceClock(now);
+  const auto notice=device->check();
+  if(!notice.empty()){retainOutput=false;outputNotice=notice;std::cerr<<notice<<'\n';}
   if(pending && (!clockDriver || !clockDriver->fadeSpeed()) && elapsed>=cdEnd) {
    // Read first: a missing song stays pending and fails every later advance,
    // so the main loop reports it even when an effect's advance swallowed it.
@@ -349,6 +366,7 @@ bool XeenAudio::startCd(std::uint64_t now) {
  s.cdEnd=PresentationClock::checkedAdd(time,request.duration);
  s.cancelCd();
  if(request.refused)return false;
+ if(s.requiresDevice && !outputActive())return false;
  {
   std::lock_guard<std::mutex> lock(s.cdMutex);
   if(!request.error.empty()) {s.cdNotice="CD speech unavailable: "+request.error;return false;}
@@ -358,12 +376,14 @@ bool XeenAudio::startCd(std::uint64_t now) {
 }
 void XeenAudio::stopCd(std::uint64_t now) {auto &s=*_impl;s.digitalTime(now);s.cdEnd=0;s.cancelCd();}
 bool XeenAudio::cdBusy(std::uint64_t now) const {return _impl->logicalNow(now)<_impl->cdEnd;}
-std::optional<std::uint64_t> XeenAudio::cdDeadline() const {return cdDeadline(_impl->last);}
 std::optional<std::uint64_t> XeenAudio::cdDeadline(std::uint64_t now) const {
  if(!cdBusy(now))return {};
  return PresentationClock::checkedAdd(now,_impl->cdEnd-_impl->logicalNow(now));
 }
-std::string XeenAudio::takeCdNotice() {std::lock_guard<std::mutex> lock(_impl->cdMutex);auto text=std::move(_impl->cdNotice);_impl->cdNotice.clear();return text;}
+std::string XeenAudio::takeCdNotice() {
+ if(!_impl->outputNotice.empty()){auto text=std::move(_impl->outputNotice);_impl->outputNotice.clear();return text;}
+ std::lock_guard<std::mutex> lock(_impl->cdMutex);auto text=std::move(_impl->cdNotice);_impl->cdNotice.clear();return text;
+}
 bool XeenAudio::cdDecodePending() const {std::lock_guard<std::mutex> lock(_impl->cdMutex);return _impl->cdDecoding;}
 void XeenAudio::render(std::int16_t *out,std::size_t frames,int rate) {_impl->render(out,frames,rate);}
 bool XeenAudio::prepareRender(int rate) {return _impl->prepareRender(rate);}

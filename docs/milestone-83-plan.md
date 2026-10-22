@@ -16,14 +16,14 @@ hides the text that speech replaces, ending M82's temporary restriction. FM
 music, VOC samples and CD audio are mixed at a balance checked by ear against
 DOSBox. An audio output failure and a removed output device get a decided
 behavior. Out of scope: Darkside, the intros and the ending (step 15), the
-other sound devices and a live device switch (step 16). Planning does not
+other sound devices and an output-device selector (step 16). Planning does not
 authorize implementation. Independent implementation reviews, the complete
 suite and a maintainer play-test are required.
 
 ## Current implementation boundary
 
 - `XeenAudio` owns FM, fixed-layout VOC playback and decoded CD cue windows
-  as process state. FM, VOC and CD mix at the fixed device rate through
+  as process state. FM, VOC and CD mix at the current device rate through
   independent paths; an FM fade barrier does not delay VOC or CD commands.
 - Opcode 40 plays its resource-selected voice; opcode 60 retains CD operands
   without a notice or wait. NPC invocation starts the cue; F8 replay is omitted by maintainer decision.
@@ -43,8 +43,18 @@ suite and a maintainer play-test are required.
   Event messages and service greetings retain their text. The auxiliary F10
   and numeric-choice presentation gaps are listed in the
   [audio rules](rules/audio.md#cd-and-text-presentation-gaps).
-- Balance, output failure/recovery and live rate changes remain Part C;
-  release notices remain Part D. Save v18/schema 9/content 14 are unchanged.
+- Fixed FM/VOC/CD gains are 0.5/0.01875/0.34375, measured against the
+  supplied DOSBox Staging captures: VOC/FM gain ratio 0.0407/0.0375
+  (DOSBox/MMModern), −0.7 dB; CD/FM agrees within ±0.3 dB. Both meet
+  ±1.5 dB. Nominal headroom is 1.28 dB. The maintainer's Part C
+  listening and Windows device play-test passed on 2026-10-22.
+- Output errors silence audio with one notice while gameplay continues.
+  Main-thread removal recovery retains the current song; interrupted VOC/CD
+  remain silent until their next start. Default/rate changes recreate
+  conversion streams with source state and VOC phase retained. FM/CD use
+  M82's 512-native-frame refills; one small discontinuity at a live rate
+  change is accepted (maintainer, 2026-10-22).
+  Release notices remain Part D. Save v18/schema 9/content 14 are unchanged.
 
 ## Original rules and evidence
 
@@ -118,8 +128,11 @@ deviation is [recorded separately](original-quirks.md#dev-cd-f8-omitted).
   resampler per source (FM 49716 Hz, VOC fixed time constant 188, CD 44100 Hz).
   Create the FM conversion stream through `platform/sdl` while the newly
   opened device is paused; creation failure leaves output silent and the
-  game running. A1 fixes the mix rate for that output lifetime. Part C owns
-  rate changes during play, resampler recreation and voice-position continuity.
+  game running. Reopening joins the old callback before recreation; native
+  source state and VOC's rational phase survive. Conversion is recreated at
+  the new rate, accepting one small discontinuity instead of preserving
+  filter history. FM/CD refills stay at 512 native frames to retain M82's
+  effect latency; no whole rate-ratio periods or history replay are used.
   File reads and decoding stay out of the callback; Part A specifies the
   buffering, callback shutdown and recovery.
 - **Logical state on the presentation clock.** The interpreter retains its
@@ -177,7 +190,7 @@ Each part takes one fresh session; amend this plan if the scope changes.
 | A1 - digital decoder and mixer | Mixer, resamplers, fixed-layout decoder, `prosnd` commands and logical timing. Acceptance: independently specified synthetic PCM/count/rate cases plus `sphinx13.voc`; simultaneous sources, replacement/stop, FM barrier independence and several callback sizes; traces identical without a device. Header-duration tests and any M44 effect are handled here. |
 | A2 - digital sites | Wire the inventoried starts and gates through existing owners, including the mapped combat publication points and PlayEventVoc without an added wait. Exclude the missing fall/landing presentation (`0x116a0`, `0x1170c`) and title lightning (`0xbfcf`, stop `0xc029`); lightning is not attached to the CD World `world0/1/2` loop (maintainer, 2026-10-22). Any start belonging to an unimplemented sequence, animation or menu stays a documented gap; continue with implemented presentations. Stop for an inventory/code placement disagreement only when that presentation exists. Acceptance: DOS site/name/gate table matched for implemented presentation, with explicit gaps retained; timing and RNG checked for affected flows. No new owner or third part. |
 | B - CD speech and Text off | Cue mapping, OGG decoding, PlayCD, Speech/Text options, fallback and handoffs. Implement refused starts with no busy interval; map 49's cross-file playback; omission of all resource-read cycles; final mode-0 dismissal stop; F8 replay omitted by maintainer decision (2026-10-22). Acceptance: Gunther decodes `xeen19.ogg` 3.600000..21.813333 s; Text off follows the reader table and delivery fallback; record removal of the M82 restriction and its approved deviation. Load/New never start audio from save/template state; surviving same-process playback and retained operands follow the matrix, actual disc changes stop/clear CD, and a fresh process starts idle. |
-| C - balance and output failures | Fixed gains; the failure contract; the rate-change crackle if the same mechanism fixes it. Acceptance: levels within the recorded tolerance; an injected failure on the dummy driver leaves gameplay unchanged; a Windows WASAPI play-test of removal, default change, text fallback and rate change. |
+| C - balance and output failures | Fixed gains within ±1.5 dB per source pair: VOC/FM −0.7 dB, CD/FM within ±0.3 dB, using source gain ratios under decision 4. Output failures and main-thread recovery retain gameplay timing/RNG. FM/CD use 512-frame native refills; live rate changes accept one small discontinuity. Maintainer Part C listening/removal/default/rate-change play-test passed on 2026-10-22. |
 | D - closure | Dependencies, package-release notices and package versions, executable imports checked and the extracted release run without MSYS2 on `PATH`; quirks and differences; census regeneration; scheduled independent implementation review; complete suite; maintainer listening play-test against DOSBox. Update status, roadmap and history and condense this plan only after acceptance. |
 
 **Stop rules** (stop and ask the maintainer): an Unknown stays unsettled;
@@ -250,8 +263,30 @@ this approved presentation correction.
 3. **Text without speech** (maintainer, 2026-10-22; approved deviation): DOS
    always has the disc. Whenever a cue cannot be heard, the text is shown, so
    the player never has neither text nor speech.
-4. **Balance** (roadmap, 2026-10-22): by ear against DOSBox. The numeric
-   tolerance is the maintainer's, set before Part C.
+4. **Balance** (maintainer, 2026-10-22): ±1.5 dB for each relative source
+   pair, FM/VOC and FM/CD, with listening confirmation against DOSBox.
+   Before measurement: the supplied DOSBox Staging 0.83.0 captures in
+   `D:/MModern-re/audio-m83/` contain lossless PCM s16le, 48000 Hz stereo
+   in ZMBV AVI. `xeen-staging.conf` has no sblaster/mixer overrides.
+   The greeting in `ferreiro musiconefxon.avi` begins at 0.9377 s;
+   2.0..3.0 s identifies the smith song starting, not a greeting-level
+   window. Align music-only passages with
+   `ferreriromusiconefxoffspeechoff.avi` and fit the greeting waveform
+   separately. Fit Gunther's 18.213333 s cue within `gunther.avi`, using
+   voice-free intervals to establish the town music gain.
+   Render smith.m, whaddayo.voc, town.m and Gunther's
+   xeen19.ogg 3.600000..21.813333 s separately through the real,
+   device-free MMModern mixer at 48000 Hz. Use stereo mean-square power,
+   aligned music power and isolated voice correlation to report source gain
+   ratios, independent of the energy in any selected passage. DOSBox FM is
+   about 0.73..0.78 of unity FM; VOC/FM is 0.0407 versus MMModern's 0.0375
+   (−0.7 dB), and CD/FM agrees within ±0.3 dB. Common capture/output gain
+   cancels. Gains remain FM 0.5, VOC 0.01875, CD 0.34375.
+   The capture is the VOC-level authority; the approximately 28 dB below
+   the SB16 reset-level prediction is unexplained and not investigated
+   (maintainer, 2026-10-22). Measurement sources and intermediate evidence
+   are retained outside the repository in `D:/MModern-re/audio-m83/`.
+   Evidence is DOSBox-referenced, not DOS hardware.
 5. **Technical risks:** a shifted OGG rip (a trimmed or kept pregap; Vorbis
    decoding removes the encoder's start padding), which Part 0's cue sweep
    checks; audio-thread races; static Vorbis in the release and its notice;

@@ -12,6 +12,7 @@ unsigned PromusDriver::byte(Stream &s) {
 }
 PromusDriver::PromusDriver(Bytes resource,Sink sink):_resource(std::move(resource)),_sink(std::move(sink)) {
  if(!_resource || _resource->size()<0xadc+181*2)throw std::runtime_error("Invalid INTRO.CC promus resource");
+ _music.stack.reserve(16); // Bound already enforced by opcode 0: no callback allocation.
  for(unsigned i=0;i<18;++i)_frequency[i]=_resource->at(0x10d+i);
  for(unsigned b=0;b<2;++b)for(unsigned v=0;v<9;++v) {
   _carrier[b][v]=_resource->at(0xe9+b*9+v);

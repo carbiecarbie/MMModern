@@ -54,11 +54,9 @@ public:
  void stopCd(std::uint64_t now);
  bool cdBusy(std::uint64_t now) const;
  std::optional<std::uint64_t> cdDeadline(std::uint64_t now) const;
- std::optional<std::uint64_t> cdDeadline() const;
  std::string takeCdNotice();
- bool cdDecodePending() const;
- // Called before output starts, automatically for a device. False keeps
- // silence. The rate stays fixed for this output lifetime (Part C handles changes).
+ // Called with the callback stopped, automatically on open/reopen. Keeps source
+ // state, discarding the converter's small queued tail. False keeps silence.
  bool prepareRender(int deviceRate);
  // Single consumer: device callback, or a prepared device-free renderer. Never
  // call concurrently with the device. Logical busy never consults this path.
@@ -77,6 +75,8 @@ public:
  std::uint64_t samples() const;
  bool pending() const;
 private:
+ friend struct XeenCdAudioTestAccess;
+ bool cdDecodePending() const;
  struct Impl;std::unique_ptr<Impl> _impl;
 };
 }

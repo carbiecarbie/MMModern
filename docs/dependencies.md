@@ -131,9 +131,27 @@ device opens at the default output's mix rate (`SDL_GetDefaultAudioInfo`,
 48000 when unreported) with no allowed changes. `XeenAudio` mixes FM through
 an `SDL_AudioStream` from 49716 Hz and unsigned mono VOC through an independent
 exact rational resampler from `1000000/68` Hz; letting SDL accept 49716 made its
-WASAPI path resample internally and drop ~9 ms blocks. A later switch of the
-Windows default output to another rate falls back to SDL's internal resampling
-for that session. A timeline interpreter advances by an exact integer
+WASAPI path resample internally and drop ~9 ms blocks. During play the main
+thread probes SDL's current default name/rate every 250 ms and reopens when
+either changes, even when WASAPI followed the default internally. Removal
+events for the opened output also reopen the default. Close joins the old
+callback before resampler recreation; source state and VOC phase survive rate
+changes. Recreating FM/CD conversion discards its small queued tail; one small
+discontinuity is accepted (maintainer, 2026-10-22). Physical removal leaves
+digital/CD silent until their next start while continuing the current song.
+Callback/conversion errors, a bare backend disconnection and failed recovery
+silence output with one notice; gameplay continues.
+
+FM/CD conversion uses M82's 512-native-frame refills, with fixed refill
+buffers and SDL conversion storage prepared before callbacks. It uses only
+the public stream API; no private padding constant, history replay or whole
+rate-ratio buffering is required. Fixed FM/CD gain precedes resampling and
+its S16 clamp. Dependency changes must revalidate callback allocation,
+effect latency, rate transitions and callback-size independence with
+`sdl_audio_device`, `xeen_digital_audio` and `xeen_cd_audio`.
+The maintainer's Part C Windows play-test passed on 2026-10-22.
+
+A timeline interpreter advances by an exact integer
 native-sample accumulator on the presentation clock and alone answers the game;
 a render interpreter in the FM source ticks from the device's own rendered
 samples and receives the timeline's operations through one queue (M82 C3), so
