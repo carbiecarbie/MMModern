@@ -726,8 +726,10 @@ block (length 39,245, codec 0, time constant 188) and terminator are intact.
 The 39,243 audio bytes last 2.668524 seconds; `sphinx14.voc` adds 1.275068
 seconds. The maintainer's [DOSBox refusal capture](rules/evidence.md#entrance-scenes-and-the-arena-2026-10-20)
 shows about 4.1-4.4 seconds of speech animation, consistent with both samples
-and not with the second alone. DOS plays the first sample in full without
-checking the descriptor text; follow DOS (maintainer, 2026-10-20).
+and not with the second alone. DOS plays the first sample without checking
+the descriptor text; follow DOS (maintainer, 2026-10-20). The capture does
+not resolve its final few samples; the [driver-count evidence](#sv-prosnd-fixed-layout)
+qualifies the earlier assumption that its exact length equals the header.
 
 `xeenVocDurationNanoseconds` ignores descriptor text while retaining its
 minimum-size, data-offset, block-type, length, codec, rate-continuity and
@@ -735,6 +737,179 @@ terminator checks. No resource-name exception or invented duration is used.
 **ScummVM:** pinned `6814ee9b`, `Audio::checkVOCHeader`, requires `Creative`
 at bytes 0..7 and rejects this sample, skipping its speech interval. Master
 not rechecked.
+
+<a id="sv-prosnd-fixed-layout"></a>
+### The installed digital driver ignores VOC structure and header rate
+
+**DOS static, high (2026-10-22):** INTRO.CC `prosnd` replaces an active
+sample, reads a fixed length word at sample +`0x1b`, subtracts 10, and
+starts PCM at +`0x20` (`prosnd 0x13c..0x177`, `0x1a2..0x1d3`). It writes
+literal time constant 188 (`0x227..0x254`), without checking VOC blocks or
+descriptor. This explains the damaged Sphinx descriptor without a special
+resource-name exception. [Audio rules](rules/audio.md#installed-digital-driver-command-and-length-rules)
+give the calibrated identity, count comparison and limits.
+
+**ScummVM:** pin `6814ee9b` uses `Audio::makeVOCStream` in
+`MM::Shared::Xeen::Sound::playVoice`; its VOC decoder parses blocks and
+header rates. Master not rechecked. **Implementation boundary:** MMModern
+still uses header-derived silent intervals; the maintainer adopted the
+driver-count model for M83 Part A on 2026-10-22, as qualified below.
+
+<a id="dev-prosnd-dma-timing"></a>
+### Digital timing uses the unsplit driver transfer count
+
+**Maintainer decision, 2026-10-22:** play and time INTRO `prosnd`'s fixed
+PCM layout using its transfer count, with the count-plus-one interpretation
+supported by the DSP/DMA path (medium confidence). Ignore allocation-dependent
+DMA page splitting: MMModern cannot reproduce DOS sample placement, and the
+remaining sub-millisecond difference is an approved timing approximation.
+Do not investigate those splits further. The programmed count is established
+at `prosnd 0x15b..0x165`, `0x21a..0x220`, `0x336..0x34c`; see the
+[rules and limits](rules/audio.md#installed-digital-driver-command-and-length-rules).
+Changing the existing header waits, tests and any resulting M44 digests is
+Part A work. **ScummVM:** approved approximation to DOS; the pin's generic
+VOC decoder instead follows header blocks and rates. Pin `6814ee9b`;
+master not rechecked.
+
+### CD options and requests do not guarantee a new busy interval
+
+**DOS static, high (2026-10-22):** Speech off changes an option but does
+not stop an existing CD cue (`0x1f054`, `0x1f31b -> 0xf383`). Busy queries
+still return MSCDEX bit `0x200` (`0x3d5fd..0x3d608`). All-zero cue operands
+leave playback alone (`0x3da98..0x3daa7`); valid replacement explicitly
+stops the old cue (`0x3dba7`). Efx off similarly masks the digital wrapper,
+including its stop/query commands, without cancelling the running driver
+(`0xdea9..0xdecd`). VOC replacement is independent of FM/CD state.
+Loading an archive resource from CD may stop and restart retained speech
+(`0x3d23d..0x3d279`, `0xdfaf/0xdfea/0xe02b/0xe072`). These are original
+transition rules, not a universal interval beginning at every request.
+
+<a id="sv-cd-failed-start"></a>
+### Refused CD starts have no speech wait
+
+**DOS/resource/installed-emulator inference, high (2026-10-22):** two Clouds map 30
+cues request track 2, encoded 24..416, hence one sector of preroll inside
+data track 1. DOSBox Staging 0.83.0 rejects the audio request with status
+`0x8000`; DOS retries only `0x810c` (`0x3dbcb..0x3dbf6`). They have no
+CD-busy interval on this path. **Maintainer decision, 2026-10-22:** Part B
+plays nothing and starts no speech wait for this refusal, replacing the
+existing 317/75-second interval. Show the text under decision 3; never
+clamp, shift or guess a new start. No new playback capture or implementation
+is claimed. The
+[address rules](rules/audio.md#cd-disc-addressing-and-boundary-failures)
+give the installed-source reference and map 49's cross-file case.
+
+**ScummVM:** pin `6814ee9b`, `Scripts::cmdPlayCD` and `convertCDTime`,
+starts the requested track directly, interpreting encoded time as
+centiseconds and without DOS's 25-sector preroll. Encoded 24 becomes
+positive track-relative frame 18, so it does not reproduce this data-track
+refusal. Master not rechecked. The text fallback is the approved delivery
+policy, not a claim that DOS restores text on this failure.
+
+<a id="sv-cd-cross-file-preroll"></a>
+### CD preroll can start in the preceding audio file
+
+**DOS/resource/installed-emulator inference, high (2026-10-22):** map 49
+`(8,17)`, track 3 encoded 20..474, requests five sectors before track 3.
+The installed DOSBox Staging plays the tail of `xeen02.ogg`, then advances
+to `xeen03.ogg` with 374/75 seconds left in the request. Its EOF handler
+advances when at least two seconds remain and preserves request accounting.
+The total interval is 379/75 seconds; do not clamp the start to track 3.
+This is static evidence, not a new capture. See the
+[address and source evidence](rules/audio.md#cd-disc-addressing-and-boundary-failures).
+**ScummVM:** pin `6814ee9b` uses centisecond conversion and direct track
+playback without DOS's 25-sector preroll, so it does not request this
+preceding-file tail. Part B rule; master not rechecked.
+
+<a id="dev-cd-resource-read-timing"></a>
+### CD intervals do not reproduce physical resource-read restarts
+
+**Approved approximation, maintainer 2026-10-22:** keep the existing cue
+intervals across resource reads, since MMModern does not read from CD.
+DOS can stop a busy cue before a load (`0x3d23d..0x3d279`) and restart
+the retained operands afterward (`0xdfaf/0xdfea/0xe02b/0xe072`). Static
+evidence for these operations is high confidence; physical I/O latency
+has not been measured. **Final maintainer decision, 2026-10-22:** never
+model resource-read stop/restart cycles, including audible restarts. This
+closes the entire class; further read sites do not require another decision.
+
+**Ordinary-play case, DOS static/resource, high:** map 12 `(11,12)`,
+facing 2, track 16 encoded 5410..10123, followed by mode-0 portrait 15
+(CUR `0x9f5c/0x9f67`). With Speech on/Text off, early Escape or N takes
+the exit path through portrait reloads `0x25c40/0x25c51` before the CD
+stop `0x25c94`. Those loads invoke the stop/restart wrapper
+`0xdff5/0xe02b`. The [full path](rules/audio.md#digital-and-cd-lifecycle-evidence)
+also identifies nine adjacent mode-0 PlayCD/NPC pairs. **Maintainer
+decision, 2026-10-22:** Part B omits these transient resource-induced
+restarts and retains the final explicit stop: dismissing the dialog stops
+the cue. No audible restart or I/O latency was measured.
+
+Another ordinary witness is F8 replay (`0xd4d0 -> 0x3da87`); Tab loads
+`cpanel.icn` (`0x1eec0`), restarting busy speech through `0xdff5/0xe02b`.
+Unchanged-options Escape has no final stop (`0x1f2e8..0x1f331`), so that
+restart continues after the panel closes. **DOS static/resource, high:**
+the [lifecycle evidence](rules/audio.md#digital-and-cd-lifecycle-evidence)
+records the keyboard dispatch, resource and calls. **Maintainer decision,
+2026-10-22:** Part B keeps the uninterrupted replay interval and lets the
+cue continue after the panel closes, omitting the restart. It also adds
+F8 replay of the retained cue, absent from the current implementation.
+
+**ScummVM:** this is an approved approximation to DOS, not a new claim of
+different behavior from the pin. Its `cmdPlayCD` delegates playback to
+the AudioCDManager; the pin's CD addressing already differs as described
+[above](#sv-cd-failed-start). No full pin resource-load lifecycle equivalence
+is asserted. Master not rechecked.
+
+### Load and title handoffs do not universally stop process audio
+
+**DOS static, high for explicit operations; medium for bounded absence
+of a stop (2026-10-22):** same-process Load/New replaces party data without
+restoring an audio cursor or clearing retained CD operands. Those operands
+are outside the saved party block; an actual disc change stops CD and
+clears them (`0x3d65f/0x3d664`, `0x3d7fa..0x3d806`). Archive selection
+alone does neither (`0xe89e..0xe937`). Gameplay-to-title teardown drains
+VOC through the Efx-gated query (`0xb933..0xb947`), not an unconditional
+driver stop. Efx off masks that drain; Speech off also does not stop
+active CD. The [lifecycle matrix](rules/audio.md#digital-and-cd-lifecycle-evidence)
+records the Load/New, service, map, Escape and termination branches.
+Part B keeps surviving process intervals across clock epochs under the
+approved resource-read approximation. F8 can replay a retained process
+cue, but fresh-process restore starts idle; no audio state is added to
+saves. This does not claim sample-buffer waveform equivalence after DOS
+memory reuse.
+
+### Combat VOCs follow attack boundaries, not displayed result labels
+
+**DOS static/current source, high (2026-10-22):** positive player damage
+starts the selected `pow0..5.voc` before HP publication (`0x2c111`);
+nonpositive attack2 damage starts `miss.voc` before FM 6
+(`0x2c172/0x2c17c`). A missed missile and a rejected spell that never
+enters attack2 bypass that pair. Monster record `+0x33` voices start
+with the first attack pose, before target selection (`0x2d778..0x2d802`),
+not on death or per target. The [publication table](rules/audio.md#voc-inventory-boundaries)
+maps these to the existing impact callbacks, guarded damage candidates
+and first-pose publication; A2 adds no sample wait or RNG draw. Fall
+`scream.voc` and landing `unnh.voc` remain an explicit gap with the
+existing missing fall presentation, rather than cues on every transition.
+
+<a id="dev-cd-text-delivery-fallback"></a>
+### Text off omits NPC bodies independently of successful speech
+
+**DOS static, high (2026-10-22):** `0x257c9` selects an NPC title-only
+format when `DS:f384` is set, without consulting CD busy or start success.
+An idle all-zero cue and a refused map-30 request can therefore leave no
+spoken replacement for the omitted body. Panel Speech off normally forces
+Text on; Event messages and service greetings have no equivalent body gate
+in the direct reader inventory. The other readers reposition or restore
+an existing NPC window; see the [complete direct-access classification](rules/audio.md#text-off-byte-readers-and-presentation).
+M83 Part B's approved delivery-failure fallback will show the text in
+these no-speech cases. Current M82 still keeps text visible under its
+[temporary restriction](#sv-m82-visible-text); no implementation change is
+claimed here.
+**ScummVM:** the text fallback is an approved deviation from DOS
+(maintainer, 2026-10-22), not a demonstrated difference from the pin's
+delivery-failure presentation. That comparison is not established;
+master not rechecked.
 
 <a id="sv-scene-speech-cadence"></a>
 ### Entrance speech animation consumes gameplay randomness

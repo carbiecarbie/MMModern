@@ -445,6 +445,377 @@ its final redraw, not by a universal timeout or the map load. Other guardians'
 box erasure is **not video-confirmed**; retain their original sprite/restore
 compositions. Decoded frames and analysis remain outside the repository.
 
+## Installed digital driver: command and length rules
+
+**DOS static, high confidence (2026-10-22):** freshly extracted INTRO.CC
+`prosnd` is 876 bytes at archive offset `0x6f28bf`, SHA-256
+`1b517eee5ad4e1f64de9cdd6f27e60946d879e6c274517f7338f12c0ba1ea4c6`.
+Calibration reproduced the Efx/driver-presence gate at DAT
+`0xdea9..0xdecd`. Its trampoline `0x46185..0x4618e` enters driver +3.
+Offsets in the following table are **decoded prosnd resource offsets**.
+These are static program rules, not a new observation of audio output.
+
+| Operation | Rule | Offsets |
+| --- | --- | --- |
+| Command 0 | Stops an active sample and clears busy. | `0x11f..0x130`, `0x183..0x1a1` |
+| Command 1 | Returns the driver's busy word, 0 or 1; it is not a remaining-sample count. | `0x132..0x13a` |
+| Other command | Treats the value as the sample segment; stops an active sample before replacing it, then sets busy. No queue or ignore-while-busy branch. | `0x13c..0x177` |
+| Input layout | Reads only the word at sample +`0x1b`, subtracts 10 modulo 65536, and sets the initial DMA address to segment base +`0x20`. | `0x153..0x168`, `0x1a2..0x1b6` |
+| Output rate | Writes DSP command `0x40` and literal time constant `0xbc` (188), independently of the sample header. Nominal period is 68 microseconds, or `1000000/68` Hz. | `0x227..0x254` |
+| Completion | The final accepted sample IRQ clears busy; a non-final IRQ programs the remainder across the DMA page boundary. | `0x260..0x2d9` |
+
+The driver does **not** parse VOC block types, descriptor, data offset,
+codec, continuation blocks, silence blocks or terminator. Its fixed layout
+matches ordinary type-1 PCM at offset 26, but that does not make it a
+general type-1/2/3 decoder. A new sample with a different header rate still
+receives time constant 188. Invalid layouts are not a supported format to
+emulate by unchecked reads.
+
+The decoded driver `0x3b..0x36b` makes no mixer-level write. Its IRQ writes
+the mixer register selector `0x82` and then **reads** base+5
+(`0x26b..0x27b`); this is status handling, not a volume setting. The
+`promus` mixer writes remain those documented above; neither establishes
+the audible FM/VOC/CD balance in the installed DOSBox.
+
+The Sphinx call passes the loaded segment directly (`0x29775..0x29785`,
+`0x2989d..0x298b0`). DAT's resource loader reads the CC member into the
+segment and XOR-decodes its bytes (`0x45fab..0x45ffb`, `0x460b8..0x460dc`);
+there is no VOC-header conversion on that path. The damaged descriptor
+therefore does not affect this driver.
+
+**Timing conflict, high confidence for the programmed counts:** the first
+block's low length word minus 10 is the count written to DMA and DSP
+(`0x21a..0x220`, `0x336..0x34c`). It is not the PCM payload length used by
+`xeenVocDurationNanoseconds`.
+
+| Clouds resource | Header PCM bytes | Programmed unsplit count | Existing header duration |
+| --- | --- | --- | --- |
+| `sphinx13.voc` | 39243 | 39235 | 2.668524 s |
+| `sphinx14.voc` | 18751 | 18743 | 1.275068 s |
+| `xeenlaff.voc` | 33173 | 33165 | 2.255764 s |
+
+**Inference, medium:** with count-plus-one DSP/DMA semantics, an unsplit
+transfer is seven samples (476 microseconds) shorter than the header
+interval. The page-split path uses separate count arithmetic
+(`0x1b9..0x1d3`, `0x2a5..0x2cb`); do not apply a universal seven-sample
+correction as a claim about every DOS allocation. **Maintainer decision,
+2026-10-22:** use the unsplit count-plus-one model for playback and timing;
+the allocation-dependent sub-millisecond difference is an
+[approved approximation](../original-quirks.md#dev-prosnd-dma-timing), with
+no further split investigation. Existing captures do not establish
+sub-millisecond agreement. Existing header waits and tests change in Part A,
+including investigation of any M44 digest effect; Part 0 changes no code.
+See the [driver quirk](../original-quirks.md#sv-prosnd-fixed-layout).
+
+**DOS resource audit, high (2026-10-22):** all 36 distinct VOC names
+currently loaded during Clouds play have a single type-1 block at offset
+26, codec 0, time constant 188, a length fitting the low word, and no
+additional blocks. This includes the dream's INTRO `dreams2.voc` and DARK
+`laff1.voc`, and the damaged Sphinx descriptor. No exception to the fixed
+layout was found. Counts of distinct names by referring owner are Entrance
+17, EventFlow 5, ServiceAnimation 6, SmithFlow 6 and TrainingFlow 3; these
+sum to 37 because `ahh.voc` is shared. These are resource-name counts, not
+physical DOS calls or runtime executions. Combat and other DOS samples
+absent from current loaders are outside this completed layout audit.
+
+Reproduction scripts, extracted resources, disassembly and full hashes are
+outside the repository in `D:/MModern-re/audio-m83/`; `findings.md` records
+the final evidence, decisions and remaining measurement limits. No original bytes or code are
+included here.
+
+## CD disc addressing and boundary failures
+
+**DOS static, high (2026-10-22):** DAT `0x3d827` obtains the track's
+absolute MSF address. `0x3da0d..0x3da73` converts MSF to sectors;
+`0x3db3d` subtracts 175 from the start and `0x3db9a` subtracts 150
+from the end. Packet `0x3d9b4..0x3d9e8` uses mode 0, absolute sectors,
+not track-relative addresses. For track start LBA T and decoded cue times
+S and E in sectors, the request is `[T+S-25, T+E)`. The 150-sector MSF
+bias cancels; the extra 25 sectors are the game's preroll. Ordinary Clouds
+selects disc 1 (`0xf383`, `0x3d63f..0x3d806`). Track numbers alone do not
+identify a file across both discs.
+
+**Installed-emulator source, high:** DOSBox Staging reports 0.83.0
+(`7b400`), matching release commit `7b40053b7ac580843d0461eba8c36a47a990e66c`.
+Its [AddTrack](https://github.com/dosbox-staging/dosbox-staging/blob/7b40053b7ac580843d0461eba8c36a47a990e66c/src/dos/cdrom_image.cpp#L1571)
+builds cumulative starts for separate files from the preceding file's
+length, rounded up to a sector, and the cue's index/pregap. Track-info
+MSF adds 150; playback subtracts the selected track's cumulative start
+and seeks within its file. The installed `GAME1.INS` has separate files,
+INDEX 01 zero and no pregap directives. Thus Gunther's encoded 370..2161
+becomes S=295, E=1636 and plays `xeen19.ogg` at 3.600000..21.813333 s.
+This independently reproduces the retained DOS capture calibration.
+
+**Program/resource/emulator inference, high; no new playback capture:**
+two map 30 rows, `(10,20)` and `(9,22)`, line 0, request track 2 with
+encoded 24..416. Their start is T-1, inside data track 1. DOSBox's
+`GetTrack` selects that data track; `PlayAudioTrack` rejects its data
+attribute. Its [MSCDEX status path](https://github.com/dosbox-staging/dosbox-staging/blob/7b40053b7ac580843d0461eba8c36a47a990e66c/src/dos/dos_mscdex.cpp#L866)
+reports `0x8000`, with no busy bit. DOS retries only `0x810c`
+(`0x3dbcb..0x3dbf6`), rounding the encoded start to the next second once.
+This emulator error does not take that retry. **Maintainer decision,
+2026-10-22:** Part B plays nothing and starts no CD-busy interval or speech
+wait on this refusal, replacing the current unconditional 317/75-second
+interval. Show its text under the approved delivery-failure fallback.
+Do not clamp, shift or guess another start. This is high-confidence static
+inference for the installed emulator, not a newly captured DOS play-test;
+see the [failed-start rule](../original-quirks.md#sv-cd-failed-start).
+
+Map 49 `(8,17)`, line 0, track 3, encoded 20..474, starts five sectors
+inside the preceding audio track. **Program/resource/emulator inference,
+high:** the request has 379 sectors (5.053333 seconds). It begins at
+`xeen02.ogg` 153.453333 seconds, reaches that file's 153.520000-second
+end, then plays `xeen03.ogg` from zero through 374/75 seconds. DOSBox's
+[`CDAudioCallback` and `PlayNextAudioTrack`](https://github.com/dosbox-staging/dosbox-staging/blob/7b40053b7ac580843d0461eba8c36a47a990e66c/src/dos/cdrom_image.cpp#L1007)
+advance to the next audio file at EOF when at least two seconds of the
+request remain, preserving the total/played-frame accounting. This cue
+has 4.986667 seconds remaining, so it takes that path. Do not clamp its
+start to track 3. The nominal interval is confirmed; codec seek precision
+and callback latency are not new measured timing corrections.
+
+**Resource census and signal measurement, high for counts and bounds:**
+the initial Clouds CUR reconstructed from XEEN.CC has 207 PlayCD rows on
+25 maps, using tracks 2..29. Primary Event IDs below 100 avoid the hash
+aliases produced by treating extension map IDs as separate Event files.
+All 207 nominal ends fit their OGG files; three nominal starts are negative
+as described above. Decoded mono 8 kHz measurements use 100 ms edge RMS;
+tracks 9, 17 and 18 have edges above -35 dBFS. These are suspicions for
+listening, not evidence of a shifted rip or a correction table. Speech
+intelligibility and full utterance containment remain **Unknown** for
+every track; energy alone cannot certify them. Per-row operands, source
+offsets, durations and measurements are in the external `cues/` tables.
+
+## Digital and CD lifecycle evidence
+
+**DOS static, high:** Efx off masks sample starts, stops and queries at
+`0xdea9..0xdecd`; it does not issue a driver stop. Speech toggling at
+`0x1f054` changes its option only; panel exit `0x1f31b -> 0xf383` returns
+when Speech is off. Already playing CD audio therefore continues. CD busy
+`0x3d5fd..0x3d608` tests MSCDEX bit `0x200` without a Speech gate. FM,
+VOC and CD use separate drivers/status; the digital driver does not consult
+FM or CD busy. A combat sample replaces another VOC through the same
+wrapper (`0x2c111`, `0x2c172`, `0x2d802`); an FM effect alone does not.
+
+Resource access can interrupt CD audio: `0x3d23d..0x3d279` stops a busy
+cue when the active archive is not available locally, setting a pending
+flag. Resource-load returns at `0xdfaf`, `0xdfea`, `0xe02b`, `0xe072`
+invoke the retained cue again; this is a restart, not a saved audio cursor.
+Archive-presence checks are at `0x3d55a..0x3d595`; the installed WORLD
+folder has CUR files but no local XEEN.CC/DARK.CC. **Maintainer decision,
+2026-10-22:** preserve existing cue intervals across resource reads as an
+[approved approximation](../original-quirks.md#dev-cd-resource-read-timing).
+**Final maintainer decision, 2026-10-22:** resource-read stop/restart cycles
+are never modelled, including audible restarts. The entire class is closed;
+additional reads are listed externally without another decision.
+
+**Ordinary Clouds witness, DOS static/resource, high (2026-10-22):**
+map 12 `(11,12)`, facing 2, line 1 retains track 16, encoded 5410..10123;
+line 2 opens portrait 15 in NPC mode 0. Initial CUR offsets are
+`0x9f5c/0x9f67` (Event offsets `0x17/0x22`). With Speech on and Text off,
+the cue starts at `0x25aee`. Input is accepted while busy
+(`0x25b6d..0x25b8d`); an early Escape or N reaches the mode-0 exit
+(`0x25bda..0x25bf8`) without first stopping CD. That exit clears the
+portrait handles (`0x25c04..0x25c16`) and, with Text off, reloads
+`face15.fac` and `frame.fac` at `0x25c40/0x25c51`. The name format and
+frame name are at DAT `0x53af1/0x53afe`.
+The resource members exist in XEEN.CC at `0x76685f` (1132 bytes) and
+`0x7f2a50` (1102 bytes), respectively; these are archive offsets.
+
+Both loads call `0xdff1`: its pre-load hook `0xdff5 -> 0x3d23d`
+stops still-busy CD and its post-load check `0xe024..0xe02b` restarts
+the retained cue. The first load alone establishes the exception; whether
+the second sees a renewed busy bit depends on playback starting promptly.
+The dialog's explicit CD stop is later, at `0x25c94`. Thus a normal
+input path can request CD resources while speech is busy, even though
+it is about to dismiss that speech. This is a reachable code/data path,
+not a captured audible restart or a measured I/O delay. Nine Clouds
+PlayCD/NPC-mode-0 adjacent pairs are retained in the external
+`mode0-cd-witnesses.json`; this does not claim a complete read inventory.
+**Maintainer decision, 2026-10-22:** Part B omits the transient restart
+for this witness and the nine mode-0 pairs, and keeps the final explicit
+dismissal stop. Dismissing the dialog stops its cue. Other read sites are
+listed externally under the same final approximation.
+
+The all-zero retained cue is a no-op before replacement
+(`0x3da98..0x3daa7`); valid replacement stops the prior cue at `0x3dba7`.
+Normal NPC dismissal stops CD at `0x25c94`; disc changes stop it at
+`0x3d65f/0x3d664`. Service departure is not one universal digital stop:
+the tavern explicitly replaces the sample with goodbye and polls busy
+(`0x1d680..0x1d6c5`). Title lightning starts at `0xbfcf`, stops at
+`0xc029`; dream samples run sequential busy loops (`0x1e66d..0x1e6bb`).
+The following matrix separates explicit transitions from resource-read
+side effects. **DOS static, high** for the listed calls; absence of a stop
+is a **medium-confidence bounded control-flow finding**, not a playback
+capture.
+
+| Path | VOC | CD |
+| --- | --- | --- |
+| Ordinary control-panel entry and Escape | No sample stop in the handler | No final stop on unchanged-options Escape (`0x1f2e8..0x1f331`); approved approximation preserves the interval |
+| Load from the panel | Does not issue a sample stop or take the title's drain; driver busy continues until completion/replacement, subject to the newly loaded Efx query gate | `0x1f14d..0x1f193`, `0xd2fa..0xd305`, `0xb819..0xb829`, `0x39460 -> 0xf013`: no explicit stop or cue-operand reset. Preserve active process playback unless the resulting disc selection changes |
+| Cancel Load or save-slot selection | No sample stop in `0x2042d..0x20c72` | No explicit stop or operand reset; resource cycles omitted |
+| New or Load from the title | Title lightning has its own start/stop; New `0xc113..0xc13a` and Load `0xc162..0xc1b8` join at `0xc66b`. Neither initializes the sample driver again | No automatic cue start from save/template state. Retained process operands survive unless a disc change clears them; New template load `0x20b95..0x20be5` does not clear them |
+| Return from gameplay to title | Polls VOC before freeing its buffer (`0xb933..0xb947`); with Efx on it drains, with Efx off the query is masked and no physical stop occurs | No explicit stop/reset in `0xb90f..0xb98b -> 0xb65c`; preserve the active interval across the clock handoff under the resource-read approximation |
+| Tavern departure | Stops/replaces with goodbye, then polls busy (`0x1d680..0x1d6c5`) | No independent location-exit stop |
+| Other Clouds service exits / ordinary map exit | Shared exit `0x1d669..0x1d7d3` has no blanket stop; the other voiced departure branch is Darkside-only. Map reload likewise does not stop the sample driver | No location-wide cancellation. Map-load tail `0x10772 -> 0xf383` checks whether the selected disc changes |
+| NPC Escape/N dismissal | Does not itself issue a VOC stop | Explicit stop `0x25c94`; mode-0 portrait reload exception is approved above |
+| Yes/no and Who Will helper exits | No universal VOC cancellation inferred | Explicit stops `0x24c66` and `0x252ec` |
+| Numeric Choose123, ordinary messages, Event cleanup | No global Escape-triggered stop; explicit action samples still follow their own sites | No blanket cancellation: numeric return `0x24ee9`, Event cleanup `0x291d8`; a nested yes/no or NPC helper still has its explicit stop |
+| Main exploration Escape | Not a global audio action | Main key table `0xd63c` has no Escape action; generic input normalization does not stop CD |
+| Title animation Escape / menu return | Title lightning's explicit stop remains at `0xc029`; input is not a generic sample cancel | No generic CD stop in `0xbcce..0xc766`; a process exit is distinct |
+| Confirmed Quit / termination | Driver shutdown | Explicit stop at `0x21ecd`; this is process termination, not return to title |
+| Archive side selection / actual disc change | Neither stops the digital driver | Archive selector `0xe89e..0xe937` has no stop. With Speech on, `0xf383..0xf40e` checks the required disc; an actual change stops twice at `0x3d65f/0x3d664` and clears operands at `0x3d7fa..0x3d806`. Speech off skips that map/panel disc check |
+| Fresh process | Driver initialization starts idle | Startup stops CD (`0x3d45a`); operands begin zero. Saves contain options, not audio cursors or retained cue operands |
+
+The CD stop/start/busy call inventory and the digital wrapper inventory
+bound these conclusions. The driver shutdown stubs are reached from
+termination, not ordinary Load/New or archive selection. Resource helpers
+`0x46080/0x460dd` close/free archive data, not the audio drivers.
+The auxiliary F10 handler explicitly stops CD at `0x1be38` and resumes it
+with MSCDEX command `0x88` at `0x1bf3d -> 0x3d984`; it has no VOC stop.
+This is distinct from Escape and from a resource-read restart.
+
+**Logical-state consequence:** retained operands `DS:84e0/84e2/84e4`
+are process state, separate from saved party options at `DS:ed8c`.
+Opcode 60 writes them (`0x28b49..0x28b57`); disc change clears them.
+Same-process Load/New therefore does not restore an audio cursor or
+automatically start speech, but F8 can replay the still-retained cue.
+Part B must preserve surviving intervals by remaining duration across
+presentation-clock epochs and keep explicit stops separate. Current
+Clouds NPC paths already stop on dismissal; F8 is a new playback path,
+so this does not invalidate another existing ordinary Clouds wait.
+The approved driver-count and failed-start changes remain the only
+established corrections to current wait lengths. Exact waveform effects
+of DOS reusing a sample buffer during a masked-busy Load are unmeasured;
+the matrix describes driver commands/busy lifetime, not freed-memory audio.
+
+**Ordinary continuing-restart witness, DOS static/resource, high:** F8
+replays the retained CD operands at `0xd4d0 -> 0x3da87`. Keyboard scan
+`0x42` maps to internal key `0xd0` in the table at `0x456e8`; the main
+dispatch table is at `0xd63c`. CD stop `0x3da74..0x3da86` leaves those
+operands intact, so the replay is available after NPC dismissal. After
+Gunther, replay with F8, let speech advance, then open the panel with Tab
+while busy. Panel entry loads `cpanel.icn` at `0x1eec0` (name at
+`0x5336e`, XEEN.CC member `0x63066c`, 279 bytes). This invokes the
+same pre-load stop `0xdff5 -> 0x3d23d` and post-load replay `0xe02b`.
+The panel accepts input without a CD-idle wait and its unchanged-options
+Escape return has no final CD stop (`0x1f2e8..0x1f331`). The restarted
+cue therefore continues while the panel is open and after Escape. The
+control flow is established; no audible restart or I/O delay was captured.
+**Maintainer decision, 2026-10-22:** Part B omits the restart, preserves
+the uninterrupted replay interval and lets the cue continue after panel
+closure. Current source has no F8 CD replay binding; Part B adds it using
+the retained operands, including their existing Speech and all-zero gates.
+
+**DOS static, high for the table:** Event opcode 40 selects six names at
+DAT `0x508cc..0x508e3`: 0 `ahh.voc`, 1 `whereto.voc`, 2 `gulp.voc`,
+3 `null.voc`, 4 `scream.voc`, 5 `laff1.voc`. Its handler stops the old
+sample, loads and starts the new one (`0x28724..0x2875a`), without a busy
+wait. The Clouds census has 130 rows on 35 maps, using indices 0..4.
+
+### VOC inventory boundaries
+
+**DOS static/resource, high for call operands; medium for owner mapping:**
+87 references to the digital wrapper include 35 physical start calls:
+32 Clouds/shared and three explicitly Darkside-only. A physical call is
+counted once even when a table, loop or branch chooses several samples.
+The external `dos-voc-starts.md` lists every start, name/template and gate.
+All pass the Efx/driver-presence gate; side-specific alternatives are
+identified separately.
+
+| Existing owner or bounded correspondence | Clouds/shared calls |
+| --- | ---: |
+| `XeenEventFlow` death/dream | 4 |
+| Title audio path (`XeenAudio` owns current title music) | 1 |
+| Fall/landing animation; no current sample owner identified | 2 |
+| `XeenTrainingFlow` success | 1 |
+| `XeenSmithFlow` service actions | 9 |
+| Shared training-refusal/guild-rejection call | 1 |
+| `XeenServiceAnimation` greeting via Event flow | 1 |
+| Event interpreter opcode 40 | 1 |
+| `XeenEntranceScene` | 9 |
+| Player-damage candidates / monster attack path | 3 |
+
+The current implementation's literal resource census is 36 distinct
+names: Entrance 17, Event flow 5, ServiceAnimation 6, Smith 6 and Training
+3, with `ahh.voc` shared. This corrects the approximate 40-name estimate;
+resource names and physical DOS calls are different counts.
+
+Dynamic player-hit names at `0x2c0c5..0x2c111` are `pow0.voc` through
+`pow5.voc`, selected by the 35-byte weapon table at `0x4d660`.
+`miss.voc` loads at `0xb7b1` and plays at `0x2c172` in the nonpositive
+player-damage branch, corresponding to `XeenPhysicalPlayerCandidate` and
+`XeenSpellDamageCandidate`; it is not the enemy miss effect. Monster
+attack voices format the record's string at +`0x33` as `%s.voc`
+(`0x2d7c8..0x2d802`). The current Clouds bridge reads
+`DARK.CC/xeen.mon`: 90 records, 70 case-sensitive strings / 69 normalized
+voice names, all present in XEEN.CC. This is an attack voice, not a death
+voice. Exact lists and member offsets are external.
+
+The expanded audit finds header time constants 120, 181, 172 and 173 in
+`blob.voc`, `boom1.voc`, `roc.voc` and `snakeman.voc`, respectively, all
+codec 0. These differ from the driver-selected 188, already covered by
+the adopted fixed-rate rule. It finds no extra blocks,
+non-type-1 first block or length-word overflow in the identified monster
+and weapon set. The 36 currently loaded samples retain their clean
+layout audit above. Broad string-scan candidates are not a reachable
+Clouds census and are not included in these claims. A1 (decoder/mixer)
+and A2 (sites) is the final recommendation; the explicit fall-presentation
+gap below does not justify a third audio implementation part.
+
+**Publication mapping, DOS static/current source, high:**
+
+| Sample | DOS ordering and existing MMModern publication point |
+| --- | --- |
+| `pow0..5.voc` | Positive-damage gate precedes `0x2c082`; stop old VOC `0x2c0b2`, select/load sample, FM `60+selector` at `0x2c105`, VOC at `0x2c111`, then HP comparison/stores `0x2c129..0x2c15b`. Use the existing weapon-impact callback in `XeenCombat::serviceConsequences`: physical `PreHp` immediately before HP publication (`XeenCombat.cpp:1607`) or the nonsequenced positive result (`:1586`); in `XeenCombat::serviceCast`, use `Impact` before HP/status publication (`:1392`). `XeenEncounterFlow::fmWeaponEffect` in `XeenJourneyFlow.cpp` reaches `XeenAudio::weaponEffect`; extend that existing request to the sample, preserving its FM/VOC order and independent Efx gate. No new wait or RNG draw. |
+| `miss.voc` | VOC `0x2c172` precedes FM 6 `0x2c17c`. The exact candidates are `XeenPhysicalPlayerCandidate::service` (`XeenCombatRules.cpp:686`), condition `!damage && (!shoot || hit)`, and `XeenSpellDamageCandidate::service` (`:386`), condition `attack2Entered && damage<=0`. Publish once with the existing guarded effect request, before result publication. A missed missile or a spell rejection that never enters attack2 bypasses both cues; do not attach it to every displayed miss or every FM 6. |
+| Monster record `+0x33` voice | Pose frame 8 is set at `0x2d778`, scene calls at `0x2d793/0x2d79b`, old VOC stops at `0x2d7a5`, resource loads at `0x2d7f4`, and playback starts at `0x2d802`, before the target/attack loop. Current `XeenCombat` publishes `MonsterPose1` before enemy-candidate service (`XeenCombat.cpp:1543..1550`). The sample belongs to `XeenEncounterFlow::observeCombat`'s once-per-generation first-pose branch (`XeenEncounterFlow.cpp:345..353`), beside the existing record `+0x32` FM request and frame-8 presentation, before subsequent target-selection/RNG in `XeenEnemyAttackCandidate`. Do not replay at Pose2, per target, or on redraw. |
+
+**Fall/landing gap, high for current coverage:** DOS plays `scream.voc`
+at `0x116a0` after falling FM 11 (`0x11692`), explicitly stops it at
+`0x116ec`, starts `unnh.voc` at `0x1170c`, then requests landing FM 31
+at `0x11716`. Existing transition ownership is
+`XeenEventFlow::prepareTerrainTransition/beginTerrainTransition`, backed
+by `XeenTerrainArrival`; encounter/rest/casting consequences hand off to
+that transition. There is no equivalent staged fall/landing presentation
+or sample publication point today. Record these two calls with that
+existing presentation gap; do not attach them to every map transition,
+add a new audio owner, or silently expand A2 into implementing the fall
+animation. Title lightning, in contrast, belongs to the existing title
+presentation path using program-owned `XeenAudio`, with its DOS start/stop
+stages above. Its `elect.voc` resource is in DARK.CC (header constant
+188, codec 0), not missing from the installation; an earlier broad
+XEEN/INTRO-only scan was not a complete title-resource lookup.
+
+## Text-off byte: readers and presentation
+
+**DOS static, high for direct scalar accesses:** the scan of `DS:f384`
+finds 29 accesses, including the option toggle and three plain writes.
+This is a classification of those direct accesses, not a claim about every
+possible alias in a bulk party-state copy.
+
+| Offsets | Classification |
+| --- | --- |
+| `0x1e45e`, `0x1e48a`, `0x1e49e` | Redraw the retained NPC window/face when an NPC is active; no new message suppression |
+| `0x1ee2d`, `0x1ee35`, `0x1f04c` | Panel forces Text on when Speech is off, displays the option, and toggles it |
+| `0x24a1b`, `0x24a66`, `0x24a84`, `0x24a98` | Yes/no helper positions controls and restores the existing NPC presentation; does not discard its question |
+| `0x24cb9`, `0x24ccd`, `0x24cfb`, `0x24d0f` | Numeric Choose123 helper positions controls and restores the existing NPC presentation |
+| `0x256ef`, `0x25703`, `0x257a5`, `0x258e3`, `0x258f7`, `0x25969`, `0x259b4`, `0x259d5`, `0x259e9`, `0x25c19` | NPC face/window/control placement and restoration; Text-off presentation uses window 40 |
+| `0x257c9` | Omits NPC body text: format at `0x53b08` has title and body; Text-off format at `0x53b20` has title only |
+| `0x25af8` | Selects the Text-off face loop, which polls CD busy at `0x25b0f` |
+| `0x26a7d`, `0x26a83`, `0x291d8` | Save, temporarily clear and restore Text off for the Darkside map-29 special case; outside Clouds |
+
+NPC body omission does not test Speech, successful start or CD busy.
+Consequently an all-zero cue with idle playback, or the two refused map-30
+starts, can leave only the NPC title visible. This is explained by the
+independent option branch; DOS does not restore the body on playback
+failure. Speech off normally forces Text on through the panel. An unusual
+raw option combination still follows the unconditional body-selection
+branch. Ordinary Event messages and service greetings have no Text-off
+body gate among these readers; their helpers can restore an existing NPC
+window without suppressing the new text. Part B applies the maintainer's
+decision-3 text fallback whenever speech cannot be delivered; this is an
+approved deviation, not evidence that DOS checks delivery.
+
 ## Missing configuration and remaining evidence
 
 **DOS static, high:** missing `XEEN.CFG` prints configuration instructions

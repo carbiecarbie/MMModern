@@ -26,6 +26,39 @@ unchanged apart from its version number, so the earlier entries are marked
 "master: differs". MMModern currently plays Vertigo and the surrounding
 mainland; many items apply there, others wait for areas not open yet.
 
+M83's digital and CD playback rules apply in Parts A and B; current
+silent sample intervals still use VOC headers:
+
+- **Fixed sample layout and rate.** The installed CD driver
+  [ignores VOC blocks and header rates](original-quirks.md#sv-prosnd-fixed-layout).
+  The pin parses them. Pin: differs; master not rechecked.
+- **Approved timing approximation.** The maintainer adopted
+  [unsplit driver-count timing](original-quirks.md#dev-prosnd-dma-timing),
+  omitting the sub-millisecond effect of DOS allocation-dependent DMA splits.
+  The pin instead follows VOC header durations. Not yet implemented;
+  master not rechecked.
+- **Refused CD starts.** A request beginning in the data track plays
+  nothing and starts no speech wait; the approved fallback shows its text.
+  The pin's direct track playback does not generate that DOS request.
+  [Evidence and decision](original-quirks.md#sv-cd-failed-start).
+  Part B; pin: differs; master not rechecked.
+- **Cross-file CD preroll.** Map 49 starts in the tail of track 2 and
+  continues into track 3 in the installed DOSBox; the pin's direct track
+  request omits that preceding-file tail.
+  [Address and EOF evidence](original-quirks.md#sv-cd-cross-file-preroll).
+  Part B; pin: differs; master not rechecked.
+- **Approved resource-read approximation.** Keep cue intervals instead of
+  modelling any physical CD read interruptions and restarts, including
+  F8 replay through Tab/Escape. Explicit dialog dismissal still stops CD.
+  [Final decision and witnesses](original-quirks.md#dev-cd-resource-read-timing).
+  This is an approved approximation to DOS; full equivalence with the
+  pin's resource-load lifecycle is not asserted. Master not rechecked.
+- **Approved text delivery fallback.** Part B will show the NPC body when
+  speech cannot be delivered; DOS selects the title-only format without
+  testing playback success. [Decision and readers](original-quirks.md#dev-cd-text-delivery-fallback).
+  Approved deviation from DOS; comparison with the pin's failure
+  presentation is not established. Master not rechecked.
+
 ## Combat and conditions
 
 - **Holy Bonus adds weapon damage.** DOS applies it to melee and Shoot,
@@ -305,7 +338,7 @@ Most of the scripts concerned are in areas MMModern has not opened yet.
   [Details](original-quirks.md#sv-cd-song-process-state)
 
 - [Sphinx refusal sample](original-quirks.md#sv-sphinx13-descriptor): DOS
-  plays all of `sphinx13.voc` despite its damaged descriptor, preserving its
+  plays `sphinx13.voc` despite its damaged descriptor, preserving its
   2.67-second speech interval. The pin rejects its header and skips that
   interval. Pin: differs; master not rechecked.
 - [Entrance speech cadence](original-quirks.md#sv-scene-speech-cadence):
