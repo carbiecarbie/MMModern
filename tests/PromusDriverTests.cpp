@@ -325,6 +325,84 @@ int main(int argc,char **argv) {
    };
    assert(Application(services.program).playGameplay(services,{1,1,1,XeenDirection::North},{},false)==0);
   }
+  {
+   // Nuked enters release only when a generated sample sees key-off. Effect 20
+   // re-strikes its held voices 7/8 with key-off then key-on in one tick, so
+   // unspaced writes kept it nearly silent. Compare two rendered seconds with
+   // the DOSBox capture, one captured write per sample in any core write mode.
+   constexpr std::size_t window=2*49716;
+   const auto energy=[](const std::int16_t *pcm,std::size_t frames) {
+    double sum=0;for(std::size_t i=0;i<frames*2;++i)sum+=double(pcm[i])*pcm[i];return sum;
+   };
+   const auto events=dro(std::filesystem::u8path(argv[2])/"promus-fx20-alone.dro");
+   std::vector<std::int16_t> captured(window*2);
+   {
+    XeenOpl3 chip;std::size_t next=0;
+    for(std::size_t s=0;s<window;++s) {
+     if(next<events.size() && events[next].time*49716/1000<=s){chip.write(events[next].reg,events[next].value);++next;}
+     chip.sample(&captured[s*2]);
+    }
+    assert(next==events.size());
+   }
+   const auto reference=energy(captured.data(),window);assert(reference>0);
+   const auto comparable=[&](double value) {
+    std::cout<<"effect20 energy="<<value<<" capture="<<reference<<'\n';
+    return value>=reference/2 && value<=reference*2;
+   };
+   std::vector<std::int16_t> block(1024);
+   const auto drain=[&](XeenFmSource &source,std::vector<std::int16_t> &pcm) {
+    for(;;) {
+     const auto before=source.samples();source.pull(block.data(),512);
+     const auto valid=source.samples()-before;pcm.insert(pcm.end(),block.begin(),block.begin()+valid*2);
+     if(!valid)return;
+    }
+   };
+   {
+    auto source=std::make_shared<XeenFmSource>();std::vector<std::int16_t> pcm;
+    XeenAudio alone(3,resource,loader,module,0,false,{},source);alone.effect(20,0);
+    for(unsigned t=1;t<=150;++t){alone.advance(PromusDriver::clockBoundary(t));drain(*source,pcm);}
+    assert(pcm.size()>=window*2 && comparable(energy(pcm.data(),window)));
+   }
+   // The actual panel-to-party-to-audio path, rendered by the chip consumer.
+   const auto panel=[&](bool music) {
+    gameplay_test::Fixture fixture;fixture.initial.soundOptions={false,music,false,true};
+    std::uint64_t now=0;std::size_t start=0,toggled=0;std::vector<Write> authoritative,rendered;std::vector<std::int16_t> pcm;
+    auto source=std::make_shared<XeenFmSource>([&](const auto &w){rendered.push_back(w);});
+    fixture.programState.audio=std::make_shared<XeenAudio>(3,resource,loader,module,SdlWindow::presentationNanoseconds(),false,
+        [&](const auto &w){authoritative.push_back(w);},source);
+    const XeenFontFormat font(assets.readArchiveResource("fnt"));
+    auto services=fixture.services();services.presentationClock=[&]{return now;};
+    services.panel=[&](const IndexedFrame &base,bool,bool,bool,std::optional<unsigned>,const std::string &) {
+     XeenTitleFlow::Services s{assets.uiText(),font,base,{}, {},
+       [&](auto &frame,const char *name,unsigned index,int x,int y){assets.drawDialogSprite(frame,name,index,x,y);},[]{return std::array<XeenSaveFile::Slot,10>{};},[](unsigned){return std::filesystem::path{};}};
+     s.panel=true;return std::make_unique<XeenTitleFlow>(std::move(s));
+    };
+    services.show=[&](auto visible,const auto &h,const auto &,const auto &idle,const auto &) {
+     const auto present=[&]{h.framePresented(visible.presentation());h.completeInputHandoff(visible.presentation());};present();
+     const auto send=[&](const PlayerAction &action){const auto next=h(action);assert(next);visible=*next;present();};
+     const auto run=[&](unsigned from,unsigned to) {
+      for(unsigned t=from;t<to;++t) {
+       now=PromusDriver::clockBoundary(t);h.beginCycle(t);if(const auto next=idle()){visible=*next;present();}
+       drain(*source,pcm);
+      }
+     };
+     run(1,200);send(ControlPanelAction{});run(200,220);start=pcm.size();toggled=rendered.size();
+     const auto action=h.inputContext(visible.presentation()).dialog->key('e');assert(action);send(*action);
+     run(220,380);h.closed();return true;
+    };
+    assert(Application(services.program).playGameplay(services,{1,1,1,XeenDirection::North},{},false)==0);
+    assert(authoritative.size()==rendered.size() && pcm.size()>=start+window*2);
+    for(std::size_t i=0;i<rendered.size();++i)
+     assert(authoritative[i].tick==rendered[i].tick && authoritative[i].reg==rendered[i].reg && authoritative[i].value==rendered[i].value);
+    assert(std::any_of(rendered.begin()+toggled,rendered.end(),[](const auto &w){return voice(w.reg)>=7;}));
+    pcm.erase(pcm.begin(),pcm.begin()+start);pcm.resize(window*2);return pcm;
+   };
+   assert(comparable(energy(panel(false).data(),window)));
+   // Music shares the chip's write queue (its writes shift behind the effect's)
+   // and may set voice 7/8 levels, so PCM cannot isolate the effect there;
+   // every effect write must still be fed to the chip in order.
+   panel(true);
+  }
   for(const auto &name:{"promus-startup","promus-inn","promus-outdoors","promus-fx20-alone","promus-wall-bump","promus-fx20-over-music"}) {
    const auto events=dro(std::filesystem::u8path(argv[2])/(std::string(name)+".dro"));
    std::cout<<name<<" writes="<<events.size()<<" duration="<<events.back().time<<'\n';

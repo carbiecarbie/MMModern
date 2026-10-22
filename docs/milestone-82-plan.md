@@ -61,10 +61,14 @@ from the pin (`6814ee9ba54582f5b5adcffab49efbbd8f589edd`). In short:
   fade, effects), reading its instrument and effect tables from the installed
   INTRO.CC resource at run time, never embedding them. It drives the plain
   functions of the pinned `audio/softsynth/opl/nuked.h` core:
-  `OPL3_Reset(&chip, 49716)`, unbuffered `OPL3_WriteReg` and `OPL3_Generate`
-  at the native 49716 Hz, whose two outputs carry both banks under promus's
-  routing. Not `OPL3_WriteRegBuffered` (two-sample delay; the pin's choice),
-  not `OPL3_GenerateStream`/`GenerateResampled` (a second resampling), not
+  `OPL3_Reset(&chip, 49716)`, `OPL3_WriteRegBuffered` (the pin's two-sample
+  write spacing) and `OPL3_Generate` at the native 49716 Hz, whose two outputs
+  carry both banks under promus's routing. Amended 2026-10-21 with the
+  maintainer's approval (maintenance fix for the silent Efx-on effect 20):
+  unbuffered `OPL3_WriteReg` applied a tick's key-off and key-on in one
+  sample, so re-struck notes never re-attacked; DOS spaces every write with
+  its delay loops. Not
+  `OPL3_GenerateStream`/`GenerateResampled` (a second resampling), not
   `OPL3_Generate4Ch` (inline in `nuked.cpp`), and `OPL_ENABLE_STEREOEXT`
   stays undefined so the core has no lazy static.
 - **No `OSystem`, no ScummVM mixer (amended after Part A's first attempt,

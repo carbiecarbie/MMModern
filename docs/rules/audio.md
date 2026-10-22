@@ -259,9 +259,22 @@ the interrupt tail writes PIC EOI. None branches on OPL status.
 Pinned Nuked supports NEW, both banks, two-operator channels and stereo;
 its `OPL::writeReg` uses `OPL3_WriteRegBuffered`. It remains the selected
 emulator for those concrete capabilities. **Not established by static
-analysis:** equivalence of audible write spacing and the card mixer path.
-DRO/PCM evidence is still needed; no unsupported OPL dependency or audible
-equivalence has been demonstrated.
+analysis:** the card mixer path.
+
+**Write spacing, inferred from the I/O count, high; interval reference
+only.** The delay loops above (DOS static, high) make every register write
+take about 23 bus reads, roughly one 20.1 µs native sample or more, so a
+tick's writes reach the chip one after another. The DOSBox capture
+`promus-fx20-alone` records 36 writes within one millisecond of its second
+burst, an upper bound of about 1.4 native samples on the average interval;
+its first millisecond holds 176 writes, so DOSBox I/O timing is not hardware
+timing. The exact interval depends on the machine's bus. Nuked enters release only when
+a generated sample sees key-off, so applying a tick's key-off and key-on
+together keeps a held voice from re-attacking: effect 20 re-strikes voices
+7/8 that way on its third tick and was almost silent (about 1/40000 of the
+capture's rendered energy). MMModern uses the pin's two-sample buffered
+spacing; the rendered energy of effect 20 then matches the capture within a
+factor of two (`xeen_promus`). No other audible equivalence is claimed.
 
 ## Comparison with the pinned driver
 

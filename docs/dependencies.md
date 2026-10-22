@@ -109,7 +109,10 @@ or additional audio translation unit is required. The unused undefined symbol
 names left in the object have no relocations from retained sections.
 
 `XeenOpl3` owns only the plain chip struct. It calls `OPL3_Reset` at native
-49716 Hz, unbuffered `OPL3_WriteReg`, and `OPL3_Generate`. No stereo-extension
+49716 Hz, `OPL3_WriteRegBuffered` (the pin's two-sample spacing between
+writes, as its `OPL::writeReg` uses; see
+[original quirks](original-quirks.md#promus-write-spacing)), and
+`OPL3_Generate`. No stereo-extension
 define is supplied; the header's default is zero. MMModern's promus interpreter
 places interrupts using the exact ratio `49716 * 16390 / 1193182`. SDL owns one
 resampler for the FM source, and MMModern mixes its output at the device rate.
