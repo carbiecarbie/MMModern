@@ -193,13 +193,16 @@ XeenObjectFile mob(XeenMapIdentity id) {
  f.entities.monsters.push_back({1,1,0,0,8});f.entities.monsters.push_back({100,100,0,0,8});
  return f;
 }
+XeenObjectFile chestFirst(XeenMapIdentity id) { // Object 0 is the chest.
+ auto f=mob(id);std::swap(f.entities.objects[0],f.entities.objects[1]);return f;
+}
 struct World {
- XeenWorld source{tile,mob};std::unique_ptr<XeenWorld> w;
- World(XeenMapIdentity id=47,std::uint32_t seed=7) {
+ XeenObjectFile (*objects)(XeenMapIdentity);XeenWorld source;std::unique_ptr<XeenWorld> w;
+ World(XeenMapIdentity id=47,std::uint32_t seed=7,XeenObjectFile (*o)(XeenMapIdentity)=mob):objects(o),source{tile,o} {
   source.markEncounterSession(XeenEncounterEntry::Journey);XeenTrainingTestAccess::seed(source,seed);
   w=source.transitionCandidate();std::vector<XeenMonsterRecord> stats(9);
   for(auto &s:stats){s.raw[20]=20;s.raw[24]=1;s.raw[25]=16;s.raw[26]=1;s.raw[28]=2;}
-  w->stageMapMonsters(mob(id),stats);
+  w->stageMapMonsters(objects(id),stats);
  }
 };
 XeenEventRecord row(unsigned line,unsigned op,std::vector<std::uint8_t> p={},std::size_t offset=0) {
@@ -355,15 +358,22 @@ void flowOperations() {
  }
 }
 
-// A locked chest (sprite 16, object 1): 1..4 trap draw, then thievery + 1..20.
+// A locked chest (sprite 16, object 1 or object 0): 1..4 trap draw, then thievery + 1..20.
 void lockPicking() {
+ // Without a selected object giveExt skips the lock (0x23597): no draw.
+ {
+  World f;auto p=party();XeenGameFlags flags;const auto before=*f.w->sessionState().journeyRandom();
+  const auto r=run(*f.w,p,flags,{row(0,20,{34,100,0,0,0,0,0,0,0})});
+  check(completed(r) && p.purse->gold==600 && *f.w->sessionState().journeyRandom()==before,"no selected object, no lock");
+ }
  for(std::uint32_t seed=1;seed<64;++seed) {
   XeenJourneyRandomState start;start.state=seed;XeenCombatRandom expected(start);std::optional<std::uint32_t> trap,attempt;
   while(!trap)trap=expected.draw(1,4);
   if(*trap==1)continue; // The trap's own damage draws are covered by RndDamage.
   while(!attempt)attempt=expected.draw(1,20);
-  for(const unsigned map:{47u,48u}) {
-   World f(map,seed);auto p=party();XeenGameFlags flags;
+  // The selection byte is one-based (0x98d9), so object 0 is locked like any other.
+  for(const std::size_t object:{1u,0u})for(const unsigned map:{47u,48u}) {
+   World f(map,seed,object?mob:chestFirst);auto p=party();XeenGameFlags flags;
    auto chest=row(0,20,{34,100,0,0,0,0,0,0,0});chest.x=chest.y=6;
    const auto r=run(*f.w,p,flags,{chest},{},XeenCamera{XeenMapIdentity(map),6,6,XeenDirection::North});
    const int box=map==48?100:2;
@@ -373,7 +383,7 @@ void lockPicking() {
    check(message,"lock message names the recipient");
    check(p.purse->gold==(picked?600u:500u),"a failed pick ends the Event before the gold");
    check(p.roster.combatInputs(0)->experience==(picked?1000u+5u*2u*10u:1000u),"a pick adds level x difficulty x 10 experience");
-   check(f.w->objectFrame({XeenMapIdentity(map),1})==std::optional<unsigned>(picked?1u:0u),"the chest stays open only when picked");
+   check(f.w->objectFrame({XeenMapIdentity(map),object})==std::optional<unsigned>(picked?1u:0u),"the chest stays open only when picked");
   }
   return;
  }

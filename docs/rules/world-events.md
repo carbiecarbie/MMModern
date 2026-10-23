@@ -367,7 +367,10 @@ category and ID come from the type, still drawing the category and
 subcategory first (`0x25cbc..0x25d42`), and it needs a free Misc treasure slot
 (`0x2300e`). A full category fails the give.
 
-**Locked chests.** When the selected object is not object 0, its sprite is
+**Locked chests.** When an object is selected (any object, the map's first
+included: the selection byte `0x98d9` is one-based and giveExt `0x23597` skips
+only when it is zero, calibrated 2026-10-23 in
+[Event dispatch evidence](evidence.md#event-dispatch)), its sprite is
 16, 58 or 73 (15 too on Darkside, table `0x235c2`) and no lock was picked yet
 this run, giveExt opens the chest (frame 1), then draws `1..4`; on 1 it draws a
 type `0..6` and deals the map's trap damage to the recipient as ordinary typed

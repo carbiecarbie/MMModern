@@ -304,10 +304,10 @@ against the pin; master was not rechecked.
 - **Password prompts naming a missing text** use the map's first text in the
   original, an empty text in ScummVM.
   [Evidence](original-quirks.md#sv-confirmword-text0). Master: differs.
-- **Locked chests.** The original decides from the chest's picture and never
-  locks the map's first object; ScummVM uses another test, so some chests
-  differ, three of them in Clouds.
-  [Evidence](original-quirks.md#sv-chest-locks). Master: differs.
+- **Locked chests.** The original decides from the chest's picture alone;
+  ScummVM also skips the lock when the chest stands at x position 20. No
+  locked chest in Clouds stands there, so no Clouds chest differs in play.
+  [Evidence](original-quirks.md#sv-chest-locks). Master: differs in code only.
 - **Clearing an Event spot.** A script that clears the party's spot keeps
   running in the original; ScummVM stops it.
   [Evidence](original-quirks.md#sv-make-nothing-here). Master: differs.

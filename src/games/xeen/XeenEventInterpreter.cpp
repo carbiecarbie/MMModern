@@ -1303,9 +1303,9 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 			// The selected member, or the first for a whole-party selection (0x27e71).
 			const std::size_t recipient=state.entireParty || !state.activeCharacterIndex ? 0 : *state.activeCharacterIndex;
 			// giveExt (0x2358e): a locked chest is picked first (0x235ac..0x23726),
-			// unless this run already picked one or the selected object is index 0.
-			if(!state.generatingReward && !state.lock && !state.scriptValues.lockCounter && state.selectedObject &&
-				state.selectedObject->recordIndex!=0) {
+			// unless this run already picked one or no object is selected (0x23597;
+			// the selection byte is one-based, so object 0 can be locked too).
+			if(!state.generatingReward && !state.lock && !state.scriptValues.lockCounter && state.selectedObject) {
 				const auto object=world.effectiveObject(*state.selectedObject);
 				// The sprite table is 15 (Darkside only), 16, 58, 73 (0x235c2); the
 				// following test against 20 reads the same byte, so it never skips.
