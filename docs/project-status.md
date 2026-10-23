@@ -155,7 +155,7 @@ show Cursed in yellow and Broken in red, as the original does.
 **Skills.** Teachers and Events grant skills, and the sheet lists them.
 Thievery picks locks, Bodybuilder and the spell-casting skills raise HP or SP,
 Merchant sells at full value, Swimming opens water and Navigator saves time in
-the desert. Cartography records the cells the party steps on: `=` toggles the
+the desert. Arms Master and Tracker do nothing, as in DOS. Cartography records the cells the party steps on: `=` toggles the
 7x7 automap, and M or the Map button opens the original 16x16 Map. The border
 lights Danger Sense when a monster is within three cells and Spot Secret Doors
 in front of a thin indoor wall, and shows the facing letter with Direction
@@ -387,8 +387,6 @@ in [dependencies](dependencies.md).
 - **Scenes and commands.** The Pyramid entrance, the Clouds ending and Mr
   Wizard in combat say "not supported yet"; killing Lord Xeen does not give
   his Scepter yet.
-- **Skills.** Arms Master and Tracker are kept but do nothing; the reference
-  gives them no effect either, and DOS has not been checked.
 - **Sound.** The Inn song (`inn.m`) has no production caller until the Inn/Sign
   In screen (step 14). Fall/landing samples await the falling presentation;
   title lightning belongs to step 15. F8 speech replay is omitted by maintainer

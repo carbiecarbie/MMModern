@@ -128,6 +128,10 @@ to Vertigo.
     interrupted and a door label up at combat start run again after the
     fight, Run lands on every landing, and every Event run clears WhoWill
     ([rules](rules/world-events.md#event-dispatch)). Next: step 14.
+    Before step 14, [M86](milestone-86-plan.md) (planned, Tier B) closes
+    four Clouds presentation gaps: the open-door frame, the falling
+    animation and its sounds, Moon Ray's per-member order and the border
+    indicators after services.
 14. **Inn, recruiting and character creation** (Tier A, high): Tavern Sign
     In, Dismiss, attribute rolls, the creation screens and changes to the
     saved party, including Poison Volley shooting for the active party size

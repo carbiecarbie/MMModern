@@ -513,8 +513,12 @@ and Danger Sense light their border indicators
 ([rules](magic.md#border-and-information-screens)), Merchant sells at full
 value, Swimmer lets the whole party onto water and two Mountaineer holders
 pass outdoor wall types 1/7/9/10/12
-([rules](time-and-conditions.md#outdoor-movement-skills)); the reference
-gives Arms Master and Tracker no passive effect.
+([rules](time-and-conditions.md#outdoor-movement-skills)). Arms Master and
+Tracker have no passive effect in DOS, as in the reference (**DOS static,
+high confidence**, 2026-10-19): the party skill check `0x215b9..0x21609` is
+never called with skill 1 or 15, and the traced to-hit path
+`0x2ded8..0x2e1c0` reads no skill byte
+(`D:/MModern-re/skills-20261019/findings.md`).
 
 ### Part B worked examples
 
