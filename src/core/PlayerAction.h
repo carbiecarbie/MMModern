@@ -34,7 +34,7 @@ struct SelectInventorySlotAction { std::size_t slot; };
 struct TransferInventoryAction {};
 struct EquipmentInventoryAction {};
 struct UseItemAction {};
-struct InteractionAction {};
+struct InteractionAction { bool wait = true; };
 struct AcknowledgeAction {};
 struct YesAction {};
 struct NoAction {};

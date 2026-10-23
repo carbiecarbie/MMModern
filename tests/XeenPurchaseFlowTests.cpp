@@ -8,8 +8,8 @@ std::string context;
 void limits(Inputs &in) {
     for(int margin:{-1,0,1}) {
         context="Event ticket margin "+std::to_string(margin);
-        Fixture f(in,service(in));const Owners before(f);XeenPurchaseTestAccess::limit(*f.flow,7,UINT64_MAX-1-margin);f.act(InteractionAction{});
-        if(margin<0){check(f.flow->canSave(),"exhausted Event ticket admitted Smith");before.unchanged(f);}
+        Fixture f(in,service(in));const Owners before(f);XeenPurchaseTestAccess::limit(*f.flow,7,UINT64_MAX-1-margin);f.act(InteractionAction{false});
+        if(margin<0){f.finishDeparture();check(f.flow->canSave(),"exhausted Event ticket admitted Smith");before.unchanged(f);}
         else{f.prepare();f.leave();check(f.p.encounterContext->day==9,"exact Event ticket lost departure");}
     }
     for(unsigned phase=0;phase<2;++phase)for(unsigned counter=0;counter<4;++counter)for(int margin:{-1,0,1}) {
@@ -20,7 +20,7 @@ void limits(Inputs &in) {
         XeenPurchaseTestAccess::limit(*f.flow,counter,UINT64_MAX-need-margin);
         if(!phase)f.present(XeenPurchaseTestAccess::restartPreparation(*f.flow));
         if(!f.flow->canSave())f.prepare();
-        if(margin<0)check(f.flow->canSave() && f.p.encounterContext->day==8 && f.p.purse->gold==870,"insufficient admission acquired debt");
+        if(margin<0){f.finishDeparture();check(f.flow->canSave() && f.p.encounterContext->day==8 && f.p.purse->gold==870,"insufficient admission acquired debt");}
         else {check(XeenPurchaseTestAccess::lobby(*f.flow),"exact/one-more admission refused");f.leave();check(f.p.encounterContext->day==9,"admission bound lost mandatory departure");}
     }
     for(unsigned counter=0;counter<7;++counter)for(int margin:{-1,0,1}) {
@@ -119,7 +119,7 @@ void faults(Inputs &in) {
     for(unsigned day:{8u,10u}) {
         context="RNG exhaustion day "+std::to_string(day);
         auto source=service(in,day);source.journey->random->count=UINT64_MAX-1;
-        Fixture f(in,source);const Owners before(f);f.act(InteractionAction{});if(!f.flow->canSave())f.prepare();
+        Fixture f(in,source);const Owners before(f);f.act(InteractionAction{false});if(!f.flow->canSave())f.prepare();
         if(day==10){check(f.flow->canSave(),"RNG exhaustion during complete admission armed debt");before.unchanged(f);}
         else {f.quote(XeenInventoryCategory::Armor,f.armorOffer());f.act(YesAction{});armorPaid(f);f.leave();
             check(*f.w.sessionState().journeyRandom()==before.random,"nontrigger purchase/departure drew from exhausted-near cursor");}
@@ -132,7 +132,8 @@ void faults(Inputs &in) {
         context="Fault boundary "+std::to_string(unsigned(boundary));
         Fixture f(in,service(in,10));bool fired=false;
         f.flow->smithBoundary=[&](auto here){denied(f);if(here==boundary && !fired){fired=true;throw std::bad_alloc();}};
-        f.act(InteractionAction{});if(!f.flow->canSave())f.prepare();if(f.flow->canSave())f.enter();
+        f.act(InteractionAction{});if(!f.flow->canSave())f.prepare();
+        if(!f.flow->serviceSaveBlocked())f.finishDeparture();if(f.flow->canSave())f.enter();
         check(XeenPurchaseTestAccess::lobby(*f.flow),"admission fault lost service continuation");
         f.quote(XeenInventoryCategory::Armor,f.armorOffer());f.act(YesAction{});
         if(XeenPurchaseTestAccess::quote(*f.flow))f.act(YesAction{});
@@ -151,6 +152,7 @@ void faults(Inputs &in) {
         f.flow->smithBoundary=[&](auto here){if(here==boundary && failures++<12)throw std::bad_alloc();};
         f.act(YesAction{});f.act(CancelInteractionAction{});f.act(CancelInteractionAction{});
         const auto input=f.flow->displayedInput();while(!f.flow->canSave()){f.act(CancelInteractionAction{});check(failures<=13,"mandatory retry bound exceeded");
+            if(!f.flow->serviceSaveBlocked()){f.finishDeparture();break;}
             if(!f.flow->canSave())check(input==f.flow->displayedInput(),"same settlement retry consumed semantic authority");}
         check(f.p.encounterContext->day==9 && f.p.purse->gold==670,"postcommit/departure retries repeated payment/day");
     }
@@ -221,7 +223,7 @@ void feedbackRetries(Inputs &in) {
             f.act(YesAction{});f.act(CancelInteractionAction{});f.act(CancelInteractionAction{});
             expected.context.day=9;expected.unchanged(f);denied(f);
             check(reports==1 && settlements==1,"successful report/later settlement fault unexercised");
-            f.act(CancelInteractionAction{});expected.unchanged(f);
+            f.act(CancelInteractionAction{});f.finishDeparture();expected.unchanged(f);
             check(f.flow->canSave() && reports==1 && settlements==2,
                 "later terminal retry repeated successful report/payment/delivery/depletion/day");
         }

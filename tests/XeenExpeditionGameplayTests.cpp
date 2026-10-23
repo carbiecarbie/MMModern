@@ -60,7 +60,7 @@ void controls(const fs::path &path) {
  XeenSaveFile::write(path,grouped);
  // Recomposition failure follows a real publication, and cannot rerun it.
  {Harness h;auto s=services(h);bool injected=false;
- s.show=[&](const auto &,const auto &handler,const auto &,const auto &idle,const auto &){handler.framePresented(h.flow->frame().presentation());press(h,handler,NavigationAction::MoveForward);
+ s.show=[&](const auto &,const auto &handler,const auto &,const auto &idle,const auto &){handler.framePresented(h.flow->frame().presentation());tick(h,handler,idle);press(h,handler,NavigationAction::MoveForward);
   const auto old=*handler.displayedInput();auto *c=h.flow->encounter()->combat();check(c&&c->contacts()[1],"mixed production attachment");
   const auto rng=h.world->sessionState().journeyRandom()->count;
   h.flow->beforeEncounterFrameCopy=[&]{if(!injected&&h.world->sessionState().journeyRandom()->count>rng){injected=true;check(!h.flow->canSave(),"capture closed after publication before handoff");throw std::runtime_error("postpublication frame fault");}};
@@ -74,7 +74,7 @@ void controls(const fs::path &path) {
  const auto compose=s.composeEncounter;s.composeEncounter=[&](auto &w,const auto &p,const auto &c,auto ordinary,auto appearance){
   if(h.flow&&h.flow->encounter()->combat()&&w.sessionState().journeyRandom()->count>initialCount)throw std::runtime_error("persistent postpublication composition fault");
   return compose(w,p,c,ordinary,appearance);};
- s.show=[&](const auto &,const auto &handler,const auto &,const auto &idle,const auto &){handler.framePresented(h.flow->frame().presentation());initialCount=h.world->sessionState().journeyRandom()->count;press(h,handler,NavigationAction::MoveForward);
+ s.show=[&](const auto &,const auto &handler,const auto &,const auto &idle,const auto &){handler.framePresented(h.flow->frame().presentation());tick(h,handler,idle);initialCount=h.world->sessionState().journeyRandom()->count;press(h,handler,NavigationAction::MoveForward);
   const auto old=*handler.displayedInput();
   for(unsigned n=0;!failed&&n<100;++n){try{if(h.flow->encounter()->combat()->phase()==Phase::PlayerReady)press(h,handler,InteractionAction{});else tick(h,handler,idle);}catch(const std::exception &){failed=true;}}
   check(failed&&h.world->sessionState().journeyRandom()->count>initialCount&&!h.flow->canSave(),"fatal composition retains published cursor and closes capture");
@@ -126,7 +126,7 @@ void deathControl(const fs::path &path) {
   flow.drawDialogSprite=[](auto &,const char *,unsigned,int,int){};
   flow.loadSampleDuration=[](const char *,XeenSceneArchive){return std::uint64_t{1000000000};};
  };
- s.show=[&](const auto &,const auto &handler,const auto &,const auto &idle,const auto &){handler.framePresented(h.flow->frame().presentation());press(h,handler,NavigationAction::MoveForward);
+ s.show=[&](const auto &,const auto &handler,const auto &,const auto &idle,const auto &){handler.framePresented(h.flow->frame().presentation());tick(h,handler,idle);press(h,handler,NavigationAction::MoveForward);
   for(unsigned n=0;n<1000&&h.flow->encounter()->combat()->phase()!=Phase::Defeat;++n){auto *c=h.flow->encounter()->combat();check(c->phase()!=Phase::Failed&&c->phase()!=Phase::SupportStopped,"death fixture remains supported");if(c->phase()==Phase::PlayerReady)press(h,handler,BlockAction{});else tick(h,handler,idle);}
   check(h.flow->encounter()->combat()->phase()==Phase::Defeat&&h.party->roster.at(1).conditions[13]&&h.flow->encounter()->notice().find("Dead")!=std::string::npos,"production injury sets and presents death");
   check(h.flow->encounter()->combatObservation().armorCount&&h.flow->encounter()->notice().find("items changed 2")!=std::string::npos,"production lethal injury presents armor breakage");

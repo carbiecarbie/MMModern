@@ -11,6 +11,7 @@ class XeenJourneyCapture {
 	friend class XeenEncounterFlow;
 	friend class XeenSaveState;
 	friend class XeenWorld;
+	friend class XeenEventFlow;
 	const XeenWorld *w = nullptr;
 	const XeenPartyState *p = nullptr;
 	const XeenCamera *c = nullptr;
@@ -22,6 +23,8 @@ class XeenJourneyCapture {
 	std::uint64_t generation = 0;
 	bool closed = false;
 	bool initializationPending = false;
+	// Runtime continuation only. Neither capture path may serialize an input pass.
+	bool inputPassPending = false;
 	XeenJourneyCapture() = default;
 	XeenJourneyCapture(const XeenWorld &w, const XeenPartyState &p, const XeenCamera &c,
 		const XeenEncounterState &state, const XeenCombatBoundary &boundary, const bool &busy,

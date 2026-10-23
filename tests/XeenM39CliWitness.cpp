@@ -168,7 +168,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
             handler.withDisplayedInput(SaveGameAction{},*token);
             check(beforeProviders==providers && beforeSaves==saves,"M39 stale input invoked work");
         };
-        const auto action=[&](PlayerAction a){steps.push_back([&,a]{act(a);return true;});};
+        const auto action=[&](PlayerAction a){steps.push_back([&,a]{if(!handler.inputContext(flow->frame().presentation()).readyForAction)return false;act(a);return true;});};
         const auto selectSpell=[&](unsigned row){action(DialogKeyAction{'n'});action(DialogKeyAction{'0'+row});action(DialogKeyAction{'s'});};
         const auto castSelected=[&]{action(DialogKeyAction{'c'});};
         const auto inspect=[&](std::function<void()> f){steps.push_back([f]{f();return true;});};
@@ -224,10 +224,12 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
             action(CastSpellAction{});deny();selectSpell(3);deny();castSelected();deny();result();deny();
         };
         const auto checkpoint=[&](const std::string &label) {
+            // Some fault controls replace their entire queue; retain entry readiness here too.
+            steps.push_back([&]{return handler.inputContext(flow->frame().presentation()).readyForAction;});
             auto before=std::make_shared<unsigned>();
             inspect([&,before,label]{check(flow->canSave(),"M39 checkpoint not presented Quiet");xeen_decision9::check(*world,*position,label,label=="A" || label=="city"); /* B/C: decision 8 cases. */*before=saves;SDL_Event e{};e.type=SDL_KEYDOWN;e.key.keysym.sym=SDLK_F9;e.key.keysym.scancode=SDL_SCANCODE_F9;e.key.timestamp=SDL_GetTicks()+1;check(SDL_PushEvent(&e)==1,"M39 F9 enqueue");acted=true;});
             steps.push_back([&,before,label]{
-                if(saves==*before)return false;
+                if(saves==*before || !flow->canSave())return false;
                 check(saves==*before+3,"M39 actual F9 pipeline incomplete");
                 SDL_Event e{};e.type=SDL_KEYUP;e.key.keysym.sym=SDLK_F9;e.key.keysym.scancode=SDL_SCANCODE_F9;SDL_PushEvent(&e);
                 fs::copy_file(*target,target->parent_path()/(target->stem().string()+"-"+label+".mmsave"),fs::copy_options::overwrite_existing);
@@ -255,6 +257,10 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
             }
             std::cout<<"M39 RESTORE EXACT BEFORE INPUT\n";
         }});
+   steps.push_back([&]{
+    const auto context=handler.inputContext(flow->frame().presentation());
+    return context.readyForAction && !context.dialog && flow->canSave();
+   }); // Part 0: Load entry after display, before the next queued input or F9.
         if(!resume) {
             if(!seededControl)inspect([&]{check(m40_test::stockBytes(*party->serviceEconomy)==m40_test::stockBytes(expectedFresh) && world->sessionState().journeyRandom()->state==fresh.state && world->sessionState().journeyRandom()->count==fresh.count,"M71 M39 fresh stock/RNG oracle: catches wrong item or extra draw before combat");});
             if(branch=="native-fault")checkpoint("prior");
@@ -467,7 +473,11 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
         native.beginCycle=[&](std::uint64_t){now+=100;handler.beginCycle(++cycle);};
         native.framePresented=[&](const auto &frame){handler.framePresented(frame);shown=true;if(cast() && cast()->phase==XeenCombatCastPhase::Projectile)++arrowProjectiles;};
         const auto drive=[&]()->std::optional<IndexedFrame>{
-            check(++iterations<12000,"M39 witness iteration bound");next.reset();acted=false;
+            if(++iterations>=12000) {
+                const auto context=handler.inputContext(flow->frame().presentation());
+                throw std::runtime_error("M39 witness iteration bound: shown="+std::to_string(shown)+" steps="+std::to_string(steps.size())+" saveable="+std::to_string(flow->canSave())+" ready="+std::to_string(context.readyForAction)+" combat="+std::to_string(bool(combat()))+" dialog="+std::to_string(bool(context.dialog)));
+            }
+            next.reset();acted=false;
             if(shown)while(!steps.empty()){const bool done=steps.front()();if(done)steps.pop_front();if(acted || !done)break;}
             if(acted)return next;auto frame=idle();if(frame)shown=false;return frame;
         };

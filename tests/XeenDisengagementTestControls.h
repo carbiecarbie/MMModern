@@ -275,6 +275,7 @@ void disengagementFinishPresentation(Source &source,bool injectFault=true) {
     return value;
    };
    if(occupied)check(northLoads==0,"North neighbor must remain cold before contact");
+   present();tick();present(); // Load entry precedes staging the combat fixture.
    XeenMonsterTestAccess::stageTreasureLive(*h.flow,*h.world,runAuthorityTreasure());
    present();press(NavigationAction::MoveForward);
    for(unsigned n=0;n<80 && (!h.flow->encounter()->combat() || h.flow->encounter()->combat()->phase()!=XeenCombatPhase::PlayerReady);++n){tick();present();}

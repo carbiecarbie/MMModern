@@ -73,6 +73,8 @@ XeenCamera quietCell(Inputs &in,XeenMapIdentity id,bool extension=false) {
     const auto actors=XeenActorApproach::actorsFromResources(w.objectFile(id),in.statistics);
     const int limit=g.isOutdoors()?16:32;
     for(int y=0;y<limit;++y)for(int x=extension?16:0;x<limit;++x) {
+        // Part 0: (0,0) North deliberately rejects all Event records.
+        if(x==0 && y==0)continue;
         const XeenCamera c{id,x,y,XeenDirection::North};
         const auto cell=w.sampleCell(id,x,y);if(!cell)continue;
         if(g.isOutdoors() && XeenMovement::outdoorDestination(g,*cell->cell,{true,true,true,true})!=XeenMovementResult::Moved)continue;
@@ -219,8 +221,11 @@ void flowRefusals(Inputs &in) {
                 ++errors;check(error->kind==XeenEventExecutionErrorKind::UnsupportedOperand,"Flow refusal became a preparation error");
             }
         };
-        const auto before=XeenSaveFormat::encode(f.snapshot());f.act(InteractionAction{});quiet(f);
-        check(errors==1 && f.flow->encounter()->notice().find("not supported yet")!=std::string::npos,
+        const auto before=XeenSaveFormat::encode(f.snapshot());
+        // Part 0: click has no surviving Wait; a flagged cell still gets its final call.
+        const bool flagged=f.w.sampleCell(c.mapId,c.x,c.y)->cell->rawAttributes&kXeenAutomaticEventFlag;
+        f.act(InteractionAction{false});quiet(f);
+        check(errors==(flagged?2u:1u) && f.flow->encounter()->notice().find("not supported yet")!=std::string::npos,
             "Unsupported operand did not reach the Flow notice");
         check(before==XeenSaveFormat::encode(f.snapshot()),"Flow refusal published a prelude, time, RNG or map change");
     }

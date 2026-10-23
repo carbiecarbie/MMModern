@@ -1730,7 +1730,8 @@ XeenCombatResult XeenCombat::finishDisengagement(const Ticket &t) {
   r.oldRevision=d.revision();r.operation=Operation::FinishDisengagement;r.exitCause=d.exitCause;
   r.origin=XeenCombatLocation{d.camera.mapId,d.camera.x,d.camera.y,d.camera.direction};
   r.destination=XeenCombatLocation{destination.mapId,destination.x,destination.y,destination.direction};
-  r.originAutomaticSuperseded=origin && (origin->cell->rawAttributes&kXeenAutomaticEventFlag) && xeenRegionalEvent(d.events,d.camera).has_value();
+  // A1: a flagged call is owed even without a matching record; Run retires it too.
+  r.originAutomaticSuperseded=origin && (origin->cell->rawAttributes&kXeenAutomaticEventFlag);
   for(unsigned i=0;i<6;++i) if(d.participants&(1u<<i)) {
    const auto condition=characters[i].worstCondition();
    if(condition==XeenCondition::Asleep || condition==XeenCondition::Paralyzed ||

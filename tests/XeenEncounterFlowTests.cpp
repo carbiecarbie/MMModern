@@ -2,6 +2,7 @@
 #include "XeenSaveGameplayTestSupport.h"
 #include "XeenDosTextTestSupport.h"
 #include "games/xeen/XeenOutdoorScene.h"
+#include "games/xeen/XeenEventTrigger.h"
 #include <iostream>
 #include <limits>
 using namespace encounter_test;
@@ -204,11 +205,15 @@ void ordinaryWait() {
 	XeenEventFlow flow(programState,f.world,events,f.p,f.camera,flags,font,[&](std::uint64_t){
 		++compositions;XeenEventFlow::Composition c;c.frame.width=320;c.frame.height=200;c.frame.pixels.resize(64000);return c;
 	},{},[&]{++clocks;return std::uint64_t{0};});
+	unsigned passes=0;flow.reportAutomatic=[&](const auto &){++passes;};
 	for(bool inventory:{false,true}) {
 		if(inventory)flow.handle(InspectInventoryAction{});
 		const auto count=compositions,timeCalls=clocks;const auto pixels=flow.frame().pixels;
 		const auto open=flow.inventoryOpen();flow.handle(WaitAction{});
-		check(count==compositions&&timeCalls==clocks&&pixels==flow.frame().pixels&&open==flow.inventoryOpen(),"ordinary period not a no-op");
+		const auto cell=f.world.sampleCell(f.camera.mapId,f.camera.x,f.camera.y);
+        const bool flagged=cell && (cell->cell->rawAttributes&kXeenAutomaticEventFlag);
+        check(passes==(!inventory && flagged?1u:0u) && pixels==flow.frame().pixels && open==flow.inventoryOpen(),
+         "Part 0: ordinary Wait passes once; inventory responses add no pass");
 	}
 	check(!f.world.hasEncounterState()&&f.world.sessionState().monsters(23).empty(),"ordinary map20 access initialized actors");
 }

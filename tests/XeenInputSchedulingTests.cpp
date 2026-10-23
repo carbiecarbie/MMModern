@@ -169,7 +169,8 @@ void combatQueue(Inputs &in,bool mouse=false) {
   const auto act=[&](PlayerAction action){handler.beginCycle(++cycles);const auto next=handler.withPresentedInput(action,*handler.displayedInput(),h.flow->frame().presentation());if(next)present(*next);};
   const auto tick=[&]{now+=100;handler.beginCycle(++cycles);if(auto next=idle())present(*next);};
   const auto quiet=[&]{for(unsigned n=0;n<500 && !h.flow->canSave();++n)tick();check(h.flow->canSave(),"combat queue prefix Quiet bound");};
-  present(first);act(NavigationAction::MoveForward);quiet();act(ShootAction{});quiet();act(NavigationAction::MoveForward);
+  present(first);tick(); // Load entry pass precedes the first queued input.
+   act(NavigationAction::MoveForward);quiet();act(ShootAction{});quiet();act(NavigationAction::MoveForward);
   bool checkedPlayerReady=false;
   for(unsigned n=0;n<500;++n){
    const auto *combat=h.flow->encounter()->combat();
@@ -406,7 +407,7 @@ void services(Inputs &in) {
    const auto present=[&]{handler.framePresented(h.flow->frame().presentation());handler.completeInputHandoff(h.flow->frame().presentation());};
    const auto act=[&](PlayerAction action){handler.beginCycle(++cycles);handler.withPresentedInput(action,*handler.displayedInput(),h.flow->frame().presentation());present();};
    const auto prepare=[&]{for(unsigned n=0;n<1000;++n){handler.beginCycle(++cycles);if(idle()){present();return;}}check(false,"service setup did not settle");};
-   present();
+   present();idle();present(); // Load entry before the service/input scenario.
    if(mode){act(InteractionAction{});prepare();check(XeenTrainingTestAccess::menu(*h.flow),"service menu setup");}
    if(mode>=2)act(SelectMemberAction{1});
    if(mode>=3){act(DialogKeyAction{'t'});prepare();}
@@ -447,6 +448,9 @@ void boundaries(Inputs &in) {
   h.composeHook=[&]{if(armed && !injected && timing==1){check(h.flow->acceptsInputFrame(a),"A unavailable during composition");inject();}};
   copyHook=[&]{if(armed && timing==2)inject();};
   s.show=[&](const auto &first,const auto &handler,const auto &escape,const auto &idle,const auto &status){
+   handler.framePresented(first.presentation());idle();
+   handler.framePresented(h.flow->frame().presentation());handler.completeInputHandoff(h.flow->frame().presentation());
+   const auto ready=h.flow->frame(); // Load entry before cosmetic authority is recorded.
    auto native=handler;
    native.beginCycle=[&](auto cycle){now+=100;handler.beginCycle(cycle);};
    native.framePresented=[&](const auto &f){
@@ -469,11 +473,11 @@ void boundaries(Inputs &in) {
     check(handler.acceptsInputFrame(origin) && input==*handler.displayedInput(),"queued response used a stale concrete frame");++dispatches;
     return handler.withPresentedInput(action,input,origin);
    };
-   return SdlWindow().showInteractive(first,"Deterministic cosmetic boundary",native,escape,[&]()->std::optional<IndexedFrame>{
+   return SdlWindow().showInteractive(ready,"Deterministic cosmetic boundary",native,escape,[&]()->std::optional<IndexedFrame>{
     check(++loops<20,"deterministic tap lost");
     if(dispatches==1){check(h.camera->direction==XeenDirection::East,"physical tap did not turn exactly once");quit();return {};}
     check(dispatches<=1,"released navigation repeat created another action");
-    if(!armed){armed=true;a=first.presentation();epoch=handler.displayedInput();ticket=h.flow->encounter()->ticket();if(timing==0){inject();return {};}}
+    if(!armed){armed=true;a=ready.presentation();epoch=handler.displayedInput();ticket=h.flow->encounter()->ticket();if(timing==0){inject();return {};}}
     return idle();
    },status);
   };

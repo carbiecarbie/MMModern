@@ -36,16 +36,20 @@ void startup(const fs::path &path){
   auto configure=services.configureFlow;services.configureFlow=[&](auto &flow,const auto &c){configure(flow,c);flow.reportAutomatic=[&](const auto&){++automatic;};};
   auto compose=services.composeEncounter;std::vector<Bytes> composed;
   services.composeEncounter=[&](auto &w,const auto &p,const auto &c,auto phase,auto actor){auto frame=compose(w,p,c,phase,actor);frame.frame.pixels[11]=w.isObjectDisabled({23,1});composed.push_back(frame.frame.pixels);return frame;};
-  services.show=[&](const auto &first,const auto &handle,const auto&,const auto&,const auto &status){
+  services.show=[&](const auto &first,const auto &handle,const auto&,const auto &idle,const auto &status){
    f.present(handle);check(first.pixels[6]==23&&first.pixels[4]==3&&first.pixels[10+index]&&!first.pixels[11-index],"restored first frame used default or wrong equal-count owners");
    frames.push_back(first.pixels);for(const auto &pixels:composed)check(std::equal(pixels.begin(),pixels.begin()+12,first.pixels.begin()),"default frame flashed before restored owners");
    check(!automatic&&!f.flow->presentationGeneration()&&diskBytes(path)==original,"restore replayed event or rewrote disk");
+   // Part 0: Load's entry pass follows the already checked arrival view.
+   if(auto entry=idle())handle.framePresented(entry->presentation());
    auto &events=*f.events;
    f.send(handle,InteractionAction{});check(f.flow->blocksGameplay(),"resumed interaction did not dispatch");f.send(handle,CancelInteractionAction{});
+   if(auto completion=idle())handle.framePresented(completion->presentation());
    const auto maps=mapReads,objects=objectReads,scripts=eventReads,texts=textReads;const auto retained=f.flow->frame().pixels;
    f.world->discardMapCache();events.discardScriptCache();events.discardTextCache();
    check(f.flow->refresh(true).pixels==retained,"cache reconstruction changed restored frame");f.present(handle);
    f.send(handle,InteractionAction{});check(f.flow->blocksGameplay(),"resumed interaction did not dispatch");f.send(handle,CancelInteractionAction{});
+   if(auto completion=idle())handle.framePresented(completion->presentation());
    check(mapReads>maps&&objectReads>objects&&eventReads>scripts&&textReads>texts,"cache reconstruction did not call each provider");
    f.send(handle,SaveGameAction{});check(status().find("Saved")!=std::string::npos&&diskBytes(path)==original,"eligible F9 changed durable state");return true;
   };
@@ -138,13 +142,16 @@ void currentSaveBoundary(const fs::path &path){
  services.show=[&](const auto&,const auto &h,const auto&,const auto &idle,const auto &status){
   f.present(h);nested=h;initial=XeenSaveFormat::encode(f.capture());f.now=110;idle();f.present(h);check(f.phases.back()==1&&XeenSaveFormat::encode(f.capture())==initial,"cosmetic phase serialized");
   f.now=219;const auto calls=clocks;const auto pixels=f.flow->frame().pixels;f.send(h,SaveGameAction{});
-  check(status().find("Saved")!=std::string::npos&&reentered&&clocks==calls&&f.phases.back()==0,"F9 preflight phase/clock/reentrancy");
+  // Part 0: F9 captures first, then its own pass renders the current phase.
+  check(status().find("Saved")!=std::string::npos&&reentered&&clocks==calls&&f.phases.back()==1,"F9 capture/pass phase, clock and reentrancy");
   check(diskBytes(path)==initial&&f.flow->frame().pixels==pixels,"F9 changed current durable or presentation state");
   const auto n=f.phases.size();idle();check(f.phases.size()==n,"F9 moved deadline earlier");f.now=220;idle();f.present(h);check(f.phases.back()==2&&XeenSaveFormat::encode(f.capture())==initial,"F9 rearmed deadline");return true;
  };
  check(Application(services.program).playGameplay(services,{},path,false,XeenEncounterEntry::Journey,1)==0,"current save animation boundary");
  regional_save_test::Fixture restored;restored.now=500;auto resumed=restored.services();
- resumed.show=[&](const auto &first,const auto &h,const auto&,const auto &idle,const auto&){restored.present(h);check(first.pixels[20]==0&&restored.phases==std::vector<std::uint64_t>({0,0}),"restored phase/preflight");restored.now=PresentationClock::afterMilliseconds(restored.now,2);idle();restored.present(h);check(restored.phases.back()==1,"restored first idle tick");const auto due=PresentationClock::afterMilliseconds(restored.now,2);restored.now=due-1;const auto n=restored.phases.size();idle();check(restored.phases.size()==n,"restored early deadline");restored.now=due;idle();restored.present(h);check(restored.phases.back()==2,"restored scheduled tick");return true;};
+ resumed.show=[&](const auto &first,const auto &h,const auto&,const auto &idle,const auto&){restored.present(h);check(first.pixels[20]==0&&restored.phases==std::vector<std::uint64_t>({0,0}),"restored phase/preflight");
+  // Part 0: Load's first idle completes the entry pass after the displayed arrival.
+  idle();restored.present(h);check(restored.phases.back()==0 && XeenSaveFormat::encode(restored.capture())==initial,"Load entry on an unflagged cell is durable-state neutral");restored.now=PresentationClock::afterMilliseconds(restored.now,2);idle();restored.present(h);check(restored.phases.back()==1,"restored first idle tick");const auto due=PresentationClock::afterMilliseconds(restored.now,2);restored.now=due-1;const auto n=restored.phases.size();idle();check(restored.phases.size()==n,"restored early deadline");restored.now=due;idle();restored.present(h);check(restored.phases.back()==2,"restored scheduled tick");return true;};
  check(Application(resumed.program).playGameplay(resumed,{},path,true)==0&&diskBytes(path)==initial,"current restored startup changed file");
 }
 // M81 Part A: pending treasure is running-program state (DOS DS:9970..9a19).
@@ -162,8 +169,11 @@ void treasureLifecycle(const fs::path &path){
  auto kept=later;kept.clearPending();
  XeenPurse purse;std::optional<XeenJourneyRandomState> random;
  auto services=f.services();
- services.show=[&](const auto&,const auto &handle,const auto&,const auto&,const auto &status){
-  f.present(handle);XeenMonsterTestAccess::stageTreasureLive(*f.flow,*f.world,first);
+ services.show=[&](const auto&,const auto &handle,const auto&,const auto &idle,const auto &status){
+  f.present(handle);
+  // Part 0: service Load's entry pass before a later F9 input.
+  if(auto entry=idle())handle.framePresented(entry->presentation());
+  XeenMonsterTestAccess::stageTreasureLive(*f.flow,*f.world,first);
   f.send(handle,SaveGameAction{});
   check(status().find("Saved")!=std::string::npos && diskBytes(path)==original && f.world->treasureStaging().value()==first,
    "Save wrote or changed pending treasure");
@@ -196,8 +206,9 @@ void developerTarget(const fs::path &path) {
  XeenSaveFile::write(path,f.saved);const auto original=diskBytes(path);
  const auto loose=path.parent_path()/"developer.mmsave";fs::remove(loose);
  services.initialSlot=2;services.developerSavePath=loose;
- services.show=[&](const auto &,const auto &h,const auto &,const auto &,const auto &status) {
-  f.present(h);f.send(h,SaveGameAction{});
+ services.show=[&](const auto &,const auto &h,const auto &,const auto &idle,const auto &status) {
+  // Part 0: complete Load's entry pass before accepting this distinct F9.
+  f.present(h);idle();f.present(h);f.send(h,SaveGameAction{});
   check(status().find("Saved")!=std::string::npos && diskBytes(loose)==original && diskBytes(path)==original,
    "managed current slot redirected/disabled explicit developer F9");return true;
  };

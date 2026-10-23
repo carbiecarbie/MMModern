@@ -131,7 +131,8 @@ int child(const fs::path &path,bool resume) {
   return compose(w,p,c,phase,actor);
  };
  services.show=[&](const auto &,const auto &raw,const auto &,const auto &idle,const auto &status){
-  f.present(raw);nested=raw;nestedIdle=idle;
+  f.present(raw);idle();f.present(raw); // Load entry pass after arrival display.
+   nested=raw;nestedIdle=idle;
   const auto original=XeenSaveFormat::encode(XeenSaveFile::read(path));
   const auto handle=[&](const PlayerAction &a){f.send(raw,a);};
   check(!f.flow->inventoryOpen(),"startup inventory persisted");handle(InspectInventoryAction{});
@@ -140,7 +141,7 @@ int child(const fs::path &path,bool resume) {
    else for(unsigned owner=0;owner<2;++owner){handle(SelectMemberAction{owner});handle(SelectInventorySlotAction{0});check(f.flow->inventorySelection().record.id==37,"restored UI did not inspect owner");handle(SelectInventorySlotAction{0});}
    if(category!=3){handle(SelectMemberAction{0});handle(DialogKeyAction{unsigned("wacm"[category+1])});}
   }
-  handle(CancelInteractionAction{});sameSnapshot(expected,f.capture());
+  handle(CancelInteractionAction{});idle();f.present(raw);sameSnapshot(expected,f.capture());
   if(!resume){check(XeenSaveFormat::encode(XeenSaveFile::read(path))==original,"deferred save");handle(SaveGameAction{});check(status().find("Saved")!=std::string::npos&&preflightReentered,"production F9/preflight guard failed");}
   sameSnapshot(expected,XeenSaveFile::read(path));return true;
  };

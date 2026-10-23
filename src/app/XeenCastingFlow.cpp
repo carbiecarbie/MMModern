@@ -486,7 +486,7 @@ bool XeenEncounterFlow::serviceCasting() {
             exploration=_world.explorationAfterStep(_party,_camera);
             if(work.jumpDestination) {
               const auto sample=_world.sampleCell(_camera.mapId,_camera.x,_camera.y);
-              automaticArrival=sample && (sample->cell->rawAttributes & kXeenAutomaticEventFlag) && bool(xeenRegionalEvent(_journeyEvents,_camera));
+              automaticArrival=sample && (sample->cell->rawAttributes & kXeenAutomaticEventFlag);
             }
             _journeyPreimage->check();}
 		auto prepared=std::make_shared<XeenRestoreGuard>(_world,_party,_camera,_flags);

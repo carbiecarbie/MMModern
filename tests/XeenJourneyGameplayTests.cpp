@@ -128,7 +128,7 @@ void boundaries(const fs::path &dir) {
    return compose(w,p,c,phase,actor);
   };
   s.show=[&](const auto &,const auto &handler,const auto &,const auto &idle,const auto &) {
-   check(samples==1,"default seed sampled once");handler.framePresented(h.flow->frame().presentation());before=h.capture();armed=true;
+   check(samples==1,"default seed sampled once");handler.framePresented(h.flow->frame().presentation());before=h.capture();tick(h,handler,idle);armed=true;
    if(mode==0||mode==1) {
     if(mode==1)h.flow->beforeEncounterFrameCopy=[&]{if(!injected){injected=true;throw std::runtime_error("frame copy fault");}};
     const auto generation=*handler.displayedInput();
@@ -139,8 +139,15 @@ void boundaries(const fs::path &dir) {
     check(!XeenSaveState::canCapture(*h.party,*h.camera,*h.world),"modal world capture lease");
     press(h,handler,CancelInteractionAction{});check(h.flow->canSave(),"matching close handoff opens capture");save_test::sameSnapshot(*before,h.capture());
    } else if(mode==2) {
-    unsigned reports=0;h.flow->reportManual=[&](const auto &){++reports;throw std::runtime_error("no-event report fault");};
-    press(h,handler,InteractionAction{});check(reports==1&&h.flow->canSave(),"no-event bounded recovery without replay");save_test::sameSnapshot(*before,h.capture());
+    unsigned reports=0;h.flow->reportManual=[&](const auto &){if(++reports==1)throw std::runtime_error("empty-call report fault");};
+    // Part 0: a record-less selected object retains NothingHere before normal completion.
+    press(h,handler,InteractionAction{false});
+    for(unsigned n=0;n<30&&!h.flow->canSave();++n) {
+     tick(h,handler,idle);
+     const auto context=handler.inputContext(h.flow->frame().presentation());
+     if(context.readyForAction && context.dialog && context.dialog->anyKey)press(h,handler,AcknowledgeAction{});
+    }
+    check(reports==2&&h.flow->canSave(),"record-less tail and completion recover without replay");save_test::sameSnapshot(*before,h.capture());
    } else if(mode==3) {
     const auto original=h.party->roster.at(0).currentHp;
     const_cast<XeenPartyState*>(h.party)->roster.at(0).currentHp++;

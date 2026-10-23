@@ -66,6 +66,8 @@ void service(Inputs &inputs,unsigned action,bool relocated) {
 		if(stage==XeenTrainingBoundary::AfterEventSettlement)after();
 	};
 	for(unsigned input=0;input<5 && !fixture.flow->canSave();++input)fixture.act(CancelInteractionAction{});
+	// Part 0: closing the service retains the outer input until its final pass retires.
+	fixture.finishDeparture();
 	check(fixture.flow->canSave() && completed==1 && beforeSettlement==1 && afterSettlement==1 &&
 		fixture.p.encounterContext->day==9,"Service failed to leave, resumed twice, or charged departure twice");
 	const auto finished=XeenSaveFormat::encode(fixture.snapshot());

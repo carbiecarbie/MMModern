@@ -154,7 +154,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
             }
         };
         const auto action=[&](PlayerAction a,bool native=false) {
-            if(!native){steps.push_back([&,a]{act(a);return true;});return;}
+            if(!native){steps.push_back([&,a]{if(!handler.inputContext(flow->frame().presentation()).readyForAction)return false;act(a);return true;});return;}
             SDL_Keycode key=SDLK_UNKNOWN;
             if(const auto d=std::get_if<DialogKeyAction>(&a))key=SDL_Keycode(d->key);
             if(std::holds_alternative<InteractionAction>(a))key=SDLK_SPACE;
@@ -215,12 +215,10 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
             check(flow->encounter()->state().phase()!=XeenEncounterPhase::SupportStopped,"M42 route stopped");return false;
         });};
         const auto route=[&](const std::string &path) {for(char key:path){action(key=='U'?NavigationAction::MoveForward:key=='D'?NavigationAction::MoveBackward:key=='R'?NavigationAction::TurnRight:NavigationAction::TurnLeft);settle();}};
-        // The unchanged fresh route drinks at the outdoor well for five
-        // members: five Space actions charge 5*10 minutes. The later entrance
-        // Space charges one minute after its Event teleports indoors. Service
-        // visits retain their existing calendar charge and these same minutes.
-        constexpr unsigned wellSpaceMinutes=5*10;
-        constexpr unsigned cityPrefixMinutes=wellSpaceMinutes+1;
+        // Part 0: numeric WhoWill responses replace Space; map load clears it.
+        // Five well selections and the entrance therefore add no implicit Wait.
+        constexpr unsigned wellSpaceMinutes=0;
+        constexpr unsigned cityPrefixMinutes=0;
         const auto expect=[&](unsigned day,unsigned minute,std::uint32_t gold,std::uint32_t state,std::uint64_t count) {
             check(party->encounterContext->day==day && party->encounterContext->minutes==minute && party->purse->gold==gold &&
                 world->sessionState().journeyRandom()->state==state && world->sessionState().journeyRandom()->count==count,"M42 literal context/purse/RNG checkpoint differs");
@@ -230,7 +228,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
             auto old=std::make_shared<unsigned>();inspect([&,old,label]{check(flow->canSave(),"M42 checkpoint is not Quiet");xeen_decision9::check(*world,*position,label,label=="A" || label=="B" || label=="B1" || label=="C" || label=="D");*old=saves;
                 SDL_Event e{};e.type=SDL_KEYDOWN;e.key.keysym.sym=SDLK_F9;e.key.keysym.scancode=SDL_SCANCODE_F9;e.key.timestamp=SDL_GetTicks()+1;
                 check(SDL_PushEvent(&e)==1,"M42 F9 enqueue failed");acted=true;});
-            steps.push_back([&,old,label] {if(saves==*old)return false;check(saves==*old+3,"M42 actual save pipeline incomplete");
+            steps.push_back([&,old,label] {if(saves==*old || !flow->canSave())return false;check(saves==*old+3,"M42 actual save pipeline incomplete");
                 SDL_Event e{};e.type=SDL_KEYUP;e.key.keysym.sym=SDLK_F9;e.key.keysym.scancode=SDL_SCANCODE_F9;SDL_PushEvent(&e);
                 const auto actual=snapshot(),disk=XeenSaveFile::read(*target);m40_test::equalFields(actual,disk);
                 check(XeenSaveFormat::encode(actual)==XeenSaveFormat::encode(disk),"M42 saved bytes differ");

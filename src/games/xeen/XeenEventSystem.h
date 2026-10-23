@@ -18,6 +18,7 @@ struct XeenAutomaticEventCompleted {
 	std::size_t instructionCount = 0;
 	bool cameraChanged = false;
 	bool flagsChanged = false;
+    unsigned inputClearCount=0, inputClearSite=0;
 };
 
 struct XeenManualEventNoEvent {};
@@ -26,6 +27,7 @@ struct XeenManualEventCompleted {
 	std::size_t instructionCount = 0;
 	bool cameraChanged = false;
 	bool flagsChanged = false;
+    unsigned inputClearCount=0, inputClearSite=0;
 };
 
 struct XeenManualSpecialInteractionUnsupported {

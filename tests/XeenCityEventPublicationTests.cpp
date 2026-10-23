@@ -71,9 +71,9 @@ int main(int argc,char **argv) {
 		f.act(InteractionAction{});
 		check(f.flow->canCancelInteraction() && !f.p.questFlags.isSet(3) && f.w.sessionState().regionalActors(28).size()==46,
 			"WhoWill published town effects before selection");
-		f.act(CancelInteractionAction{});
+		f.act(CancelInteractionAction{});f.finishDeparture(); // Part 0: retain cancellation until its one final pass.
 		check(f.flow->canSave() && before==XeenSaveFormat::encode(f.snapshot()),"WhoWill cancellation changed durable state");
-		f.act(InteractionAction{});select(f);
+		f.act(InteractionAction{});select(f);f.finishDeparture();
 		check(f.flow->canSave() && f.p.questFlags.isSet(3) && f.w.sessionState().regionalActors(28).size()==46 &&
 			f.w.sessionState().disabledEvents().count({28,0})==1 && f.w.sessionState().journeyRandom()==random,
 			"Same-map guarded publication lost flags, Spawn, AfterEvent or RNG independence");
@@ -85,7 +85,7 @@ int main(int argc,char **argv) {
 		// An unsupported give (107) refuses the run after the flag and Spawn.
 		city.records={record(0,0x0c,{0,0,104,3}),record(1,0x10,{50,13,15,0}),record(2,0x14,{107,1})};
 		Fixture refused(inputs,initial,false,&city);const auto unchanged=XeenSaveFormat::encode(refused.snapshot());
-		refused.act(InteractionAction{});
+		refused.act(InteractionAction{false});refused.finishDeparture(); // Part 0: isolate refusal without Space Wait.
 		check(refused.flow->canSave() && unchanged==XeenSaveFormat::encode(refused.snapshot()),
 			"Unsupported dependent suffix retained a partial flag or Spawn effect");
 
@@ -113,17 +113,17 @@ int main(int argc,char **argv) {
 		spoken.act(InteractionAction{});
 		check(audioNotices==1 && spoken.flow->canCancelInteraction() && !spoken.p.questFlags.isSet(3),
 			"City audio notices did not continue exactly once to the existing WhoWill");
-		spoken.act(CancelInteractionAction{});
+		spoken.act(CancelInteractionAction{});spoken.finishDeparture();
 		check(spoken.flow->canSave() && speechBefore==XeenSaveFormat::encode(spoken.snapshot()),
 			"Audio/cancel changed time, rewards, RNG or overlays");
-		spoken.act(InteractionAction{});select(spoken);
+		spoken.act(InteractionAction{});select(spoken);spoken.finishDeparture();
 		check(audioNotices==2 && spoken.flow->canSave() && spoken.p.questFlags.isSet(3) &&
 			spoken.w.sessionState().disabledEvents().count({28,2}) && spoken.w.sessionState().journeyRandom()==random,
 			"City speech prefix lost guarded effects or drew RNG");
 		for(const auto &suffix:std::vector<XeenEventRecord>{record(3,0x3c,{1,0,0}),record(3,0x14,{107,1})}) {
 			city.records={record(0,0x3c,{1,0,0,1,0}),record(1,0x0c,{0,0,104,3}),record(2,0x10,{50,13,15,0}),suffix};
 			Fixture blocked(inputs,initial,false,&city);const auto preimage=XeenSaveFormat::encode(blocked.snapshot());
-			blocked.act(InteractionAction{});
+			blocked.act(InteractionAction{false});blocked.finishDeparture();
 			check(blocked.flow->canSave() && preimage==XeenSaveFormat::encode(blocked.snapshot()),
 				"Malformed audio or first unsupported suffix escaped city preflight with partial effects");
 		}

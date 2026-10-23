@@ -228,7 +228,8 @@ void event(Inputs &in,const GameInstallation &installation) {
   auto exit=cue;exit.line=1;exit.opcode=0x12;exit.parameters.clear();exit.lengthField=5;
   XeenEventFile script{28,"maze0028.evt",true,{cue,exit}};
   Fixture f(in,start,false,&script);Trace trace;attach(f,installation,false,trace);
-  const auto before=f.w.sessionState().journeyRandom();f.act(InteractionAction{});
+  // Part 0: click isolates the sound opcode; Space also has its surviving Wait.
+  const auto before=f.w.sessionState().journeyRandom();f.act(InteractionAction{false});f.finishDeparture();
   check(f.flow->canSave() && f.now==0 && f.w.sessionState().journeyRandom()==before,"PlayEventVoc introduced a wait, notice or RNG draw");
   check(enabled?trace.size()==1:trace.empty(),"Original PlayEventVoc row did not publish once through Efx");
  }

@@ -232,6 +232,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
     const auto saved=XeenSaveFile::read(*target),live=XeenSaveState::capture(original.resources.signature,*party,*position,*flags,*world);
     check(XeenSaveFormat::encode(saved)==XeenSaveFormat::encode(live),"M37 fresh restore changed saved bytes");
     std::cout<<"M37 RESTORE BEFORE INPUT "<<position->mapId.number<<','<<position->x<<','<<position->y<<'\n';
+     pulse();settle(); // Part 0: displayed Load arrival gets one entry pass before input.
     if(stage=="A") {
      // Decision 8: the game load rebuilds every F3 monster at MON HP and
      // asleep, so Orc #9, woken in the uninterrupted run at A, is asleep here;

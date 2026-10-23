@@ -42,7 +42,12 @@ struct Harness {
   XeenSaveFile::write(path,saved);
   struct Tape {XeenCombatRandom *old=regional_combat_test::tape;~Tape(){regional_combat_test::tape=old;}} scope;
   regional_combat_test::tape=random?&*random:nullptr;
-  return Application(s.program).playGameplay(s,{},path,true);
+  auto ready=s;const auto show=s.show;
+   ready.show=[&](const auto &first,const auto &handler,const auto &escape,const auto &idle,const auto &status){
+    handler.framePresented(first.presentation());idle();present(handler);
+    return show(flow->frame(),handler,escape,idle,status);
+   };
+   return Application(s.program).playGameplay(ready,{},path,true);
  }
  bool retired() const {return flow&&!flow->encounter()->combat();}
  Phase phase() const {return retired()?Phase::Victory:fight().phase();}

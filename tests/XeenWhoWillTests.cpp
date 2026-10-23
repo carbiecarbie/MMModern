@@ -254,6 +254,8 @@ void directResponses() {
     mmodern::XeenProgramState programState;
 	for(int mode=0;mode<5;++mode) {
 		Fixture direct, input;
+        // Part 0: isolate the response API on unflagged cells; flagged calls repeat in A1 tests.
+        direct.automaticCell=input.automaticCell=false;
 		const auto records=std::vector<XeenEventRecord>{record(1,1,0,0x04,{0}),
 			mode==3?record(1,1,1,0x31,{1,0}):mode==4?record(1,1,1,0x20,{0,1}):
 				record(1,1,1,9,{44,static_cast<std::uint8_t>(mode==2?1:0),2}),
@@ -270,7 +272,7 @@ void directResponses() {
 		};
 		XeenEventPresenter retained(direct.font);
 		const auto sign=retained.present(direct.base,pending(direct.begin()).pendingPresentation->request).frame;
-		a.handle(InteractionAction{});b.handle(InteractionAction{});
+		a.handle(InteractionAction{false});b.handle(InteractionAction{false});
 		const auto before=a.frame();const auto generation=*a.presentationGeneration();
 		const XeenPresentationResponse response=mode==0?XeenPresentationResponse{XeenPresentationResponse::Yes}:
 			mode==1?XeenPresentationResponse{XeenPresentationResponse::No}:mode==4?XeenPresentationResponse{SelectedCharacter{1}}:
@@ -278,6 +280,8 @@ void directResponses() {
 		const PlayerAction action=mode==0?PlayerAction{YesAction{}}:mode==1?PlayerAction{NoAction{}}:
 			mode==4?PlayerAction{SelectMemberAction{1}}:PlayerAction{AcknowledgeAction{}};
 		check(a.respond(generation,response),"direct response rejected");b.handle(action);
+        // The host response retains the final pass until the next idle service.
+        a.updatePresentation();b.updatePresentation();
 		check(completed && !a.blocksGameplay() && !b.blocksGameplay() && !a.respond(generation,response),"direct completion/replay");
 		check(a.frame().pixels==b.frame().pixels,"direct response left different presentation");
 		check((mode==3 || mode==2 || mode==0 || mode==1)?a.frame().pixels==before.pixels:a.frame().pixels!=before.pixels,"sprite-free synthetic confirmations must not paint substitute controls");
@@ -302,13 +306,14 @@ void passiveSelectionInputs() {
         flow.handle(CancelInteractionAction{});
         check(!flow.inventoryOpen(),"passive sheet did not close");
     }
-    check(flow.refresh(true).pixels==f.base.pixels,"sheet close did not redraw original scene");
+    // Part 0: each sheet close runs the flagged cell again and restores its label.
+    check(flow.refresh(true).pixels==frame.pixels,"sheet close pass did not restore the flagged label");
 }
 
 void productionFlow() {
     mmodern::XeenProgramState programState;
 	for(bool automatic : {false,true}) {
-		Fixture f;f.text.strings[1]=std::string(1200,'A');
+		Fixture f;f.automaticCell=automatic;f.text.strings[1]=std::string(1200,'A');
 		f.set({record(1,1,0,0x20,{0,0}),record(1,1,1,0x01,{1}),record(1,1,2,9,{44,1,3}),
 			record(1,1,3,9,{9,20,5}),record(1,1,4,0xff),record(1,1,5,0x0c,{0,0,21,100}),record(1,1,6,0x12)});
 		XeenEventFlow flow(programState,f.world,f.events,f.members,f.camera,f.flags,f.font,[&](std::uint64_t){return XeenEventFlow::Composition{f.base, false};});
@@ -354,7 +359,7 @@ void productionFlow() {
 		flow.handle(NavigationAction::TurnRight);check(f.camera.direction==XeenDirection::East,"navigation did not recover");
 	}
 	for(int mode=0;mode<4;++mode) {
-		Fixture f;f.set({record(1,1,0,0x20,{0,0}),record(1,1,1,0x0c,{0,0,21,100})});
+		Fixture f;f.automaticCell=false;f.set({record(1,1,0,0x20,{0,0}),record(1,1,1,0x0c,{0,0,21,100})});
 		XeenEventFlow flow(programState,f.world,f.events,f.members,f.camera,f.flags,f.font,[&](std::uint64_t){return XeenEventFlow::Composition{f.base, false};});
 		flow.dialogText=&dos_test::text();
 		bool failed=false;flow.reportManual=[&](const auto &r){failed=std::holds_alternative<XeenEventExecutionError>(r);};
@@ -364,8 +369,9 @@ void productionFlow() {
 		if(mode==2){f.members=party(6,true);flow.handle(SelectMemberAction{0});}
 		if(mode==3){flow.abandonPresentation();flow.acceptManual(f.events.runManualEvent(f.world,f.members,f.camera,f.flags));
 			check(!flow.respond(old,SelectedCharacter{0}),"replaced generation accepted");flow.handle(CancelInteractionAction{});}
+		for(unsigned retry=0;retry<4 && flow.blocksGameplay() && !flow.presentationGeneration();++retry)flow.updatePresentation();
 		check(!flow.blocksGameplay() && flow.frame().pixels==f.base.pixels &&
-			failed==(mode==1 || mode==2) && f.members.questItems.at(18)==0 && !flow.respond(old,SelectedCharacter{0}),"cancel/error/replacement policy");
+			failed==(mode==1 || mode==2) && f.members.questItems.at(18)==0 && !flow.respond(old,SelectedCharacter{0}),("cancel/error/replacement policy: mode="+std::to_string(mode)+" blocked="+std::to_string(flow.blocksGameplay())+" base="+std::to_string(flow.frame().pixels==f.base.pixels)+" failed="+std::to_string(failed)).c_str());
 	}
 }
 
@@ -419,7 +425,7 @@ void presentationLayout() {
 void priorEffects() {
     mmodern::XeenProgramState programState;
 	for(bool cancel : {false,true}) for(bool remove : {false,true}) {
-		Fixture f;
+		Fixture f;f.automaticCell=false;
 		f.set({record(1,1,0,0x1f,{2,1,1})});
 		f.set({record(1,1,0,0x19,{7,8,0}),record(1,1,1,0xff),
 			record(7,8,0,9,{21,100,5}),record(7,8,1,0x0c,{0,0,20,7}),
@@ -439,6 +445,7 @@ void priorEffects() {
 		flow.respond(generation,cancel?XeenPresentationResponse{CharacterSelectionCancelled{}}:
 			XeenPresentationResponse{SelectedCharacter{99}});
 		if(cancel)finishQuestReward(flow,f.members,suspended);
+        for(unsigned retry=0;retry<4 && flow.blocksGameplay() && !flow.presentationGeneration();++retry)flow.updatePresentation();
 		check(!flow.blocksGameplay() && failed!=cancel && f.camera.mapId==(cancel?2:1) &&
 			f.flags.isSet(7)==cancel && f.members.questItems.at(18)==1,"cancel/error transaction policy");
 		check(f.world.isObjectDisabled({2,0})==remove && f.world.sessionState().disabledEventCount()==(remove?2:0),"prior Remove rolled back");

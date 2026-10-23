@@ -257,7 +257,7 @@ void XeenEncounterFlow::publishBarrier(const Ticket &entry,XeenWorld &candidate,
 		if(rule.moved) {
 			c.stepTimePending=true;
 			const auto cell=candidate.sampleCell(rule.camera.mapId,rule.camera.x,rule.camera.y);
-			c.result.automaticEvent=cell && (cell->cell->rawAttributes&kXeenAutomaticEventFlag) && xeenRegionalEvent(_events,rule.camera).has_value();
+			c.result.automaticEvent=cell && (cell->cell->rawAttributes&kXeenAutomaticEventFlag);
 		}
 	}
 	// Every tile's cells, staged for the nonthrowing publication below.

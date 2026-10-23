@@ -660,10 +660,9 @@ void mapEventRoundTrips(){
    revisit->effectiveObject({28,1}).x==4 && revisit->effectiveObjectFlip({28,2}),"MoveObj position or flip lost after leave/return");
   auto neutral=snapshot;neutral.maps=initial.maps;neutral.camera=initial.camera;
   auto expected=initial;
-  // One indoor completion for called deletion; otherwise one indoor and one
-  // outdoor destination charge, with one stepTime counter tick per completion.
-  expected.journey->context->minutes+=operation==1?1:11;
-  expected.journey->context->ctr24=(expected.journey->context->ctr24+(operation==1?1:2))%24;
+  // Part 0: teleport 0x27112 clears Space. Only the non-travel called deletion keeps Wait.
+  expected.journey->context->minutes+=operation==1?1:0;
+  expected.journey->context->ctr24=(expected.journey->context->ctr24+(operation==1?1:0))%24;
   check(XeenSaveFormat::encode(neutral)==XeenSaveFormat::encode(expected),"Map Event changed more than its completed Space scheduling or consumed Journey RNG");
   CurrentDestination loaded;configure(loaded);loaded.restore(XeenSaveFormat::decode(bytes));loaded.bind();
   check(XeenSaveFormat::encode(loaded.capture())==bytes,"Persistent Event did not round-trip exactly through v13");
@@ -830,6 +829,8 @@ void travelRoundTrips() {
   check(!wrongDestinationComposition && !earlyTravelPublication,"Destination suspension composition or deferred publication changed");
   if(refused) {
    auto expected=initial;if(publishedPrefix)++expected.food;
+   // Part 0: an invalid destination rejected before teleport clearing leaves Space as Wait.
+   if(!lateRefused && !mirror){expected.journey->context->minutes+=1;expected.journey->context->ctr24=(expected.journey->context->ctr24+1)%24;}
    check(destinationSuspensions==(lateRefused?2u:0u),"Late refusal must follow destination message and input");
    check(XeenSaveFormat::encode(live.capture())==XeenSaveFormat::encode(expected),
     "Refused travel leaked a candidate or lost/replayed its published food prefix");
@@ -845,7 +846,7 @@ void travelRoundTrips() {
   if(same)check(live.world.sessionState().monsters(28)[0].hp==3,"Same-map teleport reloaded monster HP");
   const auto snapshot=live.capture();const auto bytes=XeenSaveFormat::encode(snapshot);
   auto expectedClock=*initial.journey->context;
-  expectedClock.minutes+=same?1:10;expectedClock.ctr24=(expectedClock.ctr24+1)%24;
+  // Part 0: teleport 0x27112 and map-load 0xf590 clear the current key.
   check(snapshot.journey->random==initial.journey->random && snapshot.journey->context==expectedClock &&
    snapshot.journey->purse==initial.journey->purse,"Travel changed time, rewards or RNG");
   CurrentDestination restored;configure(restored);restored.restore(XeenSaveFormat::decode(bytes));restored.bind();

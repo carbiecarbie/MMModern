@@ -155,7 +155,8 @@ void applicationOutcome(Inputs &in,const GameInstallation &installation) {
    retired=handler;retiredIdle=idle;auto displayed=first;std::uint64_t cycle=0;
    const auto present=[&](const IndexedFrame &value){displayed=value;handler.framePresented(value.presentation());handler.completeInputHandoff(value.presentation());};
    const auto action=[&](const PlayerAction &a) {handler.beginCycle(++cycle);if(const auto value=handler.withPresentedInput(a,*handler.displayedInput(),displayed.presentation()))present(*value);};
-   present(first);action(RestAction{});
+   present(first);handler.beginCycle(++cycle);if(const auto value=idle())present(*value); // Load entry pass.
+   action(RestAction{});
    for(unsigned n=0;!handler.finished();++n) {
     check(n<1000,"Application death outcome bounded");
     if(Access::confirmRest(*flow)){action(YesAction{});continue;}

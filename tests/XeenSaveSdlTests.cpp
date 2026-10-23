@@ -9,7 +9,7 @@ int main(){try{
  for(bool quitFirst:{false,true}){
   fs::remove(path);regional_save_test::Fixture f;
   f.saved.camera={23,8,2,XeenDirection::North};XeenSaveFile::write(path,f.saved);
-  auto services=f.services();regional_save_test::phirna(services);unsigned saves=0,refused=0,blockedKeys=0;bool titleSeen=false;
+  auto services=f.services();regional_save_test::phirna(services);unsigned saves=0,refused=0,blockedKeys=0,writes=0;bool titleSeen=false;services.observeSaveStage=[&](auto stage){if(stage==XeenGameplayServices::SaveStage::Write)++writes;};
   services.show=[&](const auto &first,const auto &handle,const auto &escape,const auto &idle,const auto &status){
    const std::vector<std::pair<SDL_Keycode,Uint8>> steps{{SDLK_F9,1},{SDLK_F9,0},{SDLK_SPACE,0},{SDLK_F9,0},{SDLK_F9,1},{SDLK_9,0},{SDLK_F9,0},{SDLK_ESCAPE,0},{SDLK_F9,0}};
    std::size_t step=0;unsigned cycles=0;bool quitSent=false;
@@ -19,7 +19,7 @@ int main(){try{
     const auto gen=f.flow->presentationGeneration();const auto frame=f.flow->frame().pixels;
     auto next=handle.withPresentedInput(action,token,presentation);
     if(std::holds_alternative<SaveGameAction>(action)){
-     if(f.flow->blocksGameplay()){++refused;check(gen==f.flow->presentationGeneration()&&frame==f.flow->frame().pixels,"SDL F9 advanced pending state");}
+     if(writes==saves){++refused;check(gen==f.flow->presentationGeneration()&&frame==f.flow->frame().pixels,"SDL F9 advanced pending state");}
      else ++saves;
     }return next;
    };
@@ -46,7 +46,7 @@ int main(){try{
    check(quitSent,"SDL quit was not sent");return result;
   };
   check(Application(services.program).playGameplay(services,{},path,true)==0,"SDL Application failed");
-  check(saves==(quitFirst?0U:2U)&&!refused&&blockedKeys==(quitFirst?0U:2U),"F9 repeats/quit ordering or strict WhoWill input suppression");
+  check(saves==(quitFirst?0U:2U)&&!refused&&blockedKeys==(quitFirst?0U:2U),("F9 repeats/quit ordering or strict WhoWill input suppression: saves="+std::to_string(saves)+" refused="+std::to_string(refused)+" blocked="+std::to_string(blockedKeys)).c_str());
   sameSnapshot(f.saved,XeenSaveFile::read(path));
   if(!quitFirst){check(titleSeen,"native window title not updated");check(XeenSaveFile::read(path).questItems[17]==0,"SDL save changed gameplay");}
  }

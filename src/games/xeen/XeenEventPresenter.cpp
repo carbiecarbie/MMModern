@@ -28,6 +28,7 @@ XeenTextRenderOptions XeenEventPresenter::optionsFor(
     case XeenPresentationKind::CharacterSelection:
         o.windowBounds={225,74,320,154};o.drawWindow=true;
         o.bounds={233,82,312,146};break;
+    case XeenPresentationKind::NothingHere:
     case XeenPresentationKind::CenteredMessage:
         o.windowBounds={225,140,320,199};o.drawWindow=true;
         o.bounds={233,148,312,191};break;
@@ -58,6 +59,10 @@ XeenTextRenderResult XeenEventPresenter::drawText(const IndexedFrame &base,
             for(std::size_t page=0;page<=(treasure.stage==XeenTreasureDisplay::Stage::Pages?treasure.items.size():0);++page)
                 result.pages.push_back(drawXeenTreasure(*_dosText,base,_font,treasure,page));
         return result;
+    }
+    if(request.kind==XeenPresentationKind::NothingHere) {
+        if(!_dosText)throw std::invalid_argument("Event tail requires original DOS text");
+        return _renderer.render(base,std::string(_dosText->scalar("NOTHING_HERE")),optionsFor(request));
     }
     auto o=optionsFor(request);
     std::string prefix,suffix;
@@ -257,7 +262,9 @@ XeenPresentationUpdate XeenEventPresenter::present(const IndexedFrame &base,
 }
 
 bool XeenEventPresenter::isAcknowledge(const PlayerAction &action) const {
-	return std::holds_alternative<InteractionAction>(action) ||
+	// Raw dialog keys include arrows; an already translated outer intent is not a response.
+	return std::holds_alternative<DialogKeyAction>(action) || std::holds_alternative<WaitAction>(action) ||
+        std::holds_alternative<InteractionAction>(action) ||
 		std::holds_alternative<AcknowledgeAction>(action) ||
 		std::holds_alternative<CancelInteractionAction>(action);
 }

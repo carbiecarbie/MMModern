@@ -259,7 +259,7 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
   std::cout << "Setup " << xeenInventoryInspection(party);
   if (flow.journey()) std::cout << flow.encounter()->journeyInspection() << flow.encounter()->notice() << '\n';
   // This is the only production new-session/resume initialization choice.
-  const auto first = resume || encounter ? flow.frame() : flow.initial();
+  auto first = resume || encounter ? flow.frame() : flow.initial();
   if (!first.isValid()) throw std::runtime_error("Invalid first gameplay frame");
   if(services.publishInitial) {
    if(!original || resume || !services.saveName)throw std::logic_error("Invalid New publication request");
@@ -281,6 +281,8 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
    if(!published)return 5; // Cancellation discards only this unpublished session.
    services.currentSlot=services.initialSlot;
   }
+  bool entryPassPending=flow.journey() && (resume || services.publishInitial);
+  bool arrivalDisplayed=false;
   treasureEntry.committed=true;
   if (services.observeGameplay) services.observeGameplay(world, events, party, camera, flags);
   handoff.verify();
@@ -339,7 +341,8 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
     catch(const std::exception &e){checkPanel();panel->panelFailure(e.what());}}
    publishSound();
    if(!panel->current()) {
-    panel.reset();panelGuard.reset();panelTicket.reset();flow._queueContext.reset();return flow.frame();
+    panel.reset();panelGuard.reset();panelTicket.reset();flow._queueContext.reset();
+    auto next=flow.completeExplorationInput();handoff.retain();return next;
    }
    if(panel->entry()) {
     const auto request=*panel->entry();
@@ -406,7 +409,7 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
      // The original closes the panel and moves the party in one step.
      if(auto moved=flow.mrWizard()) {
       panel.reset();panelGuard.reset();panelTicket.reset();flow._queueContext.reset();
-      return moved;
+      auto next=flow.completeExplorationInput();handoff.retain();return next;
      }
      panel->panelFailure("not supported yet");
     }
@@ -415,7 +418,7 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
   };
   const auto dispatch = [&](const PlayerAction &action, std::optional<std::uint64_t> input,
       const IndexedFrame::Presentation &inputFrame = {}) -> std::optional<IndexedFrame> {
-   if(finished)return {};
+   if(finished || entryPassPending)return {};
    if(panel) {
     if(!active || dispatching || finished)return {};
     GameplayScope scope(dispatching);
@@ -486,7 +489,8 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
     (success ? std::cout : std::cerr) << message << '\n';
     if (flow.inventoryOpen()) return flow.refuseInventorySave();
 
-    return std::nullopt; // Never forward Save to the presenter or clear a label.
+    if(!flow.blocksGameplay()) {auto next=flow.completeExplorationInput();handoff.retain();return next;}
+    return std::nullopt;
    }
    auto mapped = action;
    if (flow.journey() && flow.encounter()->combat() && !flow.encounter()->combat()->cast() && std::holds_alternative<InteractionAction>(action)) mapped = AttackAction{};
@@ -540,6 +544,9 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
   };
   updateAudio();
   struct CallbackLifetime {std::shared_ptr<bool> alive;~CallbackLifetime(){*alive=false;}} callbackLifetime{alive};
+  if(services.panel)flow.continueExplorationPanel=[&](const PlayerAction &action) {
+   return dispatch(action,flow.displayedInput(),flow.frame().presentation());
+  };
   SdlWindow::FrameUpdateHandler handler = [&,alive](const PlayerAction &action) -> std::optional<IndexedFrame> {
    if(!*alive)return {};return dispatch(action,{});
   };
@@ -547,7 +554,9 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
   handler.inputContext = [&,alive](const auto &origin) {
    if(!*alive)return InputContext{};
    if(panel){checkPanel();auto context=panel->inputContext(origin);context.contextId|=std::uint64_t{1}<<63;return context;}
-   return flow.inputContext(origin);
+   auto context=flow.inputContext(origin);
+   if(entryPassPending)context.readyForAction=context.readyForNavigation=context.restAvailable=false;
+   return context;
   };
   if(flow.drawDialogSprite) handler.drawButton = [&,alive](IndexedFrame &frame,const InputButton &button) {
    if(!*alive)return;
@@ -583,7 +592,10 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
   handler.frameCurrent = [&,alive] { if(!*alive)return false;if(panel)checkPanel();return active && flow.encounterFrameCurrent(); };
   handler.framePresented = [&,alive](const auto &frame) {
    if(!*alive)return;
-   if(panel){checkPanel();panel->presented(frame);}else {flow.framePresented(frame,true);handoff.retain();}
+   if(panel){checkPanel();panel->presented(frame);}else {
+    flow.framePresented(frame,true);handoff.retain();
+    if(entryPassPending && frame==first.presentation())arrivalDisplayed=true;
+   }
   };
   handler.finished=[&,alive]{
    if(!*alive)return true;
@@ -609,6 +621,11 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
     }catch(...){handoff.fail();active=false;throw;}
    }
    try {
+    if(entryPassPending) {
+     if(!arrivalDisplayed)return {};
+     entryPassPending=false;
+     auto next=flow.completeExplorationInput();handoff.retain();return next;
+    }
     auto next=flow.updatePresentation();handoff.retain();
     if(flow.partyDeathComplete()) {
      if(services.outcome)*services.outcome={XeenSessionOutcome::Kind::Title,0,{}};

@@ -49,6 +49,8 @@ public:
 	XeenEventFlow(const XeenEventFlow &) = delete;
 	XeenEventFlow &operator=(const XeenEventFlow &) = delete;
 	IndexedFrame initial();
+	// Publication callers capture first, then complete their exploration input.
+	IndexedFrame completeExplorationInput();
 	IndexedFrame handle(const PlayerAction &action, std::optional<std::uint64_t> displayedInput = {},
 		const IndexedFrame::Presentation &inputFrame = {});
 	std::optional<std::uint64_t> displayedInput() const noexcept { return _encounter && (journey() || _encounter->combat()) ? std::optional<std::uint64_t>{_inputGeneration} : std::nullopt; }
@@ -92,7 +94,12 @@ public:
     std::function<std::string(unsigned,bool)> loadEntranceCaption;
     std::function<void(IndexedFrame &,const std::string &)> drawEntranceCaption;
 	std::function<void(XeenTrainingBoundary)> trainingBoundary;
-	bool canSave() const noexcept;
+	// Test-only observation/counterfactual seam; production applies every DOS clear.
+    std::function<bool(unsigned)> eventInputClearForAudit;
+    std::function<void(unsigned,const std::optional<PlayerAction> &)> observeEventInputClear;
+    std::function<void(const PlayerAction &)> observeManualResponse;
+    std::function<std::optional<IndexedFrame>(const PlayerAction &)> continueExplorationPanel;
+    bool canSave() const noexcept;
 	bool serviceSaveBlocked() const noexcept { return _smithUi.has_value() || _trainingUi.has_value() || _dispatching || _handoffPending || _saving || _fatal; }
 	class SaveBoundary {
 		friend class XeenEventFlow;
@@ -116,7 +123,7 @@ public:
 	std::optional<IndexedFrame> mrWizard();
  bool configureSound(XeenSoundOptions);
 	const IndexedFrame &frame() const { return _frame; }
-	bool blocksGameplay() const { return (_encounter && (!journey() || !_encounter->journeyQuiet())) ||
+	bool blocksGameplay() const { return _explorationPass || (_encounter && (!journey() || !_encounter->journeyQuiet())) ||
 		_pending.has_value() || _dispatching || _saving || _handoffPending || inventoryOpen() || _summary || _fatal; }
 	const XeenEncounterFlow *encounter() const noexcept { return _encounter.get(); }
 	void beginCycle(std::uint64_t cycle);
@@ -150,6 +157,7 @@ public:
 	std::function<void(const XeenEquipmentResult &)> reportEquipment;
 	std::function<void(XeenMovementResult)> reportMovement;
 private:
+    IndexedFrame handleExplorationAction(const PlayerAction &, std::optional<std::uint64_t>, const IndexedFrame::Presentation &);
     struct EntranceUi {
         XeenEntranceAnimation animation;
         std::string caption;
@@ -252,9 +260,25 @@ private:
 	std::optional<IndexedFrame> advanceTreasureWait();
 	void publishEventSequencePrefix(const XeenEventExecutionState &);
 	bool _journeyEventLayers = false;
-	// The position whose Event-flag WhoWill clear was last evaluated (a DOS
-	// main-loop pass, 0xd18c..0xd1a5); empty at entry, so the first pass counts.
-	std::optional<XeenCamera> _whoWillPass;
+    bool _passEvent=false;
+	// One obligation across the outer input's dialogs and asynchronous work.
+	bool _explorationPass = false;
+	struct ManualInput {
+        std::optional<PlayerAction> action;
+        unsigned clears=0;
+    };
+    std::optional<ManualInput> _manualInput;
+    bool _continuingManual=false;
+    void clearManualInput(unsigned site);
+    void replaceManualInput(const PlayerAction &);
+    XeenPresentationUpdate handleEventResponse(const PlayerAction &);
+    void clearManualPresentationInput();
+    std::optional<IndexedFrame> continueManualInput();
+    bool explorationInputPending() const;
+    std::optional<std::pair<std::uint64_t,std::size_t>> _manualPageClear;
+	void armExplorationPass();
+	bool explorationEffectComplete() const;
+	bool prepareExplorationPass();
 	struct TransitionCandidate {
 		XeenRegionalInteraction kind = XeenRegionalInteraction::None;
 		std::unique_ptr<XeenWorld> world;

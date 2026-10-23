@@ -95,7 +95,7 @@ void committedAndPending(){
  Fixture f;f.camera.y=15;f.automatic=true;f.world.discardMapCache();f.flow.refresh();f.at(110);
  f.data.scripts[2]={record(1,0,0,7,{1,1,15})};f.events.discardScriptCache();
  auto n=f.phases.size();f.flow.handle(NavigationAction::MoveForward);
- check(f.camera.mapId==1 && f.camera.y==15 && f.phases.size()==n+1 && f.phases.back()==0,"round-trip map entry missed");
+ check(f.camera.mapId==1 && f.camera.y==15 && f.phases.size()==n+2 && f.phases.back()==0,("round-trip map entry missed: map="+std::to_string(f.camera.mapId.number)+" y="+std::to_string(f.camera.y)+" compositions="+std::to_string(f.phases.size()-n)+" phase="+std::to_string(f.phases.back())).c_str());
  // Reentrant reports and reconstruction do not consume the action again.
  f.flow.reportManual=[&](const auto&){f.flow.handle(InteractionAction{});f.flow.updatePresentation();f.flow.refresh(true);};
  f.flow.handle(InteractionAction{});f.phase(1);

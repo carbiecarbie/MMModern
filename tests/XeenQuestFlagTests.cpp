@@ -34,7 +34,8 @@ struct Fixture {
 	std::uint64_t now=0;
 	XeenPartyState members=party();XeenCamera camera{1,1,1,XeenDirection::North};XeenGameFlags flags;
 	std::map<XeenMapIdentity,XeenEventScript> scripts;
-	XeenWorld world{[](XeenMapIdentity id){auto m=map(id);m.geometry.cells[17].rawAttributes=0x10;return m;},
+	bool automaticCell=true;
+	XeenWorld world{[&](XeenMapIdentity id){auto m=map(id);m.geometry.cells[17].rawAttributes=automaticCell?0x10:0;return m;},
 		[](XeenMapIdentity id){XeenObjectFile f{id,"synthetic.mob",true,{}};f.entities.objects=std::vector<XeenMapEntity>{{1,1,0,0,111},{2,2,0,0,111}};return f;}};
 	XeenEventSystem events{[&](XeenMapIdentity id){return scripts.at(id);},
 		[](XeenMapIdentity id){return XeenEventTextFile{id,"synthetic.txt",true,{"Title","Body words"}};}};
@@ -167,7 +168,8 @@ void clearing() {
 }
 
 void lifetimeAndCancellation() {
-	Fixture f;f.members=party(6);f.scriptAt({record(1,1,0,0x20,{0,0}),record(1,1,1,0x19,{7,8,0}),
+	// Part 0: this manual continuation fixture omits the independent flagged-cell repeat.
+	Fixture f;f.automaticCell=false;f.members=party(6);f.scriptAt({record(1,1,0,0x20,{0,0}),record(1,1,1,0x19,{7,8,0}),
 		record(1,1,2,0x12),set(0,2,7,8),record(7,8,1,5,{0,1,9,1,99}),record(7,8,2,0x1a)});
 	auto flow=f.flow();flow.dialogText=&dos_test::text();flow.handle(InteractionAction{});flow.handle(SelectMemberAction{5});
 	check(f.members.questFlags.isSet(2) && flow.blocksGameplay(),"selected member/call lost immediate set");
@@ -175,6 +177,7 @@ void lifetimeAndCancellation() {
 	f.events.discardScriptCache();f.events.discardTextCache();f.world.discardMapCache();flow.refresh(true);
 	flow.framePresented(flow.frame().presentation());f.now=200;flow.handle(AcknowledgeAction{});
 	flow.framePresented(flow.frame().presentation());flow.updatePresentation();flow.framePresented(flow.frame().presentation());
+	flow.updatePresentation();flow.framePresented(flow.frame().presentation());
 	check(f.members.questFlags.isSet(29) && !flow.blocksGameplay(),"continuation restored old party state");
 	flow.handle(InteractionAction{});flow.handle(CancelInteractionAction{});check(f.members.questFlags.isSet(2),"later cancellation erased request");
 	XeenEventSystem replacement([&](XeenMapIdentity id){return f.scripts.at(id);});
@@ -196,6 +199,8 @@ void lifetimeAndCancellation() {
 
 void errorsAndRemove() {
 	for(bool automatic:{false,true})for(int mode=0;mode<3;++mode){Fixture f;
+        // Part 0: isolate one failing call; manual-on-flagged would call it twice.
+        f.automaticCell=automatic;
 		f.scriptAt({record(1,1,0,0x1f,{2,1,1})});
 		f.scriptAt({record(1,1,0,0x19,{7,8,0}),record(1,1,1,0x12),
 			record(7,8,0,9,{20,7,5}),record(7,8,1,12,{0,0,20,7}),set(2,2,7,8),

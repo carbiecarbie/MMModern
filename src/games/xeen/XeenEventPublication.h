@@ -125,7 +125,7 @@ public:
                     integrity("Service terminal continuation changed");
                 script(state.currentScript->file());currentSite=terminalSite;return;
             }
-			if (interaction==XeenRegionalInteraction::None || !xeen_state::sameCamera(state.workingCamera,guard.cameraValue) ||
+			if ((interaction==XeenRegionalInteraction::None && state.instructionCount) || !xeen_state::sameCamera(state.workingCamera,guard.cameraValue) ||
 				state.workingGameFlags.values()!=guard.flagValues || state.logicalAddress.mapId!=original.mapId ||
 				state.logicalAddress.x!=guard.cameraValue.x || state.logicalAddress.y!=guard.cameraValue.y ||
 				state.logicalAddress.line<0 || state.logicalAddress.line>255 ||

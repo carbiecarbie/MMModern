@@ -296,7 +296,8 @@ void genericPrelude(Inputs &in) {
                 !unsupported && calledTerminal?std::vector<std::uint8_t>{0}:std::vector<std::uint8_t>{})};
         Visit v(in,s,&city);const auto before=XeenSaveFormat::encode(v.snapshot());
         if(unsupported) {
-            v.act(InteractionAction{});for(unsigned n=0;n<20 && !v.flow->canSave();++n){v.dismiss();v.pulse();}
+            // Part 0: click tests refusal atomically; an uncleared Space also waits.
+            v.act(InteractionAction{false});for(unsigned n=0;n<20 && !v.flow->canSave();++n){v.dismiss();v.pulse();}
             check(v.flow->canSave() && !v.f.isSet(220) && before==XeenSaveFormat::encode(v.snapshot()),
                 "Unsupported dependent prelude published a prefix or admitted service");
         } else {
@@ -342,7 +343,8 @@ void directionPrelude(Inputs &in) {
         for(auto &instruction:city.records)instruction.direction=unsigned(originalDirection);
         Visit v(in,s,&city);const auto before=XeenSaveFormat::encode(v.snapshot());
         if(unsupported) {
-            v.act(InteractionAction{});for(unsigned n=0;n<20 && !v.flow->canSave();++n){v.dismiss();v.pulse();}
+            // Part 0: click tests refusal atomically; an uncleared Space also waits.
+            v.act(InteractionAction{false});for(unsigned n=0;n<20 && !v.flow->canSave();++n){v.dismiss();v.pulse();}
             check(v.flow->canSave() && !v.f.isSet(220) && v.c.direction==originalDirection &&
                 before==XeenSaveFormat::encode(v.snapshot()),"Refused direction prelude published camera or flag prefix");
         } else {

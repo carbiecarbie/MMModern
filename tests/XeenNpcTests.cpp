@@ -44,7 +44,7 @@ struct Fixture {
 	std::vector<std::uint64_t> phases;
 	XeenEventTextFile text{1,"synthetic.txt",true,{"Title\n\t125Subtitle","one two three four"}};
 	std::map<XeenMapIdentity,XeenEventScript> scripts;
-	XeenWorld world{[](XeenMapIdentity id){return map(id);},[](XeenMapIdentity id){
+	XeenWorld world{[](XeenMapIdentity id){auto m=map(id);m.geometry.cells[17].rawAttributes=0;return m;},[](XeenMapIdentity id){
 		XeenObjectFile f{id,"synthetic.mob",true,{}};f.entities.objects=std::vector<XeenMapEntity>{{1,1,0,0,111}};return f;}};
 	XeenEventSystem events{[&](XeenMapIdentity id){return scripts.at(id);},
 		[&](XeenMapIdentity){++loads;return text;}};
@@ -78,6 +78,8 @@ struct Fixture {
         acquire(flow);
         if(const auto deadline=flow.nextPresentationDeadline())time=std::max(time,PresentationClock::ceilMilliseconds(*deadline));
         flow.handle(action);acquire(flow);flow.updatePresentation();acquire(flow);
+        // Part 0: NPC retirement and the outer input's pass have distinct acquisitions.
+        for(unsigned n=0;n<4 && !flow.presentationGeneration() && flow.blocksGameplay();++n){flow.updatePresentation();acquire(flow);}
     }
     void tick(XeenEventFlow &flow,std::uint64_t now) {time=now;if(flow.updatePresentation())acquire(flow);}
 	XeenEventExecutionStepResult begin(int line=0){return interpreter.begin(camera,members,flags,world,
@@ -222,7 +224,7 @@ void presentationAndTiming() {
 		const auto pixels=flow.frame().pixels;flow.refresh(true);
 		check(flow.presenter().pageIndex()==i && flow.frame().pixels==pixels,"noninitial page rebase");
 	}
-	f.tap(flow,InteractionAction{});check(!flow.blocksGameplay() && flow.frame().pixels==f.base.pixels,"final NPC cleanup");
+	f.tap(flow,InteractionAction{});check(!flow.blocksGameplay() && flow.frame().pixels==f.base.pixels,("final NPC cleanup: blocked="+std::to_string(flow.blocksGameplay())+" pending="+std::to_string(bool(flow.presentationGeneration()))+" base="+std::to_string(flow.frame().pixels==f.base.pixels)).c_str());
 	check(!flow.respond(*generation,XeenPresentationResponse::Acknowledged),"completed generation replayed");
 	flow.handle(InteractionAction{});check(flow.presentationGeneration()!=generation && flow.presenter().pageIndex()==0,"independent NPC dispatch");
 	flow.abandonPresentation();check(!flow.blocksGameplay() && flow.frame().pixels==f.base.pixels,"NPC abandonment");
@@ -247,7 +249,9 @@ void presentationAndTiming() {
 	Fixture n;n.set({npc(),npc(1),record(1,1,2,0x12)});auto next=n.flow();next.handle(InteractionAction{});
 	const auto old=*next.presentationGeneration();n.tap(next,CancelInteractionAction{});
 	check(next.blocksGameplay() && *next.presentationGeneration()!=old && !next.respond(old,XeenPresentationResponse::Acknowledged),"input consumed next NPC");
-	next.respond(*next.presentationGeneration(),XeenPresentationResponse::Acknowledged);check(!next.blocksGameplay(),"direct NPC response");
+	next.respond(*next.presentationGeneration(),XeenPresentationResponse::Acknowledged);
+    for(unsigned retry=0;retry<4 && next.blocksGameplay() && !next.presentationGeneration();++retry){n.tick(next,n.time);}
+    check(!next.blocksGameplay(),"direct NPC response");
 	Fixture pos;pos.text.strings={"A\n\t100B","body"};auto title=pos.flow();title.handle(InteractionAction{});
     const auto expectedTitle=[&] {
         XeenTextRenderOptions options;options.originalControls=true;options.stopAtBottom=true;
@@ -391,6 +395,7 @@ void failuresAndOwners() {
             f.failDraw=false;f.time=165;flow.handle(AcknowledgeAction{});f.acquire(flow);
             f.failDraw=true;flow.updatePresentation();
         }
+		for(unsigned retry=0;retry<4 && flow.blocksGameplay() && !flow.presentationGeneration();++retry){f.acquire(flow);flow.updatePresentation();}
 		check(err && err->kind==Kind::PresentationFailed && err->source->line==1 && !flow.blocksGameplay() &&
 			flow.frame().pixels==f.base.pixels && f.members.questItems.at(17)==1 && f.members.questItems.at(18)==0,"NPC failure cleanup/state");
 		if(gen)check(!flow.respond(*gen,XeenPresentationResponse::Acknowledged),"failed generation valid");

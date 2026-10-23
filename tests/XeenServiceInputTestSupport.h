@@ -69,6 +69,8 @@ void authority(Inputs &in,bool smith) {
         if(!smith)f.prepare();paid(f,smith);const Owners after(f);
         replay(f,intent(smith),b,input);after.unchanged(f);
         f.act(CancelInteractionAction{});if(smith)f.act(CancelInteractionAction{});
+        // Part 0: acquire and retire the service input's final cell pass.
+        f.finishDeparture();
         check(f.flow->canSave() && f.p.encounterContext->day==(smith?9:10),"service concrete retry repeated/lost departure");
     }
     for(unsigned boundary=0;boundary<2;++boundary) {
@@ -79,7 +81,7 @@ void authority(Inputs &in,bool smith) {
         f.act(CancelInteractionAction{});const auto b=f.flow->frame().presentation();const Owners before(f);
         check(a!=b && input==f.flow->displayedInput() && calls==2,"mandatory retry spent finite semantics");
         replay(f,CancelInteractionAction{},a,input);before.unchanged(f);check(calls==2,"stale departure invoked callback");
-        replay(f,CancelInteractionAction{},b,input);check(f.flow->canSave() && f.p.encounterContext->day==9 && calls==3,"mandatory fresh retry duplicated/lost departure");
+        replay(f,CancelInteractionAction{},b,input);f.finishDeparture();check(f.flow->canSave() && f.p.encounterContext->day==9 && calls==3,"mandatory fresh retry duplicated/lost departure");
     }
 }
 void key(SDL_Keycode code,Uint32 type,bool repeat=false) {

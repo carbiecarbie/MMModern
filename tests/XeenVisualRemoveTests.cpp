@@ -203,7 +203,8 @@ void errorsAndSuspendedMutation(XeenAssetSource &assets,const std::filesystem::p
 	check(empty.flow.handle(InteractionAction{}).pixels==untouched.pixels && !empty.flow.blocksGameplay() && !empty.flags.isSet(5),"no-event interaction altered frame/state");
 	Fixture label(assets);label.records={record(8,2,0,0x04,{0}),record(8,2,1,0x12)};
 	const int labelCompositions=label.compositions;const auto labelBase=label.flow.frame();
-	label.flow.handle(InteractionAction{});
+	// Part 0: an uncleared Space waits and clears labels; click preserves this passive label.
+    label.flow.handle(InteractionAction{false});
 	check(label.compositions==labelCompositions+1 && label.completed==1 &&
 		label.flow.frame().pixels!=labelBase.pixels && !label.flow.blocksGameplay(),"no-mutation completion erased label or recomposed unnecessarily");
 	// A completed label expires on the next gameplay action, even when the

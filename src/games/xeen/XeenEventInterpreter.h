@@ -38,6 +38,7 @@ struct XeenEventExecutionCompleted {
 	XeenCamera finalCamera;
 	XeenGameFlags finalGameFlags;
 	std::size_t instructionCount = 0;
+    unsigned inputClearCount=0, inputClearSite=0;
 };
 
 enum class XeenPresentationKind {
@@ -66,7 +67,8 @@ enum class XeenPresentationKind {
 	WordInput,
     EntranceScene,
     ArenaNumber,
-    ArenaPreparation
+    ArenaPreparation,
+    NothingHere
 };
 
 enum class XeenPresentationResponseRequirement {
@@ -207,6 +209,9 @@ struct XeenEventGiveTakeProgress {
 };
 
 struct XeenEventExecutionState {
+    unsigned inputClearCount=0, inputClearSite=0;
+    // DOS Event-local markers, independent of instruction count.
+    bool scriptExecuted=false, otherFacing=false, tailDone=false;
     std::optional<XeenEventPortraitProgress> portraitProgress;
     std::optional<XeenTypedDamageCandidate> portraitDamage;
     std::optional<XeenCombatRandom> portraitRandom;

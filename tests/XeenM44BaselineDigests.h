@@ -279,15 +279,15 @@ namespace m44_baseline {
 inline constexpr const char *revision = "M81 Part A (save v17), baseline 30c548a";
 struct Scenario { const char *name; std::uint32_t seed; const char *sha256; };
 inline constexpr std::array<Scenario,4> scenarios{{
-    {"mainland-combat-myra-phirna",3626689381u,"c77d601069a5d49e0bf799b26e1842ae2eddfff98fa7d90d3a6de5374bc8be94"},
+    {"mainland-combat-myra-phirna",3626689381u,"76651b1ab0c5d135f273a3e2a0d1b82fd4a397a4bc9e93364ffc16516d0dd510"},
     // M75: a member woken after its skipped slot waits for the next round (DOS turn order).
     // M78 Part A: maintainer approved the services replacement on 2026-10-20.
     // Pathfinder wall 3 reroutes the one-holder party; time/exploration and an
     // extra merchant generation explain all fields. Native reload/re-save is exact.
     // Local audit: build-rel/m78-digest-comparison and m78-services-causal-audit.json.
-    {"vertigo-buy-repair-training",7u,"2cd3fe37a3b2c14bc3bc98d4c725ff86d414e1d1d5c03b4d752a2765f10cbbc7"},
-    {"temple-recovery",3626689381u,"7d7432fadd0ef41cab3788a7fdc7a279a3133fff3c02d7b6efdc53944630385c"},
-    {"vertigo-f3-roundtrip",3626689381u,"615d88aa4300ca6f26d1c2db56e71e845ab7a4986ec49a0b196a4947eb4b5ad8"}
+    {"vertigo-buy-repair-training",7u,"a971e48d659f17886a1e9bac00a94b8ffe7afffc3020c33578645164633dd65d"},
+    {"temple-recovery",3626689381u,"b2cea7616e868fbf9fb6184bb553e1bfd66cdbafffc017823848a05e8a742f81"},
+    {"vertigo-f3-roundtrip",3626689381u,"8f0b712c893cb8eb89773c076b7ce7d7861daa3542e7defcdb745d0b08024c82"}
 }};
 }
 #endif

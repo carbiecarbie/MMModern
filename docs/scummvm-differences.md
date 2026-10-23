@@ -496,11 +496,10 @@ apart from the fidelity differences above.
   could rarely pick another. [Details](original-quirks.md#dev-confirmword-alternate)
 - **No "Please Wait..." box.** Maps load without the original loading box,
   as in ScummVM. [Details](original-quirks.md#dev-no-please-wait)
-- **When the treasure recipient choice clears.** The member a WhoWill dialog
-  chose clears on arrival at or turning over an Event cell, on Space and in
-  every Event run. The original and ScummVM also clear it on each later
-  command while standing on an Event cell and after combat; MMModern does not
-  yet.
+- **The two post-combat Event calls.** MMModern clears the WhoWill treasure
+  recipient in every manual and flagged exploration-input Event call. The
+  original and ScummVM also make two conditional post-combat calls; these
+  await M85.
   [Details](original-quirks.md#dev-whowill-event-passes)
 
 ## What ScummVM has that MMModern does not yet

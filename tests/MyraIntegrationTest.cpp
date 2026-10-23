@@ -279,13 +279,13 @@ void checkpoint(const GameInstallation &installation,XeenAssetSource &assets, co
 		const bool ok=SdlWindow().showInteractive(flow.frame(),"21C Myra acceptance",native([&](const PlayerAction&a)->std::optional<IndexedFrame>{
 			auto f=handle(a);unchanged();
 			if(stage==1 && pending){freshPresentation();save(f,"page-0");stage=2;}
-			if(terminal || completed){frontier();stage=4;quit();push(SDLK_RETURN);}
+			if((terminal || completed) && !flow.blocksGameplay()){frontier();stage=4;quit();push(SDLK_RETURN);}
 			return f;}),[&]{return flow.handlesEscape();},[&]()->std::optional<IndexedFrame>{
 			if(!started)started=SDL_GetTicks();
 			if(SDL_GetTicks()-started>5000){quit();return {};}
 			if(stage==0){stage=1;push(SDLK_SPACE);push(SDLK_SPACE,1);}
 			auto f=flow.updatePresentation();unchanged();
-			if(terminal || completed){frontier();stage=4;quit();return f;}
+			if((terminal || completed) && !flow.blocksGameplay()){frontier();stage=4;quit();return f;}
 			if(stage==2 && flow.presenter().npcTiming().phase!=0){changed=true;save(flow.frame(),"idle-"+std::to_string(SDL_GetTicks()-started)+"ms");rebuild();
 				f=flow.frame();
 				push(SDLK_UP);push(SDLK_y);push(SDLK_n);push(SDLK_F1);stage=3;}

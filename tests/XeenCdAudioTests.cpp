@@ -152,7 +152,8 @@ void fallbackAndReaders(const GameInstallation &installation,XeenAssetSource &as
   auto party=XeenPartyLoader().loadInitialCloudsParty(assets);
   auto options=XeenSoundOptions(party.soundOptions);options.text=text;options.speech=speech;party.soundOptions=options;
   XeenCamera camera{1,1,1,XeenDirection::North};XeenGameFlags flags;
-  XeenWorld world([](auto id){return remove_test::map(id);});
+  // Part 0: isolate manual audio presentations; flagged passes are covered by A1.
+  XeenWorld world([](auto id){auto m=remove_test::map(id);m.geometry.cells[17].rawAttributes=0;return m;});
   const auto cue=source==4?std::vector<std::uint8_t>{2,24,0,160,1}:std::vector<std::uint8_t>{19,114,1,113,8};
   auto script=remove_test::script(1,{remove_test::record(1,1,0,60,cue),
       remove_test::record(1,1,1,5,{0,1,9,1,99}),remove_test::record(1,1,2,0x12)});
@@ -172,8 +173,9 @@ void fallbackAndReaders(const GameInstallation &installation,XeenAssetSource &as
   flow.respond(*flow.presentationGeneration(),XeenPresentationResponse::Acknowledged);
   check(!program.audio->cdBusy(now) && program.audio->retainedCdCue().has_value(),"NPC dismissal must stop without clearing operands");
   // Event messages retain their text independently of the NPC Text-off byte.
+  for(unsigned retry=0;retry<4 && flow.blocksGameplay() && !flow.presentationGeneration();++retry){flow.framePresented(flow.frame().presentation());flow.updatePresentation();} // Retire the previous input pass.
   script=remove_test::script(1,{remove_test::record(1,1,0,0x35,{1}),remove_test::record(1,1,1,0x12)});
-  events.discardScriptCache();flow.handle(InteractionAction{});
+   events.discardScriptCache();flow.handle(InteractionAction{false}); // Part 0: click preserves passive text; Space continues as Wait.
   check(flow.frame().pixels!=base.pixels,"Text off hid an ordinary Event message");
  }
 }

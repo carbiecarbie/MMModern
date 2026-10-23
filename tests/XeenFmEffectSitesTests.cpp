@@ -232,7 +232,8 @@ std::vector<std::uint8_t> event(Inputs &in,const GameInstallation &installation,
     XeenEventFile script{28,"maze0028.evt",true,{cue,exit}};
     Fixture f(in,start,false,&script);std::vector<unsigned> fx;attach(f,installation,fx);
     const auto before=XeenSaveFormat::encode(f.snapshot());
-    f.act(InteractionAction{});
+    // Part 0: click has no surviving Space Wait.
+    f.act(InteractionAction{false});f.finishDeparture();
     check(f.flow->canSave(),"PlayFX added a presentation or wait");
     check(enabled?fx==std::vector<unsigned>{19}:fx.empty(),"PlayFX operand or Efx gate differs");
     auto after=f.snapshot();after.soundOptions.efx=true;return XeenSaveFormat::encode(after);
@@ -247,7 +248,8 @@ std::vector<std::uint8_t> wrongFacing(Inputs &in,const GameInstallation &install
     f.flow->reportManual=[&](const auto &r){noEvents+=std::holds_alternative<XeenManualEventNoEvent>(r);completed+=std::holds_alternative<XeenManualEventCompleted>(r);};
     f.act(InteractionAction{});
     check(enabled?fx==std::vector<unsigned>{21}:fx.empty(),"wrong-facing object refusal must request 21 only once");
-    check(f.flow->canSave() && noEvents==1 && !completed,"wrong-facing refusal executed an Event");
+    f.finishDeparture();
+    check(f.flow->canSave() && !noEvents && completed==1,"Part 0: wrong-facing call completes its full entry and tail");
     auto after=f.snapshot();after.soundOptions.efx=true;return XeenSaveFormat::encode(after);
 }
 std::vector<std::uint8_t> passableBash(Inputs &in,const GameInstallation &installation,bool enabled) {

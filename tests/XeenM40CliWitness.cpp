@@ -184,7 +184,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
             check(providers==providerCalls && saves==saveCalls,"M40 consumed/unpresented input reached providers/save");
             check(!flow->acceptsFrame(std::make_shared<const IndexedFrame>(flow->frame())),"M40 equal foreign frame acquired authority");
         };
-        const auto action=[&](PlayerAction a) {steps.push_back([&,a]{act(a);return true;});};
+        const auto action=[&](PlayerAction a) {steps.push_back([&,a]{if(!handler.inputContext(flow->frame().presentation()).readyForAction)return false;act(a);return true;});};
         const auto inspect=[&](std::function<void()> fn){steps.push_back([fn]{fn();return true;});};
         const auto combat=[&]()->const XeenCombat *{return flow->encounter()->combat();};
         const auto settleStep=[&] {
@@ -235,7 +235,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
             auto before=std::make_shared<unsigned>();
             inspect([&,before,label]{check(flow->canSave(),"M40 checkpoint not Quiet");xeen_decision9::check(*world,*position,label,label!="continued");*before=saveCalls;SDL_Event e{};e.type=SDL_KEYDOWN;e.key.keysym.sym=SDLK_F9;e.key.keysym.scancode=SDL_SCANCODE_F9;e.key.timestamp=SDL_GetTicks()+1;check(SDL_PushEvent(&e)==1,"M40 native F9 enqueue");acted=true;});
             steps.push_back([&,before,label] {
-                if(saveCalls==*before)return false;
+                if(saveCalls==*before || !flow->canSave())return false;
                 check(saveCalls==*before+3,"M40 native F9 did not complete normal pipeline");
                 SDL_Event e{};e.type=SDL_KEYUP;e.key.keysym.sym=SDLK_F9;e.key.keysym.scancode=SDL_SCANCODE_F9;SDL_PushEvent(&e);
                 fs::copy_file(*target,target->parent_path()/(target->stem().string()+"-"+label+".mmsave"),fs::copy_options::overwrite_existing);
@@ -244,13 +244,11 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
                 return true;
             });
         };
-        // Ten outdoor well interactions and the subsequent indoor entrance
-        // add 10*10+1 minutes and eleven ordinary step counters to this route.
-        // The later reset exit/entrance adds another 10+1 minutes and two
-        // counters. Its three indoor steps follow the one outdoor move.
-        constexpr unsigned prefixMinutes=10*10+1,prefixSteps=10+1;
-        constexpr unsigned resetReadyMinutes=1314+prefixMinutes+11+10+10+1+3;
-        constexpr unsigned resetEndMinutes=1340+prefixMinutes+10+1;
+        // Part 0: numeric WhoWill selection replaces Space; map load clears it.
+        // Neither the initial wells/entrance nor the later exit/entrance adds Wait.
+        constexpr unsigned prefixMinutes=0,prefixSteps=0;
+        constexpr unsigned resetReadyMinutes=1314+11+10+3;
+        constexpr unsigned resetEndMinutes=1340;
         const auto expectDate=[&](unsigned day,unsigned minute,unsigned ctr,std::uint32_t state,std::uint64_t count,std::uint32_t gold) {
             std::cout<<"M49 CHECK actual "<<party->encounterContext->year<<":"<<party->encounterContext->day<<":"<<party->encounterContext->minutes<<":"<<party->encounterContext->ctr24<<" "<<world->sessionState().journeyRandom()->state<<":"<<world->sessionState().journeyRandom()->count<<" "<<party->purse->gold
                 <<" expected "<<day<<":"<<minute<<":"<<ctr<<" "<<state<<":"<<count<<" "<<gold<<'\n';
@@ -267,7 +265,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
                 if(XeenTrainingTestAccess::admitted(*flow))return true;
                 if(flow->canSave() && faultFired && !retriedPreparation &&
                     (control=="fail-before-reservation" || control=="fail-after-reservation" || control=="fail-stock-complete" || control=="fail-bank-prepared")) {
-                    retriedPreparation=true;act(InteractionAction{});return false;
+                    retriedPreparation=true;act(InteractionAction{false});return false;
                 }
                 check(!flow->canSave(),"M40 detached stock preparation exposed Quiet");
                 const auto providers=providerCalls,saves=saveCalls;
@@ -279,14 +277,15 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
         };
         const auto emptyVisit=[&] {
             auto before=std::make_shared<XeenSaveSnapshot>();inspect([&,before]{*before=snapshot();});
-            action(InteractionAction{});waitService();deny();action(CancelInteractionAction{});settle();
+            // Click isolates admission faults from Space's surviving Wait on refusal.
+            action(InteractionAction{false});waitService();deny();action(CancelInteractionAction{});settle();
             inspect([&,before]{++before->journey->context->day;exact(*before);});
         };
         const auto repair=[&](unsigned slot,std::uint32_t goldAfter) {
             auto before=std::make_shared<XeenSaveSnapshot>();auto ac=std::make_shared<int>();
             inspect([&,before,ac]{*before=snapshot();*ac=XeenCharacterRules::combatArmorClass(party->roster.at(1),*party->roster.combatInputs(1),{610});});
-            action(InteractionAction{});
-            if(control=="fail-before-admission" && slot==0)action(InteractionAction{});
+            action(InteractionAction{control.empty()});
+            if(control=="fail-before-admission" && slot==0)action(InteractionAction{control.empty()});
             waitService();
             deny();action(SelectMemberAction{4});action(DialogKeyAction{'b'});action(DialogKeyAction{'a'});action(DialogKeyAction{'f'});deny();
             action(SelectInventorySlotAction{slot});deny();action(YesAction{});
@@ -329,6 +328,10 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
                 std::cout<<"M40 FRESH GENERATED ECONOMY EXACT\n";
             }
         });
+   steps.push_back([&]{
+    const auto context=handler.inputContext(flow->frame().presentation());
+    return context.readyForAction && !context.dialog && flow->canSave();
+   }); // Part 0: Load entry after display, before the next queued input or F9.
   if(!resume) {
    // Earn physical critical injury on the reachable mainland, with the
    // original well and learned Awaken, instead of the old party-wide Slime bug.
@@ -460,7 +463,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
             inspect([&] {
                 // M68: the Slime's first save uses the Physical selector and the
                 // element loop draws once at zero damage (DOS 0x2d2e4, 0x2d35e).
-                expectDate(12+resetEndMinutes/1440,resetEndMinutes%1440,(prefixSteps+2)%24,3052845306u,2123,829);
+                expectDate(12+resetEndMinutes/1440,resetEndMinutes%1440,prefixSteps%24,3052845306u,2123,829);
                 check(position->mapId==XeenMapIdentity(28) && position->x==16 && position->y==2 && position->direction==XeenDirection::North &&
                     party->roster.at(1).currentSp==16 && party->roster.at(6).currentSp==24 && world->sessionState().regionalActors(28).size()==46 &&
                     // CD maze0028.evt removes (15,0,South,4/5) protection/AlterEvent;

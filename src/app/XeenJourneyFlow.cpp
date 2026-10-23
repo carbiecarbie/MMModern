@@ -482,7 +482,7 @@ bool XeenEncounterFlow::settleItemUse(const Ticket &entry,std::uint64_t generati
 				XeenRestoreGuard::Providers providers(*_journeyPreimage,_world);
 				const auto &destination=*_itemUse->jumpDestination;
 				const auto sample=_world.sampleCell(destination.mapId,destination.x,destination.y);
-				automaticArrival=sample && (sample->cell->rawAttributes & kXeenAutomaticEventFlag) && bool(xeenRegionalEvent(_journeyEvents,destination));
+				automaticArrival=sample && (sample->cell->rawAttributes & kXeenAutomaticEventFlag);
 				_journeyPreimage->check();
 			}
             const bool member=XeenLearnedSpellRules::target(std::uint8_t(spell))==XeenSpellTarget::Member;
@@ -634,14 +634,12 @@ void XeenEncounterFlow::beginJourneyEvent(bool barrier) {
 		throw std::logic_error("Automatic Journey event address changed");
 	const bool ready=_regionalAutomatic ? !_busy && !_combat && !_failure && _boundary.quiet() && current(ticket()) &&
 		_state.pending()==0 && _state.phase()==XeenEncounterPhase::Exploring : journeyQuiet();
-	const auto interaction = xeenRegionalInteraction(_events,_camera);
-	if (!ready || !journeyCapacity() || (interaction==XeenRegionalInteraction::None && !barrier) ||
-		(barrier && _regionalAutomatic) ||
-		(_regionalAutomatic && interaction==XeenRegionalInteraction::None))
+	if (!ready || !journeyCapacity() || (barrier && _regionalAutomatic))
 		throw std::logic_error("Journey objective admission unavailable");
 	if (!_regionalAutomatic) retireCastingFeedback();
 	_eventLease = _boundary.hold(XeenCombatBoundary::Work::Event);
 	_regionalAutomatic=false;_regionalAutomaticAddress.reset();
+
 	_world._sessionState._journeyActivity = XeenJourneyActivity::Event;
 	++_world._sessionState._journeyGeneration; ++_generation;
 	_journeyPreimage->adoptJourneyCoordination();
@@ -792,7 +790,8 @@ bool XeenEncounterFlow::presentJourney(const Ticket &entry) {
 	if(_shoot && !_shoot->presented) {_shoot->presented=true;_shoot->deadline=counterDeadline(_lastTime,2);}
 	if (!journeyEvent() && !_rest && !_shoot && !monsterReward() && !_itemUse && !_casting && !_smith && !_training) s._journeyActivity = _state.phase()==XeenEncounterPhase::SupportStopped ? XeenJourneyActivity::SupportStopped : (_state.pending() || _regionalWork || projectilesPending() || _shootIntent || _regionalAutomatic) ? XeenJourneyActivity::Approach : XeenJourneyActivity::Quiet;
 	if (_castingSettlement && (s._journeyActivity==XeenJourneyActivity::Quiet ||
-		s._journeyActivity==XeenJourneyActivity::SupportStopped || journeyEvent() || monsterReward()))
+		s._journeyActivity==XeenJourneyActivity::SupportStopped || journeyEvent() || monsterReward() ||
+        (_regionalAutomatic && !projectilesPending())))
 		_castingSettlement=false;
 	const bool smithSemantic=(_smith || _smithPreparation || (journeyEvent() && _smithEventSettlement));
 	if(!_training && !_trainingPreparation && !(journeyEvent() && _trainingEventSettlement) && !smithSemantic){++s._journeyGeneration; ++_generation;}
@@ -1068,7 +1067,7 @@ bool XeenEncounterFlow::retireJourney(const Ticket &entry) {
 		if(disengaged) _combat->retireDisengagedJourney(*entry.combat,_state);
 		else _combat->retireJourney(*entry.combat,_state);
         if(disengaged)_world.scenePresentation().markLightingStep();
-		if(disengaged) { _regionalAutomatic=false;_regionalAutomaticAddress.reset();_combatObservation=_combat->result(); }
+		if(disengaged) { _journeyCapture->inputPassPending=false; _regionalAutomatic=false;_regionalAutomaticAddress.reset();_combatObservation=_combat->result(); }
 		_retiredCombatResult = _combat->result(); _combat.reset(); ++_generation;
 		_disengagementNoticeRevision = disengaged ? std::optional<std::uint64_t>{_state.revision()} : std::nullopt;
 		_disengagementNoticeCombat.reset();

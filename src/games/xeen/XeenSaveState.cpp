@@ -27,7 +27,7 @@ namespace mmodern {
 bool XeenWorld::journeyCaptureEligible(const XeenPartyState &party, const XeenCamera &camera) const noexcept {
 	if (_developerEventMap) return false;
 	const auto retained = _journeyCapture.lock();
-	return retained && retained->current(party,camera);
+	return retained && !retained->inputPassPending && retained->current(party,camera);
 }
 
 namespace {
@@ -317,7 +317,7 @@ XeenSaveSnapshot XeenSaveState::captureImpl(const XeenSaveResourceSignature &res
 		if (!authority || !authority->preimage || &(**authority->preimage).f != &flags)
 			throw std::logic_error("Journey capture requires the bound game-flag owner");
 	}
-	if (initializing ? (!authority || !authority->current(party,camera,true)) : !canCapture(party, camera, world))
+	if (initializing ? (!authority || authority->inputPassPending || !authority->current(party,camera,true)) : !canCapture(party, camera, world))
 		throw std::logic_error("MMModern save: encounter sessions cannot be captured");
 	XeenSaveSnapshot snapshot;
 	snapshot.resources = resources;

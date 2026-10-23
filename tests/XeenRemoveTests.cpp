@@ -37,11 +37,18 @@ struct Fixture {
 		return interpreter.begin({id,8,2,XeenDirection::North}, party, {}, world,
 			provider(), textProvider(), line);
 	}
-	XeenEventExecutionStepResult resume(XeenEventExecutionState state) {
-		return interpreter.resume(std::move(state), XeenPresentationResponse::Presented,
+	XeenEventExecutionStepResult resume(XeenEventExecutionState state, XeenPresentationResponse response=XeenPresentationResponse::Presented) {
+		return interpreter.resume(std::move(state), response,
 			party, world, provider(), textProvider());
 	}
 };
+
+// Part 0: effective None does not set the executed marker; a selected object gets the tail window.
+XeenEventExecutionCompleted nothingHere(Fixture &f,XeenEventExecutionStepResult result) {
+ const auto *pending=std::get_if<XeenEventExecutionSuspended>(&result);
+ check(pending && pending->request.kind==XeenPresentationKind::NothingHere,"effective None tail must show Nothing here");
+ return std::get<XeenEventExecutionCompleted>(f.resume(pending->state,XeenPresentationResponse::Acknowledged));
+}
 
 void loadingAndSelection() {
 	XeenMapLoader loader;
@@ -108,7 +115,7 @@ void basicRemoveAndEffectiveRecords() {
 			!f.world.isEventDisabled({24,i}), "event mutation crossed identity");
 	}
 	check(geometry == geometrySnapshot(f.world.map(23).geometry), "geometry changed");
-	check(std::get<XeenEventExecutionCompleted>(f.begin()).instructionCount == 3,
+	check(nothingHere(f,f.begin()).instructionCount == 3,
 		"second interaction replayed original opcodes");
 	// Missing objects are a valid no-selection context, not an execution error.
 	XeenWorld noObjects([](XeenMapIdentity id) { return map(id); });

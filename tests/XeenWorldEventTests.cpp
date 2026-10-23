@@ -51,7 +51,12 @@ struct Fixture : training_test::Fixture {
    if(flow->inputContext(flow->frame().presentation()).readyForAction)break;
    if(auto next=flow->updatePresentation())present(*next);
   }
+  const bool closing=std::holds_alternative<CancelInteractionAction>(action);
   training_test::Fixture::act(std::move(action));
+  // Part 0: closing an Event acquires and retires its retained input pass.
+  for(unsigned n=0;closing && n<4 && !flow->canSave() && !flow->presentationGeneration();++n) {
+   flow->beginCycle(++cycle);if(auto frame=flow->updatePresentation())present(*frame);
+  }
  }
 };
 XeenEventRecord record(unsigned line,unsigned opcode,std::vector<std::uint8_t> params={}) {
@@ -286,14 +291,23 @@ void partA(Inputs &in) {
  check(headFrames.size()>=2 && headFrames[headFrames.size()-2]==4+(initialHead-4+1)%4 && headFrames.back()==headFrames[headFrames.size()-2]+8,"WhoWill HED animation lost its ordinary redraw");
  const auto oldFrame=cancelled.flow->frame().presentation();const auto oldInput=cancelled.flow->displayedInput();
  cancelled.act(CancelInteractionAction{});
- check(before==XeenSaveFormat::encode(cancelled.snapshot()),"Cancel published heads/calendar");
+ {auto after=cancelled.snapshot();auto old=XeenSaveFormat::decode(before);old.headCache=XeenHeadCache{28,{}};old.headCache->overrides[68]=XeenHeadIndicators{0,1};check(XeenSaveFormat::encode(old)==XeenSaveFormat::encode(after),("Cancel published heads/calendar: time="+std::to_string(after.journey->context->minutes)+" before="+std::to_string(old.journey->context->minutes)+" ctr="+std::to_string(after.journey->context->ctr24)+" before="+std::to_string(old.journey->context->ctr24)+" rng="+std::to_string(after.journey->random->count-old.journey->random->count)).c_str());}
+ const auto cancelledBytes=XeenSaveFormat::encode(cancelled.snapshot());
  cancelled.flow->handle(SelectMemberAction{1},oldInput,oldFrame);
- check(before==XeenSaveFormat::encode(cancelled.snapshot()),"Stale selection committed cancelled effects");
+ check(cancelledBytes==XeenSaveFormat::encode(cancelled.snapshot()),"Stale selection committed cancelled effects");
  XeenEventFile resetHeads{28,"maze0028.evt",true,{record(0,0x0c,{0,0,85,1}),record(1,0x24,{0,0}),record(2,0x20,{0,0}),record(3,0x12)}};
  Fixture resetPresentation(in,source,false,&resetHeads);unsigned renderedHeads=0;
  resetPresentation.flow->drawDialogSprite=[&](auto &,const auto &name,unsigned,int,int){if(std::string(name)=="border.icn")++renderedHeads;};
  resetPresentation.act(InteractionAction{});check(renderedHeads==0,"Year-reset dialog used live clairvoyance instead of staged context");
- resetPresentation.act(CancelInteractionAction{});check(before==XeenSaveFormat::encode(resetPresentation.snapshot()),"Cancelled year reset published");
+ resetPresentation.act(CancelInteractionAction{});
+ // Part 0: WhoWill Escape exits the Event; it preserves the executed prefix.
+ auto resetExpected=XeenSaveFormat::decode(before);++resetExpected.journey->context->year;
+ xeenResetPartyTemps(*resetExpected.journey->context);resetExpected.journey->context->rested=true;
+ for(int flag:{55,155,222,231})resetExpected.gameFlags[flag]=false;
+ for(auto owner:resetExpected.activeRosterIds)for(auto &supplement:resetExpected.journey->supplements)
+  if(supplement.owner==owner)xeenResetCharacterTemps(resetExpected.characters[owner],supplement.inputs);
+ resetExpected.headCache=XeenHeadCache{28,{}};resetExpected.headCache->overrides[68]=XeenHeadIndicators{0,0};
+ check(XeenSaveFormat::encode(resetExpected)==XeenSaveFormat::encode(resetPresentation.snapshot()),"WhoWill Escape lost or extended the executed year/HED prefix");
  for(unsigned mode:{0u,1u}) {
   XeenEventFile confirmation{28,"maze0028.evt",true,{record(0,0x24,{0,1}),record(1,0x20,{0,0}),record(2,0x09,{44,std::uint8_t(mode),3}),record(3,0x12)}};
   Fixture dialog(in,source,false,&confirmation);unsigned heads=0;
@@ -307,8 +321,8 @@ void partA(Inputs &in) {
  jail.act(InteractionAction{});jail.act(SelectMemberAction{1});settle(jail);
  check(jail.c.x==27 && jail.c.y==11 && jail.c.direction==source.camera.direction && jail.p.worldFlags->values[24],"Teleport continuation did not restart destination or preserve facing");
  check(jail.p.encounterContext->year==clock.year+1 && jail.p.encounterContext->day==clock.day &&
-  jail.p.encounterContext->minutes==clock.minutes+1 && jail.p.encounterContext->ctr24==(clock.ctr24+1)%24 &&
-  !jail.p.encounterContext->newDay && !jail.p.encounterContext->rested && jail.p.encounterContext->lightAndResistances[1]==17 &&
+  jail.p.encounterContext->minutes==clock.minutes && jail.p.encounterContext->ctr24==clock.ctr24 &&
+  jail.p.encounterContext->newDay==clock.newDay && jail.p.encounterContext->rested && jail.p.encounterContext->lightAndResistances[1]==17 &&
   jail.p.encounterContext->effects[XeenPartyEffect::Clairvoyance]==0 && jail.p.encounterContext->lightAndResistances[2]==0 && jail.p.serviceEconomy==economy && jail.w.sessionState().journeyRandom()==rng,
   "Direct year jump simulated time/economy/RNG or lost retained clock fields");
  check(XeenCharacterRules::sheetAge(jail.p.roster.at(owner),{jail.p.encounterContext->year})==age+1 &&
@@ -356,7 +370,7 @@ void partA(Inputs &in) {
  auto success=source;success.characters[owner].skills[0]=1;success.characters[owner].permanentLevel=10;success.characters[owner].currentHp=1;
  Fixture heal(in,success,false,&script);const auto max=XeenCharacterRules::maxHp(heal.p.roster.at(owner),{clock.year});
  heal.act(InteractionAction{});heal.act(SelectMemberAction{1});settle(heal);
- check(heal.p.roster.at(owner).currentHp==max && heal.p.worldFlags->values[23] && heal.c.x==20 && heal.p.encounterContext->minutes==success.journey->context->minutes+1 && heal.p.encounterContext->ctr24==(success.journey->context->ctr24+1)%24 && heal.w.sessionState().journeyRandom()==rng,"Selected Thievery/heal introduced rolls/year");
+ check(heal.p.roster.at(owner).currentHp==max && heal.p.worldFlags->values[23] && heal.c.x==20 && heal.p.encounterContext==success.journey->context && heal.w.sessionState().journeyRandom()==rng,"Selected Thievery/heal introduced rolls/year");
  for(unsigned i=0;i<heal.p.party.size();++i)if(i!=1)check(heal.p.roster.at(heal.p.party.activeRosterIds()[i]).currentHp==success.characters[success.activeRosterIds[i]].currentHp,"Heal affected another member");
  // Typed damage is checked against the shared combat candidate, including RNG.
  XeenEventFile damageScript{28,"maze0028.evt",true,{record(0,0x20,{0,0}),record(1,0x16,{5,0,5}),record(2,0x0c,{0,0,103,23}),record(3,0x12)}};
@@ -367,12 +381,10 @@ void partA(Inputs &in) {
  protection.powerShield=damage.p.encounterContext->effects[XeenPartyEffect::PowerShield];
  XeenTypedDamageCandidate oracle(characters,inputs,5,XeenDamageType::Poison,clock.year,2,protection);XeenCombatRandom random(*damage.w.sessionState().journeyRandom());
  for(;;){XeenConsequenceDraw draw{random,64,{}};if(oracle.service(draw))break;}
- XeenConditionTimeCandidate damageSpace(*damage.p.encounterContext,1,oracle.characters,inputs,&*damage.p.serviceEconomy);
- XeenCombatRandom damageEnding(random.continuation());
- for(;;){XeenConsequenceDraw draw{damageEnding,64,{}};if(damageSpace.service(draw))break;}
+ // Part 0: WhoWill numeric key replaces Space; compare directly to typed damage without a Wait.
  damage.act(InteractionAction{});damage.act(SelectMemberAction{1});settle(damage);
- check(damage.p.roster.at(owner).currentHp==damageSpace.characters[1].currentHp && damage.p.roster.at(owner).conditions==damageSpace.characters[1].conditions &&
-  damage.p.roster.at(owner).conditions[3]==characters[1].conditions[3] && damage.w.sessionState().journeyRandom()==damageEnding.continuation() && damage.p.worldFlags->values[23],"Typed Event damage/resistance/death/RNG differs from combat plus its Space charge");
+ check(damage.p.roster.at(owner).currentHp==oracle.characters[1].currentHp && damage.p.roster.at(owner).conditions==oracle.characters[1].conditions &&
+  damage.p.roster.at(owner).conditions[3]==characters[1].conditions[3] && damage.w.sessionState().journeyRandom()==random.continuation() && damage.p.worldFlags->values[23],"Typed Event damage/resistance/death/RNG differs from combat with the WhoWill replacement key");
 
  Fixture damageRetry(in,damageSource,false,&damageScript);unsigned damageAttempts=0;
  XeenCityEventTestAccess::composer(*damageRetry.flow,[&](auto &,const auto &,const auto &,auto,auto) {
@@ -398,6 +410,11 @@ void rules(Inputs &in) {
  f.act(CancelInteractionAction{});
  auto cancelledPrefix=XeenSaveFormat::decode(before);
  cancelledPrefix.journey->supplements[s.activeRosterIds[0]].inputs.experience+=5000;
+ // Part 0: WhoWill Escape keeps the executed MoveObj prefix as well as observed XP.
+ auto &cancelledObjects=cancelledPrefix.map(28).objects;
+ cancelledObjects.erase(std::remove_if(cancelledObjects.begin(),cancelledObjects.end(),[](const auto &v){return v.record==0;}),cancelledObjects.end());
+ cancelledObjects.push_back({0,20,20,false});
+ std::sort(cancelledObjects.begin(),cancelledObjects.end(),[](const auto &a,const auto &b){return a.record<b.record;});
  const auto cancelledBytes=XeenSaveFormat::encode(cancelledPrefix);
  check(f.flow->canSave() && cancelledBytes==XeenSaveFormat::encode(f.snapshot()),"Cancellation lost observed XP prefix or published later rewards/object");
  f.flow->handle(SelectMemberAction{0},selectorInput,selector);
@@ -472,7 +489,7 @@ void rules(Inputs &in) {
    record(9,0x0c,{0,0,82,5}),record(9,0x0c,{20,0,0,0}),record(9,0x0f,{8}),record(9,0x0b,{255,0,0})}) {
   city.records={record(0,0x0c,{0,0,15,6}),record(1,0x0b,{0,20,20}),record(2,0x19,{20,20,9}),record(3,0x12),suffix,record(10,0x1a)};
   Fixture refused(in,s,false,&city);const auto preimage=XeenSaveFormat::encode(refused.snapshot());
-  interact(refused);check(preimage==XeenSaveFormat::encode(refused.snapshot()),"Unsupported dependent call published prefix");
+  refused.act(InteractionAction{false});settle(refused);check(preimage==XeenSaveFormat::encode(refused.snapshot()),"Part 0: click isolates refused dependent call without Space Wait");
  }
  auto candidate=f.w.transitionCandidate();
  XeenPartyState grants;candidate->copyEventParty(f.p,grants);
@@ -532,11 +549,7 @@ bool sameExceptNpcRandom(const std::vector<std::uint8_t> &bytes,XeenSaveSnapshot
  after.journey->random=before.journey->random;
  return bytes==XeenSaveFormat::encode(after);
 }
-bool sameAfterSpace(Inputs &in,const std::vector<std::uint8_t> &bytes,const XeenSaveSnapshot &after,bool npc=false) {
- Fixture expected(in,XeenSaveFormat::decode(bytes));expected.act(WaitAction{});settle(expected);
- const auto prepared=XeenSaveFormat::encode(expected.snapshot());
- return npc?sameExceptNpcRandom(prepared,after):prepared==XeenSaveFormat::encode(after);
-}
+
 void teachers(Inputs &in) {
  stage="M58 original teachers";
  for(const auto teacher:std::array<std::array<unsigned,4>,2>{{{{8,16,4,100}},{{25,26,11,2000}}}}) {
@@ -562,7 +575,7 @@ void teachers(Inputs &in) {
    f.act(SelectMemberAction{selected});settle(f);
    check(f.w.scenePresentation().portraits[owner].spellFrame==4,"Original teacher did not sparkle selected portrait");
    check(f.p.roster.at(owner).skills[skill]==lesson && f.p.purse->gold==price*(3-lesson),"Original paid lesson debit/increment changed");
-   check(npcRandomOnly(*rng,*f.w.sessionState().journeyRandom()) && f.p.encounterContext->minutes==time->minutes+lesson && f.p.encounterContext->ctr24==(time->ctr24+lesson)%24,"Teacher changed RNG or omitted the completed Space suffix");
+   check(npcRandomOnly(*rng,*f.w.sessionState().journeyRandom()) && f.p.encounterContext==time,"Part 0: WhoWill numeric key replaces Space after a lesson");
    check(f.p.roster.at(owner).currentHp==source.characters[owner].currentHp &&
     f.p.roster.at(owner).currentSp==source.characters[owner].currentSp &&
     f.p.roster.at(owner).permanentLevel==source.characters[owner].permanentLevel,"Learning refilled HP/SP or trained a level");
@@ -573,8 +586,8 @@ void teachers(Inputs &in) {
   check(XeenSaveFormat::encode(reload.snapshot())==XeenSaveFormat::encode(saved),"Teacher exact reload changed skill/purse");
    if(skill==4) {
     const auto taughtCell=reload.w.sampleCell(28,x,y);
-    check(taughtCell && taughtCell->cell->stepped && save_test::exploredTiles(saved).size()==1,
-     "Completed teacher Space records only the occupied physical cell");
+    check(taughtCell && !taughtCell->cell->stepped && save_test::exploredTiles(saved).empty(),
+     "Part 0: WhoWill numeric replacement omits Space Wait and its exploration mark");
     reload.act(NavigationAction::TurnRight);settle(reload);
     const auto occupied=reload.w.sampleCell(28,x,y);
     check(occupied && occupied->cell->stepped && reload.w.sessionState().exploredTiles().size()==1,
@@ -586,15 +599,14 @@ void teachers(Inputs &in) {
    teacherPrompt(b);b.act(SelectMemberAction{selected});settle(b);
    check(b.p.roster.at(owner).skills[skill]==(gold==price?1:0) && b.p.purse->gold==(gold==price?0:gold),"Teacher gold boundary changed");
    if(gold<price) {
-    Fixture expected(in,XeenSaveFormat::decode(preimage));expected.act(WaitAction{});settle(expected);
-    check(sameExceptNpcRandom(XeenSaveFormat::encode(expected.snapshot()),b.snapshot()),"Insufficient lesson changed more than the completed Space suffix");
+    check(sameExceptNpcRandom(preimage,b.snapshot()),"Part 0: WhoWill replacement leaves no Wait for an insufficient lesson");
    }
   }
   auto blocked=in.city;
   // Skill 18 is past the skill table; every skill inside it is granted.
   for(auto &r:blocked.records)if(r.x==x && r.y==y && r.line==6)r.parameters.back()=18;
   Fixture unsupported(in,source,false,&blocked);const auto unchanged=XeenSaveFormat::encode(unsupported.snapshot());
-  interact(unsupported);
+  unsupported.act(InteractionAction{false});settle(unsupported); // Part 0: click isolates refusal from Space Wait.
   check(sameExceptNpcRandom(unchanged,unsupported.snapshot()) && unsupported.flow->canSave(),"Unsupported dependent skill spent gold or changed world/time/RNG");
  }
 }
@@ -677,10 +689,11 @@ void originalEvents(Inputs &in) {
  gunther.act(CancelInteractionAction{});gunther.act(CancelInteractionAction{});
  check(XeenSaveFormat::encode(gunther.snapshot())==beforeAwards,"Gunther Awards view changes saved state");
  gunther.flow->drawDialogSprite=previousDraw;
+ // Part 0: NPC Enter replaces Space, leaving no Wait on repetition.
  const auto awarded=gunther.snapshot();interact(gunther);
- check(sameAfterSpace(in,XeenSaveFormat::encode(awarded),gunther.snapshot(),true),"Repeated Gunther regranted reward or erased next quest");
+ check(sameExceptNpcRandom(XeenSaveFormat::encode(awarded),gunther.snapshot()),"Repeated Gunther regranted reward or erased next quest");
  Fixture reload(in,awarded);interact(reload);
- check(sameAfterSpace(in,XeenSaveFormat::encode(awarded),reload.snapshot(),true),"Reload replayed Gunther rewards");
+ check(sameExceptNpcRandom(XeenSaveFormat::encode(awarded),reload.snapshot()),"Reload replayed Gunther rewards");
  for(const auto xy:std::vector<std::pair<int,int>>{{8,18},{11,18}}) {
   auto saved=awarded;saved.camera={28,xy.first,xy.second,XeenDirection::West};Fixture joe(in,saved);
   bool absent=false;const auto text=in.texts.load(28).strings[xy.first==8?49:15];
@@ -829,13 +842,20 @@ void treasure(Inputs &in) {
   check(paid==XeenSaveFormat::encode(f.snapshot()),"Stale input replayed generated reward");
   Fixture reload(in,f.snapshot(),false,&city);check(paid==XeenSaveFormat::encode(reload.snapshot()),"Generated inventory/purse/RNG restore differs");
  }
- // Generation before a later selector remains private and cancellation drops its RNG too.
+ // Part 0: WhoWill Escape exits normally; the generated prefix reaches the Event treasure tail.
  city.records={record(0,0x14,{66,7,100,10,0,0,0,0,0}),record(1,0x20,{0,0}),record(2,0x0c,{0,0,20,199}),record(3,0x12)};
  Fixture cancelled(in,s,false,&city);const auto preimage=XeenSaveFormat::encode(cancelled.snapshot());
  cancelled.act(InteractionAction{});check(cancelled.flow->canCancelInteraction(),"Post-generation selector absent");
- cancelled.act(CancelInteractionAction{});check(cancelled.flow->canSave() && preimage==XeenSaveFormat::encode(cancelled.snapshot()),"Cancellation leaked item/RNG/flag");
+ XeenCombatRandom cancelRandom(*cancelled.w.sessionState().journeyRandom());XeenItemCandidate cancelItem(7);
+ for(;;){XeenConsequenceDraw draw{cancelRandom,64,{}};if(cancelItem.service(draw))break;}
+ XeenConsequenceDraw cancelDraw{cancelRandom,64,{}};const auto cancelGold=cancelDraw.draw(1,10);check(bool(cancelGold),"Cancel prefix gold oracle");
+ cancelled.act(CancelInteractionAction{});settle(cancelled);
+ auto cancelExpected=XeenSaveFormat::decode(preimage);
+ xeenRewardItems(cancelExpected.characters[s.activeRosterIds[0]],XeenRewardCategory(cancelItem.category()))[0]=cancelItem.item();
+ cancelExpected.journey->purse->gold+=*cancelGold;cancelExpected.journey->random=cancelRandom.continuation();
+ check(cancelled.flow->canSave() && XeenSaveFormat::encode(cancelExpected)==XeenSaveFormat::encode(cancelled.snapshot()),"WhoWill Escape lost or extended the generated prefix");
  city.records.push_back(record(4,0x14,{107,1}));city.records[3]=record(3,0x19,{20,20,4});city.records.push_back(record(5,0x1a));
- Fixture refused(in,s,false,&city);interact(refused);
+ Fixture refused(in,s,false,&city);refused.act(InteractionAction{false});settle(refused); // Isolate refusal from Space Wait.
  check(preimage==XeenSaveFormat::encode(refused.snapshot()),"Dependent unsupported suffix consumed treasure RNG");
  // Sixty-three raw draws leave one draw for makeItem, forcing a partial item continuation.
  city.records.clear();
@@ -901,9 +921,9 @@ void treeFlags(Inputs &in) {
   interact(f,true);check(f.f.isSet(flag) && f.p.purse->gold==gold+*amount &&
    f.w.sessionState().journeyRandom()==random.continuation(),"Original tree flag/payment/RNG differs");
   const auto once=XeenSaveFormat::encode(f.snapshot());interact(f);
-  check(sameAfterSpace(in,once,f.snapshot()),"Original tree repeated payment beyond its Space suffix");
+  check(once==XeenSaveFormat::encode(f.snapshot()),"Part 0: empty-tree acknowledgment replaces Space without a Wait");
   Fixture reload(in,f.snapshot());interact(reload);
-  check(sameAfterSpace(in,XeenSaveFormat::encode(f.snapshot()),reload.snapshot()),"Restored tree repeated payment beyond its Space suffix");
+  check(XeenSaveFormat::encode(f.snapshot())==XeenSaveFormat::encode(reload.snapshot()),"Part 0: restored empty-tree acknowledgment has no Wait");
  }
  check(paid.count()==26 && paid[57] && paid[58] && paid[232] && paid[255],"Original tree family incomplete");
 }
@@ -970,7 +990,7 @@ void partAOriginal(Inputs &in) {
  Fixture jail(in,source);const auto year=jail.p.encounterContext->year;const auto day=jail.p.encounterContext->day;const auto minutes=jail.p.encounterContext->minutes;
  jail.act(InteractionAction{});check(jail.flow->canCancelInteraction(),"Case WhoWill absent");jail.act(SelectMemberAction{0});settle(jail);
  check(jail.c.mapId==XeenMapIdentity(28) && jail.c.x==27 && jail.c.y==11 && jail.p.encounterContext->year==year+1 &&
-  jail.p.encounterContext->day==day && jail.p.encounterContext->minutes==minutes+1,"Original jail year/destination/Space time");
+  jail.p.encounterContext->day==day && jail.p.encounterContext->minutes==minutes,"Part 0: original jail teleport 0x27112 clears Space Wait");
  for(auto id:jail.p.party.activeRosterIds())check(jail.p.roster.at(id).awards[8]==1,"Original conviction missing");
  const auto convicted=jail.snapshot();Fixture restored(in,convicted);check(XeenSaveFormat::encode(restored.snapshot())==XeenSaveFormat::encode(convicted),"Original jail reload");
  walk(restored,25,13);check(restored.flow->canSave() && restored.c.x==25 && restored.c.y==13,"Jail ordinary walk-out failed");
@@ -1024,7 +1044,7 @@ void originalJourney(Inputs &in) {
  check(questPortraits.size()==f.p.party.size(),"Original quest XP did not sparkle every party portrait");
  check(f.f.isSet(10) && f.p.purse->gold==gold+4000 && f.p.questFlags.isSet(1),"New Game Gunther reward missing");
  const auto awarded=XeenSaveFormat::encode(f.snapshot());interact(f);
- check(sameAfterSpace(in,awarded,f.snapshot(),true),"New Game repeat Gunther regranted rewards");
+ check(sameExceptNpcRandom(awarded,f.snapshot()),"New Game repeat Gunther regranted rewards");
  stage="New Game crate";walk(f,9,28);
  check(f.w.effectiveObject({28,8}).resourceId==95 && f.w.effectiveObject({28,8}).x==-128 &&
   f.w.effectiveObject({28,8}).y==-128,"Original open-crate overlay source differs");
@@ -1032,7 +1052,7 @@ void originalJourney(Inputs &in) {
  check(itemCount(f.p)==items+1 && f.w.effectiveObject({28,8}).x==9 && f.w.effectiveObject({28,8}).y==28,
   "Original crate did not deliver item/reveal open appearance");
  const auto opened=XeenSaveFormat::encode(f.snapshot());interact(f);
- check(sameAfterSpace(in,opened,f.snapshot()),"Repeated crate changed inventory/RNG beyond its Space suffix");
+ check(opened==XeenSaveFormat::encode(f.snapshot()),"Part 0: NothingHere acknowledgment replaces Space at the open crate");
  stage="M61 earned crate Identify and Sell";
  unsigned lootMember=6,lootCategory=0,lootSlot=0;
  for(unsigned member=0;member<f.p.party.size();++member)for(unsigned category=0;category<4;++category) {
@@ -1085,7 +1105,7 @@ void originalJourney(Inputs &in) {
  walk(reload,14,5);face(reload,XeenDirection::West);const auto purse=reload.p.purse->gold;
  interact(reload);check(reload.p.purse->gold==purse && reload.p.questFlags.isSet(1),"Reload/re-entry repeated reward");
  stage="earned crate reload";walk(reload,9,28);const auto openedAgain=XeenSaveFormat::encode(reload.snapshot());interact(reload);
- check(sameAfterSpace(in,openedAgain,reload.snapshot()) && reload.w.effectiveObject({28,8}).x==9,
+ check(openedAgain==XeenSaveFormat::encode(reload.snapshot()) && reload.w.effectiveObject({28,8}).x==9,
   "Travel/reload reopened paid crate");
  stage="earned tree cycle";check(reload.f.isSet(231),"Town departure did not initialize tree cycle");
  walk(reload,13,2);const auto beforeTree=std::uint32_t(reload.p.purse->gold);interact(reload,true);
@@ -1099,11 +1119,11 @@ void originalJourney(Inputs &in) {
  }
  settle(reload);check(reload.f.isSet(231) && reload.f.isSet(232),"Tavern reset initialized tree payment");
  walk(reload,13,2);const auto afterTavern=XeenSaveFormat::encode(reload.snapshot());interact(reload);
- check(sameAfterSpace(in,afterTavern,reload.snapshot()),"Tavern minted another tree payment");
+ check(afterTavern==XeenSaveFormat::encode(reload.snapshot()),"Tavern minted another tree payment");
  walk(reload,15,0);face(reload,XeenDirection::South);interact(reload);Fixture treeReload(in,reload.snapshot());
  walk(treeReload,entry->x,entry->y);if(entry->direction<4)face(treeReload,XeenDirection(entry->direction));interact(treeReload);
  walk(treeReload,13,2);const auto afterTravel=XeenSaveFormat::encode(treeReload.snapshot());interact(treeReload);
- check(sameAfterSpace(in,afterTravel,treeReload.snapshot()),"Departure/reload minted another tree payment");
+ check(afterTravel==XeenSaveFormat::encode(treeReload.snapshot()),"Departure/reload minted another tree payment");
 }
 void partBVernGuild(Inputs &in) {
  stage="M59 Vern selected payment";
@@ -1143,7 +1163,7 @@ void partBVernGuild(Inputs &in) {
   check(f.w.scenePresentation().portraits[owner].spellFrame==4,"Vern reached quiet boundary before its sparkle finished");
   check(f.p.purse->gold==75-25*n && f.p.roster.at(owner).awards[0]==1,"Vern repeat payment/award differs");
   for(auto id:f.p.party.activeRosterIds())if(id!=owner)check(f.p.roster.at(id).awards[0]==0,"Vern enrolled an unselected owner");
-  check(f.p.encounterContext->minutes==time->minutes+n && f.p.encounterContext->ctr24==(time->ctr24+n)%24,"Vern omitted the completed Space suffix");
+  check(f.p.encounterContext==time,"Part 0: WhoWill numeric key (0x25299) replaces Space at Vern");
   check(npcRandomOnly(*random,*f.w.sessionState().journeyRandom()),"Vern consumed random requests beyond original NPC animation");
  }
  for(unsigned gold:{24u,25u}) {
@@ -1151,8 +1171,7 @@ void partBVernGuild(Inputs &in) {
   teacherPrompt(b);b.act(SelectMemberAction{selected});settle(b);
   check(b.p.purse->gold==(gold==25?0:24) && b.p.roster.at(owner).awards[0]==(gold==25),"Vern exact/insufficient gold boundary");
   if(gold==24) {
-   Fixture expected(in,XeenSaveFormat::decode(before));expected.act(WaitAction{});settle(expected);
-   check(sameExceptNpcRandom(XeenSaveFormat::encode(expected.snapshot()),b.snapshot()),"Insufficient Vern dues changed more than the completed Space suffix");
+   check(sameExceptNpcRandom(before,b.snapshot()),"Part 0: WhoWill replacement leaves no Wait for insufficient Vern dues");
   }
  }
  auto disabled=source;disabled.characters[owner].conditions[8]=1;Fixture blocked(in,disabled);
@@ -1264,8 +1283,8 @@ void partBSearches(Inputs &in) {
   const auto once=XeenSaveFormat::encode(f.snapshot());interact(f,true);
   XeenIndoorScene().build(f.w,f.c,&resolver,nullptr,0);
   check(empty,"Repeat search did not say Nothing here");
-  check(sameAfterSpace(in,once,f.snapshot()),"Repeat search changed more than its Space suffix");
-  if(family.monster && sites==0){const auto repeated=XeenSaveFormat::encode(f.snapshot());Fixture reload(in,f.snapshot());check(repeated==XeenSaveFormat::encode(reload.snapshot()),"Monster crate exact restore changed state");interact(reload,true);XeenIndoorScene().build(reload.w,reload.c,&resolver,nullptr,0);check(sameAfterSpace(in,repeated,reload.snapshot()),"Restored crate respawned monster beyond its Space suffix");}
+  check(once==XeenSaveFormat::encode(f.snapshot()),"Part 0: Nothing-here acknowledgment replaces Space, repeat search has no Wait");
+  if(family.monster && sites==0){const auto repeated=XeenSaveFormat::encode(f.snapshot());Fixture reload(in,f.snapshot());check(repeated==XeenSaveFormat::encode(reload.snapshot()),"Monster crate exact restore changed state");interact(reload,true);XeenIndoorScene().build(reload.w,reload.c,&resolver,nullptr,0);check(repeated==XeenSaveFormat::encode(reload.snapshot()),"Part 0: restored empty crate acknowledgment replaces Space");}
   ++sites;
  }
  check(sites==46,"Search family coverage incomplete");

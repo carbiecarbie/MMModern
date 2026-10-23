@@ -12,7 +12,8 @@ bool m39InputControls(const std::string &control,const IndexedFrame &first,const
     const auto action=[&](PlayerAction a){handler.beginCycle(++cycle);const auto f=handler.withPresentedInput(a,*handler.displayedInput(),flow.frame().presentation());if(f)present(*f);};
     const auto tick=[&]{now+=100;handler.beginCycle(++cycle);if(const auto f=idle())present(*f);};
     const auto quiet=[&]{for(unsigned i=0;i<500 && !flow.canSave();++i)tick();check(flow.canSave(),"M39 input prefix Quiet bound");};
-    present(first);action(NavigationAction::MoveForward);quiet();action(ShootAction{});quiet();action(NavigationAction::MoveForward);
+    present(first);tick(); // Load entry follows actual display.
+    action(NavigationAction::MoveForward);quiet();action(ShootAction{});quiet();action(NavigationAction::MoveForward);
     for(unsigned i=0;i<500;++i){
         if(flow.encounter()->combat() && combat().phase()==XeenCombatPhase::PlayerReady) {
             if(combat().participant()==4)break;

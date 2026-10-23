@@ -888,6 +888,12 @@ if(BUILD_TESTING)
 	target_link_libraries(mmodern_event_ui_tests PRIVATE
 		mmodern_xeen mmodern_scummvm_xeen)
 	add_test(NAME xeen_event_ui COMMAND mmodern_event_ui_tests)
+    add_executable(mmodern_event_dispatch_original_tests tests/XeenEventDispatchOriginalTests.cpp)
+    target_link_libraries(mmodern_event_dispatch_original_tests PRIVATE mmodern_app mmodern_platform_sdl SDL2::SDL2 shell32 bcrypt)
+    add_test(NAME xeen_event_dispatch_original COMMAND mmodern_event_dispatch_original_tests "${MMODERN_XEEN_DATA_DIR}")
+    add_executable(mmodern_event_dispatch_tests tests/XeenEventDispatchTests.cpp)
+    target_link_libraries(mmodern_event_dispatch_tests PRIVATE mmodern_app mmodern_platform_sdl SDL2::SDL2 shell32 bcrypt)
+    add_test(NAME xeen_event_dispatch COMMAND mmodern_event_dispatch_tests)
 	add_executable(mmodern_event_system_tests
 		tests/XeenEventSystemTests.cpp
 	)

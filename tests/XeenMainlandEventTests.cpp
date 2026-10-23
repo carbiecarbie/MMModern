@@ -62,8 +62,8 @@ void manual(Inputs &in) {
    "F3 fountain did not publish its give and flag once");
   // The statue teaches its spell only to some classes; the first member is not one.
   else check(after.learnedSpells==before.learnedSpells && after.temporaryLevel==before.temporaryLevel,"F3 statue changed an ineligible member");
-  // Neither Event draws; Space charges its ordinary outdoor step time.
-  check(f.w.sessionState().journeyRandom()==random && f.p.encounterContext->minutes==s.journey->context->minutes+10,
+  // Part 0: WhoWill rewrites the key and NPC Enter replaces Space (0x25299, 0x25ba6); neither leaves Wait.
+  check(f.w.sessionState().journeyRandom()==random && f.p.encounterContext->minutes==s.journey->context->minutes,
    "F3 manual Event drew or charged differently");
   roundTrip(in,f,"F3 manual Event did not restore exactly");
  }
@@ -89,7 +89,8 @@ void entrances(Inputs &in) {
   unsigned errors=0;
   f.flow->reportManual=[&](const XeenManualEventResult &result){if(std::get_if<XeenEventExecutionError>(&result))++errors;};
   const auto before=XeenSaveFormat::encode(f.snapshot());const auto scene=f.flow->frame();
-  f.act(InteractionAction{});
+  // Part 0: isolate the unsupported Event with click; Space would continue as Wait.
+  f.act(InteractionAction{false});f.finishDeparture();
   const auto notice=drawXeenErrorScroll(scene,in.font,"This Event is not supported yet");
   check(errors==1 && f.flow->canSave() && f.flow->encounter()->journeyRefusal()=="This Event is not supported yet",
    "F3 entrance scene was not refused");

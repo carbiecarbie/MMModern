@@ -127,7 +127,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
             }
         };
         const auto action=[&](PlayerAction a,bool useNative=false){
-            if(!useNative){steps.push_back([&,a]{act(a);return true;});return;}
+            if(!useNative){steps.push_back([&,a]{if(!handler.inputContext(flow->frame().presentation()).readyForAction)return false;act(a);return true;});return;}
             auto phase=std::make_shared<unsigned>(0);auto token=std::make_shared<std::uint64_t>();
             steps.push_back([&,a,phase,token] {
                 const auto *member=std::get_if<SelectMemberAction>(&a);
@@ -197,12 +197,10 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
                 if(drainLast || n+1<path.size())settle();
             }
         };
-        // The unchanged fresh route drinks at the outdoor well for five
-        // members: five Space actions charge 5*10 minutes. The later entrance
-        // Space charges one minute after its Event teleports indoors. Service
-        // visits retain their existing calendar charge and these same minutes.
-        constexpr unsigned wellSpaceMinutes=5*10;
-        constexpr unsigned cityPrefixMinutes=wellSpaceMinutes+1;
+        // Part 0: numeric WhoWill responses replace Space; map load clears it.
+        // Five well selections and the entrance therefore add no implicit Wait.
+        constexpr unsigned wellSpaceMinutes=0;
+        constexpr unsigned cityPrefixMinutes=0;
         const auto expect=[&](unsigned day,unsigned minute,std::uint32_t gold,std::uint32_t state,std::uint64_t count) {
             check(party->encounterContext->day==day && party->encounterContext->minutes==minute && party->purse->gold==gold &&
                 world->sessionState().journeyRandom()->state==state && world->sessionState().journeyRandom()->count==count,"M41 literal date/gold/RNG checkpoint mismatch");
@@ -251,7 +249,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
                 SDL_Event e{};e.type=SDL_KEYDOWN;e.key.keysym.sym=SDLK_F9;e.key.keysym.scancode=SDL_SCANCODE_F9;e.key.timestamp=SDL_GetTicks()+1;
                 check(SDL_PushEvent(&e)==1,"M41 F9 enqueue failed");acted=true;});
             steps.push_back([&,oldSaves,label] {
-                if(saves==*oldSaves)return false;check(saves==*oldSaves+3,"M41 actual save pipeline incomplete");
+                if(saves==*oldSaves || !flow->canSave())return false;check(saves==*oldSaves+3,"M41 actual save pipeline incomplete");
                 SDL_Event e{};e.type=SDL_KEYUP;e.key.keysym.sym=SDLK_F9;e.key.keysym.scancode=SDL_SCANCODE_F9;SDL_PushEvent(&e);
                 const auto actual=snapshot(),disk=XeenSaveFile::read(*target);m40_test::equalFields(actual,disk);
                 check(XeenSaveFormat::encode(actual)==XeenSaveFormat::encode(disk),"M41 saved bytes differ");
@@ -293,6 +291,10 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
                 std::cout<<"RESTORE EXACT BEFORE INPUT\nMARK "<<stage<<'\n';
             } else expect(8,480,800,2000247898,875);
         });
+   steps.push_back([&]{
+    const auto context=handler.inputContext(flow->frame().presentation());
+    return context.readyForAction && !context.dialog && flow->canSave();
+   }); // Part 0: Load entry after display, before the next queued input or F9.
         if(!resume) {
             route("RRRUUURUURRRU");for(unsigned member:{0u,1u,2u,3u,5u}) {action(InteractionAction{});action(SelectMemberAction{member});settle();}
             route("RRUUUU");route("URRRUU");route("UU");route("UURU");route("RRURRRUUUUUUUUURRRU");

@@ -215,7 +215,8 @@ void otherTownServices(Inputs &in) {
     {
         auto source=townService(in,30,12,12);training_test::Fixture f(in,source);
         const auto before=XeenSaveFormat::encode(f.snapshot());std::string notice;
-        f.flow->reportText=[&](const auto &text){notice=text;};f.now+=110;f.act(UnsupportedMainScreenAction{"Dismiss"});
+        f.flow->reportText=[&](const auto &text){notice=text;};f.now+=110;
+        f.act(UnsupportedMainScreenAction{"Dismiss"});
         check(notice=="Dismiss: not supported yet",("Town Dismiss notice: "+notice).c_str());check(before==XeenSaveFormat::encode(f.snapshot()),"Town Dismiss changed state/time/RNG");
     }
     {
@@ -270,7 +271,7 @@ void otherTownServices(Inputs &in) {
         training_test::Fixture f(in,source);townProviders(f,in);const auto before=XeenSaveFormat::encode(f.snapshot());
         std::string notice;f.flow->reportText=[&](const auto &text){notice=text;};
         f.flow->reportManual=[&](const auto &result){if(const auto *error=std::get_if<XeenEventExecutionError>(&result))notice=error->message;};
-        f.act(InteractionAction{});for(unsigned n=0;n<30;++n){f.flow->beginCycle(++f.cycle);if(auto next=f.flow->updatePresentation())f.present(*next);}
+        f.act(InteractionAction{false});for(unsigned n=0;n<30;++n){f.flow->beginCycle(++f.cycle);if(auto next=f.flow->updatePresentation())f.present(*next);}
 
         check(notice.find("not supported yet")!=std::string::npos && f.flow->canSave() && before==XeenSaveFormat::encode(f.snapshot()),"Unsupported original town Event changed state/time/RNG");
     }
@@ -278,7 +279,7 @@ void otherTownServices(Inputs &in) {
         auto source=in.service();XeenEventFile events=in.city;
         events.records.clear();XeenEventRecord record;record.x=10;record.y=11;record.direction=4;record.line=0;record.opcode=0x11;record.parameters={std::uint8_t(action)};record.lengthField=6;events.records.push_back(record);
         training_test::Fixture f(in,source,false,&events);const auto before=XeenSaveFormat::encode(f.snapshot());
-        f.act(InteractionAction{});for(unsigned n=0;n<30;++n){f.flow->beginCycle(++f.cycle);if(auto next=f.flow->updatePresentation())f.present(*next);}
+        f.act(InteractionAction{false});for(unsigned n=0;n<30;++n){f.flow->beginCycle(++f.cycle);if(auto next=f.flow->updatePresentation())f.present(*next);}
         check(f.flow->canSave() && before==XeenSaveFormat::encode(f.snapshot()),"Unsupported service action changed state/time/RNG");
     }
 }
@@ -371,6 +372,7 @@ void originalServiceSequences(Inputs &in) {
             check(samples.back()=="goodbye.voc" && !f.flow->canSave() && f.flow->frame().pixels==last,"Tavern did not hold its last screen");
             f.now=start+1009;check(!advance(),"Tavern goodbye ended before sample completion");
             f.now=start+1010;next=advance();check(next && f.flow->frame().pixels!=last,"Tavern goodbye did not return after completion");f.present(*next);
+            f.finishDeparture(); // Part 0: goodbye is nested; retire the panel input pass.
             check(f.flow->canSave(),"Tavern goodbye charged/settled incorrectly");
         } else {
             f.act(CancelInteractionAction{});f.finishDeparture();
@@ -381,7 +383,7 @@ void originalServiceSequences(Inputs &in) {
     training_test::Fixture capped(in,source);std::string sample;
     capped.flow->loadSampleDuration=[&](const char *name,XeenSceneArchive archive){sample=name;return xeenVocDurationNanoseconds(in.assets.readArchiveResource(name,archive));};
     capped.enter();capped.act(DialogKeyAction{'t'});check(sample=="trainin1.voc","Training level-cap refusal sample differs");
-    capped.act(CancelInteractionAction{});check(capped.now==0 && capped.flow->canSave(),"Active service sample made Escape uninterruptible");
+    capped.act(CancelInteractionAction{});capped.finishDeparture();check(capped.now==0 && capped.flow->canSave(),"Active service sample made Escape uninterruptible");
 }
 
 void speakingWindow(Inputs &in) {
@@ -433,7 +435,7 @@ void refusals(Inputs &in) {
         keyboard(f,temple?'h':'t');check(notice==xeenNotEnoughGold(in.assets.uiText()),"one-step service lacks original gold refusal");before.unchanged(f);
         keyboard(f,InputKey::Enter);
         if(temple) {keyboard(f,'u');check(notice==xeenNotEnoughGold(in.assets.uiText()),"Uncurse lacks original gold refusal");before.unchanged(f);keyboard(f,InputKey::Enter);}
-        keyboard(f,InputKey::Escape);check(f.flow->canSave() && f.p.encounterContext->day==9,"refused service lost unpaid departure");
+        keyboard(f,InputKey::Escape);f.finishDeparture();check(f.flow->canSave() && f.p.encounterContext->day==9,"refused service lost unpaid departure");
     }
     auto source=service(in);source.journey->purse->gold=0;
     Fixture f(in,source);f.enter();keyboard(f,'b');keyboard(f,'c');const Owners before(f);
@@ -471,7 +473,7 @@ void dialogs(Inputs &in,bool mouse) {
     if(mouse)click(train,46,151);else keyboard(train,InputKey::F1+1);
     if(mouse)click(train,243,109);else keyboard(train,'t');train.prepare();
     check(train.p.roster.at(18).permanentLevel==4 && train.p.purse->gold==710 && train.p.encounterContext->day==9 && XeenTrainingTestAccess::menu(*train.flow),"one-step Training differs");
-    if(mouse)click(train,282,109);else keyboard(train,InputKey::Escape);check(train.flow->canSave() && train.p.encounterContext->day==10,"Training departure differs");
+    if(mouse)click(train,282,109);else keyboard(train,InputKey::Escape);train.finishDeparture();check(train.flow->canSave() && train.p.encounterContext->day==10,"Training departure differs");
     auto templeSource=in.service();templeSource.camera={28,15,28,XeenDirection::North};templeSource.journey->purse->gold=810;
     templeSource.characters[6].currentHp=-15;templeSource.characters[6].conditions[12]=templeSource.characters[6].conditions[13]=1;
     templeSource.characters[1].currentHp=0;templeSource.characters[1].conditions[12]=1;

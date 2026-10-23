@@ -43,7 +43,7 @@ XeenGameplayServices services(Harness &h) {
 }
 XeenSaveSnapshot baseline(const fs::path &game) {
  Harness h(game);auto s=services(h);XeenSaveSnapshot saved;
- s.show=[&](const auto &,const auto &handler,const auto &,const auto &,const auto &) {
+ s.show=[&](const auto &,const auto &handler,const auto &,const auto &idle,const auto &) {
   handler.framePresented(h.flow->frame().presentation());
   check(h.flow->canSave(),"Initial content-14 source must be Quiet");
   saved=XeenSaveState::capture(h.signature,*h.party,*h.camera,*h.flags,*h.world);return true;
@@ -118,7 +118,7 @@ void arrival(const fs::path &game,const fs::path &save,const XeenSaveSnapshot &i
   }
   return compose(w,p,c,phase,appearance);
  };
- s.show=[&](const auto &,const auto &handler,const auto &,const auto &,const auto &) {
+ s.show=[&](const auto &,const auto &handler,const auto &,const auto &idle,const auto &) {
   const auto present=[&]{const auto frame=h.flow->frame().presentation();handler.framePresented(frame);handler.completeInputHandoff(frame);};
   const auto input=[&](PlayerAction action,bool show=true) {
    present();handler.beginCycle(++h.cycle);
@@ -126,17 +126,18 @@ void arrival(const fs::path &game,const fs::path &save,const XeenSaveSnapshot &i
    handler.withDisplayedInput(action,*handler.displayedInput());if(show)present();
   };
   const auto denied=[&] {
-   check(!h.flow->canSave(),"Arrival work exposed Quiet");
+   check(!h.flow->canSave(),("Arrival work exposed Quiet: camera="+std::to_string(h.camera->mapId.number)+" x="+std::to_string(h.camera->x)+" phase="+std::to_string(destinationCompositions)).c_str());
    const auto before=h.saves;const auto token=handler.displayedInput();
    check(bool(token),"Arrival F9 input token absent");
    handler.withDisplayedInput(SaveGameAction{},*token);
    check(h.saves==before,"F9 saved mandatory arrival work");
   };
+  present();handler.beginCycle(++h.cycle);idle();present(); // Load entry before staging treasure.
   XeenMonsterTestAccess::stageTreasureLive(*h.flow,*h.world,liveTreasure);
   present();check(h.flow->canSave(),"Arrival source fixture is not Quiet");
   const auto rng=*h.world->sessionState().journeyRandom();
   const auto context=*h.party->encounterContext;
-  auto expectedContext=context;expectedContext.minutes+=exit?10:1;expectedContext.ctr24=(context.ctr24+1)%24;
+  auto expectedContext=context; // Part 0: map load 0xf590 clears Space before its Wait.
   const XeenCamera destination=exit?XeenCamera{23,10,12,XeenDirection::South}:XeenCamera{28,15,0,XeenDirection::North};
   auto destinationWorld=h.world->transitionCandidate();
   destinationWorld->loadEventDestination(h.camera->mapId,destination.mapId);
@@ -163,15 +164,9 @@ void arrival(const fs::path &game,const fs::path &save,const XeenSaveSnapshot &i
   check(xeen_state::sameCamera(*h.camera,destination),"Original transition changed destination coordinates/facing");
   sameActors(opportunity->actors,h.world->sessionState().regionalActors(destination.mapId));
   auto expectedCharacters=opportunity->characters;
-  if(mode==Arrival::TreasureClear) {
-   // The first visible transfer has not reached the Found-stage inventory sort.
-   std::array<XeenCharacter *,6> recipients{};for(unsigned n=0;n<6;++n)recipients[n]=&expectedCharacters[n];
-   auto item=liveTreasure.weapons[0];
-   const auto recipient=xeenDeliverRewardItem(recipients.data(),recipients.size(),item,XeenRewardCategory::Weapons,{},false);
-   check(recipient==0 && expectedCharacters[0].weapons[8].id==30,"Controlled treasure did not use owner0 slot8 before sorting");
-  }
+  // Part 0: map load cleared Space; pending treasure waits for the acquired arrival view.
   for(unsigned n=0;n<6;++n)check(xeen_state::sameCharacter(h.party->roster.at(owners[n]),expectedCharacters[n]),
-   "Completed transition changed characters outside its destination opportunity/item publication");
+   "Completed transition changed characters before arrival-view treasure delivery");
   if(!exit)sameActors(source,h.world->sessionState().monsters(23));
   if(contact) {
    check(h.flow->encounter()->combat() &&
@@ -181,6 +176,7 @@ void arrival(const fs::path &game,const fs::path &save,const XeenSaveSnapshot &i
    present();denied();present();denied();
    check(h.flow->encounter()->combat() && h.world->treasureStaging().value()==liveTreasure,"Presentation erased mandatory contact or pending treasure");
   } else if(mode==Arrival::TreasureClear) {
+   present();handler.beginCycle(++h.cycle);idle();present(); // Arrive before final pass and global treasure.
    check(h.world->sessionState().journeyActivity()==XeenJourneyActivity::Reward,
     "Unobstructed city arrival did not begin source-qualified mainland delivery");
    check(h.world->treasureStaging().value()==liveTreasure &&
@@ -210,7 +206,8 @@ void arrival(const fs::path &game,const fs::path &save,const XeenSaveSnapshot &i
    input(AcknowledgeAction{});
    check(h.party->purse->gold==gold+10,"Repeated receipt acknowledgment duplicated gold");
   } else {
-   present();check(h.flow->canSave(),"Non-contact arrival remained unavailable after presentation");
+   present();handler.beginCycle(++h.cycle);idle();present(); // Retire this input's final pass.
+   check(h.flow->canSave(),"Non-contact arrival remained unavailable after presentation");
    check(h.world->treasureStaging().value()==liveTreasure,
     "Transition did not retain pending or dormant treasure exactly");
    if(mode==Arrival::EntryVisible || mode==Arrival::TreasureBlocked) {
@@ -250,6 +247,7 @@ void run(const fs::path &game,const fs::path &save,const XeenSaveSnapshot &initi
    check(h.flow->canSave(),"Regional action did not settle to saveable Quiet");
   };
   present();check(h.flow->canSave(),"Restored action fixture is not Quiet");
+   handler.beginCycle(++h.cycle);idle();present(); // Part 0: Load entry after arrival view.
   const auto rng=*h.world->sessionState().journeyRandom();
   const std::vector<XeenActor> mainland=h.world->sessionState().monsters(23);
   const std::vector<XeenActor> city=h.world->sessionState().regionalActors(28);

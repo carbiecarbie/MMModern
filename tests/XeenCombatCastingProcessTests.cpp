@@ -57,12 +57,12 @@ int main(int argc,char **argv) {
             orc.journey->random->state==82049198u && orc.journey->random->count==14,"M39 genuine Orc Quiet checkpoint differs");
         equal(a,run("A-from-orc","A","A",dir/"A-A.mmsave"));
         child_test::require(drawsAfter(dir/"A.log","M39 CHECKPOINT A ")==drawsAfter(dir/"A-from-orc.log","M39 RESTORE EXACT BEFORE INPUT"),"M39 mainland continuation RNG request trace differs");
-        // Completed city-entry Space contributes one minute and one opportunity;
-        // the established Slime combat requests, draw cursor and SP stay exact.
+        // Part 0: entrance map load clears Space; it adds no Wait minute or step.
+        // The established Slime combat requests, draw cursor and SP stay exact.
         const auto city=XeenSaveFile::read(dir/"A-city.mmsave");
         child_test::require(city.map(28).monsters && city.characters[6].currentSp==23 && city.map(23).monsters->slots[9].accounted &&
             city.characters[1].currentSp==20 && city.journey->random->state==1391776747u && city.journey->random->count==23 &&
-            city.journey->context->minutes==571 && city.journey->context->ctr24==22,"M39 genuine two-region Slime checkpoint differs");
+            city.journey->context->minutes==570 && city.journey->context->ctr24==21,"M39 genuine two-region Slime checkpoint differs");
         // M49: Slime hatred 16 selects one member per attack, not the entire
         // party (pinned combat.cpp:904-930). Two d2 poison strikes: the initial
         // save uses the Physical selector (M68, DOS 0x2d2e4: 1..25 and 1..27 for

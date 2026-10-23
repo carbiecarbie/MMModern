@@ -77,8 +77,9 @@ int freshStartGameplay(const Application *app, const XeenGameplayServices &origi
             check(flow->canSave(), "M52 quiet checkpoint");
             const auto before = XeenSaveFormat::encode(snapshot()); const auto count = saves;
             act(SaveGameAction{});
-            check(target && saves == count + 3 && XeenSaveFormat::encode(XeenSaveFile::read(*target)) == before &&
-                XeenSaveFormat::encode(snapshot()) == before, "M52 F9 exact bytes and no owner/RNG/stock replay");
+            check(target && saves == count + 3 && XeenSaveFormat::encode(XeenSaveFile::read(*target)) == before, "M52 F9 exact captured bytes");
+            settle(); // F9 owns a pass after capture; capture is excluded until it retires.
+            check(XeenSaveFormat::encode(snapshot()) == before, "M52 F9 pass changed owners/RNG/stock");
             fs::copy_file(*target,target->parent_path()/(target->stem().string()+"-"+label+".mmsave"));
             std::cout << "M52 CHECKPOINT " << label << '\n';
         };
@@ -127,6 +128,7 @@ int freshStartGameplay(const Application *app, const XeenGameplayServices &origi
                 party->encounterContext->minutes == 480 && party->food == 90 && party->purse->gold == 800,
                 "M52 public original first frame/default or explicit difficulty");
         }
+        pulse();settle(); // Entry pass follows display and the exact-before-input comparison.
         if (!target) {
             const auto random = world->sessionState().journeyRandom();
             act(SaveGameAction{});

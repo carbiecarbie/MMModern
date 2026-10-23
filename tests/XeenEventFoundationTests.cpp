@@ -243,10 +243,19 @@ void originalSessions(const char *directory) {
                         "Original MakeNothingHere completion lost its disabled records");++cleared;
                 }
                 check(cleared==10,"Original MakeNothingHere witness no longer names its ten original records");
+                // Part 0: the text acknowledgment replaced Space; terrain scheduling needs an explicit Wait.
+                check(h.camera->mapId==XeenMapIdentity(27) && h.party->encounterContext==clock,
+                    "MakeNothingHere acknowledgment unexpectedly retained Space Wait");
+                press(WaitAction{});
+                for(unsigned n=0;n<1000 && h.flow->blocksGameplay();++n) {
+                    h.now+=125;handler.beginCycle(++h.cycle);idle();
+                    handler.framePresented(h.flow->frame().presentation());handler.completeInputHandoff(h.flow->frame().presentation());
+                    if(request && request->response!=XeenPresentationResponseRequirement::Presented)press(AcknowledgeAction{});
+                }
                 if(scenario==5) {
                     check(h.camera->mapId==XeenMapIdentity(15) && h.camera->x==4 && h.camera->y==12 &&
                         h.camera->direction==XeenDirection::South && h.party->encounterContext->minutes==clock->minutes+1 &&
-                        h.world->sessionState().journeyRandom()==random,"Original cloud fall destination, time or RNG differs");
+                        h.world->sessionState().journeyRandom()==random,("Original cloud fall destination, time or RNG differs: map="+std::to_string(h.camera->mapId.number)+" x="+std::to_string(h.camera->x)+" time="+std::to_string(h.party->encounterContext->minutes)+" before="+std::to_string(clock->minutes)+" rng="+std::to_string(h.world->sessionState().journeyRandom()->count-random->count)).c_str());
                     unsigned n=0;for(auto owner:h.party->party.activeRosterIds())
                         check(h.party->roster.at(owner).currentHp==characters[n++].currentHp-100,
                             "Original cloud fall did not apply its 100 Physical damage exactly once");

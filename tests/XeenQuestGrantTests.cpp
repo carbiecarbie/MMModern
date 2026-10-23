@@ -30,7 +30,8 @@ struct Fixture {
 	std::map<XeenMapIdentity,XeenEventScript> scripts;
 	int maps=0,objects=0,loads=0,texts=0;
 	std::string message="Text";
-	XeenWorld world{[&](XeenMapIdentity id){++maps;auto m=map(id);m.geometry.cells[17].rawAttributes=0x10;return m;},
+	bool automaticCell=true;
+	XeenWorld world{[&](XeenMapIdentity id){++maps;auto m=map(id);m.geometry.cells[17].rawAttributes=automaticCell?0x10:0;return m;},
 		[&](XeenMapIdentity id){++objects;XeenObjectFile f{id,"synthetic.mob",true,{}};
 			f.entities.objects=std::vector<XeenMapEntity>{{1,1,0,0,111},{2,2,0,0,111}};return f;}};
 	XeenEventSystem events{[&](XeenMapIdentity id){++loads;return scripts.at(id);},
@@ -177,7 +178,9 @@ void prevalidationAndVisibility() {
 void immediateErrors() {
     mmodern::XeenProgramState programState;
 	for(bool automatic:{false,true})for(int mode=0;mode<3;++mode){
-		Fixture f;f.set({record(1,1,0,0x1f,{2,1,1})});
+		Fixture f;
+        // Part 0: test one failing call; manual-on-flagged repeats at input completion.
+        f.automaticCell=automatic;f.set({record(1,1,0,0x1f,{2,1,1})});
 		// Logical call is distinct from physical Remove: restart sees owned root
 		// and reaches the fault without replaying the grant.
 		f.set({record(1,1,0,0x19,{7,8,0}),record(1,1,1,0x12),record(7,8,0,9,{21,99,5}),
@@ -217,7 +220,7 @@ void immediateErrors() {
 void presentationNoReplay() {
     mmodern::XeenProgramState programState;
 	for(bool automatic:{false,true})for(bool yes:{false,true}){
-		Fixture f;f.message=std::string(1600,'A');
+		Fixture f;f.automaticCell=automatic;f.message=std::string(1600,'A');
 		f.set({record(1,1,0,0x0c,{0,0,21,99}),record(1,1,1,0x01,{0}),record(1,1,2,9,{44,1,3}),
 			record(1,1,3,9,{44,0,6}),record(1,1,4,9,{21,99,8}),record(1,1,5,0xff),
 			record(1,1,6,9,{21,99,8}),record(1,1,7,0xff),record(1,1,8,0x12)});
@@ -249,7 +252,7 @@ void presentationNoReplay() {
 		}
 		check(completed && !flow.blocksGameplay() && f.members.questItems.at(17)==1,"resume lost/doubled grant");
 		flow.handle(NavigationAction::TurnRight);check(f.camera.direction==XeenDirection::East,"input did not recover");
-		check(f.loads==2 && f.maps>=2,"cache providers did not reload");
+		check(f.loads==(automatic?2:1) && f.maps>=2,("Part 0: unflagged turn does not reload Event script: loads="+std::to_string(f.loads)+" maps="+std::to_string(f.maps)+" automatic="+std::to_string(automatic)).c_str());
 	}
 }
 }

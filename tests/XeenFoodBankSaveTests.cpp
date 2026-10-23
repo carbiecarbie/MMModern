@@ -87,6 +87,7 @@ void visit(training_test::Inputs &in,bool tavern,XeenSmithBoundary fault) {
         const auto pulse=[&]{now+=100;handler.beginCycle(++cycle);if(auto next=idle())visible=*next;present();};
         const auto dialog=[&]{return handler.inputContext(visible.presentation()).dialog;};
         const auto dismiss=[&]{if(dialog() && dialog()->anyKey)send(AcknowledgeAction{});};
+        pulse(); // Part 0: Load entry pass follows arrival view acquisition.
         send(InteractionAction{});denied();
         for(unsigned n=0;n<1000 && !(dialog() && dialog()->key(tavern?'f':'d'));++n)pulse();
         check(dialog() && dialog()->key(tavern?'f':'d'),"Original Application service lobby missing");denied();

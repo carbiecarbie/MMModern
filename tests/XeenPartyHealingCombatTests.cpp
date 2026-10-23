@@ -42,7 +42,8 @@ void run(unsigned spell,unsigned target,unsigned targetSpeed,bool quick,bool can
             }
             throw std::runtime_error("M75 combat did not reach a player turn");
         };
-        send(WaitAction{});ready();check(h.fight().participant()==0,"M75 caster initiative fixture");
+        // Part 0: finish Load's entry pass before this distinct engaging Wait.
+        tick();send(WaitAction{});ready();check(h.fight().participant()==0,"M75 caster initiative fixture");
         if(tail) {
             for(unsigned i=0;i<5u;++i){check(h.fight().phase()==Phase::PlayerReady,"Missing party action");send(BlockAction{});}
             const auto minute=h.party->encounterContext->minutes;

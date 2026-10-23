@@ -55,7 +55,8 @@ void synthetic(bool ran=false,bool healing=false,bool cancel=false,unsigned powe
         const auto send=[&](PlayerAction a){h.press(handler,a);if(handler.completeInputHandoff)handler.completeInputHandoff(h.flow->frame().presentation());};
         const auto key=[&](unsigned k){send(DialogKeyAction{k});};
         const auto ready=[&]{for(unsigned n=0;n<1000;++n){if(!h.retired() && h.phase()==Phase::PlayerReady && !h.world->scenePresentation().feedbackActive())return;tick();}throw std::runtime_error("Combat Items never ready");};
-        send(WaitAction{});ready();
+        // Part 0: Load's entry pass follows arrival before a distinct combat-engaging Wait.
+        tick();send(WaitAction{});ready();
         if(ran) {send(RunAction{});ready();check(h.fight().participants()==0x3e,"Run fixture failed");}
         const auto actor=h.fight().participant();const auto minute=h.party->encounterContext->minutes;const auto rng=h.fight().random();
         const auto effects=h.party->encounterContext->effects;

@@ -126,6 +126,7 @@ XeenAutomaticEventResult XeenEventSystem::runAutomaticEvent(
 	const auto &completed = std::get<XeenEventExecutionCompleted>(execution);
 	XeenAutomaticEventCompleted result;
 	result.instructionCount = completed.instructionCount;
+    result.inputClearCount=completed.inputClearCount;result.inputClearSite=completed.inputClearSite;
 	result.cameraChanged = !sameCamera(beforeCamera, completed.finalCamera);
 	result.flagsChanged = beforeFlags.values() != completed.finalGameFlags.values();
 	if (publication) { publication->check(); if (!sameCamera(camera,completed.finalCamera) || gameFlags.values()!=completed.finalGameFlags.values()) throw std::logic_error("Journey event completion changed camera/flags"); }
@@ -167,15 +168,6 @@ XeenManualEventResult XeenEventSystem::runManualEvent(
 		return systemError(XeenEventExecutionErrorKind::ScriptLoadFailed,
 			std::string("failed to load manual event script: ") + exception.what(), camera);
 	}
-	if (!script->findInstruction(static_cast<std::uint8_t>(camera.x),
-			static_cast<std::uint8_t>(camera.y), camera.direction, 0)) {
-        const bool wrongFacing=std::any_of(script->records().begin(),script->records().end(),[&](const auto &r){
-            return r.x==camera.x && r.y==camera.y && r.line==0;
-        });
-        if(wrongFacing && (camera.x || camera.y || camera.direction!=XeenDirection::North) && world.selectObject(camera) && !(sampled->cell->rawAttributes&kXeenAutomaticEventFlag))
-            xeenEmitFmEffect(publication && publication->fmEffect ? publication->fmEffect : _interpreter.fmEffect,21);
-		return XeenManualEventNoEvent{};
-    }
 
 	const XeenCamera beforeCamera = camera;
 	const XeenGameFlags beforeFlags = gameFlags;
@@ -197,6 +189,7 @@ XeenManualEventResult XeenEventSystem::runManualEvent(
 	const auto &completed = std::get<XeenEventExecutionCompleted>(execution);
 	XeenManualEventCompleted result;
 	result.instructionCount = completed.instructionCount;
+    result.inputClearCount=completed.inputClearCount;result.inputClearSite=completed.inputClearSite;
 	result.cameraChanged = !sameCamera(beforeCamera, completed.finalCamera);
 	result.flagsChanged = beforeFlags.values() != completed.finalGameFlags.values();
 	if (publication) { publication->check(); if (!sameCamera(camera,completed.finalCamera) || gameFlags.values()!=completed.finalGameFlags.values()) throw std::logic_error("Journey event completion changed camera/flags"); }
@@ -224,7 +217,7 @@ XeenAutomaticEventResult XeenEventSystem::resumeAutomaticEvent(
 	const auto &value = std::get<XeenEventExecutionCompleted>(execution);
 	XeenAutomaticEventCompleted result{value.instructionCount,
 		!sameCamera(beforeCamera, value.finalCamera),
-		beforeFlags.values() != value.finalGameFlags.values()};
+		beforeFlags.values() != value.finalGameFlags.values(),value.inputClearCount,value.inputClearSite};
 	if (publication) { publication->check(); if (!sameCamera(camera,value.finalCamera) || gameFlags.values()!=value.finalGameFlags.values()) throw std::logic_error("Journey event completion changed camera/flags"); }
 	else camera = value.finalCamera;
 	if (!publication) gameFlags = value.finalGameFlags;
@@ -250,7 +243,7 @@ XeenManualEventResult XeenEventSystem::resumeManualEvent(
 	const auto &value = std::get<XeenEventExecutionCompleted>(execution);
 	XeenManualEventCompleted result{value.instructionCount,
 		!sameCamera(beforeCamera, value.finalCamera),
-		beforeFlags.values() != value.finalGameFlags.values()};
+		beforeFlags.values() != value.finalGameFlags.values(),value.inputClearCount,value.inputClearSite};
 	if (publication) { publication->check(); if (!sameCamera(camera,value.finalCamera) || gameFlags.values()!=value.finalGameFlags.values()) throw std::logic_error("Journey event completion changed camera/flags"); }
 	else camera = value.finalCamera;
 	if (!publication) gameFlags = value.finalGameFlags;

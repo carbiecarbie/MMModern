@@ -151,9 +151,9 @@ void testDirectionOrderAndNoEvent() {
 	XeenCamera noLineZero{1, 9, 9, XeenDirection::North};
 	const auto none = fixture.system.runManualEvent(
 		fixture.world, fixture.party, noLineZero, flags);
-	check(std::holds_alternative<XeenManualEventNoEvent>(none) &&
+	check(std::holds_alternative<XeenManualEventCompleted>(none) &&
 		noLineZero.mapId == 1 && noLineZero.x == 9 && noLineZero.y == 9,
-		"later lines without line zero return explicit no-event");
+		"Part 0: a record-less manual call completes the full entry and scan");
 }
 
 void testErrorsRollbackAndDiagnostics() {

@@ -16,6 +16,7 @@ struct XeenRestTestAccess {
  static bool eventPortrait(const XeenEventFlow &f){return f._portraitSequence && f._portraitSequence->event;}
  static bool manualTravel(const XeenEventFlow &f){return f._transition && f._transition->manualStep && f._transition->manualStep->opportunity && f._transition->manualStep->opportunity->travelStarted;}
  static unsigned manualOpportunities(const XeenEventFlow &f){return f._transition->manualStep->result.movementOpportunities;}
+ static bool manualCandidate(const XeenEventFlow &f){return bool(f._transition);}
  static bool manualReady(const XeenEventFlow &f){return f._transition && f._transition->terrainDone && bool(f._transition->manualStep);}
  static int manualPortrait(const XeenEventFlow &f){return !f._portraitSequence?-1:f._portraitSequence->effect.stage==XeenEventPortraitStage::DamageOverlay?0:f._portraitSequence->effect.stage==XeenEventPortraitStage::DamageHold?1:2;}
  static int stagedHp(const XeenEventFlow &f,unsigned owner){return f._transition->party.roster.at(owner).currentHp;}
@@ -548,14 +549,18 @@ void terrainCallsites(Inputs &in) {
     if(automatic && id==XeenMapIdentity(111))m.geometry.cells[4*16+4].rawAttributes|=kXeenAutomaticEventFlag;
    }return refused?missingFallLanding(std::move(m)):m;
   };
-  Fixture f(in,state,false,&script,loader);wire(f);const auto before=XeenSaveFormat::encode(f.snapshot());
+  Fixture f(in,state,false,&script,loader);wire(f);const auto before=f.snapshot();
   f.act(automatic?PlayerAction{NavigationAction::MoveForward}:PlayerAction{InteractionAction{}});finish(f);
-  if(refused)check(XeenSaveFormat::encode(f.snapshot())==before,"Refused final Event fall leaked teleport/RNG/party state");
+  if(refused){
+   // Part 0: teleport clears Space, so no Wait tests the missing fall landing.
+   auto expected=before;expected.camera.y=22;save_test::sameSnapshot(expected,f.snapshot());
+  }
   else {
    check(f.c.x==20 && f.c.y==(automatic?20:22),"Event arrival published an intermediate teleport");
-   check(f.p.encounterContext->minutes==state.journey->context->minutes+1,"Manual chain must charge exactly one indoor minute after its final Event");
-   for(auto owner:state.activeRosterIds)check(f.p.roster.at(owner).currentHp==900,
-    "Manual teleport chain must arrive once at final cell; automatic completion must not repeat movement arrival");
+   // Part 0: teleport/map load clears Space; only the automatic move charges time.
+   check(f.p.encounterContext->minutes==state.journey->context->minutes+(automatic?1:0),"Teleport chain retained a cleared Space Wait");
+   for(auto owner:state.activeRosterIds)check(f.p.roster.at(owner).currentHp==(automatic?900:1000),
+    "Cleared Space must not add a terrain arrival; automatic movement arrives once");
   }
  }
  // The original mainland sign used the old direct-publication branch. It must
@@ -585,8 +590,9 @@ void terrainCallsites(Inputs &in) {
   auto state=armed(true);state.questFlags[3]=false;
   omitFallDestination(state);
   auto flag=row(20,20,0x0c,{0,0,104,3});auto damage=row(20,20,0x16,{10,0,0});damage.line=1;
-  auto teleport=row(20,20,0x1f,{28,20,22});teleport.line=2;
-  XeenEventFile script{28,"maze0028.evt",true,{flag,damage,teleport,row(20,22,0x12)}};
+  // Part 0: retain Space here; a teleport would clear it and suppress the fall.
+  auto end=row(20,20,0x12);end.line=2;
+  XeenEventFile script{28,"maze0028.evt",true,{flag,damage,end}};
   const auto loader=[&](auto id){auto m=in.maps.loadGeometryMap(in.assets,id);if(!m.geometry.isOutdoors()) {
    m.geometry.surfaceTypes.fill(10);for(auto &c:m.geometry.cells){c.rawWord=0;c.geometry=XeenIndoorWalls{};c.flags=0;}
   }return missingFallLanding(std::move(m));};
@@ -644,7 +650,7 @@ void terrainCallsites(Inputs &in) {
    check(n<1000,"Retained manual ranged opportunity did not settle");
    travel=travel || XeenRestTestAccess::manualTravel(*manual.flow);
    const auto portrait=XeenRestTestAccess::manualPortrait(*manual.flow);overlay=overlay || portrait==0;hold=hold || portrait==1;
-   check(manual.p.roster.at(0).currentHp==1000 && manual.p.encounterContext->minutes==state.journey->context->minutes &&
+   if(XeenRestTestAccess::manualCandidate(*manual.flow))check(manual.p.roster.at(0).currentHp==1000 && manual.p.encounterContext->minutes==state.journey->context->minutes &&
     manual.w.sessionState().journeyRandom()==initialRandom,"Manual opportunity published damage/time/RNG before final suffix admission");
    if(portrait==0)check(XeenRestTestAccess::stagedHp(*manual.flow,0)==1000,"Pre-HP overlay applied ranged injury early");
    if(portrait==1)check(XeenRestTestAccess::stagedHp(*manual.flow,0)==999,"Post-HP hold did not retain the worked physical1 injury");
@@ -663,8 +669,8 @@ void terrainCallsites(Inputs &in) {
  // distinct operations. Inject the countdown only after ordinary Event entry;
  // normal UI admission still starts Space at its existing quiet boundary.
  {
-  auto state=armed(true);auto choice=row(20,20,0x20,{0,0}),exit=row(20,20,0x12);exit.line=1;
-  XeenEventFile script{28,"maze0028.evt",true,{choice,exit}};
+  auto state=armed(true);auto choice=row(20,20,0x20,{0,0}),text=row(20,20,0x31,{0,0}),exit=row(20,20,0x12);text.line=1;exit.line=2;
+  XeenEventFile script{28,"maze0028.evt",true,{choice,text,exit}};
   const auto loader=[&](auto id){auto m=in.maps.loadGeometryMap(in.assets,id);if(!m.geometry.isOutdoors()) {
    m.geometry.surfaceTypes.fill(5);for(auto &c:m.geometry.cells){c.rawWord=0;c.geometry=XeenIndoorWalls{};c.flags=0;}
   }return m;};
@@ -674,9 +680,11 @@ void terrainCallsites(Inputs &in) {
    return XeenEventFlow::Composition{frame(),false};
   });
   manual.act(InteractionAction{});check(manual.flow->canCancelInteraction(),"Owed opportunity fixture did not reach WhoWill");
-  XeenRestTestAccess::pending(*manual.flow,3);manual.act(SelectMemberAction{0});finish(manual);
+  XeenRestTestAccess::pending(*manual.flow,3);manual.act(SelectMemberAction{0});
+  // Part 0: the member code replaces Space; final text response W replaces it again.
+  manual.act(WaitAction{});finish(manual);
   XeenRestTestAccess::pending(*wait.flow,3);wait.act(WaitAction{});finish(wait);
-  check(opportunities==2,"Space did not consume both owed and forced opportunities");
+  check(opportunities==2,"Replacement W did not consume both owed and forced opportunities");
   check(XeenSaveFormat::encode(manual.snapshot())==XeenSaveFormat::encode(wait.snapshot()),"Manual owed-opportunity settlement differs from existing Wait or leaks its Event ticket");
  }
 

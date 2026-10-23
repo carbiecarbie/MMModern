@@ -28,6 +28,7 @@ struct DialogInput {
     std::vector<DialogHit> hits;
     std::vector<unsigned> keys;
     bool anyKey=false, anyClick=false;
+    bool retainKey=false; // Event continuations dispatch the actual acknowledged key.
     bool textEntry=false;
     // Original Events::isKeyMousePressed waits accept either mouse button
     // and ignore modifier-only keys. Opt in for dialogs using that wait.
@@ -38,7 +39,7 @@ struct DialogInput {
     }
     std::optional<PlayerAction> key(unsigned key) const {
         for(auto allowed:keys) if(key==allowed) return DialogKeyAction{key};
-        if(anyKey) return AcknowledgeAction{};
+        if(anyKey) return retainKey?PlayerAction{DialogKeyAction{key}}:PlayerAction{AcknowledgeAction{}};
         return {};
     }
     std::optional<PlayerAction> rightClick() const {

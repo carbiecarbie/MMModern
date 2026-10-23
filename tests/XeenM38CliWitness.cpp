@@ -1,4 +1,4 @@
-// M75 DOS Awaken order and witness policy: 1398 -> 1397.
+// M75 DOS Awaken order and witness policy: 1398 -> 1296.
 // M75 DOS Awaken order and witness policy: 1297 -> 1296.
 // M75 DOS Awaken order and witness policy: 2232520509 -> 1902939615.
 // M75 DOS Awaken order and witness policy: 1227 -> 1225.
@@ -187,7 +187,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
   };
   const bool nativeControls=std::getenv("MMODERN_M38_STAGE") && (std::string(std::getenv("MMODERN_M38_STAGE"))=="native" || std::string(std::getenv("MMODERN_M38_STAGE"))=="synthetic-native");
   const auto action=[&](PlayerAction a){
-   if(!nativeControls){steps.push_back([&,a]{act(a);return true;});return;}
+   if(!nativeControls){steps.push_back([&,a]{if(!handler.inputContext(flow->frame().presentation()).readyForAction)return false;act(a);return true;});return;}
    SDL_Keycode key=SDLK_UNKNOWN;
    if(const auto *d=std::get_if<DialogKeyAction>(&a))key=SDL_Keycode(d->key);
    if(std::holds_alternative<InteractionAction>(a))key=SDLK_SPACE;
@@ -310,7 +310,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
    auto count=std::make_shared<unsigned>();
    inspect([&,count,label]{check(flow->canSave(),"M38 checkpoint is not Quiet");xeen_decision9::check(*world,*position,std::string(1,label),std::string("ABCEFG").find(label)!=std::string::npos);*count=saveCalls;checkpointSaveArmed=true;pushKey(SDLK_F9);});
    steps.push_back([&,count,label]{
-    if(saveCalls==*count)return false;
+    if(saveCalls==*count || !flow->canSave())return false;
     check(saveCalls==*count+3,"M38 F9 did not complete the normal save pipeline");
     checkpointSaveArmed=false;
     pushKey(SDLK_F9,false);
@@ -353,6 +353,10 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
    check(XeenSaveFormat::encode(saved)==XeenSaveFormat::encode(live),"M38 restore changed durable state before first input");
    std::cout<<"M38 RESTORE EXACT BEFORE INPUT\n";
   }});
+   steps.push_back([&]{
+    const auto context=handler.inputContext(flow->frame().presentation());
+    return context.readyForAction && !context.dialog && flow->canSave();
+   }); // Part 0: Load entry after display, before the next queued input or F9.
   if(!resume) {
    check(seed==1114u,"M71 repair witness retains its established fixed seed");
    inspect([&]{m42_test::StockOracle fresh{*seed,0,{}};const auto expected=fresh.generate();check(m40_test::stockBytes(*party->serviceEconomy)==m40_test::stockBytes(expected) && world->sessionState().journeyRandom()->state==fresh.state && world->sessionState().journeyRandom()->count==fresh.count,"M71 Smith fresh stock/RNG oracle: catches wrong item or missing/extra generation draw");});
@@ -376,9 +380,9 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
    inspect([&]{std::cout<<"M49 EARNED PURSE "<<party->purse->gold<<'\n';check(party->purse->gold==840,"M38 production earned gold mismatch");});
    route("LLULUU");action(InteractionAction{});action(YesAction{});settle();
    route("URULUUULUUU");
-   // Ten completed outdoor well interactions charge10 each; city entry charges1.
-   // The identical route/seed therefore reaches1397 (1296+100+1), ctr24=1.
-   route("UUUUU");inspect([&]{check(position->x==8 && position->y==4 && party->encounterContext->minutes==1397 && party->encounterContext->ctr24==1,"M38 five-cell corridor endpoint/time");
+   // Part 0: numeric WhoWill responses and the map-load clear suppress Space Wait.
+   // Ten well selections plus entrance remove101 minutes and11 ctr24 steps.
+   route("UUUUU");inspect([&]{check(position->x==8 && position->y==4 && party->encounterContext->minutes==1296 && party->encounterContext->ctr24==14,"M38 five-cell corridor endpoint/time");
     check(world->sessionState().journeyRandom()->state==1902939615u && world->sessionState().journeyRandom()->count==1225,"M71 ordinary pre-Smith cursor: catches extra combat/rest draws or incorrect RNG publication");});checkpoint('A');
   }
   // Exact before/after visits protect Fix price, selected owner/item, equipped AC,
@@ -391,10 +395,10 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
     // Independent Fix tariffs: base armor ID2=100; material38 cloakID10=40/4; divide by10 =>10 and1.
     const auto item=party->roster.at(1).armor[slot];check(item.id==(slot?10:2) && item.material==(slot?38:0) && item.state==128,"M71 paid Fix requires the ordinary broken body armor/cloak");
     *ac=XeenCharacterRules::combatArmorClass(party->roster.at(1),*party->roster.combatInputs(1),{party->encounterContext->year});});
-      action(InteractionAction{});
+      action(InteractionAction{control!="fail-before-admission"});
    if(control=="fail-before-admission" && slot==0) {
-    inspect([&]{if(party->encounterContext->day==8)check(flow->canSave(),"Pre-admission failure retained obligation");});
-    action(InteractionAction{});
+    settle();inspect([&]{if(party->encounterContext->day==8)check(flow->canSave(),"Pre-admission failure retained obligation");});
+    action(InteractionAction{false});
    }
    waitService();deniedSave();action(SelectMemberAction{4});browseRepair();deniedSave();
    action(SelectInventorySlotAction{slot});
@@ -495,7 +499,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
    action(InteractionAction{});waitService();deniedSave();action(CancelInteractionAction{});settle();
    inspect([&,expected]{++expected->journey->context->day;finishSmith(*expected);
     check(XeenSaveFormat::encode(*expected)==XeenSaveFormat::encode(XeenSaveState::capture(original.resources.signature,*party,*position,*flags,*world)),"M38 empty visit changed unrelated durable state");
-    check(party->encounterContext->day==9 && party->encounterContext->minutes==1397 &&
+    check(party->encounterContext->day==9 && party->encounterContext->minutes==1296 &&
     party->purse->gold==840 && party->roster.at(1).armor[0].state==128 &&
     party->roster.at(1).armor[1].state==128,"M38 transaction-free departure mismatch");});
    checkpoint('E');
@@ -518,16 +522,15 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
      "M38 reset/revisit route absent");});checkpoint('F');
    }
    if(stage!="detour-G") {visit(1,829);checkpoint('G');}
-   // From1397: exit corridor11 + mainland exit10 + approach10 + entry1 +
-   // city return13 + one Slime combat minute =1443. Midnight reaches
-   // day10/minute3 before the second Smith departure advances to day11.
-   // M75 earlier arrival shifts the detour's final minute 4 -> 3.
-   inspect([&]{check(party->encounterContext->day==11 && party->encounterContext->minutes==3,
-    "M38 detour midnight and second departure absent");});
+   // Part 0: the later exit/entrance also clears Space, removing10+1 minutes.
+   // From1296: corridor11 + approach10 + city return13 + combat1 =1331.
+   // There is no midnight; the second Smith departure advances day9 to10.
+   inspect([&]{check(party->encounterContext->day==10 && party->encounterContext->minutes==1331,
+    "M38 detour and second departure accounting differs");});
   } else {
    if(!resume || (stage=="A" || stage=="native")) {visit(0,830);checkpoint('B');}
    if(!resume || stage=="A" || stage=="B" || stage=="native") {visit(1,829);checkpoint('C');}
-   inspect([&]{check(party->encounterContext->day==10 && party->encounterContext->minutes==1397 &&
+   inspect([&]{check(party->encounterContext->day==10 && party->encounterContext->minutes==1296 &&
     party->purse->gold==829 && *world->sessionState().journeyRandom()==expectedSmithRandom,
     "M38 two-visit date/purse/RNG witness mismatch");});
   }

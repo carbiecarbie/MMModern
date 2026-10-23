@@ -137,7 +137,8 @@ bool panelGameplay(const IndexedFrame &first,const SdlWindow::FrameUpdateHandler
    "Same-process panel Load discarded surviving CD playback/operands");
   auto snapshot=XeenSaveState::capture(state.signature,*state.party,*state.camera,*state.flags,*state.world);snapshot.name=state.name;
   check(XeenSaveFormat::encode(snapshot)==state.saved && state.seeds==0,"in-game Load changed state/time/RNG or reran initialization");
-  send(ControlPanelAction{});expectNotice(state.name);key('s');checkNotice();key(27);
+  handler.beginCycle(1);if(auto next=idle())visible=*next;present(); // Load entry pass.
+   send(ControlPanelAction{});expectNotice(state.name);key('s');checkNotice();key(27);
   check(XeenSaveFormat::encode(XeenSaveFile::read(state.slot))==state.saved,"immediate in-game Load/re-save differs");
   // Mr Wizard closes the panel and moves the party to Vertigo's run position.
   key('w');key('y');

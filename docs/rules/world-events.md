@@ -94,6 +94,10 @@ Teleport, map loading, text-page continuation, NPC and treasure presentations
 have particular clearing sites; a non-modal script can leave subsequent taps
 queued. Keyboard clearing drops pending makes and the current code, not physical
 modifier state or future repeats. Mouse draining is a separate operation.
+The NPC's pre-wait mouse drain also zeros the current code (`0x25ac7` to
+`0xe090`); its keyboard clear at `0x25ad9` runs when more text remains.
+The final accepted acknowledgement leaves its new code for the outer dispatch;
+mode 2 returns without these waits or clears.
 
 The Event tail has two alternatives, for manual and automatic calls alike:
 

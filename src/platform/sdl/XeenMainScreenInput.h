@@ -61,7 +61,7 @@ inline std::optional<PlayerAction> xeenMainScreenClick(int x, int y, MainScreen 
     constexpr int faces[] = {10,45,81,117,153,189};
     for (unsigned index=0;index<6;++index) if (contains(faces[index],150,faces[index]+32,182))
         return SelectMemberAction{index};
-    if (contains(8,8,224,140)) return combat ? PlayerAction{AttackAction{}} : PlayerAction{InteractionAction{}};
+    if (contains(8,8,224,140)) return combat ? PlayerAction{AttackAction{}} : PlayerAction{InteractionAction{false}};
     return {};
 }
 inline std::optional<InputButton> xeenMainScreenButtonAt(int x,int y,MainScreen screen) {

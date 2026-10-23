@@ -102,6 +102,14 @@ public:
 	XeenNavigationFlow flow;
 };
 
+// Part 0: navigation owns movement; the outer input's common pass follows it,
+// including blocked movement. EventFlow's retention is covered by dispatch tests.
+XeenNavigationFlowResult navigationPass(Fixture &f,XeenCamera &camera,XeenGameFlags &flags,NavigationAction action) {
+ auto result=f.flow.processNavigationAction(f.world,f.party,camera,flags,action);
+ result.automaticEvent=f.events.runAutomaticEvent(f.world,f.party,camera,flags);
+ return result;
+}
+
 XeenAutomaticEventCompleted completed(const XeenAutomaticEventResult &result) {
 	const auto *value = std::get_if<XeenAutomaticEventCompleted>(&result);
 	check(value != nullptr, "expected successful automatic event");
@@ -146,7 +154,7 @@ void testInitialAndBasicActions() {
 	forward.scripts.emplace(1, script(1,
 		{record(1, 2, 0, 0x07, {2, 2, 2})}));
 	XeenCamera forwardCamera{1, 1, 1, XeenDirection::North};
-	const auto forwardResult = forward.flow.processNavigationAction(forward.world, forward.party, forwardCamera, flags, NavigationAction::MoveForward);
+	const auto forwardResult = navigationPass(forward, forwardCamera, flags, NavigationAction::MoveForward);
 	check(forwardResult.movementResult == XeenMovementResult::Moved,
 		"forward movement processed");
 	completed(forwardResult.automaticEvent);
@@ -163,7 +171,7 @@ void testInitialAndBasicActions() {
 		{record(1, 1, 0, 0x0c, setFlag(7))}));
 	XeenCamera backwardCamera{1, 1, 2, XeenDirection::North};
 	XeenGameFlags backwardFlags;
-	const auto backwardResult = backward.flow.processNavigationAction(backward.world, backward.party, backwardCamera, backwardFlags, NavigationAction::MoveBackward);
+	const auto backwardResult = navigationPass(backward, backwardCamera, backwardFlags, NavigationAction::MoveBackward);
 	check(backwardResult.movementResult == XeenMovementResult::Moved &&
 		backwardFlags.isSet(7), "backward checks resulting cell");
 
@@ -171,8 +179,7 @@ void testInitialAndBasicActions() {
 	none.maps.emplace(1, freeMap(1));
 	XeenCamera noneCamera{1, 1, 1, XeenDirection::North};
 	XeenGameFlags noneFlags;
-	const auto noneResult = none.flow.processNavigationAction(none.world, none.party,
-		noneCamera, noneFlags, NavigationAction::TurnLeft);
+	const auto noneResult = navigationPass(none, noneCamera, noneFlags, NavigationAction::TurnLeft);
 	check(noneResult.movementResult == XeenMovementResult::Turned &&
 		std::holds_alternative<XeenAutomaticEventNoTrigger>(noneResult.automaticEvent) &&
 		none.scriptLoads.empty(), "cell without trigger has no event effect");
@@ -193,11 +200,10 @@ void testBlockedAndRotatedActions() {
 	}));
 	XeenCamera blockedCamera{1, 1, 1, XeenDirection::North};
 	XeenGameFlags blockedFlags;
-	const auto blockedResult = blocked.flow.processNavigationAction(blocked.world, blocked.party,
-		blockedCamera, blockedFlags, NavigationAction::MoveForward);
+	const auto blockedResult = navigationPass(blocked, blockedCamera, blockedFlags, NavigationAction::MoveForward);
 	check(blockedResult.movementResult == XeenMovementResult::BlockedByTerrain &&
-		!blockedFlags.isSet(25) && std::holds_alternative<XeenAutomaticEventNoTrigger>(blockedResult.automaticEvent),
-        "Blocked movement must skip the automatic arrival Event");
+		blockedFlags.isSet(25) && std::holds_alternative<XeenAutomaticEventCompleted>(blockedResult.automaticEvent),
+        "Part 0: blocked movement completes its flagged-cell pass");
 	checkCamera(blockedCamera, 1, 1, 1, XeenDirection::North,
 		"Blocked movement preserves the camera");
 
@@ -215,8 +221,7 @@ void testBlockedAndRotatedActions() {
 		}));
 		XeenCamera rotatedCamera{1, 1, 1, XeenDirection::North};
 		XeenGameFlags rotatedFlags;
-		const auto result = rotated.flow.processNavigationAction(rotated.world, rotated.party,
-			rotatedCamera, rotatedFlags, action);
+		const auto result = navigationPass(rotated, rotatedCamera, rotatedFlags, action);
 		check(result.movementResult == XeenMovementResult::Turned &&
 			rotatedCamera.direction == expected && rotatedFlags.isSet(9),
 			"rotation event uses resulting direction");
@@ -237,8 +242,7 @@ void testMapTransitionAndErrorBoundary() {
 		{record(4, 0, 0, 0x07, {3, 5, 5})}));
 	XeenCamera camera{1, 4, 15, XeenDirection::North};
 	XeenGameFlags flags;
-	const auto result = transition.flow.processNavigationAction(transition.world, transition.party,
-		camera, flags, NavigationAction::MoveForward);
+	const auto result = navigationPass(transition, camera, flags, NavigationAction::MoveForward);
 	check(result.movementResult == XeenMovementResult::Moved,
 		"neighbor transition movement succeeds");
 	checkCamera(result.cameraAfterMovement, 2, 4, 0, XeenDirection::North,
@@ -254,8 +258,7 @@ void testMapTransitionAndErrorBoundary() {
 		{record(1, 2, 0, 0x30, {}, kXeenEventDirectionAll, 987)}));
 	XeenCamera errorCamera{1, 1, 1, XeenDirection::North};
 	XeenGameFlags errorFlags;
-	const auto errorResult = error.flow.processNavigationAction(error.world, error.party,
-		errorCamera, errorFlags, NavigationAction::MoveForward);
+	const auto errorResult = navigationPass(error, errorCamera, errorFlags, NavigationAction::MoveForward);
 	const auto diagnostic = failure(errorResult.automaticEvent,
 		XeenEventExecutionErrorKind::UnsupportedOpcode);
 	checkCamera(errorCamera, 1, 1, 2, XeenDirection::North,
@@ -279,7 +282,7 @@ void testTeleportBoundariesAndPersistentFlags() {
 		{record(2, 2, 0, 0x07, {3, 3, 3})}));
 	XeenCamera camera{1, 1, 1, XeenDirection::North};
 	XeenGameFlags flags;
-	exit.flow.processNavigationAction(exit.world, exit.party, camera, flags,
+	navigationPass(exit, camera, flags,
 		NavigationAction::MoveForward);
 	checkCamera(camera, 2, 2, 2, XeenDirection::North,
 		"TeleportAndExit destination is next render state");
@@ -297,7 +300,7 @@ void testTeleportBoundariesAndPersistentFlags() {
 	continuation.scripts.emplace(2, script(2,
 		{record(3, 4, 0, 0x07, {3, 5, 6})}));
 	XeenCamera continued{1, 1, 1, XeenDirection::North};
-	continuation.flow.processNavigationAction(continuation.world, continuation.party, continued,
+	navigationPass(continuation, continued,
 		flags, NavigationAction::MoveForward);
 	checkCamera(continued, 3, 5, 6, XeenDirection::North,
 		"TeleportAndContinue completes before next render state");
@@ -316,10 +319,10 @@ void testTeleportBoundariesAndPersistentFlags() {
 	}));
 	XeenCamera persistentCamera{1, 0, 1, XeenDirection::East};
 	XeenGameFlags persistentFlags;
-	persistent.flow.processNavigationAction(persistent.world, persistent.party, persistentCamera,
+	navigationPass(persistent, persistentCamera,
 		persistentFlags, NavigationAction::MoveForward);
 	check(persistentFlags.isSet(25), "first action commits persistent flag");
-	persistent.flow.processNavigationAction(persistent.world, persistent.party, persistentCamera,
+	navigationPass(persistent, persistentCamera,
 		persistentFlags, NavigationAction::MoveForward);
 	checkCamera(persistentCamera, 2, 4, 4, XeenDirection::East,
 		"next action observes previously committed flag");

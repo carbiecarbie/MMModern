@@ -30,6 +30,8 @@ public:
 			optional(a.rewardRandom,b.rewardRandom,[](const auto &x,const auto &y){return x==y;}) &&
 			optional(a.rewardItem,b.rewardItem,[](const auto &x,const auto &y){return x==y;}) &&
 			a.rewardPair==b.rewardPair && a.generatingReward==b.generatingReward &&
+			a.inputClearCount==b.inputClearCount && a.inputClearSite==b.inputClearSite &&
+            a.scriptExecuted==b.scriptExecuted && a.otherFacing==b.otherFacing && a.tailDone==b.tailDone &&
 			address(a.logicalAddress,b.logicalAddress) &&
 			a.lookupDirection==b.lookupDirection && xeen_state::sameCamera(a.workingCamera,b.workingCamera) &&
 			a.continuedAtDestination==b.continuedAtDestination &&

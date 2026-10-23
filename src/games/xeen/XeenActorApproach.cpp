@@ -573,7 +573,7 @@ XeenEncounterResult XeenActorApproach::regionalTransition(XeenWorld &world,XeenP
                     if(!admitted) {refused.arrivalRefusal="Destination is not supported yet";return refused;}
                     const auto sampled=destination.sampleCell(c.camera.mapId,c.camera.x,c.camera.y);
                     if(sampled && (sampled->cell->rawAttributes & kXeenAutomaticEventFlag))
-                        c.result.automaticEvent=xeenRegionalEvent(c.destinationEvents?*c.destinationEvents:events,c.camera).has_value();
+                        c.result.automaticEvent=true;
 				}
 			}
 			if(stepTime) {

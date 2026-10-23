@@ -102,8 +102,9 @@ int main(int argc,char **argv) {
         // Ten outdoor well Spaces plus indoor entry add 101 minutes and
         // eleven counters. Reset exit/entry later adds 11 minutes/two counters,
         // crossing midnight at E; the same fixed inputs still define A..D.
-        constexpr unsigned prefixMinutes=10*10+1,prefixSteps=10+1;
-        constexpr unsigned resetEndMinutes=1340+prefixMinutes+10+1;
+        // Part 0: WhoWill numeric selection and map-load clear suppress Space Wait.
+        constexpr unsigned prefixMinutes=0,prefixSteps=0;
+        constexpr unsigned resetEndMinutes=1340;
         child_test::require(a.journey && a.journey->schema==9 && a.journey->content==14 && a.journey->serviceEconomy &&
             a.journey->context->day==8 && a.journey->context->minutes==1296+prefixMinutes && a.journey->context->ctr24==(14+prefixSteps)%24 &&
             a.journey->purse->gold==840 && a.characters[1].armor[0].state==128 && a.characters[1].armor[1].state==128 &&
@@ -113,7 +114,7 @@ int main(int argc,char **argv) {
         child_test::require(c.journey->context->day==11 && c.journey->context->minutes==1310+prefixMinutes && c.journey->context->ctr24==(4+prefixSteps)%24 &&
             d.journey->context->day==12 && d.journey->context->minutes==1310+prefixMinutes && d.journey->purse->gold==829 && d.characters[1].armor[1].state==0 &&
             c.journey->random==d.journey->random,"M40 C/D later navigation/repair checkpoint differs");
-        child_test::require(e.journey->context->day==12+resetEndMinutes/1440 && e.journey->context->minutes==resetEndMinutes%1440 && e.journey->context->ctr24==(prefixSteps+2)%24 &&
+        child_test::require(e.journey->context->day==12+resetEndMinutes/1440 && e.journey->context->minutes==resetEndMinutes%1440 && e.journey->context->ctr24==prefixSteps%24 &&
             e.journey->purse->gold==829 && e.characters[1].currentSp==16 && e.characters[6].currentSp==24 &&
             e.journey->random->state==3052845306u && e.journey->random->count==2123 && e.map(28).monsters->slots.size()==46 &&
             e.map(28).monsters->slots.at(36).lifecycle==XeenActorLifecycle::Defeated,"M40 E reset-Slime combat/casting checkpoint differs");

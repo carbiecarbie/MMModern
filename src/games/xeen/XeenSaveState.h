@@ -49,6 +49,7 @@ public:
 		XeenGameFlags &flags, XeenWorld &world, const Preflight &preflight);
 private:
 	friend class Application;
+    friend struct XeenEventDispatchTestAccess;
 	// Initialization has its own authority; ordinary Save remains presented-only.
 	static XeenSaveSnapshot captureInitialized(const XeenSaveResourceSignature &,
 		const XeenPartyState &, const XeenCamera &, const XeenGameFlags &, const XeenWorld &);

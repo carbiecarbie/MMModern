@@ -71,7 +71,23 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
     services.clock=[&]{return now;};
     services.observeGameplay=[&](auto &w,auto &,const auto &p,const auto &c,const auto &f){world=&w;party=&p;position=&c;flags=&f;};
     services.configureFlow=[&](auto &f,const auto &c){original.configureFlow(f,c);flow=&f;
-        f.reportText=[](const std::string &){};};
+        f.reportText=[](const std::string &){};
+        if(std::getenv("MMODERN_M84_INPUT_TRACE")) {
+            f.observeManualResponse=[&](const PlayerAction &action) {
+                std::cerr<<"M84 ACK at "<<position->mapId.number<<':'<<position->x<<','<<position->y
+                    <<" action "<<action.index();
+                if(const auto *key=std::get_if<DialogKeyAction>(&action))std::cerr<<" code "<<key->key;
+                if(std::holds_alternative<AcknowledgeAction>(action))std::cerr<<" Enter code 13";
+                if(const auto *key=std::get_if<InteractionAction>(&action))std::cerr<<(key->wait?" Space code 32":" click code 1");
+                std::cerr<<'\n';
+            };
+            f.observeEventInputClear=[&](unsigned site,const auto &action) {
+                std::cerr<<"M84 CLEAR at "<<position->mapId.number<<':'<<position->x<<','<<position->y
+                    <<" site 0x"<<std::hex<<site<<std::dec<<" prior "<<(action?int(action->index()):-1)<<'\n';
+            };
+        }
+        if(std::getenv("MMODERN_M84_DISABLE_NPC_CLEAR"))f.eventInputClearForAudit=[](unsigned site){return site!=0x25ad9;};
+    };
     services.show=[&](const IndexedFrame &first,const auto &handler,const auto &escape,const auto &idle,const auto &status){
         check(flow && world && party && position && flags && target,"M43 production owners absent");
         check(world->sessionState().journey(),"M43 fresh content is not 14");
@@ -150,6 +166,13 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
                 check(XeenSaveFormat::encode(live)==XeenSaveFormat::encode(XeenSaveFile::read(*target)),"M44 exact restart before input");
                 std::cerr<<"M44 RESTORE EXACT BEFORE INPUT\n";
             }
+        });
+        if(resume)steps.push_back([&] {
+            // Part 0: keep the exact-restore assertion above before Load's entry pass,
+            // then acquire that pass before the first resumed outer input.
+            const auto context=handler.inputContext(presented);
+            if(context.readyForAction && context.dialog && context.dialog->anyKey) {act(AcknowledgeAction{});return false;}
+            return context.readyForAction && !context.dialog && flow->canSave();
         });
         if(!resume && scenario=="mainland") {
             action(InteractionAction{});settle();

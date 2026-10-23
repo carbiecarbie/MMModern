@@ -19,6 +19,28 @@ void portraitRequiresOwner(){
  catch(const std::logic_error &error){rejected=std::string(error.what()).find("Encounter-owned presentation")!=std::string::npos;}
  check(rejected,"Injected legacy portrait request bypassed its Encounter ownership fence");
 }
+// Part 0, 0x2429e: delivery entry clears once, including warning/currency-only entry.
+void treasureEntryClear() {
+ for(unsigned mode=0;mode<3;++mode) {
+  Execution e;if(mode==2)full(e.f.initial,true);
+  auto state=e.seed({pause(),record(1,1,1,0x12)},mode?2:0);
+  state.treasure.gold=1;state.treasure.ready=true;
+  auto result=e.resumeOne(state);
+  for(unsigned n=0;;++n) {
+   check(n<20,"treasure clear test bounded");
+   if(const auto *pending=std::get_if<XeenEventExecutionSuspended>(&result)) {
+    check(pending->state.inputClearCount==1 && pending->state.inputClearSite==0x2429e,
+     "treasure entry clear missing or repeated across item phases");
+    if(!n)check(pending->state.reward.phase==(mode==0?XeenRewardPhase::Receipt:mode==1?XeenRewardPhase::Blank:XeenRewardPhase::Warning),
+     "treasure clear test covers all entry phases");
+    result=e.resumeOne(pending->state);
+   } else {
+    const auto *done=std::get_if<XeenEventExecutionCompleted>(&result);
+    check(done && done->inputClearCount==1,"treasure finalization repeated its input clear");break;
+   }
+  }
+ }
+}
 void flows(){
     mmodern::XeenProgramState programState;
 	for(bool global:{false,true}){Execution e;if(global)full(e.f.initial,true);
@@ -245,7 +267,7 @@ void timedItems() {
   "Abandoned timed hold resumed or replayed its committed prefix");
 }
 int main(int argc,char **argv){try{
-	portraitRequiresOwner();flows();producedFlow();failures();animatedRewardLayers();animationFailures();timedItems();Fixture f;presentation(f.font,base(),{});
+	portraitRequiresOwner();treasureEntryClear();flows();producedFlow();failures();animatedRewardLayers();animationFailures();timedItems();Fixture f;presentation(f.font,base(),{});
 	if(argc==3){const auto installation=xeenTestInstallationDetector().detect(argv[1]);check(bool(installation),"installation missing");XeenAssetSource assets(*installation,320,200);
 		assets.loadPalette("mm4.pal");auto b=assets.snapshot();b.pixels.assign(64000,90);std::filesystem::create_directories(argv[2]);
 		presentation(XeenFontFormat(assets.readArchiveResource("fnt")),b,argv[2]);}

@@ -109,6 +109,8 @@ struct Fixture:training_test::Fixture {
         for(unsigned n=0;n<40 && !flow->canSave();++n) {
             act(CancelInteractionAction{});
         }
+        // Part 0: cancellation closes the input; idle services its retained final pass.
+        finishDeparture();
         check(flow->canSave(),"reserved Smith departure did not settle");
     }
 };

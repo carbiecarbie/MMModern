@@ -18,7 +18,7 @@ void coldVertigo(Source &source) {
    if(h.flow->canSave())return;
    h.now+=100;handler.beginCycle(++h.cycle);idle();present();
   }throw std::runtime_error("Cold transition failed to settle");};
-  present();settle();
+  present();idle();present();settle(); // Load entry follows the acquired arrival view.
   // Restore validation reads original resources, but does not prewarm a scene.
   // Drop disposable validation caches before ordinary input to prove misses.
   h.world->discardMapCache();cityLoads=0;

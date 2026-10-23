@@ -1,5 +1,6 @@
 #include "games/xeen/XeenEventInterpreter.h"
 #include "games/xeen/XeenEventPublication.h"
+#include "games/xeen/XeenEventTrigger.h"
 
 #include "games/xeen/XeenWorld.h"
 #include "games/xeen/XeenCharacterRules.h"
@@ -311,7 +312,7 @@ XeenEventExecutionStepResult XeenEventInterpreter::begin(
 			std::string("failed to resolve interaction object: ") + exception.what(),
 			0, state.logicalAddress);
 	}
-	if(journey) {
+	if(journey && (initialCamera.x || initialCamera.y || initialCamera.direction!=XeenDirection::North)) {
 		if(const auto refused=preflightEvent(world,*state.currentScript,initialCamera,initialLine))return *refused;
 	}
 	return run(std::move(state), std::nullopt, partyState, world,
@@ -391,6 +392,25 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 		if(publication && partyState.worldFlags)publication->publishTreasure(world,state,final);
 		else world.treasureStaging().publish(final);
 	};
+	const auto finish = [&](bool delivered) -> XeenEventExecutionStepResult {
+        if(!state.tailDone) {
+            state.tailDone=true;
+            if(!state.scriptExecuted && state.selectedObject) {
+                if(!state.otherFacing) {
+                    XeenPresentationRequest request;request.kind=XeenPresentationKind::NothingHere;
+                    request.mapId=workingCamera.mapId;request.response=XeenPresentationResponseRequirement::Acknowledgment;
+                    state.pendingPresentation=XeenEventPendingPresentation{request,XeenEventPendingContinuation::RewardFinalization,{}};
+                    return XeenEventExecutionSuspended{state,request};
+                }
+                const auto cell=world.sampleCell(workingCamera.mapId,workingCamera.x,workingCamera.y);
+                if(cell && !(cell->cell->rawAttributes&kXeenAutomaticEventFlag))emitFmEffect(publication,21);
+            }
+        }
+        settleTreasure(delivered);
+        auto result=completed(workingCamera,workingGameFlags,instructionCount);
+        result.inputClearCount=state.inputClearCount;result.inputClearSite=state.inputClearSite;
+        return result;
+    };
 	const auto finalize = [&]() -> XeenEventExecutionStepResult {
 		if (publication) publication->execution(state);
 		state.pendingPresentation.reset();
@@ -398,17 +418,18 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 		// 0x28d70..0x28d8d: delivery after the Events needs live currency or readiness.
 		// The Event loop runs in mode 9, so attack slots never defer it (0x2414e).
 		if (reward.phase == XeenRewardPhase::Running && !state.treasure.pending()) {
-			settleTreasure(false);
-			return completed(workingCamera, workingGameFlags, instructionCount);
+			return finish(false);
 		}
 		if(reward.phase==XeenRewardPhase::Receipt) {
 			if(publication && partyState.worldFlags)publication->creditRewardCurrency(state,partyState);
 			else if(partyState.purse)*partyState.purse=xeenCreditTreasure(*partyState.purse,state.treasure);
 			reward.phase = XeenRewardPhase::Completed;
-			settleTreasure(true);
-			return completed(workingCamera, workingGameFlags, instructionCount);
+			return finish(true);
 		}
+        if(reward.phase==XeenRewardPhase::Completed)return finish(true);
 		const bool begin=reward.phase==XeenRewardPhase::Running;
+        // DOS 0x2429e clears once on entry, before warning/item/currency delivery.
+        if(begin){++state.inputClearCount;state.inputClearSite=0x2429e;}
 		if(publication && partyState.worldFlags)publication->advanceRewardDelivery(state,partyState,begin);
 		else if(begin)xeenBeginTreasureDelivery(reward,state.treasure,partyState,state.treasure.preferredRecipient(),[&](unsigned id){emitFmEffect(publication,id);});
 		else xeenAdvanceTreasureDelivery(reward,partyState,state.treasure.preferredRecipient(),[&](unsigned id){emitFmEffect(publication,id);});
@@ -458,7 +479,10 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
                 const XeenCamera destination{map,run?0:12,run?0:4,run?XeenDirection::East:XeenDirection::West};
                 const auto travel=world.prepareEventTransition(destination,run);
                 if(!travel)throw std::invalid_argument(travel.reason);
-                if(workingCamera.mapId!=destination.mapId)world.loadEventDestination(workingCamera.mapId,destination.mapId);
+                if(workingCamera.mapId!=destination.mapId) {
+                    world.loadEventDestination(workingCamera.mapId,destination.mapId);
+                    ++state.inputClearCount;state.inputClearSite=0xf590;
+                }
                 world.scenePresentation().markLightingStep();
                 workingCamera=travel.destination;state.selectedObject.reset();state.pendingPresentation.reset();
                 return finalize();
@@ -571,6 +595,7 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
                 if(!transition)return error(XeenEventExecutionErrorKind::UnsupportedTeleportDestination,transition.reason,instructionCount,logical,pending.request.source);
                 // Unlike ordinary same-map teleport, refusal is a real map load.
                 world.loadEventDestination(workingCamera.mapId,destination.mapId);
+                ++state.inputClearCount;state.inputClearSite=0xf590;
                 workingCamera=transition.destination;state.selectedObject.reset();
             } catch(const std::exception &e) {
                 return error(XeenEventExecutionErrorKind::MapLoadFailed,e.what(),instructionCount,logical,pending.request.source);
@@ -634,7 +659,13 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 				instructionCount, logical, pendingTransferSource, logical);
 		}
 
-		const auto recordIndex = script->findInstructionIndex(
+		const bool originExcluded=!logical.x && !logical.y && state.lookupDirection==XeenDirection::North;
+        if(!originExcluded)for(const auto &record:script->records()) {
+            if(record.x!=logical.x || record.y!=logical.y || record.line!=logical.line)continue;
+            if(record.direction==static_cast<unsigned>(state.lookupDirection) || record.direction==kXeenEventDirectionAll)break;
+            state.otherFacing=true;
+        }
+		const auto recordIndex = originExcluded ? std::optional<std::size_t>{} : script->findInstructionIndex(
 			static_cast<std::uint8_t>(logical.x),
 			static_cast<std::uint8_t>(logical.y), state.lookupDirection,
 			static_cast<std::uint8_t>(logical.line));
@@ -683,6 +714,12 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 			++instructionCount;
 			if(publication)publication->dispatched(state,decoded);
 		}
+        // DOS 0x28b2b: a false If marks too; zero opcodes and CallEvent do not.
+        if(!std::holds_alternative<XeenEventNone>(decoded.operation) &&
+           !std::holds_alternative<XeenEventCallEvent>(decoded.operation)) {
+            const auto *set=std::get_if<XeenEventSetCharacter>(&decoded.operation);
+            if(!set || static_cast<std::int8_t>(set->selector)<=7)state.scriptExecuted=true;
+        }
 
 		if (std::holds_alternative<XeenEventExit>(decoded.operation))
 			return finalize();
@@ -1624,6 +1661,7 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 		}
 
         const auto executeTeleport = [&](std::uint8_t mapId,int x,int y,bool continueExecution) -> std::optional<XeenEventExecutionError> {
+            ++state.inputClearCount;state.inputClearSite=0x27112;
             XeenCamera destination{{workingCamera.mapId.side,mapId},x,y,workingCamera.direction};
             if(!mapId) {
                 if(!state.mirrorDestination)return error(XeenEventExecutionErrorKind::UnsupportedOperand,"Mirror teleport requires a ConfirmWord selection",instructionCount,logical,decoded.source);
@@ -1642,8 +1680,10 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
                     const auto sprite=world.effectiveObject(*state.selectedObject).resourceId;
                     if(sprite==47 || sprite==48)emitFmEffect(publication,sprite==47?45:44);
                 }
-                if(workingCamera.mapId!=destination.mapId && world.detachedEventCandidate())
+                if(workingCamera.mapId!=destination.mapId && world.detachedEventCandidate()) {
                     world.loadEventDestination(workingCamera.mapId,destination.mapId);
+                    ++state.inputClearCount;state.inputClearSite=0xf590;
+                }
                 workingCamera=destination;
                 world.scenePresentation().markLightingStep();
                 state.selectedObject.reset();

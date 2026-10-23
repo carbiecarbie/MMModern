@@ -153,12 +153,9 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
         };
         auto resurrection=std::make_shared<XeenTempleHealCandidate>(),initialHeal=std::make_shared<XeenTempleHealCandidate>();
         auto resurrectionIndex=std::make_shared<unsigned>(0),healIndex=std::make_shared<unsigned>(0);
-        // The unchanged pre-Temple script has four Space interactions at the
-        // outdoor well (one each for members 0,1,3,4): 4*10 minutes. Its fifth
-        // Space enters Vertigo; chargeStep runs after the Event teleport, so
-        // that interaction costs 1 indoor minute. Add these formerly omitted
-        // charges to the established 635-minute route oracle, not an observation.
-        constexpr unsigned templeArrivalMinutes=635+4*10+1;
+        // Part 0: WhoWill leaves member codes, NPC Enter replaces Space, and teleport clears it;
+        // these manual calls no longer add unconditional Space Waits (0x25299, 0xd2d0, 0x27112).
+        constexpr unsigned templeArrivalMinutes=635;
         auto arrivalMinutes=std::make_shared<unsigned>(0);
         unsigned openingAttacks=0;
         auto mainStockCursor=std::make_shared<XeenJourneyRandomState>();
@@ -172,7 +169,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
                     <<" REASON "<<int(flow->encounter()->actionResult().reason)
                     <<" GOLD "<<party->purse->gold<<std::endl;
         };
-        const auto action=[&](PlayerAction value){steps.push_back([&,value]{act(value);return true;});};
+        const auto action=[&](PlayerAction value){steps.push_back([&,value]{if(!handler.inputContext(flow->frame().presentation()).readyForAction)return false;act(value);return true;});};
         const auto settle=[&]{steps.push_back([&]{
             if(flow->canSave())return true;
             // Native input waits behind acquired, uninterruptible portrait/pose

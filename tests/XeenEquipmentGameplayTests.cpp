@@ -240,13 +240,14 @@ int persistenceChild(const std::filesystem::path &path, bool resume) {
  auto expected=f.saved;expected.characters[0].weapons[0].frame=13;
  if(!resume)XeenSaveFile::write(path,f.saved);
  auto services=f.services();
- services.show=[&](const auto &,const auto &raw,const auto &,const auto &,const auto &){
-  f.present(raw);const auto handle=[&](const PlayerAction &a){f.send(raw,a);};
+ services.show=[&](const auto &,const auto &raw,const auto &,const auto &idle,const auto &){
+  f.present(raw);idle();f.present(raw); // Load entry follows the acquired view.
+  const auto handle=[&](const PlayerAction &a){f.send(raw,a);};
   check(!f.flow->inventoryOpen()&&!f.flow->equipmentResult(),"restart persisted transient equipment UI");handle(InspectInventoryAction{});
   handle(SelectMemberAction{0});handle(SelectInventorySlotAction{0});
   if(!resume){handle(EquipmentInventoryAction{});check(f.flow->equipmentResult()&&f.flow->equipmentResult()->status==Status::Success&&f.party->roster.at(0).weapons[0].frame==13,"producer did not equip two-handed weapon");}
   else {check(f.flow->inventorySelection().sourceOwner==0&&f.flow->inventorySelection().record.frame==13,"consumer did not inspect restored equipment");f.flow->refresh(true);f.present(raw);check(f.party->roster.at(0).weapons[0].frame==13,"refresh normalized restored frame");}
-  handle(CancelInteractionAction{});sameSnapshot(expected,f.capture());if(!resume)handle(SaveGameAction{});sameSnapshot(expected,XeenSaveFile::read(path));return true;
+  handle(CancelInteractionAction{});idle();f.present(raw);sameSnapshot(expected,f.capture());if(!resume)handle(SaveGameAction{});sameSnapshot(expected,XeenSaveFile::read(path));return true;
  };
  Quiet quiet;const int result=Application(services.program).playGameplay(services,{},path,true);if(result)std::cerr<<quiet.out.str();return result;
 }

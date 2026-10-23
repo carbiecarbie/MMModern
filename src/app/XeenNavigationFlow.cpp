@@ -23,7 +23,7 @@ XeenNavigationFlowResult XeenNavigationFlow::processNavigationAction(
      return {movementResult,{},cameraAfterMovement};
  world.scenePresentation().markLightingStep();
 	return {movementResult,
-		_eventSystem.runAutomaticEvent(world, partyState, camera, gameFlags), cameraAfterMovement};
+		XeenAutomaticEventNoTrigger{}, cameraAfterMovement};
 }
 
 XeenManualEventResult XeenNavigationFlow::processInteraction(

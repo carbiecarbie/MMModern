@@ -37,7 +37,7 @@ bool m39CastControls(const std::string &control,const IndexedFrame &first,const 
         check(!world.scenePresentation().feedbackActive() && handler.inputContext(flow.frame().presentation()).readyForAction && settled.current(),
             "M39 result portrait hold changed settled state or never released input");
     };
-    present(first);respond(SaveGameAction{});check(saves==3,"M39 control prior save pipeline");
+    present(first);tick();quiet();respond(SaveGameAction{});check(saves==3,"M39 control prior save pipeline");quiet();
     const auto disk=XeenSaveFormat::encode(XeenSaveFile::read(target));
     respond(NavigationAction::MoveForward);quiet();if(control.find("-group")==std::string::npos){respond(ShootAction{});quiet();}respond(NavigationAction::MoveForward);ready(control=="partial"?0:4);
     if(control=="partial") {

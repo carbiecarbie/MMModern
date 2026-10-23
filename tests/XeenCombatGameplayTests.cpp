@@ -30,7 +30,8 @@ void panelCombat() {
   s.panel=true;s.combat=combat;s.currentSlot=current;s.currentName=name;return std::make_unique<XeenTitleFlow>(std::move(s));
  };
  services.show=[&](const auto &,const auto &handler,const auto &,const auto &idle,const auto &) {
-  h.press(handler,WaitAction{});check(h.phase()==Phase::PlayerReady,"combat panel player boundary");
+  h.tick(handler,idle); // Load entry follows the acquired arrival view.
+   h.press(handler,WaitAction{});check(h.phase()==Phase::PlayerReady,"combat panel player boundary");
   h.now+=110; // Finish the acquired scene draw before requesting its panel.
   const auto revision=h.result().revision,rng=h.randomPosition();const auto deadline=h.flow->encounter()->deadline();
   XeenRestoreGuard guard(*h.world,*h.party,*h.camera,*h.flags);
@@ -217,10 +218,10 @@ void failures() {
 }
 void publicationFailures() {
  for(unsigned fault=0;fault<4;++fault){
-  Harness h;auto s=h.services(fault==3?19:1);if(fault==3)syntheticDeathPresentation(s);bool injected=false;unsigned commands=0;
+  Harness h;auto s=h.services(fault==3?19:1);if(fault==3)syntheticDeathPresentation(s);bool injected=false,armed=false;unsigned commands=0;
   const auto compose=s.composeEncounter;
   s.composeEncounter=[&](auto &w,const auto &p,const auto &c,auto ordinary,auto actor){
-   if(h.flow&&!injected){
+   if(armed && h.flow&&!injected){
     const auto &r=h.result();
     const bool target=fault==0?(r.operation==XeenCombatOperation::PlayerAttack&&r.attackStage==XeenCombatAttackStage::PostHp):
      fault==1?h.phase()==Phase::VictoryAwaitingEnd:fault==2?h.phase()==Phase::Victory:h.phase()==Phase::Defeat;
@@ -235,13 +236,14 @@ void publicationFailures() {
      if(h.party->roster.at(kXeenCombatOwners[i]).armor[j].frame){h.press(handler,SelectInventorySlotAction{j});h.press(handler,DialogKeyAction{'r'});}}
     h.press(handler,CancelInteractionAction{});
    }
-   h.press(handler,WaitAction{});
+   for(unsigned n=0;n<100 && !h.flow->canSave();++n)drawTick(h,handler,idle);
+   armed=true;h.press(handler,WaitAction{});
    for(unsigned n=0;n<500&&!injected;++n){
     if(h.phase()==Phase::PlayerReady){h.press(handler,fault==3||commands++<6?PlayerAction{BlockAction{}}:PlayerAction{InteractionAction{}});}
     else drawTick(h,handler,idle);
    }
    check(injected,"publication fault reached through real commands");
-   check(h.phase()==(fault==2?Phase::Victory:fault==3?Phase::Defeat:fault==1?Phase::VictoryAwaitingEnd:Phase::PreparingAction),"Failure recovery preserves actual phase");
+   check(h.phase()==(fault==2?Phase::Victory:fault==3?Phase::Defeat:fault==1?Phase::VictoryAwaitingEnd:Phase::PreparingAction),("Failure recovery preserves actual phase: fault="+std::to_string(fault)+" phase="+std::to_string(int(h.phase()))).c_str());
    const auto hp=h.world->sessionState().monsters(23)[5].hp;
    check(fault==3||hp<20,"published damage survives failure");
    if(fault==1||fault==2){check(hp==0,"lethal removal retained");check(h.flow->encounter()->notice().find("XP82")!=std::string::npos,"award retained despite composition failure");}
@@ -422,6 +424,7 @@ void startup() {
 void windowFailures() {
  for(unsigned mode=0;mode<5;++mode){Harness h;auto s=h.services();bool observed=false;
   s.show=[&](const auto &,const auto &handler,const auto &escape,const auto &idle,const auto &status){
+   handler.framePresented(h.flow->frame().presentation());h.tick(handler,idle); // Load entry after view.
    h.press(handler,NavigationAction::TurnRight);h.press(handler,NavigationAction::MoveForward);
    const std::vector<XeenActor> actors=h.world->sessionState().monsters(23);const auto context=h.party->encounterContext;
    const auto pending=h.flow->encounter()->state().pending();check(pending==2,"Window exit starts with pending approach");
