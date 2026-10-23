@@ -95,9 +95,12 @@ confirms from DOS play that traps hurt again on every key.
 - Two milestones for step 13; this one is the per-input pass (2026-10-21).
 - **Load and New Game begin with one pass, as in DOS** (2026-10-23).
   Restore still reconstructs the saved state without executing Events,
-  rewards, time or RNG; the Load pass is subsequent gameplay. Every save
-  input is followed by a pass at the same cell, so a loaded game's entry
-  pass matches the saving game's following pass. The generic exact-restore
+  rewards, time or RNG; the Load pass is subsequent gameplay. A panel Save
+  or Save As returns to the panel (Part 0: `0x1f1e9`, `0x1ef36`), so the
+  saving game's next pass comes when the panel closes, once per visit
+  however many saves it made; F9, a key DOS does not match, ends with its
+  own pass. Either way the saving game's following pass matches a loaded
+  game's entry pass at the same cell. The generic exact-restore
   test stays unchanged; a continuation test compares the two passes.
 - **Right-click acts as left-click on every screen, as in DOS**
   (2026-10-23). Part 0 found it statically; the maintainer confirmed in
@@ -186,10 +189,11 @@ rows where they apply. No code.
   into the common pass rule, and Wait's early exit no longer skips the
   pass. A suspended completion stays in existing `XeenEventFlow` state; no
   Encounter owner is built for it.
-- **Save v18, schema 9 and content 14, provisionally.** Every save boundary
-  (panel Save and Save As, F9, New Game's initial publication) captures
-  before arming its following pass, then completes that pass through
-  `XeenEventFlow`. A successful Load discards the old session's continuation
+- **Save v18, schema 9 and content 14, provisionally.** Panel Save and Save
+  As are nested in the panel's outer input and arm nothing; the panel's
+  close completes that input's one pass. F9 and New Game's initial
+  publication capture before arming their own following pass, then complete
+  it through `XeenEventFlow`. A successful Load discards the old session's continuation
   and starts exactly one entry pass. Ordinary and initialization capture
   must be shown unable to serialize an armed pass; otherwise, or for any new
   saved field, stop for an amendment.
@@ -232,11 +236,12 @@ rows where they apply. No code.
   and unmapped repeats, taps buffered across a
   non-modal executed script, modal completion, record-less calls, and kept
   key releases and host actions.
-- Saves: panel Save, F9 (successful, failed, unavailable) and New Game
-  publication each followed by exactly one pass; the generic exact-restore
-  test unchanged; a continuation test comparing the saving branch's
-  following pass with the loaded branch's entry pass under identical
-  responses (state, RNG and Event counts).
+- Saves: a panel visit with no save, one save and two saves each followed
+  by exactly one pass at close; F9 (successful, failed, unavailable) and New
+  Game publication each followed by exactly one pass; the generic
+  exact-restore test unchanged; a continuation test comparing Save,
+  acknowledge, close panel and its pass with the loaded branch's entry pass
+  under identical responses (state, RNG and Event counts).
 - Non-Journey: movement, blocked movement, Wait, dialog closing and manual
   interaction.
 - Original data: map 26 (8,3) damage on Wait and after closing Info; the
