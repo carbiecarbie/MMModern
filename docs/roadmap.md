@@ -130,7 +130,8 @@ to Vertigo.
     [M84](milestone-84-plan.md), is completed and accepted (2026-10-23):
     one pass per input, Load and New Game passes, the original key and
     mouse tables ([rules](rules/world-events.md#event-dispatch)). Next, the
-    second milestone: the two post-combat calls, which also remove the Run
+    second milestone, [M85](milestone-85-plan.md) (planned): the two
+    post-combat calls, which also remove the Run
     refusal on cells with an automatic Event and the rest of
     `dev-whowill-event-passes`.
 14. **Inn, recruiting and character creation** (Tier A, high): Tavern Sign
