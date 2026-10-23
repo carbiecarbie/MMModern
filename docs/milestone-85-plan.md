@@ -82,6 +82,14 @@ Static analysis of the CD `WORLD/XEEN.DAT`, high confidence for the paths
 
 - Two milestones for step 13 (2026-10-21); this is the second.
 - Static program evidence first; DOSBox only where Part 0 cannot settle a rule.
+- **Approved deviation, the skipped call's window first** (2026-10-23, after
+  the Part 0 stop). In DOS a call's tail can show window 38 while slot 0 is
+  held and its draw (`0x28ed5`) starts the fight before the acknowledgement
+  (`0x28edb`), so combat and its callers run inside the unfinished call,
+  before its stash is restored (`0x28f22`). MMModern acknowledges window 38
+  and finishes the call, then the fight starts. This applies to passes and
+  manual calls alike; it gets a quirk entry with a `**ScummVM:**` tag and a
+  ScummVM-differences item in Part A.
 
 ## Part 0 - DOS evidence (read-only)
 
@@ -101,7 +109,8 @@ Results go to the Event dispatch sections of `docs/rules/world-events.md` and
    monster step fills slot 0; whether slot 1 or 2 can be held with slot 0
    empty outside combat; which Clouds opcodes (Spawn, TeleportAndContinue,
    the restart, map load) can fill slot 0 between lines, with a reachable
-   witness.
+   witness. For the window-first deviation, record only the pin's order;
+   the nested stash is not traced.
 3. **Engaged input.** Whether exploration input is read while a slot is held
    and combat has not started; what Space and a 3D click do then; what
    happens to keys typed between the monster step and combat.
@@ -127,9 +136,9 @@ Results go to the Event dispatch sections of `docs/rules/world-events.md` and
   until the last caller completes, so no capture holds an unmade caller.
 - **Skip.** Slot 0 occupied means a monster in MMModern combat contact
   position 0. A pass or manual call admitted in the Engaged phase runs
-  before attachment: entry, tail (window 38 included) and flag, then combat
-  attaches. The line-head test in `XeenEventInterpreter` aborts a scan the
-  same way between lines. This replaces carrying the mark through combat,
+  before attachment: entry, flag and tail, window 38 acknowledged (the
+  approved deviation), then combat attaches. The line-head test in
+  `XeenEventInterpreter` aborts a scan the same way between lines. This replaces carrying the mark through combat,
   the address match after a win and `originAutomaticSuperseded`.
 - **Combat end.** At retirement: caller 4 when door text was up at entry
   and the cell is flagged, then caller 3 when the flag is still set, at the
@@ -144,10 +153,10 @@ Results go to the Event dispatch sections of `docs/rules/world-events.md` and
 - **Door text** is set and cleared at the Part 0 sites and saved and cleared
   at combat entry. Label drawing follows the flag if Part 0 shows that the
   flag governs it.
-- **Engaged input** follows Part 0 item 3: Space or a 3D click accepted while
-  slot 0 is held makes a skipped manual call, Space's Wait and a skipped
-  pass, then combat; a key DOS reads after combat waits; one DOS combat
-  consumes goes to combat.
+- **Engaged input** follows Part 0 item 3, including where an admitted fight
+  takes control before the manual call's Wait or pass; a window 38 tail
+  follows the window-first deviation. Keys queued before a fight go to
+  combat as in DOS, and ordinary combat exit clears them (`0x2eb73`).
 - **WhoWill.** Every call clears it; `dev-whowill-event-passes` and
   `clearWhoWill` go, with the comment at `XeenMonsterTreasure.h:35`.
 - **Treasure.** M81's order and the Event-treasure duplicate stay; a caller
