@@ -169,6 +169,7 @@ private:
     bool advanceEntrance();
     std::optional<IndexedFrame> updateEntrance();
 	friend struct XeenRestTestAccess;
+    friend struct XeenEventDispatchTestAccess;
 	friend struct XeenPartyInterfaceTestAccess;
 	IndexedFrame drawRest(const IndexedFrame &);
 	// DOS location wait 0x1c520 polls input before each independent three-tick reset.
@@ -281,6 +282,9 @@ private:
 	bool explorationEffectComplete() const;
 	bool prepareExplorationPass();
 	struct TransitionCandidate {
+        bool eventFlags=false, skippedBase=false, doorTextBase=false;
+        bool skipped=false, doorText=false, slot0=false;
+        std::optional<bool> textInputDoorText;
 		XeenRegionalInteraction kind = XeenRegionalInteraction::None;
 		std::unique_ptr<XeenWorld> world;
 		XeenPartyState party;
@@ -411,10 +415,9 @@ private:
     struct QueueContext {
         XeenMapIdentity map;
         unsigned panel = 0;
-        const XeenCombat *combat = nullptr;
         std::uint64_t dialog = 0;
         bool operator==(const QueueContext &b) const {
-            return map == b.map && panel == b.panel && combat == b.combat && dialog == b.dialog;
+            return map == b.map && panel == b.panel && dialog == b.dialog;
         }
     };
     std::optional<QueueContext> _queueContext;
@@ -548,6 +551,8 @@ private:
 	Composition composeJourneyScene(bool reconstruct);
 	// DOS 0x8c52 (Direction Sense): a word, amount or travel-digit prompt is open.
 	bool textPromptOpen() const;
+    void syncDoorTextInput(bool active);
+    std::optional<bool> _textInputDoorText;
 	template<class Result> IndexedFrame drive(Result result, bool automatic, bool reconstruct = false,
 		OrdinaryCause cause = OrdinaryCause::None, bool committedTransition = false);
 	IndexedFrame presentationFailed(const std::exception &exception);

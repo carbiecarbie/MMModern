@@ -252,7 +252,7 @@ void sampleFailure(Inputs &in) {
  for(unsigned n=0;n<3000;++n) {
   const auto combat=f.flow->encounter()->combat();
   if(run && f.flow->canSave())break;
-  if(!run && combat && combat->phase()==XeenCombatPhase::Defeat)break;
+  if(!run && f.flow->encounter()->state().reason()==XeenEncounterStop::Defeat)break;
   if(combat && combat->phase()==XeenCombatPhase::PlayerReady)f.act(run?PlayerAction{RunAction{}}:PlayerAction{AttackAction{}});
   else if(f.w.sessionState().journeyActivity()==XeenJourneyActivity::Reward)f.act(AcknowledgeAction{});
   else pulse(f);
@@ -260,7 +260,10 @@ void sampleFailure(Inputs &in) {
  }
  check(!XeenRestTestAccess::active(*f.flow) && f.p.food==start.food && !f.p.encounterContext->rested,"Run/death cannot resume or complete interrupted Rest");
  if(run)check(f.flow->canSave() && f.c.x==10 && f.c.y==12,"Interrupted Rest uses original Run destination and quiet continuation");
- else check(f.flow->encounter()->combat() && f.flow->encounter()->combat()->phase()==XeenCombatPhase::Defeat && !f.flow->canSave(),"Interrupted Rest uses ordinary party-death handling");
+ // M85 Part 0: defeat retires combat to reach the Event callers before death
+ // presentation; the encounter retains the terminal result after retirement.
+ else check(f.flow->encounter()->state().reason()==XeenEncounterStop::Defeat &&
+  f.flow->encounter()->combatResult().phase==XeenCombatPhase::Defeat && !f.flow->canSave(),"Interrupted Rest uses ordinary party-death handling");
  std::cout<<"Interrupted Rest "<<(run?"Run":"defeat")<<" passed\n";
 }
 void conditionDeath(Inputs &in) {

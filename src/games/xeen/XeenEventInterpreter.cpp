@@ -277,7 +277,6 @@ XeenEventExecutionStepResult XeenEventInterpreter::begin(
 		return error(XeenEventExecutionErrorKind::ScriptLoadFailed,
 			"script provider is absent", 0, state.logicalAddress);
 	}
-	const bool journey=world.regionalJourney();
 	if (!world.eventCameraAdmitted(initialCamera)) {
 		return error(XeenEventExecutionErrorKind::InvalidInitialCamera,
 			"initial camera is outside the supported Xeen map domain", 0,
@@ -311,9 +310,6 @@ XeenEventExecutionStepResult XeenEventInterpreter::begin(
 		return error(XeenEventExecutionErrorKind::ObjectLoadFailed,
 			std::string("failed to resolve interaction object: ") + exception.what(),
 			0, state.logicalAddress);
-	}
-	if(journey && (initialCamera.x || initialCamera.y || initialCamera.direction!=XeenDirection::North)) {
-		if(const auto refused=preflightEvent(world,*state.currentScript,initialCamera,initialLine))return *refused;
 	}
 	return run(std::move(state), std::nullopt, partyState, world,
 		scriptProvider, textProvider, publication);
@@ -374,6 +370,7 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
         return state.entireParty?(1u<<partyState.party.size())-1:1u<<*state.activeCharacterIndex;
     };
     const auto portraitRequest=[&](XeenEventPortraitStage stage,unsigned owner,unsigned frame,const XeenEventSourceLocation &source) -> XeenEventExecutionStepResult {
+        if(eventDraw)eventDraw(world,workingCamera,false);
         XeenPresentationRequest request;request.kind=XeenPresentationKind::PortraitEffect;
         request.response=XeenPresentationResponseRequirement::Presented;request.mapId=logical.mapId;request.source=source;
         request.portrait=XeenEventPortraitEffect{stage,owner,frame};
@@ -395,6 +392,7 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 	const auto finish = [&](bool delivered) -> XeenEventExecutionStepResult {
         if(!state.tailDone) {
             state.tailDone=true;
+            if(eventDraw)eventDraw(world,workingCamera,false);
             if(!state.scriptExecuted && state.selectedObject) {
                 if(!state.otherFacing) {
                     XeenPresentationRequest request;request.kind=XeenPresentationKind::NothingHere;
@@ -650,6 +648,13 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 
 	for (;;) {
 		if (publication) publication->execution(state);
+        // DOS 0x26abd..0x26acc, before every line (including a missing record).
+        // Resuming an unfinished effect is still inside the same instruction.
+        if (!state.generatingReward && !state.portraitProgress && !state.giveTake && !state.lock &&
+            eventLineSkipped && eventLineSkipped()) return finalize();
+        if(!instructionCount && world.regionalJourney() && (workingCamera.x || workingCamera.y || workingCamera.direction!=XeenDirection::North)) {
+            if(const auto refused=preflightEvent(world,*script,workingCamera,logical.line))return *refused;
+        }
 		if (logical.x < 0 || logical.x > 255 || logical.y < 0 || logical.y > 255 ||
 				logical.line < 0 || logical.line > 255) {
 			const auto kind = missingPolicy == MissingInstructionPolicy::ExplicitCall ?
@@ -777,6 +782,7 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
             if(word->titleText)request.title=textAt(word->titleText);
             request.mirrors=texts.mirrors;
             if(!word->inputType && request.mirrors.empty())return error(XeenEventExecutionErrorKind::MissingTextResource,"Mirror destination table is missing",instructionCount,logical,decoded.source);
+            if(eventDraw)eventDraw(world,workingCamera,false);
             state.pendingPresentation=XeenEventPendingPresentation{request,XeenEventPendingContinuation::ConfirmWord,{}};
             return XeenEventExecutionSuspended{state,request};
         }
@@ -847,6 +853,9 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 
 			XeenPresentationRequest request;
 			request.kind = npc ? XeenPresentationKind::NpcAcknowledgment : who ? XeenPresentationKind::CharacterSelection : presentationKind(display->kind);
+            const bool label=display && (decoded.source.opcode==2 || decoded.source.opcode==3 ||
+                decoded.source.opcode==4 || decoded.source.opcode==39);
+            if(eventDraw)eventDraw(world,workingCamera,label);
 			request.response = npc ? (npc->confirmationMode==2 ? XeenPresentationResponseRequirement::Presented :
 				npc->confirmationMode==0 ? XeenPresentationResponseRequirement::YesNo : XeenPresentationResponseRequirement::Acknowledgment) : who ? XeenPresentationResponseRequirement::CharacterSelection : display->kind ==
 				XeenEventDisplayKind::BottomWindowTwoLines ?
@@ -1049,6 +1058,8 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 			++logical.line;missingPolicy=MissingInstructionPolicy::NaturalCompletion;continue;
 		}
 		if (const auto *spawn=std::get_if<XeenEventSpawn>(&decoded.operation)) {
+            // DOS 0x27a85 draws before writing the Spawn slot.
+            if(eventDraw)eventDraw(world,workingCamera,false);
 			world.applySpawn(logical.mapId,spawn->slot,spawn->x,spawn->y,spawn->unused);
 			++logical.line;missingPolicy=MissingInstructionPolicy::NaturalCompletion;continue;
 		}
@@ -1711,6 +1722,7 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
    state.entireParty=false;state.lookupDirection=workingCamera.direction;
    state.activeCharacterIndex = partyState.party.size() ? std::optional<std::size_t>{0} : std::nullopt;
 			state.continuedAtDestination=true; // DAT 0x2711f..0x27127: redraw, then restart.
+            if(eventDraw)eventDraw(world,workingCamera,false);
             // Continue prepares each intermediate scene before restarting its
             // Event chain, even when no text suspends there for a visible frame.
             if(partyState.encounterContext)

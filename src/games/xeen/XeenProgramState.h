@@ -10,6 +10,7 @@ class XeenAudio;
 // pending-treasure change never invalidates a prepared Temple visit. The games
 // layer receives only the treasure staging, never this owner.
 struct XeenProgramState {
+    bool eventCallSkipped=false; // DOS DS:9756: process lifetime, never saved.
     unsigned attackWeaponFx=0; // DS:96ee is retained even across ordinary spell impacts.
     unsigned steppingFx=0; // DAT DS:9775; process presentation state, never saved.
 	XeenTemplePriceState templePrices;

@@ -197,6 +197,31 @@ New-Item -ItemType Directory -Force D:/MModern-playtest
 .\build-rel\mmodern.exe --load-game "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/m84-playtest-trap.mmsave"
 ```
 
+The M85 post-combat Event presets use the current save format, 1,000 HP per
+member and strong melee statistics. Each keeps one original monster at its
+original position; the original-data dispatch tests walk it to the party and
+check that the terrain does not make the party fall.
+
+- `m85-playtest-label`: Vertigo `(13,4)` East, original monster 35 at
+  `(15,4)`. Turn left twice to West, then Wait until it engages. The door
+  label disappears during combat and returns after a win. Reload and Run
+  while facing West to check the caller at the landing.
+- `m85-playtest-run`: the same starting position. Engage while facing West,
+  turn left twice during combat to face East, then Run. The party reaches
+  `(18,4)` and the landing's East label appears; this landing is no longer
+  refused for having an Event.
+- `m85-playtest-trap`: Tower of High Magic, map 55 `(7,8)` East, with
+  original monster 8 at `(10,8)`. Wait until it reaches the party, then win.
+  The skipped trap call runs once after combat. Earlier Waits can also hurt
+  the party; map 55 keeps it on solid terrain.
+
+```powershell
+.\build-rel\mmodern_test_save.exe m85-playtest-label "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/m85-playtest-label.mmsave"
+.\build-rel\mmodern_test_save.exe m85-playtest-run "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/m85-playtest-run.mmsave"
+.\build-rel\mmodern_test_save.exe m85-playtest-trap "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/m85-playtest-trap.mmsave"
+.\build-rel\mmodern.exe --load-game "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/m85-playtest-label.mmsave"
+```
+
 The `m80-playtest` preset starts at the Reaper entrance on Clouds map 24
 `(10,9)` facing North. It has the party's quest items 1-7, the M78 travel
 party and books, 10,000 SP per caster and 5,000 gems. The Sorcerer has

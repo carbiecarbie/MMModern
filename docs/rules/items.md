@@ -418,9 +418,9 @@ when no record runs: each main-loop pass over a cell with the Event flag,
 Space or a 3D-view click not taken by a grate, and two post-combat calls. Run,
 Load, New Game, map changes and deliveries keep it, and no save holds it.
 MMModern keeps it in the running program's staging value, outside the Event
-stash; an aborted Event leaves it unchanged. MMModern clears it on arrival over
-a flagged cell, on Space and in every Event run, not on later passes or after
-combat ([approved deviation](../original-quirks.md#dev-whowill-event-passes)).
+stash; a refused or rolled-back candidate leaves it unchanged. Every published
+Event call clears WhoWill, including a skipped call, every flagged input pass,
+and either conditional post-combat caller.
 [Evidence](evidence.md#preferred-recipient-after-the-events).
 
 If every member's received category is full while another category has space,

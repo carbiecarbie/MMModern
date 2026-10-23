@@ -67,6 +67,24 @@ void preset(const GameInstallation &installation,const std::string &name,const f
     check(flow.prepareJourneyFrame(flow.ticket(),[]{}) && flow.presentJourney(flow.ticket()),"restored preset is not quiet");
     const auto captured=XeenSaveState::capture(inputs.signature,party,camera,flags,world);
     check(XeenSaveFormat::encode(saved)==XeenSaveFormat::encode(captured),"restore replayed or changed state");
+    if(name.rfind("m85-playtest-",0)==0) {
+        const bool trap=name=="m85-playtest-trap";
+        const XeenCamera expected=trap?XeenCamera{55,7,8,XeenDirection::East}:XeenCamera{28,13,4,XeenDirection::East};
+        check(save_test::sameCamera(camera,expected),"M85 preset location");
+        const auto original=XeenActorApproach::actorsFromResources(inputs.maps.loadObjects(inputs.assets,camera.mapId),inputs.statistics);
+        const auto slot=trap?8u:35u;const auto &actor=world.sessionState().regionalActors(camera.mapId).at(slot);
+        check(actor.x==original.at(slot).x && actor.y==original.at(slot).y && actor.lifecycle==XeenActorLifecycle::Present,"M85 original reachable monster position");
+        const auto cell=world.sampleCell(camera.mapId,camera.x,camera.y);
+        check(cell && (cell->cell->rawAttributes&kXeenAutomaticEventFlag),"M85 flagged witness");
+        std::array<XeenCharacter,6> characters;
+        const auto owners=party.party.activeOrder();for(unsigned n=0;n<6;++n)characters[n]=party.roster.at(owners[n]);
+        const auto terrain=world.prepareTerrainArrival(camera,characters,*party.encounterContext);
+        check(terrain && !terrain.falling,"M85 witness terrain cannot make the party fall");
+        // The original-data dispatch test walks these exact monsters to each party
+        // and checks the party remains on the map (map 26 would fall).
+        for(auto owner:party.party.activeRosterIds())check(party.roster.at(owner).currentHp==1000 && party.roster.at(owner).canAct(),"M85 healthy party");
+        return;
+    }
     if(name.rfind("m84-playtest-",0)==0) {
         const XeenCamera expected=name=="m84-playtest-trap"?XeenCamera{55,7,8,XeenDirection::North}:
             name=="m84-playtest-label"?XeenCamera{28,13,4,XeenDirection::West}:XeenCamera{25,27,3,XeenDirection::North};

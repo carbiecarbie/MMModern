@@ -194,6 +194,7 @@ private:
 	friend struct XeenPurchaseTestAccess;
 	friend struct XeenCombatPresentationTestAccess;
 	friend struct XeenMonsterAbilityTestAccess;
+    friend struct XeenEventDispatchTestAccess;
 	bool _trainingEventSettlement=false;
 	bool _smithEventSettlement=false;
     std::optional<Ticket> _castFrameTicket;
@@ -434,14 +435,19 @@ private:
 	bool beginShoot();
 	bool serviceShoot();
 	bool beginMonsterReward();
-	// An Event-routine call that runs no record still clears WhoWill (DOS 0x26797).
-	void clearWhoWill();
 	void acknowledgeMonsterReward();
 	void advanceMonsterReward();
 	bool monsterReward() const noexcept { return _monsterReceipt.has_value(); }
 	bool _regionalAutomatic = false;
+    enum class EventCallKind { Pass, Caller4, Caller3 };
+    EventCallKind _regionalAutomaticKind=EventCallKind::Pass;
+    bool _doorTextUp=false; // DS:3066; gameplay entry initializes it, never saved.
+    bool _drawnSlot0=false; // Last draw's contact, not the latest monster movement.
+    bool _combatDoorText=false, _combatDrawCaller=false;
+    bool _postCombatCalls=false;
 	std::optional<XeenCombatLocation> _regionalAutomaticAddress;
 	bool _shootIntent = false;
+    bool _shootDirectCombat = false; // DOS Shoot 0xd5aa, distinct from its preliminary draw.
 	std::shared_ptr<XeenRestoreGuard> _journeyPreimage;
 	std::shared_ptr<XeenJourneyCapture> _journeyCapture;
 	XeenEventFile _journeyEvents;

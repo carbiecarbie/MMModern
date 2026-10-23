@@ -173,7 +173,10 @@ not. Neither caller uses the original fight address after relocation.
 | Draw inside a surviving input handler, or direct Shoot | Resume that handler, then its one ordinary pass before the next outer input. A manual Event resumes current-key dispatch, so an admitted fight can take control before Space's Wait. Terminal returns retain their established exclusions. |
 
 Normal combat completion closes the combat window, clears queued keys, redraws
-in combat mode and delivers accumulated treasure before caller 4. Caller 3
+in combat mode and calls treasure delivery before caller 4. Delivery still
+defers while any attack slot is occupied: mode 2 does not bypass its entry
+gate; only Event mode 9 does. Deferred treasure stays staged and does not
+prevent caller 4. Caller 3
 follows return to the originating draw. Ordinary delivery after an exploration
 pass is later, at that pass's existing delivery site. Arena rewards are issued
 by the subsequent Arena service interaction, not by a special combat-return

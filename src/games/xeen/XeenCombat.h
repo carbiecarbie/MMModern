@@ -114,7 +114,6 @@ struct XeenCombatResult {
 	XeenCombatExitCause exitCause=XeenCombatExitCause::None;
 	XeenMutableOptional<XeenCombatLocation> origin, destination;
 	std::uint32_t forfeitedGold=0, forfeitedGems=0;
-	bool originAutomaticSuperseded=false;
 	std::uint8_t targetedMembers=0; // Published physical target mask, including misses.
     std::uint8_t blockedMembers=0; // Detached current Block observation.
 	std::optional<XeenMonsterDropOutcome> monsterDrop;

@@ -816,12 +816,8 @@ std::optional<XeenCamera> xeenRunDestination(XeenWorld &world,const XeenEventFil
 	const auto admitted=world.prepareEventTransition(camera,true);
 	if(!admitted || admitted.destination.mapId!=camera.mapId)return std::nullopt;
 	const auto &to=admitted.destination;
-	// DOS runs the landing cell's automatic Event only when door text was up
-	// as combat began (0x2e62d, 0x2ec18..0x2ec37). That flag is not modelled,
-	// so a landing whose Event could run refuses Run instead.
-	const auto cell=world.sampleCell(to.mapId,to.x,to.y);
-	if(!cell || ((cell->cell->rawAttributes&kXeenAutomaticEventFlag) &&
-		events.resourcePresent && xeenRegionalEvent(events,to)))return std::nullopt;
+    (void)events;
+    if(!world.sampleCell(to.mapId,to.x,to.y))return std::nullopt;
 	return to;
 }
 bool XeenCombat::runAvailable() const {
@@ -1720,18 +1716,13 @@ XeenCombatResult XeenCombat::finishDisengagement(const Ticket &t) {
    d.work==Work::FinishDisengagement && !d.consequences && !d.moveDue && !d.chargeRound &&
    d.contact[0] && !d.continuingParticipants() && !d.defeated() && d.participants!=0x3f &&
    d.exitCause!=XeenCombatExitCause::None,"Incomplete disengagement obligations");
-  // Run admission refused a facing landing Event; a later turn lands as DOS
-  // does without door text up.
   const auto run=d.world.prepareEventTransition(d.camera,true);d.probeFor(t);
   require(run && run.destination.mapId==d.camera.mapId,"Run destination is unavailable");
   const auto destination=run.destination;
-  const auto origin=d.world.sampleCell(d.camera.mapId,d.camera.x,d.camera.y);
   auto characters=d.characters();auto r=d.observation(Status::Advanced);
   r.oldRevision=d.revision();r.operation=Operation::FinishDisengagement;r.exitCause=d.exitCause;
   r.origin=XeenCombatLocation{d.camera.mapId,d.camera.x,d.camera.y,d.camera.direction};
   r.destination=XeenCombatLocation{destination.mapId,destination.x,destination.y,destination.direction};
-  // A1: a flagged call is owed even without a matching record; Run retires it too.
-  r.originAutomaticSuperseded=origin && (origin->cell->rawAttributes&kXeenAutomaticEventFlag);
   for(unsigned i=0;i<6;++i) if(d.participants&(1u<<i)) {
    const auto condition=characters[i].worstCondition();
    if(condition==XeenCondition::Asleep || condition==XeenCondition::Paralyzed ||
@@ -1788,21 +1779,22 @@ void XeenCombat::retireDisengagedJourney(const Ticket &t,XeenEncounterState &sta
 
 void XeenCombat::retireJourney(const Ticket &t, XeenEncounterState &state) {
 	auto &d = *impl;
-	require(current(t) && d.journey && !d.busy && d.phase == Phase::Victory && d.ended &&
+	require(current(t) && d.journey && !d.busy && (d.phase == Phase::Defeat || (d.phase == Phase::Victory && d.ended)) &&
 		d.work == Work::None && !d.consequences && d.boundary.quiet(), "Journey retirement requires successful quiescent End");
 	if (!d.exact()) { fail(t,Failure::Integrity); throw IntegrityError("Journey retirement preimage changed"); }
 	d.capacity();
-	require(!d.contact[0] && !d.moveDue && (d.episodeLethal || d.spellRelocated),
+	require(d.phase==Phase::Defeat || (!d.contact[0] && !d.moveDue && (d.episodeLethal || d.spellRelocated)),
 		"Journey retirement requires published lethal accounting or spell relocation");
 	// No callbacks, allocation or gameplay mutation after this point.
 	auto &s = d.session();
 	s._journeyActivity = XeenJourneyActivity::Presentation;
 	s._combatOwner = nullptr; s._combatApproachState = &state;
-	s._combatEntered = false; s._encounterTerminal = false;
+	s._combatEntered = false; s._encounterTerminal = d.phase==Phase::Defeat;
 	d.ended = false; d.published();
 	state._world = &d.world; state._party = &d.party; state._camera = &d.camera;
 	state._revision = s._encounterRevision; state._pending = 0;
-	state._phase = XeenEncounterPhase::Exploring; state._reason = XeenEncounterStop::None;
+	state._phase = d.phase==Phase::Defeat?XeenEncounterPhase::SupportStopped:XeenEncounterPhase::Exploring;
+    state._reason = d.phase==Phase::Defeat?XeenEncounterStop::Defeat:XeenEncounterStop::None;
 	d.world._combatCheck = {}; d.world._combatAuthorized = {};
 	d.borrow.reset();
 }

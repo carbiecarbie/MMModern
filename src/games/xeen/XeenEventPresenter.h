@@ -22,6 +22,7 @@ struct XeenPresentationUpdate {
 
 class XeenEventPresenter {
 public:
+    std::function<bool()> sceneLabelsVisible;
 	struct NpcTiming;
 	using NpcDraw = std::function<void(IndexedFrame &, std::uint8_t, std::size_t)>;
 	using Clock = std::function<std::uint64_t()>;

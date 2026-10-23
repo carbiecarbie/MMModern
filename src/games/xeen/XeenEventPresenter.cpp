@@ -49,6 +49,11 @@ XeenTextRenderOptions XeenEventPresenter::optionsFor(
 
 XeenTextRenderResult XeenEventPresenter::drawText(const IndexedFrame &base,
         const XeenPresentationRequest &request) const {
+    const bool label=request.kind==XeenPresentationKind::SceneLabelReduced || request.kind==XeenPresentationKind::SceneLabelNormal ||
+        request.kind==XeenPresentationKind::SceneLabelSign || request.kind==XeenPresentationKind::SceneLabelSignReduced;
+    if(label && sceneLabelsVisible && !sceneLabelsVisible()) {
+        XeenTextRenderResult result;result.pages.push_back(base);return result;
+    }
     if(request.kind==XeenPresentationKind::RewardWarning || request.kind==XeenPresentationKind::RewardReceipt) {
         if(!_dosText || !request.treasure)throw std::invalid_argument("Treasure presentation requires original text and delivery display values");
         XeenTextRenderResult result;

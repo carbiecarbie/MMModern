@@ -117,6 +117,18 @@ void prepare(XeenSaveSnapshot &snapshot,const std::string &preset) {
     auto &journey=*snapshot.journey;
     const auto first=snapshot.activeRosterIds.at(0),second=snapshot.activeRosterIds.at(1);
     auto &member=snapshot.characters[first];
+    if(preset.rfind("m85-playtest-",0)==0) {
+        prepare(snapshot,"m78-playtest");
+        snapshot.camera=preset=="m85-playtest-trap"?XeenCamera{55,7,8,XeenDirection::East}:
+            XeenCamera{28,13,4,XeenDirection::East};
+        for(auto owner:snapshot.activeRosterIds) {
+            snapshot.characters[owner].currentHp=1000;snapshot.characters[owner].conditions.fill(0);
+            snapshot.characters[owner].permanentLevel=100;
+            snapshot.journey->supplements[owner].inputs.might={200,0};
+            snapshot.journey->supplements[owner].inputs.accuracy={200,0};
+        }
+        return;
+    }
     if(preset=="m84-playtest-trap" || preset=="m84-playtest-label" || preset=="m84-playtest-save") {
         prepare(snapshot,"m78-playtest");
         snapshot.camera=preset=="m84-playtest-trap"?XeenCamera{55,7,8,XeenDirection::North}:
@@ -390,7 +402,7 @@ void prepare(XeenSaveSnapshot &snapshot,const std::string &preset) {
 
 void generateTestSave(const GameInstallation &installation,const std::string &preset,
         const std::filesystem::path &output) {
-    if (preset!="broken-armor" && preset!="train-ready" && preset!="injured-dead" && preset!="poisoned" && preset!="monster-control" && preset!="monster-damage" && preset!="party-healing" && preset!="m76-spells" && preset!="combat-items" && preset!="m78-playtest" && preset!="m78-one-holder" && preset!="m79-playtest" && preset!="m80-playtest" && preset!="m80-arena" && preset!="m80-arena-maxed" && preset!="m81-drops" && preset!="m81-fullpacks" && preset!="m81-event" && preset!="m84-playtest-trap" && preset!="m84-playtest-label" && preset!="m84-playtest-save")
+    if (preset!="broken-armor" && preset!="train-ready" && preset!="injured-dead" && preset!="poisoned" && preset!="monster-control" && preset!="monster-damage" && preset!="party-healing" && preset!="m76-spells" && preset!="combat-items" && preset!="m78-playtest" && preset!="m78-one-holder" && preset!="m79-playtest" && preset!="m80-playtest" && preset!="m80-arena" && preset!="m80-arena-maxed" && preset!="m81-drops" && preset!="m81-fullpacks" && preset!="m81-event" && preset!="m84-playtest-trap" && preset!="m84-playtest-label" && preset!="m84-playtest-save" && preset!="m85-playtest-label" && preset!="m85-playtest-run" && preset!="m85-playtest-trap")
         throw std::invalid_argument("Unknown test-save preset: "+preset);
     const auto target=XeenSaveFile::resolve(output,installation);
     // Reuse the native alias/reparse-aware path guard for the repository too.
@@ -410,7 +422,7 @@ void generateTestSave(const GameInstallation &installation,const std::string &pr
             nearby.lifecycle=XeenActorLifecycle::Present;nearby.accounted=false;
         }
     }
-    if(preset=="m79-playtest" || preset=="m80-playtest" || preset=="m80-arena" || preset=="m80-arena-maxed" || preset.rfind("m84-playtest-",0)==0) {
+    if(preset=="m79-playtest" || preset=="m80-playtest" || preset=="m80-arena" || preset=="m80-arena-maxed" || preset.rfind("m84-playtest-",0)==0 || preset.rfind("m85-playtest-",0)==0) {
         const auto map=candidate.camera.mapId;
         const auto actors=XeenActorApproach::actorsFromResources(inputs.maps.loadObjects(inputs.assets,map),inputs.resources.loadMonsterStatistics());
         auto &table=candidate.map(map).monsters;
@@ -420,6 +432,16 @@ void generateTestSave(const GameInstallation &installation,const std::string &pr
         if(preset.rfind("m84-playtest-",0)==0)for(auto &state:candidate.maps)if(state.monsters)for(auto &actor:state.monsters->slots) {
             actor.x=actor.y=-128;actor.lifecycle=XeenActorLifecycle::Defeated;actor.accounted=true;
         }
+    }
+    if(preset.rfind("m85-playtest-",0)==0) {
+        const auto map=candidate.camera.mapId;
+        const auto original=XeenActorApproach::actorsFromResources(inputs.maps.loadObjects(inputs.assets,map),inputs.resources.loadMonsterStatistics());
+        const unsigned witness=preset=="m85-playtest-trap"?8:35;
+        for(auto &state:candidate.maps)if(state.monsters)for(auto &actor:state.monsters->slots) {
+            actor.x=actor.y=-128;actor.lifecycle=XeenActorLifecycle::Defeated;actor.accounted=true;
+        }
+        const auto &actor=original.at(witness);
+        candidate.map(map).monsters->slots.at(witness)={actor.x,actor.y,actor.lifecycle,actor.status,false,-1};
     }
     if(preset=="m81-drops" || preset=="m81-fullpacks") {
         // Map 3's first two Barbarians (drop field 4, guaranteed) and first Ninja

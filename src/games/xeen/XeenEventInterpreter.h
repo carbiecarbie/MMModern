@@ -314,6 +314,10 @@ using XeenEventExecutionStepResult = std::variant<
 class XeenEventPublication;
 class XeenEventInterpreter {
 public:
+    // Journey supplies the last draw's attack slot and stages the DOS flag in
+    // its detached candidate. Other entry modes have no combat.
+    std::function<bool()> eventLineSkipped;
+    std::function<void(XeenWorld &,const XeenCamera &,bool)> eventDraw;
     std::function<void(unsigned)> fmEffect; // Optional presentation sink for detached Event execution.
     std::function<void(unsigned)> eventVoice;
 	static constexpr std::size_t kMaximumInstructions = 1024;

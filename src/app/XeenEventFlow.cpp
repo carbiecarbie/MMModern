@@ -115,7 +115,9 @@ InputContext XeenEventFlow::inputContext(const IndexedFrame::Presentation &origi
     // Non-modal Event work is still the exploration keyboard context. It may
     // suspend for animation or publication without clearing subsequent taps.
     if(panel==6 && !_presenter.blocksGameplay() && !_serviceEventOwner)panel=0;
-    const QueueContext context{_camera.mapId, panel, combat,
+    if(panel==9 && _encounter->state().phase()==XeenEncounterPhase::Engaged)panel=0;
+    // DOS combat entry retains the exploration keyboard queue.
+    const QueueContext context{_camera.mapId, panel,
         _quickFightMember ? 500+*_quickFightMember : _summary ? 400+unsigned(*_summary) : inventoryOpen() ? (_exchange ? 6 : _dialogError ? 5 : _statPopup ? 4 : _itemOption ? 3 : _sheet && !_itemsVisible ? 2 : 1) :
         _smithUi ? 100+unsigned(_smithUi->phase)*8+unsigned(_smithUi->mode)+(!_smithUi->feedback.empty()?1000:0) :
         _trainingUi ? 200+unsigned(_trainingUi->phase)+(!_trainingUi->feedback.empty()?1000:0) :
@@ -132,7 +134,7 @@ InputContext XeenEventFlow::inputContext(const IndexedFrame::Presentation &origi
     const bool queueable=worldQueueable || npcQueueable;
     bool ready = !_dispatching && !_fatal && !_saving && !_handoffPending && !_arrivalPending &&
         acceptsInputFrame(origin) && (!journey() || journeyInputCurrent(displayedInput()));
-    if(worldQueueable && _explorationPass)ready=false;
+    if(worldQueueable && _explorationPass && !combat)ready=false;
     bool navigationReady = ready && worldQueueable;
 	if(_treasureWait)ready=ready && _treasureWait->acquired && presentationNow()>=_ordinary.deadline;
     // Rest consumes an already armed countdown through sleeping chargeStep.
@@ -144,7 +146,7 @@ InputContext XeenEventFlow::inputContext(const IndexedFrame::Presentation &origi
         !_encounter->_castingSettlement && _encounter->boundary().quiet();
     if (worldQueueable && _encounter) {
         ready = ready && !_encounter->_busy && !_encounter->projectilesPending() &&
-            !_encounter->_shootIntent && !_encounter->_shoot && !_encounter->_castingSettlement &&
+            (combat || !_encounter->_shootIntent) && !_encounter->_shoot && !_encounter->_castingSettlement &&
             (combat || !_encounter->_regionalAutomatic) && !_encounter->_regionalWork &&
             _encounter->boundary().quiet();
         navigationReady = ready && (combat ? combat->phase()==XeenCombatPhase::PlayerReady &&
@@ -152,7 +154,8 @@ InputContext XeenEventFlow::inputContext(const IndexedFrame::Presentation &origi
             _encounter->journeyNavigationReady());
         if (combat) ready = ready && combat->phase() == XeenCombatPhase::PlayerReady &&
             _displayedCombat && combat->current(*_displayedCombat) && !_encounter->_scheduleAfterFrame;
-        else ready = ready && _encounter->journeyMutable();
+        else ready = ready && (_encounter->journeyMutable() ||
+            (_encounter->state().phase()==XeenEncounterPhase::Engaged && !_encounter->state().pending()));
     }
     if((_smithUi && (_smithUi->goodbye || _smithUi->animation.pendingIndex)) ||
         (_trainingUi && _trainingUi->animation.pendingIndex))ready=false;
@@ -294,9 +297,10 @@ std::optional<std::uint64_t> XeenEventFlow::nextPresentationDeadline() {
 }
 
 bool XeenEventFlow::partyDeathRequired() const noexcept {
-    if(!_encounter || _pending || _transition || _barrier || _portraitSequence)return false;
+    if(!_encounter || _pending || _transition || _barrier || _portraitSequence || _encounter->_postCombatCalls || _encounter->_regionalAutomatic)return false;
     for(const auto &portrait:_world.scenePresentation().portraits)
         if(portrait.damageTicks || portrait.spellFrame<4)return false;
+    if(_encounter->combat() && journey())return false; // Combat returns through its Event callers first.
     if((_encounter->combat() && _encounter->combat()->phase()==XeenCombatPhase::Defeat) ||
         _encounter->state().reason()==XeenEncounterStop::Defeat)return true;
     // Party::checkPartyDead, also reached after Event damage: wait for all
@@ -531,7 +535,7 @@ void XeenEventFlow::armExplorationPass() {
 }
 
 bool XeenEventFlow::explorationInputPending() const {
- return _explorationPass && !_death && !_pending && !_transition && !_barrier && !inventoryOpen() && !_summary &&
+ return _explorationPass && (!journey() || !_encounter->combat()) && !_death && !_pending && !_transition && !_barrier && !inventoryOpen() && !_summary &&
   !_castingUi && !_travelUi && !_entranceUi && !_spellItemsUi && !_smithUi && !_trainingUi &&
   (!journey() || (!_encounter->_needsRestNotice && !_encounter->_rest && !_encounter->monsterReward()));
 }
@@ -614,7 +618,7 @@ XeenPresentationUpdate XeenEventFlow::handleEventResponse(const PlayerAction &ac
  return update;
 }
 std::optional<IndexedFrame> XeenEventFlow::continueManualInput() {
- if(!_manualInput || _pending || _transition || _arrivalPending || _dispatching || _saving || _fatal || _handoffPending ||
+ if((journey() && (_encounter->combat() || _encounter->state().phase()==XeenEncounterPhase::Engaged)) || !_manualInput || _pending || _transition || _arrivalPending || _dispatching || _saving || _fatal || _handoffPending ||
     (journey() && _encounter->journeyEvent()))return {};
  auto action=std::move(_manualInput->action);_manualInput.reset();
  if(!action)return {};
@@ -640,22 +644,24 @@ bool XeenEventFlow::explorationEffectComplete() const {
   !_entranceUi && !_spellItemsUi && !inventoryOpen() && !_summary && !_smithUi && !_trainingUi &&
   !_portraitSequence && !_death && !_fatal &&
   (!journey() || (!_encounter->_needsRestNotice && !_encounter->monsterReward() && !_encounter->_rest && !_encounter->_castingSettlement && !_encounter->_itemUse &&
-   !_encounter->_regionalWork && !_encounter->_terrainFall && !_encounter->_shoot && !_encounter->_shootIntent &&
+   !_encounter->_regionalWork && !_encounter->_terrainFall && !_encounter->_shoot && (!_encounter->_shootIntent || _encounter->_postCombatCalls) && !_encounter->_shootDirectCombat &&
    !_encounter->projectilesPending() && !_encounter->journeyEvent()));
 }
 
 bool XeenEventFlow::prepareExplorationPass() {
- if(!_explorationPass || !explorationEffectComplete())return false;
+ if(!_explorationPass || !explorationEffectComplete() ||
+    (journey() && (_encounter->combat() || _encounter->_postCombatCalls)))return false;
  const auto sample=_world.sampleCell(_camera.mapId,_camera.x,_camera.y);
  const bool flagged=sample && (sample->cell->rawAttributes&kXeenAutomaticEventFlag);
  if(journey()) {
   if(flagged) {
    _encounter->_regionalAutomatic=true;
+   _encounter->_regionalAutomaticKind=XeenEncounterFlow::EventCallKind::Pass;
    _encounter->_regionalAutomaticAddress=XeenCombatLocation{_camera.mapId,_camera.x,_camera.y,_camera.direction};
   }
-  // The mark now owns the obligation, including its combat deferral.
+  // The mark now owns this call, which runs before draw-origin combat.
   _explorationPass=false;
-  if(!flagged)_encounter->_journeyCapture->inputPassPending=false;
+  if(!flagged && _encounter->state().phase()!=XeenEncounterPhase::Engaged)_encounter->_journeyCapture->inputPassPending=false;
   return false;
  }
  _explorationPass=false;
@@ -665,9 +671,13 @@ bool XeenEventFlow::prepareExplorationPass() {
 
 IndexedFrame XeenEventFlow::completeExplorationInput() {
  requireCurrentOwners();
- if(_dispatching || _saving || _fatal || _explorationPass)throw std::logic_error("Exploration publication is unavailable");
- armExplorationPass();
+ if(_dispatching || _saving || _fatal)throw std::logic_error("Exploration publication is unavailable");
  DispatchScope dispatch(_dispatching);
+ // A panel visit inside combat is nested in the interrupted input. Its
+ // close (or refused Save) cannot add an exploration pass to that input.
+ if(journey() && _encounter->combat())return renderEncounter();
+ if(_explorationPass)throw std::logic_error("Exploration publication is unavailable");
+ armExplorationPass();
  if(journey()) {prepareJourneyTransition();return renderEncounter();}
  prepareExplorationPass();return frameCopy();
 }
@@ -681,30 +691,63 @@ void XeenEventFlow::prepareJourneyTransition() {
   return;
  }
  if (_encounter->combat() && (_encounter->combat()->phase()==XeenCombatPhase::Victory ||
-  _encounter->combat()->phase()==XeenCombatPhase::Disengaged)) {
+  _encounter->combat()->phase()==XeenCombatPhase::Disengaged ||
+  _encounter->combat()->phase()==XeenCombatPhase::Defeat)) {
   if(_encounter->projectilesPending()) return;
+  const bool defeated=_encounter->combat()->phase()==XeenCombatPhase::Defeat;
+  const bool earlyDefeat=defeated && _encounter->combat()->result().operation==XeenCombatOperation::BeginCombat;
   if(!_encounter->retireJourney(_encounter->ticket())) throw std::runtime_error("Journey retirement failed");
-  _queueContext.reset(); // Combat retirement, even if the next attachment reuses storage.
+  _encounter->_postCombatCalls=true;
+  _encounter->_journeyCapture->inputPassPending=true;
+  if(!earlyDefeat)clearManualInput(0x2eb73); // The early no-active-character return bypasses this prefix.
+  _manualInput.reset();
+  if(defeated){_explorationPass=false;_encounter->_shootIntent=false;} // No surviving input after death; callers remain.
+  _queueContext.reset();
   _displayedCombat.reset();
  }
- if(!_encounter->combat() && _world.sessionState().journeyActivity()==XeenJourneyActivity::Attachment) {
-  _queueContext.reset(); // New combat incarnation.
-  closeInventory();
-  if(!_encounter->attachJourney(_encounter->ticket(),prepareJourneySprites)) throw std::runtime_error("Journey attachment failed");
+ if(!_encounter->combat() && _encounter->_postCombatCalls && !_encounter->_regionalAutomatic &&
+    !_encounter->journeyEvent() && !_encounter->monsterReward()) {
+  // Normal combat attempts delivery before either Event caller (0x2eb85);
+  // the ordinary visible-slot gate can leave the treasure staged.
+  if(_encounter->beginMonsterReward())return;
+  const auto cell=_world.sampleCell(_camera.mapId,_camera.x,_camera.y);
+  const bool caller4=_encounter->_combatDoorText && cell && (cell->cell->rawAttributes&kXeenAutomaticEventFlag);
+  _encounter->_combatDoorText=false;
+  const bool caller3=!caller4 && _encounter->_combatDrawCaller && _program.eventCallSkipped;
+  if(caller4 || caller3) {
+   _encounter->_regionalAutomatic=true;
+   _encounter->_regionalAutomaticKind=caller4?XeenEncounterFlow::EventCallKind::Caller4:XeenEncounterFlow::EventCallKind::Caller3;
+   _encounter->_regionalAutomaticAddress=XeenCombatLocation{_camera.mapId,_camera.x,_camera.y,_camera.direction};
+   if(caller3)_encounter->_combatDrawCaller=false;
+  } else {
+   _encounter->_postCombatCalls=false;
+   // A caller (for example a deferred trap) can defeat a victorious party.
+   // Finish the callers, but do not resume the deceased input's suffix/pass.
+   if(_encounter->state().reason()==XeenEncounterStop::Defeat){_explorationPass=false;_encounter->_shootIntent=false;}
+   if(!_explorationPass)_encounter->_journeyCapture->inputPassPending=false;
+  }
  }
+ if(_encounter->_regionalAutomatic && _encounter->_regionalAutomaticKind==XeenEncounterFlow::EventCallKind::Pass &&
+    _explorationPass && explorationEffectComplete())_explorationPass=false;
  // The original runs the cell's Events before ordinary delivery (0xd1a5, 0xd1b7);
  // delivery waits while an Event candidate is in progress.
- if(!_explorationPass && explorationEffectComplete() && !_encounter->combat() && _encounter->_regionalAutomatic && !_encounter->_regionalWork && !_encounter->_shoot &&
+ if((!_explorationPass || _encounter->_regionalAutomaticKind!=XeenEncounterFlow::EventCallKind::Pass) && explorationEffectComplete() && !_encounter->combat() && _encounter->_regionalAutomatic && !_encounter->_regionalWork && !_encounter->_shoot &&
   _encounter->_boundary.quiet() &&
-  !_encounter->monsterReward() && !_encounter->state().pending() && _encounter->state().phase()==XeenEncounterPhase::Exploring) {
+  !_encounter->monsterReward() && !_encounter->state().pending() &&
+  (_encounter->state().phase()!=XeenEncounterPhase::SupportStopped || _encounter->_regionalAutomaticKind!=XeenEncounterFlow::EventCallKind::Pass)) {
   _passEvent=true;
   _encounter->beginJourneyEvent();_journeyEventLayers=true;
   journeyEventWork([&] {
    drive(beginDetachedEvent(xeenRegionalInteraction(_encounter->_journeyEvents,_camera),true),true);
   },true);
  }
+ if(!_encounter->combat() && !_encounter->_regionalAutomatic && !_encounter->_postCombatCalls &&
+    !_encounter->journeyEvent() && !_pending && !_transition && _world.sessionState().journeyActivity()==XeenJourneyActivity::Attachment) {
+  closeInventory();
+  if(!_encounter->attachJourney(_encounter->ticket(),prepareJourneySprites)) throw std::runtime_error("Journey attachment failed");
+ }
  if(!_explorationPass && !_encounter->_regionalAutomatic && !_transition)_encounter->beginMonsterReward();
- if(_encounter->_shootIntent && !_encounter->state().pending() && !_encounter->_regionalWork && !_encounter->projectilesPending()) _encounter->beginShoot();
+ if(_encounter->_shootIntent && !_encounter->combat() && !_encounter->_postCombatCalls && !_encounter->_regionalAutomatic && !_encounter->state().pending() && !_encounter->_regionalWork && !_encounter->projectilesPending()) _encounter->beginShoot();
 }
 
 void XeenEventFlow::prepareTerrainTransition() {
@@ -1045,6 +1088,7 @@ std::optional<IndexedFrame> XeenEventFlow::mrWizard() {
 	return renderEncounter();
 }
 IndexedFrame XeenEventFlow::renderEncounter(bool report, bool cosmeticInput, bool reconstruct) {
+    syncDoorTextInput(textPromptOpen());
     if(!_eventPublication && _explorationPass)prepareJourneyTransition();
     syncSpellItems();
     if(_encounter && !_encounter->_rest &&
@@ -1255,6 +1299,12 @@ XeenEventFlow::XeenEventFlow(XeenProgramState &program, XeenWorld &world, XeenEv
 	_ordinary{0, 0, camera.mapId, camera.direction, false},
 	_compose(std::move(compose)) {
     dialogText=text;
+    _presenter.sceneLabelsVisible=[this] {
+        if(!this->journey())return true;
+        const bool up=_transition && _transition->eventFlags?_transition->doorText:_encounter->_doorTextUp;
+        const bool slot=_transition && _transition->eventFlags?_transition->slot0:_encounter->_drawnSlot0;
+        return up && !slot && !textPromptOpen();
+    };
     _npcRandomFrame=std::move(randomFrame);
 	if (journey || world.sessionState().journey()) {
 		if (!encounterCompose) throw std::invalid_argument("Journey requires exclusive presentation setup");
@@ -1283,6 +1333,15 @@ IndexedFrame XeenEventFlow::refresh(bool reconstruct) {
 	if (reconstruct) invalidateInventorySelection();
 	refreshScene(reconstruct, OrdinaryCause::None);
 	return frameCopy();
+}
+
+void XeenEventFlow::syncDoorTextInput(bool active) {
+    if(!journey())return;
+    auto &saved=_transition && _transition->eventFlags?_transition->textInputDoorText:_textInputDoorText;
+    auto &flag=_transition && _transition->eventFlags?_transition->doorText:_encounter->_doorTextUp;
+    // The DOS text/numeric reader saves 3066 on its stack and restores it on return.
+    if(active && !saved){saved=flag;flag=false;}
+    else if(!active && saved){flag=*saved;saved.reset();}
 }
 
 bool XeenEventFlow::textPromptOpen() const {
@@ -1511,7 +1570,12 @@ template<class Result> IndexedFrame XeenEventFlow::drive(Result result, bool aut
 
 void XeenEventFlow::checkTransitionCandidate() {
 	if (!_transition || !_transition->guard) return;
-	try { _transition->guard->check(); }
+	try {
+        _transition->guard->check();
+        if(_transition->eventFlags && (_program.eventCallSkipped!=_transition->skippedBase ||
+            _encounter->_doorTextUp!=_transition->doorTextBase))
+            throw std::logic_error("Stale Event dispatch flags");
+    }
 	catch (...) { _encounter->journeySavePreimage().failed=true; throw; }
 }
 
@@ -1526,6 +1590,19 @@ XeenEventSystem XeenEventFlow::detachedEventResources() {
     });
     result._interpreter.fmEffect=[this](unsigned id){_encounter->fmEffect(id);};
     result._interpreter.eventVoice=[this](unsigned index){_encounter->eventVoice(index);};
+    result._interpreter.eventLineSkipped=[this] {
+        _eventPublication->check();
+        auto &work=*_transition;
+        work.skipped=work.slot0;
+        return work.skipped;
+    };
+    result._interpreter.eventDraw=[this](XeenWorld &world,const XeenCamera &camera,bool label) {
+        _eventPublication->check();
+        auto &work=*_transition;
+        if(label)work.doorText=true; // DOS 0x26f7a.
+        work.slot0=bool(world.prepareTransitionArrival(camera).slots[0]);
+        _eventPublication->check();
+    };
     return result;
 }
 
@@ -1538,6 +1615,10 @@ XeenManualEventResult XeenEventFlow::beginDetachedEvent(XeenRegionalInteraction 
 	_eventPublication->script(_events.scriptForMap(_camera.mapId).file());
 	auto work=std::make_unique<TransitionCandidate>();
 	work->kind=kind;work->automatic=automatic;
+    work->eventFlags=true;
+    work->skippedBase=work->skipped=_program.eventCallSkipped;
+    work->doorTextBase=work->doorText=_encounter->_doorTextUp;
+    work->slot0=_encounter->_drawnSlot0;
 	work->world=_world.transitionCandidate();
 	work->camera=_camera;work->flags=_flags;
 	work->initialCamera=_camera;work->initialFlags=_flags;
@@ -1558,7 +1639,7 @@ XeenManualEventResult XeenEventFlow::beginDetachedEvent(XeenRegionalInteraction 
 		if(!automatic)return events.runManualEvent(*_transition->world,_transition->party,_transition->camera,
 			_transition->flags,nullptr);
 		auto result=events.runAutomaticEvent(*_transition->world,_transition->party,_transition->camera,
-			_transition->flags,nullptr);
+            _transition->flags,nullptr,_encounter->_regionalAutomaticKind!=XeenEncounterFlow::EventCallKind::Caller3);
 		if(const auto *done=std::get_if<XeenAutomaticEventCompleted>(&result))
 			return XeenManualEventCompleted{done->instructionCount,done->cameraChanged,done->flagsChanged,done->inputClearCount,done->inputClearSite};
 		if(const auto *failed=std::get_if<XeenEventExecutionError>(&result))return *failed;
@@ -1627,6 +1708,11 @@ void XeenEventFlow::prepareDetachedResult(const XeenManualEventResult &result) t
             work.flags=suspended->state.workingGameFlags;
             work.guard->adoptMutationBoundary();
             _eventPublication->publishCandidate(_world,_party,_camera,_flags,*work.world,*work.guard);
+            if(work.eventFlags) {
+                _program.eventCallSkipped=work.skipped;work.skippedBase=work.skipped;
+                _encounter->_doorTextUp=work.doorText;work.doorTextBase=work.doorText;
+                _encounter->_drawnSlot0=work.slot0;
+            }
 			_transition.reset();
 		}
 		return;
@@ -1655,7 +1741,7 @@ void XeenEventFlow::prepareDetachedResult(const XeenManualEventResult &result) t
 		throw std::logic_error("Event completion metadata or prelude boundary changed");
 	// perform Space calls doStepCode once after the whole manual Event chain;
 	// an automatic Event was already reached through movement's arrival suffix.
-	if(!work.automatic && _manualInput && _manualInput->action && std::holds_alternative<WaitAction>(*_manualInput->action) && !work.entrance && !work.terrainDone) {
+	if(!work.automatic && _manualInput && _manualInput->action && std::holds_alternative<WaitAction>(*_manualInput->action) && !work.entrance && !work.terrainDone && !work.slot0) {
         if(!work.manualStepDone && !serviceManualStep())return;
 		if(!work.terrain) {
 			XeenConsequenceCharacters characters;XeenConsequenceInputs inputs;
@@ -1751,6 +1837,12 @@ void XeenEventFlow::prepareDetachedResult(const XeenManualEventResult &result) t
 	// Storage and the destination frame are ready. No provider or callback follows
 	// until all owner writes and the new frame authority have been installed.
 	_eventPublication->publishCandidate(_world,_party,_camera,_flags,*work.world,candidateGuard);
+    if(work.eventFlags) {
+        _program.eventCallSkipped=work.skipped;work.skippedBase=work.skipped;
+        _encounter->_doorTextUp=work.doorText;work.doorTextBase=work.doorText;
+    }
+    _encounter->_drawnSlot0=bool(arrival.slots[0]);
+    if(work.manualStep){_encounter->_doorTextUp=false;work.doorTextBase=false;}
     if(work.manualStep)_encounter->settleManualStep(work.manualStep->result.needsRest || work.terrain->needsRest);
 	if(exploration) {
 		_encounter->publishJourneyExploration(*exploration,*retainedExploration);
@@ -1801,7 +1893,9 @@ IndexedFrame XeenEventFlow::journeyEventWork(const std::function<void()> &operat
 			catch(const std::logic_error &){_encounter->journeySavePreimage().failed=true;throw;}
 		}
 		XeenEventPublication publication(_encounter->journeySavePreimage(),_encounter->_journeyEvents,[&] {
-			if (!_dispatching || !_encounter->journeyEvent() || !_encounter->current(entry))
+			if(_transition && _transition->eventFlags && (_program.eventCallSkipped!=_transition->skippedBase ||
+                _encounter->_doorTextUp!=_transition->doorTextBase))throw std::logic_error("Stale Event dispatch flags");
+            if (!_dispatching || !_encounter->journeyEvent() || !_encounter->current(entry))
 				throw std::logic_error("Stale Journey event continuation");
 		},beforeRewardStaging,&_regionalExecutedRecords);
         publication.fmEffect=[this](unsigned id){_encounter->fmEffect(id);};
@@ -1856,7 +1950,12 @@ IndexedFrame XeenEventFlow::journeyEventWork(const std::function<void()> &operat
 		_serviceEventContinuation.reset();_serviceEventOwner=nullptr;
 		if (_arrivalPending) _encounter->publishArrival(_encounter->_result.view);
         _encounter->endJourneyEvent();
-        if(_passEvent) {_passEvent=false;_encounter->_journeyCapture->inputPassPending=false;}
+        if(_passEvent) {
+            _passEvent=false;
+            if(!_encounter->_postCombatCalls && !_explorationPass &&
+                _encounter->state().phase()!=XeenEncounterPhase::Engaged)
+                _encounter->_journeyCapture->inputPassPending=false;
+        }
         if(_manualInput && !_manualInput->action)_manualInput.reset();
     }
     if (_arrivalPending) prepareJourneyTransition();
@@ -2061,6 +2160,7 @@ XeenPresentationUpdate XeenEventFlow::presentPendingEvent() {
     if(request.response==XeenPresentationResponseRequirement::YesNo && _npcSequence)
         request.npcBodyHidden=_npcSequence->bodyHidden;
     auto presented=_presenter.present(_frame,request,retainedPage);
+    syncDoorTextInput(textPromptOpen());
     clearManualPresentationInput();
     if(request.kind==XeenPresentationKind::NpcAcknowledgment && _npcSequence) {
         _presenter.retainNpcTiming(_npcSequence->timing);
@@ -2413,7 +2513,7 @@ bool XeenEventFlow::pulseServiceArt(ServiceArtState &state, IndexedFrame &art) {
 std::optional<IndexedFrame> XeenEventFlow::updatePresentation() {
     requireCurrentOwners();
     if(auto continuation=continueManualInput())return continuation;
-    if(_explorationPass && explorationEffectComplete() && !_dispatching && !_saving && !_handoffPending) {
+    if(_explorationPass && (!journey() || !_encounter->combat()) && explorationEffectComplete() && !_dispatching && !_saving && !_handoffPending) {
         DispatchScope dispatch(_dispatching);
         if(journey()) {prepareJourneyTransition();return renderEncounter();}
         prepareExplorationPass();return frameCopy();
@@ -2660,7 +2760,7 @@ std::optional<IndexedFrame> XeenEventFlow::updatePresentation() {
 		// prompt's input, as the original keeps polling the same buttons.
 		const bool castingCosmetic = castingBefore && !changed && _castingUi && _encounter->castingActive() &&
 			_encounter->current(beforeIdle);
-		if (changed || ordinary) return renderEncounter((hadJourneyCombat && !_encounter->combat()),
+		if (changed || ordinary || !_encounter->current(beforeIdle)) return renderEncounter((hadJourneyCombat && !_encounter->combat()),
 			combatCosmetic || castingCosmetic || (quietBefore && _encounter->journeyMutable() && _encounter->current(beforeIdle)));
 		return std::nullopt;
 	}
@@ -2717,7 +2817,7 @@ bool XeenEventFlow::resumePending(std::uint64_t generation, XeenPresentationResp
 		try {if(!_regionalEventContinuation)throw std::logic_error("Regional suspension preimage absent");_regionalEventContinuation->check(_pending->state);}
 		catch(const std::logic_error &){_encounter->journeySavePreimage().failed=true;throw;}
 	}
-	try { _frame = _presenter.finishPresentation(); }
+	try { _frame = _presenter.finishPresentation();syncDoorTextInput(textPromptOpen()); }
 	catch (const std::exception &e) { presentationFailed(e); return true; }
 	// DAT 0x25c94: final ordinary dismissal stops CD. Passive mode 2 returns
 	// through 0x25ac4 without this stop; pages never resume the interpreter.
@@ -3044,7 +3144,8 @@ IndexedFrame XeenEventFlow::handleExplorationAction(const PlayerAction &physical
 				return renderEncounter(true);
 			}
             if (const auto *interaction=std::get_if<InteractionAction>(&action)) {
-                if (!_encounter->journeyQuiet()) return frameCopy();
+                if (!_encounter->journeyQuiet() && (_encounter->combat() || _encounter->state().pending() ||
+                    _encounter->state().phase()!=XeenEncounterPhase::Engaged)) return frameCopy();
                 _eventInputClears=0;
                 _manualInput=ManualInput{interaction->openPanel?std::optional<PlayerAction>{ControlPanelAction{}}:
                     interaction->wait?std::optional<PlayerAction>{WaitAction{}}:std::nullopt};

@@ -85,7 +85,7 @@ XeenEventScript XeenEventSystem::scriptForMap(XeenMapIdentity mapId) {
 
 XeenAutomaticEventResult XeenEventSystem::runAutomaticEvent(
 		XeenWorld &world, XeenPartyState &partyState, XeenCamera &camera,
-		XeenGameFlags &gameFlags, const XeenEventPublication *publication) {
+		XeenGameFlags &gameFlags, const XeenEventPublication *publication, bool requireCellFlag) {
 	if (world.sessionState().journey() && !publication) throw std::logic_error("Journey dispatch requires live event authority");
 	if (publication) publication->check();
 	if (!eventCameraAdmitted(world,camera)) {
@@ -103,7 +103,7 @@ XeenAutomaticEventResult XeenEventSystem::runAutomaticEvent(
 			std::string("failed to load automatic-event map: ") + exception.what(),
 			camera);
 	}
-	if (!hasAutomaticTrigger(*sampled->geometry, camera.x%16, camera.y%16))
+	if (requireCellFlag && !hasAutomaticTrigger(*sampled->geometry, camera.x%16, camera.y%16))
 		return XeenAutomaticEventNoTrigger{};
 
 	const XeenCamera beforeCamera = camera;

@@ -300,18 +300,20 @@ void runNoticeFits(Source &s,const std::string &notice) {
  rendered=XeenTextRenderer(font).render(rendered.pages.front(),notice.substr(split+2),options);
  if(rendered.pages.size()!=1)throw std::runtime_error("M34 original-font roster overflow: "+notice.substr(split+2));
 }
-void runSignSupersession(Source &s) {
+void runSignRetirement(Source &s) {
+ // M85 Part 0: the enclosing Event call finishes before combat; its old
+ // address is observation only. EventFlow schedules callers at the landing.
  auto setup=runAuthorityFixture(s);setup.camera={23,5,8,XeenDirection::North};
  setup.map(23).monsters->slots[9].x=5;setup.map(23).monsters->slots[9].y=9;
  Domain d(s,setup);bool automatic=false;auto &c=runAuthorityReady(d,&automatic);
  check(automatic,"Original sign contact retains automatic dispatch obligation");
  runAuthorityPublish(c);const auto finish=c.service(c.ticket());
- check(finish.phase==XeenCombatPhase::Disengaged && finish.originAutomaticSuperseded && finish.origin &&
-  finish.origin->x==5 && finish.origin->y==9 && finish.origin->direction==XeenDirection::North,"Finish explicitly supersedes original sign address");
+ check(finish.phase==XeenCombatPhase::Disengaged && finish.origin &&
+  finish.origin->x==5 && finish.origin->y==9 && finish.origin->direction==XeenDirection::North,"Finish retains the original sign observation");
  check(d.flow->retireJourney(d.flow->ticket()),"Sign-origin escape retires");d.present();
- check(d.flow->canSave() && d.world.sessionState().journeyActivity()!=XeenJourneyActivity::Event,"Old sign obligation cannot dispatch at relocated destination");
- check(d.flow->journeyAction(d.flow->ticket(),XeenEncounterAction::Right).outcome==XeenEncounterOutcome::Accepted,"Fresh navigation is responsive after sign supersession");d.present();
- std::cout<<"ARTIFICIAL original sign contact -> Run -> explicit origin-address supersession -> fresh navigation PASS\n";
+ check(d.flow->canSave() && d.world.sessionState().journeyActivity()!=XeenJourneyActivity::Event,"Headless retirement does not replay the old sign call");
+ check(d.flow->journeyAction(d.flow->ticket(),XeenEncounterAction::Right).outcome==XeenEncounterOutcome::Accepted,"Fresh navigation is responsive after sign retirement");d.present();
+ std::cout<<"ARTIFICIAL original sign contact -> Run -> headless retirement -> fresh navigation PASS\n";
 }
 void runAuthorityControls(Source &s) {
  const auto fixture=runAuthorityFixture(s);
@@ -402,4 +404,4 @@ void runAuthorityControls(Source &s) {
  }
  std::cout<<"ARTIFICIAL M34 Run/finish probe failures, reentrance, stale tickets, metadata/cache and occupied retirement controls PASS\n";
 }
-void reviewControls(Source &s){runSignSupersession(s);runAuthorityControls(s);playerRayControls(s);refusedPendingShoot(s);chargedWait(s);stagedVolleyDefeat(s);poisonInitiative(s);terminalNotices(s);zeroHitVolley(s);}
+void reviewControls(Source &s){runSignRetirement(s);runAuthorityControls(s);playerRayControls(s);refusedPendingShoot(s);chargedWait(s);stagedVolleyDefeat(s);poisonInitiative(s);terminalNotices(s);zeroHitVolley(s);}

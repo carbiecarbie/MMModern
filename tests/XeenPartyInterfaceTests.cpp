@@ -579,8 +579,8 @@ void indoorQuickRun(Inputs &in) {
  check(!f.flow->mrWizard() && f.w.sessionState().journeyRandom()==rng,"Mr Wizard is not admitted in combat yet");
  const auto &g=f.w.map(28).geometry;auto run=f.c;run.x=std::int8_t(std::uint8_t(g.runX));run.y=std::int8_t(std::uint8_t(g.runY));
  check(run.x!=f.c.x || run.y!=f.c.y,"Vertigo run position differs from the fight");
- // Vertigo's run position (18,4) holds an East-facing automatic door-text Event: Run facing East refuses.
- {auto east=run;east.direction=XeenDirection::East;check(!xeenRunDestination(f.w,in.city,east) && xeenRunDestination(f.w,in.city,run),"Vertigo Run admission follows the landing Event's facing");}
+ // M85 Part 0: the landing Event is handled by the post-combat callers, never a Run refusal.
+ {auto east=run;east.direction=XeenDirection::East;check(xeenRunDestination(f.w,in.city,east) && xeenRunDestination(f.w,in.city,run),"Vertigo Run admits both facings at the Event landing");}
  // Every member flees by Quick Fight Run; the party lands on Vertigo's own run position.
  for(unsigned n=0;n<2000 && f.flow->encounter()->combat();++n) {
   const auto *combat=f.flow->encounter()->combat();

@@ -140,6 +140,7 @@ bool XeenEventFlow::serviceBarrier() {
 	_encounter->guardCallback(entry,[&]{now=_clock();});check();
 	if(now>std::numeric_limits<std::uint64_t>::max()-100)throw std::overflow_error("Barrier animation clock exhausted");
 	_encounter->publishBarrier(entry,*work.world,*work.guard,rule,work.context,now,work.dailyReset);
+    if(rule.moved)_encounter->_doorTextUp=false; // Movement completion; stationary Bash retains it.
 
 	const bool pause=work.bash && !rule.moved && rule.portraitMask;
 	if(work.needsRest)_encounter->_needsRestNotice=true;

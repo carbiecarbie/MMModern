@@ -10,6 +10,7 @@
 #include "games/xeen/XeenJumpRules.h"
 #include "games/xeen/XeenEventTrigger.h"
 #include "games/xeen/XeenFmEffects.h"
+#include "games/xeen/XeenIndoorScene.h"
 #include <limits>
 #include <algorithm>
 #include <stdexcept>
@@ -303,11 +304,11 @@ void XeenEncounterFlow::closeJourney() noexcept {
 }
 bool XeenEncounterFlow::journeyQuiet() const noexcept {
 	const auto capture=_world._journeyCapture.lock();
-	return _journey && !_terrainFall && !_rest && !_castingSettlement && !_regionalAutomatic && !_shootIntent && !projectilesPending() && !_busy && !_combat && !_failure && _boundary.quiet() && current(ticket()) &&
+	return _journey && !_postCombatCalls && !_shootDirectCombat && !_terrainFall && !_rest && !_castingSettlement && !_regionalAutomatic && !_shootIntent && !projectilesPending() && !_busy && !_combat && !_failure && _boundary.quiet() && current(ticket()) &&
 		capture && capture->current(_party,_camera);
 }
 bool XeenEncounterFlow::journeyMutable() const noexcept {
-	return _journey && !_terrainFall && !_rest && !_castingSettlement && !_regionalAutomatic && !_shootIntent && !projectilesPending() && !_busy && !_combat && !_failure && current(ticket()) &&
+	return _journey && !_postCombatCalls && !_shootDirectCombat && !_terrainFall && !_rest && !_castingSettlement && !_regionalAutomatic && !_shootIntent && !projectilesPending() && !_busy && !_combat && !_failure && current(ticket()) &&
 		_state.pending() == 0 && _state.phase() == XeenEncounterPhase::Exploring &&
 		_world.sessionState().journeyActivity() == XeenJourneyActivity::Quiet;
 }
@@ -600,7 +601,7 @@ bool XeenEncounterFlow::serviceItemUse() {
 		_journeyPreimage->adoptJourneyCoordination();
 		_boundary.release(XeenCombatBoundary::Work::ItemUse,_itemUse->lease);
 		if(_itemUse->automaticArrival && _state.phase()!=XeenEncounterPhase::SupportStopped) {
-			_regionalAutomatic=true;_regionalAutomaticAddress=XeenCombatLocation{_camera.mapId,_camera.x,_camera.y,_camera.direction};
+			_regionalAutomatic=true;_regionalAutomaticKind=EventCallKind::Pass;_regionalAutomaticAddress=XeenCombatLocation{_camera.mapId,_camera.x,_camera.y,_camera.direction};
 		}
 		_itemUse.reset();
 		retainJourney();return true;
@@ -633,7 +634,10 @@ void XeenEncounterFlow::beginJourneyEvent(bool barrier) {
 		_regionalAutomaticAddress->x!=_camera.x || _regionalAutomaticAddress->y!=_camera.y || _regionalAutomaticAddress->direction!=_camera.direction))
 		throw std::logic_error("Automatic Journey event address changed");
 	const bool ready=_regionalAutomatic ? !_busy && !_combat && !_failure && _boundary.quiet() && current(ticket()) &&
-		_state.pending()==0 && _state.phase()==XeenEncounterPhase::Exploring : journeyQuiet();
+		_state.pending()==0 && (_state.phase()!=XeenEncounterPhase::SupportStopped ||
+            _regionalAutomaticKind!=EventCallKind::Pass) : (journeyQuiet() ||
+            (!_busy && !_combat && !_failure && _boundary.quiet() && current(ticket()) &&
+             !_state.pending() && _state.phase()==XeenEncounterPhase::Engaged));
 	if (!ready || !journeyCapacity() || (barrier && _regionalAutomatic))
 		throw std::logic_error("Journey objective admission unavailable");
 	if (!_regionalAutomatic) retireCastingFeedback();
@@ -820,6 +824,11 @@ bool XeenEncounterFlow::prepareJourneyFrame(const Ticket &entry, const std::func
 		_journeyPreimage->adoptMutationBoundary();
 		XeenRestoreGuard::Providers providers(*_journeyPreimage,_world);
 		compose(); _journeyPreimage->check();
+        const auto &actors=_world.sessionState().regionalActors(_camera.mapId);
+        const auto view=_world.map(_camera.mapId).geometry.isOutdoors()?XeenActorApproach::classify(actors,_camera):
+            XeenIndoorScene().classifyActors(_world,_camera,actors);
+        _journeyPreimage->check();
+        if(!journeyEvent())_drawnSlot0=bool(view.slots[0]);
 		_world.scenePresentation().completeLightingDraw();
 		_journeyPreimage->adoptMutationBoundary();
 		if (!current(entry)) throw std::logic_error("Stale Journey frame preparation");
@@ -894,9 +903,10 @@ XeenEncounterResult XeenEncounterFlow::advanceJourney(const Ticket &entry, std::
 		if(result.terrainFall)_terrainFall=*result.terrainFall;
 		if(result.terrainPortrait<7)for(auto owner:_party.party.activeRosterIds())
 			_world.scenePresentation().portraitDamage(owner,result.terrainPortrait,_lastTime);
-		if(action) { _itemUseResult.reset(); retireCastingFeedback(); }
+		if(action) { _doorTextUp=false; _itemUseResult.reset(); retireCastingFeedback(); }
 		if(result.needsRest)_needsRestNotice=true;
 		if(result.consequences) observeRanged(result.consequences);
+		if(result.automaticEvent) _regionalAutomaticKind=EventCallKind::Pass;
 		if(result.automaticEvent) _regionalAutomaticAddress=XeenCombatLocation{_camera.mapId,_camera.x,_camera.y,_camera.direction};
 		_regionalAutomatic = _regionalAutomatic || result.automaticEvent;
 		s._journeyActivity = _state.phase() == XeenEncounterPhase::Engaged ? XeenJourneyActivity::Attachment :
@@ -1006,7 +1016,7 @@ bool XeenEncounterFlow::attachJourney(const Ticket &entry, const std::function<v
 	if (!_journey || _busy || _combat || !current(entry) || !_boundary.quiet() ||
 		_world.sessionState().journeyActivity() != XeenJourneyActivity::Attachment) return false;
 	if (!journeyCapacity()) return false;
-	_shootIntent=false; // Contact consumes a pending exploration Shoot intent.
+	const bool drawCaller=!_shootDirectCombat; // Intent alone belongs to the preliminary draw (0xd56f).
 	const auto boundaryGeneration = _boundary.generation();
 	const auto checkBoundary = [this, boundaryGeneration] {
 		if (_boundary.generation() != boundaryGeneration) throw std::logic_error("stale Journey attachment boundary");
@@ -1035,6 +1045,9 @@ bool XeenEncounterFlow::attachJourney(const Ticket &entry, const std::function<v
         _combat->inheritResources(_combat->ticket(),*_journeyPreimage);
 		++_generation;
 		if (!acceptCombatResult(_combat->beginCombat(_combat->ticket()))) return false;
+        _combatDrawCaller=drawCaller;
+        _shootIntent=_shootIntent || _shootDirectCombat;_shootDirectCombat=false;
+        _combatDoorText=_doorTextUp;_doorTextUp=false; // DOS 0x2e62d..0x2e634.
 		// Only this immediate destination incarnation may present the retained finish.
 		if (carryFinish) _disengagementNoticeCombat = _combat->ticket();
 		observeCombat(); _deadline.reset(); _frame = 0; _appearanceStep = 0;
@@ -1061,14 +1074,20 @@ bool XeenEncounterFlow::retireJourney(const Ticket &entry) {
 		std::vector<XeenExploredTile> exploration;
 		{XeenRestoreGuard::Providers providers(*prepared,_world);
 			exploration=_world.explorationAfterStep(_party,_camera);prepared->check();}
-		prepared->s.assignExploration(exploration);
+        XeenActorView exitView;
+        {XeenRestoreGuard::Providers providers(*prepared,_world);
+            const auto &actors=_world.sessionState().regionalActors(_camera.mapId);
+            exitView=_world.map(_camera.mapId).geometry.isOutdoors()?XeenActorApproach::classify(actors,_camera):
+                XeenIndoorScene().classifyActors(_world,_camera,actors);
+            prepared->check();}
 		const bool disengaged=_combat->phase()==XeenCombatPhase::Disengaged;
-		if(disengaged && _regionalAutomatic && !_combat->result().originAutomaticSuperseded) throw std::logic_error("Finish did not supersede the origin event");
 		if(disengaged) _combat->retireDisengagedJourney(*entry.combat,_state);
 		else _combat->retireJourney(*entry.combat,_state);
         if(disengaged)_world.scenePresentation().markLightingStep();
-		if(disengaged) { _journeyCapture->inputPassPending=false; _regionalAutomatic=false;_regionalAutomaticAddress.reset();_combatObservation=_combat->result(); }
-		_retiredCombatResult = _combat->result(); _combat.reset(); ++_generation;
+		if(disengaged) _combatObservation=_combat->result();
+		_drawnSlot0=bool(exitView.slots[0]);_result.view=exitView;
+        prepared->s.assignExploration(exploration);
+        _retiredCombatResult = _combat->result(); _combat.reset(); ++_generation;
 		_disengagementNoticeRevision = disengaged ? std::optional<std::uint64_t>{_state.revision()} : std::nullopt;
 		_disengagementNoticeCombat.reset();
 		// The origin observations have completed presentation before retirement.

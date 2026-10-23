@@ -1,5 +1,8 @@
 #include "XeenRegionalSaveGameplayTestSupport.h"
+#include "XeenMonsterTestAccess.h"
 #include "games/xeen/XeenEventInterpreter.h"
+#include "games/xeen/XeenJourneyCapture.h"
+#include "games/xeen/XeenEventTrigger.h"
 #include <iostream>
 #define SDL_MAIN_HANDLED
 #include <SDL.h>
@@ -8,6 +11,39 @@
 using namespace gameplay_test;
 namespace mmodern {
 struct XeenEventDispatchTestAccess {
+ static bool death(const XeenEventFlow &f){return f._death.has_value();}
+ static bool won(const XeenEventFlow &f){return f._encounter->_retiredCombatResult.phase==XeenCombatPhase::Victory;}
+ static bool owed(const XeenEventFlow &f){return f._explorationPass || f._encounter->_regionalAutomatic || f._encounter->_postCombatCalls;}
+ static void whoWill(XeenEventFlow &f){auto value=f._world.treasureStaging().value();value.whoWill=3;f._world.treasureStaging().publish(value);f._encounter->retainJourney();}
+ static void treasure(XeenEventFlow &f){auto value=f._world.treasureStaging().value();value.gold=123;f._world.treasureStaging().publish(value);f._encounter->retainJourney();}
+ static bool door(const XeenEventFlow &f){return f._transition && f._transition->eventFlags?f._transition->doorText:f._encounter->_doorTextUp;}
+ static void flags(XeenEventFlow &f,bool skipped,bool door,bool slot=false){f._program.eventCallSkipped=skipped;f._encounter->_doorTextUp=door;f._encounter->_drawnSlot0=slot;}
+ static void fragileParty(XeenEventFlow &f){for(auto owner:f._party.party.activeRosterIds())f._party.roster.at(owner).currentHp=1;f._encounter->retainJourney();}
+ static IndexedFrame callers(XeenEventFlow &f,bool door,bool draw,bool slot=false,bool survivingInput=false) {
+  f._encounter->_postCombatCalls=true;f._encounter->_combatDoorText=door;f._encounter->_combatDrawCaller=draw;
+  f._encounter->_drawnSlot0=slot;f.armExplorationPass();f._explorationPass=survivingInput;
+  check(!f.canSave(),"save refused before first post-combat caller");
+  save_test::rejects([&]{f.beginSave();});
+  f._dispatching=true;
+  try {f.prepareJourneyTransition();auto frame=f.renderEncounter();f._dispatching=false;return frame;}
+  catch(...){f._dispatching=false;throw;}
+ }
+ static IndexedFrame engagedDraw(XeenEventFlow &f) {
+  // Synthetic closed draw gate: use the real Spawn and arrival classification,
+  // leaving its admitted contact for the exploration reader to consume.
+  auto candidate=f._world.transitionCandidate();candidate->applySpawn(f._camera.mapId,0,f._camera.x,f._camera.y,0);
+  const auto view=candidate->prepareTransitionArrival(f._camera);f._world.publishTransition(*candidate);
+  auto &e=*f._encounter;e.retainJourney();e.publishArrival(view);e._drawnSlot0=bool(view.slots[0]);e.holdJourneyFrame();
+  return f.renderEncounter();
+ }
+ static IndexedFrame rollback(XeenEventFlow &f) {
+  f._dispatching=true;f._encounter->beginJourneyEvent();
+  auto frame=f.journeyEventWork([&]{
+   f.beginDetachedEvent(xeenRegionalInteraction(f._encounter->_journeyEvents,f._camera));
+   check(f._transition && !f._transition->skipped && f._transition->doorText,"candidate has both new DOS values");
+   throw std::runtime_error("injected candidate rollback");
+  });f._dispatching=false;return frame;
+ }
  static auto initialized(const XeenSaveResourceSignature &r,const XeenPartyState &p,const XeenCamera &c,const XeenGameFlags &f,const XeenWorld &w) {
   return XeenSaveState::captureInitialized(r,p,c,f,w);
  }
@@ -37,6 +73,34 @@ struct Fixture {
  }
  void send(const PlayerAction &a){flow.handle(a);}
 };
+void skippedLineHeads() {
+ // M85 Part 0: 0x26797 precedes 0x26abd; every admitted scan clears 9756,
+ // including no-record scans. A label draw rebuilds slots before the next head.
+ for(bool between:{false,true}) {
+  Fixture f;f.object=!between;bool held=!between,skipped=false;unsigned heads=0,draws=0;
+  auto staging=f.world.treasureStaging().value();staging.whoWill=3;f.world.treasureStaging().publish(staging);
+  f.file.records={record(1,1,0,2,{0}),record(1,1,1,0x12)};
+  XeenEventInterpreter interpreter;
+  interpreter.eventLineSkipped=[&]{++heads;return skipped=held;};
+  interpreter.eventDraw=[&](auto &,const auto &,bool label){if(label){held=true;++draws;}};
+  const auto script=[&](auto){return XeenEventScript(f.file);};
+  const auto text=[](auto id){return XeenEventTextFile{id,"test.txt",true,{"A label"}};};
+  auto result=interpreter.begin(f.camera,f.party,f.flags,f.world,script,text);
+  check(std::holds_alternative<XeenEventExecutionSuspended>(result),"skip preserves tail or label presentation");
+  const auto pending=std::get<XeenEventExecutionSuspended>(result);
+  check(pending.state.treasure.whoWill==0,"even skipped entry clears WhoWill");
+  check(pending.state.instructionCount==(between?1u:0u),"skip dispatches no later instructions");
+  check(pending.request.kind==(between?XeenPresentationKind::SceneLabelReduced:XeenPresentationKind::NothingHere),"entry skip retains window 38 tail");
+  result=interpreter.resume(pending.state,between?XeenPresentationResponse::Presented:XeenPresentationResponse::Acknowledged,
+      f.party,f.world,script,text);
+  check(std::holds_alternative<XeenEventExecutionCompleted>(result) && skipped,"skip finishes the ordinary call");
+  check(heads==(between?2u:1u) && draws==(between?1u:0u),"one generic head covers entry and between-line abort");
+  check(f.world.treasureStaging().value().whoWill==0,"completed skipped call publishes entry WhoWill clear");
+  held=false;f.object=false;f.camera.x=2;f.file.records.clear();
+  result=interpreter.begin(f.camera,f.party,f.flags,f.world,script,text);
+  check(std::holds_alternative<XeenEventExecutionCompleted>(result) && !skipped,"no-record scan clears stale skipped flag");
+ }
+}
 void outerInputs() {
  Fixture f;
  for(const PlayerAction &a:std::vector<PlayerAction>{WaitAction{},CancelInteractionAction{},NavigationAction::MoveForward,
@@ -128,14 +192,14 @@ void quietMonsters(XeenSaveSnapshot &save) {
 struct JourneyCase {
  regional_save_test::Fixture f;
  unsigned calls=0,saves=0;
- bool blocked=false,records=true,allowRest=false,keepMonsters=false;
+ bool blocked=false,records=true,allowRest=false,keepMonsters=false,flagCells=true;
  std::vector<XeenEventRecord> script{record(9,11,0,0x12)};
  std::optional<XeenSaveSnapshot> captured;
  XeenTitleFlow *panel=nullptr;
  std::filesystem::path path=std::filesystem::current_path()/"m84-outer-test.mmsave";
  XeenGameplayServices services() {
   auto s=f.services();
-  s.maps=[&](auto id){auto m=regional_test::map(id);for(auto &c:m.geometry.cells)c.rawAttributes|=allowRest?0x10:0x50;
+  s.maps=[&](auto id){auto m=regional_test::map(id);for(auto &c:m.geometry.cells)c.rawAttributes|=(flagCells?0x10:0) | (allowRest?0:0x40);
    if(keepMonsters)m.geometry.difficulties[7]=101;
    if(blocked)xeenGet<XeenOutdoorLayers>(m.geometry.cells[11*16+8].geometry).middle=1;return m;};
   s.resources.loadEvents=[&](auto id){auto e=regional_test::events(id);e.records=records?script:std::vector<XeenEventRecord>{};return e;};
@@ -207,6 +271,33 @@ void queuedSdlEvents() {
   std::filesystem::remove(t.path);
  }
 }
+void queuedCombatInput() {
+ JourneyCase t;t.flagCells=false;t.records=false;auto s=t.services();quietMonsters(t.f.saved);
+ s.objects=[](auto id){auto objects=regional_test::objects(id);for(auto &object:objects.entities.objects)object.x=object.y=1;return objects;};
+ XeenSaveFile::write(t.path,t.f.saved);unsigned attacks=0,cycles=0;bool queued=false;
+ s.show=[&](const auto &first,const auto &handler,const auto &cancel,const auto &idle,const auto &status){
+  Driver d(t.f,handler,idle,first);d.tick();d.settle();
+  d.shown=XeenEventDispatchTestAccess::engagedDraw(*t.f.flow);d.present();
+  auto native=handler;native.beginCycle=[&](auto cycle){check(++cycles<300,"queued combat input bounded");t.f.now+=125;handler.beginCycle(++t.f.cycle);};
+  native.withPresentedInput=[&](const auto &action,auto token,const auto &origin){
+   if(std::holds_alternative<AttackAction>(action)) {check(bool(t.f.flow->encounter()->combat()),"queued A belongs to combat");++attacks;}
+   return handler.withPresentedInput(action,token,origin);
+  };
+  return SdlWindow().showInteractive(d.shown,"DOS combat queue",native,cancel,[&]()->std::optional<IndexedFrame>{
+   if(!queued){queued=true;
+  for(const auto key:{SDLK_SPACE,SDLK_a})for(const auto type:{SDL_KEYDOWN,SDL_KEYUP}) {
+   SDL_Event e{};e.type=type;e.key.keysym.sym=key;e.key.timestamp=SDL_GetTicks();
+   check(SDL_PeepEvents(&e,1,SDL_ADDEVENT,0,0)==1,"queue Space and Attack before the admitted fight");
+  }
+   }
+   auto frame=idle();if(attacks){SDL_Event e{};e.type=SDL_QUIT;SDL_PushEvent(&e);}return frame;
+  },status);
+ };
+ const auto status=Application(s.program).playGameplay(s,{},t.path,true);
+ check(status==0 && attacks==1,"pre-fight queued key reaches combat once");
+ std::filesystem::remove(t.path);
+}
+
 void bufferedWordPrompt() {
  JourneyCase t;t.script={record(9,11,0,0x02,{0}),record(9,11,1,0x15,{1,3,0,0}),record(9,11,2,0x12),record(9,11,3,0x12)};
  auto s=t.services();s.texts=[](auto id){auto text=regional_test::texts(id);text.strings[1]="A";return text;};s.resources.loadRegionalText=s.texts;
@@ -357,8 +448,10 @@ void restAndCombat() {
   for(auto owner:t.f.saved.activeRosterIds){auto &c=t.f.saved.characters[owner];c.currentHp=1000;c.permanentLevel=100;
    t.f.saved.journey->supplements[owner].inputs.might={200,0};t.f.saved.journey->supplements[owner].inputs.accuracy={200,0};}
   auto s=t.services();t.run(s,[&](Driver &d){const auto before=t.calls;d.send(NavigationAction::MoveForward);
-   for(unsigned n=0;!t.f.flow->encounter()->combat() && n<20;++n){check(t.calls==before,"actor settlement precedes the deferred pass");d.tick();}
-   check(t.f.flow->encounter()->combat() && t.calls==before,"engaging input defers its Event until combat retirement");
+   for(unsigned n=0;!t.f.flow->encounter()->combat() && n<20;++n)d.tick();
+   // Part 0: the originating pass enters and skips before combat attaches.
+   check(t.f.flow->encounter()->combat() && t.calls==before+1,"engaging input calls Events before combat");
+   const bool skipped=t.f.programState.eventCallSkipped;
    for(unsigned n=0;!t.f.flow->canSave();++n) {
     check(n<1500,"deferred combat pass settlement bounded");
     auto *combat=t.f.flow->encounter()->combat();
@@ -367,13 +460,206 @@ void restAndCombat() {
      if(context.readyForAction && context.dialog && context.dialog->anyKey)d.send(AcknowledgeAction{});}
     d.tick();
    }
-   check(t.calls==before+(run?0:1),"win executes the deferred pass once; Run clears it; treasure acknowledgments add none");
+   // Caller 3 scans the current cell even on an unflagged Run landing.
+   check(t.calls==before+1+(skipped?1:0),"only a skipped pass adds caller 3 after combat");
+   const auto calls=t.calls;d.send(ExplorationKeyAction{'.'});d.settle(true);
+   check(t.calls==calls+1,"the next input has exactly its ordinary flagged-cell pass");
   });
  }
 }
 
+void engagedInput() {
+ for(unsigned path=0;path<3;++path) {
+  const bool shoot=path==1;
+  JourneyCase t;t.flagCells=false;t.records=false;
+  for(auto owner:t.f.saved.activeRosterIds){auto &c=t.f.saved.characters[owner];c.currentHp=1000;c.permanentLevel=100;
+   t.f.saved.journey->supplements[owner].inputs.might={200,0};t.f.saved.journey->supplements[owner].inputs.accuracy={200,0};}
+  t.f.saved.characters[t.f.saved.activeRosterIds[0]].weapons[8]={0,30,0,4};
+  auto s=t.services();t.addPanel(s);t.run(s,[&](Driver &d){
+   XeenEventDispatchTestAccess::flags(*t.f.flow,true,false);
+   d.shown=XeenEventDispatchTestAccess::engagedDraw(*t.f.flow);d.present();
+   const auto input=d.handler.inputContext(d.shown.presentation());
+   check(input.readyForAction,"occupied slot alone does not close exploration input");
+   const auto time=t.f.party->encounterContext->minutes;const auto before=t.calls;
+   d.send(shoot?PlayerAction{ShootAction{}}:PlayerAction{InteractionAction{true}});
+   for(unsigned n=0;!t.f.flow->encounter()->combat();++n){check(n<100,"engaged input attaches combat");
+    const auto current=d.handler.inputContext(d.shown.presentation());
+    if(current.readyForAction && current.dialog && current.dialog->anyKey)d.send(AcknowledgeAction{});d.tick();}
+   check(t.f.party->encounterContext->minutes==time,"admitted fight precedes manual Space Wait or Shoot charge");
+   check(t.calls==before+unsigned(!shoot),"manual skip completes before combat; direct Shoot makes no entry Event");
+   check(d.handler.inputContext(d.shown.presentation()).keyboardClear==input.keyboardClear,"combat entry preserves queued keys");
+   // Part 0 combat-result table: Load refuses within the fight; no return
+   // caller runs and no new exploration pass is owed by the nested panel.
+   for(unsigned n=0;t.f.flow->encounter()->combat()->phase()!=XeenCombatPhase::PlayerReady;++n){check(n<100,"combat panel reaches ready");d.tick();}
+   // Like SDL, sample input after the draw interval and before idle redraws.
+   t.f.now+=125;
+   const auto combatCalls=t.calls;d.send(ControlPanelAction{});
+   check(t.panel && t.panel->screen()==XeenTitleFlow::Screen::Panel,"combat control panel opens");
+   d.send(DialogKeyAction{dos_test::text().buttons("PANEL")[2].key});
+   check(t.panel && t.panel->screen()==XeenTitleFlow::Screen::Notice && !t.panel->entry() && t.f.flow->encounter()->combat() && t.calls==combatCalls,"combat Load refuses without making either caller");
+   d.send(AcknowledgeAction{});d.send(CancelInteractionAction{});
+   if(path==2) {
+    t.f.now+=125;d.send(ControlPanelAction{});
+    check(t.panel && t.panel->screen()==XeenTitleFlow::Screen::Panel,"combat Quit panel opens");
+    d.send(DialogKeyAction{dos_test::text().buttons("PANEL")[5].key});d.send(DialogKeyAction{'y'});
+    check(t.panel->entry() && t.panel->entry()->kind==XeenSessionEntry::Kind::Exit && t.calls==combatCalls && t.f.programState.eventCallSkipped,"Quit leaves combat without either post-combat caller");return;
+   }
+   std::optional<unsigned> exitMinutes;
+   for(unsigned n=0;!t.f.flow->canSave();++n){check(n<1500,"engaged input fight settles");
+    auto *combat=t.f.flow->encounter()->combat();
+    if(combat && combat->phase()==XeenCombatPhase::PlayerReady)d.send(AttackAction{});
+    else if(!combat){if(!exitMinutes)exitMinutes=t.f.party->encounterContext->minutes;const auto current=d.handler.inputContext(d.shown.presentation());if(current.readyForAction && current.dialog && current.dialog->anyKey)d.send(AcknowledgeAction{});}
+    d.tick();}
+   if(shoot)check(exitMinutes && t.f.party->encounterContext->minutes==*exitMinutes+10,"direct Shoot resumes its outdoor charge after combat and before the pass");
+   check(t.calls==before+(shoot?0u:2u),"manual fight has unflagged caller 3; direct Shoot has none");
+   check(t.f.programState.eventCallSkipped==shoot,"direct Shoot preserves stale process flag");
+   check(d.handler.inputContext(d.shown.presentation()).keyboardClear>input.keyboardClear,"ordinary combat exit clears queued keys");
+  });
+ }
+}
+
+void defeatCallers() {
+ JourneyCase t;t.records=false;
+ for(auto owner:t.f.saved.activeRosterIds){t.f.saved.characters[owner].currentHp=1;t.f.saved.characters[owner].conditions.fill(0);}
+ auto s=t.services();const auto configure=s.configureFlow;
+ s.configureFlow=[&,configure](auto &flow,const auto &camera){configure(flow,camera);flow.loadSampleDuration=[](const auto &,auto){return 100u;};};
+ t.run(s,[&](Driver &d){
+  const auto before=t.calls;const auto gold=t.f.party->purse->gold;
+  XeenEventDispatchTestAccess::flags(*t.f.flow,true,true);XeenEventDispatchTestAccess::treasure(*t.f.flow);
+  d.shown=XeenEventDispatchTestAccess::engagedDraw(*t.f.flow);d.present();d.send(InteractionAction{true});
+  for(unsigned n=0;!XeenEventDispatchTestAccess::death(*t.f.flow);++n){check(n<2000,"defeat reaches callers and death without an ordinary pass deadlock");
+   auto *combat=t.f.flow->encounter()->combat();
+   if(combat && combat->phase()==XeenCombatPhase::PlayerReady)d.send(BlockAction{});
+   else if(!combat){const auto input=d.handler.inputContext(d.shown.presentation());if(input.readyForAction && input.dialog && input.dialog->anyKey)d.send(AcknowledgeAction{});}
+   // Delivery mode 2 retains the same visible-slot gate after defeat.
+   if(t.calls>before+1)check(t.f.party->purse->gold==gold && t.f.world->treasureStaging().value().gold==123,"held contact defers combat treasure without blocking defeat callers");
+   d.tick();
+  }
+  check(t.calls==before+3 && !XeenEventDispatchTestAccess::owed(*t.f.flow),"defeat reaches both skipped callers, then drops the deceased input pass");
+ });
+}
+
+void postCombatCalls() {
+ // DOS 0x2eb85 calls delivery before caller 4, but only mode 9 bypasses
+ // delivery's visible-slot gate (0x2414e..0x241e4), not combat mode 2.
+ for(bool visible:{false,true}) {
+  JourneyCase t;t.keepMonsters=true;t.records=false;quietMonsters(t.f.saved);
+  if(visible)t.f.saved.map(23).monsters->slots[1]={6,11,XeenActorLifecycle::Present,XeenActorStatus::Physical,false,-1};
+  for(auto owner:t.f.saved.activeRosterIds){auto &c=t.f.saved.characters[owner];c.currentHp=1000;c.permanentLevel=100;
+   t.f.saved.journey->supplements[owner].inputs.might={200,0};t.f.saved.journey->supplements[owner].inputs.accuracy={200,0};}
+  auto s=t.services();t.run(s,[&](Driver &d){
+   if(visible)XeenMonsterTestAccess::statusLive(*t.f.flow,*t.f.world,23,1,XeenActorStatus::DragonSleep);
+   const auto gold=t.f.party->purse->gold;
+   XeenEventDispatchTestAccess::flags(*t.f.flow,false,true);XeenEventDispatchTestAccess::treasure(*t.f.flow);
+   d.shown=XeenEventDispatchTestAccess::engagedDraw(*t.f.flow);d.present();d.send(InteractionAction{false});
+   for(unsigned n=0;!t.f.flow->encounter()->combat();++n){check(n<100,"delivery fixture reaches combat");
+    const auto input=d.handler.inputContext(d.shown.presentation());if(input.readyForAction && input.dialog && input.dialog->anyKey)d.send(AcknowledgeAction{});d.tick();}
+   bool caller4=false;const auto report=t.f.flow->reportManual;
+   t.f.flow->reportManual=[&](const auto &result){
+    if(!caller4 && std::holds_alternative<XeenManualEventCompleted>(result)) {
+     caller4=true;check(XeenEventDispatchTestAccess::won(*t.f.flow),"caller 4 follows a real victory");
+     const auto view=XeenActorApproach::classify(t.f.world->sessionState().regionalActors(t.f.camera->mapId),*t.f.camera);
+     check(!view.slots[0] && std::any_of(view.slots.begin(),view.slots.end(),[](const auto &slot){return bool(slot);})==visible,"victory has the requested non-contact visibility");
+     const auto staged=t.f.world->treasureStaging().value().gold;
+     check(visible?(staged>=123 && t.f.party->purse->gold==gold):(staged==0 && t.f.party->purse->gold>=gold+123),
+      "visible monster defers delivery but not caller 4; empty view delivers before caller 4");
+    }
+    report(result);
+   };
+   for(unsigned n=0;!t.f.flow->canSave();++n){check(n<1500,"victory delivery and caller settle");
+    auto *combat=t.f.flow->encounter()->combat();if(combat && combat->phase()==XeenCombatPhase::PlayerReady)d.send(AttackAction{});
+    else if(!combat){const auto input=d.handler.inputContext(d.shown.presentation());if(input.readyForAction && input.dialog && input.dialog->anyKey)d.send(AcknowledgeAction{});}
+    d.tick();}
+   check(caller4 && (visible?t.f.world->treasureStaging().value().gold>=123:t.f.world->treasureStaging().value().gold==0),"caller 4 completes with the correct staged treasure");
+   t.f.flow->reportManual=report;
+  });
+ }
+ // Part 0: callers precede the surviving input suffix. A lethal caller leaves
+ // no surviving input, just as combat defeat does; it must not owe a new Pass.
+ JourneyCase lethal;lethal.script={record(9,11,0,0x0f,{0}),record(9,11,1,0x16,{50,0,3}),record(9,11,2,0x12)};
+ for(auto owner:lethal.f.saved.activeRosterIds)lethal.f.saved.characters[owner].currentHp=1000;
+ auto lethalServices=lethal.services();const auto configure=lethalServices.configureFlow;
+ lethalServices.configureFlow=[&,configure](auto &flow,const auto &camera){configure(flow,camera);flow.loadSampleDuration=[](const auto &,auto){return 100u;};};
+ lethal.run(lethalServices,[&](Driver &d){const auto before=lethal.calls;
+  XeenEventDispatchTestAccess::fragileParty(*lethal.f.flow);XeenEventDispatchTestAccess::flags(*lethal.f.flow,true,false);
+  d.shown=XeenEventDispatchTestAccess::callers(*lethal.f.flow,true,true,false,true);d.present();
+  for(unsigned n=0;!XeenEventDispatchTestAccess::death(*lethal.f.flow);++n){check(n<1000,"lethal caller reaches death without an ordinary pass deadlock");d.tick();}
+  check(lethal.calls==before+1 && !XeenEventDispatchTestAccess::owed(*lethal.f.flow),"lethal caller 4 suppresses caller 3 and drops the deceased input pass");
+ });
+ // Part 0 combat-result table: caller 4 tests its saved door flag AND the
+ // current cell; caller 3 tests only the process flag and originating draw.
+ for(bool flagged:{false,true})for(bool door:{false,true})for(bool draw:{false,true})for(bool skipped:{false,true}) {
+  JourneyCase t;t.flagCells=flagged;t.records=false;auto s=t.services();
+  t.run(s,[&](Driver &d){const auto before=t.calls;
+   XeenEventDispatchTestAccess::flags(*t.f.flow,skipped,false);XeenEventDispatchTestAccess::whoWill(*t.f.flow);
+   d.shown=XeenEventDispatchTestAccess::callers(*t.f.flow,door,draw);d.present();d.settle(true);
+   const bool called=(door && flagged) || (draw && skipped);
+   check(t.f.world->treasureStaging().value().whoWill==(called?0:3),"every admitted caller clears WhoWill");
+   check(t.calls==before+unsigned(called),"caller predicates; a scanning caller 4 suppresses caller 3");
+   check(t.f.programState.eventCallSkipped==(skipped && !called),"direct Shoot preserves stale skip unless caller 4 scans");
+   const auto calls=t.calls;d.send(ExplorationKeyAction{'.'});d.settle(true);
+   check(t.calls==calls+unsigned(flagged),"one ordinary pass for the next input after callers");
+  });
+ }
+ JourneyCase both;both.records=false;auto s=both.services();
+ both.run(s,[&](Driver &d){const auto before=both.calls;
+  XeenEventDispatchTestAccess::flags(*both.f.flow,true,false);
+  d.shown=XeenEventDispatchTestAccess::callers(*both.f.flow,true,true,true);d.present();d.settle(true);
+  check(both.calls==before+2 && !both.f.programState.eventCallSkipped,"skipped caller 4 leaves caller 3 owed; its scan clears the flag");
+ });
+ JourneyCase stale;stale.flagCells=false;stale.records=false;auto ss=stale.services();
+ stale.run(ss,[&](Driver &d){XeenEventDispatchTestAccess::flags(*stale.f.flow,true,false);
+  d.send(ExplorationKeyAction{'.'});d.settle();check(stale.f.programState.eventCallSkipped,"quiet unflagged input retains stale skip");
+  const auto before=stale.calls;d.shown=XeenEventDispatchTestAccess::callers(*stale.f.flow,false,true);d.present();d.settle(true);
+  check(stale.calls==before+1 && !stale.f.programState.eventCallSkipped,"later draw-origin fight consumes stale flag on an unflagged cell");
+ });
+}
+void candidateFlagsAndDoorText() {
+ JourneyCase t;t.script={record(9,11,0,2,{0}),record(9,11,1,0x12)};auto s=t.services();
+ t.run(s,[&](Driver &d){
+  check(XeenEventDispatchTestAccess::door(*t.f.flow),"label opcode sets door text");
+  XeenEventDispatchTestAccess::flags(*t.f.flow,true,false);
+  d.shown=XeenEventDispatchTestAccess::rollback(*t.f.flow);d.present();d.settle(true);
+  check(t.f.programState.eventCallSkipped && !XeenEventDispatchTestAccess::door(*t.f.flow),"rolled-back candidate leaves both live values unchanged");
+ });
+ for(unsigned opcode:{2u,3u,4u,39u}) {
+  JourneyCase label;label.script={record(9,11,0,opcode,{0},3),record(9,11,1,0x12,{},3)};auto ls=label.services();
+  label.run(ls,[&](Driver &d){check(XeenEventDispatchTestAccess::door(*label.f.flow),"each DOS label opcode sets door text");
+   d.send(InfoAction{});check(XeenEventDispatchTestAccess::door(*label.f.flow),"ordinary dialog retains door text");
+   d.send(CancelInteractionAction{});d.settle(true);
+   d.send(NavigationAction::TurnLeft);d.settle(true);check(!XeenEventDispatchTestAccess::door(*label.f.flow),"turn clears label when the new direction has no label");
+  });
+ }
+}
+
+void flagLifetimeAndInput() {
+ JourneyCase t;t.flagCells=false;t.f.programState.eventCallSkipped=true;auto s=t.services();
+ t.run(s,[&](Driver &d){
+  check(t.f.programState.eventCallSkipped && !XeenEventDispatchTestAccess::door(*t.f.flow),"Load keeps process skip and clears gameplay door text");
+  XeenEventDispatchTestAccess::flags(*t.f.flow,true,true);
+  d.send(WaitAction{});d.settle();
+  check(t.f.programState.eventCallSkipped && !XeenEventDispatchTestAccess::door(*t.f.flow),"unflagged Wait clears only door text");
+ });
+ check(t.f.programState.eventCallSkipped,"return to title retains process skip");
+ JourneyCase word;word.script={record(9,11,0,2,{0}),record(9,11,1,0x15,{1,3,0,0}),record(9,11,2,0x12),record(9,11,3,0x12)};
+ auto ws=word.services();const auto configure=ws.configureFlow;bool prompt=false;
+ ws.configureFlow=[&,configure](auto &flow,const auto &camera){configure(flow,camera);
+  const auto report=flow.reportManual;flow.reportManual=[&,report](const auto &result){report(result);
+   if(const auto *p=std::get_if<XeenEventExecutionSuspended>(&result);p && p->request.kind==XeenPresentationKind::WordInput)prompt=true;
+  };
+ };
+ quietMonsters(word.f.saved);XeenSaveFile::write(word.path,word.f.saved);
+ ws.show=[&](const auto &first,const auto &h,const auto &,const auto &idle,const auto &){Driver d(word.f,h,idle,first);
+  for(unsigned n=0;!prompt || !d.handler.inputContext(d.shown.presentation()).readyForAction;++n){check(n<100,"word input opens");d.tick();}
+  check(!XeenEventDispatchTestAccess::door(*word.f.flow),"text input temporarily clears door text");
+  d.send(CancelInteractionAction{});d.settle(true);
+  check(XeenEventDispatchTestAccess::door(*word.f.flow),"text input restores its saved door flag");return true;
+ };
+ check(Application(ws.program).playGameplay(ws,{},word.path,true)==0,"word flag lifetime");std::filesystem::remove(word.path);
+}
+
 void newGamePublication() {
- JourneyCase t;auto s=t.services();s.originalStart=XeenDifficulty::Adventurer;
+ JourneyCase t;t.f.programState.eventCallSkipped=true;auto s=t.services();s.originalStart=XeenDifficulty::Adventurer;
  s.loadInitialCamera=[]{return XeenCamera{28,18,4,XeenDirection::West};};
  s.resources.loadEvents=regional_test::events;
  s.objects=[](auto id){auto o=regional_test::objects(id);if(id==XeenMapIdentity(28))
@@ -384,6 +670,7 @@ void newGamePublication() {
   check(t.calls==0 && !t.f.flow->presentationGeneration(),"New publication captures before arming its pass");
   t.captured=save;published=true;return true;};
  s.show=[&](const auto &first,const auto &h,const auto &,const auto &idle,const auto &){
+  check(t.f.programState.eventCallSkipped && !XeenEventDispatchTestAccess::door(*t.f.flow),"New Game preserves process skip before its first scan");
   check(published && t.calls==0,"New arrival view exists after publication and before entry pass");
   Driver d(t.f,h,idle,first);check(t.calls==0,"New presentation callback does not fabricate an Event frame");
   d.tick();d.settle(true);check(t.calls==1,"New publication completes its one entry pass after actual arrival");return true;};
@@ -429,7 +716,7 @@ void journeyPasses() {
 
 }
 int main(int argc,char **) {
- try {if(argc>1){queuedSdlEvents();bufferedWordPrompt();return 0;}outerInputs();mouseViewAndPanel();mapLoadInputSignal();whoWillPerPass();manualAndFlags();emptyCalls();tailMarkers();journeyPasses();actionTable();currentKeyAndCapture();panelSavesAndContinuation();f9OutcomesAndRetries();restAndCombat();newGamePublication();std::cout<<"M84 Event dispatch and tail OK\n";return 0;}
+ try {if(argc>1){queuedSdlEvents();bufferedWordPrompt();queuedCombatInput();return 0;}skippedLineHeads();outerInputs();mouseViewAndPanel();mapLoadInputSignal();whoWillPerPass();manualAndFlags();emptyCalls();tailMarkers();journeyPasses();actionTable();currentKeyAndCapture();panelSavesAndContinuation();f9OutcomesAndRetries();restAndCombat();engagedInput();defeatCallers();postCombatCalls();candidateFlagsAndDoorText();flagLifetimeAndInput();newGamePublication();std::cout<<"M84 Event dispatch and tail OK\n";return 0;}
  catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}
 }
 

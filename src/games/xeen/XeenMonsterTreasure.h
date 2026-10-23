@@ -29,10 +29,9 @@ struct XeenTreasureStaging {
 	// WhoWill (DOS 47c9:0008): the 1-based member a WhoWill dialog last chose,
 	// 0 for none; every delivery prefers it (0x243d5). Each Event run clears it
 	// (0x26797); only the dialog sets it (0x252d2). The Event stash, Run, Load,
-	// New Game, map changes and deliveries leave it alone. MMModern also clears
-	// it where DOS enters the Event routine without a record: arrival at a new
-	// position or facing over a flagged cell and Space not taken by a grate
-	// (XeenEncounterFlow::clearWhoWill; approved deviation dev-whowill-event-passes).
+	// New Game, map changes and deliveries leave it alone. Every published call
+	// clears it, even without a record, including skipped calls, flagged input
+	// passes and both conditional post-combat callers.
 	XeenMutable<std::uint8_t> whoWill = 0;
 	std::optional<std::size_t> preferredRecipient() const noexcept {
 		return whoWill ? std::optional<std::size_t>(whoWill - 1u) : std::nullopt;

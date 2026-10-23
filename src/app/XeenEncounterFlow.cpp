@@ -104,7 +104,7 @@ void XeenEncounterFlow::schedule(std::uint64_t now) noexcept {
 
 bool XeenEncounterFlow::handle(const PlayerAction &input, std::optional<std::uint64_t> cycle, std::optional<XeenCombat::Ticket> displayed) {
 	if(_rest)return false;
-	if (projectilesPending() || _shootIntent || _castingSettlement) return false;
+	if (projectilesPending() || (_shootIntent && !_combat) || _castingSettlement) return false;
 	if (_journey && !_combat && std::holds_alternative<ShootAction>(input)) { const bool accepted=beginShoot();schedule(_lastTime);return accepted; }
 	if (_combat) return displayed && _combat->current(*displayed) && handleCombat(input, cycle);
 	const auto action = mapped(input);

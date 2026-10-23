@@ -60,7 +60,7 @@ public:
 	// camera/flag changes, not earlier movement/rotation, world mutations or grants.
 	XeenAutomaticEventResult runAutomaticEvent(XeenWorld &world,
 		XeenPartyState &partyState, XeenCamera &camera,
-		XeenGameFlags &gameFlags, const XeenEventPublication *publication = nullptr);
+		XeenGameFlags &gameFlags, const XeenEventPublication *publication = nullptr, bool requireCellFlag = true);
 
 	XeenManualEventResult runManualEvent(XeenWorld &world,
 		XeenPartyState &partyState, XeenCamera &camera,

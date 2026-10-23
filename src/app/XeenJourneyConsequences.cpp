@@ -19,9 +19,9 @@ XeenConsequenceInputs activeInputs(const XeenPartyState &p,const XeenPartyOrder 
 }
 bool XeenEncounterFlow::beginShoot() {
  if(_castingSettlement || !_journey || _combat || _busy || _shoot || _regionalWork ||
-  !current(ticket()) || !_boundary.quiet() || _state.phase()!=XeenEncounterPhase::Exploring) return false;
+  !current(ticket()) || !_boundary.quiet() || (_state.phase()!=XeenEncounterPhase::Exploring && _state.phase()!=XeenEncounterPhase::Engaged)) return false;
  const bool continuation=_shootIntent && !_regionalWork && !_regionalAutomatic && !projectilesPending() && !monsterReward();
- if((!_state.pending() && !journeyMutable() && !continuation) || !journeyCapacity()) return false;
+ if((!_state.pending() && !journeyMutable() && !continuation && _state.phase()!=XeenEncounterPhase::Engaged) || !journeyCapacity()) return false;
  _shootIntent=false;
  try {
   const bool indoor=!_world.map(_camera.mapId).geometry.isOutdoors();
@@ -52,6 +52,15 @@ bool XeenEncounterFlow::beginShoot() {
   XeenRestoreGuard::Providers providers(*heldPreimage,_world);
   const auto &active=_world.sessionState().regionalActors(_camera.mapId);
   const auto view=indoor?XeenIndoorScene().classifyActors(_world,_camera,active):XeenActorApproach::classify(active,_camera);
+  if(view.slots[0]) {
+   heldPreimage->check();
+   publishArrival(view);
+   _shootDirectCombat=true;
+   _world._sessionState._journeyActivity=XeenJourneyActivity::Attachment;
+   ++_world._sessionState._journeyGeneration;++_generation;
+   _journeyPreimage->adoptJourneyCoordination();
+   return true; // The direct Shoot call has no draw-return caller 3 (0xd5aa).
+  }
   const auto rows=xeenPlayerRayRows(_world,_camera);
   candidate->projectileEnd.fill(rows-1);
   candidate->rows=rows;
@@ -291,24 +300,21 @@ bool XeenEncounterFlow::serviceShoot() {
   ++session._encounterRevision;_state._revision=session._encounterRevision;++session._journeyGeneration;++_generation;
   session.publishExploration(exploration);
   _world.scenePresentation().markLightingStep();
-  _shoot.reset();session._journeyActivity=XeenJourneyActivity::Presentation;retainJourney();return true;
+  _doorTextUp=false;_shoot.reset();session._journeyActivity=XeenJourneyActivity::Presentation;retainJourney();return true;
  } catch(...) { closeJourney();throw; }
-}
-void XeenEncounterFlow::clearWhoWill() {
- auto value=_world.treasureStaging().value();
- if(!value.whoWill)return;
- if(!journeyQuiet())throw std::logic_error("WhoWill clear outside a quiet boundary");
- _journeyPreimage->check();value.whoWill=0;
- _journeyPreimage->prepareStagingPublication(value);_world.treasureStaging().publish(value);_journeyPreimage->adoptMutationBoundary();
 }
 bool XeenEncounterFlow::beginMonsterReward() {
  if(monsterReward() || _combat || _busy || _failure || _regionalWork || projectilesPending() ||
-  _state.pending() || _state.phase()!=XeenEncounterPhase::Exploring || (_shoot && !_shoot->volleyDone) || !_boundary.quiet()) return false;
+  _state.pending() || (_state.phase()!=XeenEncounterPhase::Exploring && !(_postCombatCalls && _state.reason()==XeenEncounterStop::Defeat)) || (_shoot && !_shoot->volleyDone) || !_boundary.quiet()) return false;
  if(!_world.treasureStaging().value().pending()) return false;
+ if(_postCombatCalls && _retiredCombatResult.phase==XeenCombatPhase::Defeat &&
+    _retiredCombatResult.operation==XeenCombatOperation::BeginCombat)return false;
  const auto &actors=_world.sessionState().regionalActors(_camera.mapId);
  const auto view=!_world.map(_camera.mapId).geometry.isOutdoors()
   ? XeenIndoorScene().classifyActors(_world,_camera,actors) : XeenActorApproach::classify(actors,_camera);
- for(const auto &slot:view.slots) if(slot) return false;
+ // Delivery's own gate also applies to combat mode 2 (0x2414e..0x241e4).
+ // Only Event mode 9 bypasses visible slots; combat merely calls here earlier.
+ for(const auto &slot:view.slots)if(slot)return false;
  if(!current(ticket()) || !journeyCapacity()) throw std::logic_error("Stale monster delivery");
  ConsequenceScope busy(_busy);
  try {

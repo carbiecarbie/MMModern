@@ -141,9 +141,11 @@ void criticalPresentation() {
     }
    }
   }
-  check(enemies==6&&h.phase()==Phase::Defeat&&h.party->encounterContext->minutes==495,"critical production defeat");
+  // M85 Part 0: defeat retires combat before its Event callers and death
+  // presentation. Observe the retained result, not a surviving combat object.
+  check(enemies==6&&h.result().phase==Phase::Defeat&&h.party->encounterContext->minutes==495,"critical production defeat");
   const auto &notice=h.flow->encounter()->notice();
-  check(notice.find("Dead")!=std::string::npos&&notice.find("items changed")!=std::string::npos,"complete condition/breakage feedback");
+  check(notice.find("Dead")!=std::string::npos&&h.flow->encounter()->combatObservation().armorCount==2,"complete condition/breakage feedback");
   return true;
  };
  check(h.run(s)==0,"critical presentation production route");
@@ -224,7 +226,7 @@ void publicationFailures() {
    if(armed && h.flow&&!injected){
     const auto &r=h.result();
     const bool target=fault==0?(r.operation==XeenCombatOperation::PlayerAttack&&r.attackStage==XeenCombatAttackStage::PostHp):
-     fault==1?h.phase()==Phase::VictoryAwaitingEnd:fault==2?h.phase()==Phase::Victory:h.phase()==Phase::Defeat;
+     fault==1?h.phase()==Phase::VictoryAwaitingEnd:fault==2?h.phase()==Phase::Victory:r.phase==Phase::Defeat;
     if(target){injected=true;throw std::runtime_error("post-publication composition");}
    }
    return compose(w,p,c,ordinary,actor);
@@ -243,7 +245,10 @@ void publicationFailures() {
     else drawTick(h,handler,idle);
    }
    check(injected,"publication fault reached through real commands");
-   check(h.phase()==(fault==2?Phase::Victory:fault==3?Phase::Defeat:fault==1?Phase::VictoryAwaitingEnd:Phase::PreparingAction),("Failure recovery preserves actual phase: fault="+std::to_string(fault)+" phase="+std::to_string(int(h.phase()))).c_str());
+   // M85 Part 0 retires defeat before the post-combat draw/callers. The
+   // retained result still identifies that publication and its recovery.
+   const auto phase=fault==3?h.result().phase:h.phase();
+   check(phase==(fault==2?Phase::Victory:fault==3?Phase::Defeat:fault==1?Phase::VictoryAwaitingEnd:Phase::PreparingAction),("Failure recovery preserves actual phase: fault="+std::to_string(fault)+" phase="+std::to_string(int(phase))).c_str());
    const auto hp=h.world->sessionState().monsters(23)[5].hp;
    check(fault==3||hp<20,"published damage survives failure");
    if(fault==1||fault==2){check(hp==0,"lethal removal retained");check(h.flow->encounter()->notice().find("XP82")!=std::string::npos,"award retained despite composition failure");}

@@ -525,8 +525,9 @@ bool XeenEncounterFlow::serviceCasting() {
 		++session._journeyGeneration;++_generation;
 		prepared->adoptJourneyCoordination();_journeyPreimage.swap(prepared);
 		if(automaticArrival && living) {
-          _regionalAutomatic=true;_regionalAutomaticAddress=XeenCombatLocation{_camera.mapId,_camera.x,_camera.y,_camera.direction};
+          _regionalAutomatic=true;_regionalAutomaticKind=EventCallKind::Pass;_regionalAutomaticAddress=XeenCombatLocation{_camera.mapId,_camera.x,_camera.y,_camera.direction};
         }
+        _doorTextUp=false; // DOS successful Cast movement/terrain continuation, 0xc930.
         _castingSettlement=true;
         const auto lease=work.lease;_casting.reset();
 		_boundary.release(XeenCombatBoundary::Work::Casting,lease);

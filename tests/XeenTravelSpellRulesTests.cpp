@@ -107,7 +107,8 @@ void runDestinations() {
         XeenEventRecord record;record.x=10;record.y=12;record.direction=4;events.records.push_back(record);
         {XeenWorld w([&](auto){return source;});check(bool(xeenRunDestination(w,events,camera)),"A non-automatic destination Event does not block Run");}
         source.geometry.cells[12*16+10].rawAttributes=kXeenAutomaticEventFlag;
-        {XeenWorld w([&](auto){return source;});check(!xeenRunDestination(w,events,camera),"An automatic destination Event refuses Run");}
+        {XeenWorld w([&](auto){return source;});// M85 Part 0: post-combat callers test the landing; its Event does not refuse Run.
+         check(bool(xeenRunDestination(w,events,camera)),"Run admits an automatic destination Event");}
         events.records.back().direction=unsigned(XeenDirection::North);
         {XeenWorld w([&](auto){return source;});check(bool(xeenRunDestination(w,events,camera)),"An automatic Event for another facing does not block Run");}
         events.records.clear();
