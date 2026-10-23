@@ -1,6 +1,6 @@
 # MMModern - Roadmap
 
-**M84 is the latest completed and accepted milestone.**
+**M85 is the latest completed and accepted milestone.**
 [Project status](project-status.md) describes what is playable now;
 [project history](project-history.md) records completed milestones. Reference
 provenance belongs to [dependencies](dependencies.md).
@@ -120,20 +120,14 @@ to Vertigo.
     balance checked against DOSBox, and output recovery on the existing clock.
     Save v18 is unchanged; the small SDL resampler rate error remains a known
     limitation.
-    Next: step 13, Event dispatch as in DOS.
-13. **Event dispatch as in DOS** (Tier A, two milestones). A 2026-10-21
-    static analysis found that DOS runs a cell's Events again on every
-    processed key while the party stands on a flagged cell (traps hurt
-    again, NPCs and door text return; the maintainer confirms traps from
-    DOS play), and has two conditional post-combat Event callers; MMModern
-    runs them only on arrival, turning or Space. The first milestone,
-    [M84](milestone-84-plan.md), is completed and accepted (2026-10-23):
-    one pass per input, Load and New Game passes, the original key and
-    mouse tables ([rules](rules/world-events.md#event-dispatch)). Next, the
-    second milestone, [M85](milestone-85-plan.md) (planned): the two
-    post-combat calls, which also remove the Run
-    refusal on cells with an automatic Event and the rest of
-    `dev-whowill-event-passes`.
+13. **Event dispatch as in DOS** (Tier A): completed and accepted in
+    [M84](milestone-84-plan.md) and [M85](milestone-85-plan.md)
+    (2026-10-23; save v18 unchanged). A flagged cell's Events run again
+    after every key or click, Load and New Game start with a run, and the
+    keyboard and mouse follow the original's tables; an Event a monster
+    interrupted and a door label up at combat start run again after the
+    fight, Run lands on every landing, and every Event run clears WhoWill
+    ([rules](rules/world-events.md#event-dispatch)). Next: step 14.
 14. **Inn, recruiting and character creation** (Tier A, high): Tavern Sign
     In, Dismiss, attribute rolls, the creation screens and changes to the
     saved party, including Poison Volley shooting for the active party size
@@ -157,7 +151,7 @@ need its resources and mechanic gaps, not a new coordinator or save shape.
 
 ## Long-term direction
 
-1. **Broader Clouds play** (reached apart from steps 13-14): ordinary travel
+1. **Broader Clouds play** (reached apart from step 14): ordinary travel
    between regions, time/rest/food, full economy and services, skills,
    item/monster effects, indoor hazards and reusable quest/Event behavior.
 2. **Complete Clouds:** all regions/dungeons, progression, quests and ending,

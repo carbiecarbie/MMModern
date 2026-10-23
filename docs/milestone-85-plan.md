@@ -1,231 +1,65 @@
 # Milestone 85 plan - Event dispatch, part 2: the post-combat calls
 
-**Tier A. Status: Part 0 done; Part A not started.**
-Roadmap [step 13](roadmap.md#next-arc-finishing-the-games-systems), second of
-its two milestones, after [M84](milestone-84-plan.md). Baseline: `1ddb5d5`,
-equal to `origin/main`.
+**Tier A. Status: completed and accepted by the maintainer (2026-10-23)**
+after the play-test of Part A. Plan `1d2b92d` (independent review applied,
+amendment `70e152c`), Part 0 `15ea744`, Part A `e3066f0` and the closure
+commit. Roadmap
+[step 13](roadmap.md#next-arc-finishing-the-games-systems), second of its
+two milestones, after [M84](milestone-84-plan.md). Save v18, schema 9 and
+content 14 unchanged.
 
-## Goal and scope
+## Scope and results
 
-As in DOS, an Event call that finds a monster in attack slot 0 stops and is
-remembered, and combat ends with the original's two conditional calls: the
-door-text call when a label was up as the fight began, and the skipped call
-at the party's position, after Run included. A label returns after the
-fight; an Event skipped while a monster held slot 0 acts after the fight;
-Run lands as DOS does, and its "not supported yet" refusal at landings with
-an Event goes away. Space while monsters are engaged follows Part 0. Every
-Event call then clears WhoWill, and
-[`dev-whowill-event-passes`](original-quirks.md#dev-whowill-event-passes) is
-retired. Faithful oddities stay without an option: window 38 ("Nothing
-here") can appear just before combat on an object-bearing cell, and labels
-and traps return after fights.
+As in DOS, an Event call that finds a monster in attack slot 0 before any of
+its lines stops there and is remembered, and a fight ends with the
+original's two conditional calls: the door-text call when a label was up as
+the fight began, then the skipped call at the party's current position,
+after Run included. A door label comes back after the fight, a trap or NPC
+skipped as a monster arrived acts once the fight is over, and Run lands
+wherever the map's run position is, without the old "not supported yet"
+refusal at landings with an Event. Every Event call clears WhoWill, which
+retired `dev-whowill-event-passes`. Mr Wizard in combat stays refused.
 
-Out of scope: Darkside, M84's per-input pass rules, Event-internal move
-rules and combat rules. An abort between Event lines is in scope as one
-generic line-head test. Planning does not authorize implementation;
-independent plan and implementation reviews, the complete suite and a
-maintainer play-test are required.
-
-## Current state
-
-Journey play at `1ddb5d5`:
-- `XeenEncounterFlow::_regionalAutomatic` is the owed-call mark, written by
-  the pass (`XeenEventFlow.cpp:647-660`), approach arrival
-  (`XeenActorApproach.cpp:574-576`, `XeenJourneyFlow.cpp:900-901`), barrier
-  Bash (`XeenBarrierFlow.cpp:258-260`), item-use arrival
-  (`XeenJourneyFlow.cpp:480-517, 602-603`) and casting relocation
-  (`XeenCastingFlow.cpp:484-489, 527-528`); about a dozen gates read it.
-  `XeenJourneyCapture::inputPassPending` keeps an owed pass out of saves
-  (`XeenSaveState.cpp:30, 320`).
-- With monsters engaged, `prepareJourneyTransition` attaches combat first
-  (`XeenEventFlow.cpp:691-695`); the mark runs only when Exploring without
-  combat (`:697-699`, `beginJourneyEvent`). After a win it runs once at the
-  same address; Run drops it (`originAutomaticSuperseded`,
-  `XeenCombat.cpp:1734`, `XeenJourneyFlow.cpp:1066-1070`). No skipped-call
-  or door-text value exists; labels are retained passive presentations.
-- `xeenRunDestination` refuses a flagged landing with a record for the
-  party's facing (`XeenCombat.cpp:815-826`).
-- In combat, Space gives no interaction (`SdlWindow.cpp:168`) and a 3D click
-  or interaction becomes Attack (`XeenMainScreenInput.h:68`,
-  `XeenGameplay.cpp:496`). Outside combat, Space is dropped while
-  `journeyQuiet()` is false (`XeenEventFlow.cpp:3047`).
-- `XeenEncounterFlow::clearWhoWill` is unused. Non-Journey play has no
-  combat.
-
-## Original rules and evidence
-
-Static analysis of the CD `WORLD/XEEN.DAT`, high confidence for the paths
-(`D:/MModern-re/event-dispatch/findings.md` section 2; M81 and M84 records in
-[evidence](rules/evidence.md#event-dispatch) and
-[rules](rules/world-events.md#event-dispatch)).
-
-- **Skip.** The Event routine `0x26774` clears WhoWill (`0x26797`) and
-  stages, then tests attack slot 0 before each line, the first included
-  (`0x26abd`, the between-line abort). If occupied it sets the skipped flag
-  `[9756]` (`0x26ac4`) and jumps to cleanup `0x28d50`; the tail still
-  applies. A call that scans clears the flag (`0x26acc`); there are no other
-  writers.
-- **Caller 3, `0x11802..0x1184a`.** After a combat started by any admitted
-  draw (slots 0-2, mode 1 or 5, `[97f6]`/`[97f9]` zero, `[96c4]` set),
-  Events run at the party's current position when the flag is set, without
-  testing the cell's Event flag: at the fight's cell after a win, at the
-  landing after Run. Exploration Shoot enters combat directly and has no
-  caller 3.
-- **Caller 4, `0x2e62d..0x2e634`, `0x2ec18..0x2ec37`.** Combat entry saves
-  and clears door text up `[3066]` (set by label opcodes 2, 3, 4 and 39,
-  `0x26f7a`). At combat end, if it was up, the party cell's Events run when
-  it is flagged. Caller 4 runs first; when its call scans it clears the
-  skipped flag, so caller 3 follows only when caller 4 did not scan.
-- The pin makes both calls but never clears its skipped flag
-  (`scripts.cpp:123, 177`); following DOS is a ScummVM difference.
-- Part 0 (2026-10-23) settled the rest: combat exits, between-line builders,
-  engaged input, door-text writers and drawing, and both lifetimes
-  ([rules](rules/world-events.md#event-dispatch),
-  `D:/MModern-re/m85-part0/findings.md`).
-
-## Maintainer decisions
-
-- Two milestones for step 13 (2026-10-21); this is the second.
-- Static program evidence first; DOSBox only where Part 0 cannot settle a rule.
-- **Approved deviation, the skipped call's window first** (2026-10-23, after
-  the Part 0 stop). In DOS a call's tail can show window 38 while slot 0 is
-  held and its draw (`0x28ed5`) starts the fight before the acknowledgement
-  (`0x28edb`), so combat and its callers run inside the unfinished call,
-  before its stash is restored (`0x28f22`). MMModern acknowledges window 38
-  and finishes the call, then the fight starts. This applies to passes and
-  manual calls alike; it gets a quirk entry with a `**ScummVM:**` tag and a
-  ScummVM-differences item in Part A.
-
-## Part 0 - DOS evidence (read-only)
-
-Static and calibrated, with offsets; work copies outside the repository.
-Results go to the Event dispatch sections of `docs/rules/world-events.md` and
-`docs/rules/evidence.md`, with quirk rows where they apply. No code.
-
-1. **Combat entries and exits.** Every site that enters combat (idle draw,
-   Event-started fights, Arena, any draw inside a handler) and every exit
-   (win, full-party Run, partial Run then win, defeat, Load and Quit from the
-   combat panel, spell or item relocation; Mr Wizard, refused in MMModern
-   combat, recorded only): whether callers 4 and 3 are reached, at which map
-   and position, in which order, whether an ordinary pass runs before the
-   next input, and where combat-end presentations and treasure delivery fall.
-2. **The skip.** Where `0x26abd` sits in the line loop; what a skipped call
-   performs (WhoWill, treasure stash and restore, the tail); when an input's
-   monster step fills slot 0; whether slot 1 or 2 can be held with slot 0
-   empty outside combat; which Clouds opcodes (Spawn, TeleportAndContinue,
-   the restart, map load) can fill slot 0 between lines, with a reachable
-   witness. For the window-first deviation, record only the pin's order;
-   the nested stash is not traced.
-3. **Engaged input.** Whether exploration input is read while a slot is held
-   and combat has not started; what Space and a 3D click do then; what
-   happens to keys typed between the monster step and combat.
-4. **Door text.** Which label opcodes set `[3066]`; its clears (move, turn,
-   Wait, `0x1df53`, `0x1e005`, others); whether it governs drawing the label
-   and whether combat exit restores it; a caller-4 witness whose labelled
-   facing can have slot 0 filled, Vertigo `(13,4)` only if so.
-5. **Lifetime.** Both flags against the save ranges, Load, New Game, map
-   load, the return to the title, and fights that do not reach caller 3.
-
-## Design decisions
-
-- **Existing owners.** `XeenEncounterFlow` owns combat entry and retirement,
-  `XeenEventFlow` the calls and their candidate. Two named values carry the
-  DOS state, the skipped flag and door text up, written only at their DOS
-  sites and published with the Event candidate under the restore guard, so
-  a stale or retried candidate leaves them unchanged. The skipped flag
-  outlives Load, New Game and the return to the title, so it lives in
-  `XeenProgramState`; gameplay entry clears door text, so it lives in the
-  encounter owner. Neither is saved.
-- **One obligation.** `_regionalAutomatic` stays the single owed call, now
-  with a kind (pass, caller 4, caller 3) and its address. Every writer goes
-  through the skip. `inputPassPending` stays set from the originating input
-  until the last caller completes, so no capture holds an unmade caller.
-- **Skip.** Slot 0 occupied means MMModern contact position 0 as last built
-  by a draw: the monster step moves actors and a later draw builds the
-  slots, so the test must not see a monster before that draw. A pass or
-  manual call admitted in the Engaged phase runs before attachment: entry,
-  flag and tail, window 38 acknowledged (the approved deviation), then
-  combat attaches. The line-head test in `XeenEventInterpreter` aborts a
-  scan the same way between lines, after the draws Part 0 names (label,
-  TeleportAndContinue, fall restart). This replaces carrying the mark
-  through combat, the address match after a win and
-  `originAutomaticSuperseded`.
-- **Combat end.** At retirement: caller 4 when door text was up at entry
-  and the cell is flagged, then caller 3 when the flag is still set, at the
-  current position without a flag test. Each is an ordinary call through
-  the existing candidate, tickets and boundaries and clears WhoWill. A flag
-  left by a skip without a reaching fight survives until the next scanning
-  call, so a later fight can make caller 3. A caller's Event can engage,
-  move or kill the party like any call; re-engagement skips again and waits
-  for the next fight, with no recursion. Exits follow the Part 0 table:
-  defeat still reaches caller 4, Quit makes neither call, a fight entered by
-  Shoot has no caller 3, and item Town Portal and Time Distortion relocate
-  within the fight. Mr Wizard stays refused in combat.
-- **Run.** `xeenRunDestination` no longer refuses a landing for its Event;
-  other refusals stay. The quirk row is rewritten.
-- **Door text** is set and cleared at the Part 0 sites and saved and cleared
-  at combat entry; text and numeric input clear it only for their duration.
-  The label is drawn only while the flag is set and slot 0 is empty.
-- **Engaged input** follows Part 0 item 3, including where an admitted fight
-  takes control before the manual call's Wait or pass; a window 38 tail
-  follows the window-first deviation. Keys queued before a fight go to
-  combat as in DOS, and ordinary combat exit clears them (`0x2eb73`).
-- **WhoWill.** Every call clears it; `dev-whowill-event-passes` and
-  `clearWhoWill` go, with the comment at `XeenMonsterTreasure.h:35`.
-- **Treasure.** M81's order and the Event-treasure duplicate stay; normal
-  combat completion delivers its treasure before caller 4 (`0x2eb85`).
-- **Save v18, schema 9 and content 14.**
-- **Stop rules.** Part 0 answers within items 1-5 are implemented without
-  asking. Stop only for: a saved flag; a new owner; a change to an M84 pass
-  rule; a between-line abort needing more than one generic line-head test; a
-  presentation difference other than label drawing; a case M63's approved
-  movement buffering cannot express; a caller that cannot be represented
-  without dropping or duplicating a call.
-
-## Parts and sequence
-
-| Part | Content | Gate |
+| Part | Commit | Result |
 | --- | --- | --- |
-| 0 | DOS evidence, rules chapters | Maintainer reads the findings |
-| A | Skip, both callers, Run, door text, engaged input, WhoWill, tests, presets | Independent implementation review, suite, play-test |
-| B | Closure: census, quirks, ScummVM differences, rules, status, history, roadmap | Maintainer acceptance |
+| 0 - DOS evidence | `15ea744` | Line-head skip and its flag, both callers, every combat entry and exit, engaged input, door-text writers and drawing, both lifetimes, the Vertigo witness from original monster movement |
+| A - implementation | `e3066f0` | Skipped flag in `XeenProgramState`, door text in the encounter owner, one owed call with a kind, line-head test in `XeenEventInterpreter`, callers at combat retirement, Run admission, presets `m85-playtest-label`, `-run` and `-trap` |
+| B - closure | This change | Status, history, roadmap |
 
-## Risks
+## Key decisions
 
-- **Combat retirement** under Journey tickets, restore guards and the
-  Victory and Disengaged phases.
-- **Tests and digests.** Tests expecting the Run refusal, the superseded
-  origin or the deferred arrival change only where a Part 0 rule explains
-  it. A changed M44 digest needs its first divergence explained against a
-  rebuilt baseline, preferably by a counterfactual run, and the
-  maintainer's approval; it never waives exact restore.
+- **Rules follow static DOS evidence** (Part 0, high confidence): the skip
+  is a test before every line, not only at entry; caller 3 follows any
+  combat a draw admits, while a fight entered by exploration Shoot has none;
+  a scanning caller 4 clears the skipped flag and so suppresses caller 3;
+  defeat still reaches caller 4 and Quit reaches neither. Neither flag is
+  saved; the skipped flag survives Load, New Game and the return to the
+  title, while gameplay entry clears door text. The pin never clears its
+  skipped flag on a scan, a recorded ScummVM difference.
+- **Approved deviation `dev-skipped-window-first`** (maintainer,
+  2026-10-23). In DOS a skipped call's "Nothing here" window draws the
+  screen before its acknowledgement, which can start the fight and its
+  callers inside the unfinished call. MMModern acknowledges the window and
+  finishes the call first, then the fight starts.
+- **Treasure keeps its gate.** Combat end calls delivery before caller 4,
+  but in mode 2, so the delivery routine's own monster-in-view test still
+  defers it (`0x2eb78`, `0x2414e..0x241e4`). A first implementation that
+  delivered unconditionally changed the roundtrip digest and was rejected;
+  with the gate kept, all four M44 digests are unchanged.
 
-## Tests and acceptance
+The rules, tables and witness are in
+[world Events](rules/world-events.md#event-dispatch), offsets and
+calibration in [evidence](rules/evidence.md#event-dispatch), and the
+deviation in [original quirks](original-quirks.md#dev-skipped-window-first).
 
-- Unit: a skipped pass, a skipped manual call and a between-line abort
-  (entry, tail, flag, no further lines); a scanning call clears the flag;
-  caller 3 after a win (also on an unflagged cell after a skipped manual
-  call) and after Run (scanning the landing, flagged or not); caller 4 only
-  with door text up at entry and a flagged cell, clearing the flag so caller
-  3 does not follow, and both when caller 4 is itself skipped; a stale flag
-  across a quiet boundary making caller 3 after a later fight; the exits
-  Part 0 excludes, combat Load included; door-text writers; Run admitted at
-  a landing with an Event; engaged Space; a save refused before a caller; a
-  rolled-back candidate leaving both values; WhoWill cleared and exactly one
-  ordinary pass for the next input.
-- Original data, driven until monsters engage, with no actor placed where
-  DOS movement cannot go: the Part 0 witness, Vertigo `(13,4)` West with
-  original monster 35 from `(15,4)` (label skipped between lines, back after
-  a win); Run facing East to the landing `(18,4)`, the former refusal, where
-  caller 4 tests its East label; a trap skipped as a monster engages,
-  hurting once after the fight, with live monsters able to reach it.
-- Saves: the generic exact-restore test unchanged; neither value serialized.
+## Validation and acceptance
 
-Acceptance: Part 0 rules recorded; independent plan review applied; Part A
-implemented and independently reviewed; the complete `build-rel` suite
-passes as [tools/AGENTS.md](../tools/AGENTS.md) requires; M44 digests
-unchanged or replaced with approval; coverage regenerated if support
-changes. The maintainer play-tests the label after a win and a Run, the
-Vertigo Run landing facing East and the skipped trap, from new
-`m85-playtest` presets. Closure also corrects `docs/rules/items.md`'s
-WhoWill paragraph, stale since M84.
+The independent plan review (approve with changes, 14 findings) was applied
+before Part 0; Part 0 stopped once, on the window ordering, and the
+maintainer approved the deviation. Part A had an independent implementation
+review in a fresh context. The complete `build-rel` suite passed 279/279 as
+[tools/AGENTS.md](../tools/AGENTS.md) requires (two stale defeat expectations
+fixed in tests and rerun), and the M44 audit found zero differences with
+exact reload and re-save. Coverage counts did not change. The maintainer
+play-tested the Vertigo label after a win and a Run, the East-facing Run to
+`(18,4)` and the map 55 trap, and accepted the milestone on 2026-10-23.

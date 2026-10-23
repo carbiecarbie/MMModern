@@ -1,9 +1,10 @@
 # MMModern - Project Status
 
-This describes what can be played and done now. **M84 is the latest completed
-and accepted milestone** (2026-10-23; [plan](milestone-84-plan.md)): a cell's
-Events run again after every key or click, as in DOS, and the keyboard and
-both mouse buttons follow the original's tables. Digital voices, CD speech
+This describes what can be played and done now. **M85 is the latest completed
+and accepted milestone** (2026-10-23; [plan](milestone-85-plan.md)): Events a
+monster interrupted and door labels come back after the fight, and Run lands
+on any landing, as in DOS. M84 made a cell's Events run again after every key
+or click, with the original keyboard and mouse tables. Digital voices, CD speech
 and output recovery join the original FM music and effects (M83), and the
 control panel's sound buttons work. Every monster drops the treasure
 its original record gives (M81), the entrance scenes and the Warzone Arena
@@ -53,7 +54,12 @@ an empty bank. **Load** continues a saved game from the same slot list.
   say "not supported yet" without changing anything. As in DOS, a cell's
   Events run again after every key or click while the party stands on it:
   traps hurt again, door labels return after Wait and guarded NPCs come back
-  while their condition holds. Load and New Game start with one run.
+  while their condition holds. Load and New Game start with one run. When a
+  monster reaches the party, an Event call stops before its next line and
+  runs at the party's position once the fight ends, after Run too; a door
+  label up as the fight began comes back afterwards. "Nothing here" is
+  acknowledged before such a fight starts, where DOS starts it under the
+  window ([approved deviation](original-quirks.md#dev-skipped-window-first)).
 - **Space** interacts with what is in front and then waits, as in DOS, so on
   an Event cell its Events run twice; a click in the 3D view runs them twice
   without waiting. An NPC or member prompt answer, or a teleport, replaces
@@ -85,11 +91,9 @@ item at its original chance and treasure level (1 to 6, accessories
 included). Kills in the Warzone give no treasure. The treasure appears on the
 original screens when the fight is over, or outside combat once no monster is
 in view, and must be acknowledged page by page. Items go to the member last
-chosen in a "who will" prompt when there is one. As in DOS, every later key
-press on an Event cell forgets that choice; the original also forgets it after
-some fights, which MMModern does not yet, an
-[approved deviation](original-quirks.md#dev-whowill-event-passes) until the
-second Event dispatch milestone. With full packs the original warning appears and items are
+chosen in a "who will" prompt when there is one. As in DOS, every Event run
+forgets that choice: each later key press on an Event cell, Space, and the
+Events that follow some fights. With full packs the original warning appears and items are
 lost or replace the last one in their category, while gold and gems are still
 credited. Event treasure shares the monster
 treasure as in the original: an Event reward also hands over pending monster
@@ -101,8 +105,7 @@ deliver them.
 **Run** is per member; the others keep fighting. Each map's original run
 position and chance apply, indoors too. If the whole party leaves, it moves to
 that position with its facing unchanged, and survivors keep their wounds.
-Run says "not supported yet" when that cell has an automatic Event for the
-party's facing.
+The landing's Events run only through the two post-combat calls, as in DOS.
 
 In combat, equipping, removing, discarding and transferring items cost no
 turn. The Use button (U, the potion) uses a charged item and ends the member's
@@ -384,11 +387,6 @@ in [dependencies](dependencies.md).
 - **Scenes and commands.** The Pyramid entrance, the Clouds ending and Mr
   Wizard in combat say "not supported yet"; killing Lord Xeen does not give
   his Scepter yet.
-- **Events after combat.** The original runs a cell's Events again after a
-  fight in two cases: when a monster's attack made it skip them, and when a
-  door label was up as the fight began. MMModern instead runs a pending
-  arrival Event once after a win and says "not supported yet" for Run onto a
-  landing with an automatic Event (roadmap step 13, second milestone).
 - **Skills.** Arms Master and Tracker are kept but do nothing; the reference
   gives them no effect either, and DOS has not been checked.
 - **Sound.** The Inn song (`inn.m`) has no production caller until the Inn/Sign

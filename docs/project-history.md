@@ -471,3 +471,15 @@ game treats the right mouse button as the left, confirmed in DOSBox, and the
 keyboard now follows the original's translation table (W waits, keypad 4/6
 turn). Save v18 is unchanged; the post-combat calls wait for the second
 milestone. [Plan](milestone-84-plan.md).
+
+**M85 - Event calls after combat** (plan `1d2b92d` with amendment
+`70e152c`; Part 0 `15ea744`, Part A `e3066f0` and the closure commit).
+Accepted by the maintainer on 2026-10-23 after play-testing Part A. As in
+DOS, an Event call that finds a monster at the party before one of its lines
+stops and is remembered; when the fight ends, a door label that was up comes
+back and the interrupted Event runs at the party's position, after Run too.
+Run therefore no longer refuses landings with an Event, and every Event run
+clears the "who will" recipient. "Nothing here" is acknowledged before such a
+fight, an approved deviation from DOS, which starts it under the window.
+Treasure after a win still waits while monsters are in view. Save v18 and
+all M44 digests are unchanged. [Plan](milestone-85-plan.md).
