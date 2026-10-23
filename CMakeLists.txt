@@ -1271,3 +1271,11 @@ if(MINGW AND NOT MMODERN_TEST_DEBUG_INFO)
 		endif()
 	endforeach()
 endif()
+
+# No test needs the speakers: audio output is covered through injected and
+# dummy devices, and a real device makes the parallel suite play every
+# test's music and effects at once.
+get_property(mmodern_tests DIRECTORY PROPERTY TESTS)
+if(mmodern_tests)
+	set_property(TEST ${mmodern_tests} APPEND PROPERTY ENVIRONMENT "SDL_AUDIODRIVER=dummy")
+endif()
