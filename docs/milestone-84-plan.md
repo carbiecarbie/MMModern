@@ -81,14 +81,23 @@ confirms from DOS play that traps hurt again on every key.
   (`0x26797`), the stash, the scan from line 0; only the script's guards
   stop a repeat. The tail (`0x28e97..0x28f1c`) may show "Nothing here"
   (window 38) and suppresses sound 21 on flagged cells (`0x28f13`).
-- Space or a 3D-view click runs the Events at `0xd2be`; only Space then
-  waits (`0xd468`: time, monsters, door text cleared at `0xd472`), and the
-  pass runs them again. A run starting while attack slot 0 is occupied is
-  skipped and flagged (`0x26ac4`) for the second milestone.
-- Clouds has 376 flagged cells: 187 with records (108 without a leading If
-  guard) and 189 outdoor cells without. Witnesses: the damage trap at map 26
-  (8,3), Vertigo's door labels at (13,4) West and (10,8) North, the guarded
-  NPC at map 7 (6,3).
+- Space or a 3D-view click runs the Events at `0xd2be`, then the loop
+  dispatches the key left by that call (`0xd2d0`): Space waits (`0xd468`:
+  time, monsters, door text cleared at `0xd472`) unless a dialog replaced
+  it or teleport cleared it, and a click does nothing more; then the pass
+  runs the Events again. A handled grate clears the key first. A run
+  starting while attack slot 0 is occupied is skipped and flagged
+  (`0x26ac4`) for the second milestone; WhoWill and the tail still apply.
+- DOS has no general key flush after a script, only particular clearing
+  sites, and repeats held non-navigation keys too.
+- Clouds has 300 flagged cells, 299 with records; map 25 (27,3) has none and
+  no object. Unchanged resources show no "Nothing here" window on a flagged
+  cell. Witnesses: the damage trap at map 26 (8,3), Vertigo's door labels
+  at (13,4) West and (10,8) North, the guarded NPC at map 7 (6,3).
+
+Part 0 (2026-10-23) settled the rest; the rules, input table and tail are in
+[world Events](rules/world-events.md#event-dispatch), offsets in
+[evidence](rules/evidence.md#event-dispatch).
 
 ## Maintainer decisions
 
@@ -108,6 +117,11 @@ confirms from DOS play that traps hurt again on every key.
   MMModern's right-click as Escape and corrects the earlier evidence for it
   (quirk rows on WhoWill, combat rows and death/credits pacing,
   `docs/controls.md`).
+- **Exploration keys follow the DOS table** (2026-10-23): W waits and the
+  period is an unmatched key; keypad 4 and 6 turn; Ctrl+Down does nothing
+  beyond its pass (no "Turn around" refusal); Ctrl translates the plain key
+  (Ctrl+I is Tab); F10, F11, F12 and Delete give no code. F8 keeps the
+  approved omission of speech replay and stays an unmatched key with a pass.
 
 ## Part 0 - DOS evidence (read-only)
 
@@ -149,7 +163,9 @@ rows where they apply. No code.
   run. Cancelled and refused actions still complete with a pass.
 - **A pass**, on a flagged cell, calls the Events: it clears WhoWill and
   stages as the original's entry does, runs the lines that match position
-  and facing (or All), and applies the Part 0 tail. On an unflagged cell it
+  and facing (or All), and applies the tail by the original's executed and
+  other-facing markers, not by whether a record matched; the tail serves
+  manual calls too. On an unflagged cell it
   does nothing. It follows the input's own effect (the move, Wait's time and
   monsters, the dialog closing) and precedes ordinary delivery.
 - **Calls without a matching record.** The existing Event admission and
@@ -157,19 +173,16 @@ rows where they apply. No code.
   the same publication guards, tickets, boundaries and save exclusion
   through retirement. A missing record is normal completion, not
   unsupported content.
-- **Every processed input is a pass** (class-wide default): moves, turns,
-  strafes, blocked moves, Wait, Rest, Cast, Bash, Shoot, item Use, each
-  exploration dialog when it closes, Escape, a click with either button on
-  a button, portrait or the 3D view, unmapped keys and F9 (unmapped in
-  DOS). Not passes: modifiers
-  alone, empty panel clicks, input consumed by an open dialog or Event
-  presentation, and MMModern host keys (Alt+Enter, window resize and close).
-  Part 0's table overrides this default; a difference the rule cannot
-  express stops the part.
-- **Space and the 3D-view click** keep their origin through suspension and
-  publication: both run the manual Event; Space then waits and a 3D click
-  does not; then the pass samples the resulting position, facing and flag,
-  also after manual travel.
+- **Passes follow the Part 0 input table**: every completed outer input,
+  matched or not, including Escape, either mouse button on a button,
+  portrait or the accepted 3D area (its DOS bounds included), and F9. Not
+  passes: keys with no DOS code, Shift, Ctrl or Alt alone, empty panel
+  clicks, nested responses and MMModern host actions
+  (Alt+Enter, window resize and close).
+- **Space and the 3D-view click** run the manual Event, then continue with
+  the key that call left (Space's Wait, a replacing dialog key, or nothing
+  after a clear), then the pass samples the resulting position, facing and
+  flag, also after manual travel.
 - **Engaged monsters, until the second milestone.** This exception
   overrides the pre-combat order: a pass whose input engages monsters, new
   ones included, keeps today's deferred arrival (combat first, the Event once
@@ -180,9 +193,13 @@ rows where they apply. No code.
   produces exactly the left button's action on every screen (exploration,
   combat, dialogs, title and credits); right-click as Escape is removed in
   one input-layer change, with the quirk rows and `docs/controls.md`
-  corrected in the same change. Held keys and keys
-  typed during an Event follow Part 0; M63 repeats only navigation today. A
-  conflict with M63's approved buffering stops for a maintainer decision.
+  corrected in the same change. The exploration key table follows the DOS
+  table above. Keys typed during an Event stay queued except at the
+  original's clearing sites (text pages, teleport, map load, NPC, treasure).
+  Held non-navigation keys repeat through M63's existing typematic model;
+  movement keeps its approved buffering
+  ([`dev-no-phantom-steps`](original-quirks.md#dev-no-phantom-steps)). A
+  conflict with that deviation stops for a maintainer decision.
 - **WhoWill.** The per-pass clear replaces `_whoWillPass`;
   `dev-whowill-event-passes` narrows to the two post-combat calls.
 - **Non-Journey play.** `XeenNavigationFlow`'s own automatic dispatch moves
@@ -232,8 +249,9 @@ rows where they apply. No code.
   with no record, a wrong-facing record and at `(0,0)` North; WhoWill per
   pass; the tail; a win and a Run after an engaging pass.
 - Input: right-click equals left-click on a button, a portrait, the 3D view
-  (manual run plus pass), a combat row and a dialog; SDL tests for mapped
-  and unmapped repeats, taps buffered across a
+  (manual run plus pass), a combat row and a dialog; the DOS key table (W,
+  period, keypad 4/6, Ctrl translation, F8, F10-F12, Delete); SDL tests for
+  mapped and unmapped repeats, taps buffered across a
   non-modal executed script, modal completion, record-less calls, and kept
   key releases and host actions.
 - Saves: a panel visit with no save, one save and two saves each followed

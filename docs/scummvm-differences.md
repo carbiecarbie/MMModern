@@ -272,6 +272,28 @@ gameplay playback sites and CD rules follow in Parts A2 and B:
 
 ## Events
 
+The DOS dispatch comparisons below specify the faithful per-input rule;
+implemented coverage remains in project status. These entries were checked
+against the pin; master was not rechecked.
+
+- Either mouse button is the same coordinate-only click in the CD game.
+  A 3D click normally runs manual Events without Space's Wait. The pin
+  distinguishes right-click and turns a view click into Space.
+  [Evidence](original-quirks.md#sv-event-coordinate-mouse).
+- DOS filters F10/F11/F12/Delete and translates Ctrl combinations before
+  exploration dispatch. The pin forwards host key codes and modifier bits;
+  its keypad 4/6 strafing also differs from the DOS turns. Existing MMModern
+  aliases are identified separately in the input rules.
+  [Evidence](original-quirks.md#sv-event-key-translation).
+- A manual Event resumes with the key its dialogs or clearing left behind.
+  DOS does not flush all queued keys simply because a script executed; the
+  pin does. Acknowledging "Nothing here" also has no general DOS key flush.
+  [Evidence](original-quirks.md#sv-event-key-continuation).
+- DOS's Nothing-here tail distinguishes a record match from an instruction
+  setting its executed marker. The pin marks execution before every matching
+  instruction, changing aborted/unmarked paths.
+  [Evidence](original-quirks.md#sv-event-tail-marker).
+
 - **The Vowelless Knight.** ScummVM accepts either spelling of one riddle
   answer, a documented workaround for a data error; the original, and
   MMModern, accept only the spelling in the data.

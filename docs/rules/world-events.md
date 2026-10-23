@@ -1,5 +1,143 @@
 # World Events: map changes, script values, travel and input
 
+## Event dispatch
+
+**Evidence: DOS static, high confidence (2026-10-21 and 2026-10-23)**,
+calibrated against known movement, door labels, character sheets and saving.
+The maintainer also confirmed the mouse rule in DOSBox on 2026-10-23.
+See [the offset and calibration record](evidence.md#event-dispatch).
+These describe DOS rules; implemented coverage remains in project status.
+
+Exploration checks the party's current cell after each completed outer input.
+If that cell has the Event flag, it starts a full Event call, clears WhoWill,
+stages pending treasure and scans from line 0, even when no record matches.
+Records must match position, requested line and facing (or All). The original
+exception at `(0,0)` facing North rejects every record. A quiet frame does not
+make another pass. The pass precedes ordinary treasure delivery and the next
+idle draw that can start combat.
+
+Closing a character sheet, Items, Info, Quick Reference, Map or Quests completes
+the original input's one pass. Item Use stays inside the sheet's input, including
+travel. Refused and cancelled actions, blocked movement and unmatched nonzero
+keys also complete a pass. A panel visit has one pass when it closes: Save,
+Save As, sound options and their acknowledgements are nested responses, however
+many saves are made. Mr Wizard returns to the same continuation at its resulting
+cell. Successful Load replaces the old continuation; Quit, death and terminal
+transitions leave exploration instead of making an ordinary pass.
+
+Title Load, panel Load and New Game load the map, rebuild monsters and objects,
+and draw the arrival view before their entry pass. This pass is gameplay after
+restoration, not an effect of copying saved state. The approved MMModern F9 Save
+has its own following pass; DOS recognizes F9 as an unmatched nonzero key.
+
+| Exploration input | DOS pass rule |
+| --- | --- |
+| Letters, digits, punctuation, Enter, Tab, Backspace, Escape, arrows | One pass after the action or dialog completes, even without a mapped action |
+| F1-F6, F7, F8, F9 | One pass; sheets, unmatched F7/F9, CD replay F8 respectively |
+| F10 | Consumed by the temporary DOS-prompt screen; no exploration pass |
+| F11, F12, Delete/keypad decimal | No code, no pass |
+| Insert, Home, End, Page Up/Down | Nonzero unmatched code, one pass |
+| Shift, Ctrl, Alt alone | No pass; Caps/Num/Scroll Lock instead produce unmatched codes |
+| Alt plus a key | Same exploration code as the key; MMModern Alt+Enter is a host action |
+| Ctrl plus a key | Translated before dispatch: Ctrl+Left/Right strafe; Ctrl+Up/Down are unmatched; Ctrl+F10 is unmatched and does make a pass |
+| Keypad | Nonzero translated keys make a pass; keypad 4/6 turn in DOS, and NumLock does not select a second translation table |
+| Either mouse button on a button, live portrait or accepted 3D area | Same coordinate-only click; one outer pass |
+| Empty panel click, key release, mouse motion, nested dialog response | No independent pass |
+| MMModern Alt+Enter, resize, window close | Host actions, no gameplay pass |
+
+Current MMModern shortcuts are not all literal DOS mappings: period is an
+unmatched DOS key (W waits), keypad 4/6 turn, and Ctrl+Down does not turn around.
+All still have a pass obligation when delivered as outer exploration inputs.
+Shift changes punctuation; Ctrl translates the plain code rather than combining
+with Shift. For example, Ctrl+I opens the panel and Ctrl+grave produces Space.
+Standard keyboard translation is settled; unusual host layouts are not measured.
+The pass test uses the low-byte code after the wrapper removes Alt's high-byte
+state; a nonzero raw return containing only that Alt state is not an input.
+
+Either mouse button is indistinguishable to this CD build: the callback stores
+coordinates only, the reader returns 0 or 1, and the supposed right-click Escape
+branch at `0xe0dc` is unreachable. The maintainer's DOSBox check confirms equal
+left/right behavior on buttons and in the 3D view. Older right-click-as-Escape
+descriptions remain to be corrected with the input implementation.
+
+Icon and portrait bounds are lower inclusive and upper exclusive. The DOS 3D
+input rectangle instead includes x 8 through 224 and y 8 through 135. Its outer
+manual-interaction test extends through y 140, after a nonzero input exists.
+A stationary click on the panel icon's top four rows (y 137 through 140) can
+therefore run manual Events before opening the panel. Empty pixels below the
+accepted view do not create a code merely because they satisfy the outer test.
+
+Space and a 3D-view click first try the indoor grate/door interaction. A handled
+interaction clears the key and skips the manual Event and Wait; a refusal can
+leave the ordinary manual route available. Otherwise they call Events manually,
+including on an unflagged cell. The loop then dispatches the **current key left
+by that call** and finally makes the ordinary flagged-cell pass. With no intervening
+input or clearing, Space waits and a 3D click does not: both can run a flagged
+cell twice. Teleport can clear Space; a dialog can replace it. A click followed
+by a Space or W acknowledgement can consequently wait. The original does not
+preserve an unconditional Space-versus-click continuation across every script.
+
+Wait advances time and monsters and clears door text. If its monster step fills
+attack slot 0, the following Event call still clears WhoWill and stages its
+state, but sets the skipped-call flag and proceeds to cleanup without scanning
+records. The tail below still applies. The conditional post-combat callers are
+separate from this per-input rule.
+
+DOS accepts typematic makes for non-navigation keys as well as movement. It has
+a ten-key FIFO; ordinary releases do not remove queued makes, while NumLock
+release clears it. Exact keyboard/emulator repeat delay and rate are **Unknown**
+from static evidence. MMModern retains the approved
+[movement buffering deviation](../original-quirks.md#dev-no-phantom-steps).
+
+Executing an Event does **not** unconditionally flush the keyboard in DOS.
+Teleport, map loading, text-page continuation, NPC and treasure presentations
+have particular clearing sites; a non-modal script can leave subsequent taps
+queued. Keyboard clearing drops pending makes and the current code, not physical
+modifier state or future repeats. Mouse draining is a separate operation.
+
+The Event tail has two alternatives, for manual and automatic calls alike:
+
+| State at completion | Result |
+| --- | --- |
+| No executed marker, a selected object, no other-facing candidate | Window 38: "Nothing here", requiring acknowledgement |
+| No executed marker, a selected object, an other-facing candidate, cell Event flag clear | Sound 21 |
+| Otherwise | Neither tail effect |
+
+The window does not require Space and does not test the Event flag. Sound 21
+is suppressed on a flagged cell. An other-facing candidate must match the
+current script position and requested line; an unrelated record is insufficient.
+The marker persists across scans. The executed marker is set by instruction
+paths, not merely by finding a record: even a failed If sets it, while CallEvent
+alone does not. A SetChar selection that aborts before its marking path can
+leave it clear. Nothing-here acknowledgement consumes input without a general
+keyboard flush.
+
+The selected-object byte is one-based: zero means no selection, and MOB record
+0 is selectable. The nearest object is selected at the party's logical cell;
+searching only the next map cell gives the wrong tail census. The current
+`runManualEvent` has the narrow wrong-facing, object-present, unflagged sound
+case, but its early no-record return omits the full call and window tail.
+
+The read-only Clouds sweep finds **300 flagged cells**, after rejecting archive
+hash aliases and resolving indoor continuation tiles into their owning maps.
+There are records at 299; the remaining cell, map 25 `(27,3)`, has no object
+selected and produces neither tail effect. Of 135 flagged cells with objects,
+18 have a line-0 record for only one facing: their other 54 facing cases have
+neither window nor sound. The other matched paths set the executed marker,
+directly or in their called script. Thus unchanged resources with attack slot 0
+free supply no flagged-cell tail-window witness, and the flag suppresses the
+tail sound. This corrects the earlier 376/187/189 census, which mixed archive
+hash aliases and physical DAT coordinates with logical Event coordinates.
+
+**Unknown:** an exhaustive list of reachable tail windows after scripts mutate
+Events or objects, or when combat makes a call skip its scan. Static predicates
+do not establish every reachable saved state. A focused DOSBox check can watch
+attack slot 0 while waiting on an object-bearing flagged cell, then verify
+whether the skipped call shows window 38 before combat resumes. This does not
+require implementing the post-combat caller.
+
+## Map and script instructions
+
 **Evidence: DOS static**, installed English CD `WORLD/XEEN.DAT`, SHA-256
 `8bf78b4850d5973cbb063c7dd96b9aaef4e94791d748334187eef74acf528d27`.
 These rules were checked on Windows on 2026-10-15, the Battle Master and
@@ -405,10 +543,11 @@ The shared text input uses original window 6, length 30 and width 200
 (`0x24008..0x24014`, `0x1e00f..0x1e179`). Width is formatting, not a character
 rejection threshold. It accepts original printable input, ignores leading
 spaces, capitalizes the first letter of each word and lowers later letters.
-Backspace/Delete removes a character; Enter accepts; Escape clears and returns
-an empty answer. Left clicks are consumed without editing/submitting
-(`0x1e01c..0x1e021`, `0xe315..0xe328`); right/both-button input maps to Escape
-and drains buttons (`0xe0d5..0xe0f6`). Original title/window text comes from the
+Backspace removes a character; Enter accepts; Escape clears and returns
+an empty answer. This CD keyboard table gives Delete no code. Either mouse
+button is consumed without editing/submitting (`0x1e01c..0x1e021`,
+`0xe315..0xe328`); the supposed right-Escape branch is unreachable, as the
+[Event dispatch audit](#event-dispatch) establishes. Original title/window text comes from the
 installed executable. While the prompt owns input, movement/other owners get
 no keys; M63's frame, context, focus and queue fences still apply. Cursor
 animation is presentation-only and consumes no Journey time or RNG.

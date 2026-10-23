@@ -1606,6 +1606,83 @@ item categories at `0xa7`, `0xcc`, `0xf0`, `0x114` with 4-byte slots).
 | Handlers | Poison `0x2d442`, Sleep `0x2d462`, Disease `0x2d4a5`, Insane `0x2d486`, Confuse `0x2d4c4`, Curse `0x2d4e4`, Break Weapon `0x2d508`, Weaken `0x2d541`, Drain SP `0x2d561`, Paralyze `0x2d56e`, Aging `0x2d592`, Unconscious `0x2d5a2`, Eradicate `0x2d5c6` (helper `0x2bd6a`), Stone `0x2d611`, Death `0x2d641`, Curse Item `0x2d671`; specials 6 and 11 map to `0x2d6b5`. |
 | Saving throw helper | `0x2d0c2`: selector 0 adds level and `statBonus(Luck)` and draws `1..v + 20` (`0x2d0fe`); selectors 1-6 add the resistance pair and `itemScan` bonus and draw `1..r + 40` (`0x2d202`); success when the draw is at most the value (`0x2d212..0x2d21d`). |
 
+## Event dispatch
+
+**2026-10-21 and 2026-10-23; DOS static, high confidence**, plus the
+maintainer's 2026-10-23 DOSBox confirmation that right-click always acts as
+left-click on buttons and in the 3D view. Read-only WSL Python/Capstone analysis
+of the English World CD `WORLD/XEEN.DAT`, SHA-256
+`8bf78b4850d5973cbb063c7dd96b9aaef4e94791d748334187eef74acf528d27`.
+Addresses below are file offsets; Ghidra linear address adds `0xa940`, and
+module-relative `segment:offset` resolves as `0x56c0 + segment*16 + offset`.
+External traces and the full input/handler tables are in
+`D:/MModern-re/m84-part0/findings.md`; the earlier main-loop evidence is in
+`D:/MModern-re/event-dispatch/findings.md`. ScummVM `6814ee9b` was comparison
+context, not the authority for these DOS conclusions.
+
+Calibration reused the established movement/door-label callers, M77's sheet
+and Item Use debit, and M78's map rebuild. New input paths were checked against
+the known arrow, Space, F1-F6 and icon actions. The Save helper was identified
+by its original saving/completion messages, party block and map-state writer.
+Tail selection was checked against both object builders and the renderer's
+one-based-to-zero-based conversion. No original program bytes or disassembly
+are stored in the repository.
+
+| Finding | File offsets and calibration |
+| --- | --- |
+| One pass after each surviving outer input; idle frames do not repeat | `0xd18c` calls cell lookup `0x11f04`; flag `0x10` gates `0xd1a5 -> 0x26774`; delivery `0xd1b7`; idle draw `0xd1c3 -> 0x10bc3`. Unmatched key `0xd2e9`, common tail `0xd5c7`, loop-back `0xd5e5`. Calibrated by Wait's door-label clear and the earlier M81 callers. |
+| Full entry without a matching record | WhoWill clear `0x26797`, stash setup and line-0 scan; `(x\|y\|facing)==0` exclusion `0x26b5f..0x26b69`. Matching position/line/facing `0x26b1f..0x26bf6`. |
+| Physical keyboard translation | Keyboard IRQ installation `0x4557b..0x455a0`, producer `0x455bf..0x45691`, Set-1 table `0x456e8`, consumer `0x45436..0x45555`, wrapper `0xe149..0xe185`. Known arrows `f0..f3`, Space `20`, sheets `c9..ce` calibrate the table. F7/F9 are unmatched; F8 returns from CD replay `0x3dbfb`; F10 is intercepted `0xe17a` and cleared `0xe17f`; F11/F12/Delete have zero translations. Ctrl subtracts `0x40` from plain codes at least that large; Alt's high byte is stripped. |
+| Coordinate-only mouse input | Both press masks registered `0x43758..0x43766`; callback `0x43832..0x4384e` queues coordinates only; reader `0x4384f..0x438e4` returns only 0/1. Escape branch `0xe0dc` requires greater than 1 and is unreachable. DOSBox confirmation above independently corroborates the result. |
+| Mouse bounds | Main table DS `0x197c`, file `0x4f20c`; decoder `0xe32d..0xe396` uses exclusive upper bounds, as in established YesNo calibration. Portraits `0xe2cc..0xe313`. View override `0xe118..0xe136` includes x 8..224/y 8..135. Outer manual predicate `0xd1f4..0xd217` includes y through 140: a stationary top-of-panel-icon click can enter manual Events first. Feedback poll `0xe426` can update the coordinates used by that predicate. |
+| All 26 table entries and nested Item Use | Keys at `0xd63c`, handlers `0xd670`; ordinary routes join `0xd5c7`. Sheet `0xd4b8 -> 0x3a1a6`; Items `0x3a483 -> 0x3a652`; Use `0x3b3dc -> 0x311ae -> 0x313b7`, known charge debit `0x3145c`; null-member completion `0x3b3f4`, sheet stepped `0x3a493`, sheet return `0x3a5c1`, optional monster step `0xd4c8`. Cast return `0x33829`, Rest `0x1e827`, Map `0x13aad`, Info `0x1f6ff`, Quick Reference `0x3c515`, Quests `0x3402c`. |
+| Nonordinary exits | Successful panel Load returns 1, main sets result 2 at `0xd2fa` and leaves through `0xd5e8/0xd61b`; outer `0xb836 -> 0xb819` restarts. Quit `0x1f20d -> 0x21ecd` reaches runtime termination. Death/session result checked at `0xd5d5..0xd5e3`; manual terminal result leaves at `0xd2cd`. Mr Wizard returns 2 from the panel (`0x1f296`) and takes the ordinary pass, not this restart. |
+| Save is nested in the panel | Save `0x1f1e6 -> 0x1ebc2`, return `0x1f1e9 -> 0x1ef3d`; Save As chooser `0x1f139`, return `0x1f143/0x1f14a -> 0x1ef36`. Calibration: save/completion text `0x532b1/0x532cf`, party block and map writer `0x265f4`. Panel close `0x1f2f8..0x1f331` completes one input regardless of save count. |
+| Title Load, panel Load and New Game converge | Title Load `0xc162/0xc198`; Start `0xc113/0xc12d`, New initialization `0x20b74`, roster `0x20beb`, difficulty `0x20c14`, initial save `0x20c38`; title exit `0xc66b..0xc766`, outer call `0xb829 -> 0xcfdf`. Panel Load `0x1f17d/0x1f193` uses the restart above. Map load `0xd086/0xd08c -> 0xf542`; indoor rebuild `0xd0bd/0xd0c2`, outdoor `0xd0ce/0xd0d3`; initial view `0xd0da`; Event `0xd1a5` afterward. |
+| Manual run, current-key continuation and final pass | Manual call `0xd2be`; current `f5fe` read `0xd2d0`; Space/W Wait `0xd468`, monster step `0xd46d`, label clear `0xd472`; final pass `0xd5e5`. The original input is not preserved across manual dialogs or clearing. Indoor wall types 1/6/9/13 call grate handler `0xc794` before manual; handled path clears key `0xc911`. |
+| Wait can make the second scan skip | Attack slot 0 test `0x26abd`, skipped flag `0x26ac4`, jump to cleanup `0x28d50`; non-skipped clear `0x26acc`. Entry/WhoWill and the tail still occur. Post-combat callers `0x1184a` and `0x2ec37` remain separate evidence. |
+| No generic post-script keyboard flush | Common completion `0x28d50..0x291f6` and its close/death/treasure/context callees were audited. Final `0x291eb -> 0xe6bf` restores button context, not input. Keyboard clear `0xe097 -> 0x45413` drops queued makes and clears current code; Event direct sites are text-page continuation `0x26e41` and teleport `0x27112`; map load `0xf590`, NPC `0x25ad9`, actual treasure presentation `0x2429e` also clear. `0xe07c` separately drains mouse clicks. This corrects the 2026-10-21 report's blanket flush claim; the pin does clear on `_scriptExecuted`. |
+| Typematic applies to ordinary non-navigation makes too | Ten-key capacity set `0xb3b8..0xb3bf`; every nonzero make enters `0x45664..0x4568c`; ordinary releases do not purge. NumLock release calls clear at `0x455e5`. Exact hardware/emulator timing remains Unknown; the approved M63 navigation deviation is unchanged. |
+| Tail window and sound | `0x28e97..0x28efb`: window 38 iff executed marker clear, selected object nonzero, other-facing marker clear. `0x28efd..0x28f1c`: FX21 iff executed marker clear, selected object nonzero, other-facing marker set, sampled Event flag `f482` zero (`0x28f13`). Neither tests Space. The window's acknowledgement does not generally flush keys. |
+| Tail markers and selection | Entry clears locals at `0x2678c/0x2678f`; wrong-facing marker set `0x28d3d` only for current position/requested line. Shared executed-marker tail `0x28b2b`; CallEvent `0x28375` does not mark by itself; SetChar's cancelled selection can exit `0x27a2c` before marking. Selected object `98d9` is index+1: indoor `0x156ee..0x15836`, outdoor `0x170a4..0x171d1`, renderer subtracts one `0x10c69..0x10c6c`. Known nearest-object coordinate tables select the party's logical cell. |
+
+The Clouds census uses the CD's `GAME/XEEN.CC`, SHA-256
+`8c0ac4c0650080cc85e96af3e9d5cd9968dad16bfd2ed0785d77d21893cc155c`,
+read through M78's archive parser. The retained final script/result are
+`D:/MModern-re/m84-part0/clouds-inventory/final_domain_sweep.py` and
+`final-domain-sweep.json`. Calibration: require the DAT's embedded ID to match
+the requested ID; DOS resource naming `0xf8d0..0xf8e1` uses `mazexNNN` above 99;
+resolve the known indoor neighbour lookup before testing the flag, while using
+the owning map's EVT/MOB coordinates. Rivercity map 30 `(30,30)` resolves to
+physical DAT 114 `(14,14)`, the established M78 witness. Outdoors use 16x16,
+indoors 32x32; all 85 base maps have EVT/MOB resources. EVT length counts the
+body after its length byte.
+
+The result is 128 physical DATs and 300 flagged cells, each represented once in
+the playable domains. There are 299 cells with coordinate records; map 25
+`(27,3)` alone has none, and no object there can trigger the tail window.
+There are 135 flagged cells with same-cell objects; 18 have only one eligible
+line-0 facing, giving 54 wrong-facing cases where the window is excluded and
+the flag suppresses sound. Their map/cell lists and the full input table are in
+the external findings. First matching instructions are 4, 6, 7, 9, 15, 25, 39
+or 43. All mark execution before an ordinary tail; the CallEvent entries first
+call IfMapFlag(42) or SetChar(15, parameter 0), which also mark. No unchanged,
+unengaged flagged-cell window witness remains. The old 376/187/189 counts
+included hash aliases and compared continuation-tile coordinates with the wrong
+EVT/MOB owner; they are superseded, not additional unexplained cells.
+
+**Unknown:** exhaustive reachability after Event/object mutations or an
+occupied-slot skip. The predicate is settled, but the resource census is not
+an exploration of all saved states. The smallest skipped-call check is Wait
+on an object-bearing flagged cell while watching attack slot 0, then observe
+window 38 before combat resumes; no post-combat implementation is implied.
+
+**Unknown:** exact non-navigation typematic timing under a particular DOSBox
+configuration. The smallest check is a held unmapped key on the map-26 trap,
+with repeat settings and successive damage times recorded. Unusual host
+keyboard layouts/keypad Equals also have no measured DOS equivalence. The
+static US Set-1 table and MMModern host-action exclusions are explicit above.
+
 ## REA record locators
 
 The exported evidence bundle contains complete records. The stable IDs below
