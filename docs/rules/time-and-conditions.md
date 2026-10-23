@@ -550,6 +550,26 @@ member starts from 100. A physical fall with shield 3 deals 97, with no
 saving draw. Pinned ScummVM carries reductions between party members;
 terrain follows the original fresh value.
 
+### Falling presentation
+
+**DOS static, high confidence (2026-10-23):** the terrain transition retains
+its original destination, fixed 100 damage and RNG rules. Before publishing
+that arrival, it displays 15 accelerated scene scrolls and four impact images
+from the original source/destination views. Source offsets are
+`0,3,7,12,18,25,33,42,52,63,75,88,102,117,132,127,132,129,132` in the 216x132
+scene. Each waits one 70-Hz VGA retrace; the enclosing full draw also has its
+two-BIOS-tick minimum. Scream stops after offset 132, before the four impact
+images; [audio](audio.md#voc-inventory-boundaries) gives the cue sites.
+`XeenEventFlow::beginFall` is the single presentation entry used by the
+existing terrain transition, including its manual-step path. Input follows
+the existing blocking-presentation policy; repaint and unacquired frames do
+not advance it. No save fields or gameplay clock ticks are added.
+[Original offsets and pin difference](../original-quirks.md#sv-fall-presentation).
+
+M86 covers terrain falls only. The original Clouds Events do not use
+`FallToMap` (opcode 52); its Darkside uses remain unsupported. A future caller
+can reuse the presentation without changing these terrain rules.
+
 ## Calendar economy and direct year changes
 
 **Evidence: DOS static, high confidence** within the playable word-sized call

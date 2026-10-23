@@ -337,7 +337,7 @@ std::vector<XeenIndoorDrawCommand> XeenIndoorScene::build(
 	// Fixed entries 0, 1, 2 and 28 from IndoorDrawList.
 	const auto &presentation=world.scenePresentation().drawingState();
 	add(0, sky, 0, 8, 8, presentation.sky);
-	add(1, sky, 1, 8, 25, presentation.sky);
+	add(1, presentation.openDoor?(night && !alwaysDay?"night.sky":"sky.sky"):sky, 1, 8, 25, presentation.sky);
 	add(2, ground, 0, 8, 67, presentation.defaultGround);
 	add(28, fwl1, 7, 8, 64, false);
 	// Map::load skips empty surface slots; slot 4 is water even when type=0.
@@ -477,7 +477,8 @@ std::vector<XeenIndoorDrawCommand> XeenIndoorScene::build(
 		case 12: frame = 1+presentation.overallFrame; break;
 		case 2: frame = 9; break;
 		case 3: frame = 3; break;
-		case 4: case 5: case 8: case 13: frame = 0; break;
+		case 4: case 13: frame = presentation.openDoor?(map.geometry.wallKind?1:10):0; break;
+		case 5: case 8: frame = 0; break;
 		case 6: frame = 7; break;
 		case 7: frame = 8; break;
 		case 9: frame = 2; break;

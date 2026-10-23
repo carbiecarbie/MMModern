@@ -253,7 +253,9 @@ void m74Spells() {
     XeenPartyState party;party.party=XeenParty::fromRosterIds({0,1,2});
     for(unsigned i=0;i<3;++i){auto &c=party.roster.at(i);c.rosterId=i;c.currentHp=1;c.conditions[13]=1;}
     XeenCombatRandom random(std::vector<D>{{1,30,1},{1,30,15},{1,30,30}});XeenMoonRayHealing healing;
-    for(unsigned i=0;i<3;++i){XeenConsequenceDraw draw{random,1};check(healing.service(draw,party,0)==(i==2),"Moon Ray healing continuation differs");}
+    std::vector<unsigned> moonCues;
+    for(unsigned i=0;i<3;++i){XeenConsequenceDraw draw{random,1,{},[&](unsigned cue){check(random.position()==moonCues.size(),"Moon Ray terminal-member cue must precede its draw");moonCues.push_back(cue);}};check(healing.service(draw,party,0)==(i==2),"Moon Ray healing continuation differs");}
+    check(moonCues==std::vector<unsigned>{30,30,30},"Moon Ray must cue unhealable active members");
     check(healing.result.effects.empty() && random.position()==3,"Moon Ray must draw even for unhealable active members");
     std::vector<D> rejected(64,{3,7,0,true});rejected.push_back({3,7,5});
     XeenCombatRandom delayed(rejected);XeenSpellDamagePreparation retained(S::Fireball,7);

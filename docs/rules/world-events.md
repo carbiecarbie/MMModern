@@ -789,3 +789,21 @@ counters, the 30 Clouds quest flags, the 128 world flags and each
 character's 128 award nibbles with the full Warzone byte. The Darkside
 counters and flags are only written by Darkside scripts and read as zero
 here.
+
+## Opening doors and service borders
+
+**DOS static, high confidence for control flow (2026-10-23):** an admitted
+indoor forward move through front-wall type 4 or 13 requests FX47, draws the
+whole open-door view and holds at least two BIOS ticks before the step
+(`0x0cf93..0x0cfb7`, `0x11873..0x11880`). The frame mapping follows the pin,
+not confirmed directly in DOS: the nearest `fwl2` door uses frame 10 for
+city wall kind 0, frame 1 otherwise, and its second sky layer uses the open
+day/night sky. Blocked, backward, strafe and outdoor movement skip this view.
+Keyboard and 3D movement share the admitted movement path.
+
+Services clear Levitate, Spot Secret Doors and Danger Sense animation counters
+and statue frames at setup (`0x1d4c4..0x1d4d2`) and on a full background
+animation redraw (`0x1c402..0x1c410`, guarded by its redraw argument).
+Assembly draws statues 0/8 and advances the three zeroed counters once.
+There is no additional exit reset; returning to the map keeps the last
+assembled phase. These are disposable presentation values.

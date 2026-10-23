@@ -117,6 +117,29 @@ void prepare(XeenSaveSnapshot &snapshot,const std::string &preset) {
     auto &journey=*snapshot.journey;
     const auto first=snapshot.activeRosterIds.at(0),second=snapshot.activeRosterIds.at(1);
     auto &member=snapshot.characters[first];
+    if(preset.rfind("m86-playtest-",0)==0) {
+        prepare(snapshot,"m78-playtest");
+        snapshot.camera=preset=="m86-playtest-fall"?XeenCamera{26,5,1,XeenDirection::North}:
+            preset=="m86-playtest-moon-ray"?XeenCamera{23,9,11,XeenDirection::West}:
+            XeenCamera{28,10,11,XeenDirection::North};
+        if(preset=="m86-playtest-fall") {
+            journey.context->effects[XeenPartyEffect::Levitate]=0;
+            for(auto owner:snapshot.activeRosterIds)snapshot.characters[owner].currentHp=1000;
+        } else if(preset=="m86-playtest-moon-ray") {
+            for(auto owner:snapshot.activeRosterIds) {
+                auto &c=snapshot.characters[owner];c.currentHp=std::max(1,c.currentHp/2);
+            }
+            auto &cleric=snapshot.characters[second];
+            cleric.characterClass=XeenCharacterClass::Cleric;cleric.hasSpells=true;
+            cleric.weapons={};cleric.armor={};cleric.accessories={};
+            cleric.learnedSpells.emplace();cleric.learnedSpells->fill(1);cleric.currentSp=1000;
+            cleric.currentSpell=*XeenLearnedSpellRules::slotForSpell(XeenSpellCategory::Clerical,48);
+        } else {
+            journey.context->effects[XeenPartyEffect::Levitate]=10;
+            snapshot.characters[first].skills[16]=snapshot.characters[first].skills[17]=1;
+        }
+        return;
+    }
     if(preset.rfind("m85-playtest-",0)==0) {
         prepare(snapshot,"m78-playtest");
         snapshot.camera=preset=="m85-playtest-trap"?XeenCamera{55,7,8,XeenDirection::East}:
@@ -402,7 +425,7 @@ void prepare(XeenSaveSnapshot &snapshot,const std::string &preset) {
 
 void generateTestSave(const GameInstallation &installation,const std::string &preset,
         const std::filesystem::path &output) {
-    if (preset!="broken-armor" && preset!="train-ready" && preset!="injured-dead" && preset!="poisoned" && preset!="monster-control" && preset!="monster-damage" && preset!="party-healing" && preset!="m76-spells" && preset!="combat-items" && preset!="m78-playtest" && preset!="m78-one-holder" && preset!="m79-playtest" && preset!="m80-playtest" && preset!="m80-arena" && preset!="m80-arena-maxed" && preset!="m81-drops" && preset!="m81-fullpacks" && preset!="m81-event" && preset!="m84-playtest-trap" && preset!="m84-playtest-label" && preset!="m84-playtest-save" && preset!="m85-playtest-label" && preset!="m85-playtest-run" && preset!="m85-playtest-trap")
+    if (preset!="broken-armor" && preset!="train-ready" && preset!="injured-dead" && preset!="poisoned" && preset!="monster-control" && preset!="monster-damage" && preset!="party-healing" && preset!="m76-spells" && preset!="combat-items" && preset!="m78-playtest" && preset!="m78-one-holder" && preset!="m79-playtest" && preset!="m80-playtest" && preset!="m80-arena" && preset!="m80-arena-maxed" && preset!="m81-drops" && preset!="m81-fullpacks" && preset!="m81-event" && preset!="m84-playtest-trap" && preset!="m84-playtest-label" && preset!="m84-playtest-save" && preset!="m85-playtest-label" && preset!="m85-playtest-run" && preset!="m85-playtest-trap" && preset!="m86-playtest-fall" && preset!="m86-playtest-moon-ray" && preset!="m86-playtest-border")
         throw std::invalid_argument("Unknown test-save preset: "+preset);
     const auto target=XeenSaveFile::resolve(output,installation);
     // Reuse the native alias/reparse-aware path guard for the repository too.
@@ -422,7 +445,7 @@ void generateTestSave(const GameInstallation &installation,const std::string &pr
             nearby.lifecycle=XeenActorLifecycle::Present;nearby.accounted=false;
         }
     }
-    if(preset=="m79-playtest" || preset=="m80-playtest" || preset=="m80-arena" || preset=="m80-arena-maxed" || preset.rfind("m84-playtest-",0)==0 || preset.rfind("m85-playtest-",0)==0) {
+    if(preset=="m79-playtest" || preset=="m80-playtest" || preset=="m80-arena" || preset=="m80-arena-maxed" || preset.rfind("m84-playtest-",0)==0 || preset.rfind("m85-playtest-",0)==0 || preset.rfind("m86-playtest-",0)==0) {
         const auto map=candidate.camera.mapId;
         const auto actors=XeenActorApproach::actorsFromResources(inputs.maps.loadObjects(inputs.assets,map),inputs.resources.loadMonsterStatistics());
         auto &table=candidate.map(map).monsters;
@@ -431,6 +454,19 @@ void generateTestSave(const GameInstallation &installation,const std::string &pr
         // Keep the input/Event witnesses quiet for repeated key and Save/Load checks.
         if(preset.rfind("m84-playtest-",0)==0)for(auto &state:candidate.maps)if(state.monsters)for(auto &actor:state.monsters->slots) {
             actor.x=actor.y=-128;actor.lifecycle=XeenActorLifecycle::Defeated;actor.accounted=true;
+        }
+    }
+    if(preset.rfind("m86-playtest-",0)==0) {
+        for(auto &state:candidate.maps)if(state.monsters)for(auto &actor:state.monsters->slots) {
+            actor.x=actor.y=-128;actor.lifecycle=XeenActorLifecycle::Defeated;actor.accounted=true;
+        }
+        if(preset=="m86-playtest-moon-ray") {
+            auto &orc=candidate.map(23).monsters->slots.at(5);
+            orc={8,11,XeenActorLifecycle::Present,XeenActorStatus::Physical,false,-1};
+        }
+        if(preset=="m86-playtest-border") {
+            auto &slime=candidate.map(28).monsters->slots.at(35);
+            slime={7,11,XeenActorLifecycle::Present,XeenActorStatus::Physical,false,-1};
         }
     }
     if(preset.rfind("m85-playtest-",0)==0) {

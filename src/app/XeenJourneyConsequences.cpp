@@ -253,16 +253,16 @@ bool XeenEncounterFlow::serviceShoot() {
   }
   if(work.spell) {
    if(work.spell==XeenLearnedSpell::MoonRay) {
-    if(!work.healing.service(draw,_party,_party.encounterContext->year))return true;
-    check();
-    // Retain the existing batched preparation; the portrait owner orders each
-    // member's FX30 before its shared sparkle FX20, including terminal members.
-    for(auto owner:_party.party.activeRosterIds())_world.scenePresentation().spellCue(owner,30);
-    for(const auto &effect:work.healing.result.effects) {
-     auto &live=_party.roster.at(effect.owner);
-     const bool sparkle=live.currentHp<=XeenCharacterRules::maxHp(live,{_party.encounterContext->year});
-     live.currentHp=effect.hp;live.conditions=effect.conditions;
-     if(sparkle)_world.scenePresentation().spellEffect(effect.owner,_lastTime,true);
+    if(_world.scenePresentation().feedbackActive())return false;
+    if(work.healing.member<_party.party.size()) {
+     if(!work.healing.serviceMember(draw,_party,_party.encounterContext->year))return true;
+     check();
+     for(const auto &effect:work.healing.current.effects) {
+      effect.apply(_party.roster.at(effect.owner));
+      if(effect.healing)_world.scenePresentation().spellEffect(effect.owner,_lastTime,true);
+     }
+     session._journeyRandom=work.random.continuation();
+     ++session._journeyGeneration;++_generation;retainJourney();return true;
     }
    }
    session._journeyRandom=work.random.continuation();

@@ -145,11 +145,11 @@ gameplay playback sites and CD rules follow in Parts A2 and B:
   prepare 250 Fire damage. MMModern uses item projectile 2 and learned
   projectile 1, with respective FM cues 13 and 22. DOS presentation has not been played.
   [Evidence](original-quirks.md#sv-item-incinerate-selectors). Pin: differs; master not rechecked.
-- **Moon Ray preparation.** MMModern batches member healing draws before the
-  portrait sequence; DOS and the pin interleave them with each member's healing.
-  FM cues follow the portrait order. This existing preparation gap is recorded
-  without changing it, not approved as a deviation. Pin: differs; master not rechecked.
-  [Evidence](original-quirks.md#sv-moon-ray-preparation).
+- **Accelerated falls and retrace timing.** DOS and MMModern scroll through
+  15 accelerated images and four impact images, each at a VGA retrace. The
+  pin scrolls linearly with 5 ms delays and adds a horizontal shake. Damage
+  follows the animation in both. Pin: differs; master not rechecked.
+  [Evidence](original-quirks.md#sv-fall-presentation).
 - **Controlled monsters recover on the DOS roll.** Recovery succeeds at a roll
   at most the monster resource ID; the pin reverses the inequality. Equality
   succeeds in both. The core scans every map slot before queued shots; learned

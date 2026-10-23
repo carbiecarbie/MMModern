@@ -197,6 +197,37 @@ New-Item -ItemType Directory -Force D:/MModern-playtest
 .\build-rel\mmodern.exe --load-game "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/m84-playtest-trap.mmsave"
 ```
 
+The M86 presentation presets use the current save format:
+
+- `m86-playtest-fall`: Clouds map 26 `(5,1)` North, on original cloud terrain
+  with Levitate off and 1,000 HP per member. Load and Wait. The scene scrolls
+  down faster over 15 images, with FM11 and a scream. At the first full
+  destination image the scream stops; unnh and FX31 accompany four impact
+  images. Arrival is map 12 `(6,15)`, with 100 HP lost per member afterwards.
+- `m86-playtest-moon-ray`: mainland 23 `(9,11)` West, an original Orc identity
+  one cell ahead, an injured travel party, and the second member prepared as
+  a Cleric with Moon Ray selected and 1,000 SP. Wait to engage; on the
+  Cleric's turn press C then C; Block with earlier members to keep the Orc
+  alive until then. After the attack, each recipient's cue,
+  HP increase and four-frame sparkle finish before the next recipient's cue.
+- `m86-playtest-border`: Vertigo `(10,11)` North, next to Training, with
+  Levitate active, Spot Secret Doors and Danger Sense learned, and one nearby
+  original slime identity for Danger Sense. Enter Training, wait for its
+  animation and leave with Escape. The counters restart during the visit;
+  the return preserves the most recent border assembly's phase, with no
+  additional exit reset. Spot Secret Doors lights only when facing a thin wall.
+
+A New Game covers door testing. Walk into a closed indoor door with Up or
+its 3D movement click: FX47 precedes one full open-door view, held for at least
+two BIOS ticks, then the step. The original-data test also checks Vertigo
+`(4,3)` East. Backward/strafe/blocked moves do not show that image.
+
+```powershell
+.\build-rel\mmodern_test_save.exe m86-playtest-fall "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/m86-playtest-fall.mmsave"
+.\build-rel\mmodern_test_save.exe m86-playtest-moon-ray "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/m86-playtest-moon-ray.mmsave"
+.\build-rel\mmodern_test_save.exe m86-playtest-border "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/m86-playtest-border.mmsave"
+```
+
 The M85 post-combat Event presets use the current save format, 1,000 HP per
 member and strong melee statistics. Each keeps one original monster at its
 original position; the original-data dispatch tests walk it to the party and

@@ -1189,11 +1189,30 @@ XeenCombatResult XeenCombat::settleCast(const Ticket &t,std::optional<unsigned> 
         } else if(!itemSpell && !c.dispatchRefused)effect=XeenLearnedSpellRules::prepareEffect(static_cast<XeenLearnedSpell>(reserved.spell),d.party,element?std::nullopt:target,d.party.encounterContext->year,reserved.owner,
             reserved.spell==42 && d.world.sceneIsBlack(d.party,d.camera));
         if(reserved.spell==unsigned(XeenLearnedSpell::MoonRay)) {
+            if(d.world.scenePresentation().feedbackActive())return d.adopt(c.operation,Status::Pending);
             XeenConsequenceDraw draw{c.random,64,[&]{d.probeFor(t);d.checkCastReservation(t,reserved,true);},d.fmEffect,d.weaponSelected,d.playerMiss};
-            if(!c.healing.service(draw,d.party,d.party.encounterContext->year)) {
-                ++d.generation;return d.adopt(c.operation,Status::Pending);
+            if(c.healing.member<d.party.party.size()) {
+                if(!c.healing.serviceMember(draw,d.party,d.party.encounterContext->year)) {
+                    ++d.generation;return d.adopt(c.operation,Status::Pending);
+                }
+                auto prefix=d.prepareCastGuard();
+                prefix->s._journeyRandom=c.random.continuation();
+                for(const auto &value:c.healing.current.effects)value.apply(prefix->characters[value.owner]);
+                d.probeFor(t);d.checkCastReservation(t,reserved,true);
+                for(const auto &value:c.healing.current.effects) {
+                    const auto &before=d.party.roster.at(value.owner);
+                    auto &row=c.view.result.effects.at(c.view.result.count++);
+                    row={value.owner,before.currentHp,value.hp,before.conditions,value.conditions};row.healing=value.healing;
+                    c.view.result.noop=c.view.result.noop && row.beforeHp==row.afterHp && row.before==row.after;
+                    value.apply(d.party.roster.at(value.owner));value.apply(d.expected.roster.at(value.owner));
+                    if(value.healing)d.world.scenePresentation().spellEffect(value.owner,0,true);
+                }
+                d.rng=c.random;d.expectedRandom=d.session()._journeyRandom=c.random.continuation();
+                d.published();prefix->adoptJourneyCoordination();c.guard.swap(prefix);
+                return d.adopt(c.operation,Status::Pending);
             }
-            effect=c.healing.result;
+            result=c.view.result;result.spell=reserved.spell;
+            result.spBefore=reserved.originalSp;result.spAfter=reserved.originalSp-int(reserved.cost);
         }
         auto prepared=d.prepareCastGuard();
         prepared->s._journeyRandom=c.random.continuation();
@@ -1255,8 +1274,6 @@ XeenCombatResult XeenCombat::settleCast(const Ticket &t,std::optional<unsigned> 
             xeenEmitFmEffect(reserved.spell==unsigned(XeenLearnedSpell::Awaken)?d.fmAfterFrame:d.fmEffect,*cue);
         }
         if(information)xeenEmitFmEffect(d.fmAfterFrame,20);
-        if(reserved.spell==unsigned(XeenLearnedSpell::MoonRay))
-            for(auto owner:d.party.party.activeRosterIds())d.world.scenePresentation().spellCue(owner,30);
         if(reserved.spell==unsigned(XeenLearnedSpell::TownPortal))
             if(const auto cue=xeenTravelFmEffect(XeenLearnedSpell::TownPortal,result.failed,bool(relocation)))xeenEmitFmEffect(d.fmEffect,*cue);
         if(result.refunded) {

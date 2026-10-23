@@ -155,7 +155,7 @@ private:
 	static XeenEncounterResult regionalTransition(XeenWorld &, XeenPartyState &, XeenCamera &, XeenEncounterState &,
 		XeenEventFile &, std::optional<XeenEncounterAction>, std::unique_ptr<XeenRegionalActionCandidate> &,
 		const std::function<XeenEventFile(XeenMapIdentity)> &,const std::function<void(unsigned)> &effect = {},
-        const std::function<void()> &stepEffect = {});
+        const std::function<void()> &stepEffect = {},const std::function<bool()> &doorView = {});
 	static XeenEncounterResult transition(XeenWorld &, XeenPartyState &, XeenCamera &,
 		XeenEncounterState &, XeenEncounterAction, const XeenEventFile &, bool pulse);
 };

@@ -887,3 +887,16 @@ semantics, and supported spell damage.
 [character]: https://github.com/scummvm/scummvm/blob/6814ee9ba54582f5b5adcffab49efbbd8f589edd/engines/mm/xeen/character.cpp
 [dialogs]: https://github.com/scummvm/scummvm/blob/6814ee9ba54582f5b5adcffab49efbbd8f589edd/engines/mm/xeen/dialogs/dialogs_spells.cpp
 [combat]: https://github.com/scummvm/scummvm/blob/6814ee9ba54582f5b5adcffab49efbbd8f589edd/engines/mm/xeen/combat.cpp
+
+## Moon Ray healing presentation
+
+**DOS static, high confidence (2026-10-23):** after ranged damage, Moon Ray
+visits every active party member in order, including dead, petrified and
+eradicated members. For each it requests cue 30, draws U(1,30), applies the
+shared healing rule and completes its sparkle before visiting the next
+(`0x30aa1..0x30adf`). Terminal conditions reject healing/sparkle but retain
+the cue and draw. Exact max HP still sparkles; already-above-max HP does not
+(`0x2ee3a..0x2eed6`). The existing portrait owner supplies cue 20 and four
+frames (`0x21087..0x21185`). Combat and exploration use the same retained
+per-member preparation; RNG membership, count and order stay unchanged.
+[Quirk](../original-quirks.md#sv-moon-ray-preparation).

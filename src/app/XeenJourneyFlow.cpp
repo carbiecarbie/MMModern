@@ -905,7 +905,9 @@ XeenEncounterResult XeenEncounterFlow::advanceJourney(const Ticket &entry, std::
 		{
 			XeenRestoreGuard::Providers providers(*_journeyPreimage,_world);
 			result = XeenActorApproach::regionalTransition(_world,_party,_camera,_state,_journeyEvents,action,_regionalWork,_travelEventsProvider,
-                [this](unsigned id){fmEffect(id);},[this]{fmStepEffect();});
+                [this](unsigned id){fmEffect(id);},[this]{fmStepEffect();},[this] {
+                    return _doorAcquired && _lastNanoseconds>=_doorDeadline;
+                });
 		}
 		if (!_journeyPreimage->ownersAlive()) { closeJourney(); return refused; }
 		// A replaced boundary belongs to newer work. Leave its coordination alone.
@@ -924,6 +926,7 @@ XeenEncounterResult XeenEncounterFlow::advanceJourney(const Ticket &entry, std::
 			_journeyPreimage->adoptJourneyCoordination(); _journeyPreimage->check(); return result;
 		}
 		_result = result; ++_generation; _journeyFramePrepared = false;
+        if(!_regionalWork || !_regionalWork->openDoor) {_doorAcquired=false;_doorDeadline=0;}
 		if(result.terrainFall)_terrainFall=*result.terrainFall;
 		if(result.terrainPortrait<7)for(auto owner:_party.party.activeRosterIds())
 			_world.scenePresentation().portraitDamage(owner,result.terrainPortrait,_lastTime);

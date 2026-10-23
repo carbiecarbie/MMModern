@@ -217,6 +217,10 @@ InputContext XeenEventFlow::inputContext(const IndexedFrame::Presentation &origi
         DialogInput input;input.anyKey=input.anyClick=input.keyMouseWait=true;
         dialog=std::make_shared<const DialogInput>(std::move(input));hideCursor=true;
     }
+    if(_fallSequence) {
+        ready=navigationReady=restReady=false;
+        dialog=std::make_shared<const DialogInput>();hideCursor=true;
+    }
     // sealFrame observes context while composition owns the callback lease.
     // Only an actionable acquired origin may sample an external clock here.
     if(npcQueueable)ready=ready && !_npcResponse && _npcSequence->acquired && presentationNow()>=_npcSequence->deadline;
@@ -243,6 +247,7 @@ std::uint64_t XeenEventFlow::presentationNow() {
 }
 std::optional<std::uint64_t> XeenEventFlow::nextPresentationDeadline() {
     const auto now=presentationNow();
+    if(_fallSequence)return _fallSequence->acquired?std::optional<std::uint64_t>{_fallSequence->deadline}:std::nullopt;
     if(_entranceUi)return _entranceUi->animation.awaitingFrame()?std::optional<std::uint64_t>{}:_entranceUi->animation.deadline();
     if(_travelUi) {if(!_travelUi->refusal.empty())return std::nullopt;if(_travelUi->spell==XeenLearnedSpell::LloydsBeacon)return std::nullopt;const auto at=_travelUi->digits.deadline();return at?PresentationClock::fromMilliseconds(*at):now;}
     if(_presenter.wordInputActive()) {
@@ -760,21 +765,23 @@ void XeenEventFlow::prepareTerrainTransition() {
  if(!_eventPublication || !_encounter->_terrainFall || _transition || !_transitionCompose)
   throw std::logic_error("Terrain destination preparation is unavailable");
  const auto rule=*_encounter->_terrainFall;
- auto work=std::make_unique<TransitionCandidate>();work->kind=XeenRegionalInteraction::Event;work->automatic=true;work->terrainDone=true;
+ auto work=std::make_unique<TransitionCandidate>();work->kind=XeenRegionalInteraction::Event;work->automatic=true;work->terrainDone=true;work->falling=true;
  work->world=_world.transitionCandidate();work->world->copyEventParty(_party,work->party);
  work->initialCamera=_camera;work->initialFlags=_flags;work->camera=rule.transition.destination;work->flags=_flags;
  const auto admitted=work->world->prepareEventTransition(work->camera);_eventPublication->check();
  if(!admitted)throw std::logic_error("Terrain destination admission changed");
+ work->fallTop=_transitionCompose(*work->world,work->party,work->initialCamera,_ordinary.phase,XeenMonsterAppearance{0}).frame;
+ _eventPublication->check();
  work->world->loadEventDestination(_camera.mapId,work->camera.mapId);
  XeenConsequenceCharacters characters;XeenConsequenceInputs inputs;
  const auto owners=work->party.party.activeOrder();
  for(unsigned n=0;n<6;++n) {characters[n]=work->party.roster.at(owners[n]);inputs[n]=*work->party.roster.combatInputs(owners[n]);}
  XeenCombatRandom random(*work->world->sessionState().journeyRandom());
  XeenTerrainArrivalCandidate arrival(rule,characters,inputs,*work->party.encounterContext,&*work->party.serviceEconomy);
- XeenConsequenceDraw draw{random,64,[&] {_eventPublication->check();},[this](unsigned id){_encounter->fmEffect(id);},[this](unsigned id){_encounter->fmSelectWeapon(id);}};
+ work->fallEffects.reserve(6);
+ XeenConsequenceDraw draw{random,64,[&] {_eventPublication->check();},[&](unsigned id){work->fallEffects.push_back(id);},[this](unsigned id){_encounter->fmSelectWeapon(id);}};
  if(!arrival.service(draw))throw std::logic_error("Physical terrain fall requested random continuation");
  work->world->publishTerrainArrival(work->party,arrival,random.continuation());
- for(const auto owner:owners)_eventPublication->damageEffects[owner]=0;
  work->guard=std::make_unique<XeenRestoreGuard>(*work->world,work->party,work->camera,work->flags);
  _eventPublication->check();_transition=std::move(work);
  _encounter->_terrainFall.reset();
@@ -798,6 +805,48 @@ void XeenEventFlow::retainManualPrefix(bool party) {
   prefix.world->retainEventRandom(ending);prefix.guard->adoptMutationBoundary();
  }
  _eventPublication->check();
+}
+
+void XeenEventFlow::beginFall(const IndexedFrame &top,const IndexedFrame &bottom) {
+ if(_fallSequence || !_transition)throw std::logic_error("Falling presentation is unavailable");
+ FallSequence sequence;sequence.top=top;sequence.bottom=bottom;
+ if(drawDialogSprite)for(const auto &portrait:CloudsUiComposer::buildPortraitPlacements(_party,0x3f))
+  drawDialogSprite(sequence.top,portrait.resourceName.c_str(),4,portrait.x,portrait.y);
+ _presenter.clear();_journeyEventLayers=false;
+ _fallSequence=std::move(sequence);
+ drawFallImage();
+ const auto now=presentationNow();_encounter->_lastNanoseconds=now;_encounter->_lastTime=now/1000000;
+ _encounter->fmEffect(11);
+ _encounter->digitalSample("scream.voc",XeenSceneArchive::Clouds,now);
+}
+void XeenEventFlow::drawFallImage() {
+ auto &fall=*_fallSequence;
+ fall.art=XeenScenePresentation::fallFrame(fall.top,fall.bottom,fall.image);
+ if(drawDialogSprite)CloudsUiComposer::drawBorder(_party,[&](const char *name,unsigned frame,int x,int y) {
+  drawDialogSprite(fall.art,name,frame,x,y);
+ },&_world.scenePresentation());
+ fall.acquired=false;
+}
+std::optional<IndexedFrame> XeenEventFlow::advanceFall() {
+ if(!_fallSequence || !_fallSequence->acquired || _dispatching || _fatal || _saving || _handoffPending || _cosmeticPending)return {};
+ const auto now=presentationNow();if(now<_fallSequence->deadline)return {};
+ DispatchScope dispatch(_dispatching);
+ return journeyEventWork([&] {
+  if(_fallSequence->image+1==XeenScenePresentation::fallOffsets.size()) {
+   const auto completed=*_transition->completion;
+   _transition->fallPresented=true;
+   drive(XeenManualEventResult{completed},false);
+   _fallSequence.reset();return;
+  }
+  ++_fallSequence->image;
+  if(_fallSequence->image==15) {
+   _encounter->_lastNanoseconds=now;_encounter->_lastTime=now/1000000;
+   _encounter->digitalStop();
+   _encounter->digitalSample("unnh.voc",XeenSceneArchive::Clouds,now);
+   _encounter->fmEffect(31);
+  }
+  drawFallImage();
+ });
 }
 void XeenEventFlow::publishManualPrefix() {
  auto &work=*_transition;if(work.automatic)return;checkTransitionCandidate();
@@ -908,12 +957,20 @@ void XeenEventFlow::framePresented(const IndexedFrame::Presentation &presented, 
         _trainingUi->animation.awaitingFrame=false;_trainingUi->animation.pendingIndex.reset();
     }
     if(_portraitSequence && !(_transition && _transition->presentationRetry))_portraitSequence->acquired=true;
+    if(_fallSequence && !_fallSequence->acquired) {
+        _fallSequence->deadline=PresentationClock::retraceAfter(presentationNow());
+        _fallSequence->acquired=true;
+    }
     if(_death)deathPresented();
 	if(_treasureWait && !_treasureWait->acquired) {
 		_treasureWait->deadline=PresentationClock::after(presentationNow(),_treasureWait->ticks);
 		_treasureWait->acquired=true;
 	}
     if(_encounter)_encounter->projectilesPresented();
+    if(_encounter && _encounter->_regionalWork && _encounter->_regionalWork->openDoor && !_encounter->_doorAcquired) {
+        _encounter->_doorDeadline=PresentationClock::after(presentationNow(),2);
+        _encounter->_doorAcquired=true;
+    }
     if(_encounter && _encounter->_fmAfterFrame) {
         const auto id=*_encounter->_fmAfterFrame;_encounter->_fmAfterFrame.reset();
         _encounter->fmEffect(id);
@@ -1151,7 +1208,7 @@ IndexedFrame XeenEventFlow::renderEncounter(bool report, bool cosmeticInput, boo
 				if (!_encounter->current(t)) throw std::logic_error("Stale Journey composition");
 				if (!composed.frame.isValid()) throw std::runtime_error("Invalid Journey frame");
 				// Party updates belong to the base: bottom Event windows cover them.
-				drawPartyPresentation(composed.frame);
+				if(!_fallSequence)drawPartyPresentation(composed.frame);
 				auto rendered = _journeyEventLayers ? _presenter.rebase(composed.frame) :
                     _castingUi && !_encounter->_rest ? drawCasting(composed.frame) :
                     _encounter->_rest ? composed.frame : drawMainScreenNotice(composed.frame,_encounter->notice());
@@ -1181,7 +1238,7 @@ IndexedFrame XeenEventFlow::renderEncounter(bool report, bool cosmeticInput, boo
 						rendered=_presenter.present(composed.frame,request).frame;_monsterReceiptPresented=true;
 					} else rendered=_presenter.rebase(composed.frame);
 				}
-                if(_encounter->_rest)rendered=drawRest(rendered);
+                if(_encounter->_rest && !_fallSequence)rendered=drawRest(rendered);
                 if(_encounter->_needsRestNotice)rendered=drawXeenErrorScroll(rendered,_inventoryFont,std::string(xeenDialogText(dosText(),XeenDialogText::PartyNeedsRest)));
     const bool heads=drawPendingHeads(rendered);
                 if(!_whoWillRefusal.empty())rendered=drawXeenErrorScroll(rendered,_inventoryFont,_whoWillRefusal);
@@ -1203,6 +1260,7 @@ IndexedFrame XeenEventFlow::renderEncounter(bool report, bool cosmeticInput, boo
 				}
 				if (!attempt && beforeEncounterFrameCopy) beforeEncounterFrameCopy();
 				if (!_encounter->current(t)) throw std::logic_error("Stale Journey frame copy");
+                if(_fallSequence)rendered=_fallSequence->art;
 				returned = rendered; _frame = std::move(rendered);
 				_ordinary.containsOrdinaryAnimation = composed.containsOrdinaryAnimation || heads;
 				sealFrame(returned);
@@ -1359,7 +1417,9 @@ bool XeenEventFlow::textPromptOpen() const {
 }
 
 XeenEventFlow::Composition XeenEventFlow::composeJourneyScene(bool reconstruct) {
+ if(_fallSequence)return {_fallSequence->art,false};
  _world.scenePresentation().textPrompt=textPromptOpen();
+ _world.scenePresentation().openDoor=_encounter->_regionalWork && _encounter->_regionalWork->openDoor;
  if(_transition && _transition->manualStep && !_transition->terrainDone) {
   auto &work=*_transition;checkTransitionCandidate();
   {
@@ -1402,7 +1462,7 @@ XeenEventFlow::Composition XeenEventFlow::composeJourneyScene(bool reconstruct) 
 			candidate.check();checkRetained();return frame;
 		} catch(...) {candidate.check();checkRetained();throw;}
 	}
-	_world.scenePresentation().composeFromRetained(reconstruct && !_sceneAdvancePending);
+ _world.scenePresentation().composeFromRetained(reconstruct && !_sceneAdvancePending);
 	return _encounterCompose(_ordinary.phase,_encounter->appearance());
 }
 
@@ -1759,6 +1819,9 @@ void XeenEventFlow::prepareDetachedResult(const XeenManualEventResult &result) t
 			const auto rule=work.world->prepareTerrainArrival(work.camera,characters,*work.party.encounterContext);
 			if(!rule) {_encounter->_journeyRefusal=rule.transition.reason;_candidateResultRefused=true;_transition.reset();return;}
 			if(rule.falling) {
+				work.falling=true;
+				work.fallTop=_transitionCompose(*work.world,work.party,work.camera,_ordinary.phase,XeenMonsterAppearance{0}).frame;
+				_eventPublication->check();
 				const auto destination=rule.transition.destination;
 				work.world->loadEventDestination(work.camera.mapId,destination.mapId);work.camera=destination;
 				work.guard=std::make_unique<XeenRestoreGuard>(*work.world,work.party,work.camera,work.flags);
@@ -1766,13 +1829,16 @@ void XeenEventFlow::prepareDetachedResult(const XeenManualEventResult &result) t
 			work.terrain.emplace(rule,characters,inputs,*work.party.encounterContext,&*work.party.serviceEconomy);
 		}
 		XeenCombatRandom random(*work.world->sessionState().journeyRandom());
-		XeenConsequenceDraw draw{random,64,[&] {_eventPublication->check();},[this](unsigned id){_encounter->fmEffect(id);},[this](unsigned id){_encounter->fmSelectWeapon(id);}};
+		if(work.falling)work.fallEffects.reserve(6);
+		XeenConsequenceDraw draw{random,64,[&] {_eventPublication->check();},[&](unsigned id){
+            if(work.falling)work.fallEffects.push_back(id);else _encounter->fmEffect(id);
+        },[this](unsigned id){_encounter->fmSelectWeapon(id);}};
 		if(!work.terrain->service(draw)) {work.world->retainEventRandom(random.continuation());
 			work.guard=std::make_unique<XeenRestoreGuard>(*work.world,work.party,work.camera,work.flags);return;}
 		work.terrain->context.ctr24=(work.terrain->context.ctr24+1)%24;
         work.world->publishTerrainArrival(work.party,*work.terrain,random.continuation());
 
-		if(work.terrain->rule.damage)for(auto owner:work.party.party.activeRosterIds())
+		if(work.terrain->rule.damage && !work.falling)for(auto owner:work.party.party.activeRosterIds())
 			_eventPublication->damageEffects[owner]=work.terrain->rule.type==XeenDamageType::Fire?1u:0u;
 		_encounter->_terrainDead=work.terrain->rule.dead;
 		work.guard=std::make_unique<XeenRestoreGuard>(*work.world,work.party,work.camera,work.flags);work.terrainDone=true;
@@ -1834,18 +1900,32 @@ void XeenEventFlow::prepareDetachedResult(const XeenManualEventResult &result) t
 		retainedExploration=*exploration;candidateGuard.s.reserveTiles(*retainedExploration);candidateGuard.check();
 	}
 	const auto composed=[&] {
+		// The falling view already acquired its prepared destination. Reuse it
+		// for publication, without a second composition or scene-animation step.
+		if(work.falling && work.fallPresented && _fallSequence)return Composition{_fallSequence->bottom,false};
 		try {
 			auto frame=_transitionCompose(*work.world,work.party,work.camera,0,XeenMonsterAppearance{0});
 			candidateGuard.check();return frame;
 		} catch (...) { candidateGuard.check();throw; }
 	}();
 	if(!composed.frame.isValid())throw std::runtime_error("Vertigo destination frame is invalid");
+    if(work.falling && !work.fallPresented) {
+        // One presentation entry for every terrain caller. Damage and the
+        // destination remain detached until its last impact image is acquired.
+        if(!_fallSequence)beginFall(*work.fallTop,composed.frame);
+        return;
+    }
     work.world->scenePresentation().completeLightingDraw();candidateGuard.adoptMutationBoundary();work.guard->adoptMutationBoundary();
 	_eventPublication->check();
 	if(!_encounter->current(before))throw std::logic_error("Stale Vertigo preparation");
 	// Storage and the destination frame are ready. No provider or callback follows
 	// until all owner writes and the new frame authority have been installed.
+    // givePartyDamage's existing cues accompany the arrival after the last
+    // impact image, rather than leaking from detached damage preparation.
+    for(auto cue:work.fallEffects)_encounter->fmEffect(cue);
+    work.fallEffects.clear();
 	_eventPublication->publishCandidate(_world,_party,_camera,_flags,*work.world,candidateGuard);
+    if(work.falling)for(auto owner:_party.party.activeRosterIds())_eventPublication->damageEffects[owner]=0;
     if(work.eventFlags) {
         _program.eventCallSkipped=work.skipped;work.skippedBase=work.skipped;
         _encounter->_doorTextUp=work.doorText;work.doorTextBase=work.doorText;
@@ -1989,6 +2069,7 @@ IndexedFrame XeenEventFlow::initial() {
 	return drive(_navigation.processInitialEvent(_world, _party, _camera, _flags), true);
 }
 bool XeenEventFlow::canCancelInteraction() const {
+    if(_fallSequence)return false;
 	if(_barrier && _barrier->rule && _barrier->rule->selection)return true;
 	if (_smithUi || _trainingUi) return true;
 	if ((_encounter && _encounter->combat() && _encounter->combat()->cast()) || _castingUi || (journey() && _encounter->castingSettlement())) return true;
@@ -2001,6 +2082,7 @@ bool XeenEventFlow::pendingNpc() const {
 		_pending->state.pendingPresentation->request.kind == XeenPresentationKind::NpcAcknowledgment;
 }
 bool XeenEventFlow::handlesEscape() const {
+    if(_fallSequence)return true;
     if(_death)return true;
     if(_fatal)return false;
     if(_pending || _presenter.blocksGameplay() || _summary || _quickFightMember ||
@@ -2515,12 +2597,15 @@ bool XeenEventFlow::pulseServiceArt(ServiceArtState &state, IndexedFrame &art) {
         state.randomPublished=true;
     }
     art=std::move(candidate);state.index=*state.pendingIndex;state.awaitingFrame=true;
+    // Locations::wait's full-background draw (DOS 0x1c402); no exit reset.
+    _world.scenePresentation().resetServiceBorder();
     if(state.kind==XeenServiceArt::Smith && (state.index==3 || state.index==9))_encounter->fmEffect(45);
     state.deadline=PresentationClock::after(presentationNow(),3); // Reset after work; no catch-up.
     return true;
 }
 std::optional<IndexedFrame> XeenEventFlow::updatePresentation() {
     requireCurrentOwners();
+    if(_fallSequence)return advanceFall();
     if(auto continuation=continueManualInput())return continuation;
     if(_explorationPass && (!journey() || !_encounter->combat()) && explorationEffectComplete() && !_dispatching && !_saving && !_handoffPending) {
         DispatchScope dispatch(_dispatching);
@@ -2898,7 +2983,7 @@ IndexedFrame XeenEventFlow::handleExplorationAction(const PlayerAction &physical
         const IndexedFrame::Presentation &inputFrame) {
 	PlayerAction action=physicalAction;
 	requireCurrentOwners();
-    if(_portraitSequence)return frameCopy();
+    if(_portraitSequence || _fallSequence)return frameCopy();
 	// Concrete origin is independent of semantic meaning. A retry/redraw may
 	// retain the generation, but input from its retired frame cannot authorize it.
 	if ((inputFrame && !acceptsInputFrame(inputFrame)) || (_trainingUi && !inputFrame) ||

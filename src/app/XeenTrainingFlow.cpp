@@ -209,7 +209,7 @@ void XeenEventFlow::prepareTraining() {
         if(!admitted) {
             _trainingUi.reset();_pending.reset();_journeyEventLayers=false;
             _encounter->_journeyRefusal="Training is unavailable at this date.";
-        } else {claimServiceContinuation(&*_trainingUi);_presenter.clear();_journeyEventLayers=false;}
+        } else {claimServiceContinuation(&*_trainingUi);_world.scenePresentation().resetServiceBorder();_presenter.clear();_journeyEventLayers=false;}
     } catch(const std::exception &) {
         _encounter->journeySavePreimage().check();
         if(!_encounter->_training) {

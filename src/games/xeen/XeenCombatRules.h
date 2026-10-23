@@ -116,8 +116,12 @@ private:
 };
 struct XeenMoonRayHealing {
     XeenSpellPreparation result;
+    XeenSpellPreparation current;
     unsigned member=0;
+    bool serviceMember(XeenConsequenceDraw &,const XeenPartyState &,std::uint32_t year);
     bool service(XeenConsequenceDraw &,const XeenPartyState &,std::uint32_t year);
+private:
+    bool cueRequested=false;
 };
 // Combat::attack/hitMonster/getWeaponDamage/attack2 for one member: metal hit
 // and damage, elemental damage, effectiveness and the Slayer Sword bypass (M67).

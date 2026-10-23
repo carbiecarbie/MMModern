@@ -270,11 +270,20 @@ void XeenSpellDamagePreparation::requestFmEffect(XeenConsequenceDraw &draw,unsig
     if(const auto effect=xeenSpellLaunchFmEffect(spell,type,itemPower))draw.effect(*effect);
 }
 bool XeenMoonRayHealing::service(XeenConsequenceDraw &draw,const XeenPartyState &party,std::uint32_t year) {
-    while(member<party.party.size() && draw.remaining)if(const auto amount=draw.draw(1,30)) {
-        const auto effect=XeenLearnedSpellRules::prepareFirstAid(party,member++,year,*amount);
-        result.effects.insert(result.effects.end(),effect.effects.begin(),effect.effects.end());
-    }
+    while(member<party.party.size() && draw.remaining)if(!serviceMember(draw,party,year))return false;
     return member==party.party.size();
+}
+bool XeenMoonRayHealing::serviceMember(XeenConsequenceDraw &draw,const XeenPartyState &party,std::uint32_t year) {
+    if(member==party.party.size())return true;
+    // DOS 0x30aa5: the cue precedes this member's draw, even for terminal
+    // conditions. Retain it across a rejected random conversion.
+    if(!cueRequested) {cueRequested=true;draw.effect(30);}
+    while(draw.remaining)if(const auto amount=draw.draw(1,30)) {
+        current=XeenLearnedSpellRules::prepareFirstAid(party,member++,year,*amount);
+        result.effects.insert(result.effects.end(),current.effects.begin(),current.effects.end());
+        cueRequested=false;return true;
+    }
+    return false;
 }
 // Pinned combat.cpp rangedAttack/attack/attack2: physical reduction precedes
 // the resource-ID save; Arrow draws the save but ignores its result.

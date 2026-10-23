@@ -351,6 +351,8 @@ private:
 	bool _journeyFramePrepared = false, _journeyFrameRetry = false;
 	std::string _journeyRefusal;
 	std::unique_ptr<XeenRegionalActionCandidate> _regionalWork;
+ bool _doorAcquired=false;
+ std::uint64_t _doorDeadline=0;
     struct ItemSpellWork {
         std::size_t member=0;
         bool selected=false;

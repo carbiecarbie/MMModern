@@ -19,6 +19,8 @@ void inventory(const std::filesystem::path &rules) {
         {"0x0cfa9","47"},
         {"0x0d442","7 + toggled stepping bit (7 or 8)"},
         {"0x0d5c1","21"},
+        {"0x11692","11"},
+        {"0x11716","31"},
         {"0x1b1a1","28"},
         {"0x1c4b5","45"},
         {"0x1d918","49"},
@@ -141,9 +143,9 @@ void inventory(const std::filesystem::path &rules) {
         {"0x31f07","20"},
         {"0x31f61","20"},
     };
-    check(std::size(sites)==128,"C1/C2 inventory size changed");
+    check(std::size(sites)==130,"C1/C2 inventory size changed");
     const auto count=[&](const char *needle){unsigned n=0;for(std::size_t p=0;(p=text.find(needle,p))!=text.npos;p+=std::char_traits<char>::length(needle))++n;return n;};
-    check(count(" | C1 | High:")==42 && count(" | C2 | High:")==86 && count(" | Not reachable yet:")==5,
+    check(count(" | C1 | High:")==44 && count(" | C2 | High:")==86 && count(" | Not reachable yet:")==3,
         "full 133-site reconciliation changed");
     std::set<std::string> unique;
     for(const auto &[site,expression]:sites) {
@@ -450,7 +452,7 @@ void spellSelectors() {
     }
 }
 std::vector<std::uint8_t> spellWitness(Inputs &in,const GameInstallation &installation,unsigned mode,bool enabled) {
-    constexpr unsigned spells[]{20,10,21,10,10,1,55,48,20,20,44,71};const auto spell=spells[mode];
+    constexpr unsigned spells[]{20,10,21,10,10,1,55,48,20,20,44,71,48};const auto spell=spells[mode];
     const bool combat=mode==0 || mode>=8;
     auto s=in.service();s.camera={23,9,11,combat?XeenDirection::West:XeenDirection::East};s.soundOptions.efx=enabled;
     for(auto map:{23u,28u})for(auto &a:s.map(map).monsters->slots){a.x=a.y=-128;a.lifecycle=XeenActorLifecycle::Defeated;a.accounted=true;}
@@ -464,6 +466,7 @@ std::vector<std::uint8_t> spellWitness(Inputs &in,const GameInstallation &instal
         if(mode==8)c.currentSp=0;
         if(mode==11){c.miscellaneous={};c.miscellaneous[0]={1,55,2,0};}
         if(mode==7)c.currentHp=1;
+        if(mode==12){c.permanentLevel=100;c.currentHp=100;}
         for(auto *items:{&c.weapons,&c.armor,&c.accessories})for(auto &item:*items)item.frame=0;
     }
     s.journey->purse->gems=100;s.characters[s.activeRosterIds[1]].currentHp=1;
@@ -472,6 +475,17 @@ std::vector<std::uint8_t> spellWitness(Inputs &in,const GameInstallation &instal
     if(combat) {auto &a=s.map(23).monsters->slots[5];a.x=8;a.y=11;a.lifecycle=XeenActorLifecycle::Present;a.accounted=false;}
     if(mode==3){auto &items=s.characters[s.activeRosterIds[0]].miscellaneous;items={};items[0]={1,9,2,0};}
     Fixture f(in,s);std::vector<unsigned> fx;attach(f,installation,fx);
+    std::vector<std::array<int,6>> moonHp;
+    std::vector<std::uint64_t> moonDraws;
+    std::vector<bool> moonSparkles;
+    if(mode==7 || mode==12)f.programState.audio->effectSink([&](unsigned cue) {
+        fx.push_back(cue);
+        if(cue!=30)return;
+        std::array<int,6> hp{};for(unsigned i=0;i<6;++i)hp[i]=f.p.roster.at(s.activeRosterIds[i]).currentHp;
+        moonHp.push_back(hp);moonDraws.push_back(f.w.sessionState().journeyRandom()->count);
+        bool done=true;for(const auto &portrait:f.w.scenePresentation().portraits)done=done && portrait.spellFrame==4;
+        moonSparkles.push_back(done);
+    });
     if(combat) {
         f.act(WaitAction{});bool cast=false;
         for(unsigned n=0;n<2500;++n) {
@@ -501,12 +515,21 @@ std::vector<std::uint8_t> spellWitness(Inputs &in,const GameInstallation &instal
         if(mode==6)f.act(DialogKeyAction{InputKey::Escape});
         quiet(f);
     }
-    constexpr unsigned expected[]{16,30,51,30,21,30,20,16,21,21,21,21};
+    constexpr unsigned expected[]{16,30,51,30,21,30,20,16,21,21,21,21,16};
     check(enabled?heard(fx,expected[mode]):fx.empty(),("spell/item/travel/refusal cue missing or Efx gate failed (mode "+std::to_string(mode)+")").c_str());
     if(mode!=0 && enabled)check(std::count(fx.begin(),fx.end(),expected[mode])==1,("spell cue repeated (mode "+std::to_string(mode)+")").c_str());
-    if(mode==7 && enabled) {
+    if((mode==7 || mode==12) && enabled) {
         std::vector<unsigned> healing;for(auto cue:fx)if(cue==30 || cue==20)healing.push_back(cue);
+        // Combat may play FX20 again when delivering the defeated monster's item.
+        if(mode==12 && healing.size()>12)healing.resize(12);
         check(healing==std::vector<unsigned>{30,20,30,20,30,20,30,20,30,20,30,20},"Moon Ray member cues must interleave with sparkle animations");
+        check(moonHp.size()==6,"Moon Ray cue membership");
+        for(unsigned member=0;member<6;++member) {
+            check(moonSparkles[member],"Moon Ray drew before preceding sparkle finished");
+            check(moonDraws[member]==moonDraws[0]+member,"Moon Ray must draw once between member cues");
+            for(unsigned i=0;i<6;++i)check(i<member?moonHp[member][i]>moonHp[0][i]:moonHp[member][i]==moonHp[0][i],
+                "Moon Ray batched or reordered healing before member cue/draw");
+        }
     }
     auto after=f.snapshot();after.soundOptions.efx=true;return XeenSaveFormat::encode(after);
 }
@@ -516,7 +539,7 @@ int main(int argc,char **argv) {
         check(argc==3,"usage: fm-effects <installation> <audio-rules>");inventory(argv[2]);
         const auto installation=xeenTestInstallationDetector().detect(argv[1]);check(bool(installation),"original installation unavailable");
         Inputs in(*installation);missEffects();commonDamage(in,*installation);spellSelectors();
-        for(unsigned mode=0;mode<12;++mode)check(spellWitness(in,*installation,mode,true)==spellWitness(in,*installation,mode,false),"spell Efx setting altered gameplay snapshot");
+        for(unsigned mode=0;mode<13;++mode)check(spellWitness(in,*installation,mode,true)==spellWitness(in,*installation,mode,false),"spell Efx setting altered gameplay snapshot");
         for(bool wall:{false,true})for(bool spell:{false,true})
             check(projectileWall(in,*installation,wall,spell,true)==projectileWall(in,*installation,wall,spell,false),"projectile wall Efx setting altered gameplay snapshot");
         check(wrongFacing(in,*installation,true)==wrongFacing(in,*installation,false),"wrong-facing Efx setting altered gameplay snapshot");

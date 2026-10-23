@@ -300,6 +300,9 @@ private:
 		bool cancelled = false;
 		bool presentationRetry = false;
 		bool automatic=false, terrainDone=false, manualStepDone=false, entrance=false;
+        bool falling=false,fallPresented=false;
+        std::optional<IndexedFrame> fallTop;
+        std::vector<unsigned> fallEffects;
 		std::optional<XeenTerrainArrivalCandidate> terrain;
 		std::optional<XeenRegionalActionCandidate> manualStep;
         // The old observable party/RNG prefix, retained until the final fall
@@ -356,6 +359,16 @@ private:
     void prepareStandalonePortrait();
     std::optional<IndexedFrame> advancePortraitSequence();
     bool portraitSequenceActive() const noexcept {return _portraitSequence.has_value();}
+    struct FallSequence {
+        IndexedFrame top,bottom,art;
+        unsigned image=0;
+        std::uint64_t deadline=0;
+        bool acquired=false;
+    };
+    std::optional<FallSequence> _fallSequence;
+    void beginFall(const IndexedFrame &,const IndexedFrame &);
+    void drawFallImage();
+    std::optional<IndexedFrame> advanceFall();
 
     struct NpcSequence {
         XeenEventPresenter::NpcTiming timing;

@@ -13,6 +13,7 @@ struct XeenRestTestAccess {
  static bool confirm(const XeenEventFlow &f){return f._encounter->_rest && f._encounter->_rest->phase==XeenEncounterFlow::RestContinuation::Phase::Confirm;}
  static bool refused(const XeenEventFlow &f){return f._encounter->_rest && f._encounter->_rest->phase==XeenEncounterFlow::RestContinuation::Phase::Refused;}
  static bool portrait(const XeenEventFlow &f){return bool(f._portraitSequence);}
+ static bool falling(const XeenEventFlow &f){return bool(f._fallSequence);}
  static bool eventPortrait(const XeenEventFlow &f){return f._portraitSequence && f._portraitSequence->event;}
  static bool manualTravel(const XeenEventFlow &f){return f._transition && f._transition->manualStep && f._transition->manualStep->opportunity && f._transition->manualStep->opportunity->travelStarted;}
  static unsigned manualOpportunities(const XeenEventFlow &f){return f._transition->manualStep->result.movementOpportunities;}
@@ -60,6 +61,13 @@ void wire(Fixture &f){
 void pulse(Fixture &f){f.now+=100;f.flow->beginCycle(++f.cycle);if(const auto frame=f.flow->updatePresentation())f.present(*frame);}
 void finish(Fixture &f) {
  for(unsigned n=0;n<1000;++n) {
+  if(XeenRestTestAccess::falling(*f.flow)) {
+   const auto input=f.flow->inputContext(f.flow->frame().presentation());
+   check(!input.readyForAction && input.dialog && !input.dialog->key('z'),"Fall exposed the pending Rest summary input");
+   f.act(AcknowledgeAction{});
+   check(f.w.sessionState().journeyActivity()==XeenJourneyActivity::Event,"Fall input retired Rest before terrain publication");
+   pulse(f);continue;
+  }
   if(XeenRestTestAccess::confirm(*f.flow)) {f.act(DialogKeyAction{'y'});continue;}
   if(XeenRestTestAccess::complete(*f.flow)) {
    if(XeenRestTestAccess::portrait(*f.flow)){pulse(f);continue;}
@@ -404,6 +412,14 @@ void terrain(Inputs &in) {
    const auto wounded=XeenTrainingTestAccess::woundBeforeFall(*f.flow);
    XeenRestTestAccess::transitionComposer(*f.flow,[&,wounded](auto &candidate,const auto &party,const auto &camera,auto,auto) {
     ++fallCompositions;
+    if(fallCompositions==1) {
+     check(save_test::sameCamera(camera,start.camera),"Fall must capture its original source view");
+     const auto staged=candidate.sessionState().regionalActors(23);
+     check(staged[wounded].hp==1 && staged[wounded].activated,"Fall source must precede the destination reload");
+     for(auto owner:start.activeRosterIds)check(party.roster.at(owner).currentHp==XeenCharacterRules::maxHp(party.roster.at(owner),{610}),
+      "Fall source must follow Rest refill and precede damage");
+     return XeenEventFlow::Composition{frame(),false};
+    }
     check(camera.mapId==XeenMapIdentity(23) && camera.x==12 && camera.y==10,"Fall composed an intermediate destination");
     const auto live=f.w.sessionState().regionalActors(23),staged=candidate.sessionState().regionalActors(23);
     check(live[wounded].hp==1 && live[wounded].activated,"Fall reload escaped before destination publication");
@@ -419,7 +435,7 @@ void terrain(Inputs &in) {
   }
   finish(f);check(f.p.encounterContext->minutes==start.journey->context->minutes+480+(surface==6 && !indoor?170:0),"Rest terrain suffix time");
   if(successfulFall) {
-   check(fallCompositions==1,"Fall destination composed/published more than once");
+   check(fallCompositions==2,"Fall must capture source/destination once each and reuse them through publication");
    for(auto owner:start.activeRosterIds)check(f.p.roster.at(owner).currentHp==XeenCharacterRules::maxHp(f.p.roster.at(owner),{610})-100,
     "Published fall damage differs from the prepared physical100");
    const auto saved=f.snapshot();const auto bytes=XeenSaveFormat::encode(saved);

@@ -67,6 +67,29 @@ void preset(const GameInstallation &installation,const std::string &name,const f
     check(flow.prepareJourneyFrame(flow.ticket(),[]{}) && flow.presentJourney(flow.ticket()),"restored preset is not quiet");
     const auto captured=XeenSaveState::capture(inputs.signature,party,camera,flags,world);
     check(XeenSaveFormat::encode(saved)==XeenSaveFormat::encode(captured),"restore replayed or changed state");
+    if(name.rfind("m86-playtest-",0)==0) {
+        XeenConsequenceCharacters characters;for(unsigned i=0;i<6;++i)characters[i]=party.roster.at(party.party.activeOrder()[i]);
+        const auto terrain=world.prepareTerrainArrival(camera,characters,*party.encounterContext);
+        if(name=="m86-playtest-fall") {
+            check(camera.mapId==26 && camera.x==5 && camera.y==1 && terrain && terrain.falling && terrain.surface==13 &&
+                terrain.transition.destination.mapId==12,"M86 actual Clouds fall terrain/destination");
+            for(const auto &c:characters)check(c.currentHp>100,"M86 fall must survive");
+        } else if(name=="m86-playtest-moon-ray") {
+            const auto &caster=party.roster.at(party.party.activeOrder()[1]);
+            const auto slot=*XeenLearnedSpellRules::slotForSpell(XeenSpellCategory::Clerical,48);
+            check(caster.learnedSpells && caster.learnedSpells->at(slot) && caster.currentSpell==slot &&
+                caster.currentSp>=XeenLearnedSpellRules::cost(48,caster.currentLevel()).sp,"M86 Moon Ray caster/book/SP");
+            const auto &orc=world.sessionState().regionalActors(23).at(5);
+            check(camera.mapId==23 && camera.x==9 && camera.y==11 && camera.direction==XeenDirection::West &&
+                orc.x==8 && orc.y==11 && orc.lifecycle==XeenActorLifecycle::Present,"M86 Moon Ray monster in reach");
+        } else {
+            check(terrain && !terrain.falling && party.encounterContext->effects[XeenPartyEffect::Levitate] &&
+                xeenPartyHasSkill(party,16) && xeenPartyHasSkill(party,17),"M86 border abilities/terrain");
+            check(xeenRegionalService(inputs.events.load(camera.mapId),camera).has_value(),"M86 border preset is not next to a service");
+            check(XeenActorApproach::dangerSense(world.sessionState().regionalActors(camera.mapId),camera),"M86 Danger Sense has no nearby monster");
+        }
+        return;
+    }
     if(name.rfind("m85-playtest-",0)==0) {
         const bool trap=name=="m85-playtest-trap";
         const XeenCamera expected=trap?XeenCamera{55,7,8,XeenDirection::East}:XeenCamera{28,13,4,XeenDirection::East};

@@ -108,6 +108,7 @@ private:
 // continuation while Approach retains sole authority to publish world deltas.
 struct XeenRegionalActionCandidate {
  bool fmStep=false;
+ bool openDoor=false;
 	// An outdoor border load stays detached until the whole step can publish.
 	std::shared_ptr<XeenWorld> destinationWorld;
 	std::optional<XeenEventFile> destinationEvents;

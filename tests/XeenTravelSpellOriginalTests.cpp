@@ -345,10 +345,10 @@ void shelterOrder(Inputs &in) {
     const auto manifest=[&](const auto &m,const auto &o,const auto &e,const auto &stats){auto original=m;
         original.geometry.surfaceTypes=in.maps.loadGeometryMap(in.assets,23).geometry.surfaceTypes;
         xeenValidateRegionalManifest(original,o,e,stats,in.assets.readInitialResource("maze0023.dat"),in.assets.readInitialResource("maze0023.mob"),in.assets.readInitialResource("maze0023.evt"));};
-    Fixture cloud(in,s,false,nullptr,loader,manifest);wire(cloud);bool arrived=false;
-    XeenRestTestAccess::composer(*cloud.flow,[&](auto &,const auto &party,const auto &,auto,auto){arrived=true;
+    Fixture cloud(in,s,false,nullptr,loader,manifest);wire(cloud);bool arrived=false;unsigned fallViews=0;
+    XeenRestTestAccess::composer(*cloud.flow,[&](auto &,const auto &party,const auto &,auto,auto){arrived=++fallViews>1;
         check(!party.encounterContext->effects[XeenPartyEffect::Levitate],"Shelter terrain ran before temporary reset");
-        for(auto owner:s.activeRosterIds)check(party.roster.at(owner).currentHp==XeenCharacterRules::maxHp(party.roster.at(owner),{610})-100,"Shelter fall did not follow refill");
+        for(auto owner:s.activeRosterIds)check(party.roster.at(owner).currentHp==XeenCharacterRules::maxHp(party.roster.at(owner),{610})-(arrived?100:0),"Shelter source/destination view did not bracket fall damage after refill");
         return XeenEventFlow::Composition{frame(),false};});
     cast(cloud,false);for(unsigned n=0;!arrived;++n){check(n<1500,"Shelter cloud never reached existing fall owner");tick(cloud);}
 }

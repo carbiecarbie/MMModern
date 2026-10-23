@@ -508,7 +508,7 @@ XeenEncounterResult XeenActorApproach::transition(XeenWorld &world, XeenPartySta
 XeenEncounterResult XeenActorApproach::regionalTransition(XeenWorld &world,XeenPartyState &party,
 		XeenCamera &camera,XeenEncounterState &state,XeenEventFile &events,
 		std::optional<XeenEncounterAction> action,std::unique_ptr<XeenRegionalActionCandidate> &work,
-		const std::function<XeenEventFile(XeenMapIdentity)> &eventProvider,const std::function<void(unsigned)> &effect,const std::function<void()> &stepEffect) {
+		const std::function<XeenEventFile(XeenMapIdentity)> &eventProvider,const std::function<void(unsigned)> &effect,const std::function<void()> &stepEffect,const std::function<bool()> &doorView) {
 	auto &session=world._sessionState;XeenEncounterResult refused;
 	if(action && static_cast<unsigned>(*action)>static_cast<unsigned>(XeenEncounterAction::StrafeRight))return refused;
 	if(!world._combatCheck || !world._combatAuthorized || !world._combatAuthorized() ||
@@ -550,8 +550,7 @@ XeenEncounterResult XeenActorApproach::regionalTransition(XeenWorld &world,XeenP
 							*action==XeenEncounterAction::StrafeLeft?NavigationAction::StrafeLeft:NavigationAction::StrafeRight;
                         const bool door=*action==XeenEncounterAction::Forward && XeenMovement::doorAhead(world,c.camera);
                         result=XeenMovement().apply(world,c.camera,navigation,XeenMovement::capabilities(party));
-                        // The opening-door redraw itself is not drawn yet (Complete Clouds).
-                        if(door && result==XeenMovementResult::Moved)xeenEmitFmEffect(effect,47);
+                        if(door && result==XeenMovementResult::Moved) {xeenEmitFmEffect(effect,47);c.openDoor=true;}
                         if(c.camera.mapId!=camera.mapId) {
                             const auto admitted=world.prepareEventTransition(c.camera);check();
                             if(!admitted) {refused.arrivalRefusal="Destination is not supported yet";return refused;}
@@ -602,6 +601,8 @@ XeenEncounterResult XeenActorApproach::regionalTransition(XeenWorld &world,XeenP
 		const auto activeMap=activeWorld.map(c.camera.mapId);check();
 		XeenConsequenceDraw draw{c.random,64,check,effect};
 		const auto pending=[&] { auto r=c.result;r.outcome=XeenEncounterOutcome::Pending;r.revision=entry._revision;c.result.needsRest=false;return r; };
+		if(c.openDoor && doorView && !doorView())return pending();
+		c.openDoor=false;
 		if(c.time && !c.timeDone) {
 			if(!c.time->service(draw)) return pending();
 			c.inputs=c.time->inputs;c.characters.swap(c.time->characters);const auto ctr=c.context.ctr24;c.context=c.time->context;c.context.ctr24=ctr;c.timeDone=true;

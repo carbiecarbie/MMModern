@@ -954,18 +954,15 @@ remain outside the implemented presentations, as documented below.
 | `miss.voc` | VOC `0x2c172` precedes FM 6 `0x2c17c`. The exact candidates are `XeenPhysicalPlayerCandidate::service` (`XeenCombatRules.cpp:686`), condition `!damage && (!shoot || hit)`, and `XeenSpellDamageCandidate::service` (`:386`), condition `attack2Entered && damage<=0`. Publish once with the existing guarded effect request, before result publication. A missed missile or a spell rejection that never enters attack2 bypasses both cues; do not attach it to every displayed miss or every FM 6. |
 | Monster record `+0x33` voice | Pose frame 8 is set at `0x2d778`, scene calls at `0x2d793/0x2d79b`, old VOC stops at `0x2d7a5`, resource loads at `0x2d7f4`, and playback starts at `0x2d802`, before the target/attack loop. Current `XeenCombat` publishes `MonsterPose1` before enemy-candidate service (`XeenCombat.cpp:1543..1550`). The sample belongs to `XeenEncounterFlow::observeCombat`'s once-per-generation first-pose branch (`XeenEncounterFlow.cpp:345..353`), beside the existing record `+0x32` FM request and frame-8 presentation, before subsequent target-selection/RNG in `XeenEnemyAttackCandidate`. Do not replay at Pose2, per target, or on redraw. |
 
-**Fall/landing gap, high for current coverage:** DOS plays `scream.voc`
-at `0x116a0` after falling FM 11 (`0x11692`), explicitly stops it at
-`0x116ec`, starts `unnh.voc` at `0x1170c`, then requests landing FM 31
-at `0x11716`. Existing transition ownership is
-`XeenEventFlow::prepareTerrainTransition` and
-`XeenEncounterFlow::beginTerrainTransition`, backed
-by `XeenTerrainArrival`; encounter/rest/casting consequences hand off to
-that transition. There is no equivalent staged fall/landing presentation
-or sample publication point today. Record these two calls with that
-existing presentation gap; do not attach them to every map transition,
-add a new audio owner, or silently expand A2 into implementing the fall
-animation.
+**Fall/landing presentation, DOS static, high (M86, 2026-10-23):** FM 11
+(`0x11692`) precedes `scream.voc` (`0x116a0`). After the fifteenth scrolling
+image, `0x116ec` stops the sample with prosnd command 0; `unnh.voc`
+(`0x1170c`) and FM 31 (`0x11716`) precede the four impact images. Each image
+waits one VGA retrace; damage and its existing FM cues follow the sequence. `XeenEventFlow::beginFall`
+and `advanceFall` use the existing `XeenAudio` commands, through the terrain
+transition shared by walking, Rest, casting and manual step consequences.
+Effects off gates the samples and effects without skipping images or changing
+terrain, time or RNG. See [terrain arrival](time-and-conditions.md#terrain-arrival).
 
 **Title lightning outside M83 (maintainer, 2026-10-22):** DAT
 `0xbf90..0xbf99` tests byte `[DS:0x0095]`; a nonzero value jumps to
@@ -992,8 +989,8 @@ consults the device and no playback state enters saves.
 | `0xb112` | fire.voc | Efx | XeenEventFlow | implemented |
 | `0xb294` | xeenlaff.voc | Efx | XeenEventFlow | implemented |
 | `0xbfcf` | elect.voc | Efx | Title lightning | gap: step 15 |
-| `0x116a0` | scream.voc | Efx | Fall presentation | gap |
-| `0x1170c` | unnh.voc | Efx | Landing presentation | gap |
+| `0x116a0` | scream.voc | Efx | `XeenEventFlow::beginFall` | implemented |
+| `0x1170c` | unnh.voc | Efx | `XeenEventFlow::advanceFall` | implemented |
 | `0x1abf7` | trainin2.voc | Efx | XeenTrainingFlow | implemented |
 | `0x1aedc` | coina.voc | Efx | XeenSmithFlow | implemented |
 | `0x1af54` | ahh.voc | Efx | XeenSmithFlow / Event bridge | implemented |
@@ -1171,13 +1168,10 @@ intro drivers or indirect dispatch. EXE SHA-256:
 All effect IDs below are decimal. Expressions denote runtime IDs. The Efx
 Off panel branch's ID 0 is gated out. The function column identifies the
 existing action owner, including shared helpers reached by spells, Events or
-ordinary actions. C1 has 42 non-spell or
-shared gameplay sites; C2 has 86 casting/spell-handler sites. Five sites are
-not reachable yet: Darkside smith animation, character creation, Inn
-recruitment and two fall-animation cues. The last two await
-the roadmap's "Complete Clouds" objective (maintainer classification,
-2026-10-21). The opening-door cue plays since 2026-10-22 (maintainer); its
-one-frame open-door redraw still awaits "Complete Clouds". No scanned call was discarded as a non-effect. Confidence refers
+ordinary actions. C1 has 44 non-spell or shared gameplay sites; C2 has 86
+casting/spell-handler sites. Three sites are not reachable yet: Darkside smith
+animation, character creation and Inn recruitment. M86 wires the two terrain
+fall cues and the full opening-door redraw. No scanned call was discarded as a non-effect. Confidence refers
 to the stated original action and argument paths, not implementation coverage.
 
 **DOS static, high (C1 reconciliation, 2026-10-21):** incoming branches matter:
@@ -1222,8 +1216,8 @@ and healing presentation per member. C2 keeps that preparation unchanged
 | `0x0cfa9` | 47 | `XeenMovement::doorAhead; XeenEncounterFlow::advanceJourney` | admitted indoor forward move through a front door wall (types 4 and 13, the pin's `_wo[107]`), before the step suffix; the opening-door redraw itself is not drawn yet (Complete Clouds) | C1 | High: DAT 0xcf93..0xcfb7; pinned checkMoveDirection |
 | `0x0d442` | 7 + toggled stepping bit (7 or 8) | `XeenEncounterFlow::advanceJourney; XeenEventFlow::serviceBarrier` | movement/turn step-time suffix, including passable indoor B, excluding Space and W; toggle before request | C1 | High: DAT 0xd42b..0xd448; pinned stepTime |
 | `0x0d5c1` | 21 | `XeenEncounterFlow::beginShoot` | Shoot refused because no active member can shoot | C1 | High: DAT 0xd558..0xd5c7; pinned perform(S) |
-| `0x11692` | 11 | none; absent animation/combat action | falling animation starts after view setup | Not reachable yet: roadmap long-term 2 (Complete Clouds) | High: DAT 0x11686..0x11697; pinned startFalling |
-| `0x11716` | 31 | none; absent animation/combat action | fall impact after animation and sample stop | Not reachable yet: roadmap long-term 2 (Complete Clouds) | High: DAT 0x11706..0x1171b; pinned startFalling |
+| `0x11692` | 11 | `XeenEventFlow::beginFall` | falling animation starts after view setup | C1 | High: DAT 0x11686..0x11697; retrace-paced fall |
+| `0x11716` | 31 | `XeenEventFlow::advanceFall` | after sample stop/unnh, before four impact images | C1 | High: DAT 0x11706..0x1171b; retrace-paced landing |
 | `0x1b1a1` | 28 | `XeenEncounterFlow::simpleService` | Drink result below 26 increments Drunk; redraw then burp | C1 | High: DAT 0x1b18f..0x1b1a6; pinned Tavern |
 | `0x1c4b5` | 45 | `XeenEventFlow::pulseServiceArt` | Clouds smith background frames 3 and 9 | C1 | High: DAT 0x1c46e..0x1c4bb; pinned BaseLocation::drawAnim |
 | `0x1c4d3` | 45 | `none; Darkside services` | Darkside smith background frames 4 and 13 | Not reachable yet: roadmap long-term 3 (Darkside) | High: DAT 0x1c4bd..0x1c4d8 |

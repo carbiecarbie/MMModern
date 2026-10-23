@@ -660,6 +660,7 @@ void XeenEventFlow::prepareSmith() {
 				"Ironworks unavailable: departure exceeds the supported year.";
 		} else {
 			claimServiceContinuation(&*_smithUi);
+            _world.scenePresentation().resetServiceBorder();
             if (_encounter->_smithPreparation) _smithUi->phase=SmithUi::Phase::Preparation;
             _presenter.clear();_journeyEventLayers=false;
         }

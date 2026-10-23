@@ -5,8 +5,10 @@
 #include "games/xeen/XeenLearnedSpellRules.h"
 #include "core/NavigationAction.h"
 #include "core/PresentationClock.h"
+#include "core/IndexedFrame.h"
 #include "formats/xeen/XeenMonsterAppearance.h"
 #include <map>
+#include <algorithm>
 #include <memory>
 #include <random>
 #include <stdexcept>
@@ -87,6 +89,25 @@ public:
  // (Danger Sense): each advances once per border assembly, even while its
  // indicator is inactive, so the three stay in phase (sv-danger-sense-frame).
  unsigned levitateFrame=0, spotDoorsFrame=0, dangerSenseFrame=0;
+ // Temporary draw3d door flag (DOS DS:9c6e), never a map/save mutation.
+ bool openDoor=false;
+ void resetServiceBorder() noexcept {levitateFrame=spotDoorsFrame=dangerSenseFrame=0;}
+ // DOS 0x116a8..0x11782: 15 accelerated scroll images and four impact
+ // images, each copied on a VGA retrace. Both views are original scene pixels.
+ static constexpr std::array<unsigned,19> fallOffsets{0,3,7,12,18,25,33,42,52,63,75,88,102,117,132,127,132,129,132};
+ static IndexedFrame fallFrame(const IndexedFrame &top,const IndexedFrame &bottom,unsigned image) {
+     if(image>=fallOffsets.size() || !top.isValid() || !bottom.isValid() ||
+        top.width!=320 || top.height!=200 || bottom.width!=320 || bottom.height!=200)
+         throw std::invalid_argument("Invalid falling views");
+     auto frame=top;frame.palette=bottom.palette;
+     for(unsigned y=0;y<132;++y) {
+         const auto source=y+fallOffsets[image];
+         const auto &view=source<132?top:bottom;
+         const auto row=source<132?source:source-132;
+         std::copy_n(view.pixels.begin()+(row+8)*320+8,216,frame.pixels.begin()+(y+8)*320+8);
+     }
+     return frame;
+ }
  // Indicator sources the border reads (M77). DOS keeps them in memory only,
  // so they are never saved; a load starts them false until their writers run.
  // 0x974c: set by the monster-movement pass for any monster within three

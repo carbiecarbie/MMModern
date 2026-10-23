@@ -389,7 +389,7 @@ bool XeenEncounterFlow::observeCombat() {
                 _castProjectileDeadline.reset();
                 _castProjectile->target=r.targetMonster;
             }
-            if(!cast.failed && !cast.refunded)
+            if(!cast.failed && !cast.refunded && cast.spell!=unsigned(XeenLearnedSpell::MoonRay))
                 for(unsigned i=0;i<cast.count;++i) {
                     const auto &e=cast.effects[i];
                     if(e.healing)presentation.spellEffect(e.owner,_lastTime,true);
