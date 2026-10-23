@@ -407,8 +407,11 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
     else if(request.kind==XeenSessionEntry::Kind::MrWizard) {
      checkPanel();
      // The original closes the panel and moves the party in one step.
+     const bool combat=flow.encounter() && flow.encounter()->combat();
      if(auto moved=flow.mrWizard()) {
       panel.reset();panelGuard.reset();panelTicket.reset();flow._queueContext.reset();
+      // A combat panel is nested in the interrupted input: no pass of its own.
+      if(combat){handoff.retain();return moved;}
       auto next=flow.completeExplorationInput();handoff.retain();return next;
      }
      panel->panelFailure("not supported yet");

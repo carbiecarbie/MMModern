@@ -241,7 +241,7 @@ Tab or the gem opens the original control panel when nothing else is open:
 name, **Load** replaces the running game with a saved one, and **Quit** asks
 for confirmation. Saving is refused in combat, during service visits and on
 maps that forbid it. **Mr Wizard** returns the party to Vertigo's run position
-facing East and takes all its gems; in combat it says "not supported yet".
+facing East and takes all its gems; in combat it ends the fight first.
 **Efx**, **Music**, **Speech** and **Text** switch as in the original and are
 saved with the party; a new game starts with Text off. Slots live under Local AppData (`MMModern/Saves/`); a damaged or foreign
 slot is shown as unavailable and never overwritten. Loading continues exactly,
@@ -384,9 +384,8 @@ in [dependencies](dependencies.md).
 
 - **Inn and party.** There is no Inn, recruiting or character creation:
   Tavern Sign In and Dismiss say "not supported yet".
-- **Scenes and commands.** The Pyramid entrance, the Clouds ending and Mr
-  Wizard in combat say "not supported yet"; killing Lord Xeen does not give
-  his Scepter yet.
+- **Scenes and commands.** The Pyramid entrance and the Clouds ending say
+  "not supported yet"; killing Lord Xeen does not give his Scepter yet.
 - **Sound.** The Inn song (`inn.m`) has no production caller until the Inn/Sign
   In screen (step 14). Fall/landing samples await the falling presentation;
   title lightning belongs to step 15. F8 speech replay is omitted by maintainer

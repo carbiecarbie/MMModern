@@ -87,8 +87,8 @@ void combatTrap(Inputs &in) {
  check(!f.programState.eventCallSkipped && postFightDamage==1,"post-combat trap scans and hurts exactly once");
 }
 void combatLabels(Inputs &in) {
- for(unsigned exit=0;exit<3;++exit) {
-  auto save=at(in,28,13,4,XeenDirection::East);
+ for(unsigned exit=0;exit<4;++exit) {
+  auto save=at(in,28,13,4,XeenDirection::East);save.journey->purse->gems=25;
   const auto actors=XeenActorApproach::actorsFromResources(in.maps.loadObjects(in.assets,28),in.statistics);
   const auto &original=actors.at(35);
   check(original.x==15 && original.y==4,"Part 0 original Vertigo monster 35");
@@ -98,11 +98,12 @@ void combatLabels(Inputs &in) {
    save.journey->supplements[owner].inputs.might={200,0};
    save.journey->supplements[owner].inputs.accuracy={200,0};
   }
-  Fixture f(in,save);unsigned labels=0,calls=0;
+  Fixture f(in,save);unsigned labels=0,calls=0;bool wizard=false;
+  std::vector<XeenCamera> wizardCalls,wizardLabels;
   f.flow->reportManual=[&](const auto &r) {
-   if(std::holds_alternative<XeenManualEventCompleted>(r))++calls;
+   if(std::holds_alternative<XeenManualEventCompleted>(r)){++calls;if(wizard)wizardCalls.push_back(f.c);}
    if(const auto *p=std::get_if<XeenEventExecutionSuspended>(&r))
-    if(p->request.source.opcode==2)++labels;
+    if(p->request.source.opcode==2){++labels;if(wizard)wizardLabels.push_back(f.c);}
   };
   f.act(NavigationAction::TurnLeft);finish(f);
   f.act(NavigationAction::TurnLeft);finish(f);
@@ -120,7 +121,12 @@ void combatLabels(Inputs &in) {
    check(n<5000,"original label fight and caller settle");
    if(auto *combat=f.flow->encounter()->combat()) {
     if(combat->phase()==XeenCombatPhase::PlayerReady) {
-     if(exit==2 && f.c.direction!=XeenDirection::East)f.act(NavigationAction::TurnLeft);
+     if(exit==3) {
+      const auto moved=f.flow->mrWizard();check(bool(moved),"Mr Wizard admitted at the original label fight");
+      wizard=true;f.present(*moved);
+      check(f.p.purse->gems==0 && f.c.x==13 && f.c.y==4,"Mr Wizard zeroes gems before leaving the fight cell");
+     }
+     else if(exit==2 && f.c.direction!=XeenDirection::East)f.act(NavigationAction::TurnLeft);
      else f.act(exit?PlayerAction{RunAction{}}:PlayerAction{AttackAction{}});
     }
    } else {
@@ -130,9 +136,19 @@ void combatLabels(Inputs &in) {
    f.now+=25;f.flow->beginCycle(++f.cycle);
    if(auto frame=f.flow->updatePresentation())f.present(*frame);
   }
-  check(labels==before+(exit==1?0:1),"caller 4 redraws matching label at fight or Run landing");
-  check(!f.programState.eventCallSkipped,"scanning caller 4 suppresses caller 3");
-  if(exit)check(f.c.x==18 && f.c.y==4,"Run reaches original Vertigo landing");
+  check(labels==before+(exit==1 || exit==3?0:1),"caller 4 redraws matching label at fight or Run landing");
+  if(exit==3) {
+   // Monster 35 still holds slot 0 at the fight cell: caller 4 skips there.
+   // The load builds no slots (DOS 0xf542), so the draw's caller 3 at
+   // Vertigo's run position tests the same slot 0 and skips too.
+   const auto at=[](const XeenCamera &c,int x,int y,XeenDirection d){return c.mapId==XeenMapIdentity(28) && c.x==x && c.y==y && c.direction==d;};
+   check(wizardCalls.size()==2 && at(wizardCalls[0],13,4,XeenDirection::West) && at(wizardCalls[1],18,4,XeenDirection::East),
+    ("Mr Wizard caller 4 at the fight cell precedes caller 3 at the landing; calls="+std::to_string(wizardCalls.size())).c_str());
+   check(wizardLabels.empty(),"Neither skipped caller draws a label");
+   check(f.programState.eventCallSkipped && f.p.purse->gems==0,"Both callers skip on the fight's slot 0 and keep the flag");
+   check(f.w.sessionState().regionalActors(28).at(35).x==13,"Mr Wizard leaves the original monster at the fight cell");
+  } else check(!f.programState.eventCallSkipped,"scanning caller 4 suppresses caller 3");
+  if(exit)check(f.c.x==18 && f.c.y==4,"Run and Mr Wizard reach the original Vertigo landing");
  }
 }
 void guardedNpc(Inputs &in) {

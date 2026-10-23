@@ -576,7 +576,6 @@ void indoorQuickRun(Inputs &in) {
  auto s=emptyCity(in);auto &actor=s.map(28).monsters->slots.at(0);actor.x=10;actor.y=10;actor.lifecycle=XeenActorLifecycle::Present;actor.accounted=false;
  for(auto owner:s.activeRosterIds){s.characters[owner].quickOption=3;s.journey->supplements[owner].inputs.speed={30,0};}
  Fixture f(in,s);f.act(WaitAction{});ready(f);const auto rng=f.w.sessionState().journeyRandom();
- check(!f.flow->mrWizard() && f.w.sessionState().journeyRandom()==rng,"Mr Wizard is not admitted in combat yet");
  const auto &g=f.w.map(28).geometry;auto run=f.c;run.x=std::int8_t(std::uint8_t(g.runX));run.y=std::int8_t(std::uint8_t(g.runY));
  check(run.x!=f.c.x || run.y!=f.c.y,"Vertigo run position differs from the fight");
  // M85 Part 0: the landing Event is handled by the post-combat callers, never a Run refusal.
@@ -608,6 +607,63 @@ void mrWizard(Inputs &in) {
   check(restored.c.mapId==f.c.mapId && restored.c.x==f.c.x && restored.c.y==f.c.y && restored.c.direction==f.c.direction &&
    restored.p.purse->gems==0,"Mr Wizard result saves and restores");
  }
+}
+// In combat the panel's Mr Wizard zeroes the gems and ends the fight at once;
+// the Vertigo load follows combat's exit (DOS 0x1f28a, 0x2e989, 0x2ec3c).
+void combatMrWizard(Inputs &in) {
+ auto s=emptyCity(in);s.journey->purse->gems=25;auto &actor=s.map(28).monsters->slots.at(0);actor.x=10;actor.y=10;actor.lifecycle=XeenActorLifecycle::Present;actor.accounted=false;
+ const auto sleeper=s.activeRosterIds[5];s.characters[sleeper].conditions[unsigned(XeenCondition::Asleep)]=1;
+ Fixture f(in,s);f.act(WaitAction{});ready(f);
+ const auto time=*f.p.encounterContext;const auto rng=f.w.sessionState().journeyRandom();const auto gold=f.p.purse->gold;const auto fight=f.c;
+ const auto moved=f.flow->mrWizard();check(bool(moved),"Mr Wizard is admitted at a combat turn");f.present(*moved);
+ check(f.p.purse->gems==0 && f.p.purse->gold==gold,"Combat Mr Wizard zeroes the gems before the callers");
+ check(*f.p.encounterContext==time && f.w.sessionState().journeyRandom()==rng,"Combat Mr Wizard spends no turn, time or draw");
+ check(!f.flow->encounter()->combat() || f.flow->encounter()->combat()->phase()==XeenCombatPhase::Disengaged,"Combat Mr Wizard leaves combat at once");
+ check(!f.flow->mrWizard(),"Mr Wizard cannot repeat while combat retires");
+ for(unsigned n=0;n<200 && f.flow->encounter()->combat();++n)pulse(f);
+ check(!f.flow->encounter()->combat(),"Combat Mr Wizard retires the fight");
+ quiet(f);
+ const auto &g=f.w.map(28).geometry;
+ check(f.c.mapId==XeenMapIdentity(28) && f.c.x==std::int8_t(std::uint8_t(g.runX)) && f.c.y==std::int8_t(std::uint8_t(g.runY)) &&
+  f.c.direction==XeenDirection::East && (f.c.x!=fight.x || f.c.y!=fight.y),"Combat Mr Wizard lands on Vertigo's run position facing East");
+ check(f.p.purse->gems==0 && f.p.purse->gold==gold,"Combat Mr Wizard keeps the gold");
+ check(!f.p.roster.at(sleeper).conditions[unsigned(XeenCondition::Dead)],"Without an escape nobody is abandoned");
+ Fixture restored(in,f.snapshot());
+ check(restored.c.mapId==f.c.mapId && restored.c.x==f.c.x && restored.c.y==f.c.y && restored.p.purse->gems==0,"Combat Mr Wizard result saves and restores");
+}
+// After an earlier escape the exit first lands on the current map's Run
+// position (DOS 0x2eaf5..0x2eb69) and abandons a sleeping member; combat's
+// delivery there (0x2eb85) pays staged gems, which the later load keeps.
+void combatMrWizardEscape(Inputs &in) {
+ XeenTreasureStaging treasure;treasure.gems=7;treasure.ready=true;
+ for(std::uint32_t seed=1;seed<=80;++seed) {
+  auto s=emptyCity(in);s.journey->purse->gems=25;s.journey->random=XeenCombatRandom(seed).continuation();
+  auto &actor=s.map(28).monsters->slots.at(0);actor.x=10;actor.y=10;actor.lifecycle=XeenActorLifecycle::Present;actor.accounted=false;
+  const auto sleeper=s.activeRosterIds[5];s.characters[sleeper].conditions[unsigned(XeenCondition::Asleep)]=1;
+  for(auto owner:s.activeRosterIds)s.characters[owner].currentHp=1000;
+  Fixture f(in,s);XeenMonsterTestAccess::stageTreasureLive(*f.flow,f.w,treasure);
+  f.act(WaitAction{});ready(f);f.act(RunAction{});
+  for(unsigned n=0;n<1000;++n) {
+   const auto *combat=f.flow->encounter()->combat();
+   if(!combat || (combat->phase()==XeenCombatPhase::PlayerReady && !combat->cast()))break;
+   pulse(f);
+  }
+  const auto *combat=f.flow->encounter()->combat();
+  if(!combat || combat->phase()!=XeenCombatPhase::PlayerReady || combat->participants()==0x3f)continue;
+  const auto moved=f.flow->mrWizard();check(bool(moved),"Mr Wizard is admitted after an escape");f.present(*moved);
+  check(f.p.purse->gems==0,"The panel zeroes the gems before delivery");
+  for(unsigned n=0;n<2000 && !f.flow->canSave();++n) {
+   if(XeenPartyInterfaceTestAccess::reward(*f.flow))quietTreasure(f);else pulse(f);
+  }
+  check(f.flow->canSave(),"Escape Mr Wizard settles");
+  const auto &g=f.w.map(28).geometry;
+  check(f.c.mapId==XeenMapIdentity(28) && f.c.x==std::int8_t(std::uint8_t(g.runX)) && f.c.y==std::int8_t(std::uint8_t(g.runY)) &&
+   f.c.direction==XeenDirection::East,"Escape Mr Wizard ends on Vertigo's run position facing East");
+  check(f.p.purse->gems==treasure.gems,"Gems delivered at the Run landing survive the load");
+  check(f.p.roster.at(sleeper).conditions[unsigned(XeenCondition::Dead)]==1,"The escape branch abandons the sleeping member");
+  return;
+ }
+ throw std::runtime_error("No seed gave a successful escape before Mr Wizard");
 }
 void spellChecks(Inputs &in) {
  auto p=XeenPartyLoader().loadInitialCloudsParty(in.assets);auto c=p.roster.at(11);c.characterClass=XeenCharacterClass::Sorcerer;c.hasSpells=true;c.currentSp=300;c.permanentLevel=10;c.learnedSpells.emplace();for(auto &flag:*c.learnedSpells)flag=1;
@@ -861,6 +917,6 @@ void runKillEventTreasure(Inputs &in) {
 int main(int argc,char **argv){try{
  check(argc==2,"usage: party-interface-tests <installation>");auto game=xeenTestInstallationDetector().detect(argv[1]);check(bool(game),"Missing installation");Inputs in(*game);
  std::ostringstream captured;auto *before=std::cout.rdbuf(captured.rdbuf());
- try{const auto run=[&](const char *name,auto fn){try{fn(in);}catch(const std::exception &e){throw std::runtime_error(std::string(name)+": "+e.what());}};run("original treasure records",originalTreasureRecords);run("WhoWill arrival",whoWillArrival);run("original item drops",originalMonsterDropReceipts);run("Event treasure order",eventTreasureOrder);run("live kill Event treasure",liveKillEventTreasure);run("Run kill Event treasure",runKillEventTreasure);run("exchange",exchangeAndSave);run("time/rest",reorderedTimeAndRest);run("combat/options",combatAndOptions);run("quick casting",quickCasting);run("M73 quick casting",m73QuickCasting);run("ordered consequences",orderedShootBarrierTreasure);run("indoor quick Run",indoorQuickRun);run("Mr Wizard",mrWizard);run("spell checks",spellChecks);}catch(...){std::cout.rdbuf(before);throw;}
+ try{const auto run=[&](const char *name,auto fn){try{fn(in);}catch(const std::exception &e){throw std::runtime_error(std::string(name)+": "+e.what());}};run("original treasure records",originalTreasureRecords);run("WhoWill arrival",whoWillArrival);run("original item drops",originalMonsterDropReceipts);run("Event treasure order",eventTreasureOrder);run("live kill Event treasure",liveKillEventTreasure);run("Run kill Event treasure",runKillEventTreasure);run("exchange",exchangeAndSave);run("time/rest",reorderedTimeAndRest);run("combat/options",combatAndOptions);run("quick casting",quickCasting);run("M73 quick casting",m73QuickCasting);run("ordered consequences",orderedShootBarrierTreasure);run("indoor quick Run",indoorQuickRun);run("Mr Wizard",mrWizard);run("combat Mr Wizard",combatMrWizard);run("combat Mr Wizard after escape",combatMrWizardEscape);run("spell checks",spellChecks);}catch(...){std::cout.rdbuf(before);throw;}
  std::cout.rdbuf(before);std::cout<<"Exchange, ordered ownership, Quick Fight, v8 and stale input passed\n";return 0;
 }catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}

@@ -50,6 +50,7 @@ void inventory(const std::filesystem::path &rules) {
         {"0x2dc0b","6"},
         {"0x2e1fe","51"},
         {"0x2e7e6","monster-record byte +0x32"},
+        {"0x2ec42","51"},
         {"0x32d5b","31"},
         {"0x34d71","21"},
         {"0x36a07","attack type 0..6 maps to 49,18,13,14,15,17,16"},
@@ -140,9 +141,9 @@ void inventory(const std::filesystem::path &rules) {
         {"0x31f07","20"},
         {"0x31f61","20"},
     };
-    check(std::size(sites)==127,"C1/C2 inventory size changed");
+    check(std::size(sites)==128,"C1/C2 inventory size changed");
     const auto count=[&](const char *needle){unsigned n=0;for(std::size_t p=0;(p=text.find(needle,p))!=text.npos;p+=std::char_traits<char>::length(needle))++n;return n;};
-    check(count(" | C1 | High:")==41 && count(" | C2 | High:")==86 && count(" | Not reachable yet:")==6,
+    check(count(" | C1 | High:")==42 && count(" | C2 | High:")==86 && count(" | Not reachable yet:")==5,
         "full 133-site reconciliation changed");
     std::set<std::string> unique;
     for(const auto &[site,expression]:sites) {
@@ -525,6 +526,6 @@ int main(int argc,char **argv) {
         check(door(in,*installation,true)==door(in,*installation,false),"door Efx setting altered gameplay snapshot");
         check(service(in,*installation,true)==service(in,*installation,false),"service Efx setting altered gameplay snapshot");
         check(combat(in,*installation,true)==combat(in,*installation,false),"combat Efx setting altered gameplay snapshot");
-        std::cout<<"127 reconciled C1/C2 sites; original spell/item/travel/refusal and C1 witnesses; Efx-off snapshots identical\n";
+        std::cout<<"128 reconciled C1/C2 sites; original spell/item/travel/refusal and C1 witnesses; Efx-off snapshots identical\n";
     }catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}
 }

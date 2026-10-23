@@ -91,6 +91,8 @@ public:
  bool configureSound(const Ticket &,XeenSoundOptions);
 	// Control panel Mr Wizard outside combat; false refuses with nothing published.
 	bool mrWizard(const Ticket &);
+	// In combat it only ends the fight; the town load follows caller 4.
+	bool combatMrWizard(const Ticket &);
 	XeenTransferResult journeyTransfer(const Ticket &, std::size_t, std::size_t, XeenInventoryCategory, std::size_t);
 	bool journeyDiscard(const Ticket &,std::size_t,XeenInventoryCategory,std::size_t,const XeenItem &);
 	struct ItemUseSelection {
@@ -445,6 +447,9 @@ private:
     bool _drawnSlot0=false; // Last draw's contact, not the latest monster movement.
     bool _combatDoorText=false, _combatDrawCaller=false;
     bool _postCombatCalls=false;
+    bool _combatMrWizard=false; // DOS di=1 (0x2e993): town load owed after caller 4; never saved.
+    bool publishMrWizard(bool zeroGems);
+    bool mrWizardAfterCombat(const Ticket &);
 	std::optional<XeenCombatLocation> _regionalAutomaticAddress;
 	bool _shootIntent = false;
     bool _shootDirectCombat = false; // DOS Shoot 0xd5aa, distinct from its preliminary draw.

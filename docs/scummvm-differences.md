@@ -311,6 +311,10 @@ against the pin; master was not rechecked.
 - **Clearing an Event spot.** A script that clears the party's spot keeps
   running in the original; ScummVM stops it.
   [Evidence](original-quirks.md#sv-make-nothing-here). Master: differs.
+- **Mr Wizard in combat.** The original ends the fight and then puts the
+  party on Vertigo's run position facing East; the pin loads Vertigo but
+  keeps the party's coordinates from the fight.
+  [Evidence](original-quirks.md#sv-mr-wizard-combat). Pin: differs; master not rechecked.
 - **The Sphinx sarcophagus.** Its strength test reads only temporary Might in
   the original, like every such test; ScummVM reads full Might there, a
   documented workaround. [Evidence](original-quirks.md#sv-sphinx-might). Pin: differs; master not rechecked.

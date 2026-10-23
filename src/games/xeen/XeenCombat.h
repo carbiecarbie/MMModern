@@ -82,7 +82,7 @@ private:
 };
 enum class XeenCombatAttackOutcome { NotApplicable, NoParticipants, Pending, Miss, HitZeroDamage, HitPositiveDamage };
 enum class XeenCombatAttackStage { None, MonsterPose1, MonsterPose2, PreHp, PostHp, MonsterDamageOverlay, MonsterDamageHold };
-enum class XeenCombatExitCause { None, DirectRun, AttritionAfterEscape };
+enum class XeenCombatExitCause { None, DirectRun, AttritionAfterEscape, MrWizard };
 struct XeenCombatLocation { XeenMapIdentity mapId; int x=0,y=0; XeenDirection direction=XeenDirection::North; };
 struct XeenCombatDamage {
 	std::uint8_t owner=0;
@@ -205,6 +205,9 @@ public:
 	XeenCombatResult configureQuickFight(const Ticket &,std::size_t);
 	XeenCombatResult toggleAutomap(const Ticket &);
  XeenCombatResult configureSound(const Ticket &,XeenSoundOptions);
+	// Control panel Mr Wizard: zeroes the gems and leaves combat at once; the
+	// town load follows combat's Event callers.
+	XeenCombatResult mrWizard(const Ticket &);
 	XeenCombatResult selectTarget(const Ticket &, unsigned row);
     XeenCombatResult rotate(const Ticket &,NavigationAction);
     unsigned movementCountdown() const noexcept;

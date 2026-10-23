@@ -36,7 +36,7 @@ entry. Dialog identifiers below are reference identifiers, not commercial text.
 | Exploration main screen | partial | Movement, strafe, Shoot, Cast, Rest, Bash, Quests, Map, Info, Quick Ref, gem, portraits, Danger Sense/Spot Secret Doors/Direction Sense indicators work; Dismiss refuses | XeenEventFlow |
 | Combat main screen | partial | Attack, Block, Run, Shoot effects, Cast, charged-item Use (including Town Portal), Quick Fight/options, targets, turns, Info, Quick Ref, skill indicators; Run refuses when the run position's automatic Event faces the party | XeenEncounterFlow |
 | CharacterInfo | supported | Stats and popups, Items, Awards, Quick Ref, Exchange, Exit; original combat Exchange refusal | XeenCharacterDialogFlow |
-| ControlPanel | partial | Save, Save As, Load, Quit, Mr Wizard, Efx, Music, Speech, Text work; Mr Wizard in combat unavailable | XeenEventFlow |
+| ControlPanel | supported | Save, Save As, Load, Quit, Mr Wizard (in combat too), Efx, Music, Speech, Text work | XeenEventFlow |
 | ItemsDialog | partial | Categories, Equip, Remove, Discard, transfer, Use, Quest, Exit; free combat equipment/Discard/transfer, combat-party recipients, main-screen Use; sheet Use refused in combat; Recharge/Enchant/Gold supported | XeenInventoryFlow |
 | Input / StringInput / NumericInput | partial | Save names, Bank amounts, Arena level, Event passwords and mirrors work; Choose123 and TakeOrGive HowMuch unavailable | XeenTitleFlow / XeenEventPresenter |
 | SpellsDialog / CastSpell / SpellOnWho | partial | Select, Buy, Info, rows, scroll, Cast, New, member choice, cancel work; effects limited by Spells dimension | XeenCastingUi |

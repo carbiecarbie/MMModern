@@ -92,6 +92,29 @@ void disengagementMixedVictory(Source &source) {
  check(d.flow->retireJourney(d.flow->ticket()),"Victory after partial escape retires through M33 End");
  std::cout<<"M34 ARTIFICIAL failed100/success1 Run, stable acted peers, continued victory and escaped-member XP exclusion PASS\n";
 }
+// Mr Wizard leaves through combat's exit (DOS 0x2eaf0): only an earlier
+// escape with contact remaining lands on the Run position (0x2eaf5..0x2eb69).
+void disengagementMrWizard(Source &source) {
+ for(bool escaped:{false,true}) {
+  auto saved=disengagementFixture(source);saved.journey->purse->gems=40;
+  const auto sleeper=kXeenCombatOwners[5];saved.characters[sleeper].conditions[unsigned(XeenCondition::Asleep)]=1;
+  Domain d(source,saved,{},woundSurvivor);auto &combat=disengagementContact(d);
+  const auto origin=d.camera;const auto context=d.party.encounterContext;const auto gold=d.party.purse->gold;
+  if(escaped)literalRun(combat,1);
+  const auto random=combat.random().continuation();const auto staged=d.world.treasureStaging().value();
+  check(combat.phase()==XeenCombatPhase::PlayerReady,"Mr Wizard fixture reaches a player turn");
+  const auto finished=combat.mrWizard(combat.ticket());
+  check(finished.operation==XeenCombatOperation::FinishDisengagement && finished.phase==XeenCombatPhase::Disengaged &&
+   finished.exitCause==XeenCombatExitCause::MrWizard && finished.casualties==(escaped?1u<<5:0u) && !finished.forfeitedGold && !finished.forfeitedGems,"Mr Wizard finishes combat at once without forfeiture");
+  check(d.party.roster.at(sleeper).conditions[unsigned(XeenCondition::Dead)]==(escaped?1:0),"Only the escape branch abandons the sleeping member");
+  check(d.party.purse->gems==0 && d.party.purse->gold==gold && d.world.treasureStaging().value()==staged,"Mr Wizard zeroes only the purse gems");
+  check(combat.random().continuation()==random && d.party.encounterContext==context,"Mr Wizard spends no draw or minute");
+  if(escaped)check(d.camera.x==10 && d.camera.y==12 && d.camera.direction==origin.direction,"Earlier escape lands Mr Wizard on the Run position");
+  else check(xeen_state::sameCamera(origin,d.camera),"Without an escape Mr Wizard leaves from the fight cell");
+  check(d.flow->retireJourney(d.flow->ticket()) && !d.flow->combat(),"Mr Wizard retires through disengagement");
+ }
+ std::cout<<"ARTIFICIAL Mr Wizard combat exit with and without an earlier escape PASS\n";
+}
 void disengagementOwedRound(Source &source) {
  for(bool escapedStatDeath:{false,true}) {
   auto saved=disengagementFixture(source);saved.journey->context->minutes=949;

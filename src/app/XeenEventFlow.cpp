@@ -713,6 +713,12 @@ void XeenEventFlow::prepareJourneyTransition() {
   const auto cell=_world.sampleCell(_camera.mapId,_camera.x,_camera.y);
   const bool caller4=_encounter->_combatDoorText && cell && (cell->cell->rawAttributes&kXeenAutomaticEventFlag);
   _encounter->_combatDoorText=false;
+  // Mr Wizard's load follows caller 4 inside combat's exit and precedes the
+  // draw's caller 3, which then calls at Vertigo (DOS 0x2ec3c..0x2ec7e).
+  if(!caller4 && _encounter->_combatMrWizard) {
+   _encounter->_combatMrWizard=false;
+   if(!_encounter->mrWizardAfterCombat(_encounter->ticket()))throw std::logic_error("Mr Wizard combat load failed");
+  }
   const bool caller3=!caller4 && _encounter->_combatDrawCaller && _program.eventCallSkipped;
   if(caller4 || caller3) {
    _encounter->_regionalAutomatic=true;
@@ -1083,8 +1089,11 @@ bool XeenEventFlow::configureSound(XeenSoundOptions value) {
  return true;
 }
 std::optional<IndexedFrame> XeenEventFlow::mrWizard() {
-	if(!journey() || _encounter->combat() || _pending || _castingUi || _barrier || inventoryOpen() ||
-		!_encounter->mrWizard(_encounter->ticket()))return std::nullopt;
+	if(!journey() || _pending || _castingUi || _barrier || inventoryOpen())return std::nullopt;
+	if(const auto *combat=_encounter->combat()) {
+		// Combat leaves at once; its retirement owes the load (DOS 0x2e989, 0x2ec3c).
+		if(combat->cast() || !_encounter->combatMrWizard(_encounter->ticket()))return std::nullopt;
+	} else if(!_encounter->mrWizard(_encounter->ticket()))return std::nullopt;
 	return renderEncounter();
 }
 IndexedFrame XeenEventFlow::renderEncounter(bool report, bool cosmeticInput, bool reconstruct) {

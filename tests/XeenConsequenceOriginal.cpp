@@ -570,7 +570,7 @@ int main(int argc,char **argv){try{
  freshSaveControls(source);titlePublicationControls(source);freshFailureControls(source);freshDifficultyHits(source);
  if(std::getenv("MMODERN_M49_IMPACT_ONLY")) {
   chargedWait(source);stagedVolleyDefeat(source);stagedRotationVolley(source);
-  zeroHitVolley(source);shootOrder(source);shootLethalPreparation(source);indoorShoot(source);indoorChangedShoot(source);blockReset(source);individualMonsterTreasure(source);
+  zeroHitVolley(source);shootOrder(source);shootLethalPreparation(source);indoorShoot(source);indoorChangedShoot(source);blockReset(source);individualMonsterTreasure(source);disengagementMrWizard(source);
   std::cout<<"M49 original-resource impact/rotation controls PASS\n";return 0;
  }
  if(std::getenv("MMODERN_M34_FINISH_PRESENTATION_ONLY")){disengagementFinishPresentation(source);return 0;}

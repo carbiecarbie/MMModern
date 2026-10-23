@@ -1171,10 +1171,10 @@ intro drivers or indirect dispatch. EXE SHA-256:
 All effect IDs below are decimal. Expressions denote runtime IDs. The Efx
 Off panel branch's ID 0 is gated out. The function column identifies the
 existing action owner, including shared helpers reached by spells, Events or
-ordinary actions. C1 has 41 non-spell or
-shared gameplay sites; C2 has 86 casting/spell-handler sites. Six sites are
+ordinary actions. C1 has 42 non-spell or
+shared gameplay sites; C2 has 86 casting/spell-handler sites. Five sites are
 not reachable yet: Darkside smith animation, character creation, Inn
-recruitment, two fall-animation cues and combat Mr Wizard. The last three await
+recruitment and two fall-animation cues. The last two await
 the roadmap's "Complete Clouds" objective (maintainer classification,
 2026-10-21). The opening-door cue plays since 2026-10-22 (maintainer); its
 one-frame open-door redraw still awaits "Complete Clouds". No scanned call was discarded as a non-effect. Confidence refers
@@ -1256,7 +1256,7 @@ and healing presentation per member. C2 keeps that preparation unchanged
 | `0x2dc0b` | 6 | `XeenEnemyAttackCandidate::service` | monster physical attack misses on a natural 1 or failed AC check, including the second check after a critical first hit | C1 | High: DAT 0x2d9ea..0x2dc11; monster +0x1d physical gate; hit calls party-damage helper 0x2d22d; pin doMonsterTurn |
 | `0x2e1fe` | 51 | `XeenRunCandidate::service` | successful combat Run removes current participant | C1 | High: DAT 0x2e1c0..0x2e204; pinned run |
 | `0x2e7e6` | monster-record byte +0x32 | `XeenEncounterFlow::observeCombat` | monster melee attack starts before frame 8 redraw | C1 | High: DAT 0x2e7df..0x2e7eb; pinned doCombat |
-| `0x2ec42` | 51 | none; absent animation/combat action | Mr Wizard combat-exit tail before destination load | Not reachable yet: roadmap long-term 2 (Complete Clouds) | High: settled Mr Wizard entry in original-quirks.md |
+| `0x2ec42` | 51 | `XeenEncounterFlow::mrWizardAfterCombat` | Mr Wizard combat-exit tail after caller 4, before destination load | C1 | High: settled Mr Wizard entry in original-quirks.md |
 | `0x2f1d3` | 21 | `XeenCombat::respondCast/settleCast; XeenEncounterFlow::respondCombatCast; XeenEventFlow::beginTravelDialog` | casting refused while engaged, including Quick Fight and the continuing Town Portal item notice | C2 | High: DAT 0x2f1b6..0x2f23e; message DS 0x6887; Portal item branch 0x3a058..0x3a075 |
 | `0x2f25c` | 21 | `XeenEventFlow::handleCasting; XeenCombat::respondCast; XeenEncounterFlow::respondCombatCast` | casting refused for insufficient SP or gems, including Quick Fight | C2 | High: DAT 0x2f23f..0x2f2c3; message DS 0x68aa |
 | `0x2f3ac` | 39 | `XeenEncounterFlow::publishAwaken/publishCastingTarget/settleItemUse; XeenCombat::settleCast` | Light | C2 | High: Learned dispatcher 0x3382b maps ID to handler; M74/M76 entry labels; local call predecessor/branch |

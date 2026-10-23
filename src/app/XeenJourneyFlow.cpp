@@ -241,9 +241,28 @@ bool XeenEncounterFlow::toggleAutomap(const Ticket &entry) {
 }
 // Mr Wizard: DOS 0x1f236..0x1f29b loads Vertigo, faces East, moves to its run
 // position (0x1691f) and zeroes the party's gems, with no time, Event or
-// monster turn. Its FX 51 stays silent until audio exists.
+// monster turn.
 bool XeenEncounterFlow::mrWizard(const Ticket &entry) {
 	if(!current(entry) || !journeyMutable() || !_boundary.quiet() || !journeyCapacity())return false;
+	return publishMrWizard(true);
+}
+bool XeenEncounterFlow::combatMrWizard(const Ticket &entry) {
+	if(!current(entry) || _busy || !_combat || !entry.combat)return false;
+	if(!acceptCombatResult(_combat->mrWizard(*entry.combat)))return false;
+	observeCombat();return true;
+}
+// Combat's exit tail repeats the load after caller 4 (DOS 0x2ec3c..0x2ec7e);
+// the panel already zeroed the gems. The draw's caller 3 follows at Vertigo.
+bool XeenEncounterFlow::mrWizardAfterCombat(const Ticket &entry) {
+	if(!current(entry) || !_postCombatCalls || _combat || _regionalAutomatic || journeyEvent() || _busy || _failure ||
+		_state.pending() || !_boundary.quiet() || !journeyCapacity())return false;
+	if(!publishMrWizard(false))return false;
+	_world._sessionState._journeyActivity=_state.phase()==XeenEncounterPhase::Engaged ?
+		XeenJourneyActivity::Attachment : XeenJourneyActivity::Presentation;
+	++_world._sessionState._journeyGeneration;_journeyPreimage->adoptJourneyCoordination();
+	return true;
+}
+bool XeenEncounterFlow::publishMrWizard(bool zeroGems) {
 	BusyJourney busy(_busy);
 	try {
 		_journeyPreimage->check();
@@ -270,13 +289,16 @@ bool XeenEncounterFlow::mrWizard(const Ticket &entry) {
 		auto prepared=std::make_shared<XeenRestoreGuard>(_world,_party,_camera,_flags);
 		prepared->retainResources(*_journeyPreimage);
 		prepared->prepareSpellMapPublication(*candidate);prepared->cameraValue=camera;
-		prepared->purse->gems=0;prepared->s.assignExploration(exploration);
+		if(zeroGems)prepared->purse->gems=0;
+		prepared->s.assignExploration(exploration);
 		_world.checkTransitionTreasure(*candidate);_journeyPreimage->check();
         fmEffect(51);
 		_world.publishTransition(*candidate);_camera=camera;_journeyEvents=std::move(events);
-		_party.purse->gems=0;
+		if(zeroGems)_party.purse->gems=0;
 		XeenMutationWatch::write(&_world);_world._sessionState.publishExploration(exploration);
 		++_generation;_journeyPreimage.swap(prepared);_journeyPreimage->adoptMutationBoundary();
+		// The map load builds no attack slots (DOS 0xf542): an Event call before
+		// the next draw, combat's caller 3 included, tests the previous slot 0.
 		publishArrival(arrival);
 		return true;
 	} catch (...) { closeJourney();throw; }
@@ -828,7 +850,9 @@ bool XeenEncounterFlow::prepareJourneyFrame(const Ticket &entry, const std::func
         const auto view=_world.map(_camera.mapId).geometry.isOutdoors()?XeenActorApproach::classify(actors,_camera):
             XeenIndoorScene().classifyActors(_world,_camera,actors);
         _journeyPreimage->check();
-        if(!journeyEvent())_drawnSlot0=bool(view.slots[0]);
+        // Combat's callers follow its exit draw with no draw between (DOS
+        // 0x2eb7f..0x1184a), even across Mr Wizard's map load.
+        if(!journeyEvent() && !_postCombatCalls)_drawnSlot0=bool(view.slots[0]);
 		_world.scenePresentation().completeLightingDraw();
 		_journeyPreimage->adoptMutationBoundary();
 		if (!current(entry)) throw std::logic_error("Stale Journey frame preparation");
@@ -1085,6 +1109,7 @@ bool XeenEncounterFlow::retireJourney(const Ticket &entry) {
 		else _combat->retireJourney(*entry.combat,_state);
         if(disengaged)_world.scenePresentation().markLightingStep();
 		if(disengaged) _combatObservation=_combat->result();
+		_combatMrWizard=disengaged && _combat->exitCause()==XeenCombatExitCause::MrWizard;
 		_drawnSlot0=bool(exitView.slots[0]);_result.view=exitView;
         prepared->s.assignExploration(exploration);
         _retiredCombatResult = _combat->result(); _combat.reset(); ++_generation;

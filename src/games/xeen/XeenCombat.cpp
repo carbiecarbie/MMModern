@@ -812,6 +812,18 @@ XeenCombatResult XeenCombat::toggleAutomap(const Ticket &t) {
         d.published();return d.adopt(d.observation(Status::Advanced));
     }catch(...) {return fail(t,Failure::Integrity);}
 }
+// The panel zeroes the gems before combat sees result 2 (DOS 0x1f28a..0x1f296);
+// combat then leaves without another turn, monster step or minute (0x2e989..0x2e996).
+XeenCombatResult XeenCombat::mrWizard(const Ticket &t) {
+ auto &d=*impl;if(!current(t))return d.observation(Status::Stale);
+ if(d.busy || !d.journey || d.phase!=Phase::PlayerReady || d.casting || d.consequences || !d.boundary.quiet())return d.observation(Status::Refused);
+ if(!d.exact())return fail(t,Failure::Integrity);
+ try {d.capacity();d.probeFor(t);}catch(...) {return fail(t,Failure::Integrity);}
+ d.party.purse->gems=d.expected.purse->gems=0;d.lifetime->purse->gems=0;
+ d.exitCause=XeenCombatExitCause::MrWizard;d.moveDue=d.chargeRound=false;
+ d.turn=-1;d.phase=Phase::DisengagementPending;d.work=Work::FinishDisengagement;d.published();
+ return finishDisengagement(ticket());
+}
 std::optional<XeenCamera> xeenRunDestination(XeenWorld &world,const XeenEventFile &events,const XeenCamera &camera) {
 	const auto admitted=world.prepareEventTransition(camera,true);
 	if(!admitted || admitted.destination.mapId!=camera.mapId)return std::nullopt;
@@ -1712,18 +1724,26 @@ XeenCombatResult XeenCombat::finishDisengagement(const Ticket &t) {
  auto &d=*impl;Busy busy(d.busy);
  try {
   d.capacity();d.resourcesFor(t);
+  const bool wizard=d.exitCause==XeenCombatExitCause::MrWizard;
 	  require(d.journey && d.phase==Phase::DisengagementPending &&
    d.work==Work::FinishDisengagement && !d.consequences && !d.moveDue && !d.chargeRound &&
-   d.contact[0] && !d.continuingParticipants() && !d.defeated() && d.participants!=0x3f &&
+   (wizard || (d.contact[0] && !d.continuingParticipants() && d.participants!=0x3f)) && !d.defeated() &&
    d.exitCause!=XeenCombatExitCause::None,"Incomplete disengagement obligations");
-  const auto run=d.world.prepareEventTransition(d.camera,true);d.probeFor(t);
-  require(run && run.destination.mapId==d.camera.mapId,"Run destination is unavailable");
-  const auto destination=run.destination;
+  // Mr Wizard takes combat's exit (DOS 0x2eaf0): it lands on the Run position
+  // and abandons disabled members only after an earlier escape with contact
+  // remaining (0x2eaf5..0x2eb69); otherwise the party stays where it fought.
+  const bool land=!wizard || (d.participants!=0x3f && d.contact[0]);
+  auto destination=d.camera;
+  if(land) {
+   const auto run=d.world.prepareEventTransition(d.camera,true);d.probeFor(t);
+   require(run && run.destination.mapId==d.camera.mapId,"Run destination is unavailable");
+   destination=run.destination;
+  }
   auto characters=d.characters();auto r=d.observation(Status::Advanced);
   r.oldRevision=d.revision();r.operation=Operation::FinishDisengagement;r.exitCause=d.exitCause;
   r.origin=XeenCombatLocation{d.camera.mapId,d.camera.x,d.camera.y,d.camera.direction};
   r.destination=XeenCombatLocation{destination.mapId,destination.x,destination.y,destination.direction};
-  for(unsigned i=0;i<6;++i) if(d.participants&(1u<<i)) {
+  if(land) for(unsigned i=0;i<6;++i) if(d.participants&(1u<<i)) {
    const auto condition=characters[i].worstCondition();
    if(condition==XeenCondition::Asleep || condition==XeenCondition::Paralyzed ||
     condition==XeenCondition::Unconscious || condition==XeenCondition::Stoned || condition==XeenCondition::Eradicated) {

@@ -308,8 +308,6 @@ std::optional<IndexedFrame> XeenTitleFlow::handle(const PlayerAction &action,con
   if(escape){setScreen(Screen::Panel);break;}
   if(const auto answer=xeenConfirmAnswer(key)) {
    if(!*answer)setScreen(Screen::Panel);
-   // In combat Mr Wizard ends the fight first (DOS 0x2e98e, 0x2ec3c); not implemented.
-   else if(_screen==Screen::Wizard && _services.combat)notice("not supported yet",Screen::Panel);
    else if(_screen==Screen::Wizard) {XeenSessionEntry entry;entry.kind=XeenSessionEntry::Kind::MrWizard;_entry=std::move(entry);}
    else {XeenSessionEntry entry;entry.kind=XeenSessionEntry::Kind::Exit;_entry=std::move(entry);}
   } else return {};
