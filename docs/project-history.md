@@ -483,3 +483,12 @@ clears the "who will" recipient. "Nothing here" is acknowledged before such a
 fight, an approved deviation from DOS, which starts it under the window.
 Treasure after a win still waits while monsters are in view. Save v18 and
 all M44 digests are unchanged. [Plan](milestone-85-plan.md).
+
+**M86 - Clouds presentation loose ends** (plan `4542db9`, implementation
+`661fdcc` and the closure commit). Accepted by the maintainer on 2026-10-23
+after the play-test. As in DOS, walking through a door shows it open for an
+instant, a fall from the sky or the clouds plays the original drop with the
+scream and the landing sounds before its damage, Moon Ray heals and sparkles
+one member at a time, and the border indicators restart when a service
+screen opens. FallToMap, used only in Darkside, stays unsupported. Save v18
+and all M44 digests are unchanged. [Plan](milestone-86-plan.md).

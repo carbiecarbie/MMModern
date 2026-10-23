@@ -1,9 +1,11 @@
 # MMModern - Project Status
 
-This describes what can be played and done now. **M85 is the latest completed
-and accepted milestone** (2026-10-23; [plan](milestone-85-plan.md)): Events a
-monster interrupted and door labels come back after the fight, and Run lands
-on any landing, as in DOS. M84 made a cell's Events run again after every key
+This describes what can be played and done now. **M86 is the latest completed
+and accepted milestone** (2026-10-23; [plan](milestone-86-plan.md)): doors open
+for an instant as the party walks through, falls show the original drop with
+its sounds, Moon Ray heals one member at a time and the border indicators
+restart at services, as in DOS. M85 brought back Events a monster interrupted
+and door labels after the fight, and Run lands on any landing. M84 made a cell's Events run again after every key
 or click, with the original keyboard and mouse tables. Digital voices, CD speech
 and output recovery join the original FM music and effects (M83), and the
 control panel's sound buttons work. Every monster drops the treasure
@@ -35,8 +37,9 @@ an empty bank. **Load** continues a saved game from the same slot list.
 
 - **Maps.** Terrain, walls, objects, monsters and text come from the original
   resources. Every surface works as in the original: lava burns, sky and
-  clouds drop the party to the land below, space kills and the desert costs
-  time. Water needs Swimming for the whole party or Walk on Water. Mountains
+  clouds drop the party to the land below with the original falling
+  animation, space kills and the desert costs time. Walking through a door
+  shows it open for an instant. Water needs Swimming for the whole party or Walk on Water. Mountains
   need Mountaineer and outdoor wall types 3 and 6 need Pathfinder, each from
   two members, as in DOS. Dark maps show a black view until Light or the
   party's remaining light clears it.
@@ -387,18 +390,14 @@ in [dependencies](dependencies.md).
 - **Scenes and commands.** The Pyramid entrance and the Clouds ending say
   "not supported yet"; killing Lord Xeen does not give his Scepter yet.
 - **Sound.** The Inn song (`inn.m`) has no production caller until the Inn/Sign
-  In screen (step 14). Fall/landing samples await the falling presentation;
-  title lightning belongs to step 15. F8 speech replay is omitted by maintainer
+  In screen (step 14); title lightning belongs to step 15. F8 speech replay is omitted by maintainer
   decision. The return-code-1 exit drain remains unidentified, with no
   MMModern path. SDL 2.32's resampler makes FM about 0.066% fast at 48 kHz
   (0.036% at 44.1 kHz) and CD about 0.050% fast at 48 kHz, unchanged since
   M82 and inaudible. A bounded converter is a possible later fix
   ([audio rules](rules/audio.md#sdl-resampler-rate-limitation)). Only the
   installed CD sound driver is supported (other devices: step 16).
-  Doors lack the brief open-door picture.
-- **Presentation.** There is no intro and no falling animation. Unlike DOS,
-  Moon Ray rolls every member's healing before its sparkles, and the border
-  indicators do not restart their animation after a service screen.
+- **Presentation.** There is no intro (step 15).
 - **Darkside** gameplay is not supported.
 
 Next steps are in the [roadmap](roadmap.md).

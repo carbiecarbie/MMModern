@@ -109,11 +109,9 @@ covers the character sheet, Items, Quick Fight and every service.
 - The Inn. You cannot recruit, dismiss or create characters, and Sign In and
   Dismiss in the Tavern say "not supported yet".
 - Darkside of Xeen cannot be played.
-- The Pyramid entrance and the Clouds ending say "not supported yet". The
-  Arms Master and Tracker skills do nothing.
+- The Pyramid entrance and the Clouds ending say "not supported yet".
 - The intros.
-- A few sounds: the Inn song, falling and landing, and the title-screen
-  lightning.
+- A few sounds: the Inn song and the title-screen lightning.
 
 The [project status](https://github.com/carbiecarbie/MMModern/blob/main/docs/project-status.md)
 page has the full current state, the
