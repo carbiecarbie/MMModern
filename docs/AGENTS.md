@@ -10,6 +10,8 @@ workflow documents.
 | Document | Responsibility | Target size |
 | --- | --- | --- |
 | `README.md` | Public introduction, how to build, run and play | Short |
+| `docs/controls.md` | Every key and mouse action for players | Short |
+| `docs/development.md` | Developer entry modes, game data sources, tests and developer test saves | Grows by preset |
 | `docs/project-status.md` | What can be played and done now; architecture overview; known gaps | ~200-300 lines |
 | `docs/project-history.md` | One short paragraph per completed milestone | Short |
 | `docs/roadmap.md` | Next milestones and longer-term direction | ~100-150 lines |

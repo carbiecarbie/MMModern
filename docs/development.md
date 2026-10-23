@@ -1,0 +1,337 @@
+# Development
+
+This page is for people working on MMModern. Build and dependency setup is in
+[dependencies](dependencies.md).
+
+## Game data sources
+
+At a GOG root, MMModern reads the cue-located ISO archives and the installed
+`WORLD/XEEN.DAT`, never the co-located floppy archives. One complete disc
+suffices. A pre-existing CD `GAME` folder (or its parent) is also accepted with
+all three archives and an uncompressed English DOS UI module: supply
+`--ui-data <path-to-XEEN.DAT>` or an unambiguous `WORLD` sibling. A bare `GAME`
+copy has no UI text. Conflicting or ambiguous sources and packed DATs fail clearly.
+Reading Darkside metadata does not enable Darkside gameplay.
+
+## Entry modes
+
+Run from a terminal to see diagnostics, and quote paths containing spaces:
+`--ui-data <path>` can be supplied with every entry mode.
+
+```text
+mmodern <game-directory>
+mmodern --new-game <game-directory> [--difficulty adventurer|warrior] [--save-file <path.mmsave>]
+mmodern --journey-region [--combat-seed <nonzero-u32>] <game-directory> [--save-file <path.mmsave>]
+mmodern --load-game <game-directory> <path.mmsave>
+mmodern --render-map <game-directory> [<map> <x> <y> <north|east|south|west>]
+mmodern --monster-fixture <species> <game-directory> [--record <n>] [--start <x>,<y>,<facing> | --water-edge] [--combat-seed <nonzero-u32>]
+mmodern --event-fixture <game-directory> <map> <x> <y> <north|east|south|west> [--combat-seed <nonzero-u32>]
+mmodern --inspect-map|--inspect-party|--inspect-events <game-directory> ...
+```
+
+- `mmodern <game-directory>` opens the original title screen (normal play).
+- `--new-game` is a developer shortcut that starts directly in Vertigo
+  (`--difficulty`, default Adventurer). Without `--save-file`, F9 writes
+  nothing.
+- `--journey-region` is a test mode with a prepared party at Clouds map 23
+  `(9,11)`. `--combat-seed` fixes combat randomness.
+- `--load-game` continues a save file and keeps using it for F9 (developer).
+- `--render-map` explores a map for inspection. It cannot save.
+- `--monster-fixture` starts the prepared Journey on F3 with one placed monster
+  replaced by the chosen original `xeen.mon` species, through an in-memory copy
+  of the map's monster list. By default it picks the placement nearest the
+  Journey entry that has a walkable start cell with the monster 2-3 cells
+  straight ahead on a clear line (no tent, tree or other monster between);
+  `--record` fixes the placement and
+  `--start <x>,<y>,<north|east|south|west>` fixes the start, which must be a
+  walkable F3 cell without an automatic Event or a monster spawn (refused with
+  the reason otherwise). `--water-edge` instead starts the party facing water
+  and moves the placement (or `--record`) to free land 2-3 cells beyond it, so
+  a flyer crosses the water while a walker stays on its bank; for example
+  `--monster-fixture 1 <game-directory> --water-edge` for a Giant Bat. Walking
+  and flying species are both accepted if they pass the normal mainland checks;
+  the terminal prints the species, its cell, the start and the facing. Saving
+  and the control panel's Save, Save As and Load are disabled. Not in the
+  title menu.
+- `--event-fixture` starts an isolated Event session on the chosen Clouds map,
+  position and facing, using the original loader, interpreter and Journey
+  publication owners. The default seed is 7; `--combat-seed` makes another run
+  reproducible. Party prerequisites are the prepared Journey's six original
+  members, at levels `3,3,3,4,3,3` with XP `1000,2000,1000,1000,2000,1000`,
+  full HP/SP, cleared conditions and temporary bonuses, on day 8 of year 610
+  at 08:00 in Adventurer mode. Original food, purse, flags, quest counters,
+  inventories and skills are loaded normally; merchant stock uses that seed.
+  For example, `mmodern --event-fixture "F:/Games/gog/Might and Magic 4-5" 27 10 10 north`.
+  The position must resolve to original geometry without immediate monster
+  contact. Resource identity, actor binding, ownership and mutation checks still
+  run. Unsupported operations refuse through the normal Event flow. Travel to
+  an unavailable map discards unpublished changes; already displayed and
+  published script rewards or damage remain. Saving, Save As and Load are
+  disabled, including direct snapshot capture. This entry is absent from the
+  title menu and does not admit maps to ordinary play.
+- `--inspect-*` are developer tools.
+
+Developer save files must be outside all original source directories, including
+separately supplied disc-image and DAT directories. Relative paths use the
+working directory. Saves from older builds are rejected with a clear message
+(and may be overwritten by F9), and saves from newer builds are protected.
+Floppy-bound saves are rejected before restoration with a data-edition diagnostic.
+
+## Tests
+
+Every CTest entry is labelled `fast` or `process`. `process` tests take 30 seconds
+or more or drive child processes. Configuring the tests requires the original
+installation.
+Tests are independent, so run them in parallel; the few that assert real-clock
+behavior or open a native window are marked to run alone.
+
+```text
+ctest -L fast -j 8    # iteration: everything except process tests
+ctest -j 8            # full suite, including process tests
+```
+
+The complete suite is normally run through `tools/run-full-ctest.ps1`, which
+picks the job count and keeps a log and summary per run. Tests run on the
+optimized `build-rel` build (assertions kept); its setup is in
+[dependencies](dependencies.md#optimized-test-build-build-rel).
+Configure `MMODERN_XEEN_DATA_DIR` explicitly for required CD validation,
+`MMODERN_XEEN_AUDIO_DIR` when the CD audio tracks are elsewhere,
+`MMODERN_PROMUS_CAPTURES_DIR` for the six DOSBox music captures `xeen_promus`
+needs and, when needed, `MMODERN_XEEN_UI_DATA` for its installed UI module.
+
+## Developer test saves
+
+Build the opt-in tool with `cmake --build build-rel --target mmodern_test_save`.
+It starts from the normal fresh Regional Journey and writes a validated current
+save for `broken-armor`, `train-ready`, `injured-dead` or `poisoned`. The party
+stays at map 23 `(9,11)` facing West; world, calendar and RNG retain fresh
+Journey values (explicit seed 7). The presets provide equipped broken armor,
+enough XP/gold for one Training, an Unconscious member and a Dead member with
+four survivors, or Poison and a usable Misc antidote, respectively.
+The `monster-control` preset stands in Vertigo `(18,4)` facing West: each
+caster knows the M73 spells available in their book (Sleep, Beast Master,
+Hypnotize, Dragon Sleep, Insect Spray, Turn Undead, Sparks and Toxic Cloud),
+with 1,000 SP each and 1,000 party gems. Generate it with:
+
+```powershell
+.\build-rel\mmodern_test_save.exe monster-control "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/monster-control.mmsave"
+```
+
+The `monster-damage` preset uses the same Vertigo position, 1,000 SP per
+caster and 1,000 party gems. Together the casters know all 23 M74 damage
+spells, including Finger of Death, Holy Word, Mass Distortion, Golem Stopper
+and Poison Volley. Generate it with:
+
+```powershell
+.\build-rel\mmodern_test_save.exe monster-damage "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/monster-damage.mmsave"
+```
+
+The `m76-spells` preset starts at Vertigo `(18,4)` facing West. A level-7
+Cleric and Sorcerer know the seven M76 party buffs and Light, Levitate,
+Walk on Water, Clairvoyance, Detect Monster and Identify Monster between them;
+the Sorcerer also knows Enchant Item, Recharge Item, Item to Gold,
+Super Shelter, Etherealize, Time Distortion, Teleport, Lloyd's Beacon and Town Portal,
+with 1,000 SP each and 1,000 party gems. Their miscellaneous packs hold
+five-charge items for the first fifteen powers: the Cleric has the seven buff
+powers, Light and Levitate; the Sorcerer has Walk on Water, Clairvoyance,
+Detect Monster, Identify Monster, Enchant and Recharge. The Sorcerer's last
+three Misc slots hold ordinary, cursed and broken rechargeable items: broken
+fills to 63 charges; cursed adds the normal draw. His Recharge-power item is
+itself ineligible for Recharge. The third member carries a plain weapon and
+armor, an enchanted weapon, broken and cursed weapons, and weapon ID 34.
+Enchant refuses the latter four weapons; Item to Gold refuses only ID 34
+and converts immediately. Escape at the member prompt refunds SP/gems,
+including for an item cast whose charge remains spent; later Escape keeps
+the cost. An original Vertigo monster stands one
+step west, at `(17,4)`, for combat casting, Quick Fight and item Use.
+On mainland map 23, stand at `(12,9)` facing West to try
+Walk on Water onto the shallow water at `(11,9)`.
+
+The third member's first six Misc slots hold five-charge Super Shelter,
+Etherealize, Time Distortion, Teleport, Lloyd's Beacon and Town Portal items. On mainland map 23,
+`(12,10)` has cell attribute bit `0x40`: ordinary Rest refuses there, while
+Super Shelter sleeps eight hours without monster interruption opportunities.
+Time Distortion returns to `(10,12)` without changing facing. Teleport asks
+for one digit (1-9); empty, zero or Escape keeps the cost and cancels.
+Etherealize
+moves one cell forward, ignoring walls. Only Time Distortion is admitted
+from these six travel spells in the learned book or Quick Fight during combat.
+
+The Cleric's beacon starts in Vertigo `(18,4)`, the Sorcerer's on mainland 23
+`(9,11)`, and the third member's in Nightshadow (map 29). The third member also
+knows Lloyd's Beacon. Transfer the Beacon item to the Cleric to use his stored
+Vertigo destination. Set uses S/T or the original Set button; Return uses R
+or its button and keeps facing. Same-map Return keeps live monster HP and
+status; cross-map Return reloads. Town Portal accepts 1-5 followed by Enter;
+Vertigo always reloads, including from Vertigo. Darkside beacons refuse
+without spending resources. Escape keeps the
+spell or item cost; an unset beacon defaults to Vertigo even on cancel.
+
+```powershell
+.\build-rel\mmodern_test_save.exe m76-spells "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/m76-spells.mmsave"
+```
+
+The `m80-playtest` preset starts at the Reaper entrance on Clouds map 24
+`(10,9)` facing North. It has the party's quest items 1-7, the M78 travel
+party and books, 10,000 SP per caster and 5,000 gems. The Sorcerer has
+Lloyd's Beacon and Jump in its book, plus a Town Portal item with 63 charges
+in its ninth miscellaneous slot. Town Portal is clerical; the Cleric also
+has it in its book. Space enters map 51 `(7,12)` facing South.
+Quest items belong to the party;
+Exchange does not change which keys it holds. For a keyless Clouds scene,
+use `--event-fixture` with the desired map, position and facing (for example
+`24 10 9 north`); its initial party has no entrance keys. Reaper sites on
+maps 7/13, Golem 19 and Sphinx 2 always play the keyless refusal: their
+Darkside keys are outside the Clouds quest counters.
+
+```powershell
+.\build-rel\mmodern_test_save.exe m80-playtest "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/m80-playtest.mmsave"
+.\build-rel\mmodern.exe --load-game "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/m80-playtest.mmsave"
+```
+
+The `m80-arena` and `m80-arena-maxed` presets start beside the Warzone
+entrance on Clouds map 6 at `(13,4)` facing West, with the level-30 M78
+party, equipped Obsidian gear and full HP/SP. Step forward to `(12,4)`,
+then press Space and answer Yes. This original entrance is a manual Event;
+walking onto it alone does not open the question. It loads map 85 at
+`(10,10)`. Walk west to x=7, then south to `(7,6)` and press Space to talk
+to the Battle Master. Choose Yes, level 1 and count 1 to try a fight.
+After winning, talk again for the award and the return to Vertigo.
+
+`m80-arena` starts every member's Warzone count at zero.
+`m80-arena-maxed` starts the first member at 98: one win reaches 99; return
+to the Warzone and talk again to check the maximum-count exit. Awards appear
+on the character sheet's Awards screen. Also try declining, entering zero,
+Escape at either number prompt, and talking before a fight is finished.
+Leaving the Warzone discards the fight. Saving there is forbidden; both
+presets use the unchanged current save format and start outside it.
+
+```powershell
+.\build-rel\mmodern_test_save.exe m80-arena "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/m80-arena.mmsave"
+.\build-rel\mmodern_test_save.exe m80-arena-maxed "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/m80-arena-maxed.mmsave"
+.\build-rel\mmodern.exe --load-game "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/m80-arena.mmsave"
+```
+
+The `m81-drops` and `m81-fullpacks` presets start on Clouds map 3 at
+`(5,12)` facing West with the level-30 M78 party, equipped Obsidian gear,
+full HP and 1,000 SP per caster. Two original Barbarians and a Ninja stand
+together two cells ahead at `(3,12)`. A Barbarian always drops an item from
+level 4 (accessories included) and 25 gold; a Ninja drops a level-3 item half
+of the time and 50 gold. The other map-3 monsters keep their places,
+including eight more Barbarians to the south-east and five Ninjas to the east.
+The first four members carry bows: press S to Shoot from here, step forward to
+fight in melee, or cast a group attack spell in combat. Treasure appears on
+the original screens after the fight; outside combat it waits while a monster
+is in view.
+
+`m81-drops` leaves at least three free slots in every pack. `m81-fullpacks`
+fills every pack except the second member's last weapon slot. A weapon drop
+fills that slot. While it is free, an armor, accessory or Misc item for which
+no member has room replaces the first member's last item of that category, as
+the original does. Once no slot is left, the full-pack warning appears and the
+remaining items are lost, but gold and gems are still credited.
+
+```powershell
+.\build-rel\mmodern_test_save.exe m81-drops "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/m81-drops.mmsave"
+.\build-rel\mmodern_test_save.exe m81-fullpacks "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/m81-fullpacks.mmsave"
+.\build-rel\mmodern.exe --load-game "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/m81-drops.mmsave"
+```
+
+The `m81-event` preset starts on mainland map 23 at `(8,2)` facing North,
+before the Root Event, with the same party. Only two original Orcs remain: one
+at `(6,5)` in view, which keeps ordinary treasure delivery waiting, and one
+two cells ahead at `(8,4)`. The saved random seed makes the first Shoot (S)
+after loading kill the near Orc with a generated item and 10 gold; any other
+action first changes the draws, and an Orc then drops an item only 10% of the
+time. Press Space at once and answer the Event: its treasure screen shows the
+roots and the Orc's item without the gold. Turn away to get the ordinary
+delivery: the same item again, with the 10 gold. The doubled item is an
+original bug kept on purpose ([quirk](original-quirks.md#sv-event-loot-stash)).
+For the dormant case, after the Shoot press `.` (wait) until the other Orc
+attacks, Run with the whole party (Run can fail; repeat it), walk back to
+`(8,2)` facing North and press Space: the item arrives once with the Event's
+own and the gold never.
+
+```powershell
+.\build-rel\mmodern_test_save.exe m81-event "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/m81-event.mmsave"
+.\build-rel\mmodern.exe --load-game "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/m81-event.mmsave"
+```
+
+The `m79-playtest` preset starts at Rivercity Training, map 30 `(12,12)`
+facing North, with 100,000 gold, 5,000 gems and one ration. Permanent levels
+repeat 9, 14 and 19, with enough XP for the three Training caps. Members 1,
+3 and 5 have all six Clouds Guild memberships; the others have none. Books
+are partial, members are injured, member 1 carries a cursed weapon and member
+2 a broken armor item. Members 5 and 6 are Sorcerers with Town Portal and
+Lloyd's Beacon: their beacons reach Shangri-La Ironworks `(14,8)` on map 49
+and Newcastle Training `(11,7)` on map 73. Use Town Portal for the five towns;
+use the two beacons for Shangri-La and Newcastle, then the original stairs to
+Newcastle Level 2's Bank and Temple. The Temple keeps the prices of the last
+Temple visited in the running program, including across New Game and Load;
+in a fresh program it has zero surcharges and no Donation charge. Interact
+with Space at a service, and use its original buttons or keys.
+
+```powershell
+.\build-rel\mmodern_test_save.exe m79-playtest "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/m79-playtest.mmsave"
+.\build-rel\mmodern.exe --load-game "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/m79-playtest.mmsave"
+```
+
+The `m78-playtest` preset is a travel party at map 23 `(9,11)` facing West:
+the original six at level 30 with full HP and SP, Obsidian weapons and armor
+equipped as each class allows, every spell of each caster's list, 100,000
+gold and 5,000 gems. Arturius and Tyro hold Mountaineer and Pathfinder,
+everyone can swim, and Badger has the information skills. `m78-one-holder`
+is the same party with Mountaineer and Pathfinder on Arturius only, so the
+mountains and outdoor wall types 3 and 6 stay closed until a teacher adds a
+second holder.
+
+```powershell
+.\build-rel\mmodern_test_save.exe m78-playtest "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/m78-playtest.mmsave"
+```
+
+The `party-healing` preset also starts at Vertigo (18,4). A Cleric and a
+Druid know the M75 spells allowed by their classes, with 1,000 SP per caster
+and 1,000 party gems.
+Four patients carry Poison, Disease, Paralysis, Stone, Dead and Eradicated;
+the casters carry five-charge items for all ten M75 powers.
+
+```powershell
+.\build-rel\mmodern_test_save.exe party-healing "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/party-healing.mmsave"
+```
+
+For example, to create the play-test folder, generate the `train-ready` save
+and load it:
+
+```powershell
+New-Item -ItemType Directory -Force D:/MModern-playtest
+.\build-rel\mmodern_test_save.exe train-ready "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/train-ready.mmsave"
+.\build-rel\mmodern.exe --load-game "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/train-ready.mmsave"
+```
+
+The `combat-items` preset starts on the mainland at (9,11), facing West,
+near monsters. The party carries weapons and armor to swap, a cursed weapon,
+the Xeen Slayer Sword, and charged damage, healing and Town Portal items.
+The last member has full packs. Enter combat with Wait, manage equipment
+through a character's Items dialog, and use charged items through the combat
+Use button (U). The Quests button (V, or Q in Items) shows quest items,
+including three Phirna Roots, current quests and Auto Notes. The first member
+has more than nine awards, including Warzone wins and a race award: open
+Awards on that character's sheet and scroll with Up/Down. The party has
+Direction Sense, Spot Secret Doors and Danger Sense: the facing letter shows
+below the view (hidden while a text or number prompt is open), and the top
+border gem lights after the first step or turn while a monster is within
+three cells. Spot Secret Doors lights only indoors, facing a plain wall with
+open space behind it; Vertigo has none, so try it in an Event developer
+session, whose original party also has the skill:
+`.\build-rel\mmodern.exe --event-fixture "F:/Games/gog/Might and Magic 4-5" 30 6 7 north`
+(Rivercity).
+
+```powershell
+.\build-rel\mmodern_test_save.exe combat-items "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/combat-items.mmsave"
+.\build-rel\mmodern.exe --load-game "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/combat-items.mmsave"
+```
+
+Choose your own output path in an existing directory outside both this repository
+and the game installation. The tool refuses existing files. Generated `.mmsave`
+files are local play-test artifacts; never commit them. The game and save format
+are unchanged.

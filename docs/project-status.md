@@ -257,7 +257,7 @@ output, and default/rate changes retain the song. A missing
 
 ## Interface
 
-The [README](../README.md#controls) lists every key. Clicks work as in the
+[Controls](controls.md) lists every key. Clicks work as in the
 original: the left button on the main-screen buttons, the combat buttons and
 targets, the 3D view, portraits and every dialog, and the right one as Escape.
 
@@ -276,7 +276,7 @@ accept only fresh presses.
 ## Entry modes
 
 All modes need a World of Xeen CD installation; the
-[README](../README.md#game-data-sources) says which data is read. Floppy
+[development guide](development.md#game-data-sources) says which data is read. Floppy
 archives are not used. Original data is never copied or modified, and saves
 must not be written inside the game directories.
 
@@ -291,7 +291,7 @@ must not be written inside the game directories.
 | `mmodern --event-fixture <game-dir> <map> <x> <y> <dir>` | Developer: an isolated Event session on any Clouds map. Cannot save. |
 | `mmodern --inspect-map\|--inspect-party\|--inspect-events <game-dir> ...` | Developer inspection output. |
 
-The [README](../README.md#entry-modes) gives every option.
+The [development guide](development.md#entry-modes) gives every option.
 
 ## Save format
 
