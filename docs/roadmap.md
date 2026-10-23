@@ -132,10 +132,14 @@ to Vertigo.
     four Clouds presentation gaps: the open-door frame, the falling
     animation and its sounds, Moon Ray's per-member order and the border
     indicators at services. Next: step 14.
-14. **Inn, recruiting and character creation** (Tier A, high): Tavern Sign
-    In, Dismiss, attribute rolls, the creation screens and changes to the
-    saved party, including Poison Volley shooting for the active party size
-    (M74 assumes six).
+14. **Inn, recruiting and character creation**, in two milestones
+    (maintainer, 2026-10-23). [M87](milestone-87-plan.md) (Tier A): Tavern
+    Sign In and the Inn, Dismiss, and a party of one to six everywhere,
+    including Poison Volley shooting for the active party size (M74 assumes
+    six), with every roster record saved in full. M88: roster slots, that
+    is Create (the creation screens and attribute rolls) and Delete; Tier B
+    unless it changes the save format, an owner or the generator (ordinary
+    draws from the existing generator are not an RNG change).
 15. **Intros and the Clouds ending**: the Other Options intros and the ending
     (`CutsceneEndClouds`) with its score, and Lord Xeen's death reward (the
     Scepter and its quest item, deferred from M81).
