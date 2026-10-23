@@ -37,9 +37,9 @@ Journey play:
   Both `beginJourneyEvent` and `beginDetachedEvent` refuse a cell without a
   matching record.
 - Wait, Rest, Cast without travel, Shoot, non-travel item Use, exploration
-  dialogs, Escape (right-click already maps to it) and unmapped keys run no
-  Event; SDL delivers only mapped keys and synthesizes repeats only for
-  navigation (`SdlWindow.cpp`, `XeenMainScreenInput.h`).
+  dialogs, Escape and unmapped keys run no Event; SDL delivers only mapped
+  keys, synthesizes repeats only for navigation and turns every right-click
+  into Escape (`SdlWindow.cpp`, `XeenMainScreenInput.h`).
 - Space and a 3D-view click both become `InteractionAction`: one manual
   Event, then the manual step (Wait) for both.
 - WhoWill clears on arrival at a new position or facing over a flagged cell
@@ -70,8 +70,11 @@ confirms from DOS play that traps hurt again on every key.
   (`0xd1b7`), the idle draw where combat starts (`0x10bc3`) and the input
   wait. Idle frames return after the Event check: no re-run without input.
 - A pass is any processed input: a key with a nonzero code (`0x45436`,
-  `0xe14e`), a right-click as Escape (`0xe0dc`), a button click (`0xe102`)
-  or a 3D-view click (`0xe136`); not a click on empty panel area. Keys that
+  `0xe14e`), a button click (`0xe102`) or a 3D-view click (`0xe136`); not a
+  click on empty panel area. Either mouse button is the same click: the CD
+  build's callback (`0x43832`) queues coordinates only, its reader
+  (`0x4384f`) returns 0 or 1, and the right-click Escape branch at `0xe0dc`
+  is never reached (M84 Part 0, 2026-10-23). Keys that
   match nothing in the 26-key table (`cs:0xeac`) also return (`0xd2e9`,
   `0xd5c7`, `0xd5e5`).
 - A call is a full Event run even with no matching record: WhoWill cleared
@@ -96,6 +99,12 @@ confirms from DOS play that traps hurt again on every key.
   input is followed by a pass at the same cell, so a loaded game's entry
   pass matches the saving game's following pass. The generic exact-restore
   test stays unchanged; a continuation test compares the two passes.
+- **Right-click acts as left-click on every screen, as in DOS**
+  (2026-10-23). Part 0 found it statically; the maintainer confirmed in
+  DOSBox that the right button always acts as the left. This replaces
+  MMModern's right-click as Escape and corrects the earlier evidence for it
+  (quirk rows on WhoWill, combat rows and death/credits pacing,
+  `docs/controls.md`).
 
 ## Part 0 - DOS evidence (read-only)
 
@@ -147,8 +156,9 @@ rows where they apply. No code.
   unsupported content.
 - **Every processed input is a pass** (class-wide default): moves, turns,
   strafes, blocked moves, Wait, Rest, Cast, Bash, Shoot, item Use, each
-  exploration dialog when it closes, Escape and right-click (keeping today's
-  mapping), unmapped keys and F9 (unmapped in DOS). Not passes: modifiers
+  exploration dialog when it closes, Escape, a click with either button on
+  a button, portrait or the 3D view, unmapped keys and F9 (unmapped in
+  DOS). Not passes: modifiers
   alone, empty panel clicks, input consumed by an open dialog or Event
   presentation, and MMModern host keys (Alt+Enter, window resize and close).
   Part 0's table overrides this default; a difference the rule cannot
@@ -163,7 +173,11 @@ rows where they apply. No code.
   after a win, cleared by Run). Engaged Space and the Run refusal stay. No
   DOS post-combat caller is added.
 - **Input layer.** SDL delivers one generic exploration action for unmapped
-  keys, carrying no rules, as `DialogKeyAction` does. Held keys and keys
+  keys, carrying no rules, as `DialogKeyAction` does. The right button
+  produces exactly the left button's action on every screen (exploration,
+  combat, dialogs, title and credits); right-click as Escape is removed in
+  one input-layer change, with the quirk rows and `docs/controls.md`
+  corrected in the same change. Held keys and keys
   typed during an Event follow Part 0; M63 repeats only navigation today. A
   conflict with M63's approved buffering stops for a maintainer decision.
 - **WhoWill.** The per-pass clear replaces `_whoWillPass`;
@@ -213,7 +227,9 @@ rows where they apply. No code.
   runs Events on an unflagged cell (manual interaction still can); calls
   with no record, a wrong-facing record and at `(0,0)` North; WhoWill per
   pass; the tail; a win and a Run after an engaging pass.
-- Input: SDL tests for mapped and unmapped repeats, taps buffered across a
+- Input: right-click equals left-click on a button, a portrait, the 3D view
+  (manual run plus pass), a combat row and a dialog; SDL tests for mapped
+  and unmapped repeats, taps buffered across a
   non-modal executed script, modal completion, record-less calls, and kept
   key releases and host actions.
 - Saves: panel Save, F9 (successful, failed, unavailable) and New Game
