@@ -1,6 +1,6 @@
 # Milestone 85 plan - Event dispatch, part 2: the post-combat calls
 
-**Tier A. Status: planned (not started).**
+**Tier A. Status: Part 0 done; Part A not started.**
 Roadmap [step 13](roadmap.md#next-arc-finishing-the-games-systems), second of
 its two milestones, after [M84](milestone-84-plan.md). Baseline: `1ddb5d5`,
 equal to `origin/main`.
@@ -65,18 +65,23 @@ Static analysis of the CD `WORLD/XEEN.DAT`, high confidence for the paths
   `[9756]` (`0x26ac4`) and jumps to cleanup `0x28d50`; the tail still
   applies. A call that scans clears the flag (`0x26acc`); there are no other
   writers.
-- **Caller 3, `0x11802..0x1184a`.** After a combat started by the idle draw
-  (slots 0-2, mode 1 or 5, `[97f6]`/`[97f9]` zero, `[96c4]` set), Events
-  run at the party's current position when the flag is set, without testing
-  the cell's Event flag: at the fight's cell after a win, at the landing
-  after Run.
+- **Caller 3, `0x11802..0x1184a`.** After a combat started by any admitted
+  draw (slots 0-2, mode 1 or 5, `[97f6]`/`[97f9]` zero, `[96c4]` set),
+  Events run at the party's current position when the flag is set, without
+  testing the cell's Event flag: at the fight's cell after a win, at the
+  landing after Run. Exploration Shoot enters combat directly and has no
+  caller 3.
 - **Caller 4, `0x2e62d..0x2e634`, `0x2ec18..0x2ec37`.** Combat entry saves
-  and clears door text up `[3066]` (set only by the label opcodes,
+  and clears door text up `[3066]` (set by label opcodes 2, 3, 4 and 39,
   `0x26f7a`). At combat end, if it was up, the party cell's Events run when
   it is flagged. Caller 4 runs first; when its call scans it clears the
   skipped flag, so caller 3 follows only when caller 4 did not scan.
-- The pin makes both calls but, per the review, never clears its skipped
-  flag (`scripts.cpp:123, 177`); following DOS is a ScummVM difference.
+- The pin makes both calls but never clears its skipped flag
+  (`scripts.cpp:123, 177`); following DOS is a ScummVM difference.
+- Part 0 (2026-10-23) settled the rest: combat exits, between-line builders,
+  engaged input, door-text writers and drawing, and both lifetimes
+  ([rules](rules/world-events.md#event-dispatch),
+  `D:/MModern-re/m85-part0/findings.md`).
 
 ## Maintainer decisions
 
@@ -127,19 +132,24 @@ Results go to the Event dispatch sections of `docs/rules/world-events.md` and
   `XeenEventFlow` the calls and their candidate. Two named values carry the
   DOS state, the skipped flag and door text up, written only at their DOS
   sites and published with the Event candidate under the restore guard, so
-  a stale or retried candidate leaves them unchanged. They live in
-  `XeenProgramState` if Part 0 shows they outlive Load or New Game,
-  otherwise in the encounter owner; neither is saved.
+  a stale or retried candidate leaves them unchanged. The skipped flag
+  outlives Load, New Game and the return to the title, so it lives in
+  `XeenProgramState`; gameplay entry clears door text, so it lives in the
+  encounter owner. Neither is saved.
 - **One obligation.** `_regionalAutomatic` stays the single owed call, now
   with a kind (pass, caller 4, caller 3) and its address. Every writer goes
   through the skip. `inputPassPending` stays set from the originating input
   until the last caller completes, so no capture holds an unmade caller.
-- **Skip.** Slot 0 occupied means a monster in MMModern combat contact
-  position 0. A pass or manual call admitted in the Engaged phase runs
-  before attachment: entry, flag and tail, window 38 acknowledged (the
-  approved deviation), then combat attaches. The line-head test in
-  `XeenEventInterpreter` aborts a scan the same way between lines. This replaces carrying the mark through combat,
-  the address match after a win and `originAutomaticSuperseded`.
+- **Skip.** Slot 0 occupied means MMModern contact position 0 as last built
+  by a draw: the monster step moves actors and a later draw builds the
+  slots, so the test must not see a monster before that draw. A pass or
+  manual call admitted in the Engaged phase runs before attachment: entry,
+  flag and tail, window 38 acknowledged (the approved deviation), then
+  combat attaches. The line-head test in `XeenEventInterpreter` aborts a
+  scan the same way between lines, after the draws Part 0 names (label,
+  TeleportAndContinue, fall restart). This replaces carrying the mark
+  through combat, the address match after a win and
+  `originAutomaticSuperseded`.
 - **Combat end.** At retirement: caller 4 when door text was up at entry
   and the cell is flagged, then caller 3 when the flag is still set, at the
   current position without a flag test. Each is an ordinary call through
@@ -147,20 +157,23 @@ Results go to the Event dispatch sections of `docs/rules/world-events.md` and
   left by a skip without a reaching fight survives until the next scanning
   call, so a later fight can make caller 3. A caller's Event can engage,
   move or kill the party like any call; re-engagement skips again and waits
-  for the next fight, with no recursion.
+  for the next fight, with no recursion. Exits follow the Part 0 table:
+  defeat still reaches caller 4, Quit makes neither call, a fight entered by
+  Shoot has no caller 3, and item Town Portal and Time Distortion relocate
+  within the fight. Mr Wizard stays refused in combat.
 - **Run.** `xeenRunDestination` no longer refuses a landing for its Event;
   other refusals stay. The quirk row is rewritten.
 - **Door text** is set and cleared at the Part 0 sites and saved and cleared
-  at combat entry. Label drawing follows the flag if Part 0 shows that the
-  flag governs it.
+  at combat entry; text and numeric input clear it only for their duration.
+  The label is drawn only while the flag is set and slot 0 is empty.
 - **Engaged input** follows Part 0 item 3, including where an admitted fight
   takes control before the manual call's Wait or pass; a window 38 tail
   follows the window-first deviation. Keys queued before a fight go to
   combat as in DOS, and ordinary combat exit clears them (`0x2eb73`).
 - **WhoWill.** Every call clears it; `dev-whowill-event-passes` and
   `clearWhoWill` go, with the comment at `XeenMonsterTreasure.h:35`.
-- **Treasure.** M81's order and the Event-treasure duplicate stay; a caller
-  precedes the delivery that follows it in DOS.
+- **Treasure.** M81's order and the Event-treasure duplicate stay; normal
+  combat completion delivers its treasure before caller 4 (`0x2eb85`).
 - **Save v18, schema 9 and content 14.**
 - **Stop rules.** Part 0 answers within items 1-5 are implemented without
   asking. Stop only for: a saved flag; a new owner; a change to an M84 pass
@@ -201,11 +214,11 @@ Results go to the Event dispatch sections of `docs/rules/world-events.md` and
   rolled-back candidate leaving both values; WhoWill cleared and exactly one
   ordinary pass for the next input.
 - Original data, driven until monsters engage, with no actor placed where
-  DOS movement cannot go: the Part 0 caller-4 witness after a win and after
-  Run; Run to the Vertigo landing `(18,4)` facing East, the former refusal,
-  whose original monster stands at `(17,4)`; a trap skipped as a monster
-  engages, hurting once after the fight, with live monsters able to reach
-  it.
+  DOS movement cannot go: the Part 0 witness, Vertigo `(13,4)` West with
+  original monster 35 from `(15,4)` (label skipped between lines, back after
+  a win); Run facing East to the landing `(18,4)`, the former refusal, where
+  caller 4 tests its East label; a trap skipped as a monster engages,
+  hurting once after the fight, with live monsters able to reach it.
 - Saves: the generic exact-restore test unchanged; neither value serialized.
 
 Acceptance: Part 0 rules recorded; independent plan review applied; Part A

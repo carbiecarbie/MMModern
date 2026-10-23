@@ -76,11 +76,13 @@ cell twice. Teleport can clear Space; a dialog can replace it. A click followed
 by a Space or W acknowledgement can consequently wait. The original does not
 preserve an unconditional Space-versus-click continuation across every script.
 
-Wait advances time and monsters and clears door text. If its monster step fills
-attack slot 0, the following Event call still clears WhoWill and stages its
-state, but sets the skipped-call flag and proceeds to cleanup without scanning
-records. The tail below still applies. The conditional post-combat callers are
-separate from this per-input rule.
+Wait advances time and monsters and clears door text. The monster step moves
+actors; a draw rebuilds attack slots. An Event call tests the most recently
+built slot 0 before **every line**, including line 0. If occupied, it sets the
+skipped-call flag and proceeds to cleanup. Entry still clears WhoWill and stages
+treasure; cleanup, the tail below and stash restoration still apply. Each
+admitted line scan clears the skipped flag, even without a matching record.
+The conditional post-combat callers are separate from the per-input rule.
 
 DOS accepts typematic makes for non-navigation keys as well as movement. It has
 a ten-key FIFO; ordinary releases do not remove queued makes, while NumLock
@@ -138,6 +140,91 @@ do not establish every reachable saved state. A focused DOSBox check can watch
 attack slot 0 while waiting on an object-bearing flagged cell, then verify
 whether the skipped call shows window 38 before combat resumes. This does not
 require implementing the post-combat caller.
+
+Combat can start inside any ordinary draw whose admission tests pass: a held
+slot among 0-2, mode 1 or 5, neither missile gate held, and exploration enabled.
+Matching Event instructions use mode 9, so their draws can build slots without
+starting combat. Spawn changes actor records; it does not itself build slots.
+TeleportAndContinue draws before restarting at line 0; label draws and the
+fall/restart path can also expose contact to the next line-head test. Map load
+and the restart alone do not rebuild slots. Completed indoor and outdoor builds
+pack contact into slots 0, 1, 2 in order; no ordinary outside-combat writer was
+found that leaves only slot 1 or 2 occupied.
+
+There are two direct combat entry sites: the ordinary draw and exploration
+Shoot. Event-started fights and Arena generation eventually use the draw site;
+Arena does not call combat directly. **Caller 4** belongs to combat's return:
+if door text was up at entry and the current cell is flagged, call Events there.
+**Caller 3** belongs to the draw after combat returns: if the skipped flag is
+still set, call Events at the current position, without a cell-flag test.
+Direct Shoot has no caller-3 suffix. Caller 4 precedes caller 3; a scanning
+caller 4 clears the flag and suppresses caller 3, while a skipped caller 4 does
+not. Neither caller uses the original fight address after relocation.
+
+| Combat result or origin | Continuation and Event calls |
+| --- | --- |
+| Win; partial Run followed by win | Normal return at the fight cell; partial escape does not relocate the winners. Conditional caller 4, then caller 3 for draw entry. |
+| Full-party Run | Relocate to the current map's Run coordinates before the normal return; callers test that landing and its current facing. |
+| Defeat | Not a blanket caller exclusion: the exit still reaches the conditional caller-4 test and returns to the entry site. The early no-active-character branch bypasses the normal redraw/treasure prefix. Exploration's death exit does not owe a surviving-input pass. |
+| Combat panel Load / Quit | Load is refused in mode 2 and leaves combat running. Confirmed Quit terminates the program without either caller. |
+| Combat relocation | Learned Town Portal, Lloyd's Beacon and Teleport, and item Beacon/Teleport, are refused. Item Town Portal continues despite its refusal notice. Time Distortion is allowed. Permitted relocation returns to the combat loop; it does not itself force combat retirement. Later slot rebuilds and exit tests decide whether fighting continues; eventual callers use the resulting position. |
+| Mr Wizard in combat (DOS record only) | Caller 4 runs at the old position, then combat reloads the starting town and uses its Run coordinates; a draw-origin caller 3 can run at the new position. A scanning caller 4 can suppress it. |
+| Idle-draw origin | Return to the exploration input reader; no extra ordinary pass before that next input. |
+| Draw inside a surviving input handler, or direct Shoot | Resume that handler, then its one ordinary pass before the next outer input. A manual Event resumes current-key dispatch, so an admitted fight can take control before Space's Wait. Terminal returns retain their established exclusions. |
+
+Normal combat completion closes the combat window, clears queued keys, redraws
+in combat mode and delivers accumulated treasure before caller 4. Caller 3
+follows return to the originating draw. Ordinary delivery after an exploration
+pass is later, at that pass's existing delivery site. Arena rewards are issued
+by the subsequent Arena service interaction, not by a special combat-return
+callback; its monster-treasure exclusion remains the M81 rule.
+
+The exploration input reader has no independent occupied-slot guard. If a
+draw's combat gate is closed, it can reach input with contact still recorded;
+Space and view clicks retain the manual/current-key rules above. Combat entry
+does not unconditionally clear keys queued since the monster step: combat can
+consume them. Particular dialogs can clear them, and ordinary combat exit does
+clear them. Exact projectile-frame input timing remains **Unknown**; a DOSBox
+check should record the gates, queued key and next reader at an engaged draw.
+
+In DOS, a skipped call's window-38 draw can start combat and its callers before
+acknowledgement and before that call restores its stash. The pinned ScummVM
+also draws before acknowledgement and restores saved treasure afterward.
+**Approved deviation (2026-10-23):** MMModern acknowledges the skipped call's
+window and finishes the call before starting combat, for automatic and manual
+calls alike. The nested-stash outcome is deliberately outside this evidence.
+
+Door text is set by label opcodes 2, 3, 4 and 39. Its drawing requires the flag
+and an empty slot 0. Movement/turn completion, Wait, gameplay entry and combat
+entry clear it. Text and numeric input temporarily clear it and restore the
+saved value. Dialogs, Rest, stationary Bash, item Use and map load have no
+generic clear. Cast and Shoot clear it when their completed exploration action
+takes the movement/terrain continuation; refused/cancelled paths do not gain
+that clear. Bash that moves uses the movement clear. Travel can clear the text
+buffer without clearing this flag. Combat saves the entry value only to decide
+caller 4; it never restores the flag. A label executed afterward sets it anew.
+
+| Boundary | Skipped flag | Door-text flag |
+| --- | --- | --- |
+| Save / Load payload | Not saved or restored | Not saved or restored |
+| Gameplay entry after Load or New Game | Kept until a scan clears it | Cleared before the first view |
+| Map load within play | Kept | Kept; text resources/buffer can change separately |
+| Return to title in the same process | Kept | Kept until gameplay entry clears it |
+| Fight without caller 3 | Kept unless another Event scan clears it | Cleared at combat entry; only later writers change it |
+| Fresh process | Zeroed with runtime globals | Initially zero |
+
+**Static Clouds witness, high confidence for movement and dispatch:** Vertigo
+`(13,4)` West is flagged and has a line-0 label. Original monster 35 starts at
+`(15,4)`. Once awakened by viewing it, its ordinary AI can move west through
+`(14,4)` onto the party at `(13,4)`; both source-wall checks pass. The labelled
+western wall does not prevent entry from the east. A Wait can make that last
+move while slots still describe the preceding draw. The pass executes the
+label, its mode-9 redraw fills slot 0, and the next line-head test skips. Combat
+then saves the label flag, providing caller 4 after a win. This uses no placed
+actor. After Run, caller 4 instead tests the landing: Vertigo `(18,4)` has its
+label facing East, so retaining West does not redraw that label. The precise
+interactive setup has not been played in DOSBox; watch the original actor,
+slot rebuild and line-head test to reproduce it without altering actor state.
 
 ## Map and script instructions
 
