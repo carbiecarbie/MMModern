@@ -125,6 +125,19 @@ shows what comes next. The
 documents mechanics, formulas, evidence from the original program and open
 differences from the ScummVM reference.
 
+## Planned extras
+
+Later, MMModern may add a few things the original never had. None of them has
+been studied yet, and each will be an option that is off by default, so the game
+stays faithful unless you turn it on:
+
+- Graphics filters for the scaled picture.
+- A choice of which original sound device you hear, such as AdLib,
+  Sound Blaster or MT-32 with your own ROMs. This one is already on the
+  [roadmap](https://github.com/carbiecarbie/MMModern/blob/main/docs/roadmap.md).
+- Game controller support.
+- Possibly some interface improvements.
+
 ## Building
 
 Development uses Windows x86-64 with MSYS2 UCRT64, CMake, SDL2, zlib,
