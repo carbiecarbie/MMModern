@@ -1,9 +1,11 @@
 # MMModern - Project Status
 
-This describes what can be played and done now. **M83 is the latest completed
-and accepted milestone** (2026-10-22; [plan](milestone-83-plan.md)): digital
-voices, CD speech and output recovery join the original FM music and effects,
-and the control panel's sound buttons work. Every monster drops the treasure
+This describes what can be played and done now. **M84 is the latest completed
+and accepted milestone** (2026-10-23; [plan](milestone-84-plan.md)): a cell's
+Events run again after every key or click, as in DOS, and the keyboard and
+both mouse buttons follow the original's tables. Digital voices, CD speech
+and output recovery join the original FM music and effects (M83), and the
+control panel's sound buttons work. Every monster drops the treasure
 its original record gives (M81), the entrance scenes and the Warzone Arena
 work (M80), every Clouds town's services work (M79), and the whole of Clouds is open, with its
 monsters, Events and every travel path (M78). Earlier
@@ -48,8 +50,14 @@ an empty bank. **Load** continues a saved game from the same slot list.
   original, other than the Pyramid and the ending: signs, fountains, statues, NPC conversations, moved
   walls and objects, monster spawns, conditions, rewards, random Events,
   teleports, stairs, the magic mirror and password prompts. Those exceptions
-  say "not supported yet" without changing anything.
-- **Space** at an empty cell passes time and lets monsters act, as in DOS.
+  say "not supported yet" without changing anything. As in DOS, a cell's
+  Events run again after every key or click while the party stands on it:
+  traps hurt again, door labels return after Wait and guarded NPCs come back
+  while their condition holds. Load and New Game start with one run.
+- **Space** interacts with what is in front and then waits, as in DOS, so on
+  an Event cell its Events run twice; a click in the 3D view runs them twice
+  without waiting. An NPC or member prompt answer, or a teleport, replaces
+  the key and skips the wait, as the original does.
 - **Entrance scenes.** The Reaper, Golem, Dwarf Mine and Sphinx play their
   original animations and speech; Efx off shows the captions instead.
   The Dwarf Mine always admits the party; at the others the right quest item
@@ -77,11 +85,11 @@ item at its original chance and treasure level (1 to 6, accessories
 included). Kills in the Warzone give no treasure. The treasure appears on the
 original screens when the fight is over, or outside combat once no monster is
 in view, and must be acknowledged page by page. Items go to the member last
-chosen in a "who will" prompt when there is one. The original also forgets
-that choice on every later key press on an Event cell and after some fights;
-MMModern does not yet, an
-[approved deviation](original-quirks.md#dev-whowill-event-passes) until
-roadmap step 13 (Event dispatch). With full packs the original warning appears and items are
+chosen in a "who will" prompt when there is one. As in DOS, every later key
+press on an Event cell forgets that choice; the original also forgets it after
+some fights, which MMModern does not yet, an
+[approved deviation](original-quirks.md#dev-whowill-event-passes) until the
+second Event dispatch milestone. With full packs the original warning appears and items are
 lost or replace the last one in their category, while gold and gems are still
 credited. Event treasure shares the monster
 treasure as in the original: an Event reward also hands over pending monster
@@ -257,9 +265,12 @@ output, and default/rate changes retain the song. A missing
 
 ## Interface
 
-[Controls](controls.md) lists every key. Clicks work as in the
-original: the left button on the main-screen buttons, the combat buttons and
-targets, the 3D view, portraits and every dialog, and the right one as Escape.
+[Controls](controls.md) lists every key. Clicks work as in the CD
+original: either mouse button makes the same click on the main-screen
+buttons, the combat buttons and targets, the 3D view, portraits and every
+dialog. Keys follow the original's translation table: W waits, keypad 4 and
+6 turn, Ctrl+Left/Right strafe, and Ctrl or Alt with a key act as the
+original translates them.
 
 **Presentation.** Terrain, sky, water, wall items, torches and monsters
 animate from their own data on every Clouds map. Missiles fly together, hits
@@ -268,10 +279,12 @@ sparkle on their recipients. NPC speech, shopkeepers, treasure, Shoot, the
 dream, the title and party death follow the original sequences and timing.
 
 **Input.** Keys pressed while the game is busy are buffered and applied in
-order. A held movement key repeats at the original pace, about nine steps per
-second, and releasing it adds no further step: an approved deviation from DOS,
-which can add steps after release. Services, dialogs, inventory and casting
-accept only fresh presses.
+order; an Event keeps them except where the original clears the keyboard.
+Other held exploration keys repeat after half a second, about eleven times a
+second, as the keyboard does. A held movement key repeats at the original
+pace, about nine steps per second, and releasing it adds no further step: an
+approved deviation from DOS, which can add steps after release. Services,
+dialogs, inventory and casting accept only fresh presses.
 
 ## Entry modes
 
@@ -368,12 +381,14 @@ in [dependencies](dependencies.md).
 
 - **Inn and party.** There is no Inn, recruiting or character creation:
   Tavern Sign In and Dismiss say "not supported yet".
-- **Scenes and commands.** The Pyramid entrance, the Clouds ending, Mr Wizard
-  in combat and Turn around (Ctrl+Down) say "not supported yet"; killing Lord
-  Xeen does not give his Scepter yet.
-- **Event repeats.** The original runs a flagged cell's Events again on every
-  key press and twice after combat; MMModern runs them only on arrival,
-  turning or Space (roadmap step 13).
+- **Scenes and commands.** The Pyramid entrance, the Clouds ending and Mr
+  Wizard in combat say "not supported yet"; killing Lord Xeen does not give
+  his Scepter yet.
+- **Events after combat.** The original runs a cell's Events again after a
+  fight in two cases: when a monster's attack made it skip them, and when a
+  door label was up as the fight began. MMModern instead runs a pending
+  arrival Event once after a win and says "not supported yet" for Run onto a
+  landing with an automatic Event (roadmap step 13, second milestone).
 - **Skills.** Arms Master and Tracker are kept but do nothing; the reference
   gives them no effect either, and DOS has not been checked.
 - **Sound.** The Inn song (`inn.m`) has no production caller until the Inn/Sign

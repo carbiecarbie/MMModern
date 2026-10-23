@@ -1,6 +1,6 @@
 # MMModern - Roadmap
 
-**M83 is the latest completed and accepted milestone.**
+**M84 is the latest completed and accepted milestone.**
 [Project status](project-status.md) describes what is playable now;
 [project history](project-history.md) records completed milestones. Reference
 provenance belongs to [dependencies](dependencies.md).
@@ -126,14 +126,13 @@ to Vertigo.
     processed key while the party stands on a flagged cell (traps hurt
     again, NPCs and door text return; the maintainer confirms traps from
     DOS play), and has two conditional post-combat Event callers; MMModern
-    runs them only on arrival, turning or Space. First milestone,
-    [M84](milestone-84-plan.md): the per-key re-run. Second: the two
-    post-combat calls, which also remove the Run refusal on cells with an
-    automatic Event. Evidence:
-    `D:/MModern-re/event-dispatch/findings.md`, to be recorded in
-    `docs/rules/` by the first milestone. Load and New Game begin with a
-    pass, as in DOS (maintainer, 2026-10-23). Events that play sounds will
-    then repeat them as DOS does.
+    runs them only on arrival, turning or Space. The first milestone,
+    [M84](milestone-84-plan.md), is completed and accepted (2026-10-23):
+    one pass per input, Load and New Game passes, the original key and
+    mouse tables ([rules](rules/world-events.md#event-dispatch)). Next, the
+    second milestone: the two post-combat calls, which also remove the Run
+    refusal on cells with an automatic Event and the rest of
+    `dev-whowill-event-passes`.
 14. **Inn, recruiting and character creation** (Tier A, high): Tavern Sign
     In, Dismiss, attribute rolls, the creation screens and changes to the
     saved party, including Poison Volley shooting for the active party size

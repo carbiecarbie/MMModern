@@ -1,276 +1,77 @@
 # Milestone 84 plan - Event dispatch, part 1: a pass on every input
 
-**Tier A. Status: planned (not started).**
-Roadmap [step 13](roadmap.md#next-arc-finishing-the-games-systems), first of
-its two milestones, after [M83](milestone-83-plan.md). Baseline: clean `main`,
-`d7f278e`, equal to `origin/main`.
+**Tier A. Status: completed and accepted by the maintainer (2026-10-23)**
+after the play-test of Part A. Plan `d13ced5` (independent review applied,
+amendments `10260af`, `2bbd262`), Part 0 `ee9fe24`, A1 `7a6ed85`, A2
+`9e6fdd5` and the closure commit. Roadmap
+[step 13](roadmap.md#next-arc-finishing-the-games-systems), first of its two
+milestones, after [M83](milestone-83-plan.md). Save v18, schema 9 and
+content 14 unchanged.
 
-## Goal and scope
+## Scope and results
 
 As in DOS, every input the exploration loop processes ends with one
 main-loop pass, and a pass over a cell with the Event flag runs that cell's
-Events for the party's position and facing. Standing on a trap, any key
-hurts again; door and sign labels come back after Wait; guarded NPCs return
-while their guard passes; Event sounds and speech repeat. Space and a
-3D-view click run a flagged cell's Events twice. Load and New Game begin with
-a pass. WhoWill clears on every pass over a flagged cell.
+Events, even when no record matches. Standing on a trap, any key hurts
+again; door labels return after Wait; guarded NPCs return while their guard
+passes; Event sounds repeat. Space and a 3D-view click run a flagged cell's
+Events twice. Load and New Game begin with a pass, and WhoWill clears on
+every pass. The keyboard and mouse follow the CD original's tables.
 
-Out of scope, for step 13's second milestone: the two conditional
-post-combat calls (an Event skipped while a monster held attack slot 0, and
-the door-text run at combat end), Space while monsters are engaged, the Run
-refusal on landings with an automatic Event, and the rest of
+Left for the second milestone: the two conditional post-combat calls (an
+Event skipped while a monster held attack slot 0, and the door-text run at
+combat end), Space while monsters are engaged, the Run refusal on landings
+with an automatic Event, and the rest of
 [`dev-whowill-event-passes`](original-quirks.md#dev-whowill-event-passes).
-Darkside stays out. The repeats are faithful and get no option. Planning
-does not authorize implementation; independent plan and implementation
-reviews, the complete suite and a maintainer play-test are required.
 
-## Current state
-
-Journey play:
-- Moves, turns, strafes, blocked moves, Jump landings, barrier Bash and
-  travel by spell or item mark the reached cell's automatic Event when it is
-  flagged and a record matches the facing (`XeenActorApproach::
-  regionalTransition` `automaticEvent`, casting and item
-  `automaticArrival`). `XeenEncounterFlow::_regionalAutomatic` holds the
-  mark; `XeenEventFlow::prepareJourneyTransition` starts the detached Event
-  candidate (`beginDetachedEvent`, `XeenEventSystem::runAutomaticEvent`).
-  Both `beginJourneyEvent` and `beginDetachedEvent` refuse a cell without a
-  matching record.
-- Wait, Rest, Cast without travel, Shoot, non-travel item Use, exploration
-  dialogs, Escape and unmapped keys run no Event; SDL delivers only mapped
-  keys, synthesizes repeats only for navigation and turns every right-click
-  into Escape (`SdlWindow.cpp`, `XeenMainScreenInput.h`).
-- Space and a 3D-view click both become `InteractionAction`: one manual
-  Event, then the manual step (Wait) for both.
-- WhoWill clears on arrival at a new position or facing over a flagged cell
-  (`_whoWillPass`), on Space and in every Event run; `clearWhoWill` needs a
-  quiet boundary, which a pending mark prevents.
-- With monsters engaged, combat attaches first; a pending arrival Event runs
-  once after a win and Run clears it.
-- Saves: panel Save, F9 and New Game's initial publication
-  (`XeenGameplay.cpp`, `XeenSaveState::captureInitialized`). F9 and the
-  panel bypass `XeenEventFlow::handle`. Ordinary `canSave` refuses a pending
-  mark through `journeyQuiet`; initialization capture has its own admission.
-  Load and New Game run no Event.
-- Only the manual path has a tail: sound 21 for a wrong-facing record with
-  an object in front, on unflagged cells (`XeenEventSystem::runManualEvent`).
-
-Non-Journey play: `XeenNavigationFlow` runs the automatic Event itself after
-a successful move or turn, and Wait returns early in `XeenEventFlow::handle`.
-
-## Original rules and evidence
-
-Static analysis of the CD `WORLD/XEEN.DAT`, 2026-10-21, high confidence,
-calibrated on the M81 callers (`D:/MModern-re/event-dispatch/findings.md`);
-the pin's `scripts.cpp:134-300` agrees on the Event routine. The maintainer
-confirms from DOS play that traps hurt again on every key.
-
-- The main loop (`0xd18c..0xd5e5`) looks up the party cell (`0x11f04`); with
-  flag `0x10` it calls the Event routine `0x26774` (`0xd1a5`), then delivery
-  (`0xd1b7`), the idle draw where combat starts (`0x10bc3`) and the input
-  wait. Idle frames return after the Event check: no re-run without input.
-- A pass is any processed input: a key with a nonzero code (`0x45436`,
-  `0xe14e`), a button click (`0xe102`) or a 3D-view click (`0xe136`); not a
-  click on empty panel area. Either mouse button is the same click: the CD
-  build's callback (`0x43832`) queues coordinates only, its reader
-  (`0x4384f`) returns 0 or 1, and the right-click Escape branch at `0xe0dc`
-  is never reached (M84 Part 0, 2026-10-23). Keys that
-  match nothing in the 26-key table (`cs:0xeac`) also return (`0xd2e9`,
-  `0xd5c7`, `0xd5e5`).
-- A call is a full Event run even with no matching record: WhoWill cleared
-  (`0x26797`), the stash, the scan from line 0; only the script's guards
-  stop a repeat. The tail (`0x28e97..0x28f1c`) may show "Nothing here"
-  (window 38) and suppresses sound 21 on flagged cells (`0x28f13`).
-- Space or a 3D-view click runs the Events at `0xd2be`, then the loop
-  dispatches the key left by that call (`0xd2d0`): Space waits (`0xd468`:
-  time, monsters, door text cleared at `0xd472`) unless a dialog replaced
-  it or teleport cleared it, and a click does nothing more; then the pass
-  runs the Events again. A handled grate clears the key first. A run
-  starting while attack slot 0 is occupied is skipped and flagged
-  (`0x26ac4`) for the second milestone; WhoWill and the tail still apply.
-- DOS has no general key flush after a script, only particular clearing
-  sites, and repeats held non-navigation keys too.
-- Clouds has 300 flagged cells, 299 with records; map 25 (27,3) has none and
-  no object. Unchanged resources show no "Nothing here" window on a flagged
-  cell. Witnesses: the damage trap at map 26 (8,3), Vertigo's door labels
-  at (13,4) West and (10,8) North, the guarded NPC at map 7 (6,3).
-
-Part 0 (2026-10-23) settled the rest; the rules, input table and tail are in
-[world Events](rules/world-events.md#event-dispatch), offsets in
-[evidence](rules/evidence.md#event-dispatch).
-
-## Maintainer decisions
-
-- Two milestones for step 13; this one is the per-input pass (2026-10-21).
-- **Load and New Game begin with one pass, as in DOS** (2026-10-23).
-  Restore still reconstructs the saved state without executing Events,
-  rewards, time or RNG; the Load pass is subsequent gameplay. A panel Save
-  or Save As returns to the panel (Part 0: `0x1f1e9`, `0x1ef36`), so the
-  saving game's next pass comes when the panel closes, once per visit
-  however many saves it made; F9, a key DOS does not match, ends with its
-  own pass. Either way the saving game's following pass matches a loaded
-  game's entry pass at the same cell. The generic exact-restore
-  test stays unchanged; a continuation test compares the two passes.
-- **Right-click acts as left-click on every screen, as in DOS**
-  (2026-10-23). Part 0 found it statically; the maintainer confirmed in
-  DOSBox that the right button always acts as the left. This replaces
-  MMModern's right-click as Escape and corrects the earlier evidence for it
-  (quirk rows on WhoWill, combat rows and death/credits pacing,
-  `docs/controls.md`).
-- **Exploration keys follow the DOS table** (2026-10-23): W waits and the
-  period is an unmatched key; keypad 4 and 6 turn; Ctrl+Down does nothing
-  beyond its pass (no "Turn around" refusal); Ctrl translates the plain key
-  (Ctrl+I is Tab); F10, F11, F12 and Delete give no code. F8 keeps the
-  approved omission of speech replay and stays an unmatched key with a pass.
-
-## Part 0 - DOS evidence (read-only)
-
-Static and calibrated, with offsets; work copies stay outside the
-repository. Results go to a new "Event dispatch" section of
-`docs/rules/world-events.md` and to `docs/rules/evidence.md`, with quirk
-rows where they apply. No code.
-
-1. **Inputs.** The keys and combinations the key routine reports with a
-   nonzero code (modifiers alone, Alt and Ctrl, keypad, F7-F12, Insert,
-   Delete, Page Up/Down); the mouse regions that return a code; typematic
-   repeat of non-navigation keys; the key flush after an executed script.
-   Deliver a table that classifies every MMModern exploration input, F9,
-   Alt+Enter and window close included, as a pass or not.
-2. **Handlers.** Confirm that every exploration handler returns to `0xd18c`:
-   character sheets and their item Use, Info, Quick Reference, Map, Quests,
-   the control panel (Save, Load, Quit, options, Mr Wizard), Cast, Rest,
-   Bash, Shoot, the automap. Name any that leave elsewhere.
-3. **Load and New Game.** Trace title Load, panel Load and New Game to the
-   Event check; place the pass against the map load, monster rebuild and
-   arrival view.
-4. **Space and 3D click.** Confirm manual run, Wait (Space only), pass;
-   grate interception; and what the second run does when Wait engages a
-   monster.
-5. **Tail.** The exact window 38 and sound 21 conditions for a call without
-   a matching record and for Space, and the Clouds cells where they show.
-
-## Design decisions
-
-- **One pass rule in the existing owners.** `XeenEventFlow`, owner of
-  exploration input and the Event candidates, takes one pass when an
-  exploration input completes; `XeenEncounterFlow` keeps the pending mark in
-  Journey play; the detached Event candidate runs it. The arrival-only
-  marking becomes this rule rather than a second trigger. No new owner.
-- **One completion per outer input.** An outer exploration input owns one
-  pass obligation across its dialogs, item Use, services, animation and
-  actor settlement. Nested responses and Event-generated presentations add
-  none. Travel and Bash arrival marks are that input's pass, not a second
-  run. Cancelled and refused actions still complete with a pass.
-- **A pass**, on a flagged cell, calls the Events: it clears WhoWill and
-  stages as the original's entry does, runs the lines that match position
-  and facing (or All), and applies the tail by the original's executed and
-  other-facing markers, not by whether a record matched; the tail serves
-  manual calls too. On an unflagged cell it
-  does nothing. It follows the input's own effect (the move, Wait's time and
-  monsters, the dialog closing) and precedes ordinary delivery.
-- **Calls without a matching record.** The existing Event admission and
-  candidate extend to represent a flagged call with no matching entry, under
-  the same publication guards, tickets, boundaries and save exclusion
-  through retirement. A missing record is normal completion, not
-  unsupported content.
-- **Passes follow the Part 0 input table**: every completed outer input,
-  matched or not, including Escape, either mouse button on a button,
-  portrait or the accepted 3D area (its DOS bounds included), and F9. Not
-  passes: keys with no DOS code, Shift, Ctrl or Alt alone, empty panel
-  clicks, nested responses and MMModern host actions
-  (Alt+Enter, window resize and close).
-- **Space and the 3D-view click** run the manual Event, then continue with
-  the key that call left (Space's Wait, a replacing dialog key, or nothing
-  after a clear), then the pass samples the resulting position, facing and
-  flag, also after manual travel.
-- **Engaged monsters, until the second milestone.** This exception
-  overrides the pre-combat order: a pass whose input engages monsters, new
-  ones included, keeps today's deferred arrival (combat first, the Event once
-  after a win, cleared by Run). Engaged Space and the Run refusal stay. No
-  DOS post-combat caller is added.
-- **Input layer.** SDL delivers one generic exploration action for unmapped
-  keys, carrying no rules, as `DialogKeyAction` does. The right button
-  produces exactly the left button's action on every screen (exploration,
-  combat, dialogs, title and credits); right-click as Escape is removed in
-  one input-layer change, with the quirk rows and `docs/controls.md`
-  corrected in the same change. The exploration key table follows the DOS
-  table above. Keys typed during an Event stay queued except at the
-  original's clearing sites (text pages, teleport, map load, NPC, treasure).
-  Held non-navigation keys repeat through M63's existing typematic model;
-  movement keeps its approved buffering
-  ([`dev-no-phantom-steps`](original-quirks.md#dev-no-phantom-steps)). A
-  conflict with that deviation stops for a maintainer decision.
-- **WhoWill.** The per-pass clear replaces `_whoWillPass`;
-  `dev-whowill-event-passes` narrows to the two post-combat calls.
-- **Non-Journey play.** `XeenNavigationFlow`'s own automatic dispatch moves
-  into the common pass rule, and Wait's early exit no longer skips the
-  pass. A suspended completion stays in existing `XeenEventFlow` state; no
-  Encounter owner is built for it.
-- **Save v18, schema 9 and content 14, provisionally.** Panel Save and Save
-  As are nested in the panel's outer input and arm nothing; the panel's
-  close completes that input's one pass. F9 and New Game's initial
-  publication capture before arming their own following pass, then complete
-  it through `XeenEventFlow`. A successful Load discards the old session's continuation
-  and starts exactly one entry pass. Ordinary and initialization capture
-  must be shown unable to serialize an armed pass; otherwise, or for any new
-  saved field, stop for an amendment.
-
-## Parts and sequence
-
-| Part | Content | Gate |
+| Part | Commit | Result |
 | --- | --- | --- |
-| 0 | DOS evidence, rules chapters | Maintainer reads the findings |
-| A | Pass rule, inputs, Space, saves, Load/New Game, WhoWill, tail, tests | Implementation review, suite, play-test |
-| B | Closure: census, quirks, differences, status, history, roadmap | Maintainer acceptance |
+| 0 - DOS evidence | `ee9fe24` | Input table, handler returns, Load/New Game/Save paths, key continuation, flush, typematic and tail rules; Clouds census corrected to 300 flagged cells |
+| A1 - dispatch core | `7a6ed85` | One pass per outer input in the existing owners; record-less calls; continuation with the key an Event leaves; save, Load and New Game passes; non-Journey play |
+| A2 - input layer | `9e6fdd5` | DOS key translation, generic unmatched-key action, right-click as left-click everywhere, DOS mouse bounds, queued keys and non-navigation typematic, play-test presets |
+| B - closure | This change | Trap preset moved to map 55, documentation |
 
-## Risks
+## Key decisions
 
-- **Journey admission.** A pass keeps its obligation through ordinary
-  asynchronous readiness (tickets, boundaries, restore guards); stop only if
-  it cannot be represented without dropping or duplicating a pass.
-- **Tests and digests.** Many tests assume one Event per arrival; change an
-  expectation only where a Part 0 rule explains it. A changed M44 digest
-  needs its first divergence explained against a rebuilt baseline and the
-  maintainer's approval. M44 assertions name their comparison phase (state
-  before input, reload and re-save); digest approval never waives exact
-  restore or continuation equality.
-- **Harsher play.** About 40 unguarded damage or reward cells repeat on
-  every key. This is faithful; held-key behavior follows Part 0.
-- **Event-internal moves** (teleports, stairs) keep their M70 behavior; the
-  pass adds runs only at input boundaries.
+These are the maintainer's decisions of 2026-10-21 and 2026-10-23.
 
-## Tests and acceptance
+- **Two milestones** for step 13; this one is the per-input pass.
+- **Load and New Game begin with one pass**, as in DOS. Restore still
+  reconstructs the saved state without executing Events, rewards, time or
+  RNG; the Load pass is subsequent gameplay. A panel Save returns to the
+  panel, whose close makes the visit's one pass; F9 ends with its own pass.
+  The saving game's following pass therefore matches a loaded game's entry
+  pass, which a continuation test compares.
+- **Either mouse button makes the same click on every screen.** The CD
+  build's callback queues coordinates only and the right-click Escape branch
+  at `0xe0dc` is unreachable; the maintainer confirmed it in DOSBox.
+- **Exploration keys follow the DOS table**: W waits, the period is an
+  unmatched key, keypad 4/6 turn, Ctrl+Down has no turn-around, Ctrl
+  translates the plain key, and F10-F12 and Delete give no code. F8 keeps
+  the approved omission of speech replay.
+- **M44 digests replaced with approval.** Mainland `76651b1a`, services
+  `a971e48d`, temple `b2cea761`, roundtrip `8f0b712c`. Each first
+  divergence is Space's Wait skipped because an Event replaced or cleared
+  the key (NPC `0x25ac7` with the Enter acknowledgement at `0x25ba6`,
+  WhoWill `0x25299`/`0x252c5`, map load `0xf590`). With only that rule
+  disabled, mainland and roundtrip reproduce their old digests; services and
+  temple differ only in presentation order and the override's forced
+  post-service Wait, which DOS does not perform.
+- The repeats are faithful and get no option.
 
-- Unit: the pass table for every exploration action; one pass per outer
-  input, including cancellation, refused actions and presentation retries;
-  Wait, closing Info, Escape and an unmapped key once; Space and 3D click
-  twice, with Space's time and monster step only; the automatic pass never
-  runs Events on an unflagged cell (manual interaction still can); calls
-  with no record, a wrong-facing record and at `(0,0)` North; WhoWill per
-  pass; the tail; a win and a Run after an engaging pass.
-- Input: right-click equals left-click on a button, a portrait, the 3D view
-  (manual run plus pass), a combat row and a dialog; the DOS key table (W,
-  period, keypad 4/6, Ctrl translation, F8, F10-F12, Delete); SDL tests for
-  mapped and unmapped repeats, taps buffered across a
-  non-modal executed script, modal completion, record-less calls, and kept
-  key releases and host actions.
-- Saves: a panel visit with no save, one save and two saves each followed
-  by exactly one pass at close; F9 (successful, failed, unavailable) and New
-  Game publication each followed by exactly one pass; the generic
-  exact-restore test unchanged; a continuation test comparing Save,
-  acknowledge, close panel and its pass with the loaded branch's entry pass
-  under identical responses (state, RNG and Event counts).
-- Non-Journey: movement, blocked movement, Wait, dialog closing and manual
-  interaction.
-- Original data: map 26 (8,3) damage on Wait and after closing Info; the
-  Vertigo (13,4) West label back after Wait; map 7 (6,3) re-prompting only
-  while its guard passes; Load on a flagged cell running its Events once.
+The rules, input table, mouse bounds, flush, typematic and tail are in
+[world Events](rules/world-events.md#event-dispatch); offsets and
+calibration are in [evidence](rules/evidence.md#event-dispatch).
 
-Acceptance: Part 0 rules recorded; independent plan review applied; Part A
-implemented and independently reviewed; the complete `build-rel` suite
-passes as [tools/AGENTS.md](../tools/AGENTS.md) requires; M44 digests
-unchanged or replaced with approval; coverage regenerated if support
-changes. The maintainer play-tests the map 26 trap on Wait, Info and Escape,
-the Vertigo label after Wait, Space on a flagged cell and a Load there, from
-an `m84-playtest` preset if no existing one reaches them. Closure updates
-quirks, ScummVM differences, status, history and roadmap.
+## Validation and acceptance
+
+The independent plan review was applied before Part 0. A1 and A2 each had an
+independent implementation review in a fresh context, which found and closed
+five and seven defects. The complete `build-rel` suite passed 272/272 on A1
+combined with the GiveMulti fix `cfa9978`, and 276/276 on A2, run as
+[tools/AGENTS.md](../tools/AGENTS.md) requires. The A2 M44 audit found zero
+differences from the approved digests, with exact reload and re-save. The
+maintainer play-tested the map 55 trap on Wait, Info, Escape and unmatched
+keys, the Vertigo label after Wait, Space, Save and Load, the mouse buttons
+and the new keys, then normal play, and accepted the milestone on
+2026-10-23.

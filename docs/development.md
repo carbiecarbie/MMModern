@@ -176,13 +176,16 @@ party with 1,000 HP per member; monsters on retained maps are defeated so the
 input witnesses stay quiet. Loading still makes the normal flagged-cell entry
 pass. The presets are:
 
-- `m84-playtest-trap`: map 26 `(8,3)` North, the damage trap. Try W, period,
-  Info then Escape, held keys, and either mouse button on the view or panel.
+- `m84-playtest-trap`: Tower of High Magic, map 55 `(7,8)` North, an
+  unguarded indoor damage trap. Try W, period, Info then Escape, held keys,
+  and either mouse button on the view or panel. (Map 26's traps lie on
+  clouds: without Levitate the party falls at once.)
 - `m84-playtest-label`: Vertigo, map 28 `(13,4)` West, the door label.
   W clears it and the following pass restores it.
 - `m84-playtest-save`: map 25 `(27,3)` North, a flagged cell with no Event
   record or selected object. Use the panel's Save/Load here to inspect the
-  entry pass without damage or a modal prompt.
+  entry pass without damage or a modal prompt; for a visible entry pass,
+  save and load at the `m84-playtest-label` door label.
 
 Generate outside the repository and game installation, then start one:
 

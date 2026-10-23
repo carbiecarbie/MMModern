@@ -457,3 +457,17 @@ silence audio with one notice, and removal/default changes recover at the new
 output rate without changing gameplay deadlines, RNG or saves (v18 unchanged).
 F8 replay and resource-read CD restarts are omitted by maintainer decision.
 [Plan](milestone-83-plan.md).
+
+**M84 - Event dispatch on every input** (plan `d13ced5` with amendments
+`10260af`, `2bbd262`; Part 0 `ee9fe24`, A1 `7a6ed85`, A2 `9e6fdd5` and the
+closure commit). Accepted by the maintainer on 2026-10-23 after play-testing
+Part A. As in DOS, every key or click in exploration ends with one pass that
+runs a flagged cell's Events again, even with no matching record: traps hurt
+again, labels return and WhoWill clears; Space and a 3D-view click run them
+twice, and Load and New Game start with one pass. The key an Event leaves
+decides what follows, so an NPC or WhoWill answer skips Space's Wait; this
+replaced all four M44 digests with approval. Part 0 also showed that the CD
+game treats the right mouse button as the left, confirmed in DOSBox, and the
+keyboard now follows the original's translation table (W waits, keypad 4/6
+turn). Save v18 is unchanged; the post-combat calls wait for the second
+milestone. [Plan](milestone-84-plan.md).

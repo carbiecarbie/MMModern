@@ -119,7 +119,7 @@ void prepare(XeenSaveSnapshot &snapshot,const std::string &preset) {
     auto &member=snapshot.characters[first];
     if(preset=="m84-playtest-trap" || preset=="m84-playtest-label" || preset=="m84-playtest-save") {
         prepare(snapshot,"m78-playtest");
-        snapshot.camera=preset=="m84-playtest-trap"?XeenCamera{26,8,3,XeenDirection::North}:
+        snapshot.camera=preset=="m84-playtest-trap"?XeenCamera{55,7,8,XeenDirection::North}:
             preset=="m84-playtest-label"?XeenCamera{28,13,4,XeenDirection::West}:XeenCamera{25,27,3,XeenDirection::North};
         for(auto owner:snapshot.activeRosterIds) {
             snapshot.characters[owner].currentHp=1000;

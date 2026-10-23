@@ -68,7 +68,7 @@ void preset(const GameInstallation &installation,const std::string &name,const f
     const auto captured=XeenSaveState::capture(inputs.signature,party,camera,flags,world);
     check(XeenSaveFormat::encode(saved)==XeenSaveFormat::encode(captured),"restore replayed or changed state");
     if(name.rfind("m84-playtest-",0)==0) {
-        const XeenCamera expected=name=="m84-playtest-trap"?XeenCamera{26,8,3,XeenDirection::North}:
+        const XeenCamera expected=name=="m84-playtest-trap"?XeenCamera{55,7,8,XeenDirection::North}:
             name=="m84-playtest-label"?XeenCamera{28,13,4,XeenDirection::West}:XeenCamera{25,27,3,XeenDirection::North};
         check(save_test::sameCamera(camera,expected),"M84 preset location");
         const auto cell=world.sampleCell(camera.mapId,camera.x,camera.y);
