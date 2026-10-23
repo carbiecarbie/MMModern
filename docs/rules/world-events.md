@@ -45,8 +45,8 @@ has its own following pass; DOS recognizes F9 as an unmatched nonzero key.
 | Empty panel click, key release, mouse motion, nested dialog response | No independent pass |
 | MMModern Alt+Enter, resize, window close | Host actions, no gameplay pass |
 
-Current MMModern shortcuts are not all literal DOS mappings: period is an
-unmatched DOS key (W waits), keypad 4/6 turn, and Ctrl+Down does not turn around.
+MMModern follows these DOS mappings: period is an unmatched key (W waits),
+keypad 4/6 turn, and Ctrl+Down does not turn around.
 All still have a pass obligation when delivered as outer exploration inputs.
 Shift changes punctuation; Ctrl translates the plain code rather than combining
 with Shift. For example, Ctrl+I opens the panel and Ctrl+grave produces Space.
@@ -57,8 +57,7 @@ state; a nonzero raw return containing only that Alt state is not an input.
 Either mouse button is indistinguishable to this CD build: the callback stores
 coordinates only, the reader returns 0 or 1, and the supposed right-click Escape
 branch at `0xe0dc` is unreachable. The maintainer's DOSBox check confirms equal
-left/right behavior on buttons and in the 3D view. Older right-click-as-Escape
-descriptions remain to be corrected with the input implementation.
+left/right behavior on buttons and in the 3D view.
 
 Icon and portrait bounds are lower inclusive and upper exclusive. The DOS 3D
 input rectangle instead includes x 8 through 224 and y 8 through 135. Its outer

@@ -72,11 +72,13 @@ struct QueueHarness {
  MainScreen screen=MainScreen::None;
  std::shared_ptr<const DialogInput> dialog;
  bool feedbackEnabled=false;std::vector<unsigned> pressedFrames;
- bool redraw=false,ready=false,queueable=true,restAvailable=false,navigationDrawPending=false;std::uint64_t context=1,epoch=1,presented=0;
+ bool redraw=false,ready=false,queueable=true,restAvailable=false,navigationDrawPending=false,actionDrawPending=false;std::uint64_t context=1,epoch=1,presented=0;
  unsigned stage=0,presentations=0,lastDelivery=0;std::vector<char> delivered;
  std::uint64_t clock=0,clockStep=100000000,drawDeadline=0;
  bool drawPaced=false;std::vector<std::uint64_t> deliveredAt;
  std::function<void()> duringPresentation;
+ std::function<void(const PlayerAction &)> observeAction;
+ bool retainEventKeys=false;std::uint64_t keyboardClear=0;
  static void key(SDL_Keycode code,Uint32 type=SDL_KEYDOWN,Uint8 repeat=0,Uint32 stamp=99,Uint16 modifiers=0){
   SDL_Event event{};event.type=type;event.key.keysym.sym=code;event.key.keysym.mod=modifiers;event.key.repeat=repeat;event.key.timestamp=stamp;
   if(SDL_PeepEvents(&event,1,SDL_ADDEVENT,0,0)!=1)throw std::runtime_error("queue fixture key");
@@ -90,7 +92,7 @@ struct QueueHarness {
   if(SDL_PeepEvents(&event,1,SDL_ADDEVENT,0,0)!=1)throw std::runtime_error("queue fixture logical release");
  }
  static void quit(){SDL_Event event{};event.type=SDL_QUIT;SDL_PushEvent(&event);}
- void check(bool value,const char *message){if(!value)throw std::runtime_error(std::string(message)+" stage="+std::to_string(stage));}
+ void check(bool value,const char *message){if(!value)throw std::runtime_error(std::string(message)+" stage="+std::to_string(stage)+" actions="+std::string(delivered.begin(),delivered.end()));}
  void run(const char *name,const std::function<void(QueueHarness &)> &script){
   IndexedFrame frame;frame.width=320;frame.height=200;frame.pixels.resize(64000);
   for(unsigned i=0;i<256;++i)frame.palette[i*3+2]=i;
@@ -98,7 +100,7 @@ struct QueueHarness {
   handler.protectAllKeys=true;handler.displayedInput=[&]{return std::optional<std::uint64_t>{epoch};};
   handler.presentationClock=[&]{return clock;};
   handler.beginCycle=[&](auto){clock+=clockStep;};
-  handler.inputContext=[&](const auto &){return InputContext{context,queueable,ready && clock>=drawDeadline && presented==epoch,screen,dialog,false,restAvailable && presented==epoch,false,navigationDrawPending};};
+  handler.inputContext=[&](const auto &){return InputContext{context,queueable,ready && clock>=drawDeadline && presented==epoch,screen,dialog,false,restAvailable && presented==epoch,false,navigationDrawPending,keyboardClear,retainEventKeys,6,0,actionDrawPending};};
   handler.framePresented=[&](const auto &){presented=epoch;++presentations;const auto hook=duringPresentation;if(hook)hook();};
   if(feedbackEnabled)handler.drawButton=[&](auto &pressed,const InputButton &button){
    pressedFrames.push_back(button.pressedFrame());pressed.pixels[0]=button.pressedFrame();
@@ -124,6 +126,7 @@ struct QueueHarness {
    else if(std::holds_alternative<UnsupportedMainScreenAction>(action))kind='U';
    else if(std::holds_alternative<ControlPanelAction>(action))kind='P';
    else if(std::holds_alternative<InfoAction>(action))kind='I';
+   else if(std::holds_alternative<WaitAction>(action))kind='.';
    else if(std::holds_alternative<QuickReferenceAction>(action))kind='Q';
    else if(std::holds_alternative<MapAction>(action))kind='M';
    else if(std::holds_alternative<QuestsAction>(action))kind='V';
@@ -133,6 +136,7 @@ struct QueueHarness {
    else if(std::holds_alternative<SelectMemberAction>(action))kind='P';
    else if(const auto *key=std::get_if<DialogKeyAction>(&action))kind=key->key==InputKey::Escape?'E':char(key->key);
    check(!drawPaced || clock>=drawDeadline,"action bypassed draw cadence");
+   if(observeAction)observeAction(action);
    delivered.push_back(kind);deliveredAt.push_back(clock);
    if(drawPaced)drawDeadline=PresentationClock::after(clock,2);
    ++epoch;return frame;
@@ -144,6 +148,162 @@ struct QueueHarness {
   fixedTicks=false;check(ok,"queue show failed");std::cout<<name<<" passed\n";
  }
 };
+// Part 0's physical-key table exercised through the production SDL loop.
+void dosKeyTable() {
+ struct Case {SDL_Keycode key;Uint16 mod;std::optional<PlayerAction> expected;};
+ const std::vector<Case> cases{
+  {SDLK_w,0,WaitAction{}},{SDLK_PERIOD,0,ExplorationKeyAction{'.'}},
+  {SDLK_KP_4,0,NavigationAction::TurnLeft},{SDLK_KP_6,KMOD_NUM,NavigationAction::TurnRight},
+  {SDLK_LEFT,KMOD_CTRL,NavigationAction::StrafeLeft},{SDLK_RIGHT,KMOD_CTRL,NavigationAction::StrafeRight},
+  {SDLK_UP,KMOD_CTRL,ExplorationKeyAction{0xb2}},{SDLK_DOWN,KMOD_CTRL,ExplorationKeyAction{0xb3}},
+  {SDLK_i,KMOD_CTRL,ControlPanelAction{}},{SDLK_i,Uint16(KMOD_CTRL|KMOD_SHIFT),ControlPanelAction{}},
+  {SDLK_BACKQUOTE,KMOD_CTRL,InteractionAction{}},{SDLK_w,KMOD_ALT,WaitAction{}},
+  {SDLK_F7,0,ExplorationKeyAction{InputKey::F1+6}},{SDLK_F8,0,ExplorationKeyAction{InputKey::F1+7}},
+  {SDLK_F9,0,SaveGameAction{}},{SDLK_F10,0,{}},{SDLK_F10,KMOD_SHIFT,{}},
+  {SDLK_F10,KMOD_ALT,{}},{SDLK_F10,KMOD_CTRL,ExplorationKeyAction{0x92}},
+  {SDLK_F11,0,{}},{SDLK_F12,0,{}},{SDLK_DELETE,0,{}},{SDLK_KP_PERIOD,0,{}},
+  {SDLK_u,0,ExplorationKeyAction{'u'}},{SDLK_1,0,ExplorationKeyAction{'1'}},
+  {SDLK_RETURN,0,ExplorationKeyAction{13}},{SDLK_BACKSPACE,0,ExplorationKeyAction{8}},
+  {SDLK_EQUALS,KMOD_SHIFT,ExplorationKeyAction{'+'}},{SDLK_MINUS,KMOD_SHIFT,ExplorationKeyAction{'-'}},
+  {SDLK_INSERT,0,ExplorationKeyAction{0xe0}},{SDLK_HOME,0,ExplorationKeyAction{InputKey::Home}},
+  {SDLK_END,0,ExplorationKeyAction{InputKey::End}},{SDLK_PAGEUP,0,ExplorationKeyAction{InputKey::PageUp}},
+  {SDLK_PAGEDOWN,0,ExplorationKeyAction{InputKey::PageDown}},
+  {SDLK_CAPSLOCK,0,ExplorationKeyAction{0xfc}},{SDLK_SCROLLLOCK,0,ExplorationKeyAction{0xfa}},
+  {SDLK_LSHIFT,0,{}},{SDLK_LCTRL,0,{}},{SDLK_LALT,0,{}},{SDLK_RGUI,0,{}},
+  {SDLK_LEFTBRACKET,KMOD_CTRL,CancelInteractionAction{}}
+ };
+ for(std::size_t begin=0;begin<cases.size();begin+=20) {
+  QueueHarness h;h.ready=true;h.screen=MainScreen::Exploration;
+  std::size_t current=begin,accepted=0;
+  h.observeAction=[&](const PlayerAction &actual) {
+   const auto &expected=cases[current].expected;
+   h.check(expected && expected->index()==actual.index(),("DOS key type at case "+std::to_string(current)).c_str());
+   if(const auto *nav=std::get_if<NavigationAction>(&actual))h.check(*nav==std::get<NavigationAction>(*expected),"DOS navigation translation");
+   if(const auto *key=std::get_if<ExplorationKeyAction>(&actual))h.check(key->key==std::get<ExplorationKeyAction>(*expected).key,"DOS unmatched code");
+   ++accepted;
+  };
+  h.run("DOS physical translation",[&](auto &h) {
+   if(h.stage%2==0) {
+    current=begin+h.stage/2;
+    if(current>=cases.size() || current>=begin+20){h.quit();return;}
+    const auto &c=cases[current];h.key(c.key,SDL_KEYDOWN,0,100,c.mod);h.key(c.key,SDL_KEYUP,0,100,c.mod);accepted=0;
+   } else h.check(accepted==unsigned(bool(cases[current].expected)),("DOS pass/no-code at case "+std::to_string(current)).c_str());
+  });
+ }
+ QueueHarness locks;locks.ready=true;locks.screen=MainScreen::Exploration;
+ locks.run("NumLock make has a code; its release clears pending makes",[](auto &h){
+  if(h.stage==0)h.key(SDLK_NUMLOCKCLEAR,SDL_KEYDOWN,0,100);
+  else if(h.stage==1){h.check(h.delivered==std::vector<char>{'?'},"NumLock make missing");h.ready=false;h.tap(SDLK_PERIOD);h.key(SDLK_NUMLOCKCLEAR,SDL_KEYUP);}
+  else if(h.stage==2)h.ready=true;
+  else if(h.stage==4){h.check(h.delivered.size()==1,"NumLock release made a pass or retained pending makes");h.quit();}
+ });
+}
+void dosRepeatsAndClears() {
+ for(const auto key:{SDLK_w,SDLK_PERIOD}) {
+  QueueHarness h;h.screen=MainScreen::Exploration;h.ready=true;h.clockStep=0;
+  h.run("DOS mapped and unmatched typematic",[key](auto &h){
+   if(h.stage==0)h.key(key,SDL_KEYDOWN,0,100);
+   else if(h.stage==1){h.check(h.delivered.size()==1,"first make missing");h.clock=499999999;}
+   else if(h.stage==2){h.check(h.delivered.size()==1,"repeat before 500ms");h.clock=500000000;}
+   else if(h.stage==3){h.check(h.delivered.size()==2,"held non-navigation key did not repeat");h.clock+=1000000000;}
+   else if(h.stage==4){h.check(h.delivered.size()==3,"late repeat caught up or missing");h.key(key,SDL_KEYUP,0,100);}
+   else if(h.stage==5){h.clock+=1000000000;}
+   else if(h.stage==6){h.check(h.delivered.size()==3,"release generated a pass");h.quit();}
+  });
+ }
+ for(bool clear:{false,true}) {
+  QueueHarness h;h.screen=MainScreen::Exploration;h.retainEventKeys=true;
+  h.run(clear?"DOS explicit clear drops queued makes":"DOS non-modal Event preserves queued taps",[clear](auto &h){
+   if(h.stage==0){h.tap(SDLK_PERIOD);h.tap(SDLK_w);}
+   else if(h.stage==1){++h.context;if(clear)++h.keyboardClear;h.redraw=true;}
+   else if(h.stage==2){++h.context;h.ready=true;h.redraw=true;}
+   else if(h.stage==6){h.check(h.delivered==(clear?std::vector<char>{}:std::vector<char>{'?','.'}),"DOS queued-script/clear-site rule");h.quit();}
+  });
+ }
+ // Host events and modifiers never enter the gameplay queue.
+ QueueHarness host;host.ready=true;host.screen=MainScreen::Exploration;
+ host.run("host events have no DOS pass",[](auto &h){
+  if(h.stage==0){h.key(SDLK_RETURN,SDL_KEYDOWN,0,100,KMOD_ALT);h.key(SDLK_RETURN,SDL_KEYUP);
+   SDL_Event e{};e.type=SDL_WINDOWEVENT;e.window.event=SDL_WINDOWEVENT_SIZE_CHANGED;SDL_PushEvent(&e);}
+  else if(h.stage==2){h.check(h.delivered.empty(),"host action made a pass");h.quit();}
+ });
+}
+void retainedEventRegressions() {
+ for(const auto code:{SDLK_ESCAPE,SDLK_F9}) {
+  QueueHarness h;h.screen=MainScreen::Exploration;h.retainEventKeys=true;h.clockStep=0;
+  h.run("Escape/F9 retain makes and repeat",[code](auto &h){
+   if(h.stage==0)h.key(code,SDL_KEYDOWN,0,100);
+   else if(h.stage==1){h.check(h.delivered.empty(),"Escape/F9 bypassed Event readiness");h.ready=true;}
+   else if(h.stage==2){h.check(h.delivered.size()==1,"Escape/F9 make lost");h.clock=500000000;}
+   else if(h.stage==3){h.check(h.delivered.size()==2,"Escape/F9 failed to repeat");h.key(code,SDL_KEYUP,0,100);}
+   else if(h.stage==5){h.check(h.delivered.size()==2,"Escape/F9 release made a pass");h.quit();}
+  });
+ }
+ QueueHarness held;held.screen=MainScreen::Exploration;held.retainEventKeys=true;held.ready=true;held.clockStep=0;
+ held.run("cleared native makes retain physical hold and future repeat",[](auto &h){
+  if(h.stage==0){h.key(SDLK_PERIOD);h.redraw=true;h.duringPresentation=[&h]{h.duringPresentation={};++h.keyboardClear;};}
+  else if(h.stage==1){h.check(h.delivered.empty(),"cleared native make delivered");h.clock=499999999;}
+  else if(h.stage==2){h.check(h.delivered.empty(),"cleared physical hold repeated early");h.clock=500000000;}
+  else if(h.stage==3){h.check(h.delivered==std::vector<char>{'?'},"cleared hold lost its future repeat");h.key(SDLK_PERIOD,SDL_KEYUP);}
+  else if(h.stage==5){h.check(h.delivered.size()==1,"release replayed a cleared make");h.quit();}
+ });
+ QueueHarness mouse;mouse.screen=MainScreen::Exploration;mouse.retainEventKeys=true;
+ mouse.run("NumLock keyboard clear preserves mouse",[](auto &h){
+  if(h.stage==0){h.click(235,75);h.key(SDLK_NUMLOCKCLEAR);h.key(SDLK_NUMLOCKCLEAR,SDL_KEYUP);}
+  else if(h.stage==1)h.ready=true;
+  else if(h.stage==4){h.check(h.delivered==std::vector<char>{'F'},"NumLock cleared a mouse click");h.quit();}
+ });
+ QueueHarness afterLock;afterLock.screen=MainScreen::Exploration;afterLock.retainEventKeys=true;afterLock.ready=true;
+ afterLock.run("NumLock release precedes a later make in the same native batch",[](auto &h){
+  if(h.stage==0){h.key(SDLK_NUMLOCKCLEAR,SDL_KEYUP);h.tap(SDLK_w);}
+  else if(h.stage==3){h.check(h.delivered==std::vector<char>{'.'},"NumLock release discarded the later W tap");h.quit();}
+ });
+ for(bool textPrompt:{false,true}) {
+  QueueHarness h;h.retainEventKeys=true;h.queueable=false;h.ready=true;h.clockStep=0;
+  DialogInput input;input.textEntry=textPrompt;input.anyKey=!textPrompt;input.keys={8,13,27};
+  h.dialog=std::make_shared<const DialogInput>(input);
+  h.run("modifier release preserves held modal text/unmatched repeats",[textPrompt](auto &h){
+   if(h.stage==0)h.key(SDLK_z,SDL_KEYDOWN,0,100,KMOD_SHIFT);
+   else if(h.stage==1){h.check(h.delivered.size()==1,"modal initial make lost");h.key(SDLK_LSHIFT,SDL_KEYUP,0,100,KMOD_SHIFT);h.clock=500000000;}
+   else if(h.stage==2){h.check(h.delivered==std::vector<char>(2,textPrompt?'t':'K'),"modifier release erased the held modal press");h.key(SDLK_z,SDL_KEYUP);}
+   else if(h.stage==4){h.check(h.delivered.size()==2,"modal key release made another input");h.quit();}
+  });
+ }
+ QueueHarness fifo;fifo.retainEventKeys=true;fifo.queueable=false;
+ DialogInput wait;wait.anyKey=true;fifo.dialog=std::make_shared<const DialogInput>(wait);
+ fifo.run("modal Event uses the ten-key FIFO",[](auto &h){
+  if(h.stage==0)for(unsigned n=0;n<11;++n)h.tap(SDLK_z);
+  else if(h.stage==1)h.ready=true;
+  else if(h.stage==14){h.check(h.delivered==std::vector<char>(10,'K'),"modal FIFO must retain ten and drop the eleventh make");h.quit();}
+ });
+ QueueHarness text;text.screen=MainScreen::Exploration;text.retainEventKeys=true;
+ text.run("retained letters enter an Event text prompt",[](auto &h){
+  if(h.stage==0){h.tap(SDLK_a);h.tap(SDLK_b);h.tap(SDLK_RETURN);}
+  else if(h.stage==1){DialogInput input;input.textEntry=true;input.keys={8,13,27};
+   h.dialog=std::make_shared<const DialogInput>(input);h.screen=MainScreen::None;h.queueable=false;++h.context;h.ready=true;h.redraw=true;}
+  else if(h.stage==7){h.check(h.delivered==std::vector<char>{'t','t',13},"buffered text or modal completion was lost");h.quit();}
+ });
+}
+void eitherMouseButton() {
+ struct Target {MainScreen screen;int x,y;std::shared_ptr<const DialogInput> dialog;};
+ DialogInput button;button.keys={'y',InputKey::Escape};button.hits={{10,10,30,30,'y'}};
+ DialogInput text;text.textEntry=true;text.keys={8,13,27,127};
+ const std::vector<Target> targets{{MainScreen::Exploration,235,75,{}},{MainScreen::Exploration,10,150,{}},
+  {MainScreen::Exploration,8,8,{}},{MainScreen::Combat,239,27,{}},
+  {MainScreen::None,10,10,std::make_shared<const DialogInput>(button)},
+  {MainScreen::None,10,10,std::make_shared<const DialogInput>(text)}};
+ for(const auto &t:targets) {
+  QueueHarness h;h.ready=true;h.screen=t.screen;h.dialog=t.dialog;h.queueable=!bool(t.dialog);
+  std::vector<std::size_t> actions;h.observeAction=[&](const auto &a){actions.push_back(a.index());};
+  h.run("either mouse button follows coordinates",[&](auto &h){
+   if(h.stage==0)h.click(t.x,t.y,SDL_BUTTON_LEFT,100);
+   else if(h.stage==2)h.click(t.x,t.y,SDL_BUTTON_RIGHT,100);
+   else if(h.stage==4){h.check(t.dialog && t.dialog->textEntry?actions.empty():actions.size()==2 && actions[0]==actions[1],"DOS right/left parity");
+    if(t.dialog && t.dialog->textEntry){h.tap(SDLK_DELETE,100);h.tap(SDLK_F11,100);h.tap(SDLK_F12,100);} }
+   else if(h.stage==6){if(t.dialog && t.dialog->textEntry)h.check(actions.empty(),"no-code key reached text input");h.quit();}
+  });
+ }
+}
 void wordInputBoundaries() {
  QueueHarness h;h.queueable=false;h.ready=true;h.screen=MainScreen::None;
  DialogInput input;input.textEntry=true;input.keys={8,13,27};h.dialog=std::make_shared<const DialogInput>(input);
@@ -154,21 +314,24 @@ void wordInputBoundaries() {
   else if(h.stage==1) {h.check(h.delivered.empty(),"stale text entered prompt");type(100);h.tap(SDLK_UP,100);h.tap(SDLK_b,100);}
   else if(h.stage==2) {h.check(h.delivered==std::vector<char>{'t'},"typed letters leaked to gameplay");h.click(60,170,SDL_BUTTON_LEFT,100);}
   else if(h.stage==3) {h.check(h.delivered==std::vector<char>{'t'},"left click submitted text");h.click(60,170,SDL_BUTTON_RIGHT,100);}
-  else if(h.stage==4) {h.check(h.delivered==std::vector<char>{'t','E'},"right click did not cancel");
+  else if(h.stage==4) {h.check(h.delivered==std::vector<char>{'t'},"Part 0: right click must leave text unchanged");
    h.dialog.reset();h.queueable=true;h.screen=MainScreen::Exploration;++h.context;type(100);h.redraw=true;}
-  else if(h.stage==5) {h.check(h.delivered==std::vector<char>{'t','E'},"retired prompt text leaked into exploration");h.tap(SDLK_UP,100);}
-  else if(h.stage==7) {h.check(h.delivered==std::vector<char>{'t','E','W'},"exploration did not regain input");h.quit();}
+  else if(h.stage==5) {h.check(h.delivered==std::vector<char>{'t'},"retired prompt text leaked into exploration");h.tap(SDLK_UP,100);}
+  else if(h.stage==7) {h.check(h.delivered==std::vector<char>{'t','W'},"exploration did not regain input");h.quit();}
  });
 }
-void navigationWaitCompletesBeforeAnotherDraw() {
+void inputWaitCompletesBeforeAnotherDraw() {
+ for(const auto [code,expected]:std::vector<std::pair<SDL_Keycode,char>>{
+     {SDLK_UP,'W'},{SDLK_w,'.'},{SDLK_PERIOD,'?'},{SDLK_F9,'9'},{SDLK_ESCAPE,'E'}})
  for(bool held:{false,true}) {
-  QueueHarness h;h.screen=MainScreen::Exploration;h.navigationDrawPending=true;
-  h.duringPresentation=[&] {if(h.presentations==3){h.ready=true;h.navigationDrawPending=false;}};
-  h.run(held?"held-navigation-draw-boundary-poll":"fresh-navigation-draw-boundary-poll",[held](auto &h){
-   if(h.stage==0){if(held)h.key(SDLK_UP);else h.tap(SDLK_UP);}
+  QueueHarness h;h.screen=MainScreen::Exploration;h.retainEventKeys=true;
+  h.navigationDrawPending=code==SDLK_UP;h.actionDrawPending=code!=SDLK_UP;
+  h.duringPresentation=[&] {if(h.presentations==3){h.ready=true;h.navigationDrawPending=h.actionDrawPending=false;}};
+  h.run("input-draw-boundary-poll",[held,code,expected](auto &h){
+   if(h.stage==0){if(held)h.key(code);else h.tap(code);}
    else {
-    h.check(h.delivered==std::vector<char>{'W'},"another semantic idle draw ran while navigation awaited only draw completion");
-    h.key(SDLK_UP,SDL_KEYUP);h.quit();
+    h.check(h.delivered==std::vector<char>{expected},"another semantic idle draw ran while input awaited only draw completion");
+    h.key(code,SDL_KEYUP);h.quit();
    }
   });
  }
@@ -207,9 +370,9 @@ void pressedButtonFeedback(){
   else if(h.stage==2)h.click(10,10,SDL_BUTTON_LEFT,100);
   else if(h.stage==3)h.check(h.delivered==std::vector<char>{'e','e'},"mouse feedback action");
   else if(h.stage==4){h.tap(SDLK_e,99);h.key(SDLK_e,SDL_KEYDOWN,1,100);h.click(10,10,SDL_BUTTON_RIGHT,100);h.click(30,10,SDL_BUTTON_LEFT,100);}
-  else if(h.stage==5){h.check(h.delivered==std::vector<char>{'e','e'},"ignored dialog input flashed/dispatched");h.quit();}
+  else if(h.stage==5){h.check(h.delivered==std::vector<char>{'e','e','e'},"Part 0: right press selects the same dialog button");h.quit();}
  });
- recordFeedback=false;verify(dialog,{1,1});
+ recordFeedback=false;verify(dialog,{1,1,1});
  for(auto screen:{MainScreen::Exploration,MainScreen::Combat}){
   for(unsigned index=0;index<16;++index){
    constexpr int columns[]{235,260,286};const int x=index==9?109:columns[index<9?index%3:(index-10)%3];
@@ -295,8 +458,8 @@ void mouseQueuePolicies(){
    else if(h.stage==3){h.check(h.delivered.empty(),"strict mouse action");h.quit();}});
  }
  QueueHarness ignore;ignore.screen=MainScreen::Exploration;ignore.ready=true;
- ignore.run("right-click-and-letterbox-ignored",[](auto &h){if(h.stage==0){h.click(100,50,SDL_BUTTON_RIGHT);h.click(-1,75);h.click(320,75);}
-  else if(h.stage==3){h.check(h.delivered.empty(),"right/outside click action");h.quit();}});
+ ignore.run("right-click-view-and-letterbox-ignored",[](auto &h){if(h.stage==0){h.click(100,50,SDL_BUTTON_RIGHT);h.click(-1,75);h.click(320,75);}
+  else if(h.stage==3){h.check(h.delivered==std::vector<char>{' '},"Part 0: right view click equals left; outside clicks ignored");h.quit();}});
 }
 
 void mouseHitAreas(){
@@ -307,7 +470,7 @@ void mouseHitAreas(){
   {286,75,310,95,RestAction{},AttackAction{}},{235,96,259,116,BashAction{},UseItemAction{}},
   {260,96,284,116,u("Dismiss"),RevisitCompletedAction{}},{286,96,310,116,QuestsAction{},BlockAction{}},
   {235,117,259,137,MapAction{},QuickFightOptionsAction{}},{260,117,284,137,InfoAction{},InfoAction{}},
-  {286,117,310,137,QuickReferenceAction{},QuickReferenceAction{}},{109,137,122,147,ControlPanelAction{},ControlPanelAction{}},
+  {286,117,310,137,QuickReferenceAction{},QuickReferenceAction{}},
   {235,148,259,168,NavigationAction::TurnLeft,NavigationAction::TurnLeft},
   {260,148,284,168,NavigationAction::MoveForward,NavigationAction::MoveForward},
   {286,148,310,168,NavigationAction::TurnRight,NavigationAction::TurnRight},
@@ -351,6 +514,11 @@ void mouseHitAreas(){
     check(!equal(xeenMainScreenClick(p.first,p.second,screen),expected));
    }
   }
+  for(auto screen:{MainScreen::Exploration,MainScreen::Combat})for(int x:{109,121})for(int y:{137,140,141,146}) {
+   const auto p=logical(x,y);const auto click=xeenMainScreenClick(p.first,p.second,screen);
+   if(screen==MainScreen::Exploration && y<=140)check(click && std::get<InteractionAction>(*click).openPanel);
+   else check(click && std::holds_alternative<ControlPanelAction>(*click));
+  }
   for(unsigned row=0;row<3;++row)for(const int x:{239,311})for(const int y:{27+int(row)*10,36+int(row)*10}){
    const auto p=logical(x,y);const auto action=xeenMainScreenClick(p.first,p.second,MainScreen::Combat);
    check(action && std::get<SelectInventorySlotAction>(*action).slot==row);
@@ -360,10 +528,10 @@ void mouseHitAreas(){
   for(const auto point:std::vector<std::pair<int,int>>{{238,27},{312,27},{239,26},{239,57}}){
    const auto p=logical(point.first,point.second);check(!xeenMainScreenClick(p.first,p.second,MainScreen::Combat));
   }
-  for(const auto point:std::vector<std::pair<int,int>>{{8,8},{223,8},{8,139},{223,139}}){
+  for(const auto point:std::vector<std::pair<int,int>>{{8,8},{224,8},{8,135},{224,135}}){
    const auto p=logical(point.first,point.second);check(equal(xeenMainScreenClick(p.first,p.second,MainScreen::Exploration),InteractionAction{}));
   }
-  for(const auto point:std::vector<std::pair<int,int>>{{7,8},{8,7},{224,139},{8,140}}){
+  for(const auto point:std::vector<std::pair<int,int>>{{7,8},{8,7},{225,135},{8,136},{8,140}}){
    const auto p=logical(point.first,point.second);check(!xeenMainScreenClick(p.first,p.second,MainScreen::Exploration));
   }
   SDL_DestroyRenderer(renderer);SDL_DestroyWindow(window);SDL_Quit();
@@ -421,13 +589,13 @@ void callerEscapeAndAcknowledgment() {
    event.button.button=SDL_BUTTON_RIGHT;
    if(SDL_PeepEvents(&event,1,SDL_ADDEVENT,0,0)!=1)throw std::runtime_error("right chord release");
   }
-  else if(h.stage==7){h.check(h.delivered==std::vector<char>{'E','E','E'},"right/combined/Escape bypassed active caller");h.quit();}
+  else if(h.stage==7){h.check(h.delivered==std::vector<char>{'E','y'},"Part 0: outside right ignored, Escape cancels, either button on Yes selects Yes");h.quit();}
  });
  QueueHarness generic;generic.ready=true;generic.queueable=false;
  DialogInput wait;wait.anyKey=wait.anyClick=wait.keyMouseWait=true;
  generic.dialog=std::make_shared<const DialogInput>(wait);
  generic.run("generic-ordinary-key-either-mouse-and-Escape",[](auto &h) {
-  if(h.stage==0){h.tap(SDLK_RALT,100);h.tap(SDLK_NUMLOCKCLEAR,100);h.tap(SDLK_SCROLLLOCK,100);}
+  if(h.stage==0){h.tap(SDLK_RALT,100);}
   else if(h.stage==1){h.check(h.delivered.empty(),"modifier acknowledged generic wait");h.tap(SDLK_z,100);}
   else if(h.stage==3)h.click(0,0,SDL_BUTTON_LEFT,100);
   else if(h.stage==5)h.click(319,199,SDL_BUTTON_RIGHT,100);
@@ -451,7 +619,7 @@ void strafeAndSummaryKeys() {
   else if(h.stage==20)h.tap(SDLK_EQUALS,100);
   else if(h.stage==22)h.tap(SDLK_KP_EQUALS,100);
   else if(h.stage==24)h.click(236,11,SDL_BUTTON_LEFT,100);
-  else if(h.stage==26){h.check(h.delivered==std::vector<char>{'L','T','L','T','L','T','Q','I','M','M','=','=','='},("strafe, summaries and Map keyboard/mouse parity: "+std::string(h.delivered.begin(),h.delivered.end())).c_str());h.quit();}
+  else if(h.stage==26){h.check(h.delivered==std::vector<char>{'A','D','L','T','L','T','Q','I','M','M','=','=','='},("strafe, summaries and Map keyboard/mouse parity: "+std::string(h.delivered.begin(),h.delivered.end())).c_str());h.quit();}
  });
  QueueHarness modal;modal.ready=true;modal.screen=MainScreen::Exploration;
  modal.run("summary-held-opener-and-fresh-dismissal",[](auto &h){
@@ -460,7 +628,7 @@ void strafeAndSummaryKeys() {
    h.check(h.delivered==std::vector<char>{'Q'},"summary opener missing");
    DialogInput input;input.anyKey=input.anyClick=input.keyMouseWait=true;h.dialog=std::make_shared<const DialogInput>(std::move(input));
    h.queueable=false;++h.context;h.redraw=true;
-  } else if(h.stage==3){h.key(SDLK_q,SDL_KEYDOWN,1,100);h.key(SDLK_q,SDL_KEYDOWN,0,100);h.tap(SDLK_LSHIFT,100);h.tap(SDLK_CAPSLOCK,100);}
+  } else if(h.stage==3){h.key(SDLK_q,SDL_KEYDOWN,1,100);h.key(SDLK_q,SDL_KEYDOWN,0,100);h.tap(SDLK_LSHIFT,100);}
   else if(h.stage==4){h.check(h.delivered==std::vector<char>{'Q'},"held opener dismissed summary");h.key(SDLK_q,SDL_KEYUP,0,100);h.tap(SDLK_q,100);}
   else if(h.stage==6){h.check(h.delivered==std::vector<char>{'Q','K'},"fresh summary dismissal missing");h.quit();}
  });
@@ -480,12 +648,12 @@ void boundedQueuePolicies(){
  {QueueHarness h;h.screen=MainScreen::Exploration;h.run("modified arrows strafe or retain their refusal",[](auto &h){
   if(h.stage==0)for(auto code:{SDLK_LEFT,SDLK_RIGHT,SDLK_DOWN,SDLK_UP}){h.key(code,SDL_KEYDOWN,0,99,KMOD_CTRL);h.key(code,SDL_KEYUP);}
   else if(h.stage==1)h.ready=true;
-  else if(h.stage==6){h.check(h.delivered==std::vector<char>{'L','T','U'},"Modified arrow strafe/refusal mapping");h.quit();}
+  else if(h.stage==6){h.check(h.delivered==std::vector<char>{'L','T','?','?'},"Modified arrow strafe/refusal mapping");h.quit();}
  });}
- QueueHarness{}.run("original exploration keys/no WASD-F aliases",[](auto &h){
+ QueueHarness{}.run("DOS W waits; A/F unmatched; Dismiss and Shoot",[](auto &h){
   if(h.stage==0)for(auto code:{SDLK_w,SDLK_a,SDLK_d,SDLK_f,SDLK_s})h.tap(code);
   else if(h.stage==1)h.ready=true;
-  else if(h.stage==4){h.check(h.delivered==std::vector<char>{'F'},"Original S Shoot or removed aliases");h.quit();}
+  else if(h.stage==7){h.check(h.delivered==std::vector<char>{'.','U','F'},"Part 0 W Wait, D Dismiss, S Shoot; no movement aliases");h.quit();}
  });
  {QueueHarness h;h.screen=MainScreen::Combat;h.run("original combat A/ignored S-Space-Enter",[](auto &h){
   if(h.stage==0)for(auto code:{SDLK_s,SDLK_SPACE,SDLK_RETURN,SDLK_a}){h.tap(code);h.key(code,SDL_KEYDOWN,1);h.key(code,SDL_KEYUP);}
@@ -638,11 +806,12 @@ void pushKey(std::atomic<bool> &finished, SDL_Keycode key, std::uint8_t repeat,
 int main(int argc,char **) {
 	probe_fired::expect("SDL_GetTicks");
  if(argc>1){journalKeys();mouseHitAreas();mouseQueuePolicies();strictDialogPolicies();pressedButtonFeedback();strafeAndSummaryKeys();quickFightKeys();combatButtonClicks();callerEscapeAndAcknowledgment();return 0;}
+ dosKeyTable();dosRepeatsAndClears();retainedEventRegressions();eitherMouseButton();
  semanticBoundaryKeys();
  boundedQueuePolicies();
  navigationObligations();
  navigationTypematic();
- wordInputBoundaries();navigationWaitCompletesBeforeAnotherDraw();
+ wordInputBoundaries();inputWaitCompletesBeforeAnotherDraw();
 	std::atomic<bool> finished{false};
 	std::atomic<int> interactions{0};
 	std::atomic<int> navigation{0};

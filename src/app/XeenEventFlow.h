@@ -265,10 +265,11 @@ private:
 	bool _explorationPass = false;
 	struct ManualInput {
         std::optional<PlayerAction> action;
-        unsigned clears=0;
     };
     std::optional<ManualInput> _manualInput;
     bool _continuingManual=false;
+    std::uint64_t _keyboardClear=0, _mouseClear=0, _mapLoadInputGeneration=0;
+    unsigned _eventInputClears=0;
     void clearManualInput(unsigned site);
     void replaceManualInput(const PlayerAction &);
     XeenPresentationUpdate handleEventResponse(const PlayerAction &);

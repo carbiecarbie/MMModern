@@ -118,7 +118,7 @@ void original(const char *path){
      for(unsigned page=0;page<4;++page) {
          const auto before=pages.frame().pixels;pages.rebase(base);check(pages.frame().pixels==before,"treasure rebase retains exact page");
          const auto input=pages.input();
-         const auto action=inputKind==0?input.key('z'):inputKind==1?input.click(0,0):input.rightClick();
+         const auto action=inputKind==0?input.key('z'):inputKind==1?input.click(0,0):input.click(0,0);
          check(action.has_value(),"ordinary key/either mouse treasure acknowledgment");
          const auto update=pages.handle(*action);
          check(bool(update.response)==(page==3),"warning/item acknowledgment cannot finish treasure");

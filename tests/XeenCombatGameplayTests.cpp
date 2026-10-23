@@ -333,7 +333,7 @@ void sdl() {
    auto frame=idle();
    if(idles>100)throw std::runtime_error("SDL combat test timed out");
    switch(stage++){
-    case 0:key(SDLK_PERIOD);break;
+    case 0:key(SDLK_w);break; // Part 0: W waits; period is unmatched.
     case 1:break;
     case 2:check(h.phase()==Phase::PlayerReady,"SDL handoff");break;
     case 3:key(SDLK_b);key(SDLK_b,SDL_KEYDOWN,1);key(SDLK_b,SDL_KEYUP);key(SDLK_b);break;

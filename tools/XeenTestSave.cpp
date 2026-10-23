@@ -117,6 +117,16 @@ void prepare(XeenSaveSnapshot &snapshot,const std::string &preset) {
     auto &journey=*snapshot.journey;
     const auto first=snapshot.activeRosterIds.at(0),second=snapshot.activeRosterIds.at(1);
     auto &member=snapshot.characters[first];
+    if(preset=="m84-playtest-trap" || preset=="m84-playtest-label" || preset=="m84-playtest-save") {
+        prepare(snapshot,"m78-playtest");
+        snapshot.camera=preset=="m84-playtest-trap"?XeenCamera{26,8,3,XeenDirection::North}:
+            preset=="m84-playtest-label"?XeenCamera{28,13,4,XeenDirection::West}:XeenCamera{25,27,3,XeenDirection::North};
+        for(auto owner:snapshot.activeRosterIds) {
+            snapshot.characters[owner].currentHp=1000;
+            snapshot.characters[owner].conditions.fill(0);
+        }
+        return;
+    }
     if(preset=="m81-drops" || preset=="m81-fullpacks" || preset=="m81-event") {
         // The M78 party; map-3 camera and monsters are placed by generateTestSave.
         prepare(snapshot,"m78-playtest");
@@ -380,7 +390,7 @@ void prepare(XeenSaveSnapshot &snapshot,const std::string &preset) {
 
 void generateTestSave(const GameInstallation &installation,const std::string &preset,
         const std::filesystem::path &output) {
-    if (preset!="broken-armor" && preset!="train-ready" && preset!="injured-dead" && preset!="poisoned" && preset!="monster-control" && preset!="monster-damage" && preset!="party-healing" && preset!="m76-spells" && preset!="combat-items" && preset!="m78-playtest" && preset!="m78-one-holder" && preset!="m79-playtest" && preset!="m80-playtest" && preset!="m80-arena" && preset!="m80-arena-maxed" && preset!="m81-drops" && preset!="m81-fullpacks" && preset!="m81-event")
+    if (preset!="broken-armor" && preset!="train-ready" && preset!="injured-dead" && preset!="poisoned" && preset!="monster-control" && preset!="monster-damage" && preset!="party-healing" && preset!="m76-spells" && preset!="combat-items" && preset!="m78-playtest" && preset!="m78-one-holder" && preset!="m79-playtest" && preset!="m80-playtest" && preset!="m80-arena" && preset!="m80-arena-maxed" && preset!="m81-drops" && preset!="m81-fullpacks" && preset!="m81-event" && preset!="m84-playtest-trap" && preset!="m84-playtest-label" && preset!="m84-playtest-save")
         throw std::invalid_argument("Unknown test-save preset: "+preset);
     const auto target=XeenSaveFile::resolve(output,installation);
     // Reuse the native alias/reparse-aware path guard for the repository too.
@@ -400,12 +410,16 @@ void generateTestSave(const GameInstallation &installation,const std::string &pr
             nearby.lifecycle=XeenActorLifecycle::Present;nearby.accounted=false;
         }
     }
-    if(preset=="m79-playtest" || preset=="m80-playtest" || preset=="m80-arena" || preset=="m80-arena-maxed") {
+    if(preset=="m79-playtest" || preset=="m80-playtest" || preset=="m80-arena" || preset=="m80-arena-maxed" || preset.rfind("m84-playtest-",0)==0) {
         const auto map=candidate.camera.mapId;
         const auto actors=XeenActorApproach::actorsFromResources(inputs.maps.loadObjects(inputs.assets,map),inputs.resources.loadMonsterStatistics());
         auto &table=candidate.map(map).monsters;
         table.emplace(XeenSaveMonsterTable{std::uint16_t(actors.size()),{}});
         for(const auto &actor:actors)table->slots.push_back({actor.x,actor.y,actor.lifecycle,actor.status,false,-1});
+        // Keep the input/Event witnesses quiet for repeated key and Save/Load checks.
+        if(preset.rfind("m84-playtest-",0)==0)for(auto &state:candidate.maps)if(state.monsters)for(auto &actor:state.monsters->slots) {
+            actor.x=actor.y=-128;actor.lifecycle=XeenActorLifecycle::Defeated;actor.accounted=true;
+        }
     }
     if(preset=="m81-drops" || preset=="m81-fullpacks") {
         // Map 3's first two Barbarians (drop field 4, guaranteed) and first Ninja

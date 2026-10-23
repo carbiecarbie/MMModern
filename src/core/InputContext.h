@@ -18,6 +18,13 @@ struct InputContext {
     bool readyForNavigation=false;
     // Navigation has every authority fence; only the current draw wait remains.
     bool navigationDrawPending=false;
+    // Explicit DOS keyboard-clear sites, independent of presentation changes.
+    std::uint64_t keyboardClear=0;
+    bool retainEventKeys=false;
+    unsigned partySize=6;
+    std::uint64_t mouseClear=0;
+    // Ordinary actions have every authority fence; only the draw wait remains.
+    bool actionDrawPending=false;
 };
 }
 #endif

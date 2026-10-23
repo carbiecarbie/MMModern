@@ -1,3 +1,4 @@
+#include <limits>
 #include "games/xeen/XeenWorld.h"
 #include "games/xeen/XeenActorApproach.h"
 #include "games/xeen/XeenRegionalRules.h"
@@ -73,13 +74,16 @@ XeenTransitionResult XeenWorld::prepareEventTransition(const XeenCamera &request
 	return {XeenTransitionResult::Status::Available,destination,{}};
 }
 
-void XeenWorld::loadEventDestination(XeenMapIdentity from,XeenMapIdentity to) {
+void XeenWorld::loadEventDestination(XeenMapIdentity from,XeenMapIdentity to,bool clearKeyboard) {
     if(!_detachedEventCandidate)throw std::logic_error("Event map load requires a detached candidate");
+    if(clearKeyboard && _inputMapLoadGeneration==std::numeric_limits<std::uint64_t>::max())
+        throw std::overflow_error("Map input generation exhausted");
     if(!sessionState().hasRegionalActors(to))stageMapMonsters(objectFile(to),_cityStatistics);
     leaveMap(from);
     reloadMapMonsters(to);
     reloadHeads(to);
     _scenePresentation.markLightingStep();
+    if(clearKeyboard)++_inputMapLoadGeneration;
 }
 
 XeenActorView XeenWorld::prepareTransitionArrival(const XeenCamera &camera) {

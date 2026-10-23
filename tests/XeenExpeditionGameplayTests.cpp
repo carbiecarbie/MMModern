@@ -99,12 +99,14 @@ void controls(const fs::path &path) {
    auto *c=h.flow->encounter()->combat();
    switch(stage++){
    case 0:key(SDLK_UP);key(SDLK_UP,SDL_KEYUP);break;
-   case 1:check(c&&c->phase()==Phase::PlayerReady,"SDL automatic attachment");rng=h.world->sessionState().journeyRandom()->count;participant=c->participant();key(SDLK_2);key(SDLK_a);key(SDLK_a,SDL_KEYUP);key(SDLK_F9);key(SDLK_F9,SDL_KEYUP);break;
+   case 1:check(c&&c->phase()==Phase::PlayerReady,"SDL automatic attachment");rng=h.world->sessionState().journeyRandom()->count;participant=c->participant();key(SDLK_2);key(SDLK_2,SDL_KEYUP);key(SDLK_a);key(SDLK_a,SDL_KEYUP);key(SDLK_F9);key(SDLK_F9,SDL_KEYUP);break;
    case 2:if(queuedAttacks!=1 || c->phase()!=Phase::PlayerReady){--stage;break;}
     check(c->selectedTarget()==XeenMonsterIdentity{23,16}&&h.world->sessionState().journeyRandom()->count>rng&&h.saves==0,"SDL selection queues Space once and refuses F9");
     rng=h.world->sessionState().journeyRandom()->count;participant=c->participant();key(SDLK_1);key(SDLK_1,SDL_KEYUP);break;
-   case 3:check(c->selectedTarget()==XeenMonsterIdentity{23,9},"SDL fresh target row");key(SDLK_2);key(SDLK_2,SDL_KEYDOWN,1);break;
-   case 4:check(c->selectedTarget()==XeenMonsterIdentity{23,9}&&h.world->sessionState().journeyRandom()->count==rng,"SDL held/repeated target cannot select replacement");key(SDLK_2,SDL_KEYUP);break;
+   // Part 0: held non-navigation keys now repeat. Use distinct row taps here;
+   // typematic timing and host-repeat suppression are covered by sdl_input.
+   case 3:check(c->selectedTarget()==XeenMonsterIdentity{23,9},"SDL fresh target row");key(SDLK_2);key(SDLK_2,SDL_KEYDOWN,1);key(SDLK_2,SDL_KEYUP);break;
+   case 4:check(c->selectedTarget()==XeenMonsterIdentity{23,16}&&h.world->sessionState().journeyRandom()->count==rng,"SDL target tap selects replacement without a turn");break;
    case 5:key(SDLK_2);key(SDLK_2,SDL_KEYUP);break;
    default:check(c->selectedTarget()==XeenMonsterIdentity{23,16}&&c->participant()==participant,"released fresh target accepted without turn");{SDL_Event e{};e.type=SDL_QUIT;SDL_PushEvent(&e);}break;
    }return frame;};

@@ -97,9 +97,13 @@ XeenEventFlow::SaveBoundary XeenEventFlow::beginSave() {
 	return boundary;
 }
 InputContext XeenEventFlow::inputContext(const IndexedFrame::Presentation &origin) {
+    if(_mapLoadInputGeneration!=_world.inputMapLoadGeneration()) {
+        _mapLoadInputGeneration=_world.inputMapLoadGeneration();
+        clearManualInput(0xf590);
+    }
     const auto *combat = _encounter ? _encounter->combat() : nullptr;
     // Panels are strict throughout their lifetime, including preparation/result work.
-    const unsigned panel = _travelUi ? 17 : _death ? 16 : _encounter && !_encounter->_combatCastRefusal.empty() ? 15 : !_whoWillRefusal.empty() ? 14 : _quickFightMember ? 13 : _summary ? 12 : _encounter && _encounter->_rest ? 11 : _encounter && _encounter->_needsRestNotice ? 10 : _fatal ? 1 : _trainingUi ? 2 : _smithUi ? 3 : inventoryOpen() ? 4 :
+    unsigned panel = _travelUi ? 17 : _death ? 16 : _encounter && !_encounter->_combatCastRefusal.empty() ? 15 : !_whoWillRefusal.empty() ? 14 : _quickFightMember ? 13 : _summary ? 12 : _encounter && _encounter->_rest ? 11 : _encounter && _encounter->_needsRestNotice ? 10 : _fatal ? 1 : _trainingUi ? 2 : _smithUi ? 3 : inventoryOpen() ? 4 :
         (_castingUi || (combat && combat->cast())) ? 5 :
         (_pending || _transition || (_encounter && _encounter->journeyEvent())) ? 6 :
         (_encounter && _encounter->monsterReward()) ? 7 :
@@ -108,11 +112,14 @@ InputContext XeenEventFlow::inputContext(const IndexedFrame::Presentation &origi
             combat->phase() == XeenCombatPhase::Defeat || combat->phase() == XeenCombatPhase::SupportStopped ||
             combat->phase() == XeenCombatPhase::Failed)) ? 8 :
         (_encounter && !_encounter->combat() && _encounter->state().phase() != XeenEncounterPhase::Exploring) ? 9 : 0;
+    // Non-modal Event work is still the exploration keyboard context. It may
+    // suspend for animation or publication without clearing subsequent taps.
+    if(panel==6 && !_presenter.blocksGameplay() && !_serviceEventOwner)panel=0;
     const QueueContext context{_camera.mapId, panel, combat,
         _quickFightMember ? 500+*_quickFightMember : _summary ? 400+unsigned(*_summary) : inventoryOpen() ? (_exchange ? 6 : _dialogError ? 5 : _statPopup ? 4 : _itemOption ? 3 : _sheet && !_itemsVisible ? 2 : 1) :
         _smithUi ? 100+unsigned(_smithUi->phase)*8+unsigned(_smithUi->mode)+(!_smithUi->feedback.empty()?1000:0) :
         _trainingUi ? 200+unsigned(_trainingUi->phase)+(!_trainingUi->feedback.empty()?1000:0) :
-        _encounter && _encounter->_rest ? 300+unsigned(_encounter->_rest->phase) : _pending ? _pending->generation :
+        _encounter && _encounter->_rest ? 300+unsigned(_encounter->_rest->phase) : panel==6 && _pending ? _pending->generation :
         _encounter && _encounter->monsterReward()?600+4*_encounter->_monsterReceipt->cursor+unsigned(_encounter->_monsterReceipt->phase):0};
     if (!_queueContext || !(*_queueContext == context)) {
         if (_queueContextId == std::numeric_limits<std::uint64_t>::max()) throw std::overflow_error("Input context exhausted");
@@ -153,7 +160,7 @@ InputContext XeenEventFlow::inputContext(const IndexedFrame::Presentation &origi
     auto dialog=_smithUi || _trainingUi ? serviceDialogInput() : characterDialogInput();
     if(_castingUi || (combat && combat->cast()))dialog=castingDialogInput();
     if(_travelUi) {
-        DialogInput input;input.textEntry=true;input.keys={InputKey::Enter,InputKey::Escape,8,127,'0','1','2','3','4','5','6','7','8','9'};
+        DialogInput input;input.textEntry=true;input.keys={InputKey::Enter,InputKey::Escape,8,'0','1','2','3','4','5','6','7','8','9'};
         if(_travelUi->spell==XeenLearnedSpell::LloydsBeacon) {
             input.textEntry=false;input.keys={InputKey::Escape,'s','t','r'};
             input.hits={{242,108,266,128,'t',InputButton{"lloyds.icn",2,242,108}},
@@ -213,6 +220,7 @@ InputContext XeenEventFlow::inputContext(const IndexedFrame::Presentation &origi
     const bool drawFinished=worldQueueable && (ready || navigationReady || restReady) &&
         presentationNow()>=_ordinary.deadline;
     const bool navigationDrawPending=navigationReady && !dialog && !drawFinished;
+    const bool actionDrawPending=worldQueueable && ready && !dialog && !drawFinished;
     navigationReady=navigationReady && !dialog && drawFinished;
     if(worldQueueable)ready=ready && drawFinished;
     if(_pending && dialog && dialog->anyKey) {
@@ -221,7 +229,7 @@ InputContext XeenEventFlow::inputContext(const IndexedFrame::Presentation &origi
     }
     return {_queueContextId, queueable, ready, journey() && worldQueueable ?
         (combat ? MainScreen::Combat : MainScreen::Exploration) : MainScreen::None,std::move(dialog),hideCursor,restReady,
-        navigationReady,navigationDrawPending};
+        navigationReady,navigationDrawPending,_keyboardClear,!combat && (panel==0 || panel==6),unsigned(_party.party.size()),_mouseClear,actionDrawPending};
 }
 std::uint64_t XeenEventFlow::presentationNow() {
     requireCurrentOwners();
@@ -528,12 +536,19 @@ bool XeenEventFlow::explorationInputPending() const {
   (!journey() || (!_encounter->_needsRestNotice && !_encounter->_rest && !_encounter->monsterReward()));
 }
 void XeenEventFlow::clearManualInput(unsigned site) {
- if(!_manualInput)return;
- if(observeEventInputClear)observeEventInputClear(site,_manualInput->action);
+ if(_manualInput && observeEventInputClear)observeEventInputClear(site,_manualInput->action);
  requireCurrentOwners();
  if(eventInputClearForAudit && !eventInputClearForAudit(site)) {requireCurrentOwners();return;}
- _manualInput->action.reset();
+ if(site==0x25ac7) {
+  if(_mouseClear==std::numeric_limits<std::uint64_t>::max())throw std::overflow_error("Mouse clear identity exhausted");
+  ++_mouseClear;
+ } else if(site!=0xc911) {
+  if(_keyboardClear==std::numeric_limits<std::uint64_t>::max())throw std::overflow_error("Keyboard clear identity exhausted");
+  ++_keyboardClear;
+ }
+ if(_manualInput)_manualInput->action.reset();
 }
+
 void XeenEventFlow::replaceManualInput(const PlayerAction &action) {
  if(!_manualInput)return;
  if(observeManualResponse)observeManualResponse(action);
@@ -570,7 +585,7 @@ void XeenEventFlow::replaceManualInput(const PlayerAction &action) {
  _manualInput->action=action;
 }
 void XeenEventFlow::clearManualPresentationInput() {
- if(!_manualInput || !_pending || !_pending->state.pendingPresentation)return;
+ if(!_pending || !_pending->state.pendingPresentation)return;
  const auto &request=_pending->state.pendingPresentation->request;
  const auto page=std::make_pair(_pending->generation,_presenter.pageIndex());
  if(_manualPageClear==page)return;
@@ -644,7 +659,7 @@ bool XeenEventFlow::prepareExplorationPass() {
   return false;
  }
  _explorationPass=false;
- if(flagged) {drive(_events.runAutomaticEvent(_world,_party,_camera,_flags),true);return true;}
+ if(flagged) {_eventInputClears=0;drive(_events.runAutomaticEvent(_world,_party,_camera,_flags),true);return true;}
  return false;
 }
 
@@ -1386,15 +1401,16 @@ template<class Result> IndexedFrame XeenEventFlow::drive(Result result, bool aut
 		OrdinaryCause cause, bool committedTransition) {
 	requireCurrentOwners();
 	for (;;) {
-        if(_manualInput && !automatic) {
-            unsigned count=0,site=0;
-            if(const auto *pending=std::get_if<XeenEventExecutionSuspended>(&result)) {
-                count=pending->state.inputClearCount;site=pending->state.inputClearSite;
-            } else if constexpr(std::is_same_v<Result,XeenManualEventResult>) {
-                if(const auto *done=std::get_if<XeenManualEventCompleted>(&result)) {count=done->inputClearCount;site=done->inputClearSite;}
-            }
-            if(count>_manualInput->clears) {_manualInput->clears=count;clearManualInput(site);}
+        unsigned count=0,site=0;
+        if(const auto *pending=std::get_if<XeenEventExecutionSuspended>(&result)) {
+            count=pending->state.inputClearCount;site=pending->state.inputClearSite;
+        } else if constexpr(std::is_same_v<Result,XeenManualEventResult>) {
+            if(const auto *done=std::get_if<XeenManualEventCompleted>(&result)) {count=done->inputClearCount;site=done->inputClearSite;}
+        } else {
+            if(const auto *done=std::get_if<XeenAutomaticEventCompleted>(&result)) {count=done->inputClearCount;site=done->inputClearSite;}
         }
+        if(count>_eventInputClears) {_eventInputClears=count;clearManualInput(site);}
+
 		if constexpr (std::is_same_v<Result, XeenManualEventResult>)
 			if (_transition) {
                 prepareDetachedResult(result);
@@ -1514,6 +1530,7 @@ XeenEventSystem XeenEventFlow::detachedEventResources() {
 }
 
 XeenManualEventResult XeenEventFlow::beginDetachedEvent(XeenRegionalInteraction kind, bool automatic) try {
+    _eventInputClears=0;
 	if (_transition || !_eventPublication || !_encounter->journeyEvent() ||
 		!_transitionCompose)
 		throw std::logic_error("Vertigo Event candidate is unavailable");
@@ -3028,7 +3045,9 @@ IndexedFrame XeenEventFlow::handleExplorationAction(const PlayerAction &physical
 			}
             if (const auto *interaction=std::get_if<InteractionAction>(&action)) {
                 if (!_encounter->journeyQuiet()) return frameCopy();
-                _manualInput=ManualInput{interaction->wait?std::optional<PlayerAction>{WaitAction{}}:std::nullopt,0};
+                _eventInputClears=0;
+                _manualInput=ManualInput{interaction->openPanel?std::optional<PlayerAction>{ControlPanelAction{}}:
+                    interaction->wait?std::optional<PlayerAction>{WaitAction{}}:std::nullopt};
                 if(beginBarrier(false)) {clearManualInput(0xc911);_manualInput.reset();return renderEncounter();}
                 _encounter->beginJourneyEvent();_journeyEventLayers=true;
                 return journeyEventWork([&] {
@@ -3092,6 +3111,7 @@ IndexedFrame XeenEventFlow::handleExplorationAction(const PlayerAction &physical
 		const auto beforeMovement = _camera;
 		auto result = _navigation.processNavigationAction(_world, _party, _camera,
 			_flags, *navigation);
+        if(beforeMovement.mapId!=_camera.mapId)clearManualInput(0xf590);
 		_world.scenePresentation().navigation(*navigation,result.movementResult==XeenMovementResult::Moved);
 		// Recompose cleared labels even after blocked movement, but only after
 		// drive adopts any suspension before refresh/report callbacks.
@@ -3104,7 +3124,9 @@ IndexedFrame XeenEventFlow::handleExplorationAction(const PlayerAction &physical
 		return frame;
 	}
 	if (const auto *interaction=std::get_if<InteractionAction>(&action)) {
-        _manualInput=ManualInput{interaction->wait?std::optional<PlayerAction>{WaitAction{}}:std::nullopt,0};
+        _eventInputClears=0;
+                _manualInput=ManualInput{interaction->openPanel?std::optional<PlayerAction>{ControlPanelAction{}}:
+                    interaction->wait?std::optional<PlayerAction>{WaitAction{}}:std::nullopt};
 		return drive(_navigation.processInteraction(_world, _party, _camera, _flags), false, true, OrdinaryCause::Action);
     }
 	refreshScene(true, OrdinaryCause::None);

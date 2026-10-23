@@ -34,7 +34,7 @@ struct SelectInventorySlotAction { std::size_t slot; };
 struct TransferInventoryAction {};
 struct EquipmentInventoryAction {};
 struct UseItemAction {};
-struct InteractionAction { bool wait = true; };
+struct InteractionAction { bool wait = true; bool openPanel = false; };
 struct AcknowledgeAction {};
 struct YesAction {};
 struct NoAction {};
@@ -44,12 +44,14 @@ struct CancelInteractionAction {};
 struct UnsupportedMainScreenAction { const char *label; };
 // Dialog intent on the existing action path; no rules live in SDL.
 struct DialogKeyAction { unsigned key; };
+// An exploration key with a DOS code but no mapped command. No game rules.
+struct ExplorationKeyAction { unsigned key; };
 struct TextInputAction { std::string text; };
 
 using PlayerAction = std::variant<NavigationAction, InteractionAction,
 	AcknowledgeAction, YesAction, NoAction, SelectMemberAction, CancelInteractionAction, SaveGameAction, InspectInventoryAction,
 	SelectInventorySlotAction, TransferInventoryAction, EquipmentInventoryAction, UseItemAction, WaitAction,
-	AttackAction, ShootAction, CastSpellAction, BlockAction, RunAction, SelectCombatTargetAction, BeginEncounterAction, RevisitCompletedAction, UnsupportedMainScreenAction, DialogKeyAction, BashAction, RestAction, TextInputAction, ControlPanelAction, QuickReferenceAction, InfoAction, QuickFightAction, QuickFightOptionsAction, MapAction, ToggleAutomapAction, QuestsAction>;
+	AttackAction, ShootAction, CastSpellAction, BlockAction, RunAction, SelectCombatTargetAction, BeginEncounterAction, RevisitCompletedAction, UnsupportedMainScreenAction, DialogKeyAction, BashAction, RestAction, TextInputAction, ControlPanelAction, QuickReferenceAction, InfoAction, QuickFightAction, QuickFightOptionsAction, MapAction, ToggleAutomapAction, QuestsAction, ExplorationKeyAction>;
 
 } // namespace mmodern
 

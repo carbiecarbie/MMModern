@@ -1,7 +1,10 @@
 #include "XeenRegionalSaveGameplayTestSupport.h"
 #include "games/xeen/XeenEventInterpreter.h"
 #include <iostream>
+#define SDL_MAIN_HANDLED
+#include <SDL.h>
 #include "app/XeenTitleFlow.h"
+#include "platform/sdl/XeenMainScreenInput.h"
 using namespace gameplay_test;
 namespace mmodern {
 struct XeenEventDispatchTestAccess {
@@ -37,7 +40,7 @@ struct Fixture {
 void outerInputs() {
  Fixture f;
  for(const PlayerAction &a:std::vector<PlayerAction>{WaitAction{},CancelInteractionAction{},NavigationAction::MoveForward,
-    NavigationAction::TurnLeft,RestAction{},CastSpellAction{},BashAction{},ShootAction{},UseItemAction{},UnsupportedMainScreenAction{"Dismiss"}}) {
+    NavigationAction::TurnLeft,RestAction{},CastSpellAction{},BashAction{},ShootAction{},UseItemAction{},ExplorationKeyAction{'.'},UnsupportedMainScreenAction{"Dismiss"}}) {
   const auto before=f.automatic;f.send(a);check(f.automatic==before+1,"one pass for completed non-Journey input or refusal");
  }
  const auto before=f.automatic;f.send(InfoAction{});check(f.automatic==before,"Info retains outer pass");
@@ -50,6 +53,24 @@ void manualAndFlags() {
  }
  Fixture f;f.flagged=false;f.world.discardMapCache();f.send(WaitAction{});check(!f.automatic,"unflagged Wait runs no automatic Event");
  f.send(InteractionAction{false});check(f.manual==1 && !f.automatic,"unflagged manual still runs");
+}
+void mouseViewAndPanel() {
+ // Part 0: the decoder includes x224/y135, while the outer manual predicate
+ // reaches the panel's y137..140 only after its Tab code has been decoded.
+ for(int y=137;y<=140;++y) {
+  Fixture f;unsigned panels=0;
+  f.flow.continueExplorationPanel=[&](const auto &)->std::optional<IndexedFrame> {
+   check(f.manual==1 && f.automatic==0,"manual Event must finish before opening the panel");++panels;return f.flow.frame();
+  };
+  const auto click=xeenMainScreenClick(109,y,MainScreen::Exploration);
+  check(click && std::get<InteractionAction>(*click).openPanel,"top panel rows enter manual path");
+  f.send(*click);check(panels==1 && f.automatic==0,"opening panel retains the input pass");
+  f.flow.completeExplorationInput();check(f.automatic==1,"closing panel makes its one pass");
+ }
+ Fixture f;const auto click=xeenMainScreenClick(224,135,MainScreen::Exploration);
+ check(click.has_value(),"inclusive DOS view corner");f.send(*click);
+ check(f.manual==1 && f.automatic==1,"view click runs manual plus pass without Wait");
+ for(int y=136;y<=140;++y)check(!xeenMainScreenClick(8,y,MainScreen::Exploration),"empty pixels supply no code");
 }
 void emptyCalls() {
  for(unsigned kind=0;kind<3;++kind) {
@@ -144,6 +165,95 @@ struct JourneyCase {
   };
  }
 };
+void queuedSdlEvents() {
+ for(unsigned kind=0;kind<3;++kind) {
+  JourneyCase t;t.script={record(9,11,0,0x02,{0}),kind==1?record(9,11,1,0x07,{23,9,11}):record(9,11,1,0x12)};
+  auto s=t.services();const auto configure=s.configureFlow;bool injected=false;unsigned settled=0,cycles=0;unsigned inputActions=0,finalMinutes=0;
+  s.configureFlow=[&,configure](auto &flow,const auto &camera){configure(flow,camera);const auto report=flow.reportManual;
+   flow.reportManual=[&,report](const auto &result){report(result);
+    if(kind<2 && !injected && std::holds_alternative<XeenEventExecutionSuspended>(result)) {
+     injected=true;
+     for(const auto key:{SDLK_PERIOD,SDLK_w})for(const auto type:{SDL_KEYDOWN,SDL_KEYUP}) {
+      SDL_Event e{};e.type=type;e.key.keysym.sym=key;e.key.timestamp=SDL_GetTicks();
+      check(SDL_PeepEvents(&e,1,SDL_ADDEVENT,0,0)==1,"queue taps inside executed non-modal Event");
+     }
+    }
+   };
+  };
+  quietMonsters(t.f.saved);XeenSaveFile::write(t.path,t.f.saved);
+  s.show=[&](const auto &first,const auto &handler,const auto &cancel,const auto &idle,const auto &status){
+   auto wrapped=handler;
+   wrapped.beginCycle=[&](auto cycle){t.f.now+=125;++cycles;check(cycles<500,"SDL Event test bounded");handler.beginCycle(cycle);};
+   wrapped.withPresentedInput=[&](const auto &a,auto token,const auto &origin){++inputActions;return handler.withPresentedInput(a,token,origin);};
+   return SdlWindow().showInteractive(first,"DOS Event queue",wrapped,cancel,[&]()->std::optional<IndexedFrame>{
+    auto frame=idle();
+    if(t.f.flow->canSave()) {
+     if(kind==2 && !injected && t.calls==1) {
+      injected=true;
+      for(const auto type:{SDL_MOUSEBUTTONDOWN,SDL_MOUSEBUTTONUP}) {
+       SDL_Event e{};e.type=type;e.button.button=SDL_BUTTON_RIGHT;e.button.x=8;e.button.y=8;
+       e.button.timestamp=SDL_GetTicks();check(SDL_PeepEvents(&e,1,SDL_ADDEVENT,0,0)==1,"right view click");
+      }
+     }
+     if(injected && ++settled>10) {finalMinutes=t.f.party->encounterContext->minutes;SDL_Event e{};e.type=SDL_QUIT;SDL_PushEvent(&e);}
+    }
+    return frame;
+   },status);
+  };
+  check(Application(s.program).playGameplay(s,{},t.path,true)==0,"production SDL Event queue completed");
+  check(injected && t.calls==(kind==1?1u:3u),"DOS non-modal taps survive; teleport clears; view click runs manual plus pass");
+  check(inputActions==(kind==1?0u:kind==2?1u:2u),"cleared keys or key releases made a pass");
+  check(finalMinutes==t.f.saved.journey->context->minutes+(kind==0?10:0),"only queued W waits; view click and cleared W do not");
+  std::filesystem::remove(t.path);
+ }
+}
+void bufferedWordPrompt() {
+ JourneyCase t;t.script={record(9,11,0,0x02,{0}),record(9,11,1,0x15,{1,3,0,0}),record(9,11,2,0x12),record(9,11,3,0x12)};
+ auto s=t.services();s.texts=[](auto id){auto text=regional_test::texts(id);text.strings[1]="A";return text;};s.resources.loadRegionalText=s.texts;
+ const auto configure=s.configureFlow;bool injected=false;unsigned cycles=0;std::string letters;unsigned confirms=0;
+ s.configureFlow=[&,configure](auto &flow,const auto &camera){configure(flow,camera);const auto report=flow.reportManual;
+  flow.reportManual=[&,report](const auto &result){report(result);
+   if(!injected && std::holds_alternative<XeenEventExecutionSuspended>(result)) {
+    injected=true;
+    for(const auto code:{SDLK_a,SDLK_RETURN})for(const auto type:{SDL_KEYDOWN,SDL_KEYUP}) {
+     SDL_Event e{};e.type=type;e.key.keysym.sym=code;e.key.timestamp=SDL_GetTicks();
+     check(SDL_PeepEvents(&e,1,SDL_ADDEVENT,0,0)==1,"type before the Event word prompt");
+    }
+   }
+  };
+ };
+ quietMonsters(t.f.saved);XeenSaveFile::write(t.path,t.f.saved);
+ s.show=[&](const auto &first,const auto &handler,const auto &cancel,const auto &idle,const auto &status){
+  auto native=handler;native.beginCycle=[&](auto cycle){check(++cycles<500,"buffered word prompt bounded");t.f.now+=125;handler.beginCycle(cycle);};
+  native.withPresentedInput=[&](const auto &action,auto token,const auto &origin){
+   if(const auto *text=std::get_if<TextInputAction>(&action))letters+=text->text;
+   if(const auto *key=std::get_if<DialogKeyAction>(&action);key && key->key==13)++confirms;
+   return handler.withPresentedInput(action,token,origin);
+  };
+  return SdlWindow().showInteractive(first,"Buffered Event word",native,cancel,[&]()->std::optional<IndexedFrame>{
+   auto frame=idle();if(t.calls==1 && t.f.flow->canSave()) {
+    check(letters=="a" && confirms==1,"retained printable make and Enter reach the modal reader once");
+    SDL_Event e{};e.type=SDL_QUIT;SDL_PushEvent(&e);
+   }return frame;
+  },status);
+ };
+ check(Application(s.program).playGameplay(s,{},t.path,true)==0 && t.calls==1,"modal replies complete the existing outer pass only");
+ std::filesystem::remove(t.path);
+}
+void mapLoadInputSignal() {
+ JourneyCase t;auto services=t.services();
+ t.run(services,[&](Driver &d){
+  const auto map=t.f.camera->mapId;auto &world=*t.f.world;
+  const auto before=d.handler.inputContext(d.shown.presentation()).keyboardClear;
+  // Publish a real same-map reload through the existing detached map owner.
+  auto candidate=world.transitionCandidate();candidate->loadEventDestination(map,map);
+  check(world.inputMapLoadGeneration()==0,"unpublished map work must not clear live input");
+  world.publishTransition(*candidate);
+  const auto cleared=d.handler.inputContext(d.shown.presentation()).keyboardClear;
+  check(cleared==before+1,"ordinary same-map load reports the DOS keyboard clear");
+  check(d.handler.inputContext(d.shown.presentation()).keyboardClear==cleared,"repeated context reads do not clear again");
+ });
+}
 void actionTable() {
  for(const PlayerAction &a:std::vector<PlayerAction>{WaitAction{},CancelInteractionAction{},
      NavigationAction::TurnLeft,NavigationAction::TurnRight,NavigationAction::MoveForward,NavigationAction::MoveBackward,
@@ -318,8 +428,8 @@ void journeyPasses() {
 }
 
 }
-int main() {
- try {outerInputs();whoWillPerPass();manualAndFlags();emptyCalls();tailMarkers();journeyPasses();actionTable();currentKeyAndCapture();panelSavesAndContinuation();f9OutcomesAndRetries();restAndCombat();newGamePublication();std::cout<<"M84 Event dispatch and tail OK\n";return 0;}
+int main(int argc,char **) {
+ try {if(argc>1){queuedSdlEvents();bufferedWordPrompt();return 0;}outerInputs();mouseViewAndPanel();mapLoadInputSignal();whoWillPerPass();manualAndFlags();emptyCalls();tailMarkers();journeyPasses();actionTable();currentKeyAndCapture();panelSavesAndContinuation();f9OutcomesAndRetries();restAndCombat();newGamePublication();std::cout<<"M84 Event dispatch and tail OK\n";return 0;}
  catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}
 }
 

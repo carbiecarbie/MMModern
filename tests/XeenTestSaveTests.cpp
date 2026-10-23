@@ -2,6 +2,7 @@
 #include "tools/XeenTestSave.h"
 #include "XeenTrainingTestSupport.h"
 #include "games/xeen/XeenRegionalRules.h"
+#include "games/xeen/XeenEventTrigger.h"
 #include "games/xeen/XeenGameFlagsLoader.h"
 #include "games/xeen/CloudsMapComposer.h"
 #include "games/xeen/XeenActorApproach.h"
@@ -66,6 +67,21 @@ void preset(const GameInstallation &installation,const std::string &name,const f
     check(flow.prepareJourneyFrame(flow.ticket(),[]{}) && flow.presentJourney(flow.ticket()),"restored preset is not quiet");
     const auto captured=XeenSaveState::capture(inputs.signature,party,camera,flags,world);
     check(XeenSaveFormat::encode(saved)==XeenSaveFormat::encode(captured),"restore replayed or changed state");
+    if(name.rfind("m84-playtest-",0)==0) {
+        const XeenCamera expected=name=="m84-playtest-trap"?XeenCamera{26,8,3,XeenDirection::North}:
+            name=="m84-playtest-label"?XeenCamera{28,13,4,XeenDirection::West}:XeenCamera{25,27,3,XeenDirection::North};
+        check(save_test::sameCamera(camera,expected),"M84 preset location");
+        const auto cell=world.sampleCell(camera.mapId,camera.x,camera.y);
+        check(cell && (cell->cell->rawAttributes&kXeenAutomaticEventFlag),"M84 preset must start on a flagged cell");
+        for(auto owner:party.party.activeRosterIds())check(party.roster.at(owner).currentHp==1000 && party.roster.at(owner).canAct(),"M84 healthy party");
+        for(const auto &state:captured.maps)if(state.monsters)for(const auto &actor:state.monsters->slots)
+            check(actor.lifecycle==XeenActorLifecycle::Defeated && actor.accounted,"M84 quiet monster state");
+        if(name=="m84-playtest-save") {
+            const auto records=inputs.events.load(camera.mapId).records;
+            check(std::none_of(records.begin(),records.end(),[&](const auto &r){return r.x==camera.x && r.y==camera.y;}),"M84 record-less save cell");
+        }
+        return;
+    }
     check((name=="monster-control" || name=="monster-damage" || name=="party-healing" || name=="m76-spells" || name=="m79-playtest" || name=="m80-playtest" || name=="m80-arena" || name=="m80-arena-maxed" || name=="m81-drops" || name=="m81-fullpacks" || name=="m81-event") || save_test::sameCamera(camera,xeenJourneyContent().entry),"fresh Journey camera changed");
     const auto first=party.party.activeRosterIds()[0],second=party.party.activeRosterIds()[1];
     const auto &member=party.roster.at(first);

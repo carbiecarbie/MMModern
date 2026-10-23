@@ -23,6 +23,8 @@ namespace {
 
 // Maintainer-approved IBM enhanced-keyboard fallback (F3 2Bh): 500 ms,
 // then (8 + 3) * 2 / 240 seconds. Independent of host OS repeat settings.
+// Internal SDL queue marker: observe a cleared make without delivering its code.
+constexpr Uint8 clearedKeyMake=2;
 constexpr std::uint64_t navigationRepeatDelay = 500000000;
 constexpr std::uint64_t navigationRepeatPeriod = (11000000000ULL + 119) / 120;
 
@@ -75,85 +77,119 @@ bool uploadFrame(SDL_Texture *texture, const IndexedFrame &frame,
 	return true;
 }
 
+// DOS Set-1 translation, documented in rules/world-events.md#event-dispatch.
+// Translate the plain code before applying Ctrl (which overrides Shift).
+unsigned inputKey(const SDL_KeyboardEvent &key) {
+    const auto symbol=key.keysym.sym;
+    unsigned code=0;
+    if(symbol>=SDLK_a && symbol<=SDLK_z)code='A'+symbol-SDLK_a;
+    else if(symbol>=SDLK_0 && symbol<=SDLK_9)code=unsigned(symbol);
+    else if(symbol>=SDLK_F1 && symbol<=SDLK_F10)code=0xc9+symbol-SDLK_F1;
+    else switch(symbol) {
+    case SDLK_ESCAPE:code=27;break;
+    case SDLK_RETURN:case SDLK_KP_ENTER:code=13;break;
+    case SDLK_TAB:code=9;break;
+    case SDLK_BACKSPACE:code=8;break;
+    case SDLK_SPACE:code=32;break;
+    case SDLK_LEFT:case SDLK_KP_4:code=0xf0;break;
+    case SDLK_RIGHT:case SDLK_KP_6:code=0xf1;break;
+    case SDLK_UP:case SDLK_KP_8:code=0xf2;break;
+    case SDLK_DOWN:case SDLK_KP_2:code=0xf3;break;
+    case SDLK_HOME:case SDLK_KP_7:code=0xdc;break;
+    case SDLK_END:case SDLK_KP_1:code=0xdd;break;
+    case SDLK_PAGEUP:case SDLK_KP_9:code=0xde;break;
+    case SDLK_PAGEDOWN:case SDLK_KP_3:code=0xdf;break;
+    case SDLK_INSERT:case SDLK_KP_0:code=0xe0;break;
+    case SDLK_KP_5:code='5';break;
+    case SDLK_CAPSLOCK:code=0xfc;break;
+    case SDLK_NUMLOCKCLEAR:code=0xfb;break;
+    case SDLK_SCROLLLOCK:code=0xfa;break;
+    case SDLK_KP_PLUS:code='+';break;
+    case SDLK_KP_MINUS:code='-';break;
+    case SDLK_KP_MULTIPLY:code='*';break;
+    case SDLK_KP_DIVIDE:code='/';break;
+    case SDLK_KP_EQUALS:code='=';break; // Existing host alias; DOS hardware equivalence unknown.
+    case SDLK_MINUS:case SDLK_EQUALS:case SDLK_LEFTBRACKET:case SDLK_RIGHTBRACKET:
+    case SDLK_BACKSLASH:case SDLK_SEMICOLON:case SDLK_QUOTE:case SDLK_BACKQUOTE:
+    case SDLK_COMMA:case SDLK_PERIOD:case SDLK_SLASH:code=unsigned(symbol);break;
+    default:return 0; // Includes Delete, keypad decimal, F11/F12 and modifiers.
+    }
+    if(key.keysym.mod & KMOD_CTRL) {if(code>=0x40)code-=0x40;}
+    else if(key.keysym.mod & KMOD_SHIFT) {
+        if(code>='0' && code<='9')code=")!@#$%^&*("[code-'0'];
+        else switch(symbol) {
+        case SDLK_EQUALS:code='+';break;
+        case SDLK_LEFTBRACKET:code='{';break;case SDLK_RIGHTBRACKET:code='}';break;
+        case SDLK_BACKSLASH:code='|';break;case SDLK_SEMICOLON:code=':';break;
+        case SDLK_QUOTE:code='"';break;case SDLK_BACKQUOTE:code='~';break;
+        case SDLK_COMMA:code='<';break;case SDLK_PERIOD:code='>';break;
+        case SDLK_SLASH:code='?';break;
+        default:break; // Shift-minus stays minus in the DOS inverse lookup.
+        }
+    }
+    if(code==0xd2)return 0; // F10's DOS-prompt wrapper consumes it.
+    if(code>=0xc9 && code<=0xd1)return InputKey::F1+code-0xc9;
+    switch(code) {
+    case 0xf0:return InputKey::Left;case 0xf1:return InputKey::Right;
+    case 0xf2:return InputKey::Up;case 0xf3:return InputKey::Down;
+    case 0xdc:return InputKey::Home;case 0xdd:return InputKey::End;
+    case 0xde:return InputKey::PageUp;case 0xdf:return InputKey::PageDown;
+    default:return code>='A' && code<='Z'?code+('a'-'A'):code;
+    }
+}
 std::optional<PlayerAction> playerAction(const SDL_KeyboardEvent &key, MainScreen screen) {
-    if((key.keysym.mod & KMOD_CTRL) && (key.keysym.sym==SDLK_LEFT || key.keysym.sym==SDLK_RIGHT))
-        return key.keysym.sym==SDLK_LEFT?NavigationAction::StrafeLeft:NavigationAction::StrafeRight;
-    if((key.keysym.mod & KMOD_CTRL) && key.keysym.sym==SDLK_DOWN)
-        return UnsupportedMainScreenAction{"Turn around"};
-    if((key.keysym.mod & KMOD_CTRL) && key.keysym.sym==SDLK_UP)return std::nullopt;
-	switch (key.keysym.sym) {
-	case SDLK_PERIOD: return WaitAction{};
-	case SDLK_b: return screen==MainScreen::Exploration ? PlayerAction{BashAction{}} : PlayerAction{BlockAction{}};
-	case SDLK_o: return screen==MainScreen::Combat ? std::optional<PlayerAction>{QuickFightOptionsAction{}} : std::nullopt;
-	case SDLK_f: return screen==MainScreen::Combat ? std::optional<PlayerAction>{QuickFightAction{}} : std::nullopt;
-	case SDLK_s: return screen==MainScreen::Combat ? std::nullopt : std::optional<PlayerAction>{ShootAction{}};
-	case SDLK_a: return screen==MainScreen::Combat ? std::optional<PlayerAction>{AttackAction{}} : std::nullopt;
-	case SDLK_c: return CastSpellAction{};
-	case SDLK_r: return screen==MainScreen::Exploration ? PlayerAction{RestAction{}} : PlayerAction{RevisitCompletedAction{}};
-	case SDLK_F9: return SaveGameAction{};
-	case SDLK_TAB: return ControlPanelAction{};
-	case SDLK_i: return InfoAction{};
-	case SDLK_q: return QuickReferenceAction{};
-	case SDLK_m: return MapAction{};
-    case SDLK_v: return screen==MainScreen::Exploration ? std::optional<PlayerAction>{QuestsAction{}} : std::nullopt;
-	case SDLK_EQUALS: case SDLK_KP_EQUALS: return ToggleAutomapAction{};
-	case SDLK_KP_4: return NavigationAction::StrafeLeft;
-	case SDLK_KP_6: return NavigationAction::StrafeRight;
-	case SDLK_u: return UseItemAction{};
-	case SDLK_1: case SDLK_2: case SDLK_3: case SDLK_4: case SDLK_5:
-	case SDLK_6: case SDLK_7: case SDLK_8: case SDLK_9:
-		return SelectInventorySlotAction{static_cast<std::size_t>(key.keysym.sym - SDLK_1)};
-	case SDLK_ESCAPE:
-		return CancelInteractionAction{};
-	case SDLK_F1:
-	case SDLK_F2:
-	case SDLK_F3:
-	case SDLK_F4:
-	case SDLK_F5:
-	case SDLK_F6:
-		return xeenMainScreenMemberKey(InputKey::F1+key.keysym.sym-SDLK_F1);
-	case SDLK_LEFT:
-		return NavigationAction::TurnLeft;
-	case SDLK_RIGHT:
-		return NavigationAction::TurnRight;
-	case SDLK_UP:
-		return NavigationAction::MoveForward;
-	case SDLK_DOWN:
-		return NavigationAction::MoveBackward;
-	case SDLK_SPACE:
-		return screen==MainScreen::Combat ? std::nullopt : std::optional<PlayerAction>{InteractionAction{}};
-	case SDLK_RETURN:
-	case SDLK_KP_ENTER:
-		return screen==MainScreen::Combat ? std::nullopt : std::optional<PlayerAction>{AcknowledgeAction{}};
-	case SDLK_y:
-		return YesAction{};
-	case SDLK_n:
-		return NoAction{};
-	default:
-		return std::nullopt;
-	}
+    const auto code=inputKey(key);
+    if(!code)return {};
+    const bool combat=screen==MainScreen::Combat;
+    if(code>=InputKey::F1 && code<InputKey::F1+6)return xeenMainScreenMemberKey(code);
+    switch(code) {
+    case 'w':return WaitAction{};
+    case 'b':return screen==MainScreen::Exploration?PlayerAction{BashAction{}}:PlayerAction{BlockAction{}};
+    case 'c':return CastSpellAction{};
+    case 'r':return combat?PlayerAction{RevisitCompletedAction{}}:PlayerAction{RestAction{}};
+    case 's':if(!combat)return ShootAction{};break;
+    case 'o':if(combat)return QuickFightOptionsAction{};break;
+    case 'f':if(combat)return QuickFightAction{};break;
+    case 'a':if(combat)return AttackAction{};break;
+    case 'd':if(!combat)return UnsupportedMainScreenAction{"Dismiss"};break;
+    case 'u':if(combat || screen==MainScreen::None)return UseItemAction{};break;
+    case InputKey::F1+8:return SaveGameAction{};
+    case 9:return ControlPanelAction{};
+    case 'i':return InfoAction{};case 'q':return QuickReferenceAction{};
+    case 'm':return MapAction{};case 'v':if(!combat)return QuestsAction{};break;
+    case '=':return ToggleAutomapAction{};
+    case 0xb0:return NavigationAction::StrafeLeft;
+    case 0xb1:return NavigationAction::StrafeRight;
+    case InputKey::Left:return NavigationAction::TurnLeft;
+    case InputKey::Right:return NavigationAction::TurnRight;
+    case InputKey::Up:return NavigationAction::MoveForward;
+    case InputKey::Down:return NavigationAction::MoveBackward;
+    case InputKey::Escape:return CancelInteractionAction{};
+    case InputKey::Space:if(!combat)return InteractionAction{};break;
+    case InputKey::Enter:if(screen==MainScreen::None)return AcknowledgeAction{};break;
+    case 'y':if(screen==MainScreen::None)return YesAction{};break;
+    case 'n':if(screen==MainScreen::None)return NoAction{};break;
+    default:break;
+    }
+    if(code>='1' && code<='9' && screen!=MainScreen::Exploration)
+        return SelectInventorySlotAction{std::size_t(code-'1')};
+    return screen==MainScreen::Exploration?std::optional<PlayerAction>{ExplorationKeyAction{code}}:std::nullopt;
+}
+std::optional<PlayerAction> keyAction(const SDL_KeyboardEvent &key,const InputContext &context) {
+    const auto code=inputKey(key);
+    if(!code)return {};
+    if(!context.dialog)return playerAction(key,context.mainScreen);
+    // DOS text readers consume the same FIFO. A key typed before a prompt
+    // opens has no SDL_TEXTINPUT packet, so retained Event keys supply text.
+    if(context.retainEventKeys && context.dialog->textEntry && code>=32 && code<=126)
+        return TextInputAction{std::string(1,char(code))};
+    return context.dialog->key(code);
 }
 SDL_Scancode physicalScan(const SDL_KeyboardEvent &key) {
     // A modifier/layout change can change keysym between make and break.
     // Synthetic clients may omit scancode; native SDL always supplies it.
     return key.keysym.scancode>SDL_SCANCODE_UNKNOWN && key.keysym.scancode<SDL_NUM_SCANCODES ?
         key.keysym.scancode:SDL_GetScancodeFromKey(key.keysym.sym);
-}
-
-unsigned inputKey(SDL_Keycode key) {
-    if(key>=SDLK_F1 && key<=SDLK_F6) return InputKey::F1+key-SDLK_F1;
-    switch(key) {
-    case SDLK_UP: case SDLK_KP_8: return InputKey::Up;
-    case SDLK_DOWN: case SDLK_KP_2: return InputKey::Down;
-    case SDLK_LEFT: case SDLK_KP_4: return InputKey::Left;
-    case SDLK_RIGHT: case SDLK_KP_6: return InputKey::Right;
-    case SDLK_KP_ENTER: return InputKey::Enter;
-    case SDLK_HOME: case SDLK_KP_7: return InputKey::Home;
-    case SDLK_END: case SDLK_KP_1: return InputKey::End;
-    case SDLK_PAGEUP: case SDLK_KP_9: return InputKey::PageUp;
-    case SDLK_PAGEDOWN: case SDLK_KP_3: return InputKey::PageDown;
-    default: return static_cast<unsigned>(key);
-    }
 }
 
 bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
@@ -329,9 +365,9 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
 	bool spaceDown = false, blockDown = false, revisitDown = false, inspectDown = false;
 	std::array<bool,SDL_NUM_SCANCODES> journeyKeys{};
 	std::uint32_t readyAt = SDL_GetTicks();
-    struct PendingAction { PlayerAction action; std::uint64_t context; bool repeat; std::optional<InputButton> button; int scan=0; std::uint64_t press=0; unsigned mouse=0; };
+    struct PendingAction { PlayerAction action; std::uint64_t context; bool repeat; std::optional<InputButton> button; int scan=0; std::uint64_t press=0; unsigned mouse=0; std::optional<SDL_KeyboardEvent> key; };
     std::deque<PendingAction> pendingActions;
-    struct HeldNavigation {
+    struct HeldKey {
         std::optional<PlayerAction> action;
         std::optional<InputButton> button;
         std::uint64_t context=0, press=0;
@@ -339,7 +375,7 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
         bool delivered=false;
         std::uint64_t repeatAt=0;
     };
-    std::array<HeldNavigation,SDL_NUM_SCANCODES> heldNavigation{};
+    std::array<HeldKey,SDL_NUM_SCANCODES> heldKeys{};
     std::uint64_t pressIdentity=0,lastRepeat=0,heldContext=0;
     Uint16 heldModifiers=0;
     struct StrictMouse {PlayerAction action;std::optional<std::uint64_t> input;IndexedFrame::Presentation frame;std::uint64_t context;};
@@ -353,16 +389,47 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
         return handler.presentationClock ? handler.presentationClock() : SdlWindow::presentationNanoseconds();
     };
     auto acquiredContext = contextFor(presentedFrame);
+    auto keyboardClear=acquiredContext.keyboardClear,mouseClear=acquiredContext.mouseClear;
+    const auto clearKeyboard = [&](bool markNativeMakes=true) {
+        pendingActions.erase(std::remove_if(pendingActions.begin(),pendingActions.end(),[](const auto &p){return !p.mouse;}),pendingActions.end());
+        for(auto &held:heldKeys)if(held.press)held.delivered=true;
+        if(!markNativeMakes)return; // NumLock release precedes later native makes.
+        // Keep native make/break order for physical state and future repeats.
+        // Only the code is cleared; modifiers and host actions remain ordinary.
+        SDL_FilterEvents([](void *,SDL_Event *queued) -> int {
+            if(queued->type==SDL_KEYDOWN && inputKey(queued->key) &&
+                !fullscreenToggleKey(queued->key.keysym.sym,queued->key.keysym.mod))queued->key.repeat=clearedKeyMake;
+            return 1;
+        },nullptr);
+    };
     const auto synchronizeQueue = [&](const InputContext &context) {
+        if(mouseClear!=context.mouseClear) {
+            mouseClear=context.mouseClear;strictMouse.reset();
+            pendingActions.erase(std::remove_if(pendingActions.begin(),pendingActions.end(),[](const auto &p){return p.mouse!=0;}),pendingActions.end());
+            SDL_FilterEvents([](void *,SDL_Event *queued) -> int {return queued->type!=SDL_MOUSEBUTTONDOWN;},nullptr);
+        }
+        if(keyboardClear!=context.keyboardClear) {
+            keyboardClear=context.keyboardClear;
+            clearKeyboard();
+        }
         if (!context.acceptsQueuedInput || heldContext!=context.contextId ||
             (!pendingActions.empty() && pendingActions.front().context != context.contextId)) {
-            pendingActions.clear();heldNavigation.fill({});lastRepeat=0;
+            if(context.retainEventKeys) {
+                pendingActions.erase(std::remove_if(pendingActions.begin(),pendingActions.end(),[](const auto &p){return !p.key;}),pendingActions.end());
+                for(auto &p:pendingActions)p.context=context.contextId;
+                // Navigation keeps M63's modal/context fences. Ordinary held keys
+                // survive, with their next make translated by the current reader.
+                for(auto &held:heldKeys) {
+                    if(!held.action || std::holds_alternative<NavigationAction>(*held.action))held={};
+                    else held.context=context.contextId;
+                }
+            } else {pendingActions.clear();heldKeys.fill({});lastRepeat=0;}
         }
         heldContext=context.contextId;
     };
     const auto retireQueuedKeys = [&] {
         // The strict path retains the pre-acquisition timestamp fence.
-        if (contextFor(presentedFrame).acceptsQueuedInput) return;
+        if (contextFor(presentedFrame).acceptsQueuedInput || contextFor(presentedFrame).retainEventKeys) return;
         SDL_FilterEvents([](void *context, SDL_Event *queued) -> int {
             if (queued->type == SDL_KEYDOWN)
                 queued->key.timestamp = *static_cast<std::uint32_t *>(context) - 1;
@@ -423,6 +490,7 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
             const auto nextFrame = input && handler.withPresentedInput ?
                 handler.withPresentedInput(action,*input,origin) :
                 input && handler.withDisplayedInput ? handler.withDisplayedInput(action,*input) : handler(action);
+            synchronizeQueue(contextFor(presentedFrame));
             if (handler.frameCurrent && !handler.frameCurrent()) throw std::runtime_error("Stale gameplay frame handoff");
             if (nextFrame && !upload(*nextFrame)) { success = false; running = false; }
         } catch (const std::exception &error) {
@@ -446,7 +514,7 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
         if (event.type == SDL_QUIT) {
             pendingActions.clear(); running = false;
         } else if (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_FOCUS_LOST) {
-            journeyKeys.fill(false);heldNavigation.fill({});
+            journeyKeys.fill(false);heldKeys.fill({});
             heldModifiers=0;
             spaceDown = blockDown = revisitDown = inspectDown = false;
             mouseButtons=0;strictMouse.reset();restoreMouseFeedback();
@@ -455,21 +523,28 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
             mouseButtons&=~SDL_BUTTON(event.button.button);
             if(!mouseButtons)restoreMouseFeedback();
         } else if (event.type == SDL_KEYUP) {
+            if(event.key.keysym.sym==SDLK_NUMLOCKCLEAR) {
+                clearKeyboard(false);
+            }
             const auto scan = physicalScan(event.key);
             if (scan > SDL_SCANCODE_UNKNOWN && scan < SDL_NUM_SCANCODES) {
-                journeyKeys[scan] = false;heldNavigation[scan]={};
+                journeyKeys[scan] = false;heldKeys[scan]={};
             }
             if(event.key.keysym.sym==SDLK_LCTRL || event.key.keysym.sym==SDLK_RCTRL ||
                 event.key.keysym.sym==SDLK_LSHIFT || event.key.keysym.sym==SDLK_RSHIFT ||
                 event.key.keysym.sym==SDLK_LALT || event.key.keysym.sym==SDLK_RALT) {
                 heldModifiers=event.key.keysym.mod;
-                if(event.key.keysym.sym==SDLK_LCTRL || event.key.keysym.sym==SDLK_RCTRL)heldModifiers&=~(event.key.keysym.sym==SDLK_LCTRL?KMOD_LCTRL:KMOD_RCTRL);
+                const auto released=event.key.keysym.sym;
+                heldModifiers&=~(released==SDLK_LCTRL?KMOD_LCTRL:released==SDLK_RCTRL?KMOD_RCTRL:
+                    released==SDLK_LSHIFT?KMOD_LSHIFT:released==SDLK_RSHIFT?KMOD_RSHIFT:
+                    released==SDLK_LALT?KMOD_LALT:KMOD_RALT);
                 const auto context=contextFor(batchFrame);
-                for(auto &held:heldNavigation)if(held.press) {
+                for(auto &held:heldKeys)if(held.press) {
                     SDL_KeyboardEvent key{};key.keysym.sym=held.key;key.keysym.mod=heldModifiers;
-                    auto resolved=playerAction(key,context.mainScreen);
-                    held.action=resolved && std::holds_alternative<NavigationAction>(*resolved)?resolved:std::nullopt;
-                    held.button=xeenMainScreenKeyButton(held.action,inputKey(held.key),context.mainScreen);
+                    auto resolved=keyAction(key,context);
+                    if(!resolved && context.retainEventKeys && inputKey(key))resolved=ExplorationKeyAction{inputKey(key)};
+                    held.action=resolved;
+                    held.button=xeenMainScreenKeyButton(held.action,inputKey(key),context.mainScreen);
                 }
             }
             if (event.key.keysym.sym == SDLK_SPACE) spaceDown = false;
@@ -478,7 +553,7 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
             if (event.key.keysym.sym == SDLK_i) inspectDown = false;
         } else if(event.type==SDL_TEXTINPUT) {
             const auto context=contextFor(batchFrame);
-            if(context.dialog && context.dialog->textEntry && context.readyForAction && inputCurrent(batchFrame) &&
+            if(context.dialog && context.dialog->textEntry && !context.retainEventKeys && context.readyForAction && inputCurrent(batchFrame) &&
                 context.contextId==batchContext.contextId && static_cast<std::int32_t>(event.text.timestamp-readyAt)>=0)
                 deliver(TextInputAction{event.text.text},batchInput,batchFrame,{});
         } else if (event.type == SDL_KEYDOWN || event.type == SDL_MOUSEBUTTONDOWN) {
@@ -486,22 +561,19 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
             const auto context = contextFor(batchFrame);
             synchronizeQueue(context);
             if(mouse)mouseButtons|=SDL_BUTTON(event.button.button);
-            // DOS polls the button status: right, including both buttons,
-            // takes precedence over left. Retain event state for injected
-            // input and include the native status for a simultaneous chord.
-            const bool rightMouse=mouse && ((mouseButtons | SDL_GetMouseState(nullptr,nullptr))&SDL_BUTTON_RMASK);
-            if(mouse && strictMouse && !rightMouse)return;
+            // The CD mouse callback stores coordinates only for either button.
+            if(mouse && strictMouse)return;
             if(!mouse) switch(event.key.keysym.sym) {
             case SDLK_LCTRL: case SDLK_RCTRL: case SDLK_LALT: case SDLK_RALT:
             case SDLK_LSHIFT: case SDLK_RSHIFT: case SDLK_LGUI: case SDLK_RGUI:
-            case SDLK_CAPSLOCK: case SDLK_NUMLOCKCLEAR: case SDLK_SCROLLLOCK:
                 heldModifiers=event.key.keysym.mod;
                 if(event.key.keysym.sym==SDLK_LCTRL || event.key.keysym.sym==SDLK_RCTRL)heldModifiers|=event.key.keysym.sym==SDLK_LCTRL?KMOD_LCTRL:KMOD_RCTRL;
-                for(auto &held:heldNavigation)if(held.press) {
+                for(auto &held:heldKeys)if(held.press) {
                     SDL_KeyboardEvent key{};key.keysym.sym=held.key;key.keysym.mod=heldModifiers;
-                    auto resolved=playerAction(key,context.mainScreen);
-                    held.action=resolved && std::holds_alternative<NavigationAction>(*resolved)?resolved:std::nullopt;
-                    held.button=xeenMainScreenKeyButton(held.action,inputKey(held.key),context.mainScreen);
+                    auto resolved=keyAction(key,context);
+                    if(!resolved && context.retainEventKeys && inputKey(key))resolved=ExplorationKeyAction{inputKey(key)};
+                    held.action=resolved;
+                    held.button=xeenMainScreenKeyButton(held.action,inputKey(key),context.mainScreen);
                 }
                 return;
             default:break;
@@ -512,18 +584,20 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
             // SDL_RenderSetLogicalSize transforms native mouse events to framebuffer
             // coordinates, including integer scaling, letterboxing and high DPI.
             // Do not scale a second time. Out-of-viewport coordinates are rejected.
-            const auto action = context.dialog ? (mouse ? (rightMouse?context.dialog->rightClick():context.dialog->click(event.button.x,event.button.y)) :
-                context.dialog->key(inputKey(event.key.keysym.sym))) :
-                mouse ? (rightMouse ? std::optional<PlayerAction>{CancelInteractionAction{}} : xeenMainScreenClick(event.button.x,event.button.y,context.mainScreen)) : playerAction(event.key,context.mainScreen);
+            auto action = mouse ? (context.dialog?context.dialog->click(event.button.x,event.button.y):
+                xeenMainScreenClick(event.button.x,event.button.y,context.mainScreen)):keyAction(event.key,context);
+            if(mouse && !context.dialog && action)if(const auto *member=std::get_if<SelectMemberAction>(&*action))
+                if(member->partyIndex>=context.partySize)action.reset();
+            if(!mouse && !action && context.retainEventKeys && inputKey(event.key))action=ExplorationKeyAction{inputKey(event.key)};
             auto button=context.dialog ?
                 (action && std::get_if<DialogKeyAction>(&*action) ? context.dialog->button(std::get<DialogKeyAction>(*action).key) : std::nullopt) :
                 mouse ? xeenMainScreenButtonAt(event.button.x,event.button.y,context.mainScreen) :
-                    xeenMainScreenKeyButton(action,inputKey(event.key.keysym.sym),context.mainScreen);
+                    xeenMainScreenKeyButton(action,inputKey(event.key),context.mainScreen);
             if(!mouse && !context.dialog && (event.key.keysym.mod & KMOD_CTRL)) {
                 button=event.key.keysym.sym==SDLK_LEFT ? xeenMainScreenButtonAt(235,169,context.mainScreen) :
                     event.key.keysym.sym==SDLK_RIGHT ? xeenMainScreenButtonAt(286,169,context.mainScreen) : std::nullopt;
             }
-            if (!mouse && event.key.keysym.sym == SDLK_ESCAPE && !event.key.repeat) pendingActions.clear();
+            if (!mouse && !context.retainEventKeys && event.key.keysym.sym == SDLK_ESCAPE && !event.key.repeat) pendingActions.clear();
             const bool movement = action && std::holds_alternative<NavigationAction>(*action);
             const auto *slot = action ? std::get_if<SelectInventorySlotAction>(&*action) : nullptr;
             const bool queueKey = action && (movement || std::holds_alternative<AttackAction>(*action) || std::holds_alternative<InteractionAction>(*action) ||
@@ -535,15 +609,26 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
                 std::holds_alternative<QuickFightAction>(*action) || std::holds_alternative<QuickFightOptionsAction>(*action) ||
                 std::holds_alternative<CastSpellAction>(*action) || std::holds_alternative<SelectMemberAction>(*action) ||
                 (context.mainScreen==MainScreen::Combat && std::holds_alternative<UseItemAction>(*action)) ||
-                std::holds_alternative<UnsupportedMainScreenAction>(*action) ||
+                std::holds_alternative<UnsupportedMainScreenAction>(*action) || std::holds_alternative<ExplorationKeyAction>(*action) ||
                 (context.dialog && (std::holds_alternative<DialogKeyAction>(*action) ||
                     std::holds_alternative<AcknowledgeAction>(*action) || std::holds_alternative<CancelInteractionAction>(*action))) ||
                 (slot && slot->slot < 3));
-            const bool queueable = context.acceptsQueuedInput && queueKey;
+            const bool queueable = (context.acceptsQueuedInput && queueKey) || (!mouse && context.retainEventKeys && inputKey(event.key));
             const auto scan = mouse ? SDL_SCANCODE_UNKNOWN : physicalScan(event.key);
+            if(!mouse && event.key.repeat==clearedKeyMake) {
+                if(scan>SDL_SCANCODE_UNKNOWN && scan<SDL_NUM_SCANCODES && !journeyKeys[scan]) {
+                    journeyKeys[scan]=true;heldModifiers=event.key.keysym.mod;
+                    if(action) {
+                        if(pressIdentity==std::numeric_limits<std::uint64_t>::max())throw std::overflow_error("Key press identity exhausted");
+                        heldKeys[scan]={action,button,context.contextId,++pressIdentity,event.key.keysym.sym,true,
+                            PresentationClock::checkedAdd(navigationNow(),navigationRepeatDelay)};
+                    }
+                }
+                return;
+            }
             if (queueable) {
                 // A context transition within this event batch cannot relabel old keys.
-                if (context.contextId != batchContext.contextId) return;
+                if (context.contextId != batchContext.contextId && !context.retainEventKeys) return;
                 if (mouse) {
                     if (pendingActions.size() < 5) {
                         if(button)feedback(*button,batchFrame,false);
@@ -555,32 +640,30 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
                 const bool held = journeyKeys[scan];
                 if (event.key.repeat) {
                     // OS repeats are observations, never accumulated movement.
-                    if(held && heldNavigation[scan].press) {
-                        heldNavigation[scan].action=movement?action:std::nullopt;
-                        heldNavigation[scan].button=button;
-                        heldNavigation[scan].key=event.key.keysym.sym;
+                    if(held && heldKeys[scan].press) {
+                        heldKeys[scan].action=action;
+                        heldKeys[scan].button=button;
+                        heldKeys[scan].key=event.key.keysym.sym;
                     }
                     return;
                 }
                 if(held)return;
-                journeyKeys[scan]=true;
-                if(movement) {
+                journeyKeys[scan]=true;heldModifiers=event.key.keysym.mod;
+                if(action) {
                     if(pressIdentity==std::numeric_limits<std::uint64_t>::max())throw std::overflow_error("Navigation press identity exhausted");
                     const auto press=++pressIdentity;
-                    heldNavigation[scan]={action,button,context.contextId,press,event.key.keysym.sym,false,
+                    heldKeys[scan]={action,button,context.contextId,press,event.key.keysym.sym,false,
                         PresentationClock::checkedAdd(navigationNow(),navigationRepeatDelay)};
-                    // Approved option b: fresh taps are ordered obligations, without
-                    // the five-entry drop. Held demand is stored separately.
-                    pendingActions.push_back({*action,context.contextId,false,button,int(scan),press});
+                    // M63 navigation taps remain unbounded. DOS Event keys use
+                    // ten FIFO slots; held demand is stored separately.
+                    if(movement || pendingActions.size()<(context.retainEventKeys || context.mainScreen==MainScreen::Exploration?10u:5u))
+                        pendingActions.push_back({*action,context.contextId,false,button,int(scan),press,0,
+                            !movement && context.retainEventKeys?std::optional<SDL_KeyboardEvent>{event.key}:std::nullopt});
                 } else if(pendingActions.size()<5)pendingActions.push_back({*action,context.contextId,false,button});
                 return;
             }
             if(context.dialog && (!context.readyForAction || !inputCurrent(batchFrame) || context.contextId!=batchContext.contextId)) return;
             if(mouse) {
-                if(rightMouse && !context.dialog && context.mainScreen==MainScreen::Combat && handler && canCancelInteraction && canCancelInteraction() &&
-                    context.readyForAction && inputCurrent(batchFrame) && context.contextId==batchContext.contextId &&
-                    static_cast<std::int32_t>(event.button.timestamp-readyAt)>=0 && action)
-                    strictMouse=StrictMouse{*action,batchInput,batchFrame,context.contextId};
                 if(context.dialog && context.readyForAction && inputCurrent(batchFrame) &&
                     context.contextId==batchContext.contextId && static_cast<std::int32_t>(event.button.timestamp-readyAt)>=0 && action)
                 {
@@ -646,7 +729,7 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
         bool queuedReady=!pendingActions.empty() && actionReady(pendingActions.front().action,batchContext) &&
             !(pendingActions.front().mouse & mouseButtons);
         std::optional<std::uint64_t> nextRepeat;
-        if(pendingActions.empty())for(const auto &held:heldNavigation)
+        if(pendingActions.empty())for(const auto &held:heldKeys)
             if(held.action && held.delivered && held.context==batchContext.contextId && actionReady(*held.action,batchContext))
                 nextRepeat=nextRepeat?std::min(*nextRepeat,held.repeatAt):held.repeatAt;
         const auto repeatSample=nextRepeat?navigationNow():0;
@@ -674,24 +757,28 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
         const auto drainContext = contextFor(presentedFrame);
         synchronizeQueue(drainContext);
         releaseMouseAction();
-        const bool hasHeldRepeat=std::any_of(heldNavigation.begin(),heldNavigation.end(),[&](const auto &held) {
+        const bool hasHeldRepeat=std::any_of(heldKeys.begin(),heldKeys.end(),[&](const auto &held) {
             return held.action && held.delivered && held.context==drainContext.contextId;
         });
         const auto drainRepeatNow=hasHeldRepeat?navigationNow():0;
-        if (!mouseButtons && !actionUsed && handler && !pendingActions.empty() && drainContext.acceptsQueuedInput &&
+        if (!mouseButtons && !actionUsed && handler && !pendingActions.empty() && (drainContext.acceptsQueuedInput || drainContext.retainEventKeys) &&
             actionReady(pendingActions.front().action,drainContext) && inputCurrent(presentedFrame) &&
             !(pendingActions.front().mouse & mouseButtons)) {
             const auto next=pendingActions.front();
             pendingActions.pop_front(); // A ready refusal is consumed, never retried.
-            if(next.scan && heldNavigation[next.scan].press==next.press) {
-                auto &held=heldNavigation[next.scan];held.delivered=true;
+            if(next.scan && heldKeys[next.scan].press==next.press) {
+                auto &held=heldKeys[next.scan];held.delivered=true;
                 held.repeatAt=std::max(held.repeatAt,PresentationClock::checkedAdd(navigationNow(),navigationRepeatPeriod));
             }
-            deliver(next.action,displayedInput,presentedFrame,next.button);
-        } else if(hasHeldRepeat && !mouseButtons && !actionUsed && handler && pendingActions.empty() && drainContext.acceptsQueuedInput && inputCurrent(presentedFrame)) {
-            HeldNavigation *selected=nullptr,*first=nullptr;
+            if(next.key) {
+                const auto translated=keyAction(*next.key,drainContext);
+                if(translated)deliver(*translated,displayedInput,presentedFrame,
+                    drainContext.dialog?drainContext.dialog->button(inputKey(*next.key)):xeenMainScreenKeyButton(translated,inputKey(*next.key),drainContext.mainScreen));
+            } else deliver(next.action,displayedInput,presentedFrame,next.button);
+        } else if(hasHeldRepeat && !mouseButtons && !actionUsed && handler && pendingActions.empty() && (drainContext.acceptsQueuedInput || drainContext.retainEventKeys) && inputCurrent(presentedFrame)) {
+            HeldKey *selected=nullptr,*first=nullptr;
             const auto now=drainRepeatNow;
-            for(auto &held:heldNavigation)if(held.action && held.delivered && held.context==drainContext.contextId &&
+            for(auto &held:heldKeys)if(held.action && held.delivered && held.context==drainContext.contextId &&
                 now>=held.repeatAt && actionReady(*held.action,drainContext)) {
                 if(!first || held.press<first->press)first=&held;
                 if(held.press>lastRepeat && (!selected || held.press<selected->press))selected=&held;
@@ -702,20 +789,28 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
                 // Reset at dispatch, not after fallible feedback/work; late wakes
                 // supply one demand and never accumulate typematic catch-up.
                 selected->repeatAt=PresentationClock::checkedAdd(now,navigationRepeatPeriod);
-                deliver(*selected->action,displayedInput,presentedFrame,selected->button);
+                if(drainContext.retainEventKeys && !std::holds_alternative<NavigationAction>(*selected->action)) {
+                    SDL_KeyboardEvent key{};key.keysym.sym=selected->key;key.keysym.mod=heldModifiers;
+                    const auto translated=keyAction(key,drainContext);
+                    if(translated)deliver(*translated,displayedInput,presentedFrame,
+                        drainContext.dialog?drainContext.dialog->button(inputKey(key)):xeenMainScreenKeyButton(translated,inputKey(key),drainContext.mainScreen));
+                } else deliver(*selected->action,displayedInput,presentedFrame,selected->button);
             }
         }
         if (!running) break;
-        const bool navigationWaitingForDraw=drainContext.navigationDrawPending &&
-            ((!pendingActions.empty() && std::holds_alternative<NavigationAction>(pendingActions.front().action)) ||
-             (pendingActions.empty() && std::any_of(heldNavigation.begin(),heldNavigation.end(),[&](const auto &held) {
-                 return held.action && held.delivered && held.context==drainContext.contextId && drainRepeatNow>=held.repeatAt;
+        const auto waitingForDraw=[&](const PlayerAction &action) {
+            return std::holds_alternative<NavigationAction>(action)?drainContext.navigationDrawPending:drainContext.actionDrawPending;
+        };
+        const bool inputWaitingForDraw=
+            ((!pendingActions.empty() && waitingForDraw(pendingActions.front().action)) ||
+             (pendingActions.empty() && std::any_of(heldKeys.begin(),heldKeys.end(),[&](const auto &held) {
+                 return held.action && waitingForDraw(*held.action) && held.delivered && held.context==drainContext.contextId && drainRepeatNow>=held.repeatAt;
              })));
         // draw3d completes before polling input (DAT 0x0d1c3..0x0d1c9). If the
         // clock crosses its threshold after admission was sampled, return to
         // that poll before allowing idle to start a second draw. Retained work
         // never sets this flag and continues through its existing idle owner.
-		if (idle && !mouseButtons && !navigationWaitingForDraw) {
+		if (idle && !mouseButtons && !inputWaitingForDraw) {
 			try {
 				const auto nextFrame = idle();
 				if (handler.frameCurrent && !handler.frameCurrent()) throw std::runtime_error("Stale idle frame handoff");
@@ -789,7 +884,7 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
 		if (!cosmetic && (concreteChanged || nextInput != displayedInput)) { readyAt = SDL_GetTicks(); retireQueuedKeys(); }
         const auto nextContext = contextFor(presentedFrame);
         synchronizeQueue(nextContext);
-        if (handler.inputContext && acquiredContext.contextId != nextContext.contextId) {
+        if (handler.inputContext && acquiredContext.contextId != nextContext.contextId && !nextContext.retainEventKeys) {
             // clearEvents boundary: retain releases, non-input events and the
             // host fullscreen toggle in order.
             SDL_FilterEvents([](void *, SDL_Event *queued) -> int {

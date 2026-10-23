@@ -95,7 +95,7 @@ IndexedFrame XeenEventFlow::handleTravelDialog(const PlayerAction &action,std::u
         return renderEncounter();
     }
     if(value>='0' && value<='9') {ui.digits.type(std::string(1,char(value)),_inventoryFont,1);ui.digits.keyRedraw();return renderEncounter();}
-    if(value==8 || value==127) {ui.digits.backspace();ui.digits.keyRedraw();return renderEncounter();}
+    if(value==8) {ui.digits.backspace();ui.digits.keyRedraw();return renderEncounter();}
     if(value!=InputKey::Enter && value!=InputKey::Escape)return frameCopy();
     const unsigned distance=value==InputKey::Escape || ui.digits.value().empty()?0:unsigned(ui.digits.value()[0]-'0');
     if(ui.spell==XeenLearnedSpell::TownPortal && distance>5) {ui.digits.clear();ui.digits.begin();return renderEncounter();}

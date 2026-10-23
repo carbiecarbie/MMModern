@@ -247,10 +247,11 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
             auto oldSaves=std::make_shared<unsigned>();
             inspect([&,oldSaves,label]{check(flow->canSave(),"M41 checkpoint not Quiet");xeen_decision9::check(*world,*position,label,label=="A" || label=="B");*oldSaves=saves;
                 SDL_Event e{};e.type=SDL_KEYDOWN;e.key.keysym.sym=SDLK_F9;e.key.keysym.scancode=SDL_SCANCODE_F9;e.key.timestamp=SDL_GetTicks()+1;
-                check(SDL_PushEvent(&e)==1,"M41 F9 enqueue failed");acted=true;});
+                check(SDL_PushEvent(&e)==1,"M41 F9 enqueue failed");
+                // Part 0: non-navigation keys repeat; a checkpoint is one F9 tap.
+                e.type=SDL_KEYUP;check(SDL_PushEvent(&e)==1,"F9 tap release enqueue");acted=true;});
             steps.push_back([&,oldSaves,label] {
                 if(saves==*oldSaves || !flow->canSave())return false;check(saves==*oldSaves+3,"M41 actual save pipeline incomplete");
-                SDL_Event e{};e.type=SDL_KEYUP;e.key.keysym.sym=SDLK_F9;e.key.keysym.scancode=SDL_SCANCODE_F9;SDL_PushEvent(&e);
                 const auto actual=snapshot(),disk=XeenSaveFile::read(*target);m40_test::equalFields(actual,disk);
                 check(XeenSaveFormat::encode(actual)==XeenSaveFormat::encode(disk),"M41 saved bytes differ");
                 fs::copy_file(*target,target->parent_path()/(target->stem().string()+"-"+label+".mmsave"),fs::copy_options::overwrite_existing);
@@ -364,10 +365,10 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
             "M41 later empty service added training/debit");});checkpoint("C");
         inspect([&]{std::cout<<"M41 PRODUCTION WITNESS PASSED\n";SDL_Event e{};e.type=SDL_QUIT;SDL_PushEvent(&e);});
         auto native=handler;native.closed={};
-        // The simulated clock advances only when idle runs; a live deadline would make
-        // the SDL loop wait in real time for it. Behavior is unchanged, only the wait.
+        // Part 0: draw waits finish before input, even when semantic idle is held.
+        // Advance the fake clock per native cycle without a real SDL wait.
         native.nextPresentationDeadline=[]{return std::optional<std::uint64_t>{0};};
-        native.beginCycle=[&](std::uint64_t){handler.beginCycle(++cycle);};
+        native.beginCycle=[&](std::uint64_t){now+=100;handler.beginCycle(++cycle);};
         unsigned evidenceFrame=0;
         native.framePresented=[&](const auto &frame){
             check(!nativeFailed,"M41 failed native frame acquired authority");
@@ -387,7 +388,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
             }
         };
         const auto drive=[&]()->std::optional<IndexedFrame> {
-            check(++iterations<30000,"M41 witness iteration bound");now+=100;next.reset();acted=false;
+            check(++iterations<30000,"M41 witness iteration bound");next.reset();acted=false;
             if(shown && iterations%3!=0)while(!steps.empty()) {const bool done=steps.front()();if(done)steps.pop_front();if(acted || !done)break;}
             if(acted)return next;
             try {auto frame=idle();if(frame)shown=false;return frame;}

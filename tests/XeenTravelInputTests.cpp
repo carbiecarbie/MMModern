@@ -120,11 +120,13 @@ void input() {
  presenter.originalAssets(&dos_test::text(),{});XeenPresentationRequest request;request.kind=XeenPresentationKind::WordInput;
  request.response=XeenPresentationResponseRequirement::WordInput;request.word=XeenEventConfirmWord{};
  presenter.present(blank,request);const auto hit=presenter.input();
- check(hit.textEntry && !hit.click(60,170) && hit.rightClick().has_value() && !hit.key(InputKey::Up),"Word input must own keyboard and mouse without movement");
+ check(hit.textEntry && !hit.click(60,170) && !hit.click(0,0) && !hit.key(InputKey::Up),"Word input must own keyboard and mouse without movement");
  presenter.handle(TextInputAction{"alpha"});presenter.handle(DialogKeyAction{8});
  const auto accepted=presenter.handle(DialogKeyAction{13});check(accepted.response && std::get<XeenWordInput>(accepted.response->value).text=="Alph","Enter accepts edited text");
  presenter.present(blank,request);presenter.handle(TextInputAction{"alpha"});
- const auto cancel=presenter.handle(*hit.rightClick());check(cancel.response && std::get<XeenWordInput>(cancel.response->value).text.empty(),"Right mouse cancels and clears");
+ check(!hit.click(0,0),"Part 0: either mouse button leaves text input unchanged");
+ presenter.handle(DialogKeyAction{127});
+ const auto kept=presenter.handle(DialogKeyAction{13});check(kept.response && std::get<XeenWordInput>(kept.response->value).text=="Alpha","Part 0: Delete does not edit shared text");
  presenter.present(blank,request);presenter.handle(TextInputAction{"alpha"});
  const auto escape=presenter.handle(DialogKeyAction{27});check(escape.response && std::get<XeenWordInput>(escape.response->value).text.empty(),"Escape clears the word");
  presenter.present(blank,request);const auto empty=presenter.handle(DialogKeyAction{13});

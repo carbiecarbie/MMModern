@@ -456,7 +456,7 @@ std::string XeenEncounterFlow::consequenceNotice() const {
 
  } else if(!stopped) {
   const bool city=!const_cast<XeenWorld &>(_world).map(_camera.mapId).geometry.isOutdoors();
-  out<<"Arrows move/turn; . Wait; S Shoot:";
+  out<<"Arrows move/turn; W Wait; S Shoot:";
   bool eligible=false;
   for(unsigned i=0;i<6;++i){const auto &c=_party.roster.at(_party.party.activeRosterIds()[i]);if(c.canAct())for(const auto &w:c.weapons)if(w.frame==4){out<<' '<<i+1;eligible=true;break;}}
   if(!eligible)out<<" none";

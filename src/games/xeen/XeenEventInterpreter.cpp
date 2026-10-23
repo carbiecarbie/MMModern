@@ -480,7 +480,7 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
                 const auto travel=world.prepareEventTransition(destination,run);
                 if(!travel)throw std::invalid_argument(travel.reason);
                 if(workingCamera.mapId!=destination.mapId) {
-                    world.loadEventDestination(workingCamera.mapId,destination.mapId);
+                    world.loadEventDestination(workingCamera.mapId,destination.mapId,false);
                     ++state.inputClearCount;state.inputClearSite=0xf590;
                 }
                 world.scenePresentation().markLightingStep();
@@ -594,7 +594,7 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
                 const auto transition=world.prepareEventTransition(destination);
                 if(!transition)return error(XeenEventExecutionErrorKind::UnsupportedTeleportDestination,transition.reason,instructionCount,logical,pending.request.source);
                 // Unlike ordinary same-map teleport, refusal is a real map load.
-                world.loadEventDestination(workingCamera.mapId,destination.mapId);
+                world.loadEventDestination(workingCamera.mapId,destination.mapId,false);
                 ++state.inputClearCount;state.inputClearSite=0xf590;
                 workingCamera=transition.destination;state.selectedObject.reset();
             } catch(const std::exception &e) {
@@ -1681,7 +1681,7 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
                     if(sprite==47 || sprite==48)emitFmEffect(publication,sprite==47?45:44);
                 }
                 if(workingCamera.mapId!=destination.mapId && world.detachedEventCandidate()) {
-                    world.loadEventDestination(workingCamera.mapId,destination.mapId);
+                    world.loadEventDestination(workingCamera.mapId,destination.mapId,false);
                     ++state.inputClearCount;state.inputClearSite=0xf590;
                 }
                 workingCamera=destination;

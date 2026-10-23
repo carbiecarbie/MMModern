@@ -21,7 +21,7 @@ inline bool exercise(Harness &h,const SdlWindow::FrameUpdateHandler &handler,
  const auto epoch=handler.displayedInput();
  const bool inventory=h.flow->inventoryOpen();
  const bool modal=inventory || h.flow->presentationGeneration().has_value();
- const bool buffered=handler.inputContext && handler.inputContext(old.presentation()).acceptsQueuedInput && (mode==3 || mode==5);
+ const bool buffered=handler.inputContext && (handler.inputContext(old.presentation()).acceptsQueuedInput || handler.inputContext(old.presentation()).retainEventKeys) && (mode==3 || mode==5);
  unsigned delivered=0;
  unsigned loops=0,acknowledged=0;bool pending=false,correctSent=false,issued=false,triggered=false,delay=false;
  std::optional<IndexedFrame> correct;

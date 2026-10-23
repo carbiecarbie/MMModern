@@ -245,7 +245,10 @@ public:
 	XeenTransitionResult prepareEventTransition(const XeenCamera &,bool runLocation=false);
 	XeenTerrainArrival prepareTerrainArrival(const XeenCamera &,const std::array<XeenCharacter,6> &,const XeenGameplayContext &);
 	void publishTerrainArrival(XeenPartyState &,const XeenTerrainArrivalCandidate &,const XeenJourneyRandomState &);
-	void loadEventDestination(XeenMapIdentity from,XeenMapIdentity to);
+	// Event interpreter reports its own clear before publication; other loads
+    // publish a transient input signal with the destination, including reloads.
+    void loadEventDestination(XeenMapIdentity from,XeenMapIdentity to,bool clearKeyboard=true);
+    std::uint64_t inputMapLoadGeneration() const noexcept {return _inputMapLoadGeneration;}
 	bool regionalJourney() const noexcept {
 		return (_sessionState.journey() || _detachedEventCandidate);
 	}
@@ -333,6 +336,7 @@ private:
 	const std::uint64_t _incarnation;
 	std::uint64_t _ownerRevision = 0;
 	std::uint64_t _cacheRevision = 0;
+    std::uint64_t _inputMapLoadGeneration = 0; // Platform input only; never saved.
 	XeenGameplayBorrowOwner _gameplayBorrow;
 	std::weak_ptr<XeenJourneyCapture> _journeyCapture;
 	std::shared_ptr<XeenJourneyRestoration> _journeyRestoration;

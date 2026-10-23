@@ -43,7 +43,11 @@ inline std::optional<PlayerAction> xeenMainScreenClick(int x, int y, MainScreen 
         constexpr const char *fighting[] = {"Quick Fight","Cast","Attack","Use","Run","Block","Quick Fight Options","Info","Quick Ref"};
         return UnsupportedMainScreenAction{combat ? fighting[index] : exploration[index]};
     }
-    if (contains(109,137,122,147)) return ControlPanelAction{};
+    if (contains(109,137,122,147)) {
+        // DOS 0xd1f4..0xd217 tests the current coordinates after decoding Tab.
+        if (!combat && y<=140) return InteractionAction{false,true};
+        return ControlPanelAction{};
+    }
     for (unsigned col=0; col<3; ++col) {
         if (contains(columns[col],148,columns[col]+24,168)) {
             constexpr NavigationAction movement[] = {NavigationAction::TurnLeft,NavigationAction::MoveForward,NavigationAction::TurnRight};
@@ -61,7 +65,7 @@ inline std::optional<PlayerAction> xeenMainScreenClick(int x, int y, MainScreen 
     constexpr int faces[] = {10,45,81,117,153,189};
     for (unsigned index=0;index<6;++index) if (contains(faces[index],150,faces[index]+32,182))
         return SelectMemberAction{index};
-    if (contains(8,8,224,140)) return combat ? PlayerAction{AttackAction{}} : PlayerAction{InteractionAction{false}};
+    if (x>=8 && x<=224 && y>=8 && y<=135) return combat ? PlayerAction{AttackAction{}} : PlayerAction{InteractionAction{false}};
     return {};
 }
 inline std::optional<InputButton> xeenMainScreenButtonAt(int x,int y,MainScreen screen) {
@@ -81,7 +85,7 @@ inline std::optional<InputButton> xeenMainScreenButton(const PlayerAction &actio
     for(unsigned index=0;index<16;++index) {
         const int x=index==9?109:columns[index<9?index%3:(index-10)%3];
         const int y=index<9?75+21*(index/3):index==9?137:index<13?148:169;
-        const auto candidate=xeenMainScreenClick(x,y,screen);
+        const auto candidate=xeenMainScreenClick(x,index==9?141:y,screen);
         if(!candidate || candidate->index()!=action.index()) continue;
         if(const auto *nav=std::get_if<NavigationAction>(&action);nav && *nav!=std::get<NavigationAction>(*candidate)) continue;
         if(const auto *notice=std::get_if<UnsupportedMainScreenAction>(&action);

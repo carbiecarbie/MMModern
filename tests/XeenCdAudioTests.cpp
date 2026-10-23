@@ -218,7 +218,7 @@ void npcGeometry(XeenAssetSource &assets) {
   draws[1].name=="face09.fac" && draws[1].x==255 && draws[1].y==18,"DOS Text-off portrait coordinates differ");
  auto input=presenter.input();
  check(input.key(InputKey::Escape).has_value() && input.key(InputKey::Enter).has_value() &&
-  input.click(270,65).has_value() && input.click(20,170).has_value() && input.rightClick().has_value(),
+  input.click(270,65).has_value() && input.click(20,170).has_value() && input.click(0,0).has_value(),
   "Compact acknowledgment lost DOS any-key/any-mouse dismissal");
  presenter.clear();draws.clear();request.npc->confirmationMode=0;request.response=XeenPresentationResponseRequirement::YesNo;
  presenter.present(base,request);input=presenter.input();

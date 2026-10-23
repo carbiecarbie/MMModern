@@ -702,7 +702,7 @@ std::shared_ptr<const DialogInput> XeenEventFlow::serviceDialogInput() const {
         else if(ui.phase==SmithUi::Phase::Detail) {input.anyKey=input.anyClick=input.keyMouseWait=true;}
         else if(ui.phase==SmithUi::Phase::Upgrade) input.keys={InputKey::Escape};
         else if(ui.phase==SmithUi::Phase::Amount) {
-            input.keys={InputKey::Escape,InputKey::Enter,8,127};input.textEntry=true;
+            input.keys={InputKey::Escape,InputKey::Enter,8};input.textEntry=true;
         }
         else if(ui.phase==SmithUi::Phase::Currency) input=xeenBankInput();
         else if(ui.phase==SmithUi::Phase::Confirm) input=ui.mode==SmithUi::Mode::Guild?xeenSpellConfirmInput(ui.spellInfo):ui.mode==SmithUi::Mode::Food?xeenFoodConfirmInput():xeenConfirmInput();
@@ -1025,7 +1025,7 @@ IndexedFrame XeenEventFlow::handleFoodBank(const PlayerAction &action,std::uint6
                     ui.feedback=refusal(result.outcome==XeenBankOutcome::EmptySource);
                 else if(result.outcome==XeenBankOutcome::Transferred)_encounter->transferBank(ui.withdrawal,ui.gems,amount);
                 startServiceSample(ui.animation,"coina.voc");
-            } else if(key==8 || key==127) {if(!ui.amount.empty())ui.amount.pop_back();ui.amountCursor.keyRedraw();}
+            } else if(key==8) {if(!ui.amount.empty())ui.amount.pop_back();ui.amountCursor.keyRedraw();}
             else {
                 const std::string packet=typed?typed->text:(key>='0' && key<='9'?std::string(1,char(key)):std::string{});
                 if(std::all_of(packet.begin(),packet.end(),[](unsigned char c){return c>='0' && c<='9';}))

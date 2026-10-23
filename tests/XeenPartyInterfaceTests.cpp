@@ -555,11 +555,11 @@ void orderedShootBarrierTreasure(Inputs &in) {
    }
    const auto oldFrame=loot.flow->frame().presentation();const auto oldInput=loot.flow->displayedInput();
    const auto input=loot.flow->inputContext(oldFrame).dialog;
-   check(input && input->key('z') && input->click(0,0) && input->rightClick(),"Monster treasure key/either-mouse acknowledgment");
+   check(input && input->key('z') && input->click(0,0) && input->click(0,0),"Monster treasure key/either-mouse acknowledgment");
    // A response may interrupt an item hold after the original draw/input
    // boundary; every phase is still individually acquired by Fixture::act.
    loot.now=std::max(loot.now,PresentationClock::ceilMilliseconds(XeenPartyInterfaceTestAccess::rewardInputDeadline(*loot.flow)));
-   loot.act(phase%2?*input->rightClick():*input->key('z'));
+   loot.act(phase%2?*input->click(0,0):*input->key('z'));
    if(phase+1<phases) {
     const auto retained=XeenPartyInterfaceTestAccess::rewardPhase(*loot.flow);
     const auto cursor=XeenPartyInterfaceTestAccess::rewardCursor(*loot.flow);

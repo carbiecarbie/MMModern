@@ -274,7 +274,7 @@ int main(int argc,char **argv){try {
  d.key('c');
  for(unsigned page=0;page<4;++page) {
   check(d.flow.screen()==Screen::Credits && d.flow.frame().pixels==credits.credits[page].pixels,"right-click credits page identity");
-  const auto action=d.flow.inputContext(d.flow.frame().presentation()).dialog->rightClick();
+  const auto action=d.flow.inputContext(d.flow.frame().presentation()).dialog->click(0,0);
   check(bool(action),"credits right click mapping");d.flow.handle(*action,d.flow.frame().presentation());if(d.flow.current())d.present();
  }
  check(d.flow.screen()==Screen::Menu,"credits right click did not return after the fourth page");d.fade();

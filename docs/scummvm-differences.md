@@ -282,8 +282,8 @@ against the pin; master was not rechecked.
   [Evidence](original-quirks.md#sv-event-coordinate-mouse).
 - DOS filters F10/F11/F12/Delete and translates Ctrl combinations before
   exploration dispatch. The pin forwards host key codes and modifier bits;
-  its keypad 4/6 strafing also differs from the DOS turns. Existing MMModern
-  aliases are identified separately in the input rules.
+  its keypad 4/6 strafing also differs from the DOS turns. MMModern now applies
+  the DOS translation before dispatch; F9 Save and keypad Equals remain host aliases.
   [Evidence](original-quirks.md#sv-event-key-translation).
 - A manual Event resumes with the key its dialogs or clearing left behind.
   DOS does not flush all queued keys simply because a script executed; the

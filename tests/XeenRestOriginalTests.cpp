@@ -66,8 +66,8 @@ void finish(Fixture &f) {
    const auto oracle=drawXeenErrorScroll(f.flow->frame(),f.in.font,XeenRestTestAccess::completionText(*f.flow));
    check(oracle.pixels==f.flow->frame().pixels,"Rest completion exact DAT text/colors in window 6");
    const auto input=f.flow->inputContext(f.flow->frame().presentation()).dialog;
-   check(input && input->key('z') && input->click(319,0) && input->rightClick(),"Rest summary ordinary-key/either-mouse parity");
-   f.act(*input->rightClick());continue;
+   check(input && input->key('z') && input->click(319,0) && input->click(0,0),"Rest summary ordinary-key/either-mouse parity");
+   f.act(*input->click(0,0));continue;
   }
   if(f.flow->canSave())return;
   check(!f.flow->encounter()->combat(),"Successful Rest fixture entered combat");pulse(f);
@@ -153,7 +153,7 @@ void entry(Inputs &in) {
  check(drawXeenErrorScroll(refusal.flow->frame(),in.font,std::string(in.assets.uiText().scalar("TOO_DANGEROUS_TO_REST"))).pixels==refusal.flow->frame().pixels,
   "Rest refusal exact DAT text/window 6");
  const auto refusalInput=refusal.flow->inputContext(refusal.flow->frame().presentation()).dialog;
- check(refusalInput && refusalInput->key('z') && refusalInput->rightClick(),"Rest refusal generic acknowledgment");
+ check(refusalInput && refusalInput->key('z') && refusalInput->click(0,0),"Rest refusal generic acknowledgment");
  refusal.act(*refusalInput->key('z'));finish(refusal);
  check(XeenSaveFormat::encode(refusal.snapshot())==refusalBefore,"Rest refusal preserves gameplay");
  const auto cellFlags=[&](auto id){auto map=in.maps.loadGeometryMap(in.assets,id);if(id!=XeenMapIdentity(23))for(auto &cell:map.geometry.cells)cell.flags=0xf8;return map;};

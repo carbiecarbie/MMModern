@@ -211,11 +211,11 @@ void bank(Inputs &in) {
             v.choose('o',mouse);v.amount(overflow);checkBalances(v,375,0,225,60);
         }
         v.choose('o',mouse);v.act(TextInputAction{"123"});v.key(8);v.key(127);v.key('4');v.key(InputKey::Enter);v.dismiss();
-        checkBalances(v,361,0,239,60);
-        v.choose('o',mouse);v.act(TextInputAction{"900"});v.act(CancelInteractionAction{});checkBalances(v,361,0,239,60);
+        checkBalances(v,251,0,349,60); // Part 0: Delete has no code; 123, Backspace, Delete, 4 is 124.
+        v.choose('o',mouse);v.act(TextInputAction{"900"});v.act(CancelInteractionAction{});checkBalances(v,251,0,349,60); // Part 0: Delete has no code; 123, Backspace, Delete, 4 is 124.
         check(v.dialog()->key('o') && !v.dialog()->textEntry,"Amount Escape did not back out one level");
         v.act(CancelInteractionAction{});check(bool(v.dialog()->key('w')),"Currency Escape did not return to lobby");
-        v.currency(true,false,mouse);v.amount("239");checkBalances(v,600,0,0,60);
+        v.currency(true,false,mouse);v.amount("349");checkBalances(v,600,0,0,60);
         v.choose('e',mouse);v.amount("60");checkBalances(v,600,60,0,0);
         v.leave();check(v.p.encounterContext->day==9 && v.p.encounterContext->minutes==s.journey->context->minutes,
             "Bank transactions added time or departure was not one day");

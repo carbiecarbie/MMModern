@@ -166,7 +166,7 @@ void testPresentationComposition() {
     auto generic=presenter.input();
     check(generic.anyKey && generic.anyClick && generic.keyMouseWait &&
         std::holds_alternative<AcknowledgeAction>(*generic.key('z')) &&
-        std::holds_alternative<AcknowledgeAction>(*generic.rightClick()),"generic ordinary-key/either-mouse wait");
+        std::holds_alternative<AcknowledgeAction>(*generic.click(0,0)),"generic ordinary-key/either-mouse wait");
     presenter.present(base,request(XeenPresentationKind::Confirmation,XeenPresentationResponseRequirement::YesNo,""));
     check(sprites==std::vector<std::tuple<std::string,unsigned,int,int>>{
         {"global.icn",7,232,74},{"confirm.icn",0,235,75},{"confirm.icn",2,260,75}},"original YesNo sprites");
@@ -175,7 +175,8 @@ void testPresentationComposition() {
         check(std::get<DialogKeyAction>(*input.click(x,y)).key==hit.key,"YesNo rectangle corner");
     check(!input.click(259,75) && !input.click(284,75) && !input.click(235,95) &&
         !input.key('z') && !input.key(InputKey::Enter),"YesNo exclusive edges/unrelated keys");
-    check(presenter.handle(*input.rightClick()).response==XeenPresentationResponse::No,"right-click YesNo decline");
+    check(!input.click(0,0),"Part 0: either mouse button outside YesNo does nothing");
+    check(presenter.handle(*input.click(260,75)).response==XeenPresentationResponse::No,"Part 0: coordinate click selects No");
 }
 
 void testPagingAndInputProtocol() {

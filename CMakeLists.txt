@@ -228,7 +228,7 @@ if(BUILD_TESTING)
  set_tests_properties(xeen_cd_audio PROPERTIES LABELS fast ENVIRONMENT "SDL_AUDIODRIVER=dummy")
 	add_executable(mmodern_test_save_tests tests/XeenTestSaveTests.cpp)
 	target_link_libraries(mmodern_test_save_tests PRIVATE mmodern_test_save_support)
-	foreach(preset broken-armor train-ready injured-dead poisoned monster-control monster-damage party-healing m76-spells combat-items m79-playtest m80-playtest m80-arena m80-arena-maxed m81-drops m81-fullpacks m81-event paths)
+	foreach(preset broken-armor train-ready injured-dead poisoned monster-control monster-damage party-healing m76-spells combat-items m79-playtest m80-playtest m80-arena m80-arena-maxed m81-drops m81-fullpacks m81-event m84-playtest-trap m84-playtest-label m84-playtest-save paths)
 		add_test(NAME xeen_test_save_${preset} COMMAND mmodern_test_save_tests
 			"${MMODERN_XEEN_DATA_DIR}" ${preset} "${CMAKE_CURRENT_SOURCE_DIR}")
 	endforeach()
@@ -894,6 +894,8 @@ if(BUILD_TESTING)
     add_executable(mmodern_event_dispatch_tests tests/XeenEventDispatchTests.cpp)
     target_link_libraries(mmodern_event_dispatch_tests PRIVATE mmodern_app mmodern_platform_sdl SDL2::SDL2 shell32 bcrypt)
     add_test(NAME xeen_event_dispatch COMMAND mmodern_event_dispatch_tests)
+    add_test(NAME xeen_event_dispatch_sdl COMMAND mmodern_event_dispatch_tests sdl)
+    set_tests_properties(xeen_event_dispatch_sdl PROPERTIES RUN_SERIAL TRUE ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_RENDER_DRIVER=software")
 	add_executable(mmodern_event_system_tests
 		tests/XeenEventSystemTests.cpp
 	)

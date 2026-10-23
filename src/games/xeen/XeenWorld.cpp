@@ -593,6 +593,7 @@ std::unique_ptr<XeenWorld> XeenWorld::transitionCandidate() const {
 	candidate->_sessionState._entry=XeenEncounterEntry::Ordinary;
 	candidate->_detachedEventCandidate=true;
 	candidate->_developerEventMap=_developerEventMap;
+    candidate->_inputMapLoadGeneration=_inputMapLoadGeneration;
 	candidate->_maps=_maps;candidate->_objects=_objects;
 	candidate->_cityStatistics=_cityStatistics;
 	candidate->_scenePresentation=_scenePresentation;
@@ -736,6 +737,7 @@ void XeenWorld::publishTransition(XeenWorld &candidate) noexcept {
  _scenePresentation.lightingStepped=candidate._scenePresentation.lightingStepped;
  _scenePresentation.lightingPrepared=candidate._scenePresentation.lightingPrepared;
 	XeenMutationWatch::write(this);XeenMutationWatch::write(&candidate);
+    _inputMapLoadGeneration=candidate._inputMapLoadGeneration;
 	_sessionState._journeyRandom.swap(candidate._sessionState._journeyRandom);
 	// The whole per-map table moves as one value.
 	_sessionState._mapStates.swap(candidate._sessionState._mapStates);

@@ -171,6 +171,29 @@ spell or item cost; an unset beacon defaults to Vertigo even on cancel.
 .\build-rel\mmodern_test_save.exe m76-spells "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/m76-spells.mmsave"
 ```
 
+The M84 input/Event presets use the current save format and a healthy travel
+party with 1,000 HP per member; monsters on retained maps are defeated so the
+input witnesses stay quiet. Loading still makes the normal flagged-cell entry
+pass. The presets are:
+
+- `m84-playtest-trap`: map 26 `(8,3)` North, the damage trap. Try W, period,
+  Info then Escape, held keys, and either mouse button on the view or panel.
+- `m84-playtest-label`: Vertigo, map 28 `(13,4)` West, the door label.
+  W clears it and the following pass restores it.
+- `m84-playtest-save`: map 25 `(27,3)` North, a flagged cell with no Event
+  record or selected object. Use the panel's Save/Load here to inspect the
+  entry pass without damage or a modal prompt.
+
+Generate outside the repository and game installation, then start one:
+
+```powershell
+New-Item -ItemType Directory -Force D:/MModern-playtest
+.\build-rel\mmodern_test_save.exe m84-playtest-trap "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/m84-playtest-trap.mmsave"
+.\build-rel\mmodern_test_save.exe m84-playtest-label "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/m84-playtest-label.mmsave"
+.\build-rel\mmodern_test_save.exe m84-playtest-save "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/m84-playtest-save.mmsave"
+.\build-rel\mmodern.exe --load-game "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/m84-playtest-trap.mmsave"
+```
+
 The `m80-playtest` preset starts at the Reaper entrance on Clouds map 24
 `(10,9)` facing North. It has the party's quest items 1-7, the M78 travel
 party and books, 10,000 SP per caster and 5,000 gems. The Sorcerer has

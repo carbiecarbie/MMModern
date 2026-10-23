@@ -163,7 +163,7 @@ DialogInput XeenEventPresenter::input() const {
     if(!_active)return input;
     if(wordInputActive()) {
         input.textEntry=true;input.keys={8,127,InputKey::Escape,InputKey::Enter};
-        // Left clicks are swallowed; the original right-button input maps to Escape.
+        // Both mouse buttons are swallowed during text entry (DOS coordinate-only input).
         return input;
     }
     if(_page+1<_pages.size() ||
@@ -280,7 +280,7 @@ XeenPresentationUpdate XeenEventPresenter::handle(const PlayerAction &action, bo
         else if(const auto *key=std::get_if<DialogKeyAction>(&action)) {
             if(key->key==InputKey::Enter)response=XeenWordInput{_wordInput.value()};
             else if(key->key==InputKey::Escape)response=XeenWordInput{};
-            else if(key->key==8 || key->key==127)_wordInput.backspace();
+            else if(key->key==8)_wordInput.backspace();
             else if(_request.kind==XeenPresentationKind::ArenaNumber && key->key>='0' && key->key<='9')_wordInput.type(std::string(1,char(key->key)),_font,2);
         }
         if(response) {

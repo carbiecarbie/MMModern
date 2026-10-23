@@ -151,12 +151,15 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
     if(label=='A')check(world->sessionState().regionalActors(23).at(9).activated,"M37 A: the start view woke Orc #9");
     const unsigned before=saveStages;
     auto sdl=handler;sdl.closed={};sdl.failed={};
+    sdl.nextPresentationDeadline=[]{return std::optional<std::uint64_t>{0};};
     bool queued=false;unsigned loops=0;
-    sdl.beginCycle=[&](std::uint64_t){handler.beginCycle(++cycle);
+    sdl.beginCycle=[&](std::uint64_t){now+=100;handler.beginCycle(++cycle);
      if(!queued){queued=true;SDL_Event key{};key.type=SDL_KEYDOWN;
       key.key.keysym.sym=SDLK_F9;key.key.keysym.scancode=SDL_SCANCODE_F9;
       key.key.timestamp=SDL_GetTicks()+1;
-      check(SDL_PushEvent(&key)==1,"M37 SDL F9 enqueue");}
+      check(SDL_PushEvent(&key)==1,"M37 SDL F9 enqueue");
+      // Part 0: one checkpoint tap, rather than an indefinitely repeating hold.
+      key.type=SDL_KEYUP;check(SDL_PushEvent(&key)==1,"M37 F9 tap release");}
     };
     const auto sdlIdle=[&]()->std::optional<IndexedFrame>{
      check(++loops<100,"M37 SDL F9 loop bound");
