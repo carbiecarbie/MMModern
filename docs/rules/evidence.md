@@ -1855,6 +1855,132 @@ file `0x45b9a` translated to its loaded address: six able combatants with no
 preferred target should call `R(1,6)`, then `R(0,4)` unless the first result
 is 6, separately from any eligibility fallback.
 
+## M88 Create and Delete
+
+Checked 2026-10-24 against clean `main`, HEAD = `origin/main` =
+`e8621070e52933af70d2bfd38c6fe28ae5ade00e`. The comparison checkout is
+ScummVM `6814ee9ba54582f5b5adcffab49efbbd8f589edd`. The rules and complete
+text locators are in [Create and Delete](party.md#create-and-delete).
+This establishes original behavior, not implemented coverage or play-test
+acceptance.
+
+**DOS static, high confidence:** read-only analysis of
+`F:/Games/gog/Might and Magic 4-5/WORLD/XEEN.DAT`, 353511 bytes, SHA-256
+`8bf78b4850d5973cbb063c7dd96b9aaef4e94791d748334187eef74acf528d27`.
+The file size and hash were checked before analysis; each disassembly helper
+also asserts the hash. WSL Python3 with Capstone 5 in 16-bit mode reused
+M87's tooling, without retrying the Windows-path REA route that M87 had
+already found unsupported. No REA session or new DOSBox observation is
+claimed. Mapping remains `file = 0x56c0 + segment*16 + offset`, and
+`Ghidra linear = file + 0xa940`.
+
+Calibration first reproduced the settled Inn Add rule in
+`0x39b33..0x39beb`: missing/already-active rows return, `DS:ed8c` is compared
+with six at `0x39b76`, admitted IDs append with a 354-byte record copy, and
+the full-party path calls FX21 before its known text at `0x55561`.
+This checks address mapping, active-count identity, roster stride and the
+shared input/sound conventions beside the Create/Delete dispatch. Existing
+M87 save, Load, Dismiss and Inn presentation evidence and M84 keyboard,
+mouse, button-feedback and ErrorScroll evidence were reused, not recertified
+through new play.
+
+| Question | New or retained proof; confidence |
+| --- | --- |
+| 1. Entry and return | C/local-list capacity `0x39a76..0x39abe`; Create return `0x368d3..0x368e6`; unconditional known snapshot `0x39a96..0x39a9a`; Inn return redraw/fade `0x39460..0x39785`. DOS static, high. |
+| 2. Free slots | Name-only scan 0–23 `0x35e40..0x35e90`, race/sex `0x35e95..0x35ecb`, slot limits `0x3637a..0x363d1`, face lookup `0x361b5..0x361dd`. DOS static, high; portrait availability reuses M87 resource inspection. |
+| 3. Rolls and class | Rolls `0x359f2..0x35a93`, one-call bounded helper `0x45b9a..0x45bb4`, requirements `0x358d2..0x359dc`, first eligible selection/colors `0x35a94..0x35cb4`. DOS static, high. |
+| 4. Screen and input | Key tables `0x368e7/0x351af`; parallel mouse arrays `0x4f5ba/0x4f656`; dice `0x351d0..0x355db`; initial/detail redraw `0x35f19..0x36263` and `0x363fd..0x36744`. DOS static, high for composition and waits; exact visible overlap Unknown. |
+| 5. Record | Name `0x1e00f..0x1e179`; clear/init `0x3564a..0x358cb`; class/race skill and spell tables `0x4d770..0x4d7d1`; capacity calls `0x20182/0x3bb30`. DOS static, high. All CHR fields accounted for against the existing character/supplement and save fields, including separate learned-spell and award payloads. |
+| 6. Delete | Selection `0x39109..0x39290`; protected weapon check `0x325f5..0x3261a`; confirmation `0x1ea3a..0x1ebc1`; clear, town-only list rebuild, membership removal and snapshot `0x39985..0x39a37`. DOS static, high; page index is preserved. |
+| 7. Empty party/order | Count-bounded copy `0x392be..0x392f6`, unconditional snapshot payload writes `0xe961..0xe982`, Load `0xf013..0xf076`, Inn entry/Exit guards `0x39460..0x394bc` and `0x39ac1..0x39ad0`; earlier Dismiss settlement `0x1ec97..0x1ed2e`. DOS static, high, reusing M87. |
+
+The RNG audit follows the ordinary Create, exchange, name, Delete and confirm
+paths and their shared UI helpers. Its relocation-backed direct-call census
+finds the sole roll call at `0x35a2b`; dice arithmetic/polling and name mode
+255 account for the suspected timing-dependent paths. The latter suppresses
+the shared key helper's gameplay draw. The dice calls `0x5efb` are far-pointer
+arithmetic, not random draws. No extra save site, skipped normal Create-return
+snapshot, or generator call outside attribute rolls was identified in these
+paths. This bounded audit does not prove absence across unrelated program
+code. The known clock-mixed DOS generator itself remains the plan's deferred
+difference.
+
+**Resource inspection, high confidence:** the retained read-only ISO/CC
+decoder inspected installed `GAME1.GOG` / `XEEN.CC`. All empty `maze.chr`
+records (24 of 30) contain zero in every field; its 10620-byte resource at
+inner archive offset `0x989` retains M87's SHA-256
+`c1bb681d2a9c5b3b29b2b75ad314328debfd6f512d942d699c4891a5f6da227a`.
+The following offsets are within `XEEN.CC`, **not XEEN.DAT**:
+
+| Resource | Archive offset | Length | Inspected layout |
+| --- | --- | --- | --- |
+| `create.raw` | `0x63abbf` | 64000 | 320×200 background pixels |
+| `create.icn` | `0x6343ca` | 26613 | 66 frames; arrow clear frame 61 is 7×108, arrow frame 63 is 6×5 |
+| `create2.icn` | `0x64a5bf` | 6036 | 16 frames; Escape frame 0 is 24×20 |
+| `dice.vga` | `0x70bf1e` | 14417 | Eight frames; seven varying die sizes matching DOS tables, plus 152×83 background |
+
+Scripts, full hashes, table derivations and instruction slices remain outside
+the repository in `D:/MModern-re/m88/`. Main locators are `trace.py`,
+`probe.py`, `followup.py`, `tables.py`, `audit.py`, `capacity-compare.py`,
+`calibration-add.dis`, `inn-dispatch.dis`, `create-main.dis`,
+`create-helpers.dis`, `roll.dis`, `roll-details.dis`, `rng.dis`,
+`exchange.dis`, `input-name.dis`, `name-key.dis`, `confirm.dis`,
+`delete-selection.dis`, `protected-items.dis`, `party-copy.dis`,
+`load-party.dis`, `list-draw.dis`, `memset-core.dis`, `hp.dis`, `sp.dis`,
+`stat-bonus.dis`, `creation-tables.txt`, `text-and-audit.txt`,
+`draw-and-capacity-tables.txt`, `capacity-comparison.txt`, and the
+`resources/` inventory and sprite-metadata scripts/results. Long linear
+slices can include embedded tables after a routine's return; only verified
+entry-point slices and reachable instructions support the conclusions.
+
+### M88 runtime checks
+
+**DOSBox observation (maintainer, 2026-10-24),** with a 60 fps recording
+(`Chegagem 1.mkv`) and four screenshots kept outside the repository in
+`D:/Projetos/MMODERN INN/`. They corroborate the static rules above:
+
+1. With six members, C opens Create. The Inn fades out in about 0.42 s,
+   Create fades in over about 0.43 s; Escape fades Create out in about
+   0.40 s and the Inn in over about 0.47 s, without the opening scroll. The
+   Inn song plays on through both transitions without a gap or restart
+   (audio level measured over the recording).
+2. The dice roll while idle and stop while the exchange window or the name
+   prompt is open; after either closes they continue where they were,
+   without catch-up frames. The exchange window covers the dice area at
+   the top left.
+3. Unavailable classes are gray, available ones white and the committed
+   class blue. The arrow starts on the first available class; Left and
+   Right move only the arrow, and only Enter commits. R clears the
+   committed class. A Gnome slot shows "Secret Doors" and a Druid
+   "Direction".
+4. With 24 characters listed in Vertigo, C shows "Your Roster is full!"
+   without a sound. The globally full roster with fewer than 24 listed
+   locally was not observed; that case rests on the static rule.
+5. Deleting the only face on the last page leaves the page blank until Up.
+   Confirming Delete makes no sound.
+6. Loading the save written by a Create return with nobody in the party,
+   or by deleting the last active member through its listed face, reopens
+   the Inn with an empty party. Neither Load adds a day beyond Sign In's,
+   and no removed or deleted character returns. The Load menu shows that
+   slot's level as 0 ("W 0"), and the empty party bar keeps the yellow
+   selection frame on its first slot.
+   In the empty Inn, Exit refuses with its message until a member is added.
+
+**Inn song after Load.** Loading a save made inside the Inn from the
+title's Load menu opens the Inn in silence, and the map's song returns after
+Exit. Loading a save outside the tavern from the title and then signing in
+plays the Inn song, and so does an in-game panel Load into an Inn save.
+**DOS static, high confidence (2026-10-24),** checked against these
+observations. A byte search finds three direct writers of `DS:8d28`:
+title-menu entry (`0xbcee`, set), the Inn's song start (`0x394f4`, set) and
+the Inn routine's tail (`0x39c47`, clear). The one reader it finds,
+`0x394cb`, skips `inn.m` while the flag is set. Every gameplay entry and every return code 2 of the main loop
+calls the Inn routine `0x392f7` first (`0xb819..0xb839`, call `0xb824`).
+Outside the Inn, that routine leaves through its tail at once
+(`0x394b7..0x394c8`, `0x39c13..0x39c47`) and clears the flag; inside it, the
+song starts only when the flag is clear. Only a title Load straight into the
+Inn therefore arrives with the flag still set.
+
 ## REA record locators
 
 The exported evidence bundle contains complete records. The stable IDs below

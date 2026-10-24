@@ -11,7 +11,7 @@ is implemented.
 | Chapter | Consult it for |
 | --- | --- |
 | [Combat and character capacity](combat.md) | Attributes, HP/SP, armor class, hit and damage, targeting, saves, initiative, Run, experience and monster treasure |
-| [The Inn, membership and party size](party.md) | Town roster lists, Sign In and its saves, Inn input and return, Dismiss and deferred lodging, shared state and active-count consumers |
+| [The Inn, membership and party size](party.md) | Town roster lists, Sign In and its saves, Create rolls/input/record initialization, Delete and empty-party saves, Inn return, Dismiss and deferred lodging, shared state and active-count consumers |
 | [Magic](magic.md) | All 76 spell costs, all 73 item powers, casting and cancellation, healing, damage, buffs and travel boundaries |
 | [Items and equipment](items.md) | Item representation, equipment slots, prices, Smith transactions, charges, Discard, generation and treasure delivery |
 | [Time, rest and conditions](time-and-conditions.md) | Bash, calendar, eight-hour checks, per-action recovery, fatigue, temporary effects, Rest, outdoor movement skills, terrain arrival and falls, food, bank interest, Training, Tavern options and Temple prices/effects |

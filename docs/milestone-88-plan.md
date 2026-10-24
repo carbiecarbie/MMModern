@@ -1,6 +1,6 @@
 # Milestone 88 plan - Create and Delete at the Inn
 
-**Tier A. Status: planned (not started).**
+**Tier A. Status: Part 0 done, with its DOSBox checks; Part A not started.**
 Roadmap [step 14](roadmap.md#next-arc-finishing-the-games-systems), second of
 its two milestones, after [M87](milestone-87-plan.md). Baseline: `d3eec99`,
 equal to `origin/main`.
@@ -24,6 +24,8 @@ At `d3eec99`:
   `forcedInnSave` admits only Sign In and Exit (`XeenInnFlow.cpp:95-99`),
   with the approved failure recovery
   ([`dev-inn-save-recovery`](original-quirks.md#dev-inn-save-recovery)).
+  Opening the Inn always requests `inn.m` (`XeenGameplay.cpp:552`,
+  `XeenInnFlow.cpp:202`).
   `innMembership` validates a detached successor but changes only
   membership and counts (`XeenInnFlow.cpp:49-60`).
 - **Zero members.** Journey rules accept zero inside the Inn
@@ -55,55 +57,51 @@ At `d3eec99`:
   and every return from Create, also with the empty party Remove can leave
   ([party rules](rules/party.md#saves-load-and-return)); save v19 refuses
   it. The independent plan review's changes are applied.
+- **The Inn song after a title Load joins Part A** (2026-10-24): DOS
+  plays no Inn song when a save is loaded into the Inn from the title, and
+  M87 does not reproduce it.
 - Static program evidence first; DOSBox only where Part 0 cannot settle a
   rule.
 
-## Part 0 - DOS evidence (read-only)
+## Part 0 - DOS evidence (done)
 
-Calibrated static analysis of the CD `WORLD/XEEN.DAT` with offsets, plus
-resource inspection; work copies in `D:/MModern-re/m88/`. Reuse M87's
-evidence. The pinned reference (`dialogs_create_char.cpp:91-704`,
-`dialogs_party.cpp:222-282`) is a guide only: it offers all 30 records as
-free slots (Clouds has faces for 24), compares the displayed list with 30
-for a full roster, gives level 5 on Darkside, maps PageUp and PageDown,
-slices skill names in the stats text, never saves after Create or Delete,
-and checks Delete for the Slayer Sword. Results extend `docs/rules/party.md`
-with a Create and Delete chapter and `docs/rules/evidence.md`, with quirk
-rows. No code.
+Part 0 (2026-10-24) settled items 1-7 of its question list by calibrated
+static analysis of the CD `WORLD/XEEN.DAT`, with no stop rule hit. The rules
+are in [Create and Delete](rules/party.md#create-and-delete), the evidence in
+[M88 evidence](rules/evidence.md#m88-create-and-delete). The implementing
+parts follow those rules, not the pinned reference, notably:
 
-1. **Create entry and exit.** The C dispatch, with six members too; the
-   roster-full condition, text and sound; fades, music, the Inn screen on
-   return, and the return snapshot (`0x39a96..0x39a9a`) with and without a
-   new character.
-2. **Free slots.** Which roster IDs qualify (range, empty name, side), their
-   order, Up and Down limits, race and sex from the slot, the portrait, and
-   zero free slots.
-3. **Rolls.** The draw formula, order and retry condition; the class
-   requirements; the default and highlighted class; what Roll and Space
-   redo; whether a chosen class survives a reroll or exchange. Every draw
-   on the screen, including whether the dice animation draws.
-4. **Screen and input.** `create.raw`, `create.icn`, `create2.icn`,
-   `dice.vga`; layout and redraws; the stats text, its colors and the skill
-   name substrings (offsets and lengths); the key and mouse table (M84's
-   method); the attribute exchange (window, Escape, same attribute); class
-   choice by mouse and keys; the dice cadence on the M63 clock.
-5. **Writing the character.** The no-class refusal; the name prompt
-   (window, length, case, Escape, empty name). Each CHR field as written,
-   cleared or preserved: level, attributes and temporaries, resistances,
-   birth year and day, CHR byte 339, the lodging word and side, every
-   Beacon field, quick option and current spell, each class's starting
-   spellbook, class and race skills, awards, inventory, conditions,
-   experience, HP and SP (checked against the existing level-1 formulas).
-   Then whether the screen restarts with a new roll and slot list.
-6. **Delete.** Prompt, keys and Escape button; who can be deleted (active
-   members, characters lodged in other towns, carried protected items as
-   opposed to pooled quest items); confirmation text and input; membership
-   change; each field cleared or preserved, compared with the empty records
-   of the original `maze.chr`; list and page reset; sound; the snapshot
-   (`0x39a2e..0x39a32`).
-7. **Empty party and order.** That both snapshots save and Load restores
-   zero members, that the Inn then opens with Exit refused until one is
-   added, and where the Dismiss tail settles relative to these saves.
+- **Create entry.** Six members can enter; only a displayed list of 24
+  refuses. Free slots are IDs 0-23 with an empty name, in order, with no
+  side test; race is `floor(id/4)%5` and sex `id&1`. Without a free slot,
+  Create returns at once, and filling the last free slot returns too.
+- **Rolls.** Each attempt makes 21 draws (three passes of
+  `floor(R(10,79)/10)` over the seven attributes) and repeats while no class
+  qualifies. Nothing else draws: not the dice, the name prompt or Delete.
+- **Classes.** The arrow starts on the first eligible class; Left and Right
+  move it, and Enter or a click commits a class. A reroll or a completed
+  exchange clears the committed class. Unavailable classes use color 2.
+- **The record.** All 354 bytes are cleared, then initialized as the rules
+  list: level 1 on Clouds, the first starting spell current (255 without
+  spells), every Beacon field cleared.
+- **Delete.** Only a listed face selects; carrying the Xeen Slayer Sword
+  (weapon 34) refuses; Y confirms. The whole record is cleared and
+  membership compacts, with no last-member rule. The list is rebuilt by town
+  without the side test, keeping its page.
+- **Saves.** Every return from Create and every confirmed Delete copies the
+  active records and snapshots, with zero members too, replaying neither
+  Sign In, rolls nor Dismiss lodging. Return from Create resets the page
+  and fades into the Inn without its opening scroll; the Inn song continues.
+- No CHR field lies outside the save representation; v20, schema 9,
+  content 14 and the owners stay as planned.
+
+The maintainer ran the [runtime checks](rules/evidence.md#m88-runtime-checks)
+in DOSBox on 2026-10-24, except the globally full roster, which rests on
+the static rule; they agree with the static rules. They also showed that
+the empty party bar keeps the yellow selection frame on its first slot,
+and that a save loaded into the Inn from the title opens it in silence
+until Exit. Static analysis traced that to DOS's Inn song flag, checked
+against two more observations.
 
 ## Design decisions
 
@@ -117,9 +115,9 @@ rows. No code.
   reentrant calls without partial publication.
 - **Records.** All 30 records keep present supplements, Luck, resistances,
   poison resistance and learned-spell storage, deleted records included.
-  Created values follow the rolls and DOS initialization; deleted values
-  follow DOS clearing and preservation, stored explicitly, never as absent
-  optionals.
+  Created values follow the rolls and DOS initialization; a deleted record
+  is all zero, like the original empty records. Values are stored
+  explicitly, never as absent optionals.
 - **RNG.** The existing Journey generator stays, and DOS clock mixing remains
   deferred. Creation reproduces the verified formula, order and retries of
   the attribute rolls; the dice animation is presentation only once Part 0
@@ -132,6 +130,11 @@ rows. No code.
   boundary, busy-state and preimage checks and all three Inn-door
   validations. The layout, schema 9 and content 14 stay; v19 saves are
   refused clearly. Loading an empty-party Inn save reopens the Inn.
+- **Inn song.** The running program (`XeenProgramState`) keeps DOS's Inn
+  song flag, never saved: the title menu sets it, the Inn requests `inn.m`
+  only while it is clear and then sets it, and leaving the Inn or entering
+  gameplay outside it clears it. A title Load into the Inn stays silent
+  until Exit.
 - **Saves.** Both new sites use the existing forced Inn save and its
   recovery; a retried failed write repeats neither the record change nor a
   draw.
@@ -144,8 +147,7 @@ rows. No code.
 - **Presentation.** The original screens, sprites, text through
   `XeenDosText` and the program's tables, by mouse and keyboard, with the
   existing name input. Created characters take the Clouds side.
-- **Decided now.** Part 0 answers within items 1-7 are implemented without
-  asking, including texts, tables, ordinary created and deleted values, and
+- **Decided now.** The Part 0 rules are implemented without asking, including texts, tables, ordinary created and deleted values, and
   the extensions they need within existing owners and capture and
   publication protections.
 - **Stop rules.** Stop for: a Journey schema or wire-layout change; any
@@ -159,9 +161,9 @@ rows. No code.
 
 | Part | Content | Gate |
 | --- | --- | --- |
-| 0 | DOS and resource evidence, `rules/party.md` | Evidence recorded, open runtime questions checked in DOSBox, stop-rule decisions settled before dependent work |
-| A | Save v20 with the empty Inn party (capture, admission, validator), record operations, Delete and its save, format audit, tests | Independent implementation review, suite, digest approval |
-| B | Create: record rules, screen, rolls, exchange, name, return save; presets | Independent implementation review, suite, play-test |
+| 0 | DOS and resource evidence, `rules/party.md` | Done (2026-10-24), with the DOSBox checks |
+| A | Save v20 with the empty Inn party (capture, admission, validator), record operations, Delete and its save, the Inn song flag, format audit, quirk rows for Delete, the empty snapshot and the song, tests | Independent implementation review, suite, digest approval |
+| B | Create: record rules, screen, rolls, exchange, name, return save, Create quirk rows; presets | Independent implementation review, suite, play-test |
 | C | Closure: census, quirks, ScummVM differences, rules, status, history, roadmap, README, controls | Maintainer acceptance |
 
 ## Acceptance
@@ -169,9 +171,11 @@ rows. No code.
 - Rules: rolls in DOS order from a known generator state, the retry, class
   requirements, the default class, exchange; the created record for every
   class and every race (spells, skills, resistances, HP, SP, age);
-  free-slot order with race and sex; roster full, no-class refusal, name
-  abort; Delete of a lodged character and of an active member, cancel, and
-  delete then recreate in the same slot.
+  free-slot order with race and sex; the arrow apart from the committed
+  class; the first starting spell current; roster full, no-class refusal,
+  name abort; Delete of a lodged character and of an active member, the
+  Slayer Sword refusal, cancel, deleting the last face of the last page
+  (the page is kept), and delete then recreate in the same slot.
 - Publication: stale tickets and callback mutations rejected without
   partial publication; Create cancelled after rerolls saves the advanced
   generator; a retried failed write repeats no record change or draw; the
@@ -179,9 +183,13 @@ rows. No code.
   behave as in M87.
 - Saves: exact round trip after Create and after Delete, and of an empty
   Inn party after a Create return and after deleting the last member, with
-  no replayed time, rewards or Events. Refused without partial publication:
+  no replayed Sign In, time, rolls, rewards, Events or Dismiss lodging; the
+  empty party bar keeps its yellow frame and the Load menu shows level 0. Refused without partial publication:
   zero members outside the Inn, malformed Inn doors, missing supplement
   fields, v19 and other malformed saves.
+- Inn song: a title Load into an Inn save opens the Inn without music until
+  Exit; Sign In after New Game or a Load, and a panel Load into the Inn,
+  play `inn.m`.
 - Original data: Sign In at Vertigo, create a character, add it, Exit,
   fight, save and load; delete a lodged character; remove everyone, return
   from Create, load, and find the Inn empty with Exit refused.
