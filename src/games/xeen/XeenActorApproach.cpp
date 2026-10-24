@@ -315,11 +315,11 @@ XeenEncounterResult XeenActorApproach::initializeStart(XeenWorld &world, XeenPar
 		require(chr.size()==30*354 && context.year==610 && context.day==1 && !context.rested && !context.newDay &&
 			context.effects==std::array<std::uint8_t,9>{} && context.lightAndResistances==std::array<std::uint16_t,6>{},"Regional original CHR/PTY prerequisites changed");
 		unsigned swimming=0,mountaineer=0,navigator=0,pathfinder=0;
-		for (auto id:kXeenCombatOwners) {
+		for (auto id:candidate.party.activeRosterIds()) {
 			swimming+=chr[id*354+39+14]!=0;mountaineer+=chr[id*354+39+9]!=0;
 			navigator+=chr[id*354+39+10]!=0;pathfinder+=chr[id*354+39+11]!=0;
 		}
-		require(swimming<6 && mountaineer<2 && navigator==0 && pathfinder<2,"Regional effective traversal prerequisites changed");
+		require(swimming<candidate.party.size() && mountaineer<2 && navigator==0 && pathfinder<2,"Regional effective traversal prerequisites changed");
 	}
 	for (unsigned id = 0; id < 30; ++id) candidate.roster._combatInputs[id] = XeenCharacterFormat::parseCombatInputs(chr, id, true, true, true);
 	for (unsigned id = 0; id < 30; ++id)
@@ -329,8 +329,8 @@ XeenEncounterResult XeenActorApproach::initializeStart(XeenWorld &world, XeenPar
 	if(prepared) {
 		candidate.encounterContext->day=8;
 		constexpr int levels[]{3,3,3,4,3,3},xp[]{1000,2000,1000,1000,2000,1000};
-		for (unsigned i=0;i<6;++i) {
-			const auto id=kXeenCombatOwners[i]; auto &c=candidate.roster.at(id); auto &input=*candidate.roster._combatInputs[id];
+		for (unsigned i=0;i<candidate.party.size();++i) {
+			const auto id=candidate.party.activeRosterIds()[i]; auto &c=candidate.roster.at(id); auto &input=*candidate.roster._combatInputs[id];
 			c.permanentLevel=levels[i]; c.temporaryLevel=c.temporaryAge=0; c.conditions.fill(0);
 			c.intellect.temporary=c.personality.temporary=c.endurance.temporary=0;
 			input.might.temporary=input.speed.temporary=input.accuracy.temporary=input.luck->temporary=input.temporaryAc=0;
@@ -398,7 +398,7 @@ XeenEncounterResult XeenActorApproach::initializeStart(XeenWorld &world, XeenPar
 		std::is_nothrow_copy_assignable_v<decltype(party.purse)> &&
 		std::is_nothrow_copy_assignable_v<decltype(world._sessionState._journeyRandom)>);
 	auto &s = world._sessionState;
-	if(prepared)for (auto id:kXeenCombatOwners) {
+	if(prepared)for (auto id:candidate.party.activeRosterIds()) {
 		auto &to=party.roster.at(id); const auto &from=candidate.roster.at(id);
 		to.permanentLevel=from.permanentLevel; to.temporaryLevel=to.temporaryAge=0; to.conditions=from.conditions;
 		to.intellect.temporary=to.personality.temporary=to.endurance.temporary=0; to.currentHp=from.currentHp; to.currentSp=from.currentSp;
@@ -535,7 +535,8 @@ XeenEncounterResult XeenActorApproach::regionalTransition(XeenWorld &world,XeenP
 			auto candidate=std::make_unique<XeenRegionalActionCandidate>();auto &c=*candidate;
 			c.owners=party.party.activeOrder();c.camera=camera;c.context=*party.encounterContext;c.actors=regionalActors;
 			c.random=XeenCombatRandom(*session._journeyRandom);c.revision=state._revision;c.pending=state._pending;
-			for(unsigned i=0;i<6;++i) { c.characters[i]=party.roster.at(c.owners[i]);c.inputs[i]=*party.roster.combatInputs(c.owners[i]); }
+			c.characters.setCount(c.owners.size());c.inputs.setCount(c.owners.size());
+			for(unsigned i=0;i<c.owners.size();++i) { c.characters[i]=party.roster.at(c.owners[i]);c.inputs[i]=*party.roster.combatInputs(c.owners[i]); }
 			bool charge=false,stepTime=false;
 			c.result.outcome=action?XeenEncounterOutcome::Accepted:XeenEncounterOutcome::Pulsed;
 			if(action) {
@@ -611,8 +612,8 @@ XeenEncounterResult XeenActorApproach::regionalTransition(XeenWorld &world,XeenP
 		}
 		while(c.remaining) {
 			if(!c.opportunity) {
-				if(indoor)c.opportunity.emplace(activeWorld,c.actors,c.camera,c.characters,c.inputs,c.context.year,0x3f,std::array<bool,6>{},XeenActorOpportunityContext{c.sleeping},c.context);
-				else c.opportunity.emplace(activeMap,c.actors,c.camera,c.characters,c.inputs,c.context.year,0x3f,std::array<bool,6>{},XeenActorOpportunityContext{c.sleeping},c.context);
+				if(indoor)c.opportunity.emplace(activeWorld,c.actors,c.camera,c.characters,c.inputs,c.context.year,c.owners.mask(),std::array<bool,6>{},XeenActorOpportunityContext{c.sleeping},c.context);
+				else c.opportunity.emplace(activeMap,c.actors,c.camera,c.characters,c.inputs,c.context.year,c.owners.mask(),std::array<bool,6>{},XeenActorOpportunityContext{c.sleeping},c.context);
 				c.opportunity->staged=!c.destinationWorld;
 			}
 			if(!c.opportunity->service(draw)) {
@@ -629,7 +630,7 @@ XeenEncounterResult XeenActorApproach::regionalTransition(XeenWorld &world,XeenP
                     if(op.dangerSense)world.scenePresentation().dangerSense=*op.dangerSense;
                     if(c.exploration) {session.publishExploration(*c.exploration);c.exploration.reset();}
                     if(c.time && c.timeDone)party.serviceEconomy=c.time->economy;
-                    if(c.time && c.timeDone)for(unsigned n=0;n<6;++n)party.roster._combatInputs[c.owners[n]]=c.inputs[n];
+                    if(c.time && c.timeDone)for(unsigned n=0;n<c.owners.size();++n)party.roster._combatInputs[c.owners[n]]=c.inputs[n];
                     const auto &values=op.impactApplied ? op.characters : c.characters;
                     for(const auto &v:values) {auto &live=party.roster.at(v.rosterId);publishInjured(live,v);
                      if(c.time && c.timeDone && c.time->resetTemps)xeenResetCharacterTemps(live,*party.roster._combatInputs[v.rosterId]);}
@@ -695,12 +696,12 @@ XeenEncounterResult XeenActorApproach::regionalTransition(XeenWorld &world,XeenP
 		if(c.dangerSense)world.scenePresentation().dangerSense=*c.dangerSense;
 		if(c.terrain) {
 			party.serviceEconomy=c.terrain->economy;
-			for(unsigned n=0;n<6;++n)party.roster._combatInputs[c.owners[n]]=c.inputs[n];
+			for(unsigned n=0;n<c.owners.size();++n)party.roster._combatInputs[c.owners[n]]=c.inputs[n];
 			if(c.result.terrainFall)c.pending=0;
 		}
 		if(c.exploration) {session.publishExploration(*c.exploration);world.scenePresentation().markLightingStep();}
                     if(c.time && c.timeDone)party.serviceEconomy=c.time->economy;
-                    if(c.time && c.timeDone)for(unsigned n=0;n<6;++n)party.roster._combatInputs[c.owners[n]]=c.inputs[n];
+                    if(c.time && c.timeDone)for(unsigned n=0;n<c.owners.size();++n)party.roster._combatInputs[c.owners[n]]=c.inputs[n];
 		for(const auto &value:c.characters) { auto &owner=party.roster.at(value.rosterId);publishInjured(owner,value);
          if((c.time && c.timeDone && c.time->resetTemps) || (c.terrain && c.terrain->resetTemps))xeenResetCharacterTemps(owner,*party.roster._combatInputs[value.rosterId]); }
 		state._pending=c.pending;state._revision=session._encounterRevision=c.result.revision;

@@ -38,6 +38,7 @@ struct InteractionAction { bool wait = true; bool openPanel = false; };
 struct AcknowledgeAction {};
 struct YesAction {};
 struct NoAction {};
+struct DismissAction {};
 struct SelectMemberAction { std::size_t partyIndex; };
 struct CancelInteractionAction {};
 // UI-only refusal; the label is a static main-screen feature name.
@@ -51,7 +52,7 @@ struct TextInputAction { std::string text; };
 using PlayerAction = std::variant<NavigationAction, InteractionAction,
 	AcknowledgeAction, YesAction, NoAction, SelectMemberAction, CancelInteractionAction, SaveGameAction, InspectInventoryAction,
 	SelectInventorySlotAction, TransferInventoryAction, EquipmentInventoryAction, UseItemAction, WaitAction,
-	AttackAction, ShootAction, CastSpellAction, BlockAction, RunAction, SelectCombatTargetAction, BeginEncounterAction, RevisitCompletedAction, UnsupportedMainScreenAction, DialogKeyAction, BashAction, RestAction, TextInputAction, ControlPanelAction, QuickReferenceAction, InfoAction, QuickFightAction, QuickFightOptionsAction, MapAction, ToggleAutomapAction, QuestsAction, ExplorationKeyAction>;
+	AttackAction, ShootAction, CastSpellAction, BlockAction, RunAction, SelectCombatTargetAction, BeginEncounterAction, RevisitCompletedAction, UnsupportedMainScreenAction, DialogKeyAction, BashAction, RestAction, TextInputAction, ControlPanelAction, QuickReferenceAction, InfoAction, QuickFightAction, QuickFightOptionsAction, MapAction, ToggleAutomapAction, QuestsAction, ExplorationKeyAction, DismissAction>;
 
 } // namespace mmodern
 

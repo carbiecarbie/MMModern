@@ -38,6 +38,8 @@ const std::vector<XeenDosText::Field> &XeenDosText::layout() {
  // Bounds and far-pointer relationships were checked against the uncompressed
  // DOS module; no original strings or whole-file digest are compiled here.
  static const std::vector<Field> fields{
+  {"DISMISS_PROMPT",0x53882,0x53899,1,false,""},
+  {"DISMISS_LAST",0x538b2,0x538da,1,false,""},
   {"CLOUDS_MUSIC",0x4f04e,0x4f066,6,true,""},
   {"CLOUDS_LOCATION_MUSIC",0x4f110,0x4f12c,7,true,""},
   {"WARZONE_BATTLE_MASTER",0x53f4a,0x53f68,1,false,""},

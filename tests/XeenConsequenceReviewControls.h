@@ -45,10 +45,10 @@ void chargedWait(Source &s) {
  for(auto id:kXeenCombatOwners)check(!d.party.roster.at(id).conditions[3] &&
   !d.party.roster.at(id).conditions[4],"Charged Wait condition fixture must be healthy");
  tape.clear();
- for(unsigned i=0;i<3;++i){tape.push_back({0,5,i});tape.push_back({1,20,1});}
+ for(unsigned i=0;i<3;++i){tape.push_back({1,6,1});tape.push_back({0,4,i});tape.push_back({1,20,1});}
  // Yield inside the second opportunity after its acknowledged travel.
- for(unsigned i=0;i<70;++i)tape.push_back({0,5,0,true});
- for(unsigned i=0;i<3;++i){tape.push_back({0,5,5-i});tape.push_back({1,20,1});}
+ for(unsigned i=0;i<70;++i)tape.push_back({1,6,0,true});
+ for(unsigned i=0;i<3;++i){if(!i)tape.push_back({1,6,6});else {tape.push_back({1,6,1});tape.push_back({0,4,5-i});}tape.push_back({1,20,1});}
  XeenCombatRandom expected(*d.world.sessionState().journeyRandom());for(const auto &draw:tape)realDraw(&expected,draw.lo,draw.hi);
  cursor=0;taped=true;check(d.flow->handle(WaitAction{}),"Charged Wait accepted with old work pending");
  check(cursor==0 && d.flow->result().outcome==XeenEncounterOutcome::Pending && d.flow->result().consequences &&
@@ -58,16 +58,16 @@ void chargedWait(Source &s) {
  bool yielded=false;XeenEncounterResult r;
  for(unsigned tick=0;tick<100;++tick) {
   repaint(d);d.now+=100;d.flow->idle();r=d.flow->result();
-  if(cursor==70) {yielded=true;check(d.world.sessionState().journeyRandom()->count==6,"Rejected source prefix published RNG");}
+  if(cursor==73) {yielded=true;check(d.world.sessionState().journeyRandom()->count==9,"Rejected source prefix published RNG");}
   if(r.outcome!=XeenEncounterOutcome::Pending && r.movementOpportunities==2)break;
  }
  taped=false;check(yielded,"Second opportunity did not suspend at its raw draw budget");
  check(d.world.sessionState().journeyRandom()==expected.continuation(),"Wait publishes exact RNG continuation after both opportunities");
- check(cursor==82 && r.movementOpportunities==2 && r.consequences && r.consequences->count==6,"Both opportunities settle in reference source order");
+ check(cursor==87 && r.movementOpportunities==2 && r.consequences && r.consequences->count==6,"Both opportunities settle in reference source order");
  for(unsigned i=0;i<6;++i){const auto &shot=r.consequences->shots[i];check(shot.source.recordIndex==7+i%3 && shot.x==(i<3?6:7) && shot.y==11 && shot.distance==(i<3?2u:1u),"Retained old/new shot origin and append order");check(shot.attack.targetOwner==kXeenCombatOwners[i<3?i:8-i],"Old/new target draw ordering");}
- check(d.party.encounterContext->minutes==961 && d.party.encounterContext->ctr24==2 && d.world.sessionState().journeyRandom()->count==82 && d.flow->state().phase()==XeenEncounterPhase::Engaged,"Tick precedes old/new ranged work; final contact follows both volleys");
+ check(d.party.encounterContext->minutes==961 && d.party.encounterContext->ctr24==2 && d.world.sessionState().journeyRandom()->count==87 && d.flow->state().phase()==XeenEncounterPhase::Engaged,"Tick precedes old/new ranged work; final contact follows both volleys");
  for(unsigned id:{7u,8u,9u})check(d.world.sessionState().monsters(23)[id].x==8,"Both movement passes published once");
- std::cout<<"REVIEW charged Wait: tick0 -> acquired old travel/shots6 -> acquired new travel -> rejection70/yield64 -> shots6; ordered82 PASS\n";
+ std::cout<<"REVIEW charged Wait: tick0 -> acquired old travel/draws9 -> acquired new travel -> rejection70/yield64 -> shots6; ordered87 PASS\n";
 }
 XeenCombat &attachSnake(Domain &d){
  d.flow->journeyAction(d.flow->ticket(),XeenEncounterAction::Forward);d.flow->journeyPulse(d.flow->ticket());
@@ -80,21 +80,21 @@ void stagedVolleyDefeat(Source &s) {
  auto &orc=saved.map(23).monsters->slots[7];orc.x=6;orc.y=11;
  Domain d(s,saved);
  check(s.mon.at(6).hitParameter()==5 && s.mon.at(6).raw[30]==0,"Original Orc critical operands");
- tape={{0,5,0},{1,20,20},{1,10,10},{1,5,5},{1,10,10}};
+ tape={{1,6,1},{0,4,0},{1,20,20},{1,10,10},{1,5,5},{1,10,10}};
  cursor=0;taped=true;check(d.flow->handle(WaitAction{}),"Original Orc volley starts");
  bool first=false,second=false;
  for(unsigned tick=0;tick<80 && d.flow->state().phase()==XeenEncounterPhase::Exploring;++tick) {
   repaint(d);d.now+=100;d.flow->idle();
   if(d.party.roster.at(0).currentHp==-9) {
-   if(!first)check(cursor==3,"First critical injury used the wrong draw prefix");
-   first=true;check(d.world.sessionState().journeyRandom()->count==3 && !d.flow->canSave(),"Unacknowledged second critical injury published RNG or exposed Quiet");
+   if(!first)check(cursor==4,"First critical injury used the wrong draw prefix");
+   first=true;check(d.world.sessionState().journeyRandom()->count==4 && !d.flow->canSave(),"Unacknowledged second critical injury published RNG or exposed Quiet");
   }
   if(d.party.roster.at(0).currentHp==-19)second=true;
  }
  taped=false;
- check(first && second && cursor==5 && d.world.sessionState().journeyRandom()->count==5 &&
+ check(first && second && cursor==6 && d.world.sessionState().journeyRandom()->count==6 &&
   d.flow->state().reason()==XeenEncounterStop::Defeat && !d.flow->canSave(),"Disabled final member refused/replayed the critical suffix before defeat");
- std::cout<<"ARTIFICIAL original Orc volley: acquired portraits, HP1->-9->-19, five exact draws, then normal defeat PASS\n";
+ std::cout<<"ARTIFICIAL original Orc volley: acquired portraits, HP1->-9->-19, six exact draws, then normal defeat PASS\n";
 }
 void stagedRotationVolley(Source &s) {
  Domain initial(s);auto saved=initial.save();
@@ -104,12 +104,12 @@ void stagedRotationVolley(Source &s) {
  }
  auto &contact=saved.map(23).monsters->slots[9];contact.x=8;contact.y=11;
  auto &source=saved.map(23).monsters->slots[7];source.x=6;source.y=11;
- Domain d(s,saved);tape={{0,5,0},{1,20,1},{0,5,0},{1,20,1}};cursor=0;taped=true;d.flow->handle(WaitAction{});
+ Domain d(s,saved);tape={{1,6,1},{0,4,0},{1,20,1},{1,6,1},{0,4,0},{1,20,1}};cursor=0;taped=true;d.flow->handle(WaitAction{});
  for(unsigned i=0;i<40 && d.flow->state().phase()==XeenEncounterPhase::Exploring;++i){repaint(d);d.now+=100;d.flow->idle();}
- taped=false;check(cursor==4 && d.flow->attachJourney(d.flow->ticket(),[]{}),"Original mixed-distance ranged/contact prefix");
+ taped=false;check(cursor==6 && d.flow->attachJourney(d.flow->ticket(),[]{}),"Original mixed-distance ranged/contact prefix");
  auto &c=*d.flow->combat();
  for(unsigned i=0;i<20 && c.phase()!=XeenCombatPhase::PlayerReady;++i) {
-  if(c.pending()==XeenCombatWork::Enemy)attack(c,{{0,5,0},{1,20,1}});
+  if(c.pending()==XeenCombatWork::Enemy)attack(c,{{1,6,1},{0,4,0},{1,20,1}});
   else c.service(c.ticket());
  }
  check(c.phase()==XeenCombatPhase::PlayerReady && !c.movementCountdown(),"Entry debt must settle before ready");
@@ -122,12 +122,12 @@ void stagedRotationVolley(Source &s) {
   travel.ranged->shots[0].direction==XeenDirection::West && d.world.sessionState().journeyRandom()==before && c.participant()==member,
   "Rotated off-camera source lost travel or published its attack early");
  const auto old=c.ticket();XeenCombatRotationTestAccess::acquired(c);
- tape={{0,5,0},{1,20,1}};cursor=0;taped=true;const auto result=c.service(c.ticket());taped=false;
- check(cursor==2 && result.status==XeenCombatStatus::Advanced && c.phase()==XeenCombatPhase::PlayerReady && c.participant()==member &&
-  c.stepped() && !c.movementCountdown() && d.party.encounterContext==context && d.world.sessionState().journeyRandom()->count==before->count+2,
+ tape={{1,6,1},{0,4,0},{1,20,1}};cursor=0;taped=true;const auto result=c.service(c.ticket());taped=false;
+ check(cursor==3 && result.status==XeenCombatStatus::Advanced && c.phase()==XeenCombatPhase::PlayerReady && c.participant()==member &&
+  c.stepped() && !c.movementCountdown() && d.party.encounterContext==context && d.world.sessionState().journeyRandom()->count==before->count+3,
   "Off-camera rotation volley lost source draws, acting member, stepped or time");
  check(c.service(old).status==XeenCombatStatus::Stale,"Rotation volley accepted a consumed service ticket");
- std::cout<<"ARTIFICIAL original Orc rotation: W->N, off-camera distance2 source, unchanged member/time, one two-draw volley PASS\n";
+ std::cout<<"ARTIFICIAL original Orc rotation: W->N, off-camera distance2 source, unchanged member/time, one three-draw volley PASS\n";
 }
 void poisonInitiative(Source &s) {
  Domain initial(s);const auto fresh=initial.save();
@@ -135,9 +135,9 @@ void poisonInitiative(Source &s) {
   auto fixture=fresh;auto &snake=fixture.map(23).monsters->slots[12];snake.x=8;snake.y=11;
   for(unsigned i=0;i<6;++i){const auto id=kXeenCombatOwners[i];fixture.characters[id].currentHp=1000;fixture.characters[id].conditions[8]=i!=1;fixture.journey->supplements[id].inputs.speed={i<2?17:1,0};}
   Domain d(s,fixture);auto &c=attachSnake(d);check(c.pending()==XeenCombatWork::Enemy,"Snake18 precedes sleeping players17");
-  std::vector<XeenCombatRandom::Draw> draws{{0,5,0},{1,10,1},{1,23,poison?23u:1u}};
+  std::vector<XeenCombatRandom::Draw> draws{{1,6,1},{0,4,0},{1,10,1},{1,23,poison?23u:1u}};
   attack(c,draws);check(c.participant()==(poison?1:0) && c.pending()==XeenCombatWork::Round,"Published Poison changes actual selected participant before owed movement");
-  check(d.world.sessionState().journeyRandom()->count==3,"Original Giant Rat selects one sleeping owner, then rolls damage/save");
+  check(d.world.sessionState().journeyRandom()->count==4,"Original Giant Rat draws twice for a six-member target, then rolls damage/save");
   c.service(c.ticket());check(c.phase()==XeenCombatPhase::PlayerReady && c.participant()==(poison?1:0),"Selection preserved across owed movement");
   c.command(c.ticket(),XeenCombatCommand::Block);check(c.participant()==(poison?0:1),"Current Speed orders the other awake player");
   c.command(c.ticket(),XeenCombatCommand::Block);check(c.pending()==XeenCombatWork::Round,"Four awake zero-Speed participants excluded");
@@ -145,7 +145,7 @@ void poisonInitiative(Source &s) {
  auto zero=fresh;auto &snake=zero.map(23).monsters->slots[12];snake.x=8;snake.y=11;
  for(auto id:kXeenCombatOwners){zero.characters[id].currentHp=1000;zero.characters[id].conditions[3]=1;zero.journey->supplements[id].inputs.speed={1,0};}
  Domain d(s,zero);auto &c=attachSnake(d);
- const std::vector<XeenCombatRandom::Draw> misses{{0,5,0},{1,20,1}};attack(c,misses);
+ const std::vector<XeenCombatRandom::Draw> misses{{1,6,1},{0,4,0},{1,20,1}};attack(c,misses);
  c.service(c.ticket()); // Finish transferred attachment movement first.
  const auto context=d.party.encounterContext;const std::vector<XeenActor> actors=d.world.sessionState().monsters(23);
  for(unsigned cycle=0;cycle<3;++cycle){const auto random=d.world.sessionState().journeyRandom();const auto revision=c.result().revision;
@@ -193,12 +193,12 @@ void shootRevalidation(Source &source) {
   const auto press=[&](const PlayerAction &action){handler.beginCycle(++h.cycle);handler.withDisplayedInput(action,*handler.displayedInput());handler.framePresented(h.flow->frame().presentation());};
   press(NavigationAction::MoveForward);
   check(h.flow->encounter()->state().pending()==2,"Revalidation starts with pending old work");
-  tape={{0,5,2},{1,20,19},{1,5,5},{1,10,1}};cursor=0;taped=true;
+  tape={{1,6,1},{0,4,2},{1,20,19},{1,5,5},{1,10,1}};cursor=0;taped=true;
   press(ShootAction{});
   check(h.flow->encounter()->state().pending()==1 && !h.flow->canSave(),"Eligible Shoot retains intent and services first old pulse");
   for(unsigned n=0;n<60 && !h.flow->canSave();++n){h.now+=100;handler.beginCycle(++h.cycle);idle();handler.framePresented(h.flow->frame().presentation());}
   taped=false;
-  check(cursor==4 && h.world->sessionState().journeyRandom()->count==4,"Only old enemy target/hit/parameter/damage draws");
+  check(cursor==5 && h.world->sessionState().journeyRandom()->count==5,"Only old enemy target/hit/parameter/damage draws");
   check(!h.party->roster.at(14).canAct() && h.party->encounterContext->minutes==490,"Disabled shooter does not charge Shoot");
   check(h.world->sessionState().monsters(23)[9].x==6 && h.flow->encounter()->state().pending()==0 && h.flow->canSave(),"Old opportunity publishes once; refused intent returns Quiet");
   check(h.flow->encounter()->notice().find("no awake eligible missile user")!=std::string::npos,"Firing revalidation reports lost eligibility");

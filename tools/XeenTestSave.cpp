@@ -311,7 +311,7 @@ void prepare(XeenSaveSnapshot &snapshot,const std::string &preset) {
     }
     if(preset=="combat-items") {
         snapshot.camera={23,9,11,XeenDirection::West};
-        for(unsigned i=0;i<6;++i) {
+        for(unsigned i=0;i<snapshot.activeRosterIds.size();++i) {
             auto &c=snapshot.characters[snapshot.activeRosterIds[i]];
             c.conditions.fill(0);c.permanentLevel=10;
             c.currentHp=XeenCharacterRules::maxHp(c,{journey.context->year});
@@ -358,7 +358,7 @@ void prepare(XeenSaveSnapshot &snapshot,const std::string &preset) {
         for(unsigned i=0;i<std::size(powers);++i)
             snapshot.characters[snapshot.activeRosterIds[i/9]].miscellaneous[i%9]={1,static_cast<std::uint8_t>(powers[i]),5,0};
         // Four patients carry the six conditions; the two casters stay usable.
-        for(unsigned i=2;i<6;++i) {
+        for(unsigned i=2;i<snapshot.activeRosterIds.size();++i) {
             auto &patient=snapshot.characters[snapshot.activeRosterIds[i]];
             patient.conditions.fill(0);patient.currentHp=i<4?1:0;
         }

@@ -13,7 +13,11 @@ identified here because they share the Inn's persistence boundary.
 **Resource inspection, high confidence:** the initial `maze.chr` has 30 records
 of 354 bytes. Named records are 0 Arturius, 1 Rebecca, 6 Seymour, 11 Zippo,
 14 Badger and 18 Tyro. Each has side 0 and saved map 28. The other records
-have empty names, side 0 and saved map 0. Initial active order is
+have empty names, side 0 and saved map 0. CHR byte 339 is an unknown byte;
+bytes 340–341 are the little-endian lodging-map word, not a byte at 341.
+DOS writes that word at `0x1ecae`. The pinned reference instead groups
+339–340 as an unknown word and reads 341 as the map; MMModern follows DOS
+([layout difference](../original-quirks.md#sv-chr-lodging-layout)). Initial active order is
 `{0,18,14,11,1,6}`. Side byte 0 denotes Clouds and 1 Darkside; this chapter
 does not certify Darkside play. Clouds supplies `char01.fac` through
 `char24.fac`, but not `char25.fac` through `char30.fac`.
@@ -180,11 +184,15 @@ Swords of Xeen, so its presence is not a Clouds discrepancy.
 
 Dismiss adds no time, does not save and changes no CHR fields immediately.
 It compacts active members, retaining the departed full CHR and ID at the new
-inactive tail (`0x20f70..0x21004`). The old count remains available to Save.
+inactive tail (`0x20f70..0x21004`). The old count remains available to Save. The first party-header byte
+(`DS:ed8c`) is the active count; the second (`DS:ed8d`) is the retained count.
 Save later walks those departed records, sets their saved map to `28+side`
 and their side, and copies them to the roster (`0x1ec97..0x1ed1e`). In Clouds
 this lodges them at **Vertigo**, regardless of the dismissal map. This deferred
 write differs from Remove, which keeps the character lodged at its Inn town.
+Save clears each departed ID to `0xff` (`0x1ece7`) and sets the retained
+count to the active count (`0x1ed23..0x1ed26`) before the snapshot
+(`0x1ed2e`). The tail is consumed, rather than serialized into `maze.pty`.
 
 An explicit inactive-read witness is dismissing from six to five and then
 saving: Save reads lane 5's departed CHR, updates lodging and persists it.
@@ -193,6 +201,23 @@ memory. The canonical saved result is the roster record, not a separate
 serialized active-tail array. The portrait compactor's reads of handle slots
 6/7 (`0x389ff..0x38a44`) concern a larger resource cache populated by the
 24-face loader, not reads beyond the six physical character lanes.
+
+Dismiss keeps drawing the exploration scene while window 31 is open: its
+poll loop calls `0x10bc3(0)` at `0x20eb8..0x20ec4`. This advances the
+shared four-phase drawing counter (`0x10bda..0x10be7`). The argument is
+separate from global scene mode `DS:9a1c`; it controls the optional
+post-draw update at `0x117d2`. **DOS static, high confidence.** Monster
+movement from the draw routine happens only in scene modes 1, 2 and 5
+([evidence](evidence.md)), and the argument does not gate it. MMModern
+keeps ordinary scene animation running as it does for Info, without
+advancing exploration time or requesting monster movement.
+
+**Unknown: Poison Volley visuals with one to five members.** DOS sets all
+six fixed shot flags (`0x1d899..0x1d8bb`), and its hit loop is bounded by
+active count (`0x2cb46..0x2ccdb`). The retained listings do not settle the
+projectile renderer's lane count. MMModern currently draws active lanes;
+a smaller-party DOS recording or the renderer's loop must settle whether
+inactive missiles are also visible. See [magic rules](magic.md).
 
 ## Shared state and consumer bounds
 
@@ -219,7 +244,7 @@ program. Combat count can be smaller than active count after Run.
 | Combat order/participants | Population copies active count and ordered indexes, `0x2e6e2..0x2e703`; turn/cursor work uses compacted combat participants, not a fixed six-member population. |
 | Monster targets | Preferred scan `0x2d89c..0x2d99e` and eligible fallback `0x2da3a..0x2da90` use combat participants. The [count-dependent draws](combat.md#monster-targeting-and-hit-resolution) include the special six-member path. |
 | XP | Kill caller `0x2c27d` enters `0x2c5b2`; bounded passes `0x2c5d3..0x2c66e` use combat count in combat, active count otherwise, and divide among eligible recipients excluding Dead/Stoned/Eradicated. |
-| Poison Volley | Six shot flags are enabled at `0x1d899..0x1d8be`; actual character hit loop `0x2cb46..0x2ccd9` stops at active count. Fixed visual flags do not imply inactive CHR reads. |
+| Poison Volley | Six shot flags are enabled at `0x1d899..0x1d8be`; actual character hit loop `0x2cb46..0x2ccd9` stops at active count. Fixed flags do not imply inactive CHR reads; the smaller-party visible missile count remains Unknown. |
 | Rest and food | Rest's recovery/food loops `0x1e50d..0x1e826` use active count; Tavern Food is the [calibration witness](evidence.md#m87-inn-and-party-size). |
 | Event conditions/give/take | Whole-party If `0x27266..0x2726e`, Take/Give `0x278c3..0x278d3`, SetChar random `0x27a01..0x27a14` and SelectRandomChar `0x287d8..0x287eb` use count. This does not certify arbitrary literal selectors. |
 | Member prompts/WhoWill | Common prompt `0x2f162..0x2f179` bounds selection by combat/active count. WhoWill's one-member path returns 1 without writing its stored selection (`0x25082..0x2508c`); other selections are guarded at `0x25294..0x252b6`. Retain M85's selection lifetime. |

@@ -87,10 +87,10 @@ void capabilities() {
 		m.raw[48]=loop;m.raw[49]=effect;m.validateAttackCapabilities();
 		// DOS doCharDamage: target, dice, the initial save with the Physical
 		// selector (Luck 15 + level 3: 1..25), then the Poison save (1..40).
-		XeenCombatRandom rng(std::vector<XeenCombatRandom::Draw>{{0,5,0},{1,8,8},{1,25,25},{1,40,40}});
+		XeenCombatRandom rng(std::vector<XeenCombatRandom::Draw>{{1,6,1},{0,4,0},{1,8,8},{1,25,25},{1,40,40}});
 		XeenEnemyAttackCandidate attack(chars,inputs,m,610,63);
 		for(unsigned n=0;n<20;++n) {XeenConsequenceDraw draw{rng,1,{}};if(attack.service(draw))break;}
-		check(rng.position()==4&&attack.result.damage==8&&attack.characters[0].currentHp==42,
+		check(rng.position()==5&&attack.result.damage==8&&attack.characters[0].currentHp==42,
 			"Generic poison profile must retain DOS target/dice/save order");
 	}
 	for(unsigned field:{26u,28u,29u,30u,32u}) {

@@ -316,7 +316,7 @@ if(BUILD_TESTING)
 	target_link_libraries(mmodern_m42_cli_witness PRIVATE mmodern_app mmodern_xeen mmodern_platform_sdl SDL2::SDL2 shell32 bcrypt)
 	target_link_options(mmodern_m42_cli_witness PRIVATE "LINKER:--wrap,_ZNK7mmodern11Application12playGameplayERKNS_20XeenGameplayServicesENS_10XeenCameraERKSt8optionalINSt10filesystem7__cxx114pathEEbNS_18XeenEncounterEntryES5_IjE"
 		"LINKER:--wrap,_ZN7mmodern23xeenPrepareBankInterestERKNS_16XeenBankBalancesE"
-		"LINKER:--wrap,_ZN7mmodern24XeenEnemyAttackCandidateC1ERKSt5arrayINS_13XeenCharacterELy6EERKS1_INS_16XeenCombatInputsELy6EERKNS_17XeenMonsterRecordEjjRKS1_IbLy6EENS_15XeenActorStatusE"
+		"LINKER:--wrap,_ZN7mmodern24XeenEnemyAttackCandidateC1ERKNS_14XeenPartyLanesINS_13XeenCharacterEEERKNS1_INS_16XeenCombatInputsEEERKNS_17XeenMonsterRecordEjjRKSt5arrayIbLy6EENS_15XeenActorStatusE"
 		"LINKER:--wrap,_ZN7mmodern27XeenPhysicalPlayerCandidateC1ERKNS_13XeenCharacterERKNS_16XeenCombatInputsERKNS_17XeenMonsterRecordEjjbNS_14XeenDifficultyENS_15XeenActorStatusE")
 	xeen_restore_replay(mmodern_m42_cli_witness)
 	target_link_options(mmodern_m42_cli_witness PRIVATE "LINKER:--wrap,SDL_UpdateTexture" "LINKER:--wrap,SDL_RenderCopy")
@@ -570,6 +570,11 @@ if(BUILD_TESTING)
     add_test(NAME xeen_journal COMMAND mmodern_journal_tests)
     add_test(NAME xeen_journal_original COMMAND mmodern_journal_tests "${MMODERN_XEEN_DATA_DIR}")
     set_tests_properties(xeen_journal xeen_journal_original PROPERTIES LABELS "fast")
+    add_executable(mmodern_party_size_tests tests/XeenPartySizeTests.cpp)
+    target_link_libraries(mmodern_party_size_tests PRIVATE mmodern_app mmodern_xeen)
+    add_test(NAME xeen_party_size COMMAND mmodern_party_size_tests)
+    add_test(NAME xeen_party_size_original COMMAND mmodern_party_size_tests "${MMODERN_XEEN_DATA_DIR}")
+    set_tests_properties(xeen_party_size xeen_party_size_original PROPERTIES LABELS "fast")
 	add_executable(mmodern_dialog_tests tests/XeenDialogTests.cpp)
 	add_executable(mmodern_party_interface_tests tests/XeenPartyInterfaceTests.cpp)
 	add_executable(mmodern_exploration_tests tests/XeenExplorationTests.cpp)

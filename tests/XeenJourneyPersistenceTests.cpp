@@ -82,7 +82,7 @@ struct Destination {
 };
 void same(const XeenSaveSnapshot &s, Destination &d) {
 	save_test::sameSnapshot(s,d.capture());
-	check(d.p.firstSerializedCount==6 && d.p.effectiveSerializedCount==6 && d.legacy==1,"fixed counts, original display metadata reloaded");
+	check(d.p.firstSerializedCount==6 && d.p.effectiveSerializedCount==6 && d.legacy==0,"membership counts and no original CHR reattachment");
 	for(unsigned i=0;i<30;++i) check(xeen_state::sameInputs(s.journey->supplements[i].inputs,*d.p.roster.combatInputs(i)),"all owner supplements");
 	check(d.p.encounterContext==s.journey->context && d.w.sessionState().skeletonSeed()==s.journey->skeletonSeed,"context/seed exact");
     const auto mob=regional_journey_test::regionalObjects();const auto mon=regional_test::statistics();

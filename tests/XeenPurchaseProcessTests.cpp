@@ -30,7 +30,7 @@ void context(const XeenSaveSnapshot &s,unsigned day,std::uint32_t state,std::uin
     // Part 0: numeric WhoWill selection replaces Space; map load clears it.
     constexpr unsigned prefixMinutes=0;
     check(s.journey && s.journey->schema==9 && s.journey->content==14 && s.journey->context->year==610 &&
-        s.journey->context->day==day && s.journey->context->minutes==808+prefixMinutes && s.journey->random->algorithm==1 &&
+        s.journey->context->day==day && s.journey->context->minutes==802+prefixMinutes && s.journey->random->algorithm==1 &&
         s.journey->random->state==state && s.journey->random->count==count && s.journey->serviceEconomy->bank.gold==0 &&
         s.journey->serviceEconomy->bank.gems==0,"M42 independent literal checkpoint fields differ");
 }
@@ -50,7 +50,7 @@ int main(int argc,char **argv) {
         check(fresh.exit==0 && fresh.output.find("M42 PRODUCTION WITNESS PASSED")!=std::string::npos,"M42 fresh application witness failed; inspect fresh.log");
         const auto a=XeenSaveFile::read(directory/"fresh-A.mmsave"),b=XeenSaveFile::read(directory/"fresh-B.mmsave"),
             b1=XeenSaveFile::read(directory/"fresh-B1.mmsave"),c=XeenSaveFile::read(directory/"fresh-C.mmsave"),d=XeenSaveFile::read(directory/"fresh-D.mmsave");
-        context(a,8,4180726993u,1109);context(b,9,4180726993u,1109);context(b1,9,4180726993u,1109);context(c,10,4180726993u,1109);context(d,11,247205451u,1992);
+        context(a,8,4274906087u,1065);context(b,9,4274906087u,1065);context(b1,9,4274906087u,1065);context(c,10,4274906087u,1065);context(d,11,1459332936u,1951);
         check(a.journey->purse->gold==870 && b.journey->purse->gold==670 && b1.journey->purse->gold==670 && c.journey->purse->gold==670 && d.journey->purse->gold==670,"M42 earned/debited purse literal differs");
         m42_test::sameCategory(a.journey->serviceEconomy->wares[0][0][0],m42_test::weaponsBefore());
         m42_test::sameCategory(a.journey->serviceEconomy->wares[0][0][1],m42_test::armorBefore());
@@ -59,7 +59,7 @@ int main(int argc,char **argv) {
         check(initial.state==2000247898 && initial.count==875 && m40_test::stockBytes(initialStock)==m40_test::stockBytes(*a.journey->serviceEconomy),"M42 full original stock differs from independent oracle");
         m42_test::StockOracle restock{c.journey->random->state,c.journey->random->count,{}};const auto expectedStock=restock.generate();
         const auto stock=m40_test::stockBytes(*d.journey->serviceEconomy);
-        check(stock==m40_test::stockBytes(expectedStock) && restock.state==247205451u && restock.count==1992,"M42 restock bytes/RNG differ from independent oracle");
+        check(stock==m40_test::stockBytes(expectedStock) && restock.state==1459332936u && restock.count==1951,"M42 restock bytes/RNG differ from independent oracle");
         check(drawsBetween(fresh.output,"C","D")==restock.trace,"M42 complete prepared-and-committed restock request/raw/rejection trace differs from independent oracle");
         // The complete independent byte comparison above catches every mutation
         // caught by the obsolete secondary stock CRC, without freezing its old draw tape.
@@ -82,7 +82,7 @@ int main(int argc,char **argv) {
         check(processes.insert({weapons.pid,weapons.created}).second && weapons.exit==0 && weapons.output.find("M42 PRODUCTION WITNESS PASSED")!=std::string::npos,"M42 actual repeated successive Weapons integration failed");
         const auto shootSave=directory/"shoot.mmsave";fs::copy_file(directory/"fresh-D.mmsave",shootSave);SetEnvironmentVariableW(L"MMODERN_M42_STAGE",L"shoot");
         const auto shoot=child_test::launch(executable,{L"--load-game",installation.wstring(),shootSave.wstring()},directory/"shoot.log",false,false,180000);
-        check(processes.insert({shoot.pid,shoot.created}).second && shoot.exit==0 && shoot.output.find("M42 PRODUCTION WITNESS PASSED")!=std::string::npos,"M42 actual stock missile31 purchase/transfer/equip/Shoot integration failed");
+        check(processes.insert({shoot.pid,shoot.created}).second && shoot.exit==0 && shoot.output.find("M42 PRODUCTION WITNESS PASSED")!=std::string::npos,"M42 actual stock missile32 purchase/transfer/equip/Shoot integration failed");
         for(const auto *control:{"upload-admission","copy-admission","upload-purchase","copy-purchase","upload-departure","copy-departure"}) {
             const auto path=directory/(std::string(control)+".mmsave");fs::copy_file(directory/"fresh-A.mmsave",path);const auto before=m40_test::diskBytes(path);
             SetEnvironmentVariableW(L"MMODERN_M42_STAGE",L"A");SetEnvironmentVariableW(L"MMODERN_M42_CONTROL",fs::path(control).c_str());

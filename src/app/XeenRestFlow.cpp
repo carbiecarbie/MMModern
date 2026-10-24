@@ -6,10 +6,10 @@ namespace mmodern {
 namespace {
 struct RestBusy {bool &value; explicit RestBusy(bool &v):value(v){value=true;} ~RestBusy(){value=false;}};
 XeenConsequenceCharacters members(const XeenPartyState &p,const XeenPartyOrder &order) {
- XeenConsequenceCharacters r;for(unsigned n=0;n<6;++n)r[n]=p.roster.at(order[n]);return r;
+ XeenConsequenceCharacters r;r.setCount(order.size());for(unsigned n=0;n<order.size();++n)r[n]=p.roster.at(order[n]);return r;
 }
 XeenConsequenceInputs supplements(const XeenPartyState &p,const XeenPartyOrder &order) {
- XeenConsequenceInputs r;for(unsigned n=0;n<6;++n)r[n]=*p.roster.combatInputs(order[n]);return r;
+ XeenConsequenceInputs r;r.setCount(order.size());for(unsigned n=0;n<order.size();++n)r[n]=*p.roster.combatInputs(order[n]);return r;
 }
 }
 void XeenEncounterFlow::restPublication() {
@@ -151,7 +151,7 @@ bool XeenEncounterFlow::serviceRest() {
    XeenConsequenceDraw draw{rest.random,64,check,[this](unsigned id){fmEffect(id);},[this](unsigned id){fmSelectWeapon(id);}};if(!rest.terrain->service(draw))return true;
    recovery.context=rest.terrain->context;recovery.characters=rest.terrain->characters;recovery.inputs=rest.terrain->inputs;
    auto exploration=_world.explorationAfterStep(_party,_camera);check();
-   for(unsigned n=0;n<6;++n) {
+   for(unsigned n=0;n<rest.owners.size();++n) {
     _party.roster.at(rest.owners[n])=recovery.characters[n];
     _party.roster._combatInputs[rest.owners[n]]=recovery.inputs[n];
    }
@@ -179,7 +179,7 @@ bool XeenEncounterFlow::serviceRest() {
    const auto dream=draw.draw(1,20);if(!dream)return true;
    rest.phase=*dream==1 && _party.encounterContext->profile==XeenBehaviorProfile::WorldOfXeenClouds?P::Dream:P::Recovery;
    check();
-   for(unsigned n=0;n<6;++n) {
+   for(unsigned n=0;n<rest.owners.size();++n) {
     _party.roster.at(rest.owners[n])=rest.time->characters[n];
     _party.roster._combatInputs[rest.owners[n]]=rest.time->inputs[n];
    }

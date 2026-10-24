@@ -48,13 +48,13 @@ void seeds() {
 		check(loss.equipment(i,XeenInventoryCategory::Armor,slot,XeenEquipmentOperation::Remove).status==XeenEquipmentStatus::Success,"real armor removal");
 	loss.enter();unsigned blocks=0,enemies=0;
 	while(loss.combat->phase()!=Phase::Defeat&&blocks<100){if(loss.combat->phase()==Phase::PlayerReady){loss.action(Command::Block);++blocks;}else{if(loss.combat->pending()==Work::Enemy)++enemies;loss.service();}}
-	check(blocks==35&&enemies==11&&loss.p.encounterContext->minutes==500,"seed19 defeat500 with singleton draws");
-	const int hp[]{-7,-1,-1,-5,-3,-7};for(unsigned i=0;i<6;++i)check(loss.p.roster.at(kXeenCombatOwners[i]).currentHp==hp[i],"seed19 HP");
+	check(blocks==41 && enemies==14 && loss.p.encounterContext->minutes==503,"seed19 DOS target-draw defeat503");
+ const int hp[]{-5,-5,-13,-3,-3,-3};for(unsigned i=0;i<6;++i)check(loss.p.roster.at(kXeenCombatOwners[i]).currentHp==hp[i],"seed19 HP after DOS target draws");
 }
 void injuryAndBare() {
 	std::vector<Draw> tape{{1,20,20},{1,6,6},{1,6,6},{1,4,4},{1,6,6},{1,6,6},
-		{1,3,1},{1,3,1},{1,20,1},{0,5,1},{1,20,18},{1,4,2},{1,6,2},{1,6,2},
-		{0,5,1},{1,20,20},{1,6,6},{1,6,6},{1,4,4},{1,6,5},{1,6,5}};
+		{1,3,1},{1,3,1},{1,20,1},{1,6,1},{0,4,1},{1,20,18},{1,4,2},{1,6,2},{1,6,2},
+		{1,6,1},{0,4,1},{1,20,20},{1,6,6},{1,6,6},{1,4,4},{1,6,5},{1,6,5}};
 	RegionalCombatFixture f{XeenCombatRandom(tape)};f.enter();f.blockRound();f.service();f.service();
 	f.action(Command::Block);f.action(Command::Attack);while(f.combat->phase()==Phase::PlayerReady)f.action(Command::Block);
 	f.service();check(f.p.roster.at(18).currentHp==12,"unblocked Tyro HP12");f.service();f.blockRound();auto r=f.service();
@@ -105,7 +105,7 @@ void fixedObservations() {
 		"copied ordinary enemy hit and selected target");
 	for(unsigned selection:{0u,1u}) {
 		const auto observations=[&] {
-			std::vector<Draw> tape{{1,20,20},{1,6,6},{1,6,6},{1,4,4},{1,6,6},{1,6,6},{0,5,selection},{1,20,1}};
+			std::vector<Draw> tape{{1,20,20},{1,6,6},{1,6,6},{1,4,4},{1,6,6},{1,6,6},{1,6,1},{0,4,selection},{1,20,1}};
 			RegionalCombatFixture f{XeenCombatRandom(tape)};f.enter();f.blockRound();const auto critical=f.service();
 			f.service();f.blockRound();const auto miss=f.service();return std::array<XeenCombatResult,2>{critical,miss};
 		}();

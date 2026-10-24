@@ -78,21 +78,6 @@ bool xeenItemHasTailCapacity(const XeenItemCategory &items);
 // Explicit stable compaction clears empty-slot metadata. Never implicit in I/O.
 void xeenCompactItems(XeenItemCategory &items);
 
-// Original CHR display data and unsupported-mechanic defaults. Immutable after loading; deliberately absent
-// from the current save. A milestone that mutates these must first persist them.
-struct XeenCharacterOriginalDetails {
-	std::array<std::array<int, 2>, 7> attributes{};
-	std::array<std::array<int, 2>, 6> resistances{};
-	std::array<std::uint8_t, 128> awards{};
-	std::uint8_t birthDay = 0, temporaryAc = 0;
-	std::uint32_t experience = 0;
-	// Source-backed defaults only, until these mechanics acquire mutable owners.
-	std::uint8_t xeenSide=0;
-	std::uint8_t savedMaze=0;
-	std::uint8_t adventuringSpell=0, combatSpell=0;
-	std::uint16_t townUnknown=0;
-};
-
 struct XeenCharacter {
 	static constexpr std::size_t kSerializedSize = 354;
 	static constexpr std::size_t kConditionCount = 16;
@@ -131,7 +116,12 @@ struct XeenCharacter {
 	// Expanded CHR award counts; script IDs 73/81 remap to 126/127.
 	XeenMutableArray<std::uint8_t,128> awards{};
 	static constexpr unsigned awardIndex(unsigned id) noexcept {return id==73?126:id==81?127:id;}
-	const XeenCharacterOriginalDetails *originalDetails() const noexcept { return _originalDetails.get(); }
+
+    // Remaining CHR bytes have no supplement authority. DOS uses a byte at
+    // 339 and a WORD lodging map at 340, unlike the pinned reference.
+    XeenMutable<std::uint8_t> birthDay=0, xeenSide=0, townUnknown=0;
+    XeenMutable<std::uint16_t> savedMaze=0;
+    XeenMutable<std::uint8_t> adventuringSpell=0, combatSpell=0;
 
 	unsigned currentLevel() const;
 	XeenCondition worstCondition() const;
@@ -140,7 +130,7 @@ struct XeenCharacter {
 private:
 	friend class XeenCharacterFormat;
 	friend class XeenSaveState;
-	std::shared_ptr<const XeenCharacterOriginalDetails> _originalDetails;
+
 };
 
 const char *xeenClassName(XeenCharacterClass characterClass);

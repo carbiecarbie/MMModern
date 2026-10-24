@@ -44,7 +44,7 @@ struct XeenBarrierCandidate {
 			}
             xeenEmitFmEffect(effect,31); // perform(B) calls Bash only for a blocked wall.
 			unsigned count=0;
-			for(unsigned n=0;n<6 && count<2;++n) {
+			for(unsigned n=0;n<characters.size() && count<2;++n) {
 				const auto condition=characters[n].worstCondition();
 				if(condition==XeenCondition::Asleep || (condition>=XeenCondition::Paralyzed && condition<=XeenCondition::Eradicated))continue;
 				if(!count)target=n;
@@ -103,7 +103,7 @@ struct XeenBarrierCandidate {
 			case Step::BashRoll: {
 				const auto n=draw.draw(1,30);if(!n)break;
 				int might=int(*n);
-				for(unsigned member=0;member<6;++member)if(portraitMask&(1u<<member))
+				for(unsigned member=0;member<characters.size();++member)if(portraitMask&(1u<<member))
 					might+=XeenCharacterRules::sheetStat(characters[member],&inputs[member],0,{year});
 				opened=might>=threshold;step=Step::Done;break;
 			}

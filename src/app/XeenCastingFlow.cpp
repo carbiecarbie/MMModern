@@ -58,13 +58,13 @@ struct BusyCast {
 };
 
 XeenConsequenceCharacters activeCharacters(const XeenPartyState &party,const XeenPartyOrder &order) {
-	XeenConsequenceCharacters characters;
-	for (unsigned i=0;i<6;++i) characters[i]=party.roster.at(order[i]);
+	XeenConsequenceCharacters characters;characters.setCount(order.size());
+	for (unsigned i=0;i<order.size();++i) characters[i]=party.roster.at(order[i]);
 	return characters;
 }
 XeenConsequenceInputs activeInputs(const XeenPartyState &party,const XeenPartyOrder &order) {
-	XeenConsequenceInputs inputs;
-	for (unsigned i=0;i<6;++i) inputs[i]=*party.roster.combatInputs(order[i]);
+	XeenConsequenceInputs inputs;inputs.setCount(order.size());
+	for (unsigned i=0;i<order.size();++i) inputs[i]=*party.roster.combatInputs(order[i]);
 	return inputs;
 }
 }
@@ -72,9 +72,9 @@ XeenConsequenceInputs activeInputs(const XeenPartyState &party,const XeenPartyOr
 std::unique_ptr<XeenShootCandidate> XeenEncounterFlow::prepareSpellProjectile(
         XeenLearnedSpell spell,std::uint8_t owner,unsigned charge) {
     auto projectile=std::make_unique<XeenShootCandidate>();auto &work=*projectile;
-    work.spell=spell;work.spellCaster=owner;work.owners=_party.party.activeOrder();
+    work.spell=spell;work.spellCaster=owner;work.owners=_party.party.activeOrder();work.volley.count=work.owners.size();
     work.volley.eligible[0]=true;
-    if(spell==XeenLearnedSpell::PoisonVolley)work.volley.eligible.fill(true);
+    if(spell==XeenLearnedSpell::PoisonVolley)std::fill_n(work.volley.eligible.begin(),work.owners.size(),true);
     work.charge=charge;
     work.random=XeenCombatRandom(*_world.sessionState().journeyRandom());
     work.rows=xeenPlayerRayRows(_world,_camera);work.projectileEnd.fill(work.rows-1);
@@ -500,7 +500,7 @@ bool XeenEncounterFlow::serviceCasting() {
 		}
         living=living && !_terrainDead;
 		prepared->context=work.time->context;prepared->economy=work.time->economy;
-		for(unsigned n=0;n<6;++n)prepared->inputs[work.owners[n]]=work.time->inputs[n];
+		for(unsigned n=0;n<work.owners.size();++n)prepared->inputs[work.owners[n]]=work.time->inputs[n];
 		const auto continuation=work.random.continuation();
 		prepared->s._journeyRandom=continuation;
 		_journeyPreimage->check();
@@ -510,7 +510,7 @@ bool XeenEncounterFlow::serviceCasting() {
 		}
 		if(work.time->needsRest)_needsRestNotice=true;
 		_party.encounterContext=work.time->context;_party.serviceEconomy=work.time->economy;
-		for(unsigned n=0;n<6;++n)_party.roster._combatInputs[work.owners[n]]=work.time->inputs[n];
+		for(unsigned n=0;n<work.owners.size();++n)_party.roster._combatInputs[work.owners[n]]=work.time->inputs[n];
 		auto &session=_world._sessionState;
 		session.publishExploration(exploration);
         _world.scenePresentation().markLightingStep();

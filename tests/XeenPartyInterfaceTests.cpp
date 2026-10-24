@@ -65,6 +65,23 @@ void exchange(Fixture &f,unsigned from,unsigned to,bool mouse=false) {
  check(!XeenPartyInterfaceTestAccess::exchanging(*f.flow) && f.flow->inventorySelection().source==to,"Exchange follows the owner");
  f.act(CancelInteractionAction{});quiet(f);
 }
+void whoWillMembership(Inputs &in) {
+ for(bool dismiss:{true,false}) {
+  Fixture f(in,emptyCity(in));XeenTreasureStaging selected;selected.whoWill=dismiss?5:2;
+  XeenMonsterTestAccess::stageTreasureLive(*f.flow,f.w,selected);
+  if(dismiss)for(unsigned n=0;n<2;++n) {
+   f.now+=125;f.act(DismissAction{});f.act(DialogKeyAction{InputKey::F1+4});quiet(f);
+  }else exchange(f,0,1);
+  check(f.w.treasureStaging().value().whoWill==selected.whoWill,"Membership changes retain the DOS WhoWill lane");
+  auto loot=selected;loot.armor[0]={0,2,0,0};loot.ready=true;
+  XeenMonsterTestAccess::stageTreasureLive(*f.flow,f.w,loot);
+  for(unsigned n=0;n<100 && !XeenPartyInterfaceTestAccess::reward(*f.flow);++n)pulse(f);
+  const auto owner=f.p.party.activeRosterIds()[dismiss?0:1];
+  check(XeenPartyInterfaceTestAccess::reward(*f.flow) && XeenPartyInterfaceTestAccess::rewardRecord(*f.flow).owner==owner,
+   dismiss?"WhoWill 5 falls back after Dismiss to four members":"WhoWill 2 prefers the new lane-2 member after Exchange");
+  quietTreasure(f);
+ }
+}
 void exchangeAndSave(Inputs &in) {
  auto source=emptyCity(in);Fixture key(in,source),mouse(in,source);
  const auto original=key.snapshot();key.act(SelectMemberAction{0});
@@ -94,8 +111,8 @@ void exchangeAndSave(Inputs &in) {
  XeenSaveState::restoreBeforeGameplay(changed,in.resources(),p,c,flags,world,[](auto &,const auto &,const auto &,const auto &){});std::vector<std::uint8_t> ids(kXeenCombatOwners.begin(),kXeenCombatOwners.end());std::sort(ids.begin(),ids.end());unsigned permutations=0;
  do{p.party=XeenParty::fromRosterIds(ids);xeenValidateJourneyParty(p);++permutations;}while(std::next_permutation(ids.begin(),ids.end()));
  check(permutations==720,"All six-member permutations accepted");
- for(auto bad:std::vector<std::vector<std::uint8_t>>{{0,18,14,11,1,1},{0,18,14,11,1},{0,18,14,11,1,2}}) {
-  p.party=XeenParty::fromRosterIds(bad);bool refused=false;try{xeenValidateJourneyParty(p);}catch(const std::invalid_argument &){refused=true;}check(refused,"Other membership rejected");
+ for(auto bad:std::vector<std::vector<std::uint8_t>>{{0,18,14,11,1,1},{},{24}}) {
+  p.party=XeenParty::fromRosterIds(bad);p.firstSerializedCount=p.effectiveSerializedCount=bad.size();bool refused=false;try{xeenValidateJourneyParty(p);}catch(const std::invalid_argument &){refused=true;}check(refused,"Invalid membership rejected");
  }
  for(unsigned option:{4u,255u}){auto invalid=changed;invalid.characters[29].quickOption=option;bool refused=false;try{XeenSaveFormat::encode(invalid);}catch(...){refused=true;}check(refused,"Invalid quickOption rejected for inactive owner");}
  for(unsigned slot:{39u,254u}){auto invalid=changed;invalid.characters[29].currentSpell=slot;bool refused=false;try{XeenSaveFormat::encode(invalid);}catch(...){refused=true;}check(refused,"Invalid currentSpell rejected for inactive owner");}
@@ -917,6 +934,6 @@ void runKillEventTreasure(Inputs &in) {
 int main(int argc,char **argv){try{
  check(argc==2,"usage: party-interface-tests <installation>");auto game=xeenTestInstallationDetector().detect(argv[1]);check(bool(game),"Missing installation");Inputs in(*game);
  std::ostringstream captured;auto *before=std::cout.rdbuf(captured.rdbuf());
- try{const auto run=[&](const char *name,auto fn){try{fn(in);}catch(const std::exception &e){throw std::runtime_error(std::string(name)+": "+e.what());}};run("original treasure records",originalTreasureRecords);run("WhoWill arrival",whoWillArrival);run("original item drops",originalMonsterDropReceipts);run("Event treasure order",eventTreasureOrder);run("live kill Event treasure",liveKillEventTreasure);run("Run kill Event treasure",runKillEventTreasure);run("exchange",exchangeAndSave);run("time/rest",reorderedTimeAndRest);run("combat/options",combatAndOptions);run("quick casting",quickCasting);run("M73 quick casting",m73QuickCasting);run("ordered consequences",orderedShootBarrierTreasure);run("indoor quick Run",indoorQuickRun);run("Mr Wizard",mrWizard);run("combat Mr Wizard",combatMrWizard);run("combat Mr Wizard after escape",combatMrWizardEscape);run("spell checks",spellChecks);}catch(...){std::cout.rdbuf(before);throw;}
+ try{const auto run=[&](const char *name,auto fn){try{fn(in);}catch(const std::exception &e){throw std::runtime_error(std::string(name)+": "+e.what());}};run("original treasure records",originalTreasureRecords);run("WhoWill arrival",whoWillArrival);run("original item drops",originalMonsterDropReceipts);run("Event treasure order",eventTreasureOrder);run("live kill Event treasure",liveKillEventTreasure);run("Run kill Event treasure",runKillEventTreasure);run("exchange",exchangeAndSave);run("WhoWill membership",whoWillMembership);run("time/rest",reorderedTimeAndRest);run("combat/options",combatAndOptions);run("quick casting",quickCasting);run("M73 quick casting",m73QuickCasting);run("ordered consequences",orderedShootBarrierTreasure);run("indoor quick Run",indoorQuickRun);run("Mr Wizard",mrWizard);run("combat Mr Wizard",combatMrWizard);run("combat Mr Wizard after escape",combatMrWizardEscape);run("spell checks",spellChecks);}catch(...){std::cout.rdbuf(before);throw;}
  std::cout.rdbuf(before);std::cout<<"Exchange, ordered ownership, Quick Fight, v8 and stale input passed\n";return 0;
 }catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}

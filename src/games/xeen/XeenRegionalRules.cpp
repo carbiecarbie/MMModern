@@ -281,7 +281,7 @@ XeenRegionalOpportunityCandidate::XeenRegionalOpportunityCandidate(XeenWorld &wo
 		const std::vector<XeenActor> &before,const XeenCamera &c,const XeenConsequenceCharacters &p,
 		const XeenConsequenceInputs &i,unsigned y,unsigned mask,const std::array<bool,6> &b,XeenActorOpportunityContext context,const XeenGameplayContext &partyContext) :
 		characters(p),camera(c),inputs(i),year(y),participantMask(mask),recoveryEnabled(context.movementEnabled && !context.charactersShooting),blocked(b),indoorWorld(&world),partyContext(partyContext) {
-	if(world.map(c.mapId).geometry.isOutdoors() || mask>0x3f)
+	if(world.map(c.mapId).geometry.isOutdoors() || mask>p.mask())
 		throw std::invalid_argument("Invalid indoor opportunity");
 	std::array<bool,107> tested{};
 	actors=regionalMove(before,c,[&](const XeenActor &a,int x,int z) {
@@ -310,7 +310,7 @@ XeenRegionalOpportunityCandidate::XeenRegionalOpportunityCandidate(const XeenMap
 		const std::vector<XeenActor> &before,const XeenCamera &c,const XeenConsequenceCharacters &p,
 		const XeenConsequenceInputs &i,unsigned y,unsigned mask,const std::array<bool,6> &b,XeenActorOpportunityContext context,const XeenGameplayContext &partyContext) :
 		characters(p),camera(c),inputs(i),year(y),participantMask(mask),recoveryEnabled(context.movementEnabled && !context.charactersShooting),blocked(b),partyContext(partyContext) {
-	if (mask>0x3f) throw std::invalid_argument("Invalid regional participation mask");
+	if (mask>p.mask()) throw std::invalid_argument("Invalid regional participation mask");
 	std::array<bool,107> tested{};
 	actors=regionalMove(before,c,[&](const XeenActor &a,int x,int z) {
 		return xeenRegionalActorTerrain(map,a,x,z);

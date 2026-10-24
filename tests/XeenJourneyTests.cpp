@@ -176,7 +176,7 @@ void readinessAndHistory() {
 	owner.currentHp = -3; owner.conditions[15] = 1; xeenValidateJourneyParty(raw.p);
 	owner.conditions[15] = 0; xeenValidateJourneyParty(raw.p);
 	for (auto id : kXeenCombatOwners) { raw.p.roster.at(id).currentHp = 0; raw.p.roster.at(id).conditions[12] = 1; }
-	rejects([&] { xeenValidateJourneyParty(raw.p); }, "acting");
+	xeenValidateJourneyParty(raw.p); // Membership is valid; the gameplay owner handles defeat.
 	Fixture partial;
 	const_cast<XeenMutableOptional<XeenCombatInputs> &>(partial.p.roster.combatInputs(29)).reset();
 	rejects([&] { xeenValidateJourneyParty(partial.p); }, "supplement");

@@ -620,7 +620,7 @@ void XeenWorld::copyEventParty(const XeenPartyState &source, XeenPartyState &can
 	candidate.serviceEconomy=source.serviceEconomy;candidate.questItems=source.questItems;
 	candidate.questFlags=source.questFlags;candidate.worldFlags=source.worldFlags;
 	candidate.food=source.food;candidate.soundOptions=source.soundOptions;
-	candidate.firstSerializedCount=source.firstSerializedCount;candidate.effectiveSerializedCount=source.effectiveSerializedCount;
+	candidate.insideInn=source.insideInn;candidate.firstSerializedCount=source.firstSerializedCount;candidate.effectiveSerializedCount=source.effectiveSerializedCount;
 	candidate.diagnostics=source.diagnostics;
 }
 

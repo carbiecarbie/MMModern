@@ -35,9 +35,9 @@ XeenPartyState XeenPartyLoader::loadFromResources(
 	if (header.firstCount != header.effectiveCount) {
 		state.diagnostics.push_back("maze.pty: different member counts (" +
 			std::to_string(header.firstCount) + " and " +
-			std::to_string(header.effectiveCount) + "); using the second");
+			std::to_string(header.effectiveCount) + "); using the active first count");
 	}
-	if (header.effectiveCount > XeenParty::kMaximumVisibleMembers)
+	if (header.firstCount > XeenParty::kMaximumVisibleMembers)
 		throw std::runtime_error("maze.pty declares more than six active members");
 
 	std::array<bool, XeenRoster::kCharacterCount> seen{};
@@ -46,7 +46,7 @@ XeenPartyState XeenPartyLoader::loadFromResources(
 		if (rosterId < -1 || rosterId >= static_cast<int>(XeenRoster::kCharacterCount))
 			throw std::runtime_error("maze.pty contains invalid roster ID at slot " +
 				std::to_string(i));
-		if (i >= header.effectiveCount || rosterId == -1)
+		if (i >= header.firstCount || rosterId == -1)
 			continue;
 
 		if (seen[static_cast<std::size_t>(rosterId)]) {

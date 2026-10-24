@@ -174,14 +174,17 @@ void testPartyHeaderAndReferences() {
 	setName(roster, 18, "Beta");
 	const XeenPartyLoader loader;
 	const auto state = loader.loadFromResources(roster,
-		partyFixture(5, 3, {0, 0xff, 18}));
-	check(state.firstSerializedCount == 5 && state.effectiveSerializedCount == 3 &&
-		hasDiagnostic(state, "different member counts"), "second party count must prevail with diagnostic");
+		partyFixture(3, 5, {0, 0xff, 18}));
+	check(state.firstSerializedCount == 3 && state.effectiveSerializedCount == 5 &&
+		hasDiagnostic(state, "different member counts"), "active first count and retained second count are diagnosed");
 	check(state.party.activeRosterIds() == std::vector<std::uint8_t>({0, 18}),
 		"active order / absent 0xff entry");
 	check(&state.party.member(state.roster, 0) == &state.roster.at(0) &&
 		&state.party.member(state.roster, 1) == &state.roster.at(18),
 		"active characters must reference roster storage");
+
+    const auto tail=loader.loadFromResources(roster,partyFixture(2,3,{0,18,1}));
+    check(tail.party.activeRosterIds()==std::vector<std::uint8_t>({0,18}),"retained count cannot expose an inactive CHR lane");
 
 	auto duplicate = loader.loadFromResources(roster, partyFixture(2, 2, {0, 0}));
 	check(duplicate.party.size() == 2 && hasDiagnostic(duplicate, "duplicate"),

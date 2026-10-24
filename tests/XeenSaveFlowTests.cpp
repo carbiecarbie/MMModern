@@ -59,7 +59,10 @@ void startup(const fs::path &path){
 }
 void failures(const fs::path &path){
  for(int mode=0;mode<7;++mode){
-  fs::remove(path);regional_save_test::Fixture f;auto s=f.saved;if(mode==1)s.resources.clouds.crc32++;if(mode==2)s.activeRosterIds={24};XeenSaveFile::write(path,s);
+  fs::remove(path);regional_save_test::Fixture f;auto s=f.saved;if(mode==1)s.resources.clouds.crc32++;if(mode==2){
+   auto bad=XeenSaveFormat::encode(s);bad.at(53)=24; // v19 first active ID after the fixed envelope/camera prefix.
+   save_test::fixIndependentEnvelope(bad);writeBytes(path,bad);
+  }else XeenSaveFile::write(path,s);
   if(mode==0)fs::remove(path);if(mode==3)writeBytes(path,{'b','a','d'});if(mode==4){auto bytes=XeenSaveFormat::encode(s);bytes[8]=XeenSaveFormat::kJourneyVersion+1;writeBytes(path,bytes);}
   auto services=f.services();auto compose=services.composeEncounter;
   services.composeEncounter=[&](auto &w,const auto &p,const auto &c,auto phase,auto actor){if(mode==5)throw std::runtime_error("injected first-frame failure");auto frame=compose(w,p,c,phase,actor);if(mode==6)frame.frame.width=0;return frame;};

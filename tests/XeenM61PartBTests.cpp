@@ -276,7 +276,7 @@ void stagedRangedItemResponse(Inputs &in) {
     for(bool retry:{false,true}) {
         // Power 3 (Magic Arrow) was admitted in M61. The original Orc survives
         // its eight damage and must fire, rather than merely move in response.
-        auto s=source(in,3,false,2);s.camera={23,9,11,XeenDirection::East};s.journey->random=XeenCombatRandom(5).continuation();
+        auto s=source(in,3,false,2);s.camera={23,9,11,XeenDirection::East};s.journey->random=XeenCombatRandom(226).continuation();
         auto &saved=s.map(23).monsters->slots.at(8);
         saved.x=12;saved.y=11;saved.lifecycle=XeenActorLifecycle::Present;saved.accounted=false;
         Fixture f(in,s);
@@ -294,7 +294,7 @@ void stagedRangedItemResponse(Inputs &in) {
         XeenRegionalOpportunityCandidate response(f.w.map(23),actors,f.c,characters,inputs,f.p.encounterContext->year,63);
         check(response.shotCount==1 && response.shots[0].source==actors[8].id,"Item response must queue exactly one ranged shot");
         const auto travelRandom=expected.continuation();
-        check(travelRandom==XeenJourneyRandomState{1,1351845u,1},"Staged travel RNG vector differs");
+        check(travelRandom==XeenJourneyRandomState{1,60054892u,1},"Staged travel RNG vector differs");
         check(response.service(draw),"Response oracle incomplete");
         check(response.shots[0].attack.injuryCount==1 && response.shots[0].attack.damage==2,
             "Staged response must inflict one positive injury");
@@ -302,7 +302,7 @@ void stagedRangedItemResponse(Inputs &in) {
         check(injury.owner==18 && injury.beforeHp==f.p.roster.at(18).currentHp && injury.afterHp==injury.beforeHp-2,
             "Staged fixture must wound roster 18 by exactly two HP");
         const auto finalRandom=expected.continuation();
-        check(finalRandom==XeenJourneyRandomState{1,1234782181u,5},"Staged fixture exact RNG vector differs");
+        check(finalRandom==XeenJourneyRandomState{1,2649197791u,6},"Staged fixture exact RNG vector differs");
         unsigned travel=0,portraits=0,retries=0;
         std::exception_ptr observationFailure;
         std::shared_ptr<const XeenRegionalObservation> last;

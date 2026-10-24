@@ -102,6 +102,8 @@ needs and, when needed, `MMODERN_XEEN_UI_DATA` for its installed UI module.
 ## Developer test saves
 
 Build the opt-in tool with `cmake --build build-rel --target mmodern_test_save`.
+Generated saves use the current v19 envelope, including the full roster.
+Regenerate older preset files with the rebuilt tool; the game refuses them.
 It starts from the normal fresh Regional Journey and writes a validated current
 save for `broken-armor`, `train-ready`, `injured-dead` or `poisoned`. The party
 stays at map 23 `(9,11)` facing West; world, calendar and RNG retain fresh

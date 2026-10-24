@@ -15,7 +15,7 @@ IndexedFrame XeenEventFlow::handleQuickFightOptions(const PlayerAction &action) 
     if(key==InputKey::Enter || key==InputKey::Escape)_quickFightMember.reset();
     else if(key=='n')_encounter->configureQuickFight(_encounter->ticket(),*_quickFightMember);
     else if(key>=InputKey::F1 && key<InputKey::F1+6) {
-        unsigned count=0;for(unsigned n=0;n<6;++n)if(_encounter->combat()->participants()&(1u<<n))++count;
+        unsigned count=0;for(unsigned n=0;n<_party.party.size();++n)if(_encounter->combat()->participants()&(1u<<n))++count;
         // DOS-confirmed Options-after-Run quirk: bound by combat count, then
         // index the uncompressed active party, rather than the visible faces.
         if(key-InputKey::F1<count) {
@@ -76,7 +76,7 @@ std::shared_ptr<const DialogInput> XeenEventFlow::characterDialogInput() const {
     else if(_inventory.mode==XeenInventoryMode::UseTarget && _encounter->itemUseNeedsElement())input=xeenElementInput();
     else if(_inventory.mode==XeenInventoryMode::UseTarget) {
         constexpr int x[]{10,45,81,117,153,189};
-        for(unsigned i=0;i<6;++i) {input.hits.push_back({x[i],150,x[i]+32,182,InputKey::F1+i});input.keys.push_back(InputKey::F1+i);}
+        for(unsigned i=0;i<_party.party.size();++i) {input.hits.push_back({x[i],150,x[i]+32,182,InputKey::F1+i});input.keys.push_back(InputKey::F1+i);}
         input.keys.push_back(InputKey::Escape);
     } else if(_sheet && !_itemsVisible) input=xeenSheetInput();
     else input=xeenItemsInput(_inventory.category==XeenInventoryCategory::Miscellaneous,_itemOption.has_value());

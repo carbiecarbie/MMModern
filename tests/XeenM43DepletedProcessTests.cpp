@@ -25,8 +25,8 @@ int main(int argc,char **argv) {
         const auto original=XeenSaveFile::read(b);
         child_test::require(original.journey && original.journey->schema==9 &&
             original.journey->content==14 && original.journey->context->day==9 &&
-            original.journey->purse->gold==670 && original.journey->random->state==4180726993u &&
-            original.journey->random->count==1109,
+            original.journey->purse->gold==670 && original.journey->random->state==4274906087u &&
+            original.journey->random->count==1065,
             "real bought checkpoint is not the exact content-14 depleted preimage");
         m42_test::sameCategory(original.journey->serviceEconomy->wares[0][0][1],m42_test::armorAfter());
         SetEnvironmentVariableW(L"MMODERN_M42_CONTENT14",nullptr);

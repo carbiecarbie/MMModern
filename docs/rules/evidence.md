@@ -1774,9 +1774,21 @@ exit lookups were Smith lookups, not Tavern evidence.
 | Return | Unconditional map load and actor rebuild `0xd086..0xd0d3`, ordinary flagged-cell Event pass `0xd18c/0xd1a5`. High, DOS static with retained M84/M85 dispatch evidence. |
 | Input/refusals | Key table `0x39c59`; Add/FX21 `0x39b33..0x39beb`; Remove `0x39a3a..0x39a73`; empty Exit `0x39ac1..0x39ad0`. High, DOS static. Full mouse table in party chapter. |
 | Dismiss | Exploration dispatch `0xd45b..0xd460`, absent from combat table `0x2ecad`; window/refusal `0x20e81..0x20f6d`; compaction/tail `0x20f70..0x21004`; Save's deferred Vertigo lodging `0x1ec97..0x1ed1e`. High, DOS static. |
+| Dismiss drawing | Poll loop `0x20eb8..0x20ec4` calls `0x10bc3(0)`; counter advancement `0x10bda..0x10be7`; argument `[bp+6]` controls the optional post-draw update at `0x117d2`, separately from scene mode `DS:9a1c`. Retained `m86/door.dis` plus `m87/dismiss.dis`; high, DOS static. |
+| Poison Volley visuals | Six flags enabled `0x1d899..0x1d8bb`; hit loop bounded by active count `0x2cb46..0x2ccdb`. Projectile-render lane count remains Unknown after a focused search of retained listings; smaller-party recording or renderer analysis required. |
 | Consumer bounds | Per-category verdicts and original call sites in [consumer table](party.md#shared-state-and-consumer-bounds). High for stated checks, DOS static including retained evidence; no whole-program absence claim. |
 | Target draw count | Combat count switch `0x2d9a3..0x2d9b2`, six table entries at `0x2dc70`, conditional second draw `0x2d9c4..0x2d9e8`; eligibility fallback is later. High, DOS static. |
 | Shared state | Full roster and 1530-byte party snapshot `0xe938..0xe97d`; membership copies do not split currency/food. Pending treasure is excluded, with gameplay-entry clearing `0xcfe3..0xcff7`; reuse [M81](#save-and-load-boundary). High, DOS static, including retained evidence. |
+
+**CHR lodging layout, maintainer adopted 2026-10-23:** byte 339 is an
+unknown byte; the lodging map is the word at 340–341. Save's `0x1ecae`
+store addresses CHR lane base `0xb41e` plus `0x154`. The retained resource
+audit reads the same word and finds 28 for the six named initial records.
+The pin's unknown word at 339 and map byte at 341 overlap that DOS field.
+`DS:ed8c` is the active count (first PTY byte), `DS:ed8d` the retained count
+(second byte). Save clears departed IDs at `0x1ece7`, normalizes the retained
+count at `0x1ed23..0x1ed26`, then snapshots at `0x1ed2e`; no active-tail
+array is serialized. See the [layout difference](../original-quirks.md#sv-chr-lodging-layout).
 
 The significant inactive-character witness is six-to-five Dismiss followed
 by Save: the departed full CHR at lane 5 is read and lodged at Vertigo. This

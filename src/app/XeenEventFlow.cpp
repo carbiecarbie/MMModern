@@ -80,7 +80,7 @@ void XeenEventFlow::requireCurrentOwners() const {
 
 bool XeenEventFlow::canSave() const noexcept {
 	return _gameplayBorrow->current() && !_explorationPass && !_death && !_fatal && !_dispatching && !_saving && !_handoffPending && !_transition && !_arrivalPending &&
-		!_portraitSequence && !inventoryOpen() && !_quickFightMember && !_summary && !_pending && !_equipmentSelection &&
+		!_portraitSequence && !_dismissOpen && !inventoryOpen() && !_quickFightMember && !_summary && !_pending && !_equipmentSelection &&
 		(!_encounter || (!_encounter->_needsRestNotice && _encounter->canSave() && encounterFrameCurrent()));
 }
 
@@ -102,8 +102,10 @@ InputContext XeenEventFlow::inputContext(const IndexedFrame::Presentation &origi
         clearManualInput(0xf590);
     }
     const auto *combat = _encounter ? _encounter->combat() : nullptr;
+    unsigned visibleMembers=_party.party.size();
+    if(combat) {visibleMembers=0;for(unsigned n=0;n<_party.party.size();++n)if(combat->participants()&(1u<<n))++visibleMembers;}
     // Panels are strict throughout their lifetime, including preparation/result work.
-    unsigned panel = _travelUi ? 17 : _death ? 16 : _encounter && !_encounter->_combatCastRefusal.empty() ? 15 : !_whoWillRefusal.empty() ? 14 : _quickFightMember ? 13 : _summary ? 12 : _encounter && _encounter->_rest ? 11 : _encounter && _encounter->_needsRestNotice ? 10 : _fatal ? 1 : _trainingUi ? 2 : _smithUi ? 3 : inventoryOpen() ? 4 :
+    unsigned panel = _dismissOpen ? 18 : _travelUi ? 17 : _death ? 16 : _encounter && !_encounter->_combatCastRefusal.empty() ? 15 : !_whoWillRefusal.empty() ? 14 : _quickFightMember ? 13 : _summary ? 12 : _encounter && _encounter->_rest ? 11 : _encounter && _encounter->_needsRestNotice ? 10 : _fatal ? 1 : _trainingUi ? 2 : _smithUi ? 3 : inventoryOpen() ? 4 :
         (_castingUi || (combat && combat->cast())) ? 5 :
         (_pending || _transition || (_encounter && _encounter->journeyEvent())) ? 6 :
         (_encounter && _encounter->monsterReward()) ? 7 :
@@ -118,7 +120,7 @@ InputContext XeenEventFlow::inputContext(const IndexedFrame::Presentation &origi
     if(panel==9 && _encounter->state().phase()==XeenEncounterPhase::Engaged)panel=0;
     // DOS combat entry retains the exploration keyboard queue.
     const QueueContext context{_camera.mapId, panel,
-        _quickFightMember ? 500+*_quickFightMember : _summary ? 400+unsigned(*_summary) : inventoryOpen() ? (_exchange ? 6 : _dialogError ? 5 : _statPopup ? 4 : _itemOption ? 3 : _sheet && !_itemsVisible ? 2 : 1) :
+        _dismissOpen ? 700+unsigned(!_dismissRefusal.empty()) : _quickFightMember ? 500+*_quickFightMember : _summary ? 400+unsigned(*_summary) : inventoryOpen() ? (_exchange ? 6 : _dialogError ? 5 : _statPopup ? 4 : _itemOption ? 3 : _sheet && !_itemsVisible ? 2 : 1) :
         _smithUi ? 100+unsigned(_smithUi->phase)*8+unsigned(_smithUi->mode)+(!_smithUi->feedback.empty()?1000:0) :
         _trainingUi ? 200+unsigned(_trainingUi->phase)+(!_trainingUi->feedback.empty()?1000:0) :
         _encounter && _encounter->_rest ? 300+unsigned(_encounter->_rest->phase) : panel==6 && _pending ? _pending->generation :
@@ -177,11 +179,27 @@ InputContext XeenEventFlow::inputContext(const IndexedFrame::Presentation &origi
           _pending->state.pendingPresentation->request.kind!=XeenPresentationKind::CharacterSelection) ||
          (_encounter && _encounter->monsterReward())))
         dialog=std::make_shared<const DialogInput>(_presenter.input());
+    if(_dismissOpen) {
+        auto input=xeenExchangeInput();
+        if(!_dismissRefusal.empty()) {input={};input.anyKey=input.anyClick=input.keyMouseWait=true;}
+        dialog=std::make_shared<const DialogInput>(std::move(input));
+    }
     if(_quickFightMember)dialog=std::make_shared<const DialogInput>(xeenQuickFightInput());
     if(_summary) {DialogInput input;
         if(*_summary==SummaryDialog::Quests || *_summary==SummaryDialog::Awards)input=xeenJournalInput(*_summary==SummaryDialog::Awards);
         else input.anyKey=input.anyClick=input.keyMouseWait=true;
         dialog=std::make_shared<const DialogInput>(std::move(input));
+    }
+    if(dialog) {
+        auto filtered=*dialog;
+        unsigned count=unsigned(_party.party.size());
+        if(_encounter && _encounter->combat()) {
+            count=0;for(unsigned n=0;n<_party.party.size();++n)if(_encounter->combat()->participants()&(1u<<n))++count;
+        }
+        const auto inactive=[&](unsigned key){return key>=InputKey::F1+count && key<InputKey::F1+6;};
+        filtered.keys.erase(std::remove_if(filtered.keys.begin(),filtered.keys.end(),inactive),filtered.keys.end());
+        filtered.hits.erase(std::remove_if(filtered.hits.begin(),filtered.hits.end(),[&](const auto &hit){return inactive(hit.key);}),filtered.hits.end());
+        dialog=std::make_shared<const DialogInput>(std::move(filtered));
     }
     const bool whoWill=_pending && _pending->state.pendingPresentation &&
         _pending->state.pendingPresentation->request.kind==XeenPresentationKind::CharacterSelection;
@@ -236,7 +254,7 @@ InputContext XeenEventFlow::inputContext(const IndexedFrame::Presentation &origi
     }
     return {_queueContextId, queueable, ready, journey() && worldQueueable ?
         (combat ? MainScreen::Combat : MainScreen::Exploration) : MainScreen::None,std::move(dialog),hideCursor,restReady,
-        navigationReady,navigationDrawPending,_keyboardClear,!combat && (panel==0 || panel==6),unsigned(_party.party.size()),_mouseClear,actionDrawPending};
+        navigationReady,navigationDrawPending,_keyboardClear,!combat && (panel==0 || panel==6),visibleMembers,_mouseClear,actionDrawPending};
 }
 std::uint64_t XeenEventFlow::presentationNow() {
     requireCurrentOwners();
@@ -510,7 +528,7 @@ IndexedFrame XeenEventFlow::drawMainScreenNotice(const IndexedFrame &base, const
 void XeenEventFlow::drawPartyPresentation(IndexedFrame &frame) const {
  if(!drawDialogSprite || !_encounter)return;
  const auto *combat=_encounter->combat();
- const unsigned mask=combat?combat->participants():0x3f;
+ const unsigned mask=combat?combat->participants():_party.party.activeOrder().mask();
  XeenPartyState beforeBash;
  const XeenPartyState *visible=_transition?&_transition->party:&_party;
  if(_barrier && _barrier->published && _barrier->bash && !_barrier->rule->moved) {
@@ -540,7 +558,7 @@ void XeenEventFlow::armExplorationPass() {
 }
 
 bool XeenEventFlow::explorationInputPending() const {
- return _explorationPass && (!journey() || !_encounter->combat()) && !_death && !_pending && !_transition && !_barrier && !inventoryOpen() && !_summary &&
+ return _explorationPass && (!journey() || !_encounter->combat()) && !_death && !_pending && !_transition && !_barrier && !inventoryOpen() && !_summary && !_dismissOpen &&
   !_castingUi && !_travelUi && !_entranceUi && !_spellItemsUi && !_smithUi && !_trainingUi &&
   (!journey() || (!_encounter->_needsRestNotice && !_encounter->_rest && !_encounter->monsterReward()));
 }
@@ -583,6 +601,7 @@ void XeenEventFlow::replaceManualInput(const PlayerAction &action) {
   case 'v':_manualInput->action=QuestsAction{};return;
   case 'c':_manualInput->action=CastSpellAction{};return;
   case 'r':_manualInput->action=RestAction{};return;
+  case 'd':_manualInput->action=DismissAction{};return;
   case 'b':_manualInput->action=BashAction{};return;
   case 's':_manualInput->action=ShootAction{};return;
   case 'u':_manualInput->action=UseItemAction{};return;
@@ -646,7 +665,7 @@ std::optional<IndexedFrame> XeenEventFlow::continueManualInput() {
 
 bool XeenEventFlow::explorationEffectComplete() const {
  return !_manualInput && !_pending && !_transition && !_arrivalPending && !_barrier && !_castingUi && !_travelUi &&
-  !_entranceUi && !_spellItemsUi && !inventoryOpen() && !_summary && !_smithUi && !_trainingUi &&
+  !_entranceUi && !_spellItemsUi && !inventoryOpen() && !_summary && !_dismissOpen && !_smithUi && !_trainingUi &&
   !_portraitSequence && !_death && !_fatal &&
   (!journey() || (!_encounter->_needsRestNotice && !_encounter->monsterReward() && !_encounter->_rest && !_encounter->_castingSettlement && !_encounter->_itemUse &&
    !_encounter->_regionalWork && !_encounter->_terrainFall && !_encounter->_shoot && (!_encounter->_shootIntent || _encounter->_postCombatCalls) && !_encounter->_shootDirectCombat &&
@@ -775,7 +794,8 @@ void XeenEventFlow::prepareTerrainTransition() {
  work->world->loadEventDestination(_camera.mapId,work->camera.mapId);
  XeenConsequenceCharacters characters;XeenConsequenceInputs inputs;
  const auto owners=work->party.party.activeOrder();
- for(unsigned n=0;n<6;++n) {characters[n]=work->party.roster.at(owners[n]);inputs[n]=*work->party.roster.combatInputs(owners[n]);}
+ characters.setCount(owners.size());inputs.setCount(owners.size());
+ for(unsigned n=0;n<owners.size();++n) {characters[n]=work->party.roster.at(owners[n]);inputs[n]=*work->party.roster.combatInputs(owners[n]);}
  XeenCombatRandom random(*work->world->sessionState().journeyRandom());
  XeenTerrainArrivalCandidate arrival(rule,characters,inputs,*work->party.encounterContext,&*work->party.serviceEconomy);
  work->fallEffects.reserve(6);
@@ -810,7 +830,7 @@ void XeenEventFlow::retainManualPrefix(bool party) {
 void XeenEventFlow::beginFall(const IndexedFrame &top,const IndexedFrame &bottom) {
  if(_fallSequence || !_transition)throw std::logic_error("Falling presentation is unavailable");
  FallSequence sequence;sequence.top=top;sequence.bottom=bottom;
- if(drawDialogSprite)for(const auto &portrait:CloudsUiComposer::buildPortraitPlacements(_party,0x3f))
+ if(drawDialogSprite)for(const auto &portrait:CloudsUiComposer::buildPortraitPlacements(_party,_party.party.activeOrder().mask()))
   drawDialogSprite(sequence.top,portrait.resourceName.c_str(),4,portrait.x,portrait.y);
  _presenter.clear();_journeyEventLayers=false;
  _fallSequence=std::move(sequence);
@@ -865,7 +885,8 @@ bool XeenEventFlow::serviceManualStep() {
   XeenRegionalActionCandidate step;step.owners=work.party.party.activeOrder();step.camera=work.camera;
   step.context=*work.party.encounterContext;step.actors=work.world->sessionState().regionalActors(work.camera.mapId);
   step.random=XeenCombatRandom(*work.world->sessionState().journeyRandom());
-  for(unsigned n=0;n<6;++n) {step.characters[n]=work.party.roster.at(step.owners[n]);step.inputs[n]=*work.party.roster.combatInputs(step.owners[n]);}
+  step.characters.setCount(step.owners.size());step.inputs.setCount(step.owners.size());
+  for(unsigned n=0;n<step.owners.size();++n) {step.characters[n]=work.party.roster.at(step.owners[n]);step.inputs[n]=*work.party.roster.combatInputs(step.owners[n]);}
   const auto charge=work.world->map(work.camera.mapId).geometry.isOutdoors()?10u:1u;
   auto ending=xeenPrepareTime(step.context,charge);if(ending.dailyProcessing)xeenResetPartyTemps(ending.context);
   // Refuse an unavailable fall before time, ranged injuries or any Event prefix
@@ -889,8 +910,8 @@ bool XeenEventFlow::serviceManualStep() {
  while(step.remaining) {
   if(!step.opportunity) {
    if(work.world->map(step.camera.mapId).geometry.isOutdoors())
-    step.opportunity.emplace(work.world->map(step.camera.mapId),step.actors,step.camera,step.characters,step.inputs,step.context.year,0x3f,std::array<bool,6>{},XeenActorOpportunityContext{},step.context);
-   else step.opportunity.emplace(*work.world,step.actors,step.camera,step.characters,step.inputs,step.context.year,0x3f,std::array<bool,6>{},XeenActorOpportunityContext{},step.context);
+    step.opportunity.emplace(work.world->map(step.camera.mapId),step.actors,step.camera,step.characters,step.inputs,step.context.year,step.owners.mask(),std::array<bool,6>{},XeenActorOpportunityContext{},step.context);
+   else step.opportunity.emplace(*work.world,step.actors,step.camera,step.characters,step.inputs,step.context.year,step.owners.mask(),std::array<bool,6>{},XeenActorOpportunityContext{},step.context);
    step.opportunity->staged=true;
   }
   auto &op=*step.opportunity;
@@ -1250,7 +1271,9 @@ IndexedFrame XeenEventFlow::renderEncounter(bool report, bool cosmeticInput, boo
 				if (_smithUi) rendered=drawSmith(composed.frame);
 				if (_trainingUi) rendered=drawTraining(composed.frame);
                 if(_entranceUi)rendered=_presenter.rebase(_entranceUi->art);
-				if(_summary)rendered=drawSummary(rendered);
+				if(_dismissOpen) rendered=_dismissRefusal.empty()?drawXeenDismiss(dosText(),rendered,_inventoryFont,drawDialogSprite):
+                    drawXeenErrorScroll(rendered,_inventoryFont,_dismissRefusal);
+                if(_summary)rendered=drawSummary(rendered);
                 if(_quickFightMember)rendered=drawQuickFightOptions(rendered);
 				if(partyDeathRequired() || _death){beginDeath(composed.frame);rendered=drawDeath(composed.frame);}
 				if (report && !attempt) {
@@ -1815,7 +1838,8 @@ void XeenEventFlow::prepareDetachedResult(const XeenManualEventResult &result) t
 		if(!work.terrain) {
 			XeenConsequenceCharacters characters;XeenConsequenceInputs inputs;
 			const auto owners=work.party.party.activeOrder();
-			for(unsigned n=0;n<6;++n) {characters[n]=work.party.roster.at(owners[n]);inputs[n]=*work.party.roster.combatInputs(owners[n]);}
+			characters.setCount(owners.size());inputs.setCount(owners.size());
+ for(unsigned n=0;n<owners.size();++n) {characters[n]=work.party.roster.at(owners[n]);inputs[n]=*work.party.roster.combatInputs(owners[n]);}
 			const auto rule=work.world->prepareTerrainArrival(work.camera,characters,*work.party.encounterContext);
 			if(!rule) {_encounter->_journeyRefusal=rule.transition.reason;_candidateResultRefused=true;_transition.reset();return;}
 			if(rule.falling) {
@@ -2774,6 +2798,11 @@ std::optional<IndexedFrame> XeenEventFlow::updatePresentation() {
 	}
 	if (_dispatching || _fatal || _saving || _smithUi || (journey() && _handoffPending)) return std::nullopt;
 	DispatchScope dispatch(_dispatching);
+    if(_dismissOpen) {
+        // DOS 0x20eb8..0x20ec4 redraws through draw3d(0) on each poll.
+        if(_encounter && advanceEncounterOrdinary())return renderEncounter(false,true);
+        return std::nullopt;
+    }
 	if(_quickFightMember) {
         if(_encounter && advanceEncounterOrdinary())return renderEncounter(false,true);
         return std::nullopt;
@@ -2990,7 +3019,24 @@ IndexedFrame XeenEventFlow::handleExplorationAction(const PlayerAction &physical
 		(_smithUi && !inputFrame)) return frameCopy();
     if (journey() && !journeyInputCurrent(displayedInput)) return frameCopy();
     if(!_continuingManual && explorationInputPending())return frameCopy();
-    const bool unsupportedAdmitted=(std::holds_alternative<UnsupportedMainScreenAction>(action) ||
+    if(_dismissOpen) {
+        if(_dispatching || _fatal || _saving || _handoffPending)return frameCopy();
+        DispatchScope dispatch(_dispatching);
+        unsigned key=0;
+        if(const auto *k=std::get_if<DialogKeyAction>(&action))key=k->key;
+        if(const auto *member=std::get_if<SelectMemberAction>(&action))key=InputKey::F1+member->partyIndex;
+        if(std::holds_alternative<CancelInteractionAction>(action))key=InputKey::Escape;
+        if(!_dismissRefusal.empty()){_dismissRefusal.clear();_dismissOpen=false;}
+        else if(key==InputKey::Escape)_dismissOpen=false;
+        else if(key>=InputKey::F1 && key<InputKey::F1+_party.party.size()) {
+            if(_party.party.size()==1)_dismissRefusal=dosText().scalar("DISMISS_LAST");
+            else if(_encounter->journeyDismiss(_encounter->ticket(),key-InputKey::F1)) {
+                _dismissOpen=false;_inventory={};_sheet.reset();_itemsVisible=false;_quickFightMember.reset();
+            }
+        }
+        return renderEncounter();
+    }
+    const bool mainScreenAdmitted=(std::holds_alternative<UnsupportedMainScreenAction>(action) || std::holds_alternative<DismissAction>(action) ||
         (_encounter && _encounter->combat() && std::holds_alternative<NavigationAction>(action))) && [&] {
         const auto context=inputContext(inputFrame);return context.mainScreen!=MainScreen::None && context.readyForAction;
     }();
@@ -3084,8 +3130,13 @@ IndexedFrame XeenEventFlow::handleExplorationAction(const PlayerAction &physical
     if (journey() && _encounter->combat() && !_encounter->combat()->cast() && !inventoryOpen())
         if(const auto *nav=std::get_if<NavigationAction>(&action);nav && *nav!=NavigationAction::TurnLeft && *nav!=NavigationAction::TurnRight)
             action=UnsupportedMainScreenAction{"Combat movement"};
+    if(std::holds_alternative<DismissAction>(action)) {
+        if(!mainScreenAdmitted || !journey() || _pending || inventoryOpen() || _castingUi || _barrier || _summary ||
+           _encounter->combat() || !_encounter->journeyMutable())return frameCopy();
+        DispatchScope dispatch(_dispatching);_dismissOpen=true;_dismissRefusal.clear();return renderEncounter();
+    }
     if (const auto *unsupported=std::get_if<UnsupportedMainScreenAction>(&action)) {
-        if (!unsupportedAdmitted) return frameCopy();
+        if (!mainScreenAdmitted) return frameCopy();
         _mainScreenNotice=std::string(unsupported->label)+": not supported yet";
         DispatchScope dispatch(_dispatching);
         if(std::holds_alternative<NavigationAction>(physicalAction))advanceEncounterOrdinary(OrdinaryCause::Action);

@@ -243,7 +243,7 @@ public:
 	std::optional<XeenMapIdentity> developerEventMap() const noexcept { return _developerEventMap; }
 	bool eventCameraAdmitted(const XeenCamera &) const noexcept;
 	XeenTransitionResult prepareEventTransition(const XeenCamera &,bool runLocation=false);
-	XeenTerrainArrival prepareTerrainArrival(const XeenCamera &,const std::array<XeenCharacter,6> &,const XeenGameplayContext &);
+	XeenTerrainArrival prepareTerrainArrival(const XeenCamera &,const XeenPartyLanes<XeenCharacter> &,const XeenGameplayContext &);
 	void publishTerrainArrival(XeenPartyState &,const XeenTerrainArrivalCandidate &,const XeenJourneyRandomState &);
 	// Event interpreter reports its own clear before publication; other loads
     // publish a transient input signal with the destination, including reloads.

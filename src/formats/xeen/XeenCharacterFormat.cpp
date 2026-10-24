@@ -157,26 +157,19 @@ XeenRoster XeenCharacterFormat::parseRoster(const std::vector<std::uint8_t> &byt
 		character.currentHp = readSint16LE(record + kCurrentHpOffset);
 		character.currentSp = readSint16LE(record + kCurrentSpOffset);
 		character.birthYear = readUint16LE(record + kBirthYearOffset);
-		auto details = std::make_shared<XeenCharacterOriginalDetails>();
-		for (unsigned i = 0; i < 7; ++i) details->attributes[i] = {record[20+i*2], record[21+i*2]};
-		for (unsigned i = 0; i < 6; ++i) details->resistances[i] = {record[311+i*2], record[312+i*2]};
 		std::copy_n(record + 39, character.skills.size(), character.skills.begin());
 		for (unsigned i = 0; i < 64; ++i) {
 			const auto award = record[57+i];
-			details->awards[i] = i == 9 ? award : award & 15;
-			details->awards[i+64] = i == 9 ? 0 : award >> 4;
-			character.awards[i]=details->awards[i];
-			character.awards[i+64]=details->awards[i+64];
+			character.awards[i] = i == 9 ? award : award & 15;
+			character.awards[i+64] = i == 9 ? 0 : award >> 4;
 		}
-		details->birthDay = record[37]; details->temporaryAc = record[34];
-		details->xeenSide=record[18];character.lloydMap=record[160];
+		character.birthDay = record[37];
+		character.xeenSide=record[18];character.lloydMap=record[160];
 		character.lloydX=record[161];character.lloydY=record[162];character.lloydSide=record[310];
 		character.currentSpell=record[164];character.quickOption=record[165];
-		details->townUnknown=readUint16LE(record+339);details->savedMaze=record[341];
-		details->adventuringSpell=record[352];details->combatSpell=record[353];
-		details->experience = std::uint32_t(record[348]) | (std::uint32_t(record[349])<<8) |
-			(std::uint32_t(record[350])<<16) | (std::uint32_t(record[351])<<24);
-		character._originalDetails = std::move(details);
+		character.townUnknown=record[339];character.savedMaze=readUint16LE(record+340);
+		character.adventuringSpell=record[352];character.combatSpell=record[353];
+
 	}
 	return roster;
 }

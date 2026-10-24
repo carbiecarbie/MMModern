@@ -34,6 +34,7 @@ inline std::optional<PlayerAction> xeenMainScreenClick(int x, int y, MainScreen 
         if (combat && index==4) return RevisitCompletedAction{}; // R -> Run
         if (combat && index==5) return BlockAction{}; // B
         if (!combat && index==3) return BashAction{};
+        if (!combat && index==4) return DismissAction{};
         if (combat && index==3) return UseItemAction{}; // U
         if (index==7) return InfoAction{};
         if (index==8) return QuickReferenceAction{};

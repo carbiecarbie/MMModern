@@ -11,7 +11,8 @@ bool XeenEventFlow::beginBarrier(bool bash) {
 	work->world=_world.transitionCandidate();work->world->copyEventParty(_party,work->party);
 	work->camera=_camera;work->flags=_flags;work->context=*_party.encounterContext;
 	work->random=XeenCombatRandom(*_world.sessionState().journeyRandom());
-	for(unsigned n=0;n<6;++n) {const auto owner=_party.party.activeRosterIds()[n];work->characters[n]=_party.roster.at(owner);work->inputs[n]=*_party.roster.combatInputs(owner);}
+	work->characters.setCount(_party.party.size());work->inputs.setCount(_party.party.size());
+	for(unsigned n=0;n<_party.party.size();++n) {const auto owner=_party.party.activeRosterIds()[n];work->characters[n]=_party.roster.at(owner);work->inputs[n]=*_party.roster.combatInputs(owner);}
 	work->guard=std::make_unique<XeenRestoreGuard>(*work->world,work->party,work->camera,work->flags);
 	{
 		XeenRestoreGuard::Providers providers(*work->guard,*work->world,[&]{_encounter->journeySavePreimage().check();});
@@ -43,7 +44,7 @@ bool XeenEventFlow::beginBarrier(bool bash) {
 		request.text=xeenDialogFormat(dosText().scalar("WHO_WILL"),{
             dosText().table("WHO_WILL_ACTIONS").at((_barrier->rule->targetWall==1 || _barrier->rule->targetWall==13)?1:0),
             dosText().table("WHO_ACTIONS").at(13),std::to_string(_party.party.size())});
-		for(unsigned n=0;n<6;++n)request.members.push_back({n,_barrier->characters[n].rosterId,std::string(_barrier->characters[n].name),_barrier->characters[n].canAct()});
+		for(unsigned n=0;n<_party.party.size();++n)request.members.push_back({n,_barrier->characters[n].rosterId,std::string(_barrier->characters[n].name),_barrier->characters[n].canAct()});
 		_presenter.present(_frame,request);_journeyEventLayers=true;
 	} else serviceBarrier();
 	return true;
@@ -117,7 +118,7 @@ bool XeenEventFlow::serviceBarrier() {
 	for(const auto &c:rule.characters)work.party.roster.at(c.rosterId)=c;
 	work.party.encounterContext=work.context;
 	if(work.economy)work.party.serviceEconomy=work.economy;
-	for(unsigned n=0;n<6;++n)work.party.roster._combatInputs[rule.characters[n].rosterId]=rule.inputs[n];
+	for(unsigned n=0;n<_party.party.size();++n)work.party.roster._combatInputs[rule.characters[n].rosterId]=rule.inputs[n];
 	work.camera=rule.camera;
 	next=std::make_unique<XeenRestoreGuard>(*work.world,work.party,work.camera,work.flags);
 	next->retainResources(*work.guard);work.guard.swap(next);
@@ -171,7 +172,7 @@ IndexedFrame XeenEventFlow::handleBarrier(const PlayerAction &action) {
 		_barrier.reset();_presenter.clear();_journeyEventLayers=false;_encounter->endJourneyEvent();return renderEncounter();
 	}
 	if(const auto *selected=std::get_if<SelectedCharacter>(&update.response->value)) {
-		if(selected->partyIndex>=6)return frameCopy();
+		if(selected->partyIndex>=_barrier->rule->characters.size())return frameCopy();
 		if(!_barrier->rule->characters[selected->partyIndex].canAct()) {
 			_whoWillRefusal=xeenDialogFormat(dosText().scalar("IN_NO_CONDITION"),
                 {std::string(_barrier->characters[selected->partyIndex].name)});
@@ -232,7 +233,7 @@ void XeenEncounterFlow::publishBarrier(const Ticket &entry,XeenWorld &candidate,
 	}
 	// Only these two barrier paths own injuries, unlock XP, charged time and
 	// sparse walls. Ordinary Event publication retains its stricter capability.
-	for(unsigned n=0;n<6;++n) {
+	for(unsigned n=0;n<_party.party.size();++n) {
 		const auto owner=rule.characters[n].rosterId;
 		auto expected=_party.roster.at(owner);expected.currentHp=rule.characters[n].currentHp;
 		expected.conditions=rule.characters[n].conditions;expected.armor=rule.characters[n].armor;
@@ -248,7 +249,7 @@ void XeenEncounterFlow::publishBarrier(const Ticket &entry,XeenWorld &candidate,
 	if(rule.bash) {
 		opportunity=std::make_unique<XeenRegionalActionCandidate>();auto &c=*opportunity;
 		c.camera=rule.camera;c.context=context;c.actors=candidate.sessionState().regionalActors(_camera.mapId);
-		for(unsigned n=0;n<6;++n)c.owners[n]=rule.characters[n].rosterId;
+		c.owners.setCount(_party.party.size());for(unsigned n=0;n<_party.party.size();++n)c.owners[n]=rule.characters[n].rosterId;
 		c.characters=rule.characters;c.inputs=rule.inputs;c.random=rule.random;
 		// The Flow serviced the shared cursor; its continuation is supplied below.
 		// chargeStep leaves three draws; the scene draw after perform consumes
@@ -309,7 +310,7 @@ void XeenEncounterFlow::publishBarrier(const Ticket &entry,XeenWorld &candidate,
 	retained->s.mutableMonsters(_camera.mapId)=actors;
 	retained->s._journeyRandom=rule.random.continuation();
 	retained->context=context;retained->cameraValue=rule.camera;retained->economy=prepared.economy;
-	for(unsigned n=0;n<6;++n) {
+	for(unsigned n=0;n<_party.party.size();++n) {
 		retained->characters[rule.characters[n].rosterId]=rule.characters[n];
 		retained->inputs[rule.characters[n].rosterId]=rule.inputs[n];
 	}
@@ -323,7 +324,7 @@ void XeenEncounterFlow::publishBarrier(const Ticket &entry,XeenWorld &candidate,
 	liveActors.swap(actors);
 	_world._sessionState._journeyRandom=rule.random.continuation();
 	_lastTime=now;
-	for(unsigned n=0;n<6;++n) {
+	for(unsigned n=0;n<_party.party.size();++n) {
 		auto &live=_party.roster.at(rule.characters[n].rosterId);const auto &value=rule.characters[n];
 		live=value;
 		_party.roster._combatInputs[rule.characters[n].rosterId]=rule.inputs[n];

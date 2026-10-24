@@ -78,12 +78,12 @@ void valuesAndLoading() {
 	for(int i=0;i<30;++i)check(flags.isSet(i)==bool(b[739+i/8]&(1u<<(i%8))),"nonzero mixed field");
 	b.resize(850,255);check(XeenQuestFlagFormat::parseClouds(b).values()==flags.values(),"tail affects flag domain");
 	for(int n:{0,10,738,739,740,741,742,743,744,745,746})rejects([&]{XeenQuestFlagFormat::parseClouds(Bytes(n));});
-	Bytes roster(30*XeenCharacter::kSerializedSize);auto full=resource(2);full[0]=1;full[3]=0; // Existing duplicate/count diagnostics.
+	Bytes roster(30*XeenCharacter::kSerializedSize);auto full=resource(2);full[1]=1;full[3]=0; // Existing duplicate/count diagnostics.
 	std::copy(b.begin()+739,b.begin()+747,full.begin()+739);full[764]=7;
 	const auto loaded=XeenPartyLoader().loadFromResources(roster,full);
 	check(loaded.questFlags.values()==flags.values() && loaded.questItems.at(17)==7 && loaded.party.size()==2 && loaded.diagnostics.size()>=2,
 		"party loading lost flags/counters/membership diagnostics");
-	check(XeenCharacterFormat::parsePartyHeader(Bytes(full.begin(),full.begin()+10)).effectiveCount==2,"header-only content");
+	check(XeenCharacterFormat::parsePartyHeader(Bytes(full.begin(),full.begin()+10)).effectiveCount==1,"header-only retained count");
 	for(int n:{10,746,747,781})rejects([&]{XeenPartyLoader().loadFromResources(roster,Bytes(full.begin(),full.begin()+n));});
 	auto copied=loaded;copied.questFlags.set(1);check(!loaded.questFlags.isSet(1),"party copy aliases flags");
 	check(!party().questFlags.isSet(2),"fresh resource loading inherited flags");

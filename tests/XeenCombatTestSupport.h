@@ -33,7 +33,7 @@ inline std::vector<Draw> mixedTape(){return {{1,2,1},{1,2,1},{1,2,1},{1,2,1},{1,
 	{1,3,1},{1,3,1},{1,20,10},{1,2,1},{1,2,1},{1,20,1},{1,20,15},{1,4,4},
 	{1,2,2},{1,2,2},{1,2,2},{1,2,2},{1,20,10}};}
 inline std::vector<Draw> defeatTape(){std::vector<Draw> v;
-	for(int round=0;round<6;++round){if(round)v.push_back({0,5,unsigned(round==5?5:round-1)});
+	for(int round=0;round<6;++round){if(round){if(round==5)v.push_back({1,6,6});else {v.push_back({1,6,1});v.push_back({0,4,unsigned(round-1)});}}
 		v.insert(v.end(),{{1,20,20},{1,6,6},{1,6,6},{1,4,4}});if(round!=1)v.insert(v.end(),{{1,6,6},{1,6,6}});
 	}return v;
 }

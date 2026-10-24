@@ -148,7 +148,7 @@ Result service(Inputs &in,const GameInstallation &installation,unsigned kind,boo
 }
 Result combat(Inputs &in,const GameInstallation &installation,bool enabled,bool device) {
  auto start=in.service();start.camera={23,9,11,XeenDirection::West};start.soundOptions.efx=enabled;
- start.journey->random=XeenCombatRandom(17).continuation();
+ start.journey->random=XeenCombatRandom(1).continuation();
  for(auto &a:start.map(23).monsters->slots){a.x=a.y=-128;a.lifecycle=XeenActorLifecycle::Defeated;a.accounted=true;}
  auto &a=start.map(23).monsters->slots[5];a.x=8;a.y=11;a.lifecycle=XeenActorLifecycle::Present;a.accounted=false;
  Fixture f(in,start);Trace trace;attach(f,installation,device,trace);

@@ -127,6 +127,7 @@ struct QueueHarness {
    else if(std::holds_alternative<ControlPanelAction>(action))kind='P';
    else if(std::holds_alternative<InfoAction>(action))kind='I';
    else if(std::holds_alternative<WaitAction>(action))kind='.';
+   else if(std::holds_alternative<DismissAction>(action))kind='D';
    else if(std::holds_alternative<QuickReferenceAction>(action))kind='Q';
    else if(std::holds_alternative<MapAction>(action))kind='M';
    else if(std::holds_alternative<QuestsAction>(action))kind='V';
@@ -468,7 +469,7 @@ void mouseHitAreas(){
  const std::vector<Area> areas={
   {235,75,259,95,ShootAction{},QuickFightAction{}},{260,75,284,95,CastSpellAction{},CastSpellAction{}},
   {286,75,310,95,RestAction{},AttackAction{}},{235,96,259,116,BashAction{},UseItemAction{}},
-  {260,96,284,116,u("Dismiss"),RevisitCompletedAction{}},{286,96,310,116,QuestsAction{},BlockAction{}},
+  {260,96,284,116,DismissAction{},RevisitCompletedAction{}},{286,96,310,116,QuestsAction{},BlockAction{}},
   {235,117,259,137,MapAction{},QuickFightOptionsAction{}},{260,117,284,137,InfoAction{},InfoAction{}},
   {286,117,310,137,QuickReferenceAction{},QuickReferenceAction{}},
   {235,148,259,168,NavigationAction::TurnLeft,NavigationAction::TurnLeft},
@@ -653,12 +654,12 @@ void boundedQueuePolicies(){
  QueueHarness{}.run("DOS W waits; A/F unmatched; Dismiss and Shoot",[](auto &h){
   if(h.stage==0)for(auto code:{SDLK_w,SDLK_a,SDLK_d,SDLK_f,SDLK_s})h.tap(code);
   else if(h.stage==1)h.ready=true;
-  else if(h.stage==7){h.check(h.delivered==std::vector<char>{'.','U','F'},"Part 0 W Wait, D Dismiss, S Shoot; no movement aliases");h.quit();}
+  else if(h.stage==7){h.check(h.delivered==std::vector<char>{'.','D','F'},"Part 0 W Wait, D Dismiss, S Shoot; no movement aliases");h.quit();}
  });
- {QueueHarness h;h.screen=MainScreen::Combat;h.run("original combat A/ignored S-Space-Enter",[](auto &h){
-  if(h.stage==0)for(auto code:{SDLK_s,SDLK_SPACE,SDLK_RETURN,SDLK_a}){h.tap(code);h.key(code,SDL_KEYDOWN,1);h.key(code,SDL_KEYUP);}
+ {QueueHarness h;h.screen=MainScreen::Combat;h.run("original combat A/ignored D-S-Space-Enter",[](auto &h){
+  if(h.stage==0)for(auto code:{SDLK_d,SDLK_s,SDLK_SPACE,SDLK_RETURN,SDLK_a}){h.tap(code);h.key(code,SDL_KEYDOWN,1);h.key(code,SDL_KEYUP);}
   else if(h.stage==1)h.ready=true;
-  else if(h.stage==4){h.check(h.delivered==std::vector<char>{'X'},"Combat Attack context or repeated action");h.quit();}
+  else if(h.stage==4){h.check(h.delivered==std::vector<char>{'X'},"Combat D stays unmatched; Attack context or repeated action");h.quit();}
  });}
  QueueHarness{}.run("FIFO/bound-five/overflow/one-per-ready-frame",[](auto &h){
   if(h.stage==0){for(auto code:{SDLK_UP,SDLK_LEFT,SDLK_DOWN,SDLK_RIGHT,SDLK_SPACE,SDLK_b})h.tap(code);}

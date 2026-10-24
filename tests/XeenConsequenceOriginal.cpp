@@ -102,7 +102,7 @@ void attack(XeenCombat &combat,std::vector<XeenCombatRandom::Draw> draws) {
  check(combat.random().continuation()==expected.continuation(),"Exact attack RNG continuation publication");
 }
 std::vector<XeenCombatRandom::Draw> toadTape(const XeenPartyState &p,bool awake,unsigned roll,unsigned parameter,bool sleepFirst) {
- std::vector<XeenCombatRandom::Draw> draws{{0,5,0}};
+ std::vector<XeenCombatRandom::Draw> draws{{1,6,1},{0,4,0}};
  const unsigned i=0;const auto id=kXeenCombatOwners[i];
   if(awake){draws.push_back({1,20,roll});if(roll==1)return draws;draws.push_back({1,8,parameter});}
   for(unsigned n=0;n<3;++n)draws.push_back({1,8,1});
@@ -527,7 +527,7 @@ void blockReset(Source &source) {
  check(!d.party.roster.at(0).conditions[8] && combat.pending()==XeenCombatWork::Enemy,"Wake before following enemy");
  const auto ac=XeenCharacterRules::combatArmorClass(d.party.roster.at(0),*d.party.roster.combatInputs(0),{610});
  const unsigned parameter=8,roll=13;check(ac==13,"Literal original AC discriminator");
- auto miss=toadTape(d.party,true,roll,parameter,true);miss.resize(3);
+ auto miss=toadTape(d.party,true,roll,parameter,true);miss.resize(4);
  const auto hp=d.party.roster.at(0).currentHp;attack(combat,miss);check(d.party.roster.at(0).currentHp==hp,"Block survives Sleep/inner reset/wake");
  check(combat.phase()==XeenCombatPhase::PlayerReady,"Awake player resumes");
  const auto turnTime=d.party.encounterContext;const auto turnRandom=combat.random().continuation();

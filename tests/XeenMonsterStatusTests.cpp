@@ -80,12 +80,12 @@ void opportunity(){
  XeenRegionalOpportunityCandidate op(terrain,actors,camera,c,in,610,63);op.staged=true;
  check(op.shotCount==1 && op.shots[0].source==actors[4].id,"Controlled sources must not enter ranged queue");
  // Equality recovers; I+1 fails; offscreen and dead slots draw in original order.
- XeenCombatRandom rng(std::vector<Draw>{{1,56,6},{1,56,7},{1,56,6},{0,5,0},{1,20,1}});
+ XeenCombatRandom rng(std::vector<Draw>{{1,56,6},{1,56,7},{1,56,6},{1,6,1},{0,4,0},{1,20,1}});
  for(unsigned n=0;n<2;++n){XeenConsequenceDraw draw{rng,1,{}};check(!op.service(draw) && !op.travelStarted,"Recovery must precede first travel/shot and resume at the next slot");}
  XeenConsequenceDraw last{rng,1,{}};check(!op.service(last) && op.travelStarted && rng.position()==3,"Recovery must finish before queued travel");
  check(op.actors[0].status==S::Physical && op.actors[1].status==S::BeastMaster && op.actors[2].status==S::Physical && op.actors[3].status==S::DragonSleep,"Recovery boundary/all-slot/Dragon Sleep semantics");
  check(op.shotCount==1,"Recovered monsters cannot retroactively join queue");op.travelPresented=true;finish(op,rng);
- check(rng.position()==5,"Recovery order must precede target and damage requests");
+ check(rng.position()==6,"Recovery order must precede target and damage requests");
  XeenRegionalOpportunityCandidate rejected(terrain,{actors[0]},camera,c,in,610,63);
  XeenCombatRandom rejection(std::vector<Draw>{{1,56,0,true},{1,56,6}});
  XeenConsequenceDraw raw{rejection,1,{}};check(!rejected.service(raw) && rejected.actors[0].status==S::Sleep,"Rejected conversion must retain the same recovery slot");

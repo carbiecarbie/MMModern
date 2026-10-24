@@ -161,6 +161,7 @@ struct XeenSaveSnapshot {
 	std::optional<std::string> name;
 	std::uint16_t food=0;
 	XeenSoundOptions soundOptions;
+	bool insideInn=false; // Camera is the prior map's tavern door.
 	XeenCamera camera;
 	std::vector<std::uint8_t> activeRosterIds;
 	std::array<XeenCharacter, XeenRoster::kCharacterCount> characters{};

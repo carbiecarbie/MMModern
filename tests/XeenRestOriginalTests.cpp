@@ -186,13 +186,13 @@ void interruption(Inputs &in,bool ranged,unsigned pending,bool indoor=false) {
  check(asleep,"Unhit interrupted members remain asleep");
  const unsigned interruptingCharge=ranged?1:2;
  check(f.p.encounterContext->minutes==480+interruptingCharge*(indoor?1:10) &&
-  f.w.sessionState().journeyRandom()->count==(ranged?4:0),"Fixed interrupting charge/RNG count changed");
+  f.w.sessionState().journeyRandom()->count==(ranged?5:0),"Fixed interrupting charge/RNG count changed");
  check(contact==!ranged && (f.flow->encounter()->state().phase()==XeenEncounterPhase::Engaged)==!ranged,
   "Fixed wake reason must distinguish contact from ranged-only return");
  for(unsigned n=0;n<6;++n) {
   const auto &member=f.p.roster.at(start.activeRosterIds[n]);
-  check(member.conditions[8]==(ranged && n<2?0:1),"Fixed awake/asleep member mask changed");
-  check(member.currentHp==(ranged && n<2?int(n==0?993:994):1000),"Fixed interruption injuries changed");
+  check(member.conditions[8]==(ranged && (n==1 || n==5)?0:1),"Fixed awake/asleep member mask changed");
+  check(member.currentHp==(ranged && (n==1 || n==5)?int(n==1?992:995):1000),"Fixed interruption injuries changed");
  }
  XeenConsequenceCharacters observed;for(unsigned n=0;n<6;++n)observed[n]=f.p.roster.at(start.activeRosterIds[n]);
  check(xeenRestRangedWake(observed)==ranged,"Literal Depressed/Confused/Good ranged wake reason changed");
@@ -207,7 +207,7 @@ void interruption(Inputs &in,bool ranged,unsigned pending,bool indoor=false) {
  if(ranged) {
   const auto &shots=*f.flow->encounter()->result().consequences;
   check(shots.count==2 && shots.shots[0].source.recordIndex==7 && shots.shots[1].source.recordIndex==8 &&
-   shots.shots[0].attack.targetedMembers==1 && shots.shots[1].attack.targetedMembers==2,"Fixed ranged source/target order changed");
+   shots.shots[0].attack.targetedMembers==2 && shots.shots[1].attack.targetedMembers==32,"Fixed ranged source/target order changed");
  }
  std::cout<<"Fixed interruption charge="<<interruptingCharge<<" reason="<<(ranged?"ranged-only":"contact")<<" passed\n";
  {
@@ -304,12 +304,12 @@ void noTargets(Inputs &in) {
  for(auto owner:start.activeRosterIds)check(f.p.roster.at(owner).conditions[13] && !f.p.roster.at(owner).conditions[8],"noTargets: the eight-hour block clears sleep");
  // The healthy condition block draws nothing. Each of the two shooters still
  // draws an initial target among participants before finding no eligible one.
- check(result.consequences->count==2 && f.w.sessionState().journeyRandom()->count==2 &&
-  f.w.sessionState().journeyRandom()->state==1150042706u,"Only the two noTargets selection draws advance RNG");
+ check(result.consequences->count==2 && f.w.sessionState().journeyRandom()->count==4 &&
+  f.w.sessionState().journeyRandom()->state==22020245u,"Only the four DOS noTargets selection draws advance RNG");
  const auto original=actors(in,start);const auto live=f.w.sessionState().regionalActors(23);
  for(unsigned n=0;n<live.size();++n)check(live[n].x==(n==7 || n==8?3:int(original[n].x)) &&
   live[n].y==(n==7 || n==8?9:int(original[n].y)),"noTargets fixed actor positions changed");
- std::cout<<"noTargets charge=1 draws=2 passed\n";
+ std::cout<<"noTargets charge=1 draws=4 passed\n";
 }
 void sleepingHit(Inputs &in) {
  // Synthetic supported Sleep/ranged MON profile on a city-only species.

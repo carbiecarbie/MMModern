@@ -134,28 +134,38 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
             out.result.owner=owner;out.result.price=price;out.result.goldBefore=goldBefore;out.result.goldAfter=goldAfter;
             return out;
         };
-        // The DOS Temple tariff applied to the earned preimage, independently
-        // of xeenQuoteTempleHeal. Mutation: free resurrection, wrong condition
-        // surcharge, SP refill, missing condition/reset publication.
+        // M87 route literals retain an independent tariff and HP/SP oracle.
+        // DOS XEEN.DAT 0x1c9ce: level-3 Dead+Weak costs 380; a level-3 wound costs 30.
+        // Independent DOS tariff for the later reset-combat wound; its output
+        // HP comes from the existing literal healthyHp table below.
         const auto earnedTemple=[&](unsigned owner,int hp) {
             const auto &c=party->roster.at(owner);
             const unsigned level=std::max(0,int(c.permanentLevel)+c.temporaryLevel);
-            // DOS XEEN.DAT price routine 0x1c9ce: unsigned HP comparison, so
-            // negative HP pays no HP term; 10*L per condition 1..12; 100*L+50*n
-            // for Dead and Stoned. Vertigo surcharges are zero.
             const auto maxHp=XeenCharacterRules::maxHp(c,{party->encounterContext->year});
             unsigned price=std::uint16_t(c.currentHp)<std::uint16_t(maxHp)?10*level:0;
             for(unsigned condition=1;condition<=12;++condition)if(c.conditions[condition])price+=10*level;
             for(unsigned condition:{13u,14u})if(c.conditions[condition])price+=100*level+50*c.conditions[condition];
-            check(!c.conditions[15],"M43 Temple reached Eradicated");
-            check(price>0 && price<=party->purse->gold,"M43 earned paid Temple preimage absent");
+            check(!c.conditions[15] && price>0 && price<=party->purse->gold,"M43 earned paid Temple preimage absent");
             return expectedTemple(owner,price,hp,c.currentSp,party->purse->gold,party->purse->gold-price);
+        };
+        // Guard the pinned patients against the original living-wound search.
+        // The route below selects literal indices and literal heal operands.
+        const auto woundedMember=[&]() -> unsigned {
+            const auto wounded=[&](unsigned member) {
+                const auto &c=party->party.member(party->roster,member);
+                return c.currentHp>0 && !c.conditions[13] && !c.conditions[14] && !c.conditions[15] &&
+                    c.currentHp<XeenCharacterRules::maxHp(c,{party->encounterContext->year});
+            };
+            if(wounded(2))return 2;
+            for(unsigned member=0;member<party->party.size();++member)if(wounded(member))return member;
+            throw std::runtime_error("M43 earned survivor wound absent");
         };
         auto resurrection=std::make_shared<XeenTempleHealCandidate>(),initialHeal=std::make_shared<XeenTempleHealCandidate>();
         auto resurrectionIndex=std::make_shared<unsigned>(0),healIndex=std::make_shared<unsigned>(0);
         // Part 0: WhoWill leaves member codes, NPC Enter replaces Space, and teleport clears it;
         // these manual calls no longer add unconditional Space Waits (0x25299, 0xd2d0, 0x27112).
-        constexpr unsigned templeArrivalMinutes=635;
+        // M87 DOS target draws change combat duration; the route and inputs stay fixed.
+        constexpr unsigned templeArrivalMinutes=637;
         auto arrivalMinutes=std::make_shared<unsigned>(0);
         unsigned openingAttacks=0;
         auto mainStockCursor=std::make_shared<XeenJourneyRandomState>();
@@ -225,8 +235,9 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
                 if(stage=="unpaid")
                     check(position->mapId==XeenMapIdentity(28) && position->x==15 && position->y==28 &&
                         party->encounterContext->day==8 && party->encounterContext->minutes==templeArrivalMinutes &&
-                        party->purse->gold==800 && party->roster.at(6).currentHp==0 &&
-                        party->roster.at(6).conditions[13] && party->roster.at(14).currentHp==20,
+                        party->purse->gold==800 && party->roster.at(6).currentHp==-28 &&
+                        party->roster.at(6).currentSp==27 && party->roster.at(6).conditions[13] &&
+                        woundedMember()==1 && party->roster.at(18).currentHp==16 && party->roster.at(18).currentSp==0,
                         "M43 restored original refusal A baseline differs");
                 else if(stage=="depleted" || stage=="depleted-unpaid" || stage=="depleted-training")
                     check(position->mapId==XeenMapIdentity(28) && position->x==8 && position->y==4 &&
@@ -275,9 +286,10 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
         steps.push_back([&]{return flow->serviceSaveBlocked() &&
             XeenTrainingTestAccess::templeLobby(*flow) &&
             world->sessionState().journeyActivity()==XeenJourneyActivity::Service;});
-        inspect([&]{check(party->roster.at(6).currentHp==0 && party->roster.at(6).conditions[12]==1 &&
+        inspect([&]{check(party->roster.at(6).currentHp==-28 && party->roster.at(6).conditions[12]==1 &&
                 party->roster.at(6).conditions[13]==1,"Ordinary death preimage absent");
-            *resurrection=earnedTemple(6,15);*resurrectionIndex=5;});
+            check(party->roster.at(6).currentSp==27,"Seymour literal SP preimage");
+            *resurrection=expectedTemple(6,380,15,27,800,420);*resurrectionIndex=5;});
         steps.push_back([&]{act(SelectMemberAction{*resurrectionIndex});return true;});
         inspect([&]{check(!flow->canSave(),"M43 Temple quote exposed Quiet");});
         action(DialogKeyAction{'h'});
@@ -288,9 +300,9 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
                 xeen_state::sameCharacter(party->roster.at(owner),resurrection->character) && party->encounterContext->day==8,
                 "M49 paid resurrection differs from the original rule");
             std::cerr<<"M49 PAID RESURRECTION owner "<<unsigned(owner)<<" price "<<resurrection->result.price<<'\n';});
-        inspect([&]{check(party->roster.at(14).currentHp==20 && party->roster.at(14).currentSp==5,
-                "M43 ordinary Anelia wound/Awaken preimage differs");
-            *initialHeal=earnedTemple(14,36);*healIndex=2;});
+        inspect([&]{check(woundedMember()==1 && party->party.activeRosterIds()[1]==18 &&
+                party->roster.at(18).currentHp==16 && party->roster.at(18).currentSp==0,"Temple patient index/HP/SP literals");
+            *healIndex=1;*initialHeal=expectedTemple(18,30,48,0,420,390);});
         steps.push_back([&]{act(SelectMemberAction{*healIndex});return true;});action(DialogKeyAction{'h'});
         steps.push_back([&]{return party->purse->gold==initialHeal->result.goldAfter;});
         inspect([&]{check(initialHeal->result.price>0 && xeen_state::sameCharacter(party->roster.at(initialHeal->result.owner),initialHeal->character),
@@ -397,7 +409,10 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
                 check(position->mapId==XeenMapIdentity(28) && position->x==15 && position->y==28 &&
                     party->encounterContext->day==9 && party->encounterContext->minutes==*corridorStart+31 &&
                     party->purse->gold==670,"M43 depleted-stock Temple arrival differs");
-                *selected=4;*expectedHeal=earnedTemple(1,21);*quote=expectedHeal->result;beginServiceObservation();
+                check(woundedMember()==1 && party->party.activeRosterIds()[1]==18 &&
+                    party->roster.at(18).currentHp==45 && party->roster.at(18).currentSp==0,"Depleted Temple patient index/HP/SP literals");
+                *selected=1;*expectedHeal=expectedTemple(18,30,48,0,670,640);
+                *quote=expectedHeal->result;beginServiceObservation();
             });
             action(InteractionAction{});
             steps.push_back([&]{return flow->serviceSaveBlocked() &&

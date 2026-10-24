@@ -151,7 +151,7 @@ std::optional<PlayerAction> playerAction(const SDL_KeyboardEvent &key, MainScree
     case 'o':if(combat)return QuickFightOptionsAction{};break;
     case 'f':if(combat)return QuickFightAction{};break;
     case 'a':if(combat)return AttackAction{};break;
-    case 'd':if(!combat)return UnsupportedMainScreenAction{"Dismiss"};break;
+    case 'd':if(!combat)return DismissAction{};break;
     case 'u':if(combat || screen==MainScreen::None)return UseItemAction{};break;
     case InputKey::F1+8:return SaveGameAction{};
     case 9:return ControlPanelAction{};
@@ -586,7 +586,7 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
             // Do not scale a second time. Out-of-viewport coordinates are rejected.
             auto action = mouse ? (context.dialog?context.dialog->click(event.button.x,event.button.y):
                 xeenMainScreenClick(event.button.x,event.button.y,context.mainScreen)):keyAction(event.key,context);
-            if(mouse && !context.dialog && action)if(const auto *member=std::get_if<SelectMemberAction>(&*action))
+            if(!context.dialog && action)if(const auto *member=std::get_if<SelectMemberAction>(&*action))
                 if(member->partyIndex>=context.partySize)action.reset();
             if(!mouse && !action && context.retainEventKeys && inputKey(event.key))action=ExplorationKeyAction{inputKey(event.key)};
             auto button=context.dialog ?
@@ -602,7 +602,7 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
             const auto *slot = action ? std::get_if<SelectInventorySlotAction>(&*action) : nullptr;
             const bool queueKey = action && (movement || std::holds_alternative<AttackAction>(*action) || std::holds_alternative<InteractionAction>(*action) ||
                 std::holds_alternative<BlockAction>(*action) || std::holds_alternative<BashAction>(*action) || std::holds_alternative<ShootAction>(*action) ||
-                std::holds_alternative<RestAction>(*action) || std::holds_alternative<ControlPanelAction>(*action) ||
+                std::holds_alternative<RestAction>(*action) || std::holds_alternative<DismissAction>(*action) || std::holds_alternative<ControlPanelAction>(*action) ||
                 std::holds_alternative<QuickReferenceAction>(*action) || std::holds_alternative<InfoAction>(*action) ||
                 std::holds_alternative<MapAction>(*action) || std::holds_alternative<QuestsAction>(*action) || std::holds_alternative<ToggleAutomapAction>(*action) ||
                 std::holds_alternative<RevisitCompletedAction>(*action) || std::holds_alternative<WaitAction>(*action) ||

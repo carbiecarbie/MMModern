@@ -38,10 +38,12 @@ public:
 	static constexpr int kHeight = 200;
 
 	static std::vector<PortraitPlacement> buildPortraitPlacements(
-		const XeenPartyState &partyState, unsigned memberMask=0x3f);
+		const XeenPartyState &partyState, unsigned memberMask);
+    static std::vector<PortraitPlacement> buildPortraitPlacements(const XeenPartyState &p) {return buildPortraitPlacements(p,p.party.activeOrder().mask());}
 	static std::vector<HpPlacement> buildHpPlacements(
 		const XeenPartyState &partyState,
-		const XeenCharacterRulesContext &context, unsigned memberMask=0x3f);
+		const XeenCharacterRulesContext &context, unsigned memberMask);
+    static std::vector<HpPlacement> buildHpPlacements(const XeenPartyState &p,const XeenCharacterRulesContext &c) {return buildHpPlacements(p,c,p.party.activeOrder().mask());}
 	static std::optional<std::size_t> partyMemberAtSlot(const XeenPartyState &, unsigned memberMask, std::size_t slot);
 	static std::vector<PortraitPlacement> buildPartyFeedbackPlacements(const XeenPartyState &,
 		const XeenScenePresentation &, unsigned memberMask, int actingMember);

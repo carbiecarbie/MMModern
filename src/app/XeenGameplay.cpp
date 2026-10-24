@@ -40,9 +40,9 @@ void xeenSaveGameplay(const XeenGameplayServices &services, XeenWorld &world, Xe
  const std::function<void(const XeenSaveSnapshot &,const std::function<void()> &)> &writer) {
 	if (!flow.canSave() || !XeenSaveState::canCapture(party,camera,world))
 		throw std::logic_error("Save boundary is unavailable");
-	XeenRestoreGuard before(world,party,camera,flags);
 	auto snapshot = XeenSaveState::capture(services.resources.signature,party,camera,flags,world);
 	snapshot.name=services.saveName;
+	XeenRestoreGuard before(world,party,camera,flags);
 	before.check();
 	const auto boundary = flow.beginSave();
 	struct Lease {

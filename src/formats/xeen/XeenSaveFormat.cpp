@@ -172,6 +172,8 @@ void writeCharacter(Writer &out, const XeenCharacter &c) {
 	out.u16(c.birthYear);
 	out.u8(c.quickOption);out.u8(c.currentSpell);
 	out.u8(c.lloydMap);out.u8(c.lloydX);out.u8(c.lloydY);out.u8(c.lloydSide);
+    out.u8(c.birthDay);out.u8(c.xeenSide);out.u8(c.townUnknown);out.u16(c.savedMaze);
+    out.u8(c.adventuringSpell);out.u8(c.combatSpell);
 }
 
 XeenCharacter readCharacter(Reader &in) {
@@ -202,6 +204,8 @@ XeenCharacter readCharacter(Reader &in) {
 	c.birthYear = in.u16();
 	c.quickOption=in.u8();c.currentSpell=in.u8();
 	c.lloydMap=in.u8();c.lloydX=in.u8();c.lloydY=in.u8();c.lloydSide=in.u8();
+    c.birthDay=in.u8();c.xeenSide=in.u8();c.townUnknown=in.u8();c.savedMaze=in.u16();
+    c.adventuringSpell=in.u8();c.combatSpell=in.u8();
 	return c;
 }
 
@@ -319,9 +323,18 @@ void XeenSaveFormat::validate(const XeenSaveSnapshot &s) {
 	validateMap(s.camera.mapId);
 	require(xeenIndoorCoordinate(s.camera.x, s.camera.y) && static_cast<unsigned>(s.camera.direction) <= 3,
 		"invalid committed camera");
-	require(s.activeRosterIds.size() <= XeenParty::kMaximumVisibleMembers, "too many active members");
-	for (const auto id : s.activeRosterIds)
-		require(id < XeenRoster::kCharacterCount, "invalid active roster identity");
+	require(!s.activeRosterIds.empty() && s.activeRosterIds.size() <= XeenParty::kMaximumVisibleMembers, "active party must have one to six members");
+    std::array<bool,24> seen{};
+    for (const auto id : s.activeRosterIds) {
+        require(id<24 && !seen[id], "invalid or duplicate active roster identity");seen[id]=true;
+        require(!s.characters[id].name.empty() && s.characters[id].xeenSide==0,"unrecruitable active member");
+    }
+    if(s.insideInn) {
+        const auto &c=s.camera;
+        require(c.mapId.side==XeenSide::Clouds && c.direction==XeenDirection::West &&
+          ((c.mapId.number==28 && c.x==18 && c.y==4) || (c.mapId.number==30 && c.x==19 && c.y==16) ||
+           (c.mapId.number==49 && c.x==11 && c.y==12)),"invalid Inn door camera");
+    }
 	for (std::size_t i = 0; i < s.characters.size(); ++i) {
 		const auto &c = s.characters[i];
 		for(unsigned award=0;award<128;++award)
@@ -376,6 +389,7 @@ std::vector<std::uint8_t> XeenSaveFormat::encode(const XeenSaveSnapshot &s) {
 	out.fingerprint(s.resources.clouds);
 	out.u8(s.resources.darkside.has_value());
 	out.fingerprint(s.resources.darkside.value_or(XeenArchiveFingerprint{}));
+	out.u8(s.insideInn);
 	out.map(s.camera.mapId);
 	out.u8(static_cast<std::uint8_t>(s.camera.x)); out.u8(static_cast<std::uint8_t>(s.camera.y));
 	out.u8(static_cast<std::uint8_t>(s.camera.direction));
@@ -479,6 +493,7 @@ XeenSaveSnapshot XeenSaveFormat::decode(const std::vector<std::uint8_t> &bytes) 
 	const auto darkside = in.fingerprint();
 	if (hasDarkside) s.resources.darkside = darkside;
 	else require(darkside.size == 0 && darkside.crc32 == 0, "absent archive has nonzero signature");
+	s.insideInn=in.boolean();
 	s.camera.mapId = in.map();
 	s.camera.x = in.u8(); s.camera.y = in.u8();
 	s.camera.direction = static_cast<XeenDirection>(in.u8());

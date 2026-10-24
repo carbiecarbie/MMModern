@@ -41,14 +41,8 @@ bool same(const XeenCombatInputs &a,const XeenCombatInputs &b) {
 bool same(const XeenItemCategory &a,const XeenItemCategory &b) {
 	for(unsigned i=0;i<9;++i) if(!xeenSameItem(a[i],b[i])) return false; return true;
 }
-bool same(const XeenCharacter &a,const XeenCharacter &b) {
-	return a.rosterId==b.rosterId && a.name==b.name && a.sex==b.sex && a.race==b.race && a.characterClass==b.characterClass &&
-		same(a.intellect,b.intellect)&&same(a.personality,b.personality)&&same(a.endurance,b.endurance)&&
-		a.permanentLevel==b.permanentLevel&&a.temporaryLevel==b.temporaryLevel&&a.temporaryAge==b.temporaryAge&&
-		a.skills == b.skills&&
-		a.currentSpell==b.currentSpell&&a.quickOption==b.quickOption&&a.hasSpells==b.hasSpells&&a.learnedSpells==b.learnedSpells&&same(a.weapons,b.weapons)&&same(a.armor,b.armor)&&same(a.accessories,b.accessories)&&
-		same(a.miscellaneous,b.miscellaneous)&&a.currentHp==b.currentHp&&a.currentSp==b.currentSp&&a.conditions==b.conditions&&a.birthYear==b.birthYear;
-}
+bool same(const XeenCharacter &a,const XeenCharacter &b) { return xeen_state::sameCharacter(a,b); }
+
 bool same(const XeenCamera &a,const XeenCamera &b) { return a.mapId==b.mapId&&a.x==b.x&&a.y==b.y&&a.direction==b.direction; }
 bool same(const XeenGameplayContext &a,const XeenGameplayContext &b) {
 	return a.profile==b.profile&&a.difficulty==b.difficulty&&a.day==b.day&&a.year==b.year&&a.minutes==b.minutes&&
@@ -107,11 +101,12 @@ struct XeenCombat::Impl {
 		XeenSoundOptions soundOptions;
 		std::uint16_t food=0;
 		std::uint8_t firstSerializedCount, effectiveSerializedCount;
+        bool insideInn;
 		std::vector<std::string> diagnostics;
 		PartyPreimage(const XeenPartyState &p,const XeenTreasureStagingState &s) : roster{p.roster.characters()}, party(p.party),
 			questItems(p.questItems), questFlags(p.questFlags), recovery(p.worldFlags), encounterContext(p.encounterContext), purse(p.purse), staging(s.value()), stagingRevision(s.revision()),
 			serviceEconomy(p.serviceEconomy),soundOptions(p.soundOptions),food(p.food),
-			firstSerializedCount(p.firstSerializedCount), effectiveSerializedCount(p.effectiveSerializedCount), diagnostics(p.diagnostics) {}
+			firstSerializedCount(p.firstSerializedCount), effectiveSerializedCount(p.effectiveSerializedCount), insideInn(p.insideInn), diagnostics(p.diagnostics) {}
 	} expected;
 	bool journey = false, ended = false, episodeLethal = false, spellRelocated = false;
 	std::uint32_t journeySeed = 0;
@@ -119,7 +114,7 @@ struct XeenCombat::Impl {
 	bool moveDue=false, chargeRound=false;
     XeenMovementCountdown countdown;
     bool stepped=false;
-	std::uint8_t participants=0x3f;
+	std::uint8_t participants=0;
 	XeenCombatExitCause exitCause=XeenCombatExitCause::None;
 	bool finishedDisengagement=false;
 	XeenActorView destinationView;
@@ -136,7 +131,7 @@ struct XeenCombat::Impl {
 	XeenGameFlags::Storage expectedFlags{};
 	XeenCamera expectedCamera;
 	XeenGameplayContext initialContext;
-	std::array<XeenCombatInputs,6> inputs{};
+	XeenConsequenceInputs inputs;
 	std::vector<XeenActor> actors;
 	// Every other map's staged monster table, unchanged by this combat.
 	std::map<XeenMapIdentity,std::vector<XeenActor>> inactiveActors;
@@ -233,7 +228,7 @@ struct XeenCombat::Impl {
     }
     void checkCastReservation(const Ticket &t,const Casting::Reservation &r,bool paid) {
         checkCast(t);
-        require(r.participant<6 && turn==int(r.participant) &&
+        require(r.participant<owners.size() && turn==int(r.participant) &&
             party.party.activeRosterIds().at(r.participant)==r.owner && owners[r.participant]==r.owner &&
             participants==r.participants && acted==r.acted && blocked==r.blocked &&
             !acted[r.participant] && (participants&(1u<<r.participant)),"Cast participant reservation changed");
@@ -285,8 +280,8 @@ struct XeenCombat::Impl {
         return adopt(result);
     }
 	XeenConsequenceCharacters characters() const {
-		XeenConsequenceCharacters result;
-		for (unsigned i=0;i<6;++i) result[i]=party.roster.at(owners[i]);
+		XeenConsequenceCharacters result;result.setCount(owners.size());
+		for (unsigned i=0;i<owners.size();++i) result[i]=party.roster.at(owners[i]);
 		return result;
 	}
 	void publishCharacters(const XeenConsequenceCharacters &values) noexcept {
@@ -306,12 +301,12 @@ struct XeenCombat::Impl {
 		}
 	}
 	void refreshSpeeds() {
-		for(unsigned i=0;i<6;++i) playerSpeeds[i]=Rules::effectivePhysical(character(i),inputs[i],Rules::PhysicalAttribute::Speed,{party.encounterContext->year});
+		for(unsigned i=0;i<owners.size();++i) playerSpeeds[i]=Rules::effectivePhysical(character(i),inputs[i],Rules::PhysicalAttribute::Speed,{party.encounterContext->year});
 	}
 	Impl(XeenCombat *o,XeenWorld &w,XeenPartyState &p,XeenCamera &c,XeenCombatBoundary &b,
 		const XeenGameplayContext &ctx,const std::vector<XeenMonsterRecord> &s,const XeenEventFile &e,XeenCombatRandom r):
 		owner(o),owners(p.party.activeOrder()),world(w),party(p),camera(c),boundary(b),expected(p,w.treasureStaging()),expectedCamera(c),initialContext(ctx),
-		objects(w.sessionState().disabledObjects()),removedEvents(w.sessionState().disabledEvents()),statistics(s),events(e),rng(std::move(r)) {}
+		objects(w.sessionState().disabledObjects()),removedEvents(w.sessionState().disabledEvents()),statistics(s),events(e),rng(std::move(r)) {participants=owners.mask();inputs.setCount(owners.size());}
 	auto &session() { return world._sessionState; }
 	// The camera map's monster table; every other staged table is inactive.
 	std::vector<XeenActor> &activeActors() { return session().mutableMonsters(camera.mapId); }
@@ -348,9 +343,9 @@ struct XeenCombat::Impl {
 			world._sessionState._combatEntered != (phase != Phase::Engaged) ||
 			world.sessionState().accountedMonsters() != accounted || world.sessionState().journeyActivity() != XeenJourneyActivity::Combat)) return false;
 		if(!same(camera,expectedCamera)||party.soundOptions!=expected.soundOptions||party.food!=expected.food||party.purse!=expected.purse||world.treasureStaging().revision()!=expected.stagingRevision||
-			world.treasureStaging().value()!=expected.staging||party.serviceEconomy!=expected.serviceEconomy||party.party.activeRosterIds()!=expected.party.activeRosterIds()||
+			world.treasureStaging().value()!=expected.staging||party.serviceEconomy!=expected.serviceEconomy||party.party.activeRosterIds()!=expected.party.activeRosterIds()||party.party.dismissedRosterIds()!=expected.party.dismissedRosterIds()||
 			party.questItems.counts()!=expected.questItems.counts()||party.questFlags.values()!=expected.questFlags.values()||party.worldFlags!=expected.recovery||
-			party.firstSerializedCount!=expected.firstSerializedCount||party.effectiveSerializedCount!=expected.effectiveSerializedCount||
+			party.insideInn!=expected.insideInn||party.firstSerializedCount!=expected.firstSerializedCount||party.effectiveSerializedCount!=expected.effectiveSerializedCount||
 			party.diagnostics!=expected.diagnostics||bool(party.encounterContext)!=bool(expected.encounterContext)) return false;
 		if(party.encounterContext&&!same(*party.encounterContext,*expected.encounterContext)) return false;
 		for(unsigned i=0;i<30;++i) if(!same(party.roster.at(i),expected.roster.at(i))) return false;
@@ -387,18 +382,18 @@ struct XeenCombat::Impl {
 	}
 	void sortOrder() noexcept {
 		std::array<int,9> speeds{};
-		for(int i=0;i<6;++i) speeds[i]=playerSpeeds[i];
+		for(int i=0;i<owners.size();++i) speeds[i]=playerSpeeds[i];
 		for(int i=6;i<9;++i) speeds[i]=contact[i-6] ? activeActors()[contact[i-6]->recordIndex].statistics->speed() : 0;
 		for(int i=0;i<9;++i) order[i]=i;
 		std::sort(order.begin(),order.end(),[&](int a,int b){return speeds[a]!=speeds[b]?speeds[a]>speeds[b]:a<b;});
 	}
 	bool continuingParticipants() {
-		for(unsigned i=0;i<6;++i) if((participants & (1u<<i)) && xeenCombatTargetable(character(i))) return true;
+		for(unsigned i=0;i<owners.size();++i) if((participants & (1u<<i)) && xeenCombatTargetable(character(i))) return true;
 		return false;
 	}
 	bool disengagementDue() noexcept {
 		if(!contact[0] || continuingParticipants()) return false;
-		if(participants==0x3f) { phase=Phase::Failed;work=Work::None;return true; }
+		if(participants==owners.mask()) { phase=Phase::Failed;work=Work::None;return true; }
 		if(exitCause==XeenCombatExitCause::None) exitCause=XeenCombatExitCause::AttritionAfterEscape;
 		turn=-1;phase=Phase::DisengagementPending;work=moveDue?Work::Round:Work::FinishDisengagement;return true;
 	}
@@ -409,7 +404,7 @@ struct XeenCombat::Impl {
 		for(auto i:order) if(!acted[i]) {
             // Spend disabled party slots as DOS nextChar does. Re-sorting and
             // new monster contacts retain their existing selection semantics.
-            if(i<6 && (participants & (1u<<i)) && (!character(i).canAct() || playerSpeeds[i]==0)) {
+            if(i<owners.size() && (participants & (1u<<i)) && (!character(i).canAct() || playerSpeeds[i]==0)) {
                 acted[i]=true;
                 continue;
             }
@@ -420,7 +415,7 @@ struct XeenCombat::Impl {
         }
 		turn=-1; phase=Phase::PendingRound; work=Work::Round;
 	}
-	bool defeated() { for(int i=0;i<6;++i) if(xeenCombatTargetable(character(i))) return false; return true; }
+	bool defeated() { for(int i=0;i<owners.size();++i) if(xeenCombatTargetable(character(i))) return false; return true; }
 	void terrainAdmission() {
 		// Immutable approach admission separated from Good-only character admission.
 		// Only the retained Arrow post-HP frame may contain a present actor with
@@ -467,15 +462,15 @@ struct XeenCombat::Impl {
 	}
 	void clearResourceCheck() noexcept { if (!journey || lifetime->worldAlive()) world._combatCheck = {}; }
 	XeenCombatResult observation(Status status) const noexcept {
-		XeenCombatResult r; r.status=status;r.phase=phase;r.work=work;r.revision=revision();r.generation=generation;
-        for(unsigned i=0;i<6;++i)if(blocked[i])r.blockedMembers|=1u<<i;
+		XeenCombatResult r;r.participantsBefore=r.participantsAfter=owners.mask(); r.status=status;r.phase=phase;r.work=work;r.revision=revision();r.generation=generation;
+        for(unsigned i=0;i<owners.size();++i)if(blocked[i])r.blockedMembers|=1u<<i;
 		if (journey && lifetime && !lifetime->ownersAlive()) return r;
 		r.participant=turn;r.minutes=party.encounterContext?std::uint16_t(party.encounterContext->minutes):480; return r;
 	}
 	XeenCombatResult adopt(XeenCombatResult r,Status status=Status::Advanced) noexcept {
-        r.blockedMembers=0;for(unsigned i=0;i<6;++i)if(blocked[i])r.blockedMembers|=1u<<i;
+        r.blockedMembers=0;for(unsigned i=0;i<owners.size();++i)if(blocked[i])r.blockedMembers|=1u<<i;
 		r.status=status;r.phase=phase;r.work=work;r.revision=revision();r.generation=generation;
-		r.minutes=party.encounterContext?std::uint16_t(party.encounterContext->minutes):480;r.participantsAfter=participants;r.exitCause=exitCause;last=r;
+		r.participantsBefore &= owners.mask();r.minutes=party.encounterContext?std::uint16_t(party.encounterContext->minutes):480;r.participantsAfter=participants;r.exitCause=exitCause;last=r;
         if(casting)casting->authority=owner->ticket();
         return r;
 	}
@@ -519,7 +514,7 @@ XeenCombat::XeenCombat(XeenWorld &w, XeenPartyState &p, XeenCamera &c, XeenComba
 		if(entry.first!=c.mapId && entry.second.monsters) d.inactiveActors.emplace(entry.first,*entry.second.monsters);
 	d.actors = d.activeActors(); d.accounted = s._accountedMonsters; d.approach = state;
 	for (unsigned i = 0; i < 30; ++i) d.allInputs[i] = p.roster.combatInputs(i);
-	for (unsigned i = 0; i < 6; ++i) d.inputs[i] = *d.allInputs[d.owners[i]];
+	for (unsigned i = 0; i < d.owners.size(); ++i) d.inputs[i] = *d.allInputs[d.owners[i]];
 	d.borrow.reset(new XeenWorld::GameplayBorrow(w,p,c,flags));
 	d.lifetime = std::make_unique<XeenRestoreGuard>(w,p,c,flags);
 	// All fallible preparation precedes attachment; no CHR/PTY mutable value is installed.
@@ -662,7 +657,7 @@ XeenCombatResult XeenCombat::beginCombat(const Ticket &t) {
 			a.statistics->validateAttackCapabilities();
 
 		}
-		for (unsigned i=0;i<6;++i) { d.playerSpeeds[i]=Rules::effectivePhysical(d.character(i),d.inputs[i],Rules::PhysicalAttribute::Speed,{d.party.encounterContext->year});  }
+		for (unsigned i=0;i<d.owners.size();++i) { d.playerSpeeds[i]=Rules::effectivePhysical(d.character(i),d.inputs[i],Rules::PhysicalAttribute::Speed,{d.party.encounterContext->year});  }
 		d.resourcesFor(t);d.reconcile();d.sortOrder();d.probeFor(t);
 		d.countdown.arm(d.approach.pending());
 		d.moveDue=d.approach.pending()!=0; d.chargeRound=false; d.approach._pending=0;
@@ -928,7 +923,7 @@ std::optional<XeenCombatCastView> XeenCombat::cast() const {
     if(!impl->casting)return std::nullopt;
     auto view=impl->casting->view;
     if(view.result.spell==unsigned(XeenLearnedSpell::PoisonVolley))
-        for(unsigned i=0;i<6;++i)if(impl->casting->volley.eligible[i] && !impl->casting->volley.spent[i])view.volleyShots|=1u<<i;
+        for(unsigned i=0;i<impl->owners.size();++i)if(impl->casting->volley.eligible[i] && !impl->casting->volley.spent[i])view.volleyShots|=1u<<i;
     return view;
 }
 bool XeenCombat::consumeCast(CastResponse &response) {
@@ -1127,7 +1122,8 @@ XeenCombatResult XeenCombat::respondCast(CastResponse &response,XeenCombatCastIn
         c.reservation=std::move(reservation);const auto &reserved=*c.reservation;
         c.random=d.rng;c.preparation=std::move(preparation);c.arrow=std::move(arrow);
         c.targets=targets;c.targetsPrepared=targetsPrepared;
-        if(*spell==XeenLearnedSpell::PoisonVolley)c.volley.eligible.fill(true);
+        c.volley.count=d.owners.size();
+        if(*spell==XeenLearnedSpell::PoisonVolley)std::fill_n(c.volley.eligible.begin(),d.owners.size(),true);
         c.travelRows=ranged?xeenPlayerRayRows(d.world,d.camera):0;
         c.blockedRow=ranged?xeenPlayerRayWall(d.world,d.camera,c.travelRows):4;
         if(reserved.enemy)c.targetRow=unsigned(std::abs(reserved.enemy->x-d.camera.x)+std::abs(reserved.enemy->y-d.camera.y));
@@ -1164,7 +1160,7 @@ XeenCombatResult XeenCombat::settleCast(const Ticket &t,std::optional<unsigned> 
         c.partyTarget=target;
         const bool element=XeenLearnedSpellRules::target(reserved.spell)==XeenSpellTarget::Element;
         const auto targetOwner=target && !element ? std::optional<std::uint8_t>{d.party.party.activeRosterIds().at(*target)} : std::nullopt;
-        if(target && !element)require((XeenLearnedSpellRules::target(reserved.spell)==XeenSpellTarget::Member || XeenLearnedSpellRules::target(reserved.spell)==XeenSpellTarget::Item) && *target<6 && (reserved.participants&(1u<<*target)),"Cast recovery target changed");
+        if(target && !element)require((XeenLearnedSpellRules::target(reserved.spell)==XeenSpellTarget::Member || XeenLearnedSpellRules::target(reserved.spell)==XeenSpellTarget::Item) && *target<d.owners.size() && (reserved.participants&(1u<<*target)),"Cast recovery target changed");
         const bool itemSpell=XeenLearnedSpellRules::target(reserved.spell)==XeenSpellTarget::Item;
         if(itemSpell && target && !c.itemSelection && !c.itemCancelled) {
             c.view.itemMember=*target;c.view.phase=XeenCombatCastPhase::Items;d.work=Work::None;
@@ -1266,7 +1262,7 @@ XeenCombatResult XeenCombat::settleCast(const Ticket &t,std::optional<unsigned> 
             result.noop=result.noop && *prepared->context==*d.party.encounterContext;
         }
         auto speeds=d.playerSpeeds;
-        for(unsigned i=0;i<6;++i)speeds[i]=Rules::effectivePhysical(prepared->characters[d.owners[i]],d.inputs[i],Rules::PhysicalAttribute::Speed,{d.party.encounterContext->year});
+        for(unsigned i=0;i<d.owners.size();++i)speeds[i]=Rules::effectivePhysical(prepared->characters[d.owners[i]],d.inputs[i],Rules::PhysicalAttribute::Speed,{d.party.encounterContext->year});
         d.probeFor(t);d.checkCastReservation(t,reserved,true);
         require(c.partyTarget==target && (!target || element || d.party.party.activeRosterIds().at(*target)==*targetOwner),"Cast recovery reservation changed");
         if(c.dispatchRefused)xeenEmitFmEffect(d.fmEffect,21);
@@ -1396,7 +1392,7 @@ XeenCombatResult XeenCombat::serviceCast(const Ticket &t,std::uint64_t now) {
         auto actor=bound;actor.hp=r.actorHpAfter;actor.status=c.arrow->status;
         std::optional<XeenJourneyLethal> lethal;std::set<XeenMonsterIdentity> expectedAccounting;
         if(!r.actorHpAfter) {
-            std::array<const XeenCharacter *,6> owners{};for(unsigned i=0;i<6;++i)owners[i]=&d.character(i);
+            std::array<const XeenCharacter *,6> owners{};for(unsigned i=0;i<d.owners.size();++i)owners[i]=&d.character(i);
             lethal=xeenPrepareJourneyLethal(bound,owners,d.inputs,d.accounted,reserved.participants);
             actor=lethal->actor;actor.status=c.arrow->status;expectedAccounting=lethal->accounted;
         }
@@ -1432,14 +1428,14 @@ XeenCombatResult XeenCombat::serviceCast(const Ticket &t,std::uint64_t now) {
             return d.adopt(r,Status::Pending);
         }
         if(lethal) {
-            for(unsigned i=0;i<6;++i)if(lethal->experience[i]!=d.inputs[i].experience)
+            for(unsigned i=0;i<d.owners.size();++i)if(lethal->experience[i]!=d.inputs[i].experience)
                 r.xp.at(r.xpCount++)={d.owners[i],d.inputs[i].experience,lethal->experience[i]};
         }
         auto prepared=d.prepareCastGuard();
         auto &preparedActors=prepared->s.mutableMonsters(d.camera.mapId);
         preparedActors.at(actor.id.recordIndex)=actor;
         const auto cursor=c.random.continuation();prepared->s._journeyRandom=cursor;
-        if(lethal){prepared->s._accountedMonsters=expectedAccounting;for(unsigned i=0;i<6;++i)prepared->inputs[d.owners[i]]->experience=lethal->experience[i];}
+        if(lethal){prepared->s._accountedMonsters=expectedAccounting;for(unsigned i=0;i<d.owners.size();++i)prepared->inputs[d.owners[i]]->experience=lethal->experience[i];}
         if(c.drop){prepared->prepareStagingPublication(c.drop->treasure);r.monsterDrop=c.drop->outcome;r.generatedItem=c.drop->generated;r.generatedCategory=c.drop->category;}
         auto volley=c.volley;
         unsigned nextTarget=c.target+1;
@@ -1466,7 +1462,7 @@ XeenCombatResult XeenCombat::serviceCast(const Ticket &t,std::uint64_t now) {
         d.activeActors().at(actor.id.recordIndex)=actor;d.actors.at(actor.id.recordIndex)=actor;
         if(lethal) {
             d.session()._accountedMonsters.swap(lethal->accounted);d.accounted.swap(expectedAccounting);d.episodeLethal=true;
-            for(unsigned i=0;i<6;++i){const auto id=d.owners[i];d.inputs[i].experience=lethal->experience[i];d.party.roster._combatInputs[id]->experience=d.allInputs[id]->experience=lethal->experience[i];}
+            for(unsigned i=0;i<d.owners.size();++i){const auto id=d.owners[i];d.inputs[i].experience=lethal->experience[i];d.party.roster._combatInputs[id]->experience=d.allInputs[id]->experience=lethal->experience[i];}
             if(c.drop)d.publishStaging(c.drop->treasure);
         }
         d.rng=c.random;d.expectedRandom=d.session()._journeyRandom=cursor;
@@ -1534,7 +1530,7 @@ XeenCombatResult XeenCombat::serviceConsequences(const Ticket &t) {
 		const bool end=d.work==Work::End;
 		if ((end || d.work==Work::Round) && !d.consequences) {
 			if (!end && !d.moveDue) {
-				bool awake=false;for(unsigned i=0;i<6;++i) awake=awake || ((d.participants&(1u<<i)) && d.character(i).canAct() && d.playerSpeeds[i]>0);
+				bool awake=false;for(unsigned i=0;i<d.owners.size();++i) awake=awake || ((d.participants&(1u<<i)) && d.character(i).canAct() && d.playerSpeeds[i]>0);
 				d.acted.fill(false);
 				// Interface::nextChar inner cycle retains Block and owes no round.
 				if (!awake) {
@@ -1617,7 +1613,7 @@ XeenCombatResult XeenCombat::serviceConsequences(const Ticket &t) {
 				// actual drop requests and reward stores remain after post-HP.
 				if(!c.result.actorHpAfter) {
 					std::array<const XeenCharacter *,6> owners{};
-					for(unsigned i=0;i<6;++i)owners[i]=&d.character(i);
+					for(unsigned i=0;i<d.owners.size();++i)owners[i]=&d.character(i);
 					c.lethal=xeenPrepareJourneyLethal(*c.impactActor,owners,d.inputs,d.accounted,d.participants);
 				}
 				c.result.attackStage=XeenCombatAttackStage::PreHp;c.attackPresented=false;
@@ -1665,10 +1661,10 @@ XeenCombatResult XeenCombat::serviceConsequences(const Ticket &t) {
 		if(c.drop){r.monsterDrop=c.drop->outcome;r.generatedItem=c.drop->generated;r.generatedCategory=c.drop->category;}
 		std::optional<XeenJourneyLethal> lethal;std::set<XeenMonsterIdentity> expectedAccounting;
 		if(c.player && !r.actorHpAfter) {
-			std::array<const XeenCharacter *,6> owners{};for(unsigned i=0;i<6;++i) owners[i]=&d.character(i);
+			std::array<const XeenCharacter *,6> owners{};for(unsigned i=0;i<d.owners.size();++i) owners[i]=&d.character(i);
 			lethal=c.lethal ? *c.lethal : xeenPrepareJourneyLethal(d.actors.at(r.monster.recordIndex),owners,d.inputs,d.accounted,d.participants);
 			expectedAccounting=lethal->accounted;
-			for(unsigned i=0;i<6;++i) if(lethal->experience[i]!=d.inputs[i].experience)
+			for(unsigned i=0;i<d.owners.size();++i) if(lethal->experience[i]!=d.inputs[i].experience)
 				r.xp.at(r.xpCount++)={d.owners[i],d.inputs[i].experience,lethal->experience[i]};
 		}
 		std::vector<XeenActor> expectedActors;
@@ -1693,7 +1689,7 @@ XeenCombatResult XeenCombat::serviceConsequences(const Ticket &t) {
 			auto &actor=d.activeActors().at(r.monster.recordIndex);actor.hp=r.actorHpAfter;actor.status=c.player->status;
 			if(lethal) {
 				actor=lethal->actor;actor.status=c.player->status;d.session()._accountedMonsters.swap(lethal->accounted);d.accounted.swap(expectedAccounting);d.episodeLethal=true;
-				for(unsigned i=0;i<6;++i) {
+				for(unsigned i=0;i<d.owners.size();++i) {
 					const auto id=d.owners[i];d.inputs[i].experience=lethal->experience[i];
 					d.party.roster._combatInputs[id]->experience=d.allInputs[id]->experience=lethal->experience[i];
 				}
@@ -1707,7 +1703,7 @@ XeenCombatResult XeenCombat::serviceConsequences(const Ticket &t) {
 			if(c.movement->dangerSense)d.world.scenePresentation().dangerSense=*c.movement->dangerSense;
 		}
 		if(c.time) {
-   for(unsigned n=0;n<6;++n) {
+   for(unsigned n=0;n<d.owners.size();++n) {
     const auto id=d.owners[n];d.party.roster.at(id)=d.expected.roster.at(id)=c.time->characters[n];
     d.inputs[n]=c.time->inputs[n];d.party.roster._combatInputs[id]=d.allInputs[id]=c.time->inputs[n];
    }
@@ -1728,7 +1724,7 @@ XeenCombatResult XeenCombat::serviceConsequences(const Ticket &t) {
 		else if(d.disengagementDue()) {}
 		else {
 			if(operation==Operation::EnemyAttack) d.acted[d.turn]=true;
-			if((operation==Operation::Round || operation==Operation::Rotate || operation==Operation::Movement) && d.contact[0] && selected>=0 && selected<6 && (d.participants&(1u<<selected)) && d.character(selected).canAct() && d.playerSpeeds[selected]>0) {
+			if((operation==Operation::Round || operation==Operation::Rotate || operation==Operation::Movement) && d.contact[0] && selected>=0 && selected<d.owners.size() && (d.participants&(1u<<selected)) && d.character(selected).canAct() && d.playerSpeeds[selected]>0) {
 				d.turn=selected;d.phase=Phase::PlayerReady;d.work=Work::None;
 			} else d.selectNext();
 		}
@@ -1744,12 +1740,12 @@ XeenCombatResult XeenCombat::finishDisengagement(const Ticket &t) {
   const bool wizard=d.exitCause==XeenCombatExitCause::MrWizard;
 	  require(d.journey && d.phase==Phase::DisengagementPending &&
    d.work==Work::FinishDisengagement && !d.consequences && !d.moveDue && !d.chargeRound &&
-   (wizard || (d.contact[0] && !d.continuingParticipants() && d.participants!=0x3f)) && !d.defeated() &&
+   (wizard || (d.contact[0] && !d.continuingParticipants() && d.participants!=d.owners.mask())) && !d.defeated() &&
    d.exitCause!=XeenCombatExitCause::None,"Incomplete disengagement obligations");
   // Mr Wizard takes combat's exit (DOS 0x2eaf0): it lands on the Run position
   // and abandons disabled members only after an earlier escape with contact
   // remaining (0x2eaf5..0x2eb69); otherwise the party stays where it fought.
-  const bool land=!wizard || (d.participants!=0x3f && d.contact[0]);
+  const bool land=!wizard || (d.participants!=d.owners.mask() && d.contact[0]);
   auto destination=d.camera;
   if(land) {
    const auto run=d.world.prepareEventTransition(d.camera,true);d.probeFor(t);
@@ -1760,7 +1756,7 @@ XeenCombatResult XeenCombat::finishDisengagement(const Ticket &t) {
   r.oldRevision=d.revision();r.operation=Operation::FinishDisengagement;r.exitCause=d.exitCause;
   r.origin=XeenCombatLocation{d.camera.mapId,d.camera.x,d.camera.y,d.camera.direction};
   r.destination=XeenCombatLocation{destination.mapId,destination.x,destination.y,destination.direction};
-  if(land) for(unsigned i=0;i<6;++i) if(d.participants&(1u<<i)) {
+  if(land) for(unsigned i=0;i<d.owners.size();++i) if(d.participants&(1u<<i)) {
    const auto condition=characters[i].worstCondition();
    if(condition==XeenCondition::Asleep || condition==XeenCondition::Paralyzed ||
     condition==XeenCondition::Unconscious || condition==XeenCondition::Stoned || condition==XeenCondition::Eradicated) {
@@ -1782,7 +1778,7 @@ XeenCombatResult XeenCombat::finishDisengagement(const Ticket &t) {
   candidate.questItems=d.party.questItems;candidate.questFlags=d.party.questFlags;
   candidate.worldFlags=d.party.worldFlags;
   candidate.serviceEconomy=d.party.serviceEconomy;
-  candidate.firstSerializedCount=d.party.firstSerializedCount;candidate.effectiveSerializedCount=d.party.effectiveSerializedCount;
+  candidate.insideInn=d.party.insideInn;candidate.firstSerializedCount=d.party.firstSerializedCount;candidate.effectiveSerializedCount=d.party.effectiveSerializedCount;
   for(const auto &c:characters) candidate.roster.at(c.rosterId).conditions=c.conditions;
   candidate.purse=d.party.purse;xeenValidateJourneyParty(candidate);
   auto actors=d.actors;const auto view=d.classify(actors,destination);

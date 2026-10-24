@@ -57,7 +57,7 @@ struct Dump {
         value(p+".maxStatSkills.prayerMaster",bool(v.skills[12]));
         value(p+".maxStatSkills.prestidigitation",bool(v.skills[13])); F(currentSpell); F(quickOption); F(hasSpells);
         F(learnedSpells); F(weapons); F(armor); F(accessories); F(miscellaneous);
-        F(lloydMap); F(lloydX); F(lloydY); F(lloydSide); F(currentHp); F(currentSp); F(conditions); F(birthYear); F(awards);)
+        F(lloydMap); F(lloydX); F(lloydY); F(lloydSide); F(birthDay); F(xeenSide); F(townUnknown); F(savedMaze); F(adventuringSpell); F(combatSpell); F(currentHp); F(currentSp); F(conditions); F(birthYear); F(awards);)
     V(XeenCombatResistances,
         F(coldPermanent); F(coldTemporary); F(electricalPermanent); F(electricalTemporary);
         F(firePermanent); F(fireTemporary); F(energyPermanent); F(energyTemporary);
@@ -89,7 +89,7 @@ struct Dump {
         value(p + ".treasure", v.purse);
         F(worldFlags); F(serviceEconomy);)
     V(XeenSoundOptions, F(efx); F(music); F(text); F(speech);)
-    V(XeenSaveSnapshot, F(soundOptions); F(resources); F(name); F(food); F(camera); F(activeRosterIds); F(characters);
+    V(XeenSaveSnapshot, F(soundOptions); F(resources); F(name); F(food); F(insideInn); F(camera); F(activeRosterIds); F(characters);
         F(questItems); F(questFlags); F(gameFlags); F(headCache); F(journey); F(maps);)
 #undef V
 #undef F
@@ -167,6 +167,8 @@ void selfTest() {
     const auto a = decoded(bytes).fields;
     save_test::check(a.at("snapshot.characters[0].name").size() == 36, "DOS string bytes lost");
     s.characters[29].awards[127] = 7;
+    s.characters[29].birthDay=231;s.characters[29].xeenSide=1;s.characters[29].townUnknown=173;
+    s.characters[29].savedMaze=0xabcd;s.characters[29].adventuringSpell=93;s.characters[29].combatSpell=181;
     s.characters[29].skills[17]=255;
     s.characters[29].lloydMap=23;s.characters[29].lloydX=9;s.characters[29].lloydY=11;s.characters[29].lloydSide=1;
     s.map(23).explored.emplace();(*s.map(23).explored)[31]=128;
@@ -181,6 +183,10 @@ void selfTest() {
         b.at("snapshot.maps[1].tavernTips.present")=="0", "Tip cursor dump omitted zero, absence or map identity");
     save_test::check(b.at("snapshot.characters[29].lloydMap")=="23" && b.at("snapshot.characters[29].lloydX")=="9" &&
         b.at("snapshot.characters[29].lloydY")=="11" && b.at("snapshot.characters[29].lloydSide")=="1","Beacon dump incomplete");
+    save_test::check(b.at("snapshot.characters[29].birthDay")=="231" && b.at("snapshot.characters[29].xeenSide")=="1" &&
+        b.at("snapshot.characters[29].townUnknown")=="173" && b.at("snapshot.characters[29].savedMaze")=="43981" &&
+        b.at("snapshot.characters[29].adventuringSpell")=="93" && b.at("snapshot.characters[29].combatSpell")=="181" &&
+        b.at("snapshot.insideInn")=="0","new roster/Inn dump incomplete");
     save_test::check(b.at("snapshot.characters[29].skills[17]")=="255", "skill omitted");
     save_test::check(b.at("snapshot.characters[29].awards[127]") == "7", "award omitted");
     save_test::check(b.at("snapshot.journey.value.random.value.count") == "18446744073709551615", "uint64 truncated");

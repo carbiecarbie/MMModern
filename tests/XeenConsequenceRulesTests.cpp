@@ -71,9 +71,9 @@ template<class C> void finish(C &c,XeenCombatRandom &rng,unsigned budget=64) {
 void physical() {
 	auto c=characters();auto i=inputs();
 	c[0].characterClass=XeenCharacterClass::Paladin;
-	XeenCombatRandom miss(std::vector<XeenCombatRandom::Draw>{{0,5,1},{1,20,1}});
+	XeenCombatRandom miss(std::vector<XeenCombatRandom::Draw>{{1,6,1},{0,4,1},{1,20,1}});
 	XeenEnemyAttackCandidate noPreference(c,i,profile(),610,0x3f);finish(noPreference,miss,1);
-	check(noPreference.result.targetOwner==c[1].rosterId && noPreference.result.injuryCount==0 && miss.position()==2,"Hates one is random and natural one ends the attack");
+	check(noPreference.result.targetOwner==c[1].rosterId && noPreference.result.injuryCount==0 && miss.position()==3,"Hates one is random and natural one ends the attack");
 	c[0].characterClass=XeenCharacterClass::Cleric;c[0].conditions[8]=1;
 	XeenCombatRandom asleep(std::vector<XeenCombatRandom::Draw>{{1,10,4}});
 	XeenEnemyAttackCandidate preferred(c,i,profile(3),610,0x3f);finish(preferred,asleep,1);
@@ -105,11 +105,11 @@ void targetingAndCounts() {
  for(unsigned count=0;count<256;++count) {
   auto monster=profile(16);monster.raw[24]=count;
   std::vector<XeenCombatRandom::Draw> tape;
-  for(unsigned n=0;n<count;++n){tape.push_back({0,5,2});tape.push_back({1,20,1});}
+  for(unsigned n=0;n<count;++n){tape.push_back({1,6,1});tape.push_back({0,4,2});tape.push_back({1,20,1});}
   XeenCombatRandom rng(tape);XeenEnemyAttackCandidate attack(c,in,monster,610,63);
   unsigned completed=0;do{finish(attack,rng,1);++completed;}while(attack.nextAttack());
   check(completed==std::max(count,1u),"Source loop count differs from record");
-  check(rng.position()==2*count && !attack.result.injuryCount,"Source attack count, zero count or repeated target differs");
+  check(rng.position()==3*count && !attack.result.injuryCount,"Source attack count, zero count or repeated target differs");
  }
  c[1].race=XeenRace::Dwarf;c[3].race=XeenRace::Dwarf;c[1].conditions[12]=1;
  XeenCombatRandom none(std::vector<XeenCombatRandom::Draw>{});
@@ -121,7 +121,7 @@ void targetingAndCounts() {
   auto matching=characters();for(auto &member:matching)member.characterClass=static_cast<XeenCharacterClass>((hated+1)%10);
   matching[4].characterClass=matching[5].characterClass=static_cast<XeenCharacterClass>(hated);
   matching[4].conditions[12]=1;matching[5].conditions[8]=1;
-  std::vector<XeenCombatRandom::Draw> tape;if(hated==1)tape.push_back({0,5,0});
+  std::vector<XeenCombatRandom::Draw> tape;if(hated==1){tape.push_back({1,6,1});tape.push_back({0,4,0});}
   XeenCombatRandom rng(tape);XeenMonsterTargetCandidate selector(matching,hated,63);finish(selector,rng,1);
   check(selector.mask==(hated==1?1u:32u) && rng.position()==tape.size(),
    "Every recognized class selects its first eligible match; Paladin hatred remains random");
@@ -181,11 +181,14 @@ void runAndParticipation() {
   for(unsigned n=0;n<slots.size();++n)check(all.result.injuries[n].owner==c[slots[n]].rosterId,"Participant injuries retain stable owner order");
   if(slots.empty()) {check(all.result.attackOutcome==XeenCombatAttackOutcome::NoParticipants,"Explicit no-participants result");continue;}
   c=characters();for(auto &owner:c)owner.conditions[13]=1;
-  XeenCombatRandom noTarget(std::vector<XeenCombatRandom::Draw>{{0,unsigned(slots.size()-1),0}});
+  std::vector<XeenCombatRandom::Draw> initial;
+  if(slots.size()==6)initial={{1,6,1},{0,4,0}};
+  else if(slots.size()>1)initial={{0,unsigned(slots.size()-1),0}};
+  XeenCombatRandom noTarget(initial);
   XeenEnemyAttackCandidate dead(c,in,profile(),610,mask);finish(dead,noTarget,1);
-  check(noTarget.position()==1 && !dead.result.targetOwner && !dead.result.injuryCount,"Nonempty exhausted participants retain initial random draw only");
+  check(noTarget.position()==initial.size() && !dead.result.targetOwner && !dead.result.injuryCount,"Nonempty exhausted participants retain initial random draw only");
   c[slots.back()].conditions[13]=0;
-  std::vector<XeenCombatRandom::Draw> fallback{{0,unsigned(slots.size()-1),0}};
+  auto fallback=initial;
   if(slots.size()>1)fallback.push_back({0,0,0});fallback.push_back({1,20,1});
   XeenCombatRandom targetTape(fallback);XeenEnemyAttackCandidate target(c,in,profile(),610,mask);finish(target,targetTape,1);
   check(target.result.targetOwner==c[slots.back()].rosterId && targetTape.position()==fallback.size(),"Ordered masked fallback retains singleton draw");
@@ -289,9 +292,9 @@ void shootAndLoot() {
 void additionalTapes() {
  auto c=characters();auto i=inputs();
  for(auto &v:c)v.conditions[13]=1;c[2].conditions[13]=0;
- XeenCombatRandom fallback(std::vector<XeenCombatRandom::Draw>{{0,5,0},{0,0,0},{1,20,1}});
+ XeenCombatRandom fallback(std::vector<XeenCombatRandom::Draw>{{1,6,1},{0,4,0},{0,0,0},{1,20,1}});
  XeenEnemyAttackCandidate single(c,i,profile(),610,0x3f);finish(single,fallback,1);
- check(single.result.targetOwner==c[2].rosterId && fallback.position()==3,"One surviving fallback still draws [0,0]");
+ check(single.result.targetOwner==c[2].rosterId && fallback.position()==4,"One surviving fallback still draws [0,0]");
  c=characters();c[0].characterClass=XeenCharacterClass::Cleric;
  XeenCombatRandom critical(std::vector<XeenCombatRandom::Draw>{{1,20,20},{1,10,1},{1,25,25},{1,5,1},{1,10,1},{1,25,5}});
  XeenEnemyAttackCandidate poison(c,i,profile(3,5),610,0x3f);finish(poison,critical,1);
@@ -575,13 +578,13 @@ void rangedOpportunity() {
 	check(opportunity.shotCount==12,"Every activated Orc queues once before moving, including joining sources");
 	std::vector<XeenCombatRandom::Draw> tape;
 	for (unsigned n=0;n<12;++n) {
-		tape.push_back({0,5,0});tape.push_back({0,4,0});tape.push_back({1,20,20});
+		tape.push_back({1,6,1});tape.push_back({0,4,0});tape.push_back({0,4,0});tape.push_back({1,20,20});
 		tape.push_back({1,10,1});tape.push_back({1,5,5});tape.push_back({1,10,1});
 	}
 	XeenCombatRandom rng(tape);XeenConsequenceDraw first{rng};
 	check(!opportunity.service(first) && rng.position()==64,"Whole opportunity yields at sixty-four raw draws");
 	check(c[1].currentHp==30000 && actors[0].x==8 && actors[0].y==9,"Unpublished sources remain unchanged");
-	XeenConsequenceDraw next{rng};check(opportunity.service(next) && rng.position()==72,"Retained opportunity resumes without repeated draws");
+	XeenConsequenceDraw next{rng};check(opportunity.service(next) && rng.position()==84,"Retained opportunity resumes without repeated draws");
 	check(opportunity.characters[1].currentHp==29976,"All twenty-four critical damage applications retained");
 	for (unsigned n=0;n<12;++n) check(opportunity.shots[n].attack.injuryCount==2,"No shot observation is truncated");
  XeenRegionalOpportunityCandidate escaped(map,actors,camera,c,i,610,0);
@@ -590,7 +593,7 @@ void rangedOpportunity() {
  for(unsigned n=0;n<12;++n)check(escaped.shots[n].source==opportunity.shots[n].source && escaped.shots[n].attack.attackOutcome==XeenCombatAttackOutcome::NoParticipants && !escaped.shots[n].attack.injuryCount,"Every owed empty-view shot retains source and explicit no-participant observation");
  XeenRegionalOpportunityCandidate singleton(map,actors,camera,c,i,610,1u<<5);
  std::vector<XeenCombatRandom::Draw> singles;
- for(unsigned n=0;n<12;++n){singles.push_back({0,0,0});singles.push_back({1,20,1});}
+ for(unsigned n=0;n<12;++n)singles.push_back({1,20,1});
  XeenCombatRandom singleTape(singles);finish(singleton,singleTape,1);
  for(unsigned n=0;n<12;++n)check(singleton.shots[n].attack.targetOwner==c[5].rosterId,"Every owed shot targets the remaining stable owner");
  // One ranged source runs all original attacks, including whole-party passes.

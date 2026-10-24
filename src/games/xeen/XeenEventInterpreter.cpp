@@ -1305,10 +1305,11 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 			case 76: {
 				// 0x23218: addTime(days*1440) on the script clock; a 16-bit minutes argument.
 				const std::uint64_t minutes=std::uint64_t(giveValue)*1440;
-				if(minutes>0x7fff || !canDraw() || !partyState.encounterContext || partyState.party.size()!=6)
+				if(minutes>0x7fff || !canDraw() || !partyState.encounterContext)
 					return fail("Event time advance is not supported in this context");
-				XeenConsequenceCharacters characters{};XeenConsequenceInputs inputs{};
-				for(unsigned i=0;i<6;++i) {
+				XeenConsequenceCharacters characters;XeenConsequenceInputs inputs;
+                characters.setCount(partyState.party.size());inputs.setCount(partyState.party.size());
+				for(unsigned i=0;i<characters.size();++i) {
 					const auto id=partyState.party.activeRosterIds()[i];characters[i]=partyState.roster.at(id);
 					if(!partyState.roster.combatInputs(id))return fail("Event time advance has no character inputs");
 					inputs[i]=*partyState.roster.combatInputs(id);
@@ -1768,9 +1769,9 @@ void XeenWorld::applyEventYear(XeenPartyState &party,XeenGameFlags &flags,unsign
  xeenResetPartyTemps(context);context.rested=true;
 }
 void XeenWorld::publishEventTime(XeenPartyState &party,const XeenConditionTimeCandidate &time) {
- if(!detachedEventCandidate() || !party.encounterContext || party.party.size()!=6)
+ if(!detachedEventCandidate() || !party.encounterContext)
   throw std::logic_error("Event time requires a detached Event");
- for(unsigned i=0;i<6;++i) {
+ for(unsigned i=0;i<party.party.size();++i) {
   const auto owner=party.party.activeRosterIds()[i];
   party.roster._characters[owner]=time.characters[i];
   party.roster._combatInputs[owner]=time.inputs[i];
@@ -1783,7 +1784,7 @@ XeenTypedDamageCandidate XeenWorld::prepareEventDamage(const XeenPartyState &par
  if(!detachedEventCandidate() || !party.encounterContext || !_sessionState._journeyRandom ||
   !party.party.size() || (!entireParty && (!member || *member>=party.party.size())))
   throw std::invalid_argument("Event damage has no selected owner or RNG");
- XeenConsequenceCharacters characters{};XeenConsequenceInputs inputs{};
+ XeenConsequenceCharacters characters;XeenConsequenceInputs inputs;characters.setCount(party.party.size());inputs.setCount(party.party.size());
  for(unsigned i=0;i<party.party.size();++i) {
   const auto owner=party.party.activeRosterIds()[i];characters[i]=party.roster.at(owner);
   if(!party.roster.combatInputs(owner))throw std::invalid_argument("Event damage inputs are absent");

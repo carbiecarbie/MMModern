@@ -187,6 +187,10 @@ DialogInput xeenQuickFightInput() {
     button(input,281,108,305,128,InputKey::Escape,"train.icn",2);
     input.keys.push_back(InputKey::Enter);return input;
 }
+IndexedFrame drawXeenDismiss(const XeenDosText &text,const IndexedFrame &base,const XeenFontFormat &font,const XeenDialogSpriteDraw &draw) {
+    auto frame=render(base,font,str(text.scalar("DISMISS_PROMPT")),{50,112,266,148},{58,120,258,140});
+    if(draw)draw(frame,"esc.icn",0,225,120);return frame;
+}
 IndexedFrame drawXeenExchange(const XeenDosText &text,const IndexedFrame &base,const XeenFontFormat &font,const XeenDialogSpriteDraw &draw) {
     auto frame=render(base,font,str(text.scalar("EXCHANGE_WITH_WHOM")),{50,112,266,148},{58,120,258,140});
     if(draw)draw(frame,"esc.icn",0,225,120);return frame;
@@ -718,7 +722,7 @@ XeenDialogPopup xeenSheetPopup(const XeenDosText &text,const XeenPartyState &p,s
         constexpr int thresholds[]{3,5,7,9,11,13,15,17,19,21,25,30,35,40,50,75,100,125,150,175,200,225,250,65535};
         const int value=R::sheetStat(c,in,cell,ctx);unsigned rating=0;while(rating<23 && thresholds[rating]<=value)++rating;
         popup.text=xeenDialogFormat(text.scalar("CURRENT_MAXIMUM_RATING_TEXT"),{name,n(value),n(R::sheetStat(c,in,cell,ctx,true)),str(text.table("RATING_TEXT")[rating])});
-    } else if(cell==7) popup.text=xeenDialogFormat(text.scalar("AGE_TEXT"),{name,n(R::sheetAge(c,ctx)),n(R::sheetAge(c,ctx,true)),n(c.originalDetails()?c.originalDetails()->birthDay:0),n(unsigned(c.birthYear))});
+    } else if(cell==7) popup.text=xeenDialogFormat(text.scalar("AGE_TEXT"),{name,n(R::sheetAge(c,ctx)),n(R::sheetAge(c,ctx,true)),n(unsigned(c.birthDay)),n(unsigned(c.birthYear))});
     else if(cell==8) { constexpr unsigned gains[]{5,6,6,7,8,6,5,4,7,6};const unsigned attacks=c.currentLevel()/gains[static_cast<unsigned>(c.characterClass)]+1;
         popup.text=xeenDialogFormat(text.scalar("LEVEL_TEXT"),{name,n(c.currentLevel()),n(int(c.permanentLevel)),n(attacks),attacks>1?"s":""}); }
     else if(cell<=11) {

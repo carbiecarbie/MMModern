@@ -30,7 +30,9 @@ inline bool sameCharacter(const XeenCharacter &a, const XeenCharacter &b) {
 		sameItemCategory(a.weapons, b.weapons) &&
 		sameItemCategory(a.armor, b.armor) && sameItemCategory(a.accessories, b.accessories) &&
 		sameItemCategory(a.miscellaneous, b.miscellaneous) && a.currentHp == b.currentHp &&
-		a.currentSp == b.currentSp && a.conditions == b.conditions && a.birthYear == b.birthYear && a.awards==b.awards && a.lloydMap==b.lloydMap && a.lloydX==b.lloydX && a.lloydY==b.lloydY && a.lloydSide==b.lloydSide;
+		a.currentSp == b.currentSp && a.conditions == b.conditions && a.birthYear == b.birthYear && a.awards==b.awards && a.lloydMap==b.lloydMap && a.lloydX==b.lloydX && a.lloydY==b.lloydY && a.lloydSide==b.lloydSide &&
+        a.birthDay==b.birthDay && a.xeenSide==b.xeenSide && a.townUnknown==b.townUnknown &&
+        a.savedMaze==b.savedMaze && a.adventuringSpell==b.adventuringSpell && a.combatSpell==b.combatSpell;
 }
 inline bool sameCamera(const XeenCamera &a, const XeenCamera &b) {
 	return a.mapId == b.mapId && a.x == b.x && a.y == b.y && a.direction == b.direction;

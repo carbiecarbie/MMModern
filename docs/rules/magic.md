@@ -370,6 +370,14 @@ tiers, walls and target settlement apply. The pin agrees with this branch,
 but its signed hit-total comparison differs from DOS's unsigned word
 comparison: [negative hit totals](../original-quirks.md#sv-hit-total-unsigned).
 
+**Unknown: smaller-party Poison Volley projectile count.** The spell enables
+six fixed flags at `0x1d899..0x1d8bb`, while hit resolution visits only the
+active members (`0x2cb46..0x2ccdb`). A focused search of the retained DOS
+listings did not identify the projectile-render loop, so those flags do not
+prove that six missiles are drawn with one to five members. MMModern draws
+active lanes pending renderer evidence or a smaller-party DOS recording;
+see [party bounds](party.md#shared-state-and-consumer-bounds).
+
 ## Monster-specific magic
 
 **Evidence: Reference only**, except Finger of Death, Holy Word, Mass

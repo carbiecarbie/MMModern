@@ -57,25 +57,25 @@ void rules(){
  bytes[39]=1;bytes[56]=1;bytes[57]=0x21;bytes[66]=0xab;bytes[120]=0x43;
  for(unsigned r=0;r<6;++r){bytes[311+r*2]=r+1;bytes[312+r*2]=2;}
  bytes[348]=42;
- auto roster=XeenCharacterFormat::parseRoster(bytes);auto c=roster.at(0);const auto *details=c.originalDetails();
- check(details && c.skills[17]==1 && details->birthDay==7 && details->awards[0]==1 && details->awards[64]==2 && details->awards[9]==0xab && details->awards[73]==0 && details->awards[63]==3 && details->awards[127]==4,"original immutable fields offsets");
+ auto roster=XeenCharacterFormat::parseRoster(bytes);auto c=roster.at(0);auto input=XeenCharacterFormat::parseCombatInputs(bytes,0,true,true,true);
+ check(c.skills[17]==1 && c.birthDay==7 && c.awards[0]==1 && c.awards[64]==2 && c.awards[9]==0xab && c.awards[73]==0 && c.awards[63]==3 && c.awards[127]==4,"CHR field offsets");
  using R=XeenCharacterRules;const XeenCharacterRulesContext context{650};
  check(R::sheetAge(c,context)==10,"sheet age");
  check(R::skillCount(c)==2 && R::awardCount(c)==5,"skill/award counts");
  check(c.awards[9]==0xab && c.awards[73]==0 && c.awards[127]==4,"Mutable CHR award initialization");
  c.awards[6]=1;check(R::awardCount(c)==6,"Sheet ignored mutable award state");c.awards[6]=0;
- check(R::sheetStat(c,nullptr,0,context,true)==0 && R::sheetStat(c,nullptr,1,context,true)==0,"young-age adjustment");
+ check(R::sheetStat(c,&input,0,context,true)==0 && R::sheetStat(c,&input,1,context,true)==0,"young-age adjustment");
  c.birthYear=610;c.temporaryAge=0;c.permanentLevel=1;
- check(R::sheetStat(c,nullptr,0,context)==20 && R::sheetStat(c,nullptr,1,context)==24 && R::sheetStat(c,nullptr,6,context)==22,"physical/mental/luck age adjustments");
+ check(R::sheetStat(c,&input,0,context)==20 && R::sheetStat(c,&input,1,context)==24 && R::sheetStat(c,&input,6,context)==22,"physical/mental/luck age adjustments");
  c.conditions[3]=3;c.conditions[4]=4;c.conditions[0]=5;c.conditions[1]=1;
- check(R::sheetStat(c,nullptr,0,context)==16 && R::sheetStat(c,nullptr,1,context)==19 && R::sheetStat(c,nullptr,6,context)==16,"sheet condition modifiers");
- c.conditions[13]=1;check(R::sheetStat(c,nullptr,0,context)==20,"dead condition modifiers");
+ check(R::sheetStat(c,&input,0,context)==16 && R::sheetStat(c,&input,1,context)==19 && R::sheetStat(c,&input,6,context)==16,"sheet condition modifiers");
+ c.conditions[13]=1;check(R::sheetStat(c,&input,0,context)==20,"dead condition modifiers");
  c.armor[0]={1,2,0,3};c.accessories[0]={34,1,0,1};
- check(R::sheetResistance(c,nullptr,0)==8 && R::sheetResistance(c,nullptr,5)==13,"elemental resistance bonuses");
- c.armor[0].state=128;check(R::sheetResistance(c,nullptr,0)==3,"broken resistance excluded");
+ check(R::sheetResistance(c,&input,0)==8 && R::sheetResistance(c,&input,5)==13,"elemental resistance bonuses");
+ c.armor[0].state=128;check(R::sheetResistance(c,&input,0)==3,"broken resistance excluded");
  check(R::statColor(0,20)==6 && R::statColor(21,20)==2 && R::statColor(20,20)==15 && R::statColor(5,20)==9 && R::statColor(4,20)==32,"stat colors");
- c.characterClass=XeenCharacterClass::Knight;check(R::currentExperience(c,nullptr)==42 && R::experienceToNextLevel(c,nullptr)==1458,"level-one XP");
- c.permanentLevel=13;check(R::currentExperience(c,nullptr)==1536042 && R::experienceToNextLevel(c,nullptr)==1023958,"high-level XP");
+ c.characterClass=XeenCharacterClass::Knight;check(R::currentExperience(c,&input)==42 && R::experienceToNextLevel(c,&input)==1458,"level-one XP");
+ c.permanentLevel=13;check(R::currentExperience(c,&input)==1536042 && R::experienceToNextLevel(c,&input)==1023958,"high-level XP");
 }
 void original(const char *path){
  const auto installation=xeenTestInstallationDetector().detect(path);check(bool(installation),"original installation absent");XeenAssetSource assets(*installation);
@@ -203,10 +203,10 @@ void original(const char *path){
  check(presenter.present(base,npc).frame.pixels==npcExpected.pixels,"NPC DAT template/window/portrait placement");
 
  for(unsigned i=0;i<6;++i){auto &c=p.roster.at(p.party.activeRosterIds()[i]);c.permanentLevel=3;
-  const auto offset=c.rosterId*354;const auto *d=c.originalDetails();check(d,"original character metadata absent");
-  for(unsigned r=0;r<6;++r)check(d->resistances[r][0]==bytes[offset+311+r*2] && d->resistances[r][1]==bytes[offset+312+r*2],"original resistance bytes");
+  const auto offset=c.rosterId*354;const auto input=XeenCharacterFormat::parseCombatInputs(bytes,c.rosterId,true,true,true);
+  for(unsigned r=0;r<6;++r)check(XeenCharacterRules::sheetResistance(c,&input,r)==bytes[offset+311+r*2]+bytes[offset+312+r*2],"original resistance bytes");
   for(unsigned skill=0;skill<18;++skill)check(c.skills[skill]==bytes[offset+39+skill],"original skill bytes");
-  check(XeenCharacterRules::sheetStat(c,nullptr,0,{610})==bytes[offset+20]+bytes[offset+21],"prepared-party Might");
+  check(XeenCharacterRules::sheetStat(c,&input,0,{610})==bytes[offset+20]+bytes[offset+21],"prepared-party Might");
   auto frame=drawXeenSheet(assets.uiText(),base,font,p,i,0,false,draw);check(frame.isValid(),"original sheet layout");
   for(unsigned cell=0;cell<20;++cell)if(cell!=14)check(drawXeenPopup(frame,font,xeenSheetPopup(assets.uiText(),p,i,cell)).isValid(),"original stat popup layout");
   XeenInventorySelection selection;selection.mode=XeenInventoryMode::Browse;selection.source=i;selection.sourceOwner=c.rosterId;

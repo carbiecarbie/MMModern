@@ -1,6 +1,6 @@
 # Milestone 87 plan - The Inn and a party of one to six
 
-**Tier A. Status: Part 0 done; Part A not started.**
+**Tier A. Status: Parts 0 and A done; Part B not started.**
 Roadmap [step 14](roadmap.md#next-arc-finishing-the-games-systems), first of
 its two milestones, after [M86](milestone-86-plan.md). Baseline: `f77720f`,
 equal to `origin/main`.
@@ -124,8 +124,9 @@ The results that shape the design:
   refuses it, so M87 never saves or plays it (M88's Create and Delete saves
   can). Validation checks the actual members instead of
   `kXeenCombatOwners`; serialized counts derive from membership. Every
-  change revalidates Journey authority and invalidates or remaps cached
-  member selections (WhoWill, selected member, combat choices).
+  change revalidates Journey authority and clears cached member selections
+  (selected member, combat choices). WhoWill is retained, as in DOS, and
+  bounded at delivery (independent review, 2026-10-24).
 - **Six lanes and a count.** The six-element arrays stay, like the original
   party arrays, with an active count. Ordinary access goes through a checked
   accessor that rejects inactive lanes; loops run to the count; masks never
@@ -145,6 +146,9 @@ The results that shape the design:
   details; the rest become saved roster fields. New Game still loads them
   from `maze.chr`; restore stops re-attaching resources. All 30 supplements
   stay present; an empty record keeps the values `maze.chr` gives it.
+  **Maintainer, 2026-10-23:** CHR byte 339 is a separate unknown byte;
+  340–341 are the 16-bit lodging map, as DOS writes at `0x1ecae`.
+  Persist that corrected layout and document the pinned-reference difference.
 - **Save v19** (v18 -> v19), all in Part A: full roster records, any
   one-to-six membership, and an Inn state (inside the Inn, with the prior
   map and the door position and facing) that replaces DOS's map 0 so the

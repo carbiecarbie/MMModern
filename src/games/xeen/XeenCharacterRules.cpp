@@ -282,7 +282,7 @@ int XeenCharacterRules::sheetStat(const XeenCharacter &c,const XeenCombatInputs 
 		unsigned attribute,const XeenCharacterRulesContext &context,bool baseOnly) {
 	if (attribute>=7) throw std::invalid_argument("Invalid sheet attribute");
 	std::array<int,2> value{};
-	if (c.originalDetails()) value=c.originalDetails()->attributes[attribute];
+
 	const XeenAttributeValue *v=attribute==1?&c.intellect:attribute==2?&c.personality:attribute==3?&c.endurance:nullptr;
 	if (input) {
 		if(attribute==0) v=&input->might;
@@ -319,7 +319,7 @@ int XeenCharacterRules::sheetArmorClass(const XeenCharacter &c,const XeenCombatI
 		const XeenCharacterRulesContext &context,bool baseOnly) {
 	int result=add<true>(statBonus(sheetStat(c,input,4,context)),equipmentArmorClass(c));
 	if(!baseOnly) {
-        result=add<true>(result,input?int(input->temporaryAc):c.originalDetails()?c.originalDetails()->temporaryAc:0);
+        result=add<true>(result,input?int(input->temporaryAc):0);
         result=add<true>(result,context.blessed);
     }
 	return std::max(result,0);
@@ -327,7 +327,7 @@ int XeenCharacterRules::sheetArmorClass(const XeenCharacter &c,const XeenCombatI
 int XeenCharacterRules::sheetResistance(const XeenCharacter &c,const XeenCombatInputs *input,unsigned resistance) {
 	if(resistance>=6) throw std::invalid_argument("Invalid sheet resistance");
 	std::array<int,2> value{};
-	if(c.originalDetails()) value=c.originalDetails()->resistances[resistance];
+
 	if(input && input->resistances) {
 		if(resistance==1) value={input->resistances->coldPermanent,input->resistances->coldTemporary};
 		if(resistance==2) value={input->resistances->electricalPermanent,input->resistances->electricalTemporary};
@@ -352,7 +352,7 @@ unsigned XeenCharacterRules::awardCount(const XeenCharacter &c) {
 }
 std::uint32_t XeenCharacterRules::currentExperience(const XeenCharacter &c,const XeenCombatInputs *input) {
 	constexpr std::uint32_t bases[]{1500,2000,2000,1500,2000,1000,1500,1500,1500,2000};
-	const auto xp=input?std::uint32_t(input->experience):c.originalDetails()?c.originalDetails()->experience:0u;
+	const auto xp=input?std::uint32_t(input->experience):0u;
 	const int level=c.permanentLevel-1;
 	if(level<=0) return xp;
 	return xp+(level>=12?std::uint32_t(level-12)*1024000u:0u)+(bases[static_cast<unsigned>(c.characterClass)]<<(level>=12?10:level-1));
@@ -389,12 +389,12 @@ int XeenCharacterRules::damageSaveValue(const XeenCharacter &c,const XeenCombatI
 	}
 	const auto index=static_cast<unsigned>(type);
 	if (index>6) throw std::invalid_argument("Unsupported character damage type");
-	// Immutable original resistance pairs remain authoritative for elements
+	// Roster supplement resistance pairs remain authoritative for elements
 	// without a live supplement. Missing input is never an implicit zero.
 	const unsigned resistance=index==1 ? 5 : index==2 ? 0 : index==3 ? 2 : index==4 ? 1 : index==5 ? 3 : 4;
 	const bool live=resistance!=3 ? input.resistances.has_value() :
 		resistance==3 && input.poisonResistance.has_value();
-	if (!live && !c.originalDetails()) throw std::invalid_argument("Missing character damage resistance");
+	if (!live) throw std::invalid_argument("Missing character damage resistance");
 	return sheetResistance(c,&input,resistance);
 }
 int XeenCharacterRules::thievery(const XeenCharacter &c) {

@@ -102,26 +102,17 @@ void XeenSaveState::restoreJourney(const XeenSaveSnapshot &source, const Resourc
 	for (unsigned i = 0; i < 30; ++i)
 		if (party.roster.combatInputs(i)) throw std::logic_error("Journey destination has detached supplements");
 	XeenRestoreGuard destination(world,party,camera,flags,true);
-	if (!resources.loadInitialParty) throw std::invalid_argument("Restoration requires original character display data");
-	XeenPartyState p = [&] {
-        XeenRestoreGuard::LightingObservation lighting(destination);
-        try {auto value=resources.loadInitialParty();destination.check();return value;}
-        catch (...) {destination.check();throw;}
-    }();
+	XeenPartyState p;
 	destination.check();
 	XeenCamera c = snapshot.camera;
 	XeenGameFlags f(snapshot.gameFlags);
 	XeenWorld w(world._baseLoader,world._baseObjectLoader);
-	for (unsigned i = 0; i < 30; ++i) {
-		const auto details = p.roster.at(i)._originalDetails;
-		p.roster.at(i) = snapshot.characters[i];
-		p.roster.at(i)._originalDetails = details;
-	}
+	for (unsigned i = 0; i < 30; ++i) p.roster.at(i) = snapshot.characters[i];
 	p.party = XeenParty::fromRosterIds(snapshot.activeRosterIds);
-	p.food=snapshot.food; p.soundOptions=snapshot.soundOptions;
+	p.insideInn=snapshot.insideInn;p.food=snapshot.food; p.soundOptions=snapshot.soundOptions;
 	p.questItems = XeenCloudsQuestItems(snapshot.questItems); p.questFlags = XeenCloudsQuestFlags(snapshot.questFlags);
 	p.worldFlags = snapshot.journey->worldFlags;
-	p.firstSerializedCount = p.effectiveSerializedCount = 6;
+	p.firstSerializedCount = p.effectiveSerializedCount = p.party.size();
 	p.encounterContext = snapshot.journey->context;
 	// Pending treasure is running-program state: restore grants and draws nothing.
 	p.purse=snapshot.journey->purse;
@@ -297,9 +288,32 @@ bool XeenSaveState::canCapture(const XeenPartyState &party, const XeenCamera &ca
 }
 
 XeenSaveSnapshot XeenSaveState::capture(const XeenSaveResourceSignature &resources,
-		const XeenPartyState &party, const XeenCamera &camera,
+		XeenPartyState &party, const XeenCamera &camera,
 		const XeenGameFlags &flags, const XeenWorld &world) {
+    if(!canCapture(party,camera,world))throw std::logic_error("MMModern save: encounter sessions cannot be captured");
+    if(!party.party.dismissedRosterIds().empty()) {
+        const auto authority=world._journeyCapture.lock();
+        if(!authority || !authority->preimage || !*authority->preimage || &(**authority->preimage).f!=&flags)
+            throw std::logic_error("Dismiss lodging requires current Journey authority");
+        auto &guard=**authority->preimage;guard.check();
+        // All allocations and checks precede the nonthrowing lodging publication.
+        const std::vector<std::uint8_t> tail=party.party.dismissedRosterIds();
+        for(auto id:tail)if(id>=24)throw std::logic_error("Invalid dismissed identity");
+        for(auto id:tail) {
+            auto &live=party.roster.at(id);auto &expected=guard.characters[id];
+            const auto side=static_cast<std::uint8_t>(static_cast<XeenSide>(camera.mapId.side));
+            live.savedMaze=expected.savedMaze=28+side;live.xeenSide=expected.xeenSide=side;
+        }
+        party.party._dismissedRosterIds.clear();guard.dismissed.clear();
+        guard.adoptMutationBoundary();
+        guard.check();
+    }
 	return captureImpl(resources,party,camera,flags,world,false);
+}
+XeenSaveSnapshot XeenSaveState::capture(const XeenSaveResourceSignature &resources,
+        const XeenPartyState &party,const XeenCamera &camera,const XeenGameFlags &flags,const XeenWorld &world) {
+    if(!party.party.dismissedRosterIds().empty())throw std::logic_error("Deferred lodging requires mutable capture outside callbacks");
+    return captureImpl(resources,party,camera,flags,world,false);
 }
 XeenSaveSnapshot XeenSaveState::captureInitialized(const XeenSaveResourceSignature &resources,
 		const XeenPartyState &party, const XeenCamera &camera,
@@ -321,7 +335,7 @@ XeenSaveSnapshot XeenSaveState::captureImpl(const XeenSaveResourceSignature &res
 		throw std::logic_error("MMModern save: encounter sessions cannot be captured");
 	XeenSaveSnapshot snapshot;
 	snapshot.resources = resources;
-	snapshot.camera = camera;
+	snapshot.insideInn=party.insideInn;snapshot.camera = camera;
 	snapshot.activeRosterIds = party.party.activeRosterIds();
 	snapshot.characters = party.roster.characters();
 	snapshot.food=party.food; snapshot.soundOptions=party.soundOptions;

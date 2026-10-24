@@ -316,15 +316,17 @@ void mouseJourney(Inputs &in) {
   };
   return SdlWindow().showInteractive(first,"Main-screen mouse walk",native,escape,[&]()->std::optional<IndexedFrame>{
    check(++loops<100,"mouse walk timeout");
-   if(scripted==0){++scripted;pending=[&]{click(261,100);click(12,151);};}
-   if(dispatches==2 && scripted==1){++scripted;check(h.flow->inventoryOpen(),"portrait sheet absent");pending=[&]{tap(SDLK_ESCAPE);};}
-   if(dispatches==3 && scripted==2){++scripted;pending=[&]{click(261,149);click(290,149);click(100,50);};}
-   if(dispatches==6){check(h.camera->x==10 && h.camera->y==10 && h.camera->direction==XeenDirection::East,"mouse walk result");quit();return {};}
+   if(scripted==0){++scripted;pending=[&]{click(261,100);};}
+   if(dispatches==1 && scripted==1){++scripted;check(bool(h.flow->inputContext(h.flow->frame().presentation()).dialog),"Dismiss dialog absent");pending=[&]{tap(SDLK_ESCAPE);};}
+   if(dispatches==2 && scripted==2){++scripted;pending=[&]{click(12,151);};}
+   if(dispatches==3 && scripted==3){++scripted;check(h.flow->inventoryOpen(),"portrait sheet absent");pending=[&]{tap(SDLK_ESCAPE);};}
+   if(dispatches==4 && scripted==4){++scripted;pending=[&]{click(261,149);click(290,149);click(100,50);};}
+   if(dispatches==7){check(h.party->party.size()==6 && h.camera->x==10 && h.camera->y==10 && h.camera->direction==XeenDirection::East,"mouse walk result");quit();return {};}
    return idle();
   },status);
  };
- check(h.run(s,source,"mouse-walk")==0 && dispatches==6,"mouse Journey failed");
- std::cout<<"MOUSE WALK unsupported/portrait/forward/turn/viewport delivered exactly once PASS\n";
+ check(h.run(s,source,"mouse-walk")==0 && dispatches==7,"mouse Journey failed");
+ std::cout<<"MOUSE WALK Dismiss/cancel/portrait/forward/turn/viewport delivered exactly once PASS\n";
 }
 
 void mouseNotices(Inputs &in) {

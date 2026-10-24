@@ -119,7 +119,7 @@ void criticalPresentation() {
  std::vector<XeenCombatRandom::Draw> tape;
  for(unsigned round=0;round<6;++round){
   const unsigned targets[]{0,0,1,2,3,5};
-  if(round)tape.push_back({0,5,targets[round]});
+  if(round){if(targets[round]==5)tape.push_back({1,6,6});else {tape.push_back({1,6,1});tape.push_back({0,4,targets[round]});}}
   tape.push_back({1,20,20});tape.push_back({1,6,6});tape.push_back({1,6,6});tape.push_back({1,4,4});
   if(round!=1){tape.push_back({1,6,6});tape.push_back({1,6,6});}
  }

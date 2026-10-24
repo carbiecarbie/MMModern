@@ -33,7 +33,7 @@ struct Fixture {
 	explicit Fixture(Bytes data = chr(), const std::function<void(Fixture &)> &prepare = {},unsigned minutes=480) : bytes(std::move(data)), p(XeenPartyLoader().loadFromResources(bytes,pty())) {
 		if (prepare) prepare(*this);
         auto saved=regional_test::snapshot();saved.camera=camera;saved.journey->context->minutes=minutes;
-        saved.characters=p.roster.characters();saved.questItems=p.questItems.counts();
+        saved.characters=p.roster.characters();saved.activeRosterIds=p.party.activeRosterIds();saved.questItems=p.questItems.counts();
         saved.questFlags=p.questFlags.values();saved.gameFlags=flags.values();
         {const auto projected=w.sessionState().disabledObjects();save_test::setRemovedObjects(saved,{projected.begin(),projected.end()});};
         {const auto projected=w.sessionState().disabledEvents();save_test::setDisabledEvents(saved,{projected.begin(),projected.end()});};

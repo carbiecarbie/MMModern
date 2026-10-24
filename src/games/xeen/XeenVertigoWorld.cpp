@@ -14,7 +14,7 @@ namespace mmodern {
 void XeenWorld::retainEventStep(XeenPartyState &party,const XeenRegionalActionCandidate &step,const std::vector<XeenActor> &actors) {
  if(!detachedEventCandidate())throw std::logic_error("Event step requires detached preparation");
  auto retained=actors;_sessionState.mutableMonsters(step.camera.mapId).swap(retained);
- for(unsigned n=0;n<6;++n) {
+ for(unsigned n=0;n<step.owners.size();++n) {
   party.roster.at(step.owners[n])=step.characters[n];party.roster._combatInputs[step.owners[n]]=step.inputs[n];
  }
  party.encounterContext=step.context;
@@ -25,7 +25,7 @@ void XeenWorld::retainEventStep(XeenPartyState &party,const XeenRegionalActionCa
 void XeenWorld::publishTerrainArrival(XeenPartyState &party,const XeenTerrainArrivalCandidate &arrival,const XeenJourneyRandomState &random) {
  if(!detachedEventCandidate())throw std::logic_error("Terrain arrival requires detached publication");
  _scenePresentation.markLightingStep();
- for(unsigned n=0;n<6;++n) {
+ for(unsigned n=0;n<arrival.characters.size();++n) {
   const auto owner=arrival.characters[n].rosterId;
   party.roster.at(owner)=arrival.characters[n];party.roster._combatInputs[owner]=arrival.inputs[n];
  }

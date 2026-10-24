@@ -1018,11 +1018,10 @@ void explicitItems(){
  unsigned initialReads=0;f.resources.loadInitialParty=[&]{++initialReads;return XeenPartyLoader().loadFromResources(displayRoster,displayParty);};
  f.restore(XeenSaveFormat::decode(XeenSaveFormat::encode(empty)),[&](auto &,const auto &p,const auto &,const auto &){
   for(unsigned i=0;i<30;++i)remove_test::checkSameCharacter(p.roster.at(i),empty.characters[i]);});
- f.bind();check(initialReads==1,"display data not reloaded exactly once");
- check(f.party.food==empty.food && f.party.roster.at(0).originalDetails() &&
-  f.party.roster.at(0).originalDetails()->resistances[0][0]==17 &&
-  f.party.roster.at(0).originalDetails()->birthDay==23 && f.party.roster.at(0).skills[17]==empty.characters[0].skills[17],
-  "restored display fields do not come from original resources");sameSnapshot(f.capture(),empty);
+ f.bind();check(initialReads==0,"restore reattached original CHR resources");
+ check(f.party.food==empty.food && f.party.roster.at(0).birthDay==empty.characters[0].birthDay &&
+  f.party.roster.at(0).savedMaze==empty.characters[0].savedMaze && f.party.roster.at(0).skills[17]==empty.characters[0].skills[17],
+  "restore did not preserve saved roster fields");sameSnapshot(f.capture(),empty);
 }
 void invalidResourceAndState(){
  for(unsigned mode=0;mode<28;++mode){

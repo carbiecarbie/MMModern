@@ -45,6 +45,7 @@ inline bool sameInputs(const XeenCombatInputs &a, const XeenCombatInputs &b) {
 }
 
 inline void sameSnapshot(const XeenSaveSnapshot &a, const XeenSaveSnapshot &b) {
+    check(a.insideInn==b.insideInn,"Inn state");
 	check(a.name == b.name, "save name changed");
 	check(a.resources == b.resources && sameCamera(a.camera, b.camera), "signature/camera changed");
 	check(a.food==b.food,"food changed");
@@ -144,6 +145,7 @@ inline XeenServiceEconomy literalMerchantEconomy() {
 
 inline XeenSaveSnapshot currentWireSnapshot() {
  XeenSaveSnapshot s;s.camera={23,9,11,XeenDirection::West};s.journey.emplace();
+ s.activeRosterIds={0,18,14,11,1,6};for(auto &c:s.characters)c.name="Member";
  auto &j=*s.journey;j.schema=XeenSaveFormat::kJourneySchema;j.content=XeenSaveFormat::kJourneyContent;j.context.emplace();
  j.context->day=8;j.context->year=610;j.context->minutes=577;
  for(unsigned i=0;i<30;++i){j.supplements[i].owner=i;auto &v=j.supplements[i].inputs;
@@ -156,7 +158,7 @@ inline XeenSaveSnapshot sample() {
 	auto s = currentWireSnapshot();
 	s.resources = {{123456, 0x12345678U}, XeenArchiveFingerprint{654321, 0x87654321U}};
 	s.camera = {23, 8, 2, XeenDirection::North};
-	s.activeRosterIds = {18, 0, 18, 23, 1, 6};
+	s.activeRosterIds = {18, 0, 14, 23, 1, 6};
 	for (std::size_t i = 0; i < s.characters.size(); ++i) {
 		auto &c = s.characters[i];
 		c.name = i == 29 ? "" : "Member" + std::to_string(i);
@@ -207,8 +209,8 @@ inline XeenSaveSnapshot sample() {
 // Wire offset of the Journey domain byte: header, fingerprints, camera, member
 // and roster counts, members, characters, quest counters/flags and game flags.
 inline std::size_t journeyOffset(const XeenSaveSnapshot &s) {
-	std::size_t n=20+25+6+2+s.activeRosterIds.size()+4*s.questItems.size()+s.questFlags.size()+s.gameFlags.size()+4;
-	for(const auto &c:s.characters)n+=232+c.name.size();
+	std::size_t n=20+25+1+6+2+s.activeRosterIds.size()+4*s.questItems.size()+s.questFlags.size()+s.gameFlags.size()+4;
+	for(const auto &c:s.characters)n+=239+c.name.size();
 	return n;
 }
 

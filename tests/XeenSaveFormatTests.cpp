@@ -181,51 +181,43 @@ Bytes legacyGolden() {
 Bytes golden() { auto s=currentWireSnapshot(); s.resources.clouds={0x0807060504030201ULL,0x0c0b0a09U}; s.camera={23,0,15,XeenDirection::West}; return XeenSaveFormat::encode(s); }
 
 void wireContract() {
-	auto s=currentWireSnapshot();
-	s.resources.clouds = {0x0807060504030201ULL, 0x0c0b0a09U};
-	s.camera = {23, 0, 15, XeenDirection::West};
-	const auto expected = legacyGolden();
-	// The party prefix ends with the game flags at 7443; the v14 Journey
-	// block follows directly (no top-level overlay lists).
-	Bytes v2(7443, 0);
-	std::copy_n(expected.begin(), 53, v2.begin());
-	v2[8] = 18;
- v2[7439]=1;v2[7440]=1;v2[7442]=1;
-	for (unsigned i = 0; i < 30; ++i) {v2[53 + 232 * i] = i;v2[53+232*i+227]=255;}
-	const auto current=XeenSaveFormat::encode(s);
-	check(current[7443]==3,"Journey domain byte follows the game flags");
-	v2.insert(v2.end(),current.begin()+7443,current.end());
-	fixIndependentEnvelope(v2);
-	check(XeenSaveFormat::encode(s) == v2, "encoder differs from independent minimal v2");
-	sameSnapshot(s, XeenSaveFormat::decode(v2));
-	auto named = s;
-	named.characters[0].name = "X";
-	named.characters[0].intellect = {-1, std::numeric_limits<int>::min()};
-	named.characters[0].currentHp = -32768;
-	named.characters[0].currentSp = 32767;
-	named.characters[0].conditions[15] = 255;
-	named.characters[0].birthYear = 65535;
-	const auto bytes = XeenSaveFormat::encode(named);
-	check(bytes[54] == 1 && bytes[55] == 'X' && bytes[59] == 255 && bytes[62] == 255 &&
-		bytes[63] == 0 && bytes[66] == 128, "name/signed attribute byte layout");
-	check(bytes[258] == 0 && bytes[259] == 128 && bytes[260] == 255 && bytes[261] == 127 &&
-		bytes[277] == 255 && bytes[278] == 255 && bytes[279] == 255, "v2 HP/SP/condition/year byte layout");
+    auto s=currentWireSnapshot();s.resources.clouds={0x0807060504030201ULL,0x0c0b0a09U};
+    s.camera={23,0,15,XeenDirection::West};
+    // Independent v19 prefix: 60 header/location/member bytes, thirty 245-byte
+    // named records (239 fixed + "Member"), 426 quest/game bytes and four sound bytes.
+    Bytes expected(7840,0);const auto old=legacyGolden();std::copy_n(old.begin(),45,expected.begin());
+    expected[8]=19;expected[47]=23;expected[50]=15;expected[51]=3;expected[52]=6;
+    const unsigned ids[]{0,18,14,11,1,6};for(unsigned n=0;n<6;++n)expected[53+n]=ids[n];expected[59]=30;
+    for(unsigned n=0;n<30;++n) {
+        const auto at=60+245*n;expected[at]=n;expected[at+1]=6;
+        const std::string name="Member";std::copy(name.begin(),name.end(),expected.begin()+at+2);
+        expected[at+233]=255; // currentSpell follows quickOption; seven new roster bytes follow the beacon.
+    }
+    expected[7836]=expected[7837]=expected[7839]=1;
+    const auto current=XeenSaveFormat::encode(s);check(current[7840]==3,"Journey domain byte follows v19 party prefix");
+    expected.insert(expected.end(),current.begin()+7840,current.end());fixIndependentEnvelope(expected);
+    check(current==expected,"encoder differs from independent v19 prefix");sameSnapshot(s,XeenSaveFormat::decode(expected));
+    auto named=s;named.characters[0].name="X";named.characters[0].intellect={-1,std::numeric_limits<int>::min()};
+    named.characters[0].currentHp=-32768;named.characters[0].currentSp=32767;named.characters[0].conditions[15]=255;named.characters[0].birthYear=65535;
+    const auto bytes=XeenSaveFormat::encode(named);
+    check(bytes[61]==1 && bytes[62]=='X' && bytes[66]==255 && bytes[69]==255 && bytes[70]==0 && bytes[73]==128,"name/signed attribute byte layout");
+    check(bytes[265]==0 && bytes[266]==128 && bytes[267]==255 && bytes[268]==127 && bytes[284]==255 && bytes[285]==255 && bytes[286]==255,"v19 HP/SP/condition/year byte layout");
 }
 
 void asymmetricBase() {
-	// Independent offsets: three members, 14 name bytes, 232 fixed bytes/character.
-	Bytes bytes(7443 + 3 + 14, 0);
-	const Bytes prefix{'M','M','M','S','A','V','E',0,18,0,0,0};
+	// Independent offsets: three distinct members, 19 name bytes, 239 fixed bytes/character.
+	Bytes bytes(7654 + 3 + 19, 0);
+	const Bytes prefix{'M','M','M','S','A','V','E',0,19,0,0,0};
 	std::copy(prefix.begin(), prefix.end(), bytes.begin());
-	bytes[20] = 99; bytes[28] = 88; bytes[46] = 23;
-	bytes[51] = 3; bytes[52] = 18; bytes[53] = 0; bytes[54] = 18; bytes[55] = 30;
+	bytes[20] = 99; bytes[28] = 88; bytes[47] = 23;
+	bytes[52] = 3; bytes[53] = 18; bytes[54] = 0; bytes[55] = 14; bytes[56] = 30;
 	auto expected=currentWireSnapshot();
 	expected.resources.clouds = {99, 88}; expected.camera = {23, 0, 0, XeenDirection::North};
-	expected.activeRosterIds = {18, 0, 18};
-	std::size_t base = 56;
+	expected.activeRosterIds = {18, 0, 14};
+	std::size_t base = 57;
 	for (unsigned i = 0; i < 30; ++i) {
 		auto &c = expected.characters[i];
-		c.name = i == 0 ? "A" : i == 18 ? "Owner" : i == 29 ? "Inactive" : "";
+		c.name = i == 0 ? "A" : i == 18 ? "Owner" : i == 14 ? "Third" : i == 29 ? "Inactive" : "";
 		bytes[base] = i; bytes[base + 1] = c.name.size();
 		std::copy(c.name.begin(), c.name.end(), bytes.begin() + base + 2);
 		const auto itemsStart = base + 60 + c.name.size();
@@ -250,7 +242,10 @@ void asymmetricBase() {
 		c.conditions[15] = 200 + i; bytes[after + 19] = c.conditions[15];
 		c.birthYear = 592 + i; bytes[after + 20] = c.birthYear & 255; bytes[after + 21] = 2;
 		bytes[after+22]=c.quickOption;bytes[after+23]=c.currentSpell;
-		base += 232 + c.name.size();
+		c.birthDay=i*3;c.xeenSide=i>=24;c.townUnknown=255-i;c.savedMaze=0x1200+i;c.adventuringSpell=i*7;c.combatSpell=i*5;
+        bytes[after+28]=c.birthDay;bytes[after+29]=c.xeenSide;bytes[after+30]=c.townUnknown;
+        bytes[after+31]=c.savedMaze&255;bytes[after+32]=c.savedMaze>>8;bytes[after+33]=c.adventuringSpell;bytes[after+34]=c.combatSpell;
+        base += 239 + c.name.size();
 	}
 	expected.questItems[34] = 0x12345678; put32(bytes, base + 34 * 4, 0x12345678);
 	expected.questFlags[29] = true; bytes[base + 169] = 1;
@@ -259,12 +254,12 @@ void asymmetricBase() {
 	const auto current=XeenSaveFormat::encode(expected);
 	bytes.insert(bytes.end(),current.begin()+bytes.size(),current.end());
 	fixIndependentEnvelope(bytes);
-	check(XeenSaveFormat::encode(expected) == bytes, "asymmetric independent v2 byte order");
+	check(XeenSaveFormat::encode(expected) == bytes, "asymmetric independent v19 byte order");
 	sameSnapshot(expected, XeenSaveFormat::decode(bytes));
-	check(bytes == XeenSaveFormat::encode(XeenSaveFormat::decode(bytes)), "v2 deterministic oracle");
+	check(bytes == XeenSaveFormat::encode(XeenSaveFormat::decode(bytes)), "v19 deterministic oracle");
 	// Each legal item byte can change without becoming structural corruption.
 	for (unsigned field = 0; field < 144; ++field) {
-		auto changed = bytes; changed[117 + field] ^= 255; fixIndependentEnvelope(changed);
+		auto changed = bytes; changed[118 + field] ^= 255; fixIndependentEnvelope(changed);
 		check(XeenSaveFormat::encode(XeenSaveFormat::decode(changed)) == changed, "legal item byte rejected or normalized");
 	}
 	for (std::size_t size = 20; size < bytes.size(); ++size) {
@@ -286,7 +281,7 @@ void completeRoundTrips() {
     }
 
 	for (const auto &ids : std::vector<std::vector<std::uint8_t>>{
-			{}, {0}, {29}, {0, 18, 14, 11, 1, 6}, {18, 0, 18, 23, 1, 6}}) {
+			{0}, {23, 0}, {0, 18, 14, 11, 1, 6}, {18, 0, 14, 23, 1, 6}}) {
 		s.activeRosterIds = ids;
 		roundTrip(s);
 	}
@@ -355,7 +350,7 @@ void malformedBytes() {
     rejects([&]{XeenSaveFormat::decode(v14);},"This save was created by an older MMModern build and is no longer supported.");
     auto bad = good;
 	bad[0] ^= 1; rejects([&] { XeenSaveFormat::decode(bad); }, "unrecognized format");
-	bad = good; bad[8] = 19; rejects([&] { XeenSaveFormat::decode(bad); }, "newer or unsupported");
+	bad = good; bad[8] = 20; rejects([&] { XeenSaveFormat::decode(bad); }, "newer or unsupported");
 	bad = good; bad[8] = 3; rejects([&] { XeenSaveFormat::decode(bad); }); // v1 payload is not v3.
 	bad = good; bad[8] = 2; rejects([&] { XeenSaveFormat::decode(bad); }); // v1 payload is not v2.
 	bad = good; bad[8] = 0; rejects([&] { XeenSaveFormat::decode(bad); }, "newer or unsupported");
@@ -370,7 +365,7 @@ void malformedBytes() {
 	// flag), then the head-cache flag and the name length.
 	const auto table = good.size() - (2 + 3 + 1 + 4 + 19 * 7 + 4 * 2 + 1 + 1) - 1 - 1;
 	rejects([&] { XeenSaveFormat::decode(Bytes(XeenSaveFormat::kMaximumSize + 1)); }, "oversized");
-	for (const auto offset : {32U, 112U, 7153U, 7183U}) {
+	for (const auto offset : {32U, 45U, 125U, 7550U, 7580U}) {
 		bad = good; bad[offset] = 2; fixEnvelope(bad);
 		rejects([&] { XeenSaveFormat::decode(bad); }, "boolean");
 	}
@@ -381,15 +376,15 @@ void malformedBytes() {
 		rejects([&] { XeenSaveFormat::decode(bad); }, "count");
 	}
 	bad = good; bad[table + 2 + 3] = 2; fixEnvelope(bad); rejects([&] { XeenSaveFormat::decode(bad); }, "boolean");
-	for (const auto offset : {45U, 47U, 48U, 49U, 50U, 51U, 52U, 53U, 54U}) {
+	for (const auto offset : {45U, 46U, 48U, 49U, 50U, 51U, 52U, 53U, 59U, 60U, 61U}) {
 		bad = good; bad[offset] = 255; fixEnvelope(bad);
 		rejects([&] { XeenSaveFormat::decode(bad); });
 	}
 	auto s = sample();
 	bad = XeenSaveFormat::encode(s); bad[52] = 30; fixEnvelope(bad);
-	rejects([&] { XeenSaveFormat::decode(bad); }, "active roster");
-	// Six membership bytes move the first record to 59; name starts at 61.
-	bad = XeenSaveFormat::encode(s); bad[61] = 0; fixEnvelope(bad);
+	rejects([&] { XeenSaveFormat::decode(bad); }, "active members");
+	// The Inn flag moves the first record to 60; its name starts at 62.
+	bad = XeenSaveFormat::encode(s); bad[62] = 0; fixEnvelope(bad);
 	rejects([&] { XeenSaveFormat::decode(bad); }, "character name");
 	// Map identities end the payload strictly ordered: sample() holds maps 1
 	// (one removed object, 18 bytes), 2 (a removed object and an Event, 21),
@@ -505,12 +500,12 @@ XeenSaveMonsterTable cityTable(unsigned count) {
 }
 
 void rejectedVersions() {
- // v16 and every earlier envelope are recognizable older formats: no legacy
+ // v18 and every earlier envelope are recognizable older formats: no legacy
  // reader, the existing clear rejection.
- for(unsigned version:{0u,1u,2u,3u,4u,5u,6u,7u,8u,9u,10u,11u,12u,13u,14u,15u,16u,17u,19u,65535u}) {
+ for(unsigned version:{0u,1u,2u,3u,4u,5u,6u,7u,8u,9u,10u,11u,12u,13u,14u,15u,16u,17u,18u,20u,65535u}) {
   auto bytes=golden();bytes[8]=version;bytes[9]=version>>8;
   // Only recognizable earlier envelopes are "older"; others may be newer builds.
-  rejects([&]{XeenSaveFormat::decode(bytes);},version>=1 && version<=17?"no longer supported":"newer or unsupported");
+  rejects([&]{XeenSaveFormat::decode(bytes);},version>=1 && version<=18?"no longer supported":"newer or unsupported");
  }
  {
   auto v12=golden();v12[8]=12;fixIndependentEnvelope(v12);
@@ -602,7 +597,7 @@ void serviceEconomyWireContract() {
 		s.journey->supplements[owner].inputs.poisonResistance=XeenAttributeValue{int(owner),int(255-owner)};
 	}
 	const auto bytes=XeenSaveFormat::encode(s);const auto start=bytes.size()-kMinimalSuffix;
-	check(bytes[8]==18 && bytes[start+1]==9 && bytes[start+3]==content,"exact v18/schema9/content selectors");
+	check(bytes[8]==19 && bytes[start+1]==9 && bytes[start+3]==content,"exact v19/schema9/content selectors");
 	auto expected=bytes;expected.resize(expected.size()-kMinimalEconomyTail);
 	expected.insert(expected.end(),{2,4,4,9});
 	// Literal wire recipe is independent of the production encoder and validator.
@@ -691,7 +686,7 @@ void purchaseDepletedWireContract() {
 	// The city entry follows map 23's at the end of the payload.
 	const auto economyOffset=complete.size()-(kMinimalEconomyTail+mapEntryBytes(46));
 	const auto start=complete.size()-(kMinimalSuffix+mapEntryBytes(46));
-	check(complete[8]==18 && complete[start+1]==9 && complete[start+3]==14,"purchase selector/extent differs");
+	check(complete[8]==19 && complete[start+1]==9 && complete[start+3]==14,"purchase selector/extent differs");
 	// Literal eight L1 Weapon source from twenty Weapon calls. Removing one
 	// inserted plain record leaves seven; old generated-only meaning rejects it.
 	state.journey->serviceEconomy->wares[0][0][0][7]={};

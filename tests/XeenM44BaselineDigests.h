@@ -273,21 +273,33 @@
 // Services old: 70cd62a34b7dcef561819fa104489187cbe53a6a037f97565e513ed2dd26bbe7
 // Temple old: 8e34764db2821118943a73ffb0f6f13ed47ee68d3f9b124b3a0be7b9bd24290f
 // Roundtrip old: e6341c7cc5633639291fa2a0516f7e766fc23be59f0e7a793db7662fe7216c4a
+// M87 Part A: maintainer approved all four v19 replacements on 2026-10-24.
+// The old-target/v18 counterfactual reproduces all four hashes and complete
+// traces, including the final Temple witness policy. With DOS targeting and
+// v18, each first divergence is a six-participant monster target draw.
+// With v19, all four traces and every existing decoded/RNG/per-map field match
+// the DOS-target/v18 build across 14 checkpoints. Each adds 211 bytes / 181
+// fields: all six new roster fields match maze.chr and the Inn flag is false.
+// Native final reload/re-save and both roundtrip resumes remain byte-exact.
+// Journey schema 9/content 14 are unchanged. Local evidence (never commit saves):
+// build-rel/m87-audit-step{1,2,3}.txt, m87-audit-target-v18-final/,
+// m87-audit-layout-v19/ and m87-part-a-audit-report.md. Preserved counterfactual:
+// D:/M44-audits/m87-counterfactual-final-v18-4ed3a15.
 #include <array>
 #include <cstdint>
 namespace m44_baseline {
-inline constexpr const char *revision = "M81 Part A (save v17), baseline 30c548a";
+inline constexpr const char *revision = "M87 Part A (save v19), baseline 4ed3a15";
 struct Scenario { const char *name; std::uint32_t seed; const char *sha256; };
 inline constexpr std::array<Scenario,4> scenarios{{
-    {"mainland-combat-myra-phirna",3626689381u,"76651b1ab0c5d135f273a3e2a0d1b82fd4a397a4bc9e93364ffc16516d0dd510"},
+    {"mainland-combat-myra-phirna",3626689381u,"8919ebbfa6d5d200c44d7e611506a2258f7e398dae1a4fa5d6759850994dc4bd"},
     // M75: a member woken after its skipped slot waits for the next round (DOS turn order).
     // M78 Part A: maintainer approved the services replacement on 2026-10-20.
     // Pathfinder wall 3 reroutes the one-holder party; time/exploration and an
     // extra merchant generation explain all fields. Native reload/re-save is exact.
     // Local audit: build-rel/m78-digest-comparison and m78-services-causal-audit.json.
-    {"vertigo-buy-repair-training",7u,"a971e48d659f17886a1e9bac00a94b8ffe7afffc3020c33578645164633dd65d"},
-    {"temple-recovery",3626689381u,"b2cea7616e868fbf9fb6184bb553e1bfd66cdbafffc017823848a05e8a742f81"},
-    {"vertigo-f3-roundtrip",3626689381u,"8f0b712c893cb8eb89773c076b7ce7d7861daa3542e7defcdb745d0b08024c82"}
+    {"vertigo-buy-repair-training",7u,"ded84e09a1d6bde474a4a3393c664298863d4da2da6b6cec6ed6024972b11d7a"},
+    {"temple-recovery",3626689381u,"ee697e4006181f74f903145774d82a2d2a848510c8dab300d1947b47714ecf4d"},
+    {"vertigo-f3-roundtrip",3626689381u,"0da37fa945127f43d1e54b5e138ee24b56e71db8e81fa9455c4a5a88ac8cd502"}
 }};
 }
 #endif

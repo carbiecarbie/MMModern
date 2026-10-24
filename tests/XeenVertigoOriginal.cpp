@@ -23,7 +23,7 @@ using namespace mmodern;
 namespace {
 void check(bool ok,const char *message) { if(!ok)throw std::runtime_error(message); }
 void targetingOracle(const std::vector<XeenMonsterRecord> &records) {
- // Independent translation of pinned doMonsterTurn's selector. Include all
+ // Independent DOS count dispatch plus the pinned preference/fallback. Include all
  // Clouds records even when their damage/ability is not admitted for gameplay.
  for(const auto &record:records)for(unsigned mask=0;mask<64;++mask)for(unsigned disabled:{0u,21u,63u}) {
   XeenConsequenceCharacters party;
@@ -49,7 +49,11 @@ void targetingOracle(const std::vector<XeenMonsterRecord> &records) {
     }
     if(match){selected=i;break;}
    }
-   if(selected==6) {tape.push_back({0,unsigned(participating.size()-1),0});selected=participating.front();}
+   if(selected==6) {
+    if(participating.size()==6){tape.push_back({1,6,1});tape.push_back({0,4,0});}
+    else if(participating.size()>1)tape.push_back({0,unsigned(participating.size()-1),0});
+    selected=participating.front();
+   }
    if(disabled&(1u<<selected)) {
     if(able.empty())selected=6;
     else {tape.push_back({0,unsigned(able.size()-1),unsigned(able.size()-1)});selected=able.back();}
@@ -247,7 +251,7 @@ int main(int argc,char **argv) {
   // DOS doCharDamage (M68): dice, the initial save with the Physical selector
   // (Luck 15 + level 3: 1..25), then the Poison save (resistance + 40).
   for(unsigned owner=0;owner<2;++owner) {
-   tape.push_back({0,5,owner});
+   tape.push_back({1,6,1});tape.push_back({0,4,owner});
    tape.push_back({1,2,2});
    tape.push_back({1,25,owner==0?1u:25u});
    tape.push_back({1,owner==0?120u:40u,owner==0?1u:40u});
@@ -262,7 +266,7 @@ int main(int argc,char **argv) {
     done=!attack.nextAttack();
    }
   }
-  check(done && rng.position()==8 && injuries.size()==2,
+  check(done && rng.position()==10 && injuries.size()==2,
    "Slime two random attacks and per-target saves with bounded continuation");
   check(injuries[1].amount==2 && injuries[0].amount==0,
    "Successful repeated poison saves yield zero HP damage");
@@ -283,7 +287,7 @@ int main(int argc,char **argv) {
    std::vector<XeenCombatRandom::Draw> draws;
    int expected=0;
    for(unsigned ordinal=0;ordinal<record.attacks();++ordinal) {
-    draws.push_back({0,5,0});
+    draws.push_back({1,6,1});draws.push_back({0,4,0});
     for(unsigned strike=0;strike<record.strikes();++strike)
      draws.push_back({1,record.damageDie(),record.damageDie()});
     int damage=record.strikes()*record.damageDie();

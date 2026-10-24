@@ -82,6 +82,7 @@ IndexedFrame drawXeenJournal(const XeenDosText &,const IndexedFrame &,const Xeen
     const XeenJournalUi &,const std::vector<std::string> &,const XeenDialogSpriteDraw &,
     const XeenCharacter *member=nullptr);
 DialogInput xeenExchangeInput();
+IndexedFrame drawXeenDismiss(const XeenDosText &,const IndexedFrame &,const XeenFontFormat &,const XeenDialogSpriteDraw &);
 DialogInput xeenQuickFightInput();
 struct XeenSpellListUi {
     std::size_t top=0;

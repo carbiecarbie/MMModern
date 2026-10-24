@@ -2,6 +2,8 @@
 #define MMODERN_XEEN_COMBAT_INPUTS_H
 #include "games/xeen/XeenCharacter.h"
 #include <array>
+#include <algorithm>
+#include "games/xeen/XeenPartyLanes.h"
 #include "games/xeen/XeenMutation.h"
 namespace mmodern {
 struct XeenCombatResistances {
@@ -29,7 +31,7 @@ struct XeenCombatInputs {
 };
 // Default roster identities for prepared initialization, membership and test witnesses.
 // Gameplay positions are captured from XeenParty::activeOrder().
-using XeenPartyOrder = std::array<std::uint8_t,6>;
+using XeenPartyOrder = XeenPartyLanes<std::uint8_t>;
 inline constexpr XeenPartyOrder kXeenCombatOwners{0,18,14,11,1,6};
 }
 #endif

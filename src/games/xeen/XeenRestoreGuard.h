@@ -21,7 +21,7 @@ public:
 		partyId(p._incarnation), rosterId(p.roster._incarnation),
 		partyReplacement(p._replacement), rosterReplacement(p.roster._replacement),
 		s(w._sessionState), characters(p.roster.characters()), inputs(p.roster._combatInputs),
-		marked(p.roster.combatMarked()), membership(p.party.activeRosterIds()),
+		marked(p.roster.combatMarked()), membership(p.party.activeRosterIds()), dismissed(p.party.dismissedRosterIds()), insideInn(p.insideInn),
 		quests(p.questItems.counts()), questFlags(p.questFlags.values()), recovery(p.worldFlags), context(p.encounterContext), purse(p.purse), staging(w.treasureStaging().value()), stagingRevision(w.treasureStaging().revision()),
 		stagingOwner(&w.treasureStaging()), economy(p.serviceEconomy),
 		soundOptions(p.soundOptions), food(p.food), first(p.firstSerializedCount), effective(p.effectiveSerializedCount), diagnostics(p.diagnostics),
@@ -47,7 +47,7 @@ public:
 		f(other.f), worldId(std::move(other.worldId)), worldRevision(std::move(other.worldRevision)), developerEventMap(other.developerEventMap),
 		partyId(std::move(other.partyId)), rosterId(std::move(other.rosterId)), partyReplacement(std::move(other.partyReplacement)),
 		rosterReplacement(std::move(other.rosterReplacement)), s(std::move(other.s)), characters(std::move(other.characters)),
-		inputs(std::move(other.inputs)), marked(std::move(other.marked)), membership(std::move(other.membership)),
+		inputs(std::move(other.inputs)), marked(std::move(other.marked)), membership(std::move(other.membership)), dismissed(std::move(other.dismissed)), insideInn(other.insideInn),
 		quests(std::move(other.quests)), questFlags(std::move(other.questFlags)), recovery(std::move(other.recovery)),
 		context(std::move(other.context)), purse(std::move(other.purse)), staging(other.staging), stagingRevision(other.stagingRevision),
 		stagingOwner(other.stagingOwner), economy(std::move(other.economy)),
@@ -72,7 +72,7 @@ public:
 		if (w._incarnation != worldId || w._ownerRevision != worldRevision || w._developerEventMap != developerEventMap ||
 			p._incarnation != partyId || p.roster._incarnation != rosterId ||
 			p._replacement != partyReplacement || p.roster._replacement != rosterReplacement ||
-			p.roster.combatMarked() != marked || p.party.activeRosterIds() != membership ||
+			p.roster.combatMarked() != marked || p.party.activeRosterIds() != membership || p.party.dismissedRosterIds()!=dismissed || p.insideInn!=insideInn ||
 			p.questItems.counts() != quests || p.questFlags.values() != questFlags || p.worldFlags != recovery ||
 			!(p.encounterContext == context) || p.purse != purse ||
 			&w.treasureStaging() != stagingOwner || w.treasureStaging().revision() != stagingRevision ||
@@ -305,7 +305,7 @@ private:
 		check();
 		characters=candidate.roster.characters();
 		for(unsigned owner=0;owner<inputs.size();++owner)inputs[owner]=candidate.roster.combatInputs(owner);
-		marked=candidate.roster.combatMarked();membership=candidate.party.activeRosterIds();
+		marked=candidate.roster.combatMarked();membership=candidate.party.activeRosterIds();dismissed=candidate.party.dismissedRosterIds();insideInn=candidate.insideInn;
 		quests=candidate.questItems.counts();questFlags=candidate.questFlags.values();
 		recovery=candidate.worldFlags;context=candidate.encounterContext;
 		purse=candidate.purse;economy=candidate.serviceEconomy;
@@ -329,7 +329,7 @@ private:
 	void prepareJourneyPublication(const XeenRestoreGuard &candidate) {
 		for(const auto &entry:candidate.eventTexts) admitEventText(entry.second);
 		s = candidate.s; characters = candidate.characters; inputs = candidate.inputs;
-		marked = candidate.marked; membership = candidate.membership;
+		marked = candidate.marked; membership = candidate.membership;dismissed=candidate.dismissed;insideInn=candidate.insideInn;
 		quests = candidate.quests; questFlags = candidate.questFlags; recovery = candidate.recovery; context = candidate.context; purse = candidate.purse;
 		economy = candidate.economy;
 		soundOptions=candidate.soundOptions;food=candidate.food;first = candidate.first; effective = candidate.effective; diagnostics = candidate.diagnostics;
@@ -394,7 +394,7 @@ private:
 		// calendar and party effects, purse, food, quest counters, merchant/bank
 		// time effects, retained RNG, quest/camera/game flags and World
 		// overlays/Spawn. All other inputs retain their preimages.
-		if(candidate.membership!=membership || candidate.marked!=marked ||
+		if(candidate.membership!=membership || candidate.dismissed!=dismissed || candidate.insideInn!=insideInn || candidate.marked!=marked ||
 			candidate.s.exploredTiles()!=explored ||
 			bool(candidate.recovery)!=bool(recovery) || bool(candidate.context)!=bool(context) || bool(candidate.purse)!=bool(purse) ||
 			bool(candidate.economy)!=bool(economy) || candidate.first!=first || candidate.effective!=effective ||
@@ -453,7 +453,7 @@ private:
 	// camera, game flags and World overlays remain owned by final settlement.
 	void prepareEventSequencePrefix(const XeenRestoreGuard &candidate) {
 		check();candidate.check();checkEventStaging(candidate);
-		if(candidate.membership!=membership || candidate.marked!=marked ||
+		if(candidate.membership!=membership || candidate.dismissed!=dismissed || candidate.insideInn!=insideInn || candidate.marked!=marked ||
 			bool(candidate.recovery)!=bool(recovery) || bool(candidate.context)!=bool(context) || bool(candidate.purse)!=bool(purse) ||
 			bool(candidate.economy)!=bool(economy) || candidate.first!=first || candidate.effective!=effective ||
 			candidate.diagnostics!=diagnostics || bool(candidate.s._journeyRandom)!=bool(s._journeyRandom)) {
@@ -509,7 +509,7 @@ private:
 	static std::size_t mutationRangeCapacity(const std::map<XeenMapIdentity,XeenMap> &mapValues,
 			const std::map<XeenMapIdentity,XeenObjectFile> &objectValues) {
 		// Fixed owners plus every per-map entry the bounded table can hold.
-		std::size_t count=9+XeenMapTable::kObservedRangesPerMap*XeenMapTable::kMaximumMaps+4*objectValues.size();
+		std::size_t count=10+XeenMapTable::kObservedRangesPerMap*XeenMapTable::kMaximumMaps+4*objectValues.size();
 		for(const auto &entry:mapValues) count+=5+entry.second.instructions.size();
 		return count;
 	}
@@ -528,6 +528,7 @@ private:
         mutations.add(&p,sizeof(p));
         mutations.add(&w.treasureStaging(),sizeof(XeenTreasureStagingState));
 		mutations.add(&c,sizeof(c));mutations.add(&f,sizeof(f));
+		const auto &tail=p.party.dismissedRosterIds();mutations.add(tail.data(),tail.size()*sizeof(XeenMutable<std::uint8_t>));
 		const auto &members=p.party.activeRosterIds();
 		mutations.add(members.data(),members.size()*sizeof(XeenMutable<std::uint8_t>));
 		mutations.add(w._cityStatistics.data(),w._cityStatistics.size()*sizeof(XeenMonsterRecord));
@@ -565,7 +566,8 @@ private:
 	std::array<XeenCharacter, 30> characters;
 	std::array<XeenMutableOptional<XeenCombatInputs>, 30> inputs;
 	bool marked;
-	std::vector<std::uint8_t> membership;
+	std::vector<std::uint8_t> membership, dismissed;
+    bool insideInn=false;
 	XeenCloudsQuestItems::Counts quests;
 	XeenCloudsQuestFlags::Values questFlags;
 	std::optional<XeenWorldFlags> recovery;

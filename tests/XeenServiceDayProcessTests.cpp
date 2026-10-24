@@ -1,10 +1,4 @@
-// M75 shifted stock/combat draws change the final RNG: 2160414077:2143 -> 3052845306:2123.
-// M75 DOS Awaken order changes the stock RNG cursor: 1006382178:2125 -> 3311496048:2106.
-// M75 DOS Awaken order and witness policy: 1297 -> 1296.
-// M75 DOS Awaken order and witness policy: 1311 -> 1310.
-// M75 DOS Awaken order and witness policy: 1341 -> 1340.
-// M75 DOS Awaken order and witness policy: 2232520509 -> 1902939615.
-// M75 DOS Awaken order and witness policy: 1227 -> 1225.
+// M87 DOS target draws shift the genuine repair route and its stock/combat cursor.
 #include "XeenChildProcessTestSupport.h"
 #include "XeenM40Evidence.h"
 #include "XeenM42Evidence.h"
@@ -29,18 +23,17 @@ void independentTrace(const std::vector<std::string> &actual) {
     // target, d2, the Physical-selector initial save 1..B(Luck)+L+20, then the
     // poison save 1..resistance+40 drawn once even at zero damage), independent of
     // production draw conversion/generation. Algorithm-1 steps reconstruct raw.
-    // M75 shifted stock cursor: draw count 18 -> 17; victims [2,0,3,3] -> [3,4,1,1] change save bounds/path.
-    const unsigned lo[]{0,1,1,1,0,1,1,1,0,1,1,1,0,1,1,1,1};
-    // M75: hi [5,2,22,42,5,2,23,47,5,2,27,60,5,2,27,60,60,50] -> the bounds below.
-    const unsigned hi[]{5,2,27,60,5,2,24,47,5,2,24,40,5,2,24,40,50};
-    // M75: values [2,1,7,40,0,1,11,10,3,1,20,8,3,2,23,17,27,28] -> the independently replayed values below.
-    const unsigned value[]{3,1,27,48,4,1,17,7,1,2,14,29,1,1,9,22,7};
-    static_assert(sizeof(hi)/sizeof(*hi)==17 && sizeof(value)/sizeof(*value)==17 && sizeof(lo)/sizeof(*lo)==17);
-    child_test::require(actual.size()==17,"M40 post-stock trace raw-attempt count differs");
-    std::uint32_t raw=3311496048u;std::string canonical;
-    for(unsigned i=0;i<17;++i) {
+    // M87: four six-participant attacks each draw R(1,6), then R(0,4).
+    // Selected lanes 2,4,3,3 determine the two saving-throw bounds per strike.
+    const unsigned lo[]{1,0,1,1,1,1,0,1,1,1,1,0,1,1,1,1,0,1,1,1,1};
+    const unsigned hi[]{6,4,2,22,42,6,4,2,24,47,6,4,2,27,60,6,4,2,27,60,50};
+    const unsigned value[]{2,2,2,20,16,5,4,1,8,46,2,3,1,21,35,4,3,1,18,58,40};
+    static_assert(sizeof(hi)/sizeof(*hi)==21 && sizeof(value)/sizeof(*value)==21 && sizeof(lo)/sizeof(*lo)==21);
+    child_test::require(actual.size()==21,"M40 post-stock trace raw-attempt count differs");
+    std::uint32_t raw=290695566u;std::string canonical;
+    for(unsigned i=0;i<21;++i) {
         raw^=raw<<13;raw^=raw>>17;raw^=raw<<5;
-        const auto line="DRAW "+std::to_string(lo[i])+":"+std::to_string(hi[i])+":"+std::to_string(value[i])+":"+std::to_string(raw)+":"+std::to_string(2107+i);
+        const auto line="DRAW "+std::to_string(lo[i])+":"+std::to_string(hi[i])+":"+std::to_string(value[i])+":"+std::to_string(raw)+":"+std::to_string(2238+i);
         child_test::require(actual[i]==line,"M40 independent request/raw/value trace differs");canonical+=line+'\n';
     }
     // Every old secondary trace-hash mutation is caught by the complete
@@ -104,19 +97,19 @@ int main(int argc,char **argv) {
         // crossing midnight at E; the same fixed inputs still define A..D.
         // Part 0: WhoWill numeric selection and map-load clear suppress Space Wait.
         constexpr unsigned prefixMinutes=0,prefixSteps=0;
-        constexpr unsigned resetEndMinutes=1340;
+        constexpr unsigned resetEndMinutes=1349;
         child_test::require(a.journey && a.journey->schema==9 && a.journey->content==14 && a.journey->serviceEconomy &&
-            a.journey->context->day==8 && a.journey->context->minutes==1296+prefixMinutes && a.journey->context->ctr24==(14+prefixSteps)%24 &&
+            a.journey->context->day==8 && a.journey->context->minutes==1305+prefixMinutes && a.journey->context->ctr24==(14+prefixSteps)%24 &&
             a.journey->purse->gold==840 && a.characters[1].armor[0].state==128 && a.characters[1].armor[1].state==128 &&
-            a.journey->random->state==1902939615u && a.journey->random->count==1225,"M40 A original-resource checkpoint differs");
-        child_test::require(b.journey->context->day==11 && b.journey->context->minutes==1296+prefixMinutes && b.journey->purse->gold==830 &&
-            b.characters[1].armor[0].state==0 && b.characters[1].armor[1].state==128 && b.journey->random->state==3311496048u && b.journey->random->count==2106,"M40 B generating departure checkpoint differs");
-        child_test::require(c.journey->context->day==11 && c.journey->context->minutes==1310+prefixMinutes && c.journey->context->ctr24==(4+prefixSteps)%24 &&
-            d.journey->context->day==12 && d.journey->context->minutes==1310+prefixMinutes && d.journey->purse->gold==829 && d.characters[1].armor[1].state==0 &&
+            a.journey->random->state==1372052976u && a.journey->random->count==1337,"M40 A original-resource checkpoint differs");
+        child_test::require(b.journey->context->day==11 && b.journey->context->minutes==1305+prefixMinutes && b.journey->purse->gold==830 &&
+            b.characters[1].armor[0].state==0 && b.characters[1].armor[1].state==128 && b.journey->random->state==290695566u && b.journey->random->count==2237,"M40 B generating departure checkpoint differs");
+        child_test::require(c.journey->context->day==11 && c.journey->context->minutes==1319+prefixMinutes && c.journey->context->ctr24==(4+prefixSteps)%24 &&
+            d.journey->context->day==12 && d.journey->context->minutes==1319+prefixMinutes && d.journey->purse->gold==829 && d.characters[1].armor[1].state==0 &&
             c.journey->random==d.journey->random,"M40 C/D later navigation/repair checkpoint differs");
         child_test::require(e.journey->context->day==12+resetEndMinutes/1440 && e.journey->context->minutes==resetEndMinutes%1440 && e.journey->context->ctr24==prefixSteps%24 &&
             e.journey->purse->gold==829 && e.characters[1].currentSp==16 && e.characters[6].currentSp==24 &&
-            e.journey->random->state==3052845306u && e.journey->random->count==2123 && e.map(28).monsters->slots.size()==46 &&
+            e.journey->random->state==2602426289u && e.journey->random->count==2258 && e.map(28).monsters->slots.size()==46 &&
             e.map(28).monsters->slots.at(36).lifecycle==XeenActorLifecycle::Defeated,"M40 E reset-Slime combat/casting checkpoint differs");
         // Mutation: incorrect item/material/charges, extra/missing generation
         // draws, duplicate restock or a partial RNG/stock publication.

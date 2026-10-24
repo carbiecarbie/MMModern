@@ -45,17 +45,13 @@ inline void roster(const XeenPartyState &party,const std::vector<std::uint8_t> &
    const auto &item=items[category]->at(slot);const auto *p=r+166+category*36+slot*4;
    check(item.material==p[0] && item.id==p[1] && item.state==p[2] && item.frame==p[3],"Original equipment bytes");
   }
-  const auto *details=c.originalDetails();check(details,"Source-backed CHR details");
-  check(details->xeenSide==r[18] && details->birthDay==r[37] && details->temporaryAc==r[34] &&
+  check(c.xeenSide==r[18] && c.birthDay==r[37] &&
    c.lloydMap==r[160] && c.lloydX==r[161] && c.lloydY==r[162] && c.lloydSide==r[310] &&
-   c.currentSpell==r[164] && c.quickOption==r[165] && details->townUnknown==unsigned(r[339]|r[340]<<8) &&
-   details->savedMaze==r[341] && details->adventuringSpell==r[352] && details->combatSpell==r[353],"Source-backed beacon/quick-spell/town defaults");
-  for(unsigned n=0;n<64;++n)check(details->awards[n]==(n==9?r[57+n]:r[57+n]&15) &&
-   details->awards[n+64]==(n==9?0:r[57+n]>>4),"CHR award packing");
-  for(unsigned n=0;n<7;++n)check(details->attributes[n]==std::array<int,2>{r[20+n*2],r[21+n*2]},"CHR attribute details");
+   c.currentSpell==r[164] && c.quickOption==r[165] && c.townUnknown==r[339] &&
+   c.savedMaze==unsigned(r[340]|r[341]<<8) && c.adventuringSpell==r[352] && c.combatSpell==r[353],"CHR beacon/spell/lodging fields");
+  for(unsigned n=0;n<64;++n)check(c.awards[n]==(n==9?r[57+n]:r[57+n]&15) &&
+   c.awards[n+64]==(n==9?0:r[57+n]>>4),"CHR award packing");
   for(unsigned n=0;n<18;++n)check(c.skills[n]==r[39+n],"CHR skills");
-  for(unsigned n=0;n<6;++n)check(details->resistances[n]==std::array<int,2>{r[311+n*2],r[312+n*2]},"CHR resistances");
-  check(details->experience==std::uint32_t(r[348])+(std::uint32_t(r[349])<<8)+(std::uint32_t(r[350])<<16)+(std::uint32_t(r[351])<<24),"Source-backed experience");
   if(supplements) {
    const auto &input=party.roster.combatInputs(owner);check(bool(input) && bool(c.learnedSpells),"Complete fresh supplements");
    check(input->might.permanent==r[20] && input->might.temporary==r[21] && input->speed.permanent==r[28] &&

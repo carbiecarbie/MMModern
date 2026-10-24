@@ -58,7 +58,7 @@ inline mmodern::PlayerAction servicesCombatAction(const mmodern::XeenPartyState 
     bool broken=false;
     for(auto owner:kXeenCombatOwners)for(const auto &armor:party.roster.at(owner).armor)
         broken=broken || (armor.id && (armor.state&128));
-    if(earnArmor && !broken && openingAttacks++>=1)return BlockAction{};
+    if(earnArmor && !broken && openingAttacks++>=(unarmedSmith?0u:1u))return BlockAction{};
     return AttackAction{};
 }
 inline std::optional<mmodern::PlayerAction> toward(mmodern::XeenWorld &world,

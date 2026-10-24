@@ -138,11 +138,12 @@ int main(int argc,char **argv){try{
  const auto run=[&](const char *message){const auto r=launch(exe,{L"--load-game",game.wstring(),path.wstring()},log);check(r.exit==3&&r.output.find(message)!=std::string::npos&&r.output.find("Resumed ")==std::string::npos,"CLI startup failure/fallback content");};
  run("Inspect save file");
  for(int kind=0;kind<6;++kind){
-  auto saved=s;if(kind==0)saved.resources.clouds.crc32++;if(kind==1)saved.activeRosterIds={24};
+  auto saved=s;if(kind==0)saved.resources.clouds.crc32++;
   XeenSaveFile::write(path,saved);
+  if(kind==1){auto b=XeenSaveFormat::encode(saved);b[53]=24;save_test::fixIndependentEnvelope(b);std::ofstream out(path,std::ios::binary|std::ios::trunc);out.write(reinterpret_cast<const char*>(b.data()),b.size());}
   if(kind==2){std::ofstream out(path,std::ios::binary|std::ios::trunc);out<<"bad";}
   if(kind==3 || kind==5){auto b=XeenSaveFormat::encode(s);const auto version=kind==3?XeenSaveFormat::kJourneyVersion+1:XeenSaveFormat::kJourneyVersion-1;b[8]=version;b[9]=version>>8;std::ofstream out(path,std::ios::binary|std::ios::trunc);out.write(reinterpret_cast<const char*>(b.data()),b.size());}
-  run(kind==0?"archive/data-edition incompatibility":kind==1?"Journey membership":kind==2?"format":kind==3?"newer or unsupported MMModern build":kind==5?"older MMModern build":"maze0023.dat");
+  run(kind==0?"archive/data-edition incompatibility":kind==1?"active roster identity":kind==2?"format":kind==3?"newer or unsupported MMModern build":kind==5?"older MMModern build":"maze0023.dat");
   fs::remove(path);
  }
  XeenSaveFile::write(path,s);HANDLE lock=CreateFileW(path.c_str(),GENERIC_READ,0,nullptr,OPEN_EXISTING,FILE_ATTRIBUTE_NORMAL,nullptr);

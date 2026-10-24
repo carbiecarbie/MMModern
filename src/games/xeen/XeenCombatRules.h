@@ -56,8 +56,8 @@ struct XeenConsequenceDraw {
     void miss() const {if(playerMiss)playerMiss();else effect(6);}
 	std::optional<unsigned> draw(unsigned lo, unsigned hi);
 };
-using XeenConsequenceCharacters = std::array<XeenCharacter,6>;
-using XeenConsequenceInputs = std::array<XeenCombatInputs,6>;
+using XeenConsequenceCharacters = XeenPartyLanes<XeenCharacter>;
+using XeenConsequenceInputs = XeenPartyLanes<XeenCombatInputs>;
 // Explicit value inputs from the party owner, never inferred from a missing
 // field. Order is fire, electrical, cold, poison as in giveCharDamage.
 struct XeenDamageProtection {
@@ -95,7 +95,7 @@ private:
     std::array<unsigned,6> participants{},eligible{};
     unsigned count=0,eligibleCount=0;
     unsigned preferred=6;
-    enum class Step { Target, Fallback, Done } step=Step::Target;
+    enum class Step { Target, SixSecond, Fallback, Done } step=Step::Target;
 };
 // Original POW resource selector for the implemented ranged spells.
 unsigned xeenSpellProjectile(XeenLearnedSpell,unsigned damageType=2,unsigned itemPower=0);
@@ -161,14 +161,14 @@ private:
 // Owners retain targets, RNG, presentation and settlement.
 struct XeenPartyVolley {
     std::array<bool,6> eligible{},spent{};
-    unsigned shooter=0;
+    unsigned shooter=0,count=6;
     bool remaining() const noexcept {
-        for(unsigned i=0;i<6;++i)if(eligible[i] && !spent[i])return true;
+        for(unsigned i=0;i<count;++i)if(eligible[i] && !spent[i])return true;
         return false;
     }
     bool select() noexcept {
-        while(shooter<6 && (!eligible[shooter] || spent[shooter]))++shooter;
-        return shooter<6;
+        while(shooter<count && (!eligible[shooter] || spent[shooter]))++shooter;
+        return shooter<count;
     }
     void settle(bool hit) {spent.at(shooter)=hit;++shooter;}
     void nextTarget() noexcept {shooter=0;}

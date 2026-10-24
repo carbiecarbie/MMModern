@@ -59,27 +59,38 @@ private:
 
 class XeenParty {
 public:
-	// Membership is this value's sole state. PartyState owns the other party data.
+	// Membership and the unsaved Dismiss tail. PartyState owns other party data.
 	XeenParty()=default;
 	XeenParty(const XeenParty &)=default;
-	XeenParty(XeenParty &&other) noexcept : _activeRosterIds(std::move(other._activeRosterIds)) { XeenMutationWatch::write(&other); }
-	XeenParty &operator=(const XeenParty &other) { XeenMutationWatch::write(this);_activeRosterIds=other._activeRosterIds;return *this; }
-	XeenParty &operator=(XeenParty &&other) noexcept { XeenMutationWatch::write(this);XeenMutationWatch::write(&other);_activeRosterIds=std::move(other._activeRosterIds);return *this; }
+	XeenParty(XeenParty &&other) noexcept : _activeRosterIds(std::move(other._activeRosterIds)), _dismissedRosterIds(std::move(other._dismissedRosterIds)) { XeenMutationWatch::write(&other); }
+	XeenParty &operator=(const XeenParty &other) { XeenMutationWatch::write(this);_activeRosterIds=other._activeRosterIds;_dismissedRosterIds=other._dismissedRosterIds;return *this; }
+	XeenParty &operator=(XeenParty &&other) noexcept { XeenMutationWatch::write(this);XeenMutationWatch::write(&other);_activeRosterIds=std::move(other._activeRosterIds);_dismissedRosterIds=std::move(other._dismissedRosterIds);return *this; }
 	static constexpr std::size_t kSerializedMemberSlots = 8;
 	static constexpr std::size_t kMaximumVisibleMembers = 6;
 	// Restore exact active order, including the loader's supported duplicates.
 	static XeenParty fromRosterIds(std::vector<std::uint8_t> ids);
 
 	const XeenMutableVector<std::uint8_t> &activeRosterIds() const { return _activeRosterIds; }
+    const XeenMutableVector<std::uint8_t> &dismissedRosterIds() const {return _dismissedRosterIds;}
+    XeenParty dismissed(std::size_t index) const {
+        if(size()<=1 || index>=size())throw std::invalid_argument("Invalid Dismiss selection");
+        XeenParty next(*this);next._dismissedRosterIds.push_back(next._activeRosterIds.at(index));
+        next._activeRosterIds.erase(next._activeRosterIds.begin()+index);return next;
+    }
+    XeenParty reordered(std::vector<std::uint8_t> ids) const {
+        auto next=fromRosterIds(std::move(ids));next._dismissedRosterIds=_dismissedRosterIds;return next;
+    }
 	std::size_t size() const { return _activeRosterIds.size(); }
 	XeenPartyOrder activeOrder() const {
-		if(size()!=6)throw std::invalid_argument("Journey requires six party members");
-		XeenPartyOrder order{};for(unsigned n=0;n<6;++n)order[n]=_activeRosterIds[n];return order;
+
+		XeenPartyOrder order(size());for(unsigned n=0;n<size();++n)order[n]=_activeRosterIds[n];return order;
 	}
 	const XeenCharacter &member(const XeenRoster &roster, std::size_t partyIndex) const;
 
 private:
 	friend class XeenPartyLoader;
+    friend class XeenSaveState;
+    XeenMutableVector<std::uint8_t> _dismissedRosterIds;
 	XeenMutableVector<std::uint8_t> _activeRosterIds;
 };
 
@@ -163,6 +174,7 @@ struct XeenPartyState {
 	XeenMutable<std::uint8_t> firstSerializedCount = 0;
 	XeenMutable<std::uint8_t> effectiveSerializedCount = 0;
 	XeenMutableDiagnostics diagnostics;
+	XeenMutable<bool> insideInn=false; // Envelope flag; camera is the prior map's tavern door.
 	XeenMutable<std::uint16_t> food = 0;
 	XeenMutable<XeenSoundOptions> soundOptions;
 private:

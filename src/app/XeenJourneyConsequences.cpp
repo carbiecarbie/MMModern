@@ -11,10 +11,10 @@ namespace mmodern {
 namespace {
 struct ConsequenceScope { bool &busy; explicit ConsequenceScope(bool &b):busy(b){busy=true;} ~ConsequenceScope(){busy=false;} };
 XeenConsequenceCharacters activeCharacters(const XeenPartyState &p,const XeenPartyOrder &order) {
- XeenConsequenceCharacters c;for(unsigned i=0;i<6;++i)c[i]=p.roster.at(order[i]);return c;
+ XeenConsequenceCharacters c;c.setCount(order.size());for(unsigned i=0;i<order.size();++i)c[i]=p.roster.at(order[i]);return c;
 }
 XeenConsequenceInputs activeInputs(const XeenPartyState &p,const XeenPartyOrder &order) {
- XeenConsequenceInputs c;for(unsigned i=0;i<6;++i)c[i]=*p.roster.combatInputs(order[i]);return c;
+ XeenConsequenceInputs c;c.setCount(order.size());for(unsigned i=0;i<order.size();++i)c[i]=*p.roster.combatInputs(order[i]);return c;
 }
 }
 bool XeenEncounterFlow::beginShoot() {
@@ -28,8 +28,8 @@ bool XeenEncounterFlow::beginShoot() {
   const unsigned charge=indoor?1:10;
   xeenValidateJourneyMelee(_party);
   auto candidate=std::make_unique<XeenShootCandidate>();bool eligible=false;
-  candidate->owners=_party.party.activeOrder();candidate->charge=charge;
-  for(unsigned i=0;i<6;++i) {
+  candidate->owners=_party.party.activeOrder();candidate->volley.count=candidate->owners.size();candidate->charge=charge;
+  for(unsigned i=0;i<_party.party.size();++i) {
    const auto &c=_party.roster.at(candidate->owners[i]);
    if(c.canAct()) for(const auto &w:c.weapons) if(w.frame==4) candidate->volley.eligible[i]=eligible=true;
   }
@@ -65,7 +65,7 @@ bool XeenEncounterFlow::beginShoot() {
   candidate->projectileEnd.fill(rows-1);
   candidate->rows=rows;
   std::vector<XeenProjectileAppearance> projectile;
-  for(unsigned i=0;i<6;++i)if(candidate->volley.eligible[i])projectile.push_back({false,0,i,3,{}});
+  for(unsigned i=0;i<_party.party.size();++i)if(candidate->volley.eligible[i])projectile.push_back({false,0,i,3,{}});
   candidate->blockedRow=xeenPlayerRayWall(_world,_camera,rows);
   for(unsigned row=0;row<rows;++row)
    for(unsigned slot=0;slot<3;++slot) candidate->targets[row*3+slot]=view.slots[row*3+slot];
@@ -155,8 +155,8 @@ bool XeenEncounterFlow::serviceShoot() {
     if(!work.suffixPrepared) {
      if(damage()>=actor.hp) {
       std::array<const XeenCharacter *,6> owners{};
-      for(unsigned i=0;i<6;++i) owners[i]=&_party.roster.at(work.owners[i]);
-      work.lethal=xeenPrepareJourneyLethal(actor,owners,activeInputs(_party,work.owners),session.accountedMonsters(),0x3f);
+      for(unsigned i=0;i<work.owners.size();++i) owners[i]=&_party.roster.at(work.owners[i]);
+      work.lethal=xeenPrepareJourneyLethal(actor,owners,activeInputs(_party,work.owners),session.accountedMonsters(),work.owners.mask());
      }
      work.feedback="Shoot owner "+std::to_string(owner)+" -> actor "+std::to_string(id->recordIndex)+
       (hit()?" hit ":" miss ")+std::to_string(damage())+(work.lethal?" defeated":"");
@@ -211,7 +211,7 @@ bool XeenEncounterFlow::serviceShoot() {
     if(work.lethal) {
      if(work.target<3)_world.scenePresentation().splats[work.target]={};
      live=work.lethal->actor;session._accountedMonsters.swap(work.lethal->accounted);
-     for(unsigned i=0;i<6;++i) _party.roster._combatInputs[work.owners[i]]->experience=work.lethal->experience[i];
+     for(unsigned i=0;i<work.owners.size();++i) _party.roster._combatInputs[work.owners[i]]->experience=work.lethal->experience[i];
      if(work.drop) _world.treasureStaging().publish(work.drop->treasure);
     } else live.hp=actor.hp-damage();
     live.status=status();
@@ -243,7 +243,7 @@ bool XeenEncounterFlow::serviceShoot() {
     if(work.blockedRow<4 && (!dispatched || XeenLearnedSpellRules::range(std::uint8_t(*work.spell))==XeenSpellRange::All))fmEffect(46);
    } else {
     unsigned lastHit=4;
-    for(unsigned lane=0;lane<6;++lane)if(work.volley.eligible[lane] && work.volley.spent[lane])
+    for(unsigned lane=0;lane<work.owners.size();++lane)if(work.volley.eligible[lane] && work.volley.spent[lane])
      lastHit=lastHit==4?work.projectileEnd[lane]:std::max(lastHit,work.projectileEnd[lane]);
     if(xeenMissileReachesFmWall(work.blockedRow,work.volley.remaining(),lastHit))fmEffect(46);
    }
@@ -294,7 +294,7 @@ bool XeenEncounterFlow::serviceShoot() {
   if(work.terrain->rule.damage)for(auto owner:work.owners)
    _world.scenePresentation().portraitDamage(owner,work.terrain->rule.type==XeenDamageType::Fire?1u:0u,_lastTime);
   if(work.time->needsRest)_needsRestNotice=true;
-  _party.serviceEconomy=work.time->economy;for(unsigned n=0;n<6;++n)_party.roster._combatInputs[work.owners[n]]=work.time->inputs[n];
+  _party.serviceEconomy=work.time->economy;for(unsigned n=0;n<work.owners.size();++n)_party.roster._combatInputs[work.owners[n]]=work.time->inputs[n];
   _party.encounterContext=work.time->context;session._journeyRandom=work.random.continuation();_state._pending=living && !_terrainFall?3:0;
   if(!living) { _state._phase=XeenEncounterPhase::SupportStopped;_state._reason=XeenEncounterStop::Defeat;session._encounterTerminal=true; }
   ++session._encounterRevision;_state._revision=session._encounterRevision;++session._journeyGeneration;++_generation;
@@ -464,7 +464,7 @@ std::string XeenEncounterFlow::consequenceNotice() const {
   const bool city=!const_cast<XeenWorld &>(_world).map(_camera.mapId).geometry.isOutdoors();
   out<<"Arrows move/turn; W Wait; S Shoot:";
   bool eligible=false;
-  for(unsigned i=0;i<6;++i){const auto &c=_party.roster.at(_party.party.activeRosterIds()[i]);if(c.canAct())for(const auto &w:c.weapons)if(w.frame==4){out<<' '<<i+1;eligible=true;break;}}
+  for(unsigned i=0;i<_party.party.size();++i){const auto &c=_party.roster.at(_party.party.activeRosterIds()[i]);if(c.canAct())for(const auto &w:c.weapons)if(w.frame==4){out<<' '<<i+1;eligible=true;break;}}
   if(!eligible)out<<" none";
   out<<"\nI inventory; F9 quiet save; Space interact\n";
   const auto &active=_world.sessionState().regionalActors(_camera.mapId);
@@ -494,7 +494,7 @@ std::string XeenEncounterFlow::consequenceNotice() const {
  if(!stopped && finishNotice) {
   out<<"Disengaged; gold forfeited "<<_retiredCombatResult.forfeitedGold<<", gems forfeited "<<_retiredCombatResult.forfeitedGems<<'\n';
   if(_retiredCombatResult.casualties) {
-   out<<"Abandoned:";for(unsigned i=0;i<6;++i)if(_retiredCombatResult.casualties&(1u<<i))out<<' '<<_party.roster.at(_party.party.activeRosterIds()[i]).name;
+   out<<"Abandoned:";for(unsigned i=0;i<_party.party.size();++i)if(_retiredCombatResult.casualties&(1u<<i))out<<' '<<_party.roster.at(_party.party.activeRosterIds()[i]).name;
    out<<'\n';
   }
   const auto &staged=_world.treasureStaging().value();

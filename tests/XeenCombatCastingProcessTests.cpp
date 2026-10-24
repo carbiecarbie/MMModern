@@ -54,14 +54,14 @@ int main(int argc,char **argv) {
         child_test::require(orc.journey && orc.journey->schema==schema && orc.journey->content==content && orc.characters[1].currentSp==20 &&
             orc.characters[6].currentSp==25 && orc.map(23).monsters->slots[9].accounted && orc.map(23).monsters->slots[9].lifecycle==XeenActorLifecycle::Defeated &&
             orc.journey->purse->gold==810 && orc.journey->context->minutes==511 && orc.journey->context->ctr24==2 &&
-            orc.journey->random->state==82049198u && orc.journey->random->count==14,"M39 genuine Orc Quiet checkpoint differs");
+            orc.journey->random->state==4009186839u && orc.journey->random->count==15,"M39 genuine Orc Quiet checkpoint differs");
         equal(a,run("A-from-orc","A","A",dir/"A-A.mmsave"));
         child_test::require(drawsAfter(dir/"A.log","M39 CHECKPOINT A ")==drawsAfter(dir/"A-from-orc.log","M39 RESTORE EXACT BEFORE INPUT"),"M39 mainland continuation RNG request trace differs");
         // Part 0: entrance map load clears Space; it adds no Wait minute or step.
         // The established Slime combat requests, draw cursor and SP stay exact.
         const auto city=XeenSaveFile::read(dir/"A-city.mmsave");
         child_test::require(city.map(28).monsters && city.characters[6].currentSp==23 && city.map(23).monsters->slots[9].accounted &&
-            city.characters[1].currentSp==20 && city.journey->random->state==1391776747u && city.journey->random->count==23 &&
+            city.characters[1].currentSp==20 && city.journey->random->state==2050180235u && city.journey->random->count==26 &&
             city.journey->context->minutes==570 && city.journey->context->ctr24==21,"M39 genuine two-region Slime checkpoint differs");
         // M49: Slime hatred 16 selects one member per attack, not the entire
         // party (pinned combat.cpp:904-930). Two d2 poison strikes: the initial
@@ -69,11 +69,12 @@ int main(int argc,char **argv) {
         // these targets), then the poison save loop (1..40, 1..60) halves while it
         // succeeds and the damage stays nonzero; Seymour's bound Arrow save follows.
         child_test::require(drawsAfter(dir/"A.log","M39 CHECKPOINT A ")==std::vector<std::string>{
-            "DRAW 0:5:5:87470069:15","DRAW 1:2:2:3385103793:16",
-            "DRAW 1:25:13:891394312:17","DRAW 1:40:25:3323190024:18",
-            "DRAW 0:5:3:321008529:19","DRAW 1:2:2:4283899417:20",
-            "DRAW 1:27:3:2383559219:21","DRAW 1:60:6:3822316985:22",
-            "DRAW 1:50:48:1391776747:23"},
+            "DRAW 1:6:2:2189637037:16","DRAW 0:4:2:1659507062:17",
+            "DRAW 1:2:1:945611668:18","DRAW 1:22:20:568852963:19",
+            "DRAW 1:42:2:458903593:20","DRAW 1:6:1:2058635334:21",
+            "DRAW 0:4:2:2216870552:22","DRAW 1:2:1:1380202656:23",
+            "DRAW 1:22:15:2136609544:24","DRAW 1:42:18:2589638453:25",
+            "DRAW 1:50:36:2050180235:26"},
             "M49 Slime single-target strike/save/Arrow RNG order differs");
         equal(a,run("A-from-city","A","city",dir/"A-city.mmsave"));
         child_test::require(drawsAfter(dir/"A.log","M39 CHECKPOINT city ")==drawsAfter(dir/"A-from-city.log","M39 RESTORE EXACT BEFORE INPUT"),"M39 city continuation RNG request trace differs");
@@ -86,11 +87,11 @@ int main(int argc,char **argv) {
             const auto settled=XeenSaveFile::read(dir/(std::string(branch)+"-"+branch+".mmsave"));
             child_test::require(settled.journey->schema==schema && settled.journey->content==content &&
                 settled.camera.mapId==XeenMapIdentity(23) && settled.camera.x==10 && settled.camera.y==12 &&
-                settled.journey->context->minutes==(waking?594:591) && settled.journey->context->ctr24==16 &&
+                settled.journey->context->minutes==(waking?592:591) && settled.journey->context->ctr24==16 &&
                 settled.characters[1].currentSp==(waking?20:21) && settled.characters[6].currentSp==(waking?26:25) &&
-                settled.journey->random->state==(waking?551172653u:2593204823u) && settled.journey->random->count==885+(waking?57u:29u) &&
+                settled.journey->random->state==(waking?2928686826u:2686943208u) && settled.journey->random->count==885+(waking?43u:39u) &&
                 // Decision 8: the save holds no HP; the witness asserts the Toad's
-                // live wound (43 or 35) before this checkpoint.
+                // live wound (33 or 25) before this checkpoint.
                 settled.map(23).monsters->slots[15].lifecycle==XeenActorLifecycle::Present && !settled.map(23).monsters->slots[15].accounted,
                 "M49 M71 ordinary Sleep/Arrow and Run checkpoint: catches wrong SP cost, draw publication, or combat accounting");
             // Decision 8 (M69): B and C save the Toad wounded and woken, which a
@@ -100,7 +101,7 @@ int main(int argc,char **argv) {
             run(std::string(branch)+"-restore",branch,"continued",dir/(std::string(branch)+"-"+branch+".mmsave"));
             const auto log=[&](const std::string &name){std::ifstream in(dir/(name+".log"));return std::string{std::istreambuf_iterator<char>(in),{}};};
             const auto uninterrupted=log(branch),restored=log(std::string(branch)+"-restore");
-            child_test::require(uninterrupted.find(std::string("M39 TOAD END HP=")+(waking?"43":"35")+" woken=1")!=std::string::npos,
+            child_test::require(uninterrupted.find(std::string("M39 TOAD END HP=")+(waking?"33":"25")+" woken=1")!=std::string::npos,
                 "M39 uninterrupted continuation lost the Toad's wound");
             child_test::require(restored.find("M39 DECISION8 TOAD HP=90 woken=0")!=std::string::npos &&
                 restored.find("M39 TOAD END HP=90")!=std::string::npos,"M39 resumed continuation did not rebuild the Toad at MON HP");

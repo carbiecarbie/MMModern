@@ -411,7 +411,8 @@ std::optional<std::uint64_t> XeenEncounterFlow::beginItemUse(const Ticket &entry
 		c.owners=_party.party.activeOrder();c.camera=next->jumpDestination.value_or(_camera);c.context=*_party.encounterContext;c.actors=(mapWork.world?mapWork.world->sessionState():s).regionalActors(c.camera.mapId);
 		c.random=XeenCombatRandom(*s.journeyRandom());c.revision=_state.revision();c.pending=0;
 		c.remaining=1;c.classify=true;c.result.outcome=XeenEncounterOutcome::Pulsed;
-		for(unsigned i=0;i<6;++i) { c.characters[i]=_party.roster.at(c.owners[i]);c.inputs[i]=*_party.roster.combatInputs(c.owners[i]); }
+		c.characters.setCount(c.owners.size());c.inputs.setCount(c.owners.size());
+        for(unsigned i=0;i<c.owners.size();++i) { c.characters[i]=_party.roster.at(c.owners[i]);c.inputs[i]=*_party.roster.combatInputs(c.owners[i]); }
 		{XeenRestoreGuard::Providers providers(*_journeyPreimage,_world);
 			c.exploration=_world.explorationAfterStep(_party,_camera);_journeyPreimage->check();}
 		next->generation=++_itemUseGeneration;next->epoch=selection.epoch+1;
@@ -584,7 +585,8 @@ bool XeenEncounterFlow::serviceItemUse() {
 			auto &c=*_itemUse->opportunity;
 			c.camera=_camera;c.context=*_party.encounterContext;c.actors=s.regionalActors(_camera.mapId);
 			c.random=XeenCombatRandom(*s.journeyRandom());c.revision=_state.revision();
-			for(unsigned i=0;i<6;++i) {c.characters[i]=_party.roster.at(c.owners[i]);c.inputs[i]=*_party.roster.combatInputs(c.owners[i]);}
+			c.characters.setCount(c.owners.size());c.inputs.setCount(c.owners.size());
+        for(unsigned i=0;i<c.owners.size();++i) {c.characters[i]=_party.roster.at(c.owners[i]);c.inputs[i]=*_party.roster.combatInputs(c.owners[i]);}
 			{XeenRestoreGuard::Providers providers(*_journeyPreimage,_world);
 				c.exploration=_world.explorationAfterStep(_party,_camera);_journeyPreimage->check();}
 		}
@@ -944,13 +946,28 @@ XeenEncounterResult XeenEncounterFlow::advanceJourney(const Ticket &entry, std::
 		closeJourney(); throw;
 	}
 }
+bool XeenEncounterFlow::journeyDismiss(const Ticket &entry,std::size_t member) {
+    if(!journeyMutable() || !current(entry) || !_boundary.quiet() || !journeyCapacity() ||
+       member>=_party.party.size() || _party.party.size()<=1)return false;
+    BusyJourney busy(_busy);
+    try {
+        xeenValidateJourneyParty(_party);
+        auto next=_party.party.dismissed(member);
+        _journeyPreimage->check();
+        _party.party=std::move(next);
+        _party.firstSerializedCount=_party.effectiveSerializedCount=_party.party.size();
+        xeenValidateJourneyParty(_party);
+        _retiredCombatResult={};_combatObservation={};_combatAward={};
+        ++_generation;retainJourney();return true;
+    } catch(...) {closeJourney();throw;}
+}
 bool XeenEncounterFlow::journeyExchange(const Ticket &entry,std::size_t from,std::size_t to,std::uint64_t lease) {
     if(!journeyMutable() || !current(entry) || !journeyCapacity() ||
-        !_boundary.only(XeenCombatBoundary::Work::Inventory,lease) || from>=6 || to>=6 || from==to)return false;
+        !_boundary.only(XeenCombatBoundary::Work::Inventory,lease) || from>=_party.party.size() || to>=_party.party.size() || from==to)return false;
     BusyJourney busy(_busy);
     try {
         xeenValidateJourneyParty(_party);std::vector<std::uint8_t> ids=_party.party.activeRosterIds();std::swap(ids[from],ids[to]);
-        auto next=XeenParty::fromRosterIds(ids);_journeyPreimage->check();_party.party=std::move(next);
+        auto next=_party.party.reordered(ids);_journeyPreimage->check();_party.party=std::move(next);
         ++_generation;retainJourney();return true;
     }catch(...) {closeJourney();throw;}
 }
@@ -1002,7 +1019,7 @@ XeenEquipmentResult XeenEncounterFlow::journeyEquipment(const Ticket &entry, std
 		XeenInventoryCategory category, std::size_t slot, XeenEquipmentOperation operation) {
 	if(_combat) {
         XeenEquipmentResult result;
-        if(current(entry) && active<6 && (_combat->participants()&(1u<<active)))
+        if(current(entry) && active<_party.party.size() && (_combat->participants()&(1u<<active)))
             _combat->changeInventory(*entry.combat,[&](XeenPartyState &candidate) {
                 result=xeenSetEquipment(candidate,active,category,slot,operation);
                 return result.status==XeenEquipmentStatus::Success;
@@ -1022,7 +1039,7 @@ XeenTransferResult XeenEncounterFlow::journeyTransfer(const Ticket &entry, std::
 		XeenInventoryCategory category, std::size_t slot) {
 	if(_combat) {
         XeenTransferResult result;
-        if(current(entry) && from<6 && to<6 && (_combat->participants()&(1u<<from)) && (_combat->participants()&(1u<<to)))
+        if(current(entry) && from<_party.party.size() && to<_party.party.size() && (_combat->participants()&(1u<<from)) && (_combat->participants()&(1u<<to)))
             _combat->changeInventory(*entry.combat,[&](XeenPartyState &candidate) {
                 result=xeenTransferItem(candidate,from,to,category,slot);
                 return result.status==XeenTransferStatus::Success;

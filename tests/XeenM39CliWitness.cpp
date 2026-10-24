@@ -266,7 +266,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
             if(branch=="native-fault")checkpoint("prior");
             if(branch=="A" || branch=="controls" || branch=="native" || branch=="native-fault") {
                 route("UFU",false);untilActor(4,false);
-                inspect([&]{check(position->x==7 && position->y==11 && party->roster.at(6).currentHp==11 && party->roster.at(1).currentSp==21,"M39 A prefix");});
+                inspect([&]{check(position->x==7 && position->y==11 && party->roster.at(6).currentHp==9 && party->roster.at(1).currentSp==21,"M39 A prefix");});
                 if(branch=="native-fault") {
                     if(control.find("projectile")!=std::string::npos) {
                         // Arm native failure at the first settled projectile compose.
@@ -342,7 +342,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
                     action(CastSpellAction{});castSelected();
                     inspect([&]{check(party->roster.at(1).currentSp==20 && cast()->phase==XeenCombatCastPhase::PartyTarget,"M39 refund prompt/debit");});deny();
                     action(CancelInteractionAction{});result();
-                    inspect([&]{check(cast()->result.refunded && party->roster.at(1).currentSp==21 && party->roster.at(6).currentHp==11,"M39 exact recorded refund");});
+                    inspect([&]{check(cast()->result.refunded && party->roster.at(1).currentSp==21 && party->roster.at(6).currentHp==9,"M39 exact recorded refund");});
                     action(AcknowledgeAction{});untilActor(5,false);
                     inspect([&]{check(combat()->participant()==5,"M39 refund did not consume Rebecca turn");});
                     auto seymour=std::make_shared<std::unique_ptr<XeenRestoreGuard>>();
@@ -379,10 +379,10 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
             }else {
                 route("LUUURUULURUULUUU",false);untilActor(5,true);
                 inspect([&]{std::cout<<"M49 MONSTER PREFIX HP="<<world->sessionState().monsters(23)[15].hp<<" RNG="<<world->sessionState().journeyRandom()->count<<" minute="<<party->encounterContext->minutes<<'\n';
-                    check(party->encounterContext->minutes==590 && world->sessionState().journeyRandom()->count==rngOffset+19 &&
-                    world->sessionState().monsters(23)[15].hp==43,"M49 corrected single-target monster first-cycle prefix");});
+                    check(party->encounterContext->minutes==590 && world->sessionState().journeyRandom()->count==rngOffset+21 &&
+                    world->sessionState().monsters(23)[15].hp==33,"M49 corrected single-target monster first-cycle prefix");});
                 if(branch=="C") {
-                    arrow(15);inspect([&]{check(world->sessionState().monsters(23)[15].hp==35 && party->roster.at(6).currentSp==25,"M39 C wound");std::cout<<"M49 C WOUND HP43->35 SP27->25\n";});
+                    arrow(15);inspect([&]{check(world->sessionState().monsters(23)[15].hp==25 && party->roster.at(6).currentSp==25,"M39 C wound");std::cout<<"M49 C WOUND HP43->35 SP27->25\n";});
                     action(AcknowledgeAction{});settle();checkpoint("C");
                 }else {
                     // M71: perform the healthy paid First Aid before the ordinary Sleep attack
@@ -392,13 +392,13 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
                     inspect([&]{check(party->roster.at(1).currentHp==21 && party->roster.at(1).currentSp==20 && cast()->result.noop,"M71 paid healthy First Aid: catches healing a healthy target or omitted SP debit");});action(AcknowledgeAction{});
                     steps.push_back([&]{const auto c=combat();check(c && c->phase()!=XeenCombatPhase::Defeat,"M71 sleep route lost combat");if(c->phase()!=XeenCombatPhase::PlayerReady)return false;bool sleeping=false;for(auto owner:kXeenCombatOwners)sleeping=sleeping || party->roster.at(owner).conditions[8];if(c->participant()==5 && sleeping)return true;act(BlockAction{});return false;});
                     inspect([&]{std::cout<<"M49 B PREFIX HP="<<world->sessionState().monsters(23)[15].hp<<" RNG="<<world->sessionState().journeyRandom()->count<<" minute="<<party->encounterContext->minutes<<" Rebecca="<<party->roster.at(1).currentHp<<" sleep="<<unsigned(party->roster.at(1).conditions[8])<<","<<unsigned(party->roster.at(14).conditions[8])<<","<<unsigned(party->roster.at(11).conditions[8])<<'\n';
-                        check(party->encounterContext->minutes==593 && world->sessionState().journeyRandom()->count==rngOffset+43 &&
-                        world->sessionState().monsters(23)[15].hp==43 && party->roster.at(1).conditions[8]==1 && party->roster.at(1).currentHp==0 &&
-                        !party->roster.at(14).conditions[8] && !party->roster.at(11).conditions[8],"M49 B single-target Sleep prefix");});
+                        check(party->encounterContext->minutes==591 && world->sessionState().journeyRandom()->count==rngOffset+33 &&
+                        world->sessionState().monsters(23)[15].hp==33 && !party->roster.at(1).conditions[8] && party->roster.at(1).currentHp==21 &&
+                        !party->roster.at(14).conditions[8] && party->roster.at(11).conditions[8]==1,"M49 B single-target Sleep prefix");});
                     action(CastSpellAction{});selectSpell(1);castSelected();result();
-                    inspect([&]{check(party->roster.at(6).currentSp==26 && !party->roster.at(1).conditions[8] && party->roster.at(1).currentHp==0 &&
+                    inspect([&]{check(party->roster.at(6).currentSp==26 && !party->roster.at(1).conditions[8] && party->roster.at(1).currentHp==21 &&
                         !party->roster.at(14).conditions[8] && !party->roster.at(11).conditions[8] &&
-                        party->encounterContext->minutes==593 && world->sessionState().journeyRandom()->count==rngOffset+43,"M39 B Awaken");std::cout<<"M39 B AWAKEN Sleep1->0 unchanged RNG/time\n";});
+                        party->encounterContext->minutes==591 && world->sessionState().journeyRandom()->count==rngOffset+33,"M39 B Awaken");std::cout<<"M39 B AWAKEN Sleep1->0 unchanged RNG/time\n";});
                     action(AcknowledgeAction{});settle();checkpoint("B");
                 }
             }
@@ -486,8 +486,8 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
             check(!ok && nativeFailed && saves==3 && !flow->canSave(),"M39 native failed frame manufactured authority/save");
             const auto prior=XeenSaveFile::read(*target);
             check(prior.characters[1].currentSp==21 && prior.characters[6].currentSp==27 && prior.journey->random->count==rngOffset,"M39 native failure overwrote previous disk save");
-            if(control.find("projectile")!=std::string::npos)check(party->roster.at(6).currentSp==25 && world->sessionState().monsters(23)[9].hp==7 && !world->sessionState().accountedMonsters().count({23,9}) && world->sessionState().journeyRandom()->count==rngOffset+12,"M49 failed projectile published HP/reward/RNG or refunded reservation");
-            else check(party->roster.at(1).currentSp==20 && party->roster.at(6).currentHp==(control.find("result")!=std::string::npos?15:11),"M39 native failure changed committed cost/effect prefix");
+            if(control.find("projectile")!=std::string::npos)check(party->roster.at(6).currentSp==25 && world->sessionState().monsters(23)[9].hp==7 && !world->sessionState().accountedMonsters().count({23,9}) && world->sessionState().journeyRandom()->count==rngOffset+13,"M49 failed projectile published HP/reward/RNG or refunded reservation");
+            else check(party->roster.at(1).currentSp==20 && party->roster.at(6).currentHp==(control.find("result")!=std::string::npos?15:9),"M39 native failure changed committed cost/effect prefix");
             std::cout<<"M39 NATIVE FAILURE PREFIX PASSED "<<control<<'\n';return true;
         }
         return ok;
@@ -507,7 +507,8 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
         setup.show=[&](const auto &first,const auto &handler,const auto &,const auto &,const auto &) {
             handler.framePresented(first.presentation());
             auto fixture=XeenSaveState::capture(original.resources.signature,*initialParty,*initialCamera,*initialFlags,*initialWorld);
-            fixture.journey->random=XeenJourneyRandomState{1,1,0};
+            // M87: cursor 39 yields the healable HP9 / Orc HP7 preimage with DOS target draws.
+            fixture.journey->random=XeenJourneyRandomState{1,39,0};
             XeenSaveFile::write(*target,fixture);
             return true;
         };

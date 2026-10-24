@@ -85,6 +85,7 @@ public:
 	XeenEncounterResult journeyPulse(const Ticket &);
 	XeenEquipmentResult journeyEquipment(const Ticket &, std::size_t, XeenInventoryCategory, std::size_t, XeenEquipmentOperation);
 	bool journeyExchange(const Ticket &,std::size_t,std::size_t,std::uint64_t inventoryLease);
+    bool journeyDismiss(const Ticket &,std::size_t);
 	bool rememberSpell(const Ticket &,std::size_t,unsigned);
 	bool configureQuickFight(const Ticket &,std::size_t);
 	bool toggleAutomap(const Ticket &);
@@ -154,7 +155,7 @@ public:
         if(_combat && _combat->cast() && _castProjectile && _castProjectile->active) {
             const auto cast=*_combat->cast();
             if(cast.result.spell==unsigned(XeenLearnedSpell::PoisonVolley)) {
-                for(unsigned i=0;i<6;++i)if(cast.volleyShots&(1u<<i)) {
+                for(unsigned i=0;i<_party.party.size();++i)if(cast.volleyShots&(1u<<i)) {
                     auto projectile=*_castProjectile;projectile.lane=i;result.projectiles.push_back(projectile);
                 }
             } else result.projectiles.push_back(*_castProjectile);

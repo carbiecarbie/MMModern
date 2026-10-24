@@ -601,6 +601,8 @@ private:
 	IndexedFrame _frame;
 	std::string _mainScreenNotice;
     std::string _whoWillRefusal;
+    bool _dismissOpen=false;
+    std::string _dismissRefusal;
 	IndexedFrame drawMainScreenNotice(const IndexedFrame &, const std::string &) const;
     IndexedFrame drawTerminalEncounterNotice(const IndexedFrame &, const std::string &) const;
  void drawPartyPresentation(IndexedFrame &) const;

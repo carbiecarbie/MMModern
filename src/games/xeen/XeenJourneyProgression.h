@@ -13,17 +13,17 @@ struct XeenJourneyLethal {
 	std::set<XeenMonsterIdentity> accounted;
 };
 inline XeenJourneyLethal xeenPrepareJourneyLethal(const XeenActor &actor,
-		const std::array<const XeenCharacter *,6> &characters, const std::array<XeenCombatInputs,6> &inputs,
+		const std::array<const XeenCharacter *,6> &characters, const XeenPartyLanes<XeenCombatInputs> &inputs,
 		const std::set<XeenMonsterIdentity> &accounted, unsigned participantMask) {
-	if (participantMask>0x3f) throw std::invalid_argument("Invalid Journey XP participation mask");
+	if (participantMask>inputs.mask()) throw std::invalid_argument("Invalid Journey XP participation mask");
 	if (accounted.count(actor.id) || actor.lifecycle != XeenActorLifecycle::Present ||
 		!xeenActorStatusSupported(actor.status) || !actor.statistics || actor.hp <= 0)
 		throw std::invalid_argument("Journey lethal identity is unavailable");
 	unsigned eligible = 0;
-	for (unsigned i=0;i<6;++i) if ((participantMask&(1u<<i)) && characters[i] && xeenCombatXpEligible(characters[i]->worstCondition())) ++eligible;
+	for (unsigned i=0;i<inputs.size();++i) if ((participantMask&(1u<<i)) && characters[i] && xeenCombatXpEligible(characters[i]->worstCondition())) ++eligible;
 	if (!eligible) throw std::invalid_argument("Journey lethal publication has no XP recipient");
 	XeenJourneyLethal result{actor,{},accounted};
-	for (unsigned i = 0; i < 6; ++i) {
+	for (unsigned i = 0; i < inputs.size(); ++i) {
 		if (!characters[i]) throw std::invalid_argument("Journey lethal owner is missing");
 		result.experience[i] = (participantMask&(1u<<i)) && xeenCombatXpEligible(characters[i]->worstCondition()) ?
 			xeenCombatExperience(actor.statistics->experience(),eligible,characters[i]->permanentLevel,inputs[i].experience) : std::uint32_t(inputs[i].experience);

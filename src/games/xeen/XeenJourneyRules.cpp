@@ -30,9 +30,11 @@ void xeenValidateJourneyParty(const XeenPartyState &party) {
 	require(context.profile == XeenBehaviorProfile::WorldOfXeenClouds && static_cast<unsigned>(context.difficulty)<=1 &&
 		xeenRegionalContext(context), "Unsupported Journey context");
 	std::vector<std::uint8_t> members=party.party.activeRosterIds();
-	auto required=kXeenCombatOwners;std::sort(members.begin(),members.end());std::sort(required.begin(),required.end());
-	require(members.size()==required.size() && std::equal(members.begin(),members.end(),required.begin()) &&
-		party.firstSerializedCount == 6 && party.effectiveSerializedCount == 6, "Unsupported Journey membership");
+	require(!members.empty() && members.size()<=6, "Unsupported Journey membership");
+	std::sort(members.begin(),members.end());
+	require(std::adjacent_find(members.begin(),members.end())==members.end(), "Duplicate Journey member");
+	for(auto id:members)require(id<24 && !party.roster.at(id).name.empty() && party.roster.at(id).xeenSide==0, "Unrecruitable Journey member");
+	require(party.firstSerializedCount==members.size() && party.effectiveSerializedCount==members.size(), "Journey member count mismatch");
 	for (unsigned id = 0; id < 30; ++id) {
 		const auto &c = party.roster.at(id);
 		const auto &input = party.roster.combatInputs(id);
@@ -48,8 +50,7 @@ void xeenValidateJourneyParty(const XeenPartyState &party) {
 			"Journey supplement outside byte range");
 		require(c.name.size() <= 16 && c.name.find('\0') == std::string::npos, "Journey character outside storage bounds");
 	}
-	bool able = false;
-	for (auto id : kXeenCombatOwners) {
+	for (auto id : party.party.activeRosterIds()) {
 		const auto &c = party.roster.at(id);
 		require(attribute(c.intellect) && attribute(c.personality) && attribute(c.endurance) && byte(c.permanentLevel) &&
 			byte(c.temporaryLevel) && byte(c.temporaryAge), "Journey active character outside byte range");
@@ -59,9 +60,7 @@ void xeenValidateJourneyParty(const XeenPartyState &party) {
 		// Admission follows conditions, never an inferred condition from HP.
 		XeenCharacterRules::validateForUse(c, {context.year});
 		xeenValidateCompletedEquipment(c);
-		able = able || (xeenCombatTargetable(c));
 	}
-	require(able, "Journey has no acting character");
 }
 void xeenValidateJourneyMelee(const XeenPartyState &party) {
 
@@ -72,7 +71,7 @@ void xeenValidateJourneyMelee(const XeenPartyState &party) {
 	// protects state: IDs inside the dice/strength/name tables, generated
 	// material and counter ranges (names, prices and Identify index them) and
 	// the shared arrangement/arithmetic preflight below.
-	for (auto id : kXeenCombatOwners) {
+	for (auto id : party.party.activeRosterIds()) {
 		const auto &c = party.roster.at(id);
 		for (unsigned slot = 0; slot < 9; ++slot) {
 			const auto &item = c.weapons[slot];

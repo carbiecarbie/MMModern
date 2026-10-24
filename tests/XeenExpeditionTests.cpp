@@ -94,14 +94,14 @@ void injuriesAndDefeat(){
 	}
  auto s=group({16});s.characters[1].currentHp=1;
  for(auto id:kXeenCombatOwners)if(id!=0&&id!=1){s.characters[id].currentHp=-1;s.characters[id].conditions[12]=1;}
- Domain d(s);auto &c=d.engage();block(c);auto values=critical();values.insert(values.end(),{{0,5,4},{0,0,0},{1,20,1}});Tape t(values);
- auto first=c.service(c.ticket());check(first.status!=Status::Failed&&first.injuryCount==2&&d.p.roster.at(1).currentHp==-15&&!d.p.roster.at(1).canAct(),"critical keeps target through incapacitation");check(first.armorCount>0,"ordered armor breakage at negative HP");auto second=c.service(c.ticket());check(second.status!=Status::Failed&&second.targetOwner==0&&cursor==11,"second attack reselects with singleton fallback request");
+ Domain d(s);auto &c=d.engage();block(c);auto values=critical();values.insert(values.end(),{{1,6,1},{0,4,4},{0,0,0},{1,20,1}});Tape t(values);
+ auto first=c.service(c.ticket());check(first.status!=Status::Failed&&first.injuryCount==2&&d.p.roster.at(1).currentHp==-15&&!d.p.roster.at(1).canAct(),"critical keeps target through incapacitation");check(first.armorCount>0,"ordered armor breakage at negative HP");auto second=c.service(c.ticket());check(second.status!=Status::Failed&&second.targetOwner==0&&cursor==12,"second attack reselects with singleton fallback request");
  auto only=s;only.characters[0].currentHp=-1;only.characters[0].conditions[12]=1;Domain defeated(only);auto &enemy=defeated.engage();block(enemy);
- auto lossTape=critical();lossTape.push_back({0,5,0});Tape loss(lossTape);auto before=defeated.p.encounterContext->minutes;
+ auto lossTape=critical();lossTape.push_back({1,6,1});lossTape.push_back({0,4,0});Tape loss(lossTape);auto before=defeated.p.encounterContext->minutes;
  check(enemy.service(enemy.ticket()).status==Status::Advanced && cursor==8 && enemy.pending()==Work::Enemy,
   "First lethal injury retains the source's second target-selection obligation");
  const auto lossResult=enemy.service(enemy.ticket());
- check(lossResult.status==Status::Defeat && !lossResult.injuryCount && cursor==9 &&
+ check(lossResult.status==Status::Defeat && !lossResult.injuryCount && cursor==10 &&
   defeated.p.encounterContext->minutes==before && !defeated.flow->journeyQuiet(),
   "Reference defeat follows the second initial target draw, without fallback injury or time");
  for(unsigned field=0;field<3;++field){Domain changed(group({16}));auto &combat=changed.engage();auto beforeRandom=*changed.w.sessionState().journeyRandom();combat.setProbe([&]{auto &r=const_cast<XeenMutableOptional<XeenJourneyRandomState>&>(changed.w.sessionState().journeyRandom());if(field==0)++r->state;else if(field==1)++r->count;else r->algorithm=2;});taped=false;check(action(combat,Command::Attack).status==Status::Failed&&changed.w.sessionState().monsters(23)[16].hp==30,"world random fields participate in preimage");}

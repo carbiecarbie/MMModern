@@ -112,11 +112,11 @@ std::optional<unsigned> XeenConsequenceDraw::draw(unsigned lo, unsigned hi) {
 XeenTypedDamageCandidate::XeenTypedDamageCandidate(const XeenConsequenceCharacters &c,
 		const XeenConsequenceInputs &i,int amount,XeenDamageType t,unsigned y,unsigned memberMask,
 		const XeenDamageProtection &p) : characters(c),inputs(i),protection(p),type(t),year(y),mask(memberMask),damage(amount) {
-	ruleRequire(unsigned(type)<=6 && mask<=0x3f,"Invalid typed damage operands");
+	ruleRequire(unsigned(type)<=6 && mask<=characters.mask(),"Invalid typed damage operands");
 	ruleRequire(p.powerShield>=0 && p.powerShield<=65535,"Invalid power shield");
 	for (int value:p.resistances) ruleRequire(value>=0 && value<=65535,"Invalid party damage resistance");
 	constexpr unsigned frames[]{0,6,1,2,3,4,5};portraitFrame=frames[unsigned(type)];
-	for (unsigned n=0;n<6;++n) if (mask&(1u<<n)) {
+	for (unsigned n=0;n<characters.size();++n) if (mask&(1u<<n)) {
 		Rules::validateForUse(characters[n],{year});
 		(void)Rules::sheetArmorClass(characters[n],&inputs[n],{year,protection.blessed});
 		if (type!=XeenDamageType::Physical) {
@@ -126,6 +126,7 @@ XeenTypedDamageCandidate::XeenTypedDamageCandidate(const XeenConsequenceCharacte
 	}
 }
 bool XeenTypedDamageCandidate::operator==(const XeenTypedDamageCandidate &other) const {
+    if(characters.size()!=other.characters.size() || inputs.size()!=other.inputs.size())return false;
     if(std::tie(deferInjury,injuryReady,injuryAcknowledged,injuryApplied,impactOwner,portraitFrame,step,type,year,mask,target,damage,beforeAc)!=
         std::tie(other.deferInjury,other.injuryReady,other.injuryAcknowledged,other.injuryApplied,other.impactOwner,other.portraitFrame,other.step,other.type,other.year,other.mask,other.target,other.damage,other.beforeAc) ||
         protection.resistances!=other.protection.resistances || protection.powerShield!=other.protection.powerShield || protection.blessed!=other.protection.blessed ||
@@ -146,8 +147,8 @@ bool XeenTypedDamageCandidate::service(XeenConsequenceDraw &draw) {
 	while (step!=Step::Done) {
 		switch (step) {
 		case Step::Begin:
-			while (target<6 && !(mask&(1u<<target))) ++target;
-			if (target==6) {step=Step::Done;break;}
+			while (target<characters.size() && !(mask&(1u<<target))) ++target;
+			if (target==characters.size()) {step=Step::Done;break;}
 			beforeAc=Rules::sheetArmorClass(characters[target],&inputs[target],{year,protection.blessed});
 			characters[target].conditions[8]=0;
 			if (unsigned(type)>=2 && unsigned(type)<=5)
@@ -407,8 +408,8 @@ bool XeenRunCandidate::service(XeenConsequenceDraw &draw) {
 }
 XeenMonsterTargetCandidate::XeenMonsterTargetCandidate(const XeenConsequenceCharacters &characters,
         unsigned hatred,unsigned participantMask) {
-    ruleRequire(participantMask<=0x3f,"Invalid combat participation mask");
-    for(unsigned i=0;i<6;++i)if(participantMask&(1u<<i)) {
+    ruleRequire(participantMask<=characters.mask(),"Invalid combat participation mask");
+    for(unsigned i=0;i<characters.size();++i)if(participantMask&(1u<<i)) {
         participants[count++]=i;
         if(xeenCombatTargetable(characters[i])) {
             eligible[eligibleCount++]=i;
@@ -421,15 +422,25 @@ XeenMonsterTargetCandidate::XeenMonsterTargetCandidate(const XeenConsequenceChar
     else if(!count)step=Step::Done;
 }
 bool XeenMonsterTargetCandidate::service(XeenConsequenceDraw &draw) {
-    while(step!=Step::Done && draw.remaining) {
-        if(step==Step::Target) {
+    while(step!=Step::Done) {
+        if(step==Step::Target || step==Step::SixSecond) {
             unsigned target=preferred;
-            if(target==6) {const auto n=draw.draw(0,count-1);if(!n)continue;target=participants[*n];}
+            if(target==6) {
+                if(count==1)target=participants[0];
+                else {
+                    if(!draw.remaining)return false;
+                    const auto n=step==Step::SixSecond?draw.draw(0,4):count==6?draw.draw(1,6):draw.draw(0,count-1);
+                    if(!n)continue;
+                    if(count==6 && step==Step::Target && *n!=6){step=Step::SixSecond;continue;}
+                    target=participants[count==6 && step==Step::Target?5:*n];
+                }
+            }
             if(std::find(eligible.begin(),eligible.begin()+eligibleCount,target)!=eligible.begin()+eligibleCount) {
                 mask=1u<<target;step=Step::Done;
             } else step=Step::Fallback;
         } else {
             if(!eligibleCount) {step=Step::Done;continue;}
+            if(!draw.remaining)return false;
             const auto n=draw.draw(0,eligibleCount-1);if(n){mask=1u<<eligible[*n];step=Step::Done;}
         }
     }
@@ -450,8 +461,8 @@ XeenEnemyAttackCandidate::XeenEnemyAttackCandidate(const XeenConsequenceCharacte
 	disabled=status!=XeenActorStatus::Physical;
 	m.validateAttackCapabilities();
 	type=static_cast<XeenDamageType>(m.damageType());
-	ruleRequire(mask<=0x3f,"Invalid combat participation mask");
-	for (unsigned owner=0;owner<6;++owner) if (mask&(1u<<owner)) participants[participantCount++]=owner;
+	ruleRequire(mask<=characters.mask(),"Invalid combat participation mask");
+	for (unsigned owner=0;owner<characters.size();++owner) if (mask&(1u<<owner)) participants[participantCount++]=owner;
 	result.operation = XeenCombatOperation::EnemyAttack;
 	if (disabled || !participantCount || !monster.attacks()) step=Step::Done;
 }
@@ -780,7 +791,7 @@ bool XeenConditionTimeCandidate::service(XeenConsequenceDraw &draw) {
    // DOS 0x255ab: unconditional replacement, including Weak/Drunk 255.
    c.conditions[2]=c.conditions[7];c.conditions[7]=0;
    if(c.conditions[9])c.conditions[9]=(unsigned(c.conditions[9])+1)%4;
-   if(++owner==6){owner=0;step=Step::Economy;}else step=Step::Stats;break;
+   if(++owner==characters.size()){owner=0;step=Step::Economy;}else step=Step::Stats;break;
   case Step::Economy:
    if(stock) {
     // Copies are independent detached continuations, including partial stock.
@@ -794,7 +805,7 @@ bool XeenConditionTimeCandidate::service(XeenConsequenceDraw &draw) {
    if(context.newDay && context.minutes>=300) {
     if(mode!=XeenTimeMode::Script && mode!=XeenTimeMode::Interactive7) {
      resetTemps=true;xeenResetPartyTemps(context);
-     for(unsigned n=0;n<6;++n)xeenResetCharacterTemps(characters[n],inputs[n]);
+     for(unsigned n=0;n<characters.size();++n)xeenResetCharacterTemps(characters[n],inputs[n]);
      if(context.rested || mode==XeenTimeMode::Sleeping)context.rested=false;
      else {
       needsRest=true;
@@ -817,7 +828,7 @@ bool XeenConditionTimeCandidate::service(XeenConsequenceDraw &draw) {
   }
   case Step::Paralyzed: {
    if(c.conditions[11]) {const auto n=draw.draw(0,4);if(!n)break;if(*n==1)--c.conditions[11];}
-   if(++owner==6){owner=0;step=Step::Done;}else step=Step::Confused;break;
+   if(++owner==characters.size()){owner=0;step=Step::Done;}else step=Step::Confused;break;
   }
   case Step::Done:break;
   }
