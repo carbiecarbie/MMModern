@@ -507,3 +507,17 @@ approved audit. Every roster record is saved in full (save v19). A failed
 Inn save retries instead of quitting (approved deviation), and the death
 scroll gained the DOS skip. Create and Delete wait for M88.
 [Plan](milestone-87-plan.md).
+
+**M88 - Create and Delete at the Inn** (plan `e862107`, Part 0 `b54f893`,
+Part A `eba589d`, Part B `d8168c4` and the closure commit). Accepted by the
+maintainer on 2026-10-24 after the play-test. As in DOS, the Inn's Create
+opens the original creation screen: the dice roll the attributes, the
+classes they allow light up, attributes can be exchanged, and each free
+roster slot brings its portrait, race and sex; the new character is named
+and lodged in that town. Delete removes a listed character after
+confirmation. Both save the game, also with an empty party, which save v20
+admits inside the Inn; the four M44 digests changed only in the version
+byte, after an approved audit. A save loaded into the Inn from the title
+stays silent until Exit, following DOS's Inn song flag, and the rolls use
+the Event interpreter's range draw (maintainer decision).
+[Plan](milestone-88-plan.md).

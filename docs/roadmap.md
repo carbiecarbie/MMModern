@@ -1,6 +1,6 @@
 # MMModern - Roadmap
 
-**M87 is the latest completed and accepted milestone.**
+**M88 is the latest completed and accepted milestone.**
 [Project status](project-status.md) describes what is playable now;
 [project history](project-history.md) records completed milestones. Reference
 provenance belongs to [dependencies](dependencies.md).
@@ -137,10 +137,10 @@ to Vertigo.
     2026-10-24, save v19): Sign In and the Inn with its saves, Dismiss, and a
     party of one to six everywhere, including the DOS monster target draws
     and Poison Volley for the active party size, with every roster record
-    saved in full. [M88](milestone-88-plan.md) (Tier A, save v20): roster
-    slots, that is Create (the creation screens and attribute rolls) and
-    Delete. It is Tier A because DOS saves an empty party inside the Inn
-    after Create and Delete, which save v19 refuses.
+    saved in full. [M88](milestone-88-plan.md) (Tier A, accepted
+    2026-10-24, save v20): Create and Delete as in DOS, with the original
+    creation screen and attribute rolls, saving an empty party inside the
+    Inn as DOS does. Next: step 15.
 15. **Intros and the Clouds ending**: the Other Options intros and the ending
     (`CutsceneEndClouds`) with its score, and Lord Xeen's death reward (the
     Scepter and its quest item, deferred from M81).
@@ -160,7 +160,7 @@ need its resources and mechanic gaps, not a new coordinator or save shape.
 
 ## Long-term direction
 
-1. **Broader Clouds play** (reached apart from character creation, M88): ordinary travel
+1. **Broader Clouds play** (reached): ordinary travel
    between regions, time/rest/food, full economy and services, skills,
    item/monster effects, indoor hazards and reusable quest/Event behavior.
 2. **Complete Clouds:** all regions/dungeons, progression, quests and ending,

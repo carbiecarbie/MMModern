@@ -38,7 +38,11 @@ button has the same effect at the same position; use Escape to cancel.
 | 1-4 / R in the Inn | Add the displayed character / Remove a member |
 | Up / Down in the Inn | Previous / next four characters |
 | E, X, Escape or Space in the Inn | Exit: save and return to the tavern door |
-| C / D in the Inn | Create / Delete (not supported yet) |
+| C / D in the Inn | Create a character / Delete a displayed character (1-4, then Y) |
+| R or Space / Up, Down in Create | Reroll the attributes / choose a free slot |
+| Left, Right / Enter in Create | Move the class arrow / choose that class |
+| M, I, P, E, S, A, L in Create | Exchange that attribute with another |
+| C / Escape in Create | Name and create the character / return to the Inn |
 | D / W in the Bank, then O / E | Deposit / Withdraw, then Gold / Gems |
 | Digits, Backspace, Enter in Bank amount entry | Enter up to ten digits, edit, confirm; Escape cancels |
 | Alt+Enter | Switch between window and fullscreen; no gameplay pass |

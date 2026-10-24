@@ -19,9 +19,9 @@ entry. Dialog identifiers below are reference identifiers, not commercial text.
 | --- | --- | --- | --- |
 | Awards | supported | Sheet member only; nine lines, Up/Down arrows and keypad 8/2, mouse buttons, Exit | XeenCharacterDialogFlow |
 | CopyProtection | unsupported | Version-specific word input; not a World CD gameplay requirement | — |
-| CreateCharacterDialog | unsupported | Roll, Create, portrait, stats, class, name, Exit | — |
+| CreateCharacterDialog | supported | Roll, Create, portrait, stats, class, exchange, name, Exit | XeenEventFlow (XeenCreateFlow.cpp) |
 | Dismiss | supported | Member choice by F1-F6 or portrait, last-member refusal, Escape key and button | XeenEventFlow |
-| PartyDialog | partial | Roster list, recruit 1-4, Up/Down, Remove, F1-F6 sheet and Exit work; Delete and Create refuse until M88 | XeenEventFlow (XeenInnFlow.cpp) |
+| PartyDialog | supported | Roster list, recruit 1-4, Up/Down, Delete, Remove, Create, F1-F6 sheet and Exit | XeenEventFlow (XeenInnFlow.cpp) |
 | Quests | supported | Quest Items, Current Quests, Auto Notes; arrows/keypad, Page Up/Down, Home/End, mouse buttons, Exit; exploration and Items, including combat | XeenEventFlow |
 | Choose123 / HowMuch | unsupported | Numeric Choose123 opcode 48 and TakeOrGive HowMuch unavailable | XeenEventInterpreter |
 | SelectElement | unsupported | Fire, Electricity, Cold, Acid, cancel | — |

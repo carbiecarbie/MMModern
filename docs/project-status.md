@@ -1,9 +1,9 @@
 # MMModern - Project Status
 
-This describes what can be played and done now. M87 is the latest completed
-and accepted milestone (2026-10-24; [plan](milestone-87-plan.md)): Sign In at
-a tavern opens the original Inn, where the party recruits and removes lodged
-characters, Dismiss works, and the game plays with any one to six characters.
+This describes what can be played and done now. M88 is the latest completed
+and accepted milestone (2026-10-24; [plan](milestone-88-plan.md)): the Inn's
+Create makes new characters on the original creation screen and Delete
+removes them, which completes the Inn, recruiting and character creation.
 Earlier milestones are in [project history](project-history.md), direction is
 in the [roadmap](roadmap.md), and build and dependency setup is in
 [dependencies](dependencies.md).
@@ -108,9 +108,16 @@ Vertigo, Rivercity or Shangri-La tavern lodges the party there, adds a day,
 saves the game and opens the original Inn with its song. The Inn lists the
 characters lodged in that town: 1-4 add them up to six, R removes members and
 F1-F6 open the sheet. Exit saves again and returns the party to the tavern
-door, and loading a Sign In save reopens the Inn. Create and Delete say "not
-supported yet". Any key or click skips the Inn's scrolls and the death scroll
-([party rules](rules/party.md)).
+door, and loading a Sign In save reopens the Inn. Create opens the original
+creation screen: the dice roll the seven attributes, the classes they allow
+light up, two attributes can be exchanged, and Up and Down choose a free
+roster slot with its portrait, race and sex. Create then asks for a name and
+lodges the new level-1 character in that town. Delete removes a listed
+character after confirmation, except one carrying the Xeen Slayer Sword.
+Both save the game, also with nobody in the party, and loading such a save
+reopens the Inn. As in DOS, a save loaded into the Inn from the title opens
+it without music until Exit. Any key or click skips the Inn's scrolls and
+the death scroll ([party rules](rules/party.md)).
 
 Teachers and Events grant skills. Thievery picks locks, Bodybuilder and the
 spell-casting skills raise HP or SP, Merchant sells at full value, Swimming
@@ -172,11 +179,11 @@ the sky darkens at night and ages follow the year.
 Tab or the gem opens the original control panel. Save writes the current
 slot, Save As picks a slot and name, Load replaces the running game and Quit
 asks for confirmation. Saving is refused in combat, during service visits and
-on maps that forbid it. Sign In and leaving the Inn save automatically, as in
-DOS; a failed write shows the error and retries
-([approved deviation](original-quirks.md#dev-inn-save-recovery)). Mr Wizard
-returns the party to Vertigo and takes all its gems. The Efx, Music, Speech
-and Text settings are saved with the party. Slots live under Local AppData
+on maps that forbid it. Sign In, leaving the Inn, Delete and returning from
+Create save automatically, as in DOS; a failed write shows the error and
+retries ([approved deviation](original-quirks.md#dev-inn-save-recovery)).
+Mr Wizard returns the party to Vertigo and takes all its gems. The Efx,
+Music, Speech and Text settings are saved with the party. Slots live under Local AppData
 (`MMModern/Saves/`), and a damaged or foreign slot is never overwritten.
 Loading continues exactly, without replaying any Event, reward, time or
 random draw.
@@ -228,8 +235,9 @@ The [development guide](development.md#entry-modes) gives every option.
 
 ## Save format
 
-There is one current save format, v19. It holds the party with every roster
-record in full and its sound options, whether the party is inside the Inn,
+There is one current save format, v20. It holds the party with every roster
+record in full and its sound options, whether the party is inside the Inn
+(where it may be empty),
 the world, and one state per visited map: monster positions and lifecycle,
 moved objects, changed cells, disabled Events, explored cells and the Tavern
 tip index. Monster HP and wake state are not saved, and neither is pending
@@ -282,8 +290,6 @@ the original data uses and its support status.
 
 ## Known gaps
 
-- Character creation: the Inn's Create and Delete say "not supported yet"
-  (M88).
 - Scenes and commands: the Pyramid entrance and the Clouds ending say "not
   supported yet", and killing Lord Xeen does not give his Scepter yet.
 - Sound: title lightning belongs to step 15 and other sound devices to step
