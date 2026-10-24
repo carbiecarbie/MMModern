@@ -53,13 +53,27 @@ std::uint32_t gold(const XeenPartyState &p) { return p.purse?std::uint32_t(p.pur
 std::uint32_t gems(const XeenPartyState &p) { return p.purse?std::uint32_t(p.purse->gems):0u; }
 }
 
-std::vector<std::uint8_t> xeenInnList(const XeenPartyState &party,XeenMapIdentity town) {
+std::vector<std::uint8_t> xeenInnList(const XeenPartyState &party,XeenMapIdentity town,bool townOnly) {
     std::vector<std::uint8_t> ids;
     for(unsigned id=0;id<24;++id) {
         const auto &c=party.roster.at(id);
-        if(!c.name.empty() && c.xeenSide==unsigned(town.side) && c.savedMaze==town.number)ids.push_back(id);
+        if(!c.name.empty() && (townOnly || c.xeenSide==unsigned(town.side)) && c.savedMaze==town.number)ids.push_back(id);
     }
     return ids;
+}
+DialogInput xeenInnDeleteInput(std::size_t rows) {
+    DialogInput input;
+    button(input,225,120,249,140,InputKey::Escape,"esc.icn",0);
+    for(unsigned n=0;n<std::min<std::size_t>(rows,4);++n) {
+        const int x=n%2?117:16,y=n/2?59:16;
+        button(input,x,y,x+32,y+32,'1'+n);
+    }
+    return input;
+}
+IndexedFrame drawXeenInnDelete(const XeenDosText &text,const IndexedFrame &base,const XeenFontFormat &font,const XeenDialogSpriteDraw &draw) {
+    auto frame=render(base,font,xeenDialogFormat(text.scalar("INN_REMOVE_PROMPT"),{str(text.scalar("INN_DELETE"))}),{50,112,266,148},{58,120,258,140});
+    if(draw)draw(frame,"esc.icn",0,225,120);
+    return frame;
 }
 std::size_t xeenInnLastPage(std::size_t count) { return count?4*((count-1)/4):0; }
 DialogInput xeenInnInput(std::size_t rows,std::size_t members,bool remove) {
@@ -100,6 +114,7 @@ IndexedFrame drawXeenInn(const XeenDosText &text,const IndexedFrame &base,const 
             draw(frame,name.c_str(),0,n%2?117:16,n/2?59:16);
         }
     }
+    if(!party.party.size())highlight(frame,0,draw);
     return frame;
 }
 IndexedFrame drawXeenInnRemove(const XeenDosText &text,const IndexedFrame &base,const XeenFontFormat &font,const XeenDialogSpriteDraw &draw) {

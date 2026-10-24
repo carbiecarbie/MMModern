@@ -21,6 +21,34 @@ struct XeenInnTestAccess {
   auto pending=e._world.treasureStaging().value();pending.gold=17;pending.gems=8;pending.ready=true;pending.weapons[0]={0,1,0,0};
   e._world.treasureStaging().publish(pending);e.retainJourney();f._encounterFrame=e.ticket();return index<actors.size()?std::optional<unsigned>{index}:std::nullopt;
  }
+ static void recordAdmission(XeenEventFlow &f) {
+  auto &e=*f._encounter;const auto ticket=e.ticket();auto ids=std::vector<std::uint8_t>(e._party.party.activeRosterIds());
+  auto bad=xeenDeletedCombatInputs();bad.luck.reset();bool refused=false;
+  try{e.innRecord(ticket,xeenDeletedCharacter(2),bad,ids);}catch(const std::invalid_argument &){refused=true;}
+  check(refused && e.current(ticket),"invalid detached supplement never publishes");
+  check(e.innRecord(ticket,e._party.roster.at(2),*e._party.roster.combatInputs(2),ids),"complete record operation admitted");
+  check(!e.innRecord(ticket,xeenDeletedCharacter(2),xeenDeletedCombatInputs(),ids),"stale record ticket rejected");
+  f._encounterFrame=e.ticket();
+ }
+ static void callbackAdmission(XeenEventFlow &f) {
+  auto &e=*f._encounter;const auto ticket=e.ticket();auto ids=std::vector<std::uint8_t>(e._party.party.activeRosterIds());
+  const auto before=std::string(e._party.roster.at(0).name);bool nested=true,rejected=false;
+  try{rejected=!e.prepareJourneyFrame(ticket,[&]{
+   nested=e.innRecord(ticket,xeenDeletedCharacter(0),xeenDeletedCombatInputs(),{});
+   e._party.roster.at(1).birthDay=7;
+  });}catch(const std::exception &){rejected=true;}
+  check(!nested && rejected && e._party.roster.at(0).name==before && e._party.party.activeRosterIds()==ids,
+   "callback record reentry and mutation rejected without record or membership publication");
+ }
+ static bool forcedSaveWith(XeenEventFlow &f,bool inside,const XeenCamera &camera) {
+  // Refresh the retained preimage over the probed owners, so only capture admission differs.
+  auto &e=*f._encounter;const auto door=e._camera;const auto edit=f._innUi->edit;
+  e._party.insideInn=inside;e._camera=camera;f._innUi->edit=XeenEventFlow::InnUi::Edit::SavePending;e.retainJourney();
+  bool saved=true;try{f.forcedInnSave();}catch(const std::exception &){saved=false;}
+  e._party.insideInn=true;e._camera=door;f._innUi->edit=edit;e.retainJourney();f._encounterFrame=e.ticket();
+  return saved;
+ }
+ static IndexedFrame refresh(XeenEventFlow &f){return f.renderInn();}
  static std::size_t top(const XeenEventFlow &f){return f._innUi->top;}
  static bool menu(const XeenEventFlow &f){return f._innUi && f._innUi->phase==XeenEventFlow::InnUi::Phase::Menu;}
  static unsigned phase(const XeenEventFlow &f){return unsigned(f._innUi->phase);}
@@ -71,6 +99,8 @@ void rules() {
     const auto list=xeenInnList(p,28);
     check(list.size()==21 && list[0]==0 && list[1]==1 && list[2]==3 && list.back()==23,"town, side, named, first-24 list in ID order");
     check(xeenInnList(p,30)==std::vector<std::uint8_t>{2},"other town list");
+    const auto townOnly=xeenInnList(p,28,true);
+    check(townOnly.size()==22 && townOnly[2]==3 && townOnly[3]==4,"post-Delete rebuild tests town without side");
     check(xeenInnLastPage(0)==0 && xeenInnLastPage(4)==0 && xeenInnLastPage(5)==4 && xeenInnLastPage(24)==20,"four-face last page");
     const auto input=xeenInnInput(2,3);
     check(input.key('1') && input.key('2') && !input.key('3') && !input.key(InputKey::Enter) && !input.key(InputKey::F1+3),"empty rows, Enter, inactive F-keys ignored");
@@ -130,7 +160,7 @@ void signIn(Inputs &in,unsigned town,unsigned minutes) {
     check(stockCalls==1 && saved.journey->serviceEconomy->wares!=s.journey->serviceEconomy->wares,"Sign In regenerates merchants before interest on day 11");
     check(saved.food==s.food && saved.journey->context->effects==s.journey->context->effects,"no food or dawn clears");
     for(auto id:s.activeRosterIds)check(saved.characters[id].conditions==s.characters[id].conditions && saved.characters[id].currentHp==s.characters[id].currentHp && saved.characters[id].currentSp==s.characters[id].currentSp,"no condition ticks or recovery");
-    check(!v.flow->canSave(),"Inn never offers player Save");
+    check(!v.flow->canSave() && v.programState.innSongStarted,"Sign In starts the Inn song flag");
     if(town==28 && minutes==300 && !preview.empty()) {
         const auto &image=v.flow->frame();std::ofstream out(preview,std::ios::binary);out<<"P6\n320 200\n255\n";
         for(auto pixel:image.pixels)for(unsigned channel=0;channel<3;++channel)out.put(char(image.palette[pixel*3+channel]));
@@ -141,7 +171,7 @@ void signIn(Inputs &in,unsigned town,unsigned minutes) {
     }
     v.key('r');v.key(InputKey::Escape);check(v.p.party.size()==6,"Remove Escape cancels");
     v.key('c');check(v.dialog()->anyKey,"Create unsupported notice");v.act(AcknowledgeAction{});
-    v.key('d');check(v.dialog()->anyKey,"Delete unsupported notice");v.act(AcknowledgeAction{});
+    v.key('d');check(v.dialog()->key('1') && !v.dialog()->key(InputKey::F1),"Delete selection excludes F-keys");v.key(InputKey::Escape);
     v.key('1');check(v.p.party.size()==6 && !v.dialog()->anyKey,"duplicate Add silently ignored before full check");
     for(unsigned n=0;n<6 && v.p.party.size();++n) {v.key('r');v.key(InputKey::F1);}
     check(v.p.party.size()==0,"Remove did not compact to zero");
@@ -155,6 +185,7 @@ void signIn(Inputs &in,unsigned town,unsigned minutes) {
     const auto cell=v.w.sampleCell(v.c.mapId,v.c.x,v.c.y);const bool flagged=cell && (cell->cell->rawAttributes&kXeenAutomaticEventFlag);
     v.key('x');v.wait([&]{return !v.flow->innOpen() && v.flow->canSave();},"Inn Exit returns to ordinary exploration");
     check(v.saves.size()==2 && !v.saves.back().insideInn && v.saves.back().activeRosterIds.size()==2,"Exit saves edited members before gameplay");
+    check(!v.programState.innSongStarted,"Inn Exit clears song flag");
     check(v.w.inputMapLoadGeneration()>loadGeneration,"Exit unconditionally reloads the same map");
     if(wounded) {
         const auto &actor=v.w.sessionState().regionalActors(town).at(*wounded);
@@ -166,6 +197,96 @@ void signIn(Inputs &in,unsigned town,unsigned minutes) {
     load.present(load.flow->openInn());load.wait([&]{return XeenInnTestAccess::menu(*load.flow);},"Load opens Inn");
     check(*load.p.encounterContext==before && load.saves.empty(),"Load adds no day and makes no Sign In Save");
 }
+void deleteRecords(Inputs &in,const GameInstallation &installation) {
+    auto s=source(in,28);s.characters[2]=s.characters[6];s.characters[2].rosterId=2;s.characters[2].savedMaze=28;
+    s.journey->supplements[2].inputs=s.journey->supplements[6].inputs;
+    Visit v(in,s);v.sign();XeenInnTestAccess::recordAdmission(*v.flow);
+    v.present(XeenInnTestAccess::refresh(*v.flow));
+    const auto before=v.saves.back();
+    v.key('d');v.key(InputKey::F1);v.act(SelectMemberAction{0});
+    check(!v.flow->inventoryOpen() && v.p.roster.at(0).name==s.characters[0].name,"F-key and party portraits do not select Delete");
+    check(v.dialog()->click(225,120) && !v.dialog()->click(249,120),"Delete escape button bounds");v.key(InputKey::Escape);
+    v.key('d');v.key('3');
+    check(v.dialog()->key('y') && !v.dialog()->key(InputKey::Enter) && !v.dialog()->key(InputKey::Space),"Y only confirmation");
+    check(std::get<DialogKeyAction>(*v.dialog()->click(129,112)).key=='y' && std::get<DialogKeyAction>(*v.dialog()->click(185,112)).key=='n',"original confirm buttons");
+    v.key(InputKey::Enter);v.key(InputKey::Space);v.key('n');check(v.saves.size()==1,"cancel and unmatched confirmation never save");
+    v.key('d');v.key('3');v.key(InputKey::Escape);check(v.p.roster.at(2).name==s.characters[2].name,"confirmation Escape cancels");
+    unsigned attempts=0;const auto save=v.flow->saveInn;
+    v.flow->saveInn=[&]{++attempts;if(attempts==1)throw std::runtime_error("Windows error 112");save();};
+    v.key('d');v.key('3');v.key('y');
+    check(v.p.roster.at(2).name.empty() && attempts==1 && v.saves.size()==1,"lodged Delete publishes before failed write");
+    const auto cleared=v.p.roster.at(2);const auto members=v.p.party.activeRosterIds();
+    v.key(InputKey::Enter);check(attempts==2 && v.saves.size()==2 && v.p.party.activeRosterIds()==members,"retry writes once without membership replay");
+    remove_test::checkSameCharacter(cleared,v.saves.back().characters[2]);
+    remove_test::checkSameCharacter(xeenDeletedCharacter(2),v.saves.back().characters[2]);
+    const auto originalRoster=XeenCharacterFormat::parseRoster(in.chr);
+    const auto &empty=originalRoster.at(3);
+    auto originalEmpty=empty;originalEmpty.rosterId=2;originalEmpty.learnedSpells=XeenCharacterFormat::parseLearnedSpells(in.chr,3);
+    remove_test::checkSameCharacter(originalEmpty,v.saves.back().characters[2]);
+    check(save_test::sameInputs(*v.p.roster.combatInputs(2),XeenCharacterFormat::parseCombatInputs(in.chr,3,true,true,true)),"deleted supplement equals original empty record");
+    check(v.saves.back().journey->context==before.journey->context && v.saves.back().journey->random==before.journey->random,"Delete no time or RNG");
+    // Deleting the last two faces on page four keeps that now-empty page.
+    v.key(InputKey::Down);check(XeenInnTestAccess::top(*v.flow)==4,"last page");
+    v.key('d');v.key('2');v.key('y');v.key('d');v.key('1');v.key('y');
+    check(XeenInnTestAccess::top(*v.flow)==4 && !v.dialog()->key('1'),"last face Delete keeps empty last page");
+    v.key(InputKey::Down);check(XeenInnTestAccess::top(*v.flow)==4,"Down does not clamp the kept page");
+    v.key(InputKey::Up);
+    while(v.p.party.size()) {v.key('d');v.key('1');v.key('y');}
+    check(v.saves.back().activeRosterIds.empty() && v.p.insideInn,"last active member deleted and saved");
+    const auto saved=v.saves.back();save_test::sameSnapshot(saved,XeenSaveFormat::decode(XeenSaveFormat::encode(saved)));
+    v.key('d');check(!v.dialog()->key('1') && v.dialog()->key('x'),"empty list D ignored");
+    Visit load(in,saved);const auto day=*load.p.encounterContext;load.present(load.flow->openInn());load.wait([&]{return XeenInnTestAccess::menu(*load.flow);},"empty Load reopens Inn");
+    check(load.p.party.size()==0 && *load.p.encounterContext==day && load.saves.empty() && load.p.party.dismissedRosterIds().empty(),"empty Load replays no Sign In, time or Dismiss");
+    load.key('x');check(load.dialog()->anyKey,"empty Load Exit refused");
+    auto sword=s;sword.characters[0].weapons[8].id=34;sword.characters[0].weapons[8].state=255;
+    Visit protectedVisit(in,sword);protectedVisit.programState.audio=XeenAudio::installed(installation,in.assets,0,false);
+    std::vector<unsigned> effects;protectedVisit.programState.audio->effectSink([&](unsigned effect){effects.push_back(effect);});
+    protectedVisit.sign();effects.clear();protectedVisit.key('d');protectedVisit.key('1');
+    check(protectedVisit.dialog()->anyKey && protectedVisit.p.roster.at(0).name==sword.characters[0].name && protectedVisit.saves.size()==1 && effects.empty(),"Slayer Sword in any state refuses without a sound");
+    protectedVisit.act(AcknowledgeAction{});protectedVisit.key('3');
+    check(effects==std::vector<unsigned>{21},"the same effect sink records the full-party Add");protectedVisit.act(AcknowledgeAction{});effects.clear();
+    protectedVisit.key('d');protectedVisit.key('3');protectedVisit.key('y');
+    check(protectedVisit.p.roster.at(2).name.empty() && protectedVisit.saves.size()==2 && effects.empty(),"confirmed Delete makes no sound");
+    Visit callback(in,s);callback.sign();XeenInnTestAccess::callbackAdmission(*callback.flow);
+}
+
+void emptySaveRecovery(Inputs &in) {
+    Visit v(in,source(in,28));v.sign();
+    while(v.p.party.size()){v.key('r');v.key(InputKey::F1);}
+    v.key('d');v.key('1');v.key('y');const auto saved=v.saves.back();
+    check(saved.activeRosterIds.empty(),"Delete captures prior Remove-to-zero");
+    const auto written=v.saves.size();auto wrong=v.c;++wrong.y;
+    check(!XeenInnTestAccess::forcedSaveWith(*v.flow,false,v.c) && !XeenInnTestAccess::forcedSaveWith(*v.flow,true,wrong) && v.saves.size()==written,
+        "forced Inn save refuses zero members outside the Inn and at a wrong door");
+    check(XeenInnTestAccess::forcedSaveWith(*v.flow,true,v.c) && v.saves.size()==written+1,"the same empty forced save is admitted at the Inn door");
+    bool yellow=false;drawXeenInn(in.assets.uiText(),frame(),in.font,v.p,xeenInnList(v.p,28),0,
+        [&](auto &,const char *name,unsigned index,int x,int y){if(std::string(name)=="global.icn" && index==8 && x==9 && y==149)yellow=true;});
+    check(yellow,"empty Inn retains yellow first-slot selection frame");
+    for(unsigned bad=0;bad<7;++bad) {
+        auto invalid=saved;
+        if(bad==0)invalid.insideInn=false;
+        if(bad==1)invalid.camera={28,19,4,XeenDirection::West};
+        if(bad==2)invalid.camera={30,19,15,XeenDirection::West};
+        if(bad==3)invalid.camera={49,11,12,XeenDirection::North};
+        if(bad==4)invalid.journey->supplements[0].inputs.luck.reset();
+        if(bad==5)invalid.journey->supplements[0].inputs.resistances.reset();
+        if(bad==6)invalid.journey->supplements[0].inputs.poisonResistance.reset();
+        XeenPartyState target;XeenCamera camera{23,1,2,XeenDirection::East};XeenGameFlags flags;
+        XeenWorld world(in.mapLoader(),in.objectLoader());unsigned callbacks=0;auto resources=in.resources();
+        const auto initial=resources.loadInitialParty;resources.loadInitialParty=[&]{++callbacks;return initial();};
+        save_test::rejects([&]{XeenSaveState::restoreBeforeGameplay(invalid,resources,target,camera,flags,world,
+            [&](auto &,const auto &,const auto &,const auto &){++callbacks;});});
+        check(callbacks==0 && target.party.size()==0 && target.roster.at(0).name.empty() &&
+            camera.mapId==XeenMapIdentity(23) && camera.x==1 && camera.y==2 && camera.direction==XeenDirection::East,
+            "invalid empty save rejected before callbacks or partial owner publication");
+    }
+    Visit load(in,XeenSaveFormat::decode(XeenSaveFormat::encode(saved)));load.present(load.flow->openInn());load.wait([&]{return XeenInnTestAccess::menu(*load.flow);},"empty recovery Load");
+    load.key('x');check(load.dialog()->anyKey,"empty recovery Exit refusal");load.act(AcknowledgeAction{});
+    load.key('1');check(load.p.party.size()==1 && load.saves.empty(),"Add recovers empty Inn without saving or replaying Sign In");
+    load.key('x');load.wait([&]{return !load.flow->innOpen() && load.flow->canSave();},"recovered Exit");
+    check(load.saves.size()==1 && !load.saves.back().insideInn,"recovered Exit saves");
+}
+
 void fullAndFailures(Inputs &in,const GameInstallation &installation) {
     auto s=source(in,28,8,600);s.characters[2]=s.characters[6];s.characters[2].rosterId=2;
     s.journey->supplements[2].inputs=s.journey->supplements[6].inputs;
@@ -353,8 +474,22 @@ void roundTripAndFight(Inputs &in) {
     std::filesystem::remove(slot);
 }
 
-void productionLoad(Inputs &in,const XeenSaveSnapshot &saved) {
-    XeenProgramState program;std::uint64_t now=0;unsigned shown=0;
+std::shared_ptr<XeenAudio> countingAudio(Inputs &in,const GameInstallation &installation,unsigned &songs) {
+    std::ifstream moduleFile(installation.uiModule->physicalPath,std::ios::binary);
+    const std::vector<std::uint8_t> module((std::istreambuf_iterator<char>(moduleFile)),{});
+    auto loader=[&in,&songs](const std::string &name,XeenSceneArchive archive){if(name=="inn.m")++songs;return in.assets.readArchiveResource(name,archive);};
+    return std::make_shared<XeenAudio>(3,std::make_shared<const std::vector<std::uint8_t>>(loader("promus",XeenSceneArchive::IntroOnly)),loader,module,0,false);
+}
+void signInSong(Inputs &in,const GameInstallation &installation) {
+    unsigned songs=0;Visit v(in,source(in,28));v.programState.audio=countingAudio(in,installation,songs);
+    v.sign();
+    // Keep cycling past the first load, so a second request would be counted.
+    for(unsigned n=0,after=0;n<600 && after<40;++n){v.pulse();v.programState.audio->advance(v.flow->presentationNow());if(songs)++after;}
+    check(songs==1 && v.programState.innSongStarted,"Sign In requests inn.m once and sets the song flag");
+}
+void productionLoad(Inputs &in,const GameInstallation &installation,const XeenSaveSnapshot &saved,bool title=false) {
+    unsigned songs=0;XeenProgramState program;program.innSongStarted=title;std::uint64_t now=0;unsigned shown=0;
+    program.audio=countingAudio(in,installation,songs);
     XeenGameplayServices services{program,in.resources(),{},in.mapLoader(),in.objectLoader(),
         [&](auto id){return in.texts.load(id);},in.font,
         [](auto &,const auto &,const auto &,auto){return XeenEventFlow::Composition{frame(),false};},{},{},{}};
@@ -369,10 +504,10 @@ void productionLoad(Inputs &in,const XeenSaveSnapshot &saved) {
         const auto context=handler.inputContext(current.presentation());
         check(context.dialog && context.dialog->key('r') && context.mainScreen==MainScreen::None,"production title/panel Load reaches Inn input");++shown;return true;};
     const auto result=Application(program).playGameplay(services,saved.camera,std::filesystem::path("inn.mmsave"),true,XeenEncounterEntry::Ordinary,{});
-    check(result==0 && shown==1,"production Load session");
+    check(result==0 && shown==1 && songs==unsigned(!title) && program.innSongStarted,"production title/panel Load song flag");
 }
 void productionNoTarget(Inputs &in) {
-    const auto saved=source(in,28);XeenProgramState program;std::uint64_t now=0;unsigned stages=0,writes=0;
+    const auto saved=source(in,28);XeenProgramState program;program.innSongStarted=true;std::uint64_t now=0;unsigned stages=0,writes=0;
     XeenEventFlow *flow=nullptr;
     XeenGameplayServices services{program,in.resources(),{},in.mapLoader(),in.objectLoader(),
         [&](auto id){return in.texts.load(id);},in.font,
@@ -396,6 +531,7 @@ void productionNoTarget(Inputs &in) {
         f.loadInnScreen=[](const auto &){return frame();};
     };
     services.show=[&](const auto &first,const auto &handler,const auto &,const auto &idle,const auto &){
+        check(!program.innSongStarted,"gameplay entry outside Inn clears title song flag");
         auto current=first;check(handler.acceptsFrame(current.presentation()),"target-less first frame current");handler.framePresented(current.presentation());handler.completeInputHandoff(current.presentation());
         const auto acquire=[&](const auto &next){if(next){current=*next;
             if(!handler.acceptsFrame(current.presentation()))throw std::runtime_error("target-less successor stale at stage "+std::to_string(stages));
@@ -413,6 +549,8 @@ void productionNoTarget(Inputs &in) {
                 const auto list=xeenInnList(p,28);
                 check(p.party.dismissedRosterIds().empty() && p.roster.at(departed).savedMaze==28 &&
                     std::find(list.begin(),list.end(),departed)!=list.end(),"target-less Sign In lodges Dismiss tail and lists it");
+                act(DialogKeyAction{'d'});act(DialogKeyAction{'1'});act(DialogKeyAction{'y'});
+                check(p.roster.at(0).name.empty() && p.party.size()==4 && writes==0,"target-less Delete clears and returns without writing");
                 exitTail=p.party.activeRosterIds().back();
                 acquire(std::optional<IndexedFrame>{XeenInnTestAccess::pendingExitTail(*flow)});
                 act(DialogKeyAction{'x'});++stages;
@@ -430,9 +568,9 @@ int main(int argc,char **argv) {
     try {rules();check(argc>=2 && argc<=4,"usage: inn-tests <original-installation> [preview.ppm] [timing.csv]");if(argc>=3)preview=argv[2];
         const auto installation=xeenTestInstallationDetector().detect(argv[1]);check(bool(installation),"installation");Inputs in(*installation);
         for(unsigned town:{28u,30u,49u})for(unsigned minute:{299u,300u})signIn(in,town,minute);
-        fullAndFailures(in,*installation);roundTripAndFight(in);innItems(in);dismissThenSign(in,30);dismissThenSign(in,49);scrollCadence(in);scrollSkip(in);scrollStall(in);productionNoTarget(in);
+        deleteRecords(in,*installation);emptySaveRecovery(in);signInSong(in,*installation);fullAndFailures(in,*installation);roundTripAndFight(in);innItems(in);dismissThenSign(in,30);dismissThenSign(in,49);scrollCadence(in);scrollSkip(in);scrollStall(in);productionNoTarget(in);
         if(argc==4)scrollCadence(in,argv[3]);
-        auto inn=source(in,28);inn.camera={28,18,4,XeenDirection::West};inn.insideInn=true;productionLoad(in,inn);
+        auto inn=source(in,28);inn.camera={28,18,4,XeenDirection::West};inn.insideInn=true;productionLoad(in,*installation,inn);productionLoad(in,*installation,inn,true);inn.activeRosterIds.clear();productionLoad(in,*installation,inn);productionLoad(in,*installation,inn,true);
         std::cout<<"Inn rules, original-data Sign In, both saves, membership, sheets and Load passed\n";return 0;
     }catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}
 }

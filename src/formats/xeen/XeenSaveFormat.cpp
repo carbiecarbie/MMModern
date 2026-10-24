@@ -323,7 +323,7 @@ void XeenSaveFormat::validate(const XeenSaveSnapshot &s) {
 	validateMap(s.camera.mapId);
 	require(xeenIndoorCoordinate(s.camera.x, s.camera.y) && static_cast<unsigned>(s.camera.direction) <= 3,
 		"invalid committed camera");
-	require(!s.activeRosterIds.empty() && s.activeRosterIds.size() <= XeenParty::kMaximumVisibleMembers, "active party must have one to six members");
+	require((!s.activeRosterIds.empty() || s.insideInn) && s.activeRosterIds.size() <= XeenParty::kMaximumVisibleMembers, "active party must have one to six members");
     std::array<bool,24> seen{};
     for (const auto id : s.activeRosterIds) {
         require(id<24 && !seen[id], "invalid or duplicate active roster identity");seen[id]=true;

@@ -25,7 +25,7 @@ class XeenJourneyCapture {
 	bool initializationPending = false;
 	// Runtime continuation only. Neither capture path may serialize an input pass.
 	bool inputPassPending = false;
-    // Stack-scoped capability issued by the Inn flow for its two forced writes.
+    // Stack-scoped capability issued by the Inn flow for its forced writes.
     bool innSave = false;
 	XeenJourneyCapture() = default;
 	XeenJourneyCapture(const XeenWorld &w, const XeenPartyState &p, const XeenCamera &c,
@@ -43,7 +43,11 @@ class XeenJourneyCapture {
                (w->sessionState().journeyActivity()!=XeenJourneyActivity::Event &&
                 w->sessionState().journeyActivity()!=XeenJourneyActivity::Quiet))return false;
             try {(*preimage)->check();xeenValidateJourneyParty(party);} catch(...) {return false;}
-            return !party.party.size()?false:true;
+            if(!party.insideInn)return party.party.size()!=0;
+            return c->mapId.side==XeenSide::Clouds && c->direction==XeenDirection::West &&
+                ((c->mapId.number==28 && c->x==18 && c->y==4) ||
+                 (c->mapId.number==30 && c->x==19 && c->y==16) ||
+                 (c->mapId.number==49 && c->x==11 && c->y==12));
         }
 		// Unavailable coordination is not an integrity observation. In particular,
 		// combat publications and legitimate leases need not match the quiet preimage.

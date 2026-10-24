@@ -88,6 +88,8 @@ public:
     bool journeyDismiss(const Ticket &,std::size_t);
     bool signIn();
     bool innMembership(const Ticket &,std::vector<std::uint8_t>);
+    // Publish both halves of one roster record and membership as one successor.
+    bool innRecord(const Ticket &,XeenCharacter,XeenCombatInputs,std::vector<std::uint8_t>);
     void innLeaving();
     void innReturn();
 	bool rememberSpell(const Ticket &,std::size_t,unsigned);

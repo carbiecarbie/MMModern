@@ -20,6 +20,10 @@
 
 namespace mmodern {
 
+// DOS clears the entire CHR, with all supplemental presence retained.
+XeenCharacter xeenDeletedCharacter(std::uint8_t owner);
+XeenCombatInputs xeenDeletedCombatInputs();
+
 class XeenRoster {
 public:
 	static constexpr std::size_t kCharacterCount = 30;

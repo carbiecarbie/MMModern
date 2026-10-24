@@ -264,6 +264,7 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
    else XeenSaveState::settleDismissedLodging(party,camera,flags,world);
   };
   if(party.insideInn) {flow.openInn();handoff.retain();}
+  else services.program.innSongStarted=false;
   handoff.verify();
   if (!flow.frame().isValid()) throw std::runtime_error("Invalid first gameplay frame");
   std::cout << "Setup " << xeenInventoryInspection(party);
@@ -549,7 +550,9 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
    audio->advance(now);
    const auto location=flow.audioLocation();
    if(location!=soundLocation || soundMap!=camera.mapId) {
-    if(location && *location==7)audio->requestInn(now);
+    if(location && *location==7) {
+     if(!services.program.innSongStarted) {audio->requestInn(now);services.program.innSongStarted=true;}
+    }
     else if(location)audio->requestLocation(*location,now);
     else if(soundLocation)audio->requestSong(audio->mapSong(world.map(camera.mapId).geometry),XeenSceneArchive::Clouds,223,now);
     else audio->requestMap(world.map(camera.mapId).geometry,now);

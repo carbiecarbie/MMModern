@@ -136,7 +136,7 @@ void savesAndCombat() {
         regional_journey_test::Fixture f(bytes,[&](auto &f){f.p.party=XeenParty::fromRosterIds({ids.begin(),ids.begin()+count});});
         auto before=XeenSaveState::capture(regional_test::signature(),f.p,f.camera,f.flags,f.w);
         runAndDefeat(before,count);
-        const auto wire=XeenSaveFormat::encode(before);check(wire[8]==19,"v19 envelope byte");
+        const auto wire=XeenSaveFormat::encode(before);check(wire[8]==20,"v20 envelope byte");
         auto decoded=XeenSaveFormat::decode(wire);save_test::sameSnapshot(before,decoded);
         check(XeenSaveFormat::encode(decoded)==wire,"byte-exact one-to-six round trip");
         for(unsigned id=0;id<30;++id)check(decoded.characters[id].savedMaze==561 && decoded.characters[id].townUnknown==173 &&
@@ -188,7 +188,7 @@ void savesAndCombat() {
         auto town=inn;town.camera=invalid;rejects([&]{XeenSaveFormat::encode(town);});
     }
     auto bad=inn;bad.activeRosterIds={0,0};rejects([&]{XeenSaveFormat::encode(bad);});
-    bad=inn;bad.activeRosterIds.clear();rejects([&]{XeenSaveFormat::encode(bad);});
+    bad=inn;bad.activeRosterIds.clear();check(XeenSaveFormat::decode(XeenSaveFormat::encode(bad)).activeRosterIds.empty(),"empty Inn party roundtrip");
     bad=inn;bad.activeRosterIds={24};rejects([&]{XeenSaveFormat::encode(bad);});
     auto old=bytes;old[8]=18;
     try {XeenSaveFormat::decode(old);throw std::runtime_error("v18 accepted");}

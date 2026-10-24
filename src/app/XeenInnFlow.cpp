@@ -63,6 +63,26 @@ bool XeenEncounterFlow::innMembership(const Ticket &entry,std::vector<std::uint8
     ++_generation;prepared->adoptJourneyCoordination();_journeyPreimage.swap(prepared);
     _retiredCombatResult={};_combatObservation={};_combatAward={};return true;
 }
+bool XeenEncounterFlow::innRecord(const Ticket &entry,XeenCharacter character,XeenCombatInputs inputs,std::vector<std::uint8_t> ids) {
+    if(!_party.insideInn || !current(entry) || _busy || _combat || !_boundary.quiet() || !journeyCapacity())return false;
+    InnBusy busy(_busy);_journeyPreimage->check();
+    const auto owner=unsigned(character.rosterId);
+    if(owner>=24)return false;
+    auto candidate=_world.transitionCandidate();XeenPartyState p;candidate->copyEventParty(_party,p);
+    p.roster.at(owner)=std::move(character);p.roster._combatInputs[owner]=std::move(inputs);
+    p.party=p.party.reordered(ids);p.firstSerializedCount=p.effectiveSerializedCount=ids.size();
+    xeenValidateJourneyParty(p);
+    auto prepared=std::make_shared<XeenRestoreGuard>(_world,_party,_camera,_flags);
+    prepared->retainResources(*_journeyPreimage);
+    prepared->characters[owner]=p.roster.at(owner);prepared->inputs[owner]=p.roster.combatInputs(owner);
+    prepared->membership=ids;prepared->first=prepared->effective=ids.size();
+    _journeyPreimage->check();
+    _party.roster.at(owner)=std::move(p.roster.at(owner));
+    _party.roster._combatInputs[owner]=std::move(p.roster._combatInputs[owner]);
+    _party.party=std::move(p.party);_party.firstSerializedCount=_party.effectiveSerializedCount=ids.size();
+    ++_generation;prepared->adoptJourneyCoordination();_journeyPreimage.swap(prepared);
+    _retiredCombatResult={};_combatObservation={};_combatAward={};return true;
+}
 void XeenEncounterFlow::innLeaving() {
     if(!_party.insideInn || !_party.party.size() || _busy || _combat || !_boundary.quiet() || !current(ticket()))
         throw std::logic_error("Inn Exit unavailable");
@@ -95,7 +115,8 @@ void XeenEncounterFlow::innReturn() {
 void XeenEventFlow::forcedInnSave() {
     if(!saveInn || _forcedInnSave)throw std::logic_error("Inn Save transaction unavailable");
     if(!((_smithUi && _smithUi->signIn && _smithSettlement && _encounter->journeyEvent() && !_encounter->_smith) ||
-         (_innUi && _innUi->phase==InnUi::Phase::Menu && !_party.insideInn)))
+         (_innUi && _innUi->phase==InnUi::Phase::Menu &&
+          (!_party.insideInn || _innUi->edit==InnUi::Edit::SavePending))))
         throw std::logic_error("Inn Save site unavailable");
     auto &cap=*_encounter->_journeyCapture;
     const auto &boundary=_encounter->_boundary;
@@ -136,6 +157,9 @@ IndexedFrame XeenEventFlow::finishSignIn() {
 IndexedFrame XeenEventFlow::openInn(bool closing) {
     requireCurrentOwners();
     if(!journey() || !_party.insideInn || _innUi)throw std::logic_error("Inn entry unavailable");
+    if(!closing && !_program.innSongStarted) {
+        if(_program.audio)_program.audio->requestInn(presentationNow());_program.innSongStarted=true;
+    }
     _innUi.emplace();_innUi->closing=_frame;
     if(closing){_innUi->phase=InnUi::Phase::Closing;_innUi->scroll=22;}
     _innUi->deadline=closing?PresentationClock::after(presentationNow(),1):PresentationClock::retraceAfter(presentationNow());
@@ -147,8 +171,11 @@ std::shared_ptr<const DialogInput> XeenEventFlow::innInput() const {
     if(_innUi->phase==InnUi::Phase::Closing || _innUi->phase==InnUi::Phase::Opening)
         input.anyKey=input.anyClick=input.keyMouseWait=true;
     else if(_innUi->phase==InnUi::Phase::Menu) {
-        const auto ids=xeenInnList(_party,_camera.mapId);
-        input=xeenInnInput(ids.size()-std::min(ids.size(),_innUi->top),_party.party.size(),_innUi->remove);
+        const auto ids=xeenInnList(_party,_camera.mapId,_innUi->townOnly);
+        const auto rows=ids.size()-std::min(ids.size(),_innUi->top);
+        if(_innUi->edit==InnUi::Edit::DeleteSelect)input=xeenInnDeleteInput(rows);
+        else if(_innUi->edit==InnUi::Edit::DeleteConfirm)input=xeenConfirmInput(false);
+        else input=xeenInnInput(rows,_party.party.size(),_innUi->remove);
         if(!_innUi->feedback.empty()){input={};input.anyKey=input.anyClick=input.keyMouseWait=true;}
     }
     return std::make_shared<const DialogInput>(std::move(input));
@@ -162,11 +189,17 @@ IndexedFrame XeenEventFlow::renderInn(bool cosmetic) {
         const bool closing=ui.phase==InnUi::Phase::Closing || ui.phase==InnUi::Phase::Closed;
         auto frame=closing?ui.closing:ui.opening.isValid()?ui.opening:loadInnScreen(_party);
         if(ui.phase==InnUi::Phase::Menu || (opening && !ui.opening.isValid())) {
-            const auto ids=xeenInnList(_party,_camera.mapId);ui.top=std::min(ui.top,xeenInnLastPage(ids.size()));
+            const auto ids=xeenInnList(_party,_camera.mapId,ui.townOnly);
             if(!ui.opening.isValid())frame=drawXeenInn(dosText(),frame,_inventoryFont,_party,ids,ui.top,drawDialogSprite);
             if(opening)ui.opening=frame;
             else ui.opening={};
             if(ui.remove)frame=drawXeenInnRemove(dosText(),frame,_inventoryFont,drawDialogSprite);
+            if(ui.edit==InnUi::Edit::DeleteSelect)frame=drawXeenInnDelete(dosText(),frame,_inventoryFont,drawDialogSprite);
+            if(ui.edit==InnUi::Edit::DeleteConfirm) {
+                const auto &c=_party.roster.at(*ui.selected);
+                frame=drawXeenConfirm(frame,_inventoryFont,xeenDialogFormat(dosText().scalar("INN_DELETE_CONFIRM"),
+                    {std::string(c.name),dosText().table("CLASS_NAMES").at(unsigned(c.characterClass))}),false,drawDialogSprite);
+            }
             _inventoryUnderlay=frame;
             if(inventoryOpen())frame=drawCharacterDialog(frame);
             if(_summary)frame=drawSummary(frame);
@@ -199,7 +232,7 @@ std::optional<IndexedFrame> XeenEventFlow::updateInn() {
         ui.phase=InnUi::Phase::Palette;ui.scroll=1;
         // DOS fadeIn(0x81): restore the full palette at one VGA retrace.
         ui.deadline=PresentationClock::retraceAfter(presentationNow());
-        if(_program.audio)_program.audio->requestInn(presentationNow());
+        if(!_program.innSongStarted) {if(_program.audio)_program.audio->requestInn(presentationNow());_program.innSongStarted=true;}
     } else if(ui.phase==InnUi::Phase::Palette) {
         ui.phase=InnUi::Phase::Opening;ui.deadline=PresentationClock::after(presentationNow(),1);
     } else if(ui.phase==InnUi::Phase::Opening) {
@@ -232,11 +265,37 @@ IndexedFrame XeenEventFlow::handleInn(const PlayerAction &action) {
     if(const auto *k=std::get_if<DialogKeyAction>(&action))key=k->key;
     if(const auto *m=std::get_if<SelectMemberAction>(&action))key=InputKey::F1+m->partyIndex;
     if(std::holds_alternative<CancelInteractionAction>(action))key=InputKey::Escape;
-    if(!ui.feedback.empty()) {ui.feedback.clear();return renderInn();}
+    const auto saveEdit=[&] {
+        // A published record is never changed again when the disk write is retried.
+        try {forcedInnSave();ui.edit=InnUi::Edit::None;ui.selected.reset();}
+        catch(const std::exception &e) {_encounter->journeySavePreimage().check();ui.feedback=innSaveError(dosText(),e);}
+    };
+    if(!ui.feedback.empty()) {
+        ui.feedback.clear();if(ui.edit==InnUi::Edit::SavePending)saveEdit();return renderInn();
+    }
     if(!innInput()->key(key))return frameCopy();
     auto ids=std::vector<std::uint8_t>(_party.party.activeRosterIds());
     const auto changed=[&]{_inventory={};_sheet.reset();_quickFightMember.reset();_lastCaster.reset();_equipmentSelection.reset();advanceInventoryEpoch();};
-    if(ui.remove) {
+    if(ui.edit==InnUi::Edit::DeleteSelect) {
+        if(key==InputKey::Escape)ui.edit=InnUi::Edit::None;
+        else if(key>='1' && key<='4') {
+            const auto list=xeenInnList(_party,_camera.mapId,ui.townOnly);const auto row=ui.top+key-'1';
+            if(row>=list.size())return frameCopy();
+            ui.selected=list[row];const auto &c=_party.roster.at(*ui.selected);
+            ui.edit=InnUi::Edit::None;
+            if(std::any_of(c.weapons.begin(),c.weapons.end(),[](const auto &item){return item.id==34;}))
+                ui.feedback=dosText().scalar("INN_DELETE_SWORD");
+            else ui.edit=InnUi::Edit::DeleteConfirm;
+        }
+    } else if(ui.edit==InnUi::Edit::DeleteConfirm) {
+        if(key=='n' || key==InputKey::Escape){ui.edit=InnUi::Edit::None;ui.selected.reset();}
+        else if(key=='y') {
+            const auto owner=*ui.selected;
+            ids.erase(std::remove(ids.begin(),ids.end(),owner),ids.end());
+            if(!_encounter->innRecord(*_encounterFrame,xeenDeletedCharacter(owner),xeenDeletedCombatInputs(),ids))return frameCopy();
+            changed();ui.townOnly=true;ui.edit=InnUi::Edit::SavePending;saveEdit();
+        }
+    } else if(ui.remove) {
         if(key==InputKey::Escape)ui.remove=false;
         else if(key>=InputKey::F1 && key<InputKey::F1+ids.size()) {
             ids.erase(ids.begin()+key-InputKey::F1);_encounter->innMembership(_encounter->ticket(),ids);changed();ui.remove=false;
@@ -245,14 +304,15 @@ IndexedFrame XeenEventFlow::handleInn(const PlayerAction &action) {
         handleInventory(InspectInventoryAction{});_inventory.source=key-InputKey::F1;_inventory.sourceOwner=ids[_inventory.source];
         _sheet.emplace();_sheet->deadline=PresentationClock::afterMilliseconds(_clock(),4);_itemsVisible=false;
     } else if(key>='1' && key<='4') {
-        const auto list=xeenInnList(_party,_camera.mapId);const auto row=ui.top+key-'1';
+        const auto list=xeenInnList(_party,_camera.mapId,_innUi->townOnly);const auto row=ui.top+key-'1';
         if(row>=list.size() || std::find(ids.begin(),ids.end(),list[row])!=ids.end())return frameCopy();
         if(ids.size()==6){_encounter->fmEffect(21);ui.feedback=dosText().scalar("INN_FULL");}
         else {ids.push_back(list[row]);_encounter->innMembership(_encounter->ticket(),ids);changed();}
     } else if(key==InputKey::Up) {if(ui.top>=4)ui.top-=4;}
-    else if(key==InputKey::Down)ui.top=std::min(ui.top+4,xeenInnLastPage(xeenInnList(_party,_camera.mapId).size()));
+    else if(key==InputKey::Down) {if(ui.top+4<xeenInnList(_party,_camera.mapId,ui.townOnly).size())ui.top+=4;}
     else if(key=='r')ui.remove=!ids.empty();
-    else if(key=='c' || key=='d')ui.feedback=std::string(key=='c'?"Create":"Delete")+": not supported yet";
+    else if(key=='c')ui.feedback="Create: not supported yet";
+    else if(key=='d') {if(!xeenInnList(_party,_camera.mapId,ui.townOnly).empty())ui.edit=InnUi::Edit::DeleteSelect;}
     else if(key=='e' || key=='x' || key==InputKey::Escape || key==InputKey::Space) {
         if(ids.empty())ui.feedback=dosText().scalar("INN_NO_MEMBERS");
         else {
@@ -264,6 +324,7 @@ IndexedFrame XeenEventFlow::handleInn(const PlayerAction &action) {
                 _encounter->journeySavePreimage().adoptMutationBoundary();
                 ui.feedback=innSaveError(dosText(),e);return renderInn();
             }
+            _program.innSongStarted=false;
             _encounter->innReturn();_innUi.reset();_presenter.clear();_journeyEventLayers=false;
             _encounterFrame=_encounter->ticket();_handoffPending=false;
             // Ordinary flagged-cell pass at the door, distinct from Load/New Game.

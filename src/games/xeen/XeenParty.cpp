@@ -6,6 +6,15 @@
 #include <type_traits>
 
 namespace mmodern {
+XeenCharacter xeenDeletedCharacter(std::uint8_t owner) {
+    XeenCharacter c;c.rosterId=owner;c.currentSpell=0;
+    c.learnedSpells.emplace();return c;
+}
+XeenCombatInputs xeenDeletedCombatInputs() {
+    XeenCombatInputs inputs;inputs.luck.emplace();inputs.resistances.emplace();
+    inputs.poisonResistance.emplace();return inputs;
+}
+
 
 void XeenRoster::requireOrdinary(const XeenRoster &r) {
 	if (r._combatMarked) throw std::logic_error("marked combat roster cannot be copied, moved or replaced");

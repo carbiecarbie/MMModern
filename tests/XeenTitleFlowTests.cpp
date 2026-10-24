@@ -336,6 +336,14 @@ int main(int argc,char **argv){try {
  check(load.flow.entry() && load.flow.entry()->kind==XeenSessionEntry::Kind::Load &&
   load.flow.entry()->snapshot->name==saved.name,"title Load immutable candidate");
  slots[0].snapshot->name="Changed disk row";check(load.flow.entry()->snapshot->name==saved.name,"Load candidate borrowed mutable chooser row");
+ const auto backup=slots[0];slots[0].snapshot->activeRosterIds.clear();
+ Driver emptyLevel(services());emptyLevel.key(27);emptyLevel.key('l');
+ slots[0].snapshot->activeRosterIds={0};slots[0].snapshot->characters[0].permanentLevel=0;slots[0].snapshot->characters[0].temporaryLevel=0;
+ Driver zeroLevel(services());zeroLevel.key(27);zeroLevel.key('l');
+ check(emptyLevel.flow.frame().pixels==zeroLevel.flow.frame().pixels,"empty-party slot shows level 0");
+ slots[0].snapshot->characters[0].permanentLevel=1;
+ Driver oneLevel(services());oneLevel.key(27);oneLevel.key('l');
+ check(emptyLevel.flow.frame().pixels!=oneLevel.flow.frame().pixels,"slot level label responds to nonzero membership");slots[0]=backup;
  slots={};Driver empty(services());empty.key(27);empty.key('l');check(empty.flow.screen()==Screen::Notice,"no-saves notice");empty.key(27);
  empty.key('s');empty.key('0');empty.key(13);empty.type(std::string(20,' '));empty.key(13);
  check(empty.flow.screen()==Screen::Name && !empty.flow.entry(),"all-space name was accepted");

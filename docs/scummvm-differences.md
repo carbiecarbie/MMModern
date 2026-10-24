@@ -85,13 +85,25 @@ gameplay playback sites and CD rules follow in Parts A2 and B:
 - **Shangri-La door.** Sign In uses DOS's corrected (11,12) West exit, which
   the pin's exit lookup lacks.
   [Evidence](original-quirks.md#sv-inn-shangri-la-exit). Pin: differs; master not rechecked.
-- **Two saves.** Sign In writes the current slot before the Inn opens; Exit
-  writes it again with the edited party. The pin has neither slot write.
+- **Save boundaries.** Sign In writes the current slot before the Inn opens;
+  Delete saves its cleared record and membership, including zero members; Exit
+  saves the edited party. The pin has none of these slot writes.
   [Evidence](original-quirks.md#sv-inn-save-boundaries). Pin: differs; master not rechecked.
 - **Return to play.** Exit reloads even the same map, rebuilds monsters and
   runs the door's ordinary flagged-cell Event pass. The pin reloads only a
   different map.
   [Evidence](original-quirks.md#sv-inn-return-reload). Pin: differs; master not rechecked.
+
+- **Delete list and page.** After Delete the list tests town alone and keeps
+  the page, including an empty last page. The pin tests side and resets it.
+  [Evidence](original-quirks.md#sv-inn-delete-list-page). Pin: differs; master not rechecked.
+- **Cleared Beacon coordinates.** A cleared roster record has Beacon x/y zero,
+  like every other CHR field. The pin leaves those coordinates untouched.
+  [Evidence](original-quirks.md#sv-create-delete-beacon-clear). Pin: differs; master not rechecked.
+- **Inn song after title Load.** Loading an Inn save from the title opens it
+  in silence until Exit. Sign In and panel Load into the Inn play its song.
+  The pin starts the Inn song unconditionally.
+  [Evidence](original-quirks.md#sv-inn-title-load-song). Pin: differs; master not rechecked.
 
 ## Combat and conditions
 
@@ -505,8 +517,9 @@ Curse Item against the Xeen Slayer Sword ([Curse](original-quirks.md#sv-curse-it
 Deliberate differences from the original, approved by the maintainer and kept
 apart from the fidelity differences above.
 
-- **Recoverable Inn save failures.** Sign In and Exit show an error and allow
-  retry, retaining the paid day or the edited party; quitting stays possible.
+- **Recoverable Inn save failures.** Sign In, Exit and a confirmed Delete show
+  an error and allow retry, retaining the paid day, the edited party or the
+  deletion; quitting stays possible.
   DOS terminates on the checked disk failures. The pin has no corresponding
   forced slot writes, so this does not claim a difference in its error handling.
   [Details](original-quirks.md#dev-inn-save-recovery)

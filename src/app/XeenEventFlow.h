@@ -167,6 +167,10 @@ private:
         Phase phase=Phase::Palette;
         unsigned scroll=1;
         std::size_t top=0;
+        enum class Edit { None, DeleteSelect, DeleteConfirm, SavePending };
+        Edit edit=Edit::None;
+        std::optional<std::uint8_t> selected;
+        bool townOnly=false;
         bool remove=false,acquired=false;
         std::uint64_t deadline=0;
         std::string feedback;

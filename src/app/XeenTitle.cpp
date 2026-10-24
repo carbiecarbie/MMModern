@@ -63,6 +63,7 @@ int Application::run(const std::filesystem::path &gameDirectory) const {
   bool inGameLoad=false;
   for(;;) {
    if(entry.kind==XeenSessionEntry::Kind::Title) {
+    _program.innSongStarted=true;
     const auto selected=showTitle(title,assets,*_program.audio);
     if(!selected)return 0;entry=*selected;inGameLoad=false;
    }

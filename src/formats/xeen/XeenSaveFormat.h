@@ -23,8 +23,8 @@ public:
 
 class XeenSaveFormat {
 public:
-	// M87: full roster and Inn envelope; Journey schema/content retained.
-	static constexpr std::uint16_t kJourneyVersion = 19;
+	// M88: empty parties inside a validated Inn; layout/schema/content retained.
+	static constexpr std::uint16_t kJourneyVersion = 20;
 	static constexpr std::uint16_t kJourneySchema = 9;
 	static constexpr std::uint16_t kJourneyContent = 14;
 	static constexpr std::size_t kHeaderSize = 20;
