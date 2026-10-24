@@ -279,11 +279,26 @@ member of a hated class or the first eligible Dwarf for hatred 12. Class value 1
 Eligible here excludes worst
 conditions Paralyzed, Unconscious, Dead, Stoned and Eradicated; Sleep is eligible.
 
-When no preferred target exists, draw a uniform index over all current combat
-participants, including disabled ones. If that choice is ineligible, draw again
-over an ordered list of eligible participants. This second draw is conditional;
-pre-filtering before the first draw changes RNG consumption. If no eligible
-participant exists, the reference marks party defeat.
+**DOS static, high confidence (M87):** when no preferred target exists, select
+over all current combat participants, including disabled ones, using their
+count `n`:
+
+| Count | Initial selection, before eligibility fallback |
+| --- | --- |
+| 1 | Index 0, without a random draw |
+| 2–5 | `R(0,n-1)` |
+| 6 | Draw `R(1,6)`; on 6 select index 5, otherwise draw `R(0,4)` and use that index |
+
+Dispatch is `0x2d9a3..0x2d9b2`, with the six-entry table at `0x2dc70`;
+the six-member branch is `0x2d9c4..0x2d9e8`. If the selected member is
+ineligible, a further draw selects from the ordered eligible list
+(`0x2da3a..0x2da90`). Pre-filtering or collapsing the six-member branch into
+one draw changes RNG consumption. With six eligible members and a first
+result other than 6, DOS makes two draws before any eligibility fallback.
+If no eligible participant exists, the reference marks party defeat.
+**Reference comparison:** the pin's `combat.cpp:898` uses `R(0,n-1)` for
+every count, including one and six. See [M87 evidence](evidence.md#m87-inn-and-party-size)
+and [party consumer bounds](party.md#shared-state-and-consumer-bounds).
 
 Nonphysical monster attacks and attacks against a sleeping target bypass the AC
 hit roll and enter damage directly. For physical attacks against awake targets:

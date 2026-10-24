@@ -1709,6 +1709,117 @@ with repeat settings and successive damage times recorded. Unusual host
 keyboard layouts/keypad Equals also have no measured DOS equivalence. The
 static US Set-1 table and MMModern host-action exclusions are explicit above.
 
+## M87 Inn and party size
+
+Checked 2026-10-23 against clean HEAD = `origin/main` =
+`f77720f8c46f6bdd68a0ff19b9313a55849c78d0`. Rules are in
+[The Inn, membership and party size](party.md) and the
+[combat targeting section](combat.md#monster-targeting-and-hit-resolution).
+This is an evidence record, not an assertion that those rules are implemented.
+
+**DOS static, high confidence:** read-only analysis of the CD
+`WORLD/XEEN.DAT`, 353511 bytes, SHA-256
+`8bf78b4850d5973cbb063c7dd96b9aaef4e94791d748334187eef74acf528d27`.
+REA rejected the supplied Windows paths before opening a session, so the
+analysis used WSL Python3 and Capstone 5.0.7 in 16-bit mode. File offset is
+`0x56c0 + segment*16 + offset`; Ghidra linear address is file offset plus
+`0xa940`. The image was hash-checked by the trace helper. No original files
+were modified; no new DOSBox play is claimed.
+
+Calibration passed against the settled [Tavern Food](time-and-conditions.md#tavern-food)
+rule: map 28 reaches `0x1b1c4..0x1b1da`, multiplying active count `DS:ed8c`
+by 15 and selecting price 10. The unsigned existing-food comparison is at
+`0x1b2c2..0x1b2c9`; food is replaced after debit at `0x1b2e3..0x1b2e6`.
+No condition filter intervenes. This establishes the count identity and
+address interpretation against M79 before following Inn consumers.
+
+**Resource inspection, high confidence:** the existing developer commands
+`--inspect-party`, `--inspect-map` and `--inspect-events` read the installed
+`GAME1.GOG`; maps 28–32, 49 and 73–74 were inspected. The party command
+prints active characters only, so the complete roster/portrait census reused
+the existing external ISO/CC decoder. Initial `maze.chr` is 10620 bytes at
+inner-save offset `0x989`, SHA-256
+`c1bb681d2a9c5b3b29b2b75ad314328debfd6f512d942d699c4891a5f6da227a`.
+Six named slots and their metadata are listed in [the roster rule](party.md#roster-and-list).
+Tavern action is 3: map 28 Event offset 16, map 30 offset 7 and map 49
+offset 45. No Tavern placement was found in the other enumerated maps.
+This is a census of those resources, not a failed executable search used as
+proof of absence.
+
+External findings, scripts and instruction slices are retained under
+`D:/MModern-re/m87/`, chiefly `findings.md`, `roster.json`,
+`resource-summary.txt`, `tavern-sites.json` and the consumer slices.
+Existing `event-dispatch/`, `m79-services-20261020/`, `m85-part0/`,
+`conditions-20261022/` and `skills-20261019/` evidence supplied settled rules;
+the retained M76/M81 ranged and treasure boundaries were also reused.
+Preliminary slices beginning mid-instruction are not evidence for their
+leading bytes. The trace helper's derived call-target annotations apply to
+direct far calls only. The parent's final targeting verdict supersedes the
+mechanical sweep's initial one-draw interpretation. Preliminary action-1
+exit lookups were Smith lookups, not Tavern evidence.
+
+| Question | Verdict, file offsets and evidence |
+| --- | --- |
+| Roster/list | First 24 slots, named and matching town/side, ascending IDs: `0x39576..0x395d5`; In Party and face mapping `0x38e9c..0x39090`; page step/limits `0x398bb..0x398d4`. High, DOS static; portrait availability is Resource inspection. |
+| Sign In admission/lodging | Direct S handler `0x1b6b0`; active CHR side/map writes `0x1b754..0x1b784`; no terminal-condition refusal. High, DOS static. |
+| Exits | Vertigo/Rivercity table `0x506ca/0x506ce`; Shangri-La override `(11,12)` West `0x1b723..0x1b734`. High, DOS static + Resource inspection of callers. |
+| Time | AddTime(1440), then map 0, `0x1b786..0x1b794`; calendar/interest and mode-17 dawn exception `0x263b3..0x26491`. No food, Rest or condition ticks. High, DOS static with retained time evidence. |
+| Forced Save order | Farewell/wait `0x1d688..0x1d6cf`, prior song `0x1d763..0x1d773`, forced Save `0x1d7a4`, Event completion `0x27b1f..0x27b3b`, closing scroll `0xd5de..0xd60f`, Inn song/opening `0x394d4..0x394f4`, `0x39738..0x39745`. High for call order, DOS static; audiovisual overlap Unknown. |
+| Saved state | Live-party preservation/roster copy `0x1ec37..0x1ed26`, map flush `0x1ed29`, snapshot `0x1ed2e`. Map 0, prior map, door/facing, post-day time, pre-Inn membership and full roster. High, DOS static. |
+| Save destination | `0xe938` writes roster/party to DARK.CUR; `0xec85` uses selected slot `DS:95a6` for numbered WOX copy; `0xe9b8` copies XEEN.CUR in normal World play. New Game clears its special-copy flag at `0x20c3d`. High, DOS static. |
+| Ordinary versus forced Save | Argument check `0x1ebc8..0x1ec2a`, final acknowledgement `0x1ed46..0x1ed98`; ordinary panel combat gate `0x1f1cb..0x1f1e5`. Shared copying/snapshot/disk reset, forced path skips admission/prompts. High, DOS static. |
+| Error paths | Open failure to `0x21ecd`; archive carry-error termination `0x45c8a..0x45cfd`; copy-loop write results unchecked at `0xedb1..0xee09`. High for branches, DOS static; physical partial-write outcomes Unknown. |
+| Load/Exit | Roster/active reconstruction and map-0 Inn dispatch `0x39460..0x394bc`; Exit restores prior map, copies and snapshots `0x39b1b..0x39b2b`. High, DOS static. |
+| Other Inn saves | Add/Remove alone do not snapshot; confirmed Delete `0x39a2e..0x39a32` and Create return `0x39a96..0x39a9a` do. High, DOS static; M88 owns their editing rules. |
+| Return | Unconditional map load and actor rebuild `0xd086..0xd0d3`, ordinary flagged-cell Event pass `0xd18c/0xd1a5`. High, DOS static with retained M84/M85 dispatch evidence. |
+| Input/refusals | Key table `0x39c59`; Add/FX21 `0x39b33..0x39beb`; Remove `0x39a3a..0x39a73`; empty Exit `0x39ac1..0x39ad0`. High, DOS static. Full mouse table in party chapter. |
+| Dismiss | Exploration dispatch `0xd45b..0xd460`, absent from combat table `0x2ecad`; window/refusal `0x20e81..0x20f6d`; compaction/tail `0x20f70..0x21004`; Save's deferred Vertigo lodging `0x1ec97..0x1ed1e`. High, DOS static. |
+| Consumer bounds | Per-category verdicts and original call sites in [consumer table](party.md#shared-state-and-consumer-bounds). High for stated checks, DOS static including retained evidence; no whole-program absence claim. |
+| Target draw count | Combat count switch `0x2d9a3..0x2d9b2`, six table entries at `0x2dc70`, conditional second draw `0x2d9c4..0x2d9e8`; eligibility fallback is later. High, DOS static. |
+| Shared state | Full roster and 1530-byte party snapshot `0xe938..0xe97d`; membership copies do not split currency/food. Pending treasure is excluded, with gameplay-entry clearing `0xcfe3..0xcff7`; reuse [M81](#save-and-load-boundary). High, DOS static, including retained evidence. |
+
+The significant inactive-character witness is six-to-five Dismiss followed
+by Save: the departed full CHR at lane 5 is read and lodged at Vertigo. This
+depends on retained character/ID state and is bounded by the six physical
+lanes; the saved canonical result is the full roster. It is not an assertion
+that DOS serializes a separate inactive-tail array. The portrait compactor
+also reads handle slots 6/7, but those belong to a larger resource cache,
+not the CHR buffer (`0x389ff..0x38a44`, loader `0x1f700`).
+
+**Reference comparison:** the pinned tree at
+`6814ee9ba54582f5b5adcffab49efbbd8f589edd` differs in town filtering,
+Shangri-La exit correction, Sign In/Exit saves, same-map return reload, and
+the one/six-participant initial target draws. The pin's Dismiss erases the
+active entry rather than retaining DOS's departed tail for the Save-time
+lodging pass. Its Elder-weapon refusal is Swords-only and is not a Clouds
+difference. Master was not rechecked. These are source comparisons, not
+claims of current MMModern implementation.
+
+### M87 runtime checks
+
+**Unknown: audiovisual overlap and frame timing.** Capture normal DOSBox
+video and audio from Vertigo's S input through the first interactive Inn
+frame, then Exit. Mark farewell end, prior song, disk activity, closing
+scroll, Inn song, palette/opening scroll and first accepted input. Static
+call order above remains settled; the capture resolves overlap and duration.
+
+**Unknown: physical partial-write outcome.** Use disposable game/save copies.
+Make the selected numbered target unopenable, Sign In, and record messages,
+termination and working/slot hashes. Separately exhaust a disposable writable
+volume during archive copying and compare both CUR/WOX pairs afterward.
+This distinguishes checked failures from unchecked partial writes; do not
+infer rollback from the successful-path trace. Arbitrarily corrupted slot
+state outside normal gameplay was not certified.
+
+Useful runtime corroboration, rather than unresolved static verdicts: select
+a disposable slot, record time/membership, Sign In and hash both CUR/WOX
+pairs. Restart and Load: it should open the Inn without another day. Remove
+and Add, Exit, then Load to check saved membership/door position. Repeat in
+Shangri-La at `(11,12)` West. For targeting, break on the bounded RNG at
+file `0x45b9a` translated to its loaded address: six able combatants with no
+preferred target should call `R(1,6)`, then `R(0,4)` unless the first result
+is 6, separately from any eligibility fallback.
+
 ## REA record locators
 
 The exported evidence bundle contains complete records. The stable IDs below
@@ -1733,7 +1844,7 @@ replacements for the control-flow interpretation above.
 | Area | Question to settle before extending a rule |
 | --- | --- |
 | Combat | Establish remaining enchanted multi-attack arithmetic. Eradicate equipment-frame behavior is settled in [Combat](combat.md#secondary-effects). |
-| Damage and targeting | Confirm ranged continuation, elemental multi-attack arithmetic and targeting distributions for every party size. |
+| Damage and targeting | Confirm ranged continuation and elemental multi-attack arithmetic. [M87](#m87-inn-and-party-size) settles the count-dependent initial target draws; it does not measure the generator's statistical distribution. |
 | Items | Trace the remaining unexamined item-prompt refunds and high-tier generation cases; M76 settles Recharge, Enchant and Item to Gold above. |
 | Treasure | Extend delivery evidence to the special sword and other editions' quest branches; the Clouds quest display/count boundary is established above. |
 | Magic | Extend control-spell duration and high-tier overflow checks. Holy Bonus is settled by [M76](#m76-spells); Poison Volley and Resurrection retain their earlier evidence. |
