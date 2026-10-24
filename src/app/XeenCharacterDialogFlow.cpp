@@ -167,7 +167,7 @@ void XeenEventFlow::performItemOption(unsigned option) {
     }
     if(option!=2) return;
     const auto &c=_party.roster.at(*_inventory.sourceOwner);
-    const auto admission=xeenItemUseAdmission(_inventory.category,_inventory.record,_camera.mapId.number!=0,c.canAct());
+    const auto admission=xeenItemUseAdmission(_inventory.category,_inventory.record,!xeenDosMapZero(_party,_camera),c.canAct());
     if(admission==XeenItemUseAdmission::InvalidCategory)return;
     if(admission==XeenItemUseAdmission::NoWorld) {dialogError(std::string(xeenDialogText(dosText(),XeenDialogText::Hurry)));return;}
     if(admission==XeenItemUseAdmission::CannotAct) {dialogError(xeenDialogFormat(xeenDialogText(dosText(),XeenDialogText::InNoCondition),{c.name}));return;}

@@ -67,6 +67,11 @@ public:
     std::uint64_t presentationNow();
     std::optional<std::uint64_t> nextPresentationDeadline();
     std::optional<unsigned> audioLocation() const;
+    std::function<IndexedFrame(const XeenPartyState &)> loadInnScreen;
+    // The session supplies the panel Save transaction and current selected slot.
+    std::function<void()> saveInn;
+    IndexedFrame openInn(bool closing=false);
+    bool innOpen() const noexcept { return bool(_innUi); }
 	bool journeyInputCurrent(std::optional<std::uint64_t>) const noexcept;
 	std::function<void()> prepareJourneySprites;
 	std::function<void(IndexedFrame &)> drawSmithArt;
@@ -100,7 +105,7 @@ public:
     std::function<void(const PlayerAction &)> observeManualResponse;
     std::function<std::optional<IndexedFrame>(const PlayerAction &)> continueExplorationPanel;
     bool canSave() const noexcept;
-	bool serviceSaveBlocked() const noexcept { return _smithUi.has_value() || _trainingUi.has_value() || _dispatching || _handoffPending || _saving || _fatal; }
+	bool serviceSaveBlocked() const noexcept { return _innUi.has_value() || _smithUi.has_value() || _trainingUi.has_value() || _dispatching || _handoffPending || _saving || _fatal; }
 	class SaveBoundary {
 		friend class XeenEventFlow;
 		const XeenEventFlow *owner = nullptr;
@@ -123,7 +128,7 @@ public:
 	std::optional<IndexedFrame> mrWizard();
  bool configureSound(XeenSoundOptions);
 	const IndexedFrame &frame() const { return _frame; }
-	bool blocksGameplay() const { return _explorationPass || (_encounter && (!journey() || !_encounter->journeyQuiet())) ||
+	bool blocksGameplay() const { return _innUi || _innReturnPassPending || _explorationPass || (_encounter && (!journey() || !_encounter->journeyQuiet())) ||
 		_pending.has_value() || _dispatching || _saving || _handoffPending || inventoryOpen() || _summary || _fatal; }
 	const XeenEncounterFlow *encounter() const noexcept { return _encounter.get(); }
 	void beginCycle(std::uint64_t cycle);
@@ -157,6 +162,24 @@ public:
 	std::function<void(const XeenEquipmentResult &)> reportEquipment;
 	std::function<void(XeenMovementResult)> reportMovement;
 private:
+    struct InnUi {
+        enum class Phase { Closing, Palette, Opening, Menu, Closed };
+        Phase phase=Phase::Palette;
+        unsigned scroll=1;
+        std::size_t top=0;
+        bool remove=false,acquired=false;
+        std::uint64_t deadline=0;
+        std::string feedback;
+        IndexedFrame closing,opening;
+    };
+    std::optional<InnUi> _innUi;
+    bool _forcedInnSave=false,_signInSaveDone=false,_innReturnPassPending=false;
+    void forcedInnSave();
+    IndexedFrame renderInn(bool cosmetic=false);
+    IndexedFrame handleInn(const PlayerAction &);
+    std::optional<IndexedFrame> updateInn();
+    IndexedFrame finishSignIn();
+    std::shared_ptr<const DialogInput> innInput() const;
     IndexedFrame handleExplorationAction(const PlayerAction &, std::optional<std::uint64_t>, const IndexedFrame::Presentation &);
     struct EntranceUi {
         XeenEntranceAnimation animation;
@@ -226,7 +249,7 @@ private:
         std::string tavernStatus,tavernPopup;
 		XeenTextInput amountCursor;
 		bool withdrawal=false,gems=false,bankRefreshed=false;
-        bool goodbye=false;
+        bool goodbye=false,signIn=false;
         XeenTempleSurcharges templePrices;
         std::uint64_t templePriceRevision=0;
         bool spellInfo=false;
@@ -399,6 +422,7 @@ private:
 	std::uint64_t _saveOperation = 0;
 	std::optional<SaveBoundary> _saveBoundary;
 	friend class Application;
+    friend struct XeenInnTestAccess;
 	friend struct XeenTemplePriceStateTestAccess;
 	friend struct XeenTrainingTestAccess;
     friend struct XeenEntranceTestAccess;

@@ -50,7 +50,7 @@ XeenSaveSnapshot conditionDeathSource(Inputs &in) {
  for(auto owner:source.activeRosterIds)source.characters[owner].conditions[2]=255;
  for(auto &actor:source.map(28).monsters->slots){actor.x=actor.y=-128;actor.lifecycle=XeenActorLifecycle::Defeated;actor.accounted=true;}
  return source;
-}void sequence(Inputs &in,const GameInstallation &installation,bool longSample,bool skipScroll,bool efx=true,bool device=false) {
+}void sequence(Inputs &in,const GameInstallation &installation,bool longSample,unsigned skipScroll,bool efx=true,bool device=false,bool stall=false) {
  auto source=conditionDeathSource(in);source.soundOptions.efx=efx;
  Fixture f(in,source);wire(f,longSample?10000000000ULL:0);
  std::vector<std::string> voices;
@@ -72,7 +72,7 @@ XeenSaveSnapshot conditionDeathSource(Inputs &in) {
    Access::final(*f.flow).pixels!=drawXeenDeathFinal(gameplay,draw).pixels,"Death final scene is built on the completed fire");
  }
  unsigned fires=0,finals=0,laughs=0,restores=0,scrolls=0,closed=0,fades=0,retries=0;
- bool sawRestart=false;std::uint64_t sampleEnd=0;
+ bool sawRestart=false,stalled=false,lateCompose=false;std::uint64_t sampleEnd=0;
  const auto advance=[&](std::uint64_t ms,bool acquire=true) {
   f.now=ms;f.flow->beginCycle(++f.cycle);const auto next=f.flow->updatePresentation();if(next && acquire)f.present(*next);return next;
  };
@@ -109,19 +109,33 @@ XeenSaveSnapshot conditionDeathSource(Inputs &in) {
    f.act(CancelInteractionAction{});f.act(AcknowledgeAction{});
    check(Access::phase(*f.flow)==phase,"Fire/laughter/fade must not have local Escape skip");
   } else if(skipScroll) {
-   check(input.readyForAction && input.dialog->anyKey,"Original closing scroll must poll input");
-   f.act(CancelInteractionAction{});check(Access::phase(*f.flow)==P::Closed,"Original scroll input closes to final hands");continue;
+   check(input.readyForAction && input.dialog->anyKey && input.dialog->anyClick && input.dialog->keyMouseWait,"Original closing scroll polls any key/either mouse button");
+   const auto skip=skipScroll==1?input.dialog->key(InputKey::Escape):skipScroll==2?input.dialog->key('x'):input.dialog->click(319,199);
+   const auto before=f.now;f.act(*skip);
+   check(Access::phase(*f.flow)==P::Closed && f.now==before && Access::deadline(*f.flow)==PresentationClock::fromMilliseconds(before),"Original scroll input flips final hands with no timed wait");continue;
   }
   if(deadline && (deadline-1)/1000000>=f.now)check(!advance((deadline-1)/1000000),"Death stage advanced before deadline");
   if(phase==P::Fire && Access::fire(*f.flow)==12)f.flow->beforeEncounterFrameCopy=[&]{++retries;throw std::runtime_error("Synthetic death upload failure");};
   const auto due=PresentationClock::ceilMilliseconds(deadline);
-  const auto next=advance(due,false);f.flow->beforeEncounterFrameCopy={};
+  const bool composeStall=stall && phase==P::Scroll && Access::scroll(*f.flow)==16;
+  const auto next=advance(due+(composeStall?100:0),false);f.flow->beforeEncounterFrameCopy={};
+  lateCompose=lateCompose || composeStall;
   if(f.flow->partyDeathComplete()){check(!next,"Death completion invented a final sound tail/frame");break;}
   check(bool(next),"Death deadline did not publish next frame");
   const auto retainedPhase=Access::phase(*f.flow);const auto retainedFire=Access::fire(*f.flow);const auto retainedLaugh=Access::laugh(*f.flow);
-  check(!advance(due,false) && Access::phase(*f.flow)==retainedPhase && Access::fire(*f.flow)==retainedFire && Access::laugh(*f.flow)==retainedLaugh,
+  check(!advance(f.now,false) && Access::phase(*f.flow)==retainedPhase && Access::fire(*f.flow)==retainedFire && Access::laugh(*f.flow)==retainedLaugh,
    "Unacquired death frame advanced");
+  const bool acquireStall=stall && retainedPhase==P::Scroll && Access::scroll(*f.flow)==12;
+  const auto provisional=Access::deadline(*f.flow);
+  if(acquireStall){f.now+=80;stalled=true;}
   f.present(*next);
+  if(retainedPhase==P::Scroll) {
+   const auto acquired=PresentationClock::fromMilliseconds(f.now);
+   check(Access::deadline(*f.flow)==std::max(provisional,PresentationClock::after(acquired,1)),"Death scroll applies scheduled/acquisition maximum");
+   check(!advance(f.now,false),"Death scroll cannot show another step in acquisition tick");
+   const auto held=Access::deadline(*f.flow);f.present(*next);
+   check(Access::deadline(*f.flow)==held,"Repeated death flip cannot postpone the scroll");
+  }
   // The previous input origin cannot skip the new sequence frame.
   f.flow->handle(CancelInteractionAction{},generation,frame);
  }
@@ -130,6 +144,7 @@ XeenSaveSnapshot conditionDeathSource(Inputs &in) {
  check(efx?(sampleReads==2 && sawRestart && (longSample?laughs==34:laughs<34)):(sampleReads==0 && !sawRestart && laughs==1),"Original sample gate/restart/bounded laugh loop");
  check(efx?voices==std::vector<std::string>{"fire.voc","xeenlaff.voc"}:voices.empty(),"Death digital starts/gate/repaint duplication");
  check(scrolls==(skipScroll?1u:22u),"Original closing hand sequence count");
+ if(stall)check(stalled && lateCompose,"Both composition and acquisition stalls exercised");
  if(longSample)check(PresentationClock::fromMilliseconds(f.now)<sampleEnd,"Bounded laugh loop invented a final sample-wait tail");
  std::cout<<"Clouds death fire="<<fires<<" laugh="<<laughs<<" scroll="<<scrolls<<" fade="<<fades<<" passed\n";
 }
@@ -215,6 +230,6 @@ void applicationOutcome(Inputs &in,const GameInstallation &installation) {
 }
 int main(int argc,char **argv){try {
  check(argc==2,"Death original usage: installation");const auto installation=xeenTestInstallationDetector().detect(argv[1]);check(bool(installation),"Original installation absent");
- Inputs in(*installation);sequence(in,*installation,false,false);sequence(in,*installation,true,false);sequence(in,*installation,false,true);sequence(in,*installation,false,false,false);sequence(in,*installation,false,false,true,true);refusal(in);titleReturn(in);applicationOutcome(in,*installation);
+ Inputs in(*installation);sequence(in,*installation,false,false);sequence(in,*installation,true,false);sequence(in,*installation,false,1);sequence(in,*installation,false,2);sequence(in,*installation,false,3);sequence(in,*installation,false,false,true,false,true);sequence(in,*installation,false,false,false);sequence(in,*installation,false,false,true,true);refusal(in);titleReturn(in);applicationOutcome(in,*installation);
  std::cout<<"Original death timing, restart, input, frame retry and title-return tests passed\n";return 0;
  }catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}

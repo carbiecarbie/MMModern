@@ -1,4 +1,5 @@
 #include "games/xeen/XeenItemServiceRules.h"
+#include "games/xeen/XeenNavigation.h"
 #include "games/xeen/detail/XeenItemTables.h"
 #include <algorithm>
 namespace mmodern {
@@ -63,6 +64,9 @@ std::optional<std::uint32_t> xeenItemPrice(XeenInventoryCategory category,const 
     default:return {};
     }
     return std::max(1u,value/divisor);
+}
+bool xeenDosMapZero(const XeenPartyState &party,const XeenCamera &camera) noexcept {
+    return party.insideInn || camera.mapId.number==0;
 }
 XeenItemUseAdmission xeenItemUseAdmission(XeenInventoryCategory category,const XeenItem &item,bool world,bool canAct) noexcept {
     if(category!=XeenInventoryCategory::Miscellaneous)return XeenItemUseAdmission::InvalidCategory;

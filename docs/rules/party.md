@@ -119,8 +119,48 @@ The call order is farewell voice and completion wait, prior-song restoration,
 forced Save, service return and Event completion, closing scroll, then Inn
 loading/song, screen/portraits and opening presentation. Relevant offsets:
 `0x1d688..0x1d6cf`, `0x1d763..0x1d7a4`, `0xd5de..0xd60f`,
-`0x394d4..0x394f4`, `0x39738..0x39745`. **Unknown:** exact audiovisual overlap
-and frame durations; static call order is not a recording of playback timing.
+`0x394d4..0x394f4`, `0x39738..0x39745`.
+
+**DOS static, high confidence (2026-10-24):** the Clouds scroll uses 22
+steps in either direction. Each step resets the BIOS counter before restoring
+the saved screen and drawing; it waits for a nonzero elapsed tick before
+flipping (`0xadba..0xaebd`, `0xaecc..0xafd2`, counter routines
+`0x440cd..0x440f4`). Opening uses hand/marble indices 0..21; closing uses
+22..1 and leaves the fully closed image. The Inn first calls
+`fadeIn(0x81)` (`0x39738`): `0x3fe2c..0x3fe71` skips the first palette write,
+then restores the full palette at one VGA retrace (`0x3fe76..0x3fe81`),
+without a gradual fade. Both scroll calls pass false for their own fade flag.
+MMModern uses the existing BIOS/retrace presentation clocks and composes the
+opening's Inn underlay once. After each new step's acquisition its next deadline
+is `max(after(previous deadline,1), after(acquisition,1))`. A stall longer than
+a tick loses that tick; two steps never appear in one BIOS tick. Re-presenting
+the same acquired frame does not restart its wait. The death closing scroll
+uses this same DOS routine and rule.
+
+After each flip the loops poll input (`0xaea1..0xaeb4`, `0xafbd..0xafcb`). Any
+key or click jumps to `0xafd5..0xb01c`, which draws and flips the final image
+without a timed hold: the Inn background for opening, hand00 and the first
+marble for closing. The closing final image is acquired before Inn loading and
+opening. The interrupting key does **not** reach the Inn menu: `0xe149` calls
+the consuming reader `0x45436` (queue/current-code update at
+`0x4549c..0x454e6`); the Inn polls again at `0x39893` before reading the new
+code at `0x3989c`. Clicks are popped by `0x43877..0x4389a`. The scroll tail's
+`0xe6bf` restores button context, not the interrupted input. No blanket keyboard
+flush is implied; later queued input is separate. These skip rules also apply
+to the death scroll. **Unknown:** exact audiovisual overlap and partial
+framebuffer updates within DOS drawing; static waits do not specify those.
+
+**DOS static, high confidence (2026-10-24):** the Inn Items dialog refuses all
+F1–F6 keys, including member switching without a selected item: the map-0 test
+at `0x3b4de..0x3b4e5` precedes member lookup and selection/transfer branches.
+The character sheet itself has a separate F-key handler at `0x3a4f9..0x3a546`
+which permits switching among active members. Inn entry calls that sheet at
+`0x39bf1..0x39c0b`. Item Use retains its map-0 hurry refusal.
+
+Developer sessions without a save target run the same deferred Dismiss lodging
+publication at Sign In and Exit, then make no snapshot or write. Departed
+members therefore appear in the Vertigo Inn just as with a current save slot.
+This does not enable ordinary saving in a developer fixture.
 
 The service returns status 2. Its Event caller goes to the shared completion
 tail, rather than executing later Event lines (`0x27b1f..0x27b3b`). After Inn

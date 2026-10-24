@@ -142,6 +142,7 @@ add_library(mmodern_app STATIC
 	src/app/XeenRestFlow.cpp
 	src/app/XeenCastingFlow.cpp
 	src/app/XeenSmithFlow.cpp
+	src/app/XeenInnFlow.cpp
 	src/app/XeenTrainingFlow.cpp
 	src/app/XeenCastingUi.cpp
 	src/app/Application.cpp
@@ -228,7 +229,7 @@ if(BUILD_TESTING)
  set_tests_properties(xeen_cd_audio PROPERTIES LABELS fast ENVIRONMENT "SDL_AUDIODRIVER=dummy")
 	add_executable(mmodern_test_save_tests tests/XeenTestSaveTests.cpp)
 	target_link_libraries(mmodern_test_save_tests PRIVATE mmodern_test_save_support)
-	foreach(preset broken-armor train-ready injured-dead poisoned monster-control monster-damage party-healing m76-spells combat-items m79-playtest m80-playtest m80-arena m80-arena-maxed m81-drops m81-fullpacks m81-event m84-playtest-trap m84-playtest-label m84-playtest-save m85-playtest-label m85-playtest-run m85-playtest-trap m86-playtest-fall m86-playtest-moon-ray m86-playtest-border paths)
+	foreach(preset broken-armor train-ready injured-dead poisoned monster-control monster-damage party-healing m76-spells combat-items m79-playtest m80-playtest m80-arena m80-arena-maxed m81-drops m81-fullpacks m81-event m84-playtest-trap m84-playtest-label m84-playtest-save m85-playtest-label m85-playtest-run m85-playtest-trap m86-playtest-fall m86-playtest-moon-ray m86-playtest-border m87-inn m87-three m87-shangrila paths)
 		add_test(NAME xeen_test_save_${preset} COMMAND mmodern_test_save_tests
 			"${MMODERN_XEEN_DATA_DIR}" ${preset} "${CMAKE_CURRENT_SOURCE_DIR}")
 	endforeach()
@@ -570,6 +571,10 @@ if(BUILD_TESTING)
     add_test(NAME xeen_journal COMMAND mmodern_journal_tests)
     add_test(NAME xeen_journal_original COMMAND mmodern_journal_tests "${MMODERN_XEEN_DATA_DIR}")
     set_tests_properties(xeen_journal xeen_journal_original PROPERTIES LABELS "fast")
+    add_executable(mmodern_inn_tests tests/XeenInnTests.cpp)
+    target_link_libraries(mmodern_inn_tests PRIVATE mmodern_app mmodern_xeen)
+    add_test(NAME xeen_inn COMMAND mmodern_inn_tests "${MMODERN_XEEN_DATA_DIR}")
+    set_tests_properties(xeen_inn PROPERTIES LABELS "fast")
     add_executable(mmodern_party_size_tests tests/XeenPartySizeTests.cpp)
     target_link_libraries(mmodern_party_size_tests PRIVATE mmodern_app mmodern_xeen)
     add_test(NAME xeen_party_size COMMAND mmodern_party_size_tests)

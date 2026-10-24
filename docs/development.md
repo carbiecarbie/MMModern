@@ -419,3 +419,27 @@ Choose your own output path in an existing directory outside both this repositor
 and the game installation. The tool refuses existing files. Generated `.mmsave`
 files are local play-test artifacts; never commit them. The game and save format
 are unchanged.
+
+### Inn and recruiting
+
+`m87-inn` places the original party outside Vertigo's tavern at (24,4), facing
+North. `m87-three` starts there with three active members and the other three
+lodged in Vertigo. `m87-shangrila` starts outside Shangri-La's tavern at
+(14,12), facing North. Step forward, interact with the tavern (Space or the
+view), and choose Sign In (S). The Inn lists local characters, permits Remove
+down to zero, and requires at least one
+member to Exit. Create and Delete display “not supported yet”.
+
+```powershell
+.\build-rel\mmodern_test_save.exe m87-inn "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/m87-inn.mmsave"
+.\build-rel\mmodern.exe --load-game "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/m87-inn.mmsave"
+.\build-rel\mmodern_test_save.exe m87-three "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/m87-three.mmsave"
+.\build-rel\mmodern.exe --load-game "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/m87-three.mmsave"
+.\build-rel\mmodern_test_save.exe m87-shangrila "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/m87-shangrila.mmsave"
+.\build-rel\mmodern.exe --load-game "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/m87-shangrila.mmsave"
+```
+
+Sign In and Exit save automatically. In the developer `--load-game` path,
+these writes use that explicit file; keep a separate copy to repeat the
+starting setup. Managed play uses its current numbered slot. Reload a Sign In
+save to reopen the Inn without adding a day. Add and Remove alone do not save.

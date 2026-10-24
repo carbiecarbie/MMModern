@@ -1,4 +1,5 @@
 #include "app/XeenEventFlow.h"
+#include "games/xeen/XeenItemServiceRules.h"
 #include <algorithm>
 #include <iostream>
 #include <limits>
@@ -290,6 +291,7 @@ IndexedFrame XeenEventFlow::handleInventory(const PlayerAction &action) {
     else {_inventory.slot=slot;_inventory.record=item;armEquipmentSelection();if(option) performItemOption(*option);}
    }
   } else if(!_itemOption && key>=InputKey::F1 && key<InputKey::F1+6 && !_combatItems) {
+   if(xeenDosMapZero(_party,_camera))return _frame; // DOS tests map before selection/member switching.
    if(const auto member=dialogMember(key-InputKey::F1)) {
     if(_inventory.slot) transferInventory(*member);
     else {advanceInventoryEpoch();_inventory.source=*member;_inventory.sourceOwner=_party.party.activeRosterIds()[*member];_inventory.record={};}

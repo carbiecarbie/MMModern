@@ -8,6 +8,9 @@ enum class XeenItemService { Buy, Sell, Identify, Fix };
 std::optional<std::uint32_t> xeenItemPrice(XeenInventoryCategory,const XeenItem &,
     XeenItemService,unsigned merchant=0) noexcept;
 enum class XeenItemUseAdmission { Admitted, InvalidCategory, NoWorld, CannotAct, NoAbility };
+struct XeenCamera;
+// The Inn retains its door camera; DOS instead made it current map zero.
+bool xeenDosMapZero(const XeenPartyState &,const XeenCamera &) noexcept;
 XeenItemUseAdmission xeenItemUseAdmission(XeenInventoryCategory,const XeenItem &,bool world,bool canAct) noexcept;
 // Original ordinary-spell destination; invalid and special handlers have no ID.
 std::optional<std::uint8_t> xeenItemPowerSpellId(std::uint8_t power) noexcept;

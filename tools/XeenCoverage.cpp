@@ -472,7 +472,7 @@ std::string report(const Census &clouds,const Census &darkside) {
         "No unresolved in-scope Clouds Event mechanic is accepted as an exclusion.\n\n"
         "Items measure Equip/Use. Equipment combat/Rest is separate: it asks the actual xeenValidateJourneyMelee guard, which since M67 admits every "
         "material, effectiveness counter and broken/cursed state the original accepts and refuses only records outside the generated tables. No predicate from the old diagnostic monster profile is used to judge current scene animation. "
-        "The calibration gate accepts only deferred Sign In gaps in Vertigo; mirror and password input run through the interpreter. "
+        "The calibration gate accepts no service gaps in Vertigo; Sign In uses the Inn flow, and mirror and password input run through the interpreter. "
         "PlayFX and PlayEventVoc execute immediately without a wait; PlayCD retains the cue for NPC invocation. Calibration exceptions: "
         "four Event row types (Return, Display0x01, If2 mode 44 and WhoWill) remain unclassified because their off-map subroutines have no physical caller in the resource. "
         "No missing owner, RNG, publication or service provider is an allowed Vertigo exception. "

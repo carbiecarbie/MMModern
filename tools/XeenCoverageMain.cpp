@@ -198,7 +198,7 @@ void events(Census &c,const std::vector<XeenEventRecord> &records,XeenMapIdentit
             else {
                 const char *name=nullptr;
                 if(*support.service==XeenLocationDialog::Tavern)
-                    name=key=='d'?"Drink":key=='t'?"Tip":key=='r'?"Rumors":nullptr;
+                    name=key=='s'?"Sign In":key=='d'?"Drink":key=='t'?"Tip":key=='r'?"Rumors":nullptr;
                 if(*support.service==XeenLocationDialog::Temple)
                     name=key=='d'?"Donation":key=='u'?"Uncurse":nullptr;
                 if(name)c.add("Services",name,{Status::Supported,"Original dialog action admitted by the existing service owner"},id.number);

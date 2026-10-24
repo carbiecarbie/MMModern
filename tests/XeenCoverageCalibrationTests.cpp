@@ -13,10 +13,8 @@ std::string trim(std::string s) {
     return a==std::string::npos?"":s.substr(a,b-a+1);
 }
 bool documentedGap(const std::string &dimension,const std::string &mechanic,const std::string &status,const std::string &reason) {
-    // Expectations only, never classification inputs: deferred Sign In.
-    const std::set<std::string> actions{"Sign In"};
-    return dimension=="Services" && actions.count(mechanic) && status=="unsupported" &&
-        reason.find(mechanic+": not supported yet")!=std::string::npos;
+    // Every in-scope Vertigo service is implemented, including Sign In.
+    return false;
 }
 bool unresolvedSubroutine(const std::string &mechanic,const std::string &reason) {
     const std::set<std::string> unused{"26 Return","1 Display0x01 layout=default","9 If2 mode=44 operand=1","32 WhoWill"};
@@ -119,11 +117,11 @@ int main(int argc,char **argv) {
             bool found=false;for(const auto &name:supported)found=found || name.rfind(prefix,0)==0;
             require(found,std::string("Accepted Vertigo mechanic missing: ")+prefix);
         }
-        for(const auto action:{"Drink","Tip","Rumors","Donation","Uncurse"})
+        for(const auto action:{"Sign In","Drink","Tip","Rumors","Donation","Uncurse"})
             require(supportedServices.count(action),std::string("Implemented Vertigo service missing: ")+action);
         require(townSites==std::array<unsigned,6>{3,4,6,3,4,3},"Clouds service site inventory changed");
         require(arenaSites==1,"Clouds Battle Master site inventory changed");
-        require(gaps==1 && unused==4,"Vertigo documented gap/subroutine inventory changed; explain and recalibrate");
+        require(gaps==0 && unused==4,"Vertigo documented gap/subroutine inventory changed; explain and recalibrate");
         require(waterDragon==2 && vultureRoc==2,"Species 59 species and movement rows are missing from the census");
         require(movement>=4,"Monster movement rows are missing from the census");
         require(lightingRows.size()==3 && skillWalls.size()==7,"Lighting/traversal consumer census rows are missing");

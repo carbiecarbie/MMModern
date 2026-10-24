@@ -113,6 +113,7 @@ public:
 private:
 	friend class XeenEncounterFlow;
 	friend struct XeenTrainingTestAccess;
+    friend struct XeenInnTestAccess;
     friend struct XeenEntranceTestAccess;
 	friend struct XeenPurchaseTestAccess;
 	friend struct XeenMonsterTestAccess;
@@ -324,6 +325,7 @@ private:
 	friend class XeenEventPublication;
 	friend class XeenEncounterFlow;
 	friend struct XeenTrainingTestAccess;
+    friend struct XeenInnTestAccess;
 	friend struct XeenMonsterTestAccess;
     friend struct XeenEntranceTestAccess;
 	friend class XeenRestoreGuard;

@@ -16,6 +16,8 @@
 
 namespace mmodern {
 std::optional<unsigned> XeenEventFlow::audioLocation() const {
+ if(_innUi && _innUi->phase!=InnUi::Phase::Closing)return 7;
+ if(_smithUi && _smithUi->signIn && _smithSettlement)return {};
  if(_trainingUi)return 5;
  if(_smithUi) {
   switch(_smithUi->animation.kind) {
@@ -79,7 +81,8 @@ void XeenEventFlow::requireCurrentOwners() const {
 }
 
 bool XeenEventFlow::canSave() const noexcept {
-	return _gameplayBorrow->current() && !_explorationPass && !_death && !_fatal && !_dispatching && !_saving && !_handoffPending && !_transition && !_arrivalPending &&
+	if(_forcedInnSave)return _gameplayBorrow->current() && !_fatal && !_saving;
+	return !_innUi && !_innReturnPassPending && _gameplayBorrow->current() && !_explorationPass && !_death && !_fatal && !_dispatching && !_saving && !_handoffPending && !_transition && !_arrivalPending &&
 		!_portraitSequence && !_dismissOpen && !inventoryOpen() && !_quickFightMember && !_summary && !_pending && !_equipmentSelection &&
 		(!_encounter || (!_encounter->_needsRestNotice && _encounter->canSave() && encounterFrameCurrent()));
 }
@@ -88,7 +91,7 @@ XeenEventFlow::SaveBoundary XeenEventFlow::beginSave() {
 	if (!canSave()) throw std::logic_error("Save boundary is unavailable");
 	if (_saveOperation == std::numeric_limits<std::uint64_t>::max()) throw std::overflow_error("Save generation exhausted");
 	SaveBoundary boundary;
-	if (journey()) boundary.journey = _encounter->beginJourneySave();
+	if (journey()) boundary.journey = _encounter->beginJourneySave(_forcedInnSave);
 	_saving = true;
 	boundary.operation = ++_saveOperation;
 	boundary.owner = this; boundary.generation = _generation;
@@ -105,7 +108,7 @@ InputContext XeenEventFlow::inputContext(const IndexedFrame::Presentation &origi
     unsigned visibleMembers=_party.party.size();
     if(combat) {visibleMembers=0;for(unsigned n=0;n<_party.party.size();++n)if(combat->participants()&(1u<<n))++visibleMembers;}
     // Panels are strict throughout their lifetime, including preparation/result work.
-    unsigned panel = _dismissOpen ? 18 : _travelUi ? 17 : _death ? 16 : _encounter && !_encounter->_combatCastRefusal.empty() ? 15 : !_whoWillRefusal.empty() ? 14 : _quickFightMember ? 13 : _summary ? 12 : _encounter && _encounter->_rest ? 11 : _encounter && _encounter->_needsRestNotice ? 10 : _fatal ? 1 : _trainingUi ? 2 : _smithUi ? 3 : inventoryOpen() ? 4 :
+    unsigned panel = _innUi ? 19 : _dismissOpen ? 18 : _travelUi ? 17 : _death ? 16 : _encounter && !_encounter->_combatCastRefusal.empty() ? 15 : !_whoWillRefusal.empty() ? 14 : _quickFightMember ? 13 : _summary ? 12 : _encounter && _encounter->_rest ? 11 : _encounter && _encounter->_needsRestNotice ? 10 : _fatal ? 1 : _trainingUi ? 2 : _smithUi ? 3 : inventoryOpen() ? 4 :
         (_castingUi || (combat && combat->cast())) ? 5 :
         (_pending || _transition || (_encounter && _encounter->journeyEvent())) ? 6 :
         (_encounter && _encounter->monsterReward()) ? 7 :
@@ -120,7 +123,7 @@ InputContext XeenEventFlow::inputContext(const IndexedFrame::Presentation &origi
     if(panel==9 && _encounter->state().phase()==XeenEncounterPhase::Engaged)panel=0;
     // DOS combat entry retains the exploration keyboard queue.
     const QueueContext context{_camera.mapId, panel,
-        _dismissOpen ? 700+unsigned(!_dismissRefusal.empty()) : _quickFightMember ? 500+*_quickFightMember : _summary ? 400+unsigned(*_summary) : inventoryOpen() ? (_exchange ? 6 : _dialogError ? 5 : _statPopup ? 4 : _itemOption ? 3 : _sheet && !_itemsVisible ? 2 : 1) :
+        _innUi && !inventoryOpen() ? 800+unsigned(_innUi->phase)*4+unsigned(_innUi->remove)+2*unsigned(!_innUi->feedback.empty()) : _dismissOpen ? 700+unsigned(!_dismissRefusal.empty()) : _quickFightMember ? 500+*_quickFightMember : _summary ? 400+unsigned(*_summary) : inventoryOpen() ? (_exchange ? 6 : _dialogError ? 5 : _statPopup ? 4 : _itemOption ? 3 : _sheet && !_itemsVisible ? 2 : 1) :
         _smithUi ? 100+unsigned(_smithUi->phase)*8+unsigned(_smithUi->mode)+(!_smithUi->feedback.empty()?1000:0) :
         _trainingUi ? 200+unsigned(_trainingUi->phase)+(!_trainingUi->feedback.empty()?1000:0) :
         _encounter && _encounter->_rest ? 300+unsigned(_encounter->_rest->phase) : panel==6 && _pending ? _pending->generation :
@@ -159,7 +162,7 @@ InputContext XeenEventFlow::inputContext(const IndexedFrame::Presentation &origi
         else ready = ready && (_encounter->journeyMutable() ||
             (_encounter->state().phase()==XeenEncounterPhase::Engaged && !_encounter->state().pending()));
     }
-    if((_smithUi && (_smithUi->goodbye || _smithUi->animation.pendingIndex)) ||
+    if((_smithUi && ((_smithUi->goodbye && !_smithSettlement) || _smithUi->animation.pendingIndex)) ||
         (_trainingUi && _trainingUi->animation.pendingIndex))ready=false;
     if(_portraitSequence)ready=navigationReady=restReady=false;
     auto dialog=_smithUi || _trainingUi ? serviceDialogInput() : characterDialogInput();
@@ -189,6 +192,12 @@ InputContext XeenEventFlow::inputContext(const IndexedFrame::Presentation &origi
         if(*_summary==SummaryDialog::Quests || *_summary==SummaryDialog::Awards)input=xeenJournalInput(*_summary==SummaryDialog::Awards);
         else input.anyKey=input.anyClick=input.keyMouseWait=true;
         dialog=std::make_shared<const DialogInput>(std::move(input));
+    }
+    if(_innUi) {
+        if(!_summary)dialog=inventoryOpen()?characterDialogInput():innInput();
+        ready=ready && (_innUi->phase==InnUi::Phase::Menu ||
+            _innUi->phase==InnUi::Phase::Closing || _innUi->phase==InnUi::Phase::Opening);
+        navigationReady=restReady=false;
     }
     if(dialog) {
         auto filtered=*dialog;
@@ -229,6 +238,7 @@ InputContext XeenEventFlow::inputContext(const IndexedFrame::Presentation &origi
         dialog=std::make_shared<const DialogInput>(std::move(input));
         hideCursor=rest.phase==P::Dream && rest.dreamScene();
     }
+    if(_innReturnPassPending){ready=navigationReady=restReady=false;dialog=std::make_shared<const DialogInput>();}
     if(_death) {
         ready=ready && _death->phase==DeathContinuation::Phase::Scroll;
         navigationReady=false;
@@ -264,6 +274,12 @@ std::uint64_t XeenEventFlow::presentationNow() {
     return now;
 }
 std::optional<std::uint64_t> XeenEventFlow::nextPresentationDeadline() {
+    if(_innReturnPassPending)return presentationNow();
+    if(_innUi) {
+        if(_innUi->phase!=InnUi::Phase::Menu)return _innUi->acquired?std::optional<std::uint64_t>{_innUi->deadline}:std::nullopt;
+        if(_sheet && !_itemsVisible && !_statPopup && !_dialogError)return PresentationClock::fromMilliseconds(_sheet->deadline);
+        return {};
+    }
     const auto now=presentationNow();
     if(_fallSequence)return _fallSequence->acquired?std::optional<std::uint64_t>{_fallSequence->deadline}:std::nullopt;
     if(_entranceUi)return _entranceUi->animation.awaitingFrame()?std::optional<std::uint64_t>{}:_entranceUi->animation.deadline();
@@ -275,6 +291,7 @@ std::optional<std::uint64_t> XeenEventFlow::nextPresentationDeadline() {
     if(_portraitSequence)return _portraitSequence->acquired?_portraitSequence->deadline:now;
     if(_death)return _death->acquired?std::optional<std::uint64_t>{_death->deadline}:std::nullopt;
     if(_smithUi) {
+        if(_smithSettlement && !_smithUi->feedback.empty())return {};
         if(_smithUi->animation.pendingIndex && !_smithUi->animation.awaitingFrame)return now;
         if(_smithUi->goodbye) {
             if(_program.audio) {
@@ -320,7 +337,7 @@ std::optional<std::uint64_t> XeenEventFlow::nextPresentationDeadline() {
 }
 
 bool XeenEventFlow::partyDeathRequired() const noexcept {
-    if(!_encounter || _pending || _transition || _barrier || _portraitSequence || _encounter->_postCombatCalls || _encounter->_regionalAutomatic)return false;
+    if(_innUi || _party.insideInn || !_encounter || _pending || _transition || _barrier || _portraitSequence || _encounter->_postCombatCalls || _encounter->_regionalAutomatic)return false;
     for(const auto &portrait:_world.scenePresentation().portraits)
         if(portrait.damageTicks || portrait.spellFrame<4)return false;
     if(_encounter->combat() && journey())return false; // Combat returns through its Event callers first.
@@ -392,15 +409,15 @@ void XeenEventFlow::deathPresented() {
     const auto now=presentationNow();
     death.acquired=true;
     if(death.phase==P::Fire || death.phase==P::FadeOut)death.deadline=PresentationClock::retraceAfter(now);
-    // Laughter and scroll reset before composition, not after upload. A late
-    // acquisition satisfies that wait but never permits an unacquired successor.
-    else if(death.phase!=P::Laugh && death.phase!=P::Scroll)death.deadline=now;
+    else if(death.phase==P::Scroll)death.deadline=PresentationClock::scrollAcquired(death.deadline,now);
+    else if(death.phase!=P::Laugh)death.deadline=now;
 }
 bool XeenEventFlow::advanceDeath() {
     if(!_death || !_death->acquired)return false;
     auto &death=*_death;using P=DeathContinuation::Phase;
     const auto now=presentationNow();
     if(now<death.deadline || death.phase==P::Done)return false;
+    const bool scrolling=death.phase==P::Scroll;
     switch(death.phase) {
     case P::Fire:
         if(death.fire<34)death.fire+=2;else death.phase=P::Final;
@@ -429,7 +446,7 @@ bool XeenEventFlow::advanceDeath() {
     if(death.phase==P::Laugh && (death.laugh==1 || death.laugh==11))_encounter->fmEffect(33);
     if(death.phase==P::Laugh && death.laugh==15)_encounter->fmEffect(34);
     if(death.phase==P::Laugh)death.deadline=PresentationClock::after(now,2);
-    else if(death.phase==P::Scroll)death.deadline=PresentationClock::after(now,1);
+    else if(death.phase==P::Scroll)death.deadline=PresentationClock::after(scrolling?death.deadline:now,1);
     return true;
 }
 IndexedFrame XeenEventFlow::drawRest(const IndexedFrame &base) {
@@ -937,7 +954,7 @@ bool XeenEventFlow::saveCurrent(const SaveBoundary &b) const noexcept {
 	return b.owner == this && _saving && !_fatal && !_dispatching && _gameplayBorrow->current() &&
 		b.operation == _saveOperation && (!b.journey || _encounter->journeySaveCurrent(*b.journey)) &&
 		b.generation == _generation && b.inventory == _inventoryEpoch && b.input == _inputGeneration &&
-		!inventoryOpen() && !_pending && !_equipmentSelection;
+		!inventoryOpen() && (!_pending || _forcedInnSave) && !_equipmentSelection;
 }
 
 void XeenEventFlow::endSave() {
@@ -959,6 +976,11 @@ void XeenEventFlow::framePresented(const IndexedFrame::Presentation &presented, 
 	requireCurrentOwners();
 	if (_dispatching || _saving) throw std::logic_error("Frame handoff during dispatch");
 	if (!encounterFrameCurrent()) throw std::logic_error("Stale successful frame handoff");
+    if(_innUi && !_innUi->acquired) {
+        _innUi->acquired=true;
+        if(_innUi->phase==InnUi::Phase::Closing || _innUi->phase==InnUi::Phase::Opening)
+            _innUi->deadline=PresentationClock::scrollAcquired(_innUi->deadline,presentationNow());
+    }
     if(_entranceUi) {
         const auto now=presentationNow();
         if(const auto *sample=_entranceUi->animation.acquired(now))
@@ -1175,6 +1197,7 @@ std::optional<IndexedFrame> XeenEventFlow::mrWizard() {
 	return renderEncounter();
 }
 IndexedFrame XeenEventFlow::renderEncounter(bool report, bool cosmeticInput, bool reconstruct) {
+    if(_innUi)return renderInn();
     syncDoorTextInput(textPromptOpen());
     if(!_eventPublication && _explorationPass)prepareJourneyTransition();
     syncSpellItems();
@@ -2629,6 +2652,9 @@ bool XeenEventFlow::pulseServiceArt(ServiceArtState &state, IndexedFrame &art) {
 }
 std::optional<IndexedFrame> XeenEventFlow::updatePresentation() {
     requireCurrentOwners();
+    if(_innReturnPassPending && !_dispatching && !_saving && !_fatal && !_handoffPending) {
+        _innReturnPassPending=false;return completeExplorationInput();
+    }
     if(_fallSequence)return advanceFall();
     if(auto continuation=continueManualInput())return continuation;
     if(_explorationPass && (!journey() || !_encounter->combat()) && explorationEffectComplete() && !_dispatching && !_saving && !_handoffPending) {
@@ -2649,6 +2675,7 @@ std::optional<IndexedFrame> XeenEventFlow::updatePresentation() {
             refreshScene(false,OrdinaryCause::None);return frameCopy();
         }
     }
+    if(_innUi)return updateInn();
     if(_entranceUi)return updateEntrance();
     if(_presenter.wordInputActive() && !_dispatching && !_fatal && !_saving && !_handoffPending &&
        _presenter.animateWord(_clock())) {
@@ -2727,12 +2754,18 @@ std::optional<IndexedFrame> XeenEventFlow::updatePresentation() {
     if(_smithUi && _smithUi->phase==SmithUi::Phase::Departure && !_dispatching && !_fatal && !_saving && !_handoffPending) {
         if(_smithUi->goodbye && serviceSampleBusy(_smithUi->animation))return std::nullopt;
         DispatchScope dispatch(_dispatching);
-        if(_smithSettlement){_handoffPending=true;return settleSmithEvent();}
+        if(_smithUi->signIn && _encounter->_smith && !_encounter->_smith->departed) {
+            if(_encounter->_smith->frame)_encounter->consumeSmithFrame(_inputGeneration,_actionableFrame);
+            if(!_encounter->signIn())return {};
+            _encounter->digitalStop();startServiceSample(_smithUi->animation,"goodbye.voc");_smithUi->goodbye=true;
+            return renderEncounter();
+        }
+        if(_smithSettlement){if(!_smithUi->feedback.empty())return {};return _smithUi->signIn?finishSignIn():settleSmithEvent();}
         if(_encounter->_smith && _encounter->_smith->frame)
             _encounter->consumeSmithFrame(_inputGeneration,_actionableFrame);
         try {
             if(!_encounter->departSmith())return std::nullopt;
-            _smithSettlement=true;return settleSmithEvent();
+            _smithSettlement=true;return _smithUi->signIn?finishSignIn():settleSmithEvent();
         } catch(const std::exception &) {
             _encounter->journeySavePreimage().check();
             if(!_encounter->_smith)throw;
@@ -2992,6 +3025,10 @@ XeenManualEventResult XeenEventFlow::resumeOwnedServiceEvent(const void *owner) 
 		throw std::logic_error("Service Event continuation was already consumed or is not authorized");
 	auto state=_pending->state;
 	_eventPublication->continuation(state,*_serviceEventContinuation);
+    // Status 2 ends the retained Tavern Event at Sign In's already published
+    // door. Validate the original suspension before rebasing this local tail.
+    if(_smithUi && _smithUi->signIn && _signInSaveDone && _party.insideInn)
+        state.workingCamera=_camera;
 	_serviceEventContinuation.reset(); // One guarded resume, before any terminal callback.
 	return _events.resumeManualEvent(std::move(state),XeenPresentationResponse::Acknowledged,
 		_world,_party,_camera,_flags,_eventPublication);
@@ -3016,8 +3053,10 @@ IndexedFrame XeenEventFlow::handleExplorationAction(const PlayerAction &physical
 	// Concrete origin is independent of semantic meaning. A retry/redraw may
 	// retain the generation, but input from its retired frame cannot authorize it.
 	if ((inputFrame && !acceptsInputFrame(inputFrame)) || (_trainingUi && !inputFrame) ||
-		(_smithUi && !inputFrame)) return frameCopy();
+		(_smithUi && !inputFrame) || (_innUi && !inputFrame)) return frameCopy();
     if (journey() && !journeyInputCurrent(displayedInput)) return frameCopy();
+    if(_innReturnPassPending)return frameCopy();
+    if(_innUi)return handleInn(action);
     if(!_continuingManual && explorationInputPending())return frameCopy();
     if(_dismissOpen) {
         if(_dispatching || _fatal || _saving || _handoffPending)return frameCopy();

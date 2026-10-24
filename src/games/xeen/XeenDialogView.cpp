@@ -52,6 +52,69 @@ const auto &conditions(const XeenDosText &text,const XeenCharacter &) { return t
 std::uint32_t gold(const XeenPartyState &p) { return p.purse?std::uint32_t(p.purse->gold):0u; }
 std::uint32_t gems(const XeenPartyState &p) { return p.purse?std::uint32_t(p.purse->gems):0u; }
 }
+
+std::vector<std::uint8_t> xeenInnList(const XeenPartyState &party,XeenMapIdentity town) {
+    std::vector<std::uint8_t> ids;
+    for(unsigned id=0;id<24;++id) {
+        const auto &c=party.roster.at(id);
+        if(!c.name.empty() && c.xeenSide==unsigned(town.side) && c.savedMaze==town.number)ids.push_back(id);
+    }
+    return ids;
+}
+std::size_t xeenInnLastPage(std::size_t count) { return count?4*((count-1)/4):0; }
+DialogInput xeenInnInput(std::size_t rows,std::size_t members,bool remove) {
+    DialogInput input;
+    if(remove)button(input,225,84,249,104,InputKey::Escape,"esc.icn",0);
+    else {
+        constexpr unsigned keys[]{InputKey::Up,InputKey::Down,'d','r','c','x'};
+        constexpr int x[]{16,52,87,122,157,192};
+        for(unsigned n=0;n<6;++n)button(input,x[n],100,x[n]+24,120,keys[n],"inn.icn",n*2);
+        input.keys.insert(input.keys.end(),{'e',InputKey::Escape,InputKey::Space});
+        for(unsigned n=0;n<std::min<std::size_t>(rows,4);++n) {
+            const int x=n%2?117:16,y=n/2?59:16;
+            button(input,x,y,x+32,y+32,'1'+n);
+        }
+    }
+    constexpr int x[]{10,45,81,117,153,189};
+    for(unsigned n=0;n<members;++n)button(input,x[n],150,x[n]+32,182,InputKey::F1+n);
+    return input;
+}
+IndexedFrame drawXeenInn(const XeenDosText &text,const IndexedFrame &base,const XeenFontFormat &font,
+    const XeenPartyState &party,const std::vector<std::uint8_t> &ids,std::size_t top,const XeenDialogSpriteDraw &draw) {
+    std::vector<std::string> fields(16);
+    for(unsigned n=0;n<4 && top+n<ids.size();++n) {
+        const auto id=ids[top+n];const auto &c=party.roster.at(id);
+        const auto &active=party.party.activeRosterIds();
+        fields[n*4]=std::find(active.begin(),active.end(),id)!=active.end()?str(text.scalar("INN_IN_PARTY")):std::string(c.name);
+        fields[n*4+1]=text.table("RACE_NAMES").at(unsigned(c.race));
+        fields[n*4+2]=text.table("SEX_NAMES").at(unsigned(c.sex));
+        fields[n*4+3]=text.table("CLASS_NAMES").at(unsigned(c.characterClass));
+    }
+    const auto details=xeenDialogFormat(text.scalar("INN_DETAILS"),fields);
+    auto frame=render(base,font,xeenDialogFormat(text.scalar("INN_TEXT"),{details}),{8,8,224,140},{16,16,216,132});
+    if(draw) {
+        constexpr int x[]{16,52,87,122,157,192};
+        for(unsigned n=0;n<6;++n)draw(frame,"inn.icn",n*2,x[n],100);
+        for(unsigned n=0;n<4 && top+n<ids.size();++n) {
+            const auto id=ids[top+n]+1;const auto name="char"+std::string(id<10?"0":"")+std::to_string(id)+".fac";
+            draw(frame,name.c_str(),0,n%2?117:16,n/2?59:16);
+        }
+    }
+    return frame;
+}
+IndexedFrame drawXeenInnRemove(const XeenDosText &text,const IndexedFrame &base,const XeenFontFormat &font,const XeenDialogSpriteDraw &draw) {
+    auto frame=render(base,font,xeenDialogFormat(text.scalar("INN_REMOVE_PROMPT"),{str(text.scalar("INN_REMOVE"))}),{50,76,266,112},{58,84,258,104});
+    if(draw)draw(frame,"esc.icn",0,225,84);
+    return frame;
+}
+IndexedFrame drawXeenScroll(const IndexedFrame &base,unsigned index,const XeenDialogSpriteDraw &draw) {
+    auto frame=base;if(!draw || index>22)return frame;
+    const auto hand=[&](unsigned n,int x=0){const auto name="hand"+std::string(n<10?"0":"")+std::to_string(n)+".vga";draw(frame,name.c_str(),0,x,0);};
+    constexpr int left[]{29,23,15,-5,-11,-23,-49,-71},right[]{165,171,198,218,228,245,264,281};
+    if(index>14){hand(14,left[index-15]);hand(15,right[index-15]);}else hand(index?index-1:0);
+    if(index<=20){const auto n=index?index-1:0;const auto name="marb0"+std::to_string(n/5+1)+".vga";draw(frame,name.c_str(),n%5,0,0);}
+    return frame;
+}
 // Screen layout from pinned dialogs_spells.cpp/window.cpp; DOS Part 0 confirms
 // the screen contents, marker positions, slot guard and any-key/mouse wait.
 IndexedFrame drawXeenSpellInformation(const XeenDosText &text,const IndexedFrame &base,
@@ -366,10 +429,7 @@ bool xeenGuildMember(const XeenPartyState &p,std::size_t member,XeenMapIdentity 
     const unsigned award=map.number==49?5:map.number>=28 && map.number<=32?map.number-28:255;
     return award<6 && p.party.member(p.roster,member).awards[award]!=0;
 }
-std::optional<std::string> xeenLocationUnsupportedAction(XeenLocationDialog location,unsigned key) {
-    if(location==XeenLocationDialog::Tavern) {
-        if(key=='s')return "Sign In: not supported yet";
-    }
+std::optional<std::string> xeenLocationUnsupportedAction(XeenLocationDialog,unsigned) {
     return {};
 }
 DialogInput xeenLocationInput(XeenLocationDialog location) {

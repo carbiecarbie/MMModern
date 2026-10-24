@@ -26,7 +26,7 @@ bool XeenEncounterFlow::prepareCombatItem(const ItemUseSelection &selection,unsi
         ids.at(selection.sourceIndex)!=selection.sourceOwner)return false;
     const auto &source=_party.roster.at(selection.sourceOwner);
     if(!xeenSameItem(source.miscellaneous[selection.slot],selection.record) ||
-        xeenItemUseAdmission(selection.category,selection.record,_camera.mapId.number!=0,source.canAct())!=XeenItemUseAdmission::Admitted ||
+        xeenItemUseAdmission(selection.category,selection.record,!xeenDosMapZero(_party,_camera),source.canAct())!=XeenItemUseAdmission::Admitted ||
         !xeenItemUseSpell(selection.record.id))return false;
     bool supported=true;
     itemTravelRead([&] {

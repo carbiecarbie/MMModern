@@ -27,7 +27,7 @@ namespace mmodern {
 bool XeenWorld::journeyCaptureEligible(const XeenPartyState &party, const XeenCamera &camera) const noexcept {
 	if (_developerEventMap) return false;
 	const auto retained = _journeyCapture.lock();
-	return retained && !retained->inputPassPending && retained->current(party,camera);
+	return retained && (!retained->inputPassPending || retained->innSave) && retained->current(party,camera);
 }
 
 namespace {
@@ -291,9 +291,15 @@ XeenSaveSnapshot XeenSaveState::capture(const XeenSaveResourceSignature &resourc
 		XeenPartyState &party, const XeenCamera &camera,
 		const XeenGameFlags &flags, const XeenWorld &world) {
     if(!canCapture(party,camera,world))throw std::logic_error("MMModern save: encounter sessions cannot be captured");
+    settleDismissedLodging(party,camera,flags,world);
+    return captureImpl(resources,party,camera,flags,world,false);
+}
+void XeenSaveState::settleDismissedLodging(XeenPartyState &party,const XeenCamera &camera,
+        const XeenGameFlags &flags,const XeenWorld &world) {
     if(!party.party.dismissedRosterIds().empty()) {
         const auto authority=world._journeyCapture.lock();
-        if(!authority || !authority->preimage || !*authority->preimage || &(**authority->preimage).f!=&flags)
+        if(!authority || !authority->preimage || !*authority->preimage || &(**authority->preimage).f!=&flags ||
+           !authority->current(party,camera))
             throw std::logic_error("Dismiss lodging requires current Journey authority");
         auto &guard=**authority->preimage;guard.check();
         // All allocations and checks precede the nonthrowing lodging publication.
@@ -308,7 +314,6 @@ XeenSaveSnapshot XeenSaveState::capture(const XeenSaveResourceSignature &resourc
         guard.adoptMutationBoundary();
         guard.check();
     }
-	return captureImpl(resources,party,camera,flags,world,false);
 }
 XeenSaveSnapshot XeenSaveState::capture(const XeenSaveResourceSignature &resources,
         const XeenPartyState &party,const XeenCamera &camera,const XeenGameFlags &flags,const XeenWorld &world) {

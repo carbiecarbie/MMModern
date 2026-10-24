@@ -53,6 +53,9 @@ public:
 		XeenGameFlags &flags, XeenWorld &world, const Preflight &preflight);
 private:
 	friend class Application;
+    // Shared Save-boundary publication; target-less Inn sessions use it without
+    // constructing a snapshot or enabling saving in developer fixtures.
+    static void settleDismissedLodging(XeenPartyState &,const XeenCamera &,const XeenGameFlags &,const XeenWorld &);
     friend struct XeenEventDispatchTestAccess;
 	// Initialization has its own authority; ordinary Save remains presented-only.
 	static XeenSaveSnapshot captureInitialized(const XeenSaveResourceSignature &,

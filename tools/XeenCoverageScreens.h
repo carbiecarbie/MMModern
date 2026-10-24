@@ -40,7 +40,7 @@ entry. Dialog identifiers below are reference identifiers, not commercial text.
 | ItemsDialog | partial | Categories, Equip, Remove, Discard, transfer, Use, Quest, Exit; free combat equipment/Discard/transfer, combat-party recipients, main-screen Use; sheet Use refused in combat; Recharge/Enchant/Gold supported | XeenInventoryFlow |
 | Input / StringInput / NumericInput | partial | Save names, Bank amounts, Arena level, Event passwords and mirrors work; Choose123 and TakeOrGive HowMuch unavailable | XeenTitleFlow / XeenEventPresenter |
 | SpellsDialog / CastSpell / SpellOnWho | partial | Select, Buy, Info, rows, scroll, Cast, New, member choice, cancel work; effects limited by Spells dimension | XeenCastingUi |
-| Tavern | partial | Food, Drink, Tip, Rumors, member selection, Exit work; Sign In awaits the inn | XeenEventFlow |
+| Tavern | supported | Food, Drink, Tip, Rumors, member selection, Sign In and Exit work | XeenEventFlow |
 | LocationMessage / NPC | partial | Acknowledge and Yes/No; other NPC modes unavailable | XeenEventPresenter |
 | PleaseWait | unclassified | Reference helper; no separately identified equivalent screen | — |
 | CreditsScreen | supported | Four original pages, acknowledge | XeenTitleFlow |

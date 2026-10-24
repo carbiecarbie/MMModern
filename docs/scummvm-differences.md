@@ -73,6 +73,26 @@ gameplay playback sites and CD rules follow in Parts A2 and B:
   Approved deviation from DOS; comparison with the pin's failure
   presentation is not established. Master not rechecked.
 
+## The Inn
+
+- **Scroll input polling.** DOS and MMModern poll after each acquired scroll
+  step, so at least one step precedes a skip. The pin polls before each step,
+  including the first. Both jump to the final image when skipped.
+  [Evidence](original-quirks.md#inn-scroll-skip). Pin: differs; master not rechecked.
+- **Town lists.** The Inn lists characters lodged in that town and side, in
+  roster-ID order. The pin lists the whole side without the town filter.
+  [Evidence](original-quirks.md#sv-inn-town-list). Pin: differs; master not rechecked.
+- **Shangri-La door.** Sign In uses DOS's corrected (11,12) West exit, which
+  the pin's exit lookup lacks.
+  [Evidence](original-quirks.md#sv-inn-shangri-la-exit). Pin: differs; master not rechecked.
+- **Two saves.** Sign In writes the current slot before the Inn opens; Exit
+  writes it again with the edited party. The pin has neither slot write.
+  [Evidence](original-quirks.md#sv-inn-save-boundaries). Pin: differs; master not rechecked.
+- **Return to play.** Exit reloads even the same map, rebuilds monsters and
+  runs the door's ordinary flagged-cell Event pass. The pin reloads only a
+  different map.
+  [Evidence](original-quirks.md#sv-inn-return-reload). Pin: differs; master not rechecked.
+
 ## Combat and conditions
 
 - **Holy Bonus adds weapon damage.** DOS applies it to melee and Shoot,
@@ -485,6 +505,11 @@ Curse Item against the Xeen Slayer Sword ([Curse](original-quirks.md#sv-curse-it
 Deliberate differences from the original, approved by the maintainer and kept
 apart from the fidelity differences above.
 
+- **Recoverable Inn save failures.** Sign In and Exit show an error and allow
+  retry, retaining the paid day or the edited party; quitting stays possible.
+  DOS terminates on the checked disk failures. The pin has no corresponding
+  forced slot writes, so this does not claim a difference in its error handling.
+  [Details](original-quirks.md#dev-inn-save-recovery)
 - **No "phantom" steps.** Releasing a movement key stops the party after the
   step in progress; the original queues up to ten repeats and keeps walking. A
   tap still moves one step. [Details](original-quirks.md#dev-no-phantom-steps)
@@ -518,12 +543,11 @@ in [project status](project-status.md#known-gaps):
   entrance and ending; Darkside of Xeen is not.
 - **Sound:** CD speech and VOC starts in implemented Clouds presentations
   are audible, with fixed balance checked against DOSBox and output recovery.
-  The Inn song awaits Sign In (step 14); F8 replay is deliberately omitted.
+  The Inn uses its original song; F8 replay is deliberately omitted.
   Fall/landing and title lightning remain excluded with their absent
   presentations ([site inventory](rules/audio.md#voc-inventory-boundaries)).
   Only the promus OPL3 music device is supported.
-- **Services and party:** no Inn, recruiting, character creation, Tavern
-  Sign In or Dismiss.
+- **Services and party:** character creation and deletion remain unsupported.
 - **Platforms and editions:** MMModern runs on 64-bit Windows with the English
   World of Xeen CD; ScummVM covers many platforms, editions and languages, and
   Swords of Xeen.

@@ -261,7 +261,7 @@ void otherTownServices(Inputs &in) {
     }
     {
         auto source=townService(in,30,24,16);training_test::Fixture f(in,source);townProviders(f,in);f.enter();
-        const Owners signIn(f);keyboard(f,'s');signIn.unchanged(f);keyboard(f,InputKey::Enter);
+        // Sign In now completes the visit; the Inn tests cover that terminal path.
         keyboard(f,'f');keyboard(f,'y');
         check(f.p.food==360 && f.p.purse->gold==99950,"Rivercity Food 60/50");
         keyboard(f,InputKey::Escape);f.finishDeparture();

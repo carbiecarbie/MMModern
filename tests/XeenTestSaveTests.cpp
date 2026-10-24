@@ -67,6 +67,13 @@ void preset(const GameInstallation &installation,const std::string &name,const f
     check(flow.prepareJourneyFrame(flow.ticket(),[]{}) && flow.presentJourney(flow.ticket()),"restored preset is not quiet");
     const auto captured=XeenSaveState::capture(inputs.signature,party,camera,flags,world);
     check(XeenSaveFormat::encode(saved)==XeenSaveFormat::encode(captured),"restore replayed or changed state");
+    if(name.rfind("m87-",0)==0) {
+        const bool shangri=name=="m87-shangrila";
+        check(camera.mapId==XeenMapIdentity(shangri?49:28) && camera.x==(shangri?14:24) && camera.y==(shangri?12:4) && camera.direction==XeenDirection::North,"Inn preset outside tavern door");
+        check(party.party.size()==(name=="m87-three"?3:6) && !party.insideInn,"Inn preset active count");
+        if(name=="m87-three")check(xeenInnList(party,28).size()==6,"three dismissed members remain listed in Vertigo");
+        return;
+    }
     if(name.rfind("m86-playtest-",0)==0) {
         XeenConsequenceCharacters characters;for(unsigned i=0;i<6;++i)characters[i]=party.roster.at(party.party.activeOrder()[i]);
         const auto terrain=world.prepareTerrainArrival(camera,characters,*party.encounterContext);

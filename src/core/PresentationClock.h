@@ -32,6 +32,13 @@ struct PresentationClock {
     static std::uint64_t after(std::uint64_t ns,unsigned ticks) {
         return boundary(checkedAdd(tick(ns),ticks));
     }
+    // A scroll advances its scheduled deadline before composing the next step.
+    // DOS resets again after the previous flip: a late acquisition loses that
+    // tick, rather than presenting two steps in it. Repeated flips do not reset.
+    static std::uint64_t scrollAcquired(std::uint64_t scheduled,std::uint64_t acquired) {
+        const auto next=after(acquired,1);
+        return scheduled>next?scheduled:next;
+    }
     static std::uint64_t ceilMilliseconds(std::uint64_t ns) noexcept {
         return ns/1000000+(ns%1000000!=0);
     }

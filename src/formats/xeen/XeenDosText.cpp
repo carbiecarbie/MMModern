@@ -38,6 +38,13 @@ const std::vector<XeenDosText::Field> &XeenDosText::layout() {
  // Bounds and far-pointer relationships were checked against the uncompressed
  // DOS module; no original strings or whole-file digest are compiled here.
  static const std::vector<Field> fields{
+  {"INN_IN_PARTY",0x55302,0x55310,1,false,""},
+  {"INN_DETAILS",0x55311,0x553b9,1,false,"s,s,s,s,s,s,s,s,s,s,s,s,s,s,s,s"},
+  {"INN_TEXT",0x55462,0x554af,1,false,"s"},
+  {"INN_REMOVE_PROMPT",0x553c1,0x553df,1,false,"s"},
+  {"INN_NO_MEMBERS",0x5553f,0x55561,1,false,""},
+  {"INN_FULL",0x55561,0x55579,1,false,""},
+  {"INN_REMOVE",0x518ce,0x518d5,1,false,""},
   {"DISMISS_PROMPT",0x53882,0x53899,1,false,""},
   {"DISMISS_LAST",0x538b2,0x538da,1,false,""},
   {"CLOUDS_MUSIC",0x4f04e,0x4f066,6,true,""},

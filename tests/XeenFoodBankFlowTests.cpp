@@ -119,10 +119,7 @@ void tavern(Inputs &in) {
             }
         };
         v.open();check(handoffs==1,"Tavern prelude/handoff repeated");
-        for(unsigned command:{'s'}) {
-            XeenRestoreGuard owners(v.w,v.p,v.c,v.f);v.choose(command,mouse);
-            check(v.dialog() && v.dialog()->anyKey,"Deferred Tavern command has no notice");v.dismiss();owners.check();
-        }
+        // Sign In now leaves this service; its two saves and Inn are covered separately.
         v.choose(InputKey::F1+1,mouse);v.food(true,mouse);
         check(v.p.food==90 && v.p.purse->gold==30,"Full packs charged or reduced food");
         v.dismiss();v.food(false,mouse);check(v.p.food==90 && v.p.purse->gold==30,"No charged food");

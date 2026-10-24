@@ -56,6 +56,13 @@ enum class XeenDialogText {
 };
 std::string_view xeenDialogText(const XeenDosText &text,XeenDialogText);
 std::string xeenDialogFormat(std::string_view,const std::vector<std::string> &);
+std::vector<std::uint8_t> xeenInnList(const XeenPartyState &,XeenMapIdentity);
+std::size_t xeenInnLastPage(std::size_t);
+DialogInput xeenInnInput(std::size_t rows,std::size_t members,bool remove=false);
+IndexedFrame drawXeenInn(const XeenDosText &,const IndexedFrame &,const XeenFontFormat &,
+    const XeenPartyState &,const std::vector<std::uint8_t> &,std::size_t,const XeenDialogSpriteDraw &);
+IndexedFrame drawXeenInnRemove(const XeenDosText &,const IndexedFrame &,const XeenFontFormat &,const XeenDialogSpriteDraw &);
+IndexedFrame drawXeenScroll(const IndexedFrame &,unsigned,const XeenDialogSpriteDraw &);
 DialogInput xeenSheetInput();
 enum class XeenJournalPage { Items, Quests, Notes, Awards };
 // Display snapshot only. Darkside counters/quests are zero in the Clouds owner.

@@ -75,7 +75,7 @@ public:
 	void journeyRead(const std::function<void()> &);
 	std::string journeyInspection() const;
 	bool journey() const noexcept { return _journey; }
-	Ticket beginJourneySave();
+	Ticket beginJourneySave(bool inn=false);
 	bool journeySaveCurrent(const Ticket &) const noexcept;
 	bool endJourneySave(const Ticket &) noexcept;
 	XeenRestoreGuard &journeySavePreimage() { return *_journeyPreimage; }
@@ -86,6 +86,10 @@ public:
 	XeenEquipmentResult journeyEquipment(const Ticket &, std::size_t, XeenInventoryCategory, std::size_t, XeenEquipmentOperation);
 	bool journeyExchange(const Ticket &,std::size_t,std::size_t,std::uint64_t inventoryLease);
     bool journeyDismiss(const Ticket &,std::size_t);
+    bool signIn();
+    bool innMembership(const Ticket &,std::vector<std::uint8_t>);
+    void innLeaving();
+    void innReturn();
 	bool rememberSpell(const Ticket &,std::size_t,unsigned);
 	bool configureQuickFight(const Ticket &,std::size_t);
 	bool toggleAutomap(const Ticket &);
@@ -187,6 +191,7 @@ private:
 	void recordJourneyStep();
 	void publishJourneyExploration(std::vector<XeenExploredTile> &,std::vector<XeenExploredTile> &) noexcept;
 	friend class XeenEventFlow;
+    friend struct XeenInnTestAccess;
 	friend struct XeenRestTestAccess;
 	friend struct XeenPartyInterfaceTestAccess;
 	friend struct XeenTemplePriceStateTestAccess;
@@ -346,6 +351,7 @@ private:
 	void publishBarrier(const Ticket &, XeenWorld &, const XeenRestoreGuard &, const XeenBarrierCandidate &, const XeenGameplayContext &, std::uint64_t now, bool dailyReset);
 	void endJourneyEvent();
 	void publishArrival(const XeenActorView &) noexcept;
+	XeenJourneyActivity _saveActivity=XeenJourneyActivity::Quiet;
 	bool journeyEvent() const noexcept { return _journey && _world.sessionState().journeyActivity() == XeenJourneyActivity::Event; }
 	std::uint64_t _eventLease = 0;
 	bool _journey = false;

@@ -475,6 +475,14 @@ int Application::gameplay(const std::filesystem::path &gameDirectory, XeenCamera
 				flow.drawSmithArt = [&](IndexedFrame &frame) { assets.drawSmith(frame); };
 				flow.drawTrainingArt = [&](IndexedFrame &frame) { assets.drawTraining(frame); };
 				flow.drawTempleArt = [&](IndexedFrame &frame) { assets.drawTemple(frame); };
+                flow.loadInnScreen = [&](const XeenPartyState &party) {
+                    assets.loadPalette("mm4.pal");assets.loadRawFramebuffer("back.raw");
+                    CloudsUiComposer::drawBorder(party,[&](const char *name,unsigned frame,int x,int y){assets.drawSprite(name,frame,x,y);});
+                    assets.drawSprite("restorex.icn",0,8,149);
+                    for(const auto &face:CloudsUiComposer::buildPortraitPlacements(party))
+                        assets.drawSprite(face.resourceName,face.frame,face.x,face.y);
+                    return assets.snapshot();
+                };
                 flow.drawTavernArt = [&](IndexedFrame &frame) { assets.drawTavern(frame); };
                 flow.drawBankArt = [&](IndexedFrame &frame) { assets.drawBank(frame); };
                 flow.drawGuildArt = [&](IndexedFrame &frame) { assets.drawGuild(frame); };

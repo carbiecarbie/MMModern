@@ -1711,6 +1711,29 @@ static US Set-1 table and MMModern host-action exclusions are explicit above.
 
 ## M87 Inn and party size
 
+**Scroll input and F-key follow-up, 2026-10-24:** calibrated, hash-checked
+static slices `input-skip-c.dis`, `key-consumption-c.dis`, `mouse-query-c.dis`,
+`input-tail-c.dis`, `inn-after-scroll-c.dis`, `item-fkeys-c.dis` and
+`sheet-fkeys-c.dis` remain under `D:/MModern-re/m87/`. The poll consumes the
+interrupting key/click; the Inn polls anew rather than reusing it. `0xe6bf`
+restores button context, consistent with the M84 input audit. The Items map-0
+guard precedes both switching and transfer, while the sheet's separate F-key
+handler permits active-member switching. Exact offsets and scroll final-image
+and stall rules are in [party rules](party.md). No new DOSBox play is claimed.
+
+**Scroll follow-up, 2026-10-24:** the same hash-checked image and calibrated
+16-bit Capstone workflow establish 22 opening and 22 closing steps, one BIOS
+elapsed-tick wait with reset before composition, and the Inn's single retrace
+full-palette restoration (`fadeIn(0x81)`). Exact offsets and the remaining
+partial-frame/overlap Unknowns are in [party rules](party.md). Retained slices
+`scroll-b-full.dis`, `inn-open-b.dis`, `inn-close-b.dis`, `scroll-clock-b.dis`,
+`palette-b.dis` and `flip-b.dis` stay outside the repository under
+`D:/MModern-re/m87/`. REA again rejected the Windows path before opening a
+session; no REA analysis or new DOSBox play is claimed. Maintainer's 60 fps
+recordings `DOSinn.mkv` and `MMMODERNinn.mkv` establish the observed cadence
+defect; their distinct captured pictures do not determine the static loop's
+step count.
+
 Checked 2026-10-23 against clean HEAD = `origin/main` =
 `f77720f8c46f6bdd68a0ff19b9313a55849c78d0`. Rules are in
 [The Inn, membership and party size](party.md) and the

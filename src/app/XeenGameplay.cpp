@@ -255,6 +255,16 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
   };
   if (services.configureFlow) services.configureFlow(flow, camera);
   handoff.verify();
+  flow.saveInn=[&] {
+   if(services.currentSlot && services.writeManaged)
+    xeenSaveGameplay(services,world,party,camera,flags,flow,{},preflight,&sourceCheck,
+     [&](const auto &snapshot,const auto &check){services.writeManaged(*services.currentSlot,snapshot,check);});
+   else if(services.developerSavePath)
+    xeenSaveGameplay(services,world,party,camera,flags,flow,*services.developerSavePath,preflight,&sourceCheck);
+   else XeenSaveState::settleDismissedLodging(party,camera,flags,world);
+  };
+  if(party.insideInn) {flow.openInn();handoff.retain();}
+  handoff.verify();
   if (!flow.frame().isValid()) throw std::runtime_error("Invalid first gameplay frame");
   std::cout << "Setup " << xeenInventoryInspection(party);
   if (flow.journey()) std::cout << flow.encounter()->journeyInspection() << flow.encounter()->notice() << '\n';
@@ -281,7 +291,7 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
    if(!published)return 5; // Cancellation discards only this unpublished session.
    services.currentSlot=services.initialSlot;
   }
-  bool entryPassPending=flow.journey() && (resume || services.publishInitial);
+  bool entryPassPending=flow.journey() && !party.insideInn && (resume || services.publishInitial);
   bool arrivalDisplayed=false;
   treasureEntry.committed=true;
   if (services.observeGameplay) services.observeGameplay(world, events, party, camera, flags);
@@ -539,7 +549,8 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
    audio->advance(now);
    const auto location=flow.audioLocation();
    if(location!=soundLocation || soundMap!=camera.mapId) {
-    if(location)audio->requestLocation(*location,now);
+    if(location && *location==7)audio->requestInn(now);
+    else if(location)audio->requestLocation(*location,now);
     else if(soundLocation)audio->requestSong(audio->mapSong(world.map(camera.mapId).geometry),XeenSceneArchive::Clouds,223,now);
     else audio->requestMap(world.map(camera.mapId).geometry,now);
     soundLocation=location;soundMap=camera.mapId;

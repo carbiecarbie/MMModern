@@ -30,7 +30,7 @@ void xeenValidateJourneyParty(const XeenPartyState &party) {
 	require(context.profile == XeenBehaviorProfile::WorldOfXeenClouds && static_cast<unsigned>(context.difficulty)<=1 &&
 		xeenRegionalContext(context), "Unsupported Journey context");
 	std::vector<std::uint8_t> members=party.party.activeRosterIds();
-	require(!members.empty() && members.size()<=6, "Unsupported Journey membership");
+	require((!members.empty() || party.insideInn) && members.size()<=6, "Unsupported Journey membership");
 	std::sort(members.begin(),members.end());
 	require(std::adjacent_find(members.begin(),members.end())==members.end(), "Duplicate Journey member");
 	for(auto id:members)require(id<24 && !party.roster.at(id).name.empty() && party.roster.at(id).xeenSide==0, "Unrecruitable Journey member");

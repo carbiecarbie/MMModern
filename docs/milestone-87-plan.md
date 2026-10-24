@@ -1,6 +1,6 @@
 # Milestone 87 plan - The Inn and a party of one to six
 
-**Tier A. Status: Parts 0 and A done; Part B not started.**
+**Tier A. Status: Parts 0, A and B done; Part C not started.**
 Roadmap [step 14](roadmap.md#next-arc-finishing-the-games-systems), first of
 its two milestones, after [M86](milestone-86-plan.md). Baseline: `f77720f`,
 equal to `origin/main`.
@@ -76,6 +76,11 @@ At `f77720f`:
 - **Sign In saves as in DOS** (2026-10-23, after the first Part 0 stop).
 - **Monster target draws as in DOS, in Part A** (2026-10-23, after the
   second Part 0 stop), although six-member draw sequences change.
+- **A failed Inn save recovers** instead of quitting as DOS does (approved
+  deviation [`dev-inn-save-recovery`](original-quirks.md#dev-inn-save-recovery),
+  2026-10-24).
+- **The death scroll joins Part B** (2026-10-24): it shares the DOS scroll
+  routine, so it gets the same input skip and stall rule as the Inn's.
 - Static program evidence first; DOSBox only where Part 0 cannot settle a
   rule.
 

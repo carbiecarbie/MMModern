@@ -698,7 +698,7 @@ std::shared_ptr<const DialogInput> XeenEventFlow::serviceDialogInput() const {
         if(!ui.feedback.empty()) {input={};input.anyKey=input.anyClick=input.keyMouseWait=true;}
     } else if(_smithUi) {
         const auto &ui=*_smithUi;
-        if(ui.goodbye || ui.phase==SmithUi::Phase::Preparation) return std::make_shared<const DialogInput>();
+        if((ui.goodbye && !_smithSettlement) || ui.phase==SmithUi::Phase::Preparation) return std::make_shared<const DialogInput>();
         if(ui.phase==SmithUi::Phase::Departure) input.keys={InputKey::Escape,InputKey::Enter};
         else if(ui.phase==SmithUi::Phase::Detail) {input.anyKey=input.anyClick=input.keyMouseWait=true;}
         else if(ui.phase==SmithUi::Phase::Upgrade) input.keys={InputKey::Escape};
@@ -903,11 +903,11 @@ IndexedFrame XeenEventFlow::handleFoodBank(const PlayerAction &action,std::uint6
     auto &ui=*_smithUi;const auto key=serviceKey(action);
     const auto *typed=std::get_if<TextInputAction>(&action);
     const bool food=ui.mode==SmithUi::Mode::Food,guild=ui.mode==SmithUi::Mode::Guild;
-    if(ui.goodbye)return frameCopy();
+    if(ui.goodbye && !_smithSettlement)return frameCopy();
     if(ui.phase==SmithUi::Phase::Preparation)return frameCopy();
     const auto controls=serviceDialogInput();
     if((ui.feedback.empty() || ui.phase==SmithUi::Phase::Departure) && !(ui.phase==SmithUi::Phase::Amount && (typed || (key>='0' && key<='9'))) && !controls->key(key))return frameCopy();
-    if(_smithSettlement){_handoffPending=true;return settleSmithEvent();}
+    if(_smithSettlement){ui.feedback.clear();if(ui.signIn)return finishSignIn();_handoffPending=true;return settleSmithEvent();}
     if(!_encounter->consumeSmithFrame(input,inputFrame))return frameCopy();
     serviceInputPolled(ui.animation);
     if(ui.phase!=SmithUi::Phase::Departure && !(ui.phase==SmithUi::Phase::Lobby && key==InputKey::Escape) &&
@@ -949,7 +949,8 @@ IndexedFrame XeenEventFlow::handleFoodBank(const PlayerAction &action,std::uint6
                 }
             }
             else if(food) {
-                if(key=='f')ui.phase=SmithUi::Phase::Confirm;
+                if(key=='s') {ui.signIn=true;ui.phase=SmithUi::Phase::Departure;}
+                else if(key=='f')ui.phase=SmithUi::Phase::Confirm;
                 else if(key=='d' || key=='t') {
                     std::string popup;
                     const auto &c=_party.party.member(_party.roster,ui.member);

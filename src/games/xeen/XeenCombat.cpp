@@ -979,7 +979,7 @@ XeenCombatResult XeenCombat::beginItemCast(CastResponse &response,std::size_t sl
     auto &d=*impl;
     if(!current(response.source) || d.turn<0 || d.turn>=6 || slot>=9 ||
         !xeenSameItem(d.character(d.turn).miscellaneous[slot],item) ||
-        xeenItemUseAdmission(XeenInventoryCategory::Miscellaneous,item,d.camera.mapId.number!=0,d.character(d.turn).canAct())!=XeenItemUseAdmission::Admitted ||
+        xeenItemUseAdmission(XeenInventoryCategory::Miscellaneous,item,!xeenDosMapZero(d.party,d.camera),d.character(d.turn).canAct())!=XeenItemUseAdmission::Admitted ||
         !xeenItemUseSpell(item.id))return d.observation(Status::Refused);
     auto result=beginCast(response,{},true);
     if(!d.casting)return result;
