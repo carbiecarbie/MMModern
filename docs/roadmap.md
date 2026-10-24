@@ -137,10 +137,10 @@ to Vertigo.
     2026-10-24, save v19): Sign In and the Inn with its saves, Dismiss, and a
     party of one to six everywhere, including the DOS monster target draws
     and Poison Volley for the active party size, with every roster record
-    saved in full. Next: M88, roster slots, that is Create (the creation
-    screens and attribute rolls) and Delete; Tier B unless it changes the
-    save format, an owner or the generator (ordinary draws from the existing
-    generator are not an RNG change).
+    saved in full. [M88](milestone-88-plan.md) (Tier A, save v20): roster
+    slots, that is Create (the creation screens and attribute rolls) and
+    Delete. It is Tier A because DOS saves an empty party inside the Inn
+    after Create and Delete, which save v19 refuses.
 15. **Intros and the Clouds ending**: the Other Options intros and the ending
     (`CutsceneEndClouds`) with its score, and Lord Xeen's death reward (the
     Scepter and its quest item, deferred from M81).
