@@ -20,5 +20,9 @@ std::optional<std::uint32_t> XeenCombatRandom::draw(std::uint32_t lo,std::uint32
 	const std::uint32_t span=hi-lo+1,threshold=(0u-span)%span;
 	if(raw<threshold) return {}; return lo+raw%span;
 }
-
+std::uint32_t XeenCombatRandom::range(std::uint32_t lo,std::uint32_t hi) {
+	std::optional<std::uint32_t> result;
+	while(!result)result=draw(lo,hi);
+	return *result;
+}
 }

@@ -497,8 +497,12 @@ private:
 	}
 	// Anticipates one XeenTreasureStagingState::publish of the observed owner.
 	void prepareStagingPublication(const XeenTreasureStaging &value) { staging=value; ++stagingRevision; }
-    void prepareEventAnimationRandom(const XeenJourneyRandomState &ending) {
+    // Anticipate the Journey owner's checked, callback-free RNG publication.
+    void prepareJourneyRandom(const XeenJourneyRandomState &ending) {
         check();s._journeyRandom=ending;
+    }
+    void prepareEventAnimationRandom(const XeenJourneyRandomState &ending) {
+        prepareJourneyRandom(ending);
     }
 	// Only after the coordinator's checked, callback-free owned stores. Other
 	// guards observing the same owners remain invalidated by those writes.

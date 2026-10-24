@@ -88,6 +88,7 @@ add_library(mmodern_xeen STATIC
 	src/games/xeen/XeenAntidoteUse.cpp
 	src/games/xeen/XeenEquipment.cpp
 	src/games/xeen/XeenDialogView.cpp
+	src/games/xeen/XeenCharacterCreation.cpp
 	src/games/xeen/XeenJournalView.cpp
     src/games/xeen/XeenMapView.cpp
 	src/games/xeen/XeenEventPresenter.cpp
@@ -143,6 +144,7 @@ add_library(mmodern_app STATIC
 	src/app/XeenCastingFlow.cpp
 	src/app/XeenSmithFlow.cpp
 	src/app/XeenInnFlow.cpp
+	src/app/XeenCreateFlow.cpp
 	src/app/XeenTrainingFlow.cpp
 	src/app/XeenCastingUi.cpp
 	src/app/Application.cpp
@@ -229,7 +231,7 @@ if(BUILD_TESTING)
  set_tests_properties(xeen_cd_audio PROPERTIES LABELS fast ENVIRONMENT "SDL_AUDIODRIVER=dummy")
 	add_executable(mmodern_test_save_tests tests/XeenTestSaveTests.cpp)
 	target_link_libraries(mmodern_test_save_tests PRIVATE mmodern_test_save_support)
-	foreach(preset broken-armor train-ready injured-dead poisoned monster-control monster-damage party-healing m76-spells combat-items m79-playtest m80-playtest m80-arena m80-arena-maxed m81-drops m81-fullpacks m81-event m84-playtest-trap m84-playtest-label m84-playtest-save m85-playtest-label m85-playtest-run m85-playtest-trap m86-playtest-fall m86-playtest-moon-ray m86-playtest-border m87-inn m87-three m87-shangrila paths)
+	foreach(preset broken-armor train-ready injured-dead poisoned monster-control monster-damage party-healing m76-spells combat-items m79-playtest m80-playtest m80-arena m80-arena-maxed m81-drops m81-fullpacks m81-event m84-playtest-trap m84-playtest-label m84-playtest-save m85-playtest-label m85-playtest-run m85-playtest-trap m86-playtest-fall m86-playtest-moon-ray m86-playtest-border m87-inn m87-three m87-shangrila m88-roster paths)
 		add_test(NAME xeen_test_save_${preset} COMMAND mmodern_test_save_tests
 			"${MMODERN_XEEN_DATA_DIR}" ${preset} "${CMAKE_CURRENT_SOURCE_DIR}")
 	endforeach()

@@ -13,6 +13,7 @@
 #include <array>
 #include <string_view>
 namespace mmodern {
+IndexedFrame drawXeenErrorScroll(const XeenDosText &,const IndexedFrame &,const XeenFontFormat &,const std::string &);
 using XeenDialogSpriteDraw = std::function<void(IndexedFrame &,const char *,unsigned,int,int)>;
 struct XeenSpellInformation;
 IndexedFrame drawXeenSpellInformation(const XeenDosText &,const IndexedFrame &,const XeenFontFormat &,
@@ -56,8 +57,9 @@ enum class XeenDialogText {
 };
 std::string_view xeenDialogText(const XeenDosText &text,XeenDialogText);
 std::string xeenDialogFormat(std::string_view,const std::vector<std::string> &);
+std::string xeenCreateDetails(const XeenDosText &,unsigned rosterId,const std::array<int,7> &,
+    std::optional<unsigned> committedClass);
 std::vector<std::uint8_t> xeenInnList(const XeenPartyState &,XeenMapIdentity,bool townOnly=false);
-std::size_t xeenInnLastPage(std::size_t);
 DialogInput xeenInnInput(std::size_t rows,std::size_t members,bool remove=false);
 IndexedFrame drawXeenInn(const XeenDosText &,const IndexedFrame &,const XeenFontFormat &,
     const XeenPartyState &,const std::vector<std::uint8_t> &,std::size_t,const XeenDialogSpriteDraw &);

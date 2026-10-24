@@ -1,4 +1,5 @@
 #include "formats/xeen/XeenSaveFormat.h"
+#include "games/xeen/XeenInnDoor.h"
 
 #include <zlib.h>
 
@@ -314,6 +315,14 @@ XeenUnsupportedSave unsupportedPair(std::uint16_t schema, std::uint16_t content)
 
 } // namespace
 
+void XeenSaveFormat::validateCharacter(const XeenCharacter &c,std::size_t rosterId) {
+	for(unsigned award=0;award<128;++award)
+		require(award==9 || c.awards[award]<=15,"award count exceeds CHR representation");
+	require(c.rosterId==rosterId,"character identity differs from roster slot");
+	require(c.name.size()<=16 && c.name.find('\0')==std::string::npos,"invalid character name");
+	require(c.learnedSpells.has_value(), "Journey learned-spell presence mismatch");
+	require(c.quickOption<=3 && (c.currentSpell<39 || c.currentSpell==255), "invalid Quick Fight setting");
+}
 void XeenSaveFormat::validate(const XeenSaveSnapshot &s) {
 	require(!s.name || validName(*s.name), "invalid save name");
 	if (!s.journey) throw XeenUnsupportedSave(XeenUnsupportedSave::Kind::Older);
@@ -329,19 +338,8 @@ void XeenSaveFormat::validate(const XeenSaveSnapshot &s) {
         require(id<24 && !seen[id], "invalid or duplicate active roster identity");seen[id]=true;
         require(!s.characters[id].name.empty() && s.characters[id].xeenSide==0,"unrecruitable active member");
     }
-    if(s.insideInn) {
-        const auto &c=s.camera;
-        require(c.mapId.side==XeenSide::Clouds && c.direction==XeenDirection::West &&
-          ((c.mapId.number==28 && c.x==18 && c.y==4) || (c.mapId.number==30 && c.x==19 && c.y==16) ||
-           (c.mapId.number==49 && c.x==11 && c.y==12)),"invalid Inn door camera");
-    }
-	for (std::size_t i = 0; i < s.characters.size(); ++i) {
-		const auto &c = s.characters[i];
-		for(unsigned award=0;award<128;++award)
-			require(award==9 || c.awards[award]<=15,"award count exceeds CHR representation");
-		require(c.rosterId == i, "character identity differs from roster slot");
-		require(c.name.size() <= 16 && c.name.find('\0') == std::string::npos, "invalid character name");
-	}
+    if(s.insideInn)require(xeenAtInnDoor(s.camera),"invalid Inn door camera");
+    for(std::size_t i=0;i<s.characters.size();++i)validateCharacter(s.characters[i],i);
 	if(s.headCache)require(s.headCache->mapId==s.camera.mapId,"head cache must belong to the primary map");
 	validateMapStates(s.maps);
 
@@ -373,10 +371,6 @@ void XeenSaveFormat::validate(const XeenSaveSnapshot &s) {
 	require(j.skeletonSeed == 0 && j.random && j.random->algorithm == 1 && j.random->state != 0, "invalid Journey random representation");
 	require(j.purse.has_value(),"Journey purse presence mismatch");
 
-	for (const auto &character : s.characters) {
-		require(character.learnedSpells.has_value(), "Journey learned-spell presence mismatch");
-		require(character.quickOption<=3 && (character.currentSpell<39 || character.currentSpell==255), "invalid Quick Fight setting");
-	}
 
 }
 

@@ -90,6 +90,7 @@ public:
     bool innMembership(const Ticket &,std::vector<std::uint8_t>);
     // Publish both halves of one roster record and membership as one successor.
     bool innRecord(const Ticket &,XeenCharacter,XeenCombatInputs,std::vector<std::uint8_t>);
+    std::optional<std::array<int,7>> innRoll(const Ticket &);
     void innLeaving();
     void innReturn();
 	bool rememberSpell(const Ticket &,std::size_t,unsigned);

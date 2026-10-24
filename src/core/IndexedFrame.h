@@ -22,6 +22,11 @@ struct IndexedFrame {
 	int height = 0;
 	std::vector<std::uint8_t> pixels;
 	std::array<std::uint8_t, kPaletteSize> palette{};
+	// Original six-bit VGA palette scaling; level is in 0..128.
+	void scaleVgaPalette(unsigned level) {
+		for(auto &component:palette)
+			component=static_cast<std::uint8_t>(((unsigned(component)>>2)*level/128)<<2);
+	}
 
 	bool isValid() const {
 		return width > 0 && height > 0 &&

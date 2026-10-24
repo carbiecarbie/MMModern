@@ -219,7 +219,7 @@ void XeenTitleFlow::render(bool semantic) {
   // writeString then returns. Keep glyph/control overflow diagnostics active.
   frame=text(frame,font,_notice,{99,59,237,141},{107,67,229,133},true,false,true);
  } else if(_screen==Screen::Notice || _screen==Screen::PublicationFailure)frame=drawXeenErrorScroll(frame,font,_notice,!_services.panel);
- if(_fadeLevel<128)for(auto &component:frame.palette)component=static_cast<std::uint8_t>(((unsigned(component)>>2)*_fadeLevel/128)<<2);
+ if(_fadeLevel<128)frame.scaleVgaPalette(_fadeLevel);
  frame._presentation.reset();auto retained=std::make_shared<IndexedFrame>(frame);frame._presentation=std::move(retained);_frame=std::move(frame);
 }
 InputContext XeenTitleFlow::inputContext(const IndexedFrame::Presentation &origin) const {

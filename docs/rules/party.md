@@ -281,6 +281,9 @@ there is no rejection loop inside that helper. DOS clock mixing in
 `0x45be5..0x45c1f` is the already-deferred generator difference in the plan,
 not a new generator to implement.
 
+MMModern keeps its shared unbiased range draw for these rolls; see
+[dos-create-reroll-choice](../original-quirks.md#dos-create-reroll-choice).
+
 | Class, in ID order | Required rolled attributes | DOS check |
 | --- | --- | --- |
 | Knight | Might 15 | `0x358eb` |

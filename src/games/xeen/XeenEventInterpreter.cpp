@@ -1126,10 +1126,9 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 			if(!world.detachedEventCandidate() || !world.sessionState().journeyRandom())
 				throw std::invalid_argument("Event draws require a detached Journey RNG");
 			XeenCombatRandom random(*world.sessionState().journeyRandom());
-			std::optional<std::uint32_t> value;
-			while(!value)value=random.draw(lo,hi);
+			const auto value=random.range(lo,hi);
 			world.retainEventRandom(random.continuation());
-			return *value;
+			return value;
 		};
 		const auto canDraw=[&] {return world.detachedEventCandidate() && world.sessionState().journeyRandom();};
 

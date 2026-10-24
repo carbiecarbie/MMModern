@@ -123,7 +123,8 @@ InputContext XeenEventFlow::inputContext(const IndexedFrame::Presentation &origi
     if(panel==9 && _encounter->state().phase()==XeenEncounterPhase::Engaged)panel=0;
     // DOS combat entry retains the exploration keyboard queue.
     const QueueContext context{_camera.mapId, panel,
-        _innUi && !inventoryOpen() ? 800+unsigned(_innUi->phase)*4+unsigned(_innUi->remove)+2*unsigned(!_innUi->feedback.empty()) : _dismissOpen ? 700+unsigned(!_dismissRefusal.empty()) : _quickFightMember ? 500+*_quickFightMember : _summary ? 400+unsigned(*_summary) : inventoryOpen() ? (_exchange ? 6 : _dialogError ? 5 : _statPopup ? 4 : _itemOption ? 3 : _sheet && !_itemsVisible ? 2 : 1) :
+        _innUi && !inventoryOpen() ? 800+unsigned(_innUi->phase)*16+unsigned(_innUi->remove)+2*unsigned(!_innUi->feedback.empty())+
+            (_innUi->create?4*unsigned(_innUi->create->naming)+8*unsigned(bool(_innUi->create->exchange)):0) : _dismissOpen ? 700+unsigned(!_dismissRefusal.empty()) : _quickFightMember ? 500+*_quickFightMember : _summary ? 400+unsigned(*_summary) : inventoryOpen() ? (_exchange ? 6 : _dialogError ? 5 : _statPopup ? 4 : _itemOption ? 3 : _sheet && !_itemsVisible ? 2 : 1) :
         _smithUi ? 100+unsigned(_smithUi->phase)*8+unsigned(_smithUi->mode)+(!_smithUi->feedback.empty()?1000:0) :
         _trainingUi ? 200+unsigned(_trainingUi->phase)+(!_trainingUi->feedback.empty()?1000:0) :
         _encounter && _encounter->_rest ? 300+unsigned(_encounter->_rest->phase) : panel==6 && _pending ? _pending->generation :
@@ -196,6 +197,8 @@ InputContext XeenEventFlow::inputContext(const IndexedFrame::Presentation &origi
     if(_innUi) {
         if(!_summary)dialog=inventoryOpen()?characterDialogInput():innInput();
         ready=ready && (_innUi->phase==InnUi::Phase::Menu ||
+            _innUi->phase==InnUi::Phase::Create ||
+            (_innUi->phase==InnUi::Phase::CreateSave && !_innUi->feedback.empty()) ||
             _innUi->phase==InnUi::Phase::Closing || _innUi->phase==InnUi::Phase::Opening);
         navigationReady=restReady=false;
     }
@@ -276,6 +279,15 @@ std::uint64_t XeenEventFlow::presentationNow() {
 std::optional<std::uint64_t> XeenEventFlow::nextPresentationDeadline() {
     if(_innReturnPassPending)return presentationNow();
     if(_innUi) {
+        if(_innUi->phase==InnUi::Phase::Create) {
+            if(!_innUi->feedback.empty() || _innUi->create->exchange)return {};
+            if(_innUi->create->naming) {
+                const auto deadline=_innUi->create->name.deadline();
+                return deadline?PresentationClock::fromMilliseconds(*deadline):presentationNow();
+            }
+            return _innUi->acquired?std::optional<std::uint64_t>{_innUi->deadline}:std::nullopt;
+        }
+        if(_innUi->phase==InnUi::Phase::CreateSave)return {};
         if(_innUi->phase!=InnUi::Phase::Menu)return _innUi->acquired?std::optional<std::uint64_t>{_innUi->deadline}:std::nullopt;
         if(_sheet && !_itemsVisible && !_statPopup && !_dialogError)return PresentationClock::fromMilliseconds(_sheet->deadline);
         return {};
@@ -980,6 +992,10 @@ void XeenEventFlow::framePresented(const IndexedFrame::Presentation &presented, 
         _innUi->acquired=true;
         if(_innUi->phase==InnUi::Phase::Closing || _innUi->phase==InnUi::Phase::Opening)
             _innUi->deadline=PresentationClock::scrollAcquired(_innUi->deadline,presentationNow());
+        else if(_innUi->phase==InnUi::Phase::Create)
+            _innUi->deadline=PresentationClock::after(presentationNow(),1);
+        else if(_innUi->phase>=InnUi::Phase::FadeToCreate && _innUi->phase!=InnUi::Phase::CreateSave)
+            _innUi->deadline=PresentationClock::retraceAfter(presentationNow());
     }
     if(_entranceUi) {
         const auto now=presentationNow();

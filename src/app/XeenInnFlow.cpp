@@ -3,6 +3,8 @@
 #include "games/xeen/XeenJourneyCapture.h"
 #include "games/xeen/XeenJourneyRules.h"
 #include "games/xeen/XeenIndoorScene.h"
+#include "games/xeen/XeenInnDoor.h"
+#include "formats/xeen/XeenSaveFormat.h"
 #include <algorithm>
 #include <stdexcept>
 
@@ -20,14 +22,9 @@ bool XeenEncounterFlow::signIn() {
     if(!_smith || _smith->serviceAction!=3 || _smith->departed || _smith->frame || _busy || !smithCapacity(20,4))
         throw std::logic_error("Sign In authority unavailable");
     InnBusy busy(_busy);_journeyPreimage->check();checkSmithReservation();
-    XeenCamera door=_camera;door.direction=XeenDirection::West;
-    switch(door.mapId.number) {
-    case 28:door.x=18;door.y=4;break;
-    case 30:door.x=19;door.y=16;break;
-    case 49:door.x=11;door.y=12;break; // DOS explicit Shangri-La correction.
-    default:throw std::logic_error("Sign In outside a Clouds tavern");
-    }
-    if(door.mapId.side!=XeenSide::Clouds)throw std::logic_error("Unsupported Inn side");
+    const auto destination=xeenInnDoor(_camera.mapId);
+    if(!destination)throw std::logic_error("Sign In outside a Clouds tavern");
+    const auto door=*destination;
     if(!_smith->departure->service(64,[&]{_journeyPreimage->check();},
         [&]{checkSmithBoundary(XeenSmithBoundary::StockComplete);}))return false;
     *_smith->binding=SmithDepartureBinding(*_smith->departure);
@@ -71,7 +68,12 @@ bool XeenEncounterFlow::innRecord(const Ticket &entry,XeenCharacter character,Xe
     auto candidate=_world.transitionCandidate();XeenPartyState p;candidate->copyEventParty(_party,p);
     p.roster.at(owner)=std::move(character);p.roster._combatInputs[owner]=std::move(inputs);
     p.party=p.party.reordered(ids);p.firstSerializedCount=p.effectiveSerializedCount=ids.size();
-    xeenValidateJourneyParty(p);
+    // Invalid detached records are a refusal, never a live mutation or an
+    // exception escaping the Inn input handler. Integrity failures still throw.
+    try {
+        XeenSaveFormat::validateCharacter(p.roster.at(owner),owner);
+        xeenValidateJourneyParty(p);
+    } catch(const std::exception &) {return false;}
     auto prepared=std::make_shared<XeenRestoreGuard>(_world,_party,_camera,_flags);
     prepared->retainResources(*_journeyPreimage);
     prepared->characters[owner]=p.roster.at(owner);prepared->inputs[owner]=p.roster.combatInputs(owner);
@@ -115,8 +117,9 @@ void XeenEncounterFlow::innReturn() {
 void XeenEventFlow::forcedInnSave() {
     if(!saveInn || _forcedInnSave)throw std::logic_error("Inn Save transaction unavailable");
     if(!((_smithUi && _smithUi->signIn && _smithSettlement && _encounter->journeyEvent() && !_encounter->_smith) ||
-         (_innUi && _innUi->phase==InnUi::Phase::Menu &&
-          (!_party.insideInn || _innUi->edit==InnUi::Edit::SavePending))))
+         (_innUi && ((_innUi->phase==InnUi::Phase::Menu &&
+          (!_party.insideInn || _innUi->edit==InnUi::Edit::SavePending)) ||
+          (_party.insideInn && _innUi->phase==InnUi::Phase::CreateSave)))))
         throw std::logic_error("Inn Save site unavailable");
     auto &cap=*_encounter->_journeyCapture;
     const auto &boundary=_encounter->_boundary;
@@ -167,6 +170,7 @@ IndexedFrame XeenEventFlow::openInn(bool closing) {
     return renderInn();
 }
 std::shared_ptr<const DialogInput> XeenEventFlow::innInput() const {
+    if(_innUi->phase>=InnUi::Phase::FadeToCreate)return createInput();
     DialogInput input;
     if(_innUi->phase==InnUi::Phase::Closing || _innUi->phase==InnUi::Phase::Opening)
         input.anyKey=input.anyClick=input.keyMouseWait=true;
@@ -181,6 +185,7 @@ std::shared_ptr<const DialogInput> XeenEventFlow::innInput() const {
     return std::make_shared<const DialogInput>(std::move(input));
 }
 IndexedFrame XeenEventFlow::renderInn(bool cosmetic) {
+    if(_innUi->phase>=InnUi::Phase::FadeToCreate)return renderCreate(cosmetic);
     if(!loadInnScreen)throw std::runtime_error("Missing original Inn screen provider");
     const auto ticket=_encounter->ticket();IndexedFrame returned;
     if(!_encounter->prepareJourneyFrame(ticket,[&]{
@@ -203,7 +208,7 @@ IndexedFrame XeenEventFlow::renderInn(bool cosmetic) {
             _inventoryUnderlay=frame;
             if(inventoryOpen())frame=drawCharacterDialog(frame);
             if(_summary)frame=drawSummary(frame);
-            if(!ui.feedback.empty())frame=drawXeenErrorScroll(frame,_inventoryFont,ui.feedback);
+            if(!ui.feedback.empty())frame=drawXeenErrorScroll(dosText(),frame,_inventoryFont,ui.feedback);
         }
         if(ui.phase!=InnUi::Phase::Menu)frame=drawXeenScroll(frame,ui.scroll,drawDialogSprite);
         // Keep the old palette until fadeIn(0x81)'s retrace. The cache retains
@@ -218,6 +223,7 @@ IndexedFrame XeenEventFlow::renderInn(bool cosmetic) {
 std::optional<IndexedFrame> XeenEventFlow::updateInn() {
     if(_dispatching || _fatal || _saving || _handoffPending || !_innUi->acquired)return {};
     auto &ui=*_innUi;
+    if(ui.phase>=InnUi::Phase::FadeToCreate)return updateCreate();
     if(ui.phase==InnUi::Phase::Menu) {
         if(_sheet && !_itemsVisible && !_statPopup && !_dialogError && _clock()>=_sheet->deadline) {
             _sheet->deadline=PresentationClock::afterMilliseconds(_clock(),4);_sheet->blink=!_sheet->blink;return renderInn(true);
@@ -244,6 +250,7 @@ std::optional<IndexedFrame> XeenEventFlow::updateInn() {
 IndexedFrame XeenEventFlow::handleInn(const PlayerAction &action) {
     auto &ui=*_innUi;
     if(_dispatching || _fatal || _saving || _handoffPending)return frameCopy();
+    if(ui.phase>=InnUi::Phase::FadeToCreate)return handleCreate(action);
     if(ui.acquired && (ui.phase==InnUi::Phase::Closing || ui.phase==InnUi::Phase::Opening)) {
         InnBusy dispatch(_dispatching);
         // The DOS poll consumes the key/click. Its return is never a menu key.
@@ -283,8 +290,9 @@ IndexedFrame XeenEventFlow::handleInn(const PlayerAction &action) {
             if(row>=list.size())return frameCopy();
             ui.selected=list[row];const auto &c=_party.roster.at(*ui.selected);
             ui.edit=InnUi::Edit::None;
-            if(std::any_of(c.weapons.begin(),c.weapons.end(),[](const auto &item){return item.id==34;}))
-                ui.feedback=dosText().scalar("INN_DELETE_SWORD");
+            if(std::any_of(c.weapons.begin(),c.weapons.end(),[](const auto &item){return item.id==34;})) {
+                ui.feedback=dosText().scalar("INN_DELETE_SWORD");ui.selected.reset();
+            }
             else ui.edit=InnUi::Edit::DeleteConfirm;
         }
     } else if(ui.edit==InnUi::Edit::DeleteConfirm) {
@@ -311,7 +319,10 @@ IndexedFrame XeenEventFlow::handleInn(const PlayerAction &action) {
     } else if(key==InputKey::Up) {if(ui.top>=4)ui.top-=4;}
     else if(key==InputKey::Down) {if(ui.top+4<xeenInnList(_party,_camera.mapId,ui.townOnly).size())ui.top+=4;}
     else if(key=='r')ui.remove=!ids.empty();
-    else if(key=='c')ui.feedback="Create: not supported yet";
+    else if(key=='c') {
+        if(xeenInnList(_party,_camera.mapId,ui.townOnly).size()>=24)ui.feedback=dosText().scalar("CREATE_ROSTER_FULL");
+        else return beginCreate();
+    }
     else if(key=='d') {if(!xeenInnList(_party,_camera.mapId,ui.townOnly).empty())ui.edit=InnUi::Edit::DeleteSelect;}
     else if(key=='e' || key=='x' || key==InputKey::Escape || key==InputKey::Space) {
         if(ids.empty())ui.feedback=dosText().scalar("INN_NO_MEMBERS");

@@ -44,6 +44,10 @@ public:
 	XeenJourneyRandomState continuation() const;
 	// One provider/raw draw, including a rejected conversion. nullopt means reject.
 	std::optional<std::uint32_t> draw(std::uint32_t lo,std::uint32_t hi);
+	// MMModern's mapping of DOS range helper 0x45b9a. DOS takes one generator
+	// value, masks it to 15 bits and reduces it modulo the range. MMModern keeps
+	// its existing unbiased range draw while DOS clock mixing stays deferred.
+	std::uint32_t range(std::uint32_t lo,std::uint32_t hi);
 	std::uint32_t state() const noexcept { return value; }
 	std::uint64_t position() const noexcept { return offset; }
 	friend bool operator==(const XeenCombatRandom &a,const XeenCombatRandom &b) noexcept {

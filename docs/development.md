@@ -427,8 +427,17 @@ North. `m87-three` starts there with three active members and the other three
 lodged in Vertigo. `m87-shangrila` starts outside Shangri-La's tavern at
 (14,12), facing North. Step forward, interact with the tavern (Space or the
 view), and choose Sign In (S). The Inn lists local characters, permits Remove
-down to zero, and requires at least one
-member to Exit. Create and Delete display “not supported yet”.
+down to zero, and requires at least one member to Exit. Delete clears a listed
+character after Y confirms. Create rolls attributes, exchanges them, selects
+a class and asks for a name; the new character stays lodged until added to
+the party.
+
+`m88-roster` starts at the same Vertigo door with the original six active
+members and 22 named characters lodged there. Only slots 12 (Gnome, male)
+and 21 (Human, female) are free. Create twice, then C shows the full-roster
+refusal. Up and Down choose those free slots; Left and Right move the class
+arrow, Enter commits, R or Space rerolls, and the attribute keys exchange
+values. Returning to the Inn resets its page and keeps its song playing.
 
 ```powershell
 .\build-rel\mmodern_test_save.exe m87-inn "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/m87-inn.mmsave"
@@ -437,9 +446,12 @@ member to Exit. Create and Delete display “not supported yet”.
 .\build-rel\mmodern.exe --load-game "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/m87-three.mmsave"
 .\build-rel\mmodern_test_save.exe m87-shangrila "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/m87-shangrila.mmsave"
 .\build-rel\mmodern.exe --load-game "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/m87-shangrila.mmsave"
+.\build-rel\mmodern_test_save.exe m88-roster "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/m88-roster.mmsave"
+.\build-rel\mmodern.exe --load-game "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/m88-roster.mmsave"
 ```
 
-Sign In and Exit save automatically. In the developer `--load-game` path,
+Sign In, confirmed Delete, every return from Create and Exit save automatically.
+In the developer `--load-game` path,
 these writes use that explicit file; keep a separate copy to repeat the
 starting setup. Managed play uses its current numbered slot. Reload a Sign In
 save to reopen the Inn without adding a day. Add and Remove alone do not save.

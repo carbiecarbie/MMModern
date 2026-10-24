@@ -19,6 +19,7 @@
 #include <memory>
 #include "core/InputContext.h"
 #include "games/xeen/XeenTextInput.h"
+#include "games/xeen/XeenCharacterCreation.h"
 #include "core/PresentationClock.h"
 #include "formats/xeen/XeenSpriteDrawOptions.h"
 
@@ -68,6 +69,7 @@ public:
     std::optional<std::uint64_t> nextPresentationDeadline();
     std::optional<unsigned> audioLocation() const;
     std::function<IndexedFrame(const XeenPartyState &)> loadInnScreen;
+    std::function<IndexedFrame()> loadCreateScreen;
     // The session supplies the panel Save transaction and current selected slot.
     std::function<void()> saveInn;
     IndexedFrame openInn(bool closing=false);
@@ -163,7 +165,8 @@ public:
 	std::function<void(XeenMovementResult)> reportMovement;
 private:
     struct InnUi {
-        enum class Phase { Closing, Palette, Opening, Menu, Closed };
+        enum class Phase { Closing, Palette, Opening, Menu, Closed,
+            FadeToCreate, FadeInCreate, Create, CreateSave, FadeFromCreate, FadeInInn };
         Phase phase=Phase::Palette;
         unsigned scroll=1;
         std::size_t top=0;
@@ -175,6 +178,18 @@ private:
         std::uint64_t deadline=0;
         std::string feedback;
         IndexedFrame closing,opening;
+        unsigned fade=128;
+        struct CreateUi {
+            std::vector<std::uint8_t> slots;
+            std::size_t slot=0;
+            XeenCreateAttributes attributes{};
+            std::optional<unsigned> arrow,committed,exchange;
+            XeenCreateDice dice=xeenInitialCreateDice();
+            bool naming=false;
+            XeenTextInput name;
+            IndexedFrame background,details;
+        };
+        std::optional<CreateUi> create;
     };
     std::optional<InnUi> _innUi;
     bool _forcedInnSave=false,_signInSaveDone=false,_innReturnPassPending=false;
@@ -184,6 +199,15 @@ private:
     std::optional<IndexedFrame> updateInn();
     IndexedFrame finishSignIn();
     std::shared_ptr<const DialogInput> innInput() const;
+    IndexedFrame beginCreate();
+    bool restartCreate();
+    void rollCreate();
+    void refreshCreateDetails();
+    void saveCreateReturn();
+    IndexedFrame renderCreate(bool cosmetic=false);
+    IndexedFrame handleCreate(const PlayerAction &);
+    std::optional<IndexedFrame> updateCreate();
+    std::shared_ptr<const DialogInput> createInput() const;
     IndexedFrame handleExplorationAction(const PlayerAction &, std::optional<std::uint64_t>, const IndexedFrame::Presentation &);
     struct EntranceUi {
         XeenEntranceAnimation animation;

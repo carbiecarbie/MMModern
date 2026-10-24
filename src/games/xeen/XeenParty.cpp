@@ -15,7 +15,6 @@ XeenCombatInputs xeenDeletedCombatInputs() {
     inputs.poisonResistance.emplace();return inputs;
 }
 
-
 void XeenRoster::requireOrdinary(const XeenRoster &r) {
 	if (r._combatMarked) throw std::logic_error("marked combat roster cannot be copied, moved or replaced");
 	for (const auto &input:r._combatInputs) if (input) throw std::logic_error("detached combat supplements cannot be copied, moved or replaced");

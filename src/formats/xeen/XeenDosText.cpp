@@ -38,6 +38,17 @@ const std::vector<XeenDosText::Field> &XeenDosText::layout() {
  // Bounds and far-pointer relationships were checked against the uncompressed
  // DOS module; no original strings or whole-file digest are compiled here.
  static const std::vector<Field> fields{
+  {"CREATE_ROSTER_FULL",0x5552a,0x5553f,1,false,""},
+  {"CREATE_NO_CLASS",0x54c82,0x54ca8,1,false,""},
+  {"CREATE_NAME",0x54ca8,0x54ccc,1,false,""},
+  {"CREATE_CLASS",0x54ccc,0x54cd7,1,false,"s"},
+  {"CREATE_DETAILS",0x54cd7,0x54e3e,1,false,"s,s,d,d,d,d,d,d,d,2d,2d,2d,2d,2d,2d,2d,2d,2d,2d,s,s,s"},
+  {"CREATE_LABELS",0x54e5d,0x54f17,1,false,"s"},
+  {"CREATE_EXCHANGE",0x54c6e,0x54c82,1,false,"s"},
+  {"CREATE_ENDURANCE",0x51c4b,0x51c55,1,false,""},
+  {"NAME_INPUT_LAYOUT",0x53101,0x5310f,1,false,"03d"},
+  {"NAME_INPUT_VALUE",0x5310f,0x5311f,1,false,"03d,s"},
+  {"ERROR_SCROLL",0x5240a,0x52417,1,false,"s"},
   {"INN_IN_PARTY",0x55302,0x55310,1,false,""},
   {"INN_DETAILS",0x55311,0x553b9,1,false,"s,s,s,s,s,s,s,s,s,s,s,s,s,s,s,s"},
   {"INN_TEXT",0x55462,0x554af,1,false,"s"},

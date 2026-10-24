@@ -483,6 +483,9 @@ int Application::gameplay(const std::filesystem::path &gameDirectory, XeenCamera
                         assets.drawSprite(face.resourceName,face.frame,face.x,face.y);
                     return assets.snapshot();
                 };
+                flow.loadCreateScreen = [&] {
+                    assets.loadPalette("mm4.pal");assets.loadRawFramebuffer("create.raw");return assets.snapshot();
+                };
                 flow.drawTavernArt = [&](IndexedFrame &frame) { assets.drawTavern(frame); };
                 flow.drawBankArt = [&](IndexedFrame &frame) { assets.drawBank(frame); };
                 flow.drawGuildArt = [&](IndexedFrame &frame) { assets.drawGuild(frame); };

@@ -86,7 +86,8 @@ gameplay playback sites and CD rules follow in Parts A2 and B:
   the pin's exit lookup lacks.
   [Evidence](original-quirks.md#sv-inn-shangri-la-exit). Pin: differs; master not rechecked.
 - **Save boundaries.** Sign In writes the current slot before the Inn opens;
-  Delete saves its cleared record and membership, including zero members; Exit
+  Delete saves its cleared record and membership, including zero members;
+  every return from Create saves records and advanced rolls; Exit
   saves the edited party. The pin has none of these slot writes.
   [Evidence](original-quirks.md#sv-inn-save-boundaries). Pin: differs; master not rechecked.
 - **Return to play.** Exit reloads even the same map, rebuilds monsters and
@@ -97,9 +98,24 @@ gameplay playback sites and CD rules follow in Parts A2 and B:
 - **Delete list and page.** After Delete the list tests town alone and keeps
   the page, including an empty last page. The pin tests side and resets it.
   [Evidence](original-quirks.md#sv-inn-delete-list-page). Pin: differs; master not rechecked.
-- **Cleared Beacon coordinates.** A cleared roster record has Beacon x/y zero,
+- **Cleared Beacon coordinates.** A deleted or newly created roster record has Beacon x/y zero,
   like every other CHR field. The pin leaves those coordinates untouched.
   [Evidence](original-quirks.md#sv-create-delete-beacon-clear). Pin: differs; master not rechecked.
+- **Create slot bounds.** DOS and MMModern scan slots 0–23 and refuse Create
+  at 24 characters in the displayed Inn list. The pin uses 30 for both.
+  [Evidence](original-quirks.md#sv-create-slot-bounds). Pin: differs; master not rechecked.
+- **Create class selection.** The arrow starts on the first eligible class;
+  Left/Right move it, Enter commits, and unavailable classes use color 2.
+  The committed class survives arrow movement. The pin initially highlights
+  the last eligible class, uses color 0 and PageUp/PageDown.
+  [Evidence](original-quirks.md#sv-create-class-selection). Pin: differs; master not rechecked.
+- **Create dice bounds.** Dice bounce only strictly outside bounds computed
+  from their current frame dimensions. The pin uses a fixed size and bounces
+  at equality on the right and bottom.
+  [Evidence](original-quirks.md#sv-create-dice-bounds). Pin: differs; master not rechecked.
+- **Create current spell.** The first starting class-book slot becomes current;
+  the pin chooses the last. Noncasters use 255 in both.
+  [Evidence](original-quirks.md#sv-create-current-spell). Pin: differs; master not rechecked.
 - **Inn song after title Load.** Loading an Inn save from the title opens it
   in silence until Exit. Sign In and panel Load into the Inn play its song.
   The pin starts the Inn song unconditionally.
@@ -517,9 +533,9 @@ Curse Item against the Xeen Slayer Sword ([Curse](original-quirks.md#sv-curse-it
 Deliberate differences from the original, approved by the maintainer and kept
 apart from the fidelity differences above.
 
-- **Recoverable Inn save failures.** Sign In, Exit and a confirmed Delete show
-  an error and allow retry, retaining the paid day, the edited party or the
-  deletion; quitting stays possible.
+- **Recoverable Inn save failures.** Sign In, Exit, a confirmed Delete and the
+  Create return show an error and allow retry, retaining the paid day, the
+  edited party, the deletion or the advanced rolls; quitting stays possible.
   DOS terminates on the checked disk failures. The pin has no corresponding
   forced slot writes, so this does not claim a difference in its error handling.
   [Details](original-quirks.md#dev-inn-save-recovery)

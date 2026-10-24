@@ -2,6 +2,7 @@
 #include "games/xeen/CloudsUiComposer.h"
 #include "games/xeen/XeenEquipmentPurchase.h"
 #include "games/xeen/XeenCharacterRules.h"
+#include "games/xeen/XeenCharacterCreation.h"
 #include "games/xeen/XeenPartyLoader.h"
 #include "games/xeen/XeenTraining.h"
 #include "games/xeen/XeenTempleHeal.h"
@@ -53,6 +54,21 @@ std::uint32_t gold(const XeenPartyState &p) { return p.purse?std::uint32_t(p.pur
 std::uint32_t gems(const XeenPartyState &p) { return p.purse?std::uint32_t(p.purse->gems):0u; }
 }
 
+std::string xeenCreateDetails(const XeenDosText &text,unsigned id,const XeenCreateAttributes &attributes,
+    std::optional<unsigned> committed) {
+    const auto race=unsigned(xeenCreateRace(id));
+    std::vector<std::string> args{text.table("RACE_NAMES").at(race),text.table("SEX_NAMES").at(unsigned(xeenCreateSex(id)))};
+    for(int value:attributes)args.push_back(std::to_string(value));
+    const auto classes=xeenCreateClasses(attributes);
+    for(unsigned i=0;i<10;++i)args.push_back(committed==i?"12":classes[i]?"4":"2");
+    const auto skill=[&](const XeenCreateSkill &slice) {
+        return slice.id<0?std::string{}:text.table("SKILL_NAMES").at(slice.id).substr(slice.offset,slice.length);
+    };
+    args.push_back(committed?skill(kXeenCreateClassSkills.at(*committed)):"");
+    args.push_back(skill(kXeenCreateRaceSkills.at(race)));
+    args.push_back(xeenDialogFormat(text.scalar("CREATE_CLASS"),{committed?text.table("CLASS_NAMES").at(*committed):""}));
+    return xeenDialogFormat(text.scalar("CREATE_DETAILS"),args);
+}
 std::vector<std::uint8_t> xeenInnList(const XeenPartyState &party,XeenMapIdentity town,bool townOnly) {
     std::vector<std::uint8_t> ids;
     for(unsigned id=0;id<24;++id) {
@@ -75,7 +91,6 @@ IndexedFrame drawXeenInnDelete(const XeenDosText &text,const IndexedFrame &base,
     if(draw)draw(frame,"esc.icn",0,225,120);
     return frame;
 }
-std::size_t xeenInnLastPage(std::size_t count) { return count?4*((count-1)/4):0; }
 DialogInput xeenInnInput(std::size_t rows,std::size_t members,bool remove) {
     DialogInput input;
     if(remove)button(input,225,84,249,104,InputKey::Escape,"esc.icn",0);
@@ -844,6 +859,9 @@ IndexedFrame drawXeenPopup(const IndexedFrame &base,const XeenFontFormat &font,c
 }
 IndexedFrame drawXeenErrorScroll(const IndexedFrame &base,const XeenFontFormat &font,const std::string &message,bool startupColors) {
     return render(base,font,"\x03" "c\v010\t000"+message,{52,149,268,198},{60,157,260,190},true,startupColors);
+}
+IndexedFrame drawXeenErrorScroll(const XeenDosText &text,const IndexedFrame &base,const XeenFontFormat &font,const std::string &message) {
+    return render(base,font,xeenDialogFormat(text.scalar("ERROR_SCROLL"),{message}),{52,149,268,198},{60,157,260,190});
 }
 IndexedFrame drawXeenConfirm(const IndexedFrame &base,const XeenFontFormat &font,const std::string &message,bool large,const XeenDialogSpriteDraw &draw,bool startupColors,bool stopAtBottom) {
     auto frame=render(base,font,message,large?XeenTextRect{65,23,250,163}:XeenTextRect{99,59,237,141},large?XeenTextRect{73,31,242,155}:XeenTextRect{107,67,229,133},true,startupColors,stopAtBottom);

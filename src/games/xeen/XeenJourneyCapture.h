@@ -1,5 +1,6 @@
 #ifndef MMODERN_XEEN_JOURNEY_CAPTURE_H
 #define MMODERN_XEEN_JOURNEY_CAPTURE_H
+#include "games/xeen/XeenInnDoor.h"
 #include "games/xeen/XeenCombat.h"
 #include "games/xeen/XeenRestoreGuard.h"
 #include "games/xeen/XeenJourneyRules.h"
@@ -44,10 +45,7 @@ class XeenJourneyCapture {
                 w->sessionState().journeyActivity()!=XeenJourneyActivity::Quiet))return false;
             try {(*preimage)->check();xeenValidateJourneyParty(party);} catch(...) {return false;}
             if(!party.insideInn)return party.party.size()!=0;
-            return c->mapId.side==XeenSide::Clouds && c->direction==XeenDirection::West &&
-                ((c->mapId.number==28 && c->x==18 && c->y==4) ||
-                 (c->mapId.number==30 && c->x==19 && c->y==16) ||
-                 (c->mapId.number==49 && c->x==11 && c->y==12));
+            return xeenAtInnDoor(*c);
         }
 		// Unavailable coordination is not an integrity observation. In particular,
 		// combat publications and legitimate leases need not match the quiet preimage.

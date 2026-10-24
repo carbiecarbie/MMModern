@@ -10,6 +10,8 @@
 #include "games/xeen/XeenItemServiceRules.h"
 #include "games/xeen/CloudsUiComposer.h"
 #include "formats/xeen/XeenVoc.h"
+#include "games/xeen/XeenCharacterCreation.h"
+#include "games/xeen/XeenCharacterRules.h"
 #include <iostream>
 using namespace training_test;
 namespace mmodern {
@@ -23,21 +25,31 @@ struct XeenInnTestAccess {
  }
  static void recordAdmission(XeenEventFlow &f) {
   auto &e=*f._encounter;const auto ticket=e.ticket();auto ids=std::vector<std::uint8_t>(e._party.party.activeRosterIds());
-  auto bad=xeenDeletedCombatInputs();bad.luck.reset();bool refused=false;
-  try{e.innRecord(ticket,xeenDeletedCharacter(2),bad,ids);}catch(const std::invalid_argument &){refused=true;}
+  auto bad=xeenDeletedCombatInputs();bad.luck.reset();
+  const bool refused=!e.innRecord(ticket,xeenDeletedCharacter(2),bad,ids);
   check(refused && e.current(ticket),"invalid detached supplement never publishes");
+  for(unsigned badField=0;badField<5;++badField) {
+   auto c=xeenDeletedCharacter(2);
+   if(badField==0)c.name=std::string(17,'a');
+   if(badField==1)c.name=std::string("a\0b",3);
+   if(badField==2)c.awards[0]=16;
+   if(badField==3)c.currentSpell=39;
+   if(badField==4)c.learnedSpells.reset();
+   check(!e.innRecord(ticket,c,xeenDeletedCombatInputs(),ids) && e.current(ticket),"save-invalid record refused without throwing or publication");
+  }
   check(e.innRecord(ticket,e._party.roster.at(2),*e._party.roster.combatInputs(2),ids),"complete record operation admitted");
   check(!e.innRecord(ticket,xeenDeletedCharacter(2),xeenDeletedCombatInputs(),ids),"stale record ticket rejected");
   f._encounterFrame=e.ticket();
  }
  static void callbackAdmission(XeenEventFlow &f) {
   auto &e=*f._encounter;const auto ticket=e.ticket();auto ids=std::vector<std::uint8_t>(e._party.party.activeRosterIds());
-  const auto before=std::string(e._party.roster.at(0).name);bool nested=true,rejected=false;
+  const auto before=std::string(e._party.roster.at(0).name);bool nested=true,nestedRoll=true,rejected=false;
   try{rejected=!e.prepareJourneyFrame(ticket,[&]{
    nested=e.innRecord(ticket,xeenDeletedCharacter(0),xeenDeletedCombatInputs(),{});
+   nestedRoll=bool(e.innRoll(ticket));
    e._party.roster.at(1).birthDay=7;
   });}catch(const std::exception &){rejected=true;}
-  check(!nested && rejected && e._party.roster.at(0).name==before && e._party.party.activeRosterIds()==ids,
+  check(!nested && !nestedRoll && rejected && e._party.roster.at(0).name==before && e._party.party.activeRosterIds()==ids,
    "callback record reentry and mutation rejected without record or membership publication");
  }
  static bool forcedSaveWith(XeenEventFlow &f,bool inside,const XeenCamera &camera) {
@@ -50,8 +62,22 @@ struct XeenInnTestAccess {
  }
  static IndexedFrame refresh(XeenEventFlow &f){return f.renderInn();}
  static std::size_t top(const XeenEventFlow &f){return f._innUi->top;}
+ static bool creating(const XeenEventFlow &f){return f._innUi && f._innUi->phase==XeenEventFlow::InnUi::Phase::Create;}
+ static const auto &create(const XeenEventFlow &f){return *f._innUi->create;}
+ static auto &create(XeenEventFlow &f){return *f._innUi->create;}
+ static void attributes(XeenEventFlow &f,XeenCreateAttributes a) {
+  auto &c=create(f);c.attributes=a;c.arrow=xeenCreateArrow(xeenCreateClasses(a));c.committed.reset();f.refreshCreateDetails();
+ }
+ static bool selectionClear(const XeenEventFlow &f){return !f._innUi->selected;}
+ static void staleRoll(XeenEventFlow &f) {
+  auto &e=*f._encounter;const auto ticket=e.ticket();check(bool(e.innRoll(ticket)),"current roll admitted");
+  const auto after=e._world.sessionState().journeyRandom();
+  check(!e.innRoll(ticket) && e._world.sessionState().journeyRandom()==after,"stale roll ticket consumes no draw");
+  f._encounterFrame=e.ticket();
+ }
  static bool menu(const XeenEventFlow &f){return f._innUi && f._innUi->phase==XeenEventFlow::InnUi::Phase::Menu;}
  static unsigned phase(const XeenEventFlow &f){return unsigned(f._innUi->phase);}
+ static unsigned fade(const XeenEventFlow &f){return f._innUi->fade;}
  static unsigned scroll(const XeenEventFlow &f){return f._innUi->scroll;}
  static bool returned(const XeenEventFlow &f){return !f._innUi && !f._innReturnPassPending && !f._pending && !f._handoffPending && !f._explorationPass && f.encounterFrameCurrent();}
  static std::uint64_t deadline(const XeenEventFlow &f){return f._innUi->deadline;}
@@ -101,13 +127,139 @@ void rules() {
     check(xeenInnList(p,30)==std::vector<std::uint8_t>{2},"other town list");
     const auto townOnly=xeenInnList(p,28,true);
     check(townOnly.size()==22 && townOnly[2]==3 && townOnly[3]==4,"post-Delete rebuild tests town without side");
-    check(xeenInnLastPage(0)==0 && xeenInnLastPage(4)==0 && xeenInnLastPage(5)==4 && xeenInnLastPage(24)==20,"four-face last page");
     const auto input=xeenInnInput(2,3);
     check(input.key('1') && input.key('2') && !input.key('3') && !input.key(InputKey::Enter) && !input.key(InputKey::F1+3),"empty rows, Enter, inactive F-keys ignored");
     check(input.click(16,16) && input.click(117,16) && !input.click(16,59) && !input.click(117,59),"missing face is unclickable");
     for(auto key:{unsigned('e'),unsigned('x'),InputKey::Escape,InputKey::Space})check(bool(input.key(key)),"all Inn Exit keys");
     const auto remove=xeenInnInput(4,1,true);
     check(remove.click(225,84) && !remove.click(249,84) && !remove.key('1') && !remove.key(InputKey::F1+1),"Remove prompt escape bounds and active selection");
+}
+bool independentlyQualifies(const XeenCreateAttributes &a) {
+    const int m=a[0],i=a[1],p=a[2],e=a[3],s=a[4],accuracy=a[5],luck=a[6];
+    return m>=15 || (m>=13 && p>=13 && e>=13) || (i>=13 && accuracy>=13) || p>=13 || i>=13 ||
+        luck>=13 || (s>=13 && accuracy>=13) || e>=15 || (i>=15 && p>=15) || (i>=12 && p>=12 && e>=12 && s>=12);
+}
+struct IndependentCreateRoll {
+    XeenCreateAttributes attributes{};
+    std::uint32_t state;
+    std::uint64_t draws=0,calls=0,attempts=0;
+    std::uint32_t range(std::uint32_t lo,std::uint32_t hi) {
+        const std::uint64_t span=std::uint64_t(hi)-lo+1;
+        const auto rejectedPrefix=(std::uint64_t(1)<<32)%span;
+        std::uint32_t raw;
+        ++calls;
+        do {
+            state^=state<<13;state^=state>>17;state^=state<<5;raw=state;++draws;
+        } while(raw<rejectedPrefix);
+        return std::uint32_t(lo+raw%span);
+    }
+    void roll(bool retry=true) {
+        do {
+            ++attempts;attributes.fill(0);
+            for(unsigned pass=0;pass<3;++pass)for(auto &v:attributes)v+=range(10,79)/10;
+        } while(retry && !independentlyQualifies(attributes));
+    }
+};
+void createRules() {
+    // Derive expectations from the generator and unbiased conversion, without
+    // calling the production cursor, range helper, roller or class predicate.
+    IndependentCreateRoll expected{{},7};expected.roll();
+    XeenCombatRandom random(7);const auto rolled=xeenCreateRoll(random);
+    check(rolled==expected.attributes && random.state()==expected.state && random.position()==expected.draws &&
+        expected.calls==21*expected.attempts,"three-pass rolls match independent Journey range recomputation");
+    std::uint32_t retrySeed=0;
+    for(std::uint32_t seed=1;seed<=10000 && !retrySeed;++seed) {
+        IndependentCreateRoll first{{},seed};first.roll(false);
+        if(!independentlyQualifies(first.attributes))retrySeed=seed;
+    }
+    check(retrySeed!=0,"find a state whose first attempt has no eligible class");
+    IndependentCreateRoll retried{{},retrySeed};retried.roll();XeenCombatRandom retry(retrySeed);
+    check(xeenCreateRoll(retry)==retried.attributes && retried.attempts>1 && retried.calls==21*retried.attempts &&
+        retry.position()==retried.draws && retry.state()==retried.state,"unqualified first attempt retries with the shared range mapping");
+    XeenCombatRandom rejected(std::vector<XeenCombatRandom::Draw>{{10,79,0,true},{10,79,7,true},{10,79,69,true}});
+    check(rejected.range(10,79)==79 && rejected.position()==3,"range helper repeats rejected raw draws and accepts the inclusive upper endpoint");
+    IndependentCreateRoll rejectionExpected{{},7};XeenCombatRandom rejectionActual(7);
+    const auto largeRange=rejectionExpected.range(1,0x80000001u);
+    check(rejectionActual.range(1,0x80000001u)==largeRange && rejectionActual.position()==rejectionExpected.draws &&
+        rejectionExpected.draws>1 && rejectionActual.state()==rejectionExpected.state,"shared helper preserves the independent unbiased rejection semantics");
+    for(unsigned level:{0u,4u,64u,124u,128u}) {
+        auto image=frame();for(unsigned i=0;i<image.palette.size();++i)image.palette[i]=i%256;
+        const auto before=image.palette;image.scaleVgaPalette(level);
+        for(unsigned i=0;i<before.size();++i)check(image.palette[i]==(((unsigned(before[i])>>2)*level/128)<<2),"shared VGA scaling exactly preserves the title's palette formula");
+    }
+    const int requirements[10][7]{{15,0,0,0,0,0,0},{13,0,13,13,0,0,0},{0,13,0,0,0,13,0},
+        {0,0,13,0,0,0,0},{0,13,0,0,0,0,0},{0,0,0,0,0,0,13},{0,0,0,0,13,13,0},
+        {0,0,0,15,0,0,0},{0,15,15,0,0,0,0},{0,12,12,12,12,0,0}};
+    for(unsigned cls=0;cls<10;++cls) {
+        XeenCreateAttributes a{};std::copy(std::begin(requirements[cls]),std::end(requirements[cls]),a.begin());
+        check(xeenCreateClasses(a)[cls],"class threshold accepted");
+        for(unsigned i=0;i<7;++i)if(a[i]){--a[i];check(!xeenCreateClasses(a)[cls],"each required attribute is necessary");++a[i];}
+    }
+    const auto classes=xeenCreateClasses({{13,13,13,13,13,13,13}});
+    check(xeenCreateArrow(classes)==1 && xeenMoveCreateArrow(classes,1,-1)==1 && xeenMoveCreateArrow(classes,1,1)==2 && xeenMoveCreateArrow(classes,9,1)==9,"first eligible arrow and no wrap");
+    XeenRoster roster;for(unsigned id=0;id<30;++id)roster.at(id).name="Named";
+    for(unsigned id:{12u,21u,25u}){roster.at(id).name.clear();roster.at(id).xeenSide=1;roster.at(id).savedMaze=49;}
+    check(xeenCreateSlots(roster)==std::vector<std::uint8_t>{12,21} && xeenCreateRace(12)==XeenRace::Gnome && xeenCreateSex(12)==XeenSex::Male && xeenCreateRace(21)==XeenRace::Human && xeenCreateSex(21)==XeenSex::Female,"free slots ignore side and lodging, stop at 23, and determine race/sex");
+    check(xeenMoveCreateSlot(0,2,-1)==0 && xeenMoveCreateSlot(0,2,1)==1 && xeenMoveCreateSlot(1,2,1)==1 && xeenMoveCreateSlot(1,2,-1)==0,"free-slot limits never wrap");
+    XeenGameplayContext context;context.year=610;context.day=300;
+    const std::vector<unsigned> spells[10]{{},{21},{22},{21,1,14},{22,0,25},{},{},{},{20,1,11,23},{20,1}};
+    const int hpClass[]{10,8,7,5,4,8,7,12,6,9},hpRace[]{0,-2,1,-1,2};
+    const int raceSp[5][2]{{0,0},{2,0},{-1,-1},{1,1},{-2,-2}};
+    const int resistances[5][6]{{7,7,7,7,7,7},{0,0,0,0,5,5},{2,2,2,2,2,20},{5,5,5,20,5,0},{10,10,10,0,0,0}};
+    const int classSkill[]{1,5,-1,-1,4,0,0,-1,6,11},raceSkill[]{14,-1,17,16,-1};
+    for(unsigned cls=0;cls<10;++cls)for(unsigned race=0;race<5;++race) {
+        // Int 17 => B=3, Per 15/End 15 => B=2 at age 18.
+        auto record=xeenCreatedCharacter(race*4+1,"New Name",cls,{{16,17,15,15,14,13,12}},30,context);
+        const auto &c=record.first;const auto &i=record.second;
+        check(c.name=="New Name" && c.rosterId==race*4+1 && c.sex==XeenSex::Female && unsigned(c.race)==race && unsigned(c.characterClass)==cls && c.xeenSide==0 && c.savedMaze==30,"created identity and lodging");
+        check(c.permanentLevel==1 && c.birthDay==44 && c.birthYear==592 && XeenCharacterRules::sheetAge(c,{610})==18,"created age, birthday low byte and level");
+        check(c.currentHp==hpClass[cls]+2+hpRace[race],"created HP independent level-one formula");
+        int intellect=6+raceSp[race][0],personality=5+raceSp[race][1],sp=0;
+        if(cls==2 || cls==4)sp=cls==2?intellect/2:intellect;
+        if(cls==1 || cls==3)sp=cls==1?personality/2:personality;
+        if(cls==8 || cls==9)sp=cls==8?(personality+intellect)/2:(personality/2+intellect/2)/2;
+        check(c.currentSp==sp,"created SP, caster and hybrid passes");
+        check(c.learnedSpells && c.hasSpells==!spells[cls].empty() && c.currentSpell==(spells[cls].empty()?255:spells[cls].front()),"first starting spell current");
+        for(unsigned slot=0;slot<39;++slot)check((*c.learnedSpells)[slot]==unsigned(std::find(spells[cls].begin(),spells[cls].end(),slot)!=spells[cls].end()),"exact initial class book");
+        for(unsigned skill=0;skill<18;++skill)check(c.skills[skill]==unsigned(int(skill)==classSkill[cls] || int(skill)==raceSkill[race]),"exact initial class and race skills");
+        check(i.luck && i.resistances && i.poisonResistance && i.might.permanent==16 && i.speed.permanent==14 && i.accuracy.permanent==13 && i.luck->permanent==12,"complete physical supplement");
+        const auto &r=*i.resistances;const int actual[]{r.firePermanent,r.coldPermanent,r.electricalPermanent,i.poisonResistance->permanent,r.energyPermanent,r.magicPermanent};
+        for(unsigned j=0;j<6;++j)check(actual[j]==resistances[race][j],"race resistances in CHR order");
+        auto cleared=c;cleared.name.clear();cleared.sex=XeenSex::Male;cleared.race=XeenRace::Human;cleared.characterClass=XeenCharacterClass::Knight;
+        cleared.savedMaze=0;cleared.permanentLevel=0;cleared.birthDay=0;cleared.birthYear=0;cleared.currentHp=cleared.currentSp=0;
+        cleared.intellect.permanent=cleared.personality.permanent=cleared.endurance.permanent=0;cleared.currentSpell=0;cleared.hasSpells=false;cleared.skills.fill(0);cleared.learnedSpells->fill(0);
+        remove_test::checkSameCharacter(cleared,xeenDeletedCharacter(race*4+1));
+        auto clearedInputs=i;clearedInputs.might.permanent=clearedInputs.speed.permanent=clearedInputs.accuracy.permanent=clearedInputs.luck->permanent=0;
+        clearedInputs.resistances.emplace();clearedInputs.poisonResistance->permanent=0;
+        check(save_test::sameInputs(clearedInputs,xeenDeletedCombatInputs()),"all other supplemental bytes zero");
+    }
+    auto dice=xeenInitialCreateDice();xeenAdvanceCreateDice(dice);
+    check(dice[0].frame==1 && dice[0].x==30 && dice[0].y==12 && dice[0].dy==10 && dice[1].frame==3 && dice[1].x==102 && dice[1].y==25 && dice[2].frame==5 && dice[2].x==51 && dice[2].y==60,"deterministic first dice draw");
+    dice[0]={2,122,53,10,10};xeenAdvanceCreateDice(dice);
+    check(dice[0].frame==3 && dice[0].x==132 && dice[0].y==63 && dice[0].dx==10 && dice[0].dy==10,"equality with current-frame limits does not bounce");
+    dice[0]={2,123,54,10,10};xeenAdvanceCreateDice(dice);
+    check(dice[0].x==132 && dice[0].y==63 && dice[0].dx==-10 && dice[0].dy==-10,"strictly outside clamps using current frame dimensions");
+}
+void createDetailsText(const XeenDosText &text) {
+    const XeenCreateAttributes attributes{{3,16,17,5,6,7,8}};
+    // Explicit arguments exercise stat order and all three class colors, using
+    // original text rather than duplicating the production slicing tables.
+    std::vector<std::string> args{"Gnome","Male","3","16","17","5","6","7","8",
+        "2","2","2","4","4","2","2","2","4","2","","Secret Doors",
+        xeenDialogFormat(text.scalar("CREATE_CLASS"),{""})};
+    check(xeenCreateDetails(text,12,attributes,{})==xeenDialogFormat(text.scalar("CREATE_DETAILS"),args),
+        "Create details preserve DOS stat argument order, unavailable color 2, available color 4 and Secret Doors slice");
+    args[17]="12";args[19]="Direction";args[21]=xeenDialogFormat(text.scalar("CREATE_CLASS"),{text.table("CLASS_NAMES")[8]});
+    check(xeenCreateDetails(text,12,attributes,8)==xeenDialogFormat(text.scalar("CREATE_DETAILS"),args),
+        "committed Druid uses color 12 and the nine-byte Direction slice");
+    const XeenCreateAttributes thieves{{3,4,5,6,17,18,19}};
+    for(unsigned cls:{5u,6u}) {
+        for(unsigned stat=0;stat<7;++stat)args[2+stat]=std::to_string(thieves[stat]);
+        for(unsigned c=0;c<10;++c)args[9+c]=c==cls?"12":c==5 || c==6?"4":"2";
+        args[19]="Thievery";args[21]=xeenDialogFormat(text.scalar("CREATE_CLASS"),{text.table("CLASS_NAMES")[cls]});
+        check(xeenCreateDetails(text,12,thieves,cls)==xeenDialogFormat(text.scalar("CREATE_DETAILS"),args),
+            "Robber and Ninja display exactly eight Thievery bytes without the following formatting");
+    }
 }
 struct Visit:Fixture {
     std::vector<XeenSaveSnapshot> saves;
@@ -124,6 +276,7 @@ struct Visit:Fixture {
             for(const auto &face:CloudsUiComposer::buildPortraitPlacements(p))in.assets.drawSprite(face.resourceName,face.frame,face.x,face.y);
             return in.assets.snapshot();
         };
+        flow->loadCreateScreen=[&in]{in.assets.loadPalette("mm4.pal");in.assets.loadRawFramebuffer("create.raw");return in.assets.snapshot();};
         flow->saveInn=[this,&in]{
             XeenGameplayServices services{programState,in.resources(),{},in.mapLoader(),in.objectLoader(),{},in.font,{},{},{}};
             xeenSaveGameplay(services,w,p,c,f,*flow,{},[](auto &,const auto &,const auto &,const auto &){},nullptr,
@@ -142,6 +295,194 @@ XeenSaveSnapshot source(Inputs &in,unsigned town,unsigned day=8,unsigned minutes
     auto &table=s.map(town).monsters;table.emplace(XeenSaveMonsterTable{std::uint16_t(actors.size()),{}});
     for(const auto &a:actors)table->slots.push_back({a.x,a.y,a.lifecycle,a.status,false,-1});
     s.journey->context->minutes=minutes;return s;
+}
+bool sameDice(const XeenCreateDice &a,const XeenCreateDice &b) {
+    for(unsigned i=0;i<3;++i)if(a[i].frame!=b[i].frame || a[i].x!=b[i].x || a[i].y!=b[i].y || a[i].dx!=b[i].dx || a[i].dy!=b[i].dy)return false;
+    return true;
+}
+std::shared_ptr<XeenAudio> countingAudio(Inputs &,const GameInstallation &,unsigned &);
+void enterCreate(Visit &v) {v.key('c');v.wait([&]{return XeenInnTestAccess::creating(*v.flow);},"Create opens");}
+void leaveCreate(Visit &v) {v.key(InputKey::Escape);v.wait([&]{return XeenInnTestAccess::menu(*v.flow);},"Create returns without a scroll");}
+void nameCharacter(Visit &v,const std::string &name) {v.key(InputKey::Enter);v.key('c');v.act(TextInputAction{name});v.key(InputKey::Enter);}
+void createFlow(Inputs &in,const GameInstallation &installation) {
+    auto s=source(in,28);
+    for(unsigned id=0;id<24;++id) {
+        if(id==12 || id==21){s.characters[id]=xeenDeletedCharacter(id);s.journey->supplements[id].inputs=xeenDeletedCombatInputs();continue;}
+        if(s.characters[id].name.empty()) {
+            auto record=xeenCreatedCharacter(id,"Lodged",0,{{15,15,15,15,15,15,15}},28,*s.journey->context);
+            s.characters[id]=std::move(record.first);s.journey->supplements[id].inputs=std::move(record.second);
+        }
+        s.characters[id].savedMaze=28;
+    }
+    unsigned songs=0;Visit v(in,s);v.programState.audio=countingAudio(in,installation,songs);
+    std::vector<unsigned> effects;v.programState.audio->effectSink([&](unsigned effect){effects.push_back(effect);});
+    v.sign();v.programState.audio->advance(v.flow->presentationNow());
+    const auto members=v.p.party.activeRosterIds();for(unsigned i=0;i<5;++i)v.key(InputKey::Down);
+    check(XeenInnTestAccess::top(*v.flow)==20,"Create entered from later Inn page");
+    enterCreate(v);auto &c=XeenInnTestAccess::create(*v.flow);
+    check(c.slots==std::vector<std::uint8_t>{12,21} && c.slot==0 && !c.committed && c.arrow==xeenCreateArrow(xeenCreateClasses(c.attributes)),"six active members can enter; first free slot and first eligible arrow");
+    auto initial=v.w.sessionState().journeyRandom();
+    v.key('c');check(v.dialog()->anyKey && v.p.roster.at(12).name.empty() && v.w.sessionState().journeyRandom()==initial,"no-class refusal changes no record or generator");v.act(AcknowledgeAction{});
+    v.key(InputKey::Enter);const auto committed=c.committed;const auto values=c.attributes;
+    const auto oldArrow=c.arrow;effects.clear();v.key(InputKey::PageUp);v.key(InputKey::PageDown);
+    check(c.arrow==oldArrow && c.committed==committed && effects==std::vector<unsigned>({21,21}),"PageUp/PageDown are unmatched keys, never class controls");
+    v.key(InputKey::Right);check(c.committed==committed && c.attributes==values,"arrow movement preserves committed class");
+    v.key(InputKey::Down);v.key(InputKey::Down);check(c.slot==1 && c.committed==committed && c.attributes==values,"slot Down limit preserves attributes and class");
+    v.key(InputKey::Up);v.key(InputKey::Up);check(c.slot==0,"slot Up limit");
+    const auto slots=c.slots;auto dice=c.dice;v.key('r');xeenAdvanceCreateDice(dice);
+    check(!c.committed && c.slots==slots && sameDice(dice,c.dice),"reroll clears class without rebuilding slots or resetting dice");
+    const auto afterR=v.w.sessionState().journeyRandom();v.key(InputKey::Space);
+    check(!c.committed && v.w.sessionState().journeyRandom()->count>afterR->count,"Space rerolls");
+    XeenInnTestAccess::attributes(*v.flow,{{15,3,3,3,3,3,3}});v.present(XeenInnTestAccess::refresh(*v.flow));v.key(InputKey::Enter);
+    effects.clear();const auto unavailable=v.dialog()->click(228,32);check(bool(unavailable),"unavailable square still consumes its click");v.act(*unavailable);
+    check(c.committed==0 && effects.empty(),"unavailable class square is silent and cannot commit");
+    for(unsigned i=0;i<7;++i) {
+        const auto click=v.dialog()->click(168,19+24*i);check(click && std::get<DialogKeyAction>(*click).key==unsigned("mipesal"[i]),"attribute mouse table");
+    }
+    check(!v.dialog()->click(192,19) && std::get<DialogKeyAction>(*v.dialog()->click(86,98)).key==InputKey::Up &&
+        std::get<DialogKeyAction>(*v.dialog()->click(86,120)).key==InputKey::Down && !v.dialog()->click(110,120),"slot mouse bounds are half-open");
+    const auto beforeExchange=v.w.sessionState().journeyRandom();const auto beforeValues=c.attributes;const auto chosen=c.committed;
+    v.key('m');dice=c.dice;for(unsigned i=0;i<10;++i)v.pulse();
+    check(sameDice(dice,c.dice) && c.exchange==0 && !v.flow->nextPresentationDeadline(),"exchange suspends dice and has no animation deadline");
+    v.key('m');check(c.exchange==0 && c.attributes==beforeValues,"same attribute ignored");
+    v.key(InputKey::Escape);xeenAdvanceCreateDice(dice);
+    check(c.attributes==beforeValues && c.committed==chosen && sameDice(dice,c.dice),"exchange Escape preserves values/class and resumes one dice frame");
+    v.key('m');v.key('i');
+    check(c.attributes==XeenCreateAttributes{{3,15,3,3,3,3,3}} && c.arrow==4 && !c.committed && v.w.sessionState().journeyRandom()==beforeExchange,"exchange swaps, recomputes, clears class without a draw");
+    XeenInnTestAccess::attributes(*v.flow,{{11,10,12,17,11,8,12}});v.present(XeenInnTestAccess::refresh(*v.flow));v.key(InputKey::Enter);v.key('e');v.key('a');
+    check(!c.arrow && !c.committed && !xeenCreateArrow(xeenCreateClasses(c.attributes)) && v.w.sessionState().journeyRandom()==beforeExchange,"completed exchange can leave no qualifying class without reroll");
+    v.key('r');
+    XeenInnTestAccess::attributes(*v.flow,{{15,15,15,15,15,15,15}});v.present(XeenInnTestAccess::refresh(*v.flow));
+    const auto eligible=*c.arrow;
+    const auto hit=v.dialog()->click(228,20+11*eligible);check(bool(hit),"eligible class square clickable");v.act(*hit);
+    check(c.committed==eligible,"class square commits directly");
+    v.key(InputKey::Right);check(c.arrow!=c.committed,"name writer will use committed class despite arrow");
+    const auto noNameRandom=v.w.sessionState().journeyRandom();
+    v.key('c');check(c.naming && v.dialog()->textEntry,"window 6 name input");dice=c.dice;
+    for(unsigned i=0;i<10;++i)v.pulse();check(sameDice(dice,c.dice),"name prompt suspends dice");
+    v.key(InputKey::Enter);check(!c.naming && v.p.roster.at(12).name.empty(),"empty name does not create");
+    v.key('c');v.act(TextInputAction{"Discard"});v.key(InputKey::Escape);
+    check(v.p.roster.at(12).name.empty() && v.w.sessionState().journeyRandom()==noNameRandom,"name Escape changes no record or generator");
+    v.key('c');v.act(TextInputAction{"  aLiCE"});v.act(TextInputAction{" bOB123456"});
+    check(c.name.value()=="Alice Bob1","name capitalization, no leading space, limit ten");
+    v.key(8);v.key(InputKey::Left);v.act(TextInputAction{"bY"});
+    check(c.name.value()=="Alice Boby","Backspace and Left delete, capitalization after deletion");
+    if(!preview.empty()) {
+        const auto &image=v.flow->frame();std::ofstream out(preview.string()+".create.ppm",std::ios::binary);out<<"P6\n320 200\n255\n";
+        for(auto pixel:image.pixels)for(unsigned channel=0;channel<3;++channel)out.put(char(image.palette[pixel*3+channel]));
+    }
+    const auto originalValues=c.attributes;const auto originalClass=*c.committed;const auto beforeSuccess=v.w.sessionState().journeyRandom();
+    v.key(InputKey::Enter);
+    check(v.p.roster.at(12).name=="Alice Boby" && unsigned(v.p.roster.at(12).characterClass)==originalClass && v.p.party.activeRosterIds()==members && v.saves.size()==1,"creation publishes whole record without joining or saving early");
+    check(c.slots==std::vector<std::uint8_t>{21} && c.slot==0 && !c.committed && v.w.sessionState().journeyRandom()->count>beforeSuccess->count,"success rebuilds slots, clears choice and rolls anew");
+    check(v.p.roster.combatInputs(12)->might.permanent==originalValues[0],"committed rolls reach supplement");
+    unsigned attempts=0;const auto save=v.flow->saveInn;
+    v.flow->saveInn=[&]{++attempts;if(attempts==1)throw std::runtime_error("Windows error 112");save();};
+    nameCharacter(v,"Second");const auto lastRandom=v.w.sessionState().journeyRandom();
+    check(attempts==1 && v.p.roster.at(21).name=="Second" && v.dialog()->anyKey,"last creation publishes before failed return write");
+    v.key(InputKey::Enter);v.wait([&]{return XeenInnTestAccess::menu(*v.flow);},"last slot returns");
+    check(attempts==2 && v.w.sessionState().journeyRandom()==lastRandom,"last-slot write retry repeats neither record nor draws");
+    check(v.p.roster.at(21).name=="Second" && v.saves.size()==2 && xeenInnList(v.p,28).size()==24 && XeenInnTestAccess::top(*v.flow)==0,"last slot saves and return resets Inn page");
+    const auto saved=v.saves.back();save_test::sameSnapshot(saved,XeenSaveFormat::decode(XeenSaveFormat::encode(saved)));
+    for(unsigned i=0;i<10;++i){v.pulse();v.programState.audio->advance(v.flow->presentationNow());}
+    check(songs==1 && v.programState.innSongStarted,"Create return never requests inn.m again");
+    effects.clear();const auto fullRandom=v.w.sessionState().journeyRandom();v.key('c');
+    check(v.dialog()->anyKey && effects.empty() && v.w.sessionState().journeyRandom()==fullRandom && v.saves.size()==2,"24 displayed entries refuse without sound, draw or save");
+    v.act(AcknowledgeAction{});for(unsigned page=0;page<3;++page)v.key(InputKey::Down);
+    v.key('d');v.key('1');v.key('y');check(v.p.roster.at(12).name.empty(),"created slot can be deleted");
+    enterCreate(v);check(XeenInnTestAccess::create(*v.flow).slots==std::vector<std::uint8_t>{12},"Delete makes the same roster slot free again");
+    nameCharacter(v,"Reborn");v.wait([&]{return XeenInnTestAccess::menu(*v.flow);},"recreated last slot returns");
+    check(v.saves.back().characters[12].name=="Reborn" && v.p.party.activeRosterIds()==members,"same-slot recreation replaces the whole record without joining");
+}
+void createTiming(Inputs &in) {
+    Visit v(in,source(in,28));v.sign();v.key('c');
+    const auto advance=[&] {
+        v.now=PresentationClock::ceilMilliseconds(XeenInnTestAccess::deadline(*v.flow));
+        v.flow->beginCycle(++v.cycle);const auto next=v.flow->updatePresentation();check(bool(next),"Create deadline produces one successor");v.present(*next);
+    };
+    std::vector<unsigned> out,inLevels;
+    while(!XeenInnTestAccess::creating(*v.flow)) {
+        check(!v.flow->inputContext(v.flow->frame().presentation()).readyForAction,"fade blocks input");
+        const auto phase=XeenInnTestAccess::phase(*v.flow);
+        if(phase==5)out.push_back(XeenInnTestAccess::fade(*v.flow));
+        if(phase==6)inLevels.push_back(XeenInnTestAccess::fade(*v.flow));
+        advance();
+    }
+    check(out.size()==33 && inLevels.size()==33,"argument-four fades make 33 palette writes each");
+    for(unsigned i=0;i<33;++i)check(out[i]==128-4*i && inLevels[i]==4*i,"DOS fade increments at retraces");
+    auto &c=XeenInnTestAccess::create(*v.flow);auto dice=xeenInitialCreateDice();xeenAdvanceCreateDice(dice);
+    check(sameDice(c.dice,dice),"first Create fade follows exactly one initial dice draw");
+    const auto deadline=XeenInnTestAccess::deadline(*v.flow);const auto random=v.w.sessionState().journeyRandom();
+    v.flow->framePresented(v.flow->frame().presentation());check(XeenInnTestAccess::deadline(*v.flow)==deadline,"repeat acquisition does not postpone dice deadline");
+    v.now=(deadline-1)/1000000;v.flow->beginCycle(++v.cycle);check(!v.flow->updatePresentation(),"dice wait a nonzero BIOS tick");
+    v.key(InputKey::Up);xeenAdvanceCreateDice(dice);check(sameDice(c.dice,dice),"input interrupts dice wait early");
+    v.now+=1000;v.flow->beginCycle(++v.cycle);const auto next=v.flow->updatePresentation();check(bool(next),"idle dice resume after a stall");
+    xeenAdvanceCreateDice(dice);check(sameDice(c.dice,dice),"stalled dice advance one frame without catch-up");
+    v.now+=100;v.present(*next);const auto acquired=PresentationClock::fromMilliseconds(v.now);
+    check(XeenInnTestAccess::deadline(*v.flow)==PresentationClock::after(acquired,1),"dice tick resets on concrete acquisition");
+    v.key(InputKey::Escape);out.clear();inLevels.clear();
+    while(!XeenInnTestAccess::menu(*v.flow)) {
+        const auto phase=XeenInnTestAccess::phase(*v.flow);
+        check(phase==9 || phase==10,"Create return never enters opening scroll");
+        (phase==9?out:inLevels).push_back(XeenInnTestAccess::fade(*v.flow));advance();
+    }
+    check(out.size()==33 && inLevels.size()==33 && v.w.sessionState().journeyRandom()==random,"return uses two argument-four fades without RNG");
+}
+void createReturnRecovery(Inputs &in) {
+    auto s=source(in,28);Visit v(in,s);v.sign();
+    enterCreate(v);XeenInnTestAccess::staleRoll(*v.flow);v.present(XeenInnTestAccess::refresh(*v.flow));
+    v.key('r');v.key(InputKey::Space);const auto ending=v.w.sessionState().journeyRandom();
+    auto before=v.saves.back();before.journey->random=ending;unsigned attempts=0;const auto save=v.flow->saveInn;
+    v.flow->saveInn=[&]{++attempts;if(attempts==1)throw std::runtime_error("Windows error 112");save();};
+    v.key(InputKey::Escape);
+    check(v.dialog()->anyKey && attempts==1 && v.saves.size()==1 && v.w.sessionState().journeyRandom()==ending,"cancel saves advanced rolls and retains state on failed write");
+    v.key(InputKey::Enter);v.wait([&]{return XeenInnTestAccess::menu(*v.flow);},"Create failed-write recovery");
+    check(attempts==2 && v.saves.size()==2 && v.saves.back().journey->random==ending,"retry repeats no rolls");
+    save_test::sameSnapshot(before,v.saves.back());
+    Visit loaded(in,v.saves.back());loaded.present(loaded.flow->openInn());loaded.wait([&]{return XeenInnTestAccess::menu(*loaded.flow);},"Create cancellation Load");
+    XeenCombatRandom expected(*ending);const auto next=xeenCreateRoll(expected);enterCreate(loaded);
+    check(XeenInnTestAccess::create(*loaded.flow).attributes==next && loaded.w.sessionState().journeyRandom()==expected.continuation(),"Load continues exactly after cancelled rerolls");
+    // Malformed detached inputs are refused inside handleInn, not published.
+    auto &c=XeenInnTestAccess::create(*loaded.flow);loaded.key(InputKey::Enter);loaded.key('c');loaded.act(TextInputAction{"Invalid"});
+    const auto freeId=c.slots.at(c.slot);c.attributes[0]=-1;const auto unchanged=loaded.w.sessionState().journeyRandom();
+    loaded.key(InputKey::Enter);check(loaded.p.roster.at(freeId).name.empty() && c.naming && loaded.w.sessionState().journeyRandom()==unchanged,"invalid record never publishes or throws out of handleInn");
+    loaded.key(InputKey::Escape);leaveCreate(loaded);
+    auto full=source(in,28);
+    for(unsigned id=0;id<24;++id) {
+        if(full.characters[id].name.empty()) {
+            auto record=xeenCreatedCharacter(id,"Elsewhere",0,{{15,15,15,15,15,15,15}},49,*full.journey->context);
+            full.characters[id]=std::move(record.first);full.journey->supplements[id].inputs=std::move(record.second);
+        }
+        full.characters[id].savedMaze=49;
+    }
+    full.characters[2].xeenSide=1;full.characters[2].savedMaze=28;
+    Visit noSlots(in,full);noSlots.sign();const auto noDraw=noSlots.w.sessionState().journeyRandom();unsigned createScreens=0;
+    noSlots.flow->loadCreateScreen=[&]{++createScreens;return frame();};
+    check(xeenInnList(noSlots.p,28).size()==6,"global-full fixture still admits local Create");
+    unsigned noSlotAttempts=0;const auto noSlotSave=noSlots.flow->saveInn;
+    noSlots.flow->saveInn=[&]{++noSlotAttempts;if(noSlotAttempts==1)throw std::runtime_error("Windows error 112");noSlotSave();};
+    noSlots.key('c');noSlots.wait([&]{return noSlots.dialog()->anyKey;},"no-free-slot write failure");
+    const auto &failedFrame=noSlots.flow->frame();bool visibleError=false;
+    for(int y=0;y<200;++y)for(int x=0;x<320;++x) {
+        const auto pixel=failedFrame.pixels[y*320+x];
+        if(x<52 || x>=268 || y<149 || y>=198)check(pixel==0,"no-free-slot write failure retains black under the error");
+        else visibleError=visibleError || (pixel && (failedFrame.palette[pixel*3] || failedFrame.palette[pixel*3+1] || failedFrame.palette[pixel*3+2]));
+    }
+    check(visibleError && noSlots.w.sessionState().journeyRandom()==noDraw,"error remains visible over black without draws");
+    noSlots.key(InputKey::Enter);noSlots.wait([&]{return XeenInnTestAccess::menu(*noSlots.flow);},"zero free slots returns after retry");
+    check(noSlots.saves.size()==2 && noSlots.w.sessionState().journeyRandom()==noDraw && createScreens==0,"zero free slots returns without rolling/displaying Create but saves");
+    noSlots.key(InputKey::Down);
+    check(xeenInnList(noSlots.p,28).size()==6 && !noSlots.dialog()->key('3'),"Create reload uses the normal town-and-side list");
+    Visit empty(in,source(in,28));empty.sign();while(empty.p.party.size()){empty.key('r');empty.key(InputKey::F1);}
+    enterCreate(empty);leaveCreate(empty);
+    const auto emptySave=empty.saves.back();check(emptySave.activeRosterIds.empty(),"return from Create saves zero active members");
+    Visit emptyLoad(in,emptySave);emptyLoad.present(emptyLoad.flow->openInn());emptyLoad.wait([&]{return XeenInnTestAccess::menu(*emptyLoad.flow);},"empty Create save Load");
+    check(XeenInnTestAccess::forcedSaveWith(*emptyLoad.flow,true,emptyLoad.c),"empty Create Load can save");
+    save_test::sameSnapshot(emptySave,emptyLoad.saves.back());
+    emptyLoad.key('x');check(emptyLoad.dialog()->anyKey && emptyLoad.p.party.size()==0,"empty Create-return Load refuses Exit");
+    emptyLoad.act(AcknowledgeAction{});emptyLoad.key('1');check(emptyLoad.p.party.size()==1,"Add recovers empty Create-return Load");
+    emptyLoad.key('x');emptyLoad.wait([&]{return !emptyLoad.flow->innOpen() && emptyLoad.flow->canSave();},"recovered Create-return Exit");
+    check(!emptyLoad.saves.back().insideInn && emptyLoad.saves.back().activeRosterIds.size()==1,"Exit saves after adding to empty Create-return Load");
 }
 void signIn(Inputs &in,unsigned town,unsigned minutes) {
     auto s=source(in,town,10,minutes);
@@ -170,7 +511,7 @@ void signIn(Inputs &in,unsigned town,unsigned minutes) {
         v.key(InputKey::F1+member);check(v.flow->inventoryOpen(),"Inn active F1-F6 sheet");v.key(InputKey::Escape);check(!v.flow->inventoryOpen(),"sheet returns to Inn");
     }
     v.key('r');v.key(InputKey::Escape);check(v.p.party.size()==6,"Remove Escape cancels");
-    v.key('c');check(v.dialog()->anyKey,"Create unsupported notice");v.act(AcknowledgeAction{});
+    // Create's return-save behavior is covered separately below.
     v.key('d');check(v.dialog()->key('1') && !v.dialog()->key(InputKey::F1),"Delete selection excludes F-keys");v.key(InputKey::Escape);
     v.key('1');check(v.p.party.size()==6 && !v.dialog()->anyKey,"duplicate Add silently ignored before full check");
     for(unsigned n=0;n<6 && v.p.party.size();++n) {v.key('r');v.key(InputKey::F1);}
@@ -242,7 +583,7 @@ void deleteRecords(Inputs &in,const GameInstallation &installation) {
     Visit protectedVisit(in,sword);protectedVisit.programState.audio=XeenAudio::installed(installation,in.assets,0,false);
     std::vector<unsigned> effects;protectedVisit.programState.audio->effectSink([&](unsigned effect){effects.push_back(effect);});
     protectedVisit.sign();effects.clear();protectedVisit.key('d');protectedVisit.key('1');
-    check(protectedVisit.dialog()->anyKey && protectedVisit.p.roster.at(0).name==sword.characters[0].name && protectedVisit.saves.size()==1 && effects.empty(),"Slayer Sword in any state refuses without a sound");
+    check(protectedVisit.dialog()->anyKey && protectedVisit.p.roster.at(0).name==sword.characters[0].name && protectedVisit.saves.size()==1 && effects.empty() && XeenInnTestAccess::selectionClear(*protectedVisit.flow),"Slayer Sword refusal clears selection without a sound");
     protectedVisit.act(AcknowledgeAction{});protectedVisit.key('3');
     check(effects==std::vector<unsigned>{21},"the same effect sink records the full-party Add");protectedVisit.act(AcknowledgeAction{});effects.clear();
     protectedVisit.key('d');protectedVisit.key('3');protectedVisit.key('y');
@@ -456,8 +797,13 @@ void roundTripAndFight(Inputs &in) {
     check(*loaded.p.encounterContext==*signedIn.journey->context,"slot reload adds no day");
     for(unsigned n=0;n<2;++n){loaded.key('r');loaded.key(InputKey::F1+4);}
     check(loaded.p.party.size()==4 && XeenSaveFile::read(slot).activeRosterIds.size()==6,"Remove twice leaves slot unchanged");
+    enterCreate(loaded);const auto createdId=XeenInnTestAccess::create(*loaded.flow).slots.front();
+    nameCharacter(loaded,"Recruit");leaveCreate(loaded);
+    const auto list=xeenInnList(loaded.p,28);const auto row=std::find(list.begin(),list.end(),createdId)-list.begin();
+    for(unsigned page=0;page<unsigned(row)/4;++page)loaded.key(InputKey::Down);
+    loaded.key('1'+row%4);check(loaded.p.party.activeRosterIds().back()==createdId,"created character recruits at original-data Inn");
     loaded.key('x');loaded.wait([&]{return loaded.flow->canSave();},"native Exit save and reload map");
-    check(!XeenSaveFile::read(slot).insideInn && XeenSaveFile::read(slot).activeRosterIds.size()==4,"native Exit writes new membership");
+    check(!XeenSaveFile::read(slot).insideInn && XeenSaveFile::read(slot).activeRosterIds.size()==5,"native Exit writes new membership");
     loaded.now+=125;loaded.act(NavigationAction::MoveForward);bool fought=false;
     for(unsigned n=0;n<4000 && (!fought || !loaded.flow->canSave());++n) {
         const auto *combat=loaded.flow->encounter()->combat();fought=fought || bool(combat);
@@ -529,6 +875,7 @@ void productionNoTarget(Inputs &in) {
         f.tavernString=[&](std::size_t n){return in.assets.tavernString(n);};
         f.loadSampleDuration=[&](const char *n,XeenSceneArchive side){return xeenVocDurationNanoseconds(in.assets.readArchiveResource(n,side));};
         f.loadInnScreen=[](const auto &){return frame();};
+        f.loadCreateScreen=[&]{in.assets.loadPalette("mm4.pal");in.assets.loadRawFramebuffer("create.raw");return in.assets.snapshot();};
     };
     services.show=[&](const auto &first,const auto &handler,const auto &,const auto &idle,const auto &){
         check(!program.innSongStarted,"gameplay entry outside Inn clears title song flag");
@@ -540,7 +887,7 @@ void productionNoTarget(Inputs &in) {
         acquire(std::optional<IndexedFrame>{XeenInnTestAccess::syntheticLodging(*flow)});
         auto &p=XeenInnTestAccess::party(*flow);const auto departed=p.party.dismissedRosterIds().back();std::uint8_t exitTail=0;
         check(p.party.size()==5 && p.roster.at(departed).savedMaze==561 && p.party.dismissedRosterIds().size()==1,"target-less pending Dismiss fixture");
-        for(unsigned n=0;n<1500 && stages<4;++n){
+        for(unsigned n=0;n<1500 && stages<6;++n){
             now+=100;handler.beginCycle(n+1);acquire(idle());
             const auto context=handler.inputContext(current.presentation());
             if(stages==0){act(InteractionAction{});++stages;}
@@ -551,26 +898,32 @@ void productionNoTarget(Inputs &in) {
                     std::find(list.begin(),list.end(),departed)!=list.end(),"target-less Sign In lodges Dismiss tail and lists it");
                 act(DialogKeyAction{'d'});act(DialogKeyAction{'1'});act(DialogKeyAction{'y'});
                 check(p.roster.at(0).name.empty() && p.party.size()==4 && writes==0,"target-less Delete clears and returns without writing");
+                act(DialogKeyAction{'c'});++stages;
+            } else if(stages==3 && XeenInnTestAccess::creating(*flow)) {
+                act(DialogKeyAction{InputKey::Escape});++stages;
+            } else if(stages==4 && XeenInnTestAccess::menu(*flow)) {
+                check(writes==0,"target-less Create return makes no slot write");
                 exitTail=p.party.activeRosterIds().back();
                 acquire(std::optional<IndexedFrame>{XeenInnTestAccess::pendingExitTail(*flow)});
                 act(DialogKeyAction{'x'});++stages;
-            } else if(stages==3 && XeenInnTestAccess::returned(*flow)) {
+            } else if(stages==5 && XeenInnTestAccess::returned(*flow)) {
                 check(p.party.dismissedRosterIds().empty() && p.roster.at(exitTail).savedMaze==28,"target-less Exit consumes pending tail without writing");++stages;
             }
         }
-        if(stages!=4 || writes || flow->innOpen())throw std::runtime_error("target-less production Sign In/Exit stage="+std::to_string(stages)+" writes="+std::to_string(writes)+" inn="+std::to_string(flow->innOpen())+XeenInnTestAccess::debug(*flow));return true;
+        if(stages!=6 || writes || flow->innOpen())throw std::runtime_error("target-less production Sign In/Create/Exit stage="+std::to_string(stages)+" writes="+std::to_string(writes)+" inn="+std::to_string(flow->innOpen())+XeenInnTestAccess::debug(*flow));return true;
     };
     check(Application(program).playGameplay(services,saved.camera,{},false,XeenEncounterEntry::Journey,{})==0,"target-less production session");
 }
 
 }
 int main(int argc,char **argv) {
-    try {rules();check(argc>=2 && argc<=4,"usage: inn-tests <original-installation> [preview.ppm] [timing.csv]");if(argc>=3)preview=argv[2];
+    try {rules();createRules();check(argc>=2 && argc<=4,"usage: inn-tests <original-installation> [preview.ppm] [timing.csv]");if(argc>=3)preview=argv[2];
         const auto installation=xeenTestInstallationDetector().detect(argv[1]);check(bool(installation),"installation");Inputs in(*installation);
+        createDetailsText(in.assets.uiText());
         for(unsigned town:{28u,30u,49u})for(unsigned minute:{299u,300u})signIn(in,town,minute);
-        deleteRecords(in,*installation);emptySaveRecovery(in);signInSong(in,*installation);fullAndFailures(in,*installation);roundTripAndFight(in);innItems(in);dismissThenSign(in,30);dismissThenSign(in,49);scrollCadence(in);scrollSkip(in);scrollStall(in);productionNoTarget(in);
+        createFlow(in,*installation);createTiming(in);createReturnRecovery(in);deleteRecords(in,*installation);emptySaveRecovery(in);signInSong(in,*installation);fullAndFailures(in,*installation);roundTripAndFight(in);innItems(in);dismissThenSign(in,30);dismissThenSign(in,49);scrollCadence(in);scrollSkip(in);scrollStall(in);productionNoTarget(in);
         if(argc==4)scrollCadence(in,argv[3]);
         auto inn=source(in,28);inn.camera={28,18,4,XeenDirection::West};inn.insideInn=true;productionLoad(in,*installation,inn);productionLoad(in,*installation,inn,true);inn.activeRosterIds.clear();productionLoad(in,*installation,inn);productionLoad(in,*installation,inn,true);
-        std::cout<<"Inn rules, original-data Sign In, both saves, membership, sheets and Load passed\n";return 0;
+        std::cout<<"Inn Create/Delete rules, original-data Sign In, creation/recruit/fight, return saves, membership, sheets and Load passed\n";return 0;
     }catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}
 }
