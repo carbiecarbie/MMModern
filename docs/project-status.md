@@ -1,330 +1,226 @@
 # MMModern - Project Status
 
-This describes what can be played and done now. **M87 is the latest completed
-and accepted milestone** (2026-10-24; [plan](milestone-87-plan.md)): Sign In at
+This describes what can be played and done now. M87 is the latest completed
+and accepted milestone (2026-10-24; [plan](milestone-87-plan.md)): Sign In at
 a tavern opens the original Inn, where the party recruits and removes lodged
 characters, Dismiss works, and the game plays with any one to six characters.
-M86 showed doors, falls, Moon Ray and service borders as in DOS. M85 brought back Events a monster interrupted
-and door labels after the fight, and Run lands on any landing. M84 made a cell's Events run again after every key
-or click, with the original keyboard and mouse tables. Digital voices, CD speech
-and output recovery join the original FM music and effects (M83), and the
-control panel's sound buttons work. Every monster drops the treasure
-its original record gives (M81), the entrance scenes and the Warzone Arena
-work (M80), every Clouds town's services work (M79), and the whole of Clouds is open, with its
-monsters, Events and every travel path (M78). Earlier
-milestones are in [project history](project-history.md), direction is in the
-[roadmap](roadmap.md), and build and dependency setup is in
+Earlier milestones are in [project history](project-history.md), direction is
+in the [roadmap](roadmap.md), and build and dependency setup is in
 [dependencies](dependencies.md).
 
-MMModern aims to be a faithful reimplementation of the original games; approved
-deviations are listed in [original quirks](original-quirks.md#approved-deviations).
-It is not yet a general replacement for them. A **new game** of Might and Magic
-IV: Clouds of Xeen, read from the World of Xeen two-CD talkie edition, starts as
-in the original. Every Clouds map is playable. Darkside gameplay is not supported.
+MMModern aims to be a faithful reimplementation of the original games;
+approved deviations are listed in
+[original quirks](original-quirks.md#approved-deviations). It does not replace
+them yet. A new game of Might and Magic IV: Clouds of Xeen, read from the
+World of Xeen two-CD talkie edition, starts as in the original, and every
+Clouds map is playable. Darkside gameplay is not supported.
 
 ## What can be played
 
 Launch `mmodern <game-dir>` (see [Entry modes](#entry-modes)) to reach the
 original title screen. Escape shows or hides the menu; Credits shows the four
 original pages, and Other Options lists the intros (not supported yet).
-**New** asks for a save slot (confirming before replacing an occupied one), a
-name and the difficulty: Adventurer (weapons hit harder) or Warrior. As in the
-original, the six level-1 Clouds characters then stand in Vertigo at `(18,4)`
-facing West at 08:00 on day 1 of year 610, with 800 gold, 10 gems, 90 food and
-an empty bank. **Load** continues a saved game from the same slot list.
+Choosing New asks for a save slot, a name and the difficulty: Adventurer
+(weapons hit harder) or Warrior. As in the original, the six level-1 Clouds
+characters then stand in Vertigo at `(18,4)` facing West at 08:00 on day 1 of
+year 610, with 800 gold, 10 gems, 90 food and an empty bank. Load continues a
+saved game from the same slot list.
 
 ### The world
 
-- **Maps.** Terrain, walls, objects, monsters and text come from the original
-  resources. Every surface works as in the original: lava burns, sky and
-  clouds drop the party to the land below with the original falling
-  animation, space kills and the desert costs time. Walking through a door
-  shows it open for an instant. Water needs Swimming for the whole party or Walk on Water. Mountains
-  need Mountaineer and outdoor wall types 3 and 6 need Pathfinder, each from
-  two members, as in DOS. Dark maps show a black view until Light or the
-  party's remaining light clears it.
-- **Areas.** Every Clouds map opens from the original data: walking across
-  an outdoor border loads the next map, and larger dungeons span several
-  original tiles as one map. Each map load rebuilds its monsters.
-- **Monsters** wake, approach and attack on the original rules, with every
-  attack, secondary effect and movement kind in the original data, including
-  ranged attacks and flying. Every map load rebuilds its monsters at full HP
-  and asleep, as the original does.
-- **Events.** Every Event operation the Clouds scripts use runs as in the
-  original, other than the Pyramid and the ending: signs, fountains, statues, NPC conversations, moved
-  walls and objects, monster spawns, conditions, rewards, random Events,
-  teleports, stairs, the magic mirror and password prompts. Those exceptions
-  say "not supported yet" without changing anything. As in DOS, a cell's
-  Events run again after every key or click while the party stands on it:
-  traps hurt again, door labels return after Wait and guarded NPCs come back
-  while their condition holds. Load and New Game start with one run. When a
-  monster reaches the party, an Event call stops before its next line and
-  runs at the party's position once the fight ends, after Run too; a door
-  label up as the fight began comes back afterwards. "Nothing here" is
-  acknowledged before such a fight starts, where DOS starts it under the
-  window ([approved deviation](original-quirks.md#dev-skipped-window-first)).
-- **Space** interacts with what is in front and then waits, as in DOS, so on
-  an Event cell its Events run twice; a click in the 3D view runs them twice
-  without waiting. An NPC or member prompt answer, or a teleport, replaces
-  the key and skips the wait, as the original does.
-- **Entrance scenes.** The Reaper, Golem, Dwarf Mine and Sphinx play their
-  original animations and speech; Efx off shows the captions instead.
-  The Dwarf Mine always admits the party; at the others the right quest item
-  opens the dungeon behind them, and without it the guardian refuses and the
-  map reloads, as in the original. Four entrances lead to Darkside dungeons
-  whose keys only Darkside gives, so they always refuse.
-- **The Warzone Arena.** The Battle Master offers fights of a chosen level
-  and size, generated as in the original; each win adds to every member's
-  Warzone award, up to the original limit of 99. Leaving the Warzone
-  discards an unfinished fight, and it cannot be saved there.
+- Every Clouds map opens from the original resources, with its terrain,
+  walls, objects, monsters and text. Walking across an outdoor border loads
+  the next map, and larger dungeons span several original tiles. Every surface
+  works as in the original: lava burns, sky and clouds drop the party to the
+  land below with the original fall, space kills and the desert costs time.
+  Doors show open for an instant as the party walks through. Water needs
+  Swimming for the whole party or Walk on Water; mountains need Mountaineer
+  and outdoor wall types 3 and 6 need Pathfinder, each from two members. Dark
+  maps show a black view until Light clears it.
+- Monsters wake, approach and attack on the original rules, with every
+  attack, secondary effect and movement kind in the original data, ranged and
+  flying included. Every map load rebuilds them at full HP and asleep.
+- Every Event operation the Clouds scripts use runs as in the original,
+  except the Pyramid and the ending, which say "not supported yet". As in DOS,
+  a cell's Events run again after every key or click while the party stands
+  on it, Space interacts and then waits, and an Event a monster interrupts
+  runs once the fight ends ([Event dispatch](rules/world-events.md#event-dispatch)).
+  "Nothing here" is acknowledged before such a fight
+  ([approved deviation](original-quirks.md#dev-skipped-window-first)).
+- The Reaper, Golem, Dwarf Mine and Sphinx entrance scenes play their
+  original animations and speech, with captions when Efx is off. The Dwarf
+  Mine always admits the party, the others need the right quest item, and the
+  four entrances whose keys only Darkside gives always refuse.
+- In the Warzone Arena the Battle Master offers fights of a chosen level and
+  size. Each win adds to every member's Warzone award, up to 99, and the game
+  cannot be saved in the Warzone.
 
 ### Combat
 
-Combat starts on contact and is turn-based per party member: Attack, Block,
-Run, Cast, Use and Quick Fight. Shoot works in exploration, indoors
-too. Monsters choose their targets and number of attacks from their original
-data, and the party can turn during combat. Equipped weapons, armor, rings and
-amulets count with their metal, element and enchantment. Wounds, conditions,
-broken armor, XP, gold and generated items stay on the characters, the party
-and the world.
+Combat starts on contact and is turn-based per member: Attack, Block, Run,
+Cast, Use and Quick Fight. Shoot works in exploration, indoors too. Monsters
+choose their targets and number of attacks from their original data, drawn as
+DOS draws them, and the party can turn during combat. Equipped items count
+with their metal, element and enchantment, and wounds, conditions, broken
+armor, XP, gold and items stay on the party and the world. Equipping and
+transferring items cost no turn; Use (U) uses a charged item and ends the
+member's turn.
 
-**Treasure.** Every monster killed by melee, arrows, Shoot or a spell, alone
-or in a group, adds the gold and gems of its original record and may drop an
-item at its original chance and treasure level (1 to 6, accessories
-included). Kills in the Warzone give no treasure. The treasure appears on the
-original screens when the fight is over, or outside combat once no monster is
-in view, and must be acknowledged page by page. Items go to the member last
-chosen in a "who will" prompt when there is one. As in DOS, every Event run
-forgets that choice: each later key press on an Event cell, Space, and the
-Events that follow some fights. With full packs the original warning appears and items are
-lost or replace the last one in their category, while gold and gems are still
-credited. Event treasure shares the monster
-treasure as in the original: an Event reward also hands over pending monster
-items, and when monster gold is pending those items arrive twice, an original
-bug kept on purpose. As in DOS, undelivered items are not saved and stay in
-the running program across Load and New Game, where a later treasure can
-deliver them.
+Every kill adds the gold and gems of the monster's original record and may
+drop an item at its original chance and level (1 to 6). The treasure appears
+on the original screens once no monster is in view and goes to the member
+last chosen in a "who will" prompt; full packs lose or replace items as in
+the original. Kills in the Warzone give none. Event treasure shares the
+monster treasure, including the original's duplicate of pending items, and
+undelivered items stay in the running program, as in DOS
+([treasure rules](rules/items.md)).
 
-**Run** is per member; the others keep fighting. Each map's original run
-position and chance apply, indoors too. If the whole party leaves, it moves to
-that position with its facing unchanged, and survivors keep their wounds.
-The landing's Events run only through the two post-combat calls, as in DOS.
-
-In combat, equipping, removing, discarding and transferring items cost no
-turn. The Use button (U, the potion) uses a charged item and ends the member's
-turn; Town Portal from an item loads the town and ends the fight.
+Run is per member, with each map's original run position and chance. If the
+whole party leaves, it lands there with its facing unchanged.
 
 ### Magic
 
 All 76 Clouds spells work from the learned book, Quick Fight and charged
 items, in exploration and in combat where the original allows them, with the
 original prompts, refusals, refunds and costs. Each town's Guild sells its
-original selection, and the original Cast dialog casts them. By theme:
-
-- **Attack spells** fly forward to the first monster or group in reach, or up
-  to four groups, with the original resistances and saving throws. A cast with
-  no monster in reach still costs its SP and gems.
-- **Monster control.** Sleep, Beast Master, Hypnotize and Dragon Sleep put
-  monsters out of action until they recover; spells aimed at one kind of
-  monster, such as Turn Undead or Insect Spray, leave the others untouched.
-- **Healing and cures** restore HP, cure every condition and raise the dead,
-  up to Resurrection and Divine Intervention; Create Food refills food.
-- **Party protection.** Bless, Heroism, Holy Bonus, Power Shield and
-  Protection from Elements strengthen the party and show their original
-  border indicators. They, Levitate, Walk on Water, Clairvoyance and Light end
-  at Rest or dawn.
-- **Information.** Wizard Eye shows the surroundings on the automap,
-  Clairvoyance lights its indicator, and Detect Monster and Identify Monster
-  open the original screens.
-- **Items.** Enchant Item, Recharge Item and Item to Gold work through the
-  Items dialog.
-- **Travel.** Jump, Etherealize, Time Distortion and Teleport move the party,
-  crossing outdoor borders as walking does; each character keeps their own
-  Lloyd's Beacon, Super Shelter sleeps where Rest is refused, and Town Portal
-  reaches all five towns.
-
-The [magic rules](rules/magic.md) give each spell's effect, cost and evidence.
+original selection. Attack spells fly to the first monster or group in
+reach. Sleep, Hypnotize and the spells aimed at one kind of monster work as
+in the original, and healing goes up to Resurrection and Divine Intervention.
+Party protections show their border indicators and end at Rest or dawn.
+Wizard Eye, Detect Monster and Identify Monster open the original screens,
+Enchant, Recharge and Item to Gold work through Items, and Jump, Teleport,
+Lloyd's Beacon, Super Shelter and Town Portal (all five towns) move the
+party. The [magic rules](rules/magic.md) give each spell's effect, cost and
+evidence.
 
 ### Characters and items
 
-The original character sheet and Items dialog show stats with their popups and
-let the party equip, remove, transfer, discard and use items. Charged items
-cast their spell without spending time; each use costs a charge, even if the
-target prompt is cancelled, and the item vanishes at zero. Exchange swaps two
-members and Quick Reference opens the party summary. Quests shows quest items,
-current quests and Auto Notes, and Awards lists a member's awards. Item lists
-show Cursed in yellow and Broken in red, as the original does.
+The original character sheet and Items dialog show stats with their popups
+and let the party equip, remove, transfer, discard and use items. Each use of
+a charged item costs a charge, and the item vanishes at zero. Exchange swaps
+two members, Quick Reference opens the party summary, Quests shows quest
+items, quests and Auto Notes, and Awards lists a member's awards.
 
-**The party and the Inn.** The party holds any one to six roster characters
-in any order, and every rule counts the members it has: combat order,
-monster targets (drawn as DOS does for one and for six participants),
-experience, Poison Volley, Rest and food, Events and services. D dismisses a
-member during exploration, never the last; the next save lodges them in
-Vertigo, as in DOS. Sign In at the Vertigo, Rivercity or Shangri-La tavern
-lodges the party there, adds a day, saves the game and opens the original
-Inn with its song. It lists the characters lodged in that town; 1-4 add them
-up to six, R removes members, F1-F6 open the character sheet, and Exit saves
-again and returns the party to the tavern door, reloading the map. Loading a
-save made at Sign In reopens the Inn. Items cannot be used or transferred
-inside it, and Create and Delete say "not supported yet". The closing and
-opening scrolls, and the death scroll, step once per BIOS tick and any key or
-click skips them.
+The party holds any one to six roster characters in any order, and every rule
+counts the members it has. D dismisses a member during exploration, never the
+last; the next save lodges them in Vertigo, as in DOS. Sign In at the
+Vertigo, Rivercity or Shangri-La tavern lodges the party there, adds a day,
+saves the game and opens the original Inn with its song. The Inn lists the
+characters lodged in that town: 1-4 add them up to six, R removes members and
+F1-F6 open the sheet. Exit saves again and returns the party to the tavern
+door, and loading a Sign In save reopens the Inn. Create and Delete say "not
+supported yet". Any key or click skips the Inn's scrolls and the death scroll
+([party rules](rules/party.md)).
 
-**Skills.** Teachers and Events grant skills, and the sheet lists them.
-Thievery picks locks, Bodybuilder and the spell-casting skills raise HP or SP,
-Merchant sells at full value, Swimming opens water and Navigator saves time in
-the desert. Arms Master and Tracker do nothing, as in DOS. Cartography records the cells the party steps on: `=` toggles the
-7x7 automap, and M or the Map button opens the original 16x16 Map. The border
-lights Danger Sense when a monster is within three cells and Spot Secret Doors
-in front of a thin indoor wall, and shows the facing letter with Direction
-Sense.
+Teachers and Events grant skills. Thievery picks locks, Bodybuilder and the
+spell-casting skills raise HP or SP, Merchant sells at full value, Swimming
+opens water and Navigator saves time in the desert; Arms Master and Tracker
+do nothing, as in DOS. Cartography fills the 7x7 automap (`=`) and the
+original 16x16 Map (M), and the border lights Danger Sense, Spot Secret Doors
+and Direction Sense.
 
 ### Vertigo
 
-Enter from mainland `(10,13)` facing North with Space and Yes; face South at
-the entrance and use Space to leave. Leaving runs the town's original exit
-script, which respawns and heals the city monsters.
+Enter from mainland `(10,13)` facing North with Space and Yes. To leave, face
+South at the entrance and use Space, which respawns and heals the city
+monsters. Grates and doors break with Bash or open with a lock pick (the
+original trap, Thievery roll and XP) and stay open. Myra's request, Joe's
+proof box and Gunther's reward work end to end. Crates, trees, rubbish and
+beds give items, gold or a fight once, and display cases reward Thievery or
+send the party to jail. The well, Vern's membership, the magic mirror and the
+teachers follow their original scripts.
 
-- **Grates and doors.** Bash (B) breaks walls and grates; Space at a locked
-  grate or door asks who will pick the lock, with the original trap, Thievery
-  roll and XP. Opened barriers stay open across saves.
-- **Quests.** Myra's request, with the Phirna Roots from the mainland and her
-  antidote, Joe's proof box and Gunther's reward work end to end; rewards
-  arrive once.
-- **Searches and treasure.** Crates, trees, rubbish and beds give generated
-  items, gold or a monster fight, as in the original; repeat searches find
-  nothing. With full packs, items are lost or replace the last one in their
-  category, as in the original.
-- **Display cases and jail.** A member with Thievery takes the treasure; a
-  member without it sends the party to jail with the Convicted Thief award
-  and a one-year penalty.
-- **The well, Vern's membership, the magic mirror** and the teachers (Mylo for
-  Cartography, Rialdo for Pathfinder) follow their original scripts, including
-  charging again for a repeat lesson or membership.
+Services use the original location screens, by mouse or keyboard:
 
-Services use the original location screens with the town art and text panel,
-by mouse or keyboard:
-
-- **Ironworks** `(8,4)`: Buy, Sell, Identify and Fix for every item category
-  at the original prices; stock is generated and depleted as in the original.
-- **Training** `(10,11)`: permanent levels from XP and gold, with the Vertigo
+- Ironworks `(8,4)`: Buy, Sell, Identify and Fix at the original prices,
+  with stock generated and depleted as in the original.
+- Training `(10,11)`: permanent levels from XP and gold, with the Vertigo
   level cap.
-- **Temple** `(15,28)`: Heal and resurrection at original prices, Donation,
-  which blesses the party when the count matches the day, and Uncurse.
-- **Tavern** `(24,5)`: Food refills 15 food per active member for 10 gold;
-  Drink, Tip and Rumors work as in the original. Sign In opens the Inn.
-- **Bank** `(26,17)`: deposit and withdraw gold or gems, typing up to ten
-  digits; it pays the original interest.
-- **Guild** `(20,13)`: members buy spells from Vertigo's original catalogue or
-  read Spell Info; non-members are refused.
+- Temple `(15,28)`: Heal and resurrection, Donation (which blesses the party
+  when the count matches the day) and Uncurse.
+- Tavern `(24,5)`: Food refills 15 food per active member for 10 gold;
+  Drink, Tip and Rumors work, and Sign In opens the Inn.
+- Bank `(26,17)`: deposit and withdraw gold or gems, with the original
+  interest.
+- Guild `(20,13)`: members buy spells or read Spell Info.
 
 Each visit costs the original departure time, and merchant stock and bank
 interest follow the original schedule.
 
 ### The other towns
 
-The other towns' services use the same screens, with each place's original
-values:
-
-- **Rivercity** has all six: Training up to level 15, Food filling 60 rations
-  per member for 50 gold, and its own Ironworks stock, Temple prices, Guild
-  catalogue, tips and rumors.
-- **Shangri-La** has a Temple with the highest prices, an Ironworks, a
-  Tavern (120 rations per member for 100 gold) and a Guild that sells every
-  spell of the class.
-- **Nightshadow, Asp and Winterkill** each have a Guild with its own
-  catalogue; each Guild admits only its own members.
-- **Newcastle** has an Ironworks and Training up to level 20 on Level 1, and
-  a Temple and the shared Bank on Level 2. As in DOS, Level 2's Temple uses
-  the prices of the last Temple visited since the program started (none
-  before any visit), across New Game and Load.
+The other towns' services use the same screens with each place's original
+values. Rivercity has all six, with Training to level 15 and its own Food
+price, stock, Temple prices, Guild catalogue, tips and rumors. Shangri-La has
+a Temple, an Ironworks, a Tavern and a Guild selling every spell of the
+class. Nightshadow, Asp and Winterkill each have a Guild. Newcastle has an
+Ironworks and Training to level 20 on Level 1, and a Temple and the shared
+Bank on Level 2; as in DOS, that Temple uses the last Temple prices of the
+running program.
 
 ### Rest, food and time
 
-- **Rest** (Rest button or R, outside combat): the party sleeps eight hours,
-  eats one food per member who can recover and recovers HP and SP; temporary
-  effects end. The original warning and dream appear, and without food time
-  passes but nobody recovers. Rest is refused on the cells where the original
-  refuses it.
-- **Interruption.** Nearby monsters approach and attack while the party
-  sleeps; the Rest stops without recovery.
-- **Days and years.** Conditions change on the original eight-hour schedule,
-  each dawn without rest can make members Weak, the sky darkens at night, and
-  ages follow the year.
+Rest (R) sleeps eight hours, eats one food per member who can recover and
+recovers HP and SP. Temporary effects end, the original warning and dream
+appear, and without food nobody recovers. Rest is refused where the original
+refuses it, and nearby monsters interrupt it. Conditions change on the
+original eight-hour schedule, each dawn without rest can make members Weak,
+the sky darkens at night and ages follow the year.
 
 ### Saving
 
-Tab or the gem opens the original control panel when nothing else is open:
-**Save** writes the current game's slot, **Save As** picks a slot and a new
-name, **Load** replaces the running game with a saved one, and **Quit** asks
-for confirmation. Saving is refused in combat, during service visits and on
-maps that forbid it. Sign In and leaving the Inn save to the current slot
-automatically, as in DOS; a failed write shows the error and retries
-([approved deviation](original-quirks.md#dev-inn-save-recovery)).
-**Mr Wizard** returns the party to Vertigo's run position
-facing East and takes all its gems; in combat it ends the fight first.
-**Efx**, **Music**, **Speech** and **Text** switch as in the original and are
-saved with the party; a new game starts with Text off. Slots live under Local AppData (`MMModern/Saves/`); a damaged or foreign
-slot is shown as unavailable and never overwritten. Loading continues exactly,
-without replaying any Event, reward, time or random draw.
+Tab or the gem opens the original control panel. Save writes the current
+slot, Save As picks a slot and name, Load replaces the running game and Quit
+asks for confirmation. Saving is refused in combat, during service visits and
+on maps that forbid it. Sign In and leaving the Inn save automatically, as in
+DOS; a failed write shows the error and retries
+([approved deviation](original-quirks.md#dev-inn-save-recovery)). Mr Wizard
+returns the party to Vertigo and takes all its gems. The Efx, Music, Speech
+and Text settings are saved with the party. Slots live under Local AppData
+(`MMModern/Saves/`), and a damaged or foreign slot is never overwritten.
+Loading continues exactly, without replaying any Event, reward, time or
+random draw.
 
 ### Sound
 
-The game plays the original FM music and sound effects as the CD
-installation's own sound setup does: the Pro Audio Spectrum driver on an OPL3
-chip, in stereo, read from the installed data. Maps, implemented town locations and
-the title play their original song, fading between songs and
-continuing when the next place uses the same one. Walking, doors, walls,
-grates, combat, every spell, items, Events, services, Mr Wizard and death play
-their original effects. Music off silences the music at once; Efx off silences
-new effects, skips the wait for digital samples and shows the entrance-scene
-captions instead; Speech off skips CD speech and turns Text on. Other sound
-cards from the original installer are not supported yet. Digital effects, shop
-and guild voices, entrance speech, the dream, death laugh and Event samples
-are audible. CD speech reads the installed OGG tracks; Text off hides the
-NPC body it replaces, restoring text when speech cannot be delivered. Output
-failures silence audio with one notice; removal reopens the current default
-output, and default/rate changes retain the song. A missing
-`WORLD/XEEN.CFG` refuses to start, as the original does.
+The game plays the original FM music and effects as the CD installation's own
+setup does: the Pro Audio Spectrum driver on an OPL3 chip, in stereo, with
+each place's song and fades between songs. Digital effects, voices, entrance
+speech and Event samples play, and CD speech reads the installed OGG tracks.
+The panel's sound buttons work as in the original. Text off hides the text
+that speech replaces and restores it when speech cannot play. An output
+failure silences audio with one notice, and a removed device reopens the
+default. A missing `WORLD/XEEN.CFG` refuses to start, as in the original
+([audio rules](rules/audio.md)).
 
 ## Interface
 
-[Controls](controls.md) lists every key. Clicks work as in the CD
-original: either mouse button makes the same click on the main-screen
-buttons, the combat buttons and targets, the 3D view, portraits and every
-dialog. Keys follow the original's translation table: W waits, keypad 4 and
-6 turn, Ctrl+Left/Right strafe, and Ctrl or Alt with a key act as the
-original translates them.
-
-**Presentation.** Terrain, sky, water, wall items, torches and monsters
-animate from their own data on every Clouds map. Missiles fly together, hits
-show the original splats, portraits show damage and healing, and grants
-sparkle on their recipients. NPC speech, shopkeepers, treasure, Shoot, the
-dream, the title and party death follow the original sequences and timing.
-
-**Input.** Keys pressed while the game is busy are buffered and applied in
-order; an Event keeps them except where the original clears the keyboard.
-Other held exploration keys repeat after half a second, about eleven times a
-second, as the keyboard does. A held movement key repeats at the original
-pace, about nine steps per second, and releasing it adds no further step: an
-approved deviation from DOS, which can add steps after release. Services,
-dialogs, inventory and casting accept only fresh presses.
+[Controls](controls.md) lists every key. As in the CD original, either mouse
+button makes the same click everywhere, and keys follow the original's
+translation table. Terrain, sky, water, wall items, torches and monsters
+animate from their own data. Missiles, splats, portrait damage and healing,
+NPC speech, shopkeepers, treasure, the dream, the title and party death follow
+the original sequences and timing. Keys pressed while the game is busy are
+buffered in order, and held keys repeat as the keyboard does. A held movement
+key steps about nine times a second and adds no step after release, an
+approved deviation. Services, dialogs, inventory and casting accept only
+fresh presses.
 
 ## Entry modes
 
 All modes need a World of Xeen CD installation; the
-[development guide](development.md#game-data-sources) says which data is read. Floppy
-archives are not used. Original data is never copied or modified, and saves
-must not be written inside the game directories.
+[development guide](development.md#game-data-sources) says which data is read.
+Original data is never copied or modified, and saves must not be written
+inside the game directories.
 
 | Command | Purpose |
 | --- | --- |
 | `mmodern <game-dir>` | Open the original title screen (New, Load, Credits, Other Options). |
 | `mmodern --new-game <game-dir> [--difficulty adventurer\|warrior] [--save-file <path>]` | Developer: start a new game directly (default Adventurer). |
-| `mmodern --journey-region [--combat-seed <u32>] <game-dir> [--save-file <path>]` | Prepared Journey test mode: a prepared party at map 23 `(9,11)`; the automated scenarios use it. |
+| `mmodern --journey-region [--combat-seed <u32>] <game-dir> [--save-file <path>]` | Prepared test mode at map 23 `(9,11)`; the automated scenarios use it. |
 | `mmodern --load-game <game-dir> <save>` | Developer: continue a save file; it becomes the F9 target. |
 | `mmodern --render-map <game-dir> [<map> <x> <y> <dir>]` | Explore any Clouds map for inspection. Cannot save. |
-| `mmodern --monster-fixture <species> <game-dir> ...` | Developer: the prepared Journey with one F3 monster replaced by an original species. Cannot save. |
+| `mmodern --monster-fixture <species> <game-dir> ...` | Developer: the prepared start with one monster replaced. Cannot save. |
 | `mmodern --event-fixture <game-dir> <map> <x> <y> <dir>` | Developer: an isolated Event session on any Clouds map. Cannot save. |
 | `mmodern --inspect-map\|--inspect-party\|--inspect-events <game-dir> ...` | Developer inspection output. |
 
@@ -332,91 +228,69 @@ The [development guide](development.md#entry-modes) gives every option.
 
 ## Save format
 
-There is **one current save format**, v19. It keeps the party with every
-roster record in full and its four sound options, whether the party is inside
-the Inn, the world and
-one generic state per visited map: monster positions and lifecycle, removed or
+There is one current save format, v19. It holds the party with every roster
+record in full and its sound options, whether the party is inside the Inn,
+the world, and one state per visited map: monster positions and lifecycle,
 moved objects, changed cells, disabled Events, explored cells and the Tavern
-tip index. Monster HP and wake state are not saved, because every map load
-rebuilds them, and pending treasure is not saved, as in the original. During
-0.x, older formats are not read: a save from an older build is rejected before
-anything is restored, a save from a newer or unrecognized build is rejected and
-left alone, and F9 overwrites only a recognizable older MMModern save. Saves are tied to the original archives by
-fingerprint, are written atomically, and are not compatible with the original
-games or ScummVM. Apart from the Inn's Sign In and Exit saves, there is no
-autosave.
+tip index. Monster HP and wake state are not saved, and neither is pending
+treasure, as in the original. During 0.x, older formats are rejected before
+anything is restored, newer or unrecognized saves are left alone, and F9
+overwrites only a recognizable older MMModern save. Saves are tied to the
+original archives by fingerprint, written atomically, and not compatible with
+the original games or ScummVM. The Inn's saves are the only autosave.
 
 ## Architecture overview
 
 Source is under `src/`: `core` (input, frame and installation types),
 `formats/xeen` (original resource and save formats), `games/xeen` (rules and
-state), `app` (coordination and presentation), `platform` (SDL window and
-audio output, save file I/O) and `compat` (the linked ScummVM components).
+state), `app` (coordination and presentation), `platform` (SDL window, audio
+output and save file I/O) and `compat` (the linked ScummVM components).
 
-Ownership, from state outward:
+- Party and roster (`XeenParty`, `XeenRoster`): all thirty roster
+  characters, the active party of one to six, inventory, quest items, purse
+  and books. Everything else borrows them.
+- World (`XeenWorld`, `XeenSessionWorldState`): map and object caches, live
+  actors, per-map state, economy, calendar and the world random state.
+- Running program (`XeenProgramState`, created by `main`): what the original
+  keeps outside its saves, which is the last Temple prices and pending
+  treasure, plus the audio owner `XeenAudio`, whose music, VOC and CD paths
+  never change time, randomness or saves.
+- Rules (pure, in `games/xeen`): combat, monster approach and treasure,
+  items, services, spells, terrain, Rest and time.
+- Events: `XeenEventSystem` decodes and runs the original Event scripts.
+  Unsupported effects refuse visibly without publishing anything partial.
+- Flows (`app`): `XeenEventFlow` coordinates the gameplay session, input,
+  dialogs, inventory and the Inn. `XeenEncounterFlow` hosts encounters,
+  combat, services, casting and consequences, `XeenNavigationFlow` handles
+  movement, and `Application` wires resources, SDL and the entry modes.
+- Save (`XeenSaveState`, `XeenSaveFormat`, `XeenSaveFile`): captures a
+  snapshot at a quiet boundary and restores it into fresh owners.
+  `XeenRestoreGuard` and `XeenMutationWatch` stop stale work from publishing.
 
-- **Party and roster** (`XeenParty`, `XeenRoster`): characters, inventory,
-  conditions, quest items and flags, purse and the learned books. One owner
-  for all thirty roster characters; everything else borrows it.
-- **World** (`XeenWorld`, `XeenSessionWorldState`): map and object caches, the
-  live actors, per-map state, merchant and bank economy, the calendar and the
-  world random state.
-- **Running program** (`XeenProgramState`, created by `main`): what the
-  original keeps outside its saves, the last Temple prices and the pending
-  treasure, each with its own revision; sessions borrow it. It also keeps the
-  audio owner (`XeenAudio`), which holds the loaded music driver: a timeline
-  `PromusDriver` answers the game on its clock, and a render driver in
-  `XeenFmSource` follows the sound device through one request queue. Independent
-  VOC and decoded CD paths mix with FM at the output rate; logical deadlines
-  never depend on audible delivery, so sound never changes time, randomness or saves.
-- **Rules** (pure, in `games/xeen`): combat, monster approach and treasure,
-  item generation, equipment, services, spells, terrain, Rest and time.
-- **Events**: `XeenEventSystem` decodes and runs the original Event scripts;
-  supported preludes publish once before terminal town services, and
-  unsupported effects refuse visibly without publishing a partial prelude.
-- **Flows** (`app`): `XeenEventFlow` is the gameplay session coordinator and
-  presenter for input, dialogs and inventory. `XeenEncounterFlow` hosts
-  encounters, combat, services, casting and consequences.
-  `XeenNavigationFlow` handles movement. `Application` wires resources, SDL and
-  the entry modes.
-- **Save** (`XeenSaveState`, `XeenSaveFormat`, `XeenSaveFile`): captures a
-  value snapshot at a quiet boundary and restores it into fresh owners before
-  gameplay starts. `XeenRestoreGuard` and `XeenMutationWatch` detect state that
-  changed while work was prepared, so stale work cannot publish.
-- **Journey content** (`XeenJourneyContent`): the immutable prepared start used
-  by the test mode. Map admission comes from the original resources in
-  `XeenWorld`, not from a list of maps.
-
-Presentation draws into a 320x200 indexed frame that SDL scales. Presented
-frames carry an identity so input from a stale frame is dropped.
+Presentation draws into a 320x200 indexed frame that SDL scales. Each frame
+carries an identity, so input from a stale frame is dropped.
 
 ## Tests
 
-CTest covers rules and synthetic fixtures without original data, and
-original-data integration and process tests that need a legally obtained
-installation. Every test is labelled `fast` or `process`: use `ctest -L fast`
-while iterating and the complete suite before closing a milestone. Four
-original-data scenarios (mainland, Vertigo services, Temple and a Vertigo
-round trip) compare their final saves with approved digests and re-save
-byte-identically after a reload, guarding against unintended behavior
-changes. The generated [coverage report](coverage.md) counts every mechanic
-the original data uses and its support status. Build and run instructions are
-in [dependencies](dependencies.md).
+CTest covers rules and synthetic fixtures, and original-data integration and
+process tests that need a legally obtained installation. Tests are labelled
+`fast` or `process`: use `ctest -L fast` while iterating and the complete
+suite before closing a milestone. Four original-data scenarios compare their
+final saves with approved digests and re-save byte-identically after a
+reload. The generated [coverage report](coverage.md) counts every mechanic
+the original data uses and its support status.
 
 ## Known gaps
 
-- **Character creation.** The Inn's Create and Delete say "not supported
-  yet" (M88).
-- **Scenes and commands.** The Pyramid entrance and the Clouds ending say
-  "not supported yet"; killing Lord Xeen does not give his Scepter yet.
-- **Sound.** Title lightning belongs to step 15. F8 speech replay is omitted by maintainer
-  decision. The return-code-1 exit drain remains unidentified, with no
-  MMModern path. SDL 2.32's resampler makes FM about 0.066% fast at 48 kHz
-  (0.036% at 44.1 kHz) and CD about 0.050% fast at 48 kHz, unchanged since
-  M82 and inaudible. A bounded converter is a possible later fix
-  ([audio rules](rules/audio.md#sdl-resampler-rate-limitation)). Only the
-  installed CD sound driver is supported (other devices: step 16).
-- **Presentation.** There is no intro (step 15).
-- **Darkside** gameplay is not supported.
+- Character creation: the Inn's Create and Delete say "not supported yet"
+  (M88).
+- Scenes and commands: the Pyramid entrance and the Clouds ending say "not
+  supported yet", and killing Lord Xeen does not give his Scepter yet.
+- Sound: title lightning belongs to step 15 and other sound devices to step
+  16. F8 speech replay is omitted by maintainer decision. SDL's resampler
+  plays FM and CD audio up to about 0.07% fast, which is inaudible
+  ([audio rules](rules/audio.md#sdl-resampler-rate-limitation)).
+- Presentation: there is no intro (step 15).
+- Darkside gameplay is not supported.
 
 Next steps are in the [roadmap](roadmap.md).
