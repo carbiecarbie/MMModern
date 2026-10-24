@@ -492,3 +492,18 @@ scream and the landing sounds before its damage, Moon Ray heals and sparkles
 one member at a time, and the border indicators restart when a service
 screen opens. FallToMap, used only in Darkside, stays unsupported. Save v18
 and all M44 digests are unchanged. [Plan](milestone-86-plan.md).
+
+**M87 - The Inn and a party of one to six** (plan `f77720f`, Part 0
+`4ed3a15`, Part A `dfa3788`, Part B `4182202` and the closure commit).
+Accepted by the maintainer on 2026-10-24 after the play-test. As in DOS,
+Sign In at the Vertigo, Rivercity or Shangri-La tavern lodges the party,
+adds a day, saves the game and opens the original Inn, where lodged
+characters join and leave; Exit saves again and reloads the map at the
+tavern door, and a save made at Sign In reopens the Inn. Dismiss works in
+exploration, and the next save lodges the dismissed member in Vertigo. The
+game plays with any one to six characters, and monster targets follow the
+DOS count-dependent draws, which replaced the four M44 digests after an
+approved audit. Every roster record is saved in full (save v19). A failed
+Inn save retries instead of quitting (approved deviation), and the death
+scroll gained the DOS skip. Create and Delete wait for M88.
+[Plan](milestone-87-plan.md).

@@ -12,7 +12,7 @@ button has the same effect at the same position; use Escape to cancel.
 | W | Wait: advance time and monsters |
 | Space | Interact outside combat, then Wait if the Event leaves Space in effect; acknowledge text |
 | S / R / B | Shoot / Rest / Bash in exploration |
-| D in exploration | Dismiss (not supported yet) |
+| D in exploration | Dismiss a member (never the last) |
 | A / R / B in combat | Attack / Run / Block |
 | C | Learned spells |
 | U in combat | Use a charged item |
@@ -34,7 +34,11 @@ button has the same effect at the same position; use Escape to cancel.
 | B / S / I / F in Smith Items | Buy / Sell / Identify / Fix; a row opens Y/N confirmation |
 | T in Training | Train the selected member |
 | H / D / U in the Temple | Heal / Donation / Uncurse |
-| D / F / T / R in the Tavern | Drink / Food / Tip / Rumors |
+| D / F / T / R / S in the Tavern | Drink / Food / Tip / Rumors / Sign In (saves and opens the Inn) |
+| 1-4 / R in the Inn | Add the displayed character / Remove a member |
+| Up / Down in the Inn | Previous / next four characters |
+| E, X, Escape or Space in the Inn | Exit: save and return to the tavern door |
+| C / D in the Inn | Create / Delete (not supported yet) |
 | D / W in the Bank, then O / E | Deposit / Withdraw, then Gold / Gems |
 | Digits, Backspace, Enter in Bank amount entry | Enter up to ten digits, edit, confirm; Escape cancels |
 | Alt+Enter | Switch between window and fullscreen; no gameplay pass |
@@ -44,6 +48,8 @@ keys such as period, U, digits, F7 and F8. Insert, Home, End and Page Up/Down
 are also unmatched, as are Enter and Backspace in exploration. F8 speech replay
 remains omitted.
 Closing a dialog completes its opener's pass; responses inside it add none.
+Any key or click skips the Inn's closing or opening scroll and the death
+scroll.
 A 3D-view click runs the manual Event and then the pass, without Space's Wait
 unless an Event acknowledgement replaces the current key.
 

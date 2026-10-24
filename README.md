@@ -27,9 +27,9 @@ original games yet.
 
 A new Clouds of Xeen game starts in Vertigo with the original six characters,
 and from there it plays like the original. Every Clouds map is open, and
-combat, spells, items and town services follow the original rules. You cannot
-change the starting party or create characters yet, and you cannot travel to
-Darkside. So far only the Vertigo quests have been tested thoroughly.
+combat, spells, items and town services follow the original rules. The Inn
+lets you sign in, dismiss and recruit characters, but you cannot create new
+ones yet, and you cannot travel to Darkside. So far only the Vertigo quests have been tested thoroughly.
 
 The original interface is close to complete, with mouse and keyboard.
 [What is missing](#what-is-missing) lists the rest.
@@ -106,12 +106,12 @@ covers the character sheet, Items, Quick Fight and every service.
 
 ## What is missing
 
-- The Inn. You cannot recruit, dismiss or create characters, and Sign In and
-  Dismiss in the Tavern say "not supported yet".
+- Creating and deleting characters: Create and Delete in the Inn say "not
+  supported yet".
 - Darkside of Xeen cannot be played.
 - The Pyramid entrance and the Clouds ending say "not supported yet".
 - The intros.
-- A few sounds: the Inn song and the title-screen lightning.
+- The title-screen lightning sound.
 
 The [project status](https://github.com/carbiecarbie/MMModern/blob/main/docs/project-status.md)
 page has the full current state, the

@@ -1,10 +1,10 @@
 # MMModern - Project Status
 
-This describes what can be played and done now. **M86 is the latest completed
-and accepted milestone** (2026-10-23; [plan](milestone-86-plan.md)): doors open
-for an instant as the party walks through, falls show the original drop with
-its sounds, Moon Ray heals one member at a time and the border indicators
-restart at services, as in DOS. M85 brought back Events a monster interrupted
+This describes what can be played and done now. **M87 is the latest completed
+and accepted milestone** (2026-10-24; [plan](milestone-87-plan.md)): Sign In at
+a tavern opens the original Inn, where the party recruits and removes lodged
+characters, Dismiss works, and the game plays with any one to six characters.
+M86 showed doors, falls, Moon Ray and service borders as in DOS. M85 brought back Events a monster interrupted
 and door labels after the fight, and Run lands on any landing. M84 made a cell's Events run again after every key
 or click, with the original keyboard and mouse tables. Digital voices, CD speech
 and output recovery join the original FM music and effects (M83), and the
@@ -155,6 +155,21 @@ members and Quick Reference opens the party summary. Quests shows quest items,
 current quests and Auto Notes, and Awards lists a member's awards. Item lists
 show Cursed in yellow and Broken in red, as the original does.
 
+**The party and the Inn.** The party holds any one to six roster characters
+in any order, and every rule counts the members it has: combat order,
+monster targets (drawn as DOS does for one and for six participants),
+experience, Poison Volley, Rest and food, Events and services. D dismisses a
+member during exploration, never the last; the next save lodges them in
+Vertigo, as in DOS. Sign In at the Vertigo, Rivercity or Shangri-La tavern
+lodges the party there, adds a day, saves the game and opens the original
+Inn with its song. It lists the characters lodged in that town; 1-4 add them
+up to six, R removes members, F1-F6 open the character sheet, and Exit saves
+again and returns the party to the tavern door, reloading the map. Loading a
+save made at Sign In reopens the Inn. Items cannot be used or transferred
+inside it, and Create and Delete say "not supported yet". The closing and
+opening scrolls, and the death scroll, step once per BIOS tick and any key or
+click skips them.
+
 **Skills.** Teachers and Events grant skills, and the sheet lists them.
 Thievery picks locks, Bodybuilder and the spell-casting skills raise HP or SP,
 Merchant sells at full value, Swimming opens water and Navigator saves time in
@@ -197,7 +212,7 @@ by mouse or keyboard:
 - **Temple** `(15,28)`: Heal and resurrection at original prices, Donation,
   which blesses the party when the count matches the day, and Uncurse.
 - **Tavern** `(24,5)`: Food refills 15 food per active member for 10 gold;
-  Drink, Tip and Rumors work as in the original. Sign In waits for the Inn.
+  Drink, Tip and Rumors work as in the original. Sign In opens the Inn.
 - **Bank** `(26,17)`: deposit and withdraw gold or gems, typing up to ten
   digits; it pays the original interest.
 - **Guild** `(20,13)`: members buy spells from Vertigo's original catalogue or
@@ -243,7 +258,10 @@ Tab or the gem opens the original control panel when nothing else is open:
 **Save** writes the current game's slot, **Save As** picks a slot and a new
 name, **Load** replaces the running game with a saved one, and **Quit** asks
 for confirmation. Saving is refused in combat, during service visits and on
-maps that forbid it. **Mr Wizard** returns the party to Vertigo's run position
+maps that forbid it. Sign In and leaving the Inn save to the current slot
+automatically, as in DOS; a failed write shows the error and retries
+([approved deviation](original-quirks.md#dev-inn-save-recovery)).
+**Mr Wizard** returns the party to Vertigo's run position
 facing East and takes all its gems; in combat it ends the fight first.
 **Efx**, **Music**, **Speech** and **Text** switch as in the original and are
 saved with the party; a new game starts with Text off. Slots live under Local AppData (`MMModern/Saves/`); a damaged or foreign
@@ -314,8 +332,9 @@ The [development guide](development.md#entry-modes) gives every option.
 
 ## Save format
 
-There is **one current save format**, v18. It keeps the party with its four
-sound options, the world and
+There is **one current save format**, v19. It keeps the party with every
+roster record in full and its four sound options, whether the party is inside
+the Inn, the world and
 one generic state per visited map: monster positions and lifecycle, removed or
 moved objects, changed cells, disabled Events, explored cells and the Tavern
 tip index. Monster HP and wake state are not saved, because every map load
@@ -324,7 +343,8 @@ rebuilds them, and pending treasure is not saved, as in the original. During
 anything is restored, a save from a newer or unrecognized build is rejected and
 left alone, and F9 overwrites only a recognizable older MMModern save. Saves are tied to the original archives by
 fingerprint, are written atomically, and are not compatible with the original
-games or ScummVM. There is no autosave.
+games or ScummVM. Apart from the Inn's Sign In and Exit saves, there is no
+autosave.
 
 ## Architecture overview
 
@@ -385,12 +405,11 @@ in [dependencies](dependencies.md).
 
 ## Known gaps
 
-- **Inn and party.** There is no Inn, recruiting or character creation:
-  Tavern Sign In and Dismiss say "not supported yet".
+- **Character creation.** The Inn's Create and Delete say "not supported
+  yet" (M88).
 - **Scenes and commands.** The Pyramid entrance and the Clouds ending say
   "not supported yet"; killing Lord Xeen does not give his Scepter yet.
-- **Sound.** The Inn song (`inn.m`) has no production caller until the Inn/Sign
-  In screen (step 14); title lightning belongs to step 15. F8 speech replay is omitted by maintainer
+- **Sound.** Title lightning belongs to step 15. F8 speech replay is omitted by maintainer
   decision. The return-code-1 exit drain remains unidentified, with no
   MMModern path. SDL 2.32's resampler makes FM about 0.066% fast at 48 kHz
   (0.036% at 44.1 kHz) and CD about 0.050% fast at 48 kHz, unchanged since
