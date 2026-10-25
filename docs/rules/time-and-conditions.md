@@ -8,6 +8,71 @@ retained maintainer evidence. **Unknown** identifies unverified original
 behavior. These distinctions matter: the pin contains intentional changes
 and bugs in precisely these rules.
 
+## Real play time and panel clock
+
+**DOS static, high (M92, 2026-10-25),** calibrated against the known slot-05
+counter and score and the slot-06 before/after capture. The maintainer's
+DOSBox check confirms the panel's hidden default, G/O/B/R activation,
+12-hour civil clock, advancing clocks and reset on reopening. It does not
+extend runtime confirmation to the arithmetic/DST edge cases below.
+This counter is
+independent of calendar minutes, BIOS presentation ticks and Journey RNG.
+Offsets below are in the calibrated CD `WORLD/XEEN.DAT`; see
+[M92 evidence](evidence.md#m92-clouds-ending-evidence).
+
+The saved dword at DS `f01a` (party offset 654) counts seconds. Query
+`0xf2fd..0xf324` returns `(time() - startMark + savedSeconds) mod 2^32`.
+The start mark is DS `98b0`; `0xf2e9` samples it at DAT entry (`0xb3b3`)
+and after each snapshot (`0xe9d0`). Load, including Inn Load, does not
+reset it. Saving stores the query result (`0xe945..0xe94e`) and resets
+the mark after copying the archives. New Game zeros savedSeconds before
+its first snapshot (`0x20c08..0x20c38`), including time already spent in
+that DAT at the title or difficulty selection. Menus and dialogs count.
+EXE scenes run outside that DAT interval: their return starts a fresh DAT;
+viewing an ending from Other Options does not write a saved counter.
+There is no monotonic clamp: moving the DOS clock backwards can reduce
+the total, or wrap to a large unsigned value if the total goes below zero.
+Save-time I/O between the query and the reset is not accumulated again.
+
+`time()` (`0x6ccc`) reads DOS date/time via INT 21h AH=2Ah/2Ch and converts
+through Borland's runtime (`0xa4ac`). Without `TZ`, `0xa7da..0xa8cb` selects
+EST/EDT, a 18,000-second standard offset and enabled legacy US DST. The
+rule (`0xa9c8..0xaaa2`) uses the first Sunday in April from 1987 onward
+(last Sunday in April earlier), and the last Sunday in October, with
+the runtime's 02:00 spring and 01:59 autumn boundary tests. The conversion
+subtracts an hour in the DST interval. Thus this is not a claim that DOS
+uses the host's current timezone database or modern March/November rules.
+A civil-clock jump and a change of this DST classification both affect
+the queried seconds; no separate gameplay adjustment compensates them.
+
+The clock is hidden by default. The panel's key table at `0x1f332` maps
+G, O, B, R to the four gate stages (`0x1f2a5..0x1f2d5`); pressing those
+keys in order sets runtime display flag DS `97fa`. Repeated O is allowed.
+The longer word `GOOBER` also reaches that gate, but its E uses the ordinary
+Efx toggle; the minimal sequence avoids that extra change. This mapping
+is calibrated by the same table's Efx and Save entries. Leaving the panel
+clears the flag (`0x1f30b`), so reopening hides the clocks again.
+The panel calls `0xf325` only while this flag is set
+(`0x1efde..0x1eff3`). Its DS `4be3` format puts the civil clock at the
+upper left and accumulated play time at the upper right. The clock comes
+through Borland `ctime`/`localtime` (`0xf1ce`, `0x8b32`, `0x8ad1`), then
+converts to a 12-hour display with a leading space for a one-digit hour,
+minutes, seconds and lower-case `a`/`p`; noon and midnight show 12. The
+inverse timezone/DST conversion normally reproduces DOS's local civil
+time; do not apply its five-hour offset a second time to the host clock.
+The idle loop resets its BIOS timer at `0x1ef91`, draws the clock, waits
+for a tick or input, and redraws. It is live while the panel is open.
+
+Play-time formatting (`0xf286..0xf2e8`) uses an hours:minutes:seconds
+unsigned format with minimum width two for each field. Preserve its
+16-bit intermediate: it narrows `seconds/3600` to 16 bits and subtracts
+only the low word of `hours*3600` from the 32-bit total before dividing
+the remainder into minutes and seconds. At 62,545 seconds the result is
+`17:22:25`; at 68,400 seconds (19 actual hours) it is `19:1092:16`.
+This is calibrated arithmetic evidence, not a 19-hour DOSBox capture.
+The score has separate arithmetic described in
+[ending score](cutscenes.md#clouds-ending-score).
+
 ## Bash
 
 **Evidence: DOS play and calibrated DOS static, high confidence (2026-10-15).**

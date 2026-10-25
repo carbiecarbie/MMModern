@@ -9,6 +9,51 @@ limits are in [M87 evidence](evidence.md#m87-inn-and-party-size) and
 [M88 evidence](evidence.md#m88-create-and-delete). Create and Delete share
 the Inn's persistence boundary; their record and screen rules are below.
 
+## Clouds ending save
+
+**DOS static, high; DOSBox file comparison, 2026-10-25.** The ending uses
+the same forced Save as Sign In (`0x28c0d` -> `0x1ebc2(1)`). It preserves
+the live party block while reloading the file-held roster, copies active
+354-byte records into that roster (`0x1ecee..0x1ed11`), flushes the current
+map, writes the snapshot, and copies both working archives to the current
+slot. This is the ordinary Save merge, not retention of pre-fight active
+records. Create, Delete and Inn Exit use the same snapshot writer after their
+own roster publication. Map transitions flush map resources, not `maze.chr`;
+the sole CHR archive-update site is `0xe96d`, in snapshot `0xe938`.
+New Game initializes the working roster from the original starting archive
+before its first snapshot (`0x20b39..0x20c38`).
+
+The camera is already map 28 `(18,4)`, with facing kept, when Save starts.
+The live map flush still uses the previously loaded map, DS `c0cc`:
+`0x1ed29` -> `0x265f4`. Snapshot `0x1ed2e` precedes the new-map resource read
+at `0x1ed40` -> `0x21f4d`. Thus map 28 is not loaded before the write. A
+capture must save the relocated camera and the live old-map changes without
+manufacturing a visit to map 28.
+
+The repeat slot-06 capture compares all 301 XEEN and 444 DARK members.
+Only XEEN `maze0078.dat` (stepped bits) and `maze0078.mob` (Lord Xeen's
+position removed) change on that side; Events and map-28 resources remain
+unchanged. Only DARK `maze.chr` and `maze.pty` change. The latter has the
+relocated position, completion, Scepter and quest/game flags. The former
+retains the fight's XP, conditions, equipment, spell/SP changes and award 42
+on all six members. Four recipients gain 150,000 XP each; Ella and Seymour
+gain none and retain Eradicated, with Unconscious/Dead respectively. Zippo
+retains Unconscious and his XP. Each after-slot is byte-identical to its CUR.
+The earlier stale-roster claim compared XEEN's inactive CHR and is withdrawn.
+
+Completion DS `efe8` is a word at party offset 604, within the 1530-byte
+saved block. Startup zero initialization and New Game's initial party leave
+it clear; Load restores it from that save. It is independent of the CFG
+marker used by the title. The ending sets both this word and game flag 75.
+Loading an earlier save restores its earlier completion value even if `V`
+remains available at the title.
+
+The ordinary write failure behavior below also applies to the ending:
+DOS may terminate on an I/O error and does not provide rollback. MMModern's
+planned retry uses the approved Inn recovery extension. Detailed member
+hashes and field differences: `D:/MModern-re/m92/archive-diff.json` and
+`map-diff.json`; [M92 evidence](evidence.md#m92-clouds-ending-evidence).
+
 ## Roster and list
 
 **Resource inspection, high confidence:** the initial `maze.chr` has 30 records

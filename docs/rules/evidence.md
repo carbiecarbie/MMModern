@@ -2012,6 +2012,84 @@ World edition kept outside the repository in `D:/Projetos/MMODERN videos/`
 No caption strip appears with the installed digital device, and no text-mode
 flash is visible at the hand-off.
 
+## M92 Clouds ending evidence
+
+**DOS static, high within the cited routines; DOSBox capture and complete
+archive-member comparison, 2026-10-25.** Baseline `1260911`; the DAT/EXE
+identities and calibrated sprite, palette, timing, keyboard, archive and
+audio contracts remain those in [cutscenes](cutscenes.md#evidence-and-calibration).
+Capstone 5.0.7 x86-16; DAT MZ header `0x56c0`, data base `0x4d890`; EXE
+header `0x2e30`, data base `0x1d880`. Work scripts, disassembly, hashes,
+tables and resource extents stay in `D:/MModern-re/m92/`, outside this repo.
+
+The ending's `0x28c0d` call and the settled Inn's `0x1d7a4` both invoke
+forced Save `0x1ebc2(1)`. Compiler structure-copy direction is verified at
+`0x5d31`; active-record merge `0x1ecee..0x1ed11` and archive member update
+`0xe96d` -> `0x45e36` explain the live roster saved in the repeat capture.
+The full 745-member comparison uses the existing save codec with an exact
+decode/encode round trip for each input archive. Both after numbered slots
+are byte-identical to the corresponding CUR. Per-member payload hashes are
+in `archive-diff.json`; map payload differences are in `map-diff.json`.
+
+| Capture observation | Result |
+| --- | --- |
+| XEEN, all 301 members compared | Only `maze0078.dat` stepped bits and `maze0078.mob` change; Lord Xeen's record moves from `(5,9)` to `(-128,-128)` |
+| DARK, all 444 members compared | Only `maze.chr` and `maze.pty` change |
+| Active CHR | Four recipients gain 150,000 XP, all six gain award 42, terminal conditions and fight changes remain; the two excluded recipients are Ella and Seymour |
+| Party | Map 78 `(5,8)` North becomes map 28 `(18,4)` West; Scepter retained; completion set; quest flag 23 cleared, game flags 60 and 75 set; seconds 62482 -> 62597 |
+| Events and map 28 | No member changes on either side |
+
+The maintainer reports Ella (third member) and Seymour (sixth) defeated.
+Their stored conditions include Eradicated; Ella also has Unconscious,
+Seymour Dead. Zippo retains Unconscious but qualifies for XP. The earlier
+claim that the ending lost XP, award 42 and deaths compared the inactive
+XEEN roster; it is withdrawn. This closes the contradictory-save stop and
+removes the proposed retained-roster mechanism from M92.
+
+The six known pre-fight class/level/XP records and the calibrated total-XP
+helper reproduce `0071001722` in the older ending recording. This confirms
+the normal-case score formula, not a particular split among that older
+run's eligible recipients. Its post-ending archive pair no longer exists.
+The repeat slot-06 pair is the archive evidence; do not conflate the two runs.
+
+The video now lives at `D:/Projetos/MMODERN videos/old/ENDING.avi`:
+266.756826 seconds, 320x200 ZMBV, 70.086 fps, PCM 48 kHz stereo. Analysis
+artifacts `ending-1fps.png` and `ending-scenes.json` record timestamped
+frames and detected cuts. The image was inspected, including the fixed
+score and both key prompts. Speech, fades, loading and measured strides
+prevent a universal fixed duration; see the [stage table](cutscenes.md#clouds-ending-presentation).
+
+The external EXE manifest resolves all reached compressed frame families
+and all 73 parade selectors, using the installed archive indexes and
+validated EXE string pointers. A source-equivalent Python decoder checks
+the compressed-frame output extent and bit provenance. This is neither
+compiled-reader execution nor a rendered/audible comparison with MMModern.
+
+**Maintainer DOSBox checks, reported and accepted 2026-10-25:**
+
+1. `showtime` plays the complete ending and returns to the title; Load
+   restores the group at the same position.
+2. `bloopers` plays nothing and gameplay continues.
+3. `V` follows `D` and `C`, plays the ending with score `1234567890`,
+   and returns to the title.
+4. Space, Escape and a click do not skip the animations. A click does not
+   acknowledge a score page; a key, including Escape, does. A key during
+   a scroll only shortens that scroll.
+5. Panel clocks are initially hidden. G, O, B, R reveals a 12-hour civil
+   clock and play time; both advance. Reopening the panel hides them again.
+6. Castle Xeen is absent on map 27. **Beacon limitation:** no Beacon was
+   marked in the castle, so its refusal was not exercised. That gate
+   retains **DOS static, high** evidence at `0x2feb3..0x2fee2`; it is not
+   labeled DOSBox-confirmed.
+
+These reports corroborate the stated observations, not clock rollback/DST,
+the long-time formatter, caption-only hardware mode, I/O failure, or every
+save field. Those retain their explicit static or source-equivalent labels.
+The maintainer accepted Part 0 with the Beacon limitation. Detailed evidence,
+the completed checklist and proposed quirk rows are in
+`D:/MModern-re/m92/findings.md`. Implementation and milestone acceptance
+remain separate gates.
+
 ## REA record locators
 
 The exported evidence bundle contains complete records. The stable IDs below

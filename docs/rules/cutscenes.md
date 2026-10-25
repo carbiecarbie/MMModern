@@ -209,12 +209,153 @@ World-logo frame loops poll without aborting; any key only shortens the two
 boundary holds (`0xd444..0xd458`, `0xd579..0xd58d`). Mouse does not skip;
 Ctrl-Q remains global. Completion/Escape returns to the fresh DAT title above.
 
-The [M91 estimate](../milestone-91-plan.md#part-0---xeenexe-calibration-and-dos-evidence)
+The [M91 estimate](../milestone-91-plan.md#key-decisions)
 includes startup persistence and visual randomness; neither is an approved
 addition to the Clouds-only scope.
 
-**Ending kinds only:** compressed full-screen frame playback (`0x89ce..0x8b3b`),
-horizontal page merge/rotation and layered motion (`0x91ae` onward), dynamic
-monster/attack resources (`0x93a0` onward), presentation-random score reveal and
-terminal acknowledgement holds. Detailed score/input behavior is **Reference
-only / Unknown in DOS**; this list does not certify the ending or its readers.
+## Clouds ending entry and save
+
+**DOS static, high; save corroborated by the maintainer's slot-06 capture,
+2026-10-25.** The complete member comparison is in
+`D:/MModern-re/m92/archive-diff.json`; provenance is in
+[M92 evidence](evidence.md#m92-clouds-ending-evidence).
+
+Opcode 30 enters the DAT tail at `0x28b98`. In order, it sets the saved
+completion word (DS `efe8`), copies an eight-character fixed marker and
+its terminator into CFG, sets game flag 75, and moves the party to map 28
+`(18,4)` without changing facing. The Sixth Mirror is used facing West,
+which explains the West facing in the resulting save. It keeps the Scepter.
+It then writes the 30-byte CFG, performs forced Save to the current slot
+(`0x28c0b..0x28c12`), requests song fade 207, turns Efx and Music on, computes
+the score, and sets `XEENCOMMAND=ENDGAME,<ten-digit score>,0`
+(`0x28c13..0x28d23`). The sound switches written in that save are consequently
+the switches from before the forced-on stores. The save flushes the live
+map before loading resources for map 28; see [party persistence](party.md#clouds-ending-save).
+
+The CFG marker is a fixed string, not an encoded score. Startup compares its
+first eight bytes (`0xb61e..0xb634`), independently of saved party completion.
+Its NUL at byte 18 also clears the low byte of DAT's word-copy/dword-copy
+optimization option (`0xb451`, setter `0x3f866`, consumers including
+`0x3f8a2..0x3f8c3`). DAT's comparison does not need the terminator. The EXE
+loads CFG for hardware selection but its ending does not test this marker
+or write CFG; the write at `0xd345` belongs to the separate Darkside path.
+MMModern's approved settings-store location requires only a won boolean.
+
+Clouds mirror result 40 (`showtime`) jumps to `0x28bd1`
+(`0x2801b..0x2802a`), skipping the victory, marker, flag and movement stores.
+It still writes CFG and performs the ordinary forced Save, computes the real
+score, plays the same ending and returns to a fresh title. The party's saved
+position and completion remain as they were. Result 62 (`bloopers`) calls the
+empty far-return routine `0x26773`, then exits the Event at `0x28d50`
+(`0x2804e..0x28061`); it plays nothing and does not execute the next Event line.
+
+Other Options offers `V` only when the marker matched and XEEN.CC is present
+(`0xc1f7..0xc206`, `0xc320..0xc34b`, `0xc5c0..0xc5d3`). Before a win the row
+and hotkey are absent, rather than drawn disabled. In installed World its
+row follows `D` and `C`, at y=103. It hands off with fixed score `1234567890`;
+the EXE displays those ten digits. This title-only path writes no party,
+counter or won state. EXE completion returns through the fresh DAT title
+described above, with a new program start mark.
+
+## Clouds ending score
+
+**DOS static, high; calibrated against the recorded `0071001722`.** Every
+active member contributes, including terminal-condition members. The helper
+at `0x1e336..0x1e3bb` reconstructs total earned XP from raw saved XP, class
+and permanent level. For normal positive levels, with `L = level - 1`:
+
+| L | Added to raw XP |
+| --- | --- |
+| 0 | 0 |
+| 1..11 | class constant shifted left by L-1 |
+| 12 or more | 1,024,000 × (L-11) + class constant shifted left by 10 |
+
+Class constants, in class-ID order 0..9, are 1500, 2000, 2000, 1500, 2000,
+1000, 1500, 1500, 1500, 2000 (`0x501b0`, DS `2920`). The score loop sums the
+32-bit results, divides by active count, divides by 10,000, then multiplies
+by 100,000, truncating at each division (`0x28c38..0x28c98`). It adds hours
+× 100 + minutes from the real play-time seconds (`0x28c9b..0x28cea`), omitting
+seconds. Arithmetic retains DOS widths: the XP sum/product wrap at 32 bits;
+the time quotient is narrowed to 16 bits, the hour product and minute
+addition wrap at 16 bits and are sign-extended before adding to the score.
+The output is an unsigned decimal field of minimum width ten (`%010lu`).
+
+The six slot-05 pre-fight total-XP values are 6,855,710; 6,851,510; 6,457,562;
+8,133,740; 6,874,910; 6,869,910. Sum 42,043,342 plus the 600,000 kill reward
+gives 42,643,342. Dividing by six and then 10,000 gives 710; the XP score is
+71,000,000. Saved play time 62,545 seconds is 17:22:25, contributing 1722;
+the result is `0071001722`. The score reads live records after forced Save.
+The fixture needs class and level as well as raw XP; raw XP alone cannot
+reproduce this calculation. The new capture distributes 150,000 XP to four
+eligible members, with the same aggregate reward.
+
+## Clouds ending presentation
+
+**DOS static, high for the stated operations; DOSBox timestamps refer to the
+maintainer's uninterrupted ending capture.** Full resource extents, decoded
+payload hashes, selector order, tables and aligned disassembly remain outside
+the repository in `D:/MModern-re/m92/`. Every ending scene uses XEEN.CC after
+the initial INTRO.CC scratch allocation. Scene speech uses VOCs, not CD tracks.
+
+| Stage | DOS operations and timing | Capture time |
+| --- | --- | --- |
+| Castle, pyramid and vortex | `0x89ce..0x905b`: 41 `prec` compressed frames, six `cast`/`casb` pairs and three `darklrd` sprites, 20 cycling `vort` frames; initial 15-tick hold and three-tick animation holds; `xeenlaff`, `dark1..3`, `darklaff`, original FM cues and mixer changes | Castle begins 49.553 s; pyramid 59.341 s; destruction transitions 62.965..66.261 s; vortex ends around 82 s |
+| Burlock and throne | `0x905b..0x94cf`: start `endgame.m`, show `later.raw` for a 100-tick minimum including setup, horizontal throne-page reveal with measured stride, layered people/Crodo and scaled king; `king1..3` with one-tick movement and three-tick mouth holds | Later around 82..89 s; throne around 89..94.969 s; king close-up 94.969..about 103 s |
+| Mirror and parade | `0x94d0..0x9d16`: mirror-room pan, nine scale steps, measured-stride king/Crodo entrance; 73 monster selectors, each with eight idle frames, three attack frames, 15-tick attack hold and seven-tick power hold; sky rotates through its 320 columns | Room around 103..107.938 s; zoom/parade 107.938..240.860 s |
+| Scroll and score | `0x9d19..0xa694`: shared scroll, 20 heading frames held one tick, 30 random-digit frames and ten settling frames held two ticks, 38 downward steps, then two key acknowledgements | Scroll 240.860..243.157 s; score reveal and both prompts 243.157..255.927 s |
+| Last king and return | `0xa695..0xa82a`: `king4.voc`, random mouth frames 1..6 at three ticks, caption completion, closing scroll, common EXE shutdown | King after 255.927 s; closing 261.963..263.076 s; title fades in after the intervening black |
+
+Detected cuts are frame measurements; approximate boundaries above are bracketed
+by the timestamped one-frame-per-second sheet. Loading, palette retraces,
+measured pan stride and speech completion contribute to elapsed time. Prompt
+waits depend on the player's acknowledgement. Do not replace these with one
+fixed whole-ending duration or tune random digits to match the recording.
+
+The only new resource kind is the compressed full-screen frame. EXE
+`0x18c70` calls decoder `0x1cd42`; its 314-leaf adaptive tree, 4096-byte history,
+initial fill word and big-endian expanded count match the pinned reader's
+contract. All 61 reached frames declare 64,000 output bytes. A
+**source-equivalent Python audit**, not execution of C++ or DOS, reconstructed
+all outputs: 37 accept complete word reads, while 24 end with one final byte.
+Tracking bit provenance proves that the absent low byte of that prefetched
+word is never consumed. This does not certify an unchecked two-byte read in
+the future C++ reader; it must handle a final partial word safely.
+An independent run with that absent byte set to 0 and 255 produces identical
+64,000-byte outputs and matches all 24 provenance-audit hashes.
+Other resources use the existing RAW, PAL, sprite, VOC and song families.
+The manifest resolves 146 parade MON/ATT resources, 69 unique attack VOCs,
+six power VOCs, the scene voices and shared scroll assets, with no missing
+member. No compiled-reader or rendered-equivalence claim follows from that
+inventory.
+
+The score uses original sprite digits, with frames 20..29 drawn at x=64+19n.
+The rightmost digit settles first; the ten-entry branch table at `0xa82c`
+selects fall-through stores from `0x9fc7..0xa02b`. Random digits use range
+20..29 (`0x9ded`, `0x9f9b`), power sounds use 0..5 (`0x9bb1`), and king mouth
+selection uses 1..6 (`0x93fe`, `0xa75a`). All call range helper `0x1cbdc`,
+which takes the low 15 bits of time-mixed source `0x1cc27`, reduces modulo
+the inclusive range and adds its lower bound. The source samples DOS time
+with hundredths and mixes three private words with carry/rotate operations.
+It is independent of Journey randomness. The parsed final-score digits come
+from the command's ten-character field, not from that random source.
+
+**DOSBox corroboration:** the maintainer's final Part 0 checks confirm
+`showtime`, `bloopers`, title `V`, animation input, keyboard-only score
+acknowledgements and the scroll's key behavior
+([runtime results](evidence.md#m92-clouds-ending-evidence)).
+
+**Input differs from the pinned ending.** Animation polls only update the
+key result; they do not branch on Escape or ordinary keys. Mouse clicks do
+not acknowledge the two text pages: `0xa4e5..0xa4ee` and
+`0xa670..0xa679` wait for a nonzero keyboard result, including Escape.
+Each page clears keys at entry. Scrolls retain the shared any-key terminal
+image behavior; the caller then continues. Ctrl-Q remains global process
+quit. The pin's `WAIT`/`Subtitles::wait` instead lets key or mouse input
+abort stages. Caption indexing is also DOS-specific: loader
+`0x1189e..0x11906` builds a word-offset table from every NUL. Alamar uses
+record 8 (`0x8e4a..0x8e69`), while both the king's first speech and final
+`king4` speech use record 10 (`0x9371..0x938d`, `0xa6d6..0xa6f5`). Record 9
+is the congratulatory speech; DOS skips it even for `king1..3`, showing
+the final Darkside instruction instead when captions are enabled. Keep
+that original mismatch. The same no-digital-device condition and two-tick
+strip cadence as M91 apply. Speech-off in the DAT is not that condition.
