@@ -591,7 +591,8 @@ existing float of flying monsters.
 
 ## Experience and monster treasure
 
-**Evidence: Reference only.** Symbols: `giveExperience`, the death branch in
+**Evidence: Reference only for the XP division below; the treasure and scripted
+death-hook findings carry their own DOS evidence labels.** Symbols: `giveExperience`, the death branch in
 `attack2`, `MONSTER_ITEM_RANGES`, `Party::giveTreasure` and `arePacksFull`.
 
 On a kill, XP is divided by the eligible recipient count with integer division.
@@ -696,6 +697,9 @@ test: map 41 slot **28** sets game flag 11; map 78 slot 8 sets flag 60, clears
 quest flag 23 and gives award 42 to every active member, including dead members
 (`0x2c1e9..0x2c21a`); map 29 slot 27 sets flag 104. Melee, combat spells/Poison
 Volley and exploration Shoot/spells use the shared rule, published with kill XP.
+The pin's `combat.cpp` tests slot 20 for map 41; the original program and MOB
+binding require slot 28, as recorded in
+[the scripted death-hook difference](../scummvm-differences.md).
 
 Outside map 85, Clouds species 89 stages the Scepter before random treasure
 (`0x2c30b..0x2c337`; normal drop starts `0x2c33b`). Pending weapon slot 0 gets

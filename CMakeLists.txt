@@ -240,8 +240,12 @@ if(BUILD_TESTING)
  target_link_libraries(mmodern_scripted_original_tests PRIVATE mmodern_test_save_support)
  add_test(NAME xeen_scripted_original COMMAND mmodern_scripted_original_tests "${MMODERN_XEEN_DATA_DIR}")
  set_tests_properties(xeen_scripted_original PROPERTIES LABELS fast)
+ add_executable(mmodern_clouds_progression_tests tests/XeenCloudsProgressionTests.cpp)
+ target_link_libraries(mmodern_clouds_progression_tests PRIVATE mmodern_test_save_support)
+ add_test(NAME xeen_clouds_progression COMMAND mmodern_clouds_progression_tests "${MMODERN_XEEN_DATA_DIR}")
+ set_tests_properties(xeen_clouds_progression PROPERTIES LABELS fast)
 
-	foreach(preset broken-armor train-ready injured-dead poisoned monster-control monster-damage party-healing m76-spells combat-items m79-playtest m80-playtest m80-arena m80-arena-maxed m81-drops m81-fullpacks m81-event m84-playtest-trap m84-playtest-label m84-playtest-save m85-playtest-label m85-playtest-run m85-playtest-trap m86-playtest-fall m86-playtest-moon-ray m86-playtest-border m87-inn m87-three m87-shangrila m88-roster m89-lord-xeen m89-clan-king m89-draco m89-dragons m89-trolls paths)
+	foreach(preset broken-armor train-ready injured-dead poisoned monster-control monster-damage party-healing m76-spells combat-items m79-playtest m80-playtest m80-arena m80-arena-maxed m81-drops m81-fullpacks m81-event m84-playtest-trap m84-playtest-label m84-playtest-save m85-playtest-label m85-playtest-run m85-playtest-trap m86-playtest-fall m86-playtest-moon-ray m86-playtest-border m87-inn m87-three m87-shangrila m88-roster m89-lord-xeen m89-clan-king m89-draco m89-dragons m89-trolls m90-newcastle m90-golem m90-illusion m90-high-magic m90-darzog m90-clouds m90-castle m90-winterkill paths)
 		add_test(NAME xeen_test_save_${preset} COMMAND mmodern_test_save_tests
 			"${MMODERN_XEEN_DATA_DIR}" ${preset} "${CMAKE_CURRENT_SOURCE_DIR}")
 	endforeach()

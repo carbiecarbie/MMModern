@@ -115,6 +115,42 @@ constexpr std::uint32_t kM81EventSeed=4;
 constexpr int kM81EventOrcRow=4;
 
 void prepare(XeenSaveSnapshot &snapshot,const std::string &preset) {
+    if(preset.rfind("m90-",0)==0) {
+        prepare(snapshot,"m78-playtest");
+        // Original Event entry cells/facings; Clouds faces away from its return stair.
+        snapshot.camera=preset=="m90-newcastle"?XeenCamera{12,11,12,XeenDirection::South}:
+            preset=="m90-golem"?XeenCamera{20,4,4,XeenDirection::South}:
+            preset=="m90-illusion"?XeenCamera{45,7,14,XeenDirection::North}:
+            preset=="m90-high-magic"?XeenCamera{12,6,15,XeenDirection::South}:
+            preset=="m90-darzog"?XeenCamera{15,4,13,XeenDirection::North}:
+            preset=="m90-clouds"?XeenCamera{27,15,2,XeenDirection::North}:
+            preset=="m90-castle"?XeenCamera{27,16,29,XeenDirection::North}:
+            XeenCamera{32,8,13,XeenDirection::North};
+        snapshot.questItems.fill(0);snapshot.questFlags.fill(false);
+        snapshot.journey->purse->gold=0;snapshot.journey->purse->gems=0;
+        if(preset=="m90-newcastle") {
+            snapshot.journey->purse->gold=50000;snapshot.questItems[26]=15;
+            for(auto id:snapshot.activeRosterIds)snapshot.characters[id].awards[13]=1;
+        }
+        if(preset=="m90-golem")for(unsigned item:{7u,5u,6u})snapshot.questItems[item]=1;
+        if(preset=="m90-illusion")snapshot.journey->purse->gems=300;
+        if(preset=="m90-high-magic")snapshot.questItems[3]=1;
+        if(preset=="m90-darzog")snapshot.questItems[2]=1;
+        if(preset=="m90-clouds") {
+            snapshot.questFlags[23]=true;
+            for(auto id:snapshot.activeRosterIds)snapshot.characters[id].awards[13]=1;
+            // Ten attempts per game: the last two charge gems, not gold.
+            snapshot.journey->purse->gold=11000;snapshot.journey->purse->gems=1100;
+        }
+        if(preset=="m90-castle") {
+            snapshot.questItems[28]=1;
+            auto &first=snapshot.characters[snapshot.activeRosterIds.front()];
+            for(auto &item:first.weapons)if(item.frame==1 || item.frame==13)item={};
+            for(auto &item:first.armor)if(item.frame==2)item.frame=0;
+            first.weapons[0]={0,34,0,13};
+        }
+        return;
+    }
     if(preset.rfind("m89-",0)==0) {
         prepare(snapshot,"m78-playtest");
         snapshot.camera=preset=="m89-lord-xeen"?XeenCamera{78,5,8,XeenDirection::North}:
@@ -469,7 +505,7 @@ void prepare(XeenSaveSnapshot &snapshot,const std::string &preset) {
 
 void generateTestSave(const GameInstallation &installation,const std::string &preset,
         const std::filesystem::path &output) {
-    if (preset!="m89-lord-xeen" && preset!="m89-clan-king" && preset!="m89-draco" && preset!="m89-dragons" && preset!="m89-trolls" && preset!="m88-roster" && preset!="m87-inn" && preset!="m87-three" && preset!="m87-shangrila" && preset!="broken-armor" && preset!="train-ready" && preset!="injured-dead" && preset!="poisoned" && preset!="monster-control" && preset!="monster-damage" && preset!="party-healing" && preset!="m76-spells" && preset!="combat-items" && preset!="m78-playtest" && preset!="m78-one-holder" && preset!="m79-playtest" && preset!="m80-playtest" && preset!="m80-arena" && preset!="m80-arena-maxed" && preset!="m81-drops" && preset!="m81-fullpacks" && preset!="m81-event" && preset!="m84-playtest-trap" && preset!="m84-playtest-label" && preset!="m84-playtest-save" && preset!="m85-playtest-label" && preset!="m85-playtest-run" && preset!="m85-playtest-trap" && preset!="m86-playtest-fall" && preset!="m86-playtest-moon-ray" && preset!="m86-playtest-border")
+    if (preset!="m90-newcastle" && preset!="m90-golem" && preset!="m90-illusion" && preset!="m90-high-magic" && preset!="m90-darzog" && preset!="m90-clouds" && preset!="m90-castle" && preset!="m90-winterkill" && preset!="m89-lord-xeen" && preset!="m89-clan-king" && preset!="m89-draco" && preset!="m89-dragons" && preset!="m89-trolls" && preset!="m88-roster" && preset!="m87-inn" && preset!="m87-three" && preset!="m87-shangrila" && preset!="broken-armor" && preset!="train-ready" && preset!="injured-dead" && preset!="poisoned" && preset!="monster-control" && preset!="monster-damage" && preset!="party-healing" && preset!="m76-spells" && preset!="combat-items" && preset!="m78-playtest" && preset!="m78-one-holder" && preset!="m79-playtest" && preset!="m80-playtest" && preset!="m80-arena" && preset!="m80-arena-maxed" && preset!="m81-drops" && preset!="m81-fullpacks" && preset!="m81-event" && preset!="m84-playtest-trap" && preset!="m84-playtest-label" && preset!="m84-playtest-save" && preset!="m85-playtest-label" && preset!="m85-playtest-run" && preset!="m85-playtest-trap" && preset!="m86-playtest-fall" && preset!="m86-playtest-moon-ray" && preset!="m86-playtest-border")
         throw std::invalid_argument("Unknown test-save preset: "+preset);
     const auto target=XeenSaveFile::resolve(output,installation);
     // Reuse the native alias/reparse-aware path guard for the repository too.
@@ -489,7 +525,7 @@ void generateTestSave(const GameInstallation &installation,const std::string &pr
             nearby.lifecycle=XeenActorLifecycle::Present;nearby.accounted=false;
         }
     }
-    if(preset.rfind("m89-",0)==0 || preset=="m88-roster" || preset.rfind("m87-",0)==0 || preset=="m79-playtest" || preset=="m80-playtest" || preset=="m80-arena" || preset=="m80-arena-maxed" || preset.rfind("m84-playtest-",0)==0 || preset.rfind("m85-playtest-",0)==0 || preset.rfind("m86-playtest-",0)==0) {
+    if(preset.rfind("m90-",0)==0 || preset.rfind("m89-",0)==0 || preset=="m88-roster" || preset.rfind("m87-",0)==0 || preset=="m79-playtest" || preset=="m80-playtest" || preset=="m80-arena" || preset=="m80-arena-maxed" || preset.rfind("m84-playtest-",0)==0 || preset.rfind("m85-playtest-",0)==0 || preset.rfind("m86-playtest-",0)==0) {
         const auto map=candidate.camera.mapId;
         const auto actors=XeenActorApproach::actorsFromResources(inputs.maps.loadObjects(inputs.assets,map),inputs.resources.loadMonsterStatistics());
         auto &table=candidate.map(map).monsters;

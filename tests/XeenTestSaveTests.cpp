@@ -50,10 +50,10 @@ void paths(const GameInstallation &installation,const fs::path &repository,const
     check(contents=="preserve existing file","existing file was overwritten");
 }
 
-void preset(const GameInstallation &installation,const std::string &name,const fs::path &directory) {
+void preset(const GameInstallation &installation,const std::string &name,const fs::path &directory,const fs::path &existing={}) {
     mmodern::XeenProgramState programState;
-    const auto output=directory/(name+".mmsave");
-    developer::generateTestSave(installation,name,output);
+    const auto output=existing.empty()?directory/(name+".mmsave"):existing;
+    if(existing.empty())developer::generateTestSave(installation,name,output);
     const auto saved=XeenSaveFile::read(XeenSaveFile::resolve(output,installation.root));
     // Independent original-data providers, followed by the normal startup restore.
     training_test::Inputs inputs(installation);
@@ -67,6 +67,36 @@ void preset(const GameInstallation &installation,const std::string &name,const f
     check(flow.prepareJourneyFrame(flow.ticket(),[]{}) && flow.presentJourney(flow.ticket()),"restored preset is not quiet");
     const auto captured=XeenSaveState::capture(inputs.signature,party,camera,flags,world);
     check(XeenSaveFormat::encode(saved)==XeenSaveFormat::encode(captured),"restore replayed or changed state");
+    if(name.rfind("m90-",0)==0) {
+        const auto expected=name=="m90-newcastle"?XeenCamera{12,11,12,XeenDirection::South}:
+            name=="m90-golem"?XeenCamera{20,4,4,XeenDirection::South}:
+            name=="m90-illusion"?XeenCamera{45,7,14,XeenDirection::North}:
+            name=="m90-high-magic"?XeenCamera{12,6,15,XeenDirection::South}:
+            name=="m90-darzog"?XeenCamera{15,4,13,XeenDirection::North}:
+            name=="m90-clouds"?XeenCamera{27,15,2,XeenDirection::North}:
+            name=="m90-castle"?XeenCamera{27,16,29,XeenDirection::North}:XeenCamera{32,8,13,XeenDirection::North};
+        check(save_test::sameCamera(camera,expected),"M90 preset gate position");
+        std::cout<<"Loaded "<<name<<" map "<<camera.mapId.number<<" ("<<camera.x<<","<<camera.y<<") facing "<<unsigned(camera.direction)<<"\n";
+        // Each start must bind an original line-0 Event, including its facing.
+        // Clouds starts facing away from its South-facing return stair.
+        const auto events=inputs.events.load(camera.mapId);
+        bool gate=false;
+        const auto facing=name=="m90-clouds"?XeenDirection::South:XeenDirection(camera.direction);
+        for(const auto &r:events.records)gate|=r.x==camera.x && r.y==camera.y && r.line==0 &&
+            (unsigned(r.direction)==unsigned(facing) || unsigned(r.direction)==4);
+        check(gate,"M90 start must match the original Event cell and facing");
+        for(auto id:party.party.activeRosterIds())check(party.roster.at(id).canAct() && party.roster.at(id).permanentLevel==30,"M90 level-30 party");
+        if(name=="m90-newcastle")check(party.purse->gold==50000 && party.questItems.at(26)==15 &&
+            party.roster.at(party.party.activeRosterIds()[0]).awards[13] && !flags.isSet(45),"Newcastle deed, credits and Crodo prerequisites");
+        if(name=="m90-golem")check(party.questItems.at(7)==1 && party.questItems.at(5)==1 && party.questItems.at(6)==1 && !party.questItems.at(26),"Golem keys without credits");
+        if(name=="m90-illusion")check(party.purse->gems==300 && !party.questItems.at(3),"Skull purchase prerequisites");
+        if(name=="m90-high-magic")check(party.questItems.at(3)==1,"High Magic key");
+        if(name=="m90-darzog")check(party.questItems.at(2)==1,"Darzog key");
+        if(name=="m90-clouds")check(party.questFlags.isSet(23) && party.purse->gold>=1100 && party.purse->gems>=110,"Both currencies for Slick's games");
+        if(name=="m90-castle")check(party.questItems.at(28)==1 && party.roster.at(party.party.activeRosterIds()[0]).weapons[0].id==34,"Cupie Doll and Slayer Sword");
+        if(name=="m90-winterkill")check(!party.questFlags.isSet(18) && !flags.isSet(0) && !flags.isSet(1) && !flags.isSet(3) && !flags.isSet(8),"Winterkill before its quest");
+        return;
+    }
     if(name.rfind("m89-",0)==0) {
         const auto expected=name=="m89-lord-xeen"?XeenCamera{78,5,8,XeenDirection::North}:
             name=="m89-clan-king"?XeenCamera{41,30,25,XeenDirection::North}:
@@ -394,13 +424,13 @@ void preset(const GameInstallation &installation,const std::string &name,const f
 
 int main(int argc,char **argv) {
     try {
-        check(argc==4,"usage: test <installation> <preset|paths> <repository>");
+        check(argc==4 || argc==5,"usage: test <installation> <preset|paths> <repository> [existing-save]");
         const auto installation=xeenTestInstallationDetector().detect(fs::u8path(argv[1]));
         check(bool(installation),"original installation missing");
         TemporaryDirectory directory;
         const std::string name=argv[2];
         if (name=="paths") paths(*installation,fs::u8path(argv[3]),directory.path);
-        else preset(*installation,name,directory.path);
+        else preset(*installation,name,directory.path,argc==5?fs::u8path(argv[4]):fs::path{});
         std::cout<<"Test-save "<<name<<" passed\n";return 0;
     } catch (const std::exception &e) {std::cerr<<e.what()<<'\n';return 1;}
 }

@@ -446,6 +446,23 @@ MOB slots and Events. Each starts beside a walkable fight cell:
 Generate each with `mmodern_test_save <preset> <game-dir> <new-path.mmsave>`.
 The tool refuses an existing path; keep an untouched copy for repeated play.
 
+The M90 presets use the same level-30 `m78-playtest` party and original
+monsters. Their quest items and currency are limited to the named gate:
+
+| Preset | Start and purpose |
+| --- | --- |
+| `m90-newcastle` | Map 12 `(11,12)` South, 50,000 gold, 15 King's Mega Credits (item 26), and Rescued Crodo (award 13). Buy the deed, then visit Emerson and the Taxman for each building stage; Artemus supplies the permit. |
+| `m90-golem` | Map 20 `(4,4)` South, Yak Stone (7), Stone of a Thousand Terrors (5), Golem Stone (6), no credits. Enter Yak Temple; the other Golems are on maps 12 and 8. Collect credits in 79, 80 and 81. |
+| `m90-illusion` | Map 45 `(7,14)` North, 300 gems. Use the skull to buy the Tower of High Magic key. |
+| `m90-high-magic` | Map 12 `(6,15)` South, High Magic key (3). Enter through the Reaper and climb from 55 to Darzog's key at 58 `(7,12)`. |
+| `m90-darzog` | Map 15 `(4,13)` North, Darzog's key (2). Enter 59 and reach Crodo at 61 `(7,6)`. |
+| `m90-clouds` | Map 27 `(15,2)` North, quest 23 and award 13, 11,000 gold and 1,100 gems (ten attempts per game). Slick's first two games cost 100/1,000 gold; the other two cost 10/100 gems. South at this cell returns to map 62; head North into Clouds. |
+| `m90-castle` | Map 27 `(16,29)` North, Cupie Doll (28) and first member's Slayer Sword equipped. Open the gate to 75 `(6,0)` and climb through 76 and 77 to the M89 Lord Xeen approach on 78. |
+| `m90-winterkill` | Map 32 `(8,13)` North, before Randon's quest. Speak to him, clear each monster wave and ring the bell at `(13,1)`. |
+
+Positions and trigger facings come from each map's original Event records.
+All other M90 purses start empty; none of these presets pre-completes its gate.
+
 `m88-roster` starts at the same Vertigo door with the original six active
 members and 22 named characters lodged there. Only slots 12 (Gnome, male)
 and 21 (Human, female) are free. Create twice, then C shows the full-roster

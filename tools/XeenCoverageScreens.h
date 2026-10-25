@@ -24,7 +24,7 @@ entry. Dialog identifiers below are reference identifiers, not commercial text.
 | PartyDialog | supported | Roster list, recruit 1-4, Up/Down, Delete, Remove, Create, F1-F6 sheet and Exit | XeenEventFlow (XeenInnFlow.cpp) |
 | Quests | supported | Quest Items, Current Quests, Auto Notes; arrows/keypad, Page Up/Down, Home/End, mouse buttons, Exit; exploration and Items, including combat | XeenEventFlow |
 | Choose123 / HowMuch | unsupported | Numeric Choose123 opcode 48 and TakeOrGive HowMuch unavailable | XeenEventInterpreter |
-| SelectElement | unsupported | Fire, Electricity, Cold, Acid, cancel | — |
+| SelectElement | supported | Fire, Electricity, Cold, Acid, cancel | XeenCastingUi |
 | LloydsBeacon | supported | Set and Return across resource-backed Clouds primary maps; same-map Return retains actors | XeenCastingUi |
 | Teleport | supported | Distance, cancel | XeenCastingUi |
 | TownPortal | supported | Five towns, each town's run position, cancel and item use in combat | XeenCastingUi |
@@ -34,12 +34,12 @@ entry. Dialog identifiers below are reference identifiers, not commercial text.
 | Reaper / Golem / Dwarf / Sphinx locations | supported | Keyed/refusal sequences, VOC speech and Effects-off captions | XeenEventFlow / XeenEntranceScene |
 | OtherOptions / endings | unsupported | Clouds/Darkside intros and endings; World ending; Escape works | XeenTitleFlow |
 | Exploration main screen | supported | Movement, strafe, Shoot, Cast, Rest, Bash, Dismiss, Quests, Map, Info, Quick Ref, gem, portraits, Danger Sense/Spot Secret Doors/Direction Sense indicators | XeenEventFlow |
-| Combat main screen | partial | Attack, Block, Run, Shoot effects, Cast, charged-item Use (including Town Portal), Quick Fight/options, targets, turns, Info, Quick Ref, skill indicators; Run refuses when the run position's automatic Event faces the party | XeenEncounterFlow |
+| Combat main screen | supported | Attack, Block, Run, Shoot effects, Cast, charged-item Use (including Town Portal), Quick Fight/options, targets, turns, Info, Quick Ref, skill indicators; Run uses the original map run position, including automatic Events after combat | XeenEncounterFlow |
 | CharacterInfo | supported | Stats and popups, Items, Awards, Quick Ref, Exchange, Exit; original combat Exchange refusal | XeenCharacterDialogFlow |
 | ControlPanel | supported | Save, Save As, Load, Quit, Mr Wizard (in combat too), Efx, Music, Speech, Text work | XeenEventFlow |
-| ItemsDialog | partial | Categories, Equip, Remove, Discard, transfer, Use, Quest, Exit; free combat equipment/Discard/transfer, combat-party recipients, main-screen Use; sheet Use refused in combat; Recharge/Enchant/Gold supported | XeenInventoryFlow |
+| ItemsDialog | supported | Categories, Equip, Remove, Discard, transfer, Use, Quest, Exit; free combat equipment/Discard/transfer, combat-party recipients, main-screen Use; original sheet Use refusal in combat; Recharge/Enchant/Gold supported | XeenInventoryFlow |
 | Input / StringInput / NumericInput | partial | Save names, Bank amounts, Arena level, Event passwords and mirrors work; Choose123 and TakeOrGive HowMuch unavailable | XeenTitleFlow / XeenEventPresenter |
-| SpellsDialog / CastSpell / SpellOnWho | partial | Select, Buy, Info, rows, scroll, Cast, New, member choice, cancel work; effects limited by Spells dimension | XeenCastingUi |
+| SpellsDialog / CastSpell / SpellOnWho | supported | Select, Buy, Info, rows, scroll, Cast, New, member choice, cancel; all 76 Clouds spell effects | XeenCastingUi |
 | Tavern | supported | Food, Drink, Tip, Rumors, member selection, Sign In and Exit work | XeenEventFlow |
 | LocationMessage / NPC | partial | Acknowledge and Yes/No; other NPC modes unavailable | XeenEventPresenter |
 | PleaseWait | unclassified | Reference helper; no separately identified equivalent screen | — |

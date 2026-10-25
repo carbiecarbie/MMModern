@@ -1056,6 +1056,21 @@ playable coverage remains in project status. The complete classification and
 limits are in [Event dispatch](rules/world-events.md#event-dispatch), with
 [offsets and calibration](rules/evidence.md#event-dispatch).
 
+**Off-map Event helpers (M90, 2026-10-25).** The CD program does not implicitly
+dispatch `(102,102)`. Entry sets line 0 and copies the party's X/Y into the
+script position (`WORLD/XEEN.DAT` file offsets `0x26a8e..0x26aa7`); the scan
+matches X/Y, line and facing (`0x26b1f..0x26bf6`). Within the complete Event
+routine `0x26774..0x291f6`, only CallEvent replaces that position with its
+operands (`0x283ac..0x283b9`), and Return restores the saved position
+(`0x283d0..0x283e3`). TeleportAndContinue restarts from the party position
+(`0x27127 -> 0x26a8e`). **Calibrated DOS static, high confidence**, using the
+retained Space/flagged-cell entry evidence and the Newcastle payment call to
+`(101,112)`; installed DAT SHA-256 matches the [Event evidence](rules/evidence.md#event-dispatch).
+The audit's uncalled `(102,102)` scripts therefore stay unreachable through
+ordinary Event entry. This is a dispatch result, not a claim that off-map
+subroutines in general are dead: explicit CallEvent helpers still run.
+MMModern's `XeenEventInterpreter` follows the same entry and call semantics.
+
 | Behavior | Evidence | Where | Notes |
 | --- | --- | --- | --- |
 | Flagged cells run their Events after every completed outer input, including unmatched keys, cancelled actions and dialog closing. Idle frames and nested responses do not add passes. | Main check `0xd18c..0xd1b7`, unmatched path `0xd2e9`, return `0xd5e5`; full Event entry/WhoWill clear `0x26774/0x26797`. Save returns to the panel at `0x1f1e9`; its close makes the visit's one pass. Calibrated DOS static, 2026-10-21/23. | Exploration Event dispatch; Load/New Game entry follows map rebuild and first view. | Repeated trap damage, rewards, labels and prompts are intentional. A no-match flagged call still performs entry and tail work. |

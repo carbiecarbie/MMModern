@@ -1,6 +1,9 @@
 # Milestone 90 plan - Clouds verification sweep
 
-**Tier B. Status: planned (not started).** Roadmap
+**Tier B. Status: Parts A-C implemented; Part D postponed, not accepted.**
+The maintainer postponed the gate-by-gate play-through (2026-10-25) to a
+later play-through of the whole Clouds quest and authorized an independent
+review in its place, approved after one round of test fixes. Roadmap
 [step 16](roadmap.md#next-arc-finishing-the-games-systems), after
 [M89](milestone-89-plan.md). Save v20, schema 9 and content 14 unchanged;
 work stops if an M44 digest, the save format or an RNG draw would change.
@@ -79,7 +82,12 @@ do (a few cases, no process witness):
 - [ ] The maintainer plays each gate from its preset to the next, then the
   M89 presets to the Sixth Mirror. Doubtful behaviour is compared in DOSBox
   with the late test saves (slots 04/05, map 78) or the mirror words from a
-  new game.
+  new game. Postponed to a whole-quest play-through, which should watch
+  most what the tests restore past: earning the stones and credits in order
+  (maps 80 and 81, reloading emptied credit cells, every Taxman return),
+  both towers and Darzog's key, Slick's games and doll delivery, every
+  Winterkill wave with the bell rung before and after, and Castle Xeen
+  walked continuously to the Sixth Mirror's notice.
 
 ## Defects found
 
