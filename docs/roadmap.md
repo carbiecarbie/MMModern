@@ -178,9 +178,9 @@ the Pyramid and the Darkside and World endings wait for the Darkside arc.
     `WORLD/XEEN.EXE`, which holds the original cutscenes): one presenter for
     the original cutscenes (screens, CD speech and music on the existing
     audio owner, skip keys), the Clouds intro from Other Options, and the
-    title lightning with its sound. The Darkside intro comes too only if the
-    same presenter makes it cheap; otherwise it waits for the Darkside arc
-    (maintainer, 2026-10-24).
+    title lightning with its sound (Part 0 found it unreachable on the CD
+    title). Planned in [M91](milestone-91-plan.md); the startup path and the
+    Darkside intro moved to step 20 (maintainer, 2026-10-25).
 18. **Clouds ending and score** (Tier A; save v21 for a real play-time
     counter, maintainer 2026-10-24). `CutsceneEndClouds` with DOS's state
     changes and score (party experience plus real play time; Part 0 settles
@@ -200,8 +200,16 @@ the Pyramid and the Darkside and World endings wait for the Darkside arc.
     the rest; M82 plays the CD's Pro Audio Spectrum driver), chosen as the
     installer did; an opt-in switch while playing would be an approved
     deviation (maintainer, 2026-10-21).
+20. **Startup and the Darkside intro** (after step 18, on the step-17
+    presenter): every CD launch runs `WORLD/XEEN.EXE`'s Darkside path before
+    the title, the full story until it has been watched to the end and a
+    short logo sequence afterwards; Other Options `D` plays the full story
+    and resets that state. Where MMModern keeps the "watched" state (DOS
+    writes `XEEN.CFG`) is decided with this step. M91 Part 0 estimated 8-13
+    developer days ([cutscene rules](rules/cutscenes.md#startup-dispatch)).
 
-Order: 15 → 16 → 17 → 18. Step 16 may run alongside step 17's Part 0.
+Order: 15 → 16 → 17 → 18 → 20; step 19 is independent. Step 16 may run
+alongside step 17's Part 0.
 
 ## Medium-term objective
 

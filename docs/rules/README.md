@@ -17,6 +17,7 @@ is implemented.
 | [Time, rest and conditions](time-and-conditions.md) | Bash, calendar, eight-hour checks, per-action recovery, fatigue, temporary effects, Rest, outdoor movement skills, terrain arrival and falls, food, bank interest, Training, Tavern options and Temple prices/effects |
 | [World Events](world-events.md) | Wall items, cell walls and surfaces, physical Event replacement/deletion, Spawn, the Battle Master and Warzone, and map-state lifetimes; If/SetVar/TakeOrGive value modes, rewards, lock picking, Gold Veins and random draws; teleports, mirrors and typed passwords; entrance scenes; the Quests and Awards screens |
 | [Audio](audio.md) | CD promus commands, stereo, ticks/fades, song selection, saved options, fixed-layout VOC playback and waits, CD addressing/lifecycle, Text off, mix balance, output recovery and remaining gaps |
+| [Cutscenes](cutscenes.md) | Calibrated EXE primitives, startup intro dispatch, timing and explicit scene-evidence gaps |
 | [Evidence and unresolved questions](evidence.md) | Exact original identity, REA evidence, calibration, original file offsets, limitations and the next questions to resolve |
 
 The reading order for implementation is the relevant rule, its evidence label,

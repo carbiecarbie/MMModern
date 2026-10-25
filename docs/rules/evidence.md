@@ -1981,6 +1981,37 @@ Outside the Inn, that routine leaves through its tail at once
 song starts only when the flag is clear. Only a title Load straight into the
 Inn therefore arrives with the flag still set.
 
+## M91 Clouds intro runtime checks
+
+**DOSBox observation (maintainer, 2026-10-25),** five recordings of the CD
+World edition kept outside the repository in `D:/Projetos/MMODERN videos/`
+(analysis in `D:/MModern-re/m91/dosbox/`). They corroborate the
+[cutscene rules](cutscenes.md):
+
+1. Other Options shows View Darkside Intro (`D`), View Clouds Intro (`C`)
+   and, in a game already won, View Clouds End (`V`). Any other key, such
+   as `j`, closes Other Options and returns to the menu.
+2. A launch with the configuration's seen word at zero plays the full
+   Darkside story (about two minutes) before the World title.
+3. `C` plays the Clouds intro in about 90 s: the NWC and JVC logos, the
+   stars and the Clouds of Xeen title, the lake and the tower, the tower
+   room, then the hands open the parchment (about 0.5 s) on the tableau of
+   King Burlock, Crodo, Lord Xeen and Xeen's Pet, where Crodo speaks for
+   about 34 s. The hands close it (about 1.1 s), about half a second of
+   black follows, and the World title fades in without its menu.
+4. Space at the first logo and during Crodo's speech changes nothing: every
+   scene cut of that run matches the uninterrupted run within one BIOS tick
+   (0.06 s).
+5. Escape during Crodo's speech ends it at once; the hands close the
+   parchment as at the natural end and the title returns.
+6. Escape while the hands hold the parchment opens it at once to the full
+   tableau, and the intro continues with Crodo's speech.
+7. The mouse pointer is hidden while Crodo speaks, and a left click does
+   nothing.
+
+No caption strip appears with the installed digital device, and no text-mode
+flash is visible at the hand-off.
+
 ## REA record locators
 
 The exported evidence bundle contains complete records. The stable IDs below

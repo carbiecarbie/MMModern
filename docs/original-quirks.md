@@ -1110,3 +1110,25 @@ Exact audiovisual overlap and partial DOS framebuffer updates remain Unknown.
 | <a id="sv-inn-title-load-song"></a> Loading an Inn save from the title opens the Inn in silence until Exit. | DOS `DS:8d28`: title set `0xbcee`, reader `0x394cb`, Inn start/set `0x394d4..0x394f4`, outside-Inn clear `0x39c13..0x39c47`; [M88 runtime checks](rules/evidence.md#m88-runtime-checks). | `XeenProgramState::innSongStarted`, title entry, gameplay audio and Inn flow; `XeenInnTests.cpp`. | The process flag is never saved. Gameplay entry outside the Inn and Inn Exit clear it; Sign In after New/Load and panel Load into the Inn play `inn.m`. **ScummVM:** the pin's `PartyDialog::execute` starts the Inn song unconditionally (`dialogs_party.cpp:81`); master not rechecked. |
 | <a id="sv-inn-return-reload"></a> Inn Exit reloads its map and rebuilds monsters even when returning to the same map, then runs the ordinary flagged-cell Event pass at the door. | Map load/actors `0xd086..0xd0d3`, pass `0xd18c/0xd1a5`; service status 2 completes the Event at `0x27b1f..0x27b3b`. | `XeenEncounterFlow::innReturn`, `XeenEventFlow::handleInn`. | Pending treasure totals/readiness clear at gameplay entry (`0xcfe3..0xcff7`), retaining stale array bytes as M81 does. No Tavern Event continuation resumes. **ScummVM:** the pin reloads only a different map (`locations.cpp:973`); master not rechecked. |
 | <a id="inn-sign-in-dawn-mode"></a> Sign In advances a day without Rest, food use, recovery, condition checks, dawn clears or fatigue. | Tavern mode 17 in `addTime`, `0x263b3..0x26491`; Sign In `0x1b754..0x1b794`. | `XeenServiceDayCandidate`, `XeenEncounterFlow::signIn`. | Merchant regeneration precedes interest on destination day % 10 == 1. Before 05:00 the new-day latch remains pending; at/after 05:00 it is consumed without clearing effects. Dead, Stoned and Eradicated members do not refuse Sign In. |
+
+
+## Clouds intro reference differences
+
+<a id="sv-clouds-intro-presentation"></a>
+**DOS static, high; calibrated 2026-10-25:** XEEN.EXE's mouth and elapsed-wait
+arrays have 31 entries per row (`0x1f448`, `0x1f258`; indexed in
+`0x85a7..0x88a9`). The Xeen animation counter advances before modulo in voice
+slots nine and thirteen (`0x85c0..0x86d0`). These original table boundaries and
+updates are the fidelity rule for M91; no original table bytes are copied here.
+
+**ScummVM:** the pin groups the same flat data into 32-entry rows, shifting
+114 reachable mouth entries and 131 wait entries, and omits that counter
+increment. It also uses 50 Hz frame waits where DOS uses BIOS elapsed holds
+and retrace-limited redraws, localized subtitle/TTS holds where DOS uses the
+hardware-gated `special.bin` strip, and broader key/mouse cancellation.
+M91 follows the calibrated EXE semantics; master not rechecked. See
+[cutscene rules](rules/cutscenes.md#clouds-sequencing-rules) for offsets and
+[settings/input](rules/cutscenes.md#settings-and-input) for the predicates.
+Location: [M91 presenter and Clouds intro](milestone-91-plan.md#part-b---clouds-intro-and-title-lightning),
+not yet implemented; this entry records the reference behavior to be rejected,
+not a claim of playable cutscenes.

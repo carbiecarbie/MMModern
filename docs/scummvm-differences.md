@@ -19,7 +19,7 @@ documented in its source. Each item links to its entry in
 
 **Revisions.** MMModern pins ScummVM `6814ee9b` (2026-09-06). Every item was
 rechecked against ScummVM master `55895ab0` on 2026-10-16, except the new
-terrain/Tavern/Temple/recovery/spell/movement/entrance/audio/party/scripted-map entries explicitly marked "pin: differs; master not
+terrain/Tavern/Temple/recovery/spell/movement/entrance/audio/party/scripted-map/cutscene entries explicitly marked "pin: differs; master not
 rechecked". At that check, since the pin the
 Xeen engine has had only a code-style edit and the Xeen data in `mm.dat` is
 unchanged apart from its version number, so the earlier entries are marked
@@ -592,3 +592,9 @@ in [project status](project-status.md#known-gaps):
   Swords of Xeen.
 
 Next steps are in the [roadmap](roadmap.md).
+
+
+The following is a documented fidelity decision for M91, not an implemented
+player-facing difference yet:
+
+- **Clouds intro.** [Original mouth timing, animation, captions and skip rules](original-quirks.md#sv-clouds-intro-presentation) follow the calibrated EXE: 31-entry mouth tables, BIOS/retrace pacing, hardware-gated caption strip and Escape/scroll-specific skipping. The intro remains unsupported until M91 implementation. Pin: differs; master not rechecked.
