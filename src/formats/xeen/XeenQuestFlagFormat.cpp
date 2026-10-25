@@ -8,7 +8,7 @@ XeenCloudsQuestFlags XeenQuestFlagFormat::parseClouds(const std::vector<std::uin
 		throw std::runtime_error("maze.pty truncated before complete quest-flag field (747 bytes required)");
 	XeenCloudsQuestFlags::Values values{};
 	for (std::size_t i = 0; i < values.size(); ++i)
-		values[i] = (bytes[kOffset + i / 8] & (1u << (i % 8))) != 0;
+		values[i] = (bytes[kOffset + i / 8] & (0x80u >> (i % 8))) != 0; // DOS 0x24f07: MSB first.
 	return XeenCloudsQuestFlags(values);
 }
 XeenWorldFlags XeenQuestFlagFormat::parseWorldFlags(const std::vector<std::uint8_t> &bytes) {
@@ -16,7 +16,7 @@ XeenWorldFlags XeenQuestFlagFormat::parseWorldFlags(const std::vector<std::uint8
 	if (bytes.size() < offset + 16)
 		throw std::runtime_error("maze.pty truncated before complete world-flag block");
 	XeenWorldFlags flags;
-	for (std::size_t i=0;i<flags.kCount;++i) flags.values[i]=(bytes[offset+i/8] & (1u<<(i%8)))!=0;
+	for (std::size_t i=0;i<flags.kCount;++i) flags.values[i]=(bytes[offset+i/8] & (0x80u>>(i%8)))!=0;
 	return flags;
 }
 }

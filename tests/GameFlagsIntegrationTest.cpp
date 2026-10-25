@@ -6,6 +6,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <cstdio>
 #include <iostream>
 #include <stdexcept>
 #include <string>
@@ -46,8 +47,8 @@ int main(int argc, char *argv[]) {
 		// uses the independently specified offset rather than the parser constant.
 		constexpr std::size_t kExpectedCloudsFlagsOffset = 659;
 		for (int index = 0; index < static_cast<int>(XeenGameFlags::kCount); ++index) {
-			const bool expected = ((bytes[kExpectedCloudsFlagsOffset +
-				static_cast<std::size_t>(index) / 8] >> (index % 8)) & 1U) != 0;
+			const bool expected = (bytes[kExpectedCloudsFlagsOffset +
+				static_cast<std::size_t>(index) / 8] & (0x80U >> (index % 8))) != 0;
 			check(flags.isSet(index) == expected,
 				"loaded flag differs from original maze.pty bit");
 			if (flags.isSet(index))
@@ -55,6 +56,22 @@ int main(int argc, char *argv[]) {
 		}
 
 		check(flags.values().size() == 256, "unexpected Clouds flag count");
+		// DOS packs these banks MSB first and MMModern used to read them LSB
+		// first. Both orders agree only while every initial bit is zero, which
+		// these checks pin: game, world and quest flags, and the DAT bitmaps.
+		check(bytes.size() >= 747, "real maze.pty lacks the quest-flag bank");
+		for (std::size_t offset = 659; offset < 747; ++offset)
+			check(bytes[offset] == 0, "initial maze.pty flag banks are not all zero");
+		for (unsigned number = 1; number < 100; ++number) {
+			char name[16];
+			std::snprintf(name, sizeof(name), "maze%04u.dat", number);
+			if (!assets.hasInitialResource(name))
+				continue;
+			const auto dat = assets.readInitialResource(name);
+			check(dat.size() >= 892, "initial DAT is too small for its bitmaps");
+			for (std::size_t offset = 828; offset < 892; ++offset)
+				check(dat[offset] == 0, "initial DAT seen/stepped bitmaps are not all zero");
+		}
 		static_cast<void>(flags.isSet(0));
 		static_cast<void>(flags.isSet(25));
 		static_cast<void>(flags.isSet(255));

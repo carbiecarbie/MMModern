@@ -122,9 +122,11 @@ XeenMapGeometry XeenMapFormat::parseDat(const std::vector<std::uint8_t> &bytes) 
 	map.tavernTips = reader.byte();
 	for (int set = 0; set < 2; ++set) {
 		for (std::size_t i = 0; i < map.cells.size(); i += 8) {
-			const auto bits = reader.byte(); // File::syncBitFlags: least significant bit first.
+			// DOS stepped bits are most significant bit first (0x1204a, 0x11eaa);
+			// seen bits share the layout, though no DOS access to them was found.
+			const auto bits = reader.byte();
 			for (unsigned bit = 0; bit < 8; ++bit) {
-				const bool value = (bits & (1U << bit)) != 0;
+				const bool value = (bits & (0x80U >> bit)) != 0;
 				if (set == 0)
 					map.cells[i + bit].seen = value;
 				else

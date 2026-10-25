@@ -56,7 +56,7 @@ void complete(const XeenEventExecutionStepResult&r){check(std::holds_alternative
 
 void valuesAndLoading() {
  // Generic world flags occupy the separate packed block before Clouds quests.
- for(unsigned bit=0;bit<128;++bit) {Bytes packed(747);packed[723+bit/8]=1u<<(bit%8);const auto before=packed;
+ for(unsigned bit=0;bit<128;++bit) {Bytes packed(747);packed[723+bit/8]=0x80u>>(bit%8);const auto before=packed;
   const auto world=XeenQuestFlagFormat::parseWorldFlags(packed);
   for(unsigned i=0;i<128;++i)check(bool(world.values[i])==(i==bit),"world-flag offset/bit/domain isolation");
   check(packed==before,"world-flag parser wrote original bytes");
@@ -69,13 +69,13 @@ void valuesAndLoading() {
 		check(!XeenCloudsQuestFlags::validIndex(i),"wide index accepted");rejects([&]{empty.isSet(i);});rejects([&]{empty.set(i);});}
 	check(empty.values()==XeenCloudsQuestFlags::Values{},"failed set changed flags");
 	// Every serialized bit individually: adjacent Darkside and padding bits are ignored.
-	for(int bit=0;bit<64;++bit){Bytes b(747,0);b[739+bit/8]=1u<<(bit%8);const auto before=b;
+	for(int bit=0;bit<64;++bit){Bytes b(747,0);b[739+bit/8]=0x80u>>(bit%8);const auto before=b;
 		auto flags=XeenQuestFlagFormat::parseClouds(b);
-		for(int i=0;i<30;++i)check(flags.isSet(i)==(i==bit),"packed offset/LSB/domain isolation");
+		for(int i=0;i<30;++i)check(flags.isSet(i)==(i==bit),"packed offset/MSB/domain isolation");
 		check(b==before,"parser wrote source");}
 	Bytes b(747,255);b[739]=0x85;b[740]=0x42;b[741]=0x18;b[742]=0xe0;
 	auto flags=XeenQuestFlagFormat::parseClouds(b);
-	for(int i=0;i<30;++i)check(flags.isSet(i)==bool(b[739+i/8]&(1u<<(i%8))),"nonzero mixed field");
+	for(int i=0;i<30;++i)check(flags.isSet(i)==bool(b[739+i/8]&(0x80u>>(i%8))),"nonzero mixed field");
 	b.resize(850,255);check(XeenQuestFlagFormat::parseClouds(b).values()==flags.values(),"tail affects flag domain");
 	for(int n:{0,10,738,739,740,741,742,743,744,745,746})rejects([&]{XeenQuestFlagFormat::parseClouds(Bytes(n));});
 	Bytes roster(30*XeenCharacter::kSerializedSize);auto full=resource(2);full[1]=1;full[3]=0; // Existing duplicate/count diagnostics.

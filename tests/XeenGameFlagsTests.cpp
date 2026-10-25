@@ -51,20 +51,20 @@ void checkOnlyFlag(const std::vector<std::uint8_t> &bytes,
 
 void testLiteralPositionsDetectOffByOne() {
 	std::vector<std::uint8_t> bytes(692, 0);
-	bytes[659] = 0x01;
-	checkOnlyFlag(bytes, 0, "literal byte 659 bit 0 must be flag 0 only");
-
-	std::fill(bytes.begin(), bytes.end(), 0);
 	bytes[659] = 0x80;
-	checkOnlyFlag(bytes, 7, "literal byte 659 bit 7 must be flag 7 only");
+	checkOnlyFlag(bytes, 0, "literal byte 659 bit 7 must be flag 0 only");
 
 	std::fill(bytes.begin(), bytes.end(), 0);
-	bytes[660] = 0x01;
-	checkOnlyFlag(bytes, 8, "literal byte 660 bit 0 must be flag 8 only");
+	bytes[659] = 0x01;
+	checkOnlyFlag(bytes, 7, "literal byte 659 bit 0 must be flag 7 only");
 
 	std::fill(bytes.begin(), bytes.end(), 0);
-	bytes[690] = 0x80;
-	checkOnlyFlag(bytes, 255, "literal byte 690 bit 7 must be flag 255 only");
+	bytes[660] = 0x80;
+	checkOnlyFlag(bytes, 8, "literal byte 660 bit 7 must be flag 8 only");
+
+	std::fill(bytes.begin(), bytes.end(), 0);
+	bytes[690] = 0x01;
+	checkOnlyFlag(bytes, 255, "literal byte 690 bit 0 must be flag 255 only");
 
 	std::fill(bytes.begin(), bytes.end(), 0);
 	bytes[658] = 0xff;
@@ -78,13 +78,13 @@ void testLiteralPositionsDetectOffByOne() {
 void testBitOrderAndBoundaries() {
 	auto bytes = emptyPartyBytes();
 	bytes[659] = 0x81;
-	bytes[660] = 0x01;
-	bytes[690] = 0x80;
+	bytes[660] = 0x80;
+	bytes[690] = 0x01;
 	const auto flags = XeenGameFlagsFormat::parseClouds(bytes);
 	check(flags[0] && flags[7] && flags[8] && flags[255],
 		"flags 0, 7, 8 and 255");
-	check(!flags[1] && !flags[6] && !flags[9] && !flags[254],
-		"least-significant-bit-first order");
+	check(!flags[1] && !flags[6] && !flags[9] && !flags[15] && !flags[248] && !flags[254],
+		"most-significant-bit-first order");
 
 	std::fill(bytes.begin() + XeenGameFlagsFormat::kCloudsFlagsOffset,
 		bytes.begin() + XeenGameFlagsFormat::kCloudsRequiredPartySize, 0xff);
@@ -108,8 +108,8 @@ void testOnlyTheCloudsBlockIsRead() {
 
 	bytes[662] = 0x52;
 	const auto pattern = XeenGameFlagsFormat::parseClouds(bytes);
-	check(pattern[25] && !pattern[24] && !pattern[26] && !pattern[27] &&
-		pattern[28] && !pattern[29] && pattern[30] && !pattern[31],
+	check(pattern[25] && !pattern[24] && !pattern[26] && pattern[27] &&
+		!pattern[28] && !pattern[29] && pattern[30] && !pattern[31],
 		"mixed bit pattern");
 }
 
@@ -125,18 +125,18 @@ void testSizesInputPurityAndLifetime() {
 	}
 
 	auto exact = emptyPartyBytes(691);
-	exact[659] = 1;
+	exact[659] = 0x80;
 	const auto original = exact;
 	const auto exactFlags = XeenGameFlagsFormat::parseClouds(exact);
 	check(exactFlags[0] && exact == original, "exact size and input purity");
 
 	auto oneExtra = emptyPartyBytes(692);
-	oneExtra[690] = 0x80;
+	oneExtra[690] = 0x01;
 	check(XeenGameFlagsFormat::parseClouds(oneExtra)[255],
 		"692-byte resource accepted");
 
 	auto larger = emptyPartyBytes(812);
-	larger[690] = 0x80;
+	larger[690] = 0x01;
 	const XeenGameFlags owned(XeenGameFlagsFormat::parseClouds(larger));
 	larger.clear();
 	check(owned.isSet(255), "result owns flags after source destruction");

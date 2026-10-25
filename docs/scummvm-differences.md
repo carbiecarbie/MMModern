@@ -328,6 +328,10 @@ The DOS dispatch comparisons below specify the faithful per-input rule;
 implemented coverage remains in project status. These entries were checked
 against the pin; master was not rechecked.
 
+- Flags and the stepped-cell bitmap are packed most-significant bit first,
+  as DOS reads them; the pin uses least-significant bit first. The original
+  initial data holds no set bit, so the difference is not observable today.
+  [Evidence](original-quirks.md#sv-flag-bit-order).
 - Either mouse button is the same coordinate-only click in the CD game.
   A 3D click normally runs manual Events without Space's Wait. The pin
   distinguishes right-click and turns a view click into Space.

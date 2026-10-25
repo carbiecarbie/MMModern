@@ -14,7 +14,8 @@ public:
 	//   engines/mm/xeen/party.cpp, Party::synchronize() and
 	//   BlacksmithWares::synchronize()
 	//   engines/mm/xeen/item.cpp, XeenItem::synchronize()
-	//   engines/mm/shared/xeen/file.cpp, File::syncBitFlags()
+	// Bits are packed most-significant bit first, as DOS reads them (0x24f07),
+	// not least-significant first as File::syncBitFlags() does.
 	// Before this block maze.pty has 28 bytes of party/configuration fields,
 	// 576 bytes of Clouds shop inventory, 34 bytes of uint16 values, 20 bytes
 	// of uint32 values, and one rested byte: 28 + 576 + 34 + 20 + 1 = 659.

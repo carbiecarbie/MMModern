@@ -42,7 +42,8 @@ void testGeometry() {
 	check(map.difficulties[5] == -1 && map.difficulties[6] == -128 &&
 		map.difficulties[7] == 127, "signed metadata");
 	check(map.cells[0].seen && !map.cells[1].seen && map.cells[7].seen &&
-		map.cells[8].seen && map.cells[1].stepped, "bitmaps / bit order");
+		!map.cells[8].seen && map.cells[15].seen && map.cells[6].stepped &&
+		!map.cells[1].stepped, "bitmaps / MSB-first bit order");
 	dat[781] = 0x80;
 	dat[480] = 0x0e; // (0,15), independently different from (0,0).
 	map = XeenMapFormat::parseDat(dat);
