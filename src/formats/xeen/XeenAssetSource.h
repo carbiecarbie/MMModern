@@ -37,7 +37,7 @@ public:
  void blackenScene();
 	// Transient NPC composition uses the existing cache, never the world surface.
 	void drawNpc(IndexedFrame &frame, std::uint8_t portraitId, std::size_t portraitFrame);
-	void drawDialogSprite(IndexedFrame &,const char *,unsigned,int,int, XeenSceneArchive selection = XeenSceneArchive::Current,int scale=0);
+ void drawDialogSprite(IndexedFrame &,const char *,unsigned,int,int, XeenSceneArchive selection = XeenSceneArchive::Current,int scale=0,unsigned flags=0);
  IndexedFrame cursorImage();
  IndexedFrame cursorImage(XeenSceneArchive selection);
  IndexedFrame restDreamImage();

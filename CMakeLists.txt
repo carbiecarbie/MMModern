@@ -35,6 +35,8 @@ add_library(mmodern_xeen STATIC
 	src/formats/xeen/XeenCdAudio.cpp
 	src/games/xeen/PromusDriver.cpp
 	src/formats/xeen/XeenDosText.cpp
+ src/formats/xeen/XeenCutsceneData.cpp
+ src/games/xeen/XeenCutscene.cpp
 	src/formats/xeen/XeenMonsterFormat.cpp
 	src/formats/xeen/XeenGameplayContextFormat.cpp
 	src/games/xeen/XeenActorApproach.cpp
@@ -135,6 +137,7 @@ add_library(mmodern_app STATIC
 	src/app/XeenFmSource.cpp
 	src/app/XeenTitle.cpp
 	src/app/XeenTitleFlow.cpp
+ src/app/XeenCutsceneFlow.cpp
 	src/platform/XeenSaveFile.cpp
 	src/app/XeenGameplay.cpp
 	src/app/XeenEncounterFlow.cpp
@@ -705,6 +708,7 @@ if(BUILD_TESTING)
     add_executable(mmodern_title_flow_tests tests/XeenTitleFlowTests.cpp tests/XeenTitleApplicationControls.cpp)
     target_link_libraries(mmodern_title_flow_tests PRIVATE mmodern_app mmodern_xeen SDL2::SDL2)
     target_link_options(mmodern_title_flow_tests PRIVATE
+      "LINKER:--wrap,_ZN7mmodern9SdlWindow23presentationNanosecondsEv"
       "LINKER:--wrap,_ZNK7mmodern11Application12playGameplayERKNS_20XeenGameplayServicesENS_10XeenCameraERKSt8optionalINSt10filesystem7__cxx114pathEEbNS_18XeenEncounterEntryES5_IjE"
       "LINKER:--wrap,_ZNK7mmodern9SdlWindow15showInteractiveERKNS_12IndexedFrameERKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEERKNS0_18FrameUpdateHandlerERKSt8functionIFbvEERKSF_IFSt8optionalIS1_EvEERKSF_IFS9_vEE"
       "LINKER:--wrap,_ZNK7mmodern16XeenTextRenderer6renderERKNS_12IndexedFrameERKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEERKNS_21XeenTextRenderOptionsE"
@@ -965,6 +969,10 @@ if(BUILD_TESTING)
  add_test(NAME xeen_digital_audio COMMAND mmodern_digital_audio_tests "${MMODERN_XEEN_DATA_DIR}")
  set_tests_properties(xeen_digital_audio PROPERTIES LABELS fast ENVIRONMENT "SDL_AUDIODRIVER=dummy")
  add_executable(mmodern_digital_sites_tests tests/XeenDigitalSitesTests.cpp)
+ add_executable(mmodern_cutscene_tests tests/XeenCutsceneTests.cpp)
+ target_link_libraries(mmodern_cutscene_tests PRIVATE mmodern_app mmodern_xeen mmodern_scummvm_xeen)
+ add_test(NAME xeen_cutscene COMMAND mmodern_cutscene_tests "${MMODERN_XEEN_DATA_DIR}" "${CMAKE_CURRENT_BINARY_DIR}/cutscene-tests")
+ set_tests_properties(xeen_cutscene PROPERTIES LABELS fast ENVIRONMENT "SDL_AUDIODRIVER=dummy")
  target_link_libraries(mmodern_digital_sites_tests PRIVATE mmodern_app mmodern_xeen mmodern_scummvm_xeen)
  add_test(NAME xeen_digital_sites COMMAND mmodern_digital_sites_tests "${MMODERN_XEEN_DATA_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}/docs/rules/audio.md")
  set_tests_properties(xeen_digital_sites PROPERTIES LABELS fast ENVIRONMENT "SDL_AUDIODRIVER=dummy")

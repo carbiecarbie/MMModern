@@ -277,7 +277,13 @@ std::optional<IndexedFrame> XeenTitleFlow::handle(const PlayerAction &action,con
   setScreen(Screen::Menu);break;
  case Screen::Other:
   if(escape)setScreen(Screen::Menu);
-  else if(buttonIndex(_services.text,"OTHER",key))notice("not supported yet",Screen::Other);else return {};
+  else if(const auto button=buttonIndex(_services.text,"OTHER",key)) {
+   if(*button==1 && _services.cloudsContext && _services.cloudsIntroCheck) {
+    const auto error=_services.cloudsIntroCheck();
+    if(!error.empty())notice(error,Screen::Other);
+    else {XeenSessionEntry entry;entry.kind=XeenSessionEntry::Kind::CloudsIntro;_entry=std::move(entry);}
+   }else notice("not supported yet",Screen::Other);
+  }else setScreen(Screen::Menu);
   break;
  case Screen::Credits:
   // DOS 0x0bb62..0x0bccd: any accepted input, Escape included, advances exactly one page.

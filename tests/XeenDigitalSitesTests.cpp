@@ -19,7 +19,7 @@ struct Site {const char *offset,*names,*owner,*status;};
 const Site sites[]={
  {"0xb112","fire.voc","XeenEventFlow","implemented"},
  {"0xb294","xeenlaff.voc","XeenEventFlow","implemented"},
- {"0xbfcf","elect.voc","Title lightning","gap: step 15"},
+ {"0xbfcf","elect.voc","Title lightning","unreachable: installed CD World"},
  {"0x116a0","scream.voc","`XeenEventFlow::beginFall`","implemented"},
  {"0x1170c","unnh.voc","`XeenEventFlow::advanceFall`","implemented"},
  {"0x1abf7","trainin2.voc","XeenTrainingFlow","implemented"},
@@ -53,13 +53,14 @@ const Site sites[]={
 std::string lower(std::string name){for(auto &c:name)if(c>='A' && c<='Z')c+='a'-'A';return name;}
 void inventory(Inputs &in,const char *path) {
  std::ifstream file(path);std::string rules((std::istreambuf_iterator<char>(file)),{});
- check(std::size(sites)==32,"Clouds/shared physical VOC count");unsigned gaps=0;
+ check(std::size(sites)==32,"Clouds/shared physical VOC count");unsigned gaps=0,unreachable=0;
  for(const auto &site:sites) {
   const auto row="| `"+std::string(site.offset)+"` | "+site.names+" | Efx | "+site.owner+" | "+site.status+" |";
   check(rules.find(row)!=rules.npos,("Missing Part 0 site/name/gate/owner: "+std::string(site.offset)).c_str());
   gaps+=std::string(site.status).find("gap")==0;
+  unreachable+=std::string(site.status).find("unreachable")==0;
  }
- check(gaps==1,"Title lightning exclusion must stay explicit");
+ check(gaps==0 && unreachable==1,"Unreachable CD title lightning row must stay explicit");
  std::set<std::string> names;
  for(const auto &record:in.statistics) {
   auto end=std::find(record.raw.begin()+0x33,record.raw.end(),0);

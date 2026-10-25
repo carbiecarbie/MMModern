@@ -1129,6 +1129,6 @@ hardware-gated `special.bin` strip, and broader key/mouse cancellation.
 M91 follows the calibrated EXE semantics; master not rechecked. See
 [cutscene rules](rules/cutscenes.md#clouds-sequencing-rules) for offsets and
 [settings/input](rules/cutscenes.md#settings-and-input) for the predicates.
-Location: [M91 presenter and Clouds intro](milestone-91-plan.md#part-b---clouds-intro-and-title-lightning),
-not yet implemented; this entry records the reference behavior to be rejected,
-not a claim of playable cutscenes.
+Location: `games/xeen/XeenCutscene.cpp`, `app/XeenCutsceneFlow.cpp` and
+`formats/xeen/XeenCutsceneData.cpp`. The audio owner's absent mixer-level
+counterpart is recorded in [cutscene settings](rules/cutscenes.md#settings-and-input).

@@ -1,4 +1,5 @@
 #include "app/XeenTitleFlow.h"
+#include "app/XeenCutsceneFlow.h"
 #include "formats/xeen/XeenAssetSource.h"
 #include "games/xeen/XeenInstallationDetector.h"
 #include "XeenSaveTestSupport.h"
@@ -14,6 +15,24 @@ void titleApplicationControls(const char *);
 void titlePreview(const IndexedFrame &,const std::string &);
 namespace {
 using Screen=XeenTitleFlow::Screen;
+void cutsceneMouse() {
+ std::uint64_t now=0;XeenCutscene scene;XeenCutscene::Segment s;s.name="mouse ignored";s.frames=4;s.ticks=2;
+ s.compose=[](const auto &)->XeenCutscene::Frame{return {};};scene.segments.push_back(s);
+ XeenCutsceneFlow::Services providers;providers.clock=[&]{return now;};providers.read=[](const auto &){return std::vector<std::uint8_t>{};};
+ providers.draw=[](auto &,const auto &){};providers.audio=[](const auto &,auto){};providers.digitalBusy=[](auto){return false;};
+ XeenCutsceneFlow flow(std::move(scene),providers);unsigned cycles=0;bool injected=false;
+ SdlWindow::FrameUpdateHandler h=[](const auto &)->std::optional<IndexedFrame>{throw std::runtime_error("ignored mouse became an action");};
+ h.ignoreMouse=true;h.protectAllKeys=true;h.presentationClock=[&]{return now;};h.finished=[&]{return flow.done();};
+ h.displayedInput=[] {return std::optional<std::uint64_t>{1};};
+ h.acceptsFrame=[&](const auto &p){return flow.acceptsFrame(p);};h.acceptsInputFrame=[&](const auto &p){return flow.acceptsInput(p);};
+ h.frameCurrent=[&]{return flow.current();};h.inputContext=[&](const auto &p){return flow.inputContext(p);};
+ h.framePresented=[&](const auto &p){flow.presented(p);};h.completeInputHandoff=[&](const auto &p){flow.completeInput(p);};
+ h.beginCycle=[&](auto) {
+  check(++cycles<100,"held mouse stopped cutscene publication");
+  if(!injected){injected=true;SDL_Event e{};e.type=SDL_MOUSEBUTTONDOWN;e.button.button=SDL_BUTTON_LEFT;e.button.x=160;e.button.y=100;e.button.timestamp=SDL_GetTicks();check(SDL_PushEvent(&e)==1,"cutscene mouse injection");}
+ };
+ check(SdlWindow().showInteractive(flow.frame(),"Cutscene ignores held mouse",h,[]{return true;},[&]{now+=20000000;return flow.update();}) && flow.done(),"native cutscene mouse policy");
+}
 struct Driver {
  // Several simultaneous ten-save chooser fixtures exceed the Windows Debug
  // stack after v9 adds roster awards. Keep these test owners on the heap.
@@ -299,6 +318,18 @@ int main(int argc,char **argv){try {
  d.key('o');check(d.flow.screen()==Screen::Other,"Other Options");
  check(d.flow.inputContext(d.flow.frame().presentation()).dialog->hits.size()==2,"locked endings exposed buttons");
  d.key('d');check(d.flow.screen()==Screen::Notice,"deferred intro did not report refusal");d.key(27);d.key(27);
+ {
+  auto introServices=services();introServices.cloudsIntroCheck=[] {return std::string{};};Driver intro(introServices);
+  intro.key(27);intro.key('o');intro.key('c');
+  check(intro.flow.entry() && intro.flow.entry()->kind==XeenSessionEntry::Kind::CloudsIntro,"Clouds Other Options route");
+  intro.flow.returnToTitle();intro.present();intro.fade();
+  check(intro.flow.screen()==Screen::Background && !intro.flow.entry(),"intro return resumed Other Options or revealed menu");
+  intro.key(32);check(intro.flow.screen()==Screen::Menu,"fresh title did not wait for new key");
+  introServices.cloudsIntroCheck=[] {return std::string("Clouds intro unavailable: missing or different WORLD/XEEN.EXE");};Driver missing(introServices);
+  missing.key(27);missing.key('o');missing.key('c');check(missing.flow.screen()==Screen::Notice && !missing.flow.entry(),"missing/different EXE notice");
+  introServices.cloudsContext=false;unsigned checked=0;introServices.cloudsIntroCheck=[&] {++checked;return std::string{};};Driver noContext(introServices);
+  noContext.key(27);noContext.key('o');noContext.key('c');check(!checked && !noContext.flow.entry(),"Clouds route ignored DAT context");
+ }
  d.click(start.left,start.top);check(d.flow.screen()==Screen::NewSlots,"New mouse/key parity");
  const auto chooser=d.flow.inputContext(d.flow.frame().presentation()).dialog;
  for(unsigned i=0;i<10;++i)check(chooser->key(i==9?'0':'1'+i).has_value(),"ten numbered slots");
@@ -353,6 +384,7 @@ int main(int argc,char **argv){try {
  check(!empty.flow.current() && !empty.flow.acceptsFrame(retired) && !empty.flow.handle(DialogKeyAction{'s'},retired),"closed title callbacks retained authority");
  section("titleFlow");
  }
+ cutsceneMouse();
  const auto nativeBegan=std::chrono::steady_clock::now();titleApplicationControls(argv[1]);
  std::cerr<<"titleApplicationControls: "<<std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now()-nativeBegan).count()<<" ms\n";
  std::cout<<"Original title, four credits pages, chooser, New/Load, mouse/key/cancel and stale frames passed\n";return 0;

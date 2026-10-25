@@ -134,16 +134,19 @@ pin silently); or the Darkside estimate is ready.
 - [ ] **Core** (`src/games/xeen/XeenCutscene.h/.cpp`, no SDL): a cutscene is
   built once as an ordered list of segments. A segment draws a frame
   (background, palette, sprite frames at positions, scroll and text), then
-  holds until its end condition: a tick count, the digital sample idle, the
-  CD cue idle, the song finished, or a fade step done. Loops in the EXE
+  holds until its end condition: elapsed BIOS ticks preserving reset phase,
+  digital sample idle, an input rule, or retrace-paced fade steps. Loops in the EXE
   that animate while a voice plays become segments that cycle frames until
-  the voice ends. Skip semantics follow Part 0. Step kinds cover the intro
-  and the ending primitives Part 0 listed.
+  the voice ends. Skip semantics follow Part 0. Implement only the kinds the
+  Clouds intro needs. Part 0's ending kinds fit as later composition operations,
+  frame generators and end conditions without reworking the segment model;
+  compressed frames, horizontal merge/rotation, dynamic monster/attack animation,
+  score reveal and acknowledgement holds are not implemented in M91.
 - [ ] **Flow** (`src/app/XeenCutsceneFlow.h/.cpp`): a new owner, because
   XEEN.EXE is a separate original program whose screens belong neither to
   the title nor to gameplay, and step 18 reuses it. It paces segments on
   `PresentationClock` at Part 0's rate, publishes frames like
-  `XeenTitleFlow`, sends songs, effects, samples and CD cues through the
+  `XeenTitleFlow`, sends songs, FM effects and VOC samples through the
   existing `XeenAudio` (no second audio path), and reports when it is done.
 - [ ] **EXE data.** Tables and text the intro needs are read at run time
   from the installed `WORLD/XEEN.EXE`, as `XeenDosText` reads XEEN.DAT, and
@@ -177,7 +180,7 @@ pin silently); or the Darkside estimate is ready.
 ## Tests
 
 - [ ] Unit (`tests/XeenCutsceneTests.cpp`): segment ordering, tick holds
-  against a fake clock, holds on sample/CD/song idle, fade pacing, skip
+  against a fake clock, digital-idle loops, fade pacing, skip
   semantics, the presenter done signal.
 - [ ] Original data: every Clouds intro resource decodes; the whole intro
   runs on a fake clock with declared resource readiness, frame-publication
@@ -192,8 +195,8 @@ pin silently); or the Darkside estimate is ready.
 
 - Other Options plays the Clouds intro and returns to the title as the
   DOSBox videos show; the skip keys behave as in DOS.
-- The presenter is one owner whose interface already covers step 18's
-  primitives; the title lightning is reproduced or closed with evidence.
+- The presenter is one owner whose segment model admits step 18's added
+  kinds without reworking it; title lightning is reproduced or closed with evidence.
 - `docs/rules/cutscenes.md` records the calibrated EXE evidence; quirks and
   ScummVM differences are recorded.
 - Complete suite green; the maintainer compares MMModern's intro with the

@@ -47,6 +47,13 @@ button has the same effect at the same position; use Escape to cancel.
 | Digits, Backspace, Enter in Bank amount entry | Enter up to ten digits, edit, confirm; Escape cancels |
 | Alt+Enter | Switch between window and fullscreen; no gameplay pass |
 
+At the title, Other Options → C plays the Clouds intro. Escape ends it at
+scene polls and returns through the closing parchment to a fresh title, whose
+menu waits for a new key. During a parchment transition, any key (including
+Escape) completes only that transition. Space and other keys elsewhere do
+nothing; mouse clicks do nothing and the pointer is hidden. Other Options → D
+(Darkside) remains unsupported.
+
 Exploration completes one Event pass after each input, including unmatched
 keys such as period, U, digits, F7 and F8. Insert, Home, End and Page Up/Down
 are also unmatched, as are Enter and Backspace in exploration. F8 speech replay

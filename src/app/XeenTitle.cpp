@@ -1,6 +1,8 @@
 #include "app/Application.h"
 #include "app/XeenAudio.h"
 #include "app/XeenTitleFlow.h"
+#include "app/XeenCutsceneFlow.h"
+#include "formats/xeen/XeenCutsceneData.h"
 #include "formats/xeen/XeenAssetSource.h"
 #include "formats/xeen/XeenFontFormat.h"
 #include "games/xeen/XeenInstallationDetector.h"
@@ -36,6 +38,30 @@ std::optional<XeenSessionEntry> showTitle(XeenTitleFlow &flow,XeenAssetSource &a
  if(flow.entry())audio.leaveTitle(SdlWindow::presentationNanoseconds());
  return flow.entry();
 }
+bool showCutscene(XeenCutsceneFlow &flow,XeenAssetSource &assets,XeenAudio &audio) {
+ SdlWindow::FrameUpdateHandler h=[&](const auto &action){return flow.handle(action,flow.frame().presentation());};
+ h.withPresentedInput=[&](const auto &a,auto,const auto &p){return flow.handle(a,p);};
+ h.displayedInput=[] {return std::optional<std::uint64_t>{1};};h.protectAllKeys=true;h.ignoreMouse=true;
+ h.acceptsFrame=[&](const auto &p){return flow.acceptsFrame(p);};h.acceptsInputFrame=[&](const auto &p){return flow.acceptsInput(p);};
+ h.inputContext=[&](const auto &p){return flow.inputContext(p);};h.framePresented=[&](const auto &p){flow.presented(p);};
+ h.completeInputHandoff=[&](const auto &p){flow.completeInput(p);};h.frameCurrent=[&]{return flow.current();};h.finished=[&]{return flow.done();};
+ h.failed=[&]{flow.close();};h.closed=[&]{flow.close();};
+ h.cursorImage=[&]{return assets.cursorImage(XeenSceneArchive::DarksideOnly);}; // Native pointer hidden; context suppresses the game pointer.
+ h.beginCycle=[&](auto){audio.advance(SdlWindow::presentationNanoseconds());};
+ h.nextPresentationDeadline=[&] {
+  auto next=flow.nextPresentationDeadline();auto sound=audio.deadline();if(sound && (!next || *sound<*next))next=sound;return next;
+ };
+ const auto ok=SdlWindow().showInteractive(flow.frame(),"MMModern",h,[]{return true;},[&]{
+  audio.advance(SdlWindow::presentationNanoseconds());return flow.update();
+ });return ok && flow.done();
+}
+XeenCutscene titleExit() {
+ XeenCutscene s;XeenCutscene::Segment fade;fade.name="title fade out";fade.input=XeenCutscene::Segment::Input::Ignore;
+ fade.frames=33;fade.compose=[](const auto &c)->XeenCutscene::Frame{return {XeenCutscene::Level{128-4*c.iteration}};};
+ s.segments.push_back(std::move(fade));XeenCutscene::Segment idle;idle.name="title digital idle";
+ idle.input=XeenCutscene::Segment::Input::Ignore;idle.frames=0;idle.untilDigitalIdle=true;idle.compose=[](const auto &)->XeenCutscene::Frame{return {};};
+ s.segments.push_back(std::move(idle));return s;
+}
 }
 int Application::run(const std::filesystem::path &gameDirectory) const {
  try {
@@ -58,16 +84,47 @@ int Application::run(const std::filesystem::path &gameDirectory) const {
    }
    return slots;
   };
-  XeenTitleFlow title(XeenTitleFlow::original(assets,font,rows,path));
+  std::optional<XeenCutsceneData> introData;
+  const auto makeTitle=[&](XeenSoundOptions options=XeenSoundOptions{}) {
+   auto services=XeenTitleFlow::original(assets,font,rows,path);services.soundOptions=options;
+   services.cloudsContext=installation->hasXeen();
+   services.cloudsIntroCheck=[&] {
+    try {introData=XeenCutsceneData::installed(*installation);return std::string{};}
+    catch(const std::exception &e){introData.reset();return std::string(e.what());}
+   };return std::make_unique<XeenTitleFlow>(std::move(services));
+  };
+  auto title=makeTitle();
   XeenSessionEntry entry;
   bool inGameLoad=false;
   for(;;) {
    if(entry.kind==XeenSessionEntry::Kind::Title) {
     _program.innSongStarted=true;
-    const auto selected=showTitle(title,assets,*_program.audio);
+    const auto selected=showTitle(*title,assets,*_program.audio);
     if(!selected)return 0;entry=*selected;inGameLoad=false;
    }
    if(entry.kind==XeenSessionEntry::Kind::Exit)return 0;
+   if(entry.kind==XeenSessionEntry::Kind::CloudsIntro) {
+    auto &audio=*_program.audio;const auto options=audio.soundOptions();
+    const auto clock=[] {return SdlWindow::presentationNanoseconds();};
+    auto exitServices=XeenCutsceneFlow::original(assets,font,audio,clock);
+    exitServices.initial=title->cutsceneExitFrame();
+    exitServices.digitalBusy=[&](auto now){return !audio.titleTeardownReady(now);};
+    XeenCutsceneFlow leaving(titleExit(),std::move(exitServices));
+    if(!showCutscene(leaving,assets,audio))return 0;
+    // EXE wrappers consult hardware, never the DAT party option bytes.
+    audio.fadeSong(0,clock());audio.observeOptions({});
+    try {
+     if(!introData)throw std::runtime_error("Clouds intro unavailable: missing or different WORLD/XEEN.EXE");
+     const auto story=XeenCutsceneData::firstCaption(assets.readArchiveResource(introData->resources[XeenCutsceneData::Caption],XeenSceneArchive::CloudsProgram));
+     XeenCutsceneFlow intro(XeenCutscene::clouds(*introData,story),XeenCutsceneFlow::original(assets,font,audio,clock,introData->digitalDevice>=2));
+     if(!showCutscene(intro,assets,audio)){audio.observeOptions(options);return 0;}
+     audio.observeOptions(options);title=makeTitle(options);
+    }catch(const std::exception &e) {
+     audio.stopDigital(clock());audio.fadeSong(0,clock());audio.observeOptions(options);
+     title=makeTitle(options);title->cloudsIntroFailure(e.what());
+    }
+    entry={};continue;
+   }
    if(entry.kind!=XeenSessionEntry::Kind::New && entry.kind!=XeenSessionEntry::Kind::Load)
     throw std::logic_error("Invalid application session entry");
    const bool fresh=entry.kind==XeenSessionEntry::Kind::New;
@@ -82,7 +139,7 @@ int Application::run(const std::filesystem::path &gameDirectory) const {
       check();std::string message=e.what();
       if(message.find("Windows error 112")!=std::string::npos || message.find("Windows error 39")!=std::string::npos)
        message=std::string(assets.uiText().scalar("NEW_SPACE"));
-      title.publicationFailure(message);const auto retry=showTitle(title,assets,*_program.audio);check();
+      title->publicationFailure(message);const auto retry=showTitle(*title,assets,*_program.audio);check();
       if(!retry){exitRequested=true;return false;}
       if(retry->kind!=XeenSessionEntry::Kind::Retry)return false;
      }
@@ -93,11 +150,11 @@ int Application::run(const std::filesystem::path &gameDirectory) const {
     fresh?XeenEncounterEntry::Journey:XeenEncounterEntry::Ordinary,{},
     fresh?std::optional<XeenDifficulty>{entry.difficulty}:std::nullopt,&entry,&assets,fresh?publish:InitialPublication{},&outcome);
    if(status==0 && outcome.kind==XeenSessionOutcome::Kind::Load){entry=std::move(outcome.entry);inGameLoad=true;continue;}
-   if(status==0 && outcome.kind==XeenSessionOutcome::Kind::Title){title.returnToTitle();entry={};inGameLoad=false;continue;}
+   if(status==0 && outcome.kind==XeenSessionOutcome::Kind::Title){title->returnToTitle();entry={};inGameLoad=false;continue;}
    outcome.kind=status==5?XeenSessionOutcome::Kind::Title:status==0?XeenSessionOutcome::Kind::Exit:XeenSessionOutcome::Kind::Failure;
    outcome.status=status;
-   if(outcome.kind==XeenSessionOutcome::Kind::Title){if(exitRequested)return 0;title.cancelPublication();entry={};continue;}
-   if(!fresh && status==3 && !inGameLoad){title.startupFailure("Load validation failed; see the technical diagnostic.");entry={};continue;}
+   if(outcome.kind==XeenSessionOutcome::Kind::Title){if(exitRequested)return 0;title->cancelPublication();entry={};continue;}
+   if(!fresh && status==3 && !inGameLoad){title->startupFailure("Load validation failed; see the technical diagnostic.");entry={};continue;}
    return outcome.status;
   }
  }catch(const std::exception &e){std::cerr<<"Title startup failed: "<<e.what()<<'\n';return 3;}

@@ -594,7 +594,4 @@ in [project status](project-status.md#known-gaps):
 Next steps are in the [roadmap](roadmap.md).
 
 
-The following is a documented fidelity decision for M91, not an implemented
-player-facing difference yet:
-
-- **Clouds intro.** [Original mouth timing, animation, captions and skip rules](original-quirks.md#sv-clouds-intro-presentation) follow the calibrated EXE: 31-entry mouth tables, BIOS/retrace pacing, hardware-gated caption strip and Escape/scroll-specific skipping. The intro remains unsupported until M91 implementation. Pin: differs; master not rechecked.
+- **Clouds intro.** [Original mouth timing, animation, captions and skip rules](original-quirks.md#sv-clouds-intro-presentation) follow the calibrated EXE: 31-entry mouth tables, BIOS/retrace pacing, hardware-gated caption strip and Escape/scroll-specific skipping. Pin: differs; master not rechecked.

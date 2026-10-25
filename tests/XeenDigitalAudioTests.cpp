@@ -94,6 +94,33 @@ int main(int argc,char **argv) {try {
   return assets.readArchiveResource(name,archive);
  };
  const auto archive=XeenSceneArchive::Clouds;
+ // Retain/decode without starting; chained starts do no resource I/O. The
+ // published owner survives release of the caller's handle and exact EOF is
+ // still determined by the presentation clock, including after a rebase.
+ {
+  XeenAudio audio(0,{},loader,module,0,false);const auto before=reads;
+  auto first=audio.retainDigital("a.voc",archive),next=audio.retainDigital("b.voc",archive);
+  check(reads==before+2 && !audio.digitalBusy(0),"retain started playback or failed to decode once");
+  audio.startDigital(first,0);first.sample.reset();
+  check(reads==before+2 && audio.digitalBusy(512*68000ULL-1) && !audio.digitalBusy(512*68000ULL),"retained voice ownership/EOF");
+  audio.startDigital(next,512*68000ULL);
+  check(reads==before+2 && audio.digitalBusy(544*68000ULL-1) && !audio.digitalBusy(544*68000ULL),"retained chain reloaded or used stale EOF");
+  audio.rebaseClock(0);check(audio.digitalBusy(32*68000ULL-1) && !audio.digitalBusy(32*68000ULL),"retained sample changed at clock handoff");
+  audio.observeOptions({false,true,false,true});audio.startDigital(next,544*68000ULL);
+  check(!audio.digitalBusy(544*68000ULL),"retained start bypassed party gate outside EXE handoff");
+ }
+ {
+  unsigned loads=0;auto counted=[&](const auto &name,auto selected){++loads;return loader(name,selected);};
+  XeenAudio audio(3,driver,counted,module,0,false);audio.enterTitle(0);const auto loaded=audio.loadedName();const auto before=loads;
+  audio.requestSong("mm4theme.m",archive,207,0);check(audio.pending(),"song replacement not queued");
+  audio.fadeSong(50,0);check(!audio.pending(),"fade-only retained a replacement");audio.advance(3000000000ULL);
+  check(audio.loadedName()==loaded && loads==before,"fade-only loaded or replaced the song");
+  audio.fadeSong(0,3000000000ULL);check(audio.loadedName()==loaded && loads==before,"stop command reloaded song");
+  audio.requestSong("mm4theme.m",archive,0,3000000000ULL);audio.advance(3000000000ULL);
+  check(audio.loadedName()=="mm4theme.m" && loads==before+1,"stopped song request identity suppressed a later intro");
+  bool refused=false;try{audio.fadeSong(256,3000000000ULL);}catch(const std::invalid_argument &){refused=true;}
+  check(refused,"fade-only admitted mixer/pointer command");
+ }
  // Measure request-to-audible FM latency through the real 48 kHz converter.
  // Sweep 512-frame callback
  // phases so a request just after a refill cannot hide behind a favorable phase.

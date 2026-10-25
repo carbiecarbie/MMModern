@@ -25,6 +25,8 @@ public:
   std::optional<unsigned> currentSlot;
   std::string currentName;
   XeenSoundOptions soundOptions;
+  bool cloudsContext=true; // DAT DS:0095: readable XEEN.CC in installed CD World.
+  std::function<std::string()> cloudsIntroCheck;
  };
  enum class Screen { Menu, Background, Other, Credits, NewSlots, LoadSlots, Overwrite, Name, Difficulty, Notice, PublicationFailure, Panel, SaveSlots, Quit, Wizard, SavedNotice };
  explicit XeenTitleFlow(Services services);
@@ -56,6 +58,8 @@ public:
  std::optional<unsigned> takeSoundToggle() {auto value=_soundToggle;_soundToggle.reset();return value;}
  void newSlots();
  void returnToTitle();
+ IndexedFrame cutsceneExitFrame() const {return _services.animation.at(7);}
+ void cloudsIntroFailure(std::string message) {_entry.reset();notice(std::move(message),Screen::Other);}
  void cancelPublication();
  void publicationFailure(std::string message);
  void startupFailure(std::string message);

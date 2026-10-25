@@ -964,14 +964,15 @@ transition shared by walking, Rest, casting and manual step consequences.
 Effects off gates the samples and effects without skipping images or changing
 terrain, time or RNG. See [terrain arrival](time-and-conditions.md#terrain-arrival).
 
-**Title lightning outside M83 (maintainer, 2026-10-22):** DAT
+**Title lightning outside M83 (settled by M91 Part 0, 2026-10-25):** DAT
 `0xbf90..0xbf99` tests byte `[DS:0x0095]`; a nonzero value jumps to
 `0xc056`, bypassing the 30-frame lightning sequence, start `0xbfcf`
 and stop `0xc029`.
-The current CD World title implements the 13-frame `world0/1/2` loop,
-not that sequence. No further flag tracing is claimed: retain lightning
-as an absent-presentation gap belonging to roadmap step 15 (intros and
-the Clouds ending), outside M83; never attach `elect.voc` to the CD loop.
+Readable XEEN.CC sets that byte to one at `0xb3d5`, and no reset occurs on
+the reached startup/title path. The 30-frame path is therefore unreachable
+on installed CD World. The CD title retains its 13-frame `world0/1/2` loop;
+never attach `elect.voc` to it. See [title lightning](cutscenes.md#title-lightning)
+for the calibrated writer and guard evidence.
 Its resource exists in DARK.CC (constant 188, codec 0). The physical
 inventory count above includes this excluded site, not 32 implemented starts.
 
@@ -988,7 +989,7 @@ consults the device and no playback state enters saves.
 | --- | --- | --- | --- | --- |
 | `0xb112` | fire.voc | Efx | XeenEventFlow | implemented |
 | `0xb294` | xeenlaff.voc | Efx | XeenEventFlow | implemented |
-| `0xbfcf` | elect.voc | Efx | Title lightning | gap: step 15 |
+| `0xbfcf` | elect.voc | Efx | Title lightning | unreachable: installed CD World |
 | `0x116a0` | scream.voc | Efx | `XeenEventFlow::beginFall` | implemented |
 | `0x1170c` | unnh.voc | Efx | `XeenEventFlow::advanceFall` | implemented |
 | `0x1abf7` | trainin2.voc | Efx | XeenTrainingFlow | implemented |

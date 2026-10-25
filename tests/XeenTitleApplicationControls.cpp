@@ -2,6 +2,7 @@
 // Load. Only seed sampling and the Local AppData test directory are substituted.
 #include "app/Application.h"
 #include "app/XeenAudio.h"
+#include "core/PresentationClock.h"
 #include "app/XeenGameplayServices.h"
 #include "formats/xeen/XeenSaveFormat.h"
 #include "platform/XeenSaveFile.h"
@@ -34,6 +35,8 @@ extern "C" bool wrappedTitleShow(const SdlWindow *,const IndexedFrame &,const st
  const std::function<bool()> &,const SdlWindow::IdleFrameHandler &,const std::function<std::string()> &) asm("__wrap_" SHOW_SYMBOL);
 extern "C" fs::path realTitleDirectory(const GameInstallation &,const fs::path &,const std::optional<fs::path> &) asm("__real_" DIRECTORY_SYMBOL);
 extern "C" fs::path wrappedTitleDirectory(const GameInstallation &,const fs::path &,const std::optional<fs::path> &) asm("__wrap_" DIRECTORY_SYMBOL);
+extern "C" std::uint64_t realTitleClock() asm("__real__ZN7mmodern9SdlWindow23presentationNanosecondsEv");
+extern "C" std::uint64_t wrappedTitleClock() asm("__wrap__ZN7mmodern9SdlWindow23presentationNanosecondsEv");
 namespace mmodern {
 struct XeenTemplePriceStateTestAccess {
  static void seed(XeenTemplePriceState &prices,unsigned map) {
@@ -48,6 +51,7 @@ struct State {
  XeenTemplePriceState *templePrices=nullptr;XeenTempleSurcharges templeRow;
  bool panelMode=false,failPreflight=false,failWrite=false;
  bool retainedIdle=false;
+ bool introMode=false;unsigned introWindow=0,introStarts=0;std::uint64_t introNow=17000000,introSkip=0;
  bool failNotice=false;
  unsigned noticeAttempts=0,writes=0;
  const XeenDosText *text=nullptr;
@@ -65,11 +69,51 @@ struct State {
  XeenSaveResourceSignature signature;
  std::string name="Native Case !~";
 } state;
+bool introApplication(const IndexedFrame &first,const SdlWindow::FrameUpdateHandler &handler,const SdlWindow::IdleFrameHandler &idle) {
+ const auto window=++state.introWindow;check(window<=4,"intro did not return to one fresh title");
+ IndexedFrame visible=first;
+ const auto present=[&] {check(handler.acceptsFrame(visible.presentation()),"intro stale publication");handler.framePresented(visible.presentation());handler.completeInputHandoff(visible.presentation());};
+ present();unsigned guard=0;
+ const auto tick=[&] {
+  check(++guard<100000,"Application intro stalled");
+  const auto deadline=handler.nextPresentationDeadline();if(deadline && *deadline>state.introNow)state.introNow=*deadline;
+  handler.beginCycle(guard);if(auto next=idle()){visible=*next;present();}
+ };
+ const auto key=[&](unsigned code) {
+  const auto context=handler.inputContext(visible.presentation());check(context.dialog && context.readyForAction,"intro input not acquired");
+  const auto a=context.dialog->key(code);check(bool(a),"intro key missing");
+  if(auto next=handler.withPresentedInput(*a,1,visible.presentation())){visible=*next;present();}
+ };
+ if(window==1 || window==4) {
+  while(!handler.inputContext(visible.presentation()).readyForAction)tick();
+  check(handler.inputContext(visible.presentation()).dialog->hits.empty(),"fresh intro return exposed menu");
+  if(window==4) {
+   check(state.program->audio->loadedName()=="newbrigh.m" && state.program->audio->soundOptions()==XeenSoundOptions{false,false,true,false},"intro return song/options");
+   key(32);check(handler.inputContext(visible.presentation()).dialog->hits.size()==4,"fresh title key did not reveal menu");
+   handler.closed();state.shown=true;return true;
+  }
+  key(27);key('o');
+  state.program->audio->observeOptions({false,false,true,false});
+  state.program->audio->digitalSink([](const auto &,auto){++state.introStarts;});key('c');
+  check(handler.finished(),"Application did not select Clouds");return true;
+ }
+ const auto start=state.introNow;bool escaped=false;
+ while(!handler.finished()) {
+  if(window==3 && state.introNow-start>15000000000ULL)check(state.program->audio->loadedName()=="mm4theme.m","EXE song suppressed by party settings or stale song identity");
+  if(window==3 && !escaped && state.introNow-start>=state.introSkip && handler.inputContext(visible.presentation()).readyForAction) {
+   check(handler.inputContext(visible.presentation()).hideCursor && !handler.inputContext(visible.presentation()).dialog->click(160,100),"intro cursor/click policy");
+   key(27);escaped=true;
+  }
+  tick();
+ }
+ check(window!=3 || escaped,"intro finished before requested Escape");return true;
+}
 void quit(){SDL_Event event{};event.type=SDL_QUIT;check(SDL_PushEvent(&event)==1,"title native quit");}
 void key(unsigned code,std::vector<SDL_Event> &pending) {
  SDL_Event event{};event.type=SDL_KEYDOWN;event.key.keysym.sym=code;event.key.keysym.scancode=SDL_GetScancodeFromKey(code);
  pending.push_back(event);event.type=SDL_KEYUP;pending.push_back(event);
 }
+extern "C" std::uint64_t wrappedTitleClock(){return state.introMode?state.introNow:realTitleClock();}
 void preview(const IndexedFrame &frame,const std::string &label) {
  const char *directory=std::getenv("MMODERN_TITLE_PREVIEW");if(!directory)return;
  auto *surface=SDL_CreateRGBSurfaceWithFormat(0,320,200,32,SDL_PIXELFORMAT_ARGB8888);check(surface,"title preview surface");
@@ -267,6 +311,7 @@ extern "C" bool wrappedTitleShow(const SdlWindow *window,const IndexedFrame &fir
  const SdlWindow::FrameUpdateHandler &handler,const std::function<bool()> &escape,const SdlWindow::IdleFrameHandler &idle,
  const std::function<std::string()> &status) {
  if(!state.enabled)return realTitleShow(window,first,label,handler,escape,idle,status);
+ if(state.introMode)return introApplication(first,handler,idle);
  const bool title=!status; // Only gameplay supplies a status line.
  auto native=handler;IndexedFrame::Presentation presented;unsigned step=0;
  std::uint64_t heldAudioTick=0;
@@ -386,5 +431,12 @@ void titleApplicationControls(const char *game) {
   fs::remove(XeenSaveFile::slotPath(state.slot.parent_path(),8));
  }
  state.panelMode=false;
+ for(const auto skip:{1000000000ULL,30000000000ULL,60000000000ULL}) {
+  XeenProgramState programState;state.program=&programState;state.introMode=true;state.introNow=17000000;
+  state.introWindow=0;state.introStarts=0;state.introSkip=skip;state.shown=false;
+  check(Application(programState).run(game)==0 && state.shown && state.introWindow==4,"Clouds Escape/Application fresh title route");
+  if(skip==60000000000ULL)check(state.introStarts>2,"party switches suppressed EXE speech");
+  state.introMode=false;
+ }
 }
 void titlePreview(const IndexedFrame &frame,const std::string &label){preview(frame,label);}

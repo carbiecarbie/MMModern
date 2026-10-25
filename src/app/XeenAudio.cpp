@@ -297,6 +297,15 @@ bool XeenAudio::outputActive() const{return _impl->device->active();}
 std::string XeenAudio::mapSong(const XeenMapGeometry &m) const {return _impl->maps.at(m.isOutdoors()?0:_impl->kinds.at(m.wallKind));}
 std::string XeenAudio::locationSong(unsigned action) const{return _impl->locations.at(action);}
 void XeenAudio::requestSong(std::string name,XeenSceneArchive archive,unsigned fade,std::uint64_t now) {advance(now);_impl->begin({std::move(name),archive,fade});}
+void XeenAudio::fadeSong(unsigned command,std::uint64_t now) {
+ if(command==1 || command>255)throw std::invalid_argument("Invalid song fade command");
+ advance(now);_impl->pending.reset();_impl->afterTitle.reset();_impl->titleExit=false;
+ _impl->command(command);
+ if(command==0)_impl->current.clear(); // A later explicit start of this song must reload it.
+}
+XeenAudio::RetainedDigital XeenAudio::retainDigital(const std::string &name,XeenSceneArchive archive) {
+ return {name,archive,std::make_shared<const XeenVocSample>(decodeXeenVoc(_impl->loader(name,archive)))};
+}
 void XeenAudio::requestMap(const XeenMapGeometry &map,std::uint64_t now) {const auto name=mapSong(map);_impl->mapName=name;requestSong(name,XeenSceneArchive::Clouds,207,now);}
 void XeenAudio::requestLocation(unsigned action,std::uint64_t now) {requestSong(locationSong(action),XeenSceneArchive::Clouds,223,now);}
 void XeenAudio::requestInn(std::uint64_t now) {requestSong("inn.m",XeenSceneArchive::Clouds,128,now);}
@@ -330,13 +339,16 @@ void XeenAudio::eventVoice(unsigned index,std::uint64_t now) {
  startDigital(_impl->eventVoices.at(index),index==5?XeenSceneArchive::Darkside:XeenSceneArchive::Clouds,now);
 }
 void XeenAudio::startDigital(const std::string &name,XeenSceneArchive archive,std::uint64_t now) {
- auto &s=*_impl;
- if(!s.options.efx)return;
+ if(!_impl->options.efx)return;
+ startDigital(retainDigital(name,archive),now);
+}
+void XeenAudio::startDigital(const RetainedDigital &voice,std::uint64_t now) {
+ auto &s=*_impl;if(!s.options.efx)return;
+ if(!voice.sample || voice.sample->pcm.empty())throw std::invalid_argument("Empty retained digital sample");
  const auto actionTime=s.digitalTime(now);
- auto pcm=std::make_shared<const XeenVocSample>(decodeXeenVoc(s.loader(name,archive)));
- const auto end=PresentationClock::checkedAdd(actionTime,pcm->durationNanoseconds());
- s.digitalEnd=end;s.publishDigital(std::move(pcm));
- if(s.digitalSink)try {s.digitalSink(name,archive);}catch(...) {}
+ s.digitalEnd=PresentationClock::checkedAdd(actionTime,voice.sample->durationNanoseconds());
+ s.publishDigital(voice.sample);
+ if(s.digitalSink)try {s.digitalSink(voice.name,voice.archive);}catch(...) {}
 }
 void XeenAudio::stopDigital(std::uint64_t now) {
  auto &s=*_impl;
@@ -388,6 +400,7 @@ bool XeenAudio::cdDecodePending() const {std::lock_guard<std::mutex> lock(_impl-
 void XeenAudio::render(std::int16_t *out,std::size_t frames,int rate) {_impl->render(out,frames,rate);}
 bool XeenAudio::prepareRender(int rate) {return _impl->prepareRender(rate);}
 void XeenAudio::observeOptions(XeenSoundOptions value) {_impl->options=value;}
+XeenSoundOptions XeenAudio::soundOptions() const {return _impl->options;}
 void XeenAudio::toggleMusic(bool on,std::uint64_t now) {
  advance(now);_impl->options.music=on;
  if(on) {

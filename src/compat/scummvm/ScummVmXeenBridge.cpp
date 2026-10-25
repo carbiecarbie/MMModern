@@ -220,6 +220,7 @@ struct ScummVmXeenBridge::Impl {
 	std::unique_ptr<DarkMetadataArchive> darkMetadataArchive;
 	std::optional<ReadOnlyDataFile> sceneIntroPath, sceneDarkPath;
 	std::unique_ptr<SceneInstalledArchive> sceneIntro, sceneDark;
+ std::filesystem::path programFolder;
 	XSurface surface;
 	std::array<std::uint8_t, IndexedFrame::kPaletteSize> palette{};
 	struct CachedSprite {
@@ -237,6 +238,7 @@ struct ScummVmXeenBridge::Impl {
 		archive(archiveDataFile(installation,XeenArchiveRole::Clouds)) {
 		darkAvailable = installation.hasDarkside();
 		sceneIntroPath = installation.introData;
+  if(installation.uiModule)programFolder=installation.uiModule->physicalPath.parent_path();
 		if(installation.hasDarkside()) sceneDarkPath=archiveDataFile(installation,XeenArchiveRole::Darkside);
 	}
 
@@ -269,8 +271,24 @@ struct ScummVmXeenBridge::Impl {
 		Common::Archive *archive;
 		std::string origin;
 	};
+ std::optional<std::vector<std::uint8_t>> programLoose(const std::string &name) {
+  if(programFolder.empty())return {};
+  if(std::filesystem::path(name).filename()!=std::filesystem::path(name))throw std::invalid_argument("Invalid program resource name");
+  const auto lower=[](std::string s){for(auto &c:s)if(c>='A'&&c<='Z')c+=32;return s;};
+  std::filesystem::path found;
+  for(const auto &entry:std::filesystem::directory_iterator(programFolder))if(lower(entry.path().filename().u8string())==lower(name)) {
+   if(!found.empty() || !entry.is_regular_file())throw std::runtime_error("Ambiguous loose program resource: "+name);found=entry.path();
+  }
+  if(found.empty())return {};
+  auto in=ReadOnlyDataFile::plain(found).open();if(in->size()>1024*1024)throw std::runtime_error("Oversized loose program resource: "+name);
+  std::vector<std::uint8_t> b(in->size());if(in->read(b.data(),b.size())!=b.size())throw std::runtime_error("Incomplete loose program resource: "+name);return b;
+ }
 	SceneResource sceneResource(const std::string &name, XeenSceneArchive selection = XeenSceneArchive::Current) {
 		const Common::Path path(name.c_str(), Common::Path::kNoSeparator);
+  if(selection==XeenSceneArchive::CloudsProgram) {
+   if(archive.hasFile(path) || programLoose(name))return {&archive,"xeen.cc"};
+   return {nullptr,{}}; // EXE never falls back to INTRO.
+  }
 		// Pinned File::open: selected/current archive, then registered search
 		// sources (INTRO). DARK is an archive selection, never a search source.
 		if (selection == XeenSceneArchive::Darkside || selection == XeenSceneArchive::DarksideOnly) {
@@ -295,7 +313,8 @@ struct ScummVmXeenBridge::Impl {
 		if (!source.archive) throw std::runtime_error("Missing scene resource in installed CC archives: " + resourceName);
 		// Clouds retains its existing identity; other archives have separate
 		// cache/admission identities even when resource names collide.
-		const auto key = static_cast<CheckedInstalledArchive *>(source.archive)->identity()+"|"+source.origin+"|"+std::to_string(MM::Shared::Xeen::BaseCCArchive::convertNameToId(Common::Path(resourceName.c_str(),Common::Path::kNoSeparator)));
+		const auto key = static_cast<CheckedInstalledArchive *>(source.archive)->identity()+"|"+source.origin+"|"+std::to_string(MM::Shared::Xeen::BaseCCArchive::convertNameToId(Common::Path(resourceName.c_str(),Common::Path::kNoSeparator)))+
+   (selection==XeenSceneArchive::CloudsProgram?"|program:"+programFolder.u8string():"");
 		const auto validate = [&](const std::vector<std::uint8_t> &bytes) {
 			const auto known=admittedSprites.find(key);
 			if(known!=admittedSprites.end() && known->second!=bytes) {
@@ -313,8 +332,9 @@ struct ScummVmXeenBridge::Impl {
 			return *existing->second.decoded;
 		}
 
-		std::unique_ptr<Common::SeekableReadStream> stream = openResource(*source.archive, resourceName, source.origin);
-		auto bytes = readBytes(*stream, resourceName);
+  auto loose=selection==XeenSceneArchive::CloudsProgram?programLoose(resourceName):std::nullopt;
+  std::vector<std::uint8_t> bytes;
+  if(loose)bytes=std::move(*loose);else {auto stream=openResource(*source.archive,resourceName,source.origin);bytes=readBytes(*stream,resourceName);}
 		validate(bytes);
 		Common::MemoryReadStream input(bytes.data(), static_cast<uint32>(bytes.size()));
 		std::unique_ptr<StreamSpriteResource> resource(new StreamSpriteResource());
@@ -431,6 +451,7 @@ bool ScummVmXeenBridge::hasArchiveResource(const std::string &resourceName) {
 }
 
 std::vector<std::uint8_t> ScummVmXeenBridge::readArchiveResource(const std::string &resourceName, XeenSceneArchive selection) {
+ if(selection==XeenSceneArchive::CloudsProgram)if(auto loose=_impl->programLoose(resourceName))return std::move(*loose);
 	const auto source=(selection==XeenSceneArchive::Current || selection==XeenSceneArchive::Clouds) ? Impl::SceneResource{&_impl->archive,"xeen.cc"} : _impl->sceneResource(resourceName,selection);
 	if(!source.archive)throw std::runtime_error("Missing resource in selected archive: "+resourceName);
 	auto stream = openResource(*source.archive, resourceName, source.origin);
@@ -640,13 +661,14 @@ void ScummVmXeenBridge::drawNpc(IndexedFrame &frame, std::uint8_t portraitId,
 			frame.pixels.data() + y * 320);
 }
 
-void ScummVmXeenBridge::drawDialogSprite(IndexedFrame &frame,const char *name,unsigned index,int x,int y,XeenSceneArchive selection,int scale) {
+void ScummVmXeenBridge::drawDialogSprite(IndexedFrame &frame,const char *name,unsigned index,int x,int y,XeenSceneArchive selection,int scale,unsigned flags) {
 	if(!frame.isValid() || frame.width!=320 || frame.height!=200) throw std::invalid_argument("Invalid dialog sprite frame");
     if(scale<0 || scale>15)throw std::invalid_argument("Invalid scene sprite scale");
+ if(flags!=0 && flags!=0x800)throw std::invalid_argument("Invalid presentation sprite flags");
 	auto &sprite=_impl->sprite(name,index,0,selection!=XeenSceneArchive::Current,selection);
 	XSurface surface;surface.create(320,200);
 	for(int row=0;row<200;++row) std::copy_n(frame.pixels.data()+row*320,320,static_cast<std::uint8_t *>(surface.getBasePtr(0,row)));
-	sprite.draw(surface,index,Common::Point(x,y),0,scale);
+	sprite.draw(surface,index,Common::Point(x,y),flags,scale);
 	for(int row=0;row<200;++row) std::copy_n(static_cast<const std::uint8_t *>(surface.getBasePtr(0,row)),320,frame.pixels.data()+row*320);
 }
 

@@ -9,6 +9,7 @@
 #include <optional>
 namespace mmodern {
 class XeenAssetSource;class XeenFmSource;struct XeenMapGeometry;
+struct XeenVocSample;
 // Program state, independent of every session and save snapshot.
 class XeenAudio {
 public:
@@ -23,6 +24,12 @@ public:
  std::string mapSong(const XeenMapGeometry &) const;
  std::string locationSong(unsigned action) const;
  void requestSong(std::string,XeenSceneArchive,unsigned fade,std::uint64_t now);
+ // EXE presentation commands; a fade does not queue or reload a song.
+ void fadeSong(unsigned command,std::uint64_t now);
+ using DigitalSample=std::shared_ptr<const XeenVocSample>;
+ struct RetainedDigital {std::string name;XeenSceneArchive archive;DigitalSample sample;};
+ RetainedDigital retainDigital(const std::string &,XeenSceneArchive);
+ void startDigital(const RetainedDigital &,std::uint64_t now);
  void requestMap(const XeenMapGeometry &,std::uint64_t now);
  void requestLocation(unsigned action,std::uint64_t now);
  void requestInn(std::uint64_t now);
@@ -62,6 +69,7 @@ public:
  // call concurrently with the device. Logical busy never consults this path.
  void render(std::int16_t *stereo,std::size_t frames,int deviceRate);
  void observeOptions(XeenSoundOptions);
+ XeenSoundOptions soundOptions() const;
  void toggleMusic(bool on,std::uint64_t now);
  void advance(std::uint64_t now);
  // At a session/title clock-source handoff, retain elapsed driver time and

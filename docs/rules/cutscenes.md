@@ -108,8 +108,11 @@ scene VOCs plus scratch `ido2.voc`, three scene RAWs, three palettes and the son
 variants without errors. Startup RAW size and opaque buffer extent also pass.
 No missing Clouds reader was identified. External reports under
 `D:/MModern-re/m91/resources/` record archive offsets, sizes and decoder limits.
-**Unknown:** compiled-reader playback and rendered/audio equivalence; these still
-need the planned original-data tests and maintainer comparison.
+The compiled `XeenCutsceneTests` audit decodes all 35 sprites (325 frames),
+scene/startup VOCs, RAWs and palettes and runs the complete song/scene with real
+sample lengths on a fake clock. It also checks input, load/reset boundaries,
+pan stride and the synthetic CFG caption path. **Unknown:** hardware-rendered
+and audible equivalence; these still need the maintainer comparison.
 
 ## Clouds sequencing rules
 
@@ -143,6 +146,19 @@ a fixed stride or a pin timing is not an evidentiary substitute. See the
 
 ## Settings and input
 
+Implementation: `games/xeen/XeenCutscene` describes ordered compositions and
+segment holds; `app/XeenCutsceneFlow` publishes them using the existing clock
+conversions and audio owner. `formats/xeen/XeenCutsceneData` reads and validates
+the installed EXE and the hardware word in CFG. `app/XeenTitle.cpp` owns the
+title exit and fresh-title return. No Journey clock, RNG or save fields are used.
+
+The EXE's mixer commands 75 and 95 have no counterpart exposed by MMModern's
+audio owner/output queue. They are not issued: natural completion and Escape
+share cleanup in MMModern, while the EXE restores 95 only on natural completion.
+The existing fixed audio gains remain in effect. Song fade 50 and digital stop
+still go through `XeenAudio`. MMModern uses `mm4theme.m` with its CD promus
+driver; device-four/five song drivers belong to roadmap step 19.
+
 **DOS static, high.** `XEEN.CFG` configures hardware modules (digital word at
 `+0`, music at `+4`), not DAT's saved party Music/Speech/Efx/Text switches.
 EXE selects modules at `0x784c..0x79d3`; its audio wrappers use driver presence
@@ -151,7 +167,10 @@ EXE selects modules at `0x784c..0x79d3`; its audio wrappers use driver presence
 Only hardware digital device zero/one enables the caption strip
 (`0x1191b..0x119bf`). Every two elapsed BIOS ticks it advances through the first
 `special.bin` record, showing up to 40 characters over `box.vga`; wrapping ends
-the narration pass. Labels remain visible with speech. Turning DAT Speech off,
+the narration pass. The helper's formatting string is read from EXE `0x20f60`
+(DS:36e0, passed at `0x11971`): its controls select the strip's color,
+centering and y position, rather than positioning text at the box's left edge.
+Labels remain visible with speech. Turning DAT Speech off,
 or muting host output, is not this condition.
 
 Escape ends Clouds at explicit scene polls. Ordinary keys are ignored except
@@ -170,8 +189,9 @@ The name is at `0x51a36`, through the far pointer at `DS:2988`. No reset occurs
 on the reached startup/title path. The guard at `0xbf90..0xbf99` therefore skips
 to `0xc056` in installed CD World, bypassing the 30 frames and `elect.voc`
 start/stop at `0xbfcf`/`0xc029`. Missing XEEN.CC is a different resource
-configuration, not a normal World-title state. Part B can close the existing
-[audio gap](audio.md#voc-inventory-boundaries) with this evidence.
+configuration, not a normal World-title state. The physical
+[audio inventory](audio.md#voc-inventory-boundaries) and `XeenDigitalSitesTests`
+retain this row explicitly as unreachable on installed CD World.
 
 ## Darkside and ending boundaries
 
