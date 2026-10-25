@@ -41,6 +41,7 @@ add_library(mmodern_xeen STATIC
     src/games/xeen/XeenCombat.cpp
     src/games/xeen/XeenCombatRandom.cpp
 	src/games/xeen/XeenCombatRules.cpp
+	src/games/xeen/XeenScriptedRules.cpp
 	src/games/xeen/XeenRestRules.cpp
 	src/games/xeen/XeenTerrainRules.cpp
 	src/games/xeen/XeenMonsterTreasure.cpp
@@ -183,6 +184,10 @@ target_include_directories(mmodern_coverage_support PUBLIC "${CMAKE_CURRENT_SOUR
 add_executable(mmodern_census tools/XeenCoverageMain.cpp)
 target_link_libraries(mmodern_census PRIVATE mmodern_coverage_support)
 if(BUILD_TESTING)
+ add_executable(mmodern_scripted_rules_tests tests/XeenScriptedRulesTests.cpp)
+ target_link_libraries(mmodern_scripted_rules_tests PRIVATE mmodern_xeen)
+ add_test(NAME xeen_scripted_rules COMMAND mmodern_scripted_rules_tests)
+ set_tests_properties(xeen_scripted_rules PROPERTIES LABELS fast)
  if(NOT IS_DIRECTORY "${MMODERN_XEEN_AUDIO_DIR}/MUSIC" OR NOT EXISTS "${MMODERN_XEEN_AUDIO_DIR}/GAME1.INS" OR NOT EXISTS "${MMODERN_XEEN_AUDIO_DIR}/GAME2.INS")
   message(FATAL_ERROR "CD audio validation requires MMODERN_XEEN_AUDIO_DIR with both GAME*.INS and MUSIC/")
  endif()
@@ -231,7 +236,12 @@ if(BUILD_TESTING)
  set_tests_properties(xeen_cd_audio PROPERTIES LABELS fast ENVIRONMENT "SDL_AUDIODRIVER=dummy")
 	add_executable(mmodern_test_save_tests tests/XeenTestSaveTests.cpp)
 	target_link_libraries(mmodern_test_save_tests PRIVATE mmodern_test_save_support)
-	foreach(preset broken-armor train-ready injured-dead poisoned monster-control monster-damage party-healing m76-spells combat-items m79-playtest m80-playtest m80-arena m80-arena-maxed m81-drops m81-fullpacks m81-event m84-playtest-trap m84-playtest-label m84-playtest-save m85-playtest-label m85-playtest-run m85-playtest-trap m86-playtest-fall m86-playtest-moon-ray m86-playtest-border m87-inn m87-three m87-shangrila m88-roster paths)
+ add_executable(mmodern_scripted_original_tests tests/XeenScriptedOriginalTests.cpp)
+ target_link_libraries(mmodern_scripted_original_tests PRIVATE mmodern_test_save_support)
+ add_test(NAME xeen_scripted_original COMMAND mmodern_scripted_original_tests "${MMODERN_XEEN_DATA_DIR}")
+ set_tests_properties(xeen_scripted_original PROPERTIES LABELS fast)
+
+	foreach(preset broken-armor train-ready injured-dead poisoned monster-control monster-damage party-healing m76-spells combat-items m79-playtest m80-playtest m80-arena m80-arena-maxed m81-drops m81-fullpacks m81-event m84-playtest-trap m84-playtest-label m84-playtest-save m85-playtest-label m85-playtest-run m85-playtest-trap m86-playtest-fall m86-playtest-moon-ray m86-playtest-border m87-inn m87-three m87-shangrila m88-roster m89-lord-xeen m89-clan-king m89-draco m89-dragons m89-trolls paths)
 		add_test(NAME xeen_test_save_${preset} COMMAND mmodern_test_save_tests
 			"${MMODERN_XEEN_DATA_DIR}" ${preset} "${CMAKE_CURRENT_SOURCE_DIR}")
 	endforeach()

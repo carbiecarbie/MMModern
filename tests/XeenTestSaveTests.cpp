@@ -67,6 +67,24 @@ void preset(const GameInstallation &installation,const std::string &name,const f
     check(flow.prepareJourneyFrame(flow.ticket(),[]{}) && flow.presentJourney(flow.ticket()),"restored preset is not quiet");
     const auto captured=XeenSaveState::capture(inputs.signature,party,camera,flags,world);
     check(XeenSaveFormat::encode(saved)==XeenSaveFormat::encode(captured),"restore replayed or changed state");
+    if(name.rfind("m89-",0)==0) {
+        const auto expected=name=="m89-lord-xeen"?XeenCamera{78,5,8,XeenDirection::North}:
+            name=="m89-clan-king"?XeenCamera{41,30,25,XeenDirection::North}:
+            name=="m89-draco"?XeenCamera{29,1,13,XeenDirection::North}:
+            name=="m89-dragons"?XeenCamera{15,0,12,XeenDirection::North}:XeenCamera{8,2,7,XeenDirection::North};
+        check(save_test::sameCamera(camera,expected),"M89 preset position");
+        const auto cell=world.sampleCell(camera.mapId,camera.x,camera.y);check(bool(cell),"M89 starting cell");
+        auto step=camera;
+        check(XeenMovement().apply(world,step,NavigationAction::MoveForward,XeenMovement::capabilities(party))==XeenMovementResult::Moved,
+            "M89 fight cell must be reachable on its original surface");
+        for(auto id:party.party.activeRosterIds())check(party.roster.at(id).canAct() && party.roster.at(id).permanentLevel==30,"M89 strong party");
+        if(name=="m89-lord-xeen")check(party.roster.at(party.party.activeRosterIds()[0]).weapons[0].id==34 &&
+            party.roster.at(party.party.activeRosterIds()[0]).weapons[0].frame==13 && party.questFlags.isSet(23),"M89 equipped Slayer Sword and main quest");
+        if(name=="m89-clan-king")check(flags.isSet(9) && flags.isSet(10) && !flags.isSet(11) && party.questFlags.isSet(1),"M89 Gunther quest state");
+        if(name=="m89-draco")check(party.encounterContext->minutes==1260 && flags.isSet(113) && flags.isSet(125) && flags.isSet(137),"M89 Draco coffin preconditions");
+        if(name=="m89-dragons")check(party.questFlags.isSet(17) && party.encounterContext->effects[XeenPartyEffect::WalkOnWater] && !flags.isSet(56),"M89 Medin quest and lake access");
+        return;
+    }
     if(name=="m88-roster" || name.rfind("m87-",0)==0) {
         const bool shangri=name=="m87-shangrila";
         check(camera.mapId==XeenMapIdentity(shangri?49:28) && camera.x==(shangri?14:24) && camera.y==(shangri?12:4) && camera.direction==XeenDirection::North,"Inn preset outside tavern door");

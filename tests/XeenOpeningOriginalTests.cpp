@@ -13,7 +13,7 @@ namespace mmodern {
 struct XeenRestTestAccess {
     static void budgetCrossing(XeenEventFlow &f,const XeenCamera &to,const XeenEventFile &events) {
         auto &e=*f._encounter;auto work=std::make_unique<XeenRegionalActionCandidate>();auto &c=*work;
-        c.destinationWorld=e._world.transitionCandidate();c.destinationWorld->loadEventDestination(e._camera.mapId,to.mapId);
+        c.destinationWorld=e._world.transitionCandidate();c.destinationFlags=c.destinationWorld->loadEventDestination(e._camera.mapId,to.mapId,true,e._flags);
         c.destinationEvents=events;c.camera=to;c.context=*e._party.encounterContext;c.owners=e._party.party.activeOrder();
         c.actors=c.destinationWorld->sessionState().regionalActors(to.mapId);c.random=XeenCombatRandom(*e._world.sessionState().journeyRandom());
         for(unsigned n=0;n<6;++n){c.characters[n]=e._party.roster.at(c.owners[n]);c.inputs[n]=*e._party.roster.combatInputs(c.owners[n]);}

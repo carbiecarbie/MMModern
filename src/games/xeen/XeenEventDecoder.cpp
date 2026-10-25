@@ -255,6 +255,7 @@ XeenEventDecodeResult XeenEventDecoder::decode(const XeenEventRecord &record,
   return decode(consumed,context);
  }
  switch (record.opcode) {
+ case 30: return decodeEmpty(record,context,XeenEventEndClouds{});
  case 34:
   if(record.parameters.size()!=3)return wrongSize(record,context,3);
   return instruction(record,context,XeenEventMoveWallObject{record.parameters[0],

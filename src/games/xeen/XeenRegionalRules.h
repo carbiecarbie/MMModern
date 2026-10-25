@@ -112,6 +112,7 @@ struct XeenRegionalActionCandidate {
 	// An outdoor border load stays detached until the whole step can publish.
 	std::shared_ptr<XeenWorld> destinationWorld;
 	std::optional<XeenEventFile> destinationEvents;
+    std::optional<XeenGameFlags> destinationFlags;
 	std::optional<std::vector<XeenExploredTile>> exploration;
 	XeenPartyOrder owners{};
 	XeenCamera camera;

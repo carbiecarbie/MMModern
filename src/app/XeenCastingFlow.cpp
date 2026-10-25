@@ -43,7 +43,7 @@ bool XeenEncounterFlow::useCombatItem(const Ticket &entry,const ItemUseSelection
     });
     const auto events=work.events;
     XeenCombat::CastResponse response(_combat->ticket());
-    if(!acceptCombatResult(_combat->beginItemCast(response,selection.slot,selection.record,travel,std::move(work.world),std::move(work.events))))return false;
+    if(!acceptCombatResult(_combat->beginItemCast(response,selection.slot,selection.record,travel,std::move(work.world),std::move(work.events),work.flags)))return false;
     if(selection.record.id==55 && _combat->cast() && _combat->cast()->committed) {
         if(!acceptCombatResult(_combat->serviceCast(_combat->ticket(),_lastTime)))return false;
         if(travel.reload && travel.destination)_journeyEvents=events;
@@ -109,7 +109,7 @@ XeenEncounterFlow::SpellMapWork XeenEncounterFlow::prepareSpellMap(const XeenSpe
     const auto entry=ticket();
     const auto check=[&] {if(_combat) {if(!current(entry))throw std::logic_error("Stale combat map preparation");}else _journeyPreimage->check();};
     XeenRestoreGuard::EventProviders providers(*result.world,party,camera,flags,guard,check,[&]{_journeyPreimage->failed=true;});
-    result.world->loadEventDestination(_camera.mapId,travel.destination->mapId);
+    result.flags=result.world->loadEventDestination(_camera.mapId,travel.destination->mapId,true,_flags);
     result.events=_travelEventsProvider(travel.destination->mapId);
     check();
     if(result.events.mapId!=travel.destination->mapId)throw std::logic_error("Travel Events identity changed");
@@ -224,7 +224,7 @@ bool XeenEncounterFlow::confirmCasting(const Ticket &entry, std::size_t casterIn
 		prepared->characters[owner].currentSp=after;
         prepared->purse->gems-=cost.gems;
         travel.applyBeacon(prepared->characters[owner]);
-        if(mapWork.world) {prepared->prepareSpellMapPublication(*mapWork.world);prepared->cameraValue=*jump;}
+        if(mapWork.world) {prepared->prepareSpellMapPublication(*mapWork.world);prepared->cameraValue=*jump;prepared->flagValues=mapWork.flags.values();}
 		_casting->casterOwner=owner;_casting->slot=static_cast<std::uint8_t>(slot);
 		_casting->spell=*spell;_casting->originalSp=caster.currentSp;
         _casting->jumpDestination=jump;
@@ -234,7 +234,7 @@ bool XeenEncounterFlow::confirmCasting(const Ticket &entry, std::size_t casterIn
 		_journeyPreimage->check();
 		if(xeenTravelFmBeforeRelocation(*spell))
             if(const auto cue=xeenTravelFmEffect(*spell,travel.failed,bool(travel.destination),distance))fmEffect(*cue);
-		if(mapWork.world) {_world.publishTransition(*mapWork.world);_camera=*jump;_journeyEvents=std::move(mapWork.events);}
+		if(mapWork.world) {_flags=mapWork.flags;_world.publishTransition(*mapWork.world);_camera=*jump;_journeyEvents=std::move(mapWork.events);}
         travel.applyBeacon(_party.roster.at(owner));
         _party.roster.at(owner).currentSp=after;
         _party.purse->gems-=cost.gems;

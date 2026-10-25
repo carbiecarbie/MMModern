@@ -478,7 +478,7 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
                 const auto travel=world.prepareEventTransition(destination,run);
                 if(!travel)throw std::invalid_argument(travel.reason);
                 if(workingCamera.mapId!=destination.mapId) {
-                    world.loadEventDestination(workingCamera.mapId,destination.mapId,false);
+                    workingGameFlags=world.loadEventDestination(workingCamera.mapId,destination.mapId,false,workingGameFlags);
                     ++state.inputClearCount;state.inputClearSite=0xf590;
                 }
                 world.scenePresentation().markLightingStep();
@@ -592,7 +592,7 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
                 const auto transition=world.prepareEventTransition(destination);
                 if(!transition)return error(XeenEventExecutionErrorKind::UnsupportedTeleportDestination,transition.reason,instructionCount,logical,pending.request.source);
                 // Unlike ordinary same-map teleport, refusal is a real map load.
-                world.loadEventDestination(workingCamera.mapId,destination.mapId,false);
+                workingGameFlags=world.loadEventDestination(workingCamera.mapId,destination.mapId,false,workingGameFlags);
                 ++state.inputClearCount;state.inputClearSite=0xf590;
                 workingCamera=transition.destination;state.selectedObject.reset();
             } catch(const std::exception &e) {
@@ -726,6 +726,14 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
             if(!set || static_cast<std::int8_t>(set->selector)<=7)state.scriptExecuted=true;
         }
 
+        if(std::holds_alternative<XeenEventEndClouds>(decoded.operation)) {
+            XeenPresentationRequest request;request.kind=XeenPresentationKind::CenteredMessage;
+            request.response=XeenPresentationResponseRequirement::Acknowledgment;
+            request.mapId=logical.mapId;request.source=decoded.source;
+            request.text="Clouds ending: not supported yet";
+            state.pendingPresentation=XeenEventPendingPresentation{request,XeenEventPendingContinuation::Terminate,{}};
+            return XeenEventExecutionSuspended{state,request};
+        }
 		if (std::holds_alternative<XeenEventExit>(decoded.operation))
 			return finalize();
 		if (const auto *service=std::get_if<XeenEventTownService>(&decoded.operation)) {
@@ -1692,7 +1700,7 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
                     if(sprite==47 || sprite==48)emitFmEffect(publication,sprite==47?45:44);
                 }
                 if(workingCamera.mapId!=destination.mapId && world.detachedEventCandidate()) {
-                    world.loadEventDestination(workingCamera.mapId,destination.mapId,false);
+                    workingGameFlags=world.loadEventDestination(workingCamera.mapId,destination.mapId,false,workingGameFlags);
                     ++state.inputClearCount;state.inputClearSite=0xf590;
                 }
                 workingCamera=destination;

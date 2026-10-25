@@ -245,6 +245,7 @@ void XeenSaveState::restoreJourney(const XeenSaveSnapshot &source, const Resourc
 		XeenActorApproach::validateEnvironment(w,s.mutableMonsters(id),mapEvents);
 	}
 	adopt();
+    w.applyMainMapRules(c.mapId,f);adopt();
 	// The camera map's own table and Events, as every reader resolves them.
 	auto &active=s.mutableMonsters(c.mapId);
 	const auto view=!s.mapState(c.mapId)->outdoors ? XeenIndoorScene().classifyActors(w,c,active) : XeenActorApproach::classify(active,c);

@@ -45,10 +45,14 @@ constexpr std::array<unsigned,7> kDropChance{0,10,20,50,100,100,100};
 // Otherwise fixed gold and gems accumulate before the chance draw
 // (0x2c2be..0x2c307), in 32-bit sums that wrap without refusal.
 XeenMonsterDropCandidate::XeenMonsterDropCandidate(const XeenTreasureStaging &before, const XeenMonsterRecord &record,
-		XeenMapIdentity map, std::uint64_t revision) : treasure(before), base(revision) {
+		XeenMapIdentity map, std::uint64_t revision, unsigned resourceId) : treasure(before), base(revision) {
 	const auto field=record.dropLevel();
 	if (map.number==85) return;
 	treasure.gold+=std::uint32_t(record.gold());treasure.gems+=std::uint32_t(record.gems());
+	// DOS 0x2c325..0x2c337: overwrite slot zero before the ordinary drop.
+	if(map.side==XeenSide::Clouds && resourceId==89) {
+        auto &scepter=treasure.weapons[0];scepter.material=0;scepter.id=90;scepter.state=0;treasure.ready=true;
+    }
 	if (field) { level=field;item=XeenItemCandidate(level);step=Step::Drop; }
 }
 bool XeenMonsterDropCandidate::service(XeenConsequenceDraw &draw) {

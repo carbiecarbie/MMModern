@@ -17,7 +17,7 @@ public:
 	XeenRestoreGuard(const XeenWorld &world, const XeenPartyState &party,
 		const XeenCamera &camera, const XeenGameFlags &flags, bool exactCaches = false) :
 		w(world), p(party), c(camera), f(flags), worldId(w._incarnation),
-		worldRevision(w._ownerRevision), developerEventMap(w._developerEventMap),
+		worldRevision(w._ownerRevision), developerEventMap(w._developerEventMap), mapRuleView(w._mapRuleView),
 		partyId(p._incarnation), rosterId(p.roster._incarnation),
 		partyReplacement(p._replacement), rosterReplacement(p.roster._replacement),
 		s(w._sessionState), characters(p.roster.characters()), inputs(p.roster._combatInputs),
@@ -44,7 +44,7 @@ public:
 	}
 	XeenRestoreGuard(XeenRestoreGuard &&other) :
 		w(other.w), p(other.p), c(other.c),
-		f(other.f), worldId(std::move(other.worldId)), worldRevision(std::move(other.worldRevision)), developerEventMap(other.developerEventMap),
+		f(other.f), worldId(std::move(other.worldId)), worldRevision(std::move(other.worldRevision)), developerEventMap(other.developerEventMap), mapRuleView(other.mapRuleView),
 		partyId(std::move(other.partyId)), rosterId(std::move(other.rosterId)), partyReplacement(std::move(other.partyReplacement)),
 		rosterReplacement(std::move(other.rosterReplacement)), s(std::move(other.s)), characters(std::move(other.characters)),
 		inputs(std::move(other.inputs)), marked(std::move(other.marked)), membership(std::move(other.membership)), dismissed(std::move(other.dismissed)), insideInn(other.insideInn),
@@ -69,7 +69,7 @@ public:
 		for (const auto &state : borrowStates) if (!state->alive) return false;
 		for (unsigned i = 0; i < borrowOwners.size(); ++i)
 			if (borrowOwners[i]->state != borrowStates[i] || borrowStates[i]->revision != borrowRevisions[i]) return false;
-		if (w._incarnation != worldId || w._ownerRevision != worldRevision || w._developerEventMap != developerEventMap ||
+		if (w._incarnation != worldId || w._ownerRevision != worldRevision || w._developerEventMap != developerEventMap || w._mapRuleView!=mapRuleView ||
 			p._incarnation != partyId || p.roster._incarnation != rosterId ||
 			p._replacement != partyReplacement || p.roster._replacement != rosterReplacement ||
 			p.roster.combatMarked() != marked || p.party.activeRosterIds() != membership || p.party.dismissedRosterIds()!=dismissed || p.insideInn!=insideInn ||
@@ -334,7 +334,7 @@ private:
 		economy = candidate.economy;
 		soundOptions=candidate.soundOptions;food=candidate.food;first = candidate.first; effective = candidate.effective; diagnostics = candidate.diagnostics;
 		cameraValue = candidate.cameraValue; flagValues = candidate.flagValues;
-		maps = candidate.maps; objects = candidate.objects;
+		maps = candidate.maps; objects = candidate.objects;mapRuleView=candidate.mapRuleView;
 		cityStatistics = candidate.cityStatistics;
 		if (regionalText && candidate.regionalText &&
 			(regionalText->mapId!=candidate.regionalText->mapId ||
@@ -363,7 +363,7 @@ private:
         s._mapStates=candidate._sessionState._mapStates;
         s._accountedMonsters=candidate._sessionState._accountedMonsters;
         s._headCache=candidate._sessionState._headCache;
-        maps=candidate._maps;objects=candidate._objects;cityStatistics=candidate._cityStatistics;
+        maps=candidate._maps;objects=candidate._objects;cityStatistics=candidate._cityStatistics;mapRuleView=candidate._mapRuleView;
         ++worldRevision;prepareMutationRanges();
     }
     void prepareVertigoPrelude(const XeenGameFlags &after) {
@@ -445,7 +445,7 @@ private:
 		if(candidate.w.transitionTreasureChanged())prepareStagingPublication(candidate.w.treasureStaging().value());
 		s._journeyRandom=candidate.s._journeyRandom;
 		maps.swap(nextMaps);objects.swap(nextObjects);cityStatistics.swap(statistics);
-		cameraValue=candidate.cameraValue;flagValues=candidate.flagValues;++worldRevision;
+		cameraValue=candidate.cameraValue;flagValues=candidate.flagValues;mapRuleView=candidate.mapRuleView;++worldRevision;
 		context=candidate.context;recovery=candidate.recovery;soundOptions=candidate.soundOptions;food=candidate.food;economy=candidate.economy;
 		quests=candidate.quests;questFlags=candidate.questFlags;
 	}
@@ -565,6 +565,7 @@ private:
 	const XeenWorld &w; const XeenPartyState &p; const XeenCamera &c; const XeenGameFlags &f;
 	std::uint64_t worldId, worldRevision;
 	std::optional<XeenMapIdentity> developerEventMap;
+    std::uint16_t mapRuleView=0;
 	std::uint64_t partyId, rosterId, partyReplacement, rosterReplacement;
 	XeenSessionWorldState s;
 	std::array<XeenCharacter, 30> characters;

@@ -432,6 +432,20 @@ character after Y confirms. Create rolls attributes, exchanges them, selects
 a class and asks for a name; the new character stays lodged until added to
 the party.
 
+The M89 presets use the level-30 `m78-playtest` party and original maps,
+MOB slots and Events. Each starts beside a walkable fight cell:
+
+| Preset | Start and purpose |
+| --- | --- |
+| `m89-lord-xeen` | Map 78 `(5,8)` North, first member's Slayer Sword equipped, temporary Speed +100, party Holy Bonus 20 and quest 23 active. Step forward to fight, then visit the Sixth Mirror at `(4,9)` facing West for its text and ending notice. |
+| `m89-clan-king` | Map 41 `(30,25)` North, Gunther's dwarf quest active and the Vertigo prerequisites complete. Step forward to the Clan King's group, then return to Gunther. |
+| `m89-draco` | Map 29 `(1,13)` North at 21:00, with the three coffin prerequisites set and earlier enemies removed. Step forward and open the coffin to spawn Count Draco; afterwards visit the well at `(7,7)`. |
+| `m89-dragons` | Map 15 `(0,12)` North, Medin's lake quest active and Walk on Water enabled for deep water. Kill slots 0-2, leave the map and return to Medin. |
+| `m89-trolls` | Map 8 `(2,7)` North, beside the Ice Troll lair. Wound a troll and check its full heal at a new combat round. |
+
+Generate each with `mmodern_test_save <preset> <game-dir> <new-path.mmsave>`.
+The tool refuses an existing path; keep an untouched copy for repeated play.
+
 `m88-roster` starts at the same Vertigo door with the original six active
 members and 22 named characters lodged there. Only slots 12 (Gnome, male)
 and 21 (Human, female) are free. Create twice, then C shows the full-roster

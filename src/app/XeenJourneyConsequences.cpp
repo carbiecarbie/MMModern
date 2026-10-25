@@ -1,4 +1,5 @@
 #include "app/XeenEncounterFlow.h"
+#include "games/xeen/XeenScriptedRules.h"
 #include "games/xeen/XeenFmEffects.h"
 #include "games/xeen/XeenJourneyProgression.h"
 #include "games/xeen/XeenJourneyCapture.h"
@@ -143,7 +144,7 @@ bool XeenEncounterFlow::serviceShoot() {
     if(!work.attackDone) {
      if(work.spellAttack ? !work.spellAttack->service(draw) : !work.attack->service(draw)) return true;
      work.impactRandom=work.random.continuation();
-     if(damage()>=actor.hp) work.drop.emplace(_world.treasureStaging(),*actor.statistics,_camera.mapId);
+     if(damage()>=actor.hp) work.drop.emplace(_world.treasureStaging(),*actor.statistics,_camera.mapId,actor.original.resourceId);
      work.attackDone=true;
     }
     // Lethal drop requests belong after the acquired post-HP draw, never
@@ -203,6 +204,8 @@ bool XeenEncounterFlow::serviceShoot() {
      ++session._encounterRevision;_state._revision=session._encounterRevision;++session._journeyGeneration;++_generation;
      retainJourney();return true;
     }
+    std::optional<XeenScriptedDeath> scripted;
+    if(work.lethal)scripted=xeenPrepareScriptedDeath(_party,_flags,_camera,actor);
     const bool removed=bool(work.lethal);
     if(session._encounterRevision==std::numeric_limits<std::uint64_t>::max() || !journeyCapacity()) throw std::overflow_error("Shoot generation exhausted");
     check();
@@ -210,6 +213,7 @@ bool XeenEncounterFlow::serviceShoot() {
     auto &live=liveActors.at(id->recordIndex);
     if(work.lethal) {
      if(work.target<3)_world.scenePresentation().splats[work.target]={};
+     scripted->publish(_party,_flags);
      live=work.lethal->actor;session._accountedMonsters.swap(work.lethal->accounted);
      for(unsigned i=0;i<work.owners.size();++i) _party.roster._combatInputs[work.owners[i]]->experience=work.lethal->experience[i];
      if(work.drop) _world.treasureStaging().publish(work.drop->treasure);

@@ -19,13 +19,19 @@ documented in its source. Each item links to its entry in
 
 **Revisions.** MMModern pins ScummVM `6814ee9b` (2026-09-06). Every item was
 rechecked against ScummVM master `55895ab0` on 2026-10-16, except the new
-terrain/Tavern/Temple/recovery/spell/movement/entrance/audio/party entries explicitly marked "pin: differs; master not
+terrain/Tavern/Temple/recovery/spell/movement/entrance/audio/party/scripted-map entries explicitly marked "pin: differs; master not
 rechecked". At that check, since the pin the
 Xeen engine has had only a code-style edit and the Xeen data in `mm.dat` is
 unchanged apart from its version number, so the earlier entries are marked
 "master: differs". MMModern plays all of Clouds of Xeen; items that concern
 only Darkside wait for its gameplay.
 
+- **Xeen Slayer Sword.** [Only weapon ID 34 bypasses physical resistance](original-quirks.md#sv-slayer-sword-exact-id); the pin also admits larger IDs. Pin: differs; master not rechecked.
+- **Clan King quest.** [The kill hook uses MOB slot 28 on map 41](original-quirks.md#sv-clouds-death-slots), rather than the pin's slot 20 (a Tiger Mole). Pin: differs; master not rechecked.
+- **Ice Troll regeneration.** [The full heal at each new combat round is Clouds-only](original-quirks.md#sv-clouds-ice-troll); the pin omits that side test. Pin: differs; master not rechecked.
+- **Lake monsters quest.** [All three Water Dragons must be gone when leaving map 15](original-quirks.md#sv-lake-dragons-away); loading it clears the flag. The pin sets it on load and on save with different tests. Pin: differs; master not rechecked.
+- **Drained caves.** [Flag 25 applies to maps 42, 43 and 44](original-quirks.md#sv-drained-cave-maps); the pin uses 4 instead of 44. Pin: differs; master not rechecked.
+- **Completed quest objects.** [Nine quest flags hide neighbouring-map object copies](original-quirks.md#sv-quest-done-objects). The first matching flag/map entry wins; the pin omits this table. Pin: differs; master not rechecked.
 - **Monster target draws.** The [initial target draw depends on party size](original-quirks.md#sv-monster-target-count-draws): none for one combat participant, one for two to five, and one or two for six. The pin always draws once. Pin: differs; master not rechecked.
 - **Dismiss lodging.** [Dismiss keeps departed characters until the next Save](original-quirks.md#sv-dismiss-deferred-lodging), which lodges them in Vertigo on Clouds. The pin removes them without that deferred lodging pass. Pin: differs; master not rechecked.
 - **Saved lodging map.** The [CHR lodging map is a 16-bit word at bytes 340–341](original-quirks.md#sv-chr-lodging-layout); byte 339 is separate. The pin starts the unknown field one byte earlier and reads only byte 341 as the map. Pin: differs; master not rechecked.

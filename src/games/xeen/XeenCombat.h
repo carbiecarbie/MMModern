@@ -261,8 +261,8 @@ private:
     XeenCombatResult finishCast(const Ticket &);
     bool changeInventory(const Ticket &,const std::function<bool(XeenPartyState &)> &);
     XeenCombatResult beginItemCast(CastResponse &,std::size_t,const XeenItem &,
-        const XeenSpellTravel &,std::unique_ptr<XeenWorld>,XeenEventFile);
-	XeenCombat(XeenWorld &, XeenPartyState &, XeenCamera &, XeenCombatBoundary &, const XeenGameFlags &,
+        const XeenSpellTravel &,std::unique_ptr<XeenWorld>,XeenEventFile,const XeenGameFlags &);
+	XeenCombat(XeenWorld &, XeenPartyState &, XeenCamera &, XeenCombatBoundary &, XeenGameFlags &,
 		const XeenEncounterState &, const std::vector<XeenMonsterRecord> &, const XeenEventFile &);
     void fmEffects(std::function<void(unsigned)>,std::function<void()>,std::function<void(unsigned)>,std::function<void(unsigned)> afterFrame={},std::function<void()> playerMiss={});
 	void retireJourney(const Ticket &, XeenEncounterState &);

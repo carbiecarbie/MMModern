@@ -52,7 +52,7 @@ XeenProgramState &xeenBorrowProgram(XeenProgramState &program, XeenWorld &world)
 	world.borrowTreasureStaging(program.treasure);
 	return program;
 }
-XeenEncounterFlow::XeenEncounterFlow(XeenProgramState &program, XeenWorld &w, XeenPartyState &p, XeenCamera &c, const XeenGameFlags &flags,
+XeenEncounterFlow::XeenEncounterFlow(XeenProgramState &program, XeenWorld &w, XeenPartyState &p, XeenCamera &c, XeenGameFlags &flags,
 		const XeenEventPresenter::Clock &clock, const XeenJourneySetup &setup, const PresentationClock::Source *highResolution) :
 	_journey(true), _journeyStatistics(setup.statistics), _learnedNamesProvider(setup.learnedNamesProvider), _program(xeenBorrowProgram(program,w)), _world(w), _party(p), _camera(c), _flags(flags),
 	_clock(clock), _nanosecondClock(highResolution), _events(_journeyEvents), _boundary(w,p,c) {
@@ -148,7 +148,9 @@ XeenEncounterFlow::XeenEncounterFlow(XeenProgramState &program, XeenWorld &w, Xe
 			}
 		}
 		w._combatCheck = {};
+        w.applyMainMapRules(c.mapId,flags);
 		_journeyPreimage.swap(publishedPreimage);
+        retainJourney();
 		auto &s = w._sessionState;
 		s._journeyOwner = this; s._combatApproachState = &_state;
 		s._journeyActivity = XeenJourneyActivity::Presentation;
@@ -167,7 +169,7 @@ XeenEncounterFlow::XeenEncounterFlow(XeenProgramState &program, XeenWorld &w, Xe
 	} catch (...) { closeJourney(); throw; }
 }
 XeenEncounterFlow::~XeenEncounterFlow() { if (_journey) closeJourney(); }
-XeenEncounterFlow::XeenEncounterFlow(XeenProgramState &program, XeenWorld &w, XeenPartyState &p, XeenCamera &c, const XeenGameFlags &f,
+XeenEncounterFlow::XeenEncounterFlow(XeenProgramState &program, XeenWorld &w, XeenPartyState &p, XeenCamera &c, XeenGameFlags &f,
 		const XeenEventPresenter::Clock &clock, XeenJourneyRestoreTag, const PresentationClock::Source *highResolution) :
 	_journey(true), _program(xeenBorrowProgram(program,w)), _world(w), _party(p), _camera(c), _flags(f), _clock(clock), _nanosecondClock(highResolution), _events(_journeyEvents), _boundary(w,p,c) {
 	const auto binding = w._journeyRestoration;
@@ -280,7 +282,7 @@ bool XeenEncounterFlow::publishMrWizard(bool zeroGems) {
 		{XeenRestoreGuard guard(*candidate,party,camera,flags);
 			XeenRestoreGuard::EventProviders providers(*candidate,party,camera,flags,guard,
 				[&]{_journeyPreimage->check();},[&]{_journeyPreimage->failed=true;});
-			candidate->loadEventDestination(_camera.mapId,destination.mapId);
+			flags=candidate->loadEventDestination(_camera.mapId,destination.mapId,true,flags);
 			events=_travelEventsProvider(destination.mapId);_journeyPreimage->check();
 			if(events.mapId!=destination.mapId)throw std::logic_error("Mr Wizard Events identity changed");
 			camera=destination;
@@ -288,12 +290,12 @@ bool XeenEncounterFlow::publishMrWizard(bool zeroGems) {
 			exploration=candidate->explorationAfterStep(party,camera);}
 		auto prepared=std::make_shared<XeenRestoreGuard>(_world,_party,_camera,_flags);
 		prepared->retainResources(*_journeyPreimage);
-		prepared->prepareSpellMapPublication(*candidate);prepared->cameraValue=camera;
+		prepared->prepareSpellMapPublication(*candidate);prepared->cameraValue=camera;prepared->flagValues=flags.values();
 		if(zeroGems)prepared->purse->gems=0;
 		prepared->s.assignExploration(exploration);
 		_world.checkTransitionTreasure(*candidate);_journeyPreimage->check();
         fmEffect(51);
-		_world.publishTransition(*candidate);_camera=camera;_journeyEvents=std::move(events);
+		_flags=flags;_world.publishTransition(*candidate);_camera=camera;_journeyEvents=std::move(events);
 		if(zeroGems)_party.purse->gems=0;
 		XeenMutationWatch::write(&_world);_world._sessionState.publishExploration(exploration);
 		++_generation;_journeyPreimage.swap(prepared);_journeyPreimage->adoptMutationBoundary();
@@ -427,12 +429,12 @@ std::optional<std::uint64_t> XeenEncounterFlow::beginItemUse(const Ticket &entry
         prepared->retainResources(*_journeyPreimage);
         prepared->characters[selection.sourceOwner].miscellaneous=items;
         travel.applyBeacon(prepared->characters[selection.sourceOwner]);
-        if(mapWork.world) {prepared->prepareSpellMapPublication(*mapWork.world);prepared->cameraValue=*next->jumpDestination;}
+        if(mapWork.world) {prepared->prepareSpellMapPublication(*mapWork.world);prepared->cameraValue=*next->jumpDestination;prepared->flagValues=mapWork.flags.values();}
         if(mapWork.world)_world.checkTransitionTreasure(*mapWork.world);
         _journeyPreimage->check();
         if(next->spell && xeenTravelFmBeforeRelocation(*next->spell))
             if(const auto cue=xeenTravelFmEffect(*next->spell,travel.failed,bool(travel.destination),distance))fmEffect(*cue);
-        if(mapWork.world) {_world.publishTransition(*mapWork.world);_camera=*next->jumpDestination;_journeyEvents=std::move(mapWork.events);}
+        if(mapWork.world) {_flags=mapWork.flags;_world.publishTransition(*mapWork.world);_camera=*next->jumpDestination;_journeyEvents=std::move(mapWork.events);}
         travel.applyBeacon(_party.roster.at(selection.sourceOwner));
         _party.roster.at(selection.sourceOwner).miscellaneous=items;
 		_itemUse=std::move(next);_itemUseResult.reset();
@@ -603,7 +605,7 @@ bool XeenEncounterFlow::serviceItemUse() {
 		XeenEncounterResult result;
 		{
 			XeenRestoreGuard::Providers providers(*_journeyPreimage,_world);
-			result=XeenActorApproach::regionalTransition(_world,_party,_camera,_state,_journeyEvents,{},_regionalWork,_travelEventsProvider,[this](unsigned id){fmEffect(id);});
+			result=XeenActorApproach::regionalTransition(_world,_party,_camera,_state,_journeyEvents,{},_regionalWork,_travelEventsProvider,[this](unsigned id){fmEffect(id);},{},{},_flags);
 		}
 		if (!_journeyPreimage->ownersAlive() || _boundary.generation()!=boundaryGeneration ||
 			result.outcome==XeenEncounterOutcome::Stale || result.outcome==XeenEncounterOutcome::Refused ||
@@ -916,7 +918,7 @@ XeenEncounterResult XeenEncounterFlow::advanceJourney(const Ticket &entry, std::
 			result = XeenActorApproach::regionalTransition(_world,_party,_camera,_state,_journeyEvents,action,_regionalWork,_travelEventsProvider,
                 [this](unsigned id){fmEffect(id);},[this]{fmStepEffect();},[this] {
                     return _doorAcquired && _lastNanoseconds>=_doorDeadline;
-                });
+                },_flags);
 		}
 		if (!_journeyPreimage->ownersAlive()) { closeJourney(); return refused; }
 		// A replaced boundary belongs to newer work. Leave its coordination alone.

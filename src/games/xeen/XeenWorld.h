@@ -1,5 +1,6 @@
 #ifndef MMODERN_GAMES_XEEN_WORLD_H
 #define MMODERN_GAMES_XEEN_WORLD_H
+#include "games/xeen/XeenGameFlags.h"
 
 #include "games/xeen/XeenMap.h"
 #include "games/xeen/XeenRecordIdentity.h"
@@ -248,7 +249,8 @@ public:
 	void publishTerrainArrival(XeenPartyState &,const XeenTerrainArrivalCandidate &,const XeenJourneyRandomState &);
 	// Event interpreter reports its own clear before publication; other loads
     // publish a transient input signal with the destination, including reloads.
-    void loadEventDestination(XeenMapIdentity from,XeenMapIdentity to,bool clearKeyboard=true);
+    XeenGameFlags loadEventDestination(XeenMapIdentity from,XeenMapIdentity to,bool clearKeyboard=true,const XeenGameFlags &flags={});
+    void applyMainMapRules(XeenMapIdentity,XeenGameFlags &);
     std::uint64_t inputMapLoadGeneration() const noexcept {return _inputMapLoadGeneration;}
 	bool regionalJourney() const noexcept {
 		return (_sessionState.journey() || _detachedEventCandidate);
@@ -318,7 +320,7 @@ public:
 	void retainEventStep(XeenPartyState &,const XeenRegionalActionCandidate &,const std::vector<XeenActor> &);
 	// Map exit (decision 2): a map that is never retained, the Warzone, loses
 	// its state and accounting, so re-entry starts fresh. Detached work only.
-	void leaveMap(XeenMapIdentity);
+	void leaveMap(XeenMapIdentity,XeenGameFlags *flags=nullptr);
 
 private:
 	friend class XeenSaveState;
@@ -338,7 +340,8 @@ private:
 	const std::uint64_t _incarnation;
 	std::uint64_t _ownerRevision = 0;
 	std::uint64_t _cacheRevision = 0;
-    std::uint64_t _inputMapLoadGeneration = 0; // Platform input only; never saved.
+    XeenMutable<std::uint16_t> _mapRuleView=0; // Derived at main-map load; never saved.
+	std::uint64_t _inputMapLoadGeneration = 0; // Platform input only; never saved.
 	XeenGameplayBorrowOwner _gameplayBorrow;
 	std::weak_ptr<XeenJourneyCapture> _journeyCapture;
 	std::shared_ptr<XeenJourneyRestoration> _journeyRestoration;

@@ -200,13 +200,19 @@ become 20 and 51, respectively.
 
 ### Applying weapon damage
 
-**Evidence: Reference only.** A zero accumulated input skips the entire positive
-input branch: no elemental addition and no monster saving throw.
+**Evidence: DOS static (`WORLD/XEEN.DAT` `0x2be0c..0x2bf2b`) for the entry and
+physical-resistance gates; the elemental and ordinary-save details below remain
+from the pinned reference.** A zero accumulated input skips the positive branch:
+no elemental addition and no monster save. Clouds Lord Xeen also takes this zero
+exit for non-melee input, before waking or saving.
 
 For an ordinary positive melee input, physical resistance applies first:
 `physical = total * (100 - physical resistance) / 100`; resistance 100 sets it to
-zero. This reduction is bypassed if the selected attack weapon ID is at least
-Xeen Slayer Sword (34). The source also has explicit Lord Xeen handling; see below.
+zero. Exactly the Xeen Slayer Sword (weapon 34) bypasses it (`0x2beb6`), as does
+nonzero range with a nonzero current attack/spell effect selector DS `0x972e`
+(`0x2beab..0x2beb4`). Melee clears that unsaved selector (`0x2c8b2`); ranged
+spell dispatch sets it, including Poison Volley. Larger weapon IDs do not bypass
+resistance. Lord Xeen's bonus precedes this reduction; see below.
 
 Add the elemental weapon contribution once per applied action, after physical
 resistance. It is `ELEMENTAL_DAMAGE[material] * (100 - elemental resistance) / 100`,
@@ -673,16 +679,38 @@ items in a file; see [the full boundary](evidence.md#save-and-load-boundary).
 
 ### Lord Xeen and scripted death hooks
 
-**Evidence: Reference only; not a complete boss rule.** The Clouds-side branch of
-`attack2` zeros non-melee damage against resource ID 89 and adds 100 to positive
-melee damage. On its death outside map 85 it stages weapon ID 90, clears its
-material/state, and increments quest-item slot 8. This does not by itself prove
-which attacks can reach positive melee damage: hit chance, weapon ID and physical
-resistance gates remain relevant.
+**Evidence: calibrated DOS static plus the maintainer's DOSBox ending run,
+2026-10-24.** On Clouds, resource ID 89 takes zero damage for a nonzero range
+argument (`0x2be0c..0x2be3b`; Shoot passes 3 at `0x2cbb0`). This skips waking
+and the save. M89 removes the previous extra Shoot save draw, explicitly approved
+by the maintainer and covered by a draw-count test.
 
-The same death branch has map-and-actor-index hooks for Clouds maps 41, 78 and
-29. They are script-progression rules separate from generic monster species
-statistics. Consult `attack2` before replacing death handling with only XP/loot.
+Every nonzero melee input receives +100 (`0x2be58..0x2be76`): the original's
+`!weapon == 34` comparison cannot succeed. Effectiveness has already multiplied
+the accumulated attempts (`0x2caed..0x2cb0f`), so +100 is added once, before
+physical resistance. Only weapon 34 bypasses Lord Xeen's 100% physical resistance;
+his six elemental resistances are also 100%.
+
+The Clouds death hooks (`0x2c191..0x2c237`) use map and MOB slot, without a species
+test: map 41 slot **28** sets game flag 11; map 78 slot 8 sets flag 60, clears
+quest flag 23 and gives award 42 to every active member, including dead members
+(`0x2c1e9..0x2c21a`); map 29 slot 27 sets flag 104. Melee, combat spells/Poison
+Volley and exploration Shoot/spells use the shared rule, published with kill XP.
+
+Outside map 85, Clouds species 89 stages the Scepter before random treasure
+(`0x2c30b..0x2c337`; normal drop starts `0x2c33b`). Pending weapon slot 0 gets
+material 0, ID 90 and state 0, retaining its fourth byte. No empty-slot test
+protects earlier treasure. Readiness is set and quest item 8 increments as a
+byte (255 wraps to 0). This kill's ordinary weapon drop then finds the next empty
+slot. Ordinary treasure delivery credits the Scepter to the first member when no
+WhoWill recipient is selected, even when dead, as the DOSBox run confirms. The
+delivery does not increment the counter again.
+
+Ice Trolls (species 53) on Clouds return to maximum HP at each new combat round,
+after round setup and before the next opportunity (`0x2ea4a..0x2ea85`). The
+MOB-count loop covers maps 8 and 63 with the same rule. Removed monsters stay
+removed. Darkside-specific branches and reachability remain **Unknown/deferred**;
+Darkside gameplay is not supported.
 
 ## Implementation cross-check and remaining DOS questions
 

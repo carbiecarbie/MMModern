@@ -820,7 +820,7 @@ void XeenEventFlow::prepareTerrainTransition() {
  if(!admitted)throw std::logic_error("Terrain destination admission changed");
  work->fallTop=_transitionCompose(*work->world,work->party,work->initialCamera,_ordinary.phase,XeenMonsterAppearance{0}).frame;
  _eventPublication->check();
- work->world->loadEventDestination(_camera.mapId,work->camera.mapId);
+ work->flags=work->world->loadEventDestination(_camera.mapId,work->camera.mapId,true,work->flags);
  XeenConsequenceCharacters characters;XeenConsequenceInputs inputs;
  const auto owners=work->party.party.activeOrder();
  characters.setCount(owners.size());inputs.setCount(owners.size());
@@ -1886,7 +1886,7 @@ void XeenEventFlow::prepareDetachedResult(const XeenManualEventResult &result) t
 				work.fallTop=_transitionCompose(*work.world,work.party,work.camera,_ordinary.phase,XeenMonsterAppearance{0}).frame;
 				_eventPublication->check();
 				const auto destination=rule.transition.destination;
-				work.world->loadEventDestination(work.camera.mapId,destination.mapId);work.camera=destination;
+				work.flags=work.world->loadEventDestination(work.camera.mapId,destination.mapId,true,work.flags);work.camera=destination;
 				work.guard=std::make_unique<XeenRestoreGuard>(*work.world,work.party,work.camera,work.flags);
 			}
 			work.terrain.emplace(rule,characters,inputs,*work.party.encounterContext,&*work.party.serviceEconomy);

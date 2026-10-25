@@ -1,4 +1,5 @@
 #include "games/xeen/XeenWorld.h"
+#include "games/xeen/XeenScriptedRules.h"
 #include "games/xeen/XeenEventValues.h"
 #include "games/xeen/XeenRestoreGuard.h"
 #include "games/xeen/XeenJourneyCapture.h"
@@ -196,6 +197,7 @@ void XeenWorld::swapPreparedState(XeenWorld &candidate) noexcept {
 	_sessionState._headCache.swap(candidate._sessionState._headCache);
 	_scenePresentation.objectFlips.swap(candidate._scenePresentation.objectFlips);
 	_scenePresentation.objectFrames.swap(candidate._scenePresentation.objectFrames);
+    std::swap(_mapRuleView,candidate._mapRuleView);
 	_maps.swap(candidate._maps);
 	_objects.swap(candidate._objects);
 	++_ownerRevision; ++candidate._ownerRevision;
@@ -236,7 +238,7 @@ XeenMapEntity XeenWorld::effectiveObject(XeenObjectIdentity id) {
 	auto value=objectFile(id.mapId).entities.objects[id.recordIndex];
 	if(const auto *state=_sessionState.mapState(id.mapId))
 		for(const auto &v:state->objectOverrides)if(v.id==id) {value.x=v.x;value.y=v.y;break;}
-	return value;
+	return xeenMapRuleObject(value,id,_mapRuleView);
 }
 
 bool XeenWorld::effectiveObjectFlip(XeenObjectIdentity id) const {
@@ -493,6 +495,10 @@ std::optional<XeenCellSample> XeenWorld::sampleCell(
 		}
 		result.effectiveCell=std::move(cell);result.cell=result.effectiveCell.get();break;
 	}
+    if(xeenDrainedCave(result.mapId,_mapRuleView)) {
+        auto cell=std::make_shared<XeenMapCell>(*result.cell);cell->rawAttributes&=0xf8;cell->surfaceIndex=0;
+        result.effectiveCell=std::move(cell);result.cell=result.effectiveCell.get();
+    }
 	const unsigned index=y*16+x;
 	if(!result.cell->stepped && tile && tile->explored && ((*tile->explored)[index/8]&(1u<<(index%8)))) {
 		auto cell=std::make_shared<XeenMapCell>(*result.cell);cell->stepped=true;
@@ -596,7 +602,7 @@ std::unique_ptr<XeenWorld> XeenWorld::transitionCandidate() const {
     candidate->_inputMapLoadGeneration=_inputMapLoadGeneration;
 	candidate->_maps=_maps;candidate->_objects=_objects;
 	candidate->_cityStatistics=_cityStatistics;
-	candidate->_scenePresentation=_scenePresentation;
+	candidate->_scenePresentation=_scenePresentation;candidate->_mapRuleView=_mapRuleView;
 	// Detached work stages on a copy; publishTransition returns it.
 	candidate->_ownTreasureStaging.publish(treasureStaging().value());
 	candidate->_transitionTreasureBase=treasureStaging().revision();
@@ -737,6 +743,7 @@ void XeenWorld::publishTransition(XeenWorld &candidate) noexcept {
  _scenePresentation.lightingStepped=candidate._scenePresentation.lightingStepped;
  _scenePresentation.lightingPrepared=candidate._scenePresentation.lightingPrepared;
 	XeenMutationWatch::write(this);XeenMutationWatch::write(&candidate);
+    _mapRuleView=candidate._mapRuleView;
     _inputMapLoadGeneration=candidate._inputMapLoadGeneration;
 	_sessionState._journeyRandom.swap(candidate._sessionState._journeyRandom);
 	// The whole per-map table moves as one value.

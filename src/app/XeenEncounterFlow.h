@@ -61,9 +61,9 @@ class XeenEncounterFlow {
 public:
 	struct Ticket { XeenEncounterState state; std::uint64_t generation; std::optional<XeenCombat::Ticket> combat;
 		std::uint64_t boundaryGeneration = 0; };
-	XeenEncounterFlow(XeenProgramState &, XeenWorld &, XeenPartyState &, XeenCamera &, const XeenGameFlags &,
+	XeenEncounterFlow(XeenProgramState &, XeenWorld &, XeenPartyState &, XeenCamera &, XeenGameFlags &,
 		const XeenEventPresenter::Clock &, const XeenJourneySetup &, const PresentationClock::Source * = nullptr);
-	XeenEncounterFlow(XeenProgramState &, XeenWorld &, XeenPartyState &, XeenCamera &, const XeenGameFlags &,
+	XeenEncounterFlow(XeenProgramState &, XeenWorld &, XeenPartyState &, XeenCamera &, XeenGameFlags &,
 		const XeenEventPresenter::Clock &, XeenJourneyRestoreTag, const PresentationClock::Source * = nullptr);
 	~XeenEncounterFlow();
 	bool journeyQuiet() const noexcept;
@@ -470,7 +470,7 @@ private:
 	XeenEventFile _journeyEvents;
 	std::vector<XeenMonsterRecord> _journeyStatistics;
 	std::function<XeenLearnedSpellNames()> _learnedNamesProvider;
-	struct SpellMapWork {std::unique_ptr<XeenWorld> world; XeenEventFile events;};
+	struct SpellMapWork {std::unique_ptr<XeenWorld> world; XeenEventFile events; XeenGameFlags flags;};
     SpellMapWork prepareSpellMap(const XeenSpellTravel &);
     bool initializeBeacon(std::uint8_t owner);
     std::function<XeenEventFile(XeenMapIdentity)> _travelEventsProvider;
@@ -505,7 +505,7 @@ private:
 	XeenWorld &_world;
 	XeenPartyState &_party;
 	XeenCamera &_camera;
-	const XeenGameFlags &_flags;
+	XeenGameFlags &_flags;
 	const XeenEventPresenter::Clock &_clock;
     const PresentationClock::Source *_nanosecondClock=nullptr;
     std::uint64_t _lastNanoseconds=0;

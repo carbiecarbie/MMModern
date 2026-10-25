@@ -97,9 +97,9 @@ struct XeenMonsterDropCandidate {
 	XeenRewardCategory category{};
 	// The staging revision this copy was taken at; publication checks it.
 	std::uint64_t base = 0;
-	XeenMonsterDropCandidate(const XeenTreasureStaging &, const XeenMonsterRecord &, XeenMapIdentity, std::uint64_t base = 0);
-	XeenMonsterDropCandidate(const XeenTreasureStagingState &state, const XeenMonsterRecord &record, XeenMapIdentity map) :
-		XeenMonsterDropCandidate(state.value(), record, map, state.revision()) {}
+	XeenMonsterDropCandidate(const XeenTreasureStaging &, const XeenMonsterRecord &, XeenMapIdentity, std::uint64_t base = 0, unsigned resourceId = 0);
+	XeenMonsterDropCandidate(const XeenTreasureStagingState &state, const XeenMonsterRecord &record, XeenMapIdentity map, unsigned resourceId = 0) :
+		XeenMonsterDropCandidate(state.value(), record, map, state.revision(), resourceId) {}
 	bool service(XeenConsequenceDraw &);
 private:
 	enum class Step { Drop, Generate, Store, Done };

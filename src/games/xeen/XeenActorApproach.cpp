@@ -508,7 +508,7 @@ XeenEncounterResult XeenActorApproach::transition(XeenWorld &world, XeenPartySta
 XeenEncounterResult XeenActorApproach::regionalTransition(XeenWorld &world,XeenPartyState &party,
 		XeenCamera &camera,XeenEncounterState &state,XeenEventFile &events,
 		std::optional<XeenEncounterAction> action,std::unique_ptr<XeenRegionalActionCandidate> &work,
-		const std::function<XeenEventFile(XeenMapIdentity)> &eventProvider,const std::function<void(unsigned)> &effect,const std::function<void()> &stepEffect,const std::function<bool()> &doorView) {
+		const std::function<XeenEventFile(XeenMapIdentity)> &eventProvider,const std::function<void(unsigned)> &effect,const std::function<void()> &stepEffect,const std::function<bool()> &doorView,XeenGameFlags &flags) {
 	auto &session=world._sessionState;XeenEncounterResult refused;
 	if(action && static_cast<unsigned>(*action)>static_cast<unsigned>(XeenEncounterAction::StrafeRight))return refused;
 	if(!world._combatCheck || !world._combatAuthorized || !world._combatAuthorized() ||
@@ -556,7 +556,7 @@ XeenEncounterResult XeenActorApproach::regionalTransition(XeenWorld &world,XeenP
                             const auto admitted=world.prepareEventTransition(c.camera);check();
                             if(!admitted) {refused.arrivalRefusal="Destination is not supported yet";return refused;}
                             c.destinationWorld=world.transitionCandidate();
-                            c.destinationWorld->loadEventDestination(camera.mapId,c.camera.mapId);check();
+                            c.destinationFlags=c.destinationWorld->loadEventDestination(camera.mapId,c.camera.mapId,true,flags);check();
                             if(!eventProvider) {refused.arrivalRefusal="Destination Events are not supported yet";return refused;}
                             c.destinationEvents=eventProvider(c.camera.mapId);check();
                             require(c.destinationEvents->mapId==c.camera.mapId,"Border Event identity changed");
@@ -681,12 +681,13 @@ XeenEncounterResult XeenActorApproach::regionalTransition(XeenWorld &world,XeenP
 		c.result.consequences=std::move(observation);
         std::optional<XeenScenePresentation> presentation;
         if(c.destinationWorld)presentation=world.prepareSpawnPresentation(*c.destinationWorld);
-        if(c.destinationWorld)world.checkTransitionTreasure(*c.destinationWorld);
+        if(c.destinationWorld) {require(c.destinationFlags.has_value(),"Map load flags are absent");world.checkTransitionTreasure(*c.destinationWorld);}
         check();
 		c.result.revision=entry._revision+1;
 		// One nonthrowing publication spans both opportunities and the full tick.
 		if(c.destinationWorld) {
             c.destinationWorld->_sessionState.mutableMonsters(c.camera.mapId).swap(c.actors);
+            flags=*c.destinationFlags;
             world.publishTransition(*c.destinationWorld);
             world.scenePresentation()=std::move(*presentation);
             std::swap(events,*c.destinationEvents);

@@ -115,6 +115,31 @@ constexpr std::uint32_t kM81EventSeed=4;
 constexpr int kM81EventOrcRow=4;
 
 void prepare(XeenSaveSnapshot &snapshot,const std::string &preset) {
+    if(preset.rfind("m89-",0)==0) {
+        prepare(snapshot,"m78-playtest");
+        snapshot.camera=preset=="m89-lord-xeen"?XeenCamera{78,5,8,XeenDirection::North}:
+            preset=="m89-clan-king"?XeenCamera{41,30,25,XeenDirection::North}:
+            preset=="m89-draco"?XeenCamera{29,1,13,XeenDirection::North}:
+            preset=="m89-dragons"?XeenCamera{15,0,12,XeenDirection::North}:XeenCamera{8,2,7,XeenDirection::North};
+        if(preset=="m89-lord-xeen") {
+            auto &first=snapshot.characters[snapshot.activeRosterIds.front()];
+            for(auto &item:first.weapons)if(item.frame==1 || item.frame==13)item={};
+            for(auto &item:first.armor)if(item.frame==2)item.frame=0;
+            first.weapons[0]={0,34,0,13};snapshot.questFlags[23]=true;
+            snapshot.journey->supplements[snapshot.activeRosterIds.front()].inputs.speed.temporary=100;
+            snapshot.journey->context->effects[XeenPartyEffect::HolyBonus]=20;
+        }
+        if(preset=="m89-clan-king") {snapshot.gameFlags[9]=snapshot.gameFlags[10]=true;snapshot.questFlags[1]=true;}
+        if(preset=="m89-draco") {
+            snapshot.journey->context->minutes=1260;
+            for(unsigned flag:{113,125,137})snapshot.gameFlags[flag]=true;
+        }
+        if(preset=="m89-dragons") {
+            snapshot.questFlags[17]=true;
+            snapshot.journey->context->effects[XeenPartyEffect::WalkOnWater]=1;
+        }
+        return;
+    }
     if(preset=="m88-roster" || preset=="m87-inn" || preset=="m87-three" || preset=="m87-shangrila") {
         snapshot.camera=preset=="m87-shangrila"?XeenCamera{49,14,12,XeenDirection::North}:XeenCamera{28,24,4,XeenDirection::North};
         if(preset=="m87-three") {
@@ -444,7 +469,7 @@ void prepare(XeenSaveSnapshot &snapshot,const std::string &preset) {
 
 void generateTestSave(const GameInstallation &installation,const std::string &preset,
         const std::filesystem::path &output) {
-    if (preset!="m88-roster" && preset!="m87-inn" && preset!="m87-three" && preset!="m87-shangrila" && preset!="broken-armor" && preset!="train-ready" && preset!="injured-dead" && preset!="poisoned" && preset!="monster-control" && preset!="monster-damage" && preset!="party-healing" && preset!="m76-spells" && preset!="combat-items" && preset!="m78-playtest" && preset!="m78-one-holder" && preset!="m79-playtest" && preset!="m80-playtest" && preset!="m80-arena" && preset!="m80-arena-maxed" && preset!="m81-drops" && preset!="m81-fullpacks" && preset!="m81-event" && preset!="m84-playtest-trap" && preset!="m84-playtest-label" && preset!="m84-playtest-save" && preset!="m85-playtest-label" && preset!="m85-playtest-run" && preset!="m85-playtest-trap" && preset!="m86-playtest-fall" && preset!="m86-playtest-moon-ray" && preset!="m86-playtest-border")
+    if (preset!="m89-lord-xeen" && preset!="m89-clan-king" && preset!="m89-draco" && preset!="m89-dragons" && preset!="m89-trolls" && preset!="m88-roster" && preset!="m87-inn" && preset!="m87-three" && preset!="m87-shangrila" && preset!="broken-armor" && preset!="train-ready" && preset!="injured-dead" && preset!="poisoned" && preset!="monster-control" && preset!="monster-damage" && preset!="party-healing" && preset!="m76-spells" && preset!="combat-items" && preset!="m78-playtest" && preset!="m78-one-holder" && preset!="m79-playtest" && preset!="m80-playtest" && preset!="m80-arena" && preset!="m80-arena-maxed" && preset!="m81-drops" && preset!="m81-fullpacks" && preset!="m81-event" && preset!="m84-playtest-trap" && preset!="m84-playtest-label" && preset!="m84-playtest-save" && preset!="m85-playtest-label" && preset!="m85-playtest-run" && preset!="m85-playtest-trap" && preset!="m86-playtest-fall" && preset!="m86-playtest-moon-ray" && preset!="m86-playtest-border")
         throw std::invalid_argument("Unknown test-save preset: "+preset);
     const auto target=XeenSaveFile::resolve(output,installation);
     // Reuse the native alias/reparse-aware path guard for the repository too.
@@ -464,7 +489,7 @@ void generateTestSave(const GameInstallation &installation,const std::string &pr
             nearby.lifecycle=XeenActorLifecycle::Present;nearby.accounted=false;
         }
     }
-    if(preset=="m88-roster" || preset.rfind("m87-",0)==0 || preset=="m79-playtest" || preset=="m80-playtest" || preset=="m80-arena" || preset=="m80-arena-maxed" || preset.rfind("m84-playtest-",0)==0 || preset.rfind("m85-playtest-",0)==0 || preset.rfind("m86-playtest-",0)==0) {
+    if(preset.rfind("m89-",0)==0 || preset=="m88-roster" || preset.rfind("m87-",0)==0 || preset=="m79-playtest" || preset=="m80-playtest" || preset=="m80-arena" || preset=="m80-arena-maxed" || preset.rfind("m84-playtest-",0)==0 || preset.rfind("m85-playtest-",0)==0 || preset.rfind("m86-playtest-",0)==0) {
         const auto map=candidate.camera.mapId;
         const auto actors=XeenActorApproach::actorsFromResources(inputs.maps.loadObjects(inputs.assets,map),inputs.resources.loadMonsterStatistics());
         auto &table=candidate.map(map).monsters;
@@ -473,6 +498,16 @@ void generateTestSave(const GameInstallation &installation,const std::string &pr
         // Keep the input/Event witnesses quiet for repeated key and Save/Load checks.
         if(preset.rfind("m84-playtest-",0)==0)for(auto &state:candidate.maps)if(state.monsters)for(auto &actor:state.monsters->slots) {
             actor.x=actor.y=-128;actor.lifecycle=XeenActorLifecycle::Defeated;actor.accounted=true;
+        }
+    }
+    if(preset.rfind("m89-",0)==0) {
+        if(preset=="m89-draco")for(auto &actor:candidate.map(29).monsters->slots)
+            if(actor.lifecycle==XeenActorLifecycle::Present) {actor.x=actor.y=-128;actor.lifecycle=XeenActorLifecycle::Defeated;actor.accounted=true;}
+        if(preset=="m89-dragons") {
+            const auto events=inputs.events.load(11);
+            for(unsigned n=0;n<events.records.size();++n) {const auto &r=events.records[n];
+                if(r.x==12 && r.y==13 && r.line==1)candidate.map(11).events.push_back({std::uint16_t(n),0});
+            }
         }
     }
     if(preset.rfind("m86-playtest-",0)==0) {

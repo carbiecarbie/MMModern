@@ -605,6 +605,10 @@ unsigned xeenElementalCategory(unsigned material) {
 	while (item_tables::elementCategories[index]<int(material)) ++index;
 	return index;
 }
+int xeenPhysicalAttackDamage(int damage,unsigned resistance,unsigned weapon,unsigned range,unsigned effect) {
+ ruleRequire(resistance<=100,"Physical resistance outside 0..100");
+ return weapon==34 || (range && effect) ? damage : physicalChecked(std::int64_t(damage)*(100-resistance)/100);
+}
 XeenPhysicalPlayerCandidate::XeenPhysicalPlayerCandidate(const XeenCharacter &c,
         const XeenCombatInputs &i,const XeenMonsterRecord &m,unsigned type,unsigned year,bool shoot,
         XeenDifficulty difficulty,XeenActorStatus status)
@@ -674,8 +678,8 @@ bool XeenPhysicalPlayerCandidate::service(XeenConsequenceDraw &draw) {
 			hit=true;accumulated=physicalChecked(std::int64_t(accumulated)+(shoot ? weapon : std::max(physicalChecked(std::int64_t(weapon)+might),1)));
 		}
 		if (--attacks) { slot=0;weapon=0;hitBonus=0;elementalMaterial=0;hitTotal=baseHit;step=Step::Weapon;break; }
-		// attack2: effectiveness, then physical resistance (bypassed from the Xeen
-		// Slayer Sword, ID 34, upward), then the elemental material once, only for
+		// attack2: effectiveness, then Lord Xeen, then physical resistance (bypassed
+		// only by the Xeen Slayer Sword, ID 34), then elemental material once, only for
 		// a nonzero accumulated input; the Shoot save halves the combined amount.
         if(poisonVolley) {
             accumulated=hit?10:0;
@@ -683,8 +687,14 @@ bool XeenPhysicalPlayerCandidate::service(XeenConsequenceDraw &draw) {
         }
         impact=accumulated!=0;
 		accumulated=physicalChecked(std::int64_t(accumulated)*effectiveness);
+        // DOS effectiveness (0x2caed) precedes attack2 and its +100 (0x2be72).
+        // Shoot takes the zero-damage exit before waking or drawing the save.
+        if(accumulated && clouds && monsterType==89) {
+            if(shoot) {impact=false;step=Step::Done;break;}
+            accumulated=physicalChecked(std::int64_t(accumulated)+100);
+        }
 		status=xeenActorStatusAfterDamage(status,accumulated!=0);
-		physical=poisonVolley || attackWeaponId>=34 ? accumulated : physicalChecked(std::int64_t(accumulated)*(100-monster.physicalResistance())/100);
+		physical=xeenPhysicalAttackDamage(accumulated,monster.physicalResistance(),attackWeaponId,shoot?3:0,poisonVolley?6:0);
 		elemental=0;elementalFrame=0;
 		if (accumulated>0 && elementalMaterial) {
 			const auto category=xeenElementalCategory(elementalMaterial);

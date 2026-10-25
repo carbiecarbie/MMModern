@@ -263,6 +263,9 @@ private:
 // ELEMENTAL_CATEGORIES: Fire 1-8, Electrical 9-15, Cold 16-20, Poison 21-25,
 // Energy 26-33, Magic 34-36. Material 0 is Fire by table position.
 unsigned xeenElementalCategory(unsigned material);
+// attack2, DOS 0x2beab..0x2bf2b: range plus the unsaved spell selector
+// (DS:972e), or exactly weapon 34, bypass physical resistance.
+int xeenPhysicalAttackDamage(int damage,unsigned resistance,unsigned weapon,unsigned range,unsigned effect);
 enum class XeenTimeMode { Interactive, Sleeping, Script, Interactive7 };
 enum class XeenTimeCall { Change, Add };
 class XeenMerchantStockCandidate;

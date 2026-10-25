@@ -1,5 +1,6 @@
-#include <limits>
 #include "games/xeen/XeenWorld.h"
+#include "games/xeen/XeenScriptedRules.h"
+#include <limits>
 #include "games/xeen/XeenActorApproach.h"
 #include "games/xeen/XeenRegionalRules.h"
 #include "games/xeen/XeenIndoorScene.h"
@@ -74,16 +75,19 @@ XeenTransitionResult XeenWorld::prepareEventTransition(const XeenCamera &request
 	return {XeenTransitionResult::Status::Available,destination,{}};
 }
 
-void XeenWorld::loadEventDestination(XeenMapIdentity from,XeenMapIdentity to,bool clearKeyboard) {
+XeenGameFlags XeenWorld::loadEventDestination(XeenMapIdentity from,XeenMapIdentity to,bool clearKeyboard,const XeenGameFlags &before) {
     if(!_detachedEventCandidate)throw std::logic_error("Event map load requires a detached candidate");
     if(clearKeyboard && _inputMapLoadGeneration==std::numeric_limits<std::uint64_t>::max())
         throw std::overflow_error("Map input generation exhausted");
     if(!sessionState().hasRegionalActors(to))stageMapMonsters(objectFile(to),_cityStatistics);
-    leaveMap(from);
+    auto flags=before;
+    leaveMap(from,&flags);
     reloadMapMonsters(to);
+    applyMainMapRules(to,flags);
     reloadHeads(to);
     _scenePresentation.markLightingStep();
     if(clearKeyboard)++_inputMapLoadGeneration;
+    return flags;
 }
 
 XeenActorView XeenWorld::prepareTransitionArrival(const XeenCamera &camera) {
@@ -106,8 +110,19 @@ void XeenWorld::reloadMapMonsters(XeenMapIdentity mapId) {
 	for (auto &actor:_sessionState.mutableMonsters(mapId)) xeenRefillLoadedMonster(actor);
 }
 
-void XeenWorld::leaveMap(XeenMapIdentity mapId) {
+void XeenWorld::applyMainMapRules(XeenMapIdentity mapId,XeenGameFlags &flags) {
+ _mapRuleView=xeenMapRuleView(flags);
+ if(mapId==XeenMapIdentity(15)) {
+  const auto *s=_sessionState.mapState(mapId);
+  if(s && s->monsters && xeenLakeDragonsGone(*s->monsters))flags.clear(56);
+ }
+}
+void XeenWorld::leaveMap(XeenMapIdentity mapId,XeenGameFlags *flags) {
 	if (!_detachedEventCandidate) throw std::logic_error("Map exit requires a detached transition");
+    if(flags && mapId==XeenMapIdentity(15)) {
+        const auto *s=_sessionState.mapState(mapId);
+        if(s && s->monsters && xeenLakeDragonsGone(*s->monsters))flags->set(56);
+    }
 	for(auto at=_scenePresentation.objectFrames.begin();at!=_scenePresentation.objectFrames.end();)
 		at=at->first.mapId==mapId?_scenePresentation.objectFrames.erase(at):std::next(at);
 	for(const auto &entry:_sessionState._mapStates) {

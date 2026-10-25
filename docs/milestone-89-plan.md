@@ -46,8 +46,9 @@ maintainer's DOSBox run of the ending (`dos-ending-observations.md` there).
   ScummVM item: the pin uses slot 20 on map 41.
 - [ ] **Scepter** (`0x2c30b..0x2c337`, outside map 85, Clouds, species 89):
   treasure weapon slot 0 becomes {material 0, ID 90, state 0} without an
-  empty-slot test (so it can overwrite Lord Xeen's own drop; confirm the
-  order against the drop), hasItems is set and quest item 8 is incremented.
+  empty-slot test (it overwrites earlier staging; DOS stages the Scepter
+  before this kill's ordinary random drop), hasItems is set and quest item 8
+  is incremented.
   The shared staging (`XeenTreasureStaging`) and the ordinary treasure
   screen then deliver it, to the first member even when dead, as the DOSBox
   run shows. Quirk row for the overwrite.
@@ -80,12 +81,14 @@ sprite field).
   on maps 42, 43 and 44 at load (`0xf80b..0xf859`). ScummVM item (the pin
   has map 4).
 - [ ] **Quest-done objects**: the nine-entry table (`0xfd1f..0xfe63`) moves
-  map objects to (-128,-128) at load when their flag is set. ScummVM item.
+  the first flag/main-map match's object to (-128,-128) at load (an else-if
+  chain; flag 66 suppresses flag 69 on map 15). ScummVM item.
 - [ ] **Map 12 castle sprite**: object sprite 118 becomes 85 once flag 43 is
   set (`0xff50..0xff94`).
-- [ ] **Map 50 stepped map**: every stepped bit set at load
-  (`0xf7f4..0xf808`); confirm the operand is the map number. ScummVM item
-  (the pin applies it to Darkside only).
+- **Map 50 stepped map: out of M89 scope.** DOS showed this is Darkside
+  only: `0xf77b..0xf780` copies side `[0x94]` to `[bp-8]`, and
+  `0xf7ee..0xf7f2` skips `0xf7f4..0xf808` on Clouds. This corrects the
+  audit's omitted side gate and matches the pin; defer it to the Darkside arc.
 
 ### Both parts
 
@@ -107,8 +110,11 @@ sprite field).
 - Re-read each cited DOS range before implementing it; the audit's offsets
   are the authority, the pin is comparison only. Stop if a range disagrees
   with the audit.
-- Stop and report if a task needs a saved field, changes an RNG draw or its
-  order, changes combat entry or exit, or changes an M44 digest.
+- Stop and report if a task needs a saved field, changes combat entry or exit,
+  or changes an M44 digest. The maintainer explicitly allows RNG draws added or
+  removed solely because a listed DOS rule requires it, including Lord Xeen's
+  Shoot zero exit; record each correction in the quirk row and test it. Stop for
+  any other RNG change.
 - Use the existing owners: combat rules and flow for the fight and death,
   the shared treasure staging (M81) for the Scepter, the Event-side flag,
   quest and award setters, and map load for Part B. Add no new owner.

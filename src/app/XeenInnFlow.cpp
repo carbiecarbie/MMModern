@@ -100,14 +100,14 @@ void XeenEncounterFlow::innReturn() {
         XeenRestoreGuard guard(*candidate,p,camera,flags);
         XeenRestoreGuard::EventProviders providers(*candidate,p,camera,flags,guard,[&]{_journeyPreimage->check();},[&]{_journeyPreimage->failed=true;});
         candidate->discardMapCache();
-        candidate->loadEventDestination(camera.mapId,camera.mapId);
+        flags=candidate->loadEventDestination(camera.mapId,camera.mapId,true,flags);
         events=_travelEventsProvider(camera.mapId);_journeyPreimage->check();
         arrival=candidate->prepareTransitionArrival(camera);
     }
     auto prepared=std::make_shared<XeenRestoreGuard>(_world,_party,_camera,_flags);
-    prepared->retainResources(*_journeyPreimage);prepared->prepareSpellMapPublication(*candidate);
+    prepared->retainResources(*_journeyPreimage);prepared->prepareSpellMapPublication(*candidate);prepared->flagValues=flags.values();
     _world.checkTransitionTreasure(*candidate);_journeyPreimage->check();
-    _world.publishTransition(*candidate);_journeyEvents=std::move(events);
+    _flags=flags;_world.publishTransition(*candidate);_journeyEvents=std::move(events);
     ++_generation;prepared->adoptMutationBoundary();_journeyPreimage.swap(prepared);
     auto cleared=_world.treasureStaging().value();cleared.clearPending();
     _journeyPreimage->prepareStagingPublication(cleared);
