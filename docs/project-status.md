@@ -1,9 +1,11 @@
 # MMModern - Project Status
 
-This describes what can be played and done now. M89 is the latest completed
-and accepted milestone (2026-10-25; [plan](milestone-89-plan.md)): Lord
-Xeen's fight and Scepter, the scripted kills and the map rules of the
-original program work as in DOS, so the main quest reaches the Sixth Mirror.
+This describes what can be played and done now. M91 is the latest completed
+and accepted milestone (2026-10-25; [plan](milestone-91-plan.md)): Other
+Options plays the Clouds intro as the original program does. M89 before it
+made Lord Xeen's fight, the scripted kills and the map rules work as in DOS,
+so the main quest reaches the Sixth Mirror; M90's verification sweep waits
+for a whole-quest play-through.
 Earlier milestones are in [project history](project-history.md), direction is
 in the [roadmap](roadmap.md), and build and dependency setup is in
 [dependencies](dependencies.md).
@@ -19,7 +21,8 @@ Clouds map is playable. Darkside gameplay is not supported.
 
 Launch `mmodern <game-dir>` (see [Entry modes](#entry-modes)) to reach the
 original title screen. Escape shows or hides the menu; Credits shows the four
-original pages, and Other Options lists the intros (not supported yet).
+original pages, and Other Options plays the Clouds intro with its music and
+Crodo's narration (Escape skips it); the Darkside intro is not supported yet.
 Choosing New asks for a save slot, a name and the difficulty: Adventurer
 (weapons hit harder) or Warrior. As in the original, the six level-1 Clouds
 characters then stand in Vertigo at `(18,4)` facing West at 08:00 on day 1 of
@@ -279,6 +282,9 @@ output and save file I/O) and `compat` (the linked ScummVM components).
   items, services, spells, terrain, Rest and time.
 - Events: `XeenEventSystem` decodes and runs the original Event scripts.
   Unsupported effects refuse visibly without publishing anything partial.
+- Cutscenes: `XeenCutscene` (pure segments) and `XeenCutsceneFlow` play
+  the scenes of the CD's second program, `WORLD/XEEN.EXE`, with tables read
+  from it at run time.
 - Flows (`app`): `XeenEventFlow` coordinates the gameplay session, input,
   dialogs, inventory and the Inn. `XeenEncounterFlow` hosts encounters,
   combat, services, casting and consequences, `XeenNavigationFlow` handles
@@ -304,11 +310,11 @@ the original data uses and its support status.
 
 - Scenes and commands: the Pyramid entrance and the Clouds ending say "not
   supported yet" (the ending is step 18).
-- Sound: title lightning belongs to step 17 and other sound devices to step
-  19. F8 speech replay is omitted by maintainer decision. SDL's resampler
+- Sound: other sound devices belong to step 19. F8 speech replay is omitted by maintainer decision. SDL's resampler
   plays FM and CD audio up to about 0.07% fast, which is inaudible
   ([audio rules](rules/audio.md#sdl-resampler-rate-limitation)).
-- Presentation: there is no intro (step 17).
+- Presentation: the game opens at the World title without the original's
+  Darkside intro, and Other Options cannot play that intro yet (step 20).
 - Darkside gameplay is not supported.
 
 Next steps are in the [roadmap](roadmap.md).

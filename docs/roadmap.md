@@ -174,13 +174,12 @@ the Pyramid and the Darkside and World endings wait for the Darkside arc.
     coverage rows; and a maintainer play-through gate by gate. The late
     DOSBox test saves (2026-10-24) make DOS comparisons cheap. Small defects
     found are fixed in scope; larger ones become their own milestones.
-17. **Cutscene presenter and the Clouds intro** (Tier B; Part 0 calibrates
-    `WORLD/XEEN.EXE`, which holds the original cutscenes): one presenter for
-    the original cutscenes (screens, CD speech and music on the existing
-    audio owner, skip keys), the Clouds intro from Other Options, and the
-    title lightning with its sound (Part 0 found it unreachable on the CD
-    title). Planned in [M91](milestone-91-plan.md); the startup path and the
-    Darkside intro moved to step 20 (maintainer, 2026-10-25).
+17. **Cutscene presenter and the Clouds intro**: completed and accepted in
+    [M91](milestone-91-plan.md) (Tier B, 2026-10-25; save v20 unchanged).
+    Other Options `C` plays the Clouds intro as `WORLD/XEEN.EXE` does, on
+    one presenter that reads its tables from the installed EXE; only Escape
+    skips it. The title lightning proved unreachable on the CD title. The
+    startup path and the Darkside intro moved to step 20. Next: step 18.
 18. **Clouds ending and score** (Tier A; save v21 for a real play-time
     counter, maintainer 2026-10-24). `CutsceneEndClouds` with DOS's state
     changes and score (party experience plus real play time; Part 0 settles

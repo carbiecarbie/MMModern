@@ -535,3 +535,14 @@ Sixth Mirror now shows its text before the ending's notice. Save v20 and
 the M44 digests are unchanged; Shoot against Lord Xeen no longer draws a
 save, as in DOS (maintainer approval), and the audit's map-50 rule proved
 Darkside only. [Plan](milestone-89-plan.md).
+
+**M91 - Cutscene presenter and the Clouds intro** (plan `0543336`, Part 0
+`5bdd161`, implementation `fcc54d8` and the closure commit). Accepted by
+the maintainer on 2026-10-25 after the play-test. Other Options plays the
+Clouds intro as the CD's second program, `WORLD/XEEN.EXE`, does: the logos,
+the descent to Xeen's tower and Crodo's narration on the parchment, then a
+fresh World title. A new cutscene presenter reads its tables from the
+installed EXE and will carry the Clouds ending. Calibrated analysis found
+that every CD launch first plays the Darkside intro (now roadmap step 20)
+and that the title lightning cannot occur on the CD title. Save v20 and the
+M44 digests are unchanged. [Plan](milestone-91-plan.md).
