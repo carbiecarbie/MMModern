@@ -141,14 +141,72 @@ to Vertigo.
     2026-10-24, save v20): Create and Delete as in DOS, with the original
     creation screen and attribute rolls, saving an empty party inside the
     Inn as DOS does. Next: step 15.
-15. **Intros and the Clouds ending**: the Other Options intros and the ending
-    (`CutsceneEndClouds`) with its score, and Lord Xeen's death reward (the
-    Scepter and its quest item, deferred from M81).
-16. **Other sound devices** (after step 12): the original's other drivers
+
+A completion audit (2026-10-24) found that the Clouds main quest cannot
+finish yet: Lord Xeen's death gives neither the Scepter nor the original's
+death hook, and `CutsceneEndClouds` is unsupported (in DOS, `XEEN.DAT`
+records the win and the score and hands off to `XEEN.EXE`, which plays the
+ending). Three side quests wait for other death or map rules. Every other
+quest uses supported Event operations but has not been played outside
+Vertigo. A DOSBox run of the ending from a late test save (maintainer,
+2026-10-24) showed the rest. The Scepter arrives through the ordinary
+treasure screen, credited to the first member even when that member is
+dead. The Sixth Mirror shatters after a four-page message. The ending lasts
+about three minutes and closes with the score and the World of Xeen title.
+The game then saves to the current slot with the party at Vertigo and the
+roster as it was before the fight. A maintenance fix (`14fb64d`) also made
+the packed flag banks read in DOS bit order. The steps below finish Clouds;
+the Pyramid and the Darkside and World endings wait for the Darkside arc.
+
+15. **Clouds scripted kills and map rules**, planned as
+    [M89](milestone-89-plan.md) (Tier B, save v20 unchanged; an
+    independent implementation review is pre-authorized, and work stops if
+    an M44 digest changes; maintainer, 2026-10-24). The DOS death hooks:
+    the Clan King on map 41 (Gunther's dwarf quest), Lord Xeen on map 78
+    (his defeat flag, the Lord Xeen quest cleared, the award for every
+    active member) and Count Draco on map 29 (the Nightshadow well). Lord
+    Xeen's damage rule: only the Xeen Slayer Sword hurts him, every melee
+    hit gets +100, and spells and missiles do nothing. His Scepter is
+    staged in the treasure and delivered through the ordinary treasure
+    screen, as DOS shows. Also Ice Troll regeneration, the map-15 Water
+    Dragon rule (Medin), the flag-25 cave rule, the quest-done object
+    table, the map-12 castle sprite and the map-50 stepped map. The party
+    then reaches the Sixth Mirror, whose ending shows "not supported yet"
+    until step 18.
+16. **Clouds verification sweep** (Tier B, after 15): gate presets from
+    Newcastle's Megacredits to Lord Xeen; original-data end-to-end tests of
+    the Megacredits chain, the step-15 rules and Winterkill; the stale
+    coverage rows; and a maintainer play-through gate by gate. The late
+    DOSBox test saves (2026-10-24) make DOS comparisons cheap. Small defects
+    found are fixed in scope; larger ones become their own milestones.
+17. **Cutscene presenter and the Clouds intro** (Tier B; Part 0 calibrates
+    `WORLD/XEEN.EXE`, which holds the original cutscenes): one presenter for
+    the original cutscenes (screens, CD speech and music on the existing
+    audio owner, skip keys), the Clouds intro from Other Options, and the
+    title lightning with its sound. The Darkside intro comes too only if the
+    same presenter makes it cheap; otherwise it waits for the Darkside arc
+    (maintainer, 2026-10-24).
+18. **Clouds ending and score** (Tier A; save v21 for a real play-time
+    counter, maintainer 2026-10-24). `CutsceneEndClouds` with DOS's state
+    changes and score (party experience plus real play time; Part 0 settles
+    what DOS counts). The ending runs on the step-17 presenter with the
+    score animation. Then comes the save to the current slot as DOS writes
+    it (party at Vertigo, roster as before the fight, an original quirk)
+    and the return to the title. The won state that DOS writes to
+    `XEEN.CFG` goes to an MMModern settings file under
+    `%LOCALAPPDATA%\MMModern` instead (approved deviation: location only)
+    and lists the ending in Other Options. Also: the mirror words
+    `showtime` and `bloopers`; after the ending, Castle Xeen gone from the
+    Clouds map and Lloyd's Beacon refusing it; the control panel clock and
+    play time. `showdown` and `genesis` (the Darkside and World endings)
+    stay "not supported yet" until the Darkside arc. Completes Clouds.
+19. **Other sound devices** (after step 12): the original's other drivers
     (AdLib and Sound Blaster FM, MT-32 with the player's ROMs, PC speaker and
     the rest; M82 plays the CD's Pro Audio Spectrum driver), chosen as the
     installer did; an opt-in switch while playing would be an approved
     deviation (maintainer, 2026-10-21).
+
+Order: 15 → 16 → 17 → 18. Step 16 may run alongside step 17's Part 0.
 
 ## Medium-term objective
 
@@ -163,7 +221,7 @@ need its resources and mechanic gaps, not a new coordinator or save shape.
 1. **Broader Clouds play** (reached): ordinary travel
    between regions, time/rest/food, full economy and services, skills,
    item/monster effects, indoor hazards and reusable quest/Event behavior.
-2. **Complete Clouds:** all regions/dungeons, progression, quests and ending,
+2. **Complete Clouds** (steps 15-18): all regions/dungeons, progression, quests and ending,
    including exceptional scripts/monsters, with faithful presentation and audio
    as maintainer priorities allow.
 3. **Darkside:** reuse the shared engine and admit Darkside's own content,
