@@ -1,132 +1,65 @@
 # Milestone 89 plan - Clouds scripted kills and map rules
 
-**Tier B. Status: planned (not started).** Roadmap
+**Tier B. Status: completed and accepted by the maintainer (2026-10-25)**
+after the play-test. Plan `67b15da`, implementation `3182b40` and the
+closure commit. Roadmap
 [step 15](roadmap.md#next-arc-finishing-the-games-systems), after
 [M88](milestone-88-plan.md). Save v20, schema 9 and content 14 unchanged.
-The maintainer pre-authorized one independent implementation review
-(2026-10-24); work stops if an M44 digest changes.
 
-## Goal
+## Scope and results
 
-Reproduce the Clouds rules that live in the original program rather than in
-the Events, so the main quest reaches the Sixth Mirror and three side quests
-can finish: Lord Xeen's fight and death reward, the three scripted death
-hooks, the Ice Troll regeneration and the map load and leave rules. The
-ending itself (`CutsceneEndClouds`) stays "not supported yet" until step 18.
-Evidence: the completion audit's DOS static findings
-(`D:/MModern-re/clouds-completion/findings.md` §3-4, high confidence) and the
-maintainer's DOSBox run of the ending (`dos-ending-observations.md` there).
+The Clouds rules that live in the original program rather than in the
+Events now work as in DOS, so the main quest reaches the Sixth Mirror and
+three side quests can finish:
 
-## Tasks
+- **Lord Xeen.** Only the Xeen Slayer Sword hurts him, every melee hit gets
+  +100, and spells, Poison Volley and Shoot do nothing. His death gives the
+  Scepter through the ordinary treasure screen, sets his defeat flag, ends
+  the Lord Xeen quest and gives every active member the "Defeated Lord Xeen"
+  award, dead members included.
+- **Scripted kills.** Killing the Clan King completes Gunther's dwarf quest,
+  and killing Count Draco makes the Nightshadow well grant ten levels.
+- **Ice Trolls** heal fully at each new combat round.
+- **Map rules.** Leaving the lake map with its three Water Dragons dead
+  completes Medin's quest; flag 25 drains the three caves; nine completed
+  quests hide their neighbouring-map objects; Newcastle shows the castle
+  once its walls are bought.
+- **Sixth Mirror.** Its text runs as in DOS and the ending then says
+  "Clouds ending: not supported yet" (step 18).
 
-### Part A - Lord Xeen and the death hooks
+The rules, offsets and ScummVM differences are in
+[original quirks](original-quirks.md#sv-slayer-sword-exact-id) and
+[combat rules](rules/combat.md#lord-xeen-and-scripted-death-hooks).
 
-- [ ] **Slayer Sword bypass.** Physical resistance is skipped only for
-  attack weapon ID == 34 (`0x2beb6`), not `>= 34` as the pin and the current
-  code do (`XeenCombatRules.cpp` player attack); with a nonzero range
-  argument DOS also skips it when `[0x972e]` is nonzero (`0x2beaf`): find
-  what that word is before deciding whether it is reachable. Quirk row and
-  ScummVM item.
-- [ ] **Lord Xeen's damage** (species 89, Clouds side, `0x2be01..0x2be76`):
-  nonzero damage with a nonzero range argument becomes zero (Shoot passes
-  3, `0x2cbb0`; spells and Poison Volley already refuse); otherwise +100 to
-  nonzero damage, unconditionally (the intended `!weapon == 34` test never
-  holds), before physical resistance. Confirm where effectiveness is applied
-  relative to the +100. Quirk row (original bug kept).
-- [ ] **Death hooks** (`0x2c191..0x2c237`, after HP reaches zero, before XP
-  and treasure), keyed by map and MOB slot (`XeenMonsterIdentity::recordIndex`):
-  map 41 slot 28 (Clan King) sets game flag 11; map 78 slot 8 (Lord Xeen)
-  sets flag 60, clears quest flag 23 and gives award 42 to every active
-  member (confirm whether dead members get it); map 29 slot 27 (Count Draco)
-  sets flag 104. One shared rule for the three death paths: melee
-  (`XeenCombat::serviceConsequences`), spells and Poison Volley
-  (`XeenCombat::serviceCast`) and Shoot outside combat
-  (`XeenJourneyConsequences.cpp`), published atomically with the XP. Use the
-  existing flag, quest flag and award setters (`XeenEventValues.cpp`).
-  ScummVM item: the pin uses slot 20 on map 41.
-- [ ] **Scepter** (`0x2c30b..0x2c337`, outside map 85, Clouds, species 89):
-  treasure weapon slot 0 becomes {material 0, ID 90, state 0} without an
-  empty-slot test (it overwrites earlier staging; DOS stages the Scepter
-  before this kill's ordinary random drop), hasItems is set and quest item 8
-  is incremented.
-  The shared staging (`XeenTreasureStaging`) and the ordinary treasure
-  screen then deliver it, to the first member even when dead, as the DOSBox
-  run shows. Quirk row for the overwrite.
-- [ ] **Ice Troll** (species 53, Clouds side, `0x2ea4a..0x2ea85`): at every
-  new combat round each one's HP returns to its maximum (maps 8 and 63), in
-  the round branch of `XeenCombat::serviceConsequences`. Confirm the exact
-  point in the round and the side test.
-- [ ] **Sixth Mirror.** Today the whole Event at map 78 (4,9) W is refused
-  by the Event preflight, because its line 7 (`CutsceneEndClouds`, opcode
-  30) does not decode; even the force-field text never shows. Decode opcode
-  30 as a known operation that ends the Event with "Clouds ending: not
-  supported yet", so lines 0-6 run as in DOS and the game keeps running.
-  Step 18 replaces the notice with the ending.
-- [ ] Update [combat rules](rules/combat.md#lord-xeen-and-scripted-death-hooks)
-  (evidence to DOS static; map-41 index) and the applying-damage section.
+## Key decisions
 
-### Part B - Map load and leave rules
+- **Evidence.** The completion audit's DOS static findings, rechecked range
+  by range by the implementer and the independent review, and the
+  maintainer's DOSBox run of the ending (Scepter to the first member even
+  when dead; only the sword hurts Lord Xeen).
+- **Exact Slayer Sword.** Only weapon 34 bypasses physical resistance
+  (`0x2beb6`), not 34 and above as the reference has it.
+- **RNG.** Shoot against Lord Xeen takes DOS's zero-damage exit and no
+  longer draws the monster's save (`0x2be33` jumps past `0x2c037`); the
+  maintainer approved this and any draw a DOS rule of the plan requires.
+- **Map 50.** The audit's stepped-map fill on map 50 is Darkside only in DOS
+  (`0xf7ee` skips it on Clouds); it was removed from the scope and waits
+  for the Darkside arc.
+- **Object table.** DOS applies only the first matching entry (an else-if
+  chain); on map 15 flag 66 suppresses the flag-69 entry, kept as an
+  original bug.
+- **No saved state.** The death rule publishes with the XP on all three
+  death paths (melee, spells and Poison Volley, Shoot outside combat); the
+  map rules derive from saved flags at load. M44 digests unchanged.
+- **Opcode 30** decodes as a known operation that ends the Event with a
+  notice, so the Event preflight no longer refuses the whole Sixth Mirror.
 
-Every rule applies on each main-map load (travel through
-`XeenWorld::loadEventDestination`, Load and New Game) or on leaving
-(`XeenWorld::leaveMap`). The object and sprite rules derive from saved flags
-at load or draw time; they add no saved state (`XeenObjectOverride` has no
-sprite field).
+## Results
 
-- [ ] **Map 15 Water Dragons** (MOB slots 0-2): leaving map 15 with all three
-  dead sets flag 56 (`0x26558..0x26590`); loading map 15 as the main map with
-  all three dead clears it (`0xfc7f..0xfcbd`). ScummVM item (the pin sets on
-  load and on save).
-- [ ] **Flag 25 cave rule**: with flag 25 set, clear the low three cell bits
-  on maps 42, 43 and 44 at load (`0xf80b..0xf859`). ScummVM item (the pin
-  has map 4).
-- [ ] **Quest-done objects**: the nine-entry table (`0xfd1f..0xfe63`) moves
-  the first flag/main-map match's object to (-128,-128) at load (an else-if
-  chain; flag 66 suppresses flag 69 on map 15). ScummVM item.
-- [ ] **Map 12 castle sprite**: object sprite 118 becomes 85 once flag 43 is
-  set (`0xff50..0xff94`).
-- **Map 50 stepped map: out of M89 scope.** DOS showed this is Darkside
-  only: `0xf77b..0xf780` copies side `[0x94]` to `[bp-8]`, and
-  `0xf7ee..0xf7f2` skips `0xf7f4..0xf808` on Clouds. This corrects the
-  audit's omitted side gate and matches the pin; defer it to the Darkside arc.
-
-### Both parts
-
-- [ ] Tests: a unit test per rule; original-data tests that kill Lord Xeen
-  with the Xeen Slayer Sword on map 78 (Scepter staged and delivered, quest
-  item 8, award 42, flags 60 and 23, the Sixth Mirror text and then the
-  "not supported yet" ending notice), kill the Clan King and reach Gunther's
-  completion text, and apply the map-15 rule; the generic exact-restore test
-  unchanged. Regenerate the coverage census (the Sixth Mirror row changes).
-- [ ] Play-test presets in `tools/XeenTestSave.cpp`, written to new paths:
-  `m89-lord-xeen` (map 78 (5,8) N, a strong party with the sword),
-  `m89-clan-king` (map 41), `m89-draco` (map 29), `m89-dragons` (map 15),
-  `m89-trolls` (map 8). Rebuild `mmodern_test_save` before generating them.
-- [ ] Docs: quirk rows and ScummVM items in the same change; project status,
-  history and roadmap at closure.
-
-## Rules for the implementer
-
-- Re-read each cited DOS range before implementing it; the audit's offsets
-  are the authority, the pin is comparison only. Stop if a range disagrees
-  with the audit.
-- Stop and report if a task needs a saved field, changes combat entry or exit,
-  or changes an M44 digest. The maintainer explicitly allows RNG draws added or
-  removed solely because a listed DOS rule requires it, including Lord Xeen's
-  Shoot zero exit; record each correction in the quirk row and test it. Stop for
-  any other RNG change.
-- Use the existing owners: combat rules and flow for the fight and death,
-  the shared treasure staging (M81) for the Scepter, the Event-side flag,
-  quest and award setters, and map load for Part B. Add no new owner.
-- Part A and Part B may be one task or two commits. The pre-authorized
-  independent review covers the whole implementation before push; reuse its
-  session for fix rounds.
-
-## Acceptance
-
-All tasks done; affected tests and `ctest -L fast` while iterating; one
-complete `build-rel` suite passing as [tools/AGENTS.md](../tools/AGENTS.md)
-requires; M44 digests unchanged; the independent implementation review
-approved. The maintainer play-tests the five presets (Lord Xeen to the Sixth
-Mirror, Gunther after the Clan King, the Nightshadow well after Draco, Medin
-after the dragons, the trolls) and accepts the milestone.
+Complete suite 297/297 (run `20261025-001800-99d87e16`), M44 digests
+unchanged, census: opcode 30 moved from unsupported to partial. The
+independent implementation review (pre-authorized) approved after one fix
+round (map 50, the else-if chain, Shoot and spell kill tests, cleanups).
+The maintainer play-tested the presets `m89-lord-xeen`, `m89-clan-king`,
+`m89-draco`, `m89-dragons` and `m89-trolls`
+([development guide](development.md)).

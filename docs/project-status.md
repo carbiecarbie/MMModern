@@ -1,9 +1,9 @@
 # MMModern - Project Status
 
-This describes what can be played and done now. M88 is the latest completed
-and accepted milestone (2026-10-24; [plan](milestone-88-plan.md)): the Inn's
-Create makes new characters on the original creation screen and Delete
-removes them, which completes the Inn, recruiting and character creation.
+This describes what can be played and done now. M89 is the latest completed
+and accepted milestone (2026-10-25; [plan](milestone-89-plan.md)): Lord
+Xeen's fight and Scepter, the scripted kills and the map rules of the
+original program work as in DOS, so the main quest reaches the Sixth Mirror.
 Earlier milestones are in [project history](project-history.md), direction is
 in the [roadmap](roadmap.md), and build and dependency setup is in
 [dependencies](dependencies.md).
@@ -41,7 +41,8 @@ saved game from the same slot list.
   attack, secondary effect and movement kind in the original data, ranged and
   flying included. Every map load rebuilds them at full HP and asleep.
 - Every Event operation the Clouds scripts use runs as in the original,
-  except the Pyramid and the ending, which say "not supported yet". As in DOS,
+  except the Pyramid and the ending, which say "not supported yet"; the
+  Sixth Mirror shows its text before the ending's notice. As in DOS,
   a cell's Events run again after every key or click while the party stands
   on it, Space interacts and then waits, and an Event a monster interrupts
   runs once the fight ends ([Event dispatch](rules/world-events.md#event-dispatch)).
@@ -77,6 +78,17 @@ undelivered items stay in the running program, as in DOS
 
 Run is per member, with each map's original run position and chance. If the
 whole party leaves, it lands there with its facing unchanged.
+
+Only the Xeen Slayer Sword hurts Lord Xeen, each of its hits gets the
+original's +100, and spells, Poison Volley and Shoot do nothing. His death
+gives the Scepter on the ordinary treasure screen, ends his quest and gives
+every active member, dead ones included, the "Defeated Lord Xeen" award. As
+in DOS, killing the Clan King completes Gunther's dwarf quest, killing Count
+Draco makes the Nightshadow well grant ten levels, Ice Trolls heal fully at
+each new round, and leaving the lake with its three Water Dragons dead
+completes Medin's quest. Completed quests hide their neighbouring-map
+objects, Newcastle shows its castle once the walls are bought, and flag 25
+drains the three caves ([combat rules](rules/combat.md#lord-xeen-and-scripted-death-hooks)).
 
 ### Magic
 
@@ -291,12 +303,12 @@ the original data uses and its support status.
 ## Known gaps
 
 - Scenes and commands: the Pyramid entrance and the Clouds ending say "not
-  supported yet", and killing Lord Xeen does not give his Scepter yet.
-- Sound: title lightning belongs to step 15 and other sound devices to step
-  16. F8 speech replay is omitted by maintainer decision. SDL's resampler
+  supported yet" (the ending is step 18).
+- Sound: title lightning belongs to step 17 and other sound devices to step
+  19. F8 speech replay is omitted by maintainer decision. SDL's resampler
   plays FM and CD audio up to about 0.07% fast, which is inaudible
   ([audio rules](rules/audio.md#sdl-resampler-rate-limitation)).
-- Presentation: there is no intro (step 15).
+- Presentation: there is no intro (step 17).
 - Darkside gameplay is not supported.
 
 Next steps are in the [roadmap](roadmap.md).

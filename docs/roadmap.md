@@ -1,6 +1,6 @@
 # MMModern - Roadmap
 
-**M88 is the latest completed and accepted milestone.**
+**M89 is the latest completed and accepted milestone.**
 [Project status](project-status.md) describes what is playable now;
 [project history](project-history.md) records completed milestones. Reference
 provenance belongs to [dependencies](dependencies.md).
@@ -158,21 +158,16 @@ roster as it was before the fight. A maintenance fix (`14fb64d`) also made
 the packed flag banks read in DOS bit order. The steps below finish Clouds;
 the Pyramid and the Darkside and World endings wait for the Darkside arc.
 
-15. **Clouds scripted kills and map rules**, planned as
-    [M89](milestone-89-plan.md) (Tier B, save v20 unchanged; an
-    independent implementation review is pre-authorized, and work stops if
-    an M44 digest changes; maintainer, 2026-10-24). The DOS death hooks:
-    the Clan King on map 41 (Gunther's dwarf quest), Lord Xeen on map 78
-    (his defeat flag, the Lord Xeen quest cleared, the award for every
-    active member) and Count Draco on map 29 (the Nightshadow well). Lord
-    Xeen's damage rule: only the Xeen Slayer Sword hurts him, every melee
-    hit gets +100, and spells and missiles do nothing. His Scepter is
-    staged in the treasure and delivered through the ordinary treasure
-    screen, as DOS shows. Also Ice Troll regeneration, the map-15 Water
-    Dragon rule (Medin), the flag-25 cave rule, the quest-done object
-    table, the map-12 castle sprite and the map-50 stepped map. The party
-    then reaches the Sixth Mirror, whose ending shows "not supported yet"
-    until step 18.
+15. **Clouds scripted kills and map rules**: completed and accepted in
+    [M89](milestone-89-plan.md) (Tier B, 2026-10-25; save v20 unchanged).
+    Only the Xeen Slayer Sword hurts Lord Xeen, with the original's +100
+    per hit, and his death gives the Scepter through the ordinary treasure
+    screen with his defeat flag and award. The Clan King, Count Draco and
+    the lake's Water Dragons complete Gunther's, the Nightshadow well's and
+    Medin's quests; Ice Trolls heal every round; the flag-25 caves, the
+    quest-done objects and Newcastle's castle follow DOS. The audit's
+    map-50 rule proved Darkside only. The Sixth Mirror shows its text, and
+    its ending says "not supported yet" until step 18. Next: step 16.
 16. **Clouds verification sweep** (Tier B, after 15): gate presets from
     Newcastle's Megacredits to Lord Xeen; original-data end-to-end tests of
     the Megacredits chain, the step-15 rules and Winterkill; the stale

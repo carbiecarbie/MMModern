@@ -521,3 +521,17 @@ byte, after an approved audit. A save loaded into the Inn from the title
 stays silent until Exit, following DOS's Inn song flag, and the rolls use
 the Event interpreter's range draw (maintainer decision).
 [Plan](milestone-88-plan.md).
+
+**M89 - Clouds scripted kills and map rules** (plan `67b15da`,
+implementation `3182b40` and the closure commit). Accepted by the
+maintainer on 2026-10-25 after the play-test. The Clouds rules that live in
+the original program rather than in the Events now work as in DOS: only the
+Xeen Slayer Sword hurts Lord Xeen, with the original's +100 per hit, and
+his death gives the Scepter, the defeat flag and award; the Clan King, Count
+Draco and the lake's Water Dragons complete Gunther's, the Nightshadow
+well's and Medin's quests; Ice Trolls heal every round; completed quests
+hide their neighbouring-map objects and Newcastle shows its castle. The
+Sixth Mirror now shows its text before the ending's notice. Save v20 and
+the M44 digests are unchanged; Shoot against Lord Xeen no longer draws a
+save, as in DOS (maintainer approval), and the audit's map-50 rule proved
+Darkside only. [Plan](milestone-89-plan.md).
