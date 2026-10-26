@@ -168,12 +168,12 @@ the Pyramid and the Darkside and World endings wait for the Darkside arc.
     quest-done objects and Newcastle's castle follow DOS. The audit's
     map-50 rule proved Darkside only. The Sixth Mirror shows its text, and
     its ending says "not supported yet" until step 18. Next: step 16.
-16. **Clouds verification sweep** (Tier B, after 15): gate presets from
-    Newcastle's Megacredits to Lord Xeen; original-data end-to-end tests of
-    the Megacredits chain, the step-15 rules and Winterkill; the stale
-    coverage rows; and a maintainer play-through gate by gate. The late
-    DOSBox test saves (2026-10-24) make DOS comparisons cheap. Small defects
-    found are fixed in scope; larger ones become their own milestones.
+16. **Clouds verification sweep**: completed and accepted in
+    [M90](milestone-90-plan.md) (Tier B, 2026-10-26; save format
+    unchanged). Gate presets and presets on the watched Events, with
+    original-data tests of the Megacredits chain, the main line and
+    Winterkill, confirmed Clouds from Newcastle's Megacredits to Lord Xeen;
+    the sweep found no content gap.
 17. **Cutscene presenter and the Clouds intro**: completed and accepted in
     [M91](milestone-91-plan.md) (Tier B, 2026-10-25; save v20 unchanged).
     Other Options `C` plays the Clouds intro as `WORLD/XEEN.EXE` does, on
@@ -188,7 +188,7 @@ the Pyramid and the Darkside and World endings wait for the Darkside arc.
     is kept in `settings.ini` and unlocks Other Options `V`; `showtime`,
     `bloopers`, the vanished castle, the Beacon refusal and the panel
     clocks follow DOS. `showdown` and `genesis` wait for the Darkside arc.
-    Next: step 20, or the maintenance items below.
+    Next: step 20.
 19. **Other sound devices** (after step 12): the original's other drivers
     (AdLib and Sound Blaster FM, MT-32 with the player's ROMs, PC speaker and
     the rest; M82 plays the CD's Pro Audio Spectrum driver), chosen as the
@@ -202,11 +202,7 @@ the Pyramid and the Darkside and World endings wait for the Darkside arc.
     writes `XEEN.CFG`) is decided with this step. M91 Part 0 estimated 8-13
     developer days ([cutscene rules](rules/cutscenes.md#startup-dispatch)).
 
-Order: 15 → 16 → 17 → 18 → 20; step 19 is independent. Step 16 may run
-alongside step 17's Part 0.
-
-Maintenance queued after M92 (maintainer, 2026-10-26):
-- **M90 whole-quest play-through**, which closes M90.
+Order: 15 → 16 → 17 → 18 → 20; step 19 is independent.
 
 ## Medium-term objective
 
@@ -221,8 +217,8 @@ need its resources and mechanic gaps, not a new coordinator or save shape.
 1. **Broader Clouds play** (reached): ordinary travel
    between regions, time/rest/food, full economy and services, skills,
    item/monster effects, indoor hazards and reusable quest/Event behavior.
-2. **Complete Clouds** (steps 15-18, reached with M92; M90's whole-quest
-   play-through still confirms it): all regions/dungeons, progression, quests
+2. **Complete Clouds** (steps 15-18, reached with M92 and confirmed by M90's
+   play-through): all regions/dungeons, progression, quests
    and ending, including exceptional scripts/monsters, with faithful
    presentation and audio as maintainer priorities allow.
 3. **Darkside:** reuse the shared engine and admit Darkside's own content,

@@ -1,105 +1,56 @@
 # Milestone 90 plan - Clouds verification sweep
 
-**Tier B. Status: Parts A-C implemented; Part D postponed, not accepted.**
-The maintainer postponed the gate-by-gate play-through (2026-10-25) to a
-later play-through of the whole Clouds quest and authorized an independent
-review in its place, approved after one round of test fixes. Roadmap
+**Tier B. Status: completed and accepted by the maintainer (2026-10-26)**
+after the Part D play-through. Plan `6ae5701`, implementation `b85f34a`,
+Part D presets `6b18041` and the closure commit. Roadmap
 [step 16](roadmap.md#next-arc-finishing-the-games-systems), after
-[M89](milestone-89-plan.md). Save v20, schema 9 and content 14 unchanged;
-work stops if an M44 digest, the save format or an RNG draw would change.
+[M89](milestone-89-plan.md). Save format unchanged (v20 when implemented,
+v21 at closure); M44 digests unchanged.
 
-## Goal
+## Scope and results
 
-Prove that Clouds can be played from Newcastle's Megacredits to Lord Xeen
-with what is already implemented, and fix what the sweep finds. Every quest
-on the main line and the Megacredits chain uses supported Event operations,
-but none has been played outside Vertigo. Evidence for the chain and the
-gates: the completion audit (`D:/Projetos/MModern/MModern-re/clouds-completion/findings.md`
-§3.1-3.3 and §5). The step-15 rules already have their original-data tests
-(`tests/XeenScriptedOriginalTests.cpp`) and presets (`m89-*`); reuse them.
+Clouds can be played from Newcastle's Megacredits to Lord Xeen and the
+Sixth Mirror with what was already implemented; the sweep found no content
+gap.
 
-## Tasks
+- **Gate presets.** `m90-newcastle`, `m90-golem`, `m90-illusion`,
+  `m90-high-magic`, `m90-darzog`, `m90-clouds`, `m90-castle` and
+  `m90-winterkill` put the level-30 `m78-playtest` party at each gate with
+  only the items, flags and gold it needs
+  ([development](development.md#developer-test-saves)).
+- **Part D spots.** Twenty-seven more `m90-*` presets stand on the original
+  Event cell with its facing, so the Event runs as the save loads, and
+  carry the story state reached there: every Emerson payment and Taxman
+  return, Artemus, the Laboratory password and the Slayer Sword, Mirabeth,
+  the Golems and one credit cell per dungeon, Darzog's key, Crodo, Slick's
+  games and trade, the Guard Making Machine, and Winterkill's gong and
+  Randon after each wave. Event lines the original's AlterEvent has already
+  disabled are applied from the original records.
+- **Original-data tests** (`tests/XeenCloudsProgressionTests.cpp`): the
+  Megacredits chain with a credit cell's persistence, the deed, the payment
+  subroutine with too few and enough credits, every Taxman stage, Artemus,
+  the password and the sword; the skull's sale, Crodo, the Cupie Doll trade
+  and gate and the Castle Xeen teleports; Randon's script to its reward.
+- **Coverage.** SelectElement, Combat, Items and Spells rows corrected and
+  the census regenerated.
+- **DOS static checks.** The Event entry never dispatches a fixed off-map
+  position by itself, and sheet Use stays refused in combat
+  ([original quirks](original-quirks.md)).
 
-### Part A - Gate presets
+## Key decisions
 
-- [ ] Add `m90-*` presets to `tools/XeenTestSave.cpp` on the level-30
-  `m78-playtest` party, each placed on or beside its original Event and
-  carrying only the items, flags and gold the gate needs:
-  - `m90-newcastle`: Taxman Ebenezer, map 12 `(11,12)`, 50,000 gold for the
-    deed, 15 Megacredits (quest item 26) and award 13 (Rescued Crodo) so the
-    permit is reachable; the whole chain is then played from there.
-  - `m90-golem`: the map-20 Golem entrance with the Yak, Thousand Terrors
-    and Golem stones (counters 7, 5, 6) and no Megacredits, to collect them
-    in maps 79, 80 and 81.
-  - `m90-illusion`: the Cave of Illusion skull, map 45 `(7,14)`, 300 gems.
-  - `m90-high-magic`: the map-12 Reaper with quest item 3, through map 55
-    to Darzog's key at 58 `(7,12)`.
-  - `m90-darzog`: the map-15 Reaper with quest item 2, through 59 to Crodo
-    at 61 `(7,6)`.
-  - `m90-clouds`: Clouds of Xeen, map 27 `(15,2)`, with quest flag 23,
-    award 13 and gold for Slick's four games.
-  - `m90-castle`: beside the gate at 27 `(16,29)` with the Cupie Doll (quest
-    item 28) and the Slayer Sword, through 75-77 to `m89-lord-xeen`'s spot.
-  - `m90-winterkill`: Randon, map 32 `(8,13)`, before the quest.
-- [ ] Document them in `docs/development.md` like the M89 presets.
+- The gate-by-gate play-through was postponed (2026-10-25); an independent
+  review, authorized in its place, approved the implementation after one
+  round of test fixes.
+- To keep the whole-quest play-through short, the maintainer asked for the
+  Part D spots (2026-10-26) instead of walking every dungeon.
+- Slick's games draw from the RNG, so the tests give the dolls directly.
 
-### Part B - Original-data end-to-end tests
+## Results
 
-One new test file through the Event interpreter, as the M89 original tests
-do (a few cases, no process witness):
-- [ ] **Megacredits chain:** one Megacredit cell (WhoWill, quest item 26,
-  MoveWallObj, Remove) and its persistence across save and load; the deed
-  (gold, flag 45, quest item 0); the payment subroutine 64 `(101,112)` both
-  with fewer than five credits ("not enough") and with five (five taken);
-  walls (flag 43), the Taxman's quest item 5 and teleport to 72 `(7,15)`;
-  keep (flag 44), quest item 6 and 73 `(7,15)`; Artemus's permit (award 13,
-  quest flag 22, quest item 27); dungeon (flag 54); the `Laboratory`
-  password to 71 `(2,14)`; the sword at 71 `(7,4)`.
-- [ ] **Main line:** the skull's sale (300 gems, quest item 3); Crodo
-  (award 13, 1,000,000 XP, quest flag 23); the Cupie Doll trade at 27
-  `(12,29)` and the gate to 75 `(6,0)`; the Castle Xeen teleports to 78.
-  Slick's games draw from the RNG: give the dolls directly unless the game
-  itself can be driven deterministically.
-- [ ] **Winterkill:** Randon's 126-line script to its reward, including the
-  `IfMapFlag 255` path.
-
-### Part C - Stale coverage rows and small checks
-
-- [ ] `tools/XeenCoverageScreens.h`: SelectElement is supported (M76); drop
-  "effects limited by Spells dimension"; recheck the Combat Run note against
-  `XeenEncounterFlow` after M85; regenerate `docs/coverage.md` with
-  `mmodern_census`.
-- [ ] ItemsDialog "sheet Use refused in combat": settle the DOS behaviour by
-  calibrated static analysis of `WORLD/XEEN.DAT` if it is cheap; if DOS
-  allows it, report before implementing (scope check).
-- [ ] Check `docs/rules/combat.md` "Lord Xeen and scripted death hooks" for
-  the pin's wrong map-41 index and an outdated evidence label.
-- [ ] Read-only DOS check that the Event entry never runs a fixed off-map
-  position such as `(102,102)` (audit §2, Unknown); record the result.
-
-### Part D - Maintainer play-through
-
-- [ ] The maintainer plays each gate from its preset to the next, then the
-  M89 presets to the Sixth Mirror. Doubtful behaviour is compared in DOSBox
-  with the late test saves (slots 04/05, map 78) or the mirror words from a
-  new game. Postponed to a whole-quest play-through, which should watch
-  most what the tests restore past: earning the stones and credits in order
-  (maps 80 and 81, reloading emptied credit cells, every Taxman return),
-  both towers and Darzog's key, Slick's games and doll delivery, every
-  Winterkill wave with the bell rung before and after, and Castle Xeen
-  walked continuously to the Sixth Mirror's notice.
-
-## Defects found
-
-A small defect (local, no save format, RNG or Tier A change) is fixed in
-scope with a test. A larger one is reported and proposed as its own
-milestone; the sweep goes on around it. An original oddity kept on purpose
-goes to `docs/original-quirks.md` in the same change.
-
-## Acceptance
-
-- The `m90-*` presets load and reach their gates; the new original-data
-  tests pass; coverage rows match the code and the census is regenerated.
-- Complete CTest suite green on `build-rel`; M44 digests unchanged.
-- The maintainer's play-through reaches the Sixth Mirror's notice gate by
-  gate, and every defect found is fixed or has its own proposed milestone.
+The maintainer played every Part D spot and the M89/M92 presets to the
+Sixth Mirror and the ending, and accepted the milestone. Two outcomes could
+not be won with the preset party and rest on the original-data tests:
+Winterkill's waves (their spell-only monsters need gems the party lacks) and
+Slick's games (the party's attributes are too low to win). No defect was
+found.

@@ -1,10 +1,11 @@
 # MMModern - Project Status
 
-This describes what can be played and done now. M92 is the latest completed
-and accepted milestone (2026-10-26; [plan](milestone-92-plan.md)): Clouds of
-Xeen can be finished, with the original ending and score. M91 before it
-added the Clouds intro, and M89 Lord Xeen's fight and the scripted kills;
-M90's verification sweep waits for a whole-quest play-through.
+This describes what can be played and done now. M90 is the latest completed
+and accepted milestone (2026-10-26; [plan](milestone-90-plan.md)): its
+play-through confirmed that Clouds of Xeen can be played from Newcastle's
+Megacredits to Lord Xeen. M92 before it made Clouds finishable, with the
+original ending and score, M91 added the Clouds intro, and M89 Lord Xeen's
+fight and the scripted kills.
 Earlier milestones are in [project history](project-history.md), direction is
 in the [roadmap](roadmap.md), and build and dependency setup is in
 [dependencies](dependencies.md).

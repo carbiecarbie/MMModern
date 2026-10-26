@@ -536,6 +536,17 @@ the M44 digests are unchanged; Shoot against Lord Xeen no longer draws a
 save, as in DOS (maintainer approval), and the audit's map-50 rule proved
 Darkside only. [Plan](milestone-89-plan.md).
 
+**M90 - Clouds verification sweep** (plan `6ae5701`, implementation
+`b85f34a`, Part D presets `6b18041` and the closure commit). Accepted by
+the maintainer on 2026-10-26 after the play-through. Clouds can be played
+from Newcastle's Megacredits to Lord Xeen with what was already
+implemented; the sweep found no content gap. Gate presets and 27 presets
+standing on the watched Events shortened the play-through; original-data
+tests cover the Megacredits chain, the main line and Winterkill, and the
+coverage rows were corrected. Winterkill's waves and Slick's games could
+not be won with the preset party and rest on those tests. Save format and
+M44 digests unchanged. [Plan](milestone-90-plan.md).
+
 **M91 - Cutscene presenter and the Clouds intro** (plan `0543336`, Part 0
 `5bdd161`, implementation `fcc54d8` and the closure commit). Accepted by
 the maintainer on 2026-10-25 after the play-test. Other Options plays the
