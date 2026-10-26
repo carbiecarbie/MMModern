@@ -121,7 +121,7 @@
 // payload length and CRC also change; schema 9/content 14 remain unchanged.
 // Every checkpoint matches the independent byte projection, and native v11
 // final reload/re-save is exact in all three scenarios. No unexplained changes.
-// Preserved baseline: D:/M44-audits/m59-part-a-20261011.
+// Preserved baseline: D:/Projetos/MModern/M44-audits/m59-part-a-20261011.
 // Local audit: build-rel/m59-digest-comparison/digest-audit.json.
 // Independent projection: build-rel/m59-digest-comparison/byte-explanation.json.
 // Evidence stays local; never commit original-data saves.
@@ -139,7 +139,7 @@
 // 11 -> 12, payload length (+1) and CRC also change; schema 9/content 14 remain.
 // Every checkpoint matches the independent byte projection; native final
 // reload/re-save is exact for all three scenarios. No unexplained differences.
-// Preserved baseline: D:/M44-audits/m61c-d5067c44-preserve.
+// Preserved baseline: D:/Projetos/MModern/M44-audits/m61c-d5067c44-preserve.
 // Local audit: build-rel/m61c-digest-comparison/digest-audit.json.
 // Independent projection and every checkpoint's length/CRC deltas:
 // build-rel/m61c-digest-comparison/format-explanation.txt and checkpoint-deltas.tsv.
@@ -156,10 +156,10 @@
 // uninterrupted run and the runs resumed from A and from B end in identical
 // finals; native reload/re-save is exact. The other three digests were
 // unchanged by A1 (zero-difference audit against 00e84bf). Preserved baseline
-// and audits: D:/M44-audits/m69a1-00e84bf, build-rel/m69a1-digest-comparison-2.
+// and audits: D:/Projetos/MModern/M44-audits/m69a1-00e84bf, build-rel/m69a1-digest-comparison-2.
 // Evidence stays local; never commit original-data saves.
 // M69 step A2 (decision 8): maintainer approved the audit and replacements on
-// 2026-10-15. Preserved A1 baseline D:/M44-audits/m69a1-a2-baseline reproduced
+// 2026-10-15. Preserved A1 baseline D:/Projetos/MModern/M44-audits/m69a1-a2-baseline reproduced
 // all four A1 digests. Every map and game load now rebuilds monsters at MON HP,
 // asleep (DOS static: map load 0x0f542 zeroes the array at 0x0f5c7 and refills
 // HP at 0x0faa8), so saves project live monsters as MON HP and not woken.
@@ -176,7 +176,7 @@
 // Temple old: 0bd5d8cd9075e42ba3f9681d2c6322a0c23cc81d518654c8c8c48b57b68d0f32
 // Roundtrip old: cfdcec346d6584a479e3ded6960ba61c0e79c4cedf52a7e563bbc675c02ba5d8
 // M69 step B (save v13): maintainer approved the format-only audit and the
-// replacements on 2026-10-15. Preserved A2 baseline D:/M44-audits/m69b-417a1c0
+// replacements on 2026-10-15. Preserved A2 baseline D:/Projetos/MModern/M44-audits/m69b-417a1c0
 // reproduced all four A2 digests. Complete traces are identical in all four
 // scenarios (roundtrip resumes from A and B equal the uninterrupted final);
 // every common per-map field is equal across all 14 checkpoints. The per-map
@@ -194,7 +194,7 @@
 // Temple old: 8725ee250ffeab5e2a015daebf2caf81af54a95b8d0048b75242ef8d49157503
 // Roundtrip old: 9347bfebf93974e807aeca0d641778bf690b3e2d71ded50278bd3b687b6c51b0
 // M70 Part A: maintainer approved the audit and replacements on 2026-10-15.
-// Preserved foundation baseline D:/M44-audits/m70a-bf49eb3 reproduced all four
+// Preserved foundation baseline D:/Projetos/MModern/M44-audits/m70a-bf49eb3 reproduced all four
 // digests. Cause: the Vertigo exit reset's Spawns of slots 50 and 51 are past the
 // city's 46 MOB records and stay inert, as in DOS (count byte 0x9c59, which Spawn
 // never changes; the .mob writer 0x266e3..0x2671c and map load 0x0f5be stop at
@@ -217,7 +217,7 @@
 // explained; no fields/checkpoints were added or removed, save v13/schema9/
 // content14 and lengths are unchanged. Native final reload/re-save is exact
 // in all four scenarios; Roundtrip resumes A and B equal the uninterrupted final.
-// Verified Preserve: D:/M44-audits/makeitem-e035c5c.
+// Verified Preserve: D:/Projetos/MModern/M44-audits/makeitem-e035c5c.
 // Local audit: build-rel/m71-digest-comparison-1/digest-audit.json and
 // field-explanations.tsv; approval/repair report: build-rel/m71-report.md.
 // Evidence stays local; never commit original-data saves.
@@ -229,7 +229,7 @@
 // 120 -> 150) and the gold field of both checkpoints (120 -> 150), with CRC.
 // Mainland, temple and roundtrip are unchanged; per-map views are equal and
 // native reload/re-save is exact. Verified Preserve:
-// D:/M44-audits/temple-59855e8. Local audit:
+// D:/Projetos/MModern/M44-audits/temple-59855e8. Local audit:
 // build-rel/digest-comparison-temple/digest-audit.json; report:
 // build-rel/temple-price-report.md. Evidence stays local.
 // Services old: f902b8f63391083bf592416b27653064d58ba3a56a6a9e1d3faf35a3780ae10f
@@ -243,7 +243,7 @@
 // An independent v13 byte projection reconstructs every candidate exactly.
 // Native reload/re-save is exact in all four scenarios; both roundtrip resumes
 // equal the uninterrupted final. No unexplained differences remain.
-// Preserve: D:/M44-audits/m72-e21f398. Local evidence (never commit saves):
+// Preserve: D:/Projetos/MModern/M44-audits/m72-e21f398. Local evidence (never commit saves):
 // build-rel/digest-comparison-m72-e21f398/{digest-audit.json,
 // field-explanations.tsv,byte-projection.json}; build-rel/m72-report.md.
 // Mainland old: 4e0a9cfffd793ea50532a31b916c7aa126f34429697e2a0267cd763bb5a9cb76
@@ -251,7 +251,7 @@
 // Temple old: 7ee0e06f95e230647a14b7f4489cbe166f0a9c9f711b509030efb7d9bb52ccd8
 // Roundtrip old: cdceb44457f4a569afb05129992bc1e9705c20cb9e92b0880a28c16bcf15fb32
 // M78 Part B: maintainer approved all four v16 replacements on 2026-10-20.
-// Unchanged 48a2784 helpers were preserved at D:/M44-audits/m78-part-b-48a2784.
+// Unchanged 48a2784 helpers were preserved at D:/Projetos/MModern/M44-audits/m78-part-b-48a2784.
 // All 14 paired checkpoints differ only at byte 8 (envelope 15 -> 16).
 // Payload, CRC, decoded/per-map fields and all four full traces are unchanged.
 // Native reload/re-save and both roundtrip continuations are exact.
@@ -260,7 +260,7 @@
 // M81 Part A: maintainer approved all four v17 replacements on 2026-10-20.
 // Pending treasure became running-program state: save v17 holds the purse
 // only (schema 9/content 14 unchanged). Preserved pre-A 30c548a helpers at
-// D:/M44-audits/m81-partA-pre-30c548a reproduced all four v16 hashes.
+// D:/Projetos/MModern/M44-audits/m81-partA-pre-30c548a reproduced all four v16 hashes.
 // Every one of the 14 checkpoints changes the envelope version (16 -> 17),
 // payload length and CRC and deletes the 12-byte pending block (mask, pending
 // gold and source/item counts); the roundtrip final also loses one 5-byte
@@ -284,9 +284,9 @@
 // Journey schema 9/content 14 are unchanged. Local evidence (never commit saves):
 // build-rel/m87-audit-step{1,2,3}.txt, m87-audit-target-v18-final/,
 // m87-audit-layout-v19/ and m87-part-a-audit-report.md. Preserved counterfactual:
-// D:/M44-audits/m87-counterfactual-final-v18-4ed3a15.
+// D:/Projetos/MModern/M44-audits/m87-counterfactual-final-v18-4ed3a15.
 // M88 Part A: maintainer approved all four v20 replacements on 2026-10-24.
-// The audit-only v19 build at D:/M44-audits/m88-audit-only-v19 reproduces
+// The audit-only v19 build at D:/Projetos/MModern/M44-audits/m88-audit-only-v19 reproduces
 // b54f893's four hashes, all 14 checkpoint bytes/dumps and complete traces.
 // The v20 audit changes only byte 8 (19 -> 20) in all 14 checkpoints:
 // lengths, byte 9, payload, CRC, decoded/per-map fields and traces are equal.
@@ -302,7 +302,7 @@
 // Decoded state, per-map fields and complete traces are unchanged; final
 // reload/re-save and both roundtrip continuations remain byte-exact.
 // Local evidence: build-rel/m92-v21-audit-recovered/{digest-audit.json,summary.txt},
-// D:/MModern-re/m92/{partA-v20-equivalence.json,partA-wire-projection.json}.
+// D:/Projetos/MModern/MModern-re/m92/{partA-v20-equivalence.json,partA-wire-projection.json}.
 // Original-data saves stay local and uncommitted.
 #include <array>
 #include <cstdint>

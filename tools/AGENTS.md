@@ -95,7 +95,7 @@ and `-Objdump`). First build the helpers with the **old source still present**:
 ```powershell
 cmake --build build-rel --target mmodern_save_dump mmodern_m44_baseline_witness mmodern_m43_cli_witness mmodern_m44_baseline_restart
 $game = 'F:/Games/gog/Might and Magic 4-5'
-$preserved = 'D:/M44-audits/baseline' # new directory outside the repository
+$preserved = 'D:/Projetos/MModern/M44-audits/baseline' # new directory outside the repository
 ./tools/m44-digest-audit.ps1 -Step Preserve -BuildDir build-rel -PreservedDir $preserved -GameDir $game
 # After changing/rebuilding the same four targets:
 ./tools/m44-digest-audit.ps1 -Step Compare -BuildDir build-rel -PreservedDir $preserved -GameDir $game -OutputDir build-rel/digest-comparison

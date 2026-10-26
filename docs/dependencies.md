@@ -491,7 +491,7 @@ A release zip is built from the tested `build-rel` executable after the complete
 suites pass:
 
 ```powershell
-./tools/package-release.ps1 -BuildDir build-rel -OutputDir D:/MModern-releases
+./tools/package-release.ps1 -BuildDir build-rel -OutputDir D:/Projetos/MModern/releases
 ```
 
 The script strips debug information into a staging copy (`build-rel` keeps its

@@ -518,7 +518,7 @@ Tracker have no passive effect in DOS, as in the reference (**DOS static,
 high confidence**, 2026-10-19): the party skill check `0x215b9..0x21609` is
 never called with skill 1 or 15, and the traced to-hit path
 `0x2ded8..0x2e1c0` reads no skill byte
-(`D:/MModern-re/skills-20261019/findings.md`).
+(`D:/Projetos/MModern/MModern-re/skills-20261019/findings.md`).
 
 ### Part B worked examples
 

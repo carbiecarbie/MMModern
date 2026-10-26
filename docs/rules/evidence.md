@@ -51,14 +51,14 @@ admission identical. The chapters preserve these boundaries explicitly.
 
 Original bytes, disassembly, decompiler output and analysis projects remain
 outside the repository. Local evidence is retained under
-`D:\MModern-re\rules-20261012\`: `rea-evidence.json`, `query.py`,
+`D:\Projetos\MModern\MModern-re\rules-20261012\`: `rea-evidence.json`, `query.py`,
 `spell-cost-comparison.txt`, `item-mapping.txt`, `monster-loot.txt` and bounded
 instruction slices. `query.py` checks the exact original hash before reading.
 These local paths describe provenance, not dependencies required to build
 MMModern. Reproducing the original checks requires the owner's game installation.
 
-Earlier evidence is retained under `D:\MModern-re\20261011-rea-ghidra\` and
-the external `D:\MModern-re\ghidra-xeen-dat\WorldXeenDat.gpr` project.
+Earlier evidence is retained under `D:\Projetos\MModern\MModern-re\20261011-rea-ghidra\` and
+the external `D:\Projetos\MModern\MModern-re\ghidra-xeen-dat\WorldXeenDat.gpr` project.
 Its authoritative summaries and calibration are in
 [original quirks](../original-quirks.md) and
 [Smith price rules](items.md#smith-prices).
@@ -72,7 +72,7 @@ REA opened the installed CD `WORLD/XEEN.DAT` and reported the SHA-256 in
 [Exact baseline](#exact-baseline); an independent SHA-256 check agreed.
 Hash-checked Capstone 16-bit reads of that installed file verified the
 branches below. Tables were read as little-endian words, not instructions.
-Earlier external notes in `D:/MModern-re/skills-20261019/` supplied leads;
+Earlier external notes in `D:/Projetos/MModern/MModern-re/skills-20261019/` supplied leads;
 their conclusions alone were not treated as new evidence.
 
 Calibration uses the settled two-holder rule: the complete shared helper
@@ -108,7 +108,7 @@ The [lighting and travel check](#darkness-and-lighting-continuations) and
 **DOS static, high confidence (2026-10-19)** for the paths stated here.
 Same executable/hash and pin as [the skill check](#outdoor-movement-skills).
 Work scripts, instruction slices and derived inventories remain outside the
-repository in `D:/MModern-re/m78-part0/` (`query.py`, `maps.py`,
+repository in `D:/Projetos/MModern/MModern-re/m78-part0/` (`query.py`, `maps.py`,
 `map-inventory.txt`, `inventory-summary.txt`). Calibration reuses the settled
 drain latch, Light producer and two-holder rule; these were not re-established
 from an uncalibrated bit search. Near-call targets were checked from their
@@ -271,7 +271,7 @@ SHA-256: updated title
 updated Rest `7301e5172ff9cdd296ce48916b40dd604aa98a99f16c32c62bf6061f95e1db39`.
 Scripts, decoded frames/logs, CSV measurements, `clock-measurements.json` and
 `audio-match.json` are retained outside the repository under
-`D:/MModern-re/codex-m63-evidence/m63-calibration-audio/`.
+`D:/Projetos/MModern/MModern-re/codex-m63-evidence/m63-calibration-audio/`.
 The superseded silent captures and their measurements remain in the adjacent
 `m63-calibration/` directory for provenance.
 
@@ -313,7 +313,7 @@ Capture SHA-256: death
 `3b5daa94599954112419c6d6c376346e8c176275bb4b430576b4c7ef23090ee5`;
 NPC `3d3a2e8e671bffd9b73b82b3921385cee8c34be870fc5f72233098bb73ada7fd`.
 Frames, exact PTS, audio correlations and scripts remain under
-`D:/MModern-re/codex-m63-evidence/m63-part-b/`.
+`D:/Projetos/MModern/MModern-re/codex-m63-evidence/m63-part-b/`.
 
 ### NPC CD invocation and window lifetime
 
@@ -335,7 +335,7 @@ failures are recorded in [Audio](audio.md#cd-disc-addressing-and-boundary-failur
 This inventory establishes the supported paths, not every future map. Audio intervals and visual continuations
 are transient; it does not establish a new durable save field. The read-only
 follow-up and record metadata remain in
-`D:/MModern-re/codex-m63-evidence/m63-part-b/npc-evidence/`.
+`D:/Projetos/MModern/MModern-re/codex-m63-evidence/m63-part-b/npc-evidence/`.
 
 ## Navigation typematic evidence (2026-10-13)
 
@@ -384,7 +384,7 @@ SHA-256: `20.000.mkv`
 `80.000.mkv` `2ec8c87d7ee5fd6e4341410666ff1255baabfa5d26dc535ef2e3dc1ac467def2`.
 Exact PTS maps, extraction logs, checked contact sheets and
 `video-initial-gaps.json` are retained under
-`D:/MModern-re/codex-m63-evidence/m63-typematic/`.
+`D:/Projetos/MModern/MModern-re/codex-m63-evidence/m63-typematic/`.
 
 ## Spell and item control flow
 
@@ -405,7 +405,7 @@ original-program checks.
 without a maximum-SP clamp, retaining the spent charge. No other item power
 gains this refund. Both this path and Misc staging were rechecked read-only
 against the persistent Ghidra project and the same original SHA-256; bounded
-instructions and query are retained in `D:\MModern-re\m61c-recheck\`.
+instructions and query are retained in `D:\Projetos\MModern\MModern-re\m61c-recheck\`.
 
 ### Item-power dispatch and variants
 
@@ -441,7 +441,7 @@ Capstone query was reused through WSL after REA rejected the Windows path.
 Fresh calibration reproduced First Aid's prompt ID 26 at `0x2f3fa` and
 argument 6 at `0x2f450`, calling healing helper `0x2ee3a` at `0x2f459`.
 Notes and bounded instruction slices remain outside the repository in
-`D:/MModern-re/m75-healing-spells/`; `findings.md` answers the ten questions.
+`D:/Projetos/MModern/MModern-re/m75-healing-spells/`; `findings.md` answers the ten questions.
 Existing Nature's Cure amount, Suppress Poison correction and Resurrection
 refund evidence above is retained, rather than claimed as a new discovery.
 
@@ -567,7 +567,7 @@ in [Exact baseline](#exact-baseline). Pin verified locally:
 
 Capstone 5.0.7, 16-bit x86, read the installed image through WSL. Work,
 instruction slices and the detailed question-by-question ledger remain in
-`D:/MModern-re/m76-part0/`, especially `findings.md`, `analyze.py`,
+`D:/Projetos/MModern/MModern-re/m76-part0/`, especially `findings.md`, `analyze.py`,
 `handler-disassembly.txt`, `item-spell-actions.asm`, `maps-and-tables.py`
 and `map-data.txt`. Preliminary mechanical inventories were checked and
 corrected by the main analyst; `findings.md` is the final interpretation.
@@ -725,7 +725,7 @@ read-only analysis, not DOSBox execution. MMModern baseline: `main`
 [Exact baseline](#exact-baseline). Pin verified locally:
 `6814ee9ba54582f5b5adcffab49efbbd8f589edd`. Capstone 5.0.7, 16-bit x86,
 through WSL; the instruction slices, tables and helper script remain in
-`D:/MModern-re/m77-part0/` (`x.py`, `items.asm`, `itemaction.asm`,
+`D:/Projetos/MModern/MModern-re/m77-part0/` (`x.py`, `items.asm`, `itemaction.asm`,
 `quests.asm`, `quests-tail.asm`, `awards.asm`, `awards2.asm`,
 `danger.asm`, `thinwall.asm`, `checkskill.asm`). REA's Windows Ghidra
 provider refused the DOS MZ image, as in M76.
@@ -848,7 +848,7 @@ at the four staging entries; bounded Capstone decoding and the actual dispatch
 table, rather than inferred Ghidra function bodies, establish those loops.
 The cited ScummVM files match pinned Git blobs after CRLF normalization;
 the external checkout's unrelated dirty files are not used as authority.
-Original instructions/projects stay in `D:\MModern-re\m81-part0\`;
+Original instructions/projects stay in `D:\Projetos\MModern\MModern-re\m81-part0\`;
 derived inventories and lookup tables stay in `build-rel/m81-part0/`.
 
 **Resource calibration.** Installed `DARK.CC`: 11,217,676 bytes,
@@ -929,7 +929,7 @@ above. Pinned `SavesManager::newGame` does not reset treasure either.
 **2026-10-20, DOS static, high confidence for the paths below.** MMModern
 baseline `30c548ab8bc85637a8f45051b9ae8a00eb938b6d`; same DAT hash as
 [Exact baseline](#exact-baseline); hash-checked Capstone reads under WSL, no
-DOSBox execution. Bounded disassemblies stay in `D:\MModern-re\m81-partA\`.
+DOSBox execution. Bounded disassemblies stay in `D:\Projetos\MModern\MModern-re\m81-partA\`.
 `0x26774` is the general Event-processing routine (the pin's
 `Scripts::checkEvents`), not a map-change routine: it runs every Event at the
 party position, and its event loop is skipped when attack slot DS:`98b4` is
@@ -983,7 +983,7 @@ stashed currency, an Event reward delivers dormant monster items with it.
 confidence for Clouds).** MMModern baseline `d210bf169f3e927e24e94710b2eced57029a2150`;
 same DAT hash; hash-checked Capstone reads under WSL and a read-only sweep of the
 CD `XEEN.CC` map scripts, no DOSBox execution. Work files stay in
-`D:\MModern-re\m81-partB\`.
+`D:\Projetos\MModern\MModern-re\m81-partB\`.
 
 - *No Clouds Event reaches delivery outside mode 9.* All 77 writes of the mode
   byte were swept and the direct-call closure of `0x26774` followed. Reachable
@@ -1016,7 +1016,7 @@ CD `XEEN.CC` map scripts, no DOSBox execution. Work files stay in
 <a id="preferred-recipient-after-the-events"></a>**Preferred recipient after the Events (M81 Part C, 2026-10-21; DOS static, high
 confidence).** MMModern baseline `1447735cdfea42cc5636f943ece28535cf7da278`;
 same DAT hash; hash-checked Capstone reads under WSL, no DOSBox execution. Work
-files stay in `D:\MModern-re\m81-partC\`. Calibration: delivery's preferred-index
+files stay in `D:\Projetos\MModern\MModern-re\m81-partC\`. Calibration: delivery's preferred-index
 test (`0x243d5..0x243f2`, [Treasure delivery](#treasure-delivery)) reads the
 WhoWill byte `47c9:0008` (file `0x4d358`), decrements it and falls back to the
 capacity scan when it is negative or not below the party size; the pin's
@@ -1071,11 +1071,11 @@ callers run it whether or not a record matches the position and facing:
 
 **DOS static, high confidence; implemented (M61 Part D).** The 2026-10-12
 playable-rules report and `evidence-index.json` are retained under
-`D:\MModern-re\playable-rules-20261012\`. Its complete delivery record is
+`D:\Projetos\MModern\MModern-re\playable-rules-20261012\`. Its complete delivery record is
 `ev_40c5c299c56c33aa600c91e27b2dce7650858004fffc25e6852ad8a9b02d6aba`;
 sort is `ev_2730d9bb0d263ec2078ba8af76a26631ece50c58366b4365588ecc509de4024b`.
 Part D rechecked the same SHA-256 read-only in the persistent Ghidra project;
-query and instruction/table results remain in `D:\MModern-re\m61d-recheck\`.
+query and instruction/table results remain in `D:\Projetos\MModern\MModern-re\m61d-recheck\`.
 Calibration: First Aid passes 6 at `0x2f450`, and known inventory record strides
 and category arrays agree. Actual switch words were checked independently of
 Ghidra's inferred switch annotations. These are static findings, not DOSBox play.
@@ -1121,7 +1121,7 @@ matches the size/hash in [Exact baseline](#exact-baseline). Analysis used
 WSL Python 3 and Capstone 5.0.7; file offsets below use the mapping above.
 No game execution, original-data mutation, code change or tests were involved.
 Details, work copy and bounded disassemblies:
-`D:/MModern-re/m79-services-20261020/findings.md`.
+`D:/Projetos/MModern/MModern-re/m79-services-20261020/findings.md`.
 
 Calibration preceded the new conclusions. Temple selection
 `0x1c9f5..0x1cab3` reproduces the settled four surcharge rows. Its Clouds
@@ -1176,7 +1176,7 @@ WSL Python 3 / Capstone 5.0.7 decoded bounded 16-bit ranges. Mapping:
 file `= 0x56c0 + segment*16 + offset`; Ghidra linear `= file + 0xa940`.
 No game execution or other original-resource inspection was performed.
 Scripts, disassemblies, table comparison and findings are external at
-`D:/MModern-re/m80-scenes-20261020/`. This is evidence, not implementation
+`D:/Projetos/MModern/MModern-re/m80-scenes-20261020/`. This is evidence, not implementation
 or milestone acceptance.
 
 **Calibration.** Event caller `0x27b1f..0x27b3b` passes the action to
@@ -1338,7 +1338,7 @@ clean at the same pin. Calibration re-decoded `0x2ac94..0x2ac9c`:
 the Reaper loop retries the elapsed-time helper until its result is at
 least 2; `0x440dc..0x440f4` reads BIOS time and subtracts the timer mark.
 This reproduces Part 0's two-tick wait. New external notes:
-`D:/MModern-re/m80-scenes-20261020/findings-0b.md`.
+`D:/Projetos/MModern/MModern-re/m80-scenes-20261020/findings-0b.md`.
 No execution of the game, tests, code edits or original-data writes.
 
 **1. Settings and default text.** `DS:ed9a` is the Effects enable byte,
@@ -1573,7 +1573,7 @@ award persistence.
 ## Other playable-rules confirmations
 
 The 2026-10-12 playable-rules report and index under
-`D:\MModern-re\playable-rules-20261012\` retain calibrated, independently
+`D:\Projetos\MModern\MModern-re\playable-rules-20261012\` retain calibrated, independently
 checked reads for the following **DOS static, high-confidence** findings. Only
 delivery changed production behavior, in M61 Part D; the other findings update
 the rules reference.
@@ -1616,12 +1616,12 @@ of the English World CD `WORLD/XEEN.DAT`, SHA-256
 Addresses below are file offsets; Ghidra linear address adds `0xa940`, and
 module-relative `segment:offset` resolves as `0x56c0 + segment*16 + offset`.
 External traces and the full input/handler tables are in
-`D:/MModern-re/m84-part0/findings.md`; the earlier main-loop evidence is in
-`D:/MModern-re/event-dispatch/findings.md`. ScummVM `6814ee9b` was comparison
+`D:/Projetos/MModern/MModern-re/m84-part0/findings.md`; the earlier main-loop evidence is in
+`D:/Projetos/MModern/MModern-re/event-dispatch/findings.md`. ScummVM `6814ee9b` was comparison
 context, not the authority for these DOS conclusions.
 
 The post-combat extension (M85 Part 0, 2026-10-23) is retained in
-`D:/MModern-re/m85-part0/findings.md`, with hash-asserting scripts and bounded
+`D:/Projetos/MModern/MModern-re/m85-part0/findings.md`, with hash-asserting scripts and bounded
 traces alongside it. New paths were calibrated against Event entry `0x26774`,
 Wait's label clear `0xd472`, Run exit `0x2eb11`, the established M81 delivery
 sites and M80 Arena generation. Conclusions below are **high-confidence DOS
@@ -1675,7 +1675,7 @@ are stored in the repository.
 The Clouds census uses the CD's `GAME/XEEN.CC`, SHA-256
 `8c0ac4c0650080cc85e96af3e9d5cd9968dad16bfd2ed0785d77d21893cc155c`,
 read through M78's archive parser. The retained final script/result are
-`D:/MModern-re/m84-part0/clouds-inventory/final_domain_sweep.py` and
+`D:/Projetos/MModern/MModern-re/m84-part0/clouds-inventory/final_domain_sweep.py` and
 `final-domain-sweep.json`. Calibration: require the DAT's embedded ID to match
 the requested ID; DOS resource naming `0xf8d0..0xf8e1` uses `mazexNNN` above 99;
 resolve the known indoor neighbour lookup before testing the flag, while using
@@ -1714,7 +1714,7 @@ static US Set-1 table and MMModern host-action exclusions are explicit above.
 **Scroll input and F-key follow-up, 2026-10-24:** calibrated, hash-checked
 static slices `input-skip-c.dis`, `key-consumption-c.dis`, `mouse-query-c.dis`,
 `input-tail-c.dis`, `inn-after-scroll-c.dis`, `item-fkeys-c.dis` and
-`sheet-fkeys-c.dis` remain under `D:/MModern-re/m87/`. The poll consumes the
+`sheet-fkeys-c.dis` remain under `D:/Projetos/MModern/MModern-re/m87/`. The poll consumes the
 interrupting key/click; the Inn polls anew rather than reusing it. `0xe6bf`
 restores button context, consistent with the M84 input audit. The Items map-0
 guard precedes both switching and transfer, while the sheet's separate F-key
@@ -1728,7 +1728,7 @@ full-palette restoration (`fadeIn(0x81)`). Exact offsets and the remaining
 partial-frame/overlap Unknowns are in [party rules](party.md). Retained slices
 `scroll-b-full.dis`, `inn-open-b.dis`, `inn-close-b.dis`, `scroll-clock-b.dis`,
 `palette-b.dis` and `flip-b.dis` stay outside the repository under
-`D:/MModern-re/m87/`. REA again rejected the Windows path before opening a
+`D:/Projetos/MModern/MModern-re/m87/`. REA again rejected the Windows path before opening a
 session; no REA analysis or new DOSBox play is claimed. Maintainer's 60 fps
 recordings `DOSinn.mkv` and `MMMODERNinn.mkv` establish the observed cadence
 defect; their distinct captured pictures do not determine the static loop's
@@ -1770,7 +1770,7 @@ This is a census of those resources, not a failed executable search used as
 proof of absence.
 
 External findings, scripts and instruction slices are retained under
-`D:/MModern-re/m87/`, chiefly `findings.md`, `roster.json`,
+`D:/Projetos/MModern/MModern-re/m87/`, chiefly `findings.md`, `roster.json`,
 `resource-summary.txt`, `tavern-sites.json` and the consumer slices.
 Existing `event-dispatch/`, `m79-services-20261020/`, `m85-part0/`,
 `conditions-20261022/` and `skills-20261019/` evidence supplied settled rules;
@@ -1920,7 +1920,7 @@ The following offsets are within `XEEN.CC`, **not XEEN.DAT**:
 | `dice.vga` | `0x70bf1e` | 14417 | Eight frames; seven varying die sizes matching DOS tables, plus 152×83 background |
 
 Scripts, full hashes, table derivations and instruction slices remain outside
-the repository in `D:/MModern-re/m88/`. Main locators are `trace.py`,
+the repository in `D:/Projetos/MModern/MModern-re/m88/`. Main locators are `trace.py`,
 `probe.py`, `followup.py`, `tables.py`, `audit.py`, `capacity-compare.py`,
 `calibration-add.dis`, `inn-dispatch.dis`, `create-main.dis`,
 `create-helpers.dis`, `roll.dis`, `roll-details.dis`, `rng.dis`,
@@ -1985,7 +1985,7 @@ Inn therefore arrives with the flag still set.
 
 **DOSBox observation (maintainer, 2026-10-25),** five recordings of the CD
 World edition kept outside the repository in `D:/Projetos/MMODERN videos/`
-(analysis in `D:/MModern-re/m91/dosbox/`). They corroborate the
+(analysis in `D:/Projetos/MModern/MModern-re/m91/dosbox/`). They corroborate the
 [cutscene rules](cutscenes.md):
 
 1. Other Options shows View Darkside Intro (`D`), View Clouds Intro (`C`)
@@ -2020,7 +2020,7 @@ identities and calibrated sprite, palette, timing, keyboard, archive and
 audio contracts remain those in [cutscenes](cutscenes.md#evidence-and-calibration).
 Capstone 5.0.7 x86-16; DAT MZ header `0x56c0`, data base `0x4d890`; EXE
 header `0x2e30`, data base `0x1d880`. Work scripts, disassembly, hashes,
-tables and resource extents stay in `D:/MModern-re/m92/`, outside this repo.
+tables and resource extents stay in `D:/Projetos/MModern/MModern-re/m92/`, outside this repo.
 
 The ending's `0x28c0d` call and the settled Inn's `0x1d7a4` both invoke
 forced Save `0x1ebc2(1)`. Compiler structure-copy direction is verified at
@@ -2087,7 +2087,7 @@ the long-time formatter, caption-only hardware mode, I/O failure, or every
 save field. Those retain their explicit static or source-equivalent labels.
 The maintainer accepted Part 0 with the Beacon limitation. Detailed evidence,
 the completed checklist and proposed quirk rows are in
-`D:/MModern-re/m92/findings.md`. Implementation and milestone acceptance
+`D:/Projetos/MModern/MModern-re/m92/findings.md`. Implementation and milestone acceptance
 remain separate gates.
 
 ## REA record locators

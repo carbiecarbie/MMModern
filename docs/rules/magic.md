@@ -245,7 +245,7 @@ calibrated DOS static correction below. Sources: [handlers][spells], [combat][co
 The checked image and mapping are in [evidence](evidence.md#exact-baseline).
 Pain, the zero elemental contribution and item dispatch were recalibrated
 before this pass. Bounded instructions and per-spell offsets are retained in
-`D:/MModern-re/m74-damage-spells/findings.md`; no game execution was used.
+`D:/Projetos/MModern/MModern-re/m74-damage-spells/findings.md`; no game execution was used.
 `Single`, `Group` and `All` describe the spell's range setting: ranged
 resolution still calls `attack` using the spell/group path, even for a
 single-target spell. Do not confuse that with the physical weapon

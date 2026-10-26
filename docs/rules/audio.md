@@ -83,7 +83,7 @@ is `6814ee9ba54582f5b5adcffab49efbbd8f589edd`; the inspected driver and OPL
 files have no local changes. The initial research baseline is `61112d9`;
 the amended-plan baseline is `d5bba594106dd0946c90cbd0b1c8629d16deaf71`.
 Reproducible checks, full resource hashes and disassembly remain outside
-the repository in `D:/MModern-re/audio-m82/part0-boundary-check.py`,
+the repository in `D:/Projetos/MModern/MModern-re/audio-m82/part0-boundary-check.py`,
 `part0-driver-identity.json` and `intro-promus-part0.dis`.
 
 ## Promus commands and voices
@@ -439,9 +439,9 @@ after one cursor cycle (`0x2b67b..0x2b6aa`, `0x2992d..0x29940`). These are
 logical wait lengths.
 
 **DOSBox video, Dwarf only (2026-10-21):** maintainer captures
-`D:/MModern-re/audio-m82/captures/dwarf-efx-off.avi` and
+`D:/Projetos/MModern/MModern-re/audio-m82/captures/dwarf-efx-off.avi` and
 `dwarf-efx-on.avi`, classic DOSBox 0.74-2 ZMBV, decoded with the maintainer's
-pure-Python `D:/MModern-re/tools/zmbv.py`. At 14,268 microseconds per frame,
+pure-Python `D:/Projetos/MModern/MModern-re/tools/zmbv.py`. At 14,268 microseconds per frame,
 zero-based frame 136 first shows the box after the rise, in the first speech
 loop. Frame 137 briefly shows the actor redraw without it; frames 138..960
 show the strip, empty after the cursor wraps at the end. Frame 961 redraws
@@ -551,7 +551,7 @@ physical DOS calls or runtime executions. Combat and other DOS samples
 absent from current loaders are outside this completed layout audit.
 
 Reproduction scripts, extracted resources, disassembly and full hashes are
-outside the repository in `D:/MModern-re/audio-m83/`; `findings.md` records
+outside the repository in `D:/Projetos/MModern/MModern-re/audio-m83/`; `findings.md` records
 the final evidence, decisions and remaining measurement limits. No original bytes or code are
 included here.
 
@@ -559,7 +559,7 @@ included here.
 
 **DOSBox-referenced measurement, 2026-10-22; not DOS hardware:** the
 maintainer's DOSBox Staging 0.83.0 recordings and `xeen-staging.conf` are in
-`D:/MModern-re/audio-m83/`. The config contains no sblaster/mixer overrides.
+`D:/Projetos/MModern/MModern-re/audio-m83/`. The config contains no sblaster/mixer overrides.
 The version tag resolves to `7b40053b7ac580843d0461eba8c36a47a990e66c`.
 Its defaults are:
 
@@ -585,7 +585,7 @@ town.m and Gunther's 3.600000..21.813333 s cue at 48000 Hz, both before and
 after the fixed gains. Measurement scripts (`measure.py`, `local-fit.py`,
 `music-fit.py`, `final-measure.py`, supporting alignment scripts and
 `render.cpp`) and their PCM/array evidence are retained outside the
-repository in `D:/MModern-re/audio-m83/`.
+repository in `D:/Projetos/MModern/MModern-re/audio-m83/`.
 
 Local waveform correlation estimates voice amplitude against the isolated
 renderer; aligned music-only power estimates the FM amplitude. The greeting
@@ -1144,7 +1144,7 @@ never writes the file.
 
 **DOSBox DRO captures (2026-10-21):** the maintainer recorded six promus
 captures in classic DOSBox 0.74-2 (`oplmode=opl3`) in
-`D:/MModern-re/audio-m82/captures/`: startup to the title menu, the Tavern
+`D:/Projetos/MModern/MModern-re/audio-m82/captures/`: startup to the title menu, the Tavern
 song (capture `promus-inn`), town to outdoors with the fade, effect 20
 alone, wall bump alone, and effect 20 over music; durations are approximate. A first check agrees with the
 static reading: the startup stream sets second-bank register 5 to 1 before
@@ -1192,7 +1192,7 @@ request 46 at the immediately following wall, but cannot reach a farther wall.
  Named spell handlers were traced from
 the original 76-entry dispatcher table at `0x3382b`, with the M74-M77 handler
 evidence; item-target helpers were decoded separately. External semantic notes
-and bounded instruction evidence stay under `D:/MModern-re/audio-m82/c1/` and
+and bounded instruction evidence stay under `D:/Projetos/MModern/MModern-re/audio-m82/c1/` and
 `c1-spell-inventory-86.tsv`; no original code or bytes are kept here.
 
 Spell requests use the live casting, item and travel owners; pure speculative

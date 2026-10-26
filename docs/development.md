@@ -128,7 +128,7 @@ Hypnotize, Dragon Sleep, Insect Spray, Turn Undead, Sparks and Toxic Cloud),
 with 1,000 SP each and 1,000 party gems. Generate it with:
 
 ```powershell
-.\build-rel\mmodern_test_save.exe monster-control "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/monster-control.mmsave"
+.\build-rel\mmodern_test_save.exe monster-control "F:/Games/gog/Might and Magic 4-5" "D:/Projetos/MModern/MModern-playtest/monster-control.mmsave"
 ```
 
 The `monster-damage` preset uses the same Vertigo position, 1,000 SP per
@@ -137,7 +137,7 @@ spells, including Finger of Death, Holy Word, Mass Distortion, Golem Stopper
 and Poison Volley. Generate it with:
 
 ```powershell
-.\build-rel\mmodern_test_save.exe monster-damage "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/monster-damage.mmsave"
+.\build-rel\mmodern_test_save.exe monster-damage "F:/Games/gog/Might and Magic 4-5" "D:/Projetos/MModern/MModern-playtest/monster-damage.mmsave"
 ```
 
 The `m76-spells` preset starts at Vertigo `(18,4)` facing West. A level-7
@@ -182,7 +182,7 @@ without spending resources. Escape keeps the
 spell or item cost; an unset beacon defaults to Vertigo even on cancel.
 
 ```powershell
-.\build-rel\mmodern_test_save.exe m76-spells "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/m76-spells.mmsave"
+.\build-rel\mmodern_test_save.exe m76-spells "F:/Games/gog/Might and Magic 4-5" "D:/Projetos/MModern/MModern-playtest/m76-spells.mmsave"
 ```
 
 The M84 input/Event presets use the current save format and a healthy travel
@@ -204,11 +204,11 @@ pass. The presets are:
 Generate outside the repository and game installation, then start one:
 
 ```powershell
-New-Item -ItemType Directory -Force D:/MModern-playtest
-.\build-rel\mmodern_test_save.exe m84-playtest-trap "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/m84-playtest-trap.mmsave"
-.\build-rel\mmodern_test_save.exe m84-playtest-label "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/m84-playtest-label.mmsave"
-.\build-rel\mmodern_test_save.exe m84-playtest-save "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/m84-playtest-save.mmsave"
-.\build-rel\mmodern.exe --load-game "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/m84-playtest-trap.mmsave"
+New-Item -ItemType Directory -Force D:/Projetos/MModern/MModern-playtest
+.\build-rel\mmodern_test_save.exe m84-playtest-trap "F:/Games/gog/Might and Magic 4-5" "D:/Projetos/MModern/MModern-playtest/m84-playtest-trap.mmsave"
+.\build-rel\mmodern_test_save.exe m84-playtest-label "F:/Games/gog/Might and Magic 4-5" "D:/Projetos/MModern/MModern-playtest/m84-playtest-label.mmsave"
+.\build-rel\mmodern_test_save.exe m84-playtest-save "F:/Games/gog/Might and Magic 4-5" "D:/Projetos/MModern/MModern-playtest/m84-playtest-save.mmsave"
+.\build-rel\mmodern.exe --load-game "F:/Games/gog/Might and Magic 4-5" "D:/Projetos/MModern/MModern-playtest/m84-playtest-trap.mmsave"
 ```
 
 The M86 presentation presets use the current save format:
@@ -237,9 +237,9 @@ two BIOS ticks, then the step. The original-data test also checks Vertigo
 `(4,3)` East. Backward/strafe/blocked moves do not show that image.
 
 ```powershell
-.\build-rel\mmodern_test_save.exe m86-playtest-fall "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/m86-playtest-fall.mmsave"
-.\build-rel\mmodern_test_save.exe m86-playtest-moon-ray "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/m86-playtest-moon-ray.mmsave"
-.\build-rel\mmodern_test_save.exe m86-playtest-border "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/m86-playtest-border.mmsave"
+.\build-rel\mmodern_test_save.exe m86-playtest-fall "F:/Games/gog/Might and Magic 4-5" "D:/Projetos/MModern/MModern-playtest/m86-playtest-fall.mmsave"
+.\build-rel\mmodern_test_save.exe m86-playtest-moon-ray "F:/Games/gog/Might and Magic 4-5" "D:/Projetos/MModern/MModern-playtest/m86-playtest-moon-ray.mmsave"
+.\build-rel\mmodern_test_save.exe m86-playtest-border "F:/Games/gog/Might and Magic 4-5" "D:/Projetos/MModern/MModern-playtest/m86-playtest-border.mmsave"
 ```
 
 The M85 post-combat Event presets use the current save format, 1,000 HP per
@@ -261,10 +261,10 @@ check that the terrain does not make the party fall.
   the party; map 55 keeps it on solid terrain.
 
 ```powershell
-.\build-rel\mmodern_test_save.exe m85-playtest-label "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/m85-playtest-label.mmsave"
-.\build-rel\mmodern_test_save.exe m85-playtest-run "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/m85-playtest-run.mmsave"
-.\build-rel\mmodern_test_save.exe m85-playtest-trap "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/m85-playtest-trap.mmsave"
-.\build-rel\mmodern.exe --load-game "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/m85-playtest-label.mmsave"
+.\build-rel\mmodern_test_save.exe m85-playtest-label "F:/Games/gog/Might and Magic 4-5" "D:/Projetos/MModern/MModern-playtest/m85-playtest-label.mmsave"
+.\build-rel\mmodern_test_save.exe m85-playtest-run "F:/Games/gog/Might and Magic 4-5" "D:/Projetos/MModern/MModern-playtest/m85-playtest-run.mmsave"
+.\build-rel\mmodern_test_save.exe m85-playtest-trap "F:/Games/gog/Might and Magic 4-5" "D:/Projetos/MModern/MModern-playtest/m85-playtest-trap.mmsave"
+.\build-rel\mmodern.exe --load-game "F:/Games/gog/Might and Magic 4-5" "D:/Projetos/MModern/MModern-playtest/m85-playtest-label.mmsave"
 ```
 
 The `m80-playtest` preset starts at the Reaper entrance on Clouds map 24
@@ -281,8 +281,8 @@ maps 7/13, Golem 19 and Sphinx 2 always play the keyless refusal: their
 Darkside keys are outside the Clouds quest counters.
 
 ```powershell
-.\build-rel\mmodern_test_save.exe m80-playtest "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/m80-playtest.mmsave"
-.\build-rel\mmodern.exe --load-game "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/m80-playtest.mmsave"
+.\build-rel\mmodern_test_save.exe m80-playtest "F:/Games/gog/Might and Magic 4-5" "D:/Projetos/MModern/MModern-playtest/m80-playtest.mmsave"
+.\build-rel\mmodern.exe --load-game "F:/Games/gog/Might and Magic 4-5" "D:/Projetos/MModern/MModern-playtest/m80-playtest.mmsave"
 ```
 
 The `m80-arena` and `m80-arena-maxed` presets start beside the Warzone
@@ -303,9 +303,9 @@ Leaving the Warzone discards the fight. Saving there is forbidden; both
 presets use the unchanged current save format and start outside it.
 
 ```powershell
-.\build-rel\mmodern_test_save.exe m80-arena "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/m80-arena.mmsave"
-.\build-rel\mmodern_test_save.exe m80-arena-maxed "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/m80-arena-maxed.mmsave"
-.\build-rel\mmodern.exe --load-game "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/m80-arena.mmsave"
+.\build-rel\mmodern_test_save.exe m80-arena "F:/Games/gog/Might and Magic 4-5" "D:/Projetos/MModern/MModern-playtest/m80-arena.mmsave"
+.\build-rel\mmodern_test_save.exe m80-arena-maxed "F:/Games/gog/Might and Magic 4-5" "D:/Projetos/MModern/MModern-playtest/m80-arena-maxed.mmsave"
+.\build-rel\mmodern.exe --load-game "F:/Games/gog/Might and Magic 4-5" "D:/Projetos/MModern/MModern-playtest/m80-arena.mmsave"
 ```
 
 The `m81-drops` and `m81-fullpacks` presets start on Clouds map 3 at
@@ -328,9 +328,9 @@ the original does. Once no slot is left, the full-pack warning appears and the
 remaining items are lost, but gold and gems are still credited.
 
 ```powershell
-.\build-rel\mmodern_test_save.exe m81-drops "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/m81-drops.mmsave"
-.\build-rel\mmodern_test_save.exe m81-fullpacks "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/m81-fullpacks.mmsave"
-.\build-rel\mmodern.exe --load-game "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/m81-drops.mmsave"
+.\build-rel\mmodern_test_save.exe m81-drops "F:/Games/gog/Might and Magic 4-5" "D:/Projetos/MModern/MModern-playtest/m81-drops.mmsave"
+.\build-rel\mmodern_test_save.exe m81-fullpacks "F:/Games/gog/Might and Magic 4-5" "D:/Projetos/MModern/MModern-playtest/m81-fullpacks.mmsave"
+.\build-rel\mmodern.exe --load-game "F:/Games/gog/Might and Magic 4-5" "D:/Projetos/MModern/MModern-playtest/m81-drops.mmsave"
 ```
 
 The `m81-event` preset starts on mainland map 23 at `(8,2)` facing North,
@@ -349,8 +349,8 @@ attacks, Run with the whole party (Run can fail; repeat it), walk back to
 own and the gold never.
 
 ```powershell
-.\build-rel\mmodern_test_save.exe m81-event "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/m81-event.mmsave"
-.\build-rel\mmodern.exe --load-game "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/m81-event.mmsave"
+.\build-rel\mmodern_test_save.exe m81-event "F:/Games/gog/Might and Magic 4-5" "D:/Projetos/MModern/MModern-playtest/m81-event.mmsave"
+.\build-rel\mmodern.exe --load-game "F:/Games/gog/Might and Magic 4-5" "D:/Projetos/MModern/MModern-playtest/m81-event.mmsave"
 ```
 
 The `m79-playtest` preset starts at Rivercity Training, map 30 `(12,12)`
@@ -368,8 +368,8 @@ in a fresh program it has zero surcharges and no Donation charge. Interact
 with Space at a service, and use its original buttons or keys.
 
 ```powershell
-.\build-rel\mmodern_test_save.exe m79-playtest "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/m79-playtest.mmsave"
-.\build-rel\mmodern.exe --load-game "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/m79-playtest.mmsave"
+.\build-rel\mmodern_test_save.exe m79-playtest "F:/Games/gog/Might and Magic 4-5" "D:/Projetos/MModern/MModern-playtest/m79-playtest.mmsave"
+.\build-rel\mmodern.exe --load-game "F:/Games/gog/Might and Magic 4-5" "D:/Projetos/MModern/MModern-playtest/m79-playtest.mmsave"
 ```
 
 The `m78-playtest` preset is a travel party at map 23 `(9,11)` facing West:
@@ -382,7 +382,7 @@ mountains and outdoor wall types 3 and 6 stay closed until a teacher adds a
 second holder.
 
 ```powershell
-.\build-rel\mmodern_test_save.exe m78-playtest "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/m78-playtest.mmsave"
+.\build-rel\mmodern_test_save.exe m78-playtest "F:/Games/gog/Might and Magic 4-5" "D:/Projetos/MModern/MModern-playtest/m78-playtest.mmsave"
 ```
 
 The `party-healing` preset also starts at Vertigo (18,4). A Cleric and a
@@ -392,16 +392,16 @@ Four patients carry Poison, Disease, Paralysis, Stone, Dead and Eradicated;
 the casters carry five-charge items for all ten M75 powers.
 
 ```powershell
-.\build-rel\mmodern_test_save.exe party-healing "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/party-healing.mmsave"
+.\build-rel\mmodern_test_save.exe party-healing "F:/Games/gog/Might and Magic 4-5" "D:/Projetos/MModern/MModern-playtest/party-healing.mmsave"
 ```
 
 For example, to create the play-test folder, generate the `train-ready` save
 and load it:
 
 ```powershell
-New-Item -ItemType Directory -Force D:/MModern-playtest
-.\build-rel\mmodern_test_save.exe train-ready "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/train-ready.mmsave"
-.\build-rel\mmodern.exe --load-game "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/train-ready.mmsave"
+New-Item -ItemType Directory -Force D:/Projetos/MModern/MModern-playtest
+.\build-rel\mmodern_test_save.exe train-ready "F:/Games/gog/Might and Magic 4-5" "D:/Projetos/MModern/MModern-playtest/train-ready.mmsave"
+.\build-rel\mmodern.exe --load-game "F:/Games/gog/Might and Magic 4-5" "D:/Projetos/MModern/MModern-playtest/train-ready.mmsave"
 ```
 
 The `combat-items` preset starts on the mainland at (9,11), facing West,
@@ -423,8 +423,8 @@ session, whose original party also has the skill:
 (Rivercity).
 
 ```powershell
-.\build-rel\mmodern_test_save.exe combat-items "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/combat-items.mmsave"
-.\build-rel\mmodern.exe --load-game "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/combat-items.mmsave"
+.\build-rel\mmodern_test_save.exe combat-items "F:/Games/gog/Might and Magic 4-5" "D:/Projetos/MModern/MModern-playtest/combat-items.mmsave"
+.\build-rel\mmodern.exe --load-game "F:/Games/gog/Might and Magic 4-5" "D:/Projetos/MModern/MModern-playtest/combat-items.mmsave"
 ```
 
 Choose your own output path in an existing directory outside both this repository
@@ -483,14 +483,14 @@ arrow, Enter commits, R or Space rerolls, and the attribute keys exchange
 values. Returning to the Inn resets its page and keeps its song playing.
 
 ```powershell
-.\build-rel\mmodern_test_save.exe m87-inn "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/m87-inn.mmsave"
-.\build-rel\mmodern.exe --load-game "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/m87-inn.mmsave"
-.\build-rel\mmodern_test_save.exe m87-three "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/m87-three.mmsave"
-.\build-rel\mmodern.exe --load-game "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/m87-three.mmsave"
-.\build-rel\mmodern_test_save.exe m87-shangrila "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/m87-shangrila.mmsave"
-.\build-rel\mmodern.exe --load-game "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/m87-shangrila.mmsave"
-.\build-rel\mmodern_test_save.exe m88-roster "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/m88-roster.mmsave"
-.\build-rel\mmodern.exe --load-game "F:/Games/gog/Might and Magic 4-5" "D:/MModern-playtest/m88-roster.mmsave"
+.\build-rel\mmodern_test_save.exe m87-inn "F:/Games/gog/Might and Magic 4-5" "D:/Projetos/MModern/MModern-playtest/m87-inn.mmsave"
+.\build-rel\mmodern.exe --load-game "F:/Games/gog/Might and Magic 4-5" "D:/Projetos/MModern/MModern-playtest/m87-inn.mmsave"
+.\build-rel\mmodern_test_save.exe m87-three "F:/Games/gog/Might and Magic 4-5" "D:/Projetos/MModern/MModern-playtest/m87-three.mmsave"
+.\build-rel\mmodern.exe --load-game "F:/Games/gog/Might and Magic 4-5" "D:/Projetos/MModern/MModern-playtest/m87-three.mmsave"
+.\build-rel\mmodern_test_save.exe m87-shangrila "F:/Games/gog/Might and Magic 4-5" "D:/Projetos/MModern/MModern-playtest/m87-shangrila.mmsave"
+.\build-rel\mmodern.exe --load-game "F:/Games/gog/Might and Magic 4-5" "D:/Projetos/MModern/MModern-playtest/m87-shangrila.mmsave"
+.\build-rel\mmodern_test_save.exe m88-roster "F:/Games/gog/Might and Magic 4-5" "D:/Projetos/MModern/MModern-playtest/m88-roster.mmsave"
+.\build-rel\mmodern.exe --load-game "F:/Games/gog/Might and Magic 4-5" "D:/Projetos/MModern/MModern-playtest/m88-roster.mmsave"
 ```
 
 Sign In, confirmed Delete, every return from Create and Exit save automatically.

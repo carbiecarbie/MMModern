@@ -34,7 +34,7 @@ comparison. Clouds starts at `0x7ca6`: `mm4theme.m` is referenced at `0x7d16`
 (name `0x1f677`); the voice loop uses table `0x1f540`, beginning with
 `crodo1.voc` (name `0x1f5bd`), through `0x8503..0x852b` and start `0x8597`.
 Full sequence, extracted tables, scripts, aligned dumps and pin comparison:
-`D:/MModern-re/m91/findings.md`. Original-derived material stays outside the repo.
+`D:/Projetos/MModern/MModern-re/m91/findings.md`. Original-derived material stays outside the repo.
 
 ## Startup dispatch
 
@@ -107,7 +107,7 @@ reader algorithms accepted 35 scene/scroll sprite resources (325 frames), 14
 scene VOCs plus scratch `ido2.voc`, three scene RAWs, three palettes and the song
 variants without errors. Startup RAW size and opaque buffer extent also pass.
 No missing Clouds reader was identified. External reports under
-`D:/MModern-re/m91/resources/` record archive offsets, sizes and decoder limits.
+`D:/Projetos/MModern/MModern-re/m91/resources/` record archive offsets, sizes and decoder limits.
 The compiled `XeenCutsceneTests` audit decodes all 35 sprites (325 frames),
 scene/startup VOCs, RAWs and palettes and runs the complete song/scene with real
 sample lengths on a fake clock. It also checks input, load/reset boundaries,
@@ -221,7 +221,7 @@ addition to the Clouds-only scope.
 
 **DOS static, high; save corroborated by the maintainer's slot-06 capture,
 2026-10-25.** The complete member comparison is in
-`D:/MModern-re/m92/archive-diff.json`; provenance is in
+`D:/Projetos/MModern/MModern-re/m92/archive-diff.json`; provenance is in
 [M92 evidence](evidence.md#m92-clouds-ending-evidence).
 
 Opcode 30 enters the DAT tail at `0x28b98`. In order, it sets the saved
@@ -298,7 +298,7 @@ eligible members, with the same aggregate reward.
 **DOS static, high for the stated operations; DOSBox timestamps refer to the
 maintainer's uninterrupted ending capture.** Full resource extents, decoded
 payload hashes, selector order, tables and aligned disassembly remain outside
-the repository in `D:/MModern-re/m92/`. Every ending scene uses XEEN.CC after
+the repository in `D:/Projetos/MModern/MModern-re/m92/`. Every ending scene uses XEEN.CC after
 the initial INTRO.CC scratch allocation. Scene speech uses VOCs, not CD tracks.
 
 | Stage | DOS operations and timing | Capture time |
@@ -339,7 +339,7 @@ The repeated audit with that absent byte set to 0 and 255 produces identical
 64,000-byte outputs and matches all 24 corrected provenance-audit hashes.
 These are static and decoder checks, not execution of the DOS decoder or
 rendered equivalence with DOSBox. The audit and before/after `prec0002` PNGs
-remain in `D:/MModern-re/m92/exe-inventory/`.
+remain in `D:/Projetos/MModern/MModern-re/m92/exe-inventory/`.
 Other resources use the existing RAW, PAL, sprite, VOC and song families.
 The manifest resolves 146 parade MON/ATT resources, 69 unique attack VOCs,
 six power VOCs, the scene voices and shared scroll assets, with no missing

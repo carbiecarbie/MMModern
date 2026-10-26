@@ -55,7 +55,7 @@ The ordinary write failure behavior below also applies to the ending:
 DOS may terminate on an I/O error and does not provide rollback. MMModern's
 retry uses the approved Inn recovery extension, retaining the first snapshot
 and score across failed writes. Detailed member
-hashes and field differences: `D:/MModern-re/m92/archive-diff.json` and
+hashes and field differences: `D:/Projetos/MModern/MModern-re/m92/archive-diff.json` and
 `map-diff.json`; [M92 evidence](evidence.md#m92-clouds-ending-evidence).
 
 ## Roster and list

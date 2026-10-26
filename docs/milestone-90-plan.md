@@ -14,7 +14,7 @@ Prove that Clouds can be played from Newcastle's Megacredits to Lord Xeen
 with what is already implemented, and fix what the sweep finds. Every quest
 on the main line and the Megacredits chain uses supported Event operations,
 but none has been played outside Vertigo. Evidence for the chain and the
-gates: the completion audit (`D:/MModern-re/clouds-completion/findings.md`
+gates: the completion audit (`D:/Projetos/MModern/MModern-re/clouds-completion/findings.md`
 §3.1-3.3 and §5). The step-15 rules already have their original-data tests
 (`tests/XeenScriptedOriginalTests.cpp`) and presets (`m89-*`); reuse them.
 
