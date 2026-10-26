@@ -52,6 +52,8 @@ struct State {
  bool panelMode=false,failPreflight=false,failWrite=false;
  bool retainedIdle=false;
  bool introMode=false;unsigned introWindow=0,introStarts=0;std::uint64_t introNow=17000000,introSkip=0;
+ std::uint32_t wallNow=0;
+ std::optional<std::uint64_t> nameCursorNow;
  bool failNotice=false;
  unsigned noticeAttempts=0,writes=0;
  const XeenDosText *text=nullptr;
@@ -71,11 +73,13 @@ struct State {
 } state;
 bool introApplication(const IndexedFrame &first,const SdlWindow::FrameUpdateHandler &handler,const SdlWindow::IdleFrameHandler &idle) {
  const auto window=++state.introWindow;check(window<=4,"intro did not return to one fresh title");
+ if(window==4)check(state.program->playTimeMark==state.wallNow,"EXE hand-off did not reset the fresh DAT mark");
  IndexedFrame visible=first;
  const auto present=[&] {check(handler.acceptsFrame(visible.presentation()),"intro stale publication");handler.framePresented(visible.presentation());handler.completeInputHandoff(visible.presentation());};
  present();unsigned guard=0;
  const auto tick=[&] {
   check(++guard<100000,"Application intro stalled");
+  ++state.wallNow;
   const auto deadline=handler.nextPresentationDeadline();if(deadline && *deadline>state.introNow)state.introNow=*deadline;
   handler.beginCycle(guard);if(auto next=idle()){visible=*next;present();}
  };
@@ -113,7 +117,7 @@ void key(unsigned code,std::vector<SDL_Event> &pending) {
  SDL_Event event{};event.type=SDL_KEYDOWN;event.key.keysym.sym=code;event.key.keysym.scancode=SDL_GetScancodeFromKey(code);
  pending.push_back(event);event.type=SDL_KEYUP;pending.push_back(event);
 }
-extern "C" std::uint64_t wrappedTitleClock(){return state.introMode?state.introNow:realTitleClock();}
+extern "C" std::uint64_t wrappedTitleClock(){return state.nameCursorNow?*state.nameCursorNow:state.introMode?state.introNow:realTitleClock();}
 void preview(const IndexedFrame &frame,const std::string &label) {
  const char *directory=std::getenv("MMODERN_TITLE_PREVIEW");if(!directory)return;
  auto *surface=SDL_CreateRGBSurfaceWithFormat(0,320,200,32,SDL_PIXELFORMAT_ARGB8888);check(surface,"title preview surface");
@@ -211,7 +215,27 @@ bool panelGameplay(const IndexedFrame &first,const SdlWindow::FrameUpdateHandler
  check(!handler.withPresentedInput(DialogKeyAction{'q'},*input,retained),"stale panel input accepted");
  for(unsigned i=0;i<10;++i)idle();check(capture()==before,"panel idle/deferred/decline changed gameplay");
  expectNotice(state.name);key('s');checkNotice();key(27);
- key('a');key('3');key(13);key(27); // Name cancel: no file.
+ key('a');key('3');key(13);
+ {
+  // With sound detached, the in-game handler must schedule the name cursor
+  // itself. This exercises Application's panel deadline, not just TitleFlow.
+  struct CursorClockScope {
+   std::shared_ptr<XeenAudio> audio=std::exchange(state.program->audio,{});
+   ~CursorClockScope(){state.nameCursorNow.reset();state.program->audio=std::move(audio);}
+  } held;
+  state.nameCursorNow=realTitleClock();
+  check(!idle(),"first Save As cursor poll should only arm its wait");
+  const auto deadline=handler.nextPresentationDeadline();
+  check(deadline && *deadline>*state.nameCursorNow,"in-game Save As name cursor has no scheduled deadline");
+  const auto pixels=visible.pixels;const auto context=handler.inputContext(visible.presentation()).contextId;
+  state.nameCursorNow=*deadline-1;check(!idle(),"Save As cursor blinked before its deadline");
+  state.nameCursorNow=*deadline;const auto blink=idle();
+  check(blink && blink->pixels!=pixels,"Save As cursor did not blink at its scheduled deadline");
+  visible=*blink;present();
+  check(handler.inputContext(visible.presentation()).contextId==context,"cursor blink changed the in-game input context");
+  while(realTitleClock()<*state.nameCursorNow)SDL_Delay(1);
+ }
+ key(27); // Name cancel: no file.
  const auto third=XeenSaveFile::slotPath(originalSlot.parent_path(),2);
  check(!fs::exists(third),"cancelled Save As wrote a slot");
  key(13);send(TextInputAction{state.saveAsName});
@@ -263,6 +287,10 @@ extern "C" int wrappedTitlePlay(const Application *app,const XeenGameplayService
   original.program.templePrices.revision()==1,"Title/New Game/panel Load replaced or reset process Temple prices");
  state.slot=*target;state.signature=original.resources.signature;
  auto services=original;
+ if(!resume && !state.panelMode) {
+  const auto load=services.resources.loadInitialParty;
+  services.resources.loadInitialParty=[load]{auto p=load();p.playTimeSeconds=888;p.cloudsCompleted=true;return p;};
+ }
  state.font=&services.font;
  const auto configure=services.configureFlow;
  services.configureFlow=[configure](auto &flow,const auto &position){if(configure)configure(flow,position);state.text=&flow.dosText();};
@@ -351,6 +379,7 @@ extern "C" bool wrappedTitleShow(const SdlWindow *window,const IndexedFrame &fir
    }
    else {
     check(snapshot.journey->context->difficulty==state.difficulty && state.seeds==1,"New sampled seed/difficulty");
+    check(snapshot.journey->playTimeSeconds==37 && !snapshot.journey->cloudsCompleted && state.program->playTimeMark==47,"New must zero saved time/completion and include title time before its first snapshot");
     check(XeenSaveFormat::encode(XeenSaveFile::read(state.slot))==wire,"New write did not precede first presented state");state.saved=wire;
    }
    preview(*frame,state.loading?"load-first":"new-first");state.shown=true;
@@ -395,7 +424,7 @@ void titleApplicationControls(const char *game) {
  fs::create_directory(state.base);
  struct Cleanup {~Cleanup(){state.enabled=false;removeTestTree(state.base);}} cleanup;
  for(auto difficulty:{XeenDifficulty::Adventurer,XeenDifficulty::Warrior}) {
-  XeenProgramState programState;
+  state.wallNow=10;XeenProgramState programState{XeenWallClock([]{return state.wallNow;})};state.wallNow=47;
   state.program=&programState;
   XeenTemplePriceStateTestAccess::seed(programState.templePrices,difficulty==XeenDifficulty::Adventurer?30:49);
   state.templePrices=&programState.templePrices;state.templeRow=programState.templePrices.row();
@@ -412,7 +441,7 @@ void titleApplicationControls(const char *game) {
   check(Application(programState).run(game)==0 && state.shown,"native title/Load Application loop");
   // The first Load deliberately removes its source after validation.
   XeenSaveFile::write(state.slot,XeenSaveFormat::decode(state.saved),{},true);
-  XeenProgramState freshProgram;
+  XeenProgramState freshProgram{mmodern::XeenWallClock::fixed(0)};
   XeenTemplePriceStateTestAccess::seed(freshProgram.templePrices,difficulty==XeenDifficulty::Adventurer?30:49);
   state.program=&freshProgram;state.templePrices=&freshProgram.templePrices;
   state.retainedIdle=false;state.shown=false;state.seeds=0;
@@ -420,7 +449,7 @@ void titleApplicationControls(const char *game) {
  }
  state.panelMode=true;
  for(const auto &name:std::vector<std::string>{"A","Twenty CharacterName",std::string(20,'W')}) {
-  XeenProgramState programState;
+  XeenProgramState programState{mmodern::XeenWallClock::fixed(0)};
   state.program=&programState;
   XeenTemplePriceStateTestAccess::seed(programState.templePrices,name=="A"?30:49);
   state.templePrices=&programState.templePrices;state.templeRow=programState.templePrices.row();
@@ -432,7 +461,7 @@ void titleApplicationControls(const char *game) {
  }
  state.panelMode=false;
  for(const auto skip:{1000000000ULL,30000000000ULL,60000000000ULL}) {
-  XeenProgramState programState;state.program=&programState;state.introMode=true;state.introNow=17000000;
+  state.wallNow=10;XeenProgramState programState{XeenWallClock([]{return state.wallNow;})};state.program=&programState;state.introMode=true;state.introNow=17000000;
   state.introWindow=0;state.introStarts=0;state.introSkip=skip;state.shown=false;
   check(Application(programState).run(game)==0 && state.shown && state.introWindow==4,"Clouds Escape/Application fresh title route");
   if(skip==60000000000ULL)check(state.introStarts>2,"party switches suppressed EXE speech");

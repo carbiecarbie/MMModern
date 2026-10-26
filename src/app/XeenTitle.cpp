@@ -123,7 +123,7 @@ int Application::run(const std::filesystem::path &gameDirectory) const {
      audio.stopDigital(clock());audio.fadeSong(0,clock());audio.observeOptions(options);
      title=makeTitle(options);title->cloudsIntroFailure(e.what());
     }
-    entry={};continue;
+    _program.resetPlayTime();entry={};continue;
    }
    if(entry.kind!=XeenSessionEntry::Kind::New && entry.kind!=XeenSessionEntry::Kind::Load)
     throw std::logic_error("Invalid application session entry");

@@ -24,6 +24,8 @@ Bytes suffix(const XeenSaveSnapshot &s){
  b.push_back(30);for(unsigned i=0;i<30;++i)for(unsigned v:{i,i,i+30,i+60,i+90,i+120,i+150,i+180,i+210,255-i,254-i})b.push_back(v);
  // v17: the purse alone; pending treasure is never saved.
  put(b,j.purse->gold,4);put(b,j.purse->gems,4);
+ // Independent v21 play-time/completion bytes after the purse.
+ put(b,0xfedcba98u,4);b.push_back(1);
  for(bool flag:j.worldFlags->values)b.push_back(flag);b.push_back(30);
  for(unsigned owner=0;owner<30;++owner){b.push_back(owner);for(unsigned slot=0;slot<39;++slot)b.push_back(owner==2?0:owner==29&&slot==38?255:std::uint8_t(owner*7+slot*3));}
  b.push_back(30);for(unsigned owner=0;owner<30;++owner)b.insert(b.end(),{std::uint8_t(owner),std::uint8_t(owner),std::uint8_t(255-owner)});
@@ -51,6 +53,7 @@ XeenSaveSnapshot sampleCurrent(){
  auto s=currentWireSnapshot();auto &j=*s.journey;s.resources={{1,2},XeenArchiveFingerprint{3,4}};s.camera={23,8,11,XeenDirection::West};s.food=0xbeef;
  j.context->minutes=1000;j.context->ctr24=23;j.random=XeenJourneyRandomState{1,0xf1234567,0x123456789ULL};
  j.purse->gold=0x12345678;j.purse->gems=0x87654321;
+ j.playTimeSeconds=0xfedcba98u;j.cloudsCompleted=true;
  for(unsigned i=0;i<30;++i){j.supplements[i].inputs.luck=XeenAttributeValue{17,3};j.supplements[i].inputs.resistances=XeenCombatResistances{std::uint8_t(i),std::uint8_t(i+30),std::uint8_t(i+60),std::uint8_t(i+90),std::uint8_t(i+120),std::uint8_t(i+150),std::uint8_t(i+180),std::uint8_t(i+210),std::uint8_t(255-i),std::uint8_t(254-i)};j.supplements[i].inputs.poisonResistance=XeenAttributeValue{int(i),int(255-i)};
   for(unsigned slot=0;slot<39;++slot)s.characters[i].learnedSpells->at(slot)=i==2?0:std::uint8_t(i*7+slot*3);}
  s.characters[29].learnedSpells->at(38)=255;
@@ -64,7 +67,7 @@ void defeat(XeenSaveSnapshot &s,unsigned record){auto &a=s.map(23).monsters->slo
 void verify(const XeenSaveSnapshot &fixture,bool exhaustive=false){
  const auto &s=fixture;
  const auto bytes=XeenSaveFormat::encode(s),expected=suffix(s);const auto offset=baseSize(s);
- check(bytes.size()==offset+expected.size()&&std::equal(expected.begin(),expected.end(),bytes.begin()+offset),"Independent complete v19 schema9/content14 suffix and absent name");
+ check(bytes.size()==offset+expected.size()&&std::equal(expected.begin(),expected.end(),bytes.begin()+offset),"Independent complete v21 schema9/content14 suffix and absent name");
  sameSnapshot(s,XeenSaveFormat::decode(bytes));check(XeenSaveFormat::encode(XeenSaveFormat::decode(bytes))==bytes,"Exact current byte continuation");
  const std::size_t stride=exhaustive?1:97;
  for(std::size_t size=offset;size<bytes.size();size+=stride){auto b=bytes;b.resize(size);fixIndependentEnvelope(b);rejects([&]{XeenSaveFormat::decode(b);});}
@@ -77,10 +80,10 @@ int main(){try{
  auto s=sampleCurrent();verify(s,true);auto populated=s;
  for(unsigned id:{3u,9u})defeat(populated,id);
  populated.characters[0].conditions[3]=2;populated.characters[1].conditions[8]=1;verify(populated,true);
- // Literal v17 purse (gold, then gems), followed directly by the world flags.
+ // Literal v21 purse (gold, then gems), play time/completion and world flags.
  {const auto wire=XeenSaveFormat::encode(populated);const auto at=baseSize(populated)+1616;
-  const Bytes literal{0x78,0x56,0x34,0x12, 0x21,0x43,0x65,0x87, 0};
-  check(std::equal(literal.begin(),literal.end(),wire.begin()+at),"Literal v17 purse without pending treasure");}
+  const Bytes literal{0x78,0x56,0x34,0x12, 0x21,0x43,0x65,0x87, 0x98,0xba,0xdc,0xfe,1,0};
+  check(std::equal(literal.begin(),literal.end(),wire.begin()+at),"Literal v21 purse, play time and completion without pending treasure");}
  // Delivered items and the credited purse survive the round-trip without replay.
  auto delivered=populated;std::array<XeenCharacter,6> recipients;
  for(unsigned i=0;i<6;++i){recipients[i]=delivered.characters[i];recipients[i].weapons.fill({0,1,0,0});recipients[i].armor.fill({0,1,0,0});recipients[i].miscellaneous.fill({1,1,1,0});recipients[i].accessories={};}
@@ -108,17 +111,18 @@ int main(){try{
  auto flagged=populated;flagged.journey->worldFlags->values[16]=true;verify(flagged);
  const auto bytes=XeenSaveFormat::encode(populated);const auto offset=baseSize(populated);
  const auto badByte=[&](unsigned at,unsigned value){auto b=bytes;b[offset+at]=value;fixIndependentEnvelope(b);rejects([&]{XeenSaveFormat::decode(b);});};
- // Literal v17 suffix offsets for `populated`: context marker 5, profile 6,
+ // Literal v21 suffix offsets for `populated`: context marker 5, profile 6,
  // difficulty 7, rested/newDay 37-38, supplement count 41 and owners at
  // 42+41*i, RNG algorithm 1272, resistance count 1285 and owner 1286, purse
- // 1616, world flags 1624, learned spells 1752, poison 2953, economy 3044,
- // awards 4208 and the per-map table at 8079 (map 23's slots from 8089).
+ // 1616, play time 1624, completion 1628, world flags 1629, learned spells
+ // 1757, poison 2958, economy 3049, awards 4213 and the per-map table at
+ // 8084 (map 23's slots from 8094).
  for(unsigned at:{5u,37u,38u})badByte(at,2);badByte(6,1);badByte(7,2);badByte(41,29);badByte(1272,2);badByte(1285,1);badByte(1286,20);
  for(unsigned i=0;i<30;++i){badByte(42+41*i,31);badByte(42+41*i+34,1);}
  for(unsigned at:{1285u,1286u})badByte(at,31);
- badByte(1624,2);badByte(1752,29);badByte(1753,1);badByte(1793,0);badByte(2953,29);badByte(2954,1);badByte(2957,0);badByte(3044,3);
- badByte(8079,2);badByte(8082,0);badByte(8084,2);badByte(8085,20);badByte(8087,108);
- for(unsigned i=0;i<19;++i){const auto at=8089+7*i;badByte(at+2,4);badByte(at+3,2);badByte(at+4,2);badByte(at+5,0);if(i!=3 && i!=9)badByte(at+4,1);}
+ badByte(1628,2);badByte(1629,2);badByte(1757,29);badByte(1758,1);badByte(1798,0);badByte(2958,29);badByte(2959,1);badByte(2962,0);badByte(3049,3);
+ badByte(8084,2);badByte(8087,0);badByte(8089,2);badByte(8090,20);badByte(8092,108);
+ for(unsigned i=0;i<19;++i){const auto at=8094+7*i;badByte(at+2,4);badByte(at+3,2);badByte(at+4,2);badByte(at+5,0);if(i!=3 && i!=9)badByte(at+4,1);}
  for(unsigned mode=0;mode<9;++mode){auto bad=populated;auto &j=*bad.journey;
   switch(mode){case 0:j.skeletonSeed=1;break;case 1:j.supplements[0].inputs.luck.reset();break;case 2:j.purse.reset();break;case 3:j.supplements[29].inputs.resistances.reset();break;
    case 4:j.worldFlags.reset();break;case 5:bad.characters[29].learnedSpells.reset();break;case 6:j.supplements[29].inputs.poisonResistance.reset();break;case 7:j.serviceEconomy.reset();break;case 8:j.random.reset();break;}

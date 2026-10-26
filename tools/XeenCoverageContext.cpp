@@ -76,7 +76,7 @@ OriginalContext::OriginalContext(const GameInstallation &installation, std::opti
 Support OriginalContext::replayRoot(XeenCamera entry) {
     try {
         auto snapshot=*initial;snapshot.camera=entry;
-        XeenProgramState probe;
+        XeenProgramState probe{mmodern::XeenWallClock::fixed(0)};
         XeenWorld w([this](auto id){return maps.loadGeometryMap(assets,id);},[this](auto id){return maps.loadObjects(assets,id);});
         XeenPartyState p;XeenCamera c;XeenGameFlags f;
         XeenSaveState::restoreBeforeGameplay(snapshot,resources,p,c,f,w,[](auto &,const auto &,const auto &,const auto &){});

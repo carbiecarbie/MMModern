@@ -14,7 +14,7 @@ using save_test::Bytes; using save_test::check; using save_test::sameSnapshot;
 using remove_test::record;
 inline Bytes fontBytes(){Bytes b(XeenFontFormat::kMinimumSize);for(int c=0;c<128;++c){b[0x1000+c]=6;b[0x1080+c]=3;for(int y=0;y<8;++y)b[c*16+y*2]=0x55;}return b;}
 struct Fixture {
-    mmodern::XeenProgramState programState;
+    mmodern::XeenProgramState programState{mmodern::XeenWallClock::fixed(0)};
  XeenFontFormat font{fontBytes()};
  XeenItemCatalog catalog;
  XeenPartyState initial;

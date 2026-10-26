@@ -30,7 +30,7 @@ XeenEventRecord set(int line=0,int index=2,int x=1,int y=1) {
 	return record(x,y,line,0x0c,{0,0,104,static_cast<std::uint8_t>(index)});
 }
 struct Fixture {
-    mmodern::XeenProgramState programState;
+    mmodern::XeenProgramState programState{mmodern::XeenWallClock::fixed(0)};
 	std::uint64_t now=0;
 	XeenPartyState members=party();XeenCamera camera{1,1,1,XeenDirection::North};XeenGameFlags flags;
 	std::map<XeenMapIdentity,XeenEventScript> scripts;

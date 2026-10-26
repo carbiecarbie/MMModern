@@ -1,6 +1,7 @@
 #include "app/XeenTitleFlow.h"
 #include "formats/xeen/XeenSaveFormat.h"
 #include "formats/xeen/XeenAssetSource.h"
+#include "games/xeen/XeenWallClock.h"
 #include <algorithm>
 #include <stdexcept>
 namespace mmodern {
@@ -132,6 +133,7 @@ DialogInput XeenTitleFlow::dialog() const {
   const char *resource=_services.text.scalar(other?"OTHER_BUTTONS":"TITLE_BUTTONS").data();
   for(unsigned i=0;i<buttons.size();++i)add(buttons[i],lower(buttons[i].key),resource,i*2);
  } else if(_screen==Screen::Panel) {
+  for(unsigned key:{'g','o','b','r'})input.keys.push_back(key);
   for(const auto &button:_services.text.buttons("PANEL"))
    add(button,lower(button.key),_services.text.scalar("PANEL_SPRITES").data(),0);
  } else if(_screen==Screen::NewSlots || _screen==Screen::LoadSlots || _screen==Screen::SaveSlots) {
@@ -172,6 +174,12 @@ void XeenTitleFlow::render(bool semantic) {
   // DOS draws button backgrounds before its labels.
   frame=text(frame,font,xeenDialogFormat(dos.scalar("PANEL_TEXT"),{buttons,_services.currentName}),
    {80,28,256,168},{88,36,248,160},false,false,true);
+  if(_showClocks) {
+   if(!_services.clocks)throw std::logic_error("Missing panel wall clock");
+   const auto value=_services.clocks();
+   frame=text(frame,font,xeenDialogFormat(dos.scalar("PANEL_CLOCKS"),
+    {xeenPanelCivilTime(value.first),xeenPanelPlayTime(value.second)}),{0,0,320,200},{0,0,320,200},false);
+  }
  } else if(_screen==Screen::NewSlots || _screen==Screen::LoadSlots || _screen==Screen::SaveSlots) {
   std::vector<std::string> args{str(dos.scalar(_screen==Screen::NewSlots?"START_LABEL":_screen==Screen::SaveSlots?"SAVE_LABEL":"LOAD_LABEL"))};
   for(unsigned i=0;i<10;++i) {
@@ -290,7 +298,14 @@ std::optional<IndexedFrame> XeenTitleFlow::handle(const PlayerAction &action,con
   if(_page==3)setScreen(Screen::Menu);else {++_page;render();}break;
  case Screen::Panel: {
   const auto button=buttonIndex(_services.text,"PANEL",key);
-  if(escape){_closed=true;_inputFrame.reset();return {};}
+  if(escape){close();return {};}
+  // DAT 0x1f2d7 stores Escape when O or B lacks its preceding stages.
+  if((key=='o' && !(_clockGate&1)) || (key=='b' && (_clockGate&3)!=3)){close();return {};}
+  // DAT 0x1f2a5..0x1f2d5 retains each acquired stage; E remains Efx.
+  if(key=='g')_clockGate|=1;
+  if(key=='o' && (_clockGate&1))_clockGate|=2;
+  if(key=='b' && (_clockGate&3)==3)_clockGate|=4;
+  if(key=='r' && _clockGate==7){_showClocks=true;_panelClockDeadline=0;render();break;}
   if(button==5){setScreen(Screen::Quit);break;}
   if(button==8){setScreen(Screen::Wizard);break;}
   if(button==0 || button==1 || button==6 || button==7){_services.soundOptions.toggle(*button);_soundToggle=*button;render();break;}
@@ -365,7 +380,12 @@ std::optional<IndexedFrame> XeenTitleFlow::animateAt(std::uint64_t nanoseconds) 
   if(!_name.animate(milliseconds))return {};
   render(false);return _frame;
  }
- if(_services.panel)return {};
+ if(_services.panel) {
+  if(!clocksVisible() || _entry)return {};
+  if(!_panelClockDeadline){_panelClockDeadline=PresentationClock::after(nanoseconds,1);return {};}
+  if(nanoseconds<_panelClockDeadline)return {};
+  _panelClockDeadline=PresentationClock::after(nanoseconds,1);render(false);return _frame;
+ }
  if(!_closed && !_entry && _fadeLevel<128) {
   // DAT 0x3fe76/0x43fca: every palette write waits for emulated VGA
   // retrace. A late host acquires every level; it never skips to catch up.

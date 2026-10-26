@@ -972,6 +972,17 @@ bool XeenEventFlow::saveCurrent(const SaveBoundary &b) const noexcept {
 void XeenEventFlow::endSave() {
 	if (_saveBoundary) endSave(*_saveBoundary);
 }
+void XeenEventFlow::commitSavedPlayTime(const SaveBoundary &boundary,std::uint32_t seconds) {
+ if(!saveCurrent(boundary))throw std::logic_error("Stale play-time save boundary");
+ _party.playTimeSeconds=seconds;
+ if(journey())_encounter->journeySavePreimage().adoptSavedPlayTime();
+}
+void XeenEventFlow::commitInitialPlayTime(std::uint32_t seconds) {
+ if(!journey() || !_encounter->_journeyCapture->initializationPending || _saving)
+  throw std::logic_error("Initial play-time publication unavailable");
+ auto &guard=_encounter->journeySavePreimage();guard.check();
+ _party.playTimeSeconds=seconds;guard.adoptSavedPlayTime();
+}
 void XeenEventFlow::endSave(const SaveBoundary &boundary) {
 	if (boundary.owner != this || boundary.operation != _saveOperation) return;
 	if (!_saving) return;

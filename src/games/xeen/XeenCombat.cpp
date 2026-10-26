@@ -101,12 +101,14 @@ struct XeenCombat::Impl {
 		std::optional<XeenServiceEconomy> serviceEconomy;
 		XeenSoundOptions soundOptions;
 		std::uint16_t food=0;
+        std::uint32_t playTimeSeconds=0;
+        bool cloudsCompleted=false;
 		std::uint8_t firstSerializedCount, effectiveSerializedCount;
         bool insideInn;
 		std::vector<std::string> diagnostics;
 		PartyPreimage(const XeenPartyState &p,const XeenTreasureStagingState &s) : roster{p.roster.characters()}, party(p.party),
 			questItems(p.questItems), questFlags(p.questFlags), recovery(p.worldFlags), encounterContext(p.encounterContext), purse(p.purse), staging(s.value()), stagingRevision(s.revision()),
-			serviceEconomy(p.serviceEconomy),soundOptions(p.soundOptions),food(p.food),
+			serviceEconomy(p.serviceEconomy),soundOptions(p.soundOptions),food(p.food),playTimeSeconds(p.playTimeSeconds),cloudsCompleted(p.cloudsCompleted),
 			firstSerializedCount(p.firstSerializedCount), effectiveSerializedCount(p.effectiveSerializedCount), insideInn(p.insideInn), diagnostics(p.diagnostics) {}
 	} expected;
 	bool journey = false, ended = false, episodeLethal = false, spellRelocated = false;
@@ -347,7 +349,7 @@ struct XeenCombat::Impl {
 		if(!same(camera,expectedCamera)||party.soundOptions!=expected.soundOptions||party.food!=expected.food||party.purse!=expected.purse||world.treasureStaging().revision()!=expected.stagingRevision||
 			world.treasureStaging().value()!=expected.staging||party.serviceEconomy!=expected.serviceEconomy||party.party.activeRosterIds()!=expected.party.activeRosterIds()||party.party.dismissedRosterIds()!=expected.party.dismissedRosterIds()||
 			party.questItems.counts()!=expected.questItems.counts()||party.questFlags.values()!=expected.questFlags.values()||party.worldFlags!=expected.recovery||
-			party.insideInn!=expected.insideInn||party.firstSerializedCount!=expected.firstSerializedCount||party.effectiveSerializedCount!=expected.effectiveSerializedCount||
+			party.insideInn!=expected.insideInn||party.playTimeSeconds!=expected.playTimeSeconds||party.cloudsCompleted!=expected.cloudsCompleted||party.firstSerializedCount!=expected.firstSerializedCount||party.effectiveSerializedCount!=expected.effectiveSerializedCount||
 			party.diagnostics!=expected.diagnostics||bool(party.encounterContext)!=bool(expected.encounterContext)) return false;
 		if(party.encounterContext&&!same(*party.encounterContext,*expected.encounterContext)) return false;
 		for(unsigned i=0;i<30;++i) if(!same(party.roster.at(i),expected.roster.at(i))) return false;
@@ -765,6 +767,7 @@ bool XeenCombat::changeInventory(const Ticket &t,const std::function<bool(XeenPa
         candidate.encounterContext=d.party.encounterContext;candidate.purse=d.party.purse;
         candidate.serviceEconomy=d.party.serviceEconomy;candidate.questItems=d.party.questItems;
         candidate.questFlags=d.party.questFlags;candidate.worldFlags=d.party.worldFlags;candidate.food=d.party.food;candidate.soundOptions=d.party.soundOptions;
+        candidate.playTimeSeconds=d.party.playTimeSeconds;candidate.cloudsCompleted=d.party.cloudsCompleted;
         if(!change(candidate))return false;
         auto prepared=std::make_unique<XeenRestoreGuard>(d.world,d.party,d.camera,*d.flags);
         prepared->retainResources(*d.lifetime);

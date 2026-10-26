@@ -176,7 +176,7 @@ void prevalidationAndVisibility() {
 }
 
 void immediateErrors() {
-    mmodern::XeenProgramState programState;
+    mmodern::XeenProgramState programState{mmodern::XeenWallClock::fixed(0)};
 	for(bool automatic:{false,true})for(int mode=0;mode<3;++mode){
 		Fixture f;
         // Part 0: test one failing call; manual-on-flagged repeats at input completion.
@@ -218,7 +218,7 @@ void immediateErrors() {
 }
 
 void presentationNoReplay() {
-    mmodern::XeenProgramState programState;
+    mmodern::XeenProgramState programState{mmodern::XeenWallClock::fixed(0)};
 	for(bool automatic:{false,true})for(bool yes:{false,true}){
 		Fixture f;f.automaticCell=automatic;f.message=std::string(1600,'A');
 		f.set({record(1,1,0,0x0c,{0,0,21,99}),record(1,1,1,0x01,{0}),record(1,1,2,9,{44,1,3}),

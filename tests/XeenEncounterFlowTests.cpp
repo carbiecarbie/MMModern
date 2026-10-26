@@ -9,7 +9,7 @@ using namespace encounter_test;
 using Action=XeenEncounterAction;
 namespace {
 struct Production {
-    mmodern::XeenProgramState programState;
+    mmodern::XeenProgramState programState{mmodern::XeenWallClock::fixed(0)};
     XeenPartyState p;XeenCamera camera;XeenGameFlags flags;
     XeenMap terrain=regional_journey_test::regionalMap();
     XeenObjectFile objects=regional_journey_test::regionalObjects();
@@ -198,7 +198,7 @@ void failures(){
     }
 }
 void ordinaryWait() {
-    mmodern::XeenProgramState programState;
+    mmodern::XeenProgramState programState{mmodern::XeenWallClock::fixed(0)};
 	Fixture f;XeenFontFormat font{gameplay_test::fontBytes()};XeenGameFlags flags;
 	XeenEventSystem events([](XeenMapIdentity){return XeenEventScript(encounter_test::events());},[](XeenMapIdentity){return XeenEventTextFile{};});
 	unsigned compositions=0,clocks=0;

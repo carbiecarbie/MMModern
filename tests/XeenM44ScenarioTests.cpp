@@ -51,7 +51,7 @@ int main(int argc,char **argv) {
         SetEnvironmentVariableW(L"MMODERN_M44_SCENARIO",scenario->environment);
         SetEnvironmentVariableW(L"MMODERN_M44_STAGE",nullptr);
         const auto save=dir/scenario->save;
-        const auto made=child_test::launch(generator,{L"--journey-region",L"--combat-seed",std::to_wstring(scenario->seed),
+        const auto made=child_test::launch(generator,{L"--wall-clock",L"0",L"--journey-region",L"--combat-seed",std::to_wstring(scenario->seed),
             game.wstring(),L"--save-file",save.wstring()},dir/"generate.log",false,false,900000);
         child_test::require(made.exit==0,"Scenario generator failed");
         const auto final=dir/scenario->final;
@@ -64,7 +64,7 @@ int main(int argc,char **argv) {
             const auto resumed=child_test::freshDirectory(dir/(std::string("resume-")+label));
             fs::copy_file(fs::path(save.wstring()+L"-"+wide(label).wstring()+L".mmsave"),resumed/scenario->save);
             SetEnvironmentVariableW(L"MMODERN_M44_STAGE",wide(label).c_str());
-            const auto again=child_test::launch(witness,{L"--load-game",game.wstring(),(resumed/scenario->save).wstring()},
+            const auto again=child_test::launch(witness,{L"--wall-clock",L"0",L"--load-game",game.wstring(),(resumed/scenario->save).wstring()},
                 resumed/"generate.log",false,false,900000);
             SetEnvironmentVariableW(L"MMODERN_M44_STAGE",nullptr);
             child_test::require(again.exit==0,"Scenario resume failed");

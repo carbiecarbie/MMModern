@@ -15,7 +15,7 @@ struct Support;
 class OriginalContext {
 public:
     explicit OriginalContext(const GameInstallation &, std::optional<XeenCamera> fixture = {});
-    XeenProgramState program;
+    XeenProgramState program{mmodern::XeenWallClock::fixed(0)};
     const GameInstallation installation;
     XeenAssetSource assets;
     XeenAssetSource darkAssets;

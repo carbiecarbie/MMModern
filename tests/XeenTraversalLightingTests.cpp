@@ -4,7 +4,7 @@
 using namespace regional_test;
 namespace {
 struct LightingFixture {
-    mmodern::XeenProgramState programState;
+    mmodern::XeenProgramState programState{mmodern::XeenWallClock::fixed(0)};
  XeenPartyState p;XeenCamera camera=xeenJourneyContent().entry;XeenGameFlags flags;
  XeenWorld w{[](auto id) {auto m=map(id);m.geometry.flags2|=0x4000;
      for(auto &cell:m.geometry.cells)cell.rawAttributes|=0x20;

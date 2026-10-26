@@ -51,7 +51,7 @@ void paths(const GameInstallation &installation,const fs::path &repository,const
 }
 
 void preset(const GameInstallation &installation,const std::string &name,const fs::path &directory,const fs::path &existing={}) {
-    mmodern::XeenProgramState programState;
+    mmodern::XeenProgramState programState{mmodern::XeenWallClock::fixed(0)};
     const auto output=existing.empty()?directory/(name+".mmsave"):existing;
     if(existing.empty())developer::generateTestSave(installation,name,output);
     const auto saved=XeenSaveFile::read(XeenSaveFile::resolve(output,installation.root));

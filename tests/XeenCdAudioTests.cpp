@@ -52,7 +52,7 @@ void failurePolling(const GameInstallation &installation,XeenAssetSource &assets
  for(unsigned failure=0;failure<6;++failure) {
   std::atomic<bool> callbackError{false};std::vector<PromusDriver::Write> writes;
   auto fm=std::make_shared<XeenFmSource>([&](const auto &){if(callbackError.exchange(false))throw std::runtime_error("injected callback failure");});
-  XeenProgramState program;
+  XeenProgramState program{mmodern::XeenWallClock::fixed(0)};
   program.audio=std::make_shared<XeenAudio>(3,driver,loader,module,0,failure!=5,[&](const auto &w){writes.push_back(w);},fm);
   program.audio->cdTracks(extents);program.audio->enterTitle(0);
   auto party=XeenPartyLoader().loadInitialCloudsParty(assets);auto options=XeenSoundOptions{};options.text=false;party.soundOptions=options;
@@ -101,7 +101,7 @@ void npcPolling(const GameInstallation &installation,XeenAssetSource &assets,
                 const std::vector<XeenCdExtent> &extents) {
  const XeenFontFormat font(assets.readArchiveResource("fnt"));
  for(bool device:{false,true})for(bool text:{false,true})for(unsigned mode:{1,2})for(bool missing:{false,true}) {
-  XeenProgramState program;
+  XeenProgramState program{mmodern::XeenWallClock::fixed(0)};
   program.audio=XeenAudio::installed(installation,assets,0,device);
   program.audio->cdTracks(missing?std::vector<XeenCdExtent>{}:extents);
   check(program.audio->outputActive()==device,"Requested dummy device did not open");
@@ -142,7 +142,7 @@ void fallbackAndReaders(const GameInstallation &installation,XeenAssetSource &as
                         const std::vector<XeenCdExtent> &extents) {
  const XeenFontFormat font(assets.readArchiveResource("fnt"));
  for(bool text:{false,true})for(bool speech:{false,true})for(unsigned source:{0,1,2,3,4,5}) {
-  XeenProgramState program;program.audio=XeenAudio::installed(installation,assets,0,false);
+  XeenProgramState program{mmodern::XeenWallClock::fixed(0)};program.audio=XeenAudio::installed(installation,assets,0,false);
   auto media=extents;
   if(source==1)media.clear(); // Synthetic plain GAME source has no track table.
   if(source==2)media[18].error="Missing CD audio: synthetic missing file";

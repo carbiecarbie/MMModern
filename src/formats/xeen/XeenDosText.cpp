@@ -307,6 +307,7 @@ const std::vector<XeenDosText::Field> &XeenDosText::layout() {
   {"PANEL_BUTTON_TEXT",0x53318,0x5336e,1,false,"s,s,s,s"},
   {"PANEL_SPRITES",0x5336e,0x53379,1,false,""},
   {"PANEL_TEXT",0x53379,0x5344c,1,false,"s,s"},
+  {"PANEL_CLOCKS",0x52473,0x52492,1,false,"s,s"},
   {"NO_LOADING_IN_COMBAT",0x534bd,0x534db,1,false,""},
   {"NO_SAVING_IN_COMBAT",0x534e6,0x53503,1,false,""},
   {"CONFIRM_QUIT",0x53503,0x53522,1,false,""},

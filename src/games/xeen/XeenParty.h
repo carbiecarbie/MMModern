@@ -168,6 +168,8 @@ struct XeenPartyState {
 	XeenMutableOptional<XeenGameplayContext> encounterContext;
 	// Installed with the party by the fresh Journey and restore; saved.
 	XeenMutableOptional<XeenPurse> purse;
+    XeenMutable<std::uint32_t> playTimeSeconds=0;
+    XeenMutable<bool> cloudsCompleted=false;
 	// The fresh Journey lifecycle installs merchant stock/shared bank.
 	XeenMutableOptional<XeenServiceEconomy> serviceEconomy;
 	XeenRoster roster;

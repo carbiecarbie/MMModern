@@ -15,7 +15,7 @@ int main(int argc,char **argv) {
         SetEnvironmentVariableW(L"SDL_VIDEODRIVER",L"dummy");
         SetEnvironmentVariableW(L"SDL_RENDER_DRIVER",L"software");
         SetEnvironmentVariableW(L"MMODERN_M44_SCENARIO",fs::path(argv[3]).c_str());
-        const auto r=child_test::launch(fs::absolute(argv[1]),{L"--load-game",fs::absolute(argv[2]).wstring(),target.wstring()},dir/"restart.log");
+        const auto r=child_test::launch(fs::absolute(argv[1]),{L"--wall-clock",L"0",L"--load-game",fs::absolute(argv[2]).wstring(),target.wstring()},dir/"restart.log");
         child_test::require(r.exit==0 && r.output.find("M44 RESTORE EXACT BEFORE INPUT")!=std::string::npos,"Baseline restart failed");
         child_test::require(bytes(source)==bytes(target),"Baseline saved state changed after restart and F9");
         std::cout<<"Baseline restart and final bytes exact: "<<argv[3]<<'\n';

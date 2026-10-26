@@ -35,7 +35,9 @@ the total, or wrap to a large unsigned value if the total goes below zero.
 Save-time I/O between the query and the reset is not accumulated again.
 
 `time()` (`0x6ccc`) reads DOS date/time via INT 21h AH=2Ah/2Ch and converts
-through Borland's runtime (`0xa4ac`). Without `TZ`, `0xa7da..0xa8cb` selects
+through Borland's runtime (`0xa4ac`). The host reader accepts DOS civil years
+1980 through 2107, using Borland's `year & 3` leap rule, including 2100.
+An out-of-range host date reports an error. Without `TZ`, `0xa7da..0xa8cb` selects
 EST/EDT, a 18,000-second standard offset and enabled legacy US DST. The
 rule (`0xa9c8..0xaaa2`) uses the first Sunday in April from 1987 onward
 (last Sunday in April earlier), and the last Sunday in October, with
@@ -60,6 +62,9 @@ converts to a 12-hour display with a leading space for a one-digit hour,
 minutes, seconds and lower-case `a`/`p`; noon and midnight show 12. The
 inverse timezone/DST conversion normally reproduces DOS's local civil
 time; do not apply its five-hour offset a second time to the host clock.
+The calendar helper clamps a signed-negative adjusted dword to the epoch
+(`0x08872..0x08885`), so injected seconds zero displays midnight. This
+presentation clamp does not clamp the unsigned play-time counter.
 The idle loop resets its BIOS timer at `0x1ef91`, draws the clock, waits
 for a tick or input, and redraws. It is live while the panel is open.
 
@@ -67,7 +72,9 @@ Play-time formatting (`0xf286..0xf2e8`) uses an hours:minutes:seconds
 unsigned format with minimum width two for each field. Preserve its
 16-bit intermediate: it narrows `seconds/3600` to 16 bits and subtracts
 only the low word of `hours*3600` from the 32-bit total before dividing
-the remainder into minutes and seconds. At 62,545 seconds the result is
+the remainder into minutes and seconds. The minutes quotient also narrows
+to a 16-bit local (`0xf2b7`, passed as a word at `0xf2cd`); a rollback
+total of `0xfffffff9` displays `13398:16412:09`. At 62,545 seconds the result is
 `17:22:25`; at 68,400 seconds (19 actual hours) it is `19:1092:16`.
 This is calibrated arithmetic evidence, not a 19-hour DOSBox capture.
 The score has separate arithmetic described in

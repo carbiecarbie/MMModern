@@ -16,7 +16,7 @@
 namespace combat_gameplay_test {
 using namespace combat_test;
 struct Harness {
-    mmodern::XeenProgramState programState;
+    mmodern::XeenProgramState programState{mmodern::XeenWallClock::fixed(0)};
  XeenFontFormat font{gameplay_test::fontBytes()};
  std::unique_ptr<XeenAssetSource> assets;
  std::unique_ptr<XeenEventLoader> eventLoader;

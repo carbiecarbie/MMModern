@@ -41,7 +41,7 @@ XeenSaveSnapshot ended() {
 	return capture(f);
 }
 struct Destination {
-    mmodern::XeenProgramState programState;
+    mmodern::XeenProgramState programState{mmodern::XeenWallClock::fixed(0)};
 	XeenPartyState p;
 	XeenCamera c{23,14,2,XeenDirection::West};
 	XeenGameFlags f;
@@ -290,7 +290,7 @@ void failures() {
 	});
 }
 struct ApplicationFixture {
-    mmodern::XeenProgramState programState;
+    mmodern::XeenProgramState programState{mmodern::XeenWallClock::fixed(0)};
 	gameplay_test::Fixture presentation;
 	Bytes bytes=chr(); XeenPartyState p=XeenPartyLoader().loadFromResources(bytes,pty());
 	XeenCamera c=regional_test::snapshot().camera; XeenGameFlags f;

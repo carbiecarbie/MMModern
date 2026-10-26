@@ -6,7 +6,7 @@
 namespace regional_save_test {
 using namespace gameplay_test;
 struct Fixture {
-    mmodern::XeenProgramState programState;
+    mmodern::XeenProgramState programState{mmodern::XeenWallClock::fixed(0)};
  XeenFontFormat font{fontBytes()};
  XeenItemCatalog catalog;
  XeenEventFlow *flow=nullptr; XeenWorld *world=nullptr; XeenEventSystem *events=nullptr;

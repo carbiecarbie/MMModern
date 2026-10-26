@@ -15,7 +15,7 @@ using remove_test::check;
 using remove_test::record;
 namespace {
 struct Fixture {
-    mmodern::XeenProgramState programState;
+    mmodern::XeenProgramState programState{mmodern::XeenWallClock::fixed(0)};
  gameplay_test::Fixture data;
  std::uint64_t now=0;
  bool animated=true, fail=false, blocked=false, indoor=false, automatic=false;
@@ -177,7 +177,7 @@ void realComposition(bool sdl){
  std::cout<<"Application/Flow/"<<(sdl?"SDL":"direct")<<" phase 0/1/2/3, selected frames 0/1/2/0 and native pixel cycle passed\n";
 }
 void warmedMalformedFrame(){
-    mmodern::XeenProgramState programState;
+    mmodern::XeenProgramState programState{mmodern::XeenWallClock::fixed(0)};
  RealScene resources(true);XeenAssetSource assets(resources.installation,320,200);CloudsMapComposer composer;
  Fixture f;std::uint64_t now=0;std::vector<std::uint64_t> phases;
  XeenWorld world([](auto id){return remove_test::map(id);},[](auto id){XeenObjectFile o{id,"test.mob",true,{}};o.entities.objects=std::vector<XeenMapEntity>{{1,1,0,0,110}};return o;});
@@ -189,7 +189,7 @@ void warmedMalformedFrame(){
  now=220;check(bool(flow.updatePresentation()) && phases.back()==2,"later valid selected frame did not use logical decision");
 }
 void retainedSceneCommands() {
-    mmodern::XeenProgramState programState;
+    mmodern::XeenProgramState programState{mmodern::XeenWallClock::fixed(0)};
  gameplay_test::Fixture data;XeenCamera camera{1,1,1,XeenDirection::North};XeenGameFlags flags;
  std::uint64_t now=0;bool fail=false;
  XeenMonsterRecord monster;monster.raw[20]=10;monster.raw[46]=1;monster.raw[47]=42;monster.raw[49]=1;

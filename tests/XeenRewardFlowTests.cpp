@@ -8,7 +8,7 @@
 using namespace reward_test;
 IndexedFrame base(){IndexedFrame b;b.width=320;b.height=200;b.pixels.assign(64000,90);for(int i=0;i<256;++i)for(int j=0;j<3;++j)b.palette[i*3+j]=i;return b;}
 void portraitRequiresOwner(){
-    mmodern::XeenProgramState programState;
+    mmodern::XeenProgramState programState{mmodern::XeenWallClock::fixed(0)};
  Execution e;auto state=e.seed({pause()},0);
  state.pendingPresentation->request.kind=XeenPresentationKind::PortraitEffect;
  state.pendingPresentation->request.portrait=XeenEventPortraitEffect{XeenEventPortraitStage::Sparkle,0,0};
@@ -42,7 +42,7 @@ void treasureEntryClear() {
  }
 }
 void flows(){
-    mmodern::XeenProgramState programState;
+    mmodern::XeenProgramState programState{mmodern::XeenWallClock::fixed(0)};
 	for(bool global:{false,true}){Execution e;if(global)full(e.f.initial,true);
 		auto s=e.seed({pause(),record(1,1,1,12,{0,0,20,7}),record(1,1,2,0x12)},10);
 		XeenEventSystem events(e.scripts,e.texts);auto b=base();
@@ -76,7 +76,7 @@ void flows(){
 	}
 }
 void producedFlow(){
-    mmodern::XeenProgramState programState;
+    mmodern::XeenProgramState programState{mmodern::XeenWallClock::fixed(0)};
 	for(int outcome=0;outcome<4;++outcome) {
 		Execution e;e.f.initial.questItems.increment(17);e.f.initial.questFlags.set(2);
 		if(outcome==1)full(e.f.initial,true);
@@ -116,7 +116,7 @@ void producedFlow(){
 	}
 }
 void failures(){
-    mmodern::XeenProgramState programState;
+    mmodern::XeenProgramState programState{mmodern::XeenWallClock::fixed(0)};
 	// Composition/rebase before presentation; reporting before layout; layout
 	// failure after transient layer push; and abandonment on both sides of insertion.
 	for(int fault=0;fault<6;++fault)for(bool delivered:{false,true}){
@@ -149,7 +149,7 @@ void failures(){
 	flow.handle(InteractionAction{});check(flow.presentationGeneration()!=generation,"explicit abandonment did not permit fresh dispatch");
 }
 void animatedRewardLayers(){
-    mmodern::XeenProgramState programState;
+    mmodern::XeenProgramState programState{mmodern::XeenWallClock::fixed(0)};
  for(bool warning:{false,true}){
   Execution e;if(warning)full(e.f.initial,true);
   auto state=e.seed({pause(),record(1,1,1,0x12)},3);state=pending(e.resume(state));
@@ -167,7 +167,7 @@ void animatedRewardLayers(){
  }
 }
 void animationFailures(){
-    mmodern::XeenProgramState programState;
+    mmodern::XeenProgramState programState{mmodern::XeenWallClock::fixed(0)};
  for(bool automatic:{false,true})for(bool delivered:{false,true}){
   Execution e;auto state=e.seed({pause(),record(1,1,1,0x12)},3);
   if(delivered)state=pending(e.resume(state));
@@ -224,7 +224,7 @@ void presentation(const XeenFontFormat &font,IndexedFrame b,const std::filesyste
 	}
 }
 void timedItems() {
-    mmodern::XeenProgramState programState;
+    mmodern::XeenProgramState programState{mmodern::XeenWallClock::fixed(0)};
  Execution e;e.f.initial.purse=XeenPurse{};
  auto state=e.seed({pause(),record(1,1,1,0x12)},2);state.treasure.gold+=19u;
  XeenEventSystem events(e.scripts,e.texts);auto b=base();std::uint64_t now=0;

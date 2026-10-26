@@ -125,7 +125,7 @@ void staleProvider(bool throws){
     }
 }
 void nestedInitialization(){
-    mmodern::XeenProgramState programState;for(bool mutation:{false,true}){
+    mmodern::XeenProgramState programState{mmodern::XeenWallClock::fixed(0)};for(bool mutation:{false,true}){
     auto bytes=regional_test::characterBytes();auto p=XeenPartyLoader().loadFromResources(bytes,regional_test::partyBytes());
     auto camera=xeenJourneyContent().entry;XeenGameFlags flags;
     const auto resources=regional_test::resources();auto monsters=regional_test::statistics();auto event=regional_test::events(23);

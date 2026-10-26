@@ -21,7 +21,7 @@ struct Sentinel {
     }
 };
 void visit(training_test::Inputs &in,bool tavern,XeenSmithBoundary fault) {
-    mmodern::XeenProgramState programState;
+    mmodern::XeenProgramState programState{mmodern::XeenWallClock::fixed(0)};
     auto source=in.service(10);source.food=1;source.journey->purse->gold=100;
     const int x=tavern?24:26,y=tavern?5:17;
     bool found=false;

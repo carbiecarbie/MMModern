@@ -6,7 +6,7 @@
 namespace regional_gameplay_test {
 using namespace combat_test;
 struct Harness {
-    mmodern::XeenProgramState programState;
+    mmodern::XeenProgramState programState{mmodern::XeenWallClock::fixed(0)};
  XeenFontFormat font{gameplay_test::fontBytes()};
  XeenEventFlow *flow=nullptr;
  XeenCombatBoundary *combatBoundary=nullptr;

@@ -786,9 +786,15 @@ void scrollStall(Inputs &in) {
 }
 void roundTripAndFight(Inputs &in) {
     const auto slot=std::filesystem::temp_directory_path()/("mmodern-m87-inn-"+std::to_string(std::chrono::steady_clock::now().time_since_epoch().count())+".mmsave");
-    const auto bind=[&](Visit &v){v.flow->saveInn=[&v,&in,&slot]{
+    std::uint32_t seconds=100;unsigned clockSaves=0;
+    const auto bind=[&](Visit &v){v.programState.wallClock=XeenWallClock([&]{return seconds;});v.programState.resetPlayTime();
+      v.flow->saveInn=[&v,&in,&slot,&seconds,&clockSaves]{
         XeenGameplayServices services{v.programState,in.resources(),{},in.mapLoader(),in.objectLoader(),{},in.font,{},{},{}};
+        seconds+=10;const auto expected=v.programState.playTime(v.p.playTimeSeconds);
+        services.observeSaveStage=[&](auto stage){if(stage==XeenGameplayServices::SaveStage::Write)seconds+=3;};
         xeenSaveGameplay(services,v.w,v.p,v.c,v.f,*v.flow,slot,[](auto &,const auto &,const auto &,const auto &){});
+        check(v.p.playTimeSeconds==expected && v.programState.playTimeMark==seconds &&
+          XeenSaveFile::read(slot).journey->playTimeSeconds==expected,"Inn snapshot failed to commit counter/reset mark after I/O");++clockSaves;
     };};
     auto start=source(in,28);start.camera={28,24,4,XeenDirection::North};Visit first(in,start);bind(first);first.sign(true);
     const auto signedIn=XeenSaveFile::read(slot);check(signedIn.insideInn,"native Sign In slot");
@@ -817,6 +823,10 @@ void roundTripAndFight(Inputs &in) {
     xeenSaveGameplay(services,loaded.w,loaded.p,loaded.c,loaded.f,*loaded.flow,slot,[](auto &,const auto &,const auto &,const auto &){});
     const auto after=XeenSaveFile::read(slot);Visit restored(in,after);
     check(!restored.p.insideInn && XeenSaveFormat::encode(restored.snapshot())==XeenSaveFormat::encode(after),"post-Inn fight Save/Load exact");
+    Visit deleted(in,signedIn);bind(deleted);deleted.present(deleted.flow->openInn());
+    deleted.wait([&]{return XeenInnTestAccess::menu(*deleted.flow);},"Delete clock fixture opens Inn");
+    deleted.key('d');deleted.key('1');deleted.key('y');
+    check(clockSaves==4,"Sign In, Create, Exit and Delete must all reset the play-time mark");
     std::filesystem::remove(slot);
 }
 
@@ -834,7 +844,8 @@ void signInSong(Inputs &in,const GameInstallation &installation) {
     check(songs==1 && v.programState.innSongStarted,"Sign In requests inn.m once and sets the song flag");
 }
 void productionLoad(Inputs &in,const GameInstallation &installation,const XeenSaveSnapshot &saved,bool title=false) {
-    unsigned songs=0;XeenProgramState program;program.innSongStarted=title;std::uint64_t now=0;unsigned shown=0;
+    std::uint32_t seconds=100;unsigned songs=0;XeenProgramState program{XeenWallClock([&]{return seconds;})};seconds=137;
+    program.innSongStarted=title;std::uint64_t now=0;unsigned shown=0;
     program.audio=countingAudio(in,installation,songs);
     XeenGameplayServices services{program,in.resources(),{},in.mapLoader(),in.objectLoader(),
         [&](auto id){return in.texts.load(id);},in.font,
@@ -850,10 +861,10 @@ void productionLoad(Inputs &in,const GameInstallation &installation,const XeenSa
         const auto context=handler.inputContext(current.presentation());
         check(context.dialog && context.dialog->key('r') && context.mainScreen==MainScreen::None,"production title/panel Load reaches Inn input");++shown;return true;};
     const auto result=Application(program).playGameplay(services,saved.camera,std::filesystem::path("inn.mmsave"),true,XeenEncounterEntry::Ordinary,{});
-    check(result==0 && shown==1 && songs==unsigned(!title) && program.innSongStarted,"production title/panel Load song flag");
+    check(result==0 && shown==1 && songs==unsigned(!title) && program.innSongStarted && program.playTimeMark==100,"production title/panel Inn Load must retain program mark");
 }
 void productionNoTarget(Inputs &in) {
-    const auto saved=source(in,28);XeenProgramState program;program.innSongStarted=true;std::uint64_t now=0;unsigned stages=0,writes=0;
+    const auto saved=source(in,28);XeenProgramState program{mmodern::XeenWallClock::fixed(0)};program.innSongStarted=true;std::uint64_t now=0;unsigned stages=0,writes=0;
     XeenEventFlow *flow=nullptr;
     XeenGameplayServices services{program,in.resources(),{},in.mapLoader(),in.objectLoader(),
         [&](auto id){return in.texts.load(id);},in.font,

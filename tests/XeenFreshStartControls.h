@@ -8,7 +8,7 @@ XeenJourneySetup freshSetup(Source &s,XeenDifficulty difficulty) {
  setup.cityEventsProvider=[&s]{return s.city;};setup.mainlandEventsProvider=[&s]{return s.mainland;};return setup;
 }
 struct FreshDomain {
-    mmodern::XeenProgramState programState;
+    mmodern::XeenProgramState programState{mmodern::XeenWallClock::fixed(0)};
  Source &source;XeenWorld world;XeenPartyState party;XeenCamera camera;XeenGameFlags flags;
  std::uint64_t now=0;
  XeenEventPresenter::Clock clock=[this]{return now;};
@@ -125,7 +125,7 @@ void titlePublicationControls(Source &source) {
  }
 }
 void freshFailureControls(Source &s) {
-    mmodern::XeenProgramState programState;
+    mmodern::XeenProgramState programState{mmodern::XeenWallClock::fixed(0)};
  for(unsigned fault=0;fault<5;++fault) {
   auto p=XeenPartyLoader().loadFromResources(s.chr,s.pty);const auto before=p.roster.characters();
   auto c=XeenCharacterFormat::parsePartyLocation(s.pty);XeenGameFlags f;

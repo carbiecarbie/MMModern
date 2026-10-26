@@ -251,7 +251,7 @@ void integratedTextErrors() {
 }
 
 void directResponses() {
-    mmodern::XeenProgramState programState;
+    mmodern::XeenProgramState programState{mmodern::XeenWallClock::fixed(0)};
 	for(int mode=0;mode<5;++mode) {
 		Fixture direct, input;
         // Part 0: isolate the response API on unflagged cells; flagged calls repeat in A1 tests.
@@ -293,7 +293,7 @@ void directResponses() {
 }
 
 void passiveSelectionInputs() {
-    mmodern::XeenProgramState programState;
+    mmodern::XeenProgramState programState{mmodern::XeenWallClock::fixed(0)};
 	Fixture f;f.set({record(1,1,0,0x04,{0}),record(1,1,1,0x12)});
 	int compositions=0;
 	XeenEventFlow flow(programState,f.world,f.events,f.members,f.camera,f.flags,f.font,[&](std::uint64_t){++compositions;return XeenEventFlow::Composition{f.base, false};});
@@ -311,7 +311,7 @@ void passiveSelectionInputs() {
 }
 
 void productionFlow() {
-    mmodern::XeenProgramState programState;
+    mmodern::XeenProgramState programState{mmodern::XeenWallClock::fixed(0)};
 	for(bool automatic : {false,true}) {
 		Fixture f;f.automaticCell=automatic;f.text.strings[1]=std::string(1200,'A');
 		f.set({record(1,1,0,0x20,{0,0}),record(1,1,1,0x01,{1}),record(1,1,2,9,{44,1,3}),
@@ -423,7 +423,7 @@ void presentationLayout() {
 }
 
 void priorEffects() {
-    mmodern::XeenProgramState programState;
+    mmodern::XeenProgramState programState{mmodern::XeenWallClock::fixed(0)};
 	for(bool cancel : {false,true}) for(bool remove : {false,true}) {
 		Fixture f;f.automaticCell=false;
 		f.set({record(1,1,0,0x1f,{2,1,1})});
@@ -453,7 +453,7 @@ void priorEffects() {
 }
 
 void sdlFlow() {
-    mmodern::XeenProgramState programState;
+    mmodern::XeenProgramState programState{mmodern::XeenWallClock::fixed(0)};
 	for (int mode=0; mode<3; ++mode) {
 		std::cerr << "SDL scenario " << mode << '\n';
 		Fixture f;f.automaticCell=false;f.members=party(2);f.members.roster.at(0).conditions[8]=1;

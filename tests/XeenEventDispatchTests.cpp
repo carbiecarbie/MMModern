@@ -51,7 +51,7 @@ struct XeenEventDispatchTestAccess {
 }
 namespace {
 struct Fixture {
- XeenProgramState program;
+ XeenProgramState program{mmodern::XeenWallClock::fixed(0)};
  gameplay_test::Fixture resources;
  XeenPartyState party=resources.initial;
  XeenCamera camera{1,1,1,XeenDirection::North};

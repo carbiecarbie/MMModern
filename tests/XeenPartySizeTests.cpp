@@ -90,7 +90,7 @@ void rules() {
 // Local synthetic combat graph: the flee threshold is deliberately certain.
 struct SmallCombat {
     XeenEventPresenter::Clock clock=[]{return 0;};
-    XeenProgramState program;XeenPartyState party;XeenCamera camera;XeenGameFlags flags;
+    XeenProgramState program{mmodern::XeenWallClock::fixed(0)};XeenPartyState party;XeenCamera camera;XeenGameFlags flags;
     XeenWorld world{[](auto){auto map=regional_journey_test::regionalMap();map.geometry.difficulties[7]=127;return map;},
                     [](auto){return regional_journey_test::regionalObjects();}};
     std::unique_ptr<XeenEncounterFlow> flow;
@@ -136,7 +136,7 @@ void savesAndCombat() {
         regional_journey_test::Fixture f(bytes,[&](auto &f){f.p.party=XeenParty::fromRosterIds({ids.begin(),ids.begin()+count});});
         auto before=XeenSaveState::capture(regional_test::signature(),f.p,f.camera,f.flags,f.w);
         runAndDefeat(before,count);
-        const auto wire=XeenSaveFormat::encode(before);check(wire[8]==20,"v20 envelope byte");
+        const auto wire=XeenSaveFormat::encode(before);check(wire[8]==21,"v21 envelope byte");
         auto decoded=XeenSaveFormat::decode(wire);save_test::sameSnapshot(before,decoded);
         check(XeenSaveFormat::encode(decoded)==wire,"byte-exact one-to-six round trip");
         for(unsigned id=0;id<30;++id)check(decoded.characters[id].savedMaze==561 && decoded.characters[id].townUnknown==173 &&
@@ -210,7 +210,7 @@ void dismissedF9Save(training_test::Inputs &in,XeenSaveSnapshot source) {
     source.characters[6].savedMaze=30;source.characters[11].savedMaze=49;
     const auto target=std::filesystem::temp_directory_path()/("mmodern-m87-f9-"+std::to_string(std::chrono::steady_clock::now().time_since_epoch().count())+".mmsave");
     XeenSaveFile::write(target,source);
-    XeenProgramState program;XeenEventFlow *flow=nullptr;const XeenPartyState *live=nullptr;const XeenCamera *liveCamera=nullptr;
+    XeenProgramState program{mmodern::XeenWallClock::fixed(0)};XeenEventFlow *flow=nullptr;const XeenPartyState *live=nullptr;const XeenCamera *liveCamera=nullptr;
     std::uint64_t now=0,cycle=0;unsigned stages=0;bool played=false;
     XeenGameplayServices services{program,in.resources(),{},in.mapLoader(),in.objectLoader(),[&](auto id){return in.texts.load(id);},in.font,
         [](auto &,const auto &,const auto &,auto){return XeenEventFlow::Composition{training_test::frame(),false};},{},

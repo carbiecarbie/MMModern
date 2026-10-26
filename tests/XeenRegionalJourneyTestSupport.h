@@ -17,7 +17,7 @@ inline XeenObjectFile regionalObjects(){
     m.entities.monsters[5]={13,2,0,0,8};return m;
 }
 struct Fixture {
-    mmodern::XeenProgramState programState;
+    mmodern::XeenProgramState programState{mmodern::XeenWallClock::fixed(0)};
 	Bytes bytes;
 	XeenPartyState p;
 	XeenCamera camera = XeenCamera{23,13,1,XeenDirection::North};

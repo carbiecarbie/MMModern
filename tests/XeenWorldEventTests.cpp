@@ -928,7 +928,7 @@ void treeFlags(Inputs &in) {
  check(paid.count()==26 && paid[57] && paid[58] && paid[232] && paid[255],"Original tree family incomplete");
 }
 XeenSaveSnapshot fresh(Inputs &in) {
-    mmodern::XeenProgramState programState;
+    mmodern::XeenProgramState programState{mmodern::XeenWallClock::fixed(0)};
  auto party=XeenPartyLoader().loadFromResources(in.chr,in.pty);
  auto camera=XeenCharacterFormat::parsePartyLocation(in.pty);XeenGameFlags flags;
  XeenWorld world(in.mapLoader(),in.objectLoader());

@@ -87,6 +87,7 @@ struct Dump {
         // v17 saves the purse alone under the earlier `treasure` path, so audits
         // compare its gold/gems with older builds; pending treasure is not saved.
         value(p + ".treasure", v.purse);
+        value(p + ".playTimeSeconds",v.playTimeSeconds);value(p + ".cloudsCompleted",v.cloudsCompleted);
         F(worldFlags); F(serviceEconomy);)
     V(XeenSoundOptions, F(efx); F(music); F(text); F(speech);)
     V(XeenSaveSnapshot, F(soundOptions); F(resources); F(name); F(food); F(insideInn); F(camera); F(activeRosterIds); F(characters);
@@ -177,8 +178,11 @@ void selfTest() {
     s.journey->serviceEconomy->bank.gold = 123;
     auto &orc=s.map(23).monsters->slots[2];orc.x=orc.y=-128;orc.accounted=true;orc.lifecycle=XeenActorLifecycle::Defeated;
     s.journey->purse->gold=0xfedcba98u;s.journey->purse->gems=7;
+    s.journey->playTimeSeconds=0xfedcba98u;s.journey->cloudsCompleted=true;
     s.map(28).cells.push_back({255,0x1999,0x80,0x9999,0});
     const auto b = decoded(XeenSaveFormat::encode(s)).fields;
+    save_test::check(b.at("snapshot.journey.value.playTimeSeconds")=="4275878552" &&
+        b.at("snapshot.journey.value.cloudsCompleted")=="1","Play time/completion dump incomplete");
     save_test::check(b.at("maps[0:23].tavernTips")=="14" && b.at("maps[0:28].tavernTips")=="0" &&
         b.at("snapshot.maps[1].tavernTips.present")=="0", "Tip cursor dump omitted zero, absence or map identity");
     save_test::check(b.at("snapshot.characters[29].lloydMap")=="23" && b.at("snapshot.characters[29].lloydX")=="9" &&

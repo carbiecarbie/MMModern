@@ -104,7 +104,7 @@ struct Scenario {
 };
 // The production entry: Application::playGameplay with synthetic providers.
 struct Harness {
-    mmodern::XeenProgramState programState;
+    mmodern::XeenProgramState programState{mmodern::XeenWallClock::fixed(0)};
 	Scenario scenario;
 	XeenFontFormat font{gameplay_test::fontBytes()};
 	XeenItemCatalog catalog;
@@ -141,7 +141,7 @@ struct Harness {
 };
 // A restored copy through the same providers, for exact round trips.
 struct Restored {
-    mmodern::XeenProgramState programState;
+    mmodern::XeenProgramState programState{mmodern::XeenWallClock::fixed(0)};
 	Scenario scenario;
 	XeenPartyState p;XeenCamera camera;XeenGameFlags flags;
 	XeenWorld w;
@@ -443,7 +443,7 @@ void restActivation() {
 	}
 }
 void originalFixture(const std::filesystem::path &game) {
-    mmodern::XeenProgramState programState;
+    mmodern::XeenProgramState programState{mmodern::XeenWallClock::fixed(0)};
 	const auto installation=xeenTestInstallationDetector().detect(game);
 	check(installation && installation->hasDarkside(),"World of Xeen installation");
 	training_test::Inputs in(*installation);

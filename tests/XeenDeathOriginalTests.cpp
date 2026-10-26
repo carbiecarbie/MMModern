@@ -153,7 +153,7 @@ void refusal(Inputs &in) {
  check(!Access::required(*f.flow) && !Access::active(*f.flow) && !f.flow->partyDeathComplete(),"Living party entered death sequence");
 }
 void applicationOutcome(Inputs &in,const GameInstallation &installation) {
-    mmodern::XeenProgramState programState;
+    mmodern::XeenProgramState programState{mmodern::XeenWallClock::fixed(0)};
  programState.audio=XeenAudio::installed(installation,in.assets,SdlWindow::presentationNanoseconds(),false);
  std::uint64_t now=0,drainEnd=0;XeenEventFlow *flow=nullptr;XeenSessionOutcome outcome;
  SdlWindow::FrameUpdateHandler retired;SdlWindow::IdleFrameHandler retiredIdle;

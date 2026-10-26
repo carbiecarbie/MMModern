@@ -75,7 +75,7 @@ struct PriceSession {
 };
 void settlementPrices(Inputs &in) {
     for(unsigned map:{30u,74u}) {
-        XeenProgramState program;auto &prices=program.templePrices;
+        XeenProgramState program{mmodern::XeenWallClock::fixed(0)};auto &prices=program.templePrices;
         if(map==74) {PriceSession prior(in,program,templeSource(in,30));prior.enter();prior.leave();}
         PriceSession s(in,program,templeSource(in,map));s.enter();
         const auto row=prices.row();const auto revision=prices.revision();
@@ -108,7 +108,7 @@ void settlementPrices(Inputs &in) {
 }
 void processPrices(Inputs &in) {
     {
-        XeenProgramState program;auto &prices=program.templePrices;const auto source=templeSource(in,74);PriceSession s(in,program,source);
+        XeenProgramState program{mmodern::XeenWallClock::fixed(0)};auto &prices=program.templePrices;const auto source=templeSource(in,74);PriceSession s(in,program,source);
         unsigned sounds=0;s.flow->loadSampleDuration=[&](const char *,XeenSceneArchive){++sounds;return std::uint64_t(0);};
         s.enter();check(prices.row()==XeenTempleSurcharges{} && prices.revision()==1,"Fresh map 74 did not publish zero row");
         const auto context=*s.p.encounterContext;const auto gold=s.p.purse->gold;
@@ -128,7 +128,7 @@ void processPrices(Inputs &in) {
         check(s.p.purse->gold==gold-uncurse-heal,"Map 74 Heal and displayed quote differ");s.leave();
     }
     for(unsigned map:{30u,49u}) {
-        XeenProgramState program;auto &prices=program.templePrices;const auto row=xeenTempleSurcharges(map);
+        XeenProgramState program{mmodern::XeenWallClock::fixed(0)};auto &prices=program.templePrices;const auto row=xeenTempleSurcharges(map);
         const auto source=templeSource(in,74);const auto bytes=XeenSaveFormat::encode(source);
         {
             PriceSession s(in,program,templeSource(in,map));bool redrawn=false;
@@ -151,11 +151,11 @@ void processPrices(Inputs &in) {
             check(prices.revision()==revision+session && XeenSaveFormat::encode(s.snapshot())==bytes,"Restore saved or reset process prices");
             s.enter();check(prices.row()==row && PriceAccess::prices(*s.flow)==row,"Session replacement lost Temple carry-over");
         }
-        XeenProgramState fresh;PriceSession without(in,fresh,source);PriceSession with(in,program,source);
+        XeenProgramState fresh{mmodern::XeenWallClock::fixed(0)};PriceSession without(in,fresh,source);PriceSession with(in,program,source);
         check(XeenSaveFormat::encode(without.snapshot())==XeenSaveFormat::encode(with.snapshot()),"Prior visit entered save bytes");
     }
     for(unsigned fault=0;fault<5;++fault) {
-        XeenProgramState program;auto &prices=program.templePrices;PriceSession s(in,program,templeSource(in,30));
+        XeenProgramState program{mmodern::XeenWallClock::fixed(0)};auto &prices=program.templePrices;PriceSession s(in,program,templeSource(in,30));
         bool injected=false;const auto initial=prices.row();
         if(fault==0)s.flow->drawTempleArt=[](auto &){throw std::runtime_error("preflight refusal");};
         if(fault==3)PriceAccess::exhaust(prices);
@@ -180,7 +180,7 @@ void processPrices(Inputs &in) {
         }
     }
     {
-        XeenProgramState program;auto &prices=program.templePrices;auto source=templeSource(in,30);source.journey->context->year=65535;source.journey->context->day=99;
+        XeenProgramState program{mmodern::XeenWallClock::fixed(0)};auto &prices=program.templePrices;auto source=templeSource(in,30);source.journey->context->year=65535;source.journey->context->day=99;
         PriceSession s(in,program,source);s.act(InteractionAction{});for(unsigned n=0;n<20;++n)s.step();
         check(prices.revision()==0 && prices.row()==XeenTempleSurcharges{},"Refused departure published Temple row");
     }

@@ -15,7 +15,7 @@ inline XeenObjectFile objects(){return regional_test::objects();}
 inline XeenEventFile events(){return regional_test::events(23);}
 enum class Seam { Initial, Chr, Pty, Mon, Map, Mob, Evt, Preflight };
 struct Destination {
-    mmodern::XeenProgramState programState;
+    mmodern::XeenProgramState programState{mmodern::XeenWallClock::fixed(0)};
  XeenPartyState party=XeenPartyLoader().loadFromResources(chr(),pty());
  XeenCamera camera{23,9,11,XeenDirection::West};XeenGameFlags flags;
  XeenMap terrain=map();XeenObjectFile mob=objects();

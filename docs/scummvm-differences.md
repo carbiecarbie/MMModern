@@ -19,13 +19,16 @@ documented in its source. Each item links to its entry in
 
 **Revisions.** MMModern pins ScummVM `6814ee9b` (2026-09-06). Every item was
 rechecked against ScummVM master `55895ab0` on 2026-10-16, except the new
-terrain/Tavern/Temple/recovery/spell/movement/entrance/audio/party/scripted-map/cutscene entries explicitly marked "pin: differs; master not
+terrain/Tavern/Temple/recovery/spell/movement/entrance/audio/party/scripted-map/cutscene/play-time entries explicitly marked "pin: differs; master not
 rechecked". At that check, since the pin the
 Xeen engine has had only a code-style edit and the Xeen data in `mm.dat` is
 unchanged apart from its version number, so the earlier entries are marked
 "master: differs". MMModern plays all of Clouds of Xeen; items that concern
 only Darkside wait for its gameplay.
 
+- **Play time after Load.** [The running program retains its clock mark](original-quirks.md#dos-play-time-start-mark), including time at the title or since the preceding Save. The pin restores its frame counter on Load. Pin: differs; master not rechecked.
+- **Civil clock changes.** [Play time follows unsigned DOS wall-clock arithmetic and legacy April/October DST](original-quirks.md#dos-play-time-unsigned-clock); rollback may reduce or wrap it. The pin counts presentation frames. Pin: differs; master not rechecked.
+- **Hidden panel clocks.** [Elapsed time keeps the DOS formatter's truncation](original-quirks.md#dos-panel-time-truncation), including `19:1092:16` after 19 hours. Civil time keeps the padded hour and morning `a`; the pin uses normalized minutes and morning `c`. Out-of-order O/B closes the DOS panel; the pin resets its gate and stays open. Pin: differs; master not rechecked.
 - **Xeen Slayer Sword.** [Only weapon ID 34 bypasses physical resistance](original-quirks.md#sv-slayer-sword-exact-id); the pin also admits larger IDs. Pin: differs; master not rechecked.
 - **Clan King quest.** [The kill hook uses MOB slot 28 on map 41](original-quirks.md#sv-clouds-death-slots), rather than the pin's slot 20 (a Tiger Mole). Pin: differs; master not rechecked.
 - **Ice Troll regeneration.** [The full heal at each new combat round is Clouds-only](original-quirks.md#sv-clouds-ice-troll); the pin omits that side test. Pin: differs; master not rechecked.

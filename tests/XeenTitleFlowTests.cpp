@@ -1,5 +1,6 @@
 #include "app/XeenTitleFlow.h"
 #include "app/XeenCutsceneFlow.h"
+#include "games/xeen/XeenWallClock.h"
 #include "formats/xeen/XeenAssetSource.h"
 #include "games/xeen/XeenInstallationDetector.h"
 #include "XeenSaveTestSupport.h"
@@ -108,6 +109,34 @@ void panelControls(XeenAssetSource &assets,const XeenFontFormat &font) {
   s.panel=true;s.combat=combat;s.saveRestricted=restricted;s.currentSlot=0;s.currentName="Native Case !~";return s;
  };
  Driver d(services());check(d.flow.screen()==Screen::Panel,"panel entry");
+ {
+  auto s=services();std::uint32_t wall=xeenDosTime({2026,7,1,9,22,25}),elapsed=62545;unsigned reads=0;
+  s.clocks=[&]{++reads;return std::make_pair(wall,elapsed);};
+  Driver clock(s);check(!clock.flow.clocksVisible() && reads==0,"panel clocks hidden on entry");
+  Driver missingG(s);missingG.key('o');check(!missingG.flow.current() && !missingG.flow.clocksVisible(),"O without G must close and clear the panel");
+  Driver missingGO(s);missingGO.key('b');check(!missingGO.flow.current(),"B without G/O must close the panel");
+  Driver missingO(s);missingO.key('g');missingO.key('b');check(!missingO.flow.current() && !missingO.flow.clocksVisible(),"G then B must close and clear the panel");
+  clock.key('r');check(clock.flow.current() && !clock.flow.clocksVisible(),"R without G/O/B must remain harmless");
+  clock.key('g');clock.key('r');check(clock.flow.current() && !clock.flow.clocksVisible(),"R with incomplete gate must remain harmless");
+  clock.key('g');clock.key('o');clock.key('o');clock.key('b');
+  check(!clock.flow.clocksVisible(),"clock gate enabled before R");clock.key('r');
+  check(clock.flow.clocksVisible() && reads>0,"G-O-O-B-R clock gate");
+  titlePreview(clock.flow.frame(),"panel-clocks");
+  const auto prior=clock.flow.frame().pixels;const auto context=clock.flow.inputContext(clock.flow.frame().presentation()).contextId;
+  clock.flow.animateAt(1000000000);const auto deadline=clock.flow.nextPresentationDeadline();
+  check(deadline && !clock.flow.animateAt(*deadline-1),"clock redraw before BIOS tick");
+  ++wall;++elapsed;check(bool(clock.flow.animateAt(*deadline)),"clock redraw at idle BIOS tick");clock.present();
+  check(clock.flow.frame().pixels!=prior && clock.flow.inputContext(clock.flow.frame().presentation()).contextId==context,"clock redraw changed input authority or failed to change digits");
+  clock.key('q');check(!clock.flow.clocksVisible(),"Quit must hide clocks");clock.key(27);
+  check(clock.flow.clocksVisible(),"Quit cancellation must restore clocks");
+  clock.key('a');check(!clock.flow.clocksVisible(),"Save As must hide clocks");clock.key(27);
+  check(clock.flow.clocksVisible(),"Save As cancellation must restore clocks");
+  clock.key(27);check(!clock.flow.current() && !clock.flow.clocksVisible(),"Exit clears clocks");
+  Driver reopened(s);check(!reopened.flow.clocksVisible(),"reopened panel retained clocks");
+  const bool efx=reopened.flow.soundOptions().efx;
+  for(unsigned key:{'g','o','o','b','e','r'})reopened.key(key);
+  check(reopened.flow.clocksVisible() && reopened.flow.soundOptions().efx!=efx,"GOOBER retains Efx toggle");
+ }
  auto longName=services();longName.currentName=std::string(20,'W');Driver longest(std::move(longName));
  check(longest.flow.screen()==Screen::Panel,"long current name must stop at original window bottom");
  // Normal newline termination is original behavior; an absolute cursor control
@@ -217,8 +246,9 @@ void animationResume(XeenTitleFlow::Services source) {
 void mappedHotkeys(const GameInstallation &installation,XeenAssetSource &assets,const XeenFontFormat &font) {
  auto stream=installation.uiModule->open();std::vector<std::uint8_t> bytes(stream->size());
  check(stream->read(bytes.data(),bytes.size())==bytes.size(),"hotkey DAT short read");
+ // Keep the synthetic button remap separate from the literal G/O/B/R gate.
  for(const auto &layout:XeenDosText::buttonLayouts())for(unsigned i=0;i<layout.count;++i)
-  bytes[layout.key+i]=std::string_view(layout.name)=="TITLE"?"jkuv"[i]:std::string_view(layout.name)=="DIFFICULTY"?"zx"[i]:'a'+i;
+  bytes[layout.key+i]=std::string_view(layout.name)=="TITLE"?"jkuv"[i]:std::string_view(layout.name)=="DIFFICULTY"?"zx"[i]:std::string_view(layout.name)=="PANEL"?"acdfhijkl"[i]:'a'+i;
  bytes[XeenDosText::kOtherButtonKeyOffsets[0]]='b';bytes[XeenDosText::kOtherButtonKeyOffsets[1]]='h';
  const XeenDosText mapped(bytes);
  std::array<XeenSaveFile::Slot,10> rows;auto snapshot=save_test::currentWireSnapshot();snapshot.name="Existing";
@@ -235,12 +265,12 @@ void mappedHotkeys(const GameInstallation &installation,XeenAssetSource &assets,
  check(load.flow.screen()==Screen::Credits,"DAT-index Credits mapping");for(unsigned page=0;page<4;++page)load.key(27);load.fade();load.key('k');load.key('c');load.key(13);
  check(load.flow.entry() && load.flow.entry()->kind==XeenSessionEntry::Kind::Load,"DAT-index title Load mapping");
  Driver p(services(true));
- for(unsigned key:{'a','b','g','h'}){p.key(key);check(p.flow.screen()==Screen::Panel,"DAT-index sound panel mapping");}
- p.key('f');check(p.flow.screen()==Screen::Quit,"DAT-index Quit mapping");p.key('n');
- p.key('i');check(p.flow.screen()==Screen::Wizard,"DAT-index Wizard mapping");p.key('n');
- p.key('d');check(p.flow.entry() && p.flow.entry()->kind==XeenSessionEntry::Kind::Save,"DAT-index direct Save mapping");
- p.flow.panelResult("Synthetic failure");p.present();p.key(27);p.key('e');
- check(p.flow.screen()==Screen::SaveSlots,"DAT-index Save As mapping");p.key('m');p.key('c');
+ for(unsigned key:{'a','c','j','k'}){p.key(key);check(p.flow.screen()==Screen::Panel,"DAT-index sound panel mapping");}
+ p.key('i');check(p.flow.screen()==Screen::Quit,"DAT-index Quit mapping");p.key('n');
+ p.key('l');check(p.flow.screen()==Screen::Wizard,"DAT-index Wizard mapping");p.key('n');
+ p.key('f');check(p.flow.entry() && p.flow.entry()->kind==XeenSessionEntry::Kind::Save,"DAT-index direct Save mapping");
+ p.flow.panelResult("Synthetic failure");p.present();p.key(27);p.key('h');
+ check(p.flow.screen()==Screen::SaveSlots,"DAT-index Save As mapping");p.key('m');p.key('d');
  check(p.flow.screen()==Screen::LoadSlots,"DAT-index chooser Exit/panel Load mapping");
 }
 }

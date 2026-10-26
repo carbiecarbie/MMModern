@@ -347,7 +347,7 @@ void retainedCombatCaches() {
 	check(!retired && !retirement.flow->journeyQuiet(), "retirement checks retained cache values after successful End");
 }
 void initializationAliases() {
-    mmodern::XeenProgramState programState;
+    mmodern::XeenProgramState programState{mmodern::XeenWallClock::fixed(0)};
     auto bytes=regional_test::characterBytes();auto party=XeenPartyLoader().loadFromResources(bytes,regional_test::partyBytes());
     auto camera=xeenJourneyContent().entry;XeenGameFlags flags;
     auto monsters=regional_test::statistics();auto event=regional_test::events(23);

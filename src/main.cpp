@@ -1,6 +1,7 @@
 #include "app/Application.h"
 #include "platform/sdl/SdlWindow.h"
 #include "platform/sdl/SdlWindowPlacement.h"
+#include "platform/XeenSystemWallClock.h"
 
 #include <cstdint>
 #include <iostream>
@@ -20,6 +21,7 @@ void newGameUsage() {
 		"       mmodern <game-dir> [--ui-data <XEEN.DAT>]\n"
 		"Plain launch opens the original title menu.\n"
 		"Developer --new-game defaults to Adventurer. F9 requires an explicit save target.\n"
+        "Developer modes use a fixed DOS wall clock (0); --wall-clock <u32> overrides it.\n"
 		"--combat-seed is accepted only by --journey-region.\n";
 }
 
@@ -105,9 +107,25 @@ int main(int argc, char *argv[]) {
   }
   uiData=std::filesystem::u8path(arguments[i+1]);arguments.erase(arguments.begin()+i,arguments.begin()+i+2);
  }
+ std::optional<std::uint32_t> wallClock;
+ for(std::size_t i=1;i<arguments.size();) {
+  if(arguments[i]!="--wall-clock"){++i;continue;}
+  bool valid=!wallClock && i+1<arguments.size();std::uint64_t value=0;
+  if(valid) {
+   const auto &s=arguments[i+1];valid=!s.empty() && s.size()<=10;
+   for(char ch:s){if(ch<'0'||ch>'9'){valid=false;break;}value=value*10+unsigned(ch-'0');}
+   valid=valid && value<=std::numeric_limits<std::uint32_t>::max();
+  }
+  if(!valid){std::cerr<<"--wall-clock requires one unsigned 32-bit DOS seconds value\n";return 1;}
+  wallClock=static_cast<std::uint32_t>(value);arguments.erase(arguments.begin()+i,arguments.begin()+i+2);
+ }
  pointers.clear();for(auto &argument:arguments)pointers.push_back(argument.data());
  argc=static_cast<int>(pointers.size());argv=pointers.data();
- mmodern::XeenProgramState program;
+ const bool playerTitle=argc>=2 && std::string(argv[1]).rfind("--",0)!=0;
+ if(playerTitle && wallClock){std::cerr<<"--wall-clock requires a developer entry mode\n";return 1;}
+ try {
+ mmodern::XeenProgramState program{playerTitle?mmodern::xeenSystemWallClock():mmodern::XeenWallClock::fixed(wallClock.value_or(0))};
+ if(!playerTitle && wallClock)std::cout<<"Wall clock: fixed "<<*wallClock<<'\n';
  const mmodern::Application application(program,uiData.value_or(std::filesystem::path{}));
 	// Plain launch enters the original title. Overrides require developer entry.
 	if (argc >= 2 && (std::string(argv[1]) == "--new-game" ||
@@ -308,4 +326,7 @@ int main(int argc, char *argv[]) {
 	}
 
 	return 1;
+ } catch(const std::exception &e) {
+  std::cerr<<"MMModern failed: "<<e.what()<<'\n';return 1;
+ }
 }

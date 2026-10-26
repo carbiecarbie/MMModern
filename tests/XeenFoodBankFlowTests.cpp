@@ -364,7 +364,7 @@ void directionPrelude(Inputs &in) {
 }
 
 XeenSaveSnapshot fresh(Inputs &in) {
-    mmodern::XeenProgramState programState;
+    mmodern::XeenProgramState programState{mmodern::XeenWallClock::fixed(0)};
     auto party=XeenPartyLoader().loadFromResources(in.chr,in.pty);
     auto camera=XeenCharacterFormat::parsePartyLocation(in.pty);XeenGameFlags flags;
     XeenWorld world(in.mapLoader(),in.objectLoader());
@@ -436,7 +436,7 @@ void originalJourney(Inputs &in) {
     Visit restored(in,XeenSaveFormat::decode(bytes));save_test::sameSnapshot(saved,restored.snapshot());
     check(bytes==XeenSaveFormat::encode(restored.snapshot()) && v.f.isSet(231),
         "Food/balances/flags/time/RNG did not restore byte-exactly");
-    check(XeenSaveFormat::kJourneyVersion==20 && XeenSaveFormat::kJourneySchema==9 && XeenSaveFormat::kJourneyContent==14,
+    check(XeenSaveFormat::kJourneyVersion==21 && XeenSaveFormat::kJourneySchema==9 && XeenSaveFormat::kJourneyContent==14,
         "Food/Bank did not retain the current save format");
 }
 }

@@ -8,7 +8,7 @@ using namespace mmodern;
 inline void require(bool value,const char *message) {if(!value)throw std::runtime_error(message);}
 inline void run(const std::function<XeenPartyState()> &initial,const XeenJourneySetup &setup,
  const XeenWorld::MapLoader &maps,const XeenWorld::ObjectLoader &objects,XeenSaveResourceSignature signature, XeenSaveState::Resources resources = {}) {
-    mmodern::XeenProgramState programState;
+    mmodern::XeenProgramState programState{mmodern::XeenWallClock::fixed(0)};
  const auto home=xeenJourneyContent().entry.mapId;
  const XeenMapIdentity neighbor{XeenSide::Clouds,static_cast<std::uint16_t>(home.number-1)};
  XeenEventPresenter::Clock clock=[]{return 0;};

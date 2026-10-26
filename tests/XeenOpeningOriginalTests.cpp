@@ -34,7 +34,7 @@ using S=XeenLearnedSpell;
 
 // Local resource overrides exercise the real Flow without changing shared fixtures.
 struct EventFixture {
-    mmodern::XeenProgramState programState;
+    mmodern::XeenProgramState programState{mmodern::XeenWallClock::fixed(0)};
     Inputs &in;std::map<XeenMapIdentity,XeenEventFile> files;
     XeenWorld w;XeenPartyState p;XeenCamera c;XeenGameFlags f;XeenEventSystem events;
     std::unique_ptr<XeenEventFlow> flow;std::uint64_t cycle=0,now=0;

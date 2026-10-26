@@ -37,7 +37,7 @@ GameInstallation installation(const std::filesystem::path &dir, bool animated=fa
 	GameInstallation i;i.xeenArchive=dir/"xeen.cc";i.darkArchive=dir/"dark.cc";return i;
 }
 struct Fixture {
-    mmodern::XeenProgramState programState;
+    mmodern::XeenProgramState programState{mmodern::XeenWallClock::fixed(0)};
 	int maps=0,objects=0,scripts=0,texts=0,compositions=0,completed=0;
 	std::uint64_t now=0,phase=0;
 	bool automatic=false;

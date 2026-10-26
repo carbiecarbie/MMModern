@@ -10,6 +10,14 @@
 #include <chrono>
 namespace mmodern {
 namespace {
+std::uint32_t committedSaveMark(const XeenGameplayServices &services,XeenEventFlow &flow) {
+ try {return services.program.wallClock.now();}
+ catch(const std::exception &e) {
+  const auto message=std::string("Game saved, but wall clock reset failed after publication: ")+e.what()+
+   ". Closing the gameplay session.";
+  std::cerr<<message<<'\n';flow.closeGameplay();throw std::runtime_error(message);
+ }
+}
 struct GameplayScope {
  bool &busy;
  explicit GameplayScope(bool &value) : busy(value) { busy = true; }
@@ -44,6 +52,7 @@ void xeenSaveGameplay(const XeenGameplayServices &services, XeenWorld &world, Xe
 	snapshot.name=services.saveName;
 	XeenRestoreGuard before(world,party,camera,flags);
 	before.check();
+    snapshot.journey->playTimeSeconds=services.program.playTime(party.playTimeSeconds);before.check();
 	const auto boundary = flow.beginSave();
 	struct Lease {
 		XeenEventFlow &flow; XeenEventFlow::SaveBoundary boundary;
@@ -88,6 +97,10 @@ void xeenSaveGameplay(const XeenGameplayServices &services, XeenWorld &world, Xe
 	stage(XeenGameplayServices::SaveStage::Write);
 	check(); if(writer)writer(snapshot,check);else XeenSaveFile::write(target,snapshot);
  check();
+ // Publish only after the file committed. The next interval starts after I/O.
+ const auto mark=committedSaveMark(services,flow);check();
+ flow.commitSavedPlayTime(boundary,snapshot.journey->playTimeSeconds);
+ services.program.playTimeMark=mark;
 }
 
 int Application::journeyRegion(const std::filesystem::path &directory, std::optional<std::uint32_t> seed,
@@ -167,6 +180,7 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
    encounter = entry != XeenEncounterEntry::Ordinary;
   } else {
    party = services.resources.loadInitialParty();
+   party.playTimeSeconds=0;party.cloudsCompleted=false;
    flags = services.initialFlags();
   }
   for (const auto &diagnostic : party.diagnostics) std::cerr << "Party warning: " << diagnostic << '\n';
@@ -275,6 +289,7 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
   if(services.publishInitial) {
    if(!original || resume || !services.saveName)throw std::logic_error("Invalid New publication request");
    auto snapshot=XeenSaveState::captureInitialized(services.resources.signature,party,camera,flags,world);
+   snapshot.journey->playTimeSeconds=services.program.playTime(0);
    snapshot.name=services.saveName;
    auto &guard=flow._encounter->journeySavePreimage();
    XeenRestoreGuard::Providers providers(guard,world);
@@ -290,6 +305,8 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
    try {published=services.publishInitial(snapshot,sourceCheck);sourceCheck();}
    catch(...) {sourceCheck();throw;}
    if(!published)return 5; // Cancellation discards only this unpublished session.
+   const auto mark=committedSaveMark(services,flow);sourceCheck();
+   flow.commitInitialPlayTime(snapshot.journey->playTimeSeconds);services.program.playTimeMark=mark;
    services.currentSlot=services.initialSlot;
   }
   bool entryPassPending=flow.journey() && !party.insideInn && (resume || services.publishInitial);
@@ -379,7 +396,7 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
      if(saved) {
       // The file is committed. Later UI/provider failures cannot turn this
       // completed write into a reported save failure or retry the transaction.
-      handoff.retain();panelTicket=flow.encounter()->ticket();checkPanel();
+      handoff.retain();retainPanel();checkPanel();
       services.currentSlot=request.slot;services.saveName=request.name;
       panel->panelCurrent(request.slot,request.name);
       status="MMModern - Game saved.";
@@ -481,6 +498,10 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
      panel=services.panel(flow.frame(),combat,bool(world.map(camera.mapId).geometry.flags&0x8000),
       flow.journey() && !services.saveUnavailable,services.currentSlot,services.saveName.value_or(""));
      panelGuard->check();}
+    panel->clocks([&] {
+     const auto now=services.program.wallClock.now();
+     return std::make_pair(now,now-services.program.playTimeMark+std::uint32_t(party.playTimeSeconds));
+    });
     panel->soundOptions(party.soundOptions);publishSound();
     checkPanel();return panel->frame();
    }
@@ -593,7 +614,7 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
    if(!*alive)return {};
    if(finished && services.outcome && services.outcome->kind==XeenSessionOutcome::Kind::Title && services.program.audio)
     return services.program.audio->digitalDeadline(audioClock.source());
-   auto next=!panel?flow.nextPresentationDeadline():std::nullopt;
+   auto next=panel?panel->nextPresentationDeadline():flow.nextPresentationDeadline();
    if(services.program.audio){const auto sound=services.program.audio->deadline();if(sound && (!next||*sound<*next))next=sound;}
    return next;
   };

@@ -17,6 +17,11 @@ Reading Darkside metadata does not enable Darkside gameplay.
 
 Run from a terminal to see diagnostics, and quote paths containing spaces:
 `--ui-data <path>` can be supplied with every entry mode.
+Developer modes use a fixed DOS wall clock of zero seconds. Supply
+`--wall-clock <unsigned-32-bit-seconds>` to select another fixed value;
+plain title launch uses the host's local civil clock through the original
+Borland conversion. This clock is independent of presentation ticks and
+Journey randomness.
 
 ```text
 mmodern <game-directory>

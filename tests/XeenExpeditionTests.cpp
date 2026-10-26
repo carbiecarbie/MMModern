@@ -35,7 +35,7 @@ XeenSaveSnapshot initial(){PauseTape pause;
  saved.journey->context->minutes=480;return saved;
 }
 struct Domain {
-    mmodern::XeenProgramState programState;
+    mmodern::XeenProgramState programState{mmodern::XeenWallClock::fixed(0)};
  XeenWorld w{regional_test::map,objects};XeenPartyState p;XeenCamera c;XeenGameFlags f;
  XeenEventPresenter::Clock clock=[]{return 0;};std::unique_ptr<XeenEncounterFlow> flow;
  explicit Domain(const std::optional<XeenSaveSnapshot> &saved={}) {PauseTape pause;

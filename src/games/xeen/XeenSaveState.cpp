@@ -116,6 +116,7 @@ void XeenSaveState::restoreJourney(const XeenSaveSnapshot &source, const Resourc
 	p.encounterContext = snapshot.journey->context;
 	// Pending treasure is running-program state: restore grants and draws nothing.
 	p.purse=snapshot.journey->purse;
+    p.playTimeSeconds=snapshot.journey->playTimeSeconds;p.cloudsCompleted=snapshot.journey->cloudsCompleted;
 	p.serviceEconomy=snapshot.journey->serviceEconomy;
 	p.roster._combatMarked = true;
 	for (const auto &r : snapshot.journey->supplements) p.roster._combatInputs[r.owner] = r.inputs;
@@ -394,6 +395,7 @@ XeenSaveSnapshot XeenSaveState::captureImpl(const XeenSaveResourceSignature &res
 		XeenSaveJourney j;
 		j.context = party.encounterContext; j.skeletonSeed = state.skeletonSeed();
 		j.content=XeenSaveFormat::kJourneyContent; j.schema=XeenSaveFormat::kJourneySchema; j.random=state.journeyRandom();j.purse=party.purse;j.worldFlags=party.worldFlags;
+        j.playTimeSeconds=party.playTimeSeconds;j.cloudsCompleted=party.cloudsCompleted;
 		j.serviceEconomy=party.serviceEconomy;
 		for (unsigned i = 0; i < 30; ++i) j.supplements[i] = {static_cast<std::uint8_t>(i), *party.roster.combatInputs(i)};
 		snapshot.journey = std::move(j);

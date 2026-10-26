@@ -5,7 +5,7 @@
 namespace journey_test {
 using namespace combat_test;
 struct Fixture {
-    mmodern::XeenProgramState programState;
+    mmodern::XeenProgramState programState{mmodern::XeenWallClock::fixed(0)};
 	Bytes bytes;
 	XeenPartyState p;
 	XeenCamera camera = xeenJourneyContent().entry;

@@ -22,6 +22,15 @@ int main(int argc,char **argv){try{
  check(child_test::freshDirectory(root/"run")!=dir,"process evidence directories are isolated");
  const auto game=dir/"GAME";fs::create_directories(game);
  const auto log=dir/"cli.log";const auto path=dir/fs::path(L"space \u00e7 \u6e38.mmsave");fs::remove(path);
+ for(const auto &args:std::vector<std::vector<std::wstring>>{
+  {game.wstring(),L"--wall-clock",L"1"},
+  {L"--inspect-party",game.wstring(),L"--wall-clock",L"4294967296"},
+  {L"--inspect-party",game.wstring(),L"--wall-clock",L"-1"},
+  {L"--inspect-party",game.wstring(),L"--wall-clock",L"0",L"--wall-clock",L"1"},
+  {L"--inspect-party",game.wstring(),L"--wall-clock"}}) {
+  const auto r=launch(exe,args,log);
+  check(r.exit==1 && r.output.find("--wall-clock")!=std::string::npos,"invalid wall-clock override accepted or missing clear diagnostic");
+ }
  const std::vector<std::vector<std::wstring>> bad{
  {L"--encounter-26"}, {L"--encounter-26",L""}, {L"--encounter-26",L"--load-game"},
  {L"--encounter-26",game.wstring(),L"20",L"13",L"1",L"north"},
@@ -133,6 +142,12 @@ int main(int argc,char **argv){try{
   out.write(reinterpret_cast<const char *>(ui.data()),ui.size());
  }
  {std::ofstream out(dir/"WORLD"/"XEEN.CFG",std::ios::binary);const char cfg[6]{};out.write(cfg,sizeof(cfg));} // Synthetic nullmus configuration.
+ for(const auto *seconds:{L"0",L"1",L"4294967295"}) {
+  const auto r=launch(exe,{L"--inspect-party",game.wstring(),L"--wall-clock",seconds},log);
+  const auto value=std::filesystem::path(seconds).string();
+  check(r.exit==0 && r.output.find("Wall clock: fixed "+value)!=std::string::npos &&
+   r.output.find("Initial Clouds party:")!=std::string::npos,"valid developer wall-clock override must use the fixed clock and run normally");
+ }
  installation.darkArchive=game/"dark.cc";installation.edition=GameEdition::WorldOfXeen;
  auto s=regional_test::snapshot();s.resources=XeenSaveFile::fingerprint(installation);
  const auto run=[&](const char *message){const auto r=launch(exe,{L"--load-game",game.wstring(),path.wstring()},log);check(r.exit==3&&r.output.find(message)!=std::string::npos&&r.output.find("Resumed ")==std::string::npos,"CLI startup failure/fallback content");};

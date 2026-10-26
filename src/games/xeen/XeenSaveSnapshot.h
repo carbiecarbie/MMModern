@@ -151,6 +151,8 @@ struct XeenSaveJourney {
 	std::optional<XeenJourneyRandomState> random;
 	// v17: the purse only; pending treasure is running-program state, never saved.
 	std::optional<XeenPurse> purse;
+    std::uint32_t playTimeSeconds=0;
+    bool cloudsCompleted=false;
 	std::optional<XeenWorldFlags> worldFlags;
 	std::optional<XeenServiceEconomy> serviceEconomy;
 };

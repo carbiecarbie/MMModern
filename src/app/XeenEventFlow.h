@@ -119,6 +119,8 @@ public:
 	bool saveCurrent(const SaveBoundary &) const noexcept;
 	void endSave();
 	void endSave(const SaveBoundary &);
+    void commitSavedPlayTime(const SaveBoundary &,std::uint32_t);
+    void commitInitialPlayTime(std::uint32_t);
 	bool journey() const noexcept { return _encounter && _encounter->journey(); }
 	void framePresented(const IndexedFrame::Presentation &, bool deferCosmeticInput = false);
 	void completeInputHandoff(const IndexedFrame::Presentation &);

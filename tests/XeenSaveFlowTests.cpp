@@ -203,6 +203,81 @@ void treasureLifecycle(const fs::path &path){
  check(program.templePrices.row()==row && program.templePrices.revision()==prices,"Game entries changed process Temple prices");
  fs::remove(path);
 }
+void playTimeSaves(const fs::path &path) {
+ for(unsigned titleSeconds:{0u,13u}) {
+  regional_save_test::Fixture f;std::uint32_t now=100;
+  f.programState.wallClock=XeenWallClock([&]{return now;});f.programState.resetPlayTime();
+  f.saved.journey->playTimeSeconds=1000;f.saved.journey->cloudsCompleted=true;
+  XeenSaveFile::write(path,f.saved);const auto original=diskBytes(path);
+  now+=titleSeconds;auto services=f.services();
+  services.show=[&](const auto &,const auto &h,const auto &,const auto &idle,const auto &status) {
+   check(f.programState.playTimeMark==100 && f.party->playTimeSeconds==1000 && f.party->cloudsCompleted,"Load reset process mark or lost saved fields");
+   f.present(h);if(auto entry=idle())h.framePresented(entry->presentation());
+   f.send(h,SaveGameAction{});check(status().find("Saved")!=std::string::npos,"play-time F9 failed");
+   check(f.programState.playTimeMark==now && f.party->playTimeSeconds==1000+titleSeconds,"Save counter/mark commit");
+   auto expected=f.saved;expected.journey->playTimeSeconds+=titleSeconds;
+   check(diskBytes(path)==XeenSaveFormat::encode(expected),"Save changed bytes beyond play time");
+   if(!titleSeconds)check(diskBytes(path)==original,"Load T/Save T not byte-identical");
+   now+=7;f.send(h,SaveGameAction{});expected.journey->playTimeSeconds+=7;
+   check(diskBytes(path)==XeenSaveFormat::encode(expected),"consecutive Save double-counted elapsed interval");return true;
+  };
+  check(Application(f.programState).playGameplay(services,{},path,true)==0,"play-time Load/Save session");
+ }
+ regional_save_test::Fixture f;std::uint32_t now=100;
+ f.programState.wallClock=XeenWallClock([&]{return now;});f.programState.resetPlayTime();
+ f.saved.journey->playTimeSeconds=1000;XeenSaveFile::write(path,f.saved);
+ auto services=f.services();unsigned attempts=0;
+ services.observeSaveStage=[&](auto stage) {
+  if(stage!=XeenGameplayServices::SaveStage::Write)return;
+  now+=5;if(++attempts==1)throw std::runtime_error("injected publication failure");
+ };
+ services.show=[&](const auto &,const auto &h,const auto &,const auto &idle,const auto &status) {
+  f.present(h);if(auto entry=idle())h.framePresented(entry->presentation());
+  now=140;f.send(h,SaveGameAction{});
+  check(f.party->playTimeSeconds==1000 && f.programState.playTimeMark==100 && diskBytes(path)==XeenSaveFormat::encode(f.saved),"failed Save committed time or reset mark");
+  now=150;f.send(h,SaveGameAction{});
+  check(status().find("Saved")!=std::string::npos && f.party->playTimeSeconds==1050 && f.programState.playTimeMark==155,"retry must reset after successful I/O");
+  now=160;f.send(h,SaveGameAction{});
+  check(f.party->playTimeSeconds==1055 && f.programState.playTimeMark==165 && XeenSaveFile::read(path).journey->playTimeSeconds==1055,"save I/O was accumulated twice");return true;
+ };
+ check(Application(f.programState).playGameplay(services,{},path,true)==0,"failed/retried play-time save session");
+}
+void laterWallClockFailure(const fs::path &path) {
+ regional_save_test::Fixture f;XeenCivilTime date{2026,1,1,12,0,0};
+ f.programState.wallClock=XeenWallClock([&]{return xeenDosTime(date);});f.programState.resetPlayTime();
+ const auto mark=f.programState.playTimeMark;XeenSaveFile::write(path,f.saved);const auto original=diskBytes(path);
+ auto services=f.services();
+ services.show=[&](const auto &,const auto &h,const auto &,const auto &idle,const auto &status) {
+  f.present(h);if(auto entry=idle())h.framePresented(entry->presentation());
+  date.year=2108;f.send(h,SaveGameAction{});
+  check(status().find("Save failed:")!=std::string::npos && status().find("1980 through 2107")!=std::string::npos,
+   "later wall-clock failure must report a clear error");
+  check(f.programState.playTimeMark==mark && diskBytes(path)==original,"failed wall-clock read changed mark or save");return true;
+ };
+ check(Application(f.programState).playGameplay(services,{},path,true)==0,"later wall-clock error silently terminated gameplay");
+ // A successful writer followed by a clock failure must never offer a retry
+ // as though publication had failed. The committed snapshot stays usable.
+ regional_save_test::Fixture committed;date={2026,1,1,12,0,0};
+ committed.programState.wallClock=XeenWallClock([&]{return xeenDosTime(date);});committed.programState.resetPlayTime();
+ XeenSaveFile::write(path,committed.saved);auto committedServices=committed.services();unsigned writes=0;
+ committedServices.observeSaveStage=[&](auto stage) {
+  if(stage==XeenGameplayServices::SaveStage::Write){++writes;date.year=2108;}
+ };
+ committedServices.show=[&](const auto &,const auto &h,const auto &,const auto &idle,const auto &) {
+  committed.present(h);if(auto entry=idle())h.framePresented(entry->presentation());
+  date.minute=1;committed.send(h,SaveGameAction{});
+  throw std::runtime_error("committed-save clock failure left the gameplay session running");return false;
+ };
+ std::ostringstream errors;int result=0;
+ {
+  struct RestoreErrorStream {std::streambuf *previous;~RestoreErrorStream(){std::cerr.rdbuf(previous);}} held{std::cerr.rdbuf(errors.rdbuf())};
+  result=Application(committed.programState).playGameplay(committedServices,{},path,true);
+ }
+ auto expected=committed.saved;expected.journey->playTimeSeconds=60;
+ check(result!=0 && writes==1 && diskBytes(path)==XeenSaveFormat::encode(expected),"post-publication clock failure retried or lost the successful save");
+ check(errors.str().find("Game saved, but wall clock reset failed after publication:")!=std::string::npos &&
+  errors.str().find("Save failed:")==std::string::npos,"committed save was silently lost or reported as recoverable publication failure");
+}
 void developerTarget(const fs::path &path) {
  fs::remove(path);
  regional_save_test::Fixture f;auto services=f.services();f.saved.name="Managed name";
@@ -217,4 +292,4 @@ void developerTarget(const fs::path &path) {
  };
  check(Application(services.program).playGameplay(services,{},path,true)==0,"independent loose developer save path");
 }
-int main(){try{const auto dir=fs::current_path()/"save-flow-tests";fs::create_directories(dir);const auto path=dir/"session.mmsave";fs::remove(path);olderPolicy(path);startup(path);pending(path);failures(path);treasureLifecycle(path);dispatchBoundaries(path);currentSaveBoundary(dir/"animation.mmsave");developerTarget(dir/"managed.mmsave");std::cout<<"Current Application startup, save eligibility, overwrite and failure paths passed\n";return 0;}catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}
+int main(){try{const auto dir=fs::current_path()/"save-flow-tests";fs::create_directories(dir);const auto path=dir/"session.mmsave";fs::remove(path);playTimeSaves(dir/"play-time.mmsave");laterWallClockFailure(dir/"clock-error.mmsave");olderPolicy(path);startup(path);pending(path);failures(path);treasureLifecycle(path);dispatchBoundaries(path);currentSaveBoundary(dir/"animation.mmsave");developerTarget(dir/"managed.mmsave");std::cout<<"Current Application startup, save eligibility, overwrite and failure paths passed\n";return 0;}catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}

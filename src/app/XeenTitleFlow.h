@@ -27,6 +27,7 @@ public:
   XeenSoundOptions soundOptions;
   bool cloudsContext=true; // DAT DS:0095: readable XEEN.CC in installed CD World.
   std::function<std::string()> cloudsIntroCheck;
+  std::function<std::pair<std::uint32_t,std::uint32_t>()> clocks;
  };
  enum class Screen { Menu, Background, Other, Credits, NewSlots, LoadSlots, Overwrite, Name, Difficulty, Notice, PublicationFailure, Panel, SaveSlots, Quit, Wizard, SavedNotice };
  explicit XeenTitleFlow(Services services);
@@ -43,12 +44,15 @@ public:
  std::optional<IndexedFrame> animate(std::uint64_t milliseconds);
  std::optional<IndexedFrame> animateAt(std::uint64_t nanoseconds);
  std::optional<std::uint64_t> nextPresentationDeadline() const {
+  if(clocksVisible())return _panelClockDeadline;
   if(_screen==Screen::Name && _name.deadline())return PresentationClock::fromMilliseconds(*_name.deadline());
   return _fadeLevel<128 ? std::optional<std::uint64_t>{_fadeDeadline} :
    _deadline ? std::optional<std::uint64_t>{_deadline} : std::nullopt;
  }
  const std::optional<XeenSessionEntry> &entry() const {return _entry;}
- void close() {_closed=true;_inputFrame.reset();}
+ void close() {_closed=true;_clockGate=0;_showClocks=false;_inputFrame.reset();}
+ void clocks(std::function<std::pair<std::uint32_t,std::uint32_t>()> source) {_services.clocks=std::move(source);}
+ bool clocksVisible() const {return !_closed && _screen==Screen::Panel && _showClocks;}
  bool current() const {return !_closed;}
  void drawButton(IndexedFrame &frame,const InputButton &button) const {
   _services.draw(frame,button.resource,button.pressedFrame(),button.x,button.y);
@@ -77,6 +81,9 @@ private:
  XeenTextInput _name;
  std::string _notice;
  bool _saveAs=false;
+ unsigned _clockGate=0;
+ bool _showClocks=false;
+ std::uint64_t _panelClockDeadline=0;
  unsigned _phase=1,_page=0;
  bool _firstTitle=true;
  std::uint64_t _deadline=0,_context=1;

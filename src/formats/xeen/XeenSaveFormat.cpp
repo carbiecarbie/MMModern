@@ -421,6 +421,7 @@ std::vector<std::uint8_t> XeenSaveFormat::encode(const XeenSaveSnapshot &s) {
 		out.u8(v.firePermanent);out.u8(v.fireTemporary);out.u8(v.energyPermanent);out.u8(v.energyTemporary);out.u8(v.magicPermanent);out.u8(v.magicTemporary);
 	}
 	out.u32(j.purse->gold);out.u32(j.purse->gems);
+    out.u32(j.playTimeSeconds);out.u8(j.cloudsCompleted);
 	for (bool flag:j.worldFlags->values) out.u8(flag);
 
 	out.u8(30);
@@ -502,10 +503,10 @@ XeenSaveSnapshot XeenSaveFormat::decode(const std::vector<std::uint8_t> &bytes) 
 	s.soundOptions={in.boolean(),in.boolean(),in.boolean(),in.boolean()};
 
 	// Fixed Journey bytes: domain/schema/content/context marker 6, context and
-	// food 36, supplements 1230, RNG 13, resistances 331, purse 8,
+	// food 36, supplements 1230, RNG 13, resistances 331, purse 8, play time/completion 5,
 	// world flags 128, learned spells 1201, poison 91, economy 1164, awards
 	// 3871, map count 2, head-cache flag 1 and name length 1.
-	constexpr std::size_t kFixedJourneyBytes = 8083;
+	constexpr std::size_t kFixedJourneyBytes = 8088;
 	const auto suffixSize = in.remaining();
 	XeenSaveJourney j;
 	require(in.u8() == 3, "invalid v4 domain");
@@ -539,6 +540,7 @@ XeenSaveSnapshot XeenSaveFormat::decode(const std::vector<std::uint8_t> &bytes) 
 		j.supplements[owner].inputs.resistances=XeenCombatResistances{in.u8(),in.u8(),in.u8(),in.u8(),in.u8(),in.u8(),in.u8(),in.u8(),in.u8(),in.u8()};
 	}
 	XeenPurse v;v.gold=in.u32();v.gems=in.u32();j.purse=v;
+    j.playTimeSeconds=in.u32();j.cloudsCompleted=in.boolean();
 	j.worldFlags.emplace();
 	for (auto &flag:j.worldFlags->values) flag=in.boolean();
 

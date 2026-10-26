@@ -98,7 +98,7 @@ struct Inputs {
 };
 
 struct Graph {
-    mmodern::XeenProgramState programState;
+    mmodern::XeenProgramState programState{mmodern::XeenWallClock::fixed(0)};
 	XeenPartyState p;
 	XeenCamera c{23,9,11,XeenDirection::West};XeenGameFlags flags;
 	std::function<void()> mapFault,objectFault;
@@ -229,7 +229,7 @@ void postPublicationFailure(Inputs &i) {
  }
 }
 void freshPublicationAllocationSweep(Inputs &i) {
-    mmodern::XeenProgramState programState;
+    mmodern::XeenProgramState programState{mmodern::XeenWallClock::fixed(0)};
 	// Exercise every allocating preparation from the admitted resource callback
 	// through detached stock generation, final-owner guard and capture storage.
 	// A failure at any allocation must precede party/economy/RNG publication.

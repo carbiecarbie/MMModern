@@ -295,21 +295,30 @@
 // Local evidence: build-rel/m88-v20-audit/{digest-audit.json,summary.txt,
 // version-byte-proof.json}, build-rel/m88-v19-reproduction-proof.json.
 // Original-data saves stay local and uncommitted.
+// M92 Part A: maintainer approved all four v21 replacements on 2026-10-25
+// in the implementation session, after the fixed-clock v20 reproduction.
+// All 14 checkpoints add the five-byte play-time/completion block; removing
+// it and rebuilding version/length/CRC reproduces every v20 byte exactly.
+// Decoded state, per-map fields and complete traces are unchanged; final
+// reload/re-save and both roundtrip continuations remain byte-exact.
+// Local evidence: build-rel/m92-v21-audit-recovered/{digest-audit.json,summary.txt},
+// D:/MModern-re/m92/{partA-v20-equivalence.json,partA-wire-projection.json}.
+// Original-data saves stay local and uncommitted.
 #include <array>
 #include <cstdint>
 namespace m44_baseline {
-inline constexpr const char *revision = "M88 Part A (save v20), baseline b54f893";
+inline constexpr const char *revision = "M92 Part A (save v21), baseline 4c57a2e";
 struct Scenario { const char *name; std::uint32_t seed; const char *sha256; };
 inline constexpr std::array<Scenario,4> scenarios{{
-    {"mainland-combat-myra-phirna",3626689381u,"26da5ab758ae9d5886059b343f144c6d1dfcebb7d99b8e8e3c681bcc47b09656"},
+    {"mainland-combat-myra-phirna",3626689381u,"84a72d60587cdcde08f43c5660cde0ade17b9c4f95cc7269ad89f56d508332f3"},
     // M75: a member woken after its skipped slot waits for the next round (DOS turn order).
     // M78 Part A: maintainer approved the services replacement on 2026-10-20.
     // Pathfinder wall 3 reroutes the one-holder party; time/exploration and an
     // extra merchant generation explain all fields. Native reload/re-save is exact.
     // Local audit: build-rel/m78-digest-comparison and m78-services-causal-audit.json.
-    {"vertigo-buy-repair-training",7u,"1ddd6a60a4d4901b9f644ff527f4e4a57def33636bc0ba6512a31795734256a4"},
-    {"temple-recovery",3626689381u,"28dddcd851cd164e9b0b4e1f7274db9b25119ea8612cf60ef57500ee2c82898e"},
-    {"vertigo-f3-roundtrip",3626689381u,"da7774a773eb3b8dd162017244fc62a608cd43a3cd721f33d716fba3fa701f59"}
+    {"vertigo-buy-repair-training",7u,"6a5b4c5491660af28929f3f55e655b93caff160069bddaa7890bd770d4f5bfeb"},
+    {"temple-recovery",3626689381u,"7f973e65881ebf5b2560d0dec58c46fcfeaf176462346e6ff583590e6dc1a689"},
+    {"vertigo-f3-roundtrip",3626689381u,"ad37fa9577df0467089df6f249a463ca751b74f66962d0a5d1b9539a04811c40"}
 }};
 }
 #endif

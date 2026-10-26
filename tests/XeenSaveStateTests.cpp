@@ -198,7 +198,7 @@ void characterPreflight() {
 
 
 void mutationPolicies() {
-    mmodern::XeenProgramState programState;
+    mmodern::XeenProgramState programState{mmodern::XeenWallClock::fixed(0)};
 	for (int outcome = 0; outcome < 3; ++outcome) {
 		Fixture f;
 		f.evt[1] = eventBytes({record(1, 1, 0, 0x1f, {2, 1, 1})});
@@ -260,7 +260,7 @@ void mutationPolicies() {
 
 
 void journeyBorrowRefusal() {
-    mmodern::XeenProgramState programState;
+    mmodern::XeenProgramState programState{mmodern::XeenWallClock::fixed(0)};
 	Fixture f;
 	XeenEventSystem events([&](XeenMapIdentity id) { return XeenEventScript(f.loadEvents(id)); },
 		[](XeenMapIdentity id) { return XeenEventTextFile{id, "synthetic.txt", true, {}}; });
@@ -283,7 +283,7 @@ void journeyBorrowRefusal() {
 
 
 struct CurrentDestination {
-    mmodern::XeenProgramState programState;
+    mmodern::XeenProgramState programState{mmodern::XeenWallClock::fixed(0)};
  XeenPartyState party;XeenCamera camera{23,9,11,XeenDirection::West};XeenGameFlags flags;
  unsigned maps=0,objects=0,events=0,monsters=0,preflights=0;
  std::function<XeenMap(XeenMapIdentity)> mapProvider=regional_test::map;
@@ -526,7 +526,7 @@ void genericRoundTrip(){
 // suspend for its reward, then Remove its cell. Publication checks must retain
 // the effective dispatch after deletion and across every presentation resume.
 void replacedOpcodePublication(){
-    mmodern::XeenProgramState programState;
+    mmodern::XeenProgramState programState{mmodern::XeenWallClock::fixed(0)};
  auto initial=currentSnapshot();initial.map(23).events={{0,0x2c}};
  auto source=regional_test::events(23);
  source.records.clear();
@@ -570,7 +570,7 @@ void replacedOpcodePublication(){
 // indoor AlterCellFlag, nonzero AlterEvent, Spawn, outdoor AlterCellFlag/AlterMap
 // and MoveObj (a move and a same-position flip).
 void mapEventRoundTrips(){
-    mmodern::XeenProgramState programState;
+    mmodern::XeenProgramState programState{mmodern::XeenWallClock::fixed(0)};
  for(unsigned operation=0;operation<10;++operation) {
   const bool outdoor=operation==7 || operation==8;
   const XeenMapIdentity active=outdoor?23:28,other=outdoor?28:23;
@@ -673,7 +673,7 @@ void mapEventRoundTrips(){
 // Remove only writes the (-128,-128) position (scripts.cpp cmdRemove), so a
 // later MoveObj on the same object shows it again; one position per record.
 void removeThenMoveRoundTrip(){
-    mmodern::XeenProgramState programState;
+    mmodern::XeenProgramState programState{mmodern::XeenWallClock::fixed(0)};
  const auto script=[](XeenMapIdentity id,std::vector<XeenEventRecord> records) {
   XeenEventFile file{id,"synthetic.evt",true,{}};
   for(auto &r:records){r.direction=4;file.records.push_back(r);}
@@ -745,7 +745,7 @@ void removeThenMoveRoundTrip(){
 }
 // M70 Part C: every travel form reaches the normal quiet capture boundary.
 void travelRoundTrips() {
-    mmodern::XeenProgramState programState;
+    mmodern::XeenProgramState programState{mmodern::XeenWallClock::fixed(0)};
  for(unsigned form=0;form<20;++form) {
   const bool lateRefused=form>=16,publishedPrefix=lateRefused && form%2;
   const bool refused=form>=12,continued=lateRefused || form%2;
@@ -858,7 +858,7 @@ void travelRoundTrips() {
 // mainland's detached candidate, then round-trip exactly through
 // v13 without replaying any Event, reward, time or draw.
 void valueRoundTrips(){
-    mmodern::XeenProgramState programState;
+    mmodern::XeenProgramState programState{mmodern::XeenWallClock::fixed(0)};
  for(unsigned operation=0;operation<8;++operation) {
   const XeenMapIdentity active=operation==5 || operation==7?23:28;
   auto initial=currentSnapshot();initial.camera={active,9,11,XeenDirection::North};

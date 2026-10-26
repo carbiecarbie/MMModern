@@ -95,7 +95,7 @@ namespace training_test {
 using namespace mmodern;
 using save_test::check;
 struct Inputs {
-    mmodern::XeenProgramState programState;
+    mmodern::XeenProgramState programState{mmodern::XeenWallClock::fixed(0)};
     XeenAssetSource assets;XeenMapLoader maps;XeenEventLoader events;XeenEventTextLoader texts;
     std::vector<std::uint8_t> chr,pty;std::vector<XeenMonsterRecord> statistics;
     XeenEventFile mainland,city;XeenLearnedSpellNames names;XeenFontFormat font;XeenSaveResourceSignature signature;
@@ -148,7 +148,7 @@ inline IndexedFrame frame(){IndexedFrame f;f.width=320;f.height=200;f.pixels.res
 // Clearly synthetic owner/date/XP fixtures restored through the canonical codec.
 // They are independent of the earned original-resource/process witness.
 struct Fixture {
-    mmodern::XeenProgramState programState;
+    mmodern::XeenProgramState programState{mmodern::XeenWallClock::fixed(0)};
     Inputs &in;XeenWorld w;XeenPartyState p;XeenCamera c;XeenGameFlags f;XeenEventSystem events;
     std::unique_ptr<XeenEventFlow> flow;std::uint64_t cycle=0,now=0;
     std::bitset<30> trained;

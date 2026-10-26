@@ -32,7 +32,7 @@ XeenPartyState party() {
 }
 XeenEventRecord npc(int line=0,int x=1,int y=1) { return record(x,y,line,5,{0,1,9,1,99}); }
 struct Fixture {
-    mmodern::XeenProgramState programState;
+    mmodern::XeenProgramState programState{mmodern::XeenWallClock::fixed(0)};
 	XeenPartyState members=party();
 	XeenCamera camera{1,1,1,XeenDirection::North};
 	XeenGameFlags flags;

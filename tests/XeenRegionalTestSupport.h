@@ -129,7 +129,7 @@ inline XeenSaveState::Resources resources(){
     return r;
 }
 struct Fixture{
-    mmodern::XeenProgramState programState;
+    mmodern::XeenProgramState programState{mmodern::XeenWallClock::fixed(0)};
     Bytes bytes=characterBytes();
     std::vector<XeenMonsterRecord> monsters=statistics();
     XeenEventFile event=events(23);

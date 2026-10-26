@@ -92,7 +92,7 @@ struct Inputs {
         setup.learnedNames=resources.loadLearnedSpellNames();
         setup.learnedNamesProvider=resources.loadLearnedSpellNames;
         setup.cityEventsProvider=[this] {return resources.loadEvents(28);};
-        XeenProgramState program;
+        XeenProgramState program{mmodern::XeenWallClock::fixed(0)};
         XeenEncounterFlow flow(program,world,party,camera,flags,[]{return 0;},setup);
         present(flow);
         return XeenSaveState::capture(resources.signature,party,camera,flags,world);
@@ -102,7 +102,7 @@ struct Inputs {
         XeenPartyState party; XeenCamera camera; XeenGameFlags flags;
         XeenSaveState::restoreBeforeGameplay(candidate,resources,party,camera,flags,world,
             [this](auto &w,const auto &p,const auto &c,const auto &) {preflight(w,p,c);});
-        XeenProgramState program;
+        XeenProgramState program{mmodern::XeenWallClock::fixed(0)};
         XeenEncounterFlow flow(program,world,party,camera,flags,[]{return 0;},XeenJourneyRestoreTag{});
         present(flow);
         return XeenSaveState::capture(resources.signature,party,camera,flags,world);

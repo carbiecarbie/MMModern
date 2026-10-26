@@ -516,7 +516,7 @@ void testSelectedFrameFailuresAndRecovery(const GameInstallation &installation) 
 }
 
 void testCombinedIndoorRemoveLifecycle(const GameInstallation &installation) {
-    mmodern::XeenProgramState programState;
+    mmodern::XeenProgramState programState{mmodern::XeenWallClock::fixed(0)};
 	const XeenObjectIdentity target{33,0};
 	const XeenObjectIdentity sibling{33,1};
 	const XeenCamera initialCamera{33,8,8,XeenDirection::North};
