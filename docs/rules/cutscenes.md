@@ -386,3 +386,26 @@ strip inside that wait. Thus the threshold is two ticks, but uninterrupted
 ending mouths advance the strip once per three-tick iteration. The helper
 publishes the composed frame before that wait. Speech-off in the DAT is not
 the hardware condition.
+
+The parade's flying offsets come from signed EXE bytes at DS `009c`/`00a4`,
+with the modulo-eight counter advanced on every redraw. Idle/attack frame
+holds reset the BIOS counter once per frame; the 15-tick attack and seven-tick
+power holds keep redrawing and rotating the sky until elapsed. The power hold
+draws attack frame **3** (`0x9c84`), after the three attack frames 0..2.
+The pin instead keeps attack frame 2. Room zooms and the 38 score downward
+steps are retrace-paced; the score pages keep the sky rotating while waiting
+for a fresh key. Their text is read from EXE DS `21db` and `2263` at run time.
+**DOS static, high; capture 253/255 s.** Both use window 28, set to
+`(63,60,191,100)` by `0xa353..0xa363` / `0x1d51f`. Its eight-pixel margin
+(CS `0222`, file `0x12962`) is applied by `0x19540..0x19583`: text starts
+at `(71,68)`, with a 175-pixel wrap width and inner bottom 152. Normal lines
+advance ten pixels (`0x18aa6..0x18ab9`). The resource controls select body
+color 23 (palette entry 128) and prompt color 33 (entry 189); both pages
+center the prompt at relative y 70, hence screen y 138 (`0x189ec..0x189ff`).
+The EXE rounds centered runs upward with `SHR/ADC` (`0x18810..0x18818`);
+the 71-pixel prompt starts at x 124.
+
+The complete-program timing test answers page one at capture-aligned 252.0 s
+and page two at 255.7 s. These are fixed test inputs, not claims about the
+recorded player's exact key-down timestamps. The final numeric field is
+formatted to ten characters from the outcome; title replay supplies 1234567890.

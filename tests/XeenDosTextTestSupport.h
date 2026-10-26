@@ -26,6 +26,7 @@ inline std::vector<std::uint8_t> fixture() {
   }
  }
  std::set<std::size_t> patches;
+ b[0xc33d]=0xc6;b[0xc33e]=0x46;b[0xc33f]=0xf3;b[0xc340]='V';
  for(unsigned i=0;i<XeenDosText::kOtherButtonKeyOffsets.size();++i) {
   const auto at=XeenDosText::kOtherButtonKeyOffsets[i];
   b[at-3]=0xc6;b[at-2]=0x46;b[at-1]=0xf0+i;b[at]='j'+i;

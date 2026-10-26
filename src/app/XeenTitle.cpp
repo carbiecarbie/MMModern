@@ -90,6 +90,7 @@ int Application::runTitle(const std::filesystem::path &gameDirectory,std::option
   const auto makeTitle=[&](XeenSoundOptions options=XeenSoundOptions{}) {
    auto services=XeenTitleFlow::original(assets,font,rows,path);services.soundOptions=options;
    services.cloudsContext=installation->hasXeen();
+   services.cloudsWon=_program.cloudsWon;
    services.cloudsIntroCheck=[&] {
     try {introData=XeenCutsceneData::installed(*installation);return std::string{};}
     catch(const std::exception &e){introData.reset();return std::string(e.what());}
@@ -110,18 +111,21 @@ int Application::runTitle(const std::filesystem::path &gameDirectory,std::option
     auto &audio=*_program.audio;const auto options=audio.soundOptions();
     const auto clock=[] {return SdlWindow::presentationNanoseconds();};
     audio.stopDigital(clock());audio.fadeSong(0,clock());audio.observeOptions({});
-    std::string notice="Clouds ending: not supported yet"; // C1 stops after the throne; C2 replaces this tail.
+    std::string notice;
+    bool resourcesLoaded=false;
     try {
      const auto data=XeenCutsceneData::installed(*installation);
      const auto captions=XeenCutsceneData::captions(assets.readArchiveResource(data.resources[XeenCutsceneData::Caption],XeenSceneArchive::CloudsEnding));
-     XeenCutsceneFlow ending(XeenCutscene::cloudsEnding(data,captions,_program.wallClock),
+     resourcesLoaded=true;
+     XeenCutsceneFlow ending(XeenCutscene::cloudsEnding(data,captions,_program.wallClock,entry.score),
       XeenCutsceneFlow::original(assets,font,audio,clock,data.digitalDevice>=2,XeenSceneArchive::CloudsEnding));
      if(!showCutscene(ending,assets,audio)){audio.mixer(95,clock());audio.observeOptions(options);return 0;}
     }catch(const std::exception &e) {
-     notice=e.what();const auto intro=notice.find("Clouds intro");if(intro!=std::string::npos)notice.replace(intro,12,"Clouds ending");
+     std::cerr<<"Clouds ending unavailable: "<<e.what()<<'\n';
+     notice=resourcesLoaded?"Clouds ending unavailable\nResource error (see log)":"Clouds ending unavailable\nCheck XEEN.EXE / XEEN.CFG";
     }
     audio.stopDigital(clock());audio.fadeSong(0,clock());audio.mixer(95,clock());audio.observeOptions(options);
-    title=makeTitle(options);title->cloudsEndingFailure(notice);
+    title=makeTitle(options);if(!notice.empty())title->cloudsEndingFailure(notice);
     _program.resetPlayTime();entry={};continue;
    }
    if(entry.kind==XeenSessionEntry::Kind::CloudsIntro) {

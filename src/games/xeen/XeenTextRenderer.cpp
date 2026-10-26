@@ -176,7 +176,7 @@ XeenTextRenderResult renderOriginal(const IndexedFrame &base, const std::string 
             }
             if(end<text.size() && text[end]==' ') width-=size==XeenFontSize::Reduced?4:5;
             if(alignment==XeenTextAlignment::Right) x=(x==o.bounds.left?o.bounds.right:x)-width-1;
-            else x=x==o.bounds.left?(o.bounds.left+o.bounds.right+1-width)/2:(x*2-width)/2;
+            else x=x==o.bounds.left?(o.bounds.left+o.bounds.right+1-width+int(o.exeCenterRounding))/2:(x*2-width+int(o.exeCenterRounding))/2;
         }
         while(i<text.size() && i<=end) {
             const unsigned char c=text[i++]&0x7f;

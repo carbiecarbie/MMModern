@@ -21,7 +21,7 @@ struct XeenCutscene {
  struct HorizontalMerge {std::string first,second;unsigned offset=0;};
  struct Rotate {std::string slot;unsigned columns=0;};
  struct Scroll {unsigned index;}; // Existing DAT geometry; EXE input is separate.
- struct Text {std::string value;int x=0,y=0;};
+ struct Text {std::string value;int x=0,y=0,left=0,top=0,right=320,bottom=200;};
  struct Level {unsigned value;};
  struct Prepare {std::string resource;};
  struct Audio {
@@ -52,12 +52,14 @@ struct XeenCutscene {
   unsigned panStride=0;std::vector<unsigned> starsOffsets,lakeOffsets,captionWidths;
   std::vector<std::uint64_t> captionAdvances;
   std::vector<unsigned> throneOffsets,kingMouths,captionRecords;
+  std::vector<unsigned> paradeSelectors,skyColumns,settledDigits;
+  std::vector<std::array<unsigned,10>> scoreFrames;
  };
  std::vector<Segment> segments;
  std::size_t closing=0;
  std::shared_ptr<Observations> observations=std::make_shared<Observations>();
  static XeenCutscene clouds(const XeenCutsceneData &,std::string caption);
- static XeenCutscene cloudsEnding(const XeenCutsceneData &,const XeenCutsceneData::Captions &,XeenWallClock);
+ static XeenCutscene cloudsEnding(const XeenCutsceneData &,const XeenCutsceneData::Captions &,XeenWallClock,std::uint32_t score);
  static bool elapsed(std::uint64_t captured,std::uint64_t current,unsigned count) {return current>=captured && current-captured>=count;}
  static unsigned stride(std::uint64_t measured);
 };

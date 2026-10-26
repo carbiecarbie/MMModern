@@ -259,9 +259,17 @@ if(BUILD_TESTING)
  add_test(NAME xeen_clouds_progression COMMAND mmodern_clouds_progression_tests "${MMODERN_XEEN_DATA_DIR}")
  set_tests_properties(xeen_clouds_progression PROPERTIES LABELS fast)
 
+ set(MMODERN_M92_TITLE_PRESET "${CMAKE_CURRENT_BINARY_DIR}/title-flow-preset/m92-sixth-mirror.mmsave")
+ file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/title-flow-preset")
 	foreach(preset m92-lord-xeen m92-sixth-mirror broken-armor train-ready injured-dead poisoned monster-control monster-damage party-healing m76-spells combat-items m79-playtest m80-playtest m80-arena m80-arena-maxed m81-drops m81-fullpacks m81-event m84-playtest-trap m84-playtest-label m84-playtest-save m85-playtest-label m85-playtest-run m85-playtest-trap m86-playtest-fall m86-playtest-moon-ray m86-playtest-border m87-inn m87-three m87-shangrila m88-roster m89-lord-xeen m89-clan-king m89-draco m89-dragons m89-trolls m90-newcastle m90-golem m90-illusion m90-high-magic m90-darzog m90-clouds m90-castle m90-winterkill paths)
-		add_test(NAME xeen_test_save_${preset} COMMAND mmodern_test_save_tests
-			"${MMODERN_XEEN_DATA_DIR}" ${preset} "${CMAKE_CURRENT_SOURCE_DIR}")
+  if(preset STREQUAL "m92-sixth-mirror")
+   add_test(NAME xeen_test_save_${preset} COMMAND mmodern_test_save_tests
+    "${MMODERN_XEEN_DATA_DIR}" ${preset} "${CMAKE_CURRENT_SOURCE_DIR}" --export "${MMODERN_M92_TITLE_PRESET}")
+   set_tests_properties(xeen_test_save_${preset} PROPERTIES FIXTURES_SETUP m92_title_preset)
+  else()
+   add_test(NAME xeen_test_save_${preset} COMMAND mmodern_test_save_tests
+    "${MMODERN_XEEN_DATA_DIR}" ${preset} "${CMAKE_CURRENT_SOURCE_DIR}")
+  endif()
 	endforeach()
 	add_executable(mmodern_equipment_purchase_rules_tests tests/XeenEquipmentPurchaseRulesTests.cpp)
 	target_link_libraries(mmodern_equipment_purchase_rules_tests PRIVATE mmodern_app mmodern_xeen)
@@ -723,12 +731,14 @@ if(BUILD_TESTING)
     add_executable(mmodern_title_flow_tests tests/XeenTitleFlowTests.cpp tests/XeenTitleApplicationControls.cpp)
     target_link_libraries(mmodern_title_flow_tests PRIVATE mmodern_app mmodern_xeen SDL2::SDL2)
     target_link_options(mmodern_title_flow_tests PRIVATE
+      "LINKER:--wrap,_ZN7mmodern16XeenCutsceneData9installedERKNS_16GameInstallationE"
       "LINKER:--wrap,_ZN7mmodern9SdlWindow23presentationNanosecondsEv"
       "LINKER:--wrap,_ZNK7mmodern11Application12playGameplayERKNS_20XeenGameplayServicesENS_10XeenCameraERKSt8optionalINSt10filesystem7__cxx114pathEEbNS_18XeenEncounterEntryES5_IjE"
       "LINKER:--wrap,_ZNK7mmodern9SdlWindow15showInteractiveERKNS_12IndexedFrameERKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEERKNS0_18FrameUpdateHandlerERKSt8functionIFbvEERKSF_IFSt8optionalIS1_EvEERKSF_IFS9_vEE"
       "LINKER:--wrap,_ZNK7mmodern16XeenTextRenderer6renderERKNS_12IndexedFrameERKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEERKNS_21XeenTextRenderOptionsE"
       "LINKER:--wrap,_ZN7mmodern12XeenSaveFile19createSlotDirectoryERKNS_16GameInstallationERKNSt10filesystem7__cxx114pathERKSt8optionalIS6_E")
-    add_test(NAME xeen_title_flow COMMAND mmodern_title_flow_tests "${MMODERN_XEEN_DATA_DIR}")
+    add_test(NAME xeen_title_flow COMMAND mmodern_title_flow_tests "${MMODERN_XEEN_DATA_DIR}" "${MMODERN_M92_TITLE_PRESET}")
+    set_tests_properties(xeen_title_flow PROPERTIES FIXTURES_REQUIRED m92_title_preset)
     set_tests_properties(xeen_title_flow PROPERTIES LABELS "fast")
     set_tests_properties(xeen_title_flow PROPERTIES ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_RENDER_DRIVER=software")
     target_link_libraries(mmodern_title_resource_tests PRIVATE mmodern_xeen)

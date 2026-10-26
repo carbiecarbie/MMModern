@@ -431,13 +431,16 @@ void preset(const GameInstallation &installation,const std::string &name,const f
 
 int main(int argc,char **argv) {
     try {
-        check(argc==4 || argc==5,"usage: test <installation> <preset|paths> <repository> [existing-save]");
+        check(argc==4 || argc==5 || (argc==6 && std::string(argv[4])=="--export"),"usage: test <installation> <preset|paths> <repository> [existing-save | --export build-save]");
         const auto installation=xeenTestInstallationDetector().detect(fs::u8path(argv[1]));
         check(bool(installation),"original installation missing");
         TemporaryDirectory directory;
         const std::string name=argv[2];
         if (name=="paths") paths(*installation,fs::u8path(argv[3]),directory.path);
         else preset(*installation,name,directory.path,argc==5?fs::u8path(argv[4]):fs::path{});
+        // The developer generator retains its repository guard. Export only the
+        // freshly generated and independently validated test fixture for CTest.
+        if(argc==6)fs::copy_file(directory.path/(name+".mmsave"),fs::u8path(argv[5]),fs::copy_options::overwrite_existing);
         std::cout<<"Test-save "<<name<<" passed\n";return 0;
     } catch (const std::exception &e) {std::cerr<<e.what()<<'\n';return 1;}
 }

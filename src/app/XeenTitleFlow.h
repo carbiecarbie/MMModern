@@ -26,6 +26,7 @@ public:
   std::string currentName;
   XeenSoundOptions soundOptions;
   bool cloudsContext=true; // DAT DS:0095: readable XEEN.CC in installed CD World.
+  bool cloudsWon=false;
   std::function<std::string()> cloudsIntroCheck;
   std::function<std::pair<std::uint32_t,std::uint32_t>()> clocks;
  };

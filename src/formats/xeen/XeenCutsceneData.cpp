@@ -63,6 +63,10 @@ XeenCutsceneData XeenCutsceneData::parse(const std::vector<std::uint8_t> &b,cons
  if(d.handPattern.find("%02u")!=4 || d.handPattern.find('%',5)!=std::string::npos ||
     d.marblePattern.find("%02u")!=4 || d.marblePattern.find('%',5)!=std::string::npos)bad();
  auto &e=d.ending;
+ for(unsigned i=0;i<8;++i){e.flyingX[i]=std::int8_t(b.at(0x1d91c+i));e.flyingY[i]=std::int8_t(b.at(0x1d924+i));}
+ e.initialFlying=b.at(0x1d92c);if(e.initialFlying>=8)bad();
+ e.scorePages[0]=token(b,0x1fa5b,0x1fae3);e.scorePages[1]=token(b,0x1fae3,0x1fc00);
+ for(const auto &page:e.scorePages)XeenDosText::validateControls(page);
  constexpr std::size_t endingOffsets[]{0x1f8d1,0x1f8e9,0x1f8f3,0x1f93b,0x1f92e,0x1f924,0x1f943,0x1f94d,0x1f957,
   0x1f964,0x1f96e,0x1f97a,0x1f984,0x1f990,0x1f999,0x1f9a2,0x1f9ad,0x1f9b8,0x1f9c3,0x1f9cd,0x1f9da,0x1f9e7,
   0x1f9f1,0x1f9fd,0x1fa09,0x1fa11,0x1fa1c};

@@ -81,7 +81,7 @@ void XeenCutsceneFlow::execute(const XeenCutscene::Frame &operations,bool deferA
    });
   }else if constexpr(std::is_same_v<T,C::Text>) {
    if(!_services.font)throw std::logic_error("Cutscene text needs a font");
-   XeenTextRenderOptions o;o.bounds={0,0,320,200};o.originalControls=true;o.startupColors=true;o.x=value.x;o.y=value.y;
+   XeenTextRenderOptions o;o.bounds={value.left,value.top,value.right,value.bottom};o.originalControls=true;o.startupColors=true;o.exeCenterRounding=true;o.x=value.x;o.y=value.y;
    auto rendered=XeenTextRenderer(*_services.font).render(_canvas,value.value,o);
    if(rendered.pages.size()!=1 || !rendered.diagnostics.empty())throw std::runtime_error("Cutscene text layout: "+(rendered.diagnostics.empty()?std::string("multiple pages"):rendered.diagnostics.front()));
    _canvas=std::move(rendered.pages.front());
@@ -187,9 +187,9 @@ std::optional<IndexedFrame> XeenCutsceneFlow::update() {
  if(_fadePending){_fadePending=false;_fade=true;_deadline=PresentationClock::retraceAfter(now);return {};}
  if(!_afterSent){for(const auto &a:_after)_services.audio(a,now);_afterSent=true;}
  c=context(now);
- if(s.input==XeenCutscene::Segment::Input::Keyboard && !_acknowledged)return {};
+ if(s.input==XeenCutscene::Segment::Input::Keyboard && !_acknowledged && s.frames)return {};
  if(waiting)return {};
- const bool ended=_terminal || (s.frames && _iteration+1>=s.frames) || (s.totalTicks && c.elapsed>=s.totalTicks) ||
+ const bool ended=_terminal || (s.input==XeenCutscene::Segment::Input::Keyboard && _acknowledged) || (s.frames && _iteration+1>=s.frames) || (s.totalTicks && c.elapsed>=s.totalTicks) ||
   (s.finished && s.finished(c)) || (s.untilDigitalIdle && !s.finished && !c.digitalBusy);
  if(ended) {
   if(!_terminal && !s.terminal.empty()){execute(s.terminal);_terminal=true;_acquired=false;_publicationReady=false;_input.reset();_deadline=PresentationClock::retraceAfter(now);return {};}
@@ -201,7 +201,7 @@ std::optional<std::uint64_t> XeenCutsceneFlow::nextPresentationDeadline() const 
  if(_done || _closed)return {};
  const auto now=_services.clock();if(!_acquired || _fade)return _deadline;
  const auto &s=_scene.segments[_segment];const auto c=context(now);
- if(s.input==XeenCutscene::Segment::Input::Keyboard && !_acknowledged && _keys.empty())return {};
+ if(s.input==XeenCutscene::Segment::Input::Keyboard && s.frames && !_acknowledged && _keys.empty())return {};
  if(!s.holdBeforeFlip && c.elapsed<_holdTicks && (!s.untilDigitalIdle || c.digitalBusy)) {
   auto end=PresentationClock::boundary(_reset+_holdTicks);
   if(s.untilDigitalIdle && _services.digitalDeadline)if(auto voice=_services.digitalDeadline(now))end=std::min(end,*voice);

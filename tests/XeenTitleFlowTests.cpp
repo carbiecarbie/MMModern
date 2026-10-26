@@ -12,7 +12,7 @@
 #include <memory>
 using namespace mmodern;
 using save_test::check;
-void titleApplicationControls(const char *);
+void titleApplicationControls(const char *,const char *);
 void titlePreview(const IndexedFrame &,const std::string &);
 namespace {
 using Screen=XeenTitleFlow::Screen;
@@ -275,7 +275,7 @@ void mappedHotkeys(const GameInstallation &installation,XeenAssetSource &assets,
 }
 }
 int main(int argc,char **argv){try {
- check(argc==2,"Title flow test requires original CD source");
+ check(argc==2 || argc==3,"Title flow test requires original CD source and optional ending preset");
  {
  const auto installation=XeenInstallationDetector().detect(argv[1]);check(bool(installation),"missing CD installation");
  XeenAssetSource assets(*installation,320,200);const XeenFontFormat font(assets.readArchiveResource("fnt",XeenSceneArchive::DarksideOnly));
@@ -347,6 +347,16 @@ int main(int argc,char **argv){try {
  }
  d.key('o');check(d.flow.screen()==Screen::Other,"Other Options");
  check(d.flow.inputContext(d.flow.frame().presentation()).dialog->hits.size()==2,"locked endings exposed buttons");
+ {
+  auto wonServices=services();wonServices.cloudsWon=true;Driver won(wonServices);
+  won.key(27);won.key('o');const auto dialog=won.flow.inputContext(won.flow.frame().presentation()).dialog;
+  check(dialog->hits.size()==3 && dialog->hits.back().top==103,"Won ending row visibility/position");
+  won.key('v');check(won.flow.entry() && won.flow.entry()->kind==XeenSessionEntry::Kind::CloudsEnding && won.flow.entry()->score==1234567890,"V fixed-score route");
+  wonServices.cloudsContext=false;Driver missingClouds(wonServices);missingClouds.key(27);missingClouds.key('o');
+  check(!missingClouds.flow.inputContext(missingClouds.flow.frame().presentation()).dialog->key('v'),"V without XEEN.CC");
+  auto prewinServices=services();Driver prewin(prewinServices);prewin.key(27);prewin.key('o');
+  check(!prewin.flow.inputContext(prewin.flow.frame().presentation()).dialog->key('v'),"V before win");
+ }
  d.key('d');check(d.flow.screen()==Screen::Notice,"deferred intro did not report refusal");d.key(27);d.key(27);
  {
   auto introServices=services();introServices.cloudsIntroCheck=[] {return std::string{};};Driver intro(introServices);
@@ -415,7 +425,7 @@ int main(int argc,char **argv){try {
  section("titleFlow");
  }
  cutsceneMouse();
- const auto nativeBegan=std::chrono::steady_clock::now();titleApplicationControls(argv[1]);
+ const auto nativeBegan=std::chrono::steady_clock::now();titleApplicationControls(argv[1],argc>2?argv[2]:nullptr);
  std::cerr<<"titleApplicationControls: "<<std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now()-nativeBegan).count()<<" ms\n";
  std::cout<<"Original title, four credits pages, chooser, New/Load, mouse/key/cancel and stale frames passed\n";return 0;
 }catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}

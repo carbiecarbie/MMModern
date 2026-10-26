@@ -30,6 +30,9 @@ struct XeenCutsceneData {
   std::array<std::uint8_t,6> castleFrames;
   std::array<std::int16_t,13> kingLeft,kingRight,kingY;
   std::array<std::int16_t,9> mirrorX,mirrorY;
+  std::array<std::int8_t,8> flyingX,flyingY;
+  unsigned initialFlying=0;
+  std::array<std::string,2> scorePages;
   std::array<std::uint8_t,42> stormFm{};
   // Tables indexed exactly as their EXE callers: destruction uses the next
   // vortex index, the other three use that incremented/wrapped index minus one.

@@ -104,6 +104,13 @@ Configure `MMODERN_XEEN_DATA_DIR` explicitly for required CD validation,
 `MMODERN_PROMUS_CAPTURES_DIR` for the six DOSBox music captures `xeen_promus`
 needs and, when needed, `MMODERN_XEEN_UI_DATA` for its installed UI module.
 
+The ending presentation test also provides a direct visual check of the two
+score pages, using the production segments and installed EXE text:
+`build-rel/mmodern_ending_presentation_tests <game-directory> <output-directory> --score-pages`.
+A key (including Escape) advances a page; clicks are ignored. It writes PPM
+snapshots to the output directory and changes no saves or settings.
+`--score-pictures` writes the same snapshots without opening a window.
+
 ## Developer test saves
 
 Build the opt-in tool with `cmake --build build-rel --target mmodern_test_save`.

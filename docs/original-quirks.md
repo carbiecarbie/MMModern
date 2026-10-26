@@ -1174,6 +1174,15 @@ unmodeled PAS output stage are recorded in [cutscene settings](rules/cutscenes.m
 
 ## Clouds ending presentation
 
+<a id="sv-clouds-ending-parade-power"></a>
+**The power hold uses a fourth attack sprite frame.** After three attack
+frames 0..2, DOS holds frame 2 for 15 BIOS ticks, starts a random power VOC,
+then draws frame 3 during the seven-tick power hold (`0x9b3e`, `0x9c84`).
+Both holds redraw the flying offsets and rotating sky until elapsed, rather
+than freezing the framebuffer. Location: `XeenCutscene::cloudsEnding` parade.
+**ScummVM:** the pin draws frame 2 during both holds; MMModern follows the
+calibrated EXE. Master not rechecked. [Presentation rules](rules/cutscenes.md#clouds-ending-presentation).
+
 <a id="sv-clouds-ending-input"></a>
 **Animation input never aborts the ending.** DOS's scene polls record keys
 without branching on Escape; its shared scroll jumps to its terminal image

@@ -435,6 +435,10 @@ XeenDosText::XeenDosText(const std::vector<std::uint8_t> &bytes) {
   other[i].key=bytes[at];
  }
  _buttons.emplace("OTHER",std::move(other));
+ // Won Clouds ending: the fourth stack entry, after the absent Darkside E.
+ if(bytes.at(0xc33d)!=0xc6 || bytes.at(0xc33e)!=0x46 || bytes.at(0xc33f)!=0xf3 || !bytes.at(0xc340))malformed("Other Options ending key script");
+ auto ending=_buttons.at("TITLE").at(2);ending.key=bytes.at(0xc340);
+ _buttons.emplace("OTHER_ENDING",std::vector<Button>{ending});
 }
 const std::vector<XeenDosText::Button> &XeenDosText::buttons(std::string_view name) const {
  const auto it=_buttons.find(std::string(name));if(it==_buttons.end())throw std::out_of_range("Unknown DOS button table");return it->second;

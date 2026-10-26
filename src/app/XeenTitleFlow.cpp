@@ -132,6 +132,9 @@ DialogInput XeenTitleFlow::dialog() const {
   const bool other=_screen==Screen::Other;const auto &buttons=_services.text.buttons(other?"OTHER":"TITLE");
   const char *resource=_services.text.scalar(other?"OTHER_BUTTONS":"TITLE_BUTTONS").data();
   for(unsigned i=0;i<buttons.size();++i)add(buttons[i],lower(buttons[i].key),resource,i*2);
+  if(other && _services.cloudsContext && _services.cloudsWon) {
+   const auto &b=_services.text.buttons("OTHER_ENDING").front();add(b,lower(b.key),resource,6);
+  }
  } else if(_screen==Screen::Panel) {
   for(unsigned key:{'g','o','b','r'})input.keys.push_back(key);
   for(const auto &button:_services.text.buttons("PANEL"))
@@ -159,8 +162,9 @@ void XeenTitleFlow::render(bool semantic) {
  const auto &dos=_services.text;const auto &font=_services.font;
  if(_screen==Screen::Menu || _screen==Screen::Other) {
   const bool other=_screen==Screen::Other;
-  const auto label=other?xeenDialogFormat(dos.scalar("OPTIONS_TEMPLATE"),{str(dos.scalar("WORLD_LABEL")),"67"}):str(dos.scalar("WORLD_MENU"));
-  frame=text(frame,font,label,{72,25,248,other?125:175},{80,33,240,other?117:167},true);
+  const auto label=other?xeenDialogFormat(dos.scalar("OPTIONS_TEMPLATE"),{str(dos.scalar("WORLD_LABEL")),_services.cloudsContext && _services.cloudsWon?"92":"67"}):str(dos.scalar("WORLD_MENU"));
+  const bool won=other && _services.cloudsContext && _services.cloudsWon;
+  frame=text(frame,font,label,{72,25,248,other?(won?150:125):175},{80,33,240,other?(won?142:117):167},true);
   for(const auto &hit:dialog().hits)if(hit.button){const auto &b=*hit.button;_services.draw(frame,b.resource,b.frame,b.x,b.y);}
  } else if(_screen==Screen::Panel) {
   // DOS window 23: code-segment arrays at 0x3dc2c/8c/ec, 0x3dd4c (80,28,176,140).
@@ -285,6 +289,9 @@ std::optional<IndexedFrame> XeenTitleFlow::handle(const PlayerAction &action,con
   setScreen(Screen::Menu);break;
  case Screen::Other:
   if(escape)setScreen(Screen::Menu);
+  else if(_services.cloudsWon && _services.cloudsContext && key==lower(_services.text.buttons("OTHER_ENDING").front().key)) {
+   XeenSessionEntry entry;entry.kind=XeenSessionEntry::Kind::CloudsEnding;entry.score=1234567890;_entry=std::move(entry);
+  }
   else if(const auto button=buttonIndex(_services.text,"OTHER",key)) {
    if(*button==1 && _services.cloudsContext && _services.cloudsIntroCheck) {
     const auto error=_services.cloudsIntroCheck();

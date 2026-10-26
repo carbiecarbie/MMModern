@@ -1,19 +1,23 @@
 #include "games/xeen/XeenCutscene.h"
 #include "games/xeen/XeenDialogView.h"
 #include <algorithm>
+#include <cstdio>
 namespace mmodern {
-XeenCutscene XeenCutscene::cloudsEnding(const XeenCutsceneData &data,const XeenCutsceneData::Captions &captions,XeenWallClock clock) {
+XeenCutscene XeenCutscene::cloudsEnding(const XeenCutsceneData &data,const XeenCutsceneData::Captions &captions,XeenWallClock clock,std::uint32_t score) {
  using E=XeenCutsceneData::Ending;using Reset=Segment::Reset;using Input=Segment::Input;
  auto d=std::make_shared<XeenCutsceneData>(data);const bool digital=data.digitalDevice>=2;
  auto random=std::make_shared<XeenPresentationRandom>(std::move(clock),d->ending.randomWords);
  struct State {
   unsigned vortex=1,offset=0,stride=1,cursor=0;
+  unsigned sky=0,flying=0;
+  std::array<unsigned,10> digits{};
   int people=117,crodo=320;
   bool laugh=false;
   std::uint64_t captionTick=0;
   std::string caption,strip;
  };
  auto state=std::make_shared<State>();XeenCutscene result;auto observed=result.observations;
+ state->flying=d->ending.initialFlying;
  const auto resource=[d](E::Resource r){return d->ending.resources[r];};
  const auto sprite=[resource](E::Resource r,unsigned frame=0,int x=0,int y=0,int scale=0,unsigned flags=0) {
   return Sprite{resource(r),frame,x,y,scale,flags};
@@ -144,7 +148,98 @@ XeenCutscene XeenCutscene::cloudsEnding(const XeenCutsceneData &data,const XeenC
   if(voice && !digital)rest.compose={};
  }
  fade("throne fade out",false);
- add("C1 return",{Audio{Audio::StopDigital},Audio{Audio::Mixer,{},95},Audio{Audio::FadeSong,{},0}},[](const Context &)->Frame{return {Level{0}};});
+ // Mirror room: the two horizontal pages initially contain the same RAW.
+ add("mirror room",{Palette{resource(E::MirrorPalette)},Raw{resource(E::MirrorRaw)},Store{"mirror0"},Store{"mirror1"}},[=](const Context &)->Frame {
+  return {sprite(E::Room),sprite(E::Room,1,160),Level{0}};
+ });
+ fade("mirror fade in",true);
+ auto &room=add("mirror room pan",{},[=](const Context &c)->Frame {
+  return {HorizontalMerge{"mirror0","mirror1",std::min(82u,c.iteration*state->stride)},sprite(E::Room),sprite(E::Room,1,160)};
+ },0,1);room.finished=[=](const Context &c){return (c.iteration+1)*state->stride>=83;};
+ add("mirror pan saved",{},[](const Context &)->Frame{return {Store{"mirror-room"}};});
+ auto &zoom=add("mirror zoom",{},[=](const Context &c)->Frame {
+  const auto n=8-c.iteration;const auto x=d->ending.mirrorX[n],y=d->ending.mirrorY[n];
+  return {Restore{"mirror-room"},sprite(E::Sky,0,x,y,n),sprite(E::MirrorBack,0,x,y,n),sprite(E::Mirror,0,x,y,n)};
+ },9);
+ (void)zoom;
+ add("mirror sky saved",{},[=](const Context &)->Frame{return {sprite(E::Sky),Store{"sky"}};});
+ const auto sky=[=]()->Frame {
+  const auto column=state->sky;state->sky=(column+1)%320;observed->skyColumns.push_back(column);
+  return {Rotate{"sky",column},sprite(E::MirrorBack)};
+ };
+ auto &entrance=add("mirror entrance",{},[=](const Context &c) {
+  auto f=sky();const auto offset=std::min(115u,c.iteration*4*state->stride);
+  f.push_back(sprite(E::Mirror));f.push_back(sprite(E::KingCrodo,0,int(offset)-115,200-int(offset),0,0x800));
+  f.push_back(sprite(E::KingCrodo,1,335-int(offset),200-int(offset),0,0x800));return f;
+ },0);
+ entrance.finished=[=](const Context &c){return (c.iteration+1)*4*state->stride>=115;};
+ const auto people=[=](Frame &f) {
+  f.push_back(sprite(E::Mirror));f.push_back(sprite(E::KingCrodo,0,0,85,0,0x800));f.push_back(sprite(E::KingCrodo,1,220,85,0,0x800));
+ };
+ add("parade entrance complete",{},[=](const Context &){auto f=sky();people(f);return f;});
+ for(unsigned actor=0;actor<d->ending.parade.size();++actor) {
+  const auto row=d->ending.parade[actor];const auto prefix="parade "+std::to_string(actor)+" ";
+  const auto compose=[=](bool attack,unsigned frame) {
+   auto f=sky();state->flying=(state->flying+1)%8;
+   const int x=31+(row.metadata[0]?d->ending.flyingX[state->flying]:0),y=10+(row.metadata[0]?d->ending.flyingY[state->flying]:0);
+   f.push_back(Sprite{attack?row.attack:row.idle,frame,x,y});people(f);return f;
+  };
+  const auto phase=[&](const std::string &name,bool attack,unsigned frame,unsigned ticks,Frame enter=Frame{}) ->Segment & {
+   auto &s=add(prefix+name,std::move(enter),[=](const Context &){return compose(attack,frame);},0);
+   s.totalTicks=ticks;s.reset=Reset::Entry;return s;
+  };
+  for(unsigned i=0;i<8;++i) {
+   Frame enter;if(!i)enter={Prepare{row.idle},Prepare{row.attack},Audio{Audio::StopDigital},Audio{Audio::RetainDigital,row.voice}};
+   auto &s=phase("idle "+std::to_string(i),false,i,1,std::move(enter));
+   if(!i)s.entering=[=](const Context &){observed->paradeSelectors.push_back(row.selector);};
+  }
+  for(unsigned i=0;i<3;++i)phase("attack "+std::to_string(i),true,i,1,i==2?Frame{Audio{Audio::Digital,row.voice}}:Frame{});
+  phase("attack hold",true,2,15);
+  auto &power=phase("power hold",true,3,7);
+  power.entering=[=](const Context &){state->offset=random->range(0,5);};
+  power.compose=[=](const Context &c){auto f=compose(true,3);if(!c.iteration){const auto name=d->ending.powers[state->offset];f.insert(f.begin(),{Audio{Audio::StopDigital},Audio{Audio::RetainDigital,name},Audio{Audio::Digital,name}});}return f;};
+ }
+ const auto scroll=[&](const char *name,bool close) {
+  auto &s=add(name,{Store{"scroll-base"}},[=](const Context &c)->Frame{return {Scroll{close?22-c.iteration:c.iteration}};},22,1);
+  s.input=Input::Scroll;s.holdBeforeFlip=true;s.terminal={Scroll{close?0u:22u}};
+ };
+ scroll("parade closing scroll",true);
+ add("score tableau",{},[=](const Context &){auto f=sky();f.push_back(sprite(E::Mirror));return f;});
+ scroll("score opening scroll",false);
+ const auto scoreFrame=[=](unsigned heading,int y,bool digits)->Frame {
+  auto f=sky();f.push_back(sprite(E::Mirror));f.push_back(sprite(E::EndText,heading));
+  if(digits)for(unsigned n=0;n<10;++n)f.push_back(sprite(E::EndText,state->digits[n],64+19*n,y));return f;
+ };
+ for(unsigned frame=0;frame<20;++frame) {
+  auto &heading=add(frame?"score heading "+std::to_string(frame):"score heading",{},[=](const Context &){return scoreFrame(frame,73,false);},0);
+  heading.reset=Reset::Entry;heading.totalTicks=1;
+ }
+ add("score random digits",{},[=](const Context &){for(auto &digit:state->digits)digit=random->range(20,29);
+  observed->scoreFrames.push_back(state->digits);return scoreFrame(19,73,true);
+ },30,2);
+ char formatted[11];std::snprintf(formatted,sizeof(formatted),"%010u",unsigned(score));const std::string finalScore=formatted;
+ add("score settling digits",{},[=](const Context &c) {
+  for(auto &digit:state->digits)digit=random->range(20,29);
+  for(unsigned n=9-c.iteration;n<10;++n)state->digits[n]=20+finalScore[n]-'0';
+  observed->settledDigits.push_back(9-c.iteration);observed->scoreFrames.push_back(state->digits);return scoreFrame(19,73,true);
+ },10,2);
+ add("score downward",{},[=](const Context &c){return scoreFrame(19,73+c.iteration,true);},38);
+ for(unsigned page=0;page<2;++page) {
+  auto &s=add("score page "+std::to_string(page+1),{},[=](const Context &){auto f=scoreFrame(19,110,true);
+   // EXE 0xa353/0x1d51f sets window 28; 0x19540 insets its eight-pixel margin.
+   f.push_back(Text{d->ending.scorePages[page],71,68,71,68,246,152});return f;
+  },0);s.input=Input::Keyboard;
+ }
+ scroll("score closing scroll",true);fade("score fade out",false);
+ add("last king",{},[=](const Context &){auto f=king();f.push_back(Level{0});return f;});
+ fade("last king fade in",true);
+ auto &last=add("king voice 4",{Audio{Audio::RetainDigital,resource(E::King4)},Audio{Audio::Digital,resource(E::King4)}},[=](const Context &c) {
+  auto f=king();const auto mouth=random->range(1,6);observed->kingMouths.push_back(mouth);if(mouth>1)f.push_back(sprite(E::King,mouth));caption(f,c);return f;
+ },0,3);
+ last.entering=[=](const Context &c){startCaption(10,captions.record(10,200),c);};last.finished=[=](const Context &c){return !c.digitalBusy && state->cursor==0;};
+ auto &pause=add("last king pause",{},[=](const Context &){return king();},1,1);pause.reset=Reset::AfterFlip;
+ scroll("ending closing scroll",true);
+ add("ending shutdown",{Audio{Audio::StopDigital},Audio{Audio::Mixer,{},95},Audio{Audio::FadeSong,{},0}},[](const Context &)->Frame{return {Level{0}};});
  result.closing=result.segments.size();return result;
 }
 }

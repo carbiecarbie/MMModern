@@ -18,6 +18,8 @@
 #include <cstring>
 #include <cstdlib>
 #include "TestTreeRemoval.h"
+#include "formats/xeen/XeenCutsceneData.h"
+#include <fstream>
 using namespace mmodern;
 namespace fs=std::filesystem;
 using save_test::check;
@@ -25,6 +27,9 @@ using save_test::check;
 #define SHOW_SYMBOL "_ZNK7mmodern9SdlWindow15showInteractiveERKNS_12IndexedFrameERKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEERKNS0_18FrameUpdateHandlerERKSt8functionIFbvEERKSF_IFSt8optionalIS1_EvEERKSF_IFS9_vEE"
 #define DIRECTORY_SYMBOL "_ZN7mmodern12XeenSaveFile19createSlotDirectoryERKNS_16GameInstallationERKNSt10filesystem7__cxx114pathERKSt8optionalIS6_E"
 #define TEXT_SYMBOL "_ZNK7mmodern16XeenTextRenderer6renderERKNS_12IndexedFrameERKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEERKNS_21XeenTextRenderOptionsE"
+#define DATA_SYMBOL "_ZN7mmodern16XeenCutsceneData9installedERKNS_16GameInstallationE"
+extern "C" XeenCutsceneData realEndingData(const GameInstallation &) asm("__real_" DATA_SYMBOL);
+extern "C" XeenCutsceneData wrappedEndingData(const GameInstallation &) asm("__wrap_" DATA_SYMBOL);
 extern "C" XeenTextRenderResult realTitleText(const XeenTextRenderer *,const IndexedFrame &,const std::string &,const XeenTextRenderOptions &) asm("__real_" TEXT_SYMBOL);
 extern "C" XeenTextRenderResult wrappedTitleText(const XeenTextRenderer *,const IndexedFrame &,const std::string &,const XeenTextRenderOptions &) asm("__wrap_" TEXT_SYMBOL);
 extern "C" int realTitlePlay(const Application *,const XeenGameplayServices &,XeenCamera,const std::optional<fs::path> &,bool,XeenEncounterEntry,std::optional<std::uint32_t>) asm("__real_" PLAY_SYMBOL);
@@ -52,6 +57,8 @@ struct State {
  bool panelMode=false,failPreflight=false,failWrite=false;
  bool retainedIdle=false;
  bool endingMode=false,endingReturned=false,endingNotice=false,endingPlayed=false;
+ bool endingReplay=false;unsigned endingExeFailure=0;
+ bool endingOriginal=false;
  bool introMode=false;unsigned introWindow=0,introStarts=0;std::uint64_t introNow=17000000,introSkip=0;
  std::uint32_t wallNow=0;
  std::optional<std::uint64_t> nameCursorNow;
@@ -119,7 +126,17 @@ void key(unsigned code,std::vector<SDL_Event> &pending) {
  SDL_Event event{};event.type=SDL_KEYDOWN;event.key.keysym.sym=code;event.key.keysym.scancode=SDL_GetScancodeFromKey(code);
  pending.push_back(event);event.type=SDL_KEYUP;pending.push_back(event);
 }
-extern "C" std::uint64_t wrappedTitleClock(){return state.nameCursorNow?*state.nameCursorNow:(state.introMode || (state.endingMode && state.endingReturned))?state.introNow:realTitleClock();}
+extern "C" std::uint64_t wrappedTitleClock(){return state.nameCursorNow?*state.nameCursorNow:(state.introMode || (state.endingMode && (state.endingReturned || state.endingReplay)))?state.introNow:realTitleClock();}
+extern "C" XeenCutsceneData wrappedEndingData(const GameInstallation &installation) {
+ if(!state.enabled || !state.endingMode || !state.endingExeFailure)return realEndingData(installation);
+ if(state.endingExeFailure==1) {
+  auto missing=installation;missing.uiModule->physicalPath=state.base/"missing-exe"/"XEEN.DAT";return realEndingData(missing);
+ }
+ std::ifstream file(installation.uiModule->physicalPath.parent_path()/"XEEN.EXE",std::ios::binary);
+ std::vector<std::uint8_t> exe((std::istreambuf_iterator<char>(file)),{});check(!exe.empty(),"EXE corruption fixture");exe.back()^=1;
+ auto in=installation.configuration->open();std::vector<std::uint8_t> cfg(in->size());check(in->read(cfg.data(),cfg.size())==cfg.size(),"CFG read");
+ return XeenCutsceneData::parse(exe,cfg);
+}
 void preview(const IndexedFrame &frame,const std::string &label) {
  const char *directory=std::getenv("MMODERN_TITLE_PREVIEW");if(!directory)return;
  auto *surface=SDL_CreateRGBSurfaceWithFormat(0,320,200,32,SDL_PIXELFORMAT_ARGB8888);check(surface,"title preview surface");
@@ -269,7 +286,7 @@ bool panelGameplay(const IndexedFrame &first,const SdlWindow::FrameUpdateHandler
 }
 extern "C" XeenTextRenderResult wrappedTitleText(const XeenTextRenderer *renderer,const IndexedFrame &base,
  const std::string &text,const XeenTextRenderOptions &options) {
- if(state.enabled && state.endingMode && text.find("Clouds ending: not supported yet")!=std::string::npos)state.endingNotice=true;
+ if(state.enabled && state.endingMode && text.find("Clouds ending unavailable")!=std::string::npos)state.endingNotice=true;
  if(state.enabled && state.panelMode && !state.notice.empty() && text==state.notice) {
   ++state.noticeAttempts;
   check(options.windowBounds.left==99 && options.windowBounds.top==59 && options.windowBounds.right==237 &&
@@ -286,6 +303,25 @@ extern "C" int wrappedTitlePlay(const Application *app,const XeenGameplayService
  const std::optional<fs::path> &target,bool resume,XeenEncounterEntry entry,std::optional<std::uint32_t> seed) {
  if(!state.enabled)return realTitlePlay(app,original,camera,target,resume,entry,seed);
  if(state.endingMode) {
+  check(!state.endingReplay,"V executed gameplay or the ending tail");
+  if(state.endingOriginal) {
+   auto services=original;services.clock=[] {return state.introNow/1000000;};services.presentationClock=[] {return state.introNow;};
+   services.compose=[](auto &,const auto &,const auto &,auto){return XeenEventFlow::Composition{IndexedFrame{320,200,std::vector<std::uint8_t>(64000)},false};};
+   services.composeEncounter=[](auto &,const auto &,const auto &,auto,auto){return XeenEventFlow::Composition{IndexedFrame{320,200,std::vector<std::uint8_t>(64000)},false};};
+   services.show=[&](auto visible,const auto &h,const auto &,const auto &idle,const auto &) {
+    const auto present=[&]{if(h.finished())return;h.framePresented(visible.presentation());h.completeInputHandoff(visible.presentation());};present();bool sent=false;
+    for(unsigned n=1;n<1000 && !h.finished();++n) {
+     state.introNow+=125000000;h.beginCycle(n);if(auto f=idle()){visible=*f;present();}if(h.finished())break;
+     const auto c=h.inputContext(visible.presentation());if(!c.readyForAction)continue;
+     std::optional<PlayerAction> a;if(!sent){sent=true;a=InteractionAction{};}else if(c.dialog && c.dialog->anyKey)a=AcknowledgeAction{};
+     if(a)if(auto f=h.withPresentedInput(*a,*h.displayedInput(),visible.presentation())){visible=*f;present();}
+    }
+    check(h.finished(),"Original Sixth Mirror did not finish");return true;
+   };
+   const auto result=realTitlePlay(app,services,camera,target,resume,entry,seed);
+   check(original.outcome && original.outcome->kind==XeenSessionOutcome::Kind::CloudsEnding,"Original mirror did not produce the presentation outcome");
+   state.endingReturned=true;return result;
+  }
   check(original.outcome,"Outer gameplay wrapper must retain the outcome sink");
   *original.outcome={XeenSessionOutcome::Kind::CloudsEnding,0,{},71001722};
   state.wallNow+=100;state.introNow=realTitleClock();state.endingReturned=true;return 0;
@@ -348,8 +384,19 @@ extern "C" bool wrappedTitleShow(const SdlWindow *window,const IndexedFrame &fir
  const std::function<std::string()> &status) {
  if(!state.enabled)return realTitleShow(window,first,label,handler,escape,idle,status);
  if(state.introMode)return introApplication(first,handler,idle);
+ if(state.endingMode && state.endingReplay && !state.endingReturned) {
+  IndexedFrame visible=first;unsigned cycles=0;
+  const auto present=[&]{handler.framePresented(visible.presentation());handler.completeInputHandoff(visible.presentation());};present();
+  const auto key=[&](unsigned k){
+   while(!handler.inputContext(visible.presentation()).readyForAction){check(++cycles<10000,"V title did not acquire input");
+    auto next=handler.nextPresentationDeadline();state.introNow=next?std::max(state.introNow,*next):state.introNow+17000000;handler.beginCycle(cycles);if(auto f=idle()){visible=*f;present();}}
+   const auto action=handler.inputContext(visible.presentation()).dialog->key(k);check(bool(action),"V not visible after won store");
+   if(auto f=handler.withPresentedInput(*action,1,visible.presentation())){visible=*f;present();}
+  };
+  key(27);key('o');key('v');state.endingReturned=true;return true;
+ }
  if(state.endingMode && state.endingReturned) {
-  if(!state.endingNotice) {
+  if(handler.cutsceneControlQuit) {
    check(handler.cutsceneControlQuit,"Clouds ending did not enable EXE Ctrl-Q");
    check(!state.endingPlayed,"Ending program repeated before the title notice");
    IndexedFrame visible=first;unsigned cycles=0;const auto began=state.introNow;
@@ -368,7 +415,7 @@ extern "C" bool wrappedTitleShow(const SdlWindow *window,const IndexedFrame &fir
    check(state.introNow-began>50000000000ULL,"Ending input bypassed stages 1 and 2");
    state.endingPlayed=true;return true;
   }
-  check(state.endingNotice,"CloudsEnding disappeared before the fresh title notice");
+  check(state.endingExeFailure?state.endingNotice:state.endingPlayed,"Ending did not reach the expected fresh title");
   check(!handler.cutsceneControlQuit,"Ending Ctrl-Q leaked into fresh DAT title");
   check(state.program->playTimeMark==state.wallNow,"Ending return did not reset the DAT play-time mark");
   IndexedFrame visible=first;
@@ -381,9 +428,10 @@ extern "C" bool wrappedTitleShow(const SdlWindow *window,const IndexedFrame &fir
    handler.beginCycle(cycle);
    if(auto next=idle()){visible=*next;present();}
   }
-  const auto input=handler.inputContext(visible.presentation());const auto action=input.dialog->key(InputKey::Enter);
-  check(bool(action),"Ending notice missing acknowledgement");
-  if(auto next=handler.withPresentedInput(*action,1,visible.presentation())){visible=*next;present();}
+  if(state.endingNotice) {
+   const auto action=handler.inputContext(visible.presentation()).dialog->key(InputKey::Enter);check(bool(action),"Ending notice missing acknowledgement");
+   if(auto next=handler.withPresentedInput(*action,1,visible.presentation())){visible=*next;present();}
+  }
   check(handler.inputContext(visible.presentation()).dialog->hits.empty(),"Ending must return to a fresh World title with its menu hidden");
   handler.closed();state.shown=true;return true;
  }
@@ -466,7 +514,7 @@ extern "C" bool wrappedTitleShow(const SdlWindow *window,const IndexedFrame &fir
  };
  return realTitleShow(window,first,label,native,escape,nativeIdle,status);
 }
-void titleApplicationControls(const char *game) {
+void titleApplicationControls(const char *game,const char *endingPreset) {
  state.enabled=true;
  state.base=fs::temp_directory_path()/("mmodern-m54-title-"+std::to_string(GetCurrentProcessId())+"-"+std::to_string(GetTickCount64()));
  fs::create_directory(state.base);
@@ -503,8 +551,33 @@ void titleApplicationControls(const char *game) {
   state.endingMode=true;state.endingReturned=state.endingNotice=state.endingPlayed=state.shown=false;
   state.loading=true;state.retainedIdle=false;state.templePrices=&endingProgram.templePrices;
   const auto result=developer?Application(endingProgram).loadGame(game,state.slot):Application(endingProgram).run(game);
-  check(result==0 && state.endingReturned && state.endingPlayed && state.endingNotice && state.shown,"CloudsEnding program/notice/title handoff for player and developer entries");
+  check(result==0 && state.endingReturned && state.endingPlayed && !state.endingNotice && state.shown,"CloudsEnding program/title handoff for player and developer entries");
   state.endingMode=false;
+ }
+ // V reads the won store, plays the same program, and leaves save/store bytes intact.
+ const auto readFile=[](const fs::path &p){std::ifstream f(p,std::ios::binary);return std::vector<std::uint8_t>((std::istreambuf_iterator<char>(f)),{});};
+ const auto settings=state.base/"ending-settings.ini";{std::ofstream f(settings);f<<"won=1\n";}
+ for(bool replay:{false,true})for(unsigned failure=0;failure<3;++failure) {
+  if(!replay && !failure)continue; // Both successful gameplay entry modes above.
+  XeenSaveFile::write(state.slot,XeenSaveFormat::decode(state.saved),{},true);const auto saved=readFile(state.slot),won=readFile(settings);
+  state.wallNow=10;XeenProgramState p{XeenWallClock([]{return state.wallNow;})};state.program=&p;
+  state.endingMode=true;state.endingReplay=replay;state.endingExeFailure=failure;state.endingReturned=state.endingNotice=state.endingPlayed=state.shown=false;
+  state.introNow=realTitleClock();state.loading=true;state.templePrices=&p.templePrices;
+  const auto result=replay?Application(p,{},settings).run(game):Application(p,{},settings).loadGame(game,state.slot);
+  check(result==0 && state.shown && state.endingNotice==bool(failure) && state.endingPlayed==!failure,"V/ending missing or different EXE path");
+  check(readFile(state.slot)==saved && readFile(settings)==won && p.cloudsWon,"V changed saved state, play time or won store");
+ }
+ state.endingMode=state.endingReplay=false;state.endingExeFailure=0;
+ if(endingPreset) {
+  // Explicit local witness, reusing the maintainer's v21 preset without writing it.
+  fs::copy_file(fs::path(endingPreset),state.slot,fs::copy_options::overwrite_existing);
+  state.wallNow=10;XeenProgramState p{XeenWallClock([]{return state.wallNow;})};state.program=&p;
+  state.endingMode=state.endingOriginal=true;state.endingReturned=state.endingNotice=state.endingPlayed=state.shown=false;
+  state.introNow=realTitleClock();state.templePrices=&p.templePrices;
+  const auto originalSettings=state.base/"original-ending-settings.ini";
+  check(Application(p,{},originalSettings).loadGame(game,state.slot)==0 && state.endingPlayed && state.shown && !state.endingNotice && p.cloudsWon,"Original preset to fresh World title");
+  check(XeenSaveFile::read(state.slot).journey->cloudsCompleted && xeenReadWon(originalSettings),"Original ending did not save the win");
+  state.endingMode=state.endingOriginal=false;
  }
  // The original Load controls remove slot 9 after validation. Our transport
  // control retains it; restore the same empty-slot setup for the New cases.
