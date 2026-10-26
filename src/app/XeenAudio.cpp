@@ -63,6 +63,10 @@ struct XeenAudio::Impl {
  std::shared_ptr<const XeenVocSample> digitalRequest;
  std::shared_ptr<const XeenVocSample> digitalVoice;
  std::uint64_t digitalPhase=0;
+ // Card mixer: main-thread register state, gains published per mix block.
+ XeenCardMixer card;bool mixerFlag=true;
+ std::mutex mixerMutex;bool mixerChanged=false;
+ std::array<float,6> mixerRequest=XeenCardMixer{}.gains(),mixerGains=mixerRequest;
  std::unique_ptr<SdlAudioStream> fmStream;
  std::unique_ptr<SdlAudioStream> cdStream;
  int mixRate=0;
@@ -86,6 +90,7 @@ struct XeenAudio::Impl {
    clockDriver=std::make_unique<PromusDriver>(resource,std::move(trace));
   }else if(id>=1 && id<=9)std::cerr<<"Music device "<<id<<": not supported yet\n";
   output->initialize(id==3?resource:PromusDriver::Bytes{});
+  startProgram();
   device=std::make_unique<SdlAudioDevice>([this](auto *out,auto frames,int rate){render(out,frames,rate);},deviceOutput,
    [this](int rate){return prepareRender(rate);},[this]{removed();});
   requiresDevice=deviceOutput;
@@ -150,6 +155,11 @@ struct XeenAudio::Impl {
   if(now>last)advanceClock(now);
   return time;
  }
+ void publishMixer() {
+  const auto gains=card.gains();
+  std::lock_guard<std::mutex> lock(mixerMutex);mixerRequest=gains;mixerChanged=true;
+ }
+ void startProgram() {card.initialize(mixerFlag);publishMixer();}
  void publishDigital(std::shared_ptr<const XeenVocSample> pcm) {
   std::shared_ptr<const XeenVocSample> retired;
   {
@@ -191,6 +201,10 @@ struct XeenAudio::Impl {
     if(digitalChanged){retired=std::move(digitalVoice);digitalVoice=std::move(digitalRequest);digitalChanged=false;digitalPhase=0;}
    }
    retired.reset(); // Release potentially large PCM only after unlocking.
+   {
+    std::lock_guard<std::mutex> lock(mixerMutex);
+    if(mixerChanged){mixerGains=mixerRequest;mixerChanged=false;}
+   }
    // Worker owners pin both old and new PCM; dropping a callback reference
    // here or at EOF cannot destroy the allocation.
    std::shared_ptr<const std::vector<std::int16_t>> retiredCd;
@@ -222,7 +236,7 @@ struct XeenAudio::Impl {
      }else digitalVoice.reset();
     }
     for(unsigned channel=0;channel<2;++channel)
-     out[f*2+channel]=mixXeenAudio(out[f*2+channel],digital,cd[f*2+channel]);
+     out[f*2+channel]=mixXeenAudio(out[f*2+channel],digital,cd[f*2+channel],mixerGains,channel);
    }
    offset+=count;
   }
@@ -277,6 +291,7 @@ std::shared_ptr<XeenAudio> XeenAudio::installed(const GameInstallation &installa
  if(!installation.configuration)throw std::runtime_error("Missing installed WORLD/XEEN.CFG");
  auto cfg=read(*installation.configuration);if(cfg.size()<6)throw std::runtime_error("Truncated WORLD/XEEN.CFG");
  const unsigned id=cfg[4]|unsigned(cfg[5])<<8;
+ const bool mixerFlag=cfg.size()>=0x16 && (cfg[0x14]|cfg[0x15]);
  const auto folder=installation.configuration->physicalPath.parent_path();
  // Retain a separate resource owner for program lifetime; never borrow a session.
  auto source=std::make_shared<XeenAssetSource>(installation);
@@ -290,7 +305,7 @@ std::shared_ptr<XeenAudio> XeenAudio::installed(const GameInstallation &installa
  };
  auto resource=id==3?bytes(loader("promus",XeenSceneArchive::IntroOnly)):PromusDriver::Bytes{};
  auto result=std::make_shared<XeenAudio>(id,resource,std::move(loader),read(*installation.uiModule),now,device);
- result->cdTracks(inspectXeenCdTracks(installation.cdTracks));return result;
+ result->cdTracks(inspectXeenCdTracks(installation.cdTracks));result->processMixer(mixerFlag);return result;
 }
 unsigned XeenAudio::deviceId() const{return _impl->id;}
 bool XeenAudio::outputActive() const{return _impl->device->active();}
@@ -306,7 +321,12 @@ void XeenAudio::fadeSong(unsigned command,std::uint64_t now) {
 void XeenAudio::mixer(unsigned level,std::uint64_t now) {
  if(level>255)throw std::invalid_argument("Invalid EXE music mixer level");
  advance(now);_impl->command(0x100,level);
+ // Only promus implements command 0x100; it rewrites FM register 0x26.
+ if(_impl->clockDriver){_impl->card.fm=_impl->clockDriver->mixerLevel();_impl->publishMixer();}
 }
+void XeenAudio::processMixer(bool flag) {_impl->mixerFlag=flag;_impl->card=XeenCardMixer{};_impl->startProgram();}
+void XeenAudio::startProgram(std::uint64_t now) {advance(now);_impl->startProgram();}
+std::array<float,6> XeenAudio::mixerGains() const {return _impl->card.gains();}
 XeenAudio::RetainedDigital XeenAudio::retainDigital(const std::string &name,XeenSceneArchive archive) {
  return {name,archive,std::make_shared<const XeenVocSample>(decodeXeenVoc(_impl->loader(name,archive)))};
 }

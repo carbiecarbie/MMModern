@@ -442,9 +442,10 @@ against the pin; master was not rechecked.
   an integer's sign. FX countdown skipping on music-due ticks agrees with DOS.
   Pin: differs; master not rechecked.
   [Details](original-quirks.md#sv-cd-fm-tick-fade)
-- **PAS card mixer (unmodelled).** The card-mixer command value is retained,
-  but its audible transfer function is not established by the OPL captures.
-  The pin uses its own software scaling. Pin: differs; master not rechecked.
+- **Sound Blaster mixer.** DOS lowers the FM music on the card mixer during
+  cutscene and entrance-scene speech (−20/−24 dB, restoring −16 dB) and sets
+  the DAC 24 dB down at each program start. The pin scales music by a linear
+  percentage with different values. Pin: differs; master not rechecked.
   [Details](original-quirks.md#sv-promus-pas-mixer)
 - **CD party audio options.** DOS saves four party options;
   New Clouds defaults to Efx/Music on, Text off and Speech on. Efx off gates

@@ -206,10 +206,6 @@ Order: 15 → 16 → 17 → 18 → 20; step 19 is independent. Step 16 may run
 alongside step 17's Part 0.
 
 Maintenance queued after M92 (maintainer, 2026-10-26):
-- **Voice volume.** Voices play quieter than in DOS throughout the game.
-  Rebalance the M83 gains against DOSBox and MMModern recordings of a few
-  easy-to-compare moments (Crodo, the king, Gunther, the smith, a combat
-  sound), and decide whether to model the EXE's mixer commands 75/95.
 - **Control panel keys.** Unrecognized keys close the DOS panel (switch
   default `0x1f2d7`); confirm in DOSBox, then reproduce.
 - **Sheet experience.** The total-experience helper uses the pin's level

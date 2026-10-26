@@ -86,12 +86,13 @@ void animation(unsigned action,bool keyed,training_test::Inputs *resources=nullp
         keyed?std::vector<std::string>{"sphinx10.voc","sphinx11.voc","sphinx12.voc"}:std::vector<std::string>{"sphinx13.voc","sphinx14.voc"};
     check(samples==speech,"Sample phase sequence");
     XeenCombatRandom actual(7),oracle(7);
-    std::map<P,unsigned> counts;std::vector<P> phases;
+    std::map<P,unsigned> counts;std::vector<P> phases;std::vector<std::pair<P,unsigned>> mixers;
     std::uint64_t now=0;unsigned frames=0;
     while(!value.finished() && frames<1000) {
         const auto command=value.advance(now,[&](unsigned lo,unsigned hi){return *actual.draw(lo,hi);});
         if(!command){now=value.deadline();continue;}
         ++frames;const auto &f=*command;
+        if(f.mixer){mixers.push_back({f.phase,*f.mixer});check(!f.iteration,"Mixer command repeated within a phase");}
         ++counts[f.phase];if(phases.empty() || phases.back()!=f.phase)phases.push_back(f.phase);
         if(f.phase==P::Zoom || f.phase==P::Retreat) {
             const unsigned size=action==8?14:action==9?12:action==10?13:9;
@@ -134,6 +135,11 @@ void animation(unsigned action,bool keyed,training_test::Inputs *resources=nullp
     if(!counts[P::EntryTail])complete.erase(std::remove(complete.begin(),complete.end(),P::EntryTail),complete.end());
     if(!keyed && action!=10)complete.push_back(P::Retreat);complete.push_back(P::Finish);
     check(phases==complete,"Scene phase order");
+    // DAT 0x29838/0x29984 Sphinx, 0x29e92/0x2a060/0x2a453 Golem, 0x2ab98/0x2afd2 Reaper, 0x2b4fd/0x2b702 Dwarf.
+    std::vector<std::pair<P,unsigned>> expectedMixers{{P::Speech,48}};
+    if(action==9)expectedMixers.insert(expectedMixers.begin(),{P::Slide,48});
+    expectedMixers.push_back({(action==9 || action==11) && !keyed?P::Retreat:P::Finish,95});
+    check(mixers==expectedMixers,"Entrance mixer sites");
     std::cout<<(resources?"VOC ":"fixed ")<<"action="<<action<<" keyed="<<keyed<<" frames="<<frames<<" speech="<<counts[P::Speech]<<" draws="<<actual.position()<<" elapsed_ns="<<now<<'\n';
 }
 XeenSaveSnapshot entranceSave(training_test::Inputs &in,const XeenCamera &camera,bool keyed,unsigned action) {

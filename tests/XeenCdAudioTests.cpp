@@ -431,7 +431,7 @@ int main(int argc,char **argv) {try {
    if(expected.empty())expected=output;else check(output==expected,"CD PCM depends on callback size");
    if(rate==44100) {
     const auto raw=decodeXeenCdCue(gunther);
-    for(unsigned i=0;i<output.size();++i)check(output[i]==int(raw[i])*55/160,"CD gain was omitted or applied twice");
+    for(unsigned i=0;i<output.size();++i)check(std::abs(output[i]*3-int(raw[i]))<=3,"CD gain was omitted or applied twice");
    }
    mixer.stopCd(0);mixer.render(output.data(),4096,rate);
    check(std::all_of(output.begin(),output.end(),[](auto s){return s==0;}),"CD stop retained resampler tail");
@@ -460,7 +460,7 @@ int main(int argc,char **argv) {try {
     }
     f+=n;
    }
-   if(largestStep>=250 || peak<5490 || peak>5520)throw std::runtime_error("CD rate="+std::to_string(rate)+" step="+std::to_string(largestStep)+" peak="+std::to_string(peak));
+   if(largestStep>=250 || peak<5320 || peak>5345)throw std::runtime_error("CD rate="+std::to_string(rate)+" step="+std::to_string(largestStep)+" peak="+std::to_string(peak));
   }
  }
  // Every source reaches the real mixer exactly once, including the simultaneous
@@ -477,7 +477,8 @@ int main(int argc,char **argv) {try {
   mix.enterTitle(0);baseline.enterTitle(0);mix.cdTracks(extents);mix.retainCdCue({19,370,2161});mix.startCd(0);decoded(mix);
   mix.startDigital("constant.voc",XeenSceneArchive::Clouds,0);mix.prepareRender(44100);baseline.prepareRender(44100);
   std::vector<std::int16_t> actual(20000),music(20000);mix.render(actual.data(),10000,44100);baseline.render(music.data(),10000,44100);
-  for(unsigned i=0;i<actual.size();++i)check(actual[i]==music[i]+609+11263 && std::abs(int(actual[i]))<=28262,"Simultaneous sources clipped or gained twice");
+  const auto added=std::lrint(32512*mix.mixerGains()[2]+10922);
+  for(unsigned i=0;i<actual.size();++i)check(actual[i]==music[i]+added && std::abs(int(actual[i]))<=28000,"Simultaneous sources clipped or gained twice");
  }
  std::cout<<"CD mapping, decoding, lifecycle and callback tests passed\n";return 0;
 }catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}

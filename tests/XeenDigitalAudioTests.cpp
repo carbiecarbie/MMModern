@@ -142,8 +142,27 @@ int main(int argc,char **argv) {try {
  std::cout<<"Worst 48 kHz FM effect latency: "<<worstLatencyFrames<<" frames, "<<worstLatencyFrames/48.0<<" ms\n";
  // Approximately 30 ms, allowing PIT phase and the effect's initial attack.
  check(worstLatencyFrames<=1584,"FM effect exceeded M82's approximately 30 ms latency bound (33 ms guard)");
- check(mixXeenAudio(int(32767*kXeenFmGain),32767,int(32767*kXeenCdGain))==28260 && mixXeenAudio(-16384,-32768,-11264)==-28262,"All-source nominal headroom changed");
- check(kXeenFmGain==0.5f && kXeenCdGain==0.34375f && mixXeenAudio(0,16000,0)==300,"Fixed gain per source differs");
+ {
+  // Card mixer as DOSBox Staging's SB16 applies the promus registers.
+  const auto db=[](float g){return 20*std::log10(g);};
+  const auto near=[&](std::uint8_t reg,float expected){return std::abs(db(XeenCardMixer::level(reg,0))-expected)<0.001f && XeenCardMixer::level(reg,0)==XeenCardMixer::level(reg,1);};
+  check(near(0xff,0) && near(0x99,-24) && near(0xaa,-20) && near(0xbb,-16) && near(0x55,-40) && near(0x11,-55),"SB16 mixer level mapping differs");
+  check(std::abs(db(XeenCardMixer::level(0x9f,1))-0)<0.001f && std::abs(db(XeenCardMixer::level(0x9f,0))+24)<0.001f,"Mixer nibbles are not left/right");
+  PromusDriver promus(driver);
+  for(auto [argument,reg]:std::vector<std::pair<unsigned,unsigned>>{{48,0x99},{75,0xaa},{95,0xbb},{255,0x55},{0x90,0xff}}) {
+   promus.command(0x100,argument);check(promus.mixerLevel()==reg,"Promus command 0x100 register byte differs");
+  }
+  XeenCardMixer reset,on,off;on.initialize(true);off.initialize(false);
+  check(reset.dac==0xff && on.dac==0x99 && on.fm==0xff && on.master==0xff && off.dac==0xff,"Driver-init mixer writes differ");
+  off.fm=0xbb;off.initialize(false);on.fm=0xbb;on.initialize(true);
+  check(off.fm==0xbb && on.fm==0xff,"Init without its flag rewrote the mixer, or with it kept the old FM level");
+  const auto g=on.gains();
+  // M83 DOSBox source ratios: VOC/FM 0.0407, CD/FM about 0.69, tolerance 1.5 dB.
+  check(g[0]==1 && std::abs(db(g[2]/kXeenFmGain/0.0407f))<1.5f && std::abs(db(kXeenCdGain/kXeenFmGain/0.69f))<1.5f,"Init balance left the M83 tolerance");
+  check(kXeenFmGain==0.5f && mixXeenAudio(0,16000,0,g,0)==int(std::lrint(16000*g[2])) && mixXeenAudio(-20000,0,0,g,1)==-20000,"Fixed gain per source differs");
+  const auto coherent=mixXeenAudio(int(32767*kXeenFmGain),32767,int(32767*kXeenCdGain),g,0);
+  check(coherent>27900 && coherent<28100 && mixXeenAudio(-32768,-32768,-32768,XeenCardMixer{}.gains(),0)==-32768,"All-source nominal headroom changed");
+ }
  {
   auto fm=std::make_shared<XeenFmSource>();XeenAudio audio(3,driver,loader,module,0,false,{},fm);
   audio.enterTitle(0);audio.requestInn(0);audio.advance(PromusDriver::clockBoundary(200));
@@ -160,6 +179,16 @@ int main(int argc,char **argv) {try {
   XeenFmSource raw;raw.initialize(driver);raw.load(std::make_shared<const Bytes>(loader("newbrigh.m",XeenSceneArchive::DarksideOnly)),true);
   std::vector<std::int16_t> actual(8192),expected(8192);raw.pull(expected.data(),4096);render(audio,actual,73,49716);
   for(unsigned i=0;i<actual.size();++i)check(actual[i]==expected[i]/2,"FM gain was omitted or applied twice");
+  // Command 0x100 scales FM from the next mix block; a program start restores the init levels.
+  audio.mixer(95,0);const auto lowered=audio.mixerGains();check(std::abs(lowered[0]-std::pow(10.0f,-0.8f))<1e-6f && lowered[2]==audio.mixerGains()[3],"Mixer 95 is not FM -16 dB");
+  raw.pull(expected.data(),4096);render(audio,actual,73,49716);
+  for(unsigned i=0;i<actual.size();++i)check(actual[i]==std::lrint(float(expected[i]/2)*lowered[0]),"FM mixer gain not applied at the mix");
+  audio.mixer(75,0);check(std::abs(audio.mixerGains()[1]-0.1f)<1e-6f,"Mixer 75 is not FM -20 dB");
+  audio.startProgram(0);check(audio.mixerGains()[0]==1 && std::abs(audio.mixerGains()[2]-std::pow(10.0f,-1.2f)*kXeenSourceGain)<1e-7f,"Program start did not rewrite init levels");
+  audio.processMixer(false);check(audio.mixerGains()[0]==1 && audio.mixerGains()[2]==kXeenSourceGain,"CFG flag 0 must keep the SB16 reset levels");
+  audio.mixer(95,0);audio.startProgram(0);check(audio.mixerGains()[0]<0.2f,"Init without its flag rewrote FM");
+  XeenAudio silent(0,{},loader,module,0,false);const auto before=silent.mixerGains();silent.mixer(75,0);
+  check(silent.mixerGains()==before && before[2]<0.03f,"Only promus implements command 0x100; every driver init writes the mixer");
  }
  // VOC's rational phase survives every live output rate and callback size.
  for(unsigned block:{1,73,512,2049}) {
@@ -170,7 +199,7 @@ int main(int argc,char **argv) {try {
     const auto n=std::min(block,1987-f);std::vector<std::int16_t> pcm(n*2);audio.render(pcm.data(),n,rate);
     for(unsigned i=0;i<n;++i) {
      const auto index=std::uint64_t(seconds*1000000/68+1e-8L);
-     const auto expected=int((index%16)*7*256)*3/160;
+     const auto expected=std::lrint(int((index%16)*7*256)*audio.mixerGains()[2]);
      check(pcm[i*2]==expected && pcm[i*2+1]==expected,"VOC cursor jumped on rate change");seconds+=1.0L/rate;
     }
     f+=n;
@@ -235,23 +264,24 @@ int main(int argc,char **argv) {try {
   render(music,baseline,257,rate);render(mix,actual,block,rate);
   const auto end=(512ULL*68*rate+999999)/1000000;
   for(std::size_t f=0;f<actual.size()/2;++f)for(unsigned c=0;c<2;++c)
-   check(actual[2*f+c]==std::clamp(int(baseline[2*f+c])+(f<end?153:0),-32768,32767),"FM/VOC sum, resampled length or callback partition differs");
+   check(actual[2*f+c]==std::clamp(int(baseline[2*f+c])+(f<end?int(std::lrint(8192*mix.mixerGains()[2])):0),-32768,32767),"FM/VOC sum, resampled length or callback partition differs");
  }
  for(bool disabled:{false,true}) {
   auto fm=std::make_shared<XeenFmSource>();
   XeenAudio audio(disabled?3:0,disabled?driver:PromusDriver::Bytes{},loader,module,0,false,{},fm);
   if(disabled){audio.enterTitle(0);audio.toggleMusic(false,0);}
   // The loader returns temporary bytes; requests must keep their own PCM.
+  const int voc8192=int(std::lrint(8192*audio.mixerGains()[2]));
   audio.startDigital("a.voc",archive,0);
-  std::vector<std::int16_t> pcm(34);pull(audio,pcm.data(),17,48000);constant(pcm,153);
-  audio.startDigital("b.voc",archive,0);pull(audio,pcm.data(),17,48000);constant(pcm,-153);
+  std::vector<std::int16_t> pcm(34);pull(audio,pcm.data(),17,48000);constant(pcm,voc8192);
+  audio.startDigital("b.voc",archive,0);pull(audio,pcm.data(),17,48000);constant(pcm,-voc8192);
   audio.stopDigital(0);pull(audio,pcm.data(),17,48000);constant(pcm,0);
   audio.startDigital("a.voc",archive,0);
   auto options=XeenSoundOptions{};options.efx=false;audio.observeOptions(options);audio.stopDigital(0);
-  pull(audio,pcm.data(),17,48000);constant(pcm,153);
+  pull(audio,pcm.data(),17,48000);constant(pcm,voc8192);
   options.efx=true;audio.observeOptions(options);
   audio.startDigital("long.voc",archive,0);audio.startDigital("b.voc",archive,0);
-  pull(audio,pcm.data(),17,48000);constant(pcm,-153); // No queued old start.
+  pull(audio,pcm.data(),17,48000);constant(pcm,-voc8192); // No queued old start.
   audio.startDigital("a.voc",archive,0);audio.stopDigital(0);
   pull(audio,pcm.data(),17,48000);constant(pcm,0);
  }
@@ -279,12 +309,12 @@ int main(int argc,char **argv) {try {
   auto cleanFm=std::make_shared<XeenFmSource>();XeenAudio clean(3,driver,loader,module,0,false,{},cleanFm);clean.enterTitle(0);
   render(clean,base,10000,48000);pull(audio,actual.data(),10000,48000);
   check(changed,"Mid-callback command never published");
-  check(actual[0]==std::clamp(int(base[0])+609,-32768,32767),"Voice missing before mid-callback command");
+  check(actual[0]==std::clamp(int(base[0])+int(std::lrint(32512*audio.mixerGains()[2])),-32768,32767),"Voice missing before mid-callback command");
   check(actual.back()==base.back(),"Old digital tail survived mid-callback command");
   if(!stop) {
    unsigned replacementFrames=0;
    for(std::size_t f=0;f<actual.size()/2;++f)
-    replacementFrames+=actual[2*f]==std::clamp(int(base[2*f])-153,-32768,32767);
+    replacementFrames+=actual[2*f]==std::clamp(int(base[2*f])-int(std::lrint(8192*audio.mixerGains()[2])),-32768,32767);
    check(replacementFrames==(32*68*48000+999999)/1000000,"Mid-callback replacement length differs");
   }
  }
@@ -298,7 +328,7 @@ int main(int argc,char **argv) {try {
   auto baselineFm=std::make_shared<XeenFmSource>();XeenAudio baseline(3,driver,loader,module,0,false,{},baselineFm);
   baseline.enterTitle(0);baseline.requestInn(0);baseline.advance(PromusDriver::clockBoundary(200));
   std::vector<std::int16_t> pcm(2),base(4);pull(baseline,base.data(),2,48000);pull(audio,pcm.data(),1,48000);
-  check(pcm[0]==std::clamp(int(base[0])+609,-32768,32767),"FM fade barrier delayed digital start");
+  check(pcm[0]==std::clamp(int(base[0])+int(std::lrint(32512*audio.mixerGains()[2])),-32768,32767),"FM fade barrier delayed digital start");
   audio.stopDigital(PromusDriver::clockBoundary(200));pull(audio,pcm.data(),1,48000);
   check(pcm[0]==base[2],"FM fade barrier delayed digital stop");
  }

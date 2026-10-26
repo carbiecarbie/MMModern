@@ -7,6 +7,7 @@
 #include "formats/xeen/XeenSpriteDrawOptions.h"
 #include <string>
 #include <optional>
+#include <array>
 namespace mmodern {
 class XeenAssetSource;class XeenFmSource;struct XeenMapGeometry;
 struct XeenVocSample;
@@ -27,6 +28,12 @@ public:
  // EXE presentation commands; a fade does not queue or reload a song.
  void fadeSong(unsigned command,std::uint64_t now);
  void mixer(unsigned level,std::uint64_t now);
+ // Card mixer, docs/rules/audio.md. A fresh process starts at the SB16 reset
+ // levels and runs one program start with the installed XEEN.CFG +0x14 flag.
+ void processMixer(bool initFlag);
+ // EXE or DAT start: its music driver init rewrites the mixer from that flag.
+ void startProgram(std::uint64_t now);
+ std::array<float,6> mixerGains() const;
  using DigitalSample=std::shared_ptr<const XeenVocSample>;
  struct RetainedDigital {std::string name;XeenSceneArchive archive;DigitalSample sample;};
  RetainedDigital retainDigital(const std::string &,XeenSceneArchive);

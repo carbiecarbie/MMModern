@@ -99,15 +99,15 @@ interrupt handler `0x693`. Values below are decimal unless prefixed `0x`.
 | 1 | Restart the loaded song at offset 0; clear music countdown, return stack and fade speed. |
 | 2..255 | Set fade speed to this byte and remaining fade steps to 63, even if music is not playing. Preserve the fade phase byte. |
 | `0xffe0` | Return fade speed; zero means no fade remains, not necessarily no music. |
-| `0x100` | Set the hardware mixer level from the next argument; write mixer register `0x26` through base+4/+5. This is separate from per-voice OPL attenuation. |
+| `0x100` | Set the card mixer's FM level from the next argument: Sound Blaster mixer register `0x26` through base+4/+5. This is separate from per-voice OPL attenuation. |
 | Other values above 255 | Treat the value as the new song segment and restart at offset 0. |
 
 For command `0x100`, let h be `((argument & 0xf0) + 0x60) mod 256`;
 the mixer byte is `h + (h >> 4)` (`0x40f..0x438`). Init's nonzero mixer
 flag (installed XEEN.CFG word +`0x14` = 1) writes mixer registers
-`0x2e/0x22/0x26` to 255 and register `0x04` to 153 (`0x23c..0x265`).
-MMModern does not model these card-mixer writes; `PromusDriver` only retains
-the command `0x100` byte ([quirk](../original-quirks.md#sv-promus-pas-mixer)).
+`0x2e/0x22/0x26` to 255 and register `0x04` to 153 (`0x23c..0x265`). These
+are Sound Blaster Pro mixer registers; [the card mixer](#card-mixer) gives the
+ports, every site and the levels MMModern applies.
 
 There are nine logical two-operator voices, each backed by one channel in
 **each** OPL bank: music uses 0..6, effects use 7/8. Notes write both banks;
@@ -257,13 +257,13 @@ stream state are sufficient to compute it without consulting real output.
 occur. The four input instructions are reads of PIT port `0x40`, at
 `0x4d8`, `0x4e3`, `0x4f3`, `0x4fe`. Their values are discarded: fixed loops
 perform three reads between address/data and twenty after data as delays.
-Initialization and command `0x100` also write card mixer ports base+4/+5;
-the interrupt tail writes PIC EOI. None branches on OPL status.
+Initialization and command `0x100` also write the Sound Blaster mixer ports
+base+4/+5; the interrupt tail writes PIC EOI. None branches on OPL status.
 
 Pinned Nuked supports NEW, both banks, two-operator channels and stereo;
 its `OPL::writeReg` uses `OPL3_WriteRegBuffered`. It remains the selected
-emulator for those concrete capabilities. **Not established by static
-analysis:** the card mixer path.
+emulator for those concrete capabilities. The card mixer is a separate
+stage after the chip ([card mixer](#card-mixer)).
 
 **Write spacing, inferred from the I/O count, high; interval reference
 only.** The delay loops above (DOS static, high) make every register write
@@ -480,9 +480,9 @@ emulate by unchecked reads.
 
 The decoded driver `0x3b..0x36b` makes no mixer-level write. Its IRQ writes
 the mixer register selector `0x82` and then **reads** base+5
-(`0x26b..0x27b`); this is status handling, not a volume setting. The
-`promus` mixer writes remain those documented above; neither establishes
-the audible FM/VOC/CD balance in the installed DOSBox.
+(`0x26b..0x27b`); this is status handling, not a volume setting. Register
+`0x82` is the SB16 interrupt status, read through the same Sound Blaster
+mixer ports that the music drivers write ([card mixer](#card-mixer)).
 
 The Sphinx call passes the loaded segment directly (`0x29775..0x29785`,
 `0x2989d..0x298b0`). DAT's resource loader reads the CC member into the
@@ -555,6 +555,79 @@ outside the repository in `D:/Projetos/MModern/MModern-re/audio-m83/`; `findings
 the final evidence, decisions and remaining measurement limits. No original bytes or code are
 included here.
 
+## Card mixer
+
+**DOS static, high, 2026-10-26.** The music-init port argument is the CFG
+music port (`0x220` installed): DAT `0xdf25` passes CFG +6 and the flag at CFG
++`0x14`, EXE `0x11c0c` does the same from its CFG copy at DS `0x427e`. Ports
+base+4/+5 are the Sound Blaster Pro mixer index and data ports, and
+`0x2e/0x22/0x26/0x04` are its line, master, FM and voice (DAC) registers; they
+are not PAS registers. Every INTRO music driver, `nullmus` included, has the
+same init writes; only `promus` implements command `0x100`. Each program runs
+driver init once: EXE `0x79f1` → `0x11b8b`, DAT `0xb646` → `0xdef9`. Promus
+shutdown writes no mixer register. Every EXE start (intro, ending) and every
+fresh DAT (startup, the title after an intro or the ending) therefore
+rewrites the init levels when the flag is set, and writes nothing when it is
+zero.
+
+Command `0x100` wrappers (EXE `0x11b24`, DAT `0xde8b`) test only that the
+music driver is loaded, not the party Music or Efx switch:
+
+| Program | Sites and arguments | Moment |
+| --- | --- | --- |
+| EXE, Clouds intro | `0x8481` 75; `0x88c2` 95 | After the opening scroll; natural completion only (Escape enters cleanup at `0x88ca`) |
+| EXE, Clouds ending | `0x8e42` 75; `0x8f91` 95 | Before Alamar's first voice; as he vanishes |
+| EXE, Darkside/World | `0xac2b` 95, `0xaf13` 48, `0xce83` 95, `0xe318` 95, `0xe51f` 48, `0xec94` 95, `0xfa63` 95 | Not yet implemented presentations |
+| DAT, Sphinx `0x2968b` | `0x29838` 48; `0x29984` 95 | After the zoom; after the speech, before the retreat |
+| DAT, Golem `0x29ab6` | `0x29e92` 48 (Clouds side byte only); `0x2a060` 48; `0x2a453` 95 | Before the slide and ogre growl; before the speech; after it, before the retreat |
+| DAT, Reaper `0x2a66a` | `0x2ab98` 48; `0x2afd2` 95 | After the slide; at the end, after any retreat |
+| DAT, Dwarf `0x2b052` | `0x2b4fd` 48; `0x2b702` 95 | After the rise; at the end |
+
+Nothing writes CD register `0x28`, and neither program sends MSCDEX audio
+channel control: its IOCTL output blocks are one byte with codes 0, 2 or 5
+(DAT `0x3d39c`, `0x3d712`, `0x3d90f`, `0x3d8da`, `0x3d94b`; EXE `0x11e75`,
+`0x122e6`, `0x122fd`, `0x1247b`, `0x124cf`). CD speech stays at the reset
+level.
+
+**DOSBox-referenced mapping.** The listening reference applies these writes
+on its SB16 ([soundblaster.cpp](https://github.com/dosbox-staging/dosbox-staging/blob/7b40053b7ac580843d0461eba8c36a47a990e66c/src/hardware/audio/soundblaster.cpp#L2400)):
+each nibble n becomes (n << 1) | 1 (high nibble left); `calc_vol`
+attenuates 2 dB per step below 31, one dB less beyond twenty steps; master
+multiplies DAC, OPL and CD audio; line-in `0x2e` is stored but not applied.
+
+| Byte | Origin | Level |
+| --- | --- | --- |
+| 255 | Init master and FM; reset | 0 dB |
+| 153 | Init DAC | −24 dB |
+| `0xaa` | Command 75 | FM −20 dB |
+| `0xbb` | Command 95 | FM −16 dB |
+| `0x99` | Command 48 | FM −24 dB |
+
+No command argument restores 255 (arguments `0x90..0x9f` would), so after the
+first entrance scene the music stays 16 dB lower until the next program
+start. MMModern keeps this ([quirk](../original-quirks.md#sv-promus-pas-mixer)).
+Real SB Pro hardware has a coarser curve; MMModern follows the DOSBox SB16
+reference.
+
+`XeenAudio` holds the registers (`XeenCardMixer`): a fresh process starts at
+the reset levels and applies the installed CFG flag; `startProgram` repeats
+the init for each EXE start and fresh DAT title; promus command `0x100` sets
+FM. Gains reach the mix at the next block, independent of saves, RNG and
+timing. The intro, ending and the four entrance scenes issue the sites above.
+
+**DOSBox evidence, 2026-10-26:** device-free renders aligned with the
+maintainer's captures (`D:/Projetos/MModern/MModern-re/audio-mixer-20261026/`):
+
+| Comparison | DOSBox | MMModern | Without mixer |
+| --- | ---: | ---: | ---: |
+| King's voices over `endgame.m` at 95, minus the music before them | 9.1 dB | 9.2 dB | 4.2 dB |
+| Crodo's narration at 75, minus the music before the tableau | −8.0 dB | −7.8 dB | +0.6 dB |
+
+In `sphinx.avi` the music between the Sphinx's voices is 8.8 dB below the
+music before and after the scene (48 against 95 predicts 8 dB), and those two
+levels agree. Outside these differences MMModern's output stays about
+3.4 dB below DOSBox's, the FM 0.5 against 1.5 × master 0.5 noted below.
+
 ## DOSBox-referenced balance and output recovery
 
 **DOSBox-referenced measurement, 2026-10-22; not DOS hardware:** the
@@ -570,10 +643,10 @@ Its defaults are:
 | Channel and CD volume | [mixer.h](https://github.com/dosbox-staging/dosbox-staging/blob/7b40053b7ac580843d0461eba8c36a47a990e66c/src/audio/mixer.h#L349): user, application and base scalars start at 1. CD adds no OPL-style boost; [MSCDEX channel control](https://github.com/dosbox-staging/dosbox-staging/blob/7b40053b7ac580843d0461eba8c36a47a990e66c/src/dos/cdrom_image.cpp#L845) uses volume/255. |
 | Master and processing | [mixer.cpp](https://github.com/dosbox-staging/dosbox-staging/blob/7b40053b7ac580843d0461eba8c36a47a990e66c/src/audio/mixer.cpp#L162): master 0.5 (−6.02 dB); compressor and denoiser on; 20 Hz master high-pass. Reverb, chorus and crossfeed off. Windows defaults: 48000 Hz, 1024-frame blocks, 25 ms prebuffer, negotiation off (`init_mixer_config_settings`). |
 
-The PAS register writes documented above are not emulated as a PAS mixer
-by this SB16 backend. These defaults identify the listening reference;
-they do not imply that the running game's source levels equal their reset
-values. The measured source pairs determine MMModern's fixed balance.
+This SB16 backend applies the music drivers' mixer writes
+([card mixer](#card-mixer)): during ordinary play the running game's DAC is at
+−24 dB, not at its reset value. These defaults identify the listening
+reference; the measured source pairs below confirm the resulting balance.
 
 All three AVIs carry lossless PCM s16le, 48000 Hz stereo with ZMBV video:
 `ferreriromusiconefxoffspeechoff.avi` (13.869 s),
@@ -606,19 +679,25 @@ of a selected passage's music/voice energy. Ratio differences use
 
 Both meet the maintainer's ±1.5 dB tolerance. **Maintainer decision,
 2026-10-22:** the capture is the authority for VOC level. Its approximately
-28 dB attenuation below the SB16 reset-level prediction is unexplained and
-was not investigated; no hardware explanation is inferred from this fit.
+28 dB attenuation below the SB16 reset-level prediction was the init DAC
+level (−24 dB) plus DOSBox's 1.5 OPL scalar (3.5 dB): the card-mixer model
+predicts VOC/FM 0.042 and CD/FM 0.667 (2026-10-26).
 
-FM **0.5**, VOC **0.01875** and CD **0.34375** are fixed constants, not options
-or per-track corrections. FM/CD gain is applied to native PCM **before**
+Every source has the common base g = 1/3: FM **1.5·g = 0.5** (DOSBox's OPL
+scalar), VOC and CD **g**. These bases are fixed, not options or per-track
+corrections; the card mixer then scales each source as DOSBox does. At init
+levels VOC is 0.0210 and CD 0.333: VOC/FM 0.042 (+0.3 dB against the
+capture) and CD/FM 0.667 (−0.3 dB). M83's earlier fixed 0.01875 and 0.34375
+gave −0.7 dB and within 0.3 dB. FM/CD base gain is applied to native PCM **before**
 SDL resampling and its 16-bit output clamp, preserving inter-sample peaks
-that would otherwise clip before attenuation. VOC gain applies once at the
-final sum. The gains total 0.8625, giving **1.28 dB nominal headroom** for
-coherent full-scale inputs (−28262..28260 after integer truncation);
-interpolation overshoot can consume that margin, and the final sum retains
-an S16 safety clamp. The simultaneous-source and synthetic inter-sample-peak
-tests cover both paths. The maintainer's M83 Part C listening and Windows
-device play-test passed on 2026-10-22.
+that would otherwise clip before attenuation. The VOC base and every mixer
+gain apply once at the final sum, rounded to nearest. At init levels the
+gains total 0.854, giving **1.37 dB nominal headroom** for coherent
+full-scale inputs; interpolation overshoot can consume that margin, and the
+final sum retains an S16 safety clamp. With the mixer flag off the DAC stays
+at 0 dB and the sum can reach that clamp. The simultaneous-source and
+synthetic inter-sample-peak tests cover both paths. The maintainer's M83
+Part C listening and Windows device play-test passed on 2026-10-22.
 
 **Output contract (maintainer decisions 1/2):** gameplay deadlines, RNG,
 timing and save state never consult the device. `check()` reports an output

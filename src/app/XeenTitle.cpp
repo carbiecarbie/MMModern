@@ -111,6 +111,7 @@ int Application::runTitle(const std::filesystem::path &gameDirectory,std::option
     auto &audio=*_program.audio;const auto options=audio.soundOptions();
     const auto clock=[] {return SdlWindow::presentationNanoseconds();};
     audio.stopDigital(clock());audio.fadeSong(0,clock());audio.observeOptions({});
+    audio.startProgram(clock()); // XEEN.EXE driver init (EXE 0x79f1).
     std::string notice;
     bool resourcesLoaded=false;
     try {
@@ -125,6 +126,7 @@ int Application::runTitle(const std::filesystem::path &gameDirectory,std::option
      notice=resourcesLoaded?"Clouds ending unavailable\nResource error (see log)":"Clouds ending unavailable\nCheck XEEN.EXE / XEEN.CFG";
     }
     audio.stopDigital(clock());audio.fadeSong(0,clock());audio.mixer(95,clock());audio.observeOptions(options);
+    audio.startProgram(clock()); // Fresh XEEN.DAT driver init (DAT 0xb646).
     title=makeTitle(options);if(!notice.empty())title->cloudsEndingFailure(notice);
     _program.resetPlayTime();entry={};continue;
    }
@@ -138,14 +140,15 @@ int Application::runTitle(const std::filesystem::path &gameDirectory,std::option
     if(!showCutscene(leaving,assets,audio))return 0;
     // EXE wrappers consult hardware, never the DAT party option bytes.
     audio.fadeSong(0,clock());audio.observeOptions({});
+    audio.startProgram(clock());
     try {
      if(!introData)throw std::runtime_error("Clouds intro unavailable: missing or different WORLD/XEEN.EXE");
      const auto story=XeenCutsceneData::firstCaption(assets.readArchiveResource(introData->resources[XeenCutsceneData::Caption],XeenSceneArchive::CloudsProgram));
      XeenCutsceneFlow intro(XeenCutscene::clouds(*introData,story),XeenCutsceneFlow::original(assets,font,audio,clock,introData->digitalDevice>=2));
      if(!showCutscene(intro,assets,audio)){audio.observeOptions(options);return 0;}
-     audio.observeOptions(options);title=makeTitle(options);
+     audio.observeOptions(options);audio.startProgram(clock());title=makeTitle(options);
     }catch(const std::exception &e) {
-     audio.stopDigital(clock());audio.fadeSong(0,clock());audio.observeOptions(options);
+     audio.stopDigital(clock());audio.fadeSong(0,clock());audio.observeOptions(options);audio.startProgram(clock());
      title=makeTitle(options);title->cloudsIntroFailure(e.what());
     }
     _program.resetPlayTime();entry={};continue;

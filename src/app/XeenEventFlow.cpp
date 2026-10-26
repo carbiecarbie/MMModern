@@ -2628,6 +2628,7 @@ bool XeenEventFlow::advanceEntrance() {
     _transition->guard->prepareEventAnimationRandom(ending);
     _transition->world->retainEventRandom(ending);_transition->guard->adoptMutationBoundary();
     _entranceUi->zoom=zoom;_entranceUi->art=std::move(frame);_entranceUi->animation=std::move(animation);
+    if(command->mixer)_encounter->mixer(*command->mixer,presentationNow());
     return true;
 }
 std::optional<IndexedFrame> XeenEventFlow::updateEntrance() {

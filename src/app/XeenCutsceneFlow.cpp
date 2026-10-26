@@ -163,7 +163,10 @@ bool XeenCutsceneFlow::poll() {
  }return false;
 }
 void XeenCutsceneFlow::next() {
- if(++_segment==_scene.segments.size()){_done=true;_keys.clear();_input.reset();trace("done");return;}begin();
+ if(++_segment==_scene.segments.size()){_done=true;_keys.clear();_input.reset();trace("done");return;}
+ while(_segment<_scene.closing && !_scene.segments[_segment].compose)++_segment;
+ if(_segment==_scene.closing)execute(_scene.completion);
+ begin();
 }
 std::optional<IndexedFrame> XeenCutsceneFlow::update() {
  if(_done || _closed)return {};

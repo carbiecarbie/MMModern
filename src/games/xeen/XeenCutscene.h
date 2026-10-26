@@ -57,6 +57,7 @@ struct XeenCutscene {
  };
  std::vector<Segment> segments;
  std::size_t closing=0;
+ Frame completion; // On natural arrival at closing only; Escape bypasses it.
  std::shared_ptr<Observations> observations=std::make_shared<Observations>();
  static XeenCutscene clouds(const XeenCutsceneData &,std::string caption);
  static XeenCutscene cloudsEnding(const XeenCutsceneData &,const XeenCutsceneData::Captions &,XeenWallClock,std::uint32_t score);

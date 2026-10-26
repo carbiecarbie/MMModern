@@ -76,7 +76,7 @@ XeenEntranceAnimation::XeenEntranceAnimation(unsigned action,bool keyed,const Du
         _phases.push_back({phase,count,ticks,sample,length});
     };
     add(Phase::Zoom,a.zoom,action<10?1:0);
-    if(action==8 || action==9)add(Phase::Slide,13,1);
+    if(action==8 || action==9){_slide=_phases.size();add(Phase::Slide,13,1);}
     if(action==9){_entryDuration=_efx?duration("ogre.voc"):0;if(_efx && !_entryDuration)throw std::invalid_argument("Invalid entrance growl duration");add(Phase::EntryTail,1,0);}
     if(action==10)add(Phase::Rise,16,0);
     static const char *samples[4][2][3]={
@@ -94,8 +94,11 @@ XeenEntranceAnimation::XeenEntranceAnimation(unsigned action,bool keyed,const Du
         add(Phase::Speech,0,a.speechTicks,sample);
         if(!_efx && action>=10)break;
     }
+    // Sphinx and Golem restore 95 before their retreat; Reaper and Dwarf at the end.
+    if(action==9 || action==11)_restore=_phases.size();
     if(action==8)add(Phase::Pause,1,1);
     if(!keyed && action!=10)add(Phase::Retreat,a.zoom,0);
+    if(!_restore)_restore=_phases.size();
     add(Phase::Finish,1,0);
 }
 std::optional<XeenEntranceAnimation::Frame> XeenEntranceAnimation::advance(std::uint64_t now,const Draw &draw) {
@@ -149,6 +152,11 @@ const char *XeenEntranceAnimation::acquired(std::uint64_t now) {
 XeenEntranceAnimation::Frame XeenEntranceAnimation::compose(const Draw &draw) const {
     const auto &a=art(_action);const auto phase=_phases[_phase].kind;
     Frame result{phase,_iteration};
+    // Mixer 48 before the first speech (and the Golem's slide), 95 after it:
+    // Sphinx 0x29838/0x29984, Golem 0x29e92/0x2a060/0x2a453,
+    // Reaper 0x2ab98/0x2afd2, Dwarf 0x2b4fd/0x2b702.
+    if(!_iteration && (_phase==_firstSpeech || (_action==9 && _phase==_slide)))result.mixer=48;
+    if(!_iteration && _phase==_restore)result.mixer=95;
     const auto put=[&](const char *name,unsigned frame,int x=0,int y=0,int scale=0){result.sprites.push_back({name,frame,x,y,scale});};
     if(phase==Phase::Finish){
         if(_action==10){put(a.actor,0);put(a.mouth,1);}else result.restore=true;

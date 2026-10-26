@@ -187,6 +187,7 @@ private:
     void fmStepEffect() noexcept {_program.steppingFx^=1;fmEffect(7+_program.steppingFx);}
     void fmWeaponEffect();
     void digitalSample(const std::string &,XeenSceneArchive,std::optional<std::uint64_t> now={});
+    void mixer(unsigned level,std::uint64_t now);
     void digitalStop();
     void digitalMiss();
     void eventVoice(unsigned);

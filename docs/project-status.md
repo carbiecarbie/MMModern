@@ -333,11 +333,9 @@ the original data uses and its support status.
 - Scenes and commands: the Pyramid entrance and the mirror words
   `showdown` and `genesis` (the Darkside and World endings) say "not
   supported yet".
-- Sound: voices play quieter than in DOS throughout the game, and the
-  ending's mixer commands do not change volume; a maintenance task will
-  rebalance them against DOSBox recordings. Other sound devices belong to
-  step 19. F8 speech replay is omitted by maintainer decision. SDL's resampler
-  plays FM and CD audio up to about 0.07% fast, which is inaudible
+- Sound: other sound devices belong to step 19. F8 speech replay is
+  omitted by maintainer decision. SDL's resampler plays FM and CD audio up
+  to about 0.07% fast, which is inaudible
   ([audio rules](rules/audio.md#sdl-resampler-rate-limitation)).
 - Presentation: the game opens at the World title without the original's
   Darkside intro, and Other Options cannot play that intro yet (step 20).

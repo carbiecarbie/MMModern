@@ -5,6 +5,7 @@
 #include "compat/scummvm/ScummVmXeenBridge.h"
 #include "XeenTestInstallation.h"
 #include <algorithm>
+#include <cmath>
 #include <fstream>
 #include <iostream>
 #include <set>
@@ -123,6 +124,9 @@ void resourceAudit(XeenAssetSource &assets,const XeenCutsceneData &data) {
  for(const auto &name:voices)check(!decodeXeenVoc(assets.readArchiveResource(name,XeenSceneArchive::CloudsProgram)).pcm.empty(),"Clouds VOC decode");
  check(!decodeXeenVoc(assets.readArchiveResource(data.resources[XeenCutsceneData::Scratch],XeenSceneArchive::IntroOnly)).pcm.empty(),"Startup scratch VOC decode");
 }
+std::vector<unsigned> mixers(const Run &run) {
+ std::vector<unsigned> result;for(const auto &r:run.requests)if(r.kind==XeenCutscene::Audio::Mixer)result.push_back(r.value);return result;
+}
 void whole(const GameInstallation &installation,XeenAssetSource &assets,const XeenFontFormat &font,const XeenCutsceneData &data,const std::filesystem::path &output) {
  std::filesystem::create_directories(output);
  Run run(installation,assets,font,data);run.pictures=output;run.finish();
@@ -135,6 +139,7 @@ void whole(const GameInstallation &installation,XeenAssetSource &assets,const Xe
   if(r.kind==XeenCutscene::Audio::FadeSong){fade50|=r.value==50;fade0|=r.value==0;}
  }
  check(effects==std::vector<unsigned>{1,0,3,3,2,52,0} && songs==1 && fade50 && fade0,"FM/song request order");
+ check(mixers(run)==std::vector<unsigned>{75,95} && std::abs(run.audio->mixerGains()[0]-std::pow(10.0f,-0.8f))<1e-5f,"Natural completion mixer 75 then 95 (EXE 0x8481, 0x88c2)");
  const auto &o=*run.flow->cutscene().observations;check(o.panStride==1 && o.starsOffsets.front()==0 && o.starsOffsets.back()==199 &&
   o.lakeOffsets.front()==1 && o.lakeOffsets.back()==200 && o.lakeOffsets.size()==200,"stride-one pan endpoints");
  for(const auto &e:run.trace)if(e.event=="flip" && (e.segment=="NWC logo" || e.segment=="wizard")) {
@@ -171,6 +176,7 @@ int main(int argc,char **argv) {try {
  for(const auto &name:{"NWC logo","lake descent","narration 0"}) {
   Run skip(installation,assets,font,data);skip.until(name);skip.key(27);skip.finish();
   check(skip.flow->done() && std::any_of(skip.trace.begin(),skip.trace.end(),[](const auto &e){return e.event=="escape";}),"Escape did not finish through closing scroll");
+  check(mixers(skip)==(std::string(name)=="narration 0"?std::vector<unsigned>{75}:std::vector<unsigned>{}),"Escape must bypass the 95 restoration");
  }
  for(unsigned key:{27u,32u}) {
   Run opening(installation,assets,font,data);opening.until("opening scroll");opening.key(key);opening.until("narration 0");

@@ -152,13 +152,12 @@ conversions and audio owner. `formats/xeen/XeenCutsceneData` reads and validates
 the installed EXE and the hardware word in CFG. `app/XeenTitle.cpp` owns the
 title exit and fresh-title return. No Journey clock, RNG or save fields are used.
 
-The ending issues the EXE's mixer commands 75 and 95 through `XeenAudio` and
-the output queue to the existing promus command-256 state. The PAS hardware
-mixer represented by that state has no emulated analog output stage; the
-existing fixed PCM gains remain in effect. The intro still omits those commands:
-natural completion and Escape share cleanup, while the EXE restores 95 only on
-natural completion. Song fade 50 and digital stop
-still go through `XeenAudio`. MMModern uses `mm4theme.m` with its CD promus
+The intro and the ending issue the EXE's mixer commands through `XeenAudio`,
+which applies them to the Sound Blaster mixer ([card mixer](audio.md#card-mixer)):
+the intro sends 75 after the opening scroll and 95 only on natural completion
+(`XeenCutscene::completion`; Escape enters the shared cleanup without it), the
+ending 75 and 95. Each EXE start and the fresh DAT title rewrite the init
+levels. Song fade 50 and digital stop still go through `XeenAudio`. MMModern uses `mm4theme.m` with its CD promus
 driver; device-four/five song drivers belong to roadmap step 19.
 
 **DOS static, high.** `XEEN.CFG` configures hardware modules (digital word at

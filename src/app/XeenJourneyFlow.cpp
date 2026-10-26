@@ -27,6 +27,9 @@ void XeenEncounterFlow::fmWeaponEffect() {
 void XeenEncounterFlow::digitalSample(const std::string &name,XeenSceneArchive archive,std::optional<std::uint64_t> now) {
     if(_program.audio){_program.audio->observeOptions(_party.soundOptions);_program.audio->startDigital(name,archive,now.value_or(_lastNanoseconds));}
 }
+void XeenEncounterFlow::mixer(unsigned level,std::uint64_t now) {
+    if(_program.audio)_program.audio->mixer(level,now);
+}
 void XeenEncounterFlow::digitalStop() {
     if(_program.audio){_program.audio->observeOptions(_party.soundOptions);_program.audio->stopDigital(_lastNanoseconds);}
 }

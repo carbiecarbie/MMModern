@@ -31,6 +31,7 @@ public:
         bool restore=false,saveZoom=false;
         std::vector<Sprite> sprites;
         std::optional<unsigned> caption;
+        std::optional<unsigned> mixer; // Promus command 0x100, before this frame.
     };
     using Duration=std::function<std::uint64_t(const char *)>;
     using Draw=std::function<unsigned(unsigned,unsigned)>;
@@ -48,7 +49,7 @@ private:
     bool _efx=true,_captionComplete=false,_clockMarked=false;
     unsigned _captionLength=0,_cursor=0;
     std::uint64_t _captionMark=0;
-    std::size_t _firstSpeech=0;
+    std::size_t _firstSpeech=0,_slide=0,_restore=0;
     bool _awaiting=false,_started=false;
     std::size_t _phase=0;
     std::uint64_t _deadline=0,_sampleEnd=0,_minimumEnd=0,_entryEnd=0,_entryDuration=0;

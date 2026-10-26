@@ -103,7 +103,7 @@ XeenCutscene XeenCutscene::clouds(const XeenCutsceneData &data,std::string capti
  for(unsigned i=1;i<=4;++i)tableau.push_back(Prepare{d->marble(i)});
  auto &opening=add("opening scroll",std::move(tableau),[](const Context &c)->Frame{return {Scroll{c.iteration+1}};},22,1,Reset::BeforeCompose,Input::Scroll);
  opening.holdBeforeFlip=true;opening.fadeAfterFirst=2;opening.terminal={Restore{"tableau"}};
- add("tableau",{Restore{"tableau"}},[](const Context &)->Frame{return {Restore{"tableau"}};});
+ add("tableau",{Audio{Audio::Mixer,{},75},Restore{"tableau"}},[](const Context &)->Frame{return {Restore{"tableau"}};});
  for(unsigned slot=0;slot<14;++slot) {
   Frame enter;
   if(slot!=6 && slot!=7)enter.push_back(Audio{Audio::RetainDigital,d->voices[slot]});
@@ -149,6 +149,7 @@ XeenCutscene XeenCutscene::clouds(const XeenCutsceneData &data,std::string capti
   if(slot>0 && d->digitalDevice<2)voice.compose={};
  }
  result.closing=result.segments.size();
+ result.completion={Audio{Audio::Mixer,{},95}}; // 0x88c2; Escape enters at 0x88ca.
  auto &closing=add("closing scroll",{Audio{Audio::Fm,{},0},Audio{Audio::FadeSong,{},50},Store{"scroll-base"}},
   [](const Context &c)->Frame{return {Scroll{22-c.iteration}};},22,1,Reset::BeforeCompose,Input::Scroll);
  closing.holdBeforeFlip=true;closing.terminal={Scroll{0}};
