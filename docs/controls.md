@@ -52,7 +52,17 @@ scene polls and returns through the closing parchment to a fresh title, whose
 menu waits for a new key. During a parchment transition, any key (including
 Escape) completes only that transition. Space and other keys elsewhere do
 nothing; mouse clicks do nothing and the pointer is hidden. Other Options → D
-(Darkside) remains unsupported.
+(Darkside) remains unsupported. After a Clouds win, Other Options → V
+replays the Clouds ending.
+
+During the Clouds ending, animations ignore Escape, other keys and clicks;
+a key during a scroll only shortens it. The two score pages advance on any
+key, Escape included, but not on a click. Ctrl-Q quits during the intro and
+the ending only.
+
+In the control panel, typing G, O, B, R shows the clock and the play time
+until the panel closes; O or B typed out of that order closes the panel,
+as in DOS.
 
 Exploration completes one Event pass after each input, including unmatched
 keys such as period, U, digits, F7 and F8. Insert, Home, End and Page Up/Down

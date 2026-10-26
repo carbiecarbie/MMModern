@@ -108,8 +108,9 @@ covers the character sheet, Items, Quick Fight and every service.
 ## What is missing
 
 - Darkside of Xeen cannot be played.
-- The Pyramid entrance and the Clouds ending say "not supported yet".
+- The Pyramid entrance says "not supported yet".
 - The Darkside intro, which the original plays at startup.
+- Voices play quieter than in the original; a fix is planned.
 
 The [project status](https://github.com/carbiecarbie/MMModern/blob/main/docs/project-status.md)
 page has the full current state, the

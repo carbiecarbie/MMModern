@@ -1,6 +1,6 @@
 # MMModern - Roadmap
 
-**M89 is the latest completed and accepted milestone.**
+**M92 is the latest completed and accepted milestone.**
 [Project status](project-status.md) describes what is playable now;
 [project history](project-history.md) records completed milestones. Reference
 provenance belongs to [dependencies](dependencies.md).
@@ -180,20 +180,15 @@ the Pyramid and the Darkside and World endings wait for the Darkside arc.
     one presenter that reads its tables from the installed EXE; only Escape
     skips it. The title lightning proved unreachable on the CD title. The
     startup path and the Darkside intro moved to step 20. Next: step 18.
-18. **Clouds ending and score** (Tier A; save v21 for a real play-time
-    counter, maintainer 2026-10-24). `CutsceneEndClouds` with DOS's state
-    changes and score (party experience plus real play time; Part 0 settles
-    what DOS counts). The ending runs on the step-17 presenter with the
-    score animation. Then comes the save to the current slot as DOS writes
-    it (party at Vertigo, roster as before the fight, an original quirk)
-    and the return to the title. The won state that DOS writes to
-    `XEEN.CFG` goes to an MMModern settings file under
-    `%LOCALAPPDATA%\MMModern` instead (approved deviation: location only)
-    and lists the ending in Other Options. Also: the mirror words
-    `showtime` and `bloopers`; after the ending, Castle Xeen gone from the
-    Clouds map and Lloyd's Beacon refusing it; the control panel clock and
-    play time. `showdown` and `genesis` (the Darkside and World endings)
-    stay "not supported yet" until the Darkside arc. Completes Clouds.
+18. **Clouds ending and score**: completed and accepted in
+    [M92](milestone-92-plan.md) (Tier A, 2026-10-26; save v21). The Sixth
+    Mirror wins Clouds as in DOS: the live party is saved at Vertigo, the
+    score counts experience and real play time, and the `WORLD/XEEN.EXE`
+    ending plays with its score reveal before a fresh World title. The win
+    is kept in `settings.ini` and unlocks Other Options `V`; `showtime`,
+    `bloopers`, the vanished castle, the Beacon refusal and the panel
+    clocks follow DOS. `showdown` and `genesis` wait for the Darkside arc.
+    Next: step 20, or the maintenance items below.
 19. **Other sound devices** (after step 12): the original's other drivers
     (AdLib and Sound Blaster FM, MT-32 with the player's ROMs, PC speaker and
     the rest; M82 plays the CD's Pro Audio Spectrum driver), chosen as the
@@ -210,6 +205,18 @@ the Pyramid and the Darkside and World endings wait for the Darkside arc.
 Order: 15 → 16 → 17 → 18 → 20; step 19 is independent. Step 16 may run
 alongside step 17's Part 0.
 
+Maintenance queued after M92 (maintainer, 2026-10-26):
+- **Voice volume.** Voices play quieter than in DOS throughout the game.
+  Rebalance the M83 gains against DOSBox and MMModern recordings of a few
+  easy-to-compare moments (Crodo, the king, Gunther, the smith, a combat
+  sound), and decide whether to model the EXE's mixer commands 75/95.
+- **Control panel keys.** Unrecognized keys close the DOS panel (switch
+  default `0x1f2d7`); confirm in DOSBox, then reproduce.
+- **Sheet experience.** The total-experience helper uses the pin's level
+  offset, where DOS `0x1e336` may add 1,024,000 more from level 13; confirm
+  the sheet's DOS caller first.
+- **M90 whole-quest play-through**, which closes M90.
+
 ## Medium-term objective
 
 The first objective, a **normal-start Clouds foothold** (a new game played
@@ -223,9 +230,10 @@ need its resources and mechanic gaps, not a new coordinator or save shape.
 1. **Broader Clouds play** (reached): ordinary travel
    between regions, time/rest/food, full economy and services, skills,
    item/monster effects, indoor hazards and reusable quest/Event behavior.
-2. **Complete Clouds** (steps 15-18): all regions/dungeons, progression, quests and ending,
-   including exceptional scripts/monsters, with faithful presentation and audio
-   as maintainer priorities allow.
+2. **Complete Clouds** (steps 15-18, reached with M92; M90's whole-quest
+   play-through still confirms it): all regions/dungeons, progression, quests
+   and ending, including exceptional scripts/monsters, with faithful
+   presentation and audio as maintainer priorities allow.
 3. **Darkside:** reuse the shared engine and admit Darkside's own content,
    balance and exceptions. Resource access alone does not make it playable.
 4. **World of Xeen:** connect both sides with original travel, shared state and

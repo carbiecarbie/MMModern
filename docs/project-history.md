@@ -546,3 +546,17 @@ installed EXE and will carry the Clouds ending. Calibrated analysis found
 that every CD launch first plays the Darkside intro (now roadmap step 20)
 and that the title lightning cannot occur on the CD title. Save v20 and the
 M44 digests are unchanged. [Plan](milestone-91-plan.md).
+
+**M92 - Clouds ending and score** (plan `1260911`, Part 0 `4c57a2e`,
+Parts A `5394da2`, B `bc85012`, C1 `3c192f0`, C2 `56961dd` and the closure
+commit). Accepted by the maintainer on 2026-10-26 after the play-tests.
+Clouds of Xeen can be finished as in DOS. The Sixth Mirror records the win, moves the party to
+Vertigo, saves the live party to the current slot and computes the score
+from experience and real play time. The `WORLD/XEEN.EXE` ending then plays
+on the M91 presenter, from the castle's fall through the 73-monster parade
+and the score reveal to a fresh World title. Save v21 adds the play-time
+counter and the completion flag; the control panel shows the clocks after
+G, O, B, R. The win is kept in `settings.ini` and unlocks Other Options
+`V`. `showtime` and `bloopers` work, Castle Xeen leaves the map and the
+Beacon refuses it. A repeat DOSBox capture overturned an earlier claim
+that DOS saved a stale roster. [Plan](milestone-92-plan.md).

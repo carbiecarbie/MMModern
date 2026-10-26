@@ -1,11 +1,10 @@
 # MMModern - Project Status
 
-This describes what can be played and done now. M91 is the latest completed
-and accepted milestone (2026-10-25; [plan](milestone-91-plan.md)): Other
-Options plays the Clouds intro as the original program does. M89 before it
-made Lord Xeen's fight, the scripted kills and the map rules work as in DOS,
-so the main quest reaches the Sixth Mirror; M90's verification sweep waits
-for a whole-quest play-through.
+This describes what can be played and done now. M92 is the latest completed
+and accepted milestone (2026-10-26; [plan](milestone-92-plan.md)): Clouds of
+Xeen can be finished, with the original ending and score. M91 before it
+added the Clouds intro, and M89 Lord Xeen's fight and the scripted kills;
+M90's verification sweep waits for a whole-quest play-through.
 Earlier milestones are in [project history](project-history.md), direction is
 in the [roadmap](roadmap.md), and build and dependency setup is in
 [dependencies](dependencies.md).
@@ -22,7 +21,8 @@ Clouds map is playable. Darkside gameplay is not supported.
 Launch `mmodern <game-dir>` (see [Entry modes](#entry-modes)) to reach the
 original title screen. Escape shows or hides the menu; Credits shows the four
 original pages, and Other Options plays the Clouds intro with its music and
-Crodo's narration (Escape skips it); the Darkside intro is not supported yet.
+Crodo's narration (Escape skips it); after a win it also offers `V`, which
+replays the Clouds ending. The Darkside intro is not supported yet.
 Choosing New asks for a save slot, a name and the difficulty: Adventurer
 (weapons hit harder) or Warrior. As in the original, the six level-1 Clouds
 characters then stand in Vertigo at `(18,4)` facing West at 08:00 on day 1 of
@@ -44,8 +44,7 @@ saved game from the same slot list.
   attack, secondary effect and movement kind in the original data, ranged and
   flying included. Every map load rebuilds them at full HP and asleep.
 - Every Event operation the Clouds scripts use runs as in the original,
-  except the Pyramid and the ending, which say "not supported yet"; the
-  Sixth Mirror shows its text before the ending's notice. As in DOS,
+  except the Pyramid, which says "not supported yet". As in DOS,
   a cell's Events run again after every key or click while the party stands
   on it, Space interacts and then waits, and an Event a monster interrupts
   runs once the fight ends ([Event dispatch](rules/world-events.md#event-dispatch)).
@@ -92,6 +91,22 @@ each new round, and leaving the lake with its three Water Dragons dead
 completes Medin's quest. Completed quests hide their neighbouring-map
 objects, Newcastle shows its castle once the walls are bought, and flag 25
 drains the three caves ([combat rules](rules/combat.md#lord-xeen-and-scripted-death-hooks)).
+
+### The ending
+
+Giving the Scepter to the Sixth Mirror wins Clouds of Xeen as in DOS. The
+game marks the party complete, moves it to Vertigo's tavern door, saves it
+with its experience, deaths and awards, and computes the score from the
+party's experience and the real play time. Then the original ending plays:
+the castle's fall, Castle Burlock and the king, the parade of monsters and
+the score, after which a fresh World title appears. Animations ignore keys
+and clicks, the two score pages advance by key only, and Ctrl-Q quits. The
+win is remembered in `%LOCALAPPDATA%\MMModern\settings.ini`, outside the
+save ([approved deviation](original-quirks.md#dev-clouds-won-store)), and
+unlocks Other Options `V`. After the win Castle Xeen is gone from the
+Clouds map and Lloyd's Beacon cannot return there. The mirror word
+`showtime` plays the ending without winning, and `bloopers` does nothing,
+as in DOS ([ending rules](rules/cutscenes.md#clouds-ending-entry-and-save)).
 
 ### Magic
 
@@ -195,8 +210,11 @@ Tab or the gem opens the original control panel. Save writes the current
 slot, Save As picks a slot and name, Load replaces the running game and Quit
 asks for confirmation. Saving is refused in combat, during service visits and
 on maps that forbid it. Sign In, leaving the Inn, Delete and returning from
-Create save automatically, as in DOS; a failed write shows the error and
-retries ([approved deviation](original-quirks.md#dev-inn-save-recovery)).
+Create save automatically, as in DOS, and so does the ending; a failed
+write shows the error and retries
+([approved deviation](original-quirks.md#dev-inn-save-recovery)). The game
+counts real play time from the system clock, as DOS does; typing G, O, B, R
+in the panel shows the clock and the play time for that visit.
 Mr Wizard returns the party to Vertigo and takes all its gems. The Efx,
 Music, Speech and Text settings are saved with the party. Slots live under Local AppData
 (`MMModern/Saves/`), and a damaged or foreign slot is never overwritten.
@@ -250,9 +268,9 @@ The [development guide](development.md#entry-modes) gives every option.
 
 ## Save format
 
-There is one current save format, v20. It holds the party with every roster
-record in full and its sound options, whether the party is inside the Inn
-(where it may be empty),
+There is one current save format, v21. It holds the party with every roster
+record in full, its sound options, play time and Clouds completion, whether
+the party is inside the Inn (where it may be empty),
 the world, and one state per visited map: monster positions and lifecycle,
 moved objects, changed cells, disabled Events, explored cells and the Tavern
 tip index. Monster HP and wake state are not saved, and neither is pending
@@ -275,16 +293,20 @@ output and save file I/O) and `compat` (the linked ScummVM components).
 - World (`XeenWorld`, `XeenSessionWorldState`): map and object caches, live
   actors, per-map state, economy, calendar and the world random state.
 - Running program (`XeenProgramState`, created by `main`): what the original
-  keeps outside its saves, which is the last Temple prices and pending
-  treasure, plus the audio owner `XeenAudio`, whose music, VOC and CD paths
-  never change time, randomness or saves.
+  keeps outside its saves, which is the last Temple prices, pending
+  treasure and the play-time start mark, plus the audio owner `XeenAudio`,
+  whose music, VOC and CD paths never change time, randomness or saves.
+  `XeenWallClock` gives DOS `time()` seconds; only the player's title path
+  binds the system clock, and every test and developer mode uses a fixed
+  one.
 - Rules (pure, in `games/xeen`): combat, monster approach and treasure,
   items, services, spells, terrain, Rest and time.
 - Events: `XeenEventSystem` decodes and runs the original Event scripts.
   Unsupported effects refuse visibly without publishing anything partial.
 - Cutscenes: `XeenCutscene` (pure segments) and `XeenCutsceneFlow` play
-  the scenes of the CD's second program, `WORLD/XEEN.EXE`, with tables read
-  from it at run time.
+  the Clouds intro and ending of the CD's second program, `WORLD/XEEN.EXE`,
+  with tables read from it at run time, the EXE's compressed frames and its
+  own presentation random source.
 - Flows (`app`): `XeenEventFlow` coordinates the gameplay session, input,
   dialogs, inventory and the Inn. `XeenEncounterFlow` hosts encounters,
   combat, services, casting and consequences, `XeenNavigationFlow` handles
@@ -308,13 +330,20 @@ the original data uses and its support status.
 
 ## Known gaps
 
-- Scenes and commands: the Pyramid entrance and the Clouds ending say "not
-  supported yet" (the ending is step 18).
-- Sound: other sound devices belong to step 19. F8 speech replay is omitted by maintainer decision. SDL's resampler
+- Scenes and commands: the Pyramid entrance and the mirror words
+  `showdown` and `genesis` (the Darkside and World endings) say "not
+  supported yet".
+- Sound: voices play quieter than in DOS throughout the game, and the
+  ending's mixer commands do not change volume; a maintenance task will
+  rebalance them against DOSBox recordings. Other sound devices belong to
+  step 19. F8 speech replay is omitted by maintainer decision. SDL's resampler
   plays FM and CD audio up to about 0.07% fast, which is inaudible
   ([audio rules](rules/audio.md#sdl-resampler-rate-limitation)).
 - Presentation: the game opens at the World title without the original's
   Darkside intro, and Other Options cannot play that intro yet (step 20).
+- Open checks: unrecognized keys close the DOS control panel but are
+  ignored here, and the sheet's experience may show 1,024,000 low from
+  level 13; both need a DOS confirmation first.
 - Darkside gameplay is not supported.
 
 Next steps are in the [roadmap](roadmap.md).
