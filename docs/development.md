@@ -475,6 +475,41 @@ monsters. Their quest items and currency are limited to the named gate:
 Positions and trigger facings come from each map's original Event records.
 All other M90 purses start empty; none of these presets pre-completes its gate.
 
+The M90 Part D spots shorten the play-through: each stands on the original
+Event cell with its facing, so the Event runs as the save loads, and carries
+only the story state reached at that moment, including the Event lines the
+original's AlterEvent has already disabled. Walking between spots is optional.
+
+| Preset | Start and purpose |
+| --- | --- |
+| `m90-emerson-short` | Emerson, map 64 `(2,7)`, deed owned, 4 credits: "You don't have enough Megacredits." |
+| `m90-emerson-walls` | Emerson with the deed and 5 credits: pay for the walls (flag 43, five credits taken). |
+| `m90-taxman-walls` | Taxman, map 12 `(11,12)` South, walls built: Stone of a Thousand Terrors (5), teleport to 72 `(7,15)`; outside, map 12 shows the castle. |
+| `m90-emerson-keep` | Emerson with stone 5 and 5 credits: pay for the keep (flag 44). |
+| `m90-taxman-keep` | Taxman after the keep: Golem Stone (6), teleport to 73 `(7,15)`. |
+| `m90-artemus` | Artemus, map 64 `(1,4)`, after his first talk, with Rescued Crodo: Excavation Permit (27). |
+| `m90-emerson-dungeon` | Emerson with the permit and 5 credits: pay for the dungeon (flag 54). |
+| `m90-taxman-dungeon` | Taxman after the dungeon: congratulations, teleport to 73. |
+| `m90-laboratory` | Map 73 `(12,14)` North, dungeon open: the password `Laboratory` leads to 71 `(2,14)`; a wrong word says "Incorrect!". |
+| `m90-sword` | The pedestal, map 71 `(7,4)`: the Xeen Slayer Sword; stepping back on says "The pedestal is empty." |
+| `m90-mirabeth` | Mirabeth, map 16 `(12,3)` West, first visit: Elixir quest (11) and Yak Stone (7). |
+| `m90-mirabeth-elixir` | Mirabeth with the Elixir (10): 250,000 XP, +5 Personality and her award. |
+| `m90-elixir` | The Elixir cell, map 79 `(30,25)` East: take it once; it stays gone after Save and Load. |
+| `m90-credit-yak` | A Yak Temple credit, map 79 `(27,22)` South: take it, Save, Load, and step back on the empty cell. |
+| `m90-golem-terrors` | The map-12 Golem, `(6,6)` South, with stone 5: entrance to 80. |
+| `m90-credit-terrors` | A Thousand Terrors credit, map 80 `(19,9)` East, as above. |
+| `m90-golem-stone` | The map-8 Golem, `(11,9)` South, with stone 6: entrance to 81. |
+| `m90-credit-golem` | A Golem Dungeon credit, map 81 `(4,1)` South, as above. |
+| `m90-darzog-key` | Darzog's key, map 58 `(7,12)`, with the High Magic key: chest, 100 gold and key (2). |
+| `m90-crodo` | Crodo, map 61 `(7,6)`: Rescued Crodo, 1,000,000 XP and quest 23; the exit is at 62 `(5,5)`. |
+| `m90-slick` | Slick's first game, map 27 `(15,24)` North, quest 23, 11,000 gold and 1,100 gems; the others are at `(14,26)`, `(11,25)` and `(12,22)`. |
+| `m90-slick-trade` | Slick's trade, map 27 `(12,29)` North, with the four dolls (29-32): Cupie Doll (28). The gate is at `(16,29)`. |
+| `m90-generator` | Guard Making Machine, map 78 `(11,11)` North, with the Slayer Sword: destroy it (flag 202, 200,000 XP); the Fire Generator is at `(3,1)`. |
+| `m90-winterkill-gong` | The gong, map 32 `(13,1)`, quest 18 accepted: wave 1; ring again once Winterkill is empty to set flag 0. |
+| `m90-winterkill-wave2` | Randon, `(8,13)` North, wave 1 done and Winterkill empty: congratulations and wave 2 (flag 72); then the gong. |
+| `m90-winterkill-wave3` | Randon after the second gong (flag 3), Winterkill empty: wave 3 (flag 73); then the gong (flag 8). |
+| `m90-winterkill-final` | Randon after the last gong (flag 8), Winterkill empty: award, 500,000 XP and the end of quest 18. |
+
 `m88-roster` starts at the same Vertigo door with the original six active
 members and 22 named characters lodged there. Only slots 12 (Gnome, male)
 and 21 (Human, female) are free. Create twice, then C shows the full-roster

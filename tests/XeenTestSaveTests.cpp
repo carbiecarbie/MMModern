@@ -68,6 +68,8 @@ void preset(const GameInstallation &installation,const std::string &name,const f
     const auto captured=XeenSaveState::capture(inputs.signature,party,camera,flags,world);
     check(XeenSaveFormat::encode(saved)==XeenSaveFormat::encode(captured),"restore replayed or changed state");
     if(name.rfind("m90-",0)==0) {
+        const bool gatePreset=name=="m90-newcastle" || name=="m90-golem" || name=="m90-illusion" || name=="m90-high-magic" ||
+            name=="m90-darzog" || name=="m90-clouds" || name=="m90-castle" || name=="m90-winterkill";
         const auto expected=name=="m90-newcastle"?XeenCamera{12,11,12,XeenDirection::South}:
             name=="m90-golem"?XeenCamera{20,4,4,XeenDirection::South}:
             name=="m90-illusion"?XeenCamera{45,7,14,XeenDirection::North}:
@@ -75,7 +77,31 @@ void preset(const GameInstallation &installation,const std::string &name,const f
             name=="m90-darzog"?XeenCamera{15,4,13,XeenDirection::North}:
             name=="m90-clouds"?XeenCamera{27,15,2,XeenDirection::North}:
             name=="m90-castle"?XeenCamera{27,16,29,XeenDirection::North}:XeenCamera{32,8,13,XeenDirection::North};
-        check(save_test::sameCamera(camera,expected),"M90 preset gate position");
+        // The Part D spots are bound by the Event check below; the gates keep their fixed cells.
+        if(gatePreset)check(save_test::sameCamera(camera,expected),"M90 preset gate position");
+        const auto overrides=[&](unsigned map) {
+            for(const auto &state:saved.maps)if(state.id.number==map)return state.events.size();
+            return std::size_t{0};
+        };
+        if(name=="m90-emerson-short")check(flags.isSet(45) && party.questItems.at(0)==1 && party.questItems.at(26)==4,"Deed with four credits");
+        if(name=="m90-emerson-walls")check(flags.isSet(45) && !flags.isSet(43) && party.questItems.at(26)==5,"Walls payment");
+        if(name=="m90-taxman-walls")check(flags.isSet(43) && !party.questItems.at(5) && !overrides(12),"Walls built, stone 5 pending");
+        if(name=="m90-emerson-keep")check(flags.isSet(43) && !flags.isSet(44) && party.questItems.at(5)==1 && party.questItems.at(26)==5 && overrides(64)==1,"Keep payment");
+        if(name=="m90-taxman-keep")check(flags.isSet(44) && !party.questItems.at(6) && overrides(12)==1,"Keep built, stone 6 pending");
+        if(name=="m90-artemus")check(party.questFlags.isSet(22) && party.questItems.at(6)==1 && !party.questItems.at(27) && overrides(64)==2,"Permit pending");
+        if(name=="m90-emerson-dungeon")check(party.questItems.at(27)==1 && !flags.isSet(54) && party.questItems.at(26)==5,"Dungeon payment");
+        if(name=="m90-taxman-dungeon")check(flags.isSet(54) && overrides(12)==2,"Dungeon built");
+        if(name=="m90-laboratory" || name=="m90-sword")check(flags.isSet(54),"Dungeon open");
+        if(name=="m90-mirabeth")check(!party.questItems.at(7) && !party.questFlags.isSet(11),"Mirabeth first visit");
+        if(name=="m90-mirabeth-elixir")check(party.questItems.at(10)==1 && party.questFlags.isSet(11),"Elixir for Mirabeth");
+        if(name=="m90-golem-terrors" || name=="m90-credit-terrors")check(party.questItems.at(5)==1,"Thousand Terrors stone");
+        if(name=="m90-golem-stone" || name=="m90-credit-golem")check(party.questItems.at(6)==1,"Golem stone");
+        if(name=="m90-slick-trade")for(unsigned doll:{29u,30u,31u,32u})check(party.questItems.at(doll)==1,"Four dolls");
+        if(name.rfind("m90-winterkill-",0)==0)check(party.questFlags.isSet(18) && overrides(32)==1,"Winterkill quest accepted");
+        if(name=="m90-winterkill-final")check(flags.isSet(8) && flags.isSet(73) && !flags.isSet(1),"Last wave sent");
+        if(name.rfind("m90-winterkill-wave",0)==0 || name=="m90-winterkill-final")
+            for(const auto &state:saved.maps)if(state.id.number==32 && state.monsters)for(const auto &actor:state.monsters->slots)
+                check(actor.lifecycle!=XeenActorLifecycle::Present,"Winterkill cleared before Randon");
         std::cout<<"Loaded "<<name<<" map "<<camera.mapId.number<<" ("<<camera.x<<","<<camera.y<<") facing "<<unsigned(camera.direction)<<"\n";
         // Each start must bind an original line-0 Event, including its facing.
         // Clouds starts facing away from its South-facing return stair.

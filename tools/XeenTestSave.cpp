@@ -114,41 +114,111 @@ struct Inputs {
 constexpr std::uint32_t kM81EventSeed=4;
 constexpr int kM81EventOrcRow=4;
 
+// M90 presets stand on their original Event cell with that Event's facing, so
+// the Load pass runs it at once. The Part D spots carry the story state reached
+// at that moment; earlier AlterEvent lines are applied in generateTestSave.
+struct M90Spot {const char *name;XeenCamera camera;};
+constexpr auto N=XeenDirection::North;constexpr auto E=XeenDirection::East;
+constexpr auto S=XeenDirection::South;constexpr auto W=XeenDirection::West;
+const M90Spot kM90Spots[]={
+    // Gates (Parts A); Clouds faces away from its return stair.
+    {"m90-newcastle",{12,11,12,S}},{"m90-golem",{20,4,4,S}},{"m90-illusion",{45,7,14,N}},
+    {"m90-high-magic",{12,6,15,S}},{"m90-darzog",{15,4,13,N}},{"m90-clouds",{27,15,2,N}},
+    {"m90-castle",{27,16,29,N}},{"m90-winterkill",{32,8,13,N}},
+    // Megacredits chain, one spot per payment and Taxman return.
+    {"m90-emerson-short",{64,2,7,N}},{"m90-emerson-walls",{64,2,7,N}},{"m90-taxman-walls",{12,11,12,S}},
+    {"m90-emerson-keep",{64,2,7,N}},{"m90-taxman-keep",{12,11,12,S}},{"m90-artemus",{64,1,4,N}},
+    {"m90-emerson-dungeon",{64,2,7,N}},{"m90-taxman-dungeon",{12,11,12,S}},
+    {"m90-laboratory",{73,12,14,N}},{"m90-sword",{71,7,4,N}},
+    // Stones and credits.
+    {"m90-mirabeth",{16,12,3,W}},{"m90-mirabeth-elixir",{16,12,3,W}},{"m90-elixir",{79,30,25,E}},
+    {"m90-credit-yak",{79,27,22,S}},{"m90-golem-terrors",{12,6,6,S}},{"m90-credit-terrors",{80,19,9,E}},
+    {"m90-golem-stone",{8,11,9,S}},{"m90-credit-golem",{81,4,1,S}},
+    // Towers, Clouds and Castle Xeen.
+    {"m90-darzog-key",{58,7,12,N}},{"m90-crodo",{61,7,6,N}},{"m90-slick",{27,15,24,N}},
+    {"m90-slick-trade",{27,12,29,N}},{"m90-generator",{78,11,11,N}},
+    // Winterkill: the gong, then Randon after each cleared wave.
+    {"m90-winterkill-gong",{32,13,1,N}},{"m90-winterkill-wave2",{32,8,13,N}},
+    {"m90-winterkill-wave3",{32,8,13,N}},{"m90-winterkill-final",{32,8,13,N}},
+};
+const M90Spot *m90Spot(const std::string &preset) {
+    for(const auto &spot:kM90Spots)if(preset==spot.name)return &spot;
+    return nullptr;
+}
+// Event lines the original AlterEvent has already turned to op 0 at that moment.
+struct M90Override {unsigned map;int x,y;unsigned line;};
+std::vector<M90Override> m90Overrides(const std::string &preset) {
+    if(preset=="m90-taxman-keep")return {{12,11,12,15}};
+    if(preset=="m90-taxman-dungeon")return {{12,11,12,15},{12,11,12,27}};
+    if(preset=="m90-emerson-keep" || preset=="m90-emerson-dungeon")return {{64,2,7,5}};
+    if(preset=="m90-artemus")return {{64,1,4,0},{64,1,4,2}};
+    if(preset=="m90-winterkill-gong" || preset.rfind("m90-winterkill-wave",0)==0 || preset=="m90-winterkill-final")
+        return {{32,8,13,8}};
+    return {};
+}
+void giveAward(XeenSaveSnapshot &snapshot,unsigned award) {
+    for(auto id:snapshot.activeRosterIds)snapshot.characters[id].awards[award]=1;
+}
+void giveSlayerSword(XeenSaveSnapshot &snapshot) {
+    auto &first=snapshot.characters[snapshot.activeRosterIds.front()];
+    for(auto &item:first.weapons)if(item.frame==1 || item.frame==13)item={};
+    for(auto &item:first.armor)if(item.frame==2)item.frame=0;
+    first.weapons[0]={0,34,0,13};
+}
+
 void prepare(XeenSaveSnapshot &snapshot,const std::string &preset) {
-    if(preset.rfind("m90-",0)==0) {
+    if(const auto *spot=m90Spot(preset)) {
         prepare(snapshot,"m78-playtest");
-        // Original Event entry cells/facings; Clouds faces away from its return stair.
-        snapshot.camera=preset=="m90-newcastle"?XeenCamera{12,11,12,XeenDirection::South}:
-            preset=="m90-golem"?XeenCamera{20,4,4,XeenDirection::South}:
-            preset=="m90-illusion"?XeenCamera{45,7,14,XeenDirection::North}:
-            preset=="m90-high-magic"?XeenCamera{12,6,15,XeenDirection::South}:
-            preset=="m90-darzog"?XeenCamera{15,4,13,XeenDirection::North}:
-            preset=="m90-clouds"?XeenCamera{27,15,2,XeenDirection::North}:
-            preset=="m90-castle"?XeenCamera{27,16,29,XeenDirection::North}:
-            XeenCamera{32,8,13,XeenDirection::North};
+        snapshot.camera=spot->camera;
         snapshot.questItems.fill(0);snapshot.questFlags.fill(false);
         snapshot.journey->purse->gold=0;snapshot.journey->purse->gems=0;
+        auto &quest=snapshot.questItems;auto &flags=snapshot.gameFlags;
         if(preset=="m90-newcastle") {
-            snapshot.journey->purse->gold=50000;snapshot.questItems[26]=15;
-            for(auto id:snapshot.activeRosterIds)snapshot.characters[id].awards[13]=1;
+            snapshot.journey->purse->gold=50000;quest[26]=15;giveAward(snapshot,13);
         }
-        if(preset=="m90-golem")for(unsigned item:{7u,5u,6u})snapshot.questItems[item]=1;
+        if(preset=="m90-golem")for(unsigned item:{7u,5u,6u})quest[item]=1;
         if(preset=="m90-illusion")snapshot.journey->purse->gems=300;
-        if(preset=="m90-high-magic")snapshot.questItems[3]=1;
-        if(preset=="m90-darzog")snapshot.questItems[2]=1;
-        if(preset=="m90-clouds") {
-            snapshot.questFlags[23]=true;
-            for(auto id:snapshot.activeRosterIds)snapshot.characters[id].awards[13]=1;
+        if(preset=="m90-high-magic")quest[3]=1;
+        if(preset=="m90-darzog")quest[2]=1;
+        if(preset=="m90-clouds" || preset=="m90-slick") {
+            snapshot.questFlags[23]=true;giveAward(snapshot,13);
             // Ten attempts per game: the last two charge gems, not gold.
             snapshot.journey->purse->gold=11000;snapshot.journey->purse->gems=1100;
         }
-        if(preset=="m90-castle") {
-            snapshot.questItems[28]=1;
-            auto &first=snapshot.characters[snapshot.activeRosterIds.front()];
-            for(auto &item:first.weapons)if(item.frame==1 || item.frame==13)item={};
-            for(auto &item:first.armor)if(item.frame==2)item.frame=0;
-            first.weapons[0]={0,34,0,13};
+        if(preset=="m90-slick-trade") {
+            snapshot.questFlags[23]=true;giveAward(snapshot,13);
+            for(unsigned doll:{29u,30u,31u,32u})quest[doll]=1;
         }
+        if(preset=="m90-castle") {quest[28]=1;giveSlayerSword(snapshot);}
+        if(preset=="m90-generator") {quest[28]=1;snapshot.questFlags[23]=true;giveSlayerSword(snapshot);}
+        // Megacredits chain: deed (flag 45, item 0), walls (43, stone 5), keep
+        // (44, stone 6), permit (item 27), dungeon (54); five credits per stage.
+        const bool deed=preset.rfind("m90-emerson-",0)==0 || preset.rfind("m90-taxman-",0)==0 || preset=="m90-artemus";
+        if(deed) {flags[45]=true;quest[0]=1;giveAward(snapshot,13);}
+        if(preset=="m90-emerson-short")quest[26]=4;
+        if(preset=="m90-emerson-walls")quest[26]=5;
+        if(preset=="m90-taxman-walls")flags[43]=true;
+        if(preset=="m90-emerson-keep") {flags[43]=true;quest[5]=1;quest[26]=5;}
+        if(preset=="m90-taxman-keep") {flags[43]=flags[44]=true;quest[5]=1;}
+        if(preset=="m90-artemus") {flags[43]=flags[44]=true;quest[5]=quest[6]=1;snapshot.questFlags[22]=true;}
+        if(preset=="m90-emerson-dungeon") {flags[43]=flags[44]=true;quest[5]=quest[6]=quest[27]=1;quest[26]=5;}
+        if(preset=="m90-taxman-dungeon") {flags[43]=flags[44]=flags[54]=true;quest[5]=quest[6]=quest[27]=1;}
+        if(preset=="m90-laboratory" || preset=="m90-sword") {
+            flags[45]=flags[43]=flags[44]=flags[54]=true;for(unsigned item:{0u,5u,6u,27u})quest[item]=1;
+        }
+        // Stones and credits: Mirabeth gives the Yak Stone and wants the Elixir.
+        if(preset=="m90-mirabeth-elixir") {quest[10]=1;quest[7]=1;snapshot.questFlags[11]=true;}
+        if(preset=="m90-elixir" || preset=="m90-credit-yak") {quest[7]=1;snapshot.questFlags[11]=true;}
+        if(preset=="m90-golem-terrors" || preset=="m90-credit-terrors")quest[5]=1;
+        if(preset=="m90-golem-stone" || preset=="m90-credit-golem")quest[6]=1;
+        if(preset=="m90-darzog-key")quest[3]=1;
+        if(preset=="m90-crodo")quest[2]=1;
+        // Winterkill: quest 18 from Randon; flags 0, 72, 3, 73 and 8 mark each
+        // wave in the order the gong and Randon set them.
+        if(preset=="m90-winterkill-gong")snapshot.questFlags[18]=true;
+        if(preset=="m90-winterkill-wave2") {snapshot.questFlags[18]=true;flags[0]=true;}
+        if(preset=="m90-winterkill-wave3") {snapshot.questFlags[18]=true;flags[0]=flags[72]=flags[3]=true;}
+        if(preset=="m90-winterkill-final") {snapshot.questFlags[18]=true;for(unsigned flag:{0u,72u,3u,73u,8u})flags[flag]=true;}
         return;
     }
     if(preset=="m92-lord-xeen" || preset=="m92-sixth-mirror") {
@@ -514,7 +584,7 @@ void prepare(XeenSaveSnapshot &snapshot,const std::string &preset) {
 
 void generateTestSave(const GameInstallation &installation,const std::string &preset,
         const std::filesystem::path &output) {
-    if (preset!="m92-lord-xeen" && preset!="m92-sixth-mirror" && preset!="m90-newcastle" && preset!="m90-golem" && preset!="m90-illusion" && preset!="m90-high-magic" && preset!="m90-darzog" && preset!="m90-clouds" && preset!="m90-castle" && preset!="m90-winterkill" && preset!="m89-lord-xeen" && preset!="m89-clan-king" && preset!="m89-draco" && preset!="m89-dragons" && preset!="m89-trolls" && preset!="m88-roster" && preset!="m87-inn" && preset!="m87-three" && preset!="m87-shangrila" && preset!="broken-armor" && preset!="train-ready" && preset!="injured-dead" && preset!="poisoned" && preset!="monster-control" && preset!="monster-damage" && preset!="party-healing" && preset!="m76-spells" && preset!="combat-items" && preset!="m78-playtest" && preset!="m78-one-holder" && preset!="m79-playtest" && preset!="m80-playtest" && preset!="m80-arena" && preset!="m80-arena-maxed" && preset!="m81-drops" && preset!="m81-fullpacks" && preset!="m81-event" && preset!="m84-playtest-trap" && preset!="m84-playtest-label" && preset!="m84-playtest-save" && preset!="m85-playtest-label" && preset!="m85-playtest-run" && preset!="m85-playtest-trap" && preset!="m86-playtest-fall" && preset!="m86-playtest-moon-ray" && preset!="m86-playtest-border")
+    if (preset!="m92-lord-xeen" && preset!="m92-sixth-mirror" && !m90Spot(preset) && preset!="m89-lord-xeen" && preset!="m89-clan-king" && preset!="m89-draco" && preset!="m89-dragons" && preset!="m89-trolls" && preset!="m88-roster" && preset!="m87-inn" && preset!="m87-three" && preset!="m87-shangrila" && preset!="broken-armor" && preset!="train-ready" && preset!="injured-dead" && preset!="poisoned" && preset!="monster-control" && preset!="monster-damage" && preset!="party-healing" && preset!="m76-spells" && preset!="combat-items" && preset!="m78-playtest" && preset!="m78-one-holder" && preset!="m79-playtest" && preset!="m80-playtest" && preset!="m80-arena" && preset!="m80-arena-maxed" && preset!="m81-drops" && preset!="m81-fullpacks" && preset!="m81-event" && preset!="m84-playtest-trap" && preset!="m84-playtest-label" && preset!="m84-playtest-save" && preset!="m85-playtest-label" && preset!="m85-playtest-run" && preset!="m85-playtest-trap" && preset!="m86-playtest-fall" && preset!="m86-playtest-moon-ray" && preset!="m86-playtest-border")
         throw std::invalid_argument("Unknown test-save preset: "+preset);
     const auto target=XeenSaveFile::resolve(output,installation);
     // Reuse the native alias/reparse-aware path guard for the repository too.
@@ -544,6 +614,21 @@ void generateTestSave(const GameInstallation &installation,const std::string &pr
         if(preset.rfind("m84-playtest-",0)==0)for(auto &state:candidate.maps)if(state.monsters)for(auto &actor:state.monsters->slots) {
             actor.x=actor.y=-128;actor.lifecycle=XeenActorLifecycle::Defeated;actor.accounted=true;
         }
+    }
+    if(m90Spot(preset)) {
+        for(const auto &change:m90Overrides(preset)) {
+            const auto records=inputs.events.load(change.map).records;
+            bool found=false;
+            for(unsigned n=0;n<records.size();++n) {const auto &r=records[n];
+                if(r.x==change.x && r.y==change.y && r.line==change.line) {candidate.map(change.map).events.push_back({std::uint16_t(n),0});found=true;}
+            }
+            if(!found)throw std::runtime_error("M90 preset Event line is missing from the original data");
+        }
+        // Randon congratulates only once no monster is left on Winterkill.
+        if(preset.rfind("m90-winterkill-wave",0)==0 || preset=="m90-winterkill-final")
+            for(auto &actor:candidate.map(32).monsters->slots) {
+                actor.x=actor.y=-128;actor.lifecycle=XeenActorLifecycle::Defeated;actor.accounted=true;
+            }
     }
     if(preset.rfind("m89-",0)==0) {
         if(preset=="m89-draco")for(auto &actor:candidate.map(29).monsters->slots)
