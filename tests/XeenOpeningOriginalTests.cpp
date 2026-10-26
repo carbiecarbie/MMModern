@@ -131,19 +131,19 @@ void roundtrip(Inputs &in) {
 void travel(Inputs &in) {
     XeenWorld w(in.mapLoader(),in.objectLoader());const XeenCamera from{24,8,8,XeenDirection::East};
     for(unsigned n=1;n<=5;++n) {
-        const auto to=R::travel(w,from,S::TownPortal,n);
+        const auto to=R::travel(w,from,S::TownPortal,n,nullptr,false);
         const auto &g=w.map(27+n).geometry;
         check(!to.unsupported && to.reload && to.destination && to.destination->mapId==XeenMapIdentity(27+n) &&
             to.destination->x==g.runX && to.destination->y==g.runY && to.destination->direction==from.direction,"Original Town Portal destination differs");
         XeenCharacter caster;caster.lloydMap=27+n;caster.lloydX=g.runX;caster.lloydY=g.runY;
-        const auto beacon=R::travel(w,from,S::LloydsBeacon,2,&caster);
+        const auto beacon=R::travel(w,from,S::LloydsBeacon,2,&caster,false);
         check(beacon.destination && !beacon.unsupported && beacon.reload,"Beacon Return refused an open town");
-        const auto set=R::travel(w,*beacon.destination,S::LloydsBeacon,1,&caster);
+        const auto set=R::travel(w,*beacon.destination,S::LloydsBeacon,1,&caster,false);
         check(set.beacon && set.beacon->at(0)==27+n && !set.destination,"Beacon Set lost the new map");
     }
     const auto c=quietCell(in,33);const auto run=xeenRunDestination(w,in.events.load(33),c);
     if(run) {
-        const auto distortion=R::travel(w,c,S::TimeDistortion);
+        const auto distortion=R::travel(w,c,S::TimeDistortion,0,nullptr,false);
         check(distortion.destination && distortion.destination->x==run->x && distortion.destination->y==run->y && !distortion.reload,"Indoor Run and Time Distortion disagree");
     }
     // Every outdoor edge is resolved from DAT neighbors, without changing an
@@ -155,7 +155,7 @@ void travel(Inputs &in) {
         const auto old=c;const auto moved=XeenMovement().apply(w,c,NavigationAction::MoveForward,{true,true,true,true});
         if(moved!=XeenMovementResult::Moved)continue;
         ++edges;check(c.mapId==XeenMapIdentity(g.neighbors[d]) && w.prepareEventTransition(c),"Outdoor edge did not resolve its primary neighbor");
-        const auto teleport=R::travel(w,old,S::Teleport,1);
+        const auto teleport=R::travel(w,old,S::Teleport,1,nullptr,false);
         if(!teleport.failed)check(teleport.destination && teleport.reload && teleport.destination->mapId==c.mapId && teleport.destination->x==c.x && teleport.destination->y==c.y,"Teleport edge normalization differs from movement");
     }
     check(edges>4,"No original outdoor border witnesses");

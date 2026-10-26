@@ -15,7 +15,7 @@ XeenScriptedDeath xeenPrepareScriptedDeath(const XeenPartyState &,const XeenGame
  const XeenCamera &,const XeenActor &);
 void xeenRegenerateIceTrolls(std::vector<XeenActor> &,XeenMapIdentity);
 // Derived on map load, never serialized or used as a second flag owner.
-std::uint16_t xeenMapRuleView(const XeenGameFlags &) noexcept;
+std::uint16_t xeenMapRuleView(const XeenGameFlags &,bool cloudsCompleted=false) noexcept;
 namespace xeen_scripted_rules_detail {
 struct ObjectRule {unsigned flag,map,slot;};
 inline constexpr ObjectRule objects[]{{63,7,5},{39,4,6},{64,12,11},{65,11,10},{66,15,11},
@@ -23,6 +23,8 @@ inline constexpr ObjectRule objects[]{{63,7,5},{39,4,6},{64,12,11},{65,11,10},{6
 }
 // Kept inline so geometry-only World clients need no party/Event implementation.
 inline XeenMapEntity xeenMapRuleObject(XeenMapEntity object,XeenObjectIdentity id,std::uint16_t view) noexcept {
+ // DAT 0xff1c: main-map object ID 85, without a side guard.
+ if((view&(1u<<11)) && id.mapId.number==27 && object.resourceId==85)object.x=object.y=-128;
  if(id.mapId.side!=XeenSide::Clouds)return object;
  const auto &objects=xeen_scripted_rules_detail::objects;
  for(unsigned n=0;n<9;++n)if((view&(1u<<n)) && id.mapId.number==objects[n].map) {

@@ -27,7 +27,7 @@ namespace mmodern {
 bool XeenWorld::journeyCaptureEligible(const XeenPartyState &party, const XeenCamera &camera) const noexcept {
 	if (_developerEventMap) return false;
 	const auto retained = _journeyCapture.lock();
-	return retained && (!retained->inputPassPending || retained->innSave) && retained->current(party,camera);
+	return retained && (!retained->inputPassPending || retained->forcedSave) && retained->current(party,camera);
 }
 
 namespace {
@@ -74,9 +74,12 @@ void XeenSaveState::validateJourneyValues(const XeenSaveSnapshot &s) {
 	// Decision 2: the Warzone (Clouds 85) is never written back.
 	for (const auto &m:s.maps) if (!xeenRetainsMapState(m.id))
 		throw std::invalid_argument("Saved Warzone state is not part of a save");
-	// The camera map's own table; no live monster stands on the camera cell.
-	const auto *camera=s.find(s.camera.mapId);
-	require(camera && camera->monsters);
+	// A relocated forced save can precede the destination's first map load.
+    // An absent table means original resources, never a fabricated visit.
+    // A retained map entry (or its head cache) must still have its table.
+    const auto *camera=s.find(s.camera.mapId);
+    require((camera && camera->monsters) || (!camera && !s.headCache));
+    // No live monster in a saved table may stand on the camera cell.
 	for (const auto &m:s.maps) if (m.monsters) for (const auto &a:m.monsters->slots) {
 		require(a.status==XeenActorStatus::Physical);
 		require(m.id!=s.camera.mapId || a.lifecycle!=XeenActorLifecycle::Present || a.x!=s.camera.x || a.y!=s.camera.y);
@@ -246,7 +249,17 @@ void XeenSaveState::restoreJourney(const XeenSaveSnapshot &source, const Resourc
 		XeenActorApproach::validateEnvironment(w,s.mutableMonsters(id),mapEvents);
 	}
 	adopt();
-    w.applyMainMapRules(c.mapId,f);adopt();
+    if(!s.hasRegionalActors(c.mapId)) {
+        const auto mob=callback([&]{return w.objectFile(c.mapId);});
+        auto actors=XeenActorApproach::actorsFromResources(mob,statistics);
+        const bool outdoors=callback([&]{return w.map(c.mapId).geometry.isOutdoors();});
+        const auto count=actors.size();
+        s.stageMonsters(c.mapId,std::move(actors),count,outdoors);
+        adopt();
+        XeenActorApproach::validateEnvironment(w,s.mutableMonsters(c.mapId),evt);
+        adopt();
+    }
+    w.applyMainMapRules(c.mapId,f,p.cloudsCompleted);adopt();
 	// The camera map's own table and Events, as every reader resolves them.
 	auto &active=s.mutableMonsters(c.mapId);
 	const auto view=!s.mapState(c.mapId)->outdoors ? XeenIndoorScene().classifyActors(w,c,active) : XeenActorApproach::classify(active,c);
@@ -351,6 +364,7 @@ XeenSaveSnapshot XeenSaveState::captureImpl(const XeenSaveResourceSignature &res
 	snapshot.gameFlags = flags.values();
 	const auto &state = world.sessionState();
 	snapshot.headCache=state.headCache();
+ if(snapshot.headCache && snapshot.headCache->mapId!=camera.mapId)snapshot.headCache.reset();
 	// v13: every retained map's state, in identity order; an empty entry is
 	// equivalent to an absent one and is not written.
 	for (const auto &entry:state.mapStates()) {

@@ -151,6 +151,15 @@ void prepare(XeenSaveSnapshot &snapshot,const std::string &preset) {
         }
         return;
     }
+    if(preset=="m92-lord-xeen" || preset=="m92-sixth-mirror") {
+        prepare(snapshot,"m89-lord-xeen");
+        if(preset=="m92-sixth-mirror") {
+            snapshot.camera={78,4,9,XeenDirection::West};snapshot.questItems[8]=1;
+            snapshot.questFlags[23]=false;snapshot.gameFlags[60]=true;
+            for(auto id:snapshot.activeRosterIds)snapshot.characters[id].awards[42]=1;
+        }
+        return;
+    }
     if(preset.rfind("m89-",0)==0) {
         prepare(snapshot,"m78-playtest");
         snapshot.camera=preset=="m89-lord-xeen"?XeenCamera{78,5,8,XeenDirection::North}:
@@ -505,7 +514,7 @@ void prepare(XeenSaveSnapshot &snapshot,const std::string &preset) {
 
 void generateTestSave(const GameInstallation &installation,const std::string &preset,
         const std::filesystem::path &output) {
-    if (preset!="m90-newcastle" && preset!="m90-golem" && preset!="m90-illusion" && preset!="m90-high-magic" && preset!="m90-darzog" && preset!="m90-clouds" && preset!="m90-castle" && preset!="m90-winterkill" && preset!="m89-lord-xeen" && preset!="m89-clan-king" && preset!="m89-draco" && preset!="m89-dragons" && preset!="m89-trolls" && preset!="m88-roster" && preset!="m87-inn" && preset!="m87-three" && preset!="m87-shangrila" && preset!="broken-armor" && preset!="train-ready" && preset!="injured-dead" && preset!="poisoned" && preset!="monster-control" && preset!="monster-damage" && preset!="party-healing" && preset!="m76-spells" && preset!="combat-items" && preset!="m78-playtest" && preset!="m78-one-holder" && preset!="m79-playtest" && preset!="m80-playtest" && preset!="m80-arena" && preset!="m80-arena-maxed" && preset!="m81-drops" && preset!="m81-fullpacks" && preset!="m81-event" && preset!="m84-playtest-trap" && preset!="m84-playtest-label" && preset!="m84-playtest-save" && preset!="m85-playtest-label" && preset!="m85-playtest-run" && preset!="m85-playtest-trap" && preset!="m86-playtest-fall" && preset!="m86-playtest-moon-ray" && preset!="m86-playtest-border")
+    if (preset!="m92-lord-xeen" && preset!="m92-sixth-mirror" && preset!="m90-newcastle" && preset!="m90-golem" && preset!="m90-illusion" && preset!="m90-high-magic" && preset!="m90-darzog" && preset!="m90-clouds" && preset!="m90-castle" && preset!="m90-winterkill" && preset!="m89-lord-xeen" && preset!="m89-clan-king" && preset!="m89-draco" && preset!="m89-dragons" && preset!="m89-trolls" && preset!="m88-roster" && preset!="m87-inn" && preset!="m87-three" && preset!="m87-shangrila" && preset!="broken-armor" && preset!="train-ready" && preset!="injured-dead" && preset!="poisoned" && preset!="monster-control" && preset!="monster-damage" && preset!="party-healing" && preset!="m76-spells" && preset!="combat-items" && preset!="m78-playtest" && preset!="m78-one-holder" && preset!="m79-playtest" && preset!="m80-playtest" && preset!="m80-arena" && preset!="m80-arena-maxed" && preset!="m81-drops" && preset!="m81-fullpacks" && preset!="m81-event" && preset!="m84-playtest-trap" && preset!="m84-playtest-label" && preset!="m84-playtest-save" && preset!="m85-playtest-label" && preset!="m85-playtest-run" && preset!="m85-playtest-trap" && preset!="m86-playtest-fall" && preset!="m86-playtest-moon-ray" && preset!="m86-playtest-border")
         throw std::invalid_argument("Unknown test-save preset: "+preset);
     const auto target=XeenSaveFile::resolve(output,installation);
     // Reuse the native alias/reparse-aware path guard for the repository too.
@@ -525,7 +534,7 @@ void generateTestSave(const GameInstallation &installation,const std::string &pr
             nearby.lifecycle=XeenActorLifecycle::Present;nearby.accounted=false;
         }
     }
-    if(preset.rfind("m90-",0)==0 || preset.rfind("m89-",0)==0 || preset=="m88-roster" || preset.rfind("m87-",0)==0 || preset=="m79-playtest" || preset=="m80-playtest" || preset=="m80-arena" || preset=="m80-arena-maxed" || preset.rfind("m84-playtest-",0)==0 || preset.rfind("m85-playtest-",0)==0 || preset.rfind("m86-playtest-",0)==0) {
+    if(preset.rfind("m92-",0)==0 || preset.rfind("m90-",0)==0 || preset.rfind("m89-",0)==0 || preset=="m88-roster" || preset.rfind("m87-",0)==0 || preset=="m79-playtest" || preset=="m80-playtest" || preset=="m80-arena" || preset=="m80-arena-maxed" || preset.rfind("m84-playtest-",0)==0 || preset.rfind("m85-playtest-",0)==0 || preset.rfind("m86-playtest-",0)==0) {
         const auto map=candidate.camera.mapId;
         const auto actors=XeenActorApproach::actorsFromResources(inputs.maps.loadObjects(inputs.assets,map),inputs.resources.loadMonsterStatistics());
         auto &table=candidate.map(map).monsters;
@@ -545,6 +554,10 @@ void generateTestSave(const GameInstallation &installation,const std::string &pr
                 if(r.x==12 && r.y==13 && r.line==1)candidate.map(11).events.push_back({std::uint16_t(n),0});
             }
         }
+    }
+    if(preset=="m92-sixth-mirror") {
+        auto &lord=candidate.map(78).monsters->slots.at(8);
+        lord.x=lord.y=-128;lord.lifecycle=XeenActorLifecycle::Defeated;lord.accounted=true;
     }
     if(preset.rfind("m86-playtest-",0)==0) {
         for(auto &state:candidate.maps)if(state.monsters)for(auto &actor:state.monsters->slots) {

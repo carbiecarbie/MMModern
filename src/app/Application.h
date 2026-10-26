@@ -4,6 +4,7 @@
 #include "games/xeen/XeenNavigation.h"
 #include "app/XeenEncounterFlow.h"
 #include "app/XeenSession.h"
+#include "platform/XeenWonStore.h"
 #include "games/xeen/XeenMonsterFixture.h"
 
 #include <filesystem>
@@ -17,7 +18,10 @@ struct XeenGameplayServices;
 class XeenAssetSource;
 class Application {
 public:
- explicit Application(XeenProgramState &program, std::filesystem::path uiData = {}) : _program(program), _uiData(std::move(uiData)) {}
+ explicit Application(XeenProgramState &program, std::filesystem::path uiData = {},
+  std::optional<std::filesystem::path> settingsFile = {}) : _program(program), _uiData(std::move(uiData)), _settingsFile(std::move(settingsFile)) {
+  _program.cloudsWon=_settingsFile && xeenReadWon(*_settingsFile);
+ }
 	int run(const std::filesystem::path &gameDirectory) const;
 	int newGame(const std::filesystem::path &gameDirectory,
 		XeenDifficulty difficulty = XeenDifficulty::Adventurer,
@@ -48,9 +52,11 @@ public:
 		const std::optional<std::filesystem::path> &target, bool resume,
 		XeenEncounterEntry entry = XeenEncounterEntry::Ordinary, std::optional<std::uint32_t> seed = {}) const;
 private:
+ int runTitle(const std::filesystem::path &,std::optional<std::uint32_t> endingScore={}) const;
  using InitialPublication=std::function<bool(const XeenSaveSnapshot &,const std::function<void()> &)>;
  XeenProgramState &_program;
  std::filesystem::path _uiData;
+ std::optional<std::filesystem::path> _settingsFile;
 	int gameplay(const std::filesystem::path &, XeenCamera,
 		const std::optional<std::filesystem::path> &, bool resume,
 		XeenEncounterEntry entry = XeenEncounterEntry::Ordinary, std::optional<std::uint32_t> seed = {},

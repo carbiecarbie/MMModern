@@ -63,7 +63,8 @@ XeenCutscene titleExit() {
  s.segments.push_back(std::move(idle));return s;
 }
 }
-int Application::run(const std::filesystem::path &gameDirectory) const {
+int Application::run(const std::filesystem::path &gameDirectory) const {return runTitle(gameDirectory);}
+int Application::runTitle(const std::filesystem::path &gameDirectory,std::optional<std::uint32_t> endingScore) const {
  try {
   const auto installation=XeenInstallationDetector(_uiData).detect(gameDirectory);
   if(!installation) {std::cerr<<"No Xeen installation found: "<<gameDirectory.u8string()<<'\n';return 2;}
@@ -95,6 +96,7 @@ int Application::run(const std::filesystem::path &gameDirectory) const {
   };
   auto title=makeTitle();
   XeenSessionEntry entry;
+  if(endingScore){entry.kind=XeenSessionEntry::Kind::CloudsEnding;entry.score=*endingScore;}
   bool inGameLoad=false;
   for(;;) {
    if(entry.kind==XeenSessionEntry::Kind::Title) {
@@ -103,6 +105,11 @@ int Application::run(const std::filesystem::path &gameDirectory) const {
     if(!selected)return 0;entry=*selected;inGameLoad=false;
    }
    if(entry.kind==XeenSessionEntry::Kind::Exit)return 0;
+   if(entry.kind==XeenSessionEntry::Kind::CloudsEnding) {
+    const auto options=_program.audio->soundOptions();
+    title=makeTitle(options);title->cloudsEndingFailure("Clouds ending: not supported yet");
+    _program.resetPlayTime();entry={};continue;
+   }
    if(entry.kind==XeenSessionEntry::Kind::CloudsIntro) {
     auto &audio=*_program.audio;const auto options=audio.soundOptions();
     const auto clock=[] {return SdlWindow::presentationNanoseconds();};
@@ -149,6 +156,9 @@ int Application::run(const std::filesystem::path &gameDirectory) const {
    const int status=gameplay(gameDirectory,{},entry.path,!fresh,
     fresh?XeenEncounterEntry::Journey:XeenEncounterEntry::Ordinary,{},
     fresh?std::optional<XeenDifficulty>{entry.difficulty}:std::nullopt,&entry,&assets,fresh?publish:InitialPublication{},&outcome);
+   if(status==0 && outcome.kind==XeenSessionOutcome::Kind::CloudsEnding) {
+    entry={};entry.kind=XeenSessionEntry::Kind::CloudsEnding;entry.score=outcome.score;inGameLoad=false;continue;
+   }
    if(status==0 && outcome.kind==XeenSessionOutcome::Kind::Load){entry=std::move(outcome.entry);inGameLoad=true;continue;}
    if(status==0 && outcome.kind==XeenSessionOutcome::Kind::Title){title->returnToTitle();entry={};inGameLoad=false;continue;}
    outcome.kind=status==5?XeenSessionOutcome::Kind::Title:status==0?XeenSessionOutcome::Kind::Exit:XeenSessionOutcome::Kind::Failure;

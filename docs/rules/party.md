@@ -28,7 +28,10 @@ The live map flush still uses the previously loaded map, DS `c0cc`:
 `0x1ed29` -> `0x265f4`. Snapshot `0x1ed2e` precedes the new-map resource read
 at `0x1ed40` -> `0x21f4d`. Thus map 28 is not loaded before the write. A
 capture must save the relocated camera and the live old-map changes without
-manufacturing a visit to map 28.
+manufacturing a visit to map 28. v21 also admits an omitted camera-map monster
+table for an unvisited camera map (maintainer, 2026-10-26; v21 was never released).
+Capture and preflight require the table if the camera map has any retained
+state; restore of an omitted table stages the original archive MOB actors.
 
 The repeat slot-06 capture compares all 301 XEEN and 444 DARK members.
 Only XEEN `maze0078.dat` (stepped bits) and `maze0078.mob` (Lord Xeen's
@@ -50,7 +53,8 @@ remains available at the title.
 
 The ordinary write failure behavior below also applies to the ending:
 DOS may terminate on an I/O error and does not provide rollback. MMModern's
-planned retry uses the approved Inn recovery extension. Detailed member
+retry uses the approved Inn recovery extension, retaining the first snapshot
+and score across failed writes. Detailed member
 hashes and field differences: `D:/MModern-re/m92/archive-diff.json` and
 `map-diff.json`; [M92 evidence](evidence.md#m92-clouds-ending-evidence).
 

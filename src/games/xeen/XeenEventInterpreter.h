@@ -34,11 +34,13 @@ struct XeenEventExecutionAddress {
 	int line = 0;
 };
 
+enum class XeenEndingRequest { Clouds, Showtime };
 struct XeenEventExecutionCompleted {
 	XeenCamera finalCamera;
 	XeenGameFlags finalGameFlags;
 	std::size_t instructionCount = 0;
     unsigned inputClearCount=0, inputClearSite=0;
+    std::optional<XeenEndingRequest> ending;
 };
 
 enum class XeenPresentationKind {
@@ -209,6 +211,7 @@ struct XeenEventGiveTakeProgress {
 };
 
 struct XeenEventExecutionState {
+    std::optional<XeenEndingRequest> ending;
     unsigned inputClearCount=0, inputClearSite=0;
     // DOS Event-local markers, independent of instruction count.
     bool scriptExecuted=false, otherFacing=false, tailDone=false;

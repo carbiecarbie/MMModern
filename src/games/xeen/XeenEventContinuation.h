@@ -25,7 +25,7 @@ public:
 	}
 	void check(const XeenEventExecutionState &state) const {
 		const auto &a=state;const auto &b=expected;
-		bool same=optional(a.portraitDamage,b.portraitDamage,[](const auto &x,const auto &y){return x==y;}) && optional(a.portraitRandom,b.portraitRandom,[](const auto &x,const auto &y){return x==y;}) && a.sparkledOwners==b.sparkledOwners && optional(a.portraitProgress,b.portraitProgress,[](const auto &x,const auto &y){return x==y;}) && a.treasure==b.treasure && a.stash==b.stash && a.stashed==b.stashed && a.reward.phase==b.reward.phase && a.reward.cursor==b.reward.cursor &&
+		bool same=a.ending==b.ending && optional(a.portraitDamage,b.portraitDamage,[](const auto &x,const auto &y){return x==y;}) && optional(a.portraitRandom,b.portraitRandom,[](const auto &x,const auto &y){return x==y;}) && a.sparkledOwners==b.sparkledOwners && optional(a.portraitProgress,b.portraitProgress,[](const auto &x,const auto &y){return x==y;}) && a.treasure==b.treasure && a.stash==b.stash && a.stashed==b.stashed && a.reward.phase==b.reward.phase && a.reward.cursor==b.reward.cursor &&
 			optional(a.cdSpeech,b.cdSpeech,speech) &&
 			optional(a.rewardRandom,b.rewardRandom,[](const auto &x,const auto &y){return x==y;}) &&
 			optional(a.rewardItem,b.rewardItem,[](const auto &x,const auto &y){return x==y;}) &&

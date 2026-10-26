@@ -250,7 +250,7 @@ public:
 	// Event interpreter reports its own clear before publication; other loads
     // publish a transient input signal with the destination, including reloads.
     XeenGameFlags loadEventDestination(XeenMapIdentity from,XeenMapIdentity to,bool clearKeyboard=true,const XeenGameFlags &flags={});
-    void applyMainMapRules(XeenMapIdentity,XeenGameFlags &);
+    void applyMainMapRules(XeenMapIdentity,XeenGameFlags &,std::optional<bool> completed={});
     std::uint64_t inputMapLoadGeneration() const noexcept {return _inputMapLoadGeneration;}
 	bool regionalJourney() const noexcept {
 		return (_sessionState.journey() || _detachedEventCandidate);

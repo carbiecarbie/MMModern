@@ -260,8 +260,6 @@ Support eventSupport(const XeenEventRecord &original,const XeenEventFile &origin
                     return {Status::Unclassified,"Entrance request has no shared site row"};
                 return {Status::Supported,"Original terminal entrance scene and map load admitted by the shared site table"};
             }
-            if(std::holds_alternative<XeenEventEndClouds>(operation))
-                return {Status::Partial,"Prior Event lines run; Clouds ending: not supported yet"};
             if(pending->request.arena)
                 return {Status::Supported,"Original Battle Master dialog admitted with visit-only Arena actors and ordinary character awards"};
             // A service request is the engine's terminal Event-to-Service handoff.
@@ -438,7 +436,7 @@ std::string cloudsEventScope(const Census &census) {
     }
     std::ostringstream out;out<<"## Clouds Event scope\n\n| Classification | Mechanic/reason rows | Instructions |\n| --- | ---: | ---: |\n";
     for(unsigned i=0;i<labels.size();++i)out<<"| "<<labels[i]<<" | "<<rows[i]<<" | "<<uses[i]<<" |\n";
-    out<<"\nThese classifications retain the support results below. Ending keywords inside ConfirmWord are excluded paths, not separate instruction rows. "
+    out<<"\nThese classifications retain the support results below. Clouds mirror results 40 (showtime) and 62 (bloopers) are supported; results 60/61 remain excluded paths inside ConfirmWord, not separate instruction rows. "
         "Census limits are uncalled off-map records, the dead map-49 service suffix and any real isolated self-loop safety limit. "
         "Destination admission remains separate from operation support. Darkside rows are outside this Clouds scope.\n\n";
     return out.str();
@@ -468,7 +466,7 @@ std::string report(const Census &clouds,const Census &darkside) {
         "Original quest-counter refusals, proficiency and equipment conflicts are gameplay rules, not missing implementation. "
         "When the same mechanic is admitted elsewhere, its engine refusal is partial in that context instead of a globally missing mechanic. "
         "CD speech uses the installed tracks with visible text on unavailable audio. Records rejected as malformed and evidence not classifiable by engine checks remain unclassified.\n\n"
-        "Clouds Event exclusions: town scenes (17, actions 6/12/13 and untabled sites), and the ending (30 plus ConfirmWord ending keywords). "
+        "Clouds Event exclusions: town scenes (17, actions 6/12/13 and untabled sites), and ConfirmWord ending keywords 60/61. Opcode 30 requests the supported Clouds ending tail; presentation remains a notice until Part C. "
         "Darkside-only operations and durable banks are outside Clouds scope. Destination-map admission is separate: shared travel refusals preserve candidate state and RNG. "
         "Residual census limits are off-map records without a discovered physical caller, real isolated self-loops (1024 dispatches), and mirror transfers without a local ConfirmWord prefix. "
         "No unresolved in-scope Clouds Event mechanic is accepted as an exclusion.\n\n"

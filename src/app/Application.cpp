@@ -630,6 +630,10 @@ int Application::gameplay(const std::filesystem::path &gameDirectory, XeenCamera
                 if(outcome){*outcome=std::move(result);return 0;}
                 return run(gameDirectory);
             }
+            if(result.kind==XeenSessionOutcome::Kind::CloudsEnding) {
+                if(outcome){*outcome=std::move(result);return 0;}
+                return runTitle(gameDirectory,result.score);
+            }
             if(result.kind!=XeenSessionOutcome::Kind::Load)return status;
             if(outcome){*outcome=std::move(result);return 0;}
             services.restoreSnapshot=result.entry.snapshot;services.initialSlot=result.entry.slot;

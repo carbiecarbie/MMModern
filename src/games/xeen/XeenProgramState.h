@@ -16,6 +16,7 @@ struct XeenProgramState {
     std::uint32_t playTimeMark; // DOS DS:98b0: process lifetime, never restored.
     std::uint32_t playTime(std::uint32_t saved) const {return wallClock.now()-playTimeMark+saved;}
     void resetPlayTime() {playTimeMark=wallClock.now();}
+    bool cloudsWon=false; // Title gate only; never a party completion source.
     bool eventCallSkipped=false; // DOS DS:9756: process lifetime, never saved.
     bool innSongStarted=false; // DOS DS:8d28: process lifetime, never saved.
     unsigned attackWeaponFx=0; // DS:96ee is retained even across ordinary spell impacts.

@@ -102,7 +102,8 @@ At `a6b129c`:
   state goes to `%LOCALAPPDATA%\MMModern\settings.ini`; play time follows
   the system wall clock as DOS's `time()` does; Parts A-D as below.
 - **Won-store failure** (2026-10-25): if writing `settings.ini` fails, a
-  notice appears, the ending continues and the state stays not won.
+  notice appears and the ending continues. A failed rewrite keeps the previous
+  won value (maintainer, 2026-10-26).
 
 ## Part 0 - DOS evidence (read-only)
 
@@ -248,7 +249,9 @@ ending chapter in `docs/rules/cutscenes.md`, play time in
   (`XeenSaveFormat.cpp:423`); `kFixedJourneyBytes` 8083 -> 8088
   (`:508`); the version pin in `tests/XeenFoodBankFlowTests.cpp:439`.
   Schema 9 and content 14 stay, as the v13 precedent (`f6074c2`); v20
-  saves are refused clearly.
+  saves are refused clearly. v21 also admits an omitted camera-map monster
+  table for an unvisited camera map (maintainer, 2026-10-26; v21 was never released).
+  Capture and preflight require the table whenever the camera map has retained state.
 - **Format audit.** An audit-only build, never committed, writing v20
   with the fixed clock must reproduce the four baseline M44 digests; the
   v21 saves differ only by the version field and the new field(s), with

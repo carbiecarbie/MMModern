@@ -45,14 +45,22 @@ struct EncounterHandoff {
 void xeenSaveGameplay(const XeenGameplayServices &services, XeenWorld &world, XeenPartyState &party,
 	XeenCamera &camera, XeenGameFlags &flags, XeenEventFlow &flow, const std::filesystem::path &target,
 	const XeenSaveState::Preflight &preflight, std::function<void()> *nestedSourceCheck,
- const std::function<void(const XeenSaveSnapshot &,const std::function<void()> &)> &writer) {
+ const std::function<void(const XeenSaveSnapshot &,const std::function<void()> &)> &writer, std::optional<XeenSaveSnapshot> *captured) {
 	if (!flow.canSave() || !XeenSaveState::canCapture(party,camera,world))
 		throw std::logic_error("Save boundary is unavailable");
-	auto snapshot = XeenSaveState::capture(services.resources.signature,party,camera,flags,world);
+	auto snapshot = captured && *captured ? **captured : XeenSaveState::capture(services.resources.signature,party,camera,flags,world);
+    const auto *cameraMap=snapshot.find(camera.mapId);
+    if((!cameraMap || !cameraMap->monsters) &&
+       (world.sessionState().mapState(camera.mapId) ||
+        (world.sessionState().headCache() && world.sessionState().headCache()->mapId==camera.mapId)))
+        throw std::logic_error("Save camera-map monster table is missing for a retained map");
 	snapshot.name=services.saveName;
 	XeenRestoreGuard before(world,party,camera,flags);
 	before.check();
-    snapshot.journey->playTimeSeconds=services.program.playTime(party.playTimeSeconds);before.check();
+    if(!captured || !*captured) {
+     snapshot.journey->playTimeSeconds=services.program.playTime(party.playTimeSeconds);before.check();
+     if(captured)*captured=snapshot;
+    }
 	const auto boundary = flow.beginSave();
 	struct Lease {
 		XeenEventFlow &flow; XeenEventFlow::SaveBoundary boundary;
@@ -269,14 +277,20 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
   };
   if (services.configureFlow) services.configureFlow(flow, camera);
   handoff.verify();
-  flow.saveInn=[&] {
+  if(!flow.writeWon)flow.writeWon=[&] {
+   const bool written=_settingsFile && xeenWriteWon(*_settingsFile);
+   services.program.cloudsWon=written || services.program.cloudsWon;
+   return written;
+  };
+  flow.saveForced=[&](std::optional<XeenSaveSnapshot> *captured) {
    if(services.currentSlot && services.writeManaged)
     xeenSaveGameplay(services,world,party,camera,flags,flow,{},preflight,&sourceCheck,
-     [&](const auto &snapshot,const auto &check){services.writeManaged(*services.currentSlot,snapshot,check);});
+     [&](const auto &snapshot,const auto &check){services.writeManaged(*services.currentSlot,snapshot,check);},captured);
    else if(services.developerSavePath)
-    xeenSaveGameplay(services,world,party,camera,flags,flow,*services.developerSavePath,preflight,&sourceCheck);
+    xeenSaveGameplay(services,world,party,camera,flags,flow,*services.developerSavePath,preflight,&sourceCheck,{},captured);
    else XeenSaveState::settleDismissedLodging(party,camera,flags,world);
   };
+  flow.saveInn=[&]{flow.saveForced(nullptr);};
   if(party.insideInn) {flow.openInn();handoff.retain();}
   else services.program.innSongStarted=false;
   handoff.verify();
@@ -537,6 +551,10 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
 
    auto next = flow.handle(mapped,input,inputFrame);
    handoff.retain();
+   if(const auto score=flow.endingScore()) {
+    if(services.outcome)*services.outcome={XeenSessionOutcome::Kind::CloudsEnding,0,{},*score};
+    finished=true;
+   }
    return next;
    } catch (...) { handoff.fail(); active = false; throw; }
   };
@@ -569,6 +587,9 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
    const auto now=flow.presentationNow();
    audio->selectCdDisc(camera.mapId.side==XeenSide::Clouds?1:2,now);
    audio->advance(now);
+   // Ending notices/retries retain the old loaded world until the forced
+   // snapshot. Ordinary map-song selection would load the relocated map.
+   if(flow._ending)return;
    const auto location=flow.audioLocation();
    if(location!=soundLocation || soundMap!=camera.mapId) {
     if(location && *location==7) {
@@ -637,6 +658,10 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
   };
   handler.finished=[&,alive]{
    if(!*alive)return true;
+   if(const auto score=flow.endingScore()) {
+    if(services.outcome)*services.outcome={XeenSessionOutcome::Kind::CloudsEnding,0,{},*score};
+    finished=true;
+   }
    if(!finished)return false;
    if(services.outcome && services.outcome->kind==XeenSessionOutcome::Kind::Title && services.program.audio) {
     services.program.audio->observeOptions(party.soundOptions);
@@ -665,6 +690,10 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
      auto next=flow.completeExplorationInput();handoff.retain();return next;
     }
     auto next=flow.updatePresentation();handoff.retain();
+    if(const auto score=flow.endingScore()) {
+     if(services.outcome)*services.outcome={XeenSessionOutcome::Kind::CloudsEnding,0,{},*score};
+     finished=true;
+    }
     if(flow.partyDeathComplete()) {
      if(services.outcome)*services.outcome={XeenSessionOutcome::Kind::Title,0,{}};
      finished=true;

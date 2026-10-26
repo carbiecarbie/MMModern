@@ -31,9 +31,9 @@ void xeenRegenerateIceTrolls(std::vector<XeenActor> &actors,XeenMapIdentity map)
  for(auto &actor:actors)if(actor.lifecycle==XeenActorLifecycle::Present && actor.original.resourceId==53 && actor.statistics)
   actor.hp=actor.statistics->baseHp();
 }
-std::uint16_t xeenMapRuleView(const XeenGameFlags &flags) noexcept {
+std::uint16_t xeenMapRuleView(const XeenGameFlags &flags,bool cloudsCompleted) noexcept {
  const auto &objects=xeen_scripted_rules_detail::objects;
- unsigned view=0;for(unsigned n=0;n<9;++n)if(flags.isSet(objects[n].flag))view|=1u<<n;
+ unsigned view=cloudsCompleted?1u<<11:0u;for(unsigned n=0;n<9;++n)if(flags.isSet(objects[n].flag))view|=1u<<n;
  if(flags.isSet(43))view|=1u<<9;if(flags.isSet(25))view|=1u<<10;
  return std::uint16_t(view);
 }

@@ -2,6 +2,7 @@
 #include "XeenTestInstallation.h"
 #include "formats/xeen/XeenVoc.h"
 #include "games/xeen/XeenJumpRules.h"
+#include "app/XeenAudio.h"
 #include <iostream>
 #include <sstream>
 using namespace training_test;
@@ -15,6 +16,7 @@ struct XeenRestTestAccess {
         auto &e=*f._encounter;auto &a=const_cast<XeenActor&>(e._world.sessionState().regionalActors(28).at(0));a.hp=1;a.status=XeenActorStatus::Sleep;
         e.retainJourney();f._encounterFrame=e.ticket();
     }
+    static bool spellFailed(const XeenEventFlow &f){return f._dialogError && *f._dialogError=="Spell Failed!";}
     static bool teleport(const XeenEventFlow &f){return bool(f._travelUi);}
     static bool complete(const XeenEventFlow &f){return f._encounter->_rest && f._encounter->_rest->phase==XeenEncounterFlow::RestContinuation::Phase::Complete;}
     static bool dream(const XeenEventFlow &f){return f._encounter->_rest && f._encounter->_rest->phase==XeenEncounterFlow::RestContinuation::Phase::Dream;}
@@ -63,6 +65,32 @@ void cast(Fixture &f,bool item,unsigned distance=0) {
 void openTravel(Fixture &f,bool item) {
     if(item){f.act(SelectMemberAction{0});key(f,'i');key(f,'m');key(f,'1');key(f,'u');}
     else {f.act(CastSpellAction{});f.act(SelectMemberAction{0});key(f,'c');}
+}
+void endingItemBeacon(Inputs &in,const GameInstallation &installation) {
+    for(bool completed:{false,true})for(unsigned map=75;map<=78;++map) {
+        scenario="ending item Beacon map="+std::to_string(map)+" completed="+std::to_string(completed);
+        auto saved=source(in,44);saved.journey->cloudsCompleted=completed;saved.soundOptions.efx=true;
+        const auto owner=saved.activeRosterIds[0];auto &caster=saved.characters[owner];
+        caster.miscellaneous[0]={1,28,2,0};caster.lloydMap=map;caster.lloydX=4;caster.lloydY=9;caster.lloydSide=0;
+        // Keep the original destination quiet so the test isolates Return.
+        const auto actors=XeenActorApproach::actorsFromResources(in.maps.loadObjects(in.assets,map),in.statistics);
+        auto &table=saved.map(map).monsters;table.emplace(XeenSaveMonsterTable{std::uint16_t(actors.size()),{}});
+        for(const auto &a:actors)table->slots.push_back({-128,-128,XeenActorLifecycle::Defeated,XeenActorStatus::Physical,true,-1});
+        Fixture f(in,saved);wire(f);std::vector<unsigned> effects;
+        f.programState.audio=XeenAudio::installed(installation,in.assets,0,false);
+        f.programState.audio->effectSink([&](unsigned id){effects.push_back(id);});
+        openTravel(f,true);key(f,'r');
+        if(completed) {
+            for(unsigned n=0;n<100 && !XeenRestTestAccess::spellFailed(*f.flow);++n)tick(f);
+            check(XeenRestTestAccess::spellFailed(*f.flow),"Item Beacon must use the ordinary Spell Failed! result");
+            check(f.c.mapId==saved.camera.mapId && f.c.x==saved.camera.x && f.c.y==saved.camera.y,"Completed item Beacon travelled");
+            check(std::find(effects.begin(),effects.end(),51)==effects.end(),"Failed item Beacon played effect 51");
+        }
+        quiet(f);
+        check(f.p.roster.at(owner).miscellaneous[0].state==1,"Item Beacon spends one charge on failure or success");
+        if(!completed)check(f.c.mapId==XeenMapIdentity(map) && f.c.x==4 && f.c.y==9 &&
+            std::find(effects.begin(),effects.end(),51)!=effects.end(),"Pre-win item Beacon must travel normally with effect 51");
+    }
 }
 void mapTravel(Inputs &in) {
     for(bool item:{false,true}) {
@@ -271,7 +299,7 @@ void water(Inputs &in) {
         const XeenCamera camera{23,x,y,XeenDirection(d)};constexpr int dx[]{0,1,0,-1},dy[]{1,0,-1,0};
         const int tx=x+int(n)*dx[d],ty=y+int(n)*dy[d];
         if(tx<0 || tx>=16 || ty<0 || ty>=16 || dry[ty*16+tx] || !area[ty*16+tx])continue;
-        const auto r=R::travel(w,camera,S::Teleport,n);if(r.destination)teleport={camera,n};
+        const auto r=R::travel(w,camera,S::Teleport,n,nullptr,false);if(r.destination)teleport={camera,n};
     }
     check(bool(teleport),"No original Teleport destination beyond water");
     for(unsigned spell:{21u,69u})for(bool item:{false,true}) {
@@ -381,6 +409,6 @@ void combat(Inputs &in) {
 }
 }
 int main(int argc,char **argv){try{check(argc==2,"usage: travel-original <installation>");const auto detected=xeenTestInstallationDetector().detect(argv[1]);check(bool(detected),"Missing installation");Inputs in(*detected);
-    std::ostringstream out;auto *old=std::cout.rdbuf(out.rdbuf());try{mapTravel(in);presentation(in);exploration(in);rest(in);water(in);jumpWater(in);shelterOrder(in);combat(in);}catch(...){std::cout.rdbuf(old);throw;}std::cout.rdbuf(old);
+    std::ostringstream out;auto *old=std::cout.rdbuf(out.rdbuf());try{endingItemBeacon(in,*detected);mapTravel(in);presentation(in);exploration(in);rest(in);water(in);jumpWater(in);shelterOrder(in);combat(in);}catch(...){std::cout.rdbuf(old);throw;}std::cout.rdbuf(old);
     std::cout<<"M76 same-map travel, Jump over water, Shelter, Rest cell refusal, costs, items and exact restore passed\n";return 0;
 }catch(const std::exception &e){std::cerr<<scenario<<": "<<e.what()<<'\n';return 1;}}

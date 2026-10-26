@@ -394,7 +394,7 @@ std::optional<std::uint64_t> XeenEncounterFlow::beginItemUse(const Ticket &entry
 				}
 			}
             if(next->spell && (*next->spell==XeenLearnedSpell::LloydsBeacon || *next->spell==XeenLearnedSpell::TownPortal || *next->spell==XeenLearnedSpell::Etherealize || *next->spell==XeenLearnedSpell::TimeDistortion || *next->spell==XeenLearnedSpell::SuperShelter || *next->spell==XeenLearnedSpell::Teleport)) {
-                travel=XeenLearnedSpellRules::travel(_world,_camera,*next->spell,distance,&source);
+                travel=XeenLearnedSpellRules::travel(_world,_camera,*next->spell,distance,&source,_party.cloudsCompleted);
                 _journeyPreimage->check();if(travel.unsupported)return {};
                 next->jumpDestination=travel.destination;next->failed=travel.failed;next->shelterPending=travel.shelter;
             }
@@ -781,7 +781,7 @@ std::string XeenEncounterFlow::journeyInspection() const {
 	return out.str();
 }
 XeenEncounterFlow::Ticket XeenEncounterFlow::beginJourneySave(bool inn) {
-	if ((!inn && !journeyQuiet()) || (inn && (!_journeyCapture->innSave || !_journeyCapture->current(_party,_camera))) || !journeyCapacity()) throw std::logic_error("Journey save boundary unavailable");
+	if ((!inn && !journeyQuiet()) || (inn && (!_journeyCapture->forcedSave || !_journeyCapture->current(_party,_camera))) || !journeyCapacity()) throw std::logic_error("Journey save boundary unavailable");
     _saveActivity=_world.sessionState().journeyActivity();
 	_world._sessionState._journeyActivity = XeenJourneyActivity::Saving;
 	++_world._sessionState._journeyGeneration; ++_generation;
@@ -789,7 +789,7 @@ XeenEncounterFlow::Ticket XeenEncounterFlow::beginJourneySave(bool inn) {
 	return ticket();
 }
 bool XeenEncounterFlow::journeySaveCurrent(const Ticket &t) const noexcept {
-	return _journey && !_busy && !_combat && !_failure && current(t) && (_boundary.quiet() || (_journeyCapture->innSave && _saveActivity==XeenJourneyActivity::Event)) &&
+	return _journey && !_busy && !_combat && !_failure && current(t) && (_boundary.quiet() || (_journeyCapture->forcedSave && _saveActivity==XeenJourneyActivity::Event)) &&
 		_world.sessionState().journeyActivity() == XeenJourneyActivity::Saving;
 }
 bool XeenEncounterFlow::endJourneySave(const Ticket &t) noexcept {

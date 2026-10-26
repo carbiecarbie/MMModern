@@ -30,7 +30,7 @@ bool XeenEncounterFlow::prepareCombatItem(const ItemUseSelection &selection,unsi
         !xeenItemUseSpell(selection.record.id))return false;
     bool supported=true;
     itemTravelRead([&] {
-        if(selection.record.id==55)supported=!XeenLearnedSpellRules::travel(_world,_camera,XeenLearnedSpell::TownPortal,choice,&source).unsupported;
+        if(selection.record.id==55)supported=!XeenLearnedSpellRules::travel(_world,_camera,XeenLearnedSpell::TownPortal,choice,&source,_party.cloudsCompleted).unsupported;
     });
     return supported;
 }
@@ -38,7 +38,7 @@ bool XeenEncounterFlow::useCombatItem(const Ticket &entry,const ItemUseSelection
     if(!current(entry) || !_boundary.quiet() || !prepareCombatItem(selection,choice))return false;
     XeenSpellTravel travel;SpellMapWork work;
     if(selection.record.id==55)itemTravelRead([&] {
-        travel=XeenLearnedSpellRules::travel(_world,_camera,XeenLearnedSpell::TownPortal,choice,&_party.roster.at(selection.sourceOwner));
+        travel=XeenLearnedSpellRules::travel(_world,_camera,XeenLearnedSpell::TownPortal,choice,&_party.roster.at(selection.sourceOwner),_party.cloudsCompleted);
         work=prepareSpellMap(travel);
     });
     const auto events=work.events;
@@ -86,7 +86,7 @@ std::unique_ptr<XeenShootCandidate> XeenEncounterFlow::prepareSpellProjectile(
 bool XeenEncounterFlow::initializeBeacon(std::uint8_t owner) {
     _journeyPreimage->check();
     const auto &caster=_party.roster.at(owner);
-    const auto travel=XeenLearnedSpellRules::travel(_world,_camera,XeenLearnedSpell::LloydsBeacon,0,&caster);
+    const auto travel=XeenLearnedSpellRules::travel(_world,_camera,XeenLearnedSpell::LloydsBeacon,0,&caster,_party.cloudsCompleted);
     _journeyPreimage->check();
     if(travel.failed)return false;
     if(!caster.lloydMap) {
@@ -197,7 +197,7 @@ bool XeenEncounterFlow::confirmCasting(const Ticket &entry, std::size_t casterIn
             }
           }
           if(*id==44 || *id==71 || *id==21 || *id==66 || *id==69 || *id==70) {
-            travel=XeenLearnedSpellRules::travel(_world,_camera,*spell,distance,&caster);
+            travel=XeenLearnedSpellRules::travel(_world,_camera,*spell,distance,&caster,_party.cloudsCompleted);
             _journeyPreimage->check();
             if(travel.unsupported) {_journeyRefusal="Spell not supported yet";return false;}
             jump=travel.destination;

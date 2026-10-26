@@ -11,7 +11,7 @@
 namespace mmodern {
 namespace {
 struct InnBusy {bool &value;explicit InnBusy(bool &v):value(v){value=true;}~InnBusy(){value=false;}};
-std::string innSaveError(const XeenDosText &text,const std::exception &error) {
+std::string forcedSaveError(const XeenDosText &text,const std::exception &error) {
     const auto message=std::string(error.what());
     return message.find("Windows error 112")!=std::string::npos || message.find("Windows error 39")!=std::string::npos?
         std::string(text.scalar("SAVE_AS_SPACE")):message;
@@ -114,27 +114,31 @@ void XeenEncounterFlow::innReturn() {
     _world.treasureStaging().enterGame();_journeyPreimage->adoptMutationBoundary();
     publishArrival(arrival);
 }
-void XeenEventFlow::forcedInnSave() {
-    if(!saveInn || _forcedInnSave)throw std::logic_error("Inn Save transaction unavailable");
-    if(!((_smithUi && _smithUi->signIn && _smithSettlement && _encounter->journeyEvent() && !_encounter->_smith) ||
+void XeenEventFlow::forcedInnSave() {forcedJourneySave(false);}
+void XeenEventFlow::forcedJourneySave(bool ending) {
+    if((ending?!bool(saveForced):!bool(saveInn)) || _forcedSave)throw std::logic_error("Inn Save transaction unavailable");
+    if(ending) {
+        if(!_ending || !_endingTailApplied || _endingScore || _transition || _pending || !_encounter->journeyEvent())
+            throw std::logic_error("Ending Save site unavailable");
+    } else if(!((_smithUi && _smithUi->signIn && _smithSettlement && _encounter->journeyEvent() && !_encounter->_smith) ||
          (_innUi && ((_innUi->phase==InnUi::Phase::Menu &&
           (!_party.insideInn || _innUi->edit==InnUi::Edit::SavePending)) ||
           (_party.insideInn && _innUi->phase==InnUi::Phase::CreateSave)))))
         throw std::logic_error("Inn Save site unavailable");
     auto &cap=*_encounter->_journeyCapture;
     const auto &boundary=_encounter->_boundary;
-    if(_smithUi) {
+    if(_smithUi || ending) {
         // Exactly the retained Event continuation may survive Service release.
         // Never bless an unrelated lease by adopting its generation.
-        if(!_encounter->_smithEventSettlement || !boundary.only(XeenCombatBoundary::Work::Event,_encounter->_eventLease))
+        if((!ending && !_encounter->_smithEventSettlement) || !boundary.only(XeenCombatBoundary::Work::Event,_encounter->_eventLease))
             throw std::logic_error("Inn Save service release unavailable");
         cap.generation=boundary.generation();
     } else if(!boundary.quiet() || cap.generation!=boundary.generation())
         throw std::logic_error("Stale Inn Exit capture");
     struct Lease {bool &flow,&capture;bool dispatch;XeenEventFlow &owner;
-        ~Lease(){flow=capture=false;owner._dispatching=dispatch;}} lease{_forcedInnSave,cap.innSave,_dispatching,*this};
-    _forcedInnSave=cap.innSave=true;_dispatching=false;
-    saveInn();_encounter->journeySavePreimage().check();
+        ~Lease(){flow=capture=false;owner._dispatching=dispatch;}} lease{_forcedSave,cap.forcedSave,_dispatching,*this};
+    _forcedSave=cap.forcedSave=true;_dispatching=false;
+    if(ending)saveForced(&_endingSnapshot);else saveInn();_encounter->journeySavePreimage().check();
     _encounterFrame=_encounter->ticket();
 }
 IndexedFrame XeenEventFlow::finishSignIn() {
@@ -144,7 +148,7 @@ IndexedFrame XeenEventFlow::finishSignIn() {
         try {forcedInnSave();_signInSaveDone=true;}
         catch(const std::exception &e) {
             _encounter->journeySavePreimage().check();
-            _smithUi->feedback=innSaveError(dosText(),e);
+            _smithUi->feedback=forcedSaveError(dosText(),e);
             ++_smithUi->revision;return renderEncounter();
         }
     }
@@ -275,7 +279,7 @@ IndexedFrame XeenEventFlow::handleInn(const PlayerAction &action) {
     const auto saveEdit=[&] {
         // A published record is never changed again when the disk write is retried.
         try {forcedInnSave();ui.edit=InnUi::Edit::None;ui.selected.reset();}
-        catch(const std::exception &e) {_encounter->journeySavePreimage().check();ui.feedback=innSaveError(dosText(),e);}
+        catch(const std::exception &e) {_encounter->journeySavePreimage().check();ui.feedback=forcedSaveError(dosText(),e);}
     };
     if(!ui.feedback.empty()) {
         ui.feedback.clear();if(ui.edit==InnUi::Edit::SavePending)saveEdit();return renderInn();
@@ -333,7 +337,7 @@ IndexedFrame XeenEventFlow::handleInn(const PlayerAction &action) {
                 _encounter->journeySavePreimage().check();
                 _party.insideInn=true;_encounter->journeySavePreimage().insideInn=true;
                 _encounter->journeySavePreimage().adoptMutationBoundary();
-                ui.feedback=innSaveError(dosText(),e);return renderInn();
+                ui.feedback=forcedSaveError(dosText(),e);return renderInn();
             }
             _program.innSongStarted=false;
             _encounter->innReturn();_innUi.reset();_presenter.clear();_journeyEventLayers=false;

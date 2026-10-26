@@ -110,8 +110,8 @@ void XeenWorld::reloadMapMonsters(XeenMapIdentity mapId) {
 	for (auto &actor:_sessionState.mutableMonsters(mapId)) xeenRefillLoadedMonster(actor);
 }
 
-void XeenWorld::applyMainMapRules(XeenMapIdentity mapId,XeenGameFlags &flags) {
- _mapRuleView=xeenMapRuleView(flags);
+void XeenWorld::applyMainMapRules(XeenMapIdentity mapId,XeenGameFlags &flags,std::optional<bool> completed) {
+ _mapRuleView=xeenMapRuleView(flags,completed.value_or(bool(_mapRuleView&(1u<<11))));
  if(mapId==XeenMapIdentity(15)) {
   const auto *s=_sessionState.mapState(mapId);
   if(s && s->monsters && xeenLakeDragonsGone(*s->monsters))flags.clear(56);

@@ -3,6 +3,8 @@
 #include "tools/XeenTestSave.h"
 #include "games/xeen/XeenScriptedRules.h"
 #include "TestTreeRemoval.h"
+#include "app/XeenGameplayServices.h"
+#include "games/xeen/XeenEndingScore.h"
 #include <chrono>
 #include <filesystem>
 #include <iostream>
@@ -52,7 +54,7 @@ void settle(Fixture &f,std::vector<XeenPresentationRequest> *requests=nullptr,bo
    const auto *fight=f.flow->encounter()->combat();
    throw std::runtime_error(std::string(e.what())+" at M89 tick "+std::to_string(n)+" map "+std::to_string(f.c.mapId.number)+" combat "+std::to_string(fight?int(fight->phase()):-1)+" flag60 "+std::to_string(f.f.isSet(60))+" notice "+f.flow->encounter()->notice());
   }
-  if(f.flow->canSave())return;
+  if(f.flow->canSave() || f.flow->endingScore())return;
  }
  throw std::runtime_error("M89 Flow did not return to Quiet: "+XeenMonsterTestAccess::state(*f.flow)+"\n"+f.flow->encounter()->notice());
 }
@@ -60,7 +62,16 @@ void lord(Inputs &in,XeenSaveSnapshot snapshot) {
  // An active dead member exercises the DOS all-member award loop in the real kill.
  const auto dead=snapshot.activeRosterIds.back();snapshot.characters[dead].currentHp=0;
  snapshot.characters[dead].conditions[unsigned(XeenCondition::Dead)]=1;
- Fixture f(in,snapshot);check(f.w.sessionState().regionalActors(78).at(8).original.resourceId==89,"Original Lord MOB binding");
+ snapshot.soundOptions.efx=snapshot.soundOptions.music=false;snapshot.journey->playTimeSeconds=62545;
+ Fixture f(in,snapshot);Directory output;const auto target=output.path/"ending.mmsave";
+ XeenGameplayServices services{f.programState,in.resources(),{},in.mapLoader(),in.objectLoader(),{},in.font};
+ unsigned wonWrites=0,saveWrites=0;
+ f.flow->writeWon=[&]{++wonWrites;check(f.p.cloudsCompleted && !f.f.isSet(75) && f.c.mapId==78,"DOS completion before marker, flags and relocation");return true;};
+ f.flow->saveForced=[&](auto *captured){
+  xeenSaveGameplay(services,f.w,f.p,f.c,f.f,*f.flow,target,[](auto &,const auto &,const auto &,const auto &){},nullptr,
+   [&](const auto &value,const auto &checkSource){++saveWrites;checkSource();XeenSaveFile::write(target,value);},captured);
+ };
+ check(f.w.sessionState().regionalActors(78).at(8).original.resourceId==89,"Original Lord MOB binding");
  press(f,NavigationAction::MoveForward);bool staged=false;settle(f,nullptr,true,&staged);
  check(f.w.sessionState().regionalActors(78).at(8).lifecycle==XeenActorLifecycle::Defeated,"Lord must die through the equipped sword");
  check(staged && f.p.questItems.at(8)==1 && f.f.isSet(60) && !f.p.questFlags.isSet(23),"Lord kill, staged Scepter and quest flags");
@@ -68,14 +79,28 @@ void lord(Inputs &in,XeenSaveSnapshot snapshot) {
  for(auto id:f.p.party.activeRosterIds())check(f.p.roster.at(id).awards[42]==1,"Lord award includes dead active members");
  press(f,NavigationAction::TurnLeft);settle(f);press(f,NavigationAction::MoveForward);settle(f);press(f,InteractionAction{});
  std::vector<XeenPresentationRequest> requests;settle(f,&requests);
- bool mirror=false,notice=false;
- for(const auto &r:requests) {
-  if(r.text.find("You have found the Sixth Mirror!")!=std::string::npos) {check(!notice,"Mirror text must precede notice");mirror=true;}
-  if(r.text=="Clouds ending: not supported yet") {check(mirror,"Ending notice skipped original mirror text");notice=true;}
+ bool mirror=false;for(const auto &r:requests)mirror=mirror || r.text.find("You have found the Sixth Mirror!")!=std::string::npos;
+ check(mirror && f.flow->endingScore() && wonWrites==1 && saveWrites==1,"Sixth Mirror text, one ending tail and forced current-slot write");
+ check(f.c.mapId==28 && f.c.x==18 && f.c.y==4 && f.c.direction==XeenDirection::West && f.p.cloudsCompleted && f.f.isSet(75),"Ending relocates and retains West");
+ check(XeenSoundOptions(f.p.soundOptions).efx && XeenSoundOptions(f.p.soundOptions).music,"Live audio enabled after save");
+ const auto saved=XeenSaveFile::read(target);
+ check(saved.camera.mapId==28 && saved.camera.x==18 && saved.camera.y==4 && saved.camera.direction==XeenDirection::West && saved.journey->cloudsCompleted,"Ending camera and completion persisted");
+ check(!saved.soundOptions.efx && !saved.soundOptions.music,"Save retains earlier sound switches");
+ check(saved.questItems[8]==1 && !saved.questFlags[23] && saved.gameFlags[60] && saved.gameFlags[75],"Ending preserves Scepter and Lord quest effects");
+ check(saved.find(78) && saved.find(78)->monsters && saved.find(78)->monsters->slots.at(8).lifecycle==XeenActorLifecycle::Defeated && !saved.find(28),"Old map flushed without a map-28 visit");
+ for(auto id:f.p.party.activeRosterIds()) {
+  check(saved.characters[id].awards[42]==1 && saved.characters[id].conditions==f.p.roster.at(id).conditions,"Live awards and conditions persist");
+  check(saved.journey->supplements[id].inputs.experience==f.p.roster.combatInputs(id)->experience,"Live kill XP persisted");
  }
- if(!mirror || !notice) {std::cerr<<"Mirror debug "<<f.c.x<<","<<f.c.y<<" dir "<<unsigned(f.c.direction)<<" requests "<<requests.size()<<" input "<<f.flow->acceptsInputFrame(f.flow->frame().presentation())<<"\n";for(const auto &r:requests)std::cerr<<"request "<<unsigned(r.source.opcode)<<" "<<r.text.substr(0,90)<<"\n";}
- check(mirror && notice && f.c.mapId==78 && !f.f.isSet(75),"Sixth Mirror reaches the terminal notice without running the ending");
- press(f,NavigationAction::TurnRight);settle(f);check(f.flow->canSave(),"Game must keep running after the notice");
+ check(*f.flow->endingScore()==xeenCloudsEndingScore(f.p,62545),"Ending score uses live post-kill records");
+ Fixture loaded(in,saved);check(loaded.c.mapId==28 && loaded.p.cloudsCompleted,"Reload at Vertigo");
+ auto map=loaded.w.transitionCandidate();map->loadEventDestination(28,27,true,loaded.f);
+ const auto &objects=map->objectFile(27).entities.objects;
+ unsigned castles=0;for(unsigned n=0;n<objects.size();++n)if(objects[n].resourceId==85){++castles;const auto object=map->effectiveObject({27,n});check(object.x==-128 && object.y==-128,"Reloaded completed party suppresses castle");}
+ check(castles>0,"Original map 27 contains Castle Xeen");
+ Fixture prewin(in,snapshot);check(!prewin.p.cloudsCompleted,"Loading pre-win restores its own completion");
+ auto oldMap=prewin.w.transitionCandidate();oldMap->loadEventDestination(78,27,true,prewin.f);
+ for(unsigned n=0;n<objects.size();++n)if(objects[n].resourceId==85)check(oldMap->effectiveObject({27,n}).x!=-128,"Pre-win Load retains the castle");
 }
 void clan(Inputs &in,XeenSaveSnapshot snapshot) {
  Fixture f(in,snapshot);check(f.w.sessionState().regionalActors(41).at(28).original.resourceId==75,"Original Clan King MOB binding");

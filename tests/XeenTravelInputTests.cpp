@@ -105,12 +105,20 @@ void swordCapacityAndEndings() {
  const auto full=f.answer(std::move(prompt),"sword");const auto *p=std::get_if<XeenEventExecutionSuspended>(&full);
  check(p && p->state.logicalAddress.line==3 && p->state.treasure.full(XeenRewardCategory::Weapons),
   "Full sword treasure category must jump to success without another item");
- for(unsigned ending:{39,59,60,61}) {
+ for(unsigned ending:{59,60}) {
   Fixture e;e.texts.mirrors.resize(62);e.texts.mirrors[ending].name="Ending";
   e.script(28,{record(1,1,0,21,{0,2,0,3}),record(1,1,1,18),record(1,1,2,18)});
   const auto result=e.answer(e.begin(),"ending");const auto *error=std::get_if<XeenEventExecutionError>(&result);
   check(error && error->message=="Ending mirror code is not supported yet","Ending codes must refuse before effects");
  }
+ for(unsigned ending:{39,61}) {
+  Fixture e;e.texts.mirrors.resize(62);e.texts.mirrors[ending].name="Ending";
+  e.script(28,{record(1,1,0,21,{0,2,0,3}),record(1,1,1,18),record(1,1,2,18)});
+  const auto result=e.answer(e.begin(),"ending");const auto *done=std::get_if<XeenEventExecutionCompleted>(&result);
+  check(done && done->ending==(ending==39?std::optional<XeenEndingRequest>{XeenEndingRequest::Showtime}:std::nullopt),
+   "Showtime requests a tail; bloopers exits without the next line or a scene");
+ }
+
 }
 void input() {
  const XeenFontFormat font(gameplay_test::fontBytes());XeenTextInput input;

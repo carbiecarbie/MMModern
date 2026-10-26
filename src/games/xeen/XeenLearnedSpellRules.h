@@ -107,7 +107,7 @@ class XeenLearnedSpellRules {
 public:
     // Input: Teleport distance; Beacon 0 cancel/default, 1 Set, 2 Return;
     // Town Portal 0 cancel, 1..5 town. All guards precede any returned write.
-    static XeenSpellTravel travel(XeenWorld &,const XeenCamera &,XeenLearnedSpell,unsigned distance=0, const XeenCharacter *caster=nullptr);
+    static XeenSpellTravel travel(XeenWorld &,const XeenCamera &,XeenLearnedSpell,unsigned distance, const XeenCharacter *caster,bool cloudsCompleted);
     static std::optional<XeenSpellInformation> information(XeenLearnedSpell,const XeenCamera &,
         const std::vector<XeenActor> &,const std::array<std::optional<XeenMonsterIdentity>,3> &);
 	static std::optional<XeenSpellCategory> categoryForClass(XeenCharacterClass) noexcept;

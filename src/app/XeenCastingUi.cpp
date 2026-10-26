@@ -7,7 +7,7 @@ namespace mmodern {
 bool XeenEventFlow::beginTravelDialog(XeenLearnedSpell spell,std::uint8_t owner,bool item) {
     XeenSpellTravel rule;TravelUi ui;
     _encounter->itemTravelRead([&] {
-    rule=XeenLearnedSpellRules::travel(_world,_camera,spell,0,&_party.roster.at(owner));
+    rule=XeenLearnedSpellRules::travel(_world,_camera,spell,0,&_party.roster.at(owner),_party.cloudsCompleted);
     if(rule.failed)return;
     ui.spell=spell;ui.owner=owner;ui.item=item;ui.digits.begin();
     if(spell==XeenLearnedSpell::LloydsBeacon || spell==XeenLearnedSpell::TownPortal) {
@@ -81,7 +81,7 @@ IndexedFrame XeenEventFlow::handleTravelDialog(const PlayerAction &action,std::u
         const unsigned choice=value=='s' || value=='t'?1:value=='r'?2:0;
         if(!choice && value!=InputKey::Escape)return frameCopy();
         _encounter->itemTravelRead([&] {
-            const auto rule=XeenLearnedSpellRules::travel(_world,_camera,ui.spell,choice,&_party.roster.at(ui.owner));
+            const auto rule=XeenLearnedSpellRules::travel(_world,_camera,ui.spell,choice,&_party.roster.at(ui.owner),_party.cloudsCompleted);
             if(rule.unsupported)ui.refusal="Spell not supported yet";
         });
         if(!ui.refusal.empty())return renderEncounter();
@@ -100,7 +100,7 @@ IndexedFrame XeenEventFlow::handleTravelDialog(const PlayerAction &action,std::u
     const unsigned distance=value==InputKey::Escape || ui.digits.value().empty()?0:unsigned(ui.digits.value()[0]-'0');
     if(ui.spell==XeenLearnedSpell::TownPortal && distance>5) {ui.digits.clear();ui.digits.begin();return renderEncounter();}
     _encounter->itemTravelRead([&] {
-        const auto travel=XeenLearnedSpellRules::travel(_world,_camera,ui.spell,distance,&_party.roster.at(ui.owner));
+        const auto travel=XeenLearnedSpellRules::travel(_world,_camera,ui.spell,distance,&_party.roster.at(ui.owner),_party.cloudsCompleted);
         if(travel.unsupported)ui.refusal="Spell not supported yet";
     });
     if(!ui.refusal.empty())return renderEncounter();

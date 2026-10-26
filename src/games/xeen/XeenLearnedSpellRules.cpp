@@ -13,7 +13,7 @@
 
 namespace mmodern {
 XeenSpellTravel XeenLearnedSpellRules::travel(XeenWorld &world,const XeenCamera &camera,
-        XeenLearnedSpell spell,unsigned distance,const XeenCharacter *caster) {
+        XeenLearnedSpell spell,unsigned distance,const XeenCharacter *caster,bool cloudsCompleted) {
     const auto &map=world.map(camera.mapId);
     const unsigned flag=spell==XeenLearnedSpell::LloydsBeacon?0x800:spell==XeenLearnedSpell::TownPortal?0x100:spell==XeenLearnedSpell::SuperShelter?0x200:
         spell==XeenLearnedSpell::Etherealize?0x40:spell==XeenLearnedSpell::TimeDistortion?0x400:0x1000;
@@ -29,6 +29,10 @@ XeenSpellTravel XeenLearnedSpellRules::travel(XeenWorld &world,const XeenCamera 
             if(distance==1) {result.beacon=std::array<std::uint8_t,4>{std::uint8_t(camera.mapId.number),std::uint8_t(int(camera.x)),std::uint8_t(int(camera.y)),std::uint8_t(camera.mapId.side)};return result;}
             if(distance!=2)return result;
             to.mapId=XeenMapIdentity(static_cast<XeenSide>(beacon[3]),beacon[0]);to.x=beacon[1];to.y=beacon[2];
+            // DAT 0x2feb3..0x2fee2: saved completion, never flag 75 or title won.
+            if(camera.mapId.side==XeenSide::Clouds && cloudsCompleted && to.mapId.number>=75 && to.mapId.number<=78) {
+                result.failed=true;return result;
+            }
             result.reload=to.mapId!=camera.mapId;
         } else {
             if(!distance)return result;

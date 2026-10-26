@@ -509,22 +509,46 @@ original post-dream poll.
 Deliberate differences from the original that the maintainer approved; each
 stays documented here and in the plan that implements it.
 
-- <a id="dev-inn-save-recovery"></a> **Inn write failures remain recoverable**
+- <a id="dev-clouds-won-store"></a> **Clouds title won marker in MMModern settings**
+  (maintainer confirmation, 2026-10-26). `%LOCALAPPDATA%\MMModern\settings.ini`
+  contains only a won boolean, independently of saved party completion. Missing
+  or malformed files mean not won. Publication uses a temporary sibling and
+  atomic replacement; on failure a notice appears, the ending continues and
+  the running title gate keeps its previous value (maintainer, 2026-10-26). The application resolves the path
+  once; child-process tests isolate it with `MMODERN_SETTINGS_FILE`.
+  DOS copies `ereiamjh` plus NUL at DAT `0x28b98..0x28c0d` and compares eight
+  bytes at startup (`0xb61e..0xb634`) for title `V`. Its NUL also clears CFG
+  byte 18, the low byte of a CPU-copy optimization option (`0xb451` ->
+  `0x3f866`), rather than another victory flag. MMModern writes neither
+  `XEEN.CFG` nor that overlap and stores no score or CFG bytes. Location:
+  `XeenWonStore`, `Application`, `XeenEndingFlow`. **ScummVM:** the pin uses
+  its own configuration rather than DOS CFG; MMModern's boolean location
+  and failure policy are approved application deviations. Master not rechecked.
+  [Evidence](rules/cutscenes.md#clouds-ending-entry-and-save).
+
+- <a id="dev-inn-save-recovery"></a> **Inn and Clouds ending write failures remain recoverable**
   (maintainer, 2026-10-24). A failed Sign In, Exit, confirmed Delete or Create-return save
   shows the existing panel Save error handling and permits retry; quitting
   remains possible. Sign In retains the already paid day, and Exit stays in
   the Inn until a successful retry. Delete keeps the published deletion, and
   acknowledging the error retries the same write without deleting again.
   Create return keeps the published records and advanced generator; retry
-  repeats neither creation nor rolls.
+  repeats neither creation nor rolls. The Clouds ending extends this recovery
+  (maintainer confirmation, 2026-10-26): a failed write keeps the first captured
+  snapshot and score, retries identical bytes and never repeats completion,
+  the won marker or relocation. A successful retry resets the play-time mark;
+  time spent in recovery is not added to that save.
   DOS terminates on open failure (`0x21ecd`) or archive seek/write carry
   error (`0x45c8a..0x45cfd`, status 2). This is an approved deviation,
   implemented by `XeenEventFlow::finishSignIn/handleInn/saveCreateReturn` and tested in
-  `XeenInnTests.cpp`. Sessions with no save target make no write, as their
-  panel Save does. **ScummVM:** the pin has no corresponding Sign In, Exit,
+  `XeenInnTests.cpp`. `XeenEventFlow::finishEnding` uses the same forced-write
+  capability, tested in `XeenEndingTests.cpp`. Sessions with no save target make no write, as their
+  panel Save does. **ScummVM:** for the Inn, the pin has no corresponding Sign In, Exit,
   confirmed Delete or Create-return slot writes, so there is no comparable
   forced-write failure path; see
-  [save boundaries](#sv-inn-save-boundaries). Master not rechecked.
+  [save boundaries](#sv-inn-save-boundaries). The ending retry is MMModern's
+  approved recovery policy; this does not establish the pin's ending I/O
+  failure handling. Master not rechecked.
 
 - <a id="dev-skipped-window-first"></a> **A skipped Event finishes its window before combat**
   (maintainer, 2026-10-23). If attack slot 0 skips an Event and its tail opens
@@ -1114,6 +1138,18 @@ Exact audiovisual overlap and partial DOS framebuffer updates remain Unknown.
 | <a id="sv-inn-return-reload"></a> Inn Exit reloads its map and rebuilds monsters even when returning to the same map, then runs the ordinary flagged-cell Event pass at the door. | Map load/actors `0xd086..0xd0d3`, pass `0xd18c/0xd1a5`; service status 2 completes the Event at `0x27b1f..0x27b3b`. | `XeenEncounterFlow::innReturn`, `XeenEventFlow::handleInn`. | Pending treasure totals/readiness clear at gameplay entry (`0xcfe3..0xcff7`), retaining stale array bytes as M81 does. No Tavern Event continuation resumes. **ScummVM:** the pin reloads only a different map (`locations.cpp:973`); master not rechecked. |
 | <a id="inn-sign-in-dawn-mode"></a> Sign In advances a day without Rest, food use, recovery, condition checks, dawn clears or fatigue. | Tavern mode 17 in `addTime`, `0x263b3..0x26491`; Sign In `0x1b754..0x1b794`. | `XeenServiceDayCandidate`, `XeenEncounterFlow::signIn`. | Merchant regeneration precedes interest on destination day % 10 == 1. Before 05:00 the new-day latch remains pending; at/after 05:00 it is consumed without clearing effects. Dead, Stoned and Eradicated members do not refuse Sign In. |
 
+
+## Clouds post-ending castle
+
+- <a id="sv-clouds-castle-removal"></a> **Completed parties no longer see Castle Xeen**.
+  The main-map load suppresses object resource ID 85 on map 27 whenever saved
+  party completion is set, with no side, flag-75 or global won test. A pre-win
+  Load retains its castle. DOS DAT `0xff1c..0xff4e`, calibrated static analysis,
+  high confidence; the maintainer also confirmed the absent Clouds castle in
+  DOSBox (2026-10-25). Location: `xeenMapRuleView`, `xeenMapRuleObject` and save
+  restoration. **ScummVM:** the pin's object-load guard limits this removal to
+  Darkside; MMModern follows DOS without that side test. Master not rechecked.
+  [Evidence](rules/evidence.md#m92-clouds-ending-evidence).
 
 ## Clouds intro reference differences
 

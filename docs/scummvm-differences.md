@@ -529,6 +529,11 @@ against the pin; master was not rechecked.
 
 ## Rare cases
 
+- **Castle Xeen disappears after Clouds completion.** Main-map object 85 on
+  map 27 follows saved completion without the pin's Darkside-only guard;
+  loading a pre-win save retains the castle. Master not rechecked.
+  [Details](original-quirks.md#sv-clouds-castle-removal)
+
 These follow the original too, but are rarely or never visible in play; all
 still differ in master. Event values: award removal, Walk on Water and Wizard
 Eye values, Levitate and day tests, negative HP/SP tests, TakeOrGive's third
@@ -546,11 +551,19 @@ Curse Item against the Xeen Slayer Sword ([Curse](original-quirks.md#sv-curse-it
 Deliberate differences from the original, approved by the maintainer and kept
 apart from the fidelity differences above.
 
-- **Recoverable Inn save failures.** Sign In, Exit, a confirmed Delete and the
+- **Clouds won marker in MMModern settings.** A boolean in
+  `%LOCALAPPDATA%\MMModern\settings.ini` gates the title independently of the
+  saved party. Failed publication shows a notice and keeps the previous won value;
+  no score, original CFG bytes or byte-18 CPU-option overlap is written.
+  Master not rechecked. [Details](original-quirks.md#dev-clouds-won-store)
+- **Recoverable Inn and Clouds ending save failures.** Sign In, Exit, a confirmed Delete and the
   Create return show an error and allow retry, retaining the paid day, the
   edited party, the deletion or the advanced rolls; quitting stays possible.
+  The ending retries its first captured bytes and score without repeating
+  the tail; the successful write resets the play-time mark.
   DOS terminates on the checked disk failures. The pin has no corresponding
-  forced slot writes, so this does not claim a difference in its error handling.
+  Inn forced slot writes; the ending retry is MMModern's approved policy,
+  without a claim about the pin's ending I/O failure handling.
   [Details](original-quirks.md#dev-inn-save-recovery)
 - **No "phantom" steps.** Releasing a movement key stops the party after the
   step in progress; the original queues up to ten repeats and keeps walking. A

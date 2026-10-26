@@ -81,7 +81,7 @@ void XeenEventFlow::requireCurrentOwners() const {
 }
 
 bool XeenEventFlow::canSave() const noexcept {
-	if(_forcedInnSave)return _gameplayBorrow->current() && !_fatal && !_saving;
+	if(_forcedSave)return _gameplayBorrow->current() && !_fatal && !_saving;
 	return !_innUi && !_innReturnPassPending && _gameplayBorrow->current() && !_explorationPass && !_death && !_fatal && !_dispatching && !_saving && !_handoffPending && !_transition && !_arrivalPending &&
 		!_portraitSequence && !_dismissOpen && !inventoryOpen() && !_quickFightMember && !_summary && !_pending && !_equipmentSelection &&
 		(!_encounter || (!_encounter->_needsRestNotice && _encounter->canSave() && encounterFrameCurrent()));
@@ -91,7 +91,7 @@ XeenEventFlow::SaveBoundary XeenEventFlow::beginSave() {
 	if (!canSave()) throw std::logic_error("Save boundary is unavailable");
 	if (_saveOperation == std::numeric_limits<std::uint64_t>::max()) throw std::overflow_error("Save generation exhausted");
 	SaveBoundary boundary;
-	if (journey()) boundary.journey = _encounter->beginJourneySave(_forcedInnSave);
+	if (journey()) boundary.journey = _encounter->beginJourneySave(_forcedSave);
 	_saving = true;
 	boundary.operation = ++_saveOperation;
 	boundary.owner = this; boundary.generation = _generation;
@@ -100,6 +100,14 @@ XeenEventFlow::SaveBoundary XeenEventFlow::beginSave() {
 	return boundary;
 }
 InputContext XeenEventFlow::inputContext(const IndexedFrame::Presentation &origin) {
+    if(_ending) {
+        InputContext context;context.contextId=_queueContextId;
+        context.readyForAction=!_dispatching && !_saving && !_fatal && acceptsInputFrame(origin);
+        DialogInput dialog;dialog.anyKey=dialog.anyClick=true;
+        context.dialog=std::make_shared<const DialogInput>(std::move(dialog));
+        context.keyboardClear=_keyboardClear;context.mouseClear=_mouseClear;
+        return context;
+    }
     if(_mapLoadInputGeneration!=_world.inputMapLoadGeneration()) {
         _mapLoadInputGeneration=_world.inputMapLoadGeneration();
         clearManualInput(0xf590);
@@ -277,6 +285,7 @@ std::uint64_t XeenEventFlow::presentationNow() {
     return now;
 }
 std::optional<std::uint64_t> XeenEventFlow::nextPresentationDeadline() {
+    if(_ending)return {};
     if(_innReturnPassPending)return presentationNow();
     if(_innUi) {
         if(_innUi->phase==InnUi::Phase::Create) {
@@ -966,7 +975,7 @@ bool XeenEventFlow::saveCurrent(const SaveBoundary &b) const noexcept {
 	return b.owner == this && _saving && !_fatal && !_dispatching && _gameplayBorrow->current() &&
 		b.operation == _saveOperation && (!b.journey || _encounter->journeySaveCurrent(*b.journey)) &&
 		b.generation == _generation && b.inventory == _inventoryEpoch && b.input == _inputGeneration &&
-		!inventoryOpen() && (!_pending || _forcedInnSave) && !_equipmentSelection;
+		!inventoryOpen() && (!_pending || _forcedSave) && !_equipmentSelection;
 }
 
 void XeenEventFlow::endSave() {
@@ -999,6 +1008,7 @@ void XeenEventFlow::framePresented(const IndexedFrame::Presentation &presented, 
 	requireCurrentOwners();
 	if (_dispatching || _saving) throw std::logic_error("Frame handoff during dispatch");
 	if (!encounterFrameCurrent()) throw std::logic_error("Stale successful frame handoff");
+    if(_ending) {_actionableFrame=presented;_handoffPending=false;_encounterFrame=_encounter->ticket();return;}
     if(_innUi && !_innUi->acquired) {
         _innUi->acquired=true;
         if(_innUi->phase==InnUi::Phase::Closing || _innUi->phase==InnUi::Phase::Opening)
@@ -1603,19 +1613,20 @@ template<class Result> IndexedFrame XeenEventFlow::drive(Result result, bool aut
 	requireCurrentOwners();
 	for (;;) {
         unsigned count=0,site=0;
+        std::optional<XeenEndingRequest> ending;
         if(const auto *pending=std::get_if<XeenEventExecutionSuspended>(&result)) {
             count=pending->state.inputClearCount;site=pending->state.inputClearSite;
         } else if constexpr(std::is_same_v<Result,XeenManualEventResult>) {
-            if(const auto *done=std::get_if<XeenManualEventCompleted>(&result)) {count=done->inputClearCount;site=done->inputClearSite;}
+            if(const auto *done=std::get_if<XeenManualEventCompleted>(&result)) {count=done->inputClearCount;site=done->inputClearSite;ending=done->ending;}
         } else {
-            if(const auto *done=std::get_if<XeenAutomaticEventCompleted>(&result)) {count=done->inputClearCount;site=done->inputClearSite;}
+            if(const auto *done=std::get_if<XeenAutomaticEventCompleted>(&result)) {count=done->inputClearCount;site=done->inputClearSite;ending=done->ending;}
         }
         if(count>_eventInputClears) {_eventInputClears=count;clearManualInput(site);}
 
 		if constexpr (std::is_same_v<Result, XeenManualEventResult>)
 			if (_transition) {
                 prepareDetachedResult(result);
-                if(_transition && _transition->completion)return frameCopy();
+                if(_ending || (_transition && _transition->completion))return frameCopy();
             }
 		// Adopt ownership before composition, reporting or presentation can fail.
 		auto *suspended = std::get_if<XeenEventExecutionSuspended>(&result);
@@ -1682,6 +1693,14 @@ template<class Result> IndexedFrame XeenEventFlow::drive(Result result, bool aut
 			if (reportAutomatic) reportAutomatic(result);
 		}
 		requireCurrentOwners();
+        if(!suspended && ending && !journey()) {
+            XeenPresentationRequest request;request.kind=XeenPresentationKind::CenteredMessage;
+            request.response=XeenPresentationResponseRequirement::Acknowledgment;
+            request.mapId=_camera.mapId;request.text="Clouds ending: not supported in this mode";
+            _presenter.clear();_frame=_presenter.present(_frame,request).frame;
+            if(reportText)reportText(request.text);
+            requireCurrentOwners();return frameCopy();
+        }
 		if (!suspended) return frameCopy();
 		if (!_pending) return frameCopy(); // A reporting callback may explicitly abandon.
 		if(!(_presenter.hasNpcOffer() && _pending->state.pendingPresentation->request.kind==XeenPresentationKind::CharacterSelection))
@@ -1783,7 +1802,7 @@ XeenManualEventResult XeenEventFlow::beginDetachedEvent(XeenRegionalInteraction 
 		auto result=events.runAutomaticEvent(*_transition->world,_transition->party,_transition->camera,
             _transition->flags,nullptr,_encounter->_regionalAutomaticKind!=XeenEncounterFlow::EventCallKind::Caller3);
 		if(const auto *done=std::get_if<XeenAutomaticEventCompleted>(&result))
-			return XeenManualEventCompleted{done->instructionCount,done->cameraChanged,done->flagsChanged,done->inputClearCount,done->inputClearSite};
+			return XeenManualEventCompleted{done->instructionCount,done->cameraChanged,done->flagsChanged,done->inputClearCount,done->inputClearSite,done->ending};
 		if(const auto *failed=std::get_if<XeenEventExecutionError>(&result))return *failed;
 		if(auto *suspended=std::get_if<XeenEventExecutionSuspended>(&result))return std::move(*suspended);
 		return XeenManualEventNoEvent{};
@@ -1877,6 +1896,17 @@ void XeenEventFlow::prepareDetachedResult(const XeenManualEventResult &result) t
 
 	// Keep the completed candidate across recoverable presentation/allocation
 	// failures. Retrying prepares/publicizes this value, never re-executes Events.
+    if(done->ending) {
+        // Publish preceding Event effects, without arrival, doStep or a new map load.
+        _eventPublication->publishCandidate(_world,_party,_camera,_flags,*work.world,*work.guard);
+        if(work.eventFlags) {
+            _program.eventCallSkipped=work.skipped;
+            _encounter->_doorTextUp=work.doorText;_encounter->_drawnSlot0=work.slot0;
+        }
+        _ending=done->ending;_endingBase=_frame;
+        _pending.reset();_regionalEventContinuation.reset();_transition.reset();
+        return;
+    }
 	work.completion=*done;
 	if(!work.terrainDone && !work.terrain && !work.manualStep && (done->cameraChanged!=!xeen_state::sameCamera(work.camera,work.initialCamera) ||
 		done->flagsChanged!=(work.flags.values()!=work.initialFlags.values())))
@@ -2096,6 +2126,7 @@ IndexedFrame XeenEventFlow::journeyEventWork(const std::function<void()> &operat
 		if (!_encounter->current(entry)) { _fatal=true; throw; }
 		// Only trusted published effects survive. A recovery frame never resumes the script.
 	}
+    if(_ending) {startEnding(*_ending);return finishEnding();}
 	if (_pending && _pending->state.pendingPresentation &&
 		_pending->state.pendingPresentation->request.kind==XeenPresentationKind::ArmorRepairService && !_smithUi)
 		prepareSmith();
@@ -2679,6 +2710,7 @@ bool XeenEventFlow::pulseServiceArt(ServiceArtState &state, IndexedFrame &art) {
 }
 std::optional<IndexedFrame> XeenEventFlow::updatePresentation() {
     requireCurrentOwners();
+    if(_ending)return std::nullopt;
     if(_innReturnPassPending && !_dispatching && !_saving && !_fatal && !_handoffPending) {
         _innReturnPassPending=false;return completeExplorationInput();
     }
@@ -3076,6 +3108,17 @@ IndexedFrame XeenEventFlow::handleExplorationAction(const PlayerAction &physical
         const IndexedFrame::Presentation &inputFrame) {
 	PlayerAction action=physicalAction;
 	requireCurrentOwners();
+    if(_ending) {
+        if(_endingScore || _dispatching || _fatal || _saving || _handoffPending || !encounterFrameCurrent() ||
+           !displayedInput || *displayedInput!=_inputGeneration || (inputFrame && !acceptsInputFrame(inputFrame)))return frameCopy();
+        const auto *key=std::get_if<DialogKeyAction>(&physicalAction);
+        if(std::holds_alternative<AcknowledgeAction>(physicalAction) || std::holds_alternative<CancelInteractionAction>(physicalAction) ||
+           (key && (key->key==InputKey::Enter || key->key==InputKey::Escape || key->key==InputKey::Space))) {
+            DispatchScope dispatch(_dispatching);_endingWonNotice=false;_endingError.clear();return finishEnding();
+        }
+        return frameCopy();
+    }
+
     if(_portraitSequence || _fallSequence)return frameCopy();
 	// Concrete origin is independent of semantic meaning. A retry/redraw may
 	// retain the generation, but input from its retired frame cannot authorize it.

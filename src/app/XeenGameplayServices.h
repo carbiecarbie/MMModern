@@ -69,6 +69,6 @@ struct XeenGameplayServices {
 void xeenSaveGameplay(const XeenGameplayServices &, XeenWorld &, XeenPartyState &,
 	XeenCamera &, XeenGameFlags &, XeenEventFlow &, const std::filesystem::path &,
 	const XeenSaveState::Preflight &, std::function<void()> *nestedSourceCheck = nullptr,
- const std::function<void(const XeenSaveSnapshot &,const std::function<void()> &)> &writer = {});
+ const std::function<void(const XeenSaveSnapshot &,const std::function<void()> &)> &writer = {}, std::optional<XeenSaveSnapshot> *captured = nullptr);
 }
 #endif

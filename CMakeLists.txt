@@ -44,6 +44,8 @@ add_library(mmodern_xeen STATIC
     src/games/xeen/XeenCombatRandom.cpp
 	src/games/xeen/XeenCombatRules.cpp
 	src/games/xeen/XeenScriptedRules.cpp
+	src/games/xeen/XeenEndingScore.cpp
+	src/platform/XeenWonStore.cpp
 	src/games/xeen/XeenRestRules.cpp
 	src/games/xeen/XeenTerrainRules.cpp
 	src/games/xeen/XeenMonsterTreasure.cpp
@@ -150,6 +152,7 @@ add_library(mmodern_app STATIC
 	src/app/XeenCastingFlow.cpp
 	src/app/XeenSmithFlow.cpp
 	src/app/XeenInnFlow.cpp
+	src/app/XeenEndingFlow.cpp
 	src/app/XeenCreateFlow.cpp
 	src/app/XeenTrainingFlow.cpp
 	src/app/XeenCastingUi.cpp
@@ -192,6 +195,9 @@ if(BUILD_TESTING)
  add_executable(mmodern_scripted_rules_tests tests/XeenScriptedRulesTests.cpp)
  target_link_libraries(mmodern_scripted_rules_tests PRIVATE mmodern_xeen)
  add_test(NAME xeen_scripted_rules COMMAND mmodern_scripted_rules_tests)
+ add_executable(mmodern_ending_tests tests/XeenEndingTests.cpp)
+ target_link_libraries(mmodern_ending_tests PRIVATE mmodern_test_save_support shell32 ole32 uuid)
+ add_test(NAME xeen_ending COMMAND mmodern_ending_tests "${MMODERN_XEEN_DATA_DIR}")
  set_tests_properties(xeen_scripted_rules PROPERTIES LABELS fast)
  if(NOT IS_DIRECTORY "${MMODERN_XEEN_AUDIO_DIR}/MUSIC" OR NOT EXISTS "${MMODERN_XEEN_AUDIO_DIR}/GAME1.INS" OR NOT EXISTS "${MMODERN_XEEN_AUDIO_DIR}/GAME2.INS")
   message(FATAL_ERROR "CD audio validation requires MMODERN_XEEN_AUDIO_DIR with both GAME*.INS and MUSIC/")
@@ -250,7 +256,7 @@ if(BUILD_TESTING)
  add_test(NAME xeen_clouds_progression COMMAND mmodern_clouds_progression_tests "${MMODERN_XEEN_DATA_DIR}")
  set_tests_properties(xeen_clouds_progression PROPERTIES LABELS fast)
 
-	foreach(preset broken-armor train-ready injured-dead poisoned monster-control monster-damage party-healing m76-spells combat-items m79-playtest m80-playtest m80-arena m80-arena-maxed m81-drops m81-fullpacks m81-event m84-playtest-trap m84-playtest-label m84-playtest-save m85-playtest-label m85-playtest-run m85-playtest-trap m86-playtest-fall m86-playtest-moon-ray m86-playtest-border m87-inn m87-three m87-shangrila m88-roster m89-lord-xeen m89-clan-king m89-draco m89-dragons m89-trolls m90-newcastle m90-golem m90-illusion m90-high-magic m90-darzog m90-clouds m90-castle m90-winterkill paths)
+	foreach(preset m92-lord-xeen m92-sixth-mirror broken-armor train-ready injured-dead poisoned monster-control monster-damage party-healing m76-spells combat-items m79-playtest m80-playtest m80-arena m80-arena-maxed m81-drops m81-fullpacks m81-event m84-playtest-trap m84-playtest-label m84-playtest-save m85-playtest-label m85-playtest-run m85-playtest-trap m86-playtest-fall m86-playtest-moon-ray m86-playtest-border m87-inn m87-three m87-shangrila m88-roster m89-lord-xeen m89-clan-king m89-draco m89-dragons m89-trolls m90-newcastle m90-golem m90-illusion m90-high-magic m90-darzog m90-clouds m90-castle m90-winterkill paths)
 		add_test(NAME xeen_test_save_${preset} COMMAND mmodern_test_save_tests
 			"${MMODERN_XEEN_DATA_DIR}" ${preset} "${CMAKE_CURRENT_SOURCE_DIR}")
 	endforeach()
@@ -1277,6 +1283,7 @@ if(BUILD_TESTING)
 	# machine load, so the complete suite runs with several parallel jobs
 	# (tools/run-full-ctest.ps1); nothing here measures speed.
 	foreach(xeen_test IN LISTS xeen_all_tests)
+        set_property(TEST ${xeen_test} APPEND PROPERTY ENVIRONMENT "MMODERN_SETTINGS_FILE=${CMAKE_CURRENT_BINARY_DIR}/test-settings/${xeen_test}/settings.ini")
 		if(xeen_test IN_LIST xeen_process_tests)
 			set_tests_properties(${xeen_test} PROPERTIES LABELS process TIMEOUT 1800)
 		else()

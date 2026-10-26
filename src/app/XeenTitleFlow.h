@@ -63,6 +63,7 @@ public:
  void newSlots();
  void returnToTitle();
  IndexedFrame cutsceneExitFrame() const {return _services.animation.at(7);}
+ void cloudsEndingFailure(std::string message) {_entry.reset();notice(std::move(message),Screen::Background);}
  void cloudsIntroFailure(std::string message) {_entry.reset();notice(std::move(message),Screen::Other);}
  void cancelPublication();
  void publicationFailure(std::string message);

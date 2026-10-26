@@ -26,8 +26,8 @@ class XeenJourneyCapture {
 	bool initializationPending = false;
 	// Runtime continuation only. Neither capture path may serialize an input pass.
 	bool inputPassPending = false;
-    // Stack-scoped capability issued by the Inn flow for its forced writes.
-    bool innSave = false;
+    // Stack-scoped capability issued by Flow at checked Inn and ending sites.
+    bool forcedSave = false;
 	XeenJourneyCapture() = default;
 	XeenJourneyCapture(const XeenWorld &w, const XeenPartyState &p, const XeenCamera &c,
 		const XeenEncounterState &state, const XeenCombatBoundary &boundary, const bool &busy,
@@ -39,11 +39,16 @@ class XeenJourneyCapture {
 	}
 	bool current(const XeenPartyState &party, const XeenCamera &camera, bool initializing=false) const noexcept {
 		if (closed || &party != p || &camera != c || !preimage || !*preimage || !(*preimage)->ownersAlive()) return false;
-        if(innSave) {
+        if(forcedSave) {
             if(*busy || generation!=boundary->generation() ||
                (w->sessionState().journeyActivity()!=XeenJourneyActivity::Event &&
                 w->sessionState().journeyActivity()!=XeenJourneyActivity::Quiet))return false;
             try {(*preimage)->check();xeenValidateJourneyParty(party);} catch(...) {return false;}
+            // Forced relocation may name an unvisited map, but may never
+            // discard a retained camera map's actor table.
+            const auto *map=w->sessionState().mapState(camera.mapId);
+            if(map && !map->monsters)return false;
+            if(!map && w->sessionState().headCache() && w->sessionState().headCache()->mapId==camera.mapId)return false;
             if(!party.insideInn)return party.party.size()!=0;
             return xeenAtInnDoor(*c);
         }

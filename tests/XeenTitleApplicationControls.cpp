@@ -51,6 +51,7 @@ struct State {
  XeenTemplePriceState *templePrices=nullptr;XeenTempleSurcharges templeRow;
  bool panelMode=false,failPreflight=false,failWrite=false;
  bool retainedIdle=false;
+ bool endingMode=false,endingReturned=false,endingNotice=false;
  bool introMode=false;unsigned introWindow=0,introStarts=0;std::uint64_t introNow=17000000,introSkip=0;
  std::uint32_t wallNow=0;
  std::optional<std::uint64_t> nameCursorNow;
@@ -117,7 +118,7 @@ void key(unsigned code,std::vector<SDL_Event> &pending) {
  SDL_Event event{};event.type=SDL_KEYDOWN;event.key.keysym.sym=code;event.key.keysym.scancode=SDL_GetScancodeFromKey(code);
  pending.push_back(event);event.type=SDL_KEYUP;pending.push_back(event);
 }
-extern "C" std::uint64_t wrappedTitleClock(){return state.nameCursorNow?*state.nameCursorNow:state.introMode?state.introNow:realTitleClock();}
+extern "C" std::uint64_t wrappedTitleClock(){return state.nameCursorNow?*state.nameCursorNow:(state.introMode || (state.endingMode && state.endingReturned))?state.introNow:realTitleClock();}
 void preview(const IndexedFrame &frame,const std::string &label) {
  const char *directory=std::getenv("MMODERN_TITLE_PREVIEW");if(!directory)return;
  auto *surface=SDL_CreateRGBSurfaceWithFormat(0,320,200,32,SDL_PIXELFORMAT_ARGB8888);check(surface,"title preview surface");
@@ -267,6 +268,7 @@ bool panelGameplay(const IndexedFrame &first,const SdlWindow::FrameUpdateHandler
 }
 extern "C" XeenTextRenderResult wrappedTitleText(const XeenTextRenderer *renderer,const IndexedFrame &base,
  const std::string &text,const XeenTextRenderOptions &options) {
+ if(state.enabled && state.endingMode && text.find("Clouds ending: not supported yet")!=std::string::npos)state.endingNotice=true;
  if(state.enabled && state.panelMode && !state.notice.empty() && text==state.notice) {
   ++state.noticeAttempts;
   check(options.windowBounds.left==99 && options.windowBounds.top==59 && options.windowBounds.right==237 &&
@@ -282,6 +284,11 @@ extern "C" fs::path wrappedTitleDirectory(const GameInstallation &installation,c
 extern "C" int wrappedTitlePlay(const Application *app,const XeenGameplayServices &original,XeenCamera camera,
  const std::optional<fs::path> &target,bool resume,XeenEncounterEntry entry,std::optional<std::uint32_t> seed) {
  if(!state.enabled)return realTitlePlay(app,original,camera,target,resume,entry,seed);
+ if(state.endingMode) {
+  check(original.outcome,"Outer gameplay wrapper must retain the outcome sink");
+  *original.outcome={XeenSessionOutcome::Kind::CloudsEnding,0,{},71001722};
+  state.wallNow+=100;state.introNow=realTitleClock();state.endingReturned=true;return 0;
+ }
  check(resume==state.loading && target.has_value() && !seed,"title session entry");
  check(&original.program.templePrices==state.templePrices && original.program.templePrices.row()==state.templeRow &&
   original.program.templePrices.revision()==1,"Title/New Game/panel Load replaced or reset process Temple prices");
@@ -340,6 +347,25 @@ extern "C" bool wrappedTitleShow(const SdlWindow *window,const IndexedFrame &fir
  const std::function<std::string()> &status) {
  if(!state.enabled)return realTitleShow(window,first,label,handler,escape,idle,status);
  if(state.introMode)return introApplication(first,handler,idle);
+ if(state.endingMode && state.endingReturned) {
+  check(state.endingNotice,"CloudsEnding disappeared before the fresh title notice");
+  check(state.program->playTimeMark==state.wallNow,"Ending return did not reset the DAT play-time mark");
+  IndexedFrame visible=first;
+  const auto present=[&]{handler.framePresented(visible.presentation());handler.completeInputHandoff(visible.presentation());};present();
+  unsigned cycle=0;
+  while(!handler.inputContext(visible.presentation()).readyForAction) {
+   check(++cycle<10000,"Ending notice title did not acquire input");
+   const auto deadline=handler.nextPresentationDeadline();
+   state.introNow=deadline && *deadline>state.introNow?*deadline:state.introNow+17000000;
+   handler.beginCycle(cycle);
+   if(auto next=idle()){visible=*next;present();}
+  }
+  const auto input=handler.inputContext(visible.presentation());const auto action=input.dialog->key(InputKey::Enter);
+  check(bool(action),"Ending notice missing acknowledgement");
+  if(auto next=handler.withPresentedInput(*action,1,visible.presentation())){visible=*next;present();}
+  check(handler.inputContext(visible.presentation()).dialog->hits.empty(),"Ending must return to a fresh World title with its menu hidden");
+  handler.closed();state.shown=true;return true;
+ }
  const bool title=!status; // Only gameplay supplies a status line.
  auto native=handler;IndexedFrame::Presentation presented;unsigned step=0;
  std::uint64_t heldAudioTick=0;
@@ -447,6 +473,20 @@ void titleApplicationControls(const char *game) {
   state.retainedIdle=false;state.shown=false;state.seeds=0;
   check(Application(freshProgram).run(game)==0 && state.shown,"fresh program title/Load Application loop");
  }
+ // A transport control crosses gameplay(), unlike direct playGameplay tests.
+ // Gameplay ending content itself is exercised by the original Lord/Mirror test.
+ for(bool developer:{false,true}) {
+  XeenSaveFile::write(state.slot,XeenSaveFormat::decode(state.saved),{},true);
+  state.wallNow=10;XeenProgramState endingProgram{XeenWallClock([]{return state.wallNow;})};state.program=&endingProgram;
+  state.endingMode=true;state.endingReturned=state.endingNotice=state.shown=false;
+  state.loading=true;state.retainedIdle=false;state.templePrices=&endingProgram.templePrices;
+  const auto result=developer?Application(endingProgram).loadGame(game,state.slot):Application(endingProgram).run(game);
+  check(result==0 && state.endingReturned && state.endingNotice && state.shown,"CloudsEnding wrapper/title handoff for player and developer entries");
+  state.endingMode=false;
+ }
+ // The original Load controls remove slot 9 after validation. Our transport
+ // control retains it; restore the same empty-slot setup for the New cases.
+ fs::remove(state.slot);
  state.panelMode=true;
  for(const auto &name:std::vector<std::string>{"A","Twenty CharacterName",std::string(20,'W')}) {
   XeenProgramState programState{mmodern::XeenWallClock::fixed(0)};

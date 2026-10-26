@@ -406,7 +406,7 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
         }
         settleTreasure(delivered);
         auto result=completed(workingCamera,workingGameFlags,instructionCount);
-        result.inputClearCount=state.inputClearCount;result.inputClearSite=state.inputClearSite;
+        result.inputClearCount=state.inputClearCount;result.inputClearSite=state.inputClearSite;result.ending=state.ending;
         return result;
     };
 	const auto finalize = [&]() -> XeenEventExecutionStepResult {
@@ -538,8 +538,12 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
                 }
             }
             if(!word.inputType && workingCamera.mapId.side==XeenSide::Clouds &&
-                (result==40 || result==60 || result==61 || result==62))
+                (result==60 || result==61))
                 return error(XeenEventExecutionErrorKind::UnsupportedOperand,"Ending mirror code is not supported yet",instructionCount,logical,pending.request.source);
+            if(!word.inputType && workingCamera.mapId.side==XeenSide::Clouds && (result==40 || result==62)) {
+                if(result==40)state.ending=XeenEndingRequest::Showtime;
+                return finalize();
+            }
             // 0x2808a..0x280bb: weapon 34 in the first empty weapon slot, when one is free.
             if(!word.inputType && workingCamera.mapId.side==XeenSide::Clouds && result==59 &&
                 state.treasure.insert(XeenRewardCategory::Weapons,XeenItem{0,34,0,0}))
@@ -727,12 +731,8 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
         }
 
         if(std::holds_alternative<XeenEventEndClouds>(decoded.operation)) {
-            XeenPresentationRequest request;request.kind=XeenPresentationKind::CenteredMessage;
-            request.response=XeenPresentationResponseRequirement::Acknowledgment;
-            request.mapId=logical.mapId;request.source=decoded.source;
-            request.text="Clouds ending: not supported yet";
-            state.pendingPresentation=XeenEventPendingPresentation{request,XeenEventPendingContinuation::Terminate,{}};
-            return XeenEventExecutionSuspended{state,request};
+            state.ending=XeenEndingRequest::Clouds;
+            return finalize();
         }
 		if (std::holds_alternative<XeenEventExit>(decoded.operation))
 			return finalize();

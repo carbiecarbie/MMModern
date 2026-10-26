@@ -123,11 +123,10 @@ void ending() {
  auto p=party();const XeenCamera camera{1,1,1,XeenDirection::North};
  const auto scripts=[&](auto id){return XeenEventScript(XeenEventFile{id,"synthetic.evt",true,{record}});};
  XeenEventInterpreter interpreter;auto step=interpreter.begin(camera,p,{},world,scripts,{});
- const auto *notice=std::get_if<XeenEventExecutionSuspended>(&step);
- check(notice && notice->request.text=="Clouds ending: not supported yet" &&
-  notice->request.response==XeenPresentationResponseRequirement::Acknowledgment,"Ending notice must be acknowledged");
- step=interpreter.resume(notice->state,XeenPresentationResponse::Acknowledged,p,world,scripts,{});
- check(std::holds_alternative<XeenEventExecutionCompleted>(step),"Acknowledgment ends the Event without refusal rollback");
+ const auto *done=std::get_if<XeenEventExecutionCompleted>(&step);
+ check(done && done->ending==XeenEndingRequest::Clouds,"Opcode 30 requests the live Flow tail, without a clock or notice");
+ check(!p.cloudsCompleted && !done->finalGameFlags.isSet(75) && done->finalCamera.mapId==camera.mapId,
+  "Detached interpreter must not run the ending tail");
 }
 }
 int main(){try{damage();deaths();scepter();trolls();maps();ending();std::cout<<"Clouds scripted rule controls passed\n";return 0;}catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}

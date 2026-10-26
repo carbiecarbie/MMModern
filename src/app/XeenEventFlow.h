@@ -72,6 +72,9 @@ public:
     std::function<IndexedFrame()> loadCreateScreen;
     // The session supplies the panel Save transaction and current selected slot.
     std::function<void()> saveInn;
+    std::function<void(std::optional<XeenSaveSnapshot> *)> saveForced;
+    std::function<bool()> writeWon;
+    std::optional<std::uint32_t> endingScore() const noexcept {return _endingScore;}
     IndexedFrame openInn(bool closing=false);
     bool innOpen() const noexcept { return bool(_innUi); }
 	bool journeyInputCurrent(std::optional<std::uint64_t>) const noexcept;
@@ -194,8 +197,17 @@ private:
         std::optional<CreateUi> create;
     };
     std::optional<InnUi> _innUi;
-    bool _forcedInnSave=false,_signInSaveDone=false,_innReturnPassPending=false;
+    bool _forcedSave=false,_signInSaveDone=false,_innReturnPassPending=false;
     void forcedInnSave();
+    void forcedJourneySave(bool ending);
+    void startEnding(XeenEndingRequest);
+    IndexedFrame finishEnding();
+    std::optional<XeenEndingRequest> _ending;
+    std::optional<XeenSaveSnapshot> _endingSnapshot;
+    std::optional<std::uint32_t> _endingScore, _endingFrozenScore;
+    IndexedFrame _endingBase;
+    bool _endingTailApplied=false, _endingWonNotice=false;
+    std::string _endingError;
     IndexedFrame renderInn(bool cosmetic=false);
     IndexedFrame handleInn(const PlayerAction &);
     std::optional<IndexedFrame> updateInn();

@@ -126,7 +126,7 @@ int main(int argc, char *argv[]) {
  try {
  mmodern::XeenProgramState program{playerTitle?mmodern::xeenSystemWallClock():mmodern::XeenWallClock::fixed(wallClock.value_or(0))};
  if(!playerTitle && wallClock)std::cout<<"Wall clock: fixed "<<*wallClock<<'\n';
- const mmodern::Application application(program,uiData.value_or(std::filesystem::path{}));
+ const mmodern::Application application(program,uiData.value_or(std::filesystem::path{}),mmodern::xeenSettingsFile());
 	// Plain launch enters the original title. Overrides require developer entry.
 	if (argc >= 2 && (std::string(argv[1]) == "--new-game" ||
 			std::string(argv[1]).rfind("--", 0) != 0)) {

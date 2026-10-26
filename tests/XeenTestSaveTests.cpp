@@ -97,6 +97,13 @@ void preset(const GameInstallation &installation,const std::string &name,const f
         if(name=="m90-winterkill")check(!party.questFlags.isSet(18) && !flags.isSet(0) && !flags.isSet(1) && !flags.isSet(3) && !flags.isSet(8),"Winterkill before its quest");
         return;
     }
+    if(name.rfind("m92-",0)==0) {
+        const auto expected=name=="m92-lord-xeen"?XeenCamera{78,5,8,XeenDirection::North}:XeenCamera{78,4,9,XeenDirection::West};
+        check(save_test::sameCamera(camera,expected) && !party.cloudsCompleted,"M92 before-ending position and completion");
+        check(party.roster.at(party.party.activeRosterIds()[0]).weapons[0].id==34,"M92 Slayer Sword equipped");
+        if(name=="m92-sixth-mirror")check(party.questItems.at(8)==1 && flags.isSet(60) && !party.questFlags.isSet(23),"M92 Scepter and killed Lord");
+        return;
+    }
     if(name.rfind("m89-",0)==0) {
         const auto expected=name=="m89-lord-xeen"?XeenCamera{78,5,8,XeenDirection::North}:
             name=="m89-clan-king"?XeenCamera{41,30,25,XeenDirection::North}:

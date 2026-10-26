@@ -1235,7 +1235,7 @@ XeenCombatResult XeenCombat::settleCast(const Ticket &t,std::optional<unsigned> 
         }
         if(reserved.spell==unsigned(XeenLearnedSpell::TimeDistortion)) {
             XeenRestoreGuard::Providers providers(*prepared,d.world);
-            const auto travel=XeenLearnedSpellRules::travel(d.world,d.camera,XeenLearnedSpell::TimeDistortion);
+            const auto travel=XeenLearnedSpellRules::travel(d.world,d.camera,XeenLearnedSpell::TimeDistortion,0,nullptr,d.party.cloudsCompleted);
             prepared->check();require(!travel.unsupported,"Combat Time Distortion destination is not open");
             travelFailed=travel.failed;relocation=travel.destination;
             if(relocation)prepared->cameraValue=*relocation;

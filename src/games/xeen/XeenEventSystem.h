@@ -19,6 +19,7 @@ struct XeenAutomaticEventCompleted {
 	bool cameraChanged = false;
 	bool flagsChanged = false;
     unsigned inputClearCount=0, inputClearSite=0;
+    std::optional<XeenEndingRequest> ending;
 };
 
 struct XeenManualEventNoEvent {};
@@ -28,6 +29,7 @@ struct XeenManualEventCompleted {
 	bool cameraChanged = false;
 	bool flagsChanged = false;
     unsigned inputClearCount=0, inputClearSite=0;
+    std::optional<XeenEndingRequest> ending;
 };
 
 struct XeenManualSpecialInteractionUnsupported {
