@@ -17,12 +17,12 @@ std::vector<XeenEventRecord> XeenEventFormat::parse(
 		const std::size_t recordOffset = offset;
 		const std::uint8_t length = bytes[offset++];
 		if (length < 5) {
-			throw std::runtime_error("maze.evt no offset " +
-				std::to_string(recordOffset) + ": comprimento menor que 5");
+			throw std::runtime_error("maze.evt at offset " +
+				std::to_string(recordOffset) + ": length below 5");
 		}
 		if (static_cast<std::size_t>(length) > bytes.size() - offset) {
-			throw std::runtime_error("maze.evt no offset " +
-				std::to_string(recordOffset) + ": registro truncado");
+			throw std::runtime_error("maze.evt at offset " +
+				std::to_string(recordOffset) + ": truncated record");
 		}
 
 		XeenEventRecord record;

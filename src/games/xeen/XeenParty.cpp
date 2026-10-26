@@ -165,7 +165,7 @@ XeenCharacter &XeenRoster::at(std::size_t rosterId) {
 const XeenCharacter &XeenParty::member(const XeenRoster &roster,
 		std::size_t partyIndex) const {
 	if (partyIndex >= _activeRosterIds.size())
-		throw std::out_of_range("indice fora da Party de Xeen");
+		throw std::out_of_range("Party index outside the active Xeen party");
 	return roster.at(_activeRosterIds[partyIndex]);
 }
 

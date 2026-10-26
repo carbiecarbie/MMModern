@@ -10,7 +10,7 @@ XeenGameFlags::XeenGameFlags(Storage flags) : _flags(std::move(flags)) {
 
 std::size_t XeenGameFlags::checkedIndex(int index) {
 	if (index < 0 || index >= static_cast<int>(kCount))
-		throw std::out_of_range("indice de game flag de Clouds fora de 0..255");
+		throw std::out_of_range("Clouds game flag index outside 0..255");
 	return static_cast<std::size_t>(index);
 }
 

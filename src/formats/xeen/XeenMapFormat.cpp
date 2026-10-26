@@ -16,12 +16,12 @@ public:
 
 	std::size_t remaining() const { return _bytes.size() - _offset; }
 	[[noreturn]] void fail(const char *message) const {
-		throw std::runtime_error(std::string(_format) + " no offset " +
+		throw std::runtime_error(std::string(_format) + " at offset " +
 			std::to_string(_offset) + ": " + message);
 	}
 	std::uint8_t byte() {
 		if (!remaining())
-			fail("arquivo truncado");
+			fail("truncated file");
 		return _bytes[_offset++];
 	}
 	int signedByte() {
@@ -34,7 +34,7 @@ public:
 	}
 	void requireEnd() const {
 		if (remaining())
-			fail("bytes excedentes");
+			fail("trailing bytes");
 	}
 
 private:
@@ -64,12 +64,12 @@ std::vector<XeenMapEntity> readEntities(Reader &reader,
 	if (isTerminator(entity)) {
 		// Objects and monsters encode an empty list as dummy + terminator.
 		if (emptyHasDummy && !isTerminator(readEntity(reader)))
-			reader.fail("lista vazia sem segundo terminador");
+			reader.fail("empty list without a second terminator");
 		return result;
 	}
 	while (!isTerminator(entity)) {
 		if (entity.tableIndex >= 16)
-			reader.fail("indice de entidade fora dos 16 slots");
+			reader.fail("entity index outside the 16 slots");
 		// Area A1 has a wall-item placeholder at (99,99) with an empty table.
 		// The engine skips unresolved wall/monster entries. Preserve raw records
 		// for diagnostics, but do not manufacture a sprite/type or mark them active.
@@ -95,7 +95,7 @@ XeenMapGeometry XeenMapFormat::parseDat(const std::vector<std::uint8_t> &bytes) 
 	// engines/mm/xeen/map.cpp: MazeData::synchronize (892 bytes).
 	Reader reader(bytes, "maze.dat");
 	if (bytes.size() != 892)
-		reader.fail("tamanho esperado: 892 bytes");
+		reader.fail("expected size: 892 bytes");
 	XeenMapGeometry map;
 	for (auto &cell : map.cells)
 		cell.rawWord = reader.word();

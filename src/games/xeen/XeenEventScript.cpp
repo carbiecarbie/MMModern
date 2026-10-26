@@ -14,7 +14,7 @@ std::uint8_t physicalDirectionByte(XeenDirection direction) {
 	case XeenDirection::West:
 		return static_cast<std::uint8_t>(direction);
 	}
-	throw std::invalid_argument("direcao fisica de evento invalida");
+	throw std::invalid_argument("invalid physical Event direction");
 }
 
 bool sameKey(const XeenEventRecord &left, const XeenEventRecord &right) {

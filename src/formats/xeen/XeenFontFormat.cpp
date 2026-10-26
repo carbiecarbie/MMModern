@@ -19,7 +19,7 @@ std::size_t widthOffset(XeenFontSize size) {
 XeenFontFormat::XeenFontFormat(std::vector<std::uint8_t> bytes) :
 		_bytes(std::move(bytes)) {
 	if (_bytes.size() < kMinimumSize)
-		throw std::invalid_argument("recurso fnt de Xeen truncado");
+		throw std::invalid_argument("truncated Xeen fnt resource");
 }
 
 XeenFontGlyph XeenFontFormat::glyph(std::uint8_t character,
