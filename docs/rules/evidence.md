@@ -2090,6 +2090,38 @@ the completed checklist and proposed quirk rows are in
 `D:/Projetos/MModern/MModern-re/m92/findings.md`. Implementation and milestone acceptance
 remain separate gates.
 
+## M93 Darkside startup runtime checks
+
+**DOSBox observation (maintainer, 2026-10-26),** four DOSBox Staging captures
+(ZMBV, 70.086 fps, cycles 80000) of the CD World edition launched through the
+usual `Xeen - DOSBox Staging.bat`, kept outside the repository in
+`D:/Projetos/MModern/MModern-re/m93/dosbox-sessao/` with timestamped contact
+sheets and frame-change lists. The configuration started with the seen word
+at one and was restored afterwards. They corroborate the
+[cutscene rules](cutscenes.md#startup-dispatch):
+
+1. **Repeat launch (A).** NWC, JVC, the World-logo tail and the title, with
+   no pyramid or story; the title arrives at 24.6 s. JVC is silent (about
+   -91 dB against -44..-51 dB on the full path), so the short path stops
+   the song. Take B begins with the same short launch.
+2. **Other Options `D` (B).** The full story plays again and the fresh title
+   arrives 142.5 s after the key, as in the M91 seen-zero recording.
+3. **Escape (C1, C2).** After `D`, Escape at the crystal ball returns to the
+   fresh title with the menu hidden. The next
+   launch (C2) plays the full story again, so the early Escape left the
+   seen word at zero.
+4. **Click.** A left click during the ball scenes skips nothing: the story
+   stages of C2 stay within 0.16 s of B.
+5. **World-logo keys (C2).** Space and Escape during the tail did not end
+   it. Only the first boundary hold shortened (0.67 s from the last fade-in
+   step to the first reveal frame in A and B, 0.12 s in C2). From the first
+   reveal frame to the title, A, B and C2 all take 8.06 s: no frame was
+   skipped and the last hold kept its length.
+
+Key-down times were not logged; item 5 places the first key in the first
+boundary hold from the frame timing alone. The no-digital caption take was
+not recorded.
+
 ## REA record locators
 
 The exported evidence bundle contains complete records. The stable IDs below

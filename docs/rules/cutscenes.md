@@ -47,16 +47,31 @@ Clouds; `DARKINTRO` also takes the Darkside path.
 Entering Darkside on every launch does **not** mean playing the full story each
 time. The EXE reads `XEEN.CFG` (`0x11dcb..0x11e1a`); its word at offset `0x1a`
 selects full story when zero and NWC/JVC followed by the World-logo tail when
-nonzero (`0xad3d..0xad64`). Completion sets it to one and writes the configuration
-(`0xd345..0xd374`). Escape before this store leaves it unchanged. DAT Other
-Options `D` clears it and writes the configuration before handing off
-(`0xc571..0xc59e`). Thus DOS has persistent seen-intro behavior; the pin's
-`seen_intro` is not grounds for claiming that DOS always plays the full story.
+nonzero (`0xad3d..0xad64`). Both paths set it to one and write the configuration
+**before** the World-logo tail (`0xd345..0xd374`). Escape before this store
+leaves it unchanged. DAT Other Options `D` clears it and writes the
+configuration before handing off (`0xc571..0xc59e`). Thus DOS has persistent
+seen-intro behavior; the pin's `seen_intro` is not grounds for claiming that
+DOS always plays the full story.
 
 Startup and the Darkside intro are scheduled after the Clouds ending
 ([roadmap step 20](../roadmap.md#next-arc-finishing-the-games-systems);
 maintainer, 2026-10-25).
 This rule does not authorize writing the original configuration from MMModern.
+
+Both paths draw the same NWC and JVC sequences. At JVC, seen nonzero stops the
+song; zero starts it (`0xac5a..0xac75`). The 60-tick hold starts after fade-in
+and includes pyramid/voice preloads even on the short path (`0xac7e..0xad23`).
+The jump at `0xad64` reaches the seen store directly. The write has no local
+result check; persistence after a disk error is not guaranteed.
+
+Before the first frame, video setup enters mode 13 and writes a black palette
+when the inherited mode differs (`0x73bb`, `0x14610..0x1464d`); already-mode-13
+entry skips that reset. Other Options `D` has already faded the title. Drivers
+and song storage are initialized, but no scene song or VOC has started
+(`0x784c..0x79f1`). The hardware mixer follows the existing
+[initialization rule](audio.md#card-mixer). Device eight can show its hardware
+initialization screen (`0x11b9f..0x11c46`); its latency is not a scene hold.
 
 ## Hand-off and title return
 
@@ -197,24 +212,138 @@ retain this row explicitly as unreachable on installed CD World.
 
 ## Darkside and ending boundaries
 
-**DOS static, high for reached primitives.** Darkside
-`0xa9bd..0xd608` uses the calibrated sprite, palette, BIOS/retrace, VOC and
-caption operations. It adds horizontal page transitions, more caption records,
-visual randomness (range helper `0x1cbdc`, time-mixed source `0x1cc27`) and
-explicit INTRO/DARK switches (`0xbb48`, `0xcf38`, `0xd08f` and their returns).
-Its narration is VOC playback, including `pharoh11.voc` at `0xcd6d`; no CD disc-2
-speech backend is required by this EXE scene. **Unknown:** exhaustive Darkside
-asset decoding and per-frame choreography; item 7 is an estimate, not that audit.
+**DOS static, high; calibrated 2026-10-26.** Darkside `0xa9bd..0xd608` uses the
+M91 primitives and M92 range helper. The complete rules, resource report,
+extracted tables, pin comparison and supplied-video timestamps are external:
+`D:/Projetos/MModern/MModern-re/m93/findings.md`. This calibration describes
+original behavior, not implemented Darkside coverage.
 
-NWC/story polls accept Escape to common cleanup (`0xab4d..0xab57`, `0xd5b5`).
-World-logo frame loops poll without aborting; any key only shortens the two
-boundary holds (`0xd444..0xd458`, `0xd579..0xd58d`). Mouse does not skip;
-Ctrl-Q remains available throughout the EXE presentation. Completion/Escape
-returns to the fresh DAT title above.
+Darkside disables the scroll at `0xa9c3`. Completion/Escape joins `0xd5b5`:
+FM zero and buffer cleanup, then the scroll call at `0xd5f0` immediately returns
+through `0x6f28..0x6f35`. There is no parchment or Clouds song-fade-50 call.
+Common shutdown publishes, frees pages, stops song/VOC and releases drivers
+(`0x7b27..0x7b8e`). Video shutdown argument one retains mode 13
+(`0x7b96`, `0x14893..0x1489c`). The fresh DAT title above follows; Other Options
+does not resume. There is no final World-logo fade-out in the scene routine.
 
-The [M91 estimate](../milestone-91-plan.md#key-decisions)
-includes startup persistence and visual randomness; neither is an approved
-addition to the Clouds-only scope.
+**Implementation inference, medium:** every reached hold fits the existing
+`PresentationClock` BIOS/retrace conversions. Counter one usually resets before
+composition, counter two retains room-entry time, and counter three paces the
+strip. Resource loading and voice idle remain part of elapsed time. Horizontal
+page merge is `0x193bb` (320 columns); vertical merge is `0x19429` (200 rows).
+Fade step 24 uses seven retrace-paced writes; steps four/eight use 33/17.
+
+## Darkside sequencing rules
+
+**DOS static, high.** All counts below are BIOS elapsed holds, not the pin's
+50 Hz waits. Sprite scale zero is full size. Positions, paired zoom coordinates,
+voice/cue tables and all reset sites are retained in the external findings.
+
+| Stage | Rule | EXE evidence |
+| --- | --- | --- |
+| NWC | `dark.pal`, two RAW pages; initial merge/publish/fade four and FM one. First 55 iterations use the first three sprite handles, changing at 34/44; dragon voices at 17/35 replace that iteration's frame increment. Next 42 draw `nwc4` frames 0..41; FM 40/0/3/3/2 at 3/11/27/30/33 and dragon3 at 31. Two ticks per composition; final ten-tick hold shares the last frame's reset. | `0xa9bd..0xac10` |
+| JVC | Mixer 95; load before fade-out eight, publish, conditional song start/stop, fade-in four; 60-tick hold includes the following resource loads. Same graphics on both seen paths. | `0xac11..0xad64` |
+| Pyramid approach | Vertical page offset 0..200, title base plus animation advanced every fourth draw. Latch first elapsed-minus-one, minimum one, before fade-in four as pixel stride; clamp the endpoint. One-tick minimum per draw, then bare endpoint/save/free pages and a newly reset 30-tick hold. | `0xad67..0xaeac`, stride `0xae13..0xae27`, hold reset `0xae91` |
+| Pyramid zoom | Restore background at every scale 14..0, two ticks each; mixer 48 after publishing scale two. Then 19 pyramid frames at (132,62), four ticks each, with caption updates inside the holds. Start pharoh1a, then 1b once on idle during the animation. The final voice/caption tail cannot start a late 1b. Fade four. | `0xaead..0xb055` |
+| Pharaoh room | Reset counter two before loading; horizontal offset 320 downward by twice the approach stride, one-tick minimum. Dragon positions wrap at ten and frame lookup at 36; every third iteration resets the subcounter and advances both. FM seven/eight at old position five/zero. Chain pharoh2a..e on idle during the pan. The endpoint tail draws frame zero and waits only for the current voice/caption; it does not advance that chain. No-digital hardware also requires 220 ticks since entry. Stop VOC/fade four. | `0xb056..0xb3c3`, tail `0xb322..0xb383` |
+| Crystal-ball composition | Retain `dark.pal`, restore `ball.raw` each draw. A 32-phase composite layers ball, right claws, dragon and left idle/rubbing claws. Speaker/fizzle at (9,57); claw six at (149,184), dragon x=139; animated claw/dragon layers use flag `0x800`. Reset before composing, publish/poll once, then wait to three ticks. Initial rub runs 32 phases and fades in after the first publication. | `0xb3c4..0xcd65` |
+| Queen | Incoming fizzle 0..10, queen zero behind indices >3; FM 42, pharoh3/FM zero at six. On voice **and** caption idle, chain queen1/2/hiss; random speaking frames 0..5, hiss frames 7..16 then zero. Clear the strip for the later queen clips; pharoh4 follows with queen zero. | `0xb4ed..0xbb40` |
+| Dark Lord | dark3, then pharoh5a/5b/laff1 on idle; random frames 0..3 only in the first speaking state. Reverse fizzle 10..0 selects the reply caption and can start/restart laff1 once on idle. Random Dark Lord remains behind indices >3; FM 42 then zero. | `0xbb42..0xbfb1` |
+| Alamar/goon | Rub 32; select caption before incoming fizzle, FM 42, pharoh6w at six. Start alamar1/caption/FM zero on both idle; goon cycles 0..16 while speaking. Reverse fizzle selects the next caption, starts pharoh7t once on idle, draws goon zero behind indices >4; FM 42 then zero. | `0xbfb4..0xc5ee` |
+| Ellinger/orb decision | Rub 32; caption before fizzle, pharoh8 at five. On idle start ellinger/caption/FM zero, then pharoh9a with the strip cleared. Only Ellinger uses random wizard frames. Reverse fizzle draws wizard zero behind indices >4 without caption updates. Then combined record 19 accompanies pharoh9b; wait for voice and strip, FM zero/fade four. | `0xc5f0..0xcd65` |
+| Release creature | `fly.pal/raw`, frames 0..34, two ticks, pharoh11; update captions each frame, with no final caption-completion hold. FM 43 at 16/28, zero afterwards; fade four, mixer 95. | `0xcd6d..0xce90` |
+| Bird/comet | `bird.raw`, 81 frames selected by index/8 and index%8 from bird01..11, two ticks. Comet at 1/21, FM 43 at 1/16/39, screech at 56, disint at 61, laff1 at 73; FM zero afterwards. | `0xce94..0xd04e` |
+| Fall | `drop.raw`, 39 frames selected by index/12 and index%12 from drop1..4, two ticks. Branch at nine, vine at 22, thud after the loop; fade-out 24. | `0xd07d..0xd1ab` |
+| Orb/title | `end.raw`, fade four, song command 16 (fade speed). Nineteen end1..3 frames selected by index/8 and index%8, four ticks. Save, reset before loading title2, hold 20 ticks. Restore for each paired title scale 11..0, two ticks, save then seen store. | `0xd1af..0xd374`, command `0xd213`, reset `0xd292` |
+| World logo | Fade four, `firemain.pal/raw`, publish/fade four. Reset before loading wfire1..7; first ten-tick boundary hold. Reveal 28 frames at (0,45), index/5 and index%5, two ticks; restart rumble when idle before index 17, explosio at 17. Save final composition, then twice draw wfire7 frames 0..20 over it, two ticks; thud at 0/11 and FM 60 at three each cycle. Last ten-tick boundary hold shares the final frame reset. | `0xd37f..0xd58e`, resets `0xd409`, `0xd503` |
+
+The supplied seen-zero video shows JVC around 12.4..14.1 s, room by 35.6 s,
+ball at 45 s, release at 106.8 s, bird at 111.6 s and fall at 120.2 s.
+The World tail is still visible at 141 s; black at 141.5 s precedes the fresh
+title fade at 142 s. These are capture observations, not fixed scene deadlines.
+
+## Darkside resources and data
+
+**DOS static, high for selection; source-equivalent audit, medium for decoding.**
+INTRO.CC supplies the scenes except temporary DARK.CC loads: laff1 at
+`0xbb48..0xbb69`; screech/disint/laff1 at `0xcf38..0xcf7f`; branch at
+`0xd08f..0xd0af`. Startup also loads DARK's opaque `46k.buf`
+(`0x7a1e..0x7a3d`). Each range ends by restoring INTRO; there is no archive
+fallback. All narration is VOC, including pharoh11, with no CD speech request.
+
+The external report accepts 103 distinct archive/name dependencies: 45 sprites
+(470 frames), 36 VOCs, 15 RAWs, three PALs, two songs, one caption resource and
+one scratch buffer. This is not compiled-reader execution or audible/rendered
+equivalence. `.int` resources have the ordinary Xeen frame/component headers
+and scanline RLE; no new decoder is needed. `fizzle.int` uses the already-admitted
+transparent terminal row overshoot. No compressed-frame decoder call is reached.
+`wizmth.int` is loaded but not drawn; pharoh2d/e are generic voice handles copied
+to alternating buffers (`0xb27b`, `0xb298`), not sprites. Startup `ido2.voc` is
+overwritten before playback (`0xb484..0xb499`).
+
+Darkside music devices five/nine choose `cantheme.m`; all others choose
+`bigtheme.m` (`0x7932..0x79e9`, jump table `0x7c80`, names `0x1ef78/0x1ef83`).
+This differs from Clouds' device-four/five/other selection. Mixer arguments are
+95/48/95 (`0xac2d`, `0xaf15`, `0xce85`), not percentage volume. Escape adds no
+restoration; fresh DAT initialization restores its mixer state.
+
+The four range-helper calls are queen `0xb8d1` (0..5), Dark Lord `0xbc86` and
+`0xbe46` (0..3), wizard `0xca27` (0..3). They select sprite frames only, using
+the M92 private time-mixed source `0x1cc27`, low-15-bit inclusive modulo through
+`0x1cbdc`. They never consume Journey RNG. The pin cycles by host time instead.
+
+A runtime EXE reader must verify identity and bounds, retain signed coordinates,
+and check the following shapes without copying original tables into the repo:
+
+- Three 12-word title tables (`0x1fb60/0x1fb78/0x1fb90`), three 15-word pyramid
+  tables (`0x1fba8/0x1fbc6/0x1fbe4`).
+- Two ten-word room position tables (`0x1fc02/0x1fc16`), 36 frame words
+  (`0x1fc2a`, values 0..9). The following 34 words are not consumed.
+- Eight 32-word ball tables (`0x1fcb6..0x1feb5`); frame values 0..3, signed
+  offscreen coordinates preserved. All 17 consumed tables match the pin.
+- Bounded NUL resource names, exact formatted-name patterns, cue selectors
+  (`0xd60a`, `0xd626`, `0xd63e`), and the existing strip format (`0x20f60`).
+  Validate selected frames against decoded resources and caption seeds against
+  nonempty NUL-terminated records within the 1000-byte copy bound.
+
+## Darkside captions and input
+
+**DOS static, high.** The same every-NUL record loader and hardware predicate
+as M91/M92 apply (`0x1189e..0x119bf`): digital device zero/one enables the strip;
+party Speech/Text and host mute do not. One character advances after more than
+one BIOS tick on counter three, then resets it; a 40-character window uses
+`box.vga` at (36,189) and the EXE format controls. Three-tick ball composites
+consult it once per frame; pyramid voice holds consult it inside their waits.
+
+| Record / initial index | Selection | EXE evidence |
+| --- | --- | --- |
+| 0 / 8; 1 / 25 | Pyramid, room | `0xaf52..0xaf82`, `0xb16f..0xb19e` |
+| 9 / 1; 10 / 1; 11 / 1 | Queen introduction, queen1, Pharaoh reply; later queen clips clear the strip | `0xb5df..0xb60e`, `0xb7c3..0xb7f2`, `0xb9db..0xba0a` |
+| 12 / 1; 13 / 1 | Dark Lord; reply only at reverse fizzle | `0xbb84..0xbbb3`, `0xbd12..0xbd41` |
+| 14 / 1; 15 / 1; 16 / 1 | Before goon fizzle, Alamar, reverse fizzle | `0xc105..0xc134`, `0xc2df..0xc30e`, `0xc461..0xc490` |
+| 17 / 1; 18 / 1; 19 / 1 | Before wizard fizzle, Ellinger, combined orb/destiny text with pharoh9b; pharoh9a clears the strip | `0xc74d..0xc77c`, `0xc922..0xc951`, `0xcbc4..0xcbf3` |
+| 6 / 0 | Release creature | `0xcdb6..0xcde6` |
+
+There is no record-20 selection. Reverse wizard fizzle publishes without updating
+captions (publication `0xcb9a`). Extracted text stays in the external findings.
+
+NWC/JVC/story polls accept Escape to cleanup (`0xab4d..0xab57`, `0xad26`,
+`0xd31f`, `0xd5b5`); ordinary keys do not skip. Fixed inner holds and voice tails
+can delay response; `0xb01d..0xb03f` and `0xb322..0xb383` do not directly poll.
+World frame polls (`0xd4d6`, `0xd55b`) ignore Escape too. Any key only shortens
+its two boundary holds (`0xd444..0xd458`, `0xd579..0xd58d`). Mouse does not skip.
+Ctrl-Q still exits the EXE through `0x11aa2..0x11afc`, not to the fresh title;
+it cannot undo the already-written seen flag during the World tail.
+
+**DOSBox corroboration:** the maintainer's M93 session confirms the short
+repeat launch with a silent JVC, `D`'s forced story, the full story due again
+after an early Escape, a click that does not skip, and a key that shortens
+only the first World boundary hold while Escape leaves the World frames
+running ([runtime checks](evidence.md#m93-darkside-startup-runtime-checks)).
+**Unknown:** realized strides and redraw counts per scene (to be measured
+against these recordings during implementation), pre-first-frame and
+sound-cutoff latency, and no-digital caption appearance. See the
+[reference differences](../original-quirks.md#sv-darkside-startup-seen).
 
 ## Clouds ending entry and save
 

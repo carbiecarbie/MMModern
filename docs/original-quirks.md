@@ -1228,3 +1228,91 @@ without reading another row; `XeenObjectSpriteSafety` admits the terminal skip
 while retaining operand, stream and workspace bounds. This follows the pinned
 drawer and installed resource; the exact DOS row-loop behavior is not separately
 confirmed. Location: `XeenObjectSpriteSafety`, `XeenObjectSpriteTests`.
+
+## Darkside startup and presentation
+
+These are calibrated DOS fidelity rules, not claims of implemented Darkside
+coverage. Evidence: installed CD XEEN.EXE, **DOS static, high**, 2026-10-26;
+the source-equivalent resource audit is medium. Full offsets, tables, resource
+report and pin comparison remain outside the repository at
+`D:/Projetos/MModern/MModern-re/m93/findings.md`. Location for these rules:
+[startup](rules/cutscenes.md#startup-dispatch),
+[sequencing](rules/cutscenes.md#darkside-sequencing-rules),
+[resources](rules/cutscenes.md#darkside-resources-and-data) and
+[captions/input](rules/cutscenes.md#darkside-captions-and-input).
+
+<a id="sv-darkside-startup-seen"></a>
+**The short startup still shows JVC, and seen is stored before the World logo.**
+Both paths play NWC/JVC; nonzero seen stops the JVC song and jumps over the story
+(`0xac5a..0xac75`, `0xad3d..0xad64`). Both store one and write CFG before the
+World tail (`0xd345..0xd374`). DAT Other Options D clears seen before hand-off
+(`0xc565..0xc59e`), so Escape during the forced story leaves full playback due
+on relaunch. **ScummVM:** the pin skips JVC on the short path, writes seen only
+after successful full intro return, and its D handler does not clear persistent
+seen. DOS is the fidelity rule; master not rechecked.
+
+<a id="sv-darkside-sequencing"></a>
+**Elapsed time and counter resets determine the pans and holds.** DOS uses BIOS
+ticks and retrace, including load time in JVC/prelogo/title holds. The final
+NWC/World ten-tick holds share the last frame reset (`0xac00..0xac10`,
+`0xd503..0xd58d`). Pyramid stride is first elapsed-minus-one, minimum one, with
+a 30-tick endpoint hold and restored background at each zoom scale
+(`0xae13..0xaf43`). Room stride doubles it; the dragon advances every third
+iteration, and the post-pan tail waits for the current voice/caption, with a
+220-tick entry minimum on no-digital hardware (`0xb056..0xb3c3`). Voice state
+changes precede the goon/wizard draw in that iteration (`0xc2bc..0xc3d3`,
+`0xc8ff..0xca27`). **ScummVM:** the pin uses its WAIT pacing, fresh terminal
+wait counters, one-pixel pans, a 20-frame endpoint hold, accumulating pyramid
+zoom draws and a room subcounter that never resets after reaching three. It
+omits the DOS post-pan voice tail and changes goon/wizard state after drawing.
+DOS is the fidelity rule; master not rechecked.
+
+<a id="sv-darkside-captions"></a>
+**Caption selection follows the EXE's hardware and voice-state rules.** Digital
+device zero/one enables the every-NUL `special.bin` strip (`0x1189e..0x119bf`).
+Call cadence matters: pyramid holds update internally, ball frames once per
+three-tick composition, release creature every frame. Dark Lord record 13
+starts only at reverse fizzle (`0xbd12..0xbd41`); Alamar record 14 precedes
+incoming fizzle (`0xc105..0xc134`). Ellinger uses record 18, pharoh9a clears the
+strip, and pharoh9b uses combined record 19; record 20 is unused
+(`0xc922..0xcbf3`). Reverse wizard fizzle uses a plain flip (`0xcb9a`).
+**ScummVM:** the pin uses subtitle settings/localization/TTS and different
+update opportunities; it selects Dark Lord's reply earlier, Alamar's caption
+after incoming fizzle, and records 18/19/20 for the final three voices, including
+caption updates during reverse wizard fizzle. DOS is the fidelity rule;
+master not rechecked.
+
+<a id="sv-darkside-random"></a>
+**Speaking variants use private presentation randomness.** Queen frames 0..5
+(`0xb8d1`) and Dark Lord/wizard frames 0..3 (`0xbc86`, `0xbe46`, `0xca27`)
+use the same low-15-bit inclusive modulo and time-mixed source as M92
+(`0x1cbdc`, `0x1cc27`). No resource, voice or Journey random state is selected.
+**ScummVM:** the pin's `getSpeakingFrame` cycles by host milliseconds divided
+by 100, rather than drawing random values. DOS is the fidelity rule; exact
+random frames in a recording are not reproduction targets. Master not rechecked.
+
+<a id="sv-darkside-audio-return"></a>
+**Device selection, cue timing and fresh-title audio remain explicit.** DOS
+selects cantheme for music devices five/nine and bigtheme otherwise
+(`0x7932..0x79e9`). Its mixer commands are 95/48/95, with 48 after zoom scale two
+(`0xac2d`, `0xaf15`, `0xce85`); song command 16 fades at `0xd213`. The Dark Lord
+idle chain can start laff1 before reverse fizzle, which can start it again on
+idle (`0xbb42..0xbfb1`). Explicit INTRO/DARK switches retain loaded voice
+buffers (`0xbb48..0xbb69`, `0xcf38..0xcf7f`, `0xd08f..0xd0af`); pharoh2d/e are
+preloaded/copied, not fetched at their start. Cleanup has no Clouds fade-50 or
+parchment and no scene-final World fade; common shutdown stops audio and a fresh
+DAT initializes the title (`0xd5b5..0xd608`, `0x7b27..0x7c4e`).
+**ScummVM:** the pin hardcodes bigtheme, uses percentage volumes and different
+placement, leaves fade 16 commented out, starts laff1 only in reverse fizzle,
+loads through its own archive abstractions and fades the World tail before
+returning within the engine. DOS is the fidelity rule; master not rechecked.
+
+<a id="sv-darkside-input"></a>
+**Escape skips the story, but does not cancel World-logo frames.** Story polls
+branch on Escape (`0xab4d..0xab57`, `0xd31f`); mouse is not a skip and unpolled
+voice tails can delay response. World frames ignore ordinary key results
+(`0xd4d6`, `0xd55b`); any key only shortens the two boundary holds
+(`0xd444..0xd458`, `0xd579..0xd58d`). Ctrl-Q exits the EXE, not to the title
+(`0x11aa2..0x11afc`). **ScummVM:** the pin's WAIT/subtitle waits allow broader
+keyboard/mouse cancellation. DOS is the fidelity rule; maintainer runtime
+checks remain distinct from this static evidence. Master not rechecked.

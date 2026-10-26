@@ -1,6 +1,6 @@
 # Milestone 93 plan - Startup and the Darkside intro
 
-**Tier B. Status: planned, not started.** Roadmap
+**Tier B. Status: Part 0 done; Parts A and B not started.** Roadmap
 [step 20](roadmap.md#next-arc-finishing-the-games-systems), after
 [M92](milestone-92-plan.md), on the [M91](milestone-91-plan.md) presenter.
 Baseline `87fe933`. Save v21, schema and content unchanged. The settings
@@ -59,28 +59,28 @@ repository). Findings extend [cutscene rules](rules/cutscenes.md) with
 offsets and evidence labels; settled oddities go to
 [original quirks](original-quirks.md).
 
-- [ ] **Sequencing rules** for each scene family: backgrounds, palettes,
+- [x] **Sequencing rules** for each scene family: backgrounds, palettes,
   sprite frames and positions, scales, vertical and horizontal page
   operations, fades and steps, BIOS holds and their reset points, redraws
   limited by retrace, voice-idle loops, caption records, songs, FM cues,
   VOCs and mixer commands. Record them as rules, as M91 did, not as a
   transcription of the program.
-- [ ] **Paths:** the short path's NWC/JVC against the full path's; the jump
+- [x] **Paths:** the short path's NWC/JVC against the full path's; the jump
   to `0xd345`; the World-logo tail; what is on screen and playing before the
   first frame at process start, and after Escape or completion.
-- [ ] **Resources:** the archive behind every reached name across the
+- [x] **Resources:** the archive behind every reached name across the
   switches; every resource decodes with the current readers (sprites, RAW,
   PAL, VOC, songs, compressed frames), or the missing reader is named with
   its format evidence. Song selection by music device as in Clouds
   (`0x7ce9..0x7d23`); device-specific variants stay in step 19.
-- [ ] **Random visual variants:** every call site, its range and what it
+- [x] **Random visual variants:** every call site, its range and what it
   selects. Fidelity means the same helper and source, not matching one
   recording.
-- [ ] **Captions:** records used, the no-digital-device predicate and strip
+- [x] **Captions:** records used, the no-digital-device predicate and strip
   pacing, compared with M91 and M92.
-- [ ] **EXE data:** tables, coordinates and text the scenes need, read at
+- [x] **EXE data:** tables, coordinates and text the scenes need, read at
   run time with structural checks, as `XeenCutsceneData` does today.
-- [ ] **DOSBox checks** for the maintainer: one session on a disposable copy
+- [x] **DOSBox checks** for the maintainer: one session on a disposable copy
   of the installation, recorded and measured with ffmpeg timestamps and
   timestamped contact sheets. (a) Relaunch after the recorded full story:
   short path to the title. (b) Title, Other Options `D`: full story forced.
@@ -97,6 +97,15 @@ decoder; speech needs a source `XeenAudio` cannot play; DOSBox contradicts
 the seen-state routing above; or a choreography value is settled neither by
 the EXE nor by the checks (list them; never fall back to the pin silently).
 
+**Part 0 result (2026-10-26):** no stop condition. The rules are in
+[cutscene rules](rules/cutscenes.md#darkside-sequencing-rules) and the
+maintainer's session in
+[evidence](rules/evidence.md#m93-darkside-startup-runtime-checks). No new
+reader is needed (`.int` resources are ordinary sprites). The installed
+configuration selects `bigtheme.m`. The short path stops the JVC song.
+Stage timing is still to be compared with the recordings; captions without
+a digital device were not recorded.
+
 ## Part A - Darkside intro on the presenter
 
 - [ ] Extend `XeenCutsceneData` with the Darkside tables and resource names,
@@ -111,7 +120,6 @@ the EXE nor by the checks (list them; never fall back to the pin silently).
   needs them; random variants use `XeenPresentationRandom`; no Journey RNG.
 - [ ] The seen store at the `0xd345` point: the cutscene reports when it
   passes it, so Escape before it leaves the state unchanged.
-- [ ] A missing reader named by Part 0, in `formats/xeen`, with its own tests.
 
 ## Part B - Startup, settings and Other Options D
 

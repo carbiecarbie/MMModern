@@ -622,3 +622,13 @@ Next steps are in the [roadmap](roadmap.md).
 - **Clouds ending captions.** [The first king speech uses the final speech's caption](original-quirks.md#sv-clouds-ending-captions), selected through DOS's every-NUL offsets and digital-device predicate. Pin: matching subtitle groups and different waits/settings; master not rechecked.
 - **Clouds ending randomness.** [The EXE's private time-mixed source and inclusive modulo](original-quirks.md#sv-clouds-ending-rng) supply presentation randomness independently of Journey. Pin: engine random helper; master not rechecked.
 - **Clouds ending parade.** [The power hold draws attack frame 3](original-quirks.md#sv-clouds-ending-parade-power), after the three attack frames 0..2. Pin: keeps frame 2; master not rechecked.
+
+The following Darkside items are calibrated original rules, not implemented
+presentation coverage:
+
+- **Darkside repeat startup.** [The short path includes JVC and saves seen before the World logo](original-quirks.md#sv-darkside-startup-seen); D clears seen first, so an early Escape leaves the full story due. Pin: omits short-path JVC and uses different persistence points; master not rechecked.
+- **Darkside sequencing.** [BIOS/retrace holds, measured pan strides and reset points](original-quirks.md#sv-darkside-sequencing) govern the pyramid, room and terminal holds. Pin: different wait timing, pan/zoom behavior, room counter and voice/draw ordering; master not rechecked.
+- **Darkside captions.** [Hardware-gated records and scene-specific strip updates](original-quirks.md#sv-darkside-captions) include the combined final record and blank pharoh9a strip. Pin: subtitle settings, different records and update timing; master not rechecked.
+- **Darkside speaking variants.** [The EXE's private time-mixed random source](original-quirks.md#sv-darkside-random) selects queen, Dark Lord and wizard frames. Pin: cycles by host time; master not rechecked.
+- **Darkside audio and return.** [Hardware-selected themes, mixer commands, voice buffers and fresh-title return](original-quirks.md#sv-darkside-audio-return) follow explicit EXE calls. Pin: different volume/cue timing and return sequence; master not rechecked.
+- **Darkside input.** [Escape-only story cancellation and non-abortable World frames](original-quirks.md#sv-darkside-input) preserve the two keyboard-shortened boundary holds. Pin: broader key/mouse cancellation; master not rechecked.
