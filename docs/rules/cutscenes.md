@@ -265,7 +265,9 @@ described above, with a new program start mark.
 **DOS static, high; calibrated against the recorded `0071001722`.** Every
 active member contributes, including terminal-condition members. The helper
 at `0x1e336..0x1e3bb` reconstructs total earned XP from raw saved XP, class
-and permanent level. For normal positive levels, with `L = level - 1`:
+and permanent level, as the character sheet does
+([level thresholds](combat.md#level-thresholds)). For normal positive levels,
+with `L = level - 1`:
 
 | L | Added to raw XP |
 | --- | --- |

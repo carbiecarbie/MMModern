@@ -52,7 +52,7 @@ struct Driver {
  }
  void click(int x,int y) {
   const auto action=flow.inputContext(flow.frame().presentation()).dialog->click(x,y);
-  check(bool(action),"missing title hit mapping");flow.handle(*action,flow.frame().presentation());present();
+  check(bool(action),"missing title hit mapping");flow.handle(*action,flow.frame().presentation());if(flow.current())present();
  }
  void type(std::string value){flow.handle(TextInputAction{std::move(value)},flow.frame().presentation());present();}
 };
@@ -118,6 +118,11 @@ void panelControls(XeenAssetSource &assets,const XeenFontFormat &font) {
   Driver missingO(s);missingO.key('g');missingO.key('b');check(!missingO.flow.current() && !missingO.flow.clocksVisible(),"G then B must close and clear the panel");
   clock.key('r');check(clock.flow.current() && !clock.flow.clocksVisible(),"R without G/O/B must remain harmless");
   clock.key('g');clock.key('r');check(clock.flow.current() && !clock.flow.clocksVisible(),"R with incomplete gate must remain harmless");
+  // DAT 0x1f2d7: the switch default closes on any other key or a missed click.
+  for(unsigned key:{unsigned('Z'),unsigned('z'),unsigned('5'),unsigned(' '),9u,13u,0xc9u,0xf0u}) {
+   Driver other(s);other.key('g');other.key(key);check(!other.flow.current() && !other.flow.clocksVisible(),"unrecognized panel key must close");
+  }
+  for(auto [x,y]:{std::pair{0,0},std::pair{319,199}}) {Driver miss(s);miss.click(x,y);check(!miss.flow.current(),"click outside panel buttons must close");}
   clock.key('g');clock.key('o');clock.key('o');clock.key('b');
   check(!clock.flow.clocksVisible(),"clock gate enabled before R");clock.key('r');
   check(clock.flow.clocksVisible() && reads>0,"G-O-O-B-R clock gate");

@@ -62,7 +62,8 @@ the ending only.
 
 In the control panel, typing G, O, B, R shows the clock and the play time
 until the panel closes; O or B typed out of that order closes the panel,
-as in DOS.
+as in DOS. Any other key the panel does not use, or a click outside its
+buttons, also closes it, like Escape.
 
 Exploration completes one Event pass after each input, including unmatched
 keys such as period, U, digits, F7 and F8. Insert, Home, End and Page Up/Down

@@ -350,20 +350,29 @@ unsigned XeenCharacterRules::awardCount(const XeenCharacter &c) {
 	for(unsigned i=0;i<88;++i) if(c.awards[XeenCharacter::awardIndex(i)]) ++count;
 	return count;
 }
-std::uint32_t XeenCharacterRules::currentExperience(const XeenCharacter &c,const XeenCombatInputs *input) {
+namespace {
+// DAT 0x1e28f/0x1e336: the class constant (DS 2920) shifted by level-1 through
+// level 11, then 1,024,000 more for each level from 12.
+std::uint32_t experienceThreshold(XeenCharacterClass cls,int level) {
 	constexpr std::uint32_t bases[]{1500,2000,2000,1500,2000,1000,1500,1500,1500,2000};
+	const auto base=bases[static_cast<unsigned>(cls)];
+	return level>=12?std::uint32_t(level-11)*1024000u+(base<<10):base<<(level-1);
+}
+}
+std::uint32_t XeenCharacterRules::currentExperience(const XeenCharacter &c,const XeenCombatInputs *input) {
 	const auto xp=input?std::uint32_t(input->experience):0u;
 	const int level=c.permanentLevel-1;
 	if(level<=0) return xp;
-	return xp+(level>=12?std::uint32_t(level-12)*1024000u:0u)+(bases[static_cast<unsigned>(c.characterClass)]<<(level>=12?10:level-1));
+	return xp+experienceThreshold(c.characterClass,level);
+}
+std::uint32_t XeenCharacterRules::nextExperienceLevel(const XeenCharacter &c) {
+	return c.permanentLevel<1?0u:experienceThreshold(c.characterClass,c.permanentLevel);
 }
 std::uint32_t XeenCharacterRules::experienceToNextLevel(const XeenCharacter &c,const XeenCombatInputs *input) {
-	constexpr std::uint32_t bases[]{1500,2000,2000,1500,2000,1000,1500,1500,1500,2000};
-	const int level=c.permanentLevel;
-	if(level<1) return 0;
-	const auto next=(level>=12?std::uint32_t(level-12)*1024000u:0u)+(bases[static_cast<unsigned>(c.characterClass)]<<(level>=12?10:level-1));
-	const auto current=currentExperience(c,input);
-	return current>=next?0u:next-current;
+	if(c.permanentLevel<1) return 0;
+	// DAT 0x1e310..0x1e334 tests the 32-bit difference as signed.
+	const auto missing=nextExperienceLevel(c)-currentExperience(c,input);
+	return std::int32_t(missing)>0?missing:0u;
 }
 
 int XeenCharacterRules::physicalBonus(int value) { return statBonus(value); }

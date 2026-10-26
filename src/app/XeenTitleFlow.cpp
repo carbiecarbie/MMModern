@@ -136,7 +136,9 @@ DialogInput XeenTitleFlow::dialog() const {
    const auto &b=_services.text.buttons("OTHER_ENDING").front();add(b,lower(b.key),resource,6);
   }
  } else if(_screen==Screen::Panel) {
-  for(unsigned key:{'g','o','b','r'})input.keys.push_back(key);
+  // DAT 0x1f006..0x1f047: every key and every click reaches the key switch;
+  // a click outside the buttons arrives as zero (0x0e2cc..0x0e533).
+  input.anyKey=input.retainKey=true;input.missKey=0;
   for(const auto &button:_services.text.buttons("PANEL"))
    add(button,lower(button.key),_services.text.scalar("PANEL_SPRITES").data(),0);
  } else if(_screen==Screen::NewSlots || _screen==Screen::LoadSlots || _screen==Screen::SaveSlots) {
@@ -305,7 +307,10 @@ std::optional<IndexedFrame> XeenTitleFlow::handle(const PlayerAction &action,con
   if(_page==3)setScreen(Screen::Menu);else {++_page;render();}break;
  case Screen::Panel: {
   const auto button=buttonIndex(_services.text,"PANEL",key);
-  if(escape){close();return {};}
+  if(!keyAction && !escape)return {};
+  // DAT 0x1f036..0x1f047 dispatches the panel buttons and G/O/B/R; the
+  // default at 0x1f2d7 stores Escape for every other key or click.
+  if(escape || (!button && key!='g' && key!='o' && key!='b' && key!='r')){close();return {};}
   // DAT 0x1f2d7 stores Escape when O or B lacks its preceding stages.
   if((key=='o' && !(_clockGate&1)) || (key=='b' && (_clockGate&3)!=3)){close();return {};}
   // DAT 0x1f2a5..0x1f2d5 retains each acquired stage; E remains Efx.

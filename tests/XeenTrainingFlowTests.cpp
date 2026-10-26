@@ -38,12 +38,12 @@ int main(int argc,char **argv) {
             const auto saved=f.snapshot();Fixture restored(inputs,saved);save_test::sameSnapshot(saved,restored.snapshot());
         }
         constexpr std::array<std::uint32_t,10> bases{1500,2000,2000,1500,2000,1000,1500,1500,1500,2000};
-        for(unsigned cls=0;cls<10;++cls)for(unsigned level:{1u,3u,4u,9u}) {
+        for(unsigned cls=0;cls<10;++cls)for(unsigned level:{1u,3u,4u,9u,11u,12u,13u,19u}) {
             auto s=source;s.characters[18].characterClass=static_cast<XeenCharacterClass>(cls);s.characters[18].permanentLevel=level;
             s.characters[18].weapons={};s.characters[18].armor={};s.characters[18].accessories={};s.characters[18].miscellaneous={};
-            const unsigned debit=bases[cls]*(1u<<(level==1?0:level-2));
+            const unsigned debit=level>=12?1024000u:bases[cls]*(1u<<(level==1?0:level-2));
             s.journey->supplements[18].inputs.experience=debit+1;s.journey->purse->gold=10*level*level;
-            Fixture fixture(inputs,s);const auto delta=xeenPrepareTraining(fixture.p,18,*fixture.p.encounterContext,XeenMapIdentity(28));
+            Fixture fixture(inputs,s);const auto delta=xeenPrepareTraining(fixture.p,18,*fixture.p.encounterContext,XeenMapIdentity(level<10?28:29));
             check(delta.result.outcome==XeenTrainingOutcome::Trained && delta.result.levelAfter==level+1 &&
                 delta.result.xpAfter==1 && delta.result.goldAfter==0 && delta.result.maxHpAfter==delta.result.hpAfter &&
                 delta.result.maxSpAfter==delta.result.spAfter,"class/level progression debit/remainder/exact funds/derived refill differs");

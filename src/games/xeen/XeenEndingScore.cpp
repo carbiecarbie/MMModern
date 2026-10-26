@@ -11,9 +11,8 @@ std::uint32_t xeenCloudsEndingScore(const XeenPartyState &party,std::uint32_t se
   const auto &c=party.roster.at(id);
   const auto &input=party.roster.combatInputs(id);
   if(!input)throw std::logic_error("Clouds ending requires live experience");
-  // DAT 0x1e336 counts L-11 above level 12. The existing sheet helper
-  // counts L-12; retain that separate display behavior outside this ending.
-  sum+=XeenCharacterRules::currentExperience(c,&*input)+(c.permanentLevel>=13?1024000u:0u);
+  // DAT 0x28c44 sums the sheet's total-experience helper (0x1e336).
+  sum+=XeenCharacterRules::currentExperience(c,&*input);
  }
  const std::uint32_t experience=(sum/party.party.size()/10000u)*100000u;
  const auto hours=std::uint16_t(seconds/3600u);

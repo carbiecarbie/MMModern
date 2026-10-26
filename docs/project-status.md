@@ -339,9 +339,6 @@ the original data uses and its support status.
   ([audio rules](rules/audio.md#sdl-resampler-rate-limitation)).
 - Presentation: the game opens at the World title without the original's
   Darkside intro, and Other Options cannot play that intro yet (step 20).
-- Open checks: unrecognized keys close the DOS control panel but are
-  ignored here, and the sheet's experience may show 1,024,000 low from
-  level 13; both need a DOS confirmation first.
 - Darkside gameplay is not supported.
 
 Next steps are in the [roadmap](roadmap.md).

@@ -206,11 +206,6 @@ Order: 15 → 16 → 17 → 18 → 20; step 19 is independent. Step 16 may run
 alongside step 17's Part 0.
 
 Maintenance queued after M92 (maintainer, 2026-10-26):
-- **Control panel keys.** Unrecognized keys close the DOS panel (switch
-  default `0x1f2d7`); confirm in DOSBox, then reproduce.
-- **Sheet experience.** The total-experience helper uses the pin's level
-  offset, where DOS `0x1e336` may add 1,024,000 more from level 13; confirm
-  the sheet's DOS caller first.
 - **M90 whole-quest play-through**, which closes M90.
 
 ## Medium-term objective

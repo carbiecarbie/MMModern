@@ -29,6 +29,7 @@ only Darkside wait for its gameplay.
 - **Play time after Load.** [The running program retains its clock mark](original-quirks.md#dos-play-time-start-mark), including time at the title or since the preceding Save. The pin restores its frame counter on Load. Pin: differs; master not rechecked.
 - **Civil clock changes.** [Play time follows unsigned DOS wall-clock arithmetic and legacy April/October DST](original-quirks.md#dos-play-time-unsigned-clock); rollback may reduce or wrap it. The pin counts presentation frames. Pin: differs; master not rechecked.
 - **Hidden panel clocks.** [Elapsed time keeps the DOS formatter's truncation](original-quirks.md#dos-panel-time-truncation), including `19:1092:16` after 19 hours. Civil time keeps the padded hour and morning `a`; the pin uses normalized minutes and morning `c`. Out-of-order O/B closes the DOS panel; the pin resets its gate and stays open. Pin: differs; master not rechecked.
+- **Control panel keys.** [Any key the panel does not use, or a click outside its buttons, closes it](original-quirks.md#sv-panel-default-close) as Escape does. The pin ignores them. Pin: differs; master not rechecked.
 - **Xeen Slayer Sword.** [Only weapon ID 34 bypasses physical resistance](original-quirks.md#sv-slayer-sword-exact-id); the pin also admits larger IDs. Pin: differs; master not rechecked.
 - **Clan King quest.** [The kill hook uses MOB slot 28 on map 41](original-quirks.md#sv-clouds-death-slots), rather than the pin's slot 20 (a Tiger Mole). Pin: differs; master not rechecked.
 - **Ice Troll regeneration.** [The full heal at each new combat round is Clouds-only](original-quirks.md#sv-clouds-ice-troll); the pin omits that side test. Pin: differs; master not rechecked.
@@ -427,6 +428,11 @@ against the pin; master was not rechecked.
   monsters and writes 21st, 22nd and 23rd; the pin chooses a species per
   monster and uses `th` above nine. [Species](original-quirks.md#sv-arena-species-pool),
   [ordinals](original-quirks.md#sv-arena-ordinal). Pin: differs; master not rechecked.
+- **Experience from level 12.** [Each level from 12 adds 1,024,000 to the
+  threshold](original-quirks.md#sv-level-thresholds), and the sheet, Training
+  and the ending score agree. The pin's level-11 and level-12 thresholds
+  coincide, so its Training from 12 to 13 is free and its sheet shows 1,024,000
+  less from level 13. Pin: differs; master not rechecked.
 
 ## Presentation
 

@@ -4,12 +4,6 @@
 #include <limits>
 #include <stdexcept>
 namespace mmodern {
-namespace {
-constexpr std::array<std::uint32_t,10> xpBases{1500,2000,2000,1500,2000,1000,1500,1500,1500,2000};
-std::uint32_t nextXp(const XeenCharacter &c) {
-    return xpBases[static_cast<unsigned>(c.characterClass)]*(std::uint32_t(1)<<(c.permanentLevel-1));
-}
-}
 unsigned xeenTrainingCap(XeenMapIdentity map) {
     if(map.side!=XeenSide::Clouds)throw std::invalid_argument("Training cap is not known outside Clouds");
     return map.number==28?10:map.number==30?15:20;
@@ -31,10 +25,8 @@ XeenTrainingResult xeenQuoteTraining(const XeenCharacter &c,const XeenCombatInpu
     r.maxHpBefore=r.maxHpAfter=XeenCharacterRules::maxHp(c,{context.year});
     r.maxSpBefore=r.maxSpAfter=XeenCharacterRules::maxSp(c,{context.year});
     if(level>=xeenTrainingCap(map)){r.outcome=XeenTrainingOutcome::Cap;return r;}
-    const std::uint32_t next=nextXp(c);
-    const std::uint32_t previous=level==1?0:next/2;
-    const auto current=static_cast<std::uint32_t>(std::uint64_t(previous)+r.xpBefore);
-    r.missing=current>=next?0:next-current;r.cost=10u*level*level;
+    // DAT 0x1c8d1: the sheet's experience-to-next-level helper.
+    r.missing=XeenCharacterRules::experienceToNextLevel(c,&i);r.cost=10u*level*level;
     r.outcome=r.missing?XeenTrainingOutcome::MissingExperience:!c.canAct()?XeenTrainingOutcome::CannotAct:
         gold<r.cost?XeenTrainingOutcome::InsufficientGold:XeenTrainingOutcome::Quoted;
     return r;
@@ -59,8 +51,8 @@ XeenTrainingCandidate xeenPrepareTraining(const XeenPartyState &party,std::uint8
         if(r.outcome!=XeenTrainingOutcome::Quoted)continue;
         xeenResetCharacterTemps(c,i);
         if(id==owner) {
-            const auto next=nextXp(c);
-            const auto debit=r.levelBefore==1?next:next/2;
+            // DAT 0x1ac05..0x1ac36: debit the next threshold minus the current one.
+            const auto debit=XeenCharacterRules::nextExperienceLevel(c)-(XeenCharacterRules::currentExperience(c,&i)-std::uint32_t(i.experience));
             if(r.xpBefore<debit)throw std::logic_error("Eligible Training XP cannot cover its debit");
             i.experience=r.xpAfter=r.xpBefore-debit;c.permanentLevel=r.levelAfter=r.levelBefore+1;
         }

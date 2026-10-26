@@ -16,20 +16,22 @@ int main() {
         c.intellect.permanent=c.personality.permanent=c.endurance.permanent=11;c.currentHp=1;
         XeenCombatInputs i;
         constexpr std::array<std::uint32_t,10> bases{1500,2000,2000,1500,2000,1000,1500,1500,1500,2000};
-        for(unsigned cls=0;cls<10;++cls)for(unsigned level:{1u,3u,4u,9u}) {
+        // DAT 0x1e28f: from level 12 each level costs 1,024,000 XP.
+        for(unsigned cls=0;cls<10;++cls)for(unsigned level:{1u,3u,4u,9u,11u,12u,13u,19u}) {
             c.characterClass=static_cast<XeenCharacterClass>(cls);c.permanentLevel=level;
-            const unsigned debit=bases[cls]*(1u<<(level==1?0:level-2));
+            const unsigned debit=level>=12?1024000u:bases[cls]*(1u<<(level==1?0:level-2));
+            const XeenMapIdentity map(level<10?28:29);
             for(int delta:{-1,0,1}) {
                 i.experience=debit+delta;
-                const auto r=xeenQuoteTraining(c,i,10000,context,XeenMapIdentity(28));
+                const auto r=xeenQuoteTraining(c,i,10000,context,map);
                 check(r.cost==10*level*level && r.missing==(delta<0?1u:0u) &&
                     r.outcome==(delta<0?XeenTrainingOutcome::MissingExperience:XeenTrainingOutcome::Quoted),"class XP threshold/cost mismatch");
             }
             i.experience=debit;
-            check(xeenQuoteTraining(c,i,10*level*level,context,XeenMapIdentity(28)).outcome==XeenTrainingOutcome::Quoted,"exact gold refused");
-            check(xeenQuoteTraining(c,i,10*level*level-1,context,XeenMapIdentity(28)).outcome==XeenTrainingOutcome::InsufficientGold,"insufficient gold admitted");
+            check(xeenQuoteTraining(c,i,10*level*level,context,map).outcome==XeenTrainingOutcome::Quoted,"exact gold refused");
+            check(xeenQuoteTraining(c,i,10*level*level-1,context,map).outcome==XeenTrainingOutcome::InsufficientGold,"insufficient gold admitted");
             c.temporaryLevel=7;
-            check(xeenQuoteTraining(c,i,10000,context,XeenMapIdentity(28)).missing==0 && xeenQuoteTraining(c,i,10000,context,XeenMapIdentity(28)).cost==10*level*level,"temporary level changed Training arithmetic");
+            check(xeenQuoteTraining(c,i,10000,context,map).missing==0 && xeenQuoteTraining(c,i,10000,context,map).cost==10*level*level,"temporary level changed Training arithmetic");
             c.temporaryLevel=0;
         }
         c.characterClass=XeenCharacterClass::Knight;c.permanentLevel=3;i.experience=UINT32_MAX;

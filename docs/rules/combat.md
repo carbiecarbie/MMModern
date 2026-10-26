@@ -716,6 +716,32 @@ MOB-count loop covers maps 8 and 63 with the same rule. Removed monsters stay
 removed. Darkside-specific branches and reachability remain **Unknown/deferred**;
 Darkside gameplay is not supported.
 
+## Level thresholds
+
+**DOS static (2026-10-26), high confidence; calibrated by the maintainer's
+DOSBox sheet check.** One helper at `0x1e28f..0x1e2ec` gives the experience
+needed for permanent level N to advance; class constants are those of the
+[ending score](cutscenes.md#clouds-ending-score) (DS `2920`):
+
+| N | Threshold |
+| --- | --- |
+| 1..11 | class constant shifted left by N-1 |
+| 12 or more | 1,024,000 × (N-11) + class constant shifted left by 10 |
+
+Total experience (`0x1e336..0x1e3bb`) is raw saved XP plus the threshold of
+N-1, or raw XP alone at level 1. Experience to the next level
+(`0x1e2ed..0x1e335`) is the threshold of N minus the total, as a 32-bit
+difference tested as signed; zero or less shows Eligible. The character sheet
+(`0x3c112`), its Experience popup (`0x384c1..0x38525`), Training eligibility
+(`0x1c8d1`) and the Clouds ending score (`0x28c44`) all call these helpers.
+Training subtracts the threshold of N minus that of N-1 from raw XP before
+incrementing the level (`0x1ac05..0x1ac3b`), so each level from 12 costs
+1,024,000. Calibration: save slot 01's Arturius, a level-15 Paladin with raw
+735,710, shows Current 5,855,710 and Next Level 288,290 in DOS. The pin's
+`Character::nextExperienceLevel` and `getCurrentExperience` count N-12, which
+makes the level-11 and level-12 thresholds equal
+([difference](../original-quirks.md#sv-level-thresholds)).
+
 ## Implementation cross-check and remaining DOS questions
 
 **Evidence: implementation inspection plus Unknown for the unresolved DOS

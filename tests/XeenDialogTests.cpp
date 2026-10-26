@@ -75,7 +75,13 @@ void rules(){
  c.armor[0].state=128;check(R::sheetResistance(c,&input,0)==3,"broken resistance excluded");
  check(R::statColor(0,20)==6 && R::statColor(21,20)==2 && R::statColor(20,20)==15 && R::statColor(5,20)==9 && R::statColor(4,20)==32,"stat colors");
  c.characterClass=XeenCharacterClass::Knight;check(R::currentExperience(c,&input)==42 && R::experienceToNextLevel(c,&input)==1458,"level-one XP");
- c.permanentLevel=13;check(R::currentExperience(c,&input)==1536042 && R::experienceToNextLevel(c,&input)==1023958,"high-level XP");
+ // DAT 0x1e28f/0x1e336: from level 12 each threshold adds 1,024,000.
+ c.permanentLevel=11;check(R::currentExperience(c,&input)==768042 && R::experienceToNextLevel(c,&input)==767958,"level-11 XP");
+ c.permanentLevel=12;check(R::currentExperience(c,&input)==1536042 && R::experienceToNextLevel(c,&input)==1023958,"level-12 XP");
+ c.permanentLevel=13;check(R::currentExperience(c,&input)==2560042 && R::experienceToNextLevel(c,&input)==1023958,"level-13 XP");
+ // DOS DARK01.WOX Arturius: the sheet shows Current 5855710, Next Level 288290.
+ c.characterClass=XeenCharacterClass::Paladin;c.permanentLevel=15;input.experience=735710;
+ check(R::currentExperience(c,&input)==5855710 && R::experienceToNextLevel(c,&input)==288290,"level-15 Paladin XP");
 }
 void original(const char *path){
  const auto installation=xeenTestInstallationDetector().detect(path);check(bool(installation),"original installation absent");XeenAssetSource assets(*installation);

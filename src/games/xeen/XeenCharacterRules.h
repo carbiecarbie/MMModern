@@ -32,6 +32,7 @@ public:
 	static unsigned awardCount(const XeenCharacter &);
 	static std::uint32_t currentExperience(const XeenCharacter &, const XeenCombatInputs *);
 	static std::uint32_t experienceToNextLevel(const XeenCharacter &, const XeenCombatInputs *);
+	static std::uint32_t nextExperienceLevel(const XeenCharacter &);
 	enum class PhysicalAttribute { Might = 0, Speed = 4, Accuracy = 5 };
 	static int effectivePhysical(const XeenCharacter &, const XeenCombatInputs &, PhysicalAttribute,
 		const XeenCharacterRulesContext &);

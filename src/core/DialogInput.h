@@ -33,6 +33,9 @@ struct DialogInput {
     // Original Events::isKeyMousePressed waits accept either mouse button
     // and ignore modifier-only keys. Opt in for dialogs using that wait.
     bool keyMouseWait=false;
+    // A click outside every hit delivers this key, for DOS dialogs whose key
+    // switch also receives the button lookup's zero (control panel).
+    std::optional<unsigned> missKey;
     std::optional<InputButton> button(unsigned key) const {
         for(const auto &hit:hits) if(hit.key==key) return hit.button;
         return {};
@@ -47,6 +50,7 @@ struct DialogInput {
         if(anyClick) return AcknowledgeAction{};
         for(const auto &hit:hits) if(x>=hit.left && x<hit.right && y>=hit.top && y<hit.bottom)
             return DialogKeyAction{hit.key};
+        if(missKey) return DialogKeyAction{*missKey};
         return {};
     }
 };

@@ -681,8 +681,11 @@ to permanent level 10, map 30 to 15, and every other map to 20 (including
 Newcastle 73). The cap is the only map-dependent numeric Training rule.
 Both the displayed quote and payment use `10 * L * L`, with `L` the
 current permanent level; XP requirements and the level increase use the
-same character routines everywhere. The pinned `locations.cpp::TrainingLocation`
-agrees. Vertigo's existing cap 10 supplies the gameplay calibration.
+same character routines everywhere ([level thresholds](combat.md#level-thresholds));
+from level 12 each level needs and debits 1,024,000 XP. The pinned
+`locations.cpp::TrainingLocation` agrees on caps and cost, but its thresholds
+make Training from 12 to 13 free. Vertigo's existing cap 10 supplies the
+gameplay calibration.
 [Offsets and comparison](evidence.md#other-town-services-2026-10-20).
 
 ## Tavern Food
