@@ -39,7 +39,8 @@ int main() {
         malformed.push_back(sprite(cell(0,8,0,1,overflow)));
         const auto padded=sprite(cell(0,8,0,1,{3,0,0x5f,42}));
         validateXeenObjectSprite(padded,0);
-		malformed.push_back(sprite(cell(0,8,0,1,{0,1}))); // skip past height
+		validateXeenObjectSprite(sprite(cell(0,8,0,1,{0,255})),0); // terminal transparent skip
+		malformed.push_back(sprite(cell(0,8,0,1,{0}))); // missing skip count
 		malformed.push_back(sprite(cell(0,8,0,1,{1,9}))); // offset past width
 		for (auto opcode : {0x40,0x80,0xc0,0xe0})
 			malformed.push_back(sprite(cell(0,8,0,1,{2,0,static_cast<std::uint8_t>(opcode)})));

@@ -1169,5 +1169,51 @@ M91 follows the calibrated EXE semantics; master not rechecked. See
 [cutscene rules](rules/cutscenes.md#clouds-sequencing-rules) for offsets and
 [settings/input](rules/cutscenes.md#settings-and-input) for the predicates.
 Location: `games/xeen/XeenCutscene.cpp`, `app/XeenCutsceneFlow.cpp` and
-`formats/xeen/XeenCutsceneData.cpp`. The audio owner's absent mixer-level
-counterpart is recorded in [cutscene settings](rules/cutscenes.md#settings-and-input).
+`formats/xeen/XeenCutsceneData.cpp`. The intro's omitted mixer calls and the
+unmodeled PAS output stage are recorded in [cutscene settings](rules/cutscenes.md#settings-and-input).
+
+## Clouds ending presentation
+
+<a id="sv-clouds-ending-input"></a>
+**Animation input never aborts the ending.** DOS's scene polls record keys
+without branching on Escape; its shared scroll jumps to its terminal image
+on any key, then the caller continues. Text acknowledgements require a fresh
+keyboard result, including Escape, and ignore clicks. Ctrl-Q quits throughout
+EXE presentations; the DAT title and gameplay retain their prior key handling.
+Evidence: EXE `0x11aa2..0x11afc`, `0xa4e5..0xa4ee`, `0xa670..0xa679` and the
+maintainer's DOSBox checks ([M92 evidence](rules/evidence.md#m92-clouds-ending-evidence)).
+Location: `XeenCutscene::cloudsEnding`, `XeenCutsceneFlow` input kinds and the
+SDL process-quit dispatch. **ScummVM:** the pin's `WAIT` and `Subtitles::wait`
+allow key or mouse cancellation of stages; MMModern follows DOS. Master not
+rechecked.
+
+<a id="sv-clouds-ending-captions"></a>
+**The first king speech deliberately uses the final king's caption.** DOS
+indexes `special.bin` using word offsets after every NUL (`0x1189e..0x11906`),
+including empty records. Alamar selects record 8; both king speeches select
+record 10, skipping congratulatory record 9 even for `king1..3.voc`
+(`0x8e4a..0x8e69`, `0x9371..0x938d`, `0xa6d6..0xa6f5`). Only a missing digital
+device enables the strip. Its two-tick threshold is consulted once per
+three-tick mouth iteration, with publication before the hold. Location:
+`XeenCutsceneData::captions` and `XeenCutscene::cloudsEnding`.
+**ScummVM:** the pin chooses matching narration/subtitle groups and uses its
+subtitle settings and waits; MMModern retains DOS's mismatch and hardware
+predicate. Master not rechecked. [Presentation evidence](rules/cutscenes.md#clouds-ending-presentation).
+
+<a id="sv-clouds-ending-rng"></a>
+The ending's presentation randomness uses EXE `0x1cbdc` and `0x1cc27`:
+low-15-bit inclusive modulo over the private time-mixed source, with wall-clock
+hundredths. It neither draws from nor persists with the Journey generator.
+Location: `XeenPresentationRandom`, with the three private words loaded by
+`XeenCutsceneData`. The DOSBox time binding uses AL zero after the presentation's
+BIOS timer reads; it does not synthesize a midnight flag from date changes.
+**ScummVM:** the pin uses the engine's random-number helper instead of this
+EXE source. MMModern retains the DOS range reduction and private time mixing;
+master not rechecked. Random presentation frames are not video-match targets.
+
+**Transparent terminal sprite rows may overshoot the cell height.** The ending's
+`darklrd3.end` uses this encoding. The pinned normal drawer exits its row loop
+without reading another row; `XeenObjectSpriteSafety` admits the terminal skip
+while retaining operand, stream and workspace bounds. This follows the pinned
+drawer and installed resource; the exact DOS row-loop behavior is not separately
+confirmed. Location: `XeenObjectSpriteSafety`, `XeenObjectSpriteTests`.

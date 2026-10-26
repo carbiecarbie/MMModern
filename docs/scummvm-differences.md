@@ -611,3 +611,6 @@ Next steps are in the [roadmap](roadmap.md).
 
 
 - **Clouds intro.** [Original mouth timing, animation, captions and skip rules](original-quirks.md#sv-clouds-intro-presentation) follow the calibrated EXE: 31-entry mouth tables, BIOS/retrace pacing, hardware-gated caption strip and Escape/scroll-specific skipping. Pin: differs; master not rechecked.
+- **Clouds ending input.** [Animation ignores keys and clicks](original-quirks.md#sv-clouds-ending-input), shared scrolls terminate on any key and acknowledgement holds require a keyboard result. Pin: broader key/mouse cancellation; master not rechecked.
+- **Clouds ending captions.** [The first king speech uses the final speech's caption](original-quirks.md#sv-clouds-ending-captions), selected through DOS's every-NUL offsets and digital-device predicate. Pin: matching subtitle groups and different waits/settings; master not rechecked.
+- **Clouds ending randomness.** [The EXE's private time-mixed source and inclusive modulo](original-quirks.md#sv-clouds-ending-rng) supply presentation randomness independently of Journey. Pin: engine random helper; master not rechecked.

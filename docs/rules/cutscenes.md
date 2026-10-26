@@ -152,10 +152,12 @@ conversions and audio owner. `formats/xeen/XeenCutsceneData` reads and validates
 the installed EXE and the hardware word in CFG. `app/XeenTitle.cpp` owns the
 title exit and fresh-title return. No Journey clock, RNG or save fields are used.
 
-The EXE's mixer commands 75 and 95 have no counterpart exposed by MMModern's
-audio owner/output queue. They are not issued: natural completion and Escape
-share cleanup in MMModern, while the EXE restores 95 only on natural completion.
-The existing fixed audio gains remain in effect. Song fade 50 and digital stop
+The ending issues the EXE's mixer commands 75 and 95 through `XeenAudio` and
+the output queue to the existing promus command-256 state. The PAS hardware
+mixer represented by that state has no emulated analog output stage; the
+existing fixed PCM gains remain in effect. The intro still omits those commands:
+natural completion and Escape share cleanup, while the EXE restores 95 only on
+natural completion. Song fade 50 and digital stop
 still go through `XeenAudio`. MMModern uses `mm4theme.m` with its CD promus
 driver; device-four/five song drivers belong to roadmap step 19.
 
@@ -176,7 +178,8 @@ or muting host output, is not this condition.
 Escape ends Clouds at explicit scene polls. Ordinary keys are ignored except
 that any key finishes the current scroll and draws its terminal image; the
 caller then continues. Mouse clicks are not a scene/scroll skip in this EXE.
-Ctrl-Q is a separate global quit (`0x11ab9..0x11af8`), not title return.
+Ctrl-Q quits from any XEEN.EXE presentation (`0x11ab9..0x11af8`), not title
+return. This EXE poll does not enable process quit in DAT gameplay or its title.
 Resource reads and unpolled holds can delay a response. DOSBox play confirms
 Space, Escape and the click during speech and Escape during the parchment
 opening ([M91 runtime checks](evidence.md#m91-clouds-intro-runtime-checks)).
@@ -207,7 +210,8 @@ asset decoding and per-frame choreography; item 7 is an estimate, not that audit
 NWC/story polls accept Escape to common cleanup (`0xab4d..0xab57`, `0xd5b5`).
 World-logo frame loops poll without aborting; any key only shortens the two
 boundary holds (`0xd444..0xd458`, `0xd579..0xd58d`). Mouse does not skip;
-Ctrl-Q remains global. Completion/Escape returns to the fresh DAT title above.
+Ctrl-Q remains available throughout the EXE presentation. Completion/Escape
+returns to the fresh DAT title above.
 
 The [M91 estimate](../milestone-91-plan.md#key-decisions)
 includes startup persistence and visual randomness; neither is an approved
@@ -299,7 +303,7 @@ the initial INTRO.CC scratch allocation. Scene speech uses VOCs, not CD tracks.
 
 | Stage | DOS operations and timing | Capture time |
 | --- | --- | --- |
-| Castle, pyramid and vortex | `0x89ce..0x905b`: 41 `prec` compressed frames, six `cast`/`casb` pairs and three `darklrd` sprites, 20 cycling `vort` frames; initial 15-tick hold and three-tick animation holds; `xeenlaff`, `dark1..3`, `darklaff`, original FM cues and mixer changes | Castle begins 49.553 s; pyramid 59.341 s; destruction transitions 62.965..66.261 s; vortex ends around 82 s |
+| Castle, pyramid and vortex | `0x89ce..0x905b`: 41 `prec` compressed frames, six `cast`/`casb` pairs and three `darklrd` sprites, 20 cycling `vort` frames; initial 15-tick hold and three-tick animation holds; `xeenlaff`, `dark1..3`, `darklaff`, original FM cues and mixer changes | Castle first visible between 51.100 and 51.200 s; pyramid 59.341 s; destruction transitions 62.965..66.261 s; vortex ends around 82 s |
 | Burlock and throne | `0x905b..0x94cf`: start `endgame.m`, show `later.raw` for a 100-tick minimum including setup, horizontal throne-page reveal with measured stride, layered people/Crodo and scaled king; `king1..3` with one-tick movement and three-tick mouth holds | Later around 82..89 s; throne around 89..94.969 s; king close-up 94.969..about 103 s |
 | Mirror and parade | `0x94d0..0x9d16`: mirror-room pan, nine scale steps, measured-stride king/Crodo entrance; 73 monster selectors, each with eight idle frames, three attack frames, 15-tick attack hold and seven-tick power hold; sky rotates through its 320 columns | Room around 103..107.938 s; zoom/parade 107.938..240.860 s |
 | Scroll and score | `0x9d19..0xa694`: shared scroll, 20 heading frames held one tick, 30 random-digit frames and ten settling frames held two ticks, 38 downward steps, then two key acknowledgements | Scroll 240.860..243.157 s; score reveal and both prompts 243.157..255.927 s |
@@ -310,18 +314,32 @@ by the timestamped one-frame-per-second sheet. Loading, palette retraces,
 measured pan stride and speech completion contribute to elapsed time. Prompt
 waits depend on the player's acknowledgement. Do not replace these with one
 fixed whole-ending duration or tune random digits to match the recording.
+Direct frame inspection corrects the earlier scene-detector label: 49.553 s
+shows the DAT's closing scroll over the Sixth Mirror, not the castle. Timing
+tests align the first castle frame to the 51.100..51.200 s bracket. Later is
+bracketed by 82 s (vortex fading) and 83 s (Later visible); throne by 89 s
+(black) and 89.5 s (room visible). EXE `0x9094` fades the vortex with step 1,
+not the step 4 used for the Later fades. No artificial transition delays are
+needed to match the C1 boundaries.
 
 The only new resource kind is the compressed full-screen frame. EXE
 `0x18c70` calls decoder `0x1cd42`; its 314-leaf adaptive tree, 4096-byte history,
 initial fill word and big-endian expanded count match the pinned reader's
 contract. All 61 reached frames declare 64,000 output bytes. A
-**source-equivalent Python audit**, not execution of C++ or DOS, reconstructed
-all outputs: 37 accept complete word reads, while 24 end with one final byte.
+**corrected Python audit and compiled-reader test** reconstruct all 61 outputs:
+37 accept complete word reads, while 24 end with one final byte. The initial
+Python audit omitted the LZ match-source increment and its hashes are superseded
+(60 of 61 changed). **DOS static, high:** the decoder reads the match source at
+`0x1d01e`, increments it at `0x1d03e` and loops at `0x1d03f`; this agrees with
+the pinned reader. The corrected hashes are checked by `XeenEndingPresentationTests`.
 Tracking bit provenance proves that the absent low byte of that prefetched
-word is never consumed. This does not certify an unchecked two-byte read in
-the future C++ reader; it must handle a final partial word safely.
-An independent run with that absent byte set to 0 and 255 produces identical
-64,000-byte outputs and matches all 24 provenance-audit hashes.
+word is never consumed. `XeenCompressedFrame` bounds the final read to its
+one available byte and rejects any attempt to consume absent bits.
+The repeated audit with that absent byte set to 0 and 255 produces identical
+64,000-byte outputs and matches all 24 corrected provenance-audit hashes.
+These are static and decoder checks, not execution of the DOS decoder or
+rendered equivalence with DOSBox. The audit and before/after `prec0002` PNGs
+remain in `D:/MModern-re/m92/exe-inventory/`.
 Other resources use the existing RAW, PAL, sprite, VOC and song families.
 The manifest resolves 146 parade MON/ATT resources, 69 unique attack VOCs,
 six power VOCs, the scene voices and shared scroll assets, with no missing
@@ -336,6 +354,10 @@ selection uses 1..6 (`0x93fe`, `0xa75a`). All call range helper `0x1cbdc`,
 which takes the low 15 bits of time-mixed source `0x1cc27`, reduces modulo
 the inclusive range and adds its lower bound. The source samples DOS time
 with hundredths and mixes three private words with carry/rotate operations.
+The host sample retains civil hour, minute and second directly, independently
+of the DAT's DOS-seconds/ctime conversion. This preserves the spring-forward
+hour and times after the signed 2038 display limit; fixed dev/test clocks
+retain a deterministic civil interpretation of their injected seconds.
 It is independent of Journey randomness. The parsed final-score digits come
 from the command's ten-character field, not from that random source.
 
@@ -349,8 +371,8 @@ key result; they do not branch on Escape or ordinary keys. Mouse clicks do
 not acknowledge the two text pages: `0xa4e5..0xa4ee` and
 `0xa670..0xa679` wait for a nonzero keyboard result, including Escape.
 Each page clears keys at entry. Scrolls retain the shared any-key terminal
-image behavior; the caller then continues. Ctrl-Q remains global process
-quit. The pin's `WAIT`/`Subtitles::wait` instead lets key or mouse input
+image behavior; the caller then continues. Ctrl-Q quits throughout the EXE
+presentation, without changing DAT title/gameplay input. The pin's `WAIT`/`Subtitles::wait` instead lets key or mouse input
 abort stages. Caption indexing is also DOS-specific: loader
 `0x1189e..0x11906` builds a word-offset table from every NUL. Alamar uses
 record 8 (`0x8e4a..0x8e69`), while both the king's first speech and final
@@ -358,4 +380,9 @@ record 8 (`0x8e4a..0x8e69`), while both the king's first speech and final
 is the congratulatory speech; DOS skips it even for `king1..3`, showing
 the final Darkside instruction instead when captions are enabled. Keep
 that original mismatch. The same no-digital-device condition and two-tick
-strip cadence as M91 apply. Speech-off in the DAT is not that condition.
+strip threshold as M91 apply. The ending calls the helper once per mouth
+iteration (`0x8f22`, `0x942a`), then waits three ticks; it does not poll the
+strip inside that wait. Thus the threshold is two ticks, but uninterrupted
+ending mouths advance the strip once per three-tick iteration. The helper
+publishes the composed frame before that wait. Speech-off in the DAT is not
+the hardware condition.

@@ -227,7 +227,7 @@ struct XeenAudio::Impl {
    offset+=count;
   }
  }
- void command(unsigned command) {if(clockDriver)clockDriver->command(command);if(retainOutput)output->command(command);}
+ void command(unsigned command,unsigned argument=0) {if(clockDriver)clockDriver->command(command,argument);if(retainOutput)output->command(command,argument);}
  void loadBuffer(bool play) {if(clockDriver)clockDriver->load(buffer,play);if(retainOutput)output->load(buffer,play);}
  PromusDriver::Bytes read(const Song &song) {
   auto data=bytes(loader(song.name,song.archive));if(data->empty())throw std::runtime_error("Missing or empty original song: "+song.name);
@@ -302,6 +302,10 @@ void XeenAudio::fadeSong(unsigned command,std::uint64_t now) {
  advance(now);_impl->pending.reset();_impl->afterTitle.reset();_impl->titleExit=false;
  _impl->command(command);
  if(command==0)_impl->current.clear(); // A later explicit start of this song must reload it.
+}
+void XeenAudio::mixer(unsigned level,std::uint64_t now) {
+ if(level>255)throw std::invalid_argument("Invalid EXE music mixer level");
+ advance(now);_impl->command(0x100,level);
 }
 XeenAudio::RetainedDigital XeenAudio::retainDigital(const std::string &name,XeenSceneArchive archive) {
  return {name,archive,std::make_shared<const XeenVocSample>(decodeXeenVoc(_impl->loader(name,archive)))};

@@ -30,7 +30,8 @@ void cell(const std::vector<std::uint8_t> &b, std::size_t offset) {
 		if (!length) {
 			if (p >= b.size()) fail("truncated row skip");
 			const std::size_t skip = b[p++] + 1;
-			if (skip > height - row) fail("row skip exceeds cell height");
+			// Transparent skips can terminate beyond the declared height (for
+			// example darklrd3.end). The drawer exits without reading another row.
 			row += skip;
 			continue;
 		}

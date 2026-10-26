@@ -1,6 +1,7 @@
 #ifndef MMODERN_XEEN_CUTSCENE_H
 #define MMODERN_XEEN_CUTSCENE_H
 #include "formats/xeen/XeenCutsceneData.h"
+#include "games/xeen/XeenPresentationRandom.h"
 #include <functional>
 #include <memory>
 #include <optional>
@@ -10,20 +11,24 @@ namespace mmodern {
 // devices. Ending operations can extend Operation without changing segment holds.
 struct XeenCutscene {
  struct Raw {std::string resource;};
+ struct Compressed {std::string resource;};
+ struct PrepareCompressed {std::string resource;};
  struct Palette {std::string resource;};
  struct Restore {std::string slot;};
  struct Store {std::string slot;};
  struct Sprite {std::string resource;unsigned frame=0;int x=0,y=0,scale=0;unsigned flags=0;};
  struct Merge {std::string first,second;unsigned offset=0;}; // Vertical, 320x200 pages.
+ struct HorizontalMerge {std::string first,second;unsigned offset=0;};
+ struct Rotate {std::string slot;unsigned columns=0;};
  struct Scroll {unsigned index;}; // Existing DAT geometry; EXE input is separate.
  struct Text {std::string value;int x=0,y=0;};
  struct Level {unsigned value;};
  struct Prepare {std::string resource;};
  struct Audio {
-  enum Kind {Song,FadeSong,Fm,RetainDigital,Digital,StopDigital} kind;
+  enum Kind {Song,FadeSong,Fm,RetainDigital,Digital,StopDigital,Mixer} kind;
   std::string resource;unsigned value=0;
  };
- using Operation=std::variant<Raw,Palette,Restore,Store,Sprite,Merge,Scroll,Text,Level,Prepare,Audio>;
+ using Operation=std::variant<Raw,Compressed,PrepareCompressed,Palette,Restore,Store,Sprite,Merge,HorizontalMerge,Rotate,Scroll,Text,Level,Prepare,Audio>;
  using Frame=std::vector<Operation>;
  struct Context {unsigned iteration;std::uint64_t tick,elapsed;bool digitalBusy;};
  struct Segment {
@@ -31,10 +36,11 @@ struct XeenCutscene {
   Frame enter;
   std::function<Frame(const Context &)> compose;
   enum class Reset {BeforeCompose,AfterFlip,Entry} reset=Reset::BeforeCompose;
-  enum class Input {Ignore,Escape,Scroll} input=Input::Escape;
+  enum class Input {Ignore,Escape,Scroll,Keyboard} input=Input::Escape;
   unsigned frames=1,ticks=0;
   unsigned fadeAfterFirst=0;
   bool holdBeforeFlip=false,resetBeforeEnter=false,untilDigitalIdle=false,pollAfterHold=false;
+  bool audioBeforeFlip=false;
   unsigned totalTicks=0;
   std::function<unsigned(const Context &)> threshold;
   std::function<bool(const Context &)> finished;
@@ -45,11 +51,13 @@ struct XeenCutscene {
  struct Observations {
   unsigned panStride=0;std::vector<unsigned> starsOffsets,lakeOffsets,captionWidths;
   std::vector<std::uint64_t> captionAdvances;
+  std::vector<unsigned> throneOffsets,kingMouths,captionRecords;
  };
  std::vector<Segment> segments;
  std::size_t closing=0;
  std::shared_ptr<Observations> observations=std::make_shared<Observations>();
  static XeenCutscene clouds(const XeenCutsceneData &,std::string caption);
+ static XeenCutscene cloudsEnding(const XeenCutsceneData &,const XeenCutsceneData::Captions &,XeenWallClock);
  static bool elapsed(std::uint64_t captured,std::uint64_t current,unsigned count) {return current>=captured && current-captured>=count;}
  static unsigned stride(std::uint64_t measured);
 };

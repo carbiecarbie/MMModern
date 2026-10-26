@@ -26,6 +26,7 @@ public:
  void requestSong(std::string,XeenSceneArchive,unsigned fade,std::uint64_t now);
  // EXE presentation commands; a fade does not queue or reload a song.
  void fadeSong(unsigned command,std::uint64_t now);
+ void mixer(unsigned level,std::uint64_t now);
  using DigitalSample=std::shared_ptr<const XeenVocSample>;
  struct RetainedDigital {std::string name;XeenSceneArchive archive;DigitalSample sample;};
  RetainedDigital retainDigital(const std::string &,XeenSceneArchive);

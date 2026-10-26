@@ -10,7 +10,7 @@
 namespace mmodern {
 struct XeenFmSource::Impl {
  enum class Kind {Load,Command,Effect,FadeBarrier};
- struct Operation {Kind kind;PromusDriver::Bytes bytes;unsigned value=0;};
+ struct Operation {Kind kind;PromusDriver::Bytes bytes;unsigned value=0,argument=0;};
  XeenOpl3 chip;PromusDriver::Sink trace;
  std::unique_ptr<PromusDriver> driver;
  // Nodes are allocated by the producer. Splicing into the consumer queue
@@ -38,7 +38,7 @@ struct XeenFmSource::Impl {
     if(driver->fadeSpeed() && driver->ticks()-*barrierTick<256)return;
     barrierTick.reset();
    }else if(op.kind==Kind::Load)driver->load(std::move(op.bytes),op.value!=0);
-   else if(op.kind==Kind::Command)driver->command(op.value);
+   else if(op.kind==Kind::Command)driver->command(op.value,op.argument);
    else driver->effect(op.value);
    pending.pop_front();
   }
@@ -54,7 +54,7 @@ void XeenFmSource::initialize(PromusDriver::Bytes resource) {
  });
 }
 void XeenFmSource::load(PromusDriver::Bytes song,bool play) {_impl->append({Impl::Kind::Load,std::move(song),unsigned(play)});}
-void XeenFmSource::command(unsigned value) {_impl->append({Impl::Kind::Command,{},value});}
+void XeenFmSource::command(unsigned value,unsigned argument) {_impl->append({Impl::Kind::Command,{},value,argument});}
 void XeenFmSource::effect(unsigned id) {_impl->append({Impl::Kind::Effect,{},id});}
 void XeenFmSource::fadeBarrier() {_impl->append({Impl::Kind::FadeBarrier,{}});}
 void XeenFmSource::pull(std::int16_t *stereo,std::size_t frames) {

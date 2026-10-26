@@ -17,7 +17,8 @@ std::string token(const std::vector<std::uint8_t> &b,std::size_t p,std::size_t l
  if(end==b.begin()+limit)bad();return {b.begin()+p,end};
 }
 std::string numbered(const std::string &pattern,unsigned n) {
- char name[32];const auto size=std::snprintf(name,sizeof(name),pattern.c_str(),n);
+ char name[32];const bool signedArgument=pattern.find("%d")!=std::string::npos || pattern.find("%03d")!=std::string::npos;
+ const auto size=signedArgument?std::snprintf(name,sizeof(name),pattern.c_str(),int(n)):std::snprintf(name,sizeof(name),pattern.c_str(),n);
  if(size<=0 || size>=int(sizeof(name)))bad();return name;
 }
 }
@@ -61,7 +62,73 @@ XeenCutsceneData XeenCutsceneData::parse(const std::vector<std::uint8_t> &b,cons
  // Only the calibrated integer substitution is admitted to snprintf.
  if(d.handPattern.find("%02u")!=4 || d.handPattern.find('%',5)!=std::string::npos ||
     d.marblePattern.find("%02u")!=4 || d.marblePattern.find('%',5)!=std::string::npos)bad();
+ auto &e=d.ending;
+ constexpr std::size_t endingOffsets[]{0x1f8d1,0x1f8e9,0x1f8f3,0x1f93b,0x1f92e,0x1f924,0x1f943,0x1f94d,0x1f957,
+  0x1f964,0x1f96e,0x1f97a,0x1f984,0x1f990,0x1f999,0x1f9a2,0x1f9ad,0x1f9b8,0x1f9c3,0x1f9cd,0x1f9da,0x1f9e7,
+  0x1f9f1,0x1f9fd,0x1fa09,0x1fa11,0x1fa1c};
+ static_assert(std::size(endingOffsets)==Ending::Count);
+ for(unsigned i=0;i<Ending::Count;++i)e.resources[i]=token(b,endingOffsets[i],endingOffsets[i]+24);
+ const auto pattern=[&](std::size_t p,const char *conversion) {
+  auto value=token(b,p,p+24);const auto at=value.find('%');
+  if(at==std::string::npos || value.compare(at,std::char_traits<char>::length(conversion),conversion)!=0 || value.find('%',at+1)!=std::string::npos)bad();
+  return value;
+ };
+ const auto prec=pattern(0x1f8da,"%02u"),vort=pattern(0x1f8fc,"%02u"),cast=pattern(0x1f909,"%02u");
+ const auto lord=pattern(0x1f916,"%d"),power=pattern(0x1fa51,"%d");
+ const auto idle=pattern(0x1fa38,"%03d"),attack=pattern(0x1fa41,"%03d");
+ const auto voc=pattern(0x1fa4a,"%s");
+ for(unsigned i=0;i<41;++i)e.prec[i]=numbered(prec,i+1);
+ for(unsigned i=0;i<20;++i)e.vortex[i]=numbered(vort,i+1);
+ for(unsigned i=0;i<6;++i) {
+  e.castleTop[i]=numbered(cast,i+1);e.castleBottom[i]=e.castleTop[i];
+  if(e.castleBottom[i].size()<4)bad();e.castleBottom[i][3]='b'; // EXE 0x8b9a.
+  e.castleFrames[i]=b.at(0x1f812+i);if(!e.castleFrames[i] || e.castleFrames[i]>32)bad();
+  e.powers[i]=numbered(power,i);
+ }
+ for(unsigned i=0;i<3;++i) {
+  e.darkLord[i]=numbered(lord,i+1);
+  if(word(b,0x1f88c+4*i)!=0x1aa5)bad();
+  const auto target=0x1d880+word(b,0x1f88a+4*i);
+  if(target<0x1f896 || target>=0x1f8b4)bad();e.kingVoices[i]=token(b,target,0x1f8b4);
+  e.randomWords[i]=word(b,0x13e32+2*i); // CS:16f2, private EXE source.
+ }
+ for(unsigned i=0;i<13;++i) {
+  e.kingLeft[i]=std::int16_t(word(b,0x1f818+2*i));e.kingRight[i]=std::int16_t(word(b,0x1f832+2*i));e.kingY[i]=std::int16_t(word(b,0x1f84c+2*i));
+ }
+ for(unsigned i=0;i<9;++i){e.mirrorX[i]=std::int16_t(word(b,0x1f866+2*i));e.mirrorY[i]=std::int16_t(word(b,0x1f878+2*i));}
+ const auto cue=[&](std::size_t table,unsigned index,std::size_t none) {
+  const auto target=0x8970+word(b,table+2*index);
+  if(target==none)return std::uint8_t(0);
+  if(target<0x8afd || target>0x9025 || b.at(target)!=0x6a || (b.at(target+1)!=33 && b.at(target+1)!=34))bad();
+  return b.at(target+1);
+ };
+ for(unsigned i=0;i<5;++i){const auto frame=word(b,0xa8ba+2*i);if(frame>=e.stormFm.size())bad();e.stormFm[frame]=cue(0xa8c4,i,0);}
+ constexpr std::size_t cueTables[]{0xa89a,0xa87c,0xa85e,0xa840},noCue[]{0x8d2b,0x8e22,0x8f22,0x9025};
+ for(unsigned t=0;t<4;++t)for(unsigned i=0;i<(t?15u:16u);++i)e.vortexFm[t][i]=cue(cueTables[t],i,noCue[t]);
+ for(unsigned i=0;i<e.parade.size();++i) {
+  auto &actor=e.parade[i];actor.selector=b.at(0x1f7c8+i);if(actor.selector>=90)bad();
+  const auto p=0x1d94e + 40*actor.selector;std::copy_n(b.begin()+p,40,actor.metadata.begin());
+  if(actor.metadata[1]>=90)bad();
+  actor.idle=numbered(idle,actor.metadata[1]);actor.attack=numbered(attack,actor.metadata[1]);
+  const auto target=0x2e30+16*word(b,p+6)+word(b,p+4);
+  if(target<0x1d880 || target>=0x1f7c8)bad();
+  const auto stem=token(b,target,std::min<std::size_t>(b.size(),target+32));
+  actor.voice=voc;actor.voice.replace(actor.voice.find("%s"),2,stem);
+ }
  return d;
+}
+XeenCutsceneData::Captions XeenCutsceneData::captions(const std::vector<std::uint8_t> &b) {
+ if(b.empty() || b.size()>65535 || b.back()!=0)throw std::runtime_error("Malformed cutscene captions");
+ Captions result;std::size_t start=0;
+ for(std::size_t i=0;i<b.size();++i)if(b[i]==0) {
+  result.offsets.push_back(std::uint16_t(start));result.records.emplace_back(b.begin()+start,b.begin()+i);
+  XeenDosText::validateControls(result.records.back());start=i+1;
+ }
+ return result;
+}
+const std::string &XeenCutsceneData::Captions::record(unsigned index,unsigned bound) const {
+ if(index>=records.size() || records[index].empty() || records[index].size()+1>bound)throw std::runtime_error("Invalid cutscene caption record");
+ return records[index];
 }
 std::string XeenCutsceneData::firstCaption(const std::vector<std::uint8_t> &b) {
  auto text=token(b,0,std::min<std::size_t>(800,b.size()));

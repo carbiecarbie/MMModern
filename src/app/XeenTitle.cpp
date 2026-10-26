@@ -42,6 +42,7 @@ bool showCutscene(XeenCutsceneFlow &flow,XeenAssetSource &assets,XeenAudio &audi
  SdlWindow::FrameUpdateHandler h=[&](const auto &action){return flow.handle(action,flow.frame().presentation());};
  h.withPresentedInput=[&](const auto &a,auto,const auto &p){return flow.handle(a,p);};
  h.displayedInput=[] {return std::optional<std::uint64_t>{1};};h.protectAllKeys=true;h.ignoreMouse=true;
+ h.cutsceneControlQuit=true;
  h.acceptsFrame=[&](const auto &p){return flow.acceptsFrame(p);};h.acceptsInputFrame=[&](const auto &p){return flow.acceptsInput(p);};
  h.inputContext=[&](const auto &p){return flow.inputContext(p);};h.framePresented=[&](const auto &p){flow.presented(p);};
  h.completeInputHandoff=[&](const auto &p){flow.completeInput(p);};h.frameCurrent=[&]{return flow.current();};h.finished=[&]{return flow.done();};
@@ -106,8 +107,21 @@ int Application::runTitle(const std::filesystem::path &gameDirectory,std::option
    }
    if(entry.kind==XeenSessionEntry::Kind::Exit)return 0;
    if(entry.kind==XeenSessionEntry::Kind::CloudsEnding) {
-    const auto options=_program.audio->soundOptions();
-    title=makeTitle(options);title->cloudsEndingFailure("Clouds ending: not supported yet");
+    auto &audio=*_program.audio;const auto options=audio.soundOptions();
+    const auto clock=[] {return SdlWindow::presentationNanoseconds();};
+    audio.stopDigital(clock());audio.fadeSong(0,clock());audio.observeOptions({});
+    std::string notice="Clouds ending: not supported yet"; // C1 stops after the throne; C2 replaces this tail.
+    try {
+     const auto data=XeenCutsceneData::installed(*installation);
+     const auto captions=XeenCutsceneData::captions(assets.readArchiveResource(data.resources[XeenCutsceneData::Caption],XeenSceneArchive::CloudsEnding));
+     XeenCutsceneFlow ending(XeenCutscene::cloudsEnding(data,captions,_program.wallClock),
+      XeenCutsceneFlow::original(assets,font,audio,clock,data.digitalDevice>=2,XeenSceneArchive::CloudsEnding));
+     if(!showCutscene(ending,assets,audio)){audio.mixer(95,clock());audio.observeOptions(options);return 0;}
+    }catch(const std::exception &e) {
+     notice=e.what();const auto intro=notice.find("Clouds intro");if(intro!=std::string::npos)notice.replace(intro,12,"Clouds ending");
+    }
+    audio.stopDigital(clock());audio.fadeSong(0,clock());audio.mixer(95,clock());audio.observeOptions(options);
+    title=makeTitle(options);title->cloudsEndingFailure(notice);
     _program.resetPlayTime();entry={};continue;
    }
    if(entry.kind==XeenSessionEntry::Kind::CloudsIntro) {

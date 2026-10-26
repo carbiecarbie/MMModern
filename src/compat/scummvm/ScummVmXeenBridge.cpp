@@ -285,7 +285,7 @@ struct ScummVmXeenBridge::Impl {
  }
 	SceneResource sceneResource(const std::string &name, XeenSceneArchive selection = XeenSceneArchive::Current) {
 		const Common::Path path(name.c_str(), Common::Path::kNoSeparator);
-  if(selection==XeenSceneArchive::CloudsProgram) {
+  if(xeenProgramArchive(selection)) {
    if(archive.hasFile(path) || programLoose(name))return {&archive,"xeen.cc"};
    return {nullptr,{}}; // EXE never falls back to INTRO.
   }
@@ -314,7 +314,7 @@ struct ScummVmXeenBridge::Impl {
 		// Clouds retains its existing identity; other archives have separate
 		// cache/admission identities even when resource names collide.
 		const auto key = static_cast<CheckedInstalledArchive *>(source.archive)->identity()+"|"+source.origin+"|"+std::to_string(MM::Shared::Xeen::BaseCCArchive::convertNameToId(Common::Path(resourceName.c_str(),Common::Path::kNoSeparator)))+
-   (selection==XeenSceneArchive::CloudsProgram?"|program:"+programFolder.u8string():"");
+   (xeenProgramArchive(selection)?"|program:"+programFolder.u8string():"");
 		const auto validate = [&](const std::vector<std::uint8_t> &bytes) {
 			const auto known=admittedSprites.find(key);
 			if(known!=admittedSprites.end() && known->second!=bytes) {
@@ -332,7 +332,7 @@ struct ScummVmXeenBridge::Impl {
 			return *existing->second.decoded;
 		}
 
-  auto loose=selection==XeenSceneArchive::CloudsProgram?programLoose(resourceName):std::nullopt;
+  auto loose=xeenProgramArchive(selection)?programLoose(resourceName):std::nullopt;
   std::vector<std::uint8_t> bytes;
   if(loose)bytes=std::move(*loose);else {auto stream=openResource(*source.archive,resourceName,source.origin);bytes=readBytes(*stream,resourceName);}
 		validate(bytes);
@@ -451,7 +451,7 @@ bool ScummVmXeenBridge::hasArchiveResource(const std::string &resourceName) {
 }
 
 std::vector<std::uint8_t> ScummVmXeenBridge::readArchiveResource(const std::string &resourceName, XeenSceneArchive selection) {
- if(selection==XeenSceneArchive::CloudsProgram)if(auto loose=_impl->programLoose(resourceName))return std::move(*loose);
+ if(xeenProgramArchive(selection))if(auto loose=_impl->programLoose(resourceName))return std::move(*loose);
 	const auto source=(selection==XeenSceneArchive::Current || selection==XeenSceneArchive::Clouds) ? Impl::SceneResource{&_impl->archive,"xeen.cc"} : _impl->sceneResource(resourceName,selection);
 	if(!source.archive)throw std::runtime_error("Missing resource in selected archive: "+resourceName);
 	auto stream = openResource(*source.archive, resourceName, source.origin);

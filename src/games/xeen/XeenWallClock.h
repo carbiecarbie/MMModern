@@ -16,13 +16,28 @@ std::string xeenPanelPlayTime(std::uint32_t);
 class XeenWallClock {
 public:
  using Source=std::function<std::uint32_t()>;
- explicit XeenWallClock(Source source):_source(std::move(source)) {
-  if(!_source)throw std::invalid_argument("Missing Xeen wall clock");
+ struct Sample {
+  std::uint32_t seconds;unsigned hundredth;XeenCivilTime civil;
+  // Keep DOS seconds for play time and the original civil fields for INT 21h.
+  static Sample fromCivil(XeenCivilTime civil,unsigned hundredth) {
+   return {xeenDosTime(civil),hundredth,civil};
+  }
+ };
+ using SampleSource=std::function<Sample()>;
+ explicit XeenWallClock(Source source) {
+  if(!source)throw std::invalid_argument("Missing Xeen wall clock");
+  // Seconds-only injected/dev clocks have a deterministic civil interpretation.
+  _source=[source=std::move(source)]{const auto s=source();return Sample{s,0,xeenDosLocalTime(s)};};
  }
  static XeenWallClock fixed(std::uint32_t seconds) {return XeenWallClock([seconds]{return seconds;});}
- std::uint32_t now() const {return _source();}
+ static XeenWallClock withHundredths(SampleSource source) {
+  if(!source)throw std::invalid_argument("Missing Xeen wall clock");
+  auto clock=fixed(0);clock._source=std::move(source);return clock;
+ }
+ Sample sample() const {auto s=_source();if(s.hundredth>=100)throw std::invalid_argument("Invalid wall-clock hundredth");return s;}
+ std::uint32_t now() const {return sample().seconds;}
 private:
- Source _source;
+ SampleSource _source;
 };
 }
 #endif

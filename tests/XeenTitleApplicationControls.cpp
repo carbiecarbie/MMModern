@@ -51,7 +51,7 @@ struct State {
  XeenTemplePriceState *templePrices=nullptr;XeenTempleSurcharges templeRow;
  bool panelMode=false,failPreflight=false,failWrite=false;
  bool retainedIdle=false;
- bool endingMode=false,endingReturned=false,endingNotice=false;
+ bool endingMode=false,endingReturned=false,endingNotice=false,endingPlayed=false;
  bool introMode=false;unsigned introWindow=0,introStarts=0;std::uint64_t introNow=17000000,introSkip=0;
  std::uint32_t wallNow=0;
  std::optional<std::uint64_t> nameCursorNow;
@@ -74,6 +74,7 @@ struct State {
 } state;
 bool introApplication(const IndexedFrame &first,const SdlWindow::FrameUpdateHandler &handler,const SdlWindow::IdleFrameHandler &idle) {
  const auto window=++state.introWindow;check(window<=4,"intro did not return to one fresh title");
+ check(handler.cutsceneControlQuit==(window==2 || window==3),"Ctrl-Q scope leaked between intro and DAT title");
  if(window==4)check(state.program->playTimeMark==state.wallNow,"EXE hand-off did not reset the fresh DAT mark");
  IndexedFrame visible=first;
  const auto present=[&] {check(handler.acceptsFrame(visible.presentation()),"intro stale publication");handler.framePresented(visible.presentation());handler.completeInputHandoff(visible.presentation());};
@@ -348,7 +349,27 @@ extern "C" bool wrappedTitleShow(const SdlWindow *window,const IndexedFrame &fir
  if(!state.enabled)return realTitleShow(window,first,label,handler,escape,idle,status);
  if(state.introMode)return introApplication(first,handler,idle);
  if(state.endingMode && state.endingReturned) {
+  if(!state.endingNotice) {
+   check(handler.cutsceneControlQuit,"Clouds ending did not enable EXE Ctrl-Q");
+   check(!state.endingPlayed,"Ending program repeated before the title notice");
+   IndexedFrame visible=first;unsigned cycles=0;const auto began=state.introNow;
+   const auto present=[&]{handler.framePresented(visible.presentation());handler.completeInputHandoff(visible.presentation());};present();
+   while(!handler.finished()) {
+    check(++cycles<100000,"C1 Application ending stalled");
+    const auto context=handler.inputContext(visible.presentation());
+    if(context.readyForAction) {
+     check(context.hideCursor && !context.dialog->click(160,100),"Ending admitted a mouse click");
+     for(unsigned code:{27u,32u})if(auto action=context.dialog->key(code))handler.withPresentedInput(*action,1,visible.presentation());
+    }
+    const auto deadline=handler.nextPresentationDeadline();check(bool(deadline),"C1 Application ending lost its deadline");
+    state.introNow=std::max(state.introNow,*deadline);++state.wallNow;
+    handler.beginCycle(cycles);if(auto next=idle()){visible=*next;present();}
+   }
+   check(state.introNow-began>50000000000ULL,"Ending input bypassed stages 1 and 2");
+   state.endingPlayed=true;return true;
+  }
   check(state.endingNotice,"CloudsEnding disappeared before the fresh title notice");
+  check(!handler.cutsceneControlQuit,"Ending Ctrl-Q leaked into fresh DAT title");
   check(state.program->playTimeMark==state.wallNow,"Ending return did not reset the DAT play-time mark");
   IndexedFrame visible=first;
   const auto present=[&]{handler.framePresented(visible.presentation());handler.completeInputHandoff(visible.presentation());};present();
@@ -367,6 +388,7 @@ extern "C" bool wrappedTitleShow(const SdlWindow *window,const IndexedFrame &fir
   handler.closed();state.shown=true;return true;
  }
  const bool title=!status; // Only gameplay supplies a status line.
+ check(!handler.cutsceneControlQuit,"DAT title/gameplay enabled EXE Ctrl-Q");
  auto native=handler;IndexedFrame::Presentation presented;unsigned step=0;
  std::uint64_t heldAudioTick=0;
  std::vector<SDL_Event> pendingEvents;
@@ -478,10 +500,10 @@ void titleApplicationControls(const char *game) {
  for(bool developer:{false,true}) {
   XeenSaveFile::write(state.slot,XeenSaveFormat::decode(state.saved),{},true);
   state.wallNow=10;XeenProgramState endingProgram{XeenWallClock([]{return state.wallNow;})};state.program=&endingProgram;
-  state.endingMode=true;state.endingReturned=state.endingNotice=state.shown=false;
+  state.endingMode=true;state.endingReturned=state.endingNotice=state.endingPlayed=state.shown=false;
   state.loading=true;state.retainedIdle=false;state.templePrices=&endingProgram.templePrices;
   const auto result=developer?Application(endingProgram).loadGame(game,state.slot):Application(endingProgram).run(game);
-  check(result==0 && state.endingReturned && state.endingNotice && state.shown,"CloudsEnding wrapper/title handoff for player and developer entries");
+  check(result==0 && state.endingReturned && state.endingPlayed && state.endingNotice && state.shown,"CloudsEnding program/notice/title handoff for player and developer entries");
   state.endingMode=false;
  }
  // The original Load controls remove slot 9 after validation. Our transport

@@ -510,6 +510,10 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
             if(!event.key.repeat)toggleFullscreen();
             return;
         }
+        // XEEN.EXE 0x11ab9..0x11af8; not the DAT's title/gameplay input.
+        if(handler.cutsceneControlQuit && event.type==SDL_KEYDOWN && event.key.keysym.sym==SDLK_q && (event.key.keysym.mod & KMOD_CTRL)) {
+            pendingActions.clear();running=false;return;
+        }
         if(event.type==SDL_WINDOWEVENT && event.window.event==SDL_WINDOWEVENT_SIZE_CHANGED)recordWindowedSize(window);
         if(handler.finished && handler.finished())return;
         if (event.type == SDL_QUIT) {

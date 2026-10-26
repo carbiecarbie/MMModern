@@ -10,7 +10,7 @@ public:
  // Called once, before the device opens. A null resource selects silence.
  void initialize(PromusDriver::Bytes resource);
  void load(PromusDriver::Bytes song,bool play);
- void command(unsigned command);
+ void command(unsigned command,unsigned argument=0);
  void effect(unsigned id);
  void fadeBarrier();
  void pull(std::int16_t *stereo,std::size_t frames);

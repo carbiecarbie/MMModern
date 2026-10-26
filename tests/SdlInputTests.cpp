@@ -38,6 +38,29 @@ extern "C" void __wrap_SDL_RenderPresent(SDL_Renderer *renderer){
 
 namespace {
 
+void cutsceneControlQuit() {
+ for(unsigned mode=0;mode<4;++mode) { // Intro, ending, DAT title, DAT gameplay.
+ const bool cutscene=mode<2;
+ IndexedFrame frame{1,1,{0}};unsigned cycles=0,delivered=0;bool closed=false;
+ SdlWindow::FrameUpdateHandler h=[&](const PlayerAction &a)->std::optional<IndexedFrame>{
+  const auto key=std::get_if<DialogKeyAction>(&a);const auto event=std::get_if<ExplorationKeyAction>(&a);
+  if((!key || key->key!=17) && (!event || event->key!=17))throw std::runtime_error("DAT Ctrl-Q no longer retains its control code");
+  ++delivered;return {};
+ };
+ h.protectAllKeys=true;h.ignoreMouse=true;h.closed=[&]{closed=true;};
+ h.cutsceneControlQuit=cutscene;
+ h.inputContext=[mode](const auto &){InputContext c;c.readyForAction=true;
+  if(mode!=3){auto d=std::make_shared<DialogInput>();d->anyKey=true;d->retainKey=true;c.dialog=d;}
+  else {c.mainScreen=MainScreen::Exploration;c.retainEventKeys=true;}return c;};
+ const auto ok=SdlWindow().showInteractive(frame,"Scoped EXE Ctrl-Q",h,{},[&]()->std::optional<IndexedFrame>{
+  ++cycles;SDL_Event event{};
+  if(cycles==1){event.type=SDL_KEYDOWN;event.key.keysym.sym=SDLK_q;event.key.keysym.mod=KMOD_CTRL;}
+  else {if(cutscene || cycles>2)throw std::runtime_error("Ctrl-Q did not quit the EXE presentation");event.type=SDL_QUIT;}
+  SDL_PushEvent(&event);return {};
+ });
+ if(!ok || !closed || (cutscene && (cycles!=1 || delivered)) || (!cutscene && (cycles!=2 || delivered!=1)))throw std::runtime_error("Ctrl-Q escaped its EXE presentation scope");
+ }
+}
 void semanticBoundaryKeys() {
  IndexedFrame frame;frame.width=frame.height=1;frame.pixels={0};
  unsigned accepted=0,stage=0;std::uint64_t epoch=1;bool queuedOld=false;
@@ -808,7 +831,7 @@ int main(int argc,char **) {
 	probe_fired::expect("SDL_GetTicks");
  if(argc>1){journalKeys();mouseHitAreas();mouseQueuePolicies();strictDialogPolicies();pressedButtonFeedback();strafeAndSummaryKeys();quickFightKeys();combatButtonClicks();callerEscapeAndAcknowledgment();return 0;}
  dosKeyTable();dosRepeatsAndClears();retainedEventRegressions();eitherMouseButton();
- semanticBoundaryKeys();
+ semanticBoundaryKeys();cutsceneControlQuit();
  boundedQueuePolicies();
  navigationObligations();
  navigationTypematic();

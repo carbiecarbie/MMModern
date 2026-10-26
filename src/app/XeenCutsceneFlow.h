@@ -5,6 +5,7 @@
 #include "core/InputContext.h"
 #include "core/PresentationClock.h"
 #include "formats/xeen/XeenFontFormat.h"
+#include "formats/xeen/XeenSpriteDrawOptions.h"
 #include <map>
 #include <deque>
 namespace mmodern {
@@ -26,7 +27,8 @@ public:
   std::function<void(const Trace &)> trace;
  };
  XeenCutsceneFlow(XeenCutscene,Services);
- static Services original(XeenAssetSource &,const XeenFontFormat &,XeenAudio &,PresentationClock::Source,bool digital=true);
+ static Services original(XeenAssetSource &,const XeenFontFormat &,XeenAudio &,PresentationClock::Source,bool digital=true,
+  XeenSceneArchive archive=XeenSceneArchive::CloudsProgram);
  const IndexedFrame &frame() const {return _frame;}
  bool done() const {return _done;}
  bool current() const {return !_closed;}
@@ -51,6 +53,8 @@ private:
  IndexedFrame _canvas{320,200,std::vector<std::uint8_t>(64000)},_frame;
  std::array<std::uint8_t,768> _palette{};
  std::map<std::string,IndexedFrame> _slots;
+ std::map<std::string,std::vector<std::uint8_t>> _compressed;
+ bool _acknowledged=false;
  std::vector<XeenCutscene::Audio> _after;
  IndexedFrame::Presentation _input;
  XeenCutscene::Context context(std::uint64_t) const;

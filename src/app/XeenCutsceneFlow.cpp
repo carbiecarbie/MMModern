@@ -1,19 +1,23 @@
 #include "app/XeenCutsceneFlow.h"
 #include "app/XeenAudio.h"
 #include "formats/xeen/XeenAssetSource.h"
+#include "formats/xeen/XeenCompressedFrame.h"
 #include "games/xeen/XeenDialogView.h"
 #include "games/xeen/XeenTextRenderer.h"
 #include <algorithm>
 #include <stdexcept>
 namespace mmodern {
-XeenCutsceneFlow::Services XeenCutsceneFlow::original(XeenAssetSource &assets,const XeenFontFormat &font,XeenAudio &audio,PresentationClock::Source clock,bool digital) {
+XeenCutsceneFlow::Services XeenCutsceneFlow::original(XeenAssetSource &assets,const XeenFontFormat &font,XeenAudio &audio,PresentationClock::Source clock,bool digital,XeenSceneArchive archive) {
  auto retained=std::make_shared<std::map<std::string,XeenAudio::RetainedDigital>>();
  Services s;s.clock=std::move(clock);s.font=&font;
- s.read=[&assets](const auto &name){return assets.readArchiveResource(name,XeenSceneArchive::CloudsProgram);};
- s.prepare=[&assets](const auto &name){assets.spriteFrameCount(name,XeenSceneArchive::CloudsProgram);};
- s.draw=[&assets](auto &frame,const auto &sprite){assets.drawDialogSprite(frame,sprite.resource.c_str(),sprite.frame,sprite.x,sprite.y,XeenSceneArchive::CloudsProgram,sprite.scale,sprite.flags);};
- s.audio=[&audio,retained,digital](const auto &a,auto now) {
-  using A=XeenCutscene::Audio;constexpr auto archive=XeenSceneArchive::CloudsProgram;
+ s.read=[&assets,archive](const auto &name){return assets.readArchiveResource(name,archive);};
+ s.prepare=[&assets,archive](const auto &name){
+  try{assets.spriteFrameCount(name,archive);}
+  catch(const std::exception &e){throw std::runtime_error("Cutscene sprite "+name+": "+e.what());}
+ };
+ s.draw=[&assets,archive](auto &frame,const auto &sprite){assets.drawDialogSprite(frame,sprite.resource.c_str(),sprite.frame,sprite.x,sprite.y,archive,sprite.scale,sprite.flags);};
+ s.audio=[&audio,retained,digital,archive](const auto &a,auto now) {
+  using A=XeenCutscene::Audio;
   switch(a.kind) {
    case A::Song:audio.requestSong(a.resource,archive,0,now);audio.advance(now);break;
    case A::FadeSong:audio.fadeSong(a.value,now);break;
@@ -21,6 +25,7 @@ XeenCutsceneFlow::Services XeenCutsceneFlow::original(XeenAssetSource &assets,co
    case A::RetainDigital:if(digital)(*retained)[a.resource]=audio.retainDigital(a.resource,archive);break;
    case A::Digital:if(digital)audio.startDigital(retained->at(a.resource),now);break;
    case A::StopDigital:audio.stopDigital(now);retained->clear();break;
+   case A::Mixer:audio.mixer(a.value,now);break;
   }
  };
  s.digitalBusy=[&audio,digital](auto now){return digital && audio.digitalBusy(now);};
@@ -44,6 +49,11 @@ void XeenCutsceneFlow::execute(const XeenCutscene::Frame &operations,bool deferA
   using T=std::decay_t<decltype(value)>;
   if constexpr(std::is_same_v<T,C::Raw>) {
    auto b=_services.read(value.resource);if(b.size()!=64000)throw std::runtime_error("Invalid cutscene RAW: "+value.resource);_canvas.pixels=std::move(b);
+  }else if constexpr(std::is_same_v<T,C::PrepareCompressed>) {
+   if(!_compressed.count(value.resource))_compressed[value.resource]=_services.read(value.resource);
+  }else if constexpr(std::is_same_v<T,C::Compressed>) {
+   if(!_compressed.count(value.resource))_compressed[value.resource]=_services.read(value.resource);
+   _canvas.pixels=decodeXeenCompressedFrame(_compressed.at(value.resource));
   }else if constexpr(std::is_same_v<T,C::Palette>) {
    auto b=_services.read(value.resource);if(b.size()!=768 || std::any_of(b.begin(),b.end(),[](auto c){return c>63;}))throw std::runtime_error("Invalid cutscene palette: "+value.resource);
    for(unsigned i=0;i<768;++i)_palette[i]=b[i]<<2;
@@ -57,6 +67,14 @@ void XeenCutsceneFlow::execute(const XeenCutscene::Frame &operations,bool deferA
    const auto tail=(200-value.offset)*320;
    std::copy_n(first.begin()+value.offset*320,tail,_canvas.pixels.begin());
    std::copy_n(second.begin(),value.offset*320,_canvas.pixels.begin()+tail);
+  }else if constexpr(std::is_same_v<T,C::HorizontalMerge> || std::is_same_v<T,C::Rotate>) {
+   unsigned offset;const std::vector<std::uint8_t> *a,*b;
+   if constexpr(std::is_same_v<T,C::Rotate>) {offset=value.columns%320;a=b=&_slots.at(value.slot).pixels;}
+   else {offset=value.offset;if(offset>320)throw std::invalid_argument("Cutscene horizontal merge offset");a=&_slots.at(value.first).pixels;b=&_slots.at(value.second).pixels;}
+   for(unsigned y=0;y<200;++y) {
+    std::copy_n(a->begin()+y*320+offset,320-offset,_canvas.pixels.begin()+y*320);
+    std::copy_n(b->begin()+y*320,offset,_canvas.pixels.begin()+y*320+320-offset);
+   }
   }else if constexpr(std::is_same_v<T,C::Scroll>) {
    _canvas=drawXeenScroll(_slots.at("scroll-base"),value.index,[&](auto &f,const char *name,unsigned frame,int x,int y){
     _services.draw(f,{name,frame,x,y,0,value.index>14 && name[0]=='h'?0x800u:0u});
@@ -83,6 +101,7 @@ void XeenCutsceneFlow::begin() {
  while(_segment<_scene.segments.size() && !_scene.segments[_segment].compose)++_segment;
  if(_segment==_scene.segments.size()){_done=true;return;}
  const auto &s=_scene.segments[_segment];_iteration=0;_terminal=false;_fade=false;_fadePending=false;_afterSent=false;_after.clear();
+ _acknowledged=false;if(s.input==XeenCutscene::Segment::Input::Keyboard)_keys.clear();
  _input.reset();
  _reset=PresentationClock::tick(_services.clock());
  if(s.entering)s.entering(context(_services.clock()));
@@ -94,7 +113,7 @@ void XeenCutsceneFlow::compose() {
  const auto &s=_scene.segments[_segment];const auto now=_services.clock();
  if(s.reset==XeenCutscene::Segment::Reset::BeforeCompose)_reset=PresentationClock::tick(now);
  trace("compose");auto c=context(now);_after.clear();_afterSent=false;
- execute(s.compose(c),true);
+ execute(s.compose(c),!s.audioBeforeFlip);
  _holdTicks=s.threshold?s.threshold(c):s.ticks;
  if(_iteration==0 && s.fadeAfterFirst)_level=0;
  _deadline=PresentationClock::retraceAfter(_services.clock());
@@ -119,10 +138,14 @@ void XeenCutsceneFlow::presented(const IndexedFrame::Presentation &p) {
 }
 InputContext XeenCutsceneFlow::inputContext(const IndexedFrame::Presentation &p) const {
  InputContext c;c.contextId=1;c.acceptsQueuedInput=true;c.readyForAction=acceptsInput(p) && !_done;c.hideCursor=true;
+ if(!_done && _scene.segments[_segment].input==XeenCutscene::Segment::Input::Keyboard) {
+  c.contextId=_segment+2;c.acceptsQueuedInput=false;
+ }
  auto d=std::make_shared<DialogInput>();d->anyKey=true;d->retainKey=true;c.dialog=std::move(d);return c;
 }
 std::optional<IndexedFrame> XeenCutsceneFlow::handle(const PlayerAction &action,const IndexedFrame::Presentation &p) {
  if(!acceptsInput(p) || _done)return {};
+ if(_scene.segments[_segment].input==XeenCutscene::Segment::Input::Ignore)return {};
  if(auto k=std::get_if<DialogKeyAction>(&action))_keys.push_back(k->key);
  else if(std::holds_alternative<CancelInteractionAction>(action))_keys.push_back(27);
  return {};
@@ -131,6 +154,7 @@ bool XeenCutsceneFlow::poll() {
  using I=XeenCutscene::Segment::Input;const auto &s=_scene.segments[_segment];
  if(_keys.empty() || s.input==I::Ignore)return false;
  const auto key=_keys.front();_keys.pop_front();
+ if(s.input==I::Keyboard){_acknowledged=key!=0;return false;}
  if(s.input==I::Scroll && !_terminal) {
   execute(s.terminal);_terminal=true;_after.clear();_acquired=false;_publicationReady=false;_input.reset();_deadline=PresentationClock::retraceAfter(_services.clock());return true;
  }
@@ -157,12 +181,13 @@ std::optional<IndexedFrame> XeenCutsceneFlow::update() {
  const auto &s=_scene.segments[_segment];
  auto c=context(now);
  const bool waiting=!s.holdBeforeFlip && c.elapsed<_holdTicks && (!s.untilDigitalIdle || c.digitalBusy);
- if(!_polled && (!s.pollAfterHold || !waiting)) {
+ if((!_polled || s.input==XeenCutscene::Segment::Input::Keyboard) && (!s.pollAfterHold || !waiting)) {
   _polled=true;if(poll())return {}; // Scroll endpoint/closing publishes on its next retrace.
  }
  if(_fadePending){_fadePending=false;_fade=true;_deadline=PresentationClock::retraceAfter(now);return {};}
  if(!_afterSent){for(const auto &a:_after)_services.audio(a,now);_afterSent=true;}
  c=context(now);
+ if(s.input==XeenCutscene::Segment::Input::Keyboard && !_acknowledged)return {};
  if(waiting)return {};
  const bool ended=_terminal || (s.frames && _iteration+1>=s.frames) || (s.totalTicks && c.elapsed>=s.totalTicks) ||
   (s.finished && s.finished(c)) || (s.untilDigitalIdle && !s.finished && !c.digitalBusy);
@@ -176,6 +201,7 @@ std::optional<std::uint64_t> XeenCutsceneFlow::nextPresentationDeadline() const 
  if(_done || _closed)return {};
  const auto now=_services.clock();if(!_acquired || _fade)return _deadline;
  const auto &s=_scene.segments[_segment];const auto c=context(now);
+ if(s.input==XeenCutscene::Segment::Input::Keyboard && !_acknowledged && _keys.empty())return {};
  if(!s.holdBeforeFlip && c.elapsed<_holdTicks && (!s.untilDigitalIdle || c.digitalBusy)) {
   auto end=PresentationClock::boundary(_reset+_holdTicks);
   if(s.untilDigitalIdle && _services.digitalDeadline)if(auto voice=_services.digitalDeadline(now))end=std::min(end,*voice);

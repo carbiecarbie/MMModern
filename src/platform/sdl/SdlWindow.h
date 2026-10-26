@@ -52,6 +52,8 @@ public:
 		bool protectAllKeys = false;
         // XEEN.EXE scene polls never read mouse buttons, including release waits.
         bool ignoreMouse = false;
+        // XEEN.EXE keyboard poll only; DAT title/gameplay retain control keys.
+        bool cutsceneControlQuit = false;
 		std::function<std::optional<std::uint64_t>()> displayedInput;
 		std::function<std::optional<IndexedFrame>(const PlayerAction &,std::uint64_t)> withDisplayedInput;
 		// Native responses retain the concrete frame sampled with their semantic input.
