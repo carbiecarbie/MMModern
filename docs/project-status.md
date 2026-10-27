@@ -345,8 +345,6 @@ the original data uses and its support status.
 - Scenes and commands: the Pyramid entrance and the mirror words
   `showdown` and `genesis` (the Darkside and World endings) say "not
   supported yet".
-- Combat: moving forward or back during a fight says "not supported yet";
-  turning works.
 - Sound: other sound devices belong to step 19. F8 speech replay is
   omitted by maintainer decision. SDL's resampler plays FM and CD audio up
   to about 0.07% fast, which is inaudible

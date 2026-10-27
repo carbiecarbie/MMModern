@@ -182,10 +182,10 @@ void combatQueue(Inputs &in,bool mouse=false) {
     const auto ticket=combat->ticket();XeenRestoreGuard guard(*h.world,*h.party,*h.camera,*h.flags);
     const auto sky=h.world->scenePresentation().sky;std::string notice;
     h.flow->reportText=[&](const auto &text){notice=text;};
-    // M49 admits combat rotation; translations retain their refusal contract.
+    // DOS combat ignores forward/back silently (key table 0x2e808); only turns act.
     for(auto movement:{NavigationAction::MoveForward,NavigationAction::MoveBackward}) {
-     now+=110;
-     act(movement);check(notice=="Combat movement: not supported yet"&&combat->current(ticket)&&guard.current()&&h.world->scenePresentation().sky==sky,"Combat movement notice changed state");
+     now+=110;const auto before=h.flow->frame().presentation();
+     act(movement);check(notice.empty() && h.flow->frame().presentation()==before && combat->current(ticket) && guard.current() && h.world->scenePresentation().sky==sky,"Combat forward/back must be silently ignored");
     }
     for(auto movement:{NavigationAction::StrafeLeft,NavigationAction::StrafeRight}) {
      const auto before=h.flow->frame().presentation();act(movement);

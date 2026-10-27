@@ -3237,9 +3237,11 @@ IndexedFrame XeenEventFlow::handleExplorationAction(const PlayerAction &physical
 	if (journey() && _encounter->combat() && std::holds_alternative<RevisitCompletedAction>(action)) action=RunAction{};
     if(_encounter && _encounter->combat())if(const auto *nav=std::get_if<NavigationAction>(&action);
         nav && (*nav==NavigationAction::StrafeLeft || *nav==NavigationAction::StrafeRight))return frameCopy();
+    // DOS combat key table 0x2e808 has no forward/back entry: the keys fall
+    // through to the common tail 0x2ea0f and do nothing, as in the pin.
     if (journey() && _encounter->combat() && !_encounter->combat()->cast() && !inventoryOpen())
         if(const auto *nav=std::get_if<NavigationAction>(&action);nav && *nav!=NavigationAction::TurnLeft && *nav!=NavigationAction::TurnRight)
-            action=UnsupportedMainScreenAction{"Combat movement"};
+            return frameCopy();
     if(std::holds_alternative<DismissAction>(action)) {
         if(!mainScreenAdmitted || !journey() || _pending || inventoryOpen() || _castingUi || _barrier || _summary ||
            _encounter->combat() || !_encounter->journeyMutable())return frameCopy();
