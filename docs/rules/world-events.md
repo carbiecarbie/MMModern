@@ -119,9 +119,8 @@ keyboard flush.
 
 The selected-object byte is one-based: zero means no selection, and MOB record
 0 is selectable. The nearest object is selected at the party's logical cell;
-searching only the next map cell gives the wrong tail census. The current
-`runManualEvent` has the narrow wrong-facing, object-present, unflagged sound
-case, but its early no-record return omits the full call and window tail.
+searching only the next map cell gives the wrong tail census. MMModern runs
+the full call and this tail for manual and automatic calls alike.
 
 The read-only Clouds sweep finds **300 flagged cells**, after rejecting archive
 hash aliases and resolving indoor continuation tiles into their owning maps.
@@ -138,8 +137,7 @@ hash aliases and physical DAT coordinates with logical Event coordinates.
 Events or objects, or when combat makes a call skip its scan. Static predicates
 do not establish every reachable saved state. A focused DOSBox check can watch
 attack slot 0 while waiting on an object-bearing flagged cell, then verify
-whether the skipped call shows window 38 before combat resumes. This does not
-require implementing the post-combat caller.
+whether the skipped call shows window 38 before combat resumes.
 
 Combat can start inside any ordinary draw whose admission tests pass: a held
 slot among 0-2, mode 1 or 5, neither missile gate held, and exploration enabled.
@@ -313,8 +311,8 @@ interpreter's script-executed flag (`-0x4f`), as every operation ending at
 script epilogue reads that flag (`0x28e97`, `0x28f03`) to suppress the
 "Nothing here" window and its sound when the party faced an object.
 Unlike the reference's `_scriptExecuted`, which every dispatched instruction
-sets, only operations that reach these writes count. MMModern has no
-"Nothing here" path yet; one should follow this flag.
+sets, only operations that reach these writes count. MMModern's Event tail
+reads this marker; see [Event dispatch](#event-dispatch).
 
 The map changes above consume no random draw. Spawn alone calls the bounded
 random helper once with `0..7`, for the animation frame, at `0x27a89`. The same
@@ -336,6 +334,14 @@ excluded from saves, preserving any older retained tile underneath. Clouds map
 85 (the Warzone) is visit-only. Monster HP and wake state rebuild on map load;
 positions, type binding, lifecycle and accounting retain their defined lifetime.
 Shared operations preserve the side in every logical and physical identity.
+
+Loading and leaving Clouds maps also apply fixed scripted rules. They are
+recorded with their evidence in original quirks: the
+[lake dragons](../original-quirks.md#sv-lake-dragons-away),
+[drained caves](../original-quirks.md#sv-drained-cave-maps),
+[quest-completed object hides](../original-quirks.md#sv-quest-done-objects),
+Newcastle's castle graphics in the same table, and
+[Castle Xeen's removal after a win](../original-quirks.md#sv-clouds-castle-removal).
 
 ## Worked resource examples
 
@@ -635,9 +641,12 @@ Travel reads the selected record directly, including Dragon Tower's map 5
 Clouds mirror result 59 (`i lost it`) puts weapon 34, material/state zero, in
 the first free ten-slot treasure-weapon entry and exits (`0x28076..0x280ca`).
 A full category instead follows ordinary success. The existing reward owner
-delivers the sword. Ending/cinematic codes 40, 60, 61 and 62, opcode 30, audio
-and further town services remain excluded from M70; Darkside-only operations
-and durable banks remain separate.
+delivers the sword. Results 40 (`showtime`) and 62 (`bloopers`) and opcode 30,
+which ends Clouds, follow the
+[ending entry rules](cutscenes.md#clouds-ending-entry-and-save). Results 60 and
+61 (the Darkside and World endings) and town actions 12 (the Pyramid) and 13
+refuse with a not-supported notice; Darkside-only operations and durable banks
+remain separate.
 
 The shared text input uses original window 6, length 30 and width 200
 (`0x24008..0x24014`, `0x1e00f..0x1e179`). Width is formatting, not a character

@@ -28,9 +28,10 @@ original games yet.
 A new Clouds of Xeen game starts in Vertigo with the original six characters,
 and from there it plays like the original. Every Clouds map is open, and
 combat, spells, items and town services follow the original rules. The Inn
-lets you sign in, recruit, create, delete and dismiss characters, but you
-cannot travel to Darkside yet. The Clouds story has been verified through
-Lord Xeen and the Sixth Mirror, and the original ending and score are playable.
+lets you sign in, recruit and remove members, and create and delete
+characters, but you cannot travel to Darkside yet. The Clouds story has been
+verified through Lord Xeen and the Sixth Mirror, and the original ending and
+score are playable.
 The original Clouds and Darkside intros can also be watched.
 
 The original interface is close to complete, with mouse and keyboard.
@@ -109,7 +110,8 @@ covers the character sheet, Items, Quick Fight and every service.
 ## What is missing
 
 - Darkside of Xeen cannot be played.
-- The Pyramid entrance says "not supported yet".
+- The Pyramid entrance and the mirror words `showdown` and `genesis` (the
+  Darkside and World endings) say "not supported yet".
 
 The [project status](https://github.com/carbiecarbie/MMModern/blob/main/docs/project-status.md)
 page has the full current state, the

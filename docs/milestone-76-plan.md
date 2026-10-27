@@ -59,9 +59,10 @@ combat item path (step 7), map admission, audio.
 ## Results
 
 - Census: 76 of 76 spells supported. Developer test save `m76-spells`
-  (README) holds casters for all 22 spells, charged items for their
-  powers, test items for the item spells, distinct beacons and documented
-  mainland spots for water, the Rest refusal and travel.
+  ([development guide](development.md#developer-test-saves)) holds casters
+  for all 22 spells, charged items for their powers, test items for the
+  item spells, distinct beacons and documented mainland spots for water,
+  the Rest refusal and travel.
 - The admitted mainland area has one definition (water open, independent
   of the party's abilities) shared by movement, save restore, Event
   transitions and spell destinations.

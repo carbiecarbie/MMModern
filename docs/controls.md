@@ -18,20 +18,33 @@ button has the same effect at the same position; use Escape to cancel.
 | U in combat | Use a charged item |
 | F / O in combat | Quick Fight / Quick Fight Options |
 | F1-F6 | Open a character sheet; choose a member in dialogs |
-| I / Q / M / V | Info / Quick Reference / Map / Quests |
+| I / Q / M / V | Info / Quick Reference / Map / Quests (V outside combat) |
 | = | Toggle the automap; Shift+= produces an unmatched + |
 | Tab | Control panel: Save, Save As, Load, Quit |
-| F9 | Save to the developer `--save-file` target |
+| F9 | Save to the developer `--save-file` or `--load-game` target |
 | Escape | Back, cancel or acknowledge; in exploration, complete a pass |
 | Arrows in the sheet | Select a stat |
-| Enter | Open the selected stat; confirm a cast or text entry |
+| Enter | Open the selected stat; choose a spell in the New list; confirm text entry |
 | Y / N | Yes / No in prompts |
 | 1-9 | Select inventory or stock slots; 1-3 select combat rows; unmatched in exploration |
-| I / E in the sheet | Items / Exchange with another member |
-| W/A/C/M in Items | Weapons / Armor / Accessories / Misc |
+| C / N in the Cast dialog | Cast the current spell / New: choose another; outside combat, F1-F6 change the caster |
+| 1-9, 0, then S or Enter in the New list | Select a spell, then make it current; Up/Down and Page Up/Down scroll |
+| N in Quick Fight Options | Next option; F1-F6 choose the member; Enter or Escape closes |
+| S or T / R in Lloyd's Beacon | Set the beacon here / Return to it; Escape cancels |
+| 1-5, then Enter in Town Portal | Travel to that town; Backspace edits, Escape cancels |
+| 1-9, then Enter in Teleport | Move that many squares ahead; Backspace edits, Escape cancels |
+| I / Q / E in the sheet | Items / Quick Reference / Exchange with another member |
+| W/A/C/M in Items and Smith Items | Weapons / Armor / Accessories / Misc |
 | E / R / U in Items | Equip / Remove / Use; select a row then F1-F6 to transfer it |
+| D / Q in Items | Discard a selected item, after Y / Quests |
+| I / Q / A in Quests | Items / Quests / Auto Notes |
+| Up / Down in Quests and Awards | Scroll; Quests also takes Page Up/Down, Home and End |
+| S / A / L / Q in the control panel | Save / Save As / Load / Quit (Y confirms Quit) |
+| E / M / P / T in the control panel | Efx / Music / Speech / Text on or off; Speech off keeps Text on |
+| W in the control panel | Mr Wizard after Y: return to Vertigo and lose all gems |
 | B / R in the Ironworks | Buy / Armor Repair |
 | B / S / I / F in Smith Items | Buy / Sell / Identify / Fix; a row opens Y/N confirmation |
+| F1-F6 / B / S in the Guild | Choose a member / Buy spells / Spell information; a spell row (1-9, 0) then Y buys it |
 | T in Training | Train the selected member |
 | H / D / U in the Temple | Heal / Donation / Uncurse |
 | D / F / T / R / S in the Tavern | Drink / Food / Tip / Rumors / Sign In (saves and opens the Inn) |
@@ -63,7 +76,7 @@ replays the Clouds ending.
 
 During the Clouds ending, animations ignore Escape, other keys and clicks;
 a key during a scroll only shortens it. The two score pages advance on any
-key, Escape included, but not on a click. Ctrl-Q quits during the intro and
+key, Escape included, but not on a click. Ctrl-Q quits during the intros and
 the ending only.
 
 In the control panel, typing G, O, B, R shows the clock and the play time

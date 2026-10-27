@@ -142,7 +142,7 @@ inside a single outer action; do not collapse them to one final-destination chec
 | Walk/turn/wait | Shared arrival sets stepped (`0x0c92b`); outdoor normalization may load (`0x0c9df..0x0c9f4`); the next scene preparation checks the destination. Terrain-damage presentation can draw earlier (`0x0ca04`). |
 | Event teleport, including mirrors/stairs | `0x270b9` marks stepped even on same-map travel. Continue explicitly redraws at `0x27121` before restarting the destination Event chain. Exit returns to its outer caller. A later outer arrival can mark stepped again. Each Continue redraw can check an intermediate destination. |
 | Learned travel spells | Successful Cast reaches arrival at `0x0d5b4..0x0d5ba`, marking stepped. Jump also marks it in its handler (`0x2f82b`); Portal always loads, Beacon Return loads across map/side changes, and map load marks stepped at `0x0f58b`. Etherealize/Teleport handlers themselves only relocate. Time Distortion explicitly redraws after relocation (`0x3030f..0x30323`) before its caller's suffix. |
-| Item travel | Retains the established item/learned distinction: item response `0x314ce` has no terrain-arrival call. Jump/map-load marks still apply; a used item closing the character sheet sets stepped at `0x3a493`, with the outer sheet caller testing it at `0x0d4be`. Do not infer lighting solely from the absence of an item terrain call. Exact post-item automatic-Event timing retains the earlier evidence limit. |
+| Item travel | Retains the established item/learned distinction: item response `0x314ce` has no terrain-arrival call. Jump/map-load marks still apply; a used item closing the character sheet sets stepped at `0x3a493`, with the outer sheet caller testing it at `0x0d4be`. Do not infer lighting solely from the absence of an item terrain call. [M84](#event-dispatch) later settled the exploration post-item automatic-Event timing: Use stays inside the sheet's input, and the one ordinary pass follows the sheet's close and optional monster step ([rule](world-events.md#event-dispatch)). |
 | Surface/scripted fall | Source views are drawn at `0x0ca91`/`0x0ca9e`; destination load at `0x0ccc2` marks stepped. Scripted fall normalizes outdoor coordinates and explicitly redraws at `0x0cced` before its damage. Surface-fall damage presentation uses the shared arrival draw; see the fall integration below. |
 | Run | Relocates to the current map's run position (`0x2eb1f`, helper `0x1691f`), without map loading. Combat exit redraws at `0x2eb7f`, then marks stepped at `0x2eb8f`; the following scene check uses the run destination. It does not invoke terrain arrival directly. |
 
@@ -242,7 +242,7 @@ phase-change evidence; fades are measured within the game image alone.
 | Title idle | 29.383..35.983 s, 30 intervals; mean 220.000 ms, population SD 10.773 ms, range 200..234 ms | Four standard BIOS ticks predict 219.702 ms. Inverting the mean gives 18.1818 Hz, compatible with 18.2065 Hz at capture precision; this is not a direct PIT measurement. |
 | Title initial fade | First brightening 28.917 s; full brightness about 29.383 s | Approximately 466 ms; compatible with step-4 VGA retrace fading near 70 Hz. |
 | Dream fades | Gameplay darkening 6.167..6.633 s; dream brightening 6.717..7.167 s; dream darkening about 11.500..11.933 s; gameplay brightening 12.017..12.467 s | Approximately 466/450/433/450 ms. Visible transition spans are not exact helper entry/return times. A 60 fps capture cannot resolve all 33 writes at 70 Hz. |
-| Dream samples | Matched `dreams2` onset about 7.690 s, end 9.355 s; `laff1` onset about 9.356 s, end 11.323 s (audio PTS) | Sequential, approximately 1.665 + 1.967 s. The later driver analysis establishes 24,471 and 28,916 transferred samples at fixed `1000000/68` Hz (1.664028 + 1.966288 s); the capture cannot resolve the sub-millisecond difference from header lengths. |
+| Dream samples | Matched `dreams2` onset about 7.690 s, end 9.355 s; `laff1` onset about 9.356 s, end 11.323 s (audio PTS) | Sequential, approximately 1.665 + 1.967 s. The adopted unsplit driver model ([approved approximation](../original-quirks.md#dev-prosnd-dma-timing)) gives 24,471 and 28,916 samples at fixed `1000000/68` Hz (1.664028 + 1.966288 s); the capture cannot resolve the sub-millisecond difference from header lengths. |
 | Dream Escape | Maintainer reports Escape did not interrupt it | Confirms no local skip at `0x1e605..0x1e72a`; no input overlay timestamps the press or settles deferred input. |
 
 Audio alignment cross-correlates each original PCM sample against the decoded
@@ -578,7 +578,8 @@ The subsequent C1 and C2 implementation checks live in
 They exercise the documented handler/Rest rules, per-character Beacon state,
 map-load lifetimes and exact save restore with synthetic cases and
 original resources; they do not upgrade the DOS evidence labels or settle
-the unknown post-item automatic-Event timing.
+the post-item automatic-Event timing, which [M84](#event-dispatch) later
+settled for exploration.
 
 **Calibration passed:** item dispatch `0x39e4b` subtracts 1, bounds at 72
 and indexes CS:`0474`, file `[0x3a114,0x3a1a6)`, segment base `0x39ca0`.
@@ -689,7 +690,7 @@ confidence and comparison boundaries for the requested questions.
 | 19 | `0x30b03..0x30b55`, `0x31c76..0x31dd7`; generator `0x25ca8`. High: caster-level draw before refusal, weapon/armor material/state copy, early prompt refund only. Differs from pin in level owner, ID-34 equality, empty-result handling and retained generator draw differences. |
 | 20 | `0x31bae..0x31c73`. High: eligible Misc, U(1,6), no break/destroy branch; broken cap comparison fills to 63 (cursed recharges normally). Differs from pin on broken records. |
 | 21 | `0x31ddd..0x31fad`, calculator `0x3c67d`, mode-11 arm `0x3cb1d`. High: full value, no extra confirmation, no equipped/broken/cursed refusal. Differs from pin's ID threshold and retained attribute-price formula. |
-| 22 | Etherealize `0x30996..0x30a0f`, Distortion `0x30301..0x30324`, Teleport `0x30348..0x3055e`, Beacon `0x2fef7..0x2ff61`, Portal `0x30779..0x307b8`; callers `0x0d5ba`, `0x314ce`, `0x2e8a5..0x2e8c0`, `0x2ea99..0x2ead1`. High for relocation/load/facing and immediate caller paths; same as pin except Portal item combat. Complete anomalous combat presentation and exact post-item automatic-Event timing remain Unknown, medium confidence; no DOS evidence label assigned to those details. |
+| 22 | Etherealize `0x30996..0x30a0f`, Distortion `0x30301..0x30324`, Teleport `0x30348..0x3055e`, Beacon `0x2fef7..0x2ff61`, Portal `0x30779..0x307b8`; callers `0x0d5ba`, `0x314ce`, `0x2e8a5..0x2e8c0`, `0x2ea99..0x2ead1`. High for relocation/load/facing and immediate caller paths; same as pin except Portal item combat. Complete anomalous combat presentation and exact post-item automatic-Event timing remain Unknown, medium confidence; no DOS evidence label assigned to those details. [M84](#event-dispatch) later settled the exploration timing ([rule](world-events.md#event-dispatch)); the combat item route remains open. |
 | 23 | `0x3099b..0x30a0a`, lookup `0x11d40..0x11f03`. High: forward whole-word non-0x8888, restriction 0x40, no traversed-wall test. Same as pin. |
 | 24 | `0x30301..0x30324`, run helper `0x1691f..0x1692b`. High: primary DAT run X/Y; same-map relocation both in and out of combat. Same as pin. |
 | 25 | `0x303a5..0x3055e`, lookup `0x11d40..0x11f03`. High: one-digit 1..9, zero/empty cancel without refund, destination comparisons and resident-neighbor lookup; no traversed-wall test/load. Same as pin. |
@@ -1662,7 +1663,7 @@ are stored in the repository.
 | Defeat, Load and Quit are distinct | Early no-active-character branch `0x2e719..0x2e720 -> 0x2ebc5` bypasses the normal redraw/treasure prefix but still reaches caller 4. Later death check `0x2ead3..0x2eae4` joins ordinary combat cleanup. Main death presentation `0xd604` belongs to the terminal continuation. Combat panel Load refuses mode 2 at `0x1f14d..0x1f162`; Quit `0x1f20d -> 0x21ecd` terminates without callers. |
 | Arena uses normal draw admission | Opcode 17 `0x27b29 -> 0x1cea5`; service call `0x1d385 -> 0x2b784`. M80 generation ends with East facing `0x2bd2c`, Run-coordinate helper `0x2bd31`, window close `0x2bd36`; resource/context return `0x1d38a..0x1d426 -> 0x1ceb8` and Event completion `0x28d50`. No direct combat call. Subsequent eligible draw has the ordinary callers; Arena awards remain a later service interaction, and map 85 retains M81's monster-loot exclusion. |
 | Combat relocation returns through the combat loop | M76 learned movement guards reused. Item Beacon `0x39f51..0x39f69` and Teleport `0x39fd9..0x39fe5` refuse; item Portal `0x3a058..0x3a075` continues to `0x30654`. Town load `0x30779..0x30798`; item return `0x314c9..0x314d3`, sheet exit `0x3b3f4..0x3b3fe`, combat continuation `0x2e909..0x2e955`. Time Distortion `0x30301..0x3031e` uses Run helper and draws in combat mode. Relocation itself does not force exit; later contact tests govern it. **Unknown:** exact first presentation with stale pre-Portal slots; capture slots and the first post-item combat iteration in DOSBox. |
-| Mr Wizard's combat-only ordering | Combat window 2 flag `986e`, calibrated against window helper `0xdddb`; panel gate `0x1f23e` skips immediate town load while that window is open; gems zeroed `0x1f28a..0x1f290` before result 2 at `0x1f296`. Combat handles it `0x2e989..0x2e996`: `di=1`, jump to exit `0x2eaf0`. The exit's escape branch still applies: flag `fafe` (cleared at entry `0x2e6d9`, set by each successful Run `0x2e1f7`) with any contact slot `0x2eaf5..0x2eb0f` reaches defeat gate `0x24f29`, Run landing `0x2eb1f` and casualty loop `0x2eb24..0x2eb69`; no currency forfeiture (full Run only). Ordinary cleanup `0x2eb6b..0x2ec13`, caller 4 `0x2ec18..0x2ec37`. Deferred load `0x2ec3c..0x2ec7e` (gated by `di`) follows caller 4: FX 51, map 28/East or map 29/South according to game side, then Run coordinates; gems are not zeroed again. Draw-origin caller 3 follows at the new address if still flagged as skipped, but its line-head test `0x26abd` reads slot byte `98b4`, written only by the indoor/outdoor builders (`0x14413/0x14523`, `0x16939/0x169d2`); loader `0xf542` and the tail call no draw or builder, so it tests the last build before the load (cleanup draw `0x2eb7f`, the same-position delivery and UI draws, or caller 4's Event draws; independent review byte scan, 2026-10-23). MMModern keeps that slot 0 through frame preparation while post-combat calls are owed; an owed ordinary pass is marked and started before the next frame. Pin `interface.cpp:1700-1702` breaks to the same escape branch `:1870-1882`. Implemented 2026-10-23 (maintenance): `XeenCombat::mrWizard`, `XeenEncounterFlow::mrWizardAfterCombat`, post-combat block in `XeenEventFlow::prepareJourneyTransition`. |
+| Mr Wizard's combat-only ordering | Combat window 2 flag `986e`, calibrated against window helper `0xdddb`; panel gate `0x1f23e` skips immediate town load while that window is open; gems zeroed `0x1f28a..0x1f290` before result 2 at `0x1f296`. Combat handles it `0x2e989..0x2e996` by setting a local deferred-load flag and jumping to exit `0x2eaf0`. The exit's escape branch still applies: flag `fafe` (cleared at entry `0x2e6d9`, set by each successful Run `0x2e1f7`) with any contact slot `0x2eaf5..0x2eb0f` reaches defeat gate `0x24f29`, Run landing `0x2eb1f` and casualty loop `0x2eb24..0x2eb69`; no currency forfeiture (full Run only). Ordinary cleanup `0x2eb6b..0x2ec13`, caller 4 `0x2ec18..0x2ec37`. Deferred load `0x2ec3c..0x2ec7e` (gated by that flag) follows caller 4: FX 51, map 28/East or map 29/South according to game side, then Run coordinates; gems are not zeroed again. Draw-origin caller 3 follows at the new address if still flagged as skipped, but its line-head test `0x26abd` reads slot byte `98b4`, written only by the indoor/outdoor builders (`0x14413/0x14523`, `0x16939/0x169d2`); loader `0xf542` and the tail call no draw or builder, so it tests the last build before the load (cleanup draw `0x2eb7f`, the same-position delivery and UI draws, or caller 4's Event draws; independent review byte scan, 2026-10-23). MMModern keeps that slot 0 through frame preparation while post-combat calls are owed; an owed ordinary pass is marked and started before the next frame. Pin `interface.cpp:1700-1702` breaks to the same escape branch `:1870-1882`. Implemented 2026-10-23 (maintenance): `XeenCombat::mrWizard`, `XeenEncounterFlow::mrWizardAfterCombat`, post-combat block in `XeenEventFlow::prepareJourneyTransition`. |
 | Actor movement and slot construction are different stages | Monster step `0x1fdc1`, movement helper `0x1fbf2`; indoor draw/build `0x11495 -> 0x14406`, outdoor `0x1106c -> 0x1692c`. Builders clear `98b4..98cd`, then fill 0/1/2 in order at `0x14523/0x14591/0x145fe` and `0x169d2/0x169e3/0x169f4`. Death removes the actor at `0x2c542` and redraws `0x2c576`, rather than making a stable hole in contact slots. |
 | Between-line builders | Spawn `0x27a59` changes actor records only. TeleportAndContinue map load `0x270f3`, coordinate writes `0x27106..0x2710f`, clear `0x27112`, draw `0x27121`, restart `0x26a8e`. Fall `0x28adc..0x28afe -> 0xca60` includes draws `0xca91/0xca9e/0xcced`, map load `0xccc2`, then restart `0x28b08`. Map loader `0xf542` has no direct slot rebuild. Label draw `0x26f81` supplies the Clouds witness below. |
 | Engaged input and ordinary combat key clearing | Reader `0xd1c9` has no slot predicate; admission belongs to draw. Missile gates are set at `0x3739a` (`97f6`) and `0x1d936` (`97f9`). Combat entry has no unconditional queue clear before reader `0x2e7ec`; normal exit clears at `0x2eb73 -> 0xe097`. **Unknown:** frame-exact reachability of each projectile/input interleaving; break at draw admission and the two readers, record gates/current key/FIFO, without changing state. |
@@ -1701,13 +1702,15 @@ EVT/MOB owner; they are superseded, not additional unexplained cells.
 occupied-slot skip. The predicate is settled, but the resource census is not
 an exploration of all saved states. The smallest skipped-call check is Wait
 on an object-bearing flagged cell while watching attack slot 0, then observe
-window 38 before combat resumes; no post-combat implementation is implied.
+window 38 before combat resumes.
 
 **Unknown:** exact non-navigation typematic timing under a particular DOSBox
-configuration. The smallest check is a held unmapped key on the map-26 trap,
-with repeat settings and successive damage times recorded. Unusual host
-keyboard layouts/keypad Equals also have no measured DOS equivalence. The
-static US Set-1 table and MMModern host-action exclusions are explicit above.
+configuration. The smallest check is a held unmapped key on the unguarded
+Tower of High Magic damage trap, map 55 `(7,8)` (map 26's traps lie on clouds,
+where the party falls without Levitate), with repeat settings and successive
+damage times recorded. Unusual host keyboard layouts/keypad Equals also have
+no measured DOS equivalence. The static US Set-1 table is explicit above;
+MMModern's host-action exclusions are in [World Events](world-events.md#event-dispatch).
 
 ## M87 Inn and party size
 
@@ -1730,9 +1733,9 @@ partial-frame/overlap Unknowns are in [party rules](party.md). Retained slices
 `palette-b.dis` and `flip-b.dis` stay outside the repository under
 `D:/Projetos/MModern/MModern-re/m87/`. REA again rejected the Windows path before opening a
 session; no REA analysis or new DOSBox play is claimed. Maintainer's 60 fps
-recordings `DOSinn.mkv` and `MMMODERNinn.mkv` establish the observed cadence
-defect; their distinct captured pictures do not determine the static loop's
-step count.
+recordings `DOSinn.mkv` and `MMMODERNinn.mkv` establish MMModern's former,
+less fluid scroll cadence, fixed in M87 Part B; their distinct captured
+pictures do not determine the static loop's step count.
 
 Checked 2026-10-23 against clean HEAD = `origin/main` =
 `f77720f8c46f6bdd68a0ff19b9313a55849c78d0`. Rules are in
@@ -1777,8 +1780,8 @@ Existing `event-dispatch/`, `m79-services-20261020/`, `m85-part0/`,
 the retained M76/M81 ranged and treasure boundaries were also reused.
 Preliminary slices beginning mid-instruction are not evidence for their
 leading bytes. The trace helper's derived call-target annotations apply to
-direct far calls only. The parent's final targeting verdict supersedes the
-mechanical sweep's initial one-draw interpretation. Preliminary action-1
+direct far calls only. The target-draw verdict below supersedes a
+preliminary one-draw interpretation. Preliminary action-1
 exit lookups were Smith lookups, not Tavern evidence.
 
 | Question | Verdict, file offsets and evidence |
@@ -1797,7 +1800,7 @@ exit lookups were Smith lookups, not Tavern evidence.
 | Return | Unconditional map load and actor rebuild `0xd086..0xd0d3`, ordinary flagged-cell Event pass `0xd18c/0xd1a5`. High, DOS static with retained M84/M85 dispatch evidence. |
 | Input/refusals | Key table `0x39c59`; Add/FX21 `0x39b33..0x39beb`; Remove `0x39a3a..0x39a73`; empty Exit `0x39ac1..0x39ad0`. High, DOS static. Full mouse table in party chapter. |
 | Dismiss | Exploration dispatch `0xd45b..0xd460`, absent from combat table `0x2ecad`; window/refusal `0x20e81..0x20f6d`; compaction/tail `0x20f70..0x21004`; Save's deferred Vertigo lodging `0x1ec97..0x1ed1e`. High, DOS static. |
-| Dismiss drawing | Poll loop `0x20eb8..0x20ec4` calls `0x10bc3(0)`; counter advancement `0x10bda..0x10be7`; argument `[bp+6]` controls the optional post-draw update at `0x117d2`, separately from scene mode `DS:9a1c`. Retained `m86/door.dis` plus `m87/dismiss.dis`; high, DOS static. |
+| Dismiss drawing | Poll loop `0x20eb8..0x20ec4` calls `0x10bc3(0)`; counter advancement `0x10bda..0x10be7`; the routine's first argument controls the optional post-draw update at `0x117d2`, separately from scene mode `DS:9a1c`. Retained `m86/door.dis` plus `m87/dismiss.dis`; high, DOS static. |
 | Poison Volley visuals | Six flags enabled `0x1d899..0x1d8bb`; hit loop bounded by active count `0x2cb46..0x2ccdb`. Projectile-render lane count remains Unknown after a focused search of retained listings; smaller-party recording or renderer analysis required. |
 | Consumer bounds | Per-category verdicts and original call sites in [consumer table](party.md#shared-state-and-consumer-bounds). High for stated checks, DOS static including retained evidence; no whole-program absence claim. |
 | Target draw count | Combat count switch `0x2d9a3..0x2d9b2`, six table entries at `0x2dc70`, conditional second draw `0x2d9c4..0x2d9e8`; eligibility fallback is later. High, DOS static. |
@@ -2043,8 +2046,8 @@ The maintainer reports Ella (third member) and Seymour (sixth) defeated.
 Their stored conditions include Eradicated; Ella also has Unconscious,
 Seymour Dead. Zippo retains Unconscious but qualifies for XP. The earlier
 claim that the ending lost XP, award 42 and deaths compared the inactive
-XEEN roster; it is withdrawn. This closes the contradictory-save stop and
-removes the proposed retained-roster mechanism from M92.
+XEEN roster and is withdrawn: DOS saves the live roster, and no pre-fight
+roster is retained.
 
 The six known pre-fight class/level/XP records and the calibrated total-XP
 helper reproduce `0071001722` in the older ending recording. This confirms
@@ -2061,9 +2064,12 @@ prevent a universal fixed duration; see the [stage table](cutscenes.md#clouds-en
 
 The external EXE manifest resolves all reached compressed frame families
 and all 73 parade selectors, using the installed archive indexes and
-validated EXE string pointers. A source-equivalent Python decoder checks
-the compressed-frame output extent and bit provenance. This is neither
-compiled-reader execution nor a rendered/audible comparison with MMModern.
+validated EXE string pointers. The Part 0 source-equivalent Python decoder
+checked the compressed-frame output extent and bit provenance, but omitted
+the LZ match-source increment; its frame hashes are superseded by the
+corrected audit and the compiled-reader test `XeenEndingPresentationTests`
+recorded in [cutscenes](cutscenes.md#clouds-ending-presentation). Neither is
+a rendered or audible comparison with DOSBox.
 
 **Maintainer DOSBox checks, reported and accepted 2026-10-25:**
 
@@ -2085,10 +2091,9 @@ compiled-reader execution nor a rendered/audible comparison with MMModern.
 These reports corroborate the stated observations, not clock rollback/DST,
 the long-time formatter, caption-only hardware mode, I/O failure, or every
 save field. Those retain their explicit static or source-equivalent labels.
-The maintainer accepted Part 0 with the Beacon limitation. Detailed evidence,
-the completed checklist and proposed quirk rows are in
-`D:/Projetos/MModern/MModern-re/m92/findings.md`. Implementation and milestone acceptance
-remain separate gates.
+The maintainer accepted Part 0 with the Beacon limitation. Detailed evidence
+and the completed checklist are in
+`D:/Projetos/MModern/MModern-re/m92/findings.md`.
 
 ## M93 Darkside startup runtime checks
 
@@ -2153,9 +2158,9 @@ replacements for the control-flow interpretation above.
 | Items | Trace the remaining unexamined item-prompt refunds and high-tier generation cases; M76 settles Recharge, Enchant and Item to Gold above. |
 | Treasure | Extend delivery evidence to the special sword and other editions' quest branches; the Clouds quest display/count boundary is established above. |
 | Magic | Extend control-spell duration and high-tier overflow checks. Holy Bonus is settled by [M76](#m76-spells); Poison Volley and Resurrection retain their earlier evidence. |
-| Travel | Calibrate the combat state after Town Portal's combat item route ([M77 open question](#open-questions-from-this-check)) and exact post-item automatic-Event timing. M76 settles handler relocation/load/admission; M77 settles the Use path and the slot test; terrain keeps its earlier evidence. |
+| Travel | Calibrate the combat state and first post-item combat iteration after Town Portal's combat item route ([M77 open question](#open-questions-from-this-check), [M85 Unknown](#event-dispatch)). M76 settles handler relocation/load/admission; M77 settles the Use path and the slot test; [M84](#event-dispatch) settles exploration post-item automatic-Event timing ([rule](world-events.md#event-dispatch)); terrain keeps its earlier evidence. |
 | Time | Verify remaining script-mode dawn behavior and uncalibrated condition-byte edges. Current MMModern wrapping/saturation is not literal equivalence with the pin's live integer counters; see the time chapter. |
-| Broader coverage | A complete Event opcode catalogue beyond [World Events](world-events.md), all services, AI/movement, character creation, Darkside/World transitions and frame-level UI timing still need dedicated chapters and calibration; [Audio](audio.md) lists its own remaining gaps. |
+| Broader coverage | A complete Event opcode catalogue beyond [World Events](world-events.md), all services, AI/movement, creation outside the Clouds Inn (whose rules are in [Create and Delete](party.md#create-and-delete)), Darkside/World transitions and frame-level UI timing still need dedicated chapters and calibration; [Audio](audio.md) lists its own remaining gaps. |
 
 These are evidence gaps, not instructions to broaden an active milestone.
 Normal DOS play or calibrated static analysis should settle reachable disputes;

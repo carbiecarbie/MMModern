@@ -1,6 +1,6 @@
 # MMModern - Roadmap
 
-**M92 is the latest completed and accepted milestone.**
+**M93 is the latest completed and accepted milestone.**
 [Project status](project-status.md) describes what is playable now;
 [project history](project-history.md) records completed milestones. Reference
 provenance belongs to [dependencies](dependencies.md).
@@ -33,6 +33,10 @@ M61 completed the Ironworks item services and item Use, M62 the original
 screens and shopkeeper animation, M63 the original clock, movement pace
 and timed sequences, and M64 the last Vertigo fixes and the first public
 releases.
+
+Since then M65-M93 have made Clouds of Xeen playable from a new game to its
+ending, with the original intros (see the arcs below). Step 19 is the only
+step left in the current arc; the maintainer chooses the next milestone.
 
 ## Completed arc: closing Vertigo and the first release
 
@@ -113,7 +117,7 @@ to Vertigo.
     gold, gems and items of its original record, at treasure levels 1 to 6
     with accessories; pending treasure stays in the running program as in
     DOS, and Event treasure shares it, keeping the original's duplicate of
-    monster items. Lord Xeen's Scepter waits for step 15.
+    monster items. Lord Xeen's Scepter came with step 15.
 12. **Audio** (Tier A). Completed and accepted in [M82](milestone-82-plan.md)
     and [M83](milestone-83-plan.md) (maintainer, 2026-10-22):
     installed CD OPL3 music/effects, VOC voices, CD speech, Text off, fixed
@@ -131,7 +135,7 @@ to Vertigo.
     [M86](milestone-86-plan.md) (Tier B, accepted 2026-10-23) then closed
     four Clouds presentation gaps: the open-door frame, the falling
     animation and its sounds, Moon Ray's per-member order and the border
-    indicators at services. Next: step 14.
+    indicators at services.
 14. **Inn, recruiting and character creation**, in two milestones
     (maintainer, 2026-10-23). [M87](milestone-87-plan.md) (Tier A, accepted
     2026-10-24, save v19): Sign In and the Inn with its saves, Dismiss, and a
@@ -140,23 +144,25 @@ to Vertigo.
     saved in full. [M88](milestone-88-plan.md) (Tier A, accepted
     2026-10-24, save v20): Create and Delete as in DOS, with the original
     creation screen and attribute rolls, saving an empty party inside the
-    Inn as DOS does. Next: step 15.
+    Inn as DOS does.
 
-A completion audit (2026-10-24) found that the Clouds main quest cannot
-finish yet: Lord Xeen's death gives neither the Scepter nor the original's
-death hook, and `CutsceneEndClouds` is unsupported (in DOS, `XEEN.DAT`
+A completion audit (2026-10-24) found that the Clouds main quest could not
+finish yet: Lord Xeen's death gave neither the Scepter nor the original's
+death hook, and `CutsceneEndClouds` was unsupported (in DOS, `XEEN.DAT`
 records the win and the score and hands off to `XEEN.EXE`, which plays the
-ending). Three side quests wait for other death or map rules. Every other
-quest uses supported Event operations but has not been played outside
-Vertigo. A DOSBox run of the ending from a late test save (maintainer,
-2026-10-24) showed the rest. The Scepter arrives through the ordinary
-treasure screen, credited to the first member even when that member is
-dead. The Sixth Mirror shatters after a four-page message. The ending lasts
-about three minutes and closes with the score and the World of Xeen title.
-The game then saves to the current slot with the party at Vertigo and the
-roster as it was before the fight. A maintenance fix (`14fb64d`) also made
-the packed flag banks read in DOS bit order. The steps below finish Clouds;
-the Pyramid and the Darkside and World endings wait for the Darkside arc.
+ending). Three side quests waited for other death or map rules. Every other
+quest used supported Event operations but had not been played outside
+Vertigo. Steps 15-18 resolved all of this. A DOSBox run of the ending from
+a late test save (maintainer, 2026-10-24) showed the rest. The Scepter
+arrives through the ordinary treasure screen, credited to the first member
+even when that member is dead. The Sixth Mirror shatters after a four-page
+message. The game then saves the live party at Vertigo to the current slot,
+before `XEEN.EXE` plays the ending; M92's repeat capture overturned an
+earlier reading that the save kept the roster as it was before the fight.
+The ending lasts about three minutes and closes with the score and the
+World of Xeen title. A maintenance fix (`14fb64d`) also made the packed
+flag banks read in DOS bit order. Steps 15-18 below finished Clouds; the
+Pyramid and the Darkside and World endings wait for the Darkside arc.
 
 15. **Clouds scripted kills and map rules**: completed and accepted in
     [M89](milestone-89-plan.md) (Tier B, 2026-10-25; save v20 unchanged).
@@ -167,7 +173,7 @@ the Pyramid and the Darkside and World endings wait for the Darkside arc.
     Medin's quests; Ice Trolls heal every round; the flag-25 caves, the
     quest-done objects and Newcastle's castle follow DOS. The audit's
     map-50 rule proved Darkside only. The Sixth Mirror shows its text, and
-    its ending says "not supported yet" until step 18. Next: step 16.
+    its ending said "not supported yet" until step 18.
 16. **Clouds verification sweep**: completed and accepted in
     [M90](milestone-90-plan.md) (Tier B, 2026-10-26; save format
     unchanged). Gate presets and presets on the watched Events, with
@@ -179,7 +185,7 @@ the Pyramid and the Darkside and World endings wait for the Darkside arc.
     Other Options `C` plays the Clouds intro as `WORLD/XEEN.EXE` does, on
     one presenter that reads its tables from the installed EXE; only Escape
     skips it. The title lightning proved unreachable on the CD title. The
-    startup path and the Darkside intro moved to step 20. Next: step 18.
+    startup path and the Darkside intro moved to step 20.
 18. **Clouds ending and score**: completed and accepted in
     [M92](milestone-92-plan.md) (Tier A, 2026-10-26; save v21). The Sixth
     Mirror wins Clouds as in DOS: the live party is saved at Vertigo, the
@@ -188,7 +194,6 @@ the Pyramid and the Darkside and World endings wait for the Darkside arc.
     is kept in `settings.ini` and unlocks Other Options `V`; `showtime`,
     `bloopers`, the vanished castle, the Beacon refusal and the panel
     clocks follow DOS. `showdown` and `genesis` wait for the Darkside arc.
-    Next: step 20.
 19. **Other sound devices** (after step 12): the original's other drivers
     (AdLib and Sound Blaster FM, MT-32 with the player's ROMs, PC speaker and
     the rest; M82 plays the CD's Pro Audio Spectrum driver), chosen as the
@@ -198,20 +203,22 @@ the Pyramid and the Darkside and World endings wait for the Darkside arc.
     [M93](milestone-93-plan.md) (Tier B, 2026-10-27; save v21 unchanged).
     Every launch runs `WORLD/XEEN.EXE`'s Darkside path before the title:
     the full story until it has been watched to its end, then NWC, JVC and
-    the World logo. Other Options `D` plays the full story again. The
-    watched state is kept in `settings.ini`, never in `XEEN.CFG`
+    the World logo. Other Options `D` clears the watched state and plays
+    the full story again. The watched state is kept in `settings.ini`,
+    never in `XEEN.CFG`
     ([cutscene rules](rules/cutscenes.md#startup-dispatch)). Step 19
     remains in this arc.
 
-Order: 15 → 16 → 17 → 18 → 20; step 19 is independent.
+Steps 15-18 and 20 are done; step 19 remains and is independent.
 
 ## Medium-term objective
 
 The first objective, a **normal-start Clouds foothold** (a new game played
 continuously with equipment, recovery, spells, Training, quests and saves),
-was reached in Vertigo by M64 and extended to all of Clouds by M78-M81; the
-remaining steps above are the medium term. A further area should mostly
-need its resources and mechanic gaps, not a new coordinator or save shape.
+was reached in Vertigo by M64 and extended to all of Clouds by M78-M81;
+steps 15-18 and 20 then finished Clouds, and step 19 remains. A further area
+should mostly need its resources and mechanic gaps, not a new coordinator or
+save shape.
 
 ## Long-term direction
 

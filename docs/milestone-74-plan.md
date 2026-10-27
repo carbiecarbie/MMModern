@@ -49,7 +49,8 @@ and travel spells (M76), map admission, combat inventory, audio.
 - Poison Volley gives each active member one shot, without a missile weapon,
   using weapon accuracy; a miss keeps the shot for later targets.
 - Census: 42 of 76 spells supported. Developer test save `monster-damage`
-  (README) starts in Vertigo with all 23 spells.
+  ([development guide](development.md#developer-test-saves)) starts in
+  Vertigo with all 23 spells.
 - Known limit: Poison Volley assumes a full party of six shooters; the DOS
   loop follows the active party size, which matters once the party can
   shrink (Inn step).

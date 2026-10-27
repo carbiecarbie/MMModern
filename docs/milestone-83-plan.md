@@ -13,9 +13,11 @@ VOC effects and voices, service/entrance speech, the dream and death laugh,
 Event samples and GOG CD speech mix with the installed CD promus OPL3 path.
 Text off hides the NPC body replaced by speech. Logical waits stay on the
 presentation clock, independent of output, with no saved playback state.
-Darkside, intros/endings (step 15), other devices and a device selector (step 16)
-remain outside scope. Inn music awaits Sign In (step 14); fall/landing samples
-await their presentation, and title lightning belongs to step 15.
+Darkside, intros/endings (now roadmap steps 17, 18 and 20), other devices and
+a device selector (now step 19) remain outside scope. Inn music awaited Sign In
+(step 14, added in M87); fall/landing samples awaited their presentation
+(added in M86), and title lightning was left to the intros (M91 found it
+unreachable on the CD title).
 
 | Part | Commit | Result |
 | --- | --- | --- |
@@ -55,6 +57,8 @@ These are the maintainer's decisions of 2026-10-22.
 - FM/VOC/CD gains are 0.5/0.01875/0.34375. Against the maintainer's DOSBox
   Staging captures, VOC/FM is -0.7 dB and CD/FM agrees within ±0.3 dB,
   within the approved ±1.5 dB tolerance. This is not DOS hardware evidence.
+  Maintenance `a15d0a8` later replaced these gains with a common base gain
+  and the Sound Blaster Pro [card mixer](rules/audio.md#card-mixer).
 - Output failures silence all audio with one notice and keep gameplay running.
   Removal reopens the current default at its rate, retaining the FM song;
   VOC/CD stay silent until their next start. Default/rate changes preserve
@@ -78,8 +82,8 @@ Closure validation passed: affected tests 3/3, fast suite 231/231 and the
 complete build-rel suite 269/269 (225 seconds, unsandboxed lightweight runner).
 The extracted package opened the title and exited normally with MSYS2 absent
 from PATH; imports retain only SDL2, zlib and winpthreads as non-system DLLs.
-Static Vorbis/Ogg licenses and package versions are included. No release is
-published or tagged.
+Static Vorbis/Ogg licenses and package versions are included. The closure
+itself published no release; M83 shipped in v0.7.0.
 
 M44 regression expectations stay unchanged by closure: mainland
 `c77d601069a5d49e0bf799b26e1842ae2eddfff98fa7d90d3a6de5374bc8be94`,

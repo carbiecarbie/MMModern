@@ -66,5 +66,7 @@ supported yet" until M88. The rules are in [party rules](rules/party.md).
   ([party rules](rules/party.md)); DOS skips scrolls when `[0x94]` is nonzero
   (`0xad12..0xad2a`), and since [combat rules](rules/combat.md) name
   `ds:0x94` the archive selector, this may concern Darkside only
-  (unverified); and the runtime checks in
+  (unverified at closure; M89 later identified `[0x94]` as the side byte,
+  zero on Clouds, in [`sv-map50-stepped`](original-quirks.md#sv-map50-stepped),
+  so the skip is Darkside only); and the runtime checks in
   [M87 evidence](rules/evidence.md#m87-runtime-checks).

@@ -4,9 +4,9 @@
 after the play-tests. Plan `1260911`, Part 0 `4c57a2e`, Part A `5394da2`,
 Part B `bc85012`, Part C1 `3c192f0`, Part C2 `56961dd` and the closure
 commit. Roadmap [step 18](roadmap.md#next-arc-finishing-the-games-systems),
-after [M91](milestone-91-plan.md); [M90](milestone-90-plan.md) still waits
-for its whole-quest play-through. Save v21 (schema 9, content 14); M44
-digests replaced once, at Part A's format audit.
+after [M91](milestone-91-plan.md) and before [M90](milestone-90-plan.md)'s
+whole-quest play-through (closed 2026-10-26). Save v21 (schema 9,
+content 14); M44 digests replaced once, at Part A's format audit.
 
 ## Scope and results
 
@@ -97,8 +97,10 @@ rests on static evidence only (no suitable Beacon in DOSBox).
 - Maintainer play-tests (2026-10-26): the Lord Xeen fight, the mirror and
   the save, `showtime`, `bloopers`, the castle, the whole ending, the score
   pages and Other Options `V`.
-- Follow-ups left for maintenance:
+- Follow-ups left for maintenance, all done since:
   - voices play quieter than in DOS throughout the game, including the
-    EXE's mixer commands 75/95;
-  - unrecognized control-panel keys close the DOS panel;
-  - the sheet's experience may be 1,024,000 low at level 13 and above.
+    EXE's mixer commands 75/95 (done in `a15d0a8`);
+  - unrecognized control-panel keys close the DOS panel (done in
+    `7bb6308`);
+  - the sheet's experience may be 1,024,000 low at level 13 and above
+    (done in `7bb6308`).

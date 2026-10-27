@@ -26,8 +26,8 @@ Crodo's narration (Escape skips it); after a win it also offers `V`, which
 replays the Clouds ending. Each launch first plays the Darkside intro, as
 the CD does: the full story until it has been watched to its end, then only
 the logos and the World of Xeen title. Escape skips the story, and Other
-Options `D` plays it in full again. Whether it was watched is kept in
-`settings.ini` beside the Clouds win.
+Options `D` forgets that it was watched and plays it in full again. Whether
+it was watched is kept in `settings.ini` beside the Clouds win.
 Choosing New asks for a save slot, a name and the difficulty: Adventurer
 (weapons hit harder) or Warrior. As in the original, the six level-1 Clouds
 characters then stand in Vertigo at `(18,4)` facing West at 08:00 on day 1 of
@@ -283,14 +283,16 @@ treasure, as in the original. During 0.x, older formats are rejected before
 anything is restored, newer or unrecognized saves are left alone, and F9
 overwrites only a recognizable older MMModern save. Saves are tied to the
 original archives by fingerprint, written atomically, and not compatible with
-the original games or ScummVM. The Inn's saves are the only autosave.
+the original games or ScummVM. The Inn's saves and the Clouds ending's save
+are the only autosaves.
 
 ## Architecture overview
 
 Source is under `src/`: `core` (input, frame and installation types),
 `formats/xeen` (original resource and save formats), `games/xeen` (rules and
 state), `app` (coordination and presentation), `platform` (SDL window, audio
-output and save file I/O) and `compat` (the linked ScummVM components).
+output, save file I/O, the `settings.ini` store and the system clock) and
+`compat` (the linked ScummVM components).
 
 - Party and roster (`XeenParty`, `XeenRoster`): all thirty roster
   characters, the active party of one to six, inventory, quest items, purse
@@ -298,9 +300,12 @@ output and save file I/O) and `compat` (the linked ScummVM components).
 - World (`XeenWorld`, `XeenSessionWorldState`): map and object caches, live
   actors, per-map state, economy, calendar and the world random state.
 - Running program (`XeenProgramState`, created by `main`): what the original
-  keeps outside its saves, which is the last Temple prices, pending
-  treasure and the play-time start mark, plus the audio owner `XeenAudio`,
-  whose music, VOC and CD paths never change time, randomness or saves.
+  keeps outside its saves: the last Temple prices, pending treasure, the
+  play-time start mark, the skipped-Event flag, whether the Inn song has
+  started, and the current weapon and footstep sounds. It also holds the
+  Clouds win and the Darkside intro's seen state read from `settings.ini`,
+  and the audio owner `XeenAudio`, whose music, VOC and CD paths never
+  change time, randomness or saves.
   `XeenWallClock` gives DOS `time()` seconds; only the player's title path
   binds the system clock, and every test and developer mode uses a fixed
   one.
@@ -309,9 +314,11 @@ output and save file I/O) and `compat` (the linked ScummVM components).
 - Events: `XeenEventSystem` decodes and runs the original Event scripts.
   Unsupported effects refuse visibly without publishing anything partial.
 - Cutscenes: `XeenCutscene` (pure segments) and `XeenCutsceneFlow` play
-  the Clouds intro and ending of the CD's second program, `WORLD/XEEN.EXE`,
-  with tables read from it at run time, the EXE's compressed frames and its
-  own presentation random source.
+  the Darkside intro and the Clouds intro and ending of the CD's second
+  program, `WORLD/XEEN.EXE`, with tables read from it at run time, the
+  EXE's compressed frames and its own presentation random source. At launch
+  `Application` chooses the Darkside intro's full or short path from the
+  seen state.
 - Flows (`app`): `XeenEventFlow` coordinates the gameplay session, input,
   dialogs, inventory and the Inn. `XeenEncounterFlow` hosts encounters,
   combat, services, casting and consequences, `XeenNavigationFlow` handles
@@ -338,6 +345,8 @@ the original data uses and its support status.
 - Scenes and commands: the Pyramid entrance and the mirror words
   `showdown` and `genesis` (the Darkside and World endings) say "not
   supported yet".
+- Combat: moving forward or back during a fight says "not supported yet";
+  turning works.
 - Sound: other sound devices belong to step 19. F8 speech replay is
   omitted by maintainer decision. SDL's resampler plays FM and CD audio up
   to about 0.07% fast, which is inaudible

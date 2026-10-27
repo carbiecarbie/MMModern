@@ -45,9 +45,9 @@ changes, combat inventory, map admission, audio.
 ## Results
 
 - Census: 54 of 76 spells supported. Developer test save `party-healing`
-  (README) starts in Vertigo with a Cleric and a Druid who know all 12
-  spells, four patients with every condition, and charged items for the
-  ten powers.
+  ([development guide](development.md#developer-test-saves)) starts in
+  Vertigo with a Cleric and a Druid who know all 12 spells, four patients
+  with every condition, and charged items for the ten powers.
 - Cancelling a member prompt refunds the spell's own SP and gems, from the
   book and from items.
 

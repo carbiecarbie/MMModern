@@ -142,10 +142,12 @@ void inventory(const std::filesystem::path &rules) {
         {"0x31ea9","20"},
         {"0x31f07","20"},
         {"0x31f61","20"},
+        {"0x368c3","21"},
+        {"0x39bda","21"},
     };
-    check(std::size(sites)==130,"C1/C2 inventory size changed");
+    check(std::size(sites)==132,"C1/C2 inventory size changed");
     const auto count=[&](const char *needle){unsigned n=0;for(std::size_t p=0;(p=text.find(needle,p))!=text.npos;p+=std::char_traits<char>::length(needle))++n;return n;};
-    check(count(" | C1 | High:")==44 && count(" | C2 | High:")==86 && count(" | Not reachable yet:")==3,
+    check(count(" | C1 | High:")==46 && count(" | C2 | High:")==86 && count(" | Not reachable yet:")==1,
         "full 133-site reconciliation changed");
     std::set<std::string> unique;
     for(const auto &[site,expression]:sites) {

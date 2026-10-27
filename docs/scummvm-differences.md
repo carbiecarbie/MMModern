@@ -23,8 +23,9 @@ terrain/Tavern/Temple/recovery/spell/movement/entrance/audio/party/scripted-map/
 rechecked". At that check, since the pin the
 Xeen engine has had only a code-style edit and the Xeen data in `mm.dat` is
 unchanged apart from its version number, so the earlier entries are marked
-"master: differs". MMModern plays all of Clouds of Xeen; items that concern
-only Darkside wait for its gameplay.
+"master: differs". MMModern plays Clouds of Xeen, apart from the
+[gaps below](#what-scummvm-has-that-mmmodern-does-not-yet), and the Darkside
+intro at startup; items that concern only Darkside gameplay wait for it.
 
 - **Play time after Load.** [The running program retains its clock mark](original-quirks.md#dos-play-time-start-mark), including time at the title or since the preceding Save. The pin restores its frame counter on Load. Pin: differs; master not rechecked.
 - **Civil clock changes.** [Play time follows unsigned DOS wall-clock arithmetic and legacy April/October DST](original-quirks.md#dos-play-time-unsigned-clock); rollback may reduce or wrap it. The pin counts presentation frames. Pin: differs; master not rechecked.
@@ -40,8 +41,7 @@ only Darkside wait for its gameplay.
 - **Dismiss lodging.** [Dismiss keeps departed characters until the next Save](original-quirks.md#sv-dismiss-deferred-lodging), which lodges them in Vertigo on Clouds. The pin removes them without that deferred lodging pass. Pin: differs; master not rechecked.
 - **Saved lodging map.** The [CHR lodging map is a 16-bit word at bytes 340–341](original-quirks.md#sv-chr-lodging-layout); byte 339 is separate. The pin starts the unknown field one byte earlier and reads only byte 341 as the map. Pin: differs; master not rechecked.
 
-M83's digital decoder and logical timing use the installed driver rules;
-gameplay playback sites and CD rules follow in Parts A2 and B:
+M83 follows the installed digital driver and CD rules:
 
 - **Fixed sample layout and rate.** The installed CD driver
   [ignores VOC blocks and header rates](original-quirks.md#sv-prosnd-fixed-layout).
@@ -111,9 +111,6 @@ gameplay playback sites and CD rules follow in Parts A2 and B:
 - **Cleared Beacon coordinates.** A deleted or newly created roster record has Beacon x/y zero,
   like every other CHR field. The pin leaves those coordinates untouched.
   [Evidence](original-quirks.md#sv-create-delete-beacon-clear). Pin: differs; master not rechecked.
-- **Create slot bounds.** DOS and MMModern scan slots 0–23 and refuse Create
-  at 24 characters in the displayed Inn list. The pin uses 30 for both.
-  [Evidence](original-quirks.md#sv-create-slot-bounds). Pin: differs; master not rechecked.
 - **Create class selection.** The arrow starts on the first eligible class;
   Left/Right move it, Enter commits, and unavailable classes use color 2.
   The committed class survives arrow movement. The pin initially highlights
@@ -359,6 +356,11 @@ against the pin; master was not rechecked.
   setting its executed marker. The pin marks execution before every matching
   instruction, changing aborted/unmarked paths.
   [Evidence](original-quirks.md#sv-event-tail-marker).
+- DOS clears its skipped-call flag at the next admitted Event scan, so a
+  fight started by a draw reruns the cell's Events only while the latest call
+  was skipped. The pin never clears that flag, so after one skipped call
+  every later such fight reruns them.
+  [Evidence](original-quirks.md#sv-event-skip-scan-clear).
 
 - **The Vowelless Knight.** ScummVM accepts either spelling of one riddle
   answer, a documented workaround for a data error; the original, and
@@ -438,7 +440,7 @@ against the pin; master was not rechecked.
 
 - **CD FM driver.** The maintainer chose
   INTRO.CC `promus` on pinned Nuked in OPL3 stereo on 2026-10-21; admus and
-  blastmus move to roadmap step 16. DOS uses two patches/banks per voice,
+  blastmus belong to roadmap step 19 (other sound devices). DOS uses two patches/banks per voice,
   22-byte FX definitions and its own FX dispatch/cache quirks. The pin uses
   OPL2 and blastmus data. Pin: differs; master not rechecked. No listening
   comparison is claimed.
@@ -534,6 +536,24 @@ against the pin; master was not rechecked.
   [Info](original-quirks.md#sv-info-title),
   [Bank](original-quirks.md#sv-bank-wording). Master: differs.
 
+## Cutscenes
+
+- **Clouds intro.** [Original mouth timing, animation, captions and skip rules](original-quirks.md#sv-clouds-intro-presentation) follow the calibrated EXE: 31-entry mouth tables, BIOS/retrace pacing, hardware-gated caption strip and Escape/scroll-specific skipping. Pin: differs; master not rechecked.
+- **Clouds ending input.** [Animation ignores keys and clicks](original-quirks.md#sv-clouds-ending-input), shared scrolls terminate on any key and acknowledgement holds require a keyboard result. Pin: broader key/mouse cancellation; master not rechecked.
+- **Clouds ending captions.** [The first king speech uses the final speech's caption](original-quirks.md#sv-clouds-ending-captions), selected through DOS's every-NUL offsets and digital-device predicate. Pin: matching subtitle groups and different waits/settings; master not rechecked.
+- **Clouds ending randomness.** [The EXE's private time-mixed source and inclusive modulo](original-quirks.md#sv-clouds-ending-rng) supply presentation randomness independently of Journey. Pin: engine random helper; master not rechecked.
+- **Clouds ending parade.** [The power hold draws attack frame 3](original-quirks.md#sv-clouds-ending-parade-power), after the three attack frames 0..2. Pin: keeps frame 2; master not rechecked.
+
+The Darkside items below concern the intro that M93 plays at startup;
+Darkside gameplay is not supported:
+
+- **Darkside repeat startup.** [The short path includes JVC and saves seen before the World logo](original-quirks.md#sv-darkside-startup-seen); D clears seen first, so an early Escape leaves the full story due. MMModern stores it in `settings.ini`; the pin omits short-path JVC and stores `seen_intro` after the World logo; master not rechecked.
+- **Darkside sequencing.** [BIOS/retrace holds, measured pan strides and reset points](original-quirks.md#sv-darkside-sequencing) govern the pyramid, room and terminal holds. Pin: different wait timing, pan/zoom behavior, room counter and voice/draw ordering; master not rechecked.
+- **Darkside captions.** [Hardware-gated records and scene-specific strip updates](original-quirks.md#sv-darkside-captions) include the combined final record and blank pharoh9a strip. Pin: subtitle settings, different records and update timing; master not rechecked.
+- **Darkside speaking variants.** [The EXE's private time-mixed random source](original-quirks.md#sv-darkside-random) selects queen, Dark Lord and wizard frames. Pin: cycles by host time; master not rechecked.
+- **Darkside audio and return.** [Hardware-selected themes, mixer commands, voice buffers and fresh-title return](original-quirks.md#sv-darkside-audio-return) follow explicit EXE calls. Pin: different volume/cue timing and return sequence; master not rechecked.
+- **Darkside input.** [Escape-only story cancellation and non-abortable World frames](original-quirks.md#sv-darkside-input) preserve the two keyboard-shortened boundary holds. Pin: broader key/mouse cancellation; master not rechecked.
+
 ## Rare cases
 
 - **Castle Xeen disappears after Clouds completion.** Main-map object 85 on
@@ -558,10 +578,12 @@ Curse Item against the Xeen Slayer Sword ([Curse](original-quirks.md#sv-curse-it
 Deliberate differences from the original, approved by the maintainer and kept
 apart from the fidelity differences above.
 
-- **Clouds won marker in MMModern settings.** A boolean in
+- **Clouds won marker and Darkside seen state in MMModern settings.** A boolean in
   `%LOCALAPPDATA%\MMModern\settings.ini` gates the title independently of the
   saved party. Failed publication shows a notice and keeps the previous won value;
-  no score, original CFG bytes or byte-18 CPU-option overlap is written.
+  no score, original CFG bytes or byte-18 CPU-option overlap is written. Since
+  M93 a second boolean beside it records whether the Darkside intro was seen,
+  instead of the original `XEEN.CFG`.
   Master not rechecked. [Details](original-quirks.md#dev-clouds-won-store)
 - **Recoverable Inn and Clouds ending save failures.** Sign In, Exit, a confirmed Delete and the
   Create return show an error and allow retry, retaining the paid day, the
@@ -601,34 +623,14 @@ apart from the fidelity differences above.
 ScummVM plays the whole game today; MMModern is young. The full list of gaps is
 in [project status](project-status.md#known-gaps):
 
-- **The whole game:** Clouds of Xeen is playable without its intro, Pyramid
-  entrance and ending; Darkside of Xeen is not.
-- **Sound:** CD speech and VOC starts in implemented Clouds presentations
-  are audible, with fixed balance checked against DOSBox and output recovery.
-  The Inn uses its original song; F8 replay is deliberately omitted.
-  Fall/landing and title lightning remain excluded with their absent
-  presentations ([site inventory](rules/audio.md#voc-inventory-boundaries)).
-  Only the promus OPL3 music device is supported.
-- **Services and party:** character creation and deletion remain unsupported.
+- **The whole game:** Clouds of Xeen is playable from its intro to its
+  ending, except the Pyramid entrance and the mirror words `showdown` and
+  `genesis` (the Darkside and World endings). Darkside of Xeen gameplay is
+  not supported; only its intro plays at startup.
+- **Sound:** only the CD `promus` OPL3 music device is supported; the
+  original's other sound devices belong to roadmap step 19.
 - **Platforms and editions:** MMModern runs on 64-bit Windows with the English
   World of Xeen CD; ScummVM covers many platforms, editions and languages, and
   Swords of Xeen.
 
 Next steps are in the [roadmap](roadmap.md).
-
-
-- **Clouds intro.** [Original mouth timing, animation, captions and skip rules](original-quirks.md#sv-clouds-intro-presentation) follow the calibrated EXE: 31-entry mouth tables, BIOS/retrace pacing, hardware-gated caption strip and Escape/scroll-specific skipping. Pin: differs; master not rechecked.
-- **Clouds ending input.** [Animation ignores keys and clicks](original-quirks.md#sv-clouds-ending-input), shared scrolls terminate on any key and acknowledgement holds require a keyboard result. Pin: broader key/mouse cancellation; master not rechecked.
-- **Clouds ending captions.** [The first king speech uses the final speech's caption](original-quirks.md#sv-clouds-ending-captions), selected through DOS's every-NUL offsets and digital-device predicate. Pin: matching subtitle groups and different waits/settings; master not rechecked.
-- **Clouds ending randomness.** [The EXE's private time-mixed source and inclusive modulo](original-quirks.md#sv-clouds-ending-rng) supply presentation randomness independently of Journey. Pin: engine random helper; master not rechecked.
-- **Clouds ending parade.** [The power hold draws attack frame 3](original-quirks.md#sv-clouds-ending-parade-power), after the three attack frames 0..2. Pin: keeps frame 2; master not rechecked.
-
-The following Darkside items are calibrated original rules, not implemented
-presentation coverage:
-
-- **Darkside repeat startup.** [The short path includes JVC and saves seen before the World logo](original-quirks.md#sv-darkside-startup-seen); D clears seen first, so an early Escape leaves the full story due. MMModern stores it in `settings.ini`; the pin omits short-path JVC and stores `seen_intro` after the World logo; master not rechecked.
-- **Darkside sequencing.** [BIOS/retrace holds, measured pan strides and reset points](original-quirks.md#sv-darkside-sequencing) govern the pyramid, room and terminal holds. Pin: different wait timing, pan/zoom behavior, room counter and voice/draw ordering; master not rechecked.
-- **Darkside captions.** [Hardware-gated records and scene-specific strip updates](original-quirks.md#sv-darkside-captions) include the combined final record and blank pharoh9a strip. Pin: subtitle settings, different records and update timing; master not rechecked.
-- **Darkside speaking variants.** [The EXE's private time-mixed random source](original-quirks.md#sv-darkside-random) selects queen, Dark Lord and wizard frames. Pin: cycles by host time; master not rechecked.
-- **Darkside audio and return.** [Hardware-selected themes, mixer commands, voice buffers and fresh-title return](original-quirks.md#sv-darkside-audio-return) follow explicit EXE calls. Pin: different volume/cue timing and return sequence; master not rechecked.
-- **Darkside input.** [Escape-only story cancellation and non-abortable World frames](original-quirks.md#sv-darkside-input) preserve the two keyboard-shortened boundary holds. Pin: broader key/mouse cancellation; master not rechecked.

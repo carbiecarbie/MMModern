@@ -34,9 +34,9 @@ There is no monotonic clamp: moving the DOS clock backwards can reduce
 the total, or wrap to a large unsigned value if the total goes below zero.
 Save-time I/O between the query and the reset is not accumulated again.
 
-`time()` (`0x6ccc`) reads DOS date/time via INT 21h AH=2Ah/2Ch and converts
-through Borland's runtime (`0xa4ac`). The host reader accepts DOS civil years
-1980 through 2107, using Borland's `year & 3` leap rule, including 2100.
+`time()` (`0x6ccc`) reads the date and time through the DOS Get Date and
+Get Time services and converts through Borland's runtime (`0xa4ac`). The
+host reader accepts DOS civil years 1980 through 2107, using Borland's `year & 3` leap rule, including 2100.
 An out-of-range host date reports an error. Without `TZ`, `0xa7da..0xa8cb` selects
 EST/EDT, a 18,000-second standard offset and enabled legacy US DST. The
 rule (`0xa9c8..0xaaa2`) uses the first Sunday in April from 1987 onward
@@ -843,8 +843,8 @@ without changing the ordinary interactive time owner.
 
 Sign In enters the original inn party manager, after writing town/side and
 advancing a day (`0x1b6b0..0x1b79a`, outer dispatch `0x0b819..0x0b839`,
-inn guard/list `0x394b7..0x395d5`). It remains unsupported until the inn
-milestone, by the maintainer's explicit 2026-10-17 scope decision.
+inn guard/list `0x394b7..0x395d5`). Its rules are in
+[Sign In and time](party.md#sign-in-and-time).
 
 ## Executable witnesses and limits
 

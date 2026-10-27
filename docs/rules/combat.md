@@ -273,9 +273,10 @@ spell behavior.
 
 ## Monster targeting and hit resolution
 
-**Evidence: Reference only.** Symbols: both `doMonsterTurn` overloads. A monster's
-`numberOfAttacks` repeats target selection and resolution; `strikes` is instead
-the number of damage dice within one successful damage application.
+**Evidence: Reference only, except the rules marked DOS static.** Symbols: both
+`doMonsterTurn` overloads. A monster's `numberOfAttacks` repeats target
+selection and resolution; `strikes` is instead the number of damage dice within
+one successful damage application.
 
 For each attack, hatred Party (15) attacks every combat participant, including
 disabled and dead members. Otherwise the reference selects the first eligible
@@ -699,7 +700,7 @@ quest flag 23 and gives award 42 to every active member, including dead members
 Volley and exploration Shoot/spells use the shared rule, published with kill XP.
 The pin's `combat.cpp` tests slot 20 for map 41; the original program and MOB
 binding require slot 28, as recorded in
-[the scripted death-hook difference](../scummvm-differences.md).
+[the scripted death-hook difference](../original-quirks.md#sv-clouds-death-slots).
 
 Outside map 85, Clouds species 89 stages the Scepter before random treasure
 (`0x2c30b..0x2c337`; normal drop starts `0x2c33b`). Pending weapon slot 0 gets
@@ -769,12 +770,17 @@ Highest-value unresolved original-program checks:
 
 1. (Settled, M68 Part A) Eradicate clears weapon, armor and accessory frames and
    keeps miscellaneous frames; Break Weapon unequips.
-2. Is the source's uniform initial targeting distribution equivalent to the
-   original party-size switch for every party size? Hatred 1's bypass is confirmed.
-3. Are elemental weapon damage and effectiveness applied once after accumulating
-   multi-attacks exactly as shown? M67 implements the reference order and
-   marks it Reference only; the maintainer's DOSBox comparison of a metal, an
-   elemental and an effective weapon against the same Vertigo monster settles it.
+2. (Settled, M87, DOS static) The source's uniform initial targeting is not
+   equivalent to the original party-size switch: one participant takes index 0
+   without a draw, and six take one or two draws
+   ([monster targeting](#monster-targeting-and-hit-resolution)). Hatred 1's
+   bypass is confirmed. The generator's statistical distribution is not measured.
+3. Is elemental weapon damage added once after accumulating multi-attacks
+   exactly as shown? M67 implements the reference order and marks it Reference
+   only. Effectiveness multiplying the accumulated attempts before `attack2` is
+   DOS static since M89 ([Lord Xeen](#lord-xeen-and-scripted-death-hooks)). The
+   maintainer's DOSBox comparison of a metal and an elemental weapon against
+   the same Vertigo monster settles the elemental term.
 4. Verify the game-ID criterion for doubled low-level XP in World of Xeen CD.
 
 No DOS-width, overflow or malformed-resource behavior beyond the retained

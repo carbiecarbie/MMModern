@@ -4,9 +4,9 @@
 after the play-test. Plan `0543336`, Part 0 `5bdd161`, implementation
 `fcc54d8` and the closure commit. Roadmap
 [step 17](roadmap.md#next-arc-finishing-the-games-systems), after
-[M89](milestone-89-plan.md), while [M90](milestone-90-plan.md) waits for its
-whole-quest play-through. Save v20, schema 9 and content 14 unchanged; M44
-digests unchanged.
+[M89](milestone-89-plan.md), before [M90](milestone-90-plan.md)'s
+whole-quest play-through (closed 2026-10-26). Save v20, schema 9 and
+content 14 unchanged; M44 digests unchanged.
 
 ## Scope and results
 
@@ -25,8 +25,8 @@ in one process:
   `PresentationClock`, publishes frames and sends songs, FM cues and VOC
   samples through `XeenAudio` only. The ending's kinds (compressed frames,
   horizontal merges, monster parade, score reveal, acknowledgement holds)
-  are new composition, generator or termination kinds for step 18; none is
-  implemented yet.
+  are new composition, generator or termination kinds for step 18; none
+  was implemented here, and M92 added them.
 - **EXE data.** `XeenCutsceneData` reads the resource names, voice table,
   31-entry mouth and wait rows, tower coordinates and labels from the
   installed XEEN.EXE at run time, with size and structural checks. A
@@ -51,7 +51,8 @@ in one process:
   then a short logo sequence). Part 0 estimated 8-13 developer days, so it
   became [roadmap step 20](roadmap.md#next-arc-finishing-the-games-systems),
   after the Clouds ending. Until then MMModern opens at the World title and
-  Other Options `D` keeps its notice.
+  Other Options `D` keeps its notice; M93 replaced both with the Darkside
+  intro.
 - **EXE over the pin.** The original tables have 31-entry rows where the
   pin regroups them as 32; waits are BIOS holds, not 50 Hz frames; only
   Escape skips. Recorded in [original quirks](original-quirks.md#sv-clouds-intro-presentation)

@@ -446,21 +446,22 @@ the entrance captions. Energy Blast now deals 2-6 times the caster's level, as
 in DOS. [Plan](milestone-82-plan.md).
 
 **M83 - Digital sound and CD speech** (`9affd5f`, `69816ac`, `af987a0`,
-`aab321f`, `c1d0e83`; documentation audit `bc2536a` and the closure commit).
+`aab321f`, `c1d0e83`; documentation audit `bc2536a` and closure `5b11b62`).
 Accepted by the maintainer on 2026-10-22 after play-testing A2, B and C;
 Part D changes nothing audible. Digital effects, service and entrance voices, the dream, death laugh and CD
 speech now mix with FM using the installed digital driver's fixed transfer
 layout. GOG cue sheets retain disc addresses and cross-file playback; Text off
 hides the NPC body replaced by speech, with readable text when delivery fails.
-Fixed source gains match the maintainer's DOSBox captures. Output failures
+Fixed source gains matched the maintainer's DOSBox captures (maintenance
+`a15d0a8` later replaced them with the Sound Blaster mixer). Output failures
 silence audio with one notice, and removal/default changes recover at the new
 output rate without changing gameplay deadlines, RNG or saves (v18 unchanged).
 F8 replay and resource-read CD restarts are omitted by maintainer decision.
 [Plan](milestone-83-plan.md).
 
 **M84 - Event dispatch on every input** (plan `d13ced5` with amendments
-`10260af`, `2bbd262`; Part 0 `ee9fe24`, A1 `7a6ed85`, A2 `9e6fdd5` and the
-closure commit). Accepted by the maintainer on 2026-10-23 after play-testing
+`10260af`, `2bbd262`; Part 0 `ee9fe24`, A1 `7a6ed85`, A2 `9e6fdd5` and
+closure `fd5d8b5`). Accepted by the maintainer on 2026-10-23 after play-testing
 Part A. As in DOS, every key or click in exploration ends with one pass that
 runs a flagged cell's Events again, even with no matching record: traps hurt
 again, labels return and WhoWill clears; Space and a 3D-view click run them
@@ -469,11 +470,11 @@ decides what follows, so an NPC or WhoWill answer skips Space's Wait; this
 replaced all four M44 digests with approval. Part 0 also showed that the CD
 game treats the right mouse button as the left, confirmed in DOSBox, and the
 keyboard now follows the original's translation table (W waits, keypad 4/6
-turn). Save v18 is unchanged; the post-combat calls wait for the second
-milestone. [Plan](milestone-84-plan.md).
+turn). Save v18 is unchanged; the post-combat calls followed in M85.
+[Plan](milestone-84-plan.md).
 
 **M85 - Event calls after combat** (plan `1d2b92d` with amendment
-`70e152c`; Part 0 `15ea744`, Part A `e3066f0` and the closure commit).
+`70e152c`; Part 0 `15ea744`, Part A `e3066f0` and closure `60a8dc1`).
 Accepted by the maintainer on 2026-10-23 after play-testing Part A. As in
 DOS, an Event call that finds a monster at the party before one of its lines
 stops and is remembered; when the fight ends, a door label that was up comes
@@ -485,7 +486,7 @@ Treasure after a win still waits while monsters are in view. Save v18 and
 all M44 digests are unchanged. [Plan](milestone-85-plan.md).
 
 **M86 - Clouds presentation loose ends** (plan `4542db9`, implementation
-`661fdcc` and the closure commit). Accepted by the maintainer on 2026-10-23
+`661fdcc` and closure `b2bf700`). Accepted by the maintainer on 2026-10-23
 after the play-test. As in DOS, walking through a door shows it open for an
 instant, a fall from the sky or the clouds plays the original drop with the
 scream and the landing sounds before its damage, Moon Ray heals and sparkles
@@ -494,7 +495,7 @@ screen opens. FallToMap, used only in Darkside, stays unsupported. Save v18
 and all M44 digests are unchanged. [Plan](milestone-86-plan.md).
 
 **M87 - The Inn and a party of one to six** (plan `f77720f`, Part 0
-`4ed3a15`, Part A `dfa3788`, Part B `4182202` and the closure commit).
+`4ed3a15`, Part A `dfa3788`, Part B `4182202` and closure `c45c112`).
 Accepted by the maintainer on 2026-10-24 after the play-test. As in DOS,
 Sign In at the Vertigo, Rivercity or Shangri-La tavern lodges the party,
 adds a day, saves the game and opens the original Inn, where lodged
@@ -505,11 +506,11 @@ game plays with any one to six characters, and monster targets follow the
 DOS count-dependent draws, which replaced the four M44 digests after an
 approved audit. Every roster record is saved in full (save v19). A failed
 Inn save retries instead of quitting (approved deviation), and the death
-scroll gained the DOS skip. Create and Delete wait for M88.
+scroll gained the DOS skip. Create and Delete followed in M88.
 [Plan](milestone-87-plan.md).
 
 **M88 - Create and Delete at the Inn** (plan `e862107`, Part 0 `b54f893`,
-Part A `eba589d`, Part B `d8168c4` and the closure commit). Accepted by the
+Part A `eba589d`, Part B `d8168c4` and closure `fc6ae8a`). Accepted by the
 maintainer on 2026-10-24 after the play-test. As in DOS, the Inn's Create
 opens the original creation screen: the dice roll the attributes, the
 classes they allow light up, attributes can be exchanged, and each free
@@ -523,7 +524,7 @@ the Event interpreter's range draw (maintainer decision).
 [Plan](milestone-88-plan.md).
 
 **M89 - Clouds scripted kills and map rules** (plan `67b15da`,
-implementation `3182b40` and the closure commit). Accepted by the
+implementation `3182b40` and closure `9d00723`). Accepted by the
 maintainer on 2026-10-25 after the play-test. The Clouds rules that live in
 the original program rather than in the Events now work as in DOS: only the
 Xeen Slayer Sword hurts Lord Xeen, with the original's +100 per hit, and
@@ -531,13 +532,14 @@ his death gives the Scepter, the defeat flag and award; the Clan King, Count
 Draco and the lake's Water Dragons complete Gunther's, the Nightshadow
 well's and Medin's quests; Ice Trolls heal every round; completed quests
 hide their neighbouring-map objects and Newcastle shows its castle. The
-Sixth Mirror now shows its text before the ending's notice. Save v20 and
-the M44 digests are unchanged; Shoot against Lord Xeen no longer draws a
+Sixth Mirror now shows its text before the ending's notice (M92 replaced
+the notice with the ending). Save v20 and the M44 digests are unchanged;
+Shoot against Lord Xeen no longer draws a
 save, as in DOS (maintainer approval), and the audit's map-50 rule proved
 Darkside only. [Plan](milestone-89-plan.md).
 
 **M90 - Clouds verification sweep** (plan `6ae5701`, implementation
-`b85f34a`, Part D presets `6b18041` and the closure commit). Accepted by
+`b85f34a`, Part D presets `6b18041` and closure `87fe933`). Accepted by
 the maintainer on 2026-10-26 after the play-through. Clouds can be played
 from Newcastle's Megacredits to Lord Xeen with what was already
 implemented; the sweep found no content gap. Gate presets and 27 presets
@@ -548,19 +550,20 @@ not be won with the preset party and rest on those tests. Save format and
 M44 digests unchanged. [Plan](milestone-90-plan.md).
 
 **M91 - Cutscene presenter and the Clouds intro** (plan `0543336`, Part 0
-`5bdd161`, implementation `fcc54d8` and the closure commit). Accepted by
+`5bdd161`, implementation `fcc54d8` and closure `a6b129c`). Accepted by
 the maintainer on 2026-10-25 after the play-test. Other Options plays the
 Clouds intro as the CD's second program, `WORLD/XEEN.EXE`, does: the logos,
 the descent to Xeen's tower and Crodo's narration on the parchment, then a
 fresh World title. A new cutscene presenter reads its tables from the
-installed EXE and will carry the Clouds ending. Calibrated analysis found
-that every CD launch first plays the Darkside intro (now roadmap step 20)
-and that the title lightning cannot occur on the CD title. Save v20 and the
-M44 digests are unchanged. [Plan](milestone-91-plan.md).
+installed EXE and later carried the Clouds ending (M92). Calibrated
+analysis found that every CD launch first plays the Darkside intro
+(roadmap step 20, done in M93) and that the title lightning cannot occur
+on the CD title. Save v20 and the M44 digests are unchanged.
+[Plan](milestone-91-plan.md).
 
 **M92 - Clouds ending and score** (plan `1260911`, Part 0 `4c57a2e`,
-Parts A `5394da2`, B `bc85012`, C1 `3c192f0`, C2 `56961dd` and the closure
-commit). Accepted by the maintainer on 2026-10-26 after the play-tests.
+Parts A `5394da2`, B `bc85012`, C1 `3c192f0`, C2 `56961dd` and closure
+`2cdc98b`). Accepted by the maintainer on 2026-10-26 after the play-tests.
 Clouds of Xeen can be finished as in DOS. The Sixth Mirror records the win, moves the party to
 Vertigo, saves the live party to the current slot and computes the score
 from experience and real play time. The `WORLD/XEEN.EXE` ending then plays
@@ -573,13 +576,14 @@ Beacon refuses it. A repeat DOSBox capture overturned an earlier claim
 that DOS saved a stale roster. [Plan](milestone-92-plan.md).
 
 **M93 - Startup and the Darkside intro** (plan `e38d851`, Part 0
-`debbe9a`, Parts A `4184954`, B `18bf556` and the closure commit).
+`debbe9a`, Parts A `4184954`, B `18bf556` and closure `3b0eb93`).
 Accepted by the maintainer on 2026-10-27 after the play-tests. Each launch
 opens as the CD's `WORLD/XEEN.EXE` does: the full Darkside story, from the
 pyramid and the crystal ball to the fall, until it has been watched to its
-end, then only NWC, JVC and the World logo. Other Options `D` plays the
-full story again. The intro runs on the M91 presenter with the EXE's
-tables, voices, music and random speaking frames, and a DOSBox session
+end, then only NWC, JVC and the World logo. Other Options `D` forgets the
+seen state and plays the full story again. The intro runs on the M91
+presenter with the EXE's tables, voices, music and random speaking frames,
+and a DOSBox session
 confirmed its paths and keys. Whether it was watched is kept in
 `settings.ini` beside the Clouds win; `XEEN.CFG` is never written. Save
 v21 and the M44 digests are unchanged. [Plan](milestone-93-plan.md).

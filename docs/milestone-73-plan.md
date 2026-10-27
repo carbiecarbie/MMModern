@@ -52,8 +52,9 @@ admission, combat inventory, audio.
   renewed the Encounter ticket. The hold now follows the reward lease, item
   cursor and phase. Original-data tests now cover item drops from melee and
   from Sparks killing three Orcs, closing the gap left by M71.
-- Developer test save `monster-control` (README) starts in Vertigo with the
-  eight spells, 1,000 SP per caster and 1,000 gems.
+- Developer test save `monster-control`
+  ([development guide](development.md#developer-test-saves)) starts in
+  Vertigo with the eight spells, 1,000 SP per caster and 1,000 gems.
 
 ## Validation
 

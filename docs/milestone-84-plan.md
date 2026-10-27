@@ -21,8 +21,9 @@ every pass. The keyboard and mouse follow the CD original's tables.
 Left for the second milestone: the two conditional post-combat calls (an
 Event skipped while a monster held attack slot 0, and the door-text run at
 combat end), Space while monsters are engaged, the Run refusal on landings
-with an automatic Event, and the rest of
-[`dev-whowill-event-passes`](original-quirks.md#dev-whowill-event-passes).
+with an automatic Event, and the rest of the approved deviation
+`dev-whowill-event-passes`, which [M85](milestone-85-plan.md) withdrew when
+it made the [post-combat calls](original-quirks.md#dos-post-combat-event-calls).
 
 | Part | Commit | Result |
 | --- | --- | --- |

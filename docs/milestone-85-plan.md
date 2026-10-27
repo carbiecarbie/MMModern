@@ -18,7 +18,8 @@ after Run included. A door label comes back after the fight, a trap or NPC
 skipped as a monster arrived acts once the fight is over, and Run lands
 wherever the map's run position is, without the old "not supported yet"
 refusal at landings with an Event. Every Event call clears WhoWill, which
-retired `dev-whowill-event-passes`. Mr Wizard in combat stays refused.
+retired `dev-whowill-event-passes`. Mr Wizard in combat stayed refused
+(maintenance `4d25eca` later enabled it).
 
 | Part | Commit | Result |
 | --- | --- | --- |
@@ -35,7 +36,8 @@ retired `dev-whowill-event-passes`. Mr Wizard in combat stays refused.
   defeat still reaches caller 4 and Quit reaches neither. Neither flag is
   saved; the skipped flag survives Load, New Game and the return to the
   title, while gameplay entry clears door text. The pin never clears its
-  skipped flag on a scan, a recorded ScummVM difference.
+  skipped flag on a scan; that comparison is recorded in
+  [evidence](rules/evidence.md#event-dispatch).
 - **Approved deviation `dev-skipped-window-first`** (maintainer,
   2026-10-23). In DOS a skipped call's "Nothing here" window draws the
   screen before its acknowledgement, which can start the fight and its

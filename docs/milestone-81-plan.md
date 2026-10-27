@@ -60,8 +60,10 @@ abilities stayed out.
   Event run and every delivery, monster loot included, prefers that member.
   MMModern clears it on arrival at each new position over a flagged cell and
   on Space not taken by a grate; the per-pass and post-combat Event calls
-  stay an [approved deviation](original-quirks.md#dev-whowill-event-passes)
-  (maintainer, 2026-10-21) until roadmap step 13 (Event dispatch).
+  stay an approved deviation, `dev-whowill-event-passes` (maintainer,
+  2026-10-21), until roadmap step 13 (Event dispatch). M85 withdrew it when
+  it made the [post-combat calls](original-quirks.md#dos-post-combat-event-calls)
+  as in DOS.
 
 ## Parts
 

@@ -29,7 +29,7 @@ The live map flush still uses the previously loaded map, DS `c0cc`:
 at `0x1ed40` -> `0x21f4d`. Thus map 28 is not loaded before the write. A
 capture must save the relocated camera and the live old-map changes without
 manufacturing a visit to map 28. v21 also admits an omitted camera-map monster
-table for an unvisited camera map (maintainer, 2026-10-26; v21 was never released).
+table for an unvisited camera map (maintainer, 2026-10-26, before v21 was first released).
 Capture and preflight require the table if the camera map has any retained
 state; restore of an omitted table stages the original archive MOB actors.
 
@@ -42,7 +42,6 @@ retains the fight's XP, conditions, equipment, spell/SP changes and award 42
 on all six members. Four recipients gain 150,000 XP each; Ella and Seymour
 gain none and retain Eradicated, with Unconscious/Dead respectively. Zippo
 retains Unconscious and his XP. Each after-slot is byte-identical to its CUR.
-The earlier stale-roster claim compared XEEN's inactive CHR and is withdrawn.
 
 Completion DS `efe8` is a word at party offset 604, within the 1530-byte
 saved block. Startup zero initialization and New Game's initial party leave
@@ -266,7 +265,7 @@ Exit checks count, not viability; ordinary defeat handles terminal members.
 **DOS static, high confidence (2026-10-24)** unless a paragraph explicitly
 says Resource inspection, Reference comparison or Unknown. All offsets are
 file offsets in the hash-checked CD `WORLD/XEEN.DAT`. These are original
-rules, including its oddities, rather than permission to expand M88's scope.
+rules, including its oddities.
 
 ### Create entry, free slots and return
 
@@ -327,8 +326,8 @@ qualifies, it discards all seven values and repeats; each retry costs another
 21 draws (`0x359f2..0x35a93`). The bounded helper `0x45b9a..0x45bb4` calls
 the generator once, masks to 15 bits and reduces modulo the inclusive range;
 there is no rejection loop inside that helper. DOS clock mixing in
-`0x45be5..0x45c1f` is the already-deferred generator difference in the plan,
-not a new generator to implement.
+`0x45be5..0x45c1f` belongs to the shared generator, not to a Create-specific
+one; that generator difference stays deferred (maintainer, 2026-10-24).
 
 MMModern keeps its shared unbiased range draw for these rolls; see
 [dos-create-reroll-choice](../original-quirks.md#dos-create-reroll-choice).
@@ -636,10 +635,11 @@ Filenames are `create2.icn` at `0x54c62`, `dice.vga` at `0x54e3e`,
 at `0x53244`; the Inn retains `inn.m` (`0x55453`), `back.raw`
 (`0x55459`) and `mm4.pal` (`0x554af`).
 
-**Reference comparison:** the pin offers 30 free slots, checks the Inn list
-against 30, initially highlights the last eligible class, uses disabled
-color 0, maps class navigation to PageUp/PageDown, uses a fixed dice size,
-selects the last starting spell and resets the page after Delete. Its
+**Reference comparison:** like DOS, the pin offers free slots among IDs
+0–23 and refuses Create at a list of 24. It initially highlights the last
+eligible class, uses disabled color 0, maps class navigation to
+PageUp/PageDown, uses a fixed dice size, selects the last starting spell
+and resets the page after Delete. Its
 character clear leaves Beacon x/y untouched; DOS clears them. Its rebuilt
 Delete list uses side and lacks the DOS town restriction. The already-known
 missing Create/Delete snapshots and lodging-layout difference still apply.
@@ -689,8 +689,9 @@ advancing exploration time or requesting monster movement.
 **Unknown: Poison Volley visuals with one to five members.** DOS sets all
 six fixed shot flags (`0x1d899..0x1d8bb`), and its hit loop is bounded by
 active count (`0x2cb46..0x2ccdb`). The retained listings do not settle the
-projectile renderer's lane count. MMModern currently draws active lanes;
-a smaller-party DOS recording or the renderer's loop must settle whether
+projectile renderer's lane count. MMModern currently draws active lanes
+in combat, but all six lanes for exploration Cast and item Use; a
+smaller-party DOS recording or the renderer's loop must settle whether
 inactive missiles are also visible. See [magic rules](magic.md).
 
 ## Shared state and consumer bounds
@@ -718,7 +719,7 @@ program. Combat count can be smaller than active count after Run.
 | Combat order/participants | Population copies active count and ordered indexes, `0x2e6e2..0x2e703`; turn/cursor work uses compacted combat participants, not a fixed six-member population. |
 | Monster targets | Preferred scan `0x2d89c..0x2d99e` and eligible fallback `0x2da3a..0x2da90` use combat participants. The [count-dependent draws](combat.md#monster-targeting-and-hit-resolution) include the special six-member path. |
 | XP | Kill caller `0x2c27d` enters `0x2c5b2`; bounded passes `0x2c5d3..0x2c66e` use combat count in combat, active count otherwise, and divide among eligible recipients excluding Dead/Stoned/Eradicated. |
-| Poison Volley | Six shot flags are enabled at `0x1d899..0x1d8be`; actual character hit loop `0x2cb46..0x2ccd9` stops at active count. Fixed flags do not imply inactive CHR reads; the smaller-party visible missile count remains Unknown. |
+| Poison Volley | Six shot flags are enabled at `0x1d899..0x1d8bb`; actual character hit loop `0x2cb46..0x2ccdb` stops at active count. Fixed flags do not imply inactive CHR reads; the smaller-party visible missile count remains Unknown. |
 | Rest and food | Rest's recovery/food loops `0x1e50d..0x1e826` use active count; Tavern Food is the [calibration witness](evidence.md#m87-inn-and-party-size). |
 | Event conditions/give/take | Whole-party If `0x27266..0x2726e`, Take/Give `0x278c3..0x278d3`, SetChar random `0x27a01..0x27a14` and SelectRandomChar `0x287d8..0x287eb` use count. This does not certify arbitrary literal selectors. |
 | Member prompts/WhoWill | Common prompt `0x2f162..0x2f179` bounds selection by combat/active count. WhoWill's one-member path returns 1 without writing its stored selection (`0x25082..0x2508c`); other selections are guarded at `0x25294..0x252b6`. Retain M85's selection lifetime. |

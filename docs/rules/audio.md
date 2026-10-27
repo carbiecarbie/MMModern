@@ -8,7 +8,7 @@ for scope and the [evidence labels](README.md#how-to-interpret-evidence).
 
 **Maintainer decision, 2026-10-21:** M82 reproduces CD `promus` (music device
 3) in OPL3 stereo on the pinned Nuked emulator. `admus`, `blastmus` and
-other devices belong to roadmap step 16. Their byte identities below are
+other devices belong to roadmap step 19. Their byte identities below are
 retained evidence, not a requirement to implement or compare those drivers
 audibly in M82. This decision resolves the first hardware stop.
 
@@ -373,8 +373,8 @@ The seven Clouds location table entries at `0x4f110..0x4f128` are
 copies the previous name and requests it with 223 at `0x1d750..0x1d778`.
 The Clouds Inn/sign-in path selects `inn.m` with fade 128 at
 `0x394d4..0x394f4` when its song-entry flag is clear. `XeenAudio::requestInn`
-implements that request, but nothing calls it until the Tavern's Sign In
-screen exists (roadmap step 14). These names and the
+implements that request; since M87 the Inn's Sign In screen issues it
+(roadmap step 14). These names and the
 five Clouds map names are all present in CD XEEN.CC.
 
 **CD DAT title/menu:** startup selects DARK.CC and loads `newbrigh.m`
@@ -571,13 +571,15 @@ rewrites the init levels when the flag is set, and writes nothing when it is
 zero.
 
 Command `0x100` wrappers (EXE `0x11b24`, DAT `0xde8b`) test only that the
-music driver is loaded, not the party Music or Efx switch:
+music driver is loaded, not the party Music or Efx switch. Site offsets below
+are the argument pushes; each far call to the wrapper follows two bytes later:
 
 | Program | Sites and arguments | Moment |
 | --- | --- | --- |
 | EXE, Clouds intro | `0x8481` 75; `0x88c2` 95 | After the opening scroll; natural completion only (Escape enters cleanup at `0x88ca`) |
 | EXE, Clouds ending | `0x8e42` 75; `0x8f91` 95 | Before Alamar's first voice; as he vanishes |
-| EXE, Darkside/World | `0xac2b` 95, `0xaf13` 48, `0xce83` 95, `0xe318` 95, `0xe51f` 48, `0xec94` 95, `0xfa63` 95 | Not yet implemented presentations |
+| EXE, Darkside intro | `0xac2b` 95; `0xaf13` 48; `0xce83` 95 | As JVC begins, before the fade-out to it; after the pyramid zoom publishes scale two; after the release-creature fade, before the bird (M93) |
+| EXE, other Darkside/World | `0xe318` 95, `0xe51f` 48, `0xec94` 95, `0xfa63` 95 | Presentations after the Darkside intro (`0xa9bd..0xd608`); not yet implemented |
 | DAT, Sphinx `0x2968b` | `0x29838` 48; `0x29984` 95 | After the zoom; after the speech, before the retreat |
 | DAT, Golem `0x29ab6` | `0x29e92` 48 (Clouds side byte only); `0x2a060` 48; `0x2a453` 95 | Before the slide and ogre growl; before the speech; after it, before the retreat |
 | DAT, Reaper `0x2a66a` | `0x2ab98` 48; `0x2afd2` 95 | After the slide; at the end, after any retreat |
@@ -613,7 +615,8 @@ reference.
 the reset levels and applies the installed CFG flag; `startProgram` repeats
 the init for each EXE start and fresh DAT title; promus command `0x100` sets
 FM. Gains reach the mix at the next block, independent of saves, RNG and
-timing. The intro, ending and the four entrance scenes issue the sites above.
+timing. The Clouds intro and ending, the Darkside intro and the four entrance
+scenes issue the implemented sites above.
 
 **DOSBox evidence, 2026-10-26:** device-free renders aligned with the
 maintainer's captures (`D:/Projetos/MModern/MModern-re/audio-mixer-20261026/`):
@@ -989,7 +992,7 @@ identified separately.
 | --- | ---: |
 | `XeenEventFlow` death/dream | 4 |
 | Title audio path (`XeenAudio` owns current title music) | 1 |
-| Fall/landing animation; no current sample owner identified | 2 |
+| `XeenEventFlow::beginFall`/`advanceFall` fall and landing | 2 |
 | `XeenTrainingFlow` success | 1 |
 | `XeenSmithFlow` service actions | 9 |
 | Shared training-refusal/guild-rejection call | 1 |
@@ -1023,15 +1026,15 @@ non-type-1 first block or length-word overflow in the identified monster
 and weapon set. The initial 36 literal samples retain their clean
 layout audit above. Broad string-scan candidates are not a reachable
 Clouds census and are not included in these claims. Fall/landing samples
-remain outside the implemented presentations, as documented below.
+belong to the fall presentation documented below (M86).
 
 **Publication mapping, DOS static/current source, high:**
 
 | Sample | DOS ordering and existing MMModern publication point |
 | --- | --- |
-| `pow0..5.voc` | Positive-damage gate precedes `0x2c082`; stop old VOC `0x2c0b2`, select/load sample, FM `60+selector` at `0x2c105`, VOC at `0x2c111`, then HP comparison/stores `0x2c129..0x2c15b`. The existing weapon-impact callback in `XeenCombat::serviceConsequences` publishes physical `PreHp` immediately before HP publication (`XeenCombat.cpp:1609`) or the nonsequenced positive result (`:1588`); `XeenCombat::serviceCast` publishes `Impact` before HP/status publication (`:1394`). `XeenEncounterFlow::fmWeaponEffect` in `XeenJourneyFlow.cpp` reaches `XeenAudio::weaponEffect`; that request includes the sample, preserving its FM/VOC order and independent Efx gate. No new wait or RNG draw. |
-| `miss.voc` | VOC `0x2c172` precedes FM 6 `0x2c17c`. The exact candidates are `XeenPhysicalPlayerCandidate::service` (`XeenCombatRules.cpp:686`), condition `!damage && (!shoot || hit)`, and `XeenSpellDamageCandidate::service` (`:386`), condition `attack2Entered && damage<=0`. Publish once with the existing guarded effect request, before result publication. A missed missile or a spell rejection that never enters attack2 bypasses both cues; do not attach it to every displayed miss or every FM 6. |
-| Monster record `+0x33` voice | Pose frame 8 is set at `0x2d778`, scene calls at `0x2d793/0x2d79b`, old VOC stops at `0x2d7a5`, resource loads at `0x2d7f4`, and playback starts at `0x2d802`, before the target/attack loop. Current `XeenCombat` publishes `MonsterPose1` before enemy-candidate service (`XeenCombat.cpp:1543..1550`). The sample belongs to `XeenEncounterFlow::observeCombat`'s once-per-generation first-pose branch (`XeenEncounterFlow.cpp:345..353`), beside the existing record `+0x32` FM request and frame-8 presentation, before subsequent target-selection/RNG in `XeenEnemyAttackCandidate`. Do not replay at Pose2, per target, or on redraw. |
+| `pow0..5.voc` | Positive-damage gate precedes `0x2c082`; stop old VOC `0x2c0b2`, select/load sample, FM `60+selector` at `0x2c105`, VOC at `0x2c111`, then HP comparison/stores `0x2c129..0x2c15b`. The existing weapon-impact callback in `XeenCombat::serviceConsequences` publishes physical `PreHp` immediately before HP publication or the nonsequenced positive result; `XeenCombat::serviceCast` publishes `Impact` before HP/status publication. `XeenEncounterFlow::fmWeaponEffect` in `XeenJourneyFlow.cpp` reaches `XeenAudio::weaponEffect`; that request includes the sample, preserving its FM/VOC order and independent Efx gate. No new wait or RNG draw. |
+| `miss.voc` | VOC `0x2c172` precedes FM 6 `0x2c17c`. The exact candidates are `XeenPhysicalPlayerCandidate::service` (`XeenCombatRules.cpp`), condition `!damage && (!shoot || hit)`, and `XeenSpellDamageCandidate::service`, condition `attack2Entered && damage<=0`. Publish once with the existing guarded effect request, before result publication. A missed missile or a spell rejection that never enters attack2 bypasses both cues; do not attach it to every displayed miss or every FM 6. |
+| Monster record `+0x33` voice | Pose frame 8 is set at `0x2d778`, scene calls at `0x2d793/0x2d79b`, old VOC stops at `0x2d7a5`, resource loads at `0x2d7f4`, and playback starts at `0x2d802`, before the target/attack loop. Current `XeenCombat::serviceConsequences` publishes `MonsterPose1` before enemy-candidate service. The sample belongs to `XeenEncounterFlow::observeCombat`'s once-per-generation first-pose branch, beside the existing record `+0x32` FM request and frame-8 presentation, before subsequent target-selection/RNG in `XeenEnemyAttackCandidate`. Do not replay at Pose2, per target, or on redraw. |
 
 **Fall/landing presentation, DOS static, high (M86, 2026-10-23):** FM 11
 (`0x11692`) precedes `scream.voc` (`0x116a0`). After the fifteenth scrolling
@@ -1101,7 +1104,8 @@ consults the device and no playback state enters saves.
 
 Three further physical starts are Darkside-only (`0x1c500` spit1.voc,
 `0x1d6fe` come1.voc, `0x319f2` choice2.voc). The 35-call physical census
-therefore comprises 29 implemented starts and six excluded starts.
+therefore comprises 31 implemented starts and four excluded starts: the
+unreachable title lightning and the three Darkside-only starts.
 
 Opcode 40 reads the six far pointers at DAT `0x508cc`, publishes once and
 continues immediately. Its Clouds members use XEEN; the final `laff1.voc`
@@ -1248,10 +1252,11 @@ intro drivers or indirect dispatch. EXE SHA-256:
 All effect IDs below are decimal. Expressions denote runtime IDs. The Efx
 Off panel branch's ID 0 is gated out. The function column identifies the
 existing action owner, including shared helpers reached by spells, Events or
-ordinary actions. C1 has 44 non-spell or shared gameplay sites; C2 has 86
-casting/spell-handler sites. Three sites are not reachable yet: Darkside smith
-animation, character creation and Inn recruitment. M86 wires the two terrain
-fall cues and the full opening-door redraw. No scanned call was discarded as a non-effect. Confidence refers
+ordinary actions. C1 has 46 non-spell or shared gameplay sites; C2 has 86
+casting/spell-handler sites. One site is not reachable yet: the Darkside smith
+animation. M86 wires the two terrain fall cues and the full opening-door
+redraw; M87 wires the Inn's full-party refusal and M88 character creation's
+unrecognized-key refusal. No scanned call was discarded as a non-effect. Confidence refers
 to the stated original action and argument paths, not implementation coverage.
 
 **DOS static, high (C1 reconciliation, 2026-10-21):** incoming branches matter:
@@ -1293,7 +1298,7 @@ and healing presentation per member. C2 keeps that preparation unchanged
 | `0x0b308` | 34 | `XeenEventFlow::advanceDeath` | Clouds death laugh frame 15 | C1 | High: DAT 0xb301..0xb308 |
 | `0x0c903` | 10 | `XeenEventFlow::serviceBarrier` | successful grate opening, after both wall faces change and before redraw | C1 | High: DAT 0xc794..0xc91a; grate evidence in evidence.md |
 | `0x0cf48` | 21 from 0xcf46; 46 from 0xcf6a via 0xcf6c | `XeenMovement::apply; XeenEncounterFlow::advanceJourney` | outdoor admission refusal (21); indoor wall or swamp refusal without Swimming/Walk on Water (46) | C1 | High: DAT 0xcf46..0xcf91; DOSBox promus-wall-bump matches effect 46 |
-| `0x0cfa9` | 47 | `XeenMovement::doorAhead; XeenEncounterFlow::advanceJourney` | admitted indoor forward move through a front door wall (types 4 and 13, the pin's `_wo[107]`), before the step suffix; the opening-door redraw itself is not drawn yet (Complete Clouds) | C1 | High: DAT 0xcf93..0xcfb7; pinned checkMoveDirection |
+| `0x0cfa9` | 47 | `XeenMovement::doorAhead; XeenEncounterFlow::advanceJourney` | admitted indoor forward move through a front door wall (types 4 and 13, the pin's `_wo[107]`), before the step suffix; the step waits for the opening-door redraw, held at least two BIOS ticks (M86) | C1 | High: DAT 0xcf93..0xcfb7; pinned checkMoveDirection |
 | `0x0d442` | 7 + toggled stepping bit (7 or 8) | `XeenEncounterFlow::advanceJourney; XeenEventFlow::serviceBarrier` | movement/turn step-time suffix, including passable indoor B, excluding Space and W; toggle before request | C1 | High: DAT 0xd42b..0xd448; pinned stepTime |
 | `0x0d5c1` | 21 | `XeenEncounterFlow::beginShoot` | Shoot refused because no active member can shoot | C1 | High: DAT 0xd558..0xd5c7; pinned perform(S) |
 | `0x11692` | 11 | `XeenEventFlow::beginFall` | falling animation starts after view setup | C1 | High: DAT 0x11686..0x11697; retrace-paced fall |
@@ -1419,9 +1424,9 @@ and healing presentation per member. C2 keeps that preparation unchanged
 | `0x31f61` | 20 | `XeenItemSpellPreparation::service` | Item to Gold | C2 | High: M76 item handler ranges; local code/data flow and category branch; miscellaneous offset 0x112 |
 | `0x32d5b` | 31 | `XeenBarrierCandidate::XeenBarrierCandidate` | blocked-wall indoor Bash after the first charge; passable B takes the step suffix; outdoor Bash is silent | C1 | High: DAT 0xd516..0xd547; passable B jumps at 0xd534 to 0xd3aa; blocked path reaches 0x32d4f..0x32d60 |
 | `0x34d71` | 21 | `XeenEncounterFlow::buySpell` | Guild Buy spell cannot subtract required resource | C1 | High: DAT 0x34cd3..0x34cea; pin SpellsDialog purchase |
-| `0x368c3` | 21 | `none; character creation` | unrecognized key in character creation after failing 26-key dispatch lookup | Not reachable yet: roadmap step 14 | High: DAT 0x362a5..0x362bb; create.raw at DS 0x75c2 |
+| `0x368c3` | 21 | `XeenEventFlow::handleCreate` | unrecognized key in character creation after failing 26-key dispatch lookup | C1 | High: DAT 0x362a5..0x362bb; create.raw at DS 0x75c2 |
 | `0x36a07` | attack type 0..6 maps to 49,18,13,14,15,17,16 | `XeenEncounterFlow::observeRanged` | each original shooting-queue entry requests type sound before projectile animation | C1 | High: DAT 0x3694f..0x36a0c; MON +0x1d and table 0x50017 |
-| `0x39bda` | 21 | `none; Inn roster screen` | recruiting refused because party already contains six members | Not reachable yet: roadmap step 14 | High: DAT 0x39b76..0x39beb, party-full message DS 0x7cd1 |
+| `0x39bda` | 21 | `XeenEventFlow::handleInn` | recruiting refused because party already contains six members | C1 | High: DAT 0x39b76..0x39beb, party-full message DS 0x7cd1 |
 
 The pin inventory contains about 145 gameplay calls plus cutscenes, rather
 than 133 corresponding source lines. Its 73 spell-file calls correspond

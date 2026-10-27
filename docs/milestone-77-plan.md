@@ -47,9 +47,10 @@ save format stays v15: every source was already saved.
 
 - The census checklist marks the combat main screen, Items, Quests and
   Awards rows; Dismiss still refuses with "not supported yet".
-- Developer test save `combat-items` (README) covers every combat item
-  action, the Use button, Town Portal in combat, Quests, Awards and the
-  three skills. No walkable Spot Secret Doors wall exists in the open areas
+- Developer test save `combat-items`
+  ([development guide](development.md#developer-test-saves)) covers every
+  combat item action, the Use button, Town Portal in combat, Quests, Awards
+  and the three skills. No walkable Spot Secret Doors wall exists in the open areas
   (none in Vertigo); `--event-fixture` on Rivercity shows it.
 
 ## Validation

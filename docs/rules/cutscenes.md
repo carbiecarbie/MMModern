@@ -125,8 +125,8 @@ No missing Clouds reader was identified. External reports under
 The compiled `XeenCutsceneTests` audit decodes all 35 sprites (325 frames),
 scene/startup VOCs, RAWs and palettes and runs the complete song/scene with real
 sample lengths on a fake clock. It also checks input, load/reset boundaries,
-pan stride and the synthetic CFG caption path. **Unknown:** hardware-rendered
-and audible equivalence; these still need the maintainer comparison.
+pan stride and the synthetic CFG caption path. **Unknown:** bit-exact rendered
+and audible equivalence with DOS.
 
 ## Clouds sequencing rules
 
@@ -215,8 +215,9 @@ retain this row explicitly as unreachable on installed CD World.
 M91 primitives and M92 range helper. The complete rules, resource report,
 extracted tables, pin comparison and supplied-video timestamps are external:
 `D:/Projetos/MModern/MModern-re/m93/findings.md`. This calibration describes
-original behavior. `XeenDarksideIntro` implements the presenter paths; startup
-dispatch and persistent seen state remain Part B work.
+original behavior. `XeenCutscene::darkside` (`games/xeen/XeenDarksideIntro.cpp`)
+plays both paths; `Application::run` in `app/XeenTitle.cpp` chooses the path at
+startup and stores the seen state (see [startup dispatch](#startup-dispatch)).
 
 Darkside disables the scroll at `0xa9c3`. Completion/Escape joins `0xd5b5`:
 FM zero and buffer cleanup, then the scroll call at `0xd5f0` immediately returns
@@ -285,7 +286,8 @@ overwritten before playback (`0xb484..0xb499`).
 Darkside music devices five/nine choose `cantheme.m`; all others choose
 `bigtheme.m` (`0x7932..0x79e9`, jump table `0x7c80`, names `0x1ef78/0x1ef83`).
 This differs from Clouds' device-four/five/other selection. Mixer arguments are
-95/48/95 (`0xac2d`, `0xaf15`, `0xce85`), not percentage volume. Escape adds no
+95/48/95 (argument pushes `0xac2b`, `0xaf13`, `0xce83`; each far call follows
+two bytes later), not percentage volume. Escape adds no
 restoration; fresh DAT initialization restores its mixer state.
 
 The four range-helper calls are queen `0xb8d1` (0..5), Dark Lord `0xbc86` and
@@ -345,9 +347,10 @@ repeat launch with a silent JVC, `D`'s forced story, the full story due again
 after an early Escape, a click that does not skip, and a key that shortens
 only the first World boundary hold while Escape leaves the World frames
 running ([runtime checks](evidence.md#m93-darkside-startup-runtime-checks)).
-**Unknown:** realized strides and redraw counts per scene (to be measured
-against these recordings during implementation), pre-first-frame and
-sound-cutoff latency, and no-digital caption appearance. See the
+On a fake clock, M93's stage times land within these recordings' brackets;
+`XeenCutsceneTests` checks the World-logo tail. **Unknown:** the realized DOS
+strides and redraw counts per scene, pre-first-frame and sound-cutoff latency,
+and no-digital caption appearance. See the
 [reference differences](../original-quirks.md#sv-darkside-startup-seen).
 
 ## Clouds ending entry and save
@@ -376,7 +379,7 @@ optimization option (`0xb451`, setter `0x3f866`, consumers including
 `0x3f8a2..0x3f8c3`). DAT's comparison does not need the terminator. The EXE
 loads CFG for hardware selection but its ending does not test this marker
 or write CFG; the write at `0xd345` belongs to the separate Darkside path.
-MMModern's approved settings-store location requires only a won boolean.
+For the ending, MMModern's approved settings store needs only the won boolean.
 
 Clouds mirror result 40 (`showtime`) jumps to `0x28bd1`
 (`0x2801b..0x2802a`), skipping the victory, marker, flag and movement stores.
@@ -537,8 +540,8 @@ at `(71,68)`, with a 175-pixel wrap width and inner bottom 152. Normal lines
 advance ten pixels (`0x18aa6..0x18ab9`). The resource controls select body
 color 23 (palette entry 128) and prompt color 33 (entry 189); both pages
 center the prompt at relative y 70, hence screen y 138 (`0x189ec..0x189ff`).
-The EXE rounds centered runs upward with `SHR/ADC` (`0x18810..0x18818`);
-the 71-pixel prompt starts at x 124.
+When the EXE halves a centered run's width it rounds upward
+(`0x18810..0x18818`); the 71-pixel prompt starts at x 124.
 
 The complete-program timing test answers page one at capture-aligned 252.0 s
 and page two at 255.7 s. These are fixed test inputs, not claims about the

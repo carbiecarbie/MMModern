@@ -355,10 +355,10 @@ delivery and calls healing (`0x30aa1..0x30ad4`). This confirms that ordering
 and empty-target behavior, not all surrounding exploration time/AI rules.
 
 **Poison Volley: DOS static, high confidence.** Entry `0x30fc3` prepares
-10/type 17/All; `0x1d899..0x1d8be` changes type to Poison and enables six
+10/type 17/All; `0x1d899..0x1d8bb` changes type to Poison and enables six
 shot flags. The active-party loop supplies one successful shot per member,
 without requiring a missile weapon. Each target resets miss flags; a miss
-retains the shot for later targets, a hit consumes it (`0x2cb46..0x2ccd9`).
+retains the shot for later targets, a hit consumes it (`0x2cb46..0x2ccdb`).
 It uses weapon/accuracy rolls, bypassing the spell magic-resistance gate.
 On a hit the base is 10, regardless of the weapon dice already rolled;
 RT_HIT adds that shooter's missile-material elemental contribution, reduced
@@ -374,9 +374,10 @@ comparison: [negative hit totals](../original-quirks.md#sv-hit-total-unsigned).
 six fixed flags at `0x1d899..0x1d8bb`, while hit resolution visits only the
 active members (`0x2cb46..0x2ccdb`). A focused search of the retained DOS
 listings did not identify the projectile-render loop, so those flags do not
-prove that six missiles are drawn with one to five members. MMModern draws
-active lanes pending renderer evidence or a smaller-party DOS recording;
-see [party bounds](party.md#shared-state-and-consumer-bounds).
+prove that six missiles are drawn with one to five members. MMModern
+currently draws active lanes in combat, but all six lanes for exploration
+Cast and item Use; renderer evidence or a smaller-party DOS recording must
+settle the count. See [party bounds](party.md#shared-state-and-consumer-bounds).
 
 ## Monster-specific magic
 
@@ -878,10 +879,12 @@ unlike learned combat casting. See [M76 spells](evidence.md#m76-spells).
 The strongest retained DOS findings are the Pain, Suppress Poison,
 elemental-damage and Magic Arrow corrections. Most of this chapter is a
 carefully bounded reference inventory. Unknown high-impact areas include
-high-tier overflow, exact post-item automatic-Event timing and the full DOSBox
-presentation of Town Portal's combat item path. The M76 static traces settle
-the ordinary travel handlers and dialogs above. Names and spell descriptions are not sufficient evidence
-for these rules.
+high-tier overflow and the full DOSBox presentation of Town Portal's combat
+item path. The M76 static traces settle the ordinary travel handlers and
+dialogs above. M84's static trace settles the automatic Event pass after an
+exploration item Use, including travel: Use stays inside the character
+sheet's input ([Event dispatch](world-events.md#event-dispatch)). Names and
+spell descriptions are not sufficient evidence for these rules.
 
 MMModern cross-checks (implementation evidence, not DOS proof):
 [XeenLearnedSpellRules.cpp](../../src/games/xeen/XeenLearnedSpellRules.cpp),

@@ -237,11 +237,17 @@ archives; MMModern never creates a copy, mounts an image or executes a game modu
 
 The ISO does not contain the UI module. GOG discovery uses `WORLD/XEEN.DAT`;
 a plain CD copy needs an unambiguous `WORLD` sibling or explicit `--ui-data`.
+The installed `XEEN.CFG` must sit beside the UI module, or startup fails;
+MMModern reads it and never creates or writes it. `XEEN.EXE` in the same folder
+is read, never executed, for the Clouds and Darkside intros and the Clouds
+ending; when it is missing or different, those do not play and the game
+continues.
 The bounded DOS reader validates the MZ load image, relocations, named field
 bounds, far-pointer tables, terminators, format arguments and control streams.
 Packed root DATs and unsupported layouts fail clearly. Dialogs, item/service
 screens and Rest retain the DOS bytes, including the single alignment `r` in
-Charges. Title/credits and save/load fields are exposed for later screens only.
+Charges. The title, credits, control panel and save/load chooser also read
+their fields from the module.
 
 `generated/XeenDialogDrawing.inc` retains only the pinned numeric window
 symbols and four-shade text palettes. `-DialogDrawing` generates this private

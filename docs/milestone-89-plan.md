@@ -25,7 +25,8 @@ three side quests can finish:
   quests hide their neighbouring-map objects; Newcastle shows the castle
   once its walls are bought.
 - **Sixth Mirror.** Its text runs as in DOS and the ending then says
-  "Clouds ending: not supported yet" (step 18).
+  "Clouds ending: not supported yet" (step 18; M92 replaced the notice with
+  the win and the ending).
 
 The rules, offsets and ScummVM differences are in
 [original quirks](original-quirks.md#sv-slayer-sword-exact-id) and
@@ -52,7 +53,8 @@ The rules, offsets and ScummVM differences are in
   death paths (melee, spells and Poison Volley, Shoot outside combat); the
   map rules derive from saved flags at load. M44 digests unchanged.
 - **Opcode 30** decodes as a known operation that ends the Event with a
-  notice, so the Event preflight no longer refuses the whole Sixth Mirror.
+  notice, so the Event preflight no longer refuses the whole Sixth Mirror
+  (M92 replaced the notice with the win and the ending).
 
 ## Results
 

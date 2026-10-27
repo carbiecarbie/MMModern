@@ -51,8 +51,8 @@ Exit. The rules are in [Create and Delete](rules/party.md#create-and-delete).
 - **Approved deviation** [`dev-inn-save-recovery`](original-quirks.md#dev-inn-save-recovery)
   now also covers Delete and the Create return: a failed write shows the
   error and retries without repeating the change or the rolls.
-- Differences from the pin are recorded as `sv-create-slot-bounds`,
-  `sv-create-class-selection`, `sv-create-dice-bounds`,
+- Differences from the pin are recorded as `sv-create-class-selection`,
+  `sv-create-dice-bounds`,
   `sv-create-current-spell`, `sv-create-delete-beacon-clear`,
   `sv-inn-delete-list-page` and `sv-inn-title-load-song`; DOS oddities kept
   as `dos-create-reroll-choice` and `dos-inn-empty-snapshot-count`.

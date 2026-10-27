@@ -11,6 +11,10 @@ suffices. A pre-existing CD `GAME` folder (or its parent) is also accepted with
 all three archives and an uncompressed English DOS UI module: supply
 `--ui-data <path-to-XEEN.DAT>` or an unambiguous `WORLD` sibling. A bare `GAME`
 copy has no UI text. Conflicting or ambiguous sources and packed DATs fail clearly.
+The installed `WORLD/XEEN.CFG` must sit beside the UI module; without it
+startup fails, and MMModern never creates one. `WORLD/XEEN.EXE` beside it is
+read, never run, for the Clouds and Darkside intros and the Clouds ending; if
+it is missing or different, they do not play and the game continues.
 Reading Darkside metadata does not enable Darkside gameplay.
 
 ## Entry modes
@@ -34,7 +38,9 @@ mmodern --event-fixture <game-directory> <map> <x> <y> <north|east|south|west> [
 mmodern --inspect-map|--inspect-party|--inspect-events <game-directory> ...
 ```
 
-- `mmodern <game-directory>` opens the original title screen (normal play).
+- `mmodern <game-directory>` plays the Darkside intro (the full story the first
+  time, a shorter sequence on later launches), then opens the original title
+  screen (normal play).
 - `--new-game` is a developer shortcut that starts directly in Vertigo
   (`--difficulty`, default Adventurer). Without `--save-file`, F9 writes
   nothing.
@@ -114,7 +120,7 @@ snapshots to the output directory and changes no saves or settings.
 ## Developer test saves
 
 Build the opt-in tool with `cmake --build build-rel --target mmodern_test_save`.
-Generated saves use the current v19 envelope, including the full roster.
+Generated saves use the current save format, including the full roster.
 Regenerate older preset files with the rebuilt tool; the game refuses them.
 It starts from the normal fresh Regional Journey and writes a validated current
 save for `broken-armor`, `train-ready`, `injured-dead` or `poisoned`. The party
@@ -444,12 +450,38 @@ character after Y confirms. Create rolls attributes, exchanges them, selects
 a class and asks for a name; the new character stays lodged until added to
 the party.
 
+`m88-roster` starts at the same Vertigo door with the original six active
+members and 22 named characters lodged there. Only slots 12 (Gnome, male)
+and 21 (Human, female) are free. Create twice, then C shows the full-roster
+refusal. Up and Down choose those free slots; Left and Right move the class
+arrow, Enter commits, R or Space rerolls, and the attribute keys exchange
+values. Returning to the Inn resets its page and keeps its song playing.
+
+```powershell
+.\build-rel\mmodern_test_save.exe m87-inn "F:/Games/gog/Might and Magic 4-5" "D:/Projetos/MModern/MModern-playtest/m87-inn.mmsave"
+.\build-rel\mmodern.exe --load-game "F:/Games/gog/Might and Magic 4-5" "D:/Projetos/MModern/MModern-playtest/m87-inn.mmsave"
+.\build-rel\mmodern_test_save.exe m87-three "F:/Games/gog/Might and Magic 4-5" "D:/Projetos/MModern/MModern-playtest/m87-three.mmsave"
+.\build-rel\mmodern.exe --load-game "F:/Games/gog/Might and Magic 4-5" "D:/Projetos/MModern/MModern-playtest/m87-three.mmsave"
+.\build-rel\mmodern_test_save.exe m87-shangrila "F:/Games/gog/Might and Magic 4-5" "D:/Projetos/MModern/MModern-playtest/m87-shangrila.mmsave"
+.\build-rel\mmodern.exe --load-game "F:/Games/gog/Might and Magic 4-5" "D:/Projetos/MModern/MModern-playtest/m87-shangrila.mmsave"
+.\build-rel\mmodern_test_save.exe m88-roster "F:/Games/gog/Might and Magic 4-5" "D:/Projetos/MModern/MModern-playtest/m88-roster.mmsave"
+.\build-rel\mmodern.exe --load-game "F:/Games/gog/Might and Magic 4-5" "D:/Projetos/MModern/MModern-playtest/m88-roster.mmsave"
+```
+
+Sign In, confirmed Delete, every return from Create and Exit save automatically.
+In the developer `--load-game` path,
+these writes use that explicit file; keep a separate copy to repeat the
+starting setup. Managed play uses its current numbered slot. Reload a Sign In
+save to reopen the Inn without adding a day. Add and Remove alone do not save.
+
+### Clouds quests and the ending
+
 The M89 presets use the level-30 `m78-playtest` party and original maps,
 MOB slots and Events. Each starts beside a walkable fight cell:
 
 | Preset | Start and purpose |
 | --- | --- |
-| `m89-lord-xeen` | Map 78 `(5,8)` North, first member's Slayer Sword equipped, temporary Speed +100, party Holy Bonus 20 and quest 23 active. Step forward to fight, then visit the Sixth Mirror at `(4,9)` facing West for its text and ending notice. |
+| `m89-lord-xeen` | Map 78 `(5,8)` North, first member's Slayer Sword equipped, temporary Speed +100, party Holy Bonus 20 and quest 23 active. Step forward to fight, then visit the Sixth Mirror at `(4,9)` facing West for its text, the win and the original ending. |
 | `m89-clan-king` | Map 41 `(30,25)` North, Gunther's dwarf quest active and the Vertigo prerequisites complete. Step forward to the Clan King's group, then return to Gunther. |
 | `m89-draco` | Map 29 `(1,13)` North at 21:00, with the three coffin prerequisites set and earlier enemies removed. Step forward and open the coffin to spawn Count Draco; afterwards visit the well at `(7,7)`. |
 | `m89-dragons` | Map 15 `(0,12)` North, Medin's lake quest active and Walk on Water enabled for deep water. Kill slots 0-2, leave the map and return to Medin. |
@@ -510,26 +542,11 @@ original's AlterEvent has already disabled. Walking between spots is optional.
 | `m90-winterkill-wave3` | Randon after the second gong (flag 3), Winterkill empty: wave 3 (flag 73); then the gong (flag 8). |
 | `m90-winterkill-final` | Randon after the last gong (flag 8), Winterkill empty: award, 500,000 XP and the end of quest 18. |
 
-`m88-roster` starts at the same Vertigo door with the original six active
-members and 22 named characters lodged there. Only slots 12 (Gnome, male)
-and 21 (Human, female) are free. Create twice, then C shows the full-roster
-refusal. Up and Down choose those free slots; Left and Right move the class
-arrow, Enter commits, R or Space rerolls, and the attribute keys exchange
-values. Returning to the Inn resets its page and keeps its song playing.
+The M92 presets finish Clouds of Xeen with the `m89-lord-xeen` party:
 
-```powershell
-.\build-rel\mmodern_test_save.exe m87-inn "F:/Games/gog/Might and Magic 4-5" "D:/Projetos/MModern/MModern-playtest/m87-inn.mmsave"
-.\build-rel\mmodern.exe --load-game "F:/Games/gog/Might and Magic 4-5" "D:/Projetos/MModern/MModern-playtest/m87-inn.mmsave"
-.\build-rel\mmodern_test_save.exe m87-three "F:/Games/gog/Might and Magic 4-5" "D:/Projetos/MModern/MModern-playtest/m87-three.mmsave"
-.\build-rel\mmodern.exe --load-game "F:/Games/gog/Might and Magic 4-5" "D:/Projetos/MModern/MModern-playtest/m87-three.mmsave"
-.\build-rel\mmodern_test_save.exe m87-shangrila "F:/Games/gog/Might and Magic 4-5" "D:/Projetos/MModern/MModern-playtest/m87-shangrila.mmsave"
-.\build-rel\mmodern.exe --load-game "F:/Games/gog/Might and Magic 4-5" "D:/Projetos/MModern/MModern-playtest/m87-shangrila.mmsave"
-.\build-rel\mmodern_test_save.exe m88-roster "F:/Games/gog/Might and Magic 4-5" "D:/Projetos/MModern/MModern-playtest/m88-roster.mmsave"
-.\build-rel\mmodern.exe --load-game "F:/Games/gog/Might and Magic 4-5" "D:/Projetos/MModern/MModern-playtest/m88-roster.mmsave"
-```
+| Preset | Start and purpose |
+| --- | --- |
+| `m92-lord-xeen` | The `m89-lord-xeen` start. Kill Lord Xeen, take the Scepter from the treasure screen, then press Space at the Sixth Mirror at `(4,9)` facing West. |
+| `m92-sixth-mirror` | Map 78 `(4,9)` West, at the Sixth Mirror with Lord Xeen dead: the party holds the Scepter (quest item 8), quest 23 is over, flag 60 is set and every member has the "Defeated Lord Xeen" award (42). Press Space: the mirror's text, the win, the save at Vertigo and the original ending and score follow. |
 
-Sign In, confirmed Delete, every return from Create and Exit save automatically.
-In the developer `--load-game` path,
-these writes use that explicit file; keep a separate copy to repeat the
-starting setup. Managed play uses its current numbered slot. Reload a Sign In
-save to reopen the Inn without adding a day. Add and Remove alone do not save.
+The win saves over the loaded file, like Sign In; keep an untouched copy.
