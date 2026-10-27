@@ -320,6 +320,19 @@ void preset(const GameInstallation &installation,const std::string &name,const f
         check(member.weapons[0].state==0x40 && party.roster.at(second).armor[0].state==0x80,"M79 cursed/broken items");
         return;
     }
+    if(name=="m78-playtest" || name=="m78-one-holder") {
+        const bool one=name=="m78-one-holder";
+        check(gold==100000 && party.purse->gems==5000,"M78 purse");
+        for(unsigned n=0;n<6;++n) {
+            const auto &c=party.roster.at(party.party.activeRosterIds()[n]);
+            check(c.canAct() && c.permanentLevel==30 && c.currentHp==XeenCharacterRules::maxHp(c,{context.year}),"M78 level-30 party");
+            check(c.weapons[0].material==58 && c.weapons[0].frame && c.armor[0].material==58 && c.armor[0].frame,"M78 Obsidian gear equipped");
+            check(c.skills[14]==1,"M78 Swimmer");
+            const bool holder=n==0 || (n==1 && !one);
+            check(c.skills[9]==holder && c.skills[11]==holder,"M78 Mountaineer/Pathfinder holders");
+        }
+        return;
+    }
     if (name=="broken-armor") {
         bool found=false;
         for (auto owner:party.party.activeRosterIds()) for (const auto &item:party.roster.at(owner).armor)

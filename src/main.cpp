@@ -22,7 +22,7 @@ void newGameUsage() {
 		"Plain launch opens the original title menu.\n"
 		"Developer --new-game defaults to Adventurer. F9 requires an explicit save target.\n"
         "Developer modes use a fixed DOS wall clock (0); --wall-clock <u32> overrides it.\n"
-		"--combat-seed is accepted only by --journey-region.\n";
+		"--combat-seed is accepted only by --journey-region, --event-fixture and --monster-fixture.\n";
 }
 
 bool parseMapId(const char *text, std::uint16_t &mapId) {

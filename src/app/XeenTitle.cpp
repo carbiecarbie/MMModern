@@ -100,13 +100,15 @@ int Application::runTitle(const std::filesystem::path &gameDirectory,std::option
    services.darksideIntroCheck=[&] {
     try {
      introData=XeenCutsceneData::installed(*installation);
-     if(!installation->introData || !installation->hasDarkside())throw std::runtime_error("missing INTRO.CC or DARK.CC");
+     if(!installation->introData)throw std::runtime_error("missing INTRO.CC");
+     if(!installation->hasDarkside())throw std::runtime_error("missing DARK.CC");
      return std::string{};
     }catch(const std::exception &e){
-     introData.reset();const std::string error=e.what(),clouds="Clouds intro unavailable";
+     introData.reset();const std::string error=e.what(),clouds="Clouds intro unavailable",missing="missing ";
      if(error.find(clouds)==0){std::cerr<<"Darkside intro unavailable"<<error.substr(clouds.size())<<'\n';return std::string("Darkside intro unavailable\nCheck XEEN.EXE / XEEN.CFG");}
      std::cerr<<"Darkside intro unavailable: "<<error<<'\n';
-     return std::string("Darkside intro not supported yet\nMissing INTRO.CC / DARK.CC");
+     if(error.find(missing)==0)return "Darkside intro unavailable\nMissing "+error.substr(missing.size());
+     return std::string("Darkside intro unavailable\nResource error (see log)");
     }
    };return std::make_unique<XeenTitleFlow>(std::move(services));
   };

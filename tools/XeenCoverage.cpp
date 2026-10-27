@@ -466,7 +466,7 @@ std::string report(const Census &clouds,const Census &darkside) {
         "Original quest-counter refusals, proficiency and equipment conflicts are gameplay rules, not missing implementation. "
         "When the same mechanic is admitted elsewhere, its engine refusal is partial in that context instead of a globally missing mechanic. "
         "CD speech uses the installed tracks with visible text on unavailable audio. Records rejected as malformed and evidence not classifiable by engine checks remain unclassified.\n\n"
-        "Clouds Event exclusions: town scenes (17, actions 6/12/13 and untabled sites), and ConfirmWord ending keywords 60/61. Opcode 30 requests the supported Clouds ending tail; presentation remains a notice until Part C. "
+        "Clouds Event exclusions: town scenes (17, action 12 and untabled sites), and ConfirmWord ending keywords 60/61. Opcode 30 requests the supported Clouds ending tail, which plays the original ending. "
         "Darkside-only operations and durable banks are outside Clouds scope. Destination-map admission is separate: shared travel refusals preserve candidate state and RNG. "
         "Residual census limits are off-map records without a discovered physical caller, real isolated self-loops (1024 dispatches), and mirror transfers without a local ConfirmWord prefix. "
         "No unresolved in-scope Clouds Event mechanic is accepted as an exclusion.\n\n"

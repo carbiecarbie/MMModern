@@ -19,12 +19,12 @@ int main() {
     LocalFree(arguments);
     try {
         if (args.size()!=4 && (args.size()!=6 || args[4]!=L"--ui-data" || args[5].empty())) throw std::invalid_argument(
-            "Usage: mmodern_test_save <broken-armor|train-ready|injured-dead|poisoned|monster-control|monster-damage|party-healing|m76-spells|combat-items|m78-playtest|m78-one-holder|m79-playtest|m80-playtest|m80-arena|m80-arena-maxed|m81-drops|m81-fullpacks|m81-event|m84-playtest-trap|m84-playtest-label|m84-playtest-save|m85-playtest-label|m85-playtest-run|m85-playtest-trap|m87-inn|m87-three|m87-shangrila|m88-roster|m92-lord-xeen|m92-sixth-mirror|m89-lord-xeen|m89-clan-king|m89-draco|m89-dragons|m89-trolls|m90-newcastle|m90-golem|m90-illusion|m90-high-magic|m90-darzog|m90-clouds|m90-castle|m90-winterkill> <game-directory> <output.mmsave> [--ui-data <path>]");
+            "Usage: mmodern_test_save <broken-armor|train-ready|injured-dead|poisoned|monster-control|monster-damage|party-healing|m76-spells|combat-items|m78-playtest|m78-one-holder|m79-playtest|m80-playtest|m80-arena|m80-arena-maxed|m81-drops|m81-fullpacks|m81-event|m84-playtest-trap|m84-playtest-label|m84-playtest-save|m85-playtest-label|m85-playtest-run|m85-playtest-trap|m86-playtest-fall|m86-playtest-moon-ray|m86-playtest-border|m87-inn|m87-three|m87-shangrila|m88-roster|m92-lord-xeen|m92-sixth-mirror|m89-lord-xeen|m89-clan-king|m89-draco|m89-dragons|m89-trolls|m90-newcastle|m90-golem|m90-illusion|m90-high-magic|m90-darzog|m90-clouds|m90-castle|m90-winterkill|m90-emerson-short|m90-emerson-walls|m90-taxman-walls|m90-emerson-keep|m90-taxman-keep|m90-artemus|m90-emerson-dungeon|m90-taxman-dungeon|m90-laboratory|m90-sword|m90-mirabeth|m90-mirabeth-elixir|m90-elixir|m90-credit-yak|m90-golem-terrors|m90-credit-terrors|m90-golem-stone|m90-credit-golem|m90-darzog-key|m90-crodo|m90-slick|m90-slick-trade|m90-generator|m90-winterkill-gong|m90-winterkill-wave2|m90-winterkill-wave3|m90-winterkill-final> <game-directory> <output.mmsave> [--ui-data <path>]");
         const std::string preset(args[1].begin(),args[1].end());
         const auto installation=mmodern::XeenInstallationDetector(args.size()==6?std::filesystem::path(args[5]):std::filesystem::path{}).detect(std::filesystem::path(args[2]));
         if (!installation) throw std::runtime_error("Game installation not found");
         mmodern::developer::generateTestSave(*installation,preset,std::filesystem::path(args[3]));
-        if(preset.rfind("m90-",0)==0 || preset.rfind("m92-",0)==0) {
+        if(preset.rfind("m90-",0)==0 || preset.rfind("m92-",0)==0 || preset=="m86-playtest-fall" || preset=="m86-playtest-border") {
             const auto saved=mmodern::XeenSaveFile::read(std::filesystem::path(args[3]));
             const char *directions[]{"North","East","South","West"};
             std::cout<<"Generated "<<preset<<" at Clouds map "<<saved.camera.mapId.number<<" ("<<saved.camera.x<<","<<saved.camera.y
