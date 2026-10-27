@@ -2113,10 +2113,13 @@ at one and was restored afterwards. They corroborate the
 4. **Click.** A left click during the ball scenes skips nothing: the story
    stages of C2 stay within 0.16 s of B.
 5. **World-logo keys (C2).** Space and Escape during the tail did not end
-   it. Only the first boundary hold shortened (0.67 s from the last fade-in
-   step to the first reveal frame in A and B, 0.12 s in C2). From the first
-   reveal frame to the title, A, B and C2 all take 8.06 s: no frame was
-   skipped and the last hold kept its length.
+   it. Per-frame hashes place the first reveal at the first frame changed after
+   the last fade-in step: A `15.842 / 16.399 / 24.573 s`, B
+   `165.557 / 166.113 / 174.284 s`, and C2 `132.871 / 132.914 / 141.041 s`
+   (fade end / reveal / title). The first hold is 0.557 s in A, 0.556 s in B
+   and about 0.04 s in C2; reveal to title takes 8.174, 8.171 and 8.127 s.
+   The earlier scene-threshold measurement missed the faint first reveal
+   frame. No World frame was skipped and the last hold kept its length.
 
 Key-down times were not logged; item 5 places the first key in the first
 boundary hold from the frame timing alone. The no-digital caption take was

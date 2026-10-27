@@ -1233,7 +1233,7 @@ confirmed. Location: `XeenObjectSpriteSafety`, `XeenObjectSpriteTests`.
 
 These are calibrated DOS fidelity rules, not claims of implemented Darkside
 coverage. Evidence: installed CD XEEN.EXE, **DOS static, high**, 2026-10-26;
-the source-equivalent resource audit is medium. Full offsets, tables, resource
+the compiled-reader resource audit checks decoder acceptance. Full offsets, tables, resource
 report and pin comparison remain outside the repository at
 `D:/Projetos/MModern/MModern-re/m93/findings.md`. Location for these rules:
 [startup](rules/cutscenes.md#startup-dispatch),
@@ -1250,6 +1250,8 @@ World tail (`0xd345..0xd374`). DAT Other Options D clears seen before hand-off
 on relaunch. **ScummVM:** the pin skips JVC on the short path, writes seen only
 after successful full intro return, and its D handler does not clear persistent
 seen. DOS is the fidelity rule; master not rechecked.
+Part A reports the seen point in `XeenDarksideIntro.cpp`; persistence and startup
+dispatch are deferred to Part B.
 
 <a id="sv-darkside-sequencing"></a>
 **Elapsed time and counter resets determine the pans and holds.** DOS uses BIOS
@@ -1266,6 +1268,7 @@ wait counters, one-pixel pans, a 20-frame endpoint hold, accumulating pyramid
 zoom draws and a room subcounter that never resets after reaching three. It
 omits the DOS post-pan voice tail and changes goon/wizard state after drawing.
 DOS is the fidelity rule; master not rechecked.
+`XeenDarksideIntro.cpp` and `XeenCutsceneFlow.cpp` own the sequencing and holds.
 
 <a id="sv-darkside-captions"></a>
 **Caption selection follows the EXE's hardware and voice-state rules.** Digital
@@ -1281,6 +1284,7 @@ update opportunities; it selects Dark Lord's reply earlier, Alamar's caption
 after incoming fizzle, and records 18/19/20 for the final three voices, including
 caption updates during reverse wizard fizzle. DOS is the fidelity rule;
 master not rechecked.
+`XeenDarksideIntro.cpp` selects and advances the strip.
 
 <a id="sv-darkside-random"></a>
 **Speaking variants use private presentation randomness.** Queen frames 0..5
@@ -1290,6 +1294,7 @@ use the same low-15-bit inclusive modulo and time-mixed source as M92
 **ScummVM:** the pin's `getSpeakingFrame` cycles by host milliseconds divided
 by 100, rather than drawing random values. DOS is the fidelity rule; exact
 random frames in a recording are not reproduction targets. Master not rechecked.
+`XeenDarksideIntro.cpp` uses `XeenPresentationRandom` for these draws.
 
 <a id="sv-darkside-audio-return"></a>
 **Device selection, cue timing and fresh-title audio remain explicit.** DOS
@@ -1306,6 +1311,7 @@ DAT initializes the title (`0xd5b5..0xd608`, `0x7b27..0x7c4e`).
 placement, leaves fade 16 commented out, starts laff1 only in reverse fizzle,
 loads through its own archive abstractions and fades the World tail before
 returning within the engine. DOS is the fidelity rule; master not rechecked.
+`XeenDarksideIntro.cpp`, `XeenCutsceneFlow.cpp` and `XeenTitle.cpp` own this path.
 
 <a id="sv-darkside-input"></a>
 **Escape skips the story, but does not cancel World-logo frames.** Story polls
@@ -1316,3 +1322,4 @@ voice tails can delay response. World frames ignore ordinary key results
 (`0x11aa2..0x11afc`). **ScummVM:** the pin's WAIT/subtitle waits allow broader
 keyboard/mouse cancellation. DOS is the fidelity rule; maintainer runtime
 checks remain distinct from this static evidence. Master not rechecked.
+`XeenDarksideIntro.cpp` and `XeenCutsceneFlow.cpp` own the input boundaries.

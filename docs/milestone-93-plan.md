@@ -1,6 +1,6 @@
 # Milestone 93 plan - Startup and the Darkside intro
 
-**Tier B. Status: Part 0 done; Parts A and B not started.** Roadmap
+**Tier B. Status: Parts 0 and A done; Part B not started.** Roadmap
 [step 20](roadmap.md#next-arc-finishing-the-games-systems), after
 [M92](milestone-92-plan.md), on the [M91](milestone-91-plan.md) presenter.
 Baseline `87fe933`. Save v21, schema and content unchanged. The settings
@@ -108,18 +108,26 @@ a digital device were not recorded.
 
 ## Part A - Darkside intro on the presenter
 
-- [ ] Extend `XeenCutsceneData` with the Darkside tables and resource names,
+- [x] Extend `XeenCutsceneData` with the Darkside tables and resource names,
   refused with a clear message when the installed EXE is not the analysed
   build.
-- [ ] Archive switching inside one cutscene: a program archive for INTRO.CC
+- [x] Archive switching inside one cutscene: a program archive for INTRO.CC
   with the temporary DARK.CC switches Part 0 finds, next to
   `CloudsProgram`/`CloudsEnding`.
-- [ ] `XeenCutscene::darkside(data, captions, clock, path)` in
+- [x] `XeenCutscene::darkside(data, captions, clock, path)` in
   `games/xeen/XeenDarksideIntro.cpp` (as `XeenCloudsEnding.cpp`), for the
   full and the short path. New composition or hold kinds only where Part 0
   needs them; random variants use `XeenPresentationRandom`; no Journey RNG.
-- [ ] The seen store at the `0xd345` point: the cutscene reports when it
+- [x] The seen store at the `0xd345` point: the cutscene reports when it
   passes it, so Escape before it leaves the state unchanged.
+
+**Part A result (2026-10-26):** the full and short paths run on the M91
+presenter with no second clock or audio path; the cutscene reports the
+seen point and stores nothing. Until Part B, Other Options `D` plays the
+full path and returns to a fresh title; a failure returns to the title
+with a notice. The maintainer's play-test of `D`, Escape, a click, the
+World-logo keys, `C` and Ctrl-Q matched DOS. Complete suite 339/339
+(run `20261026-201308-b3d15592`).
 
 ## Part B - Startup, settings and Other Options D
 

@@ -52,7 +52,9 @@ scene polls and returns through the closing parchment to a fresh title, whose
 menu waits for a new key. During a parchment transition, any key (including
 Escape) completes only that transition. Space and other keys elsewhere do
 nothing; mouse clicks do nothing and the pointer is hidden. Other Options → D
-(Darkside) remains unsupported. After a Clouds win, Other Options → V
+plays the full Darkside intro. Escape ends the story at its polls; in the World
+logo, any key only shortens the two boundary holds. The mouse does not skip it.
+After a Clouds win, Other Options → V
 replays the Clouds ending.
 
 During the Clouds ending, animations ignore Escape, other keys and clicks;

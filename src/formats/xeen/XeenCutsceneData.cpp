@@ -38,7 +38,7 @@ XeenCutsceneData XeenCutsceneData::parse(const std::vector<std::uint8_t> &b,cons
  if(b.size()!=137737 || word(b,0)!=0x5a4d || word(b,8)*16!=0x2e30 ||
     crc32(0,b.data(),static_cast<uInt>(b.size()))!=0xaf60a284UL)bad();
  if(cfg.size()!=29 && cfg.size()!=30)throw std::runtime_error("Clouds intro unavailable: malformed WORLD/XEEN.CFG");
- XeenCutsceneData d;d.digitalDevice=word(cfg,0);
+ XeenCutsceneData d;d.digitalDevice=word(cfg,0);d.musicDevice=word(cfg,4);
  constexpr std::size_t offsets[]{0x1f645,0x1f656,0x1f677,0x1f682,0x1f68e,0x1f697,
   0x1f6a1,0x1f6aa,0x1f6b7,0x1f6bf,0x1f6c7,0x1f6d1,0x1f6dc,0x1f6e5,0x1f6ee,
   0x1f6fb,0x1f708,0x1f712,0x1f71c,0x1f726,0x1f730,0x1f73a,0x1f745,0x1f74f,0x1f7b3,0x1f7bf};
@@ -119,6 +119,36 @@ XeenCutsceneData XeenCutsceneData::parse(const std::vector<std::uint8_t> &b,cons
   const auto stem=token(b,target,std::min<std::size_t>(b.size(),target+32));
   actor.voice=voc;actor.voice.replace(actor.voice.find("%s"),2,stem);
  }
+ auto &dark=d.darkside;
+ std::size_t name=0x1feb8;
+ for(auto &resource:dark.resources) {
+  resource=token(b,name,0x2023d);if(resource.empty())bad();name+=resource.size()+1;
+ }
+ if(name!=0x2023d || dark.resources[Darkside::BirdPattern]!="bird%02d.int" ||
+    dark.resources[Darkside::DropPattern]!="drop%d.int" || dark.resources[Darkside::FirePattern]!="wfire%u.int")bad();
+ dark.song=token(b,0x1ef83,0x1efa0);dark.alternateSong=token(b,0x1ef78,0x1ef83);
+ dark.pyramidScratch=token(b,0x1f202,0x1f217);dark.startupScratch=token(b,0x1f217,0x1f230);
+ for(unsigned t=0;t<3;++t) {
+  for(unsigned i=0;i<12;++i)dark.title[t][i]=std::int16_t(word(b,0x1fb60+t*24+i*2));
+  for(unsigned i=0;i<15;++i)dark.pyramid[t][i]=std::int16_t(word(b,0x1fba8+t*30+i*2));
+ }
+ for(unsigned t=0;t<2;++t)for(unsigned i=0;i<10;++i)dark.room[t][i]=std::int16_t(word(b,0x1fc02+t*20+i*2));
+ for(unsigned i=0;i<36;++i){dark.roomFrames[i]=word(b,0x1fc2a+i*2);if(dark.roomFrames[i]>9)bad();}
+ for(unsigned t=0;t<8;++t)for(unsigned i=0;i<32;++i)dark.ball[t][i]=std::int16_t(word(b,0x1fcb6+t*64+i*2));
+ for(auto frame:dark.ball[1])if(frame<0 || frame>3)bad();
+ const auto cues=[&](auto &out,std::size_t offset,unsigned frames,std::size_t low,std::size_t high) {
+  for(unsigned i=0;i<out.size();++i) {
+   auto &cue=out[i];cue.key=word(b,offset+i*2);cue.target=word(b,offset+out.size()*2+i*2)+0xa8c0;
+   if(cue.key>=frames || cue.target<low || cue.target>high)bad();
+   for(unsigned j=0;j<i;++j)if(out[j].key==cue.key)bad();
+  }
+ };
+ cues(dark.birdCues,0xd60a,81,0xcff3,0xd021);
+ cues(dark.nwcTailCues,0xd626,42,0xabb7,0xabd2);
+ cues(dark.nwcCues,0xd63e,55,0xab2e,0xab3d);
+ for(const auto &c:dark.birdCues)if(c.target!=0xcff3 && c.target!=0xd001 && c.target!=0xd00b && c.target!=0xd013 && c.target!=0xd01a && c.target!=0xd021)bad();
+ for(const auto &c:dark.nwcTailCues)if(c.target!=0xabb7 && c.target!=0xabbb && c.target!=0xabbf && c.target!=0xabc3 && c.target!=0xabd2)bad();
+ for(const auto &c:dark.nwcCues)if(c.target!=0xab2e && c.target!=0xab35 && c.target!=0xab3d)bad();
  return d;
 }
 XeenCutsceneData::Captions XeenCutsceneData::captions(const std::vector<std::uint8_t> &b) {
@@ -140,4 +170,7 @@ std::string XeenCutsceneData::firstCaption(const std::vector<std::uint8_t> &b) {
 }
 std::string XeenCutsceneData::hand(unsigned n) const {if(n>15)bad();return numbered(handPattern,n);}
 std::string XeenCutsceneData::marble(unsigned n) const {if(n<1 || n>4)bad();return numbered(marblePattern,n);}
+std::string XeenCutsceneData::Darkside::bird(unsigned n) const {if(n<1 || n>11)bad();return numbered(resources[BirdPattern],n);}
+std::string XeenCutsceneData::Darkside::drop(unsigned n) const {if(n<1 || n>4)bad();return numbered(resources[DropPattern],n);}
+std::string XeenCutsceneData::Darkside::fire(unsigned n) const {if(n<1 || n>7)bad();return numbered(resources[FirePattern],n);}
 }

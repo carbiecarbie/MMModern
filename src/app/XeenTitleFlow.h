@@ -28,6 +28,7 @@ public:
   bool cloudsContext=true; // DAT DS:0095: readable XEEN.CC in installed CD World.
   bool cloudsWon=false;
   std::function<std::string()> cloudsIntroCheck;
+  std::function<std::string()> darksideIntroCheck;
   std::function<std::pair<std::uint32_t,std::uint32_t>()> clocks;
  };
  enum class Screen { Menu, Background, Other, Credits, NewSlots, LoadSlots, Overwrite, Name, Difficulty, Notice, PublicationFailure, Panel, SaveSlots, Quit, Wizard, SavedNotice };
@@ -66,6 +67,7 @@ public:
  IndexedFrame cutsceneExitFrame() const {return _services.animation.at(7);}
  void cloudsEndingFailure(std::string message) {_entry.reset();notice(std::move(message),Screen::Background);}
  void cloudsIntroFailure(std::string message) {_entry.reset();notice(std::move(message),Screen::Other);}
+ void darksideIntroFailure(std::string message) {_entry.reset();notice(std::move(message),Screen::Background);}
  void cancelPublication();
  void publicationFailure(std::string message);
  void startupFailure(std::string message);

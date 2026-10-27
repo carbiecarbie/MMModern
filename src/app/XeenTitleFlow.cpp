@@ -295,7 +295,11 @@ std::optional<IndexedFrame> XeenTitleFlow::handle(const PlayerAction &action,con
    XeenSessionEntry entry;entry.kind=XeenSessionEntry::Kind::CloudsEnding;entry.score=1234567890;_entry=std::move(entry);
   }
   else if(const auto button=buttonIndex(_services.text,"OTHER",key)) {
-   if(*button==1 && _services.cloudsContext && _services.cloudsIntroCheck) {
+   if(*button==0 && _services.darksideIntroCheck) {
+    const auto error=_services.darksideIntroCheck();
+    if(!error.empty())notice(error,Screen::Other);
+    else {XeenSessionEntry entry;entry.kind=XeenSessionEntry::Kind::DarksideIntro;_entry=std::move(entry);}
+   }else if(*button==1 && _services.cloudsContext && _services.cloudsIntroCheck) {
     const auto error=_services.cloudsIntroCheck();
     if(!error.empty())notice(error,Screen::Other);
     else {XeenSessionEntry entry;entry.kind=XeenSessionEntry::Kind::CloudsIntro;_entry=std::move(entry);}

@@ -40,6 +40,7 @@ add_library(mmodern_xeen STATIC
  src/games/xeen/XeenCutscene.cpp
  src/games/xeen/XeenPresentationRandom.cpp
  src/games/xeen/XeenCloudsEnding.cpp
+   src/games/xeen/XeenDarksideIntro.cpp
 	src/formats/xeen/XeenMonsterFormat.cpp
 	src/formats/xeen/XeenGameplayContextFormat.cpp
 	src/games/xeen/XeenActorApproach.cpp

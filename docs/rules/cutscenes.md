@@ -216,7 +216,8 @@ retain this row explicitly as unreachable on installed CD World.
 M91 primitives and M92 range helper. The complete rules, resource report,
 extracted tables, pin comparison and supplied-video timestamps are external:
 `D:/Projetos/MModern/MModern-re/m93/findings.md`. This calibration describes
-original behavior, not implemented Darkside coverage.
+original behavior. `XeenDarksideIntro` implements the presenter paths; startup
+dispatch and persistent seen state remain Part B work.
 
 Darkside disables the scroll at `0xa9c3`. Completion/Escape joins `0xd5b5`:
 FM zero and buffer cleanup, then the scroll call at `0xd5f0` immediately returns
@@ -264,7 +265,7 @@ title fade at 142 s. These are capture observations, not fixed scene deadlines.
 
 ## Darkside resources and data
 
-**DOS static, high for selection; source-equivalent audit, medium for decoding.**
+**DOS static, high for selection; compiled-reader audit for decoding.**
 INTRO.CC supplies the scenes except temporary DARK.CC loads: laff1 at
 `0xbb48..0xbb69`; screech/disint/laff1 at `0xcf38..0xcf7f`; branch at
 `0xd08f..0xd0af`. Startup also loads DARK's opaque `46k.buf`
@@ -273,8 +274,9 @@ fallback. All narration is VOC, including pharoh11, with no CD speech request.
 
 The external report accepts 103 distinct archive/name dependencies: 45 sprites
 (470 frames), 36 VOCs, 15 RAWs, three PALs, two songs, one caption resource and
-one scratch buffer. This is not compiled-reader execution or audible/rendered
-equivalence. `.int` resources have the ordinary Xeen frame/component headers
+one scratch buffer. `XeenCutsceneTests` exercises the compiled sprite, VOC, RAW,
+PAL and song readers; this does not establish audible or rendered equivalence.
+`.int` resources have the ordinary Xeen frame/component headers
 and scanline RLE; no new decoder is needed. `fizzle.int` uses the already-admitted
 transparent terminal row overshoot. No compressed-frame decoder call is reached.
 `wizmth.int` is loaded but not drawn; pharoh2d/e are generic voice handles copied
@@ -311,7 +313,8 @@ and check the following shapes without copying original tables into the repo:
 **DOS static, high.** The same every-NUL record loader and hardware predicate
 as M91/M92 apply (`0x1189e..0x119bf`): digital device zero/one enables the strip;
 party Speech/Text and host mute do not. One character advances after more than
-one BIOS tick on counter three, then resets it; a 40-character window uses
+one BIOS tick on counter three, then resets it; each record selection also
+resets that counter (for example `0xaf82`, `0xc12f`, `0xc777`, `0xcde6`). A 40-character window uses
 `box.vga` at (36,189) and the EXE format controls. Three-tick ball composites
 consult it once per frame; pyramid voice holds consult it inside their waits.
 
@@ -326,6 +329,9 @@ consult it once per frame; pyramid voice holds consult it inside their waits.
 
 There is no record-20 selection. Reverse wizard fizzle publishes without updating
 captions (publication `0xcb9a`). Extracted text stays in the external findings.
+The Alamar and Ellinger incoming fizzles select their captions before the loop,
+but call the strip helper only after frame six (`0xc252..0xc268`,
+`0xc892..0xc8a8`); earlier frames use a plain flip.
 
 NWC/JVC/story polls accept Escape to cleanup (`0xab4d..0xab57`, `0xad26`,
 `0xd31f`, `0xd5b5`); ordinary keys do not skip. Fixed inner holds and voice tails

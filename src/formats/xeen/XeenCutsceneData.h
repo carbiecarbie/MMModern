@@ -17,7 +17,32 @@ struct XeenCutsceneData {
  std::array<std::uint8_t,14> rows;
  std::array<std::uint8_t,16> towerLeft,towerRight,towerY;
  std::string labels,captionFormat,handPattern,marblePattern;
- unsigned digitalDevice=0;
+ unsigned digitalDevice=0,musicDevice=0;
+ struct Darkside {
+  enum Resource {Palette,Caption,Box,Nwc1,Nwc2,Nwc3,Nwc4,Dragon1,Dragon2,Dragon3,
+   NwcRaw1,NwcRaw2,Jvc,PyramidRaw2,PyramidRaw3,Title,PyramidTop,Pyramid,
+   Pharaoh1a,Pharaoh1b,Room2,Room3,Room1,Dragon,Pharaoh2a,Pharaoh2b,Pharaoh2c,Pharaoh2d,Pharaoh2e,
+   BallRaw,Ball,Pharaoh,DarkLord,Goon,Queen,Wizard,Fizzle,Claw,WizardMouth,ScratchVoice,
+   Pharaoh3,Queen1,Queen2,QueenHiss,Pharaoh4,Dark3,Pharaoh5a,Pharaoh5b,DarkArchive,Laugh,IntroArchive,
+   Pharaoh6w,Alamar1,Pharaoh7t,Pharaoh8,Ellinger,Pharaoh9a,Pharaoh9b,Pharaoh11,
+   FlyPalette,FlyRaw,Fly,BirdRaw,BirdPattern,DropPattern,Comet,Screech,Disintegrate,
+   DropRaw,Branch,Vine,Thud,EndRaw,End1,End2,End3,EndTitle,Config,FirePalette,FireRaw,Explosion,Rumble,FirePattern,Count};
+  std::array<std::string,Count> resources;
+  std::string song,alternateSong,startupScratch,pyramidScratch;
+  std::array<std::array<std::int16_t,12>,3> title;
+  std::array<std::array<std::int16_t,15>,3> pyramid;
+  std::array<std::array<std::int16_t,10>,2> room;
+  std::array<std::uint16_t,36> roomFrames;
+  std::array<std::array<std::int16_t,32>,8> ball;
+  struct Cue {std::uint16_t key,target;};
+  std::array<Cue,7> birdCues;
+  std::array<Cue,6> nwcTailCues;
+  std::array<Cue,4> nwcCues;
+  std::string bird(unsigned) const;
+  std::string drop(unsigned) const;
+  std::string fire(unsigned) const;
+  const std::string &theme(unsigned device) const {return device==5 || device==9?alternateSong:song;}
+ } darkside;
  struct Ending {
   enum Resource {Prec,Blank,StormPalette,AlamarPalette,XeenLaugh,Dark1,Dark2,Dark3,DarkLaugh,
    Song,Palette,Later,EndText,King,Room,Mirror,Sky,People,Crodo,KingCrodo,MirrorBack,King4,

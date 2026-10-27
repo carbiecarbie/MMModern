@@ -94,6 +94,18 @@ int Application::runTitle(const std::filesystem::path &gameDirectory,std::option
    services.cloudsIntroCheck=[&] {
     try {introData=XeenCutsceneData::installed(*installation);return std::string{};}
     catch(const std::exception &e){introData.reset();return std::string(e.what());}
+   };
+   services.darksideIntroCheck=[&] {
+    try {
+     introData=XeenCutsceneData::installed(*installation);
+     if(!installation->introData || !installation->hasDarkside())throw std::runtime_error("missing INTRO.CC or DARK.CC");
+     return std::string{};
+    }catch(const std::exception &e){
+     introData.reset();const std::string error=e.what(),clouds="Clouds intro unavailable";
+     if(error.find(clouds)==0){std::cerr<<"Darkside intro unavailable"<<error.substr(clouds.size())<<'\n';return std::string("Darkside intro unavailable\nCheck XEEN.EXE / XEEN.CFG");}
+     std::cerr<<"Darkside intro unavailable: "<<error<<'\n';
+     return std::string("Darkside intro not supported yet\nMissing INTRO.CC / DARK.CC");
+    }
    };return std::make_unique<XeenTitleFlow>(std::move(services));
   };
   auto title=makeTitle();
@@ -130,7 +142,8 @@ int Application::runTitle(const std::filesystem::path &gameDirectory,std::option
     title=makeTitle(options);if(!notice.empty())title->cloudsEndingFailure(notice);
     _program.resetPlayTime();entry={};continue;
    }
-   if(entry.kind==XeenSessionEntry::Kind::CloudsIntro) {
+   if(entry.kind==XeenSessionEntry::Kind::CloudsIntro || entry.kind==XeenSessionEntry::Kind::DarksideIntro) {
+    const bool darkside=entry.kind==XeenSessionEntry::Kind::DarksideIntro;
     auto &audio=*_program.audio;const auto options=audio.soundOptions();
     const auto clock=[] {return SdlWindow::presentationNanoseconds();};
     auto exitServices=XeenCutsceneFlow::original(assets,font,audio,clock);
@@ -142,14 +155,19 @@ int Application::runTitle(const std::filesystem::path &gameDirectory,std::option
     audio.fadeSong(0,clock());audio.observeOptions({});
     audio.startProgram(clock());
     try {
-     if(!introData)throw std::runtime_error("Clouds intro unavailable: missing or different WORLD/XEEN.EXE");
-     const auto story=XeenCutsceneData::firstCaption(assets.readArchiveResource(introData->resources[XeenCutsceneData::Caption],XeenSceneArchive::CloudsProgram));
-     XeenCutsceneFlow intro(XeenCutscene::clouds(*introData,story),XeenCutsceneFlow::original(assets,font,audio,clock,introData->digitalDevice>=2));
+     if(!introData)throw std::runtime_error(darkside?"Darkside intro unavailable: missing or different WORLD/XEEN.EXE":"Clouds intro unavailable: missing or different WORLD/XEEN.EXE");
+     auto scene=darkside?XeenCutscene::darkside(*introData,XeenCutsceneData::captions(assets.readArchiveResource(introData->darkside.resources[XeenCutsceneData::Darkside::Caption],XeenSceneArchive::DarksideProgram)),_program.wallClock,XeenCutscene::DarksidePath::Full):
+      XeenCutscene::clouds(*introData,XeenCutsceneData::firstCaption(assets.readArchiveResource(introData->resources[XeenCutsceneData::Caption],XeenSceneArchive::CloudsProgram)));
+     XeenCutsceneFlow intro(std::move(scene),XeenCutsceneFlow::original(assets,font,audio,clock,introData->digitalDevice>=2,darkside?XeenSceneArchive::DarksideProgram:XeenSceneArchive::CloudsProgram));
      if(!showCutscene(intro,assets,audio)){audio.observeOptions(options);return 0;}
      audio.observeOptions(options);audio.startProgram(clock());title=makeTitle(options);
     }catch(const std::exception &e) {
      audio.stopDigital(clock());audio.fadeSong(0,clock());audio.observeOptions(options);audio.startProgram(clock());
-     title=makeTitle(options);title->cloudsIntroFailure(e.what());
+     title=makeTitle(options);
+     if(darkside) {
+      std::cerr<<"Darkside intro unavailable: "<<e.what()<<'\n';
+      title->darksideIntroFailure(introData?"Darkside intro unavailable\nResource error (see log)":"Darkside intro unavailable\nCheck XEEN.EXE / XEEN.CFG");
+     }else title->cloudsIntroFailure(e.what());
     }
     _program.resetPlayTime();entry={};continue;
    }

@@ -18,6 +18,7 @@ public:
   PresentationClock::Source clock;
   std::function<std::vector<std::uint8_t>(const std::string &)> read;
   std::function<void(const std::string &)> prepare;
+  std::function<void(XeenSceneArchive)> archive;
   std::function<void(IndexedFrame &,const XeenCutscene::Sprite &)> draw;
   std::function<void(const XeenCutscene::Audio &,std::uint64_t)> audio;
   std::function<bool(std::uint64_t)> digitalBusy;
@@ -47,6 +48,7 @@ private:
  XeenCutscene _scene;Services _services;
  std::size_t _segment=0;unsigned _iteration=0,_level=128,_holdTicks=0;
  std::uint64_t _reset=0,_deadline=0;
+ std::uint64_t _holdUpdateTick=0;
  bool _done=false,_closed=false,_acquired=false,_terminal=false,_fade=false,_fadePending=false,_afterSent=false,_polled=false,_publicationReady=false;
  unsigned _fadeLevel=0;
  std::deque<unsigned> _keys;
@@ -55,6 +57,7 @@ private:
  std::map<std::string,IndexedFrame> _slots;
  std::map<std::string,std::vector<std::uint8_t>> _compressed;
  bool _acknowledged=false;
+ bool _holdPublication=false;
  std::vector<XeenCutscene::Audio> _after;
  IndexedFrame::Presentation _input;
  XeenCutscene::Context context(std::uint64_t) const;

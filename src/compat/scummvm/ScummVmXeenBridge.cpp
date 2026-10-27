@@ -286,6 +286,15 @@ struct ScummVmXeenBridge::Impl {
 	SceneResource sceneResource(const std::string &name, XeenSceneArchive selection = XeenSceneArchive::Current) {
 		const Common::Path path(name.c_str(), Common::Path::kNoSeparator);
   if(xeenProgramArchive(selection)) {
+   if(selection==XeenSceneArchive::DarksideProgram || selection==XeenSceneArchive::DarksideProgramDark) {
+    const bool dark=selection==XeenSceneArchive::DarksideProgramDark;
+    auto &pathToArchive=dark?sceneDarkPath:sceneIntroPath;
+    auto &selected=dark?sceneDark:sceneIntro;
+    if(pathToArchive && !selected)selected.reset(new SceneInstalledArchive(*pathToArchive));
+    if(selected && selected->hasFile(path))return {selected.get(),dark?"dark.cc":"intro.cc"};
+    if(programLoose(name))return {&archive,dark?"dark.cc":"intro.cc"};
+    return {nullptr,{}};
+   }
    if(archive.hasFile(path) || programLoose(name))return {&archive,"xeen.cc"};
    return {nullptr,{}}; // EXE never falls back to INTRO.
   }

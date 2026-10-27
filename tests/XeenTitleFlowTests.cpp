@@ -375,6 +375,13 @@ int main(int argc,char **argv){try {
   introServices.cloudsContext=false;unsigned checked=0;introServices.cloudsIntroCheck=[&] {++checked;return std::string{};};Driver noContext(introServices);
   noContext.key(27);noContext.key('o');noContext.key('c');check(!checked && !noContext.flow.entry(),"Clouds route ignored DAT context");
  }
+ {
+  auto introServices=services();introServices.darksideIntroCheck=[] {return std::string{};};Driver intro(introServices);
+  intro.key(27);intro.key('o');intro.key('d');
+  check(intro.flow.entry() && intro.flow.entry()->kind==XeenSessionEntry::Kind::DarksideIntro,"Darkside Other Options route");
+  intro.flow.returnToTitle();intro.present();intro.fade();
+  check(intro.flow.screen()==Screen::Background && !intro.flow.entry(),"Darkside must return to fresh title");
+ }
  d.click(start.left,start.top);check(d.flow.screen()==Screen::NewSlots,"New mouse/key parity");
  const auto chooser=d.flow.inputContext(d.flow.frame().presentation()).dialog;
  for(unsigned i=0;i<10;++i)check(chooser->key(i==9?'0':'1'+i).has_value(),"ten numbered slots");

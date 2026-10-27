@@ -59,7 +59,7 @@ struct State {
  bool endingMode=false,endingReturned=false,endingNotice=false,endingPlayed=false;
  bool endingReplay=false;unsigned endingExeFailure=0;
  bool endingOriginal=false;
- bool introMode=false;unsigned introWindow=0,introStarts=0;std::uint64_t introNow=17000000,introSkip=0;
+ bool introMode=false,introDark=false,introFailure=false,introMissingExe=false,introNotice=false,introCloudsNotice=false;unsigned introWindow=0,introStarts=0;std::uint64_t introNow=17000000,introSkip=0;
  std::uint32_t wallNow=0;
  std::optional<std::uint64_t> nameCursorNow;
  bool failNotice=false;
@@ -81,8 +81,9 @@ struct State {
 } state;
 bool introApplication(const IndexedFrame &first,const SdlWindow::FrameUpdateHandler &handler,const SdlWindow::IdleFrameHandler &idle) {
  const auto window=++state.introWindow;check(window<=4,"intro did not return to one fresh title");
- check(handler.cutsceneControlQuit==(window==2 || window==3),"Ctrl-Q scope leaked between intro and DAT title");
- if(window==4)check(state.program->playTimeMark==state.wallNow,"EXE hand-off did not reset the fresh DAT mark");
+ const bool failureReturn=state.introFailure && window==3;
+ check(handler.cutsceneControlQuit==(window==2 || (window==3 && !failureReturn)),"Ctrl-Q scope leaked between intro and DAT title");
+ if(window==4 || failureReturn)check(state.program->playTimeMark==state.wallNow,"EXE hand-off did not reset the fresh DAT mark");
  IndexedFrame visible=first;
  const auto present=[&] {check(handler.acceptsFrame(visible.presentation()),"intro stale publication");handler.framePresented(visible.presentation());handler.completeInputHandoff(visible.presentation());};
  present();unsigned guard=0;
@@ -97,29 +98,34 @@ bool introApplication(const IndexedFrame &first,const SdlWindow::FrameUpdateHand
   const auto a=context.dialog->key(code);check(bool(a),"intro key missing");
   if(auto next=handler.withPresentedInput(*a,1,visible.presentation())){visible=*next;present();}
  };
- if(window==1 || window==4) {
+ if(window==1 || window==4 || failureReturn) {
   while(!handler.inputContext(visible.presentation()).readyForAction)tick();
   check(handler.inputContext(visible.presentation()).dialog->hits.empty(),"fresh intro return exposed menu");
-  if(window==4) {
+  if(window==4 || failureReturn) {
    check(state.program->audio->loadedName()=="newbrigh.m" && state.program->audio->soundOptions()==XeenSoundOptions{false,false,true,false},"intro return song/options");
+   if(failureReturn){check(state.introNotice,"missing Darkside failure notice");key(13);check(handler.inputContext(visible.presentation()).dialog->hits.empty(),"failure notice did not return to fresh title");}
    key(32);check(handler.inputContext(visible.presentation()).dialog->hits.size()==4,"fresh title key did not reveal menu");
    handler.closed();state.shown=true;return true;
   }
   key(27);key('o');
   state.program->audio->observeOptions({false,false,true,false});
-  state.program->audio->digitalSink([](const auto &,auto){++state.introStarts;});key('c');
-  check(handler.finished(),"Application did not select Clouds");return true;
+  state.program->audio->digitalSink([](const auto &,auto){++state.introStarts;});key(state.introDark?'d':'c');
+  if(state.introMissingExe) {
+   check(!handler.finished() && state.introNotice && !state.introCloudsNotice,"missing EXE notice did not name Darkside");
+   key(13);handler.closed();state.shown=true;return true;
+  }
+  check(handler.finished(),"Application did not select intro");return true;
  }
  const auto start=state.introNow;bool escaped=false;
  while(!handler.finished()) {
-  if(window==3 && state.introNow-start>15000000000ULL)check(state.program->audio->loadedName()=="mm4theme.m","EXE song suppressed by party settings or stale song identity");
-  if(window==3 && !escaped && state.introNow-start>=state.introSkip && handler.inputContext(visible.presentation()).readyForAction) {
+  if(window==3 && state.introNow-start>15000000000ULL && state.introNow-start<120000000000ULL)check(state.program->audio->loadedName()==(state.introDark?"bigtheme.m":"mm4theme.m"),"EXE song suppressed by party settings or stale song identity");
+  if(window==3 && !state.introDark && !escaped && state.introNow-start>=state.introSkip && handler.inputContext(visible.presentation()).readyForAction) {
    check(handler.inputContext(visible.presentation()).hideCursor && !handler.inputContext(visible.presentation()).dialog->click(160,100),"intro cursor/click policy");
    key(27);escaped=true;
   }
   tick();
  }
- check(window!=3 || escaped,"intro finished before requested Escape");return true;
+ check(window!=3 || escaped || (state.introDark && state.introNow-start>130000000000ULL),"intro finished before requested route");return true;
 }
 void quit(){SDL_Event event{};event.type=SDL_QUIT;check(SDL_PushEvent(&event)==1,"title native quit");}
 void key(unsigned code,std::vector<SDL_Event> &pending) {
@@ -128,6 +134,11 @@ void key(unsigned code,std::vector<SDL_Event> &pending) {
 }
 extern "C" std::uint64_t wrappedTitleClock(){return state.nameCursorNow?*state.nameCursorNow:(state.introMode || (state.endingMode && (state.endingReturned || state.endingReplay)))?state.introNow:realTitleClock();}
 extern "C" XeenCutsceneData wrappedEndingData(const GameInstallation &installation) {
+ if(state.enabled && state.introMode && state.introDark && state.introMissingExe)
+  throw std::runtime_error("Clouds intro unavailable: missing or different WORLD/XEEN.EXE");
+ if(state.enabled && state.introMode && state.introDark && state.introFailure) {
+  auto data=realEndingData(installation);data.darkside.resources[XeenCutsceneData::Darkside::Caption]="missing-m93-caption.bin";return data;
+ }
  if(!state.enabled || !state.endingMode || !state.endingExeFailure)return realEndingData(installation);
  if(state.endingExeFailure==1) {
   auto missing=installation;missing.uiModule->physicalPath=state.base/"missing-exe"/"XEEN.DAT";return realEndingData(missing);
@@ -286,6 +297,8 @@ bool panelGameplay(const IndexedFrame &first,const SdlWindow::FrameUpdateHandler
 }
 extern "C" XeenTextRenderResult wrappedTitleText(const XeenTextRenderer *renderer,const IndexedFrame &base,
  const std::string &text,const XeenTextRenderOptions &options) {
+ if(state.enabled && state.introMode && text.find("Darkside intro unavailable")!=std::string::npos)state.introNotice=true;
+ if(state.enabled && state.introMode && text.find("Clouds intro unavailable")!=std::string::npos)state.introCloudsNotice=true;
  if(state.enabled && state.endingMode && text.find("Clouds ending unavailable")!=std::string::npos)state.endingNotice=true;
  if(state.enabled && state.panelMode && !state.notice.empty() && text==state.notice) {
   ++state.noticeAttempts;
@@ -601,6 +614,24 @@ void titleApplicationControls(const char *game,const char *endingPreset) {
   check(Application(programState).run(game)==0 && state.shown && state.introWindow==4,"Clouds Escape/Application fresh title route");
   if(skip==60000000000ULL)check(state.introStarts>2,"party switches suppressed EXE speech");
   state.introMode=false;
+ }
+ {
+  state.wallNow=10;XeenProgramState programState{XeenWallClock([]{return state.wallNow;})};state.program=&programState;
+  state.introMode=true;state.introDark=true;state.introNow=17000000;state.introWindow=0;state.introStarts=0;state.shown=false;
+  check(Application(programState).run(game)==0 && state.shown && state.introWindow==4 && state.introStarts>20,"Darkside full Application/fresh title route");
+  state.introMode=false;state.introDark=false;
+ }
+ {
+  state.wallNow=10;XeenProgramState programState{XeenWallClock([]{return state.wallNow;})};state.program=&programState;
+  state.introMode=true;state.introDark=true;state.introFailure=true;state.introNotice=false;state.introNow=17000000;state.introWindow=0;state.shown=false;
+  check(Application(programState).run(game)==0 && state.shown && state.introNotice && state.introWindow==3,"Darkside failure did not return to fresh title with notice");
+  state.introMode=false;state.introDark=false;state.introFailure=false;
+ }
+ {
+  state.wallNow=10;XeenProgramState programState{XeenWallClock([]{return state.wallNow;})};state.program=&programState;
+  state.introMode=true;state.introDark=true;state.introMissingExe=true;state.introNotice=false;state.introCloudsNotice=false;state.introNow=17000000;state.introWindow=0;state.shown=false;
+  check(Application(programState).run(game)==0 && state.shown && state.introNotice && state.introWindow==1,"missing EXE did not show Darkside notice");
+  state.introMode=false;state.introDark=false;state.introMissingExe=false;
  }
 }
 void titlePreview(const IndexedFrame &frame,const std::string &label){preview(frame,label);}
