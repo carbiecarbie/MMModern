@@ -225,6 +225,39 @@ int main() {try {
 			presentation.splats={};
 		}
 	}
+	// Outdoors the attack/hit-pose front-rank monster draws at 121 and its row's
+	// physical and elemental splats move with it to 122/123 (drawOutdoorsScene),
+	// so the hit stays in front of the monster; other rows keep their slots.
+	{
+		XeenMap open=indoor(99);open.geometry.flags2=0x8000;open.geometry.surfaceTypes[4]=1;
+		for(auto &cell:open.geometry.cells) {cell.surfaceIndex=4;cell.geometry=XeenOutdoorLayers{4,0,0};}
+		XeenObjectFile front{99,"front.mob",true,{}};
+		for(int i=0;i<3;++i)front.entities.monsters.push_back({8,8,0,0,0});
+		XeenWorld field([&](auto) {return open;},[&](auto) {return front;});
+		field.sceneActors(99,[&] {return stats;});
+		const XeenCamera north{99,8,8,XeenDirection::North};
+		constexpr int pow[]{119,113,116},x[]{102,36,161},offset[]{8,6,4};
+		for(std::size_t record=0;record<3;++record) {
+			auto &presentation=field.scenePresentation();presentation.splats={};
+			for(unsigned row=0;row<3;++row)presentation.hitSplat(row,13,0,false,0,1,5);
+			XeenMonsterAppearance pose{XeenMonsterSpriteKind::Attack,3};pose.identity=XeenMonsterIdentity{99,record};
+			const auto draw=XeenOutdoorScene().build(field,north,nullptr,nullptr,{},pose);
+			const auto posed=std::find_if(draw.begin(),draw.end(),[&](const auto &c) {return c.actor()&&c.actor()->identity==*pose.identity;});
+			check(posed!=draw.end()&&posed->originalOrder==121&&posed->sampleIndex==2,"Posed front-rank monster left the 121 draw slot");
+			const int shifted=posed->actor()->selectedSlot;
+			unsigned splats=0;
+			for(auto c=draw.begin();c!=draw.end();++c) if(const auto *s=c->splat()) {
+				++splats;
+				int r=0;while(r<3 && c->x!=x[r]+(s->frame?offset[r]:0))++r;
+				check(r<3,"Unexpected outdoor splat placement");
+				const int base=r==shifted?122:pow[r];
+				check(c->originalOrder==base+(s->frame?1:0),"Outdoor splat draw slot");
+				if(r==shifted)check(c>posed,"Splat drawn behind its attack-pose monster");
+			}
+			check(splats==6,"Every row draws a physical and an elemental splat");
+		}
+		field.scenePresentation().splats={};
+	}
 	// Every reference wall-picture projection, independent of commercial IDs.
 	for(unsigned direction=0;direction<4;++direction) {
 		XeenObjectFile walls{99,"walls.mob",true,{}};

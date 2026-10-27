@@ -193,15 +193,20 @@ std::vector<XeenOutdoorDrawCommand> XeenOutdoorScene::build(
 		command.sourceMapId=camera.mapId;command.content=XeenOutdoorProjectileDraw{p.enemy,p.row,p.lane,p.pow};commands.push_back(command);
 	  }
 	}
+    // drawOutdoorsScene moves the attack-pose front-rank monster to 121 together
+    // with its row's pow entries, so they move to 122/123 and stay in front.
+    std::optional<int> shiftedRow;
+    for(const auto &a:actors)if(a.originalOrder==121)shiftedRow=a.actor()->selectedSlot;
     for(unsigned row=0;row<3;++row) {
         const auto &s=world.scenePresentation().drawingState().splats[row];if(!s.duration)continue;
-        constexpr int order[]{119,113,116},x[3][2]{{102,134},{36,67},{161,161}},offset[]{8,6,4};
-        XeenOutdoorDrawCommand c;c.originalOrder=order[row]+(s.frame?1:0);c.sourceMapId=camera.mapId;
+        constexpr int pow[]{119,113,116},x[3][2]{{102,134},{36,67},{161,161}},offset[]{8,6,4};
+        const int order=shiftedRow==int(row)?122:pow[row];
+        XeenOutdoorDrawCommand c;c.originalOrder=order+(s.frame?1:0);c.sourceMapId=camera.mapId;
         c.x=x[row][s.alternatePosition]+(s.frame?offset[row]:0);if(s.damage>=100)c.x/=3;
         c.y=!s.frame && s.damage>=100?60:73;c.content=XeenHitSplatDraw{s.frame,s.damage};commands.push_back(c);
         if(s.elementalFrame && s.elementalDamage>0) {
             // interface_scene.cpp: the elemental frame draws at the offset slot with its own scale.
-            XeenOutdoorDrawCommand e;e.originalOrder=order[row]+1;e.sourceMapId=camera.mapId;
+            XeenOutdoorDrawCommand e;e.originalOrder=order+1;e.sourceMapId=camera.mapId;
             e.x=x[row][s.alternatePosition]+offset[row];if(s.elementalDamage>=100)e.x/=3;e.y=73;
             e.content=XeenHitSplatDraw{s.elementalFrame,s.elementalDamage};commands.push_back(e);
         }
