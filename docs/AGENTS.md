@@ -13,11 +13,11 @@ workflow documents.
 | `docs/controls.md` | Every key and mouse action for players | Short |
 | `docs/development.md` | Developer entry modes, game data sources, tests and developer test saves | Grows by preset |
 | `docs/project-status.md` | What can be played and done now; architecture overview; known gaps | ~200-300 lines |
-| `docs/project-history.md` | One short paragraph per completed milestone | Short |
+| `docs/project-history.md` | One short entry per completed milestone, with its closing commit | Short: a table row or a few lines each |
 | `docs/roadmap.md` | Next milestones and longer-term direction | ~100-150 lines |
 | `docs/milestone-N-plan.md` | That milestone's plan; condensed at closure | Closed: ~30-100 lines |
 | `docs/original-quirks.md` | Original DOS oddities kept on purpose, unconfirmed cases following the reference, and reference behavior not reproduced; QoL candidates | Grows by entry |
-| `docs/scummvm-differences.md` | Public list of where MMModern differs from ScummVM, one item per `**ScummVM:**`-tagged quirk entry, with the master revision checked | ~150-250 lines |
+| `docs/scummvm-differences.md` | Public list of where MMModern differs from ScummVM, one item per `**ScummVM:**`-tagged quirk entry, with the master revision checked | Grows by item, one or two lines each |
 | `docs/rules/` | Consultable game rules, formulas, evidence and explicit unknowns; playable coverage remains in project status | Grows by topic |
 | `docs/dependencies.md` | Toolchain, pinned ScummVM revision and configuration, build setup (authoritative) | - |
 | `docs/coverage.md` | Generated original-data mechanic census and per-map readiness; regenerate with `mmodern_census` whenever support changes; checked by `xeen_coverage_original_guard` and the Vertigo/mainland calibration gate `xeen_coverage_calibration` | Generated |

@@ -439,7 +439,7 @@ int main(int argc,char **argv){try {
  };scoreCheck(o,"0071001722");
  check(!o.kingMouths.empty() && std::all_of(o.kingMouths.begin(),o.kingMouths.end(),[](auto n){return n>=1 && n<=6;}),"King mouth range");
  std::vector<unsigned> mixers;for(const auto &r:run.requests)if(r.kind==XeenCutscene::Audio::Mixer)mixers.push_back(r.value);
- check(mixers==std::vector<unsigned>({75,95,95}),"Mixer sites and cleanup");
+ check(mixers==std::vector<unsigned>({75,95}),"Mixer sites 0x8e42 and 0x8f91 only");
  Run input(installation,assets,font,data,captions,true);input.finish();
  check(input.now==run.now && input.flow->cutscene().observations->kingMouths==o.kingMouths,"Animation input changed playback or RNG");
  Run replay(installation,assets,font,data,captions,false,false,1234567890);replay.finish();scoreCheck(*replay.flow->cutscene().observations,"1234567890");

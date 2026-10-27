@@ -55,7 +55,8 @@ several apply, read all of them.
   evidence when it is calibrated against a known behavior, cites file offsets
   and reaches high confidence. Work copies and analysis projects stay outside
   the repository; never copy decompiled code, assembly or original bytes into
-  it. Record each settled rule in `docs/original-quirks.md`.
+  it, except bytes that only validate the installed program (`XeenDosText`).
+  Record each settled rule in `docs/original-quirks.md`.
 - **Condition counter edge cases follow ScummVM** when neither normal DOSBox
   play nor program analysis settles them (values unreachable in ordinary play):
   follow the pinned reference without asking and mark the site "follows

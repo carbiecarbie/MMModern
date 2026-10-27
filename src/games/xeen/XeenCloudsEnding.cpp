@@ -239,7 +239,8 @@ XeenCutscene XeenCutscene::cloudsEnding(const XeenCutsceneData &data,const XeenC
  last.entering=[=](const Context &c){startCaption(10,captions.record(10,200),c);};last.finished=[=](const Context &c){return !c.digitalBusy && state->cursor==0;};
  auto &pause=add("last king pause",{},[=](const Context &){return king();},1,1);pause.reset=Reset::AfterFlip;
  scroll("ending closing scroll",true);
- add("ending shutdown",{Audio{Audio::StopDigital},Audio{Audio::Mixer,{},95},Audio{Audio::FadeSong,{},0}},[](const Context &)->Frame{return {Level{0}};});
+ // The EXE's ending mixer sites are only 0x8e42 (75) and 0x8f91 (95).
+ add("ending shutdown",{Audio{Audio::StopDigital},Audio{Audio::FadeSong,{},0}},[](const Context &)->Frame{return {Level{0}};});
  result.closing=result.segments.size();return result;
 }
 }

@@ -161,12 +161,13 @@ int Application::runTitle(const std::filesystem::path &gameDirectory,std::option
      resourcesLoaded=true;
      XeenCutsceneFlow ending(XeenCutscene::cloudsEnding(data,captions,_program.wallClock,entry.score),
       XeenCutsceneFlow::original(assets,font,audio,clock,data.digitalDevice>=2,XeenSceneArchive::CloudsEnding));
-     if(!showCutscene(ending,assets,audio)){audio.mixer(95,clock());audio.observeOptions(options);return 0;}
+     if(!showCutscene(ending,assets,audio)){audio.observeOptions(options);return 0;}
     }catch(const std::exception &e) {
      std::cerr<<"Clouds ending unavailable: "<<e.what()<<'\n';
      notice=resourcesLoaded?"Clouds ending unavailable\nResource error (see log)":"Clouds ending unavailable\nCheck XEEN.EXE / XEEN.CFG";
     }
-    audio.stopDigital(clock());audio.fadeSong(0,clock());audio.mixer(95,clock());audio.observeOptions(options);
+    // No mixer command: the fresh DAT driver init rewrites the init levels.
+    audio.stopDigital(clock());audio.fadeSong(0,clock());audio.observeOptions(options);
     audio.startProgram(clock()); // Fresh XEEN.DAT driver init (DAT 0xb646).
     title=makeTitle(options);if(!notice.empty())title->cloudsEndingFailure(notice);
     _program.resetPlayTime();entry={};continue;
