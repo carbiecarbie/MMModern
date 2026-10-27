@@ -29,8 +29,9 @@ A new Clouds of Xeen game starts in Vertigo with the original six characters,
 and from there it plays like the original. Every Clouds map is open, and
 combat, spells, items and town services follow the original rules. The Inn
 lets you sign in, recruit, create, delete and dismiss characters, but you
-cannot travel to Darkside yet. So far only the Vertigo quests have been
-tested thoroughly.
+cannot travel to Darkside yet. The Clouds story has been verified through
+Lord Xeen and the Sixth Mirror, and the original ending and score are playable.
+The original Clouds and Darkside intros can also be watched.
 
 The original interface is close to complete, with mouse and keyboard.
 [What is missing](#what-is-missing) lists the rest.
@@ -43,9 +44,9 @@ World of Xeen CD edition. MMModern never copies or modifies your game files.
 1. Download the latest `MMModern-<version>-windows-x64.zip` from the
    [releases page](https://github.com/carbiecarbie/MMModern/releases).
 2. Unpack it into a folder of your own, not inside the game folder.
-3. Double-click `MMModern.bat`. The first time, it looks for the game where GOG
-   installed it. If it cannot find it, a window asks you to choose your
-   "Might and Magic 4-5" folder, the one that contains `WORLD\XEEN.DAT`. Your
+3. Double-click `MMModern.bat` to launch the game. The first time, it looks for
+   the game where GOG installed it. If it cannot find it, a window asks you to
+   choose your "Might and Magic 4-5" folder, the one containing `WORLD\XEEN.DAT`. Your
    choice is remembered, so later the game starts directly.
 4. If you move the game, double-click `Change game folder.bat` to choose the
    folder again. You can also run
@@ -77,8 +78,8 @@ Press Tab, or click the gem, to open the control panel with Save, Save As, Load
 and Quit. There are ten slots, stored in
 `%LOCALAPPDATA%\MMModern\Saves\<game data id>\slot-0.mmsave` to `slot-9.mmsave`.
 
-During 0.x, each release reads only its own save format, so saves from an older
-release show as "Unavailable". Choosing one tells you why, and New can
+During 0.x, saves from an older release may show as "Unavailable" if the save
+format has changed. Choosing one tells you why, and New can
 overwrite that slot after you confirm. Compatibility will be reconsidered for
 1.0. A save only works with the game data it was made with, and neither the
 original games nor ScummVM can read it.
