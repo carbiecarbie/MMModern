@@ -686,13 +686,13 @@ movement from the draw routine happens only in scene modes 1, 2 and 5
 keeps ordinary scene animation running as it does for Info, without
 advancing exploration time or requesting monster movement.
 
-**Unknown: Poison Volley visuals with one to five members.** DOS sets all
-six fixed shot flags (`0x1d899..0x1d8bb`), and its hit loop is bounded by
-active count (`0x2cb46..0x2ccdb`). The retained listings do not settle the
-projectile renderer's lane count. MMModern currently draws active lanes
-in combat, but all six lanes for exploration Cast and item Use; a
-smaller-party DOS recording or the renderer's loop must settle whether
-inactive missiles are also visible. See [magic rules](magic.md).
+**Poison Volley visuals with one to five members.** **DOS static, high
+confidence** (2026-10-27): DOS sets all six fixed shot flags
+(`0x1d899..0x1d8bb`), but both its sprite placement loop
+(`0x1d9f5..0x1dac3`) and its hit loop (`0x2cb46..0x2ccdb`) stop at the
+active count, in combat, exploration Cast and item Use alike. Inactive
+members get no missile. MMModern draws one lane per active member in all
+three paths. See [magic rules](magic.md).
 
 ## Shared state and consumer bounds
 

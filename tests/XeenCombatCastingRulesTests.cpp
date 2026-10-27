@@ -112,6 +112,10 @@ void specialDamage() {
     XeenConsequenceDraw draw{rng};check(arrow.service(draw) && !arrow.damage && !arrow.impact && arrow.status==A::Sleep && rng.position()==1,"ID89 ordinary refusal");
     check(XeenLearnedSpellRules::supported(51)==XeenLearnedSpell::PoisonVolley &&
         XeenLearnedSpellRules::range(51)==XeenSpellRange::All && xeenSpellProjectile(XeenLearnedSpell::PoisonVolley)==11,"Poison Volley admission/range/projectile");
+    // DOS draws one volley lane per active member in exploration Cast and item Use too.
+    for(unsigned members=1;members<=6;++members)
+        check(xeenSpellProjectileLanes(XeenLearnedSpell::PoisonVolley,members)==members &&
+            xeenSpellProjectileLanes(XeenLearnedSpell::MagicArrow,members)==1,"Projectile lanes per active member");
 }
 void domainsAndBooks() {
     using Rules=XeenLearnedSpellRules;

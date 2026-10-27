@@ -99,6 +99,11 @@ private:
 };
 // Original POW resource selector for the implemented ranged spells.
 unsigned xeenSpellProjectile(XeenLearnedSpell,unsigned damageType=2,unsigned itemPower=0);
+// Projectile lanes a cast starts with: Poison Volley one per active member
+// (DOS 0x1d9f5..0x1dac3), every other ranged spell one.
+inline unsigned xeenSpellProjectileLanes(XeenLearnedSpell spell,unsigned activeMembers) {
+    return spell==XeenLearnedSpell::PoisonVolley?activeMembers:1u;
+}
 // One retained scalar/type draw per cast, before any target gate. Ordinary
 // damage types use the original Physical..Energy indices (including Magical).
 struct XeenSpellDamagePreparation {

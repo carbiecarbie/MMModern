@@ -215,7 +215,7 @@ bool XeenEncounterFlow::confirmCasting(const Ticket &entry, std::size_t casterIn
         }
         std::vector<XeenProjectileAppearance> projectiles;
         if(projectile && projectile->spellPreparation->ready())
-            for(unsigned lane=0;lane<(*spell==XeenLearnedSpell::PoisonVolley?6u:1u);++lane)
+            for(unsigned lane=0;lane<xeenSpellProjectileLanes(*spell,unsigned(_party.party.size()));++lane)
                 projectiles.push_back({false,0,lane,3,{},xeenSpellProjectile(*spell,projectile->spellPreparation->type)});
         auto mapWork=prepareSpellMap(travel);
         const auto after=static_cast<std::int16_t>(caster.currentSp-cost.sp);

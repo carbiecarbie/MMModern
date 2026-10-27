@@ -370,14 +370,14 @@ tiers, walls and target settlement apply. The pin agrees with this branch,
 but its signed hit-total comparison differs from DOS's unsigned word
 comparison: [negative hit totals](../original-quirks.md#sv-hit-total-unsigned).
 
-**Unknown: smaller-party Poison Volley projectile count.** The spell enables
-six fixed flags at `0x1d899..0x1d8bb`, while hit resolution visits only the
-active members (`0x2cb46..0x2ccdb`). A focused search of the retained DOS
-listings did not identify the projectile-render loop, so those flags do not
-prove that six missiles are drawn with one to five members. MMModern
-currently draws active lanes in combat, but all six lanes for exploration
-Cast and item Use; renderer evidence or a smaller-party DOS recording must
-settle the count. See [party bounds](party.md#shared-state-and-consumer-bounds).
+**Poison Volley projectile count.** **DOS static, high confidence**
+(2026-10-27): the spell enables six fixed flags at `0x1d899..0x1d8bb`, but
+the sprite placement loop `0x1d9f5..0x1dac3` stops at the active-member
+count, and a lane's projectile disappears when its shot hits
+(`0x2cbab..0x2ccb6`). One routine serves combat, exploration Cast and item
+Use (power 46 via `0x39e4b`, `0x3a005`), so one to five members show one to
+five missiles everywhere. MMModern draws one lane per active member in all
+three paths. The pin agrees. See [party bounds](party.md#shared-state-and-consumer-bounds).
 
 ## Monster-specific magic
 
