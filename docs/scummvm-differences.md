@@ -49,7 +49,9 @@ M83 follows the installed digital driver and CD rules:
 - **Approved timing approximation.** The maintainer adopted
   [unsplit driver-count timing](original-quirks.md#dev-prosnd-dma-timing),
   omitting the sub-millisecond effect of DOS allocation-dependent DMA splits.
-  MMModern uses this timing; the pin instead follows VOC header durations.
+  MMModern uses this timing for prosnd; the maintainer extended it to
+  blastsnd for M94 on 2026-10-27 (count+1 duration: medium confidence).
+  The pin instead follows VOC header durations.
   Pin: differs;
   master not rechecked.
 - **Refused CD starts.** A request beginning in the data track plays
@@ -451,10 +453,37 @@ against the pin; master was not rechecked.
   Pin: differs; master not rechecked.
   [Details](original-quirks.md#sv-cd-fm-tick-fade)
 - **Sound Blaster mixer.** DOS lowers the FM music on the card mixer during
-  cutscene and entrance-scene speech (−20/−24 dB, restoring −16 dB) and sets
+  cutscene and entrance-scene speech on the installed promus/SB16 path
+  (−20/−24 dB, restoring −16 dB) and sets
   the DAC 24 dB down at each program start. The pin scales music by a linear
   percentage with different values. Pin: differs; master not rechecked.
   [Details](original-quirks.md#sv-promus-pas-mixer)
+- **Audio I/O timing approximation.** M94 keeps MT-32 polling/serialization
+  cost in renderer timestamps, as OPL helper delays already are; its logical
+  upload barrier preserves order without adding game time. DOS really
+  busy-waits while BIOS time runs. This is a maintainer-approved approximation
+  to DOS, not a new pin-equivalence claim; installed 3/10 stays unchanged.
+  Master not rechecked.
+  [Details](original-quirks.md#dev-audio-io-cost-clock)
+- **Deferred audio devices.** The approved temporary restriction (2026-10-27)
+  substitutes exact nullmus/nullsnd behavior, including fixed BIOS timing,
+  no device waits and nullmus's mixer init, plus one notice. Original deferred
+  drivers have fades, blocking, clock changes and wave/tap mixer writes.
+  This replaces DOS behavior, not a pin-equivalence claim; master not rechecked.
+  [Details](original-quirks.md#dev-m94-deferred-null)
+- **Other-device MT-32 rules.** M94 specifies the DOS resource upload,
+  inclusive effect id 180 and unsigned/cache-driven fade, rather than the
+  pin's added factory reset, adjusted MIDI levels and signed fade test.
+  The extra driver is not yet implemented. Pin 6814ee9b: differs;
+  master not rechecked.
+  [Details](original-quirks.md#sv-rolmus-protocol)
+- **Unavailable original digital devices.** M94's approved deviation
+  (2026-10-27) uses notice/title return for EXE digital 3/4/9 instead of the
+  DOS disk-error exit for absent INTRO rolsnd/cansnd/covsnd. DAT 3/4 follows
+  nullsnd; DAT 9 stays deferred with notice and silence. This is an approved
+  deviation from DOS, not a claim
+  of matching the pin's EXE behavior. Master not rechecked.
+  [Details](original-quirks.md#dev-xeen-unavailable-digital)
 - **CD party audio options.** DOS saves four party options;
   New Clouds defaults to Efx/Music on, Text off and Speech on. Efx off gates
   playback/status without stopping active sound. The pin uses global settings

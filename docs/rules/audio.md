@@ -562,8 +562,10 @@ music port (`0x220` installed): DAT `0xdf25` passes CFG +6 and the flag at CFG
 +`0x14`, EXE `0x11c0c` does the same from its CFG copy at DS `0x427e`. Ports
 base+4/+5 are the Sound Blaster Pro mixer index and data ports, and
 `0x2e/0x22/0x26/0x04` are its line, master, FM and voice (DAC) registers; they
-are not PAS registers. Every INTRO music driver, `nullmus` included, has the
-same init writes; only `promus` implements command `0x100`. Each program runs
+are not PAS registers. This paragraph describes **promus**: the
+[other drivers](#other-original-sound-devices) have different flag/port
+consumers, and `canmus` has no such mixer block. Other full music drivers
+also recognize command `0x100`, with different meanings. Each program runs
 driver init once: EXE `0x79f1` → `0x11b8b`, DAT `0xb646` → `0xdef9`. Promus
 shutdown writes no mixer register. Every EXE start (intro, ending) and every
 fresh DAT (startup, the title after an intro or the ending) therefore
@@ -1217,6 +1219,353 @@ body gate among these readers; their helpers can restore an existing NPC
 window without suppressing the new text. MMModern applies the maintainer's
 decision-3 text fallback whenever speech cannot be delivered; this is an
 approved deviation, not evidence that DOS checks delivery.
+
+## Other original sound devices
+
+**Evidence boundary, 2026-10-27:** M94 Part 0 establishes the following
+rules; it does not implement these additional devices. Calibrated original
+program evidence is **DOS static, high**; captures and the matching emulator
+source are explicitly **DOSBox reference evidence**, not measurements of
+physical cards. Detailed offsets, hashes, captures and analysis are retained
+under `D:/Projetos/MModern/MModern-re/m94/` in `findings-0a.md`,
+`findings-0b.md`, `findings-0c.md` and `analysis-0c/`. The ScummVM pin remains
+the revision in [dependencies](../dependencies.md).
+
+### Configuration, resources and program boundaries
+
+Both programs read 29 bytes of `XEEN.CFG`: digital id +0, digital port +2,
+music id +4, music port +6, IRQ +8, mixer word +`0x14`, DMA +`0x18`.
+The installer writes 29 bytes too; no-question fields can retain old values.
+DAT selection is `0xb506..0xb604`, tables `0xb9cc/0xb9de`; EXE selection is
+`0x78a3..0x79e9`, tables `0x7c80/0x7c92`. Both load selected drivers from
+INTRO.CC, with the ordinary loose-file override, initialize music then
+digital once per program start, and shut down in reverse order. They do not
+fall back to a similarly named driver in another archive.
+
+| Music id / driver | Installer caption; established protocol |
+| --- | --- |
+| 1 `admus` | Adlib; one OPL2-compatible bank |
+| 2 `blastmus` | Sound Blaster; one OPL2-compatible bank |
+| 3 `promus` | Sound Blaster Pro; the installed two-bank NEW-mode OPL3 path above |
+| 4 `rolmus` | Roland LAPC-1 / MT-32; MPU interface and Roland model-16 DT1, LA patches |
+| 5 `canmus` | Roland Canvas / GS; GS-capable MIDI, including model-42 and model-16 messages; **not CMS** |
+| 6 `specmus` | Pro-Audio Spectrum; selected INTRO bytes are identical to `blastmus`, one bank |
+| 7 `ibmmus` | PC Speaker; PIT/speaker effects, no song interpreter |
+| 8 `wavemus` | Wave Blaster; MIDI plus EXE-only E-mu product-04 codebook upload |
+| 9 `tapmus` | Roland TAP-10; MIDI with model-42/56 traffic; exact target remains unknown |
+| other `nullmus` | Silence, including effects; still installs the normal logical timer |
+
+All 18 requested music/digital names exist in INTRO; XEEN contains 15,
+and DARK none. Inactive XEEN copies can differ materially: in particular
+XEEN `specmus` is two-bank and is not the selected INTRO alias. Never
+substitute them. The installer never writes digital ids 3/4. Their DAT
+selection is `nullsnd`, but EXE requests absent `rolsnd`/`cansnd`; digital
+9 likewise requests absent INTRO `covsnd` in EXE instead of DAT `covxsnd`.
+The [approved deviation](../original-quirks.md#dev-xeen-unavailable-digital)
+uses notice/title return for EXE 3/4/9; DAT 3/4 selects nullsnd and DAT 9
+uses the deferred stopgap.
+
+Music init receives music port, mixer flag, an extra segment and digital
+port; digital init receives digital port, music segment, IRQ and DMA.
+`promus/nullmus` use **musicPort+4/+5** for flag-gated SB mixer writes.
+`admus/blastmus/specmus/rolmus/ibmmus/wavemus/tapmus` instead use
+**digitalPort+4/+5**; `canmus` neither reads the flag nor runs that block.
+Ordinary init writes 2e/22/26=ff, 04=99; wave/tap use 04=cc plus 41/42=40.
+These transactions affect a compatible mixer only at the addressed port.
+Mono OPL command `0x100` caches a patch-volume argument, MIDI profiles send
+controller traffic, and only promus changes the card FM level with it.
+
+DAT Other Options **D** clears seen +`0x1a` and writes 30 bytes
+(`0xc571..0xc59e`); **C does not write CFG**. The ending writes 30 bytes
+at `0x28bde..0x28c0a`; EXE's Darkside seen-store does so at
+`0xd34b..0xd374`. Byte +`0x1d` is adjacent memory, not an audio field read
+next time. These handoffs do not change audio ids/ports or pass audio cursors.
+MMModern never writes the original file; its remembered presentation flags
+remain in settings. Ordinary New/Load inside DAT does not reinitialize audio.
+
+### Interpreters, fades and digital transfers
+
+Mono OPL and promus share flow operations, not all voice/patch semantics.
+All use music voices 0..6 and FX 7/8. Mono music records occupy 26 bytes
+but emit one 11-byte patch; mono FX records consume 11 bytes, promus 22.
+Use the selected resource's dispatch, effect and patch tables. Admus has
+additional slide/postprocess cutoff logic. Mono fade starts only for active
+music, uses remaining=63 and unsigned phase carries, and keys off music on
+completion. Retain the installed promus rules above unchanged.
+
+Rolmus needs its own MIDI opcode profile: pitch, pan, program, velocity,
+CC11 expression and checksummed SysEx differ from OPL operations. Its fade
+visits voices 8 and 0..6, uses remaining=127, and decrements a cache when its
+old value is at least 40: **40 is emitted as 39**. An eligible carry with all
+old caches below 40 stops early; otherwise at most 128 carries.
+Phase survives requests; terminal stream ticks can skip postprocessing.
+The load-busy query is fade **speed**, not sounding notes. Full OPL/MIDI
+effect ids are **0..180 inclusive**; active FX protect ids 7..10. Rolmus
+ids 5,9,41..44,48,59,66..70 are timed ten-tick no-note replacements, not
+permission to play promus effects. Evidence: INTRO rolmus
+`0x36d..0x38f`, `0x985..0xa07`, effect table `0x10eb`; mono fade
+admus `0x861..0x8b5`, blast/spec `0x856..0x8a0`.
+
+**DOSBox MIDI:** the outdoor-change fade emits final expression 39 at
+116002 ms, all-notes-off at 116029..116030, then the next song's controller
+initialization at 116088..116098. The 27-ms interval is compatible with two
+logical ticks and the static eligible-tick/terminal-skip rules; it is not
+a fixed fade duration or evidence that a cache clamps to 40.
+
+Let L be the unsigned word at sample +`0x1b`; PCM starts at +`0x20`.
+
+| Digital driver / ids | Original transport and logical busy |
+| --- | --- |
+| `nullsnd` / 0, defaults, DAT 3/4 | Every command returns zero; no samples or timer changes |
+| `blastsnd` / 6, including installer PAS Alt | Stop=0, busy query=1, other requests replace. Count register `uint16(L-14)`, fixed DMA 1, CFG DMA ignored; BC time constant. Count+1 samples at 68 us each is **medium-confidence inference**, as for M83. DOS has IRQ/page continuation and latched DSP-failure busy clearing (`0x101..0x29c`); MMModern omits page splitting under the approved approximation below. |
+| `prosnd` / 7,10 | Existing installed model: `uint16(L-10)+1` samples at 68 us, CFG DMA consumed; existing allocation approximation unchanged |
+| `ibmsnd` / 1 | Only caller flag 1 starts; foreground blocks for L-32 IRQs, PIT0 divisor 81, speaker PWM |
+| `adsnd` / 2 | OPL TL modulation, L-32 or ceil((L-32)/2) completion IRQs, PIT0 divisor 81/162; last read is not written; CPU calibration selects branch |
+| `source` / 5 | Disney Sound Source, eight strided writes per batch, advance 17, `floor((L-32)/17)+1` batches plus cleanup IRQ; PIT0 divisor 1364; busy is not FIFO drain |
+| `specsnd` / 8 | PAS resident-query IRQ/DMA, on-card divisor 81, `uint16(L-10)` count; physical clock/oracle still open |
+| `covxsnd` / 9, DAT | Covox DMA protocol, `uint16(L-10)`, raw busy count, stop only when busy==1; selected installer address versus actual control base remains open |
+
+**Maintainer decision, 2026-10-27:** extend the
+[unsplit transfer approximation](../original-quirks.md#dev-prosnd-dma-timing)
+to blastsnd: `(uint16(L-14)+1) * 68 us`, no DMA page split. Prosnd's existing
+`(uint16(L-10)+1) * 68 us` model stays unchanged. These are playback and
+logical-busy durations, separate from waveform equivalence; the capture
+publication bound cannot establish allocation-specific continuation.
+
+**Approved temporary restriction, 2026-10-27:** deferred music 5/7/8/9 and
+digital 1/2/5/8/9 behave exactly as nullmus/nullsnd, except EXE digital 9's
+notice/title return. They are silent, have no driver busy/fade/load waits of
+their own, retain the fixed BIOS rate and issue one standard "not supported
+yet" notice. Deferred music runs **nullmus's own** flag/port-gated mixer
+transaction, never the deferred driver's; deferred digital has no mixer
+transaction of its own. Common CD speech and its waits
+remain independent. This replaces the original deferred fades, blocking,
+clock and mixer behavior; see the [dated restriction and DOS evidence](../original-quirks.md#dev-m94-deferred-null).
+
+Efx gates sample starts, stops and queries. Entrance captions test Efx off
+or digital id<2, not whether speech is actually audible. Speech controls
+CD cue starts independently of the digital driver; nullsnd does not remove
+CD narration or its waits. Text controls NPC body/face presentation separately.
+
+### Clocks and the bounded MT-32 reference
+
+All approved music profiles, silent nullmus included, install PIT divisor
+**16390** and add it to a 16-bit BIOS-chain accumulator. IRQ rate is
+1193182/16390 Hz; BIOS average remains 1193182/65536 Hz. Approved DMA
+drivers do not take over PIT0. No approved driver changes the BIOS tick rate.
+The original deferred drivers must not inherit that assertion; M94's
+approved null-driver stopgap above deliberately replaces these behaviors:
+
+| Deferred path | Settled static clock consequence; physical oracle still separate |
+| --- | --- |
+| ibmmus idle / type 2,3 | Idle divisor 16390; type 2,3 divisor 1193 with BIOS accumulator chaining |
+| ibmmus type 0,1 | Variable divisors; active IRQs skip BIOS chaining, freezing BIOS time |
+| ibmsnd | Divisor 81, forwarding increment 328: ordinary-music BIOS average 18.438034 Hz |
+| adsnd fast / slow | Divisor 81/increment 324 or 162/increment 649: BIOS 18.213180 / 18.241287 Hz |
+| source | Divisor 1364/increment 5453: BIOS 18.203165 Hz; idle handler remains until music shutdown |
+
+Those averages assume ordinary music; ibmmus paired with the timer PCM
+drivers can freeze BIOS time instead. Speaker initial PWM/gate behavior,
+ADSND calibration reference, PAS clock, DSS drain and Covox working address
+remain deferred questions, not M94 implementation work.
+
+**DOS static, high:** rolmus init uploads 13 DT1 packets, lengths
+33,267,18,256,18,256,18,256,18,256,18,256,18: **1688 bytes**, plus nine CC7
+messages/27 bytes. Addresses are system `10 00 00`, six timbres at
+`08 00/02/04/06/08/0a 00` and six patch mappings at `05 00..28`.
+There is no factory-reset SysEx or fixed post-upload sleep. MPU reset FF
+is an interface command. Command/data polling is at `0x57a..0x5f9`;
+song opcode B adds **176 port-61 reads per address/data byte**. Counter
+loops use FFFF retries; unexpected non-FE responses restart the ACK loop,
+so a universal broken-hardware timeout is not established.
+
+**DOSBox reference, maintainer-authorized:** Staging 0.83.0 commit
+`7b40053b7ac580843d0461eba8c36a47a990e66c`, intelligent MPU, 80000 cycles,
+empty midiconfig, raw MIDI output on. Its MPU reset schedules a 14-ms
+completion event; command pending and response queue determine ready/ACK,
+not synth/audio completion (`src/hardware/audio/mpu401.cpp`). The healthy
+D0..D7/DF path supplies FE; no external input or output-device poll is needed.
+`src/hardware/port.cpp:64..87` charges reads/writes nominally 1/0.75 us,
+quantized here to **0.975/0.725 us**. A bounded virtual transport can charge
+those operations, retain the original polling counters and pending-command
+deadline, and account for opcode B's additional reads on its **renderer
+transport timeline**. These are DOSBox reference timestamps, not a physical
+MPU measurement or a CPU emulator.
+
+**Maintainer timing approximation, 2026-10-27:** the charge is render-only.
+It does **not** advance, rebase or add elapsed time to the game's presentation
+clock. The logical upload barrier is **ordering-only**: enqueue all init
+messages before later notes; the renderer preserves that order and its byte
+deadlines. No game wait tests the last F7's render timestamp, the virtual
+reset deadline or audio completion. Logical ticks, fades, VOC/CD deadlines
+and missing-ROM behavior still use the caller-supplied presentation time.
+DOS actually busy-waits on MPU polling while the BIOS clock continues;
+omitting this game-visible cost is an approved approximation, not DOS static
+equivalence. The captured upload span is about 3 ms, below a 13.736-ms driver
+tick, but does not bound the uncaptured total init/MPU-reset interval.
+The reference's 14-ms reset event, if represented, belongs only to renderer
+transport timestamps; it is not an additional game delay.
+
+This matches the existing OPL boundary: DOS helper I/O delays space chip
+writes, and `XeenOpl3::write` uses buffered writes, but neither mutates
+`XeenAudio::advanceClock`'s supplied time. There is no asymmetric MIDI-only
+addition to game-visible time. Installed 3/10 does not use rolmus transport
+and retains its timing, output, gains and traces **byte for byte**. See the
+[known approximation](../original-quirks.md#dev-audio-io-cost-clock).
+Unexpected traffic, a renderer profile that fails the endpoint tolerance,
+or any independently required game-visible wait without a bound remains a
+stop; this policy does not invent a finite hardware-failure timeout.
+
+Two captured initializations each contain the same 13 packets with correct
+checksums, at MIDI times 0..3 ms and 25301..25304 ms. A healthy I/O-only
+schedule predicts packet ends through 2.98705 ms after the first CC; all
+13 endpoints fit their integer-ms bins with first-event phase
+0.52030..0.87025 ms, in both groups. This bounds observed serialization
+at the capture resolution; it does not expose init entry/return or prove
+the omitted instruction cost is zero. Part B must retain this as a bounded
+reference profile and stop if fuller bookkeeping cannot meet the same bins.
+The separate physical-wire occupancy, 1688*10/31250 = 0.540160 s, is **not**
+a DOS init wait. Staging/mt32emu immediate delivery does not emulate that
+wire. Do not add either that delay or the pin's eight-bit MIDI delay again.
+The synth survives logical EXE/DAT handoffs; repeat the driver's shutdown
+and initialization traffic without inserting a fresh synth/factory reset.
+
+Use explicit **MT-32 1.07** (`mt32_107`) and the verified player's PCM ROM
+for comparison; protocol model 16 alone does not distinguish old/new/CM ROMs.
+Staging auto would choose the available CM-32L 1.02. ROM choice and current
+capture path are reference settings; MMModern's ROM location remains the
+maintainer's decision before Part B. The
+[MT-32 comparison](../original-quirks.md#sv-rolmus-protocol) explains why
+the pin's SoundDriverMT32 is not the DOS driver.
+
+### Reference combinations
+
+**DOS static, high:** chip protocol follows the selected music driver,
+independently of digital id: 1/2/6 use one OPL2-compatible bank, 3 NEW-mode
+OPL3, 4 MT-32 MIDI without OPL music/FX, nullmus no chip output but an active
+timer. Mixer writes retain the port/flag consumers above; those writes
+neither identify nor create a physical card.
+
+**Maintainer reference-topology decision, 2026-10-27, not DOS evidence:**
+the following matrix defines every M94 music/digital combination. Digital N
+means 0; deferred 1/2/5/8/9; DAT 3/4; and every out-of-range id. Each cell
+specifies the compatible reference mixer, not a physical-card deduction
+from `XEEN.CFG`. Digital transfer/notice/caption rules remain separate.
+
+| Music / renderer mode | Digital 6 | Digital 7 | Digital 10 | Digital N |
+| --- | --- | --- | --- | --- |
+| 1/2/6: OPL2 | SB2, no Pro mixer | SB Pro mixer | SB16 mixer | No SB mixer |
+| 3: NEW-mode OPL3 | SB16 mixer | SB16 mixer | Existing installed SB16 mixer | SB16 mixer |
+| 4: MT-32, no OPL music/FX | SB2, no Pro mixer | SB Pro mixer | SB16 mixer | No SB mixer |
+| nullmus: no chip output | SB2, no Pro mixer | SB Pro mixer | SB16 mixer | No SB mixer |
+
+Promus 3 keeps the installed SB16 mixer/CD calibration for **all** digital
+ids, an explicit exception to digital 6/7/10's default SB2/SB Pro/SB16 rule.
+Nullmus covers music 0 and out-of-range music. Deferred ids use the
+[approved null-driver temporary restriction](../original-quirks.md#dev-m94-deferred-null),
+including nullmus's mixer transaction, no deferred-driver busy/fade/load
+waits and fixed BIOS rate. EXE digital 3/4/9 returns to title with its notice
+instead of initializing EXE audio; the table still applies to DAT 3/4/9.
+The specmus/SB Pro 2 take is a topology control, not its digital 6 default.
+
+For non-promus rows the digital reference mixer, when present, is at the
+CFG digital port; nullmus still writes its CFG **music** port, so its init
+affects that mixer only when the addresses match. Promus uses its music-port
+SB16 reference. Keep the actual mixer flag and write addresses, including
+the absence of init writes when the flag is zero; do not fabricate a common
+init for all drivers. Rolmus's synth channel never receives SB FM gain.
+
+**DOSBox reference, not physical-card evidence:** Staging 0.83.0, commit
+`7b40053b7ac580843d0461eba8c36a47a990e66c`,
+[soundblaster.cpp](https://github.com/dosbox-staging/dosbox-staging/blob/7b40053b7ac580843d0461eba8c36a47a990e66c/src/hardware/audio/soundblaster.cpp#L2400),
+lines 2400..2483, 2552..2565, 2652..2669 and 3652..3656:
+
+- SB1/SB2 skip installation of mixer index/data ports base+4/+5. The
+  original init writes have no effect: master, FM, DAC and CD card gains
+  stay unity. Do not run the unreachable SB2 register handlers as a mixer.
+- SB Pro reset sets master/FM/DAC/CD amounts to 31 (unity). Registers
+  22/26/04 write master/FM/DAC; each channel nibble n maps to `(n<<1)|3`.
+  Register 2e stores line-in without applying it to these output channels.
+  For amount a, let c=31-a: c=0 is unity; otherwise attenuation dB is c-1
+  for c<16, c for c=16, c+1 for c>16, with another +2 at c=24; c>27 mutes.
+  Linear gain is `10^(-dB/20)`. Both Pro models use this mapping.
+- The ordinary original init 2e/22/26=ff, 04=99 therefore leaves SB Pro
+  master/FM/CD at 1.0 and DAC at **-11 dB**, approximately **0.281838**.
+  If the flag is zero or the addressed port misses the reference mixer,
+  reset gains stay unity. Original wave/tap's 04=cc would give Pro DAC
+  -3 dB (approximately 0.707946); M94's deferred stopgap instead runs the
+  ordinary nullmus transaction, including its music-port addressing.
+- SB16 keeps its existing mapping/calibration: ordinary init master/FM/CD
+  unity, DAC -24 dB. `ctmixer_update_volumes` applies master times source
+  gain to DAC, OPL and CD; MT-32 is a separate channel. A1 adds a unit test
+  for **each** SB2/SB Pro/SB16 reference, covering reset, ignored ports,
+  flag/address gating, init gains and register updates.
+
+The original game writes master=ff and no CD register (**DOS static**, audit
+above); these reset/init transactions leave CD's card multiplier at 1.0.
+**Maintainer decision, 2026-10-27:** with no compatible mixer, use multiplier
+**1.0** as well: no card attenuation, not full-scale source playback.
+Existing per-source bases remain **g=1/3 for VOC/CD and 1.5*g=0.5 for FM**;
+output processing/clamping stays unchanged. Speech/CD selection and waits
+remain independent of digital id. Installed 3/10's existing code path,
+calibration, sample output and logical timing remain byte-for-byte unchanged.
+
+### Capture oracle, topology and limits
+
+The four takes contain 6006/12689/4277 retained one-bank DRO writes for
+admus/blastmus/specmus and 5489 MIDI events for rolmus. Align each compared
+window (song start, stable title, outdoor key-on) from its matching stream;
+the measured stable title and outdoor key-on windows fit the original IRQ
+grid within **1 ms** inside each window. Foreground command writes compare
+by order only. One origin per program is intended, **not demonstrated** by
+these captures.
+Blast/spec share a contiguous 418-write title subsequence.
+
+For OPL, require exact ordered register/value writes and logical tick indices
+in the recording sink. Against DRO compare its projection: mapped changed
+writes, synthetic first-note cache separated, timestamps within 1 ms after
+matching-window alignment. DRO does not record init order, duplicates or sub-ms bus
+spacing. Mono helpers (`admus 0x407..0x41e`, blast/spec `0x405..0x41c`)
+retain their I/O delays; do not collapse key-off/on into one chip sample.
+Their three address/data delay reads plus twenty tail reads and two writes
+give a nominal 23.875-us virtual-I/O charge in this reference, before
+instruction overhead/slice clamping. Stable title bins retain 10/12/12
+writes in one millisecond: average retained spacing is below
+111.2/91.0/91.0 us respectively. These are aggregate bounds, not a measured
+minimum or maximum for every write. Sub-ms spacing needs the static helper
+and a render check, not a fabricated per-write capture tolerance.
+Mono OPL profiles reuse `XeenOpl3`'s **two-native-sample buffered writes**,
+the same approximation as [promus write spacing](../original-quirks.md#promus-write-spacing).
+Installed promus's spacing and existing effect-energy acceptance remain unchanged; new-family waveform
+equivalence needs its own Part A comparison, not a universal PCM hash.
+
+For MT-32 require exact bytes, checksums and message order, logical
+fade carries/early stops, transport deadlines and init/load barriers.
+SMF timestamps complete messages in integer milliseconds, first message
+zero; allow **1 ms** after origin/phase alignment for captured endpoints.
+Use the matching window's phase.
+It omits MPU status/ACK, byte-level wire spacing and init-entry time.
+Waveform/listening compares the same ROM pair separately from transport.
+No new waveform-equivalence tolerance is certified by these data.
+
+For PCM require exact transfer count and logical busy deadline in unit
+tests, separately from output samples. Crodo1/2 give N=58555/55808 and
+3.981740/3.794944 s for blastsnd. Matched next-slot onsets leave 1.760 and
+13.056 ms beyond those nominal deadlines, compatible with one 70.086-Hz
+publication plus 1-ms timestamps and 0.5-ms matching resolution: **15.8 ms**
+black-box tolerance. That coarse observation cannot distinguish four samples
+(272 us) from prosnd or validate allocation-specific DMA splits.
+New DRO/SMF captures stay outside the repository under MModern-re and are
+passed to tests by path, as `PromusDriverTests` does; never commit captures.
+
+The [reference-combination matrix](#reference-combinations) owns card and
+CD-gain selection; captures do not establish unrecorded physical wiring.
+
+Gunther's CD cue is captured with admus and blastmus, including digital 0;
+it is absent from specmus/rolmus. Thus simultaneous Roland/CD balance and
+SB Pro CD gain are not newly listening-calibrated. The source topology is
+established; those waveform checks remain acceptance work before claiming
+an audible match. Captured actions are not an exhaustive effects census.
 
 ## Missing configuration and remaining evidence
 

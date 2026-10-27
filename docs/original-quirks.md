@@ -229,8 +229,8 @@ calibration, retained REA records and limitations are in
 | --- | --- | --- |
 | <a id="sv-cd-promus-fm-banks"></a> The CD `promus` driver enables OPL3 and uses both FM register banks with opposite stereo outputs. | Calibrated DOS static analysis, high, 2026-10-21: INTRO.CC resource offsets `0x2cb..0x2d0` enable NEW mode, `0x2d1..0x33c` set routing, and `0x4d0..0x54a` write both banks. DAT startup/resolver `0xb4d2..0xb503`, `0x45f4c..0x45fa6` establishes INTRO.CC, with a loose-file override first. Two 11-byte patches are used per voice; FX definitions are 22 bytes and FX opcode 0 is a no-op. FX opcode 6 retains a faulty byte-indexed frequency-cache write at resource `0x722`. [Full semantics and identities](rules/audio.md#promus-commands-and-voices). **ScummVM:** the pin requests one OPL2, reads `blastmus`, uses 11-byte FX definitions and an FX call opcode; master not rechecked. | Maintainer decision, 2026-10-21: M82 reproduces CD promus on pinned Nuked in OPL3 stereo; admus/blastmus belong to roadmap step 19 (other sound devices). Implemented by `PromusDriver` over the filtered plain Nuked core in `XeenOpl3`; the effect opcode 6 cache defect is preserved, including music opcode 8's `0x1fff` write mask (`0x762..0x771`) after the corruption; FX opcode 7 instead uses `0xdfff`. No listening-equivalence or dual-OPL2 hardware compatibility claim. |
 | <a id="sv-cd-fm-tick-fade"></a> Promus ticks at approximately 72.80 Hz and advances fade on byte carry; music-due ticks skip the FX countdown. | Calibrated DOS static, high: resource `0x266..0x290`, `0x693..0x6e9`, `0x9cc..0xa19`, `0xac5..0xadb`. Command 207 takes 78..80 eligible ticks depending on persistent phase; stream-ending ticks skip postprocessing. Music stop keys off only voices 0..6 in both banks. [Timing formula and exceptions](rules/audio.md#tick-scheduling-and-fade-length). **ScummVM:** pin truncates 72.8 to 72 Hz, uses integer/sign tests for fade and slide, and differs in octave correction; its skipped FX countdown agrees with DOS. Master not rechecked. | `PromusDriver` retains the countdown priority, byte carry, terminal-tick exclusions and persistent phase. Each fade carry emits the previous cached level (loads at `0x9f4/0xa04`, increments at `0x9fd/0xa0d`), and patch loading substitutes fade steps in bank zero only without refreshing the level-command caches; `patch` and `postprocess` retain those asymmetries. `XeenAudio` predicts pending loads from the presentation clock without waiting on device output. |
-| <a id="promus-write-spacing"></a> Promus spaces every OPL register write in real time, so a tick's key-off and following key-on reach the chip at separate moments. | DOS static, high: the delay loops of the [I/O audit](rules/audio.md#tick-scheduling-and-fade-length) exist (three PIT reads after the address, twenty after the data). Inferred from that I/O count, high: about 23 bus reads per write, roughly one 20.1 µs native sample or more apart. DOSBox capture `promus-fx20-alone`: 36 writes within one millisecond of its second burst, an upper bound of about 1.4 samples on the average interval; its first millisecond holds 176 writes, so DOSBox I/O timing is not hardware timing. Unspaced writes left effect 20 (Efx on) almost silent. | Follows the pinned reference's spacing: `XeenOpl3` calls `OPL3_WriteRegBuffered`, two native samples per write, as the pin's `OPL::writeReg` does; the exact DOS interval is not reproduced. Maintenance fix, 2026-10-21; `xeen_promus` compares effect 20's rendered energy with the capture. |
-| <a id="sv-promus-pas-mixer"></a> The music drivers write the Sound Blaster mixer: init sets FM to 0 dB and the DAC to −24 dB; promus command `0x100` lowers FM for speech in the Clouds and Darkside intros, the Clouds ending and the entrance scenes, and the restoring value 95 leaves music 16 dB lower until the next program start. | DOS static, high, 2026-10-26: ports base+4/+5 of the CFG music port `0x220`; init writes 2e/22/26 = 255 and 04 = 153 when CFG +`0x14` is nonzero (promus `0x23c..0x265`, same in every music driver), once per EXE (`0x79f1`) and DAT (`0xb646`) start; command 0x100 sets register 26 to `h + (h >> 4)` (`0x40f..0x438`). Sites: EXE Clouds intro 75/95, Clouds ending 75/95, Darkside intro 95/48/95 (`0xac2b`, `0xaf13`, `0xce83`), DAT Sphinx, Golem, Reaper and Dwarf 48/95; no CD register or MSCDEX volume ([card mixer](rules/audio.md#card-mixer)). DOSBox, high: DOSBox Staging's SB16 applies these writes; device-free renders match the ending's king, the intro's narration and `sphinx.avi` within 1 dB. **ScummVM:** the pin treats the argument as a linear music-volume percentage (`Sound::setMusicPercent`), passes its own values (38/75 in the entrance scenes) and models no card-mixer init; master not rechecked. | `XeenAudio` models the registers as the DOSBox Staging 0.83.0 SB16 does (`XeenCardMixer`): reset at process start, init from the installed CFG flag at each program start, FM from command 0x100. The persistent −16 dB after an entrance scene is kept as DOS has it. Every source has a common base 1/3 (FM 1.5·1/3, DOSBox's OPL scalar), applied before the mixer ([balance evidence](rules/audio.md#dosbox-referenced-balance-and-output-recovery)). Maintenance fix, 2026-10-26; replaces the 2026-10-21 "PAS mixer not emulated" limitation. This is separate from the per-bank OPL carrier levels/fade. |
+| <a id="promus-write-spacing"></a> Promus and mono admus/blastmus/specmus space OPL register writes, so key-off and following key-on reach the chip at separate moments. | DOS static, high: promus's [I/O audit](rules/audio.md#tick-scheduling-and-fade-length) and mono helpers (admus `0x407..0x41e`, blast/spec `0x405..0x41c`) have three PIT reads after the address and twenty after the data. **DOSBox reference:** mono helper I/O has nominal cost **23.875 us**, before instruction overhead/slice clamping; this is not physical DOS timing. Capture `promus-fx20-alone`: 36 writes within one millisecond of its second burst, an upper bound of about 1.4 samples on the average interval; its first millisecond holds 176 writes, so DOSBox I/O timing is not hardware timing. Unspaced writes left effect 20 (Efx on) almost silent. | `XeenOpl3` calls `OPL3_WriteRegBuffered`, two native samples per write, as the pin's `OPL::writeReg` does; the exact DOS interval is not reproduced. M94 mono profiles reuse that boundary. Installed promus stays unchanged: maintenance fix, 2026-10-21; `xeen_promus` compares effect 20's rendered energy with the capture. |
+| <a id="sv-promus-pas-mixer"></a> The installed promus/SB16 path writes the Sound Blaster mixer: init sets FM to 0 dB and the DAC to −24 dB; promus command `0x100` lowers FM for speech in the Clouds and Darkside intros, the Clouds ending and the entrance scenes, and the restoring value 95 leaves music 16 dB lower until the next program start. | DOS static, high, 2026-10-26: ports base+4/+5 of the CFG music port `0x220`; init writes 2e/22/26 = 255 and 04 = 153 when CFG +`0x14` is nonzero (promus `0x23c..0x265`; other drivers have different consumers or no mixer block, as the device rules record), once per EXE (`0x79f1`) and DAT (`0xb646`) start; command 0x100 sets register 26 to `h + (h >> 4)` (`0x40f..0x438`). Sites: EXE Clouds intro 75/95, Clouds ending 75/95, Darkside intro 95/48/95 (`0xac2b`, `0xaf13`, `0xce83`), DAT Sphinx, Golem, Reaper and Dwarf 48/95; no CD register or MSCDEX volume ([card mixer](rules/audio.md#card-mixer)). DOSBox, high: DOSBox Staging's SB16 applies these writes; device-free renders match the ending's king, the intro's narration and `sphinx.avi` within 1 dB. **ScummVM:** the pin treats the argument as a linear music-volume percentage (`Sound::setMusicPercent`), passes its own values (38/75 in the entrance scenes) and models no card-mixer init; master not rechecked. | `XeenAudio` models the registers as the DOSBox Staging 0.83.0 SB16 does (`XeenCardMixer`): reset at process start, init from the installed CFG flag at each program start, FM from command 0x100. The persistent −16 dB after an entrance scene is kept as DOS has it. Every source has a common base 1/3 (FM 1.5·1/3, DOSBox's OPL scalar), applied before the mixer ([balance evidence](rules/audio.md#dosbox-referenced-balance-and-output-recovery)). Maintenance fix, 2026-10-26; replaces the 2026-10-21 "PAS mixer not emulated" limitation. This is separate from the per-bank OPL carrier levels/fade. |
 | <a id="sv-cd-audio-party-options"></a> The four CD sound/text options travel with the saved party; New Clouds has Efx/Music on, Text off and Speech on. Efx off gates new FM/VOC and VOC status queries without stopping existing sound. | Calibrated DOS static/resource, high: party offsets +`0x0e`, +`0x0f`, +`0x5f8`, +`0x5f9`; New loads the Darkside template then overlays the 812-byte Clouds block (`0x20b7c..0x20be5`). Gates `0xdea9..0xdee6`; panel coupling `0x1ee00..0x1ee32`. Missing XEEN.CFG exits in EXE `0x11daf..0x11e1a` and DAT `0x3d320..0x3d33b`. [Option rules](rules/audio.md#party-options-and-new-or-load). **ScummVM:** pin stores global configuration, stops FM FX when disabling effects, and has only two panel audio toggles; master not rechecked. | `XeenPartyState::soundOptions` is saved with the party; panel toggles and device-independent sample/CD waits use those values. A missing XEEN.CFG refuses startup with a clear message, as DOS does (maintainer, 2026-10-21). Text off hides the NPC body replaced by speech; unavailable delivery uses the [approved readable-text fallback](#dev-cd-text-delivery-fallback). |
 | <a id="sv-cd-song-process-state"></a> Song names/buffers are process state. Same-name map music continues even when Music is off; fades do not block input. Music-on cancels a pending load and restarts whichever buffer is already loaded. | Calibrated DOS static, high: map `0x10276..0x104fc`, request `0x3790f..0x37955`, input `0xe0a3..0xe0c2`, deferred loader `0xe590..0xe5ee`, panel `0x1f07b..0x1f0a5`. Names change before buffers, so On during a pending fade/CD wait can leave new name/old buffer. Load with Music off sends no stop solely because that byte changed; the main Load return bypasses `0xb8b5`, and ordinary command wrapper `0xde65` is Music-gated. Wall kind 5 selects adjacent-table `outday1.m`; a missing song exits through `0x45c8a..0x45cfd`. [Names, title/Inn and transitions](rules/audio.md#song-names-and-asynchronous-changes). **ScummVM:** pin requires the same song to be playing for continuation, ignores the fade argument, does not defer loading for CD speech, and clears the current name on stop. Master not rechecked. | `XeenAudio` owns current name, loaded buffer and pending requests across sessions, with title/preload and map/location selection. Panel On deliberately cancels pending and restarts the loaded buffer; restoring an off byte sends no stop. Inn music is exposed and tested; the Inn screen plays it, except when a title Load reopens the Inn ([Inn song](#sv-inn-title-load-song)). |
 | Entrance captions advance one character per qualifying two-BIOS-tick interval, including long records; Efx off removes VOC-busy waits but leaves cursor/fixed scene waits. | Retained calibrated DOS evidence, high: renderer `0xdca3..0xdd52`, VOC gate `0xdea9..0xdecd`; Dwarf/Sphinx early exits `0x2b67b..0x2b6aa`, `0x2992d..0x29940`. [Lengths and timing](rules/audio.md#efx-voc-waits-and-entrance-captions), including the Dwarf video-erasure finding. | `XeenEntranceAnimation` advances one character per qualifying interval; Dwarf/Sphinx skip later sample phases in caption mode. Dwarf video frames 136..960 show the box; frame 961 erases it in the final redraw. Other guardians' erasure is not video-confirmed. The tagged entrance-cadence entry below owns the comparison with ScummVM. |
@@ -460,6 +460,48 @@ in Part A, Quests and Awards in Part B and the indicators in Part C.
   party; Use from the sheet in combat is refused with the original text
   ([rules](rules/items.md#the-items-dialog-in-combat)).
 
+### Other original sound drivers
+
+<a id="sv-rolmus-protocol"></a>
+**MT-32 resource initialization, effects and fade follow rolmus.**
+Calibrated DOS static, high, 2026-10-27: INTRO rolmus `0x247..0x334`
+uploads thirteen custom system/timbre/patch packets, without a factory-reset
+SysEx or fixed post-upload pause; `0x57a..0x5f9` handles MPU ready/ACK.
+The song SysEx path adds 176 port-61 reads per address/data byte at
+`0x81b..0x820`. Fade `0x985..0xa07` uses unsigned phase carry, persistent
+phase, music voices 8 and 0..6, threshold 40 (40 decrements to 39) and cache-driven early stop,
+otherwise at most 128 carries. Timed no-note FX aliases stay silent for their
+ten-tick stream rather than borrowing another card's effect. DOS admits
+effect id 180 itself; table `0x10eb` has 181 admitted entries. These are
+[M94 device rules](rules/audio.md#other-original-sound-devices), not a claim
+that the extra drivers are already implemented.
+
+**ScummVM:** pin `6814ee9b`, `SoundDriverMT32::initialize` adds
+`sendMT32Reset`; MT32_ADJUST_VOLUME scales note/expression, callbacks use
+rounded 72.8 and the fade uses a signed phase test. `Sound::loadEffectsData`
+uses immediate B4 as a container size, excluding admitted DOS id 180.
+It provides no DOS MPU-ready/ACK timing. Its matching thirteen patch
+addresses/checksum builder corroborate packet construction, not these timing
+or fade differences. Master not rechecked. The M94 route uses the pinned
+mt32emu **synthesis core** with a native DOS-profile driver and logical
+transport; it does not adopt SoundDriverMT32 as that driver.
+
+**DOSBox reference only:** the maintainer's Staging 0.83.0/MT-32 1.07 capture
+has the correct 1688 upload bytes twice, in 3-ms message timestamp spans.
+Its virtual ready/ACK and I/O-cost model supplies renderer timestamps only,
+under the [known approximation](#dev-audio-io-cost-clock); the logical upload
+barrier is ordering-only. This is not real MT-32/MPU-401 hardware timing or a
+reason to add a 0.540160-s physical-wire sleep to the game's waits. Missing
+ROMs preserve the same logical enqueue/tick behavior. ROM location remains
+a pre-Part-B decision.
+
+The other profiles retain their own oddities: selected INTRO specmus is
+exactly blastmus despite the PAS caption; nullmus still installs the normal
+timer; mono fades start only when music is active. Deferred speaker type 0/1
+effects skip BIOS chaining, and timer-driven digital profiles have the
+non-default rates and pair interactions in the audio rules. They are not
+silently approximated as approved M94 paths.
+
 ## Presentation findings (2026-10-13)
 
 These are calibrated **DOS static** findings, not implemented corrections or
@@ -504,6 +546,27 @@ original post-dream poll.
 
 ## Approved temporary restrictions
 
+- <a id="dev-m94-deferred-null"></a> **Deferred M94 devices use null-driver behavior.**
+  **DOS static, high:** canmus/tapmus have CC7/cache fades (`0x929..0x993` /
+  `0x8b9..0x91e`), wavemus CC11/cache fades (`0x84f..0x8ab`); their load-busy
+  query reports fade speed, and wave also uploads its EXE codebook. Ibmsnd
+  blocks the foreground for L-32 IRQs. Ibmmus can freeze BIOS time; ibmsnd,
+  adsnd and source change BIOS forwarding rates. Wave/tap init writes
+  04=cc and 41/42=40 at digitalPort's mixer (`0x1e8..0x21d` /
+  `0x1d5..0x20b`), unlike nullmus's music-port ordinary transaction.
+  The [driver and clock tables](rules/audio.md#other-original-sound-devices)
+  retain those original semantics and their unresolved physical oracles.
+  **Maintainer decision, 2026-10-27:** music 5/7/8/9 and digital 1/2/5/8/9
+  behave exactly as nullmus/nullsnd: silence, no driver busy/fade/load waits
+  of their own, fixed BIOS rate and one standard "not supported yet" notice.
+  Deferred music uses nullmus's own flag/port-gated mixer init; deferred
+  digital has no mixer transaction of its own. CD speech and its waits stay
+  independent. EXE digital 9 instead takes the
+  [approved notice/title deviation](#dev-xeen-unavailable-digital).
+  **ScummVM:** this temporary restriction deliberately replaces DOS driver
+  behavior; it is not a claim of matching the pin's synth/device selection.
+  Master not rechecked. [M94 scope](milestone-94-plan.md).
+
 - Jump destinations on an unadmitted map (only Darkside maps are) remain
   refused before charge. M72 applies the original surface effects to admitted
   destinations; a fall to an unadmitted map is also refused before
@@ -514,6 +577,39 @@ original post-dream poll.
 
 Deliberate differences from the original that the maintainer approved; each
 stays documented here and in the plan that implements it.
+
+- <a id="dev-audio-io-cost-clock"></a> **Audio I/O execution cost affects rendering only.**
+  **DOS static:** rolmus init busy-waits on real MPU polling (`0x57a..0x5f9`)
+  while BIOS time continues; OPL drivers likewise execute helper I/O delays.
+  **Maintainer-approved known approximation, 2026-10-27:** keep MT-32 virtual
+  I/O costs in renderer timestamps, as OPL helper delays already are in
+  buffered chip writes. The logical upload barrier preserves enqueue order
+  only; it does not wait for last-F7 rendering or advance/rebase the game's
+  presentation clock. Missing ROMs keep that logical behavior. The two
+  **DOSBox-reference** upload-message spans are about 3 ms, below one
+  13.736-ms driver tick; this is not a bound on total init/reset or physical
+  hardware polling. Installed 3/10 timing and output stay byte-for-byte
+  unchanged. An independently required game-visible wait without a bound
+  remains a stop. [Timing rules](rules/audio.md#clocks-and-the-bounded-mt-32-reference).
+  **ScummVM:** this records an approximation relative to DOS, not a new
+  claim of timing equivalence to the pin; the separate rolmus differences
+  remain [documented](#sv-rolmus-protocol). Master not rechecked.
+
+- <a id="dev-xeen-unavailable-digital"></a> **Unavailable EXE digital ids use a notice and title return.**
+  **Approved deviation, 2026-10-27:** EXE digital ids 3/4/9 give the standard
+  "not supported yet" notice and return to title. DOS EXE instead asks for
+  absent INTRO `rolsnd`/`cansnd`/`covsnd` and reaches its fatal disk-error path.
+  Digital 3/4 are not installer choices; DAT selects `nullsnd` for them,
+  while DAT 9 selects `covxsnd` in DOS and uses M94's deferred notice/silence
+  stopgap. Calibrated static, high: DAT `0xb506..0xb575`, EXE
+  `0x78a3..0x79e9`, archive failure `0x1cccc`;
+  both-CD inventory and loose-file checks establish absence. No `covsnd`
+  alias or cross-archive fallback is authorized.
+  [Device rules](rules/audio.md#other-original-sound-devices).
+  **ScummVM:** this is an approved deviation relative to DOS;
+  the pin's own synth selection is not evidence of an equivalent EXE
+  disk-error/recovery path. Master not rechecked. The policy belongs to
+  [M94](milestone-94-plan.md); it does not assert these devices are implemented.
 
 - <a id="dev-clouds-won-store"></a> **Clouds title won marker and Darkside seen state in MMModern settings**
   (maintainer confirmation, 2026-10-26). `%LOCALAPPDATA%\MMModern\settings.ini`
@@ -814,6 +910,12 @@ remaining sub-millisecond difference is an approved timing approximation.
 Do not investigate those splits further. The programmed count is established
 at `prosnd 0x15b..0x165`, `0x21a..0x220`, `0x336..0x34c`; see the
 [rules and limits](rules/audio.md#installed-digital-driver-command-and-length-rules).
+**Extension approved 2026-10-27:** INTRO `blastsnd` (digital 6) uses the same
+unsplit approximation, no DMA page continuation: `(uint16(L-14)+1)` samples
+at 68 us, versus prosnd's `(uint16(L-10)+1)` at 68 us. Blastsnd's count
+and BC constant are calibrated static evidence (`0x101..0x29c`); its
+**count-plus-one duration remains medium confidence**, as in M83. Preserve
+fixed DMA 1 and other busy/failure semantics; installed prosnd is unchanged.
 Playback and logical waits use that count-plus-one model. **ScummVM:** approved approximation to DOS; the pin's generic
 VOC decoder instead follows header blocks and rates. Pin `6814ee9b`;
 master not rechecked.
