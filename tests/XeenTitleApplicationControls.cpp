@@ -342,7 +342,11 @@ extern "C" int wrappedTitlePlay(const Application *app,const XeenGameplayService
    };
    const auto result=realTitlePlay(app,services,camera,target,resume,entry,seed);
    check(original.outcome && original.outcome->kind==XeenSessionOutcome::Kind::CloudsEnding,"Original mirror did not produce the presentation outcome");
-   state.endingReturned=true;return result;
+   // Gameplay close rebased audio onto the real window clock; the wrapped
+   // window clock switches to introNow below, so restart it from real time.
+   // Keeping the session's fake time fails under load once real time has
+   // passed it ("Audio presentation clock moved backwards").
+   state.introNow=realTitleClock();state.endingReturned=true;return result;
   }
   check(original.outcome,"Outer gameplay wrapper must retain the outcome sink");
   *original.outcome={XeenSessionOutcome::Kind::CloudsEnding,0,{},71001722};
