@@ -194,13 +194,14 @@ the Pyramid and the Darkside and World endings wait for the Darkside arc.
     the rest; M82 plays the CD's Pro Audio Spectrum driver), chosen as the
     installer did; an opt-in switch while playing would be an approved
     deviation (maintainer, 2026-10-21).
-20. **Startup and the Darkside intro** (after step 18, on the step-17
-    presenter): every CD launch runs `WORLD/XEEN.EXE`'s Darkside path before
-    the title, the full story until it has been watched to the end and a
-    short logo sequence afterwards; Other Options `D` plays the full story
-    and resets that state. Where MMModern keeps the "watched" state (DOS
-    writes `XEEN.CFG`) is decided with this step. M91 Part 0 estimated 8-13
-    developer days ([cutscene rules](rules/cutscenes.md#startup-dispatch)).
+20. **Startup and the Darkside intro**: completed and accepted in
+    [M93](milestone-93-plan.md) (Tier B, 2026-10-27; save v21 unchanged).
+    Every launch runs `WORLD/XEEN.EXE`'s Darkside path before the title:
+    the full story until it has been watched to its end, then NWC, JVC and
+    the World logo. Other Options `D` plays the full story again. The
+    watched state is kept in `settings.ini`, never in `XEEN.CFG`
+    ([cutscene rules](rules/cutscenes.md#startup-dispatch)). Step 19
+    remains in this arc.
 
 Order: 15 → 16 → 17 → 18 → 20; step 19 is independent.
 

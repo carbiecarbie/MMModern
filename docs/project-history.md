@@ -571,3 +571,15 @@ G, O, B, R. The win is kept in `settings.ini` and unlocks Other Options
 `V`. `showtime` and `bloopers` work, Castle Xeen leaves the map and the
 Beacon refuses it. A repeat DOSBox capture overturned an earlier claim
 that DOS saved a stale roster. [Plan](milestone-92-plan.md).
+
+**M93 - Startup and the Darkside intro** (plan `e38d851`, Part 0
+`debbe9a`, Parts A `4184954`, B `18bf556` and the closure commit).
+Accepted by the maintainer on 2026-10-27 after the play-tests. Each launch
+opens as the CD's `WORLD/XEEN.EXE` does: the full Darkside story, from the
+pyramid and the crystal ball to the fall, until it has been watched to its
+end, then only NWC, JVC and the World logo. Other Options `D` plays the
+full story again. The intro runs on the M91 presenter with the EXE's
+tables, voices, music and random speaking frames, and a DOSBox session
+confirmed its paths and keys. Whether it was watched is kept in
+`settings.ini` beside the Clouds win; `XEEN.CFG` is never written. Save
+v21 and the M44 digests are unchanged. [Plan](milestone-93-plan.md).

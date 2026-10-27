@@ -54,10 +54,9 @@ configuration before handing off (`0xc571..0xc59e`). Thus DOS has persistent
 seen-intro behavior; the pin's `seen_intro` is not grounds for claiming that
 DOS always plays the full story.
 
-Startup and the Darkside intro are scheduled after the Clouds ending
-([roadmap step 20](../roadmap.md#next-arc-finishing-the-games-systems);
-maintainer, 2026-10-25).
-This rule does not authorize writing the original configuration from MMModern.
+MMModern plays startup and the Darkside intro since
+[M93](../milestone-93-plan.md) and keeps the seen state in `settings.ini`
+(maintainer, 2026-10-26); it never writes the original configuration.
 
 Both paths draw the same NWC and JVC sequences. At JVC, seen nonzero stops the
 song; zero starts it (`0xac5a..0xac75`). The 60-tick hold starts after fade-in

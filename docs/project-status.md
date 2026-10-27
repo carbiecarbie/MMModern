@@ -1,11 +1,11 @@
 # MMModern - Project Status
 
-This describes what can be played and done now. M90 is the latest completed
-and accepted milestone (2026-10-26; [plan](milestone-90-plan.md)): its
-play-through confirmed that Clouds of Xeen can be played from Newcastle's
-Megacredits to Lord Xeen. M92 before it made Clouds finishable, with the
-original ending and score, M91 added the Clouds intro, and M89 Lord Xeen's
-fight and the scripted kills.
+This describes what can be played and done now. M93 is the latest completed
+and accepted milestone (2026-10-27; [plan](milestone-93-plan.md)): each
+launch opens with the original Darkside intro. M90 before it confirmed that
+Clouds of Xeen can be played from Newcastle's Megacredits to Lord Xeen, M92
+made Clouds finishable, with the original ending and score, and M91 added
+the Clouds intro.
 Earlier milestones are in [project history](project-history.md), direction is
 in the [roadmap](roadmap.md), and build and dependency setup is in
 [dependencies](dependencies.md).
@@ -23,7 +23,11 @@ Launch `mmodern <game-dir>` (see [Entry modes](#entry-modes)) to reach the
 original title screen. Escape shows or hides the menu; Credits shows the four
 original pages, and Other Options plays the Clouds intro with its music and
 Crodo's narration (Escape skips it); after a win it also offers `V`, which
-replays the Clouds ending. The Darkside intro is not supported yet.
+replays the Clouds ending. Each launch first plays the Darkside intro, as
+the CD does: the full story until it has been watched to its end, then only
+the logos and the World of Xeen title. Escape skips the story, and Other
+Options `D` plays it in full again. Whether it was watched is kept in
+`settings.ini` beside the Clouds win.
 Choosing New asks for a save slot, a name and the difficulty: Adventurer
 (weapons hit harder) or Warrior. As in the original, the six level-1 Clouds
 characters then stand in Vertigo at `(18,4)` facing West at 08:00 on day 1 of
@@ -256,7 +260,7 @@ inside the game directories.
 
 | Command | Purpose |
 | --- | --- |
-| `mmodern <game-dir>` | Open the original title screen (New, Load, Credits, Other Options). |
+| `mmodern <game-dir>` | Play the Darkside intro, then open the original title screen (New, Load, Credits, Other Options). |
 | `mmodern --new-game <game-dir> [--difficulty adventurer\|warrior] [--save-file <path>]` | Developer: start a new game directly (default Adventurer). |
 | `mmodern --journey-region [--combat-seed <u32>] <game-dir> [--save-file <path>]` | Prepared test mode at map 23 `(9,11)`; the automated scenarios use it. |
 | `mmodern --load-game <game-dir> <save>` | Developer: continue a save file; it becomes the F9 target. |
@@ -338,8 +342,6 @@ the original data uses and its support status.
   omitted by maintainer decision. SDL's resampler plays FM and CD audio up
   to about 0.07% fast, which is inaudible
   ([audio rules](rules/audio.md#sdl-resampler-rate-limitation)).
-- Presentation: the game opens at the World title without the original's
-  Darkside intro, and Other Options cannot play that intro yet (step 20).
 - Darkside gameplay is not supported.
 
 Next steps are in the [roadmap](roadmap.md).
