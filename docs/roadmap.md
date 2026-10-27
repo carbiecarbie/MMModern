@@ -88,7 +88,8 @@ The remaining step:
     (AdLib and Sound Blaster FM, MT-32 with the player's ROMs, PC speaker and
     the rest; M82 plays the CD's Pro Audio Spectrum driver), chosen as the
     installer did; an opt-in switch while playing would be an approved
-    deviation (maintainer, 2026-10-21).
+    deviation (maintainer, 2026-10-21). Planned as
+    [M94](milestone-94-plan.md).
 
 The Pyramid and the Darkside and World endings (`showdown`, `genesis`) wait
 for the Darkside arc.
