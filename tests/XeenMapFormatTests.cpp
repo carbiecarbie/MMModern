@@ -26,7 +26,7 @@ void testGeometry() {
 	dat[768] = 1;
 	dat[770] = 0x23; dat[771] = 0x01;
 	dat[772] = 5; dat[774] = 2;
-	dat[821] = 0xff; dat[822] = 0x80; dat[823] = 0x7f;
+	dat[821] = 0xff; dat[822] = 0x80; dat[823] = 0xc8;
 	dat[828] = 0x81; dat[829] = 0x01;
 	dat[860] = 0x02;
 	auto map = XeenMapFormat::parseDat(dat);
@@ -39,8 +39,9 @@ void testGeometry() {
 		wallAt(map.cells[0], XeenDirection::South) == 3 &&
 		wallAt(map.cells[0], XeenDirection::West) == 4, "wallAt directions");
 	check(map.cells[0].surfaceIndex == 5 && map.cells[0].flags == 0xf8, "indoor attributes");
+	// Byte 7 is the Run threshold, read unsigned as DOS compares it (0x2e1cc).
 	check(map.difficulties[5] == -1 && map.difficulties[6] == -128 &&
-		map.difficulties[7] == 127, "signed metadata");
+		map.difficulties[7] == 200, "signed metadata, unsigned Run threshold");
 	check(map.cells[0].seen && !map.cells[1].seen && map.cells[7].seen &&
 		!map.cells[8].seen && map.cells[15].seen && map.cells[6].stepped &&
 		!map.cells[1].stepped, "bitmaps / MSB-first bit order");

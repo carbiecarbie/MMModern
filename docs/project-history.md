@@ -419,7 +419,7 @@ reference, and awards each win. The "Please Wait..." box is omitted as an
 approved deviation. Save v16 is unchanged. [Plan](milestone-80-plan.md).
 
 **M81 - Monster treasure** (`29f5b30` plan, `cf256e1`, `be7e9bf`,
-`22bc04a`, `b206193`, `831ec0c`, `83856b0`). A DOS check first settled the
+`22bc04a`, `b206193`, `831ec0c`, `83856b0`, `f2bee4b`). A DOS check first settled the
 drop table, the staging and what the original keeps outside its saves. Every
 Clouds monster now drops the gold, gems and items of its original record, at
 treasure levels 1 to 6 with accessories, in every kill path; the Warzone

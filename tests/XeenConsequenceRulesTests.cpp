@@ -153,14 +153,15 @@ void targetingAndCounts() {
  const auto before=allRng.position();finish(all,allRng);check(allRng.position()==before,"Completed source replays RNG");
 }
 void runAndParticipation() {
- // Artificial signed-threshold and every six-owner subset controls.
- for (int threshold:{-128,0,1,2,99,100,101,127}) for (unsigned roll=1;roll<=100;++roll) {
+ // Artificial unsigned-threshold (DOS 0x2e1cc) and every six-owner subset controls:
+ // a byte of 128 or more always succeeds.
+ for (int threshold:{0,1,2,99,100,101,127,128,200,255}) for (unsigned roll=1;roll<=100;++roll) {
   XeenCombatRandom rng(std::vector<XeenCombatRandom::Draw>{{1,100,roll}});
   XeenRunCandidate run(threshold);finish(run,rng,1);
-  check(run.roll==roll && run.success==(int(roll)<threshold) && rng.position()==1,"Run signed threshold and exact inclusive draw");
+  check(run.roll==roll && run.success==(int(roll)<threshold) && rng.position()==1,"Run unsigned threshold and exact inclusive draw");
   finish(run,rng,1);check(rng.position()==1,"Completed Run does not redraw");
  }
- rejects([]{XeenRunCandidate invalid(-129);});rejects([]{XeenRunCandidate invalid(128);});
+ rejects([]{XeenRunCandidate invalid(-1);});rejects([]{XeenRunCandidate invalid(256);});
  std::vector<XeenCombatRandom::Draw> rejected(64,{1,100,0,true});rejected.push_back({1,100,99});
  XeenCombatRandom rng(rejected);XeenRunCandidate run(100);XeenConsequenceDraw first{rng};
  check(!run.service(first) && !run.roll && rng.position()==64,"Run yields exactly at raw budget");

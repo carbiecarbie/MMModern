@@ -38,6 +38,15 @@ void coverage(Inputs &in) {
 		std::cout<<" trap "<<unsigned(g.trapDamage)<<" wallKind "<<unsigned(g.wallKind)<<'\n';
 		check(g.difficulties[0]==7 && g.wallKind==0,"Metadata audit changed movement or terrain values: stop for M44 evidence");
 	}
+	// Run threshold census: DOS reads byte 7 unsigned; every installed map
+	// stays within 0..100, so the pin's signed read is not observable here.
+	{unsigned maps=0;int top=0;
+	 for(unsigned id=1;id<256;++id) {
+		std::optional<XeenMap> m;try{m=in.maps.loadGeometryMap(in.assets,XeenMapIdentity(id));}catch(const std::exception &){continue;}
+		++maps;top=std::max(top,int(m->geometry.difficulties[7]));
+	 }
+	 std::cout<<"Run thresholds: maps="<<maps<<" max="<<top<<'\n';
+	 check(maps==128 && top==100,"Run threshold census changed");}
 	const XeenCamera seam{28,20,1,XeenDirection::East};
 	check(world->sampleCell(28,20,1)->mapId==109,"Original seam fixture must use physical tile 109");
 	unsigned novice=0;for(unsigned n=1;n<6;++n)if(XeenCharacterRules::thievery(chars[n])<XeenCharacterRules::thievery(chars[novice]))novice=n;

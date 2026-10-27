@@ -3,7 +3,8 @@
 **Tier A. Status: completed and accepted by the maintainer (2026-10-21)**
 after the maintainer's play-test. Plan `29f5b30` (amendments `abeb6b7`,
 `30c548a`, `d07dfdf`, `51daaf4`), Part A `cf256e1` and `be7e9bf`, Part B
-`22bc04a`, Part C `b206193` and `831ec0c`, play-test presets `83856b0`.
+`22bc04a`, Part C `b206193` and `831ec0c`, play-test presets `83856b0`,
+closure `f2bee4b`.
 Roadmap [step 11](roadmap.md#next-arc-finishing-the-games-systems), after
 [M80](milestone-80-plan.md).
 

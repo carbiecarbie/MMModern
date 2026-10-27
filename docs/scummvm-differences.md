@@ -572,6 +572,8 @@ Wrapping counters: skills past 255 ([skills](original-quirks.md#sv-skill-byte-wr
 age after 255 Aging hits ([aging](original-quirks.md#sv-aging-wrap)) and a
 Temple Eradicated counter above 65 ([Temple](original-quirks.md#sv-temple-eradicated-wrap)).
 Curse Item against the Xeen Slayer Sword ([Curse](original-quirks.md#sv-curse-item-slayer)).
+A map Run threshold of 128 or more, which no installed map uses
+([Run](original-quirks.md#sv-run-threshold-unsigned)).
 
 ## Approved deviations
 

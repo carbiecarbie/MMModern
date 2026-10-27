@@ -396,8 +396,9 @@ bool XeenSpellDamageCandidate::service(XeenConsequenceDraw &draw) {
     if(step==Step::Done && !fmDone){fmDone=true;if(attack2Entered && damage<=0)draw.miss();}
     return step==Step::Done;
 }
-XeenRunCandidate::XeenRunCandidate(int signedThreshold) : threshold(signedThreshold) {
-	ruleRequire(threshold>=-128 && threshold<=127,"Invalid signed Run threshold");
+XeenRunCandidate::XeenRunCandidate(int unsignedThreshold) : threshold(unsignedThreshold) {
+	// DOS 0x2e1cc..0x2e1d0 compares the map byte unsigned.
+	ruleRequire(threshold>=0 && threshold<=255,"Invalid unsigned Run threshold");
 }
 bool XeenRunCandidate::service(XeenConsequenceDraw &draw) {
 	while (!roll && draw.remaining) {

@@ -218,7 +218,7 @@ struct XeenMagicArrowCandidate : XeenSpellDamageCandidate {
 struct XeenRunCandidate {
 	unsigned roll = 0;
 	bool success = false;
-	explicit XeenRunCandidate(int signedThreshold);
+	explicit XeenRunCandidate(int unsignedThreshold);
 	bool service(XeenConsequenceDraw &);
 private:
 	int threshold;

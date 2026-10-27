@@ -490,8 +490,11 @@ as described above. Run draws `R(1,100)` and succeeds only when the draw is
 strictly less than the map's chance-to-run field. For threshold 50, rolls 1-49
 succeed; threshold 100 accepts outcomes 1..99 and fails 100. **DOS static, high
 confidence:** draw `0x2e1c0..0x2e1c4`, unsigned threshold
-`0x2e1cc..0x2e1d0`, comparison/JGE failure `0x2e1d2..0x2e1d4`. This is
-an integer boundary, not a measured DOS random-distribution claim. Success removes that member from
+`0x2e1cc..0x2e1d0`, comparison and failure branch `0x2e1d2..0x2e1d4`. This is
+an integer boundary, not a measured DOS random-distribution claim. A byte of
+128 or more would always allow Run; every installed map uses 0..100, and
+MMModern reads the byte unsigned as DOS does
+([pin difference](../original-quirks.md#sv-run-threshold-unsigned)). Success removes that member from
 the combat party and rebuilds the speed order. The map supplies the party's
 retreat position; the roll does not select a random retreat cell.
 

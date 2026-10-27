@@ -30,6 +30,8 @@ button has the same effect at the same position; use Escape to cancel.
 | C / N in the Cast dialog | Cast the current spell / New: choose another; outside combat, F1-F6 change the caster |
 | 1-9, 0, then S or Enter in the New list | Select a spell, then make it current; Up/Down and Page Up/Down scroll |
 | N in Quick Fight Options | Next option; F1-F6 choose the member; Enter or Escape closes |
+| F / E / C / A when a spell asks for an element | Fire / Electricity / Cold / Acid and poison; Escape cancels |
+| W/A/C/M, 1-9, then E / R / G in Enchant Item, Recharge Item or Item to Gold | Choose the category and item, then confirm with the spell's key (E Enchant, R Recharge, G Item to Gold); Escape cancels |
 | S or T / R in Lloyd's Beacon | Set the beacon here / Return to it; Escape cancels |
 | 1-5, then Enter in Town Portal | Travel to that town; Backspace edits, Escape cancels |
 | 1-9, then Enter in Teleport | Move that many squares ahead; Backspace edits, Escape cancels |

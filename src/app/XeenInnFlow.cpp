@@ -310,7 +310,9 @@ IndexedFrame XeenEventFlow::handleInn(const PlayerAction &action) {
     } else if(ui.remove) {
         if(key==InputKey::Escape)ui.remove=false;
         else if(key>=InputKey::F1 && key<InputKey::F1+ids.size()) {
-            ids.erase(ids.begin()+key-InputKey::F1);_encounter->innMembership(_encounter->ticket(),ids);changed();ui.remove=false;
+            ids.erase(ids.begin()+key-InputKey::F1);
+            if(_encounter->innMembership(_encounter->ticket(),ids))changed(); // A refusal keeps the open sheet.
+            ui.remove=false;
         }
     } else if(key>=InputKey::F1 && key<InputKey::F1+ids.size()) {
         handleInventory(InspectInventoryAction{});_inventory.source=key-InputKey::F1;_inventory.sourceOwner=ids[_inventory.source];
@@ -319,7 +321,7 @@ IndexedFrame XeenEventFlow::handleInn(const PlayerAction &action) {
         const auto list=xeenInnList(_party,_camera.mapId,_innUi->townOnly);const auto row=ui.top+key-'1';
         if(row>=list.size() || std::find(ids.begin(),ids.end(),list[row])!=ids.end())return frameCopy();
         if(ids.size()==6){_encounter->fmEffect(21);ui.feedback=dosText().scalar("INN_FULL");}
-        else {ids.push_back(list[row]);_encounter->innMembership(_encounter->ticket(),ids);changed();}
+        else {ids.push_back(list[row]);if(_encounter->innMembership(_encounter->ticket(),ids))changed();}
     } else if(key==InputKey::Up) {if(ui.top>=4)ui.top-=4;}
     else if(key==InputKey::Down) {if(ui.top+4<xeenInnList(_party,_camera.mapId,ui.townOnly).size())ui.top+=4;}
     else if(key=='r')ui.remove=!ids.empty();

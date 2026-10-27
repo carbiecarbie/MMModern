@@ -115,7 +115,9 @@ XeenMapGeometry XeenMapFormat::parseDat(const std::vector<std::uint8_t> &bytes) 
 	map.floorType = reader.byte();
 	map.runX = reader.byte();
 	for (std::size_t i = 0; i < map.difficulties.size(); ++i)
-		map.difficulties[i] = i < 5 ? reader.byte() : reader.signedByte();
+		// Bytes 5-6 keep the pin's signed read (Bash casts them back to bytes);
+		// byte 7, the Run threshold, is unsigned as DOS compares it (0x2e1cc).
+		map.difficulties[i] = i < 5 || i == 7 ? reader.byte() : reader.signedByte();
 	map.runY = reader.byte();
 	map.trapDamage = reader.byte();
 	map.wallKind = reader.byte();
