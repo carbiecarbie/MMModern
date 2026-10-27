@@ -112,9 +112,16 @@ The window does not require Space and does not test the Event flag. Sound 21
 is suppressed on a flagged cell. An other-facing candidate must match the
 current script position and requested line; an unrelated record is insufficient.
 The marker persists across scans. The executed marker is set by instruction
-paths, not merely by finding a record: even a failed If sets it, while CallEvent
-alone does not. A SetChar selection that aborts before its marking path can
-leave it clear. Nothing-here acknowledgement consumes input without a general
+paths, not merely by finding a record: even a failed If sets it, and CallEvent
+sets it before its target scan (`0x283c0`, `0x28a2b`, `0x28b2b`). Zero opcodes,
+Exit (`0x28d50`), opcode 47 (`0x28d30`), PlayCD (`0x28b40..0x28b5a`) and the
+Clouds ending (`0x28b98`) never set it. TakeOrGive and its test variants set it
+only when they continue (`0x2790d`); a failed take ends the Event first
+(`0x2788d`, `0x278ff`). ConfirmWord's special mirror results 40, 59 and 62 end
+the Event unmarked (`0x2801b..0x280c0`); other results and cancellation mark
+(`0x280e9`). A SetChar selection that aborts before its marking path can
+leave it clear. The per-opcode sweep is in the external DOS findings of
+2026-10-27. Nothing-here acknowledgement consumes input without a general
 keyboard flush.
 
 The selected-object byte is one-based: zero means no selection, and MOB record

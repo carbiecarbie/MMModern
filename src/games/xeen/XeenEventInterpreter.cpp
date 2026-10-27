@@ -548,6 +548,8 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
             if(!word.inputType && workingCamera.mapId.side==XeenSide::Clouds && result==59 &&
                 state.treasure.insert(XeenRewardCategory::Weapons,XeenItem{0,34,0,0}))
                 return finalize();
+            // Ordinary results and cancellation mark (0x280e9); the special exits above do not.
+            state.scriptExecuted=true;
             state.pendingPresentation.reset();
             if(result) {
                 logical.line=word.targetLine;missingPolicy=MissingInstructionPolicy::ExplicitJump;
@@ -723,11 +725,20 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 			++instructionCount;
 			if(publication)publication->dispatched(state,decoded);
 		}
-        // DOS 0x28b2b: a false If marks too; zero opcodes and CallEvent do not.
-        if(!std::holds_alternative<XeenEventNone>(decoded.operation) &&
-           !std::holds_alternative<XeenEventCallEvent>(decoded.operation)) {
-            const auto *set=std::get_if<XeenEventSetCharacter>(&decoded.operation);
-            if(!set || static_cast<std::int8_t>(set->selector)<=7)state.scriptExecuted=true;
+        // The executed marker follows each DOS handler. Most end through 0x28b2b,
+        // a false If and CallEvent (0x283c0..0x28b2b) included. Zero opcodes,
+        // Exit (0x28d50), the Clouds ending (0x28b98), opcode 47 (0x28d30) and
+        // PlayCD (0x28b40..0x28b5a) never mark. TakeOrGive and ConfirmWord mark
+        // only when they continue: their ending branches exit unmarked.
+        {
+            const auto &op=decoded.operation;
+            const bool never=std::holds_alternative<XeenEventNone>(op) || std::holds_alternative<XeenEventExit>(op) ||
+                std::holds_alternative<XeenEventEndClouds>(op) || std::holds_alternative<XeenEventProtectionCheck>(op) ||
+                std::holds_alternative<XeenEventCdSpeech>(op);
+            const bool deferred=std::holds_alternative<XeenEventTakeOrGive>(op) ||
+                std::holds_alternative<XeenEventTakeOrGiveTest>(op) || std::holds_alternative<XeenEventConfirmWord>(op);
+            const auto *set=std::get_if<XeenEventSetCharacter>(&op);
+            if(!never && !deferred && (!set || static_cast<std::int8_t>(set->selector)<=7))state.scriptExecuted=true;
         }
 
         if(std::holds_alternative<XeenEventEndClouds>(decoded.operation)) {
@@ -1535,6 +1546,7 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 				if(given.mode==82)break;
 			}
 			state.giveTake.reset();
+			state.scriptExecuted=true; // 0x2790d; failed takes exit unmarked (0x2788d, 0x278ff).
 			if(const auto e=advance("TakeOrGive"))return *e;
 			continue;
 		}
@@ -1590,6 +1602,7 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 				if(stop)break;
 			}
 			state.giveTake.reset();
+			state.scriptExecuted=true; // 0x2790d; failed takes exit unmarked (0x2788d, 0x278ff).
 			if(const auto e=advance("TakeOrGive"))return *e;
 			continue;
 		}

@@ -40,6 +40,8 @@ struct Fixture {
 };
 void deadlinesAndActions(){
  Fixture f;check(f.phases==std::vector<std::uint64_t>{0},"initial zero");
+ // A marking script: an unmarked Exit beside the object would open Nothing here.
+ f.data.scripts[1]={record(1,1,0,9,{20,10,2})};f.events.discardScriptCache();
  const auto due=[&]{return PresentationClock::afterMilliseconds(f.now,2);};
  f.at(109);check(f.phases.size()==1,"early tick");f.at(110);check(f.phases.back()==1,"first BIOS deadline");
  auto n=f.phases.size();f.at(110);check(f.phases.size()==n,"same-now double tick");

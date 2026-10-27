@@ -156,18 +156,33 @@ void whoWillPerPass() {
  f.send(InteractionAction{false});check(f.world.treasureStaging().value().whoWill==0,"record-less manual call clears WhoWill too");
 }
 void tailMarkers() {
- for(unsigned kind=0;kind<6;++kind) {
+ // DOS: Exit (0x28d50) and opcode 47 (0x28d30) leave the marker clear;
+ // CallEvent marks (0x283c0..0x28b2b).
+ for(unsigned kind=0;kind<7;++kind) {
   Fixture f;f.object=true;f.file.records.clear();
   if(kind==1)f.file.records.push_back(record(1,1,0,0x12,{},1));
   if(kind==2)f.file.records.push_back(record(1,1,0,0));
   if(kind==3)f.file.records.push_back(record(1,1,0,0x12));
   if(kind==4)f.file.records={record(1,1,0,0x19,{2,2,0}),record(2,2,0,0)};
   if(kind==5)f.file.records={record(1,1,0,0x09,{20,10,2})};
+  if(kind==6)f.file.records.push_back(record(1,1,0,0x2f));
   f.send(WaitAction{});
-  const bool window=kind==0 || kind==2 || kind==4;
+  const bool window=kind==0 || kind==2 || kind==3 || kind==6;
   check(bool(f.flow.presentationGeneration())==window,"tail uses executed and other-facing markers");
   if(window){f.send(AcknowledgeAction{});check(f.automatic==1,"tail acknowledgment finishes its existing pass");}
  }
+ // A failed take ends the Event before 0x2790d marks (0x278ff).
+ Fixture f;f.object=true;f.party.purse=XeenPurse{};f.party.purse->gold=500;
+ f.file.records={record(1,1,0,0x0c,{34,0xff,0xff,0xff,0,0,0})};
+ XeenEventInterpreter interpreter;
+ const auto script=[&](auto){return XeenEventScript(f.file);};
+ const auto text=[](auto id){return XeenEventTextFile{id,"test.txt",true,{}};};
+ auto result=interpreter.begin(f.camera,f.party,f.flags,f.world,script,text);
+ check(std::holds_alternative<XeenEventExecutionSuspended>(result) &&
+  std::get<XeenEventExecutionSuspended>(result).request.notEnough==std::uint8_t(0),"failed take shows its refusal");
+ result=interpreter.resume(std::get<XeenEventExecutionSuspended>(result).state,XeenPresentationResponse::Acknowledged,f.party,f.world,script,text);
+ check(std::holds_alternative<XeenEventExecutionSuspended>(result) &&
+  std::get<XeenEventExecutionSuspended>(result).request.kind==XeenPresentationKind::NothingHere,"failed take leaves the marker clear");
 }
 struct Driver {
  regional_save_test::Fixture &f;
@@ -193,7 +208,7 @@ struct JourneyCase {
  regional_save_test::Fixture f;
  unsigned calls=0,saves=0;
  bool blocked=false,records=true,allowRest=false,keepMonsters=false,flagCells=true;
- std::vector<XeenEventRecord> script{record(9,11,0,0x12)};
+ std::vector<XeenEventRecord> script{record(9,11,0,0x09,{20,10,2})};
  std::optional<XeenSaveSnapshot> captured;
  XeenTitleFlow *panel=nullptr;
  std::filesystem::path path=std::filesystem::current_path()/"m84-outer-test.mmsave";
@@ -684,7 +699,7 @@ void journeyPasses() {
  }
  auto services=f.services();
  services.maps=[](auto id){auto m=regional_test::map(id);m.geometry.cells[11*16+9].rawAttributes|=0x10;return m;};
- services.resources.loadEvents=[](auto id){auto e=regional_test::events(id);e.records={record(9,11,0,0x12)};return e;};
+ services.resources.loadEvents=[](auto id){auto e=regional_test::events(id);e.records={record(9,11,0,0x09,{20,10,2})};return e;};
  const auto configure=services.configureFlow;
  services.configureFlow=[&](auto &flow,const auto &camera){configure(flow,camera);
   flow.reportManual=[&](const auto &r){if(std::holds_alternative<XeenManualEventCompleted>(r))++calls;};};

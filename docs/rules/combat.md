@@ -210,8 +210,10 @@ For an ordinary positive melee input, physical resistance applies first:
 `physical = total * (100 - physical resistance) / 100`; resistance 100 sets it to
 zero. Exactly the Xeen Slayer Sword (weapon 34) bypasses it (`0x2beb6`), as does
 nonzero range with a nonzero current attack/spell effect selector DS `0x972e`
-(`0x2beab..0x2beb4`). Melee clears that unsaved selector (`0x2c8b2`); ranged
-spell dispatch sets it, including Poison Volley. Larger weapon IDs do not bypass
+(`0x2beab..0x2beb4`). Melee clears that unsaved selector (`0x2c8b2`), and so
+does party Shoot at its entry (`0x1f994..0x1f99a`), so a preceding ranged spell
+never carries into Shoot; ranged spell dispatch sets it, including Poison
+Volley. Larger weapon IDs do not bypass
 resistance. Lord Xeen's bonus precedes this reduction; see below.
 
 Add the elemental weapon contribution once per applied action, after physical

@@ -24,11 +24,12 @@ XeenCutscene XeenCutscene::clouds(const XeenCutsceneData &data,std::string capti
   s.compose=std::move(compose);s.frames=frames;s.ticks=ticks;s.reset=reset;s.input=input;return s;
  };
  const auto fade=[&](std::string name,unsigned step,bool in,Frame enter=Frame{}) {
-  // EXE 0x14a69..0x14adb: endpoints included, one write per retrace.
+  // EXE 0x14a69..0x14adb: endpoints included, one write per retrace. The fade
+  // neither polls nor clears keys; the scene clears only at 0x7cc9 and 0x892b.
   enter.push_back(Store{"fade"});
   add(std::move(name),std::move(enter),[step,in](const Context &c)->Frame {
    return {Restore{"fade"},Level{in?c.iteration*step:128-c.iteration*step}};
-  },128/step+1,0,Reset::Entry,Input::Ignore);
+  },128/step+1,0,Reset::Entry,Input::Unpolled);
  };
  add("logo background",{Palette{resource(R::LogoPalette)},Raw{resource(R::LogoBack)},Store{"logo"}},
   [](const Context &)->Frame{return {Restore{"logo"},Level{0}};});

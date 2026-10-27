@@ -334,7 +334,7 @@ void speechOff() {
  // The disabled command must still replace the retained same-disc operands,
  // including when there is no NPC in the event that issued the command.
  Fixture retained;retained.members.soundOptions=XeenSoundOptions{true,true,false,false};
- retained.set({record(1,1,0,60,{19,30,0,54,1}),record(1,1,1,0x12)});
+ retained.set({record(1,1,0,60,{19,30,0,54,1}),record(1,1,1,9,{20,10,2})}); // PlayCD and Exit leave the marker clear
  auto later=retained.flow();later.handle(InteractionAction{});retained.acquire(later);
  check(!later.blocksGameplay() && !retained.programState.audio->cdDeadline(retained.time) && later.frame().pixels==retained.base.pixels,
        "Disabled op60 drew a speech notice or created a wait");

@@ -38,11 +38,11 @@ std::optional<XeenSessionEntry> showTitle(XeenTitleFlow &flow,XeenAssetSource &a
  if(flow.entry())audio.leaveTitle(SdlWindow::presentationNanoseconds());
  return flow.entry();
 }
-bool showCutscene(XeenCutsceneFlow &flow,XeenAssetSource &assets,XeenAudio &audio) {
+bool showCutscene(XeenCutsceneFlow &flow,XeenAssetSource &assets,XeenAudio &audio,bool controlQuit=true) {
  SdlWindow::FrameUpdateHandler h=[&](const auto &action){return flow.handle(action,flow.frame().presentation());};
  h.withPresentedInput=[&](const auto &a,auto,const auto &p){return flow.handle(a,p);};
  h.displayedInput=[] {return std::optional<std::uint64_t>{1};};h.protectAllKeys=true;h.ignoreMouse=true;
- h.cutsceneControlQuit=true;
+ h.cutsceneControlQuit=controlQuit;
  h.acceptsFrame=[&](const auto &p){return flow.acceptsFrame(p);};h.acceptsInputFrame=[&](const auto &p){return flow.acceptsInput(p);};
  h.inputContext=[&](const auto &p){return flow.inputContext(p);};h.framePresented=[&](const auto &p){flow.presented(p);};
  h.completeInputHandoff=[&](const auto &p){flow.completeInput(p);};h.frameCurrent=[&]{return flow.current();};h.finished=[&]{return flow.done();};
@@ -180,7 +180,8 @@ int Application::runTitle(const std::filesystem::path &gameDirectory,std::option
     exitServices.initial=title->cutsceneExitFrame();
     exitServices.digitalBusy=[&](auto now){return !audio.titleTeardownReady(now);};
     XeenCutsceneFlow leaving(titleExit(),std::move(exitServices));
-    if(!showCutscene(leaving,assets,audio))return 0;
+    // The DAT title-exit fade and digital wait poll no keys (0xb83e..0xb8ae); only the EXE quits on Ctrl-Q.
+    if(!showCutscene(leaving,assets,audio,false))return 0;
     // EXE wrappers consult hardware, never the DAT party option bytes.
     audio.fadeSong(0,clock());audio.observeOptions({});
     audio.startProgram(clock());

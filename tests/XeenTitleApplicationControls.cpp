@@ -86,7 +86,7 @@ struct State {
 bool introApplication(const IndexedFrame &first,const SdlWindow::FrameUpdateHandler &handler,const SdlWindow::IdleFrameHandler &idle) {
  const auto window=++state.introWindow;check(window<=4,"intro did not return to one fresh title");
  const bool failureReturn=state.introFailure && window==3;
- check(handler.cutsceneControlQuit==(window==2 || (window==3 && !failureReturn)),"Ctrl-Q scope leaked between intro and DAT title");
+ check(handler.cutsceneControlQuit==(window==3 && !failureReturn),"Ctrl-Q scope leaked between intro and DAT title");
  if(window==4 || failureReturn)check(state.program->playTimeMark==state.wallNow,"EXE hand-off did not reset the fresh DAT mark");
  IndexedFrame visible=first;
  const auto present=[&] {check(handler.acceptsFrame(visible.presentation()),"intro stale publication");handler.framePresented(visible.presentation());handler.completeInputHandoff(visible.presentation());};

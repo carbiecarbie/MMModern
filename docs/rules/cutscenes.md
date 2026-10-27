@@ -192,7 +192,11 @@ Escape ends Clouds at explicit scene polls. Ordinary keys are ignored except
 that any key finishes the current scroll and draws its terminal image; the
 caller then continues. Mouse clicks are not a scene/scroll skip in this EXE.
 Ctrl-Q quits from any XEEN.EXE presentation (`0x11ab9..0x11af8`), not title
-return. This EXE poll does not enable process quit in DAT gameplay or its title.
+return. This EXE poll does not enable process quit in DAT gameplay or its title,
+including the title-exit fade and digital wait (`0xb83e..0xb8ae`). The shared
+EXE fade (`0x14a69..0x14adb`) neither polls nor clears keys: a key pressed
+during a Clouds or Darkside fade waits for the next scene poll. The Clouds scene
+clears keys only at entry (`0x7cc9`) and exit (`0x892b`).
 Resource reads and unpolled holds can delay a response. DOSBox play confirms
 Space, Escape and the click during speech and Escape during the parchment
 opening ([M91 runtime checks](evidence.md#m91-clouds-intro-runtime-checks)).

@@ -117,7 +117,7 @@ void decoderAndCardinality() {
 	}
 	Fixture empty;empty.members={};empty.set({record(1,1,0,0x20,{0,0})});
 	error(empty.begin(),Kind::EmptyParty);check(empty.textLoads==0,"empty read text");
-	empty.set({record(1,1,0,0x12)});complete(empty.begin());
+	empty.set({record(1,1,0,9,{20,10,2})});complete(empty.begin()); // Exit alone would open Nothing here
 	for (bool incapacitated : {false,true}) {
 		Fixture f;f.members=party(1);f.members.roster.at(0).conditions[15]=incapacitated;
 		f.set({record(1,1,0,0x20,{255,255}),record(1,1,1,9,{9,10,3}),record(1,1,2,0xff),record(1,1,3,0x12)});
@@ -384,7 +384,7 @@ void treasurePreference() {
 	complete(f.resume(pending(f.begin()),SelectedCharacter{2}));
 	auto expected=before;expected.whoWill=3;
 	check(f.world.treasureStaging().value()==expected,"Event WhoWill selection not published or arrays changed");
-	f.set({record(1,1,0,0x12)});complete(f.begin());
+	f.set({record(1,1,0,9,{20,10,2})});complete(f.begin());
 	expected.whoWill=0;check(f.world.treasureStaging().value()==expected,"Next Event run did not clear WhoWill");
 	f.set({record(1,1,0,0x20,{0,0}),record(1,1,1,0x12)});
 	complete(f.resume(pending(f.begin()),CharacterSelectionCancelled{}));

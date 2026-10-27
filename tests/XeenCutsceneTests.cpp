@@ -273,6 +273,11 @@ int main(int argc,char **argv) {try {
   check(skip.flow->done() && std::any_of(skip.trace.begin(),skip.trace.end(),[](const auto &e){return e.event=="escape";}),"Escape did not finish through closing scroll");
   check(mixers(skip)==(std::string(name)=="narration 0"?std::vector<unsigned>{75}:std::vector<unsigned>{}),"Escape must bypass the 95 restoration");
  }
+ {
+  // EXE fades neither poll nor clear keys (0x14a69); the next scene poll takes them.
+  Run fade(installation,assets,font,data);fade.until("JVC fade in");fade.key(27);fade.finish();
+  check(std::any_of(fade.trace.begin(),fade.trace.end(),[](const auto &e){return e.event=="escape";}),"Clouds fade dropped queued Escape");
+ }
  for(unsigned key:{27u,32u}) {
   Run opening(installation,assets,font,data);opening.until("opening scroll");opening.key(key);opening.until("narration 0");
   check(std::none_of(opening.trace.begin(),opening.trace.end(),[](const auto &e){return e.event=="escape";}),"opening key aborted intro");
