@@ -47,12 +47,16 @@ button has the same effect at the same position; use Escape to cancel.
 | Digits, Backspace, Enter in Bank amount entry | Enter up to ten digits, edit, confirm; Escape cancels |
 | Alt+Enter | Switch between window and fullscreen; no gameplay pass |
 
+At launch, the Darkside intro plays the full story the first time and a shorter
+sequence on later launches. Escape ends the story at its input polls; any key
+shortens the World-logo boundary holds. Ctrl-Q quits.
+
 At the title, Other Options → C plays the Clouds intro. Escape ends it at
 scene polls and returns through the closing parchment to a fresh title, whose
 menu waits for a new key. During a parchment transition, any key (including
 Escape) completes only that transition. Space and other keys elsewhere do
 nothing; mouse clicks do nothing and the pointer is hidden. Other Options → D
-plays the full Darkside intro. Escape ends the story at its polls; in the World
+clears the remembered seen state and plays the full Darkside intro. Escape ends the story at its polls; in the World
 logo, any key only shortens the two boundary holds. The mouse does not skip it.
 After a Clouds win, Other Options → V
 replays the Clouds ending.

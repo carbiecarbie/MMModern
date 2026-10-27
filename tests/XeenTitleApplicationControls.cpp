@@ -20,6 +20,8 @@
 #include "TestTreeRemoval.h"
 #include "formats/xeen/XeenCutsceneData.h"
 #include <fstream>
+#include <sstream>
+#include <iostream>
 using namespace mmodern;
 namespace fs=std::filesystem;
 using save_test::check;
@@ -59,6 +61,8 @@ struct State {
  bool endingMode=false,endingReturned=false,endingNotice=false,endingPlayed=false;
  bool endingReplay=false;unsigned endingExeFailure=0;
  bool endingOriginal=false;
+ bool startupMode=false,startupMissing=false,startupFailure=false,startupEscaped=false,startupAfterSeen=false;
+ std::uint64_t startupEscape=0,startupDuration=0;
  bool introMode=false,introDark=false,introFailure=false,introMissingExe=false,introNotice=false,introCloudsNotice=false;unsigned introWindow=0,introStarts=0;std::uint64_t introNow=17000000,introSkip=0;
  std::uint32_t wallNow=0;
  std::optional<std::uint64_t> nameCursorNow;
@@ -72,7 +76,7 @@ struct State {
  IndexedFrame::Presentation retiredFrame;
  unsigned seeds=0;
  XeenDifficulty difficulty=XeenDifficulty::Adventurer;
- fs::path base,slot;
+ fs::path base,slot,darksideSettings;
  std::vector<std::uint8_t> saved;
  XeenWorld *world=nullptr;const XeenPartyState *party=nullptr;
  const XeenCamera *camera=nullptr;const XeenGameFlags *flags=nullptr;
@@ -116,6 +120,10 @@ bool introApplication(const IndexedFrame &first,const SdlWindow::FrameUpdateHand
   }
   check(handler.finished(),"Application did not select intro");return true;
  }
+ if(window==3 && state.introDark) {
+  check(!state.program->darksideIntroSeen,"D did not clear seen before playback");
+  if(!state.darksideSettings.empty())check(!xeenReadSettings(state.darksideSettings).darksideIntroSeen,"D did not persist cleared state before playback");
+ }
  const auto start=state.introNow;bool escaped=false;
  while(!handler.finished()) {
   if(window==3 && state.introNow-start>15000000000ULL && state.introNow-start<120000000000ULL)check(state.program->audio->loadedName()==(state.introDark?"bigtheme.m":"mm4theme.m"),"EXE song suppressed by party settings or stale song identity");
@@ -132,8 +140,9 @@ void key(unsigned code,std::vector<SDL_Event> &pending) {
  SDL_Event event{};event.type=SDL_KEYDOWN;event.key.keysym.sym=code;event.key.keysym.scancode=SDL_GetScancodeFromKey(code);
  pending.push_back(event);event.type=SDL_KEYUP;pending.push_back(event);
 }
-extern "C" std::uint64_t wrappedTitleClock(){return state.nameCursorNow?*state.nameCursorNow:(state.introMode || (state.endingMode && (state.endingReturned || state.endingReplay)))?state.introNow:realTitleClock();}
+extern "C" std::uint64_t wrappedTitleClock(){return state.nameCursorNow?*state.nameCursorNow:(state.introMode || state.startupMode || (state.endingMode && (state.endingReturned || state.endingReplay)))?state.introNow:realTitleClock();}
 extern "C" XeenCutsceneData wrappedEndingData(const GameInstallation &installation) {
+ if(state.enabled && state.startupMode && state.startupMissing)throw std::runtime_error("missing EXE test");
  if(state.enabled && state.introMode && state.introDark && state.introMissingExe)
   throw std::runtime_error("Clouds intro unavailable: missing or different WORLD/XEEN.EXE");
  if(state.enabled && state.introMode && state.introDark && state.introFailure) {
@@ -396,6 +405,24 @@ extern "C" bool wrappedTitleShow(const SdlWindow *window,const IndexedFrame &fir
  const SdlWindow::FrameUpdateHandler &handler,const std::function<bool()> &escape,const SdlWindow::IdleFrameHandler &idle,
  const std::function<std::string()> &status) {
  if(!state.enabled)return realTitleShow(window,first,label,handler,escape,idle,status);
+ if(state.startupMode) {
+  if(!handler.cutsceneControlQuit) {handler.closed();state.shown=true;return true;}
+  if(state.startupFailure){handler.failed();handler.closed();return false;}
+  IndexedFrame visible=first;unsigned guard=0;const auto start=state.introNow;bool escaped=false;
+  const auto present=[&]{handler.framePresented(visible.presentation());handler.completeInputHandoff(visible.presentation());};present();
+  while(!handler.finished()) {
+   check(++guard<100000,"startup stalled");
+   if(state.startupEscape && !escaped && state.introNow-start>=state.startupEscape && (!state.startupAfterSeen || state.program->darksideIntroSeen)) {
+    const auto context=handler.inputContext(visible.presentation());
+    if(context.dialog && context.readyForAction)if(auto action=context.dialog->key(27)) {
+     if(auto next=handler.withPresentedInput(*action,1,visible.presentation())){visible=*next;present();}escaped=true;
+    }
+   }
+   const auto deadline=handler.nextPresentationDeadline();state.introNow=deadline && *deadline>state.introNow?*deadline:state.introNow+17000000;
+   handler.beginCycle(guard);if(auto next=idle()){visible=*next;present();}
+  }
+  state.startupDuration=state.introNow-start;state.startupEscaped=escaped;return true;
+ }
  if(state.introMode)return introApplication(first,handler,idle);
  if(state.endingMode && state.endingReplay && !state.endingReturned) {
   IndexedFrame visible=first;unsigned cycles=0;
@@ -527,6 +554,7 @@ extern "C" bool wrappedTitleShow(const SdlWindow *window,const IndexedFrame &fir
  };
  return realTitleShow(window,first,label,native,escape,nativeIdle,status);
 }
+int runWithoutStartup(const Application &app,const char *game) {return app.runTitleForTest(game);}
 void titleApplicationControls(const char *game,const char *endingPreset) {
  state.enabled=true;
  state.base=fs::temp_directory_path()/("mmodern-m54-title-"+std::to_string(GetCurrentProcessId())+"-"+std::to_string(GetTickCount64()));
@@ -539,7 +567,7 @@ void titleApplicationControls(const char *game,const char *endingPreset) {
   state.templePrices=&programState.templePrices;state.templeRow=programState.templePrices.row();
   state.difficulty=difficulty;state.mouse=difficulty==XeenDifficulty::Warrior;
   state.loading=false;state.shown=false;state.seeds=0;
-  check(Application(programState).run(game)==0 && state.shown,"native title/New Application loop");
+  check(runWithoutStartup(Application(programState),game)==0 && state.shown,"native title/New Application loop");
   const auto replayNow=SdlWindow::presentationNanoseconds();
   programState.audio->retainCdCue({19,370,2161});
   check(programState.audio->startCd(replayNow),"Passive speech before title Load did not play");
@@ -547,14 +575,14 @@ void titleApplicationControls(const char *game,const char *endingPreset) {
   programState.audio->rebaseClock(SdlWindow::presentationNanoseconds());
   state.retainedIdle=true;
   state.loading=true;state.shown=false;state.seeds=0;
-  check(Application(programState).run(game)==0 && state.shown,"native title/Load Application loop");
+  check(runWithoutStartup(Application(programState),game)==0 && state.shown,"native title/Load Application loop");
   // The first Load deliberately removes its source after validation.
   XeenSaveFile::write(state.slot,XeenSaveFormat::decode(state.saved),{},true);
   XeenProgramState freshProgram{mmodern::XeenWallClock::fixed(0)};
   XeenTemplePriceStateTestAccess::seed(freshProgram.templePrices,difficulty==XeenDifficulty::Adventurer?30:49);
   state.program=&freshProgram;state.templePrices=&freshProgram.templePrices;
   state.retainedIdle=false;state.shown=false;state.seeds=0;
-  check(Application(freshProgram).run(game)==0 && state.shown,"fresh program title/Load Application loop");
+  check(runWithoutStartup(Application(freshProgram),game)==0 && state.shown,"fresh program title/Load Application loop");
  }
  // A transport control crosses gameplay(), unlike direct playGameplay tests.
  // Gameplay ending content itself is exercised by the original Lord/Mirror test.
@@ -563,7 +591,7 @@ void titleApplicationControls(const char *game,const char *endingPreset) {
   state.wallNow=10;XeenProgramState endingProgram{XeenWallClock([]{return state.wallNow;})};state.program=&endingProgram;
   state.endingMode=true;state.endingReturned=state.endingNotice=state.endingPlayed=state.shown=false;
   state.loading=true;state.retainedIdle=false;state.templePrices=&endingProgram.templePrices;
-  const auto result=developer?Application(endingProgram).loadGame(game,state.slot):Application(endingProgram).run(game);
+  const auto result=developer?Application(endingProgram).loadGame(game,state.slot):runWithoutStartup(Application(endingProgram),game);
   check(result==0 && state.endingReturned && state.endingPlayed && !state.endingNotice && state.shown,"CloudsEnding program/title handoff for player and developer entries");
   state.endingMode=false;
  }
@@ -576,7 +604,7 @@ void titleApplicationControls(const char *game,const char *endingPreset) {
   state.wallNow=10;XeenProgramState p{XeenWallClock([]{return state.wallNow;})};state.program=&p;
   state.endingMode=true;state.endingReplay=replay;state.endingExeFailure=failure;state.endingReturned=state.endingNotice=state.endingPlayed=state.shown=false;
   state.introNow=realTitleClock();state.loading=true;state.templePrices=&p.templePrices;
-  const auto result=replay?Application(p,{},settings).run(game):Application(p,{},settings).loadGame(game,state.slot);
+  const auto result=replay?runWithoutStartup(Application(p,{},settings),game):Application(p,{},settings).loadGame(game,state.slot);
   check(result==0 && state.shown && state.endingNotice==bool(failure) && state.endingPlayed==!failure,"V/ending missing or different EXE path");
   check(readFile(state.slot)==saved && readFile(settings)==won && p.cloudsWon,"V changed saved state, play time or won store");
  }
@@ -592,6 +620,33 @@ void titleApplicationControls(const char *game,const char *endingPreset) {
   check(XeenSaveFile::read(state.slot).journey->cloudsCompleted && xeenReadWon(originalSettings),"Original ending did not save the win");
   state.endingMode=state.endingOriginal=false;
  }
+ // Player startup uses the same presenter on a fake clock, with private settings.
+ for(unsigned route=0;route<4;++route) {
+  const auto file=state.base/("startup-"+std::to_string(route)+".ini");
+  {std::ofstream out(file);out<<"won=1\ndarkside_intro_seen="<<(route==1?1:0)<<"\n";}
+  XeenProgramState p{XeenWallClock::fixed(0)};state.program=&p;state.startupMode=true;state.shown=false;
+  state.introNow=17000000;state.startupAfterSeen=route==3;state.startupEscape=route==2?30000000000ULL:route==3?1:0;
+  check(Application(p,{},file).run(game)==0 && state.shown,"startup returns to fresh title");
+  const auto settings=xeenReadSettings(file);
+  if(!(settings.won && settings.darksideIntroSeen==(route!=2)))throw std::runtime_error("startup seen persistence route="+std::to_string(route)+" duration="+std::to_string(state.startupDuration)+" seen="+std::to_string(settings.darksideIntroSeen));
+  if(route>=2)check(state.startupEscaped,"startup Escape was not delivered");
+  if(route<2)check(route==0?state.startupDuration>120000000000ULL:state.startupDuration<40000000000ULL,"startup full/short route");
+  state.startupMode=false;
+ }
+ {
+  const auto file=state.base/"startup-missing.ini";XeenProgramState p{XeenWallClock::fixed(0)};state.program=&p;
+  state.startupMode=state.startupMissing=true;state.shown=false;std::ostringstream diagnostic;auto *old=std::cerr.rdbuf(diagnostic.rdbuf());
+  const auto result=Application(p,{},file).run(game);std::cerr.rdbuf(old);
+  check(result==0 && state.shown && !p.darksideIntroSeen && diagnostic.str().find("Darkside intro unavailable")!=std::string::npos,"missing EXE startup diagnostic/title");
+  state.startupMode=state.startupMissing=false;
+ }
+ {
+  const auto file=state.base/"startup-failure.ini";XeenProgramState p{XeenWallClock::fixed(0)};state.program=&p;
+  state.startupMode=state.startupFailure=true;state.shown=false;std::ostringstream diagnostic;auto *old=std::cerr.rdbuf(diagnostic.rdbuf());
+  const auto result=Application(p,{},file).run(game);std::cerr.rdbuf(old);
+  check(result==0 && state.shown && diagnostic.str().find("Darkside intro unavailable")!=std::string::npos,"startup playback failure diagnostic/title");
+  state.startupMode=state.startupFailure=false;
+ }
  // The original Load controls remove slot 9 after validation. Our transport
  // control retains it; restore the same empty-slot setup for the New cases.
  fs::remove(state.slot);
@@ -603,7 +658,7 @@ void titleApplicationControls(const char *game,const char *endingPreset) {
   state.templePrices=&programState.templePrices;state.templeRow=programState.templePrices.row();
   state.loading=false;state.shown=false;state.seeds=0;state.name=name;state.saveAsName=name;
   state.notice.clear();state.writes=0;
-  check(Application(programState).run(game)==0 && state.loading && state.shown,"panel Save/Save As/Load real saved notices");
+  check(runWithoutStartup(Application(programState),game)==0 && state.loading && state.shown,"panel Save/Save As/Load real saved notices");
   fs::remove(XeenSaveFile::slotPath(state.slot.parent_path(),2));
   fs::remove(XeenSaveFile::slotPath(state.slot.parent_path(),8));
  }
@@ -611,26 +666,28 @@ void titleApplicationControls(const char *game,const char *endingPreset) {
  for(const auto skip:{1000000000ULL,30000000000ULL,60000000000ULL}) {
   state.wallNow=10;XeenProgramState programState{XeenWallClock([]{return state.wallNow;})};state.program=&programState;state.introMode=true;state.introNow=17000000;
   state.introWindow=0;state.introStarts=0;state.introSkip=skip;state.shown=false;
-  check(Application(programState).run(game)==0 && state.shown && state.introWindow==4,"Clouds Escape/Application fresh title route");
+  check(runWithoutStartup(Application(programState),game)==0 && state.shown && state.introWindow==4,"Clouds Escape/Application fresh title route");
   if(skip==60000000000ULL)check(state.introStarts>2,"party switches suppressed EXE speech");
   state.introMode=false;
  }
  {
   state.wallNow=10;XeenProgramState programState{XeenWallClock([]{return state.wallNow;})};state.program=&programState;
   state.introMode=true;state.introDark=true;state.introNow=17000000;state.introWindow=0;state.introStarts=0;state.shown=false;
-  check(Application(programState).run(game)==0 && state.shown && state.introWindow==4 && state.introStarts>20,"Darkside full Application/fresh title route");
-  state.introMode=false;state.introDark=false;
+  const auto settings=state.base/"darkside-d.ini";state.darksideSettings=settings;{std::ofstream out(settings);out<<"won=1\ndarkside_intro_seen=1\n";}
+  check(runWithoutStartup(Application(programState,{},settings),game)==0 && state.shown && state.introWindow==4 && state.introStarts>20,"Darkside full Application/fresh title route");
+  check(programState.darksideIntroSeen && xeenReadSettings(settings).won && xeenReadSettings(settings).darksideIntroSeen,"D did not restore seen at the store point");
+  state.introMode=false;state.introDark=false;state.darksideSettings.clear();
  }
  {
   state.wallNow=10;XeenProgramState programState{XeenWallClock([]{return state.wallNow;})};state.program=&programState;
   state.introMode=true;state.introDark=true;state.introFailure=true;state.introNotice=false;state.introNow=17000000;state.introWindow=0;state.shown=false;
-  check(Application(programState).run(game)==0 && state.shown && state.introNotice && state.introWindow==3,"Darkside failure did not return to fresh title with notice");
+  check(runWithoutStartup(Application(programState),game)==0 && state.shown && state.introNotice && state.introWindow==3,"Darkside failure did not return to fresh title with notice");
   state.introMode=false;state.introDark=false;state.introFailure=false;
  }
  {
   state.wallNow=10;XeenProgramState programState{XeenWallClock([]{return state.wallNow;})};state.program=&programState;
   state.introMode=true;state.introDark=true;state.introMissingExe=true;state.introNotice=false;state.introCloudsNotice=false;state.introNow=17000000;state.introWindow=0;state.shown=false;
-  check(Application(programState).run(game)==0 && state.shown && state.introNotice && state.introWindow==1,"missing EXE did not show Darkside notice");
+  check(runWithoutStartup(Application(programState),game)==0 && state.shown && state.introNotice && state.introWindow==1,"missing EXE did not show Darkside notice");
   state.introMode=false;state.introDark=false;state.introMissingExe=false;
  }
 }

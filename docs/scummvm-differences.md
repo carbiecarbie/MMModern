@@ -626,7 +626,7 @@ Next steps are in the [roadmap](roadmap.md).
 The following Darkside items are calibrated original rules, not implemented
 presentation coverage:
 
-- **Darkside repeat startup.** [The short path includes JVC and saves seen before the World logo](original-quirks.md#sv-darkside-startup-seen); D clears seen first, so an early Escape leaves the full story due. Pin: omits short-path JVC and uses different persistence points; master not rechecked.
+- **Darkside repeat startup.** [The short path includes JVC and saves seen before the World logo](original-quirks.md#sv-darkside-startup-seen); D clears seen first, so an early Escape leaves the full story due. MMModern stores it in `settings.ini`; the pin omits short-path JVC and stores `seen_intro` after the World logo; master not rechecked.
 - **Darkside sequencing.** [BIOS/retrace holds, measured pan strides and reset points](original-quirks.md#sv-darkside-sequencing) govern the pyramid, room and terminal holds. Pin: different wait timing, pan/zoom behavior, room counter and voice/draw ordering; master not rechecked.
 - **Darkside captions.** [Hardware-gated records and scene-specific strip updates](original-quirks.md#sv-darkside-captions) include the combined final record and blank pharoh9a strip. Pin: subtitle settings, different records and update timing; master not rechecked.
 - **Darkside speaking variants.** [The EXE's private time-mixed random source](original-quirks.md#sv-darkside-random) selects queen, Dark Lord and wizard frames. Pin: cycles by host time; master not rechecked.

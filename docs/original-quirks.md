@@ -1250,8 +1250,9 @@ World tail (`0xd345..0xd374`). DAT Other Options D clears seen before hand-off
 on relaunch. **ScummVM:** the pin skips JVC on the short path, writes seen only
 after successful full intro return, and its D handler does not clear persistent
 seen. DOS is the fidelity rule; master not rechecked.
-Part A reports the seen point in `XeenDarksideIntro.cpp`; persistence and startup
-dispatch are deferred to Part B.
+MMModern records the point reported by `XeenDarksideIntro.cpp` in program
+state and `settings.ini`, without writing the original `XEEN.CFG`. Startup
+selects the full or short path from that state.
 
 <a id="sv-darkside-sequencing"></a>
 **Elapsed time and counter resets determine the pans and holds.** DOS uses BIOS

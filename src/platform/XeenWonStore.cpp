@@ -19,24 +19,38 @@ std::optional<std::filesystem::path> xeenSettingsFile() {
  if(base.empty() || !base.is_absolute())return {};
  return base/"MMModern"/"settings.ini";
 }
-bool xeenReadWon(const std::filesystem::path &path) noexcept {
+XeenSettings xeenReadSettings(const std::filesystem::path &path) noexcept {
  try {
-  std::ifstream input(path,std::ios::binary);if(!input)return false;
+  std::ifstream input(path,std::ios::binary);if(!input)return {};
   const std::string text((std::istreambuf_iterator<char>(input)),{});
-  return !input.bad() && (text=="won=1\n" || text=="won=1\r\n");
- } catch(...) {return false;}
+  if(input.bad())return {};
+  if(text=="won=1\n" || text=="won=1\r\n")return {true,false};
+  // Only the complete two-key format is accepted; duplicate or unknown content is damaged.
+  for(bool won:{false,true})for(bool seen:{false,true}) {
+   const auto w=std::string("won=")+(won?"1":"0");
+   const auto d=std::string("darkside_intro_seen=")+(seen?"1":"0");
+   for(const auto *newline:{"\n","\r\n"})
+    if(text==w+newline+d+newline || text==d+newline+w+newline)return {won,seen};
+  }
+ } catch(...) {}
+ return {};
 }
-bool xeenWriteWon(const std::filesystem::path &path) noexcept {
+namespace {
+bool writeSettings(const std::filesystem::path &path,XeenSettings settings) noexcept {
  try {
   std::error_code error;std::filesystem::create_directories(path.parent_path(),error);if(error)return false;
   auto temporary=path;temporary+=".tmp";
   {
-   std::ofstream output(temporary,std::ios::binary|std::ios::trunc);output<<"won=1\n";
+   std::ofstream output(temporary,std::ios::binary|std::ios::trunc);
+   output<<"won="<<(settings.won?1:0)<<"\ndarkside_intro_seen="<<(settings.darksideIntroSeen?1:0)<<"\n";
    if(!output.flush()){output.close();std::filesystem::remove(temporary,error);return false;}
   }
-  // Sibling publication, with replacement and write-through on Windows.
   if(MoveFileExW(temporary.c_str(),path.c_str(),MOVEFILE_REPLACE_EXISTING|MOVEFILE_WRITE_THROUGH))return true;
   std::filesystem::remove(temporary,error);return false;
  } catch(...) {return false;}
 }
+}
+bool xeenReadWon(const std::filesystem::path &path) noexcept {return xeenReadSettings(path).won;}
+bool xeenWriteWon(const std::filesystem::path &path) noexcept {auto s=xeenReadSettings(path);s.won=true;return writeSettings(path,s);}
+bool xeenWriteSeen(const std::filesystem::path &path,bool seen) noexcept {auto s=xeenReadSettings(path);s.darksideIntroSeen=seen;return writeSettings(path,s);}
 }

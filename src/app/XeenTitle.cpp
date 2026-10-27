@@ -54,7 +54,9 @@ bool showCutscene(XeenCutsceneFlow &flow,XeenAssetSource &assets,XeenAudio &audi
  };
  const auto ok=SdlWindow().showInteractive(flow.frame(),"MMModern",h,[]{return true;},[&]{
   audio.advance(SdlWindow::presentationNanoseconds());return flow.update();
- });return ok && flow.done();
+ });
+ if(!ok)throw std::runtime_error("Cutscene presentation failed");
+ return flow.done();
 }
 XeenCutscene titleExit() {
  XeenCutscene s;XeenCutscene::Segment fade;fade.name="title fade out";fade.input=XeenCutscene::Segment::Input::Ignore;
@@ -64,8 +66,8 @@ XeenCutscene titleExit() {
  s.segments.push_back(std::move(idle));return s;
 }
 }
-int Application::run(const std::filesystem::path &gameDirectory) const {return runTitle(gameDirectory);}
-int Application::runTitle(const std::filesystem::path &gameDirectory,std::optional<std::uint32_t> endingScore) const {
+int Application::run(const std::filesystem::path &gameDirectory) const {return runTitle(gameDirectory,{},true);}
+int Application::runTitle(const std::filesystem::path &gameDirectory,std::optional<std::uint32_t> endingScore,bool startup) const {
  try {
   const auto installation=XeenInstallationDetector(_uiData).detect(gameDirectory);
   if(!installation) {std::cerr<<"No Xeen installation found: "<<gameDirectory.u8string()<<'\n';return 2;}
@@ -108,6 +110,31 @@ int Application::runTitle(const std::filesystem::path &gameDirectory,std::option
     }
    };return std::make_unique<XeenTitleFlow>(std::move(services));
   };
+  const auto darksideScene=[&](XeenCutscene::DarksidePath path) {
+   auto scene=XeenCutscene::darkside(*introData,XeenCutsceneData::captions(assets.readArchiveResource(introData->darkside.resources[XeenCutsceneData::Darkside::Caption],XeenSceneArchive::DarksideProgram)),_program.wallClock,path);
+   for(auto &segment:scene.segments) if(segment.name=="seen point") {
+    auto entering=segment.entering;
+    segment.entering=[&,entering](const XeenCutscene::Context &context) {
+     if(entering)entering(context);
+     _program.darksideIntroSeen=true;
+     if(_settingsFile)xeenWriteSeen(*_settingsFile,true);
+    };
+   }
+   return scene;
+  };
+  if(startup) {
+   auto &audio=*_program.audio;const auto clock=[] {return SdlWindow::presentationNanoseconds();};
+   try {
+    introData=XeenCutsceneData::installed(*installation);
+    if(!installation->introData || !installation->hasDarkside())throw std::runtime_error("missing INTRO.CC or DARK.CC");
+    audio.observeOptions({});audio.startProgram(clock());
+    auto path=_program.darksideIntroSeen?XeenCutscene::DarksidePath::Short:XeenCutscene::DarksidePath::Full;
+    XeenCutsceneFlow intro(darksideScene(path),XeenCutsceneFlow::original(assets,font,audio,clock,introData->digitalDevice>=2,XeenSceneArchive::DarksideProgram));
+    if(!showCutscene(intro,assets,audio))return 0;
+   }catch(const std::exception &e) {std::cerr<<"Darkside intro unavailable: "<<e.what()<<'\n';}
+   audio.stopDigital(clock());audio.fadeSong(0,clock());audio.observeOptions({});audio.startProgram(clock());
+   _program.resetPlayTime();
+  }
   auto title=makeTitle();
   XeenSessionEntry entry;
   if(endingScore){entry.kind=XeenSessionEntry::Kind::CloudsEnding;entry.score=*endingScore;}
@@ -144,6 +171,7 @@ int Application::runTitle(const std::filesystem::path &gameDirectory,std::option
    }
    if(entry.kind==XeenSessionEntry::Kind::CloudsIntro || entry.kind==XeenSessionEntry::Kind::DarksideIntro) {
     const bool darkside=entry.kind==XeenSessionEntry::Kind::DarksideIntro;
+    if(darkside) {_program.darksideIntroSeen=false;if(_settingsFile)xeenWriteSeen(*_settingsFile,false);}
     auto &audio=*_program.audio;const auto options=audio.soundOptions();
     const auto clock=[] {return SdlWindow::presentationNanoseconds();};
     auto exitServices=XeenCutsceneFlow::original(assets,font,audio,clock);
@@ -156,7 +184,7 @@ int Application::runTitle(const std::filesystem::path &gameDirectory,std::option
     audio.startProgram(clock());
     try {
      if(!introData)throw std::runtime_error(darkside?"Darkside intro unavailable: missing or different WORLD/XEEN.EXE":"Clouds intro unavailable: missing or different WORLD/XEEN.EXE");
-     auto scene=darkside?XeenCutscene::darkside(*introData,XeenCutsceneData::captions(assets.readArchiveResource(introData->darkside.resources[XeenCutsceneData::Darkside::Caption],XeenSceneArchive::DarksideProgram)),_program.wallClock,XeenCutscene::DarksidePath::Full):
+     auto scene=darkside?darksideScene(XeenCutscene::DarksidePath::Full):
       XeenCutscene::clouds(*introData,XeenCutsceneData::firstCaption(assets.readArchiveResource(introData->resources[XeenCutsceneData::Caption],XeenSceneArchive::CloudsProgram)));
      XeenCutsceneFlow intro(std::move(scene),XeenCutsceneFlow::original(assets,font,audio,clock,introData->digitalDevice>=2,darkside?XeenSceneArchive::DarksideProgram:XeenSceneArchive::CloudsProgram));
      if(!showCutscene(intro,assets,audio)){audio.observeOptions(options);return 0;}

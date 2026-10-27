@@ -1,6 +1,6 @@
 # Milestone 93 plan - Startup and the Darkside intro
 
-**Tier B. Status: Parts 0 and A done; Part B not started.** Roadmap
+**Tier B. Status: Parts 0, A and B done; awaiting closure.** Roadmap
 [step 20](roadmap.md#next-arc-finishing-the-games-systems), after
 [M92](milestone-92-plan.md), on the [M91](milestone-91-plan.md) presenter.
 Baseline `87fe933`. Save v21, schema and content unchanged. The settings
@@ -131,7 +131,7 @@ World-logo keys, `C` and Ctrl-Q matched DOS. Complete suite 339/339
 
 ## Part B - Startup, settings and Other Options D
 
-- [ ] **Settings file.** `platform/XeenWonStore` becomes the settings store:
+- [x] **Settings file.** `platform/XeenWonStore` becomes the settings store:
   one `key=value` per line, `won` and `darkside_intro_seen`, each 0 or 1.
   The reader still accepts M92's `won=1` file; a write replaces the whole
   file atomically and keeps the other key. A missing file means not won and
@@ -139,35 +139,44 @@ World-logo keys, `C` and Ctrl-Q matched DOS. Complete suite 339/339
   next launch. Builds before M93 read a file with both keys as not won;
   recorded in the release notes at closure. The original `XEEN.CFG` is never
   written.
-- [ ] `XeenProgramState` carries the seen state beside `cloudsWon`.
-- [ ] **Startup.** `Application::run` plays the Darkside path before the
+- [x] `XeenProgramState` carries the seen state beside `cloudsWon`.
+- [x] **Startup.** `Application::run` plays the Darkside path before the
   first title, then the fresh-title return as after the Clouds intro.
   Developer entry modes and the title's other returns (from gameplay, intro
   or ending) do not. Without the analysed EXE or its archives, startup goes
   straight to the title with a diagnostic on standard error.
-- [ ] **Other Options D** clears the seen state, writes it, leaves the title
+- [x] **Other Options D** clears the seen state, writes it, leaves the title
   as `C` does and plays the full story; without the EXE it keeps its notice.
-- [ ] Captions, mixer commands, song fade and Ctrl-Q as in the Clouds intro
+- [x] Captions, mixer commands, song fade and Ctrl-Q as in the Clouds intro
   unless Part 0 says otherwise; the pointer stays hidden.
-- [ ] Docs: `docs/controls.md` (startup keys, `D`); quirks and
+- [x] Docs: `docs/controls.md` (startup keys, `D`); quirks and
   [ScummVM differences](scummvm-differences.md) for every difference from
   the pin, including where the seen state is set; the screen checklist row
   in `tools/XeenCoverageScreens.h`.
 
+**Part B result (2026-10-26):** `settings.ini` holds `won` and
+`darkside_intro_seen`; the M92 `won=1` file still reads as won. A player
+launch plays the full story while the state is 0 and the short path
+afterwards, storing 1 at the seen point; developer modes and title
+returns skip it. `D` clears the state in the file before the full story.
+The maintainer's play-test of the first launch, relaunch, `D` with an
+early Escape, Ctrl-Q in the World logo and the file contents matched the
+plan. Complete suite 339/339 (run `20261026-233304-b8f66e74`).
+
 ## Tests
 
-- [ ] Settings store: the M92 file, both keys, keeping the other key on
+- [x] Settings store: the M92 file, both keys, keeping the other key on
   write, a damaged file, a failed write.
-- [ ] Startup routing: seen 0 plays the full path and stores 1; seen 1 plays
+- [x] Startup routing: seen 0 plays the full path and stores 1; seen 1 plays
   the short path; Escape before the store keeps 0; Escape after it keeps 1;
   `D` clears and plays the full path; developer modes skip startup.
-- [ ] Original data (`xeen_cutscene`): every reached Darkside resource
+- [x] Original data (`xeen_cutscene`): every reached Darkside resource
   decodes; both paths run to the end on a fake clock with real sample
   lengths, and the stage times fall within the DOSBox brackets; audio
   requests in Part 0's order; random sites draw from an injected clock;
   input at the polls Part 0 lists.
-- [ ] Existing title and application tests set the seen state they rely on.
-- [ ] Complete CTest suite green on `build-rel`; M44 digests unchanged.
+- [x] Existing title and application tests set the seen state they rely on.
+- [x] Complete CTest suite green on `build-rel`; M44 digests unchanged.
 
 ## Acceptance
 

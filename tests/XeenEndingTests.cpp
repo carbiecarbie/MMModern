@@ -184,7 +184,7 @@ void applicationEnding(Inputs &in,const fs::path &directory,bool hasTarget=true,
   check(h.finished(),"Gameplay session must finish at CloudsEnding");return true;
  };
  check(app.playGameplay(services,{},target,true)==0 && outcome.kind==XeenSessionOutcome::Kind::CloudsEnding && outcome.score==71001722,"Application transports the score in the CloudsEnding outcome");
- if(rewriteFailure)check(notices>0 && program.cloudsWon && bytes(settings)=="won=1\n","Failed rewrite shows a notice and retains the earlier win");
+ if(rewriteFailure)check(notices>0 && program.cloudsWon && bytes(settings)=="won=1\ndarkside_intro_seen=0\n","Failed rewrite shows a notice and retains the earlier win");
  check(program.cloudsWon && xeenReadWon(settings),"Application writes only its supplied settings path");
  if(hasTarget)check(XeenSaveFile::read(target).journey->cloudsCompleted && program.playTimeMark==110,"Successful ending write and mark reset");
  else check(!fs::exists(target) && program.playTimeMark==100,"Developer no-target ending makes no write and keeps the mark, as no-target Sign In");
@@ -289,10 +289,14 @@ void won(const fs::path &directory) {
  for(const char *malformed:{"", "won=yes\n", "won=1\nscore=42\n", "won=1\nwon=0\n", "won=0\n"}) {
   {std::ofstream out(path);out<<malformed;}check(!xeenReadWon(path),"Malformed or false means not won");
  }
- check(xeenWriteWon(path) && bytes(path)=="won=1\n" && xeenReadWon(path) && !fs::exists(path.string()+".tmp"),"Atomic boolean publication");
+ {std::ofstream out(path);out<<"won=1\n";}check(xeenReadSettings(path).won && !xeenReadSettings(path).darksideIntroSeen,"M92 settings");
+ check(xeenWriteSeen(path,true) && xeenReadSettings(path).won && xeenReadSettings(path).darksideIntroSeen,"Seen preserves win");
+ check(xeenWriteWon(path) && bytes(path)=="won=1\ndarkside_intro_seen=1\n" && xeenReadWon(path) && !fs::exists(path.string()+".tmp"),"Atomic settings publication");
+ check(xeenWriteSeen(path,false) && xeenReadWon(path) && !xeenReadSettings(path).darksideIntroSeen,"Clear seen preserves win");
+ check(xeenWriteSeen(path,true),"Restore seen");
  const auto handle=CreateFileW(path.c_str(),GENERIC_READ,FILE_SHARE_READ,nullptr,OPEN_EXISTING,FILE_ATTRIBUTE_NORMAL,nullptr);
  check(handle!=INVALID_HANDLE_VALUE,"Lock settings replacement");
- check(!xeenWriteWon(path) && bytes(path)=="won=1\n" && !fs::exists(path.string()+".tmp"),"Failed publication preserves old complete file and cleans temporary");
+ check(!xeenWriteWon(path) && bytes(path)=="won=1\ndarkside_intro_seen=1\n" && !fs::exists(path.string()+".tmp"),"Failed publication preserves old complete file and cleans temporary");
  CloseHandle(handle);check(xeenWriteWon(path),"Atomic replacement of an existing file");
  const auto blocker=directory/"blocker";{std::ofstream out(blocker);out<<"file";}
  check(!xeenWriteWon(blocker/"settings.ini"),"Directory/write failure is not won");

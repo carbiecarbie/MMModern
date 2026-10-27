@@ -60,6 +60,7 @@ entry. Dialog identifiers below are reference identifiers, not commercial text.
 | Blacksmith | supported | Browse, Buy, Sell, Identify, Fix, Exit | XeenSmithFlow |
 | Guild | supported | Buy Spells, Spell Info, member selection, Exit; catalogue and membership by map | XeenCastingUi |
 | Training | supported | Train, member, Exit; cap by map | XeenTrainingFlow |
+| Darkside startup | supported | Full first story, short repeat, Escape and Ctrl-Q; Other Options D replays full story | XeenCutsceneFlow / Application |
 | World/CD main menu | supported | Start, Load, Credits, Other Options | XeenTitleFlow |
 | Save/load chooser | supported | Slots, names, overwrite/cancel; original DOS presentation | XeenTitleFlow |
 
