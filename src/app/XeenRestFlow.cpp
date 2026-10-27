@@ -1,4 +1,5 @@
 #include "app/XeenEncounterFlow.h"
+#include "app/XeenAudio.h"
 #include "games/xeen/XeenIndoorScene.h"
 #include "games/xeen/XeenDialogView.h"
 #include "games/xeen/XeenJourneyRules.h"
@@ -49,8 +50,9 @@ bool XeenEncounterFlow::beginRest(const std::function<IndexedFrame()> &dream,
     RestContinuation::Phase::Confirm:shelter?RestContinuation::Phase::Remainder:RestContinuation::Phase::Charges;
    if(_party.encounterContext->profile==XeenBehaviorProfile::WorldOfXeenClouds) {
     if(!dream || !durations)throw std::invalid_argument("Original Rest dream providers are absent");
-    candidate->sampleDurations=XeenSoundOptions(_party.soundOptions).efx?durations():std::array<std::uint64_t,2>{0,0};
-    if(XeenSoundOptions(_party.soundOptions).efx && (!candidate->sampleDurations[0] || !candidate->sampleDurations[1]))
+    const bool digital=XeenSoundOptions(_party.soundOptions).efx && (!_program.audio || _program.audio->hasDmaDigital());
+    candidate->sampleDurations=digital?durations():std::array<std::uint64_t,2>{0,0};
+    if(digital && (!candidate->sampleDurations[0] || !candidate->sampleDurations[1]))
      throw std::invalid_argument("Invalid original Rest sample duration");
     candidate->dream=dream();
     if(candidate->dream.width!=320 || candidate->dream.height!=200 || !candidate->dream.isValid())

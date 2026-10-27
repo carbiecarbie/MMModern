@@ -16,10 +16,12 @@ std::vector<XeenCdTrack> readXeenCdTracks(const std::filesystem::path &cue,unsig
 
 class XeenInstallationDetector {
 public:
- explicit XeenInstallationDetector(std::filesystem::path uiData = {}) : _uiData(std::move(uiData)) {}
+ explicit XeenInstallationDetector(std::filesystem::path uiData = {},std::filesystem::path cfg = {})
+  : _uiData(std::move(uiData)),_cfg(std::move(cfg)) {}
 	std::optional<GameInstallation> detect(const std::filesystem::path &root) const;
 private:
  std::filesystem::path _uiData;
+ std::filesystem::path _cfg;
 };
 
 } // namespace mmodern

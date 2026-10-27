@@ -20,6 +20,18 @@ namespace {
 PromusDriver::Bytes bytes(std::vector<std::uint8_t> b){return std::make_shared<const std::vector<std::uint8_t>>(std::move(b));}
 std::string lower(std::string s){for(auto &c:s)if(c>='A'&&c<='Z')c+='a'-'A';return s;}
 std::uint64_t nativeSample(std::uint64_t ns) {return (ns/1000000000)*49716+((ns%1000000000)*49716+999999999)/1000000000;}
+XeenAudioConfig legacyConfig(unsigned id) {XeenAudioConfig result;result.music=std::uint16_t(id);return result;}
+XeenCardMixer::Model cardModel(const XeenAudioConfig &c) {
+ if(c.music==3)return XeenCardMixer::Model::Sb16;
+ if(c.digital==6)return XeenCardMixer::Model::Sb2;
+ if(c.digital==7)return XeenCardMixer::Model::SbPro;
+ if(c.digital==10)return XeenCardMixer::Model::Sb16;
+ return XeenCardMixer::Model::None;
+}
+std::uint16_t mixerAddress(const XeenAudioConfig &c) {return c.music==3?c.musicPort:c.digitalPort;}
+std::uint16_t mixerWriter(const XeenAudioConfig &c) {
+ return c.music==3 || c.music==0 || c.music>=10 || c.deferredMusic()?c.musicPort:c.digitalPort;
+}
 std::vector<std::uint8_t> read(const ReadOnlyDataFile &file) {
  auto in=file.open();if(in->size()>1024*1024)throw std::runtime_error("Audio resource exceeds its bound");
  std::vector<std::uint8_t> result(in->size());if(in->read(result.data(),result.size())!=result.size())throw std::runtime_error("Incomplete audio resource read");return result;
@@ -31,7 +43,7 @@ struct XeenAudio::Impl {
  XeenAudio::DigitalSink digitalSink;
  std::array<std::string,6> eventVoices;
  std::array<unsigned,35> weaponEffects{};
- unsigned id;Loader loader;std::uint64_t elapsed=0,last=0;
+ unsigned id;XeenAudioConfig config;Loader loader;std::uint64_t elapsed=0,last=0;
  std::vector<std::string> maps,locations;std::array<unsigned,6> kinds{};
  std::unique_ptr<PromusDriver> clockDriver;
  std::shared_ptr<XeenFmSource> output;bool retainOutput;
@@ -41,6 +53,7 @@ struct XeenAudio::Impl {
  std::optional<Song> pending,afterTitle;bool titleExit=false;
  std::uint64_t sample=0,phase=0;
  std::uint64_t digitalEnd=0; // Elapsed presentation time, survives clock rebases.
+ bool digitalFailure=false,digitalNotice=false;
  std::uint64_t cdEnd=0;
  unsigned cdDisc=1;
  std::optional<XeenEventCdSpeech> cdCue;
@@ -72,7 +85,7 @@ struct XeenAudio::Impl {
  int mixRate=0;
  // Last member: close/join the callback before its driver, chip and queue die.
  std::unique_ptr<SdlAudioDevice> device;
- Impl(unsigned i,PromusDriver::Bytes resource,Loader l,std::vector<std::uint8_t> module,std::uint64_t n,bool deviceOutput,PromusDriver::Sink trace,std::shared_ptr<XeenFmSource> source,CdDecoder decoder):id(i),loader(std::move(l)),last(n),output(source?source:std::make_shared<XeenFmSource>()),retainOutput(bool(source)),cdDecoder(std::move(decoder)) {
+ Impl(XeenAudioConfig c,PromusDriver::Bytes resource,Loader l,std::vector<std::uint8_t> module,std::uint64_t n,bool deviceOutput,PromusDriver::Sink trace,std::shared_ptr<XeenFmSource> source,CdDecoder decoder):id(c.music),config(c),loader(std::move(l)),last(n),output(source?source:std::make_shared<XeenFmSource>()),retainOutput(bool(source)),cdDecoder(std::move(decoder)),card(cardModel(c),mixerAddress(c)),mixerFlag(c.mixer!=0) {
   const XeenDosText text(module);maps=text.table("CLOUDS_MUSIC");locations=text.table("CLOUDS_LOCATION_MUSIC");
   for(unsigned w=0;w<weaponEffects.size();++w)weaponEffects[w]=60+module.at(0x4d660+w);
   // DAT 0x508cc: six far pointers into the original data segment.
@@ -89,6 +102,7 @@ struct XeenAudio::Impl {
   if(id==3) {
    clockDriver=std::make_unique<PromusDriver>(resource,std::move(trace));
   }else if(id>=1 && id<=9)std::cerr<<"Music device "<<id<<": not supported yet\n";
+  if(config.deferredDigital()){std::cerr<<"Digital device "<<config.digital<<": not supported yet\n";digitalNotice=true;}
   output->initialize(id==3?resource:PromusDriver::Bytes{});
   startProgram();
   device=std::make_unique<SdlAudioDevice>([this](auto *out,auto frames,int rate){render(out,frames,rate);},deviceOutput,
@@ -159,7 +173,7 @@ struct XeenAudio::Impl {
   const auto gains=card.gains();
   std::lock_guard<std::mutex> lock(mixerMutex);mixerRequest=gains;mixerChanged=true;
  }
- void startProgram() {card.initialize(mixerFlag);publishMixer();}
+ void startProgram() {card.initialize(mixerFlag,mixerWriter(config));publishMixer();}
  void publishDigital(std::shared_ptr<const XeenVocSample> pcm) {
   std::shared_ptr<const XeenVocSample> retired;
   {
@@ -285,29 +299,41 @@ struct XeenAudio::Impl {
  }
 };
 XeenAudio::XeenAudio(unsigned id,PromusDriver::Bytes driver,Loader l,std::vector<std::uint8_t> module,std::uint64_t now,bool device,PromusDriver::Sink trace,std::shared_ptr<XeenFmSource> output,CdDecoder decoder):
- _impl(new Impl(id,std::move(driver),std::move(l),std::move(module),now,device,std::move(trace),std::move(output),std::move(decoder))){}
+ XeenAudio(legacyConfig(id),std::move(driver),std::move(l),std::move(module),now,device,std::move(trace),std::move(output),std::move(decoder)){}
+XeenAudio::XeenAudio(XeenAudioConfig config,PromusDriver::Bytes driver,Loader l,std::vector<std::uint8_t> module,std::uint64_t now,bool device,PromusDriver::Sink trace,std::shared_ptr<XeenFmSource> output,CdDecoder decoder):
+ _impl(new Impl(config,std::move(driver),std::move(l),std::move(module),now,device,std::move(trace),std::move(output),std::move(decoder))){}
 XeenAudio::~XeenAudio()=default;
+std::vector<std::uint8_t> XeenAudio::readProgramResource(const std::filesystem::path &folder,const std::string &name,XeenSceneArchive archive,const Loader &fallback) {
+ std::optional<std::filesystem::path> loose;
+ for(const auto &entry:std::filesystem::directory_iterator(folder))if(lower(entry.path().filename().u8string())==lower(name)) {
+  if(loose || !entry.is_regular_file())throw std::runtime_error("Ambiguous loose audio resource: "+name);loose=entry.path();
+ }
+ if(loose)return read(ReadOnlyDataFile::plain(*loose));
+ return fallback(name,archive);
+}
 std::shared_ptr<XeenAudio> XeenAudio::installed(const GameInstallation &installation,XeenAssetSource &,std::uint64_t now,bool device) {
  if(!installation.configuration)throw std::runtime_error("Missing installed WORLD/XEEN.CFG");
- auto cfg=read(*installation.configuration);if(cfg.size()<6)throw std::runtime_error("Truncated WORLD/XEEN.CFG");
- const unsigned id=cfg[4]|unsigned(cfg[5])<<8;
- const bool mixerFlag=cfg.size()>=0x16 && (cfg[0x14]|cfg[0x15]);
- const auto folder=installation.configuration->physicalPath.parent_path();
+ const auto cfg=XeenAudioConfig::parse(read(*installation.configuration));
+ if(!installation.uiModule)throw std::runtime_error("Missing installed WORLD/XEEN.DAT");
+ const auto folder=installation.uiModule->physicalPath.parent_path();
  // Retain a separate resource owner for program lifetime; never borrow a session.
  auto source=std::make_shared<XeenAssetSource>(installation);
  Loader loader=[source,folder](const std::string &name,XeenSceneArchive archive) {
-  std::optional<std::filesystem::path> loose;
-  for(const auto &entry:std::filesystem::directory_iterator(folder))if(lower(entry.path().filename().u8string())==lower(name)) {
-   if(loose || !entry.is_regular_file())throw std::runtime_error("Ambiguous loose audio resource: "+name);loose=entry.path();
-  }
-  if(loose)return read(ReadOnlyDataFile::plain(*loose));
-  try{return source->readArchiveResource(name,archive);}catch(const std::exception &e){throw std::runtime_error("Original audio resource "+name+": "+e.what());}
+  return readProgramResource(folder,name,archive,[source](const auto &selected,auto from) {
+   try{return source->readArchiveResource(selected,from);}catch(const std::exception &e){throw std::runtime_error("Original audio resource "+selected+": "+e.what());}
+  });
  };
- auto resource=id==3?bytes(loader("promus",XeenSceneArchive::IntroOnly)):PromusDriver::Bytes{};
- auto result=std::make_shared<XeenAudio>(id,resource,std::move(loader),read(*installation.uiModule),now,device);
- result->cdTracks(inspectXeenCdTracks(installation.cdTracks));result->processMixer(mixerFlag);return result;
+ auto resource=bytes(loader(std::string(cfg.musicDriver()),XeenSceneArchive::IntroOnly));
+ (void)loader(std::string(cfg.digitalDriver(XeenAudioProgram::Dat)),XeenSceneArchive::IntroOnly);
+ auto result=std::make_shared<XeenAudio>(cfg,resource,std::move(loader),read(*installation.uiModule),now,device);
+ result->cdTracks(inspectXeenCdTracks(installation.cdTracks));return result;
 }
 unsigned XeenAudio::deviceId() const{return _impl->id;}
+unsigned XeenAudio::digitalDeviceId() const{return _impl->config.digital;}
+bool XeenAudio::hasDmaDigital() const{return _impl->config.dmaDigital();}
+unsigned XeenAudio::digitalDma() const{return _impl->config.digitalDma();}
+bool XeenAudio::entranceCaptions(bool efx) const{return _impl->config.captions(efx);}
+bool XeenAudio::unavailableExeDigital() const{return _impl->config.unavailableExeDigital();}
 bool XeenAudio::outputActive() const{return _impl->device->active();}
 std::string XeenAudio::mapSong(const XeenMapGeometry &m) const {return _impl->maps.at(m.isOutdoors()?0:_impl->kinds.at(m.wallKind));}
 std::string XeenAudio::locationSong(unsigned action) const{return _impl->locations.at(action);}
@@ -322,13 +348,30 @@ void XeenAudio::mixer(unsigned level,std::uint64_t now) {
  if(level>255)throw std::invalid_argument("Invalid EXE music mixer level");
  advance(now);_impl->command(0x100,level);
  // Only promus implements command 0x100; it rewrites FM register 0x26.
- if(_impl->clockDriver){_impl->card.fm=_impl->clockDriver->mixerLevel();_impl->publishMixer();}
+ if(_impl->clockDriver){
+  const auto port=_impl->config.musicPort;_impl->card.write(std::uint16_t(port+4),0x26);
+  _impl->card.write(std::uint16_t(port+5),_impl->clockDriver->mixerLevel());_impl->publishMixer();
+ }
 }
-void XeenAudio::processMixer(bool flag) {_impl->mixerFlag=flag;_impl->card=XeenCardMixer{};_impl->startProgram();}
+void XeenAudio::processMixer(bool flag) {_impl->mixerFlag=flag;_impl->card=XeenCardMixer(cardModel(_impl->config),mixerAddress(_impl->config));_impl->startProgram();}
 void XeenAudio::startProgram(std::uint64_t now) {advance(now);_impl->startProgram();}
+bool XeenAudio::startProgram(std::uint64_t now,XeenAudioProgram program) {
+ advance(now);
+ if(program==XeenAudioProgram::Exe && unavailableExeDigital()) {
+  if(!_impl->digitalNotice){std::cerr<<"Digital device "<<_impl->config.digital<<": not supported yet\n";_impl->digitalNotice=true;}
+  return false;
+ }
+ _impl->startProgram();return true;
+}
 std::array<float,6> XeenAudio::mixerGains() const {return _impl->card.gains();}
 XeenAudio::RetainedDigital XeenAudio::retainDigital(const std::string &name,XeenSceneArchive archive) {
- return {name,archive,std::make_shared<const XeenVocSample>(decodeXeenVoc(_impl->loader(name,archive)))};
+ if(!hasDmaDigital())return {name,archive,{}};
+ const auto driver=_impl->config.digital==6?XeenDmaDigital::Blast:XeenDmaDigital::Pro;
+ return {name,archive,std::make_shared<const XeenVocSample>(decodeXeenVoc(_impl->loader(name,archive),driver))};
+}
+std::uint64_t XeenAudio::digitalDuration(const std::string &name,XeenSceneArchive archive) {
+ if(!hasDmaDigital())return 0;
+ return xeenVocDurationNanoseconds(_impl->loader(name,archive),_impl->config.digital==6?XeenDmaDigital::Blast:XeenDmaDigital::Pro);
 }
 void XeenAudio::requestMap(const XeenMapGeometry &map,std::uint64_t now) {const auto name=mapSong(map);_impl->mapName=name;requestSong(name,XeenSceneArchive::Clouds,207,now);}
 void XeenAudio::requestLocation(unsigned action,std::uint64_t now) {requestSong(locationSong(action),XeenSceneArchive::Clouds,223,now);}
@@ -363,11 +406,11 @@ void XeenAudio::eventVoice(unsigned index,std::uint64_t now) {
  startDigital(_impl->eventVoices.at(index),index==5?XeenSceneArchive::Darkside:XeenSceneArchive::Clouds,now);
 }
 void XeenAudio::startDigital(const std::string &name,XeenSceneArchive archive,std::uint64_t now) {
- if(!_impl->options.efx)return;
+ if(!_impl->options.efx || !hasDmaDigital())return;
  startDigital(retainDigital(name,archive),now);
 }
 void XeenAudio::startDigital(const RetainedDigital &voice,std::uint64_t now) {
- auto &s=*_impl;if(!s.options.efx)return;
+ auto &s=*_impl;if(!s.options.efx || !hasDmaDigital())return;
  if(!voice.sample || voice.sample->pcm.empty())throw std::invalid_argument("Empty retained digital sample");
  const auto actionTime=s.digitalTime(now);
  s.digitalEnd=PresentationClock::checkedAdd(actionTime,voice.sample->durationNanoseconds());
@@ -376,12 +419,16 @@ void XeenAudio::startDigital(const RetainedDigital &voice,std::uint64_t now) {
 }
 void XeenAudio::stopDigital(std::uint64_t now) {
  auto &s=*_impl;
- if(!s.options.efx)return;
+ if(!s.options.efx || !hasDmaDigital())return;
  s.digitalTime(now);s.digitalEnd=0;s.publishDigital({});
 }
 bool XeenAudio::digitalBusy(std::uint64_t now) const {
- const auto &s=*_impl;return s.options.efx && s.logicalNow(now)<s.digitalEnd;
+ auto &s=*_impl;
+ if(!s.options.efx || !hasDmaDigital())return false;
+ if(s.config.digital==6 && s.digitalFailure){s.digitalFailure=false;s.digitalEnd=0;return false;}
+ return s.logicalNow(now)<s.digitalEnd;
 }
+void XeenAudio::latchDigitalFailureForTest() {_impl->digitalFailure=true;}
 std::optional<std::uint64_t> XeenAudio::digitalDeadline(std::uint64_t now) const {
  if(!digitalBusy(now))return {};
  return PresentationClock::checkedAdd(now,_impl->digitalEnd-_impl->logicalNow(now));
@@ -436,8 +483,11 @@ void XeenAudio::advance(std::uint64_t now) {_impl->advance(now);}
 void XeenAudio::rebaseClock(std::uint64_t now) noexcept {_impl->last=now;}
 std::optional<std::uint64_t> XeenAudio::deadline() const {
  if(!_impl->pending)return {};
- const auto tick=_impl->clockDriver?_impl->clockDriver->ticks()+1:PromusDriver::clockTicks(_impl->elapsed)+1;
- auto result=PresentationClock::checkedAdd(_impl->last,PromusDriver::clockBoundary(tick)-_impl->elapsed);
+ auto result=_impl->last;
+ if(_impl->clockDriver) {
+  const auto tick=_impl->clockDriver->ticks()+1;
+  result=PresentationClock::checkedAdd(_impl->last,PromusDriver::clockBoundary(tick)-_impl->elapsed);
+ }
  if(auto cd=cdDeadline(_impl->last))result=std::max(result,*cd);
  return result;
 }

@@ -4,6 +4,7 @@
 #include "games/xeen/XeenSoundOptions.h"
 #include "core/GameInstallation.h"
 #include "formats/xeen/XeenCdAudio.h"
+#include "formats/xeen/XeenAudioConfig.h"
 #include "formats/xeen/XeenSpriteDrawOptions.h"
 #include <string>
 #include <optional>
@@ -18,9 +19,16 @@ public:
  using Loader=std::function<std::vector<std::uint8_t>(const std::string &,XeenSceneArchive)>;
  XeenAudio(unsigned deviceId,PromusDriver::Bytes driver,Loader,std::vector<std::uint8_t> module,
   std::uint64_t start,bool device=true,PromusDriver::Sink trace={},std::shared_ptr<XeenFmSource> output={},CdDecoder decoder=decodeXeenCdCue);
+ XeenAudio(XeenAudioConfig,PromusDriver::Bytes driver,Loader,std::vector<std::uint8_t> module,
+  std::uint64_t start,bool device=true,PromusDriver::Sink trace={},std::shared_ptr<XeenFmSource> output={},CdDecoder decoder=decodeXeenCdCue);
  ~XeenAudio();
  static std::shared_ptr<XeenAudio> installed(const GameInstallation &,XeenAssetSource &,std::uint64_t now,bool device=true);
  unsigned deviceId() const;
+ unsigned digitalDeviceId() const;
+ bool hasDmaDigital() const;
+ unsigned digitalDma() const;
+ bool entranceCaptions(bool efx) const;
+ bool unavailableExeDigital() const;
  bool outputActive() const;
  std::string mapSong(const XeenMapGeometry &) const;
  std::string locationSong(unsigned action) const;
@@ -33,10 +41,12 @@ public:
  void processMixer(bool initFlag);
  // EXE or DAT start: its music driver init rewrites the mixer from that flag.
  void startProgram(std::uint64_t now);
+ bool startProgram(std::uint64_t now,XeenAudioProgram);
  std::array<float,6> mixerGains() const;
  using DigitalSample=std::shared_ptr<const XeenVocSample>;
  struct RetainedDigital {std::string name;XeenSceneArchive archive;DigitalSample sample;};
  RetainedDigital retainDigital(const std::string &,XeenSceneArchive);
+ std::uint64_t digitalDuration(const std::string &,XeenSceneArchive);
  void startDigital(const RetainedDigital &,std::uint64_t now);
  void requestMap(const XeenMapGeometry &,std::uint64_t now);
  void requestLocation(unsigned action,std::uint64_t now);
@@ -92,6 +102,9 @@ public:
  bool pending() const;
 private:
  friend struct XeenCdAudioTestAccess;
+ friend struct XeenAudioTestAccess;
+ void latchDigitalFailureForTest();
+ static std::vector<std::uint8_t> readProgramResource(const std::filesystem::path &,const std::string &,XeenSceneArchive,const Loader &);
  bool cdDecodePending() const;
  struct Impl;std::unique_ptr<Impl> _impl;
 };

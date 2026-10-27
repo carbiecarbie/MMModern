@@ -107,6 +107,14 @@ int main(int argc, char *argv[]) {
   }
   uiData=std::filesystem::u8path(arguments[i+1]);arguments.erase(arguments.begin()+i,arguments.begin()+i+2);
  }
+ std::optional<std::filesystem::path> cfg;
+ for(std::size_t i=1;i<arguments.size();) {
+  if(arguments[i]!="--xeen-cfg") {++i;continue;}
+  if(cfg || i+1>=arguments.size() || arguments[i+1].empty() || arguments[i+1].rfind("--",0)==0) {
+   std::cerr<<"--xeen-cfg requires one nonempty configuration file path\n";return 1;
+  }
+  cfg=std::filesystem::u8path(arguments[i+1]);arguments.erase(arguments.begin()+i,arguments.begin()+i+2);
+ }
  std::optional<std::uint32_t> wallClock;
  for(std::size_t i=1;i<arguments.size();) {
   if(arguments[i]!="--wall-clock"){++i;continue;}
@@ -126,7 +134,7 @@ int main(int argc, char *argv[]) {
  try {
  mmodern::XeenProgramState program{playerTitle?mmodern::xeenSystemWallClock():mmodern::XeenWallClock::fixed(wallClock.value_or(0))};
  if(!playerTitle && wallClock)std::cout<<"Wall clock: fixed "<<*wallClock<<'\n';
- const mmodern::Application application(program,uiData.value_or(std::filesystem::path{}),mmodern::xeenSettingsFile());
+ const mmodern::Application application(program,uiData.value_or(std::filesystem::path{}),mmodern::xeenSettingsFile(),cfg.value_or(std::filesystem::path{}));
 	// Plain launch enters the original title. Overrides require developer entry.
 	if (argc >= 2 && (std::string(argv[1]) == "--new-game" ||
 			std::string(argv[1]).rfind("--", 0) != 0)) {

@@ -380,9 +380,10 @@ void XeenEventFlow::beginDeath(const IndexedFrame &base) {
     if(!_death) {
         if(!loadSampleDuration || !drawDialogSprite)throw std::invalid_argument("Original death providers are absent");
         DeathContinuation candidate;candidate.gameplay=base;
-        const auto fireDuration=XeenSoundOptions(_party.soundOptions).efx?loadSampleDuration("fire.voc",XeenSceneArchive::Clouds):0;
-        candidate.laughDuration=XeenSoundOptions(_party.soundOptions).efx?loadSampleDuration("xeenlaff.voc",XeenSceneArchive::Clouds):0;
-        if(XeenSoundOptions(_party.soundOptions).efx && (!fireDuration || !candidate.laughDuration))throw std::invalid_argument("Invalid original death sample duration");
+        const bool digital=XeenSoundOptions(_party.soundOptions).efx && (!_program.audio || _program.audio->hasDmaDigital());
+        const auto fireDuration=digital?loadSampleDuration("fire.voc",XeenSceneArchive::Clouds):0;
+        candidate.laughDuration=digital?loadSampleDuration("xeenlaff.voc",XeenSceneArchive::Clouds):0;
+        if(digital && (!fireDuration || !candidate.laughDuration))throw std::invalid_argument("Invalid original death sample duration");
         // The final pair 34/35 is drawn over the last fire composition (all
         // seventeen death.vga pairs), not over the gameplay: pin
         // WorldOfXeenEngine::death and the DOS capture Morte.mkv (2026-10-13).
@@ -2589,15 +2590,17 @@ void XeenEventFlow::prepareEntrance() {
     checkTransitionCandidate();
     const bool keyed=xeenEntranceKey(*site,_transition->party.questItems);
     const bool efx=XeenSoundOptions(_transition->party.soundOptions).efx;
+    const bool captions=_program.audio?_program.audio->entranceCaptions(efx):!efx;
+    const bool silentDigital=_program.audio && !_program.audio->hasDmaDigital();
     std::string caption;
-    if(!efx) {
+    if(captions) {
         if(!loadEntranceCaption || !drawEntranceCaption)throw std::invalid_argument("Original caption providers are absent");
         caption=loadEntranceCaption(action,keyed);_eventPublication->check();checkTransitionCandidate();
     }
     XeenEntranceAnimation animation(action,keyed,[&](const char *name) {
         const auto value=loadSampleDuration(name,XeenSceneArchive::Clouds);
         _eventPublication->check();checkTransitionCandidate();return value;
-    },efx,caption.size());
+    },efx,caption.size(),captions && efx,silentDigital);
     _entranceUi.emplace(std::move(animation),_frame);
     _entranceUi->caption=std::move(caption);
     _presenter.clear();_journeyEventLayers=false;
@@ -2648,7 +2651,8 @@ std::optional<IndexedFrame> XeenEventFlow::updateEntrance() {
 void XeenEventFlow::startServiceSample(ServiceArtState &state,const char *name,bool resetIndex) {
     // A missing provider models the original sound-unavailable status (zero).
     std::uint64_t duration=0;
-    if(XeenSoundOptions(_party.soundOptions).efx && loadSampleDuration)_encounter->guardCallback(_encounter->ticket(),[&]{duration=loadSampleDuration(name,XeenSceneArchive::Clouds);});
+    if(XeenSoundOptions(_party.soundOptions).efx && (!_program.audio || _program.audio->hasDmaDigital()) && loadSampleDuration)
+        _encounter->guardCallback(_encounter->ticket(),[&]{duration=loadSampleDuration(name,XeenSceneArchive::Clouds);});
     const auto now=presentationNow();state.sample.start(now,duration);
     _encounter->digitalSample(name,XeenSceneArchive::Clouds,now);
     if(resetIndex)state.index=XeenServiceAnimation::modulus(state.kind)-1;

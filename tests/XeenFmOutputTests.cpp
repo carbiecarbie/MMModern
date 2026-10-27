@@ -137,6 +137,31 @@ int main(int argc,char **argv) {try {
          "After-title fade command escaped its completion barrier");
   }
  }
+ // Rendering ahead of, or behind, the same presentation script must leave
+ // every selected transport's logical clock, busy and song boundary intact.
+ for(const auto pair:std::vector<std::pair<unsigned,unsigned>>{{3,6},{0,0},{0,6},{1,7},{4,10},{5,0}}) {
+  std::vector<std::uint64_t> snapshots[2];std::string loaded[2];
+  for(unsigned ahead=0;ahead<2;++ahead) {
+   auto source=std::make_shared<XeenFmSource>();XeenAudioConfig config;config.music=pair.first;config.digital=pair.second;
+   const auto mixedLoader=[&](const std::string &name,XeenSceneArchive archive) {
+    if(name=="boundary.voc") {Bytes b(32+512,160);b[27]=std::uint8_t(521);b[28]=521>>8;return b;}
+    return loader(name,archive);
+   };
+   XeenAudio route(config,pair.first==3?resource:PromusDriver::Bytes{},mixedLoader,module,0,false,{},source);
+   route.enterTitle(0);route.startDigital("boundary.voc",XeenSceneArchive::Clouds,0);
+   route.requestSong("town.m",XeenSceneArchive::Clouds,207,0);
+   check(route.prepareRender(48000),"Generalized boundary renderer preparation");
+   const auto renderSecond=[&] {for(unsigned n=0;n<48000;n+=block)route.render(pcm.data(),std::min<unsigned>(block,48000-n),48000);};
+   if(ahead)renderSecond();
+   for(std::uint64_t now:{0ULL,10000000ULL,200000000ULL,3000000000ULL}) {
+    route.advance(now);snapshots[ahead].push_back(route.ticks());snapshots[ahead].push_back(route.samples());
+    snapshots[ahead].push_back(route.digitalBusy(now));snapshots[ahead].push_back(route.digitalDeadline(now).value_or(0));
+    snapshots[ahead].push_back(route.pending());snapshots[ahead].push_back(route.deadline().value_or(0));
+   }
+   if(!ahead)renderSecond();loaded[ahead]=route.loadedName();
+  }
+  check(snapshots[0]==snapshots[1] && loaded[0]==loaded[1],"Render lead changed generalized logical boundary");
+ }
  {
   // Only pending completion is gated: explicit Off cancels a live fade;
   // title entry and Music On restart immediately, even during that fade.

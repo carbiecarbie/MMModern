@@ -4,12 +4,21 @@
 #include "games/xeen/XeenEntranceScene.h"
 #include "games/xeen/XeenStateEquality.h"
 #include "formats/xeen/XeenVoc.h"
+#include "SyntheticXeenArchive.h"
+#include <chrono>
+#include <fstream>
 #include <iostream>
 #include <map>
 
 using namespace mmodern;
 using training_test::check;
 namespace mmodern {
+struct XeenAudioTestAccess {
+    static std::vector<std::uint8_t> resource(const std::filesystem::path &folder,const std::string &name,
+        XeenSceneArchive archive,const XeenAudio::Loader &fallback) {
+        return XeenAudio::readProgramResource(folder,name,archive,fallback);
+    }
+};
 struct XeenEntranceTestAccess {
     static unsigned wound(XeenEventFlow &flow) {
         auto &e=*flow._encounter;
@@ -179,6 +188,20 @@ void captions() {
         check(a.finished() && !sampleCalls && advances==length && prior==0,"Efx-off caption cycle/sample gate");
         check(speechPhases==(action>=10?1u:2u),"Dwarf/Sphinx later phases not skipped or Reaper/Golem second loop lost");
     }
+    // The raw digital id, not audible output, admits captions. Null and
+    // deferred drivers still run the caption cycle without a sample wait.
+    for(unsigned id:{0u,1u,2u,3u,4u,5u,6u,7u,8u,9u,10u,11u})for(bool efx:{false,true}) {
+        XeenAudioConfig cfg;cfg.digital=id;const bool show=cfg.captions(efx),silent=!cfg.dmaDigital();
+        unsigned reads=0,speech=0,captionFrames=0;std::uint64_t now=0;
+        A a(11,false,[&](const char *){++reads;return 300000000ULL;},efx,show?4:0,show && efx,silent);
+        for(unsigned n=0;n<2000 && !a.finished();++n) {
+            auto frame=a.advance(now,[](unsigned lo,unsigned){return lo;});
+            if(frame){if(frame->phase==P::Speech){++speech;if(frame->caption)++captionFrames;}a.acquired(now);}
+            now=std::max(now,a.deadline());
+        }
+        check(a.finished() && speech>0 && (captionFrames>0)==show,"Entrance caption gate by digital id/Efx");
+        check((reads>0)==(efx && !silent),"Entrance null driver loaded or waited for PCM");
+    }
 }
 void original(training_test::Inputs &in,const GameInstallation &installation,XeenCamera camera,unsigned action,bool keyed,bool wounded=false,bool efx=true,bool device=false) {
     auto save=entranceSave(in,camera,keyed,action);save.soundOptions.efx=efx;training_test::Fixture f(in,save);
@@ -253,6 +276,62 @@ void original(training_test::Inputs &in,const GameInstallation &installation,Xee
     const auto snapshot=f.snapshot();training_test::Fixture restored(in,snapshot);
     check(XeenSaveFormat::encode(snapshot)==XeenSaveFormat::encode(restored.snapshot()),"Entrance current-save roundtrip changed bytes");
 }
+void looseVocSceneWait(training_test::Inputs &in,const GameInstallation &installation) {
+    using Bytes=std::vector<std::uint8_t>;
+    const auto folder=std::filesystem::current_path()/("m94-loose-voc-"+std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
+    std::filesystem::create_directories(folder);
+    struct Cleanup {
+        std::filesystem::path folder;
+        ~Cleanup(){std::error_code error;std::filesystem::remove(folder/"sphinx13.voc",error);std::filesystem::remove(folder/"xeen.cc",error);std::filesystem::remove(folder,error);}
+    } cleanup{folder};
+    const auto voc=[](unsigned count,std::uint8_t value) {
+        Bytes b(32+count,value);const auto word=count+9;b[0x1b]=word;b[0x1c]=word>>8;return b;
+    };
+    const auto archived=voc(400,150),loose=voc(12000,200),second=voc(300,140);
+    sprite_test::archive(folder/"xeen.cc",{{"sphinx13.voc",archived},{"sphinx14.voc",second}});
+    {std::ofstream out(folder/"sphinx13.voc",std::ios::binary);out.write(reinterpret_cast<const char *>(loose.data()),loose.size());check(bool(out),"Loose VOC fixture write");}
+    GameInstallation synthetic;synthetic.root=folder;synthetic.xeenArchive=folder/"xeen.cc";
+    XeenAssetSource archivedAssets(synthetic);
+    check(archivedAssets.readArchiveResource("sphinx13.voc",XeenSceneArchive::Clouds)==archived,"Synthetic archived VOC fixture");
+    const XeenAudio::Loader fallback=[&](const std::string &name,XeenSceneArchive archive) {
+        if(name=="sphinx13.voc" || name=="sphinx14.voc")return archivedAssets.readArchiveResource(name,archive);
+        return in.assets.readArchiveResource(name,archive);
+    };
+    const XeenAudio::Loader loader=[&](const std::string &name,XeenSceneArchive archive) {
+        return XeenAudioTestAccess::resource(folder,name,archive,fallback);
+    };
+    const auto driver=std::make_shared<const Bytes>(in.assets.readArchiveResource("promus",XeenSceneArchive::IntroOnly));
+    std::ifstream moduleFile(installation.uiModule->physicalPath,std::ios::binary);
+    const Bytes module((std::istreambuf_iterator<char>(moduleFile)),{});
+    XeenAudioConfig config;config.music=3;config.digital=10;
+    const XeenCamera camera{5,12,8,XeenDirection::South};auto save=entranceSave(in,camera,false,11);save.soundOptions.efx=true;
+    training_test::Fixture f(in,save);f.programState.audio=std::make_shared<XeenAudio>(config,driver,loader,module,0,false);
+    const auto retained=f.programState.audio->retainDigital("sphinx13.voc",XeenSceneArchive::Clouds);
+    const auto playedDuration=retained.sample->durationNanoseconds();
+    check(retained.sample->pcm.size()==12000 && retained.sample->pcm.front()==200 && playedDuration==12000ULL*68000 &&
+          playedDuration!=xeenVocDurationNanoseconds(archived),"Loose VOC did not override the archived sample");
+    std::vector<std::pair<std::string,std::uint64_t>> durations,starts;
+    std::optional<std::uint64_t> firstDeadline;
+    f.flow->loadSampleDuration=[&](const char *name,XeenSceneArchive archive) {
+        const auto duration=f.programState.audio->digitalDuration(name,archive);durations.emplace_back(name,duration);return duration;
+    };
+    f.flow->drawEntranceSprite=[&](auto &frame,const char *name,unsigned id,int x,int y,int scale){in.assets.drawDialogSprite(frame,name,id,x,y,XeenSceneArchive::Clouds,scale);};
+    f.programState.audio->digitalSink([&](const auto &name,auto) {
+        const auto now=f.flow->presentationNow();starts.emplace_back(name,now);
+        if(name=="sphinx13.voc")firstDeadline=f.programState.audio->digitalDeadline(now);
+    });
+    f.act(InteractionAction{});check(XeenEntranceTestAccess::active(*f.flow),"Loose VOC fixture did not enter the original scene");
+    for(unsigned i=0;i<4000 && starts.size()<2 && !f.flow->canSave();++i) {
+        if(const auto deadline=f.flow->nextPresentationDeadline())f.now=std::max(f.now,PresentationClock::ceilMilliseconds(*deadline));
+        f.flow->beginCycle(++f.cycle);if(const auto frame=f.flow->updatePresentation())f.present(*frame);
+    }
+    check(durations.size()>=2 && durations[0].first=="sphinx13.voc" && durations[0].second==playedDuration,
+          "Entrance wait did not use the played loose VOC duration");
+    check(starts.size()>=2 && starts[0].first=="sphinx13.voc" && starts[1].first=="sphinx14.voc" && firstDeadline &&
+          *firstDeadline==starts[0].second+playedDuration && starts[1].second>=*firstDeadline && starts[1].second-*firstDeadline<=40000000ULL,
+          "Entrance advanced before the loose sample finished or added an extra wait");
+    std::cout<<"Loose VOC scene wait and playback duration passed\n";
+}
 }
 int main(int argc,char **argv) {try {
     sites();captions();for(unsigned action=8;action<=11;++action)for(bool keyed:{false,true})if(action!=10 || keyed)animation(action,keyed);
@@ -265,6 +344,7 @@ int main(int argc,char **argv) {try {
         original(in,*installation,{23,5,13,XeenDirection::North},10,true);
         original(in,*installation,{23,5,13,XeenDirection::North},10,true,false,false);
         original(in,*installation,{5,12,8,XeenDirection::South},11,false);
+        looseVocSceneWait(in,*installation);
         original(in,*installation,{5,12,8,XeenDirection::South},11,false,false,true,true);
         for(const auto map:{8u,5u}) {
             const unsigned action=map==8?9:11;const auto events=in.events.load(map);

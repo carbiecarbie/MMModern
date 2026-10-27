@@ -35,6 +35,13 @@ int main(int argc,char **argv) {try {
     }
     check(decodeXeenVoc(sample(10,1)).pcm.size()==1,"Count zero still transfers one sample");
     check(decodeXeenVoc(sample(9,65536)).pcm.size()==65536,"Length subtraction must wrap as a 16-bit word");
+    check(xeenVocSampleCount(sample(521,512),XeenDmaDigital::Blast)==508,"blastsnd L-14 count");
+    check(xeenVocDurationNanoseconds(sample(521,512),XeenDmaDigital::Blast)==508*68000ULL,"blastsnd duration");
+    check(decodeXeenVoc(sample(14,1),XeenDmaDigital::Blast).pcm.size()==1,"blastsnd zero DMA count");
+    check(decodeXeenVoc(sample(13,65536),XeenDmaDigital::Blast).pcm.size()==65536,"blastsnd count wraps at 16 bits");
+    bool shortBlast=false;
+    try{(void)decodeXeenVoc(sample(521,507),XeenDmaDigital::Blast);}catch(const std::invalid_argument &){shortBlast=true;}
+    check(shortBlast,"blastsnd accepted a short transfer");
     for(unsigned fault=0;fault<3;++fault) {
         auto broken=sample(13,4);
         if(fault==0)broken.resize(31);
@@ -62,6 +69,10 @@ int main(int argc,char **argv) {try {
                 check(!std::equal(bytes.begin(),bytes.begin()+8,"Creative"),"Sphinx damaged descriptor was repaired");
             }
         }
+        const auto crodo1=assets.readArchiveResource("crodo1.voc",XeenSceneArchive::CloudsProgram);
+        const auto crodo2=assets.readArchiveResource("crodo2.voc",XeenSceneArchive::CloudsProgram);
+        check(xeenVocDurationNanoseconds(crodo1,XeenDmaDigital::Blast)==3981740000ULL &&
+              xeenVocDurationNanoseconds(crodo2,XeenDmaDigital::Blast)==3794944000ULL,"Original Crodo blastsnd deadlines");
     }
     std::cout<<"Digital decoder and timing passed\n";return 0;
 }catch(const std::exception &error){std::cerr<<error.what()<<'\n';return 1;}}

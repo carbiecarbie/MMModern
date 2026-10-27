@@ -391,6 +391,9 @@ A missing resource is fatal in DOS: the resolver tries loose files, then
 the selected archive; an absent index entry reaches `0x45c8a..0x45cfd`,
 restores the display/cleans up and exits DOS with code 2. The missing-song
 case has no silent fallback (`0x45f93..0x45fa8`).
+**DOS static, high:** the same loose-first lookup applies to VOC resources
+(`0x45ed2..0x45ed7`); gameplay scene waits now use the same selected VOC as
+playback, so an overriding loose file supplies both durations.
 
 For map music the same case-insensitive name continues regardless of Music
 on/off or whether the driver is currently playing. A changed name is copied
@@ -421,8 +424,8 @@ Other fixed delays and caption-cursor conditions remain. The FM wrapper
 
 The existing [entrance evidence](evidence.md#part-0b-text-settings-and-cadence-2026-10-20)
 establishes the separate caption gate: Efx off or digital-driver ID below 2
-allows captions; Text/Speech do not select them. MMModern does not read the
-driver word and tests Efx alone, which matches the installed driver word 10.
+allows captions; Text/Speech do not select them. MMModern reads the selected
+CFG's raw digital id, including when that id uses a null-driver stopgap.
 The renderer advances one
 character only after more than one BIOS tick, resets its time mark, and
 wraps modulo record length (`0xdca3..0xdd52`, timer `0x4411d..0x44144`).
@@ -1124,8 +1127,7 @@ Monster voices publish only on guarded MonsterPose1, before target-selection
 RNG, once per attack, never per target, second pose or redraw. Missing
 or corrupt impact and miss samples raise the same resource error as
 other starts; the FM output-failure suppression does not cover VOC loads.
-Entrance guardians publish no unsupported-audio notice when Efx is on;
-the M82 captions remain the Efx-off presentation. Death starts fire at
+Entrance guardians use the caption gate above. Death starts fire at
 entry to the retained death state, independently of drawing or retries.
 
 ## Text-off byte: readers and presentation
@@ -1222,8 +1224,11 @@ approved deviation, not evidence that DOS checks delivery.
 
 ## Other original sound devices
 
-**Evidence boundary, 2026-10-27:** M94 Part 0 establishes the following
-rules; it does not implement these additional devices. Calibrated original
+**Evidence boundary, 2026-10-27:** M94 Part 0 established the following
+rules. Part A1 selects both drivers in DAT and EXE, implements null drivers
+and blastsnd/prosnd digital transfers, and applies the reference mixers
+below. Music 1/2/4/6 is selected but silent with a notice until its later
+part; deferred devices use the approved null-driver restriction. Calibrated original
 program evidence is **DOS static, high**; captures and the matching emulator
 source are explicitly **DOSBox reference evidence**, not measurements of
 physical cards. Detailed offsets, hashes, captures and analysis are retained
@@ -1327,8 +1332,11 @@ Let L be the unsigned word at sample +`0x1b`; PCM starts at +`0x20`.
 
 **Maintainer decision, 2026-10-27:** extend the
 [unsplit transfer approximation](../original-quirks.md#dev-prosnd-dma-timing)
-to blastsnd: `(uint16(L-14)+1) * 68 us`, no DMA page split. Prosnd's existing
-`(uint16(L-10)+1) * 68 us` model stays unchanged. These are playback and
+to blastsnd: `(uint16(L-14)+1) * 68 us`, no DMA page split. Part A1 uses
+fixed DMA 1 for blastsnd and the CFG DMA for prosnd. A latched blastsnd DSP
+failure clears busy on its next admitted query; host output failure does not
+change that logical state. Prosnd's existing `(uint16(L-10)+1) * 68 us`
+model stays unchanged. These are playback and
 logical-busy durations, separate from waveform equivalence; the capture
 publication bound cannot establish allocation-specific continuation.
 
@@ -1497,8 +1505,8 @@ lines 2400..2483, 2552..2565, 2652..2669 and 3652..3656:
   ordinary nullmus transaction, including its music-port addressing.
 - SB16 keeps its existing mapping/calibration: ordinary init master/FM/CD
   unity, DAC -24 dB. `ctmixer_update_volumes` applies master times source
-  gain to DAC, OPL and CD; MT-32 is a separate channel. A1 adds a unit test
-  for **each** SB2/SB Pro/SB16 reference, covering reset, ignored ports,
+  gain to DAC, OPL and CD; MT-32 is a separate channel. A1 tests
+  each SB2/SB Pro/SB16 reference, covering reset, ignored ports,
   flag/address gating, init gains and register updates.
 
 The original game writes master=ff and no CD register (**DOS static**, audit

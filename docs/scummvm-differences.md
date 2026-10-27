@@ -49,8 +49,8 @@ M83 follows the installed digital driver and CD rules:
 - **Approved timing approximation.** The maintainer adopted
   [unsplit driver-count timing](original-quirks.md#dev-prosnd-dma-timing),
   omitting the sub-millisecond effect of DOS allocation-dependent DMA splits.
-  MMModern uses this timing for prosnd; the maintainer extended it to
-  blastsnd for M94 on 2026-10-27 (count+1 duration: medium confidence).
+  MMModern uses this timing for prosnd and blastsnd, with the latter extension
+  approved for M94 on 2026-10-27 (count+1 duration: medium confidence).
   The pin instead follows VOC header durations.
   Pin: differs;
   master not rechecked.

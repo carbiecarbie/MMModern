@@ -62,6 +62,7 @@ struct State {
  bool endingReplay=false;unsigned endingExeFailure=0;
  bool endingOriginal=false;
  bool startupMode=false,startupMissing=false,startupFailure=false,startupEscaped=false,startupAfterSeen=false;
+ bool startupDigitalNotice=false;unsigned startupExeStarts=0;
  std::uint64_t startupEscape=0,startupDuration=0;
  bool introMode=false,introDark=false,introFailure=false,introMissingExe=false,introNotice=false,introCloudsNotice=false;unsigned introWindow=0,introStarts=0;std::uint64_t introNow=17000000,introSkip=0;
  std::uint32_t wallNow=0;
@@ -306,6 +307,7 @@ bool panelGameplay(const IndexedFrame &first,const SdlWindow::FrameUpdateHandler
 }
 extern "C" XeenTextRenderResult wrappedTitleText(const XeenTextRenderer *renderer,const IndexedFrame &base,
  const std::string &text,const XeenTextRenderOptions &options) {
+ if(state.enabled && state.startupMode && text.find("Digital device ")!=std::string::npos && text.find("not supported yet")!=std::string::npos)state.startupDigitalNotice=true;
  if(state.enabled && state.introMode && text.find("Darkside intro unavailable")!=std::string::npos)state.introNotice=true;
  if(state.enabled && state.introMode && text.find("Clouds intro unavailable")!=std::string::npos)state.introCloudsNotice=true;
  if(state.enabled && state.endingMode && text.find("Clouds ending unavailable")!=std::string::npos)state.endingNotice=true;
@@ -411,6 +413,7 @@ extern "C" bool wrappedTitleShow(const SdlWindow *window,const IndexedFrame &fir
  if(!state.enabled)return realTitleShow(window,first,label,handler,escape,idle,status);
  if(state.startupMode) {
   if(!handler.cutsceneControlQuit) {handler.closed();state.shown=true;return true;}
+  ++state.startupExeStarts;
   if(state.startupFailure){handler.failed();handler.closed();return false;}
   IndexedFrame visible=first;unsigned guard=0;const auto start=state.introNow;bool escaped=false;
   const auto present=[&]{handler.framePresented(visible.presentation());handler.completeInputHandoff(visible.presentation());};present();
@@ -635,6 +638,22 @@ void titleApplicationControls(const char *game,const char *endingPreset) {
   if(!(settings.won && settings.darksideIntroSeen==(route!=2)))throw std::runtime_error("startup seen persistence route="+std::to_string(route)+" duration="+std::to_string(state.startupDuration)+" seen="+std::to_string(settings.darksideIntroSeen));
   if(route>=2)check(state.startupEscaped,"startup Escape was not delivered");
   if(route<2)check(route==0?state.startupDuration>120000000000ULL:state.startupDuration<40000000000ULL,"startup full/short route");
+  state.startupMode=false;
+ }
+ for(unsigned id:{3u,4u,9u}) {
+  const auto settings=state.base/("unsupported-digital-"+std::to_string(id)+".ini");
+  const auto cfg=state.base/("unsupported-digital-"+std::to_string(id)+".cfg");
+  std::vector<std::uint8_t> bytes(29);bytes[0]=id;bytes[2]=0x20;bytes[3]=2;bytes[4]=3;bytes[6]=0x20;bytes[7]=2;bytes[0x14]=1;bytes[0x18]=1;
+  {std::ofstream out(cfg,std::ios::binary);out.write(reinterpret_cast<const char *>(bytes.data()),bytes.size());}
+  XeenProgramState p{XeenWallClock::fixed(0)};state.program=&p;state.startupMode=true;state.shown=false;
+  state.startupDigitalNotice=false;state.startupExeStarts=0;state.introNow=17000000;
+  std::ostringstream diagnostic;auto *old=std::cerr.rdbuf(diagnostic.rdbuf());
+  const auto result=Application(p,{},settings,cfg).run(game);std::cerr.rdbuf(old);
+  const auto text="Digital device "+std::to_string(id)+": not supported yet\n";
+  const auto first=diagnostic.str().find(text);
+  check(result==0 && state.shown && !state.startupDigitalNotice && state.startupExeStarts==0 && !p.darksideIntroSeen &&
+        first!=std::string::npos && diagnostic.str().find(text,first+text.size())==std::string::npos,
+        "Unsupported EXE digital id did not report once on stderr and return to title");
   state.startupMode=false;
  }
  {

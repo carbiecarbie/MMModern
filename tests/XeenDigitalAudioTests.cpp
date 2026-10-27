@@ -11,6 +11,7 @@
 #include <chrono>
 #include <fstream>
 #include <iostream>
+#include <sstream>
 #include <thread>
 #include <cstdlib>
 #include <new>
@@ -26,6 +27,9 @@ void operator delete[](void *p) noexcept{::operator delete(p);}
 void operator delete[](void *p,std::size_t) noexcept{::operator delete(p);}
 using namespace mmodern;
 using Bytes=std::vector<std::uint8_t>;
+namespace mmodern {
+struct XeenAudioTestAccess {static void failDsp(XeenAudio &audio){audio.latchDigitalFailureForTest();}};
+}
 namespace {
 SDL_AudioDeviceID openedDevice=0;bool failOpen=false,disconnected=false;
 std::atomic<bool> conversionError{false};
@@ -56,6 +60,10 @@ extern "C" SDL_AudioStatus __wrap_SDL_GetAudioDeviceStatus(SDL_AudioDeviceID id)
 }
 namespace {
 void check(bool value,const char *message) {if(!value)throw std::runtime_error(message);}
+struct CaptureErrors {
+ std::ostringstream text;std::streambuf *previous=std::cerr.rdbuf(text.rdbuf());
+ ~CaptureErrors(){std::cerr.rdbuf(previous);}
+};
 Bytes voc(unsigned count,std::uint8_t value) {
  Bytes bytes(32+count,value);
  const auto word=std::uint16_t(count+9);bytes[27]=word;bytes[28]=word>>8;
@@ -94,6 +102,91 @@ int main(int argc,char **argv) {try {
   return assets.readArchiveResource(name,archive);
  };
  const auto archive=XeenSceneArchive::Clouds;
+ // Raw IDs select the transport independently of captions and EXE admission.
+ for(unsigned id:{0u,1u,2u,3u,4u,5u,6u,7u,8u,9u,10u,11u,65535u}) {
+  std::string notice;
+  {
+   CaptureErrors captured;XeenAudioConfig cfg;cfg.music=0;cfg.digital=std::uint16_t(id);cfg.dma=3;
+   XeenAudio audio(cfg,{},loader,module,0,false);
+   check(audio.digitalDeviceId()==id && audio.entranceCaptions(true)==(id<2) && audio.entranceCaptions(false),"Digital id or caption gate");
+   const auto before=reads;
+   audio.startDigital("a.voc",archive,100);
+   if(cfg.dmaDigital()) {
+    const auto count=id==6?508ULL:512ULL,deadline=100+count*68000;
+    check(audio.digitalDma()==(id==6?1:3),"Digital DMA channel");
+    check(audio.digitalDuration("a.voc",archive)==count*68000 && audio.digitalDeadline(100)==deadline,"Selected digital count or deadline");
+    check(audio.digitalBusy(deadline-1) && !audio.digitalBusy(deadline),"Digital busy endpoint");
+    audio.startDigital("b.voc",archive,200);
+    const auto replacement=200+(id==6?28ULL:32ULL)*68000;
+    check(audio.digitalDeadline(200)==replacement,"Digital replacement deadline");
+    audio.stopDigital(201);check(!audio.digitalBusy(201),"Digital stop did not clear busy");
+   }else {
+    check(!audio.digitalBusy(100) && !audio.digitalDeadline(100) && audio.digitalDuration("a.voc",archive)==0 && reads==before,
+          "Null digital path loaded data or stayed busy");
+   }
+   check(audio.startProgram(201,XeenAudioProgram::Dat),"DAT digital selection refused");
+   const bool exe=audio.startProgram(201,XeenAudioProgram::Exe);
+   check(exe==!(id==3 || id==4 || id==9),"EXE digital exception");
+   check(audio.startProgram(201,XeenAudioProgram::Exe)==exe,"EXE exception changed on retry");
+   notice=captured.text.str();
+  }
+  const bool unsupported=id==1 || id==2 || id==3 || id==4 || id==5 || id==8 || id==9;
+  check(notice==(unsupported?"Digital device "+std::to_string(id)+": not supported yet\n":""),"Digital notice missing or repeated");
+ }
+ for(unsigned id:{0u,1u,2u,3u,4u,5u,6u,7u,8u,9u,10u}) {
+  std::string notice;
+  {
+   CaptureErrors captured;XeenAudioConfig cfg;cfg.music=std::uint16_t(id);cfg.digital=0;
+   XeenAudio audio(cfg,id==3?driver:PromusDriver::Bytes{},loader,module,0,false);
+   audio.startProgram(0);audio.startProgram(0);notice=captured.text.str();
+  }
+  const bool unsupported=id>=1 && id<=9 && id!=3;
+  check(notice==(unsupported?"Music device "+std::to_string(id)+": not supported yet\n":""),"Music notice missing or repeated");
+ }
+ for(unsigned music:{0u,1u,2u,3u,4u,5u,6u,7u,8u,9u,10u})for(unsigned digital:{0u,6u,7u,10u}) {
+  CaptureErrors captured;XeenAudioConfig cfg;cfg.music=music;cfg.digital=digital;cfg.musicPort=0x220;cfg.digitalPort=0x240;
+  XeenAudio audio(cfg,music==3?driver:PromusDriver::Bytes{},loader,module,0,false);
+  const bool writesDigitalPort=music==1 || music==2 || music==4 || music==6;
+  const float attenuation=music==3?std::pow(10.0f,-24.0f/20):
+   writesDigitalPort && digital==7?std::pow(10.0f,-11.0f/20):
+   writesDigitalPort && digital==10?std::pow(10.0f,-24.0f/20):1.0f;
+  const auto before=audio.mixerGains();
+  check(std::abs(before[2]-attenuation*kXeenSourceGain)<1e-6f,"Music/digital mixer matrix or port gating");
+  audio.mixer(75,0);const auto after=audio.mixerGains();
+  check(music==3?after[0]<before[0]:after==before,"Only promus may change card FM level");
+  audio.processMixer(false);check(audio.mixerGains()[2]==kXeenSourceGain,"Mixer flag did not preserve reset DAC");
+ }
+ for(unsigned music:{0u,5u,7u,8u,9u,65535u})for(unsigned digital:{7u,10u}) {
+  CaptureErrors captured;XeenAudioConfig cfg;cfg.music=music;cfg.digital=digital;cfg.musicPort=cfg.digitalPort=0x240;
+  XeenAudio audio(cfg,{},loader,module,0,false);
+  const float attenuation=std::pow(10.0f,(digital==7?-11.0f:-24.0f)/20);
+  check(std::abs(audio.mixerGains()[2]-attenuation*kXeenSourceGain)<1e-6f,"Null music init did not use its music-port mixer transaction");
+  audio.requestSong("inn.m",archive,207,0);
+  check(audio.deadline()==0,"Silent music introduced a fade/load wait");audio.advance(0);
+  check(!audio.pending() && audio.loadedName()=="inn.m","Silent music did not complete without a driver wait");
+ }
+ {
+  // A latched blastsnd DSP failure clears busy on its next admitted query;
+  // disabling Efx masks the query and must not consume that latch.
+  XeenAudioConfig cfg;cfg.digital=6;XeenAudio audio(cfg,{},loader,module,0,false);
+  audio.startDigital("a.voc",archive,0);XeenAudioTestAccess::failDsp(audio);
+  audio.observeOptions({false,true,false,true});check(!audio.digitalBusy(0),"Efx-off query was not masked");
+  audio.observeOptions({});check(!audio.digitalBusy(0),"blastsnd failure did not clear busy");
+  audio.startDigital("a.voc",archive,0);check(audio.digitalBusy(0),"blastsnd failure latch did not clear");
+ }
+ for(unsigned id:{0u,6u,7u,10u}) {
+  std::vector<std::uint64_t> outcomes[2];
+  for(unsigned device=0;device<2;++device) {
+   XeenAudioConfig cfg;cfg.digital=std::uint16_t(id);XeenAudio audio(cfg,{},loader,module,0,device!=0);
+   check(audio.outputActive()==(device!=0),"Timing test dummy output state");
+   audio.startDigital("a.voc",archive,0);
+   for(std::uint64_t now:{0ULL,1000000ULL,20000000ULL,40000000ULL}) {
+    audio.advance(now);outcomes[device].push_back(audio.digitalBusy(now));
+    outcomes[device].push_back(audio.digitalDeadline(now).value_or(0));outcomes[device].push_back(audio.ticks());
+   }
+  }
+  check(outcomes[0]==outcomes[1],"Output changed selected digital timing");
+ }
  // Retain/decode without starting; chained starts do no resource I/O. The
  // published owner survives release of the caller's handle and exact EOF is
  // still determined by the presentation clock, including after a rebase.

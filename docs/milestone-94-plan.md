@@ -1,10 +1,10 @@
 # Milestone 94 plan - Other sound devices
 
-**Tier A. Status: planned (not started)**
+**Tier A. Status: implementation authorized (2026-10-27); Part A1 done, A2 and B not started; maintainer acceptance pending.**
 Roadmap [step 19](roadmap.md#next-arc-finishing-the-games-systems).
 Evidence/amendment baseline: clean `main`, `b4448b8`, equal to `origin/main`.
-This amendment requires maintainer approval and independent plan review before
-Part A. Part 0 is evidence only; planning does not authorize implementation.
+The maintainer approved this amendment after its independent plan review
+(`dfd05c1`).
 
 ## Goal and approved scope
 

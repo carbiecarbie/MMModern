@@ -67,17 +67,18 @@ const Art &art(unsigned action) {
     return entries[action-8];
 }
 }
-XeenEntranceAnimation::XeenEntranceAnimation(unsigned action,bool keyed,const Duration &duration,bool efx,unsigned captionLength):_action(action),_efx(efx),_captionLength(captionLength) {
+XeenEntranceAnimation::XeenEntranceAnimation(unsigned action,bool keyed,const Duration &duration,bool efx,unsigned captionLength,bool captionWhenEfx,bool silentDigital):
+    _action(action),_efx(efx),_captions(!efx || captionWhenEfx),_digitalActive(efx && !silentDigital),_captionLength(captionLength) {
     const auto &a=art(action);
-    if(!_efx && !_captionLength)throw std::invalid_argument("Missing entrance caption record");
+    if(_captions && !_captionLength)throw std::invalid_argument("Missing entrance caption record");
     const auto add=[&](Phase phase,unsigned count,unsigned ticks,const char *sample=nullptr) {
-        const auto length=sample && _efx?duration(sample):0;
-        if(sample && _efx && !length)throw std::invalid_argument("Invalid entrance sample duration");
+        const auto length=sample && _digitalActive?duration(sample):0;
+        if(sample && _digitalActive && !length)throw std::invalid_argument("Invalid entrance sample duration");
         _phases.push_back({phase,count,ticks,sample,length});
     };
     add(Phase::Zoom,a.zoom,action<10?1:0);
     if(action==8 || action==9){_slide=_phases.size();add(Phase::Slide,13,1);}
-    if(action==9){_entryDuration=_efx?duration("ogre.voc"):0;if(_efx && !_entryDuration)throw std::invalid_argument("Invalid entrance growl duration");add(Phase::EntryTail,1,0);}
+    if(action==9){_entryDuration=_digitalActive?duration("ogre.voc"):0;if(_digitalActive && !_entryDuration)throw std::invalid_argument("Invalid entrance growl duration");add(Phase::EntryTail,1,0);}
     if(action==10)add(Phase::Rise,16,0);
     static const char *samples[4][2][3]={
         {{"reaper14.voc","reaper15.voc",nullptr},{"reaper12.voc","reaper13.voc",nullptr}},
@@ -92,7 +93,7 @@ XeenEntranceAnimation::XeenEntranceAnimation(unsigned action,bool keyed,const Du
         }
         if(!_firstSpeech)_firstSpeech=_phases.size();
         add(Phase::Speech,0,a.speechTicks,sample);
-        if(!_efx && action>=10)break;
+        if(_captions && action>=10)break;
     }
     // Sphinx and Golem restore 95 before their retreat; Reaper and Dwarf at the end.
     if(action==9 || action==11)_restore=_phases.size();
@@ -107,7 +108,7 @@ std::optional<XeenEntranceAnimation::Frame> XeenEntranceAnimation::advance(std::
     if(_started) {
         const auto &step=_phases[_phase];
         const bool speech=step.kind==Phase::Speech;
-        const bool captionBusy=!_efx && _phase==_firstSpeech && !_captionComplete;
+        const bool captionBusy=_captions && _phase==_firstSpeech && !_captionComplete;
         if(speech && !captionBusy && now>=_sampleEnd && now<_minimumEnd){_deadline=_minimumEnd;return {};}
         if(speech?(!captionBusy && now>=std::max(_sampleEnd,_minimumEnd)):++_iteration>=step.count) {
             ++_phase;_iteration=0;_started=false;
@@ -117,7 +118,7 @@ std::optional<XeenEntranceAnimation::Frame> XeenEntranceAnimation::advance(std::
     // Skip an already elapsed growl tail without inventing an extra wait.
     if(_phases[_phase].kind==Phase::EntryTail && now>=_entryEnd){++_phase;_iteration=0;_started=false;}
     auto frame=compose(draw);
-    if(!_efx && _phase==_firstSpeech) {
+    if(_captions && _phase==_firstSpeech) {
         const auto tick=PresentationClock::tick(now);
         if(tick-_captionMark>1) {
             _cursor=(_cursor+1)%_captionLength;_captionMark=tick;

@@ -23,6 +23,14 @@ int main(int argc,char **argv){try{
  const auto game=dir/"GAME";fs::create_directories(game);
  const auto log=dir/"cli.log";const auto path=dir/fs::path(L"space \u00e7 \u6e38.mmsave");fs::remove(path);
  for(const auto &args:std::vector<std::vector<std::wstring>>{
+  {L"--inspect-party",game.wstring(),L"--xeen-cfg"},
+  {L"--inspect-party",game.wstring(),L"--xeen-cfg",L""},
+  {L"--inspect-party",game.wstring(),L"--xeen-cfg",L"--wall-clock"},
+  {L"--inspect-party",game.wstring(),L"--xeen-cfg",L"a",L"--xeen-cfg",L"b"}}) {
+  const auto r=launch(exe,args,log);
+  check(r.exit==1 && r.output.find("--xeen-cfg")!=std::string::npos,"invalid CFG override accepted or missing diagnostic");
+ }
+ for(const auto &args:std::vector<std::vector<std::wstring>>{
   {game.wstring(),L"--wall-clock",L"1"},
   {L"--inspect-party",game.wstring(),L"--wall-clock",L"4294967296"},
   {L"--inspect-party",game.wstring(),L"--wall-clock",L"-1"},
@@ -124,7 +132,8 @@ int main(int argc,char **argv){try{
   {L"--render-map",game.wstring(),L"1",L"0",L"0",L"north",L"--save-file",path.wstring()}})
   check(launch(exe,args,log).exit==1,"Map explorer cannot accept a save target");
  sprite_test::archive(game/"dark.cc",{{"synthetic",Bytes{0}}});
- sprite_test::archive(game/"intro.cc",{{"synthetic",Bytes{0}}});
+ // The synthetic CFG selects the two null drivers, which must exist in INTRO.
+ sprite_test::archive(game/"intro.cc",{{"synthetic",Bytes{0}},{"nullmus",Bytes{0}},{"nullsnd",Bytes{0}}});
  fs::create_directories(dir/"WORLD");
  {
   auto ui=dos_test::fixture();
@@ -142,6 +151,15 @@ int main(int argc,char **argv){try{
   out.write(reinterpret_cast<const char *>(ui.data()),ui.size());
  }
  {std::ofstream out(dir/"WORLD"/"XEEN.CFG",std::ios::binary);const char cfg[6]{};out.write(cfg,sizeof(cfg));} // Synthetic nullmus configuration.
+ const auto alternateCfg=dir/fs::path(L"alternate \u00e7.cfg");
+ {std::ofstream out(alternateCfg,std::ios::binary);const char cfg[29]{};out.write(cfg,sizeof(cfg));}
+ {
+  const auto good=launch(exe,{L"--inspect-party",game.wstring(),L"--xeen-cfg",alternateCfg.wstring()},log);
+  check(good.exit==0 && good.output.find("Initial Clouds party:")!=std::string::npos,"Valid Unicode CFG override did not reach the entry mode");
+  const auto missing=launch(exe,{L"--inspect-party",game.wstring(),L"--xeen-cfg",(dir/"missing.cfg").wstring()},log);
+  check(missing.exit==3 && missing.output.find("Selected XEEN.CFG is missing")!=std::string::npos,"Missing override silently used the installed CFG");
+  check(fs::file_size(alternateCfg)==29 && fs::file_size(dir/"WORLD"/"XEEN.CFG")==6,"CFG file was modified");
+ }
  for(const auto *seconds:{L"0",L"1",L"4294967295"}) {
   const auto r=launch(exe,{L"--inspect-party",game.wstring(),L"--wall-clock",seconds},log);
   const auto value=std::filesystem::path(seconds).string();

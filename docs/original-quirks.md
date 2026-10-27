@@ -565,7 +565,8 @@ original post-dream poll.
   [approved notice/title deviation](#dev-xeen-unavailable-digital).
   **ScummVM:** this temporary restriction deliberately replaces DOS driver
   behavior; it is not a claim of matching the pin's synth/device selection.
-  Master not rechecked. [M94 scope](milestone-94-plan.md).
+  Master not rechecked. Part A1 implements this restriction.
+  [M94 scope](milestone-94-plan.md).
 
 - Jump destinations on an unadmitted map (only Darkside maps are) remain
   refused before charge. M72 applies the original surface effects to admitted
@@ -916,7 +917,8 @@ at 68 us, versus prosnd's `(uint16(L-10)+1)` at 68 us. Blastsnd's count
 and BC constant are calibrated static evidence (`0x101..0x29c`); its
 **count-plus-one duration remains medium confidence**, as in M83. Preserve
 fixed DMA 1 and other busy/failure semantics; installed prosnd is unchanged.
-Playback and logical waits use that count-plus-one model. **ScummVM:** approved approximation to DOS; the pin's generic
+Playback and logical waits use that count-plus-one model. Part A1 applies the
+two counts to their selected drivers. **ScummVM:** approved approximation to DOS; the pin's generic
 VOC decoder instead follows header blocks and rates. Pin `6814ee9b`;
 master not rechecked.
 

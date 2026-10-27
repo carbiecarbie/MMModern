@@ -11,8 +11,13 @@ suffices. A pre-existing CD `GAME` folder (or its parent) is also accepted with
 all three archives and an uncompressed English DOS UI module: supply
 `--ui-data <path-to-XEEN.DAT>` or an unambiguous `WORLD` sibling. A bare `GAME`
 copy has no UI text. Conflicting or ambiguous sources and packed DATs fail clearly.
-The installed `WORLD/XEEN.CFG` must sit beside the UI module; without it
-startup fails, and MMModern never creates one. `WORLD/XEEN.EXE` beside it is
+By default, the installed `WORLD/XEEN.CFG` must sit beside the UI module;
+without it startup fails, and MMModern never creates or writes it. For
+play-tests, `--xeen-cfg <path>` selects a different read-only CFG for every
+entry mode, including the title and its intros and ending. A missing selected
+file fails startup instead of falling back to the installed CFG. Loose game
+resources still come from the directory containing the installed UI module.
+`WORLD/XEEN.EXE` beside it is
 read, never run, for the Clouds and Darkside intros and the Clouds ending; if
 it is missing or different, they do not play and the game continues.
 Reading Darkside metadata does not enable Darkside gameplay.
@@ -20,7 +25,7 @@ Reading Darkside metadata does not enable Darkside gameplay.
 ## Entry modes
 
 Run from a terminal to see diagnostics, and quote paths containing spaces:
-`--ui-data <path>` can be supplied with every entry mode.
+`--ui-data <path>` and `--xeen-cfg <path>` can be supplied with every entry mode.
 Developer modes use a fixed DOS wall clock of zero seconds. Supply
 `--wall-clock <unsigned-32-bit-seconds>` to select another fixed value;
 plain title launch uses the host's local civil clock through the original

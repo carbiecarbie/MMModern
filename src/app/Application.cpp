@@ -184,7 +184,7 @@ int Application::newGame(const std::filesystem::path &gameDirectory,
 
 int Application::inspectParty(const std::filesystem::path &gameDirectory) const {
 	try {
-		const auto installation = XeenInstallationDetector(_uiData).detect(gameDirectory);
+		const auto installation = XeenInstallationDetector(_uiData,_cfg).detect(gameDirectory);
 		if (!installation) {
 			std::cerr << "No Xeen installation found: " << gameDirectory.string() << '\n';
 			return 2;
@@ -225,7 +225,7 @@ int Application::inspectParty(const std::filesystem::path &gameDirectory) const 
 int Application::inspectMap(const std::filesystem::path &gameDirectory,
 		std::uint16_t mapId) const {
 	try {
-		const auto installation = XeenInstallationDetector(_uiData).detect(gameDirectory);
+		const auto installation = XeenInstallationDetector(_uiData,_cfg).detect(gameDirectory);
 		if (!installation) {
 			std::cerr << "No Xeen installation found: " << gameDirectory.string() << '\n';
 			return 2;
@@ -301,7 +301,7 @@ int Application::inspectEvents(const std::filesystem::path &gameDirectory,
 		std::optional<std::uint8_t> y,
 		std::optional<XeenDirection> direction, bool allOnly) const {
 	try {
-		const auto installation = XeenInstallationDetector(_uiData).detect(gameDirectory);
+		const auto installation = XeenInstallationDetector(_uiData,_cfg).detect(gameDirectory);
 		if (!installation) {
 			std::cerr << "No Xeen installation found: "
 				<< gameDirectory.string() << '\n';
@@ -382,7 +382,7 @@ int Application::gameplay(const std::filesystem::path &gameDirectory, XeenCamera
             throw std::invalid_argument("The Event fixture requires an isolated prepared Journey");
         if (entry != XeenEncounterEntry::Ordinary && resume)
             throw std::invalid_argument("Encounter entry cannot load or configure a save");
-        const auto installation = XeenInstallationDetector(_uiData).detect(gameDirectory);
+        const auto installation = XeenInstallationDetector(_uiData,_cfg).detect(gameDirectory);
         if (!installation) {
             std::cerr << "No Xeen installation found: " << gameDirectory.u8string() << '\n';
             return 2;
@@ -523,7 +523,7 @@ int Application::gameplay(const std::filesystem::path &gameDirectory, XeenCamera
                     frame=XeenTextRenderer(font).render(frame,std::string("\f35\3c\v190\t000")+value,options).pages.front();
                 };
                 flow.loadSampleDuration = [&](const char *name,XeenSceneArchive archive) {
-                    return xeenVocDurationNanoseconds(assets.readArchiveResource(name,archive));
+                    return _program.audio?_program.audio->digitalDuration(name,archive):xeenVocDurationNanoseconds(assets.readArchiveResource(name,archive));
                 };
                 flow.reportManual = printManualEventResult;
                 flow.reportAutomatic = requireAutomaticEventSuccess;

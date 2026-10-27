@@ -19,7 +19,8 @@ class XeenAssetSource;
 class Application {
 public:
  explicit Application(XeenProgramState &program, std::filesystem::path uiData = {},
-  std::optional<std::filesystem::path> settingsFile = {}) : _program(program), _uiData(std::move(uiData)), _settingsFile(std::move(settingsFile)) {
+  std::optional<std::filesystem::path> settingsFile = {},std::filesystem::path cfg = {})
+  : _program(program), _uiData(std::move(uiData)), _settingsFile(std::move(settingsFile)), _cfg(std::move(cfg)) {
   const auto settings=_settingsFile?xeenReadSettings(*_settingsFile):XeenSettings{};
   _program.cloudsWon=settings.won;_program.darksideIntroSeen=settings.darksideIntroSeen;
  }
@@ -59,6 +60,7 @@ private:
  XeenProgramState &_program;
  std::filesystem::path _uiData;
  std::optional<std::filesystem::path> _settingsFile;
+ std::filesystem::path _cfg;
 	int gameplay(const std::filesystem::path &, XeenCamera,
 		const std::optional<std::filesystem::path> &, bool resume,
 		XeenEncounterEntry entry = XeenEncounterEntry::Ordinary, std::optional<std::uint32_t> seed = {},

@@ -49,6 +49,13 @@ int main(int argc,char **argv){try{
  check(!std::filesystem::exists(root/"xeen.cfg"),"detector must not create CFG");
  write(root/"xeen.cfg",Bytes(29,0));
  const auto installation=XeenInstallationDetector(root/"ui.dat").detect(root);check(installation&&installation->configuration&&installation->cloudsData->transport==ReadOnlyDataFile::Transport::Mode1Raw,"cue selected ahead of root files");
+ const auto alternate=root/"alternate.cfg";auto alternateBytes=Bytes(29,0);alternateBytes[0]=6;alternateBytes[4]=2;write(alternate,alternateBytes);
+ const auto selected=XeenInstallationDetector(root/"ui.dat",alternate).detect(root);
+ check(selected && selected->configuration && bytes(*selected->configuration)==alternateBytes,"Explicit CFG was not selected");
+ refuses([&]{XeenInstallationDetector(root/"ui.dat",root/"missing.cfg").detect(root);},"Missing selected CFG fell back to installed file");
+ std::filesystem::remove(root/"xeen.cfg");
+ check(XeenInstallationDetector(root/"ui.dat",alternate).detect(root).has_value(),"Selected CFG did not satisfy missing-CFG refusal");
+ check(bytes(*selected->configuration)==alternateBytes,"Selected CFG was modified");write(root/"xeen.cfg",Bytes(29,0));
  refuses([&]{XeenInstallationDetector{}.detect(root);},"missing DAT must refuse");
  // Unknown audio metadata disables only that disc's speech, not its archives.
  const std::string dataCue="FILE \"track.raw\" BINARY\nTRACK 01 MODE1/2352\nINDEX 01 00:00:03\n";
