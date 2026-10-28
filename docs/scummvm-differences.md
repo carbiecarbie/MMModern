@@ -441,12 +441,24 @@ against the pin; master was not rechecked.
 ## Presentation
 
 - **CD FM driver.** The maintainer chose
-  INTRO.CC `promus` on pinned Nuked in OPL3 stereo on 2026-10-21; admus and
-  blastmus belong to roadmap step 19 (other sound devices). DOS uses two patches/banks per voice,
+  INTRO.CC `promus` on pinned Nuked in OPL3 stereo on 2026-10-21. DOS uses two patches/banks per voice,
   22-byte FX definitions and its own FX dispatch/cache quirks. The pin uses
   OPL2 and blastmus data. Pin: differs; master not rechecked. No listening
   comparison is claimed.
   [Details](original-quirks.md#sv-cd-promus-fm-banks)
+- **AdLib pointer cutoff.** INTRO admus's postprocess cutoff also corrupts
+  three music instrument pointers; the pin keeps separate pointer and slide
+  state. Pin 6814ee9b: differs; master not rechecked.
+  [Details](original-quirks.md#sv-admus-pointer-cutoff)
+- **AdLib attenuation selector.** INTRO admus accepts music selector 2;
+  blastmus/specmus and the pin's shared AdLib driver accept 5. Pin 6814ee9b:
+  differs for admus; master not rechecked.
+  [Details](original-quirks.md#sv-admus-level-selector)
+- **Mono voice-7 guards.** DOS tests the compatibility word differently by
+  driver and handler, including blastmus's ineffective FX-patch guard. The
+  pin has no equivalent guard; the original word initializes to zero.
+  Pin 6814ee9b: differs for nonzero values; master not rechecked.
+  [Details](original-quirks.md#sv-mono-fx-voice-guard)
 - **FM timing and fade.** DOS runs approximately 72.80 Hz
   and fades on byte carry with persistent phase; the pin runs 72 Hz and tests
   an integer's sign. FX countdown skipping on music-due ticks agrees with DOS.
@@ -658,8 +670,8 @@ in [project status](project-status.md#known-gaps):
   ending, except the Pyramid entrance and the mirror words `showdown` and
   `genesis` (the Darkside and World endings). Darkside of Xeen gameplay is
   not supported; only its intro plays at startup.
-- **Sound:** only the CD `promus` OPL3 music device is supported; the
-  original's other sound devices belong to roadmap step 19.
+- **Sound:** CD `promus` and the mono `admus`, `blastmus` and authenticated
+  INTRO `specmus` OPL profiles are supported; other devices remain scoped by M94.
 - **Platforms and editions:** MMModern runs on 64-bit Windows with the English
   World of Xeen CD; ScummVM covers many platforms, editions and languages, and
   Swords of Xeen.

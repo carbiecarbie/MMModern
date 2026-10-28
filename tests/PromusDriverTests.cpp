@@ -209,7 +209,7 @@ int main(int argc,char **argv) {
   }
   XeenAudio missing(3,resource,[](const auto &,auto)->Bytes{throw std::runtime_error("missing song");},module,0,false);
   bool rejected=false;try{missing.enterTitle(0);}catch(const std::runtime_error &){rejected=true;}assert(rejected);
-  for(unsigned id:{0,1,2,4,5,6,7,8,9,10,65535}) {
+  for(unsigned id:{0,4,5,7,8,9,10,65535}) {
    unsigned writes=0;XeenAudio other(id,{},loader,module,0,false,[&](const auto &){++writes;});
    other.requestInn(0);other.advance(PromusDriver::clockBoundary(200));assert(other.loadedName()=="inn.m"&&writes==0);
   }

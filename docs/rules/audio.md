@@ -7,10 +7,10 @@ an entry says otherwise. See the [milestone 83 plan](../milestone-83-plan.md)
 for scope and the [evidence labels](README.md#how-to-interpret-evidence).
 
 **Maintainer decision, 2026-10-21:** M82 reproduces CD `promus` (music device
-3) in OPL3 stereo on the pinned Nuked emulator. `admus`, `blastmus` and
-other devices belong to roadmap step 19. Their byte identities below are
-retained evidence, not a requirement to implement or compare those drivers
-audibly in M82. This decision resolves the first hardware stop.
+3) in OPL3 stereo on the pinned Nuked emulator. M94 adds `admus`, `blastmus`
+and authenticated INTRO `specmus` in OPL2 mode. The M82 decision resolves
+the first hardware stop; it made no listening-equivalence claim for these
+other drivers.
 
 ## CD FM driver hardware
 
@@ -1297,6 +1297,33 @@ Use the selected resource's dispatch, effect and patch tables. Admus has
 additional slide/postprocess cutoff logic. Mono fade starts only for active
 music, uses remaining=63 and unsigned phase carries, and keys off music on
 completion. Retain the installed promus rules above unchanged.
+Mono FX opcode 0 calls a target offset in the driver resource;
+opcode 3 consumes one attenuation byte. Music attenuation accepts selector 2
+in INTRO admus (`0x680`) and selector 5 in INTRO blastmus/specmus (`0x67e`);
+other selectors consume their operands without a level write. Their title DROs
+confirm the differing initial carrier levels.
+The compatibility word at resource `0x0f` starts at zero. For voice 7,
+FX level, FX key-on and slide setup/postprocess are suppressed by any nonzero
+value in admus, but only by value 2 in blastmus/specmus. FX note setup and
+FX reset instead test nonzero in both. Blastmus/specmus FX patch selection
+does not suppress voice 7: an intervening instruction replaces the comparison
+flags. No external caller changing this word was established; tests exercise
+the other values with synthetic driver images.
+Command `0x100` caches a patch-volume byte without touching the card mixer.
+Patch loading and fade retain the original
+[whole-byte carrier clamp](../original-quirks.md#other-original-sound-drivers).
+The mono initializers enable waveform selection with register 1 value `0x20`.
+The pinned Nuked core ignores that test-register bit but supports the selected
+four OPL2 waveforms with NEW off; `xeen_m94_opl` checks that mode and masks.
+EXE/DAT program starts reinitialize the mono driver image and enqueue its
+initial register writes while the presentation-clock tick count remains
+monotonic; a renderer never determines a load or fade deadline.
+
+Admus increments a 16-bit postprocess counter at `0x15e` on each eligible
+tick; opcode E resets it. Above 400, it skips slide processing and clears
+`0x11d..0x120`, overlapping music instrument pointers 0..2. The Vertigo DRO
+at 83170 ms confirms the resulting slot-2 patch. Blastmus/specmus do not have
+that cutoff. [Evidence and retained bug](../original-quirks.md#sv-admus-pointer-cutoff).
 
 Rolmus needs its own MIDI opcode profile: pitch, pan, program, velocity,
 CC11 expression and checksummed SysEx differ from OPL operations. Its fade

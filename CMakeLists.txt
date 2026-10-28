@@ -13,6 +13,7 @@ set(SCUMMVM_BUILD_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../build-xeen-probe-sdl"
 set(MMODERN_XEEN_DATA_DIR "" CACHE PATH "Required read-only World of Xeen CD source for original-data tests")
 set(MMODERN_XEEN_UI_DATA "" CACHE FILEPATH "Optional installed uncompressed English XEEN.DAT for CD copies")
 set(MMODERN_PROMUS_CAPTURES_DIR "" CACHE PATH "External DOSBox DRO v2 promus captures")
+set(MMODERN_M94_CAPTURES_DIR "" CACHE PATH "External DOSBox M94 mono OPL captures")
 set(MMODERN_XEEN_AUDIO_DIR "${MMODERN_XEEN_DATA_DIR}" CACHE PATH "Required GOG cue sheets and MUSIC directory for CD audio validation")
 
 find_package(SDL2 CONFIG REQUIRED)
@@ -34,6 +35,7 @@ add_mmodern_item_catalog_generation()
 add_library(mmodern_xeen STATIC
 	src/formats/xeen/XeenCdAudio.cpp
 	src/games/xeen/PromusDriver.cpp
+	src/games/xeen/MonoOplDriver.cpp
 	src/formats/xeen/XeenDosText.cpp
  src/formats/xeen/XeenCutsceneData.cpp
  src/formats/xeen/XeenCompressedFrame.cpp
@@ -985,6 +987,10 @@ if(BUILD_TESTING)
  target_link_libraries(mmodern_promus_tests PRIVATE mmodern_app mmodern_xeen mmodern_scummvm_xeen)
  add_test(NAME xeen_promus COMMAND mmodern_promus_tests "${MMODERN_XEEN_DATA_DIR}" "${MMODERN_PROMUS_CAPTURES_DIR}")
  set_tests_properties(xeen_promus PROPERTIES ENVIRONMENT "SDL_AUDIODRIVER=dummy")
+ add_executable(mmodern_m94_opl_tests tests/MonoOplTests.cpp)
+ target_link_libraries(mmodern_m94_opl_tests PRIVATE mmodern_app mmodern_xeen mmodern_scummvm_xeen)
+ add_test(NAME xeen_m94_opl COMMAND mmodern_m94_opl_tests "${MMODERN_XEEN_DATA_DIR}" "${MMODERN_M94_CAPTURES_DIR}")
+ set_tests_properties(xeen_m94_opl PROPERTIES ENVIRONMENT "SDL_AUDIODRIVER=dummy")
  add_executable(mmodern_fm_output_tests tests/XeenFmOutputTests.cpp)
  target_link_libraries(mmodern_fm_output_tests PRIVATE mmodern_app mmodern_xeen mmodern_scummvm_xeen)
  add_test(NAME xeen_fm_output COMMAND mmodern_fm_output_tests "${MMODERN_XEEN_DATA_DIR}")

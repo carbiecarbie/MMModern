@@ -89,6 +89,11 @@ int main(int argc,char **argv) {try {
  const auto installation=xeenTestInstallationDetector().detect(std::filesystem::u8path(argv[1]));
  check(bool(installation),"No installation");XeenAssetSource assets(*installation);
  const auto driver=std::make_shared<const Bytes>(assets.readArchiveResource("promus",XeenSceneArchive::IntroOnly));
+ const auto musicDriver=[&](unsigned id)->PromusDriver::Bytes {
+  if(id==3)return driver;
+  if(id==1 || id==2 || id==6)return std::make_shared<const Bytes>(assets.readArchiveResource(id==1?"admus":id==2?"blastmus":"specmus",XeenSceneArchive::IntroOnly));
+  return {};
+ };
  std::ifstream input(installation->uiModule->physicalPath,std::ios::binary);
  const Bytes module((std::istreambuf_iterator<char>(input)),{});
  unsigned reads=0;
@@ -137,15 +142,15 @@ int main(int argc,char **argv) {try {
   std::string notice;
   {
    CaptureErrors captured;XeenAudioConfig cfg;cfg.music=std::uint16_t(id);cfg.digital=0;
-   XeenAudio audio(cfg,id==3?driver:PromusDriver::Bytes{},loader,module,0,false);
+   XeenAudio audio(cfg,musicDriver(id),loader,module,0,false);
    audio.startProgram(0);audio.startProgram(0);notice=captured.text.str();
   }
-  const bool unsupported=id>=1 && id<=9 && id!=3;
+  const bool unsupported=id==4 || id==5 || id==7 || id==8 || id==9;
   check(notice==(unsupported?"Music device "+std::to_string(id)+": not supported yet\n":""),"Music notice missing or repeated");
  }
  for(unsigned music:{0u,1u,2u,3u,4u,5u,6u,7u,8u,9u,10u})for(unsigned digital:{0u,6u,7u,10u}) {
   CaptureErrors captured;XeenAudioConfig cfg;cfg.music=music;cfg.digital=digital;cfg.musicPort=0x220;cfg.digitalPort=0x240;
-  XeenAudio audio(cfg,music==3?driver:PromusDriver::Bytes{},loader,module,0,false);
+  XeenAudio audio(cfg,musicDriver(music),loader,module,0,false);
   const bool writesDigitalPort=music==1 || music==2 || music==4 || music==6;
   const float attenuation=music==3?std::pow(10.0f,-24.0f/20):
    writesDigitalPort && digital==7?std::pow(10.0f,-11.0f/20):

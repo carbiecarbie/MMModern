@@ -113,7 +113,10 @@ optimized `build-rel` build (assertions kept); its setup is in
 Configure `MMODERN_XEEN_DATA_DIR` explicitly for required CD validation,
 `MMODERN_XEEN_AUDIO_DIR` when the CD audio tracks are elsewhere,
 `MMODERN_PROMUS_CAPTURES_DIR` for the six DOSBox music captures `xeen_promus`
-needs and, when needed, `MMODERN_XEEN_UI_DATA` for its installed UI module.
+needs, `MMODERN_M94_CAPTURES_DIR` for the three mono OPL takes used by
+`xeen_m94_opl`, and, when needed, `MMODERN_XEEN_UI_DATA` for its installed UI module.
+The development machine's M94 capture directory is
+`D:/Projetos/MModern/MModern-re/m94/captures-0c`; captures are not distributed.
 
 The ending presentation test also provides a direct visual check of the two
 score pages, using the production segments and installed EXE text:

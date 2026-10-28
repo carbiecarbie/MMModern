@@ -9,7 +9,7 @@
 #include <stdexcept>
 namespace mmodern {
 struct XeenFmSource::Impl {
- enum class Kind {Load,Command,Effect,FadeBarrier};
+ enum class Kind {Load,Command,Effect,FadeBarrier,Restart};
  struct Operation {Kind kind;PromusDriver::Bytes bytes;unsigned value=0,argument=0;};
  XeenOpl3 chip;PromusDriver::Sink trace;
  std::unique_ptr<PromusDriver> driver;
@@ -21,6 +21,7 @@ struct XeenFmSource::Impl {
  std::uint64_t sample=0;std::atomic<std::uint64_t> publishedSample{0};
  mutable std::mutex errors;std::exception_ptr failure;
  bool initialized=false,failed=false;
+ unsigned profile=3;
  explicit Impl(PromusDriver::Sink sink):trace(std::move(sink)){}
  void append(Operation op) {
   if(!driver)return;
@@ -35,9 +36,10 @@ struct XeenFmSource::Impl {
    if(op.kind==Kind::FadeBarrier) {
     if(!barrierTick)barrierTick=driver->ticks();
     // Twice the longest fade in use: Inn's 128 eligible ticks.
-    if(driver->fadeSpeed() && driver->ticks()-*barrierTick<256)return;
+    if(driver->fadeSpeed() && (profile!=3 || driver->ticks()-*barrierTick<256))return;
     barrierTick.reset();
-   }else if(op.kind==Kind::Load)driver->load(std::move(op.bytes),op.value!=0);
+   }else if(op.kind==Kind::Restart)driver->restartProgram();
+   else if(op.kind==Kind::Load)driver->load(std::move(op.bytes),op.value!=0);
    else if(op.kind==Kind::Command)driver->command(op.value,op.argument);
    else driver->effect(op.value);
    pending.pop_front();
@@ -46,16 +48,18 @@ struct XeenFmSource::Impl {
 };
 XeenFmSource::XeenFmSource(PromusDriver::Sink trace):_impl(new Impl(std::move(trace))){}
 XeenFmSource::~XeenFmSource()=default;
-void XeenFmSource::initialize(PromusDriver::Bytes resource) {
+void XeenFmSource::initialize(PromusDriver::Bytes resource,unsigned profile) {
  if(_impl->initialized)throw std::logic_error("FM source already initialized");
  _impl->initialized=true;
+ _impl->profile=profile;
  if(resource)_impl->driver=std::make_unique<PromusDriver>(std::move(resource),[self=_impl.get()](const auto &w){
   self->chip.write(w.reg,w.value);if(self->trace)self->trace(w);
- });
+ },profile);
 }
 void XeenFmSource::load(PromusDriver::Bytes song,bool play) {_impl->append({Impl::Kind::Load,std::move(song),unsigned(play)});}
 void XeenFmSource::command(unsigned value,unsigned argument) {_impl->append({Impl::Kind::Command,{},value,argument});}
 void XeenFmSource::effect(unsigned id) {_impl->append({Impl::Kind::Effect,{},id});}
+void XeenFmSource::restartProgram() {_impl->append({Impl::Kind::Restart,{}});}
 void XeenFmSource::fadeBarrier() {_impl->append({Impl::Kind::FadeBarrier,{}});}
 void XeenFmSource::pull(std::int16_t *stereo,std::size_t frames) {
  auto &s=*_impl;std::fill_n(stereo,frames*2,0);

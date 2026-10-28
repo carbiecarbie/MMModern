@@ -14,11 +14,12 @@ public:
  struct Write {std::uint64_t tick;unsigned reg;std::uint8_t value;bool interrupt;};
  using Sink=std::function<void(const Write &)>;
  static constexpr std::uint64_t pit=1193182,divisor=16390,rate=49716;
- explicit PromusDriver(Bytes resource,Sink sink={});
+ explicit PromusDriver(Bytes resource,Sink sink={},unsigned profile=3);
  void sink(Sink sink) {_sink=std::move(sink);}
  void load(Bytes song,bool start=true);
  void command(unsigned command,unsigned argument=0);
  void effect(unsigned id);
+ void restartProgram();
  void tick();
  unsigned fadeSpeed() const {return _fadeSpeed;}
  unsigned fadePhase() const {return _fadePhase;}
@@ -38,6 +39,8 @@ private:
   std::vector<std::size_t> stack;
  };
  Bytes _resource;Sink _sink;Stream _music,_fx;
+ unsigned _profile=3;
+ std::vector<std::uint8_t> _image;
  std::array<std::uint8_t,18> _frequency{};
  std::array<std::array<std::uint8_t,9>,2> _carrier{},_levels{};
  struct Slide {bool enabled=false;std::uint8_t rate=0,phase=255;std::int16_t delta=0;};
@@ -57,6 +60,13 @@ private:
  void stopMusic();void resetEffects();
  bool execute(Stream &,bool effects);
  void postprocess();
+ void monoInit();void monoCommand(unsigned,unsigned);void monoEffect(unsigned);
+ bool monoExecute(Stream &,bool);void monoPostprocess();
+ void monoTone(unsigned,unsigned);void monoStop();void monoResetEffects();
+ void monoPatch(Stream &,unsigned,unsigned,bool);
+ unsigned monoFreq(unsigned) const;void monoCache(unsigned,unsigned);
+ unsigned monoNote(unsigned) const;void monoLevel(unsigned,unsigned);
+ unsigned monoBase() const {return _profile==1?0:2;}
 };
 }
 #endif

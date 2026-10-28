@@ -1,6 +1,6 @@
 # Milestone 94 plan - Other sound devices
 
-**Tier A. Status: implementation authorized (2026-10-27); Part A1 done, A2 and B not started; maintainer acceptance pending.**
+**Tier A. Status: implementation authorized (2026-10-27); Parts A1 and A2 done, B not started; maintainer acceptance pending.**
 Roadmap [step 19](roadmap.md#next-arc-finishing-the-games-systems).
 Evidence/amendment baseline: clean `main`, `b4448b8`, equal to `origin/main`.
 The maintainer approved this amendment after its independent plan review
@@ -51,7 +51,7 @@ evidence labels, clocks and capture limits. Part 0 evidence under
 | Ports/mixer | Music init receives musicPort, flag, extraSegment, digitalPort. Promus/nullmus mixer uses musicPort; other flag consumers digitalPort; canmus has no mixer block. Command 0x100 exists beyond promus, but only promus changes card FM gain. |
 | Approved clocks | All approved music, including nullmus, use PIT divisor 16390, BIOS accumulator +16390/carry; IRQ 1193182/16390 Hz, BIOS average 1193182/65536 Hz. DMA 6/7/10 do not take over PIT0. **No approved driver changes BIOS tick rate.** |
 | Deferred clocks | Ibmmus type 0/1 freezes BIOS; type 2/3 uses divisor 1193 with chaining. Ibmsnd 81/+328, adsnd 81/+324 or 162/+649, source 1364/+5453 change forwarded rates; special speaker pairings can freeze BIOS. These are later-milestone facts, not fixed-clock M94 paths. |
-| Driver differences | Mono music patches emit 11 bytes; promus two banks/22-byte FX. Admus postprocess and mono active-only fade need profiles. Rolmus has different MIDI handlers, CC11/cache-driven fade with 128-carry bound, own timed FX omissions, inclusive effect bound 180 and its own tables. |
+| Driver differences | Mono music patches emit 11 bytes; admus level commands use selector 2, blastmus/specmus selector 5. Promus has two banks/22-byte FX. Admus postprocess and mono active-only fade need profiles. Rolmus has different MIDI handlers, CC11/cache-driven fade with 128-carry bound, own timed FX omissions, inclusive effect bound 180 and its own tables. |
 | Digital counts | With L at +1b, PCM at +20: blastsnd count is uint16(L-14), fixed DMA 1; prosnd uint16(L-10), CFG DMA. Count+1 duration at 68 us is medium confidence. The [approved unsplit approximation](original-quirks.md#dev-prosnd-dma-timing), extended to blastsnd on 2026-10-27, omits DMA page continuation; retain each driver's other busy/failure semantics. |
 
 ## Routes, bounds and timeline/render boundary

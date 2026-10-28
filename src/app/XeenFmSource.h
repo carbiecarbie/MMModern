@@ -8,10 +8,11 @@ public:
  explicit XeenFmSource(PromusDriver::Sink renderedTrace={});
  ~XeenFmSource();
  // Called once, before the device opens. A null resource selects silence.
- void initialize(PromusDriver::Bytes resource);
+ void initialize(PromusDriver::Bytes resource,unsigned profile=3);
  void load(PromusDriver::Bytes song,bool play);
  void command(unsigned command,unsigned argument=0);
  void effect(unsigned id);
+ void restartProgram();
  void fadeBarrier();
  void pull(std::int16_t *stereo,std::size_t frames);
  void check() const;

@@ -99,11 +99,13 @@ struct XeenAudio::Impl {
    }
   }
   for(unsigned k=0;k<6;++k){kinds[k]=module.at(0x4f10a+k);if(kinds[k]>=maps.size())throw std::runtime_error("Invalid Clouds music wall-kind table");}
-  if(id==3) {
-   clockDriver=std::make_unique<PromusDriver>(resource,std::move(trace));
+  if(id==6 && (!resource || *resource!=loader("blastmus",XeenSceneArchive::IntroOnly)))
+   throw std::runtime_error("INTRO specmus is not the authenticated blastmus alias");
+  if(id==1 || id==2 || id==3 || id==6) {
+   clockDriver=std::make_unique<PromusDriver>(resource,std::move(trace),id);
   }else if(id>=1 && id<=9)std::cerr<<"Music device "<<id<<": not supported yet\n";
   if(config.deferredDigital()){std::cerr<<"Digital device "<<config.digital<<": not supported yet\n";digitalNotice=true;}
-  output->initialize(id==3?resource:PromusDriver::Bytes{});
+  output->initialize(clockDriver?resource:PromusDriver::Bytes{},id);
   startProgram();
   device=std::make_unique<SdlAudioDevice>([this](auto *out,auto frames,int rate){render(out,frames,rate);},deviceOutput,
    [this](int rate){return prepareRender(rate);},[this]{removed();});
@@ -174,6 +176,9 @@ struct XeenAudio::Impl {
   std::lock_guard<std::mutex> lock(mixerMutex);mixerRequest=gains;mixerChanged=true;
  }
  void startProgram() {card.initialize(mixerFlag,mixerWriter(config));publishMixer();}
+ void restartMono() {
+  if(clockDriver && id!=3){clockDriver->restartProgram();if(retainOutput)output->restartProgram();}
+ }
  void publishDigital(std::shared_ptr<const XeenVocSample> pcm) {
   std::shared_ptr<const XeenVocSample> retired;
   {
@@ -347,21 +352,21 @@ void XeenAudio::fadeSong(unsigned command,std::uint64_t now) {
 void XeenAudio::mixer(unsigned level,std::uint64_t now) {
  if(level>255)throw std::invalid_argument("Invalid EXE music mixer level");
  advance(now);_impl->command(0x100,level);
- // Only promus implements command 0x100; it rewrites FM register 0x26.
- if(_impl->clockDriver){
+ // Promus changes card register 0x26; mono profiles cache patch volume.
+ if(_impl->clockDriver && _impl->id==3){
   const auto port=_impl->config.musicPort;_impl->card.write(std::uint16_t(port+4),0x26);
   _impl->card.write(std::uint16_t(port+5),_impl->clockDriver->mixerLevel());_impl->publishMixer();
  }
 }
 void XeenAudio::processMixer(bool flag) {_impl->mixerFlag=flag;_impl->card=XeenCardMixer(cardModel(_impl->config),mixerAddress(_impl->config));_impl->startProgram();}
-void XeenAudio::startProgram(std::uint64_t now) {advance(now);_impl->startProgram();}
+void XeenAudio::startProgram(std::uint64_t now) {advance(now);_impl->startProgram();_impl->restartMono();}
 bool XeenAudio::startProgram(std::uint64_t now,XeenAudioProgram program) {
  advance(now);
  if(program==XeenAudioProgram::Exe && unavailableExeDigital()) {
   if(!_impl->digitalNotice){std::cerr<<"Digital device "<<_impl->config.digital<<": not supported yet\n";_impl->digitalNotice=true;}
   return false;
  }
- _impl->startProgram();return true;
+ _impl->startProgram();_impl->restartMono();return true;
 }
 std::array<float,6> XeenAudio::mixerGains() const {return _impl->card.gains();}
 XeenAudio::RetainedDigital XeenAudio::retainDigital(const std::string &name,XeenSceneArchive archive) {

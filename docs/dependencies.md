@@ -176,6 +176,11 @@ so the complete suite, needs six captures there: `promus-startup.dro`,
 `promus-fx20-alone.dro`, `promus-wall-bump.dro` (effect 46) and
 `promus-fx20-over-music.dro` (effect 20 over town music). Captures and derived
 register streams are never bundled.
+The M94 mono tests also require `-DMMODERN_M94_CAPTURES_DIR=<directory>`,
+containing `admus`, `blastmus` and `specmus` subdirectories, each with
+`rawopl0001.dro`. These captures remain external to the repository.
+On the development machine the directory is
+`D:/Projetos/MModern/MModern-re/m94/captures-0c`.
 The comparison removes DOSBox's initial register snapshot and unchanged writes,
 aligns the sustained song/effect suffix and PIT phase, and compares both banks
 through capture end. The startup's EXE intro is outside M82.
@@ -422,7 +427,8 @@ cmake -S <mmodern-source> -B <mmodern-build> \
   -DSCUMMVM_SOURCE_DIR=<scummvm-source> \
   -DSCUMMVM_BUILD_DIR=<scummvm-build> \
   -DMMODERN_XEEN_DATA_DIR=<game-directory> \
-  -DMMODERN_PROMUS_CAPTURES_DIR=<capture-directory>
+  -DMMODERN_PROMUS_CAPTURES_DIR=<capture-directory> \
+  -DMMODERN_M94_CAPTURES_DIR=<m94-capture-directory>
 cmake --build <mmodern-build> --parallel 4
 ctest --test-dir <mmodern-build> --output-on-failure
 ```
@@ -442,7 +448,8 @@ cmake -S . -B build-rel -G Ninja \
   -DSCUMMVM_SOURCE_DIR=<scummvm-source> \
   -DSCUMMVM_BUILD_DIR=<scummvm-build> \
   -DMMODERN_XEEN_DATA_DIR=<game-directory> \
-  -DMMODERN_PROMUS_CAPTURES_DIR=<capture-directory>
+  -DMMODERN_PROMUS_CAPTURES_DIR=<capture-directory> \
+  -DMMODERN_M94_CAPTURES_DIR=<m94-capture-directory>
 cmake --build build-rel
 cmake --build build-rel --target mmodern_test_save   # optional tool, not built by default
 ctest --test-dir build-rel -L fast -j 8 --output-on-failure

@@ -139,20 +139,27 @@ int main(int argc,char **argv) {try {
  }
  // Rendering ahead of, or behind, the same presentation script must leave
  // every selected transport's logical clock, busy and song boundary intact.
- for(const auto pair:std::vector<std::pair<unsigned,unsigned>>{{3,6},{0,0},{0,6},{1,7},{4,10},{5,0}}) {
-  std::vector<std::uint64_t> snapshots[2];std::string loaded[2];
-  for(unsigned ahead=0;ahead<2;++ahead) {
+ for(const auto pair:std::vector<std::pair<unsigned,unsigned>>{{3,6},{0,0},{0,6},{1,7},{2,6},{6,6},{4,10},{5,0}}) {
+  std::vector<std::uint64_t> snapshots[3];std::string loaded[3];
+  for(unsigned ahead=0;ahead<3;++ahead) {
    auto source=std::make_shared<XeenFmSource>();XeenAudioConfig config;config.music=pair.first;config.digital=pair.second;
    const auto mixedLoader=[&](const std::string &name,XeenSceneArchive archive) {
     if(name=="boundary.voc") {Bytes b(32+512,160);b[27]=std::uint8_t(521);b[28]=521>>8;return b;}
     return loader(name,archive);
    };
-   XeenAudio route(config,pair.first==3?resource:PromusDriver::Bytes{},mixedLoader,module,0,false,{},source);
+   auto selected=pair.first==3?resource:pair.first==1 || pair.first==2 || pair.first==6?
+    std::make_shared<const Bytes>(assets.readArchiveResource(pair.first==1?"admus":pair.first==2?"blastmus":"specmus",XeenSceneArchive::IntroOnly)):PromusDriver::Bytes{};
+   XeenAudio route(config,selected,mixedLoader,module,0,false,{},ahead==2?nullptr:source);
+   if(pair.first==1 || pair.first==2 || pair.first==6) {
+    const auto gains=route.mixerGains();route.mixer(0,0);
+    check(route.mixerGains()==gains,"Mono FM volume command changed card gains");
+    route.mixer(127,0);
+   }
    route.enterTitle(0);route.startDigital("boundary.voc",XeenSceneArchive::Clouds,0);
    route.requestSong("town.m",XeenSceneArchive::Clouds,207,0);
    check(route.prepareRender(48000),"Generalized boundary renderer preparation");
    const auto renderSecond=[&] {for(unsigned n=0;n<48000;n+=block)route.render(pcm.data(),std::min<unsigned>(block,48000-n),48000);};
-   if(ahead)renderSecond();
+   if(ahead==1)renderSecond();
    for(std::uint64_t now:{0ULL,10000000ULL,200000000ULL,3000000000ULL}) {
     route.advance(now);snapshots[ahead].push_back(route.ticks());snapshots[ahead].push_back(route.samples());
     snapshots[ahead].push_back(route.digitalBusy(now));snapshots[ahead].push_back(route.digitalDeadline(now).value_or(0));
@@ -160,7 +167,7 @@ int main(int argc,char **argv) {try {
    }
    if(!ahead)renderSecond();loaded[ahead]=route.loadedName();
   }
-  check(snapshots[0]==snapshots[1] && loaded[0]==loaded[1],"Render lead changed generalized logical boundary");
+  check(snapshots[0]==snapshots[1] && snapshots[0]==snapshots[2] && loaded[0]==loaded[1] && loaded[0]==loaded[2],"Render lead changed generalized logical boundary");
  }
  {
   // Only pending completion is gated: explicit Off cancels a live fade;
@@ -198,7 +205,7 @@ int main(int argc,char **argv) {try {
   std::fill(pcm.begin(),pcm.end(),1);broken.pull(pcm.data(),block);
   check(std::all_of(pcm.begin(),pcm.end(),[](auto v){return v==0;}),"Failed source resumed rendering");
  }
- for(unsigned id:{0,1,10}) {
+ for(unsigned id:{0,5,10}) {
   unsigned writes=0;auto output=std::make_shared<XeenFmSource>([&](const auto &){++writes;});
   XeenAudio silent(id,{},loader,module,0,false,{},output);silent.enterTitle(0);silent.effect(20,0);output->pull(pcm.data(),block);
   check(writes==0 && std::all_of(pcm.begin(),pcm.end(),[](auto v){return v==0;}),"Silent device created a render driver");

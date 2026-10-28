@@ -57,6 +57,22 @@ int main(int argc,char **argv) {try {
  for(unsigned music=0;music<=10;++music)verify(music,10);
  for(unsigned digital=0;digital<=11;++digital)verify(0,digital);
  verify(65535,65535);
+ {
+  XeenAssetSource assets(*original);auto altered=assets.readArchiveResource("specmus",XeenSceneArchive::IntroOnly);altered.back()^=1;
+  std::ifstream moduleInput(original->uiModule->physicalPath,std::ios::binary);Bytes module((std::istreambuf_iterator<char>(moduleInput)),{});
+  XeenAudioConfig cfg;cfg.music=6;bool refused=false;
+  unsigned requests=0;
+  {
+   XeenAudio audio(cfg,std::make_shared<const Bytes>(altered),[&](const auto &name,auto archive) {
+    check(name=="blastmus" && archive==XeenSceneArchive::IntroOnly,"Alias did not load INTRO blastmus");
+    ++requests;return altered;
+   },module,0,false);
+   check(audio.deviceId()==6 && requests==1,"Equal selected mono drivers were rejected");
+  }
+  try {XeenAudio audio(cfg,std::make_shared<const Bytes>(std::move(altered)),[&](const auto &name,auto archive){return assets.readArchiveResource(name,archive);},module,0,false);}
+  catch(const std::runtime_error &e){refused=std::string(e.what()).find("authenticated")!=std::string::npos;}
+  check(refused,"Unauthenticated specmus was accepted as blastmus");
+ }
 
  unsigned calls=0;
  const XeenAudio::Loader archive=[&](const std::string &,XeenSceneArchive from) {

@@ -10,7 +10,8 @@ unsigned PromusDriver::byte(Stream &s) {
  if(!s.bytes || s.pos>=s.bytes->size())throw std::runtime_error("Truncated promus bytecode");
  return (*s.bytes)[s.pos++];
 }
-PromusDriver::PromusDriver(Bytes resource,Sink sink):_resource(std::move(resource)),_sink(std::move(sink)) {
+PromusDriver::PromusDriver(Bytes resource,Sink sink,unsigned profile):_resource(std::move(resource)),_sink(std::move(sink)),_profile(profile) {
+ if(_profile!=3){monoInit();return;}
  if(!_resource || _resource->size()<0xadc+181*2)throw std::runtime_error("Invalid INTRO.CC promus resource");
  _music.stack.reserve(16); // Bound already enforced by opcode 0: no callback allocation.
  for(unsigned i=0;i<18;++i)_frequency[i]=_resource->at(0x10d+i);
@@ -65,6 +66,7 @@ void PromusDriver::resetEffects() {
 }
 void PromusDriver::load(Bytes song,bool start) {_music.bytes=std::move(song);if(start)command(1);}
 void PromusDriver::command(unsigned c,unsigned argument) {
+ if(_profile!=3){monoCommand(c,argument);return;}
  if(c==0){stopMusic();return;}
  if(c==1){_music.pos=0;_music.start=0;_music.playing=bool(_music.bytes);_music.countdown=0;_music.stack.clear();_fadeSpeed=0;return;}
  if(c<256){_fadeSpeed=c;_fadeRemaining=63;return;}
@@ -72,6 +74,7 @@ void PromusDriver::command(unsigned c,unsigned argument) {
  // 0xffe0 is exposed by fadeSpeed(); PAS hardware mixing is separate from OPL.
 }
 void PromusDriver::effect(unsigned id) {
+ if(_profile!=3){monoEffect(id);return;}
  if(id>180 || (id>=7 && id<=10 && _fx.playing))return;
  _fx.bytes=_resource;_fx.pos=_fx.start=word(*_resource,0xadc+id*2);
  _fx.playing=true;_fx.countdown=0;_slides[7].enabled=_slides[8].enabled=false;resetEffects();
@@ -163,8 +166,8 @@ void PromusDriver::tick() {
  struct Scope {bool &flag;~Scope(){flag=false;}} scope{_interrupt};_interrupt=true;
  ++_ticks;
  const auto due=[](Stream &s){return s.playing && (!s.countdown || --s.countdown==0);};
- if(due(_music)){if(!execute(_music,false))return;}
- else if(due(_fx)){if(!execute(_fx,true))return;}
- postprocess();
+ if(due(_music)){if(!(_profile==3?execute(_music,false):monoExecute(_music,false)))return;}
+ else if(due(_fx)){if(!(_profile==3?execute(_fx,true):monoExecute(_fx,true)))return;}
+ if(_profile==3)postprocess();else monoPostprocess();
 }
 }
