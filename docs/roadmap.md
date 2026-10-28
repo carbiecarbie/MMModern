@@ -23,8 +23,9 @@ moved to the CD edition's data (M53), and closed with the first public
 releases.
 
 Since then M65-M94 have made Clouds of Xeen playable from a new game to its
-ending, with the original intros and the installer's sound devices. Every
-step of the current arc is done; the maintainer chooses the next milestone.
+ending, with the original intros and the installer's sound devices, and
+release 0.10.0 delivered them. The [next arc](#next-arc-release-quality-and-the-darkside-start)
+makes Clouds sturdier and easier to test and report on, then starts Darkside.
 
 ## Completed arc: closing Vertigo and the first release
 
@@ -39,7 +40,9 @@ uses in [the coverage report](coverage.md), and
 [M66](archive/milestone-66-plan.md) cut the complete test suite from 29
 minutes to about 3.
 
-## Next arc: finishing the game's systems
+## Completed arc: finishing the game's systems
+
+<a id="next-arc-finishing-the-games-systems"></a>
 
 The game loads whole maps from the original data; what keeps an area from
 playing is the mechanics it uses. This arc implements them once each instead
@@ -91,6 +94,40 @@ playing would be an opt-in approved deviation (maintainer, 2026-10-21).
 The Pyramid and the Darkside and World endings (`showdown`, `genesis`) wait
 for the Darkside arc.
 
+## Next arc: release quality and the Darkside start
+
+A next-steps analysis (2026-10-28), which merged two agent reports and a
+community suggestion, chose to make the finished Clouds sturdier and easier
+to test before Darkside begins. Each step is its own task or milestone, in
+this order; steps are direction, not approved plans.
+
+1. **Clouds fidelity and integration audit**, time-boxed, with findings
+   turned into tests. It looks for defects between systems, of the kind the
+   Spawn fix in release 0.10.0 found (58 containers that could be searched
+   again and again, trap effects never drawn): invariant checks on the
+   original data (a second use of every container, door and reward; Event
+   changes reaching the frame drawn while the Event waits), Events during animation or combat, interrupted
+   Events and keys pressed during waits, state after leaving, returning and
+   loading, small or incapacitated parties and full packs, and differences
+   from the pinned reference not yet recorded in
+   [original quirks](original-quirks.md).
+2. **DOS save investigation**: whether original DOS saves can be read into
+   MMModern and written from it, mainly so DOSBox and MMModern can start from
+   the same state when collecting evidence, Darkside included. A converter
+   follows only if the investigation shows it is worth it.
+3. **4:3 picture**: the 320x200 picture shown with the shape the original's
+   4:3 monitors gave it; square pixels today. Whether it is the default is
+   decided at planning.
+4. **Launcher and diagnostics**: the launcher shows the version, the detected
+   data, the sound devices, the MT-32 ROMs and the save folder; the game
+   writes a log file, and GitHub gets an issue template asking for the save
+   and the log. Letting the launcher make the original installer's sound
+   choice through an MMModern-owned CFG, so that MT-32 can be chosen, is
+   decided at planning.
+5. **Darkside start**: map loading, flags, quest items and save and load for
+   both sides, then Darkside's mechanics in order of
+   [census](coverage.md#darkside-largest-gaps) impact.
+
 ## Medium-term objective
 
 The first objective, a **normal-start Clouds foothold** (a new game played
@@ -113,7 +150,17 @@ save shape.
 4. **World of Xeen:** connect both sides with original travel, shared state and
    integrated objectives and endings.
 
-Portability, localization and distribution are separate decisions.
+Later goals, in no fixed order, each with its own decision and plan:
+
+- Saves that survive updates, when compatibility is revisited for 1.0.
+- Automated builds and tests on GitHub.
+- An open beta and a "Clouds complete" announcement.
+- Steam Deck through Proton, then a native Linux build and its distribution.
+- The opt-in extras the README lists: graphics filters, game controller
+  support and switching sound devices while playing.
+- Mod support and modding tools, and a study of the community MM3
+  conversion ([mm345-conversion](https://github.com/hooby3dfx/mm345-conversion)).
+- Other language editions of the original.
 
 ## Review cadence
 
