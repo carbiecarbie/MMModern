@@ -110,7 +110,8 @@ this order; steps are direction, not approved plans.
    Events and keys pressed during waits, state after leaving, returning and
    loading, small or incapacitated parties and full packs, and differences
    from the pinned reference not yet recorded in
-   [original quirks](original-quirks.md).
+   [original quirks](original-quirks.md). The audit ran on 2026-10-28; its
+   follow-up is planned as [M95](milestone-95-plan.md).
 2. **DOS save investigation**: whether original DOS saves can be read into
    MMModern and written from it, mainly so DOSBox and MMModern can start from
    the same state when collecting evidence, Darkside included. A converter
