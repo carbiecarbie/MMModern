@@ -39,10 +39,6 @@ foreach(name IN LISTS MMODERN_MT32_FILES)
  list(APPEND MMODERN_MT32_SOURCES "${MMODERN_MT32_SOURCE}/${name}.cpp")
 endforeach()
 add_library(mmodern_mt32 STATIC ${MMODERN_MT32_SOURCES})
-# The adapter observes the pinned core's queue read cursor. The public synth
-# API does not expose it, and timestamp-only retirement is unsafe when the
-# core delays a note while aborting partials.
-set_source_files_properties(src/compat/scummvm/XeenMt32.cpp PROPERTIES COMPILE_OPTIONS "-fno-access-control")
 target_include_directories(mmodern_mt32 PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src"
  PRIVATE "${SCUMMVM_BUILD_DIR}" "${SCUMMVM_SOURCE_DIR}")
 target_compile_definitions(mmodern_mt32 PRIVATE WIN32 UNICODE _UNICODE)
@@ -1014,6 +1010,7 @@ if(BUILD_TESTING)
  set_tests_properties(xeen_m94_opl PROPERTIES ENVIRONMENT "SDL_AUDIODRIVER=dummy")
  add_executable(mmodern_m94_rolmus_tests tests/RolmusDriverTests.cpp)
  target_link_libraries(mmodern_m94_rolmus_tests PRIVATE mmodern_app mmodern_xeen mmodern_scummvm_xeen)
+ target_link_options(mmodern_m94_rolmus_tests PRIVATE "LINKER:--wrap,_ZN7MT32Emu5Synth21setMIDIEventQueueSizeEj")
  target_include_directories(mmodern_m94_rolmus_tests PRIVATE "${SCUMMVM_SOURCE_DIR}" "${SCUMMVM_BUILD_DIR}")
  add_test(NAME xeen_m94_rolmus COMMAND mmodern_m94_rolmus_tests "${MMODERN_XEEN_DATA_DIR}" "${MMODERN_M94_CAPTURES_DIR}" "${MMODERN_MT32_ROM_DIR}")
  set_tests_properties(xeen_m94_rolmus PROPERTIES ENVIRONMENT "SDL_AUDIODRIVER=dummy")

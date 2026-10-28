@@ -87,6 +87,8 @@ template<class F> void until(F ready) {
 int main(int argc,char **argv) {try {
  check(argc==3,"usage: mmodern_digital_audio_tests <game data> <MT-32 ROM directory>");
  check(*argv[2],"MT-32 test ROM directory is required");
+ const auto absentRoms=std::filesystem::u8path(argv[1])/"mmodern-nonexistent-rom-fixture";
+ check(!std::filesystem::exists(absentRoms),"Missing-ROM fixture must not exist");
  const auto installation=xeenTestInstallationDetector().detect(std::filesystem::u8path(argv[1]));
  check(bool(installation),"No installation");XeenAssetSource assets(*installation);
  const auto driver=std::make_shared<const Bytes>(assets.readArchiveResource("promus",XeenSceneArchive::IntroOnly));
@@ -143,7 +145,7 @@ int main(int argc,char **argv) {try {
   std::string notice;
   {
    CaptureErrors captured;XeenAudioConfig cfg;cfg.music=std::uint16_t(id);cfg.digital=0;
-   auto output=id==4?std::make_shared<XeenFmSource>(PromusDriver::Sink{},std::filesystem::u8path(argv[1])/"mmodern-nonexistent-rom-fixture"):nullptr;
+   auto output=id==4?std::make_shared<XeenFmSource>(PromusDriver::Sink{},absentRoms):nullptr;
    XeenAudio audio(cfg,musicDriver(id),loader,module,0,false,{},output);
    audio.startProgram(0);audio.startProgram(0);notice=captured.text.str();
   }
@@ -153,7 +155,8 @@ int main(int argc,char **argv) {try {
  }
  for(unsigned music:{0u,1u,2u,3u,4u,5u,6u,7u,8u,9u,10u})for(unsigned digital:{0u,6u,7u,10u}) {
   CaptureErrors captured;XeenAudioConfig cfg;cfg.music=music;cfg.digital=digital;cfg.musicPort=0x220;cfg.digitalPort=0x240;
-  XeenAudio audio(cfg,musicDriver(music),loader,module,0,false);
+  auto output=music==4?std::make_shared<XeenFmSource>(PromusDriver::Sink{},absentRoms):nullptr;
+  XeenAudio audio(cfg,musicDriver(music),loader,module,0,false,{},output);
   const bool writesDigitalPort=music==1 || music==2 || music==4 || music==6;
   const float attenuation=music==3?std::pow(10.0f,-24.0f/20):
    writesDigitalPort && digital==7?std::pow(10.0f,-11.0f/20):
@@ -163,6 +166,78 @@ int main(int argc,char **argv) {try {
   audio.mixer(75,0);const auto after=audio.mixerGains();
   check(music==3?after[0]<before[0]:after==before,"Only promus may change card FM level");
   audio.processMixer(false);check(audio.mixerGains()[2]==kXeenSourceGain,"Mixer flag did not preserve reset DAC");
+ }
+ {
+  // Construction is the first EXE program's init; DAT starts reinitialize it.
+  std::vector<unsigned> commands;std::vector<Bytes> messages;
+  auto output=std::make_shared<XeenFmSource>(PromusDriver::Sink{},std::filesystem::u8path(argv[2]),
+   [&](const auto &event){messages.emplace_back(event.bytes.begin(),event.bytes.begin()+event.size);},
+   [&](unsigned command){commands.push_back(command);});
+  XeenAudioConfig cfg;cfg.music=4;
+  XeenAudio audio(cfg,musicDriver(4),loader,module,0,false,{},output);
+  check(output->notice().empty(),"Missing test MT-32 ROM pair for program initialization");
+  const auto resets=[&]{return std::count(commands.begin(),commands.end(),0xff);};
+  const auto packets=[&]{return std::count_if(messages.begin(),messages.end(),[](const auto &m) {
+   return m.size()>=5 && m[0]==0xf0 && m[1]==0x41 && m[2]==0x10 && m[3]==0x16 && m[4]==0x12;
+  });};
+  check(resets()==1 && packets()==13 && messages.size()==22,"Rolmus construction init counts");
+  std::array<std::int16_t,2> pcm{};
+  check(audio.startProgram(0,XeenAudioProgram::Exe),"First EXE program was refused");
+  output->pull(pcm.data(),1);output->check();
+  check(resets()==1 && packets()==13 && messages.size()==22,"First program duplicated rolmus init");
+  check(audio.startProgram(0,XeenAudioProgram::Dat),"Second DAT program was refused");
+  output->pull(pcm.data(),1);output->check();
+  check(resets()==2 && packets()==26 && messages.size()==54,"Second program did not restart rolmus exactly once");
+  for(std::size_t i=0;i<22;++i)check(messages[i]==messages[i+32],"Rolmus restart upload differs from construction");
+  std::cout<<"Rolmus init: construction + first start 1 MPU FF, 13 DT1, 22 MIDI; second start +1 MPU FF, +13 DT1, +32 MIDI\n";
+ }
+ {
+  // Observe both the logical driver and the renderer through XeenAudio.
+  std::vector<PromusDriver::Write> logical,rendered;
+  auto output=std::make_shared<XeenFmSource>([&](const auto &write){rendered.push_back(write);});
+  XeenAudioConfig cfg;cfg.music=1;
+  XeenAudio audio(cfg,musicDriver(1),loader,module,0,false,[&](const auto &write){logical.push_back(write);},output);
+  const auto initial=logical.size();
+  check(initial>0 && rendered.size()==initial,"Mono construction init counts");
+  std::array<std::int16_t,2> pcm{};
+  check(audio.startProgram(0,XeenAudioProgram::Exe),"First mono EXE program was refused");
+  output->pull(pcm.data(),1);output->check();
+  check(logical.size()==initial && rendered.size()==initial,"First program duplicated mono init");
+  audio.startProgram(0);output->pull(pcm.data(),1);output->check();
+  check(logical.size()==initial*2 && rendered.size()==initial*2,"Second program did not restart mono exactly once");
+  for(std::size_t i=0;i<initial;++i) {
+   check(logical[i].reg==logical[i+initial].reg && logical[i].value==logical[i+initial].value &&
+         rendered[i].reg==rendered[i+initial].reg && rendered[i].value==rendered[i+initial].value,
+         "Mono restart register burst differs from construction");
+  }
+  std::cout<<"Admus init: construction + first start "<<initial<<" register writes; second start +"<<initial<<" per driver\n";
+ }
+ {
+  // A developer gameplay entry uses the construction init as its DAT start;
+  // reaching the title or ending afterwards reinitializes for the EXE.
+  std::vector<PromusDriver::Write> logical,rendered;
+  auto output=std::make_shared<XeenFmSource>([&](const auto &write){rendered.push_back(write);});
+  XeenAudioConfig cfg;cfg.music=1;
+  XeenAudio audio(cfg,musicDriver(1),loader,module,0,false,[&](const auto &write){logical.push_back(write);},output);
+  const auto initial=logical.size();
+  audio.constructionStartedProgram();
+  std::array<std::int16_t,2> pcm{};output->pull(pcm.data(),1);output->check();
+  check(logical.size()==initial && rendered.size()==initial,"Marking the construction init emitted driver traffic");
+  check(audio.startProgram(0,XeenAudioProgram::Exe),"EXE after developer entry was refused");
+  output->pull(pcm.data(),1);output->check();
+  check(logical.size()==initial*2 && rendered.size()==initial*2,"EXE after developer entry did not reinitialize mono");
+ }
+ {
+  // A refused EXE attempt is not a program start and must not consume init.
+  CaptureErrors captured;std::vector<PromusDriver::Write> writes;
+  auto output=std::make_shared<XeenFmSource>([&](const auto &write){writes.push_back(write);});
+  XeenAudioConfig cfg;cfg.music=1;cfg.digital=9;
+  XeenAudio audio(cfg,musicDriver(1),loader,module,0,false,{},output);
+  const auto initial=writes.size();
+  check(!audio.startProgram(0,XeenAudioProgram::Exe),"Unsupported EXE digital device was admitted");
+  check(audio.startProgram(0,XeenAudioProgram::Dat),"DAT after refused EXE was not admitted");
+  std::array<std::int16_t,2> pcm{};output->pull(pcm.data(),1);output->check();
+  check(writes.size()==initial,"Refused EXE consumed the first program init");
  }
  for(unsigned music:{0u,5u,7u,8u,9u,65535u})for(unsigned digital:{7u,10u}) {
   CaptureErrors captured;XeenAudioConfig cfg;cfg.music=music;cfg.digital=digital;cfg.musicPort=cfg.digitalPort=0x240;
@@ -281,7 +356,7 @@ int main(int argc,char **argv) {try {
   auto fm=std::make_shared<XeenFmSource>(PromusDriver::Sink{},std::filesystem::u8path(argv[2]));
   XeenAudioConfig cfg;cfg.music=4;cfg.digital=0;
   XeenAudio audio(cfg,musicDriver(4),loader,module,0,false,{},fm);check(fm->notice().empty(),"Missing test MT-32 ROM pair");
-  audio.enterTitle(0);check(audio.prepareRender(48000),"Could not prepare MT-32 renderer");
+  audio.startProgram(0);audio.enterTitle(0);check(audio.prepareRender(48000),"Could not prepare MT-32 renderer");
   std::array<std::int16_t,1024> pcm{};render_allocation_test::count=0;
   for(unsigned n=0;n<200;++n) {
    if(n%20==0)audio.effect(26,0);
@@ -305,6 +380,7 @@ int main(int argc,char **argv) {try {
   const auto songLoader=[](const std::string &,XeenSceneArchive){return Bytes{0x10,1,0xff};};
   XeenAudio audio(cfg,musicDriver(4),songLoader,module,0,false,{},fm);
   check(fm->notice().empty() && audio.prepareRender(48000),"Cannot prepare backlog synth");
+  audio.startProgram(0); // Consume the construction init as the first program start.
   const auto before=audio.ticks();
   const auto song=std::make_shared<const Bytes>(Bytes{0x10,1,0xff});
   // Repeated init uploads exceed the synth's SysEx storage as well as its

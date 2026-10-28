@@ -48,6 +48,7 @@ void PromusDriver::rolMpuCommand(unsigned command) {
   throw std::runtime_error("Unexpected MPU command");
  _midiCursor=std::max(_midiCursor,_midiNow);rolMpuUpdate();rolMpuPoll(0x40);
  _midiCursor+=kWriteNs;rolMpuUpdate();
+ if(_mpuSink)_mpuSink(command);
  if(command==0xff) {
   _mpuReset=true;_mpuResetDeadline=_midiCursor+14000000;
   _mpuPending=-1;_mpuHead=_mpuCount=0;rolMpuReply(0xfe);

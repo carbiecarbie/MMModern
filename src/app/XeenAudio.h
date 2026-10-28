@@ -42,6 +42,9 @@ public:
  // EXE or DAT start: its music driver init rewrites the mixer from that flag.
  void startProgram(std::uint64_t now);
  bool startProgram(std::uint64_t now,XeenAudioProgram);
+ // Construction initializes the first program's driver. A developer entry
+ // that runs gameplay without startProgram marks that init as used here.
+ void constructionStartedProgram();
  std::array<float,6> mixerGains() const;
  using DigitalSample=std::shared_ptr<const XeenVocSample>;
  struct RetainedDigital {std::string name;XeenSceneArchive archive;DigitalSample sample;};

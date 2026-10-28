@@ -113,8 +113,10 @@ optimized `build-rel` build (assertions kept); its setup is in
 Configure `MMODERN_XEEN_DATA_DIR` explicitly for required CD validation,
 `MMODERN_XEEN_AUDIO_DIR` when the CD audio tracks are elsewhere,
 `MMODERN_PROMUS_CAPTURES_DIR` for the six DOSBox music captures `xeen_promus`
-needs, `MMODERN_M94_CAPTURES_DIR` for the three mono OPL takes used by
-`xeen_m94_opl`, and, when needed, `MMODERN_XEEN_UI_DATA` for its installed UI module.
+needs, `MMODERN_M94_CAPTURES_DIR` for the three mono OPL takes and the rolmus
+MIDI capture, `MMODERN_MT32_ROM_DIR` for the MT-32 test ROMs, and, when needed,
+`MMODERN_XEEN_UI_DATA` for its installed UI module. See the [MT-32 and capture
+requirements](dependencies.md#mt-32-core-and-player-roms) for details.
 The development machine's M94 capture directory is
 `D:/Projetos/MModern/MModern-re/m94/captures-0c`; captures are not distributed.
 

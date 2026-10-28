@@ -13,7 +13,13 @@ namespace fs=std::filesystem;
 using child_test::Result;
 Result launch(const fs::path &exe,const std::vector<std::wstring>&args,const fs::path &log){
  static unsigned sequence = 0;
- return child_test::launch(exe,args,fs::path(log.wstring()+L"."+std::to_wstring(GetCurrentProcessId())+L"."+std::to_wstring(++sequence)));
+ // Preserve explicit CFG arguments in the parsing matrix. Once its synthetic
+ // nullmus CFG exists, select it even if the build overrides the UI module.
+ auto isolated=args;const auto cfg=log.parent_path()/"WORLD"/"XEEN.CFG";
+ if(fs::is_regular_file(cfg) && std::find(args.begin(),args.end(),L"--xeen-cfg")==args.end()) {
+  isolated.push_back(L"--xeen-cfg");isolated.push_back(cfg.wstring());
+ }
+ return child_test::launch(exe,isolated,fs::path(log.wstring()+L"."+std::to_wstring(GetCurrentProcessId())+L"."+std::to_wstring(++sequence)),false,false,300000,false);
 }
 int main(int argc,char **argv){try{
  check(argc==2,"CLI test executable argument");const fs::path exe=fs::absolute(argv[1]);

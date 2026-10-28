@@ -13,7 +13,7 @@ struct XeenFmSource::Impl {
  enum class Kind {Load,Command,Effect,FadeBarrier,Restart};
  struct Operation {Kind kind;PromusDriver::Bytes bytes;unsigned value=0,argument=0;};
  XeenOpl3 chip;PromusDriver::Sink trace;
- PromusDriver::MidiSink midiTrace;std::filesystem::path romDirectory;
+ PromusDriver::MidiSink midiTrace;PromusDriver::MpuCommandSink mpuTrace;std::filesystem::path romDirectory;
  std::unique_ptr<XeenMt32> mt32;
  std::unique_ptr<PromusDriver> driver;
  // Nodes are allocated by the producer. Splicing into the consumer queue
@@ -26,7 +26,7 @@ struct XeenFmSource::Impl {
  mutable std::mutex errors;std::exception_ptr failure;
  bool initialized=false,failed=false;
  unsigned profile=3;
- explicit Impl(PromusDriver::Sink sink,std::filesystem::path roms,PromusDriver::MidiSink midi):trace(std::move(sink)),midiTrace(std::move(midi)),romDirectory(std::move(roms)){}
+ explicit Impl(PromusDriver::Sink sink,std::filesystem::path roms,PromusDriver::MidiSink midi,PromusDriver::MpuCommandSink mpu):trace(std::move(sink)),midiTrace(std::move(midi)),mpuTrace(std::move(mpu)),romDirectory(std::move(roms)){}
  void append(Operation op) {
   if(!driver)return;
   std::lock_guard<std::mutex> lock(queue);
@@ -61,7 +61,7 @@ struct XeenFmSource::Impl {
   }
  }
 };
-XeenFmSource::XeenFmSource(PromusDriver::Sink trace,std::filesystem::path roms,PromusDriver::MidiSink midi):_impl(new Impl(std::move(trace),std::move(roms),std::move(midi))){}
+XeenFmSource::XeenFmSource(PromusDriver::Sink trace,std::filesystem::path roms,PromusDriver::MidiSink midi,PromusDriver::MpuCommandSink mpu):_impl(new Impl(std::move(trace),std::move(roms),std::move(midi),std::move(mpu))){}
 XeenFmSource::~XeenFmSource()=default;
 void XeenFmSource::initialize(PromusDriver::Bytes resource,unsigned profile) {
  if(_impl->initialized)throw std::logic_error("FM source already initialized");
@@ -73,7 +73,7 @@ void XeenFmSource::initialize(PromusDriver::Bytes resource,unsigned profile) {
    self->chip.write(w.reg,w.value);if(self->trace)self->trace(w);
   },profile,[self=_impl.get()](const auto &m){
    if(self->mt32)self->mt32->send(m);if(self->midiTrace)self->midiTrace(m);
-  });
+  },_impl->mpuTrace);
  }
 }
 void XeenFmSource::load(PromusDriver::Bytes song,bool play) {_impl->append({Impl::Kind::Load,std::move(song),unsigned(play)});}

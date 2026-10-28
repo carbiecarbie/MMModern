@@ -32,7 +32,6 @@ struct XeenAudioConfig {
  }
  bool unavailableExeDigital() const {return digital==3 || digital==4 || digital==9;}
  bool deferredMusic() const {return music==5 || music==7 || music==8 || music==9;}
- bool unsupportedMusic() const {return music>=1 && music<=9 && music!=3;}
  bool deferredDigital() const {return digital==1 || digital==2 || digital==5 || digital==8 || digital==9;}
  bool dmaDigital() const {return digital==6 || digital==7 || digital==10;}
  unsigned digitalDma() const {return digital==6?1:dma;}

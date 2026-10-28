@@ -183,9 +183,10 @@ Fisher and Sergey V. Mikayev, LGPL-2.1-or-later. Its SHA-1 implementation is
 copyright Micael Hildenborg, BSD-3-Clause; releases retain its full notice and
 the LGPL license alongside the pinned corresponding source reference.
 The adapter observes the pinned core's MIDI queue read cursor to account for
-events actually consumed, including notes delayed by partial aborts. Its
-translation unit uses GCC's `-fno-access-control` for that bounded internal
-access; the public API exposes neither the cursor nor the pending count.
+events actually consumed, including notes delayed by partial aborts. It uses
+explicit-instantiation member access limited to the synth's queue pointer and
+the queue's read cursor and mask; the public API exposes neither the cursor
+nor the pending count.
 The renderer uses 48 kHz accurate analogue output, the 16-bit renderer,
 immediate MIDI mode and the reference capture's nice DAC, ramp, panning and
 partial-mixing settings.
@@ -564,6 +565,8 @@ new revision may be documented only after provenance is recorded, the checkout
 is clean, all four artifacts build, sprite filtering is reviewed, the full
 MMModern build and CTest suite pass, and the relevant real-data and Milestone 14
 runtime/manual checks pass.
+On an mt32emu change, re-verify that queue retirement is index-based and
+that abort-delayed notes stay queued.
 
 ScummVM is licensed under GPLv3 or later. MMModern must remain compatible with
 the license of the reused code.

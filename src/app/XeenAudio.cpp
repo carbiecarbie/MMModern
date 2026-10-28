@@ -47,6 +47,7 @@ struct XeenAudio::Impl {
  std::vector<std::string> maps,locations;std::array<unsigned,6> kinds{};
  std::unique_ptr<PromusDriver> clockDriver;
  std::shared_ptr<XeenFmSource> output;bool retainOutput;
+ bool initialProgramPending=true;
  std::string current,loaded;std::optional<std::string> mapName;
  PromusDriver::Bytes buffer;
  struct Song {std::string name;XeenSceneArchive archive;unsigned fade;};
@@ -178,6 +179,8 @@ struct XeenAudio::Impl {
  }
  void startProgram() {card.initialize(mixerFlag,mixerWriter(config));publishMixer();}
  void restartMono() {
+  // Construction already initialized the first program's music driver.
+  if(initialProgramPending){initialProgramPending=false;return;}
   if(clockDriver && id!=3){clockDriver->restartProgram();if(retainOutput)output->restartProgram();}
  }
  void publishDigital(std::shared_ptr<const XeenVocSample> pcm) {
@@ -369,6 +372,7 @@ bool XeenAudio::startProgram(std::uint64_t now,XeenAudioProgram program) {
  }
  _impl->startProgram();_impl->restartMono();return true;
 }
+void XeenAudio::constructionStartedProgram() {_impl->initialProgramPending=false;}
 std::array<float,6> XeenAudio::mixerGains() const {return _impl->card.gains();}
 XeenAudio::RetainedDigital XeenAudio::retainDigital(const std::string &name,XeenSceneArchive archive) {
  if(!hasDmaDigital())return {name,archive,{}};

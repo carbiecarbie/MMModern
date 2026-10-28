@@ -675,7 +675,9 @@ in [project status](project-status.md#known-gaps):
   `genesis` (the Darkside and World endings). Darkside of Xeen gameplay is
   not supported; only its intro plays at startup.
 - **Sound:** CD `promus` and the mono `admus`, `blastmus` and authenticated
-  INTRO `specmus` OPL profiles are supported; other devices remain scoped by M94.
+  INTRO `specmus` OPL profiles are supported, as is MT-32 `rolmus` with the
+  player's 1.07 control and PCM ROMs. Music 5/7/8/9 and digital 1/2/5/8/9 use
+  the approved null-driver restriction.
 - **Platforms and editions:** MMModern runs on 64-bit Windows with the English
   World of Xeen CD; ScummVM covers many platforms, editions and languages, and
   Swords of Xeen.

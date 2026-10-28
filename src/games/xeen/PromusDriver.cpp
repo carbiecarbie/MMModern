@@ -10,7 +10,7 @@ unsigned PromusDriver::byte(Stream &s) {
  if(!s.bytes || s.pos>=s.bytes->size())throw std::runtime_error("Truncated promus bytecode");
  return (*s.bytes)[s.pos++];
 }
-PromusDriver::PromusDriver(Bytes resource,Sink sink,unsigned profile,MidiSink midi):_resource(std::move(resource)),_sink(std::move(sink)),_midiSink(std::move(midi)),_profile(profile) {
+PromusDriver::PromusDriver(Bytes resource,Sink sink,unsigned profile,MidiSink midi,MpuCommandSink mpu):_resource(std::move(resource)),_sink(std::move(sink)),_midiSink(std::move(midi)),_mpuSink(std::move(mpu)),_profile(profile) {
  if(_profile==4){rolInit();return;}
  if(_profile!=3){monoInit();return;}
  if(!_resource || _resource->size()<0xadc+181*2)throw std::runtime_error("Invalid INTRO.CC promus resource");

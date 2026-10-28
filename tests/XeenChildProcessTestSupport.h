@@ -5,6 +5,7 @@
 #endif
 #include <windows.h>
 #include "TestTreeRemoval.h"
+#include <array>
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
@@ -43,14 +44,30 @@ inline BOOL CALLBACK findWindow(HWND window, LPARAM data) {
  return TRUE;
 }
 // Bounded Win32 launch extracted from XeenSaveCliTests. Used only by tests;
-// no process framework, game-state transport or application-specific startup.
+// no process framework or game-state transport.
 // The timeout only detects a hung child; it is generous so that parallel CTest
 // jobs never turn machine load into a failure. Each exit line reports the
 // elapsed time, so a run log shows where a process test spends it.
 inline Result launch(const fs::path &exe, const std::vector<std::wstring> &args,
- const fs::path &log, bool closeNativeWindow = false, bool escapeExits = false, DWORD timeoutMs = 300000) {
+ const fs::path &log, bool closeNativeWindow = false, bool escapeExits = false, DWORD timeoutMs = 300000,
+ bool isolateAudio = true) {
  std::wstring command = L"\"" + exe.wstring() + L"\"";
  auto launchArgs=args;
+ struct Fixture {fs::path path;~Fixture(){if(!path.empty()){std::error_code ec;fs::remove(path,ec);}}} fixture;
+ const auto has=[&](const wchar_t *option){return std::find(args.begin(),args.end(),option)!=args.end();};
+ const bool gameplay=has(L"--new-game") || has(L"--journey-region") || has(L"--load-game") ||
+  has(L"--event-fixture") || has(L"--monster-fixture") ||
+  (!args.empty() && args[0].rfind(L"--",0)!=0 && fs::is_directory(fs::path(args[0])));
+ if(isolateAudio && gameplay && !has(L"--xeen-cfg")) {
+  // Process tests must not follow a player's installed MT-32 selection to
+  // Local AppData. Use a synthetic installed 3/10 configuration instead.
+  fixture.path=fs::path(log.wstring()+L".xeen.cfg");
+  std::array<char,29> cfg{};cfg[0]=10;cfg[2]=0x20;cfg[3]=2;cfg[4]=3;
+  cfg[6]=0x20;cfg[7]=2;cfg[8]=7;cfg[20]=1;cfg[24]=1;
+  std::ofstream file(fixture.path,std::ios::binary|std::ios::trunc);
+  file.write(cfg.data(),cfg.size());file.close();require(bool(file),"Could not write isolated process audio configuration");
+  launchArgs.push_back(L"--xeen-cfg");launchArgs.push_back(fixture.path.wstring());
+ }
  const fs::path ui(MMODERN_TEST_UI_DATA);
  const bool entry=!args.empty() && (args[0]==L"--new-game" || args[0]==L"--journey-region" ||
   args[0]==L"--load-game" || args[0]==L"--render-map" || args[0]==L"--inspect-map" ||

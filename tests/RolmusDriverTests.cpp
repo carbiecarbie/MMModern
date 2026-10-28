@@ -19,6 +19,17 @@
 #include <vector>
 using namespace mmodern;
 using Bytes=std::vector<std::uint8_t>;
+#ifndef MMODERN_ROLMUS_ORACLE
+namespace MT32Emu {class Synth;}
+enum class QueueFault {None,ReportedSize,ActualMask};
+static QueueFault queueFault=QueueFault::None;
+extern "C" std::uint32_t __real__ZN7MT32Emu5Synth21setMIDIEventQueueSizeEj(MT32Emu::Synth *,std::uint32_t);
+extern "C" std::uint32_t __wrap__ZN7MT32Emu5Synth21setMIDIEventQueueSizeEj(MT32Emu::Synth *synth,std::uint32_t size) {
+ const auto actual=__real__ZN7MT32Emu5Synth21setMIDIEventQueueSizeEj(synth,queueFault==QueueFault::ActualMask?size/2:size);
+ if(queueFault==QueueFault::ReportedSize)return actual-1;
+ return queueFault==QueueFault::ActualMask?size:actual;
+}
+#endif
 static PromusDriver::Bytes data(Bytes value){return std::make_shared<const Bytes>(std::move(value));}
 struct Captured {std::uint64_t ms;Bytes bytes;};
 struct CapturedEffect {std::uint64_t ms;unsigned id;};
@@ -251,6 +262,15 @@ static void romTests(const std::filesystem::path &directory,PromusDriver::Bytes 
  {auto correct=open({files.at("ctrl_mt32_1_07"),files.at("pcm_mt32")});assert(correct->available() && correct->notice().empty());}
  {XeenMt32 scanned(directory);assert(scanned.available() && scanned.notice().empty());}
 #ifndef MMODERN_ROLMUS_ORACLE
+ for(const auto fault:{QueueFault::ReportedSize,QueueFault::ActualMask}) {
+  queueFault=fault;
+  auto refused=open({files.at("ctrl_mt32_1_07"),files.at("pcm_mt32")});
+  queueFault=QueueFault::None;
+  assert(!refused->available() && refused->notice().find("not supported yet")!=std::string::npos);
+  std::array<std::int16_t,8> silence;silence.fill(1);refused->render(silence.data(),silence.size()/2);
+  assert(std::all_of(silence.begin(),silence.end(),[](auto sample){return sample==0;}));
+ }
+ std::cout<<"MT-32 queue size and mask mismatches refused with silence\n";
  // Hard links exercise arbitrary file names without copying ROM contents.
  // A restricted sandbox or a different-volume TEMP may forbid hard links;
  // the required unsandboxed suite exercises this on the maintainer's setup.

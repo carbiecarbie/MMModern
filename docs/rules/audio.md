@@ -1225,10 +1225,10 @@ approved deviation, not evidence that DOS checks delivery.
 ## Other original sound devices
 
 **Evidence boundary, 2026-10-27:** M94 Part 0 established the following
-rules. Part A1 selects both drivers in DAT and EXE, implements null drivers
-and blastsnd/prosnd digital transfers, and applies the reference mixers
-below. Music 1/2/4/6 is selected but silent with a notice until its later
-part; deferred devices use the approved null-driver restriction. Calibrated original
+rules. Part A1 selects both drivers in DAT and EXE, implements null drivers,
+blastsnd/prosnd DMA transfers and the reference mixers below. Part A2 implements
+the mono OPL drivers; Part B implements rolmus using mt32emu and the player's
+ROMs. Deferred devices use the approved null-driver restriction. Calibrated original
 program evidence is **DOS static, high**; captures and the matching emulator
 source are explicitly **DOSBox reference evidence**, not measurements of
 physical cards. Detailed offsets, hashes, captures and analysis are retained
@@ -1315,9 +1315,10 @@ Patch loading and fade retain the original
 The mono initializers enable waveform selection with register 1 value `0x20`.
 The pinned Nuked core ignores that test-register bit but supports the selected
 four OPL2 waveforms with NEW off; `xeen_m94_opl` checks that mode and masks.
-EXE/DAT program starts reinitialize the mono driver image and enqueue its
-initial register writes while the presentation-clock tick count remains
-monotonic; a renderer never determines a load or fade deadline.
+Construction supplies the first EXE/DAT program's mono initialization and
+also supports the developer gameplay entry. Later program starts reinitialize
+the driver image and enqueue its register writes while the presentation-clock
+tick count remains monotonic; a renderer never determines a load or fade deadline.
 
 Admus increments a 16-bit postprocess counter at `0x15e` on each eligible
 tick; opcode E resets it. Above 400, it skips slide processing and clears
@@ -1413,7 +1414,7 @@ messages/27 bytes. Addresses are system `10 00 00`, six timbres at
 `08 00/02/04/06/08/0a 00` and six patch mappings at `05 00..28`.
 There is no factory-reset SysEx or fixed post-upload sleep. MPU reset FF
 is an interface command. Command/data polling is at `0x57a..0x5f9`;
-song opcode B adds **176 port-61 reads per address/data byte**. Counter
+song opcode B adds **176 port-61 reads per address/data/checksum byte**. Counter
 loops use FFFF retries; unexpected non-FE responses restart the ACK loop,
 so a universal broken-hardware timeout is not established.
 
@@ -1556,6 +1557,7 @@ the measured stable title and outdoor key-on windows fit the original IRQ
 grid within **1 ms** inside each window. Foreground command writes compare
 by order only. One origin per program is intended, **not demonstrated** by
 these captures.
+Here, within 1 ms means plus or minus 1 ms around the best origin.
 Blast/spec share a contiguous 418-write title subsequence.
 
 For OPL, require exact ordered register/value writes and logical tick indices

@@ -14,6 +14,27 @@
 #include <vector>
 namespace mmodern {
 namespace {
+// The public API exposes neither the queue cursor nor its actual mask.
+// Explicit instantiations restrict private-member access to these three fields.
+template<class Tag,typename Tag::type Member> struct PrivateMember {
+ friend typename Tag::type mt32Member(Tag) {return Member;}
+};
+struct SynthQueue {
+ using type=MT32Emu::MidiEventQueue * MT32Emu::Synth::*;
+ friend type mt32Member(SynthQueue);
+};
+struct QueuePosition {
+ using type=volatile MT32Emu::Bit32u MT32Emu::MidiEventQueue::*;
+ friend type mt32Member(QueuePosition);
+};
+struct QueueMask {
+ using type=const MT32Emu::Bit32u MT32Emu::MidiEventQueue::*;
+ friend type mt32Member(QueueMask);
+};
+template struct PrivateMember<SynthQueue,&MT32Emu::Synth::midiQueue>;
+template struct PrivateMember<QueuePosition,&MT32Emu::MidiEventQueue::startPosition>;
+template struct PrivateMember<QueueMask,&MT32Emu::MidiEventQueue::ringBufferMask>;
+
 std::filesystem::path playerRomDirectory() {
  PWSTR value=nullptr;
  if(FAILED(SHGetKnownFolderPath(FOLDERID_LocalAppData,0,nullptr,&value))){CoTaskMemFree(value);return {};}
@@ -78,7 +99,9 @@ struct XeenMt32::Impl {
   }
   synth=std::make_unique<MT32Emu::Synth>(&report);
   synth->preallocateReverbMemory(true);
-  synth->setMIDIEventQueueSize(4096);
+  if(synth->setMIDIEventQueueSize(static_cast<MT32Emu::Bit32u>(pending.size()))!=pending.size()) {
+   synth.reset();error="MT-32 output not supported yet: incompatible MIDI queue capacity.";return;
+  }
   synth->configureMIDIEventQueueSysexStorage(65536);
   synth->setMIDIDelayMode(MT32Emu::MIDIDelayMode_IMMEDIATE);
   // Match the reference capture's mt32emu renderer settings.
@@ -88,7 +111,11 @@ struct XeenMt32::Impl {
   synth->setNicePartialMixingEnabled(true);
   synth->selectRendererType(MT32Emu::RendererType_BIT16S);
   if(!synth->open(*control,*pcm,MT32Emu::AnalogOutputMode_ACCURATE)) {
-   synth.reset();error="MT-32 output not supported yet: the selected ROM pair could not be opened.";
+   synth.reset();error="MT-32 output not supported yet: the selected ROM pair could not be opened.";return;
+  }
+  const auto *queue=synth.get()->*mt32Member(SynthQueue{});
+  if(!queue || (queue->*mt32Member(QueueMask{}))!=pending.size()-1) {
+   synth.reset();error="MT-32 output not supported yet: incompatible MIDI queue capacity.";
   }
  }
 };
@@ -101,8 +128,9 @@ bool XeenMt32::hasHeadroom(std::size_t messages,std::size_t bytes) const {
  if(!_impl->synth)return true;
  // The core's 4096-slot ring leaves one slot empty. Keep its SysEx buffer
  // below half full so an upload also fits when the free space is split.
- return _impl->count<=4095 && _impl->sysexBytes<=32768 &&
-  messages<=4095-_impl->count && bytes<=32768-_impl->sysexBytes;
+ const auto capacity=_impl->pending.size()-1;
+ return _impl->count<=capacity && _impl->sysexBytes<=32768 &&
+  messages<=capacity-_impl->count && bytes<=32768-_impl->sysexBytes;
 }
 void XeenMt32::send(const PromusDriver::MidiWrite &event) {
  if(!_impl->synth)return;
@@ -124,8 +152,9 @@ void XeenMt32::render(std::int16_t *stereo,std::size_t frames) {
   _impl->synth->render(stereo,static_cast<MT32Emu::Bit32u>(frames));
   // A note can stay queued after its timestamp while mt32emu aborts partials.
   // Observe the pinned queue cursor rather than guessing from sample time.
-  const auto position=_impl->synth->midiQueue->startPosition;
-  auto retired=(position-_impl->readPosition)&4095;
+  const auto *queue=_impl->synth.get()->*mt32Member(SynthQueue{});
+  const auto position=queue->*mt32Member(QueuePosition{});
+  auto retired=(position-_impl->readPosition)&static_cast<std::uint32_t>(_impl->pending.size()-1);
   if(retired>_impl->count)throw std::logic_error("MT-32 MIDI queue cursor invariant failed");
   while(retired--) {
    _impl->sysexBytes-=_impl->pending[_impl->head].sysexBytes;

@@ -20,8 +20,9 @@ public:
   std::size_t size=0;bool interrupt=false;
  };
  using MidiSink=std::function<void(const MidiWrite &)>;
+ using MpuCommandSink=std::function<void(unsigned)>;
  static constexpr std::uint64_t pit=1193182,divisor=16390,rate=49716;
- explicit PromusDriver(Bytes resource,Sink sink={},unsigned profile=3,MidiSink midi={});
+ explicit PromusDriver(Bytes resource,Sink sink={},unsigned profile=3,MidiSink midi={},MpuCommandSink mpu={});
  void sink(Sink sink) {_sink=std::move(sink);}
  void load(Bytes song,bool start=true);
  void command(unsigned command,unsigned argument=0);
@@ -47,7 +48,7 @@ private:
   std::array<std::size_t,16> patches{};
   std::vector<std::size_t> stack;
  };
- Bytes _resource;Sink _sink;MidiSink _midiSink;Stream _music,_fx;
+ Bytes _resource;Sink _sink;MidiSink _midiSink;MpuCommandSink _mpuSink;Stream _music,_fx;
  unsigned _profile=3;
  std::vector<std::uint8_t> _image;
  std::array<std::uint8_t,18> _frequency{};

@@ -405,7 +405,12 @@ int Application::gameplay(const std::filesystem::path &gameDirectory, XeenCamera
         std::unique_ptr<XeenAssetSource> ownedAssets;
         if(!sharedAssets)ownedAssets=std::make_unique<XeenAssetSource>(*installation,CloudsUiComposer::kWidth,CloudsUiComposer::kHeight);
         auto &assets=sharedAssets?*sharedAssets:*ownedAssets;
-        if(!_program.audio)_program.audio=XeenAudio::installed(*installation,assets,SdlWindow::presentationNanoseconds());
+        if(!_program.audio) {
+            // Developer entries start the DAT program here; a later title or
+            // ending EXE start must reinitialize the driver.
+            _program.audio=XeenAudio::installed(*installation,assets,SdlWindow::presentationNanoseconds());
+            _program.audio->constructionStartedProgram();
+        }
         const XeenMapLoader maps;
         // The fixture replaces the map-23 MOB bytes for every reader: object
         // loading, the regional manifest, reconstruction and renewal.

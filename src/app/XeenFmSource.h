@@ -6,7 +6,7 @@ namespace mmodern {
 // The consumer owns its driver and chip; the producer only queues operations.
 class XeenFmSource {
 public:
- explicit XeenFmSource(PromusDriver::Sink renderedTrace={},std::filesystem::path romDirectory={},PromusDriver::MidiSink midiTrace={});
+ explicit XeenFmSource(PromusDriver::Sink renderedTrace={},std::filesystem::path romDirectory={},PromusDriver::MidiSink midiTrace={},PromusDriver::MpuCommandSink mpuTrace={});
  ~XeenFmSource();
  // Called once, before the device opens. A null resource selects silence.
  void initialize(PromusDriver::Bytes resource,unsigned profile=3);
