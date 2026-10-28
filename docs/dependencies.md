@@ -2,9 +2,10 @@
 
 MMModern is an independent SDL application. It does not use ScummVM's SDL
 backend or instantiate its engine. The compatibility target reuses only the
-Xeen archive/sprite code, the plain Nuked OPL3 core, and the Common, Graphics,
-and Image libraries from a separately configured ScummVM build. Audio never
-instantiates ScummVM's audio classes or OSystem; `g_system` remains null.
+Xeen archive/sprite code, the plain Nuked OPL3 and mt32emu cores, and the
+Common, Graphics, and Image libraries from a separately configured ScummVM
+build. Audio does not instantiate ScummVM's mixer or OSystem; `g_system`
+remains null.
 
 ## Pinned ScummVM revision
 
@@ -104,6 +105,7 @@ MMModern compiles these ScummVM source files directly from
 - `engines/mm/shared/xeen/cc_archive.cpp`
 - `engines/mm/shared/xeen/sprites.cpp`
 - `audio/softsynth/opl/nuked.cpp`
+- the mt32emu 2.7.0 core under `audio/softsynth/mt32`, listed below
 
 The sprite source is compiled into a generated private object and filtered as
 described below. The compatibility code includes the corresponding Xeen
@@ -168,6 +170,35 @@ Preserve these notices and the pinned corresponding source; releases include
 the pin's `LICENSES/COPYING.LGPL` alongside the GPL and runtime-library notices.
 MMModern's existing ScummVM adaptations remain GPL-3.0-or-later.
 
+### MT-32 core and player ROMs
+
+Music device 4 uses the pinned `audio/softsynth/mt32` core directly. CMake
+compiles `Analog`, `BReverbModel`, `Display`, `File`, `LA32FloatWaveGenerator`,
+`LA32Ramp`, `LA32WaveGenerator`, `Part`, `Partial`, `PartialManager`, `Poly`,
+`ROMInfo`, `Synth`, `Tables`, `TVA`, `TVF`, `TVP`, and `sha1/sha1.cpp` from
+that directory. The sole ScummVM utility dependency is `common/util.h` for
+`ARRAYSIZE`; no ScummVM MIDI backend, OSystem, configuration manager or host
+MIDI device is used. The mt32emu 2.7.0 core is copyright Dean Beeler, Jerome
+Fisher and Sergey V. Mikayev, LGPL-2.1-or-later. Its SHA-1 implementation is
+copyright Micael Hildenborg, BSD-3-Clause; releases retain its full notice and
+the LGPL license alongside the pinned corresponding source reference.
+The adapter observes the pinned core's MIDI queue read cursor to account for
+events actually consumed, including notes delayed by partial aborts. Its
+translation unit uses GCC's `-fno-access-control` for that bounded internal
+access; the public API exposes neither the cursor nor the pending count.
+The renderer uses 48 kHz accurate analogue output, the 16-bit renderer,
+immediate MIDI mode and the reference capture's nice DAC, ramp, panning and
+partial-mixing settings.
+
+Players supply the MT-32 control ROM 1.07 and MT-32 PCM ROM in
+`%LOCALAPPDATA%\MMModern\roms`. mt32emu identifies their contents, so file
+names are unrestricted; matching split ROM halves are also accepted. MMModern
+does not bundle or copy ROM files. A missing, incomplete or different set
+produces one not-supported notice and silent MT-32 output without changing
+logical timing. For original-data tests, set `MMODERN_MT32_ROM_DIR` to an
+external ROM directory and `MMODERN_M94_CAPTURES_DIR` to the external M94
+capture root; neither belongs in the repository or a release package.
+
 The external DRO v2 validation data is configured with
 `-DMMODERN_PROMUS_CAPTURES_DIR=<capture-directory>`, alongside
 `MMODERN_XEEN_DATA_DIR`. Configuration does not check it, but `xeen_promus`, and
@@ -176,9 +207,9 @@ so the complete suite, needs six captures there: `promus-startup.dro`,
 `promus-fx20-alone.dro`, `promus-wall-bump.dro` (effect 46) and
 `promus-fx20-over-music.dro` (effect 20 over town music). Captures and derived
 register streams are never bundled.
-The M94 mono tests also require `-DMMODERN_M94_CAPTURES_DIR=<directory>`,
-containing `admus`, `blastmus` and `specmus` subdirectories, each with
-`rawopl0001.dro`. These captures remain external to the repository.
+The M94 tests also require `-DMMODERN_M94_CAPTURES_DIR=<directory>`, containing
+`admus`, `blastmus` and `specmus` subdirectories, each with `rawopl0001.dro`,
+and `rolmus/midi0001.mid`. These captures remain external to the repository.
 On the development machine the directory is
 `D:/Projetos/MModern/MModern-re/m94/captures-0c`.
 The comparison removes DOSBox's initial register snapshot and unchanged writes,
@@ -428,7 +459,8 @@ cmake -S <mmodern-source> -B <mmodern-build> \
   -DSCUMMVM_BUILD_DIR=<scummvm-build> \
   -DMMODERN_XEEN_DATA_DIR=<game-directory> \
   -DMMODERN_PROMUS_CAPTURES_DIR=<capture-directory> \
-  -DMMODERN_M94_CAPTURES_DIR=<m94-capture-directory>
+  -DMMODERN_M94_CAPTURES_DIR=<m94-capture-directory> \
+  -DMMODERN_MT32_ROM_DIR=<mt32-rom-directory>
 cmake --build <mmodern-build> --parallel 4
 ctest --test-dir <mmodern-build> --output-on-failure
 ```
@@ -449,7 +481,8 @@ cmake -S . -B build-rel -G Ninja \
   -DSCUMMVM_BUILD_DIR=<scummvm-build> \
   -DMMODERN_XEEN_DATA_DIR=<game-directory> \
   -DMMODERN_PROMUS_CAPTURES_DIR=<capture-directory> \
-  -DMMODERN_M94_CAPTURES_DIR=<m94-capture-directory>
+  -DMMODERN_M94_CAPTURES_DIR=<m94-capture-directory> \
+  -DMMODERN_MT32_ROM_DIR=<mt32-rom-directory>
 cmake --build build-rel
 cmake --build build-rel --target mmodern_test_save   # optional tool, not built by default
 ctest --test-dir build-rel -L fast -j 8 --output-on-failure

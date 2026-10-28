@@ -483,12 +483,16 @@ against the pin; master was not rechecked.
   drivers have fades, blocking, clock changes and wave/tap mixer writes.
   This replaces DOS behavior, not a pin-equivalence claim; master not rechecked.
   [Details](original-quirks.md#dev-m94-deferred-null)
-- **Other-device MT-32 rules.** M94 specifies the DOS resource upload,
-  inclusive effect id 180 and unsigned/cache-driven fade, rather than the
-  pin's added factory reset, adjusted MIDI levels and signed fade test.
-  The extra driver is not yet implemented. Pin 6814ee9b: differs;
-  master not rechecked.
+- **Other-device MT-32 rules.** The rolmus profile follows the DOS resource
+  upload, inclusive effect id 180, FX note-off selection and unsigned/cache-driven
+  fade, rather than the pin's reset, adjusted MIDI levels and signed fade test.
+  Pin 6814ee9b: differs; master not rechecked.
   [Details](original-quirks.md#sv-rolmus-protocol)
+- **Rolmus fade's first cache.** The approved fixed index 8 replaces DOS's
+  interrupted foreground BX. The pin also starts with channel 8 but returns
+  before channels 6..0 and differs in phase and early-stop handling. Pin
+  6814ee9b: differs; master not rechecked.
+  [Details](original-quirks.md#dev-rolmus-fade-bx)
 - **Unavailable original digital devices.** M94's approved deviation
   (2026-10-27) uses notice/title return for EXE digital 3/4/9 instead of the
   DOS disk-error exit for absent INTRO rolsnd/cansnd/covsnd. DAT 3/4 follows

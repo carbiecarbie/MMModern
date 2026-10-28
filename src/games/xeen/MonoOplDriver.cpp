@@ -37,7 +37,10 @@ void PromusDriver::monoInit() {
  write(1,0x20);write(8,0);write(0xbd,0);
  monoStop();monoResetEffects();
 }
-void PromusDriver::restartProgram() {if(_profile!=3)monoInit();}
+void PromusDriver::restartProgram() {
+ if(_profile==4){rolStop();rolShort(0xb8,123,0);rolInit();}
+ else if(_profile!=3)monoInit();
+}
 unsigned PromusDriver::monoFreq(unsigned v) const {return word(_image,0xfd+monoBase()+v*2);}
 void PromusDriver::monoCache(unsigned v,unsigned f) {
  const auto at=0xfd+monoBase()+v*2;_image.at(at)=f;_image.at(at+1)=f>>8;

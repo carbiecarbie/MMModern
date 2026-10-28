@@ -74,7 +74,7 @@ void door(Inputs &in,const GameInstallation &installation) {
  }
  check(found,"No original Vertigo door witness");
  Fixture f(in,s);std::vector<unsigned> cues;
- f.programState.audio=XeenAudio::installed(installation,in.assets,0,false);
+ f.programState.audio=XeenAudio::installed(installation,in.assets,0,false,std::filesystem::path("mmodern-nonexistent-rom-fixture"));
  f.programState.audio->effectSink([&](unsigned cue){cues.push_back(cue);});
  unsigned openViews=0;
  XeenRestTestAccess::compose(*f.flow,[&](auto,auto) {
@@ -105,7 +105,7 @@ std::vector<std::uint8_t> fall(Inputs &in,const GameInstallation &installation,b
  for(const auto &a:actors)table->slots.push_back({a.x,a.y,a.lifecycle,a.status,false,-1});
  healthy(s);
  Fixture f(in,s);std::vector<std::string> cues;
- f.programState.audio=XeenAudio::installed(installation,in.assets,0,false);
+ f.programState.audio=XeenAudio::installed(installation,in.assets,0,false,std::filesystem::path("mmodern-nonexistent-rom-fixture"));
  f.programState.audio->effectSink([&](unsigned cue){if(cue==11 || cue==31 || cue==29)cues.push_back(std::to_string(cue));});
  f.programState.audio->digitalSink([&](const std::string &name,auto){cues.push_back(name);});
  observedAudio=enabled?f.programState.audio.get():nullptr;digitalCommands=&cues;

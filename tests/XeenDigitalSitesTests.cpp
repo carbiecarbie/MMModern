@@ -77,7 +77,7 @@ void inventory(Inputs &in,const char *path) {
 }
 using Trace=std::vector<std::tuple<std::string,std::uint64_t,std::uint64_t>>;
 void attach(Fixture &f,const GameInstallation &installation,bool device,Trace &trace) {
- f.programState.audio=XeenAudio::installed(installation,f.in.assets,0,device);
+ f.programState.audio=XeenAudio::installed(installation,f.in.assets,0,device,std::filesystem::path("mmodern-nonexistent-rom-fixture"));
  check(f.programState.audio->outputActive()==device,"Dummy device did not open");
  f.programState.audio->digitalSink([&](const auto &name,auto){trace.emplace_back(lower(name),f.now,f.w.sessionState().journeyRandom()->count);});
  f.flow->loadSampleDuration=[&](const char *name,auto archive){return xeenVocDurationNanoseconds(f.in.assets.readArchiveResource(name,archive));};
@@ -208,7 +208,7 @@ void sampleErrors(Inputs &in,const GameInstallation &installation) {
  }
 }
 void commands(Inputs &in,const GameInstallation &installation) {
- auto audio=XeenAudio::installed(installation,in.assets,0,false);std::vector<std::string> names;
+ auto audio=XeenAudio::installed(installation,in.assets,0,false,std::filesystem::path("mmodern-nonexistent-rom-fixture"));std::vector<std::string> names;
  audio->digitalSink([&](const auto &name,auto){names.push_back(lower(name));});
  for(unsigned i=0;i<6;++i)audio->eventVoice(i,0);
  check(names==std::vector<std::string>{"ahh.voc","whereto.voc","gulp.voc","null.voc","scream.voc","laff1.voc"},"DAT Event VOC table differs");
@@ -236,7 +236,7 @@ void event(Inputs &in,const GameInstallation &installation) {
  }
 }
 void missGuards(Inputs &in,const GameInstallation &installation) {
- auto audio=XeenAudio::installed(installation,in.assets,0,false);std::vector<std::string> ordered;
+ auto audio=XeenAudio::installed(installation,in.assets,0,false,std::filesystem::path("mmodern-nonexistent-rom-fixture"));std::vector<std::string> ordered;
  audio->digitalSink([&](const auto &name,auto){ordered.push_back(name);});
  audio->effectSink([&](unsigned id){ordered.push_back(std::to_string(id));});
  XeenCharacter character;character.permanentLevel=3;character.characterClass=XeenCharacterClass::Cleric;

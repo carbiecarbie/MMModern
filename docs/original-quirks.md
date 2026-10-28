@@ -501,16 +501,24 @@ Calibrated DOS static, high, 2026-10-27: INTRO rolmus `0x247..0x334`
 uploads thirteen custom system/timbre/patch packets, without a factory-reset
 SysEx or fixed post-upload pause; `0x57a..0x5f9` handles MPU ready/ACK.
 The song SysEx path adds 176 port-61 reads per address/data byte at
-`0x81b..0x820`. Fade `0x985..0xa07` uses unsigned phase carry, persistent
-phase, music voices 8 and 0..6, threshold 40 (40 decrements to 39) and cache-driven early stop,
-otherwise at most 128 carries. Timed no-note FX aliases stay silent for their
+`0x81b..0x820`. Fade `0x985..0xa07` uses unsigned phase carry and persistent
+phase. Its first cache access uses the interrupted foreground BX, followed by
+music voices 6..0; the threshold is 40 (40 decrements to 39) with cache-driven
+early stop. The remaining counter normally bounds it to 128 carries, although
+an out-of-range BX can modify unrelated state. MMModern uses the
+[approved fixed-BX approximation](#dev-rolmus-fade-bx). Timed no-note FX aliases stay silent for their
 ten-tick stream rather than borrowing another card's effect. DOS admits
-effect id 180 itself; table `0x10eb` has 181 admitted entries. These are
-[M94 device rules](rules/audio.md#other-original-sound-devices), not a claim
-that the extra drivers are already implemented.
+effect id 180 itself; table `0x10eb` has 181 admitted entries. See the
+[M94 device rules](rules/audio.md#other-original-sound-devices).
+
+At `0x5fa..0x626`, the FX note-off helper sends the supplied mapped note for
+voice 7 and the cached previous note for other voices, then clears the cache.
+The velocity is 127. The pin's `fxFade` chooses those note sources in the
+opposite cases.
 
 **ScummVM:** pin `6814ee9b`, `SoundDriverMT32::initialize` adds
-`sendMT32Reset`; MT32_ADJUST_VOLUME scales note/expression, callbacks use
+`sendMT32Reset`; MT32_ADJUST_VOLUME scales note/expression, `fxFade` reverses
+the note-off selection, callbacks use
 rounded 72.8 and the fade uses a signed phase test. `Sound::loadEffectsData`
 uses immediate B4 as a container size, excluding admitted DOS id 180.
 It provides no DOS MPU-ready/ACK timing. Its matching thirteen patch
@@ -525,8 +533,8 @@ Its virtual ready/ACK and I/O-cost model supplies renderer timestamps only,
 under the [known approximation](#dev-audio-io-cost-clock); the logical upload
 barrier is ordering-only. This is not real MT-32/MPU-401 hardware timing or a
 reason to add a 0.540160-s physical-wire sleep to the game's waits. Missing
-ROMs preserve the same logical enqueue/tick behavior. ROM location remains
-a pre-Part-B decision.
+ROMs preserve the same logical enqueue/tick behavior. The maintainer selected
+`%LOCALAPPDATA%\MMModern\roms` for the player's control 1.07 and PCM ROMs.
 
 The other profiles retain their own oddities: selected INTRO specmus is
 exactly blastmus despite the PAS caption; nullmus still installs the normal
@@ -611,6 +619,32 @@ original post-dream poll.
 
 Deliberate differences from the original that the maintainer approved; each
 stays documented here and in the plan that implements it.
+
+- <a id="dev-rolmus-fade-bx"></a> **Rolmus fade fixes its first cache index at 8.**
+  **DOS static, high:** INTRO rolmus installs its own IRQ0 handler at `0x640`
+  (`0x206..0x225`); on the idle path the first fade access at `0x9ac` indexes
+  `0x14d + BX` using the interrupted foreground BX, before `0x9d2` selects
+  voices 6..0. The DOSBox MIDI capture infers indices 0, 2, 6 and 4 during one
+  fade, not a fixed value. **Maintainer-approved approximation, 2026-10-28:**
+  use BX=8 for that first access. The capture comparison found the same fade
+  completion and next-song first-note ticks for fixed 0 and 8 under its
+  captured-schedule assumption; fixed 0 ended music channel 1's fade 838 ms
+  early, while fixed 8 kept its endpoint within 82 ms, with extra channel-9
+  CC11 messages. Eight is a possible DOS value, not a claim that it is usual.
+  The original indexed decrement can also alter other driver bytes, including
+  effect bytecode, until the driver is reloaded; fixed BX=8 does not reproduce
+  those out-of-cache mutations. The captured FX 26 channel change is explained
+  by a single decrement of its opcode at `0x15b9`, using BX `0x146c` at the
+  observed 70466-ms fade carry. A test-only replay of that decrement matches
+  the capture through its last MIDI event, including both subsequent FX 26
+  occurrences and channel 7's first outdoor-change fade value of 84. No earlier
+  FX 26 occurrence appears in this capture. The MIDI proves the replay is
+  consistent, not that BX or the byte was directly observed; other candidate
+  BX values are possible.
+  Evidence and per-step limits are in `MModern-re/m94/analysis-0c/rolmus-fixed-bx-20261028/`.
+  **ScummVM:** pin `6814ee9b` uses a fixed channel 8 but returns before fading
+  channels 6..0, and differs in phase and early-stop handling. Master not
+  rechecked.
 
 - <a id="dev-audio-io-cost-clock"></a> **Audio I/O execution cost affects rendering only.**
   **DOS static:** rolmus init busy-waits on real MPU polling (`0x57a..0x5f9`)

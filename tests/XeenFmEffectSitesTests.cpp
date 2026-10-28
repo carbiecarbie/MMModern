@@ -179,7 +179,7 @@ void quiet(Fixture &f) {
     check(f.flow->canSave(),"FM witness did not settle");
 }
 void attach(Fixture &f,const GameInstallation &installation,std::vector<unsigned> &effects) {
-    f.programState.audio=XeenAudio::installed(installation,f.in.assets,0,false);
+    f.programState.audio=XeenAudio::installed(installation,f.in.assets,0,false,std::filesystem::path("mmodern-nonexistent-rom-fixture"));
     f.programState.audio->effectSink([&effects](unsigned id){effects.push_back(id);});
 }
 bool heard(const std::vector<unsigned> &effects,unsigned id) {return std::find(effects.begin(),effects.end(),id)!=effects.end();}
@@ -389,7 +389,7 @@ void missEffects() {
     }
 }
 void commonDamage(Inputs &in,const GameInstallation &installation) {
-    std::vector<unsigned> fx;auto audio=XeenAudio::installed(installation,in.assets,0,false);
+    std::vector<unsigned> fx;auto audio=XeenAudio::installed(installation,in.assets,0,false,std::filesystem::path("mmodern-nonexistent-rom-fixture"));
     audio->effectSink([&](unsigned id){fx.push_back(id);});
     const auto sink=[&](unsigned id){audio->effect(id,0);};
     // Magic-resistance refusal never enters attack2; zero-damage attack2 does.

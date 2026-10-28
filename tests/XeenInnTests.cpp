@@ -580,7 +580,7 @@ void deleteRecords(Inputs &in,const GameInstallation &installation) {
     check(load.p.party.size()==0 && *load.p.encounterContext==day && load.saves.empty() && load.p.party.dismissedRosterIds().empty(),"empty Load replays no Sign In, time or Dismiss");
     load.key('x');check(load.dialog()->anyKey,"empty Load Exit refused");
     auto sword=s;sword.characters[0].weapons[8].id=34;sword.characters[0].weapons[8].state=255;
-    Visit protectedVisit(in,sword);protectedVisit.programState.audio=XeenAudio::installed(installation,in.assets,0,false);
+    Visit protectedVisit(in,sword);protectedVisit.programState.audio=XeenAudio::installed(installation,in.assets,0,false,std::filesystem::path("mmodern-nonexistent-rom-fixture"));
     std::vector<unsigned> effects;protectedVisit.programState.audio->effectSink([&](unsigned effect){effects.push_back(effect);});
     protectedVisit.sign();effects.clear();protectedVisit.key('d');protectedVisit.key('1');
     check(protectedVisit.dialog()->anyKey && protectedVisit.p.roster.at(0).name==sword.characters[0].name && protectedVisit.saves.size()==1 && effects.empty() && XeenInnTestAccess::selectionClear(*protectedVisit.flow),"Slayer Sword refusal clears selection without a sound");
@@ -631,7 +631,7 @@ void emptySaveRecovery(Inputs &in) {
 void fullAndFailures(Inputs &in,const GameInstallation &installation) {
     auto s=source(in,28,8,600);s.characters[2]=s.characters[6];s.characters[2].rosterId=2;
     s.journey->supplements[2].inputs=s.journey->supplements[6].inputs;
-    Visit v(in,s);v.programState.audio=XeenAudio::installed(installation,in.assets,0,false);
+    Visit v(in,s);v.programState.audio=XeenAudio::installed(installation,in.assets,0,false,std::filesystem::path("mmodern-nonexistent-rom-fixture"));
     std::vector<unsigned> effects;v.programState.audio->effectSink([&](unsigned effect){effects.push_back(effect);});
     unsigned attempts=0;const auto saving=v.flow->saveInn;
     v.flow->saveInn=[&]{++attempts;if(attempts==1)throw std::runtime_error("Windows error 112");saving();};

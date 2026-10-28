@@ -41,7 +41,7 @@ int main(int argc,char **argv) {try {
   check(selected && selected->configuration && selected->configuration->physicalPath==cfgPath,"Selected CFG was not retained by detector");
   const auto cutscene=XeenCutsceneData::installed(*selected);
   check(cutscene.digitalDevice==digital && cutscene.musicDevice==music,"Cutscene read a different CFG");
-  XeenAssetSource assets(*selected);auto audio=XeenAudio::installed(*selected,assets,0,false);
+  XeenAssetSource assets(*selected);auto audio=XeenAudio::installed(*selected,assets,0,false,std::filesystem::path("mmodern-nonexistent-rom-fixture"));
   check(audio->deviceId()==music && audio->digitalDeviceId()==digital,"Audio read a different CFG");
   check(audio->hasDmaDigital()==(digital==6 || digital==7 || digital==10),"Original-data digital selection");
   check(audio->startProgram(0,XeenAudioProgram::Dat),"Original-data DAT selection refused");

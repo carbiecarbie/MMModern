@@ -77,7 +77,7 @@ void endingItemBeacon(Inputs &in,const GameInstallation &installation) {
         auto &table=saved.map(map).monsters;table.emplace(XeenSaveMonsterTable{std::uint16_t(actors.size()),{}});
         for(const auto &a:actors)table->slots.push_back({-128,-128,XeenActorLifecycle::Defeated,XeenActorStatus::Physical,true,-1});
         Fixture f(in,saved);wire(f);std::vector<unsigned> effects;
-        f.programState.audio=XeenAudio::installed(installation,in.assets,0,false);
+        f.programState.audio=XeenAudio::installed(installation,in.assets,0,false,std::filesystem::path("mmodern-nonexistent-rom-fixture"));
         f.programState.audio->effectSink([&](unsigned id){effects.push_back(id);});
         openTravel(f,true);key(f,'r');
         if(completed) {

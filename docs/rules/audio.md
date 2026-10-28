@@ -1327,9 +1327,12 @@ that cutoff. [Evidence and retained bug](../original-quirks.md#sv-admus-pointer-
 
 Rolmus needs its own MIDI opcode profile: pitch, pan, program, velocity,
 CC11 expression and checksummed SysEx differ from OPL operations. Its fade
-visits voices 8 and 0..6, uses remaining=127, and decrements a cache when its
-old value is at least 40: **40 is emitted as 39**. An eligible carry with all
-old caches below 40 stops early; otherwise at most 128 carries.
+first indexes a cache using the interrupted foreground BX, then visits voices
+6..0; it uses remaining=127 and decrements a signed cache value of at least
+40: **40 is emitted as 39**. An eligible carry with all selected old caches
+below 40 stops early. The counter ordinarily bounds it to 128 carries, unless
+an out-of-range BX modifies related state. MMModern fixes that first index at
+8 under the [approved approximation](../original-quirks.md#dev-rolmus-fade-bx).
 Phase survives requests; terminal stream ticks can skip postprocessing.
 The load-busy query is fade **speed**, not sounding notes. Full OPL/MIDI
 effect ids are **0..180 inclusive**; active FX protect ids 7..10. Rolmus
@@ -1467,9 +1470,8 @@ and initialization traffic without inserting a fresh synth/factory reset.
 
 Use explicit **MT-32 1.07** (`mt32_107`) and the verified player's PCM ROM
 for comparison; protocol model 16 alone does not distinguish old/new/CM ROMs.
-Staging auto would choose the available CM-32L 1.02. ROM choice and current
-capture path are reference settings; MMModern's ROM location remains the
-maintainer's decision before Part B. The
+Staging auto would choose the available CM-32L 1.02. The maintainer chose
+`%LOCALAPPDATA%\MMModern\roms` for the runtime ROMs. The
 [MT-32 comparison](../original-quirks.md#sv-rolmus-protocol) explains why
 the pin's SoundDriverMT32 is not the DOS driver.
 

@@ -13,13 +13,21 @@ public:
  using Bytes=std::shared_ptr<const std::vector<std::uint8_t>>;
  struct Write {std::uint64_t tick;unsigned reg;std::uint8_t value;bool interrupt;};
  using Sink=std::function<void(const Write &)>;
+ // Complete MIDI messages, timestamped on the renderer-only MPU timeline.
+ // Storage is bounded so serializing a song SysEx never allocates in a callback.
+ struct MidiWrite {
+  std::uint64_t tick,timeNanoseconds;std::array<std::uint8_t,4096> bytes{};
+  std::size_t size=0;bool interrupt=false;
+ };
+ using MidiSink=std::function<void(const MidiWrite &)>;
  static constexpr std::uint64_t pit=1193182,divisor=16390,rate=49716;
- explicit PromusDriver(Bytes resource,Sink sink={},unsigned profile=3);
+ explicit PromusDriver(Bytes resource,Sink sink={},unsigned profile=3,MidiSink midi={});
  void sink(Sink sink) {_sink=std::move(sink);}
  void load(Bytes song,bool start=true);
  void command(unsigned command,unsigned argument=0);
  void effect(unsigned id);
  void restartProgram();
+ void midiTime(std::uint64_t now) noexcept {_midiNow=now;}
  void tick();
  unsigned fadeSpeed() const {return _fadeSpeed;}
  unsigned fadePhase() const {return _fadePhase;}
@@ -32,13 +40,14 @@ public:
  static std::uint64_t clockTicks(std::uint64_t nanoseconds);
  static std::uint64_t clockBoundary(std::uint64_t tick);
 private:
+ friend struct RolmusOracleTestAccess;
  struct Stream {
   Bytes bytes;std::size_t pos=0,start=0;
   bool playing=false;unsigned countdown=0;
   std::array<std::size_t,16> patches{};
   std::vector<std::size_t> stack;
  };
- Bytes _resource;Sink _sink;Stream _music,_fx;
+ Bytes _resource;Sink _sink;MidiSink _midiSink;Stream _music,_fx;
  unsigned _profile=3;
  std::vector<std::uint8_t> _image;
  std::array<std::uint8_t,18> _frequency{};
@@ -48,6 +57,11 @@ private:
  unsigned _fadeSpeed=0,_fadePhase=0;int _fadeRemaining=0;
  std::uint8_t _mixerLevel=255;
  std::uint64_t _ticks=0;
+ std::uint64_t _midiNow=0,_midiCursor=0;
+ // Closed healthy DOSBox intelligent-MPU state, on the render timeline only.
+ std::array<std::uint8_t,32> _mpuReplies{};
+ unsigned _mpuHead=0,_mpuCount=0;int _mpuPending=-1;
+ std::uint64_t _mpuResetDeadline=0;bool _mpuReset=false;
  bool _interrupt=false;
  unsigned byte(Stream &),word(const std::vector<std::uint8_t> &,std::size_t) const;
  unsigned frequency(unsigned voice) const;
@@ -67,6 +81,14 @@ private:
  unsigned monoFreq(unsigned) const;void monoCache(unsigned,unsigned);
  unsigned monoNote(unsigned) const;void monoLevel(unsigned,unsigned);
  unsigned monoBase() const {return _profile==1?0:2;}
+ void rolInit();void rolCommand(unsigned,unsigned);void rolEffect(unsigned);
+ bool rolExecute(Stream &,bool);void rolPostprocess();void rolStop();
+ void rolShort(unsigned,unsigned,unsigned,unsigned=3);
+ void rolSysEx(const std::vector<std::uint8_t> &,std::size_t &,bool);
+ void rolMpuUpdate();void rolMpuCommand(unsigned);void rolMpuData();
+ void rolMpuReply(std::uint8_t);void rolMpuPoll(unsigned);
+ unsigned rolNote(unsigned) const;void rolNoteOff(unsigned,unsigned);
+ void rolPitch(unsigned,unsigned);void rolWord(std::size_t,unsigned);
 };
 }
 #endif

@@ -1,6 +1,6 @@
 # Milestone 94 plan - Other sound devices
 
-**Tier A. Status: implementation authorized (2026-10-27); Parts A1 and A2 done, B not started; maintainer acceptance pending.**
+**Tier A. Status: implementation authorized (2026-10-27); Parts A1, A2 and B done; maintainer acceptance pending.**
 Roadmap [step 19](roadmap.md#next-arc-finishing-the-games-systems).
 Evidence/amendment baseline: clean `main`, `b4448b8`, equal to `origin/main`.
 The maintainer approved this amendment after its independent plan review
@@ -158,7 +158,7 @@ output hashes guard regressions only, not physical sound equivalence.
 | --- | --- |
 | A2 OPL | Exact ordered register/value writes per logical tick. Project through DRO's map/cache/duplicate filtering; align each compared window (song start, stable title, outdoor key-on) from its matching stream, with 1 ms tolerance within that window. Foreground command writes compare by order only. One origin per program is intended, not demonstrated by these captures. Static helper I/O delays and a render test cover sub-ms spacing/key-off visibility, not DRO. Preserve installed two-sample spacing/energy acceptance; calibrate new-family render/listening separately. |
 | A1 DMA | Exact L-14 versus L-10 counts and logical busy without output, under the approved unsplit approximation (count+1 duration: medium confidence). Crodo1/2 predict 3.981740/3.794944 s for blastsnd; observed next-slot offsets fit a 15.8-ms video/audio publication bound. This does not distinguish four samples or allocation-specific splits. Waveform is separate from the busy oracle. |
-| B MIDI | Exact nine CCs, 13 DT1 packets/1688 bytes, checksums, effects and fades. Two captures show uploads spanning 0..3 ms and 25301..25304 ms; all endpoint bins fit the virtual I/O schedule within 1 ms and unknown sub-ms origin. Validate init/fade/load barriers without output. Same-ROM listening separately; no new universal waveform tolerance certified. |
+| B MIDI | Exact nine CCs, 13 DT1 packets/1688 bytes, checksums and effects from the first message. Fade steps independent of foreground BX compare exactly under the approved fixed-BX rule; dependent steps are excluded for that reason. A test-only replay of the supported FX 26 byte decrement compares the affected captured stream, fade completion and next-song first-note ticks. Two uploads span 0..3 ms and 25301..25304 ms; all endpoint bins fit the virtual I/O schedule within 1 ms and unknown sub-ms origin. Validate barriers without output. Same-ROM listening separately; no universal waveform tolerance certified. |
 
 Capture gaps are explicit: no Gunther/CD segment in rolmus or specmus, no
 mixer screenshots, and no exhaustive identified hit/spell matrix. Source
@@ -190,10 +190,12 @@ runs links/diff checks only.
 
 1. **Scope/reference cards:** fixed above by the maintainer; no Part C in M94.
 2. **Live switch:** excluded; a later opt-in decision.
-3. **MT-32 ROM location and accepted runtime sets:** still for the maintainer
-   before Part B; recommended location
-   `%LOCALAPPDATA%\MMModern\roms`. Comparison set: **MT-32 control 1.07 + MT-32
-   PCM**, explicit `mt32_107`; auto would choose available CM-32L 1.02.
+3. **MT-32 ROM location and accepted runtime sets (maintainer, 2026-10-27):**
+   `%LOCALAPPDATA%\MMModern\roms`, outside the repository and game folder.
+   Accept only the content-identified **MT-32 control 1.07 + MT-32 PCM**;
+   filenames are arbitrary. Missing, incomplete or other sets give one
+   not-supported notice and silence without altering logical timing. Staging
+   auto would choose available CM-32L 1.02 instead of `mt32_107`.
 4. **Stops:** contradictory calibrated evidence; missing approved resource or
    needed capture; an unbounded/output-dependent wait or unexpected MPU
    traffic; save/RNG/Event/BIOS-rate changes; a new subsystem/CPU emulator,
@@ -204,6 +206,12 @@ runs links/diff checks only.
    speaker clocks/PWM, ADSND branch, PAS clock, DSS FIFO and Covox address
    stay recorded for a later milestone. No substitute emulator,
    renamed resource or silent correction is authorized.
+6. **Rolmus first fade cache (maintainer, 2026-10-28):** fix BX=8 as the
+   [approved deviation](original-quirks.md#dev-rolmus-fade-bx). The MIDI
+   oracle excludes captured steps dependent on the interrupted BX, asserts
+   independent steps exactly, and checks fade completion and the next song's
+   first note in driver ticks. Any further foreground-dependent or unsettled
+   value remains a stop.
 
 ## Technical risks
 

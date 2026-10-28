@@ -85,13 +85,14 @@ template<class F> void until(F ready) {
 }
 }
 int main(int argc,char **argv) {try {
- check(argc==2,"usage: mmodern_digital_audio_tests <game data>");
+ check(argc==3,"usage: mmodern_digital_audio_tests <game data> <MT-32 ROM directory>");
+ check(*argv[2],"MT-32 test ROM directory is required");
  const auto installation=xeenTestInstallationDetector().detect(std::filesystem::u8path(argv[1]));
  check(bool(installation),"No installation");XeenAssetSource assets(*installation);
  const auto driver=std::make_shared<const Bytes>(assets.readArchiveResource("promus",XeenSceneArchive::IntroOnly));
  const auto musicDriver=[&](unsigned id)->PromusDriver::Bytes {
   if(id==3)return driver;
-  if(id==1 || id==2 || id==6)return std::make_shared<const Bytes>(assets.readArchiveResource(id==1?"admus":id==2?"blastmus":"specmus",XeenSceneArchive::IntroOnly));
+  if(id==1 || id==2 || id==4 || id==6)return std::make_shared<const Bytes>(assets.readArchiveResource(id==1?"admus":id==2?"blastmus":id==4?"rolmus":"specmus",XeenSceneArchive::IntroOnly));
   return {};
  };
  std::ifstream input(installation->uiModule->physicalPath,std::ios::binary);
@@ -142,11 +143,13 @@ int main(int argc,char **argv) {try {
   std::string notice;
   {
    CaptureErrors captured;XeenAudioConfig cfg;cfg.music=std::uint16_t(id);cfg.digital=0;
-   XeenAudio audio(cfg,musicDriver(id),loader,module,0,false);
+   auto output=id==4?std::make_shared<XeenFmSource>(PromusDriver::Sink{},std::filesystem::u8path(argv[1])/"mmodern-nonexistent-rom-fixture"):nullptr;
+   XeenAudio audio(cfg,musicDriver(id),loader,module,0,false,{},output);
    audio.startProgram(0);audio.startProgram(0);notice=captured.text.str();
   }
-  const bool unsupported=id==4 || id==5 || id==7 || id==8 || id==9;
-  check(notice==(unsupported?"Music device "+std::to_string(id)+": not supported yet\n":""),"Music notice missing or repeated");
+  const bool unsupported=id==5 || id==7 || id==8 || id==9;
+  if(id==4)check(notice=="MT-32 output not supported yet: place the MT-32 1.07 control and MT-32 PCM ROMs in Local AppData/MMModern/roms.\n","Missing MT-32 notice missing or repeated");
+  else check(notice==(unsupported?"Music device "+std::to_string(id)+": not supported yet\n":""),"Music notice missing or repeated");
  }
  for(unsigned music:{0u,1u,2u,3u,4u,5u,6u,7u,8u,9u,10u})for(unsigned digital:{0u,6u,7u,10u}) {
   CaptureErrors captured;XeenAudioConfig cfg;cfg.music=music;cfg.digital=digital;cfg.musicPort=0x220;cfg.digitalPort=0x240;
@@ -271,6 +274,62 @@ int main(int argc,char **argv) {try {
    render_allocation_test::active=true;audio.render(pcm.data(),512,48000);render_allocation_test::active=false;
   }
   check(render_allocation_test::count==0,"Mixer/FM request consumer allocated callback memory");
+ }
+ {
+  // ROM discovery, synth open and producer requests precede the callback.
+  // Include note traffic and the repeated driver upload at a program handoff.
+  auto fm=std::make_shared<XeenFmSource>(PromusDriver::Sink{},std::filesystem::u8path(argv[2]));
+  XeenAudioConfig cfg;cfg.music=4;cfg.digital=0;
+  XeenAudio audio(cfg,musicDriver(4),loader,module,0,false,{},fm);check(fm->notice().empty(),"Missing test MT-32 ROM pair");
+  audio.enterTitle(0);check(audio.prepareRender(48000),"Could not prepare MT-32 renderer");
+  std::array<std::int16_t,1024> pcm{};render_allocation_test::count=0;
+  for(unsigned n=0;n<200;++n) {
+   if(n%20==0)audio.effect(26,0);
+   if(n==80){audio.startProgram(0);audio.enterTitle(0);}
+   render_allocation_test::active=true;audio.render(pcm.data(),512,48000);render_allocation_test::active=false;
+  }
+  check(render_allocation_test::count==0,"MT-32 renderer or handoff allocated callback memory");
+  check(fm->midiDeferrals()==0,"Ordinary MT-32 rendering deferred an operation");
+  std::cout<<"Ordinary MT-32 deferrals: "<<fm->midiDeferrals()<<'\n';
+ }
+ {
+  struct Event {std::uint64_t ns,hash;std::size_t size;std::uint8_t status,a,b;bool interrupt;};
+  const auto compact=[](const auto &e){std::uint64_t h=1469598103934665603ULL;for(std::size_t i=0;i<e.size;++i)h=(h^e.bytes[i])*1099511628211ULL;
+   return Event{e.timeNanoseconds,h,e.size,e.bytes[0],e.size>1?e.bytes[1]:std::uint8_t(0),e.size>2?e.bytes[2]:std::uint8_t(0),e.interrupt};};
+  std::vector<Event> events,expected;events.reserve(500000);expected.reserve(500000);
+  auto fm=std::make_shared<XeenFmSource>(PromusDriver::Sink{},std::filesystem::u8path(argv[2]),[&](const auto &e){
+   events.push_back(compact(e));
+  });
+  PromusDriver reference(musicDriver(4),{},4,[&](const auto &e){expected.push_back(compact(e));});
+  XeenAudioConfig cfg;cfg.music=4;cfg.digital=0;
+  const auto songLoader=[](const std::string &,XeenSceneArchive){return Bytes{0x10,1,0xff};};
+  XeenAudio audio(cfg,musicDriver(4),songLoader,module,0,false,{},fm);
+  check(fm->notice().empty() && audio.prepareRender(48000),"Cannot prepare backlog synth");
+  const auto before=audio.ticks();
+  const auto song=std::make_shared<const Bytes>(Bytes{0x10,1,0xff});
+  // Repeated init uploads exceed the synth's SysEx storage as well as its
+  // message ring unless the consumer waits for actual consumption.
+  for(unsigned n=0;n<96;++n){audio.startProgram(0);reference.restartProgram();}
+  for(unsigned n=0;n<5100;++n){
+   if(n%500==0){audio.startProgram(0);reference.restartProgram();}
+   audio.effect(1,0);audio.requestSong(n%2?"one.m":"two.m",archive,0,0);audio.advance(0);
+   reference.effect(1);reference.command(0);reference.load(song,true);
+  }
+  check(audio.ticks()==before && fm->pendingOperations()>5000,"Producer backlog changed logical time");
+  std::array<std::int16_t,1024> pcm{};render_allocation_test::count=0;
+  for(unsigned n=0;fm->pendingOperations() && n<20000;++n){
+   render_allocation_test::active=true;audio.render(pcm.data(),512,48000);render_allocation_test::active=false;
+  }
+  check(fm->pendingOperations()==0,"MT-32 backlog did not drain");
+  check(render_allocation_test::count==0,"MT-32 backlog allocated in the callback");
+  check(audio.ticks()==before,"MT-32 backlog rendering changed logical time");
+  check(fm->midiDeferrals()>0,"MT-32 backlog did not exercise deferral");
+  for(std::size_t i=1;i<events.size();++i)check(events[i-1].ns<=events[i].ns,"MT-32 backlog MIDI timestamps reversed");
+  std::size_t next=0;for(const auto &event:events)if(!event.interrupt){
+   check(next<expected.size() && event.size==expected[next].size && event.hash==expected[next].hash,"MT-32 backlog foreground MIDI differs or is out of order");++next;
+  }
+  check(next==expected.size(),"MT-32 backlog lost foreground MIDI messages");
+  std::cout<<"Catch-up MT-32 deferrals: "<<fm->midiDeferrals()<<", messages: "<<events.size()<<'\n';
  }
  {
   auto fm=std::make_shared<XeenFmSource>();XeenAudio audio(3,driver,loader,module,0,false,{},fm);audio.enterTitle(0);

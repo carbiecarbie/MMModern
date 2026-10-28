@@ -13,7 +13,7 @@ $scummvm = ([regex]::Match((Get-Content (Join-Path $repository 'docs/dependencie
 if (-not $version -or -not $scummvm) { throw 'Cannot read the project version or pinned ScummVM revision' }
 $cacheText = Get-Content (Join-Path (Join-Path $repository $BuildDir) 'CMakeCache.txt') -Raw
 $scummvmSource = ([regex]::Match($cacheText, '(?m)^SCUMMVM_SOURCE_DIR:PATH=(.+)\r?$')).Groups[1].Value.Trim()
-if (-not (Test-Path (Join-Path $scummvmSource 'LICENSES/COPYING.LGPL'))) { throw 'Cannot find the pinned Nuked LGPL license' }
+if (-not (Test-Path (Join-Path $scummvmSource 'LICENSES/COPYING.LGPL'))) { throw 'Cannot find the pinned LGPL license' }
 $pacman = Join-Path (Split-Path $Ldd) 'pacman.exe'
 $packageLines = @(& $pacman -Q mingw-w64-ucrt-x86_64-SDL2 mingw-w64-ucrt-x86_64-zlib mingw-w64-ucrt-x86_64-libwinpthread mingw-w64-ucrt-x86_64-gcc mingw-w64-ucrt-x86_64-libvorbis mingw-w64-ucrt-x86_64-libogg)
 if ($LASTEXITCODE) { throw 'pacman version query failed' }
@@ -63,6 +63,11 @@ Copy-Item (Join-Path $repository 'README.md') (Join-Path $stage 'README.md')
 $licenses = Join-Path $stage 'licenses'
 New-Item -ItemType Directory $licenses | Out-Null
 Copy-Item (Join-Path $scummvmSource 'LICENSES/COPYING.LGPL') (Join-Path $licenses 'Nuked-LGPL.txt')
+Copy-Item (Join-Path $scummvmSource 'LICENSES/COPYING.LGPL') (Join-Path $licenses 'MT32-LGPL.txt')
+$mt32Sha1Source = Get-Content (Join-Path $scummvmSource 'audio/softsynth/mt32/sha1/sha1.cpp') -Raw
+$mt32Sha1Notice = [regex]::Match($mt32Sha1Source, '(?s)^/\*.*?\*/')
+if (-not $mt32Sha1Notice.Success) { throw 'Cannot find the pinned mt32emu SHA-1 license notice' }
+Set-Content -LiteralPath (Join-Path $licenses 'MT32-SHA1.txt') -Value $mt32Sha1Notice.Value -Encoding UTF8
 # MSYS2 libvorbis 1.3.7 omits COPYING; retain the upstream release text here.
 Copy-Item (Join-Path $PSScriptRoot 'release\licenses\Vorbis-COPYING.txt') (Join-Path $licenses 'Vorbis.txt')
 $share = Join-Path (Split-Path $Ucrt64) 'share\licenses'
@@ -81,6 +86,12 @@ also licensed GPL-3.0-or-later.
 The statically linked Nuked OPL3 core is LGPL-2.1-or-later
 (licenses\Nuked-LGPL.txt), copyright 2013-2020 Nuke.YKT and 2026 Tony Gies.
 It is the Nuked-OPL3-fast 1.8-fast.2 core from the pinned ScummVM source below.
+
+The statically linked mt32emu 2.7.0 core is LGPL-2.1-or-later
+(licenses\MT32-LGPL.txt), copyright Dean Beeler, Jerome Fisher and
+Sergey V. Mikayev. Its SHA-1 implementation is copyright Micael Hildenborg,
+BSD-3-Clause (licenses\MT32-SHA1.txt). It is taken from the pinned ScummVM
+audio/softsynth/mt32 source below. MT-32 ROMs are not included.
 
 Corresponding source:
   MMModern  https://github.com/carbiecarbie/MMModern  tag v$version

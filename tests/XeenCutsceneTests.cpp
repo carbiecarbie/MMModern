@@ -27,7 +27,7 @@ struct Run {
  bool slow=false;unsigned prepareCost=0;
  std::filesystem::path pictures;std::set<std::string> pictured;
  Run(const GameInstallation &installation,XeenAssetSource &a,const XeenFontFormat &f,const XeenCutsceneData &data,bool slowPublication=false,unsigned loadCost=0,bool darkside=false,bool shortPath=false,std::uint32_t wall=17000000):assets(a),font(f),slow(slowPublication),prepareCost(loadCost) {
-  audio=XeenAudio::installed(installation,assets,now,false);
+  audio=XeenAudio::installed(installation,assets,now,false,std::filesystem::path("mmodern-nonexistent-rom-fixture"));
   // Same EXE handoff as Application: saved party switches are all off.
   audio->observeOptions({false,false,true,false});audio->observeOptions({});
   audio->digitalSink([&](const auto &name,auto){heard.push_back(name);});

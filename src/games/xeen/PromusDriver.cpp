@@ -10,7 +10,8 @@ unsigned PromusDriver::byte(Stream &s) {
  if(!s.bytes || s.pos>=s.bytes->size())throw std::runtime_error("Truncated promus bytecode");
  return (*s.bytes)[s.pos++];
 }
-PromusDriver::PromusDriver(Bytes resource,Sink sink,unsigned profile):_resource(std::move(resource)),_sink(std::move(sink)),_profile(profile) {
+PromusDriver::PromusDriver(Bytes resource,Sink sink,unsigned profile,MidiSink midi):_resource(std::move(resource)),_sink(std::move(sink)),_midiSink(std::move(midi)),_profile(profile) {
+ if(_profile==4){rolInit();return;}
  if(_profile!=3){monoInit();return;}
  if(!_resource || _resource->size()<0xadc+181*2)throw std::runtime_error("Invalid INTRO.CC promus resource");
  _music.stack.reserve(16); // Bound already enforced by opcode 0: no callback allocation.
@@ -66,6 +67,7 @@ void PromusDriver::resetEffects() {
 }
 void PromusDriver::load(Bytes song,bool start) {_music.bytes=std::move(song);if(start)command(1);}
 void PromusDriver::command(unsigned c,unsigned argument) {
+ if(_profile==4){rolCommand(c,argument);return;}
  if(_profile!=3){monoCommand(c,argument);return;}
  if(c==0){stopMusic();return;}
  if(c==1){_music.pos=0;_music.start=0;_music.playing=bool(_music.bytes);_music.countdown=0;_music.stack.clear();_fadeSpeed=0;return;}
@@ -74,6 +76,7 @@ void PromusDriver::command(unsigned c,unsigned argument) {
  // 0xffe0 is exposed by fadeSpeed(); PAS hardware mixing is separate from OPL.
 }
 void PromusDriver::effect(unsigned id) {
+ if(_profile==4){rolEffect(id);return;}
  if(_profile!=3){monoEffect(id);return;}
  if(id>180 || (id>=7 && id<=10 && _fx.playing))return;
  _fx.bytes=_resource;_fx.pos=_fx.start=word(*_resource,0xadc+id*2);
@@ -165,7 +168,14 @@ void PromusDriver::postprocess() {
 void PromusDriver::tick() {
  struct Scope {bool &flag;~Scope(){flag=false;}} scope{_interrupt};_interrupt=true;
  ++_ticks;
+ if(_profile==4)_midiNow=std::max(_midiNow,clockBoundary(_ticks));
  const auto due=[](Stream &s){return s.playing && (!s.countdown || --s.countdown==0);};
+ // Rolmus exits its ISR on a stream yield as well as on termination.
+ if(_profile==4) {
+  if(due(_music)){rolExecute(_music,false);return;}
+  if(due(_fx)){rolExecute(_fx,true);return;}
+  rolPostprocess();return;
+ }
  if(due(_music)){if(!(_profile==3?execute(_music,false):monoExecute(_music,false)))return;}
  else if(due(_fx)){if(!(_profile==3?execute(_fx,true):monoExecute(_fx,true)))return;}
  if(_profile==3)postprocess();else monoPostprocess();

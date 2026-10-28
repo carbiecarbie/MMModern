@@ -25,7 +25,8 @@ int voice(unsigned reg) {
 // silence, and a request is heard within a bound that does not grow.
 int main(int argc,char **argv) {try {
  std::cout<<std::unitbuf;
- check(argc==2,"usage: mmodern_fm_output_tests <game data>");
+ check(argc==3,"usage: mmodern_fm_output_tests <game data> <MT-32 ROM directory>");
+ const auto testRoms=*argv[2]?std::filesystem::u8path(argv[2]):std::filesystem::u8path(argv[1])/"mmodern-nonexistent-rom-fixture";
  const auto installation=XeenInstallationDetector().detect(std::filesystem::u8path(argv[1]));check(bool(installation),"No installation");
  XeenAssetSource assets(*installation);
  const auto resource=std::make_shared<const Bytes>(assets.readArchiveResource("promus",XeenSceneArchive::IntroOnly));
@@ -142,14 +143,14 @@ int main(int argc,char **argv) {try {
  for(const auto pair:std::vector<std::pair<unsigned,unsigned>>{{3,6},{0,0},{0,6},{1,7},{2,6},{6,6},{4,10},{5,0}}) {
   std::vector<std::uint64_t> snapshots[3];std::string loaded[3];
   for(unsigned ahead=0;ahead<3;++ahead) {
-   auto source=std::make_shared<XeenFmSource>();XeenAudioConfig config;config.music=pair.first;config.digital=pair.second;
+   auto source=std::make_shared<XeenFmSource>(PromusDriver::Sink{},testRoms);XeenAudioConfig config;config.music=pair.first;config.digital=pair.second;
    const auto mixedLoader=[&](const std::string &name,XeenSceneArchive archive) {
     if(name=="boundary.voc") {Bytes b(32+512,160);b[27]=std::uint8_t(521);b[28]=521>>8;return b;}
     return loader(name,archive);
    };
-   auto selected=pair.first==3?resource:pair.first==1 || pair.first==2 || pair.first==6?
-    std::make_shared<const Bytes>(assets.readArchiveResource(pair.first==1?"admus":pair.first==2?"blastmus":"specmus",XeenSceneArchive::IntroOnly)):PromusDriver::Bytes{};
-   XeenAudio route(config,selected,mixedLoader,module,0,false,{},ahead==2?nullptr:source);
+   auto selected=pair.first==3?resource:pair.first==1 || pair.first==2 || pair.first==4 || pair.first==6?
+    std::make_shared<const Bytes>(assets.readArchiveResource(pair.first==1?"admus":pair.first==2?"blastmus":pair.first==4?"rolmus":"specmus",XeenSceneArchive::IntroOnly)):PromusDriver::Bytes{};
+   XeenAudio route(config,selected,mixedLoader,module,0,false,{},ahead==2?nullptr:source,decodeXeenCdCue,testRoms);
    if(pair.first==1 || pair.first==2 || pair.first==6) {
     const auto gains=route.mixerGains();route.mixer(0,0);
     check(route.mixerGains()==gains,"Mono FM volume command changed card gains");
@@ -166,6 +167,7 @@ int main(int argc,char **argv) {try {
     snapshots[ahead].push_back(route.pending());snapshots[ahead].push_back(route.deadline().value_or(0));
    }
    if(!ahead)renderSecond();loaded[ahead]=route.loadedName();
+   if(pair.first==4 && ahead!=2)check(source->midiDeferrals()==0,"Ordinary MT-32 boundary deferred an operation");
   }
   check(snapshots[0]==snapshots[1] && snapshots[0]==snapshots[2] && loaded[0]==loaded[1] && loaded[0]==loaded[2],"Render lead changed generalized logical boundary");
  }

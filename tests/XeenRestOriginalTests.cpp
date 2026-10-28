@@ -738,7 +738,7 @@ void rolloverAndDream(Inputs &in,const GameInstallation &installation,bool efx=t
  dreamStart.soundOptions.efx=efx;
  Fixture dream(in,dreamStart);wire(dream);
  std::vector<std::string> voices;
- dream.programState.audio=XeenAudio::installed(installation,in.assets,0,device);
+ dream.programState.audio=XeenAudio::installed(installation,in.assets,0,device,std::filesystem::path("mmodern-nonexistent-rom-fixture"));
  dream.programState.audio->digitalSink([&](const auto &name,auto){voices.push_back(name);});
  unsigned sampleReads=0;const auto originalDuration=dream.flow->loadSampleDuration;
  dream.flow->loadSampleDuration=[&](const char *name,XeenSceneArchive archive){++sampleReads;return originalDuration(name,archive);};XeenRestTestAccess::scene(*dream.flow,*dream.p.encounterContext);

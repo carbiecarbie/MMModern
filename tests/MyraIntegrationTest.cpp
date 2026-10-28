@@ -32,7 +32,7 @@ namespace {
 void checkpoint(const GameInstallation &installation,XeenAssetSource &assets, const std::filesystem::path &output, int roots,
 		bool requested, SDL_Keycode dismiss, bool sdl, int lossFixture=0) {
     mmodern::XeenProgramState programState{mmodern::XeenWallClock::fixed(0)};
-    programState.audio=XeenAudio::installed(installation,assets,0,false);
+    programState.audio=XeenAudio::installed(installation,assets,0,false,std::filesystem::path("mmodern-nonexistent-rom-fixture"));
 	auto party=XeenPartyLoader().loadInitialCloudsParty(assets);
     auto options=XeenSoundOptions(party.soundOptions);options.text=true;party.soundOptions=options; // This witness exercises visible-text pagination.
 	check(party.questItems.at(17)==0,"fresh original party inherited a Root");

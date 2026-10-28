@@ -319,7 +319,7 @@ void pageLayout(const XeenCutsceneData &data,const XeenCutsceneData::Captions &c
 void previewPages(const GameInstallation &installation,XeenAssetSource &assets,const XeenFontFormat &font,
  const XeenCutsceneData &data,const XeenCutsceneData::Captions &captions,const std::filesystem::path &out,bool show) {
  const auto clock=[] {return SdlWindow::presentationNanoseconds();};
- auto audio=XeenAudio::installed(installation,assets,clock(),false);
+ auto audio=XeenAudio::installed(installation,assets,clock(),false,std::filesystem::path("mmodern-nonexistent-rom-fixture"));
  auto services=XeenCutsceneFlow::original(assets,font,*audio,clock,false,XeenSceneArchive::CloudsEnding);
  // Snapshot each actual page using the normal flow before opening the preview.
  auto snapshotServices=services;std::uint64_t now=0;snapshotServices.clock=[&]{return now;};
@@ -356,7 +356,7 @@ struct Run {
  std::uint64_t acknowledge=0;std::string page;
  Run(const GameInstallation &installation,XeenAssetSource &assets,const XeenFontFormat &font,const XeenCutsceneData &data,
      const XeenCutsceneData::Captions &captions,bool inject=false,bool delay=false,std::uint32_t score=71001722):keys(inject),slow(delay) {
-  audio=XeenAudio::installed(installation,assets,now,false);audio->observeOptions({});
+  audio=XeenAudio::installed(installation,assets,now,false,std::filesystem::path("mmodern-nonexistent-rom-fixture"));audio->observeOptions({});
   auto s=XeenCutsceneFlow::original(assets,font,*audio,[&]{return now;},data.digitalDevice>=2,XeenSceneArchive::CloudsEnding);
   const auto play=s.audio;s.audio=[&,play](const auto &a,auto t){requests.push_back(a);play(a,t);};
   s.trace=[&](const auto &t){trace.push_back(t);};

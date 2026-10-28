@@ -54,7 +54,7 @@ XeenSaveSnapshot conditionDeathSource(Inputs &in) {
  auto source=conditionDeathSource(in);source.soundOptions.efx=efx;
  Fixture f(in,source);wire(f,longSample?10000000000ULL:0);
  std::vector<std::string> voices;
- f.programState.audio=XeenAudio::installed(installation,in.assets,0,device);
+ f.programState.audio=XeenAudio::installed(installation,in.assets,0,device,std::filesystem::path("mmodern-nonexistent-rom-fixture"));
  f.programState.audio->digitalSink([&](const auto &name,auto){voices.push_back(name);});
  f.flow->loadRestDream=[&]{return in.assets.restDreamImage();};
  f.act(RestAction{});check(Access::confirmRest(*f.flow),"Original all-member Rest danger confirmation");f.act(YesAction{});
@@ -154,7 +154,7 @@ void refusal(Inputs &in) {
 }
 void applicationOutcome(Inputs &in,const GameInstallation &installation) {
     mmodern::XeenProgramState programState{mmodern::XeenWallClock::fixed(0)};
- programState.audio=XeenAudio::installed(installation,in.assets,SdlWindow::presentationNanoseconds(),false);
+ programState.audio=XeenAudio::installed(installation,in.assets,SdlWindow::presentationNanoseconds(),false,std::filesystem::path("mmodern-nonexistent-rom-fixture"));
  std::uint64_t now=0,drainEnd=0;XeenEventFlow *flow=nullptr;XeenSessionOutcome outcome;
  SdlWindow::FrameUpdateHandler retired;SdlWindow::IdleFrameHandler retiredIdle;
  XeenGameplayServices services{programState,in.resources(),{},in.mapLoader(),in.objectLoader(),

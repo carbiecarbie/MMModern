@@ -13,7 +13,8 @@ set(SCUMMVM_BUILD_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../build-xeen-probe-sdl"
 set(MMODERN_XEEN_DATA_DIR "" CACHE PATH "Required read-only World of Xeen CD source for original-data tests")
 set(MMODERN_XEEN_UI_DATA "" CACHE FILEPATH "Optional installed uncompressed English XEEN.DAT for CD copies")
 set(MMODERN_PROMUS_CAPTURES_DIR "" CACHE PATH "External DOSBox DRO v2 promus captures")
-set(MMODERN_M94_CAPTURES_DIR "" CACHE PATH "External DOSBox M94 mono OPL captures")
+set(MMODERN_M94_CAPTURES_DIR "" CACHE PATH "External DOSBox M94 OPL and MIDI captures")
+set(MMODERN_MT32_ROM_DIR "" CACHE PATH "External MT-32 control 1.07 and PCM ROMs for tests")
 set(MMODERN_XEEN_AUDIO_DIR "${MMODERN_XEEN_DATA_DIR}" CACHE PATH "Required GOG cue sheets and MUSIC directory for CD audio validation")
 
 find_package(SDL2 CONFIG REQUIRED)
@@ -29,6 +30,24 @@ target_include_directories(mmodern_core INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/s
 
 include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/ScummVmXeen.cmake")
 add_mmodern_scummvm_xeen_bridge(mmodern_scummvm_xeen)
+set(MMODERN_MT32_SOURCE "${SCUMMVM_SOURCE_DIR}/audio/softsynth/mt32")
+set(MMODERN_MT32_FILES
+ Analog BReverbModel Display File LA32FloatWaveGenerator LA32Ramp
+ LA32WaveGenerator Part Partial PartialManager Poly ROMInfo Synth Tables TVA TVF TVP)
+set(MMODERN_MT32_SOURCES src/compat/scummvm/XeenMt32.cpp "${MMODERN_MT32_SOURCE}/sha1/sha1.cpp")
+foreach(name IN LISTS MMODERN_MT32_FILES)
+ list(APPEND MMODERN_MT32_SOURCES "${MMODERN_MT32_SOURCE}/${name}.cpp")
+endforeach()
+add_library(mmodern_mt32 STATIC ${MMODERN_MT32_SOURCES})
+# The adapter observes the pinned core's queue read cursor. The public synth
+# API does not expose it, and timestamp-only retirement is unsafe when the
+# core delays a note while aborting partials.
+set_source_files_properties(src/compat/scummvm/XeenMt32.cpp PROPERTIES COMPILE_OPTIONS "-fno-access-control")
+target_include_directories(mmodern_mt32 PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src"
+ PRIVATE "${SCUMMVM_BUILD_DIR}" "${SCUMMVM_SOURCE_DIR}")
+target_compile_definitions(mmodern_mt32 PRIVATE WIN32 UNICODE _UNICODE)
+target_compile_options(mmodern_mt32 PRIVATE -ffunction-sections -fdata-sections)
+target_link_libraries(mmodern_mt32 PRIVATE shell32 ole32)
 include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/MMModernItemCatalog.cmake")
 add_mmodern_item_catalog_generation()
 
@@ -36,6 +55,7 @@ add_library(mmodern_xeen STATIC
 	src/formats/xeen/XeenCdAudio.cpp
 	src/games/xeen/PromusDriver.cpp
 	src/games/xeen/MonoOplDriver.cpp
+	src/games/xeen/RolmusDriver.cpp
 	src/formats/xeen/XeenDosText.cpp
  src/formats/xeen/XeenCutsceneData.cpp
  src/formats/xeen/XeenCompressedFrame.cpp
@@ -174,6 +194,7 @@ target_link_libraries(mmodern_app PUBLIC mmodern_core PRIVATE
 	shell32 ole32 uuid
 	mmodern_xeen
 	mmodern_platform_sdl
+	mmodern_mt32
 )
 
 add_executable(mmodern src/main.cpp)
@@ -991,9 +1012,22 @@ if(BUILD_TESTING)
  target_link_libraries(mmodern_m94_opl_tests PRIVATE mmodern_app mmodern_xeen mmodern_scummvm_xeen)
  add_test(NAME xeen_m94_opl COMMAND mmodern_m94_opl_tests "${MMODERN_XEEN_DATA_DIR}" "${MMODERN_M94_CAPTURES_DIR}")
  set_tests_properties(xeen_m94_opl PROPERTIES ENVIRONMENT "SDL_AUDIODRIVER=dummy")
+ add_executable(mmodern_m94_rolmus_tests tests/RolmusDriverTests.cpp)
+ target_link_libraries(mmodern_m94_rolmus_tests PRIVATE mmodern_app mmodern_xeen mmodern_scummvm_xeen)
+ target_include_directories(mmodern_m94_rolmus_tests PRIVATE "${SCUMMVM_SOURCE_DIR}" "${SCUMMVM_BUILD_DIR}")
+ add_test(NAME xeen_m94_rolmus COMMAND mmodern_m94_rolmus_tests "${MMODERN_XEEN_DATA_DIR}" "${MMODERN_M94_CAPTURES_DIR}" "${MMODERN_MT32_ROM_DIR}")
+ set_tests_properties(xeen_m94_rolmus PROPERTIES ENVIRONMENT "SDL_AUDIODRIVER=dummy")
+ # The separate oracle executable can replay captured foreground BX values;
+ # the game and ordinary unit test compile the production fixed-BX profile.
+ add_executable(mmodern_m94_rolmus_oracle_tests tests/RolmusDriverTests.cpp src/games/xeen/RolmusDriver.cpp)
+ target_link_libraries(mmodern_m94_rolmus_oracle_tests PRIVATE mmodern_app mmodern_xeen mmodern_scummvm_xeen)
+ target_include_directories(mmodern_m94_rolmus_oracle_tests PRIVATE "${SCUMMVM_SOURCE_DIR}" "${SCUMMVM_BUILD_DIR}")
+ target_compile_definitions(mmodern_m94_rolmus_oracle_tests PRIVATE MMODERN_ROLMUS_ORACLE=1)
+ add_test(NAME xeen_m94_rolmus_oracle COMMAND mmodern_m94_rolmus_oracle_tests "${MMODERN_XEEN_DATA_DIR}" "${MMODERN_M94_CAPTURES_DIR}" "${MMODERN_MT32_ROM_DIR}")
+ set_tests_properties(xeen_m94_rolmus_oracle PROPERTIES ENVIRONMENT "SDL_AUDIODRIVER=dummy")
  add_executable(mmodern_fm_output_tests tests/XeenFmOutputTests.cpp)
  target_link_libraries(mmodern_fm_output_tests PRIVATE mmodern_app mmodern_xeen mmodern_scummvm_xeen)
- add_test(NAME xeen_fm_output COMMAND mmodern_fm_output_tests "${MMODERN_XEEN_DATA_DIR}")
+ add_test(NAME xeen_fm_output COMMAND mmodern_fm_output_tests "${MMODERN_XEEN_DATA_DIR}" "${MMODERN_MT32_ROM_DIR}")
  set_tests_properties(xeen_fm_output PROPERTIES LABELS fast ENVIRONMENT "SDL_AUDIODRIVER=dummy")
  add_executable(mmodern_audio_golden_tests tests/XeenAudioGoldenTests.cpp)
  target_link_libraries(mmodern_audio_golden_tests PRIVATE mmodern_app mmodern_xeen mmodern_scummvm_xeen)
@@ -1012,7 +1046,7 @@ if(BUILD_TESTING)
  add_executable(mmodern_digital_audio_tests tests/XeenDigitalAudioTests.cpp)
  target_link_libraries(mmodern_digital_audio_tests PRIVATE mmodern_app mmodern_xeen mmodern_scummvm_xeen SDL2::SDL2)
  target_link_options(mmodern_digital_audio_tests PRIVATE "LINKER:--wrap,SDL_OpenAudioDevice" "LINKER:--wrap,SDL_AudioStreamGet" "LINKER:--wrap,SDL_GetAudioDeviceStatus")
- add_test(NAME xeen_digital_audio COMMAND mmodern_digital_audio_tests "${MMODERN_XEEN_DATA_DIR}")
+ add_test(NAME xeen_digital_audio COMMAND mmodern_digital_audio_tests "${MMODERN_XEEN_DATA_DIR}" "${MMODERN_MT32_ROM_DIR}")
  set_tests_properties(xeen_digital_audio PROPERTIES LABELS fast ENVIRONMENT "SDL_AUDIODRIVER=dummy")
  add_executable(mmodern_digital_sites_tests tests/XeenDigitalSitesTests.cpp)
  add_executable(mmodern_cutscene_tests tests/XeenCutsceneTests.cpp)

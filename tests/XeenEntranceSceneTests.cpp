@@ -206,7 +206,7 @@ void captions() {
 void original(training_test::Inputs &in,const GameInstallation &installation,XeenCamera camera,unsigned action,bool keyed,bool wounded=false,bool efx=true,bool device=false) {
     auto save=entranceSave(in,camera,keyed,action);save.soundOptions.efx=efx;training_test::Fixture f(in,save);
     std::vector<std::string> voices;
-    f.programState.audio=XeenAudio::installed(installation,in.assets,0,device);
+    f.programState.audio=XeenAudio::installed(installation,in.assets,0,device,std::filesystem::path("mmodern-nonexistent-rom-fixture"));
     f.programState.audio->digitalSink([&](const auto &name,auto){voices.push_back(name);});
     unsigned captions=0;
     f.flow->loadEntranceCaption=[&](unsigned kind,bool hasKey) {

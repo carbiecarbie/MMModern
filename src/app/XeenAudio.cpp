@@ -85,7 +85,7 @@ struct XeenAudio::Impl {
  int mixRate=0;
  // Last member: close/join the callback before its driver, chip and queue die.
  std::unique_ptr<SdlAudioDevice> device;
- Impl(XeenAudioConfig c,PromusDriver::Bytes resource,Loader l,std::vector<std::uint8_t> module,std::uint64_t n,bool deviceOutput,PromusDriver::Sink trace,std::shared_ptr<XeenFmSource> source,CdDecoder decoder):id(c.music),config(c),loader(std::move(l)),last(n),output(source?source:std::make_shared<XeenFmSource>()),retainOutput(bool(source)),cdDecoder(std::move(decoder)),card(cardModel(c),mixerAddress(c)),mixerFlag(c.mixer!=0) {
+ Impl(XeenAudioConfig c,PromusDriver::Bytes resource,Loader l,std::vector<std::uint8_t> module,std::uint64_t n,bool deviceOutput,PromusDriver::Sink trace,std::shared_ptr<XeenFmSource> source,CdDecoder decoder,std::filesystem::path romDirectory):id(c.music),config(c),loader(std::move(l)),last(n),output(source?source:std::make_shared<XeenFmSource>(PromusDriver::Sink{},std::move(romDirectory))),retainOutput(bool(source)),cdDecoder(std::move(decoder)),card(cardModel(c),mixerAddress(c)),mixerFlag(c.mixer!=0) {
   const XeenDosText text(module);maps=text.table("CLOUDS_MUSIC");locations=text.table("CLOUDS_LOCATION_MUSIC");
   for(unsigned w=0;w<weaponEffects.size();++w)weaponEffects[w]=60+module.at(0x4d660+w);
   // DAT 0x508cc: six far pointers into the original data segment.
@@ -101,11 +101,12 @@ struct XeenAudio::Impl {
   for(unsigned k=0;k<6;++k){kinds[k]=module.at(0x4f10a+k);if(kinds[k]>=maps.size())throw std::runtime_error("Invalid Clouds music wall-kind table");}
   if(id==6 && (!resource || *resource!=loader("blastmus",XeenSceneArchive::IntroOnly)))
    throw std::runtime_error("INTRO specmus is not the authenticated blastmus alias");
-  if(id==1 || id==2 || id==3 || id==6) {
+  if(id==1 || id==2 || id==3 || id==4 || id==6) {
    clockDriver=std::make_unique<PromusDriver>(resource,std::move(trace),id);
   }else if(id>=1 && id<=9)std::cerr<<"Music device "<<id<<": not supported yet\n";
   if(config.deferredDigital()){std::cerr<<"Digital device "<<config.digital<<": not supported yet\n";digitalNotice=true;}
   output->initialize(clockDriver?resource:PromusDriver::Bytes{},id);
+  if(!output->notice().empty()){outputNotice=output->notice();std::cerr<<outputNotice<<'\n';}
   startProgram();
   device=std::make_unique<SdlAudioDevice>([this](auto *out,auto frames,int rate){render(out,frames,rate);},deviceOutput,
    [this](int rate){return prepareRender(rate);},[this]{removed();});
@@ -172,7 +173,7 @@ struct XeenAudio::Impl {
   return time;
  }
  void publishMixer() {
-  const auto gains=card.gains();
+  auto gains=card.gains();if(id==4)gains[0]=gains[1]=1.0f; // MT-32 bypasses the Sound Blaster FM mixer.
   std::lock_guard<std::mutex> lock(mixerMutex);mixerRequest=gains;mixerChanged=true;
  }
  void startProgram() {card.initialize(mixerFlag,mixerWriter(config));publishMixer();}
@@ -193,7 +194,7 @@ struct XeenAudio::Impl {
    if(!fmStream->reconfigure(rate) || !cdStream->reconfigure(rate))return false;
    digitalPhase=digitalPhase*std::uint64_t(rate)/mixRate;mixRate=rate;return true;
   }
-  auto stream=std::make_unique<SdlAudioStream>(49716,rate,kXeenFmGain);
+  auto stream=std::make_unique<SdlAudioStream>(id==4?48000:49716,rate,id==4?kXeenSourceGain:kXeenFmGain);
   auto cd=std::make_unique<SdlAudioStream>(44100,rate,kXeenCdGain);
   if(!stream->valid() || !cd->valid())return false;
   fmStream=std::move(stream);cdStream=std::move(cd);mixRate=rate;return true;
@@ -305,8 +306,8 @@ struct XeenAudio::Impl {
 };
 XeenAudio::XeenAudio(unsigned id,PromusDriver::Bytes driver,Loader l,std::vector<std::uint8_t> module,std::uint64_t now,bool device,PromusDriver::Sink trace,std::shared_ptr<XeenFmSource> output,CdDecoder decoder):
  XeenAudio(legacyConfig(id),std::move(driver),std::move(l),std::move(module),now,device,std::move(trace),std::move(output),std::move(decoder)){}
-XeenAudio::XeenAudio(XeenAudioConfig config,PromusDriver::Bytes driver,Loader l,std::vector<std::uint8_t> module,std::uint64_t now,bool device,PromusDriver::Sink trace,std::shared_ptr<XeenFmSource> output,CdDecoder decoder):
- _impl(new Impl(config,std::move(driver),std::move(l),std::move(module),now,device,std::move(trace),std::move(output),std::move(decoder))){}
+XeenAudio::XeenAudio(XeenAudioConfig config,PromusDriver::Bytes driver,Loader l,std::vector<std::uint8_t> module,std::uint64_t now,bool device,PromusDriver::Sink trace,std::shared_ptr<XeenFmSource> output,CdDecoder decoder,std::filesystem::path romDirectory):
+ _impl(new Impl(config,std::move(driver),std::move(l),std::move(module),now,device,std::move(trace),std::move(output),std::move(decoder),std::move(romDirectory))){}
 XeenAudio::~XeenAudio()=default;
 std::vector<std::uint8_t> XeenAudio::readProgramResource(const std::filesystem::path &folder,const std::string &name,XeenSceneArchive archive,const Loader &fallback) {
  std::optional<std::filesystem::path> loose;
@@ -316,7 +317,7 @@ std::vector<std::uint8_t> XeenAudio::readProgramResource(const std::filesystem::
  if(loose)return read(ReadOnlyDataFile::plain(*loose));
  return fallback(name,archive);
 }
-std::shared_ptr<XeenAudio> XeenAudio::installed(const GameInstallation &installation,XeenAssetSource &,std::uint64_t now,bool device) {
+std::shared_ptr<XeenAudio> XeenAudio::installed(const GameInstallation &installation,XeenAssetSource &,std::uint64_t now,bool device,std::filesystem::path romDirectory) {
  if(!installation.configuration)throw std::runtime_error("Missing installed WORLD/XEEN.CFG");
  const auto cfg=XeenAudioConfig::parse(read(*installation.configuration));
  if(!installation.uiModule)throw std::runtime_error("Missing installed WORLD/XEEN.DAT");
@@ -330,7 +331,7 @@ std::shared_ptr<XeenAudio> XeenAudio::installed(const GameInstallation &installa
  };
  auto resource=bytes(loader(std::string(cfg.musicDriver()),XeenSceneArchive::IntroOnly));
  (void)loader(std::string(cfg.digitalDriver(XeenAudioProgram::Dat)),XeenSceneArchive::IntroOnly);
- auto result=std::make_shared<XeenAudio>(cfg,resource,std::move(loader),read(*installation.uiModule),now,device);
+ auto result=std::make_shared<XeenAudio>(cfg,resource,std::move(loader),read(*installation.uiModule),now,device,PromusDriver::Sink{},std::shared_ptr<XeenFmSource>{},decodeXeenCdCue,std::move(romDirectory));
  result->cdTracks(inspectXeenCdTracks(installation.cdTracks));return result;
 }
 unsigned XeenAudio::deviceId() const{return _impl->id;}

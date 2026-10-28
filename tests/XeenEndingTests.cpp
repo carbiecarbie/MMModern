@@ -195,7 +195,7 @@ void originalAudioRecovery(Inputs &in,const GameInstallation &installation,const
  auto source=XeenSaveFile::read(input);source.soundOptions.efx=source.soundOptions.music=false;source.journey->playTimeSeconds=62545;
  Fixture expected(in,source);const auto score=xeenCloudsEndingScore(expected.p,62545);
  const auto blocker=directory/"settings-blocker";{std::ofstream out(blocker);out<<"file";}
- XeenProgramState program{XeenWallClock::fixed(0)};program.audio=XeenAudio::installed(installation,in.assets,0,false);
+ XeenProgramState program{XeenWallClock::fixed(0)};program.audio=XeenAudio::installed(installation,in.assets,0,false,std::filesystem::path("mmodern-nonexistent-rom-fixture"));
  Application app(program,{},blocker/"settings.ini");XeenSessionOutcome outcome;
  bool beforeCapture=true;unsigned writeAttempts=0,acknowledgements=0;
  const auto maps=in.mapLoader();

@@ -20,9 +20,9 @@ public:
  XeenAudio(unsigned deviceId,PromusDriver::Bytes driver,Loader,std::vector<std::uint8_t> module,
   std::uint64_t start,bool device=true,PromusDriver::Sink trace={},std::shared_ptr<XeenFmSource> output={},CdDecoder decoder=decodeXeenCdCue);
  XeenAudio(XeenAudioConfig,PromusDriver::Bytes driver,Loader,std::vector<std::uint8_t> module,
-  std::uint64_t start,bool device=true,PromusDriver::Sink trace={},std::shared_ptr<XeenFmSource> output={},CdDecoder decoder=decodeXeenCdCue);
+  std::uint64_t start,bool device=true,PromusDriver::Sink trace={},std::shared_ptr<XeenFmSource> output={},CdDecoder decoder=decodeXeenCdCue,std::filesystem::path romDirectory={});
  ~XeenAudio();
- static std::shared_ptr<XeenAudio> installed(const GameInstallation &,XeenAssetSource &,std::uint64_t now,bool device=true);
+ static std::shared_ptr<XeenAudio> installed(const GameInstallation &,XeenAssetSource &,std::uint64_t now,bool device=true,std::filesystem::path romDirectory={});
  unsigned deviceId() const;
  unsigned digitalDeviceId() const;
  bool hasDmaDigital() const;
