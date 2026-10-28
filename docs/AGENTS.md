@@ -22,7 +22,7 @@ workflow documents.
 | `docs/dependencies.md` | Toolchain, pinned ScummVM revision and configuration, build setup (authoritative) | - |
 | `docs/coverage.md` | Generated original-data mechanic census and per-map readiness; regenerate with `mmodern_census` whenever support changes; checked by `xeen_coverage_original_guard` and the Vertigo/mainland calibration gate `xeen_coverage_calibration` | Generated |
 | `docs/archive/` | Plans of milestones 6 and 15-72, kept as a historical record | Exempt |
-| `AGENTS.md`, `docs/AGENTS.md`, `tools/AGENTS.md` | Agent instructions: every task; documentation; complete test suite | Root under 220 lines |
+| `AGENTS.md`, `docs/AGENTS.md`, `tools/AGENTS.md` | Agent instructions: every task; documentation; complete test suite | Root under 240 lines |
 
 ## Milestone plans
 

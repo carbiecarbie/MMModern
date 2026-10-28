@@ -19,8 +19,7 @@ the default; they are not part of current work.
 ## Specialized instruction files
 
 This file holds the rules for every task. Not every agent loads the files
-below automatically, so read each one whose trigger applies before acting; if
-several apply, read all of them.
+below automatically, so read each one whose trigger applies before acting.
 
 | File | Read it before |
 | --- | --- |
@@ -44,12 +43,11 @@ several apply, read all of them.
   precedence; evidence from normal DOSBox play or from the original program
   (below) overrides the reference. When a plan, prompt or code is unclear about
   a behavior and the pinned ScummVM reference shows what the original does,
-  reproduce it without asking. Ask the
-  maintainer when the original itself is ambiguous, when the evidence is
-  contradictory or cannot be reliably verified (except the condition-counter
-  cases below), or when reproducing it would leave the milestone scope. Never
-  invent behavior the original does not have, including to get past
-  uncertainty.
+  reproduce it without asking. Ask the maintainer when the original itself is
+  ambiguous, when the evidence is contradictory or cannot be reliably verified
+  (except the condition-counter cases below), or when reproducing it would
+  leave the milestone scope. Never invent behavior the original does not have,
+  including to get past uncertainty.
 - **Original program evidence.** Read-only static analysis of the original
   CD program (`WORLD/XEEN.DAT`, for example through REA/Ghidra) counts as DOS
   evidence when it is calibrated against a known behavior, cites file offsets
@@ -124,6 +122,24 @@ Steps:
 Roadmap approval does not authorize implementation; the maintainer starts each
 milestone explicitly.
 
+**Play-tests.** Maintainer play-time is the scarcest resource; spend it only
+where nothing cheaper settles a change, without lowering the evidence bar.
+- Settle each change first with original-data tests, DOSBox captures,
+  calibrated program analysis, the pinned reference, and frames or audio the
+  agent renders and inspects itself. Play-test only the rest (audible or
+  visible equivalence without a capture, input feel, real devices, a case only
+  DOSBox play resolves), saying why for each item.
+- Hold one session per milestone, after its last part, Tier A included; an
+  earlier one only when a later part depends on its result, as the plan says.
+  With nothing unsettled it is a short check of the main result. Re-tests
+  after fixes cover only the failed items.
+- The report's script: ~10-15 items, ~30 minutes, in route order. Each item
+  gives one copy-paste block (generate the preset save, launch), the keys and
+  the concrete expected result (text, number, sound, frame) with its evidence.
+  Assume the maintainer has not played that content, Darkside included: say
+  where to go and what triggers it. Mark DOSBox comparisons with their
+  starting point. The maintainer answers by item number ("3 fail: ...").
+
 **Maintenance tasks.** Small fixes (a defect, a flaky test, a doc correction)
 may be done without a milestone plan: a scoped prompt, tests for a code or test
 fix, the complete CTest suite if production code changes, and the mandatory
@@ -136,29 +152,24 @@ recurring, stop and propose a milestone instead.
 - **Completion requirement.** A production-code change is never complete
   without a passing complete CTest suite, run through the test-runner protocol
   in `tools/AGENTS.md` (which also says when and on which builds).
-- Tests run on `build-rel` (RelWithDebInfo, `-O2 -g` without `-DNDEBUG`);
-  only `mmodern.exe` keeps its debug information, test and tool executables
-  link without it (`-DMMODERN_TEST_DEBUG_INFO=ON` keeps it to debug them).
-  The maintainer's play-tests and release packages use `build-rel` too;
-  `build-m44` (Debug, `-O0`) stays for debugging only. Setup is in
-  `docs/dependencies.md`.
+- Tests, the maintainer's play-tests and release packages use `build-rel`
+  (RelWithDebInfo, `-O2 -g` without `-DNDEBUG`); only `mmodern.exe` keeps its
+  debug information (`-DMMODERN_TEST_DEBUG_INFO=ON` keeps it for test and tool
+  executables). `build-m44` (Debug, `-O0`) stays for debugging only. Setup is
+  in `docs/dependencies.md`.
 - While iterating, build only the affected targets
   (`cmake --build build-rel --target <name>`), run the affected tests, and
   run `ctest --test-dir build-rel -L fast -j 8` (the declared `RUN_SERIAL`
   and `RESOURCE_LOCK` properties keep it safe). Keep a helper used by one
   test file inside that file rather than in a shared test header.
-- Write long build output to a log and read the summary and failures after
-  completion.
 - **Documentation-only changes** (no production code or tests changed): check
   the diff and links and run `git diff --check`; do not build or run CTest.
 
 ## Documentation
 
-`docs/AGENTS.md` lists each document's responsibility and the writing and
-closure rules. Do not create additional workflow or work-in-progress documents
-(progress reports, temporary workflow notes, redundant plans or duplicated
-instructions). The only exception is the two specialized `AGENTS.md` files
-listed above.
+Do not create additional workflow or work-in-progress documents (progress
+reports, temporary workflow notes, redundant plans or duplicated
+instructions) beyond the two specialized `AGENTS.md` files listed above.
 
 **Original quirks.** When a task deliberately keeps an oddity of the original
 or of the pinned reference (an original bug kept on purpose, a case following
