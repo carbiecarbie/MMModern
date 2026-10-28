@@ -1718,6 +1718,28 @@ damage times recorded. Unusual host keyboard layouts/keypad Equals also have
 no measured DOS equivalence. The static US Set-1 table is explicit above;
 MMModern's host-action exclusions are in [World Events](world-events.md#event-dispatch).
 
+### Event-wait drawing
+
+**Calibrated DOS static, high confidence (2026-10-28).** The wait redraw at
+`WORLD/XEEN.DAT` `0x24bf1..0x24bf8` calls the ordinary scene draw. It calls
+the small map at `0x1161d -> 0x13b27`; indoor wall lookup and drawing run at
+`0x13d6b..0x1438c`. The Event's masked-neighbour reads and writes are at
+`0x11db7..0x11def`, `0x11e1e..0x11e3c` and `0x234f5..0x23549`.
+
+The same draw calls the border at `0x117b1 -> 0x1b9c6`. In order it draws the
+outer frame `0x1b9c6..0x1b9df`; Levitate and its animation counter
+`0x1b9e2..0x1ba1a`; Spot Secret Doors `0x1ba1e..0x1ba63`; Danger Sense
+`0x1ba67..0x1baab`; Clairvoyance faces and window overlap
+`0x1baaf..0x1bb6a`; four elemental-resistance corners, with alternate window
+layout, `0x1bb6d..0x1bcbd`; Bless, Power Shield, Holy Bonus and Heroism
+`0x1bcc0..0x1bdb5`; Direction Sense `0x1bdb8..0x1bdfd`; and the enabled
+window 12 or 40 frame `0x1be00..0x1be14` (frame helper `0x44db8`). Window 12
+occupies `(0,143)` through `(319,198)`, and window 40 `(226,0)` through
+`(318,99)`; both extend outside the 3D viewport. The known indicator offsets,
+positions, skill checks and resource frames
+calibrate the routine. This establishes the redraw statically; it is not a
+DOSBox capture of the skull's small map.
+
 ## M87 Inn and party size
 
 **Scroll input and F-key follow-up, 2026-10-24:** calibrated, hash-checked

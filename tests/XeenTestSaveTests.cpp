@@ -67,6 +67,42 @@ void preset(const GameInstallation &installation,const std::string &name,const f
     check(flow.prepareJourneyFrame(flow.ticket(),[]{}) && flow.presentJourney(flow.ticket()),"restored preset is not quiet");
     const auto captured=XeenSaveState::capture(inputs.signature,party,camera,flags,world);
     check(XeenSaveFormat::encode(saved)==XeenSaveFormat::encode(captured),"restore replayed or changed state");
+    if(name=="m95-witch-skull") {
+        check(save_test::sameCamera(camera,{54,10,6,XeenDirection::North}),"M95 start at the Witch Tower skull");
+        check(!party.encounterContext->effects[XeenPartyEffect::WizardEye] && xeenPartyHasSkill(party,4),
+            "M95 starts without Wizard Eye and has Cartography");
+        std::optional<std::size_t> caster;
+        std::size_t member=0;
+        for(auto id:party.party.activeRosterIds()) {
+            const auto &c=party.roster.at(id);
+            check(c.canAct() && c.permanentLevel==30 && c.currentHp>0,"M95 strong, healthy party");
+            const auto category=XeenLearnedSpellRules::categoryForClass(c.characterClass);
+            if(!category){++member;continue;}
+            const auto slot=XeenLearnedSpellRules::slotForSpell(*category,unsigned(XeenLearnedSpell::WizardEye));
+            if(slot && c.learnedSpells && c.learnedSpells->at(*slot) && c.currentSpell==*slot &&
+               c.currentSp>=XeenLearnedSpellRules::cost(unsigned(XeenLearnedSpell::WizardEye),c.currentLevel()).sp)caster=member;
+            ++member;
+        }
+        check(bool(caster),"M95 can cast Wizard Eye");
+        const auto events=inputs.events.load(54);
+        check(std::any_of(events.records.begin(),events.records.end(),[](const auto &r) {
+            return r.x==10 && r.y==6 && r.line==0 && (unsigned(r.direction)==unsigned(XeenDirection::East) || unsigned(r.direction)==4);
+        }),"M95 skull Event faces East from the start cell");
+        const auto &actors=world.sessionState().regionalActors(54);
+        check(std::any_of(actors.begin(),actors.end(),[](const auto &a){return a.lifecycle==XeenActorLifecycle::Present;}),
+            "M95 retains the original Witch Tower monsters");
+        training_test::Fixture visit(inputs,saved);
+        visit.act(CastSpellAction{});visit.act(SelectMemberAction{*caster});visit.act(DialogKeyAction{'c'});
+        for(unsigned n=0;n<1000 && !visit.flow->canSave();++n)pulse(visit);
+        check(visit.flow->canSave() && visit.p.encounterContext->effects[XeenPartyEffect::WizardEye],
+            "M95 Wizard Eye casts and returns to exploration");
+        visit.act(NavigationAction::TurnRight);
+        for(unsigned n=0;n<1000 && !visit.flow->canSave();++n)pulse(visit);
+        check(visit.flow->canSave() && visit.c.direction==XeenDirection::East,"M95 Right faces the skull");
+        visit.act(InteractionAction{});
+        check(!visit.flow->canSave() && visit.flow->presentationGeneration(),"M95 Space starts the skull Event");
+        return;
+    }
     if(name.rfind("m90-",0)==0) {
         const bool gatePreset=name=="m90-newcastle" || name=="m90-golem" || name=="m90-illusion" || name=="m90-high-magic" ||
             name=="m90-darzog" || name=="m90-clouds" || name=="m90-castle" || name=="m90-winterkill";

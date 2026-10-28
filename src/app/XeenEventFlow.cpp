@@ -1542,8 +1542,8 @@ XeenEventFlow::Composition XeenEventFlow::composeJourneyScene(bool reconstruct) 
 			if(_eventPublication)_eventPublication->continuation(state,*work.continuation,true);
 		};
 		checkRetained();
-		// Retain the live interface and portrait layers while drawing the current
-		// Event candidate into the 3D viewport. Neither draw publishes the candidate.
+		// Retain live portraits and controls while drawing the Event's current
+		// scene, small map and border. Neither draw publishes the candidate.
 		XeenRestoreGuard candidate(*work.world,work.party,state.workingCamera,work.flags);
 		candidate.retainResources(*work.guard);
 		XeenRestoreGuard::Providers providers(candidate,*work.world,checkRetained);
@@ -1572,8 +1572,16 @@ XeenEventFlow::Composition XeenEventFlow::composeJourneyScene(bool reconstruct) 
 			drawingGuard.check();candidate.check();checkRetained();
 			if(!frame.frame.isValid() || !view.frame.isValid() || frame.frame.width!=320 || frame.frame.height!=200 ||
 				view.frame.width!=320 || view.frame.height!=200)throw std::runtime_error("Invalid Event scene composition");
-			for(unsigned y=8;y<140;++y)
-				std::copy_n(view.frame.pixels.begin()+y*320+8,216,frame.frame.pixels.begin()+y*320+8);
+			const auto copy=[&](unsigned left,unsigned top,unsigned right,unsigned bottom) {
+				for(unsigned y=top;y<bottom;++y)
+					std::copy_n(view.frame.pixels.begin()+y*320+left,right-left,frame.frame.pixels.begin()+y*320+left);
+			};
+			copy(8,8,224,140);       // 3D viewport and its inner border
+			copy(223,9,317,75);      // small map and the right border face
+			copy(0,0,230,9);         // upper resistance corners
+			copy(0,8,8,149);         // left face, levitation and corner edges
+			copy(0,140,230,149);     // lower corners, buffs and direction letter
+			copy(224,134,230,140);   // outer edge of the lower-right corner
 			frame.containsOrdinaryAnimation=frame.containsOrdinaryAnimation || view.containsOrdinaryAnimation;
 			return frame;
 		} catch(...) {drawingGuard.check();candidate.check();checkRetained();throw;}

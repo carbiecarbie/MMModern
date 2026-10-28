@@ -101,7 +101,12 @@ The NPC's pre-wait mouse drain also zeros the current code (`0x25ac7` to
 The final accepted acknowledgement leaves its new code for the outer dispatch;
 mode 2 returns without these waits or clears.
 
-Frames drawn while an Event waits show the script's world changes so far. In
+Frames drawn while an Event waits show the script's world changes so far,
+including the small map and the border indicators. Indoor map tiles appear
+when explored or while Wizard Eye reveals them. MMModern draws these from the
+pending Event without publishing it; dialog layers retain their usual order.
+The wait redraw is **calibrated DOS static, high confidence**, not a DOSBox
+capture of the small map ([evidence](evidence.md#event-wait-drawing)). In
 DOSBox on 2026-10-27, the maintainer saw the map 33 gas trap's object while it
 hurt the party.
 

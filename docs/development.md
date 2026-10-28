@@ -201,6 +201,18 @@ spell or item cost; an unset beacon defaults to Vertigo even on cancel.
 .\build-rel\mmodern_test_save.exe m76-spells "F:/Games/gog/Might and Magic 4-5" "D:/Projetos/MModern/MModern-playtest/m76-spells.mmsave"
 ```
 
+The `m95-witch-skull` preset starts at Witch Tower Level 4, Clouds map 54
+`(10,6)` facing North, beside the skull. The level-30 party has equipped gear,
+spell books and enough gems for the tower; the original monsters remain. Cast
+Wizard Eye before turning: press C, select a caster whose current spell is
+Wizard Eye with F1-F6, then press C again. Press Right to face the skull and
+Space to talk to it. Answer Yes and enter `Rosebud` to open the passage.
+
+```powershell
+.\build-rel\mmodern_test_save.exe m95-witch-skull "F:/Games/gog/Might and Magic 4-5" "D:/Projetos/MModern/MModern-playtest/m95-witch-skull.mmsave"
+.\build-rel\mmodern.exe --load-game "F:/Games/gog/Might and Magic 4-5" "D:/Projetos/MModern/MModern-playtest/m95-witch-skull.mmsave"
+```
+
 The M84 input/Event presets use the current save format and a healthy travel
 party with 1,000 HP per member; monsters on retained maps are defeated so the
 input witnesses stay quiet. Loading still makes the normal flagged-cell entry

@@ -1,6 +1,8 @@
 #include "XeenTrainingTestSupport.h"
 #include "XeenTestInstallation.h"
+#include "games/xeen/CloudsMapComposer.h"
 #include "games/xeen/XeenOutdoorScene.h"
+#include "games/xeen/XeenSkills.h"
 #include <iostream>
 using namespace training_test;
 namespace mmodern {
@@ -9,6 +11,15 @@ struct XeenEventDispatchTestAccess {
  static void script(XeenEventFlow &f,const XeenEventFile &file){f._encounter->_journeyEvents=file;f._encounter->retainJourney();f._encounterFrame=f._encounter->ticket();}
  static void liveComposer(XeenEventFlow &f,XeenEventFlow::EncounterCompose compose){f._encounterCompose=std::move(compose);}
  static unsigned candidateLight(const XeenEventFlow &f){return f._transition->party.encounterContext->lightAndResistances[0];}
+ static std::optional<XeenPresentationRequest> request(const XeenEventFlow &f) {
+  return f._pending && f._pending->state.pendingPresentation ?
+   std::optional<XeenPresentationRequest>(f._pending->state.pendingPresentation->request) : std::nullopt;
+ }
+ static XeenWorld &candidateWorld(const XeenEventFlow &f){return *f._transition->world;}
+ static const XeenPartyState &candidateParty(const XeenEventFlow &f){return f._transition->party;}
+ static IndexedFrame candidateWithDialogs(const XeenEventFlow &f,const IndexedFrame &base) {
+  auto presenter=f._presenter;return presenter.rebase(base);
+ }
  static bool damage(const XeenEventFlow &f){return f._pending && f._pending->state.pendingPresentation &&
   f._pending->state.pendingPresentation->request.kind==XeenPresentationKind::PortraitEffect;}
 };
@@ -124,6 +135,147 @@ void trapScene(Inputs &in,unsigned map,int x,int y,unsigned record,int sprite) {
  check(object.x==-128 && object.y==-128 && health(f)<before,"Trap did not finish with its object hidden and party injured");
  const auto commands=XeenIndoorScene().build(f.w,f.c,&resolver,nullptr,0);
  check(std::none_of(commands.begin(),commands.end(),[&](const auto &cmd){return cmd.object() && cmd.object()->visual.identity==XeenObjectIdentity{map,record};}),"Hidden trap object remained in the scene");
+}
+// Q01: use the original skull Event and the movement owner, while observing
+// the actual displayed frame and the candidate composition of the same draw.
+struct SkullRaster {IndexedFrame live,candidate;};
+struct SkullObservation {
+ bool seen=false;unsigned mapMismatch=0,mapDifference=0,windowFrameMismatch=0;
+ std::array<unsigned,12> borderMismatch{};
+ int liveWord=-1,candidateWord=-1,liveStepped=-1,candidateStepped=-1;
+};
+void skullRaster(Fixture &f,SkullRaster &raster) {
+ const auto draw=[&f](XeenWorld &world,const XeenPartyState &party,const XeenCamera &camera,
+                      std::uint64_t phase,XeenMonsterAppearance appearance) {
+  bool animated=false;
+  auto image=CloudsMapComposer().compose(f.in.assets,world,party,camera,
+   {party.encounterContext?unsigned(party.encounterContext->year):0u},nullptr,phase,&animated,appearance);
+  return XeenEventFlow::Composition{std::move(image),animated};
+ };
+ XeenEventDispatchTestAccess::composer(*f.flow,[&raster,draw](auto &world,const auto &party,const auto &camera,auto phase,auto appearance) {
+  auto result=draw(world,party,camera,phase,appearance);raster.candidate=result.frame;return result;
+ });
+ XeenEventDispatchTestAccess::liveComposer(*f.flow,[&f,&raster,draw](auto phase,auto appearance) {
+  auto result=draw(f.w,f.p,f.c,phase,appearance);raster.live=result.frame;return result;
+ });
+}
+void inspectSkullWait(Fixture &f,SkullRaster &raster,SkullObservation &seen) {
+ if(seen.seen)return;
+ const auto image=f.flow->refresh(true);f.present(image);
+ check(image.isValid() && raster.live.isValid() && raster.candidate.isValid(),"Q01 scene images are missing");
+ const auto candidate=XeenEventDispatchTestAccess::candidateWithDialogs(*f.flow,raster.candidate);
+ for(unsigned y=9;y<75;++y)for(unsigned x=224;x<317;++x) {
+  const auto i=y*320+x;seen.mapMismatch+=image.pixels[i]!=candidate.pixels[i];
+  seen.mapDifference+=raster.live.pixels[i]!=candidate.pixels[i];
+ }
+ // Bounding rectangles for the original border sprites. Exclude the already
+ // copied viewport; the presenter may cover an element with a later dialog.
+ struct Region {unsigned x1,y1,x2,y2;};
+ constexpr Region elements[]={{0,82,8,120},{0,32,8,55},{224,32,232,55},
+  {2,2,13,13},{219,2,230,13},{2,134,13,145},{219,134,230,145},
+  {33,137,55,149},{55,137,77,149},{160,137,182,149},{182,137,203,149},
+  {109,139,124,149}};
+ for(unsigned e=0;e<std::size(elements);++e)for(unsigned y=elements[e].y1;y<elements[e].y2;++y)
+  for(unsigned x=elements[e].x1;x<elements[e].x2;++x)if(x<8 || x>=224 || y<8 || y>=140) {
+   const auto i=y*320+x;seen.borderMismatch[e]+=image.pixels[i]!=candidate.pixels[i];
+  }
+ // DOS also redraws window 12's frame when the bottom Event window is open.
+ // Compare its perimeter after rebasing the same retained dialog layers.
+ for(unsigned y=143;y<199;++y)for(unsigned x=0;x<320;++x)
+  if(y<151 || y>=191 || x<8 || x>=312)
+   seen.windowFrameMismatch+=image.pixels[y*320+x]!=candidate.pixels[y*320+x];
+ const auto live=f.w.sampleCell(54,9,5);
+ const auto pending=XeenEventDispatchTestAccess::candidateWorld(*f.flow).sampleCell(54,9,5);
+ check(bool(live) && bool(pending),"Q01 changed cell missing");
+ seen.liveWord=live->cell->rawWord;seen.candidateWord=pending->cell->rawWord;
+ seen.liveStepped=live->cell->stepped;seen.candidateStepped=pending->cell->stepped;seen.seen=true;
+}
+void settleSkull(Fixture &f,const std::string &word,SkullRaster *raster=nullptr,
+                 SkullObservation *observation=nullptr,unsigned line=0) {
+ for(unsigned n=0;!f.flow->canSave();++n) {
+  check(n<1800,"Q01 Event did not settle");
+  const auto request=XeenEventDispatchTestAccess::request(*f.flow);
+  if(request && observation && request->source.line==line)inspectSkullWait(f,*raster,*observation);
+  const auto input=f.flow->inputContext(f.flow->frame().presentation());
+  if(input.readyForAction && input.dialog) {
+   if(input.dialog->anyKey)f.act(AcknowledgeAction{});
+   else if(request && request->response==XeenPresentationResponseRequirement::YesNo)f.act(YesAction{});
+   else if(request && request->response==XeenPresentationResponseRequirement::WordInput) {
+    f.act(TextInputAction{word});f.act(DialogKeyAction{InputKey::Enter});
+   }
+  }
+  f.now+=25;f.flow->beginCycle(++f.cycle);if(auto next=f.flow->updatePresentation())f.present(*next);
+ }
+}
+void skullCase(Inputs &in,const std::string &which) {
+ const bool eye=which=="eye",explored=which=="explored";
+ check(eye || explored || which=="fresh","Unknown Q01 case");
+ auto source=at(in,54,10,6,XeenDirection::East);
+ source.journey->context->effects[XeenPartyEffect::WizardEye]=eye?1:0;
+ source.journey->context->effects[XeenPartyEffect::AutomapOn]=eye?0:1;
+ Fixture f(in,source);SkullRaster raster;skullRaster(f,raster);f.present(f.flow->refresh(true));
+ check(xeenPartyHasSkill(f.p,4),"Q01 party needs Cartography");
+ const auto original=f.w.sampleCell(54,9,5)->cell->rawWord;
+ const auto gems=f.p.purse->gems;
+ SkullObservation observation;
+ f.act(InteractionAction{});settleSkull(f,"Rosebud",explored?nullptr:&raster,explored?nullptr:&observation,19);
+ const auto opened=f.w.sampleCell(54,9,5)->cell->rawWord;
+ check(opened!=original && f.c.mapId==XeenMapIdentity(54) && f.p.purse->gems+1==gems,
+       "Rosebud did not publish the opened passage and gem payment");
+ if(explored) {
+  const auto move=[&](NavigationAction action){f.now+=125;f.act(action);settleSkull(f,"wrong");};
+  move(NavigationAction::TurnRight);move(NavigationAction::TurnRight);move(NavigationAction::MoveForward);
+  move(NavigationAction::TurnRight);move(NavigationAction::TurnRight);move(NavigationAction::TurnRight);
+  move(NavigationAction::MoveForward);
+  check(f.c.x==9 && f.c.y==5 && f.w.sampleCell(54,9,5)->cell->stepped,"Q01 passage was not explored by movement");
+  move(NavigationAction::TurnRight);move(NavigationAction::TurnRight);move(NavigationAction::MoveForward);
+  move(NavigationAction::TurnRight);move(NavigationAction::MoveForward);
+  check(f.c.x==10 && f.c.y==6 && f.c.direction==XeenDirection::East,"Q01 return route missed the skull");
+ }
+ if(explored) {
+  f.act(InteractionAction{});settleSkull(f,"wrong",&raster,&observation,10);
+  check(f.c.mapId==XeenMapIdentity(51) && f.c.x==7 && f.c.y==9 && f.w.sampleCell(54,9,5)->cell->rawWord==original,
+   "Wrong word did not publish the closed passage and teleport");
+ }
+ check(observation.seen,"Q01 expected confirmation wait was not presented");
+ check(!explored ? (!observation.liveStepped && !observation.candidateStepped && observation.liveWord==original && observation.candidateWord==opened) :
+       (observation.liveStepped && observation.candidateStepped && observation.liveWord==opened && observation.candidateWord==original),
+       "Q01 wait has the wrong wall or exploration state");
+ if(eye || explored)check(observation.mapDifference>0,"Q01 witness did not expose a changed map pixel");
+ else check(observation.mapDifference==0,"Q01 fresh control unexpectedly exposed the changed tile");
+ for(unsigned e=0;e<observation.borderMismatch.size();++e)
+  check(observation.borderMismatch[e]==0,("Q01 "+which+" border element "+std::to_string(e)+" differs from candidate").c_str());
+ check(observation.windowFrameMismatch==0,("Q01 "+which+" bottom window frame differs from candidate").c_str());
+ check(observation.mapMismatch==0,("Q01 "+which+" small map differs from candidate at "+std::to_string(observation.mapMismatch)+" pixels").c_str());
+ std::cout<<"Q01 "<<which<<" passed (live/candidate map pixels "<<observation.mapDifference<<")\n";
+}
+// The skull does not change resistances. A synthetic Event on original city
+// data makes the border test distinguish candidate-only state from live state.
+void pendingBorder(Inputs &in) {
+ auto source=at(in,28,20,20,XeenDirection::North);
+ for(unsigned i=2;i<6;++i)source.journey->context->lightAndResistances[i]=0;
+ const auto line=[](unsigned n,unsigned op,std::vector<std::uint8_t> args) {
+  XeenEventRecord r;r.x=20;r.y=20;r.direction=4;r.line=n;r.opcode=op;r.parameters=std::move(args);r.lengthField=5+r.parameters.size();return r;
+ };
+ XeenEventFile script{28,"maze0028.evt",true,{line(0,0x0c,{0,0,74,7}),line(1,0x09,{44,1,2}),line(2,0x12,{})}};
+ Fixture f(in,source,false,&script);SkullRaster raster;skullRaster(f,raster);f.present(f.flow->refresh(true));
+ f.act(InteractionAction{});
+ const auto request=XeenEventDispatchTestAccess::request(*f.flow);
+ check(request && request->kind==XeenPresentationKind::Confirmation,"Candidate border Event did not reach its wait");
+ const auto &pending=XeenEventDispatchTestAccess::candidateParty(*f.flow);
+ check(!f.p.encounterContext->lightAndResistances[2] && pending.encounterContext->lightAndResistances[2],
+       "Candidate border Event published resistance before its wait");
+ const auto shown=f.flow->refresh(true);f.present(shown);
+ check(shown.isValid() && raster.live.isValid() && raster.candidate.isValid(),"Candidate border images are missing");
+ const auto live=XeenEventDispatchTestAccess::candidateWithDialogs(*f.flow,raster.live);
+ const auto candidate=XeenEventDispatchTestAccess::candidateWithDialogs(*f.flow,raster.candidate);
+ unsigned different=0,wrong=0;
+ for(unsigned y=2;y<13;++y)for(unsigned x=2;x<13;++x)if(x<8 || y<8) {
+  const auto i=y*320+x;different+=live.pixels[i]!=candidate.pixels[i];wrong+=shown.pixels[i]!=candidate.pixels[i];
+ }
+ check(different>0 && wrong==0,"Candidate-only Fire resistance was not drawn outside the viewport");
+ f.act(AcknowledgeAction{});finish(f,true);
+ check(f.flow->canSave() && f.p.encounterContext->lightAndResistances[2],"Candidate border Event did not publish on completion");
 }
 void outdoorScene(Inputs &in) {
  auto source=at(in,23,9,6,XeenDirection::South);Fixture f(in,source);
@@ -321,8 +473,11 @@ void guardedNpc(Inputs &in) {
 }
 }
 int main(int argc,char **argv){try {
- check(argc==2,"original dispatch test requires game directory");auto installation=xeenTestInstallationDetector().detect(argv[1]);check(bool(installation),"original installation missing");
- Inputs in(*installation);trap(in);rubble(in);trapScene(in,55,7,8,5,87);trapScene(in,33,3,15,0,89);manualRefusalScene(in);outdoorScene(in);darkPendingScene(in);label(in);guardedNpc(in);combatLabels(in);combatTrap(in);std::cout<<"M84 original-data Event passes OK\n";return 0;
+ check(argc==2 || argc==3,"original dispatch test requires game directory");auto installation=xeenTestInstallationDetector().detect(argv[1]);check(bool(installation),"original installation missing");
+ Inputs in(*installation);
+ if(argc==3) {if(std::string(argv[2])=="border")pendingBorder(in);else skullCase(in,argv[2]);return 0;}
+ skullCase(in,"fresh");skullCase(in,"explored");skullCase(in,"eye");pendingBorder(in);
+ trap(in);rubble(in);trapScene(in,55,7,8,5,87);trapScene(in,33,3,15,0,89);manualRefusalScene(in);outdoorScene(in);darkPendingScene(in);label(in);guardedNpc(in);combatLabels(in);combatTrap(in);std::cout<<"M84 original-data Event passes OK\n";return 0;
 }catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}
 
 
