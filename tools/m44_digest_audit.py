@@ -56,8 +56,9 @@ def outside_repository(path):
 def clean_environment(binary_dir):
     env = {k: v for k, v in os.environ.items() if not k.upper().startswith(('MMODERN_', 'SDL_'))}
     windows = Path(os.environ['SystemRoot'])
+    # The witnesses never depend on audio output; keep them off the speakers.
     env.update(PATH=os.pathsep.join(map(str, (binary_dir, windows / 'System32', windows))),
-               SDL_VIDEODRIVER='dummy', SDL_RENDER_DRIVER='software')
+               SDL_VIDEODRIVER='dummy', SDL_RENDER_DRIVER='software', SDL_AUDIODRIVER='dummy')
     return env
 
 

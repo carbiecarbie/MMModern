@@ -122,10 +122,11 @@ class AuditTests(unittest.TestCase):
             self.assertIn('missing dependency', (output/'summary.txt').read_text())
 
     def test_environment_and_dump_rejection(self):
-        with patch.dict(audit.os.environ, {'MMODERN_M44_SCENARIO':'stale','MMODERN_M49_TRACE':'stale'}):
+        with patch.dict(audit.os.environ, {'MMODERN_M44_SCENARIO':'stale','MMODERN_M49_TRACE':'stale','SDL_AUDIODRIVER':'wasapi'}):
             env = audit.clean_environment(Path('bundle'))
             self.assertNotIn('MMODERN_M44_SCENARIO',env)
             self.assertNotIn('MMODERN_M49_TRACE',env)
+            self.assertEqual(env['SDL_AUDIODRIVER'],'dummy')
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory)/'fields.tsv'
             path.write_text('snapshot.food\t5\nsnapshot.food\t6\n')
