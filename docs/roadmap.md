@@ -128,39 +128,30 @@ this order; steps are direction, not approved plans.
    both sides, then Darkside's mechanics in order of
    [census](coverage.md#darkside-largest-gaps) impact.
 
-## Medium-term objective
+## Medium term: Darkside and World of Xeen
 
-The first objective, a **normal-start Clouds foothold** (a new game played
-continuously with equipment, recovery, spells, Training, quests and saves),
-was reached in Vertigo by M64 and extended to all of Clouds by M78-M81;
-steps 15-20 then finished Clouds with its intros and sound devices. A further area
-should mostly need its resources and mechanic gaps, not a new coordinator or
-save shape.
+After the next arc's Darkside start:
 
-## Long-term direction
-
-1. **Broader Clouds play** (reached): ordinary travel between regions,
-   time, rest and food, the full economy and services, skills, item and
-   monster effects, indoor hazards and reusable quest and Event behavior.
-2. **Complete Clouds** (reached with M92 and confirmed by M90's
-   play-through): all regions and dungeons, progression, quests and ending,
-   with faithful presentation and audio.
-3. **Darkside:** reuse the shared engine and admit Darkside's own content,
+1. **Darkside:** finish Darkside on the shared engine, with its own content,
    balance and exceptions. Resource access alone does not make it playable.
-4. **World of Xeen:** connect both sides with original travel, shared state and
-   integrated objectives and endings.
+2. **World of Xeen:** connect both sides with original travel, the Pyramids,
+   shared state and the integrated objectives and endings (`showdown`,
+   `genesis`).
 
-Later goals, in no fixed order, each with its own decision and plan:
+## Later goals
 
-- Saves that survive updates, when compatibility is revisited for 1.0.
-- Automated builds and tests on GitHub.
-- An open beta and a "Clouds complete" announcement.
-- Steam Deck through Proton, then a native Linux build and its distribution.
-- The opt-in extras the README lists: graphics filters, game controller
-  support and switching sound devices while playing.
-- Mod support and modding tools, and a study of the community MM3
-  conversion ([mm345-conversion](https://github.com/hooby3dfx/mm345-conversion)).
-- Other language editions of the original.
+Roughly in this order, each with its own decision and plan:
+
+1. Automated builds and tests on GitHub.
+2. An open beta and a "Clouds complete" announcement.
+3. Steam Deck through Proton, then a native Linux build and its distribution.
+4. Saves that survive updates, when compatibility is revisited for 1.0.
+5. A study of the community MM3 conversion
+   ([mm345-conversion](https://github.com/hooby3dfx/mm345-conversion)), then
+   mod support and modding tools.
+6. The opt-in extras the README lists: game controller support, graphics
+   filters and switching sound devices while playing.
+7. Other language editions of the original.
 
 ## Review cadence
 
