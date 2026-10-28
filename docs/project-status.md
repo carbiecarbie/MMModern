@@ -1,11 +1,12 @@
 # MMModern - Project Status
 
-This describes what can be played and done now. M93 is the latest completed
-and accepted milestone (2026-10-27; [plan](milestone-93-plan.md)): each
-launch opens with the original Darkside intro. M90 before it confirmed that
-Clouds of Xeen can be played from Newcastle's Megacredits to Lord Xeen, M92
-made Clouds finishable, with the original ending and score, and M91 added
-the Clouds intro.
+This describes what can be played and done now. M94 is the latest completed
+and accepted milestone (2026-10-28; [plan](milestone-94-plan.md)): the
+original AdLib, Sound Blaster and MT-32 drivers play when `XEEN.CFG`
+selects them. M93 before it opened each launch with the original Darkside
+intro, M90 confirmed that Clouds of Xeen can be played from Newcastle's
+Megacredits to Lord Xeen, M92 made Clouds finishable, with the original
+ending and score, and M91 added the Clouds intro.
 Earlier milestones are in [project history](project-history.md), direction is
 in the [roadmap](roadmap.md), and build and dependency setup is in
 [dependencies](dependencies.md).
@@ -189,13 +190,22 @@ random draw.
 ### Sound
 
 The game plays the original FM music and effects as the CD installation's own
-setup does: the Pro Audio Spectrum driver on an OPL3 chip, in stereo, with
+setup does: the Sound Blaster Pro driver on an OPL3 chip, in stereo, with
 each place's song and fades between songs. Digital effects, voices, entrance
 speech and Event samples play, and CD speech reads the installed OGG tracks.
 The panel's sound buttons work as in the original, and Text off restores text
 when speech cannot play. An output failure silences audio with one notice,
 and a removed device reopens the default. A missing `WORLD/XEEN.CFG` refuses
 to start, as in the original ([audio rules](rules/audio.md)).
+
+The sound devices follow `WORLD/XEEN.CFG` as the original installer wrote
+it, in both the game and the intros. Music can also come from the AdLib,
+Sound Blaster and Pro Audio Spectrum drivers on an OPL2 chip, or from the
+MT-32 driver on an emulated MT-32 with the player's MT-32 1.07 control and
+PCM ROMs in `%LOCALAPPDATA%\MMModern\roms`. Digital sound can also come from
+the Sound Blaster driver. The other installer choices play silently with one
+"not supported yet" notice, and missing MT-32 ROMs give one notice and
+silence; the game's timing is the same either way.
 
 ## Interface
 
@@ -286,7 +296,10 @@ the original data uses and its support status.
 - Scenes and commands: the Pyramid entrance and the mirror words
   `showdown` and `genesis` (the Darkside and World endings) say "not
   supported yet".
-- Sound: other sound devices belong to step 19. F8 speech replay is
+- Sound: the Canvas/GS, PC speaker, Wave Blaster and TAP-10 music
+  drivers, and the PC speaker, AdLib, Disney Sound Source, Pro Audio
+  Spectrum and Covox digital drivers, are silent with a notice.
+  There is no device switch while playing. F8 speech replay is
   omitted by maintainer decision. SDL's resampler plays FM and CD audio up
   to about 0.07% fast, which is inaudible
   ([audio rules](rules/audio.md#sdl-resampler-rate-limitation)).

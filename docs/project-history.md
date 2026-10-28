@@ -256,3 +256,9 @@ time, and the EXE ending plays; save v21. [Plan](milestone-92-plan.md).
 **M93 - Startup and the Darkside intro** (`3b0eb93`). Each launch plays the
 Darkside story until watched, then the logos; Other Options `D` replays it.
 [Plan](milestone-93-plan.md).
+
+**M94 - Other sound devices** (`ea39c26`, `67d241f`, `6fc9a22`, `a12639e`).
+`XEEN.CFG` selects the original drivers as the installer wrote them: AdLib,
+Sound Blaster and PAS music on OPL2, MT-32 with the player's ROMs, Sound
+Blaster digital; the other choices are silent with a notice.
+[Plan](milestone-94-plan.md).

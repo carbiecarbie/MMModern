@@ -1,6 +1,6 @@
 # MMModern - Roadmap
 
-**M93 is the latest completed and accepted milestone.**
+**M94 is the latest completed and accepted milestone.**
 [Project status](project-status.md) describes what is playable now;
 [project history](project-history.md) records each completed milestone.
 Reference provenance belongs to [dependencies](dependencies.md).
@@ -22,9 +22,9 @@ with Rest, food, time, skills, magic, item services and the original clock,
 moved to the CD edition's data (M53), and closed with the first public
 releases.
 
-Since then M65-M93 have made Clouds of Xeen playable from a new game to its
-ending, with the original intros. Step 19 is the only step left in the
-current arc; the maintainer chooses the next milestone.
+Since then M65-M94 have made Clouds of Xeen playable from a new game to its
+ending, with the original intros and the installer's sound devices. Every
+step of the current arc is done; the maintainer chooses the next milestone.
 
 ## Completed arc: closing Vertigo and the first release
 
@@ -70,6 +70,7 @@ step.
 | 16. Clouds verification sweep | [M90](milestone-90-plan.md) | Megacredits to Lord Xeen confirmed; no content gap |
 | 17. Cutscene presenter and Clouds intro | [M91](milestone-91-plan.md) | Read from the installed `WORLD/XEEN.EXE` |
 | 18. Clouds ending and score | [M92](milestone-92-plan.md) | Clouds finishable; win kept in `settings.ini` |
+| 19. Other sound devices (Tier A) | [M94](milestone-94-plan.md) | AdLib, Sound Blaster and MT-32 from `XEEN.CFG`; the rest silent with a notice |
 | 20. Startup and the Darkside intro | [M93](milestone-93-plan.md) | Full story until watched, then the logos |
 
 Two investigations shaped the order. A gap investigation (2026-10-19) found
@@ -82,14 +83,10 @@ showed the Scepter on the ordinary treasure screen, the Sixth Mirror's
 message and the save of the live party at Vertigo before `XEEN.EXE` plays
 the ending; steps 15-18 implemented it.
 
-The remaining step:
-
-19. **Other sound devices** (after step 12): the original's other drivers
-    (AdLib and Sound Blaster FM, MT-32 with the player's ROMs, PC speaker and
-    the rest; M82 plays the CD's Pro Audio Spectrum driver), chosen as the
-    installer did; an opt-in switch while playing would be an approved
-    deviation (maintainer, 2026-10-21). Planned as
-    [M94](milestone-94-plan.md).
+Step 19 left the Canvas/GS, PC speaker, Wave Blaster and TAP-10 music and
+five digital drivers silent with a notice, their open questions recorded in
+the [M94 plan](milestone-94-plan.md#scope). A switch between devices while
+playing would be an opt-in approved deviation (maintainer, 2026-10-21).
 
 The Pyramid and the Darkside and World endings (`showdown`, `genesis`) wait
 for the Darkside arc.
@@ -99,7 +96,7 @@ for the Darkside arc.
 The first objective, a **normal-start Clouds foothold** (a new game played
 continuously with equipment, recovery, spells, Training, quests and saves),
 was reached in Vertigo by M64 and extended to all of Clouds by M78-M81;
-steps 15-18 and 20 then finished Clouds, and step 19 remains. A further area
+steps 15-20 then finished Clouds with its intros and sound devices. A further area
 should mostly need its resources and mechanic gaps, not a new coordinator or
 save shape.
 

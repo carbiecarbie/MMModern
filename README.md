@@ -73,6 +73,13 @@ default output at its own rate, including changes during play. Output failures
 silence audio with one notice and keep the game running; device removal
 reopens the default output.
 
+The sound devices are the ones the original installer wrote into the game's
+`WORLD/XEEN.CFG`; the installed file selects the Sound Blaster Pro music
+driver. AdLib, Sound Blaster, Pro Audio Spectrum and MT-32 music also play.
+For MT-32, put your MT-32 1.07 control ROM and MT-32 PCM ROM, under any file
+names, in `%LOCALAPPDATA%\MMModern\roms`; MMModern includes no ROMs. Other
+devices are silent with a notice.
+
 ## Saving
 
 Press Tab, or click the gem, to open the control panel with Save, Save As, Load
@@ -130,9 +137,8 @@ been studied yet, and each will be an option that is off by default, so the game
 stays faithful unless you turn it on:
 
 - Graphics filters for the scaled picture.
-- A choice of which original sound device you hear, such as AdLib,
-  Sound Blaster or MT-32 with your own ROMs. This one is already on the
-  [roadmap](https://github.com/carbiecarbie/MMModern/blob/main/docs/roadmap.md).
+- Switching between the original sound devices from inside MMModern,
+  instead of through `XEEN.CFG`.
 - Game controller support.
 - Possibly some interface improvements.
 
