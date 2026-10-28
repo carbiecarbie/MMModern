@@ -75,8 +75,9 @@ struct XeenSaveMonsterTable {
 	}
 };
 
-// MOB object position and effective flip; (-128,-128) is a removed object,
-// as the original's Remove writes it, and is canonical with no flip.
+// MOB object position and effective flip. Remove is (-128,-128) without a
+// flip; a hidden MoveObj can retain a flip at that position. A hidden MoveObj
+// without a flip shares the Remove representation.
 struct XeenSaveObjectOverride {
 	std::uint16_t record = 0;
 	int x = 0, y = 0;

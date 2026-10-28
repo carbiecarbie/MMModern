@@ -150,7 +150,7 @@ void XeenSaveState::restoreJourney(const XeenSaveSnapshot &source, const Resourc
 	const auto events = [&](XeenMapIdentity id) { return callback([&] { return eventProvider(id); }); };
 	static_cast<void>(w.map(c.mapId));
 	// The per-map overlays, flattened in identity order; the World binds each
-	// to its own map's resources. A removed object is its (-128,-128) entry.
+	// to its own map's resources. A removed object is (-128,-128) without a flip.
 	std::vector<XeenObjectIdentity> removedObjects;
 	std::vector<XeenObjectOverride> movedObjects;
 	std::vector<XeenEventIdentity> disabledEvents;
@@ -161,7 +161,7 @@ void XeenSaveState::restoreJourney(const XeenSaveSnapshot &source, const Resourc
 	for (const auto &m:snapshot.maps) {
 		for (const auto &v:m.objects) {
 			const XeenObjectIdentity id{m.id,v.record};
-			if (v.x==-128 && v.y==-128) removedObjects.push_back(id);
+			if (v.x==-128 && v.y==-128 && !v.flipped) removedObjects.push_back(id);
 			else movedObjects.push_back({id,v.x,v.y,v.flipped});
 		}
 		for (const auto &v:m.events) {

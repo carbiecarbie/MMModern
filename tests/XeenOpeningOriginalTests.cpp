@@ -3,14 +3,26 @@
 #include "games/xeen/XeenJumpRules.h"
 #include "games/xeen/XeenTerrainRules.h"
 #include "games/xeen/XeenEventTrigger.h"
+#include "games/xeen/XeenOutdoorScene.h"
+#include "games/xeen/XeenRestoreGuard.h"
 #include <iostream>
 #include <map>
+#include <tuple>
 
 using namespace training_test;
 namespace mmodern {
 // Synthetic future-facing control: loaded actors normally arrive Physical.
 // Force a recovery budget yield inside the existing retained border work.
 struct XeenRestTestAccess {
+    static void scenes(Fixture &f,const XeenObjectVisualResolver &resolver) {
+        const auto draw=[&resolver](XeenWorld &w,const XeenPartyState &,const XeenCamera &c,std::uint64_t,XeenMonsterAppearance) {
+            if(w.map(c.mapId).geometry.isOutdoors())XeenOutdoorScene().build(w,c,&resolver,nullptr,0);
+            else XeenIndoorScene().build(w,c,&resolver,nullptr,0);
+            return XeenEventFlow::Composition{frame(),false};
+        };
+        f.flow->_transitionCompose=draw;
+        f.flow->_encounterCompose=[&f,draw](auto phase,auto appearance){return draw(f.w,f.p,f.c,phase,appearance);};
+    }
     static void budgetCrossing(XeenEventFlow &f,const XeenCamera &to,const XeenEventFile &events) {
         auto &e=*f._encounter;auto work=std::make_unique<XeenRegionalActionCandidate>();auto &c=*work;
         c.destinationWorld=e._world.transitionCandidate();c.destinationFlags=c.destinationWorld->loadEventDestination(e._camera.mapId,to.mapId,true,e._flags);
@@ -25,6 +37,25 @@ struct XeenRestTestAccess {
     }
     static XeenEncounterResult pulse(XeenEventFlow &f) {
         auto &e=*f._encounter;auto result=e.journeyPulse(e.ticket());f._encounterFrame=e.ticket();return result;
+    }
+};
+// Return control uses the real World load and Encounter publication owners.
+struct XeenMonsterTestAccess {
+    static void returnTo(Fixture &f,XeenCamera destination) {
+        auto &flow=*f.flow;auto &encounter=*flow._encounter;
+        check(encounter.journeyQuiet(),"Return requires a quiet boundary");
+        encounter.journeySavePreimage().check();auto candidate=f.w.transitionCandidate();
+        XeenPartyState party;candidate->copyEventParty(f.p,party);
+        const auto flags=candidate->loadEventDestination(f.c.mapId,destination.mapId,true,f.f);
+        auto events=f.in.events.load(destination.mapId);const auto arrival=candidate->prepareTransitionArrival(destination);
+        auto prepared=std::make_shared<XeenRestoreGuard>(f.w,f.p,f.c,f.f);
+        prepared->retainResources(encounter.journeySavePreimage());prepared->prepareSpellMapPublication(*candidate);
+        prepared->cameraValue=destination;prepared->flagValues=flags.values();
+        encounter.journeySavePreimage().check();f.w.checkTransitionTreasure(*candidate);
+        f.w.publishTransition(*candidate);f.c=destination;f.f=flags;encounter._journeyEvents=std::move(events);
+        encounter._journeyPreimage.swap(prepared);++encounter._generation;encounter._journeyPreimage->adoptMutationBoundary();
+        encounter.publishArrival(arrival);encounter.holdJourneyFrame();flow._encounterFrame=encounter.ticket();
+        f.present(flow.refresh(true));
     }
 };
 }
@@ -127,6 +158,113 @@ void roundtrip(Inputs &in) {
     Fixture second(in,XeenSaveFormat::decode(XeenSaveFormat::encode(restored)));
     check(XeenSaveFormat::encode(second.snapshot())==bytes,"Second multi-map reload changed persistent state");
     std::cout<<"Roundtrip logical="<<s.camera.mapId<<" physical="<<cell->mapId<<" position="<<s.camera.x<<','<<s.camera.y<<'\n';
+}
+void hiddenSwitchRoundTrips(Inputs &in) {
+    const auto resolver=XeenObjectVisualResolver::load(in.assets);
+    const auto scenes=[&](Fixture &f) {
+        XeenRestTestAccess::scenes(f,resolver);f.present(f.flow->refresh(true));
+    };
+    const auto interact=[](Fixture &f) {
+        unsigned completed=0,failures=0;
+        f.flow->reportManual=[&](const auto &result) {
+            completed+=std::holds_alternative<XeenManualEventCompleted>(result);
+            failures+=std::holds_alternative<XeenEventExecutionError>(result);
+        };
+        f.act(InteractionAction{});
+        for(unsigned n=0;n<1000 && !f.flow->canSave();++n) {
+            f.now+=25;f.flow->beginCycle(++f.cycle);
+            if(auto image=f.flow->updatePresentation())f.present(*image);
+            const auto input=f.flow->inputContext(f.flow->frame().presentation());
+            if(input.readyForAction && input.dialog && input.dialog->anyKey)f.act(AcknowledgeAction{});
+        }
+        f.flow->reportManual={};
+        check(completed==1 && !failures && f.flow->canSave(),"Map 81 switch did not complete at Quiet");
+    };
+    const auto turn=[](Fixture &f,NavigationAction action,XeenDirection expected) {
+        f.act(action);
+        for(unsigned n=0;n<1000 && !f.flow->canSave();++n) {
+            f.now+=25;f.flow->beginCycle(++f.cycle);
+            if(auto image=f.flow->updatePresentation())f.present(*image);
+            const auto input=f.flow->inputContext(f.flow->frame().presentation());
+            if(input.readyForAction && input.dialog && input.dialog->anyKey)f.act(AcknowledgeAction{});
+        }
+        check(f.flow->canSave() && f.c.direction==expected,"Map 81 turn did not finish at Quiet");
+    };
+    const auto objects=[](XeenWorld &world) {
+        std::vector<std::tuple<int,int,bool>> values;
+        const auto count=world.objectFile(81).entities.objects.size();
+        for(std::size_t i=0;i<count;++i) {
+            const XeenObjectIdentity id{81,i};const auto object=world.effectiveObject(id);
+            const bool removed=world.sessionState().isObjectDisabled(id);
+            values.emplace_back(removed?-128:int(object.x),removed?-128:int(object.y),world.effectiveObjectFlip(id));
+        }
+        return values;
+    };
+    for(int y:{23,26,29}) {
+        auto source=in.base();source.camera={81,1,y,XeenDirection::West};
+        Fixture live(in,source);scenes(live);interact(live);
+        const auto rng=live.w.sessionState().journeyRandom();
+        const auto snapshot=live.snapshot();const auto *map=snapshot.find(81);
+        check(map && std::any_of(map->objects.begin(),map->objects.end(),[](const auto &v) {
+            return v.x==-128 && v.y==-128 && v.flipped;
+        }),"Original switch did not produce a hidden flipped MoveObj");
+        const auto bytes=XeenSaveFormat::encode(snapshot);
+        Fixture restored(in,XeenSaveFormat::decode(bytes));
+        check(live.w.sessionState().journeyRandom()==rng && restored.w.sessionState().journeyRandom()==rng &&
+            XeenSaveFormat::encode(restored.snapshot())==bytes,
+            "Original switch restore changed save bytes or RNG");
+        scenes(restored);scenes(live);
+        check(objects(live.w)==objects(restored.w),"Original switch objects differ after the scene draw");
+        if(y==23) {
+            Fixture north(in,XeenSaveFormat::decode(bytes));scenes(north);
+            turn(north,NavigationAction::TurnRight,XeenDirection::North);
+            const auto *northMap=north.w.sessionState().mapState(81);
+            check(northMap && std::any_of(northMap->objectOverrides.begin(),northMap->objectOverrides.end(),[&](const auto &v) {
+                return v.x==-128 && v.y==-128 && !north.w.effectiveObjectFlip(v.id);
+            }),"North draw did not produce a hidden unflipped MoveObj");
+            const auto northBytes=XeenSaveFormat::encode(north.snapshot());
+            Fixture northRestored(in,XeenSaveFormat::decode(northBytes));
+            check(XeenSaveFormat::encode(northRestored.snapshot())==northBytes &&
+                north.w.sessionState().journeyRandom()==northRestored.w.sessionState().journeyRandom(),
+                "North-facing hidden MoveObj did not round-trip with its RNG");
+            check(std::any_of(northMap->objectOverrides.begin(),northMap->objectOverrides.end(),[&](const auto &v) {
+                return v.x==-128 && v.y==-128 && !north.w.effectiveObjectFlip(v.id) &&
+                    northRestored.w.sessionState().isObjectDisabled(v.id);
+            }),"Hidden unflipped MoveObj was not restored as Remove");
+            scenes(northRestored);
+            turn(north,NavigationAction::TurnLeft,XeenDirection::West);
+            turn(northRestored,NavigationAction::TurnLeft,XeenDirection::West);
+            interact(north);interact(northRestored);
+            check(objects(north.w)==objects(northRestored.w) &&
+                north.w.sessionState().journeyRandom()==northRestored.w.sessionState().journeyRandom() &&
+                XeenSaveFormat::encode(north.snapshot())==XeenSaveFormat::encode(northRestored.snapshot()),
+                "Switch after an unflipped hidden MoveObj restore changed objects, RNG or save bytes");
+
+            Fixture travel(in,XeenSaveFormat::decode(bytes));scenes(travel);
+            const auto departure=travel.flow->mrWizard();check(bool(departure),"Mr Wizard refused departure from map 81");
+            travel.present(*departure);
+            for(unsigned n=0;n<1000 && !travel.flow->canSave();++n) {
+                travel.now+=25;travel.flow->beginCycle(++travel.cycle);
+                if(auto image=travel.flow->updatePresentation())travel.present(*image);
+            }
+            check(travel.flow->canSave() && travel.c.mapId!=XeenMapIdentity(81),"Departure did not reach Quiet elsewhere");
+            const auto awayRng=travel.w.sessionState().journeyRandom();const auto away=XeenSaveFormat::encode(travel.snapshot());
+            Fixture returned(in,XeenSaveFormat::decode(away));
+            check(returned.w.sessionState().journeyRandom()==awayRng && XeenSaveFormat::encode(returned.snapshot())==away,
+                "Saving away from map 81 changed bytes or RNG on restore");
+            XeenRestTestAccess::scenes(returned,resolver);
+            const XeenCamera destination{81,1,y,XeenDirection::West};
+            XeenMonsterTestAccess::returnTo(travel,destination);XeenMonsterTestAccess::returnTo(returned,destination);
+            check(objects(travel.w)==objects(returned.w) && travel.w.sessionState().journeyRandom()==returned.w.sessionState().journeyRandom(),
+                "Returned map 81 objects or RNG differ after the scene draw");
+            interact(travel);interact(returned);
+            check(objects(travel.w)==objects(returned.w) && travel.w.sessionState().journeyRandom()==returned.w.sessionState().journeyRandom(),
+                "Switch after departure and restore changed object positions, flips or RNG");
+        }
+        interact(live);interact(restored);
+        check(objects(live.w)==objects(restored.w) && live.w.sessionState().journeyRandom()==restored.w.sessionState().journeyRandom(),
+            "Next original switch changed object positions, flips or RNG after restore");
+    }
 }
 void travel(Inputs &in) {
     XeenWorld w(in.mapLoader(),in.objectLoader());const XeenCamera from{24,8,8,XeenDirection::East};
@@ -395,6 +533,6 @@ void newMapBarriers(Inputs &in) {
 }
 int main(int argc,char **argv) {try {
     check(argc==2,"usage: opening-original <installation>");const auto install=xeenTestInstallationDetector().detect(argv[1]);check(bool(install),"Missing installation");
-    Inputs in(*install);admission(in);roundtrip(in);travel(in);crossing(in);atomicRefusals(in);flowRefusals(in);crossingArrivals(in);crossingBudget(in);newMapBarriers(in);
+    Inputs in(*install);admission(in);roundtrip(in);hiddenSwitchRoundTrips(in);travel(in);crossing(in);atomicRefusals(in);flowRefusals(in);crossingArrivals(in);crossingBudget(in);newMapBarriers(in);
     std::cout<<"M78 data-derived admission, travel and generic multi-map restore passed\n";return 0;
 } catch(const std::exception &e) {std::cerr<<e.what()<<'\n';return 1;}}

@@ -77,7 +77,7 @@ for players in [ScummVM differences](scummvm-differences.md).
 | Retreat leaves disabled members still in the combat party Dead. | Reference only: pinned `interface.cpp::Interface::doCombat`, lines 1870-1880, moves to the Run location and sets Dead on remaining `isDisabled()` members. Observed in the existing MMModern rule while repairing M71's ordinary Temple witness; not newly confirmed in DOS. | `XeenCombat::finishDisengagement`; M43/M44 ordinary resurrection preconditions | Existing behavior retained without a production change. Successfully fled members have already left the combat party. |
 | A valid Bank transfer adds to its destination using unsigned 32-bit arithmetic, so the destination can wrap. This is distinct from refusing an entered amount above `UINT32_MAX`. | Pinned `locations.cpp::BankLocation::depositWithdrawl` adds to the party's unsigned balances; M56 retains that balance arithmetic. | M56, `XeenFoodBank.cpp::xeenTransferBank` | No saturation or destination-capacity refusal. |
 | Vertigo's exit reset respawns slots 0-11 at their own MOB positions, slot 12 at `(4,12)`, and each slot 13-40 at the position of the MOB record before it, so the list runs one record behind from slot 12 on; slots 41-45 are not respawned. The script's last two Spawns, slots 50 and 51 at `(7,24)` and `(6,27)`, are past the 46 MOB records and stay inert (see the Spawn row below). | CD `maze0028.evt` Spawn records 788-830 at `(100,100)`, lines 0-42, compared with the city MOB's 46 monster records (read 2026-10-15 through the project loaders). | M69, `XeenWorld::applySpawn`; `XeenVertigoProcessTests.cpp` reset table | The order comes from the script data; keep it. Not separately checked in DOS play. Before M70 Part A, slots 50 and 51 became live type-0 monsters, as in the reference. |
-| `MoveObj` at an object's current position toggles its flip, but the next scene draw replaces that flip with the directional animation metadata, including for off-screen objects. | Pinned ScummVM `scripts.cpp::cmdMoveObj` and `interface_scene.cpp::drawScene` (revision `6814ee9ba54582f5b5adcffab49efbbd8f589edd`); maintainer confirmed following these resets on 2026-10-10. | M57, `XeenWorld.cpp::applyMoveObject`, `XeenIndoorScene.cpp`, `XeenOutdoorScene.cpp` | Position changes remain durable. Flip observations are disposable; saves retain the effective flip without serializing animation frames. |
+| `MoveObj` at an object's current position toggles its flip, including at `(-128,-128)`, but the next scene draw replaces that flip with the directional animation metadata, including for off-screen objects. | DOS `WORLD/XEEN.DAT`: position comparisons `0x272bc..0x272e0`, flip toggle `0x272ec`, position writes `0x272f3..0x2731b`, map writer `0x26698..0x266ce` (loop `0x266d3..0x266db`); pinned ScummVM `scripts.cpp::cmdMoveObj` and `interface_scene.cpp::drawScene` (revision `6814ee9ba54582f5b5adcffab49efbbd8f589edd`); maintainer confirmed following these resets on 2026-10-10. | M57, `XeenWorld.cpp::applyMoveObject`, `XeenIndoorScene.cpp`, `XeenOutdoorScene.cpp` | Position changes remain durable. The DOS writer does not store flips; MMModern saves the effective flip, including at `(-128,-128)`, without serializing animation frames. |
 | Event XP and carried currency additions use unsigned 32-bit arithmetic and can wrap. Award IDs 73 and 81 name slots 126 and 127; granting an award never increments its count (DOS ORs 1 into its nibble; see [award removal](#sv-award-removal)). | Pinned `party.cpp::giveTake`, `character.cpp::fixAwardId/setAward`. | M57; `XeenEventValues.cpp::xeenEventGive` since M70 Part B, `XeenCharacter.h::awardIndex` | CHR counts are retained for all 30 owners, including the full-byte Warzone count in slot 9. |
 | Completely full backpacks discard remaining ordinary items but still credit gold and gems. | DOS `WORLD/XEEN.DAT` four 40-byte item clears `0x2433e..0x2437b`, currency credit `0x2486a..0x24884`; [delivery evidence](rules/evidence.md#treasure-delivery), high confidence. Supersedes M57's reference-based currency-loss entry. | **Implemented (M61 Part D)**, shared `XeenItemRewards.cpp` delivery and monster treasure | Generation draws remain consumed; currency is not inventory capacity. |
 | <a id="sv-loot-recipients"></a> With no valid preferred recipient, delivery goes directly to a capacity-only scan, including sleeping, disabled and dead members. A valid preference first tries eligible recipients, then the same unrestricted fallback. | DOS `0x243d5..0x24565`, actual switch tables and condition helper checked; [delivery evidence](rules/evidence.md#treasure-delivery). | **Implemented (M61 Part D)**, Event and monster shared delivery | Do not filter the final scan by condition. **ScummVM:** differs. |
@@ -184,10 +184,13 @@ signed byte -128 in a save, and keeps nothing else (`scripts.cpp::cmdRemove`);
 a later MoveObj on that object writes a new position and the object shows up
 again (`cmdMoveObj`). MMModern does the same: Remove replaces any MoveObj
 position, MoveObj clears the removal, the object keeps its flip, and a save
-holds one position per MOB record. An original-data scan found no Clouds or
-Darkside script that reaches MoveObj after Remove on the same object (Remove
-exits, and every object a Remove can select is moved, if at all, only earlier
-in that script, to `(-128,-128)` or `(100,100)`); no AlterEvent writes either
+holds one position per MOB record. A Remove saves as `(-128,-128)` without a
+flip; a hidden MoveObj saves its effective flip. A hidden MoveObj without a
+flip shares the Remove representation and restores as a Remove. An
+original-data scan found no Clouds or Darkside script that reaches MoveObj
+after Remove on the same object (Remove exits, and every object a Remove can
+select is moved, if at all, only earlier in that script, to `(-128,-128)` or
+`(100,100)`); no AlterEvent writes either
 opcode. A MoveObj to `(-128,-128)` on a removed object does not toggle its
 flip, because no signed-byte operand equals `(128,128)`; the next scene draw
 replaces the flip in any case. Where:
@@ -797,7 +800,8 @@ stays documented here and in the plan that implements it.
   map's whole EVT, DAT and MOB into the save archive. MMModern keeps the
   original resources immutable and saves, per map, its complete monster table
   plus sparse overrides against the resources: object positions and flips
-  (a removed object is `(-128,-128)`, as Remove writes it), wall-item
+  (Remove is `(-128,-128)` without a flip; a hidden MoveObj keeps its effective
+  flip), wall-item
   positions, cells as their effective DAT word and attribute byte with the
   original preimage, Event record opcodes and explored bits. Restore rebinds
   every override to its map's resources, so the result is observably the

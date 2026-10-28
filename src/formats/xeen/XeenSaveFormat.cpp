@@ -76,7 +76,7 @@ void validateMapStates(const std::vector<XeenSaveMapState> &maps) {
 		if (m.monsters) validateMonsters(*m.monsters);
 		validateRecords(m.objects, "invalid or duplicate object override");
 		for (const auto &v : m.objects)
-			require(signedByte(v.x) && signedByte(v.y) && (!v.flipped || v.x != -128 || v.y != -128),
+			require(signedByte(v.x) && signedByte(v.y),
 				"invalid object override value");
 		validateRecords(m.wallItems, "invalid or duplicate wall-item override");
 		for (const auto &v : m.wallItems) require(signedByte(v.x) && signedByte(v.y), "invalid wall-item override value");

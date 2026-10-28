@@ -69,7 +69,11 @@ void worldEffectsWire() {
   auto invalid=s;bad.x=128;invalid.map(23).objects={bad};rejects([&]{XeenSaveFormat::encode(invalid);});
  }
  auto invalid=s;invalid.map(23).objects.push_back(s.map(23).objects[0]);rejects([&]{XeenSaveFormat::encode(invalid);});
- invalid=s;invalid.map(23).objects[0].y=-128;rejects([&]{XeenSaveFormat::encode(invalid);},"object override value"); // A removed object has no flip.
+ auto hidden=s;hidden.map(23).objects={{0,-128,-128,true},{1,-128,-128,false}};
+ const auto hiddenWire=XeenSaveFormat::encode(hidden);
+ const auto decoded=XeenSaveFormat::decode(hiddenWire);
+ check(decoded.map(23).objects==hidden.map(23).objects && XeenSaveFormat::encode(decoded)==hiddenWire,
+  "Hidden flipped MoveObj and Remove round-trip exactly");
  invalid=s;invalid.characters[29].awards[8]=16;rejects([&]{XeenSaveFormat::encode(invalid);});
  const auto wire=XeenSaveFormat::encode(s);
  // From the end: absent name 1, absent head cache 1, then the per-map table:
@@ -817,7 +821,7 @@ void perMapWire() {
 	// (record #0 at 51..52), explored flag 57.
 	const std::vector<std::pair<std::size_t,std::uint8_t>> corruptions{
 		{at,4},{city0+1,23},{city0+3,2},{city0+10,4},{city0+11,2},{city0+13,0},
-		{city0+33,1},{city0+41,1},{city0+52,5},{city0+57,2}};
+		{city0+33,2},{city0+41,1},{city0+52,5},{city0+57,2}};
 	for(const auto &[offset,value]:corruptions) {
 		auto bad=wire;bad.at(offset)=value;fixIndependentEnvelope(bad);rejects([&]{XeenSaveFormat::decode(bad);});
 	}

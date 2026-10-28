@@ -743,6 +743,67 @@ void removeThenMoveRoundTrip(){
   sameObjects(loaded.world,moving.world,28) &&
   XeenSaveFormat::encode(loaded.capture())==bytes,"Remove then MoveObj did not round-trip exactly");
 }
+// A hidden MoveObj with an effective flip is distinct from a Remove on restore.
+void hiddenMoveRoundTrip() {
+ const XeenEventFile script{28,"synthetic.evt",true,{record(9,11,0,11,{0,128,128})}};
+ const auto configure=[&](CurrentDestination &f) {
+  usePerMapResources(f,4);
+  f.resources.loadEvents=[&](auto id){return id==XeenMapIdentity(28)?script:indoorEvents(id);};
+ };
+ auto initial=currentSnapshot();initial.camera={28,9,11,XeenDirection::North};
+ initial.map(28).monsters=mobTable(4);
+ initial.map(28).objects={{0,9,11,true},{1,-128,-128,false}};
+ const XeenObjectIdentity moved{28,0},removed{28,1};
+ const auto display=font();IndexedFrame image;image.width=320;image.height=200;image.pixels.resize(64000);
+ std::uint64_t now=0,cycle=0;
+ const auto makeFlow=[&](CurrentDestination &f,XeenEventSystem &events) {
+  auto flow=std::make_unique<XeenEventFlow>(f.programState,f.world,events,f.party,f.camera,f.flags,display,
+   [&](auto){return XeenEventFlow::Composition{image,false};},XeenEventPresenter::NpcDraw{},[&]{return now;},
+   XeenEventPresenter::RandomFrame{},nullptr,[&](auto,auto){return XeenEventFlow::Composition{image,false};},nullptr,
+   [&](auto &,const auto &,const auto &,auto,auto){return XeenEventFlow::Composition{image,false};});
+  flow->dialogText=&dos_test::text();
+  if(flow->frame().presentation())flow->framePresented(flow->frame().presentation());
+  return flow;
+ };
+ const auto interact=[&](XeenEventFlow &flow) {
+  unsigned completed=0,failures=0;
+  flow.reportManual=[&](const auto &r){completed+=std::holds_alternative<XeenManualEventCompleted>(r);
+   failures+=std::holds_alternative<XeenEventExecutionError>(r);};
+  const auto present=[&](const IndexedFrame &frame){if(frame.presentation())flow.framePresented(frame.presentation());};
+  flow.beginCycle(++cycle);present(flow.handle(InteractionAction{},flow.displayedInput(),flow.frame().presentation()));
+  for(unsigned n=0;n<1000 && !flow.canSave();++n) {now+=125;flow.beginCycle(++cycle);
+   if(const auto frame=flow.updatePresentation())present(*frame);
+   if(!flow.canSave())present(flow.handle(AcknowledgeAction{},flow.displayedInput(),flow.frame().presentation()));}
+  flow.reportManual={};
+  check(completed==1 && !failures && flow.canSave(),"Hidden MoveObj did not finish at a quiet boundary");
+ };
+ CurrentDestination live;configure(live);live.restore(initial);
+ XeenEventSystem liveEvents([&](auto id){return XeenEventScript(live.resources.loadEvents(id));},live.resources.loadRegionalText);
+ auto liveFlow=makeFlow(live,liveEvents);interact(*liveFlow);
+ const auto saved=live.capture();const auto bytes=XeenSaveFormat::encode(saved);
+ check(saved.find(28)->objects==std::vector<XeenSaveObjectOverride>{{0,-128,-128,true},{1,-128,-128,false}},
+  "Capture did not keep the hidden flip beside canonical Remove");
+ CurrentDestination loaded;configure(loaded);loaded.restore(XeenSaveFormat::decode(bytes));
+ XeenEventSystem loadedEvents([&](auto id){return XeenEventScript(loaded.resources.loadEvents(id));},loaded.resources.loadRegionalText);
+ auto loadedFlow=makeFlow(loaded,loadedEvents);
+ const auto *state=loaded.world.sessionState().mapState(28);
+ check(state && !loaded.world.sessionState().isObjectDisabled(moved) && loaded.world.sessionState().isObjectDisabled(removed) &&
+  state->objectOverrides.size()==1 && state->objectOverrides[0].id==moved &&
+  loaded.world.effectiveObjectFlip(moved),"Restore confused hidden MoveObj with Remove");
+ check(XeenSaveFormat::encode(loaded.capture())==bytes,"Hidden MoveObj and Remove did not re-encode identically");
+ interact(*liveFlow);interact(*loadedFlow);
+ check(!live.world.effectiveObjectFlip(moved) && !loaded.world.effectiveObjectFlip(moved) &&
+  live.world.sessionState().mapState(28)->objectOverrides==loaded.world.sessionState().mapState(28)->objectOverrides &&
+  XeenSaveFormat::encode(live.capture())==XeenSaveFormat::encode(loaded.capture()),
+  "The next hidden MoveObj did not toggle identically after restore");
+ const auto unflipped=XeenSaveFormat::encode(live.capture());
+ CurrentDestination canonical;configure(canonical);canonical.restore(XeenSaveFormat::decode(unflipped));canonical.bind();
+ check(canonical.world.sessionState().isObjectDisabled(moved) &&
+  canonical.world.sessionState().isObjectDisabled(removed) &&
+  canonical.world.sessionState().mapState(28)->objectOverrides.empty() &&
+  XeenSaveFormat::encode(canonical.capture())==unflipped,
+  "An unflipped hidden MoveObj did not share the Remove representation");
+}
 // M70 Part C: every travel form reaches the normal quiet capture boundary.
 void travelRoundTrips() {
     mmodern::XeenProgramState programState{mmodern::XeenWallClock::fixed(0)};
@@ -1070,7 +1131,7 @@ int main() {
 	try {
         const auto run=[](const char *name,auto function) {try {function();}catch(const std::exception &e){throw std::runtime_error(std::string(name)+": "+e.what());}};
 		run("liveStatusRoundTrip",liveStatusRoundTrip); run("fullRestoration",fullRestoration); run("explicitItems",explicitItems); run("invalidResourceAndState",invalidResourceAndState); run("characterPreflight",characterPreflight); run("mutationPolicies",mutationPolicies); run("journeyBorrowRefusal",journeyBorrowRefusal);
-		run("genericRoundTrip",genericRoundTrip); run("replacedOpcodePublication",replacedOpcodePublication); run("mapEventRoundTrips",mapEventRoundTrips); run("removeThenMoveRoundTrip",removeThenMoveRoundTrip); run("travelRoundTrips",travelRoundTrips); run("valueRoundTrips",valueRoundTrips); run("unsupportedMapState",unsupportedMapState); run("warzoneLifetime",warzoneLifetime); run("allCloudsMaps",allCloudsMaps);
+		run("genericRoundTrip",genericRoundTrip); run("replacedOpcodePublication",replacedOpcodePublication); run("mapEventRoundTrips",mapEventRoundTrips); run("removeThenMoveRoundTrip",removeThenMoveRoundTrip); run("hiddenMoveRoundTrip",hiddenMoveRoundTrip); run("travelRoundTrips",travelRoundTrips); run("valueRoundTrips",valueRoundTrips); run("unsupportedMapState",unsupportedMapState); run("warzoneLifetime",warzoneLifetime); run("allCloudsMaps",allCloudsMaps);
 		std::cout << "Current save state: atomic preparation, resource identities, rules and owner/flow lifetimes passed\n";
 		return 0;
 	} catch (const std::exception &error) {
