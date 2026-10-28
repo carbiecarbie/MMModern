@@ -191,6 +191,32 @@ void removedObjectMove() {
  f.w->applyMoveObject(id,5,6);
  check(f.w->effectiveObjectFlip(id) && f.w->effectiveObject(id).x==5,"MoveObj in place no longer flips");
 }
+void spawnDoesNotDraw() {
+ Fixture f;XeenPartyState party;XeenGameFlags flags;XeenEventInterpreter vm;
+ XeenEventFile file{47,"synthetic.evt",true,{row(6,6,0,16,{0,6,6,0}),
+  row(6,6,1,16,{1,6,6,0}),row(6,6,2,24,{0,0})}};
+ unsigned draws=0;bool slot0=false;
+ vm.eventDraw=[&](auto &world,const auto &camera,bool){++draws;slot0=bool(world.prepareTransitionArrival(camera).slots[0]);};
+ vm.eventLineSkipped=[&]{return slot0;};
+ const auto result=vm.execute({47,6,6,XeenDirection::North},party,flags,*f.w,[&](auto){return XeenEventScript(file);});
+ check(std::holds_alternative<XeenEventExecutionCompleted>(result),"Spawn sequence did not finish naturally");
+ const auto &actors=f.w->sessionState().regionalActors(47);
+ check(actors[0].x==6 && actors[0].y==6 && actors[1].x==6 && actors[1].y==6,
+  "Spawn sequence lost an actor at the party cell");
+ check(f.w->effectiveEvent({47,0},file.records[0]).opcode==0 && draws==1,
+  "Spawn drew or skipped the following AlterEvent (one tail draw is expected)");
+ Fixture labelFixture;slot0=false;draws=0;
+ XeenEventFile label{47,"synthetic.evt",true,{row(6,6,0,16,{0,6,6,0}),
+  row(6,6,1,16,{1,6,6,0}),row(6,6,2,2,{0}),row(6,6,3,24,{0,0})}};
+ const auto script=[&](auto){return XeenEventScript(label);};
+ const auto text=[](auto id){return XeenEventTextFile{id,"test.txt",true,{"Label"}};};
+ auto pending=vm.begin({47,6,6,XeenDirection::North},party,flags,*labelFixture.w,script,text);
+ check(std::holds_alternative<XeenEventExecutionSuspended>(pending) && slot0 && draws==1,"Label did not draw after both Spawns");
+ const auto state=std::get<XeenEventExecutionSuspended>(pending).state;
+ pending=vm.resume(state,XeenPresentationResponse::Presented,party,*labelFixture.w,script,text);
+ check(std::holds_alternative<XeenEventExecutionCompleted>(pending) && !labelFixture.w->isEventDisabled({47,0}),
+  "Label draw did not make the next line-head skip AlterEvent");
+}
 void stacking() {
  extraMonsters=4;Fixture f;extraMonsters=0;auto &w=*f.w;
  for(std::uint8_t slot=2;slot<6;++slot)w.applySpawn(47,slot,6,6,0);
@@ -210,6 +236,6 @@ void stacking() {
  check(again[0].x==6 && again[0].y==7,"Movement entered a cell holding four");
 }
 }
-int main() {try{operations(XeenSide::Clouds);operations(XeenSide::Darkside);calledDeletion();outdoorAndSpawn();removedObjectMove();stacking();
+int main() {try{operations(XeenSide::Clouds);operations(XeenSide::Darkside);calledDeletion();outdoorAndSpawn();removedObjectMove();spawnDoesNotDraw();stacking();
  std::cout<<"Map Event owners, DOS continuation, physical aliases, lifetimes and Spawn passed\n";return 0;
 }catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}

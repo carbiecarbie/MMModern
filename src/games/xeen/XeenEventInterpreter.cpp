@@ -1077,8 +1077,8 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 			++logical.line;missingPolicy=MissingInstructionPolicy::NaturalCompletion;continue;
 		}
 		if (const auto *spawn=std::get_if<XeenEventSpawn>(&decoded.operation)) {
-            // DOS 0x27a85 draws before writing the Spawn slot.
-            if(eventDraw)eventDraw(world,workingCamera,false);
+            // DOS 0x27a85 draws a random animation frame, not a 3D view.
+            // Spawn changes actor records without rebuilding contact slots.
 			world.applySpawn(logical.mapId,spawn->slot,spawn->x,spawn->y,spawn->unused);
 			++logical.line;missingPolicy=MissingInstructionPolicy::NaturalCompletion;continue;
 		}

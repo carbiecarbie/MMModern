@@ -1611,7 +1611,8 @@ item categories at `0xa7`, `0xcc`, `0xf0`, `0x114` with 4-byte slots).
 
 **2026-10-21 and 2026-10-23; DOS static, high confidence**, plus the
 maintainer's 2026-10-23 DOSBox confirmation that right-click always acts as
-left-click on buttons and in the 3D view. Read-only WSL Python/Capstone analysis
+left-click on buttons and in the 3D view, and 2026-10-27 rubble and gas-trap
+observations. Read-only WSL Python/Capstone analysis
 of the English World CD `WORLD/XEEN.DAT`, SHA-256
 `8bf78b4850d5973cbb063c7dd96b9aaef4e94791d748334187eef74acf528d27`.
 Addresses below are file offsets; Ghidra linear address adds `0xa940`, and
@@ -1637,6 +1638,10 @@ by its original saving/completion messages, party block and map-state writer.
 Tail selection was checked against both object builders and the renderer's
 one-based-to-zero-based conversion. No original program bytes or disassembly
 are stored in the repository.
+
+Maintainer DOSBox play on 2026-10-27: map 33 rubble at `(9,25)` spawned
+monsters only on the first search and reported nothing on the second; the gas
+trap at `(3,15)` showed its gas sprite while hurting the party.
 
 | Finding | File offsets and calibration |
 | --- | --- |

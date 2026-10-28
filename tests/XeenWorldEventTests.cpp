@@ -16,7 +16,14 @@ namespace mmodern {
 struct XeenCityEventTestAccess {
  static const XeenPartyState &visible(const XeenEventFlow &f){return f._transition?f._transition->party:f._party;}
  static const auto &visibleRandom(const XeenEventFlow &f){return f._transition?f._transition->world->sessionState().journeyRandom():f._world.sessionState().journeyRandom();}
- static void composer(XeenEventFlow &flow,XeenEventFlow::TransitionCompose compose){flow._transitionCompose=std::move(compose);}
+ static void composer(XeenEventFlow &flow,XeenEventFlow::TransitionCompose compose){
+  // These fault injections target final/destination publication, not an earlier Event frame.
+  flow._transitionCompose=[&flow,compose=std::move(compose)](auto &w,const auto &p,const auto &c,auto phase,auto appearance) {
+   if(flow._pending && !flow._pending->state.continuedAtDestination)return XeenEventFlow::Composition{frameForFault(),false};
+   return compose(w,p,c,phase,appearance);
+  };
+ }
+ static IndexedFrame frameForFault(){return IndexedFrame{320,200,save_test::Bytes(64000)};}
  static std::uint64_t portraitDeadline(const XeenEventFlow &flow){return PresentationClock::ceilMilliseconds(flow._portraitSequence->deadline);}
  static std::uint64_t npcDeadline(const XeenEventFlow &flow){return PresentationClock::ceilMilliseconds(flow._npcSequence->deadline);}
  static bool handoff(const XeenEventFlow &flow){return flow._handoffPending;}

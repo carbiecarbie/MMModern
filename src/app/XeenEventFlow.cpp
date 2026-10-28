@@ -1171,6 +1171,9 @@ bool XeenEventFlow::updateOrdinaryPhase(OrdinaryCause cause, bool reset, std::ui
 	_ordinary.phase = reset ? 0 : _ordinary.phase + 1;
 	if (cause!=OrdinaryCause::None && !_sceneAdvancePending) {
         _world.scenePresentation().beginDraw();
+        // A suspended Event owns disposable scene phases as well as the live view.
+        if(_transition && _transition->eventFlags && _pending)
+            _transition->world->scenePresentation().beginDraw();
         _sceneAdvancePending=true;
     }
     _world.scenePresentation().advanceFeedback(now/1000000);
@@ -1211,11 +1214,16 @@ void XeenEventFlow::sealFrame(IndexedFrame &returned) {
 }
 void XeenEventFlow::finishOrdinaryDraw() {
     _world.scenePresentation().retainDrawingState();
+    auto *eventScene=_transition && _transition->eventFlags && _pending?
+        &_transition->world->scenePresentation():nullptr;
+    if(eventScene)eventScene->retainDrawingState();
     if(_sceneAdvancePending) {
         _world.scenePresentation().advanceAfterDraw(_camera.mapId);
+        if(eventScene)eventScene->advanceAfterDraw(_pending->state.workingCamera.mapId);
         _sceneAdvancePending=false;
     }
     _world.scenePresentation().composeFromRetained(true);
+    if(eventScene)eventScene->composeFromRetained(true);
 }
 
 bool XeenEventFlow::configureSound(XeenSoundOptions value) {
@@ -1524,27 +1532,51 @@ XeenEventFlow::Composition XeenEventFlow::composeJourneyScene(bool reconstruct) 
   checkTransitionCandidate();work.world->scenePresentation().completeLightingDraw();work.guard->adoptMutationBoundary();return frame;
  }
 
-	if(_transition && _pending && _pending->state.continuedAtDestination) {
+	if(_transition && _transition->eventFlags && _pending && !_smithUi && !_trainingUi) {
 		auto &work=*_transition;
 		const auto &state=_pending->state;
 		const auto checkRetained=[&] {
 			requireCurrentOwners();_encounter->journeySavePreimage().check();checkTransitionCandidate();
-			if(!work.continuation)throw std::logic_error("Destination drawing lost its Event continuation");
+			if(!work.continuation)throw std::logic_error("Event drawing lost its continuation");
 			work.continuation->check(state);
 			if(_eventPublication)_eventPublication->continuation(state,*work.continuation,true);
 		};
 		checkRetained();
-		// DOS 0x2711f..0x27127 redraws before destination Events. Draw from the
-		// retained candidate, including idle/retry frames, without publishing its
-		// camera/effects or changing refusal and published-prefix ownership.
+		// Retain the live interface and portrait layers while drawing the current
+		// Event candidate into the 3D viewport. Neither draw publishes the candidate.
 		XeenRestoreGuard candidate(*work.world,work.party,state.workingCamera,work.flags);
 		candidate.retainResources(*work.guard);
 		XeenRestoreGuard::Providers providers(candidate,*work.world,checkRetained);
+		// Prepare lighting on a guarded copy: a draw must not publish or alter the
+		// retained Event party, including its pending light counter.
+		XeenPartyState drawingParty;
+		work.world->copyEventParty(work.party,drawingParty);
+		if(drawingParty.encounterContext)
+			drawingParty.encounterContext->lightAndResistances[0]=work.world->lightAfterScenePreparation(work.party,state.workingCamera);
+		XeenRestoreGuard drawingGuard(*work.world,drawingParty,state.workingCamera,work.flags);
+		drawingGuard.retainResources(*work.guard);
+		XeenRestoreGuard::Providers drawingProviders(drawingGuard,*work.world,checkRetained);
+		work.world->scenePresentation().textPrompt=textPromptOpen();
+		work.world->scenePresentation().openDoor=_world.scenePresentation().openDoor;
 		try {
+			if(state.continuedAtDestination) {
+				work.world->scenePresentation().composeFromRetained(reconstruct && !_sceneAdvancePending);
+				auto frame=_transitionCompose(*work.world,drawingParty,state.workingCamera,_ordinary.phase,XeenMonsterAppearance{0});
+				drawingGuard.check();candidate.check();checkRetained();return frame;
+			}
+			_world.scenePresentation().composeFromRetained(reconstruct && !_sceneAdvancePending);
+			auto frame=_encounterCompose(_ordinary.phase,_encounter->appearance());
+			checkRetained();
 			work.world->scenePresentation().composeFromRetained(reconstruct && !_sceneAdvancePending);
-			auto frame=_transitionCompose(*work.world,work.party,state.workingCamera,_ordinary.phase,XeenMonsterAppearance{0});
-			candidate.check();checkRetained();return frame;
-		} catch(...) {candidate.check();checkRetained();throw;}
+			auto view=_transitionCompose(*work.world,drawingParty,state.workingCamera,_ordinary.phase,XeenMonsterAppearance{0});
+			drawingGuard.check();candidate.check();checkRetained();
+			if(!frame.frame.isValid() || !view.frame.isValid() || frame.frame.width!=320 || frame.frame.height!=200 ||
+				view.frame.width!=320 || view.frame.height!=200)throw std::runtime_error("Invalid Event scene composition");
+			for(unsigned y=8;y<140;++y)
+				std::copy_n(view.frame.pixels.begin()+y*320+8,216,frame.frame.pixels.begin()+y*320+8);
+			frame.containsOrdinaryAnimation=frame.containsOrdinaryAnimation || view.containsOrdinaryAnimation;
+			return frame;
+		} catch(...) {drawingGuard.check();candidate.check();checkRetained();throw;}
 	}
  _world.scenePresentation().composeFromRetained(reconstruct && !_sceneAdvancePending);
 	return _encounterCompose(_ordinary.phase,_encounter->appearance());

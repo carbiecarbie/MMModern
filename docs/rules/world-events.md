@@ -4,7 +4,8 @@
 
 **Evidence: DOS static, high confidence (2026-10-21 and 2026-10-23)**,
 calibrated against known movement, door labels, character sheets and saving.
-The maintainer also confirmed the mouse rule in DOSBox on 2026-10-23.
+The maintainer also confirmed the mouse rule in DOSBox on 2026-10-23, and
+the rubble and gas-trap behavior on 2026-10-27.
 See [the offset and calibration record](evidence.md#event-dispatch).
 These describe DOS rules; implemented coverage remains in project status.
 
@@ -100,6 +101,10 @@ The NPC's pre-wait mouse drain also zeros the current code (`0x25ac7` to
 The final accepted acknowledgement leaves its new code for the outer dispatch;
 mode 2 returns without these waits or clears.
 
+Frames drawn while an Event waits show the script's world changes so far. In
+DOSBox on 2026-10-27, the maintainer saw the map 33 gas trap's object while it
+hurt the party.
+
 The Event tail has two alternatives, for manual and automatic calls alike:
 
 | State at completion | Result |
@@ -149,7 +154,9 @@ whether the skipped call shows window 38 before combat resumes.
 Combat can start inside any ordinary draw whose admission tests pass: a held
 slot among 0-2, mode 1 or 5, neither missile gate held, and exploration enabled.
 Matching Event instructions use mode 9, so their draws can build slots without
-starting combat. Spawn changes actor records; it does not itself build slots.
+starting combat. Spawn changes actor records; it issues no draw and does not build
+slots. In DOSBox on 2026-10-27, the maintainer searched the map 33 rubble twice:
+the monsters appeared only on the first search and the second reported nothing.
 TeleportAndContinue draws before restarting at line 0; label draws and the
 fall/restart path can also expose contact to the next line-head test. Map load
 and the restart alone do not rebuild slots. Completed indoor and outdoor builds
@@ -251,7 +258,7 @@ They establish code paths, not a claim of DOSBox observation.
 | AlterMap (19, census name AfterMap) | Signed x/y, direction, wall nibble. Directions 0–3 select north/east/south/west. Direction 4 writes all four faces of that cell; no opposite face is implicitly changed. Resolve the physical DAT first. `0x27b41..0x27ba3`, helper `0x234dd..0x23550`. |
 | AlterCellFlag (35) | Signed x/y and surface. Outdoors replace the low four wall-word bits; indoors replace the low three attribute bits, preserving the other bits. Indoor coordinates are masked to 0–15 after neighbour selection, so logical `(25,5)` aliases physical `(9,5)` in the east DAT. `0x2863d..0x28721`. |
 | AlterEvent (24, census name AfterEvent) | Scan physical cell, current/all direction and selected line, replacing every matching opcode, including with a nonzero value. No match is a no-op. The line operand is sign-extended against lines stored zero-extended (`0x2827f..0x28287`; index builder `0x21e75..0x21e7e`), so operands 128-255 never match. If the effective matched opcode is PlayCD (60), also replace the next record in storage order. `0x28189..0x28356`, paired-record branch `0x282c0..0x28304`. The reference lacks that paired-record branch. |
-| Spawn (16) | For a slot below the map's MOB monster count: reuse the slot's type and bind its MON statistics; write coordinates, physical damage status, asleep/not attacking and full MON HP. A revived slot loses its defeated/accounted state. `0x27a59..0x27b1c`; frame draw `0x27a85..0x27aa1`. A slot at or beyond the count is written in DOS but stays inert, as described below. |
+| Spawn (16) | For a slot below the map's MOB monster count: reuse the slot's type and bind its MON statistics; write coordinates, physical damage status, asleep/not attacking and full MON HP. A revived slot loses its defeated/accounted state. `0x27a59..0x27b1c`; random animation-frame draw `0x27a85..0x27aa1`; no 3D draw is issued. A slot at or beyond the count is written in DOS but stays inert, as described below. |
 
 AlterCellFlag's outdoor branch does **not** mask x/y after lookup, unlike its
 indoor branch. No valid original operand witness establishes outdoor neighbour

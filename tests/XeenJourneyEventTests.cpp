@@ -13,6 +13,7 @@ struct XeenCityEventTestAccess {
  // checked stagedEffects below verifies the retained boundary after return.
  static unsigned pendingQuest(const XeenEventFlow &f) {return f._transition?f._transition->party.questItems.at(17):f._party.questItems.at(17);}
  static void discardCandidateMaps(XeenEventFlow &f) {if(!f._transition)throw std::logic_error("retained Event candidate absent");f._transition->world->discardMapCache();}
+ static bool completed(const XeenEventFlow &f) {return f._transition && f._transition->completion.has_value();}
  static const XeenWorld &visibleWorld(const XeenEventFlow &f) {if(f._transition){f._transition->guard->check();return *f._transition->world;}return f._world;}
 };
 }
@@ -229,7 +230,7 @@ void failures(const fs::path &path,const XeenSaveSnapshot &saved){
    finishEvent(h,handler,idle);check((*state)[1]&&h.flow->canSave(),"unobserved provider fault has a trusted recovery frame");effects(h,0,0,0);auto partial=snapshot(h);check(XeenSaveFormat::encode(partial)==XeenSaveFormat::encode(saved),"unobserved grant and failed Remove discard the detached action exactly");send(h,handler,SaveGameAction{});check(XeenSaveFormat::encode(XeenSaveFile::read(path))==XeenSaveFormat::encode(partial),"fresh F9 writes the exact discarded-action recovery state");
    acknowledgment(h,handler);send(h,handler,AcknowledgeAction{});questReceipt(h,handler,idle);effects(h,1,1,11);return true;};});
  for(bool persistent:{false,true})run(path,saved,[&](Harness &h,XeenGameplayServices &s){auto failures=std::make_shared<unsigned>(0);auto enabled=std::make_shared<bool>(true);const auto compose=s.composeEncounter;
-  s.composeEncounter=[&,compose,persistent,failures,enabled](auto &w,const auto &p,const auto &c,auto ordinary,auto actor){if(*enabled&&w.sessionState().disabledObjectCount()&&(persistent||!*failures)){++*failures;throw std::runtime_error("postRemove composition fault");}return compose(w,p,c,ordinary,actor);};
+  s.composeEncounter=[&,compose,persistent,failures,enabled](auto &w,const auto &p,const auto &c,auto ordinary,auto actor){if(*enabled&&h.flow && XeenCityEventTestAccess::completed(*h.flow)&&w.sessionState().disabledObjectCount()&&(persistent||!*failures)){++*failures;throw std::runtime_error("postRemove composition fault");}return compose(w,p,c,ordinary,actor);};
   s.show=[&,persistent,failures,enabled](const auto &,const auto &handler,const auto &,const auto &idle,const auto &){handler.framePresented(h.flow->frame().presentation());h.tick(handler,idle);acknowledgment(h,handler);send(h,handler,AcknowledgeAction{});
    effects(h,0,0,0);stagedEffects(h,1,1,11);
    // Acquire all receipt phases; the final composition failure leaves the

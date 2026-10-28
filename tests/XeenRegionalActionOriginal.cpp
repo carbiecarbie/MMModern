@@ -11,6 +11,12 @@
 #include <chrono>
 #include <iostream>
 
+namespace mmodern {
+struct XeenEventDispatchTestAccess {
+ static bool destination(const XeenEventFlow &f) {return f._transition &&
+  (f._transition->completion || (f._pending && f._pending->state.continuedAtDestination));}
+};
+}
 using namespace combat_gameplay_test;
 namespace fs=std::filesystem;
 namespace {
@@ -109,7 +115,7 @@ void arrival(const fs::path &game,const fs::path &save,const XeenSaveSnapshot &i
  unsigned destinationCompositions=0;
  std::function<void()> duringComposition;
  s.composeEncounter=[&](auto &w,const auto &p,const auto &c,auto phase,auto appearance) {
-  if(h.world && &w!=h.world) {
+  if(h.world && &w!=h.world && h.flow && XeenEventDispatchTestAccess::destination(*h.flow)) {
    ++destinationCompositions;
    check(!h.flow->canSave() && !XeenSaveState::canCapture(*h.party,*h.camera,*h.world),
     "Detached destination composition exposed a saveable source");
