@@ -26,6 +26,8 @@ Since then M65-M94 have made Clouds of Xeen playable from a new game to its
 ending, with the original intros and the installer's sound devices, and
 release 0.10.0 delivered them. The [next arc](#next-arc-release-quality-and-the-darkside-start)
 makes Clouds sturdier and easier to test and report on, then starts Darkside.
+Its first step is done: M95 closed the Clouds audit with tests for its
+invariants. The DOS save investigation comes next.
 
 ## Completed arc: closing Vertigo and the first release
 
@@ -110,8 +112,9 @@ this order; steps are direction, not approved plans.
    Events and keys pressed during waits, state after leaving, returning and
    loading, small or incapacitated parties and full packs, and differences
    from the pinned reference not yet recorded in
-   [original quirks](original-quirks.md). The audit ran on 2026-10-28; its
-   follow-up is planned as [M95](milestone-95-plan.md).
+   [original quirks](original-quirks.md). Done: the audit ran on 2026-10-28.
+   Release 0.10.1 fixed its save defect. [M95](milestone-95-plan.md) fixed
+   its last finding and turned its invariants into tests.
 2. **DOS save investigation**: whether original DOS saves can be read into
    MMModern and written from it, mainly so DOSBox and MMModern can start from
    the same state when collecting evidence, Darkside included. A converter

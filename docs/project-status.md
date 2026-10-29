@@ -1,12 +1,14 @@
 # MMModern - Project Status
 
-This describes what can be played and done now. M94 is the latest completed
-and accepted milestone (2026-10-28; [plan](milestone-94-plan.md)): the
-original AdLib, Sound Blaster and MT-32 drivers play when `XEEN.CFG`
-selects them. M93 before it opened each launch with the original Darkside
-intro, M90 confirmed that Clouds of Xeen can be played from Newcastle's
-Megacredits to Lord Xeen, M92 made Clouds finishable, with the original
-ending and score, and M91 added the Clouds intro.
+This describes what can be played and done now. M95 is the latest completed
+and accepted milestone (2026-10-28; [plan](milestone-95-plan.md)). It
+followed up the Clouds audit: while an Event waits, the small map and the
+border now show its changes, and original-data tests pin the audit's
+invariants. Before it, M94 played the original AdLib, Sound Blaster and
+MT-32 drivers when `XEEN.CFG` selects them, M93 opened each launch with the
+original Darkside intro, M90 confirmed that Clouds of Xeen can be played
+from Newcastle's Megacredits to Lord Xeen, M92 made Clouds finishable, with
+the original ending and score, and M91 added the Clouds intro.
 Earlier milestones are in [project history](project-history.md), direction is
 in the [roadmap](roadmap.md), and build and dependency setup is in
 [dependencies](dependencies.md).
@@ -50,7 +52,8 @@ game from the same slot list.
   Events run again after every key or click while the party stands on it,
   Space interacts and then waits, and an Event a monster interrupts runs once
   the fight ends ([Event dispatch](rules/world-events.md#event-dispatch)).
-  "Nothing here" is acknowledged before such a fight
+  While an Event waits, the 3D view, the small map and the border already
+  show what it has changed. "Nothing here" is acknowledged before such a fight
   ([approved deviation](original-quirks.md#dev-skipped-window-first)).
 - The Reaper, Golem, Dwarf Mine and Sphinx entrance scenes play their
   original animations and speech, with captions when Efx is off. The Dwarf

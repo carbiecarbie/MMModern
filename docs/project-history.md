@@ -262,3 +262,8 @@ Darkside story until watched, then the logos; Other Options `D` replays it.
 Sound Blaster and PAS music on OPL2, MT-32 with the player's ROMs, Sound
 Blaster digital; the other choices are silent with a notice.
 [Plan](milestone-94-plan.md).
+
+**M95 - Clouds audit follow-up** (`6647088`, `fcbc32d`). The Clouds audit
+found one save defect, fixed in release 0.10.1. M95 makes the small map and
+border show a waiting Event's changes, as in DOS. It also pins the audit's
+invariants in original-data tests. [Plan](milestone-95-plan.md).
