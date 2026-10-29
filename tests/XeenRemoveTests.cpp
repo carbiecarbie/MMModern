@@ -10,7 +10,7 @@ namespace {
 using Bytes = std::vector<std::uint8_t>;
 Bytes mob() {
 	Bytes bytes(48, 0xff); bytes[0] = 111;
-	Bytes objects{0x80,2,0,0, 8,2,1,0, 8,3,0,0, 8,2,0,1, 8,2,0,2};
+	Bytes objects{0x80,2,0,0, 8,3,1,0, 8,3,0,0, 8,2,0,1, 8,2,0,2}; // record 1: table slot 1 is FF
 	bytes.insert(bytes.end(), objects.begin(), objects.end());
 	bytes.insert(bytes.end(), 4 * 4, 0xff); // object terminator, empty monster pair, wall terminator
 	return bytes;
@@ -24,8 +24,13 @@ struct Fixture {
 	XeenPartyState party;
 	std::map<XeenMapIdentity, XeenEventScript> scripts;
 	int objectLoads = 0;
+	bool pictureLessFirst = false; // moves the picture-less record 1 onto (8,2)
 	XeenWorld world{[](XeenMapIdentity id) { return map(id); },
-		[this](XeenMapIdentity id) { ++objectLoads; return objects(id); }};
+		[this](XeenMapIdentity id) {
+			++objectLoads; auto file = objects(id);
+			if (pictureLessFirst) file.entities.objects[1].y = 2;
+			return file;
+		}};
 	XeenEventInterpreter interpreter;
 	XeenEventInterpreter::ScriptProvider provider() {
 		return [this](XeenMapIdentity id) { return scripts.at(id); };
@@ -77,7 +82,7 @@ void loadingAndSelection() {
 	f.world.disableObject({23,3});
 	check(f.world.selectObject(camera) == XeenObjectIdentity{23,4}, "same sprite conflated identities");
 	f.world.disableObject({23,4});
-	check(!f.world.selectObject(camera), "selected ahead/base-disabled/invalid-resource object");
+	check(!f.world.selectObject(camera), "selected ahead/base-disabled object");
 	check(f.world.isObjectDisabled({23,0}), "base disabled state ignored");
 	const XeenMapIdentity dark{XeenSide::Darkside,23};
 	check(f.world.selectObject({dark,8,2,XeenDirection::North}) == XeenObjectIdentity{dark,3},
@@ -90,6 +95,22 @@ void loadingAndSelection() {
 	rejected = false;
 	try { wrong.objectFile(23); } catch (const std::runtime_error &) { rejected = true; }
 	check(rejected && wrong.cachedObjectFileCount() == 0, "wrong object map cached");
+}
+
+// DOS takes the first record on the party's cell even when its picture slot
+// is FF (indoor 0x156f0..0x15836, outdoor 0x170c3..0x171d1), so a search
+// there shows "Nothing here" and Remove removes that record.
+void pictureLessSelection() {
+	Fixture f; f.pictureLessFirst = true;
+	const XeenCamera camera{23,8,2,XeenDirection::North};
+	check(!f.world.effectiveObject({23,1}).hasResource() &&
+		f.world.selectObject(camera) == XeenObjectIdentity{23,1}, "picture-less first record skipped");
+	f.scripts.emplace(23, script(23, {record(8,2,0,0x00)}));
+	check(nothingHere(f,f.begin()).instructionCount == 1, "picture-less selection showed no Nothing here");
+	f.scripts.erase(23); f.scripts.emplace(23, script(23, {record(8,2,0,0x0e)}));
+	check(std::holds_alternative<XeenEventExecutionCompleted>(f.begin()) && f.world.isObjectDisabled({23,1}) &&
+		!f.world.isObjectDisabled({23,3}), "Remove skipped the picture-less selection");
+	check(f.world.selectObject(camera) == XeenObjectIdentity{23,3}, "removed picture-less record still selected");
 }
 
 void basicRemoveAndEffectiveRecords() {
@@ -210,7 +231,7 @@ void worldEffectsSurviveTransactionFailure() {
 
 int main() {
 	try {
-		loadingAndSelection(); basicRemoveAndEffectiveRecords(); suspendedSelectionAndInvalidContext();
+		loadingAndSelection(); pictureLessSelection(); basicRemoveAndEffectiveRecords(); suspendedSelectionAndInvalidContext();
 		callsTransfersAndLimits(); worldEffectsSurviveTransactionFailure();
 		std::cout << "M15B object loading, selection, effective records, Remove and transactions OK\n";
 		return 0;

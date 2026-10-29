@@ -44,10 +44,10 @@ change.
   the same rule, so while a picked lock is pending, a run that reaches any
   other teleport, a map change, a Town service, a Remove of the selection or
   any MoveObj is refused as not supported yet. No Clouds pick run reaches
-  one: a census of all 41 runs that can pick a lock found none. MMModern
-  still skips objects without a picture when it selects
-  ([current discrepancy](original-quirks.md#sv-pictureless-selection)),
-  which no lock reaches.
+  one: a census of all 41 runs that can pick a lock found none. At closure
+  MMModern still skipped objects without a picture when it selected, which
+  no lock reaches; a later maintenance fix follows DOS
+  ([picture-less selection](original-quirks.md#sv-pictureless-selection)).
 - **The index belongs to the record.** An object override gains the map's
   picture-table index; MoveObj and Remove keep it, and the picture, frames
   and flip are drawn from it, as in DOS. The giveExt frame follows the DOS

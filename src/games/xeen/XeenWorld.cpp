@@ -411,10 +411,13 @@ std::optional<XeenObjectIdentity> XeenWorld::selectObject(const XeenCamera &came
 		throw std::invalid_argument("invalid physical object-selection cell");
 	const auto &file = objectFile(camera.mapId);
 	if (!file.resourcePresent) return std::nullopt;
+	// The first record on the party's cell, with or without a picture (DOS
+	// indoor 0x156f0..0x15836, outdoor 0x170c3..0x171d1). A removed or
+	// map-rule-hidden record stands at -128, which no cell matches.
 	for (std::size_t i = 0; i < file.entities.objects.size(); ++i) {
 		XeenObjectIdentity id{camera.mapId, i};
 		const auto object = effectiveObject(id);
-		if (object.x == camera.x && object.y == camera.y && object.isActive() &&
+		if (object.x == camera.x && object.y == camera.y &&
 				!_sessionState.isObjectDisabled(id)) return id;
 	}
 	return std::nullopt;

@@ -530,9 +530,11 @@ every draw3d: the object builders clear it, then take the first object whose
 position is the party's while the near draw slot is still free (indoor
 `0x156f0`/`0x15836`, outdoor `0x170c3`/`0x171d1`; the position tables name the
 party's cell for every facing, and draw3d frees the slot first, `0x111e8`,
-`0x10dd9`). MMModern selects once per run by the same rule, except that it
-skips an object without a picture (on Clouds only map 47's record 0 at (8,0),
-where no lock is picked; an [open discrepancy](../original-quirks.md#sv-pictureless-selection)).
+`0x10dd9`). The object need not have a picture: on Clouds only map 47's
+record 0 at (8,0) has none, no Event record lies on its cell and no lock is
+picked there, so a search there shows "Nothing here"
+([picture-less selection](../original-quirks.md#sv-pictureless-selection)).
+MMModern selects once per run by the same rule.
 MMModern applies the rule once per run on its
 detached candidate, so a refused run changes nothing, and refuses a run as not
 supported yet when, with the counter positive, it reaches a teleport other

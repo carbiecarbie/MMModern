@@ -337,11 +337,6 @@ The DOS dispatch comparisons below specify the faithful per-input rule;
 implemented coverage remains in project status. These entries were checked
 against the pin; master was not rechecked.
 
-- The object an Event acts on is the first one on the party's cell, even when
-  its picture slot is empty, in DOS and in the pin. MMModern currently skips
-  such an object, a discrepancy still to fix; on Clouds only map 47's (8,0)
-  holds one that a party can reach, and no lock is picked there.
-  [Evidence](original-quirks.md#sv-pictureless-selection).
 - Flags and the stepped-cell bitmap are packed most-significant bit first,
   as DOS reads them; the pin uses least-significant bit first. The original
   initial data holds no set bit, so the difference is not observable today.

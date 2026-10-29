@@ -1,6 +1,7 @@
 // M96 on original data: a picked chest opens at the end of its Event run, is
 // drawn open, and keeps its MOB table index through leaving the map, MoveObj,
-// Save and Load (DOS 0x28d92..0x28e87, 0x266c8; plan acceptance item 6).
+// Save and Load (DOS 0x28d92..0x28e87, 0x266c8; plan acceptance item 6). The
+// selection those runs use also takes a picture-less record (map 47).
 #include "XeenTrainingTestSupport.h"
 #include "XeenTestInstallation.h"
 #include "games/xeen/XeenActorApproach.h"
@@ -312,6 +313,27 @@ void playTestRoute(Inputs &in) {
  }
  throw std::runtime_error("No seed opens the play-test chest");
 }
+// Volcano Cave Level 2 (map 47): record 0 stands on (8,0) and every slot of
+// the map's picture table is FF; no Event record lies on the cell. DOS selects
+// it anyway (indoor 0x156f0..0x15836), so a search there shows "Nothing here"
+// in every facing, where skipping it showed nothing; nothing draws it.
+void pictureLessSearch(Inputs &in) {
+ const auto visuals=XeenObjectVisualResolver::load(in.assets);
+ const XeenObjectIdentity id{47,0};
+ const auto objects=in.maps.loadObjects(in.assets,id.mapId);
+ check(objects.entities.objects.size()==1 && objects.entities.objects[0].x==8 && objects.entities.objects[0].y==0 &&
+  !objects.entities.objects[0].hasResource() && objects.entities.objectTable[objects.entities.objects[0].tableIndex]==0xff,
+  "Map 47's picture-less record changed");
+ for(const auto &r:in.events.load(id.mapId).records)check(r.x!=8 || r.y!=0,"An Event record lies on map 47's (8,0)");
+ for(const auto d:{XeenDirection::North,XeenDirection::East,XeenDirection::South,XeenDirection::West}) {
+  Visit v(in,source(in,{47,8,0,d},1),visuals);std::vector<std::string> requests;v.log=&requests;
+  check(v.w.selectObject(v.c)==id,"The picture-less record is not selected");
+  check(!drawn(v.w,v.c,visuals,id),"The picture-less record is drawn");
+  check(v.interact()=="quiet" && v.c.x==8 && v.c.y==0 && !v.w.isObjectDisabled(id),"The search changed the cell");
+  check(requests.size()==1 && requests[0].rfind("kind "+std::to_string(int(XeenPresentationKind::NothingHere))+" ",0)==0,
+   "The search did not show exactly Nothing here");
+ }
+}
 int main(int argc,char **argv)try {
  check(argc>=3,"usage: chest-original <installation> <case> [frame directory]");
  const auto install=xeenTestInstallationDetector().detect(argv[1]);check(bool(install),"Missing installation");Inputs in(*install);
@@ -320,6 +342,7 @@ int main(int argc,char **argv)try {
  else if(mode=="map9")pickLeaveReturnSave(in,{{9,15,11,XeenDirection::North},1,3,4,16,62},frames);
  else if(mode=="map44")movedInPlace(in);
  else if(mode=="route")playTestRoute(in);
+ else if(mode=="map47")pictureLessSearch(in);
  else throw std::runtime_error("Unknown chest case");
  std::cout<<"Chest original "<<mode<<" passed\n";return 0;
 }catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}
