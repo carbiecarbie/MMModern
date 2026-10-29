@@ -122,7 +122,9 @@ this order; steps are direction, not approved plans.
    follows only if the investigation shows it is worth it.
    Its first look found that DOS saves a picked chest as open;
    [M96](milestone-96-plan.md) added that, with save v22. The investigation
-   resumes from there.
+   finished on 2026-10-29: DOS loaded and re-saved a Clouds state that
+   MMModern exported, so [M97](milestone-97-plan.md) adds a developer
+   exporter. Importing DOS saves waits for policy decisions.
 3. **4:3 picture**: the 320x200 picture shown with the shape the original's
    4:3 monitors gave it; square pixels today. Whether it is the default is
    decided at planning.
@@ -133,7 +135,8 @@ this order; steps are direction, not approved plans.
    choice through an MMModern-owned CFG, so that MT-32 can be chosen, is
    decided at planning.
 5. **Darkside start**: map loading, flags, quest items and save and load for
-   both sides, then Darkside's mechanics in order of
+   both sides, with Darkside progress in the DOS save export as one of the
+   first tasks, then Darkside's mechanics in order of
    [census](coverage.md#darkside-largest-gaps) impact.
 
 ## Medium term: Darkside and World of Xeen
