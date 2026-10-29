@@ -232,6 +232,7 @@ struct ScummVmXeenBridge::Impl {
 	std::unordered_map<std::string,std::vector<std::uint8_t>> admittedSprites;
 	bool spriteIntegrityFailed=false;
 	std::unique_ptr<InitialCloudsArchive> initialArchive;
+	std::unique_ptr<InitialCloudsArchive> initialDarkArchive;
 
 	explicit Impl(const GameInstallation &installation) :
 		runtime(installation),
@@ -265,6 +266,24 @@ struct ScummVmXeenBridge::Impl {
 			initialArchive.reset(new InitialCloudsArchive(std::move(data)));
 		}
 		return *initialArchive;
+	}
+
+	InitialCloudsArchive &initialDark() {
+		if (!sceneDarkPath) throw std::runtime_error("Missing DARK New Game archive");
+		if (!initialDarkArchive) {
+			if (!sceneDark) sceneDark.reset(new SceneInstalledArchive(*sceneDarkPath));
+			// engines/mm/xeen/files.cpp:167, SaveArchive::reset, same as Clouds.
+			const char *const blocks[]{"2a0c", "2a1c", "2a2c", "2a3c", "284c", "2a5c"};
+			std::vector<std::uint8_t> data;
+			for (const auto *name : blocks) {
+				if (!sceneDark->hasFile(Common::Path(name, Common::Path::kNoSeparator))) continue;
+				auto stream = openResource(*sceneDark, name, "dark.cc");
+				const auto block = readBytes(*stream, name);
+				data.insert(data.end(), block.begin(), block.end());
+			}
+			initialDarkArchive.reset(new InitialCloudsArchive(std::move(data)));
+		}
+		return *initialDarkArchive;
 	}
 
 	struct SceneResource {
@@ -477,6 +496,13 @@ std::vector<std::uint8_t> ScummVmXeenBridge::readInitialResource(const std::stri
 		Common::Path(resourceName.c_str(), Common::Path::kNoSeparator)));
 	if (!stream)
 		throw std::runtime_error("recurso ausente no conteiner inicial: " + resourceName);
+	return readBytes(*stream, resourceName);
+}
+
+std::vector<std::uint8_t> ScummVmXeenBridge::readInitialDarkResource(const std::string &resourceName) {
+	std::unique_ptr<Common::SeekableReadStream> stream(_impl->initialDark().createReadStreamForMember(
+		Common::Path(resourceName.c_str(), Common::Path::kNoSeparator)));
+	if (!stream) throw std::runtime_error("Missing DARK New Game member: " + resourceName);
 	return readBytes(*stream, resourceName);
 }
 

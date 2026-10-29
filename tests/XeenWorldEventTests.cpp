@@ -6,6 +6,7 @@
 #include "games/xeen/XeenObjectVisual.h"
 #include "games/xeen/XeenStateEquality.h"
 #include "games/xeen/XeenTempleHeal.h"
+#include "XeenDosExportTestSupport.h"
 #include <chrono>
 #include <iostream>
 #include <fstream>
@@ -1307,10 +1308,27 @@ void partBSearches(Inputs &in) {
 }
 
 }
+namespace {
+void dosEarnedExport(const GameInstallation &installation,Inputs &in) {
+   const auto initial=fresh(in);Fixture f(in,initial);
+   walk(f,14,5);face(f,XeenDirection::West);interact(f);
+   walk(f,8,18);interact(f);walk(f,9,22);interact(f,true);
+   walk(f,14,5);face(f,XeenDirection::West);interact(f);
+   walk(f,9,28);interact(f,true);walk(f,14,4);face(f,XeenDirection::West);
+   const auto earned=XeenSaveFormat::decode(XeenSaveFormat::encode(f.snapshot()));
+   check(earned.journey->purse->gold==4800 && earned.journey->purse->gems==60,"Earned route rewards");
+   const auto base=developer::dosNewGame(installation);
+   dos_export_test::compare(developer::projectDosSave(installation,earned,"Earned"),base,earned);
+}
+}
 int main(int argc,char **argv) {
  try {
   check(argc>=2,"usage: world-event <installation>");const auto installation=xeenTestInstallationDetector().detect(argv[1]);
   check(bool(installation),"Original installation absent");Inputs in(*installation);
+  if(argc==3 && std::string(argv[2])=="--dos-export") {
+   dosEarnedExport(*installation,in);
+   std::cout<<"Earned Gunther/Joe, crate and doors export parsed back successfully\n";return 0;
+  }
   if(argc==3) {
    for(const auto &r:in.city.records)if((r.x==9 && r.y==22) || (r.x==14 && (r.y==5 || r.y==17)) ||
     (r.x==8 && r.y==18) || (r.x==11 && r.y==18) || (r.x==15 && r.y==0)) {

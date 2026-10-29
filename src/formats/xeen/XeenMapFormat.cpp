@@ -1,12 +1,52 @@
 #include "formats/xeen/XeenMapFormat.h"
 
 #include "formats/xeen/XeenEventFormat.h"
+#include "games/xeen/XeenSaveSnapshot.h"
 
 #include <stdexcept>
 #include <string>
 #include <utility>
 
 namespace mmodern {
+void XeenMapFormat::writeDosDat(std::vector<std::uint8_t> &b, const XeenSaveMapState &s) {
+	const auto base=parseDat(b);
+	if(base.id!=s.id.number) throw std::invalid_argument("DOS DAT embedded map ID mismatch");
+	for(const auto &c:s.cells) {
+		b[c.cell*2]=c.word; b[c.cell*2+1]=c.word>>8; b[512+c.cell]=c.attributes;
+	}
+	if(s.tavernTips) b[827]=*s.tavernTips;
+	if(s.explored) for(unsigned i=0;i<32;++i) {
+		unsigned reversed=0;
+		for(unsigned bit=0;bit<8;++bit) reversed|=(((*s.explored)[i]>>bit)&1)<<(7-bit);
+		b[860+i]=reversed;
+	}
+}
+
+void XeenMapFormat::writeDosMob(std::vector<std::uint8_t> &b, const XeenSaveMapState &s) {
+	const auto base=parseMob(b);
+	const std::size_t monsterStart=48+4*((base.objects.empty()?1:base.objects.size())+1);
+	const std::size_t wallStart=monsterStart+4*((base.monsters.empty()?1:base.monsters.size())+1);
+	const auto position=[&](std::size_t start,std::size_t count,unsigned record,int x,int y) {
+		if(record>=count || x < -128 || x > 127 || y < -128 || y > 127)
+			throw std::invalid_argument("DOS MOB override outside original table or coordinate range");
+		b[start+record*4]=x; b[start+record*4+1]=y;
+	};
+	for(const auto &o:s.objects) {
+		position(48,base.objects.size(),o.record,o.x,o.y);
+		b[48+o.record*4+2]=o.tableIndex;
+	}
+	for(const auto &w:s.wallItems) position(wallStart,base.wallItems.size(),w.record,w.x,w.y);
+	if(s.monsters) {
+		if(s.monsters->originalCount!=base.monsters.size() || s.monsters->slots.size()<base.monsters.size())
+			throw std::invalid_argument("DOS MOB monster count differs from original");
+		for(unsigned i=0;i<base.monsters.size();++i) {
+			const auto &m=s.monsters->slots[i];
+			const bool removed=m.lifecycle==XeenActorLifecycle::Defeated;
+			position(monsterStart,base.monsters.size(),i,removed?-128:m.x,removed?-128:m.y);
+		}
+	}
+}
+
 namespace {
 
 class Reader {

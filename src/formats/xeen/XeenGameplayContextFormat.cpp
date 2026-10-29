@@ -3,6 +3,14 @@
 #include <stdexcept>
 
 namespace mmodern {
+void XeenGameplayContextFormat::writeDos(std::vector<std::uint8_t> &p, const XeenGameplayContext &c) {
+	if(p.size()<659) throw std::invalid_argument("Truncated DOS PTY context output");
+	const auto word=[&](unsigned off,std::uint16_t v){p[off]=v; p[off+1]=v>>8;};
+	std::copy(c.effects.begin(),c.effects.end(),p.begin()+18); p[27]=static_cast<std::uint8_t>(c.difficulty);
+	word(610,c.ctr24); word(612,c.day); word(614,c.year); word(616,c.minutes);
+	for(unsigned i=0;i<6;++i) word(620+2*i,c.lightAndResistances[i]);
+	p[658]=c.rested;
+}
 XeenGameplayContext XeenGameplayContextFormat::parse(const std::vector<std::uint8_t> &pty) {
 	if (pty.size() < 659) throw std::invalid_argument("truncated encounter PTY context");
 	auto word = [&pty](std::size_t p) {

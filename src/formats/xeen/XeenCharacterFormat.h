@@ -9,6 +9,7 @@
 #include <vector>
 
 namespace mmodern {
+struct XeenSaveSnapshot;
 
 class XeenCharacterFormat {
 public:
@@ -29,6 +30,9 @@ public:
 	static XeenBankBalances parseBankBalances(const std::vector<std::uint8_t> &bytes);
 	static PartyHeader parsePartyHeader(const std::vector<std::uint8_t> &bytes);
 	static XeenCamera parsePartyLocation(const std::vector<std::uint8_t> &bytes);
+	// Project modeled fields onto New Game bytes; retain every field without a home.
+	static void writeDosRoster(std::vector<std::uint8_t> &, const XeenSaveSnapshot &);
+	static void writeDosParty(std::vector<std::uint8_t> &, const XeenSaveSnapshot &);
 };
 
 } // namespace mmodern

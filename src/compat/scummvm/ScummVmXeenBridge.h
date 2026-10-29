@@ -63,6 +63,8 @@ public:
 	std::vector<std::uint8_t> readArchiveResource(const std::string &resourceName, XeenSceneArchive selection = XeenSceneArchive::Current);
 	bool hasInitialResource(const std::string &resourceName);
 	std::vector<std::uint8_t> readInitialResource(const std::string &resourceName);
+	// Read-only DARK New Game members, in the pinned SaveArchive::reset order.
+	std::vector<std::uint8_t> readInitialDarkResource(const std::string &resourceName);
 
 private:
 	void drawSpriteImpl(const std::string &resourceName, std::size_t frame,

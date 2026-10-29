@@ -1,4 +1,6 @@
 #include "formats/xeen/XeenCharacterFormat.h"
+#include "games/xeen/XeenSaveSnapshot.h"
+#include "formats/xeen/XeenGameplayContextFormat.h"
 
 #include <algorithm>
 #include <stdexcept>
@@ -194,6 +196,82 @@ XeenCamera XeenCharacterFormat::parsePartyLocation(const std::vector<std::uint8_
 	if (bytes.size()<18 || bytes[10]>3 || bytes[11]>=32 || bytes[12]>=32 || !bytes[13])
 		throw std::invalid_argument("Invalid or truncated PTY location");
 	return {bytes[13],bytes[11],bytes[12],static_cast<XeenDirection>(bytes[10])};
+}
+
+void XeenCharacterFormat::writeDosRoster(std::vector<std::uint8_t> &bytes, const XeenSaveSnapshot &s) {
+	if (bytes.size() != 30 * XeenCharacter::kSerializedSize || !s.journey)
+		throw std::invalid_argument("DOS CHR writer requires thirty records and a Journey");
+	for (std::size_t i = 0; i < 30; ++i) {
+		auto *p = bytes.data() + i * XeenCharacter::kSerializedSize;
+		const auto &c = s.characters[i]; const auto &a = s.journey->supplements[i].inputs;
+		const auto word = [&](unsigned off, std::uint16_t v) { p[off]=v; p[off+1]=v>>8; };
+		const auto attribute = [&](unsigned off, const XeenAttributeValue &v) {p[off]=v.permanent; p[off+1]=v.temporary;};
+		if (c.name.size() > 16 || !a.luck || !a.resistances || !a.poisonResistance || !c.learnedSpells)
+			throw std::invalid_argument("Incomplete DOS CHR state");
+		for(int value:{c.intellect.permanent,c.intellect.temporary,c.personality.permanent,c.personality.temporary,
+			c.endurance.permanent,c.endurance.temporary,c.permanentLevel,c.temporaryLevel,c.temporaryAge})
+			if(value<0 || value>255) throw std::invalid_argument("DOS CHR byte overflow at roster "+std::to_string(i));
+		if(c.awards[73]) throw std::invalid_argument("DOS CHR has no independent award slot 73");
+		std::copy(c.name.begin(), c.name.end(), p);
+		if (c.name.size() < 16) p[c.name.size()] = 0; // Remaining padding keeps New Game bytes.
+		p[16]=static_cast<std::uint8_t>(c.sex); p[17]=static_cast<std::uint8_t>(c.race);
+		p[18]=c.xeenSide; p[19]=static_cast<std::uint8_t>(c.characterClass);
+		attribute(20,a.might); attribute(22,c.intellect); attribute(24,c.personality); attribute(26,c.endurance);
+		attribute(28,a.speed); attribute(30,a.accuracy); attribute(32,*a.luck);
+		p[34]=a.temporaryAc; p[35]=c.permanentLevel; p[36]=c.temporaryLevel; p[37]=c.birthDay; p[38]=c.temporaryAge;
+		std::copy(c.skills.begin(),c.skills.end(),p+39);
+		for(unsigned j=0;j<64;++j) p[57+j]=j==9 ? c.awards[j] : c.awards[j] | (c.awards[j+64]<<4);
+		std::copy(c.learnedSpells->begin(),c.learnedSpells->end(),p+121);
+		p[160]=c.lloydMap; p[161]=c.lloydX; p[162]=c.lloydY; p[163]=c.hasSpells;
+		p[164]=c.currentSpell; p[165]=c.quickOption;
+		unsigned off=166;
+		for(const auto *category : {&c.weapons,&c.armor,&c.accessories,&c.miscellaneous}) for(const auto &item:*category) {
+			p[off++]=item.material; p[off++]=item.id; p[off++]=item.state; p[off++]=item.frame;
+		}
+		p[310]=c.lloydSide;
+		const auto &r=*a.resistances;
+		p[311]=r.firePermanent; p[312]=r.fireTemporary;
+		// Follow the existing reader's byte mapping; DOS elemental labels are not re-inferred.
+		p[313]=r.coldPermanent; p[314]=r.coldTemporary; p[315]=r.electricalPermanent; p[316]=r.electricalTemporary;
+		attribute(317,*a.poisonResistance); p[319]=r.energyPermanent; p[320]=r.energyTemporary;
+		p[321]=r.magicPermanent; p[322]=r.magicTemporary;
+		std::copy(c.conditions.begin(),c.conditions.end(),p+323);
+		p[339]=c.townUnknown; word(340,c.savedMaze); word(342,c.currentHp); word(344,c.currentSp); word(346,c.birthYear);
+		const std::uint32_t xp=a.experience; for(unsigned j=0;j<4;++j) p[348+j]=xp>>(j*8);
+		p[352]=c.adventuringSpell; p[353]=c.combatSpell;
+	}
+}
+
+void XeenCharacterFormat::writeDosParty(std::vector<std::uint8_t> &p, const XeenSaveSnapshot &s) {
+	if (p.size()!=1530 || !s.journey || !s.journey->context || !s.journey->purse ||
+		!s.journey->serviceEconomy || !s.journey->worldFlags || s.activeRosterIds.size()>8)
+		throw std::invalid_argument("DOS PTY writer requires the live DARK layout and a complete Journey");
+	for(auto count:s.questItems) if(count>255) throw std::invalid_argument("DOS quest item count exceeds one byte");
+	const auto word=[&](unsigned off,std::uint16_t v) {p[off]=v; p[off+1]=v>>8;};
+	const auto dword=[&](unsigned off,std::uint32_t v) {for(unsigned j=0;j<4;++j)p[off+j]=v>>(j*8);};
+	const auto flags=[&](unsigned off,const auto &values) {
+		for(unsigned j=0;j<values.size();++j) {const auto mask=0x80u>>(j%8); p[off+j/8]=(p[off+j/8]&~mask)|(values[j]?mask:0);}
+	};
+	p[0]=p[1]=s.activeRosterIds.size();
+	std::copy(s.activeRosterIds.begin(),s.activeRosterIds.end(),p.begin()+2);
+	p[10]=static_cast<std::uint8_t>(s.camera.direction); p[11]=s.camera.x; p[12]=s.camera.y; p[13]=s.camera.mapId.number;
+	p[14]=s.soundOptions.efx; p[15]=s.soundOptions.music;
+	// PTY16, prior map17 and the unused roster-ID suffix have no v22 home.
+	const auto &j=*s.journey;
+	XeenGameplayContextFormat::writeDos(p,*j.context);
+	const auto &e=*j.serviceEconomy;
+	for(unsigned side=0;side<2;++side) {
+		unsigned off=side?832:28;
+		for(unsigned cat=0;cat<4;++cat) for(unsigned item=0;item<9;++item) for(unsigned shop=0;shop<4;++shop) {
+			const auto &v=e.wares[side][shop][cat][item];
+			p[off++]=v.material; p[off++]=v.id; p[off++]=v.state; p[off++]=v.frame;
+		}
+	}
+	word(604,j.cloudsCompleted); word(618,s.food);
+	dword(638,j.purse->gold); dword(642,j.purse->gems); dword(646,e.bank.gold); dword(650,e.bank.gems); dword(654,j.playTimeSeconds);
+	flags(659,s.gameFlags); flags(723,j.worldFlags->values); flags(739,s.questFlags);
+	std::copy(s.questItems.begin(),s.questItems.end(),p.begin()+747);
+	p[1528]=!s.soundOptions.text; p[1529]=s.soundOptions.speech;
 }
 
 } // namespace mmodern

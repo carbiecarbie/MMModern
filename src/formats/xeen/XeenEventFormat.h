@@ -6,6 +6,7 @@
 #include <vector>
 
 namespace mmodern {
+struct XeenSaveMapState;
 
 struct XeenEventRecord {
 	std::size_t fileOffset = 0;
@@ -28,6 +29,7 @@ struct XeenEventRecord {
 class XeenEventFormat {
 public:
 	static std::vector<XeenEventRecord> parse(const std::vector<std::uint8_t> &bytes);
+	static void writeDos(std::vector<std::uint8_t> &, const XeenSaveMapState &);
 };
 
 } // namespace mmodern

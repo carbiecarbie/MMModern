@@ -7,6 +7,7 @@ class XeenGameplayContextFormat {
 public:
 	// Explicit opt-in; no shop/economy interpretation and no diagnostic admission here.
 	static XeenGameplayContext parse(const std::vector<std::uint8_t> &pty);
+	static void writeDos(std::vector<std::uint8_t> &pty, const XeenGameplayContext &);
 };
 }
 #endif

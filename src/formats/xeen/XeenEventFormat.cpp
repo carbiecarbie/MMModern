@@ -1,10 +1,18 @@
 #include "formats/xeen/XeenEventFormat.h"
+#include "games/xeen/XeenSaveSnapshot.h"
 
 #include <stdexcept>
 #include <string>
 #include <utility>
 
 namespace mmodern {
+void XeenEventFormat::writeDos(std::vector<std::uint8_t> &bytes, const XeenSaveMapState &s) {
+	const auto records=parse(bytes);
+	for(const auto &e:s.events) {
+		if(e.record>=records.size()) throw std::invalid_argument("DOS EVT override outside original records");
+		bytes[records[e.record].fileOffset+5]=e.opcode;
+	}
+}
 
 std::vector<XeenEventRecord> XeenEventFormat::parse(
 		const std::vector<std::uint8_t> &bytes) {
