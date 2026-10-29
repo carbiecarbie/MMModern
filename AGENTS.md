@@ -203,7 +203,8 @@ tokens per call); reasoning effort and output are a small share.
   (build, tests, disassembly, dumps, diffs) to a file under the build
   directory and read targeted ranges. Do not re-read unchanged files.
 - Keep context small: start each milestone part in a fresh session from the
-  plan and the last report; compact or hand off past ~200k tokens.
+  plan and the last report. Past ~200k tokens, compact and continue; never
+  stop a task because of context (maintainer, 2026-10-28).
 - Delegate mechanical, read-heavy work to one lightweight subagent without
   conversation context that returns a short summary (Codex `gpt-6-luna` low,
   Claude Haiku, or Sonnet when judgment is needed): the complete suite in
