@@ -204,6 +204,7 @@ void hiddenSwitchRoundTrips(Inputs &in) {
         auto source=in.base();source.camera={81,1,y,XeenDirection::West};
         Fixture live(in,source);scenes(live);interact(live);
         const auto rng=live.w.sessionState().journeyRandom();
+        const auto skeleton=live.w.sessionState().skeletonSeed();
         const auto snapshot=live.snapshot();const auto *map=snapshot.find(81);
         check(map && std::any_of(map->objects.begin(),map->objects.end(),[](const auto &v) {
             return v.x==-128 && v.y==-128 && v.flipped;
@@ -211,6 +212,7 @@ void hiddenSwitchRoundTrips(Inputs &in) {
         const auto bytes=XeenSaveFormat::encode(snapshot);
         Fixture restored(in,XeenSaveFormat::decode(bytes));
         check(live.w.sessionState().journeyRandom()==rng && restored.w.sessionState().journeyRandom()==rng &&
+            live.w.sessionState().skeletonSeed()==skeleton && restored.w.sessionState().skeletonSeed()==skeleton &&
             XeenSaveFormat::encode(restored.snapshot())==bytes,
             "Original switch restore changed save bytes or RNG");
         scenes(restored);scenes(live);
@@ -241,6 +243,7 @@ void hiddenSwitchRoundTrips(Inputs &in) {
                 "Switch after an unflipped hidden MoveObj restore changed objects, RNG or save bytes");
 
             Fixture travel(in,XeenSaveFormat::decode(bytes));scenes(travel);
+            const auto beforeTravel=objects(travel.w);
             const auto departure=travel.flow->mrWizard();check(bool(departure),"Mr Wizard refused departure from map 81");
             travel.present(*departure);
             for(unsigned n=0;n<1000 && !travel.flow->canSave();++n) {
@@ -255,6 +258,10 @@ void hiddenSwitchRoundTrips(Inputs &in) {
             XeenRestTestAccess::scenes(returned,resolver);
             const XeenCamera destination{81,1,y,XeenDirection::West};
             XeenMonsterTestAccess::returnTo(travel,destination);XeenMonsterTestAccess::returnTo(returned,destination);
+            const auto afterTravel=objects(travel.w);
+            check(beforeTravel.size()==afterTravel.size() && std::equal(beforeTravel.begin(),beforeTravel.end(),afterTravel.begin(),
+                [](const auto &a,const auto &b){return std::get<0>(a)==std::get<0>(b) && std::get<1>(a)==std::get<1>(b);}),
+                "I5 switch object positions changed after departure and return");
             check(objects(travel.w)==objects(returned.w) && travel.w.sessionState().journeyRandom()==returned.w.sessionState().journeyRandom(),
                 "Returned map 81 objects or RNG differ after the scene draw");
             interact(travel);interact(returned);
@@ -262,7 +269,9 @@ void hiddenSwitchRoundTrips(Inputs &in) {
                 "Switch after departure and restore changed object positions, flips or RNG");
         }
         interact(live);interact(restored);
-        check(objects(live.w)==objects(restored.w) && live.w.sessionState().journeyRandom()==restored.w.sessionState().journeyRandom(),
+        check(objects(live.w)==objects(restored.w) && live.w.sessionState().journeyRandom()==restored.w.sessionState().journeyRandom() &&
+            live.w.sessionState().skeletonSeed()==restored.w.sessionState().skeletonSeed() &&
+            XeenSaveFormat::encode(live.snapshot())==XeenSaveFormat::encode(restored.snapshot()),
             "Next original switch changed object positions, flips or RNG after restore");
     }
 }

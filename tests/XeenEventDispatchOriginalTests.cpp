@@ -22,6 +22,7 @@ struct XeenEventDispatchTestAccess {
  }
  static bool damage(const XeenEventFlow &f){return f._pending && f._pending->state.pendingPresentation &&
   f._pending->state.pendingPresentation->request.kind==XeenPresentationKind::PortraitEffect;}
+ static std::string whoWillRefusal(const XeenEventFlow &f){return f._whoWillRefusal;}
 };
 }
 namespace {
@@ -99,6 +100,43 @@ void rubble(Inputs &in) {
  }
  const auto *done=std::get_if<XeenEventExecutionCompleted>(&result);
  check(done && done->instructionCount==4 && candidate->sessionState().regionalActors(33).at(9).x==100 && candidate->sessionState().regionalActors(33).at(10).x==100,(std::string("Second rubble search: count=")+(done?std::to_string(done->instructionCount):"not completed")).c_str());
+}
+// I2 / B2: the original rubble selection finishes and both spawned actors
+// are published before the resulting combat starts.
+void rubbleFlow(Inputs &in,unsigned variant=0) {
+ auto source=in.base();source.camera={33,9,25,XeenDirection::North};
+ if(variant==1)source.activeRosterIds.resize(1);
+ if(variant==2){auto &first=source.characters[source.activeRosterIds[0]];first.conditions[13]=1;first.currentHp=0;}
+ Fixture f(in,source);
+ const auto visuals=XeenObjectVisualResolver::load(in.assets);
+ const auto draw=[&](XeenWorld &world,const XeenPartyState &,const XeenCamera &camera,std::uint64_t,XeenMonsterAppearance) {
+  XeenIndoorScene().build(world,camera,&visuals,nullptr,0);return XeenEventFlow::Composition{frame(),false};
+ };
+ XeenEventDispatchTestAccess::composer(*f.flow,draw);
+ XeenEventDispatchTestAccess::liveComposer(*f.flow,[&](auto phase,auto appearance){return draw(f.w,f.p,f.c,phase,appearance);});
+ std::string error;f.flow->reportManual=[&](const auto &result){if(const auto *bad=std::get_if<XeenEventExecutionError>(&result))error=bad->message;};
+ f.now+=125;f.act(InteractionAction{});bool selected=false,refused=false;
+ for(unsigned n=0;n<1800 && !f.flow->encounter()->combat();++n) {
+  const auto request=XeenEventDispatchTestAccess::request(*f.flow);
+  const auto input=f.flow->inputContext(f.flow->frame().presentation());
+  if(input.readyForAction && input.dialog) {
+   if(request && request->response==XeenPresentationResponseRequirement::CharacterSelection) {
+    if(variant==2 && !refused) {
+     f.act(SelectMemberAction{0});check(!XeenEventDispatchTestAccess::whoWillRefusal(*f.flow).empty(),"I6 disabled member was not refused");
+     f.act(AcknowledgeAction{});refused=true;
+    } else {f.act(SelectMemberAction{variant==2?1u:0u});selected=true;}
+   }
+   else if(input.dialog->anyKey)f.act(AcknowledgeAction{});
+  }
+  f.now+=25;f.flow->beginCycle(++f.cycle);if(auto image=f.flow->updatePresentation())f.present(*image);
+ }
+ check(error.empty() && (variant==1?!selected:selected) && (variant!=2 || refused) && f.flow->encounter()->combat(),
+  "I2/B2/I6 rubble did not reach combat after owner selection");
+ const auto &actors=f.w.sessionState().regionalActors(33);
+ check(actors.at(9).x==9 && actors.at(9).y==25 && actors.at(10).x==9 && actors.at(10).y==25,"B2 rubble combat started before both spawns");
+ const auto file=in.events.load(33);
+ const auto first=std::find_if(file.records.begin(),file.records.end(),[](const auto &r){return r.x==9 && r.y==25 && r.line==0 && r.direction==4;});
+ check(first!=file.records.end() && f.w.effectiveEvent({33,std::size_t(first-file.records.begin())},*first).opcode==0,"B2 rubble Event was not disabled before combat");
 }
 void trapScene(Inputs &in,unsigned map,int x,int y,unsigned record,int sprite) {
  auto source=at(in,map,x,y,XeenDirection::North);Fixture f(in,source);const auto before=health(f);
@@ -477,7 +515,7 @@ int main(int argc,char **argv){try {
  Inputs in(*installation);
  if(argc==3) {if(std::string(argv[2])=="border")pendingBorder(in);else skullCase(in,argv[2]);return 0;}
  skullCase(in,"fresh");skullCase(in,"explored");skullCase(in,"eye");pendingBorder(in);
- trap(in);rubble(in);trapScene(in,55,7,8,5,87);trapScene(in,33,3,15,0,89);manualRefusalScene(in);outdoorScene(in);darkPendingScene(in);label(in);guardedNpc(in);combatLabels(in);combatTrap(in);std::cout<<"M84 original-data Event passes OK\n";return 0;
+ trap(in);rubble(in);for(unsigned variant=0;variant<3;++variant)rubbleFlow(in,variant);trapScene(in,55,7,8,5,87);trapScene(in,33,3,15,0,89);manualRefusalScene(in);outdoorScene(in);darkPendingScene(in);label(in);guardedNpc(in);combatLabels(in);combatTrap(in);std::cout<<"M84 original-data Event passes OK\n";return 0;
 }catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}
 
 

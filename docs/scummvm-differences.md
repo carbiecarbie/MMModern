@@ -388,6 +388,8 @@ against the pin; master was not rechecked.
 - **The Sphinx sarcophagus.** Its strength test reads only temporary Might in
   the original, like every such test; ScummVM reads full Might there, a
   documented workaround. [Evidence](original-quirks.md#sv-sphinx-might). Pin: differs; master not rechecked.
+- **Misc item Event tests** compare the item's material in DOS; the pin compares
+  its ID. No Clouds Event uses these operands. [Evidence](original-quirks.md#sv-if-misc-material). Pin: differs; master not rechecked.
 
 ## Services
 

@@ -310,11 +310,12 @@ void flowOperations() {
   check(completed(r) && p.purse->gold==600 && !finalFlags(r).isSet(1),"gold given once; failed take ends the Event");
   check(r.requests.back().notEnough==std::uint8_t(0),"gold refusal message");
  }
- // maze0030.evt @2292: (0,0)/(18,3) poisons the selected member only.
- {
+ // maze0030.evt @2292 uses condition 3; the gated Clouds paths also give
+ // conditions 2, 9 and 10 through the same TakeOrGive owner.
+ for(const std::uint8_t condition:{2,3,9,10}) {
   World f;auto p=party();XeenGameFlags flags;
-  const auto r=run(*f.w,p,flags,{row(0,12,{0,0,18,3})});
-  check(completed(r) && p.roster.at(0).conditions[3]==1 && !p.roster.at(1).conditions[3],"condition grant");
+  const auto r=run(*f.w,p,flags,{row(0,12,{0,0,18,condition})});
+  check(completed(r) && p.roster.at(0).conditions[condition]==1 && !p.roster.at(1).conditions[condition],"condition grant");
  }
  // maze0073.evt @39: TakeOrGive_2 (77,0)/(77,20): +20 AC only while the bonus is zero.
  {
@@ -397,6 +398,20 @@ void specialItem() {
  check(special.category()==1 && special.item().id==8,"ItemType 43 is armor 8 (shield)");
 }
 
+// B5 / R11: generated Misc items retain the base kind in material, while
+// generation replaces the ID with the spell or effect.
+void miscMaterial() {
+ XeenCombatRandom random(5);
+ XeenItemCandidate generated(1,std::optional<int>(64));
+ for(;;) {XeenConsequenceDraw draw{random,64,{}};if(generated.service(draw))break;}
+ const auto item=generated.item();
+ check(generated.category()==3 && item.material==4 && item.id!=item.material && item.id<=21,
+  "B5 fixture must be a generated Misc item with different material and ID");
+ Owners o;o.c(0).miscellaneous[0]=item;
+ check(probe(o,21,60+item.material).value==60+item.material,"B5 If 21 must find Misc material");
+ check(probe(o,21,60+item.id).value==0xffffffffu,"B5 If 21 must not find Misc ID");
+}
+
 // Random currency/food words (0x23770..0x237de) and the helper's signed word divisor (0x45ba3..0x45bac).
 void wordDraws() {
  check(!xeenEventWordDrawBound(0) && !xeenEventWordDrawBound(0x10000),"a zero word divides by zero");
@@ -412,9 +427,11 @@ void wordDraws() {
 
 } // namespace
 
-int main() {
+int main(int argc,char **argv) {
  try {
-  widths();probes();writes();randomOperations();flowOperations();lockPicking();specialItem();wordDraws();
+  if(argc==2 && std::string(argv[1])=="b5") {miscMaterial();return 0;}
+  if(argc!=1)throw std::runtime_error("Unknown Event value test mode");
+  widths();probes();writes();randomOperations();flowOperations();lockPicking();specialItem();miscMaterial();wordDraws();
  } catch(const std::exception &e) {std::cerr<<"Event value tests failed: "<<e.what()<<'\n';return 1;}
  std::cout<<"Event value tests passed\n";
  return 0;

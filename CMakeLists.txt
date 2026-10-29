@@ -510,6 +510,7 @@ if(BUILD_TESTING)
 	add_executable(mmodern_event_value_tests tests/XeenEventValueTests.cpp)
 	target_link_libraries(mmodern_event_value_tests PRIVATE mmodern_xeen)
 	add_test(NAME xeen_event_values COMMAND mmodern_event_value_tests)
+	add_test(NAME xeen_clouds_invariant_b5 COMMAND mmodern_event_value_tests b5)
 	add_executable(mmodern_map_event_tests tests/XeenMapEventTests.cpp)
 	target_link_libraries(mmodern_map_event_tests PRIVATE mmodern_xeen)
 	add_test(NAME xeen_map_events COMMAND mmodern_map_event_tests)
@@ -966,6 +967,15 @@ if(BUILD_TESTING)
     add_executable(mmodern_event_dispatch_original_tests tests/XeenEventDispatchOriginalTests.cpp)
     target_link_libraries(mmodern_event_dispatch_original_tests PRIVATE mmodern_app mmodern_platform_sdl SDL2::SDL2 shell32 bcrypt)
     add_test(NAME xeen_event_dispatch_original COMMAND mmodern_event_dispatch_original_tests "${MMODERN_XEEN_DATA_DIR}")
+    add_executable(mmodern_clouds_invariant_tests tests/XeenCloudsInvariantTests.cpp)
+    target_link_libraries(mmodern_clouds_invariant_tests PRIVATE mmodern_app mmodern_platform_sdl SDL2::SDL2 shell32 bcrypt)
+    add_test(NAME xeen_clouds_invariant_i1 COMMAND mmodern_clouds_invariant_tests "${MMODERN_XEEN_DATA_DIR}" i1)
+    add_test(NAME xeen_clouds_invariant_i2 COMMAND mmodern_clouds_invariant_tests "${MMODERN_XEEN_DATA_DIR}" i2)
+    add_test(NAME xeen_clouds_invariant_i3 COMMAND mmodern_clouds_invariant_tests "${MMODERN_XEEN_DATA_DIR}" i3)
+    add_test(NAME xeen_clouds_invariant_i5 COMMAND mmodern_clouds_invariant_tests "${MMODERN_XEEN_DATA_DIR}" i5)
+    add_test(NAME xeen_clouds_invariant_i6 COMMAND mmodern_clouds_invariant_tests "${MMODERN_XEEN_DATA_DIR}" i6)
+    add_test(NAME xeen_clouds_invariant_b1b2 COMMAND mmodern_clouds_invariant_tests "${MMODERN_XEEN_DATA_DIR}" b1b2)
+    set_tests_properties(xeen_clouds_invariant_b1b2 PROPERTIES RUN_SERIAL TRUE ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
     add_executable(mmodern_event_dispatch_tests tests/XeenEventDispatchTests.cpp)
     target_link_libraries(mmodern_event_dispatch_tests PRIVATE mmodern_app mmodern_platform_sdl SDL2::SDL2 shell32 bcrypt)
     add_test(NAME xeen_event_dispatch COMMAND mmodern_event_dispatch_tests)
@@ -1326,6 +1336,7 @@ if(BUILD_TESTING)
 	# (full run: plain ctest). `process` = runs 30 s or more, or spawns child
 	# processes / drives a CLI witness executable.
 	set(xeen_process_tests
+		xeen_clouds_invariant_b1b2
 		xeen_new_game_process
 		xeen_rest_original xeen_equipment_original
 		xeen_scene_inventory_original
