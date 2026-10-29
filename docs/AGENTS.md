@@ -23,6 +23,7 @@ workflow documents.
 | `docs/coverage.md` | Generated original-data mechanic census and per-map readiness; regenerate with `mmodern_census` whenever support changes; checked by `xeen_coverage_original_guard` and the Vertigo/mainland calibration gate `xeen_coverage_calibration` | Generated |
 | `docs/archive/` | Plans of milestones 6 and 15-72, kept as a historical record | Exempt |
 | `AGENTS.md`, `docs/AGENTS.md`, `tools/AGENTS.md` | Agent instructions: every task; documentation; complete test suite | Root under 240 lines |
+| `docs/playtests.md` | Agent instructions for preparing a maintainer play-test: folder, saves, launchers and guide | Short |
 
 ## Milestone plans
 

@@ -25,6 +25,7 @@ below automatically, so read each one whose trigger applies before acting.
 | --- | --- |
 | `docs/AGENTS.md` | Creating or editing `README.md`, any `AGENTS.md` or anything under `docs/`: milestone plans, milestone closure, project status, history, roadmap |
 | `tools/AGENTS.md` | Running or delegating the complete CTest suite, rerunning its failed tests, or acting as its test runner |
+| `docs/playtests.md` | Preparing a maintainer play-test: its folder of saves, its launchers and its guide |
 
 ## Source of truth
 
@@ -133,12 +134,9 @@ where nothing cheaper settles a change, without lowering the evidence bar.
   earlier one only when a later part depends on its result, as the plan says.
   With nothing unsettled it is a short check of the main result. Re-tests
   after fixes cover only the failed items.
-- The report's script: ~10-15 items, ~30 minutes, in route order. Each item
-  gives one copy-paste block (generate the preset save, launch), the keys and
-  the concrete expected result (text, number, sound, frame) with its evidence.
-  Assume the maintainer has not played that content, Darkside included: say
-  where to go and what triggers it. Mark DOSBox comparisons with their
-  starting point. The maintainer answers by item number ("3 fail: ...").
+- Prepare the session as `docs/playtests.md` describes: a folder of preset
+  saves with one double-click launcher per item, and a short numbered guide
+  that gives moves as coordinates.
 
 **Maintenance tasks.** Small fixes (a defect, a flaky test, a doc correction)
 may be done without a milestone plan: a scoped prompt, tests for a code or test
@@ -169,7 +167,7 @@ recurring, stop and propose a milestone instead.
 
 Do not create additional workflow or work-in-progress documents (progress
 reports, temporary workflow notes, redundant plans or duplicated
-instructions) beyond the two specialized `AGENTS.md` files listed above.
+instructions) beyond the specialized instruction files listed above.
 
 **Original quirks.** When a task deliberately keeps an oddity of the original
 or of the pinned reference (an original bug kept on purpose, a case following
