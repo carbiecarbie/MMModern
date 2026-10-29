@@ -1,14 +1,14 @@
 # MMModern - Project Status
 
-This describes what can be played and done now. M95 is the latest completed
-and accepted milestone (2026-10-28; [plan](milestone-95-plan.md)). It
-followed up the Clouds audit: while an Event waits, the small map and the
-border now show its changes, and original-data tests pin the audit's
-invariants. Before it, M94 played the original AdLib, Sound Blaster and
-MT-32 drivers when `XEEN.CFG` selects them, M93 opened each launch with the
-original Darkside intro, M90 confirmed that Clouds of Xeen can be played
-from Newcastle's Megacredits to Lord Xeen, M92 made Clouds finishable, with
-the original ending and score, and M91 added the Clouds intro.
+This describes what can be played and done now. M96 is the latest completed
+and accepted milestone (2026-10-29; [plan](milestone-96-plan.md)): as in DOS,
+a chest whose lock is picked becomes an open chest for good, and save v22
+keeps it open. Before it, M95 followed up the Clouds audit, M94 played the
+original AdLib, Sound Blaster and MT-32 drivers when `XEEN.CFG` selects them,
+M93 opened each launch with the original Darkside intro, M90 confirmed that
+Clouds of Xeen can be played from Newcastle's Megacredits to Lord Xeen, M92
+made Clouds finishable, with the original ending and score, and M91 added
+the Clouds intro.
 Earlier milestones are in [project history](project-history.md), direction is
 in the [roadmap](roadmap.md), and build and dependency setup is in
 [dependencies](dependencies.md).
@@ -138,12 +138,12 @@ Delete removes a character after confirmation, except one carrying the Xeen
 Slayer Sword. Loading an Inn save reopens the Inn, without music when loaded
 from the title, as in DOS ([party rules](rules/party.md)).
 
-Teachers and Events grant skills. Thievery picks locks, Bodybuilder and the
-spell-casting skills raise HP or SP, Merchant sells at full value, Swimming
-opens water and Navigator saves time in the desert; Arms Master and Tracker
-do nothing, as in DOS. Cartography fills the 7x7 automap (`=`) and the
-original 16x16 Map (M), and the border lights Danger Sense, Spot Secret Doors
-and Direction Sense.
+Teachers and Events grant skills. Thievery picks locks, and a picked chest
+stays open for good, as in DOS. Bodybuilder and the spell-casting skills raise
+HP or SP, Merchant sells at full value, Swimming opens water and Navigator
+saves time in the desert; Arms Master and Tracker do nothing, as in DOS.
+Cartography fills the 7x7 automap (`=`) and the original 16x16 Map (M), and
+the border lights Danger Sense, Spot Secret Doors and Direction Sense.
 
 ### Towns and services
 
@@ -236,17 +236,17 @@ directories.
 
 ## Save format
 
-There is one current save format, v21. It holds the party with every roster
+There is one current save format, v22. It holds the party with every roster
 record in full, its sound options, play time and Clouds completion, whether
 the party is inside the Inn (where it may be empty), the world, and one state
-per visited map: monster positions and lifecycle, moved objects, changed
-cells, disabled Events, explored cells and the Tavern tip index. Monster HP
-and wake state are not saved, and neither is pending treasure, as in the
-original. During 0.x, older formats are rejected before anything is
-restored, newer or unrecognized saves are left alone, and F9 overwrites only
-a recognizable older MMModern save. Saves are tied to the original archives
-by fingerprint, written atomically, and not compatible with the original
-games or ScummVM.
+per visited map: monster positions and lifecycle, moved and opened objects,
+changed cells, disabled Events, explored cells and the Tavern tip index.
+Monster HP and wake state are not saved, and neither is pending treasure, as
+in the original. During 0.x, older formats are rejected before anything is
+restored, newer or unrecognized saves are left alone, and F9 overwrites only a
+recognizable older MMModern save. Saves are tied to the original archives by
+fingerprint, written atomically, and not compatible with the original games or
+ScummVM.
 
 ## Architecture overview
 

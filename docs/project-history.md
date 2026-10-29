@@ -267,3 +267,9 @@ Blaster digital; the other choices are silent with a notice.
 found one save defect, fixed in release 0.10.1. M95 makes the small map and
 border show a waiting Event's changes, as in DOS. It also pins the audit's
 invariants in original-data tests. [Plan](milestone-95-plan.md).
+
+**M96 - Opened chests stay open** (`8b4e9f4`). As in DOS, a chest whose lock
+is picked becomes its map's open chest when the Event run ends, after its
+treasure, and stays open through moves, leaving the map, Save and Load. The
+lid follows the DOS animation while the lock is picked. Save v22 keeps each
+object's picture. [Plan](milestone-96-plan.md).

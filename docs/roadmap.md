@@ -27,7 +27,8 @@ ending, with the original intros and the installer's sound devices, and
 release 0.10.0 delivered them. The [next arc](#next-arc-release-quality-and-the-darkside-start)
 makes Clouds sturdier and easier to test and report on, then starts Darkside.
 Its first step is done: M95 closed the Clouds audit with tests for its
-invariants. The DOS save investigation comes next.
+invariants. The DOS save investigation comes next; it found that picked
+chests stay open in DOS, which M96 added.
 
 ## Completed arc: closing Vertigo and the first release
 
@@ -119,6 +120,9 @@ this order; steps are direction, not approved plans.
    MMModern and written from it, mainly so DOSBox and MMModern can start from
    the same state when collecting evidence, Darkside included. A converter
    follows only if the investigation shows it is worth it.
+   Its first look found that DOS saves a picked chest as open;
+   [M96](milestone-96-plan.md) added that, with save v22. The investigation
+   resumes from there.
 3. **4:3 picture**: the 320x200 picture shown with the shape the original's
    4:3 monitors gave it; square pixels today. Whether it is the default is
    decided at planning.
