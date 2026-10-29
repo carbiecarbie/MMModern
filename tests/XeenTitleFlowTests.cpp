@@ -12,7 +12,7 @@
 #include <memory>
 using namespace mmodern;
 using save_test::check;
-void titleApplicationControls(const char *,const char *);
+void titleApplicationControls(const char *,const char *,const std::string &);
 void titlePreview(const IndexedFrame &,const std::string &);
 namespace {
 using Screen=XeenTitleFlow::Screen;
@@ -280,8 +280,12 @@ void mappedHotkeys(const GameInstallation &installation,XeenAssetSource &assets,
 }
 }
 int main(int argc,char **argv){try {
- check(argc==2 || argc==3,"Title flow test requires original CD source and optional ending preset");
- {
+ check(argc>=2 && argc<=4,"Title flow test requires original CD source, optional ending preset and optional part");
+ // No part runs everything. CTest splits the run: --without-endings is the
+ // serial native/real-clock part, --endings the fake-clock ending playbacks.
+ const std::string part=argc>3?argv[3]:"";
+ check(part.empty() || part=="--without-endings" || part=="--endings","Title flow part is --without-endings or --endings");
+ if(part!="--endings") {
  const auto installation=XeenInstallationDetector().detect(argv[1]);check(bool(installation),"missing CD installation");
  XeenAssetSource assets(*installation,320,200);const XeenFontFormat font(assets.readArchiveResource("fnt",XeenSceneArchive::DarksideOnly));
  std::array<XeenSaveFile::Slot,10> slots;
@@ -435,9 +439,9 @@ int main(int argc,char **argv){try {
  const auto retired=empty.flow.frame().presentation();empty.flow.close();
  check(!empty.flow.current() && !empty.flow.acceptsFrame(retired) && !empty.flow.handle(DialogKeyAction{'s'},retired),"closed title callbacks retained authority");
  section("titleFlow");
- }
  cutsceneMouse();
- const auto nativeBegan=std::chrono::steady_clock::now();titleApplicationControls(argv[1],argc>2?argv[2]:nullptr);
+ }
+ const auto nativeBegan=std::chrono::steady_clock::now();titleApplicationControls(argv[1],argc>2?argv[2]:nullptr,part);
  std::cerr<<"titleApplicationControls: "<<std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now()-nativeBegan).count()<<" ms\n";
  std::cout<<"Original title, four credits pages, chooser, New/Load, mouse/key/cancel and stale frames passed\n";return 0;
 }catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}

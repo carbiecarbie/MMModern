@@ -772,10 +772,13 @@ if(BUILD_TESTING)
       "LINKER:--wrap,_ZNK7mmodern9SdlWindow15showInteractiveERKNS_12IndexedFrameERKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEERKNS0_18FrameUpdateHandlerERKSt8functionIFbvEERKSF_IFSt8optionalIS1_EvEERKSF_IFS9_vEE"
       "LINKER:--wrap,_ZNK7mmodern16XeenTextRenderer6renderERKNS_12IndexedFrameERKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEERKNS_21XeenTextRenderOptionsE"
       "LINKER:--wrap,_ZN7mmodern12XeenSaveFile19createSlotDirectoryERKNS_16GameInstallationERKNSt10filesystem7__cxx114pathERKSt8optionalIS6_E")
-    add_test(NAME xeen_title_flow COMMAND mmodern_title_flow_tests "${MMODERN_XEEN_DATA_DIR}" "${MMODERN_M92_TITLE_PRESET}")
-    set_tests_properties(xeen_title_flow PROPERTIES FIXTURES_REQUIRED m92_title_preset)
-    set_tests_properties(xeen_title_flow PROPERTIES LABELS "fast")
-    set_tests_properties(xeen_title_flow PROPERTIES ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_RENDER_DRIVER=software")
+    # The fake-clock ending playbacks need no serial slot, so they run apart
+    # from the native/real-clock title checks.
+    add_test(NAME xeen_title_flow COMMAND mmodern_title_flow_tests "${MMODERN_XEEN_DATA_DIR}" "${MMODERN_M92_TITLE_PRESET}" --without-endings)
+    add_test(NAME xeen_title_flow_endings COMMAND mmodern_title_flow_tests "${MMODERN_XEEN_DATA_DIR}" "${MMODERN_M92_TITLE_PRESET}" --endings)
+    set_tests_properties(xeen_title_flow xeen_title_flow_endings PROPERTIES FIXTURES_REQUIRED m92_title_preset)
+    set_tests_properties(xeen_title_flow xeen_title_flow_endings PROPERTIES LABELS "fast")
+    set_tests_properties(xeen_title_flow xeen_title_flow_endings PROPERTIES ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_RENDER_DRIVER=software")
     target_link_libraries(mmodern_title_resource_tests PRIVATE mmodern_xeen)
     add_test(NAME xeen_title_resources COMMAND mmodern_title_resource_tests "${MMODERN_XEEN_DATA_DIR}")
     set_tests_properties(xeen_title_resources PROPERTIES LABELS "fast")
@@ -1080,8 +1083,12 @@ if(BUILD_TESTING)
  add_executable(mmodern_cutscene_tests tests/XeenCutsceneTests.cpp)
  add_executable(mmodern_ending_presentation_tests tests/XeenEndingPresentationTests.cpp)
  target_link_libraries(mmodern_ending_presentation_tests PRIVATE mmodern_app mmodern_xeen mmodern_scummvm_xeen bcrypt)
- add_test(NAME xeen_ending_presentation COMMAND mmodern_ending_presentation_tests "${MMODERN_XEEN_DATA_DIR}" "${CMAKE_CURRENT_BINARY_DIR}/ending-presentation-tests")
- set_tests_properties(xeen_ending_presentation PROPERTIES LABELS fast ENVIRONMENT "SDL_AUDIODRIVER=dummy")
+ # Five whole ending playbacks in three processes; only --main writes files.
+ add_test(NAME xeen_ending_presentation COMMAND mmodern_ending_presentation_tests "${MMODERN_XEEN_DATA_DIR}" "${CMAKE_CURRENT_BINARY_DIR}/ending-presentation-tests" --main)
+ add_test(NAME xeen_ending_presentation_stride COMMAND mmodern_ending_presentation_tests "${MMODERN_XEEN_DATA_DIR}" "${CMAKE_CURRENT_BINARY_DIR}/ending-presentation-tests" --stride)
+ add_test(NAME xeen_ending_presentation_captions COMMAND mmodern_ending_presentation_tests "${MMODERN_XEEN_DATA_DIR}" "${CMAKE_CURRENT_BINARY_DIR}/ending-presentation-tests" --captions)
+ set_tests_properties(xeen_ending_presentation xeen_ending_presentation_stride xeen_ending_presentation_captions
+  PROPERTIES LABELS fast ENVIRONMENT "SDL_AUDIODRIVER=dummy")
  target_link_libraries(mmodern_cutscene_tests PRIVATE mmodern_app mmodern_xeen mmodern_scummvm_xeen)
  add_test(NAME xeen_cutscene COMMAND mmodern_cutscene_tests "${MMODERN_XEEN_DATA_DIR}" "${CMAKE_CURRENT_BINARY_DIR}/cutscene-tests")
  set_tests_properties(xeen_cutscene PROPERTIES LABELS fast ENVIRONMENT "SDL_AUDIODRIVER=dummy")
@@ -1373,7 +1380,8 @@ if(BUILD_TESTING)
 		xeen_smith_process xeen_vertigo_process xeen_save_format xeen_save_cli
 		xeen_combat_gameplay xeen_equipment_gameplay xeen_inventory_gameplay
 		xeen_m44_scenario_mainland xeen_m44_scenario_services xeen_m44_scenario_temple
-		xeen_m44_scenario_roundtrip)
+		xeen_m44_scenario_roundtrip
+		xeen_title_flow_endings xeen_ending_presentation)
 	get_property(xeen_all_tests DIRECTORY PROPERTY TESTS)
 	foreach(xeen_test IN LISTS xeen_process_tests)
 		if(NOT xeen_test IN_LIST xeen_all_tests)
@@ -1396,6 +1404,27 @@ if(BUILD_TESTING)
 	set_tests_properties(xeen_input_scheduling xeen_main_screen xeen_native_responsiveness
 		xeen_title_flow xeen_myra_original_sdl xeen_save_cli xeen_combat_cli
 		sdl_input sdl_main_screen sdl_motion sdl_window_placement xeen_member_prompt_click PROPERTIES RUN_SERIAL TRUE)
+	# CTest starts the costliest tests first. CTestCostData.txt is not reliable
+	# for that: a run without -j (`ctest -R name`) divides the test's average by
+	# its run count, which left 100-second tests for the end of the suite. These
+	# are rough build-rel seconds with 8 jobs; only their order matters.
+	foreach(xeen_cost IN ITEMS
+			xeen_service_day_process=134 xeen_m44_scenario_services=107 xeen_smith_process=104
+			xeen_title_flow_endings=108 xeen_ending_presentation=80 xeen_training_process=73
+			xeen_coverage_original_guard=69 xeen_combat_clock_process=65 xeen_world_event=53
+			xeen_training_original=47 xeen_combat_casting_faults=42 xeen_cutscene=41
+			xeen_purchase_process=37 xeen_vertigo_process=32 xeen_m44_scenario_mainland=31
+			xeen_ending_presentation_stride=27 xeen_ending_presentation_captions=27
+			xeen_scene_inventory_original=27 xeen_party_interface_original=25 xeen_m61_part_b=21
+			xeen_combat_casting_effects=20 xeen_new_game_process=18 xeen_myra_original=17
+			xeen_cd_audio=17 xeen_combat_casting_process=17 xeen_item_catalog_generation=16
+			xeen_temple_depleted_process=16 xeen_temple_process=13 xeen_m44_scenario_roundtrip=12
+			xeen_m44_scenario_temple=12 xeen_m60_exploration_original=10)
+		string(REPLACE "=" ";" xeen_cost "${xeen_cost}")
+		list(GET xeen_cost 0 xeen_test)
+		list(GET xeen_cost 1 xeen_seconds)
+		set_tests_properties(${xeen_test} PROPERTIES COST ${xeen_seconds})
+	endforeach()
 	# Tests that write the same fixed working-directory or temp path never overlap.
 	set_tests_properties(xeen_npc xeen_npc_sdl PROPERTIES RESOURCE_LOCK npc_asset_dir)
 	set_tests_properties(xeen_journey_gameplay xeen_journey_sdl PROPERTIES RESOURCE_LOCK journey_gameplay_dir)

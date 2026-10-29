@@ -392,77 +392,89 @@ struct Run {
 };
 }
 int main(int argc,char **argv){try {
- check(argc==3 || (argc==4 && (std::string(argv[3])=="--score-pages" || std::string(argv[3])=="--score-pictures")),"ending presentation test arguments");
+ // No part runs every check. CTest runs the three parts as separate tests, so
+ // the five whole ending playbacks do not share one process: --main plays the
+ // reference, input and replay runs it compares; --stride and --captions play
+ // one independent run each.
+ const std::string part=argc==4?argv[3]:"";
+ check(argc==3 || (argc==4 && (part=="--score-pages" || part=="--score-pictures" || part=="--main" || part=="--stride" || part=="--captions")),"ending presentation test arguments");
  const auto installation=*xeenTestInstallationDetector().detect(argv[1]);
  XeenAssetSource assets(installation,320,200);
  const auto data=XeenCutsceneData::installed(installation);
  const auto captions=XeenCutsceneData::captions(assets.readArchiveResource(data.resources[XeenCutsceneData::Caption],XeenSceneArchive::CloudsEnding));
  const XeenFontFormat font(assets.readArchiveResource("fnt",XeenSceneArchive::DarksideOnly));
  const std::filesystem::path out=argv[2];std::filesystem::create_directories(out);
- if(argc==4){pageLayout(data,captions,font);previewPages(installation,assets,font,data,captions,out,std::string(argv[3])=="--score-pages");return 0;}
- frames(assets);
- check(captions.record(8,300).size()==159 && captions.record(10,200).size()==74,"DOS NUL caption indexing");
- for(const auto &r:data.ending.resources)check(!assets.readArchiveResource(r,XeenSceneArchive::CloudsEnding).empty(),r.c_str());
- for(const auto &r:data.ending.powers)check(!assets.readArchiveResource(r,XeenSceneArchive::CloudsEnding).empty(),r.c_str());
- for(const auto &r:data.ending.parade){check(assets.spriteFrameCount(r.idle,XeenSceneArchive::CloudsEnding)>0,"parade idle");check(assets.spriteFrameCount(r.attack,XeenSceneArchive::CloudsEnding)>0,"parade attack");check(!assets.readArchiveResource(r.voice,XeenSceneArchive::CloudsEnding).empty(),"parade voice");}
- randomSource();kinds();cueSites(data,captions);delayedPublication(data,captions);pageLayout(data,captions,font);
- Run run(installation,assets,font,data,captions);run.pictures=out;run.finish();
- std::ofstream trace(out/"trace.tsv");for(const auto &t:run.trace)trace<<t.event<<'\t'<<t.segment<<'\t'<<t.iteration<<'\t'<<t.nanoseconds<<'\t'<<t.tick<<'\t'<<t.reset<<'\n';
- std::ofstream timing(out/"timing.txt");
- timing<<"First castle is bracketed by 51.100 (black) and 51.200 (visible) in ENDING.avi; 49.553 is the DAT scroll, not the castle.\n";
- timing<<"Zero load latency; 70 Hz publication; real VOC durations. Values aligned to castle midpoint 51.150 s.\n";
- struct Marker {const char *name;unsigned iteration;double video;};
- for(const auto &m:std::vector<Marker>{{"ending pyramid",0,59.341},{"castle destruction 0",6,62.965},
-     {"castle destruction 5",7,66.261},{"ending Later",0,82.7},{"ending throne",0,89.25},{"king scale 0",0,94.969}}) {
-  const auto actual=51.150+double(run.first(m.name,m.iteration)-run.first("ending castle"))/1e9;
-  timing<<m.name<<'['<<m.iteration<<"] video="<<m.video<<" model="<<actual<<" delta="<<actual-m.video<<'\n';
-  if(std::abs(actual-m.video)>0.5)throw std::runtime_error(std::string("Ending timing: ")+m.name+" actual="+std::to_string(actual));
- }
- const auto &o=*run.flow->cutscene().observations;
- for(const char *name:{"Alamar voice 1","king voice 1"}) {
-  const auto composed=std::find_if(run.trace.begin(),run.trace.end(),[&](const auto &t){return t.event=="compose" && t.segment==name;});
-  check(composed!=run.trace.end() && run.first(name)-composed->nanoseconds<20000000,"Speech waited before its first flip");
-  const auto next=std::find_if(run.trace.begin(),run.trace.end(),[&](const auto &t){return t.event=="compose" && t.segment==name && t.iteration==1;});
-  check(next!=run.trace.end() && next->tick-composed->tick>=3,"Speech advanced before its three-tick hold");
- }
- check(o.panStride==1 && o.throneOffsets.size()==320,"Measured throne pan");
- check(o.paradeSelectors.size()==73,"Parade omitted a DOS selector");
- check(std::count_if(run.trace.begin(),run.trace.end(),[](const auto &t){return t.event=="flip" && t.segment.find("score heading")==0;})>20,"Score heading did not redraw the rotating sky inside its ticks");
- for(unsigned n=0;n<73;++n)check(o.paradeSelectors[n]==data.ending.parade[n].selector,"Parade selector order");
- check(o.settledDigits==std::vector<unsigned>({9,8,7,6,5,4,3,2,1,0}),"Rightmost digit did not settle first");
- const auto scoreCheck=[&](const auto &obs,const std::string &score) {
-  check(obs.scoreFrames.size()==40,"Score frame counts");
-  for(unsigned i=0;i<40;++i)for(unsigned n=0;n<10;++n) {
-   const auto value=obs.scoreFrames[i][n];check(value>=20 && value<=29,"Random digit range");
-   if(i>=30 && n>=39-i)check(value==20+unsigned(score[n]-'0'),"Settled digit did not come from outcome");
+ if(part=="--score-pages" || part=="--score-pictures"){pageLayout(data,captions,font);previewPages(installation,assets,font,data,captions,out,part=="--score-pages");return 0;}
+ if(part.empty() || part=="--main") {
+  frames(assets);
+  check(captions.record(8,300).size()==159 && captions.record(10,200).size()==74,"DOS NUL caption indexing");
+  for(const auto &r:data.ending.resources)check(!assets.readArchiveResource(r,XeenSceneArchive::CloudsEnding).empty(),r.c_str());
+  for(const auto &r:data.ending.powers)check(!assets.readArchiveResource(r,XeenSceneArchive::CloudsEnding).empty(),r.c_str());
+  for(const auto &r:data.ending.parade){check(assets.spriteFrameCount(r.idle,XeenSceneArchive::CloudsEnding)>0,"parade idle");check(assets.spriteFrameCount(r.attack,XeenSceneArchive::CloudsEnding)>0,"parade attack");check(!assets.readArchiveResource(r.voice,XeenSceneArchive::CloudsEnding).empty(),"parade voice");}
+  randomSource();kinds();cueSites(data,captions);delayedPublication(data,captions);pageLayout(data,captions,font);
+  Run run(installation,assets,font,data,captions);run.pictures=out;run.finish();
+  std::ofstream trace(out/"trace.tsv");for(const auto &t:run.trace)trace<<t.event<<'\t'<<t.segment<<'\t'<<t.iteration<<'\t'<<t.nanoseconds<<'\t'<<t.tick<<'\t'<<t.reset<<'\n';
+  std::ofstream timing(out/"timing.txt");
+  timing<<"First castle is bracketed by 51.100 (black) and 51.200 (visible) in ENDING.avi; 49.553 is the DAT scroll, not the castle.\n";
+  timing<<"Zero load latency; 70 Hz publication; real VOC durations. Values aligned to castle midpoint 51.150 s.\n";
+  struct Marker {const char *name;unsigned iteration;double video;};
+  for(const auto &m:std::vector<Marker>{{"ending pyramid",0,59.341},{"castle destruction 0",6,62.965},
+      {"castle destruction 5",7,66.261},{"ending Later",0,82.7},{"ending throne",0,89.25},{"king scale 0",0,94.969}}) {
+   const auto actual=51.150+double(run.first(m.name,m.iteration)-run.first("ending castle"))/1e9;
+   timing<<m.name<<'['<<m.iteration<<"] video="<<m.video<<" model="<<actual<<" delta="<<actual-m.video<<'\n';
+   if(std::abs(actual-m.video)>0.5)throw std::runtime_error(std::string("Ending timing: ")+m.name+" actual="+std::to_string(actual));
   }
- };scoreCheck(o,"0071001722");
- check(!o.kingMouths.empty() && std::all_of(o.kingMouths.begin(),o.kingMouths.end(),[](auto n){return n>=1 && n<=6;}),"King mouth range");
- std::vector<unsigned> mixers;for(const auto &r:run.requests)if(r.kind==XeenCutscene::Audio::Mixer)mixers.push_back(r.value);
- check(mixers==std::vector<unsigned>({75,95}),"Mixer sites 0x8e42 and 0x8f91 only");
- Run input(installation,assets,font,data,captions,true);input.finish();
- check(input.now==run.now && input.flow->cutscene().observations->kingMouths==o.kingMouths,"Animation input changed playback or RNG");
- Run replay(installation,assets,font,data,captions,false,false,1234567890);replay.finish();scoreCheck(*replay.flow->cutscene().observations,"1234567890");
- check(replay.flow->cutscene().observations->kingMouths==o.kingMouths,"Final score changed presentation random draws");
- Run slow(installation,assets,font,data,captions,false,true);slow.finish();check(slow.flow->cutscene().observations->panStride==3,"Throne stride was fixed");
- auto silent=data;silent.digitalDevice=0;Run captionRun(installation,assets,font,silent,captions);captionRun.finish();
- const auto &co=*captionRun.flow->cutscene().observations;
- check(co.captionRecords==std::vector<unsigned>({8,10,10}),"DOS ending caption mismatch not preserved");
- check(std::all_of(co.captionWidths.begin(),co.captionWidths.end(),[](auto n){return n<=40;}),"Caption strip wider than forty characters");
- check(co.captionAdvances.size()==captions.record(8,300).size()+2*captions.record(10,200).size()-3,"Caption did not reach both terminators");
- check(captionRun.audio->digitalBusy(captionRun.now)==false,"No-device run started digital sound");
- auto threshold=XeenCutscene::cloudsEnding(silent,captions,XeenWallClock::fixed(0),71001722);
- const auto voice=std::find_if(threshold.segments.begin(),threshold.segments.end(),[](const auto &s){return s.name=="king voice 1";});
- voice->entering({0,100,0,false});voice->compose({0,101,1,false});
- check(threshold.observations->captionAdvances.empty(),"Caption advanced before two ticks");
- voice->compose({1,102,2,false});voice->compose({2,103,3,false});voice->compose({3,104,4,false});
- check(threshold.observations->captionAdvances==std::vector<std::uint64_t>({102,104}),"Caption threshold/reset changed");
- for(const auto &m:std::vector<Marker>{{"mirror room",0,103.0},{"mirror sky saved",0,107.938},{"parade closing scroll",0,240.860},
-   {"score heading",0,243.157},{"score closing scroll",0,255.927},{"ending closing scroll",0,261.963},{"ending shutdown",0,263.076}}) {
-  const auto actual=51.150+double(run.first(m.name,m.iteration)-run.first("ending castle"))/1e9;
-  timing<<m.name<<" video="<<m.video<<" model="<<actual<<" delta="<<actual-m.video<<'\n';
-  if(std::abs(actual-m.video)>0.5)throw std::runtime_error(std::string("Ending timing: ")+m.name+" actual="+std::to_string(actual));
+  const auto &o=*run.flow->cutscene().observations;
+  for(const char *name:{"Alamar voice 1","king voice 1"}) {
+   const auto composed=std::find_if(run.trace.begin(),run.trace.end(),[&](const auto &t){return t.event=="compose" && t.segment==name;});
+   check(composed!=run.trace.end() && run.first(name)-composed->nanoseconds<20000000,"Speech waited before its first flip");
+   const auto next=std::find_if(run.trace.begin(),run.trace.end(),[&](const auto &t){return t.event=="compose" && t.segment==name && t.iteration==1;});
+   check(next!=run.trace.end() && next->tick-composed->tick>=3,"Speech advanced before its three-tick hold");
+  }
+  check(o.panStride==1 && o.throneOffsets.size()==320,"Measured throne pan");
+  check(o.paradeSelectors.size()==73,"Parade omitted a DOS selector");
+  check(std::count_if(run.trace.begin(),run.trace.end(),[](const auto &t){return t.event=="flip" && t.segment.find("score heading")==0;})>20,"Score heading did not redraw the rotating sky inside its ticks");
+  for(unsigned n=0;n<73;++n)check(o.paradeSelectors[n]==data.ending.parade[n].selector,"Parade selector order");
+  check(o.settledDigits==std::vector<unsigned>({9,8,7,6,5,4,3,2,1,0}),"Rightmost digit did not settle first");
+  const auto scoreCheck=[&](const auto &obs,const std::string &score) {
+   check(obs.scoreFrames.size()==40,"Score frame counts");
+   for(unsigned i=0;i<40;++i)for(unsigned n=0;n<10;++n) {
+    const auto value=obs.scoreFrames[i][n];check(value>=20 && value<=29,"Random digit range");
+    if(i>=30 && n>=39-i)check(value==20+unsigned(score[n]-'0'),"Settled digit did not come from outcome");
+   }
+  };scoreCheck(o,"0071001722");
+  check(!o.kingMouths.empty() && std::all_of(o.kingMouths.begin(),o.kingMouths.end(),[](auto n){return n>=1 && n<=6;}),"King mouth range");
+  std::vector<unsigned> mixers;for(const auto &r:run.requests)if(r.kind==XeenCutscene::Audio::Mixer)mixers.push_back(r.value);
+  check(mixers==std::vector<unsigned>({75,95}),"Mixer sites 0x8e42 and 0x8f91 only");
+  Run input(installation,assets,font,data,captions,true);input.finish();
+  check(input.now==run.now && input.flow->cutscene().observations->kingMouths==o.kingMouths,"Animation input changed playback or RNG");
+  Run replay(installation,assets,font,data,captions,false,false,1234567890);replay.finish();scoreCheck(*replay.flow->cutscene().observations,"1234567890");
+  check(replay.flow->cutscene().observations->kingMouths==o.kingMouths,"Final score changed presentation random draws");
+  for(const auto &m:std::vector<Marker>{{"mirror room",0,103.0},{"mirror sky saved",0,107.938},{"parade closing scroll",0,240.860},
+    {"score heading",0,243.157},{"score closing scroll",0,255.927},{"ending closing scroll",0,261.963},{"ending shutdown",0,263.076}}) {
+   const auto actual=51.150+double(run.first(m.name,m.iteration)-run.first("ending castle"))/1e9;
+   timing<<m.name<<" video="<<m.video<<" model="<<actual<<" delta="<<actual-m.video<<'\n';
+   if(std::abs(actual-m.video)>0.5)throw std::runtime_error(std::string("Ending timing: ")+m.name+" actual="+std::to_string(actual));
+  }
+  std::cout<<"Ending fake clock finished at "<<double(run.now)/1e9<<" s; acknowledgements at video 252.0 and 255.7 s\n";
+  std::cout<<"61 compressed frame hashes and bounded EOF checks passed\n";
  }
- std::cout<<"Ending fake clock finished at "<<double(run.now)/1e9<<" s; acknowledgements at video 252.0 and 255.7 s\n";
- std::cout<<"61 compressed frame hashes and bounded EOF checks passed\n";return 0;
+ if(part.empty() || part=="--stride") {
+  Run slow(installation,assets,font,data,captions,false,true);slow.finish();check(slow.flow->cutscene().observations->panStride==3,"Throne stride was fixed");
+ }
+ if(part.empty() || part=="--captions") {
+  auto silent=data;silent.digitalDevice=0;Run captionRun(installation,assets,font,silent,captions);captionRun.finish();
+  const auto &co=*captionRun.flow->cutscene().observations;
+  check(co.captionRecords==std::vector<unsigned>({8,10,10}),"DOS ending caption mismatch not preserved");
+  check(std::all_of(co.captionWidths.begin(),co.captionWidths.end(),[](auto n){return n<=40;}),"Caption strip wider than forty characters");
+  check(co.captionAdvances.size()==captions.record(8,300).size()+2*captions.record(10,200).size()-3,"Caption did not reach both terminators");
+  check(captionRun.audio->digitalBusy(captionRun.now)==false,"No-device run started digital sound");
+  auto threshold=XeenCutscene::cloudsEnding(silent,captions,XeenWallClock::fixed(0),71001722);
+  const auto voice=std::find_if(threshold.segments.begin(),threshold.segments.end(),[](const auto &s){return s.name=="king voice 1";});
+  voice->entering({0,100,0,false});voice->compose({0,101,1,false});
+  check(threshold.observations->captionAdvances.empty(),"Caption advanced before two ticks");
+  voice->compose({1,102,2,false});voice->compose({2,103,3,false});voice->compose({3,104,4,false});
+  check(threshold.observations->captionAdvances==std::vector<std::uint64_t>({102,104}),"Caption threshold/reset changed");
+ }
+ return 0;
 }catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}

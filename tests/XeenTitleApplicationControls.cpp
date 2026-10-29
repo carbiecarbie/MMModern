@@ -562,35 +562,9 @@ extern "C" bool wrappedTitleShow(const SdlWindow *window,const IndexedFrame &fir
  return realTitleShow(window,first,label,native,escape,nativeIdle,status);
 }
 int runWithoutStartup(const Application &app,const char *game) {return app.runTitleForTest(game);}
-void titleApplicationControls(const char *game,const char *endingPreset) {
- state.enabled=true;
- state.base=fs::temp_directory_path()/("mmodern-m54-title-"+std::to_string(GetCurrentProcessId())+"-"+std::to_string(GetTickCount64()));
- fs::create_directory(state.base);
- struct Cleanup {~Cleanup(){state.enabled=false;removeTestTree(state.base);}} cleanup;
- for(auto difficulty:{XeenDifficulty::Adventurer,XeenDifficulty::Warrior}) {
-  state.wallNow=10;XeenProgramState programState{XeenWallClock([]{return state.wallNow;})};state.wallNow=47;
-  state.program=&programState;
-  XeenTemplePriceStateTestAccess::seed(programState.templePrices,difficulty==XeenDifficulty::Adventurer?30:49);
-  state.templePrices=&programState.templePrices;state.templeRow=programState.templePrices.row();
-  state.difficulty=difficulty;state.mouse=difficulty==XeenDifficulty::Warrior;
-  state.loading=false;state.shown=false;state.seeds=0;
-  check(runWithoutStartup(Application(programState),game)==0 && state.shown,"native title/New Application loop");
-  const auto replayNow=SdlWindow::presentationNanoseconds();
-  programState.audio->retainCdCue({19,370,2161});
-  check(programState.audio->startCd(replayNow),"Passive speech before title Load did not play");
-  programState.audio->advance(replayNow+18213333334ULL);
-  programState.audio->rebaseClock(SdlWindow::presentationNanoseconds());
-  state.retainedIdle=true;
-  state.loading=true;state.shown=false;state.seeds=0;
-  check(runWithoutStartup(Application(programState),game)==0 && state.shown,"native title/Load Application loop");
-  // The first Load deliberately removes its source after validation.
-  XeenSaveFile::write(state.slot,XeenSaveFormat::decode(state.saved),{},true);
-  XeenProgramState freshProgram{mmodern::XeenWallClock::fixed(0)};
-  XeenTemplePriceStateTestAccess::seed(freshProgram.templePrices,difficulty==XeenDifficulty::Adventurer?30:49);
-  state.program=&freshProgram;state.templePrices=&freshProgram.templePrices;
-  state.retainedIdle=false;state.shown=false;state.seeds=0;
-  check(runWithoutStartup(Application(freshProgram),game)==0 && state.shown,"fresh program title/Load Application loop");
- }
+// Four whole Clouds ending playbacks: CPU-bound on the fake clock, after the
+// New/Load routes that create the slot they load.
+void endingControls(const char *game,const char *endingPreset) {
  // A transport control crosses gameplay(), unlike direct playGameplay tests.
  // Gameplay ending content itself is exercised by the original Lord/Mirror test.
  for(bool developer:{false,true}) {
@@ -627,6 +601,40 @@ void titleApplicationControls(const char *game,const char *endingPreset) {
   check(XeenSaveFile::read(state.slot).journey->cloudsCompleted && xeenReadWon(originalSettings),"Original ending did not save the win");
   state.endingMode=state.endingOriginal=false;
  }
+}
+void titleApplicationControls(const char *game,const char *endingPreset,const std::string &part) {
+ state.enabled=true;
+ state.base=fs::temp_directory_path()/("mmodern-m54-title-"+std::to_string(GetCurrentProcessId())+"-"+std::to_string(GetTickCount64()));
+ fs::create_directory(state.base);
+ struct Cleanup {~Cleanup(){state.enabled=false;removeTestTree(state.base);}} cleanup;
+ for(auto difficulty:{XeenDifficulty::Adventurer,XeenDifficulty::Warrior}) {
+  state.wallNow=10;XeenProgramState programState{XeenWallClock([]{return state.wallNow;})};state.wallNow=47;
+  state.program=&programState;
+  XeenTemplePriceStateTestAccess::seed(programState.templePrices,difficulty==XeenDifficulty::Adventurer?30:49);
+  state.templePrices=&programState.templePrices;state.templeRow=programState.templePrices.row();
+  state.difficulty=difficulty;state.mouse=difficulty==XeenDifficulty::Warrior;
+  state.loading=false;state.shown=false;state.seeds=0;
+  check(runWithoutStartup(Application(programState),game)==0 && state.shown,"native title/New Application loop");
+  const auto replayNow=SdlWindow::presentationNanoseconds();
+  programState.audio->retainCdCue({19,370,2161});
+  check(programState.audio->startCd(replayNow),"Passive speech before title Load did not play");
+  programState.audio->advance(replayNow+18213333334ULL);
+  programState.audio->rebaseClock(SdlWindow::presentationNanoseconds());
+  state.retainedIdle=true;
+  state.loading=true;state.shown=false;state.seeds=0;
+  check(runWithoutStartup(Application(programState),game)==0 && state.shown,"native title/Load Application loop");
+  // The first Load deliberately removes its source after validation.
+  XeenSaveFile::write(state.slot,XeenSaveFormat::decode(state.saved),{},true);
+  XeenProgramState freshProgram{mmodern::XeenWallClock::fixed(0)};
+  XeenTemplePriceStateTestAccess::seed(freshProgram.templePrices,difficulty==XeenDifficulty::Adventurer?30:49);
+  state.program=&freshProgram;state.templePrices=&freshProgram.templePrices;
+  state.retainedIdle=false;state.shown=false;state.seeds=0;
+  check(runWithoutStartup(Application(freshProgram),game)==0 && state.shown,"fresh program title/Load Application loop");
+ }
+ // CTest runs these playbacks as xeen_title_flow_endings: they use the fake
+ // clock only, so they need not wait for the serial xeen_title_flow.
+ if(part!="--without-endings")endingControls(game,endingPreset);
+ if(part=="--endings")return;
  // Player startup uses the same presenter on a fake clock, with private settings.
  for(unsigned route=0;route<4;++route) {
   const auto file=state.base/("startup-"+std::to_string(route)+".ini");
