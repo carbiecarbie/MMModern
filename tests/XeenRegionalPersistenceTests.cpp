@@ -40,7 +40,8 @@ Bytes suffix(const XeenSaveSnapshot &s){
   if(m.monsters){put(b,m.monsters->originalCount,2);put(b,m.monsters->slots.size(),2);
    for(const auto &a:m.monsters->slots)b.insert(b.end(),{std::uint8_t(a.x),std::uint8_t(a.y),std::uint8_t(a.lifecycle),std::uint8_t(a.status),std::uint8_t(a.accounted),std::uint8_t(a.spawnedType),std::uint8_t(std::uint16_t(a.spawnedType)>>8)});}
   check(m.wallItems.empty() && m.cells.empty(),"Independent suffix fixture has no wall-item or cell overrides");
-  put(b,m.objects.size(),2);for(const auto &v:m.objects){put(b,v.record,2);b.insert(b.end(),{std::uint8_t(v.x),std::uint8_t(v.y),std::uint8_t(v.flipped)});}
+  // v22: six-byte object entries, the MOB table index last.
+  put(b,m.objects.size(),2);for(const auto &v:m.objects){put(b,v.record,2);b.insert(b.end(),{std::uint8_t(v.x),std::uint8_t(v.y),std::uint8_t(v.flipped),v.tableIndex});}
   put(b,0,2);put(b,0,2);
   put(b,m.events.size(),2);for(const auto &v:m.events){put(b,v.record,2);b.push_back(v.opcode);}
   b.push_back(m.explored.has_value());if(m.explored)b.insert(b.end(),m.explored->begin(),m.explored->end());
@@ -67,7 +68,7 @@ void defeat(XeenSaveSnapshot &s,unsigned record){auto &a=s.map(23).monsters->slo
 void verify(const XeenSaveSnapshot &fixture,bool exhaustive=false){
  const auto &s=fixture;
  const auto bytes=XeenSaveFormat::encode(s),expected=suffix(s);const auto offset=baseSize(s);
- check(bytes.size()==offset+expected.size()&&std::equal(expected.begin(),expected.end(),bytes.begin()+offset),"Independent complete v21 schema9/content14 suffix and absent name");
+ check(bytes.size()==offset+expected.size()&&std::equal(expected.begin(),expected.end(),bytes.begin()+offset),"Independent complete v22 schema9/content14 suffix and absent name");
  sameSnapshot(s,XeenSaveFormat::decode(bytes));check(XeenSaveFormat::encode(XeenSaveFormat::decode(bytes))==bytes,"Exact current byte continuation");
  const std::size_t stride=exhaustive?1:97;
  for(std::size_t size=offset;size<bytes.size();size+=stride){auto b=bytes;b.resize(size);fixIndependentEnvelope(b);rejects([&]{XeenSaveFormat::decode(b);});}

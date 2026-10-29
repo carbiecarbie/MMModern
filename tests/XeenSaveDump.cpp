@@ -77,7 +77,7 @@ struct Dump {
     V(XeenServiceEconomy, F(wares); F(bank);)
     V(XeenSaveMonster, F(x); F(y); F(lifecycle); F(status); F(accounted); F(spawnedType);)
     V(XeenSaveMonsterTable, F(originalCount); F(slots);)
-    V(XeenSaveObjectOverride, F(record); F(x); F(y); F(flipped);)
+    V(XeenSaveObjectOverride, F(record); F(x); F(y); F(flipped); F(tableIndex);)
     V(XeenSaveWallItemOverride, F(record); F(x); F(y);)
     V(XeenSaveCellOverride, F(cell); F(word); F(attributes); F(originalWord); F(originalAttributes);)
     V(XeenSaveEventOverride, F(record); F(opcode);)
@@ -123,6 +123,8 @@ void perMap(Dump &d, const XeenSaveSnapshot &s) {
             const auto o = key(m.id) + ".objects[" + std::to_string(unsigned(v.record)) + "]";
             if (v.x == -128 && v.y == -128) d.value(o + ".removed", true);
             else { d.value(o + ".x", v.x); d.value(o + ".y", v.y); d.value(o + ".flipped", v.flipped); }
+            // v22: the MOB table index of every entry, removed ones included.
+            d.value(o + ".tableIndex", v.tableIndex);
         }
         for (const auto &v : m.wallItems) {
             const auto o = key(m.id) + ".wallItems[" + std::to_string(unsigned(v.record)) + "]";

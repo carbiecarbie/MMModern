@@ -378,6 +378,8 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
         return XeenEventExecutionSuspended{state,request};
     };
 
+	// A picked lock's counter (0x9755) is signed; the end-of-run rule tests > 0.
+	const auto lockPicked=[&] {return static_cast<std::int8_t>(state.scriptValues.lockCounter)>0;};
 	// The stash returns over the staging (0x28f22..0x291a6); without one the
 	// delivered (emptied) or untouched live staging remains. WhoWill is outside
 	// the stash and the delivery clear: the run's value stays.
@@ -392,6 +394,11 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 	const auto finish = [&](bool delivered) -> XeenEventExecutionStepResult {
         if(!state.tailDone) {
             state.tailDone=true;
+            // After the treasure (0x28d70..0x28d8d), a picked lock turns the selected
+            // chest into its map's open chest; the counter then returns to zero
+            // (0x28d92..0x28e87), before the tail and "Nothing here".
+            if(lockPicked() && state.selectedObject)world.applyOpenChest(*state.selectedObject);
+            if(state.scriptValues.lockCounter) {state.scriptValues.lockCounter=0;world.objectFrameLocked(std::nullopt);}
             if(eventDraw)eventDraw(world,workingCamera,false);
             if(!state.scriptExecuted && state.selectedObject) {
                 if(!state.otherFacing) {
@@ -748,6 +755,9 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 		if (std::holds_alternative<XeenEventExit>(decoded.operation))
 			return finalize();
 		if (const auto *service=std::get_if<XeenEventTownService>(&decoded.operation)) {
+			// A service settles on the live world, where the chest rule cannot run.
+			if(lockPicked())return error(XeenEventExecutionErrorKind::UnsupportedExecutionContext,
+				"Town service after a picked lock is not supported yet",instructionCount,logical,decoded.source);
 			const bool smith=service->action==1,training=service->action==5,temple=service->action==4;
 			const bool tavern=service->action==3,bank=service->action==0,guild=service->action==2;
             const auto *entrance=xeenEntranceSite(service->action,workingCamera);
@@ -925,6 +935,9 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 		}
 
 		if (std::holds_alternative<XeenEventRemove>(decoded.operation)) {
+			// The chest rule's selection would then differ from DOS's.
+			if(lockPicked() && state.selectedObject)return error(XeenEventExecutionErrorKind::UnsupportedExecutionContext,
+				"Remove after a picked lock is not supported yet",instructionCount,logical,decoded.source);
 			try {
 				// Calls change logical X/Y, never the physical mutation cell.
 				// Current supported transfers keep the script on the physical map.
@@ -1167,6 +1180,13 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 		if(const auto *move=std::get_if<XeenEventMoveObject>(&decoded.operation)) {
 			if(!world.detachedEventCandidate())return error(XeenEventExecutionErrorKind::UnsupportedExecutionContext,
 				"MoveObj publication is not supported yet in this context",instructionCount,logical,decoded.source);
+			// DOS reselects the object on the party's cell at every draw3d
+			// (0x156f0/0x15836, 0x170c3/0x171d1) while this run keeps its
+			// selection, so no object moves while a lock is picked. No Clouds
+			// lock-picking run moves one.
+			if(lockPicked())
+				return error(XeenEventExecutionErrorKind::UnsupportedExecutionContext,
+					"MoveObj after a picked lock is not supported yet",instructionCount,logical,decoded.source);
 			world.applyMoveObject({logical.mapId,move->record},move->x,move->y);
 			++logical.line;missingPolicy=MissingInstructionPolicy::NaturalCompletion;continue;
 		}
@@ -1411,6 +1431,7 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 					lock.picked=XeenCharacterRules::thievery(member)+int(randomDraw(1,20))>=box;
 					if(lock.picked) {
 						state.scriptValues.lockCounter=1;
+						world.objectFrameLocked(lock.object);
 						auto &inputs=XeenEventValueAccess::inputs(partyState,owner);
 						if(!inputs)return refuse(XeenEventExecutionErrorKind::UnsupportedExecutionContext,"Lock picking has no character inputs");
 						const int level=std::max(0,int(member.permanentLevel)+int(member.temporaryLevel));
@@ -1693,6 +1714,13 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 		}
 
         const auto executeTeleport = [&](std::uint8_t mapId,int x,int y,bool continueExecution) -> std::optional<XeenEventExecutionError> {
+            // Every teleport here resets the selection, which DOS keeps on the same map
+            // (0x270be..0x270c6, 0x2711c) and zeroes on a map load (0xf59a). Only a
+            // same-map TeleportAndContinue also zeroes the counter (0x27127), so it alone
+            // runs on while a picked lock's counter is positive.
+            if(lockPicked() && (!continueExecution || !mapId || mapId!=workingCamera.mapId.number))
+                return error(XeenEventExecutionErrorKind::UnsupportedExecutionContext,
+                    "Teleport after a picked lock is not supported yet",instructionCount,logical,decoded.source);
             ++state.inputClearCount;state.inputClearSite=0x27112;
             XeenCamera destination{{workingCamera.mapId.side,mapId},x,y,workingCamera.direction};
             if(!mapId) {
@@ -1749,6 +1777,8 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
             if(partyState.encounterContext)
                 partyState.encounterContext->lightAndResistances[0]=world.lightAfterScenePreparation(partyState,workingCamera);
             world.scenePresentation().completeLightingDraw();
+            // The restart zeroes the lock counter (0x27127 -> 0x26a8e, 0x26a96).
+            if(state.scriptValues.lockCounter) {state.scriptValues.lockCounter=0;world.objectFrameLocked(std::nullopt);}
 			logical = {workingCamera.mapId, workingCamera.x, workingCamera.y, 0};
 			try {
 				script.emplace(scriptProvider(logical.mapId));

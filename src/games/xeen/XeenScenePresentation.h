@@ -9,7 +9,10 @@
 #include "formats/xeen/XeenMonsterAppearance.h"
 #include <map>
 #include <algorithm>
+#include <cstdint>
+#include <functional>
 #include <memory>
+#include <optional>
 #include <random>
 #include <stdexcept>
 #include <tuple>
@@ -61,6 +64,24 @@ struct XeenMonsterAnimation {
 	}
 };
 
+// An object's effective sprite and its view's start and end frames (clouds.dat)
+// for the party's facing (DOS 0x4c27 relative view).
+struct XeenObjectFrameView {int sprite=-1;unsigned start=0,end=0;};
+// giveExt's frame byte (DOS object +3: 0x235f6 opens, 0x23703 closes) of the
+// objects whose frame differs from their ordinary one. Like every object in
+// DOS, each draw3d updates it before the composition (0x10c32..0x10dc7) until
+// it shows its sprite's ordinary frame. Leaving the map and Load drop it, and
+// it is not saved, as in DOS.
+struct XeenObjectFrames {
+ std::map<XeenObjectIdentity,unsigned> frames;
+ // The selection while a picked lock's counter is positive (0x9755, 0x98d9).
+ std::optional<XeenObjectIdentity> locked;
+ // One update is owed before the next composition: each draw3d's, and the
+ // first after the chest rule changed a framed sprite (0x28e1f, 0x28e77).
+ bool due=false;
+ void swap(XeenObjectFrames &other) noexcept {frames.swap(other.frames);locked.swap(other.locked);std::swap(due,other.due);}
+};
+
 class XeenScenePresentation {
 public:
  // DS:3067 is an unsaved pending lighting check, separate from exploration.
@@ -75,9 +96,38 @@ public:
      return static_cast<std::uint16_t>(light-(pending && (attributes&0x20) && light ? 1u:0u));
  }
  std::map<XeenObjectIdentity,bool> objectFlips;
- // giveExt's chest frame (0x235f6, 0x23703): open while the lock is picked,
- // until the map is loaded again. Not saved, as in DOS.
- std::map<XeenObjectIdentity,unsigned> objectFrames;
+ XeenObjectFrames objectFrames;
+ // The frame byte a composition draws: the retained one in a reconstruction.
+ std::optional<unsigned> drawnObjectFrame(XeenObjectIdentity id) const {
+  const auto &frames=drawingState().objectFrames.frames;const auto found=frames.find(id);
+  return found==frames.end()?std::nullopt:std::optional<unsigned>(found->second);
+ }
+ // draw3d's object update (DOS 0x10c32..0x10dc7) for the framed objects of
+ // `map`, when one is owed, before the composition and never in a
+ // reconstruction. `view` gives an object's current view, absent when unknown.
+ void advanceObjectFrames(XeenMapIdentity map,
+   const std::function<std::optional<XeenObjectFrameView>(XeenObjectIdentity)> &view) {
+  if(!objectFrames.due || _reconstruct)return;
+  objectFrames.due=false;
+  auto &frames=objectFrames.frames;const auto &locked=objectFrames.locked;
+  // DOS updates every object: the selected lock object cycles from its
+  // ordinary frame even after its entry ended.
+  if(locked && locked->mapId==map && !frames.count(*locked))
+   if(const auto v=view(*locked))frames.emplace(*locked,v->start);
+  const int closed=XeenSide(map.side)==XeenSide::Darkside?15:16;
+  for(auto i=frames.begin();i!=frames.end();) {
+   if(i->first.mapId!=map) {++i;continue;}
+   const auto v=view(i->first);
+   if(!v) {i=frames.erase(i);continue;}
+   auto frame=static_cast<std::uint8_t>(i->second+1); // 0x10c83 increments the byte.
+   // 0x10c8a..0x10cf6: the selected 15/16 (by side), 58 or 73 cycles 1..4; 58 holds 1.
+   const bool cycles=locked && *locked==i->first && (v->sprite==closed || v->sprite==58 || v->sprite==73);
+   if(cycles) {if(frame>4 || v->sprite==58)frame=1;}
+   else if(frame>v->end)frame=static_cast<std::uint8_t>(v->start); // 0x10cf9..0x10d55
+   if(!cycles && frame==v->start) {i=frames.erase(i);continue;}
+   i->second=frame;++i;
+  }
+ }
  struct PortraitEffect {unsigned spellFrame=4, damageFrame=0, damageTicks=0;std::uint64_t spellDeadline=0,damageDeadline=0;std::optional<unsigned> spellCue;};
  // One physical (frame 0) or spell splat per row, plus the original's separate
  // elemental weapon splat beside it (_elemFrame/_elemScale, M67).
@@ -263,9 +313,11 @@ public:
 		const auto i=_actors.find(*value.identity);
 		if (i!=_actors.end()) {i->second.animation.frame=8+value.frame;i->second.animation.postAttackDelay=value.frame==3?5:1;}
 	}
-	// draw3d updates UI/water before composition (DAT 0x10bda..0x10bf4).
+	// draw3d updates UI/water before composition (DAT 0x10bda..0x10bf4), then
+	// every object's frame (0x10c32..0x10dc7, advanceObjectFrames).
 	void beginDraw() noexcept {
 		if (!(_uiPhase=(_uiPhase+1)%4)) water=!water;
+		objectFrames.due=true;
 	}
 	// animate3d runs after the chosen scene has been composed (DAT 0x107b6).
 	void advanceAfterDraw(XeenMapIdentity map) {

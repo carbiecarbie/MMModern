@@ -123,8 +123,10 @@ void XeenWorld::leaveMap(XeenMapIdentity mapId,XeenGameFlags *flags) {
         const auto *s=_sessionState.mapState(mapId);
         if(s && s->monsters && xeenLakeDragonsGone(*s->monsters))flags->set(56);
     }
-	for(auto at=_scenePresentation.objectFrames.begin();at!=_scenePresentation.objectFrames.end();)
-		at=at->first.mapId==mapId?_scenePresentation.objectFrames.erase(at):std::next(at);
+	auto &frames=_scenePresentation.objectFrames;
+	for(auto at=frames.frames.begin();at!=frames.frames.end();)
+		at=at->first.mapId==mapId?frames.frames.erase(at):std::next(at);
+	if(frames.locked && frames.locked->mapId==mapId)frames.locked.reset();
 	for(const auto &entry:_sessionState._mapStates) {
 		auto &cells=_sessionState._mapStates.find(entry.first)->cells;
 		for(auto &cell:cells)if(cell.visitMap==mapId) {

@@ -617,7 +617,7 @@ void titleApplicationControls(const char *game,const char *endingPreset) {
  }
  state.endingMode=state.endingReplay=false;state.endingExeFailure=0;
  if(endingPreset) {
-  // Explicit local witness, reusing the maintainer's v21 preset without writing it.
+  // Explicit local witness, reusing the maintainer's current-format preset without writing it.
   fs::copy_file(fs::path(endingPreset),state.slot,fs::copy_options::overwrite_existing);
   state.wallNow=10;XeenProgramState p{XeenWallClock([]{return state.wallNow;})};state.program=&p;
   state.endingMode=state.endingOriginal=true;state.endingReturned=state.endingNotice=state.endingPlayed=state.shown=false;

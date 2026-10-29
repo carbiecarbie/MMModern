@@ -136,7 +136,7 @@ void savesAndCombat() {
         regional_journey_test::Fixture f(bytes,[&](auto &f){f.p.party=XeenParty::fromRosterIds({ids.begin(),ids.begin()+count});});
         auto before=XeenSaveState::capture(regional_test::signature(),f.p,f.camera,f.flags,f.w);
         runAndDefeat(before,count);
-        const auto wire=XeenSaveFormat::encode(before);check(wire[8]==21,"v21 envelope byte");
+        const auto wire=XeenSaveFormat::encode(before);check(wire[8]==22,"v22 envelope byte");
         auto decoded=XeenSaveFormat::decode(wire);save_test::sameSnapshot(before,decoded);
         check(XeenSaveFormat::encode(decoded)==wire,"byte-exact one-to-six round trip");
         for(unsigned id=0;id<30;++id)check(decoded.characters[id].savedMaze==561 && decoded.characters[id].townUnknown==173 &&

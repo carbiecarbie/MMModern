@@ -75,15 +75,19 @@ struct XeenSaveMonsterTable {
 	}
 };
 
-// MOB object position and effective flip. Remove is (-128,-128) without a
-// flip; a hidden MoveObj can retain a flip at that position. A hidden MoveObj
-// without a flip shares the Remove representation.
+// MOB object position, effective flip and picture-table index. Remove is
+// (-128,-128) without a flip; a hidden MoveObj can retain a flip at that
+// position. A hidden MoveObj without a flip shares the Remove representation.
+// The index is the DOS MOB byte of every entry, removed ones included: the
+// record's own, or its map's open chest after a picked lock (v22).
 struct XeenSaveObjectOverride {
 	std::uint16_t record = 0;
 	int x = 0, y = 0;
 	bool flipped = false;
+	std::uint8_t tableIndex = 0;
 	friend bool operator==(const XeenSaveObjectOverride &a, const XeenSaveObjectOverride &b) {
-		return a.record == b.record && a.x == b.x && a.y == b.y && a.flipped == b.flipped;
+		return a.record == b.record && a.x == b.x && a.y == b.y && a.flipped == b.flipped &&
+			a.tableIndex == b.tableIndex;
 	}
 };
 

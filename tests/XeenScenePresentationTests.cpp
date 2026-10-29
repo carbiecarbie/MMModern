@@ -69,8 +69,55 @@ void archiveResolution() {
 	check(clouds.hasSceneResource("shared.srf")&&!clouds.hasSceneResource("companion.srf"),"Clouds-only scene lookup failed");
 }
 }
+// M96: draw3d's update of giveExt's frame byte (DOS 0x10c32..0x10dc7).
+void objectFrameUpdates() {
+	const XeenObjectIdentity id{47,1};XeenScenePresentation scene(1);
+	const auto tick=[&](XeenObjectFrameView view) {
+		scene.beginDraw();scene.advanceObjectFrames(47,[&](XeenObjectIdentity) {return std::optional<XeenObjectFrameView>(view);});
+	};
+	const auto frame=[&]()->std::optional<unsigned> {
+		const auto found=scene.objectFrames.frames.find(id);
+		return found==scene.objectFrames.frames.end()?std::nullopt:std::optional<unsigned>(found->second);
+	};
+	// While the picked lock's counter is positive the lid cycles 1..4 (sprite 16, view start/end 6).
+	scene.objectFrames.frames[id]=1;scene.objectFrames.locked=id;
+	std::vector<unsigned> lid;for(unsigned n=0;n<8;++n) {tick({16,6,6});lid.push_back(*frame());}
+	check(lid==std::vector<unsigned>{2,3,4,1,2,3,4,1},"The picked lid does not cycle 1..4");
+	// The rule's open sprite 62 (view start/end 2) shows its start frame from the next update.
+	scene.objectFrames.locked.reset();tick({62,2,2});
+	check(!frame(),"The opened chest did not show its start frame after one update");
+	// The lock object 58 holds frame 1.
+	scene.objectFrames.frames[id]=1;scene.objectFrames.locked=id;
+	for(unsigned n=0;n<3;++n) {tick({58,2,2});check(frame()==1u,"Sprite 58 does not hold frame 1");}
+	// A failed pick (frame 0, counter zero) counts up to its start frame, then ends.
+	scene.objectFrames.locked.reset();scene.objectFrames.frames[id]=0;
+	std::vector<unsigned> counted;for(unsigned n=0;n<6;++n) {tick({16,6,6});if(const auto value=frame())counted.push_back(*value);}
+	check(counted==std::vector<unsigned>{1,2,3,4,5} && !frame(),"A failed pick does not count up to its start frame");
+	// Past the end frame the start frame returns: 119 seen from view 3 (start/end 3).
+	scene.objectFrames.frames[id]=1;tick({119,3,3});check(frame()==2u,"A frame below the start does not count up");
+	scene.objectFrames.frames[id]=4;tick({119,3,3});check(!frame(),"A frame past the end does not return to the start");
+	// The selected lock object cycles from its ordinary frame after its entry ended (view start 5).
+	scene.objectFrames.locked=id;tick({16,5,5});check(frame()==1u,"The selected lock object does not cycle");
+	// Darkside cycles 15, not 16; other maps' entries and unknown views wait or end.
+	const XeenObjectIdentity dark{{XeenSide::Darkside,47},1};
+	scene.objectFrames.frames.clear();scene.objectFrames.locked=dark;scene.objectFrames.frames[dark]=1;
+	scene.beginDraw();scene.advanceObjectFrames({XeenSide::Darkside,47},[](XeenObjectIdentity) {return std::optional<XeenObjectFrameView>(XeenObjectFrameView{16,0,0});});
+	check(!scene.objectFrames.frames.count(dark),"A Darkside 16 cycled");
+	scene.objectFrames.frames[dark]=1;scene.objectFrames.frames[id]=1;scene.objectFrames.locked.reset();
+	scene.beginDraw();scene.advanceObjectFrames(47,[](XeenObjectIdentity) {return std::optional<XeenObjectFrameView>{};});
+	check(scene.objectFrames.frames.size()==1 && scene.objectFrames.frames.count(dark),"Unknown views or other maps were updated");
+	// One update per draw3d, never in a reconstruction.
+	scene.objectFrames.frames.clear();scene.objectFrames.frames[id]=1;
+	scene.beginDraw();scene.advanceObjectFrames(47,[](XeenObjectIdentity) {return std::optional<XeenObjectFrameView>(XeenObjectFrameView{16,6,6});});
+	scene.advanceObjectFrames(47,[](XeenObjectIdentity) {return std::optional<XeenObjectFrameView>(XeenObjectFrameView{16,6,6});});
+	check(frame()==2u,"One draw3d updated twice");
+	scene.retainDrawingState();scene.composeFromRetained(true);scene.beginDraw();
+	scene.advanceObjectFrames(47,[](XeenObjectIdentity) {return std::optional<XeenObjectFrameView>(XeenObjectFrameView{16,6,6});});
+	check(frame()==2u,"A reconstruction updated a frame");
+}
 int main() {try {
 	archiveResolution();
+	objectFrameUpdates();
 	XeenMonsterRecord data;data.raw[20]=10;data.raw[47]=42;
 	data.validatePresentation();data.raw[48]=1;data.raw[49]=15;data.raw[46]=1;
 	data.validatePresentation();check(!data.supportsAdmittedMechanicsRendering(),"Presentation broadened mechanics admission");

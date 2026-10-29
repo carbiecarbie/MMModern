@@ -304,21 +304,42 @@
 // Local evidence: build-rel/m92-v21-audit-recovered/{digest-audit.json,summary.txt},
 // D:/Projetos/MModern/MModern-re/m92/{partA-v20-equivalence.json,partA-wire-projection.json}.
 // Original-data saves stay local and uncommitted.
+// M96 Part A (save v22): maintainer approved all four v22 replacements on
+// 2026-10-29, after the independent implementation review. Each object entry
+// adds its MOB picture-table index
+// (six bytes); Journey schema 9/content 14 are unchanged. Baseline helpers
+// preserved at D:/Projetos/MModern/M44-audits/m96-baseline (ae1373a,
+// baseline_verified). An audit-only build writing the v21 layout from the new
+// source (never committed; D:/Projetos/MModern/MModern-re/m96/partA/
+// counterfactual-v21.patch) reproduces all four v21 hashes with zero
+// differences: traces, all 14 checkpoints, decoded and per-map fields, and
+// exact native reload/re-save (M44-audits/m96-counterfactual-compare).
+// v22 against v21 (M44-audits/m96-v22-compare): all four traces are
+// byte-equal; no decoded or per-map field changes or goes; each entry adds its
+// index field. Services and Temple saves differ only in the version byte;
+// each Mainland and Roundtrip checkpoint also changes its payload length and
+// CRC and inserts one index byte, its record's own index (map 23 object 13:
+// 8; map 28 object 13: 12): no scenario opens a chest. Native reload/re-save
+// and both roundtrip resumes are exact. Original-data saves stay local.
+// Mainland old (v21): 84a72d60587cdcde08f43c5660cde0ade17b9c4f95cc7269ad89f56d508332f3
+// Services old (v21): 6a5b4c5491660af28929f3f55e655b93caff160069bddaa7890bd770d4f5bfeb
+// Temple old (v21): 7f973e65881ebf5b2560d0dec58c46fcfeaf176462346e6ff583590e6dc1a689
+// Roundtrip old (v21): ad37fa9577df0467089df6f249a463ca751b74f66962d0a5d1b9539a04811c40
 #include <array>
 #include <cstdint>
 namespace m44_baseline {
-inline constexpr const char *revision = "M92 Part A (save v21), baseline 4c57a2e";
+inline constexpr const char *revision = "M96 Part A (save v22), baseline ae1373a";
 struct Scenario { const char *name; std::uint32_t seed; const char *sha256; };
 inline constexpr std::array<Scenario,4> scenarios{{
-    {"mainland-combat-myra-phirna",3626689381u,"84a72d60587cdcde08f43c5660cde0ade17b9c4f95cc7269ad89f56d508332f3"},
+    {"mainland-combat-myra-phirna",3626689381u,"874eaf0e502958ab90d4e6b55a22b9428fc2104f521549548ca6e60b5788a596"},
     // M75: a member woken after its skipped slot waits for the next round (DOS turn order).
     // M78 Part A: maintainer approved the services replacement on 2026-10-20.
     // Pathfinder wall 3 reroutes the one-holder party; time/exploration and an
     // extra merchant generation explain all fields. Native reload/re-save is exact.
     // Local audit: build-rel/m78-digest-comparison and m78-services-causal-audit.json.
-    {"vertigo-buy-repair-training",7u,"6a5b4c5491660af28929f3f55e655b93caff160069bddaa7890bd770d4f5bfeb"},
-    {"temple-recovery",3626689381u,"7f973e65881ebf5b2560d0dec58c46fcfeaf176462346e6ff583590e6dc1a689"},
-    {"vertigo-f3-roundtrip",3626689381u,"ad37fa9577df0467089df6f249a463ca751b74f66962d0a5d1b9539a04811c40"}
+    {"vertigo-buy-repair-training",7u,"7cea4d4b17bd6bc72dbafc34a733e53400f35ea0adedcfa40ef69cbfc5dc7d76"},
+    {"temple-recovery",3626689381u,"fa10dd37fcbe45471f244863cfb155e2010f5da777d6abcee78d70c9c6468565"},
+    {"vertigo-f3-roundtrip",3626689381u,"f7381ad7020595a2b9c299b8c74dafda1e27ac0860a4830d63ab64b1a8e1fd0f"}
 }};
 }
 #endif

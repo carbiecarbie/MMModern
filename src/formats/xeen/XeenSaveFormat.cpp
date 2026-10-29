@@ -75,8 +75,9 @@ void validateMapStates(const std::vector<XeenSaveMapState> &maps) {
 		require(!m.empty(), "noncanonical empty map state");
 		if (m.monsters) validateMonsters(*m.monsters);
 		validateRecords(m.objects, "invalid or duplicate object override");
+		// The index names one of the map's 16 picture-table slots (DOS 0x26698..0x266ce).
 		for (const auto &v : m.objects)
-			require(signedByte(v.x) && signedByte(v.y),
+			require(signedByte(v.x) && signedByte(v.y) && v.tableIndex < 16,
 				"invalid object override value");
 		validateRecords(m.wallItems, "invalid or duplicate wall-item override");
 		for (const auto &v : m.wallItems) require(signedByte(v.x) && signedByte(v.y), "invalid wall-item override value");
@@ -226,6 +227,7 @@ void writeMapStates(Writer &out, const std::vector<XeenSaveMapState> &maps) {
 		out.u16(static_cast<std::uint16_t>(m.objects.size()));
 		for (const auto &v : m.objects) {
 			out.u16(v.record); out.u8(static_cast<std::uint8_t>(v.x)); out.u8(static_cast<std::uint8_t>(v.y)); out.u8(v.flipped);
+			out.u8(v.tableIndex);
 		}
 		out.u16(static_cast<std::uint16_t>(m.wallItems.size()));
 		for (const auto &v : m.wallItems) {
@@ -270,10 +272,11 @@ std::vector<XeenSaveMapState> readMapStates(Reader &in) {
 			m.monsters = std::move(table);
 		}
 		const auto objects = in.u16();
-		require(objects <= in.remaining() / 5, "invalid object override count");
+		require(objects <= in.remaining() / 6, "invalid object override count");
 		m.objects.resize(objects);
 		for (auto &v : m.objects) {
 			v.record = in.u16(); v.x = signedWireByte(in.u8()); v.y = signedWireByte(in.u8()); v.flipped = in.boolean();
+			v.tableIndex = in.u8();
 		}
 		const auto wallItems = in.u16();
 		require(wallItems <= in.remaining() / 4, "invalid wall-item override count");
@@ -301,7 +304,7 @@ std::vector<XeenSaveMapState> readMapStates(Reader &in) {
 
 // Bytes of one decoded map state, for the computed payload extent.
 std::size_t mapStateBytes(const XeenSaveMapState &m) {
-	return 3 + 1 + (m.monsters ? 4 + 7 * m.monsters->slots.size() : 0) + 2 + 5 * m.objects.size() +
+	return 3 + 1 + (m.monsters ? 4 + 7 * m.monsters->slots.size() : 0) + 2 + 6 * m.objects.size() +
 		2 + 4 * m.wallItems.size() + 2 + 7 * m.cells.size() + 2 + 3 * m.events.size() + 1 + (m.explored ? 32 : 0) +
 		1 + (m.tavernTips ? 1 : 0);
 }

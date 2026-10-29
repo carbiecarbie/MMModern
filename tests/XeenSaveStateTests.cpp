@@ -804,6 +804,131 @@ void hiddenMoveRoundTrip() {
   XeenSaveFormat::encode(canonical.capture())==unflipped,
   "An unflipped hidden MoveObj did not share the Remove representation");
 }
+// M96: a picked chest's table index (v22) through MoveObj, Remove, Save and
+// Load. City record 0 is a closed chest (slot 1, sprite 16) on the camera
+// cell; slot 2 holds the open chest (62), unless `open` is false.
+XeenObjectFile chestObjects(XeenMapIdentity id,bool open=true) {
+ auto o=indoorObjects(id,4);if(id!=XeenMapIdentity(28))return o;
+ o.entities.objectTable[1]=16;if(open)o.entities.objectTable[2]=62;o.entities.objects[0]={9,11,1,0,16};
+ // Record 3's own picture-table slot holds no picture, like Clouds map 47's record 0.
+ o.entities.objectTable[5]=0xff;o.entities.objects.push_back({5,6,5,0,-1});
+ return o;
+}
+void openedChestRoundTrips() {
+ mmodern::XeenProgramState programState{mmodern::XeenWallClock::fixed(0)};
+ const auto script=[](std::vector<XeenEventRecord> records) {
+  XeenEventFile file{28,"synthetic.evt",true,{}};for(auto &r:records){r.direction=4;file.records.push_back(r);}return file;
+ };
+ const auto configure=[](CurrentDestination &f,const XeenEventFile &city,bool open=true) {
+  usePerMapResources(f,4);f.objectProvider=[open](auto id){return chestObjects(id,open);};
+  f.resources.loadEvents=[city](auto id){return id==XeenMapIdentity(28)?city:indoorEvents(id);};
+ };
+ // `times` manual Events at the camera cell in one flow, captured at the quiet boundary.
+ const auto interact=[&](CurrentDestination &f,unsigned times=1) {
+  XeenEventSystem events([&](auto id){return XeenEventScript(f.resources.loadEvents(id));},f.resources.loadRegionalText);
+  const auto display=font();IndexedFrame image;image.width=320;image.height=200;image.pixels.resize(64000);
+  std::uint64_t now=0,cycle=0;
+  XeenEventFlow flow(programState,f.world,events,f.party,f.camera,f.flags,display,
+   [&](auto){return XeenEventFlow::Composition{image,false};},{},[&]{return now;},{},nullptr,
+   [&](auto,auto){return XeenEventFlow::Composition{image,false};},nullptr,
+   [&](auto &,const auto &,const auto &,auto,auto){return XeenEventFlow::Composition{image,false};});
+  flow.dialogText=&dos_test::text();unsigned failures=0;
+  flow.reportManual=[&](const auto &r){if(const auto *e=std::get_if<XeenEventExecutionError>(&r)){
+   ++failures;std::cerr<<"Opened chest: "<<e->message<<'\n';}};
+  const auto present=[&](const IndexedFrame &frame){if(frame.presentation())flow.framePresented(frame.presentation());};
+  present(flow.frame());
+  for(unsigned run=0;run<times;++run) {
+   now+=125;flow.beginCycle(++cycle);
+   present(flow.handle(InteractionAction{},flow.displayedInput(),flow.frame().presentation()));
+   for(unsigned n=0;n<1000 && !flow.canSave();++n) {now+=125;flow.beginCycle(++cycle);
+    if(const auto frame=flow.updatePresentation())present(*frame);
+    if(!flow.canSave())present(flow.handle(AcknowledgeAction{},flow.displayedInput(),flow.frame().presentation()));}
+   check(!failures && flow.canSave(),"Opened chest Event failed publication or quiet capture");
+  }
+  return f.capture();
+ };
+ const XeenObjectIdentity chest{28,0};
+ const auto index=[&](const XeenWorld &w) {
+  const auto *s=w.sessionState().mapState(28);
+  return s && s->objectOverrides.size()==1 && s->objectOverrides[0].id==chest && s->objectOverrides[0].tableIndex==std::uint8_t(2);
+ };
+ // Restore, then capture again: the same bytes and the index in an override.
+ const auto reload=[&](const XeenSaveSnapshot &saved,const XeenEventFile &city,const char *message) {
+  const auto bytes=XeenSaveFormat::encode(saved);
+  auto loaded=std::make_unique<CurrentDestination>();configure(*loaded,city);loaded->restore(XeenSaveFormat::decode(bytes));loaded->bind();
+  check(index(loaded->world) && XeenSaveFormat::encode(loaded->capture())==bytes,message);
+  return loaded;
+ };
+ const auto at=[](XeenSaveSnapshot s,int x,int y){s.camera={28,x,y,XeenDirection::North};return s;};
+ auto initial=currentSnapshot();initial.camera={28,9,11,XeenDirection::North};initial.map(28).monsters=mobTable(4);
+ // GiveMulti picks the lock (box difficulty 0) and the run's tail opens the chest.
+ const auto pick=script({record(9,11,0,20,{34,100,0,0,0,0,0,0,0})});
+ CurrentDestination live;configure(live,pick);live.restore(XeenSaveFormat::decode(XeenSaveFormat::encode(initial)));
+ const auto opened=interact(live);
+ check(index(live.world) && live.world.effectiveObject(chest).resourceId==62 &&
+  opened.find(28)->objects==std::vector<XeenSaveObjectOverride>{{0,9,11,false,2}},"The picked chest did not open with its index");
+ check(reload(opened,pick,"The opened chest did not round-trip")->world.effectiveObject(chest).resourceId==62,"The loaded chest is closed");
+ // Other cells' MoveObj (maps 42-45 and 60): another cell, its own cell, hidden.
+ const auto move=script({record(2,2,0,11,{0,4,5}),record(3,3,0,11,{0,9,11}),record(4,4,0,11,{0,128,128})});
+ const auto moved=[&](const XeenSaveSnapshot &from,int x,int y,const XeenSaveObjectOverride &expected,const char *message,unsigned times=1) {
+  auto f=std::make_unique<CurrentDestination>();configure(*f,move);f->restore(XeenSaveFormat::decode(XeenSaveFormat::encode(at(from,x,y))));
+  const auto saved=interact(*f,times);
+  check(index(f->world) && saved.find(28)->objects==std::vector<XeenSaveObjectOverride>{expected},message);
+  reload(saved,move,message);
+  return saved;
+ };
+ moved(opened,2,2,{0,4,5,false,2},"MoveObj to another cell lost the index");
+ moved(opened,3,3,{0,9,11,true,2},"An in-place MoveObj lost the index");
+ const auto hidden=moved(opened,4,4,{0,-128,-128,false,2},"A hidden MoveObj lost the index");
+ check(reload(hidden,move,"A hidden opened chest did not round-trip")->world.sessionState().isObjectDisabled(chest),
+  "A hidden opened chest was not restored as removed");
+ // The second hidden MoveObj in one visit flips it (D01's hidden flipped object).
+ const auto flipped=moved(opened,4,4,{0,-128,-128,true,2},"A hidden flipped MoveObj lost the index",2);
+ check(!reload(flipped,move,"A hidden flipped chest did not round-trip")->world.sessionState().isObjectDisabled(chest),
+  "A hidden flipped chest was restored as removed");
+ // Remove at the opened chest's cell.
+ const auto remove=script({record(9,11,0,14)});
+ CurrentDestination removing;configure(removing,remove);removing.restore(XeenSaveFormat::decode(XeenSaveFormat::encode(opened)));
+ const auto removed=interact(removing);
+ check(index(removing.world) && removing.world.sessionState().isObjectDisabled(chest) &&
+  removed.find(28)->objects==std::vector<XeenSaveObjectOverride>{{0,-128,-128,false,2}},"Remove lost the index");
+ check(reload(removed,remove,"A removed opened chest did not round-trip")->world.sessionState().isObjectDisabled(chest),
+  "A removed opened chest was restored visible");
+ // A record whose own slot holds no picture (FF): its own index, saved
+ // explicitly for a moved or a removed entry, restores without rejection and
+ // without an explicit index, and re-saves byte-identically.
+ const XeenObjectIdentity empty{28,3};
+ for(const auto &entry:{XeenSaveObjectOverride{3,4,4,false,5},XeenSaveObjectOverride{3,-128,-128,false,5}}) {
+  auto saved=initial;saved.map(28).objects={entry};
+  const auto bytes=XeenSaveFormat::encode(saved);const bool removed=entry.x==-128;
+  CurrentDestination f;configure(f,pick);f.restore(XeenSaveFormat::decode(bytes));f.bind();
+  const auto *state=f.world.sessionState().mapState(28);
+  check(state && f.world.effectiveObject(empty).resourceId<0 && f.world.sessionState().isObjectDisabled(empty)==removed &&
+   (removed || (f.world.effectiveObject(empty).x==4 && f.world.effectiveObject(empty).y==4)) &&
+   std::none_of(state->objectOverrides.begin(),state->objectOverrides.end(),[&](const auto &v){return v.id==empty && v.tableIndex;}),
+   "An own index on an empty picture slot was kept explicit");
+  check(XeenSaveFormat::encode(f.capture())==bytes,"An own index on an empty picture slot did not re-save byte-identically");
+ }
+ // Restore refuses any other index without publishing anything.
+ auto other=opened;other.map(28).objects[0].tableIndex=3;
+ auto notChest=opened;notChest.map(28).objects.push_back({1,2,2,false,2});
+ auto large=opened;large.map(28).objects[0].tableIndex=16;
+ rejects([&]{XeenSaveFormat::encode(large);});
+ {
+  // The map's object count, then record 0's six bytes: record, x, y, flip, index.
+  auto bytes=XeenSaveFormat::encode(opened);const std::array<std::uint8_t,8> entry{1,0,0,0,9,11,0,2};
+  const auto found=std::search(bytes.begin(),bytes.end(),entry.begin(),entry.end());
+  check(found!=bytes.end(),"The six-byte object entry is absent");
+  *(found+7)=16;fixIndependentEnvelope(bytes);rejects([&]{XeenSaveFormat::decode(bytes);});
+ }
+ for(unsigned mode=0;mode<3;++mode) {
+  CurrentDestination f;configure(f,pick,mode!=2);
+  const auto before=remove_test::partySnapshot(f.party);const auto camera=f.camera;
+  rejects([&]{f.restore(mode==0?other:mode==1?notChest:opened);});
+  check(remove_test::partySnapshot(f.party)==before && sameCamera(f.camera,camera) && !f.world.sessionState().mapState(28),
+   "A refused opened chest published its restore");
+ }
+}
 // M70 Part C: every travel form reaches the normal quiet capture boundary.
 void travelRoundTrips() {
     mmodern::XeenProgramState programState{mmodern::XeenWallClock::fixed(0)};
@@ -1131,7 +1256,7 @@ int main() {
 	try {
         const auto run=[](const char *name,auto function) {try {function();}catch(const std::exception &e){throw std::runtime_error(std::string(name)+": "+e.what());}};
 		run("liveStatusRoundTrip",liveStatusRoundTrip); run("fullRestoration",fullRestoration); run("explicitItems",explicitItems); run("invalidResourceAndState",invalidResourceAndState); run("characterPreflight",characterPreflight); run("mutationPolicies",mutationPolicies); run("journeyBorrowRefusal",journeyBorrowRefusal);
-		run("genericRoundTrip",genericRoundTrip); run("replacedOpcodePublication",replacedOpcodePublication); run("mapEventRoundTrips",mapEventRoundTrips); run("removeThenMoveRoundTrip",removeThenMoveRoundTrip); run("hiddenMoveRoundTrip",hiddenMoveRoundTrip); run("travelRoundTrips",travelRoundTrips); run("valueRoundTrips",valueRoundTrips); run("unsupportedMapState",unsupportedMapState); run("warzoneLifetime",warzoneLifetime); run("allCloudsMaps",allCloudsMaps);
+		run("genericRoundTrip",genericRoundTrip); run("replacedOpcodePublication",replacedOpcodePublication); run("mapEventRoundTrips",mapEventRoundTrips); run("removeThenMoveRoundTrip",removeThenMoveRoundTrip); run("hiddenMoveRoundTrip",hiddenMoveRoundTrip); run("openedChestRoundTrips",openedChestRoundTrips); run("travelRoundTrips",travelRoundTrips); run("valueRoundTrips",valueRoundTrips); run("unsupportedMapState",unsupportedMapState); run("warzoneLifetime",warzoneLifetime); run("allCloudsMaps",allCloudsMaps);
 		std::cout << "Current save state: atomic preparation, resource identities, rules and owner/flow lifetimes passed\n";
 		return 0;
 	} catch (const std::exception &error) {

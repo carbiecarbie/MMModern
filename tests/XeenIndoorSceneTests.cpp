@@ -515,6 +515,105 @@ void testObjectProjectionAndGeometryOnlyCompatibility() {
 	}
 }
 
+// M96: a chest the rule opened draws its table entry's picture, frame and flip
+// (DOS -0xc16, 0x10d0e, 0x10d87); a framed object's byte is updated before
+// each draw3d's composition (0x10c32..0x10dc7) and then shows its own frame.
+void testOpenedChestDrawsTableEntry() {
+	using namespace mmodern;
+	using namespace indoor_object_test;
+	std::vector<std::uint8_t> bytes(1452);
+	for (std::size_t relative = 0; relative < 4; ++relative) {
+		bytes[16 * 12 + relative] = bytes[16 * 12 + 8 + relative] = static_cast<std::uint8_t>(4 + relative);
+		bytes[62 * 12 + relative] = bytes[62 * 12 + 8 + relative] = static_cast<std::uint8_t>(relative);
+		bytes[62 * 12 + 4 + relative] = 1;
+	}
+	const XeenObjectVisualResolver resolver(XeenCloudsVisualMetadata::parse(bytes));
+	const XeenCamera camera{33, 8, 8, XeenDirection::North};
+	const auto source = expectedSource(camera, kPlacementSpecs.front());
+	auto objects = objectFile(33, {{source.x, source.y, 1, 0, 16}});
+	objects.entities.objectTable[1] = 16;
+	objects.entities.objectTable[2] = 62;
+	auto world = worldWith(emptyIndoorFixture(), objects);
+	const XeenObjectIdentity chest{33, 0};
+	const auto visual = [&] {
+		const auto commands = XeenIndoorScene().build(world, camera, &resolver);
+		const auto *command = objectByIdentity(commands, chest);
+		require(command != nullptr, "the chest was not drawn");
+		return command->object()->visual;
+	};
+	const auto closed = visual();
+	require(closed.spriteName == "016.obj" && closed.frame == 4 && !closed.horizontalFlip &&
+		closed.resourceId == 16, "the closed chest does not draw its record's sprite");
+	world.restoreObjectOverrides({{chest, source.x, source.y, false, std::uint8_t(2)}});
+	const auto open = visual();
+	require(open.spriteName == "062.obj" && open.frame == 0 && open.horizontalFlip &&
+		world.effectiveObjectFlip(chest) && world.effectiveObject(chest).resourceId == 62,
+		"the opened chest does not draw its table entry");
+	// Without an owed update the byte is drawn as it is; with one it is updated first.
+	world.objectFrameDrawn(chest, 2);
+	require(visual().frame == 2, "a framed object was updated without a draw3d");
+	world.scenePresentation().beginDraw();
+	require(visual().frame == 0 && !world.objectFrame(chest), "the update did not precede the composition");
+	require(visual().frame == 0, "one draw3d updated the frame twice");
+}
+
+// M96: while a picked lock's counter is positive the selected chest's lid
+// cycles 1..4, one step per draw3d before its composition (DOS 0x10c83,
+// 0x10c8a..0x10cf6), and the chest the run's end opens (0x28d92..0x28e87) is
+// never composed at a frame its open sprite's view lacks.
+void testPickedLidCycleAndOpenFrames() {
+	using namespace mmodern;
+	using namespace indoor_object_test;
+	// clouds.dat's start, flip and end frames per relative view for 16 and 62.
+	constexpr std::uint8_t closedStart[4]{0, 5, 6, 5}, closedFlip[4]{0, 0, 0, 1};
+	constexpr std::uint8_t openStart[4]{0, 1, 2, 1}, openFlip[4]{0, 1, 0, 0};
+	std::vector<std::uint8_t> bytes(1452);
+	for (std::size_t relative = 0; relative < 4; ++relative) {
+		bytes[16 * 12 + relative] = bytes[16 * 12 + 8 + relative] = closedStart[relative];
+		bytes[16 * 12 + 4 + relative] = closedFlip[relative];
+		bytes[62 * 12 + relative] = bytes[62 * 12 + 8 + relative] = openStart[relative];
+		bytes[62 * 12 + 4 + relative] = openFlip[relative];
+	}
+	const XeenObjectVisualResolver resolver(XeenCloudsVisualMetadata::parse(bytes));
+	const XeenCamera camera{33, 8, 8, XeenDirection::North};
+	const auto source = expectedSource(camera, kPlacementSpecs.front());
+	auto objects = objectFile(33, {{source.x, source.y, 1, 0, 16}});
+	objects.entities.objectTable[1] = 16;
+	objects.entities.objectTable[2] = 62;
+	// The rule runs on a Journey's detached Event candidate.
+	auto live = worldWith(emptyIndoorFixture(), objects);
+	live.markEncounterSession(XeenEncounterEntry::Journey);
+	const auto world = live.transitionCandidate();
+	const XeenObjectIdentity chest{33, 0};
+	const auto visual = [&] {
+		const auto commands = XeenIndoorScene().build(*world, camera, &resolver);
+		const auto *command = objectByIdentity(commands, chest);
+		require(command != nullptr, "the chest was not drawn");
+		return command->object()->visual;
+	};
+	// giveExt writes frame 1 (0x235f6) and the pick holds the selection (0x23673).
+	world->objectFrameDrawn(chest, 1);
+	world->objectFrameLocked(chest);
+	for (const unsigned expected : {2u, 3u, 4u, 1u, 2u, 3u}) {
+		world->scenePresentation().beginDraw();
+		const auto drawn = visual();
+		require(drawn.spriteName == "016.obj" && drawn.frame == expected && visual().frame == expected,
+			"the picked lid does not draw frames 1..4, one per draw3d");
+	}
+	// The run ends at lid frame 3: the chest opens and the counter is cleared.
+	require(world->applyOpenChest(chest), "the picked chest did not open");
+	world->objectFrameLocked(std::nullopt);
+	// The composition after the run updates the byte first, as the next
+	// draw3d does, so 062 never shows the lid's frame 3 or 4.
+	const auto open = visual();
+	require(open.spriteName == "062.obj" && open.frame == openStart[0] && !world->objectFrame(chest),
+		"the opened chest was composed at a lid frame");
+	for (unsigned draw = 0; draw < 3; ++draw) {
+		world->scenePresentation().beginDraw();
+		require(visual().frame == openStart[0], "the opened chest left its view's frame");
+	}
+}
+
 void testResource113AnchorUsesResolvedResourceOnly() {
 	using namespace mmodern;
 	using namespace indoor_object_test;
@@ -871,6 +970,8 @@ int main() {
 		testOcclusionDirectionsAndBorders();
 		testObjectProjectionAndGeometryOnlyCompatibility();
 		testResource113AnchorUsesResolvedResourceOnly();
+		testOpenedChestDrawsTableEntry();
+		testPickedLidCycleAndOpenFrames();
 		testObjectWallPredicatesFromRawSamples();
 		testObjectIdentityPrecedenceAndBoundaries();
 		testCompleteMonsterPredicates();

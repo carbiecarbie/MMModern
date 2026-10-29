@@ -194,10 +194,15 @@ the independent plan review. Offsets and scripts are in
     - any other teleport;
     - a map change;
     - a Town service;
-    - a MoveObj, ExchObj or Remove of the selected object.
+    - a Remove of the selected object;
+    - any MoveObj or ExchObj, whatever record it names.
 
-    This avoids applying the rule to a selection DOS may not have; no Clouds
-    pick script does any of these.
+    This avoids applying the rule to a selection DOS may not have: every
+    draw3d selects again the lowest-index object on the party's cell
+    (`0x156f0..0x15836`, `0x170c3..0x171d1`), so moving any object could
+    change it. No Clouds pick script does any of these (amended after the
+    independent implementation review, which asked for the wider MoveObj
+    refusal).
   - Mode 67 stays refused; its effect on `lockCounter` is recorded for when
     it is supported.
 - **State.** The index belongs to the record and survives every position

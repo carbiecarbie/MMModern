@@ -6,6 +6,7 @@
 
 #include <zlib.h>
 #include <algorithm>
+#include <map>
 #include <limits>
 
 namespace save_test {
@@ -81,7 +82,8 @@ inline XeenSaveMonsterTable monsterTable(unsigned count) {
 inline void prune(XeenSaveSnapshot &s) {
 	s.maps.erase(std::remove_if(s.maps.begin(),s.maps.end(),[](const XeenSaveMapState &m){return m.empty();}),s.maps.end());
 }
-inline bool removedEntry(const XeenSaveObjectOverride &v) { return v.x==-128 && v.y==-128; }
+// Restore's removal shape: (-128,-128) without a flip (a flip keeps a hidden MoveObj).
+inline bool removedEntry(const XeenSaveObjectOverride &v) { return v.x==-128 && v.y==-128 && !v.flipped; }
 inline std::vector<XeenObjectIdentity> removedObjects(const XeenSaveSnapshot &s) {
 	std::vector<XeenObjectIdentity> ids;
 	for(const auto &m:s.maps)for(const auto &v:m.objects)if(removedEntry(v))ids.push_back({m.id,v.record});
@@ -89,7 +91,7 @@ inline std::vector<XeenObjectIdentity> removedObjects(const XeenSaveSnapshot &s)
 }
 inline std::vector<XeenObjectOverride> movedObjects(const XeenSaveSnapshot &s) {
 	std::vector<XeenObjectOverride> values;
-	for(const auto &m:s.maps)for(const auto &v:m.objects)if(!removedEntry(v))values.push_back({{m.id,v.record},v.x,v.y,v.flipped});
+	for(const auto &m:s.maps)for(const auto &v:m.objects)if(!removedEntry(v))values.push_back({{m.id,v.record},v.x,v.y,v.flipped,v.tableIndex});
 	return values;
 }
 inline std::vector<XeenEventIdentity> disabledEvents(const XeenSaveSnapshot &s) {
@@ -102,19 +104,23 @@ inline std::vector<XeenExploredTile> exploredTiles(const XeenSaveSnapshot &s) {
 	for(const auto &m:s.maps)if(m.explored)tiles.push_back({m.id,*m.explored});
 	return tiles;
 }
-inline void addRemovedObject(XeenSaveSnapshot &s,XeenObjectIdentity id) {
+// v22 entries carry the record's MOB table index; synthetic MOBs use slot 0.
+inline void addRemovedObject(XeenSaveSnapshot &s,XeenObjectIdentity id,std::uint8_t tableIndex=0) {
 	auto &objects=s.map(id.mapId).objects;
 	const auto at=std::upper_bound(objects.begin(),objects.end(),id.recordIndex,[](std::size_t r,const XeenSaveObjectOverride &v){return r<v.record;});
-	objects.insert(at,{static_cast<std::uint16_t>(id.recordIndex),-128,-128,false});
+	objects.insert(at,{static_cast<std::uint16_t>(id.recordIndex),-128,-128,false,tableIndex});
 }
 inline void addDisabledEvent(XeenSaveSnapshot &s,XeenEventIdentity id) {
 	auto &events=s.map(id.mapId).events;
 	const auto at=std::upper_bound(events.begin(),events.end(),id.recordIndex,[](std::size_t r,const XeenSaveEventOverride &v){return r<v.record;});
 	events.insert(at,{static_cast<std::uint16_t>(id.recordIndex),0});
 }
+// Replaces the removals; a removal already present keeps its table index.
 inline void setRemovedObjects(XeenSaveSnapshot &s,const std::vector<XeenObjectIdentity> &ids) {
+	std::map<XeenObjectIdentity,std::uint8_t> indices;
+	for(const auto &m:s.maps)for(const auto &v:m.objects)if(removedEntry(v))indices[{m.id,v.record}]=v.tableIndex;
 	for(auto &m:s.maps)m.objects.erase(std::remove_if(m.objects.begin(),m.objects.end(),removedEntry),m.objects.end());
-	for(const auto id:ids)addRemovedObject(s,id);
+	for(const auto id:ids) {const auto found=indices.find(id);addRemovedObject(s,id,found==indices.end()?0:found->second);}
 	prune(s);
 }
 inline void setDisabledEvents(XeenSaveSnapshot &s,const std::vector<XeenEventIdentity> &ids) {

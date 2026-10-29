@@ -500,9 +500,12 @@ std::vector<XeenIndoorDrawCommand> XeenIndoorScene::build(
 	if (resolver) {
 		const auto &file = world.objectFile(camera.mapId);
 		if (file.resourcePresent) {
+			// draw3d updates each object's frame before the composition (DOS 0x10c32..0x10dc7).
+			xeenAdvanceObjectFrames(world,camera,*resolver);
 			// drawScene resets every object's flip, including off-screen records.
 			for(std::size_t i=0;i<file.entities.objects.size();++i)
-				world.objectFlipDrawn({camera.mapId,i},resolver->resolve(file,i,camera.direction,ordinaryPhase).horizontalFlip);
+				world.objectFlipDrawn({camera.mapId,i},resolver->resolve(file,i,camera.direction,ordinaryPhase,
+					world.effectiveObject({camera.mapId,i}).tableIndex).horizontalFlip);
 			const auto direction = static_cast<std::size_t>(camera.direction);
 			for (const auto &placement : xeen_indoor_scene_tables::kObjectPlacements) {
 				if (objectBlocked(placement.query, wo))
@@ -518,8 +521,8 @@ std::vector<XeenIndoorDrawCommand> XeenIndoorScene::build(
 							object.resourceId >= 255 ||
 							world.isObjectDisabled({camera.mapId, recordIndex}))
 						continue;
-					auto visual = resolver->resolve(file, recordIndex, camera.direction,ordinaryPhase);
-					if (const auto frame = world.objectFrame({camera.mapId, recordIndex})) visual.frame = *frame;
+					auto visual = resolver->resolve(file, recordIndex, camera.direction,ordinaryPhase,object.tableIndex);
+					if (const auto frame = world.scenePresentation().drawnObjectFrame({camera.mapId, recordIndex})) visual.frame = *frame;
 					if (visual.status == XeenObjectVisualStatus::SupportedStatic ||
 						visual.status == XeenObjectVisualStatus::SupportedAnimated) {
 						const std::size_t anchorRow = object.resourceId == 113 ? 1 : 0;

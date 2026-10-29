@@ -24,8 +24,9 @@ public:
 class XeenSaveFormat {
 public:
 	static void validateCharacter(const XeenCharacter &,std::size_t rosterId);
-	// M88: empty parties inside a validated Inn; layout/schema/content retained.
-	static constexpr std::uint16_t kJourneyVersion = 21;
+	// M96: each object entry adds its picture-table index (six bytes);
+	// schema/content retained.
+	static constexpr std::uint16_t kJourneyVersion = 22;
 	static constexpr std::uint16_t kJourneySchema = 9;
 	static constexpr std::uint16_t kJourneyContent = 14;
 	static constexpr std::size_t kHeaderSize = 20;

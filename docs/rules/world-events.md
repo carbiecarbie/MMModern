@@ -498,8 +498,72 @@ experience (a 16-bit product) and shows "picks the lock"; otherwise the chest
 closes, "was unable to pick the lock" is shown and the Event ends
 (`0x23647..0x23726`). A test against 20 that follows the sprite table reads
 the same sprite byte and so never skips the lock; the reference reads it as
-the object's x position. The open frame lasts until the map is loaded again,
-as in DOS, and is not saved. A pick plays FX 10, a failure FX 21.
+the object's x position. A pick plays FX 10, a failure FX 21. giveExt sets the
+object's frame byte to 1 when it starts and to 0 after a failed pick
+(`0x235f6`, `0x23703`); the lid frames and the opened chest follow.
+
+**Opened chests (M96).** Every Event run ends with the defeat check and the
+treasure delivery (`0x28d6b`, `0x28d70..0x28d8d`). Then, while a picked
+lock's counter `0x9755` is positive and an object is selected (`0x98d9`), the
+selected chest changes (`0x28d92..0x28e87`): sprite 16 (15 on Darkside) takes
+the first of the map's 16 picture-table slots that holds sprite 62 (57 on
+Darkside), and sprite 73 the first that holds 119. The table index and the
+sprite change together (`0x28e04`, `0x28e1f`, `0x28e69`, `0x28e77`); without
+such a slot nothing changes, and a 16 or 15 never falls through to the 73 test;
+sprite 58 is never changed. The counter then returns to zero (`0x28e87`),
+before the run's tail and "Nothing here". A pick increments it (`0x23673`); a
+failed pick ends the run with it at zero (`0x2371b`, `0x27eaf..0x27ebb`); each
+run starts with it at zero (`0x26a96`), and so does each TeleportAndContinue
+restart (`0x27127` to `0x26a8e`). GiveMulti mode 67 would set it to one
+(`0x27ed8`); no script uses that mode and it stays not supported yet. The rule
+draws nothing from the random stream. The index belongs to the record: the map
+writer saves it with x and y (`0x26698..0x266ce`), the loader rebuilds the
+sprite from it (`0xf989`, `0xf9b1`), and MoveObj and Remove write only x and y
+(Remove `0x27913..0x27937`), so a picked chest stays open through MoveObj,
+Remove, leaving the map, Save and Load; a later run on it sees the open sprite
+and picks no lock. DOS draws its picture from the index (indoor
+`0x1577e..0x1578c`, outdoor `0x17119..0x17127`) and its frames and flip from
+the sprite (`0x10d0e..0x10d21`, `0x10d87..0x10db6`); both name the open sprite.
+37 Clouds chests on 18 maps can be picked open; 12 trap chests never are.
+The selection is the lowest-index object on the party's own cell, rebuilt at
+every draw3d: the object builders clear it, then take the first object whose
+position is the party's while the near draw slot is still free (indoor
+`0x156f0`/`0x15836`, outdoor `0x170c3`/`0x171d1`; the position tables name the
+party's cell for every facing, and draw3d frees the slot first, `0x111e8`,
+`0x10dd9`). MMModern selects once per run by the same rule, except that it
+skips an object without a picture (on Clouds only map 47's record 0 at (8,0),
+where no lock is picked; an [open discrepancy](../original-quirks.md#sv-pictureless-selection)).
+MMModern applies the rule once per run on its
+detached candidate, so a refused run changes nothing, and refuses a run as not
+supported yet when, with the counter positive, it reaches a teleport other
+than a same-map TeleportAndContinue, a map change, a Town service, a Remove of
+the selection or any MoveObj; ExchObj is outside the supported subset in every
+run. After any of these DOS's next draw3d could select another object. None
+can follow a pick in the 41 Clouds runs that can pick a lock (the 37 chests
+and map 80's four sprite-58 objects), no other object can stand on those
+cells, and a TeleportAndContinue draws before its restart (`0x27121`), so the
+restarted run's selection is the new cell's, as in MMModern. Witness: in the
+maintainer's DOS save, `maze0009.mob` object 1 at (15,11) went from index 3
+(sprite 16) to index 4 (sprite 62).
+
+**Lid frames.** draw3d updates every object's frame byte before it composes
+the scene (`0x10bc3`: interface `0x10bda..0x10bf4`, objects
+`0x10c32..0x10dc7`, then the scene from `0x10dcf`). The byte goes up by one
+(`0x10c83`). While the counter is positive the selected 16 (15 on Darkside),
+58 or 73 cycles frames 1..4, and a 58 holds frame 1 (`0x10c8a..0x10cf6`).
+Otherwise the frame stays while the view's end frame is at least the frame and
+returns to the view's start frame past it (`0x10cf9..0x10d55`). Every chest
+sprite is static in each view (CD `clouds.dat`), and so are 58 and the open
+62 and 119: a picked lid cycles 1..4 until the run ends, and the opened chest
+shows the open sprite's start frame from the next draw, which the main loop
+makes right after the run (run `0xd1a5`, treasure `0x24128`, draw3d `0xd1c3`);
+after a failed pick the closed chest counts up to its start frame or returns
+to it. MMModern keeps this byte only for the object giveExt framed, applies
+the update once per animation tick before the composition, and drops it once
+the object shows its sprite's ordinary frame, which these static views keep
+for good; the composition right after a run that opened a chest updates it
+first, as that draw3d does. Leaving the map and Load drop it too, and it is
+not saved, as in DOS.
 
 **Taking gold, gems or food.** Party::subtract (`0x1e941`) refuses a shortfall
 with the original "not enough" message for that consumable and ends the Event.

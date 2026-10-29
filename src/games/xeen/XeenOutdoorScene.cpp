@@ -150,8 +150,11 @@ std::vector<XeenOutdoorDrawCommand> XeenOutdoorScene::build(
 		// Terrain may cross map edges. Objects match raw coordinates in this MOB
 		// only; never feed object coordinates through world.sampleCell().
 		const auto &file = world.objectFile(camera.mapId);
+		// draw3d updates each object's frame before the composition (DOS 0x10c32..0x10dc7).
+		if(file.resourcePresent)xeenAdvanceObjectFrames(world,camera,*resolver);
 		if(file.resourcePresent)for(std::size_t i=0;i<file.entities.objects.size();++i)
-			world.objectFlipDrawn({camera.mapId,i},resolver->resolve(file,i,camera.direction,ordinaryPhase).horizontalFlip);
+			world.objectFlipDrawn({camera.mapId,i},resolver->resolve(file,i,camera.direction,ordinaryPhase,
+				world.effectiveObject({camera.mapId,i}).tableIndex).horizontalFlip);
 		if (file.resourcePresent) for (const auto &placement : kObjectPlacements) {
 			const auto offset = sampleOffset(camera.direction, placement.sample);
 			const int rawX = camera.x + offset.first, rawY = camera.y + offset.second;
@@ -159,8 +162,8 @@ std::vector<XeenOutdoorDrawCommand> XeenOutdoorScene::build(
 				const auto object = world.effectiveObject({camera.mapId,i});
 				if (object.x != rawX || object.y != rawY || !object.isActive() ||
 						object.resourceId >= 255 || world.isObjectDisabled({camera.mapId, i})) continue;
-				auto visual = resolver->resolve(file, i, camera.direction, ordinaryPhase);
-				if (const auto frame = world.objectFrame({camera.mapId, i})) visual.frame = *frame;
+				auto visual = resolver->resolve(file, i, camera.direction, ordinaryPhase, object.tableIndex);
+				if (const auto frame = world.scenePresentation().drawnObjectFrame({camera.mapId, i})) visual.frame = *frame;
 				if (visual.status == XeenObjectVisualStatus::SupportedStatic ||
 						visual.status == XeenObjectVisualStatus::SupportedAnimated) {
 					const unsigned row = object.resourceId == 113 ? 1 : 0;

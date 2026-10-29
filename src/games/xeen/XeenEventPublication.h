@@ -234,8 +234,7 @@ public:
 		auto &state=mapStates.state(physical.mapId);
 		if (selected) {
 			state.removedObjects.insert(*selected);
-			state.objectOverrides.erase(std::remove_if(state.objectOverrides.begin(),state.objectOverrides.end(),
-				[&](const auto &v){return v.id==*selected;}),state.objectOverrides.end());
+			xeenRemoveObjectOverride(state.objectOverrides,*selected);
 		}
 		for (std::size_t i=0;i<original.records.size();++i)
 			if(original.records[i].x==physical.x && original.records[i].y==physical.y) state.disabledEvents.insert({physical.mapId,i});

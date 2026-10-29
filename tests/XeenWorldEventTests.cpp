@@ -420,7 +420,7 @@ void rules(Inputs &in) {
  // Part 0: WhoWill Escape keeps the executed MoveObj prefix as well as observed XP.
  auto &cancelledObjects=cancelledPrefix.map(28).objects;
  cancelledObjects.erase(std::remove_if(cancelledObjects.begin(),cancelledObjects.end(),[](const auto &v){return v.record==0;}),cancelledObjects.end());
- cancelledObjects.push_back({0,20,20,false});
+ cancelledObjects.push_back({0,20,20,false,std::uint8_t(in.maps.loadObjects(in.assets,28).entities.objects.at(0).tableIndex)});
  std::sort(cancelledObjects.begin(),cancelledObjects.end(),[](const auto &a,const auto &b){return a.record<b.record;});
  const auto cancelledBytes=XeenSaveFormat::encode(cancelledPrefix);
  check(f.flow->canSave() && cancelledBytes==XeenSaveFormat::encode(f.snapshot()),"Cancellation lost observed XP prefix or published later rewards/object");

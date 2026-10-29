@@ -212,19 +212,26 @@ XeenEventRecord row(unsigned line,unsigned op,std::vector<std::uint8_t> p={},std
 struct Run {
  XeenEventExecutionStepResult result;std::vector<XeenPresentationRequest> requests;
 };
+XeenPresentationResponse defaultAnswer(const XeenPresentationRequest &q) {
+ return q.response==XeenPresentationResponseRequirement::Presented?
+  XeenPresentationResponse(XeenPresentationResponse::Presented):XeenPresentationResponse(XeenPresentationResponse::Acknowledged);
+}
+// `draw` observes the interpreter's eventDraw; `edit` may change a suspended state before it resumes.
 Run run(XeenWorld &w,XeenPartyState &p,XeenGameFlags &flags,const std::vector<XeenEventRecord> &records,
-  std::function<XeenPresentationResponse(const XeenPresentationRequest &)> respond={},XeenCamera camera={47,5,5,XeenDirection::North}) {
+  std::function<XeenPresentationResponse(const XeenPresentationRequest &)> respond={},XeenCamera camera={47,5,5,XeenDirection::North},
+  std::function<void(XeenWorld &,const XeenCamera &,bool)> draw={},
+  std::function<void(XeenEventExecutionState &,const XeenPresentationRequest &)> edit={}) {
  XeenEventFile file{camera.mapId,"synthetic.evt",true,records};
  const auto scripts=[&](XeenMapIdentity){return XeenEventScript(file);};
  const auto texts=[](XeenMapIdentity id){XeenEventTextFile t;t.mapId=id;t.resourcePresent=true;t.strings={"Title","Body","Third"};return t;};
- Run out;XeenEventInterpreter vm;
+ Run out;XeenEventInterpreter vm;vm.eventDraw=std::move(draw);
  out.result=vm.begin(camera,p,flags,w,scripts,texts);
  for(unsigned n=0;n<64;++n) {
   auto *s=std::get_if<XeenEventExecutionSuspended>(&out.result);if(!s)break;
   out.requests.push_back(s->request);
-  const auto answer=respond?respond(s->request):s->request.response==XeenPresentationResponseRequirement::Presented?
-   XeenPresentationResponse(XeenPresentationResponse::Presented):XeenPresentationResponse(XeenPresentationResponse::Acknowledged);
-  auto state=s->state;out.result=vm.resume(std::move(state),answer,p,w,scripts,texts);
+  const auto answer=respond?respond(s->request):defaultAnswer(s->request);
+  auto state=s->state;if(edit)edit(state,s->request);
+  out.result=vm.resume(std::move(state),answer,p,w,scripts,texts);
  }
  if(const auto *e=std::get_if<XeenEventExecutionError>(&out.result))std::cerr<<"Event error: "<<e->message<<'\n';
  return out;
@@ -384,11 +391,206 @@ void lockPicking() {
    check(message,"lock message names the recipient");
    check(p.purse->gold==(picked?600u:500u),"a failed pick ends the Event before the gold");
    check(p.roster.combatInputs(0)->experience==(picked?1000u+5u*2u*10u:1000u),"a pick adds level x difficulty x 10 experience");
-   check(f.w->objectFrame({XeenMapIdentity(map),object})==std::optional<unsigned>(picked?1u:0u),"the chest stays open only when picked");
+   // No draw updated giveExt's frame; this MOB has no open chest, so the sprite stays.
+   check(f.w->objectFrame({XeenMapIdentity(map),object})==std::optional<unsigned>(picked?1u:0u) &&
+    f.w->effectiveObject({XeenMapIdentity(map),object}).resourceId==16,"giveExt's frame or sprite differs");
   }
   return;
  }
  throw std::runtime_error("no trap-free seed");
+}
+
+// --- M96: the end-of-run chest rule (DOS 0x28d92..0x28e87) ---
+// Picture-table slots: 0 sprite 7, 1 closed 16, 2 open 62 (the first), 3 closed
+// 73, 4 open 119, 5 the lock object 58, 6 a later 62, 7 Darkside's closed 15, 8
+// its open 57. Records: 0 a 7 at (9,9), 1 a 16 at (6,6), 2 a 73 at (7,7), 3 a
+// 58 at (8,8), 4 a 16 at (10,10), 5 a 15 at (11,11).
+XeenObjectFile chests(XeenMapIdentity id) {
+ XeenObjectFile f{id,"chests.mob",true,{}};
+ f.entities.objectTable=std::array<std::uint8_t,16>{7,16,62,73,119,58,62,15,57,255,255,255,255,255,255,255};
+ for(const XeenMapEntity e:{XeenMapEntity{9,9,0,0,7},XeenMapEntity{6,6,1,0,16},XeenMapEntity{7,7,3,0,73},
+  XeenMapEntity{8,8,5,0,58},XeenMapEntity{10,10,1,0,16},XeenMapEntity{11,11,7,0,15}})f.entities.objects.push_back(e);
+ f.entities.monsters.push_back({1,1,0,0,8});f.entities.monsters.push_back({100,100,0,0,8});
+ return f;
+}
+XeenObjectFile closedChests(XeenMapIdentity id) { // The same records without an open slot.
+ auto f=chests(id);for(unsigned slot:{2u,4u,6u,8u})f.entities.objectTable[slot]=255;return f;
+}
+// The first seed whose lock draws spring no trap and pick map 47's box-2 lock with member 0.
+std::uint32_t pickingSeed() {
+ const int thievery=XeenCharacterRules::thievery(party().roster.at(0));
+ for(std::uint32_t seed=1;seed<64;++seed) {
+  XeenJourneyRandomState start;start.state=seed;XeenCombatRandom random(start);std::optional<std::uint32_t> trap,attempt;
+  while(!trap)trap=random.draw(1,4);
+  if(*trap==1)continue;
+  while(!attempt)attempt=random.draw(1,20);
+  if(thievery+int(*attempt)>=2)return seed;
+ }
+ throw std::runtime_error("no picking seed");
+}
+std::vector<XeenObjectOverride> overrides(const XeenWorld &w,XeenMapIdentity map=47) {
+ const auto *s=w.sessionState().mapState(map);return s?s->objectOverrides:std::vector<XeenObjectOverride>{};
+}
+XeenEventRecord at(XeenEventRecord r,int x,int y) {r.x=std::uint8_t(x);r.y=std::uint8_t(y);return r;}
+XeenCamera cell(int x,int y,XeenMapIdentity map=47) {return {map,x,y,XeenDirection::North};}
+bool refused(const Run &r,const char *what) {
+ const auto *e=std::get_if<XeenEventExecutionError>(&r.result);
+ return e && e->message.find(what)!=std::string::npos;
+}
+
+void chestRule() {
+ const auto seed=pickingSeed();const auto give=row(0,20,{34,100,0,0,0,0,0,0,0});
+ const XeenObjectIdentity chest{47,1},other{47,4};
+ // Acceptance 1: closed at the receipt, open in the tail's draw; a later run sees 62.
+ {
+  World f(47,seed,chests);auto p=party();XeenGameFlags flags;bool receipt=false;std::vector<int> drawn;
+  const auto r=run(*f.w,p,flags,{at(give,6,6)},[&](const XeenPresentationRequest &q) {
+    if(q.kind==XeenPresentationKind::RewardReceipt) {
+     receipt=true;
+     check(f.w->effectiveObject(chest).resourceId==16 && overrides(*f.w).empty(),"the chest opened before its treasure");
+    }
+    return defaultAnswer(q);
+   },cell(6,6),[&](XeenWorld &w,const XeenCamera &,bool){drawn.push_back(w.effectiveObject(chest).resourceId);});
+  const auto values=overrides(*f.w);const auto object=f.w->effectiveObject(chest);
+  check(completed(r) && receipt && !drawn.empty() && drawn.back()==62,"the tail's draw does not see the opened chest");
+  check(values.size()==1 && values[0].id==chest && values[0].x==6 && values[0].y==6 && !values[0].flipped &&
+   values[0].tableIndex==std::uint8_t(2) && object.resourceId==62 && object.tableIndex==2 && object.x==6 && object.y==6,
+   "the chest does not take the first open slot in place");
+  const auto random=*f.w->sessionState().journeyRandom();const auto frame=f.w->objectFrame(chest);
+  check(completed(run(*f.w,p,flags,{at(give,6,6)},{},cell(6,6))) && *f.w->sessionState().journeyRandom()==random &&
+   f.w->objectFrame(chest)==frame && p.purse->gold==700 && overrides(*f.w)==values,"an opened chest is picked again");
+ }
+ // Acceptance 2: a "Nothing here" after the change; resuming runs the tail once.
+ {
+  World f(47,seed,chests);auto p=party();XeenGameFlags flags;unsigned nothing=0;
+  const auto r=run(*f.w,p,flags,{at(give,6,6)},[&](const XeenPresentationRequest &q) {
+    if(q.kind==XeenPresentationKind::NothingHere) {
+     ++nothing;const auto values=overrides(*f.w);
+     check(values.size()==1 && values[0].tableIndex==std::uint8_t(2),"the rule did not apply before Nothing here");
+    }
+    return defaultAnswer(q);
+   },cell(6,6),{},[&](XeenEventExecutionState &s,const XeenPresentationRequest &q) {
+    // No Clouds pick reaches the notice: the executed marker, which GiveMulti
+    // sets again when it resumes, is cleared at its treasure.
+    if(q.kind==XeenPresentationKind::RewardReceipt)s.scriptExecuted=false;
+    if(q.kind==XeenPresentationKind::NothingHere) {
+     check(s.tailDone && !s.scriptValues.lockCounter,"the tail did not finish the rule");
+     // Were the tail to run again, this second closed chest would open.
+     s.scriptValues.lockCounter=1;s.selectedObject=other;
+    }
+   });
+  check(completed(r) && nothing==1 && overrides(*f.w).size()==1 && f.w->effectiveObject(other).resourceId==16,
+   "resuming applied the rule again");
+ }
+ // Acceptance 3: no change.
+ {
+  World f(47,seed,chests);auto p=party();XeenGameFlags flags;
+  const auto r=run(*f.w,p,flags,{at(give,5,5)},{},cell(5,5),{},[](XeenEventExecutionState &s,const XeenPresentationRequest &q) {
+   if(q.kind==XeenPresentationKind::RewardReceipt)s.scriptValues.lockCounter=1;});
+  check(completed(r) && overrides(*f.w).empty(),"a counter without a selection changed an object");
+ }
+ {
+  World f(48,seed,chests);auto p=party();XeenGameFlags flags;
+  const auto r=run(*f.w,p,flags,{at(give,6,6)},{},cell(6,6,48));
+  check(completed(r) && p.purse->gold==500 && overrides(*f.w,48).empty() && f.w->objectFrame({48,1})==0u,
+   "a failed pick changed the chest");
+ }
+ {
+  World f(47,seed,closedChests);auto p=party();XeenGameFlags flags;
+  check(completed(run(*f.w,p,flags,{at(give,6,6)},{},cell(6,6))) && p.purse->gold==600 && overrides(*f.w).empty() &&
+   f.w->effectiveObject(chest).resourceId==16,"a chest without an open slot changed");
+ }
+ {
+  World f(47,seed,chests);auto p=party();XeenGameFlags flags;
+  check(completed(run(*f.w,p,flags,{at(give,8,8)},{},cell(8,8))) && p.purse->gold==600 && overrides(*f.w).empty() &&
+   f.w->objectFrame({47,3})==1u,"sprite 58 changed");
+ }
+ {
+  const XeenMapIdentity dark{XeenSide::Darkside,47};
+  World f(dark,seed,chests);auto p=party();XeenGameFlags flags;
+  check(completed(run(*f.w,p,flags,{at(give,6,6)},{},cell(6,6,dark))) && p.purse->gold==600 && overrides(*f.w,dark).empty(),
+   "a Darkside sprite 16 opened");
+  World g(dark,seed,chests);auto q=party();
+  check(completed(run(*g.w,q,flags,{at(give,11,11)},{},cell(11,11,dark))) && overrides(*g.w,dark).size()==1 &&
+   overrides(*g.w,dark)[0].tableIndex==std::uint8_t(8) && g.w->effectiveObject({dark,5}).resourceId==57,
+   "a Darkside sprite 15 did not take sprite 57");
+ }
+ {
+  World f(47,seed,chests);auto p=party();XeenGameFlags flags;
+  check(completed(run(*f.w,p,flags,{at(give,7,7)},{},cell(7,7))) && overrides(*f.w).size()==1 &&
+   overrides(*f.w)[0].tableIndex==std::uint8_t(4) && f.w->effectiveObject({47,2}).resourceId==119,"a 73 did not take sprite 119");
+ }
+ {
+  // A pick in a called script, the run ending inside another call (map 30's
+  // central chests: CallEvent (80,80) picks and returns, CallEvent (81,81)
+  // has no next line): the run's end still opens the chest.
+  World f(47,seed,chests);auto p=party();XeenGameFlags flags;
+  const auto r=run(*f.w,p,flags,{at(row(0,25,{80,80,0}),6,6),at(row(1,25,{81,81,0}),6,6),
+   at(give,80,80),at(row(1,26),80,80),at(row(0,0),81,81)},{},cell(6,6));
+  check(completed(r) && overrides(*f.w).size()==1 && overrides(*f.w)[0].id==chest &&
+   overrides(*f.w)[0].tableIndex==std::uint8_t(2),"a run ending inside a call did not open the chest");
+ }
+ // A refused run never reaches the rule: Remove, any MoveObj, ExchObj (outside
+ // the decoder subset), another teleport, a map change or a service while the
+ // counter is positive.
+ const std::vector<std::pair<XeenEventRecord,const char *>> refusals{
+  {row(1,14),"Remove after a picked lock"},{row(1,11,{1,3,3}),"MoveObj after a picked lock"},
+  {row(1,11,{0,3,3}),"MoveObj after a picked lock"},{row(1,51,{0,1}),"opcode 51"},
+  {row(1,7,{47,2,2}),"Teleport after a picked lock"},{row(1,31,{48,2,2}),"Teleport after a picked lock"},
+  {row(1,17,{1}),"Town service after a picked lock"}};
+ for(const auto &refusal:refusals) {
+  World f(47,seed,chests);auto p=party();XeenGameFlags flags;
+  const auto r=run(*f.w,p,flags,{at(give,6,6),at(refusal.first,6,6)},{},cell(6,6));
+  check(refused(r,refusal.second) && overrides(*f.w).empty(),"a refused run opened the chest");
+ }
+ {
+  // The same-map restart zeroes the counter (0x27127): the chest selected at
+  // (10,10) stays closed, as does the picked one.
+  World f(47,seed,chests);auto p=party();XeenGameFlags flags;
+  check(completed(run(*f.w,p,flags,{at(give,6,6),at(row(1,31,{47,10,10}),6,6)},{},cell(6,6))) && p.purse->gold==600 &&
+   overrides(*f.w).empty(),"a TeleportAndContinue restart kept the lock counter");
+ }
+ // Acceptance 4 (live): MoveObj and Remove write x and y only.
+ {
+  World f(47,seed,chests);auto p=party();XeenGameFlags flags;
+  check(completed(run(*f.w,p,flags,{at(give,6,6)},{},cell(6,6))),"the chest was not picked");
+  const auto move=[&](int x,int y){return completed(run(*f.w,p,flags,{row(0,11,{1,std::uint8_t(x),std::uint8_t(y)})},{},cell(5,5)));};
+  const auto index=[&]{const auto v=overrides(*f.w);return v.size()==1 && v[0].tableIndex==std::uint8_t(2);};
+  check(move(3,3) && index() && f.w->effectiveObject(chest).x==3 && f.w->effectiveObject(chest).resourceId==62,"MoveObj lost the index");
+  const bool flip=f.w->effectiveObjectFlip(chest);
+  check(move(3,3) && index() && f.w->effectiveObjectFlip(chest)!=flip,"an in-place MoveObj lost the index");
+  check(move(-128,-128) && index() && f.w->isObjectDisabled(chest),"a hidden MoveObj lost the index");
+  check(move(6,6) && index() && f.w->selectObject(cell(6,6))==chest,"the chest did not return");
+  // Remove disables its cell's records by index: record 0 stays the MoveObj's.
+  check(completed(run(*f.w,p,flags,{at(row(0,0),9,9),at(row(0,14),6,6)},{},cell(6,6))) && index() &&
+   f.w->sessionState().isObjectDisabled(chest) &&
+   overrides(*f.w)[0].x==-128 && overrides(*f.w)[0].y==-128 && !overrides(*f.w)[0].flipped,"Remove lost the index");
+  check(move(4,4) && index() && !f.w->sessionState().isObjectDisabled(chest) && f.w->effectiveObject(chest).resourceId==62,
+   "MoveObj after Remove lost the index");
+ }
+ // Restore accepts the record's own index (stored as absent) or the first open
+ // chest of its own closed sprite on its side, nothing else.
+ {
+  const XeenMapIdentity dark{XeenSide::Darkside,47};
+  const auto accepts=[](XeenMapIdentity map,std::size_t record,std::uint8_t index) {
+   XeenWorld w(tile,chests);
+   try {w.restoreObjectOverrides({{{map,record},1,1,false,index}});} catch(const std::invalid_argument &) {return false;}
+   const auto *s=w.sessionState().mapState(map);
+   return s && s->objectOverrides.size()==1;
+  };
+  check(accepts(47,1,1) && accepts(47,1,2) && !accepts(47,1,6) && !accepts(47,1,16) && accepts(47,2,4) &&
+   !accepts(47,0,2) && !accepts(47,3,2) && !accepts(dark,1,2) && accepts(dark,5,8) && !accepts(47,5,8),
+   "restore's index rule differs");
+  XeenWorld w(tile,chests);w.restoreObjectOverrides({{{47,1},1,1,false,std::uint8_t(1)}});
+  check(!w.sessionState().mapState(47)->objectOverrides[0].tableIndex,"the record's own index was stored");
+ }
+ // Remove's override rule (live and Journey publication): only an index keeps one.
+ {
+  std::vector<XeenObjectOverride> values{{{47,1},6,6,true,std::uint8_t(2)},{{47,2},3,3,true}};
+  xeenRemoveObjectOverride(values,{47,2});xeenRemoveObjectOverride(values,{47,1});
+  check(values.size()==1 && values[0].x==-128 && values[0].y==-128 && !values[0].flipped && values[0].tableIndex==std::uint8_t(2),
+   "Remove's override rule differs");
+ }
 }
 
 void specialItem() {
@@ -431,7 +633,7 @@ int main(int argc,char **argv) {
  try {
   if(argc==2 && std::string(argv[1])=="b5") {miscMaterial();return 0;}
   if(argc!=1)throw std::runtime_error("Unknown Event value test mode");
-  widths();probes();writes();randomOperations();flowOperations();lockPicking();specialItem();miscMaterial();wordDraws();
+  widths();probes();writes();randomOperations();flowOperations();lockPicking();chestRule();specialItem();miscMaterial();wordDraws();
  } catch(const std::exception &e) {std::cerr<<"Event value tests failed: "<<e.what()<<'\n';return 1;}
  std::cout<<"Event value tests passed\n";
  return 0;

@@ -187,6 +187,9 @@ public:
 	XeenMapEntity effectiveObject(XeenObjectIdentity id);
 	bool effectiveObjectFlip(XeenObjectIdentity id) const;
 	void applyMoveObject(XeenObjectIdentity id,int x,int y);
+	// The end-of-run chest rule (DOS 0x28d92..0x28e87) on a detached Event:
+	// the selected closed chest takes its map's open chest. False without one.
+	bool applyOpenChest(XeenObjectIdentity id);
 	void applyMoveWallObject(XeenWallItemIdentity id,int x,int y);
 	void applyMakeNothingHere(const XeenCamera &physical,const XeenEventFile &events);
 	void applyAlterMap(XeenMapIdentity logical,int x,int y,unsigned direction,unsigned wall);
@@ -198,10 +201,14 @@ public:
 	void restoreEventOverrides(const std::vector<XeenEventOverride> &,const EventLoader &);
 	// drawScene resets flip from directional animation metadata on every draw.
 	void objectFlipDrawn(XeenObjectIdentity id,bool flipped) {_scenePresentation.objectFlips[id]=flipped;}
-	void objectFrameDrawn(XeenObjectIdentity id,unsigned frame) {_scenePresentation.objectFrames[id]=frame;}
+	// giveExt's frame byte (0x235f6, 0x23703) and the selection it cycles while
+	// a picked lock's counter is positive (0x9755, 0x10c8a).
+	void objectFrameDrawn(XeenObjectIdentity id,unsigned frame) {_scenePresentation.objectFrames.frames[id]=frame;}
+	void objectFrameLocked(std::optional<XeenObjectIdentity> id) {_scenePresentation.objectFrames.locked=id;}
 	std::optional<unsigned> objectFrame(XeenObjectIdentity id) const {
-		const auto found=_scenePresentation.objectFrames.find(id);
-		return found==_scenePresentation.objectFrames.end()?std::nullopt:std::optional<unsigned>(found->second);
+		const auto &frames=_scenePresentation.objectFrames.frames;
+		const auto found=frames.find(id);
+		return found==frames.end()?std::nullopt:std::optional<unsigned>(found->second);
 	}
 	XeenHeadIndicators headIndicators(const XeenCamera &);
 	void alterHeads(const XeenCamera &,XeenHeadIndicators);
@@ -335,6 +342,9 @@ private:
 	friend class XeenActorApproach;
 	friend void xeenValidateIndoorActors(XeenWorld &, XeenMapIdentity, const std::vector<XeenActor> &);
 	void swapPreparedState(XeenWorld &candidate) noexcept;
+	// The original MOB records of a map, for capture: an uncached file (after a
+	// cache discard) is read again from its immutable resource.
+	XeenObjectFile originalObjects(XeenMapIdentity mapId) const;
 	// Process-lifetime capability identity. It belongs to this object lifetime,
 	// not session gameplay state, and is never serialized or swapped.
 	const std::uint64_t _incarnation;

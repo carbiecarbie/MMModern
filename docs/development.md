@@ -213,6 +213,21 @@ Space to talk to it. Answer Yes and enter `Rosebud` to open the passage.
 .\build-rel\mmodern.exe --load-game "F:/Games/gog/Might and Magic 4-5" "D:/Projetos/MModern/MModern-playtest/m95-witch-skull.mmsave"
 ```
 
+The `m96-chest` preset starts outdoors on Clouds map 9 `(15,11)` facing
+North, on a locked chest; map 9's monsters are defeated. Outdoors an object is
+drawn over the terrain only on the party's own cell, so the chest shows at the
+bottom of the view. The level-30 `m78-playtest` party includes Zippo, a Robber
+(member 4), whose Thievery always beats this lock. Press Space to run the
+chest's Event and choose Zippo when it asks who will try: the lid's frames
+cycle while the lock is picked, the treasure follows, and from then on the
+chest is drawn open, also after walking East into map 13 and back and after
+Save and Load.
+
+```powershell
+.\build-rel\mmodern_test_save.exe m96-chest "F:/Games/gog/Might and Magic 4-5" "D:/Projetos/MModern/MModern-playtest/m96-chest.mmsave"
+.\build-rel\mmodern.exe --load-game "F:/Games/gog/Might and Magic 4-5" "D:/Projetos/MModern/MModern-playtest/m96-chest.mmsave"
+```
+
 The M84 input/Event presets use the current save format and a healthy travel
 party with 1,000 HP per member; monsters on retained maps are defeated so the
 input witnesses stay quiet. Loading still makes the normal flagged-cell entry

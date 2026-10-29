@@ -50,6 +50,16 @@ std::uint64_t nextWorldIncarnation() {
 				std::memory_order_relaxed, std::memory_order_relaxed)) return value;
 	}
 }
+// The open chest that replaces a closed one (DOS 0x28dbc..0x28e7c): the first
+// of the map's 16 picture-table slots holding sprite 62 for 16 (57 for 15 on
+// Darkside), or 119 for 73. A closed 16 or 15 never falls through to 73.
+std::optional<std::uint8_t> openChestIndex(const XeenMapEntities &entities,int sprite,XeenSide side) {
+	const bool dark=side==XeenSide::Darkside;
+	const int open=sprite==(dark?15:16)?(dark?57:62):sprite==73?119:-1;
+	if(open<0)return std::nullopt;
+	for(unsigned i=0;i<16;++i)if(entities.objectTable[i]==open)return static_cast<std::uint8_t>(i);
+	return std::nullopt;
+}
 using namespace xeen_state;
 }
 
@@ -235,9 +245,19 @@ bool XeenWorld::isObjectDisabled(XeenObjectIdentity id) {
 
 XeenMapEntity XeenWorld::effectiveObject(XeenObjectIdentity id) {
 	validateObject(id);
-	auto value=objectFile(id.mapId).entities.objects[id.recordIndex];
+	const auto &file=objectFile(id.mapId);
+	auto value=file.entities.objects[id.recordIndex];
 	if(const auto *state=_sessionState.mapState(id.mapId))
-		for(const auto &v:state->objectOverrides)if(v.id==id) {value.x=v.x;value.y=v.y;break;}
+		for(const auto &v:state->objectOverrides)if(v.id==id) {
+			value.x=v.x;value.y=v.y;
+			// The rule's index also names the sprite (DOS 0x28e1f, 0x28e77; the
+			// loader rebuilds it from the index, 0xf9b1), before the map rules.
+			if(v.tableIndex) {
+				const auto sprite=file.entities.objectTable[*v.tableIndex];
+				value.tableIndex=*v.tableIndex;value.resourceId=sprite==0xff?-1:int(sprite);
+			}
+			break;
+		}
 	return xeenMapRuleObject(value,id,_mapRuleView);
 }
 
@@ -261,7 +281,8 @@ void XeenWorld::applyMoveObject(XeenObjectIdentity id,int x,int y) {
 	auto &state=_sessionState._mapStates.state(id.mapId);
 	auto prepared=state.objectOverrides;
 	const auto at=std::lower_bound(prepared.begin(),prepared.end(),id,[](const auto &v,auto key){return v.id<key;});
-	if(at!=prepared.end() && at->id==id)*at={id,x,y,flip};
+	// MoveObj writes x and y only (DOS 0x27913..0x27937); the table index stays.
+	if(at!=prepared.end() && at->id==id) {at->x=x;at->y=y;at->flipped=flip;}
 	else prepared.insert(at,{id,x,y,flip});
 	if(_sessionState.objectOverrides().size()-state.objectOverrides.size()+prepared.size()>65536)
 		throw std::invalid_argument("Too many object overrides");
@@ -271,15 +292,59 @@ void XeenWorld::applyMoveObject(XeenObjectIdentity id,int x,int y) {
 	if(removed)state.removedObjects.erase(id);
 }
 
+XeenObjectFile XeenWorld::originalObjects(XeenMapIdentity mapId) const {
+	const auto found=_objects.find(mapId);
+	if(found!=_objects.end())return found->second;
+	if(!_baseObjectLoader)throw std::logic_error("Object state has no MOB resource");
+	auto loaded=_baseObjectLoader(mapId);
+	if(loaded.mapId!=mapId || !loaded.resourcePresent)throw std::logic_error("Object state has no MOB resource");
+	return loaded;
+}
+
+bool XeenWorld::applyOpenChest(XeenObjectIdentity id) {
+	if(!detachedEventCandidate())throw std::invalid_argument("The chest rule requires a detached Event");
+	// The selected object's sprite byte (0x28da6..0x28dba), map rules included.
+	const auto sprite=effectiveObject(id).resourceId;
+	const auto &file=objectFile(id.mapId);
+	const auto index=openChestIndex(file.entities,sprite,id.mapId.side);
+	if(!index)return false;
+	auto &state=_sessionState._mapStates.state(id.mapId);
+	auto prepared=state.objectOverrides;
+	const auto at=std::lower_bound(prepared.begin(),prepared.end(),id,[](const auto &v,auto key){return v.id<key;});
+	// Only the index and sprite change: x and y come from the override or the
+	// MOB record (never the map rules' view), the flip as MoveObj reads it.
+	const bool flip=effectiveObjectFlip(id);
+	if(at!=prepared.end() && at->id==id) {at->flipped=flip;at->tableIndex=*index;}
+	else {
+		const auto &record=file.entities.objects[id.recordIndex];
+		prepared.insert(at,{id,int(record.x),int(record.y),flip,*index});
+	}
+	if(_sessionState.objectOverrides().size()-state.objectOverrides.size()+prepared.size()>65536)
+		throw std::invalid_argument("Too many object overrides");
+	XeenMutationWatch::write(this);state.objectOverrides.swap(prepared);
+	// The new sprite's frame owes draw3d's update before it is composed.
+	if(_scenePresentation.objectFrames.frames.count(id))_scenePresentation.objectFrames.due=true;
+	return true;
+}
+
 void XeenWorld::restoreObjectOverrides(const std::vector<XeenObjectOverride> &values) {
 	if(hasEncounterState() || values.size()>65536)throw std::invalid_argument("Invalid object restoration owner/count");
+	auto canonical=values;
 	for(unsigned n=0;n<values.size();++n) {
 		const auto &v=values[n];validateObject(v.id);
 		if(hasEncounterState() || v.x<-128 || v.x>127 || v.y<-128 || v.y>127 ||
 			(n && !(values[n-1].id<v.id)))throw std::invalid_argument("Invalid or duplicate object override");
+		// A record keeps its own index (absent, even on a 0xFF slot) or the open
+		// chest the rule gives its own closed sprite, at any position.
+		if(v.tableIndex) {
+			const auto &file=objectFile(v.id.mapId);const auto &record=file.entities.objects[v.id.recordIndex];
+			if(*v.tableIndex==record.tableIndex)canonical[n].tableIndex.reset();
+			else if(openChestIndex(file.entities,record.resourceId,v.id.mapId.side)!=std::optional<std::uint8_t>(*v.tableIndex))
+				throw std::invalid_argument("Invalid object picture-table index");
+		}
 	}
 	std::map<XeenMapIdentity,std::vector<XeenObjectOverride>> prepared;
-	for(const auto &v:values) {prepared[v.id.mapId].push_back(v);static_cast<void>(_sessionState._mapStates.state(v.id.mapId));}
+	for(const auto &v:canonical) {prepared[v.id.mapId].push_back(v);static_cast<void>(_sessionState._mapStates.state(v.id.mapId));}
 	XeenMutationWatch::write(this);
 	for(const auto &entry:_sessionState._mapStates) {
 		auto &state=*_sessionState._mapStates.find(entry.first);const auto found=prepared.find(entry.first);
@@ -407,12 +472,10 @@ void XeenWorld::applyRemove(const XeenCamera &physical,
 	auto &state = _sessionState._mapStates.state(physical.mapId);
 	auto disabledObjects = state.removedObjects;
 	auto disabledEvents = state.disabledEvents;
-	// The removed position replaces any MoveObj position: one position per record.
 	auto objectOverrides = state.objectOverrides;
 	if (selected) {
 		disabledObjects.insert(*selected);
-		objectOverrides.erase(std::remove_if(objectOverrides.begin(),objectOverrides.end(),
-			[&](const auto &v){return v.id==*selected;}),objectOverrides.end());
+		xeenRemoveObjectOverride(objectOverrides,*selected);
 	}
 	for (std::size_t i = 0; i < events.records.size(); ++i) {
 		const auto &record = events.records[i];

@@ -150,7 +150,8 @@ void XeenSaveState::restoreJourney(const XeenSaveSnapshot &source, const Resourc
 	const auto events = [&](XeenMapIdentity id) { return callback([&] { return eventProvider(id); }); };
 	static_cast<void>(w.map(c.mapId));
 	// The per-map overlays, flattened in identity order; the World binds each
-	// to its own map's resources. A removed object is (-128,-128) without a flip.
+	// to its own map's resources. A removed object is (-128,-128) without a flip;
+	// one whose index is not its record's own also keeps it in an override.
 	std::vector<XeenObjectIdentity> removedObjects;
 	std::vector<XeenObjectOverride> movedObjects;
 	std::vector<XeenEventIdentity> disabledEvents;
@@ -159,11 +160,8 @@ void XeenSaveState::restoreJourney(const XeenSaveSnapshot &source, const Resourc
 	std::vector<XeenBarrierOverride> cells;
 	std::vector<XeenExploredTile> explored;
 	for (const auto &m:snapshot.maps) {
-		for (const auto &v:m.objects) {
-			const XeenObjectIdentity id{m.id,v.record};
-			if (v.x==-128 && v.y==-128 && !v.flipped) removedObjects.push_back(id);
-			else movedObjects.push_back({id,v.x,v.y,v.flipped});
-		}
+		for (const auto &v:m.objects)
+			if (v.x==-128 && v.y==-128 && !v.flipped) removedObjects.push_back({m.id,v.record});
 		for (const auto &v:m.events) {
 			if(v.opcode)replacedEvents.push_back({{m.id,v.record},v.opcode});
 			else disabledEvents.push_back({m.id,v.record});
@@ -174,6 +172,13 @@ void XeenSaveState::restoreJourney(const XeenSaveSnapshot &source, const Resourc
 	}
 	w.restoreSessionState(removedObjects,disabledEvents,events);
 	adopt(); // Only checked overlay preparation changed candidate gameplay values.
+	// Every other entry restores its position, flip and index, which the World
+	// keeps only when it is not the record's own (it validated each removed one).
+	for (const auto &m:snapshot.maps) for (const auto &v:m.objects) {
+		if (v.x==-128 && v.y==-128 && !v.flipped &&
+			v.tableIndex==w.objectFile(m.id).entities.objects.at(v.record).tableIndex) continue;
+		movedObjects.push_back({{m.id,v.record},v.x,v.y,v.flipped,v.tableIndex});
+	}
 	if(!wallItems.empty()) {w.restoreWallItemOverrides(wallItems);adopt();}
 	if(!replacedEvents.empty()) {w.restoreEventOverrides(replacedEvents,events);adopt();}
 	if(!movedObjects.empty()) {w.restoreObjectOverrides(movedObjects);adopt();}
@@ -385,10 +390,21 @@ XeenSaveSnapshot XeenSaveState::captureImpl(const XeenSaveResourceSignature &res
 			}
 			saved.monsters=std::move(table);
 		}
+		// Each entry writes its MOB table index: the override's, else the record's own.
 		std::map<std::size_t,XeenSaveObjectOverride> objects;
+		std::optional<XeenObjectFile> records;
+		const auto ownIndex=[&](std::size_t index) {
+			if (!records) records=world.originalObjects(entry.first);
+			return static_cast<std::uint8_t>(records->entities.objects.at(index).tableIndex);
+		};
 		for (const auto &v:live.objectOverrides)
-			objects[v.id.recordIndex]={record(v.id.recordIndex),v.x,v.y,world.effectiveObjectFlip(v.id)};
-		for (const auto &id:live.removedObjects) objects[id.recordIndex]={record(id.recordIndex),-128,-128,false};
+			objects[v.id.recordIndex]={record(v.id.recordIndex),v.x,v.y,world.effectiveObjectFlip(v.id),
+				v.tableIndex?*v.tableIndex:ownIndex(v.id.recordIndex)};
+		for (const auto &id:live.removedObjects) {
+			const auto found=objects.find(id.recordIndex);
+			const auto index=found!=objects.end()?found->second.tableIndex:ownIndex(id.recordIndex);
+			objects[id.recordIndex]={record(id.recordIndex),-128,-128,false,index};
+		}
 		for (const auto &value:objects) saved.objects.push_back(value.second);
 		for (const auto &v:live.cells) {
 			const auto cell=savedCell(v);
