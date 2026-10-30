@@ -131,8 +131,8 @@ this order; steps are direction, not approved plans.
    loads a map; [M98](milestone-98-plan.md) made every arrival do that.
    Importing DOS saves waits for policy decisions.
 3. **4:3 picture**: the 320x200 picture shown with the shape the original's
-   4:3 monitors gave it; square pixels today. Whether it is the default is
-   decided at planning.
+   4:3 monitors gave it; square pixels today. [M99](milestone-99-plan.md)
+   makes 4:3 the default, with square pixels as an opt-in.
 4. **Launcher and diagnostics**: the launcher shows the version, the detected
    data, the sound devices, the MT-32 ROMs and the save folder; the game
    writes a log file, and GitHub gets an issue template asking for the save
