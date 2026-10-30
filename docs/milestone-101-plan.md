@@ -117,6 +117,8 @@ At `d4c9e27`:
 - **Independent plan review** (2026-10-30,
   `D:/Projetos/MModern/MModern-re/m101/plan-review.md`): approve with
   changes, all eleven applied here.
+- **Darkside music on Load** (amendment, 2026-10-30, after Part A's evidence
+  stopped on it): the save keeps the selected song; Load does not draw.
 
 ## Evidence to settle in Part A, before code that depends on it
 
@@ -130,9 +132,11 @@ behavior stops before Part B. A difference from the reference is recorded in
   side bytes, calendar and RNG before and after. The full DoTownEvent caller
   and return: scene and audio, waits, input clearing, arrival Events and
   marking. The absence of a scene or a time charge is an explicit result.
-- **Music.** The DOS Darkside song tables, when the song is chosen, the RNG
-  source and count, and what happens on re-entry and on Load, before map
-  loading is implemented.
+- **Music.** Settled (2026-10-30, notes `evidence-notes.md`): every Darkside
+  map load, Load included and whether music is on, off or the same song,
+  makes one gameplay-RNG draw `U(0,6)` (outdoors `0x102b1..0x102bd`, indoors
+  `0x1048d..0x10499`, wrapper `0x45b9a`), from six tables. The return from a
+  location is a separate selection point, still to trace.
 - **Resources.** The DOS resource choice for each ordinary Darkside map.
 
 ## Design decisions
@@ -178,9 +182,14 @@ behavior stops before Part B. A difference from the reference is recorded in
 - **Loading.** A Darkside map loads from DARK.CC with the resources DOS
   selects, starting at its New Game state from the DARK New Game archive.
   A mixed map 113-128 is refused clearly.
-- **Music.** Darkside music follows the settled DOS tables and timing. Its
-  draws come from the source the evidence names; restoring a save adds no
-  gameplay draw.
+- **Music.** A Darkside map arrival makes the DOS draw from the gameplay RNG
+  and picks from the DOS tables, whether audio is on, off, unavailable or
+  absent. Restoring a save makes no draw: the save holds the selected song,
+  and Load plays it (maintainer, 2026-10-30). DOS draws again on Load, as
+  part of its clock-mixed RNG that MMModern's exact restore already does not
+  follow; the difference is recorded in
+  [original quirks](original-quirks.md) with a `**ScummVM:**` tag if the pin
+  also redraws.
 - **CD tracks.** Keep addressing the installed discs; do not add 30 blindly.
 - **Pyramid.** DoTownEvent action 12 moves the party between sides as DOS
   does, through the existing travel and arrival path, meeting the Town
@@ -197,6 +206,8 @@ behavior stops before Part B. A difference from the reference is recorded in
     restore accepts a Darkside camera and Darkside map states.
   - The party block adds the second game-flag and quest-flag banks, the
     full 85 counters and the character flags.
+  - The save adds the selected Darkside song (none on Clouds), outside the
+    Journey block; restore checks it against the camera's map and table.
   - Journey schema 9 and content 14 stay only with an explicit audit that
     the Journey layout is unchanged; any added Journey field or different
     profile contract amends this plan before implementation.
@@ -258,7 +269,8 @@ behavior stops before Part B. A difference from the reference is recorded in
    with the DOS resources; maps 113-128 are refused clearly. Rendered
    Castleview frames indoors and outdoors are inspected. Indoor and outdoor
    music selection, Pyramid arrival, return and restore are tested with
-   audio enabled and disabled.
+   audio enabled, disabled and absent: arrival draws once and picks the DOS
+   row; restore draws nothing and plays the saved song.
 3. **Pyramid.** From each Clouds Pyramid the party arrives at its DOS
    destination on Darkside, and back from each Darkside Pyramid, with the
    DOS presentation and time cost; map 49 <-> 52 included. A destination or
