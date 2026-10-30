@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.20)
 
-project(MMModern VERSION 0.11.0 LANGUAGES CXX)
+project(MMModern VERSION 0.12.0 LANGUAGES CXX)
 
 configure_file(cmake/MMModernVersion.h.in generated/MMModernVersion.h @ONLY)
 include_directories("${CMAKE_CURRENT_BINARY_DIR}/generated")
