@@ -145,6 +145,10 @@ this order; steps are direction, not approved plans.
    both sides, with Darkside progress in the DOS save export as one of the
    first tasks, then Darkside's mechanics in order of
    [census](coverage.md#darkside-largest-gaps) impact.
+   [M101](milestone-101-plan.md) is planned: both sides' state, save v23, the
+   Darkside export and the original Pyramid between the sides, so that
+   Darkside is reached in ordinary play (maintainer, 2026-10-30). The
+   Darkside towns' services are proposed next.
 
 ## Medium term: Darkside and World of Xeen
 
@@ -152,9 +156,9 @@ After the next arc's Darkside start:
 
 1. **Darkside:** finish Darkside on the shared engine, with its own content,
    balance and exceptions. Resource access alone does not make it playable.
-2. **World of Xeen:** connect both sides with original travel, the Pyramids,
-   shared state and the integrated objectives and endings (`showdown`,
-   `genesis`).
+2. **World of Xeen:** connect both sides with the rest of the original
+   travel (the Darkside-key entrances and FlipWorld), shared state and the
+   integrated objectives and endings (`showdown`, `genesis`).
 
 ## Later goals
 
