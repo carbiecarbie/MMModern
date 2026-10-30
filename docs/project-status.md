@@ -1,10 +1,12 @@
 # MMModern - Project Status
 
-This describes what can be played and done now. M99 is the latest completed
-and accepted milestone (2026-10-30; [plan](milestone-99-plan.md)): the
-picture has the 4:3 shape of the original's monitors by default, with square
-pixels as an opt-in. Before it, M98 made a party with a Cartographer mark its
-cell on the maps at every arrival, as in DOS, M97
+This describes what can be played and done now. M100 is the latest
+completed and accepted milestone (2026-10-30; [plan](milestone-100-plan.md)):
+the release launcher shows the game data, sound devices, MT-32 ROMs and save
+folder, chooses the sound devices as the original installer did, and starts
+the game without a console while it writes a log. Before it, M99 gave the
+picture the 4:3 shape of the original's monitors, M98 made a party with a
+Cartographer mark its cell on the maps at every arrival, as in DOS, M97
 added a developer tool that writes an MMModern Clouds save as an original DOS
 save, M96 kept picked chests open as in DOS, M95 followed up the Clouds audit, M94 played the original AdLib, Sound
 Blaster and MT-32 drivers when `XEEN.CFG` selects them, M93 opened each
@@ -227,7 +229,14 @@ Services, dialogs, inventory and casting accept only fresh presses.
 
 ## Entry modes
 
-`mmodern <game-dir>` is the player's entry. Developer modes start a new game
+`mmodern <game-dir>` is the player's entry; the release launcher opens it
+from a window. Its sound setup writes an MMModern-owned
+`%LOCALAPPDATA%\MMModern\XEEN.CFG` with the original installer's choices,
+which the player entry prefers to the installed one
+([approved deviation](original-quirks.md#dev-owned-sound-cfg)). The player
+entry also writes `%LOCALAPPDATA%\MMModern\logs\mmodern.log`, and
+`mmodern --diagnostics <game-dir>` prints the report the launcher copies for
+bug reports. Developer modes start a new game
 directly, open the prepared test region at map 23 `(9,11)` used by the
 automated scenarios, load a save file, explore or inspect any Clouds map, and
 run isolated monster or Event fixtures; the

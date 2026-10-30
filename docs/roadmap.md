@@ -1,6 +1,6 @@
 # MMModern - Roadmap
 
-**M99 is the latest completed and accepted milestone.**
+**M100 is the latest completed and accepted milestone.**
 [Project status](project-status.md) describes what is playable now;
 [project history](project-history.md) records each completed milestone.
 Reference provenance belongs to [dependencies](dependencies.md).
@@ -31,7 +31,8 @@ invariants. The DOS save investigation followed: it found that picked
 chests stay open in DOS, which M96 added, and M97 added a tool that exports
 MMModern saves to DOS. Its play-test led to M98, which makes a Cartographer
 party mark its cell at every arrival. M99 then gave the picture the 4:3
-shape of the original's monitors.
+shape of the original's monitors, and M100 added the launcher window, the
+installer's sound setup, a log file and an issue template.
 
 ## Completed arc: closing Vertigo and the first release
 
@@ -137,9 +138,9 @@ this order; steps are direction, not approved plans.
 4. **Launcher and diagnostics**: the launcher shows the version, the detected
    data, the sound devices, the MT-32 ROMs and the save folder; the game
    writes a log file, and GitHub gets an issue template asking for the save
-   and the log. [M100](milestone-100-plan.md) also lets the launcher make
-   the original installer's sound choice through an MMModern-owned CFG, so
-   that MT-32 can be chosen.
+   and the log. Done: [M100](milestone-100-plan.md), which also lets the
+   launcher make the original installer's sound choice through an
+   MMModern-owned CFG, so that MT-32 can be chosen.
 5. **Darkside start**: map loading, flags, quest items and save and load for
    both sides, with Darkside progress in the DOS save export as one of the
    first tasks, then Darkside's mechanics in order of

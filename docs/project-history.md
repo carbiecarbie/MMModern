@@ -294,3 +294,11 @@ enlarged by a whole number with hard pixels and then smoothed down, so every
 pixel has one size. Clicks land on the same buttons at every size.
 `aspect=square` in `window.ini` keeps the former square-pixel picture, an
 approved deviation. [Plan](milestone-99-plan.md).
+
+**M100 - Launcher and diagnostics** (`e4703d7`). The release launcher opens a
+window with the version, the game data, the sound devices, the MT-32 ROMs
+and the save folder, and starts the game without a console. Its sound setup
+asks the original installer's questions and writes an MMModern-owned
+`XEEN.CFG`, so MT-32 can be chosen; the installed file is never changed.
+The game writes a log, `mmodern --diagnostics` prints a report for bug
+reports, and GitHub has an issue template. [Plan](milestone-100-plan.md).
