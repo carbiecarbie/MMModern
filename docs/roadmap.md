@@ -137,9 +137,9 @@ this order; steps are direction, not approved plans.
 4. **Launcher and diagnostics**: the launcher shows the version, the detected
    data, the sound devices, the MT-32 ROMs and the save folder; the game
    writes a log file, and GitHub gets an issue template asking for the save
-   and the log. Letting the launcher make the original installer's sound
-   choice through an MMModern-owned CFG, so that MT-32 can be chosen, is
-   decided at planning.
+   and the log. [M100](milestone-100-plan.md) also lets the launcher make
+   the original installer's sound choice through an MMModern-owned CFG, so
+   that MT-32 can be chosen.
 5. **Darkside start**: map loading, flags, quest items and save and load for
    both sides, with Darkside progress in the DOS save export as one of the
    first tasks, then Darkside's mechanics in order of
