@@ -27,6 +27,7 @@ unchanged apart from its version number, so the earlier entries are marked
 [gaps below](#what-scummvm-has-that-mmmodern-does-not-yet), and the Darkside
 intro at startup; items that concern only Darkside gameplay wait for it.
 
+- **Sound setup.** The [owned sound CFG](original-quirks.md#dev-owned-sound-cfg) keeps the DOS installer's choices outside the game installation. ScummVM selects its MT-32 or AdLib driver through its own device configuration. Pin: differs; master not rechecked.
 - **Picture shape.** The [square-pixel option](original-quirks.md#dev-square-picture) preserves MMModern's former integer-scaled display; both MMModern and the pin enable aspect correction by default. Pin checked; master not rechecked.
 - **NPC mode 2 artwork.** [The art remains available until the Event run ends](original-quirks.md#sv-npc-mode2-art-lifetime), so later prompts animate it and keep a pending scene step. The pin deletes the NPC dialog on return. Pin: differs; master not rechecked.
 - **Play time after Load.** [The running program retains its clock mark](original-quirks.md#dos-play-time-start-mark), including time at the title or since the preceding Save. The pin restores its frame counter on Load. Pin: differs; master not rechecked.

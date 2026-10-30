@@ -45,16 +45,16 @@ World of Xeen CD edition. MMModern never copies or modifies your game files.
 1. Download the latest `MMModern-<version>-windows-x64.zip` from the
    [releases page](https://github.com/carbiecarbie/MMModern/releases).
 2. Unpack it into a folder of your own, not inside the game folder.
-3. Double-click `MMModern.bat` to launch the game. The first time, it looks for
-   the game where GOG installed it. If it cannot find it, a window asks you to
-   choose your "Might and Magic 4-5" folder, the one containing `WORLD\XEEN.DAT`. Your
-   choice is remembered, so later the game starts directly.
-4. If you move the game, double-click `Change game folder.bat` to choose the
-   folder again. You can also run
+3. Double-click `MMModern.bat` to open the launcher. It looks for your
+   remembered game folder, then GOG's installation; if needed, choose the
+   folder containing `WORLD\XEEN.DAT`. The window shows the data and sound
+   devices found. Press Enter or click **Play** to start the game.
+4. Use **Change game folder** if you move the installation. You can also run
    `mmodern.exe "C:\GOG Games\Might and Magic 4-5"` from a command prompt.
 
-A console window stays open next to the game and shows diagnostics. If the game
-cannot start, the console says why and waits for a key.
+The launcher stays open while you play. The game opens in front without a
+console window. If it fails, the launcher shows the error and offers to open
+its log.
 
 ## Display and sound
 
@@ -73,12 +73,32 @@ default output at its own rate, including changes during play. Output failures
 silence audio with one notice and keep the game running; device removal
 reopens the default output.
 
-The sound devices are the ones the original installer wrote into the game's
-`WORLD/XEEN.CFG`; the installed file selects the Sound Blaster Pro music
-driver. AdLib, Sound Blaster, Pro Audio Spectrum and MT-32 music also play.
-For MT-32, put your MT-32 1.07 control ROM and MT-32 PCM ROM, under any file
-names, in `%LOCALAPPDATA%\MMModern\roms`; MMModern includes no ROMs. Other
-devices are silent with a notice.
+Use **Sound setup** in the launcher to choose the music and the speech device
+from the original installer's lists. The devices MMModern plays come first,
+with Sound Blaster Pro music and Sound Blaster 16 speech recommended, as the
+CD installs them; the others are listed under "No sound in MMModern yet". The
+installer's port, IRQ, DMA and volume questions are under **Advanced**; they
+described the original DOS sound cards and do not change the sound quality in
+MMModern. The choice is saved in `%LOCALAPPDATA%\MMModern\XEEN.CFG`; the installed
+`WORLD/XEEN.CFG` is never changed. **Reset to installed** removes the owned
+choice and restores the installed devices (SB Pro music and SB16 speech in
+GOG's installation). Command-prompt play uses the same choice.
+
+AdLib, Sound Blaster, Pro Audio Spectrum and MT-32 music play. For MT-32,
+put your MT-32 1.07 control ROM and MT-32 PCM ROM, under any file names, in
+`%LOCALAPPDATA%\MMModern\roms`; MMModern includes no ROMs. The launcher
+reports whether they are identified. A device awaiting support can still be
+chosen; the game stays silent and shows a notice.
+
+## Reporting a problem
+
+Use **Copy diagnostics** in the launcher and paste the report into a
+[bug report](https://github.com/carbiecarbie/MMModern/issues/new?template=bug_report.yml).
+Describe what happened, what you expected, and the steps, with map and
+coordinates when known. Attach `%LOCALAPPDATA%\MMModern\logs\mmodern.log`
+(and `mmodern-previous.log` after a crash) and the affected save slot from the
+folder shown in the report. Profile paths in the report and log are abbreviated.
+Never attach original game files or MT-32 ROMs.
 
 ## Saving
 

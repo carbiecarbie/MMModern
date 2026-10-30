@@ -20,6 +20,10 @@ complete behavior cannot be reproduced by one OPL2 chip. Whether the same
 driver also works correctly on physical dual-OPL2 hardware is **Unknown**;
 this check did not observe hardware or DOSBox playback.
 
+Player entry prefers the owned `%LOCALAPPDATA%\MMModern\XEEN.CFG`, then the
+installed CFG; `--xeen-cfg` overrides both. Developer modes ignore the owned
+file. The selected CFG feeds audio, cutscenes and caption gates together.
+
 The installed `WORLD/XEEN.CFG` selects music device 3 at word offset `0x04`
 and port `0x220` at word offset `0x06`. In `WORLD/XEEN.DAT`, the device
 dispatch at `0xb57d..0xb59d`, with table at `0xb9cc`, selects `promus` for

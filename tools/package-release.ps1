@@ -37,7 +37,7 @@ foreach ($package in $expectedAudioVersions.Keys) {
 }
 $packages = $packageLines -join "`r`n  "
 $output = [IO.Path]::GetFullPath($OutputDir)
-if ($output.StartsWith($repository, [StringComparison]::OrdinalIgnoreCase)) { throw 'Output must be outside the repository' }
+if ($output.Equals($repository, [StringComparison]::OrdinalIgnoreCase) -or $output.StartsWith($repository + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) { throw 'Output must be outside the repository' }
 $name = "MMModern-$version-windows-x64"
 $zip = Join-Path $output "$name.zip"
 $stage = Join-Path $output $name
@@ -122,12 +122,8 @@ No Might and Magic game data is included. The original game is required.
 # The launcher finds and remembers the game folder; the batch files only start
 # it. Windows batch files need CRLF line endings.
 Copy-Item (Join-Path $PSScriptRoot 'release\MMModern-launcher.ps1') $stage
-function Write-Batch([string]$file, [string]$arguments) {
-	$text = "@echo off`r`npowershell.exe -NoProfile -STA -ExecutionPolicy Bypass -File `"%~dp0MMModern-launcher.ps1`"$arguments`r`nif errorlevel 1 pause`r`n"
-	[IO.File]::WriteAllText((Join-Path $stage $file), $text, [Text.Encoding]::ASCII)
-}
-Write-Batch 'MMModern.bat' ''
-Write-Batch 'Change game folder.bat' ' -Change'
+$batch = "@echo off`r`nstart `"`" powershell.exe -NoProfile -STA -WindowStyle Hidden -ExecutionPolicy Bypass -File `"%~dp0MMModern-launcher.ps1`"`r`n"
+[IO.File]::WriteAllText((Join-Path $stage 'MMModern.bat'), $batch, [Text.Encoding]::ASCII)
 
 # Name entries explicitly: PowerShell 5.1's archive APIs write '\' separators.
 Add-Type -AssemblyName System.IO.Compression, System.IO.Compression.FileSystem

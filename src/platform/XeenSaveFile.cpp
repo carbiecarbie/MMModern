@@ -255,6 +255,13 @@ void XeenSaveFile::writeSlot(const Path &directory,unsigned slot,const XeenSaveS
  },true);
  if(check)check();
 }
+std::string XeenSaveFile::dataId(const XeenSaveResourceSignature &signature) {
+ std::ostringstream key;key<<std::hex<<std::setfill('0')<<std::setw(16)<<signature.clouds.size
+  <<'-'<<std::setw(8)<<signature.clouds.crc32;
+ if(signature.darkside)key<<'-'<<std::setw(16)<<signature.darkside->size<<'-'<<std::setw(8)<<signature.darkside->crc32;
+ else key<<"-no-darkside";
+ return key.str();
+}
 std::filesystem::path XeenSaveFile::createSlotDirectory(const GameInstallation &installation,
  const Path &repository,const std::optional<Path> &override) {
  Path base;
@@ -276,11 +283,7 @@ std::filesystem::path XeenSaveFile::createSlotDirectory(const GameInstallation &
  };
  base=check(base);
  const auto signature=fingerprint(installation);
- std::ostringstream key;key<<std::hex<<std::setfill('0')<<std::setw(16)<<signature.clouds.size
-  <<'-'<<std::setw(8)<<signature.clouds.crc32;
- if(signature.darkside)key<<'-'<<std::setw(16)<<signature.darkside->size<<'-'<<std::setw(8)<<signature.darkside->crc32;
- else key<<"-no-darkside";
- for(const auto &component:std::vector<Path>{"MMModern","Saves",key.str()}) {
+ for(const auto &component:std::vector<Path>{"MMModern","Saves",dataId(signature)}) {
   const auto child=base/component;
   // The parent is resolved and protected before creation. Resolve an existing
   // child first so a junction into source data can never receive a new child.

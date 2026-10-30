@@ -61,16 +61,12 @@ std::vector<std::filesystem::path> romCandidates(const std::filesystem::path &ov
  return paths;
 }
 }
-struct XeenMt32::Impl {
- struct PendingMidi {std::uint16_t sysexBytes;};
- std::array<PendingMidi,4096> pending{};std::size_t head=0,count=0,sysexBytes=0;std::uint32_t readPosition=0;
+namespace {
+struct RomSet {
  std::vector<std::unique_ptr<Input>> inputs;
  Image control,pcm;
- Report report;
- // The ROM images and their backing files must outlive the synth.
- std::unique_ptr<MT32Emu::Synth> synth;
  std::string error;
- explicit Impl(const std::vector<std::filesystem::path> &paths) {
+ explicit RomSet(const std::vector<std::filesystem::path> &paths) {
   for(const auto &path:paths) {
    std::error_code ec;const auto size=std::filesystem::file_size(path,ec);if(ec)continue;
    if(size!=32768 && size!=65536 && size!=262144 && size!=524288)continue;
@@ -95,8 +91,25 @@ struct XeenMt32::Impl {
   if(!control || !pcm || !control->getROMInfo() || !pcm->getROMInfo() ||
      std::string(control->getROMInfo()->shortName)!="ctrl_mt32_1_07" ||
      std::string(pcm->getROMInfo()->shortName)!="pcm_mt32") {
-   error="MT-32 output not supported yet: place the MT-32 1.07 control and MT-32 PCM ROMs in Local AppData/MMModern/roms.";return;
+   error="MT-32 output not supported yet: place the MT-32 1.07 control and MT-32 PCM ROMs in Local AppData/MMModern/roms.";
   }
+ }
+};
+}
+XeenMt32::RomStatus XeenMt32::identify(const std::filesystem::path &directory) {
+ const auto path=directory.empty()?playerRomDirectory():directory;
+ const auto files=romCandidates(path);RomSet roms(files);
+ return {path,roms.control?"identified (MT-32 control 1.07)":files.empty()?"missing":"wrong or incomplete",
+  roms.pcm?"identified (MT-32 PCM)":files.empty()?"missing":"wrong or incomplete"};
+}
+struct XeenMt32::Impl : RomSet {
+ struct PendingMidi {std::uint16_t sysexBytes;};
+ std::array<PendingMidi,4096> pending{};std::size_t head=0,count=0,sysexBytes=0;std::uint32_t readPosition=0;
+ Report report;
+ // The ROM images and their backing files must outlive the synth.
+ std::unique_ptr<MT32Emu::Synth> synth;
+ explicit Impl(const std::vector<std::filesystem::path> &paths):RomSet(paths) {
+  if(!error.empty())return;
   synth=std::make_unique<MT32Emu::Synth>(&report);
   synth->preallocateReverbMemory(true);
   if(synth->setMIDIEventQueueSize(static_cast<MT32Emu::Bit32u>(pending.size()))!=pending.size()) {

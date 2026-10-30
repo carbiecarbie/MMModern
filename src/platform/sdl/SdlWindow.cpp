@@ -1,4 +1,5 @@
 #include "platform/sdl/SdlWindow.h"
+#include "core/DiagnosticNotice.h"
 #include "platform/sdl/SdlAudioDevice.h"
 #include "platform/sdl/SdlWindowPlacement.h"
 #include "platform/sdl/XeenMainScreenInput.h"
@@ -903,6 +904,7 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
 			if (status) {
 				const auto title = status();
 				if (handler.frameCurrent && !handler.frameCurrent()) throw std::runtime_error("Stale status callback");
+				diagnosticNotice(title);
 				SDL_SetWindowTitle(window, title.c_str());
 			}
 		} catch (...) { success = false; break; }

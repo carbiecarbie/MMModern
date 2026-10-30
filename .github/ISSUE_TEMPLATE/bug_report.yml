@@ -1,0 +1,43 @@
+name: Bug report
+description: Report a problem playing MMModern
+title: "[Bug]: "
+body:
+  - type: input
+    id: version
+    attributes:
+      label: MMModern version
+      description: Shown in the launcher or by mmodern --version.
+    validations:
+      required: true
+  - type: textarea
+    id: behavior
+    attributes:
+      label: What happened and what did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Include the map name, number, coordinates and facing when known (M shows them).
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnostics report
+      description: Click Copy diagnostics in the launcher and paste here. Profile paths are abbreviated.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: attachments
+    attributes:
+      label: Log and save attachments
+      description: >-
+        Attach mmodern.log from %LOCALAPPDATA%\MMModern\logs (Open log folder
+        in the launcher), and mmodern-previous.log after a crash. Attach the
+        affected slot-0.mmsave through slot-9.mmsave from Open saves folder
+        (%LOCALAPPDATA%\MMModern\Saves\<game data id>, also in diagnostics).
+        Drag the files here; zip them if GitHub requires it. Never attach
+        original game files or MT-32 ROMs.

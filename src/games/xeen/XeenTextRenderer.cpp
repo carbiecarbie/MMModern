@@ -1,4 +1,5 @@
 #include "games/xeen/XeenTextRenderer.h"
+#include "core/DiagnosticNotice.h"
 
 #include <algorithm>
 #include <iomanip>
@@ -335,6 +336,7 @@ int XeenTextRenderer::textWidth(const std::string &text, XeenFontSize size,
 
 XeenTextRenderResult XeenTextRenderer::render(const IndexedFrame &base,
 		const std::string &text, const XeenTextRenderOptions &options) const {
+ diagnosticNotice(text);
 	if (!base.isValid())
 		throw std::invalid_argument("Invalid framebuffer for Xeen text");
 	if (options.bounds.left < 0 || options.bounds.top < 0 ||

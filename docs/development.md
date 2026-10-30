@@ -11,11 +11,11 @@ suffices. A pre-existing CD `GAME` folder (or its parent) is also accepted with
 all three archives and an uncompressed English DOS UI module: supply
 `--ui-data <path-to-XEEN.DAT>` or an unambiguous `WORLD` sibling. A bare `GAME`
 copy has no UI text. Conflicting or ambiguous sources and packed DATs fail clearly.
-By default, the installed `WORLD/XEEN.CFG` must sit beside the UI module;
-without it startup fails, and MMModern never creates or writes it. For
-play-tests, `--xeen-cfg <path>` selects a different read-only CFG for every
-entry mode, including the title and its intros and ending. A missing selected
-file fails startup instead of falling back to the installed CFG. Loose game
+By default, the installed `WORLD/XEEN.CFG` sits beside the UI module;
+MMModern never creates or writes it. Player entry can instead use an owned
+CFG, as described below. `--xeen-cfg <path>` selects a different read-only CFG
+for every game entry mode, including the title and its intros and ending. A
+missing selected file fails startup instead of falling back to the installed CFG. Loose game
 resources still come from the directory containing the installed UI module.
 `WORLD/XEEN.EXE` beside it is
 read, never run, for the Clouds and Darkside intros and the Clouds ending; if
@@ -25,7 +25,16 @@ Reading Darkside metadata does not enable Darkside gameplay.
 ## Entry modes
 
 Run from a terminal to see diagnostics, and quote paths containing spaces:
-`--ui-data <path>` and `--xeen-cfg <path>` can be supplied with every entry mode.
+`--ui-data <path>` and `--xeen-cfg <path>` select sources for the game and
+inspection entry modes. Sound setup always uses its owned or installed base.
+Player entry uses `%LOCALAPPDATA%\MMModern\XEEN.CFG` when present, with
+`--xeen-cfg` taking precedence. An unreadable or malformed owned CFG stops
+startup and names the file; `--sound-setup <game-directory> --reset` removes it.
+Developer entry modes ignore the owned CFG and keep their terminal output.
+Only player entry writes a line-flushed log, rotating the previous run to
+`mmodern-previous.log`. `MMODERN_LOG_FILE` redirects the log; failure to write
+it does not prevent play. Reports and logs abbreviate profile paths.
+
 Developer modes use a fixed DOS wall clock of zero seconds. Supply
 `--wall-clock <unsigned-32-bit-seconds>` to select another fixed value;
 plain title launch uses the host's local civil clock through the original
@@ -34,6 +43,10 @@ Journey randomness.
 
 ```text
 mmodern <game-directory>
+mmodern --version
+mmodern --diagnostics <game-directory>
+mmodern --sound-setup <game-directory> [--reset]
+mmodern --sound-setup <game-directory> --speech <key> --music <key> [--digital-port <n>] [--music-port <n>] [--irq <n>] [--dma <n>] [--volume 0|1]
 mmodern --new-game <game-directory> [--difficulty adventurer|warrior] [--save-file <path.mmsave>]
 mmodern --journey-region [--combat-seed <nonzero-u32>] <game-directory> [--save-file <path.mmsave>]
 mmodern --load-game <game-directory> <path.mmsave>
@@ -43,6 +56,20 @@ mmodern --event-fixture <game-directory> <map> <x> <y> <north|east|south|west> [
 mmodern --inspect-map|--inspect-party|--inspect-events <game-directory> ...
 ```
 
+- `--version` prints the CMake project version without game data.
+- `--diagnostics` prints stable `key: value` lines for data, configuration,
+  ROM identification, saves, settings and log paths. An unusable game folder
+  is reported in `game.status`; it is not an exception.
+- `--sound-setup` lists the installer rows (keys 1-9, then 0), their available
+  questions and current answers. Supply both row keys and exactly the answers
+  their questions require; numeric port answers accept `0x` hexadecimal.
+  Unasked fields and the base CFG's 29- or 30-byte length are retained. Writes
+  publish an owned CFG atomically; `--reset` removes it even if malformed.
+  `--xeen-cfg` does not select a sound-setup base: setup always edits the owned
+  CFG, based on it or the installed CFG.
+  `MMODERN_PLAYER_DIR` is an absolute test override for the owned CFG and
+  remembered launcher folder; `MMODERN_MT32_ROM_DIR` overrides report ROM
+  inspection for tests, without selecting the game's ROM directory.
 - `mmodern <game-directory>` plays the Darkside intro (the full story the first
   time, a shorter sequence on later launches), then opens the original title
   screen (normal play).

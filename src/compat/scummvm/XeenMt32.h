@@ -10,6 +10,8 @@ namespace mmodern {
 // the audio callback. An empty override uses the player's Local AppData path.
 class XeenMt32 {
 public:
+ struct RomStatus {std::filesystem::path directory;std::string control,pcm;};
+ static RomStatus identify(const std::filesystem::path &romDirectory={});
  explicit XeenMt32(const std::filesystem::path &romDirectory={});
  ~XeenMt32();
  bool available() const;

@@ -625,6 +625,25 @@ original post-dream poll.
 Deliberate differences from the original that the maintainer approved; each
 stays documented here and in the plan that implements it.
 
+- <a id="dev-owned-sound-cfg"></a> **Sound setup stores an owned CFG**
+  (maintainer, 2026-10-30). Sound setup stores
+  `%LOCALAPPDATA%\MMModern\XEEN.CFG` and never writes the installed file.
+  Player entry prefers that file; `--xeen-cfg` overrides it, and developer
+  modes ignore it. Reset removes the owned file. The window lists the devices
+  MMModern plays first and groups the installer's port, IRQ, DMA and volume
+  questions under Advanced; the questions and values are preserved, including PAS Alt writing digital id 6 and unasked
+  fields retaining their base bytes. Both 29- and 30-byte bases keep their
+  length. **Evidence:** M94 Part 0a installer findings, section 2; unpacked
+  `WORLD/INSTALL.EXE` menus `0x1df0b/0x1df37`, PAS Alt remap
+  `0x9a6e..0x9a78`, question/store flow `0x7a69..0x7adb`, and 29-byte writer
+  `0x7b47..0x7b59`. MMModern: `XeenSoundSetup`, `XeenPlayerSupport`.
+  [M100 plan](milestone-100-plan.md). **ScummVM:** pin
+  `6814ee9ba54582f5b5adcffab49efbbd8f589edd`,
+  `engines/mm/shared/xeen/sound.cpp::Sound::Sound`, calls
+  `MidiDriver::detectDevice(MDT_ADLIB | MDT_MIDI | MDT_PREFER_MT32)` and
+  selects `SoundDriverMT32` for `MT_MT32`, otherwise `SoundDriverAdlib`. It
+  chooses through ScummVM's device configuration, rather than these installer
+  CFG rows. Pin: differs; master not rechecked.
 - <a id="dev-square-picture"></a> **Square pixels are an opt-in picture shape**
   (maintainer, 2026-10-30). The original 320x200 picture appeared on a 4:3
   DOS monitor, and MMModern shows it with that shape by default. The host

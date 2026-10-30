@@ -2,6 +2,9 @@ cmake_minimum_required(VERSION 3.20)
 
 project(MMModern VERSION 0.11.0 LANGUAGES CXX)
 
+configure_file(cmake/MMModernVersion.h.in generated/MMModernVersion.h @ONLY)
+include_directories("${CMAKE_CURRENT_BINARY_DIR}/generated")
+
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS ON)
@@ -48,6 +51,7 @@ include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/MMModernItemCatalog.cmake")
 add_mmodern_item_catalog_generation()
 
 add_library(mmodern_xeen STATIC
+	src/formats/xeen/XeenSoundSetup.cpp
 	src/formats/xeen/XeenCdAudio.cpp
 	src/games/xeen/PromusDriver.cpp
 	src/games/xeen/MonoOplDriver.cpp
@@ -158,6 +162,7 @@ add_library(mmodern_platform_sdl STATIC
 target_link_libraries(mmodern_platform_sdl PUBLIC mmodern_core PRIVATE SDL2::SDL2 shell32 ole32)
 
 add_library(mmodern_app STATIC
+ src/app/XeenPlayerSupport.cpp
 	src/app/XeenAudio.cpp
 	src/app/XeenFmSource.cpp
 	src/app/XeenTitle.cpp
@@ -270,6 +275,21 @@ if(BUILD_TESTING)
   message(FATAL_ERROR "MMODERN_XEEN_UI_DATA is missing")
  endif()
  add_compile_definitions(MMODERN_TEST_UI_DATA="${MMODERN_XEEN_UI_DATA}")
+ add_executable(mmodern_player_log_tests tests/XeenPlayerLogTests.cpp)
+ target_link_libraries(mmodern_player_log_tests PRIVATE mmodern_app mmodern_xeen)
+ target_link_options(mmodern_player_log_tests PRIVATE "LINKER:--wrap,SHGetKnownFolderPath")
+ add_test(NAME xeen_player_log COMMAND mmodern_player_log_tests "${CMAKE_CURRENT_BINARY_DIR}/m100-player-log")
+ add_executable(mmodern_launcher_witness src/main.cpp tests/XeenLauncherWitness.cpp)
+ target_link_libraries(mmodern_launcher_witness PRIVATE mmodern_app mmodern_xeen mmodern_scummvm_xeen mmodern_platform_sdl SDL2::SDL2 shell32)
+ target_link_options(mmodern_launcher_witness PRIVATE "LINKER:--wrap,SDL_CreateRenderer" "LINKER:--wrap,_ZN7mmodern19windowPlacementFileEv")
+ add_executable(mmodern_sound_setup_tests tests/XeenSoundSetupTests.cpp)
+ target_link_libraries(mmodern_sound_setup_tests PRIVATE mmodern_app mmodern_xeen)
+ add_test(NAME xeen_sound_setup COMMAND mmodern_sound_setup_tests "${MMODERN_XEEN_DATA_DIR}" "${CMAKE_CURRENT_BINARY_DIR}/m100-sound-setup" "${MMODERN_MT32_ROM_DIR}")
+ add_test(NAME xeen_launcher COMMAND powershell.exe -NoProfile -ExecutionPolicy Bypass
+  -File "${CMAKE_CURRENT_SOURCE_DIR}/tests/XeenLauncherTests.ps1"
+  -Launcher "${CMAKE_CURRENT_SOURCE_DIR}/tools/release/MMModern-launcher.ps1"
+  -Exe "$<TARGET_FILE:mmodern>" -GameDir "${MMODERN_XEEN_DATA_DIR}"
+  -TestRoot "${CMAKE_CURRENT_BINARY_DIR}/m100-launcher-tests" -RomDir "${MMODERN_MT32_ROM_DIR}" -PlayerExe "$<TARGET_FILE:mmodern_launcher_witness>")
  add_executable(mmodern_cd_audio_tests tests/XeenCdAudioTests.cpp)
  target_link_libraries(mmodern_cd_audio_tests PRIVATE mmodern_app mmodern_xeen SDL2::SDL2)
  target_link_options(mmodern_cd_audio_tests PRIVATE "LINKER:--wrap,SDL_OpenAudioDevice" "LINKER:--wrap,SDL_AudioStreamGet")

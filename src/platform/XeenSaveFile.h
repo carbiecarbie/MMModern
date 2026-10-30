@@ -17,6 +17,7 @@ public:
  static void write(const std::filesystem::path &absolutePath,
    const XeenSaveSnapshot &snapshot, const Fault &fault = {}, bool managed = false);
  // Explicit directory creation. The override is a test seam, never a fallback.
+ static std::string dataId(const XeenSaveResourceSignature &);
  static std::filesystem::path createSlotDirectory(const GameInstallation &,
    const std::filesystem::path &repository, const std::optional<std::filesystem::path> &localAppData = {});
  static std::filesystem::path slotPath(const std::filesystem::path &directory, unsigned slot);

@@ -1,4 +1,6 @@
 #include "app/Application.h"
+#include "app/XeenPlayerSupport.h"
+#include "MMModernVersion.h"
 #include "platform/sdl/SdlWindow.h"
 #include "platform/sdl/SdlWindowPlacement.h"
 #include "platform/XeenSystemWallClock.h"
@@ -131,8 +133,20 @@ int main(int argc, char *argv[]) {
  argc=static_cast<int>(pointers.size());argv=pointers.data();
  const bool playerTitle=argc>=2 && std::string(argv[1]).rfind("--",0)!=0;
  if(playerTitle && wallClock){std::cerr<<"--wall-clock requires a developer entry mode\n";return 1;}
+ std::unique_ptr<mmodern::XeenPlayerLog> playerLog;
+ if(playerTitle)playerLog=std::make_unique<mmodern::XeenPlayerLog>();
  if(!playerTitle) mmodern::SdlWindow::useAspectSetting(mmodern::windowPlacementFile());
  try {
+ if(argc==2 && arguments[1]=="--version"){std::cout<<"MMModern "<<MMODERN_VERSION<<'\n';return 0;}
+ if(arguments.size()>=2 && arguments[1]=="--sound-setup")return mmodern::xeenSoundSetupCommand(arguments);
+ if(arguments.size()>=2 && arguments[1]=="--diagnostics") {
+  if(argc!=3)throw std::runtime_error("Usage: mmodern --diagnostics <game-dir>");
+  std::cout<<mmodern::xeenDiagnostics(std::filesystem::u8path(arguments[2]),cfg,uiData.value_or(std::filesystem::path{}));return 0;
+ }
+ if(playerTitle) {
+  std::cout<<mmodern::xeenDiagnostics(std::filesystem::u8path(arguments[1]),cfg,uiData.value_or(std::filesystem::path{}));
+  cfg=mmodern::xeenPlayerCfg(cfg);
+ }
  mmodern::XeenProgramState program{playerTitle?mmodern::xeenSystemWallClock():mmodern::XeenWallClock::fixed(wallClock.value_or(0))};
  if(!playerTitle && wallClock)std::cout<<"Wall clock: fixed "<<*wallClock<<'\n';
  const mmodern::Application application(program,uiData.value_or(std::filesystem::path{}),mmodern::xeenSettingsFile(),cfg.value_or(std::filesystem::path{}));
@@ -337,5 +351,7 @@ int main(int argc, char *argv[]) {
 	return 1;
  } catch(const std::exception &e) {
   std::cerr<<"MMModern failed: "<<e.what()<<'\n';return 1;
+ } catch(...) {
+  std::cerr<<"MMModern failed: unknown exception\n";return 1;
  }
 }
