@@ -110,6 +110,22 @@ capture of the small map ([evidence](evidence.md#event-wait-drawing)). In
 DOSBox on 2026-10-27, the maintainer saw the map 33 gas trap's object while it
 hurt the party.
 
+A scene-drawing Event wait consumes the pending step on the detached candidate:
+it drains light, marks the occupied cell with an active Cartographer, and
+derives darkness. A refused/abandoned candidate publishes none of these changes.
+A reconstruction or repeated wait draw cannot spend the same step twice.
+Window 11, location artwork and animation-only waits keep the step; text input
+checks only when its idle loop actually draws. Follow the
+[Event-wait gate table](evidence.md#event-waits-and-pending-steps).
+A scene-drawing prompt followed by a teleport marks both cells; a silent
+teleport, or one behind an NPC with Text on, marks only the destination.
+NPC Text off allows scene preparation during its wait. Mode 2 has no wait and
+keeps its art until Event cleanup; later Yes/No, acknowledgment and numeric-choice
+prompts that test the location-art handle animate that art and keep the step.
+Opening a prompt does not dismiss this layer. Continue checks each intermediate stop.
+Entrance scenes check after their reload, then the Event caller marks stepped
+again for the later arrival check; on a drain cell these are two drains.
+
 The Event tail has two alternatives, for manual and automatic calls alike:
 
 | State at completion | Result |
@@ -679,7 +695,11 @@ destination monsters and reloads head indicators before destination Events.
 The foundation's shared transition result checks admission before candidate
 changes. Unavailable travel discards unpublished map, party, rewards and Journey
 RNG changes. An already published presentation/reward prefix remains authoritative
-under the foundation's publication rule.
+under the foundation's publication rule. Its light word tracks successful Event
+Set/Take/Give operations (including the year reset), independently of detached
+scene drains. Repeated prefix publication therefore preserves Event effects
+without leaking a drain from a subsequently refused run; the final candidate
+publication retains the actual checked light word.
 
 Exit terminates. Continue redraws/reselects destination objects and restarts at
 physical destination line 0 (`0x27117..0x27127`). It discards CallEvent frames

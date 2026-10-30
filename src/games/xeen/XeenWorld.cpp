@@ -573,7 +573,7 @@ std::optional<XeenCellSample> XeenWorld::sampleCell(
 	return result;
 }
 
-std::vector<XeenExploredTile> XeenWorld::explorationAfterStep(const XeenPartyState &party,const XeenCamera &camera) {
+std::vector<XeenExploredTile> XeenWorld::explorationForOccupiedCell(const XeenPartyState &party,const XeenCamera &camera) {
 	auto values=_sessionState.exploredTiles();
 	if(!xeenPartyHasSkill(party,4))return values;
 	const auto cell=sampleCell(camera.mapId,camera.x,camera.y);
@@ -589,8 +589,7 @@ std::vector<XeenExploredTile> XeenWorld::explorationAfterStep(const XeenPartySta
 	return values;
 }
 
-void XeenWorld::recordExploration(const XeenPartyState &party,const XeenCamera &camera) {
-	auto values=explorationAfterStep(party,camera);
+void XeenWorld::recordExploration(std::vector<XeenExploredTile> &values) {
 	if(values==_sessionState.exploredTiles())return;
 	if(_combatCheck)_combatCheck();
 	XeenMutationWatch::write(this);_sessionState.publishExploration(values);

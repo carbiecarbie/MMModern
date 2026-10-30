@@ -263,6 +263,7 @@ XeenEventExecutionStepResult XeenEventInterpreter::begin(
 	if (world.sessionState().journey() && !publication) throw std::logic_error("Journey event requires live continuation authority");
 	if (publication) publication->check();
 	XeenEventExecutionState state;
+    if(partyState.encounterContext)state.prefixLight=partyState.encounterContext->lightAndResistances[0];
 	// 0x267b1..0x26a5d: with currency or readiness pending, stash the whole staging
 	// and clear only those; the arrays stay live and hold Event treasure too.
 	// Entry also clears WhoWill (0x26797), published with the completed run.
@@ -369,6 +370,20 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
             throw std::invalid_argument("Portrait effect has no selected recipient");
         return state.entireParty?(1u<<partyState.party.size())-1:1u<<*state.activeCharacterIndex;
     };
+    // These checks are the table's interpreter-side scene draws. They alter
+    // only the detached step, exploration and light, before later Event work.
+    const auto sceneCheck=[&](bool windowsClosed=false) {
+        if(!world.scenePresentation().lightingStepped || world.scenePresentation().lightingPrepared)return;
+        if(!windowsClosed && sceneWindow11Open && sceneWindow11Open())return;
+        auto scene=world.lightAfterScenePreparation(partyState,workingCamera);
+        world.recordExploration(scene.exploration);
+        if(partyState.encounterContext)partyState.encounterContext->lightAndResistances[0]=scene.light;
+        world.scenePresentation().completeLightingDraw();
+    };
+    const auto initialSceneCheck=[&] {
+        if(state.redrawDone)return;
+        sceneCheck();state.redrawDone=true;
+    };
     const auto portraitRequest=[&](XeenEventPortraitStage stage,unsigned owner,unsigned frame,const XeenEventSourceLocation &source) -> XeenEventExecutionStepResult {
         if(eventDraw)eventDraw(world,workingCamera,false);
         XeenPresentationRequest request;request.kind=XeenPresentationKind::PortraitEffect;
@@ -434,7 +449,7 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
         if(reward.phase==XeenRewardPhase::Completed)return finish(true);
 		const bool begin=reward.phase==XeenRewardPhase::Running;
         // DOS 0x2429e clears once on entry, before warning/item/currency delivery.
-        if(begin){++state.inputClearCount;state.inputClearSite=0x2429e;}
+        if(begin){sceneCheck();++state.inputClearCount;state.inputClearSite=0x2429e;}
 		if(publication && partyState.worldFlags)publication->advanceRewardDelivery(state,partyState,begin);
 		else if(begin)xeenBeginTreasureDelivery(reward,state.treasure,partyState,state.treasure.preferredRecipient(),[&](unsigned id){emitFmEffect(publication,id);});
 		else xeenAdvanceTreasureDelivery(reward,partyState,state.treasure.preferredRecipient(),[&](unsigned id){emitFmEffect(publication,id);});
@@ -608,6 +623,13 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
                 workingGameFlags=world.loadEventDestination(workingCamera.mapId,destination.mapId,false,workingGameFlags);
                 ++state.inputClearCount;state.inputClearSite=0xf590;
                 workingCamera=transition.destination;state.selectedObject.reset();
+                // Entrance reload's final draw precedes the Event caller's step
+                // (DOS 0x2b005/0x2a615/0x2b74b/0x29a91, then 0x27b32).
+                auto scene=world.lightAfterScenePreparation(partyState,workingCamera);
+                world.recordExploration(scene.exploration);
+                if(partyState.encounterContext)partyState.encounterContext->lightAndResistances[0]=scene.light;
+                world.scenePresentation().completeLightingDraw();
+                world.scenePresentation().markLightingStep();
             } catch(const std::exception &e) {
                 return error(XeenEventExecutionErrorKind::MapLoadFailed,e.what(),instructionCount,logical,pending.request.source);
             }
@@ -884,6 +906,9 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 			request.kind = npc ? XeenPresentationKind::NpcAcknowledgment : who ? XeenPresentationKind::CharacterSelection : presentationKind(display->kind);
             const bool label=display && (decoded.source.opcode==2 || decoded.source.opcode==3 ||
                 decoded.source.opcode==4 || decoded.source.opcode==39);
+            if(label)sceneCheck(); // Door/sign redraw, 0x26f81.
+            else if(display && (decoded.source.opcode==0x29 || decoded.source.opcode==0x32 || decoded.source.opcode==0x35))
+                initialSceneCheck(); // Before opening the text window, 0x26db6.
             if(eventDraw)eventDraw(world,workingCamera,label);
 			request.response = npc ? (npc->confirmationMode==2 ? XeenPresentationResponseRequirement::Presented :
 				npc->confirmationMode==0 ? XeenPresentationResponseRequirement::YesNo : XeenPresentationResponseRequirement::Acknowledgment) : who ? XeenPresentationResponseRequirement::CharacterSelection : display->kind ==
@@ -1066,6 +1091,7 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
   if(fixedDamage || randomDamage) {
    using P=XeenEventPortraitProgress;
    if(!state.portraitProgress) {
+       initialSceneCheck(); // Damage/RndDamage pre-draw, 0x280ec/0x285cc.
        const auto type=static_cast<XeenDamageType>(fixedDamage?fixedDamage->type:randomDamage->type);
        unsigned amount=fixedDamage?fixedDamage->amount:0;
        if(randomDamage) {
@@ -1119,7 +1145,8 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 			world.applyAlterEvent(workingCamera,alter->line,alter->replacement,script->file());
 			++logical.line;missingPolicy=MissingInstructionPolicy::NaturalCompletion;continue;
 		}
-		XeenEventValueOwners owners{partyState,workingGameFlags,workingCamera,state.scriptValues};
+		XeenEventValueOwners owners{partyState,workingGameFlags,workingCamera,state.scriptValues,
+            state.prefixLight?&*state.prefixLight:nullptr};
 		const auto advance=[&](const char *what) -> std::optional<XeenEventExecutionError> {
 			if(logical.line==255)return error(XeenEventExecutionErrorKind::LineOverflow,
 				std::string(what)+" sequential line overflow",instructionCount,logical,decoded.source);
@@ -1363,6 +1390,7 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 			case 85:
 				if(!world.detachedEventCandidate() || !partyState.encounterContext)return fail("Event year change requires a detached Event");
 				world.applyEventYear(partyState,workingGameFlags,giveValue);
+                if(state.prefixLight)state.prefixLight=0;
 				done(false);return std::nullopt;
 			case 100: {
 				// 0x232bc: party gold, a random amount from the operand's low word, no sparkle.
@@ -1767,15 +1795,17 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 			if (const auto teleportError = executeTeleport(teleport->mapId,
 					teleport->x, teleport->y, true))
 				return *teleportError;
-   callStack.clear();state.scriptValues.damageType=0;
+   callStack.clear();state.scriptValues.damageType=0;state.redrawDone=false;
    state.entireParty=false;state.lookupDirection=workingCamera.direction;
    state.activeCharacterIndex = partyState.party.size() ? std::optional<std::size_t>{0} : std::nullopt;
 			state.continuedAtDestination=true; // DAT 0x2711f..0x27127: redraw, then restart.
             if(eventDraw)eventDraw(world,workingCamera,false);
             // Continue prepares each intermediate scene before restarting its
             // Event chain, even when no text suspends there for a visible frame.
+            auto scene=world.lightAfterScenePreparation(partyState,workingCamera);
+            world.recordExploration(scene.exploration);
             if(partyState.encounterContext)
-                partyState.encounterContext->lightAndResistances[0]=world.lightAfterScenePreparation(partyState,workingCamera);
+                partyState.encounterContext->lightAndResistances[0]=scene.light;
             world.scenePresentation().completeLightingDraw();
             // The restart zeroes the lock counter (0x27127 -> 0x26a8e, 0x26a96).
             if(state.scriptValues.lockCounter) {state.scriptValues.lockCounter=0;world.objectFrameLocked(std::nullopt);}

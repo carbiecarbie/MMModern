@@ -1,3 +1,4 @@
+#include "games/xeen/XeenMapView.h"
 // One original-data Application/SDL path for both New difficulties and title
 // Load. Only seed sampling and the Local AppData test directory are substituted.
 #include "app/Application.h"
@@ -71,6 +72,8 @@ struct State {
  unsigned noticeAttempts=0,writes=0;
  const XeenDosText *text=nullptr;
  const XeenFontFormat *font=nullptr;
+ XeenDialogSpriteDraw drawMapSprite;
+ std::function<std::string(XeenMapIdentity)> mapName;
  std::string notice,saveAsName="Panel Name";
  SdlWindow::FrameUpdateHandler retired;
  SdlWindow::IdleFrameHandler retiredIdle;
@@ -365,7 +368,7 @@ extern "C" int wrappedTitlePlay(const Application *app,const XeenGameplayService
  }
  state.font=&services.font;
  const auto configure=services.configureFlow;
- services.configureFlow=[configure](auto &flow,const auto &position){if(configure)configure(flow,position);state.text=&flow.dosText();};
+ services.configureFlow=[configure](auto &flow,const auto &position){if(configure)configure(flow,position);state.text=&flow.dosText();state.drawMapSprite=flow.drawDialogSprite;state.mapName=flow.mapName;};
  services.sampleJourneySeed=[] {++state.seeds;return 1u;};
  if(state.panelMode && !resume) {
   const auto compose=services.composeEncounter;
@@ -514,8 +517,15 @@ extern "C" bool wrappedTitleShow(const SdlWindow *window,const IndexedFrame &fir
    check(state.world && state.party && state.camera && state.flags,"title native gameplay owners");
    auto snapshot=XeenSaveState::capture(state.signature,*state.party,*state.camera,*state.flags,*state.world);snapshot.name=state.name;
    const auto wire=XeenSaveFormat::encode(snapshot);
+   const auto raw=state.loading?state.saved:XeenSaveFormat::encode(XeenSaveFile::read(state.slot));
+   auto expectedArrival=XeenSaveFormat::decode(raw);
+   const auto cell=state.world->sampleCell(state.camera->mapId,state.camera->x,state.camera->y);
+   check(cell && cell->cell->stepped,"New/Load arrival with Cartographer must mark its cell");
+   auto &bits=expectedArrival.map(cell->mapId).explored;if(!bits)bits.emplace();
+   const unsigned index=cell->y*16+cell->x;(*bits)[index/8]|=1u<<(index%8);
+   check(wire==XeenSaveFormat::encode(expectedArrival),"First frame changed more than its occupied-cell mark");
    if(state.loading) {
-    check(wire==state.saved && state.seeds==0,"title Load changed state/RNG or ran initialization");
+    check(state.seeds==0,"title Load ran initialization");
     check(!state.program->audio->cdBusy(SdlWindow::presentationNanoseconds()) &&
      state.program->audio->retainedCdCue().has_value()==state.retainedIdle,
      "Title Load replayed passive speech or changed process cue retention");
@@ -523,9 +533,12 @@ extern "C" bool wrappedTitleShow(const SdlWindow *window,const IndexedFrame &fir
    else {
     check(snapshot.journey->context->difficulty==state.difficulty && state.seeds==1,"New sampled seed/difficulty");
     check(snapshot.journey->playTimeSeconds==37 && !snapshot.journey->cloudsCompleted && state.program->playTimeMark==47,"New must zero saved time/completion and include title time before its first snapshot");
-    check(XeenSaveFormat::encode(XeenSaveFile::read(state.slot))==wire,"New write did not precede first presented state");state.saved=wire;
+    check(raw==wire,"New save must contain its prepared arrival frame state");state.saved=raw;
    }
-   preview(*frame,state.loading?"load-first":"new-first");state.shown=true;
+   preview(*frame,state.loading?"load-first":"new-first");
+   if(std::getenv("MMODERN_TITLE_PREVIEW"))preview(drawXeenMap(*state.world,*state.camera,*frame,*state.font,*state.text,
+    state.drawMapSprite,0,state.mapName(state.camera->mapId)),state.loading?"load-map":"new-map");
+   state.shown=true;
   }
  };
  const auto nativeIdle=[&]() -> std::optional<IndexedFrame> {

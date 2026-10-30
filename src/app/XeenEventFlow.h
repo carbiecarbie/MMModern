@@ -382,7 +382,7 @@ private:
 	std::unique_ptr<TransitionCandidate> _transition;
 	void prepareTerrainTransition();
 	bool serviceManualStep();
-	void retainManualPrefix(bool party);
+	void retainManualPrefix(bool party,std::optional<std::uint16_t> prefixLight={});
 	void publishManualPrefix();
 	std::optional<XeenEventContinuation> _serviceEventContinuation;
 	const void *_serviceEventOwner=nullptr;

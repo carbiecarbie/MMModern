@@ -73,6 +73,17 @@ struct Fixture {
  }
  void send(const PlayerAction &a){flow.handle(a);}
 };
+
+void ordinaryCartographer() {
+ Fixture f;f.party.encounterContext.reset();
+ f.party.roster.at(f.party.party.activeRosterIds().front()).skills[4]=1;
+ check(!f.world.sampleCell(f.camera.mapId,f.camera.x,f.camera.y)->cell->stepped,"Ordinary refresh starts blank");
+ f.world.scenePresentation().markLightingStep();f.flow.refresh(true);
+ check(f.world.sampleCell(f.camera.mapId,f.camera.x,f.camera.y)->cell->stepped && !f.party.encounterContext,
+  "Ordinary scene refresh marks without an encounter context");
+ const auto explored=f.world.sessionState().exploredTiles();f.flow.refresh(true);
+ check(f.world.sessionState().exploredTiles()==explored,"Ordinary reconstruction does not add marks");
+}
 void skippedLineHeads() {
  // M85 Part 0: 0x26797 precedes 0x26abd; every admitted scan clears 9756,
  // including no-record scans. A label draw rebuilds slots before the next head.
@@ -731,7 +742,7 @@ void journeyPasses() {
 
 }
 int main(int argc,char **) {
- try {if(argc>1){queuedSdlEvents();bufferedWordPrompt();queuedCombatInput();return 0;}skippedLineHeads();outerInputs();mouseViewAndPanel();mapLoadInputSignal();whoWillPerPass();manualAndFlags();emptyCalls();tailMarkers();journeyPasses();actionTable();currentKeyAndCapture();panelSavesAndContinuation();f9OutcomesAndRetries();restAndCombat();engagedInput();defeatCallers();postCombatCalls();candidateFlagsAndDoorText();flagLifetimeAndInput();newGamePublication();std::cout<<"M84 Event dispatch and tail OK\n";return 0;}
+ try {ordinaryCartographer();if(argc>1){queuedSdlEvents();bufferedWordPrompt();queuedCombatInput();return 0;}skippedLineHeads();outerInputs();mouseViewAndPanel();mapLoadInputSignal();whoWillPerPass();manualAndFlags();emptyCalls();tailMarkers();journeyPasses();actionTable();currentKeyAndCapture();panelSavesAndContinuation();f9OutcomesAndRetries();restAndCombat();engagedInput();defeatCallers();postCombatCalls();candidateFlagsAndDoorText();flagLifetimeAndInput();newGamePublication();std::cout<<"M84 Event dispatch and tail OK\n";return 0;}
  catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}
 }
 

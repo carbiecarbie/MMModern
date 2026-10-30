@@ -203,8 +203,13 @@ void captions() {
         check((reads>0)==(efx && !silent),"Entrance null driver loaded or waited for PCM");
     }
 }
-void original(training_test::Inputs &in,const GameInstallation &installation,XeenCamera camera,unsigned action,bool keyed,bool wounded=false,bool efx=true,bool device=false) {
-    auto save=entranceSave(in,camera,keyed,action);save.soundOptions.efx=efx;training_test::Fixture f(in,save);
+void original(training_test::Inputs &in,const GameInstallation &installation,XeenCamera camera,unsigned action,bool keyed,bool wounded=false,bool efx=true,bool device=false,bool drain=false) {
+    auto save=entranceSave(in,camera,keyed,action);save.soundOptions.efx=efx;
+    save.characters[save.activeRosterIds[0]].skills[4]=1;
+    for(auto &m:save.maps)m.explored.reset();
+    if(drain)save.journey->context->lightAndResistances[0]=5;
+    const auto loader=[&](auto id){auto m=in.maps.loadGeometryMap(in.assets,id);if(drain)for(auto &c:m.geometry.cells)c.rawAttributes|=0x20;return m;};
+    training_test::Fixture f(in,save,false,nullptr,loader);
     std::vector<std::string> voices;
     f.programState.audio=XeenAudio::installed(installation,in.assets,0,device,std::filesystem::path("mmodern-nonexistent-rom-fixture"));
     f.programState.audio->digitalSink([&](const auto &name,auto){voices.push_back(name);});
@@ -247,6 +252,8 @@ void original(training_test::Inputs &in,const GameInstallation &installation,Xee
     }
     check(!failures && !XeenEntranceTestAccess::active(*f.flow) && f.flow->canSave(),"Original entrance never returned to gameplay");
     check(xeen_state::sameCamera(f.c,xeenEntranceDestination(*xeenEntranceSite(action,camera),camera,XeenCloudsQuestItems(save.questItems))),"Original entrance destination/position/facing");
+    check(f.w.sampleCell(f.c.mapId,f.c.x,f.c.y)->cell->stepped,"Entrance return marks its occupied physical cell");
+    if(drain)check(f.p.encounterContext->lightAndResistances[0]==3,"Entrance reload and Event caller drain exactly twice");
     check(f.p.encounterContext->day==time.day && f.p.encounterContext->minutes==time.minutes && f.p.encounterContext->year==time.year,"Entrance charged game/service time");
     check(f.w.sessionState().journeyRandom()->count>rng.count,"Scene did not consume gameplay RNG");
     if(!efx)check(samples.empty() && captions>0,"Efx-off entrance resolved samples or omitted caption");
@@ -341,6 +348,7 @@ int main(int argc,char **argv) {try {
         for(unsigned action=8;action<=11;++action)for(bool keyed:{false,true})if(action!=10 || keyed)animation(action,keyed,&in);
         original(in,*installation,{24,10,9,XeenDirection::North},8,true);
         original(in,*installation,{24,10,9,XeenDirection::North},8,false,true);
+        original(in,*installation,{24,10,9,XeenDirection::North},8,false,false,true,false,true);
         original(in,*installation,{23,5,13,XeenDirection::North},10,true);
         original(in,*installation,{23,5,13,XeenDirection::North},10,true,false,false);
         original(in,*installation,{5,12,8,XeenDirection::South},11,false);

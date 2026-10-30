@@ -73,13 +73,21 @@ every one of these exactly as DOS does.
    Every combat exit sets stepped after its exit redraw and delivery, as the
    shared DOS tail does; every town service exit sets it, as the pin's
    `cmdDoTownEvent` does (Part 0 confirms the DOS site). `evidence.md`'s Run
-   row is corrected: the combat-exit mark belongs to every exit.
+   row is corrected: the combat-exit mark belongs to every exit. The
+   Reaper, Golem, Dwarf and Sphinx entrances keep both DOS checks: their
+   reload's final scene draw checks on the candidate (`0x2b005`, `0x2a615`,
+   `0x2b74b`, `0x29a91`), then the Event caller's mark (`0x27b32`) leaves a
+   step for the later arrival check.
 3. **No second writer.** With decision 2 in place, the step-site calls to
    `explorationAfterStep` go; the occupied-cell helper becomes the check's
-   implementation. If a path that DOS redraws with stepped set has no scene
-   check in MMModern, or MMModern runs an Event or a save between a step and
-   its check where DOS does not, stop and report: that is a separate
-   presentation-order gap.
+   implementation. A scene draw listed in the Part 0
+   [Event-wait table](rules/evidence.md#event-waits-and-pending-steps) that
+   has no check in MMModern gets one, at the point where DOS draws, with the
+   window gates and decision 4's three fields, without moving an RNG draw or
+   any other state change. Stop and report only if a check needs another
+   field, a moved RNG draw or a presentation order the player would see
+   change; if a redraw outside that table has no check; or if MMModern runs
+   an Event or a save between a step and its check where DOS does not.
 4. **An Event-wait draw consumes the step only when DOS prepares the
    scene.** DOS `draw3d` (`0x10bc3`) returns at once (`0x10bd0..0x10bd7` to
    `0x1187d`) while window 11 is open (flag `DS:9877`, set by the opener
@@ -96,11 +104,17 @@ every one of these exactly as DOS does.
    preparation marks the cell the party is on then. A scene-drawing prompt
    followed by TeleportAndExit therefore marks both cells, while a silent
    teleport, or one behind an NPC with Text on, marks only the destination.
+   NPC mode 2 returns without freeing its art (`0x25aa3..0x25ac4` skips the
+   free at `0x25c5e`); the handle `DS:8d56` lives until the run's cleanup
+   (`0x291a9..0x291c7`), so a later prompt in that run animates over the
+   art and keeps the step. MMModern keeps that layer until the run ends
+   instead of dismissing it when the prompt opens.
    This reverses the
    rule at `XeenEventFlow.cpp:1550-1551` that an Event-wait draw never
    alters the retained Event party: the candidate guard, `work.guard` and
-   the retained-continuation check must accept the consumed step and the
-   exploration, and nothing else. A reconstruct draw or a second Event-wait
+   the retained-continuation check must accept the consumed step, the
+   exploration and the drained light word (`lightAndResistances[0]`, the
+   same check's drain, decision 1), and nothing else. A reconstruct draw or a second Event-wait
    draw changes nothing.
 5. **Event Continue.** Each Continue redraw that checks light also marks its
    intermediate cell on the detached candidate, as `0x27121` does.

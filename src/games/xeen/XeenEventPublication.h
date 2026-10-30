@@ -64,13 +64,16 @@ public:
 		guard.prepareVertigoPrelude(state.workingGameFlags);
 		flags=state.workingGameFlags;guard.adoptMutationBoundary();
 	}
-	void publishSequencePrefix(XeenWorld &world,XeenPartyState &party,const XeenRestoreGuard &candidate) const {
+	void publishSequencePrefix(XeenWorld &world,XeenPartyState &party,const XeenRestoreGuard &candidate,
+            std::optional<std::uint16_t> prefixLight={}) const {
 		check();candidate.check();
 		if(&world!=&guard.w || &party!=&guard.p || !candidate.w.detachedEventCandidate())
 			integrity("Event sequence publication owner changed");
 		const XeenCloudsQuestItems quests(candidate.quests);const XeenCloudsQuestFlags flags(candidate.questFlags);
 		guard.prepareEventSequencePrefix(candidate);
+        if(prefixLight && guard.context)guard.context->lightAndResistances[0]=*prefixLight;
 		world.publishEventParty(party,candidate.p);party.questItems=quests;party.questFlags=flags;
+        if(prefixLight && party.encounterContext)party.encounterContext->lightAndResistances[0]=*prefixLight;
 		world._sessionState._journeyRandom=candidate.s._journeyRandom;
 		guard.adoptMutationBoundary();
 		for(unsigned owner=0;owner<30;++owner) {

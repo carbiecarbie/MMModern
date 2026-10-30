@@ -480,10 +480,8 @@ bool XeenEncounterFlow::serviceCasting() {
         _terrainDead=work.terrain->rule.dead;
 		if (_world._sessionState._encounterRevision==std::numeric_limits<std::uint64_t>::max())
 			throw std::overflow_error("Casting charge generation exhausted");
-		std::vector<XeenExploredTile> exploration;
         bool automaticArrival=false;
         {XeenRestoreGuard::Providers providers(*_journeyPreimage,_world);
-            exploration=_world.explorationAfterStep(_party,_camera);
             if(work.jumpDestination) {
               const auto sample=_world.sampleCell(_camera.mapId,_camera.x,_camera.y);
               automaticArrival=sample && (sample->cell->rawAttributes & kXeenAutomaticEventFlag);
@@ -491,7 +489,6 @@ bool XeenEncounterFlow::serviceCasting() {
             _journeyPreimage->check();}
 		auto prepared=std::make_shared<XeenRestoreGuard>(_world,_party,_camera,_flags);
 		prepared->retainResources(*_journeyPreimage);
-		prepared->s.assignExploration(exploration);
 		bool living=false;
 		for (const auto &value:work.time->characters) {
 			auto &owner=prepared->characters[value.rosterId];
@@ -512,7 +509,6 @@ bool XeenEncounterFlow::serviceCasting() {
 		_party.encounterContext=work.time->context;_party.serviceEconomy=work.time->economy;
 		for(unsigned n=0;n<work.owners.size();++n)_party.roster._combatInputs[work.owners[n]]=work.time->inputs[n];
 		auto &session=_world._sessionState;
-		session.publishExploration(exploration);
         _world.scenePresentation().markLightingStep();
 		session._journeyRandom=continuation;
         if(work.terrain->rule.damage)for(auto owner:work.owners)

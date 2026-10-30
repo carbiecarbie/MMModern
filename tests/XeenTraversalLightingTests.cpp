@@ -1,7 +1,21 @@
 #include "XeenRegionalTestSupport.h"
 #include "games/xeen/XeenMovement.h"
 #include <iostream>
+#include "games/xeen/XeenJourneyCapture.h"
 using namespace regional_test;
+namespace mmodern {
+struct XeenEventDispatchTestAccess {
+ static XeenSaveSnapshot beforeFrame(XeenEncounterFlow &flow,const XeenSaveResourceSignature &signature,const XeenPartyState &party,
+   const XeenCamera &camera,const XeenGameFlags &flags,const XeenWorld &world) {
+  // Only the test admits capture of the restored values before presentation.
+  // Production Load still cannot Save until its arrival frame is acquired.
+  const auto pending=flow._journeyCapture->initializationPending;
+  flow._journeyCapture->initializationPending=true;
+  const auto result=XeenSaveState::captureInitialized(signature,party,camera,flags,world);
+  flow._journeyCapture->initializationPending=pending;return result;
+ }
+};
+}
 namespace {
 struct LightingFixture {
     mmodern::XeenProgramState programState{mmodern::XeenWallClock::fixed(0)};
@@ -25,6 +39,8 @@ struct LightingFixture {
    setup.bank=XeenBankBalances{};setup.cityEventsProvider=[]{return events(28);};
    flow=std::make_unique<XeenEncounterFlow>(programState,w,p,camera,flags,[]{return 0;},setup);
   }
+  if(saved)check(XeenSaveFormat::encode(XeenEventDispatchTestAccess::beforeFrame(*flow,signature(),p,camera,flags,w))==XeenSaveFormat::encode(*saved),"Restore is byte-exact before the arrival frame");
+  w.scenePresentation().markLightingStep();
   present();
  }
  void present() {
@@ -44,10 +60,10 @@ struct LightingFixture {
  XeenSaveSnapshot snapshot() {return XeenSaveState::capture(signature(),p,camera,flags,w);}
 };
 void drainAndRestore() {
- LightingFixture entry;auto source=entry.snapshot();source.journey->context->lightAndResistances[0]=2;
+ LightingFixture entry;auto source=entry.snapshot();source.journey->context->lightAndResistances[0]=3;
  for(auto &a:source.map(23).monsters->slots) {a.x=a.y=-128;a.lifecycle=XeenActorLifecycle::Defeated;a.accounted=true;}
  LightingFixture f(source);
- check(f.p.encounterContext->lightAndResistances[0]==2,"Restore derives lighting without an entry drain");
+ check(f.p.encounterContext->lightAndResistances[0]==2,"First arrival frame drains exactly once after exact restore");
  check(!f.w.scenePresentation().lightingStepped,"Completed redraw clears stepped");
  const auto before=XeenSaveFormat::encode(f.snapshot());
  f.settle(XeenEncounterAction::Forward);
@@ -57,7 +73,8 @@ void drainAndRestore() {
        f.flow->prepareJourneyFrame(f.flow->ticket(),[]{},true),"Cosmetic redraw failed");
  check(before==XeenSaveFormat::encode(f.snapshot()),"Repeated redraw spent light or changed gameplay");
  LightingFixture restored(f.snapshot());
- check(before==XeenSaveFormat::encode(restored.snapshot()),"Restore invented a step or spent light");
+ auto afterArrival=f.snapshot();afterArrival.journey->context->lightAndResistances[0]=1;
+ check(XeenSaveFormat::encode(afterArrival)==XeenSaveFormat::encode(restored.snapshot()),"Arrival changes only its one drain after exact restore");
  f.settle(XeenEncounterAction::Left);
  check(f.p.encounterContext->lightAndResistances[0]==1,"Turn on a drain cell must spend exactly one light");
  f.settle(XeenEncounterAction::Wait);

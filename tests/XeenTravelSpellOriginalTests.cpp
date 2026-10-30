@@ -54,7 +54,7 @@ XeenSaveSnapshot source(Inputs &in,unsigned spell,bool combat=false) {
     s.journey->supplements[c.rosterId].inputs.speed={250,0};s.journey->context->minutes=600;s.journey->purse->gems=1000;
     auto &a=s.map(23).monsters->slots.at(7);a.x=1;a.y=1;a.lifecycle=XeenActorLifecycle::Present;a.accounted=false;
     if(combat){s.camera.direction=XeenDirection::West;auto &enemy=s.map(23).monsters->slots.at(5);enemy.x=8;enemy.y=11;enemy.lifecycle=XeenActorLifecycle::Present;enemy.accounted=false;}
-    save_test::clearExplored(s);return s;
+    s.characters[s.activeRosterIds[0]].skills[4]=1;save_test::clearExplored(s);return s;
 }
 void roundtrip(Inputs &in,Fixture &f){const auto bytes=XeenSaveFormat::encode(f.snapshot());Fixture loaded(in,XeenSaveFormat::decode(bytes));check(bytes==XeenSaveFormat::encode(loaded.snapshot()),"Travel exact restore changed state");}
 void cast(Fixture &f,bool item,unsigned distance=0) {
@@ -105,12 +105,14 @@ void mapTravel(Inputs &in) {
         set.act(*input->click(245,110));quiet(set);roundtrip(in,set);
         check(set.p.roster.at(owner).lloydMap==23 && set.p.roster.at(owner).lloydX==9 && set.p.roster.at(owner).lloydY==11 &&
             set.p.roster.at(other).lloydMap==s.characters[other].lloydMap,"Beacon Set must affect only caster");
-        auto saved=set.snapshot();saved.camera={28,18,4,XeenDirection::West};
+        auto saved=set.snapshot();save_test::clearExplored(saved);saved.camera={28,18,4,XeenDirection::West};
         Fixture cross(in,saved);wire(cross);openTravel(cross,item);key(cross,'r');quiet(cross);roundtrip(in,cross);
         check(cross.c.mapId==XeenMapIdentity(23) && cross.c.x==9 && cross.c.y==11 && cross.c.direction==XeenDirection::West,"Return from Vertigo did not load mainland beacon");
+        check(cross.w.sampleCell(cross.c.mapId,cross.c.x,cross.c.y)->cell->stepped,"Learned/item Beacon marks its blank destination");
         check(cross.w.tavernTipIndex(23)==17 && cross.w.tavernTipIndex(28)==29,"Cross-map Return discarded per-map state");
-        auto sameSave=cross.snapshot();Fixture same(in,sameSave);wire(same);XeenTrainingTestAccess::woundTravel(*same.flow);
+        auto sameSave=cross.snapshot();save_test::clearExplored(sameSave);Fixture same(in,sameSave);wire(same);XeenTrainingTestAccess::woundTravel(*same.flow);
         openTravel(same,item);key(same,'r');quiet(same);roundtrip(in,same);
+        check(same.w.sampleCell(same.c.mapId,same.c.x,same.c.y)->cell->stepped,"Same-map Beacon marks its blank destination");
         const auto &monster=same.w.sessionState().regionalActors(23).at(7);
         check(monster.hp==1 && monster.status==XeenActorStatus::Sleep,"Same-map Return reloaded live monsters");
         check(same.p.encounterContext->minutes==600+(item?0:30),"Beacon learned suffix/item response timing");
@@ -126,6 +128,7 @@ void mapTravel(Inputs &in) {
         openTravel(f,item);key(f,'1');key(f,InputKey::Enter);quiet(f);roundtrip(in,f);
         check(f.c.mapId==XeenMapIdentity(28) && f.c.x==18 && f.c.y==4 && f.c.direction==s.camera.direction,"Portal Vertigo destination/facing");
         check(f.p.roster.at(owner).currentSp==1000-(item?0:30) && f.p.purse->gems==1000-(item?0:5),"Portal paid once");
+        check(f.w.sampleCell(f.c.mapId,f.c.x,f.c.y)->cell->stepped,"Learned/item Portal marks its blank destination");
         // A second Portal while already in Vertigo must still call Map::load.
         auto again=f.snapshot();Fixture reload(in,again);wire(reload);
         const auto before=reload.w.sessionState().regionalActors(28).at(0).hp;

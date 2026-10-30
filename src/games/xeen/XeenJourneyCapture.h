@@ -13,6 +13,7 @@ class XeenJourneyCapture {
 	friend class XeenSaveState;
 	friend class XeenWorld;
 	friend class XeenEventFlow;
+    friend struct XeenEventDispatchTestAccess;
 	const XeenWorld *w = nullptr;
 	const XeenPartyState *p = nullptr;
 	const XeenCamera *c = nullptr;

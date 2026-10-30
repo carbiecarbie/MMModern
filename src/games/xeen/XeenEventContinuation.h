@@ -32,6 +32,8 @@ public:
 			a.rewardPair==b.rewardPair && a.generatingReward==b.generatingReward &&
 			a.inputClearCount==b.inputClearCount && a.inputClearSite==b.inputClearSite &&
             a.scriptExecuted==b.scriptExecuted && a.otherFacing==b.otherFacing && a.tailDone==b.tailDone &&
+            a.redrawDone==b.redrawDone &&
+            a.prefixLight==b.prefixLight &&
 			address(a.logicalAddress,b.logicalAddress) &&
 			a.lookupDirection==b.lookupDirection && xeen_state::sameCamera(a.workingCamera,b.workingCamera) &&
 			a.continuedAtDestination==b.continuedAtDestination &&

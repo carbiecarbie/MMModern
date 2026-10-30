@@ -293,18 +293,22 @@ public:
 	// Detached work/startup only. Live publication belongs to Encounter/Save.
 	void setBarrier(const XeenCamera &, std::uint8_t wall, bool unlock);
 	void restoreBarriers(const std::vector<XeenBarrierOverride> &);
-	// Prepare an occupied-cell update at a stepped boundary, never while drawing.
-	std::vector<XeenExploredTile> explorationAfterStep(const XeenPartyState &,const XeenCamera &);
-	void recordExploration(const XeenPartyState &,const XeenCamera &);
+	// Occupied-cell helper for scene preparation. Publication belongs to its owner guard.
+	std::vector<XeenExploredTile> explorationForOccupiedCell(const XeenPartyState &,const XeenCamera &);
+	void recordExploration(std::vector<XeenExploredTile> &);
 	void restoreExploredTiles(const std::vector<XeenExploredTile> &);
 	std::uint8_t tavernTipIndex(XeenMapIdentity);
 	void setTavernTipIndex(XeenMapIdentity,std::uint8_t);
 	// Original Map::getCell neighbor queries, for scene observation only.
 	// Movement and mechanic admission continue to use sampleCell.
 	std::optional<XeenCellSample> sceneCell(XeenMapIdentity mapId, int x, int y);
- // Read-only lighting preparation. The existing gameplay owner publishes the
- // returned counter through its guard before calling the scene composer.
- std::uint16_t lightAfterScenePreparation(const XeenPartyState &,const XeenCamera &);
+ struct ScenePreparation {
+  std::uint16_t light=0;
+  std::vector<XeenExploredTile> exploration;
+ };
+ // A pending scene check drains, then marks the occupied cell. Its owner
+ // publishes both values through its guard before darkness is derived/drawn.
+ ScenePreparation lightAfterScenePreparation(const XeenPartyState &,const XeenCamera &);
  bool sceneIsBlack(const XeenPartyState &,const XeenCamera &);
 	std::size_t cachedMapCount() const { return _maps.size(); }
 	// Unpublished Vertigo Event candidate; callers retain a live owner guard.

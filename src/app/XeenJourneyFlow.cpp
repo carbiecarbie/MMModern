@@ -204,24 +204,9 @@ void XeenEncounterFlow::retainJourney() {
 	if (_journeyCapture) _journeyCapture->generation = _boundary.generation();
 }
 void XeenEncounterFlow::recordJourneyStep() {
-	_journeyPreimage->check();
-	std::vector<XeenExploredTile> values;
-	{XeenRestoreGuard::Providers providers(*_journeyPreimage,_world);
-		values=_world.explorationAfterStep(_party,_camera);_journeyPreimage->check();}
-	if(values==_world._sessionState.exploredTiles()) {
-        _world.scenePresentation().markLightingStep();_journeyPreimage->adoptMutationBoundary();return;
-    }
-	auto prepared=std::make_shared<XeenRestoreGuard>(_world,_party,_camera,_flags);
-	prepared->retainResources(*_journeyPreimage);prepared->s.assignExploration(values);
-	_journeyPreimage->check();
-	XeenMutationWatch::write(&_world);_world._sessionState.publishExploration(values);
+ _journeyPreimage->check();
  _world.scenePresentation().markLightingStep();
-	_journeyPreimage.swap(prepared);_journeyPreimage->adoptMutationBoundary();
-}
-void XeenEncounterFlow::publishJourneyExploration(std::vector<XeenExploredTile> &values,
-		std::vector<XeenExploredTile> &retained) noexcept {
-	_world._sessionState.publishExploration(values);
-	_journeyPreimage->s.publishExploration(retained);_journeyPreimage->adoptMutationBoundary();
+ _journeyPreimage->adoptMutationBoundary();
 }
 bool XeenEncounterFlow::configureSound(const Ticket &entry,XeenSoundOptions value) {
  if(!current(entry) || _busy)return false;
@@ -281,7 +266,7 @@ bool XeenEncounterFlow::publishMrWizard(bool zeroGems) {
 		auto candidate=_world.transitionCandidate();
 		XeenPartyState party;candidate->copyEventParty(_party,party);
 		auto camera=_camera;auto flags=_flags;
-		XeenActorView arrival;std::vector<XeenExploredTile> exploration;XeenEventFile events;
+		XeenActorView arrival;XeenEventFile events;
 		{XeenRestoreGuard guard(*candidate,party,camera,flags);
 			XeenRestoreGuard::EventProviders providers(*candidate,party,camera,flags,guard,
 				[&]{_journeyPreimage->check();},[&]{_journeyPreimage->failed=true;});
@@ -289,18 +274,15 @@ bool XeenEncounterFlow::publishMrWizard(bool zeroGems) {
 			events=_travelEventsProvider(destination.mapId);_journeyPreimage->check();
 			if(events.mapId!=destination.mapId)throw std::logic_error("Mr Wizard Events identity changed");
 			camera=destination;
-			arrival=candidate->prepareTransitionArrival(camera);
-			exploration=candidate->explorationAfterStep(party,camera);}
+			arrival=candidate->prepareTransitionArrival(camera);}
 		auto prepared=std::make_shared<XeenRestoreGuard>(_world,_party,_camera,_flags);
 		prepared->retainResources(*_journeyPreimage);
 		prepared->prepareSpellMapPublication(*candidate);prepared->cameraValue=camera;prepared->flagValues=flags.values();
 		if(zeroGems)prepared->purse->gems=0;
-		prepared->s.assignExploration(exploration);
 		_world.checkTransitionTreasure(*candidate);_journeyPreimage->check();
         fmEffect(51);
 		_flags=flags;_world.publishTransition(*candidate);_camera=camera;_journeyEvents=std::move(events);
 		if(zeroGems)_party.purse->gems=0;
-		XeenMutationWatch::write(&_world);_world._sessionState.publishExploration(exploration);
 		++_generation;_journeyPreimage.swap(prepared);_journeyPreimage->adoptMutationBoundary();
 		// The map load builds no attack slots (DOS 0xf542): an Event call before
 		// the next draw, combat's caller 3 included, tests the previous slot 0.
@@ -419,7 +401,7 @@ std::optional<std::uint64_t> XeenEncounterFlow::beginItemUse(const Ticket &entry
 		c.characters.setCount(c.owners.size());c.inputs.setCount(c.owners.size());
         for(unsigned i=0;i<c.owners.size();++i) { c.characters[i]=_party.roster.at(c.owners[i]);c.inputs[i]=*_party.roster.combatInputs(c.owners[i]); }
 		{XeenRestoreGuard::Providers providers(*_journeyPreimage,_world);
-			c.exploration=_world.explorationAfterStep(_party,_camera);_journeyPreimage->check();}
+			c.lightingStep=true;_journeyPreimage->check();}
 		next->generation=++_itemUseGeneration;next->epoch=selection.epoch+1;
 		next->sourceOwner=selection.sourceOwner;next->slot=selection.slot;
 		next->spentCharge=selection.record.state&0x3f;next->exhausted=next->spentCharge==1;
@@ -593,7 +575,7 @@ bool XeenEncounterFlow::serviceItemUse() {
 			c.characters.setCount(c.owners.size());c.inputs.setCount(c.owners.size());
         for(unsigned i=0;i<c.owners.size();++i) {c.characters[i]=_party.roster.at(c.owners[i]);c.inputs[i]=*_party.roster.combatInputs(c.owners[i]);}
 			{XeenRestoreGuard::Providers providers(*_journeyPreimage,_world);
-				c.exploration=_world.explorationAfterStep(_party,_camera);_journeyPreimage->check();}
+				c.lightingStep=true;_journeyPreimage->check();}
 		}
 		s._journeyActivity=XeenJourneyActivity::Approach;++s._journeyGeneration;
 		_world._combatCheck=[this,boundaryGeneration] {
@@ -834,28 +816,33 @@ bool XeenEncounterFlow::presentJourney(const Ticket &entry) {
 	_journeyCapture->generation = _boundary.generation();
 	return true;
 }
-bool XeenEncounterFlow::prepareJourneyFrame(const Ticket &entry, const std::function<void()> &compose, bool cosmetic) {
+bool XeenEncounterFlow::prepareJourneyFrame(const Ticket &entry, const std::function<void()> &compose, bool cosmetic, bool sceneCheck) {
 	if (!_journey || _busy || _combat || !current(entry) || !compose ||
 		(!cosmetic && _world.sessionState().journeyActivity() != XeenJourneyActivity::Presentation && !journeyEvent() && !_shoot && !monsterReward() && !_itemUse && !_casting && !_smith && !_training && !_party.insideInn)) return false;
 	BusyJourney busy(_busy);
 	if (!cosmetic) _journeyFramePrepared = false;
 	if (_itemUse && !cosmetic) { _itemUse->selectorTicket.reset(); _itemUse->selectorFrame.reset(); }
 	try {
-        if(_party.insideInn) {
+        if(_party.insideInn || !sceneCheck) {
             XeenRestoreGuard::Providers providers(*_journeyPreimage,_world);
             compose();_journeyPreimage->check();
             if(!cosmetic)_journeyFramePrepared=true;else _journeyFrameRetry=false;
             return true;
         }
-		std::uint16_t light;
-		{XeenRestoreGuard::Providers providers(*_journeyPreimage,_world);
-			light=_world.lightAfterScenePreparation(_party,_camera);_journeyPreimage->check();}
-		if(light!=_party.encounterContext->lightAndResistances[0]) {
-			auto prepared=std::make_shared<XeenRestoreGuard>(_world,_party,_camera,_flags);
-			prepared->retainResources(*_journeyPreimage);prepared->context->lightAndResistances[0]=light;
-			_journeyPreimage->check();_party.encounterContext->lightAndResistances[0]=light;
-			_journeyPreimage.swap(prepared);_journeyPreimage->adoptMutationBoundary();
-		}
+        XeenWorld::ScenePreparation scene;
+        {XeenRestoreGuard::Providers providers(*_journeyPreimage,_world);
+            scene=_world.lightAfterScenePreparation(_party,_camera);_journeyPreimage->check();}
+        if(scene.light!=_party.encounterContext->lightAndResistances[0] ||
+                scene.exploration!=_world.sessionState().exploredTiles()) {
+            auto prepared=std::make_shared<XeenRestoreGuard>(_world,_party,_camera,_flags);
+            prepared->retainResources(*_journeyPreimage);
+            prepared->context->lightAndResistances[0]=scene.light;
+            prepared->s.assignExploration(scene.exploration);
+            _journeyPreimage->check();
+            _party.encounterContext->lightAndResistances[0]=scene.light;
+            XeenMutationWatch::write(&_world);_world._sessionState.publishExploration(scene.exploration);
+            _journeyPreimage.swap(prepared);_journeyPreimage->adoptMutationBoundary();
+        }
 		_world.scenePresentation().lightingPrepared=true;
 		_journeyPreimage->adoptMutationBoundary();
 		XeenRestoreGuard::Providers providers(*_journeyPreimage,_world);
@@ -1127,9 +1114,6 @@ bool XeenEncounterFlow::retireJourney(const Ticket &entry) {
 		auto prepared = std::make_shared<XeenRestoreGuard>(_world,_party,_camera,_flags);
 		prepared->retainResources(*_journeyPreimage);
 		_combat->retainResources(*prepared);
-		std::vector<XeenExploredTile> exploration;
-		{XeenRestoreGuard::Providers providers(*prepared,_world);
-			exploration=_world.explorationAfterStep(_party,_camera);prepared->check();}
         XeenActorView exitView;
         {XeenRestoreGuard::Providers providers(*prepared,_world);
             const auto &actors=_world.sessionState().regionalActors(_camera.mapId);
@@ -1139,11 +1123,10 @@ bool XeenEncounterFlow::retireJourney(const Ticket &entry) {
 		const bool disengaged=_combat->phase()==XeenCombatPhase::Disengaged;
 		if(disengaged) _combat->retireDisengagedJourney(*entry.combat,_state);
 		else _combat->retireJourney(*entry.combat,_state);
-        if(disengaged)_world.scenePresentation().markLightingStep();
+        _world.scenePresentation().markLightingStep();
 		if(disengaged) _combatObservation=_combat->result();
 		_combatMrWizard=disengaged && _combat->exitCause()==XeenCombatExitCause::MrWizard;
 		_drawnSlot0=bool(exitView.slots[0]);_result.view=exitView;
-        prepared->s.assignExploration(exploration);
         _retiredCombatResult = _combat->result(); _combat.reset(); ++_generation;
 		_disengagementNoticeRevision = disengaged ? std::optional<std::uint64_t>{_state.revision()} : std::nullopt;
 		_disengagementNoticeCombat.reset();
@@ -1151,7 +1134,6 @@ bool XeenEncounterFlow::retireJourney(const Ticket &entry) {
 		if(disengaged) { _journeyRefusal.clear();_rangedObservation.reset(); }
 		_deadline.reset(); _frame = 0; _appearanceStep = 0; _appearanceIdentity.reset();
 		_scheduleAfterFrame = _appearanceAfterFrame = false;
-		_world._sessionState.publishExploration(exploration);
 		prepared->adoptJourneyCoordination(); prepared->adoptJourneyBorrowRelease(); _journeyPreimage.swap(prepared);
 		return true;
 	} catch (const std::invalid_argument &) { return false; }

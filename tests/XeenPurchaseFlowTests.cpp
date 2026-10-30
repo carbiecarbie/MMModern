@@ -55,6 +55,19 @@ void limits(Inputs &in) {
     }
 }
 void connectedSynthetic(Inputs &in) {
+    for(bool cartographer:{false,true}) {
+        auto source=service(in);save_test::clearExplored(source);
+        for(auto &c:source.characters)c.skills[4]=0;
+        if(cartographer)source.characters[source.activeRosterIds.front()].skills[4]=1;
+        Fixture f(in,source);f.enter();bool departure=false;
+        f.flow->smithBoundary=[&](auto point){if(point==XeenSmithBoundary::DeparturePublished) {
+            check(f.w.scenePresentation().lightingStepped,"Smith departure leaves a step without requiring Cartographer");
+            departure=true;
+        }};
+        f.leave();
+        check(departure && f.w.sampleCell(f.c.mapId,f.c.x,f.c.y)->cell->stepped==cartographer,
+            "Smith return frame marks only with an active Cartographer");
+    }
     for(unsigned day:{8u,9u,10u,97u,98u}) {
         context="Connected synthetic day "+std::to_string(day);
         auto source=service(in,day);if(day==10)source.journey->random=XeenJourneyRandomState{1,2732157854u,1203};

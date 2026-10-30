@@ -393,6 +393,11 @@ IndexedFrame XeenEventPresenter::finishPresentation() {
 }
 
 IndexedFrame XeenEventPresenter::dismissSelection() {
+	// Mode 2 returns with its art alive until Event cleanup (DOS 0x25aa3,
+	// 0x291a9). Every following prompt shares that retained location layer.
+	if (!_layers.empty() && _layers.back().request.npc &&
+			_layers.back().request.npc->confirmationMode == 2)
+		return _frame;
 	if (!_layers.empty() && _layers.back().request.kind == XeenPresentationKind::NpcAcknowledgment)
 		return discardNpc();
 	if (!_layers.empty() && _layers.back().request.kind == XeenPresentationKind::CharacterSelection) {

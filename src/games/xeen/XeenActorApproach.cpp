@@ -628,7 +628,7 @@ XeenEncounterResult XeenActorApproach::regionalTransition(XeenWorld &world,XeenP
                     auto visibleActors=op.actors;check();
                     regionalActors.swap(visibleActors);camera=c.camera;party.encounterContext=c.context;
                     if(op.dangerSense)world.scenePresentation().dangerSense=*op.dangerSense;
-                    if(c.exploration) {session.publishExploration(*c.exploration);c.exploration.reset();}
+                    if(c.lightingStep) {world.scenePresentation().markLightingStep();c.lightingStep=false;}
                     if(c.time && c.timeDone)party.serviceEconomy=c.time->economy;
                     if(c.time && c.timeDone)for(unsigned n=0;n<c.owners.size();++n)party.roster._combatInputs[c.owners[n]]=c.inputs[n];
                     const auto &values=op.impactApplied ? op.characters : c.characters;
@@ -663,7 +663,7 @@ XeenEncounterResult XeenActorApproach::regionalTransition(XeenWorld &world,XeenP
             if(c.time)c.time->economy=c.terrain->economy;
             c.context.ctr24=(c.context.ctr24+1)%24;
             if(c.fmStep && stepEffect)stepEffect();
-            c.exploration=activeWorld.explorationAfterStep(party,c.camera);
+            c.lightingStep=true;
             c.stepTimePending=false;
         }
 		if(c.classify && !c.result.terrainFall) { c.result.view=indoor ? XeenIndoorScene().classifyActors(activeWorld,c.camera,c.actors) : classify(c.actors,c.camera);activate(c.actors,c.result.view); }
@@ -700,7 +700,7 @@ XeenEncounterResult XeenActorApproach::regionalTransition(XeenWorld &world,XeenP
 			for(unsigned n=0;n<c.owners.size();++n)party.roster._combatInputs[c.owners[n]]=c.inputs[n];
 			if(c.result.terrainFall)c.pending=0;
 		}
-		if(c.exploration) {session.publishExploration(*c.exploration);world.scenePresentation().markLightingStep();}
+		if(c.lightingStep)world.scenePresentation().markLightingStep();
                     if(c.time && c.timeDone)party.serviceEconomy=c.time->economy;
                     if(c.time && c.timeDone)for(unsigned n=0;n<c.owners.size();++n)party.roster._combatInputs[c.owners[n]]=c.inputs[n];
 		for(const auto &value:c.characters) { auto &owner=party.roster.at(value.rosterId);publishInjured(owner,value);

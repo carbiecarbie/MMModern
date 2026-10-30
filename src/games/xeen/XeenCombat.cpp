@@ -587,8 +587,14 @@ void XeenCombat::preparePresentation(const Ticket &t,const std::function<void()>
  if(d.journey) {
   require(d.exact(),"Combat lighting preimage changed");
   if(d.casting)d.checkCast(t);
-  std::uint16_t light;
-  guardCallback(t,[&] {light=d.world.lightAfterScenePreparation(d.party,d.camera);});
+  XeenWorld::ScenePreparation scene;
+  guardCallback(t,[&] {scene=d.world.lightAfterScenePreparation(d.party,d.camera);});
+  const auto light=scene.light;
+  if(scene.exploration!=d.world._sessionState.exploredTiles()) {
+   d.lifetime->s.assignExploration(scene.exploration);
+   if(d.casting)d.casting->guard->s.assignExploration(scene.exploration);
+   XeenMutationWatch::write(&d.world);d.world._sessionState.publishExploration(scene.exploration);
+  }
   if(light!=d.party.encounterContext->lightAndResistances[0]) {
    d.party.encounterContext->lightAndResistances[0]=light;
    d.expected.encounterContext->lightAndResistances[0]=light;
@@ -709,7 +715,7 @@ XeenCombatResult XeenCombat::rotate(const Ticket &t,NavigationAction action) {
         const bool flush=d.countdown.remaining()!=0;
         std::optional<Impl::Consequences> movement;
         std::vector<XeenActor> visible,expectedActors;
-        std::vector<XeenExploredTile> exploration;
+
         {
             XeenRestoreGuard::Providers providers(*prepared,d.world,[&]{require(current(t) && d.exact(),"Stale combat rotation resource");});
             if(flush) {movement=d.prepareMovement(t,facing,Operation::Rotate);movement->result=r;}
@@ -719,16 +725,16 @@ XeenCombatResult XeenCombat::rotate(const Ticket &t,NavigationAction action) {
                 expectedActors=visible;
             }
             d.probeFor(t);prepared->check();
-            exploration=d.world.explorationAfterStep(d.party,facing);prepared->check();
+
         }
-        prepared->s.assignExploration(exploration);
+
         if(!flush) {prepared->s.mutableMonsters(d.camera.mapId)=visible;}
         prepared->cameraValue.direction=facing.direction;
         require(current(t) && d.exact(),"Combat rotation preimage changed before stores");
         if(movement)d.consequences.emplace(std::move(*movement));
         // No provider, allocation, time charge or initiative change after this point.
         d.camera.direction=d.expectedCamera.direction=facing.direction;
-        XeenMutationWatch::write(&d.world);d.world._sessionState.publishExploration(exploration);
+
         d.countdown.clear();
         if(flush) {d.phase=Phase::PendingRound;d.work=Work::Movement;}
         else {d.activeActors().swap(visible);d.actors.swap(expectedActors);d.stepped=true;d.world.scenePresentation().markLightingStep();d.reconcile();}

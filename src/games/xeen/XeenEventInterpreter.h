@@ -215,6 +215,9 @@ struct XeenEventExecutionState {
     unsigned inputClearCount=0, inputClearSite=0;
     // DOS Event-local markers, independent of instruction count.
     bool scriptExecuted=false, otherFacing=false, tailDone=false;
+    bool redrawDone=false; // Shared initial text/damage draw, reset on Continue.
+    // Event-owned light changes eligible for partial publication, without scene drains.
+    std::optional<std::uint16_t> prefixLight;
     std::optional<XeenEventPortraitProgress> portraitProgress;
     std::optional<XeenTypedDamageCandidate> portraitDamage;
     std::optional<XeenCombatRandom> portraitRandom;
@@ -321,6 +324,7 @@ public:
     // its detached candidate. Other entry modes have no combat.
     std::function<bool()> eventLineSkipped;
     std::function<void(XeenWorld &,const XeenCamera &,bool)> eventDraw;
+    std::function<bool()> sceneWindow11Open; // Presentation gate; never changes Event owners.
     std::function<void(unsigned)> fmEffect; // Optional presentation sink for detached Event execution.
     std::function<void(unsigned)> eventVoice;
 	static constexpr std::size_t kMaximumInstructions = 1024;

@@ -1,3 +1,6 @@
+#include "games/xeen/CloudsMapComposer.h"
+#include "games/xeen/XeenMapView.h"
+#include <cstdlib>
 #include "XeenTestInstallation.h"
 #include "XeenTrainingTestSupport.h"
 #include "app/XeenGameplayServices.h"
@@ -863,6 +866,80 @@ void productionLoad(Inputs &in,const GameInstallation &installation,const XeenSa
     const auto result=Application(program).playGameplay(services,saved.camera,std::filesystem::path("inn.mmsave"),true,XeenEncounterEntry::Ordinary,{});
     check(result==0 && shown==1 && songs==unsigned(!title) && program.innSongStarted && program.playTimeMark==100,"production title/panel Inn Load must retain program mark");
 }
+void cartographerArrival(Inputs &in) {
+ for(bool cartographer:{false,true}) {
+  auto saved=source(in,28);saved.camera={28,24,4,XeenDirection::North};save_test::clearExplored(saved);
+  for(auto &c:saved.characters)c.skills[4]=0;
+  saved.characters[saved.activeRosterIds.front()].skills[4]=cartographer;
+  XeenProgramState program{XeenWallClock::fixed(0)};unsigned shown=0;
+  XeenGameplayServices services{program,in.resources(),{},in.mapLoader(),in.objectLoader(),
+   [&](auto id){return in.texts.load(id);},in.font,
+   [](auto &,const auto &,const auto &,auto){return XeenEventFlow::Composition{frame(),false};},{},{},{}};
+  services.restoreSnapshot=std::make_shared<XeenSaveSnapshot>(saved);
+  services.composeEncounter=[](auto &,const auto &,const auto &,auto,auto){return XeenEventFlow::Composition{frame(),false};};
+  services.clock=[]{return 0u;};services.validateEncounterSprite=[](auto){};services.validateCombatSprite=[](auto){};
+  std::function<void()> verify;
+  services.show=[&](const auto &first,const auto &handler,const auto &,const auto &,const auto &) {
+   handler.framePresented(first.presentation());verify();++shown;return true;
+  };
+  services.observeGameplay=[&](auto &world,auto &,const auto &party,auto &camera,const auto &flags) {
+   const auto cell=world.sampleCell(camera.mapId,camera.x,camera.y);
+   check(cell && cell->cell->stepped==cartographer,"Load marks a blank cell only with an active Cartographer");
+   auto expected=saved;
+   if(cartographer){auto &bits=expected.map(cell->mapId).explored;if(!bits)bits.emplace();
+    const unsigned index=cell->y*16+cell->x;(*bits)[index/8]|=1u<<(index%8);}
+   verify=[&,expected]{save_test::sameSnapshot(expected,XeenSaveState::capture(in.signature,party,camera,flags,world));};
+  };
+  check(Application(program).playGameplay(services,saved.camera,std::filesystem::path("arrival.mmsave"),true,XeenEncounterEntry::Ordinary,{})==0 && shown==1,
+   "Original-data Load arrival frame");
+ }
+ for(bool add:{false,true}) {
+  auto saved=source(in,28);saved.camera={28,24,4,XeenDirection::North};save_test::clearExplored(saved);
+  for(auto &c:saved.characters)c.skills[4]=0;
+  const auto cartographer=saved.activeRosterIds.back();saved.characters[cartographer].skills[4]=1;
+  if(add)saved.activeRosterIds.pop_back();
+  Visit v(in,saved);v.sign(true);
+  const auto door=v.w.sampleCell(28,24,5);
+  const auto &entry=v.saves.front().map(door->mapId).explored;
+  const unsigned bit=door->y*16+door->x;
+  check(bool(entry && ((*entry)[bit/8]&(1u<<(bit%8))))==!add,"Sign In saves the preceding door redraw mark");
+  check(!v.w.sampleCell(v.c.mapId,v.c.x,v.c.y)->cell->stepped,"Sign In does not mark the relocated Inn exit");
+  if(add){const auto list=xeenInnList(v.p,28);const auto found=std::find(list.begin(),list.end(),cartographer);
+   check(found!=list.end() && found-list.begin()<4,"Lodged Cartographer is on the first Inn page");
+   v.key('1'+unsigned(found-list.begin()));}
+  v.key('x');v.wait([&]{return !v.flow->innOpen() && v.flow->canSave();},"Cartographer leaves Inn");
+  check(v.w.sampleCell(v.c.mapId,v.c.x,v.c.y)->cell->stepped,"Inn return marks with the newly added Cartographer");
+ }
+}
+void arrivalPictures(Inputs &in) {
+ const char *directory=std::getenv("MMODERN_M98_PREVIEW");if(!directory)return;
+ const std::filesystem::path folder(directory);
+ const auto picture=[&](const IndexedFrame &image,const char *name){
+  std::ofstream out(folder/(std::string(name)+".ppm"),std::ios::binary);out<<"P6\n320 200\n255\n";
+  for(auto index:image.pixels)out.write(reinterpret_cast<const char *>(&image.palette[index*3]),3);
+  check(bool(out),"Arrival preview write");
+ };
+ const auto outside=[&](Fixture &v,const char *label){
+  const auto scene=CloudsMapComposer().compose(in.assets,v.w,v.p,v.c,{std::uint32_t(v.p.encounterContext->year)},nullptr,0);
+  picture(scene,(std::string(label)+"-scene").c_str());
+  const auto map=drawXeenMap(v.w,v.c,scene,in.font,in.assets.uiText(),
+   [&](auto &image,const char *n,unsigned f,int x,int y){in.assets.drawDialogSprite(image,n,f,x,y);},0,in.assets.mapName(v.c.mapId));
+  picture(map,(std::string(label)+"-map").c_str());
+ };
+ Fixture loaded(in,XeenSaveFile::read(folder/"m98-load.mmsave"));
+ check(!loaded.w.sampleCell(loaded.c.mapId,loaded.c.x,loaded.c.y)->cell->stepped,"Load preset starts blank");
+ loaded.w.scenePresentation().markLightingStep();loaded.present(loaded.flow->refresh(true));
+ check(loaded.w.sampleCell(loaded.c.mapId,loaded.c.x,loaded.c.y)->cell->stepped,"Load preset arrival marks");
+ outside(loaded,"load");
+ Visit inn(in,XeenSaveFile::read(folder/"m98-inn.mmsave"));inn.present(inn.flow->openInn());
+ inn.wait([&]{return XeenInnTestAccess::menu(*inn.flow);},"Preset Inn opens");picture(inn.flow->frame(),"inn-before");
+ const auto list=xeenInnList(inn.p,28);const auto member=std::find_if(list.begin(),list.end(),[&](auto id){return inn.p.roster.at(id).skills[4]!=0;});
+ check(member!=list.end(),"Preset contains a lodged Cartographer");const auto row=unsigned(member-list.begin());
+ for(unsigned n=0;n<row/4;++n)inn.key(InputKey::Down);
+ inn.key('1'+row%4);check(inn.p.party.size()==6,"Preset adds Cartographer");inn.key('x');
+ inn.wait([&]{return !inn.flow->innOpen() && inn.flow->canSave();},"Preset Inn Exit");
+ check(inn.w.sampleCell(inn.c.mapId,inn.c.x,inn.c.y)->cell->stepped,"Preset Inn exit marks");outside(inn,"inn-exit");
+}
 void productionNoTarget(Inputs &in) {
     const auto saved=source(in,28);XeenProgramState program{mmodern::XeenWallClock::fixed(0)};program.innSongStarted=true;std::uint64_t now=0;unsigned stages=0,writes=0;
     XeenEventFlow *flow=nullptr;
@@ -930,7 +1007,7 @@ void productionNoTarget(Inputs &in) {
 int main(int argc,char **argv) {
     try {rules();createRules();check(argc>=2 && argc<=4,"usage: inn-tests <original-installation> [preview.ppm] [timing.csv]");if(argc>=3)preview=argv[2];
         const auto installation=xeenTestInstallationDetector().detect(argv[1]);check(bool(installation),"installation");Inputs in(*installation);
-        createDetailsText(in.assets.uiText());
+        createDetailsText(in.assets.uiText());cartographerArrival(in);arrivalPictures(in);
         for(unsigned town:{28u,30u,49u})for(unsigned minute:{299u,300u})signIn(in,town,minute);
         createFlow(in,*installation);createTiming(in);createReturnRecovery(in);deleteRecords(in,*installation);emptySaveRecovery(in);signInSong(in,*installation);fullAndFailures(in,*installation);roundTripAndFight(in);innItems(in);dismissThenSign(in,30);dismissThenSign(in,49);scrollCadence(in);scrollSkip(in);scrollStall(in);productionNoTarget(in);
         if(argc==4)scrollCadence(in,argv[3]);

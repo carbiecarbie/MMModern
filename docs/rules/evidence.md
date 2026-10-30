@@ -224,14 +224,13 @@ Thus, with an active Cartographer, the Sign In save **contains the Tavern
 entry cell's mark** from the preceding ordinary redraw. It does not newly
 mark the relocated Inn-exit cell merely because that position is saved;
 pre-existing bits remain. Without Cartographer no new entry mark is promised.
-MMModern's `XeenActorApproach.cpp` currently publishes exploration and the
-pending step at `:703`; `XeenEventFlow::prepareExplorationPass` applies the
-same automatic-flag gate, and `renderEncounter` checks the scene before the
+MMModern's `XeenActorApproach.cpp` publishes the pending step;
+`XeenEventFlow::prepareExplorationPass` applies the same automatic-flag gate,
+and `renderEncounter` checks the scene and publishes its exploration before
 later manual service input. `XeenInnFlow::signIn` sets `insideInn` with the
 return camera; `finishSignIn` saves before opening the Inn, whose frame path
 skips scene lighting. No Event/save-versus-check ordering gap was found for
-these original door chains. This does not assert that the existing eager
-exploration write is itself the DOS scene-check implementation.
+these original door chains.
 
 #### Event waits and pending steps
 
@@ -252,7 +251,8 @@ allows preparation; **keeps** means the named presentation adds no check.
 | Bottom text, large text and main-scene text windows (opcodes `29`, `32`, `35`) | Common initial redraw `0x26dab..0x26db6` runs only while the invocation's redraw-done local is clear, **before** opening the requested window at `0x26df8`. It can consume the step before a new window 11 opens. Overflow/page waits redraw at `0x26e4d`: window 12 permits preparation; window 11 blocks it. An already-open window 11 also blocks the initial call. Window IDs are selected at `0x26d84`, `0x26d90`, `0x26da6`. |
 | Display0x01 and DisplayStat; door/sign labels | `0x26cb4..0x26cf1` and `0x26c6e..0x26cb1` only write/update their text windows and continue, with no input wait or check of their own. Door/sign labels call a **scene draw** at `0x26f81`. Their window update must not be mistaken for the paginated-text wait above. |
 | NPC, Text on | `DS:f384=0` selects window 11 at `0x257bb`, opened at `0x257c3`. Wait `0x25af8..0x25aff -> 0x25b8f..0x25bad` calls location/NPC animation at `0x25b9b`, **keeping** the step. Animation `0x1c038..0x1c51f` does not prepare the scene. |
-| NPC, Text off | Closes window 11 at `0x257ae`, selects window 40 at `0x257b4`, then redraws in the wait at `0x25b09`: **scene draw**, unlike Text on. Window 40 does not trip the window-11 gate. NPC mode 2 returns without a wait (`0x25aa3..0x25ac4`); it adds no check. |
+| NPC, Text off | Closes window 11 at `0x257ae`, selects window 40 at `0x257b4`, then redraws in the wait at `0x25b09`: **scene draw**, unlike Text on. Window 40 does not trip the window-11 gate. |
+| NPC mode 2 and later prompts in the same run | Mode 2 returns without a wait at `0x25aa3..0x25ac4`, skipping the art free at `0x25c5e..0x25c66`: it adds no check and leaves the location-art handle `DS:8d56` set. Event cleanup frees and zeroes it at `0x291a9..0x291c7`. Later prompts testing that handle (`0x24bdc`, `0x24e33`) therefore show/animate the retained NPC art and **keep** the step, including with Text off. Opening another prompt does not dismiss the mode-2 layer. |
 | WhoWill / SetChar selection | `0x285ae` / `0x27a1c -> 0x2507a`. Window 11 selects animation at `0x251a8..0x251bf` (**keeps**); otherwise `0x251c7` is a **scene draw**, including when only NPC window 40 is open. |
 | Password/mirror and numeric text entry | ConfirmWord `0x27fd2 -> 0x23fa5` opens window 6 and uses `0x24014 -> 0x1e00f -> 0x1df36`. Numeric input shares the wait through `0x1e1d4`. `0x1df56..0x1df7d` disables scene redraw for startup, window 25 or modes `ff`/`11`; `0x1df84..0x1df96` also skips it when input is already available. Otherwise `0x1df96` is a **scene draw**, still subject to window 11. No elapsed idle draw means no manufactured check. |
 | Arena offer, messages and number prompts | Uses the NPC path; both number prompts use window 11 (`0x2b95d..0x2b9d3`), so **keep** during those waits. Text-off NPC messages take the redraw path above. Generation itself adds no scene check; the settled Arena exits/next outer draw remain as documented below. |
@@ -289,17 +289,15 @@ Inn saves first enter the Inn at `0xb824`; leaving it later takes the map-load
 path. This exception does not create an extra Sign In day or pre-Inn scene
 check. Pinned native save loading also calls `Map::load` before the scene check.
 
-**MMModern current-format policy, not native-DOS-save evidence:** exact snapshot
-restore must retain the saved light word and derive darkness without replaying
-an arrival or manufacturing a step. `XeenSaveState::restoreJourney` copies the
-saved encounter context; `XeenWorld::swapPreparedState` clears the transient
-lighting step before presentation. `XeenTraversalLightingTests` checks exact
-restore and redraw on a synthetic drain cell. This describes the existing
-MMModern restore implementation, not a DOS exemption from arrival lighting.
-Exact byte restoration and the subsequent DOS arrival frame are separate
-boundaries: the latter can drain light and mark the occupied cell. The known
-Cartographer load/resave observation in [DOS saves](dos-saves.md) calibrates
-the bitmap effect independently of this static call chain.
+**MMModern current-format policy:** snapshot restoration is byte-exact;
+`XeenWorld::swapPreparedState` clears the transient pending step. Before the
+first frame, `XeenGameplay` marks one arrival step for Load and New Game,
+except inside the Inn. The frame drains a nonzero light word on a drain cell,
+marks the occupied physical cell with an active Cartographer, then derives
+darkness. The current-format snapshot and this subsequent DOS arrival are
+separate boundaries. `XeenTraversalLightingTests` asserts exact restoration
+before that frame and a single subsequent drain. The Cartographer load/resave
+observation in [DOS saves](dos-saves.md) independently calibrates the bitmap.
 
 ## Fall and outdoor edge integration
 

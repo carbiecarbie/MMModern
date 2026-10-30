@@ -19,7 +19,7 @@ documented in its source. Each item links to its entry in
 
 **Revisions.** MMModern pins ScummVM `6814ee9b` (2026-09-06). Every item was
 rechecked against ScummVM master `55895ab0` on 2026-10-16, except the new
-terrain/Tavern/Temple/recovery/spell/movement/entrance/audio/party/scripted-map/cutscene/play-time entries explicitly marked "pin: differs; master not
+terrain/Tavern/Temple/recovery/spell/movement/entrance/audio/party/scripted-map/cutscene/play-time/NPC-art entries explicitly marked "pin: differs; master not
 rechecked". At that check, since the pin the
 Xeen engine has had only a code-style edit and the Xeen data in `mm.dat` is
 unchanged apart from its version number, so the earlier entries are marked
@@ -27,6 +27,7 @@ unchanged apart from its version number, so the earlier entries are marked
 [gaps below](#what-scummvm-has-that-mmmodern-does-not-yet), and the Darkside
 intro at startup; items that concern only Darkside gameplay wait for it.
 
+- **NPC mode 2 artwork.** [The art remains available until the Event run ends](original-quirks.md#sv-npc-mode2-art-lifetime), so later prompts animate it and keep a pending scene step. The pin deletes the NPC dialog on return. Pin: differs; master not rechecked.
 - **Play time after Load.** [The running program retains its clock mark](original-quirks.md#dos-play-time-start-mark), including time at the title or since the preceding Save. The pin restores its frame counter on Load. Pin: differs; master not rechecked.
 - **Civil clock changes.** [Play time follows unsigned DOS wall-clock arithmetic and legacy April/October DST](original-quirks.md#dos-play-time-unsigned-clock); rollback may reduce or wrap it. The pin counts presentation frames. Pin: differs; master not rechecked.
 - **Hidden panel clocks.** [Elapsed time keeps the DOS formatter's truncation](original-quirks.md#dos-panel-time-truncation), including `19:1092:16` after 19 hours. Civil time keeps the padded hour and morning `a`; the pin uses normalized minutes and morning `c`. Out-of-order O/B closes the DOS panel; the pin resets its gate and stays open. Pin: differs; master not rechecked.

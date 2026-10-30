@@ -627,3 +627,16 @@ The M92 presets finish Clouds of Xeen with the `m89-lord-xeen` party:
 | `m92-sixth-mirror` | Map 78 `(4,9)` West, at the Sixth Mirror with Lord Xeen dead: the party holds the Scepter (quest item 8), quest 23 is over, flag 60 is set and every member has the "Defeated Lord Xeen" award (42). Press Space: the mirror's text, the win, the save at Vertigo and the original ending and score follow. |
 
 The win saves over the loaded file, like Sign In; keep an untouched copy.
+
+### Cartographer arrival presets
+
+`m98-load` starts at Clouds map 9, `(14,11)`, North, on a blank cell with
+an active Cartographer. `m98-inn` starts inside Vertigo's Inn with five active
+members without Cartographer and a lodged Cartographer available to add;
+Exit returns to map 28, `(18,4)`, West. Both use the level-30 M78 party and
+quiet original maps. The first Load frame marks the former cell; Inn entry
+keeps the latter blank until the edited party exits and the scene is checked.
+
+Generate them with `build-rel/mmodern_test_save.exe <preset> <game-dir> <output>`.
+The M98 session folder is `D:/Projetos/MModern/MModern-playtest/m98/`.
+Its New Game item uses the New Game entry and checks Vertigo `(18,4)`, West.

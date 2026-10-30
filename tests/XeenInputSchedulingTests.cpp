@@ -237,6 +237,11 @@ void combatQueue(Inputs &in,bool mouse=false) {
 
 void originalDialogs(Inputs &in) {
  Harness h(in);auto s=h.services();auto source=in.service();source.camera={28,10,9,XeenDirection::North};
+ auto arrival=source;
+ check(std::any_of(source.activeRosterIds.begin(),source.activeRosterIds.end(),[&](auto id){return source.characters[id].skills[4]!=0;}),
+  "Original dialog fixture has an active Cartographer");
+ auto &explored=arrival.map(28).explored;if(!explored)explored.emplace();
+ constexpr unsigned cell=9*16+10;(*explored)[cell/8]|=std::uint8_t(1u<<(cell%8));
  const auto catalog=loadXeenItemCatalog(in.assets).catalog;s.catalog=&catalog;
  unsigned delivered=0,loops=0;bool queued=false;std::uint64_t now=0;s.clock=[&]{return now;};
  const auto configure=s.configureFlow;
@@ -292,7 +297,9 @@ void originalDialogs(Inputs &in) {
     case 30:tap(SDLK_UP);tap(SDLK_UP);break; // Same-batch dismissal cannot leak movement.
     default:check(!h.flow->inventoryOpen(),"original dialogs failed to close");
      check(h.flow->canSave(),"dialog close did not release save boundary");
-     save_test::sameSnapshot(source,XeenSaveState::capture(in.signature,*h.party,*h.camera,*h.flags,*h.world));quit();return;
+     // Load marks the arrival before dialogs; the entire native dialog cycle
+     // must preserve every other snapshot field and add no further marks.
+     save_test::sameSnapshot(arrival,XeenSaveState::capture(in.signature,*h.party,*h.camera,*h.flags,*h.world));quit();return;
    }};}
    return idle();
   },status);

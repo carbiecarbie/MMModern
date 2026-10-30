@@ -237,6 +237,7 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
    }
   }
 
+  if(!party.insideInn)world.scenePresentation().markLightingStep();
   XeenEventFlow flow(services.program,world, events, party, camera, flags, services.font,
    [&](std::uint64_t phase) { return services.compose(world, party, camera, phase); }, services.npcDraw, services.clock, {}, services.catalog,
    [&](std::uint64_t ordinary, XeenMonsterAppearance actor) {

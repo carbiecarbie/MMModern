@@ -385,17 +385,13 @@ private:
 	}
 	void prepareVertigoPublication(const XeenRestoreGuard &candidate) {
 		check();candidate.check();checkEventStaging(candidate);
-        auto explored=s.exploredTiles();
-        // The existing visit-only map lifetime also drops its explored cells.
-        // All retained maps, and same-map Event continuations, stay exact.
-        if(candidate.cameraValue.mapId!=cameraValue.mapId && !xeenRetainsMapState(cameraValue.mapId))
-            explored.erase(std::remove_if(explored.begin(),explored.end(),[&](const auto &tile){return tile.mapId==cameraValue.mapId;}),explored.end());
+        // Scene checks on the detached candidate own its exploration. Its
+        // retained guard binds each check before this final publication.
 		// Event capabilities permit the Event-owned character fields and inputs,
 		// calendar and party effects, purse, food, quest counters, merchant/bank
 		// time effects, retained RNG, quest/camera/game flags and World
 		// overlays/Spawn. All other inputs retain their preimages.
 		if(candidate.membership!=membership || candidate.dismissed!=dismissed || candidate.insideInn!=insideInn || candidate.playTimeSeconds!=playTimeSeconds || candidate.cloudsCompleted!=cloudsCompleted || candidate.marked!=marked ||
-			candidate.s.exploredTiles()!=explored ||
 			bool(candidate.recovery)!=bool(recovery) || bool(candidate.context)!=bool(context) || bool(candidate.purse)!=bool(purse) ||
 			bool(candidate.economy)!=bool(economy) || candidate.first!=first || candidate.effective!=effective ||
 			candidate.diagnostics!=diagnostics || bool(candidate.s._journeyRandom)!=bool(s._journeyRandom)) {
@@ -507,6 +503,11 @@ private:
 	// Only after the coordinator's checked, callback-free owned stores. Other
 	// guards observing the same owners remain invalidated by those writes.
 	void adoptSavedPlayTime() noexcept {playTimeSeconds=p.playTimeSeconds;adoptMutationBoundary();}
+    // Admit only the computed scene check. Every other context field remains bound.
+    void prepareSceneCheck(const XeenWorld::ScenePreparation &scene) {
+        s.assignExploration(scene.exploration);
+        if(context)context->lightAndResistances[0]=scene.light;
+    }
 	void adoptMutationBoundary() noexcept {
 		mutations.renew();
 		refreshMutationRanges();

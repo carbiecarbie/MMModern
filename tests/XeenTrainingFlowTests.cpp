@@ -10,6 +10,19 @@ int main(int argc,char **argv) {
     try {
         check(argc==2,"usage: training-flow <original-installation>");const auto installation=xeenTestInstallationDetector().detect(argv[1]);
         check(bool(installation),"installation unavailable");Inputs inputs(*installation);const auto source=inputs.service();
+        for(bool cartographer:{false,true}) {
+            auto arrival=source;save_test::clearExplored(arrival);
+            for(auto &c:arrival.characters)c.skills[4]=0;
+            if(cartographer)arrival.characters[arrival.activeRosterIds.front()].skills[4]=1;
+            Fixture f(inputs,arrival);f.enter();bool departure=false;
+            f.flow->trainingBoundary=[&](auto point){if(point==XeenTrainingBoundary::DeparturePublished) {
+                check(f.w.scenePresentation().lightingStepped,"Training departure leaves a step without requiring Cartographer");
+                departure=true;
+            }};
+            f.act(CancelInteractionAction{});f.finishDeparture();
+            check(departure && f.w.sampleCell(f.c.mapId,f.c.x,f.c.y)->cell->stepped==cartographer,
+                "Training return frame marks only with an active Cartographer");
+        }
         // Original resources with explicitly injected boundary dates: ordinary
         // Wait and the shared dawn notice, followed by quiet save/reload.
         for(unsigned minute:{299u,1439u}) {

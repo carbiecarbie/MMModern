@@ -572,17 +572,21 @@ The flag test, independent pixel-renderer/Light checks and layer order are in
 [the DOS evidence](evidence.md#darkness-and-lighting-continuations).
 
 Turns and waits mark stepped; blocked movement does not. Scene preparation
-checks light with that pending state and completed redraw clears it. A further
+drains a nonzero light word on a drain cell, then marks the occupied physical
+cell if an active member has Cartographer (dead members count), then derives
+darkness. A completed redraw clears the pending step. A further
 redraw with stepped clear cannot spend light. Travel can create multiple
 check opportunities, especially Event Continue; learned casts, item wrappers,
 falls and Run retain their own continuations. See [travel lighting checks](evidence.md#travel-lighting-checks).
-Exact MMModern snapshot restore derives darkness without inventing a step;
-the [native-load evidence limit](evidence.md#restore-boundary) is distinct.
+Exact MMModern snapshot restore preserves every saved byte. Gameplay then
+marks one pending step before the first Load/New Game frame, except inside
+the Inn. That arrival frame can drain and mark; see the
+[restore boundary](evidence.md#restore-boundary).
 
 `XeenWorld::sceneIsBlack` (`XeenWorldPresentation.cpp`) derives blackness from
 the primary map and saved light word; `CloudsMapComposer` obscures the scene
 before assembling the border.
-The existing Encounter and combat owners publish a pending drain check through
+The existing Encounter and combat owners publish the drain and exploration from a pending scene check through
 their mutation guards. Stepped is transient presentation state, cleared by a
 completed redraw and by exact restore; the save format is unchanged.
 

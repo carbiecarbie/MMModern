@@ -164,16 +164,16 @@ void lighting() {
         for(auto &cell:m.geometry.cells) {cell.geometry=XeenOutdoorLayers{};cell.rawAttributes=0x20;}return m;});
     XeenPartyState p;p.encounterContext.emplace();p.encounterContext->lightAndResistances[0]=2;
     XeenCamera camera{23,8,8,XeenDirection::North};
-    check(world.lightAfterScenePreparation(p,camera)==2,"Fresh/restored presentation never invents a step");
+    check(world.lightAfterScenePreparation(p,camera).light==2,"Fresh/restored presentation never invents a step");
     world.scenePresentation().markLightingStep();
-    p.encounterContext->lightAndResistances[0]=world.lightAfterScenePreparation(p,camera);
+    p.encounterContext->lightAndResistances[0]=world.lightAfterScenePreparation(p,camera).light;
     check(p.encounterContext->lightAndResistances[0]==1 && !world.sceneIsBlack(p,camera),"First stepped drain remains clear");
     world.scenePresentation().lightingPrepared=true;
-    check(world.lightAfterScenePreparation(p,camera)==1,"Retry retains its prepared counter");
+    check(world.lightAfterScenePreparation(p,camera).light==1,"Retry retains its prepared counter");
     world.scenePresentation().completeLightingDraw();
-    check(world.lightAfterScenePreparation(p,camera)==1,"Redraw spends no light");
+    check(world.lightAfterScenePreparation(p,camera).light==1,"Redraw spends no light");
     world.scenePresentation().markLightingStep();
-    p.encounterContext->lightAndResistances[0]=world.lightAfterScenePreparation(p,camera);
+    p.encounterContext->lightAndResistances[0]=world.lightAfterScenePreparation(p,camera).light;
     check(world.sceneIsBlack(p,camera),"Drain to zero makes the scene black immediately");
 }
 }

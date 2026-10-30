@@ -546,6 +546,44 @@ XeenGameplayServices disengagementServices(Source &,combat_gameplay_test::Harnes
 #include "XeenConsequenceReviewControls.h"
 #include "XeenConsequencePhysicalControls.h"
 #include "XeenDisengagementTestControls.h"
+void cartographerCombatExits(Source &source) {
+ for(auto cause:{XeenCombatExitCause::DirectRun,XeenCombatExitCause::MrWizard,XeenCombatExitCause::AttritionAfterEscape}) {
+  auto saved=disengagementFixture(source);save_test::clearExplored(saved);
+  for(auto &c:saved.characters)c.skills[4]=0;
+  if(cause==XeenCombatExitCause::AttritionAfterEscape) {
+   saved.journey->context->minutes=949;
+   for(unsigned slot=1;slot<6;++slot) {
+    const auto owner=kXeenCombatOwners[slot];saved.journey->supplements[owner].inputs.speed={1,0};
+    saved.characters[owner].conditions[13]=slot==1?0:7;
+   }
+   saved.characters[kXeenCombatOwners[1]].currentHp=1;
+  }
+  Domain d(source,saved);auto &combat=disengagementContact(d);
+  if(cause==XeenCombatExitCause::MrWizard)combat.mrWizard(combat.ticket());
+  else if(cause==XeenCombatExitCause::DirectRun) {
+   for(unsigned slot=0;slot<6;++slot)literalRun(combat,1);
+   combat.service(combat.ticket());
+  } else {
+   literalRun(combat,1);attack(combat,{{0,4,0},{1,20,1}});
+   combat.command(combat.ticket(),XeenCombatCommand::Block);combat.service(combat.ticket());
+   attack(combat,{{0,4,0},{1,20,19},{1,5,5},{1,10,10}});
+   for(unsigned n=0;n<8 && combat.pending()==XeenCombatWork::Round;++n)combat.service(combat.ticket());
+   combat.service(combat.ticket());
+  }
+  check(combat.phase()==XeenCombatPhase::Disengaged && combat.exitCause()==cause,"Arrival fixture reaches its combat exit");
+  d.world.scenePresentation().completeLightingDraw();
+  check(d.flow->retireJourney(d.flow->ticket()),"Arrival fixture retires combat");
+  check(d.world.scenePresentation().lightingStepped,"Every combat exit sets stepped even without Cartographer");
+  // Mr Wizard still owes its outer rescue flow; only direct Run returns to
+  // a Journey frame here. All exits above must leave its pending step intact.
+  if(cause==XeenCombatExitCause::DirectRun) {
+   d.present();
+   check(!d.world.scenePresentation().lightingStepped &&
+    !d.world.sampleCell(d.camera.mapId,d.camera.x,d.camera.y)->cell->stepped,
+    "Combat return consumes the step without inventing a Cartographer mark");
+  }
+ }
+}
 #ifndef MMODERN_M45_COLD_CACHE
 #include "XeenFreshStartControls.h"
 #endif
@@ -569,12 +607,13 @@ int main(int argc,char **argv){try{
  Source source(*i);source.signature=XeenSaveFile::fingerprint(*i);
  freshSaveControls(source);titlePublicationControls(source);freshFailureControls(source);freshDifficultyHits(source);
  if(std::getenv("MMODERN_M49_IMPACT_ONLY")) {
+  cartographerCombatExits(source);
   chargedWait(source);stagedVolleyDefeat(source);stagedRotationVolley(source);
   zeroHitVolley(source);shootOrder(source);shootLethalPreparation(source);indoorShoot(source);indoorChangedShoot(source);blockReset(source);individualMonsterTreasure(source);disengagementMrWizard(source);
   std::cout<<"M49 original-resource impact/rotation controls PASS\n";return 0;
  }
  if(std::getenv("MMODERN_M34_FINISH_PRESENTATION_ONLY")){disengagementFinishPresentation(source);return 0;}
- reviewControls(source);disengagementControls(source);appearanceResources(source);shootOrder(source);shootLethalPreparation(source);blockReset(source);
+ reviewControls(source);disengagementControls(source);cartographerCombatExits(source);appearanceResources(source);shootOrder(source);shootLethalPreparation(source);blockReset(source);
  combatPublicationFaults(source);restoreConsequences(source,argc==3?std::optional<std::filesystem::path>{XeenSaveFile::resolve(argv[2],argv[1])}:std::nullopt);
  journey_resources_test::run([&]{return XeenPartyLoader().loadFromResources(source.chr,source.pty);},
  source.setup(),

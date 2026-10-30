@@ -512,11 +512,14 @@ and later outer arrival can mark stepped again. Learned travel reaches the
 ordinary successful-cast arrival; item travel retains its separate wrapper.
 See the [travel-family offsets and restore boundary](evidence.md#travel-lighting-checks).
 
-Current-format MMModern restore must keep the saved light value without an
-arrival/step replay. This is the existing exact-restore requirement; it is
-not evidence that original native save loading never reaches drain. DOS map
-load sets stepped, and redraw calls the check. The native restore continuation
-remains explicitly bounded in [the evidence](evidence.md#restore-boundary).
+With a pending step, each scene check drains first, marks the occupied physical
+cell with an active Cartographer, then derives darkness. Darkness does not
+suppress exploration. A second draw without a new step changes neither value.
+
+Current-format restoration is byte-exact before presentation. Gameplay marks
+one pending step before the first Load/New Game frame; that frame can drain
+and mark. Inn entry skips this arrival: leaving the Inn reloads the map and
+marks its step. See [the restore boundary](evidence.md#restore-boundary).
 
 ## Terrain arrival
 

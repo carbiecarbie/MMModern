@@ -113,7 +113,7 @@ struct XeenRegionalActionCandidate {
 	std::shared_ptr<XeenWorld> destinationWorld;
 	std::optional<XeenEventFile> destinationEvents;
     std::optional<XeenGameFlags> destinationFlags;
-	std::optional<std::vector<XeenExploredTile>> exploration;
+	bool lightingStep=false;
 	XeenPartyOrder owners{};
 	XeenCamera camera;
 	XeenGameplayContext context;

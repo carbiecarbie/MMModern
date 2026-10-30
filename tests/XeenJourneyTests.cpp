@@ -43,9 +43,12 @@ void lifecycle() {
 	const auto stale = combat->ticket();
 	check(combat->service(stale).status == Status::Victory, "genuine End");
 	const auto retirement = f.flow->ticket();
+	f.w.scenePresentation().completeLightingDraw();
 	check(f.flow->retireJourney(retirement), "guarded Journey retirement");
+	check(f.w.scenePresentation().lightingStepped, "Victory retirement leaves a scene step");
 	check(!f.flow->retireJourney(retirement) && !f.flow->journeyQuiet(), "retirement is once-only and frame guarded");
 	f.present();
+	check(!f.w.scenePresentation().lightingStepped, "Post-victory frame consumes the step");
 	const int hp[]{12,16,12,10,-17,5}, sp[]{2,0,2,0,7,9};
 	for (unsigned i = 0; i < 6; ++i) {
 		const auto &c = f.p.roster.at(kXeenCombatOwners[i]);

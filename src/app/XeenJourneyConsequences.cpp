@@ -289,7 +289,7 @@ bool XeenEncounterFlow::serviceShoot() {
   work.time->needsRest=work.time->needsRest || work.terrain->needsRest;
   _terrainDead=work.terrain->rule.dead;
   if(session._encounterRevision==std::numeric_limits<std::uint64_t>::max() || !journeyCapacity())throw std::overflow_error("Shoot charge generation exhausted");
-  auto exploration=_world.explorationAfterStep(_party,_camera);check();bool living=false;
+  check();bool living=false;
   for(const auto &v:work.time->characters) {
    auto &c=_party.roster.at(v.rosterId);c=v;
    living=living || xeenCombatTargetable(c);
@@ -302,7 +302,6 @@ bool XeenEncounterFlow::serviceShoot() {
   _party.encounterContext=work.time->context;session._journeyRandom=work.random.continuation();_state._pending=living && !_terrainFall?3:0;
   if(!living) { _state._phase=XeenEncounterPhase::SupportStopped;_state._reason=XeenEncounterStop::Defeat;session._encounterTerminal=true; }
   ++session._encounterRevision;_state._revision=session._encounterRevision;++session._journeyGeneration;++_generation;
-  session.publishExploration(exploration);
   _world.scenePresentation().markLightingStep();
   _doorTextUp=false;_shoot.reset();session._journeyActivity=XeenJourneyActivity::Presentation;retainJourney();return true;
  } catch(...) { closeJourney();throw; }

@@ -3,6 +3,7 @@
 #include "games/xeen/CloudsMapComposer.h"
 #include "games/xeen/XeenOutdoorScene.h"
 #include "games/xeen/XeenSkills.h"
+#include "games/xeen/XeenEventTrigger.h"
 #include <iostream>
 using namespace training_test;
 namespace mmodern {
@@ -353,13 +354,99 @@ void darkPendingScene(Inputs &in) {
  XeenEventDispatchTestAccess::composer(*f.flow,[&](auto &world,const auto &party,const auto &camera,auto,auto) {
   if(!seen) {
    check(party.encounterContext->lightAndResistances[0]==0 && world.sceneIsBlack(party,camera),"Dark pending scene used unprepared light");
-   check(XeenEventDispatchTestAccess::candidateLight(*f.flow)==1 && f.p.encounterContext->lightAndResistances[0]==1,
-    "Drawing the dark scene published or changed candidate light");seen=true;
+   check(XeenEventDispatchTestAccess::candidateLight(*f.flow)==0 && f.p.encounterContext->lightAndResistances[0]==1,
+    "Scene check drains only the detached Event light");seen=true;
   }
   return XeenEventFlow::Composition{frame(),false};
  });
  f.act(InteractionAction{});check(seen && f.flow->canCancelInteraction(),"Dark Event did not reach its pending presentation");
+ const auto context=*XeenEventDispatchTestAccess::candidateParty(*f.flow).encounterContext;
+ const auto explored=XeenEventDispatchTestAccess::candidateWorld(*f.flow).sessionState().exploredTiles();
+ for(bool reconstruct:{true,false}) {
+  f.present(f.flow->refresh(reconstruct));
+  check(*XeenEventDispatchTestAccess::candidateParty(*f.flow).encounterContext==context &&
+    XeenEventDispatchTestAccess::candidateWorld(*f.flow).sessionState().exploredTiles()==explored,
+    "Reconstruction or second Event wait changed the consumed step");
+ }
  f.act(SelectMemberAction{0});finish(f,true);
+}
+void locationArtPendingScene(Inputs &in) {
+ for(bool bottom:{false,true}) {
+ auto source=at(in,28,20,20,XeenDirection::North);save_test::clearExplored(source);
+ source.characters[source.activeRosterIds.front()].skills[4]=1;source.soundOptions.text=false;
+ source.journey->context->lightAndResistances[0]=3;
+ XeenWorld geometry(in.mapLoader());const auto cell=geometry.sampleCell(28,20,20);
+ for(unsigned d=0;d<4;++d){const auto wall=wallAt(*cell->cell,XeenDirection(d));
+  if(wall!=1 && wall!=6 && wall!=9 && wall!=13){source.camera.direction=XeenDirection(d);break;}}
+ const auto line=[](unsigned n,unsigned op,std::vector<std::uint8_t> args){
+  XeenEventRecord r;r.x=20;r.y=20;r.direction=4;r.line=n;r.opcode=op;r.parameters=std::move(args);r.lengthField=5+r.parameters.size();return r;};
+ // Original Vertigo NPC resources, followed by an isolated Yes/No prompt.
+ XeenEventFile script{28,"maze0028.evt",true,{line(0,5,{8,9,23,2}),
+  bottom?line(1,0x31,{0,9}):line(1,9,{44,0,2}),line(2,0x12,{})}};
+ const auto maps=in.mapLoader();
+ Fixture f(in,source,false,&script,[maps](auto id){auto map=maps(id);for(auto &c:map.geometry.cells)c.rawAttributes|=0x20;return map;},
+  {},[&](auto &image,auto portrait,auto phase){in.assets.drawNpc(image,portrait,phase);});
+ f.w.scenePresentation().markLightingStep();f.act(InteractionAction{});
+ const auto request=XeenEventDispatchTestAccess::request(*f.flow);
+ check(request && request->kind==(bottom?XeenPresentationKind::BottomWindowTwoLines:XeenPresentationKind::Confirmation) &&
+  request->response==(bottom?XeenPresentationResponseRequirement::Acknowledgment:XeenPresentationResponseRequirement::YesNo),
+  "Location artwork must remain under the separate prompt");
+ check(f.flow->presenter().hasNpcOffer(),"Opening a prompt must retain mode-2 NPC art");
+ auto &candidate=XeenEventDispatchTestAccess::candidateWorld(*f.flow);
+ check(candidate.scenePresentation().lightingStepped && !candidate.sampleCell(28,20,20)->cell->stepped &&
+  XeenEventDispatchTestAccess::candidateLight(*f.flow)==3,"Yes/No over location art keeps step, exploration and light");
+ f.present(f.flow->refresh(true));
+ check(candidate.scenePresentation().lightingStepped && XeenEventDispatchTestAccess::candidateLight(*f.flow)==3,
+  "Location-art reconstruction keeps the pending step");
+ finish(f,true);
+ check(!f.flow->presenter().hasNpcOffer(),"Event cleanup must release mode-2 NPC art");
+ }
+}
+void damagePendingScene(Inputs &in,bool refused=false,bool automatic=false) {
+ auto source=at(in,28,20,20,XeenDirection::North);save_test::clearExplored(source);
+ source.characters[source.activeRosterIds.front()].skills[4]=1;
+ source.journey->context->lightAndResistances[0]=3;
+ XeenWorld geometry(in.mapLoader());const auto cell=geometry.sampleCell(28,20,20);
+ for(unsigned d=0;d<4;++d) {const auto wall=wallAt(*cell->cell,XeenDirection(d));
+  if(wall!=1 && wall!=6 && wall!=9 && wall!=13){source.camera.direction=XeenDirection(d);break;}}
+ XeenEventRecord damage;damage.x=20;damage.y=20;damage.direction=4;damage.opcode=0x16;
+ damage.parameters={1,0,0};damage.lengthField=8;
+ XeenEventFile script{28,"maze0028.evt",true,{damage}};
+ if(refused) {
+  auto repeated=damage;repeated.line=1;script.records.push_back(repeated);
+  auto unsupported=damage;unsupported.line=2;unsupported.opcode=0x21;unsupported.parameters={0,0};unsupported.lengthField=7;
+  script.records.push_back(unsupported);
+ }
+ const auto maps=in.mapLoader();
+ Fixture f(in,source,false,&script,[maps,automatic](auto id){auto map=maps(id);
+  for(auto &c:map.geometry.cells)c.rawAttributes|=0x20 | (automatic?kXeenAutomaticEventFlag:0);return map;});
+ bool sawRefusal=false;
+ f.flow->reportManual=[&](const auto &result) {
+  if(std::holds_alternative<XeenEventExecutionError>(result)) {
+   sawRefusal=true;
+  }
+ };
+ f.w.scenePresentation().markLightingStep();
+ if(automatic)f.present(f.flow->completeExplorationInput());else f.act(InteractionAction{!refused});
+ check(XeenEventDispatchTestAccess::damage(*f.flow),"Damage must reach its portrait wait");
+ auto &candidate=XeenEventDispatchTestAccess::candidateWorld(*f.flow);
+ check(candidate.sampleCell(28,20,20)->cell->stepped &&
+   XeenEventDispatchTestAccess::candidateLight(*f.flow)==2,"Damage pre-draw marks and drains once");
+ check(!f.w.sampleCell(28,20,20)->cell->stepped && f.p.encounterContext->lightAndResistances[0]==3,
+   "Damage pre-draw remains detached until Event publication");
+ bool held=false;
+ for(unsigned n=0;n<100 && !held;++n) {
+  const auto request=XeenEventDispatchTestAccess::request(*f.flow);
+  held=request && request->portrait && request->portrait->stage==XeenEventPortraitStage::DamageHold;
+  if(!held){f.now+=100;f.flow->beginCycle(++f.cycle);if(auto next=f.flow->updatePresentation())f.present(*next);}
+ }
+ check(held && XeenEventDispatchTestAccess::candidateLight(*f.flow)==2,
+   "Damage overlays and final hold must not consume the pending step twice");
+ finish(f,true);
+ check(!refused || sawRefusal,"The invalid damage operand must refuse after the portrait wait");
+ check(f.w.sampleCell(28,20,20)->cell->stepped && f.p.encounterContext->lightAndResistances[0]==(refused?2:1),
+   refused?"Repeated prefixes exclude the discarded drain; refusal consumes only the live pending step":
+   "Space's separate doStep after the Event drains its own new step");
 }
 void manualRefusalScene(Inputs &in) {
  auto source=at(in,28,20,20,XeenDirection::North);
@@ -493,6 +580,51 @@ void combatLabels(Inputs &in) {
   if(exit)check(f.c.x==18 && f.c.y==4,"Run and Mr Wizard reach the original Vertigo landing");
  }
 }
+void cartographerEvents(Inputs &in) {
+ const auto blank=[&](unsigned map,int x,int y) {
+  auto s=at(in,map,x,y,XeenDirection::North);save_test::clearExplored(s);
+  s.characters[s.activeRosterIds.front()].skills[4]=1;return s;
+ };
+ // Rivercity's boat exit clears both travel flags and teleports on the same map.
+ {
+  auto s=blank(30,17,28);s.gameFlags[221]=true;
+  Fixture f(in,s);f.w.scenePresentation().markLightingStep();
+  f.act(InteractionAction{});finish(f,true);
+  check(f.c.mapId==XeenMapIdentity(30) && f.c.x==17 && f.c.y==26,"Original same-map boat exit destination");
+  check(f.w.sampleCell(30,17,26)->cell->stepped && !f.w.sampleCell(30,17,28)->cell->stepped,
+    "Silent same-map teleport marks only its destination");
+ }
+ // The original boat chain checks the consecutive map-11 stops before map 15.
+ {
+  auto s=blank(11,13,7);s.gameFlags[220]=true;
+  Fixture f(in,s);f.w.scenePresentation().markLightingStep();
+  f.act(InteractionAction{});finish(f,true);
+  check(f.w.sampleCell(11,14,7)->cell->stepped && f.w.sampleCell(11,15,7)->cell->stepped,
+    "Original Continue chain marks intermediate physical cells");
+ }
+ // Rivercity's boat NPC offers Yes/No over its artwork, then starts the chain.
+ for(bool text:{false,true}) {
+  auto s=blank(30,16,23);s.soundOptions.text=text;s.journey->purse->gold=10000;
+  Fixture f(in,s,false,nullptr,{}, {},[&](auto &image,auto portrait,auto phase){in.assets.drawNpc(image,portrait,phase);});
+  f.w.scenePresentation().markLightingStep();f.act(InteractionAction{});
+  const auto request=XeenEventDispatchTestAccess::request(*f.flow);
+  check(request && request->kind==XeenPresentationKind::NpcAcknowledgment,"Original boat NPC offer absent");
+  const auto candidateMarked=[&]{return XeenEventDispatchTestAccess::candidateWorld(*f.flow).sampleCell(30,16,23)->cell->stepped;};
+  check(candidateMarked()==!text && !f.w.sampleCell(30,16,23)->cell->stepped,
+    "NPC Text gate must change only the detached source mark");
+  f.present(f.flow->refresh(true));
+  check(candidateMarked()==!text,"NPC reconstruction consumed a blocked pending step");
+  bool answered=false;
+  for(unsigned n=0;n<1000 && !answered;++n) {
+   f.now+=100;const auto input=f.flow->inputContext(f.flow->frame().presentation());
+   if(input.readyForAction && input.dialog && input.dialog->key('y')){f.act(YesAction{});answered=true;}
+   else {f.flow->beginCycle(++f.cycle);if(auto frame=f.flow->updatePresentation())f.present(*frame);}
+  }
+  check(answered,"Original boat NPC never admitted Yes");finish(f,true);
+  check(f.w.sampleCell(30,16,23)->cell->stepped==!text && f.w.sampleCell(30,16,24)->cell->stepped,
+    "Text-on NPC keeps source blank; Text-off NPC and Continue mark both cells");
+ }
+}
 void guardedNpc(Inputs &in) {
  auto source=at(in,7,6,3,XeenDirection::North);
  Fixture f(in,source,false,nullptr,{}, {},[&](auto &image,auto portrait,auto frame){in.assets.drawNpc(image,portrait,frame);});
@@ -514,7 +646,8 @@ int main(int argc,char **argv){try {
  check(argc==2 || argc==3,"original dispatch test requires game directory");auto installation=xeenTestInstallationDetector().detect(argv[1]);check(bool(installation),"original installation missing");
  Inputs in(*installation);
  if(argc==3) {if(std::string(argv[2])=="border")pendingBorder(in);else skullCase(in,argv[2]);return 0;}
- skullCase(in,"fresh");skullCase(in,"explored");skullCase(in,"eye");pendingBorder(in);
+ locationArtPendingScene(in);damagePendingScene(in);damagePendingScene(in,true);damagePendingScene(in,true,true);
+ cartographerEvents(in);skullCase(in,"fresh");skullCase(in,"explored");skullCase(in,"eye");pendingBorder(in);
  trap(in);rubble(in);for(unsigned variant=0;variant<3;++variant)rubbleFlow(in,variant);trapScene(in,55,7,8,5,87);trapScene(in,33,3,15,0,89);manualRefusalScene(in);outdoorScene(in);darkPendingScene(in);label(in);guardedNpc(in);combatLabels(in);combatTrap(in);std::cout<<"M84 original-data Event passes OK\n";return 0;
 }catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}
 

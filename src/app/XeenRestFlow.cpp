@@ -152,7 +152,7 @@ bool XeenEncounterFlow::serviceRest() {
    }
    XeenConsequenceDraw draw{rest.random,64,check,[this](unsigned id){fmEffect(id);},[this](unsigned id){fmSelectWeapon(id);}};if(!rest.terrain->service(draw))return true;
    recovery.context=rest.terrain->context;recovery.characters=rest.terrain->characters;recovery.inputs=rest.terrain->inputs;
-   auto exploration=_world.explorationAfterStep(_party,_camera);check();
+   check();
    for(unsigned n=0;n<rest.owners.size();++n) {
     _party.roster.at(rest.owners[n])=recovery.characters[n];
     _party.roster._combatInputs[rest.owners[n]]=recovery.inputs[n];
@@ -163,7 +163,7 @@ bool XeenEncounterFlow::serviceRest() {
    if(rest.terrain->rule.damage)for(auto owner:rest.owners)
     _world.scenePresentation().portraitDamage(owner,rest.terrain->rule.type==XeenDamageType::Fire?1u:0u,_lastTime);
    rest.consumed=recovery.consumed;rest.starving=recovery.starving;rest.phase=P::Complete;
-   session.publishExploration(exploration);_world.scenePresentation().markLightingStep();restPublication();return true;
+   _world.scenePresentation().markLightingStep();restPublication();return true;
   }
   if(rest.phase==P::Charges && !_regionalWork) {
    auto candidate=std::make_unique<XeenRegionalActionCandidate>();auto &c=*candidate;

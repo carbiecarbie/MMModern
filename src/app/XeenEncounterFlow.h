@@ -130,7 +130,7 @@ public:
 	const std::optional<XeenAntidoteResult> &itemUseResult() const noexcept { return _itemUseResult; }
 	bool attachJourney(const Ticket &, const std::function<void()> &prepareSprites);
 	bool retireJourney(const Ticket &);
-	bool prepareJourneyFrame(const Ticket &, const std::function<void()> &compose, bool cosmetic = false);
+	bool prepareJourneyFrame(const Ticket &, const std::function<void()> &compose, bool cosmetic = false, bool sceneCheck = true);
 	bool presentJourney(const Ticket &);
 	XeenEncounterFlow(const XeenEncounterFlow &) = delete;
 	XeenEncounterFlow &operator=(const XeenEncounterFlow &) = delete;
@@ -193,7 +193,6 @@ private:
     void eventVoice(unsigned);
     void fmSelectWeapon(unsigned id) noexcept {_program.attackWeaponFx=id;}
 	void recordJourneyStep();
-	void publishJourneyExploration(std::vector<XeenExploredTile> &,std::vector<XeenExploredTile> &) noexcept;
 	friend class XeenEventFlow;
     friend struct XeenInnTestAccess;
 	friend struct XeenRestTestAccess;

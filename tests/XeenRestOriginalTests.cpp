@@ -572,7 +572,15 @@ void terrainCallsites(Inputs &in) {
   f.act(automatic?PlayerAction{NavigationAction::MoveForward}:PlayerAction{InteractionAction{}});finish(f);
   if(refused){
    // Part 0: teleport clears Space, so no Wait tests the missing fall landing.
-   auto expected=before;expected.camera.y=22;save_test::sameSnapshot(expected,f.snapshot());
+   auto expected=before;expected.camera.y=22;
+   // Both Continue draws mark their physical destination before restarting
+   // the scan; the cleared Space still adds no terrain/time/RNG work.
+   for(int y:{21,22}) {
+    const auto cell=f.w.sampleCell(28,20,y);check(bool(cell),"Continue physical destination");
+    auto &bits=expected.map(cell->mapId).explored;if(!bits)bits.emplace();
+    const unsigned bit=cell->y*16+cell->x;(*bits)[bit/8]|=std::uint8_t(1u<<(bit%8));
+   }
+   save_test::sameSnapshot(expected,f.snapshot());
   }
   else {
    check(f.c.x==20 && f.c.y==(automatic?20:22),"Event arrival published an intermediate teleport");

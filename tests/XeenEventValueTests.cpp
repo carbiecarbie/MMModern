@@ -1,5 +1,6 @@
 #include "games/xeen/XeenWorld.h"
 #include "games/xeen/XeenEventInterpreter.h"
+#include "games/xeen/XeenEventContinuation.h"
 #include "games/xeen/XeenEventValues.h"
 #include "games/xeen/XeenPartyLoader.h"
 #include "games/xeen/XeenCharacterRules.h"
@@ -627,13 +628,55 @@ void wordDraws() {
   XeenCloudsQuestItems::afterEventTake(0)==255 && XeenCloudsQuestItems::afterEventTake(1)==0,"quest byte rule");
 }
 
+void prefixLightWrites() {
+ for(unsigned mode:{70u,74u}) {
+  Owners f;std::uint16_t prefix=3;auto owners=f.owners();owners.prefixLight=&prefix;
+  auto &light=f.p.encounterContext->lightAndResistances[0];light=2; // One detached scene drain.
+  const unsigned assigned=mode==70?2u:0x101u;
+  check(xeenEventSetValue(owners,mode,assigned,0).status==XeenEventWriteStatus::Applied,"Prefix light Set");
+  const std::uint16_t value=mode==70?2:1;
+  check(light==value && prefix==value,"Set replaces a prior drain, even without a numeric change");
+  --light; // A later scene check must not alter the Event-only projection.
+  check(xeenEventGive(owners,mode,2,0).status==XeenEventWriteStatus::Applied && prefix==value+2 && light==value+1,
+   "Give applies the resolved operand independently of scene drains");
+  check(xeenEventTake(owners,mode,4,0).status==XeenEventWriteStatus::Applied &&
+   prefix==std::uint16_t(value-2) && light==std::uint16_t(value-3),"Take projection wraps as a DOS word");
+  prefix=65535;light=65534;
+  check(xeenEventGive(owners,mode,1,0).status==XeenEventWriteStatus::Applied && prefix==0 && light==65535,
+   "Prefix Give wrap preserves the detached drain difference");
+  check(xeenEventTake(owners,mode,1,0).status==XeenEventWriteStatus::Applied && prefix==65535 && light==65534,
+   "Prefix Take wrap preserves the detached drain difference");
+ }
+ Owners f;std::uint16_t prefix=7;auto owners=f.owners();owners.prefixLight=&prefix;
+ f.p.encounterContext->effects[XeenPartyEffect::AutomapOn]=2;
+ const auto before=*f.p.encounterContext;
+ check(xeenEventSetValue(owners,74,2,0).status==XeenEventWriteStatus::Unsupported &&
+  prefix==7 && *f.p.encounterContext==before,"Refused collective Set cannot change the projection");
+ // Give 85 clears temporary party words; a later portrait publishes that reset.
+ World world;auto p=party();XeenGameFlags flags;
+ p.encounterContext->lightAndResistances[0]=3;
+ bool reset=false;
+ const auto result=run(*world.w,p,flags,{row(0,12,{0,0,85,1}),row(1,22,{1,0,0})},
+  {},{47,5,5,XeenDirection::North},{},[&](auto &state,const auto &) {
+   if(!reset) {
+    XeenEventContinuation retained(state);auto altered=state;altered.prefixLight=1;
+    bool rejected=false;try {retained.check(altered);}catch(const std::exception &) {rejected=true;}
+    check(rejected,"Continuation protects the Event-only prefix light projection");
+   }
+   check(state.prefixLight==0 && p.encounterContext->lightAndResistances[0]==0,
+    "Year reset clears both actual and publishable light across every portrait suspension");reset=true;
+  });
+ check(completed(result) && reset && p.encounterContext->year==611,"Year reset reaches its following portrait");
+
+}
+
 } // namespace
 
 int main(int argc,char **argv) {
  try {
   if(argc==2 && std::string(argv[1])=="b5") {miscMaterial();return 0;}
   if(argc!=1)throw std::runtime_error("Unknown Event value test mode");
-  widths();probes();writes();randomOperations();flowOperations();lockPicking();chestRule();specialItem();miscMaterial();wordDraws();
+  widths();probes();writes();prefixLightWrites();randomOperations();flowOperations();lockPicking();chestRule();specialItem();miscMaterial();wordDraws();
  } catch(const std::exception &e) {std::cerr<<"Event value tests failed: "<<e.what()<<'\n';return 1;}
  std::cout<<"Event value tests passed\n";
  return 0;

@@ -266,7 +266,7 @@ void XeenEncounterFlow::publishBarrier(const Ticket &entry,XeenWorld &candidate,
 	std::vector<std::pair<XeenMapIdentity,std::vector<XeenBarrierOverride>>> cells;
 	for(const auto &entry:candidate.sessionState().mapStates())cells.emplace_back(entry.first,entry.second.cells);
 	const auto barriers=candidate.sessionState().barriers();
-	auto exploration=rule.moved ? candidate.explorationAfterStep(_party,rule.camera) : candidate.sessionState().exploredTiles();
+	auto exploration=candidate.sessionState().exploredTiles();
 	_world._sessionState._mapStates.reserve(candidate._sessionState._mapStates);
 	_world._sessionState.reserveTiles(exploration);
 	auto &liveActors=_world._sessionState.mutableMonsters(_camera.mapId);

@@ -476,6 +476,7 @@ XeenEventWrite xeenEventSetValue(const XeenEventValueOwners &o, unsigned mode, s
 		} else next.lightAndResistances[*partyWord(mode)] = word;
 		if (!canonicalEffects(next)) return unsupported("Event party effect value is outside its flag range");
 		*ctx = next;
+        if(o.prefixLight && (mode==70 || mode==74))*o.prefixLight=mode==74?byte:word;
 		return applied();
 	}
 	default: break;
@@ -592,6 +593,7 @@ XeenEventWrite xeenEventTake(const XeenEventValueOwners &o, unsigned mode, std::
 			next.effects[XeenPartyEffect::WalkOnWater] = 0;
 		} else subtract(*partyWord(mode));
 		*ctx = next;
+        if(o.prefixLight && (mode==70 || mode==74))*o.prefixLight=static_cast<std::uint16_t>(*o.prefixLight-word);
 		return applied();
 	}
 	default: break;
@@ -707,6 +709,7 @@ XeenEventWrite xeenEventGive(const XeenEventValueOwners &o, unsigned mode, std::
 			next.effects[XeenPartyEffect::WalkOnWater] = 1;
 		} else add(*partyWord(mode));
 		*ctx = next;
+        if(o.prefixLight && (mode==70 || mode==74))*o.prefixLight=static_cast<std::uint16_t>(*o.prefixLight+word);
 		return applied();
 	}
 	default: break;

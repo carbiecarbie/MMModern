@@ -847,13 +847,14 @@ void XeenEventFlow::prepareTerrainTransition() {
  drive(XeenManualEventResult{XeenManualEventCompleted{0,true,false}},false);
 }
 
-void XeenEventFlow::retainManualPrefix(bool party) {
+void XeenEventFlow::retainManualPrefix(bool party,std::optional<std::uint16_t> prefixLight) {
  auto &work=*_transition;checkTransitionCandidate();
  const auto ending=*work.world->sessionState().journeyRandom();
  if(party || !work.observed) {
   auto prefix=std::make_unique<TransitionCandidate::ObservedPrefix>();
   prefix->world=(party?*work.world:_world).transitionCandidate();
   prefix->world->copyEventParty(party?work.party:_party,prefix->party);
+  if(prefixLight && prefix->party.encounterContext)prefix->party.encounterContext->lightAndResistances[0]=*prefixLight;
   prefix->camera=party?work.camera:_camera;prefix->flags=party?work.flags:_flags;
   prefix->world->retainEventRandom(ending);
   for(auto &effect:prefix->world->scenePresentation().portraits) {effect.damageTicks=0;effect.spellFrame=4;}
@@ -1356,7 +1357,7 @@ IndexedFrame XeenEventFlow::renderEncounter(bool report, bool cosmeticInput, boo
 				returned = rendered; _frame = std::move(rendered);
 				_ordinary.containsOrdinaryAnimation = composed.containsOrdinaryAnimation || heads;
 				sealFrame(returned);
-			}, cosmetic)) {
+			}, cosmetic, !_eventPublication && !_transition && !_smithUi && !_trainingUi && !_entranceUi)) {
 				if (_inputGeneration == std::numeric_limits<std::uint64_t>::max()) throw std::overflow_error("Journey input generation exhausted");
 				// A cosmetic frame renews frame authority, not the semantic input epoch.
 				if (!cosmeticInput) ++_inputGeneration;
@@ -1517,9 +1518,9 @@ XeenEventFlow::Composition XeenEventFlow::composeJourneyScene(bool reconstruct) 
   {
    XeenRestoreGuard::EventProviders providers(*work.world,work.party,work.camera,work.flags,*work.guard,
        [&] {_encounter->journeySavePreimage().check();},[&] {_encounter->journeySavePreimage().failed=true;});
-   const auto light=work.world->lightAfterScenePreparation(work.party,work.camera);
+   auto light=work.world->lightAfterScenePreparation(work.party,work.camera);
    _encounter->journeySavePreimage().check();
-   work.party.encounterContext->lightAndResistances[0]=light;work.world->scenePresentation().lightingPrepared=true;
+   work.world->recordExploration(light.exploration);work.party.encounterContext->lightAndResistances[0]=light.light;work.world->scenePresentation().lightingPrepared=true;
   }
   {
    auto prepared=std::make_unique<XeenRestoreGuard>(*work.world,work.party,work.camera,work.flags);
@@ -1542,34 +1543,82 @@ XeenEventFlow::Composition XeenEventFlow::composeJourneyScene(bool reconstruct) 
 			if(_eventPublication)_eventPublication->continuation(state,*work.continuation,true);
 		};
 		checkRetained();
-		// Retain live portraits and controls while drawing the Event's current
-		// scene, small map and border. Neither draw publishes the candidate.
-		XeenRestoreGuard candidate(*work.world,work.party,state.workingCamera,work.flags);
-		candidate.retainResources(*work.guard);
-		XeenRestoreGuard::Providers providers(candidate,*work.world,checkRetained);
-		// Prepare lighting on a guarded copy: a draw must not publish or alter the
-		// retained Event party, including its pending light counter.
-		XeenPartyState drawingParty;
-		work.world->copyEventParty(work.party,drawingParty);
-		if(drawingParty.encounterContext)
-			drawingParty.encounterContext->lightAndResistances[0]=work.world->lightAfterScenePreparation(work.party,state.workingCamera);
-		XeenRestoreGuard drawingGuard(*work.world,drawingParty,state.workingCamera,work.flags);
-		drawingGuard.retainResources(*work.guard);
-		XeenRestoreGuard::Providers drawingProviders(drawingGuard,*work.world,checkRetained);
+        // Only a DOS scene preparation consumes the candidate's pending step.
+        // Window 11, location artwork and animation-only waits retain it.
+        const auto &request=state.pendingPresentation->request;
+        using Kind=XeenPresentationKind;
+        const bool text=XeenSoundOptions(work.party.soundOptions).text;
+        bool sceneDraw=!reconstruct && !_entranceUi;
+        if(_presenter.window11Enabled() && !(_presenter.hasNpcOffer() && !text))sceneDraw=false;
+        if(request.kind==Kind::NpcAcknowledgment)
+            sceneDraw=!reconstruct && !text && request.npc && request.npc->confirmationMode!=2;
+        // An NPC offer retains location artwork even with Text off. Prompt
+        // polling animates that artwork; WhoWill still uses its window gate.
+        if(_presenter.hasNpcOffer() && (request.kind==Kind::Confirmation ||
+                request.kind==Kind::BottomWindowTwoLines))sceneDraw=false;
+        // Text/label writes have their initial check in the interpreter. Only
+        // bottom-window page waits can add another one; window 11 never can.
+        if(request.kind==Kind::CenteredMessage || request.kind==Kind::MainWindowMessage ||
+            request.kind==Kind::SceneLabelReduced || request.kind==Kind::SceneLabelNormal ||
+            request.kind==Kind::SceneLabelSign || request.kind==Kind::SceneLabelSignReduced ||
+            (request.kind==Kind::BottomWindowMessage && !_sceneAdvancePending))sceneDraw=false;
+        // Damage closes text windows before its final hold; cleanup does so
+        // before Nothing Here. Their checks therefore have no window-11 gate.
+        if(request.kind==Kind::NothingHere || (request.kind==Kind::PortraitEffect &&
+                request.portrait && request.portrait->stage==XeenEventPortraitStage::DamageHold))
+            sceneDraw=!reconstruct;
+        if(request.kind==Kind::EntranceScene || request.kind==Kind::ArenaNumber ||
+            request.kind==Kind::ArenaPreparation || request.kind==Kind::DeferredAudio ||
+            request.kind==Kind::RewardGeneration)sceneDraw=false;
+        // Text input draws only on an idle iteration, never ahead of an early key.
+        if(request.kind==Kind::WordInput && !_sceneAdvancePending)sceneDraw=false;
+        if(request.kind==Kind::PortraitEffect && request.portrait &&
+            request.portrait->stage!=XeenEventPortraitStage::DamageHold &&
+            request.portrait->stage!=XeenEventPortraitStage::Sparkle)sceneDraw=false;
+        if(sceneDraw && work.world->scenePresentation().lightingStepped &&
+                !work.world->scenePresentation().lightingPrepared) {
+            XeenWorld::ScenePreparation scene;
+            {
+                XeenRestoreGuard::Providers providers(*work.guard,*work.world,checkRetained);
+                scene=work.world->lightAfterScenePreparation(work.party,state.workingCamera);
+                checkRetained();
+            }
+            auto prepared=std::make_unique<XeenRestoreGuard>(*work.world,work.party,work.camera,work.flags);
+            prepared->retainResources(*work.guard);
+            prepared->prepareSceneCheck(scene);
+            checkRetained();
+            work.world->recordExploration(scene.exploration);
+            if(work.party.encounterContext)work.party.encounterContext->lightAndResistances[0]=scene.light;
+            work.world->scenePresentation().lightingPrepared=true;
+            work.guard.swap(prepared);work.guard->adoptMutationBoundary();
+            checkRetained();
+        }
+        // Preserve live portraits/controls while drawing the detached scene.
+        XeenRestoreGuard candidate(*work.world,work.party,state.workingCamera,work.flags);
+        candidate.retainResources(*work.guard);
+        XeenRestoreGuard::Providers providers(candidate,*work.world,checkRetained);
+        const auto &drawingParty=work.party;
+        const auto complete=[&] {
+            candidate.check();checkRetained();
+            if(sceneDraw) {
+                work.world->scenePresentation().completeLightingDraw();
+                candidate.adoptMutationBoundary();work.guard->adoptMutationBoundary();
+            }
+        };
 		work.world->scenePresentation().textPrompt=textPromptOpen();
 		work.world->scenePresentation().openDoor=_world.scenePresentation().openDoor;
 		try {
 			if(state.continuedAtDestination) {
 				work.world->scenePresentation().composeFromRetained(reconstruct && !_sceneAdvancePending);
 				auto frame=_transitionCompose(*work.world,drawingParty,state.workingCamera,_ordinary.phase,XeenMonsterAppearance{0});
-				drawingGuard.check();candidate.check();checkRetained();return frame;
+				complete();return frame;
 			}
 			_world.scenePresentation().composeFromRetained(reconstruct && !_sceneAdvancePending);
 			auto frame=_encounterCompose(_ordinary.phase,_encounter->appearance());
 			checkRetained();
 			work.world->scenePresentation().composeFromRetained(reconstruct && !_sceneAdvancePending);
 			auto view=_transitionCompose(*work.world,drawingParty,state.workingCamera,_ordinary.phase,XeenMonsterAppearance{0});
-			drawingGuard.check();candidate.check();checkRetained();
+			candidate.check();checkRetained();
 			if(!frame.frame.isValid() || !view.frame.isValid() || frame.frame.width!=320 || frame.frame.height!=200 ||
 				view.frame.width!=320 || view.frame.height!=200)throw std::runtime_error("Invalid Event scene composition");
 			const auto copy=[&](unsigned left,unsigned top,unsigned right,unsigned bottom) {
@@ -1583,8 +1632,8 @@ XeenEventFlow::Composition XeenEventFlow::composeJourneyScene(bool reconstruct) 
 			copy(0,140,230,149);     // lower corners, buffs and direction letter
 			copy(224,134,230,140);   // outer edge of the lower-right corner
 			frame.containsOrdinaryAnimation=frame.containsOrdinaryAnimation || view.containsOrdinaryAnimation;
-			return frame;
-		} catch(...) {drawingGuard.check();candidate.check();checkRetained();throw;}
+            complete();return frame;
+		} catch(...) {candidate.check();checkRetained();throw;}
 	}
  _world.scenePresentation().composeFromRetained(reconstruct && !_sceneAdvancePending);
 	return _encounterCompose(_ordinary.phase,_encounter->appearance());
@@ -1619,10 +1668,10 @@ bool XeenEventFlow::refreshScene(bool reconstruct, OrdinaryCause cause, bool com
 		// Always use the committed camera, never logicalAddress/workingCamera.
 		_world.scenePresentation().composeFromRetained(!stepped && !_sceneAdvancePending);
 		_world.scenePresentation().textPrompt=textPromptOpen();
-		if(_party.encounterContext) {
-            _party.encounterContext->lightAndResistances[0]=_world.lightAfterScenePreparation(_party,_camera);
-            _world.scenePresentation().lightingPrepared=true;
-        }
+        auto scene=_world.lightAfterScenePreparation(_party,_camera);
+        _world.recordExploration(scene.exploration);
+        if(_party.encounterContext)_party.encounterContext->lightAndResistances[0]=scene.light;
+        _world.scenePresentation().lightingPrepared=true;
 		const auto composition = _compose(_ordinary.phase);
 		_world.scenePresentation().completeLightingDraw();
 		requireCurrentOwners();
@@ -1744,8 +1793,7 @@ template<class Result> IndexedFrame XeenEventFlow::drive(Result result, bool aut
         }
 		if (!suspended) return frameCopy();
 		if (!_pending) return frameCopy(); // A reporting callback may explicitly abandon.
-		if(!(_presenter.hasNpcOffer() && _pending->state.pendingPresentation->request.kind==XeenPresentationKind::CharacterSelection))
-			_frame = _presenter.dismissSelection();
+		_frame = _presenter.dismissSelection();
 		XeenPresentationUpdate update;
 		update = presentPendingEvent();
         clearManualPresentationInput();
@@ -1797,6 +1845,11 @@ XeenEventSystem XeenEventFlow::detachedEventResources() {
         auto &work=*_transition;
         work.skipped=work.slot0;
         return work.skipped;
+    };
+    result._interpreter.sceneWindow11Open=[this] {
+        _eventPublication->check();
+        return _presenter.window11Enabled() &&
+            !(_presenter.hasNpcOffer() && !XeenSoundOptions(_transition->party.soundOptions).text);
     };
     result._interpreter.eventDraw=[this](XeenWorld &world,const XeenCamera &camera,bool label) {
         _eventPublication->check();
@@ -2027,8 +2080,8 @@ void XeenEventFlow::prepareDetachedResult(const XeenManualEventResult &result) t
 	{
         XeenRestoreGuard::EventProviders providers(*work.world,work.party,work.camera,work.flags,*work.guard,
             [&] {_eventPublication->check();},[&] {_encounter->journeySavePreimage().failed=true;});
-        const auto light=work.world->lightAfterScenePreparation(work.party,work.camera);
-        _eventPublication->check();work.party.encounterContext->lightAndResistances[0]=light;
+        auto light=work.world->lightAfterScenePreparation(work.party,work.camera);
+        _eventPublication->check();work.world->recordExploration(light.exploration);work.party.encounterContext->lightAndResistances[0]=light.light;
         work.world->scenePresentation().lightingPrepared=true;
     }
 	{
@@ -2039,11 +2092,7 @@ void XeenEventFlow::prepareDetachedResult(const XeenManualEventResult &result) t
 	XeenRestoreGuard candidateGuard(*work.world,work.party,work.camera,work.flags);
 	candidateGuard.retainResources(*work.guard);
 	XeenRestoreGuard::Providers providers(candidateGuard,*work.world,[&] {_eventPublication->check();});
-	std::optional<std::vector<XeenExploredTile>> exploration,retainedExploration;
-	if(!sameMap || work.manualStep) {
-		exploration=work.world->explorationAfterStep(work.party,work.camera);
-		retainedExploration=*exploration;candidateGuard.s.reserveTiles(*retainedExploration);candidateGuard.check();
-	}
+
 	const auto composed=[&] {
 		// The falling view already acquired its prepared destination. Reuse it
 		// for publication, without a second composition or scene-animation step.
@@ -2078,9 +2127,6 @@ void XeenEventFlow::prepareDetachedResult(const XeenManualEventResult &result) t
     _encounter->_drawnSlot0=bool(arrival.slots[0]);
     if(work.manualStep){_encounter->_doorTextUp=false;work.doorTextBase=false;}
     if(work.manualStep)_encounter->settleManualStep(work.manualStep->result.needsRest || work.terrain->needsRest);
-	if(exploration) {
-		_encounter->publishJourneyExploration(*exploration,*retainedExploration);
-	}
 	// Retain the classified destination under the Event lease. Keep the Event's
 	// concrete ticket intact until its final provider/publication checks finish;
 	// contact changes the encounter phase at callback-free retirement below.
@@ -2415,7 +2461,7 @@ void XeenEventFlow::publishEventSequencePrefix(const XeenEventExecutionState &st
 		throw std::logic_error("Event sequence prefix has no retained authority");
 	_eventPublication->continuation(state,*_transition->continuation,true);
 	checkTransitionCandidate();
-	if(_transition->automatic)_eventPublication->publishSequencePrefix(_world,_party,*_transition->guard);
+	if(_transition->automatic)_eventPublication->publishSequencePrefix(_world,_party,*_transition->guard,state.prefixLight);
     else {
         // These effects have their interpreter-issued portrait presentation.
         // Keep their gameplay prefix detached, but consume the candidate's
@@ -2424,7 +2470,7 @@ void XeenEventFlow::publishEventSequencePrefix(const XeenEventExecutionState &st
             if(effect.damageTicks && !effect.damageDeadline)effect.damageTicks=0;
             if(effect.spellFrame<4 && !effect.spellDeadline)effect.spellFrame=4;
         }
-        retainManualPrefix(true);
+        retainManualPrefix(true,state.prefixLight);
     }
 	// Party/RNG stores do not swap the detached World. Its checked interpreter
 	// image remains intact for the next resume; camera/flag settlement is deferred.
