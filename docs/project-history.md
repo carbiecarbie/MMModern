@@ -280,3 +280,10 @@ Xeen slot pair that DOS loads in DOSBox. It can place the party on Clouds or
 Darkside, prepare a ready-to-run DOSBox folder and compare two pairs byte by
 byte, so DOS evidence can start from the same state as MMModern.
 [Plan](milestone-97-plan.md).
+
+**M98 - Cartographer marks every arrival** (`ac1310a`, `55c9944`). As in DOS,
+the scene check that drains light also marks the party's cell when a member
+has Cartographer, whenever a step is pending. New Game, Load, leaving the
+Inn, same-map teleports, Event Continue stops and every combat and service
+exit now mark the cell as DOS does, and Event waits keep or consume the step
+as they do in DOS. [Plan](milestone-98-plan.md).

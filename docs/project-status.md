@@ -1,10 +1,11 @@
 # MMModern - Project Status
 
-This describes what can be played and done now. M97 is the latest completed
-and accepted milestone (2026-10-30; [plan](milestone-97-plan.md)): a
-developer tool writes an MMModern Clouds save as an original DOS save that
-World of Xeen loads in DOSBox. Before it, M96 kept picked chests open as in
-DOS, M95 followed up the Clouds audit, M94 played the original AdLib, Sound
+This describes what can be played and done now. M98 is the latest completed
+and accepted milestone (2026-10-30; [plan](milestone-98-plan.md)): as in DOS,
+a party with a Cartographer marks its cell on the maps at every arrival,
+including New Game, Load, leaving the Inn and Event teleports. Before it, M97
+added a developer tool that writes an MMModern Clouds save as an original DOS
+save, M96 kept picked chests open as in DOS, M95 followed up the Clouds audit, M94 played the original AdLib, Sound
 Blaster and MT-32 drivers when `XEEN.CFG` selects them, M93 opened each
 launch with the original Darkside intro, M90 confirmed that Clouds of Xeen
 can be played from Newcastle's Megacredits to Lord Xeen, M92 made Clouds
@@ -143,8 +144,8 @@ Teachers and Events grant skills. Thievery picks locks, and a picked chest
 stays open for good, as in DOS. Bodybuilder and the spell-casting skills raise
 HP or SP, Merchant sells at full value, Swimming opens water and Navigator
 saves time in the desert; Arms Master and Tracker do nothing, as in DOS.
-Cartography fills the 7x7 automap (`=`) and the original 16x16 Map (M), and
-the border lights Danger Sense, Spot Secret Doors and Direction Sense.
+Cartography fills the 7x7 automap (`=`) and the original 16x16 Map (M) with
+every cell the party arrives on, as in DOS, and the border lights Danger Sense, Spot Secret Doors and Direction Sense.
 
 ### Towns and services
 

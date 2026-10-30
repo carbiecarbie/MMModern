@@ -1,6 +1,6 @@
 # MMModern - Roadmap
 
-**M97 is the latest completed and accepted milestone.**
+**M98 is the latest completed and accepted milestone.**
 [Project status](project-status.md) describes what is playable now;
 [project history](project-history.md) records each completed milestone.
 Reference provenance belongs to [dependencies](dependencies.md).
@@ -29,7 +29,8 @@ makes Clouds sturdier and easier to test and report on, then starts Darkside.
 Its first step is done: M95 closed the Clouds audit with tests for its
 invariants. The DOS save investigation followed: it found that picked
 chests stay open in DOS, which M96 added, and M97 added a tool that exports
-MMModern saves to DOS.
+MMModern saves to DOS. Its play-test led to M98, which makes a Cartographer
+party mark its cell at every arrival.
 
 ## Completed arc: closing Vertigo and the first release
 
@@ -127,7 +128,7 @@ this order; steps are direction, not approved plans.
    MMModern exported, so [M97](milestone-97-plan.md) added a developer
    exporter that also places the party on Darkside and prepares DOSBox.
    Its play-test showed that DOS marks a Cartographer party's cell when it
-   loads a map; [M98](milestone-98-plan.md) makes every arrival do that.
+   loads a map; [M98](milestone-98-plan.md) made every arrival do that.
    Importing DOS saves waits for policy decisions.
 3. **4:3 picture**: the 320x200 picture shown with the shape the original's
    4:3 monitors gave it; square pixels today. Whether it is the default is
