@@ -75,7 +75,7 @@ void restoreAndBarriers() {
  const auto values=w.sessionState().exploredTiles();XeenWorld restored(tile);restored.restoreExploredTiles(values);
  check(restored.sampleCell(60,15,15)->cell->stepped && restored.sampleCell(60,0,0)->cell->stepped,"Restore merges resource defaults without replay");
  auto bad=values;bad.push_back(values[0]);rejects([&]{restored.restoreExploredTiles(bad);});
- bad=values;bad[0].mapId={XeenSide::Darkside,60};rejects([&]{restored.restoreExploredTiles(bad);});
+ bad=values;bad[0].mapId={XeenSide::Darkside,113};rejects([&]{restored.restoreExploredTiles(bad);});
  bad=values;bad[0].mapId=0;rejects([&]{restored.restoreExploredTiles(bad);});
  bad=values;bad[0].mapId=64;rejects([&]{restored.restoreExploredTiles(bad);});
  bad.resize(513);rejects([&]{restored.restoreExploredTiles(bad);});

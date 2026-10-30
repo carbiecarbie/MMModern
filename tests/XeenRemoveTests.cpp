@@ -67,7 +67,7 @@ void loadingAndSelection() {
 	try { loader.loadObjects([](const std::string &) { return Bytes{}; }, 23); }
 	catch (const std::runtime_error &e) { malformed = std::string(e.what()).find("maze0023.mob") != std::string::npos; }
 	int reads = 0;
-	try { loader.loadObjects([&](const std::string &) { ++reads; return mob(); }, {XeenSide::Darkside,23}); }
+	try { loader.loadObjects([&](const std::string &) { ++reads; return mob(); }, {XeenSide::Darkside,113}); }
 	catch (const std::invalid_argument &) { rejected = true; }
 	check(malformed && rejected && reads == 0, "MOB failure or side handling");
 	Fixture f;

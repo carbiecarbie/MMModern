@@ -66,11 +66,9 @@ void XeenSaveState::validateJourneyValues(const XeenSaveSnapshot &s) {
 		xeenValidateCurrentServiceEconomy(*j.serviceEconomy);
 	}
 	require(bool(s.resources.darkside));
-	// Decision 6: Darkside identities are representable, not loadable.
-	if (s.camera.mapId.side!=XeenSide::Clouds)
-		throw std::invalid_argument("Darkside map state cannot be loaded yet");
-	for (const auto &m:s.maps) if (m.id.side!=XeenSide::Clouds)
-		throw std::invalid_argument("Darkside map state cannot be loaded yet");
+	// Ordinary maps on either side are admitted; mixed Darkside maps wait.
+	requireXeenMap(s.camera.mapId);
+	for (const auto &m:s.maps) requireXeenMap(m.id);
 	// Decision 2: the Warzone (Clouds 85) is never written back.
 	for (const auto &m:s.maps) if (!xeenRetainsMapState(m.id))
 		throw std::invalid_argument("Saved Warzone state is not part of a save");
@@ -113,7 +111,7 @@ void XeenSaveState::restoreJourney(const XeenSaveSnapshot &source, const Resourc
 	for (unsigned i = 0; i < 30; ++i) p.roster.at(i) = snapshot.characters[i];
 	p.party = XeenParty::fromRosterIds(snapshot.activeRosterIds);
 	p.insideInn=snapshot.insideInn;p.food=snapshot.food; p.soundOptions=snapshot.soundOptions;
-	p.questItems = XeenCloudsQuestItems(snapshot.questItems); p.questFlags = XeenCloudsQuestFlags(snapshot.questFlags);
+	p.questItems = XeenQuestItems(snapshot.questItems); p.questFlags = XeenQuestFlags(snapshot.questFlags);
 	p.worldFlags = snapshot.journey->worldFlags;
 	p.firstSerializedCount = p.effectiveSerializedCount = p.party.size();
 	p.encounterContext = snapshot.journey->context;
@@ -191,7 +189,12 @@ void XeenSaveState::restoreJourney(const XeenSaveSnapshot &source, const Resourc
 		w.setTavernTipIndex(m.id,*m.tavernTips);adopt();
 	}
 	w.restoreHeads(snapshot.headCache,c);adopt();
-	auto statistics = callback(monsters);
+	if (c.mapId.side==XeenSide::Darkside && (!snapshot.darksideSong ||
+		unsigned(*snapshot.darksideSong)/7!=xeenMapMusicRow(w.map(c.mapId).geometry)))
+		throw std::invalid_argument("Saved Darkside song does not belong to camera map table");
+	auto statistics = callback([&]{return resources.monsterStatistics(c.mapId.side);});
+	std::array<std::optional<std::vector<XeenMonsterRecord>>,2> statisticsBySide;
+	statisticsBySide[static_cast<unsigned>(static_cast<XeenSide>(c.mapId.side))]=statistics;
 	auto evt = events(c.mapId);
 	{
 		if(!resources.loadInitialCharacters)
@@ -213,27 +216,30 @@ void XeenSaveState::restoreJourney(const XeenSaveSnapshot &source, const Resourc
 	}
 	static_cast<void>(CloudsUiComposer::buildPortraitPlacements(p));
 	auto &s = w._sessionState;
-	w._cityStatistics=statistics;
+	(c.mapId.side==XeenSide::Clouds?w._cityStatistics:w._darksideStatistics)=statistics;
 	s._entry = XeenEncounterEntry::Journey;
 	s._encounterMarked = s._encounterInitialized = true; s._encounterRevision = 1;
 	s._skeletonSeed = snapshot.journey->skeletonSeed;
-	 s._journeyRandom=snapshot.journey->random;
+	 s._journeyRandom=snapshot.journey->random;s._darksideSong=snapshot.darksideSong;
 	adopt(); // Base Journey values are complete before the retained monster tables.
 	// Every retained monster table: its MOB records. HP
 	// and wake state are rebuilt as a map load does (decision 8). All provider
 	// calls precede the stores, so one adoption covers every staged table.
-	struct Loaded { const XeenSaveMapState *saved; XeenObjectFile mob; bool outdoors; };
+	struct Loaded { const XeenSaveMapState *saved; XeenObjectFile mob; bool outdoors; std::vector<XeenMonsterRecord> statistics; };
 	std::vector<Loaded> tables;
 	for (const auto &m:snapshot.maps) if (m.monsters) {
 		const auto admitted=callback([&] { return w.prepareEventTransition({m.id,0,0,XeenDirection::North}); });
 		if (!admitted) throw std::invalid_argument("Saved actor table is not a primary gameplay map");
 		auto mob=callback([&] { return w.objectFile(m.id); });
 		const bool outdoors=callback([&] { return w.map(m.id).geometry.isOutdoors(); });
-		tables.push_back({&m,std::move(mob),outdoors});
+		auto &mon=statisticsBySide[static_cast<unsigned>(static_cast<XeenSide>(m.id.side))];
+		if (!mon) mon=callback([&]{return resources.monsterStatistics(m.id.side);});
+		tables.push_back({&m,std::move(mob),outdoors,*mon});
 	}
 	for (const auto &table:tables) {
 		const auto &m=*table.saved;
-		auto actors=XeenActorApproach::actorsFromResources(table.mob,statistics);
+		(m.id.side==XeenSide::Clouds?w._cityStatistics:w._darksideStatistics)=table.statistics;
+		auto actors=XeenActorApproach::actorsFromResources(table.mob,table.statistics);
 		if (actors.size()!=m.monsters->originalCount)
 			throw std::invalid_argument("Saved original monster count differs from MOB");
 		// Slots past the MOB count never survive a DOS save or map load (writer
@@ -294,10 +300,10 @@ void XeenSaveState::restoreJourney(const XeenSaveSnapshot &source, const Resourc
 	world.swapPreparedState(w); // Includes every staged monster table.
 	auto &out = world._sessionState;
 	out._accountedMonsters.swap(s._accountedMonsters);
-	world._cityStatistics.swap(w._cityStatistics);
+	world._cityStatistics.swap(w._cityStatistics);world._darksideStatistics.swap(w._darksideStatistics);
 	out._entry = XeenEncounterEntry::Journey; out._encounterMarked = out._encounterInitialized = true;
 	out._encounterRevision = 1; out._skeletonSeed = snapshot.journey->skeletonSeed;
-	 out._journeyRandom=snapshot.journey->random;
+	 out._journeyRandom=snapshot.journey->random;out._darksideSong=snapshot.darksideSong;
 	world._journeyRestoration.swap(binding);
 	world._journeyRestoration->guard->adoptMutationBoundary();
 }
@@ -367,6 +373,7 @@ XeenSaveSnapshot XeenSaveState::captureImpl(const XeenSaveResourceSignature &res
 	snapshot.questItems = party.questItems.counts();
 	snapshot.questFlags = party.questFlags.values();
 	snapshot.gameFlags = flags.values();
+ snapshot.darksideSong=world.sessionState().darksideSong();
 	const auto &state = world.sessionState();
 	snapshot.headCache=state.headCache();
  if(snapshot.headCache && snapshot.headCache->mapId!=camera.mapId)snapshot.headCache.reset();

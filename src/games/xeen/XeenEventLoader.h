@@ -16,12 +16,15 @@ public:
 	using ResourceReader = std::function<std::optional<std::vector<std::uint8_t>>(
 		const std::string &resourceName)>;
 
+	using SideReader = std::function<std::optional<std::vector<std::uint8_t>>(const std::string &,XeenSide)>;
+	explicit XeenEventLoader(SideReader);
 	explicit XeenEventLoader(ResourceReader resourceReader);
 
 	static std::string resourceNameForMap(XeenMapIdentity mapId);
 	XeenEventFile load(XeenMapIdentity mapId) const;
 
 private:
+	SideReader _sideReader;
 	ResourceReader _resourceReader;
 };
 

@@ -129,7 +129,8 @@ void admission(Inputs &in) {
         }
     }
     check(primary>32 && extensions>0,"Opening inventory lost original primary maps or extensions");
-    check(!w.prepareEventTransition({XeenMapIdentity(XeenSide::Darkside,28),1,1,XeenDirection::North}),"Darkside admitted");
+    check(w.prepareEventTransition({XeenMapIdentity(XeenSide::Darkside,28),1,1,XeenDirection::North}).status==XeenTransitionResult::Status::Available,"Ordinary Darkside map refused");
+    check(!w.prepareEventTransition({XeenMapIdentity(XeenSide::Darkside,113),1,1,XeenDirection::North}),"Mixed Darkside map admitted");
     check(!w.prepareEventTransition({99,1,1,XeenDirection::North}),"Absent primary admitted");
     std::cout<<"Opening primary maps="<<primary<<" indoor extension links="<<extensions<<'\n';
 }

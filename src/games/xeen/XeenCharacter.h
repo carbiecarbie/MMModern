@@ -127,6 +127,7 @@ struct XeenCharacter {
 	XeenCondition worstCondition() const;
 	bool canAct() const;
 	std::optional<std::string> portraitResourceName() const;
+	XeenMutableArray<bool,32> characterFlags{};
 private:
 	friend class XeenCharacterFormat;
 	friend class XeenSaveState;

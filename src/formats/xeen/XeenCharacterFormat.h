@@ -13,6 +13,8 @@ struct XeenSaveSnapshot;
 
 class XeenCharacterFormat {
 public:
+	static constexpr std::size_t kWorldPartySize = 1530;
+	static constexpr std::size_t kCharacterFlagsOffset = 1408;
 	struct PartyHeader {
 		std::uint8_t firstCount = 0;
 		std::uint8_t effectiveCount = 0;

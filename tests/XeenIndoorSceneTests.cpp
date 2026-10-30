@@ -786,8 +786,8 @@ void testObjectIdentityPrecedenceAndBoundaries() {
 		const auto commands = XeenIndoorScene().build(
 			world, {dark,8,8,XeenDirection::North}, &resolver, &diagnostics);
 		require(objectCommands(commands).empty() && diagnostics.size() == 1 &&
-			diagnostics[0].status == XeenObjectVisualStatus::UnsupportedSide,
-			"unsupported side produced indoor object");
+			diagnostics[0].status == XeenObjectVisualStatus::MetadataUnavailable,
+			"missing side metadata produced indoor object");
 	}
 	{
 		using namespace mmodern::xeen_indoor_scene_tables;

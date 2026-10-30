@@ -245,7 +245,7 @@ int main(int argc,char **argv) try {
    for(const auto &r:f.records)if(r.x==x && r.y==y && r.direction==2)
     check(r.opcode!=0x2f && r.opcode!=0x18,"CD protection and self-disable pair must not be synthesized");
   }
-  if(expected.id==33)map33(f,XeenEventTextLoader(archive).load(33),XeenPartyLoader().loadInitialCloudsParty(assets));
+  if(expected.id==33)map33(f,XeenEventTextLoader(archive).load(33),XeenPartyLoader().loadInitialParty(assets));
  }
  std::set<unsigned> textMaps;
  for(const auto &expected:cd_event_oracle::texts) {

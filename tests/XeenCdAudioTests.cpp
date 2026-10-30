@@ -55,7 +55,7 @@ void failurePolling(const GameInstallation &installation,XeenAssetSource &assets
   XeenProgramState program{mmodern::XeenWallClock::fixed(0)};
   program.audio=std::make_shared<XeenAudio>(3,driver,loader,module,0,failure!=5,[&](const auto &w){writes.push_back(w);},fm);
   program.audio->cdTracks(extents);program.audio->enterTitle(0);
-  auto party=XeenPartyLoader().loadInitialCloudsParty(assets);auto options=XeenSoundOptions{};options.text=false;party.soundOptions=options;
+  auto party=XeenPartyLoader().loadInitialParty(assets);auto options=XeenSoundOptions{};options.text=false;party.soundOptions=options;
   XeenCamera camera{1,1,1,XeenDirection::North};XeenGameFlags flags;
   XeenWorld world([](auto id){return remove_test::map(id);});
   const auto script=remove_test::script(1,{remove_test::record(1,1,0,60,{19,114,1,113,8}),
@@ -105,7 +105,7 @@ void npcPolling(const GameInstallation &installation,XeenAssetSource &assets,
   program.audio=XeenAudio::installed(installation,assets,0,device,std::filesystem::path("mmodern-nonexistent-rom-fixture"));
   program.audio->cdTracks(missing?std::vector<XeenCdExtent>{}:extents);
   check(program.audio->outputActive()==device,"Requested dummy device did not open");
-  auto party=XeenPartyLoader().loadInitialCloudsParty(assets);
+  auto party=XeenPartyLoader().loadInitialParty(assets);
   auto options=XeenSoundOptions(party.soundOptions);options.text=text;options.speech=true;party.soundOptions=options;
   XeenCamera camera{1,1,1,XeenDirection::North};XeenGameFlags flags;
   XeenWorld world([](auto id){return remove_test::map(id);});
@@ -149,7 +149,7 @@ void fallbackAndReaders(const GameInstallation &installation,XeenAssetSource &as
   if(source==3)media[18].error="Undecodable CD audio: synthetic invalid file";
   if(source==5)media[18].track.file="missing-after-inspection.ogg";
   program.audio->cdTracks(media);
-  auto party=XeenPartyLoader().loadInitialCloudsParty(assets);
+  auto party=XeenPartyLoader().loadInitialParty(assets);
   auto options=XeenSoundOptions(party.soundOptions);options.text=text;options.speech=speech;party.soundOptions=options;
   XeenCamera camera{1,1,1,XeenDirection::North};XeenGameFlags flags;
   // Part 0: isolate manual audio presentations; flagged passes are covered by A1.

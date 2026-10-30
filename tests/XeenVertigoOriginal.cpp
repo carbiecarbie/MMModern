@@ -81,7 +81,7 @@ int main(int argc,char **argv) {
    if(!assets.hasInitialResource(name))return {};return assets.readInitialResource(name);
   });
   const auto mainland=events.load(23),city=events.load(28);
-  const auto statistics=XeenMonsterFormat::parse(*assets.readCloudsMonsterStatisticsFromDarkArchive());
+  const auto statistics=XeenMonsterFormat::parse(*assets.readMonsterStatistics());
   targetingOracle(statistics);
   if(const auto path=std::getenv("MMODERN_M49_READ_SAVE")) {
    // Read-only evidence of the saved equipment/stat inputs used by a volley.

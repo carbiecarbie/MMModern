@@ -44,7 +44,7 @@ void recovery() {
 void time() {
  for(bool outdoor:{false,true})for(unsigned food:{0u,6u}) {
   auto c=characters();auto i=inputs();XeenGameplayContext context;context.year=610;context.day=8;context.minutes=480;context.ctr24=17;
-  context.profile=XeenBehaviorProfile::WorldOfXeenClouds;c[0].conditions[2]=5;c[0].conditions[7]=2;
+  context.profile=XeenBehaviorProfile::WorldOfXeen;c[0].conditions[2]=5;c[0].conditions[7]=2;
   XeenCombatRandom rng(17);
   for(unsigned step=0;step<11;++step) {
    XeenConditionTimeCandidate candidate(context,step<10?(outdoor?10:1):(outdoor?380:470),c,i,nullptr,XeenTimeMode::Sleeping);

@@ -56,6 +56,21 @@ XeenEventProbe probe(Owners &o,unsigned action,std::uint32_t value,unsigned memb
 }
 
 // Operand widths and worked Clouds operands (decoder).
+void twoSidedValues() {
+ Owners o;
+ for(auto side:{XeenSide::Clouds,XeenSide::Darkside}) {
+  o.camera.mapId.side=side;const auto w=o.owners();
+  for(unsigned i:{0u,255u})check(xeenEventGive(w,20,i,0).status==XeenEventWriteStatus::Applied,"side game flag grant");
+  for(unsigned i:{0u,29u})check(xeenEventGive(w,104,i,0).status==XeenEventWriteStatus::Applied,"side quest flag grant");
+  for(unsigned i:{0u,31u})check(xeenEventGive(w,107,i,0).status==XeenEventWriteStatus::Applied,"roster flag grant");
+  for(unsigned i=0;i<85;++i) {o.p.questItems.eventGrant(i);check(probe(o,21,82+i).value==82+i,"shared quest item on either side");}
+ }
+ o.camera.mapId.side=XeenSide::Darkside;xeenEventTake(o.owners(),20,255,0);xeenEventTake(o.owners(),104,29,0);
+ check(o.flags.isSet(255) && !o.flags.isSet(XeenSide::Darkside,255) && o.p.questFlags.isSet(29) && !o.p.questFlags.isSet(XeenSide::Darkside,29),"flag banks alias");
+ check(o.p.questItems.at(26)==2 && probe(o,105,0).value==2 && !o.c(1).characterFlags[0],"shared state followed side or touched another member");
+ o.p.party=XeenParty::fromRosterIds({1,0,2,3,4,5});check(probe(o,107,31,1).value==31 && !o.c(1).characterFlags[31],"character flags followed party slot");
+ check(xeenEventGive(o.owners(),107,32,1).status==XeenEventWriteStatus::Unsupported,"character flag boundary");
+}
 void widths() {
  const auto decode=[](std::uint8_t op,std::vector<std::uint8_t> p) {
   XeenEventRecord r;r.opcode=op;r.parameters=std::move(p);r.lengthField=std::uint8_t(5+r.parameters.size());
@@ -113,10 +128,10 @@ void probes() {
  // 86..92 use the sheet rule: maze0027.evt mode 89 (Endurance).
  check(probe(o,89,0).value==unsigned(XeenCharacterRules::sheetStat(o.c(0),&o.in(0),3,{610})),"getStat reads the sheet value");
  check(probe(o,34,0).value==500 && probe(o,35,0).value==10 && probe(o,65,0).value==20 && probe(o,25,0).value==480,"party values");
- o.p.questItems=XeenCloudsQuestItems(XeenCloudsQuestItems::Counts{});
- auto counts=static_cast<XeenCloudsQuestItems::Counts>(o.p.questItems.counts());counts[26]=3;o.p.questItems=XeenCloudsQuestItems(counts);
+ o.p.questItems=XeenQuestItems(XeenQuestItems::Counts{});
+ auto counts=static_cast<XeenQuestItems::Counts>(o.p.questItems.counts());counts[26]=3;o.p.questItems=XeenQuestItems(counts);
  check(probe(o,105,2).value==3,"Megacredits counter (quest item 26)");
- std::string reason;check(!xeenEventProbe(o.owners(),107,1,0,reason),"Darkside character flags refuse");
+ std::string reason;check(probe(o,107,1).value==std::numeric_limits<std::uint32_t>::max(),"clear character flag test");
  check(!xeenEventProbe(o.owners(),19,7,1,reason),"a non-caster's spell test uses a stale book and refuses");
  // Awards: nibbles, 73 and 81 remapped.
  o.c(2).awards[126]=1;check(!probe(o,15,73,2).residue && probe(o,15,62,2).residue,"award 73 is byte 62's high nibble");
@@ -624,8 +639,8 @@ void wordDraws() {
  check(xeenEventSignedWord(1)==1 && xeenEventSignedWord(0x7fff)==0x7fff && xeenEventSignedWord(0x8000)==0xffff8000u,
   "drawn words are sign-extended before the 32-bit addition");
  // Quest counters are bytes in both directions.
- check(XeenCloudsQuestItems::afterEventGrant(254)==255 && XeenCloudsQuestItems::afterEventGrant(255)==0 &&
-  XeenCloudsQuestItems::afterEventTake(0)==255 && XeenCloudsQuestItems::afterEventTake(1)==0,"quest byte rule");
+ check(XeenQuestItems::afterEventGrant(254)==255 && XeenQuestItems::afterEventGrant(255)==0 &&
+  XeenQuestItems::afterEventTake(0)==255 && XeenQuestItems::afterEventTake(1)==0,"quest byte rule");
 }
 
 void prefixLightWrites() {
@@ -653,11 +668,13 @@ void prefixLightWrites() {
  check(xeenEventSetValue(owners,74,2,0).status==XeenEventWriteStatus::Unsupported &&
   prefix==7 && *f.p.encounterContext==before,"Refused collective Set cannot change the projection");
  // Give 85 clears temporary party words; a later portrait publishes that reset.
+ for(auto side:{XeenSide::Clouds,XeenSide::Darkside}) {
  World world;auto p=party();XeenGameFlags flags;
+ for(unsigned i:{55u,155u,222u,231u}){flags.set(i);flags.set(XeenSide::Darkside,i);}
  p.encounterContext->lightAndResistances[0]=3;
  bool reset=false;
  const auto result=run(*world.w,p,flags,{row(0,12,{0,0,85,1}),row(1,22,{1,0,0})},
-  {},{47,5,5,XeenDirection::North},{},[&](auto &state,const auto &) {
+  {},{{side,47},5,5,XeenDirection::North},{},[&](auto &state,const auto &) {
    if(!reset) {
     XeenEventContinuation retained(state);auto altered=state;altered.prefixLight=1;
     bool rejected=false;try {retained.check(altered);}catch(const std::exception &) {rejected=true;}
@@ -668,6 +685,9 @@ void prefixLightWrites() {
   });
  check(completed(result) && reset && p.encounterContext->year==611,"Year reset reaches its following portrait");
 
+ const auto yearFlags=finalFlags(result);
+ for(unsigned i:{55u,155u,222u,231u})check(!yearFlags.isSet(i) && yearFlags.isSet(XeenSide::Darkside,i),"Year reset used the camera bank instead of Clouds");
+ }
 }
 
 } // namespace
@@ -676,7 +696,7 @@ int main(int argc,char **argv) {
  try {
   if(argc==2 && std::string(argv[1])=="b5") {miscMaterial();return 0;}
   if(argc!=1)throw std::runtime_error("Unknown Event value test mode");
-  widths();probes();writes();prefixLightWrites();randomOperations();flowOperations();lockPicking();chestRule();specialItem();miscMaterial();wordDraws();
+  twoSidedValues();widths();probes();writes();prefixLightWrites();randomOperations();flowOperations();lockPicking();chestRule();specialItem();miscMaterial();wordDraws();
  } catch(const std::exception &e) {std::cerr<<"Event value tests failed: "<<e.what()<<'\n';return 1;}
  std::cout<<"Event value tests passed\n";
  return 0;

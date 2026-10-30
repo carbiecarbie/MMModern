@@ -8,7 +8,7 @@ bool XeenEventFlow::beginTravelDialog(XeenLearnedSpell spell,std::uint8_t owner,
     XeenSpellTravel rule;TravelUi ui;
     _encounter->itemTravelRead([&] {
     rule=XeenLearnedSpellRules::travel(_world,_camera,spell,0,&_party.roster.at(owner),_party.cloudsCompleted);
-    if(rule.failed)return;
+    if(rule.failed || rule.unsupported)return;
     ui.spell=spell;ui.owner=owner;ui.item=item;ui.digits.begin();
     if(spell==XeenLearnedSpell::LloydsBeacon || spell==XeenLearnedSpell::TownPortal) {
         if(!mapName)throw std::logic_error("Travel map name provider missing");
@@ -18,7 +18,7 @@ bool XeenEventFlow::beginTravelDialog(XeenLearnedSpell spell,std::uint8_t owner,
         }
     }
     });
-    if(rule.failed)return false;
+    if(rule.failed || rule.unsupported)return false;
     if(item && _combatItems && spell==XeenLearnedSpell::TownPortal) {
         ui.refusal=xeenDialogFormat(dosText().scalar("CANT_CAST_WHILE_ENGAGED"),{_encounter->journeySavePreimage().learnedNames->names[unsigned(spell)]});
         _encounter->fmEffect(21);

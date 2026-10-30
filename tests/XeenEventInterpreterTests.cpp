@@ -257,7 +257,7 @@ void testConditions() {
 
 	Fixture unsupported;
 	unsupported.scripts.emplace(1, script(1, {
-		record(1, 1, 0, 0x09, {107, 1, 1})
+		record(1, 1, 0, 0x09, {108, 1, 1})
 	}));
 	failure(unsupported.execute(camera, party, flags),
 		XeenEventExecutionErrorKind::UnsupportedConditionAction);
@@ -475,7 +475,9 @@ void testTakeOrGiveFlagOperations() {
 	Fixture howMuch;
 	howMuch.scripts.emplace(1, script(1,
 		{record(1, 1, 0, 0x0c, clearFlag(0))}));
-	failure(howMuch.execute(camera, party, {}),
+	const auto howMuchResult=howMuch.execute(camera, party, {});
+	check(!std::holds_alternative<XeenEventExecutionCompleted>(howMuchResult),"zero take operand unexpectedly completed");
+	failure(howMuchResult,
 		XeenEventExecutionErrorKind::UnsupportedOperationMode);
 
 	XeenGameFlags ownedInput;
@@ -492,13 +494,15 @@ void testTakeOrGiveFlagOperations() {
 	XeenGameFlags bothInput;bothInput.set(1);
 	const auto bothResult = success(both.execute(camera, party, bothInput));
 	check(!bothResult.finalGameFlags.isSet(1) && bothResult.finalGameFlags.isSet(2), "take and give in one TakeOrGive");
-	// Modes owned elsewhere still refuse: Darkside flags, damage and time going back.
+	// Modes owned elsewhere still refuse: damage and time going back.
 	for (const auto &parameters : std::vector<std::vector<std::uint8_t>>{
-			{0, 0, 107, 1}, {8, 5}, {0, 0, 82, 5}, {0, 0, 25, 1, 0}}) {
+			{8, 5}, {0, 0, 82, 5}, {0, 0, 25, 1, 0}}) {
 		Fixture unsupported;
 		unsupported.scripts.emplace(1, script(1,
 			{record(1, 1, 0, 0x0c, parameters)}));
-		const auto result = failure(unsupported.execute(camera, party, {}),
+		const auto attempted=unsupported.execute(camera, party, {});
+		if(std::holds_alternative<XeenEventExecutionCompleted>(attempted))throw std::runtime_error("unexpected supported TakeOrGive mode "+std::to_string(parameters.size()>2?parameters[2]:parameters[0]));
+		const auto result = failure(attempted,
 			XeenEventExecutionErrorKind::UnsupportedOperationMode);
 		check(result.instructionCount == 1,
 			"unsupported TakeOrGive combination counts as dispatched");
@@ -598,7 +602,7 @@ void testTakeOrGiveRollback() {
 
 	Fixture unsupportedMode;
 	unsupportedMode.scripts.emplace(1, script(1, {
-		record(1, 1, 0, 0x0c, clearFlag(25)), record(1, 1, 1, 0x0c, {0, 0, 107, 1})
+		record(1, 1, 0, 0x0c, clearFlag(25)), record(1, 1, 1, 0x0c, {0, 0, 82, 1})
 	}));
 	XeenGameFlags setInput;
 	setInput.set(25);
@@ -723,16 +727,27 @@ void testOwnedDiagnosticLifetime() {
 
 int main() {
 	try {
-		testNaturalFlowAndFirstMatch();
-		testConditions();
-		testCallsReturnsAndStack();
-		testTeleportsAndTransactionalResult();
-		testLegacyTownRefusal();
-		testTakeOrGiveFlagOperations();
-		testTakeOrGiveVisibilityAcrossFlow();
-		testTakeOrGiveRollback();
-		testLimitsLoadingAndInputPreservation();
-		testOwnedDiagnosticLifetime();
+        const auto run=[](const char *label,auto test){try{test();}catch(const std::exception &e){throw std::runtime_error(std::string(label)+": "+e.what());}};
+
+        run("testNaturalFlowAndFirstMatch",testNaturalFlowAndFirstMatch);
+
+        run("testConditions",testConditions);
+
+        run("testCallsReturnsAndStack",testCallsReturnsAndStack);
+
+        run("testTeleportsAndTransactionalResult",testTeleportsAndTransactionalResult);
+
+        run("testLegacyTownRefusal",testLegacyTownRefusal);
+
+        run("testTakeOrGiveFlagOperations",testTakeOrGiveFlagOperations);
+
+        run("testTakeOrGiveVisibilityAcrossFlow",testTakeOrGiveVisibilityAcrossFlow);
+
+        run("testTakeOrGiveRollback",testTakeOrGiveRollback);
+
+        run("testLimitsLoadingAndInputPreservation",testLimitsLoadingAndInputPreservation);
+
+        run("testOwnedDiagnosticLifetime",testOwnedDiagnosticLifetime);
 		std::cout << "Headless transactional Xeen event interpreter OK\n";
 		return 0;
 	} catch (const std::exception &error) {

@@ -136,7 +136,7 @@ void savesAndCombat() {
         regional_journey_test::Fixture f(bytes,[&](auto &f){f.p.party=XeenParty::fromRosterIds({ids.begin(),ids.begin()+count});});
         auto before=XeenSaveState::capture(regional_test::signature(),f.p,f.camera,f.flags,f.w);
         runAndDefeat(before,count);
-        const auto wire=XeenSaveFormat::encode(before);check(wire[8]==22,"v22 envelope byte");
+        const auto wire=XeenSaveFormat::encode(before);check(wire[8]==23,"v23 envelope byte");
         auto decoded=XeenSaveFormat::decode(wire);save_test::sameSnapshot(before,decoded);
         check(XeenSaveFormat::encode(decoded)==wire,"byte-exact one-to-six round trip");
         for(unsigned id=0;id<30;++id)check(decoded.characters[id].savedMaze==561 && decoded.characters[id].townUnknown==173 &&
@@ -276,7 +276,7 @@ void original(const char *path) {
     training_test::Inputs in(*installation);
     XeenSaveSnapshot fresh;
     {
-        auto party=XeenPartyLoader().loadInitialCloudsParty(in.assets);XeenCamera camera{28,18,4,XeenDirection::West};XeenGameFlags flags;
+        auto party=XeenPartyLoader().loadInitialParty(in.assets);XeenCamera camera{28,18,4,XeenDirection::West};XeenGameFlags flags;
         XeenWorld world(in.mapLoader(),in.objectLoader());const auto defaults=in.setup();
         XeenJourneySetup setup{in.chr,defaults.context,in.statistics,in.city,defaults.seed,defaults.regionalManifest};
         setup.purse=defaults.purse;setup.worldFlags=defaults.worldFlags;setup.bank=defaults.bank;

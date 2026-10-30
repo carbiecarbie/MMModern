@@ -55,7 +55,7 @@ inline std::string partySnapshot(const XeenPartyState &p) {
 }
 
 inline void checkPartyQuestState(const XeenPartyState &party,
-		const XeenCloudsQuestItems::Counts &items, const XeenCloudsQuestFlags::Values &flags) {
+		const XeenQuestItems::Counts &items, const XeenQuestFlags::Values &flags) {
 	if (party.questItems.counts() != items || party.questFlags.values() != flags)
 		throw std::runtime_error("unexpected quest counter or quest flag mutation");
 }

@@ -812,9 +812,11 @@ stack. A shared table selects the scene, quest counter and destination:
 | 11 Sphinx | 5 | 4 | 82 `(7,5)` N |
 | 11 Sphinx | 2 | 51 | Darkside 125 `(7,6)` N; always keyless in Clouds |
 
-A key is held when its party quest counter is nonzero. Clouds keeps only
-counters 0-34; indices 45, 46, 50 and 51 are never held (maintainer decision,
-2026-10-20). A keyed entrance loads its destination; refusal plays its full
+A key is held when its party quest counter is nonzero. The four entrances
+using counters 45, 46, 50 and 51 remain deferred: a held key gives a
+"not supported yet" notice before presentation or publication. Without
+those keys the original Clouds refusal scene still plays. An admitted keyed
+entrance loads its destination; an ordinary key refusal plays its full
 scene, then reloads the current map at the party's own position and facing.
 Both use the Event map-load owner: monsters are rebuilt, defeated monsters
 stay defeated, and stepped is set. There is no service time charge.
@@ -898,11 +900,46 @@ plain text. With no awards the second line reads "No Awards". The header is
 "Awards for %s the %s" with name and class; nine lines show from the top
 index, Up moves up one, Down moves down one while nine lines still fit.
 
-All four sources are in the current save format: the 35 Clouds quest
-counters, the 30 Clouds quest flags, the 128 world flags and each
-character's 128 award nibbles with the full Warzone byte. The Darkside
-counters and flags are only written by Darkside scripts and read as zero
-here.
+All four sources are in the current save format: 85 shared quest counters,
+both 30-bit quest-flag banks, the 128 world flags and each character's 128
+award nibbles with the full Warzone byte. The journal reads both sides.
+
+## Two-sided World state and ordinary Darkside maps
+
+**Reference and DOS resource layout:** Event mode 20 selects one of two
+256-bit game-flag banks by camera side; mode 104 selects one of two 30-bit
+quest-flag banks. Quest item IDs 82..166 address one shared set of 85
+counters. Megacredits is counter 26. Mode 107 addresses 32 flags on the
+selected roster record, shared across sides and independent of party order.
+The annual reset always clears Clouds game flags 55, 155, 222 and 231.
+The 128 world flags remain shared, including the Auto Notes 128 alias above.
+
+**Calibrated DOS static, high confidence (2026-10-30):** ordinary Darkside
+maps select `dark.dat`, `dark.mon` and `darkpic.dat` at `WORLD/XEEN.DAT`
+`0xf6fd..0xf778`. The installed New Game archive has 113 ordinary main-map
+DAT/MOB/EVT triples (maps 1..112 and 129); maps 113..128 use mixed resources
+and are refused. Object/picture and monster art follow the loaded side;
+World species 91 uses Clouds art, with Darkside statistics
+(`0xffeb..0x10010`). `darkpic.dat` is a sprite resource; the pin loads it
+but does not consume it. Picture animation uses the actual picture's frames.
+
+Castleview's Event at map 29 `(30,20)` temporarily forces text even when
+the Text option is off (`0x26a61..0x26a88`, restoration
+`0x291cf..0x291d8`). MMModern carries this on the Event presentation,
+leaving the durable option unchanged.
+
+**Pyramid evidence, implementation deferred:** action 12 bypasses the
+ordinary service scene and return (`0x1cea5..0x1ceba`); crossing
+`0x295f2..0x29679` has no separate scene, speech, hold, time cost,
+character-side write or Pyramid-specific draw. The normal destination
+load still selects music. Clouds map 49 leads to Darkside 52 `(2,2)` North;
+other Clouds Pyramids lead to Darkside 29 `(25,21)` North. Darkside 52
+leads to Clouds 49 `(7,14)` South; Darkside 29 to Clouds 23 `(8,10)` North.
+The caller terminates the source script, then closes windows and settles
+treasure (`0x27b1f..0x27b3b`, `0x28d50..0x28f22`). The next ordinary input
+performs the destination Event pass; no recursive pass is made on crossing.
+Part A refuses the Pyramid, Darkside travel returns/spells, defeat recovery
+and all Darkside town services before their gameplay publication.
 
 ## Opening doors and service borders
 

@@ -198,6 +198,18 @@ void original(const GameInstallation &installation) {
 	check(writeDosArchive(out.clouds)==writeDosArchive(second.clouds) && writeDosArchive(out.darkside)==writeDosArchive(second.darkside),"Projection determinism");
 	const auto input=dir/"input.mmsave";raw(input,XeenSaveFormat::encode(s));
 	const auto absent=dir/"absent";
+	for(unsigned added=0;added<5;++added) {
+		auto progress=s;
+		if(added==0)progress.gameFlags[511]=true;
+		if(added==1)progress.questFlags[59]=true;
+		if(added==2)progress.questItems[35]=1;
+		if(added==3)progress.questItems[84]=1;
+		if(added==4)progress.characters[29].characterFlags[31]=true;
+		raw(input,XeenSaveFormat::encode(progress));
+		rejects([&]{exportDosSave(installation,input,absent,1,"Good");},"not supported yet");
+		check(!fs::exists(absent),"Deferred progress export published output");
+	}
+	raw(input,XeenSaveFormat::encode(s));
 	for(unsigned slot:{0u,11u,999u})rejects([&]{exportDosSave(installation,input,absent,slot,"Good");},"1..10");
 	rejects([&]{exportDosSave(installation,input,absent,1," bad");},"name");
 	auto bad=s;bad.camera.mapId.side=XeenSide::Darkside;rejects([&]{projectDosSave(installation,bad,"Good");},"Darkside");

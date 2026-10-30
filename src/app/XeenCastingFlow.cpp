@@ -88,7 +88,7 @@ bool XeenEncounterFlow::initializeBeacon(std::uint8_t owner) {
     const auto &caster=_party.roster.at(owner);
     const auto travel=XeenLearnedSpellRules::travel(_world,_camera,XeenLearnedSpell::LloydsBeacon,0,&caster,_party.cloudsCompleted);
     _journeyPreimage->check();
-    if(travel.failed)return false;
+    if(travel.failed || travel.unsupported)return false;
     if(!caster.lloydMap) {
         auto prepared=std::make_shared<XeenRestoreGuard>(_world,_party,_camera,_flags);
         prepared->retainResources(*_journeyPreimage);
@@ -229,7 +229,7 @@ bool XeenEncounterFlow::confirmCasting(const Ticket &entry, std::size_t casterIn
 		_casting->spell=*spell;_casting->originalSp=caster.currentSp;
         _casting->jumpDestination=jump;
         _casting->failed=travel.failed;_casting->shelterPending=travel.shelter;
-		_casting->random=XeenCombatRandom(*_world.sessionState().journeyRandom());
+		_casting->random=XeenCombatRandom(*(mapWork.world?mapWork.world->sessionState():_world.sessionState()).journeyRandom());
 		if(mapWork.world)_world.checkTransitionTreasure(*mapWork.world);
 		_journeyPreimage->check();
 		if(xeenTravelFmBeforeRelocation(*spell))

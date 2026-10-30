@@ -44,7 +44,7 @@ struct XeenAudio::Impl {
  std::array<std::string,6> eventVoices;
  std::array<unsigned,35> weaponEffects{};
  unsigned id;XeenAudioConfig config;Loader loader;std::uint64_t elapsed=0,last=0;
- std::vector<std::string> maps,locations;std::array<unsigned,6> kinds{};
+ std::vector<std::string> maps,locations,darkMaps;std::array<unsigned,6> kinds{};
  std::unique_ptr<PromusDriver> clockDriver;
  std::shared_ptr<XeenFmSource> output;bool retainOutput;
  bool initialProgramPending=true;
@@ -87,7 +87,7 @@ struct XeenAudio::Impl {
  // Last member: close/join the callback before its driver, chip and queue die.
  std::unique_ptr<SdlAudioDevice> device;
  Impl(XeenAudioConfig c,PromusDriver::Bytes resource,Loader l,std::vector<std::uint8_t> module,std::uint64_t n,bool deviceOutput,PromusDriver::Sink trace,std::shared_ptr<XeenFmSource> source,CdDecoder decoder,std::filesystem::path romDirectory):id(c.music),config(c),loader(std::move(l)),last(n),output(source?source:std::make_shared<XeenFmSource>(PromusDriver::Sink{},std::move(romDirectory))),retainOutput(bool(source)),cdDecoder(std::move(decoder)),card(cardModel(c),mixerAddress(c)),mixerFlag(c.mixer!=0) {
-  const XeenDosText text(module);maps=text.table("CLOUDS_MUSIC");locations=text.table("CLOUDS_LOCATION_MUSIC");
+  const XeenDosText text(module);maps=text.table("CLOUDS_MUSIC");darkMaps=text.table("DARKSIDE_MUSIC");locations=text.table("CLOUDS_LOCATION_MUSIC");
   for(unsigned w=0;w<weaponEffects.size();++w)weaponEffects[w]=60+module.at(0x4d660+w);
   // DAT 0x508cc: six far pointers into the original data segment.
   for(unsigned i=0;i<eventVoices.size();++i) {
@@ -344,6 +344,7 @@ unsigned XeenAudio::digitalDma() const{return _impl->config.digitalDma();}
 bool XeenAudio::entranceCaptions(bool efx) const{return _impl->config.captions(efx);}
 bool XeenAudio::unavailableExeDigital() const{return _impl->config.unavailableExeDigital();}
 bool XeenAudio::outputActive() const{return _impl->device->active();}
+std::string XeenAudio::darksideMapSong(unsigned ordinal) const {return _impl->darkMaps.at(ordinal);}
 std::string XeenAudio::mapSong(const XeenMapGeometry &m) const {return _impl->maps.at(m.isOutdoors()?0:_impl->kinds.at(m.wallKind));}
 std::string XeenAudio::locationSong(unsigned action) const{return _impl->locations.at(action);}
 void XeenAudio::requestSong(std::string name,XeenSceneArchive archive,unsigned fade,std::uint64_t now) {advance(now);_impl->begin({std::move(name),archive,fade});}

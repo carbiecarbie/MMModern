@@ -90,7 +90,7 @@ struct Fixture {
 	}
 	XeenMap loadMap(XeenMapIdentity id) {
 		++mapLoads;
-		requireCloudsMap(id);
+		requireXeenMap(id);
 		XeenMap map; map.side = id.side;
 		map.geometry = XeenMapFormat::parseDat(dat.at(id));
 		return map;
@@ -382,8 +382,11 @@ XeenEventFile indoorEvents(XeenMapIdentity id) {
  return XeenEventFile{id,"synthetic.evt",true,std::vector<XeenEventRecord>(4)};
 }
 void usePerMapResources(CurrentDestination &f,unsigned monsters) {
- f.mapProvider=indoorMap;f.objectProvider=[monsters](auto id){return indoorObjects(id,monsters);};
- f.resources.loadEvents=[&f](auto id){++f.events;return indoorEvents(id);};
+ f.mapProvider=[](auto id){auto m=indoorMap(XeenMapIdentity(id.number));m.side=id.side;return m;};
+ f.objectProvider=[monsters](auto id){auto o=indoorObjects(XeenMapIdentity(id.number),monsters);o.mapId=id;return o;};
+ f.resources.loadEvents=[&f](auto id){++f.events;auto e=indoorEvents(XeenMapIdentity(id.number));e.mapId=id;return e;};
+ f.resources.loadRegionalText=[](auto id){auto t=regional_test::texts(XeenMapIdentity(id.number));t.mapId=id;return t;};
+ f.resources.loadMonsterStatisticsForSide=[&f](XeenSide){++f.monsters;auto s=regional_test::statistics();s[0]=s[8];return s;};
  f.resources.loadMonsterStatistics=[&f]{++f.monsters;auto s=regional_test::statistics();s[0]=s[8];return s;};
 }
 // A map table saved as restore stages it: every MOB record Present at its MOB cell.
@@ -400,6 +403,13 @@ XeenSaveMonsterTable mobTable(unsigned monsters) {
 // treasure item's source identity. mapEventRoundTrips produces these through Events.
 void genericRoundTrip(){
  auto s=currentSnapshot();
+ for(unsigned i:{0u,255u,256u,511u})s.gameFlags[i]=true;
+ for(unsigned i:{0u,29u,30u,59u})s.questFlags[i]=true;
+ for(unsigned i:{0u,34u,35u,84u})s.questItems[i]=i+1;
+ for(unsigned owner:{0u,29u})for(unsigned bit:{0u,31u})s.characters[owner].characterFlags[bit]=true;
+ s.characters[s.activeRosterIds.front()].xeenSide=1;
+ s.map({XeenSide::Darkside,28}).objects={{1,7,8,true}};
+ s.map({XeenSide::Darkside,28}).events={{1,42}};
  s.soundOptions={false,false,true,false};
  for(unsigned i=0;i<30;++i) {auto &c=s.characters[i];c.lloydMap=23+i;c.lloydX=i;c.lloydY=31-i;c.lloydSide=i%2;}
  auto &f3=s.map(23);
@@ -454,6 +464,20 @@ void genericRoundTrip(){
  const auto wire=XeenSaveFormat::encode(captured);check(wire==bytes,"Capture after restore writes the restored bytes");
  CurrentDestination again;usePerMapResources(again,4);again.restore(XeenSaveFormat::decode(wire));again.bind();
  check(XeenSaveFormat::encode(again.capture())==bytes,"Generic per-map round trip is exact");
+ {
+  auto dark=s;dark.camera={{XeenSide::Darkside,28},9,11,XeenDirection::North};dark.headCache.reset();
+  dark.darksideSong=static_cast<std::uint8_t>(7*xeenMapMusicRow(indoorMap(28).geometry)+6);
+  dark.map(dark.camera.mapId).monsters=mobTable(4);
+  const auto darkBytes=XeenSaveFormat::encode(dark);
+  CurrentDestination running;usePerMapResources(running,4);running.restore(dark);running.bind();
+  check(XeenSaveFormat::encode(running.capture())==darkBytes && running.world.sessionState().journeyRandom()==dark.journey->random,"Darkside restore changed state/RNG/song");
+  const auto saved=running.capture();CurrentDestination resumed;usePerMapResources(resumed,4);resumed.restore(saved);resumed.bind();
+  for(auto *f:{&running,&resumed}) {
+   f->flow->journeyAction(f->flow->ticket(),XeenEncounterAction::Right);
+   check(f->flow->prepareJourneyFrame(f->flow->ticket(),[]{}) && f->flow->presentJourney(f->flow->ticket()),"Darkside next action did not settle");
+  }
+  check(XeenSaveFormat::encode(running.capture())==XeenSaveFormat::encode(resumed.capture()),"Darkside resumed next action diverged");
+ }
  // Older builds saved Spawn slots past the MOB count (v0.2.0 Vertigo 46-51).
  // DOS never keeps them (writer 0x266e3..0x2671c, load 0x0f5be): drop them.
  auto older=s;auto &extra=older.map(28).monsters->slots;
@@ -1127,8 +1151,8 @@ void unsupportedMapState(){
  for(unsigned mode=0;mode<6;++mode){
   auto s=good;const char *message="";
   switch(mode){
-  case 0:s.map({XeenSide::Darkside,23}).explored.emplace();message="Darkside";break;
-  case 1:{s.camera.mapId.side=XeenSide::Darkside;const auto table=s.map(23).monsters;s.map({XeenSide::Darkside,23}).monsters=table;message="Darkside";break;}
+  case 0:s.map({XeenSide::Darkside,113}).explored.emplace();message="not supported yet";break;
+  case 1:{s.camera.mapId.side=XeenSide::Darkside;const auto table=s.map(23).monsters;s.map({XeenSide::Darkside,23}).monsters=table;s.darksideSong=7;message="camera map table";break;}
   case 2:s.map(28).wallItems={{3,1,1}};message="wall-item identity does not exist";break;
   case 3:s.map(37).events={{4,0x2a}};message="Event identity does not exist";break;
   case 4:s.map(28).cells={{17,0,0x40,0,0}};message="cell flag change is not supported yet";break;
@@ -1250,12 +1274,21 @@ void invalidResourceAndState(){
  check(f.world.isObjectDisabled({23,0}),"duplicate overlay changed state");
 }
 
-} // namespace
-
+void monsterProviderAgreement() {
+ XeenSaveState::Resources resources;
+ resources.loadMonsterStatistics=[] {return regional_test::statistics();};
+ resources.loadMonsterStatisticsForSide=[](XeenSide) {return regional_test::statistics();};
+ check(resources.monsterStatistics(XeenSide::Clouds).size()==regional_test::statistics().size(),"Matching MON providers rejected");
+ resources.loadMonsterStatisticsForSide=[](XeenSide) {auto table=regional_test::statistics();table[0].raw[0]^=1;return table;};
+ bool refused=false;try {resources.monsterStatistics(XeenSide::Clouds);}catch(const std::invalid_argument &e){refused=std::string(e.what()).find("Conflicting Clouds")!=std::string::npos;}
+ check(refused,"Conflicting MON provider silently shadowed");
+ check(resources.monsterStatistics(XeenSide::Darkside)[0].raw[0]!=(regional_test::statistics()[0].raw[0]),"Darkside compared against Clouds provider");
+}
+}
 int main() {
 	try {
         const auto run=[](const char *name,auto function) {try {function();}catch(const std::exception &e){throw std::runtime_error(std::string(name)+": "+e.what());}};
-		run("liveStatusRoundTrip",liveStatusRoundTrip); run("fullRestoration",fullRestoration); run("explicitItems",explicitItems); run("invalidResourceAndState",invalidResourceAndState); run("characterPreflight",characterPreflight); run("mutationPolicies",mutationPolicies); run("journeyBorrowRefusal",journeyBorrowRefusal);
+		run("monsterProviderAgreement",monsterProviderAgreement); run("liveStatusRoundTrip",liveStatusRoundTrip); run("fullRestoration",fullRestoration); run("explicitItems",explicitItems); run("invalidResourceAndState",invalidResourceAndState); run("characterPreflight",characterPreflight); run("mutationPolicies",mutationPolicies); run("journeyBorrowRefusal",journeyBorrowRefusal);
 		run("genericRoundTrip",genericRoundTrip); run("replacedOpcodePublication",replacedOpcodePublication); run("mapEventRoundTrips",mapEventRoundTrips); run("removeThenMoveRoundTrip",removeThenMoveRoundTrip); run("hiddenMoveRoundTrip",hiddenMoveRoundTrip); run("openedChestRoundTrips",openedChestRoundTrips); run("travelRoundTrips",travelRoundTrips); run("valueRoundTrips",valueRoundTrips); run("unsupportedMapState",unsupportedMapState); run("warzoneLifetime",warzoneLifetime); run("allCloudsMaps",allCloudsMaps);
 		std::cout << "Current save state: atomic preparation, resource identities, rules and owner/flow lifetimes passed\n";
 		return 0;

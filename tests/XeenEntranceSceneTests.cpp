@@ -53,12 +53,12 @@ void sites() {
         check(std::holds_alternative<XeenDecodedEventInstruction>(XeenEventDecoder::decode(record,{camera.mapId})),"Table row not decoded");
         const auto empty=xeenEntranceDestination(site,camera,{});
         check(xeen_state::sameCamera(empty,site.quest<0?site.destination:camera),"Keyless destination");
-        XeenCloudsQuestItems::Counts counts{};
+        XeenQuestItems::Counts counts{};
         if(site.quest>=0 && site.quest<int(counts.size()))counts[site.quest]=256;
         else counts.fill(255);
-        const XeenCloudsQuestItems items(counts);
+        const XeenQuestItems items(counts);
         const auto destination=xeenEntranceDestination(site,camera,items);
-        if(site.quest>=int(counts.size())) {
+        if(site.quest>=35) {
             ++dark;check(!xeenEntranceKey(site,items) && xeen_state::sameCamera(destination,camera),"Darkside key must be never held");
             check(site.destination.mapId.side==XeenSide::Darkside,"Darkside row lost its destination archive");
         } else check(xeenEntranceKey(site,items) && xeen_state::sameCamera(destination,site.destination),"Nonzero whole quest counter check");
@@ -251,7 +251,7 @@ void original(training_test::Inputs &in,const GameInstallation &installation,Xee
         f.flow->beginCycle(++f.cycle);if(const auto frame=f.flow->updatePresentation())f.present(*frame);
     }
     check(!failures && !XeenEntranceTestAccess::active(*f.flow) && f.flow->canSave(),"Original entrance never returned to gameplay");
-    check(xeen_state::sameCamera(f.c,xeenEntranceDestination(*xeenEntranceSite(action,camera),camera,XeenCloudsQuestItems(save.questItems))),"Original entrance destination/position/facing");
+    check(xeen_state::sameCamera(f.c,xeenEntranceDestination(*xeenEntranceSite(action,camera),camera,XeenQuestItems(save.questItems))),"Original entrance destination/position/facing");
     check(f.w.sampleCell(f.c.mapId,f.c.x,f.c.y)->cell->stepped,"Entrance return marks its occupied physical cell");
     if(drain)check(f.p.encounterContext->lightAndResistances[0]==3,"Entrance reload and Event caller drain exactly twice");
     check(f.p.encounterContext->day==time.day && f.p.encounterContext->minutes==time.minutes && f.p.encounterContext->year==time.year,"Entrance charged game/service time");

@@ -49,7 +49,7 @@ struct Dump {
     V(XeenAttributeValue, F(permanent); F(temporary);)
     V(XeenItem, F(material); F(id); F(state); F(frame);)
     V(XeenCharacter,
-        F(rosterId); F(name); F(sex); F(race); F(characterClass);
+        F(characterFlags); F(rosterId); F(name); F(sex); F(race); F(characterClass);
         F(intellect); F(personality); F(endurance); F(permanentLevel); F(temporaryLevel);
         F(temporaryAge); F(skills);
         value(p+".maxStatSkills.astrologer",bool(v.skills[2]));
@@ -90,7 +90,7 @@ struct Dump {
         value(p + ".playTimeSeconds",v.playTimeSeconds);value(p + ".cloudsCompleted",v.cloudsCompleted);
         F(worldFlags); F(serviceEconomy);)
     V(XeenSoundOptions, F(efx); F(music); F(text); F(speech);)
-    V(XeenSaveSnapshot, F(soundOptions); F(resources); F(name); F(food); F(insideInn); F(camera); F(activeRosterIds); F(characters);
+    V(XeenSaveSnapshot, F(darksideSong); F(soundOptions); F(resources); F(name); F(food); F(insideInn); F(camera); F(activeRosterIds); F(characters);
         F(questItems); F(questFlags); F(gameFlags); F(headCache); F(journey); F(maps);)
 #undef V
 #undef F

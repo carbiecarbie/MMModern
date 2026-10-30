@@ -31,14 +31,14 @@ public:
 		std::optional<XeenMonsterAppearance> actorFrame = std::nullopt) const;
 	// Execute the single, already ordered outdoor command stream.
 	void drawOutdoorCommands(XeenAssetSource &assets,
-		const std::vector<XeenOutdoorDrawCommand> &commands) const;
+		const std::vector<XeenOutdoorDrawCommand> &commands,XeenSceneArchive archive=XeenSceneArchive::Current) const;
 	// Execute the single, already ordered indoor geometry/object command stream.
 	void drawIndoorCommands(XeenAssetSource &assets,
-		const std::vector<XeenIndoorDrawCommand> &commands) const;
+		const std::vector<XeenIndoorDrawCommand> &commands,XeenSceneArchive archive=XeenSceneArchive::Current) const;
 	// Complete a scene replay through the same production border/UI layers.
 	void drawInterfaceLayers(XeenAssetSource &assets,
 		const XeenPartyState &partyState,
-		const XeenCharacterRulesContext &context,XeenScenePresentation *presentation=nullptr) const;
+		const XeenCharacterRulesContext &context,XeenScenePresentation *presentation=nullptr,XeenSceneArchive archive=XeenSceneArchive::Current) const;
 	// Direction Sense's facing letter, written after the border layers.
 	IndexedFrame drawDirectionSense(XeenAssetSource &assets,IndexedFrame frame,
 		const XeenPartyState &partyState,const XeenCamera &camera,const XeenScenePresentation &presentation) const;

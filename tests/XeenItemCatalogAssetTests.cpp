@@ -99,7 +99,7 @@ int main() {
 		fs::resize_file(currentInstallation.darkArchive, completeSize - 10);
 		{
 			XeenAssetSource assets(currentInstallation);
-			check(assets.readCloudsVisualMetadataFromDarkArchive() ==
+			check(assets.readObjectVisualMetadata() ==
 				std::optional<Bytes>(clouds),
 				"catalog-specific recovery changed existing clouds.dat behavior");
 			const auto loaded = loadXeenItemCatalog(assets);

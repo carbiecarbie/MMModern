@@ -327,6 +327,8 @@ void XeenSaveFormat::validateCharacter(const XeenCharacter &c,std::size_t roster
 	require(c.quickOption<=3 && (c.currentSpell<39 || c.currentSpell==255), "invalid Quick Fight setting");
 }
 void XeenSaveFormat::validate(const XeenSaveSnapshot &s) {
+	require(s.camera.mapId.side==XeenSide::Clouds ? !s.darksideSong : s.darksideSong && *s.darksideSong<42,
+		"Saved map music side/table mismatch");
 	require(!s.name || validName(*s.name), "invalid save name");
 	if (!s.journey) throw XeenUnsupportedSave(XeenUnsupportedSave::Kind::Older);
 	if (s.journey->schema != kJourneySchema || s.journey->content != kJourneyContent) throw unsupportedPair(s.journey->schema, s.journey->content);
@@ -339,7 +341,7 @@ void XeenSaveFormat::validate(const XeenSaveSnapshot &s) {
     std::array<bool,24> seen{};
     for (const auto id : s.activeRosterIds) {
         require(id<24 && !seen[id], "invalid or duplicate active roster identity");seen[id]=true;
-        require(!s.characters[id].name.empty() && s.characters[id].xeenSide==0,"unrecruitable active member");
+        require(!s.characters[id].name.empty() && s.characters[id].xeenSide<=1,"unrecruitable active member");
     }
     if(s.insideInn)require(xeenAtInnDoor(s.camera),"invalid Inn door camera");
     for(std::size_t i=0;i<s.characters.size();++i)validateCharacter(s.characters[i],i);
@@ -355,7 +357,7 @@ void XeenSaveFormat::validate(const XeenSaveSnapshot &s) {
 	require(j.context.has_value(), "missing Journey context");
 	// Stock may be depleted on any canonical day, including after year rollover.
 	// All dates use the current stock validator, including depletion.
-	require(j.context->profile == XeenBehaviorProfile::WorldOfXeenClouds &&
+	require(j.context->profile == XeenBehaviorProfile::WorldOfXeen &&
 		(j.context->difficulty == XeenDifficulty::Adventurer || j.context->difficulty == XeenDifficulty::Warrior),
 		"invalid Journey context enum");
 	require(xeenRegionalContext(*j.context), "invalid Journey calendar context");
@@ -399,6 +401,9 @@ std::vector<std::uint8_t> XeenSaveFormat::encode(const XeenSaveSnapshot &s) {
 	for (const bool value : s.gameFlags) out.u8(value);
 	out.u8(s.soundOptions.efx);out.u8(s.soundOptions.music);
 	out.u8(s.soundOptions.text);out.u8(s.soundOptions.speech);
+	for (const auto &character:s.characters)
+		for (bool flag:character.characterFlags) out.u8(flag);
+	out.u8(s.darksideSong?unsigned(*s.darksideSong)+1:0);
 
 	const auto &j = *s.journey;
 	out.u8(3); out.u16(j.schema); out.u16(j.content); out.u8(1);
@@ -465,7 +470,7 @@ std::vector<std::uint8_t> XeenSaveFormat::encode(const XeenSaveSnapshot &s) {
 
 	Writer header;
 	for (const auto byte : kMagic) header.u8(byte);
-	header.u16(version); header.u8(0); header.u8(0);
+	header.u16(version); header.u8(static_cast<std::uint8_t>(s.camera.mapId.side)); header.u8(0);
 	header.u32(static_cast<std::uint32_t>(out.bytes.size() - kHeaderSize));
 	header.u32(checksum(out.bytes.data() + kHeaderSize, out.bytes.size() - kHeaderSize));
 	std::copy(header.bytes.begin(), header.bytes.end(), out.bytes.begin());
@@ -477,7 +482,7 @@ XeenSaveSnapshot XeenSaveFormat::decode(const std::vector<std::uint8_t> &bytes) 
 	Reader in{bytes};
 	for (const auto byte : kMagic) require(in.u8() == byte, "unrecognized format");
 	const auto version = in.u16();
-	require(in.u8() == 0, "unsupported game side");
+	const auto envelopeSide=in.u8();require(envelopeSide<=1,"unsupported game side");
 	require(in.u8() == 0, "nonzero reserved byte");
 	const auto length = in.u32();
 	const auto crc = in.u32();
@@ -492,7 +497,7 @@ XeenSaveSnapshot XeenSaveFormat::decode(const std::vector<std::uint8_t> &bytes) 
 	if (hasDarkside) s.resources.darkside = darkside;
 	else require(darkside.size == 0 && darkside.crc32 == 0, "absent archive has nonzero signature");
 	s.insideInn=in.boolean();
-	s.camera.mapId = in.map();
+	s.camera.mapId = in.map();require(envelopeSide==static_cast<unsigned>(s.camera.mapId.side),"Save side disagrees with camera");
 	s.camera.x = in.u8(); s.camera.y = in.u8();
 	s.camera.direction = static_cast<XeenDirection>(in.u8());
 	const auto members = in.u8();
@@ -504,6 +509,11 @@ XeenSaveSnapshot XeenSaveFormat::decode(const std::vector<std::uint8_t> &bytes) 
 	for (auto &value : s.questFlags) value = in.boolean();
 	for (auto &value : s.gameFlags) value = in.boolean();
 	s.soundOptions={in.boolean(),in.boolean(),in.boolean(),in.boolean()};
+	for (auto &character:s.characters)
+		for (auto &flag:character.characterFlags) flag=in.boolean();
+	const auto song=in.u8();
+	require(song<=42,"Invalid Darkside song");
+	if (song) s.darksideSong=static_cast<std::uint8_t>(song-1);
 
 	// Fixed Journey bytes: domain/schema/content/context marker 6, context and
 	// food 36, supplements 1230, RNG 13, resistances 331, purse 8, play time/completion 5,

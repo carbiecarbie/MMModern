@@ -31,7 +31,8 @@ inline void compare(const DosExportPair &pair,const DosExportPair &base,const Xe
 	check(purse.gold==s.journey->purse->gold && purse.gems==s.journey->purse->gems,"Purse");
 	const DosBytes bankPrefix(pty.begin(),pty.begin()+812);
 	check(XeenCharacterFormat::parseBankBalances(bankPrefix)==s.journey->serviceEconomy->bank,"Both bank balances");
-	check(XeenGameFlagsFormat::parseClouds(pty)==s.gameFlags,"Clouds flags");
+        const auto clouds=XeenGameFlagsFormat::parseClouds(pty);
+        check(std::equal(clouds.begin(),clouds.end(),s.gameFlags.begin()),"Clouds flags");
 	check(XeenQuestFlagFormat::parseClouds(pty).values()==s.questFlags,"Quest flags");
 	check(XeenQuestFlagFormat::parseWorldFlags(pty)==*s.journey->worldFlags,"World flags");
 	check(XeenQuestItemFormat::parseClouds(pty).counts()==s.questItems,"Quest items");

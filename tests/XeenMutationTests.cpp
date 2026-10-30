@@ -192,8 +192,8 @@ int main() {
   rejects("quest counts",[](auto &f){f.party.questItems.increment(1);f.party.questItems.decrement(1);});
   {
    Fixture f;
-   XeenCloudsQuestItems::Counts counts{};counts[1]=std::numeric_limits<std::uint32_t>::max();
-   f.party.questItems=XeenCloudsQuestItems(counts);
+   XeenQuestItems::Counts counts{};counts[1]=std::numeric_limits<std::uint32_t>::max();
+   f.party.questItems=XeenQuestItems(counts);
    XeenRestoreGuard guard(f.world,f.party,f.camera,f.flags);
    require(!f.party.questItems.increment(1) && !f.party.questItems.decrement(2),"quest refusal values");
    try {f.flags.set(256);}catch(const std::out_of_range &){}
@@ -216,7 +216,7 @@ int main() {
   rejects("regional collection replacement",[](auto &f){auto &v=const_cast<XeenSessionWorldState&>(f.world.sessionState());const auto before=v;v={};v=before;});
   rejects("session move assignment",[](auto &f){auto &v=const_cast<XeenSessionWorldState&>(f.world.sessionState());const auto before=v;XeenSessionWorldState empty;v=std::move(empty);v=before;});
   rejects("session swap",[](auto &f){auto &v=const_cast<XeenSessionWorldState&>(f.world.sessionState());XeenSessionWorldState empty;std::swap(v,empty);std::swap(v,empty);});
-  rejects("flag storage alias",[](auto &f){auto &v=const_cast<XeenMutableArray<bool,256>&>(f.flags.values());v[9]=true;v[9]=false;});
+  rejects("flag storage alias",[](auto &f){auto &v=const_cast<XeenMutableArray<bool,XeenGameFlags::kStorageCount>&>(f.flags.values());v[9]=true;v[9]=false;});
   rejects("membership element",[](auto &f){auto &v=const_cast<XeenMutable<std::uint8_t>&>(f.party.party.activeRosterIds()[0]);const auto before=v;v=1;v=before;});
   {
    Fixture f;const auto &supplement=f.party.roster.combatInputs(0);

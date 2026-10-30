@@ -10,18 +10,18 @@ namespace mmodern {
 
 XeenObjectFile XeenMapLoader::loadObjects(XeenAssetSource &assets,
 		XeenMapIdentity mapId) const {
-	return loadObjects([&assets](const std::string &name)
+	return loadObjects([&assets,mapId](const std::string &name)
 			-> std::optional<std::vector<std::uint8_t>> {
-		if (!assets.hasInitialResource(name)) return std::nullopt;
-		return assets.readInitialResource(name);
+		if (!assets.hasInitialResource(name,mapId.side)) return std::nullopt;
+		return assets.readInitialResource(name,mapId.side);
 	}, mapId);
 }
 
 XeenObjectFile XeenMapLoader::loadObjects(const ResourceReader &reader,
 		XeenMapIdentity mapId) const {
-	requireCloudsMap(mapId);
+	requireXeenMap(mapId);
 	if (!mapId || mapId.number > 9999 || !reader)
-		throw std::invalid_argument("invalid Clouds object loader context");
+		throw std::invalid_argument("invalid Xeen object loader context");
 	char name[13];
 	std::snprintf(name, sizeof(name), mapId.number>=100?"mazex%03u.mob":"maze%04u.mob", static_cast<unsigned>(mapId.number));
 	XeenObjectFile file{mapId, name, false, {}};
@@ -38,9 +38,9 @@ XeenObjectFile XeenMapLoader::loadObjects(const ResourceReader &reader,
 
 XeenMap XeenMapLoader::loadGeometryMap(XeenAssetSource &assets,
 		XeenMapIdentity mapId) const {
-	requireCloudsMap(mapId);
+	requireXeenMap(mapId);
 	if (!mapId || mapId.number > 9999)
-		throw std::invalid_argument("Map ID outside the four-digit Clouds format");
+		throw std::invalid_argument("Map ID outside the four-digit map format");
 	char resourceName[13];
 	if (mapId.number >= 100)
 		std::snprintf(resourceName, sizeof(resourceName), "mazex%03u.dat",
@@ -49,15 +49,15 @@ XeenMap XeenMapLoader::loadGeometryMap(XeenAssetSource &assets,
 		std::snprintf(resourceName, sizeof(resourceName), "maze%04u.dat",
 			static_cast<unsigned>(mapId.number));
 	XeenMap map;
-	map.geometry = XeenMapFormat::parseDat(assets.readInitialResource(resourceName));
+	map.geometry = XeenMapFormat::parseDat(assets.readInitialResource(resourceName,mapId.side));
 	map.side = mapId.side;
 	if (map.identity() != mapId)
 		throw std::runtime_error(std::string(resourceName) + " has an unexpected internal ID");
  char headName[13];
  std::snprintf(headName,sizeof(headName),mapId.number>=100?"aazex%03u.hed":"aaze%04u.hed",unsigned(mapId.number));
  // Indoor neighbor tiles may have geometry without a primary-map HED resource.
- if(assets.hasArchiveResource(headName)) {
-  const auto heads=assets.readArchiveResource(headName,XeenSceneArchive::Clouds);
+ if(assets.hasSceneResource(headName,mapId.side==XeenSide::Clouds?XeenSceneArchive::Clouds:XeenSceneArchive::DarksideOnly)) {
+  const auto heads=assets.readArchiveResource(headName,mapId.side==XeenSide::Clouds?XeenSceneArchive::Clouds:XeenSceneArchive::DarksideOnly);
   // The reference reads 256 pairs; the original archive retains trailing bytes.
   if(heads.size()<512)throw std::runtime_error(std::string(headName)+": expected at least 512 HED bytes");
   map.heads.emplace();

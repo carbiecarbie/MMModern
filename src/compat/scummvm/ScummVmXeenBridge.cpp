@@ -337,7 +337,7 @@ struct ScummVmXeenBridge::Impl {
 			std::optional<std::size_t> checkedFrame = std::nullopt, unsigned monsterFrames = 0,
 			bool sceneLookup = false, XeenSceneArchive selection = XeenSceneArchive::Current) {
 		if(spriteIntegrityFailed) throw std::runtime_error("Sprite resource integrity previously failed");
-		const auto source = sceneLookup ? sceneResource(resourceName,selection) : SceneResource{&archive, "xeen.cc"};
+		const auto source = sceneResource(resourceName,selection);
 		if (!source.archive) throw std::runtime_error("Missing scene resource in installed CC archives: " + resourceName);
 		// Clouds retains its existing identity; other archives have separate
 		// cache/admission identities even when resource names collide.
@@ -402,8 +402,8 @@ std::size_t ScummVmXeenBridge::spriteFrameCount(const std::string &name, XeenSce
 bool ScummVmXeenBridge::hasSceneResource(const std::string &name, XeenSceneArchive selection) {
 	return _impl->sceneResource(name,selection).archive != nullptr;
 }
-IndexedFrame ScummVmXeenBridge::restDreamImage() {
- const auto source=_impl->sceneResource("scene1.raw",XeenSceneArchive::Current);
+IndexedFrame ScummVmXeenBridge::restDreamImage(XeenSceneArchive archive) {
+ const auto source=_impl->sceneResource("scene1.raw",archive);
  if(!source.archive)throw std::runtime_error("Original Rest dream image is absent");
  const auto stream=openResource(*source.archive,"scene1.raw",source.origin);
  auto bytes=readBytes(*stream,"scene1.raw");
@@ -416,20 +416,20 @@ void ScummVmXeenBridge::drawSceneSprite(const std::string &name, std::size_t fra
 	drawSpriteImpl(name, frame, x, y, options, true);
 }
 
-void ScummVmXeenBridge::validateProjectile(const std::string &name) { _impl->sprite(name,std::nullopt,3); }
+void ScummVmXeenBridge::validateProjectile(const std::string &name,XeenSceneArchive archive) { _impl->sprite(name,std::nullopt,3,true,archive); }
 
-void ScummVmXeenBridge::validateNormalMonster(const std::string &resourceName) {
-	_impl->sprite(resourceName, std::nullopt, 8);
+void ScummVmXeenBridge::validateNormalMonster(const std::string &resourceName,XeenSceneArchive archive) {
+	_impl->sprite(resourceName, std::nullopt, 8,true,archive);
 }
-void ScummVmXeenBridge::validateAttackMonster(const std::string &resourceName) {
-	_impl->sprite(resourceName, std::nullopt, 4);
+void ScummVmXeenBridge::validateAttackMonster(const std::string &resourceName,XeenSceneArchive archive) {
+	_impl->sprite(resourceName, std::nullopt, 4,true,archive);
 }
 
-std::optional<std::vector<std::uint8_t>> ScummVmXeenBridge::readCloudsVisualMetadataFromDarkArchive() {
+std::optional<std::vector<std::uint8_t>> ScummVmXeenBridge::readObjectVisualMetadata(XeenSide side) {
 	if (!_impl->darkAvailable) return std::nullopt;
 	if (!_impl->darkMetadataArchive)
 		_impl->darkMetadataArchive.reset(new DarkMetadataArchive(*_impl->sceneDarkPath));
-	const Common::Path path("clouds.dat", Common::Path::kNoSeparator);
+	const Common::Path path(side==XeenSide::Clouds?"clouds.dat":"dark.dat", Common::Path::kNoSeparator);
 	std::unique_ptr<Common::SeekableReadStream> stream(_impl->darkMetadataArchive->createReadStreamForMember(path));
 	if (!stream) return std::nullopt;
 	return readBytes(*stream, "DARK.CC/clouds.dat");
@@ -450,11 +450,13 @@ std::optional<std::vector<std::uint8_t>> ScummVmXeenBridge::readLearnedSpellName
 	return _impl->darkMetadataArchive->readLearnedSpellNamesChecked();
 }
 
-std::optional<std::vector<std::uint8_t>> ScummVmXeenBridge::readCloudsMonsterStatisticsFromDarkArchive() {
+std::optional<std::vector<std::uint8_t>> ScummVmXeenBridge::readMonsterStatistics(XeenSide side) {
 	if (!_impl->darkAvailable) return std::nullopt;
 	if (!_impl->darkMetadataArchive)
 		_impl->darkMetadataArchive.reset(new DarkMetadataArchive(*_impl->sceneDarkPath));
-	return _impl->darkMetadataArchive->readMonsterStatisticsChecked();
+	if(side==XeenSide::Clouds)return _impl->darkMetadataArchive->readMonsterStatisticsChecked();
+ const auto source=_impl->sceneResource("dark.mon",XeenSceneArchive::DarksideOnly);
+ if(!source.archive)return std::nullopt;auto stream=openResource(*source.archive,"dark.mon",source.origin);return readBytes(*stream,"DARK.CC/dark.mon");
 }
 
 void ScummVmXeenBridge::drawObjectSprite(const std::string &resourceName,
@@ -466,36 +468,33 @@ void ScummVmXeenBridge::drawObjectSprite(const std::string &resourceName,
 		options.scaleIndex < 0 || options.scaleIndex > 15)
 		throw std::runtime_error("M16 sprite: unsupported framebuffer, anchor, or scale/enlargement");
 	try {
-		_impl->sprite(resourceName, frame);
+		_impl->sprite(resourceName,frame,0,true,options.archive);
 	} catch (const std::runtime_error &error) {
 		throw std::runtime_error(resourceName + ": " + error.what());
 	}
 	drawSprite(resourceName, frame, x, y, options);
 }
 
-bool ScummVmXeenBridge::hasArchiveResource(const std::string &resourceName) {
-	return _impl->archive.hasFile(
-		Common::Path(resourceName.c_str(), Common::Path::kNoSeparator));
-}
+bool ScummVmXeenBridge::hasArchiveResource(const std::string &resourceName) {return _impl->sceneResource(resourceName).archive!=nullptr;}
 
 std::vector<std::uint8_t> ScummVmXeenBridge::readArchiveResource(const std::string &resourceName, XeenSceneArchive selection) {
  if(xeenProgramArchive(selection))if(auto loose=_impl->programLoose(resourceName))return std::move(*loose);
-	const auto source=(selection==XeenSceneArchive::Current || selection==XeenSceneArchive::Clouds) ? Impl::SceneResource{&_impl->archive,"xeen.cc"} : _impl->sceneResource(resourceName,selection);
+	const auto source=(selection==XeenSceneArchive::Clouds) ? Impl::SceneResource{&_impl->archive,"xeen.cc"} : _impl->sceneResource(resourceName,selection);
 	if(!source.archive)throw std::runtime_error("Missing resource in selected archive: "+resourceName);
 	auto stream = openResource(*source.archive, resourceName, source.origin);
 	return readBytes(*stream, resourceName);
 }
 
-bool ScummVmXeenBridge::hasInitialResource(const std::string &resourceName) {
-	return _impl->initial().hasFile(
+bool ScummVmXeenBridge::hasInitialResource(const std::string &resourceName, XeenSide side) {
+	return (side==XeenSide::Clouds?_impl->initial():_impl->initialDark()).hasFile(
 		Common::Path(resourceName.c_str(), Common::Path::kNoSeparator));
 }
 
-std::vector<std::uint8_t> ScummVmXeenBridge::readInitialResource(const std::string &resourceName) {
-	std::unique_ptr<Common::SeekableReadStream> stream(_impl->initial().createReadStreamForMember(
+std::vector<std::uint8_t> ScummVmXeenBridge::readInitialResource(const std::string &resourceName, XeenSide side) {
+	std::unique_ptr<Common::SeekableReadStream> stream((side==XeenSide::Clouds?_impl->initial():_impl->initialDark()).createReadStreamForMember(
 		Common::Path(resourceName.c_str(), Common::Path::kNoSeparator)));
 	if (!stream)
-		throw std::runtime_error("recurso ausente no conteiner inicial: " + resourceName);
+		throw std::runtime_error("Missing New Game resource: " + resourceName);
 	return readBytes(*stream, resourceName);
 }
 
@@ -507,7 +506,7 @@ std::vector<std::uint8_t> ScummVmXeenBridge::readInitialDarkResource(const std::
 }
 
 void ScummVmXeenBridge::loadPalette(const std::string &resourceName, XeenSceneArchive selection) {
-	const auto source=(selection==XeenSceneArchive::Current || selection==XeenSceneArchive::Clouds) ? Impl::SceneResource{&_impl->archive,"xeen.cc"} : _impl->sceneResource(resourceName,selection);
+	const auto source=(selection==XeenSceneArchive::Clouds) ? Impl::SceneResource{&_impl->archive,"xeen.cc"} : _impl->sceneResource(resourceName,selection);
 	if(!source.archive)throw std::runtime_error("Missing palette in selected archive: "+resourceName);
 	std::unique_ptr<Common::SeekableReadStream> stream = openResource(*source.archive, resourceName, source.origin);
 	if (stream->size() != static_cast<int64>(IndexedFrame::kPaletteSize))
@@ -522,7 +521,7 @@ void ScummVmXeenBridge::loadPalette(const std::string &resourceName, XeenSceneAr
 }
 
 void ScummVmXeenBridge::loadRawFramebuffer(const std::string &resourceName, XeenSceneArchive selection) {
-	const auto source=(selection==XeenSceneArchive::Current || selection==XeenSceneArchive::Clouds) ? Impl::SceneResource{&_impl->archive,"xeen.cc"} : _impl->sceneResource(resourceName,selection);
+	const auto source=(selection==XeenSceneArchive::Clouds) ? Impl::SceneResource{&_impl->archive,"xeen.cc"} : _impl->sceneResource(resourceName,selection);
 	if(!source.archive)throw std::runtime_error("Missing RAW in selected archive: "+resourceName);
 	std::unique_ptr<Common::SeekableReadStream> stream = openResource(*source.archive, resourceName, source.origin);
 	const uint32 expectedSize = static_cast<uint32>(_impl->surface.w * _impl->surface.h);
@@ -674,16 +673,16 @@ void ScummVmXeenBridge::drawTemple(IndexedFrame &frame) {
 }
 
 void ScummVmXeenBridge::drawNpc(IndexedFrame &frame, std::uint8_t portraitId,
-		std::size_t portraitFrame) {
+		std::size_t portraitFrame,XeenSceneArchive archive) {
 	if (!frame.isValid() || frame.width != 320 || frame.height != 200 || portraitFrame >= 4)
 		throw std::invalid_argument("invalid NPC draw context");
 	const std::string face = "face" + (portraitId < 10 ? std::string("0") : std::string()) +
 		std::to_string(portraitId) + ".fac";
 	// Validate every usable frame before any pixels are applied. Shared cells and
 	// optional second cells remain decoded/drawn by the pinned SpriteResource.
-	for (std::size_t i = 0; i < 4; ++i) _impl->sprite(face, i);
-	auto &border = _impl->sprite("frame.fac", 0);
-	auto &portrait = _impl->sprite(face, portraitFrame);
+	for (std::size_t i = 0; i < 4; ++i) _impl->sprite(face, i,0,true,archive);
+	auto &border = _impl->sprite("frame.fac",0,0,true,archive);
+	auto &portrait = _impl->sprite(face,portraitFrame,0,true,archive);
 	XSurface surface;
 	surface.create(320, 200);
 	for (int y = 0; y < 200; ++y)

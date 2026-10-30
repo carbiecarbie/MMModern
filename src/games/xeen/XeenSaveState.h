@@ -24,6 +24,23 @@ public:
 		std::function<XeenWorldFlags()> loadInitialWorldFlags;
 		std::function<XeenEventTextFile(XeenMapIdentity)> loadRegionalText;
 		std::function<XeenLearnedSpellNames()> loadLearnedSpellNames;
+		std::function<std::vector<XeenMonsterRecord>(XeenSide)> loadMonsterStatisticsForSide;
+		// A Clouds override must agree with the side-taking provider. Never
+		// silently shadow a fixture or production binding with a second table.
+		std::vector<XeenMonsterRecord> monsterStatistics(XeenSide side) const {
+			if (!loadMonsterStatisticsForSide) {
+				if (side==XeenSide::Clouds && loadMonsterStatistics) return loadMonsterStatistics();
+				throw std::invalid_argument("Darkside monster resources: not supported yet");
+			}
+			auto result=loadMonsterStatisticsForSide(side);
+			if (side==XeenSide::Clouds && loadMonsterStatistics) {
+				const auto clouds=loadMonsterStatistics();
+				bool same=result.size()==clouds.size();
+				for (std::size_t i=0;same && i<result.size();++i) same=result[i].raw==clouds[i].raw;
+				if (!same) throw std::invalid_argument("Conflicting Clouds monster-statistics providers");
+			}
+			return result;
+		}
 		// Fresh Journey only; restoration never replaces serialized bank balances.
 		std::function<XeenBankBalances()> loadInitialBankBalances;
 	};

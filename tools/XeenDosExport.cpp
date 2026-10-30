@@ -32,9 +32,13 @@ DosMember &member(DosMembers &members,const std::string &name) {
 	return *it;
 }
 void validateExportState(const XeenSaveSnapshot &s) {
-	if(s.camera.mapId.side!=XeenSide::Clouds) throw std::invalid_argument("Darkside input saves cannot be exported");
+	if(s.camera.mapId.side!=XeenSide::Clouds) throw std::invalid_argument("Darkside input DOS export: not supported yet");
+ for(unsigned i=256;i<512;++i)if(s.gameFlags[i])throw std::invalid_argument("Darkside game flags: DOS export not supported yet");
+ for(unsigned i=30;i<60;++i)if(s.questFlags[i])throw std::invalid_argument("Darkside quest flags: DOS export not supported yet");
+ for(unsigned i=35;i<85;++i)if(s.questItems[i])throw std::invalid_argument("Darkside quest counters: DOS export not supported yet");
+ for(const auto &c:s.characters)for(bool flag:c.characterFlags)if(flag)throw std::invalid_argument("Character flags: DOS export not supported yet");
 	if(s.insideInn || !s.camera.mapId.number) throw std::invalid_argument("Cannot export a party inside an Inn (map 0)");
-	for(const auto &m:s.maps) if(m.id.side!=XeenSide::Clouds) throw std::invalid_argument("Darkside map history cannot be exported");
+	for(const auto &m:s.maps) if(m.id.side!=XeenSide::Clouds) throw std::invalid_argument("Darkside map history DOS export: not supported yet");
 }
 // Local resource adapters, matching normal startup; no extra gameplay owner.
 void restore(const GameInstallation &installation,const XeenSaveSnapshot &s) {
@@ -47,7 +51,7 @@ void restore(const GameInstallation &installation,const XeenSaveSnapshot &s) {
 	});
 	XeenSaveState::Resources r;
 	r.signature=XeenSaveFile::fingerprint(installation);
-	r.loadInitialParty=[&]{return XeenPartyLoader().loadInitialCloudsParty(assets);};
+	r.loadInitialParty=[&]{return XeenPartyLoader().loadInitialParty(assets);};
 	r.loadInitialCharacters=[&]{return assets.readInitialResource("maze.chr");};
 	r.loadInitialContext=[&]{return XeenGameplayContextFormat::parse(assets.readInitialResource("maze.pty"));};
 	r.loadInitialPurse=[&]{return XeenCharacterFormat::parseMonsterPurse(assets.readInitialResource("maze.pty"));};
@@ -56,7 +60,7 @@ void restore(const GameInstallation &installation,const XeenSaveSnapshot &s) {
 	r.loadEvents=[&](auto id){return events.load(id);};
 	r.loadRegionalText=[&](auto id){return texts.load(id);};
 	r.loadMonsterStatistics=[&]{
-		const auto b=assets.readCloudsMonsterStatisticsFromDarkArchive();
+		const auto b=assets.readMonsterStatistics();
 		if(!b) throw std::runtime_error("Missing DARK.CC/xeen.mon"); return XeenMonsterFormat::parse(*b);
 	};
 	r.loadLearnedSpellNames=[&]{

@@ -249,14 +249,14 @@ void XeenCharacterFormat::writeDosParty(std::vector<std::uint8_t> &p, const Xeen
 	for(auto count:s.questItems) if(count>255) throw std::invalid_argument("DOS quest item count exceeds one byte");
 	const auto word=[&](unsigned off,std::uint16_t v) {p[off]=v; p[off+1]=v>>8;};
 	const auto dword=[&](unsigned off,std::uint32_t v) {for(unsigned j=0;j<4;++j)p[off+j]=v>>(j*8);};
-	const auto flags=[&](unsigned off,const auto &values) {
-		for(unsigned j=0;j<values.size();++j) {const auto mask=0x80u>>(j%8); p[off+j/8]=(p[off+j/8]&~mask)|(values[j]?mask:0);}
+	const auto flags=[&](unsigned off,const auto &values,unsigned count) {
+		for(unsigned j=0;j<count;++j) {const auto mask=0x80u>>(j%8); p[off+j/8]=(p[off+j/8]&~mask)|(values[j]?mask:0);}
 	};
 	p[0]=p[1]=s.activeRosterIds.size();
 	std::copy(s.activeRosterIds.begin(),s.activeRosterIds.end(),p.begin()+2);
 	p[10]=static_cast<std::uint8_t>(s.camera.direction); p[11]=s.camera.x; p[12]=s.camera.y; p[13]=s.camera.mapId.number;
 	p[14]=s.soundOptions.efx; p[15]=s.soundOptions.music;
-	// PTY16, prior map17 and the unused roster-ID suffix have no v22 home.
+	// PTY16, prior map17 and the unused roster-ID suffix have no current home.
 	const auto &j=*s.journey;
 	XeenGameplayContextFormat::writeDos(p,*j.context);
 	const auto &e=*j.serviceEconomy;
@@ -269,8 +269,10 @@ void XeenCharacterFormat::writeDosParty(std::vector<std::uint8_t> &p, const Xeen
 	}
 	word(604,j.cloudsCompleted); word(618,s.food);
 	dword(638,j.purse->gold); dword(642,j.purse->gems); dword(646,e.bank.gold); dword(650,e.bank.gems); dword(654,j.playTimeSeconds);
-	flags(659,s.gameFlags); flags(723,j.worldFlags->values); flags(739,s.questFlags);
-	std::copy(s.questItems.begin(),s.questItems.end(),p.begin()+747);
+	// Part A retains the existing Clouds projection. The exporter rejects
+	// added Darkside/character progress before invoking these bounded writes.
+	flags(659,s.gameFlags,256); flags(723,j.worldFlags->values,128); flags(739,s.questFlags,30);
+	std::copy_n(s.questItems.begin(),35,p.begin()+747);
 	p[1528]=!s.soundOptions.text; p[1529]=s.soundOptions.speech;
 }
 

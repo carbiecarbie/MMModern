@@ -54,6 +54,7 @@ struct XeenIndoorActorDraw {
 	int selectedSlot=0,scaleIndex=0;
 	unsigned effectFlags=0;
 	std::uint32_t effectSeed=0;
+ XeenSceneArchive archive=XeenSceneArchive::Current;
 	bool bottomClipped=false;
 };
 
@@ -95,7 +96,7 @@ struct XeenIndoorDrawCommand {
 			XeenSpriteDrawOptions result;
 			result.scaleIndex=draw->scaleIndex;result.sceneClipped=true;
 			result.bottomClipped=draw->bottomClipped;result.monsterEffectFlags=draw->effectFlags;
-			result.monsterEffectSeed=draw->effectSeed;
+			result.monsterEffectSeed=draw->effectSeed;result.archive=draw->archive;
 			return result;
 		}
 		if (const auto *draw = object()) {

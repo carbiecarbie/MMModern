@@ -134,7 +134,7 @@ void presentation(Inputs &in) {
 }
 void traversalAndDarkness(Inputs &in) {
     XeenWorld world(in.mapLoader(),in.objectLoader());
-    auto party=XeenPartyLoader().loadInitialCloudsParty(in.assets);
+    auto party=XeenPartyLoader().loadInitialParty(in.assets);
     party.encounterContext=XeenGameplayContextFormat::parse(in.pty);
     for(auto id:party.party.activeRosterIds()) {party.roster.at(id).skills[9]=0;party.roster.at(id).skills[11]=0;}
     const auto ids=party.party.activeRosterIds();

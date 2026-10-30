@@ -30,7 +30,7 @@ std::string xeenObjectSpriteName(int resourceId);
 // No session state, visibility, projection, or animation clock is retained.
 class XeenObjectVisualResolver {
 public:
-	explicit XeenObjectVisualResolver(XeenCloudsVisualMetadata metadata) : _metadata(std::move(metadata)) {}
+	explicit XeenObjectVisualResolver(XeenCloudsVisualMetadata metadata) : _metadata{std::move(metadata),std::nullopt} {}
 	static XeenObjectVisualResolver load(XeenAssetSource &assets);
 	// `tableIndex` is the object's effective picture-table index; one that
 	// differs from the record's own names the picture, frames and flip.
@@ -40,7 +40,7 @@ public:
 		std::optional<std::uint8_t> tableIndex = std::nullopt) const;
 private:
 	XeenObjectVisualResolver() = default;
-	std::optional<XeenCloudsVisualMetadata> _metadata;
+	std::array<std::optional<XeenCloudsVisualMetadata>,2> _metadata;
 	std::string _diagnostic;
 };
 

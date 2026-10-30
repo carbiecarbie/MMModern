@@ -46,7 +46,7 @@ public:
    if(effect.damageTicks && !effect.damageDeadline)damageEffects[owner]=effect.damageFrame;
    if(effect.spellFrame<4 && !effect.spellDeadline)portraitEffectOwners|=1u<<owner;
   }
-		const XeenCloudsQuestFlags questFlags(candidate.questFlags);
+		const XeenQuestFlags questFlags(candidate.questFlags);
 		world.checkTransitionTreasure(candidateWorld);
 		check();candidate.check();
 		guard.prepareVertigoPublication(candidate);
@@ -69,7 +69,7 @@ public:
 		check();candidate.check();
 		if(&world!=&guard.w || &party!=&guard.p || !candidate.w.detachedEventCandidate())
 			integrity("Event sequence publication owner changed");
-		const XeenCloudsQuestItems quests(candidate.quests);const XeenCloudsQuestFlags flags(candidate.questFlags);
+		const XeenQuestItems quests(candidate.quests);const XeenQuestFlags flags(candidate.questFlags);
 		guard.prepareEventSequencePrefix(candidate);
         if(prefixLight && guard.context)guard.context->lightAndResistances[0]=*prefixLight;
 		world.publishEventParty(party,candidate.p);party.questItems=quests;party.questFlags=flags;

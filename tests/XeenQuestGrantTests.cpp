@@ -86,14 +86,14 @@ void operandsAndCounts() {
 	// giveTake (0x2200c) runs any take with any give; a TakeOrGive record's third pair is not read.
 	{Fixture f;f.flags.set(7);f.set({record(1,1,0,0x0c,{20,7,21,99})});complete(f.finishRewards(f.begin()));
 		check(f.members.questItems.at(17)==1,"take-and-give grant lost its quest count");}
-	for(const Bytes bytes:std::vector<Bytes>{{0,0,21,81},{0,0,21,117},{0,0,21,255}}){
+	for(const Bytes bytes:std::vector<Bytes>{{0,0,21,81},{0,0,21,167},{0,0,21,255}}){
 		Fixture f;f.set({record(1,1,0,0x0c,bytes)});error(f.begin(),XeenEventExecutionErrorKind::UnsupportedOperationMode);
-		check(f.members.questItems.counts()==XeenCloudsQuestItems::Counts{} && !f.flags.isSet(7),"invalid combination mutated");
+		check(f.members.questItems.counts()==XeenQuestItems::Counts{} && !f.flags.isSet(7),"invalid combination mutated");
 	}
 	// The counter is a byte (give 0x22967..0x2296e): 254 -> 255 -> 0, and If 21 then reads it as absent.
 	for(std::uint32_t start:{254u,255u}){
-		Fixture f;XeenCloudsQuestItems::Counts counts{};counts[17]=start;counts[0]=8;
-		f.members.questItems=XeenCloudsQuestItems(counts);
+		Fixture f;XeenQuestItems::Counts counts{};counts[17]=start;counts[0]=8;
+		f.members.questItems=XeenQuestItems(counts);
 		f.set({record(1,1,0,0x0c,{0,0,21,99}),record(1,1,1,0x09,{21,99,3}),record(1,1,2,0x12),record(1,1,3,0x0c,{0,0,20,7})});
 		const auto r=f.finishRewards(f.begin());complete(r);counts[17]=start==254?255:0;
 		check(f.members.questItems.counts()==counts,"quest grant is not byte arithmetic");
@@ -101,7 +101,7 @@ void operandsAndCounts() {
 	}
 	auto first=party(),second=party();check(first.questItems.increment(17),"increment failed");
 	check(first.questItems.at(17)==1 && second.questItems.at(17)==0,"party instances share counters");
-	bool rejected=false;try{first.questItems.increment(35);}catch(const std::out_of_range &){rejected=true;}
+	bool rejected=false;try{first.questItems.increment(85);}catch(const std::out_of_range &){rejected=true;}
 	check(rejected && first.questItems.at(17)==1,"unbounded increment");
 }
 
@@ -110,8 +110,8 @@ void consumption() {
 		Fixture f; f.members.party=XeenParty::fromRosterIds({0,0});
 		f.members.roster.at(0).currentHp=0; f.members.roster.at(0).currentSp=-1;
 		f.members.roster.at(0).conditions[static_cast<std::size_t>(XeenCondition::Dead)]=1;
-		XeenCloudsQuestItems::Counts counts{}; counts[id-82]=count;
-		f.members.questItems=XeenCloudsQuestItems(counts);
+		XeenQuestItems::Counts counts{}; counts[id-82]=count;
+		f.members.questItems=XeenQuestItems(counts);
 		Bytes bytes{21,static_cast<std::uint8_t>(id)}; bytes.resize(pairs*2,0);
 		f.set({record(1,1,0,12,bytes),record(1,1,1,12,{0,0,104,2})});
 		auto r=f.begin();
@@ -122,7 +122,7 @@ void consumption() {
 	Fixture final; final.members.questItems.increment(17);
 	final.set({record(1,1,0,12,{21,99})}); complete(final.begin());
 	check(final.members.questItems.at(17)==0,"absent sequential successor failed");
-	for (const Bytes bytes : std::vector<Bytes>{{21,117},{21,255}}) {
+	for (const Bytes bytes : std::vector<Bytes>{{21,167},{21,255}}) {
 		Fixture f;f.members.questItems.increment(17);f.set({record(1,1,0,12,bytes)});
 		error(f.begin(),XeenEventExecutionErrorKind::UnsupportedOperationMode);
 		check(f.members.questItems.at(17)==1,"unsupported take mutated");
@@ -148,8 +148,8 @@ void consumption() {
 	auto s=pending(later.begin());check(later.members.questItems.at(17)==0,"take not immediate at suspension");
 	error(later.resume(s),XeenEventExecutionErrorKind::UnsupportedOpcode);
 	check(later.members.questItems.at(17)==0,"later error refunded take");
-	XeenCloudsQuestItems counters;bool rejected=false;
-	try { counters.decrement(35); } catch(const std::out_of_range &) { rejected=true; }
+	XeenQuestItems counters;bool rejected=false;
+	try { counters.decrement(85); } catch(const std::out_of_range &) { rejected=true; }
 	check(rejected && !counters.decrement(0),"checked decrement");
 }
 
@@ -163,10 +163,10 @@ void prevalidationAndVisibility() {
 		if(mode==3){s.instructionCount=1024;kind=XeenEventExecutionErrorKind::InstructionLimitExceeded;}
 		if(mode==4){s.selectedObject.reset();s.logicalAddress.line=254;s.pendingPresentation->conditional->targetLine=255;
 			s.currentScript=script(1,{record(1,1,255,0x0c,{0,0,21,99})});kind=XeenEventExecutionErrorKind::LineOverflow;}
-		if(mode==5){s.pendingPresentation->conditional->targetLine=2;s.currentScript=script(1,{record(1,1,2,0x0c,{0,0,21,117})});kind=XeenEventExecutionErrorKind::UnsupportedOperationMode;}
-		error(f.resume(s),kind);check(f.members.questItems.counts()==XeenCloudsQuestItems::Counts{},"failed validation granted");
+		if(mode==5){s.pendingPresentation->conditional->targetLine=2;s.currentScript=script(1,{record(1,1,2,0x0c,{0,0,21,167})});kind=XeenEventExecutionErrorKind::UnsupportedOperationMode;}
+		error(f.resume(s),kind);check(f.members.questItems.counts()==XeenQuestItems::Counts{},"failed validation granted");
 	}
-	Fixture earlier;earlier.set({record(1,1,0,0x0c,{0,0,21,99}),record(1,1,1,0x0c,{0,0,21,117})});
+	Fixture earlier;earlier.set({record(1,1,0,0x0c,{0,0,21,99}),record(1,1,1,0x0c,{0,0,21,167})});
 	error(earlier.begin(),XeenEventExecutionErrorKind::UnsupportedOperationMode);
 	check(earlier.members.questItems.at(17)==1,"later invalid grant rolled back earlier grant");
 	Fixture call;call.set({record(1,1,0,0x0c,{0,0,21,99}),record(1,1,1,9,{21,99,3}),record(1,1,2,0xff),

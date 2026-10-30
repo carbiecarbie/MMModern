@@ -57,7 +57,7 @@ std::string XeenAssetSource::mapName(XeenMapIdentity mapId) {
 }
 IndexedFrame XeenAssetSource::cursorImage() { return _impl->bridge.cursorImage(); }
 IndexedFrame XeenAssetSource::cursorImage(XeenSceneArchive selection) { return _impl->bridge.cursorImage(selection); }
-IndexedFrame XeenAssetSource::restDreamImage() { return _impl->bridge.restDreamImage(); }
+IndexedFrame XeenAssetSource::restDreamImage(XeenSceneArchive archive) { return _impl->bridge.restDreamImage(archive);}
 
 std::size_t XeenAssetSource::spriteFrameCount(const std::string &name, XeenSceneArchive selection) {
 	return _impl->bridge.spriteFrameCount(name,selection);
@@ -84,26 +84,26 @@ void XeenAssetSource::drawProjectile(unsigned pow,bool enemy,unsigned row,int x,
  if(row>3) throw std::invalid_argument("Invalid projectile row");
  if(pow>15)throw std::invalid_argument("Invalid projectile resource");
  const auto name="pow"+std::to_string(pow)+".icn";
- _impl->bridge.validateProjectile(name);constexpr unsigned frames[2][4]{{0,1,2,0},{0,2,1,0}};
+ _impl->bridge.validateProjectile(name,options.archive);constexpr unsigned frames[2][4]{{0,1,2,0},{0,2,1,0}};
  _impl->bridge.drawObjectSprite(name,frames[enemy][row],x,y,options);
 }
-void XeenAssetSource::validateNormalMonster(std::uint8_t image) {
-	_impl->bridge.validateNormalMonster(normalMonsterResource(image));
+void XeenAssetSource::validateNormalMonster(std::uint8_t image,XeenSceneArchive archive) {
+	_impl->bridge.validateNormalMonster(normalMonsterResource(image),archive);
 }
 std::string XeenAssetSource::attackMonsterResource(std::uint8_t image) {
 	auto resource = normalMonsterResource(image);
 	resource.replace(4, 3, "att");
 	return resource;
 }
-void XeenAssetSource::validateAttackMonster(std::uint8_t image) {
-	_impl->bridge.validateAttackMonster(attackMonsterResource(image));
+void XeenAssetSource::validateAttackMonster(std::uint8_t image,XeenSceneArchive archive) {
+	_impl->bridge.validateAttackMonster(attackMonsterResource(image),archive);
 }
 void XeenAssetSource::drawMonster(std::uint8_t image, XeenMonsterAppearance appearance, int x, int y,
 		const XeenSpriteDrawOptions &options) {
 	if (!appearance.valid() || options.horizontalFlip || options.enlarge || !options.sceneClipped)
 		throw std::invalid_argument("Unsupported monster drawing");
 	const bool attack = appearance.kind == XeenMonsterSpriteKind::Attack;
-	if (attack) validateAttackMonster(image); else validateNormalMonster(image);
+	if (attack) validateAttackMonster(image,options.archive); else validateNormalMonster(image,options.archive);
 	_impl->bridge.drawObjectSprite(attack ? attackMonsterResource(image) : normalMonsterResource(image),
 		appearance.frame, x, y, options);
 }
@@ -112,7 +112,7 @@ void XeenAssetSource::drawNormalMonster(std::uint8_t image, std::size_t frame, i
 	if (frame >= 8 || options.horizontalFlip || options.enlarge || !options.sceneClipped)
 		throw std::invalid_argument("Unsupported normal monster drawing");
 	const auto resource = normalMonsterResource(image);
-	_impl->bridge.validateNormalMonster(resource);
+	_impl->bridge.validateNormalMonster(resource,options.archive);
 	_impl->bridge.drawObjectSprite(resource, frame, x, y, options);
 }
 
@@ -120,8 +120,8 @@ void XeenAssetSource::discardSpriteCache() { _impl->bridge.discardSpriteCache();
 std::size_t XeenAssetSource::cachedSpriteCount() const { return _impl->bridge.cachedSpriteCount(); }
 std::size_t XeenAssetSource::spriteLoadCount() const { return _impl->bridge.spriteLoadCount(); }
 
-std::optional<std::vector<std::uint8_t>> XeenAssetSource::readCloudsVisualMetadataFromDarkArchive() {
-	return _impl->bridge.readCloudsVisualMetadataFromDarkArchive();
+std::optional<std::vector<std::uint8_t>> XeenAssetSource::readObjectVisualMetadata(XeenSide side) {
+	return _impl->bridge.readObjectVisualMetadata(side);
 }
 
 std::optional<std::vector<std::uint8_t>> XeenAssetSource::readItemMaterialNamesFromDarkArchive() {
@@ -132,15 +132,15 @@ std::optional<std::vector<std::uint8_t>> XeenAssetSource::readLearnedSpellNamesF
 	return _impl->bridge.readLearnedSpellNamesFromDarkArchive();
 }
 
-std::optional<std::vector<std::uint8_t>> XeenAssetSource::readCloudsMonsterStatisticsFromDarkArchive() {
-	return _impl->bridge.readCloudsMonsterStatisticsFromDarkArchive();
+std::optional<std::vector<std::uint8_t>> XeenAssetSource::readMonsterStatistics(XeenSide side) {
+	return _impl->bridge.readMonsterStatistics(side);
 }
 
 void XeenAssetSource::drawObjectVisual(const XeenObjectVisual &visual, int x, int y,
 		const XeenSpriteDrawOptions &options) {
 	if ((visual.status != XeenObjectVisualStatus::SupportedStatic &&
 		visual.status != XeenObjectVisualStatus::SupportedAnimated) ||
-		!visual.identity.mapId || visual.identity.mapId.side != XeenSide::Clouds)
+		!visual.identity.mapId)
 		throw std::runtime_error("cannot draw unsupported object visual: " + visual.diagnostic);
 	auto resolvedOptions = options;
 	resolvedOptions.horizontalFlip = visual.horizontalFlip;
@@ -155,12 +155,12 @@ std::vector<std::uint8_t> XeenAssetSource::readArchiveResource(const std::string
 	return _impl->bridge.readArchiveResource(resourceName,selection);
 }
 
-bool XeenAssetSource::hasInitialResource(const std::string &resourceName) {
-	return _impl->bridge.hasInitialResource(resourceName);
+bool XeenAssetSource::hasInitialResource(const std::string &resourceName, XeenSide side) {
+	return _impl->bridge.hasInitialResource(resourceName,side);
 }
 
-std::vector<std::uint8_t> XeenAssetSource::readInitialResource(const std::string &resourceName) {
-	return _impl->bridge.readInitialResource(resourceName);
+std::vector<std::uint8_t> XeenAssetSource::readInitialResource(const std::string &resourceName, XeenSide side) {
+	return _impl->bridge.readInitialResource(resourceName,side);
 }
 
 void XeenAssetSource::loadPalette(const std::string &resourceName, XeenSceneArchive selection) {
@@ -217,8 +217,8 @@ void XeenAssetSource::drawTemple(IndexedFrame &frame) {
 }
 
 void XeenAssetSource::drawNpc(IndexedFrame &frame, std::uint8_t portraitId,
-		std::size_t portraitFrame) {
-	_impl->bridge.drawNpc(frame, portraitId, portraitFrame);
+		std::size_t portraitFrame,XeenSceneArchive archive) {
+	_impl->bridge.drawNpc(frame,portraitId,portraitFrame,archive);
 }
 
 void XeenAssetSource::drawDialogSprite(IndexedFrame &frame,const char *name,unsigned index,int x,int y,XeenSceneArchive selection,int scale,unsigned flags) {

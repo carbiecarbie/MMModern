@@ -2,6 +2,7 @@
 #define MMODERN_GAMES_XEEN_CLOUDS_UI_COMPOSER_H
 
 #include "core/IndexedFrame.h"
+#include "formats/xeen/XeenSpriteDrawOptions.h"
 #include "games/xeen/XeenParty.h"
 
 #include <cstddef>
@@ -49,11 +50,11 @@ public:
 		const XeenScenePresentation &, unsigned memberMask, int actingMember);
     static void drawBorder(const XeenPartyState &,
         const std::function<void(const char *,unsigned,int,int)> &,XeenScenePresentation * = nullptr);
-	void loadBackground(XeenAssetSource &assets) const;
+	void loadBackground(XeenAssetSource &assets,XeenSceneArchive archive=XeenSceneArchive::Current) const;
 	// Replace the already composed main-screen controls with ICONS_COMBAT.
-	void drawCombatButtons(XeenAssetSource &assets, IndexedFrame &frame) const;
-	void drawInterface(XeenAssetSource &assets, const XeenPartyState &partyState,
-		const XeenCharacterRulesContext &context) const;
+	void drawCombatButtons(XeenAssetSource &assets,IndexedFrame &frame,XeenSceneArchive archive=XeenSceneArchive::Current) const;
+	void drawInterface(XeenAssetSource &assets,const XeenPartyState &partyState,
+		const XeenCharacterRulesContext &context,XeenSceneArchive archive=XeenSceneArchive::Current) const;
 	IndexedFrame compose(XeenAssetSource &assets, const XeenPartyState &partyState,
 		const XeenCharacterRulesContext &context) const;
 };

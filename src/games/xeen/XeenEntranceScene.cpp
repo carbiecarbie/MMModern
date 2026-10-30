@@ -28,11 +28,12 @@ const XeenEntranceSite *xeenEntranceSite(unsigned action,const XeenCamera &camer
          (camera.x==site.branchX)==(site.position==XeenEntranceSite::Position::EqualX)))return &site;
     return nullptr;
 }
-bool xeenEntranceKey(const XeenEntranceSite &site,const XeenCloudsQuestItems &items) {
-    // Maintainer 2026-10-20: Darkside counters are outside Clouds, never held.
-    return site.quest<0 || (unsigned(site.quest)<XeenCloudsQuestItems::kCount && items.at(site.quest)!=0);
+bool xeenEntranceKey(const XeenEntranceSite &site,const XeenQuestItems &items) {
+    // Darkside-key entrances remain deferred. Event entry refuses a held
+    // Darkside key before presentation; the original keyless Clouds scene stays.
+    return site.quest<0 || (unsigned(site.quest)<35 && items.at(site.quest)!=0);
 }
-XeenCamera xeenEntranceDestination(const XeenEntranceSite &site,const XeenCamera &camera,const XeenCloudsQuestItems &items) {
+XeenCamera xeenEntranceDestination(const XeenEntranceSite &site,const XeenCamera &camera,const XeenQuestItems &items) {
     return xeenEntranceKey(site,items)?site.destination:camera;
 }
 namespace {

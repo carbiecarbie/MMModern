@@ -174,9 +174,9 @@ std::optional<XeenEventExecutionError> preflightEvent(XeenWorld &world,
 			if(npc->confirmationMode==0)enqueue(x,y,npc->targetLine);
 		}
 		if(const auto *condition=std::get_if<XeenEventConditional>(&op)) {
-			if(condition->action==107 || (condition->action==44 && condition->value>1) ||
+			if((condition->action==44 && condition->value>1) ||
 				((condition->action==13 || condition->action==99) && condition->value>=18) || (condition->action==20 && condition->value>255) ||
-				(condition->action==104 && !XeenCloudsQuestFlags::validIndex(condition->value)))
+				(condition->action==104 && !XeenQuestFlags::validIndex(condition->value)))
 				return unsupported("Event condition operand is not supported yet");
 			enqueue(x,y,condition->targetLine);
 		}
@@ -191,19 +191,19 @@ std::optional<XeenEventExecutionError> preflightEvent(XeenWorld &world,
 		// Statically refused value modes (see the runtime giveTake owners).
 		const auto takeSupported=[](const XeenEventTakeOrGivePair &p) {
 			if(p.mode && !p.value && p.mode!=104)return false; // HowMuch
-			return p.mode!=8 && p.mode!=25 && p.mode!=76 && p.mode!=107;
+			return p.mode!=8 && p.mode!=25 && p.mode!=76;
 		};
 		const auto giveSupported=[](const XeenEventTakeOrGivePair &p) {
 			if(p.mode==13)return p.value<18;
 			if(p.mode==21)return p.value<60 || p.value>=82;
-			return p.mode!=25 && p.mode!=67 && p.mode!=82 && p.mode!=107;
+			return p.mode!=25 && p.mode!=67 && p.mode!=82;
 		};
 		if(const auto *give=std::get_if<XeenEventTakeOrGive>(&op)) {
 			if(!takeSupported(give->first) || !giveSupported(give->second))
 				return unsupported("Dependent TakeOrGive effects are not supported yet");
 		}
 		if(const auto *test=std::get_if<XeenEventTakeOrGiveTest>(&op)) {
-			if(!giveSupported(test->opcode==0x1d?test->third:test->second) || test->first.mode==107)
+			if(!giveSupported(test->opcode==0x1d?test->third:test->second))
 				return unsupported("Dependent TakeOrGive effects are not supported yet");
 		}
 		if(const auto *give=std::get_if<XeenEventGiveMulti>(&op)) {
@@ -272,6 +272,7 @@ XeenEventExecutionStepResult XeenEventInterpreter::begin(
 	state.logicalAddress = {initialCamera.mapId, initialCamera.x, initialCamera.y, initialLine};
 	state.lookupDirection = initialCamera.direction;
 	state.workingCamera = initialCamera;
+ state.forceText=initialCamera.mapId==XeenMapIdentity(XeenSide::Darkside,29) && initialCamera.x==30 && initialCamera.y==20;
 	state.workingGameFlags = gameFlags;
 	if (partyState.party.size()) state.activeCharacterIndex = 0;
 	if (!scriptProvider) {
@@ -783,6 +784,9 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 			const bool smith=service->action==1,training=service->action==5,temple=service->action==4;
 			const bool tavern=service->action==3,bank=service->action==0,guild=service->action==2;
             const auto *entrance=xeenEntranceSite(service->action,workingCamera);
+            if(entrance && entrance->quest>=35 && partyState.questItems.at(entrance->quest))
+                return error(XeenEventExecutionErrorKind::UnsupportedOperand,
+                    "Darkside-key entrance is not supported yet",instructionCount,logical,decoded.source);
             const bool arena=service->action==6 && workingCamera.mapId==XeenMapIdentity(85);
 			if ((!publication && !world.detachedEventCandidate()) || (!arena && !entrance && !smith && !training && !temple && !tavern && !bank && !guild) ||
 				!xeenTownServiceKnown(logical.mapId,service->action) || workingCamera.mapId!=logical.mapId || state.treasureChanged())
@@ -863,9 +867,8 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 				return error(XeenEventExecutionErrorKind::UnsupportedOperand,
 					"NPC confirmation mode " + std::to_string(npc->confirmationMode) + " is unsupported",
 					instructionCount, logical, decoded.source);
-			if (logical.mapId.side != XeenSide::Clouds || workingCamera.mapId.side != XeenSide::Clouds)
-				return error(XeenEventExecutionErrorKind::UnsupportedExecutionContext,
-					"NPC requires Clouds logical and physical context", instructionCount, logical, decoded.source);
+			if (logical.mapId.side != workingCamera.mapId.side)
+				return error(XeenEventExecutionErrorKind::UnsupportedExecutionContext,"NPC side mismatch",instructionCount,logical,decoded.source);
 		}
 		const auto *display = std::get_if<XeenEventDisplay>(&decoded.operation);
 		if (display || who || npc) {
@@ -936,7 +939,7 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 						member.name, member.canAct()});
 				}
 			}
-			request.source = decoded.source;
+			request.source = decoded.source;request.forceText=state.forceText;
 
 			XeenEventPendingPresentation pending;
 			pending.request = request;
@@ -1336,10 +1339,8 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 				// quest items count first, then show as weapons.
 				XeenRewardCategory category=XeenRewardCategory::Weapons;XeenItem item{};
 				if(giveValue>=82) {
-					const auto index=XeenCloudsQuestItems::indexForItemId(giveValue);
-					if(workingCamera.mapId.side!=XeenSide::Clouds)
-						return std::optional<XeenEventExecutionStepResult>(refuse(K::UnsupportedExecutionContext,"Event quest item is outside the Clouds items"));
-					if(!index)return fail("Event quest item is outside the Clouds items");
+					const auto index=XeenQuestItems::indexForItemId(giveValue);
+					if(!index)return fail("Event quest item is outside the shared quest items");
 					if(member>=partyState.party.size())
 						return std::optional<XeenEventExecutionStepResult>(refuse(K::EmptyParty,"Event quest item requires an active party member"));
 					partyState.questItems.eventGrant(*index);
@@ -1670,7 +1671,7 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 					XeenPresentationResponseRequirement::YesNo :
 					XeenPresentationResponseRequirement::Acknowledgment;
 				request.mapId = logical.mapId;
-				request.source = decoded.source;
+				request.source = decoded.source;request.forceText=state.forceText;
 				XeenEventPendingPresentation pending;
 				pending.request = request;
 				pending.continuation =

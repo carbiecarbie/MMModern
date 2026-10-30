@@ -27,7 +27,7 @@ int main(int argc,char **argv) {try {
  check(argc==2,"usage: combat presentation tests <original-installation>");
  const auto installation=xeenTestInstallationDetector().detect(argv[1]);check(bool(installation),"Original installation missing");
  XeenAssetSource assets(*installation,320,200);assets.loadPalette("mm4.pal");
- const auto bytes=assets.readCloudsMonsterStatisticsFromDarkArchive();check(bool(bytes),"Missing original monster statistics");
+ const auto bytes=assets.readMonsterStatistics();check(bool(bytes),"Missing original monster statistics");
  const auto statistics=XeenMonsterFormat::parse(*bytes);
  constexpr unsigned expectedPow[]{12,14,0,4,8,10,13},expectedDamage[]{0,6,1,2,3,4,5};
  for(unsigned type=0;type<7;++type) {check(xeenMonsterProjectile(type)==expectedPow[type],"Original projectile type table");check(xeenPortraitDamageFrame(type)==expectedDamage[type],"Original portrait damage table");}

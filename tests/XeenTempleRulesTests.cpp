@@ -30,7 +30,7 @@ void finish(XeenServiceDayCandidate &day) {
 int main() {
     try {
         XeenGameplayContext context;context.year=610;context.day=8;context.minutes=604;
-        context.profile=XeenBehaviorProfile::WorldOfXeenClouds;
+        context.profile=XeenBehaviorProfile::WorldOfXeen;
         context.difficulty=XeenDifficulty::Adventurer;
         XeenCharacter c;c.rosterId=6;c.race=XeenRace::Human;c.birthYear=592;
         c.intellect.permanent=c.personality.permanent=c.endurance.permanent=11;

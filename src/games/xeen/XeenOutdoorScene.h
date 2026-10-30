@@ -39,6 +39,7 @@ struct XeenOutdoorActorDraw {
 	bool bottomClipped = false;
 	unsigned effectFlags = 0;
 	std::uint32_t effectSeed = 0;
+ XeenSceneArchive archive=XeenSceneArchive::Current;
 };
 
 struct XeenOutdoorProjectileDraw { bool enemy=false; unsigned row=0,lane=0,pow=11; };
@@ -67,7 +68,7 @@ struct XeenOutdoorDrawCommand {
 			result.sceneClipped = true;
 			result.bottomClipped = a->bottomClipped;
 			result.monsterEffectFlags = a->effectFlags;
-			result.monsterEffectSeed = a->effectSeed;
+			result.monsterEffectSeed = a->effectSeed;result.archive=a->archive;
 			return result;
 		}
 		if (const auto *o = object()) {

@@ -53,14 +53,14 @@ int main() {
 		installation.darkArchive=dir/"dark.cc";installation.edition=GameEdition::WorldOfXeen;
 		sprite_test::archive(installation.xeenArchive,{{"dummy",{1}}});
 		sprite_test::archive(installation.darkArchive,{{"xeen.mon",bytes},{"mae.xen",{1,0}}});
-		{XeenAssetSource a(installation);check(a.readCloudsMonsterStatisticsFromDarkArchive()==std::optional<Bytes>(bytes),"checked exact statistics read");
+		{XeenAssetSource a(installation);check(a.readMonsterStatistics()==std::optional<Bytes>(bytes),"checked exact statistics read");
 		 check(a.readItemMaterialNamesFromDarkArchive()==std::optional<Bytes>(Bytes{1,0}),"material read changed");}
 		sprite_test::archive(installation.darkArchive,{{"xeen.mon",{1}}});
-		{XeenAssetSource a(installation);auto data=a.readCloudsMonsterStatisticsFromDarkArchive();
+		{XeenAssetSource a(installation);auto data=a.readMonsterStatistics();
 		 check(bool(data),"malformed member reported missing");rejects([&]{XeenMonsterFormat::parse(*data);},"malformed");}
 		sprite_test::archive(installation.darkArchive,{{"xeen.mon",bytes}});
 		fs::resize_file(installation.darkArchive,fs::file_size(installation.darkArchive)-1);
-		{XeenAssetSource a(installation);rejects([&]{a.readCloudsMonsterStatisticsFromDarkArchive();},"truncated");}
+		{XeenAssetSource a(installation);rejects([&]{a.readMonsterStatistics();},"truncated");}
 		// Valid decoded index with a malicious payload offset into the index itself.
 		sprite_test::archive(installation.darkArchive,{{"xeen.mon",bytes}});
 		{
@@ -71,11 +71,11 @@ int main() {
 				stream.seekp(2+i);stream.write(&encoded,1);
 			}
 		}
-		{XeenAssetSource a(installation);rejects([&]{a.readCloudsMonsterStatisticsFromDarkArchive();},"overlaps");}
+		{XeenAssetSource a(installation);rejects([&]{a.readMonsterStatistics();},"overlaps");}
 		sprite_test::archive(installation.darkArchive,{{"other",{1}}});
-		{XeenAssetSource a(installation);check(!a.readCloudsMonsterStatisticsFromDarkArchive(),"missing member not distinct");}
+		{XeenAssetSource a(installation);check(!a.readMonsterStatistics(),"missing member not distinct");}
 		installation.darkArchive.clear();installation.edition=GameEdition::CloudsOfXeen;
-		{XeenAssetSource a(installation);check(!a.readCloudsMonsterStatisticsFromDarkArchive(),"missing Dark archive not distinct");}
+		{XeenAssetSource a(installation);check(!a.readMonsterStatistics(),"missing Dark archive not distinct");}
 		std::cout<<"Monster/context parsing and checked asset boundaries passed\n";
 		return 0;
 	} catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}

@@ -12,36 +12,30 @@
 #include <cstdio>
 namespace mmodern::coverage {
 namespace {
-GameInstallation darkInstallation(GameInstallation value) {
-    value.cloudsData=value.darksideData;value.xeenArchive=value.darkArchive;return value;
-}
 std::string resource(XeenMapIdentity id,const char *extension) {
     char name[32];std::snprintf(name,sizeof(name),id.number>=100?"mazex%03u.%s":"maze%04u.%s",unsigned(id.number),extension);return name;
 }
 }
 OriginalContext::OriginalContext(const GameInstallation &installation, std::optional<XeenCamera> fixture):installation(installation),assets(installation),
-    darkAssets(darkInstallation(installation)),
-    events([this](const std::string &name)->std::optional<std::vector<std::uint8_t>> {
-        if(!assets.hasInitialResource(name))return {};return assets.readInitialResource(name);
-     }),texts([this](const std::string &name)->std::optional<std::vector<std::uint8_t>> {
-        if(!assets.hasArchiveResource(name))return {};return assets.readArchiveResource(name);
+    events([this](const std::string &name,XeenSide side)->std::optional<std::vector<std::uint8_t>> {
+        if(!assets.hasInitialResource(name,side))return {};return assets.readInitialResource(name,side);
+     }),texts([this](const std::string &name,XeenSide side)->std::optional<std::vector<std::uint8_t>> {
+        const auto ar=side==XeenSide::Clouds?XeenSceneArchive::Clouds:XeenSceneArchive::DarksideOnly;if(!assets.hasSceneResource(name,ar))return {};return assets.readArchiveResource(name,ar);
     },[this](const std::string &name)->std::optional<std::vector<std::uint8_t>> {
         return assets.readArchiveResource(name,XeenSceneArchive::DarksideOnly);
-    }),world([this](auto id){
-        if(id.side==XeenSide::Clouds)return maps.loadGeometryMap(assets,id);
-        XeenMap map;map.side=id.side;
-        map.geometry=XeenMapFormat::parseDat(darkAssets.readInitialResource(resource(id,"dat")));
-        if(map.geometry.id!=id.number)throw std::runtime_error("Darkside map identity mismatch");
-        return map;
-    },[this](auto id){
-        if(id.side==XeenSide::Clouds)return maps.loadObjects(assets,id);
-        const auto name=resource(id,"mob");XeenObjectFile file{id,name,false,{}};
-        if(darkAssets.hasInitialResource(name)) {file.resourcePresent=true;file.entities=XeenMapFormat::parseMob(darkAssets.readInitialResource(name));}
-        return file;
-    }) {
-    party=XeenPartyLoader().loadInitialCloudsParty(assets);
+    }),world([this](auto id){return maps.loadGeometryMap(assets,id);},[this](auto id){return maps.loadObjects(assets,id);}) {
+    if(fixture && fixture->mapId.side==XeenSide::Darkside) {
+        OriginalContext base(installation);bindResources();
+        auto saved=*base.initial;saved.camera=*fixture;saved.headCache.reset();
+        saved.darksideSong=static_cast<std::uint8_t>(7*xeenMapMusicRow(maps.loadGeometryMap(assets,fixture->mapId).geometry));
+        XeenSaveState::restoreBeforeGameplay(saved,resources,party,camera,flags,world,[](auto &,const auto &,const auto &,const auto &){});
+        flow=std::make_unique<XeenEncounterFlow>(program,world,party,camera,flags,clock,XeenJourneyRestoreTag{});
+        if(!flow->prepareJourneyFrame(flow->ticket(),[]{}) || !flow->presentJourney(flow->ticket()))throw std::runtime_error("Census Darkside presentation boundary failed");
+        return;
+    }
+    party=XeenPartyLoader().loadInitialParty(assets);
     const auto chr=assets.readInitialResource("maze.chr"),pty=assets.readInitialResource("maze.pty");
-    const auto statistics=XeenMonsterFormat::parse(*assets.readCloudsMonsterStatisticsFromDarkArchive());
+    const auto statistics=XeenMonsterFormat::parse(*assets.readMonsterStatistics());
     if(fixture)camera=*fixture;
     const auto entryEvents=events.load(camera.mapId);
     XeenJourneySetup setup{chr,XeenGameplayContextFormat::parse(pty),statistics,entryEvents,7};
@@ -63,19 +57,26 @@ OriginalContext::OriginalContext(const GameInstallation &installation, std::opti
     flow=std::make_unique<XeenEncounterFlow>(program,world,party,camera,flags,clock,setup);
     if(!flow->prepareJourneyFrame(flow->ticket(),[]{}) || !flow->presentJourney(flow->ticket()))
         throw std::runtime_error("Census New Game presentation boundary failed");
+    bindResources();
+    if(!fixture)initial=XeenSaveState::capture(resources.signature,party,camera,flags,world);
+}
+void OriginalContext::bindResources() {
     resources.signature=XeenSaveFile::fingerprint(installation);
     resources.loadInitialCharacters=[this]{return assets.readInitialResource("maze.chr");};
-    resources.loadInitialParty=[this]{return XeenPartyLoader().loadInitialCloudsParty(assets);};
+    resources.loadInitialParty=[this]{return XeenPartyLoader().loadInitialParty(assets);};
     resources.loadEvents=[this](auto id){return events.load(id);};
-    resources.loadMonsterStatistics=[this]{return XeenMonsterFormat::parse(*assets.readCloudsMonsterStatisticsFromDarkArchive());};
-    resources.regionalManifest=setup.regionalManifest;
+    resources.loadMonsterStatisticsForSide=[this](XeenSide side){return XeenMonsterFormat::parse(*assets.readMonsterStatistics(side));};
+    resources.loadMonsterStatistics=[this]{return XeenMonsterFormat::parse(*assets.readMonsterStatistics());};
+    resources.regionalManifest=[this](const auto &m,const auto &o,const auto &e,const auto &s) {
+        xeenValidateRegionalManifest(m,o,e,s,assets.readInitialResource("maze0023.dat"),assets.readInitialResource("maze0023.mob"),assets.readInitialResource("maze0023.evt"));
+    };
     resources.loadRegionalText=[this](auto id){return text(id);};
-    resources.loadLearnedSpellNames=setup.learnedNamesProvider;
-    if(!fixture)initial=XeenSaveState::capture(resources.signature,party,camera,flags,world);
+    resources.loadLearnedSpellNames=[this]{return XeenLearnedSpellNames::parse(*assets.readLearnedSpellNamesFromDarkArchive());};
 }
 Support OriginalContext::replayRoot(XeenCamera entry) {
     try {
-        auto snapshot=*initial;snapshot.camera=entry;
+        auto snapshot=*initial;snapshot.camera=entry;snapshot.headCache.reset();
+        if(entry.mapId.side==XeenSide::Darkside)snapshot.darksideSong=static_cast<std::uint8_t>(7*xeenMapMusicRow(maps.loadGeometryMap(assets,entry.mapId).geometry));
         XeenProgramState probe{mmodern::XeenWallClock::fixed(0)};
         XeenWorld w([this](auto id){return maps.loadGeometryMap(assets,id);},[this](auto id){return maps.loadObjects(assets,id);});
         XeenPartyState p;XeenCamera c;XeenGameFlags f;
@@ -127,9 +128,6 @@ Support OriginalContext::replayRoot(XeenCamera entry) {
 }
 XeenEventTextFile OriginalContext::text(XeenMapIdentity id) {
     if(const auto found=textCache.find(id);found!=textCache.end())return found->second;
-    if(id.side==XeenSide::Clouds)return textCache.emplace(id,texts.load(id)).first->second;
-    auto name=resource(id,"txt");name[0]='a';XeenEventTextFile file{id,name,false,{}};
-    if(darkAssets.hasArchiveResource(name)) {file.resourcePresent=true;file.strings=XeenEventTextFormat::parse(darkAssets.readArchiveResource(name));}
-    return textCache.emplace(id,std::move(file)).first->second;
+    return textCache.emplace(id,texts.load(id)).first->second;
 }
 }

@@ -60,13 +60,13 @@ struct Inputs {
 		texts([&](const auto &name)->std::optional<std::vector<std::uint8_t>> {
 			if(!assets.hasArchiveResource(name))return {};return assets.readArchiveResource(name);}) {
 		chr=assets.readInitialResource("maze.chr");pty=assets.readInitialResource("maze.pty");
-		const auto mon=assets.readCloudsMonsterStatisticsFromDarkArchive();check(bool(mon),"original MON absent");
+		const auto mon=assets.readMonsterStatistics();check(bool(mon),"original MON absent");
 		statistics=XeenMonsterFormat::parse(*mon);mainlandEvents=events.load(23);
 		const auto spellNames=assets.readLearnedSpellNamesFromDarkArchive();check(bool(spellNames),"original spell names absent");
 		names=XeenLearnedSpellNames::parse(*spellNames);
 		signature=XeenSaveFile::fingerprint(installation);
 	}
-	XeenPartyState ordinary() { return XeenPartyLoader().loadInitialCloudsParty(assets); }
+	XeenPartyState ordinary() { return XeenPartyLoader().loadInitialParty(assets); }
 	XeenRegionalManifest regional() {
 		return [&](const auto &m,const auto &o,const auto &e,const auto &s) {
 			xeenValidateRegionalManifest(m,o,e,s,assets.readInitialResource("maze0023.dat"),

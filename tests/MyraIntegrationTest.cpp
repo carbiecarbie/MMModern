@@ -33,7 +33,7 @@ void checkpoint(const GameInstallation &installation,XeenAssetSource &assets, co
 		bool requested, SDL_Keycode dismiss, bool sdl, int lossFixture=0) {
     mmodern::XeenProgramState programState{mmodern::XeenWallClock::fixed(0)};
     programState.audio=XeenAudio::installed(installation,assets,0,false,std::filesystem::path("mmodern-nonexistent-rom-fixture"));
-	auto party=XeenPartyLoader().loadInitialCloudsParty(assets);
+	auto party=XeenPartyLoader().loadInitialParty(assets);
     auto options=XeenSoundOptions(party.soundOptions);options.text=true;party.soundOptions=options; // This witness exercises visible-text pagination.
 	check(party.questItems.at(17)==0,"fresh original party inherited a Root");
 	const auto originalParty=assets.readInitialResource("maze.pty");
@@ -70,7 +70,7 @@ void checkpoint(const GameInstallation &installation,XeenAssetSource &assets, co
 			if(items.back().id){items[(delivered-1)%9]=items.back();items.back()={};}
 		}
 	};
-	auto flags=XeenGameFlagsLoader().loadInitialCloudsFlags(assets);const auto flagsBefore=flags.values();
+	auto flags=XeenGameFlagsLoader().loadInitialFlags(assets);const auto flagsBefore=flags.values();
 	XeenCamera camera=checkpoint_test::myra;const auto start=camera;
 	const XeenMapLoader mapLoader;int maps=0,objects=0,scripts=0,strings=0;
 	XeenWorld world([&](XeenMapIdentity id){++maps;return mapLoader.loadGeometryMap(assets,id);},
@@ -135,7 +135,7 @@ void checkpoint(const GameInstallation &installation,XeenAssetSource &assets, co
  // Before any gameplay input, observe a complete original stationary cycle.
  if(roots==0 && !requested && dismiss==SDLK_RETURN) {
   const auto resolver=XeenObjectVisualResolver::load(assets);
-  const auto metadata=assets.readCloudsVisualMetadataFromDarkArchive();check(bool(metadata),"original metadata absent");
+  const auto metadata=assets.readObjectVisualMetadata();check(bool(metadata),"original metadata absent");
   for(unsigned d=0;d<4;++d){check(metadata->at(9*12+d)==(d?4:0) && metadata->at(9*12+8+d)==(d?7:3) && metadata->at(9*12+4+d)==(d==2?1:0),"original Myra cycle metadata");}
   const auto &record=world.objectFile(23).entities.objects.at(1);
   check(record.x==9 && record.y==11 && record.direction==3 && record.resourceId==9,"original Myra identity metadata");

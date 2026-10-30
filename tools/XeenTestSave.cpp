@@ -34,25 +34,29 @@ struct Inputs {
     XeenSaveState::Resources resources;
 
     explicit Inputs(const GameInstallation &installation) : assets(installation,320,200),
-        events([this](const std::string &name)->std::optional<std::vector<std::uint8_t>> {
-            if (!assets.hasInitialResource(name)) return {};
-            return assets.readInitialResource(name);
+        events([this](const std::string &name,XeenSide side)->std::optional<std::vector<std::uint8_t>> {
+            if (!assets.hasInitialResource(name,side)) return {};
+            return assets.readInitialResource(name,side);
         }),
         texts([this](const std::string &name)->std::optional<std::vector<std::uint8_t>> {
             if (!assets.hasArchiveResource(name)) return {};
             return assets.readArchiveResource(name);
         }) {
         resources.signature=XeenSaveFile::fingerprint(installation);
-        resources.loadInitialParty=[this] {return XeenPartyLoader().loadInitialCloudsParty(assets);};
+        resources.loadInitialParty=[this] {return XeenPartyLoader().loadInitialParty(assets);};
         resources.loadInitialCharacters=[this] {return assets.readInitialResource("maze.chr");};
         resources.loadInitialContext=[this] {return XeenGameplayContextFormat::parse(assets.readInitialResource("maze.pty"));};
         resources.loadInitialPurse=[this] {return XeenCharacterFormat::parseMonsterPurse(assets.readInitialResource("maze.pty"));};
         resources.loadInitialBankBalances=[this] {return XeenCharacterFormat::parseBankBalances(assets.readInitialResource("maze.pty"));};
         resources.loadInitialWorldFlags=[this] {return XeenQuestFlagFormat::parseWorldFlags(assets.readInitialResource("maze.pty"));};
         resources.loadEvents=[this](auto id) {return events.load(id);};
-        resources.loadRegionalText=[this](auto id) {return texts.load(id);};
+        resources.loadRegionalText=[this](auto id) {
+            const auto archive=id.side==XeenSide::Clouds?XeenSceneArchive::Clouds:XeenSceneArchive::DarksideOnly;
+            XeenEventTextLoader loader([&,archive](const std::string &name)->std::optional<std::vector<std::uint8_t>> {if(!assets.hasSceneResource(name,archive))return {};return assets.readArchiveResource(name,archive);});return loader.load(id);
+        };
+        resources.loadMonsterStatisticsForSide=[this](XeenSide side) {const auto bytes=assets.readMonsterStatistics(side);if(!bytes)throw std::runtime_error("Missing original side MON");return XeenMonsterFormat::parse(*bytes);};
         resources.loadMonsterStatistics=[this] {
-            const auto bytes=assets.readCloudsMonsterStatisticsFromDarkArchive();
+            const auto bytes=assets.readMonsterStatistics();
             if (!bytes) throw std::runtime_error("Missing DARK.CC/xeen.mon");
             return XeenMonsterFormat::parse(*bytes);
         };
@@ -78,7 +82,7 @@ struct Inputs {
     XeenSaveSnapshot fresh() {
         auto party=resources.loadInitialParty();
         auto camera=xeenJourneyContent().entry;
-        auto flags=XeenGameFlagsLoader().loadInitialCloudsFlags(assets);
+        auto flags=XeenGameFlagsLoader().loadInitialFlags(assets);
         XeenWorld world(mapLoader(),objectLoader());
         const auto characters=resources.loadInitialCharacters();
         const auto statistics=resources.loadMonsterStatistics();
@@ -167,6 +171,11 @@ void giveSlayerSword(XeenSaveSnapshot &snapshot) {
 }
 
 void prepare(XeenSaveSnapshot &snapshot,const std::string &preset) {
+    if(preset=="m101-castleview") {
+        prepare(snapshot,"m78-playtest");snapshot.camera={{XeenSide::Darkside,29},14,4,XeenDirection::North};
+        XeenCombatRandom random(*snapshot.journey->random);snapshot.darksideSong=static_cast<std::uint8_t>(7+random.range(0,6));snapshot.journey->random=random.continuation();
+        snapshot.headCache.reset();return;
+    }
     if(preset=="m98-load" || preset=="m98-inn") {
         prepare(snapshot,"m78-playtest");
         for(auto &m:snapshot.maps)m.explored.reset();
@@ -626,7 +635,7 @@ void prepare(XeenSaveSnapshot &snapshot,const std::string &preset) {
 
 void generateTestSave(const GameInstallation &installation,const std::string &preset,
         const std::filesystem::path &output) {
-    if (preset!="m98-load" && preset!="m98-inn" && preset!="m97-open-chest" && preset!="m96-chest" && preset!="m95-witch-skull" && preset!="m92-lord-xeen" && preset!="m92-sixth-mirror" && !m90Spot(preset) && preset!="m89-lord-xeen" && preset!="m89-clan-king" && preset!="m89-draco" && preset!="m89-dragons" && preset!="m89-trolls" && preset!="m88-roster" && preset!="m87-inn" && preset!="m87-three" && preset!="m87-shangrila" && preset!="broken-armor" && preset!="train-ready" && preset!="injured-dead" && preset!="poisoned" && preset!="monster-control" && preset!="monster-damage" && preset!="party-healing" && preset!="m76-spells" && preset!="combat-items" && preset!="m78-playtest" && preset!="m78-one-holder" && preset!="m79-playtest" && preset!="m80-playtest" && preset!="m80-arena" && preset!="m80-arena-maxed" && preset!="m81-drops" && preset!="m81-fullpacks" && preset!="m81-event" && preset!="m84-playtest-trap" && preset!="m84-playtest-label" && preset!="m84-playtest-save" && preset!="m85-playtest-label" && preset!="m85-playtest-run" && preset!="m85-playtest-trap" && preset!="m86-playtest-fall" && preset!="m86-playtest-moon-ray" && preset!="m86-playtest-border")
+    if (preset!="m101-castleview" && preset!="m98-load" && preset!="m98-inn" && preset!="m97-open-chest" && preset!="m96-chest" && preset!="m95-witch-skull" && preset!="m92-lord-xeen" && preset!="m92-sixth-mirror" && !m90Spot(preset) && preset!="m89-lord-xeen" && preset!="m89-clan-king" && preset!="m89-draco" && preset!="m89-dragons" && preset!="m89-trolls" && preset!="m88-roster" && preset!="m87-inn" && preset!="m87-three" && preset!="m87-shangrila" && preset!="broken-armor" && preset!="train-ready" && preset!="injured-dead" && preset!="poisoned" && preset!="monster-control" && preset!="monster-damage" && preset!="party-healing" && preset!="m76-spells" && preset!="combat-items" && preset!="m78-playtest" && preset!="m78-one-holder" && preset!="m79-playtest" && preset!="m80-playtest" && preset!="m80-arena" && preset!="m80-arena-maxed" && preset!="m81-drops" && preset!="m81-fullpacks" && preset!="m81-event" && preset!="m84-playtest-trap" && preset!="m84-playtest-label" && preset!="m84-playtest-save" && preset!="m85-playtest-label" && preset!="m85-playtest-run" && preset!="m85-playtest-trap" && preset!="m86-playtest-fall" && preset!="m86-playtest-moon-ray" && preset!="m86-playtest-border")
         throw std::invalid_argument("Unknown test-save preset: "+preset);
     const auto target=XeenSaveFile::resolve(output,installation);
     // Reuse the native alias/reparse-aware path guard for the repository too.
@@ -742,6 +751,7 @@ void generateTestSave(const GameInstallation &installation,const std::string &pr
         candidate.camera={3,best->first+2,best->second,XeenDirection::West};
         for(auto slot:group){table->slots[slot].x=best->first;table->slots[slot].y=best->second;}
     }
+    if(preset=="m101-castleview")candidate.darksideSong=static_cast<std::uint8_t>(xeenMapMusicRow(inputs.maps.loadGeometryMap(inputs.assets,candidate.camera.mapId).geometry)*7+*candidate.darksideSong%7);
     // Publish only a snapshot recaptured from restored, validated current owners.
     const auto snapshot=inputs.validated(candidate);
     XeenSaveFile::write(target,snapshot);

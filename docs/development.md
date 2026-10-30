@@ -669,3 +669,14 @@ keeps the latter blank until the edited party exits and the scene is checked.
 Generate them with `build-rel/mmodern_test_save.exe <preset> <game-dir> <output>`.
 The M98 session folder is `D:/Projetos/MModern/MModern-playtest/m98/`.
 Its New Game item uses the New Game entry and checks Vertigo `(18,4)`, West.
+
+### Darkside start
+
+`m101-castleview` starts at Darkside map 29 `(14,4)`, North, with the
+prepared level-30 party and a saved indoor song. Generate it with
+`build-rel/mmodern_test_save.exe m101-castleview <game-dir> <output>`.
+Ordinary maps, movement, dialogue, combat and v23 Save/Load use Darkside
+resources. Town services, the Pyramid, Darkside Town Portal and Lloyd's
+Beacon, Mr Wizard and defeat recovery say "not supported yet"; Darkside
+progress cannot yet be exported to DOS. Mixed maps 113..128, FlipWorld and
+the Darkside/World endings also remain refused.

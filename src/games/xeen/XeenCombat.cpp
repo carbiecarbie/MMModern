@@ -90,8 +90,8 @@ struct XeenCombat::Impl {
 			const XeenCharacter &at(std::size_t i) const { return values.at(i); }
 		} roster;
 		XeenParty party;
-		XeenCloudsQuestItems questItems;
-		XeenCloudsQuestFlags questFlags;
+		XeenQuestItems questItems;
+		XeenQuestFlags questFlags;
 		std::optional<XeenWorldFlags> recovery;
 		std::optional<XeenGameplayContext> encounterContext;
 		std::optional<XeenPurse> purse;

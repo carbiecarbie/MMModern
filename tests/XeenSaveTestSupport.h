@@ -46,6 +46,8 @@ inline bool sameInputs(const XeenCombatInputs &a, const XeenCombatInputs &b) {
 }
 
 inline void sameSnapshot(const XeenSaveSnapshot &a, const XeenSaveSnapshot &b) {
+    check(a.darksideSong==b.darksideSong,"saved map song changed");
+    for(unsigned owner=0;owner<30;++owner)check(a.characters[owner].characterFlags==b.characters[owner].characterFlags,"character flags changed");
     check(a.insideInn==b.insideInn,"Inn state");
 	check(a.name == b.name, "save name changed");
 	check(a.resources == b.resources && sameCamera(a.camera, b.camera), "signature/camera changed");
@@ -215,7 +217,7 @@ inline XeenSaveSnapshot sample() {
 // Wire offset of the Journey domain byte: header, fingerprints, camera, member
 // and roster counts, members, characters, quest counters/flags and game flags.
 inline std::size_t journeyOffset(const XeenSaveSnapshot &s) {
-	std::size_t n=20+25+1+6+2+s.activeRosterIds.size()+4*s.questItems.size()+s.questFlags.size()+s.gameFlags.size()+4;
+	std::size_t n=20+25+1+6+2+s.activeRosterIds.size()+4*s.questItems.size()+s.questFlags.size()+s.gameFlags.size()+4+30*32+1;
 	for(const auto &c:s.characters)n+=239+c.name.size();
 	return n;
 }

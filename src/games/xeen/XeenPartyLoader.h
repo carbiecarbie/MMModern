@@ -15,7 +15,7 @@ inline constexpr std::uint32_t kCloudsInitialYear = 610;
 
 class XeenPartyLoader {
 public:
-	XeenPartyState loadInitialCloudsParty(XeenAssetSource &assets) const;
+	XeenPartyState loadInitialParty(XeenAssetSource &assets) const;
 	XeenPartyState loadFromResources(const std::vector<std::uint8_t> &rosterBytes,
 		const std::vector<std::uint8_t> &partyBytes) const;
 };

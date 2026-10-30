@@ -52,9 +52,9 @@ int main(int argc, char *argv[]) {
 		check(installation && installation->hasXeen(),
 			"Clouds installation unavailable");
 		XeenAssetSource assets(*installation);
-		XeenPartyState party = XeenPartyLoader().loadInitialCloudsParty(assets);
+		XeenPartyState party = XeenPartyLoader().loadInitialParty(assets);
 		const XeenGameFlags initialFlags =
-			XeenGameFlagsLoader().loadInitialCloudsFlags(assets);
+			XeenGameFlagsLoader().loadInitialFlags(assets);
 		check(party.party.size() && party.party.member(party.roster, 0).currentSp == 2,
 			"unexpected initial first-member SP");
 		check(!initialFlags.isSet(25), "expected initial Clouds flag 25 to be clear");

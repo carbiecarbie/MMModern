@@ -599,7 +599,7 @@ void XeenWorld::restoreExploredTiles(const std::vector<XeenExploredTile> &values
 	if(hasEncounterState() || values.size()>512)throw std::invalid_argument("Invalid exploration restoration owner/count");
 	for(std::size_t n=0;n<values.size();++n) {
 		const auto &v=values[n];
-		if(!v.mapId || v.mapId.side!=XeenSide::Clouds || (n && !(values[n-1].mapId<v.mapId)))
+		if(!v.mapId || (n && !(values[n-1].mapId<v.mapId)))
 			throw std::invalid_argument("Invalid explored tile identity/order/bitset");
 		if(map(v.mapId).identity()!=v.mapId || hasEncounterState())
 			throw std::invalid_argument("Explored tile original resource mismatch");
@@ -666,7 +666,7 @@ std::unique_ptr<XeenWorld> XeenWorld::transitionCandidate() const {
 	candidate->_developerEventMap=_developerEventMap;
     candidate->_inputMapLoadGeneration=_inputMapLoadGeneration;
 	candidate->_maps=_maps;candidate->_objects=_objects;
-	candidate->_cityStatistics=_cityStatistics;
+	candidate->_cityStatistics=_cityStatistics;candidate->_darksideStatistics=_darksideStatistics;
 	candidate->_scenePresentation=_scenePresentation;candidate->_mapRuleView=_mapRuleView;
 	// Detached work stages on a copy; publishTransition returns it.
 	candidate->_ownTreasureStaging.publish(treasureStaging().value());
@@ -812,11 +812,12 @@ void XeenWorld::publishTransition(XeenWorld &candidate) noexcept {
     _mapRuleView=candidate._mapRuleView;
     _inputMapLoadGeneration=candidate._inputMapLoadGeneration;
 	_sessionState._journeyRandom.swap(candidate._sessionState._journeyRandom);
+	_sessionState._darksideSong.swap(candidate._sessionState._darksideSong);
 	// The whole per-map table moves as one value.
 	_sessionState._mapStates.swap(candidate._sessionState._mapStates);
 	_sessionState._accountedMonsters.swap(candidate._sessionState._accountedMonsters);
 	_sessionState._headCache.swap(candidate._sessionState._headCache);
-	_cityStatistics.swap(candidate._cityStatistics);
+	_cityStatistics.swap(candidate._cityStatistics);_darksideStatistics.swap(candidate._darksideStatistics);
 	_maps.swap(candidate._maps);_objects.swap(candidate._objects);
 	// Map transitions keep pending treasure; only a changed copy is published.
 	if(candidate.transitionTreasureChanged()) treasureStaging().publish(candidate.treasureStaging().value());

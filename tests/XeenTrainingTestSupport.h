@@ -100,11 +100,11 @@ struct Inputs {
     std::vector<std::uint8_t> chr,pty;std::vector<XeenMonsterRecord> statistics;
     XeenEventFile mainland,city;XeenLearnedSpellNames names;XeenFontFormat font;XeenSaveResourceSignature signature;
     explicit Inputs(const GameInstallation &installation):assets(installation,320,200),
-        events([&](const auto &n)->std::optional<std::vector<std::uint8_t>>{if(!assets.hasInitialResource(n))return {};return assets.readInitialResource(n);}),
-        texts([&](const auto &n)->std::optional<std::vector<std::uint8_t>>{if(!assets.hasArchiveResource(n))return {};return assets.readArchiveResource(n);}),
+        events([&](const std::string &n,XeenSide side)->std::optional<std::vector<std::uint8_t>>{if(!assets.hasInitialResource(n,side))return {};return assets.readInitialResource(n,side);}),
+        texts([&](const std::string &n,XeenSide side)->std::optional<std::vector<std::uint8_t>>{const auto ar=side==XeenSide::Clouds?XeenSceneArchive::Clouds:XeenSceneArchive::DarksideOnly;if(!assets.hasSceneResource(n,ar))return {};return assets.readArchiveResource(n,ar);},[&](const std::string &n)->std::optional<std::vector<std::uint8_t>> {return assets.readArchiveResource(n,XeenSceneArchive::DarksideOnly);}),
         font(assets.readArchiveResource("fnt")) {
         chr=assets.readInitialResource("maze.chr");pty=assets.readInitialResource("maze.pty");
-        statistics=XeenMonsterFormat::parse(*assets.readCloudsMonsterStatisticsFromDarkArchive());
+        statistics=XeenMonsterFormat::parse(*assets.readMonsterStatistics());
         mainland=events.load(23);city=events.load(28);names=XeenLearnedSpellNames::parse(*assets.readLearnedSpellNamesFromDarkArchive());
         signature=XeenSaveFile::fingerprint(installation);
     }
@@ -124,12 +124,13 @@ struct Inputs {
     XeenSaveState::Resources resources(){
         XeenSaveState::Resources r;r.signature=signature;r.loadInitialCharacters=[this]{return chr;};
         r.loadInitialParty=[this]{return XeenPartyLoader().loadFromResources(chr,pty);};
-        r.loadEvents=[this](auto id){return events.load(id);};r.loadMonsterStatistics=[this]{return statistics;};
+        r.loadEvents=[this](auto id){return events.load(id);};
+        r.loadMonsterStatisticsForSide=[this](XeenSide side){return side==XeenSide::Clouds?statistics:XeenMonsterFormat::parse(*assets.readMonsterStatistics(side));};r.loadMonsterStatistics=[this]{return statistics;};
         r.regionalManifest=regional();r.loadRegionalText=[this](auto id){return texts.load(id);};
         r.loadLearnedSpellNames=[this]{return names;};return r;
     }
     XeenSaveSnapshot base(){
-        auto p=XeenPartyLoader().loadInitialCloudsParty(assets);auto c=xeenJourneyContent().entry;XeenGameFlags f;
+        auto p=XeenPartyLoader().loadInitialParty(assets);auto c=xeenJourneyContent().entry;XeenGameFlags f;
         XeenWorld w(mapLoader(),objectLoader());auto value=setup();XeenEncounterFlow flow(programState,w,p,c,f,[]{return 0;},value);
         check(flow.prepareJourneyFrame(flow.ticket(),[]{}) && flow.presentJourney(flow.ticket()),"synthetic base frame");
         return XeenSaveState::capture(signature,p,c,f,w);

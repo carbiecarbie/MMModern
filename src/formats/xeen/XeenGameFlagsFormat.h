@@ -20,6 +20,7 @@ public:
 	// 576 bytes of Clouds shop inventory, 34 bytes of uint16 values, 20 bytes
 	// of uint32 values, and one rested byte: 28 + 576 + 34 + 20 + 1 = 659.
 	static constexpr std::size_t kCloudsFlagsOffset = 659;
+	static constexpr std::size_t kDarksideFlagsOffset = 691;
 	static constexpr std::size_t kCloudsFlagCount = 256;
 	static constexpr std::size_t kCloudsFlagsSerializedSize = 32;
 	static constexpr std::size_t kCloudsRequiredPartySize =

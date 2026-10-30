@@ -160,9 +160,9 @@ int main() {
 		}
 		installation.darkArchive=directory/"dark.cc";
 		archive(installation.darkArchive,{{"other.dat",{1}}});
-		{ XeenAssetSource assets(installation,320,200);check(!assets.readCloudsVisualMetadataFromDarkArchive(),"missing member"); }
+		{ XeenAssetSource assets(installation,320,200);check(!assets.readObjectVisualMetadata(),"missing member"); }
 		archive(installation.darkArchive,{{"clouds.dat",{}}});
-		{ XeenAssetSource assets(installation,320,200);check(assets.readCloudsVisualMetadataFromDarkArchive()->empty(),"empty vs missing");rejects([&]{XeenObjectVisualResolver::load(assets);}); }
+		{ XeenAssetSource assets(installation,320,200);check(assets.readObjectVisualMetadata()->empty(),"empty vs missing");rejects([&]{XeenObjectVisualResolver::load(assets);}); }
 		archive(installation.darkArchive,{{"clouds.dat",Bytes(1452)}});
 		{ XeenAssetSource assets(installation,320,200);
 			const auto resolved=XeenObjectVisualResolver::load(assets).resolve(objects,0,XeenDirection::North);

@@ -525,7 +525,7 @@ std::vector<XeenIndoorDrawCommand> XeenIndoorScene::build(
 					if (const auto frame = world.scenePresentation().drawnObjectFrame({camera.mapId, recordIndex})) visual.frame = *frame;
 					if (visual.status == XeenObjectVisualStatus::SupportedStatic ||
 						visual.status == XeenObjectVisualStatus::SupportedAnimated) {
-						const std::size_t anchorRow = object.resourceId == 113 ? 1 : 0;
+						const std::size_t anchorRow = object.resourceId == (camera.mapId.side==XeenSide::Clouds?113:47) ? 1 : 0;
 						XeenIndoorDrawCommand command;
 						command.originalOrder = placement.order;
 						command.x = placement.x[anchorRow];
@@ -680,7 +680,8 @@ std::vector<XeenIndoorDrawCommand> XeenIndoorScene::buildActors(
 				command.sourceMapId=a.id.mapId;command.sourceX=a.x;command.sourceY=a.y;command.queryIndex=g.query;
 				XeenIndoorActorDraw draw{a.id,a.statistics->image(),appearance.frame,
 					attacking?XeenMonsterSpriteKind::Attack:XeenMonsterSpriteKind::Normal};
-				draw.selectedSlot=g.slots[i];draw.scaleIndex=g.scale;draw.bottomClipped=g.query==2;
+				draw.archive=a.original.resourceId==91?XeenSceneArchive::Clouds:XeenSceneArchive::Current;
+                draw.selectedSlot=g.slots[i];draw.scaleIndex=g.scale;draw.bottomClipped=g.query==2;
 				if (const auto *animation=world.scenePresentation().drawingState().animation(a.id)) {
 					if (!attacking) {draw.kind=animation->frame>=8?XeenMonsterSpriteKind::Attack:XeenMonsterSpriteKind::Normal;draw.frame=animation->frame%8;}
 					draw.effectFlags=animation->flags();

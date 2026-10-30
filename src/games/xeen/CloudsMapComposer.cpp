@@ -12,45 +12,49 @@
 namespace mmodern {
 
 void CloudsMapComposer::drawOutdoorCommands(XeenAssetSource &assets,
-		const std::vector<XeenOutdoorDrawCommand> &commands) const {
+		const std::vector<XeenOutdoorDrawCommand> &commands,XeenSceneArchive archive) const {
 	for (const auto &command : commands) {
+		auto options=command.drawOptions();
+		if(options.archive==XeenSceneArchive::Current)options.archive=archive;
 		if (const auto *object = command.object())
-			assets.drawObjectVisual(object->visual, command.x, command.y, command.drawOptions());
+			assets.drawObjectVisual(object->visual, command.x, command.y, options);
 		else if (const auto *actor = command.actor())
-			assets.drawMonster(actor->image, {actor->kind, actor->frame}, command.x, command.y, command.drawOptions());
+			assets.drawMonster(actor->image, {actor->kind, actor->frame}, command.x, command.y, options);
 		else if(const auto *p=command.projectile())
-			assets.drawProjectile(p->pow,p->enemy,p->row,command.x,command.y,command.drawOptions());
-		else if(const auto *s=command.splat())assets.drawSceneSprite("charpow.icn",s->frame,command.x,command.y,command.drawOptions());
+			assets.drawProjectile(p->pow,p->enemy,p->row,command.x,command.y,options);
+		else if(const auto *s=command.splat())assets.drawSceneSprite("charpow.icn",s->frame,command.x,command.y,options);
 		else
 			assets.drawSceneSprite(command.terrain().resourceName, command.terrain().frame,
-				command.x, command.y, command.drawOptions());
+				command.x, command.y, options);
 	}
 }
 
 void CloudsMapComposer::drawIndoorCommands(XeenAssetSource &assets,
-		const std::vector<XeenIndoorDrawCommand> &commands) const {
+		const std::vector<XeenIndoorDrawCommand> &commands,XeenSceneArchive archive) const {
 	for (const auto &command : commands) {
+		auto options=command.drawOptions();
+		if(options.archive==XeenSceneArchive::Current)options.archive=archive;
 		if (const auto *object = command.object())
 			assets.drawObjectVisual(object->visual, command.x, command.y,
-				command.drawOptions());
+				options);
 		else if (const auto *actor=command.actor())
-			assets.drawMonster(actor->image,{actor->kind,actor->frame},command.x,command.y,command.drawOptions());
-		else if(const auto *p=command.projectile())assets.drawProjectile(p->pow,p->enemy,p->row,command.x,command.y,command.drawOptions());
+			assets.drawMonster(actor->image,{actor->kind,actor->frame},command.x,command.y,options);
+		else if(const auto *p=command.projectile())assets.drawProjectile(p->pow,p->enemy,p->row,command.x,command.y,options);
 		else if (const auto *wall=command.wallItem())
-			assets.drawSceneSprite(wall->resourceName,wall->frame,command.x,command.y,command.drawOptions());
-		else if(const auto *s=command.splat())assets.drawSceneSprite("charpow.icn",s->frame,command.x,command.y,command.drawOptions());
+			assets.drawSceneSprite(wall->resourceName,wall->frame,command.x,command.y,options);
+		else if(const auto *s=command.splat())assets.drawSceneSprite("charpow.icn",s->frame,command.x,command.y,options);
 		else
 			assets.drawSceneSprite(command.geometry().resourceName, command.geometry().frame,
-				command.x, command.y, command.drawOptions());
+				command.x, command.y, options);
 	}
 }
 
 void CloudsMapComposer::drawInterfaceLayers(XeenAssetSource &assets,
 		const XeenPartyState &partyState,
-		const XeenCharacterRulesContext &context,XeenScenePresentation *presentation) const {
-    CloudsUiComposer::drawBorder(partyState,[&](const char *name,unsigned frame,int x,int y){assets.drawSprite(name,frame,x,y);},presentation);
+		const XeenCharacterRulesContext &context,XeenScenePresentation *presentation,XeenSceneArchive archive) const {
+    CloudsUiComposer::drawBorder(partyState,[&](const char *name,unsigned frame,int x,int y){XeenSpriteDrawOptions options;options.archive=archive;assets.drawSprite(name,frame,x,y,options);},presentation);
 	// The compass/main button at y=137 overlaps the scene border in the original UI.
-	CloudsUiComposer().drawInterface(assets, partyState, context);
+	CloudsUiComposer().drawInterface(assets,partyState,context,archive);
 }
 
 IndexedFrame CloudsMapComposer::drawDirectionSense(XeenAssetSource &assets,IndexedFrame frame,
@@ -75,20 +79,21 @@ IndexedFrame CloudsMapComposer::compose(XeenAssetSource &assets,
 		std::vector<XeenObjectVisual> *objectDiagnostics,
 		std::optional<std::uint64_t> ordinaryPhase, bool *containsOrdinaryAnimation,
 		std::optional<XeenMonsterAppearance> actorFrame) const {
+	const auto archive=xeenPictureArchive(camera.mapId);
 	if (containsOrdinaryAnimation) *containsOrdinaryAnimation = false;
 	bool emittedAnimation = false;
 	if (objectDiagnostics) objectDiagnostics->clear();
 	const auto actors=world.sceneActors(camera.mapId,[&] {
-		const auto bytes=assets.readCloudsMonsterStatisticsFromDarkArchive();
+		const auto bytes=assets.readMonsterStatistics(camera.mapId.side);
 		if (!bytes) throw std::runtime_error("Missing DARK.CC/xeen.mon for scene actors");
 		return XeenMonsterFormat::parse(*bytes);
 	});
 	for (const auto &actor:actors) if (actor.statistics) {
 		actor.statistics->validatePresentation();
-		assets.validateNormalMonster(actor.statistics->image());
-		assets.validateAttackMonster(actor.statistics->image());
+		assets.validateNormalMonster(actor.statistics->image(),actor.original.resourceId==91?XeenSceneArchive::Clouds:archive);
+		assets.validateAttackMonster(actor.statistics->image(),actor.original.resourceId==91?XeenSceneArchive::Clouds:archive);
 	}
-	CloudsUiComposer().loadBackground(assets);
+	CloudsUiComposer().loadBackground(assets,archive);
 
 	const XeenMap &map = world.map(camera.mapId);
 	const bool night = partyState.encounterContext &&
@@ -98,7 +103,7 @@ IndexedFrame CloudsMapComposer::compose(XeenAssetSource &assets,
 		const auto resolver = XeenObjectVisualResolver::load(assets);
 		const auto commands = XeenOutdoorScene().build(world, camera, &resolver, objectDiagnostics, ordinaryPhase, actorFrame,night);
 		emittedAnimation = true; // The default outdoor water layer always animates.
-		drawOutdoorCommands(assets, commands);
+		drawOutdoorCommands(assets,commands,archive);
 	} else {
 		const auto resolver = XeenObjectVisualResolver::load(assets);
 		const auto commands = XeenIndoorScene().build(
@@ -110,12 +115,12 @@ IndexedFrame CloudsMapComposer::compose(XeenAssetSource &assets,
 			if(const auto *object=command.object()) return object->visual.status==XeenObjectVisualStatus::SupportedAnimated;
 			return !command.projectile() && !command.splat() && command.geometry().animated;
 		});
-		drawIndoorCommands(assets, commands);
+		drawIndoorCommands(assets,commands,archive);
 	}
 
  // Obscure after scene/monsters, before overlapping border indicators.
  if(world.sceneIsBlack(partyState,camera))assets.blackenScene();
-	drawInterfaceLayers(assets, partyState, context,&world.scenePresentation());
+	drawInterfaceLayers(assets, partyState, context,&world.scenePresentation(),archive);
     if(partyState.encounterContext)for(auto i:{XeenPartyEffect::Levitate,XeenPartyEffect::Bless,XeenPartyEffect::PowerShield,XeenPartyEffect::HolyBonus,XeenPartyEffect::Heroism})
         emittedAnimation=emittedAnimation || partyState.encounterContext->effects[i]!=0;
 	const auto &indicators=world.scenePresentation();

@@ -59,6 +59,7 @@ public:
 	XeenSessionWorldState &operator=(const XeenSessionWorldState &)=default;
 	bool journey() const noexcept { return _entry == XeenEncounterEntry::Journey; }
 	XeenJourneyActivity journeyActivity() const noexcept { return _journeyActivity; }
+	const XeenMutableOptional<std::uint8_t> &darksideSong() const noexcept {return _darksideSong;}
 	std::uint32_t skeletonSeed() const noexcept { return _skeletonSeed; }
 	const XeenMutableOptional<XeenJourneyRandomState> &journeyRandom() const noexcept { return _journeyRandom; }
 	XeenReadOnlySet<XeenMonsterIdentity> accountedMonsters() const noexcept { return XeenReadOnlySet<XeenMonsterIdentity>(_accountedMonsters); }
@@ -124,6 +125,7 @@ private:
 	std::uint64_t _journeyGeneration = 0;
 	std::uint32_t _skeletonSeed = 0;
 	XeenMutableOptional<XeenJourneyRandomState> _journeyRandom;
+	XeenMutableOptional<std::uint8_t> _darksideSong;
 	std::set<XeenMonsterIdentity> _accountedMonsters;
 	friend class XeenWorld;
 	friend class XeenActorApproach;
@@ -177,6 +179,7 @@ public:
 	using EventLoader = std::function<XeenEventFile(XeenMapIdentity)>;
 	explicit XeenWorld(MapLoader loader, ObjectLoader objectLoader = {});
 	const XeenObjectFile &objectFile(XeenMapIdentity mapId);
+ const std::vector<XeenMonsterRecord> &monsterStatistics(XeenSide side) const {return side==XeenSide::Clouds?_cityStatistics:_darksideStatistics;}
 	// Resource observations for presentation. Live session actors take precedence;
 	// fallback collections never enter combat/session state or simulation.
 	std::vector<XeenActor> sceneActors(XeenMapIdentity,
@@ -326,6 +329,7 @@ public:
 	XeenActorView prepareTransitionArrival(const XeenCamera &);
 	// Map load (decision 8): the destination's live monsters return to MON HP,
 	// asleep, before the arrival view wakes those it sees. Detached work only.
+	void selectMapMusic(XeenMapIdentity);
 	void reloadMapMonsters(XeenMapIdentity);
 	// Retain a manual Space suffix in its detached Event owner, before publication.
 	void retainEventStep(XeenPartyState &,const XeenRegionalActionCandidate &,const std::vector<XeenActor> &);
@@ -369,7 +373,7 @@ private:
 	std::uint64_t _transitionTreasureBase = 0, _transitionTreasureCopy = 0;
 	XeenTreasureStaging _transitionTreasureSnapshot;
 	// Immutable loaded MON catalog for mainland, original city and script-created city slots.
-	std::vector<XeenMonsterRecord> _cityStatistics;
+	std::vector<XeenMonsterRecord> _cityStatistics,_darksideStatistics;
 	// Derived from checked immutable city resources; never gameplay authority.
 	bool _detachedEventCandidate = false;
 	std::optional<XeenMapIdentity> _developerEventMap;
@@ -382,7 +386,7 @@ private:
 	ObjectLoader _objectLoader;
 	std::map<XeenMapIdentity, XeenObjectFile> _objects;
 	std::map<XeenMapIdentity, std::vector<XeenActor>> _sceneActors;
-	std::optional<std::vector<XeenMonsterRecord>> _sceneStatistics;
+	std::array<std::optional<std::vector<XeenMonsterRecord>>,2> _sceneStatistics;
 	XeenScenePresentation _scenePresentation;
 	void validateObject(XeenObjectIdentity id);
 	void validateEventCell(const XeenCamera &physical, const XeenEventFile &events);

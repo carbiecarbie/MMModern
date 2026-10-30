@@ -35,6 +35,8 @@ public:
 	using ResourceReader = std::function<std::optional<std::vector<std::uint8_t>>(
 		const std::string &resourceName)>;
 
+	using SideReader = std::function<std::optional<std::vector<std::uint8_t>>(const std::string &,XeenSide)>;
+	explicit XeenEventTextLoader(SideReader,ResourceReader mirrorReader={});
 	explicit XeenEventTextLoader(ResourceReader resourceReader,ResourceReader mirrorReader={});
 
 	static std::string resourceNameForMap(XeenMapIdentity mapId);
@@ -42,6 +44,7 @@ public:
 	XeenEventTextFile load(XeenMapIdentity mapId) const;
 
 private:
+ SideReader _sideReader;
 	ResourceReader _resourceReader, _mirrorReader;
 };
 

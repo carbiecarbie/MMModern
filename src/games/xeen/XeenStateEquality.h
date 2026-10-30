@@ -20,7 +20,7 @@ inline bool sameItemCategory(const XeenItemCategory &a, const XeenItemCategory &
 	return true;
 }
 inline bool sameCharacter(const XeenCharacter &a, const XeenCharacter &b) {
-	return a.rosterId == b.rosterId && a.name == b.name && a.sex == b.sex &&
+	return a.characterFlags == b.characterFlags && a.rosterId == b.rosterId && a.name == b.name && a.sex == b.sex &&
 		a.race == b.race && a.characterClass == b.characterClass &&
 		sameAttribute(a.intellect, b.intellect) && sameAttribute(a.personality, b.personality) &&
 		sameAttribute(a.endurance, b.endurance) && a.permanentLevel == b.permanentLevel &&

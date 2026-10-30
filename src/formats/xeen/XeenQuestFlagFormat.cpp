@@ -3,13 +3,13 @@
 #include <stdexcept>
 
 namespace mmodern {
-XeenCloudsQuestFlags XeenQuestFlagFormat::parseClouds(const std::vector<std::uint8_t> &bytes) {
+XeenQuestFlags XeenQuestFlagFormat::parseClouds(const std::vector<std::uint8_t> &bytes) {
 	if (bytes.size() < kRequiredSize)
 		throw std::runtime_error("maze.pty truncated before complete quest-flag field (747 bytes required)");
-	XeenCloudsQuestFlags::Values values{};
-	for (std::size_t i = 0; i < values.size(); ++i)
+	XeenQuestFlags::Values values{};
+	for (std::size_t i = 0; i < XeenQuestFlags::kCount; ++i)
 		values[i] = (bytes[kOffset + i / 8] & (0x80u >> (i % 8))) != 0; // DOS 0x24f07: MSB first.
-	return XeenCloudsQuestFlags(values);
+	return XeenQuestFlags(values);
 }
 XeenWorldFlags XeenQuestFlagFormat::parseWorldFlags(const std::vector<std::uint8_t> &bytes) {
 	constexpr std::size_t offset = 659 + 32 + 32;

@@ -23,7 +23,7 @@ int main(int argc,char **argv) {try {
 	const auto installation=xeenTestInstallationDetector().detect(argv[1]);check(bool(installation),"Original installation missing");
 	XeenAssetSource assets(*installation,320,200);CloudsMapComposer composer;XeenMapLoader loader;
 	assets.loadPalette("mm4.pal");
-	const auto bytes=assets.readCloudsMonsterStatisticsFromDarkArchive();check(bool(bytes),"Missing DARK.CC/xeen.mon");
+	const auto bytes=assets.readMonsterStatistics();check(bool(bytes),"Missing DARK.CC/xeen.mon");
 	const auto statistics=XeenMonsterFormat::parse(*bytes);
 	std::set<unsigned> images,effects,wallResources;
 	unsigned looped=0,flying=0,monsterFrames=0,sentinels=0;

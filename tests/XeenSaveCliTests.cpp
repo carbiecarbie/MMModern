@@ -137,7 +137,12 @@ int main(int argc,char **argv){try{
   {L"--render-map",game.wstring(),L"--save-file",path.wstring()},
   {L"--render-map",game.wstring(),L"1",L"0",L"0",L"north",L"--save-file",path.wstring()}})
   check(launch(exe,args,log).exit==1,"Map explorer cannot accept a save target");
- sprite_test::archive(game/"dark.cc",{{"synthetic",Bytes{0}}});
+ // Inspect now reads the full DARK New Game tail for two-sided party state.
+ sprite_test::archive(dir/"initial-dark-test.cc",{{"maze.pty",Bytes(1530)}});
+ std::ifstream darkFile(dir/"initial-dark-test.cc",std::ios::binary);
+ Bytes darkInner(std::istreambuf_iterator<char>(darkFile),{});
+ for(std::size_t i=2+8;i<darkInner.size();++i)darkInner[i]^=0x35;
+ sprite_test::archive(game/"dark.cc",{{"2a0c",darkInner}});
  // The synthetic CFG selects the two null drivers, which must exist in INTRO.
  sprite_test::archive(game/"intro.cc",{{"synthetic",Bytes{0}},{"nullmus",Bytes{0}},{"nullsnd",Bytes{0}}});
  fs::create_directories(dir/"WORLD");

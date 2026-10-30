@@ -52,6 +52,12 @@ struct XeenMapEntity {
 	bool isActive() const { return !isDisabled() && hasResource(); }
 };
 
+// DOS indoor wall kind selects town/cavern/dungeon/castle/dungeon/sky; outdoors row0.
+inline unsigned xeenMapMusicRow(const XeenMapGeometry &g) {
+ if(g.isOutdoors())return 0;
+ switch(unsigned(g.wallKind)) {case 0:return 1;case 1:return 2;case 2:case 4:return 3;case 3:return 4;case 5:return 5;default:throw std::invalid_argument("Invalid map music wall kind");}
+}
+
 struct XeenMapEntities {
 	// Raw tables retain FF slots. Only monster/wall item lookup compacts those slots.
 	XeenMutableArray<std::uint8_t, 16> objectTable{}, monsterTable{}, wallItemTable{};

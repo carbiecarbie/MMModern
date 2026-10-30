@@ -438,7 +438,7 @@ std::string cloudsEventScope(const Census &census) {
     for(unsigned i=0;i<labels.size();++i)out<<"| "<<labels[i]<<" | "<<rows[i]<<" | "<<uses[i]<<" |\n";
     out<<"\nThese classifications retain the support results below. Clouds mirror results 40 (showtime) and 62 (bloopers) are supported; results 60/61 remain excluded paths inside ConfirmWord, not separate instruction rows. "
         "Census limits are uncalled off-map records, the dead map-49 service suffix and any real isolated self-loop safety limit. "
-        "Destination admission remains separate from operation support. Darkside rows are outside this Clouds scope.\n\n";
+        "Destination admission remains separate from operation support. Darkside ordinary maps use their actual side admission.\n\n";
     return out.str();
 }
 }
@@ -467,7 +467,7 @@ std::string report(const Census &clouds,const Census &darkside) {
         "When the same mechanic is admitted elsewhere, its engine refusal is partial in that context instead of a globally missing mechanic. "
         "CD speech uses the installed tracks with visible text on unavailable audio. Records rejected as malformed and evidence not classifiable by engine checks remain unclassified.\n\n"
         "Clouds Event exclusions: town scenes (17, action 12 and untabled sites), and ConfirmWord ending keywords 60/61. Opcode 30 requests the supported Clouds ending tail, which plays the original ending. "
-        "Darkside-only operations and durable banks are outside Clouds scope. Destination-map admission is separate: shared travel refusals preserve candidate state and RNG. "
+        "Both sides use their own game/quest flag banks and the shared quest counters and roster flags. Destination-map admission is separate: deferred travel refusals preserve candidate state and RNG. "
         "Residual census limits are off-map records without a discovered physical caller, real isolated self-loops (1024 dispatches), and mirror transfers without a local ConfirmWord prefix. "
         "No unresolved in-scope Clouds Event mechanic is accepted as an exclusion.\n\n"
         "Items measure Equip/Use. Equipment combat/Rest is separate: it asks the actual xeenValidateJourneyMelee guard, which since M67 admits every "
@@ -483,7 +483,7 @@ std::string report(const Census &clouds,const Census &darkside) {
         "Map impact is the number of distinct maps containing a row; rows are sorted by unsupported/partial first, then map impact and occurrences. "
         "Map resources include the neighboring 16x16 geometry tiles used by larger indoor locations, not just primary map destinations. "
         "Random treasure/stock does not identify a particular generated item; its generation sites are reported separately. Shared spell/item catalogues appear on both sides. "
-        "Darkside counts describe resources; Clouds-only engine admission remains a separate map blocker.\n\n"
+        "Ordinary Darkside maps use real engine admission; mixed maps 113-128 remain separate blockers. Darkside services and Part B transitions remain refused.\n\n"
         "Monsters have no party-spell ID in the reference format: their magic is represented by attack type, special and range rows. "
         "No monster-to-party-spell crosswalk is inferred. Spell uses count book references and item powers, not casting frequency. "
         "Unclassified rows identify the missing evidence: arrival effects, object/wall behavior, resistances and rejected resource candidates. "

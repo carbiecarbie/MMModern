@@ -62,12 +62,12 @@ void valuesAndLoading() {
   check(packed==before,"world-flag parser wrote original bytes");
  }
  for(unsigned size:{0u,722u,723u,738u})rejects([&]{XeenQuestFlagFormat::parseWorldFlags(Bytes(size));});
-	XeenCloudsQuestFlags empty;
-	for(int i=0;i<30;++i){check(!empty.isSet(i) && XeenCloudsQuestFlags::validIndex(i),"default/domain");
+	XeenQuestFlags empty;
+	for(int i=0;i<30;++i){check(!empty.isSet(i) && XeenQuestFlags::validIndex(i),"default/domain");
 		auto copy=empty;copy.set(i);copy.set(i);for(int j=0;j<30;++j)check(copy.isSet(j)==(i==j) && !empty.isSet(j),"independent/idempotent flags");}
 	for(std::int64_t i:{-1LL,30LL,255LL,4294967296LL,std::numeric_limits<std::int64_t>::min(),std::numeric_limits<std::int64_t>::max()}){
-		check(!XeenCloudsQuestFlags::validIndex(i),"wide index accepted");rejects([&]{empty.isSet(i);});rejects([&]{empty.set(i);});}
-	check(empty.values()==XeenCloudsQuestFlags::Values{},"failed set changed flags");
+		check(!XeenQuestFlags::validIndex(i),"wide index accepted");rejects([&]{empty.isSet(i);});rejects([&]{empty.set(i);});}
+	check(empty.values()==XeenQuestFlags::Values{},"failed set changed flags");
 	// Every serialized bit individually: adjacent Darkside and padding bits are ignored.
 	for(int bit=0;bit<64;++bit){Bytes b(747,0);b[739+bit/8]=0x80u>>(bit%8);const auto before=b;
 		auto flags=XeenQuestFlagFormat::parseClouds(b);
@@ -95,7 +95,7 @@ void validation() {
 		const auto chars=partySnapshot(f.members);const auto items=f.members.questItems.counts();
 		auto r=set(0,index);if(third)r.parameters.insert(r.parameters.end(),{0,0});auto again=r;again.line=1;
 		f.scriptAt({r,again});auto result=f.begin();complete(result);
-		XeenCloudsQuestFlags::Values expected{};expected[index]=true;checkPartyQuestState(f.members,items,expected);
+		XeenQuestFlags::Values expected{};expected[index]=true;checkPartyQuestState(f.members,items,expected);
 		check(partySnapshot(f.members)==chars && f.flags.isSet(2) && std::get<XeenEventExecutionCompleted>(result).instructionCount==2,
 			"set applied per member or changed unrelated state");
 	}
@@ -106,7 +106,7 @@ void validation() {
 		for(bool initiallySet:{false,true}){
 		Fixture f;f.flags.set(7);if(initiallySet)f.members.questFlags.set(2);f.scriptAt({record(1,1,0,0x0c,m.bytes)});
 		const auto r=f.begin();complete(r);const auto &flags=std::get<XeenEventExecutionCompleted>(r).finalGameFlags;
-		XeenCloudsQuestFlags::Values expected{};expected[2]=m.flag2||(initiallySet&&m.bytes[0]!=104);
+		XeenQuestFlags::Values expected{};expected[2]=m.flag2||(initiallySet&&m.bytes[0]!=104);
 		checkPartyQuestState(f.members,{},expected);
 		check(flags.isSet(7)==(m.bytes[0]!=20) && flags.isSet(2)==m.gameFlag2,"mixed operation applied the wrong pair");}
 	for(int index:{30,31,255}){Fixture f;f.scriptAt({set(0,index)});auto r=f.begin();error(r,Kind::InvalidFlagIndex);
@@ -121,7 +121,7 @@ void validation() {
 		if(fault==3){s.instructionCount=1024;kind=Kind::InstructionLimitExceeded;}
 		if(fault==4){s.logicalAddress.line=254;s.pendingPresentation->conditional->targetLine=255;s.currentScript=script(1,{set(255)});kind=Kind::LineOverflow;}
 		error(f.resume(s),kind);checkPartyQuestState(f.members,{},{});}
-	Fixture condition;condition.scriptAt({record(1,1,0,9,{107,2,1})});error(condition.begin(),Kind::UnsupportedConditionAction);
+	Fixture condition;condition.scriptAt({record(1,1,0,9,{107,2,1})});complete(condition.begin());
 	for(bool set:{false,true}) {
 		Fixture f;if(set)f.members.questFlags.set(2);
 		f.scriptAt({record(1,1,0,9,{104,2,3}),::set(1,3),record(1,1,2,0x12),record(1,1,3,0x12)});

@@ -6,8 +6,8 @@ namespace mmodern {
 // Detached death-rule result. The combat/encounter owner publishes it with XP.
 struct XeenScriptedDeath {
  XeenGameFlags flags;
- XeenCloudsQuestFlags quests;
- XeenCloudsQuestItems items;
+ XeenQuestFlags quests;
+ XeenQuestItems items;
  std::array<std::array<std::uint8_t,128>,6> awards{};
  void publish(XeenPartyState &,XeenGameFlags &) const noexcept;
 };

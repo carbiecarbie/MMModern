@@ -11,13 +11,13 @@ struct XeenEntranceSite {
     unsigned action, map;
     enum class Position { Any, EqualX, OtherX } position;
     int branchX;
-    int quest; // -1: no item; indices beyond the Clouds counters are never held.
+    int quest; // -1: no item; Darkside-key branches remain deferred.
     XeenCamera destination;
 };
 const std::vector<XeenEntranceSite> &xeenEntranceSites();
 const XeenEntranceSite *xeenEntranceSite(unsigned action,const XeenCamera &);
-bool xeenEntranceKey(const XeenEntranceSite &,const XeenCloudsQuestItems &);
-XeenCamera xeenEntranceDestination(const XeenEntranceSite &,const XeenCamera &,const XeenCloudsQuestItems &);
+bool xeenEntranceKey(const XeenEntranceSite &,const XeenQuestItems &);
+XeenCamera xeenEntranceDestination(const XeenEntranceSite &,const XeenCamera &,const XeenQuestItems &);
 
 // Value-only presentation cursor. EventFlow owns acquisition, saved screens,
 // providers and gameplay RNG. Nothing here is persisted or owns game state.

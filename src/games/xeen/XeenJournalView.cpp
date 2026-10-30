@@ -8,8 +8,8 @@ namespace mmodern {
 // (ScummVM developers, GPL-3.0-or-later). DOS M77 Part 0 supplies the keys.
 XeenQuestDisplay xeenQuestDisplay(const XeenPartyState &p) {
     XeenQuestDisplay result;
-    for(unsigned i=0;i<XeenCloudsQuestItems::kCount;++i)result.items[i]=p.questItems.at(i);
-    for(unsigned i=0;i<XeenCloudsQuestFlags::kCount;++i)result.quests[i]=p.questFlags.isSet(i);
+    for(unsigned i=0;i<XeenQuestItems::kCount;++i)result.items[i]=p.questItems.at(i);
+    for(std::size_t i=0;i<result.quests.size();++i)result.quests[i]=p.questFlags.values()[i];
     if(p.worldFlags)for(unsigned i=1;i<128;++i)result.notes[i]=p.worldFlags->values[i];
     // DOS's flag-128 bit aliases quest flag 0, immediately after world flags.
     result.notes[128]=p.questFlags.isSet(0);

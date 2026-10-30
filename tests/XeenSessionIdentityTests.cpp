@@ -222,7 +222,7 @@ void rejectionAndRollback() {
 	bool eventRejected = false, textRejected = false;
 	try { XeenEventLoader(reader).load(dark); } catch (const std::invalid_argument &) { eventRejected = true; }
 	try { XeenEventTextLoader(reader).load(dark); } catch (const std::invalid_argument &) { textRejected = true; }
-	check(eventRejected && textRejected && reads == 0, "Clouds adapters read Darkside resources");
+	check(!eventRejected && !textRejected && reads == 2, "Side-bound readers did not admit Darkside resources");
 	std::ostringstream diagnostic; diagnostic << dark;
 	check(diagnostic.str().find("Darkside") != std::string::npos, "diagnostic lost side");
 }

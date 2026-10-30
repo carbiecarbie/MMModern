@@ -30,6 +30,7 @@ public:
  bool entranceCaptions(bool efx) const;
  bool unavailableExeDigital() const;
  bool outputActive() const;
+ std::string darksideMapSong(unsigned ordinal) const;
  std::string mapSong(const XeenMapGeometry &) const;
  std::string locationSong(unsigned action) const;
  void requestSong(std::string,XeenSceneArchive,unsigned fade,std::uint64_t now);

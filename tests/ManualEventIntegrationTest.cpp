@@ -57,8 +57,8 @@ int main(int argc, char *argv[]) {
 		check(installation && installation->hasXeen(),
 			"Clouds installation unavailable");
 		XeenAssetSource assets(*installation, 320, 200);
-		XeenPartyState party = XeenPartyLoader().loadInitialCloudsParty(assets);
-		XeenGameFlags flags = XeenGameFlagsLoader().loadInitialCloudsFlags(assets);
+		XeenPartyState party = XeenPartyLoader().loadInitialParty(assets);
+		XeenGameFlags flags = XeenGameFlagsLoader().loadInitialFlags(assets);
 		const auto beforeFlags = flags.values();
 		const XeenMapLoader mapLoader;
 		XeenWorld world([&](mmodern::XeenMapIdentity mapId) {
@@ -93,7 +93,7 @@ int main(int argc, char *argv[]) {
 
 		auto validateLabel = [&](XeenCamera labelCamera, XeenPresentationKind kind,
 				const char *expectedText, const char *imageName) {
-			XeenGameFlags labelFlags = XeenGameFlagsLoader().loadInitialCloudsFlags(assets);
+			XeenGameFlags labelFlags = XeenGameFlagsLoader().loadInitialFlags(assets);
 			const auto labelResult = events.runManualEvent(world, party, labelCamera, labelFlags);
 			const auto *label = std::get_if<XeenEventExecutionSuspended>(&labelResult);
 			check(label && label->request.kind == kind &&
@@ -161,7 +161,7 @@ int main(int argc, char *argv[]) {
 			"Castle Basenji No response should complete without teleport");
 
 		XeenCamera yesCamera{1, 8, 8, XeenDirection::West};
-		XeenGameFlags yesFlags = XeenGameFlagsLoader().loadInitialCloudsFlags(assets);
+		XeenGameFlags yesFlags = XeenGameFlagsLoader().loadInitialFlags(assets);
 		const auto yesDisplayResult = events.runManualEvent(
 			world, party, yesCamera, yesFlags);
 		const auto *yesDisplay =

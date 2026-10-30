@@ -85,7 +85,7 @@ void rules(){
 }
 void original(const char *path){
  const auto installation=xeenTestInstallationDetector().detect(path);check(bool(installation),"original installation absent");XeenAssetSource assets(*installation);
- auto p=XeenPartyLoader().loadInitialCloudsParty(assets);const auto bytes=assets.readInitialResource("maze.chr"),pty=assets.readInitialResource("maze.pty");
+ auto p=XeenPartyLoader().loadInitialParty(assets);const auto bytes=assets.readInitialResource("maze.chr"),pty=assets.readInitialResource("maze.pty");
  const XeenFontFormat font(assets.readArchiveResource("fnt"));const auto catalog=loadXeenItemCatalog(assets).catalog;
  IndexedFrame base;base.width=320;base.height=200;base.pixels.assign(64000,77);
  const auto draw=[&](IndexedFrame &frame,const char *resource,unsigned id,int x,int y){assets.drawDialogSprite(frame,resource,id,x,y);};

@@ -9,7 +9,7 @@ public:
 	// Complete packed 60-bit field; only bits 0..29 belong to Clouds.
 	static constexpr std::size_t kOffset = 739;
 	static constexpr std::size_t kRequiredSize = kOffset + 8;
-	static XeenCloudsQuestFlags parseClouds(const std::vector<std::uint8_t> &bytes);
+	static XeenQuestFlags parseClouds(const std::vector<std::uint8_t> &bytes);
 	static XeenWorldFlags parseWorldFlags(const std::vector<std::uint8_t> &bytes);
 };
 }

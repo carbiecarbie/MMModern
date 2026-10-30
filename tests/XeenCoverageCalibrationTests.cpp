@@ -31,6 +31,7 @@ int main(int argc,char **argv) {
         std::string line,dimension;bool clouds=false,darkside=false;unsigned gaps=0,unused=0,waterDragon=0,vultureRoc=0,movement=0;
         std::set<std::string> supported,supportedServices,skillWalls,lightingRows;
         std::array<unsigned,6> townSites{};unsigned arenaSites=0;
+        unsigned darkMaps=0,mixedMaps=0;
         while(std::getline(input,line)) {
             if(line=="## Clouds detail")clouds=true;
             if(line=="## Darkside detail") {clouds=false;darkside=true;}
@@ -53,6 +54,11 @@ int main(int argc,char **argv) {
                     "Monster species movement refusal: "+mechanic+" / "+reason);
                 if(clouds && mechanic.rfind("xeen.mon 59 ",0)==0) {require(status=="supported","Water Dragon species is not supported: "+reason);++waterDragon;}
                 if(darkside && mechanic.rfind("dark.mon 59 ",0)==0) {require(status=="supported","Vulture Roc species is not supported: "+reason);++vultureRoc;}
+            }
+            if(darkside && dimension=="Map features" && mechanic=="Journey map admission") {
+                if(status=="supported")darkMaps+=std::stoul(columns[3]);
+                else if(reason.find("not supported yet")!=std::string::npos)mixedMaps+=std::stoul(columns[3]);
+                else require(false,"Unexpected Darkside map admission failure: "+reason);
             }
             if(!clouds)continue;
             if(dimension=="Map features") {
@@ -125,6 +131,7 @@ int main(int argc,char **argv) {
         require(waterDragon==2 && vultureRoc==2,"Species 59 species and movement rows are missing from the census");
         require(movement>=4,"Monster movement rows are missing from the census");
         require(lightingRows.size()==3 && skillWalls.size()==7,"Lighting/traversal consumer census rows are missing");
+        require(darkMaps==113 && mixedMaps==16,"Ordinary/mixed Darkside admission inventory changed");
         std::cout<<"Vertigo calibration: "<<gaps<<" documented gap rows; "<<unused<<" unresolved-subroutine exceptions; accepted effects and services supported\n";
         return 0;
     }catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}

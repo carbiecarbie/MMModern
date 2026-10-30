@@ -129,12 +129,11 @@ void monster(Census &c,const XeenMonsterRecord &m,unsigned index,unsigned map,st
 void events(Census &c,const std::vector<XeenEventRecord> &records,XeenMapIdentity id,
         const XeenMapEntities &entities,const XeenItemCatalog &catalog,const XeenLearnedSpellNames &names,OriginalContext &context,bool outdoors) {
     const XeenEventFile original{id,resource(id.number,"evt"),true,records};
-    // A physical Clouds map receives the same prepared developer session as
-    // gameplay. Retain New Game context for Darkside, whose live owners remain
-    // outside the M70 Clouds scope. A fixture failure remains visible evidence.
+    // Use the actual side's admitted session and MON bank. Fixture failures
+    // remain visible evidence rather than relabeling the Clouds installation.
     std::unique_ptr<OriginalContext> fixture;
     std::optional<std::string> fixtureFailure;
-    if(id.side==XeenSide::Clouds) {
+    if(!(id.side==XeenSide::Darkside && id.number>=113 && id.number<=128)) {
         // Session entry forbids immediate monster contact. Choose a repeatable
         // empty physical cell from the primary DAT, without removing any actor.
         XeenCamera start{id,0,0,XeenDirection::North};
@@ -188,7 +187,7 @@ void events(Census &c,const std::vector<XeenEventRecord> &records,XeenMapIdentit
         if(r.opcode==0x11 && !r.parameters.empty())c.add("Map features","Town service action="+std::to_string(r.parameters[0]),support,id.number);
         if(r.opcode==0x11 && !r.parameters.empty()) {
             const auto site=xeenEntranceSite(r.parameters[0],{id,r.x,r.y,XeenDirection::North});
-            if(site && site->quest>=int(XeenCloudsQuestItems::kCount))
+            if(site && site->quest>=35)
                 c.add("Map features","Entrance action="+std::to_string(site->action)+" keyed quest item="+std::to_string(site->quest),
                     {Status::Partial,"Event quest item is outside the Clouds items"},id.number);
         }
@@ -234,10 +233,8 @@ void events(Census &c,const std::vector<XeenEventRecord> &records,XeenMapIdentit
 }
 Census census(const GameInstallation &original,XeenSide side,OriginalContext &context) {
     Census c;c.side=side==XeenSide::Clouds?"Clouds":"Darkside";
-    // The same bounded initial-container decoder reads either physical CC archive.
-    // This tool-only adapter does not admit Darkside to any gameplay owner.
-    auto installation=original;
-    if(side==XeenSide::Darkside) {installation.cloudsData=original.darksideData;installation.xeenArchive=original.darkArchive;}
+    // The bounded initial-container decoder reads the selected physical archive.
+    const auto &installation=original;
     XeenAssetSource assets(installation);
     const auto nameBytes=assets.readLearnedSpellNamesFromDarkArchive();
     if(!nameBytes)throw std::runtime_error("Missing spells.xen catalogue");
@@ -275,8 +272,7 @@ Census census(const GameInstallation &original,XeenSide side,OriginalContext &co
             if(const auto id=XeenLearnedSpellRules::spellForSlot(*category,slot))spell(c,*id,names,0,1,"initial roster");
     }
     const auto read=[&](const std::string &name)->std::optional<std::vector<std::uint8_t>> {
-        if(assets.hasInitialResource(name))return assets.readInitialResource(name);
-        if(assets.hasArchiveResource(name))return assets.readArchiveResource(name);
+        if(assets.hasInitialResource(name,side))return assets.readInitialResource(name,side);
         return {};
     };
     // Reference map IDs are bytes. A CC hash match is not enough: DAT identity must agree.
@@ -313,8 +309,8 @@ Census census(const GameInstallation &original,XeenSide side,OriginalContext &co
         auto &entry=c.maps[number];
         try {entry.name=assets.mapName(id);}catch(const std::exception &) {entry.name="(name unavailable)";}
         try {
-            requireCloudsMap(id);
-            if(number>=100) {
+            requireXeenMap(id);
+            if(!assets.hasInitialResource(resource(number,"mob"),side)) {
                 c.add("Map features","Physical indoor geometry",{Status::Supported,"Neighbor DAT tile; gameplay retains the primary logical map identity"},number);
             } else {
                 const auto admitted=context.world.prepareEventTransition({id,0,0,XeenDirection::North});

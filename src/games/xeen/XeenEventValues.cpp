@@ -282,15 +282,15 @@ std::optional<XeenEventProbe> xeenEventProbe(const XeenEventValueOwners &o, unsi
 		return found && (*character(o, member).learnedSpells)[*slot] ? known(value) : residue();
 	}
 	case 20:
-		if (side != XeenSide::Clouds || value >= XeenGameFlags::kCount)
-			return refuse("Event game flag is outside the Clouds bank", side != XeenSide::Clouds ? kContext : kIndex);
-		return known(o.flags.isSet(static_cast<int>(value)) ? value : kNone);
+		if (value >= XeenGameFlags::kCount)
+			return refuse("Event game flag is outside its side bank", kIndex);
+		return known(o.flags.isSet(side,static_cast<int>(value)) ? value : kNone);
 	case 21: {
 		const auto &c = character(o, member);
 		if (value >= 82) {
-			const auto index = XeenCloudsQuestItems::indexForItemId(value);
-			if (side != XeenSide::Clouds || !index)
-				return refuse("Event quest item is outside the Clouds items", side != XeenSide::Clouds ? kContext : XeenEventRefusal::Mode);
+			const auto index = XeenQuestItems::indexForItemId(value);
+			if (!index)
+				return refuse("Event quest item is outside the shared quest items", XeenEventRefusal::Mode);
 			return known(o.party.questItems.at(*index) & 0xff ? value : kNone);
 		}
 		// Each slot tests one category; an empty slot matches an ID of zero.
@@ -351,15 +351,14 @@ std::optional<XeenEventProbe> xeenEventProbe(const XeenEventValueOwners &o, unsi
 			return refuse("Event world flag is outside the world bank", kIndex);
 		return known(o.party.worldFlags->values[value] ? value : kNone);
 	case 104:
-		if (side != XeenSide::Clouds || !XeenCloudsQuestFlags::validIndex(value))
-			return refuse("Event quest flag is outside the Clouds bank", side != XeenSide::Clouds ? kContext : kIndex);
-		return known(o.party.questFlags.isSet(value) ? value : kNone);
+		if (!XeenQuestFlags::validIndex(value))
+			return refuse("Event quest flag is outside its side bank", kIndex);
+		return known(o.party.questFlags.isSet(side,value) ? value : kNone);
 	case 105:
-		if (side != XeenSide::Clouds) return refuse("Megacredits are a Clouds counter", kContext);
 		return known(o.party.questItems.at(26) & 0xff);
 	case 107:
-		reason = "Darkside character flags are not supported yet";
-		return std::nullopt;
+		if(value>=32)return refuse("Character flag index outside 0..31",kIndex);
+		return known(character(o,member).characterFlags[value]?value:kNone);
 	case 44:
 		reason = "Action 44 is a presentation";
 		return std::nullopt;
@@ -527,14 +526,14 @@ XeenEventWrite xeenEventTake(const XeenEventValueOwners &o, unsigned mode, std::
 		return applied();
 	}
 	case 20:
-		if (o.camera.mapId.side != XeenSide::Clouds || value >= XeenGameFlags::kCount)
-			return unsupported("Event game flag is outside the Clouds bank", o.camera.mapId.side != XeenSide::Clouds ? kContext : kIndex);
-		o.flags.clear(static_cast<int>(value)); return applied();
+		if (value >= XeenGameFlags::kCount)
+			return unsupported("Event game flag is outside its side bank", kIndex);
+		o.flags.clear(o.camera.mapId.side,static_cast<int>(value)); return applied();
 	case 21: {
 		if (value >= 82) {
-			const auto index = XeenCloudsQuestItems::indexForItemId(value);
-			if (o.camera.mapId.side != XeenSide::Clouds || !index)
-				return unsupported("Event quest item is outside the Clouds items", o.camera.mapId.side != XeenSide::Clouds ? kContext : XeenEventRefusal::Mode);
+			const auto index = XeenQuestItems::indexForItemId(value);
+			if (!index)
+				return unsupported("Event quest item is outside the shared quest items", XeenEventRefusal::Mode);
 			o.party.questItems.eventTake(*index);
 			return applied();
 		}
@@ -568,10 +567,11 @@ XeenEventWrite xeenEventTake(const XeenEventValueOwners &o, unsigned mode, std::
 		if (!o.party.worldFlags || value >= XeenWorldFlags::kCount) return unsupported("Event world flag is outside the world bank", kIndex);
 		o.party.worldFlags->values[value] = false; return applied();
 	case 104:
-		if (o.camera.mapId.side != XeenSide::Clouds || !XeenCloudsQuestFlags::validIndex(value))
-			return unsupported("Event quest flag is outside the Clouds bank", o.camera.mapId.side != XeenSide::Clouds ? kContext : kIndex);
-		o.party.questFlags.clear(value); return applied();
-	case 107: return unsupported("Darkside character flags are not supported yet");
+		if (!XeenQuestFlags::validIndex(value))
+			return unsupported("Event quest flag is outside its side bank", kIndex);
+		o.party.questFlags.clear(o.camera.mapId.side,value); return applied();
+	case 107: if(value>=32)return unsupported("Character flag index outside 0..31",kIndex);
+		c.characterFlags[value] = false; return applied();
 	case 8: case 25: case 76: return unsupported("Event take mode needs another owner");
 	default: break;
 	}
@@ -660,9 +660,9 @@ XeenEventWrite xeenEventGive(const XeenEventValueOwners &o, unsigned mode, std::
 		return applied(true);
 	}
 	case 20:
-		if (o.camera.mapId.side != XeenSide::Clouds || value >= XeenGameFlags::kCount)
-			return unsupported("Event game flag is outside the Clouds bank", o.camera.mapId.side != XeenSide::Clouds ? kContext : kIndex);
-		o.flags.set(static_cast<int>(value)); return applied();
+		if (value >= XeenGameFlags::kCount)
+			return unsupported("Event game flag is outside its side bank", kIndex);
+		o.flags.set(o.camera.mapId.side,static_cast<int>(value)); return applied();
 	case 34: case 35: {
 		// 0x2298d: straight into the party purse, then the sparkle.
 		auto *p = purse(o, reason);
@@ -683,10 +683,11 @@ XeenEventWrite xeenEventGive(const XeenEventValueOwners &o, unsigned mode, std::
 		if (!o.party.worldFlags || value >= XeenWorldFlags::kCount) return unsupported("Event world flag is outside the world bank", kIndex);
 		o.party.worldFlags->values[value] = true; return applied();
 	case 104:
-		if (o.camera.mapId.side != XeenSide::Clouds || !XeenCloudsQuestFlags::validIndex(value))
-			return unsupported("Event quest flag is outside the Clouds bank", o.camera.mapId.side != XeenSide::Clouds ? kContext : kIndex);
-		o.party.questFlags.set(value); return applied();
-	case 107: return unsupported("Darkside character flags are not supported yet");
+		if (!XeenQuestFlags::validIndex(value))
+			return unsupported("Event quest flag is outside its side bank", kIndex);
+		o.party.questFlags.set(o.camera.mapId.side,value); return applied();
+	case 107: if(value>=32)return unsupported("Character flag index outside 0..31",kIndex);
+		c.characterFlags[value] = true; return applied();
 	case 21: case 25: case 66: case 76: case 82: case 85: case 100:
 		return unsupported("Event give mode needs another owner");
 	default: break;

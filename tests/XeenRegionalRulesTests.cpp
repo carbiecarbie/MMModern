@@ -44,7 +44,7 @@ void geometry() {
 				XeenMovement::outdoorDestination(map.geometry,map.geometry.cells[ny*16+nx],{})),"Every local edge");
 		}
 	map.side=XeenSide::Darkside;
-	rejects([&]{ XeenMovement::component(map,9,11,{}); });
+	check(XeenMovement::component(map,9,11,{}).count()>0,"Darkside component refused");
 }
 void calendar() {
 	XeenGameplayContext c; c.year=610;c.day=8;c.minutes=480;c.ctr24=23;
@@ -152,7 +152,7 @@ void monsterTerrainMatrix() {
 		xeenOutdoorMonsterTerrain(15,2,16,true,6,XeenSide::Clouds)==XeenMonsterTerrain::Allowed,"Middle 15 strict threshold");
 	for (unsigned wall=0;wall<16;++wall) check(xeenMonsterPassesWall(wall,7)==(wall<7),"Strict wall threshold");
 
-	// The regional query resolves the cell's surface index and keeps Darkside closed.
+	// The regional query resolves the cell's surface index and checks identity.
 	XeenMap map;map.geometry.id=23;map.geometry.flags2=0x8000;
 	for (unsigned i=0;i<16;++i) map.geometry.surfaceTypes[i]=i;
 	for (auto &c:map.geometry.cells) c.geometry=XeenOutdoorLayers{2,0,0,0};
@@ -166,7 +166,9 @@ void monsterTerrainMatrix() {
 	auto zero=flyer;zero.statistics->raw[20]=0;
 	check(!xeenMonsterMovementSupported(*zero.statistics,0) && xeenRegionalActorTerrain(map,zero,7,5)==XeenMonsterTerrain::Unsupported,"Zero-HP record has no movement");
 	map.side=XeenSide::Darkside;
-	check(xeenRegionalActorTerrain(map,flyer,7,5)==XeenMonsterTerrain::Unsupported,"Darkside gameplay stays closed");
+	check(xeenRegionalActorTerrain(map,flyer,7,5)==XeenMonsterTerrain::Unsupported,"Mismatched actor side admitted");
+	flyer.id.mapId.side=XeenSide::Darkside;
+	check(xeenRegionalActorTerrain(map,flyer,7,5)==XeenMonsterTerrain::Allowed,"Darkside regional terrain refused");
 }
 // Indoors there is no flight rule: walkers and flyers share the strict threshold.
 void indoorMonsterWalls() {

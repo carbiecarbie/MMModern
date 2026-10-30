@@ -328,18 +328,28 @@
 #include <array>
 #include <cstdint>
 namespace m44_baseline {
-inline constexpr const char *revision = "M96 Part A (save v22), baseline ae1373a";
+inline constexpr const char *revision = "M101 Part A (save v23), baseline 07f28c0";
 struct Scenario { const char *name; std::uint32_t seed; const char *sha256; };
+// M101 Part A: maintainer approved the four v23 replacements on 2026-10-30.
+// v23 adds only the widened party state and saved map song (1447 bytes);
+// Journey schema9/content14 and every prior decoded field are unchanged.
+// The audit-only v22 writer reproduced the four v22 hashes and all 14
+// checkpoint bytes/traces before it was removed. Projection proof:
+// D:/Projetos/MModern/MModern-re/m101/audit-v23/.
+// Mainland old (v22): 874eaf0e502958ab90d4e6b55a22b9428fc2104f521549548ca6e60b5788a596
+// Services old (v22): 7cea4d4b17bd6bc72dbafc34a733e53400f35ea0adedcfa40ef69cbfc5dc7d76
+// Temple old (v22): fa10dd37fcbe45471f244863cfb155e2010f5da777d6abcee78d70c9c6468565
+// Roundtrip old (v22): f7381ad7020595a2b9c299b8c74dafda1e27ac0860a4830d63ab64b1a8e1fd0f
 inline constexpr std::array<Scenario,4> scenarios{{
-    {"mainland-combat-myra-phirna",3626689381u,"874eaf0e502958ab90d4e6b55a22b9428fc2104f521549548ca6e60b5788a596"},
+    {"mainland-combat-myra-phirna",3626689381u,"f569117be2ff5efa0b0d509d17ee77467d9f16a65b55e6411de3d7b0f90f269c"},
     // M75: a member woken after its skipped slot waits for the next round (DOS turn order).
     // M78 Part A: maintainer approved the services replacement on 2026-10-20.
     // Pathfinder wall 3 reroutes the one-holder party; time/exploration and an
     // extra merchant generation explain all fields. Native reload/re-save is exact.
     // Local audit: build-rel/m78-digest-comparison and m78-services-causal-audit.json.
-    {"vertigo-buy-repair-training",7u,"7cea4d4b17bd6bc72dbafc34a733e53400f35ea0adedcfa40ef69cbfc5dc7d76"},
-    {"temple-recovery",3626689381u,"fa10dd37fcbe45471f244863cfb155e2010f5da777d6abcee78d70c9c6468565"},
-    {"vertigo-f3-roundtrip",3626689381u,"f7381ad7020595a2b9c299b8c74dafda1e27ac0860a4830d63ab64b1a8e1fd0f"}
+    {"vertigo-buy-repair-training",7u,"50780d293e52dd7bd921f9efdd56f4b8c8689379966f79127b1097ea19b619f8"},
+    {"temple-recovery",3626689381u,"b26c7e41cec5ec0f57954e5f74a96df9dcccd52eb5f2bb6cfc10398140155e94"},
+    {"vertigo-f3-roundtrip",3626689381u,"677113b49905429c929b7417c5e5591561ff621ace8959143cc0db4008896343"}
 }};
 }
 #endif

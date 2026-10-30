@@ -14,9 +14,11 @@ std::string xeenObjectSpriteName(int resourceId) {
 
 XeenObjectVisualResolver XeenObjectVisualResolver::load(XeenAssetSource &assets) {
 	XeenObjectVisualResolver result;
-	const auto bytes = assets.readCloudsVisualMetadataFromDarkArchive();
-	if (!bytes) result._diagnostic = "Clouds visual metadata unavailable: DARK.CC/clouds.dat is required";
-	else result._metadata = XeenCloudsVisualMetadata::parse(*bytes);
+	for(unsigned side=0;side<2;++side) {
+ const auto bytes=assets.readObjectVisualMetadata(static_cast<XeenSide>(side));
+ if(bytes)result._metadata[side]=XeenCloudsVisualMetadata::parse(*bytes);
+ }
+ result._diagnostic="Original object animation metadata is unavailable";
 	return result;
 }
 
@@ -29,11 +31,7 @@ XeenObjectVisual XeenObjectVisualResolver::resolve(const XeenObjectFile &objects
 		result.diagnostic = "object visual: invalid map, missing MOB, or original record index";
 		return result;
 	}
-	if (objects.mapId.side != XeenSide::Clouds) {
-		result.status = XeenObjectVisualStatus::UnsupportedSide;
-		result.diagnostic = "object visuals support Clouds only";
-		return result;
-	}
+	const auto &metadata=_metadata.at(static_cast<unsigned>(static_cast<XeenSide>(objects.mapId.side)));
 	const auto &object = objects.entities.objects[recordIndex];
 	const auto camera = static_cast<unsigned>(cameraDirection);
 	if (object.direction >= 4 || camera >= 4) {
@@ -55,12 +53,12 @@ XeenObjectVisual XeenObjectVisualResolver::resolve(const XeenObjectFile &objects
 		}
 		result.resourceId = sprite;
 		result.spriteName = xeenObjectSpriteName(sprite);
-		if (!_metadata) {
+		if (!metadata) {
 			result.status = XeenObjectVisualStatus::MetadataUnavailable;
 			result.diagnostic = _diagnostic;
 			return result;
 		}
-		const auto &entry = _metadata->at(static_cast<std::size_t>(sprite));
+		const auto &entry = metadata->at(static_cast<std::size_t>(sprite));
 		// Pinned DIRECTION_ANIM_POSITIONS[object][camera]. Not the MOB table slot.
 		const auto relative = (camera + 4 - object.direction) % 4;
 		const std::uint64_t initial = entry.initialFrames[relative];

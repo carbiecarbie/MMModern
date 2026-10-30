@@ -1,6 +1,7 @@
 #ifndef MMODERN_GAMES_XEEN_XEEN_PARTY_H
 #define MMODERN_GAMES_XEEN_XEEN_PARTY_H
 #include "games/xeen/XeenSoundOptions.h"
+#include "games/xeen/XeenMapIdentity.h"
 
 #include "games/xeen/XeenCharacter.h"
 #include "games/xeen/XeenGameplayContext.h"
@@ -98,17 +99,17 @@ private:
 	XeenMutableVector<std::uint8_t> _activeRosterIds;
 };
 
-// Party-owned Clouds quest counters, independent of character inventories.
-class XeenCloudsQuestItems {
+// Party-owned shared quest counters, independent of character inventories.
+class XeenQuestItems {
 public:
-	static constexpr std::size_t kCount = 35;
+	static constexpr std::size_t kCount = 85;
 	static constexpr std::int64_t kFirstItemId = 82;
 	using Counts = std::array<std::uint32_t, kCount>;
 
-	XeenCloudsQuestItems() = default;
-	XeenCloudsQuestItems(const XeenCloudsQuestItems &)=default;
-	XeenCloudsQuestItems &operator=(const XeenCloudsQuestItems &other) noexcept { XeenMutationWatch::write(this);_counts=other._counts;return *this; }
-	explicit XeenCloudsQuestItems(Counts counts) : _counts(counts) {}
+	XeenQuestItems() = default;
+	XeenQuestItems(const XeenQuestItems &)=default;
+	XeenQuestItems &operator=(const XeenQuestItems &other) noexcept { XeenMutationWatch::write(this);_counts=other._counts;return *this; }
+	explicit XeenQuestItems(Counts counts) : _counts(counts) {}
 	static std::optional<std::size_t> indexForItemId(std::int64_t itemId);
 	std::uint32_t at(std::size_t index) const { return _counts.at(index); }
 	// Bounded access; returns false on overflow without changing the counter.
@@ -129,23 +130,28 @@ private:
 	XeenMutableArray<std::uint32_t,kCount> _counts{};
 };
 
-// Clouds request state, separate from transactional game flags and item counts.
-class XeenCloudsQuestFlags {
+// Two side-selected quest banks, separate from game flags and shared counters.
+class XeenQuestFlags {
 public:
 	static constexpr std::size_t kCount = 30;
-	using Values = std::array<bool, kCount>;
-	XeenCloudsQuestFlags() = default;
-	XeenCloudsQuestFlags(const XeenCloudsQuestFlags &)=default;
-	XeenCloudsQuestFlags &operator=(const XeenCloudsQuestFlags &other) noexcept { XeenMutationWatch::write(this);_values=other._values;return *this; }
-	explicit XeenCloudsQuestFlags(Values values) : _values(values) {}
+	static constexpr std::size_t kStorageCount = 2 * kCount;
+	using Values = std::array<bool, kStorageCount>;
+	XeenQuestFlags() = default;
+	XeenQuestFlags(const XeenQuestFlags &)=default;
+	XeenQuestFlags &operator=(const XeenQuestFlags &other) noexcept { XeenMutationWatch::write(this);_values=other._values;return *this; }
+	explicit XeenQuestFlags(Values values) : _values(values) {}
 	static bool validIndex(std::int64_t index);
+	// Single-index helpers select the Clouds bank (explicit Clouds rules only).
 	bool isSet(std::int64_t index) const;
+	bool isSet(XeenSide side, std::int64_t index) const;
+	void set(XeenSide side, std::int64_t index);
+	void clear(XeenSide side, std::int64_t index);
 	void set(std::int64_t index);
 	void clear(std::int64_t index);
-	const XeenMutableArray<bool,kCount> &values() const { return _values; }
+	const XeenMutableArray<bool,kStorageCount> &values() const { return _values; }
 private:
 	static std::size_t checkedIndex(std::int64_t index);
-	XeenMutableArray<bool,kCount> _values{};
+	XeenMutableArray<bool,kStorageCount> _values{};
 };
 
 // The original bounded world-flag block, shared by every Event use.
@@ -174,8 +180,8 @@ struct XeenPartyState {
 	XeenMutableOptional<XeenServiceEconomy> serviceEconomy;
 	XeenRoster roster;
 	XeenParty party;
-	XeenCloudsQuestItems questItems;
-	XeenCloudsQuestFlags questFlags;
+	XeenQuestItems questItems;
+	XeenQuestFlags questFlags;
 	XeenMutableOptional<XeenWorldFlags> worldFlags;
 	XeenMutable<std::uint8_t> firstSerializedCount = 0;
 	XeenMutable<std::uint8_t> effectiveSerializedCount = 0;

@@ -319,7 +319,7 @@ void preset(const GameInstallation &installation,const std::string &name,const f
     if(name=="m80-playtest") {
         check(camera.mapId==24 && camera.x==10 && camera.y==9 && camera.direction==XeenDirection::North,"M80 entrance position");
         for(unsigned item=1;item<=7;++item)check(party.questItems.at(item)==1,"M80 Clouds key missing");
-        for(unsigned item=8;item<XeenCloudsQuestItems::kCount;++item)check(party.questItems.at(item)==0,"M80 extra quest item");
+        for(unsigned item=8;item<XeenQuestItems::kCount;++item)check(party.questItems.at(item)==0,"M80 extra quest item");
         bool travel=false;
         for(auto owner:party.party.activeRosterIds()) {
             const auto &c=party.roster.at(owner);
@@ -487,7 +487,7 @@ void preset(const GameInstallation &installation,const std::string &name,const f
     // Revert only the documented preset fields and compare against a fresh Journey.
     // This also checks actor/world/economy/time/RNG preservation, not just symptoms.
     auto baseline=inputs.base();
-    baseline.gameFlags=XeenGameFlagsLoader().loadInitialCloudsFlags(inputs.assets).values();
+    baseline.gameFlags=XeenGameFlagsLoader().loadInitialFlags(inputs.assets).values();
     auto unmodified=captured;
     if (name=="broken-armor") {
         for (auto owner:unmodified.activeRosterIds) unmodified.characters[owner].armor=baseline.characters[owner].armor;

@@ -222,7 +222,7 @@ void XeenActorApproach::validateEnvironment(XeenWorld &world,
 		(void)XeenMovement::component(map,9,11,xeenJourneyContent().traversal);
 		std::set<XeenMonsterIdentity> mainland;
 		for(const auto id:world.sessionState().accountedMonsters())if(id.mapId==entry)mainland.insert(id);
-		xeenValidateRegionalActors(map,world.objectFile(entry),actors,mainland,statistics ? *statistics : world._cityStatistics);
+		xeenValidateRegionalActors(map,world.objectFile(entry),actors,mainland,statistics ? *statistics : world.monsterStatistics(entry.side));
 		return;
 	}
 }
@@ -557,6 +557,7 @@ XeenEncounterResult XeenActorApproach::regionalTransition(XeenWorld &world,XeenP
                             if(!admitted) {refused.arrivalRefusal="Destination is not supported yet";return refused;}
                             c.destinationWorld=world.transitionCandidate();
                             c.destinationFlags=c.destinationWorld->loadEventDestination(camera.mapId,c.camera.mapId,true,flags);check();
+                            c.random=XeenCombatRandom(*c.destinationWorld->sessionState().journeyRandom());
                             if(!eventProvider) {refused.arrivalRefusal="Destination Events are not supported yet";return refused;}
                             c.destinationEvents=eventProvider(c.camera.mapId);check();
                             require(c.destinationEvents->mapId==c.camera.mapId,"Border Event identity changed");

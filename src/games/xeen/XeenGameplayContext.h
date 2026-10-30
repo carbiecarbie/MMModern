@@ -6,7 +6,7 @@
 
 #include "games/xeen/XeenMutation.h"
 namespace mmodern {
-enum class XeenBehaviorProfile { WorldOfXeenClouds };
+enum class XeenBehaviorProfile { WorldOfXeen };
 enum class XeenDifficulty : std::uint8_t { Adventurer, Warrior };
 
 // DOS DS:ed9e..eda6, also the serialized party effect byte order.
@@ -20,7 +20,7 @@ inline constexpr std::array<XeenPartyEffect, 9> kXeenPartyEffects{
 };
 
 struct XeenGameplayContext {
-	XeenMutable<XeenBehaviorProfile> profile = XeenBehaviorProfile::WorldOfXeenClouds;
+	XeenMutable<XeenBehaviorProfile> profile = XeenBehaviorProfile::WorldOfXeen;
 	XeenMutable<XeenDifficulty> difficulty = XeenDifficulty::Adventurer;
 	XeenMutable<std::uint16_t> ctr24 = 0, day = 0, year = 0, minutes = 0;
 	XeenMutableArray<std::uint8_t, 9> effects{};

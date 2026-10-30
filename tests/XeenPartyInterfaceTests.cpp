@@ -683,7 +683,7 @@ void combatMrWizardEscape(Inputs &in) {
  throw std::runtime_error("No seed gave a successful escape before Mr Wizard");
 }
 void spellChecks(Inputs &in) {
- auto p=XeenPartyLoader().loadInitialCloudsParty(in.assets);auto c=p.roster.at(11);c.characterClass=XeenCharacterClass::Sorcerer;c.hasSpells=true;c.currentSp=300;c.permanentLevel=10;c.learnedSpells.emplace();for(auto &flag:*c.learnedSpells)flag=1;
+ auto p=XeenPartyLoader().loadInitialParty(in.assets);auto c=p.roster.at(11);c.characterClass=XeenCharacterClass::Sorcerer;c.hasSpells=true;c.currentSp=300;c.permanentLevel=10;c.learnedSpells.emplace();for(auto &flag:*c.learnedSpells)flag=1;
  using Q=XeenQuickSpellCheck;c.currentSpell=255;check(XeenLearnedSpellRules::quickSpellCheck(c,0)==Q::NoSpell,"Quick Cast none");
  for(unsigned slot=0;slot<39;++slot) {
   c.currentSpell=slot;const auto id=XeenLearnedSpellRules::spellForSlot(*XeenLearnedSpellRules::categoryForClass(c.characterClass),slot);

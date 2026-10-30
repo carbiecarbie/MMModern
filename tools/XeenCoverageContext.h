@@ -9,7 +9,7 @@
 namespace mmodern::coverage {
 struct Support;
 // The same original New Game or developer Event-fixture initialization as gameplay,
-// retained only in memory. The fixture admits its Clouds map through normal owners.
+// retained only in memory. The fixture admits its map through normal owners.
 // Each probe receives a fresh detached candidate including actors and Journey RNG.
 // The context and every replay probe own their running-program state.
 class OriginalContext {
@@ -18,7 +18,6 @@ public:
     XeenProgramState program{mmodern::XeenWallClock::fixed(0)};
     const GameInstallation installation;
     XeenAssetSource assets;
-    XeenAssetSource darkAssets;
     XeenMapLoader maps;
     XeenEventLoader events;
     XeenEventTextLoader texts;
@@ -31,6 +30,7 @@ public:
     XeenEventTextFile text(XeenMapIdentity);
     Support replayRoot(XeenCamera);
 private:
+    void bindResources();
     std::map<XeenMapIdentity,XeenEventTextFile> textCache;
     XeenSaveState::Resources resources;
     std::optional<XeenSaveSnapshot> initial;

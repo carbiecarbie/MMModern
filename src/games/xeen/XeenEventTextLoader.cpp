@@ -9,6 +9,8 @@
 #include <utility>
 
 namespace mmodern {
+XeenEventTextLoader::XeenEventTextLoader(SideReader reader,ResourceReader mirrorReader):_sideReader(std::move(reader)),_mirrorReader(std::move(mirrorReader)) {if(!_sideReader)throw std::invalid_argument("Missing side resource reader");}
+
 
 const std::string *XeenEventTextFile::stringAt(std::size_t index) const {
 	if (index >= strings.size())
@@ -23,7 +25,7 @@ XeenEventTextLoader::XeenEventTextLoader(ResourceReader resourceReader,ResourceR
 }
 
 std::string XeenEventTextLoader::resourceNameForMap(XeenMapIdentity mapId) {
-	requireCloudsMap(mapId);
+	requireXeenMap(mapId);
 	std::ostringstream name;
 	name << "aaze" << (mapId.number >= 100 ? 'x' : '0')
 		<< std::setfill('0') << std::setw(3) << mapId.number << ".txt";
@@ -34,7 +36,7 @@ XeenEventTextFile XeenEventTextLoader::load(XeenMapIdentity mapId) const {
 	XeenEventTextFile result;
 	result.mapId = mapId;
 	result.resourceName = resourceNameForMap(mapId);
-	const std::optional<std::vector<std::uint8_t>> bytes = _resourceReader(result.resourceName);
+	const std::optional<std::vector<std::uint8_t>> bytes = (_sideReader?_sideReader(result.resourceName,mapId.side):_resourceReader(result.resourceName));
 	if (!bytes)
 		return result;
 	result.resourcePresent = true;

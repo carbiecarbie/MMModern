@@ -166,7 +166,7 @@ std::vector<XeenOutdoorDrawCommand> XeenOutdoorScene::build(
 				if (const auto frame = world.scenePresentation().drawnObjectFrame({camera.mapId, i})) visual.frame = *frame;
 				if (visual.status == XeenObjectVisualStatus::SupportedStatic ||
 						visual.status == XeenObjectVisualStatus::SupportedAnimated) {
-					const unsigned row = object.resourceId == 113 ? 1 : 0;
+					const unsigned row = object.resourceId == (camera.mapId.side==XeenSide::Clouds?113:47) ? 1 : 0;
 					XeenOutdoorDrawCommand command;
 					command.originalOrder = placement.order;
 					command.x = placement.x[row]; command.y = placement.y[row];
@@ -262,7 +262,8 @@ std::vector<XeenOutdoorDrawCommand> XeenOutdoorScene::actorCommands(
 			XeenOutdoorActorDraw draw{actor.id,actor.statistics->image(),
 				static_cast<std::uint8_t>(special || appearance.kind==XeenMonsterSpriteKind::Normal ? appearance.frame : 0),
 				special ? XeenMonsterSpriteKind::Attack : XeenMonsterSpriteKind::Normal};
-			draw.selectedSlot=g.slots[i]; draw.scaleIndex=g.scale; draw.bottomClipped=g.query==2;
+			draw.archive=actor.original.resourceId==91?XeenSceneArchive::Clouds:XeenSceneArchive::Current;
+            draw.selectedSlot=g.slots[i]; draw.scaleIndex=g.scale; draw.bottomClipped=g.query==2;
 			if (presentation) {
 				if (const auto *animation=presentation->animation(actor.id)) {
 					if (!special) {draw.kind=animation->frame>=8?XeenMonsterSpriteKind::Attack:XeenMonsterSpriteKind::Normal;draw.frame=animation->frame%8;}

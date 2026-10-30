@@ -1345,7 +1345,11 @@ IndexedFrame XeenEventFlow::renderEncounter(bool report, bool cosmeticInput, boo
                     drawXeenErrorScroll(rendered,_inventoryFont,_dismissRefusal);
                 if(_summary)rendered=drawSummary(rendered);
                 if(_quickFightMember)rendered=drawQuickFightOptions(rendered);
-				if(partyDeathRequired() || _death){beginDeath(composed.frame);rendered=drawDeath(composed.frame);}
+				if (partyDeathRequired() || _death) {
+					if (_camera.mapId.side==XeenSide::Darkside)
+						rendered=drawXeenErrorScroll(rendered,_inventoryFont,"Darkside defeat recovery: not supported yet");
+					else {beginDeath(composed.frame);rendered=drawDeath(composed.frame);}
+				}
 				if (report && !attempt) {
 					if (reportText) reportText(_encounter->notice());
 					if (!_encounter->current(t)) throw std::logic_error("Stale Journey reporting");
@@ -1397,7 +1401,8 @@ IndexedFrame XeenEventFlow::renderEncounter(bool report, bool cosmeticInput, boo
                 if(_encounter->_needsRestNotice)rendered=drawXeenErrorScroll(rendered,_inventoryFont,std::string(xeenDialogText(dosText(),XeenDialogText::PartyNeedsRest)));
 			if (!_encounter->current(entry)) throw std::runtime_error("Stale encounter report");
 			if(partyDeathRequired() || _death) {
-                auto deathBase=composed.frame;drawPartyPresentation(deathBase);beginDeath(deathBase);rendered=drawDeath(deathBase);
+                if(_camera.mapId.side==XeenSide::Darkside)rendered=drawXeenErrorScroll(rendered,_inventoryFont,"Darkside defeat recovery: not supported yet");
+                else {auto deathBase=composed.frame;drawPartyPresentation(deathBase);beginDeath(deathBase);rendered=drawDeath(deathBase);}
             }
             // Complete the fallible return copy before installing the frame.
 			if (!attempt && beforeEncounterFrameCopy) beforeEncounterFrameCopy();
@@ -1547,7 +1552,7 @@ XeenEventFlow::Composition XeenEventFlow::composeJourneyScene(bool reconstruct) 
         // Window 11, location artwork and animation-only waits retain it.
         const auto &request=state.pendingPresentation->request;
         using Kind=XeenPresentationKind;
-        const bool text=XeenSoundOptions(work.party.soundOptions).text;
+        const bool text=XeenSoundOptions(work.party.soundOptions).text || request.forceText;
         bool sceneDraw=!reconstruct && !_entranceUi;
         if(_presenter.window11Enabled() && !(_presenter.hasNpcOffer() && !text))sceneDraw=false;
         if(request.kind==Kind::NpcAcknowledgment)
@@ -1849,7 +1854,7 @@ XeenEventSystem XeenEventFlow::detachedEventResources() {
     result._interpreter.sceneWindow11Open=[this] {
         _eventPublication->check();
         return _presenter.window11Enabled() &&
-            !(_presenter.hasNpcOffer() && !XeenSoundOptions(_transition->party.soundOptions).text);
+            !(_presenter.hasNpcOffer() && !XeenSoundOptions(_transition->party.soundOptions).text && !_presenter.forcedText());
     };
     result._interpreter.eventDraw=[this](XeenWorld &world,const XeenCamera &camera,bool label) {
         _eventPublication->check();
@@ -2427,11 +2432,11 @@ XeenPresentationUpdate XeenEventFlow::presentPendingEvent() {
         if(_program.audio && !request.arena) {
             if(request.cdSpeech)_program.audio->retainCdCue(*request.cdSpeech);
             const auto delivered=_program.audio->startCd(now);
-            next.bodyHidden=!XeenSoundOptions(_party.soundOptions).text && delivered;
+            next.bodyHidden=!(XeenSoundOptions(_party.soundOptions).text || request.forceText) && delivered;
             next.speechNotice=_program.audio->takeCdNotice();
             if(!next.speechNotice.empty())next.bodyHidden=false;
         }
-        next.textOffLoop=!XeenSoundOptions(_party.soundOptions).text && request.npc->confirmationMode!=2;
+        next.textOffLoop=!(XeenSoundOptions(_party.soundOptions).text || request.forceText) && request.npc->confirmationMode!=2;
         if(next.textOffLoop)next.deadline=now; // DOS draws before the first one-tick hold.
         next.speechEnd=_program.audio?_program.audio->cdDeadline(now).value_or(0):0;
         next.timing.remaining=now<next.speechEnd?next.speechEnd-now:0;

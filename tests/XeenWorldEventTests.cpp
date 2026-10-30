@@ -862,7 +862,7 @@ void treasure(Inputs &in) {
  xeenRewardItems(cancelExpected.characters[s.activeRosterIds[0]],XeenRewardCategory(cancelItem.category()))[0]=cancelItem.item();
  cancelExpected.journey->purse->gold+=*cancelGold;cancelExpected.journey->random=cancelRandom.continuation();
  check(cancelled.flow->canSave() && XeenSaveFormat::encode(cancelExpected)==XeenSaveFormat::encode(cancelled.snapshot()),"WhoWill Escape lost or extended the generated prefix");
- city.records.push_back(record(4,0x14,{107,1}));city.records[3]=record(3,0x19,{20,20,4});city.records.push_back(record(5,0x1a));
+ city.records.push_back(record(4,0x14,{25,1,0}));city.records[3]=record(3,0x19,{20,20,4});city.records.push_back(record(5,0x1a));
  Fixture refused(in,s,false,&city);refused.act(InteractionAction{false});settle(refused); // Isolate refusal from Space Wait.
  check(preimage==XeenSaveFormat::encode(refused.snapshot()),"Dependent unsupported suffix consumed treasure RNG");
  // Sixty-three raw draws leave one draw for makeItem, forcing a partial item continuation.

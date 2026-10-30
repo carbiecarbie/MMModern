@@ -197,7 +197,7 @@ int Application::inspectParty(const std::filesystem::path &gameDirectory) const 
 		// Resource parsing only: this path creates no framebuffer or SDL window.
 		std::cout << "Data source: " << installation->sourceOrigin << '\n';
         XeenAssetSource assets(*installation);
-		const XeenPartyState state = XeenPartyLoader().loadInitialCloudsParty(assets);
+		const XeenPartyState state = XeenPartyLoader().loadInitialParty(assets);
 		printPartyDiagnostics(state);
 		const XeenCharacterRulesContext rulesContext{kCloudsInitialYear};
 		std::cout << "Initial Clouds party: " << state.party.size() << " members\n";
@@ -417,7 +417,7 @@ int Application::gameplay(const std::filesystem::path &gameDirectory, XeenCamera
         std::optional<std::vector<std::uint8_t>> fixtureMob;
         std::optional<XeenCamera> fixtureStart;
         if (fixture) {
-            const auto statisticsBytes = assets.readCloudsMonsterStatisticsFromDarkArchive();
+            const auto statisticsBytes = assets.readMonsterStatistics();
             if (!statisticsBytes) throw std::runtime_error("Missing DARK.CC/xeen.mon");
             const auto originalMob = assets.readInitialResource("maze0023.mob");
             // Choose the record and the party's start from the original geometry
@@ -456,24 +456,31 @@ int Application::gameplay(const std::filesystem::path &gameDirectory, XeenCamera
         if (!assets.hasArchiveResource("fnt")) throw std::runtime_error("Missing Xeen font resource 'fnt'");
         const XeenFontFormat font(assets.readArchiveResource("fnt"));
         const CloudsMapComposer composer;
+        const XeenCamera *publishedCamera=&camera;
         bool journeyControls = entry == XeenEncounterEntry::Journey;
         const auto catalog = loadXeenItemCatalog(assets);
         if (!catalog.diagnostic.empty()) std::cerr << "Item catalog: " << catalog.diagnostic << '\n';
         XeenGameplayServices services{_program,
-            {signature, [&] { return XeenPartyLoader().loadInitialCloudsParty(assets); },
-                [&](XeenMapIdentity id) { return events.load(id); }},
-            [&] { return XeenGameFlagsLoader().loadInitialCloudsFlags(assets); },
+            {signature, [&] { return XeenPartyLoader().loadInitialParty(assets); },
+                [&](XeenMapIdentity id) {
+                 XeenEventLoader loader([&,id](const std::string &name)->std::optional<std::vector<std::uint8_t>> {if(!assets.hasInitialResource(name,id.side))return {};return assets.readInitialResource(name,id.side);});return loader.load(id);
+                }},
+            [&] { return XeenGameFlagsLoader().loadInitialFlags(assets); },
             [&](XeenMapIdentity id) { return maps.loadGeometryMap(assets, id); },
-            [&](XeenMapIdentity id) { return maps.loadObjects(objectReader, id); },
-            [&](XeenMapIdentity id) { return texts.load(id); }, font,
+            [&](XeenMapIdentity id) { return fixtureMob && id==XeenMapIdentity(23)?maps.loadObjects(objectReader,id):maps.loadObjects(assets,id); },
+            [&](XeenMapIdentity id) {
+                const auto archive=id.side==XeenSide::Clouds?XeenSceneArchive::Clouds:XeenSceneArchive::DarksideOnly;
+                XeenEventTextLoader loader([&,archive](const std::string &name)->std::optional<std::vector<std::uint8_t>> {if(!assets.hasSceneResource(name,archive))return {};return assets.readArchiveResource(name,archive);},[&](const std::string &name)->std::optional<std::vector<std::uint8_t>> {return assets.readArchiveResource(name,XeenSceneArchive::DarksideOnly);});return loader.load(id);
+            }, font,
             [&](XeenWorld &world, const XeenPartyState &party, const XeenCamera &position, std::uint64_t phase) {
                 XeenEventFlow::Composition result;
                 result.frame = composer.compose(assets, world, party, position, {kCloudsInitialYear},
                     nullptr, phase, &result.containsOrdinaryAnimation);
                 return result;
             },
-            [&](IndexedFrame &frame, std::uint8_t portrait, std::size_t index) { assets.drawNpc(frame, portrait, index); },
+            [&](IndexedFrame &frame, std::uint8_t portrait, std::size_t index) { assets.drawNpc(frame,portrait,index,xeenPictureArchive(publishedCamera->mapId)); },
             [&](XeenEventFlow &flow, const XeenCamera &position) {
+                publishedCamera=&position;
                 journeyControls = journeyControls || flow.journey();
                 flow.rebuildEncounterPresentation = [&] { assets.discardSpriteCache(); };
                 flow.dialogText = &assets.uiText();
@@ -494,21 +501,21 @@ int Application::gameplay(const std::filesystem::path &gameDirectory, XeenCamera
                 flow.drawTavernArt = [&](IndexedFrame &frame) { assets.drawTavern(frame); };
                 flow.drawBankArt = [&](IndexedFrame &frame) { assets.drawBank(frame); };
                 flow.drawGuildArt = [&](IndexedFrame &frame) { assets.drawGuild(frame); };
-                flow.loadSpellDescriptions = [&] { return assets.readArchiveResource("spldesc.bin"); };
+                flow.loadSpellDescriptions = [&] { return assets.readArchiveResource("spldesc.bin",xeenPictureArchive(publishedCamera->mapId)); };
                 flow.tavernFoodOffer = [&](unsigned index) { return assets.tavernFoodOffer(index); };
                 flow.tavernString = [&](std::size_t index) {return assets.tavernString(index);};
-                flow.drawCombatButtons = [&](IndexedFrame &frame) { CloudsUiComposer().drawCombatButtons(assets,frame); };
+                flow.drawCombatButtons = [&](IndexedFrame &frame) { CloudsUiComposer().drawCombatButtons(assets,frame,xeenPictureArchive(publishedCamera->mapId)); };
                 flow.drawDialogSprite = [&](IndexedFrame &frame,const char *name,unsigned index,int x,int y) {
                     const bool journal=std::string_view(name)=="quest.icn" || std::string_view(name)=="award.icn";
-                    assets.drawDialogSprite(frame,name,index,x,y,journal?XeenSceneArchive::DarksideOnly:XeenSceneArchive::Current);
+                    assets.drawDialogSprite(frame,name,index,x,y,journal?XeenSceneArchive::DarksideOnly:xeenPictureArchive(publishedCamera->mapId));
                 };
                 flow.loadJournalText = [&](bool awards) {return assets.readArchiveResource(awards?"award.bin":"qnotes.bin",XeenSceneArchive::DarksideOnly);};
-                flow.loadArenaSprites = [&](std::uint8_t image) {assets.validateNormalMonster(image);assets.validateAttackMonster(image);};
+                flow.loadArenaSprites = [&](std::uint8_t image) {assets.validateNormalMonster(image,xeenPictureArchive(publishedCamera->mapId));assets.validateAttackMonster(image,xeenPictureArchive(publishedCamera->mapId));};
                 flow.drawEntranceSprite = [&](IndexedFrame &frame,const char *name,unsigned index,int x,int y,int scale) {
                     assets.drawDialogSprite(frame,name,index,x,y,XeenSceneArchive::Clouds,scale);
                 };
                 flow.mapName = [&](XeenMapIdentity id) { return assets.mapName(id); };
-                flow.loadRestDream = [&] { return assets.restDreamImage(); };
+                flow.loadRestDream = [&] { return assets.restDreamImage(xeenPictureArchive(publishedCamera->mapId)); };
                 flow.loadEntranceCaption = [&](unsigned action,bool keyed) {
                     const auto bytes=assets.readArchiveResource("special.bin",XeenSceneArchive::Clouds);
                     const unsigned record=action==10?1:action==8?(keyed?2:3):action==9?(keyed?4:5):(keyed?6:7);
@@ -547,7 +554,7 @@ int Application::gameplay(const std::filesystem::path &gameDirectory, XeenCamera
                 auto nativeHandler=handler;
                 nativeHandler.cursorImage=[&,current=handler.frameCurrent,palette=first.palette] {
                     if(current && !current())return IndexedFrame{};
-                    auto cursor=assets.cursorImage();
+                    auto cursor=assets.cursorImage(xeenPictureArchive(publishedCamera->mapId));
                     cursor.palette=palette; // Title retry UI may have used the shared asset surface.
                     return cursor;
                 };
@@ -572,10 +579,10 @@ int Application::gameplay(const std::filesystem::path &gameDirectory, XeenCamera
                 std::optional<unsigned> current,const std::string &name) {
             const auto &dos=assets.uiText();
             const auto resource=std::string(dos.scalar("PANEL_SPRITES"));
-            if(assets.spriteFrameCount(resource)!=2)throw std::runtime_error("Unexpected DOS control-panel sprite frames");
-            for(unsigned i=0;i<2;++i){auto scratch=base;assets.drawDialogSprite(scratch,resource.c_str(),i,0,0);}
+            if(assets.spriteFrameCount(resource,xeenPictureArchive(publishedCamera->mapId))!=2)throw std::runtime_error("Unexpected DOS control-panel sprite frames");
+            for(unsigned i=0;i<2;++i){auto scratch=base;assets.drawDialogSprite(scratch,resource.c_str(),i,0,0,xeenPictureArchive(publishedCamera->mapId));}
             XeenTitleFlow::Services presentation{dos,font,base,{}, {},
-                [&](IndexedFrame &frame,const char *resource,unsigned index,int x,int y){assets.drawDialogSprite(frame,resource,index,x,y);},
+                [&](IndexedFrame &frame,const char *resource,unsigned index,int x,int y){assets.drawDialogSprite(frame,resource,index,x,y,xeenPictureArchive(publishedCamera->mapId));},
                 [&] {
                     std::array<XeenSaveFile::Slot,10> slots;
                     for(unsigned i=0;i<10;++i)slots[i]=XeenSaveFile::inspectSlot(slotPath(i),signature);
@@ -605,8 +612,9 @@ int Application::gameplay(const std::filesystem::path &gameDirectory, XeenCamera
         services.resources.loadInitialBankBalances = [&] { return XeenCharacterFormat::parseBankBalances(assets.readInitialResource("maze.pty")); };
         services.resources.loadInitialWorldFlags = [&] { return XeenQuestFlagFormat::parseWorldFlags(assets.readInitialResource("maze.pty")); };
         services.resources.loadInitialContext = [&] { return XeenGameplayContextFormat::parse(assets.readInitialResource("maze.pty")); };
+        services.resources.loadMonsterStatisticsForSide = [&](XeenSide side) {const auto bytes=assets.readMonsterStatistics(side);if(!bytes)throw std::runtime_error("Missing original side MON");return XeenMonsterFormat::parse(*bytes);};
         services.resources.loadMonsterStatistics = [&] {
-            const auto bytes = assets.readCloudsMonsterStatisticsFromDarkArchive();
+            const auto bytes = assets.readMonsterStatistics();
             if (!bytes) throw std::runtime_error("Missing DARK.CC/xeen.mon");
             return XeenMonsterFormat::parse(*bytes);
         };
@@ -616,8 +624,8 @@ int Application::gameplay(const std::filesystem::path &gameDirectory, XeenCamera
 			return XeenLearnedSpellNames::parse(*bytes);
 		};
 
-        services.validateEncounterSprite = [&](std::uint8_t image) { assets.validateNormalMonster(image); };
-        services.validateCombatSprite = [&](std::uint8_t image) { assets.validateAttackMonster(image); };
+        services.validateEncounterSprite = [&](std::uint8_t image) { assets.validateNormalMonster(image,xeenPictureArchive(publishedCamera->mapId)); };
+        services.validateCombatSprite = [&](std::uint8_t image) { assets.validateAttackMonster(image,xeenPictureArchive(publishedCamera->mapId)); };
         services.composeEncounter = [&](XeenWorld &w, const XeenPartyState &p, const XeenCamera &c,
                 std::uint64_t ordinary, XeenMonsterAppearance actor) {
             XeenEventFlow::Composition result;

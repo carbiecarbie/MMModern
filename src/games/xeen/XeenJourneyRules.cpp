@@ -27,13 +27,13 @@ void xeenValidateJourneyParty(const XeenPartyState &party) {
 	if (party.serviceEconomy) xeenValidateCurrentServiceEconomy(*party.serviceEconomy);
 	const auto &context = *party.encounterContext;
 	require(xeenRegionalContext(context),"Noncanonical Journey calendar");
-	require(context.profile == XeenBehaviorProfile::WorldOfXeenClouds && static_cast<unsigned>(context.difficulty)<=1 &&
+	require(context.profile == XeenBehaviorProfile::WorldOfXeen && static_cast<unsigned>(context.difficulty)<=1 &&
 		xeenRegionalContext(context), "Unsupported Journey context");
 	std::vector<std::uint8_t> members=party.party.activeRosterIds();
 	require((!members.empty() || party.insideInn) && members.size()<=6, "Unsupported Journey membership");
 	std::sort(members.begin(),members.end());
 	require(std::adjacent_find(members.begin(),members.end())==members.end(), "Duplicate Journey member");
-	for(auto id:members)require(id<24 && !party.roster.at(id).name.empty() && party.roster.at(id).xeenSide==0, "Unrecruitable Journey member");
+	for(auto id:members)require(id<24 && !party.roster.at(id).name.empty() && party.roster.at(id).xeenSide<=1, "Unrecruitable Journey member");
 	require(party.firstSerializedCount==members.size() && party.effectiveSerializedCount==members.size(), "Journey member count mismatch");
 	for (unsigned id = 0; id < 30; ++id) {
 		const auto &c = party.roster.at(id);

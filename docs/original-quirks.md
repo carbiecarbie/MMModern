@@ -27,7 +27,7 @@ for players in [ScummVM differences](scummvm-differences.md).
 | <a id="sv-drained-cave-maps"></a> Flag 25 drains maps 42, 43 and 44, preserving each cell's high five attribute bits. | DOS static `0xf80b..0xf859`, explicit map operands 42/43/44 and mask `0xf8`, at load. Checked 2026-10-24. | `XeenWorld::sampleCell`, `xeenDrainedCave` | Derived from flags at load, without changing original resources. All original surface types on these maps are zero. The pin's third map is 4. **ScummVM:** differs. |
 | <a id="sv-quest-done-objects"></a> The first matching entry in a nine-entry quest-flag table hides a neighbouring-map object copy at load. | DOS static `0xfd1f..0xfe63`: flag to map/slot: 63 to 7/5, 39 to 4/6, 64 to 12/11, 65 to 11/10, 66 to 15/11, 67 to 10/9, 68 to 16/9, 69 to 15/14, 49 to 19/14. Positions become (-128,-128); matches jump to `0xfe66` (`0xfd49`, `0xfd6d`, `0xfd91`, `0xfdb5`, `0xfdd9`, `0xfdfd`, `0xfe20`, `0xfe43`). Checked 2026-10-24. | `xeenMapRuleObject`, `XeenWorld::effectiveObject` | Derived from saved flags at load, with no saved object override. Else-if chain: on map 15 flag 66 suppresses the flag-69 entry; original bug kept. The pin omits the table. Darkside reachability is Unknown/deferred. **ScummVM:** differs. |
 | Newcastle's castle uses graphics 85 after flag 43, with object 0's resolved sprite ID set to 85. | DOS static `0xf973..0xf9b1` resolves each local sprite-table index into runtime object field +4; `[0xe004]` is object 0's resolved ID, while `[0xe002]` retains its local index. At `0xff50..0xff92`, DOS loads graphics 85 into the sprite slot originally named 118 and writes the fixed byte `[0xe004]=85`. Original map-12 MOB inspection: only object 0 at (11,12), local slot 0, uses ID 118. | `xeenMapRuleObject`, `XeenWorld::effectiveObject`; original-data `castleObject` control | MMModern derives resource ID 85 for that object and loads its graphics directly, rather than replacing the graphics in the original slot. The retained local index and Event-visible ID, per-ID properties, graphics and all other original objects agree; the representation difference is not observable in Clouds. No saved sprite field is added. Darkside reachability remains Unknown/deferred. |
-| <a id="sv-map50-stepped"></a> The map-50 stepped fill is Darkside only, matches the pin, and is deferred to the Darkside arc. | DOS static `WORLD/XEEN.DAT` `0xf77b..0xf780` copies the side byte `[0x94]` to `[bp-8]`; `0xf7ee..0xf7f2` skips the map-50 test on Clouds. The Darkside map-number test and fill are `0xf7f4..0xf808`. The enclosing gate corrects the earlier audit's mistaken "no side test" reading. | No Clouds fill; `XeenScriptedRulesTests.cpp` verifies existing stepped bits are retained. | Matches pinned ScummVM. Out of M89 scope; Darkside only, deferred. |
+| <a id="sv-map50-stepped"></a> Loading Darkside map 50 fills its stepped bitmap. | DOS static `WORLD/XEEN.DAT` `0xf77b..0xf780` copies the side byte `[0x94]` to `[bp-8]`; `0xf7ee..0xf7f2` skips the map-50 test on Clouds. The Darkside map-number test and fill are `0xf7f4..0xf808`. The enclosing gate corrects the earlier audit's mistaken "no side test" reading. | `XeenWorld::loadEventDestination`; no Clouds fill. | Matches the pin on ordinary load. Exact save restoration preserves the stored bitmap. |
 | <a id="sv-confirmword-text0"></a> Missing ConfirmWord primary, alternate or nonzero title indices alias text[0]. | Calibrated static `WORLD/XEEN.DAT` analysis, 2026-10-16: `0x21d26..0x21d34` clears all 280 text-offset slots, then `0x21d40..0x21d81` fills actual strings. Dispatch (`0x26c26..0x26c48`) and ConfirmWord (`0x27f15..0x27fa6`) add those offsets to the resource start. | `XeenEventInterpreter` ConfirmWord; [travel and typed input](rules/world-events.md#travel-and-typed-input) | Clouds map 69 `(9,15)` West line 0 names missing alternate 21, selecting text[0]. Pinned ScummVM instead leaves a missing alternate empty. **ScummVM:** differs. |
 | <a id="sv-dragon-tower-mirror"></a> Clouds mirrors above map 32 start at record index 0x26; travel reads the selected record directly, including the incorrect Dragon Tower destination. | Static `WORLD/XEEN.DAT`, 2026-10-16: scan start `0x2406c..0x2407c`, record use `0x2702b..0x270a1`. The original Dragon Tower record names map 5 `(10,12)`, direction -1. | `XeenEventInterpreter` ConfirmWord and teleport | The reference's correction to map 13 `(10,5)` South is not imported. Unadmitted maps still refuse through the shared transition result. **ScummVM:** differs. |
 | <a id="sv-vowelless-knight"></a> Password strings are compared directly, without the Vowelless Knight answer rewrite. | Static `WORLD/XEEN.DAT`, 2026-10-16: primary then alternate comparison `0x24023..0x24067`, ASCII case-insensitive comparator `0xa39f..0xa3df`. | `XeenEventInterpreter` ConfirmWord | Follows the M70 plan's DOS decision; original resource mistakes remain. **ScummVM:** differs. |
@@ -614,7 +614,7 @@ original post-dream poll.
   Master not rechecked. Part A1 implements this restriction.
   [M94 scope](milestone-94-plan.md).
 
-- Jump destinations on an unadmitted map (only Darkside maps are) remain
+- Jump destinations on an unadmitted map (including mixed Darkside maps) remain
   refused before charge. M72 applies the original surface effects to admitted
   destinations; a fall to an unadmitted map is also refused before
   publication. This retains the area restriction approved on 2026-10-12,
@@ -927,8 +927,9 @@ randomization. This does not imply respawning dead monsters. Map load sets
 stepped (`0xf58b`), redraw consumes it (`0x1184f`), and the Event caller
 sets it again (`0x27b32`). The scenes bypass the town-service day charge.
 Preserve the reload and lighting behavior. High confidence; the reference
-also reloads. A Darkside key at a cross-side site is outside the World CD
-reference's Clouds play (only Darkside Events grant those keys).
+also reloads. Darkside Events can grant the four cross-side entrance keys;
+those keyed branches remain deferred, with an early "not supported yet"
+notice when a key is held. Their keyless Clouds scenes remain original.
 
 <a id="sv-arena-species-pool"></a>
 ### The Arena chooses five species before choosing monsters
@@ -1465,8 +1466,8 @@ confirmed. Location: `XeenObjectSpriteSafety`, `XeenObjectSpriteTests`.
 
 ## Darkside startup and presentation
 
-These calibrated DOS fidelity rules are implemented by M93's startup path and
-Darkside intro; Darkside gameplay is not supported. Evidence: installed CD
+These calibrated DOS fidelity rules describe M93's startup path and
+Darkside intro. Evidence: installed CD
 XEEN.EXE, **DOS static, high**, 2026-10-26;
 the compiled-reader resource audit checks decoder acceptance. Full offsets, tables, resource
 report and pin comparison remain outside the repository at
@@ -1576,3 +1577,43 @@ than guessing a name from its hash; DOS fails on a missing member
 (`WORLD/XEEN.DAT` `0x45fa8 -> 0x45c8a`). The CC index codec was calibrated at
 `0x45d00..0x45d91` and round-tripped all 24 investigated archives. See
 `tools/XeenDosArchive.cpp` and [DOS saves](rules/dos-saves.md).
+
+## Darkside ordinary play
+
+<a id="dev-darkside-load-music"></a>
+**Darkside Load retains its saved song.** Normal arrivals draw one inclusive
+`U(0,6)` from the gameplay RNG, including with audio muted or unavailable.
+DOS `WORLD/XEEN.DAT` draws at `0x102b1..0x102bd` outdoors and
+`0x1048d..0x10499` indoors through `0x45b9a`; the six seven-entry tables are
+at `0x4f062..0x4f10a`. This calibrated static evidence is high confidence
+(2026-10-30). Outdoors uses row 0; indoor wall kinds 0,1,2/4,3,5 use rows
+1,2,3,4,5. MMModern reads the names from the installed program, with no
+copied song table. Return from a non-Inn location restores the old song
+without a draw, then makes an ordinary map-load selection
+(`0x1d75a..0x1d798`).
+
+**Maintainer-approved difference, 2026-10-30:** v23 stores the selected
+Darkside entry outside Journey. Exact restore validates it against the
+camera map and plays it without drawing, preserving gameplay continuation.
+DOS draws again on Load as part of its clock-mixed RNG.
+**ScummVM:** the pin's `SavesManager::loadGameState` calls `Map::load`
+(`saves.cpp:206`), whose Darkside music selection draws anew
+(`map.cpp:902..945`). MMModern follows the approved saved-song rule on Load.
+The pin also indexes the outdoor music row by wall kind; DOS always selects
+row 0 outdoors, which MMModern retains.
+Master not rechecked. Owners: `XeenWorld::selectMapMusic`, `XeenSaveState`,
+`XeenAudio::darksideMapSong`.
+
+<a id="sv-castleview-force-text"></a>
+**Castleview's map-29 Event at `(30,20)` forces text temporarily.** DOS saves
+the Text-off byte and clears it at `0x26a61..0x26a88`, restoring it at
+`0x291cf..0x291d8` (calibrated static, high confidence, 2026-10-30).
+`XeenEventInterpreter` carries the override through Event presentations;
+the party's saved Text option stays unchanged. **ScummVM:** the pin's
+`Scripts::checkEvents` has no corresponding option override. Master not
+rechecked.
+
+**World monster species 91 uses Clouds art on Darkside.** DOS
+`0xffeb..0x10010` switches that sprite source; its MON statistics remain
+those of the loaded side. The pin's `Map::load` agrees. Indoor and outdoor
+composition and sprite preflight use the same explicit Clouds provenance.

@@ -9,7 +9,7 @@
 using namespace training_test;
 namespace {
 void summaries(Inputs &in) {
- auto p=XeenPartyLoader().loadInitialCloudsParty(in.assets);const auto &text=in.assets.uiText();
+ auto p=XeenPartyLoader().loadInitialParty(in.assets);const auto &text=in.assets.uiText();
  p.purse.emplace();p.purse->gold=321;p.purse->gems=123;
  const std::vector<std::size_t> members{0,1,2,3,4,5};
  for(unsigned food:{0u,17u,18u,35u,36u,90u}) {

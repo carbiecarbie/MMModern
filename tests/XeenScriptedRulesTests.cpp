@@ -50,7 +50,7 @@ void deaths() {
  auto noHook=xeenPrepareScriptedDeath(p,flags,camera,wrong);check(!noHook.flags.isSet(11),"ScummVM's Tiger Mole slot must not complete the quest");
  xeenPrepareScriptedDeath(p,flags,camera,actor).publish(p,flags);check(flags.isSet(11),"Clan King flag");
  camera.mapId=78;actor.id={78,8};actor.original.resourceId=89;
- XeenCloudsQuestItems::Counts counts{};counts[8]=255;p.questItems=XeenCloudsQuestItems(counts);
+ XeenQuestItems::Counts counts{};counts[8]=255;p.questItems=XeenQuestItems(counts);
  xeenPrepareScriptedDeath(p,flags,camera,actor).publish(p,flags);
  check(flags.isSet(60) && !p.questFlags.isSet(23) && p.questItems.at(8)==0,"Lord flags and byte-wrapping Scepter increment");
  for(auto id:p.party.activeRosterIds())check(p.roster.at(id).awards[42]==1,"Award 42 includes the dead first member");

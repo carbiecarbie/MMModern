@@ -19,9 +19,11 @@ state for the content milestones that follow.
 
 Out of scope, each kept as today or refused with the notice:
 - Darkside mechanics from the [census](coverage.md#darkside-largest-gaps)
-  (ChooseNumeric, ExchObj, FallToMap, GotoRandom, the Darkside object
-  pictures, the Darkside GiveEnchanted items and the rest); they follow in
-  census order, one milestone each;
+  (ChooseNumeric, ExchObj, FallToMap, GotoRandom, the Darkside GiveEnchanted
+  items and the rest); they follow in census order, one milestone each.
+  Darkside object pictures come in with the generic resource choice
+  (maintainer, 2026-10-30, after the Part A review), each newly admitted
+  sprite rendered and inspected;
 - the services of the Darkside towns (Inn, Tavern, Temple, Bank, Smithy,
   Guild, Training, Dwarf town), with their original values; proposed as M102;
 - the four Clouds entrances that need Darkside keys (maps 113-128, which mix
@@ -270,7 +272,9 @@ behavior stops before Part B. A difference from the reference is recorded in
    Castleview frames indoors and outdoors are inspected. Indoor and outdoor
    music selection, Pyramid arrival, return and restore are tested with
    audio enabled, disabled and absent: arrival draws once and picks the DOS
-   row; restore draws nothing and plays the saved song.
+   row; restore draws nothing and plays the saved song. Part B covers arrival
+   and location-return music through live input; Part A exercises arrival
+   selection at the destination-load owner and restore through live Load.
 3. **Pyramid.** From each Clouds Pyramid the party arrives at its DOS
    destination on Darkside, and back from each Darkside Pyramid, with the
    DOS presentation and time cost; map 49 <-> 52 included. A destination or

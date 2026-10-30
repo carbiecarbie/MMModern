@@ -156,6 +156,7 @@ struct XeenPresentationRequest {
 	std::optional<XeenEventConfirmWord> word;
 	std::string alternate;
 	std::vector<XeenMirrorDestination> mirrors;
+ bool forceText=false;
 };
 
 enum class XeenEventMissingInstructionPolicy {
@@ -211,6 +212,7 @@ struct XeenEventGiveTakeProgress {
 };
 
 struct XeenEventExecutionState {
+ bool forceText=false;
     std::optional<XeenEndingRequest> ending;
     unsigned inputClearCount=0, inputClearSite=0;
     // DOS Event-local markers, independent of instruction count.

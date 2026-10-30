@@ -48,7 +48,7 @@ bool XeenEncounterFlow::beginRest(const std::function<IndexedFrame()> &dream,
   else {
    candidate->phase=xeenRestDanger(members(_party,candidate->owners),supplements(_party,candidate->owners),_party.encounterContext->year)?
     RestContinuation::Phase::Confirm:shelter?RestContinuation::Phase::Remainder:RestContinuation::Phase::Charges;
-   if(_party.encounterContext->profile==XeenBehaviorProfile::WorldOfXeenClouds) {
+   if(_party.encounterContext->profile==XeenBehaviorProfile::WorldOfXeen) {
     if(!dream || !durations)throw std::invalid_argument("Original Rest dream providers are absent");
     const bool digital=XeenSoundOptions(_party.soundOptions).efx && (!_program.audio || _program.audio->hasDmaDigital());
     candidate->sampleDurations=digital?durations():std::array<std::uint64_t,2>{0,0};
@@ -179,7 +179,7 @@ bool XeenEncounterFlow::serviceRest() {
     members(_party,rest.owners),supplements(_party,rest.owners),&*_party.serviceEconomy,XeenTimeMode::Sleeping);
    XeenConsequenceDraw draw{rest.random,64,check,[this](unsigned id){fmEffect(id);},[this](unsigned id){fmSelectWeapon(id);}};if(!rest.time->service(draw))return true;
    const auto dream=draw.draw(1,20);if(!dream)return true;
-   rest.phase=*dream==1 && _party.encounterContext->profile==XeenBehaviorProfile::WorldOfXeenClouds?P::Dream:P::Recovery;
+   rest.phase=*dream==1 && _party.encounterContext->profile==XeenBehaviorProfile::WorldOfXeen?P::Dream:P::Recovery;
    check();
    for(unsigned n=0;n<rest.owners.size();++n) {
     _party.roster.at(rest.owners[n])=rest.time->characters[n];

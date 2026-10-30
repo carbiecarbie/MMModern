@@ -51,9 +51,9 @@ struct Harness {
  }
  XeenGameplayServices services(unsigned seed=1) {
   XeenGameplayServices s{programState,
-   {signature,[&]{return assets?XeenPartyLoader().loadInitialCloudsParty(*assets):XeenPartyLoader().loadFromResources(chr(),pty());},
+   {signature,[&]{return assets?XeenPartyLoader().loadInitialParty(*assets):XeenPartyLoader().loadFromResources(chr(),pty());},
     [&](XeenMapIdentity id){return assets?eventLoader->load(id):events();}},
-   [&]{return assets?XeenGameFlagsLoader().loadInitialCloudsFlags(*assets):XeenGameFlags{};},
+   [&]{return assets?XeenGameFlagsLoader().loadInitialFlags(*assets):XeenGameFlags{};},
    [&](XeenMapIdentity id){
     ++mapCalls;
     if(assets)return mapLoader.loadGeometryMap(*assets,id);
@@ -68,7 +68,7 @@ struct Harness {
   };
   s.resources.loadInitialCharacters=[&]{return assets?assets->readInitialResource("maze.chr"):chr();};
   s.resources.loadInitialContext=[&]{return XeenGameplayContextFormat::parse(assets?assets->readInitialResource("maze.pty"):pty());};
-  s.resources.loadMonsterStatistics=[&]{return assets?XeenMonsterFormat::parse(*assets->readCloudsMonsterStatisticsFromDarkArchive()):statistics();};
+  s.resources.loadMonsterStatistics=[&]{return assets?XeenMonsterFormat::parse(*assets->readMonsterStatistics()):statistics();};
   s.clock=[&]{return now;};
 
   s.validateEncounterSprite=[&](std::uint8_t image){if(assets)assets->validateNormalMonster(image);};

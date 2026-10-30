@@ -9,17 +9,19 @@
 #include <utility>
 
 namespace mmodern {
+XeenEventLoader::XeenEventLoader(SideReader reader):_sideReader(std::move(reader)) {if(!_sideReader)throw std::invalid_argument("Missing side resource reader");}
+
 
 XeenEventLoader::XeenEventLoader(ResourceReader resourceReader) :
 	_resourceReader(std::move(resourceReader)) {
 	if (!_resourceReader)
-		throw std::invalid_argument("leitor de recursos EVT ausente");
+		throw std::invalid_argument("Missing EVT resource reader");
 }
 
 std::string XeenEventLoader::resourceNameForMap(XeenMapIdentity mapId) {
-	requireCloudsMap(mapId);
+	requireXeenMap(mapId);
 	std::ostringstream name;
-	name << "maze" << std::setfill('0') << std::setw(4) << mapId.number << ".evt";
+	name << (mapId.number>=100?"mazex":"maze") << std::setfill('0') << std::setw(mapId.number>=100?3:4) << mapId.number << ".evt";
 	return name.str();
 }
 
@@ -29,7 +31,7 @@ XeenEventFile XeenEventLoader::load(XeenMapIdentity mapId) const {
 	result.resourceName = resourceNameForMap(mapId);
 
 	const std::optional<std::vector<std::uint8_t>> bytes =
-		_resourceReader(result.resourceName);
+		(_sideReader?_sideReader(result.resourceName,mapId.side):_resourceReader(result.resourceName));
 	if (!bytes)
 		return result;
 

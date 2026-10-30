@@ -29,14 +29,15 @@ std::vector<XeenActor> XeenWorld::sceneActors(XeenMapIdentity mapId,
 	const auto file=objectFile(mapId);
 	std::vector<XeenActor> actors;
 	if (!file.entities.monsters.empty()) {
-		if (!_sceneStatistics) _sceneStatistics=loadStatistics();
+		auto &statistics=_sceneStatistics.at(static_cast<unsigned>(static_cast<XeenSide>(mapId.side)));
+		if (!statistics) statistics=loadStatistics();
 		for (std::size_t i=0;i<file.entities.monsters.size();++i) {
 			const auto &record=file.entities.monsters[i];
 			XeenActor actor;actor.id={mapId,i};actor.original=record;actor.x=record.x;actor.y=record.y;
 			if (record.hasResource()) {
-				if (std::size_t(record.resourceId)>=_sceneStatistics->size())
+				if (std::size_t(record.resourceId)>=statistics->size())
 					throw std::invalid_argument("Missing monster statistics in "+std::string(file.resourceName)+" record "+std::to_string(i));
-				actor.statistics=_sceneStatistics->at(record.resourceId);
+				actor.statistics=statistics->at(record.resourceId);
 				actor.statistics->validatePresentation();
 				actor.hp=actor.statistics->baseHp();actor.lifecycle=XeenActorLifecycle::Present;
 			}

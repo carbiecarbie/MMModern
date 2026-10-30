@@ -25,7 +25,8 @@ Xeen engine has had only a code-style edit and the Xeen data in `mm.dat` is
 unchanged apart from its version number, so the earlier entries are marked
 "master: differs". MMModern plays Clouds of Xeen, apart from the
 [gaps below](#what-scummvm-has-that-mmmodern-does-not-yet), and the Darkside
-intro at startup; items that concern only Darkside gameplay wait for it.
+intro at startup. Ordinary Darkside play uses the shared World state; its
+services and cross-side travel remain deferred.
 
 - **Sound setup.** The [owned sound CFG](original-quirks.md#dev-owned-sound-cfg) keeps the DOS installer's choices outside the game installation. ScummVM selects its MT-32 or AdLib driver through its own device configuration. Pin: differs; master not rechecked.
 - **Picture shape.** The [square-pixel option](original-quirks.md#dev-square-picture) preserves MMModern's former integer-scaled display; both MMModern and the pin enable aspect correction by default. Pin checked; master not rechecked.
@@ -671,6 +672,9 @@ apart from the fidelity differences above.
   before acknowledgment, allowing combat inside that unfinished call.
   [Details](original-quirks.md#dev-skipped-window-first)
 
+- **Darkside music.** [Load replays the saved song without drawing](original-quirks.md#dev-darkside-load-music), preserving gameplay RNG; the pin selects anew. This Load difference is approved by the maintainer. Outdoors follows DOS row 0; the pin indexes by wall kind. Pin: differs; master not rechecked.
+- **Castleview text.** [The Event at `(30,20)` temporarily forces text](original-quirks.md#sv-castleview-force-text), as DOS does even with Text off. The pin has no corresponding override. Pin: differs; master not rechecked.
+
 ## What ScummVM has that MMModern does not yet
 
 ScummVM plays the whole game today; MMModern is young. The full list of gaps is
@@ -678,8 +682,8 @@ in [project status](project-status.md#known-gaps):
 
 - **The whole game:** Clouds of Xeen is playable from its intro to its
   ending, except the Pyramid entrance and the mirror words `showdown` and
-  `genesis` (the Darkside and World endings). Darkside of Xeen gameplay is
-  not supported; only its intro plays at startup.
+  `genesis` (the Darkside and World endings). Darkside ordinary maps are admitted; its town services and cross-side
+  travel remain deferred.
 - **Sound:** CD `promus` and the mono `admus`, `blastmus` and authenticated
   INTRO `specmus` OPL profiles are supported, as is MT-32 `rolmus` with the
   player's 1.07 control and PCM ROMs. Music 5/7/8/9 and digital 1/2/5/8/9 use

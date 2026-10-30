@@ -7,6 +7,11 @@ using namespace mmodern;
 using training_test::check;
 namespace {
 void unit() {
+    XeenPartyState tail;
+    for(unsigned bit=27;bit<30;++bit)tail.questFlags.set(XeenSide::Darkside,bit);
+    const auto bounded=xeenQuestDisplay(tail);
+    check(std::none_of(bounded.notes.begin(),bounded.notes.end(),[](bool value){return value;}),
+        "Quest flags 57..59 overwrote Auto Notes without world flags");
     const auto &text=dos_test::text();
     std::vector<std::string> notes(184),awards(88);
     for(unsigned i=0;i<notes.size();++i)notes[i]="note"+std::to_string(i);

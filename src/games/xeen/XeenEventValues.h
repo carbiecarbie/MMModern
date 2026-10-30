@@ -124,6 +124,7 @@ inline void xeenEventCopyOwnedCharacter(XeenCharacter &d, const XeenCharacter &s
 	d.skills = s.skills; d.learnedSpells = s.learnedSpells;
 	d.weapons = s.weapons; d.armor = s.armor; d.accessories = s.accessories; d.miscellaneous = s.miscellaneous;
 	d.currentHp = s.currentHp; d.currentSp = s.currentSp; d.conditions = s.conditions; d.awards = s.awards;
+	d.characterFlags = s.characterFlags;
 }
 
 } // namespace mmodern

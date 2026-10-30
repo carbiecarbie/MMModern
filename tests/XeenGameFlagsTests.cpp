@@ -50,6 +50,9 @@ void checkOnlyFlag(const std::vector<std::uint8_t> &bytes,
 }
 
 void testLiteralPositionsDetectOffByOne() {
+	XeenGameFlags banks; banks.set(XeenSide::Darkside,0); banks.set(XeenSide::Darkside,255);
+	check(!banks.isSet(0) && !banks.isSet(255) && banks.isSet(XeenSide::Darkside,0) && banks.isSet(XeenSide::Darkside,255),"side flag banks alias");
+	banks.set(255);banks.clear(XeenSide::Darkside,255);check(banks.isSet(255) && !banks.isSet(XeenSide::Darkside,255),"clearing opposite flag bank");
 	std::vector<std::uint8_t> bytes(692, 0);
 	bytes[659] = 0x80;
 	checkOnlyFlag(bytes, 0, "literal byte 659 bit 7 must be flag 0 only");

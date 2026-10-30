@@ -60,10 +60,10 @@ light and resistances at 620..631, purse and bank at 638..653, play time at
 654..657, rested state at 658, flags at 659..746, quest items at 747..831,
 Darkside wares at 832..1407 and text/speech options at 1528..1529. Flags use
 DOS MSB-first order (DOS static `0x24f07`, `0x24fb3`). Only the active ID
-prefix, the first 30 quest flags and the first 35 quest-item counters have
-current homes.
+prefix is projected; v23 retains both flag banks, all 85 counters and the
+30 x 32 character flags, but export of the added progress waits for Part B.
 
-The following retain New Game values because v22 has no corresponding state:
+The following retain New Game values in the current exporter:
 the unused party-ID suffix, PTY 16, prior map PTY 17, Darkside and World
 completion PTY 606..609, DOS counters PTY 632..637, Darkside flags PTY
 691..722, the unused quest-flag bits, Darkside quest items PTY 782..831,
@@ -99,6 +99,25 @@ auxiliary physical tiles are not destinations. Darkside progress is not
 exported. **DOS play (maintainer, 2026-10-29):** a party placed on Darkside
 at Castleview (map 29, `(14,4)`, North) loaded there and could walk, talk and
 fight. Only the position was written; no other arrival state was needed.
+
+Until Darkside export is implemented, nonzero Darkside game/quest flags,
+quest counters 35..84 or any character flags are refused before output is
+written. The full DARK New Game PTY (1530 bytes) initializes these fields;
+the 812-byte Clouds replica must not be read as that layout.
+
+## MMModern v23 framing
+
+The envelope version is 23; its side byte equals the camera's side. Unknown
+or mismatched sides fail before publication. The existing roster records
+are followed by 85 little-endian 32-bit counters, 60 one-byte quest flags,
+512 one-byte game flags, four sound options, 960 one-byte character flags
+in roster/bit order, then one song byte (0 absent on Clouds, 1..42 denotes
+the selected Darkside table entry plus one). Restore checks the song's row
+against the camera map. The added fields occupy 1447 bytes relative to v22.
+The following Journey block keeps its exact layout, schema 9 and content 14;
+profile 0 is the shared World of Xeen profile. Current restore replays no
+Event, reward, time or RNG. Older saves, including v22, are rejected with the
+existing older-build message; no legacy reader is retained.
 
 The DOSBox preparation also refuses a missing executable, a non-CD profile or
 missing `GAME1.INS`, `GAME2.INS`, `WORLD/XEEN.EXE` or selected CFG. Its

@@ -184,7 +184,7 @@ XeenMonsterTerrain xeenOutdoorMonsterTerrain(unsigned middle, unsigned surfaceTy
 	}
 }
 XeenMonsterTerrain xeenRegionalActorTerrain(const XeenMap &map, const XeenActor &a, int x, int y) {
-	if (!local(x,y) || map.side!=XeenSide::Clouds || !map.geometry.isOutdoors() ||
+	if (!local(x,y) || !map.geometry.isOutdoors() ||
 		map.identity()!=a.id.mapId || !a.statistics || !xeenMonsterMovementSupported(*a.statistics,a.original.resourceId))
 		return XeenMonsterTerrain::Unsupported;
 	const auto *l=xeenGetIf<XeenOutdoorLayers>(&map.geometry.cells[y*16+x].geometry);
@@ -232,7 +232,7 @@ std::bitset<256> xeenActorClosure(const XeenMap &map, const XeenActor &a) {
 }
 bool xeenOutdoorRangedRay(const XeenMap &map, const XeenCamera &camera, const XeenActor &a) {
 	if (camera.mapId!=map.identity() || a.id.mapId!=map.identity() || !map.geometry.isOutdoors() ||
-		map.side!=XeenSide::Clouds || !local(camera.x,camera.y) || !local(a.x,a.y))
+		!local(camera.x,camera.y) || !local(a.x,a.y))
 		throw std::invalid_argument("Invalid outdoor ranged geometry");
 	if (a.x!=camera.x && a.y!=camera.y) return false;
 	const int dx=(a.x>camera.x)-(a.x<camera.x),dy=(a.y>camera.y)-(a.y<camera.y);

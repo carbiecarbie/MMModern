@@ -130,8 +130,8 @@ XeenMovementResult XeenMovement::outdoorDestination(const XeenMapGeometry &geome
 
 XeenMovementResult XeenMovement::localOutdoor(const XeenMap &map, int fromX, int fromY,
 		int toX, int toY, Capabilities capabilities) {
-	if (map.side != XeenSide::Clouds || !map.geometry.isOutdoors())
-		throw std::invalid_argument("Local outdoor traversal requires Clouds geometry");
+	if (!map.geometry.isOutdoors())
+		throw std::invalid_argument("Local outdoor traversal requires outdoor geometry");
 	if (fromX < 0 || fromX >= 16 || fromY < 0 || fromY >= 16)
 		throw std::invalid_argument("Invalid local traversal source");
 	if (toX < 0 || toX >= 16 || toY < 0 || toY >= 16) return XeenMovementResult::BlockedByMapBoundary;
@@ -142,7 +142,7 @@ XeenMovementResult XeenMovement::localOutdoor(const XeenMap &map, int fromX, int
 
 std::bitset<256> XeenMovement::component(const XeenMap &map, int anchorX, int anchorY,
 		Capabilities capabilities) {
-	if (map.side != XeenSide::Clouds || anchorX < 0 || anchorX >= 16 || anchorY < 0 || anchorY >= 16 ||
+	if (anchorX < 0 || anchorX >= 16 || anchorY < 0 || anchorY >= 16 ||
 		outdoorDestination(map.geometry, map.geometry.cells[anchorY*16+anchorX], capabilities) != XeenMovementResult::Moved)
 		throw std::invalid_argument("Invalid or impassable outdoor component anchor");
 	std::bitset<256> cells;

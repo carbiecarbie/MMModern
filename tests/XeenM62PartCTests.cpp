@@ -214,7 +214,7 @@ void scenery(Inputs &in) {
 		{109, 8, {0, 0, 0, 0}, {7, 7, 7, 7}},
 	};
 	const auto resolver = XeenObjectVisualResolver::load(in.assets);
-	const auto metadata = XeenCloudsVisualMetadata::parse(*in.assets.readCloudsVisualMetadataFromDarkArchive());
+	const auto metadata = XeenCloudsVisualMetadata::parse(*in.assets.readObjectVisualMetadata());
 	for (const auto &r : resources) {
 		const auto &entry = metadata.at(r.id);
 		for (unsigned d = 0; d < 4; ++d) check(entry.initialFrames[d] == r.start[d] && entry.frameLimits[d] == r.end[d], "scenery metadata matches the indexed ranges");

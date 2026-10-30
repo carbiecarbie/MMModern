@@ -114,7 +114,7 @@ SmokeContext runCatalogSmoke(const fs::path &game) {
 	check(materialBytes->size() <= 8192 && parseXeenMaterialNames(*materialBytes).ready(),
 		"runtime material stream is not structurally supported");
 
-	const auto party = XeenPartyLoader().loadInitialCloudsParty(assets);
+	const auto party = XeenPartyLoader().loadInitialParty(assets);
 	const auto before = party.roster;
 	struct Anchor {
 		std::size_t owner;

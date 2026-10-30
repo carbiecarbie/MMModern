@@ -124,7 +124,7 @@ void skillComparisons() {
   check(done && done->finalGameFlags.isSet(7)==(opcode==8 || holders==2),"Party skill99 Pathfinder count/condition filter changed");
  }
  Fixture unsupported;unsupported.set({record(1,1,0,0x09,{107,1,1}),record(1,1,1,0x12)});
- error(unsupported.begin(),Kind::UnsupportedConditionAction);
+ check(std::holds_alternative<XeenEventExecutionCompleted>(unsupported.begin()),"Roster flag condition refused");
 }
 void decoderAndExecution() {
 	for(int size=0;size<=7;++size) {
@@ -166,7 +166,8 @@ void decoderAndExecution() {
 	f.set({npc()});check(std::get<XeenEventExecutionCompleted>(f.resume(pending(f.begin()))).instructionCount==1,"natural successor completion");
 	f.set({npc(255)});error(f.begin(255),Kind::LineOverflow);
 	f.set({npc(),record(1,1,1,0x12)});s=pending(f.begin());s.instructionCount=1024;error(f.resume(s),Kind::InstructionLimitExceeded);
-	f.camera.mapId={XeenSide::Darkside,1};f.scripts.emplace(f.camera.mapId,script(f.camera.mapId,{npc()}));error(f.begin(),Kind::UnsupportedExecutionContext);
+	f.camera.mapId={XeenSide::Darkside,1};f.text.mapId=f.camera.mapId;f.scripts.emplace(f.camera.mapId,script(f.camera.mapId,{npc()}));
+	check(std::holds_alternative<XeenEventExecutionSuspended>(f.begin()),"Darkside NPC presentation refused");
 	Fixture empty;empty.members={};empty.text.strings={"",""};check(std::holds_alternative<XeenEventExecutionSuspended>(empty.begin()),"empty NPC presentation unnecessarily rejected");
 }
 void contextAndEffects() {

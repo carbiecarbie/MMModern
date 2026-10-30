@@ -5,6 +5,7 @@
 #include "core/IndexedFrame.h"
 #include "formats/xeen/XeenSpriteDrawOptions.h"
 
+#include "games/xeen/XeenMapIdentity.h"
 #include <cstddef>
 #include <cstdint>
 #include <memory>
@@ -32,8 +33,8 @@ public:
  void blackenScene();
  IndexedFrame cursorImage();
  IndexedFrame cursorImage(XeenSceneArchive selection);
- IndexedFrame restDreamImage();
-	void drawNpc(IndexedFrame &frame, std::uint8_t portraitId, std::size_t portraitFrame);
+ IndexedFrame restDreamImage(XeenSceneArchive archive=XeenSceneArchive::Current);
+	void drawNpc(IndexedFrame &frame, std::uint8_t portraitId, std::size_t portraitFrame,XeenSceneArchive archive=XeenSceneArchive::Current);
 	void drawDialogSprite(IndexedFrame &,const char *,unsigned,int,int, XeenSceneArchive selection = XeenSceneArchive::Current,int scale=0,unsigned flags=0);
 	void drawSmith(IndexedFrame &frame);
 	void drawTraining(IndexedFrame &frame);
@@ -50,19 +51,19 @@ public:
 	bool hasSceneResource(const std::string &resourceName, XeenSceneArchive selection = XeenSceneArchive::Current);
 	void drawSceneSprite(const std::string &resourceName, std::size_t frame,
 		int x, int y, const XeenSpriteDrawOptions &options);
-	void validateProjectile(const std::string &resourceName);
-	void validateNormalMonster(const std::string &resourceName);
-	void validateAttackMonster(const std::string &resourceName);
-	std::optional<std::vector<std::uint8_t>> readCloudsVisualMetadataFromDarkArchive();
+	void validateProjectile(const std::string &resourceName,XeenSceneArchive archive=XeenSceneArchive::Current);
+	void validateNormalMonster(const std::string &resourceName,XeenSceneArchive archive=XeenSceneArchive::Current);
+	void validateAttackMonster(const std::string &resourceName,XeenSceneArchive archive=XeenSceneArchive::Current);
+	std::optional<std::vector<std::uint8_t>> readObjectVisualMetadata(XeenSide side=XeenSide::Clouds);
 	std::optional<std::vector<std::uint8_t>> readItemMaterialNamesFromDarkArchive();
 	std::optional<std::vector<std::uint8_t>> readLearnedSpellNamesFromDarkArchive();
-	std::optional<std::vector<std::uint8_t>> readCloudsMonsterStatisticsFromDarkArchive();
+	std::optional<std::vector<std::uint8_t>> readMonsterStatistics(XeenSide side=XeenSide::Clouds);
 	void drawObjectSprite(const std::string &resourceName, std::size_t frame,
 		int x, int y, const XeenSpriteDrawOptions &options);
 	bool hasArchiveResource(const std::string &resourceName);
 	std::vector<std::uint8_t> readArchiveResource(const std::string &resourceName, XeenSceneArchive selection = XeenSceneArchive::Current);
-	bool hasInitialResource(const std::string &resourceName);
-	std::vector<std::uint8_t> readInitialResource(const std::string &resourceName);
+	bool hasInitialResource(const std::string &resourceName, XeenSide side=XeenSide::Clouds);
+	std::vector<std::uint8_t> readInitialResource(const std::string &resourceName, XeenSide side=XeenSide::Clouds);
 	// Read-only DARK New Game members, in the pinned SaveArchive::reset order.
 	std::vector<std::uint8_t> readInitialDarkResource(const std::string &resourceName);
 

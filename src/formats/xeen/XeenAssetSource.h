@@ -7,7 +7,6 @@
 #include "formats/xeen/XeenMonsterAppearance.h"
 #include "formats/xeen/XeenDosText.h"
 #include "games/xeen/XeenMapIdentity.h"
-
 #include <cstddef>
 #include <cstdint>
 #include <memory>
@@ -36,11 +35,11 @@ public:
 	IndexedFrame snapshot() const;
  void blackenScene();
 	// Transient NPC composition uses the existing cache, never the world surface.
-	void drawNpc(IndexedFrame &frame, std::uint8_t portraitId, std::size_t portraitFrame);
+	void drawNpc(IndexedFrame &frame, std::uint8_t portraitId, std::size_t portraitFrame,XeenSceneArchive archive=XeenSceneArchive::Current);
  void drawDialogSprite(IndexedFrame &,const char *,unsigned,int,int, XeenSceneArchive selection = XeenSceneArchive::Current,int scale=0,unsigned flags=0);
  IndexedFrame cursorImage();
  IndexedFrame cursorImage(XeenSceneArchive selection);
- IndexedFrame restDreamImage();
+ IndexedFrame restDreamImage(XeenSceneArchive archive=XeenSceneArchive::Current);
 	void drawSmith(IndexedFrame &frame);
 	void drawTraining(IndexedFrame &frame);
 	void drawTemple(IndexedFrame &frame);
@@ -62,26 +61,26 @@ public:
 	void validateProjectile(bool enemy);
 	void drawProjectile(bool enemy,unsigned row,int x,int y,const XeenSpriteDrawOptions &);
  void drawProjectile(unsigned pow,bool enemy,unsigned row,int x,int y,const XeenSpriteDrawOptions &);
-	void validateNormalMonster(std::uint8_t image);
-	void validateAttackMonster(std::uint8_t image);
+	void validateNormalMonster(std::uint8_t image,XeenSceneArchive archive=XeenSceneArchive::Current);
+	void validateAttackMonster(std::uint8_t image,XeenSceneArchive archive=XeenSceneArchive::Current);
 	static std::string attackMonsterResource(std::uint8_t image);
 	void drawMonster(std::uint8_t image, XeenMonsterAppearance appearance, int x, int y,
 		const XeenSpriteDrawOptions &options);
 	void drawNormalMonster(std::uint8_t image, std::size_t frame, int x, int y,
 		const XeenSpriteDrawOptions &options);
 	// Explicit physical origin; nullopt means archive/member absent, not empty.
-	std::optional<std::vector<std::uint8_t>> readCloudsVisualMetadataFromDarkArchive();
+	std::optional<std::vector<std::uint8_t>> readObjectVisualMetadata(XeenSide side=XeenSide::Clouds);
 	// Optional commercial English material names from exactly DARK.CC/mae.xen.
 	std::optional<std::vector<std::uint8_t>> readItemMaterialNamesFromDarkArchive();
 	std::optional<std::vector<std::uint8_t>> readLearnedSpellNamesFromDarkArchive();
 	// Missing archive/member: nullopt; extent/read failures: exception. Parsing is separate.
-	std::optional<std::vector<std::uint8_t>> readCloudsMonsterStatisticsFromDarkArchive();
+	std::optional<std::vector<std::uint8_t>> readMonsterStatistics(XeenSide side=XeenSide::Clouds);
 	void drawObjectVisual(const XeenObjectVisual &visual, int x, int y,
 		const XeenSpriteDrawOptions &options = {});
 	bool hasArchiveResource(const std::string &resourceName);
 	std::vector<std::uint8_t> readArchiveResource(const std::string &resourceName, XeenSceneArchive selection = XeenSceneArchive::Current);
-	bool hasInitialResource(const std::string &resourceName);
-	std::vector<std::uint8_t> readInitialResource(const std::string &resourceName);
+	bool hasInitialResource(const std::string &resourceName, XeenSide side=XeenSide::Clouds);
+	std::vector<std::uint8_t> readInitialResource(const std::string &resourceName, XeenSide side=XeenSide::Clouds);
  const XeenDosText &uiText();
  std::string mapName(XeenMapIdentity);
 

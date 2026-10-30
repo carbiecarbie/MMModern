@@ -11,7 +11,7 @@ using save_test::rejects;
 int main() {
     try {
         XeenGameplayContext context;context.year=610;context.day=8;context.minutes=480;
-        context.profile=XeenBehaviorProfile::WorldOfXeenClouds;context.difficulty=XeenDifficulty::Adventurer;
+        context.profile=XeenBehaviorProfile::WorldOfXeen;context.difficulty=XeenDifficulty::Adventurer;
         XeenCharacter c;c.rosterId=18;c.race=XeenRace::Human;c.sex=XeenSex::Male;c.birthYear=592;
         c.intellect.permanent=c.personality.permanent=c.endurance.permanent=11;c.currentHp=1;
         XeenCombatInputs i;

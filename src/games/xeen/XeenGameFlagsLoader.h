@@ -12,7 +12,7 @@ class XeenAssetSource;
 
 class XeenGameFlagsLoader {
 public:
-	XeenGameFlags loadInitialCloudsFlags(XeenAssetSource &assets) const;
+	XeenGameFlags loadInitialFlags(XeenAssetSource &assets) const;
 	XeenGameFlags loadFromPartyResource(
 		const std::vector<std::uint8_t> &partyBytes) const;
 };

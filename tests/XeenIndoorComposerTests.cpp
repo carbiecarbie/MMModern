@@ -660,7 +660,7 @@ void testCombinedIndoorRemoveLifecycle(const GameInstallation &installation) {
 	XeenGameFlags freshFlags;
  freshCamera=saved.camera;freshParty.party=XeenParty::fromRosterIds(saved.activeRosterIds);
  for(unsigned i=0;i<30;++i)freshParty.roster.at(i)=saved.characters[i];
- freshParty.questItems=XeenCloudsQuestItems(saved.questItems);freshParty.questFlags=XeenCloudsQuestFlags(saved.questFlags);
+ freshParty.questItems=XeenQuestItems(saved.questItems);freshParty.questFlags=XeenQuestFlags(saved.questFlags);
  freshFlags=XeenGameFlags(saved.gameFlags);
  freshWorld.restoreSessionState(savedObjects,savedEvents,[&](auto id){return freshSources.loadEvents(id);});
  check(composer.compose(freshAssets,freshWorld,freshParty,freshCamera,context).isValid(),"reconstructed indoor state failed visual preflight");

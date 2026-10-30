@@ -40,9 +40,9 @@ inline std::ostream &operator<<(std::ostream &out, XeenMapIdentity id) {
 		id.side == XeenSide::Darkside ? " (Darkside)" : " (invalid side)");
 }
 
-inline void requireCloudsMap(XeenMapIdentity id) {
-	if (id.side != XeenSide::Clouds)
-		throw std::invalid_argument("resource adapter supports Clouds maps only");
+inline void requireXeenMap(XeenMapIdentity id) {
+	if (!id || (id.side==XeenSide::Darkside && id.number>=113 && id.number<=128))
+		throw std::invalid_argument("Map resources: not supported yet");
 }
 
 } // namespace mmodern

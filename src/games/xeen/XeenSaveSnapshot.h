@@ -164,6 +164,7 @@ struct XeenSaveJourney {
 
 struct XeenSaveSnapshot {
 	XeenSaveResourceSignature resources;
+	std::optional<std::uint8_t> darksideSong;
 	// v7: absent only for explicit developer loose saves. Never a filesystem name.
 	std::optional<std::string> name;
 	std::uint16_t food=0;
@@ -172,8 +173,8 @@ struct XeenSaveSnapshot {
 	XeenCamera camera;
 	std::vector<std::uint8_t> activeRosterIds;
 	std::array<XeenCharacter, XeenRoster::kCharacterCount> characters{};
-	XeenCloudsQuestItems::Counts questItems{};
-	XeenCloudsQuestFlags::Values questFlags{};
+	XeenQuestItems::Counts questItems{};
+	XeenQuestFlags::Values questFlags{};
 	XeenGameFlags::Storage gameFlags{};
 	std::optional<XeenHeadCache> headCache;
 	std::optional<XeenSaveJourney> journey;

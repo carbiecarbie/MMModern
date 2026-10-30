@@ -73,7 +73,7 @@ int main(int argc,char **argv) {
 		const Checkpoint cases[]={{23,13,8,2,111,0,"phirna"},{1,4,1,14,54,3,"air-corner"},{23,11,12,2,117,1,"directional-117"}};
 		for(const auto &c:cases) for(unsigned camera=0;camera<4;++camera) {
 			XeenAssetSource assets(*installation,320,200);
-			const auto rawMetadata=assets.readCloudsVisualMetadataFromDarkArchive();
+			const auto rawMetadata=assets.readObjectVisualMetadata();
 			check(rawMetadata && rawMetadata->size()==1452,"real clouds.dat layout differs from approved table");
 			const auto metadata=XeenCloudsVisualMetadata::parse(*rawMetadata);
 			const auto objects=XeenMapLoader().loadObjects(assets,XeenMapIdentity{static_cast<std::uint16_t>(c.map)});
@@ -130,7 +130,7 @@ int main(int argc,char **argv) {
 			const auto objects=XeenMapLoader().loadObjects(assets,23);
 			const auto &myra=objects.entities.objects.at(1);
 			check(objects.resourceName=="maze0023.mob" && myra.x==9 && myra.y==11 && myra.direction==3 && myra.resourceId==9 && myra.tableIndex==1,"Myra original record mismatch");
-			const auto metadata=XeenCloudsVisualMetadata::parse(*assets.readCloudsVisualMetadataFromDarkArchive());
+			const auto metadata=XeenCloudsVisualMetadata::parse(*assets.readObjectVisualMetadata());
 			const auto &entry=metadata.at(9);
 			check(entry.initialFrames==std::array<std::uint8_t,4>{0,4,4,4} && entry.frameLimits==std::array<std::uint8_t,4>{3,7,7,7} && entry.flipFlags==std::array<std::uint8_t,4>{0,0,1,0},"Myra original metadata mismatch");
 			const auto bytes=assets.readArchiveResource("009.obj");check(word(bytes,0)==8,"Myra actual directory count");

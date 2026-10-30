@@ -48,6 +48,7 @@ public:
 	void clear();
 
 	bool hasNpcOffer() const;
+ bool forcedText() const {return _request.forceText;}
 	void closeNpcOffers();
     bool window11Enabled() const;
     void restoreNpcText(const std::string &notice);

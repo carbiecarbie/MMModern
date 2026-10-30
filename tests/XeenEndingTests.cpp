@@ -265,7 +265,7 @@ void omittedTableGuards(Inputs &in,const GameInstallation &installation,const fs
  check(!wrote && XeenMonsterTestAccess::endingSaveFailed(*ending.flow),"Forced capture refuses a retained destination without actors, even when its entry is empty");
 }
 void developerEnding(Inputs &in) {
- auto party=XeenPartyLoader().loadInitialCloudsParty(in.assets);party.questItems.eventGrant(8);
+ auto party=XeenPartyLoader().loadInitialParty(in.assets);party.questItems.eventGrant(8);
  XeenCamera camera{78,4,9,XeenDirection::West};XeenGameFlags flags;
  XeenWorld world(in.mapLoader(),in.objectLoader());XeenEventSystem events([&](auto id){return XeenEventScript(in.events.load(id));},[&](auto id){return in.texts.load(id);});
  XeenProgramState program{XeenWallClock::fixed(0)};std::uint64_t now=0;

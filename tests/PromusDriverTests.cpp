@@ -146,7 +146,7 @@ int main(int argc,char **argv) {
   const Bytes module((std::istreambuf_iterator<char>(moduleInput)),{});
   unsigned loads=0;
   const auto loader=[&](const std::string &name,XeenSceneArchive archive){++loads;return assets.readArchiveResource(name,archive);};
-  assert(XeenSoundOptions(XeenPartyLoader().loadInitialCloudsParty(assets).soundOptions)==XeenSoundOptions{});
+  assert(XeenSoundOptions(XeenPartyLoader().loadInitialParty(assets).soundOptions)==XeenSoundOptions{});
   XeenAudio owner(3,resource,loader,module,0,false);assert(!owner.outputActive());
   assert(XeenOpl3::systemIsNull());
   const char *byKind[]{"town.m","cavern.m","dungeon.m","castle.m","dungeon.m","outday1.m"};

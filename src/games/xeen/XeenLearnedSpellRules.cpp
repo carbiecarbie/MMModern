@@ -18,6 +18,8 @@ XeenSpellTravel XeenLearnedSpellRules::travel(XeenWorld &world,const XeenCamera 
     const unsigned flag=spell==XeenLearnedSpell::LloydsBeacon?0x800:spell==XeenLearnedSpell::TownPortal?0x100:spell==XeenLearnedSpell::SuperShelter?0x200:
         spell==XeenLearnedSpell::Etherealize?0x40:spell==XeenLearnedSpell::TimeDistortion?0x400:0x1000;
     XeenSpellTravel result;
+    if((spell==XeenLearnedSpell::LloydsBeacon || spell==XeenLearnedSpell::TownPortal) &&
+       (camera.mapId.side==XeenSide::Darkside || (spell==XeenLearnedSpell::LloydsBeacon && caster && caster->lloydSide==1))) {result.unsupported=true;return result;}
     if(map.geometry.flags&flag) {result.failed=true;return result;}
     if(spell==XeenLearnedSpell::LloydsBeacon || spell==XeenLearnedSpell::TownPortal) {
         auto to=camera;

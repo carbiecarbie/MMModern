@@ -39,7 +39,7 @@ int main(int argc, char *argv[]) {
 		check(bytes.size() >= XeenGameFlagsFormat::kCloudsRequiredPartySize,
 			"real maze.pty is too small for Clouds flags");
 
-		const XeenGameFlags flags = XeenGameFlagsLoader().loadInitialCloudsFlags(assets);
+		const XeenGameFlags flags = XeenGameFlagsLoader().loadInitialFlags(assets);
 		std::vector<int> active;
 		// The initial installation happens to contain an all-zero block, which by
 		// itself cannot expose a one-byte offset error. Synthetic tests use literal
@@ -55,7 +55,7 @@ int main(int argc, char *argv[]) {
 				active.push_back(index);
 		}
 
-		check(flags.values().size() == 256, "unexpected Clouds flag count");
+		check(flags.values().size() == 512, "unexpected Clouds flag count");
 		// DOS packs these banks MSB first and MMModern used to read them LSB
 		// first. Both orders agree only while every initial bit is zero, which
 		// these checks pin: game, world and quest flags, and the DAT bitmaps.

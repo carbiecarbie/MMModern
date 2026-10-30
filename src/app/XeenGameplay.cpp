@@ -88,6 +88,7 @@ void xeenSaveGameplay(const XeenGameplayServices &services, XeenWorld &world, Xe
 	if (resources.loadInitialCharacters) resources.loadInitialCharacters = [&] { return callback(services.resources.loadInitialCharacters); };
 	if (resources.loadInitialContext) resources.loadInitialContext = [&] { return callback(services.resources.loadInitialContext); };
 	if (resources.loadMonsterStatistics) resources.loadMonsterStatistics = [&] { return callback(services.resources.loadMonsterStatistics); };
+ if(resources.loadMonsterStatisticsForSide)resources.loadMonsterStatisticsForSide=[&](XeenSide side){return callback([&]{return services.resources.loadMonsterStatisticsForSide(side);});};
 	if (resources.loadEvents) resources.loadEvents = [&](XeenMapIdentity id) { return callback([&] { return services.resources.loadEvents(id); }); };
 	if (resources.loadRegionalText) resources.loadRegionalText = [&](XeenMapIdentity id) { return callback([&] { return services.resources.loadRegionalText(id); }); };
 	const auto stage = [&](XeenGameplayServices::SaveStage stage) {
@@ -137,6 +138,7 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
   if (supplied.resources.loadInitialCharacters) services.resources.loadInitialCharacters = [&] { return callback(supplied.resources.loadInitialCharacters); };
   if (supplied.resources.loadInitialContext) services.resources.loadInitialContext = [&] { return callback(supplied.resources.loadInitialContext); };
   if (supplied.resources.loadMonsterStatistics) services.resources.loadMonsterStatistics = [&] { return callback(supplied.resources.loadMonsterStatistics); };
+ if(supplied.resources.loadMonsterStatisticsForSide)services.resources.loadMonsterStatisticsForSide=[&](XeenSide side){return callback([&]{return supplied.resources.loadMonsterStatisticsForSide(side);});};
   if (supplied.resources.loadInitialPurse) services.resources.loadInitialPurse = [&] { return callback(supplied.resources.loadInitialPurse); };
   if (supplied.resources.loadInitialBankBalances) services.resources.loadInitialBankBalances = [&] { return callback(supplied.resources.loadInitialBankBalances); };
   if (supplied.resources.loadInitialWorldFlags) services.resources.loadInitialWorldFlags = [&] { return callback(supplied.resources.loadInitialWorldFlags); };
@@ -201,7 +203,7 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
    if (!services.resources.loadInitialCharacters || !services.resources.loadInitialContext || !services.resources.loadMonsterStatistics)
     throw std::invalid_argument("Missing Journey initialization providers");
    journeyCharacters = services.resources.loadInitialCharacters();
-   journeyStatistics = services.resources.loadMonsterStatistics();
+   journeyStatistics = services.resources.monsterStatistics(camera.mapId.side);
    auto value = seed ? *seed : (services.sampleJourneySeed ? services.sampleJourneySeed() : std::random_device{}());
    if (!value) value = 1;
    journeySetup.emplace(XeenJourneySetup{journeyCharacters,services.resources.loadInitialContext(),journeyStatistics,encounterEvents,value});
@@ -376,6 +378,7 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
     if(toggle==0 && value.efx)audio->effect(20,flow.presentationNow());
    }
   };
+  const auto refusedDefeat=[&] {return camera.mapId.side==XeenSide::Darkside && flow.partyDeathRequired();};
   const auto panelAction=[&](const PlayerAction &action,const IndexedFrame::Presentation &origin) -> std::optional<IndexedFrame> {
    if(!panel->acceptsInput(origin))return {};
    checkPanel();
@@ -428,7 +431,7 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
       }
      }
     } else if(request.kind==XeenSessionEntry::Kind::Load) {
-     if(!flow.canSave() || !flow.journey())throw std::logic_error("Panel load authorization changed");
+     if((!flow.canSave() && !refusedDefeat()) || !flow.journey())throw std::logic_error("Panel load authorization changed");
      struct CheckScope {
       std::function<void()> &slot,previous;
       ~CheckScope(){slot=std::move(previous);}
@@ -506,12 +509,13 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
     const auto context=flow.inputContext(inputFrame?inputFrame:flow.frame().presentation());
     const bool developerQuiet=services.eventFixture && flow.encounter() && flow.encounterFrameCurrent() &&
         flow.encounter()->journeyQuiet() && !flow.blocksGameplay() && !flow.inventoryOpen();
-    if(!flow.canSave() && !developerQuiet && !(combat && context.readyForAction && !context.dialog &&
+    if(!flow.canSave() && !refusedDefeat() && !developerQuiet && !(combat && context.readyForAction && !context.dialog &&
        flow.encounter()->combat()->phase()==XeenCombatPhase::PlayerReady))return {};
     panelOrigin=inputFrame?inputFrame:flow.frame().presentation();retainPanel();
     {XeenRestoreGuard::Providers providers(*panelGuard,world);
      panel=services.panel(flow.frame(),combat,bool(world.map(camera.mapId).geometry.flags&0x8000),
       flow.journey() && !services.saveUnavailable,services.currentSlot,services.saveName.value_or(""));
+     if(refusedDefeat())panel->loadOnly();
      panelGuard->check();}
     panel->clocks([&] {
      const auto now=services.program.wallClock.now();
@@ -582,6 +586,7 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
   }
   std::optional<unsigned> soundLocation;
   std::optional<XeenMapIdentity> soundMap;
+  std::optional<std::uint8_t> soundSong;
   const auto updateAudio=[&] {
    const auto &audio=services.program.audio;if(!audio)return;
    audio->observeOptions(party.soundOptions);
@@ -592,14 +597,18 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
    // snapshot. Ordinary map-song selection would load the relocated map.
    if(flow._ending)return;
    const auto location=flow.audioLocation();
-   if(location!=soundLocation || soundMap!=camera.mapId) {
+   if(location!=soundLocation || soundMap!=camera.mapId || soundSong!=world.sessionState().darksideSong()) {
     if(location && *location==7) {
      if(!services.program.innSongStarted) {audio->requestInn(now);services.program.innSongStarted=true;}
     }
     else if(location)audio->requestLocation(*location,now);
+    else if(camera.mapId.side==XeenSide::Darkside) {
+     if(!world.sessionState().darksideSong())throw std::logic_error("Darkside map song is absent");
+     audio->requestSong(audio->darksideMapSong(*world.sessionState().darksideSong()),XeenSceneArchive::DarksideOnly,soundLocation?223:207,now);
+    }
     else if(soundLocation)audio->requestSong(audio->mapSong(world.map(camera.mapId).geometry),XeenSceneArchive::Clouds,223,now);
     else audio->requestMap(world.map(camera.mapId).geometry,now);
-    soundLocation=location;soundMap=camera.mapId;
+    soundLocation=location;soundMap=camera.mapId;soundSong=world.sessionState().darksideSong();
    }
   };
   updateAudio();

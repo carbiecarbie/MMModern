@@ -8,9 +8,9 @@ namespace {
 void put(Bytes &b,std::uint64_t v,unsigned n){for(unsigned i=0;i<n;++i)b.push_back(v>>(8*i));}
 std::size_t baseSize(const XeenSaveSnapshot &s){
  // Header 20, fingerprints 25, Inn flag 1, camera 6, member and roster counts 2, then the
- // members, quest counters and flags and game flags; v13 writes no top-level
- // overlay list before the Journey block.
- std::size_t n=20+25+1+6+2+s.activeRosterIds.size()+4*s.questItems.size()+s.questFlags.size()+s.gameFlags.size()+4;
+ // members, expanded quest/game arrays, four options, 960 roster flags and
+ // the selected map-song byte. v23 keeps the Journey suffix unchanged.
+ std::size_t n=20+25+1+6+2+s.activeRosterIds.size()+4*s.questItems.size()+s.questFlags.size()+s.gameFlags.size()+4+960+1;
  // v19 adds seven roster bytes after the four mutable beacon bytes per character before the Journey block.
  for(const auto &c:s.characters)n+=239+c.name.size();return n;
 }
@@ -68,7 +68,7 @@ void defeat(XeenSaveSnapshot &s,unsigned record){auto &a=s.map(23).monsters->slo
 void verify(const XeenSaveSnapshot &fixture,bool exhaustive=false){
  const auto &s=fixture;
  const auto bytes=XeenSaveFormat::encode(s),expected=suffix(s);const auto offset=baseSize(s);
- check(bytes.size()==offset+expected.size()&&std::equal(expected.begin(),expected.end(),bytes.begin()+offset),"Independent complete v22 schema9/content14 suffix and absent name");
+ check(bytes.size()==offset+expected.size()&&std::equal(expected.begin(),expected.end(),bytes.begin()+offset),"Independent complete v23 schema9/content14 suffix and absent name");
  sameSnapshot(s,XeenSaveFormat::decode(bytes));check(XeenSaveFormat::encode(XeenSaveFormat::decode(bytes))==bytes,"Exact current byte continuation");
  const std::size_t stride=exhaustive?1:97;
  for(std::size_t size=offset;size<bytes.size();size+=stride){auto b=bytes;b.resize(size);fixIndependentEnvelope(b);rejects([&]{XeenSaveFormat::decode(b);});}

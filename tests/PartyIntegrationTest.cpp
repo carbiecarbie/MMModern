@@ -51,7 +51,7 @@ void equipmentControls(XeenAssetSource &assets) {
 	using equipment_test::items;
 	unsigned operations = 0;
 	const auto fresh = [&] {
-		auto p = XeenPartyLoader().loadInitialCloudsParty(assets);
+		auto p = XeenPartyLoader().loadInitialParty(assets);
 		check(p.party.activeRosterIds() == std::vector<std::uint8_t>({0,18,14,11,1,6}), "equipment original membership prerequisite");
 		return p;
 	};

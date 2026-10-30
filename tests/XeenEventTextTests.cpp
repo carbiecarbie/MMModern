@@ -76,7 +76,7 @@ void testLoadingAndLookup() {
 
 void testReaderErrorsAndValidation() {
 	const std::string message = rejectionMessage([] {
-		XeenEventTextLoader loader({});
+		XeenEventTextLoader loader(XeenEventTextLoader::ResourceReader{});
 		(void)loader;
 	});
 	check(message.find("absent") != std::string::npos, "missing reader rejected");

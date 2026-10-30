@@ -29,19 +29,19 @@ XeenPartyState party() {
 }
 
 void valueAndLoading() {
-	const XeenCloudsQuestItems empty;
-	for (std::size_t i = 0; i < 35; ++i) {
+	const XeenQuestItems empty;
+	for (std::size_t i = 0; i < 85; ++i) {
 		check(empty.at(i) == 0, "default count not zero");
-		check(XeenCloudsQuestItems::indexForItemId(82 + i) == i, "item ID mapping");
+		check(XeenQuestItems::indexForItemId(82 + i) == i, "item ID mapping");
 	}
-	for (std::int64_t id : {-1LL, 0LL, 81LL, 117LL, 4294967296LL,
+	for (std::int64_t id : {-1LL, 0LL, 81LL, 167LL, 4294967296LL,
 		std::numeric_limits<std::int64_t>::min(), std::numeric_limits<std::int64_t>::max()})
-		check(!XeenCloudsQuestItems::indexForItemId(id), "unsupported item mapped to a counter");
-	rejects([&] { empty.at(35); });
+		check(!XeenQuestItems::indexForItemId(id), "unsupported item mapped to a counter");
+	rejects([&] { empty.at(85); });
 	rejects([&] { empty.at(static_cast<std::size_t>(-1)); });
-	XeenCloudsQuestItems::Counts wide{};
+	XeenQuestItems::Counts wide{};
 	wide[17] = std::numeric_limits<std::uint32_t>::max();
-	check(XeenCloudsQuestItems(wide).at(17) == wide[17] && empty.at(17) == 0,
+	check(XeenQuestItems(wide).at(17) == wide[17] && empty.at(17) == 0,
 		"count narrowed or value instances share storage");
 
 	Bytes bytes(782, 0xa5);
@@ -113,9 +113,9 @@ XeenEventExecutionError failed(const XeenEventExecutionStepResult &r, XeenEventE
 void conditions() {
 	for (int count : {0, 1, 7}) for (int op : {8, 9, 10}) for (int id : {82, 99, 116}) {
 		Fixture f;
-		XeenCloudsQuestItems::Counts counts{};
+		XeenQuestItems::Counts counts{};
 		counts[1] = 14; counts[id - 82] = count;
-		f.members.questItems = XeenCloudsQuestItems(counts);
+		f.members.questItems = XeenQuestItems(counts);
 		f.scripts.emplace(1, script(1, {record(1,1,0,op,{21,static_cast<std::uint8_t>(id),2}),
 			record(1,1,1,0x12), record(1,1,2,0x0c,{0,0,20,7})}));
 		const auto result = done(f.begin());
@@ -123,7 +123,7 @@ void conditions() {
 		check(f.members.questItems.counts() == counts, "condition mutated ownership");
 	}
 	// Values below 82 test the carried items; only ids past the Clouds quest items are refused.
-	for (int id : {117,255}) {
+	for (int id : {167,255}) {
 		Fixture f; f.scripts.emplace(1, script(1,{record(1,1,0,9,{21,static_cast<std::uint8_t>(id),1})}));
 		const auto e = failed(f.begin(), XeenEventExecutionErrorKind::UnsupportedConditionAction);
 		check(e.source && e.source->fileOffset == 100 && e.message.find(std::to_string(id)) != std::string::npos,
@@ -134,7 +134,7 @@ void conditions() {
 	failed(empty.begin(), XeenEventExecutionErrorKind::EmptyParty);
 	Fixture dark; const XeenMapIdentity darkId{XeenSide::Darkside,1};
 	dark.scripts.emplace(darkId, script(darkId,{record(1,1,0,9,{21,99,1})}));
-	failed(dark.begin(0,darkId), XeenEventExecutionErrorKind::UnsupportedExecutionContext);
+	done(dark.begin(0,darkId));
 	Fixture physical;
 	physical.scripts.emplace(1,script(1,{record(1,1,0,9,{44,1,1}),record(1,1,1,9,{21,99,2})}));
 	auto state = pending(physical.begin()); state.workingCamera.mapId = darkId;
@@ -143,7 +143,7 @@ void conditions() {
 	failed(physical.resume(state), XeenEventExecutionErrorKind::UnsupportedExecutionContext);
 
 	Fixture call;
-	XeenCloudsQuestItems::Counts held{}; held[17]=2; call.members.questItems=XeenCloudsQuestItems(held);
+	XeenQuestItems::Counts held{}; held[17]=2; call.members.questItems=XeenQuestItems(held);
 	call.scripts.emplace(1,script(1,{record(1,1,0,0x19,{7,8,0}), record(1,1,1,0x1f,{2,1,1}),
 		record(7,8,0,9,{21,99,2}),record(7,8,1,0xff),record(7,8,2,0x1a)}));
 	call.scripts.emplace(2,script(2,{record(1,1,0,9,{21,99,2}),record(1,1,1,0xff),record(1,1,2,0x12)}));

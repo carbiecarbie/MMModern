@@ -53,9 +53,9 @@ int main(int argc, char *argv[]) {
 			"Clouds installation unavailable");
 		XeenAssetSource assets(*installation);
 		XeenPartyState party =
-			XeenPartyLoader().loadInitialCloudsParty(assets);
+			XeenPartyLoader().loadInitialParty(assets);
 		const XeenGameFlags initialFlags =
-			XeenGameFlagsLoader().loadInitialCloudsFlags(assets);
+			XeenGameFlagsLoader().loadInitialFlags(assets);
 		check(!initialFlags.isSet(25),
 			"expected initial Clouds flag 25 to be clear");
 

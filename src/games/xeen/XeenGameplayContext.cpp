@@ -5,7 +5,7 @@
 namespace mmodern {
 XeenTimePreparation xeenPrepareTime(const XeenGameplayContext &current, std::uint64_t charge) {
 	if (current.day >= 100 || current.minutes >= 1440 || current.ctr24 >= 24 ||
-		current.profile != XeenBehaviorProfile::WorldOfXeenClouds ||
+		current.profile != XeenBehaviorProfile::WorldOfXeen ||
 		static_cast<unsigned>(current.difficulty) > 1)
 		throw std::invalid_argument("Noncanonical gameplay calendar");
 	XeenTimePreparation result;
@@ -34,7 +34,7 @@ XeenTimePreparation xeenPrepareTime(const XeenGameplayContext &current, std::uin
 }
 
 bool xeenRegionalContext(const XeenGameplayContext &c) noexcept {
-	return c.profile == XeenBehaviorProfile::WorldOfXeenClouds && static_cast<unsigned>(c.difficulty)<=1 &&
+	return c.profile == XeenBehaviorProfile::WorldOfXeen && static_cast<unsigned>(c.difficulty)<=1 &&
 		c.day < 100 && c.ctr24 < 24 && c.minutes < 1440 && c.effects[XeenPartyEffect::AutomapOn]<=1;
 }
 }

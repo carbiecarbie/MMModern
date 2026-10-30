@@ -496,7 +496,7 @@ void originalFixture(const std::filesystem::path &game) {
 		// Parsing, the manifest, a fresh Journey and reconstruction all use the fixture bytes.
 		XeenWorld w(in.mapLoader(),objectLoader);
 		manifest(w.map(23),w.objectFile(23),in.mainland,in.statistics);
-		auto p=XeenPartyLoader().loadInitialCloudsParty(in.assets);auto c=placement.start;XeenGameFlags f;
+		auto p=XeenPartyLoader().loadInitialParty(in.assets);auto c=placement.start;XeenGameFlags f;
 		auto setup=in.setup();setup.regionalManifest=manifest;setup.start=placement.start;
 		XeenEncounterFlow flow(programState,w,p,c,f,[]{return 0;},setup);
 		check(flow.prepareJourneyFrame(flow.ticket(),[]{}) && flow.presentJourney(flow.ticket()),"fixture Journey frame");

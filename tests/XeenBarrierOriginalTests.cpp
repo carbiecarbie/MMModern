@@ -26,7 +26,7 @@ unsigned component(XeenWorld &world) {
 void coverage(Inputs &in) {
 	XeenWorld base(in.mapLoader());base.markEncounterSession(XeenEncounterEntry::Journey);
 	auto world=base.transitionCandidate();check(component(*world)==424,"Original closed-grate geometry component changed");
-	auto party=XeenPartyLoader().loadInitialCloudsParty(in.assets);
+	auto party=XeenPartyLoader().loadInitialParty(in.assets);
 	XeenConsequenceCharacters chars;XeenConsequenceInputs inputs;
 	for(unsigned n=0;n<6;++n) {chars[n]=party.roster.at(kXeenCombatOwners[n]);chars[n].permanentLevel=3;
 		inputs[n]=XeenCharacterFormat::parseCombatInputs(in.chr,kXeenCombatOwners[n],true,true,true);}

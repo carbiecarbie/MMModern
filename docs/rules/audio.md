@@ -12,6 +12,28 @@ and authenticated INTRO `specmus` in OPL2 mode. The M82 decision resolves
 the first hardware stop; it made no listening-equivalence claim for these
 other drivers.
 
+## Darkside map songs
+
+**Calibrated DOS static, high confidence (2026-10-30):** ordinary Darkside
+arrival draws one inclusive `U(0,6)` from the gameplay RNG, even with music
+off or the same song already playing (`WORLD/XEEN.DAT`
+`0x102b1..0x102bd`, `0x1048d..0x10499`; wrapper `0x45b9a`). The six-by-seven
+pointer table is `0x4f062..0x4f10a`, selector `0x4f10a..0x4f10f`.
+Outdoors always uses row 0. Indoors wall kinds 0, 1, 2/4, 3 and 5 use rows
+1, 2, 3, 4 and 5 respectively. Names are read from the installed program by
+`XeenDosText`; playback reads the selected Darkside archive song.
+
+Location return restores the previous song with fade 223
+(`0x1d75a..0x1d778`), without drawing; a non-Inn return then reloads the map
+(`0x1d788 -> 0xf542`) before charging departure time. That ordinary Darkside
+reload makes one selection, with no additional return-only draw. Darkside
+services remain refused in Part A.
+
+**Maintainer decision, 2026-10-30:** v23 stores the selected song outside
+Journey. Load validates its row against the camera map and replays it with
+zero draws. DOS and the pin select anew on Load; this approved exact-restore
+difference is recorded in [original quirks](../original-quirks.md#dev-darkside-load-music).
+
 ## CD FM driver hardware
 
 **DOS static, high confidence (2026-10-21):** the CD `INTRO.CC` resource

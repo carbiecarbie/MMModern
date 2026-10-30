@@ -99,8 +99,8 @@ int main() {
 		file.entities.objects[11].resourceId=121;
 		check(resolver.resolve(file,11,XeenDirection::North).status==XeenObjectVisualStatus::Invalid,"metadata index bound");
 		file.mapId={XeenSide::Darkside,23};
-		check(resolver.resolve(file,11,XeenDirection::North).status==XeenObjectVisualStatus::UnsupportedSide,"Darkside accepted");
-		check(resolver.resolve(file,11,XeenDirection::North,0).status==XeenObjectVisualStatus::UnsupportedSide,"explicit phase accepted Darkside");
+		check(resolver.resolve(file,11,XeenDirection::North).status==XeenObjectVisualStatus::MetadataUnavailable,"Missing Darkside metadata accepted");
+		check(resolver.resolve(file,11,XeenDirection::North,0).status==XeenObjectVisualStatus::MetadataUnavailable,"explicit phase accepted missing Darkside metadata");
 		file.mapId=23;
 		check(resolver.resolve(file,11,XeenDirection::North,0).status==XeenObjectVisualStatus::Invalid,"explicit phase accepted missing metadata index");
 		file.entities.objects[11].resourceId=117;file.entities.objects[11].direction=4;

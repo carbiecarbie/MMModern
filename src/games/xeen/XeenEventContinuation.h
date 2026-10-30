@@ -25,7 +25,7 @@ public:
 	}
 	void check(const XeenEventExecutionState &state) const {
 		const auto &a=state;const auto &b=expected;
-		bool same=a.ending==b.ending && optional(a.portraitDamage,b.portraitDamage,[](const auto &x,const auto &y){return x==y;}) && optional(a.portraitRandom,b.portraitRandom,[](const auto &x,const auto &y){return x==y;}) && a.sparkledOwners==b.sparkledOwners && optional(a.portraitProgress,b.portraitProgress,[](const auto &x,const auto &y){return x==y;}) && a.treasure==b.treasure && a.stash==b.stash && a.stashed==b.stashed && a.reward.phase==b.reward.phase && a.reward.cursor==b.reward.cursor &&
+		bool same=a.forceText==b.forceText && a.ending==b.ending && optional(a.portraitDamage,b.portraitDamage,[](const auto &x,const auto &y){return x==y;}) && optional(a.portraitRandom,b.portraitRandom,[](const auto &x,const auto &y){return x==y;}) && a.sparkledOwners==b.sparkledOwners && optional(a.portraitProgress,b.portraitProgress,[](const auto &x,const auto &y){return x==y;}) && a.treasure==b.treasure && a.stash==b.stash && a.stashed==b.stashed && a.reward.phase==b.reward.phase && a.reward.cursor==b.reward.cursor &&
 			optional(a.cdSpeech,b.cdSpeech,speech) &&
 			optional(a.rewardRandom,b.rewardRandom,[](const auto &x,const auto &y){return x==y;}) &&
 			optional(a.rewardItem,b.rewardItem,[](const auto &x,const auto &y){return x==y;}) &&
@@ -85,7 +85,7 @@ private:
 	}
 	static bool presentation(const XeenEventPendingPresentation &a,const XeenEventPendingPresentation &b) {
 		const auto &x=a.request;const auto &y=b.request;
-		if(x.entranceAction!=y.entranceAction || x.arena!=y.arena)return false;
+		if(x.forceText!=y.forceText || x.entranceAction!=y.entranceAction || x.arena!=y.arena)return false;
 		if(x.mirrors!=y.mirrors || x.alternate!=y.alternate || !optional(x.word,y.word,[](const auto &p,const auto &q){return std::tie(p.inputType,p.targetLine,p.alternateText,p.titleText)==std::tie(q.inputType,q.targetLine,q.alternateText,q.titleText);}) || a.continuation!=b.continuation || x.rewardWaitTicks!=y.rewardWaitTicks || !optional(x.portrait,y.portrait,[](const auto &p,const auto &q){return p==q;}) || !optional(a.conditional,b.conditional,conditional) ||
 			!optional(x.cdSpeech,y.cdSpeech,speech) ||
 			std::tie(x.kind,x.response,x.mapId,x.textIndex,x.text,x.layoutValue,x.verbIndex,x.refusal,x.title,x.notEnough,x.lockPicked)!=

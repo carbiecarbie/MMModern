@@ -11,10 +11,27 @@
 
 namespace mmodern {
 
-XeenPartyState XeenPartyLoader::loadInitialCloudsParty(XeenAssetSource &assets) const {
+XeenPartyState XeenPartyLoader::loadInitialParty(XeenAssetSource &assets) const {
 	const auto rosterBytes = assets.readInitialResource("maze.chr");
 	const auto partyBytes = assets.readInitialResource("maze.pty");
-	return loadFromResources(rosterBytes, partyBytes);
+	auto state = loadFromResources(rosterBytes, partyBytes);
+	const auto dark = assets.readInitialResource("maze.pty", XeenSide::Darkside);
+	if (dark.size() != XeenCharacterFormat::kWorldPartySize)
+		throw std::runtime_error("Invalid DARK New Game party layout");
+	for (unsigned n = 0; n < 30; ++n) {
+		const unsigned bit = 30 + n;
+		if (dark[XeenQuestFlagFormat::kOffset + bit / 8] & (0x80u >> (bit % 8)))
+			state.questFlags.set(XeenSide::Darkside, n);
+	}
+	auto counts = state.questItems.counts();
+	for (unsigned n = 35; n < counts.size(); ++n)
+		counts[n] = dark[XeenQuestItemFormat::kCloudsOffset + n];
+	state.questItems = XeenQuestItems(counts);
+	for (unsigned owner = 0; owner < XeenRoster::kCharacterCount; ++owner)
+		for (unsigned bit = 0; bit < 32; ++bit)
+			state.roster.at(owner).characterFlags[bit] =
+				(dark[XeenCharacterFormat::kCharacterFlagsOffset + owner * 4 + bit / 8] & (0x80u >> (bit % 8))) != 0;
+	return state;
 }
 
 XeenPartyState XeenPartyLoader::loadFromResources(

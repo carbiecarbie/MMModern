@@ -75,6 +75,8 @@ public:
  void loadFailure(std::string message);
  void panelFailure(std::string message) {_entry.reset();notice(std::move(message),Screen::Panel);}
  void panelCurrent(unsigned slot,std::string name);
+ // Permit Load from a terminal refusal without authorizing Save.
+ void loadOnly() {_loadOnly=true;_services.saveable=false;_services.combat=false;}
 private:
  Services _services;
  std::optional<unsigned> _soundToggle;
@@ -84,7 +86,7 @@ private:
  std::optional<unsigned> _selected;
  XeenTextInput _name;
  std::string _notice;
- bool _saveAs=false;
+ bool _saveAs=false,_loadOnly=false;
  unsigned _clockGate=0;
  bool _showClocks=false;
  std::uint64_t _panelClockDeadline=0;
