@@ -126,6 +126,8 @@ this order; steps are direction, not approved plans.
    finished on 2026-10-29: DOS loaded and re-saved a Clouds state that
    MMModern exported, so [M97](milestone-97-plan.md) added a developer
    exporter that also places the party on Darkside and prepares DOSBox.
+   Its play-test showed that DOS marks a Cartographer party's cell when it
+   loads a map; [M98](milestone-98-plan.md) makes every arrival do that.
    Importing DOS saves waits for policy decisions.
 3. **4:3 picture**: the 320x200 picture shown with the shape the original's
    4:3 monitors gave it; square pixels today. Whether it is the default is
