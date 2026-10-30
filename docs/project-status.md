@@ -1,9 +1,10 @@
 # MMModern - Project Status
 
-This describes what can be played and done now. M98 is the latest completed
-and accepted milestone (2026-10-30; [plan](milestone-98-plan.md)): as in DOS,
-a party with a Cartographer marks its cell on the maps at every arrival,
-including New Game, Load, leaving the Inn and Event teleports. Before it, M97
+This describes what can be played and done now. M99 is the latest completed
+and accepted milestone (2026-10-30; [plan](milestone-99-plan.md)): the
+picture has the 4:3 shape of the original's monitors by default, with square
+pixels as an opt-in. Before it, M98 made a party with a Cartographer mark its
+cell on the maps at every arrival, as in DOS, M97
 added a developer tool that writes an MMModern Clouds save as an original DOS
 save, M96 kept picked chests open as in DOS, M95 followed up the Clouds audit, M94 played the original AdLib, Sound
 Blaster and MT-32 drivers when `XEEN.CFG` selects them, M93 opened each
@@ -287,8 +288,11 @@ linked ScummVM components).
   snapshot at a quiet boundary and restores it into fresh owners;
   `XeenRestoreGuard` and `XeenMutationWatch` stop stale work from publishing.
 
-Presentation draws into a 320x200 indexed frame that SDL scales. Each frame
-carries an identity, so input from a stale frame is dropped.
+Presentation draws into a 320x200 indexed frame. SDL shows it in the largest
+4:3 area of the window, enlarged by a whole number and then smoothed down, or
+in whole multiples with `aspect=square`; clicks map back through the same
+rectangle. Each frame carries an identity, so input from a stale frame is
+dropped.
 
 ## Tests
 

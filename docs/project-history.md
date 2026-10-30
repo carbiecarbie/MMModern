@@ -287,3 +287,10 @@ has Cartographer, whenever a step is pending. New Game, Load, leaving the
 Inn, same-map teleports, Event Continue stops and every combat and service
 exit now mark the cell as DOS does, and Event waits keep or consume the step
 as they do in DOS. [Plan](milestone-98-plan.md).
+
+**M99 - 4:3 picture** (`51508de`). The picture fills the largest 4:3 area of
+the window or screen, with the shape the original's monitors gave it: it is
+enlarged by a whole number with hard pixels and then smoothed down, so every
+pixel has one size. Clicks land on the same buttons at every size.
+`aspect=square` in `window.ini` keeps the former square-pixel picture, an
+approved deviation. [Plan](milestone-99-plan.md).

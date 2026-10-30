@@ -1,6 +1,6 @@
 # MMModern - Roadmap
 
-**M98 is the latest completed and accepted milestone.**
+**M99 is the latest completed and accepted milestone.**
 [Project status](project-status.md) describes what is playable now;
 [project history](project-history.md) records each completed milestone.
 Reference provenance belongs to [dependencies](dependencies.md).
@@ -30,7 +30,8 @@ Its first step is done: M95 closed the Clouds audit with tests for its
 invariants. The DOS save investigation followed: it found that picked
 chests stay open in DOS, which M96 added, and M97 added a tool that exports
 MMModern saves to DOS. Its play-test led to M98, which makes a Cartographer
-party mark its cell at every arrival.
+party mark its cell at every arrival. M99 then gave the picture the 4:3
+shape of the original's monitors.
 
 ## Completed arc: closing Vertigo and the first release
 
@@ -131,8 +132,8 @@ this order; steps are direction, not approved plans.
    loads a map; [M98](milestone-98-plan.md) made every arrival do that.
    Importing DOS saves waits for policy decisions.
 3. **4:3 picture**: the 320x200 picture shown with the shape the original's
-   4:3 monitors gave it; square pixels today. [M99](milestone-99-plan.md)
-   makes 4:3 the default, with square pixels as an opt-in.
+   4:3 monitors gave it. Done: [M99](milestone-99-plan.md) made 4:3 the
+   default, with square pixels as an opt-in.
 4. **Launcher and diagnostics**: the launcher shows the version, the detected
    data, the sound devices, the MT-32 ROMs and the save folder; the game
    writes a log file, and GitHub gets an issue template asking for the save
