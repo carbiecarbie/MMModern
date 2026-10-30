@@ -103,11 +103,13 @@ behavior or open a native window are marked to run alone.
 
 ```text
 ctest -L fast -j 8    # iteration: everything except process tests
-ctest -j 8            # full suite, including process tests
+tools/run-full-ctest.ps1 -BuildDir build-rel  # full suite with local job preference
 ```
 
 The complete suite is normally run through `tools/run-full-ctest.ps1`, which
-picks the job count and keeps a log and summary per run. Tests run on the
+picks the job count and keeps a log and summary per run. An explicit `-Jobs`
+overrides the local machine preference; otherwise machines without a preference
+use half their logical processors, at most 8 jobs. Tests run on the
 optimized `build-rel` build (assertions kept); its setup is in
 [dependencies](dependencies.md#optimized-test-build-build-rel).
 Configure `MMODERN_XEEN_DATA_DIR` explicitly for required CD validation,

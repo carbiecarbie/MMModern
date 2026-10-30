@@ -3,7 +3,8 @@
 # run has finished. Intended for the maintainer's terminal or a lightweight
 # runner, so an agent does not have to monitor a long run.
 #
-# Tests run in parallel: by default half the logical processors, at most 8.
+# Parallel jobs: explicit -Jobs, then this computer's local preference, then
+# half the logical processors (at most 8). See tools/AGENTS.md for configuration.
 # CMake marks the real-clock and native-window tests RUN_SERIAL and locks the
 # tests that share a fixed path, so the jobs never interfere; every timeout is
 # a hang guard independent of load (CMakeLists.txt, test policy block).
@@ -22,9 +23,6 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-if ($Jobs -lt 1) {
-    $Jobs = [math]::Max(1, [math]::Min(8, [int][math]::Floor([Environment]::ProcessorCount / 2)))
-}
 $build = (Resolve-Path -LiteralPath $BuildDir).Path
 
 if (-not (Test-Path -LiteralPath (Join-Path $build 'CTestTestfile.cmake'))) {
@@ -35,6 +33,29 @@ if (-not (Test-Path -LiteralPath (Join-Path $build 'CTestTestfile.cmake'))) {
 # before spending minutes on failures it would cause.
 if ("$env:TEMP" -match '\\AppData\\Local\\Packages\\') {
     throw "TEMP points into an app sandbox ($env:TEMP); run the complete suite unsandboxed"
+}
+
+if ($Jobs -eq 0 -and $env:LOCALAPPDATA) {
+    $jobsFile = Join-Path $env:LOCALAPPDATA 'MMModern\ctest-jobs.json'
+    if (Test-Path -LiteralPath $jobsFile) {
+        try {
+            $preference = Get-Content -LiteralPath $jobsFile -Raw | ConvertFrom-Json
+        }
+        catch {
+            throw "Cannot read CTest job preference ${jobsFile}: $($_.Exception.Message)"
+        }
+        if ($preference.computerName -eq [Environment]::MachineName) {
+            $preferredJobs = 0
+            if (-not [int]::TryParse([string]$preference.jobs, [ref]$preferredJobs) -or
+                $preferredJobs -lt 1 -or $preferredJobs -gt 256) {
+                throw "CTest job preference $jobsFile must specify an integer jobs value from 1 to 256"
+            }
+            $Jobs = $preferredJobs
+        }
+    }
+}
+if ($Jobs -eq 0) {
+    $Jobs = [math]::Max(1, [math]::Min(8, [int][math]::Floor([Environment]::ProcessorCount / 2)))
 }
 
 # Test executables need the toolchain's runtime DLLs; without its directory on

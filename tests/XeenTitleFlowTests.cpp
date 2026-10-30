@@ -281,11 +281,13 @@ void mappedHotkeys(const GameInstallation &installation,XeenAssetSource &assets,
 }
 int main(int argc,char **argv){try {
  check(argc>=2 && argc<=4,"Title flow test requires original CD source, optional ending preset and optional part");
- // No part runs everything. CTest splits the run: --without-endings is the
- // serial native/real-clock part, --endings the fake-clock ending playbacks.
+ // No part runs everything; --without-endings retains the combined non-ending
+ // run. CTest isolates native/real-clock checks with --serial and runs the
+ // fake-clock --intros and --endings separately.
  const std::string part=argc>3?argv[3]:"";
- check(part.empty() || part=="--without-endings" || part=="--endings","Title flow part is --without-endings or --endings");
- if(part!="--endings") {
+ check(part.empty() || part=="--without-endings" || part=="--serial" || part=="--intros" || part=="--endings",
+  "Title flow part is --without-endings, --serial, --intros or --endings");
+ if(part!="--endings" && part!="--intros") {
  const auto installation=XeenInstallationDetector().detect(argv[1]);check(bool(installation),"missing CD installation");
  XeenAssetSource assets(*installation,320,200);const XeenFontFormat font(assets.readArchiveResource("fnt",XeenSceneArchive::DarksideOnly));
  std::array<XeenSaveFile::Slot,10> slots;

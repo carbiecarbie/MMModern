@@ -56,6 +56,7 @@ namespace {
 struct State {
  XeenProgramState *program=nullptr;
  bool enabled=false,loading=false,mouse=false,shown=false;
+ bool introsOnly=false;
  XeenTemplePriceState *templePrices=nullptr;XeenTempleSurcharges templeRow;
  bool panelMode=false,failPreflight=false,failWrite=false;
  bool retainedIdle=false;
@@ -144,7 +145,10 @@ void key(unsigned code,std::vector<SDL_Event> &pending) {
  SDL_Event event{};event.type=SDL_KEYDOWN;event.key.keysym.sym=code;event.key.keysym.scancode=SDL_GetScancodeFromKey(code);
  pending.push_back(event);event.type=SDL_KEYUP;pending.push_back(event);
 }
-extern "C" std::uint64_t wrappedTitleClock(){return state.nameCursorNow?*state.nameCursorNow:(state.introMode || state.startupMode || (state.endingMode && (state.endingReturned || state.endingReplay)))?state.introNow:realTitleClock();}
+extern "C" std::uint64_t wrappedTitleClock(){
+ if(state.enabled && state.introsOnly)check(state.introMode || state.startupMode,"Parallel title intros reached the real presentation clock");
+ return state.nameCursorNow?*state.nameCursorNow:(state.introMode || state.startupMode || (state.endingMode && (state.endingReturned || state.endingReplay)))?state.introNow:realTitleClock();
+}
 extern "C" XeenCutsceneData wrappedEndingData(const GameInstallation &installation) {
  if(state.enabled && state.startupMode && state.startupMissing)throw std::runtime_error("missing EXE test");
  if(state.enabled && state.introMode && state.introDark && state.introMissingExe)
@@ -434,6 +438,7 @@ extern "C" bool wrappedTitleShow(const SdlWindow *window,const IndexedFrame &fir
   state.startupDuration=state.introNow-start;state.startupEscaped=escaped;return true;
  }
  if(state.introMode)return introApplication(first,handler,idle);
+ check(!state.introsOnly,"Parallel title intros reached the native window path");
  if(state.endingMode && state.endingReplay && !state.endingReturned) {
   IndexedFrame visible=first;unsigned cycles=0;
   const auto present=[&]{handler.framePresented(visible.presentation());handler.completeInputHandoff(visible.presentation());};present();
@@ -617,10 +622,12 @@ void endingControls(const char *game,const char *endingPreset) {
 }
 void titleApplicationControls(const char *game,const char *endingPreset,const std::string &part) {
  state.enabled=true;
+ state.introsOnly=part=="--intros";
+ const bool native=part!="--intros",intros=part!="--serial" && part!="--endings";
  state.base=fs::temp_directory_path()/("mmodern-m54-title-"+std::to_string(GetCurrentProcessId())+"-"+std::to_string(GetTickCount64()));
  fs::create_directory(state.base);
  struct Cleanup {~Cleanup(){state.enabled=false;removeTestTree(state.base);}} cleanup;
- for(auto difficulty:{XeenDifficulty::Adventurer,XeenDifficulty::Warrior}) {
+ if(native)for(auto difficulty:{XeenDifficulty::Adventurer,XeenDifficulty::Warrior}) {
   state.wallNow=10;XeenProgramState programState{XeenWallClock([]{return state.wallNow;})};state.wallNow=47;
   state.program=&programState;
   XeenTemplePriceStateTestAccess::seed(programState.templePrices,difficulty==XeenDifficulty::Adventurer?30:49);
@@ -646,8 +653,9 @@ void titleApplicationControls(const char *game,const char *endingPreset,const st
  }
  // CTest runs these playbacks as xeen_title_flow_endings: they use the fake
  // clock only, so they need not wait for the serial xeen_title_flow.
- if(part!="--without-endings")endingControls(game,endingPreset);
+ if(part.empty() || part=="--endings")endingControls(game,endingPreset);
  if(part=="--endings")return;
+ if(intros) {
  // Player startup uses the same presenter on a fake clock, with private settings.
  for(unsigned route=0;route<4;++route) {
   const auto file=state.base/("startup-"+std::to_string(route)+".ini");
@@ -691,6 +699,8 @@ void titleApplicationControls(const char *game,const char *endingPreset,const st
   check(result==0 && state.shown && diagnostic.str().find("Darkside intro unavailable")!=std::string::npos,"startup playback failure diagnostic/title");
   state.startupMode=state.startupFailure=false;
  }
+ }
+ if(native) {
  // The original Load controls remove slot 9 after validation. Our transport
  // control retains it; restore the same empty-slot setup for the New cases.
  fs::remove(state.slot);
@@ -707,6 +717,8 @@ void titleApplicationControls(const char *game,const char *endingPreset,const st
   fs::remove(XeenSaveFile::slotPath(state.slot.parent_path(),8));
  }
  state.panelMode=false;
+ }
+ if(intros) {
  for(const auto skip:{1000000000ULL,30000000000ULL,60000000000ULL}) {
   state.wallNow=10;XeenProgramState programState{XeenWallClock([]{return state.wallNow;})};state.program=&programState;state.introMode=true;state.introNow=17000000;
   state.introWindow=0;state.introStarts=0;state.introSkip=skip;state.shown=false;
@@ -733,6 +745,7 @@ void titleApplicationControls(const char *game,const char *endingPreset,const st
   state.introMode=true;state.introDark=true;state.introMissingExe=true;state.introNotice=false;state.introCloudsNotice=false;state.introNow=17000000;state.introWindow=0;state.shown=false;
   check(runWithoutStartup(Application(programState),game)==0 && state.shown && state.introNotice && state.introWindow==1,"missing EXE did not show Darkside notice");
   state.introMode=false;state.introDark=false;state.introMissingExe=false;
+ }
  }
 }
 void titlePreview(const IndexedFrame &frame,const std::string &label){preview(frame,label);}

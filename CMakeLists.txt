@@ -773,13 +773,14 @@ if(BUILD_TESTING)
       "LINKER:--wrap,_ZNK7mmodern9SdlWindow15showInteractiveERKNS_12IndexedFrameERKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEERKNS0_18FrameUpdateHandlerERKSt8functionIFbvEERKSF_IFSt8optionalIS1_EvEERKSF_IFS9_vEE"
       "LINKER:--wrap,_ZNK7mmodern16XeenTextRenderer6renderERKNS_12IndexedFrameERKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEERKNS_21XeenTextRenderOptionsE"
       "LINKER:--wrap,_ZN7mmodern12XeenSaveFile19createSlotDirectoryERKNS_16GameInstallationERKNSt10filesystem7__cxx114pathERKSt8optionalIS6_E")
-    # The fake-clock ending playbacks need no serial slot, so they run apart
-    # from the native/real-clock title checks.
-    add_test(NAME xeen_title_flow COMMAND mmodern_title_flow_tests "${MMODERN_XEEN_DATA_DIR}" "${MMODERN_M92_TITLE_PRESET}" --without-endings)
+    # Fake-clock intros/startup and endings run apart from the serial native/
+    # real-clock checks. Intros use private settings and need no gameplay save.
+    add_test(NAME xeen_title_flow COMMAND mmodern_title_flow_tests "${MMODERN_XEEN_DATA_DIR}" "${MMODERN_M92_TITLE_PRESET}" --serial)
+    add_test(NAME xeen_title_flow_intros COMMAND mmodern_title_flow_tests "${MMODERN_XEEN_DATA_DIR}" "" --intros)
     add_test(NAME xeen_title_flow_endings COMMAND mmodern_title_flow_tests "${MMODERN_XEEN_DATA_DIR}" "${MMODERN_M92_TITLE_PRESET}" --endings)
     set_tests_properties(xeen_title_flow xeen_title_flow_endings PROPERTIES FIXTURES_REQUIRED m92_title_preset)
-    set_tests_properties(xeen_title_flow xeen_title_flow_endings PROPERTIES LABELS "fast")
-    set_tests_properties(xeen_title_flow xeen_title_flow_endings PROPERTIES ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_RENDER_DRIVER=software")
+    set_tests_properties(xeen_title_flow xeen_title_flow_intros xeen_title_flow_endings PROPERTIES LABELS "fast")
+    set_tests_properties(xeen_title_flow xeen_title_flow_intros xeen_title_flow_endings PROPERTIES ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_RENDER_DRIVER=software")
     target_link_libraries(mmodern_title_resource_tests PRIVATE mmodern_xeen)
     add_test(NAME xeen_title_resources COMMAND mmodern_title_resource_tests "${MMODERN_XEEN_DATA_DIR}")
     set_tests_properties(xeen_title_resources PROPERTIES LABELS "fast")
@@ -1420,7 +1421,7 @@ if(BUILD_TESTING)
 			xeen_combat_casting_effects=20 xeen_new_game_process=18 xeen_myra_original=17
 			xeen_cd_audio=17 xeen_combat_casting_process=17 xeen_item_catalog_generation=16
 			xeen_temple_depleted_process=16 xeen_temple_process=13 xeen_m44_scenario_roundtrip=12
-			xeen_m44_scenario_temple=12 xeen_m60_exploration_original=10)
+			xeen_m44_scenario_temple=12 xeen_m60_exploration_original=10 xeen_title_flow_intros=10)
 		string(REPLACE "=" ";" xeen_cost "${xeen_cost}")
 		list(GET xeen_cost 0 xeen_test)
 		list(GET xeen_cost 1 xeen_seconds)

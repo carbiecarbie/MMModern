@@ -496,11 +496,27 @@ change relinked 183 executables in 505 s). The generated code is unchanged and
 `mmodern.exe` keeps its debug information. Configure with
 `-DMMODERN_TEST_DEBUG_INFO=ON` to debug a test or tool in `build-rel`. The complete suite runs
 through `tools/run-full-ctest.ps1 -BuildDir build-rel`, as described in
-`tools/AGENTS.md`: by default in parallel (half the logical processors, at
-most 8 jobs); CMake runs the real-clock and native-window tests alone and gives
-every test a load-independent hang-guard timeout. Play-tests and release
+`tools/AGENTS.md`: explicit `-Jobs 1..256` overrides the machine's local
+preference; without either, the runner uses half the logical processors,
+at least 1 and at most 8 jobs. CMake runs the real-clock and native-window
+tests alone and gives every test a load-independent hang-guard timeout. Play-tests and release
 packages use `build-rel` as well; the Debug build above (`build-m44`) remains
 for debugging only.
+
+The local preference is `%LOCALAPPDATA%\MMModern\ctest-jobs.json`, shared
+by this user's checkouts on the computer. For example, the maintainer's
+measured and approved configuration is:
+
+```json
+{"computerName": "GCC", "jobs": 12}
+```
+
+Use the name reported by `[Environment]::MachineName` and a job count measured
+on that machine. A preference for a different computer is ignored. Omitted
+`-Jobs` or `-Jobs 0` uses the local preference or the conservative fallback;
+`-Jobs 8`, for example, overrides it for one run. The iteration command
+`ctest -L fast -j 8` is unchanged; the preference applies to the full-suite
+runner only.
 
 The original-data checks that used to be opt-in smoke targets run with the
 suite since M66 (`xeen_regional_original`, `xeen_party_original`,

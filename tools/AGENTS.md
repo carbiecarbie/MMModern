@@ -29,9 +29,19 @@ rerunning its failed tests, and when acting as its test runner. The root
   (`gpt-6-luna`, low reasoning effort, `fork_turns: none`). In Claude Code, the
   main agent starts the script itself as a background shell command
   (`run_in_background`) and is notified when it exits; no subagent is needed.
-- The suite runs `tools/run-full-ctest.ps1 -BuildDir <build>` with its default
-  parallel setting (half the logical processors, at most 8 jobs; `-Jobs` only
-  to reproduce a problem). CMake runs the real-clock and native-window tests
+- The suite runs `tools/run-full-ctest.ps1 -BuildDir <build>` using the local
+  machine preference. Job-count precedence is explicit `-Jobs 1..256`, then
+  `%LOCALAPPDATA%\MMModern\ctest-jobs.json` when its `computerName` matches
+  this computer, then half the logical processors (at least 1, at most 8).
+  Omitted `-Jobs` or `-Jobs 0` selects the local preference or fallback.
+  The maintainer's `GCC` workstation uses 12 jobs, approved on 2026-10-30:
+  two complete runs per setting averaged 288.21 s at 8 and 243.83 s at 12,
+  with all 371 tests passing each time. This local file applies across
+  checkouts and is not distributed with the repository. Other machines keep
+  the conservative fallback until measured; see the
+  [configuration example](../docs/dependencies.md#optimized-test-build-build-rel).
+  Use `-Jobs` for an explicit machine setting, reproductions or authorized
+  benchmarks. CMake runs the real-clock and native-window tests
   alone (`RUN_SERIAL`), locks the tests that share a fixed path, and gives every
   test a generous hang-guard timeout (1800 s process, 300 s fast) that no
   machine load can break; a timeout is therefore a hang, never load.
