@@ -121,6 +121,8 @@ At `d4c9e27`:
   changes, all eleven applied here.
 - **Darkside music on Load** (amendment, 2026-10-30, after Part A's evidence
   stopped on it): the save keeps the selected song; Load does not draw.
+- **Part B** (amendment, 2026-10-30, after Part A): the Pyramid evidence is
+  settled; music on the return from a location moves to M102.
 
 ## Evidence to settle in Part A, before code that depends on it
 
@@ -129,17 +131,21 @@ DOSBox evidence uses paired M97 presets with captures and `--diff`. Notes stay
 in `D:/Projetos/MModern/MModern-re/m101/`. Unsettled or contradictory
 behavior stops before Part B. A difference from the reference is recorded in
 [original quirks](original-quirks.md); DOS wins.
-- **Pyramid.** All six Clouds and both Darkside source sites, covering the
-  four destination classes, with map, side, x, y and facing, and the party
-  side bytes, calendar and RNG before and after. The full DoTownEvent caller
-  and return: scene and audio, waits, input clearing, arrival Events and
-  marking. The absence of a scene or a time charge is an explicit result.
 - **Music.** Settled (2026-10-30, notes `evidence-notes.md`): every Darkside
   map load, Load included and whether music is on, off or the same song,
   makes one gameplay-RNG draw `U(0,6)` (outdoors `0x102b1..0x102bd`, indoors
   `0x1048d..0x10499`, wrapper `0x45b9a`), from six tables. The return from a
-  location is a separate selection point, still to trace.
+  location replays the previous song without a draw (`0x1d75a..0x1d773`) and
+  then reloads its map, which makes the ordinary map-load draw
+  (`0x1d788`).
 - **Resources.** The DOS resource choice for each ordinary Darkside map.
+- **Pyramid.** Settled (2026-10-30, `evidence-notes.md`, all eight source
+  sites in `pyramid-original-sites.json`): action 12 shows no
+  scene and charges no time; it loads the destination map (marking it stepped
+  and clearing input), then writes the position and facing, settles the source
+  Event as handled and returns to the main loop, so the destination's Events
+  run on the next ordinary pass. It writes no calendar or character side byte
+  and makes no draw of its own.
 
 ## Design decisions
 
@@ -272,12 +278,14 @@ behavior stops before Part B. A difference from the reference is recorded in
    Castleview frames indoors and outdoors are inspected. Indoor and outdoor
    music selection, Pyramid arrival, return and restore are tested with
    audio enabled, disabled and absent: arrival draws once and picks the DOS
-   row; restore draws nothing and plays the saved song. Part B covers arrival
-   and location-return music through live input; Part A exercises arrival
-   selection at the destination-load owner and restore through live Load.
+   row; restore draws nothing and plays the saved song. Part A exercises
+   arrival selection at the destination-load owner and restore through live
+   Load; Part B covers arrival through live input (the Pyramid and the travel
+   spells). The return from a location is unreachable on Darkside while its
+   services refuse, so M102 tests it (amendment, 2026-10-30).
 3. **Pyramid.** From each Clouds Pyramid the party arrives at its DOS
-   destination on Darkside, and back from each Darkside Pyramid, with the
-   DOS presentation and time cost; map 49 <-> 52 included. A destination or
+   destination on Darkside, and back from each Darkside Pyramid, with no
+   scene and no time charge, as in DOS; map 49 <-> 52 included. A destination or
    resource failure or an interruption leaves the committed source intact; a
    crossing publishes once, settles the source Event once and runs the
    arrival work once. Returning to a visited map keeps its history.
