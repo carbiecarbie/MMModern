@@ -80,12 +80,23 @@ every one of these exactly as DOS does.
    check in MMModern, or MMModern runs an Event or a save between a step and
    its check where DOS does not, stop and report: that is a separate
    presentation-order gap.
-4. **The Event-wait draw consumes the step.** The first Event-wait draw
-   performs the check on the Event's detached candidate and clears the
-   candidate's pending step; the result is published when the Event commits
-   and discarded if it is refused. A stairs prompt followed by
-   TeleportAndExit therefore marks both the stairs cell and the destination,
-   while a silent teleport marks only the destination. This reverses the
+4. **An Event-wait draw consumes the step only when DOS prepares the
+   scene.** DOS `draw3d` (`0x10bc3`) returns at once (`0x10bd0..0x10bd7` to
+   `0x1187d`) while window 11 is open (flag `DS:9877`, set by the opener
+   `0xdddb`; an NPC with Text on opens it at `0x257bb..0x257c3`): no scene
+   preparation, no lighting check, and stepped stays pending. The pin's
+   `draw3d` returns the same way while `SCENE_WINDOW` is open. Every Event
+   wait follows the Part 0 table in
+   [Event waits and pending steps](rules/evidence.md#event-waits-and-pending-steps):
+   a **scene draw** performs the check on the Event's detached candidate and
+   clears the candidate's pending step, and the result is published when
+   the Event commits and discarded if it is refused. A wait that **keeps**
+   the step (NPC with Text on, location art, service lobby, animation-only
+   waits, early-key text input) adds no check, and the next real scene
+   preparation marks the cell the party is on then. A scene-drawing prompt
+   followed by TeleportAndExit therefore marks both cells, while a silent
+   teleport, or one behind an NPC with Text on, marks only the destination.
+   This reverses the
    rule at `XeenEventFlow.cpp:1550-1551` that an Event-wait draw never
    alters the retained Event party: the candidate guard, `work.guard` and
    the retained-continuation check must accept the consumed step and the
@@ -118,8 +129,9 @@ every one of these exactly as DOS does.
   `1b98:3f73` has no other caller writing the stepped bitmap in Clouds play
   (the map-50 fill is Darkside only); (c) the DOS order of the step onto an
   Inn door, the Sign In and its save, so the Sign In save either holds the
-  door-cell mark or not as DOS does; (d) which Event-wait draws consume
-  stepped (`0x24bf1` and any other wait or prompt draw); (e) the DOS site
+  door-cell mark or not as DOS does; (d) which Event-wait draws reach scene
+  preparation and consume stepped (`0x24bf1`) and which keep it (window 11
+  open, animation-only waits), for every Event presentation; (e) the DOS site
   that sets stepped after a town service exit. Record results in
   `rules/evidence.md`. Stop if any differs from decisions 2, 4 or 6.
 - **Part A:** the rule, the seven sites, unconditional stepped marks, combat
@@ -142,8 +154,11 @@ every one of these exactly as DOS does.
 - Original data: New Game marks Vertigo's start cell; Load on a blank cell
   with a Cartographer marks it on the first frame, without one it stays
   blank; leaving the Inn with a newly added Cartographer marks the door
-  cell; the Sign In save matches Part 0 (c); a prompt followed by a teleport
-  marks both cells and a silent teleport only the destination; a same-map
+  cell; the Sign In save matches Part 0 (c); a scene-preparing prompt
+  followed by a teleport marks both cells, while a silent teleport and an
+  NPC with Text on before a teleport mark only the destination; the same NPC
+  with Text off marks both; a Yes/No prompt over location art keeps the
+  step; a same-map
   teleport and a Continue chain mark their cells (the implementer picks
   Clouds sites from the Event census); learned and item Town Portal and
   Lloyd's Beacon mark the destination; every combat exit and a Smith and a

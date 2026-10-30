@@ -33,10 +33,14 @@ saved at once without moving. Besides the name and play time, only XEEN's
 `maze0009.dat` byte 883 changed, from 0 to 0x02. That is
 `860 + 11*2 + 14/8` and `0x80 >> (14 & 7)`: the party's own cell in the
 MSB-first stepped order the exporter writes (DARK PTY 10..13 = 0, 14, 11, 9
-before and after). In the pinned reference, *Reference only*: `Map::load`
-sets `party._stepped` (`map.cpp:680`), and `Party::handleLight` then marks
-the current cell when a member has Cartographer (`party.cpp:598`). The DOS
-routine that marks the cell on load was not traced. So `--resave-check`
+before and after). **Calibrated DOS static, high confidence (2026-10-30):**
+map load sets stepped at `0xf58b`; shared Load/New Game entry loads at
+`0xd08c` and redraws at `0xd0da`, before the entry Event pass. Scene lighting
+`0x12012..0x12093` checks Cartographer at `0x1203c..0x12074` and marks the
+current maze's bitmap through `0x1206f -> 1b98:3f73`; redraw clears the
+pending step at `0x1184f`. This explains the observed changed bit; see
+[arrival evidence and its window gates](evidence.md#travel-lighting-checks).
+Pinned `Map::load` / `Party::handleLight` agree. So `--resave-check`
 passes only when the party's cell is already stepped or nobody in the party
 has Cartographer.
 

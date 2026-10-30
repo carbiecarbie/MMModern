@@ -144,7 +144,132 @@ inside a single outer action; do not collapse them to one final-destination chec
 | Learned travel spells | Successful Cast reaches arrival at `0x0d5b4..0x0d5ba`, marking stepped. Jump also marks it in its handler (`0x2f82b`); Portal always loads, Beacon Return loads across map/side changes, and map load marks stepped at `0x0f58b`. Etherealize/Teleport handlers themselves only relocate. Time Distortion explicitly redraws after relocation (`0x3030f..0x30323`) before its caller's suffix. |
 | Item travel | Retains the established item/learned distinction: item response `0x314ce` has no terrain-arrival call. Jump/map-load marks still apply; a used item closing the character sheet sets stepped at `0x3a493`, with the outer sheet caller testing it at `0x0d4be`. Do not infer lighting solely from the absence of an item terrain call. [M84](#event-dispatch) later settled the exploration post-item automatic-Event timing: Use stays inside the sheet's input, and the one ordinary pass follows the sheet's close and optional monster step ([rule](world-events.md#event-dispatch)). |
 | Surface/scripted fall | Source views are drawn at `0x0ca91`/`0x0ca9e`; destination load at `0x0ccc2` marks stepped. Scripted fall normalizes outdoor coordinates and explicitly redraws at `0x0cced` before its damage. Surface-fall damage presentation uses the shared arrival draw; see the fall integration below. |
-| Run | Relocates to the current map's run position (`0x2eb1f`, helper `0x1691f`), without map loading. Combat exit redraws at `0x2eb7f`, then marks stepped at `0x2eb8f`; the following scene check uses the run destination. It does not invoke terrain arrival directly. |
+| Combat exit, including Run | Every ordinary combat exit shares `0x2eb6b..0x2eb8f`: redraw at `0x2eb7f`, treasure delivery, then stepped at `0x2eb8f` for the next scene check. The mark is not specific to Run. Run additionally relocates to the current map's run position (`0x2eb1f`, helper `0x1691f`), without map loading or a direct terrain-arrival call. |
+| Town service exit | The common Event call `0x27b29 -> 0x1cea5` is followed by an unconditional stepped store at `0x27b32`. For Bank, Smith, Guild, Tavern, Temple and Training (actions 0..5), the ordinary service tail reloads at `0x1d788`, adds time at `0x1d798`, and returns without a scene redraw; the caller's mark precedes the next outer redraw (`0xd1c3`, or an earlier treasure draw). Sign In saves instead of reloading, before this caller mark. Entrance scenes 8..11 have their own exit redraw *before* the common mark; see the [settled entrance order](#entrance-scenes-and-the-arena-2026-10-20). |
+
+**DOS static, high confidence (2026-10-30)** for the positive paths below;
+the writer audit has an explicit completeness limit. Target is the same
+353,511-byte `WORLD/XEEN.DAT`, SHA-256
+`8bf78b4850d5973cbb063c7dd96b9aaef4e94791d748334187eef74acf528d27`.
+Capstone 5.0.7 reads were calibrated against the established lighting/clear,
+M84 entry and input passes, M88 Sign In save and NPC window lifetime.
+Offsets are file offsets; far addresses map to `0x56c0 + segment*16 + offset`.
+The MZ header and relocation table independently establish `0x56c0`.
+Scripts, instruction slices and resource checks are outside the repository,
+in `D:/Projetos/MModern/MModern-re/m98/`. These are static findings, not new
+DOSBox observations.
+
+#### Stepped bitmap writers
+
+Lighting's call `0x1206f -> 1b98:3f73` sets bit
+`(y&15)*16+(x&15)` at `DS:([f494]*0x37c+c128)` after the Cartographer
+check. The helper (`0x24fb3..0x24fee`) uses MSB-first bits. Its complete
+identified direct-call inventory includes **seven far and seven near calls**
+(the near callers push CS for the helper's far return):
+
+| Call sites | Destination and operation |
+| --- | --- |
+| `0x1206f` | Current physical maze's stepped bitmap; set the occupied cell. |
+| `0x0fcbd`, `0x26590` | `DS:f01f`, bit `0x38`, respectively clear/set. |
+| `0x2104d`, `0x2105e`, `0x2106f`, `0x21080` | `DS:f01f`, clear bits `0x37`, `0x9b`, `0xde`, `0xe7`. |
+| `0x28bba`, `0x2c1b3`, `0x2c1d1`, `0x2c232` | `DS:f01f`, set bits `0x4b`, `0x0b`, `0x3c`, `0x68`. |
+| `0x2c1e1` | `DS:f06f`, clear bit `0x17`. |
+| `0x22683`, `0x2330a` | Generic take/give, respectively clear/set: game flags at `f01f` (side*256 + operand), world flags at `f05f` (operand), quest flags at `f06f` (side*30 + operand), or character flags at `f30c + rosterId*4` (operand). No maze-bitmap destination on these ordinary paths. |
+
+Every MZ-relocated far pointer was normalized to a file target: the only
+pointers to this helper are the seven direct far calls, with no additional
+relocated address-taken reference. A relative-call candidate scan over file
+`0x56c0..0x4d88f` found the seven near calls above, whose instruction boundaries and
+arguments were checked. All three literal `c128` occurrences were classified:
+the lighting address calculation (`0x1206c`), a **read** through the bit getter
+(`0x11eb5..0x11eb9`), and the already-settled
+[Darkside-only map-50 fill](../original-quirks.md#sv-map50-stepped)
+(`0xf801..0xf808`). The apparent inline OR/AND sites `0x23586`, `0x286e5`
+and `0x2871d` address `bfcc + record*0x37c + cell`, the attributes plane
+at DAT +`0x200`, not stepped at +`0x35c`.
+
+**Coverage limit / Unknown:** no second Clouds writer was confirmed, but
+this is not a proof against arbitrary computed-pointer or indirect writes.
+The sweep covered relocated helper pointers, relative calls, literal bitmap
+bases and record-stride candidates, with focused decoding of the sites above.
+Raw literals for all nine bitmap address ranges were also inventoried, not
+treated as validated instructions. There was no whole-program alias proof
+or exhaustive classification of every block-copy/fill destination. Ordinary
+whole-record map-load/save copies are excluded from the writer question.
+
+#### Inn door and Sign In order
+
+**High confidence, calibrated by M84's flag-gated pass and M88's forced Save.**
+Initial CD resources were read in memory through the established initial-archive
+block order, using the Clouds archive/hash in the resource inventory below.
+The Tavern cells are map 28 `(24,5)` (physical 109 `(8,5)`, attribute `0x0a`),
+map 30 `(24,16)` (physical 114 `(8,0)`, `0x0a`), and map 49 `(14,13)`
+(`0x08`). None has the automatic-Event bit `0x10`. Their EVT records use
+all facings: service 3 at offsets `0x10`, `0x7`, `0x2d`, respectively.
+Vertigo first calls the quest-item subroutine `(75,76)` at EVT `0x7`;
+Rivercity and Shangri-La enter the service directly.
+
+A walk/turn reaches `0xc92b`. These door surfaces take the ordinary arrival
+path; they do not set `DS:f60a` or trigger terrain damage. The conditional
+draw `0xca37..0xca40` is therefore skipped. The outer automatic pass
+`0xd18c..0xd1a5` finds no automatic flag, then `0xd1c3` redraws and consumes
+the step **before another player input**. The subsequent manual interaction
+calls the Event at `0xd2be`, then service `0x27b29 -> 0x1cea5`.
+Service artwork/animation (`0x1d5b0`, `0x1d5d0`) is not a scene check.
+Sign In changes the saved return coordinates, lodges the party and advances
+the day; forced Save `0x1d7a4 -> 0x1ebc2(1)` precedes the common service-exit
+step (`0x27b32`). See [the save boundary](party.md#saves-load-and-return).
+
+Thus, with an active Cartographer, the Sign In save **contains the Tavern
+entry cell's mark** from the preceding ordinary redraw. It does not newly
+mark the relocated Inn-exit cell merely because that position is saved;
+pre-existing bits remain. Without Cartographer no new entry mark is promised.
+MMModern's `XeenActorApproach.cpp` currently publishes exploration and the
+pending step at `:703`; `XeenEventFlow::prepareExplorationPass` applies the
+same automatic-flag gate, and `renderEncounter` checks the scene before the
+later manual service input. `XeenInnFlow::signIn` sets `insideInn` with the
+return camera; `finishSignIn` saves before opening the Inn, whose frame path
+skips scene lighting. No Event/save-versus-check ordering gap was found for
+these original door chains. This does not assert that the existing eager
+exploration write is itself the DOS scene-check implementation.
+
+#### Event waits and pending steps
+
+**High confidence for the listed control-flow gates**, calibrated by the
+ordinary lighting routine, window opener and known NPC/WhoWill presentation.
+`draw3d` (`0x10bc3`) tests window 11's open flag `DS:9877` at `0x10bd0`:
+nonzero jumps at `0x10bd7` to `0x1187d..0x11880`, bypassing both scene
+preparation and the stepped clear at `0x1184f`. The opener
+`0xdddb..0xdded` indexes `DS:986c + window`, independently identifying
+window 11. A call to redraw is therefore not sufficient evidence of a check.
+In the table, **scene draw** consumes a pending step only when this gate
+allows preparation; **keeps** means the named presentation adds no check.
+
+| Event presentation | Deciding path and pending-step behavior |
+| --- | --- |
+| Yes/No and acknowledge prompt, including conditional mode prompts and DisplayBottomTwoLines | `0x21924` or `0x26f3d` reaches helper `0x249bf`. At `0x24bdc..0x24bf8`, nonzero location-art handle `DS:8d56` selects animation `0x24be6 -> 0x1c038` (**keeps**); otherwise `0x24bf3` is a **scene draw**. Window 12 alone does not block it. |
+| ChooseNumeric (choices 1..9) | Event `0x289f3 -> 0x24c71`; the same location-art choice occurs at `0x24e33..0x24e4e`: animation `0x24e3c` **keeps**, redraw `0x24e49` is a **scene draw**. |
+| Bottom text, large text and main-scene text windows (opcodes `29`, `32`, `35`) | Common initial redraw `0x26dab..0x26db6` runs only while the invocation's redraw-done local is clear, **before** opening the requested window at `0x26df8`. It can consume the step before a new window 11 opens. Overflow/page waits redraw at `0x26e4d`: window 12 permits preparation; window 11 blocks it. An already-open window 11 also blocks the initial call. Window IDs are selected at `0x26d84`, `0x26d90`, `0x26da6`. |
+| Display0x01 and DisplayStat; door/sign labels | `0x26cb4..0x26cf1` and `0x26c6e..0x26cb1` only write/update their text windows and continue, with no input wait or check of their own. Door/sign labels call a **scene draw** at `0x26f81`. Their window update must not be mistaken for the paginated-text wait above. |
+| NPC, Text on | `DS:f384=0` selects window 11 at `0x257bb`, opened at `0x257c3`. Wait `0x25af8..0x25aff -> 0x25b8f..0x25bad` calls location/NPC animation at `0x25b9b`, **keeping** the step. Animation `0x1c038..0x1c51f` does not prepare the scene. |
+| NPC, Text off | Closes window 11 at `0x257ae`, selects window 40 at `0x257b4`, then redraws in the wait at `0x25b09`: **scene draw**, unlike Text on. Window 40 does not trip the window-11 gate. NPC mode 2 returns without a wait (`0x25aa3..0x25ac4`); it adds no check. |
+| WhoWill / SetChar selection | `0x285ae` / `0x27a1c -> 0x2507a`. Window 11 selects animation at `0x251a8..0x251bf` (**keeps**); otherwise `0x251c7` is a **scene draw**, including when only NPC window 40 is open. |
+| Password/mirror and numeric text entry | ConfirmWord `0x27fd2 -> 0x23fa5` opens window 6 and uses `0x24014 -> 0x1e00f -> 0x1df36`. Numeric input shares the wait through `0x1e1d4`. `0x1df56..0x1df7d` disables scene redraw for startup, window 25 or modes `ff`/`11`; `0x1df84..0x1df96` also skips it when input is already available. Otherwise `0x1df96` is a **scene draw**, still subject to window 11. No elapsed idle draw means no manufactured check. |
+| Arena offer, messages and number prompts | Uses the NPC path; both number prompts use window 11 (`0x2b95d..0x2b9d3`), so **keep** during those waits. Text-off NPC messages take the redraw path above. Generation itself adds no scene check; the settled Arena exits/next outer draw remain as documented below. |
+| Ordinary service entry/lobby (Bank, Smith, Guild, Tavern, Temple, Training) | `0x27b29 -> 0x1cea5`; service drawing and polling use `0x1d5b0`, `0x1d5d0 -> 0x1c520` and animation `0x1c038`, **keeping** a pending step. Service text input in mode `11` also suppresses the scene draw. This is distinct from the exit mark in the travel table. |
+| Reaper/Golem/Dwarf/Sphinx entrance scenes | Scene artwork/voice waits **keep**; their final map load and **scene draw** consume at `0x2b005`, `0x2a615`, `0x2b74b`, `0x29a91`, respectively, before the Event caller sets stepped again. Reuses the calibrated entrance analysis below. |
+| Damage and portrait effects | Damage's conditional pre-draws `0x280ec..0x280f7` / `0x285cc..0x285d7` are **scene draws** if redraw-done is clear. Damage then closes windows (`0x23d56`); its final hold `0x23f77 -> 0x264ed` redraws at `0x264f7`, so that hold can consume even when the earlier pre-draw was blocked. Sparkle waits explicitly skip redraw under window 11 (`0x21131..0x2113c`); otherwise `0x2113c` is a **scene draw**. A portrait/window-only update does not consume the step. |
+| Shared timed scene holds | Input-interruptible hold `0x264c5` and fixed hold `0x264ed` call **scene draws** at `0x264d4` / `0x264f7`, before testing elapsed time. Window 11 still blocks preparation. These are distinct from a raw clock/audio wait or the text-input early-key bypass. |
+| Treasure/reward presentation and Nothing Here | Treasure's initial `0x24273` and receipt wait `0x24837` are **scene draws** when reached; deferred/no-display treasure does not check. Event cleanup closes windows at `0x28e92`; Nothing Here's actual wait redraw `0x28ed5` can then consume. |
+| Continue / map arrival | Teleport closes windows at `0x26ffb`, sets stepped at `0x270b9`, changes coordinates, then Continue redraws at `0x27121` before restarting the destination Event scan. This is a **scene draw** at each stop. Exit has no equivalent immediate draw. The Full Map screen `0x130ed` is called by outer input `0xd489`, not by an Event presentation opcode. |
+
+This inventory separates Event opcode presentation, its shared prompt/portrait/
+reward helpers and town-service waits. Merely playing FX, VOC/CD audio or
+updating a window is not scene preparation. The already-settled fall/entrance
+draws remain explicit checks; terminal ending sequences are not reusable
+Event-wait continuations. A pending step survives any number of blocked or
+animation-only waits and marks the cell occupied at the next actual scene
+preparation, not necessarily the cell where the first prompt opened.
 
 ### Restore boundary
 
@@ -152,18 +277,29 @@ inside a single outer action; do not collapse them to one final-destination chec
 loads the current map (`0x0d08c`) before scene redraw (`0x0d0da`). Thus a blanket
 claim that every DOS load/redraw bypasses the drain branch is unsupported:
 redraw calls lighting, and the branch depends on pending stepped state.
-The full native saved-game entry/continuation was not established here; do not
-upgrade its no-drain behavior to a DOS-confirmed rule. Pinned native save loading
-also calls `Map::load`, which sets stepped, before the later scene check.
+**Entry convergence confirmed, high confidence (2026-10-30):** panel Load
+restores at `0x1f193`, returns result 1 (`0x1f18e`); gameplay changes it to
+2 at `0xd2fa..0xd305`, and the outer loop restarts at `0xb836..0xb839`.
+Title Load (`0xc162/0xc198`) and New Game (`0xc113/0xc12d`, initialization
+`0x20b74`, initial save `0x20c38`) converge through `0xb829 -> 0xcfdf`.
+The shared `0xd08c -> 0xf542` load, `0xf58b` step and `0xd0da` redraw
+precede the automatic Event pass at `0xd1a5`. Calibration reuses the
+[M84 entry dispatch](#event-dispatch) and the established startup/light path.
+Inn saves first enter the Inn at `0xb824`; leaving it later takes the map-load
+path. This exception does not create an extra Sign In day or pre-Inn scene
+check. Pinned native save loading also calls `Map::load` before the scene check.
 
 **MMModern current-format policy, not native-DOS-save evidence:** exact snapshot
 restore must retain the saved light word and derive darkness without replaying
 an arrival or manufacturing a step. `XeenSaveState::restoreJourney` copies the
 saved encounter context; `XeenWorld::swapPreparedState` clears the transient
 lighting step before presentation. `XeenTraversalLightingTests` checks exact
-restore and redraw on a synthetic drain cell. Any claim
-that native DOS restore itself never reaches drain still needs clarification/
-evidence before being used as a fidelity rule.
+restore and redraw on a synthetic drain cell. This describes the existing
+MMModern restore implementation, not a DOS exemption from arrival lighting.
+Exact byte restoration and the subsequent DOS arrival frame are separate
+boundaries: the latter can drain light and mark the occupied cell. The known
+Cartographer load/resave observation in [DOS saves](dos-saves.md) calibrates
+the bitmap effect independently of this static call chain.
 
 ## Fall and outdoor edge integration
 
