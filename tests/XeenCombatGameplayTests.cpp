@@ -1,3 +1,4 @@
+#include "SdlMouseTestSupport.h"
 #include "XeenRegionalGameplayTestSupport.h"
 #include "app/XeenTitleFlow.h"
 #include <iostream>
@@ -357,7 +358,7 @@ void sdl() {
        ++postAttack;
        check(h.phase()==Phase::PlayerReady,"Escape left combat instead of being ignored");
        SDL_Event mouse{};mouse.type=SDL_MOUSEBUTTONDOWN;mouse.button.button=SDL_BUTTON_RIGHT;
-       pendingKeys.push_back(mouse);mouse.type=SDL_MOUSEBUTTONUP;pendingKeys.push_back(mouse);
+       sdl_mouse_test::position(mouse.button,0,0);pendingKeys.push_back(mouse);mouse.type=SDL_MOUSEBUTTONUP;pendingKeys.push_back(mouse);
       } else if(postAttack==2) {
        ++postAttack;
        check(h.phase()==Phase::PlayerReady,"Right click left combat instead of being ignored");

@@ -59,12 +59,12 @@ cannot start, the console says why and waits for a key.
 ## Display and sound
 
 The game window can be resized or maximized, and Alt+Enter switches between the
-window and borderless fullscreen. The picture keeps its proportions and grows in
-whole multiples of the original 320x200, with black borders around it, so every
-pixel stays sharp and clicks land on the right buttons at any size. The first
-window takes the largest multiple that fits your screen. The mode and window
-size are remembered in `%LOCALAPPDATA%\MMModern\window.ini`, apart from the
-saves; delete that file to start again from the defaults.
+window and borderless fullscreen. By default the picture fills the largest 4:3
+area with black borders, matching the shape of the original display. Window
+mode and size are remembered in `%LOCALAPPDATA%\MMModern\window.ini`, apart
+from saves. Set `aspect=square` in that file to use the former square-pixel
+presentation, scaled in whole multiples of 320x200. Set `aspect=4:3` or delete
+the file to restore the default.
 
 The original FM music, digital effects, shop and entrance voices, dream, death
 laugh and CD speech play together. Text off hides the NPC text replaced by

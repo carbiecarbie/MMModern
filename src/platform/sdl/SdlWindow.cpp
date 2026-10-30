@@ -228,10 +228,12 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
 		SDL_Window *window = nullptr;
 		SDL_Renderer *renderer = nullptr;
 		SDL_Texture *texture = nullptr;
+        SDL_Texture *target = nullptr;
         SDL_Texture *cursor = nullptr;
         int priorCursor=SDL_ENABLE;
 		~Resources() {
             if(cursor) { SDL_DestroyTexture(cursor); SDL_ShowCursor(priorCursor); }
+			if (target) SDL_DestroyTexture(target);
 			if (texture) SDL_DestroyTexture(texture);
 			if (renderer) SDL_DestroyRenderer(renderer);
 			if (window) SDL_DestroyWindow(window);
@@ -242,7 +244,8 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
 	auto &placement = placementMemory();
 	if (placement.file && !placement.loaded) placement.placement = placement.saved = readWindowPlacement(*placement.file);
 	placement.loaded = true;
-	std::pair<int, int> windowed{initialFrame.width * 3, initialFrame.height * 3};
+	std::pair<int, int> windowed{initialFrame.width * 3,
+        placement.placement.aspect == PictureAspect::FourThree ? initialFrame.width * 9 / 4 : initialFrame.height * 3};
 	SDL_Rect usable{};
 	if (SDL_GetDisplayUsableBounds(0, &usable) == 0)
 		windowed = windowedSize(placement.placement, usable.w, usable.h, initialFrame.width, initialFrame.height);
@@ -259,19 +262,21 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
 		SDL_Window *window;
 		~PlacementRecord() { try { recordWindowedSize(window); savePlacement(); } catch (...) {} }
 	} placementRecord{window};
-	SDL_SetWindowMinimumSize(window, initialFrame.width, initialFrame.height);
+	const bool corrected = placement.placement.aspect == PictureAspect::FourThree;
+	SDL_SetWindowMinimumSize(window, initialFrame.width, corrected ? initialFrame.width * 3 / 4 : initialFrame.height);
 
 	SDL_Renderer *renderer = resources.renderer = SDL_CreateRenderer(window, -1,
-		SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+		SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC | (corrected ? SDL_RENDERER_TARGETTEXTURE : 0));
 	if (!renderer)
-		renderer = resources.renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_SOFTWARE);
+		renderer = resources.renderer = SDL_CreateRenderer(window, -1,
+            SDL_RENDERER_SOFTWARE | (corrected ? SDL_RENDERER_TARGETTEXTURE : 0));
 	if (!renderer) {
 		std::cerr << "SDL_CreateRenderer failed: " << SDL_GetError() << '\n';
 		return false;
 	}
 
-	if (SDL_RenderSetLogicalSize(renderer, initialFrame.width, initialFrame.height) != 0 ||
-			SDL_RenderSetIntegerScale(renderer, SDL_TRUE) != 0) {
+	if (!corrected && (SDL_RenderSetLogicalSize(renderer, initialFrame.width, initialFrame.height) != 0 ||
+			SDL_RenderSetIntegerScale(renderer, SDL_TRUE) != 0)) {
 		std::cerr << "Cannot configure SDL scaling: " << SDL_GetError() << '\n';
 		return false;
 	}
@@ -288,13 +293,14 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
 #endif
 	SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_NONE);
     int cursorWidth=0,cursorHeight=0;
+    std::vector<std::uint32_t> cursorPixels;
     if(handler.cursorImage) {
         const auto cursor=handler.cursorImage();
         if(!cursor.isValid())throw std::runtime_error("Invalid original cursor");
         cursorWidth=cursor.width;cursorHeight=cursor.height;
         resources.cursor=SDL_CreateTexture(renderer,SDL_PIXELFORMAT_ARGB8888,SDL_TEXTUREACCESS_STATIC,cursorWidth,cursorHeight);
         if(!resources.cursor)throw std::runtime_error("Cannot create original cursor texture");
-        std::vector<std::uint32_t> cursorPixels(cursor.pixels.size());
+        cursorPixels.resize(cursor.pixels.size());
         for(std::size_t i=0;i<cursorPixels.size();++i) {
             const auto c=cursor.pixels[i];cursorPixels[i]=c ? 0xff000000u | (std::uint32_t(cursor.palette[3*c])<<16) | (std::uint32_t(cursor.palette[3*c+1])<<8) | cursor.palette[3*c+2] : 0;
         }
@@ -302,17 +308,68 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
         SDL_SetTextureBlendMode(resources.cursor,SDL_BLENDMODE_BLEND);
         resources.priorCursor=SDL_ShowCursor(SDL_QUERY);SDL_ShowCursor(SDL_DISABLE);
     }
-    const auto drawCursor=[&] {
+    const auto mappedMouse = [&](int x, int y) -> std::optional<std::pair<int, int>> {
+        if (!corrected) return std::pair<int, int>{x, y};
+        int ww, wh, ow, oh; SDL_GetWindowSize(window, &ww, &wh);
+        if (SDL_GetRendererOutputSize(renderer, &ow, &oh) != 0) return std::nullopt;
+        return windowToFrame(x, y, ww, wh, ow, oh, initialFrame.width, initialFrame.height, PictureAspect::FourThree);
+    };
+    const auto drawCursor=[&](int scale) {
         if(handler.inputContext && handler.inputContext({}).hideCursor)return;
         if(!resources.cursor || SDL_GetMouseFocus()!=window)return;
-        int x,y;SDL_GetMouseState(&x,&y);float logicalX,logicalY;
-        SDL_RenderWindowToLogical(renderer,x,y,&logicalX,&logicalY);
-        if(logicalX<0 || logicalY<0 || logicalX>=initialFrame.width || logicalY>=initialFrame.height)return;
-        SDL_Rect destination{int(logicalX),int(logicalY),cursorWidth,cursorHeight};
+        int x,y;SDL_GetMouseState(&x,&y);
+        std::optional<std::pair<int,int>> point;
+        if (corrected) point = mappedMouse(x,y);
+        else {
+            float lx,ly; SDL_RenderWindowToLogical(renderer,x,y,&lx,&ly);
+            if(lx>=0 && ly>=0 && lx<initialFrame.width && ly<initialFrame.height) point = {int(lx),int(ly)};
+        }
+        if(!point)return;
+        SDL_Rect destination{point->first*scale,point->second*scale,cursorWidth*scale,cursorHeight*scale};
         if(SDL_RenderCopy(renderer,resources.cursor,nullptr,&destination)!=0)throw std::runtime_error("Original cursor presentation failed");
     };
-    // Borderless desktop fullscreen keeps the display mode; SDL's logical size
-    // re-centers the integer-scaled frame and maps the mouse in either mode.
+    int targetOutputWidth=0,targetOutputHeight=0,targetScale=0;
+    SDL_RendererInfo rendererInfo{};
+    if (corrected && SDL_GetRendererInfo(renderer, &rendererInfo) != 0) throw std::runtime_error("Cannot query renderer limits");
+    const auto present = [&] {
+        if (!corrected) {
+            SDL_SetRenderDrawColor(renderer,0,0,0,255); SDL_RenderClear(renderer);
+            if(SDL_RenderCopy(renderer,texture,nullptr,nullptr)!=0)throw std::runtime_error("Frame presentation failed");
+            drawCursor(1); SDL_RenderPresent(renderer); return;
+        }
+        int ow,oh;
+        if(SDL_GetRendererOutputSize(renderer,&ow,&oh)!=0) throw std::runtime_error("Cannot query renderer output size");
+        if(ow<=0 || oh<=0) { SDL_RenderPresent(renderer); return; }
+        const auto picture=pictureRect(ow,oh,initialFrame.width,initialFrame.height,PictureAspect::FourThree);
+        const int scale=picturePrescale(picture,initialFrame.width,initialFrame.height,rendererInfo.max_texture_width,rendererInfo.max_texture_height);
+        if(scale<1)throw std::runtime_error("Renderer texture limit is smaller than the frame");
+        if(!resources.target || targetOutputWidth!=ow || targetOutputHeight!=oh) {
+            if(resources.target)SDL_DestroyTexture(resources.target);
+            resources.target=SDL_CreateTexture(renderer,SDL_PIXELFORMAT_ARGB8888,SDL_TEXTUREACCESS_TARGET,initialFrame.width*scale,initialFrame.height*scale);
+            if(!resources.target)throw std::runtime_error(std::string("Cannot create picture target: ")+SDL_GetError());
+            SDL_SetTextureScaleMode(resources.target, SDL_ScaleModeLinear);
+            SDL_SetTextureBlendMode(resources.target, SDL_BLENDMODE_NONE);
+            targetOutputWidth=ow;targetOutputHeight=oh;targetScale=scale;
+        }
+        if(SDL_SetRenderTarget(renderer,resources.target)!=0)throw std::runtime_error("Cannot select picture target");
+        SDL_Rect whole{0,0,initialFrame.width*targetScale,initialFrame.height*targetScale};
+        if(SDL_RenderCopy(renderer,texture,nullptr,&whole)!=0)throw std::runtime_error("Cannot draw picture target");
+        // Restore the window target while mapping the cursor, then draw it into the picture target.
+        if(SDL_SetRenderTarget(renderer,nullptr)!=0)throw std::runtime_error("Cannot select window target");
+        int mx,my; SDL_GetMouseState(&mx,&my); const auto mouse=mappedMouse(mx,my);
+        if(SDL_SetRenderTarget(renderer,resources.target)!=0)throw std::runtime_error("Cannot select picture target");
+        if(mouse && resources.cursor && SDL_GetMouseFocus()==window && !(handler.inputContext && handler.inputContext({}).hideCursor)) {
+            SDL_Rect dest{mouse->first*targetScale,mouse->second*targetScale,cursorWidth*targetScale,cursorHeight*targetScale};
+            if(SDL_RenderCopy(renderer,resources.cursor,nullptr,&dest)!=0)throw std::runtime_error("Original cursor presentation failed");
+        }
+        if(SDL_SetRenderTarget(renderer,nullptr)!=0)throw std::runtime_error("Cannot select window target");
+        SDL_SetRenderDrawColor(renderer,0,0,0,255);SDL_RenderClear(renderer);
+        SDL_Rect dest{picture.x,picture.y,picture.width,picture.height};
+        if(SDL_RenderCopy(renderer,resources.target,nullptr,&dest)!=0)throw std::runtime_error("Cannot draw picture");
+        SDL_RenderPresent(renderer);
+    };
+    // Borderless desktop fullscreen keeps the display mode. The active
+    // presentation path re-centers the picture and maps the mouse.
     const auto toggleFullscreen=[&] {
         const bool fullscreen=!(SDL_GetWindowFlags(window)&SDL_WINDOW_FULLSCREEN);
         if(fullscreen)recordWindowedSize(window);
@@ -347,10 +404,7 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
 	bool running = success;
     unsigned mouseButtons=0;
 	if (running && uploaded && accepts(uploadedFrame)) {
-		SDL_SetRenderDrawColor(renderer,0,0,0,255);
-		SDL_RenderClear(renderer);
-		if (SDL_RenderCopy(renderer,texture,nullptr,nullptr) != 0) { success=false; return false; }
-		drawCursor();SDL_RenderPresent(renderer);
+		present();
 		if (handler.frameCurrent && !handler.frameCurrent()) throw std::runtime_error("Stale initial upload");
 		// Sample pending OS input while this handoff is still unacquired. Never
 		// pump between successful acquisition and the queue fence below: that
@@ -449,9 +503,7 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
     const auto restoreMouseFeedback = [&] {
         if(!mouseFeedback)return;
         if(!uploadFrame(texture,displayContent,initialFrame.width,initialFrame.height,pixels))throw std::runtime_error("Mouse feedback restoration failed");
-        SDL_SetRenderDrawColor(renderer,0,0,0,255);SDL_RenderClear(renderer);
-        if(SDL_RenderCopy(renderer,texture,nullptr,nullptr)!=0)throw std::runtime_error("Mouse feedback restoration failed");
-        drawCursor();SDL_RenderPresent(renderer);mouseFeedback.reset();
+        present();mouseFeedback.reset();
     };
     const auto feedback = [&](const InputButton &button,const IndexedFrame::Presentation &origin,bool restore=true) {
         if(handler.drawButton && inputCurrent(origin)) {
@@ -464,10 +516,7 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
             if(!inputCurrent(origin) || (handler.frameCurrent && !handler.frameCurrent()))
                 throw std::runtime_error("Stale button feedback origin");
             const auto presentButtonTexture=[&] {
-                SDL_SetRenderDrawColor(renderer,0,0,0,255);SDL_RenderClear(renderer);
-                if(SDL_RenderCopy(renderer,texture,nullptr,nullptr)!=0)
-                    throw std::runtime_error("Button feedback presentation failed");
-                drawCursor();SDL_RenderPresent(renderer);
+                present();
             };
             const auto presentButton=[&](const IndexedFrame &frame) {
                 if(!uploadFrame(texture,frame,initialFrame.width,initialFrame.height,pixels))
@@ -500,6 +549,26 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
     };
     const auto dispatchEvent = [&](const SDL_Event &event, const std::optional<std::uint64_t> &batchInput,
             const IndexedFrame::Presentation &batchFrame, const InputContext &batchContext) {
+        if(event.type==SDL_RENDER_TARGETS_RESET || event.type==SDL_RENDER_DEVICE_RESET) {
+            if(resources.target) { SDL_DestroyTexture(resources.target); resources.target=nullptr; }
+            if(event.type==SDL_RENDER_DEVICE_RESET) {
+                SDL_DestroyTexture(texture);
+                texture = resources.texture = SDL_CreateTexture(renderer,SDL_PIXELFORMAT_ARGB8888,
+                    SDL_TEXTUREACCESS_STREAMING,initialFrame.width,initialFrame.height);
+                if(!texture || SDL_UpdateTexture(texture,nullptr,pixels.data(),initialFrame.width*4)!=0)
+                    throw std::runtime_error("Cannot restore frame after renderer reset");
+                SDL_SetTextureScaleMode(texture,SDL_ScaleModeNearest);
+                SDL_SetTextureBlendMode(texture,SDL_BLENDMODE_NONE);
+                if(resources.cursor) {
+                    SDL_DestroyTexture(resources.cursor);
+                    resources.cursor=SDL_CreateTexture(renderer,SDL_PIXELFORMAT_ARGB8888,SDL_TEXTUREACCESS_STATIC,cursorWidth,cursorHeight);
+                    if(!resources.cursor || SDL_UpdateTexture(resources.cursor,nullptr,cursorPixels.data(),cursorWidth*4)!=0)
+                        throw std::runtime_error("Cannot restore cursor after renderer reset");
+                    SDL_SetTextureBlendMode(resources.cursor,SDL_BLENDMODE_BLEND);
+                }
+            }
+            return;
+        }
         if(handler.ignoreMouse && (event.type==SDL_MOUSEBUTTONDOWN || event.type==SDL_MOUSEBUTTONUP))return;
         if(event.type==SDL_AUDIODEVICEREMOVED && !event.adevice.iscapture) {
             SdlAudioDevice::removed(event.adevice.which);return;
@@ -583,20 +652,21 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
                 return;
             default:break;
             }
+            const auto point = mouse ? mappedMouse(event.button.x,event.button.y) : std::optional<std::pair<int,int>>{};
+            const int mouseX = point ? point->first : -1, mouseY = point ? point->second : -1;
             if (mouse && ((event.button.button != SDL_BUTTON_LEFT && event.button.button!=SDL_BUTTON_RIGHT) || (!context.dialog && context.mainScreen == MainScreen::None) ||
                 initialFrame.width != 320 || initialFrame.height != 200 ||
-                event.button.x<0 || event.button.y<0 || event.button.x>=320 || event.button.y>=200)) return;
-            // SDL_RenderSetLogicalSize transforms native mouse events to framebuffer
-            // coordinates, including integer scaling, letterboxing and high DPI.
-            // Do not scale a second time. Out-of-viewport coordinates are rejected.
-            auto action = mouse ? (context.dialog?context.dialog->click(event.button.x,event.button.y):
-                xeenMainScreenClick(event.button.x,event.button.y,context.mainScreen)):keyAction(event.key,context);
+                mouseX<0 || mouseY<0 || mouseX>=320 || mouseY>=200)) return;
+            // SDL maps events in square mode; corrected mode maps native window
+            // coordinates through the same drawable rectangle used to present.
+            auto action = mouse ? (context.dialog?context.dialog->click(mouseX,mouseY):
+                xeenMainScreenClick(mouseX,mouseY,context.mainScreen)):keyAction(event.key,context);
             if(!context.dialog && action)if(const auto *member=std::get_if<SelectMemberAction>(&*action))
                 if(member->partyIndex>=context.partySize)action.reset();
             if(!mouse && !action && context.retainEventKeys && inputKey(event.key))action=ExplorationKeyAction{inputKey(event.key)};
             auto button=context.dialog ?
                 (action && std::get_if<DialogKeyAction>(&*action) ? context.dialog->button(std::get<DialogKeyAction>(*action).key) : std::nullopt) :
-                mouse ? xeenMainScreenButtonAt(event.button.x,event.button.y,context.mainScreen) :
+                mouse ? xeenMainScreenButtonAt(mouseX,mouseY,context.mainScreen) :
                     xeenMainScreenKeyButton(action,inputKey(event.key),context.mainScreen);
             if(!mouse && !context.dialog && (event.key.keysym.mod & KMOD_CTRL)) {
                 button=event.key.keysym.sym==SDLK_LEFT ? xeenMainScreenButtonAt(235,169,context.mainScreen) :
@@ -837,14 +907,7 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
 			}
 		} catch (...) { success = false; break; }
 		if (!uploaded || !accepts(uploadedFrame)) continue;
-		SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
-		SDL_RenderClear(renderer);
-		if (SDL_RenderCopy(renderer, texture, nullptr, nullptr) != 0) {
-			std::cerr << "SDL_RenderCopy failed: " << SDL_GetError() << '\n';
-			success = false;
-			break;
-		}
-		drawCursor();SDL_RenderPresent(renderer);
+		present();
         if(mouseButtons)continue; // Release wait transports cursor pixels only.
 		if (handler.frameCurrent && !handler.frameCurrent()) throw std::runtime_error("Stale presented frame");
 		if (uploadedInput != (handler.displayedInput ? handler.displayedInput() : std::nullopt))
@@ -923,6 +986,10 @@ void SdlWindow::rememberPlacement(std::optional<std::filesystem::path> file) {
 	auto &memory = placementMemory();
 	memory.file = std::move(file);
 	memory.loaded = false;
+}
+
+void SdlWindow::useAspectSetting(const std::optional<std::filesystem::path> &file) {
+    placementMemory().placement.aspect = file ? readWindowPlacement(*file).aspect : PictureAspect::FourThree;
 }
 
 bool SdlWindow::show(const IndexedFrame &frame, const std::string &title) const {

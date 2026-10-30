@@ -50,6 +50,7 @@ WindowPlacement parseWindowPlacement(std::string_view text) {
 			if (const auto flag = number(value, 0, 1)) placement.fullscreen = *flag == 1;
 		} else if (key == "width") width = number(value, 1, maximumWindowExtent);
 		else if (key == "height") height = number(value, 1, maximumWindowExtent);
+        else if (key == "aspect") placement.aspect = value == "square" ? PictureAspect::Square : PictureAspect::FourThree;
 	}
 	// A size is meaningful only as a pair.
 	if (width && height) { placement.width = *width; placement.height = *height; }
@@ -59,6 +60,8 @@ WindowPlacement parseWindowPlacement(std::string_view text) {
 std::string formatWindowPlacement(const WindowPlacement &placement) {
 	std::ostringstream text;
 	text << "# MMModern window settings. Alt+Enter toggles fullscreen.\n"
+		<< "# Picture shape: aspect=4:3 (default) or aspect=square.\n"
+        << "aspect=" << (placement.aspect == PictureAspect::Square ? "square" : "4:3") << '\n'
 		<< "fullscreen=" << (placement.fullscreen ? 1 : 0) << '\n';
 	if (placement.width > 0 && placement.height > 0)
 		text << "width=" << placement.width << "\nheight=" << placement.height << '\n';
@@ -115,11 +118,69 @@ int initialWindowScale(int usableWidth, int usableHeight, int frameWidth, int fr
 
 std::pair<int, int> windowedSize(const WindowPlacement &placement, int usableWidth, int usableHeight,
 		int frameWidth, int frameHeight) {
-	if (placement.width >= frameWidth && placement.height >= frameHeight &&
+	const int minHeight = placement.aspect == PictureAspect::FourThree ? frameWidth * 3 / 4 : frameHeight;
+	if (placement.width >= frameWidth && placement.height >= minHeight &&
 			placement.width <= usableWidth && placement.height <= usableHeight)
 		return {placement.width, placement.height};
+	if (placement.aspect == PictureAspect::FourThree) {
+        const int w = int(static_cast<long long>(std::max(usableWidth, 0)) * 9 / 10);
+        const int h = int(static_cast<long long>(std::max(usableHeight, 0)) * 9 / 10);
+        const int units = std::max(frameWidth / 4, std::min(w / 4, h / 3));
+        return {units * 4, units * 3};
+    }
 	const int scale = initialWindowScale(usableWidth, usableHeight, frameWidth, frameHeight);
 	return {frameWidth * scale, frameHeight * scale};
+}
+
+PictureRect pictureRect(int ow, int oh, int fw, int fh, PictureAspect aspect) {
+    if (ow <= 0 || oh <= 0 || fw <= 0 || fh <= 0) return {0, 0, 0, 0};
+    int w, h;
+    if (aspect == PictureAspect::Square) {
+        const int scale = std::max(1, std::min(ow / fw, oh / fh));
+        w = fw * scale; h = fh * scale;
+    } else if (static_cast<long long>(ow) * 3 <= static_cast<long long>(oh) * 4) {
+        w = ow; h = int(static_cast<long long>(ow) * 3 / 4);
+    } else {
+        h = oh; w = int(static_cast<long long>(oh) * 4 / 3);
+    }
+    return {(ow - w) / 2, (oh - h) / 2, w, h};
+}
+
+int picturePrescale(PictureRect picture, int fw, int fh, int maxWidth, int maxHeight) {
+    if (fw <= 0 || fh <= 0 || picture.width <= 0 || picture.height <= 0) return 0;
+    const int wanted = std::max({1, (picture.width + fw - 1) / fw, (picture.height + fh - 1) / fh});
+    const int limit = std::min(maxWidth > 0 ? maxWidth / fw : wanted, maxHeight > 0 ? maxHeight / fh : wanted);
+    return std::min(wanted, limit);
+}
+
+std::optional<std::pair<int, int>> windowToFrame(int x, int y, int ww, int wh, int ow, int oh,
+        int fw, int fh, PictureAspect aspect) {
+    if (x < 0 || y < 0 || x >= ww || y >= wh || ww <= 0 || wh <= 0) return std::nullopt;
+    const auto r = pictureRect(ow, oh, fw, fh, aspect);
+    if (r.width <= 0 || r.height <= 0) return std::nullopt;
+    const auto px = static_cast<long long>(x) * ow;
+    const auto py = static_cast<long long>(y) * oh;
+    if (px < static_cast<long long>(r.x) * ww || px >= static_cast<long long>(r.x + r.width) * ww ||
+        py < static_cast<long long>(r.y) * wh || py >= static_cast<long long>(r.y + r.height) * wh) return std::nullopt;
+    return std::pair<int, int>{int((px - static_cast<long long>(r.x) * ww) * fw / (static_cast<long long>(r.width) * ww)),
+        int((py - static_cast<long long>(r.y) * wh) * fh / (static_cast<long long>(r.height) * wh))};
+}
+
+std::optional<std::pair<int, int>> frameToWindow(int x, int y, int ww, int wh, int ow, int oh,
+        int fw, int fh, PictureAspect aspect) {
+    if (ww <= 0 || wh <= 0 || ow <= 0 || oh <= 0 || fw <= 0 || fh <= 0 ||
+        x < 0 || y < 0 || x >= fw || y >= fh) return std::nullopt;
+    const auto r = pictureRect(ow, oh, fw, fh, aspect);
+    if (r.width <= 0 || r.height <= 0) return std::nullopt;
+    const auto cx = (static_cast<long long>(2) * r.x * fw + (2LL * x + 1) * r.width) * ww / (2LL * fw * ow);
+    const auto cy = (static_cast<long long>(2) * r.y * fh + (2LL * y + 1) * r.height) * wh / (2LL * fh * oh);
+    // Rounding the centre to an integer window coordinate may cross an edge.
+    for (int dy = 0; dy <= 1; ++dy) for (int dx = 0; dx <= 1; ++dx) {
+        const int wx = int(cx + dx), wy = int(cy + dy);
+        if (windowToFrame(wx, wy, ww, wh, ow, oh, fw, fh, aspect) == std::pair<int, int>{x, y})
+            return std::pair<int, int>{wx, wy};
+    }
+    return std::nullopt;
 }
 
 bool fullscreenToggleKey(std::int32_t keycode, std::uint16_t modifiers) {

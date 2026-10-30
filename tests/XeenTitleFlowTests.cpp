@@ -1,3 +1,4 @@
+#include "SdlMouseTestSupport.h"
 #include "app/XeenTitleFlow.h"
 #include "app/XeenCutsceneFlow.h"
 #include "games/xeen/XeenWallClock.h"
@@ -30,7 +31,7 @@ void cutsceneMouse() {
  h.framePresented=[&](const auto &p){flow.presented(p);};h.completeInputHandoff=[&](const auto &p){flow.completeInput(p);};
  h.beginCycle=[&](auto) {
   check(++cycles<100,"held mouse stopped cutscene publication");
-  if(!injected){injected=true;SDL_Event e{};e.type=SDL_MOUSEBUTTONDOWN;e.button.button=SDL_BUTTON_LEFT;e.button.x=160;e.button.y=100;e.button.timestamp=SDL_GetTicks();check(SDL_PushEvent(&e)==1,"cutscene mouse injection");}
+  if(!injected){injected=true;SDL_Event e{};e.type=SDL_MOUSEBUTTONDOWN;e.button.button=SDL_BUTTON_LEFT;sdl_mouse_test::position(e.button,160,100);e.button.timestamp=SDL_GetTicks();check(SDL_PushEvent(&e)==1,"cutscene mouse injection");}
  };
  check(SdlWindow().showInteractive(flow.frame(),"Cutscene ignores held mouse",h,[]{return true;},[&]{now+=20000000;return flow.update();}) && flow.done(),"native cutscene mouse policy");
 }
@@ -68,7 +69,7 @@ void cosmeticMouseRelease(const XeenTitleFlow::Services &services) {
    const auto hit=std::find_if(dialog->hits.begin(),dialog->hits.end(),[](const auto &h){return h.key=='s';});
    check(hit!=dialog->hits.end(),"cosmetic mouse Start hit");
    SDL_Event event{};event.type=type;event.button.button=SDL_BUTTON_LEFT;
-   event.button.x=hit->left;event.button.y=hit->top;event.button.timestamp=SDL_GetTicks();
+   sdl_mouse_test::position(event.button,hit->left,hit->top);event.button.timestamp=SDL_GetTicks();
    check(SDL_PeepEvents(&event,1,SDL_ADDEVENT,0,0)==1,"cosmetic mouse queue");
   };
   SdlWindow::FrameUpdateHandler h=[](const auto &)->std::optional<IndexedFrame>{throw std::runtime_error("unversioned cosmetic mouse");};

@@ -1,3 +1,4 @@
+#include "SdlMouseTestSupport.h"
 #include "platform/sdl/SdlWindow.h"
 #include "core/DialogInput.h"
 #define SDL_MAIN_HANDLED
@@ -42,7 +43,7 @@ extern "C" void __wrap_SDL_RenderPresent(SDL_Renderer *renderer){
         ++pressedPresents;maxCursorGap=std::max(maxCursorGap,now-lastPressed);lastPressed=now;
         check(idleCalls==idleAtPress && acquisitions==acquiredAtPress,"Cursor redraw acquired or rebuilt a gameplay frame");
         if(!injected){injected=true;motionBurst();moveKey();motionBurst();}
-        if(mouseMode && pressedPresents==5) {SDL_Event e{};e.type=SDL_MOUSEBUTTONUP;e.button.button=SDL_BUTTON_LEFT;push(e);}
+        if(mouseMode && pressedPresents==5) {SDL_Event e{};e.type=SDL_MOUSEBUTTONUP;e.button.button=SDL_BUTTON_LEFT;sdl_mouse_test::position(e.button,260,150);push(e);}
     }
     __real_SDL_RenderPresent(renderer);
 }
@@ -68,8 +69,8 @@ int main(){try{
     mouseMode=true;pressed=false;injected=false;pressedPresents=0;actions=0;idleCalls=0;acquisitions=0;
     actionTimes.clear();maxCursorGap=0;pumps=0;uploads=0;
     handler.framePresented=[](const auto &){if(++acquisitions==1){
-        SDL_Event e{};e.type=SDL_MOUSEBUTTONDOWN;e.button.button=SDL_BUTTON_LEFT;e.button.x=260;e.button.y=150;
-        check(SDL_PeepEvents(&e,1,SDL_ADDEVENT,0,0)==1,"Cannot enqueue held mouse");
+        SDL_Event e{};e.type=SDL_MOUSEBUTTONDOWN;e.button.button=SDL_BUTTON_LEFT;sdl_mouse_test::position(e.button,260,150);
+        check(SDL_PushEvent(&e)==1,"Cannot enqueue held mouse");
     }};
     const auto mouseOk=SdlWindow().showInteractive(frame,"Physical mouse release wait",handler,{},[&]()->std::optional<IndexedFrame>{
         ++idleCalls;check(!pressed,"Mouse hold ran semantic idle work");

@@ -1,3 +1,4 @@
+#include "SdlMouseTestSupport.h"
 // A portrait click queued while a member prompt redraws its scene reaches the
 // prompt through the real SDL loop, as the original keeps polling the same
 // portrait buttons across draw3d.
@@ -28,10 +29,12 @@ void queue(SDL_Event event) {
 // Motion onto the second portrait, then a click with no delay, all queued
 // while the prompt's scenery redraw is composed and not yet presented.
 void clickPortrait(int x,int y) {
-    SDL_Event event{};event.type=SDL_MOUSEMOTION;event.motion.x=x-6;event.motion.y=y-4;event.motion.timestamp=SDL_GetTicks();queue(event);
-    event.motion.x=x;event.motion.y=y;queue(event);
+    SDL_Event event{};event.type=SDL_MOUSEMOTION;
+    SDL_MouseButtonEvent pos{};sdl_mouse_test::position(pos,x-6,y-4);
+    event.motion.windowID=pos.windowID;event.motion.x=pos.x;event.motion.y=pos.y;event.motion.timestamp=SDL_GetTicks();queue(event);
+    sdl_mouse_test::position(pos,x,y);event.motion.x=pos.x;event.motion.y=pos.y;queue(event);
     event={};event.type=SDL_MOUSEBUTTONDOWN;event.button.button=SDL_BUTTON_LEFT;event.button.state=SDL_PRESSED;
-    event.button.x=x;event.button.y=y;event.button.timestamp=SDL_GetTicks();queue(event);
+    sdl_mouse_test::position(event.button,x,y);event.button.timestamp=SDL_GetTicks();queue(event);
     event.type=SDL_MOUSEBUTTONUP;event.button.state=SDL_RELEASED;queue(event);
 }
 void castTargetClickDuringRedraw(Inputs &in) {

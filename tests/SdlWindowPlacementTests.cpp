@@ -4,7 +4,10 @@
 #define SDL_MAIN_HANDLED
 #include <SDL.h>
 
+#include <algorithm>
+#include <array>
 #include <chrono>
+#include <cmath>
 #include <filesystem>
 #include <fstream>
 #include <functional>
@@ -34,6 +37,11 @@ void removeScratch(const std::filesystem::path &directory) {
 
 void placementText() {
 	check(parseWindowPlacement("") == WindowPlacement{}, "empty text keeps defaults");
+    check(parseWindowPlacement("aspect=4:3\n").aspect == PictureAspect::FourThree, "explicit correction");
+    check(parseWindowPlacement("aspect=square\n").aspect == PictureAspect::Square, "square option");
+    check(parseWindowPlacement("aspect=square\naspect=invalid\n").aspect == PictureAspect::FourThree, "unknown resets default");
+    const WindowPlacement square{false, 800, 500, PictureAspect::Square};
+    check(parseWindowPlacement(formatWindowPlacement(square)) == square, "square format round trip");
 	const WindowPlacement stored{true, 1280, 800};
 	check(parseWindowPlacement(formatWindowPlacement(stored)) == stored, "format/parse round trip");
 	check(parseWindowPlacement(formatWindowPlacement({})) == WindowPlacement{}, "default round trip");
@@ -82,13 +90,56 @@ void windowSizes() {
 	const auto size = [](const WindowPlacement &placement, int width, int height) {
 		return windowedSize(placement, width, height, 320, 200);
 	};
-	check(size({}, 1920, 1040) == std::pair<int, int>{1280, 800}, "first run size");
+	check(size({}, 1920, 1040) == std::pair<int, int>{1248, 936}, "first run size");
 	check(size({false, 1000, 700}, 1920, 1040) == std::pair<int, int>{1000, 700}, "remembered size");
 	check(size({true, 1000, 700}, 1920, 1040) == std::pair<int, int>{1000, 700}, "remembered size under fullscreen");
-	check(size({false, 2000, 700}, 1920, 1040) == std::pair<int, int>{1280, 800}, "remembered size wider than display");
-	check(size({false, 1000, 1100}, 1920, 1040) == std::pair<int, int>{1280, 800}, "remembered size taller than display");
-	check(size({false, 300, 700}, 1920, 1040) == std::pair<int, int>{1280, 800}, "remembered size below frame");
+	check(size({false, 2000, 700}, 1920, 1040) == std::pair<int, int>{1248, 936}, "remembered size wider than display");
+	check(size({false, 1000, 1100}, 1920, 1040) == std::pair<int, int>{1248, 936}, "remembered size taller than display");
+	check(size({false, 300, 700}, 1920, 1040) == std::pair<int, int>{1248, 936}, "remembered size below frame");
 	std::cout << "Window sizes passed\n";
+}
+
+void geometry() {
+    struct Case { int w,h,x,y,pw,ph,scale,sx,sy,sw,sh; };
+    const Case cases[] = {
+        {1920,1080,240,0,1440,1080,6,160,40,1600,1000},
+        {2560,1440,320,0,1920,1440,8,160,20,2240,1400},
+        {3840,2160,480,0,2880,2160,11,320,80,3200,2000},
+        {1366,768,171,0,1024,768,4,203,84,960,600},
+        {400,800,0,250,400,300,2,40,300,320,200},
+        {800,400,133,0,533,400,2,80,0,640,400},
+        {320,240,0,0,320,240,2,0,20,320,200}
+    };
+    for (const auto &c : cases) {
+        const auto r = pictureRect(c.w,c.h,320,200,PictureAspect::FourThree);
+        check(r.x==c.x && r.y==c.y && r.width==c.pw && r.height==c.ph, "corrected rectangle");
+        check(picturePrescale(r,320,200,0,0)==c.scale, "corrected prescale");
+        const auto q = pictureRect(c.w,c.h,320,200,PictureAspect::Square);
+        check(q.x==c.sx && q.y==c.sy && q.width==c.sw && q.height==c.sh, "square rectangle");
+        check(picturePrescale(q,320,200,0,0)==q.width/320, "square prescale");
+        const auto map = [&](int x,int y) { return windowToFrame(x,y,c.w,c.h,c.w,c.h,320,200,PictureAspect::FourThree); };
+        check(map(r.x,r.y)==std::pair<int,int>{0,0}, "top left");
+        check(map(r.x+r.width-1,r.y+r.height-1)==std::pair<int,int>{319,199}, "bottom right");
+        if(r.x>0)check(!map(r.x-1,r.y), "left border");
+        if(r.y>0)check(!map(r.x,r.y-1), "top border");
+        check(!map(r.x+r.width,r.y), "right edge");
+        check(!map(r.x,r.y+r.height), "bottom edge");
+    }
+    for (const auto aspect : {PictureAspect::FourThree, PictureAspect::Square}) {
+        for (const auto sizes : {std::array<int,4>{1920,1080,1920,1080}, {1000,700,1000,700},
+                {800,600,1600,1200}, {960,540,1920,1080}, {320,240,640,480}}) {
+            for (int y = 0; y < 200; ++y) for (int x = 0; x < 320; ++x) {
+                const auto window = frameToWindow(x,y,sizes[0],sizes[1],sizes[2],sizes[3],320,200,aspect);
+                check(bool(window), "inverse frame pixel exists");
+                check(windowToFrame(window->first,window->second,sizes[0],sizes[1],sizes[2],sizes[3],320,200,aspect) ==
+                    std::pair<int,int>{x,y}, "frame/window round trip");
+            }
+        }
+    }
+    check(!frameToWindow(-1,0,800,600,800,600,320,200,PictureAspect::FourThree), "invalid frame point");
+    check(picturePrescale(pictureRect(3840,2160,320,200,PictureAspect::FourThree),320,200,1920,1200)==6, "texture limit");
+    check(windowToFrame(120,0,960,540,1920,1080,320,200,PictureAspect::FourThree)==std::pair<int,int>{0,0}, "high DPI mapping");
+    check(!windowToFrame(119,0,960,540,1920,1080,320,200,PictureAspect::FourThree), "high DPI border");
 }
 
 void toggleKeys() {
@@ -145,13 +196,69 @@ struct WindowRun {
 	}
 };
 
+// Read back the production presentation on SDL's software/dummy renderer.
+void developerAspect() {
+    const auto directory=scratchDirectory("developer-aspect");const auto file=directory/"window.ini";
+    check(writeWindowPlacement(file,{true,800,600,PictureAspect::Square}),"developer aspect settings");
+    SdlWindow::rememberPlacement(std::nullopt);SdlWindow::useAspectSetting(file);
+    WindowRun run;
+    run.run("developer square",[](WindowRun &r) {
+        check(!r.fullscreen() && r.size()==std::pair<int,int>{920,690},"developer uses aspect without stored size or fullscreen");
+        WindowRun::quit();
+    });
+    check(readWindowPlacement(file)==WindowPlacement{true,800,600,PictureAspect::Square},"developer does not write placement");
+    SdlWindow::useAspectSetting(std::nullopt);removeScratch(directory);
+}
+
+void softwarePresentation() {
+    const auto directory = scratchDirectory("pixels");
+    const auto file = directory / "window.ini";
+    check(writeWindowPlacement(file, {false,1000,700}), "seed pixel test settings");
+    SdlWindow::rememberPlacement(file);
+    IndexedFrame frame; frame.width=320; frame.height=200; frame.pixels.resize(64000);
+    frame.palette[3]=frame.palette[4]=frame.palette[5]=255;
+    for(int y=0;y<200;++y) for(int x=0;x<320;++x) frame.pixels[y*320+x]=y%2;
+    int inspections=0, cycles=0;
+    const bool ok=SdlWindow().showInteractive(frame,"Software picture readback",{}, {}, [&]()->std::optional<IndexedFrame> {
+        if (cycles++ % 2) return {}; // Let the reset event be followed by a full redraw.
+        SDL_Window *window=nullptr;
+        for(Uint32 id=1;id<65536 && !window;++id)
+            if(auto *candidate=SDL_GetWindowFromID(id); candidate && std::string(SDL_GetWindowTitle(candidate))=="Software picture readback") window=candidate;
+        check(window,"pixel test window");
+        auto *renderer=SDL_GetRenderer(window);check(renderer,"pixel test renderer");
+        int w=0,h=0;check(SDL_GetRendererOutputSize(renderer,&w,&h)==0 && w==1000 && h==700,"pixel output size");
+        std::vector<Uint32> output(w*h);
+        check(SDL_RenderReadPixels(renderer,nullptr,SDL_PIXELFORMAT_ARGB8888,output.data(),w*4)==0,"software renderer readback unavailable");
+        const auto picture=pictureRect(w,h,320,200,PictureAspect::FourThree);
+        const int prescale=picturePrescale(picture,320,200,0,0);
+        check(picture.x==33 && picture.width==933 && picture.height==700 && prescale==4,"readback geometry");
+        for(int y=0;y<h;++y) {
+            check((output[y*w]&0x00ffffffu)==0 && (output[y*w+w-1]&0x00ffffffu)==0,"black picture borders");
+            // Linear sample of uniformly four-pixel-tall prescaled source rows.
+            const double sample=(y+0.5)*(200.0*prescale)/picture.height-0.5;
+            const int i=int(std::floor(sample));const double f=sample-i;
+            const auto value=[&](int row){return (std::clamp(row,0,200*prescale-1)/prescale)%2 ? 255.0 : 0.0;};
+            const int expected=int(std::round(value(i)*(1-f)+value(i+1)*f));
+            const int actual=int((output[y*w+w/2]>>16)&255);
+            check(std::abs(actual-expected)<=18,"uniform sharp-bilinear pixel rows");
+        }
+        SDL_Event event{};
+        ++inspections;
+        event.type=inspections==1 ? SDL_RENDER_TARGETS_RESET : inspections==2 ? SDL_RENDER_DEVICE_RESET : SDL_QUIT;
+        check(SDL_PushEvent(&event)==1,"pixel test reset or quit");return {};
+    });
+    check(ok && inspections==3,"software picture readback and resets");
+    SdlWindow::rememberPlacement(std::nullopt);removeScratch(directory);
+    std::cout<<"Software picture borders and uniform pixel rows passed\n";
+}
+
 void fullscreenToggle() {
 	SdlWindow::rememberPlacement(std::nullopt);
 	WindowRun first;
 	first.run("toggle", [](WindowRun &run) {
 		switch (run.stage) {
 		case 0:
-			check(!run.fullscreen() && run.size() == std::pair<int, int>{640, 400}, "first window: 2x of 1024x768, windowed");
+			check(!run.fullscreen() && run.size() == std::pair<int, int>{920, 690}, "first corrected window");
 			WindowRun::key(SDLK_RETURN, KMOD_LALT);
 			WindowRun::key(SDLK_RETURN, KMOD_LALT, SDL_KEYDOWN, 1);
 			WindowRun::key(SDLK_RETURN, KMOD_LALT, SDL_KEYUP);
@@ -167,7 +274,7 @@ void fullscreenToggle() {
 			WindowRun::key(SDLK_KP_ENTER, KMOD_RALT);
 			break;
 		case 3:
-			check(!run.fullscreen() && run.size() == std::pair<int, int>{640, 400}, "Alt+keypad Enter restores the window");
+			check(!run.fullscreen() && run.size() == std::pair<int, int>{920, 690}, "Alt+keypad Enter restores the window");
 			check(run.actions == 1, "keypad toggle reached the game");
 			SDL_SetWindowSize(run.window, 700, 450);
 			break;
@@ -215,7 +322,7 @@ void persistedPlacement() {
 	SdlWindow::rememberPlacement(file);
 	WindowRun oversized;
 	oversized.run("oversized", [](WindowRun &run) {
-		check(!run.fullscreen() && run.size() == std::pair<int, int>{640, 400}, "oversized settings fall back");
+		check(!run.fullscreen() && run.size() == std::pair<int, int>{920, 690}, "oversized settings fall back");
 		WindowRun::quit();
 	});
 	SdlWindow::rememberPlacement(std::nullopt);
@@ -230,9 +337,12 @@ int main() {
 		placementText();
 		placementFile();
 		windowSizes();
+        geometry();
 		toggleKeys();
 		fullscreenToggle();
 		persistedPlacement();
+        developerAspect();
+        softwarePresentation();
 	} catch (const std::exception &error) {
 		std::cerr << "Window placement test failed: " << error.what() << '\n';
 		return 1;

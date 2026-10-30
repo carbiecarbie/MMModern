@@ -1,3 +1,4 @@
+#include "SdlMouseTestSupport.h"
 #include "XeenTrainingTestSupport.h"
 #include "XeenTestInstallation.h"
 #include "games/xeen/XeenOutdoorScene.h"
@@ -239,7 +240,7 @@ void queuedInput(Inputs &in,unsigned mode) {
  services.validateCombatSprite=[&](auto image){in.assets.validateAttackMonster(image);};
  const auto tap=[](SDL_Keycode code){SDL_Event e{};e.type=SDL_KEYDOWN;e.key.keysym.sym=code;e.key.keysym.scancode=SDL_GetScancodeFromKey(code);
   check(SDL_PushEvent(&e)==1,"B1/B2 key enqueue failed");e.type=SDL_KEYUP;check(SDL_PushEvent(&e)==1,"B1/B2 key-up enqueue failed");};
- const auto click=[](){SDL_Event e{};e.type=SDL_MOUSEBUTTONDOWN;e.button.button=SDL_BUTTON_LEFT;e.button.x=261;e.button.y=118;
+ const auto click=[](){SDL_Event e{};e.type=SDL_MOUSEBUTTONDOWN;e.button.button=SDL_BUTTON_LEFT;sdl_mouse_test::position(e.button,261,118);
   check(SDL_PushEvent(&e)==1,"B1 click enqueue failed");e.type=SDL_MOUSEBUTTONUP;check(SDL_PushEvent(&e)==1,"B1 click-up enqueue failed");};
  const auto quit=[&](){if(!quitSent){SDL_Event e{};e.type=SDL_QUIT;SDL_PushEvent(&e);quitSent=true;}};
  services.show=[&](const auto &first,const auto &handler,const auto &escape,const auto &idle,const auto &status){

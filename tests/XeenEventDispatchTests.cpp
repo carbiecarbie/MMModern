@@ -1,3 +1,4 @@
+#include "SdlMouseTestSupport.h"
 #include "XeenRegionalSaveGameplayTestSupport.h"
 #include "XeenMonsterTestAccess.h"
 #include "games/xeen/XeenEventInterpreter.h"
@@ -281,7 +282,7 @@ void queuedSdlEvents() {
      if(kind==2 && !injected && t.calls==1) {
       injected=true;
       for(const auto type:{SDL_MOUSEBUTTONDOWN,SDL_MOUSEBUTTONUP}) {
-       SDL_Event e{};e.type=type;e.button.button=SDL_BUTTON_RIGHT;e.button.x=8;e.button.y=8;
+       SDL_Event e{};e.type=type;e.button.button=SDL_BUTTON_RIGHT;sdl_mouse_test::position(e.button,8,8);
        e.button.timestamp=SDL_GetTicks();check(SDL_PeepEvents(&e,1,SDL_ADDEVENT,0,0)==1,"right view click");
       }
      }

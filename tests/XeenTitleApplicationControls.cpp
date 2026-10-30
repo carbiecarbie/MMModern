@@ -1,3 +1,4 @@
+#include "SdlMouseTestSupport.h"
 #include "games/xeen/XeenMapView.h"
 // One original-data Application/SDL path for both New difficulties and title
 // Load. Only seed sampling and the Local AppData test directory are substituted.
@@ -177,10 +178,8 @@ void preview(const IndexedFrame &frame,const std::string &label) {
 void click(const DialogInput &dialog,unsigned value,std::vector<SDL_Event> &pending) {
  const DialogHit *hit=nullptr;for(const auto &candidate:dialog.hits)if(candidate.key==value){hit=&candidate;break;}
  check(hit,"native title click target");
- SDL_Window *window=nullptr;for(unsigned id=1;id<100 && !window;++id)window=SDL_GetWindowFromID(id);check(window,"native title window");
- SDL_Event event{};event.type=SDL_MOUSEBUTTONDOWN;event.button.button=SDL_BUTTON_LEFT;event.button.windowID=SDL_GetWindowID(window);
- check(SDL_GetRenderer(window),"native title renderer");
- SDL_RenderLogicalToWindow(SDL_GetRenderer(window),(hit->left+hit->right)/2.0f,(hit->top+hit->bottom)/2.0f,&event.button.x,&event.button.y);
+ SDL_Event event{};event.type=SDL_MOUSEBUTTONDOWN;event.button.button=SDL_BUTTON_LEFT;
+ sdl_mouse_test::position(event.button,(hit->left+hit->right)/2,(hit->top+hit->bottom)/2);
  pending.push_back(event);event.type=SDL_MOUSEBUTTONUP;pending.push_back(event);
 }
 bool panelGameplay(const IndexedFrame &first,const SdlWindow::FrameUpdateHandler &handler,
@@ -504,7 +503,7 @@ extern "C" bool wrappedTitleShow(const SdlWindow *window,const IndexedFrame &fir
     // Middle mouse has no title action, but holds the native release wait
     // and suppresses visual idle. Audio must still advance each loop cycle.
     SDL_Event held{};held.type=cycle==1?SDL_MOUSEBUTTONDOWN:SDL_MOUSEBUTTONUP;
-    held.button.button=SDL_BUTTON_MIDDLE;check(SDL_PushEvent(&held)==1,"held title mouse queue");
+    held.button.button=SDL_BUTTON_MIDDLE;sdl_mouse_test::position(held.button,0,0);check(SDL_PushEvent(&held)==1,"held title mouse queue");
    }
   }
   // The script plans its next physical input during idle. Send it only after

@@ -1,6 +1,7 @@
 #include "XeenTestInstallation.h"
 #ifndef MMODERN_SERVICE_INPUT_TEST_SUPPORT_H
 #define MMODERN_SERVICE_INPUT_TEST_SUPPORT_H
+#include "SdlMouseTestSupport.h"
 #include "XeenProbeFired.h"
 #include "XeenPurchaseTestSupport.h"
 #include "platform/sdl/SdlWindow.h"
@@ -90,12 +91,11 @@ void key(SDL_Keycode code,Uint32 type,bool repeat=false) {
 }
 void tap(SDL_Keycode code) {key(code,SDL_KEYUP);key(code,SDL_KEYDOWN);key(code,SDL_KEYUP);}
 void click(int x,int y,Uint8 button=SDL_BUTTON_LEFT) {
-    // Window coordinates of the logical pixel centre at the window's actual integer scale.
-    auto *window=SDL_GetWindowFromID(1);check(window && SDL_GetRenderer(window),"native service window absent");
-    SDL_Event e{};e.type=SDL_MOUSEBUTTONDOWN;e.button.button=button;e.button.windowID=SDL_GetWindowID(window);e.button.timestamp=100;
-    SDL_RenderLogicalToWindow(SDL_GetRenderer(window),x+0.5f,y+0.5f,&e.button.x,&e.button.y);
+    SDL_Event e{};e.type=SDL_MOUSEBUTTONDOWN;e.button.button=button;e.button.timestamp=100;
+    sdl_mouse_test::position(e.button,x,y);
     check(SDL_PushEvent(&e)==1,"native service click enqueue failed");
-    e.type=SDL_MOUSEBUTTONUP;check(SDL_PushEvent(&e)==1,"native service release enqueue failed");
+    e.type=SDL_MOUSEBUTTONUP;sdl_mouse_test::position(e.button,x,y);
+    check(SDL_PushEvent(&e)==1,"native service release enqueue failed");
 }
 void native(Inputs &in,bool smith) {
     SDL_setenv("SDL_VIDEODRIVER","dummy",1);SDL_setenv("SDL_RENDER_DRIVER","software",1);

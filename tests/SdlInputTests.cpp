@@ -1,3 +1,4 @@
+#include "SdlMouseTestSupport.h"
 #include "XeenProbeFired.h"
 #include "core/PresentationClock.h"
 #include "platform/sdl/SdlWindow.h"
@@ -9,6 +10,7 @@
 
 #include <atomic>
 #include <chrono>
+#include <filesystem>
 #include <iostream>
 #include <stdexcept>
 #include <thread>
@@ -107,12 +109,14 @@ struct QueueHarness {
   if(SDL_PeepEvents(&event,1,SDL_ADDEVENT,0,0)!=1)throw std::runtime_error("queue fixture key");
  }
  static void tap(SDL_Keycode code,Uint32 stamp=99){key(code,SDL_KEYDOWN,0,stamp);key(code,SDL_KEYUP,0,stamp);}
+ static PictureAspect mouseAspect;
  static void click(int x,int y,Uint8 button=SDL_BUTTON_LEFT,Uint32 stamp=99){
-  SDL_Event event{};event.type=SDL_MOUSEBUTTONDOWN;event.button.button=button;event.button.x=x;event.button.y=y;
-  event.button.timestamp=stamp;
-  if(SDL_PeepEvents(&event,1,SDL_ADDEVENT,0,0)!=1)throw std::runtime_error("queue fixture logical click");
+  SDL_Event event{};event.type=SDL_MOUSEBUTTONDOWN;event.button.button=button;
+  sdl_mouse_test::position(event.button,x,y,mouseAspect);event.button.timestamp=stamp;
+  if(SDL_PushEvent(&event)!=1)throw std::runtime_error("queue fixture native click");
   event.type=SDL_MOUSEBUTTONUP;
-  if(SDL_PeepEvents(&event,1,SDL_ADDEVENT,0,0)!=1)throw std::runtime_error("queue fixture logical release");
+  sdl_mouse_test::position(event.button,x,y,mouseAspect);
+  if(SDL_PushEvent(&event)!=1)throw std::runtime_error("queue fixture native release");
  }
  static void quit(){SDL_Event event{};event.type=SDL_QUIT;SDL_PushEvent(&event);}
  void check(bool value,const char *message){if(!value)throw std::runtime_error(std::string(message)+" stage="+std::to_string(stage)+" actions="+std::string(delivered.begin(),delivered.end()));}
@@ -172,6 +176,7 @@ struct QueueHarness {
   fixedTicks=false;check(ok,"queue show failed");std::cout<<name<<" passed\n";
  }
 };
+PictureAspect QueueHarness::mouseAspect = PictureAspect::FourThree;
 // Part 0's physical-key table exercised through the production SDL loop.
 void dosKeyTable() {
  struct Case {SDL_Keycode key;Uint16 mod;std::optional<PlayerAction> expected;};
@@ -482,7 +487,7 @@ void mouseQueuePolicies(){
    else if(h.stage==3){h.check(h.delivered.empty(),"strict mouse action");h.quit();}});
  }
  QueueHarness ignore;ignore.screen=MainScreen::Exploration;ignore.ready=true;
- ignore.run("right-click-view-and-letterbox-ignored",[](auto &h){if(h.stage==0){h.click(100,50,SDL_BUTTON_RIGHT);h.click(-1,75);h.click(320,75);}
+ ignore.run("right-click-view-and-letterbox-ignored",[](auto &h){if(h.stage==0){SDL_SetWindowSize(sdl_mouse_test::window(),1000,690);h.click(100,50,SDL_BUTTON_RIGHT);h.click(-1,75);h.click(320,75);}
   else if(h.stage==3){h.check(h.delivered==std::vector<char>{' '},"Part 0: right view click equals left; outside clicks ignored");h.quit();}});
 }
 
@@ -604,14 +609,14 @@ void callerEscapeAndAcknowledgment() {
   else if(h.stage==3)h.tap(SDLK_ESCAPE,100);
   else if(h.stage==5){
    SDL_Event event{};event.type=SDL_MOUSEBUTTONDOWN;event.button.button=SDL_BUTTON_RIGHT;
-   event.button.x=235;event.button.y=75;event.button.timestamp=100;
-   if(SDL_PeepEvents(&event,1,SDL_ADDEVENT,0,0)!=1)throw std::runtime_error("right chord enqueue");
+   sdl_mouse_test::position(event.button,235,75);event.button.timestamp=100;
+   if(SDL_PushEvent(&event)!=1)throw std::runtime_error("right chord enqueue");
    event.button.button=SDL_BUTTON_LEFT;
-   if(SDL_PeepEvents(&event,1,SDL_ADDEVENT,0,0)!=1)throw std::runtime_error("left chord enqueue");
+   if(SDL_PushEvent(&event)!=1)throw std::runtime_error("left chord enqueue");
    event.type=SDL_MOUSEBUTTONUP;
-   if(SDL_PeepEvents(&event,1,SDL_ADDEVENT,0,0)!=1)throw std::runtime_error("left chord release");
+   if(SDL_PushEvent(&event)!=1)throw std::runtime_error("left chord release");
    event.button.button=SDL_BUTTON_RIGHT;
-   if(SDL_PeepEvents(&event,1,SDL_ADDEVENT,0,0)!=1)throw std::runtime_error("right chord release");
+   if(SDL_PushEvent(&event)!=1)throw std::runtime_error("right chord release");
   }
   else if(h.stage==7){h.check(h.delivered==std::vector<char>{'E','y'},"Part 0: outside right ignored, Escape cancels, either button on Yes selects Yes");h.quit();}
  });
@@ -829,7 +834,14 @@ void pushKey(std::atomic<bool> &finished, SDL_Keycode key, std::uint8_t repeat,
 
 int main(int argc,char **) {
 	probe_fired::expect("SDL_GetTicks");
- if(argc>1){journalKeys();mouseHitAreas();mouseQueuePolicies();strictDialogPolicies();pressedButtonFeedback();strafeAndSummaryKeys();quickFightKeys();combatButtonClicks();callerEscapeAndAcknowledgment();return 0;}
+ if(argc>1){journalKeys();mouseHitAreas();mouseQueuePolicies();strictDialogPolicies();pressedButtonFeedback();strafeAndSummaryKeys();quickFightKeys();combatButtonClicks();callerEscapeAndAcknowledgment();
+  const auto directory=std::filesystem::temp_directory_path() / ("mmodern-square-mouse-"+std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
+  const auto settings=directory/"window.ini";
+  if(!writeWindowPlacement(settings,{false,960,600,PictureAspect::Square}))throw std::runtime_error("square fixture settings");
+  SdlWindow::rememberPlacement(settings);QueueHarness::mouseAspect=PictureAspect::Square;
+  combatButtonClicks();
+  QueueHarness::mouseAspect=PictureAspect::FourThree;SdlWindow::rememberPlacement(std::nullopt);
+  std::error_code ignored;std::filesystem::remove_all(directory,ignored);return 0;}
  dosKeyTable();dosRepeatsAndClears();retainedEventRegressions();eitherMouseButton();
  semanticBoundaryKeys();cutsceneControlQuit();
  boundedQueuePolicies();

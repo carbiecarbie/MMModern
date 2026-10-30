@@ -20,6 +20,8 @@ public:
 	// process. Normal play also loads and saves them in this file; without one
 	// (tests, developer entries) they are kept in memory only.
 	static void rememberPlacement(std::optional<std::filesystem::path> file);
+    // Developer entries use the host picture shape without persisting placement.
+    static void useAspectSetting(const std::optional<std::filesystem::path> &file);
 	struct FrameUpdateHandler : std::function<std::optional<IndexedFrame>(const PlayerAction &)> {
 		using Function = std::function<std::optional<IndexedFrame>(const PlayerAction &)>;
 		using Function::Function;

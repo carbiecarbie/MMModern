@@ -1,3 +1,4 @@
+#include "SdlMouseTestSupport.h"
 #include "XeenTestInstallation.h"
 // Synthetic restored checkpoints, original resources, production Application/SDL.
 // The earned M41 process witness remains a separate test.
@@ -25,12 +26,10 @@ void key(SDL_Keycode code,Uint32 type=SDL_KEYDOWN,Uint8 repeat=0) {
 void tap(SDL_Keycode code) {key(code);key(code,SDL_KEYUP);}
 // Native window coordinates; SDL's renderer filters these to logical pixels.
 void click(int x,int y,Uint8 button=SDL_BUTTON_LEFT) {
- // The window opens at the largest integer scale that fits the display.
- auto *window=SDL_GetWindowFromID(1);check(window && SDL_GetRenderer(window),"scheduling window");
- SDL_Event e{};e.type=SDL_MOUSEBUTTONDOWN;e.button.button=button;e.button.windowID=SDL_GetWindowID(window);
- SDL_RenderLogicalToWindow(SDL_GetRenderer(window),x+0.5f,y+0.5f,&e.button.x,&e.button.y);
+ SDL_Event e{};e.type=SDL_MOUSEBUTTONDOWN;e.button.button=button;
+ sdl_mouse_test::position(e.button,x,y);
  check(SDL_PushEvent(&e)==1,"scheduling mouse enqueue");
- e.type=SDL_MOUSEBUTTONUP;
+ e.type=SDL_MOUSEBUTTONUP;sdl_mouse_test::position(e.button,x,y);
  check(SDL_PushEvent(&e)==1,"scheduling mouse release enqueue");
 }
 void quit(){SDL_Event e{};e.type=SDL_QUIT;SDL_PushEvent(&e);}

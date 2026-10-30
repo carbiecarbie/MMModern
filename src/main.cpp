@@ -131,6 +131,7 @@ int main(int argc, char *argv[]) {
  argc=static_cast<int>(pointers.size());argv=pointers.data();
  const bool playerTitle=argc>=2 && std::string(argv[1]).rfind("--",0)!=0;
  if(playerTitle && wallClock){std::cerr<<"--wall-clock requires a developer entry mode\n";return 1;}
+ if(!playerTitle) mmodern::SdlWindow::useAspectSetting(mmodern::windowPlacementFile());
  try {
  mmodern::XeenProgramState program{playerTitle?mmodern::xeenSystemWallClock():mmodern::XeenWallClock::fixed(wallClock.value_or(0))};
  if(!playerTitle && wallClock)std::cout<<"Wall clock: fixed "<<*wallClock<<'\n';

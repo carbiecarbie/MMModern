@@ -625,6 +625,14 @@ original post-dream poll.
 Deliberate differences from the original that the maintainer approved; each
 stays documented here and in the plan that implements it.
 
+- <a id="dev-square-picture"></a> **Square pixels are an opt-in picture shape**
+  (maintainer, 2026-10-30). The original 320x200 picture appeared on a 4:3
+  DOS monitor, and MMModern shows it with that shape by default. The host
+  setting `aspect=square` in `window.ini` keeps the former presentation in
+  whole multiples of 320x200; it is never game state.
+  [M99 plan](milestone-99-plan.md). **ScummVM:** the pin also corrects the
+  aspect ratio by default (`base/commandLine.cpp:311`, `aspect_ratio` true)
+  and lets the player turn the correction off.
 - <a id="dev-rolmus-fade-bx"></a> **Rolmus fade fixes its first cache index at 8.**
   **DOS static, high:** INTRO rolmus installs its own IRQ0 handler at `0x640`
   (`0x206..0x225`); on the idle path the first fade access at `0x9ac` indexes
