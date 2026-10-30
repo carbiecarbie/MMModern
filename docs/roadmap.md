@@ -1,6 +1,6 @@
 # MMModern - Roadmap
 
-**M94 is the latest completed and accepted milestone.**
+**M97 is the latest completed and accepted milestone.**
 [Project status](project-status.md) describes what is playable now;
 [project history](project-history.md) records each completed milestone.
 Reference provenance belongs to [dependencies](dependencies.md).
@@ -27,8 +27,9 @@ ending, with the original intros and the installer's sound devices, and
 release 0.10.0 delivered them. The [next arc](#next-arc-release-quality-and-the-darkside-start)
 makes Clouds sturdier and easier to test and report on, then starts Darkside.
 Its first step is done: M95 closed the Clouds audit with tests for its
-invariants. The DOS save investigation comes next; it found that picked
-chests stay open in DOS, which M96 added.
+invariants. The DOS save investigation followed: it found that picked
+chests stay open in DOS, which M96 added, and M97 added a tool that exports
+MMModern saves to DOS.
 
 ## Completed arc: closing Vertigo and the first release
 
@@ -123,8 +124,9 @@ this order; steps are direction, not approved plans.
    Its first look found that DOS saves a picked chest as open;
    [M96](milestone-96-plan.md) added that, with save v22. The investigation
    finished on 2026-10-29: DOS loaded and re-saved a Clouds state that
-   MMModern exported, so [M97](milestone-97-plan.md) adds a developer
-   exporter. Importing DOS saves waits for policy decisions.
+   MMModern exported, so [M97](milestone-97-plan.md) added a developer
+   exporter that also places the party on Darkside and prepares DOSBox.
+   Importing DOS saves waits for policy decisions.
 3. **4:3 picture**: the 320x200 picture shown with the shape the original's
    4:3 monitors gave it; square pixels today. Whether it is the default is
    decided at planning.

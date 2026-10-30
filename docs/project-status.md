@@ -1,14 +1,15 @@
 # MMModern - Project Status
 
-This describes what can be played and done now. M96 is the latest completed
-and accepted milestone (2026-10-29; [plan](milestone-96-plan.md)): as in DOS,
-a chest whose lock is picked becomes an open chest for good, and save v22
-keeps it open. Before it, M95 followed up the Clouds audit, M94 played the
-original AdLib, Sound Blaster and MT-32 drivers when `XEEN.CFG` selects them,
-M93 opened each launch with the original Darkside intro, M90 confirmed that
-Clouds of Xeen can be played from Newcastle's Megacredits to Lord Xeen, M92
-made Clouds finishable, with the original ending and score, and M91 added
-the Clouds intro.
+This describes what can be played and done now. M97 is the latest completed
+and accepted milestone (2026-10-30; [plan](milestone-97-plan.md)): a
+developer tool writes an MMModern Clouds save as an original DOS save that
+World of Xeen loads in DOSBox. Before it, M96 kept picked chests open as in
+DOS, M95 followed up the Clouds audit, M94 played the original AdLib, Sound
+Blaster and MT-32 drivers when `XEEN.CFG` selects them, M93 opened each
+launch with the original Darkside intro, M90 confirmed that Clouds of Xeen
+can be played from Newcastle's Megacredits to Lord Xeen, M92 made Clouds
+finishable, with the original ending and score, and M91 added the Clouds
+intro.
 Earlier milestones are in [project history](project-history.md), direction is
 in the [roadmap](roadmap.md), and build and dependency setup is in
 [dependencies](dependencies.md).
@@ -247,6 +248,10 @@ restored, newer or unrecognized saves are left alone, and F9 overwrites only a
 recognizable older MMModern save. Saves are tied to the original archives by
 fingerprint, written atomically, and not compatible with the original games or
 ScummVM.
+The game does not read DOS saves. For evidence, the developer tool
+`mmodern_dos_export` writes a Clouds save as an original DOS slot pair, with
+fields MMModern does not hold kept at their New Game values
+([DOS saves](rules/dos-saves.md)).
 
 ## Architecture overview
 

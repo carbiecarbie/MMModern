@@ -273,3 +273,10 @@ is picked becomes its map's open chest when the Event run ends, after its
 treasure, and stays open through moves, leaving the map, Save and Load. The
 lid follows the DOS animation while the lock is picked. Save v22 keeps each
 object's picture. [Plan](milestone-96-plan.md).
+
+**M97 - DOS save export** (`85d5418`, `73c1179`). A developer tool,
+`mmodern_dos_export`, writes an MMModern Clouds save as an original World of
+Xeen slot pair that DOS loads in DOSBox. It can place the party on Clouds or
+Darkside, prepare a ready-to-run DOSBox folder and compare two pairs byte by
+byte, so DOS evidence can start from the same state as MMModern.
+[Plan](milestone-97-plan.md).
