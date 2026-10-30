@@ -59,5 +59,11 @@ numbered list.
   avoid it.
 - **DOSBox.** Mark each DOSBox comparison and give its starting point in
   DOSBox.
+- For a DOS comparison, generate the preset and run `mmodern_dos_export`
+  with `--dosbox` into a separate folder for that item. Use the generated
+  launcher so each run backs up the old overlay and starts from the seed.
+  For an immediate re-save item, compare `pristine/WORLD` with
+  `overlay/WORLD` using `--diff` and `--resave-check`; name the slots in the
+  guide and explain what the check settles.
 - **Answers.** The maintainer answers by item number ("3 fail: ..."). A
   re-test after a fix covers only the failed items and reuses the folder.

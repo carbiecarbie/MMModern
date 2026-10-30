@@ -127,6 +127,43 @@ A key (including Escape) advances a page; clicks are ignored. It writes PPM
 snapshots to the output directory and changes no saves or settings.
 `--score-pictures` writes the same snapshots without opening a window.
 
+## DOS save export
+
+Build `mmodern_dos_export` on request. It projects a current MMModern Clouds
+save onto a DOS World of Xeen slot pair; the [DOS save rules](rules/dos-saves.md)
+describe the projection and its refusals.
+
+```powershell
+cmake --build build-rel --target mmodern_dos_export
+.\build-rel\mmodern_dos_export.exe <game-dir> <save.mmsave> <output-folder> --slot 1 --name "MMModern Export"
+```
+
+`--overwrite` permits replacing an existing slot. `--place clouds|darkside
+<map> <x> <y> north|east|south|west` changes only the destination side and
+position. Darkside progress remains New Game. In the maintainer's DOSBox
+play-test (2026-10-29), a party placed at Castleview `(14,4)` loaded there and
+could walk, talk and fight.
+
+`--dosbox <dosbox.exe>` prepares a DOSBox Staging CD profile under the output
+folder. Its `pristine/WORLD` contains the exported pair for Load, plus New
+Game `XEEN.CUR` and `DARK.CUR` for the live archives; both CUR files are
+needed because DOS may read them before a slot is loaded. If `--cfg <file>`
+is supplied, its configuration is copied to the seed for the chosen sound
+setup. Otherwise the seed has no CFG and DOS reads the installation's own
+`WORLD/XEEN.CFG` through the C: mount. The profile mounts both `GAME1.INS`
+and `GAME2.INS` as D: and an overlay over C:. Run `start.cmd`; before each
+reset it backs up a non-empty `overlay/WORLD` under `runs/<timestamp>/`.
+
+Compare numbered pairs or `cur` in two folders:
+
+```powershell
+.\build-rel\mmodern_dos_export.exe --diff <folderA> 1 <folderB> 2 --resave-check
+```
+
+The comparison lists every changed offset and flags invalid pair markers.
+`--resave-check` accepts only name and live-party play-time changes, so an
+immediate DOS Load and Save As can be checked without a separate script.
+
 ## Developer test saves
 
 Build the opt-in tool with `cmake --build build-rel --target mmodern_test_save`.
@@ -222,6 +259,9 @@ chest's Event and choose Zippo when it asks who will try: the lid's frames
 cycle while the lock is picked, the treasure follows, and from then on the
 chest is drawn open, also after walking East into map 13 and back and after
 Save and Load.
+
+The `m97-open-chest` preset uses the same level-30 party and location, with
+the chest already open. It is intended for the DOS export comparison.
 
 ```powershell
 .\build-rel\mmodern_test_save.exe m96-chest "F:/Games/gog/Might and Magic 4-5" "D:/Projetos/MModern/MModern-playtest/m96-chest.mmsave"

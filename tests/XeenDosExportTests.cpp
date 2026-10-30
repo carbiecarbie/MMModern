@@ -3,6 +3,7 @@
 #include "XeenTestInstallation.h"
 #include "TestTreeRemoval.h"
 #include "tools/XeenTestSave.h"
+#include "tools/XeenDosDiff.h"
 #include "formats/xeen/XeenSaveFormat.h"
 #ifndef NOMINMAX
 #define NOMINMAX
@@ -12,6 +13,7 @@
 #include <fstream>
 #include <iostream>
 #include <iterator>
+#include <sstream>
 namespace {
 using namespace mmodern;
 using namespace mmodern::developer;
@@ -33,6 +35,41 @@ void units() {
 	DosBytes dat(892);dat[768]=100;
 	DosMembers alias{{{},dosMemberId("mazex004.dat"),dat}};nameDosMembers(alias);
 	check(alias[0].name=="mazex100.dat","DAT embedded ID resolves alias");
+	{
+		const DosMember nam{"maze.nam",dosMemberId("maze.nam"),dosExportNam("Start")};
+		const DosMember pty{"maze.pty",dosMemberId("maze.pty"),DosBytes(658)};
+		DosExportPair a{{nam,alias[0]},{nam,pty}}, b=a;
+		a.clouds[1].name.clear(); b.clouds[1].name.clear();
+		auto run=[&](bool resave) {std::ostringstream out; const bool ok=diffDosPairs(a,b,resave,out); return std::make_pair(ok,out.str());};
+		check(run(true).first,"Equal pair resave");
+		b.clouds[1].bytes[10]=42; auto changed=run(true);
+		check(!changed.first && changed.second.find("mazex100.dat offset 10")!=std::string::npos,"Offset and embedded alias name");
+		{
+			auto c=a,d=b;
+			const auto mob=dosMemberId("maze0009.mob"),collided=dosMemberId("mazex104.dat");
+			c.clouds.push_back({{},mob,{1}});d.clouds.push_back({{},mob,{2}});
+			c.clouds.push_back({{},collided,{1}});d.clouds.push_back({{},collided,{2}});
+			std::ostringstream out;diffDosPairs(c,d,false,out);
+			check(out.str().find("maze0009.mob offset 0")!=std::string::npos,"Canonical name without its DAT");
+			check(out.str().find("mazex104.dat / mazex200.dat offset 0")!=std::string::npos && out.str().find("<unknown>")==std::string::npos,"Colliding candidates without a DAT payload");
+		}
+		{
+			DosBytes x(892),y(892);x[768]=104;y[768]=200;
+			const auto id=dosMemberId("mazex104.dat");check(id==dosMemberId("mazex200.dat"),"Canonical hash collision fixture");
+			a.clouds[1]={{},id,x};b=a;b.clouds[1].bytes=y;
+			const auto collision=run(true);
+			check(collision.second.find("mazex104.dat / mazex200.dat")!=std::string::npos,"Both embedded IDs name colliding members");
+			a.clouds[1]=alias[0];a.clouds[1].name.clear();b=a;
+		}
+		b=a; b.clouds.pop_back();check(run(true).second.find("missing member")!=std::string::npos,"Missing member");
+		b=a; b.darkside.push_back(alias[0]);check(run(true).second.find("added member")!=std::string::npos,"Added member");
+		b=a; b.darkside[1].bytes.push_back(9);check(run(true).second.find("<missing> -> 9")!=std::string::npos,"Length and extra offset");
+		for(unsigned marker:{0u,2u,255u}) {b=a; b.darkside[0].bytes[30]=marker;check(!run(true).first && run(true).second.find("invalid pair markers")!=std::string::npos,"Invalid marker");}
+		b=a;b.clouds[0].bytes[0]='N';b.darkside[0].bytes[0]='N';b.darkside[1].bytes[654]=1;check(run(true).first,"Name and elapsed time allowed");
+		b.darkside[1].bytes[658-1]=2;check(run(true).first,"Entire elapsed time allowed");
+		b.darkside[1].bytes[653]=1;check(!run(true).first,"Other PTY change refused");
+		for(unsigned at:{8u,9u,17u}) {b=a;b.darkside[1].bytes[at]=1;check(!run(true).first,"Projected PTY byte must survive immediate re-save");}
+	}
 	for(const auto &name:std::vector<std::string>{"", " bad",std::string(16,'a'),"bad\n",std::string(1,char(127)),std::string(1,char(0x80))})
 		rejects([&]{dosExportNam(name);},"name");
 	for(const auto &name:{std::string("A"),std::string(15,'X'),std::string("MMModern Export")}) {
@@ -116,6 +153,46 @@ void original(const GameInstallation &installation) {
 	list(base.clouds,false);list(base.darkside,true);
 	const auto out=projectDosSave(installation,s,"MMModern Export");
 	newGameEquality(out,base,s);
+	for(const auto destination:{DosPlace{XeenSide::Clouds,28,18,4,XeenDirection::West},DosPlace{XeenSide::Darkside,29,10,10,XeenDirection::North}}) {
+		auto placed=out;placeDosParty(installation,s,placed,destination);
+		for(unsigned side=0;side<2;++side) {
+			const auto &before=side?out.darkside:out.clouds,&after=side?placed.darkside:placed.clouds;
+			for(unsigned m=0;m<before.size();++m)for(unsigned i=0;i<before[m].bytes.size();++i) {
+				const bool position=(before[m].name=="maze.nam" && i==29) || (side && before[m].name=="maze.pty" && i>=10 && i<=13);
+				if(!position)check(before[m].bytes[i]==after[m].bytes[i],"Placement changed non-position byte");
+			}
+		}
+		check(bytes(placed.darkside,"maze.pty")[13]==destination.map && bytes(placed.darkside,"maze.nam")[29]==unsigned(destination.side==XeenSide::Darkside),"Placement side and map");
+	}
+	for(const auto destination:{DosPlace{XeenSide::Darkside,255,0,0,XeenDirection::North},DosPlace{XeenSide::Darkside,130,0,0,XeenDirection::North},DosPlace{XeenSide::Darkside,29,32,0,XeenDirection::North}}) {
+		auto placed=out;rejects([&]{placeDosParty(installation,s,placed,destination);},"");
+	}
+	for(const auto *ext:{"dat","mob","evt"}) {
+		auto placed=out;const auto expected=bytes(placed.darkside,"maze.pty");
+		const auto name=dosMapName(29,ext);
+		placed.darkside.erase(std::remove_if(placed.darkside.begin(),placed.darkside.end(),[&](const auto &m){return m.name==name;}),placed.darkside.end());
+		rejects([&]{placeDosParty(installation,s,placed,{XeenSide::Darkside,29,10,10,XeenDirection::North});},"Missing");
+		check(bytes(placed.darkside,"maze.pty")==expected,"Refused destination leaves party unchanged");
+	}
+	{
+		auto placed=out;const auto map=XeenMapFormat::parseDat(bytes(placed.darkside,dosMapName(29,"dat")));
+		const unsigned north=map.neighbors[0];check(north!=0,"Castleview has north geometry");
+		const auto name=dosMapName(north,"dat");
+		placed.darkside.erase(std::remove_if(placed.darkside.begin(),placed.darkside.end(),[&](const auto &m){return m.name==name;}),placed.darkside.end());
+		rejects([&]{placeDosParty(installation,s,placed,{XeenSide::Darkside,29,10,10,XeenDirection::North});},"Missing");
+	}
+	// Single-tile indoor maps have no neighbours; only the cell's own tile must exist.
+	for(const auto destination:{DosPlace{XeenSide::Darkside,33,8,8,XeenDirection::North},DosPlace{XeenSide::Clouds,29,8,8,XeenDirection::North}}) {
+		auto placed=out;const auto &members=destination.side==XeenSide::Darkside?placed.darkside:placed.clouds;
+		const auto map=XeenMapFormat::parseDat(bytes(members,dosMapName(destination.map,"dat")));
+		check(!map.isOutdoors() && !map.neighbors[0] && !map.neighbors[1],"Single-tile indoor fixture");
+		placeDosParty(installation,s,placed,destination);
+		check(bytes(placed.darkside,"maze.pty")[13]==destination.map && bytes(placed.darkside,"maze.pty")[11]==8,"Single-tile indoor placement");
+		auto outside=out;auto north=destination;north.y=20;
+		rejects([&]{placeDosParty(installation,s,outside,north);},"geometry tile");
+		auto east=destination;east.x=20;
+		rejects([&]{placeDosParty(installation,s,outside,east);},"geometry tile");
+	}
 	check(bytes(out.clouds,"maze.nam")==bytes(out.darkside,"maze.nam") && bytes(out.darkside,"maze.nam")[30]==1,"Pair marker 1/1");
 	const auto second=projectDosSave(installation,s,"MMModern Export");
 	check(writeDosArchive(out.clouds)==writeDosArchive(second.clouds) && writeDosArchive(out.darkside)==writeDosArchive(second.darkside),"Projection determinism");
@@ -139,7 +216,7 @@ void original(const GameInstallation &installation) {
 	auto old=XeenSaveFormat::encode(s);old[8]=21;raw(input,old);
 	rejects([&]{exportDosSave(installation,input,absent,1,"Good");},"older");
 	check(!fs::exists(absent),"Refusal created partial output");raw(input,XeenSaveFormat::encode(s));
-	for(const auto &p:{installation.root,installation.root/"cloud_saves"/"m97-must-not-exist"})
+	for(const auto &p:{installation.root,installation.root/"m97-must-not-exist"})
 		rejects([&]{exportDosSave(installation,input,p,1,"Good");},"installation");
 	{Junction alias(dir/"game-link",installation.root);
 		rejects([&]{exportDosSave(installation,input,alias.path/"m97-must-not-exist",1,"Good");},"installation");}
@@ -154,6 +231,11 @@ void original(const GameInstallation &installation) {
 	check(!fs::exists(target/"XEEN01.WOX") && read(target/"DARK01.WOX")==DosBytes({7,8,9}),"Existing one-sided pair unchanged");
 	exportDosSave(installation,input,target,1,"Good",true);
 	const auto firstX=read(target/"XEEN01.WOX"),firstD=read(target/"DARK01.WOX");
+	const auto pairRead=readDosPair(target,"1");
+	raw(target/"XEEN.CUR",firstX);raw(target/"DARK.CUR",firstD);
+	const auto curRead=readDosPair(target,"cur");std::ostringstream same;
+	check(diffDosPairs(pairRead,curRead,true,same),"Numbered and CUR pair readers");
+	rejects([&]{readDosPair(target,"11");},"1..10");
 	exportDosSave(installation,input,target,1,"Good",true);
 	check(firstX==read(target/"XEEN01.WOX") && firstD==read(target/"DARK01.WOX"),"CLI-support determinism and overwrite");
 	const HANDLE locked=CreateFileW((target/"DARK01.WOX").c_str(),GENERIC_READ,FILE_SHARE_READ,nullptr,OPEN_EXISTING,FILE_ATTRIBUTE_NORMAL,nullptr);
@@ -169,6 +251,66 @@ void original(const GameInstallation &installation) {
 	generateTestSave(installation,"m96-chest",dir/"chest.mmsave");const auto chest=XeenSaveFile::read(dir/"chest.mmsave");
 	dos_export_test::compare(projectDosSave(installation,chest,"Chest"),base,chest);
 	check(!chest.maps.empty(),"Chest preset has no overlays");
+	generateTestSave(installation,"m97-open-chest",dir/"open-chest.mmsave");
+	const auto open=XeenSaveFile::read(dir/"open-chest.mmsave");
+	const auto openPair=projectDosSave(installation,open,"Open Chest");
+	dos_export_test::compare(openPair,base,open);
+	const auto opened=XeenMapFormat::parseMob(bytes(openPair.clouds,"maze0009.mob"));
+	check(opened.objects.at(1).x==15 && opened.objects.at(1).y==11 && opened.objects.at(1).tableIndex==4 && opened.objectTable[4]==62,"Strong-party preset exports original open chest");
+	{
+		wchar_t executable[32768];check(GetModuleFileNameW(nullptr,executable,32768)!=0,"Locate test executable");
+		const auto box=dir/"box";
+		exportDosBoxSave(installation,input,box,1,"Box",false,std::nullopt,executable,std::nullopt);
+		const auto world=box/"pristine"/"WORLD";
+		check(read(world/"XEEN.CUR")==writeDosArchive(base.clouds) && read(world/"DARK.CUR")==writeDosArchive(base.darkside),"DOSBox New Game CUR seed");
+		check(!fs::exists(world/"XEEN.CFG") && fs::exists(world/"XEEN01.WOX") && fs::exists(world/"DARK01.WOX"),"DOSBox pair and default CFG");
+		for(const char *file:{"start.cmd","start.ps1","dosbox.conf"}) {
+			const auto text=read(box/file);
+			for(std::size_t i=0;i<text.size();++i)if(text[i]=='\n')check(i && text[i-1]=='\r',"DOSBox launcher and profile CRLF");
+		}
+		fs::create_directories(box/"overlay"/"WORLD");raw(box/"overlay"/"WORLD"/"saved.wox",{1,2,3});
+		const auto command=L"powershell.exe -NoProfile -ExecutionPolicy Bypass -File \""+(box/"start.ps1").wstring()+L"\" >NUL";
+		check(_wsystem(command.c_str())==0,"DOSBox launcher reset");
+		check(fs::exists(box/"overlay"/"WORLD"/"XEEN01.WOX") && !fs::exists(box/"overlay"/"WORLD"/"saved.wox"),"DOSBox overlay reset");
+		unsigned backups=0;for(const auto &entry:fs::directory_iterator(box/"runs")) {check(read(entry.path()/"WORLD"/"saved.wox")==DosBytes({1,2,3}),"DOSBox backup contents");++backups;}
+		check(backups==1,"DOSBox one dated backup");
+		rejects([&]{exportDosBoxSave(installation,input,box,1,"Box",false,std::nullopt,executable,std::nullopt);},"exists");
+		const auto custom=dir/"custom.cfg";raw(custom,{9,8,7});
+		exportDosBoxSave(installation,input,box,1,"Box",true,std::nullopt,executable,custom);
+		check(read(world/"XEEN.CFG")==DosBytes({9,8,7}),"Explicit CFG seed");
+		exportDosBoxSave(installation,input,box,1,"Box",true,std::nullopt,executable,std::nullopt);
+		check(!fs::exists(world/"XEEN.CFG"),"Default removes prior CFG seed");
+		const auto beforeX=read(world/"XEEN01.WOX"),beforeD=read(world/"DARK01.WOX"),beforeCur=read(world/"DARK.CUR"),beforeCmd=read(box/"start.cmd");
+		const HANDLE lockedCur=CreateFileW((world/"DARK.CUR").c_str(),GENERIC_READ,FILE_SHARE_READ,nullptr,OPEN_EXISTING,FILE_ATTRIBUTE_NORMAL,nullptr);
+		check(lockedCur!=INVALID_HANDLE_VALUE,"Lock CUR for DOSBox rollback");
+		try {rejects([&]{exportDosBoxSave(installation,input,box,1,"Changed",true,std::nullopt,executable,std::nullopt);},"");}
+		catch(...) {CloseHandle(lockedCur);throw;}
+		CloseHandle(lockedCur);
+		check(read(world/"XEEN01.WOX")==beforeX && read(world/"DARK01.WOX")==beforeD && read(world/"DARK.CUR")==beforeCur && read(box/"start.cmd")==beforeCmd,"DOSBox publication failure rolls back all files");
+		{Junction alias(dir/"box-game-link",installation.root);
+			rejects([&]{exportDosBoxSave(installation,input,alias.path/"bad",1,"Box",false,std::nullopt,executable,std::nullopt);},"installation");}
+		const auto redirected=dir/"box-redirect";fs::create_directory(redirected);
+		{Junction alias(redirected/"overlay",installation.root);
+			rejects([&]{exportDosBoxSave(installation,input,redirected,1,"Box",false,std::nullopt,executable,std::nullopt);},"installation");
+			check(!fs::exists(redirected/"pristine"),"Redirected overlay leaves no seed");}
+		const auto runtime=dir/"box-runtime";
+		exportDosBoxSave(installation,input,runtime,1,"Box",false,std::nullopt,executable,std::nullopt);
+		{Junction alias(runtime/"overlay",installation.root);
+			const auto guard=L"powershell.exe -NoProfile -ExecutionPolicy Bypass -File \""+(runtime/"start.ps1").wstring()+L"\" >NUL 2>&1";
+			check(_wsystem(guard.c_str())!=0,"Launcher refuses redirected overlay");}
+		rejects([&]{exportDosBoxSave(installation,input,dir/"missing-cfg-box",1,"Box",false,std::nullopt,executable,dir/"missing.cfg");},"CFG");
+		check(!fs::exists(dir/"missing-cfg-box"),"Missing CFG leaves no seed");
+		auto wrong=installation;wrong.edition=GameEdition::CloudsOfXeen;
+		rejects([&]{exportDosBoxSave(wrong,input,dir/"wrong-profile",1,"Box",false,std::nullopt,executable,std::nullopt);},"CD World");
+		rejects([&]{exportDosBoxSave(installation,input,dir/"missing-box",1,"Box",false,std::nullopt,dir/"absent.exe",std::nullopt);},"DOSBox executable");
+		check(!fs::exists(dir/"wrong-profile") && !fs::exists(dir/"missing-box"),"Invalid DOSBox profile leaves no seed");
+		const auto cli=fs::path(executable).parent_path()/"mmodern_dos_export.exe", cliBox=dir/"cli-box";
+		const auto cliCommand=L"\"\""+cli.wstring()+L"\" \""+installation.root.wstring()+L"\" \""+input.wstring()+L"\" \""+cliBox.wstring()+L"\" --slot 1 --name CLI --place darkside 29 10 10 north --dosbox \""+std::wstring(executable)+L"\" --cfg \""+custom.wstring()+L"\" >NUL\"";
+		check(_wsystem(cliCommand.c_str())==0 && read(cliBox/"pristine"/"WORLD"/"XEEN.CFG")==DosBytes({9,8,7}),"CLI placement, DOSBox and CFG options");
+		const auto cliPair=readDosPair(cliBox/"pristine"/"WORLD","1");
+		auto named=cliPair.darkside;nameDosMembers(named);
+		check(bytes(named,"maze.pty")[13]==29 && bytes(named,"maze.nam")[29]==1,"CLI Darkside destination");
+	}
 	std::cout<<"Original New Game, canonical DOS order, DARK reader, chest, restore/path refusals, atomic pair and determinism passed\n";
 	check(removeTestTree(dir),"M97 test working tree cleanup");
 }

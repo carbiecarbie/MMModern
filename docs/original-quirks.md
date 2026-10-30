@@ -1516,3 +1516,18 @@ voice tails can delay response. World frames ignore ordinary key results
 keyboard/mouse cancellation. DOS is the fidelity rule; maintainer runtime
 checks remain distinct from this static evidence. Master not rechecked.
 `XeenDarksideIntro.cpp` and `XeenCutsceneFlow.cpp` own the input boundaries.
+
+**World's Clouds party replica is stale.** A native paired save reads the live
+party from DARK; XEEN's CHR and PTY retain a separate, stale replica. A zero
+NAM byte 30 instead triggers legacy conversion, which rebuilds the party from
+XEEN and regenerates wares (`WORLD/XEEN.DAT` `0xd6f7..0xd8bf`,
+`0xdaea..0xdb57`; calibrated against two failed and one passing DOSBox runs).
+`tools/XeenDosExport.cpp` preserves the New Game XEEN replica and writes a
+matching nonzero pair marker. See [DOS saves](rules/dos-saves.md).
+
+**CC member names can alias.** `mazex004.dat` and `mazex100.dat` have the
+same file ID. The exporter identifies a DAT by its embedded map number rather
+than guessing a name from its hash; DOS fails on a missing member
+(`WORLD/XEEN.DAT` `0x45fa8 -> 0x45c8a`). The CC index codec was calibrated at
+`0x45d00..0x45d91` and round-tripped all 24 investigated archives. See
+`tools/XeenDosArchive.cpp` and [DOS saves](rules/dos-saves.md).

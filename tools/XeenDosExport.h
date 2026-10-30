@@ -8,11 +8,18 @@ inline constexpr unsigned kDosExportNameLimit=15; // Maintainer decision, 2026-1
 bool validDosExportName(const std::string &) noexcept;
 DosBytes dosExportNam(const std::string &);
 struct DosExportPair {DosMembers clouds, darkside;};
+struct DosPlace { XeenSide side; unsigned map, x, y; XeenDirection facing; };
 DosExportPair dosNewGame(const GameInstallation &);
 // Restores through the gameplay owners before any byte projection.
 DosExportPair projectDosSave(const GameInstallation &,const XeenSaveSnapshot &,const std::string &name);
+void placeDosParty(const GameInstallation &,const XeenSaveSnapshot &,DosExportPair &,const DosPlace &);
 std::string dosProjectionSummary();
 void exportDosSave(const GameInstallation &,const std::filesystem::path &input,
-	const std::filesystem::path &output,unsigned slot,const std::string &name,bool overwrite=false);
+	const std::filesystem::path &output,unsigned slot,const std::string &name,bool overwrite=false,
+	const std::optional<DosPlace> &place=std::nullopt);
+void exportDosBoxSave(const GameInstallation &,const std::filesystem::path &input,
+	const std::filesystem::path &output,unsigned slot,const std::string &name,bool overwrite,
+	const std::optional<DosPlace> &place,const std::filesystem::path &dosbox,
+	const std::optional<std::filesystem::path> &cfg);
 }
 #endif
