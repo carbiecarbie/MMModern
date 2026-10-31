@@ -46,7 +46,9 @@ and the ending opcodes (57, 58) stay out (steps 3 and 4).
   keys) and jumps to the chosen line. FallToMap ends the Event and starts
   the fall through `XeenEventFlow::beginFall`, reusing the M86 presentation
   and arrival rules
-  ([time and conditions](rules/time-and-conditions.md)).
+  ([time and conditions](rules/time-and-conditions.md)). Damage is the byte
+  DOS reads after the record; the three records that read past their Event
+  resource use 0 ([approved deviation](original-quirks.md#dev-fall-damage-zero)).
 - [ ] **Part C - ConfirmWord_2, MoveWallObj, map-29 IfMapFlag.** Each as
   Part 0 settles it, on the existing ConfirmWord, wall-item and IfMapFlag
   paths.

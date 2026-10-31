@@ -374,7 +374,9 @@ against the pin; master was not rechecked.
   finding; pin: differs; master not rechecked.
 - **Scripted fall damage.** DOS reads past the CD's three-parameter records,
   usually taking the next record's length as damage; the pin supplies zero.
-  Three end-of-resource values remain unknown, with no fallback approved.
+  Three end-of-resource reads take a history-dependent byte in DOS;
+  MMModern uses zero there, as the pin does
+  ([approved deviation](original-quirks.md#dev-fall-damage-zero)).
   [Evidence](original-quirks.md#sv-darkside-fall-damage). M103 Part 0
   finding; pin: differs for the settled reads; master not rechecked.
 - **Unused wall slots.** Seven Darkside Events write invisible, unsaved DOS

@@ -1479,7 +1479,8 @@ Dwarf site rows
 ## Darkside Events (M103 Part 0)
 
 **Status: calibrated DOS static, high confidence within the boundaries below;
-three end-of-resource fall damage values remain Unknown (2026-10-31).**
+three end-of-resource fall damage reads are history-dependent, with no
+single DOS value (2026-10-31).**
 Baseline: `main` / `origin/main` at
 `c78ed9451b3efd38cfb7393076feee2e499fd23b`. The installed DAT's size and
 SHA-256 were rechecked against [Exact baseline](#exact-baseline), and the
@@ -1673,12 +1674,83 @@ the missing parameter; explicit high damage bytes would also be unsigned.
 
 Three final records instead read beyond their member: map 51 `EVT @1050`,
 size 1059, destination 49 `(9,6)`; map 89 `@235`, size 244, destination 25
-`(1,1)`; map 92 `@274`, size 283, destination 28 `(1,1)`. **Unknown:** the
-damage value for these reads. EVT loading retains the member size
-(`0x21f73..0x21f86`); each dispatch copies just that size to shared scratch
-(`0x26ad1..0x26ae6`, copy `0x3f877..0x3f90a`), without clearing a following
-byte. No zero, fixed damage, or adjacent archive byte can be assumed.
-This is a maintainer question, not a condition-counter fallback to ScummVM.
+`(1,1)`; map 92 `@274`, size 283, destination 28 `(1,1)`. EVT loading
+retains the member size (`0x21f73..0x21f86`); each dispatch copies just that
+size to shared scratch (`0x26ad1..0x26ae6`, copy `0x3f877..0x3f90a`),
+without clearing a following byte. **DOS has no single damage value for
+these reads:** the follow-up below shows the byte is left by earlier
+activity. This is a maintainer question, not a condition-counter fallback
+to ScummVM.
+
+#### End-of-resource reads (follow-up)
+
+**Status: calibrated DOS static, high confidence for the mechanism; the
+value is history- and memory-configuration-dependent (2026-10-31).** Same
+DAT hash. Tools: Capstone 5.0.7 bounded reads at file offsets, and REA
+6.7.0 with Ghidra 12.1.4 under WSL (the Windows REA host rejects DOS MZ
+targets). Work files and the exported bundle stay outside the repository in
+`D:/Projetos/MModern/MModern-re/m103/fall-damage/`.
+
+- **Scratch.** The Event buffer is the far pointer `DS:9c62`, written only
+  at startup (`0xb801..0xb80a`) by memory-manager routine `0x45c2a`, its
+  sole caller. That returns offset zero of the EMS page frame when EMS is
+  present (INT 67h page-frame query `0x3fb20..0x3fb28`, flag `0x3fb44`),
+  otherwise of the 64 KB conventional XMS staging block
+  (`0x3fb95..0x3fb9b`). It lasts the whole run and is never cleared.
+  Handle storage is XMS when an XMS driver locks its block
+  (`0x3fab8..0x3fae2`),
+  otherwise EMS (`0x3fb72`, `0x3fb8e`).
+- **Writers.** Nine sites copy the current map's Event handle into it with
+  the member size: `0xddd1`, `0xde1b`, `0xde5a`, `0x1186b`, `0x21dbd`,
+  `0x25c8c`, `0x26627`, `0x26ae1` and `0x28a12`. The other two callers of
+  `0x3f877` (`0x26d32`, `0x26e11`) target a different buffer. The size word
+  is set only at `0x21f86`, from the loader's member length (`0x4000a`,
+  `0x400eb`). The copy loops are exact (`0x3f89f..0x3f8c9`,
+  `0x3f8db..0x3f905`), so no site writes offset `size`. In XMS mode,
+  fetches and loads move whole words through the staging block (INT 15h
+  AH=87h, `0x402a3..0x402af`, `0x402f4..0x40300`), and XMS slots are packed
+  by exact size (`0x3ffbe..0x3ffd2`). The Event handle is a fixed slot,
+  first filled at startup by `029.obj` (`0xb45b..0xb469`) and then by each
+  map's Events (`0x21f73`).
+- **Result.** With EMS and XMS, as in DOSBox's default, the scratch is the
+  page frame and only these copies write it: the byte is offset `size` of
+  the most recently copied longer Event member (normally a previously
+  visited map) or the frame's earlier contents. With EMS only, it is the
+  Event slot's leftover from `029.obj` or an earlier longer member. With
+  XMS only, the scratch is the staging block that every XMS fetch rewrites:
+  map 89's even size reads that leftover, while the odd sizes of maps 51
+  and 92 read the slot byte carried by the rounded word move. Arrival
+  route, save loading and memory configuration therefore change the damage.
+  As an illustration, the other installed Event members hold 30, 40 and 37
+  distinct values, including zero, at offsets 1059, 244 and 283.
+- **Calibration.** The model reproduces Part 0's 217 in-member reads: every
+  copy rewrites `[0,size)` from the current member before the index builder
+  (`0x21ea0..0x21ebe`) and dispatch read it. It also explains the re-copy
+  `0x28a02..0x28a17` after ChooseNumeric's calibrated `0x289f3 -> 0x24c71`
+  call: the scratch is a shared window, not a private Event copy.
+- **REA cross-check.** The exported bundle holds 29 records. Its 22 byte
+  reads match the file at every cited range except the MZ-relocated segment
+  words (+0x1000); REA addresses are file offsets plus `0xa940`.
+  Representative records: page-frame query
+  `ev_7c27f5a01e044b666aaeee63097fcdfe70a161e242a48d77668f7dda5e311631`;
+  scratch selector
+  `ev_ccad49368cb88afda135430a97ec87bf6c0ffd616eb0f67e9e854d32ca18dc11`;
+  pointer setup
+  `ev_30fd060a738a90e4d9d228240cb9bb9f1c96fd6f5e1577a8e8eeb68688979a82`;
+  exact copy
+  `ev_23072116e7fb73fe6913952309d8780f62f5932069527f7e27ef9c877fc14149`;
+  word move
+  `ev_f6138629781c26686ad757d18e2c1cc9ee6e8597bffd880d652aa61d0f479b88`;
+  dispatch copy
+  `ev_78603d6d569acb929842b0c7d24372d6a37d44f0645b02ee8c92ec4bb34fffff`;
+  FallToMap read
+  `ev_0c702447133f15bc5098ee85da93caddf0028d5f5dd851a4ab3c81f4448453c9`.
+
+**Unknown as a single value:** no DOS rule yields one damage for these
+three records. Modeling the scratch history would need new saved state and
+would still depend on the memory configuration, so the maintainer approved
+base damage 0 for them
+([deviation](../original-quirks.md#dev-fall-damage-zero)).
 
 ### ConfirmWord_2 (55)
 
