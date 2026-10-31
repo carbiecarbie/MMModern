@@ -152,13 +152,12 @@ nonzero.
 widths (M81 Part 0).** No Clouds monster uses drop fields 7-21. The DOS chance
 lookup (`0x2c37a..0x2c39a`, base `0x4d650`) has no bound: 7-17 read zero and
 18-21 read 5/4/5/5 from the bytes after the table (`0x4d661..0x4d664`); the pin
-uses zero. Neither establishes item generation at those levels, so MMModern
-refuses such a record (`XeenMonsterRecord::dropLevel`, checked with the attack
-capabilities before any draw); no Clouds record is affected. Darkside's Doom
-Knight and Sandro use field 7 and are refused until Darkside gameplay. Staged and purse gold and gems are 32-bit add/carry sums without
+uses zero. Darkside's Doom Knight and Sandro use field 7: it consumes a chance
+draw and drops no item. MMModern refuses fields 8 and above
+(`XeenMonsterRecord::dropLevel`, checked before any draw). Staged and purse gold and gems are 32-bit add/carry sums without
 saturation (`0x2c2c2..0x2c307`, `0x2486a..0x24884`); MMModern keeps the same
 widths, wrapping modulo 2^32. [Evidence](rules/evidence.md#m81-monster-treasure).
-**ScummVM:** differs only on fields outside the original Clouds records.
+**ScummVM:** differs only on fields above 7, outside the original Clouds and Darkside records.
 
 ## Unconfirmed in DOS, following the reference
 

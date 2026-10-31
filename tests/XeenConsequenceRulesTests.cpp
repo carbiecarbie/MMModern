@@ -680,14 +680,18 @@ void recordDrops() {
  XeenCombatRandom arena(std::vector<D>{});
  XeenMonsterDropCandidate guarded(dormant,record(300,7,4),XeenMapIdentity(85));finish(guarded,arena,1);
  check(!arena.position() && guarded.outcome==Outcome::None && guarded.treasure==dormant,"Arena kill staged treasure or drew");
- // Fields above 6 (unused by Clouds) are refused before any draw.
- for(unsigned field:{7u,17u,21u,255u}) {
+ XeenCombatRandom zeroChance(std::vector<D>{{1,100,1}});
+ XeenMonsterDropCandidate fieldSeven(XeenTreasureStaging{},record(0,0,7),XeenMapIdentity(XeenSide::Darkside,35));
+ finish(fieldSeven,zeroChance,1);
+ check(zeroChance.position()==1 && fieldSeven.outcome==Outcome::None && !fieldSeven.treasure.pending(),"Field 7 draws once and drops nothing");
+ // Fields above 7 are refused before any draw.
+ for(unsigned field:{8u,17u,21u,255u}) {
   const auto bad=record(10,0,field);
   rejects([&]{(void)bad.dropLevel();});rejects([&]{bad.validateAttackCapabilities();});
   rejects([&]{XeenMonsterDropCandidate refused(XeenTreasureStaging{},bad,map);});
   rejects([&]{XeenMonsterDropCandidate refused(XeenTreasureStaging{},bad,XeenMapIdentity(85));});
  }
- for(unsigned field=0;field<=6;++field){const auto good=record(0,0,field);check(good.dropLevel()==field,"Drop level accessor");good.validateAttackCapabilities();}
+ for(unsigned field=0;field<=7;++field){const auto good=record(0,0,field);check(good.dropLevel()==field,"Drop level accessor");good.validateAttackCapabilities();}
 }
 // M81 Part C: WhoWill (DOS 47c9:0008) lives in the staging value. Mutations
 // caught: Run, Load or New Game clearing it, equality ignoring it, a delivery

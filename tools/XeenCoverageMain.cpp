@@ -121,7 +121,9 @@ void monster(Census &c,const XeenMonsterRecord &m,unsigned index,unsigned map,st
     if(m.raw[45]) {
         // The generic lethal drop (M81) reads the record's drop field; item
         // identity still depends on runtime RNG.
-        Support drop{Status::Supported,"XeenMonsterDropCandidate stages this level through XeenItemCandidate; item identity depends on runtime RNG"};
+        Support drop{Status::Supported,m.raw[45]==7 ?
+            "XeenMonsterDropCandidate makes one chance draw; field 7 has zero item chance" :
+            "XeenMonsterDropCandidate stages this level through XeenItemCandidate; item identity depends on runtime RNG"};
         try {(void)XeenMonsterDropCandidate(XeenTreasureStaging{},m,XeenMapIdentity(static_cast<std::uint16_t>(map)));}catch(const std::exception &e) {drop={Status::Unsupported,e.what()};}
         c.add("Items","Monster random treasure level="+std::to_string(m.raw[45]),drop,map,count,source);
     }

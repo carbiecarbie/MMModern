@@ -22,7 +22,7 @@ std::uint16_t XeenMonsterRecord::baseHp() const { return word(*this, 20); }
 std::uint16_t XeenMonsterRecord::strikes() const { return word(*this, 26); }
 std::uint16_t XeenMonsterRecord::gold() const { return word(*this, 42); }
 unsigned XeenMonsterRecord::dropLevel() const {
-	if (raw[45] > 6) throw std::invalid_argument("Monster drop field above 6 not supported yet");
+	if (raw[45] > 7) throw std::invalid_argument("Monster drop field above 7 not supported yet");
 	return raw[45];
 }
 bool XeenMonsterRecord::supportsMovement() const { return baseHp()!=0 && raw[32]==0 && raw[46]==0; }
@@ -67,7 +67,7 @@ void XeenMonsterRecord::validateAttackCapabilities() const {
 		(attacks() && (!strikes() || !damageDie())) ||
 		(damageType()==0 && attacks() && !hitParameter()))
 		throw std::invalid_argument("Monster attack capability not supported yet");
-	// M81: refuse a drop field above 6 before any target selection or draw.
+	// Refuse a drop field above 7 before any target selection or draw.
 	(void)dropLevel();
 }
 } // namespace mmodern

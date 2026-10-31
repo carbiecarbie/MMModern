@@ -294,10 +294,9 @@ M83 follows the installed digital driver and CD rules:
   pending treasure around Events only when the bitwise `gold & gems` is nonzero,
   so for example 5 gold and 2 gems are not saved. [Evidence](original-quirks.md#sv-event-loot-stash). Pin:
   differs; master not rechecked.
-- **Unused monster drop fields.** No Clouds monster uses drop fields 7-21; the
-  pin gives them a zero chance, while MMModern refuses such a record as not
-  supported yet, before any draw. No Clouds record is affected; Darkside's Doom
-  Knight and Sandro use field 7 and are refused until Darkside gameplay.
+- **Unused monster drop fields.** The pin gives fields 8-21 zero chance, while
+  MMModern refuses them before any draw. Field 7, used by Darkside's Doom
+  Knight and Sandro, draws once and drops nothing.
   [Evidence](original-quirks.md#sv-unused-drop-fields). Pin: differs; master
   not rechecked.
 - **Miscellaneous monster drops.** A monster can drop a miscellaneous item,

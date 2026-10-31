@@ -39,7 +39,7 @@ void XeenTreasureStagingState::check(std::uint64_t base) const {
 }
 namespace {
 // Drop chance by field (lookup 0x4d650): 10/20/50%, then 100% for fields 4-6.
-constexpr std::array<unsigned,7> kDropChance{0,10,20,50,100,100,100};
+constexpr std::array<unsigned,8> kDropChance{0,10,20,50,100,100,100,0};
 }
 // Arena map 85 leaves after XP, before any currency or draw (0x2c283..0x2c28a).
 // Otherwise fixed gold and gems accumulate before the chance draw
