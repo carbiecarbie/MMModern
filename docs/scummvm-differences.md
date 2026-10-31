@@ -682,9 +682,10 @@ ScummVM plays the whole game today; MMModern is young. The full list of gaps is
 in [project status](project-status.md#known-gaps):
 
 - **The whole game:** Clouds of Xeen is playable from its intro to its
-  ending, except the Pyramid entrance and the mirror words `showdown` and
-  `genesis` (the Darkside and World endings). Darkside ordinary maps are admitted; its town services and cross-side
-  travel remain deferred.
+  ending, except the mirror words `showdown` and `genesis` (the Darkside
+  and World endings). Darkside is reached through the Pyramids and its
+  ordinary maps play; its town services and many of its mechanics remain
+  deferred.
 - **Sound:** CD `promus` and the mono `admus`, `blastmus` and authenticated
   INTRO `specmus` OPL profiles are supported, as is MT-32 `rolmus` with the
   player's 1.07 control and PCM ROMs. Music 5/7/8/9 and digital 1/2/5/8/9 use

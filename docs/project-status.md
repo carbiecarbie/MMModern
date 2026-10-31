@@ -1,11 +1,11 @@
 # MMModern - Project Status
 
-This describes what can be played and done now. M100 is the latest
-completed and accepted milestone (2026-10-30; [plan](milestone-100-plan.md)):
-the release launcher shows the game data, sound devices, MT-32 ROMs and save
-folder, chooses the sound devices as the original installer did, and starts
-the game without a console while it writes a log. Before it, M99 gave the
-picture the 4:3 shape of the original's monitors, M98 made a party with a
+This describes what can be played and done now. M101 is the latest
+completed and accepted milestone (2026-10-30; [plan](milestone-101-plan.md)):
+the Darkside start. A party crosses to Darkside through the Pyramids and
+back, plays its ordinary maps with every mechanic MMModern already has, and
+saves and loads on either side. Before it, M100 gave the release a launcher
+window with the sound devices and a log, M99 gave the picture the 4:3 shape of the original's monitors, M98 made a party with a
 Cartographer mark its cell on the maps at every arrival, as in DOS, M97
 added a developer tool that writes an MMModern Clouds save as an original DOS
 save, M96 kept picked chests open as in DOS, M95 followed up the Clouds audit, M94 played the original AdLib, Sound
@@ -23,7 +23,9 @@ approved deviations are listed in
 [original quirks](original-quirks.md#approved-deviations). It does not replace
 them yet. A new game of Might and Magic IV: Clouds of Xeen, read from the
 World of Xeen two-CD talkie edition, starts as in the original, and every
-Clouds map is playable. Darkside gameplay is not supported.
+Clouds map is playable. Darkside is reached through the Pyramids, as in the
+CD; its ordinary maps play, while its town services and the mechanics only
+Darkside uses say "not supported yet".
 
 ## What can be played
 
@@ -52,8 +54,8 @@ game from the same slot list.
 - Monsters wake, approach and attack on the original rules, with every
   attack, secondary effect and movement kind in the original data, ranged and
   flying included. Every map load rebuilds them at full HP and asleep.
-- Every Event operation the Clouds scripts use runs as in the original,
-  except the Pyramid, which says "not supported yet". As in DOS, a cell's
+- Every Event operation the Clouds scripts use runs as in the original. As
+  in DOS, a cell's
   Events run again after every key or click while the party stands on it,
   Space interacts and then waits, and an Event a monster interrupts runs once
   the fight ends ([Event dispatch](rules/world-events.md#event-dispatch)).
@@ -64,6 +66,15 @@ game from the same slot list.
   original animations and speech, with captions when Efx is off. The Dwarf
   Mine always admits the party, the others need the right quest item, and the
   four entrances whose keys only Darkside gives always refuse.
+- The Pyramids join the two sides as in the World of Xeen CD, without the
+  CD's disc-change prompt
+  ([approved deviation](original-quirks.md#dev-no-disc-prompt)). Every
+  ordinary Darkside map loads from DARK.CC with its own monsters, pictures,
+  Events, text and music; game and quest flags are kept per side, quest
+  items and character flags are shared. Town Portal, Lloyd's Beacon and Mr
+  Wizard follow the side, Town Portal on Darkside with the CD's
+  [fixed arrivals](original-quirks.md#sv-darkside-town-portal-stride), and a
+  party defeated on Darkside hears Alamar laugh and returns to the title.
 - In the Warzone Arena the Battle Master offers fights of a chosen level and
   size. Each win adds to every member's Warzone award, up to 99, and the game
   cannot be saved in the Warzone.
@@ -248,8 +259,10 @@ directories.
 
 ## Save format
 
-There is one current save format, v22. It holds the party with every roster
-record in full, its sound options, play time and Clouds completion, whether
+There is one current save format, v23. It holds the party with every roster
+record in full, both sides' flags, its sound options, play time and Clouds
+completion, the selected Darkside song (Load replays it without a draw,
+an [approved deviation](original-quirks.md#dev-darkside-load-music)), whether
 the party is inside the Inn (where it may be empty), the world, and one state
 per visited map: monster positions and lifecycle, moved and opened objects,
 changed cells, disabled Events, explored cells and the Tavern tip index.
@@ -260,8 +273,8 @@ recognizable older MMModern save. Saves are tied to the original archives by
 fingerprint, written atomically, and not compatible with the original games or
 ScummVM.
 The game does not read DOS saves. For evidence, the developer tool
-`mmodern_dos_export` writes a Clouds save as an original DOS slot pair, with
-fields MMModern does not hold kept at their New Game values
+`mmodern_dos_export` writes a Clouds or Darkside save as an original DOS slot
+pair, with fields MMModern does not hold kept at their New Game values
 ([DOS saves](rules/dos-saves.md)).
 
 ## Architecture overview
@@ -315,9 +328,8 @@ the original data uses and its support status.
 
 ## Known gaps
 
-- Scenes and commands: the Pyramid entrance and the mirror words
-  `showdown` and `genesis` (the Darkside and World endings) say "not
-  supported yet".
+- Scenes and commands: the mirror words `showdown` and `genesis` (the
+  Darkside and World endings) say "not supported yet".
 - Sound: the Canvas/GS, PC speaker, Wave Blaster and TAP-10 music
   drivers, and the PC speaker, AdLib, Disney Sound Source, Pro Audio
   Spectrum and Covox digital drivers, are silent with a notice.
@@ -325,6 +337,10 @@ the original data uses and its support status.
   omitted by maintainer decision. SDL's resampler plays FM and CD audio up
   to about 0.07% fast, which is inaudible
   ([audio rules](rules/audio.md#sdl-resampler-rate-limitation)).
-- Darkside gameplay is not supported.
+- Darkside: the town services (Bank, Smithy, Guild, Tavern and Inn,
+  Temple, Training and the Dwarf town), the mechanics in the
+  [census's Darkside gaps](coverage.md#darkside-largest-gaps), the Clouds
+  entrances that need Darkside keys (the mixed maps 113-128), FlipWorld and
+  the endings say "not supported yet".
 
 Next steps are in the [roadmap](roadmap.md).

@@ -302,3 +302,13 @@ asks the original installer's questions and writes an MMModern-owned
 `XEEN.CFG`, so MT-32 can be chosen; the installed file is never changed.
 The game writes a log, `mmodern --diagnostics` prints a report for bug
 reports, and GitHub has an issue template. [Plan](milestone-100-plan.md).
+
+**M101 - Darkside start** (`86821a6`, `21cd4ec`). The party holds both sides'
+state: game and quest flags per side, the 85 quest counters and the
+character flags shared. Every ordinary Darkside map loads from DARK.CC, and
+save v23 keeps both sides and the selected Darkside song. The Pyramids carry
+the party between Clouds and Darkside as in the CD, without its
+disc-change prompt; Town Portal, Lloyd's Beacon, Mr Wizard and defeat follow
+the side, and the DOS export writes Darkside progress, which DOS loaded and
+re-saved. The Darkside town services wait for M102.
+[Plan](milestone-101-plan.md).

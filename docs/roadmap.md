@@ -1,6 +1,6 @@
 # MMModern - Roadmap
 
-**M100 is the latest completed and accepted milestone.**
+**M101 is the latest completed and accepted milestone.**
 [Project status](project-status.md) describes what is playable now;
 [project history](project-history.md) records each completed milestone.
 Reference provenance belongs to [dependencies](dependencies.md).
@@ -32,7 +32,8 @@ chests stay open in DOS, which M96 added, and M97 added a tool that exports
 MMModern saves to DOS. Its play-test led to M98, which makes a Cartographer
 party mark its cell at every arrival. M99 then gave the picture the 4:3
 shape of the original's monitors, and M100 added the launcher window, the
-installer's sound setup, a log file and an issue template.
+installer's sound setup, a log file and an issue template. M101 then started
+Darkside: both sides' state, save v23 and the Pyramids between the sides.
 
 ## Completed arc: closing Vertigo and the first release
 
@@ -98,8 +99,8 @@ five digital drivers silent with a notice, their open questions recorded in
 the [M94 plan](milestone-94-plan.md#scope). A switch between devices while
 playing would be an opt-in approved deviation (maintainer, 2026-10-21).
 
-The Pyramid and the Darkside and World endings (`showdown`, `genesis`) wait
-for the Darkside arc.
+The Darkside and World endings (`showdown`, `genesis`) wait for the
+Darkside arc; M101 added the Pyramid.
 
 ## Next arc: release quality and the Darkside start
 
@@ -145,10 +146,11 @@ this order; steps are direction, not approved plans.
    both sides, with Darkside progress in the DOS save export as one of the
    first tasks, then Darkside's mechanics in order of
    [census](coverage.md#darkside-largest-gaps) impact.
-   [M101](milestone-101-plan.md) is planned: both sides' state, save v23, the
-   Darkside export and the original Pyramid between the sides, so that
-   Darkside is reached in ordinary play (maintainer, 2026-10-30). The
-   Darkside towns' services are proposed next.
+   Started: [M101](milestone-101-plan.md) added both sides' state, save
+   v23, the Darkside export and the original Pyramid between the sides, so
+   that Darkside is reached in ordinary play. The Darkside towns' services
+   (Bank, Smithy, Guild, Tavern and Inn, Temple, Training and the Dwarf
+   town) are proposed next, as M102.
 
 ## Medium term: Darkside and World of Xeen
 
