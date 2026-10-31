@@ -22,14 +22,14 @@ enum class XeenMovementResult {
 
 class XeenMovement {
 public:
-	// The admitted ordinary Clouds capability value. Other abilities require
+	// The party's ordinary traversal capabilities. Other abilities require
 	// their actual consumers rather than silently changing this predicate.
 	struct Capabilities {
 		bool swimming = false, walkOnWater = false, mountaineer = false, pathfinder = false;
 	};
 	static Capabilities capabilities(const XeenPartyState &);
 	static XeenMovementResult outdoorDestination(const XeenMapGeometry &geometry,
-		const XeenMapCell &cell, Capabilities capabilities);
+		const XeenMapCell &cell, Capabilities capabilities, XeenSide side);
 	static XeenMovementResult localOutdoor(const XeenMap &map, int fromX, int fromY,
 		int toX, int toY, Capabilities capabilities);
 	static std::bitset<256> component(const XeenMap &map, int anchorX, int anchorY,

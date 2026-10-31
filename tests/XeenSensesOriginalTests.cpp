@@ -124,8 +124,17 @@ void presentation(Inputs &in) {
     const XeenDialogSpriteDraw draw=[&](auto &frame,const char *name,unsigned index,int x,int y) {
         sprites.emplace_back(name,index,x,y);in.assets.drawDialogSprite(frame,name,index,x,y);
     };
-    (void)drawXeenSpellInformation(in.assets.uiText(),base,in.font,detect,draw);
-    check(sprites.size()==4 && sprites[1]==std::make_tuple(std::string("detctmon.icn"),3u,244,81) && sprites[2]==std::make_tuple(std::string("detctmon.icn"),2u,298,123),"Detection original marker geometry");
+    for(auto side:{XeenSide::Clouds,XeenSide::Darkside}) {
+        auto info=*R::information(XeenLearnedSpell::DetectMonster,{{side,29},8,8,XeenDirection::West},{},{});
+        check(info.side==side,"Detection information lost its gameplay side");info.grid=detect.grid;sprites.clear();
+        const XeenDialogSpriteDraw sideDraw=[&](auto &frame,const char *name,unsigned index,int x,int y) {
+            sprites.emplace_back(name,index,x,y);in.assets.drawDialogSprite(frame,name,index,x,y,xeenPictureArchive({side,29}));
+        };
+        (void)drawXeenSpellInformation(in.assets.uiText(),base,in.font,info,sideDraw);
+        const std::string picture=side==XeenSide::Darkside?"detectmn.icn":"detctmon.icn";
+        check(sprites.size()==4 && sprites[0]==std::make_tuple(picture,0u,243,80) &&
+            sprites[1]==std::make_tuple(picture,3u,244,81) && sprites[2]==std::make_tuple(picture,2u,298,123),"Detection side picture and original marker geometry");
+    }
     XeenSpellInformation identify;identify.monsters[0]=XeenSpellInformation::Monster{"Goblin",1234,12,3,0};
     (void)drawXeenSpellInformation(in.assets.uiText(),base,in.font,identify,draw);
     XeenGameplayContext context;context.lightAndResistances[0]=4;context.effects[XeenPartyEffect::Clairvoyance]=context.effects[XeenPartyEffect::Levitate]=context.effects[XeenPartyEffect::WalkOnWater]=1;

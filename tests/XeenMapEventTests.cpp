@@ -3,6 +3,8 @@
 #include "games/xeen/XeenEventInterpreter.h"
 #include "games/xeen/XeenStateEquality.h"
 #include "games/xeen/XeenIndoorScene.h"
+#include "games/xeen/XeenRegionalRules.h"
+#include "XeenSaveTestSupport.h"
 #include <algorithm>
 #include <iostream>
 #include <stdexcept>
@@ -45,8 +47,10 @@ XeenObjectFile mob(XeenMapIdentity id) {
  return f;
 }
 struct Fixture {
- XeenWorld source{tile,mob};std::unique_ptr<XeenWorld> w;
- Fixture(XeenMapIdentity id=47) {
+ XeenWorld source;std::unique_ptr<XeenWorld> w;
+ Fixture(XeenMapIdentity id=47,bool openOutdoor=false):source([openOutdoor](auto id){
+  auto map=tile(id);if(openOutdoor){map.geometry.surfaceTypes[4]=2;for(auto &cell:map.geometry.cells)cell.geometry=XeenOutdoorLayers{4,0,0,0};}return map;
+ },mob) {
   source.markEncounterSession(XeenEncounterEntry::Journey);XeenTrainingTestAccess::seed(source);
   if(id.number==23)XeenTrainingTestAccess::developer(source,id);
   w=source.transitionCandidate();std::vector<XeenMonsterRecord> stats(9);
@@ -235,7 +239,34 @@ void stacking() {
   [](const XeenActor &,int,int){return XeenMonsterTerrain::Allowed;},true);
  check(again[0].x==6 && again[0].y==7,"Movement entered a cell holding four");
 }
+void parkedOutdoorSpawn() {
+ Fixture f(23,true);auto &w=*f.w;
+ w.applySpawn(23,1,6,8,0);
+ xeenValidateIndoorActors(w,23,w.sessionState().monsters(23));
+ const auto &before=w.sessionState().regionalActors(23);
+ std::vector<XeenActor> actors(before.begin(),before.end());actors[1].activated=true;
+ const auto moved=XeenActorApproach::move(actors,{23,6,5,XeenDirection::North},
+  [&](const auto &a,int x,int y){return xeenRegionalActorTerrain(w.map(23),a,x,y);},true);
+ check(moved[1].x==6 && moved[1].y==7,"Spawned parking slot did not move under ordinary terrain rules");
+ xeenValidateIndoorActors(w,23,moved);
+ auto snapshot=save_test::currentWireSnapshot();
+ auto &table=snapshot.map(23).monsters;table=XeenSaveMonsterTable{2,{}};
+ for(const auto &a:moved)table->slots.push_back({a.x,a.y,a.lifecycle,a.status,false,-1});
+ const auto bytes=XeenSaveFormat::encode(snapshot);const auto decoded=XeenSaveFormat::decode(bytes);
+ auto restored=XeenActorApproach::actorsFromResources(mob(23),w.monsterStatistics(XeenSide::Clouds));
+ for(unsigned i=0;i<restored.size();++i){restored[i].x=decoded.map(23).monsters->slots[i].x;restored[i].y=decoded.map(23).monsters->slots[i].y;}
+ xeenValidateIndoorActors(w,23,restored);
+ check(XeenSaveFormat::encode(decoded)==bytes && restored[1].x==6 && restored[1].y==7,
+  "Parked outdoor Spawn failed exact save/load");
+ // Off-map originals do not authorize arbitrary off-map current positions.
+ restored[1].x=101;rejects([&]{xeenValidateIndoorActors(w,23,restored);});
+ // The original-anchor check still rejects an ordinary actor across a barrier.
+ auto isolated=tile(23);isolated.geometry.surfaceTypes[0]=2;for(auto &cell:isolated.geometry.cells)cell.geometry=XeenOutdoorLayers{0,0,0,0};
+ for(int y=0;y<16;++y)isolated.geometry.cells[16*y+4].geometry=XeenOutdoorLayers{0,1,0,0};
+ restored[0].x=6;restored[0].y=1;
+ check(!xeenActorClosure(isolated,restored[0])[22],"Ordinary actor lost its original terrain closure");
 }
-int main() {try{operations(XeenSide::Clouds);operations(XeenSide::Darkside);calledDeletion();outdoorAndSpawn();removedObjectMove();spawnDoesNotDraw();stacking();
+}
+int main() {try{operations(XeenSide::Clouds);operations(XeenSide::Darkside);calledDeletion();outdoorAndSpawn();removedObjectMove();spawnDoesNotDraw();stacking();parkedOutdoorSpawn();
  std::cout<<"Map Event owners, DOS continuation, physical aliases, lifetimes and Spawn passed\n";return 0;
 }catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}

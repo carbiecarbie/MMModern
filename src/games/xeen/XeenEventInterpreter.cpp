@@ -552,7 +552,9 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
                 if(word.inputType)result=equal(input,pending.request.text) || equal(input,pending.request.alternate);
                 else {
                     const unsigned first=workingCamera.mapId.side==XeenSide::Clouds && workingCamera.mapId.number>32?0x26:0;
-                    const unsigned bound=std::min<unsigned>(pending.request.mirrors.size(),workingCamera.mapId.side==XeenSide::Clouds?63:pending.request.mirrors.size());
+                    // DOS 0x24104..0x24118 includes index 36 on Darkside,
+                    // 62 on Clouds; 0x240fc requests FM 51 on either side.
+                    const unsigned bound=std::min<unsigned>(pending.request.mirrors.size(),workingCamera.mapId.side==XeenSide::Clouds?63:37);
                     for(unsigned i=first;i<bound;++i)if(equal(input,pending.request.mirrors[i].name)) {
                         result=i+1;state.mirrorDestination=pending.request.mirrors[i];
                         emitFmEffect(publication,51);

@@ -153,9 +153,11 @@ IndexedFrame drawXeenSpellInformation(const XeenDosText &text,const IndexedFrame
     if(info.detection) {
         auto frame=render(base,font,str(text.scalar("DETECT_MONSTERS")),{231,48,317,141},{239,56,309,133});
         if(draw) {
-            draw(frame,"detctmon.icn",0,243,80);
+            // DOS WORLD/XEEN.DAT 0x30093..0x300a6 selects by game side.
+            const char *picture=info.side==XeenSide::Darkside?"detectmn.icn":"detctmon.icn";
+            draw(frame,picture,0,243,80);
             for(unsigned row=0;row<7;++row)for(unsigned col=0;col<7;++col)
-                if(info.grid[row*7+col])draw(frame,"detctmon.icn",std::min(info.grid[row*7+col],3u),244+9*col,81+7*row);
+                if(info.grid[row*7+col])draw(frame,picture,std::min(info.grid[row*7+col],3u),244+9*col,81+7*row);
             draw(frame,"global.icn",unsigned(info.facing)+1,270,101);
         }
         return frame;

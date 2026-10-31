@@ -339,7 +339,10 @@ std::vector<XeenIndoorDrawCommand> XeenIndoorScene::build(
 	add(0, sky, 0, 8, 8, presentation.sky);
 	add(1, presentation.openDoor?(night && !alwaysDay?"night.sky":"sky.sky"):sky, 1, 8, 25, presentation.sky);
 	add(2, ground, 0, 8, 67, presentation.defaultGround);
-	add(28, fwl1, 7, 8, 64, false);
+	// DOS 0x10725..0x1076c clears this entry's sprite for these maps.
+	const bool hideHorizon=map.side==XeenSide::Darkside?
+		(root>=89 && root<=112) || root==128 || root==129:root>=25 && root<=27;
+	if(!hideHorizon)add(28, fwl1, 7, 8, 64, false);
 	// Map::load skips empty surface slots; slot 4 is water even when type=0.
 	for (std::size_t i=0;i<25;++i) {
 		const auto q=xeen_scene_tables::kDrawNumbers[i];
@@ -349,10 +352,13 @@ std::vector<XeenIndoorDrawCommand> XeenIndoorScene::build(
 			camera.y+xeen_indoor_scene_tables::kScreenPositioningY[d][q]);
 		// Map::getCell returns a local surface slot. Map::load populated the
 		// sprites from the root map's table, even for neighboring geometry.
-		// Its original Clouds missing-cell fallback is road in the three road
-		// maps and default elsewhere; this selects slots, never actor admission.
-		const auto slot=cell?unsigned(cell->cell->surfaceIndex):
-			(root>=25 && root<=27?7u:0u);
+		// DOS getCell's three tables (0x11b72/0x11c0c/0x11ca6) use
+		// slot 0 on Skyroads 89..112, unlike the pinned reference's slot 6.
+		// This is presentation only; missing cells still cannot be entered.
+		const unsigned missingSlot=map.side==XeenSide::Clouds?(root>=25 && root<=27?7u:0u):
+			((root>=53 && root<=88 && root!=73) || (root>=113 && root<=120) ||
+			root==125 || root==126 || root==128 || root==129?6u:0u);
+		const auto slot=cell?unsigned(cell->cell->surfaceIndex):missingSlot;
 		const auto type=unsigned(map.geometry.surfaceTypes[slot]);
 		if (!type && slot!=4) continue;
 		if (type>=16) throw std::invalid_argument("Invalid indoor surface type");

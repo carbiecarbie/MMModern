@@ -287,12 +287,13 @@ Census census(const GameInstallation &original,XeenSide side,OriginalContext &co
         Support{Status::Unsupported,"Lighting rule probe failed"};
     c.add("Map features","Light-drain cell",lighting,0,0);
     std::map<unsigned,Support> skillTraversal;
-    for(unsigned wall:{1u,7u,9u,10u,12u,3u,6u}) {
+    for(unsigned wall:{1u,7u,9u,10u,12u,3u,6u,5u}) {
+        if(wall==5 && side==XeenSide::Clouds)continue;
         XeenMapGeometry probe;probe.flags2=0x8000;probe.surfaceTypes[0]=2;
         XeenMapCell cell;cell.geometry=XeenOutdoorLayers{0,std::uint8_t(wall),0,0};
         XeenMovement::Capabilities enabled;enabled.mountaineer=wall!=3 && wall!=6;enabled.pathfinder=!enabled.mountaineer;
-        const bool accepts=XeenMovement::outdoorDestination(probe,cell,{})==XeenMovementResult::BlockedByTerrain &&
-            XeenMovement::outdoorDestination(probe,cell,enabled)==XeenMovementResult::Moved;
+        const bool accepts=XeenMovement::outdoorDestination(probe,cell,{},side)==XeenMovementResult::BlockedByTerrain &&
+            XeenMovement::outdoorDestination(probe,cell,enabled,side)==XeenMovementResult::Moved;
         const Support support{accepts?Status::Supported:Status::Unsupported,"XeenMovement skill capability refusal/admission probe"};
         skillTraversal.emplace(wall,support);
         c.add("Map features",std::string(enabled.pathfinder?"Pathfinder":"Mountaineer")+" wall="+std::to_string(wall),support,0,0);
@@ -343,13 +344,15 @@ Census census(const GameInstallation &original,XeenSide side,OriginalContext &co
                 const auto &layers=xeenGet<XeenOutdoorLayers>(cell.geometry);
                 Support traversal{Status::Supported,"XeenMovement::outdoorDestination accepts ordinary traversal"};
                 try {
-                    const auto ordinary=XeenMovement::outdoorDestination(geometry,cell,{});
+                    const auto ordinary=XeenMovement::outdoorDestination(geometry,cell,{},side);
+                    if(side==XeenSide::Darkside && layers.middle==5)
+                        traversal=skillTraversal.at(5);
                     if(ordinary==XeenMovementResult::BlockedByTerrain || ordinary==XeenMovementResult::BlockedBySurface) {
                         XeenMovement::Capabilities capabilities;
                         capabilities.mountaineer=true;capabilities.pathfinder=true;
                         capabilities.swimming=true;capabilities.walkOnWater=true;
                         try {
-                            const auto enabled=XeenMovement::outdoorDestination(geometry,cell,capabilities);
+                            const auto enabled=XeenMovement::outdoorDestination(geometry,cell,capabilities,side);
                             if(enabled!=XeenMovementResult::Moved && !(enabled==XeenMovementResult::BlockedBySurface && surface==15))
                                 traversal={Status::Partial,"Traversal capability probe refused"};
                         }
@@ -358,7 +361,7 @@ Census census(const GameInstallation &original,XeenSide side,OriginalContext &co
                 } catch(const std::exception &e) {traversal=rejected(e);}
                 c.add("Map features","Traversal middle="+std::to_string(layers.middle)+" surface="+std::to_string(surface),traversal,number);
                 const auto wall=unsigned(layers.middle);
-                if(wall==1 || wall==7 || wall==9 || wall==10 || wall==12 || wall==3 || wall==6)
+                if(wall==1 || wall==7 || wall==9 || wall==10 || wall==12 || wall==3 || wall==6 || (wall==5 && side==XeenSide::Darkside))
                     c.add("Map features",std::string(wall==3 || wall==6?"Pathfinder":"Mountaineer")+" wall="+std::to_string(wall),skillTraversal.at(wall),number);
             }
             c.add("Map features","Rest surface="+std::to_string(surface),

@@ -689,7 +689,11 @@ they remain neutral. The pin's right hint-0 frames are 9..12, a
 The HED bytes encode the good/bad hints; static control flow does not
 independently establish the emotional meaning of each drawn frame.
 
-Detect Monster opens window 19 with `detctmon.icn` on Clouds, showing the
+Detect Monster opens window 19 with `detctmon.icn` on Clouds and
+`detectmn.icn` on Darkside. **DOS static, high confidence (2026-10-31):**
+the settled spell entry selects the filename by side at `0x30093..0x300a6`,
+with strings at `0x5423e`/`0x54231`
+([calibration](evidence.md#darkside-maintenance-checks)). It shows the
 7x7 square within three cells on each axis, north upward, without a wall or
 line-of-sight test. Matching monster positions increment each marker to a
 maximum of three; the party arrow shows facing. It does not list species or

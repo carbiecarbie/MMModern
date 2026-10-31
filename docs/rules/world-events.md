@@ -296,6 +296,15 @@ lookup retains the DAT index at `0x11db7..0x11def` and
 `0x11e1e..0x11e43`; the write uses it at `0x234f5..0x23549`.
 This rule does not manufacture a neighbour resource or open missing geometry.
 
+**Outdoor parking slots (DOS static, high, 2026-10-31).** Spawn writes x/y
+without testing terrain or reachability. Darkside map 7's EVT @489 and
+Skyroad 89's EVT @66 move original MOB slots from (100,100) onto the map.
+MMModern's validation-only closure uses the valid current cell when the
+original MOB position is outside 16x16; ordinary actors keep their original
+anchor. Subsequent movement still checks ordinary monster destinations.
+The original-data sweep found no unbound live target among 965 Darkside
+Spawns. [Offsets and reproduction](evidence.md#darkside-maintenance-checks).
+
 Spawn never changes the monster count byte `0x9c59`, which map load sets to
 the number of MOB monster records (`0x0fb79..0x0fb84`). Every monster loop
 stops at that count (`0x1099c`, `0x155a6`, `0x1fe98`, `0x20ce7`, `0x2ea7d`,
@@ -520,6 +529,13 @@ the same sprite byte and so never skips the lock; the reference reads it as
 the object's x position. A pick plays FX 10, a failure FX 21. giveExt sets the
 object's frame byte to 1 when it starts and to 0 after a failed pick
 (`0x235f6`, `0x23703`); the lid frames and the opened chest follow.
+
+Ali Baba's chest also takes this path: Darkside map 63 object 15 at (4,6),
+sprite 15, South-facing GiveMulti EVT @746. **DOS static, high confidence
+(2026-10-31):** the calibrated sprite dispatch and lock path
+`0x23597..0x23615` have no map/object exception. The pin's WORKAROUND skips
+this pick; MMModern keeps the DOS lock. [Evidence](evidence.md#darkside-maintenance-checks),
+[reference difference](../original-quirks.md#sv-ali-baba-lock).
 
 **Opened chests (M96).** Every Event run ends with the defeat check and the
 treasure delivery (`0x28d6b`, `0x28d70..0x28d8d`). Then, while a picked
@@ -746,6 +762,17 @@ table; loading does not clear the tail (`0x45ef8..0x45f33`). **Maintainer decisi
 Travel reads the selected record directly, including Dragon Tower's map 5
 `(10,12)` and preserved facing, without the reference's map-13 correction.
 
+**Darkside mirrors: DOS static, high confidence (2026-10-31).** Lookup starts
+at index 0 on every Darkside map, with an inclusive limit of 36
+(`0x23fab..0x23fad`, `0x2406c..0x2407c`, `0x24104..0x24118`). The detected
+CD's `darkmirr.txt` has 36 records (0..35); the existing approved
+[actual-resource bound](../original-quirks.md#dev-mirror-bound) excludes the
+stale index 36. A name match requests FM 51 on both sides
+(`0x240fc..0x24103`), then mirror travel separately requests 51
+(`0x270a8`). The pin instead uses match FX 35 on Darkside and 61 on Clouds.
+[Evidence](evidence.md#darkside-maintenance-checks). Ending mirror words
+remain deferred; no ending behavior is inferred from stale scratch.
+
 Clouds mirror result 59 (`i lost it`) puts weapon 34, material/state zero, in
 the first free ten-slot treasure-weapon entry and exits (`0x28076..0x280ca`).
 A full category instead follows ordinary success. The existing reward owner
@@ -924,6 +951,17 @@ and are refused. Object/picture and monster art follow the loaded side;
 World species 91 uses Clouds art, with Darkside statistics
 (`0xffeb..0x10010`). `darkpic.dat` is a sprite resource; the pin loads it
 but does not consume it. Picture animation uses the actual picture's frames.
+
+**Indoor edge presentation: calibrated DOS static, high confidence
+(2026-10-31).** Beyond missing geometry, Clouds maps 25..27 use local surface
+slot 7 and other Clouds maps slot 0. Darkside uses slot 6 on 53..88 except 73,
+113..120, 125, 126, 128 and 129; other IDs, including Skyroads 89..112, use
+slot 0. The root map's surface table resolves the terrain. This follows all
+three original getCell tables, not the pin's slot 6 on 89..112. The horizon
+(draw entry 28) is hidden on Clouds 25..27 and Darkside 89..112, 128, 129.
+These are drawing choices; missing geometry still cannot be entered.
+[Offsets and calibration](evidence.md#darkside-maintenance-checks),
+[reference difference](../original-quirks.md#sv-darkside-edge-surface).
 
 Castleview's Event at map 29 `(30,20)` temporarily forces text even when
 the Text option is off (`0x26a61..0x26a88`, restoration

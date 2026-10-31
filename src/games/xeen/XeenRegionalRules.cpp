@@ -212,10 +212,15 @@ XeenMonsterTerrain xeenIndoorActorTerrain(XeenWorld &world,const XeenActor &a,in
 		XeenMonsterTerrain::Allowed:XeenMonsterTerrain::Blocked;
 }
 std::bitset<256> xeenActorClosure(const XeenMap &map, const XeenActor &a) {
-	if (!local(a.original.x,a.original.y)) throw std::invalid_argument("Invalid original actor spawn");
+	// DOS Spawn writes coordinates without a reachability test (0x27a59..0x27b1c).
+	// A MOB parking slot has no on-map origin to reach from. Its current cell
+	// seeds the same terrain query; ordinary actors retain their original anchor.
+	const bool parked=!local(a.original.x,a.original.y);
+	const int anchorX=parked?a.x:a.original.x,anchorY=parked?a.y:a.original.y;
+	if (!local(anchorX,anchorY)) throw std::invalid_argument("Invalid actor closure anchor");
 	std::bitset<256> result;
 	std::array<int,256> queue{};unsigned begin=0,end=0;
-	queue[end++]=a.original.y*16+a.original.x;result.set(queue[0]);
+	queue[end++]=anchorY*16+anchorX;result.set(queue[0]);
 	while (begin!=end) {
 		const int index=queue[begin++],x=index%16,y=index/16;
 		for (const auto d:{std::pair<int,int>{1,0},{-1,0},{0,1},{0,-1}}) {

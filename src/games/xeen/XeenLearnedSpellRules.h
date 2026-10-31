@@ -52,6 +52,7 @@ struct XeenSpellPreparation {
 // Disposable spell-screen data, captured before the ordinary monster response.
 struct XeenSpellInformation {
     bool detection=false, failed=false;
+    XeenSide side=XeenSide::Clouds;
     XeenDirection facing=XeenDirection::North;
     std::array<unsigned,49> grid{}; // row zero is north; counts, not species.
     struct Monster {std::string name; int hp=0; unsigned ac=0,attacks=0,special=0;};

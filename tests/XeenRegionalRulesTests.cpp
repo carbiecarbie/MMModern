@@ -34,14 +34,14 @@ void geometry() {
 		const bool skillWall=middle==1 || middle==7 || middle==9 || middle==10 || middle==12 || middle==3 || middle==6;
 		const bool checks=middle==0 || middle==2 || middle==4 || middle==5 || middle==8 || middle==11 || middle==13 || middle==14;
 		const auto expected=skillWall ? XeenMovementResult::BlockedByTerrain : checks && (surface==0 || surface==8 || surface==15) ? XeenMovementResult::BlockedBySurface : XeenMovementResult::Moved;
-		check(XeenMovement::outdoorDestination(map.geometry,cell,{})==expected,"Literal collision precedence");
+		check(XeenMovement::outdoorDestination(map.geometry,cell,{},map.side)==expected,"Literal collision precedence");
 	}
 	for (int y=0;y<16;++y) for (int x=0;x<16;++x)
 		for (const auto d:{std::pair<int,int>{1,0},{-1,0},{0,1},{0,-1}}) {
 			const int nx=x+d.first,ny=y+d.second;
 			const auto actual=XeenMovement::localOutdoor(map,x,y,nx,ny,{});
 			check(actual==(nx<0 || nx>=16 || ny<0 || ny>=16 ? XeenMovementResult::BlockedByMapBoundary :
-				XeenMovement::outdoorDestination(map.geometry,map.geometry.cells[ny*16+nx],{})),"Every local edge");
+				XeenMovement::outdoorDestination(map.geometry,map.geometry.cells[ny*16+nx],{},map.side)),"Every local edge");
 		}
 	map.side=XeenSide::Darkside;
 	check(XeenMovement::component(map,9,11,{}).count()>0,"Darkside component refused");

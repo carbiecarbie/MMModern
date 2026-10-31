@@ -495,7 +495,8 @@ redraw/idle monster scheduling still runs; a refusal does not freeze it.
 The pin agrees on Mountaineer and skill aggregation
 but omits the Pathfinder wall consumer. MMModern implements both consumers in
 `XeenMovement`, using `XeenSkills` for holder counts; the refusal plays FX 21
-(M82). Fixed area admission still applies after a successful skill check.
+(M82). Destination checks, navigation and local traversal use the destination
+side, including Darkside's wall-5 exception (maintenance, 2026-10-31).
 See [offsets and calibration](evidence.md#outdoor-movement-skills)
 and [the original/reference difference](../original-quirks.md#sv-pathfinder-movement).
 

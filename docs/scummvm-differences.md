@@ -18,9 +18,8 @@ documented in its source. Each item links to its entry in
 [original quirks](original-quirks.md), with the evidence, dates and offsets.
 
 **Revisions.** MMModern pins ScummVM `6814ee9b` (2026-09-06). Every item was
-rechecked against ScummVM master `55895ab0` on 2026-10-16, except the new
-terrain/Tavern/Temple/recovery/spell/movement/entrance/audio/party/scripted-map/cutscene/play-time/NPC-art entries explicitly marked "pin: differs; master not
-rechecked". At that check, since the pin the
+rechecked against ScummVM master `55895ab0` on 2026-10-16, except entries
+explicitly marked "pin: differs; master not rechecked". At that check, since the pin the
 Xeen engine has had only a code-style edit and the Xeen data in `mm.dat` is
 unchanged apart from its version number, so the earlier entries are marked
 "master: differs". MMModern plays Clouds of Xeen, apart from the
@@ -28,6 +27,9 @@ unchanged apart from its version number, so the earlier entries are marked
 intro at startup. Ordinary Darkside play uses the shared World state; its
 services remain deferred; the Pyramid and travel spells cross sides.
 
+- **Ali Baba's chest.** [The password does not bypass its lock](original-quirks.md#sv-ali-baba-lock); the pin skips lock-picking on Darkside map 63 object 15. Pin: differs; master not rechecked.
+- **Darkside indoor edges.** [Skyroads 89..112 use surface slot 0 beyond the map edge](original-quirks.md#sv-darkside-edge-surface); the pin uses slot 6. Pin: differs; master not rechecked.
+- **Mirror sound.** [A matching name plays FM effect 51 on either side](original-quirks.md#sv-darkside-mirror-sound); the pin uses 35 on Darkside and 61 on Clouds. Pin: differs; master not rechecked.
 - **Unarmed melee.** [DOS clears the attack weapon selector](original-quirks.md#sv-unarmed-weapon-selector), while the pin retains the previous attacker's ID. Pin: differs; master not rechecked.
 - **Combat XP overflow.** [DOS and the pin wrap combat XP at 32 bits](original-quirks.md#sv-combat-xp-overflow); MMModern fails closed (approved deviation). Pin: differs; master not rechecked.
 - **Darkside Town Portal.** [The CD names towns but travels to five fixed outdoor arrivals](original-quirks.md#sv-darkside-town-portal-stride), on Darkside maps 4,19,22,6,98. The pin travels to towns 29,31,33,35,37. Pin: differs; master not rechecked.

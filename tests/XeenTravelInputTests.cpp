@@ -84,6 +84,15 @@ void words() {
   check(done,"Mirror did not finish");const bool found=map==28 || index==38;
   check(done->finalCamera.x==(found?4:1) && done->finalCamera.direction==(found && direction==2?XeenDirection::South:XeenDirection::West),"Clouds mirror bounds/direction");
  }
+ for(unsigned map:{28u,33u})for(unsigned index:{0u,36u,37u,38u}) {
+  Fixture f;const XeenMapIdentity id{XeenSide::Darkside,std::uint16_t(map)};
+  f.texts.mirrors.resize(39);f.texts.mirrors[index]={"Destination",std::uint8_t(map),4,5,-1};
+  f.script(id,{record(1,1,0,21,{0,2,0,3}),record(1,1,1,18),record(1,1,2,7,{0})});
+  std::vector<unsigned> effects;f.interpreter.fmEffect=[&](unsigned effect){effects.push_back(effect);};
+  const auto r=f.answer(f.begin(id),"destination");const auto *done=std::get_if<XeenEventExecutionCompleted>(&r);
+  check(done && done->finalCamera.mapId==id && done->finalCamera.x==(index<=36?4:1),"Darkside mirror start or inclusive bound");
+  check(effects==(index<=36?std::vector<unsigned>{51,51}:std::vector<unsigned>{}),"Darkside mirror match and travel DOS FM effects");
+ }
  Fixture run;run.texts.mirrors={{"Run",28,0,0,-1}};
  run.script(28,{record(1,1,0,21,{0,2,0,0}),record(1,1,1,18),record(1,1,2,7,{0})});
  const auto r=run.answer(run.begin(),"run");check(std::get<XeenEventExecutionCompleted>(r).finalCamera.x==7,"Mirror run-location sentinel");

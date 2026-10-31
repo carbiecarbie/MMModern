@@ -283,6 +283,32 @@ void testCellSelectedSky() {
 	}
 }
 
+void testSideSpecificEdges() {
+ using namespace mmodern;
+ for(auto side:{XeenSide::Clouds,XeenSide::Darkside})for(unsigned number:{25u,27u,28u,52u,53u,72u,73u,74u,88u,89u,112u,113u,120u,121u,124u,125u,126u,127u,128u,129u}) {
+  const XeenMapIdentity id{side,std::uint16_t(number)};
+  auto map=emptyIndoorFixture();map.side=side;map.geometry.id=number;
+  map.geometry.surfaceTypes[0]=2;map.geometry.surfaceTypes[6]=6;map.geometry.surfaceTypes[7]=7;
+  XeenWorld world([&](auto loaded){require(loaded==id,"Edge query loaded an absent neighbor");return map;});
+  for(auto direction:{XeenDirection::North,XeenDirection::East,XeenDirection::South,XeenDirection::West}) {
+   const XeenCamera camera{id,direction==XeenDirection::East?15:direction==XeenDirection::West?0:8,
+    direction==XeenDirection::North?15:direction==XeenDirection::South?0:8,direction};
+   const auto commands=XeenIndoorScene().build(world,camera);
+   const bool desert=side==XeenSide::Darkside && ((number>=53 && number<=88 && number!=73) ||
+    (number>=113 && number<=120) || number==125 || number==126 || number==128 || number==129);
+   const bool road=side==XeenSide::Clouds && number>=25 && number<=27;
+   bool hasDesert=false,hasRoad=false,horizon=false;
+   for(const auto &command:commands)if(const auto *geometry=std::get_if<XeenIndoorGeometryDraw>(&command.content)) {
+    hasDesert|=geometry->resourceName=="desert.srf";hasRoad|=geometry->resourceName=="road.srf";
+    horizon|=command.originalOrder==28;
+   }
+   require(hasDesert==desert && hasRoad==road,"Indoor edge surface selection differs from DOS tables");
+   const bool hidden=side==XeenSide::Darkside?((number>=89 && number<=112) || number==128 || number==129):road;
+   require(horizon!=hidden,"Indoor horizon side/map selection differs from DOS");
+  }
+ }
+}
+
 void testFixedSceneAndTerrainResources() {
 	const std::array<const char *, 6> prefixes = {
 		"town", "cave", "towr", "cstl", "dung", "scfi"
@@ -964,6 +990,7 @@ int main() {
 		testMissingIndoorNeighbors();
 		testRejectsOutdoorAndInvalidCamera();
 		testFixedSceneAndTerrainResources();
+		testSideSpecificEdges();
 		testCellSelectedSky();
 		testStaticWallCommandsAndFrames();
 		testSideWallBesideDistantFront();

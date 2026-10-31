@@ -56,7 +56,7 @@ void movementAndArrival() {
         check((skill==9?caps.mountaineer:caps.pathfinder)==(count==2),"Traversal counts two holders regardless of conditions");
         for(unsigned wall:skill==9?std::vector<unsigned>{1,7,9,10,12}:std::vector<unsigned>{3,6}) {
             xeenGet<XeenOutdoorLayers>(destination.geometry).middle=wall;
-            check((XeenMovement::outdoorDestination(outdoor,destination,caps)==XeenMovementResult::Moved)==(count==2),
+            check((XeenMovement::outdoorDestination(outdoor,destination,caps,XeenSide::Clouds)==XeenMovementResult::Moved)==(count==2),
                 "Every skill wall requires two holders and bypasses its surface check");
             XeenWorld crossing([&](auto id) {XeenMap m;m.geometry.id=id.number;m.geometry=outdoor;m.geometry.id=id.number;
                 m.geometry.cells.fill(destination);return m;});
@@ -68,14 +68,27 @@ void movementAndArrival() {
         }
     }
     xeenGet<XeenOutdoorLayers>(destination.geometry).middle=5;
-    check(XeenMovement::outdoorDestination(outdoor,destination,{false,false,true,true})==XeenMovementResult::BlockedBySurface,
+    check(XeenMovement::outdoorDestination(outdoor,destination,{false,false,true,true},XeenSide::Clouds)==XeenMovementResult::BlockedBySurface,
         "Clouds wall five retains its surface check");
+    for(auto side:{XeenSide::Clouds,XeenSide::Darkside})for(bool mountaineer:{false,true})for(unsigned surface:{0u,2u,8u,15u}) {
+        outdoor.surfaceTypes[0]=surface;
+        const auto expected=side==XeenSide::Darkside?(mountaineer?XeenMovementResult::Moved:XeenMovementResult::BlockedByTerrain):
+            surface==2?XeenMovementResult::Moved:XeenMovementResult::BlockedBySurface;
+        check(XeenMovement::outdoorDestination(outdoor,destination,{false,false,mountaineer,false},side)==expected,
+            "Wall five side, Mountaineer and surface precedence");
+        XeenMap terrain;terrain.side=side;terrain.geometry=outdoor;terrain.geometry.cells.fill(destination);
+        check(XeenMovement::localOutdoor(terrain,1,1,1,2,{false,false,mountaineer,false})==expected,"Local traversal lost wall five side");
+        XeenWorld world([&](auto id){auto m=terrain;m.geometry.id=id.number;return m;});
+        XeenCamera camera{{side,3},1,1,XeenDirection::North};
+        check(XeenMovement().apply(world,camera,NavigationAction::MoveForward,{false,false,mountaineer,false})==expected,
+            "Navigation lost destination side for wall five");
+    }
     XeenMapGeometry map;map.flags2=0x8000; // outdoor geometry
     XeenMapCell cell;cell.geometry=XeenOutdoorLayers{};
     for(unsigned surface:{0u,8u,15u})for(bool swim:{false,true})for(bool walk:{false,true}) {
         map.surfaceTypes[0]=surface;
         const bool allowed=surface==0?(swim || walk):surface==8?walk:false;
-        check((XeenMovement::outdoorDestination(map,cell,{swim,walk,false})==XeenMovementResult::Moved)==allowed,"Shallow/deep/space capability combinations");
+        check((XeenMovement::outdoorDestination(map,cell,{swim,walk,false},XeenSide::Clouds)==XeenMovementResult::Moved)==allowed,"Shallow/deep/space capability combinations");
     }
     for(bool swim:{false,true})for(bool walk:{false,true}) {
         XeenWorld world([](auto id) {XeenMap m;m.side=id.side;m.geometry.id=id.number;m.geometry.difficulties[0]=10;

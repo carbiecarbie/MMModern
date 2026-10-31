@@ -108,7 +108,7 @@ XeenCamera quietCell(Inputs &in,XeenMapIdentity id,bool extension=false) {
         if(x==0 && y==0)continue;
         const XeenCamera c{id,x,y,XeenDirection::North};
         const auto cell=w.sampleCell(id,x,y);if(!cell)continue;
-        if(g.isOutdoors() && XeenMovement::outdoorDestination(g,*cell->cell,{true,true,true,true})!=XeenMovementResult::Moved)continue;
+        if(g.isOutdoors() && XeenMovement::outdoorDestination(g,*cell->cell,{true,true,true,true},id.side)!=XeenMovementResult::Moved)continue;
         const auto view=g.isOutdoors()?XeenActorApproach::classify(actors,c):XeenIndoorScene().classifyActors(w,c,actors);
         if(!view.engaged())return c;
     }

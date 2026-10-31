@@ -27,6 +27,28 @@ described as character fields or data-segment offsets. Ranges written `[a,b)`
 include `a` and exclude `b`. These locations identify this exact executable;
 other releases need their own hash, relocation and calibration.
 
+## Darkside maintenance checks
+
+**DOS static, high confidence (2026-10-31).** Checked against MMModern
+`3b411c8` and the pinned reference. The installed CD DAT has the hash in
+[Exact baseline](#exact-baseline); focused 16-bit objdump reads used direct
+file offsets, and jump tables were decoded as little-endian words. Resource
+checks used the detected CD installation, not the separate floppy DARK.CC.
+
+| Rule | Calibration and original file offsets |
+| --- | --- |
+| Outdoor Spawn parking slots | The already calibrated Spawn handler writes y/x at `0x27a6b`/`0x27a81`, with no occupancy, terrain or reachability branch through `0x27b1c`. Ordinary movement still tests destinations (`0x1fc24..0x1fd8f`). CD map 7's run at EVT `@489` (line 54) moves MOB slots 0..14 from (100,100); Skyroad 89's run at `@66` (line 6) moves slots 0..2. All 965 Darkside Spawn instructions were checked against original MOB bindings: none targets an unbound slot below the MOB count. The old MMModern closure rejected both runs and their saved actor positions with `Invalid original actor spawn`. |
+| Indoor missing-cell surfaces | `getCell` at `0x11881` uses the known party coordinates/facing tables and map byte `DS:ed99`. The Clouds branches at `0x11905..0x1191b`, `0x119db..0x119f1`, `0x11a94..0x11aaa` reproduce the known road slot 7 on 25..27, otherwise 0. This calibrates surface slot `DS:f490`. On Darkside the three 77-word tables at `0x11b72`, `0x11c0c`, `0x11ca6` (CS file base `0xf380`, also verified by far calls to `0x11881`) all select slot 6 on 53..88 except 73, 113..120, 125, 126, 128, 129; all other IDs select 0. In particular 89..112 select 0, unlike the pin. Slot-6 stores: `0x118f5`, `0x119cb`, `0x11a84`. |
+| Horizon | Indoor draw frame fields start at `DS:964`, stride 12 (frame clearing from entry 3 at `0x111e8..0x111fa`); the sprite field precedes the frame by two bytes, so entry 28's sprite field is `DS:ab2`. Map load assigns the same fwl1 sprite as the known near front entries at `0x10710..0x1071c`. `0x10725..0x1076c` clears that sprite on Clouds 25..27 and Darkside 89..112, 128, 129. |
+| Ali Baba's chest | CD map 63 MOB record 15 (`@108`) is sprite 15 at (4,6); its South-facing GiveMulti is EVT `@746`. Selection is already calibrated as one-based. `0x23597..0x235d5` checks selection, the run's picked-lock counter and the sprite table (`0x23935`: 15/16/58/73). Sprite 15 branches through the Darkside test `0x235d9..0x235e5` to the same opening/trap/pick path as the settled Clouds sprite-16 chests. `0x2360d` compares the sprite with 20; no map-63/object-15 exception precedes the lock draws. |
+| Detect Monster picture | Spell entry `0x30081` is already calibrated. Its side test `0x30093..0x300a6` selects DS `69a1` on Darkside, `69ae` on Clouds: filenames at `0x54231` (`detectmn.icn`) and `0x5423e` (`detctmon.icn`). |
+| Darkside mirror | `0x23fab..0x23fad` initializes index 0; `0x2406c..0x2407c` changes it to 38 only for Clouds above map 32. `0x24104..0x24118` includes index 36 on Darkside, 62 on Clouds. Match `0x240fc..0x24103` pushes decimal 51 to the calibrated Efx wrapper `0xdece`, on both sides; mirror travel separately requests 51 at `0x270a8`. CD `darkmirr.txt` has 36 records, so index 36 reads stale scratch. The existing approved actual-resource bound is retained; no stale destination or ending-word behavior is inferred. |
+
+These are static control-flow and original-resource checks, not DOSBox play
+observations. The tower-53 frame at (8,15) North is rendered from the CD
+resources and inspected separately; it does not upgrade the evidence to a
+DOS capture.
+
 ## Method and limits
 
 The analysis first established the load image and address mapping, then followed

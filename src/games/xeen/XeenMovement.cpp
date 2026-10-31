@@ -17,8 +17,10 @@ XeenDirection turnRight(XeenDirection direction) {
 	return static_cast<XeenDirection>((static_cast<unsigned>(direction) + 1) & 3);
 }
 
-bool blocksWithoutMountaineer(std::uint8_t middle) {
+bool blocksWithoutMountaineer(std::uint8_t middle, XeenSide side) {
 	switch (middle) {
+	case 5:
+		return side==XeenSide::Darkside;
 	case 1:
 	case 7:
 	case 9:
@@ -30,14 +32,15 @@ bool blocksWithoutMountaineer(std::uint8_t middle) {
 	}
 }
 
-bool checksSurface(std::uint8_t middle) {
-	// Clouds semantics from Interface::checkMoveDirection(). Middle value 5 is
-	// in this group on the Clouds side; Darkside's exception is out of scope.
+bool checksSurface(std::uint8_t middle, XeenSide side) {
+	// DOS 0x0cee4..0x0cee9 sends Darkside wall 5 to Mountaineer,
+	// bypassing surface handling even after the skill check succeeds.
 	switch (middle) {
+	case 5:
+		return side==XeenSide::Clouds;
 	case 0:
 	case 2:
 	case 4:
-	case 5:
 	case 8:
 	case 11:
 	case 13:
@@ -75,7 +78,7 @@ XeenMovementResult applyOutdoor(XeenWorld &world, XeenCamera &camera,
 	if (!target)
 		return XeenMovementResult::BlockedByMapBoundary;
 
-	const auto admission = XeenMovement::outdoorDestination(*target->geometry, *target->cell, capabilities);
+	const auto admission = XeenMovement::outdoorDestination(*target->geometry, *target->cell, capabilities, target->mapId.side);
 	if (admission != XeenMovementResult::Moved) return admission;
 
 	XeenCamera destination = camera;
@@ -116,14 +119,14 @@ XeenMovement::Capabilities XeenMovement::capabilities(const XeenPartyState &part
 }
 
 XeenMovementResult XeenMovement::outdoorDestination(const XeenMapGeometry &geometry,
-		const XeenMapCell &cell, Capabilities capabilities) {
+		const XeenMapCell &cell, Capabilities capabilities, XeenSide side) {
 	const auto *layers = xeenGetIf<XeenOutdoorLayers>(&cell.geometry);
 	if (!geometry.isOutdoors() || !layers || layers->surface >= 16 || layers->middle >= 16)
 		throw std::invalid_argument("Invalid outdoor destination geometry");
-	if (blocksWithoutMountaineer(layers->middle) && !capabilities.mountaineer) return XeenMovementResult::BlockedByTerrain;
+	if (blocksWithoutMountaineer(layers->middle,side) && !capabilities.mountaineer) return XeenMovementResult::BlockedByTerrain;
 	// DOS 0x0cf38..0x0cf50; the pin omits these two wall consumers.
 	if ((layers->middle==3 || layers->middle==6) && !capabilities.pathfinder) return XeenMovementResult::BlockedByTerrain;
-	if (checksSurface(layers->middle) && blockedSurface(geometry.surfaceTypes[layers->surface],capabilities))
+	if (checksSurface(layers->middle,side) && blockedSurface(geometry.surfaceTypes[layers->surface],capabilities))
 		return XeenMovementResult::BlockedBySurface;
 	return XeenMovementResult::Moved;
 }
@@ -137,13 +140,13 @@ XeenMovementResult XeenMovement::localOutdoor(const XeenMap &map, int fromX, int
 	if (toX < 0 || toX >= 16 || toY < 0 || toY >= 16) return XeenMovementResult::BlockedByMapBoundary;
 	if (std::abs(toX-fromX) + std::abs(toY-fromY) != 1)
 		throw std::invalid_argument("Local traversal requires adjacent cells");
-	return outdoorDestination(map.geometry, map.geometry.cells[toY*16+toX], capabilities);
+	return outdoorDestination(map.geometry, map.geometry.cells[toY*16+toX], capabilities, map.side);
 }
 
 std::bitset<256> XeenMovement::component(const XeenMap &map, int anchorX, int anchorY,
 		Capabilities capabilities) {
 	if (anchorX < 0 || anchorX >= 16 || anchorY < 0 || anchorY >= 16 ||
-		outdoorDestination(map.geometry, map.geometry.cells[anchorY*16+anchorX], capabilities) != XeenMovementResult::Moved)
+		outdoorDestination(map.geometry, map.geometry.cells[anchorY*16+anchorX], capabilities, map.side) != XeenMovementResult::Moved)
 		throw std::invalid_argument("Invalid or impassable outdoor component anchor");
 	std::bitset<256> cells;
 	std::array<int,256> queue{};

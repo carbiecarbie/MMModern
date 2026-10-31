@@ -129,7 +129,7 @@ std::optional<XeenSpellInformation> XeenLearnedSpellRules::information(XeenLearn
         const XeenCamera &camera,const std::vector<XeenActor> &actors,
         const std::array<std::optional<XeenMonsterIdentity>,3> &slots) {
     if(spell!=XeenLearnedSpell::DetectMonster && spell!=XeenLearnedSpell::IdentifyMonster)return {};
-    XeenSpellInformation result;result.facing=camera.direction;
+    XeenSpellInformation result;result.facing=camera.direction;result.side=camera.mapId.side;
     result.detection=spell==XeenLearnedSpell::DetectMonster;
     if(result.detection) {
         // DOS checks positions alone, without walls, species or activation tests.
