@@ -10,6 +10,18 @@ int main(int argc,char **argv) {
     try {
         check(argc==2,"usage: training-flow <original-installation>");const auto installation=xeenTestInstallationDetector().detect(argv[1]);
         check(bool(installation),"installation unavailable");Inputs inputs(*installation);const auto source=inputs.service();
+        {
+            auto s=source;s.characters[18].conditions[12]=1;
+            s.journey->supplements[18].inputs.experience=3000;s.journey->purse->gold=1000;
+            Fixture f(inputs,s);f.enter();f.act(SelectMemberAction{1});
+            const auto before=f.p.roster.at(18);const auto xp=f.p.roster.combatInputs(18)->experience;
+            const auto gold=f.p.purse->gold;
+            f.act(DialogKeyAction{'t'});
+            check(XeenTrainingTestAccess::text(*f.flow)==xeenDialogFormat(xeenDialogText(inputs.assets.uiText(),XeenDialogText::InNoCondition),{before.name}),"Disabled Training member did not see original refusal");
+            check(f.p.roster.at(18).permanentLevel==before.permanentLevel && f.p.roster.at(18).conditions==before.conditions &&
+                f.p.roster.combatInputs(18)->experience==xp && f.p.purse->gold==gold &&
+                XeenTrainingTestAccess::menu(*f.flow) && !XeenTrainingTestAccess::quote(*f.flow),"Refused Training changed state");
+        }
         for(bool cartographer:{false,true}) {
             auto arrival=source;save_test::clearExplored(arrival);
             for(auto &c:arrival.characters)c.skills[4]=0;

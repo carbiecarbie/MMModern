@@ -274,6 +274,8 @@ IndexedFrame XeenEventFlow::handleTraining(const PlayerAction &action,std::uint6
                 if(quote.outcome==XeenTrainingOutcome::Cap || quote.outcome==XeenTrainingOutcome::MissingExperience)
                     startServiceSample(ui.animation,quote.outcome==XeenTrainingOutcome::Cap?"trainin1.voc":"trainin0.voc",true);
                 else if(quote.outcome==XeenTrainingOutcome::InsufficientGold) ui.feedback=serviceNotEnoughGold();
+                else if(quote.outcome==XeenTrainingOutcome::CannotAct)
+                    ui.feedback=xeenDialogFormat(xeenDialogText(dosText(),XeenDialogText::InNoCondition),{c.name});
                 else if(quote.outcome==XeenTrainingOutcome::Quoted) {
                     if(!_encounter->_training->quoted) _encounter->quoteTraining(ui.member);
                     if(_encounter->_training->quoted) {

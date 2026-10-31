@@ -685,7 +685,10 @@ Newcastle 73). The cap is the only map-dependent numeric Training rule.
 Both the displayed quote and payment use `10 * L * L`, with `L` the
 current permanent level; XP requirements and the level increase use the
 same character routines everywhere ([level thresholds](combat.md#level-thresholds));
-from level 12 each level needs and debits 1,024,000 XP. The pinned
+the cap and missing experience are checked before the condition refusal,
+which precedes payment (`0x1c8d1..0x1c933`, `0x1ab5b..0x1abb9`, condition
+helper `0x1e3bc..0x1e41c`).
+From level 12 each level needs and debits 1,024,000 XP. The pinned
 `locations.cpp::TrainingLocation` agrees on caps and cost, but its thresholds
 make Training from 12 to 13 free. Vertigo's existing cap 10 supplies the
 gameplay calibration.
