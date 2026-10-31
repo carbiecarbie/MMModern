@@ -1476,6 +1476,294 @@ Dungeon pause
 Dwarf site rows
 `ev_b5fab8f057640b56dfd92943dc5d1b86a4f82aa251d3c85f556c304dbec08e87`.
 
+## Darkside Events (M103 Part 0)
+
+**Status: calibrated DOS static, high confidence within the boundaries below;
+three end-of-resource fall damage values remain Unknown (2026-10-31).**
+Baseline: `main` / `origin/main` at
+`c78ed9451b3efd38cfb7393076feee2e499fd23b`. The installed DAT's size and
+SHA-256 were rechecked against [Exact baseline](#exact-baseline), and the
+separate ScummVM checkout was verified at
+`6814ee9ba54582f5b5adcffab49efbbd8f589edd`. This establishes rules, not
+implemented coverage or milestone acceptance. No game, build or tests ran.
+
+Tools: GNU objdump `2.47.20260726`, bounded x86-16 reads at original file
+offsets; Python `3.14.7`, in-memory hashing, index decoding and resource
+inspection. REA was blocked by the client's never-approve policy; no new
+REA/Ghidra record or aggregate decompilation supports these findings. The
+existing [REA record locators](#rea-record-locators) remain prior evidence.
+Calibration reproduced ExchObj's four x/y stores `0x28a86..0x28ad6`,
+MoveWallObj `0x2860e..0x2863a`, IfMapFlag `0x28765..0x287d5`, and
+ChooseNumeric's `0x289f3 -> 0x24c71` call. Dispatch `0x26c50..0x26c66`
+indexes the table at `0x29320`, with code-segment file base `0x26770`;
+its entries independently resolve all eight handlers below. The existing
+[Event dispatch](#event-dispatch), item-record and M86 fall calibration apply.
+
+Requested external work-file location:
+`D:/Projetos/MModern/MModern-re/m103/part0/`. The sandbox denied its creation.
+**No new work files, disassemblies or evidence bundle were retained.** Reads
+and derived inventories ran in memory; nothing was redirected into the
+repository. Reproduction can reuse the existing external M102 `query.py` /
+`resources.py` and M101 `phase_evidence.py` / `resource_evidence.py` readers,
+with the locators here. Original data and analysis projects were unchanged.
+
+The CD check follows ISO9660 MODE1/2352 sectors, not installed loose CC/CUR
+files. `GAME/DARK.CC`, LBA 41, 11,288,403 bytes, has SHA-256
+`e3a39812ed90ae83bab962f58f1abaa5f79d701ebfcb9dcb2561d1f3dd679389`
+on both `GAME1.GOG` and `GAME2.GOG`. Its six New Game blocks, in the pin's
+order, produce 386,264 bytes, SHA-256
+`3ebf578cd97150d52b4b79f48cd8c0d2b1c4a9a4b487c679b228e01354bda8ce`.
+Resource names use `mazeNNNN` below 100 and `mazexNNN` from 100; all 112
+main DAT identities were checked. `EVT @n` below is a decoded member-relative
+offset, not a DAT offset. Records occupy their length byte plus that many
+bytes; their five header fields precede the parameters.
+
+**Census scope corrections.** The 68 ExchObj uses include maps 120/122:
+maps 1-112 contain 48 on the nine maps named in the plan. GiveEnchanted has
+122 instructions / 94 parameter tuples there, including two already decoded
+code-70 tuples; the 92 gap rows are not 92 instructions. None grants a quest
+item through opcode 44. FallToMap has 220 instructions on 21 maps, including
+destinations 0, 25-28, 34, 109 and 112 beyond the six listed in the prompt.
+Map 29 has 96 monsters: slot 31 is in range. Its four census refusals concern
+negative jump targets, as explained below. The plan was not edited.
+
+### ExchObj (51)
+
+Entry `0x28a36`; first and second parameter bytes name zero-based objects.
+Each is sign-extended for indexing the eight-byte records at `DS:e000`.
+Only their x/y bytes exchange: temporary reads `0x28a3a..0x28a61`, writes
+`0x28a86`, `0x28aac`, `0x28ac1`, `0x28ad6`. An object exchanged with itself
+retains its position. Facing, frame, sprite, flip and other record fields
+are untouched. There is no immediate redraw, picked-lock counter write or
+selection swap: it reaches the ordinary executed-marker/next-line tail
+`0x28b2b`. The next ordinary scene draw rebuilds selection by position, as
+already established in [Event dispatch](#event-dispatch).
+
+There is no count or capacity check. A nonnegative signed index beyond the
+live count but inside the 166-record allocation exchanges bytes with that unused slot;
+other byte values can alias other data, with 128-255 indexing backwards.
+This is not the pin's out-of-range `(-1,-1)` substitute. Map load clears the
+allocation (`0x0f5cf..0x0f5dd`); persistence writes only live records
+(`0x2668b..0x266dc`). All 48 actual pairs use indices 0..37 below their
+map's object count. No invalid-index outcome is needed for these Events.
+**Pin difference:** `cmdExchObj` copies the object array and exchanges the
+copy, leaving the live objects unchanged.
+
+### GotoRandom (56)
+
+Entry `0x28160..0x28186` makes exactly one call to inclusive range helper
+`0x45b9a`, with minimum 1 and the sign-extended first parameter as maximum.
+That helper invokes `0x45be5` once, masks to 15 bits, takes the remainder
+over the inclusive range width and adds the minimum (`0x45b9d..0x45bb1`).
+The generator mixes DOS time and its existing three state words
+(`0x45be5..0x45c1f`); this is the shared RNG, not a separate opcode generator
+or a claim of statistical uniformity. The draw selects parameter number
+1..N, after the count byte. The selected line byte is sign-extended at
+`0x28a2b`; decrement followed by the common increment `0x28d37` leaves that
+exact target, with no extra off-by-one or extra selection draw.
+
+The nine rows are maps 3 (`@469`, `595`, `1060`, `1186`, `1651`, `1777`),
+7 (`@1383`, `1509`) and 33 (`@864`). Four rows choose among nine lines
+25,27,...,41; four among seven lines 9,11,...,21; map 33 chooses among
+2,4,...,14. Every table has exactly N targets. The pin agrees for these
+inputs; its target is unsigned, unlike DOS for bytes 128-255. A malformed
+zero count reaches division by zero in DOS; no original row has it.
+
+### GiveEnchanted (44)
+
+Entry `0x287ee`. This adds to the existing ten-slot-per-category treasure
+arrays, not directly to the selected character's backpack. The four-byte
+item layout is material, ID, state, frame. Only the first three fields are
+written; the frame/equipped field is retained. The state byte's low six bits
+hold the counter/effectiveness, bit 6 cursed, bit 7 broken; there is no
+additional bonus or enchantment field to invent.
+
+| First parameter | DOS writes and capacity test | DAT offsets |
+| --- | --- | --- |
+| 0..34, weapons | First slot with ID zero: ID = code, material = parameter 1, whole state = parameter 2. | `0x287ee..0x28855`, array `DS:99e8` |
+| 35..48, armor | Same, ID = code minus 35. | `0x28858..0x288bb`, array `DS:99c0` |
+| 49..59, accessories | Same, ID = code minus 49. | `0x288be..0x28922`, array `DS:9998` |
+| 60..81, miscellaneous | First slot with material zero: material/container = code minus 60, ID/power = parameter 1. Whole state is 1 for containers 10/11, otherwise one `R(1,8)+2` draw, hence 3..10 charges. Both high state flags are cleared. Parameters 2 onward are ignored. | `0x28925..0x289c0`, array `DS:9970`; draw `0x28996..0x289aa` |
+| 82..127, quest | Increment byte counter `code-82`, wrapping, then use the weapon staging path with the raw code for quest display. Parameters 1/2 still populate material/state. The counter changes even if staging is full. | `0x289c2..0x289d1`, then `0x287f9` |
+
+Comparisons are signed bytes: codes 128..255 enter the weapon branch, not
+the quest branch. That edge is statically established, not a real-data use.
+A full staging category silently drops the record; no charges draw occurs
+on that path. A successful stage sets readiness at `0x28844`. No handler
+message is shown. The common Event completion delivers the usual treasure
+and found-item messages and, when applicable, the full-backpacks notice.
+
+Recipient and full-backpack behavior reuse [Treasure delivery](#treasure-delivery):
+WhoWill preference, eligible fallback, then capacity-only fallback; a full
+received category can replace the first member's last item while another
+category has space. All packs full discards remaining staged ordinary items,
+preserving currency, with the existing exact-ID-34 sword exception. A quest
+display record does not enter inventory or grant its counter a second time.
+Those are shared delivery rules, not new GiveEnchanted selection rules.
+
+CD rows: 39 weapons, 65 armor, 11 accessories, seven Misc, zero quest.
+All have four parameters; all parameter-2 state bytes are zero. The last
+parameter is unused: the six map-34 code-70 rewards carry 1 and the map-39
+`EVT @12777` code-66/power-57 reward carries 3. The latter still rolls 3..10
+charges; it does not use that suffix as a fixed charge count.
+**Pin:** agrees on ordinary categories, quest staging and charge ranges;
+its Misc empty test uses ID instead of material and it assigns only the
+counter, retaining high state flags. It treats high codes as quests instead
+of DOS's signed weapon branch. Existing shared delivery differences remain
+those already recorded, not additional opcode-specific changes.
+
+### ChooseNumeric (48)
+
+`0x289e9..0x28a33` passes the count to `0x24c71`. The prompt retains the
+Event's displayed text and supplies numbered `choose.icn` buttons, rather
+than introducing a new question string. Global frame 7 is drawn at
+`(232,74)` (`0x24ca0..0x24cb6`); numbered button frames are twice their
+zero-based index (`0x24d67..0x24da5`). Normal columns are 235/260/286,
+rows 75/96/117, with the existing 24x20 mouse bounds. With Text off and
+window 40 open, the first three button Y values become 101 and the compact
+NPC text/art is refreshed (`0x24cb9..0x24d5c`); they return to 75 on exit.
+
+Keys 1..N are accepted; 1..N-1 return that choice, N returns zero.
+**Escape does not cancel:** the `1`..`9` gate rejects it, as it rejects
+other keys (`0x24e6e..0x24e98`). The shared input wrapper leaves Escape as
+27 (`0x0e149..0x0e185`, `0x0e2c7`); it does not translate it into N.
+Either mouse button on a numbered button supplies its digit through the
+calibrated coordinate-only input path. Clicking N is the cancel choice.
+Zero advances to the next Event line. Otherwise parameter[choice] gives
+the signed target line (`0x28a1a..0x28a2d`), not a table index into records.
+
+Location art does animate: nonzero `DS:8d56` calls `0x1c038` and waits
+three ticks; otherwise it draws the scene and waits one
+(`0x24e33..0x24e65`). The existing window-11 scene gate still applies.
+All 61 rows on 31 maps have counts 2 or 3 and exactly N-1 target bytes;
+there is intentionally no target for the last/cancel choice. **Pin
+differences:** Escape returns zero, the button layout remains at its normal
+coordinates, and high target bytes are unsigned. It agrees on animation,
+the ordinary digit/table choices and the final numbered cancel choice.
+
+### FallToMap (52)
+
+`0x28adc..0x28af9` reads map, x, y and damage at record offsets 6..9 into
+the existing fall bytes, then calls shared fall helper `0x0ca60(1)` at
+`0x28afe`. Coordinates and damage are interpreted as signed bytes. Explicit
+nonzero destinations preserve facing (`0x0cca5..0x0ccb4`); on Darkside a
+zero map instead uses the existing surface-fall destination dispatch
+(`0x0cc93..0x0cca2`). Darkside flag 118 suppresses the fall helper
+(`0x0ca68..0x0ca87`), as in the pin.
+
+The helper draws the source, loads the destination, normalizes outdoor
+edges, draws the fall/impact and applies physical damage to the party
+(`0x0ca8a..0x0caa8`, `0x0ccb7..0x0cd19`). This is the existing
+[M86 presentation](time-and-conditions.md#falling-presentation), with its
+accelerated scrolls, four impact images and cues, not a second animation or
+the terrain rule's fixed 100 damage. Afterwards `0x28b04..0x28b08` marks
+execution and jumps to `0x26a8e`: the source sequence ends, but dispatch
+restarts at line zero at the resulting party position. It does not simply
+return to exploration. This restart agrees with the pin's `SCRIPT_RESET`.
+
+**The installed CD omits the damage parameter in all 220 rows.** Each has
+only map/x/y. DOS still reads record byte 9; the index builder stores raw
+offsets and advances by length+1 (`0x21ea0..0x21ebe`), with no per-record
+padding. Thus 217 rows read the next record's length: damage 5 in 55 rows,
+6 in seven, 7 in 55, 8 in 99, and 10 in one. Example: map 8 `EVT @503`
+falls to 40 `(3,3)` and reads 7 from the following record at `@512`.
+These are base damage inputs before the shared protections, not guaranteed
+HP losses. **Pin difference:** its bounded `readByte()` supplies zero for
+the missing parameter; explicit high damage bytes would also be unsigned.
+
+Three final records instead read beyond their member: map 51 `EVT @1050`,
+size 1059, destination 49 `(9,6)`; map 89 `@235`, size 244, destination 25
+`(1,1)`; map 92 `@274`, size 283, destination 28 `(1,1)`. **Unknown:** the
+damage value for these reads. EVT loading retains the member size
+(`0x21f73..0x21f86`); each dispatch copies just that size to shared scratch
+(`0x26ad1..0x26ae6`, copy `0x3f877..0x3f90a`), without clearing a following
+byte. No zero, fixed damage, or adjacent archive byte can be assumed.
+This is a maintainer question, not a condition-counter fallback to ScummVM.
+
+### ConfirmWord_2 (55)
+
+`0x27f09..0x27f12` initializes the marker to 55, then joins ConfirmWord's
+shared entry `0x27f15`. Unlike opcode 21's title selection, 55 clears the
+title (`0x27f58..0x27f72`); the fourth parameter is the alternate-success
+line. Primary match returns 1, alternate-only match returns -1 for marker
+55 (`0x24023..0x24067`). Caller `0x280cc..0x280e6` jumps respectively to
+parameter 1 or parameter 3. Wrong, empty or cancelled input falls through.
+Primary comparison wins when both match. The shared case-insensitive input
+rules remain unchanged; the opcode-21 uninitialized-marker deviation does
+not apply to 55.
+
+The sole row, map 72 `(7,4)` South, line 5, `EVT @208`, has primary text
+index 3, ordinary success line 10, alternate text index 4 and alternate
+success line 16. The map-text records exist; no missing-string alias is
+needed. The previous DisplayMain supplies text index 2. **Pin:** agrees
+on this 55-specific behavior; retain the already documented shared typed
+input differences rather than inventing a new password rule.
+
+### MoveWallObj (34), slots beyond the live count
+
+`0x2860e..0x2863a` sign-extends parameter 0, multiplies it by eight and
+writes parameters 1/2 as x/y at `DS:dd28 + 8*index` and the next byte.
+There is no count check, count increment, sprite/facing/frame change or
+immediate redraw. The 91-slot allocation is cleared at map load
+(`0x0f5e0..0x0f5e9`). Animation stops at the live wall count
+(`0x10b8a..0x10bbd`), rendering does too (`0x160c2..0x160ca`,
+`0x1690b..0x16918`), and the map writer saves only those live positions
+(`0x26723..0x2675c`).
+
+Map 54 has 21 wall items; five rows write `(100,100)` to indices 21..25
+(`EVT @280`, `423`, `566`, `709`, `891`), at DS offsets
+`ddd0/ddd8/dde0/dde8/ddf0` for x, with y one byte later. Map 55 has four wall
+items; `@26` and `@152` write indices 4/5 at `DS:dd48/dd50`. These are real writes inside
+the allocated array, but neither visible nor saved, and load clears them.
+No extra wall item or saved override is needed. **Pin:** indexes its
+live-sized wall array directly; `Common::Array::operator[]` asserts on
+these indices when assertions are enabled. Its invalid access is not a
+defined DOS-style inert slot.
+
+### IfMapFlag (42), map 29 and absent slots
+
+`0x28765..0x287d5` tests unsigned x/y bytes against 32, not HP or a map
+flag. A specific index is sign-extended and addresses a 20-byte record at
+`DS:e530`; it is not checked against the count. Index 255 instead scans
+only the live count. Both coordinates below 32 continue; either at least
+32 jumps to the sign-extended second parameter. Map load zeros all 107
+allocated monster slots (`0x0f5be..0x0f5cc`), so an untouched slot beyond
+the count but inside that allocation tests as `(0,0)`, hence **continues**.
+A subsequent explicit write can change that result; this is not a rule
+that missing monsters are always present or always absent.
+
+The actual map-29 slot 31 is live, initially `(31,0)`, hence continues.
+Its Spawns at `EVT @6427` and `@6554` move it to `(100,100)` and `(0,31)`
+respectively: absent/jump and present/continue. There are nine IfMapFlag
+rows for it. Four targets, 182/238/150/206 (`@6240`, `6264`, `6336`,
+`6360`), become -74/-18/-106/-50. No record line can match: the index
+builder zero-extends stored lines (`0x21e75..0x21e7e`), and the dispatch
+scan compares them at `0x26b91..0x26b99`. If taken, these branches finish
+the scan without executing another line. The other five targets are
+126/38/94/6/5. Current MMModern preflight eagerly queues both branches and
+rejects a negative address; this is the census refusal, not a monster-count
+problem. **Pin:** uses unsigned target lines, so those four paths differ;
+it also indexes a live-sized monster array for a specific missing slot.
+
+### Save boundary and maintainer questions
+
+No newly settled ordinary path needs a new durable field: object positions,
+live monster positions, quest counts and delivered items already have
+owners, and the numeric/input/fall continuations are blocking presentation.
+Unused wall slots need no persistence. Save v23 / schema 9 / content 14
+remain unchanged in this documentation-only task.
+
+The three end-of-resource fall damage reads prevent an unconditional
+claim that every opcode-52 outcome is settled. The maintainer must decide
+how to resolve their scratch-byte behavior, using further calibrated
+memory-lifetime evidence or DOS observation, or explicitly approve a
+deterministic deviation. No fallback is adopted here. Reproducing arbitrary
+scratch history could require additional state; this research does not
+establish a sufficient state model or authorize a save-format change. Amend
+the plan before any implementation that requires one. Actual input feel,
+rendered timing and audio equivalence remain runtime checks, not new static
+claims or reasons to repeat already settled rule tests.
+
 ## Other town services (2026-10-20)
 
 **DOS static, high confidence for the stated paths.** MMModern baseline
