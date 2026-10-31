@@ -12,8 +12,8 @@ This is the one manual dimension, taken from the pinned ScummVM dialog set,
 with the main screen, town locations and World/CD menu added from the same pin.
 It is not inferred from original data and the guard cannot discover UI changes.
 Update this checklist when a screen or button changes. A partial row names its
-missing buttons or contexts. The list covers both sides where their gameplay is admitted; Darkside town
-services remain deferred. Dialog identifiers below are reference identifiers, not commercial text.
+missing buttons or contexts. The list covers both sides where their gameplay is admitted, Darkside town
+services and entrance scenes included. Dialog identifiers below are reference identifiers, not commercial text.
 
 | Reference dialog / screen | Status | Buttons and limitations | MMModern owner |
 | --- | --- | --- | --- |

@@ -32,7 +32,8 @@ lets you sign in, recruit and remove members, and create and delete
 characters. The Clouds story has been verified through Lord Xeen and the
 Sixth Mirror, and the original ending and score are playable.
 The Pyramids lead to Darkside, whose ordinary maps play with everything
-MMModern already has, and saves work on either side. The original Clouds and
+MMModern already has; its town services and its Tower, Dungeon and Dwarf town
+entrances work as in the original, and saves work on either side. The original Clouds and
 Darkside intros can also be watched.
 
 The original interface is close to complete, with mouse and keyboard.
@@ -137,9 +138,8 @@ covers the character sheet, Items, Quick Fight and every service.
 
 ## What is missing
 
-- Darkside of Xeen cannot be finished: its town services (Bank, Smithy,
-  Guild, Tavern and Inn, Temple, Training and the Dwarf town) and the
-  mechanics only Darkside uses say "not supported yet".
+- Darkside of Xeen cannot be finished: the mechanics only Darkside uses
+  say "not supported yet".
 - The mirror words `showdown` and `genesis` (the Darkside and World endings)
   say "not supported yet".
 

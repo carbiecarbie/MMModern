@@ -312,3 +312,11 @@ disc-change prompt; Town Portal, Lloyd's Beacon, Mr Wizard and defeat follow
 the side, and the DOS export writes Darkside progress, which DOS loaded and
 re-saved. The Darkside town services wait for M102.
 [Plan](milestone-101-plan.md).
+
+**M102 - Darkside towns** (`7e24b89`, `c23dfe4`). Every Darkside town
+service works as on the CD: the Bank, Smithy, Guild, Tavern and Inn, Temple
+and Training choose their stock, spells, Food, Training caps, Inn doors,
+pictures, voices, animations and music by side and town, from a DOS program
+check made first. The Tower, Dungeon and Dwarf town entrance scenes admit
+the party with the right quest item and refuse it otherwise. Save v23
+unchanged. [Plan](milestone-102-plan.md).

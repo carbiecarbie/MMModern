@@ -1,10 +1,11 @@
 # MMModern - Project Status
 
-This describes what can be played and done now. M101 is the latest
-completed and accepted milestone (2026-10-30; [plan](milestone-101-plan.md)):
-the Darkside start. A party crosses to Darkside through the Pyramids and
-back, plays its ordinary maps with every mechanic MMModern already has, and
-saves and loads on either side. Before it, M100 gave the release a launcher
+This describes what can be played and done now. M102 is the latest
+completed and accepted milestone (2026-10-31; [plan](milestone-102-plan.md)):
+the Darkside towns. Every Darkside town service and the Tower, Dungeon and
+Dwarf town entrance scenes work as on the World of Xeen CD. Before it, M101
+let a party cross to Darkside through the Pyramids and back, play its
+ordinary maps and save and load on either side, M100 gave the release a launcher
 window with the sound devices and a log, M99 gave the picture the 4:3 shape of the original's monitors, M98 made a party with a
 Cartographer mark its cell on the maps at every arrival, as in DOS, M97
 added a developer tool that writes an MMModern Clouds save as an original DOS
@@ -24,8 +25,8 @@ approved deviations are listed in
 them yet. A new game of Might and Magic IV: Clouds of Xeen, read from the
 World of Xeen two-CD talkie edition, starts as in the original, and every
 Clouds map is playable. Darkside is reached through the Pyramids, as in the
-CD; its ordinary maps play, while its town services and the mechanics only
-Darkside uses say "not supported yet".
+CD; its ordinary maps, town services and entrance scenes play, while the
+mechanics only Darkside uses say "not supported yet".
 
 ## What can be played
 
@@ -64,8 +65,16 @@ game from the same slot list.
   ([approved deviation](original-quirks.md#dev-skipped-window-first)).
 - The Reaper, Golem, Dwarf Mine and Sphinx entrance scenes play their
   original animations and speech, with captions when Efx is off. The Dwarf
-  Mine always admits the party, the others need the right quest item, and the
-  four entrances whose keys only Darkside gives always refuse.
+  Mine always admits the party, the others need the right quest item. The
+  four Clouds entrances whose keys only Darkside gives refuse without the key
+  and say "not supported yet" with it (they lead to maps 113-128).
+- On Darkside, the Bank, Smithy, Guild, Tavern and Inn, Temple and Training
+  of Castleview, Sandcaster, Lakeside, Necropolis, Olympus and Castle
+  Kalindra work with Darkside's own values, pictures, voices and music, and
+  the Tower, Dungeon and Dwarf town scenes admit the party with the right
+  quest item and refuse it otherwise. Night in these scenes follows the
+  clock, as the sky does
+  ([approved deviation](original-quirks.md#dev-current-clock-night)).
 - The Pyramids join the two sides as in the World of Xeen CD, without the
   CD's disc-change prompt
   ([approved deviation](original-quirks.md#dev-no-disc-prompt)). Every
@@ -337,8 +346,7 @@ the original data uses and its support status.
   omitted by maintainer decision. SDL's resampler plays FM and CD audio up
   to about 0.07% fast, which is inaudible
   ([audio rules](rules/audio.md#sdl-resampler-rate-limitation)).
-- Darkside: the town services (Bank, Smithy, Guild, Tavern and Inn,
-  Temple, Training and the Dwarf town), the mechanics in the
+- Darkside: the mechanics in the
   [census's Darkside gaps](coverage.md#darkside-largest-gaps), the Clouds
   entrances that need Darkside keys (the mixed maps 113-128), FlipWorld and
   the endings say "not supported yet".
