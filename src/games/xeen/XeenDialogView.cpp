@@ -457,7 +457,11 @@ DialogInput xeenBuyInput(XeenItemService action) {
     return input;
 }
 bool xeenGuildMember(const XeenPartyState &p,std::size_t member,XeenMapIdentity map) {
-    if(member>=p.party.size() || map.side!=XeenSide::Clouds)return false;
+    if(member>=p.party.size())return false;
+    if(map.side==XeenSide::Darkside) {
+        const unsigned award=map.number==29?83:map.number==31?84:map.number==33?85:map.number==35?86:87;
+        return p.party.member(p.roster,member).awards[award]!=0;
+    }
     const unsigned award=map.number==49?5:map.number>=28 && map.number<=32?map.number-28:255;
     return award<6 && p.party.member(p.roster,member).awards[award]!=0;
 }
@@ -626,7 +630,7 @@ IndexedFrame drawXeenBuy(const XeenDosText &text,const IndexedFrame &base,const 
     const bool repair=action!=XeenItemService::Buy;
     auto frame=render(base,font,xeenDialogFormat(text.scalar("ITEMS_DIALOG_TEXT1"),{str(text.scalar("BTN_BUY")),str(text.scalar("BTN_SELL")),str(text.scalar("BTN_IDENTIFY")),str(text.scalar("BTN_FIX"))}),{0,101,320,146},{8,109,312,138});
     const auto &c=p.party.member(p.roster,selection.source);
-    const auto &items=repair?*xeenInventoryItems(c,selection.category):p.serviceEconomy->wares[0][xeenIronworksShop(map)][static_cast<unsigned>(selection.category)];
+    const auto &items=repair?*xeenInventoryItems(c,selection.category):p.serviceEconomy->wares[static_cast<unsigned>(map.side)][xeenIronworksShop(map)][static_cast<unsigned>(selection.category)];
     std::vector<std::string> args{str(text.table("CATEGORY_NAMES")[static_cast<unsigned>(selection.category)]),repair?std::string(c.name):n(gold(p))};
     if(repair) args.push_back(str(text.scalar("COST")));
     else args.insert(args.begin()+1,"");

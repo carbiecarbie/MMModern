@@ -81,6 +81,14 @@ struct Live {
   flow->loadSampleDuration=[&](const char *name,XeenSceneArchive archive){return xeenVocDurationNanoseconds(in.assets.readArchiveResource(name,archive));};
   flow->mapName=[&](auto id){return in.assets.mapName(id);};
   flow->loadSpellDescriptions=[&]{return in.assets.readArchiveResource("spldesc.bin",xeenPictureArchive(c.mapId));};
+  flow->drawSmithArt=[&](auto &image){in.assets.drawSmith(image,xeenPictureArchive(c.mapId));};
+  flow->drawTrainingArt=[&](auto &image){in.assets.drawTraining(image,xeenPictureArchive(c.mapId));};
+  flow->drawTempleArt=[&](auto &image){in.assets.drawTemple(image,xeenPictureArchive(c.mapId));};
+  flow->drawBankArt=[&](auto &image){in.assets.drawBank(image,xeenPictureArchive(c.mapId));};
+  flow->drawGuildArt=[&](auto &image){in.assets.drawGuild(image,xeenPictureArchive(c.mapId));};
+  flow->drawTavernArt=[&](auto &image){in.assets.drawTavern(image,xeenPictureArchive(c.mapId));};
+  flow->tavernFoodOffer=[&](unsigned n){return in.assets.tavernFoodOffer(n,xeenPictureArchive(c.mapId));};
+  flow->tavernString=[&](std::size_t n){return in.assets.tavernString(n,xeenPictureArchive(c.mapId));};
   present(flow->frame());
   beforeMaps=w.sessionState().mapStates();
  }
@@ -269,13 +277,6 @@ void music(Inputs &in,const GameInstallation &installation,const XeenSaveSnapsho
  }
 }
 void refusals(Inputs &in,const XeenSaveSnapshot &source,const std::filesystem::path &out) {
- const auto events=in.events.load({XeenSide::Darkside,29});std::set<unsigned> actions;
- for(const auto &e:events.records)if(e.opcode==17 && e.line==0 && e.parameters.size()==1 && e.parameters[0]<=5 && !actions.count(e.parameters[0])) {
-  auto s=source;s.camera.x=e.x;s.camera.y=e.y;s.camera.direction=e.direction<4?XeenDirection(e.direction):XeenDirection::North;
-  std::cout<<"Refusal site "<<s.camera.x<<','<<s.camera.y<<'\n';Live live(in,s);std::string reason;live.flow->reportManual=[&](const auto &result){if(const auto *error=std::get_if<XeenEventExecutionError>(&result))reason=error->message;};
-  live.act(InteractionAction{});check(reason.find("not supported yet")!=std::string::npos,"Deferred town input did not refuse clearly");live.unchanged(s);actions.insert(e.parameters[0]);
- }
- check(actions.size()==6,"Castleview service refusal inventory incomplete");
  unsigned deferredKeys=0;
  for(const auto &site:xeenEntranceSites())if(site.quest>=35) {
   bool found=false;
@@ -532,13 +533,17 @@ void originalRoute(Inputs &in,const GameInstallation &installation,const std::fi
  const auto checkpoint=live.snapshot();XeenSaveFile::write(path,checkpoint);Live loaded(in,XeenSaveFile::read(path));
  check(XeenSaveFormat::encode(loaded.snapshot())==XeenSaveFormat::encode(checkpoint),"Original Castleview save/load replayed work");
  // Continue the same live input route after its disk round-trip checkpoint.
- std::string refusal;loaded.flow->reportManual=[&](const auto &r){if(const auto *e=std::get_if<XeenEventExecutionError>(&r))refusal=e->message;};
+ std::string refusal;bool visited=false;loaded.flow->reportManual=[&](const auto &r){if(const auto *e=std::get_if<XeenEventExecutionError>(&r))refusal=e->message;};
  for(const auto &e:in.events.load(loaded.c.mapId).records)if(e.opcode==17 && e.line==0 && e.parameters.size()==1 && e.parameters[0]<=5 &&
      walk(loaded,e.x,e.y,e.direction<4?XeenDirection(e.direction):XeenDirection::North)) {
   std::cout<<"Original route service "<<unsigned(e.parameters[0])<<" at "<<int(e.x)<<','<<int(e.y)<<std::endl;
-  loaded.act(InteractionAction{});loaded.settle();break;
+  loaded.act(InteractionAction{});
+  for(unsigned i=0;i<512 && !(loaded.flow->inputContext(loaded.flow->frame().presentation()).dialog &&
+      loaded.flow->inputContext(loaded.flow->frame().presentation()).dialog->key(InputKey::Escape));++i)loaded.tick();
+  check(loaded.w.sessionState().journeyActivity()==XeenJourneyActivity::Service,"Original route did not enter the live Darkside service");
+  loaded.key(InputKey::Escape);loaded.settle();visited=true;break;
  }
- check(refusal.find("not supported yet")!=std::string::npos,"Original deferred service did not refuse clearly");
+ check(visited && refusal.empty(),"Original Darkside service visit did not complete");
  check(walk(loaded,26,24,XeenDirection::North),"Original route cannot reach the Pyramid");loaded.act(InteractionAction{});loaded.settle();check(loaded.c.mapId==XeenMapIdentity(23),"Original route failed to return through Pyramid");
  picture(loaded.flow->frame(),out/"original-route-return.ppm");std::filesystem::remove(path);
 }
@@ -695,6 +700,6 @@ int main(int argc,char **argv) {
   Live castleview(in,s);picture(castleview.flow->frame(),out/"castleview.ppm");
   auto outdoors=s;outdoors.camera={{XeenSide::Darkside,1},8,8,XeenDirection::North};outdoors.darksideSong=0;outdoors=quiet(in,outdoors);
   Live landscape(in,outdoors);picture(landscape.flow->frame(),out/"darkside-outdoors.ppm");
-  std::cout<<"113 ordinary Darkside maps, Pyramid and side travel, exact save/DOS export, Wizard/defeat and deferred-service refusals passed\n";return 0;
+  std::cout<<"113 ordinary Darkside maps, Pyramid and side travel, exact save/DOS export, Wizard/defeat and deferred-entrance refusals passed\n";return 0;
  }catch(const std::exception &e){std::cerr<<"Darkside tests: "<<e.what()<<'\n';return 1;}
 }

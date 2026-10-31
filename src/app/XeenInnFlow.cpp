@@ -23,7 +23,7 @@ bool XeenEncounterFlow::signIn() {
         throw std::logic_error("Sign In authority unavailable");
     InnBusy busy(_busy);_journeyPreimage->check();checkSmithReservation();
     const auto destination=xeenInnDoor(_camera.mapId);
-    if(!destination)throw std::logic_error("Sign In outside a Clouds tavern");
+    if(!destination)throw std::logic_error("Sign In outside a known tavern");
     const auto door=*destination;
     if(!_smith->departure->service(64,[&]{_journeyPreimage->check();},
         [&]{checkSmithBoundary(XeenSmithBoundary::StockComplete);}))return false;
@@ -33,11 +33,11 @@ bool XeenEncounterFlow::signIn() {
     prepared->retainResources(*_journeyPreimage);
     prepared->context=day.context();prepared->economy=day.economy();prepared->s._journeyRandom=day.continuation();
     prepared->cameraValue=door;prepared->insideInn=true;
-    for(auto id:_party.party.activeRosterIds()) {prepared->characters[id].savedMaze=door.mapId.number;prepared->characters[id].xeenSide=0;}
+    for(auto id:_party.party.activeRosterIds()) {prepared->characters[id].savedMaze=door.mapId.number;prepared->characters[id].xeenSide=static_cast<unsigned>(door.mapId.side);}
     _journeyPreimage->check();
     _party.encounterContext=day.context();_party.serviceEconomy=day.economy();
     _world._sessionState._journeyRandom=day.continuation();_camera=door;_party.insideInn=true;
-    for(auto id:_party.party.activeRosterIds()) {auto &c=_party.roster.at(id);c.savedMaze=door.mapId.number;c.xeenSide=0;}
+    for(auto id:_party.party.activeRosterIds()) {auto &c=_party.roster.at(id);c.savedMaze=door.mapId.number;c.xeenSide=static_cast<unsigned>(door.mapId.side);}
     _smith->departed=true; // The ordinary farewell must not charge another day.
     ++_world._sessionState._journeyGeneration;++_generation;
     prepared->adoptJourneyCoordination();_journeyPreimage.swap(prepared);
@@ -114,6 +114,31 @@ void XeenEncounterFlow::innReturn() {
     _world.treasureStaging().enterGame();_journeyPreimage->adoptMutationBoundary();
     publishArrival(arrival);
 }
+void XeenEncounterFlow::reloadServiceMap() {
+    // The DOS location tail restores the entry song, loads the map, then
+    // charges departure time. Clouds retains its established service path.
+    if(_camera.mapId.side!=XeenSide::Darkside)return;
+    _journeyPreimage->check();
+    auto candidate=_world.transitionCandidate();XeenPartyState party;candidate->copyEventParty(_party,party);
+    auto camera=_camera;auto flags=_flags;
+    {
+        XeenRestoreGuard guard(*candidate,party,camera,flags);
+        XeenRestoreGuard::EventProviders providers(*candidate,party,camera,flags,guard,[&]{_journeyPreimage->check();},[&]{_journeyPreimage->failed=true;});
+        candidate->discardMapCache();
+        flags=candidate->loadEventDestination(camera.mapId,camera.mapId,true,flags);
+    }
+    auto &visit=_smith?_smith->departure:_training->departure;
+    auto departure=std::make_unique<XeenServiceDayCandidate>(visit->rebindRandom(*candidate->sessionState().journeyRandom()));
+    auto prepared=std::make_shared<XeenRestoreGuard>(_world,_party,_camera,_flags);
+    prepared->retainResources(*_journeyPreimage);prepared->prepareSpellMapPublication(*candidate);prepared->flagValues=flags.values();
+    _world.checkTransitionTreasure(*candidate);_journeyPreimage->check();
+    if(_program.audio)_program.audio->requestSong(_program.audio->darksideMapSong(*_world.sessionState().darksideSong()),
+        xeenPictureArchive(camera.mapId),223,_nanosecondClock?(*_nanosecondClock)():PresentationClock::fromMilliseconds(_clock()));
+    _flags=flags;_world.publishTransition(*candidate);visit.swap(departure);
+    if(_smith) {*_smith->binding=SmithDepartureBinding(*visit);_smith->mapReloaded=true;}
+    else _training->mapReloaded=true;
+    ++_generation;prepared->adoptMutationBoundary();_journeyPreimage.swap(prepared);
+}
 void XeenEventFlow::forcedInnSave() {forcedJourneySave(false);}
 void XeenEventFlow::forcedJourneySave(bool ending) {
     if((ending?!bool(saveForced):!bool(saveInn)) || _forcedSave)throw std::logic_error("Inn Save transaction unavailable");
@@ -144,7 +169,11 @@ void XeenEventFlow::forcedJourneySave(bool ending) {
 IndexedFrame XeenEventFlow::finishSignIn() {
     if(!_smithUi || !_smithUi->signIn || !_smithSettlement)throw std::logic_error("Sign In settlement unavailable");
     if(!_signInSaveDone) {
-        if(_program.audio)_program.audio->requestSong(_program.audio->mapSong(_world.map(_camera.mapId).geometry),XeenSceneArchive::Clouds,223,presentationNow());
+        if(_program.audio) {
+            const bool dark=_camera.mapId.side==XeenSide::Darkside;
+            _program.audio->requestSong(dark?_program.audio->darksideMapSong(*_world.sessionState().darksideSong()):
+                _program.audio->mapSong(_world.map(_camera.mapId).geometry),xeenPictureArchive(_camera.mapId),223,presentationNow());
+        }
         try {forcedInnSave();_signInSaveDone=true;}
         catch(const std::exception &e) {
             _encounter->journeySavePreimage().check();
@@ -158,6 +187,10 @@ IndexedFrame XeenEventFlow::finishSignIn() {
     _signInSaveDone=false;_explorationPass=false;_manualInput.reset();
     _encounter->_journeyCapture->inputPassPending=false;
     _innUi.emplace();_innUi->phase=InnUi::Phase::Closing;_innUi->scroll=22;_innUi->closing=std::move(closing);
+    if(_camera.mapId.side==XeenSide::Darkside) {
+        _innUi->phase=InnUi::Phase::Menu;
+        if(!_program.innSongStarted) {if(_program.audio)_program.audio->requestInn(presentationNow(),_camera.mapId.side);_program.innSongStarted=true;}
+    }
     _innUi->deadline=PresentationClock::after(presentationNow(),1);
     return renderInn();
 }
@@ -165,10 +198,11 @@ IndexedFrame XeenEventFlow::openInn(bool closing) {
     requireCurrentOwners();
     if(!journey() || !_party.insideInn || _innUi)throw std::logic_error("Inn entry unavailable");
     if(!closing && !_program.innSongStarted) {
-        if(_program.audio)_program.audio->requestInn(presentationNow());_program.innSongStarted=true;
+        if(_program.audio)_program.audio->requestInn(presentationNow(),_camera.mapId.side);_program.innSongStarted=true;
     }
     _innUi.emplace();_innUi->closing=_frame;
     if(closing){_innUi->phase=InnUi::Phase::Closing;_innUi->scroll=22;}
+    if(_camera.mapId.side==XeenSide::Darkside)_innUi->phase=InnUi::Phase::Menu;
     _innUi->deadline=closing?PresentationClock::after(presentationNow(),1):PresentationClock::retraceAfter(presentationNow());
     _explorationPass=false;_manualInput.reset();_encounter->_journeyCapture->inputPassPending=false;
     return renderInn();
@@ -242,7 +276,7 @@ std::optional<IndexedFrame> XeenEventFlow::updateInn() {
         ui.phase=InnUi::Phase::Palette;ui.scroll=1;
         // DOS fadeIn(0x81): restore the full palette at one VGA retrace.
         ui.deadline=PresentationClock::retraceAfter(presentationNow());
-        if(!_program.innSongStarted) {if(_program.audio)_program.audio->requestInn(presentationNow());_program.innSongStarted=true;}
+        if(!_program.innSongStarted) {if(_program.audio)_program.audio->requestInn(presentationNow(),_camera.mapId.side);_program.innSongStarted=true;}
     } else if(ui.phase==InnUi::Phase::Palette) {
         ui.phase=InnUi::Phase::Opening;ui.deadline=PresentationClock::after(presentationNow(),1);
     } else if(ui.phase==InnUi::Phase::Opening) {

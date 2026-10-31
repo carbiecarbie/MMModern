@@ -4,7 +4,14 @@
 #include <optional>
 namespace mmodern {
 inline std::optional<XeenCamera> xeenInnDoor(XeenMapIdentity town) {
-    if(town.side!=XeenSide::Clouds)return {};
+    if(town.side==XeenSide::Darkside) {
+        switch(town.number) {
+        case 29:return XeenCamera{town,17,24,XeenDirection::West};
+        case 31:return XeenCamera{town,14,13,XeenDirection::East};
+        case 37:return XeenCamera{town,9,4,XeenDirection::South};
+        default:return {};
+        }
+    }
     switch(town.number) {
     case 28:return XeenCamera{town,18,4,XeenDirection::West};
     case 30:return XeenCamera{town,19,16,XeenDirection::West};

@@ -26,8 +26,7 @@ Outdoors always uses row 0. Indoors wall kinds 0, 1, 2/4, 3 and 5 use rows
 Location return restores the previous song with fade 223
 (`0x1d75a..0x1d778`), without drawing; a non-Inn return then reloads the map
 (`0x1d788 -> 0xf542`) before charging departure time. That ordinary Darkside
-reload makes one selection, with no additional return-only draw. Darkside
-services remain refused in Part A.
+reload makes one selection, with no additional return-only draw. M102 Part A implements this service return path.
 
 **Maintainer decision, 2026-10-30:** v23 stores the selected song outside
 Journey. Load validates its row against the camera map and replays it with
@@ -37,8 +36,8 @@ difference is recorded in [original quirks](../original-quirks.md#dev-darkside-l
 ## Darkside town sound and captions
 
 **Calibrated DOS static, high confidence (M102 Part 0, 2026-10-31).**
-These are original rules; Darkside services/scenes remain unsupported at
-this baseline. [The complete voice and presentation tables](evidence.md#darkside-towns-m102-part-0)
+M102 Part A implements the service rules; entrance scenes remain deferred
+to Part B. [The complete voice and presentation tables](evidence.md#darkside-towns-m102-part-0)
 give each greeting, action, refusal, farewell, resource and call site.
 
 Bank/Smith/Guild/Tavern/Temple/Training songs are `bank.m`, `sf09.m`,
@@ -49,7 +48,11 @@ active Darkside archive. Smith/Tavern departures drain `come1.voc` /
 no farewell voice. Guild's `skull1.voc` refusal uses frames 4/5 while busy,
 and `parrot2.voc` purchase resets its speaking selector. Training uses
 `gtlost.voc` for all three gold/cap/XP refusals and starts `spit1.voc` when
-its logical base index reaches 23. These busy tests use Efx, not Speech.
+its logical base index reaches 23. Gold refusal plays after the payment
+dialog closes and keeps the logical index; cap/XP refusals reset it.
+The Part 0 options disassembly shows the gold branch `0x1abb9 -> 0x1ac98`
+skipping the index writes at `0x1abbc` and `0x1accd`. These busy tests use
+Efx, not Speech.
 
 Tower plays keyed `howdid1.voc` then `goin1.voc`; refusal leaves the first
 speech loop silent, then plays `needkey1.voc`. Dungeon uses `what2.voc`,

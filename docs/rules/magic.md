@@ -118,8 +118,8 @@ agree. [Offsets and table comparison](evidence.md#other-town-services-2026-10-20
 
 ## Darkside Guild catalogues and membership
 
-**Calibrated DOS static, high confidence (2026-10-31).** This records the
-original rules; Darkside Guilds remain unsupported at the M102 Part 0 baseline.
+**Calibrated DOS static, high confidence (2026-10-31).** M102 Part A
+implements these rules on the shared Guild and spell-book owners.
 
 | Map | Ordered catalogue | Membership award |
 | --- | --- | --- |

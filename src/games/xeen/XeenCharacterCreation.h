@@ -1,6 +1,7 @@
 #ifndef MMODERN_XEEN_CHARACTER_CREATION_H
 #define MMODERN_XEEN_CHARACTER_CREATION_H
 #include "games/xeen/XeenParty.h"
+#include "games/xeen/XeenMapIdentity.h"
 #include "games/xeen/XeenCombat.h"
 namespace mmodern {
 using XeenCreateAttributes=std::array<int,7>;
@@ -26,7 +27,7 @@ XeenCreateAttributes xeenCreateRoll(XeenCombatRandom &);
 // Both halves start as a completely cleared CHR, with every optional present.
 std::pair<XeenCharacter,XeenCombatInputs> xeenCreatedCharacter(std::uint8_t id,
     const std::string &name,unsigned characterClass,const XeenCreateAttributes &,
-    unsigned town,const XeenGameplayContext &);
+    XeenMapIdentity town,const XeenGameplayContext &);
 struct XeenCreateDie {unsigned frame;int x,y,dx,dy;};
 using XeenCreateDice=std::array<XeenCreateDie,3>;
 inline XeenCreateDice xeenInitialCreateDice() {return {{{0,20,17,10,-10},{2,112,35,-10,-10},{4,61,50,-10,10}}};}

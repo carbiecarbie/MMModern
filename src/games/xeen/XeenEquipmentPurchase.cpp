@@ -14,13 +14,15 @@ bool sameCategory(const XeenItemCategory &a,const XeenItemCategory &b) noexcept 
 }
 }
 unsigned xeenIronworksShop(XeenMapIdentity map) noexcept {
-    if(map.side!=XeenSide::Clouds)return 0;
+    if(map.side==XeenSide::Darkside) {
+        switch(map.number) {case 31:return 1;case 37:return 2;case 43:return 3;default:return 0;}
+    }
     switch(static_cast<unsigned>(map.number)) {
     case 30:return 1;case 73:return 2;case 49:return 3;default:return 0;
     }
 }
 bool xeenSupportedEquipmentOffer(unsigned side,unsigned shop,XeenInventoryCategory category,const XeenItem &item) noexcept {
-    return side==0 && shop<4 && item.frame==0 &&
+    return side<2 && shop<4 && item.frame==0 &&
         !(category==XeenInventoryCategory::Weapons && item.id>=34) &&
         xeenItemPrice(category,item,XeenItemService::Buy).has_value();
 }

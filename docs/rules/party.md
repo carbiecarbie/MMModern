@@ -231,8 +231,8 @@ Olympus 37 at `(9,4)` South. DOS indexes the side-1 Tavern row with
 town and side before the existing Sign In transition. The World CD Inn
 requests `newbrigh.m` with fade 128 when its entry flag is clear
 (`0x394cb..0x394f4`). The pin agrees on these doors and song name.
-Darkside Inn access remains deferred at the M102 Part 0 baseline; these
-findings do not change the shared saved roster/lodging semantics.
+M102 Part A implements these doors, current-side lodging and Inn song on
+the existing Inn/roster owners, with the shared saved lodging semantics.
 [Evidence](evidence.md#darkside-towns-m102-part-0).
 
 ## Inn input and refusals

@@ -66,7 +66,7 @@ bool purchaseDepletedShop(const XeenMerchantWares::Shop &stock,unsigned side,uns
         possible[level-1][category][slot]=xeenPossibleMerchantItem(level,category,stock[category][slot]);
     // Retained stock is an ordered subsequence of this shop's twenty draws.
     // Missing draws may have been bought in any category. Clouds has at most
-    // fifteen L1 draws (24 eligible slots); later bands allow all categories,
+    // fifteen L1 draws (24 eligible slots), Darkside at most ten. Later bands allow all categories,
     // so a completion can place every missing item without forced overflow.
     for(unsigned band=0;band<4;++band)for(unsigned call=0;call<merchant::counts[side][band][shop];++call) {
         const unsigned level=merchant::level(side,shop,band);next=current;
@@ -110,8 +110,7 @@ void xeenValidateMerchantWares(const XeenMerchantWares &wares) {
 void xeenValidateCurrentServiceEconomy(const XeenServiceEconomy &economy) {
 
 	for(unsigned side=0;side<2;++side)for(unsigned shop=0;shop<4;++shop) {
-		const bool valid=side==0 ? purchaseDepletedShop(economy.wares[side][shop],side,shop) :
-			completeShop(economy.wares[side][shop],side,shop);
+		const bool valid=purchaseDepletedShop(economy.wares[side][shop],side,shop);
 		if(!valid)throw std::invalid_argument("Invalid current merchant economy");
 	}
 }

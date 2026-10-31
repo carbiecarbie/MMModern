@@ -40,14 +40,14 @@ public:
  IndexedFrame cursorImage();
  IndexedFrame cursorImage(XeenSceneArchive selection);
  IndexedFrame restDreamImage(XeenSceneArchive archive=XeenSceneArchive::Current);
-	void drawSmith(IndexedFrame &frame);
-	void drawTraining(IndexedFrame &frame);
-	void drawTemple(IndexedFrame &frame);
-	std::string tavernFoodOffer(unsigned index);
-    std::string tavernString(std::size_t index);
-	void drawTavern(IndexedFrame &frame);
-	void drawBank(IndexedFrame &frame);
-	void drawGuild(IndexedFrame &frame);
+	void drawSmith(IndexedFrame &frame, XeenSceneArchive archive = XeenSceneArchive::Clouds);
+	void drawTraining(IndexedFrame &frame, XeenSceneArchive archive = XeenSceneArchive::Clouds);
+	void drawTemple(IndexedFrame &frame, XeenSceneArchive archive = XeenSceneArchive::Clouds);
+	std::string tavernFoodOffer(unsigned index, XeenSceneArchive archive = XeenSceneArchive::Clouds);
+    std::string tavernString(std::size_t index, XeenSceneArchive archive = XeenSceneArchive::Clouds);
+	void drawTavern(IndexedFrame &frame, XeenSceneArchive archive = XeenSceneArchive::Clouds);
+	void drawBank(IndexedFrame &frame, XeenSceneArchive archive = XeenSceneArchive::Clouds);
+	void drawGuild(IndexedFrame &frame, XeenSceneArchive archive = XeenSceneArchive::Clouds);
 	void discardSpriteCache();
 	std::size_t cachedSpriteCount() const;
 	// Successful resource reads + SpriteResource constructions, not draw calls.

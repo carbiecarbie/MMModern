@@ -25,10 +25,11 @@ unchanged apart from its version number, so the earlier entries are marked
 "master: differs". MMModern plays Clouds of Xeen, apart from the
 [gaps below](#what-scummvm-has-that-mmmodern-does-not-yet), and the Darkside
 intro at startup. Ordinary Darkside play uses the shared World state; its
-services remain deferred; the Pyramid and travel spells cross sides.
+town services work; the Pyramid and travel spells cross sides.
 
-The following Darkside presentation differences are established DOS rules
-from M102 Part 0; these services/scenes are **not yet implemented**. For
+The following Darkside presentation differences follow the DOS rules
+established in M102 Part 0. Service animations are implemented in Part A;
+entrance scenes remain deferred to Part B. For
 each item, pin: differs; master not rechecked.
 
 - **Bank animation.** [The banker finishes frames 11 through 0 once](original-quirks.md#sv-darkside-bank-animation); the pin repeatedly resets that sequence and has a separate frame-bound error.
@@ -699,8 +700,8 @@ in [project status](project-status.md#known-gaps):
 - **The whole game:** Clouds of Xeen is playable from its intro to its
   ending, except the mirror words `showdown` and `genesis` (the Darkside
   and World endings). Darkside is reached through the Pyramids and its
-  ordinary maps play; its town services and many of its mechanics remain
-  deferred.
+  ordinary maps and town services play; entrance scenes and many of its
+  mechanics remain deferred.
 - **Sound:** CD `promus` and the mono `admus`, `blastmus` and authenticated
   INTRO `specmus` OPL profiles are supported, as is MT-32 `rolmus` with the
   player's 1.07 control and PCM ROMs. Music 5/7/8/9 and digital 1/2/5/8/9 use

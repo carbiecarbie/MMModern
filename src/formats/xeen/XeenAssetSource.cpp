@@ -186,16 +186,16 @@ IndexedFrame XeenAssetSource::snapshot() const {
 }
 void XeenAssetSource::blackenScene() { _impl->bridge.blackenScene(); }
 
-void XeenAssetSource::drawSmith(IndexedFrame &frame) {
-	_impl->bridge.drawSmith(frame);
+void XeenAssetSource::drawSmith(IndexedFrame &frame, XeenSceneArchive archive) {
+	_impl->bridge.drawSmith(frame,archive);
 }
-void XeenAssetSource::drawTraining(IndexedFrame &frame) {
-	_impl->bridge.drawTraining(frame);
+void XeenAssetSource::drawTraining(IndexedFrame &frame, XeenSceneArchive archive) {
+	_impl->bridge.drawTraining(frame,archive);
 }
-std::string XeenAssetSource::tavernFoodOffer(unsigned index) {return tavernString(index);}
-std::string XeenAssetSource::tavernString(std::size_t wanted) {
+std::string XeenAssetSource::tavernFoodOffer(unsigned index, XeenSceneArchive archive) {return tavernString(index,archive);}
+std::string XeenAssetSource::tavernString(std::size_t wanted, XeenSceneArchive archive) {
  if(wanted>77)throw std::out_of_range("Tavern string index");
- const auto bytes=readArchiveResource("tavern.bin",XeenSceneArchive::Clouds);
+ const auto bytes=readArchiveResource("tavern.bin",archive);
  if(bytes.size()>65536)throw std::runtime_error("Tavern strings exceed bounded reader capacity");
  std::size_t begin=0;
  for(std::size_t index=0;index<=wanted;++index) {
@@ -209,11 +209,11 @@ std::string XeenAssetSource::tavernString(std::size_t wanted) {
  }
  throw std::runtime_error("Missing Tavern string");
 }
-void XeenAssetSource::drawTavern(IndexedFrame &frame) { _impl->bridge.drawTavern(frame); }
-void XeenAssetSource::drawBank(IndexedFrame &frame) { _impl->bridge.drawBank(frame); }
-void XeenAssetSource::drawGuild(IndexedFrame &frame) { _impl->bridge.drawGuild(frame); }
-void XeenAssetSource::drawTemple(IndexedFrame &frame) {
-	_impl->bridge.drawTemple(frame);
+void XeenAssetSource::drawTavern(IndexedFrame &frame, XeenSceneArchive archive) { _impl->bridge.drawTavern(frame,archive); }
+void XeenAssetSource::drawBank(IndexedFrame &frame, XeenSceneArchive archive) { _impl->bridge.drawBank(frame,archive); }
+void XeenAssetSource::drawGuild(IndexedFrame &frame, XeenSceneArchive archive) { _impl->bridge.drawGuild(frame,archive); }
+void XeenAssetSource::drawTemple(IndexedFrame &frame, XeenSceneArchive archive) {
+	_impl->bridge.drawTemple(frame,archive);
 }
 
 void XeenAssetSource::drawNpc(IndexedFrame &frame, std::uint8_t portraitId,

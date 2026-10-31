@@ -241,15 +241,20 @@ private:
 	struct ServiceArtState {
 		XeenServiceArt kind = XeenServiceArt::Smith;
 		unsigned index = 0;
+		unsigned selector = 0;
+		bool initialized = false;
 		std::uint64_t deadline = 0;
         XeenSilentSampleInterval sample;
         std::optional<unsigned> pendingIndex,pendingSpeaking;
+		std::optional<XeenServiceAnimation::DarksideFrame> pendingDarkside;
         std::optional<XeenJourneyRandomState> randomBefore,randomAfter;
         bool awaitingFrame=false,randomPublished=false,resetAfterFrame=false;
 	};
     std::string serviceNotEnoughGold();
 	bool pulseServiceArt(ServiceArtState &, IndexedFrame &art);
     void startServiceSample(ServiceArtState &,const char *,bool resetIndex=false);
+	void serviceVoice(ServiceArtState &,XeenServiceVoice,bool resetIndex=false);
+	void initializeServiceArt(ServiceArtState &,IndexedFrame &);
     bool serviceSampleBusy(const ServiceArtState &);
     void serviceInputPolled(ServiceArtState &);
 	struct TrainingUi {
@@ -259,6 +264,7 @@ private:
 		std::size_t member=0;
 		std::uint64_t revision=0;
 		std::string feedback;
+		bool goldRefusalVoicePending=false;
 		IndexedFrame art;
 	};
 	std::optional<TrainingUi> _trainingUi;

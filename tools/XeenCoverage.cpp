@@ -483,7 +483,7 @@ std::string report(const Census &clouds,const Census &darkside) {
         "Map impact is the number of distinct maps containing a row; rows are sorted by unsupported/partial first, then map impact and occurrences. "
         "Map resources include the neighboring 16x16 geometry tiles used by larger indoor locations, not just primary map destinations. "
         "Random treasure/stock does not identify a particular generated item; its generation sites are reported separately. Shared spell/item catalogues appear on both sides. "
-        "Ordinary Darkside maps use real engine admission; mixed maps 113-128 remain separate blockers. Pyramids and side-aware travel are admitted; Darkside services remain refused.\n\n"
+        "Ordinary Darkside maps use real engine admission; mixed maps 113-128 remain separate blockers. Pyramids, side-aware travel and Darkside town services 0-5 are admitted; Darkside entrance scenes remain refused.\n\n"
         "Monsters have no party-spell ID in the reference format: their magic is represented by attack type, special and range rows. "
         "No monster-to-party-spell crosswalk is inferred. Spell uses count book references and item powers, not casting frequency. "
         "Unclassified rows identify the missing evidence: arrival effects, object/wall behavior, resistances and rejected resource candidates. "

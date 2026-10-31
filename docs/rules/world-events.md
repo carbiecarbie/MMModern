@@ -1012,9 +1012,9 @@ handoff preconditions. It publishes once, retains visited history, marks
 arrival stepped and clears input once. Darkside arrival selects one map
 song; Clouds arrival selects none. Failure before publication retains the
 committed source. No disc-change prompt or wait is shown (approved
-[deviation](../original-quirks.md#dev-no-disc-prompt)). Darkside town services
-remain refused before their gameplay publication; their values and return
-music belong to M102.
+[deviation](../original-quirks.md#dev-no-disc-prompt)). M102 Part A admits Darkside town services 0-5 through the existing live
+service owners, including Sign In. Actions 8, 9 and 13 remain refused for
+Part B.
 
 ## Opening doors and service borders
 

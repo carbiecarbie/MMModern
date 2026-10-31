@@ -2758,13 +2758,39 @@ std::optional<IndexedFrame> XeenEventFlow::updateEntrance() {
 }
 
 void XeenEventFlow::startServiceSample(ServiceArtState &state,const char *name,bool resetIndex) {
+    if(!name)return;
     // A missing provider models the original sound-unavailable status (zero).
     std::uint64_t duration=0;
     if(XeenSoundOptions(_party.soundOptions).efx && (!_program.audio || _program.audio->hasDmaDigital()) && loadSampleDuration)
-        _encounter->guardCallback(_encounter->ticket(),[&]{duration=loadSampleDuration(name,XeenSceneArchive::Clouds);});
+        _encounter->guardCallback(_encounter->ticket(),[&]{duration=loadSampleDuration(name,xeenPictureArchive(_camera.mapId));});
     const auto now=presentationNow();state.sample.start(now,duration);
-    _encounter->digitalSample(name,XeenSceneArchive::Clouds,now);
-    if(resetIndex)state.index=XeenServiceAnimation::modulus(state.kind)-1;
+    _encounter->digitalSample(name,xeenPictureArchive(_camera.mapId),now);
+    if(resetIndex)state.index=XeenServiceAnimation::modulus(state.kind,_camera.mapId.side)-1;
+}
+void XeenEventFlow::serviceVoice(ServiceArtState &state,XeenServiceVoice action,bool resetIndex) {
+    if(_camera.mapId.side==XeenSide::Darkside && state.kind==XeenServiceArt::Guild) {
+        if(action==XeenServiceVoice::Refusal)state.selector=5;
+        if(action==XeenServiceVoice::Purchase)state.selector=0;
+    }
+    startServiceSample(state,XeenServiceAnimation::voice(state.kind,action,_camera.mapId.side),resetIndex);
+}
+void XeenEventFlow::initializeServiceArt(ServiceArtState &state,IndexedFrame &art) {
+    if(state.initialized || _camera.mapId.side!=XeenSide::Darkside)return;
+    if(!state.pendingDarkside) {
+        state.randomBefore=*_world.sessionState().journeyRandom();
+        XeenCombatRandom random(*state.randomBefore);
+        const auto draw=[&](unsigned lo,unsigned hi) {std::optional<unsigned> n;while(!n)n=random.draw(lo,hi);return *n;};
+        state.pendingDarkside=XeenServiceAnimation::darksideEntry(state.kind,draw);
+        state.randomAfter=random.continuation();state.randomPublished=false;
+    }
+    auto candidate=art;
+    for(const auto &p:state.pendingDarkside->sprites)
+        _encounter->guardCallback(_encounter->ticket(),[&]{drawDialogSprite(candidate,p.sprite.resource.c_str(),p.sprite.frame,p.x,p.y);});
+    if(!state.randomPublished && *state.randomAfter!=*state.randomBefore) {
+        _encounter->publishServiceAnimationRandom(*state.randomBefore,*state.randomAfter);state.randomPublished=true;
+    }
+    art=std::move(candidate);state.selector=state.pendingDarkside->selector;state.initialized=true;
+    state.pendingDarkside.reset();state.randomBefore.reset();state.randomAfter.reset();
 }
 void XeenEventFlow::serviceInputPolled(ServiceArtState &state) {
     state.deadline=PresentationClock::after(presentationNow(),3);
@@ -2783,9 +2809,18 @@ bool XeenEventFlow::pulseServiceArt(ServiceArtState &state, IndexedFrame &art) {
     if(state.awaitingFrame)return true; // Retry the same retained composition.
     if(!state.pendingIndex) {
         if(now<state.deadline)return false;
-        const auto pendingIndex=XeenServiceAnimation::next(state.kind,state.index);
+        const auto pendingIndex=XeenServiceAnimation::next(state.kind,state.index,_camera.mapId.side);
         state.pendingSpeaking.reset();state.randomBefore.reset();state.randomAfter.reset();state.randomPublished=false;
-        if(state.sample.playing(now)) {
+        if(_camera.mapId.side==XeenSide::Darkside) {
+            const auto before=*_world.sessionState().journeyRandom();
+            const auto *day=_encounter->_smith?_encounter->_smith->departure.get():_encounter->_training->departure.get();
+            const auto reserve=std::uint64_t(4)+(day->pendingGeneration()?XeenServiceDayCandidate::kDeferredRandomReserve:0);
+            if(UINT64_MAX-before.count<reserve) {state.deadline=PresentationClock::after(now,3);return false;}
+            XeenCombatRandom random(before);
+            state.pendingDarkside=XeenServiceAnimation::darkside(state.kind,pendingIndex,serviceSampleBusy(state),state.selector,
+                [&](unsigned lo,unsigned hi) {std::optional<unsigned> n;while(!n)n=random.draw(lo,hi);return *n;});
+            if(random.continuation()!=before) {state.randomBefore=before;state.randomAfter=random.continuation();}
+        } else if(state.sample.playing(now)) {
             if(const auto speaking=XeenServiceAnimation::speaking(state.kind)) {
                 const auto before=*_world.sessionState().journeyRandom();
                 const auto *day=_encounter->_smith?_encounter->_smith->departure.get():_encounter->_training->departure.get();
@@ -2805,7 +2840,9 @@ bool XeenEventFlow::pulseServiceArt(ServiceArtState &state, IndexedFrame &art) {
     auto candidate=art;
     const auto entry=_encounter->ticket();
     try {
-        for(const auto &sprite:XeenServiceAnimation::compose(state.kind,*state.pendingIndex,state.pendingSpeaking))
+        if(state.pendingDarkside)for(const auto &p:state.pendingDarkside->sprites)
+            _encounter->guardCallback(entry,[&]{drawDialogSprite(candidate,p.sprite.resource.c_str(),p.sprite.frame,p.x,p.y);});
+        else for(const auto &sprite:XeenServiceAnimation::compose(state.kind,*state.pendingIndex,state.pendingSpeaking))
             _encounter->guardCallback(entry,[&]{drawDialogSprite(candidate,sprite.resource.c_str(),sprite.frame,XeenServiceAnimation::kX,XeenServiceAnimation::kY);});
     } catch(const std::exception &) {
         _encounter->journeySavePreimage().check();return false; // Keep choice/index for retry.
@@ -2816,9 +2853,13 @@ bool XeenEventFlow::pulseServiceArt(ServiceArtState &state, IndexedFrame &art) {
         state.randomPublished=true;
     }
     art=std::move(candidate);state.index=*state.pendingIndex;state.awaitingFrame=true;
+    if(state.pendingDarkside)state.selector=state.pendingDarkside->selector;
     // Locations::wait's full-background draw (DOS 0x1c402); no exit reset.
     _world.scenePresentation().resetServiceBorder();
-    if(state.kind==XeenServiceArt::Smith && (state.index==3 || state.index==9))_encounter->fmEffect(45);
+    const bool dark=_camera.mapId.side==XeenSide::Darkside;
+    const auto logicalIndex=XeenServiceAnimation::next(state.kind,state.index,_camera.mapId.side);
+    if(state.kind==XeenServiceArt::Smith && (dark?(logicalIndex==4 || logicalIndex==13):(state.index==3 || state.index==9)))_encounter->fmEffect(45);
+    if(dark && state.kind==XeenServiceArt::Training && logicalIndex==23)startServiceSample(state,"spit1.voc");
     state.deadline=PresentationClock::after(presentationNow(),3); // Reset after work; no catch-up.
     return true;
 }
@@ -2930,7 +2971,7 @@ std::optional<IndexedFrame> XeenEventFlow::updatePresentation() {
         if(_smithUi->signIn && _encounter->_smith && !_encounter->_smith->departed) {
             if(_encounter->_smith->frame)_encounter->consumeSmithFrame(_inputGeneration,_actionableFrame);
             if(!_encounter->signIn())return {};
-            _encounter->digitalStop();startServiceSample(_smithUi->animation,"goodbye.voc");_smithUi->goodbye=true;
+            _encounter->digitalStop();serviceVoice(_smithUi->animation,XeenServiceVoice::Farewell);_smithUi->goodbye=true;
             return renderEncounter();
         }
         if(_smithSettlement){if(!_smithUi->feedback.empty())return {};return _smithUi->signIn?finishSignIn():settleSmithEvent();}
@@ -2986,7 +3027,8 @@ std::optional<IndexedFrame> XeenEventFlow::updatePresentation() {
 				throw std::overflow_error("Smith admission would consume mandatory input authority");
 			if (!_encounter->serviceSmithPreparation(_smithUi->templePriceRevision)) return std::nullopt;
 			_smithUi->phase=SmithUi::Phase::Lobby;
-            startServiceSample(_smithUi->animation,XeenServiceAnimation::greeting(_smithUi->animation.kind));
+            initializeServiceArt(_smithUi->animation,_smithUi->art);
+            serviceVoice(_smithUi->animation,XeenServiceVoice::Greeting);
             serviceInputPolled(_smithUi->animation);
 		} catch (const std::exception &error) {
 			_encounter->journeySavePreimage().check();

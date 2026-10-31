@@ -32,12 +32,12 @@ XeenCreateAttributes xeenCreateRoll(XeenCombatRandom &random) {
     return values;
 }
 std::pair<XeenCharacter,XeenCombatInputs> xeenCreatedCharacter(std::uint8_t id,
-    const std::string &name,unsigned cls,const XeenCreateAttributes &a,unsigned town,const XeenGameplayContext &context) {
+    const std::string &name,unsigned cls,const XeenCreateAttributes &a,XeenMapIdentity town,const XeenGameplayContext &context) {
     if(id>=24 || cls>=10 || name.empty() || name.size()>10 || name.find('\0')!=std::string::npos)
         throw std::invalid_argument("Invalid created character");
     auto c=xeenDeletedCharacter(id);auto inputs=xeenDeletedCombatInputs();
     c.name=name;c.sex=xeenCreateSex(id);c.race=xeenCreateRace(id);c.characterClass=XeenCharacterClass(cls);
-    c.savedMaze=town;c.permanentLevel=1;c.birthDay=std::uint8_t(context.day);c.birthYear=std::uint16_t(context.year-18);
+    c.savedMaze=town.number;c.xeenSide=static_cast<unsigned>(town.side);c.permanentLevel=1;c.birthDay=std::uint8_t(context.day);c.birthYear=std::uint16_t(context.year-18);
     inputs.might.permanent=a[0];c.intellect.permanent=a[1];c.personality.permanent=a[2];c.endurance.permanent=a[3];
     inputs.speed.permanent=a[4];inputs.accuracy.permanent=a[5];inputs.luck->permanent=a[6];
     const auto classSkill=kXeenCreateClassSkills[cls].id;

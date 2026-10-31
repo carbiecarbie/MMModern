@@ -1,4 +1,5 @@
 #include "XeenCoverageContext.h"
+#include "games/xeen/XeenIndoorScene.h"
 #include "XeenCoverage.h"
 #include "app/XeenEventFlow.h"
 #include "platform/XeenSaveFile.h"
@@ -91,16 +92,16 @@ Support OriginalContext::replayRoot(XeenCamera entry) {
             {},[&]{return now;},{},&catalogue.catalog,[&](auto,auto){return XeenEventFlow::Composition{blank(),false};},
             nullptr,[&](auto &,const auto &,const auto &,auto,auto){return XeenEventFlow::Composition{blank(),false};});
         session.dialogText=&assets.uiText();
-        session.drawDialogSprite=[this](auto &frame,const char *name,unsigned id,int x,int y){assets.drawDialogSprite(frame,name,id,x,y);};
-        session.drawTrainingArt=[this](auto &frame){assets.drawTraining(frame);};
-        session.drawSmithArt=[this](auto &frame){assets.drawSmith(frame);};
-        session.drawTempleArt=[this](auto &frame){assets.drawTemple(frame);};
-        session.drawTavernArt=[this](auto &frame){assets.drawTavern(frame);};
-        session.drawBankArt=[this](auto &frame){assets.drawBank(frame);};
-        session.drawGuildArt=[this](auto &frame){assets.drawGuild(frame);};
-        session.tavernFoodOffer=[this](unsigned index){return assets.tavernFoodOffer(index);};
+        session.drawDialogSprite=[this,&c](auto &frame,const char *name,unsigned id,int x,int y){assets.drawDialogSprite(frame,name,id,x,y,xeenPictureArchive(c.mapId));};
+        session.drawTrainingArt=[this,&c](auto &frame){assets.drawTraining(frame,xeenPictureArchive(c.mapId));};
+        session.drawSmithArt=[this,&c](auto &frame){assets.drawSmith(frame,xeenPictureArchive(c.mapId));};
+        session.drawTempleArt=[this,&c](auto &frame){assets.drawTemple(frame,xeenPictureArchive(c.mapId));};
+        session.drawTavernArt=[this,&c](auto &frame){assets.drawTavern(frame,xeenPictureArchive(c.mapId));};
+        session.drawBankArt=[this,&c](auto &frame){assets.drawBank(frame,xeenPictureArchive(c.mapId));};
+        session.drawGuildArt=[this,&c](auto &frame){assets.drawGuild(frame,xeenPictureArchive(c.mapId));};
+        session.tavernFoodOffer=[this,&c](unsigned index){return assets.tavernFoodOffer(index,xeenPictureArchive(c.mapId));};
         session.loadSampleDuration=[this](const char *name,XeenSceneArchive archive){return xeenVocDurationNanoseconds(assets.readArchiveResource(name,archive));};
-        session.loadSpellDescriptions=[this]{return assets.readArchiveResource("spldesc.bin");};
+        session.loadSpellDescriptions=[this,&c]{return assets.readArchiveResource("spldesc.bin",xeenPictureArchive(c.mapId));};
         std::optional<Support> result;std::optional<XeenPresentationResponseRequirement> request;
         session.reportManual=[&](const XeenManualEventResult &value) {
             if(const auto *error=std::get_if<XeenEventExecutionError>(&value))result=Support{Status::Partial,error->message};

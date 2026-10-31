@@ -599,9 +599,9 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
    const auto location=flow.audioLocation();
    if(location!=soundLocation || soundMap!=camera.mapId || soundSong!=world.sessionState().darksideSong()) {
     if(location && *location==7) {
-     if(!services.program.innSongStarted) {audio->requestInn(now);services.program.innSongStarted=true;}
+     if(!services.program.innSongStarted) {audio->requestInn(now,camera.mapId.side);services.program.innSongStarted=true;}
     }
-    else if(location)audio->requestLocation(*location,now);
+    else if(location)audio->requestLocation(*location,now,camera.mapId.side);
     else if(camera.mapId.side==XeenSide::Darkside) {
      if(!world.sessionState().darksideSong())throw std::logic_error("Darkside map song is absent");
      audio->requestSong(audio->darksideMapSong(*world.sessionState().darksideSong()),XeenSceneArchive::DarksideOnly,soundLocation?223:207,now);

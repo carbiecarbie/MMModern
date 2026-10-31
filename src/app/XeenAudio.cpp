@@ -1,3 +1,4 @@
+#include "games/xeen/XeenServiceAnimation.h"
 #include "app/XeenAudio.h"
 #include "app/XeenAudioMix.h"
 #include "app/XeenFmSource.h"
@@ -346,7 +347,7 @@ bool XeenAudio::unavailableExeDigital() const{return _impl->config.unavailableEx
 bool XeenAudio::outputActive() const{return _impl->device->active();}
 std::string XeenAudio::darksideMapSong(unsigned ordinal) const {return _impl->darkMaps.at(ordinal);}
 std::string XeenAudio::mapSong(const XeenMapGeometry &m) const {return _impl->maps.at(m.isOutdoors()?0:_impl->kinds.at(m.wallKind));}
-std::string XeenAudio::locationSong(unsigned action) const{return _impl->locations.at(action);}
+std::string XeenAudio::locationSong(unsigned action,XeenSide side) const{return side==XeenSide::Darkside?XeenServiceAnimation::darksideSong(action):_impl->locations.at(action);}
 void XeenAudio::requestSong(std::string name,XeenSceneArchive archive,unsigned fade,std::uint64_t now) {advance(now);_impl->begin({std::move(name),archive,fade});}
 void XeenAudio::fadeSong(unsigned command,std::uint64_t now) {
  if(command==1 || command>255)throw std::invalid_argument("Invalid song fade command");
@@ -385,8 +386,8 @@ std::uint64_t XeenAudio::digitalDuration(const std::string &name,XeenSceneArchiv
  return xeenVocDurationNanoseconds(_impl->loader(name,archive),_impl->config.digital==6?XeenDmaDigital::Blast:XeenDmaDigital::Pro);
 }
 void XeenAudio::requestMap(const XeenMapGeometry &map,std::uint64_t now) {const auto name=mapSong(map);_impl->mapName=name;requestSong(name,XeenSceneArchive::Clouds,207,now);}
-void XeenAudio::requestLocation(unsigned action,std::uint64_t now) {requestSong(locationSong(action),XeenSceneArchive::Clouds,223,now);}
-void XeenAudio::requestInn(std::uint64_t now) {requestSong("inn.m",XeenSceneArchive::Clouds,128,now);}
+void XeenAudio::requestLocation(unsigned action,std::uint64_t now,XeenSide side) {requestSong(locationSong(action,side),side==XeenSide::Darkside?XeenSceneArchive::DarksideOnly:XeenSceneArchive::Clouds,223,now);}
+void XeenAudio::requestInn(std::uint64_t now,XeenSide side) {requestSong(side==XeenSide::Darkside?"newbrigh.m":"inn.m",side==XeenSide::Darkside?XeenSceneArchive::DarksideOnly:XeenSceneArchive::Clouds,128,now);}
 void XeenAudio::enterTitle(std::uint64_t now) {advance(now);_impl->pending.reset();_impl->afterTitle.reset();_impl->titleExit=false;_impl->load({"newbrigh.m",XeenSceneArchive::DarksideOnly,0},_impl->options.music);}
 void XeenAudio::leaveTitle(std::uint64_t now) {advance(now);if(_impl->options.music)_impl->command(207);_impl->titleExit=true;_impl->pending=Impl::Song{"twnnitea.m",XeenSceneArchive::DarksideOnly,207};}
 bool XeenAudio::titleTeardownReady(std::uint64_t now) {

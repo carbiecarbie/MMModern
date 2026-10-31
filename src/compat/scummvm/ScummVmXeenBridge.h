@@ -36,12 +36,12 @@ public:
  IndexedFrame restDreamImage(XeenSceneArchive archive=XeenSceneArchive::Current);
 	void drawNpc(IndexedFrame &frame, std::uint8_t portraitId, std::size_t portraitFrame,XeenSceneArchive archive=XeenSceneArchive::Current);
 	void drawDialogSprite(IndexedFrame &,const char *,unsigned,int,int, XeenSceneArchive selection = XeenSceneArchive::Current,int scale=0,unsigned flags=0);
-	void drawSmith(IndexedFrame &frame);
-	void drawTraining(IndexedFrame &frame);
-	void drawTemple(IndexedFrame &frame);
-	void drawTavern(IndexedFrame &frame);
-	void drawBank(IndexedFrame &frame);
-	void drawGuild(IndexedFrame &frame);
+	void drawSmith(IndexedFrame &frame, XeenSceneArchive archive = XeenSceneArchive::Clouds);
+	void drawTraining(IndexedFrame &frame, XeenSceneArchive archive = XeenSceneArchive::Clouds);
+	void drawTemple(IndexedFrame &frame, XeenSceneArchive archive = XeenSceneArchive::Clouds);
+	void drawTavern(IndexedFrame &frame, XeenSceneArchive archive = XeenSceneArchive::Clouds);
+	void drawBank(IndexedFrame &frame, XeenSceneArchive archive = XeenSceneArchive::Clouds);
+	void drawGuild(IndexedFrame &frame, XeenSceneArchive archive = XeenSceneArchive::Clouds);
 	void discardSpriteCache();
 	std::size_t cachedSpriteCount() const;
 	// Successful resource reads + SpriteResource constructions, not draw calls.

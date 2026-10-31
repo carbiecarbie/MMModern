@@ -7,7 +7,13 @@
 
 namespace mmodern {
 std::optional<XeenFoodOffer> xeenTavernFoodOffer(XeenMapIdentity map) noexcept {
-    if(map.side!=XeenSide::Clouds)return {};
+    if(map.side==XeenSide::Darkside) {
+        switch(map.number) {
+        case 29:return XeenFoodOffer{15,10,60};
+        case 31:return XeenFoodOffer{60,100,61};
+        default:return XeenFoodOffer{120,250,62};
+        }
+    }
     switch(static_cast<unsigned>(map.number)) {
     case 28:return XeenFoodOffer{15,10,75};
     case 30:return XeenFoodOffer{60,50,76};

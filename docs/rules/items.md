@@ -141,8 +141,8 @@ still applies. [Offsets](evidence.md#other-town-services-2026-10-20).
 29/31/37/43 select stock slots 0/1/2/3 respectively, from the second row of
 the same table; an unmatched map selects 0. Both stock selectors use the
 side (`0x326c0..0x32709`, `0x32944..0x32985`, table `0x4d6d0`). Prices
-remain the shared rules above. This agrees with the pin; Darkside purchase
-support is still deferred at the M102 Part 0 baseline.
+remain the shared rules above. This agrees with the pin. M102 Part A implements Darkside purchases and
+exact restoration of depleted stock in all four shops, without regenerating it.
 [Darkside evidence](evidence.md#darkside-towns-m102-part-0).
 
 ## Buying, selling, identifying and repairing

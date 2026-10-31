@@ -701,7 +701,7 @@ Castleview 29 permits level 30, Sandcaster 31 level 50, Olympus 37 level
 200; the default, including Castle Kalindra 43, is 100. This is the only
 map-dependent Training value; the shared quote, payment, XP and condition
 rules above still apply. The pin's caps agree (`0x1c86e..0x1c8cb`).
-Darkside services remain unsupported at the M102 Part 0 baseline.
+M102 Part A implements these caps in the existing Training owner.
 
 ## Tavern Food
 
@@ -740,7 +740,7 @@ The same target/Full/payment rules apply:
 The original offers describe five, twenty and forty days respectively.
 Read those records rather than duplicating their text. Unlike the untabled
 Clouds path, Darkside has an explicit default. These values agree with the
-pin; they are rules for the deferred services, not new playable coverage.
+pin; M102 Part A implements them in the shared Tavern owner.
 [M102 offsets and evidence](evidence.md#darkside-towns-m102-part-0).
 
 ## Temple Heal price

@@ -278,7 +278,7 @@ private:
 		std::uint8_t owner=0, slot=0;
 		XeenInventoryCategory category=XeenInventoryCategory::Armor;
 		XeenItemService itemAction=XeenItemService::Fix;
-		bool quoted=false, departed=false, published=false, buy=false,temple=false,paid=false;
+		bool quoted=false, departed=false, published=false, buy=false,temple=false,paid=false,mapReloaded=false;
 		std::uint8_t serviceAction=1,donationCounter=0;
         bool boughtDrink=false,templeBlessed=false,burpPending=false;
         XeenTempleSurcharges templePrices;
@@ -299,7 +299,7 @@ private:
 		IndexedFrame::Presentation frame;
 		std::uint8_t owner=0;
 		std::bitset<30> trained;
-		bool quoted=false,departed=false,published=false;
+		bool quoted=false,departed=false,published=false,mapReloaded=false;
 		XeenTrainingResult result;
 		std::unique_ptr<XeenServiceDayCandidate> departure,nextDeparture;
 		std::unique_ptr<XeenTrainingCandidate> pending;
@@ -340,6 +340,7 @@ private:
 	void checkSmithReservation();
 	bool departSmith();
 	void publishServiceAnimationRandom(const XeenJourneyRandomState &,const XeenJourneyRandomState &);
+	void reloadServiceMap();
 	bool beginCasting(const Ticket &);
 	void authorizeCastingFrame(const Ticket &, std::uint64_t, const IndexedFrame::Presentation &);
 	bool castingFrameCurrent(std::uint64_t, const IndexedFrame::Presentation &) const noexcept;

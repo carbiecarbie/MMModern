@@ -3,6 +3,7 @@
 #include "games/xeen/PromusDriver.h"
 #include "games/xeen/XeenSoundOptions.h"
 #include "core/GameInstallation.h"
+#include "games/xeen/XeenMapIdentity.h"
 #include "formats/xeen/XeenCdAudio.h"
 #include "formats/xeen/XeenAudioConfig.h"
 #include "formats/xeen/XeenSpriteDrawOptions.h"
@@ -32,7 +33,7 @@ public:
  bool outputActive() const;
  std::string darksideMapSong(unsigned ordinal) const;
  std::string mapSong(const XeenMapGeometry &) const;
- std::string locationSong(unsigned action) const;
+ std::string locationSong(unsigned action, XeenSide side=XeenSide::Clouds) const;
  void requestSong(std::string,XeenSceneArchive,unsigned fade,std::uint64_t now);
  // EXE presentation commands; a fade does not queue or reload a song.
  void fadeSong(unsigned command,std::uint64_t now);
@@ -53,8 +54,8 @@ public:
  std::uint64_t digitalDuration(const std::string &,XeenSceneArchive);
  void startDigital(const RetainedDigital &,std::uint64_t now);
  void requestMap(const XeenMapGeometry &,std::uint64_t now);
- void requestLocation(unsigned action,std::uint64_t now);
- void requestInn(std::uint64_t now);
+ void requestLocation(unsigned action,std::uint64_t now, XeenSide side=XeenSide::Clouds);
+ void requestInn(std::uint64_t now, XeenSide side=XeenSide::Clouds);
  void enterTitle(std::uint64_t now);
  void leaveTitle(std::uint64_t now);
  bool titleTeardownReady(std::uint64_t now);

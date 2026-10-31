@@ -599,24 +599,24 @@ void ScummVmXeenBridge::blackenScene() {
  }
 }
 
-void ScummVmXeenBridge::drawTraining(IndexedFrame &frame) {
+void ScummVmXeenBridge::drawTraining(IndexedFrame &frame, XeenSceneArchive archive) {
 	if(!frame.isValid() || frame.width!=320 || frame.height!=200)throw std::invalid_argument("Invalid Training draw context");
 	struct Resource {const char *name;unsigned frames;};
 	constexpr Resource resources[]={{"trng1.twn",8},{"train.icn",4},{"esc.icn",2}};
 	for(const auto &r:resources) {
-		_impl->sprite(r.name,0,r.frames);
+		_impl->sprite(r.name,0,r.frames,true,archive);
 	}
 	XSurface surface;surface.create(320,200);
 	for(int y=0;y<200;++y)std::copy_n(frame.pixels.data()+y*320,320,static_cast<std::uint8_t *>(surface.getBasePtr(0,y)));
-	_impl->sprite("trng1.twn",0,8).draw(surface,0,Common::Point(8,8));
-	_impl->sprite("train.icn",0,4).draw(surface,0,Common::Point(8,140));
-	_impl->sprite("esc.icn",0,2).draw(surface,0,Common::Point(86,140));
+	_impl->sprite("trng1.twn",0,8,true,archive).draw(surface,0,Common::Point(8,8));
+	_impl->sprite("train.icn",0,4,true,archive).draw(surface,0,Common::Point(8,140));
+	_impl->sprite("esc.icn",0,2,true,archive).draw(surface,0,Common::Point(86,140));
 	for(int y=0;y<200;++y)std::copy_n(static_cast<const std::uint8_t *>(surface.getBasePtr(0,y)),320,frame.pixels.data()+y*320);
 }
-void ScummVmXeenBridge::drawSmith(IndexedFrame &frame) {
+void ScummVmXeenBridge::drawSmith(IndexedFrame &frame, XeenSceneArchive archive) {
 	if (!frame.isValid() || frame.width!=320 || frame.height!=200)
 		throw std::invalid_argument("Invalid Ironworks draw context");
-	auto &sprite=_impl->sprite("blck1.twn",0,8);
+	auto &sprite=_impl->sprite("blck1.twn",0,8,true,archive);
 	XSurface surface;surface.create(320,200);
 	for(int y=0;y<200;++y)std::copy_n(frame.pixels.data()+y*320,320,
 		static_cast<std::uint8_t *>(surface.getBasePtr(0,y)));
@@ -624,11 +624,11 @@ void ScummVmXeenBridge::drawSmith(IndexedFrame &frame) {
 	for(int y=8;y<140;++y)std::copy_n(static_cast<const std::uint8_t *>(surface.getBasePtr(8,y)),216,
 		frame.pixels.data()+y*320+8);
 }
-void ScummVmXeenBridge::drawTavern(IndexedFrame &frame) {
+void ScummVmXeenBridge::drawTavern(IndexedFrame &frame, XeenSceneArchive archive) {
  if(!frame.isValid() || frame.width!=320 || frame.height!=200)
   throw std::invalid_argument("Invalid Tavern draw context");
  // BaseLocation's first background frame; animation and audio are deferred.
- auto &sprite=_impl->sprite("tvrn1.twn",0,8);
+ auto &sprite=_impl->sprite("tvrn1.twn",0,8,true,archive);
  XSurface surface;surface.create(320,200);
  for(int y=0;y<200;++y)std::copy_n(frame.pixels.data()+y*320,320,
   static_cast<std::uint8_t *>(surface.getBasePtr(0,y)));
@@ -636,11 +636,11 @@ void ScummVmXeenBridge::drawTavern(IndexedFrame &frame) {
  for(int y=8;y<140;++y)std::copy_n(static_cast<const std::uint8_t *>(surface.getBasePtr(8,y)),216,
   frame.pixels.data()+y*320+8);
 }
-void ScummVmXeenBridge::drawBank(IndexedFrame &frame) {
+void ScummVmXeenBridge::drawBank(IndexedFrame &frame, XeenSceneArchive archive) {
  if(!frame.isValid() || frame.width!=320 || frame.height!=200)
   throw std::invalid_argument("Invalid Bank draw context");
  // BaseLocation's first background frame; animation and audio are deferred.
- auto &sprite=_impl->sprite("bnkr1.twn",0,8);
+ auto &sprite=_impl->sprite("bnkr1.twn",0,8,true,archive);
  XSurface surface;surface.create(320,200);
  for(int y=0;y<200;++y)std::copy_n(frame.pixels.data()+y*320,320,
   static_cast<std::uint8_t *>(surface.getBasePtr(0,y)));
@@ -648,11 +648,11 @@ void ScummVmXeenBridge::drawBank(IndexedFrame &frame) {
  for(int y=8;y<140;++y)std::copy_n(static_cast<const std::uint8_t *>(surface.getBasePtr(8,y)),216,
   frame.pixels.data()+y*320+8);
 }
-void ScummVmXeenBridge::drawGuild(IndexedFrame &frame) {
+void ScummVmXeenBridge::drawGuild(IndexedFrame &frame, XeenSceneArchive archive) {
  if(!frame.isValid() || frame.width!=320 || frame.height!=200)
   throw std::invalid_argument("Invalid Guild draw context");
  // BaseLocation's first background frame; animation and audio are deferred.
- auto &sprite=_impl->sprite("gild1.twn",0,8);
+ auto &sprite=_impl->sprite("gild1.twn",0,8,true,archive);
  XSurface surface;surface.create(320,200);
  for(int y=0;y<200;++y)std::copy_n(frame.pixels.data()+y*320,320,
   static_cast<std::uint8_t *>(surface.getBasePtr(0,y)));
@@ -660,14 +660,14 @@ void ScummVmXeenBridge::drawGuild(IndexedFrame &frame) {
  for(int y=8;y<140;++y)std::copy_n(static_cast<const std::uint8_t *>(surface.getBasePtr(8,y)),216,
   frame.pixels.data()+y*320+8);
 }
-void ScummVmXeenBridge::drawTemple(IndexedFrame &frame) {
+void ScummVmXeenBridge::drawTemple(IndexedFrame &frame, XeenSceneArchive archive) {
 	if (!frame.isValid() || frame.width!=320 || frame.height!=200)
 		throw std::invalid_argument("Invalid Temple draw context");
 	XSurface surface;surface.create(320,200);
 	for(int y=0;y<200;++y)std::copy_n(frame.pixels.data()+y*320,320,
 		static_cast<std::uint8_t *>(surface.getBasePtr(0,y)));
-	_impl->sprite("tmpl1.twn",0,8).draw(surface,0,Common::Point(8,8));
-	_impl->sprite("esc.icn",0,2).draw(surface,0,Common::Point(86,140));
+	_impl->sprite("tmpl1.twn",0,8,true,archive).draw(surface,0,Common::Point(8,8));
+	_impl->sprite("esc.icn",0,2,true,archive).draw(surface,0,Common::Point(86,140));
 	for(int y=8;y<160;++y)std::copy_n(static_cast<const std::uint8_t *>(surface.getBasePtr(8,y)),216,
 		frame.pixels.data()+y*320+8);
 }

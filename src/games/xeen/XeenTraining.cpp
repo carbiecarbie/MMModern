@@ -5,7 +5,7 @@
 #include <stdexcept>
 namespace mmodern {
 unsigned xeenTrainingCap(XeenMapIdentity map) {
-    if(map.side!=XeenSide::Clouds)throw std::invalid_argument("Training cap is not known outside Clouds");
+    if(map.side==XeenSide::Darkside)return map.number==29?30:map.number==31?50:map.number==37?200:100;
     return map.number==28?10:map.number==30?15:20;
 }
 void xeenValidateTrainingSource(const std::vector<std::uint8_t> &bytes) {

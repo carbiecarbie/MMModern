@@ -167,6 +167,7 @@ bool XeenEncounterFlow::departTraining() {
     TrainingBusy busy(_busy);_journeyPreimage->check();auto &visit=*_training;
     if(!visit.departed) {
         if(!matches(*visit.departure,_party,_world)){_journeyPreimage->failed=true;throw std::logic_error("Owed Training departure changed");}
+        if(!visit.mapReloaded)reloadServiceMap();
         if(!visit.departure->service(64,[&]{_journeyPreimage->check();},
             [&]{checkTrainingBoundary(XeenTrainingBoundary::StockComplete);}))return false;
         auto prepared=std::make_shared<XeenRestoreGuard>(_world,_party,_camera,_flags);
@@ -264,7 +265,11 @@ IndexedFrame XeenEventFlow::handleTraining(const PlayerAction &action,std::uint6
     const auto originalPhase=ui.phase;
     bool failed=false,revisionAdvanced=false;
     try {
-        if(ui.phase!=TrainingUi::Phase::Departure && !ui.feedback.empty()) {ui.feedback.clear();_encounter->advanceTraining();}
+        if(ui.phase!=TrainingUi::Phase::Departure && !ui.feedback.empty()) {
+            ui.feedback.clear();
+            if(ui.goldRefusalVoicePending) {serviceVoice(ui.animation,XeenServiceVoice::TrainingGold);ui.goldRefusalVoicePending=false;}
+            _encounter->advanceTraining();
+        }
         else if(ui.phase==TrainingUi::Phase::Menu) {
             if(key>=InputKey::F1 && key<InputKey::F1+_party.party.size()) {
                 ui.member=key-InputKey::F1;_encounter->_training->quoted=false;_encounter->advanceTraining();
@@ -272,15 +277,15 @@ IndexedFrame XeenEventFlow::handleTraining(const PlayerAction &action,std::uint6
                 const auto &c=_party.party.member(_party.roster,ui.member);
                 const auto quote=xeenQuoteTraining(c,*_party.roster.combatInputs(c.rosterId),_party.purse->gold,*_party.encounterContext,_camera.mapId);
                 if(quote.outcome==XeenTrainingOutcome::Cap || quote.outcome==XeenTrainingOutcome::MissingExperience)
-                    startServiceSample(ui.animation,quote.outcome==XeenTrainingOutcome::Cap?"trainin1.voc":"trainin0.voc",true);
-                else if(quote.outcome==XeenTrainingOutcome::InsufficientGold) ui.feedback=serviceNotEnoughGold();
+                    serviceVoice(ui.animation,quote.outcome==XeenTrainingOutcome::Cap?XeenServiceVoice::TrainingCap:XeenServiceVoice::TrainingExperience,true);
+                else if(quote.outcome==XeenTrainingOutcome::InsufficientGold) {ui.feedback=serviceNotEnoughGold();ui.goldRefusalVoicePending=true;}
                 else if(quote.outcome==XeenTrainingOutcome::CannotAct)
                     ui.feedback=xeenDialogFormat(xeenDialogText(dosText(),XeenDialogText::InNoCondition),{c.name});
                 else if(quote.outcome==XeenTrainingOutcome::Quoted) {
                     if(!_encounter->_training->quoted) _encounter->quoteTraining(ui.member);
                     if(_encounter->_training->quoted) {
                         _encounter->confirmTraining();
-                        if(_encounter->_training->pending) {startServiceSample(ui.animation,"trainin2.voc",true);ui.phase=TrainingUi::Phase::Candidate;}
+                        if(_encounter->_training->pending) {serviceVoice(ui.animation,XeenServiceVoice::Purchase,true);ui.phase=TrainingUi::Phase::Candidate;}
                     } else ui.feedback="Training: not supported yet at this date or capacity";
                 }
             } else if(cancel) ui.phase=TrainingUi::Phase::Departure;
@@ -326,7 +331,8 @@ std::optional<IndexedFrame> XeenEventFlow::updateTraining() {
         if(!complete)return std::nullopt;
         _trainingUi->phase=TrainingUi::Phase::Menu;
         if(phase==TrainingUi::Phase::Preparation) {
-            startServiceSample(_trainingUi->animation,XeenServiceAnimation::greeting(XeenServiceArt::Training));
+            initializeServiceArt(_trainingUi->animation,_trainingUi->art);
+            serviceVoice(_trainingUi->animation,XeenServiceVoice::Greeting);
             serviceInputPolled(_trainingUi->animation);
         }
         if(phase==TrainingUi::Phase::Candidate && !_encounter->_training->published)

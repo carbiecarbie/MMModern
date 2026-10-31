@@ -370,7 +370,7 @@ void XeenEncounterFlow::quoteSmithBuy(std::size_t member,XeenInventoryCategory c
   throw std::logic_error("Smith Buy selection authority unavailable");
  SmithBusy busy(_busy);_journeyPreimage->check();checkSmithReservation();
  auto quote=std::make_unique<XeenEquipmentPurchaseCandidate>();
- quote->result=xeenQuoteEquipmentPurchase(_party,member,category,slot,0,xeenIronworksShop(_camera.mapId));
+ quote->result=xeenQuoteEquipmentPurchase(_party,member,category,slot,static_cast<unsigned>(_camera.mapId.side),xeenIronworksShop(_camera.mapId));
  quote->economyBefore=quote->economyAfter=*_party.serviceEconomy;
  quote->result.quotedOperation=_smith->operation+1;
  quote->result.quotedReservation=_smith->reservation;
@@ -568,6 +568,7 @@ bool XeenEncounterFlow::departSmith() {
 		throw std::overflow_error("Reserved smith departure authority exhausted");
 	if (!_smith->departed) {
 		checkSmithReservation();
+		if(!_smith->mapReloaded)reloadServiceMap();
         if(!_smith->departure->service(64,[&]{_journeyPreimage->check();},
             [&]{checkSmithBoundary(XeenSmithBoundary::StockComplete);}))return false;
         *_smith->binding=SmithDepartureBinding(*_smith->departure);
@@ -847,7 +848,7 @@ IndexedFrame XeenEventFlow::handleSmith(const PlayerAction &action,std::uint64_t
             else if(row) {
                 ui.slot=key-'1';ui.selected=true;
                 const auto &c=_party.party.member(_party.roster,ui.member);
-                const auto &item=ui.mode==SmithUi::Mode::Buy?_party.serviceEconomy->wares[0][xeenIronworksShop(_camera.mapId)][static_cast<unsigned>(ui.category)][ui.slot]:
+                const auto &item=ui.mode==SmithUi::Mode::Buy?_party.serviceEconomy->wares[static_cast<unsigned>(_camera.mapId.side)][xeenIronworksShop(_camera.mapId)][static_cast<unsigned>(ui.category)][ui.slot]:
                     (*xeenInventoryItems(c,ui.category))[ui.slot];
                 if(!item.id) {ui.selected=false;_encounter->advanceSmith();}
                 else if(ui.mode==SmithUi::Mode::Buy) {
@@ -876,10 +877,15 @@ IndexedFrame XeenEventFlow::handleSmith(const PlayerAction &action,std::uint64_t
                     _encounter->_smith->purchase->result.outcome==XeenEquipmentPurchaseOutcome::InsufficientGold:
                     _encounter->_smith->result.outcome==XeenArmorRepairOutcome::InsufficientGold;
                 if(shortfall) ui.feedback=serviceNotEnoughGold();
+                else if(ui.mode==SmithUi::Mode::Buy && _encounter->_smith->published)serviceVoice(ui.animation,XeenServiceVoice::Purchase);
             } else {_encounter->_smith->quoted=false;_encounter->advanceSmith();}
             ui.phase=confirming && ui.mode==SmithUi::Mode::Identify && _encounter->_smith->result.outcome==XeenArmorRepairOutcome::Identified?SmithUi::Phase::Detail:SmithUi::Phase::Browse;ui.selected=false;
         }
         if(ui.phase==SmithUi::Phase::Departure && (cancel || key==InputKey::Enter)) {
+            if(_camera.mapId.side==XeenSide::Darkside && !ui.goodbye) {
+                _encounter->digitalStop();serviceVoice(ui.animation,XeenServiceVoice::Farewell);ui.goodbye=true;
+                if(serviceSampleBusy(ui.animation))return renderEncounter();
+            }
             if(originalPhase!=ui.phase && ui.revision!=UINT64_MAX) {++ui.revision;revisionAdvanced=true;}
             if(!_encounter->departSmith())return renderEncounter();_smithSettlement=true;return settleSmithEvent();
         }
@@ -930,7 +936,7 @@ IndexedFrame XeenEventFlow::handleFoodBank(const PlayerAction &action,std::uint6
             else if((food || guild) && key>=InputKey::F1 && key<InputKey::F1+_party.party.size()) {
                 ui.member=key-InputKey::F1;
                 if(food)_encounter->_smith->boughtDrink=false;
-                if(guild && !xeenGuildMember(_party,ui.member,_camera.mapId))startServiceSample(ui.animation,"guild11.voc");
+                if(guild && !xeenGuildMember(_party,ui.member,_camera.mapId))serviceVoice(ui.animation,XeenServiceVoice::Refusal);
             }
             else if(guild) {
                 if(xeenGuildMember(_party,ui.member,_camera.mapId)) {
@@ -942,7 +948,7 @@ IndexedFrame XeenEventFlow::handleFoodBank(const PlayerAction &action,std::uint6
                         }
                         ui.spellInfo=key=='s';ui.spells={};ui.phase=SmithUi::Phase::Browse;
                     }
-                }
+                } else if(_camera.mapId.side==XeenSide::Darkside && (key=='b' || key=='s'))serviceVoice(ui.animation,XeenServiceVoice::Refusal);
             }
             else if(food) {
                 if(key=='s') {ui.signIn=true;ui.phase=SmithUi::Phase::Departure;}
@@ -961,7 +967,7 @@ IndexedFrame XeenEventFlow::handleFoodBank(const PlayerAction &action,std::uint6
                     else if(result==XeenSimpleServiceOutcome::Drunk)ui.tavernStatus=dosText().scalar("TAVERN_YOURE_DRUNK");
                     else if(result==XeenSimpleServiceOutcome::Done) {
                         if(key=='d'){ui.tavernStatus=dosText().scalar("TAVERN_GOOD_STUFF");startServiceSample(ui.animation,"gulp.voc");}
-                        else {ui.tavernPopup=std::move(popup);startServiceSample(ui.animation,"thankyou.voc");}
+                        else {ui.tavernPopup=std::move(popup);serviceVoice(ui.animation,XeenServiceVoice::Thanks);}
                     }
                 } else if(key=='r') {
                     if(!tavernString)throw std::runtime_error("Missing Tavern strings provider");
@@ -974,7 +980,7 @@ IndexedFrame XeenEventFlow::handleFoodBank(const PlayerAction &action,std::uint6
             if(key==InputKey::Escape)ui.phase=SmithUi::Phase::Lobby;
             else if(key>=InputKey::F1 && key<InputKey::F1+_party.party.size()) {
                 ui.member=key-InputKey::F1;
-                if(!xeenGuildMember(_party,ui.member,_camera.mapId))ui.phase=SmithUi::Phase::Lobby;
+                if(!xeenGuildMember(_party,ui.member,_camera.mapId)) {ui.phase=SmithUi::Phase::Lobby;if(_camera.mapId.side==XeenSide::Darkside)serviceVoice(ui.animation,XeenServiceVoice::Refusal);}
             } else {
                 const auto &c=_party.party.member(_party.roster,ui.member);
                 const auto rows=XeenLearnedSpellRules::rows(c,true,ui.spellInfo,_camera.mapId);ui.spells.scroll(key,rows.size());
@@ -987,7 +993,7 @@ IndexedFrame XeenEventFlow::handleFoodBank(const PlayerAction &action,std::uint6
             else if(const auto answer=xeenConfirmAnswer(key)) {
                 if(*answer) {
                     if(!_encounter->buySpell(ui.member,ui.slot))ui.feedback=serviceNotEnoughGold();
-                    else startServiceSample(ui.animation,"guild12.voc");
+                    else serviceVoice(ui.animation,XeenServiceVoice::Purchase);
                 }
                 ui.phase=SmithUi::Phase::Browse;
             }
@@ -999,7 +1005,7 @@ IndexedFrame XeenEventFlow::handleFoodBank(const PlayerAction &action,std::uint6
                     const auto quote=xeenBuyFood(_party.party.size(),_party.food,_party.purse->gold,true,_camera.mapId);
                     if(quote.outcome==XeenFoodOutcome::Full) {ui.feedback=dosText().scalar("FOOD_PACKS_FULL");ui.phase=SmithUi::Phase::Confirm;}
                     else if(quote.outcome==XeenFoodOutcome::InsufficientGold) {ui.feedback=serviceNotEnoughGold();ui.phase=SmithUi::Phase::Confirm;}
-                    else {_encounter->buyFood();startServiceSample(ui.animation,"thankyou.voc");}
+                    else {_encounter->buyFood();serviceVoice(ui.animation,XeenServiceVoice::Thanks);}
                 }
             }
         } else if(ui.phase==SmithUi::Phase::Currency) {
@@ -1034,7 +1040,7 @@ IndexedFrame XeenEventFlow::handleFoodBank(const PlayerAction &action,std::uint6
         if(ui.phase==SmithUi::Phase::Departure && (key==InputKey::Escape || key==InputKey::Enter)) {
             if(food && !ui.goodbye) {
                 _encounter->digitalStop();
-                startServiceSample(ui.animation,"goodbye.voc");ui.goodbye=true;
+                serviceVoice(ui.animation,XeenServiceVoice::Farewell);ui.goodbye=true;
                 if(serviceSampleBusy(ui.animation))return frameCopy();
             }
             if(ui.revision!=UINT64_MAX)++ui.revision;

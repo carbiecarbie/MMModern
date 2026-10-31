@@ -672,7 +672,7 @@ void serviceEconomyWireContract() {
 		auto bad=bytes;bad[economyOffset+shape]=value;fixIndependentEnvelope(bad);
 		rejects([&]{XeenSaveFormat::decode(bad);},"stock shape");
 	}
-	for(unsigned mutation=0;mutation<10;++mutation) {
+	for(unsigned mutation=0;mutation<9;++mutation) {
 		auto bad=bytes;const auto item=economyOffset+4;
 		switch(mutation) {
 		case 0:bad[item]=37;break; // First level-1 call cannot enchant.
@@ -684,10 +684,14 @@ void serviceEconomyWireContract() {
 		case 6:bad[item+4+1]=0;break; // Hole before occupied records.
 		case 7:bad[item+8*4+1]=1;break; // Forbidden ninth slot.
 		case 8:bad[item+36+0]=1;break; // Empty ID-zero metadata must be zero.
-		case 9:std::fill(bad.begin()+item,bad.begin()+item+1152,0);break; // Cannot omit twenty calls.
 		}
 		fixIndependentEnvelope(bad);rejects([&]{XeenSaveFormat::decode(bad);});
 	}
+	// Both sides' shops may now be completely depleted by purchases. This
+	// changes validation only: retain the current envelope and exact bytes.
+	auto allBought=bytes;const auto stock=economyOffset+4;
+	std::fill(allBought.begin()+stock,allBought.begin()+stock+1152,0);fixIndependentEnvelope(allBought);
+	check(XeenSaveFormat::encode(XeenSaveFormat::decode(allBought))==allBought,"Fully depleted shops preserve current-format bytes");
 	for(std::size_t cut=1;cut<kMinimalEconomyTail;++cut) {
 		auto bad=bytes;bad.resize(bad.size()-cut);fixIndependentEnvelope(bad);
 		rejects([&]{XeenSaveFormat::decode(bad);});

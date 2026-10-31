@@ -272,6 +272,19 @@ std::vector<std::size_t> XeenLearnedSpellRules::rows(const XeenCharacter &c,bool
             if(map.number==49)for(unsigned id=0;id<76;++id)append(id);
             else if(map.number>=28 && map.number<=32)
                 for(int id:catalogue[map.number-28])if(id>=0 && id<76)append(id);
+        } else if(map.number==37)for(unsigned id=0;id<76;++id)append(id);
+        else if(map.number>=29 && map.number<=35 && map.number%2) {
+            // Part 0 compared all entries with DOS tables 0x4f839 / 0x546c2.
+            constexpr unsigned order[3][39]{
+                {42,1,26,59,27,10,50,68,55,62,67,73,2,5,3,31,30,52,49,28,74,0,9,7,14,8,33,6,23,71,64,56,48,46,12,32,58,65,16},
+                {42,1,45,61,72,40,20,60,38,41,75,34,4,43,25,53,44,15,70,17,24,69,22,66,57,11,29,39,51,21,19,36,47,13,54,37,18,35,63},
+                {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38}};
+            constexpr unsigned ranges[3][4][2]{
+                {{0,20},{16,35},{27,37},{29,39}},
+                {{0,17},{14,34},{26,37},{29,39}},
+                {{0,20},{16,35},{27,37},{29,39}}};
+            const unsigned cat=static_cast<unsigned>(*category),group=(map.number-29)/2;
+            for(unsigned i=ranges[cat][group][0];i<ranges[cat][group][1];++i)append(order[cat][i]);
         }
     } else for(std::size_t slot=0;slot<39;++slot)if(known(c,slot))result.push_back(slot);
     return result;

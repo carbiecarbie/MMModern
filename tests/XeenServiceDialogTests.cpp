@@ -137,9 +137,7 @@ void placeRules(Inputs &in) {
         check(xeenTownServiceKnown(map,4),"Clouds Temple carry-over admission");
     }
     for(unsigned map:{28u,29u,30u,74u}) {
-        bool rejected=false;
-        try{(void)xeenTrainingCap(XeenMapIdentity(XeenSide::Darkside,static_cast<std::uint16_t>(map)));}catch(const std::invalid_argument &){rejected=true;}
-        check(rejected,"Training cap outside Clouds");
+        check(xeenTrainingCap({XeenSide::Darkside,static_cast<std::uint16_t>(map)})==(map==29?30u:100u),"Darkside Training cap/default");
     }
     using R=XeenLearnedSpellRules;
     const std::vector<std::vector<unsigned>> catalogues{
