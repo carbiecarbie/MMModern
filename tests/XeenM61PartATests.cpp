@@ -179,6 +179,10 @@ void details(Inputs &in) {
     check(catalog.describe(C::Weapons,{3,7,0x85,0}).displayName==catalog.describe(C::Weapons,{0,7,0x80,0}).displayName,"broken weapon shows modifier/suffix");
     const auto elec=xeenIdentifiedDetails(text,source.characters[0],C::Weapons,{9,7,128,0},in.names);
     check(elec.find("+2 Elec Damage")!=std::string::npos,"broken elemental detail missing");
+    const auto plain=xeenIdentifiedDetails(text,source.characters[0],C::Armor,{0,1,0,0},in.names);
+    const auto material36=xeenIdentifiedDetails(text,source.characters[0],C::Armor,{36,1,0,0},in.names);
+    const auto material35=xeenIdentifiedDetails(text,source.characters[0],C::Armor,{35,1,0,0},in.names);
+    check(material36==plain && material35!=plain,"Identify omits material 36 armor resistance at the DOS boundary");
 }
 void refusals(Inputs &in,bool mouse) {
     constexpr unsigned tabs[]{'w','a','c','m'};

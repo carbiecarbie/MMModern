@@ -789,6 +789,10 @@ Highest-value unresolved original-program checks:
    the same Vertigo monster settles the elemental term.
 4. Verify the game-ID criterion for doubled low-level XP in World of Xeen CD.
 
+Combat XP awards wrap modulo 2^32 in DOS (`0x2c655..0x2c65a`); MMModern
+fails closed on overflow, an [approved deviation](../original-quirks.md#sv-combat-xp-overflow). Party HP consequences below -32768 also
+fail closed with an exception; DOS behavior at that limit is not established.
+
 No DOS-width, overflow or malformed-resource behavior beyond the retained
 findings is inferred from ScummVM's wider host integers. Exact timing, monster
 movement geometry beyond the terrain test, all spell effects and item generation

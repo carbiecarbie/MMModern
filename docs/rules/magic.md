@@ -313,7 +313,9 @@ high confidence** (`0x2cd12..0x2cd93`, `0x2beab..0x2bf98`,
 1. If magic resistance `R` is nonzero, draw `U(1,100+L)`; reject when the
    draw is less than `R`. Zero resistance skips this draw. Equality passes.
 2. Physical damage applies `floor(D * (100-P) / 100)` for physical
-   resistance `P` under the normal spell weapon context.
+   resistance `P`, except that DOS bypasses it when the retained previous
+   weapon ID is 34 (`0x2beab..0x2bebb`, `0x2cf94..0x2cf9f`). MMModern
+   currently applies resistance in that case too.
 3. The elemental contribution routine is added, then the monster saves:
    draw `U(1,50+I)`, where `I` is its resource/sprite ID, and succeed at
    `<= I`. Ordinary spell damage halves on success, truncating again.

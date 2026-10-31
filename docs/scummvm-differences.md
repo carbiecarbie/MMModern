@@ -28,6 +28,8 @@ unchanged apart from its version number, so the earlier entries are marked
 intro at startup. Ordinary Darkside play uses the shared World state; its
 services remain deferred; the Pyramid and travel spells cross sides.
 
+- **Unarmed melee.** [DOS clears the attack weapon selector](original-quirks.md#sv-unarmed-weapon-selector), while the pin retains the previous attacker's ID. Pin: differs; master not rechecked.
+- **Combat XP overflow.** [DOS and the pin wrap combat XP at 32 bits](original-quirks.md#sv-combat-xp-overflow); MMModern fails closed (approved deviation). Pin: differs; master not rechecked.
 - **Darkside Town Portal.** [The CD names towns but travels to five fixed outdoor arrivals](original-quirks.md#sv-darkside-town-portal-stride), on Darkside maps 4,19,22,6,98. The pin travels to towns 29,31,33,35,37. Pin: differs; master not rechecked.
 - **Sound setup.** The [owned sound CFG](original-quirks.md#dev-owned-sound-cfg) keeps the DOS installer's choices outside the game installation. ScummVM selects its MT-32 or AdLib driver through its own device configuration. Pin: differs; master not rechecked.
 - **Picture shape.** The [square-pixel option](original-quirks.md#dev-square-picture) preserves MMModern's former integer-scaled display; both MMModern and the pin enable aspect correction by default. Pin checked; master not rechecked.
@@ -36,7 +38,7 @@ services remain deferred; the Pyramid and travel spells cross sides.
 - **Civil clock changes.** [Play time follows unsigned DOS wall-clock arithmetic and legacy April/October DST](original-quirks.md#dos-play-time-unsigned-clock); rollback may reduce or wrap it. The pin counts presentation frames. Pin: differs; master not rechecked.
 - **Hidden panel clocks.** [Elapsed time keeps the DOS formatter's truncation](original-quirks.md#dos-panel-time-truncation), including `19:1092:16` after 19 hours. Civil time keeps the padded hour and morning `a`; the pin uses normalized minutes and morning `c`. Out-of-order O/B closes the DOS panel; the pin resets its gate and stays open. Pin: differs; master not rechecked.
 - **Control panel keys.** [Any key the panel does not use, or a click outside its buttons, closes it](original-quirks.md#sv-panel-default-close) as Escape does. The pin ignores them. Pin: differs; master not rechecked.
-- **Xeen Slayer Sword.** [Only weapon ID 34 bypasses physical resistance](original-quirks.md#sv-slayer-sword-exact-id); the pin also admits larger IDs. Pin: differs; master not rechecked.
+- **Xeen Slayer Sword.** [Only weapon ID 34 bypasses physical resistance](original-quirks.md#sv-slayer-sword-exact-id); the pin also admits larger IDs. After ID 34, DOS and the pin also bypass resistance for physical spells; MMModern currently applies it. Pin: differs; master not rechecked.
 - **Clan King quest.** [The kill hook uses MOB slot 28 on map 41](original-quirks.md#sv-clouds-death-slots), rather than the pin's slot 20 (a Tiger Mole). Pin: differs; master not rechecked.
 - **Ice Troll regeneration.** [The full heal at each new combat round is Clouds-only](original-quirks.md#sv-clouds-ice-troll); the pin omits that side test. Pin: differs; master not rechecked.
 - **Lake monsters quest.** [All three Water Dragons must be gone when leaving map 15](original-quirks.md#sv-lake-dragons-away); loading it clears the flag. The pin sets it on load and on save with different tests. Pin: differs; master not rechecked.
