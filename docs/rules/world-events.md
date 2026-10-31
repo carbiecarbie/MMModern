@@ -779,7 +779,7 @@ A full category instead follows ordinary success. The existing reward owner
 delivers the sword. Results 40 (`showtime`) and 62 (`bloopers`) and opcode 30,
 which ends Clouds, follow the
 [ending entry rules](cutscenes.md#clouds-ending-entry-and-save). Results 60 and
-61 (the Darkside and World endings) and town action 13 refuse with a
+61 (the Darkside and World endings) refuse with a
 not-supported notice. Action 12 follows the Pyramid crossing below.
 
 The shared text input uses original window 6, length 30 and width 200
@@ -888,10 +888,11 @@ The cursor, screens and speech intervals are transient and never saved.
 ### Darkside entrance rules
 
 **Calibrated DOS static, high confidence (M102 Part 0, 2026-10-31).**
-Darkside scenes remain unsupported at this baseline. The complete
+The existing entrance owner implements the Darkside scenes. The complete
 [site and presentation tables](evidence.md#darkside-towns-m102-part-0)
 settle action 8 on maps 3/13/16/23/29, action 9 on 12/22, and action 13
-on 4/6/19/22/98. Keys and destinations agree with the pin; Dungeon rows
+on 4/6/19/22/98. Keys, destination maps and coordinates agree with the pin;
+map 12 arrives facing East, as settled in Part 0, rather than the pin's North. Dungeon rows
 14 (key 49 -> 83) and 19 (key 50 -> 121) also exist in DOS but are unused
 by the plan's original Event sites. Their presence is not new content scope.
 
@@ -901,8 +902,10 @@ facing, rebuild runtime actors and set stepped, without a service-day charge.
 Resources use DARK.CC: `tower1/2.zom`, `dung1/2/3.zom`,
 `town1/2/3.zom`, `special.bin` and `box.vga`. The Tower slide and Dwarf
 approach use frame `2+night`, unlike the pin's day-only frame at those sites.
-Night is the cached sky value set by map load and `changeTime` refresh,
-not recomputed by the entrance scene; its clock boundaries are 05:00/21:00.
+DOS reads cached night set by map load and `changeTime`. By the
+[maintainer-approved exception](../original-quirks.md#dev-current-clock-night),
+MMModern shares `xeenNight` with the 3D sky and derives it from the current
+clock: before 05:00 or at/after 21:00. No time or map-load behavior changes.
 Dungeon's resting dung3 frame is 0 (its slide uses 1), agreeing with the pin.
 
 Zooms are Tower 13..0, Dungeon 8..0, Dwarf town 10..0 then rise 15..0.

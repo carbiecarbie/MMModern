@@ -156,6 +156,27 @@ A key (including Escape) advances a page; clicks are ignored. It writes PPM
 snapshots to the output directory and changes no saves or settings.
 `--score-pictures` writes the same snapshots without opening a window.
 
+The `m102-playtest` preset starts in Castleview, Darkside map 29 `(14,4)`
+facing North. Its six members are level 29/49/99/199/29/29, with one billion
+XP each, partial caster books including Town Portal, Guild awards 83-87 on
+members 1/3/5 only, half HP, a cursed weapon on member 1 and broken armor on
+member 2. It has five million gold, 50,000 gems, one food, and scene keys
+35/41/48 only. The starting map's monsters are defeated for an uninterrupted
+service check; a scene refusal still performs the ordinary map reload.
+
+`m102-bank`, `m102-smithy`, `m102-tavern`, `m102-temple`, `m102-training`
+and `m102-inn` start on Castleview's corresponding original Event cell;
+`m102-guild` starts at the Olympus Guild. `m102-tower-refused` / `-keyed`,
+`m102-dungeon-refused` / `-keyed` and `m102-town-refused` / `-keyed` start
+at the original entrances on Darkside maps 3, 12 and 4. Each pair changes
+only its site's key, except that refused Tower is at 21:00, and keyed town
+is at 21:00 with Efx off to show its caption. Other variants start at 10:00.
+The generator prints each exact coordinate and facing.
+
+```powershell
+.\build-rel\mmodern_test_save.exe m102-playtest "F:/Games/gog/Might and Magic 4-5" "D:/Projetos/MModern/MModern-playtest/m102/m102-playtest.mmsave"
+```
+
 ## DOS save export
 
 Build `mmodern_dos_export` on request. It projects a current MMModern Clouds

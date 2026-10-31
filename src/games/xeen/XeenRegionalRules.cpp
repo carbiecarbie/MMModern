@@ -418,7 +418,7 @@ namespace mmodern {
 bool xeenTownServiceKnown(XeenMapIdentity map,std::uint8_t action) noexcept {
     if(action==12)return true;
     if(action==6)return map==XeenMapIdentity(85);
-    if(action>=8 && action<=11)return xeenEntranceSite(action,{map,0,0,XeenDirection::North})!=nullptr;
+    if((action>=8 && action<=11) || action==13)return xeenEntranceSite(action,{map,0,0,XeenDirection::North})!=nullptr;
     return action<=5 &&
         (action!=3 || xeenTavernFoodOffer(map).has_value());
 }

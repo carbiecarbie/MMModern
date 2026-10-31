@@ -278,7 +278,7 @@ void music(Inputs &in,const GameInstallation &installation,const XeenSaveSnapsho
 }
 void refusals(Inputs &in,const XeenSaveSnapshot &source,const std::filesystem::path &out) {
  unsigned deferredKeys=0;
- for(const auto &site:xeenEntranceSites())if(site.quest>=35) {
+ for(const auto &site:xeenEntranceSites())if(site.side==XeenSide::Clouds && site.quest>=35) {
   bool found=false;
   for(const auto &e:in.events.load(site.map).records)if(e.opcode==17 && e.line==0 && e.parameters==std::vector<std::uint8_t>{std::uint8_t(site.action)}) {
    XeenCamera at{site.map,e.x,e.y,e.direction<4?XeenDirection(e.direction):XeenDirection::North};

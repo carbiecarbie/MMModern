@@ -46,5 +46,8 @@ struct XeenTimePreparation {
 };
 XeenTimePreparation xeenPrepareTime(const XeenGameplayContext &, std::uint64_t minutes);
 bool xeenRegionalContext(const XeenGameplayContext &) noexcept;
+// Shared current-clock sky/entrance rule. The DOS cache discrepancy is
+// approved in docs/original-quirks.md#dev-current-clock-night.
+inline bool xeenNight(unsigned minutes) noexcept {return minutes<5*60 || minutes>=21*60;}
 }
 #endif

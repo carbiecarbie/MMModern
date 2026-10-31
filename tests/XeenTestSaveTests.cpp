@@ -67,6 +67,30 @@ void preset(const GameInstallation &installation,const std::string &name,const f
     check(flow.prepareJourneyFrame(flow.ticket(),[]{}) && flow.presentJourney(flow.ticket()),"restored preset is not quiet");
     const auto captured=XeenSaveState::capture(inputs.signature,party,camera,flags,world);
     check(XeenSaveFormat::encode(saved)==XeenSaveFormat::encode(captured),"restore replayed or changed state");
+    if(name.rfind("m102-",0)==0) {
+        check(camera.mapId.side==XeenSide::Darkside && saved.darksideSong.has_value(),"M102 side and selected song");
+        check(party.purse->gold==5000000 && party.purse->gems==50000 && party.food==1,"M102 service purse and Food deficit");
+        unsigned n=0;bool portal=false;
+        for(auto owner:party.party.activeRosterIds()) {
+            const auto &c=party.roster.at(owner);
+            check(c.permanentLevel==std::array<unsigned,6>{29,49,99,199,29,29}[n] && c.temporaryLevel==0,"M102 below each Training cap");
+            check(party.roster.combatInputs(owner)->experience==1000000000,"M102 Training XP");
+            check(c.currentHp>0 && c.currentHp<XeenCharacterRules::maxHp(c,{party.encounterContext->year}),"M102 injuries");
+            for(unsigned award=83;award<=87;++award)check(c.awards[award]==(n%2==0?1:0),"M102 partial Guild membership");
+            if(const auto category=XeenLearnedSpellRules::categoryForClass(c.characterClass)) {
+                check(c.learnedSpells && std::count(c.learnedSpells->begin(),c.learnedSpells->end(),1)<10,"M102 partial spell book");
+                const auto slot=XeenLearnedSpellRules::slotForSpell(*category,71);
+                portal=portal || (slot && c.learnedSpells->at(*slot));
+            }
+            ++n;
+        }
+        check(portal,"M102 Town Portal");
+        check(party.roster.at(party.party.activeRosterIds()[0]).weapons[0].state==0x40 &&
+              party.roster.at(party.party.activeRosterIds()[1]).armor[0].state==0x80,"M102 cursed and broken items");
+        check(party.questItems.at(41) && party.questItems.at(48) && !party.questItems.at(42),"M102 some scene keys only");
+        if(name=="m102-playtest")check(save_test::sameCamera(camera,{{XeenSide::Darkside,29},14,4,XeenDirection::North}),"M102 Castleview start");
+        return;
+    }
     if(name=="m95-witch-skull") {
         check(save_test::sameCamera(camera,{54,10,6,XeenDirection::North}),"M95 start at the Witch Tower skull");
         check(!party.encounterContext->effects[XeenPartyEffect::WizardEye] && xeenPartyHasSkill(party,4),

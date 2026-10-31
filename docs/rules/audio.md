@@ -36,8 +36,7 @@ difference is recorded in [original quirks](../original-quirks.md#dev-darkside-l
 ## Darkside town sound and captions
 
 **Calibrated DOS static, high confidence (M102 Part 0, 2026-10-31).**
-M102 Part A implements the service rules; entrance scenes remain deferred
-to Part B. [The complete voice and presentation tables](evidence.md#darkside-towns-m102-part-0)
+M102 Parts A/B implement the service and entrance rules. [The complete voice and presentation tables](evidence.md#darkside-towns-m102-part-0)
 give each greeting, action, refusal, farewell, resource and call site.
 
 Bank/Smith/Guild/Tavern/Temple/Training songs are `bank.m`, `sf09.m`,

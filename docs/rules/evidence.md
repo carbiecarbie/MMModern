@@ -1390,7 +1390,10 @@ stay on Darkside. Quest counters are indexed from DS `f077`.
 | Dwarf town 13 / 22 | 37 | 33 `(0,3)` E | `0x2b154..0x2b16d` |
 | Dwarf town 13 / 98 | 39 | 37 `(7,0)` N | `0x2b18a..0x2b1a3` |
 
-These rows agree with the pin, including its two unused Dungeon rows.
+The keys, map IDs and coordinates agree with the pin, including its two
+unused Dungeon rows. For map 12, follow the settled DOS-facing value East
+in the table; the pin instead assigns `DIR_NORTH` in
+`GolemCutscene::getNewLocation`.
 Their presence in code does not add Event sites to the plan's resource
 census or authorize the deferred Clouds cross-side entrances. Failed keys
 retain the current map, position and facing (`0x2a783`, `0x29c48`,
@@ -1423,7 +1426,12 @@ skippable. Its resting dung3 frame 0 is **correct**.
 300 or at least 1260. Map load calls it at `0x1076c`; `changeTime` refreshes
 it if necessary at `0x256a7..0x256c4`. The scene handlers read this value;
 they do not recompute it from the clock during the approach or on a key.
-An `addTime`-only path must not silently become a scene-time night refresh.
+An `addTime`-only path does not refresh this DOS cache. MMModern deliberately
+uses the current clock for both sky and Darkside scenes, under the
+[maintainer decision of 2026-10-31](../original-quirks.md#dev-current-clock-night);
+`xeenNight` shares the existing sky comparison without changing time, map
+loading or save v23. The pin also caches night (`Map::loadSky`,
+`Party::changeTime`), so this exception is a recorded ScummVM difference.
 
 Mixer requests are raw arguments **48 then 95**, using the already calibrated
 driver command, not percentages 38/75: Tower `0x2ab98`, `0x2afd2`; Dungeon

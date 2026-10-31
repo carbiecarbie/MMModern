@@ -3,6 +3,7 @@
 #include "XeenTrainingTestSupport.h"
 #include "games/xeen/XeenEntranceScene.h"
 #include "games/xeen/XeenStateEquality.h"
+#include "games/xeen/CloudsMapComposer.h"
 #include "formats/xeen/XeenVoc.h"
 #include "SyntheticXeenArchive.h"
 #include <chrono>
@@ -42,9 +43,10 @@ struct XeenEntranceTestAccess {
 namespace {
 void sites() {
     using D=XeenDirection;using P=XeenEntranceSite::Position;
-    const auto &rows=xeenEntranceSites();check(rows.size()==16,"Entrance row count");
+    const auto &rows=xeenEntranceSites();check(rows.size()==30,"Entrance row count");
     unsigned dark=0,dwarf=0;
     for(const auto &site:rows) {
+        if(site.side!=XeenSide::Clouds)continue;
         const int x=site.position==P::EqualX?site.branchX:site.position==P::OtherX?site.branchX+1:10;
         XeenCamera camera{site.map,x,9,D::West};
         check(xeenEntranceSite(site.action,camera)==&site,"Shared row lookup/position branch");
@@ -74,7 +76,7 @@ void sites() {
         {81,1,17,D::East},{80,29,16,D::West},{79,5,16,D::East},{{XeenSide::Darkside,121},18,0,D::North},
         {37,1,4,D::East},{35,1,12,D::East},{36,7,1,D::North},{33,7,1,D::North},{34,7,30,D::South},
         {82,7,5,D::North},{{XeenSide::Darkside,125},7,6,D::North}};
-    for(unsigned i=0;i<rows.size();++i)check(xeen_state::sameCamera(rows[i].destination,expected[i]),"Destination table constant");
+    for(unsigned i=0;i<std::size(expected);++i)check(xeen_state::sameCamera(rows[i].destination,expected[i]),"Destination table constant");
 }
 void animation(unsigned action,bool keyed,training_test::Inputs *resources=nullptr) {
     using A=XeenEntranceAnimation;using P=A::Phase;
@@ -151,11 +153,110 @@ void animation(unsigned action,bool keyed,training_test::Inputs *resources=nullp
     check(mixers==expectedMixers,"Entrance mixer sites");
     std::cout<<(resources?"VOC ":"fixed ")<<"action="<<action<<" keyed="<<keyed<<" frames="<<frames<<" speech="<<counts[P::Speech]<<" draws="<<actual.position()<<" elapsed_ns="<<now<<'\n';
 }
+
+void darksideSites() {
+    using D=XeenDirection;using S=XeenSide;
+    struct Row {unsigned action,map,key,destination;int x,y;D facing;};
+    const Row expected[]{
+        {8,3,40,57,11,8,D::West},{8,13,43,69,7,4,D::North},{8,16,41,61,7,12,D::South},
+        {8,23,42,65,3,8,D::East},{8,29,44,53,11,8,D::West},
+        {9,12,47,73,0,7,D::East},{9,22,48,78,8,14,D::South},
+        {9,14,49,83,11,1,D::North},{9,19,50,121,18,0,D::North},
+        {13,4,35,29,15,31,D::South},{13,6,38,35,15,8,D::West},{13,19,36,31,31,16,D::West},
+        {13,22,37,33,0,3,D::East},{13,98,39,37,7,0,D::North}};
+    for(const auto &r:expected) {
+        const XeenCamera at{{S::Darkside,std::uint16_t(r.map)},7,6,D::East};
+        const auto *site=xeenEntranceSite(r.action,at);
+        check(site && site->quest==int(r.key) && site->side==S::Darkside,"Darkside entrance site/key");
+        check(!xeenEntranceKey(*site,{}) && xeen_state::sameCamera(xeenEntranceDestination(*site,at,{}),at),"Darkside refusal location");
+        XeenQuestItems::Counts keys{};keys[r.key]=256;const XeenQuestItems held(keys);
+        check(xeenEntranceKey(*site,held) && xeen_state::sameCamera(xeenEntranceDestination(*site,at,held),
+            {{S::Darkside,std::uint16_t(r.destination)},r.x,r.y,r.facing}),"Darkside whole key counter/arrival");
+        XeenEventRecord e;e.opcode=17;e.lengthField=6;e.parameters={std::uint8_t(r.action)};e.x=7;e.y=6;
+        check(xeenTownServiceKnown(at.mapId,r.action) && std::holds_alternative<XeenDecodedEventInstruction>(XeenEventDecoder::decode(e,{at.mapId})),"Darkside scene decoder admission, action 13 included");
+    }
+    for(unsigned minute=0;minute<1440;++minute)check(xeenNight(minute)==(minute<300 || minute>=1260),"Shared night rule changed the sky");
+    for(bool keyed:{false,true}) {
+        check(xeenEntranceCaptionRecord(8,keyed,S::Darkside)==(keyed?2u:3u),"Tower caption record");
+        check(xeenEntranceCaptionRecord(9,keyed,S::Darkside)==(keyed?5u:4u),"Dungeon caption record");
+        check(xeenEntranceCaptionRecord(13,keyed,S::Darkside)==(keyed?7u:8u),"Town caption record");
+    }
+}
+void darksideAnimation(training_test::Inputs *resources=nullptr) {
+    using A=XeenEntranceAnimation;using P=A::Phase;
+    for(unsigned action:{8u,9u,13u})for(bool keyed:{false,true})for(bool efx:{false,true})for(bool night:{false,true}) {
+        const unsigned length=action==8?(keyed?71:42):action==9?(keyed?50:84):(keyed?57:52);
+        std::vector<std::string> loaded,spoken;
+        A value(action,keyed,[&](const char *name){loaded.emplace_back(name);return resources?
+            xeenVocDurationNanoseconds(resources->assets.readArchiveResource(name,XeenSceneArchive::DarksideOnly)):1000000000ULL;
+        },efx,efx?0:length,false,false,XeenSide::Darkside,night);
+        std::vector<P> phases;std::vector<std::pair<P,unsigned>> mixers;std::map<P,unsigned> counts;
+        unsigned captionFrames=0,draws=0,speechPhases=0,cursor=0,cursorAdvances=0;std::uint64_t now=0;
+        while(!value.finished() && counts[P::Speech]<3000) {
+            const auto f=value.advance(now,[&](unsigned lo,unsigned hi){
+                check(lo==0 && hi==(action==8?4u:action==9?6u:8u),"Darkside speech random range");++draws;return hi;
+            });
+            if(!f){now=value.deadline();continue;}
+            ++counts[f->phase];if(phases.empty() || phases.back()!=f->phase){phases.push_back(f->phase);speechPhases+=f->phase==P::Speech;}
+            if(f->mixer)mixers.push_back({f->phase,*f->mixer});
+            if(f->caption){
+                ++captionFrames;check(speechPhases==1 && !efx,"Caption outside first speech/Efx gate");
+                if(*f->caption!=cursor){check(*f->caption==(cursor+1)%length,"Darkside caption cursor skipped a character");cursor=*f->caption;++cursorAdvances;}
+            }
+            if(f->phase==P::Speech) {
+                check(f->sprites.back().frame==(action==8?9u:action==9?6u:8u),"Darkside paired mouth frame");
+                check(f->sprites.back().x==(action==13?0:160),"Darkside paired mouth position");
+            }
+            if(f->phase==P::Zoom || f->phase==P::Retreat) {
+                const unsigned count=action==8?14:action==9?9:11;
+                check(f->sprites.front().scale==int(f->phase==P::Zoom?count-1-f->iteration:f->iteration),"Darkside zoom/retreat order");
+                check(f->sprites.size()==(action==9?2u:3u),"Darkside zoom halves/night layer");
+                if(action!=9)check(f->sprites.back().frame==2+night,"Approach/retreat night frame");
+            }
+            if(f->phase==P::Slide) {
+                const auto &left=f->sprites[f->sprites.size()-2];const auto &right=f->sprites.back();
+                check(left.x==-200+16*int(f->iteration) && left.frame==0 && right.x==left.x+160 && right.frame==(action==8?5u:1u),"Darkside slide halves");
+                if(action==8)check(f->sprites[2].frame==2+night,"Tower slide keeps night");
+            }
+            if(f->phase==P::Pause && action==9)check(f->sprites.back().frame==0 && std::string(f->sprites.back().resource)=="dung3.zom","Dungeon resting dung3 frame");
+            if(f->phase==P::Rise)check(f->sprites.front().scale==15-int(f->iteration) && f->sprites.front().x==10*(15-int(f->iteration)),"Town rise geometry");
+            if(f->phase==P::Finish && action==13)check(f->sprites.size()==1 && std::string(f->sprites[0].resource)=="town2.zom","Town final body without separate mouth");
+            const auto *sample=value.acquired(now);if(sample)spoken.emplace_back(sample);
+            const auto deadline=value.deadline();
+            if(f->phase==P::Zoom || f->phase==P::Slide || f->phase==P::Rise || f->phase==P::Retreat) {
+                const auto expected=(f->phase==P::Zoom && action!=13) || f->phase==P::Slide?
+                    PresentationClock::after(now,1):PresentationClock::retraceAfter(PresentationClock::retraceAfter(now));
+                check(deadline==expected,"Darkside explicit wait/unpaced retrace cadence");
+            }
+            if(f->phase==P::Pause)check(deadline==PresentationClock::after(now,action==9?10:counts[P::Pause]==1?7:1),"Darkside unskippable pause");
+            if(f->phase==P::Speech)check(deadline==PresentationClock::after(now,action==9?1:2),"Darkside speech wait");
+            if(resources)for(const auto &sprite:f->sprites) {
+                auto frame=training_test::frame();resources->assets.drawDialogSprite(frame,sprite.resource,sprite.frame,sprite.x,sprite.y,XeenSceneArchive::DarksideOnly,sprite.scale);
+            }
+            now=deadline;
+        }
+        check(value.finished() && draws==counts[P::Speech],"Darkside scene completion/exact draw sites");
+        if(!efx)check(cursorAdvances==length && !cursor,"Darkside caption must wrap exactly once");
+        std::vector<P> expected{P::Zoom};if(action==13)expected.push_back(P::Rise);else expected.push_back(P::Slide);
+        expected.push_back(P::Speech);
+        if(action!=13 || efx){expected.push_back(P::Pause);expected.push_back(P::Speech);}
+        if(action==8)expected.push_back(P::Pause);
+        if(!keyed && action!=13)expected.push_back(P::Retreat);expected.push_back(P::Finish);
+        check(phases==expected,"Darkside scene step list");
+        check(counts[P::Retreat]==(!keyed && action!=13?(action==8?14u:9u):0u),"Darkside refusal-only retreat");
+        check(mixers==std::vector<std::pair<P,unsigned>>{{P::Speech,48},{action==9 && !keyed?P::Retreat:P::Finish,95}},"Darkside raw mixer order (no Dungeon pre-slide request)");
+        const std::vector<std::string> samples=action==8?(keyed?std::vector<std::string>{"howdid1.voc","goin1.voc"}:std::vector<std::string>{"needkey1.voc"}):
+            action==9?std::vector<std::string>{"what2.voc",keyed?"go2.voc":"key2.voc"}:std::vector<std::string>{"pass2.voc",keyed?"ok2.voc":"back2.voc"};
+        check(efx?(loaded==samples && spoken==samples):(loaded.empty() && spoken.empty() && captionFrames>0),"Darkside voice order/silent Tower first loop/caption gate");
+    }
+}
+
 XeenSaveSnapshot entranceSave(training_test::Inputs &in,const XeenCamera &camera,bool keyed,unsigned action) {
     auto s=in.base();s.camera=camera;
+    if(camera.mapId.side==XeenSide::Darkside)s.darksideSong=7*xeenMapMusicRow(in.maps.loadGeometryMap(in.assets,camera.mapId).geometry);
     const auto *site=xeenEntranceSite(action,camera);check(bool(site),"Fixture site");
     if(keyed && site->quest>=0 && site->quest<int(s.questItems.size()))s.questItems[site->quest]=1;
-    const auto actors=XeenActorApproach::actorsFromResources(in.maps.loadObjects(in.assets,camera.mapId),in.statistics);
+    const auto actors=XeenActorApproach::actorsFromResources(in.maps.loadObjects(in.assets,camera.mapId),camera.mapId.side==XeenSide::Clouds?in.statistics:XeenMonsterFormat::parse(*in.assets.readMonsterStatistics(camera.mapId.side)));
     auto &table=s.map(camera.mapId).monsters;
     table.emplace(XeenSaveMonsterTable{std::uint16_t(actors.size()),{}});
     for(const auto &a:actors)table->slots.push_back({a.x,a.y,a.lifecycle,a.status,false,-1});
@@ -205,6 +306,7 @@ void captions() {
 }
 void original(training_test::Inputs &in,const GameInstallation &installation,XeenCamera camera,unsigned action,bool keyed,bool wounded=false,bool efx=true,bool device=false,bool drain=false) {
     auto save=entranceSave(in,camera,keyed,action);save.soundOptions.efx=efx;
+    const bool dark=camera.mapId.side==XeenSide::Darkside;const auto archive=xeenPictureArchive(camera.mapId);
     save.characters[save.activeRosterIds[0]].skills[4]=1;
     for(auto &m:save.maps)m.explored.reset();
     if(drain)save.journey->context->lightAndResistances[0]=5;
@@ -215,24 +317,26 @@ void original(training_test::Inputs &in,const GameInstallation &installation,Xee
     f.programState.audio->digitalSink([&](const auto &name,auto){voices.push_back(name);});
     unsigned captions=0;
     f.flow->loadEntranceCaption=[&](unsigned kind,bool hasKey) {
-        const auto bytes=in.assets.readArchiveResource("special.bin",XeenSceneArchive::Clouds);
-        const unsigned record=kind==10?1:kind==8?(hasKey?2:3):kind==9?(hasKey?4:5):(hasKey?6:7);
+        const auto bytes=in.assets.readArchiveResource("special.bin",archive);
+        const unsigned record=xeenEntranceCaptionRecord(kind,hasKey,camera.mapId.side);
         std::size_t start=0;
         for(unsigned i=0;i<record;++i){while(bytes.at(start))++start;++start;}
         auto end=start;while(bytes.at(end))++end;
-        const unsigned expected=kind==10?107:kind==8?(hasKey?76:78):kind==9?(hasKey?72:73):(hasKey?73:50);
+        const unsigned expected=dark?(kind==8?(hasKey?71:42):kind==9?(hasKey?50:84):(hasKey?57:52)):
+            kind==10?107:kind==8?(hasKey?76:78):kind==9?(hasKey?72:73):(hasKey?73:50);
         check(end-start==expected,"Original entrance record length");
         return std::string(bytes.begin()+start,bytes.begin()+end);
     };
     f.flow->drawEntranceCaption=[&](IndexedFrame &frame,const std::string &text) {
-        ++captions;in.assets.drawDialogSprite(frame,"box.vga",0,36,189,XeenSceneArchive::Clouds);
+        ++captions;in.assets.drawDialogSprite(frame,"box.vga",0,36,189,archive);
         XeenTextRenderOptions options;options.originalControls=true;options.bounds={0,0,320,200};
         frame=XeenTextRenderer(in.font).render(frame,std::string("\f35\3c\v190\t000")+text,options).pages.front();
     };
-    f.flow->drawEntranceSprite=[&](auto &frame,const char *name,unsigned id,int x,int y,int scale){in.assets.drawDialogSprite(frame,name,id,x,y,XeenSceneArchive::Clouds,scale);};
+    f.flow->drawEntranceSprite=[&](auto &frame,const char *name,unsigned id,int x,int y,int scale){in.assets.drawDialogSprite(frame,name,id,x,y,archive,scale);};
     std::vector<std::pair<std::string,std::uint64_t>> samples;
-    f.flow->loadSampleDuration=[&](const char *name,XeenSceneArchive archive){
-        const auto duration=xeenVocDurationNanoseconds(in.assets.readArchiveResource(name,archive));
+    f.flow->loadSampleDuration=[&](const char *name,XeenSceneArchive requested){
+        check(requested==archive,"Entrance sample archive differs from its site");
+        const auto duration=xeenVocDurationNanoseconds(in.assets.readArchiveResource(name,requested));
         samples.emplace_back(name,duration);return duration;
     };
     if(!efx)check(XeenEntranceTestAccess::serviceSample(*f.flow)==f.flow->presentationNow() && samples.empty(),
@@ -243,6 +347,10 @@ void original(training_test::Inputs &in,const GameInstallation &installation,Xee
     const auto time=*f.p.encounterContext;const auto rng=*f.w.sessionState().journeyRandom();
     f.act(InteractionAction{});
     check(XeenEntranceTestAccess::active(*f.flow) && !f.flow->canSave(),"Original Event did not enter scene");
+    if(dark && action==9) {
+        const auto before=*f.w.sessionState().journeyRandom();f.act(DialogKeyAction{InputKey::Escape});
+        check(XeenEntranceTestAccess::active(*f.flow) && f.w.sessionState().journeyRandom()==before,"Dungeon accepted a skip key");
+    }
     if(efx)check(XeenEntranceTestAccess::noNotice(*f.flow),"Audible entrance published an unsupported-audio notice");
     const auto context=f.flow->inputContext(f.flow->frame().presentation());
     check(!context.readyForAction && context.hideCursor,"Entrance input/cursor policy");
@@ -265,7 +373,7 @@ void original(training_test::Inputs &in,const GameInstallation &installation,Xee
             expected.push_back(sample.first);
         }
         auto spoken=voices;
-        if(action==9) {
+        if(action==9 && !dark) {
             spoken.erase(std::remove(spoken.begin(),spoken.end(),"ogre.voc"),spoken.end());
             check(voices.front()=="ogre.voc" && std::count(voices.begin(),voices.end(),"ogre.voc")>=2,"Golem initial/repeated/between-speech growls missing");
         }
@@ -282,6 +390,53 @@ void original(training_test::Inputs &in,const GameInstallation &installation,Xee
     }
     const auto snapshot=f.snapshot();training_test::Fixture restored(in,snapshot);
     check(XeenSaveFormat::encode(snapshot)==XeenSaveFormat::encode(restored.snapshot()),"Entrance current-save roundtrip changed bytes");
+}
+void renderDarkside(training_test::Inputs &in,const std::filesystem::path &folder) {
+    std::filesystem::create_directories(folder);
+    for(const auto [map,action]:std::vector<std::pair<unsigned,unsigned>>{{3,8},{12,9},{4,13}})
+        for(bool keyed:{false,true})for(bool efx:{false,true})for(bool night:{false,true}) {
+        XeenCamera at;bool found=false;
+        for(const auto &event:in.events.load({XeenSide::Darkside,std::uint16_t(map)}).records)
+            if(event.opcode==17 && event.parameters==std::vector<std::uint8_t>{std::uint8_t(action)}) {
+                at={{XeenSide::Darkside,std::uint16_t(map)},event.x,event.y,event.direction<4?XeenDirection(event.direction):XeenDirection::North};found=true;break;
+            }
+        check(found,"Darkside render site");
+        auto seed=entranceSave(in,at,keyed,action);seed.journey->context->minutes=night?1260:600;
+        XeenWorld world(in.mapLoader(),in.objectLoader());XeenPartyState party;XeenCamera camera;XeenGameFlags flags;
+        XeenSaveState::restoreBeforeGameplay(seed,in.resources(),party,camera,flags,world,[](auto &,const auto &,const auto &,const auto &){});
+        CloudsMapComposer composer;auto saved=composer.compose(in.assets,world,party,camera,{party.encounterContext->year});
+        auto art=saved,zoom=saved;
+        const auto bytes=in.assets.readArchiveResource("special.bin",XeenSceneArchive::DarksideOnly);
+        std::size_t start=0;for(unsigned n=0;n<xeenEntranceCaptionRecord(action,keyed,XeenSide::Darkside);++n){while(bytes.at(start))++start;++start;}
+        auto end=start;while(bytes.at(end))++end;const std::string caption(bytes.begin()+start,bytes.begin()+end);
+        XeenEntranceAnimation a(action,keyed,[&](const char *name){return xeenVocDurationNanoseconds(in.assets.readArchiveResource(name,XeenSceneArchive::DarksideOnly));},
+            efx,efx?0:caption.size(),false,false,XeenSide::Darkside,night);
+        XeenCombatRandom random(7);std::uint64_t now=0;unsigned phase=0;std::optional<XeenEntranceAnimation::Phase> previous;
+        bool captionPicture=false;
+        for(unsigned n=0;n<5000 && !a.finished();++n) {
+            const auto command=a.advance(now,[&](unsigned lo,unsigned hi){return *random.draw(lo,hi);});
+            if(!command){now=a.deadline();continue;}
+            if(command->saveZoom)zoom=art;
+            auto frame=command->restore?(command->phase==XeenEntranceAnimation::Phase::Rise?zoom:saved):art;
+            for(const auto &sprite:command->sprites)in.assets.drawDialogSprite(frame,sprite.resource,sprite.frame,sprite.x,sprite.y,XeenSceneArchive::DarksideOnly,sprite.scale);
+            if(command->caption) {
+                const auto cursor=*command->caption,first=cursor>40?cursor-40:0;
+                in.assets.drawDialogSprite(frame,"box.vga",0,36,189,XeenSceneArchive::DarksideOnly);
+                XeenTextRenderOptions options;options.originalControls=true;options.bounds={0,0,320,200};
+                frame=XeenTextRenderer(in.font).render(frame,std::string("\f35\3c\v190\t000")+caption.substr(first,cursor-first),options).pages.front();
+            }
+            const bool newPhase=previous!=command->phase;
+            if(newPhase || (!captionPicture && command->caption && *command->caption>=20)) {
+                if(newPhase)++phase;else captionPicture=true;
+                const auto name=std::to_string(action)+(keyed?"-keyed":"-refused")+(efx?"-efx":"-text")+(night?"-night":"-day")+"-"+std::to_string(phase)+(newPhase?"":"-caption")+".ppm";
+                std::ofstream file(folder/name,std::ios::binary);file<<"P6\n320 200\n255\n";
+                for(auto pixel:frame.pixels)file.write(reinterpret_cast<const char *>(frame.palette.data()+3*pixel),3);
+                check(bool(file),"Cannot write entrance frame");
+            }
+            previous=command->phase;art=std::move(frame);a.acquired(now);now=a.deadline();
+        }
+        check(a.finished(),"Rendered scene did not finish");
+    }
 }
 void looseVocSceneWait(training_test::Inputs &in,const GameInstallation &installation) {
     using Bytes=std::vector<std::uint8_t>;
@@ -341,7 +496,7 @@ void looseVocSceneWait(training_test::Inputs &in,const GameInstallation &install
 }
 }
 int main(int argc,char **argv) {try {
-    sites();captions();for(unsigned action=8;action<=11;++action)for(bool keyed:{false,true})if(action!=10 || keyed)animation(action,keyed);
+    sites();darksideSites();darksideAnimation();captions();for(unsigned action=8;action<=11;++action)for(bool keyed:{false,true})if(action!=10 || keyed)animation(action,keyed);
     if(argc>1) {
         const auto installation=xeenTestInstallationDetector().detect(argv[1]);check(bool(installation),"Missing original installation");
         training_test::Inputs in(*installation);
@@ -352,6 +507,18 @@ int main(int argc,char **argv) {try {
         original(in,*installation,{23,5,13,XeenDirection::North},10,true);
         original(in,*installation,{23,5,13,XeenDirection::North},10,true,false,false);
         original(in,*installation,{5,12,8,XeenDirection::South},11,false);
+        for(const auto [map,action]:std::vector<std::pair<unsigned,unsigned>>{{3,8},{12,9},{4,13}}) {
+            bool found=false;
+            for(const auto &r:in.events.load({XeenSide::Darkside,std::uint16_t(map)}).records)
+                if(r.opcode==17 && r.parameters==std::vector<std::uint8_t>{std::uint8_t(action)}) {
+                    const XeenCamera at{{XeenSide::Darkside,std::uint16_t(map)},r.x,r.y,r.direction<4?XeenDirection(r.direction):XeenDirection::North};
+                    for(bool keyed:{false,true})for(bool efx:{false,true})original(in,*installation,at,action,keyed,false,efx);
+                    found=true;break;
+                }
+            check(found,"Missing original Darkside entrance");
+        }
+        darksideAnimation(&in);
+        if(argc>2)renderDarkside(in,std::filesystem::u8path(argv[2]));
         looseVocSceneWait(in,*installation);
         original(in,*installation,{5,12,8,XeenDirection::South},11,false,false,true,true);
         for(const auto map:{8u,5u}) {

@@ -777,7 +777,7 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 			const bool smith=service->action==1,training=service->action==5,temple=service->action==4;
 			const bool tavern=service->action==3,bank=service->action==0,guild=service->action==2;
             const auto *entrance=xeenEntranceSite(service->action,workingCamera);
-            if(entrance && entrance->quest>=35 && partyState.questItems.at(entrance->quest))
+            if(entrance && entrance->side==XeenSide::Clouds && entrance->quest>=35 && partyState.questItems.at(entrance->quest))
                 return error(XeenEventExecutionErrorKind::UnsupportedOperand,
                     "Darkside-key entrance is not supported yet",instructionCount,logical,decoded.source);
             const bool arena=service->action==6 && workingCamera.mapId==XeenMapIdentity(85);

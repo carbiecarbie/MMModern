@@ -171,13 +171,18 @@ analysis, because the reference was wrong in comparable Clouds cases (M80).
 | 3. Mixed World of Xeen maps | Darkside maps 113-128 (Darkstone Tower, Dragon Tower, Dungeon of Death, Southern Sphinx, Dragon Clouds), FlipWorld, the Darkside-key entrances and Town Portal from them | A | Monster statistics and art chosen per map, not per side; no music draw on 125-127; a save version; rerun the runtime-refusal sweep |
 | 4. Darkside and World endings | Opcodes 57 and 58, the ending mirror words on both sides, completion words, won flags and title replays; then the two presentations | A, then B | Needs analysis of `XEEN.EXE` and uninterrupted DOSBox captures, as M92 did |
 
-Two Tier A items wait for a fitting milestone. A runtime refusal after an
+Three Tier A items wait for a fitting milestone. A runtime refusal after an
 Event has shown a reward keeps that reward but drops the flags that stop a
 repeat; DOS never stops mid-Event, so the whole Event should be discarded
 (maintainer, 2026-10-31). A sweep of the original data found no Event that
 reaches this today. And after a Xeen Slayer Sword attack, DOS lets the next
 physical spell ignore physical resistance through the unsaved weapon
-selector; MMModern does not yet.
+selector; MMModern does not yet. Finally, DOS draws the sky and the
+Darkside entrance scenes from a night flag cached at map load and full time
+advances, where MMModern reads the clock
+([approved for M102](original-quirks.md#dev-current-clock-night)); the fix
+starts by finding which time advances skip the refresh and whether play
+reaches a scene or a sky redraw after one.
 
 ## Later goals
 

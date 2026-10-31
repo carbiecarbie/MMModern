@@ -1033,7 +1033,7 @@ void XeenEventFlow::framePresented(const IndexedFrame::Presentation &presented, 
     if(_entranceUi) {
         const auto now=presentationNow();
         if(const auto *sample=_entranceUi->animation.acquired(now))
-            _encounter->digitalSample(sample,XeenSceneArchive::Clouds,now);
+            _encounter->digitalSample(sample,xeenPictureArchive(_pending->state.workingCamera.mapId),now);
     }
     if(_smithUi && (_smithUi->animation.awaitingFrame || _smithUi->animation.resetAfterFrame)) {
         _smithUi->animation.deadline=PresentationClock::after(presentationNow(),3);
@@ -2707,9 +2707,10 @@ void XeenEventFlow::prepareEntrance() {
         caption=loadEntranceCaption(action,keyed);_eventPublication->check();checkTransitionCandidate();
     }
     XeenEntranceAnimation animation(action,keyed,[&](const char *name) {
-        const auto value=loadSampleDuration(name,XeenSceneArchive::Clouds);
+        const auto value=loadSampleDuration(name,xeenPictureArchive(_pending->state.workingCamera.mapId));
         _eventPublication->check();checkTransitionCandidate();return value;
-    },efx,caption.size(),captions && efx,silentDigital);
+    },efx,caption.size(),captions && efx,silentDigital,site->side,
+        _transition->party.encounterContext && xeenNight(_transition->party.encounterContext->minutes));
     _entranceUi.emplace(std::move(animation),_frame);
     _entranceUi->caption=std::move(caption);
     _presenter.clear();_journeyEventLayers=false;

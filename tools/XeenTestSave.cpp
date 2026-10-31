@@ -171,7 +171,46 @@ void giveSlayerSword(XeenSaveSnapshot &snapshot) {
     first.weapons[0]={0,34,0,13};
 }
 
+struct M102Spot {const char *name;unsigned map,action;bool keyed=false;};
+const M102Spot *m102Spot(const std::string &preset) {
+    static const M102Spot spots[]{
+        {"m102-bank",29,0},{"m102-smithy",29,1},{"m102-guild",37,2},
+        {"m102-tavern",29,3},{"m102-temple",29,4},{"m102-training",29,5},{"m102-inn",29,3},
+        {"m102-tower-refused",3,8},{"m102-tower-keyed",3,8,true},
+        {"m102-dungeon-refused",12,9},{"m102-dungeon-keyed",12,9,true},
+        {"m102-town-refused",4,13},{"m102-town-keyed",4,13,true}};
+    for(const auto &spot:spots)if(preset==spot.name)return &spot;
+    return nullptr;
+}
 void prepare(XeenSaveSnapshot &snapshot,const std::string &preset) {
+    if(preset=="m102-playtest" || m102Spot(preset)) {
+        prepare(snapshot,"m79-playtest");snapshot.camera={{XeenSide::Darkside,29},14,4,XeenDirection::North};
+        snapshot.headCache.reset();snapshot.darksideSong=7;
+        auto &journey=*snapshot.journey;journey.context->minutes=600;
+        journey.purse->gold=5000000;journey.purse->gems=50000;
+        for(unsigned n=0;n<snapshot.activeRosterIds.size();++n) {
+            const auto owner=snapshot.activeRosterIds[n];auto &c=snapshot.characters[owner];
+            c.permanentLevel=std::array<unsigned,6>{29,49,99,199,29,29}[n];
+            c.awards.fill(0);if(n%2==0)for(unsigned award=83;award<=87;++award)c.awards[award]=1;
+            c.currentHp=std::max(1,XeenCharacterRules::maxHp(c,{journey.context->year})/2);
+            c.currentSp=XeenCharacterRules::maxSp(c,{journey.context->year});
+            c.lloydMap=29;c.lloydX=14;c.lloydY=4;c.lloydSide=1;
+        }
+        snapshot.questItems.fill(0);for(unsigned key:{35u,41u,48u})snapshot.questItems[key]=1;
+        if(const auto *spot=m102Spot(preset)) {
+            snapshot.camera.mapId={XeenSide::Darkside,std::uint16_t(spot->map)};
+            if(spot->action>=8) {
+                const unsigned key=spot->action==8?40:spot->action==9?47:35;
+                snapshot.questItems[key]=spot->keyed?1:0;
+                // The refused Tower also exercises the night background;
+                // the keyed town shows night art with captions instead of VOC.
+                if(preset=="m102-tower-refused" || preset=="m102-town-keyed")journey.context->minutes=1260;
+                if(preset=="m102-town-keyed")snapshot.soundOptions.efx=false;
+            }
+        }
+        return;
+    }
+
     if(preset=="m101-pyramid-clouds" || preset=="m101-pyramid-darkside") {
         prepare(snapshot,preset=="m101-pyramid-clouds"?"m78-playtest":"m101-castleview");
         snapshot.camera=preset=="m101-pyramid-clouds"?XeenCamera{23,8,10,XeenDirection::North}:
@@ -642,7 +681,7 @@ void prepare(XeenSaveSnapshot &snapshot,const std::string &preset) {
 
 void generateTestSave(const GameInstallation &installation,const std::string &preset,
         const std::filesystem::path &output) {
-    if (preset!="m101-pyramid-clouds" && preset!="m101-pyramid-darkside" && preset!="m101-castleview" && preset!="m98-load" && preset!="m98-inn" && preset!="m97-open-chest" && preset!="m96-chest" && preset!="m95-witch-skull" && preset!="m92-lord-xeen" && preset!="m92-sixth-mirror" && !m90Spot(preset) && preset!="m89-lord-xeen" && preset!="m89-clan-king" && preset!="m89-draco" && preset!="m89-dragons" && preset!="m89-trolls" && preset!="m88-roster" && preset!="m87-inn" && preset!="m87-three" && preset!="m87-shangrila" && preset!="broken-armor" && preset!="train-ready" && preset!="injured-dead" && preset!="poisoned" && preset!="monster-control" && preset!="monster-damage" && preset!="party-healing" && preset!="m76-spells" && preset!="combat-items" && preset!="m78-playtest" && preset!="m78-one-holder" && preset!="m79-playtest" && preset!="m80-playtest" && preset!="m80-arena" && preset!="m80-arena-maxed" && preset!="m81-drops" && preset!="m81-fullpacks" && preset!="m81-event" && preset!="m84-playtest-trap" && preset!="m84-playtest-label" && preset!="m84-playtest-save" && preset!="m85-playtest-label" && preset!="m85-playtest-run" && preset!="m85-playtest-trap" && preset!="m86-playtest-fall" && preset!="m86-playtest-moon-ray" && preset!="m86-playtest-border")
+    if (preset!="m102-playtest" && !m102Spot(preset) && preset!="m101-pyramid-clouds" && preset!="m101-pyramid-darkside" && preset!="m101-castleview" && preset!="m98-load" && preset!="m98-inn" && preset!="m97-open-chest" && preset!="m96-chest" && preset!="m95-witch-skull" && preset!="m92-lord-xeen" && preset!="m92-sixth-mirror" && !m90Spot(preset) && preset!="m89-lord-xeen" && preset!="m89-clan-king" && preset!="m89-draco" && preset!="m89-dragons" && preset!="m89-trolls" && preset!="m88-roster" && preset!="m87-inn" && preset!="m87-three" && preset!="m87-shangrila" && preset!="broken-armor" && preset!="train-ready" && preset!="injured-dead" && preset!="poisoned" && preset!="monster-control" && preset!="monster-damage" && preset!="party-healing" && preset!="m76-spells" && preset!="combat-items" && preset!="m78-playtest" && preset!="m78-one-holder" && preset!="m79-playtest" && preset!="m80-playtest" && preset!="m80-arena" && preset!="m80-arena-maxed" && preset!="m81-drops" && preset!="m81-fullpacks" && preset!="m81-event" && preset!="m84-playtest-trap" && preset!="m84-playtest-label" && preset!="m84-playtest-save" && preset!="m85-playtest-label" && preset!="m85-playtest-run" && preset!="m85-playtest-trap" && preset!="m86-playtest-fall" && preset!="m86-playtest-moon-ray" && preset!="m86-playtest-border")
         throw std::invalid_argument("Unknown test-save preset: "+preset);
     const auto target=XeenSaveFile::resolve(output,installation);
     // Reuse the native alias/reparse-aware path guard for the repository too.
@@ -661,6 +700,28 @@ void generateTestSave(const GameInstallation &installation,const std::string &pr
             auto &nearby=table->slots.at(0);nearby.x=17;nearby.y=4;
             nearby.lifecycle=XeenActorLifecycle::Present;nearby.accounted=false;
         }
+    }
+    if(preset=="m102-playtest" || m102Spot(preset)) {
+        const auto *spot=m102Spot(preset);
+        if(spot) {
+            bool found=false;
+            for(const auto &event:inputs.events.load(candidate.camera.mapId).records)
+                if(event.opcode==17 && event.parameters==std::vector<std::uint8_t>{std::uint8_t(spot->action)}) {
+                    candidate.camera.x=event.x;candidate.camera.y=event.y;
+                    candidate.camera.direction=event.direction<4?XeenDirection(event.direction):XeenDirection::North;
+                    found=true;break;
+                }
+            if(!found)throw std::runtime_error("Missing original M102 service/entrance Event");
+        }
+        const auto actors=XeenActorApproach::actorsFromResources(inputs.maps.loadObjects(inputs.assets,candidate.camera.mapId),
+            inputs.resources.monsterStatistics(XeenSide::Darkside));
+        auto &table=candidate.map(candidate.camera.mapId).monsters;
+        table=XeenSaveMonsterTable{std::uint16_t(actors.size()),{}};
+        for(const auto &actor:actors) {
+            if(actor.lifecycle==XeenActorLifecycle::Present)table->slots.push_back({-128,-128,XeenActorLifecycle::Defeated,XeenActorStatus::Physical,true,-1});
+            else table->slots.push_back({actor.x,actor.y,actor.lifecycle,actor.status,false,-1});
+        }
+        candidate.darksideSong=7*xeenMapMusicRow(inputs.maps.loadGeometryMap(inputs.assets,candidate.camera.mapId).geometry);
     }
     if(preset.rfind("m98-",0)==0 || preset=="m97-open-chest" || preset=="m96-chest" || preset=="m95-witch-skull" || preset.rfind("m92-",0)==0 || preset.rfind("m90-",0)==0 || preset.rfind("m89-",0)==0 || preset=="m88-roster" || preset.rfind("m87-",0)==0 || preset=="m79-playtest" || preset=="m80-playtest" || preset=="m80-arena" || preset=="m80-arena-maxed" || preset.rfind("m84-playtest-",0)==0 || preset.rfind("m85-playtest-",0)==0 || preset.rfind("m86-playtest-",0)==0) {
         const auto map=candidate.camera.mapId;

@@ -512,13 +512,13 @@ int Application::gameplay(const std::filesystem::path &gameDirectory, XeenCamera
                 flow.loadJournalText = [&](bool awards) {return assets.readArchiveResource(awards?"award.bin":"qnotes.bin",XeenSceneArchive::DarksideOnly);};
                 flow.loadArenaSprites = [&](std::uint8_t image) {assets.validateNormalMonster(image,xeenPictureArchive(publishedCamera->mapId));assets.validateAttackMonster(image,xeenPictureArchive(publishedCamera->mapId));};
                 flow.drawEntranceSprite = [&](IndexedFrame &frame,const char *name,unsigned index,int x,int y,int scale) {
-                    assets.drawDialogSprite(frame,name,index,x,y,XeenSceneArchive::Clouds,scale);
+                    assets.drawDialogSprite(frame,name,index,x,y,xeenPictureArchive(publishedCamera->mapId),scale);
                 };
                 flow.mapName = [&](XeenMapIdentity id) { return assets.mapName(id); };
                 flow.loadRestDream = [&] { return assets.restDreamImage(xeenPictureArchive(publishedCamera->mapId)); };
                 flow.loadEntranceCaption = [&](unsigned action,bool keyed) {
                     const auto bytes=assets.readArchiveResource("special.bin",xeenPictureArchive(publishedCamera->mapId));
-                    const unsigned record=action==10?1:action==8?(keyed?2:3):action==9?(keyed?4:5):(keyed?6:7);
+                    const unsigned record=xeenEntranceCaptionRecord(action,keyed,publishedCamera->mapId.side);
                     std::size_t begin=0;
                     for(unsigned i=0;i<record;++i) {
                         while(begin<bytes.size() && bytes[begin])++begin;

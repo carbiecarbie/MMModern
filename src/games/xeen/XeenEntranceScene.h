@@ -11,13 +11,15 @@ struct XeenEntranceSite {
     unsigned action, map;
     enum class Position { Any, EqualX, OtherX } position;
     int branchX;
-    int quest; // -1: no item; Darkside-key branches remain deferred.
+    int quest; // -1: no item; Clouds cross-side keyed branches remain deferred.
     XeenCamera destination;
+    XeenSide side=XeenSide::Clouds;
 };
 const std::vector<XeenEntranceSite> &xeenEntranceSites();
 const XeenEntranceSite *xeenEntranceSite(unsigned action,const XeenCamera &);
 bool xeenEntranceKey(const XeenEntranceSite &,const XeenQuestItems &);
 XeenCamera xeenEntranceDestination(const XeenEntranceSite &,const XeenCamera &,const XeenQuestItems &);
+unsigned xeenEntranceCaptionRecord(unsigned action,bool keyed,XeenSide side);
 
 // Value-only presentation cursor. EventFlow owns acquisition, saved screens,
 // providers and gameplay RNG. Nothing here is persisted or owns game state.
@@ -36,7 +38,7 @@ public:
     using Duration=std::function<std::uint64_t(const char *)>;
     using Draw=std::function<unsigned(unsigned,unsigned)>;
     XeenEntranceAnimation(unsigned action,bool keyed,const Duration &,bool efx=true,unsigned captionLength=0,
-        bool captionWhenEfx=false,bool silentDigital=false);
+        bool captionWhenEfx=false,bool silentDigital=false,XeenSide side=XeenSide::Clouds,bool night=false);
     // Once per acquired iteration; a late wake advances only one iteration.
     std::optional<Frame> advance(std::uint64_t now,const Draw &);
     const char *acquired(std::uint64_t now);
@@ -47,6 +49,8 @@ public:
 private:
     struct Step {Phase kind; unsigned count,ticks; const char *sample=nullptr; std::uint64_t duration=0;};
     unsigned _action,_iteration=0;
+    XeenSide _side;
+    bool _night;
     bool _efx=true,_captions=false,_digitalActive=true,_captionComplete=false,_clockMarked=false;
     unsigned _captionLength=0,_cursor=0;
     std::uint64_t _captionMark=0;

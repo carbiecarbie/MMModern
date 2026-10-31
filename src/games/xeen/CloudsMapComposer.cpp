@@ -97,8 +97,7 @@ IndexedFrame CloudsMapComposer::compose(XeenAssetSource &assets,
 
 	const XeenMap &map = world.map(camera.mapId);
 	const bool night = partyState.encounterContext &&
-		(partyState.encounterContext->minutes < 5 * 60 ||
-		 partyState.encounterContext->minutes >= 21 * 60);
+		xeenNight(partyState.encounterContext->minutes);
 	if (map.geometry.isOutdoors()) {
 		const auto resolver = XeenObjectVisualResolver::load(assets);
 		const auto commands = XeenOutdoorScene().build(world, camera, &resolver, objectDiagnostics, ordinaryPhase, actorFrame,night);

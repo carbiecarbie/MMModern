@@ -28,14 +28,15 @@ intro at startup. Ordinary Darkside play uses the shared World state; its
 town services work; the Pyramid and travel spells cross sides.
 
 The following Darkside presentation differences follow the DOS rules
-established in M102 Part 0. Service animations are implemented in Part A;
-entrance scenes remain deferred to Part B. For
+established in M102 Part 0. Service animations and entrance scenes are implemented in Parts A/B. For
 each item, pin: differs; master not rechecked.
 
 - **Bank animation.** [The banker finishes frames 11 through 0 once](original-quirks.md#sv-darkside-bank-animation); the pin repeatedly resets that sequence and has a separate frame-bound error.
 - **Guild speech.** [The parrot/skull moves during its voice](original-quirks.md#sv-darkside-guild-animation); the pin animates it when the voice is idle. Refusal frames 4/5 are valid.
 - **Training speech.** [The trainer uses the speaking mouth overlay while talking](original-quirks.md#sv-darkside-training-animation); the pin reverses the speaking and idle pictures.
+- **Current-clock night.** [The sky and Darkside scenes derive night from the clock](original-quirks.md#dev-current-clock-night); DOS and the pin retain a cached flag until map load or `changeTime`. This matters after an `addTime`-only boundary crossing.
 - **Night entrances.** [The Tower slide and town approach retain their night art](original-quirks.md#sv-darkside-entrance-night); the pin draws day art at those points.
+- **Dungeon arrival.** [The Temple of Bark entrance arrives facing East](original-quirks.md#sv-darkside-dungeon-facing); the pin faces North.
 - **Entrance sequence.** [Tower retreats after refusal and speaks at two-tick intervals; Dungeon's pause cannot be skipped](original-quirks.md#sv-darkside-entrance-control). The pin reverses the retreat, shortens Tower's interval and permits a key skip; its subtitle/mixer substitutes also differ.
 
 Other recorded differences:
