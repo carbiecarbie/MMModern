@@ -6,7 +6,7 @@ namespace mmodern {
 // DOS doStepCode 0x0c924..0x0ca48. IDs are resolved surface types,
 // independent of the different indoor/outdoor cell-slot encodings.
 XeenTerrainArrival xeenTerrainArrival(unsigned surface,bool outdoor,bool navigator,
- bool levitating,const XeenCamera &);
+ bool levitating,const XeenCamera &,bool darksideFlag118=false);
 XeenCamera xeenTerrainFallDestination(const XeenCamera &);
 // Retained consequences owned by the caller's existing action publication.
 // DOS giveCharDamage restores the initial damage for each member (0x23de0),

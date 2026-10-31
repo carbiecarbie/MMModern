@@ -37,7 +37,7 @@ bool XeenEncounterFlow::beginRest(const std::function<IndexedFrame()> &dream,
   // doStepCode follows resetTemps, which clears levitation. Evaluate that
   // foreseeable suffix before publishing sleep, charges, food or RNG.
   auto ending=*_party.encounterContext;xeenResetPartyTemps(ending);
-  const auto terrain=_world.prepareTerrainArrival(_camera,members(_party,_party.party.activeOrder()),ending);
+  const auto terrain=_world.prepareTerrainArrival(_camera,members(_party,_party.party.activeOrder()),ending,_flags.isSet(XeenSide::Darkside,118));
   auto candidate=std::make_unique<RestContinuation>();candidate->owners=_party.party.activeOrder();
   candidate->shelter=shelter;
   if(!shelter && ((cell->cell->rawAttributes&0x40) || (primary.flags&0x4000)))candidate->phase=RestContinuation::Phase::Refused;
@@ -145,7 +145,7 @@ bool XeenEncounterFlow::serviceRest() {
    if(!rest.recovery)rest.recovery.emplace(members(_party,rest.owners),supplements(_party,rest.owners),*_party.encounterContext,_party.food);
    auto &recovery=*rest.recovery;
    if(!rest.terrain) {
-    auto rule=_world.prepareTerrainArrival(_camera,recovery.characters,recovery.context);
+    auto rule=_world.prepareTerrainArrival(_camera,recovery.characters,recovery.context,_flags.isSet(XeenSide::Darkside,118));
     if(!rule)throw std::logic_error("Rest arrival admission changed");
     if(rule.falling) {_terrainFall=rule;rule.damage=0;}
     rest.terrain.emplace(rule,recovery.characters,recovery.inputs,recovery.context,&*_party.serviceEconomy);

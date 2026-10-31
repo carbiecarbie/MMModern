@@ -3,6 +3,7 @@
 #include "games/xeen/XeenItemServiceRules.h"
 #include "games/xeen/CloudsMapComposer.h"
 #include "games/xeen/XeenIndoorScene.h"
+#include "games/xeen/XeenTerrainRules.h"
 #include <iostream>
 #include <sstream>
 using namespace training_test;
@@ -222,6 +223,21 @@ void detachedLighting(Inputs &in) {
 }
 int main(int argc,char **argv) {try {
     check(argc==2,"usage: senses-original <installation>");const auto installation=xeenTestInstallationDetector().detect(argv[1]);check(bool(installation),"Missing installation");Inputs in(*installation);
+    {
+        const XeenMapIdentity id{XeenSide::Darkside,89};
+        const auto map=in.maps.loadGeometryMap(in.assets,id);
+        bool found=false;
+        for(unsigned n=0;n<map.geometry.cells.size();++n) {
+            const auto surface=unsigned(map.geometry.surfaceTypes[map.geometry.cells[n].surfaceIndex]);
+            if(surface!=10 && surface!=13)continue;
+            const XeenCamera camera{id,int(n%16),int(n/16),XeenDirection::North};
+            const auto clear=xeenTerrainArrival(surface,map.geometry.isOutdoors(),false,false,camera,false);
+            const auto set=xeenTerrainArrival(surface,map.geometry.isOutdoors(),false,false,camera,true);
+            check(clear.falling && clear.damage==100 && !set.falling && !set.damage,"Original Darkside sky cell ignored flag 118");
+            found=true;break;
+        }
+        check(found,"Darkside map 89 has no original sky or cloud cell");
+    }
     std::ostringstream captured;auto *old=std::cout.rdbuf(captured.rdbuf());
     try {booksAndItems(in);combat(in);water(in);presentation(in);traversalAndDarkness(in);detachedLighting(in);}catch(...) {std::cout.rdbuf(old);throw;}
     std::cout.rdbuf(old);std::cout<<"M76 senses book/items, combat/Quick Fight, real water/monsters, dialogs and restore passed\n";return 0;

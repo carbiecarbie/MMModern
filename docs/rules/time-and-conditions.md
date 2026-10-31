@@ -557,8 +557,9 @@ Type names are established by the resource-name table
 `0x0c998..0x0c9ac`; space `0x0c958..0x0c95d`. Swimming, Walk on Water,
 Mountaineer and Pathfinder govern movement and give no arrival protection.
 Levitate protects cloud only; it does not protect sky, lava or space.
-Darkside game flag 118 suppresses the fall/damage suffix
-(`0x0c9af..0x0c9ce`). Arrival makes no direct random draw.
+Darkside game flag 118 suppresses the fall/damage suffix, including lava
+damage (`0x0c9af..0x0ca27`). Space death and desert time are set before this
+gate and remain effective. Arrival makes no direct random draw.
 
 The original calls arrival from the step-time suffix (`0x0d411`), the
 successful Cast/Shoot suffix (`0x0d5ba`) and completed Rest (`0x1e7df`).

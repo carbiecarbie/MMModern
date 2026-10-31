@@ -119,6 +119,17 @@ void movementAndArrival() {
         check(xeenTerrainFallDestination(camera).mapId==23,"Unconditional scripted fall has no Levitate guard");
         check(xeenRestTerrain(13,true,false,levitating)==0,"Rest admits cloud, then clears Levitate before arrival");
     }
+    auto dark=camera;dark.mapId={XeenSide::Darkside,35};
+    for(unsigned surface:{10u,13u}) {
+        const auto clear=xeenTerrainArrival(surface,true,false,false,dark,false);
+        const auto set=xeenTerrainArrival(surface,true,false,false,dark,true);
+        const auto clouds=xeenTerrainArrival(surface,true,false,false,camera,true);
+        check(clear.falling && clear.damage==100 && !set.falling && !set.damage && clouds.falling && clouds.damage==100,
+            "Darkside flag 118 must suppress falling and damage only on Darkside");
+    }
+    check(!xeenTerrainArrival(5,true,false,false,dark,true).damage,"Darkside flag 118 also suppresses lava damage");
+    check(xeenTerrainArrival(15,true,false,false,dark,true).dead,"Darkside flag 118 preserves space death");
+    check(xeenTerrainArrival(6,true,false,false,dark,true).minutes==170,"Darkside flag 118 preserves desert time");
 }
 void information() {
     using R=XeenLearnedSpellRules;

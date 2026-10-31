@@ -580,7 +580,7 @@ XeenEncounterResult XeenActorApproach::regionalTransition(XeenWorld &world,XeenP
 			if(stepTime) {
 				auto ending=xeenPrepareTime(c.context,charge?(indoor?1u:10u):0u);
 				if(ending.dailyProcessing)xeenResetPartyTemps(ending.context);
-				c.terrainRule=world.prepareTerrainArrival(c.camera,c.characters,ending.context);check();
+				c.terrainRule=world.prepareTerrainArrival(c.camera,c.characters,ending.context,(c.destinationFlags?*c.destinationFlags:flags).isSet(XeenSide::Darkside,118));check();
 				if(!*c.terrainRule) {refused.arrivalRefusal="Terrain destination is not supported yet";return refused;}
 			}
 			if(charge) {
@@ -652,7 +652,7 @@ XeenEncounterResult XeenActorApproach::regionalTransition(XeenWorld &world,XeenP
 		}
         if(c.stepTimePending) {
             if(!c.terrain) {
-                auto rule=activeWorld.prepareTerrainArrival(c.camera,c.characters,c.context);
+                auto rule=activeWorld.prepareTerrainArrival(c.camera,c.characters,c.context,(c.destinationFlags?*c.destinationFlags:flags).isSet(XeenSide::Darkside,118));
                 if(!rule)throw std::logic_error("Arrival admission changed during action");
                 if(rule.falling) {c.result.terrainFall=std::make_shared<XeenTerrainArrival>(rule);rule.damage=0;}
                 c.terrain.emplace(rule,c.characters,c.inputs,c.context,

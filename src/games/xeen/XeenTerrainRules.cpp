@@ -38,13 +38,17 @@ XeenCamera xeenTerrainFallDestination(const XeenCamera &source) {
  else {c.mapId=23;c.x=12;c.y=10;c.direction=XeenDirection::North;}
  return c;
 }
-XeenTerrainArrival xeenTerrainArrival(unsigned surface,bool outdoor,bool navigator,bool levitating,const XeenCamera &camera) {
+XeenTerrainArrival xeenTerrainArrival(unsigned surface,bool outdoor,bool navigator,bool levitating,const XeenCamera &camera,bool darksideFlag118) {
  if(surface>15)throw std::invalid_argument("Invalid arrival surface type");
  XeenTerrainArrival r;r.surface=surface;r.transition={XeenTransitionResult::Status::Available,camera,{}};
  if(surface==15)r.dead=true;
  else if(surface==5) {r.damage=100;r.type=XeenDamageType::Fire;}
  else if(surface==10 || (surface==13 && !levitating)) {r.damage=100;r.falling=true;r.transition.destination=xeenTerrainFallDestination(camera);}
  else if(surface==6 && outdoor && !navigator)r.minutes=170;
+ // DOS 0x0c9af..0x0c9ce skips the entire fall/damage suffix on Darkside.
+ if(camera.mapId.side==XeenSide::Darkside && darksideFlag118) {
+  r.damage=0;r.falling=false;r.transition.destination=camera;
+ }
  return r;
 }
 XeenTerrainArrivalCandidate::XeenTerrainArrivalCandidate(const XeenTerrainArrival &r,

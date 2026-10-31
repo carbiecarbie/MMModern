@@ -42,7 +42,7 @@ bool XeenEncounterFlow::beginShoot() {
    XeenRestoreGuard::Providers providers(*_journeyPreimage,_world);
    auto ending=xeenPrepareTime(*_party.encounterContext,charge);
    if(ending.dailyProcessing)xeenResetPartyTemps(ending.context);
-   const auto arrival=_world.prepareTerrainArrival(_camera,activeCharacters(_party,candidate->owners),ending.context);
+   const auto arrival=_world.prepareTerrainArrival(_camera,activeCharacters(_party,candidate->owners),ending.context,_flags.isSet(XeenSide::Darkside,118));
    _journeyPreimage->check();
    if(!arrival) {_journeyRefusal=arrival.transition.reason;return false;}
   }
@@ -278,7 +278,7 @@ bool XeenEncounterFlow::serviceShoot() {
   if(!work.time) work.time.emplace(*_party.encounterContext,work.charge,activeCharacters(_party,work.owners),activeInputs(_party,work.owners),&*_party.serviceEconomy);
   if(!work.time->service(draw)) return true;
   if(!work.terrain) {
-   auto rule=_world.prepareTerrainArrival(_camera,work.time->characters,work.time->context);
+   auto rule=_world.prepareTerrainArrival(_camera,work.time->characters,work.time->context,_flags.isSet(XeenSide::Darkside,118));
    if(!rule)throw std::logic_error("Shoot arrival admission changed");
    if(rule.falling) {_terrainFall=rule;rule.damage=0;}
    work.terrain.emplace(rule,work.time->characters,work.time->inputs,work.time->context,work.time->economy?&*work.time->economy:nullptr);

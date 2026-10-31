@@ -941,7 +941,7 @@ bool XeenEventFlow::serviceManualStep() {
   auto ending=xeenPrepareTime(step.context,charge);if(ending.dailyProcessing)xeenResetPartyTemps(ending.context);
   // Refuse an unavailable fall before time, ranged injuries or any Event prefix
   // can escape the detached manual action. This check spends no random draw.
-  const auto rule=work.world->prepareTerrainArrival(work.camera,step.characters,ending.context);
+  const auto rule=work.world->prepareTerrainArrival(work.camera,step.characters,ending.context,work.flags.isSet(XeenSide::Darkside,118));
   _eventPublication->check();work.guard->check();
   if(!rule) {_encounter->_journeyRefusal=rule.transition.reason;_candidateResultRefused=true;_transition.reset();return false;}
   step.time.emplace(step.context,charge,step.characters,step.inputs,&*work.party.serviceEconomy);
@@ -2037,7 +2037,7 @@ void XeenEventFlow::prepareDetachedResult(const XeenManualEventResult &result) t
 			const auto owners=work.party.party.activeOrder();
 			characters.setCount(owners.size());inputs.setCount(owners.size());
  for(unsigned n=0;n<owners.size();++n) {characters[n]=work.party.roster.at(owners[n]);inputs[n]=*work.party.roster.combatInputs(owners[n]);}
-			const auto rule=work.world->prepareTerrainArrival(work.camera,characters,*work.party.encounterContext);
+			const auto rule=work.world->prepareTerrainArrival(work.camera,characters,*work.party.encounterContext,work.flags.isSet(XeenSide::Darkside,118));
 			if(!rule) {_encounter->_journeyRefusal=rule.transition.reason;_candidateResultRefused=true;_transition.reset();return;}
 			if(rule.falling) {
 				work.falling=true;

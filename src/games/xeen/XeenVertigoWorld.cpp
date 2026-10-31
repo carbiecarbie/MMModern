@@ -35,12 +35,12 @@ void XeenWorld::publishTerrainArrival(XeenPartyState &party,const XeenTerrainArr
 }
 
 XeenTerrainArrival XeenWorld::prepareTerrainArrival(const XeenCamera &camera,
- const XeenConsequenceCharacters &characters,const XeenGameplayContext &context) {
+ const XeenConsequenceCharacters &characters,const XeenGameplayContext &context,bool darksideFlag118) {
  const auto cell=sampleCell(camera.mapId,camera.x,camera.y);
  if(!cell)throw std::invalid_argument("Arrival cell is absent");
  const auto &primary=map(camera.mapId).geometry;
  bool navigator=false;for(const auto &c:characters)navigator=navigator || c.skills[10]!=0;
- auto rule=xeenTerrainArrival(primary.surfaceTypes[cell->cell->surfaceIndex],primary.isOutdoors(),navigator,context.effects[XeenPartyEffect::Levitate]!=0,camera);
+ auto rule=xeenTerrainArrival(primary.surfaceTypes[cell->cell->surfaceIndex],primary.isOutdoors(),navigator,context.effects[XeenPartyEffect::Levitate]!=0,camera,darksideFlag118);
  if(rule.falling)rule.transition=prepareEventTransition(rule.transition.destination);
  return rule;
 }

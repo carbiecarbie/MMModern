@@ -22,7 +22,7 @@ bool XeenEventFlow::beginBarrier(bool bash) {
 	if(bash && work->rule->moved) {
 		auto ending=xeenPrepareTime(work->context,bash?2u:1u);
 		if(ending.dailyProcessing)xeenResetPartyTemps(ending.context);
-		const auto terrain=work->world->prepareTerrainArrival(work->rule->camera,work->characters,ending.context);
+		const auto terrain=work->world->prepareTerrainArrival(work->rule->camera,work->characters,ending.context,work->flags.isSet(XeenSide::Darkside,118));
 		_encounter->journeySavePreimage().check();
 		if(!terrain) {_encounter->_journeyRefusal=terrain.transition.reason;return false;}
 	}

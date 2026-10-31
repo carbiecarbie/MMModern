@@ -206,7 +206,7 @@ bool XeenEncounterFlow::confirmCasting(const Ticket &entry, std::size_t casterIn
           XeenLearnedSpellRules::applyPartyEffect(*spell,ending.context,caster.currentLevel());
           if(ending.dailyProcessing)xeenResetPartyTemps(ending.context);
           if(travel.shelter)xeenResetPartyTemps(ending.context);
-          const auto arrival=_world.prepareTerrainArrival(jump?*jump:_camera,activeCharacters(_party,_casting->owners),ending.context);
+          const auto arrival=_world.prepareTerrainArrival(jump?*jump:_camera,activeCharacters(_party,_casting->owners),ending.context,_flags.isSet(XeenSide::Darkside,118));
           _journeyPreimage->check();
           if(!arrival) {_journeyRefusal=arrival.transition.reason;return false;}
           if(XeenLearnedSpellRules::target(*id)==XeenSpellTarget::Contact) {
@@ -467,7 +467,7 @@ bool XeenEncounterFlow::serviceCasting() {
 		XeenConsequenceDraw draw{work.random,64,[&] { _journeyPreimage->check(); },[this](unsigned id){fmEffect(id);},[this](unsigned id){fmSelectWeapon(id);}};
 		if (!work.time->service(draw)) return true;
         if(!work.terrain) {
-            auto rule=_world.prepareTerrainArrival(_camera,work.time->characters,work.time->context);
+            auto rule=_world.prepareTerrainArrival(_camera,work.time->characters,work.time->context,_flags.isSet(XeenSide::Darkside,118));
             if(!rule)throw std::logic_error("Casting arrival admission changed");
             if(rule.falling) {_terrainFall=rule;rule.damage=0;}
             work.terrain.emplace(rule,work.time->characters,work.time->inputs,work.time->context,
