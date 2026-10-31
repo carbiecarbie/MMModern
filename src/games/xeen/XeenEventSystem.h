@@ -20,6 +20,7 @@ struct XeenAutomaticEventCompleted {
 	bool flagsChanged = false;
     unsigned inputClearCount=0, inputClearSite=0;
     std::optional<XeenEndingRequest> ending;
+    bool pyramidCrossed=false; // Transient: action 12 ends the input before a destination Event pass.
 };
 
 struct XeenManualEventNoEvent {};
@@ -30,6 +31,7 @@ struct XeenManualEventCompleted {
 	bool flagsChanged = false;
     unsigned inputClearCount=0, inputClearSite=0;
     std::optional<XeenEndingRequest> ending;
+    bool pyramidCrossed=false; // Transient: action 12 ends the input before a destination Event pass.
 };
 
 struct XeenManualSpecialInteractionUnsupported {

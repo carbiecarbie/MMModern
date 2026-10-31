@@ -30,7 +30,7 @@ public:
 			optional(a.rewardRandom,b.rewardRandom,[](const auto &x,const auto &y){return x==y;}) &&
 			optional(a.rewardItem,b.rewardItem,[](const auto &x,const auto &y){return x==y;}) &&
 			a.rewardPair==b.rewardPair && a.generatingReward==b.generatingReward &&
-			a.inputClearCount==b.inputClearCount && a.inputClearSite==b.inputClearSite &&
+			a.inputClearCount==b.inputClearCount && a.inputClearSite==b.inputClearSite && a.pyramidCrossed==b.pyramidCrossed &&
             a.scriptExecuted==b.scriptExecuted && a.otherFacing==b.otherFacing && a.tailDone==b.tailDone &&
             a.redrawDone==b.redrawDone &&
             a.prefixLight==b.prefixLight &&

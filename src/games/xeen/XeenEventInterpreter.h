@@ -41,6 +41,7 @@ struct XeenEventExecutionCompleted {
 	std::size_t instructionCount = 0;
     unsigned inputClearCount=0, inputClearSite=0;
     std::optional<XeenEndingRequest> ending;
+    bool pyramidCrossed=false; // Transient: action 12 ends the input before a destination Event pass.
 };
 
 enum class XeenPresentationKind {
@@ -214,6 +215,7 @@ struct XeenEventGiveTakeProgress {
 struct XeenEventExecutionState {
  bool forceText=false;
     std::optional<XeenEndingRequest> ending;
+    bool pyramidCrossed=false; // Transient: action 12 ends the input before a destination Event pass.
     unsigned inputClearCount=0, inputClearSite=0;
     // DOS Event-local markers, independent of instruction count.
     bool scriptExecuted=false, otherFacing=false, tailDone=false;

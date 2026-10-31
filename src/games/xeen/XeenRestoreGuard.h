@@ -364,6 +364,8 @@ private:
         s._mapStates=candidate._sessionState._mapStates;
         s._accountedMonsters=candidate._sessionState._accountedMonsters;
         s._headCache=candidate._sessionState._headCache;
+        s._journeyRandom=candidate._sessionState._journeyRandom;
+        s._darksideSong=candidate._sessionState._darksideSong;
         maps=candidate._maps;objects=candidate._objects;cityStatistics=candidate._cityStatistics;darksideStatistics=candidate._darksideStatistics;mapRuleView=candidate._mapRuleView;
         ++worldRevision;prepareMutationRanges();
     }
@@ -434,6 +436,7 @@ private:
 		s._mapStates.swap(mapStates);
 		s._accountedMonsters.swap(accounted);
 		s._headCache=candidate.s._headCache;
+		s._darksideSong=candidate.s._darksideSong;
 		for(unsigned owner=0;owner<characters.size();++owner) {
 			xeenEventCopyOwnedCharacter(characters[owner],candidate.characters[owner]);
 			if(inputs[owner])*inputs[owner]=*candidate.inputs[owner];

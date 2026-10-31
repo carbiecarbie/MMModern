@@ -26,8 +26,9 @@ unchanged apart from its version number, so the earlier entries are marked
 "master: differs". MMModern plays Clouds of Xeen, apart from the
 [gaps below](#what-scummvm-has-that-mmmodern-does-not-yet), and the Darkside
 intro at startup. Ordinary Darkside play uses the shared World state; its
-services and cross-side travel remain deferred.
+services remain deferred; the Pyramid and travel spells cross sides.
 
+- **Darkside Town Portal.** [The CD names towns but travels to five fixed outdoor arrivals](original-quirks.md#sv-darkside-town-portal-stride), on Darkside maps 4,19,22,6,98. The pin travels to towns 29,31,33,35,37. Pin: differs; master not rechecked.
 - **Sound setup.** The [owned sound CFG](original-quirks.md#dev-owned-sound-cfg) keeps the DOS installer's choices outside the game installation. ScummVM selects its MT-32 or AdLib driver through its own device configuration. Pin: differs; master not rechecked.
 - **Picture shape.** The [square-pixel option](original-quirks.md#dev-square-picture) preserves MMModern's former integer-scaled display; both MMModern and the pin enable aspect correction by default. Pin checked; master not rechecked.
 - **NPC mode 2 artwork.** [The art remains available until the Event run ends](original-quirks.md#sv-npc-mode2-art-lifetime), so later prompts animate it and keep a pending scene step. The pin deletes the NPC dialog on return. Pin: differs; master not rechecked.

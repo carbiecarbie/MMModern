@@ -356,7 +356,7 @@ void crossing(Inputs &in) {
 }
 
 void flowRefusals(Inputs &in) {
-    for(unsigned action:{3u,6u,8u,9u,10u,11u,12u,255u,256u}) {
+    for(unsigned action:{3u,6u,8u,9u,10u,11u,13u,255u,256u}) {
         const bool neighbor=action==256;
         auto source=in.base();source.camera=neighbor?XeenCamera{23,9,11,XeenDirection::East}:quietCell(in,29);
         table(in,source,source.camera.mapId);
@@ -472,7 +472,7 @@ void atomicRefusals(Inputs &in) {
     // M79 admits Bank, Ironworks, Guild and Training through their shared owners.
     auto source=in.base();source.camera=quietCell(in,29);table(in,source,29);
     Fixture fixture(in,source);
-    for(unsigned action:{3u,6u,8u,9u,10u,11u,12u,255u}) {
+    for(unsigned action:{3u,6u,8u,9u,10u,11u,13u,255u}) {
         auto world=fixture.w.transitionCandidate();XeenPartyState party;world->copyEventParty(fixture.p,party);
         auto camera=fixture.c;auto flags=fixture.f;
         XeenRestoreGuard before(*world,party,camera,flags);

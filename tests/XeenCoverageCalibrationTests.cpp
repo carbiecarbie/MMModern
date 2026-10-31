@@ -31,7 +31,7 @@ int main(int argc,char **argv) {
         std::string line,dimension;bool clouds=false,darkside=false;unsigned gaps=0,unused=0,waterDragon=0,vultureRoc=0,movement=0;
         std::set<std::string> supported,supportedServices,skillWalls,lightingRows;
         std::array<unsigned,6> townSites{};unsigned arenaSites=0;
-        unsigned darkMaps=0,mixedMaps=0;
+        unsigned darkMaps=0,mixedMaps=0;std::array<unsigned,2> pyramidSites{};
         while(std::getline(input,line)) {
             if(line=="## Clouds detail")clouds=true;
             if(line=="## Darkside detail") {clouds=false;darkside=true;}
@@ -59,6 +59,10 @@ int main(int argc,char **argv) {
                 if(status=="supported")darkMaps+=std::stoul(columns[3]);
                 else if(reason.find("not supported yet")!=std::string::npos)mixedMaps+=std::stoul(columns[3]);
                 else require(false,"Unexpected Darkside map admission failure: "+reason);
+            }
+            if(dimension=="Events" && mechanic=="17 DoTownEvent action=12") {
+                require(status=="supported","Pyramid crossing is not supported: "+reason);
+                pyramidSites[darkside?1:0]+=std::stoul(columns[3]);
             }
             if(!clouds)continue;
             if(dimension=="Map features") {
@@ -126,6 +130,7 @@ int main(int argc,char **argv) {
         for(const auto action:{"Sign In","Drink","Tip","Rumors","Donation","Uncurse"})
             require(supportedServices.count(action),std::string("Implemented Vertigo service missing: ")+action);
         require(townSites==std::array<unsigned,6>{3,4,6,3,4,3},"Clouds service site inventory changed");
+        require(pyramidSites==std::array<unsigned,2>{6,2},"Original Pyramid site inventory changed");
         require(arenaSites==1,"Clouds Battle Master site inventory changed");
         require(gaps==0 && unused==4,"Vertigo documented gap/subroutine inventory changed; explain and recalibrate");
         require(waterDragon==2 && vultureRoc==2,"Species 59 species and movement rows are missing from the census");

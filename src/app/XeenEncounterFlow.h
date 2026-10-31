@@ -51,6 +51,8 @@ struct XeenJourneySetup {
 	// Isolated, unsaveable Event developer session. Only map admission changes;
 	// resource binding, party rules, RNG and publication checks remain ordinary.
 	std::optional<XeenCamera> eventFixture;
+    // Immutable resource bank for a first cross-side arrival; never serialized.
+    std::vector<XeenMonsterRecord> darksideStatistics;
 };
 struct XeenJourneyRestoreTag {};
 

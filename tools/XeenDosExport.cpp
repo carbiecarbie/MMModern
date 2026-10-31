@@ -32,22 +32,13 @@ DosMember &member(DosMembers &members,const std::string &name) {
 	return *it;
 }
 void validateExportState(const XeenSaveSnapshot &s) {
-	if(s.camera.mapId.side!=XeenSide::Clouds) throw std::invalid_argument("Darkside input DOS export: not supported yet");
- for(unsigned i=256;i<512;++i)if(s.gameFlags[i])throw std::invalid_argument("Darkside game flags: DOS export not supported yet");
- for(unsigned i=30;i<60;++i)if(s.questFlags[i])throw std::invalid_argument("Darkside quest flags: DOS export not supported yet");
- for(unsigned i=35;i<85;++i)if(s.questItems[i])throw std::invalid_argument("Darkside quest counters: DOS export not supported yet");
- for(const auto &c:s.characters)for(bool flag:c.characterFlags)if(flag)throw std::invalid_argument("Character flags: DOS export not supported yet");
 	if(s.insideInn || !s.camera.mapId.number) throw std::invalid_argument("Cannot export a party inside an Inn (map 0)");
-	for(const auto &m:s.maps) if(m.id.side!=XeenSide::Clouds) throw std::invalid_argument("Darkside map history DOS export: not supported yet");
 }
 // Local resource adapters, matching normal startup; no extra gameplay owner.
 void restore(const GameInstallation &installation,const XeenSaveSnapshot &s) {
 	XeenAssetSource assets(installation,320,200); XeenMapLoader maps;
-	XeenEventLoader events([&](const auto &name)->std::optional<DosBytes> {
-		if(!assets.hasInitialResource(name)) return {}; return assets.readInitialResource(name);
-	});
-	XeenEventTextLoader texts([&](const auto &name)->std::optional<DosBytes> {
-		if(!assets.hasArchiveResource(name)) return {}; return assets.readArchiveResource(name);
+	XeenEventLoader events([&](const std::string &name,XeenSide side)->std::optional<DosBytes> {
+		if(!assets.hasInitialResource(name,side)) return {}; return assets.readInitialResource(name,side);
 	});
 	XeenSaveState::Resources r;
 	r.signature=XeenSaveFile::fingerprint(installation);
@@ -58,7 +49,16 @@ void restore(const GameInstallation &installation,const XeenSaveSnapshot &s) {
 	r.loadInitialBankBalances=[&]{return XeenCharacterFormat::parseBankBalances(assets.readInitialResource("maze.pty"));};
 	r.loadInitialWorldFlags=[&]{return XeenQuestFlagFormat::parseWorldFlags(assets.readInitialResource("maze.pty"));};
 	r.loadEvents=[&](auto id){return events.load(id);};
-	r.loadRegionalText=[&](auto id){return texts.load(id);};
+    r.loadRegionalText=[&](auto id){
+        const auto archive=xeenPictureArchive(id);
+        XeenEventTextLoader loader([&](const std::string &name)->std::optional<DosBytes> {
+            if(!assets.hasSceneResource(name,archive))return {};return assets.readArchiveResource(name,archive);
+        });return loader.load(id);
+    };
+    r.loadMonsterStatisticsForSide=[&](XeenSide side){
+        const auto bytes=assets.readMonsterStatistics(side);
+        if(!bytes)throw std::runtime_error("Missing original side MON");return XeenMonsterFormat::parse(*bytes);
+    };
 	r.loadMonsterStatistics=[&]{
 		const auto b=assets.readMonsterStatistics();
 		if(!b) throw std::runtime_error("Missing DARK.CC/xeen.mon"); return XeenMonsterFormat::parse(*b);
@@ -162,13 +162,16 @@ DosExportPair projectDosSave(const GameInstallation &installation,const XeenSave
 	const auto nam=dosExportNam(name); validateExportState(s); restore(installation,s);
 	auto pair=dosNewGame(installation);
 	member(pair.clouds,"maze.nam").bytes=nam; member(pair.darkside,"maze.nam").bytes=nam;
+    for(auto *members:{&pair.clouds,&pair.darkside})
+        member(*members,"maze.nam").bytes.at(29)=static_cast<std::uint8_t>(s.camera.mapId.side);
 	XeenCharacterFormat::writeDosRoster(member(pair.darkside,"maze.chr").bytes,s);
 	XeenCharacterFormat::writeDosParty(member(pair.darkside,"maze.pty").bytes,s);
 	for(const auto &m:s.maps) {
-		XeenMapFormat::writeDosDat(member(pair.clouds,dosMapName(m.id.number,"dat")).bytes,m);
+        auto &members=m.id.side==XeenSide::Clouds?pair.clouds:pair.darkside;
+		XeenMapFormat::writeDosDat(member(members,dosMapName(m.id.number,"dat")).bytes,m);
 		if(m.monsters || !m.objects.empty() || !m.wallItems.empty())
-			XeenMapFormat::writeDosMob(member(pair.clouds,dosMapName(m.id.number,"mob")).bytes,m);
-		if(!m.events.empty()) XeenEventFormat::writeDos(member(pair.clouds,dosMapName(m.id.number,"evt")).bytes,m);
+			XeenMapFormat::writeDosMob(member(members,dosMapName(m.id.number,"mob")).bytes,m);
+		if(!m.events.empty()) XeenEventFormat::writeDos(member(members,dosMapName(m.id.number,"evt")).bytes,m);
 	}
 	return pair;
 }
@@ -278,8 +281,8 @@ void placeDosParty(const GameInstallation &installation,const XeenSaveSnapshot &
 	pty.at(10)=unsigned(place.facing);pty.at(11)=place.x;pty.at(12)=place.y;pty.at(13)=place.map;
 }
 std::string dosProjectionSummary() {
-	return "New Game projection: XEEN party replica; DARK maps, flags, quests and character flags; "
-		"prior map, PTY16, unused party-ID suffix, unmodeled counters/flags and CHR name padding; DAT seen bits.\n"
+	return "New Game projection: XEEN party replica; prior map, PTY16, unused party-ID suffix, "
+        "unmodeled counters/completion, quest-flag padding and CHR name padding; DAT seen bits.\n"
 		"DOS does not store monster HP/status, Spawn types/extra slots, object flips, head cache, MMModern RNG or process state.\n";
 }
 void exportDosSave(const GameInstallation &installation,const fs::path &input,const fs::path &requested,

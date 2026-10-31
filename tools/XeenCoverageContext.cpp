@@ -45,6 +45,7 @@ OriginalContext::OriginalContext(const GameInstallation &installation, std::opti
         xeenValidateRegionalManifest(m,o,e,s,assets.readInitialResource("maze0023.dat"),
             assets.readInitialResource("maze0023.mob"),assets.readInitialResource("maze0023.evt"));
     };
+    setup.darksideStatistics=XeenMonsterFormat::parse(*assets.readMonsterStatistics(XeenSide::Darkside));
     setup.purse=XeenCharacterFormat::parseMonsterPurse(pty);
     setup.worldFlags=XeenQuestFlagFormat::parseWorldFlags(pty);
     setup.bank=XeenCharacterFormat::parseBankBalances(pty);

@@ -14,7 +14,7 @@ bool XeenEventFlow::beginTravelDialog(XeenLearnedSpell spell,std::uint8_t owner,
         if(!mapName)throw std::logic_error("Travel map name provider missing");
         for(unsigned i=0;i<(spell==XeenLearnedSpell::TownPortal?5u:1u);++i) {
             const auto b=rule.beacon;
-            ui.names[i]=mapName(spell==XeenLearnedSpell::TownPortal?XeenMapIdentity(28+i):XeenMapIdentity(static_cast<XeenSide>((*b)[3]),(*b)[0]));
+            ui.names[i]=mapName(spell==XeenLearnedSpell::TownPortal?XeenLearnedSpellRules::townPortalMap(_camera.mapId.side,i+1):XeenMapIdentity(static_cast<XeenSide>((*b)[3]),(*b)[0]));
         }
     }
     });

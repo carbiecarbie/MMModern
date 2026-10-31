@@ -769,8 +769,8 @@ Teleport or Etherealize destination beyond the border enters the neighbouring
 map as walking does. Beacon stores map/X/Y/side on the caster's mutable roster record.
 Cross-map Return and every Town Portal selection load through the existing
 world transition, retaining per-map changes and rebuilding live monsters.
-Every Clouds map can be a destination; Darkside and missing resources
-refuse before payment. M77 Part A admits Town Portal items in combat
+Ordinary maps on either side can be destinations; missing resources and
+deferred mixed Darkside maps 113..128 refuse before payment. M77 Part A admits Town Portal items in combat
 after the original notice; combat ends at the first attacker re-evaluation after
 the load, with its ordinary minute (maintainer decision, 2026-10-19).
 Travel dialogs hold payment until the chosen
@@ -787,7 +787,7 @@ remains unconfirmed in DOS; see [the retained limit](../original-quirks.md).
 | Time Distortion | `0x400`; assign primary map run X/Y, preserve facing, redraw; no direct map load; works out of combat too |
 | Teleport | `0x1000`; one-digit distance prompt in current facing; positive input 1..9; walls between start and destination are ignored; preserve facing; no direct map load |
 | Lloyd's Beacon | `0x800`; Set stores the caster's map/X/Y/side; Return loads only if map or side changes, then assigns X/Y; preserve facing |
-| Town Portal | `0x100`; select town 1..5; always load selected town, even the current one; Clouds uses that town's run X/Y; preserve facing |
+| Town Portal | `0x100`; select 1..5; always load; Clouds uses the selected town's run X/Y and preserves facing; Darkside uses the CD selector and fixed arrivals below |
 
 Teleport Escape/empty/0 closes without moving. Indoors a destination full
 word `0x8888` fails; outdoors raw destination surface 0 or 8 fails. Shared
@@ -798,7 +798,8 @@ or water test (`0x303e3..0x30541`, `0x11d40..0x11f03`). A later ordinary
 outdoor boundary transition is distinct from a handler explicitly reloading.
 
 Beacon's S/T Set and R Return buttons/keys or Escape use window 10. Before
-display, map 0 initializes Clouds beacon to map 28, (18,4), side 0; even
+display, map 0 initializes the beacon on the current side: Clouds map 28,
+(18,4), side 0, or Darkside map 29, (25,21), side 1; even
 Escape retains that initialization. Stored fields are character offsets
 `0xa0`, `0xa1`, `0xa2`, `0x136`. Return to Clouds maps 75..78 after castle
 completion fails. There is no separate direction in a beacon.
@@ -807,6 +808,20 @@ Town Portal's window 20 accepts 1..5, retries higher digits and treats
 Escape/0 as cancel. Clouds destinations, from the CD initial map records:
 Vertigo 28 (18,4), Nightshadow 29 (14,1), Rivercity 30 (17,1), Asp 31 (8,1),
 Winterkill 32 (7,14). Restrictions precede dialog/default-beacon writes.
+
+**DOS play plus calibrated static evidence, high confidence (2026-10-30):**
+Darkside's list names Castleview, Sandcaster, Lakeside, Necropolis and
+Olympus, but the World CD indexes twice as far for travel. It loads maps
+4,19,22,6,98 with fixed positions/facings `(14,11)` South, `(5,12)` West,
+`(2,15)` East, `(8,11)` North and `(2,6)` North. The Castleview choice was
+recorded arriving at Area A4; the other choices follow the same calibrated
+selector (`0x30779..0x30812`). The pin instead loads the towns themselves;
+see the [original quirk](../original-quirks.md#sv-darkside-town-portal-stride).
+Arrival selects one DOS map song, even with music off or no audio device.
+**DOS static, high:** Beacon defaults and Set/Return side handling are
+`0x2fcce..0x2fd05`, `0x2fef7..0x2ff35`, `0x2ff6b..0x2ff8a`.
+The completed-Clouds-castle refusal checks the casting side, even for a
+cross-side Beacon. The save retains each caster's Beacon independently.
 
 The handlers do not run Events or terrain directly. Exploration learned
 casting reaches the existing monster/step-time/terrain suffix at `0x0d5ba`;
@@ -829,7 +844,7 @@ suffix, including damage or a fall; item Jump returns through the item-use
 monster response, which does not call arrival. This distinction follows the
 calibrated DOS call sites `0x0d411`, `0x0d5ba`, `0x1e7df` and item dispatch
 `0x39e4b` (2026-10-17). MMModern enters a destination in a neighbouring
-outdoor map as walking does and refuses Darkside or missing resources before
+outdoor map as walking does and refuses unavailable destinations before
 charge. See [terrain arrival](time-and-conditions.md#terrain-arrival).
 
 ## Item power lookup

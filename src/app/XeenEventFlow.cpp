@@ -381,15 +381,17 @@ void XeenEventFlow::beginDeath(const IndexedFrame &base) {
         if(!loadSampleDuration || !drawDialogSprite)throw std::invalid_argument("Original death providers are absent");
         DeathContinuation candidate;candidate.gameplay=base;
         const bool digital=XeenSoundOptions(_party.soundOptions).efx && (!_program.audio || _program.audio->hasDmaDigital());
-        const auto fireDuration=digital?loadSampleDuration("fire.voc",XeenSceneArchive::Clouds):0;
-        candidate.laughDuration=digital?loadSampleDuration("xeenlaff.voc",XeenSceneArchive::Clouds):0;
+        const bool dark=_camera.mapId.side==XeenSide::Darkside;
+        const auto archive=xeenPictureArchive(_camera.mapId);
+        const auto fireDuration=digital?loadSampleDuration("fire.voc",archive):0;
+        candidate.laughDuration=digital?loadSampleDuration(dark?"laff1.voc":"xeenlaff.voc",archive):0;
         if(digital && (!fireDuration || !candidate.laughDuration))throw std::invalid_argument("Invalid original death sample duration");
         // The final pair 34/35 is drawn over the last fire composition (all
         // seventeen death.vga pairs), not over the gameplay: pin
         // WorldOfXeenEngine::death and the DOS capture Morte.mkv (2026-10-13).
         candidate.final=drawXeenDeathFinal(drawXeenDeathFire(base,34,drawDialogSprite),drawDialogSprite);
         _death=std::move(candidate);
-        _encounter->digitalSample("fire.voc",XeenSceneArchive::Clouds);
+        _encounter->digitalSample("fire.voc",archive);
     }
 }
 IndexedFrame XeenEventFlow::drawDeath(const IndexedFrame &) {
@@ -400,6 +402,13 @@ IndexedFrame XeenEventFlow::drawDeath(const IndexedFrame &) {
         death.laugh?std::optional<unsigned>{death.laugh-1}:std::nullopt,drawDialogSprite);
     if(death.phase==P::Scroll || death.phase==P::Closed || death.phase==P::FadeOut || death.phase==P::Done) {
         auto frame=death.final;
+        // Screen::doScroll returns before loading the Clouds-only hands on
+        // Darkside (DAT 0xad12..0xad2a), including the death caller at 0xb38c.
+        if(_camera.mapId.side==XeenSide::Darkside) {
+            if(death.phase==P::FadeOut || death.phase==P::Done)
+                for(auto &value:frame.palette)value=std::uint8_t(unsigned(value)*death.fadeLevel/128);
+            return frame;
+        }
         const auto hand=[&](unsigned index,int x=0) {
             const auto name="hand"+std::string(index<10?"0":"")+std::to_string(index)+".vga";
             drawDialogSprite(frame,name.c_str(),0,x,0);
@@ -440,21 +449,22 @@ bool XeenEventFlow::advanceDeath() {
     const auto now=presentationNow();
     if(now<death.deadline || death.phase==P::Done)return false;
     const bool scrolling=death.phase==P::Scroll;
+    const bool dark=_camera.mapId.side==XeenSide::Darkside;
     switch(death.phase) {
     case P::Fire:
         if(death.fire<34)death.fire+=2;else death.phase=P::Final;
         break;
     case P::Final:
         death.phase=P::Laugh;death.laughEnd=PresentationClock::checkedAdd(now,death.laughDuration);
-        _encounter->digitalSample("xeenlaff.voc",XeenSceneArchive::Clouds);break;
+        _encounter->digitalSample(dark?"laff1.voc":"xeenlaff.voc",xeenPictureArchive(_camera.mapId));break;
     case P::Laugh:
         // DAT 0x0b2f7..0x0b346: sample status is sampled after the two-tick
         // draw hold, with one restart at index 10 and no final sound tail.
-        if(now>=death.laughEnd || death.laugh==22)death.phase=P::Restore;
-        else if(death.laugh==10 && !death.restarts){death.laugh=0;++death.restarts;}
+        if(now>=death.laughEnd || (death.laugh==(dark?9u:22u) && (!dark || death.restarts==2)))death.phase=P::Restore;
+        else if(death.laugh==(dark?9u:10u) && death.restarts<(dark?2u:1u)){death.laugh=0;++death.restarts;}
         else ++death.laugh;
         break;
-    case P::Restore:death.phase=P::Scroll;break;
+    case P::Restore:death.phase=dark?P::FadeOut:P::Scroll;break;
     case P::Scroll:
         if(death.scroll>1)--death.scroll;else death.phase=P::Closed;
         break;
@@ -465,8 +475,8 @@ bool XeenEventFlow::advanceDeath() {
     case P::Done:return false;
     }
     death.acquired=false;
-    if(death.phase==P::Laugh && (death.laugh==1 || death.laugh==11))_encounter->fmEffect(33);
-    if(death.phase==P::Laugh && death.laugh==15)_encounter->fmEffect(34);
+    if(!dark && death.phase==P::Laugh && (death.laugh==1 || death.laugh==11))_encounter->fmEffect(33);
+    if(!dark && death.phase==P::Laugh && death.laugh==15)_encounter->fmEffect(34);
     if(death.phase==P::Laugh)death.deadline=PresentationClock::after(now,2);
     else if(death.phase==P::Scroll)death.deadline=PresentationClock::after(scrolling?death.deadline:now,1);
     return true;
@@ -1340,15 +1350,17 @@ IndexedFrame XeenEventFlow::renderEncounter(bool report, bool cosmeticInput, boo
                 if(_travelUi)rendered=drawTravelDialog(rendered);
 				if (_smithUi) rendered=drawSmith(composed.frame);
 				if (_trainingUi) rendered=drawTraining(composed.frame);
-                if(_entranceUi)rendered=_presenter.rebase(_entranceUi->art);
+				if(_entranceUi)rendered=_presenter.rebase(_entranceUi->art);
 				if(_dismissOpen) rendered=_dismissRefusal.empty()?drawXeenDismiss(dosText(),rendered,_inventoryFont,drawDialogSprite):
-                    drawXeenErrorScroll(rendered,_inventoryFont,_dismissRefusal);
-                if(_summary)rendered=drawSummary(rendered);
-                if(_quickFightMember)rendered=drawQuickFightOptions(rendered);
-				if (partyDeathRequired() || _death) {
-					if (_camera.mapId.side==XeenSide::Darkside)
-						rendered=drawXeenErrorScroll(rendered,_inventoryFont,"Darkside defeat recovery: not supported yet");
-					else {beginDeath(composed.frame);rendered=drawDeath(composed.frame);}
+					drawXeenErrorScroll(rendered,_inventoryFont,_dismissRefusal);
+				if(_summary)rendered=drawSummary(rendered);
+				if(_quickFightMember)rendered=drawQuickFightOptions(rendered);
+				// The constructor prepares a base before the session binds its
+				// sprite/sample providers. Start a restored dead party only after
+				// that configuration; later missing providers remain an error.
+				if (_death || (partyDeathRequired() &&
+					(_frame.isValid() || (drawDialogSprite && loadSampleDuration)))) {
+					beginDeath(composed.frame);rendered=drawDeath(composed.frame);
 				}
 				if (report && !attempt) {
 					if (reportText) reportText(_encounter->notice());
@@ -1401,8 +1413,7 @@ IndexedFrame XeenEventFlow::renderEncounter(bool report, bool cosmeticInput, boo
                 if(_encounter->_needsRestNotice)rendered=drawXeenErrorScroll(rendered,_inventoryFont,std::string(xeenDialogText(dosText(),XeenDialogText::PartyNeedsRest)));
 			if (!_encounter->current(entry)) throw std::runtime_error("Stale encounter report");
 			if(partyDeathRequired() || _death) {
-                if(_camera.mapId.side==XeenSide::Darkside)rendered=drawXeenErrorScroll(rendered,_inventoryFont,"Darkside defeat recovery: not supported yet");
-                else {auto deathBase=composed.frame;drawPartyPresentation(deathBase);beginDeath(deathBase);rendered=drawDeath(deathBase);}
+                auto deathBase=composed.frame;drawPartyPresentation(deathBase);beginDeath(deathBase);rendered=drawDeath(deathBase);
             }
             // Complete the fallible return copy before installing the frame.
 			if (!attempt && beforeEncounterFrameCopy) beforeEncounterFrameCopy();
@@ -1723,6 +1734,13 @@ template<class Result> IndexedFrame XeenEventFlow::drive(Result result, bool aut
                 prepareDetachedResult(result);
                 if(_ending || (_transition && _transition->completion))return frameCopy();
             }
+        if constexpr (std::is_same_v<Result,XeenManualEventResult>)
+            if(const auto *done=std::get_if<XeenManualEventCompleted>(&result);done && done->pyramidCrossed && !_transition) {
+                // The Town action returns to polling, not the current input's
+                // ordinary destination pass (DOS 0xd1a5..0xd1f2).
+                _explorationPass=false;_encounter->_journeyCapture->inputPassPending=false;
+            }
+
 		// Adopt ownership before composition, reporting or presentation can fail.
 		auto *suspended = std::get_if<XeenEventExecutionSuspended>(&result);
         if(!suspended && _presenter.hasNpcOffer()) {
@@ -1901,7 +1919,7 @@ XeenManualEventResult XeenEventFlow::beginDetachedEvent(XeenRegionalInteraction 
 		auto result=events.runAutomaticEvent(*_transition->world,_transition->party,_transition->camera,
             _transition->flags,nullptr,_encounter->_regionalAutomaticKind!=XeenEncounterFlow::EventCallKind::Caller3);
 		if(const auto *done=std::get_if<XeenAutomaticEventCompleted>(&result))
-			return XeenManualEventCompleted{done->instructionCount,done->cameraChanged,done->flagsChanged,done->inputClearCount,done->inputClearSite,done->ending};
+			return XeenManualEventCompleted{done->instructionCount,done->cameraChanged,done->flagsChanged,done->inputClearCount,done->inputClearSite,done->ending,done->pyramidCrossed};
 		if(const auto *failed=std::get_if<XeenEventExecutionError>(&result))return *failed;
 		if(auto *suspended=std::get_if<XeenEventExecutionSuspended>(&result))return std::move(*suspended);
 		return XeenManualEventNoEvent{};

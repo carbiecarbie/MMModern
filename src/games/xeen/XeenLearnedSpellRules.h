@@ -105,6 +105,7 @@ struct XeenSpellItemSelection {
 };
 class XeenLearnedSpellRules {
 public:
+    static XeenMapIdentity townPortalMap(XeenSide, unsigned town);
     // Input: Teleport distance; Beacon 0 cancel/default, 1 Set, 2 Return;
     // Town Portal 0 cancel, 1..5 town. All guards precede any returned write.
     static XeenSpellTravel travel(XeenWorld &,const XeenCamera &,XeenLearnedSpell,unsigned distance, const XeenCharacter *caster,bool cloudsCompleted);

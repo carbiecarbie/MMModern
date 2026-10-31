@@ -269,10 +269,12 @@ void XeenCharacterFormat::writeDosParty(std::vector<std::uint8_t> &p, const Xeen
 	}
 	word(604,j.cloudsCompleted); word(618,s.food);
 	dword(638,j.purse->gold); dword(642,j.purse->gems); dword(646,e.bank.gold); dword(650,e.bank.gems); dword(654,j.playTimeSeconds);
-	// Part A retains the existing Clouds projection. The exporter rejects
-	// added Darkside/character progress before invoking these bounded writes.
-	flags(659,s.gameFlags,256); flags(723,j.worldFlags->values,128); flags(739,s.questFlags,30);
-	std::copy_n(s.questItems.begin(),35,p.begin()+747);
+	// Both game banks are contiguous; the second quest bank starts at bit 30,
+	// leaving the last four padding bits of the packed field untouched.
+	flags(659,s.gameFlags,512); flags(723,j.worldFlags->values,128); flags(739,s.questFlags,60);
+	std::copy(s.questItems.begin(),s.questItems.end(),p.begin()+747);
+	for(unsigned owner=0;owner<s.characters.size();++owner)
+		flags(kCharacterFlagsOffset+4*owner,s.characters[owner].characterFlags,32);
 	p[1528]=!s.soundOptions.text; p[1529]=s.soundOptions.speech;
 }
 

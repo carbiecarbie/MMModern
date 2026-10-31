@@ -81,26 +81,19 @@ void automatic(Inputs &in) {
  roundTrip(in,f,"F3 automatic Event did not restore exactly");
 }
 }
-// The Pyramid remains outside Part A. The Dwarf Mine is exercised by
-// XeenEntranceSceneTests through its original script.
+// Mouse interaction uses the same Pyramid handoff as Space. Dwarf Mine
+// presentation is exercised by XeenEntranceSceneTests through its original script.
 void entrances(Inputs &in) {
- for(const XeenCamera camera:{XeenCamera{23,8,10,XeenDirection::North}}) {
-  auto s=mainland(in,camera);Fixture f(in,s);
-  unsigned errors=0;
-  f.flow->reportManual=[&](const XeenManualEventResult &result){if(std::get_if<XeenEventExecutionError>(&result))++errors;};
-  const auto before=XeenSaveFormat::encode(f.snapshot());const auto scene=f.flow->frame();
-  // Part 0: isolate the unsupported Event with click; Space would continue as Wait.
-  f.act(InteractionAction{false});f.finishDeparture();
-  const auto notice=drawXeenErrorScroll(scene,in.font,"This Event is not supported yet");
-  check(errors==1 && f.flow->canSave() && f.flow->encounter()->journeyRefusal()=="This Event is not supported yet",
-   "F3 entrance scene was not refused");
-  // Every pixel the notice scroll paints must be on screen; the scene under it may move on.
-  const auto &shown=f.flow->frame().pixels;unsigned painted=0,missing=0;
-  for(std::size_t i=0;i<shown.size();++i)if(notice.pixels[i]!=scene.pixels[i]){++painted;missing+=shown[i]!=notice.pixels[i];}
-  check(painted && !missing,"F3 entrance refusal notice is not drawn on the scene");
-  check(XeenSaveFormat::encode(f.snapshot())==before,"F3 entrance refusal changed the game");
- }
+ const XeenCamera camera{23,8,10,XeenDirection::North};auto s=mainland(in,camera);Fixture f(in,s);
+ unsigned errors=0;f.flow->reportManual=[&](const XeenManualEventResult &r){if(std::get_if<XeenEventExecutionError>(&r))++errors;};
+ const auto before=f.p.encounterContext;
+ f.act(InteractionAction{false});f.finishDeparture();
+ check(!errors && f.flow->canSave() && f.c.mapId==XeenMapIdentity(XeenSide::Darkside,29) &&
+     f.c.x==25 && f.c.y==21 && f.c.direction==XeenDirection::North && f.p.encounterContext==before,
+     "F3 Pyramid click did not cross without a time charge");
+ roundTrip(in,f,"Pyramid click arrival did not restore exactly");
 }
+
 int main(int argc,char **argv) {try {
  check(argc==2,"usage: mainland-events <installation>");auto install=xeenTestInstallationDetector().detect(argv[1]);
  check(bool(install),"Missing installation");Inputs in(*install);

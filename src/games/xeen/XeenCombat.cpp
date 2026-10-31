@@ -1140,7 +1140,10 @@ XeenCombatResult XeenCombat::respondCast(CastResponse &response,XeenCombatCastIn
             XeenAntidoteUse::settle(items,c.sourceSlot,(c.sourceItem->state&63)==1);
         }
         c.reservation=std::move(reservation);const auto &reserved=*c.reservation;
-        c.random=d.rng;c.preparation=std::move(preparation);c.arrow=std::move(arrow);
+        // A destination load owns its music draw. Keep it in the cast's
+        // candidate until settlement publishes both the map and combat RNG.
+        c.random=c.mapWorld?XeenCombatRandom(*c.mapWorld->sessionState().journeyRandom()):d.rng;
+        c.preparation=std::move(preparation);c.arrow=std::move(arrow);
         c.targets=targets;c.targetsPrepared=targetsPrepared;
         c.volley.count=d.owners.size();
         if(*spell==XeenLearnedSpell::PoisonVolley)std::fill_n(c.volley.eligible.begin(),d.owners.size(),true);

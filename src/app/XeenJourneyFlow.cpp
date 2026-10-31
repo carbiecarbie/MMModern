@@ -95,6 +95,7 @@ XeenEncounterFlow::XeenEncounterFlow(XeenProgramState &program, XeenWorld &w, Xe
 		w._developerEventMap=eventFixture->mapId;
 	}
 	if(preparedStart)p.worldFlags = recovery;
+	w._darksideStatistics=setup.darksideStatistics;
 	try {
 		// Retain lifetime controls before installing callbacks, including allocation failure paths.
 		retainJourney();
@@ -233,12 +234,10 @@ bool XeenEncounterFlow::toggleAutomap(const Ticket &entry) {
 // position (0x1691f) and zeroes the party's gems, with no time, Event or
 // monster turn.
 bool XeenEncounterFlow::mrWizard(const Ticket &entry) {
- if(_camera.mapId.side==XeenSide::Darkside)return false;
 	if(!current(entry) || !journeyMutable() || !_boundary.quiet() || !journeyCapacity())return false;
 	return publishMrWizard(true);
 }
 bool XeenEncounterFlow::combatMrWizard(const Ticket &entry) {
- if(_camera.mapId.side==XeenSide::Darkside)return false;
 	if(!current(entry) || _busy || !_combat || !entry.combat)return false;
 	if(!acceptCombatResult(_combat->mrWizard(*entry.combat)))return false;
 	observeCombat();return true;
@@ -255,7 +254,6 @@ bool XeenEncounterFlow::mrWizardAfterCombat(const Ticket &entry) {
 	return true;
 }
 bool XeenEncounterFlow::publishMrWizard(bool zeroGems) {
- if(_camera.mapId.side==XeenSide::Darkside)return false;
 	BusyJourney busy(_busy);
 	try {
 		_journeyPreimage->check();

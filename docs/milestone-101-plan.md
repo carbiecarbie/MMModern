@@ -123,6 +123,16 @@ At `d4c9e27`:
   stopped on it): the save keeps the selected song; Load does not draw.
 - **Part B** (amendment, 2026-10-30, after Part A): the Pyramid evidence is
   settled; music on the return from a location moves to M102.
+- **No disc-change prompt** (maintainer, 2026-10-30, approved deviation): a
+  DOSBox capture of a Clouds Pyramid crossing
+  (`D:/Projetos/MModern/MModern-re/m101/dos-pyramid-disc-prompt/`) shows the
+  "Please Wait..." box and then the installed CD program's prompt "Press
+  CTRL+F4 and ENTER to continue...", which waits for Enter before the
+  Darkside arrival. MMModern reads both discs, so it shows no prompt and
+  waits for nothing there or at any other disc change (Load, travel spells);
+  every other effect of the crossing is unchanged. Part B records it in
+  [original quirks](original-quirks.md) beside `dev-no-please-wait`, with
+  the capture and the program's disc check as evidence.
 
 ## Evidence to settle in Part A, before code that depends on it
 
@@ -141,7 +151,8 @@ behavior stops before Part B. A difference from the reference is recorded in
 - **Resources.** The DOS resource choice for each ordinary Darkside map.
 - **Pyramid.** Settled (2026-10-30, `evidence-notes.md`, all eight source
   sites in `pyramid-original-sites.json`): action 12 shows no
-  scene and charges no time; it loads the destination map (marking it stepped
+  scene and charges no time (DOS's map-load "Please Wait..." box and its
+  disc-change prompt are approved deviations, above); it loads the destination map (marking it stepped
   and clearing input), then writes the position and facing, settles the source
   Event as handled and returns to the main loop, so the destination's Events
   run on the next ordinary pass. It writes no calendar or character side byte
@@ -265,6 +276,12 @@ behavior stops before Part B. A difference from the reference is recorded in
 | Play-test | One session after Part B | Maintainer acceptance |
 | Closure | Status, history, roadmap | Plan condensed |
 
+M102 still owns the refused Darkside town actions 0 (Bank), 1 (Smithy),
+2 (Guild), 3 (Tavern/Inn sign-in), 4 (Temple), 5 (Training) and 7 (Dwarf
+Town), including their original values and location-return music. Refusals
+precede service state changes. Mixed maps, key entrances, FlipWorld and
+endings remain deferred as listed above.
+
 ## Acceptance
 
 1. **State.** Game flags (2 x 256) and quest flags (2 x 30) are isolated by
@@ -285,7 +302,8 @@ behavior stops before Part B. A difference from the reference is recorded in
    services refuse, so M102 tests it (amendment, 2026-10-30).
 3. **Pyramid.** From each Clouds Pyramid the party arrives at its DOS
    destination on Darkside, and back from each Darkside Pyramid, with no
-   scene and no time charge, as in DOS; map 49 <-> 52 included. A destination or
+   scene, no time charge and no disc-change prompt (approved deviation);
+   map 49 <-> 52 included. A destination or
    resource failure or an interruption leaves the committed source intact; a
    crossing publishes once, settles the source Event once and runs the
    arrival work once. Returning to a visited map keeps its history.

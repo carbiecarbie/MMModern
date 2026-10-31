@@ -195,6 +195,12 @@ void XeenSaveState::restoreJourney(const XeenSaveSnapshot &source, const Resourc
 	auto statistics = callback([&]{return resources.monsterStatistics(c.mapId.side);});
 	std::array<std::optional<std::vector<XeenMonsterRecord>>,2> statisticsBySide;
 	statisticsBySide[static_cast<unsigned>(static_cast<XeenSide>(c.mapId.side))]=statistics;
+	// A first crossing needs the other side's MON even when its history has
+	// never been staged. These immutable resources are not save fields.
+	if(resources.loadMonsterStatisticsForSide) {
+		const auto other=c.mapId.side==XeenSide::Clouds?XeenSide::Darkside:XeenSide::Clouds;
+		statisticsBySide[static_cast<unsigned>(other)]=callback([&]{return resources.monsterStatistics(other);});
+	}
 	auto evt = events(c.mapId);
 	{
 		if(!resources.loadInitialCharacters)
@@ -216,7 +222,8 @@ void XeenSaveState::restoreJourney(const XeenSaveSnapshot &source, const Resourc
 	}
 	static_cast<void>(CloudsUiComposer::buildPortraitPlacements(p));
 	auto &s = w._sessionState;
-	(c.mapId.side==XeenSide::Clouds?w._cityStatistics:w._darksideStatistics)=statistics;
+    if(statisticsBySide[0])w._cityStatistics=*statisticsBySide[0];
+    if(statisticsBySide[1])w._darksideStatistics=*statisticsBySide[1];
 	s._entry = XeenEncounterEntry::Journey;
 	s._encounterMarked = s._encounterInitialized = true; s._encounterRevision = 1;
 	s._skeletonSeed = snapshot.journey->skeletonSeed;

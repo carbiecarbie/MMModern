@@ -12,8 +12,8 @@ This is the one manual dimension, taken from the pinned ScummVM dialog set,
 with the main screen, town locations and World/CD menu added from the same pin.
 It is not inferred from original data and the guard cannot discover UI changes.
 Update this checklist when a screen or button changes. A partial row names its
-missing buttons or contexts. The list describes Clouds; Darkside has no gameplay
-entry. Dialog identifiers below are reference identifiers, not commercial text.
+missing buttons or contexts. The list covers both sides where their gameplay is admitted; Darkside town
+services remain deferred. Dialog identifiers below are reference identifiers, not commercial text.
 
 | Reference dialog / screen | Status | Buttons and limitations | MMModern owner |
 | --- | --- | --- | --- |
@@ -25,12 +25,12 @@ entry. Dialog identifiers below are reference identifiers, not commercial text.
 | Quests | supported | Quest Items, Current Quests, Auto Notes; arrows/keypad, Page Up/Down, Home/End, mouse buttons, Exit; exploration and Items, including combat | XeenEventFlow |
 | Choose123 / HowMuch | unsupported | Numeric Choose123 opcode 48 and TakeOrGive HowMuch unavailable | XeenEventInterpreter |
 | SelectElement | supported | Fire, Electricity, Cold, Acid, cancel | XeenCastingUi |
-| LloydsBeacon | supported | Set and Return across resource-backed Clouds primary maps; same-map Return retains actors | XeenCastingUi |
+| LloydsBeacon | supported | Set and Return across admitted resource-backed maps on both sides; same-map Return retains actors | XeenCastingUi |
 | Teleport | supported | Distance, cancel | XeenCastingUi |
-| TownPortal | supported | Five towns, each town's run position, cancel and item use in combat | XeenCastingUi |
+| TownPortal | supported | Five town labels per side; Clouds Run positions, DOS Darkside routing; cancel and item use in combat | XeenCastingUi |
 | IdentifyMonster / DetectMonsters | supported | Monster information, acknowledge | XeenCastingUi |
 | Arena | supported | Battle Master level entry, Warzone, reward and exit | XeenEventFlow |
-| PyramidLocation | unsupported | Switch sides | — |
+| PyramidLocation | supported | Switch sides both ways through normal arrival; no scene, time charge or disc-change prompt | XeenEventInterpreter / XeenEventFlow |
 | Reaper / Golem / Dwarf / Sphinx locations | supported | Keyed/refusal sequences, VOC speech and Effects-off captions | XeenEventFlow / XeenEntranceScene |
 | OtherOptions / endings | partial | Clouds intro (C), Darkside intro (D), Clouds ending (V after a win), Escape; Darkside and World endings unavailable | XeenTitleFlow / XeenCutsceneFlow |
 | Exploration main screen | supported | Movement, strafe, Shoot, Cast, Rest, Bash, Dismiss, Quests, Map, Info, Quick Ref, gem, portraits, Danger Sense/Spot Secret Doors/Direction Sense indicators | XeenEventFlow |

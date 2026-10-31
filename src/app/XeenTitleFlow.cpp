@@ -328,7 +328,7 @@ std::optional<IndexedFrame> XeenTitleFlow::handle(const PlayerAction &action,con
   if(button!=2 && button!=3 && button!=4)return {};
   const bool load=button==2;
   if(_services.combat){notice(str(_services.text.scalar(load?"NO_LOADING_IN_COMBAT":"NO_SAVING_IN_COMBAT")),Screen::Panel);break;}
-  if(!_services.saveable && !(load && _loadOnly)){notice(_services.saveUnavailable,Screen::Panel);break;}
+  if(!_services.saveable){notice(_services.saveUnavailable,Screen::Panel);break;}
   if(!load && _services.saveRestricted){notice(str(_services.text.scalar("SAVE_RESTRICTED")),Screen::Panel);break;}
   _saveAs=!load && (button==4 || !_services.currentSlot);
   if(button==3 && !_saveAs) {

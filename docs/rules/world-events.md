@@ -749,9 +749,8 @@ A full category instead follows ordinary success. The existing reward owner
 delivers the sword. Results 40 (`showtime`) and 62 (`bloopers`) and opcode 30,
 which ends Clouds, follow the
 [ending entry rules](cutscenes.md#clouds-ending-entry-and-save). Results 60 and
-61 (the Darkside and World endings) and town actions 12 (the Pyramid) and 13
-refuse with a not-supported notice; Darkside-only operations and durable banks
-remain separate.
+61 (the Darkside and World endings) and town action 13 refuse with a
+not-supported notice. Action 12 follows the Pyramid crossing below.
 
 The shared text input uses original window 6, length 30 and width 200
 (`0x24008..0x24014`, `0x1e00f..0x1e179`). Width is formatting, not a character
@@ -820,8 +819,8 @@ entrance loads its destination; an ordinary key refusal plays its full
 scene, then reloads the current map at the party's own position and facing.
 Both use the Event map-load owner: monsters are rebuilt, defeated monsters
 stay defeated, and stepped is set. There is no service time charge.
-Action 6 is the Battle Master described above; actions 12 (Pyramid) and 13
-refuse before effects.
+Action 6 is the Battle Master described above; action 12 is the Pyramid
+crossing below, while action 13 refuses before effects.
 
 One presenter uses Clouds `tower.vga`/`freap.vga`,
 `golmback.vga`/`golem.vga`, `dwarf1.vga`/`dwarf3.vga`/`dwarf2.vga`
@@ -928,7 +927,7 @@ the Text option is off (`0x26a61..0x26a88`, restoration
 `0x291cf..0x291d8`). MMModern carries this on the Event presentation,
 leaving the durable option unchanged.
 
-**Pyramid evidence, implementation deferred:** action 12 bypasses the
+**Pyramid: DOS static, high confidence.** action 12 bypasses the
 ordinary service scene and return (`0x1cea5..0x1ceba`); crossing
 `0x295f2..0x29679` has no separate scene, speech, hold, time cost,
 character-side write or Pyramid-specific draw. The normal destination
@@ -938,8 +937,14 @@ leads to Clouds 49 `(7,14)` South; Darkside 29 to Clouds 23 `(8,10)` North.
 The caller terminates the source script, then closes windows and settles
 treasure (`0x27b1f..0x27b3b`, `0x28d50..0x28f22`). The next ordinary input
 performs the destination Event pass; no recursive pass is made on crossing.
-Part A refuses the Pyramid, Darkside travel returns/spells, defeat recovery
-and all Darkside town services before their gameplay publication.
+Action 12 uses the existing detached travel/arrival path and the Town
+handoff preconditions. It publishes once, retains visited history, marks
+arrival stepped and clears input once. Darkside arrival selects one map
+song; Clouds arrival selects none. Failure before publication retains the
+committed source. No disc-change prompt or wait is shown (approved
+[deviation](../original-quirks.md#dev-no-disc-prompt)). Darkside town services
+remain refused before their gameplay publication; their values and return
+music belong to M102.
 
 ## Opening doors and service borders
 

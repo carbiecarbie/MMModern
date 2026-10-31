@@ -1049,6 +1049,25 @@ attack voices format the record's string at +`0x33` as `%s.voc`
 voice names, all present in XEEN.CC. This is an attack voice, not a death
 voice. Exact lists and member offsets are external.
 
+**Reference routing; original-data playback checked (M101):** monster attack
+voices use the attacking monster's resource side, as the pin's
+`Combat::doCombat` and `Sound::playSound` use the current CC archive. This
+selection is not restricted to Clouds. Castleview's goblins request
+`gremlin.voc`, present in DARK.CC and absent from XEEN.CC. The live Pyramid
+route to that fight runs with effects enabled, disabled and audio absent;
+with CD dialogue speech held off, all three finish in byte-identical gameplay
+state after normalizing the sound options. Separate DOS listening of this
+voice routing has not been recorded. FM effect selection and attack timing
+are unchanged.
+
+**Original-resource comparison (M101):** `pow0.voc` through `pow5.voc`,
+`miss.voc`, `scream.voc` and `unnh.voc` are byte-identical between the
+installed World CD's XEEN.CC and DARK.CC members. The original-data
+`pyramidCombatAudio` test also compares the decoded members. Their existing
+Clouds archive requests therefore produce the same samples on Darkside;
+no routing change is needed for these nine shared sounds. This establishes
+resource identity, without a separate DOS listening claim.
+
 The expanded audit finds header time constants 120, 181, 172 and 173 in
 `blob.voc`, `boom1.voc`, `roc.voc` and `snakeman.voc`, respectively, all
 codec 0. These differ from the driver-selected 188, already covered by

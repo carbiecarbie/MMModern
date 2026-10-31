@@ -863,10 +863,37 @@ stays documented here and in the plan that implements it.
   time and every other effect are unchanged. **ScummVM:** approved
   deviation; the pin loads the string but never shows it either.
 
+- <a id="dev-no-disc-prompt"></a> **No disc-change prompt** (maintainer,
+  2026-10-30, approved deviation). The DOS Pyramid crossing shows
+  "Press CTRL+F4 and ENTER to continue..." and waits for Enter; capture:
+  `D:/Projetos/MModern/MModern-re/m101/dos-pyramid-disc-prompt/`.
+  The CD program's disc check runs only with Speech on
+  ([audio rules](rules/audio.md), `WORLD/XEEN.DAT` `0xf383..0xf40e`).
+  MMModern reads both discs and shows no prompt or wait at the Pyramid,
+  Load or travel spells. The pin also opens both archives
+  (`FileManager::setup/setGameCc`, `Map::load`) without a disc prompt;
+  this is a DOS deviation, not a difference from ScummVM.
+
 ## Reference behavior not reproduced
 
 Places where the pinned ScummVM code differs from the DOS original or contains
 a port defect; MMModern follows the original instead.
+
+- <a id="sv-darkside-town-portal-stride"></a> **The World CD's Darkside Town
+  Portal names towns but travels to five fixed outdoor arrivals.** DOSBox recording, maintainer,
+  2026-10-30: `MModern-playtest/m101/captures-town-portal/video0001.avi`,
+  48 s selects 1 (Castleview), 58..63 s shows Area A4 `(14,11)`, South.
+  Calibrated `WORLD/XEEN.DAT` static analysis, high confidence: names index
+  five bytes per side (`0x30691..0x306c3`), but travel indexes ten
+  (`0x30779..0x30798`). The name table is at `0x54054`; the five following
+  bytes at `0x5405e..0x54062` therefore select Darkside maps 4, 19, 22, 6,
+  98. Arrival positions/facings are `(14,11)` South, `(5,12)` West,
+  `(2,15)` East, `(8,11)` North, `(2,6)` North (`0x307c9..0x30812`).
+  The capture calibrates the first selection; the remaining four follow
+  the same traced selector, without a new DOS play claim. Implemented in
+  `XeenLearnedSpellRules::travel`; names retain the original town list.
+  **ScummVM:** the pin uses the town maps 29,31,33,35,37 for both names and
+  travel (`Spells::townPortal`); master not rechecked.
 
 | Reference behavior | MMModern | Where |
 | --- | --- | --- |
@@ -1617,3 +1644,22 @@ rechecked.
 `0xffeb..0x10010` switches that sprite source; its MON statistics remain
 those of the loaded side. The pin's `Map::load` agrees. Indoor and outdoor
 composition and sprite preflight use the same explicit Clouds provenance.
+
+- <a id="dos-world-wizard-darkside"></a> **World Mr Wizard returns to Clouds
+  even from Darkside.** Calibrated CD static analysis, high confidence:
+  `0x1f24f..0x1f285` branches on World mode, not the current side, selects
+  Clouds 28, East and its Run position; `0x1f28a..0x1f290` clears gems.
+  Combat's corresponding tail is `0x2ec48..0x2ec7e`. Beacon defaults instead
+  use the current side: `0x2fcce..0x2fd05`, Darkside 29 `(25,21)` and Clouds
+  28 `(18,4)`. Both rules follow the pin (`dialogs_control_panel.cpp`,
+  `dialogs_spells.cpp`). Implemented by the existing Journey and spell owners.
+
+- <a id="dos-darkside-defeat"></a> **Darkside defeat laughs as Alamar.**
+  Calibrated CD static analysis, high confidence: `0xb260..0xb279` chooses
+  `laff1.voc`; `0xb2dc..0xb359` uses ten images (blank then frames 0..8),
+  restarts twice at index 9 and skips Clouds FX33/34. Fire and the final screen use the current side;
+  title recovery retains its existing owner. Darkside skips the Clouds-only
+  hands/marble closing scroll (`0xad12..0xad2a`, death caller `0xb38c..0xb394`),
+  as does the pin's `Screen::doScroll`. The pin
+  uses the same side-specific art, sample and loop. No gameplay RNG or time
+  belongs to this presentation.

@@ -89,6 +89,7 @@ struct Inputs {
         const auto mainland=resources.loadEvents(23);
         // An explicit valid Journey seed makes generated fixtures reproducible.
         XeenJourneySetup setup{characters,resources.loadInitialContext(),statistics,mainland,7,resources.regionalManifest};
+        setup.darksideStatistics=resources.monsterStatistics(XeenSide::Darkside);
         setup.purse=resources.loadInitialPurse();
         setup.bank=resources.loadInitialBankBalances();
         setup.worldFlags=resources.loadInitialWorldFlags();
@@ -171,6 +172,12 @@ void giveSlayerSword(XeenSaveSnapshot &snapshot) {
 }
 
 void prepare(XeenSaveSnapshot &snapshot,const std::string &preset) {
+    if(preset=="m101-pyramid-clouds" || preset=="m101-pyramid-darkside") {
+        prepare(snapshot,preset=="m101-pyramid-clouds"?"m78-playtest":"m101-castleview");
+        snapshot.camera=preset=="m101-pyramid-clouds"?XeenCamera{23,8,10,XeenDirection::North}:
+            XeenCamera{{XeenSide::Darkside,29},26,24,XeenDirection::North};
+        snapshot.headCache.reset();return;
+    }
     if(preset=="m101-castleview") {
         prepare(snapshot,"m78-playtest");snapshot.camera={{XeenSide::Darkside,29},14,4,XeenDirection::North};
         XeenCombatRandom random(*snapshot.journey->random);snapshot.darksideSong=static_cast<std::uint8_t>(7+random.range(0,6));snapshot.journey->random=random.continuation();
@@ -635,7 +642,7 @@ void prepare(XeenSaveSnapshot &snapshot,const std::string &preset) {
 
 void generateTestSave(const GameInstallation &installation,const std::string &preset,
         const std::filesystem::path &output) {
-    if (preset!="m101-castleview" && preset!="m98-load" && preset!="m98-inn" && preset!="m97-open-chest" && preset!="m96-chest" && preset!="m95-witch-skull" && preset!="m92-lord-xeen" && preset!="m92-sixth-mirror" && !m90Spot(preset) && preset!="m89-lord-xeen" && preset!="m89-clan-king" && preset!="m89-draco" && preset!="m89-dragons" && preset!="m89-trolls" && preset!="m88-roster" && preset!="m87-inn" && preset!="m87-three" && preset!="m87-shangrila" && preset!="broken-armor" && preset!="train-ready" && preset!="injured-dead" && preset!="poisoned" && preset!="monster-control" && preset!="monster-damage" && preset!="party-healing" && preset!="m76-spells" && preset!="combat-items" && preset!="m78-playtest" && preset!="m78-one-holder" && preset!="m79-playtest" && preset!="m80-playtest" && preset!="m80-arena" && preset!="m80-arena-maxed" && preset!="m81-drops" && preset!="m81-fullpacks" && preset!="m81-event" && preset!="m84-playtest-trap" && preset!="m84-playtest-label" && preset!="m84-playtest-save" && preset!="m85-playtest-label" && preset!="m85-playtest-run" && preset!="m85-playtest-trap" && preset!="m86-playtest-fall" && preset!="m86-playtest-moon-ray" && preset!="m86-playtest-border")
+    if (preset!="m101-pyramid-clouds" && preset!="m101-pyramid-darkside" && preset!="m101-castleview" && preset!="m98-load" && preset!="m98-inn" && preset!="m97-open-chest" && preset!="m96-chest" && preset!="m95-witch-skull" && preset!="m92-lord-xeen" && preset!="m92-sixth-mirror" && !m90Spot(preset) && preset!="m89-lord-xeen" && preset!="m89-clan-king" && preset!="m89-draco" && preset!="m89-dragons" && preset!="m89-trolls" && preset!="m88-roster" && preset!="m87-inn" && preset!="m87-three" && preset!="m87-shangrila" && preset!="broken-armor" && preset!="train-ready" && preset!="injured-dead" && preset!="poisoned" && preset!="monster-control" && preset!="monster-damage" && preset!="party-healing" && preset!="m76-spells" && preset!="combat-items" && preset!="m78-playtest" && preset!="m78-one-holder" && preset!="m79-playtest" && preset!="m80-playtest" && preset!="m80-arena" && preset!="m80-arena-maxed" && preset!="m81-drops" && preset!="m81-fullpacks" && preset!="m81-event" && preset!="m84-playtest-trap" && preset!="m84-playtest-label" && preset!="m84-playtest-save" && preset!="m85-playtest-label" && preset!="m85-playtest-run" && preset!="m85-playtest-trap" && preset!="m86-playtest-fall" && preset!="m86-playtest-moon-ray" && preset!="m86-playtest-border")
         throw std::invalid_argument("Unknown test-save preset: "+preset);
     const auto target=XeenSaveFile::resolve(output,installation);
     // Reuse the native alias/reparse-aware path guard for the repository too.

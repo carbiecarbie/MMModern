@@ -12,21 +12,24 @@
 #include <stdexcept>
 
 namespace mmodern {
+XeenMapIdentity XeenLearnedSpellRules::townPortalMap(XeenSide side,unsigned town) {
+    if(town<1 || town>5)throw std::invalid_argument("Invalid Town Portal town");
+    return {side,static_cast<std::uint16_t>(side==XeenSide::Darkside?27+2*town:27+town)};
+}
 XeenSpellTravel XeenLearnedSpellRules::travel(XeenWorld &world,const XeenCamera &camera,
         XeenLearnedSpell spell,unsigned distance,const XeenCharacter *caster,bool cloudsCompleted) {
     const auto &map=world.map(camera.mapId);
     const unsigned flag=spell==XeenLearnedSpell::LloydsBeacon?0x800:spell==XeenLearnedSpell::TownPortal?0x100:spell==XeenLearnedSpell::SuperShelter?0x200:
         spell==XeenLearnedSpell::Etherealize?0x40:spell==XeenLearnedSpell::TimeDistortion?0x400:0x1000;
     XeenSpellTravel result;
-    if((spell==XeenLearnedSpell::LloydsBeacon || spell==XeenLearnedSpell::TownPortal) &&
-       (camera.mapId.side==XeenSide::Darkside || (spell==XeenLearnedSpell::LloydsBeacon && caster && caster->lloydSide==1))) {result.unsupported=true;return result;}
     if(map.geometry.flags&flag) {result.failed=true;return result;}
     if(spell==XeenLearnedSpell::LloydsBeacon || spell==XeenLearnedSpell::TownPortal) {
         auto to=camera;
         if(spell==XeenLearnedSpell::LloydsBeacon) {
             if(!caster)throw std::invalid_argument("Beacon requires a caster");
             std::array<std::uint8_t,4> beacon{caster->lloydMap,caster->lloydX,caster->lloydY,caster->lloydSide};
-            if(!beacon[0])beacon={28,18,4,0};
+            if(!beacon[0])beacon=camera.mapId.side==XeenSide::Darkside?
+                std::array<std::uint8_t,4>{29,25,21,1}:std::array<std::uint8_t,4>{28,18,4,0};
             result.beacon=beacon;
             if(distance==1) {result.beacon=std::array<std::uint8_t,4>{std::uint8_t(camera.mapId.number),std::uint8_t(int(camera.x)),std::uint8_t(int(camera.y)),std::uint8_t(camera.mapId.side)};return result;}
             if(distance!=2)return result;
@@ -39,9 +42,20 @@ XeenSpellTravel XeenLearnedSpellRules::travel(XeenWorld &world,const XeenCamera 
         } else {
             if(!distance)return result;
             if(distance>5) {result.unsupported=true;return result;}
-            to.mapId=27+distance;result.reload=true;
+            to.mapId=townPortalMap(camera.mapId.side,distance);result.reload=true;
+            if(camera.mapId.side==XeenSide::Darkside) {
+                // CD DAT 0x30779..0x30798 doubles the side's table stride.
+                // The dialog names towns, but travel reads the following five
+                // bytes as map IDs. Castleview -> Area A4 is confirmed in DOS.
+                constexpr std::uint16_t maps[]{4,19,22,6,98};
+                to.mapId={XeenSide::Darkside,maps[distance-1]};
+                constexpr int x[]{14,5,2,8,2},y[]{11,12,15,11,6};
+                constexpr XeenDirection facing[]{XeenDirection::South,XeenDirection::West,
+                    XeenDirection::East,XeenDirection::North,XeenDirection::North};
+                to.x=x[distance-1];to.y=y[distance-1];to.direction=facing[distance-1];
+            }
         }
-        const auto admitted=world.prepareEventTransition(to,spell==XeenLearnedSpell::TownPortal);
+        const auto admitted=world.prepareEventTransition(to,spell==XeenLearnedSpell::TownPortal && camera.mapId.side==XeenSide::Clouds);
         result.unsupported=!admitted;to=admitted.destination;
         if(!result.unsupported)result.destination=to;
         return result;

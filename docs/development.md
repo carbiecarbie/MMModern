@@ -675,8 +675,13 @@ Its New Game item uses the New Game entry and checks Vertigo `(18,4)`, West.
 `m101-castleview` starts at Darkside map 29 `(14,4)`, North, with the
 prepared level-30 party and a saved indoor song. Generate it with
 `build-rel/mmodern_test_save.exe m101-castleview <game-dir> <output>`.
-Ordinary maps, movement, dialogue, combat and v23 Save/Load use Darkside
-resources. Town services, the Pyramid, Darkside Town Portal and Lloyd's
-Beacon, Mr Wizard and defeat recovery say "not supported yet"; Darkside
-progress cannot yet be exported to DOS. Mixed maps 113..128, FlipWorld and
-the Darkside/World endings also remain refused.
+Ordinary maps, movement, dialogue, combat, travel spells, defeat and v23
+Save/Load use Darkside resources. Town services, mixed maps 113..128,
+Darkside-key entrance scenes, FlipWorld and Darkside/World endings remain
+refused with "not supported yet".
+
+`m101-pyramid-clouds` starts the same level-30 party at Clouds map 23
+`(8,10)`, North. Space enters the original Pyramid and arrives at Castleview
+29 `(25,21)`, North. `m101-pyramid-darkside` starts at Castleview 29
+`(26,24)`, North; Space returns to Clouds 23 `(8,10)`, North. Generate them
+with the same `mmodern_test_save` command, substituting the preset name.

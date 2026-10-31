@@ -59,19 +59,17 @@ x, y and map at 10..13, sound settings at 14..15, effects and difficulty at
 light and resistances at 620..631, purse and bank at 638..653, play time at
 654..657, rested state at 658, flags at 659..746, quest items at 747..831,
 Darkside wares at 832..1407 and text/speech options at 1528..1529. Flags use
-DOS MSB-first order (DOS static `0x24f07`, `0x24fb3`). Only the active ID
-prefix is projected; v23 retains both flag banks, all 85 counters and the
-30 x 32 character flags, but export of the added progress waits for Part B.
+DOS MSB-first order (DOS static `0x24f07`, `0x24fb3`). The active ID prefix,
+both flag banks, all 85 counters and the shared 30 x 32 character flags
+are projected.
 
 The following retain New Game values in the current exporter:
 the unused party-ID suffix, PTY 16, prior map PTY 17, Darkside and World
-completion PTY 606..609, DOS counters PTY 632..637, Darkside flags PTY
-691..722, the unused quest-flag bits, Darkside quest items PTY 782..831,
-character flags PTY 1408..1527, the XEEN party replica and all DARK map
-history. PTY 16's meaning is unknown. The independent XEEN and DARK New Game
+completion PTY 606..609, DOS counters PTY 632..637, the final four
+quest-flag padding bits and the XEEN party replica. PTY 16's meaning is unknown. The independent XEEN and DARK New Game
 members are retained; they are not historical copies of the exported party.
 
-Clouds map changes project to DAT cell words 0..511, attributes 512..767,
+Both sides' map changes project to their own archive's DAT cell words 0..511, attributes 512..767,
 Tavern tip byte 827 and stepped bitmap 860..891. DAT seen bitmap 828..859
 stays New Game. Object positions and picture indices, monster and wall-item
 positions are written to MOB; Event replacements change EVT opcodes. The
@@ -87,7 +85,7 @@ randomness after loading.
 
 ## Refusals
 
-Export refuses a Darkside input or history, an Inn/map-0 party, an invalid
+Export refuses an Inn/map-0 party, an invalid
 or older save or any state the existing restore rejects. It also refuses a
 slot outside 1..10, a name outside 1..15 printable ASCII characters or with a
 leading space, an output inside the resolved game installation, and an
@@ -95,15 +93,19 @@ existing slot without `--overwrite`. Character attributes exceeding one byte,
 quest-item counters above 255 and award 73 cannot be represented and are
 refused. A placement must have a main DAT, MOB and EVT, valid logical
 geometry, its load resources and neighbours, and a cell inside the map;
-auxiliary physical tiles are not destinations. Darkside progress is not
-exported. **DOS play (maintainer, 2026-10-29):** a party placed on Darkside
+auxiliary physical tiles are not destinations. **DOS play (maintainer, 2026-10-29):** a party placed on Darkside
 at Castleview (map 29, `(14,4)`, North) loaded there and could walk, talk and
 fight. Only the position was written; no other arrival state was needed.
 
-Until Darkside export is implemented, nonzero Darkside game/quest flags,
-quest counters 35..84 or any character flags are refused before output is
-written. The full DARK New Game PTY (1530 bytes) initializes these fields;
-the 812-byte Clouds replica must not be read as that layout.
+Both 256-bit game banks project to PTY 659..722; all 60 quest flags project
+to 739..746, with Darkside starting at bit 30 and the final four padding bits
+retained. All 85 counters project to 747..831; the shared roster flags project
+to 1408..1527, four bytes per roster ID. NAM 29 records the camera's side in
+both archives. The full DARK New Game PTY (1530 bytes) initializes the layout;
+the 812-byte Clouds replica remains an independent New Game member.
+**DOS layout evidence:** the original readers and the calibrated offsets in
+this chapter; original-data export tests check boundary bits and padding.
+`--resave-check` still permits only name and play-time differences.
 
 ## MMModern v23 framing
 

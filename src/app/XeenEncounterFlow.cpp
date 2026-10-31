@@ -6,6 +6,7 @@
 #include <stdexcept>
 #include <type_traits>
 #include "games/xeen/XeenCharacterRules.h"
+#include "games/xeen/XeenIndoorScene.h"
 
 namespace mmodern {
 namespace {
@@ -353,7 +354,7 @@ bool XeenEncounterFlow::observeCombat() {
             const auto end=std::find(record.raw.begin()+0x33,record.raw.end(),0);
             const std::string voice(record.raw.begin()+0x33,end);
             digitalStop();
-            digitalSample(voice+".voc",XeenSceneArchive::Clouds);
+            digitalSample(voice+".voc",xeenPictureArchive(r.actingMonster->mapId));
         }
 		_appearanceIdentity=r.actingMonster;
 		_frame=r.attackStage==XeenCombatAttackStage::MonsterPose1?8:9;

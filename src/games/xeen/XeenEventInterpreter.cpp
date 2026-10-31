@@ -429,7 +429,7 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
         }
         settleTreasure(delivered);
         auto result=completed(workingCamera,workingGameFlags,instructionCount);
-        result.inputClearCount=state.inputClearCount;result.inputClearSite=state.inputClearSite;result.ending=state.ending;
+        result.inputClearCount=state.inputClearCount;result.inputClearSite=state.inputClearSite;result.ending=state.ending;result.pyramidCrossed=state.pyramidCrossed;
         return result;
     };
 	const auto finalize = [&]() -> XeenEventExecutionStepResult {
@@ -788,10 +788,36 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
                 return error(XeenEventExecutionErrorKind::UnsupportedOperand,
                     "Darkside-key entrance is not supported yet",instructionCount,logical,decoded.source);
             const bool arena=service->action==6 && workingCamera.mapId==XeenMapIdentity(85);
-			if ((!publication && !world.detachedEventCandidate()) || (!arena && !entrance && !smith && !training && !temple && !tavern && !bank && !guild) ||
+            const bool pyramid=service->action==12;
+			if ((!publication && !world.detachedEventCandidate()) || (!pyramid && !arena && !entrance && !smith && !training && !temple && !tavern && !bank && !guild) ||
 				!xeenTownServiceKnown(logical.mapId,service->action) || workingCamera.mapId!=logical.mapId || state.treasureChanged())
 				return error(XeenEventExecutionErrorKind::UnsupportedOperand,
 					"Town service is outside the admitted service Event",instructionCount,logical,decoded.source);
+            if(pyramid) {
+                // DOS 0x295f2..0x29679; action 12 returns before service setup.
+                // Keep the entire crossing in the existing detached travel candidate.
+                if(!world.detachedEventCandidate())
+                    return error(XeenEventExecutionErrorKind::UnsupportedExecutionContext,
+                        "Pyramid requires a travel candidate",instructionCount,logical,decoded.source);
+                const auto from=workingCamera.mapId;
+                const XeenCamera destination=from.side==XeenSide::Clouds?
+                    (from.number==49?XeenCamera{{XeenSide::Darkside,52},2,2,XeenDirection::North}:
+                        XeenCamera{{XeenSide::Darkside,29},25,21,XeenDirection::North}):
+                    (from.number==52?XeenCamera{49,7,14,XeenDirection::South}:
+                        XeenCamera{23,8,10,XeenDirection::North});
+                try {
+                    const auto travel=world.prepareEventTransition(destination);
+                    if(!travel)return error(XeenEventExecutionErrorKind::UnsupportedTeleportDestination,
+                        travel.reason,instructionCount,logical,decoded.source);
+                    workingGameFlags=world.loadEventDestination(from,destination.mapId,false,workingGameFlags);
+                    ++state.inputClearCount;state.inputClearSite=0xf590;
+                    workingCamera=travel.destination;state.selectedObject.reset();state.pyramidCrossed=true;
+                } catch(const std::runtime_error &e) {
+                    return error(XeenEventExecutionErrorKind::MapLoadFailed,
+                        std::string("Failed Pyramid destination: ")+e.what(),instructionCount,logical,decoded.source);
+                }
+                return finalize();
+            }
 			XeenPresentationRequest request;
 			request.kind=guild?XeenPresentationKind::GuildService:bank?XeenPresentationKind::BankService:tavern?XeenPresentationKind::TavernService:temple?XeenPresentationKind::TempleService:
 				training?XeenPresentationKind::TrainingService:XeenPresentationKind::ArmorRepairService;

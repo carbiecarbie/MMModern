@@ -266,16 +266,7 @@ void otherTownServices(Inputs &in) {
         check(f.p.food==360 && f.p.purse->gold==99950,"Rivercity Food 60/50");
         keyboard(f,InputKey::Escape);f.finishDeparture();
     }
-    for(const auto camera:{XeenCamera{49,7,14,XeenDirection::North}}) {
-        auto source=townService(in,camera.mapId.number,camera.x,camera.y,camera.direction);
-        training_test::Fixture f(in,source);townProviders(f,in);const auto before=XeenSaveFormat::encode(f.snapshot());
-        std::string notice;f.flow->reportText=[&](const auto &text){notice=text;};
-        f.flow->reportManual=[&](const auto &result){if(const auto *error=std::get_if<XeenEventExecutionError>(&result))notice=error->message;};
-        f.act(InteractionAction{false});for(unsigned n=0;n<30;++n){f.flow->beginCycle(++f.cycle);if(auto next=f.flow->updatePresentation())f.present(*next);}
-
-        check(notice.find("not supported yet")!=std::string::npos && f.flow->canSave() && before==XeenSaveFormat::encode(f.snapshot()),"Unsupported original town Event changed state/time/RNG");
-    }
-    for(unsigned action:{6u,8u,9u,10u,11u,12u}) {
+    for(unsigned action:{6u,8u,9u,10u,11u,13u}) {
         auto source=in.service();XeenEventFile events=in.city;
         events.records.clear();XeenEventRecord record;record.x=10;record.y=11;record.direction=4;record.line=0;record.opcode=0x11;record.parameters={std::uint8_t(action)};record.lengthField=6;events.records.push_back(record);
         training_test::Fixture f(in,source,false,&events);const auto before=XeenSaveFormat::encode(f.snapshot());

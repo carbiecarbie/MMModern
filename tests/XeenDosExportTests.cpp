@@ -80,8 +80,9 @@ void units() {
 	s.activeRosterIds={4};s.camera={28,18,4,XeenDirection::West};s.gameFlags[0]=s.gameFlags[7]=s.gameFlags[8]=true;
 	s.questFlags[29]=true;s.journey->worldFlags->values[127]=true;
 	s.journey->serviceEconomy->bank.gold=0x12345678;s.journey->serviceEconomy->bank.gems=0x87654321;
-	DosBytes pty(1530,0);pty[742]=3;pty[743]=0x6a;XeenCharacterFormat::writeDosParty(pty,s);
-	check(pty[659]==0x81 && pty[660]==0x80 && pty[742]==7 && pty[743]==0x6a && pty[738]==1,"DOS MSB flag order and mixed quest byte");
+	DosBytes pty(1530,0);pty[742]=3;pty[743]=0x6a;pty[746]=0x0f;XeenCharacterFormat::writeDosParty(pty,s);
+	check((pty[746]&0x0f)==0x0f,"DOS quest padding nibble survives projection");
+	check(pty[659]==0x81 && pty[660]==0x80 && pty[742]==4 && pty[743]==0 && pty[738]==1,"DOS MSB flag order and mixed quest byte");
 	check(XeenCharacterFormat::parseBankBalances(DosBytes(pty.begin(),pty.begin()+812))==s.journey->serviceEconomy->bank,"Distinct nonzero bank gold and gems");
 	XeenSaveMapState state;state.id=100;state.explored.emplace();(*state.explored)[0]=1;(*state.explored)[31]=0x80;state.tavernTips=7;
 	state.cells.push_back({255,0x1234,0xab,0,0});dat[828]=0x69;
@@ -198,21 +199,11 @@ void original(const GameInstallation &installation) {
 	check(writeDosArchive(out.clouds)==writeDosArchive(second.clouds) && writeDosArchive(out.darkside)==writeDosArchive(second.darkside),"Projection determinism");
 	const auto input=dir/"input.mmsave";raw(input,XeenSaveFormat::encode(s));
 	const auto absent=dir/"absent";
-	for(unsigned added=0;added<5;++added) {
-		auto progress=s;
-		if(added==0)progress.gameFlags[511]=true;
-		if(added==1)progress.questFlags[59]=true;
-		if(added==2)progress.questItems[35]=1;
-		if(added==3)progress.questItems[84]=1;
-		if(added==4)progress.characters[29].characterFlags[31]=true;
-		raw(input,XeenSaveFormat::encode(progress));
-		rejects([&]{exportDosSave(installation,input,absent,1,"Good");},"not supported yet");
-		check(!fs::exists(absent),"Deferred progress export published output");
-	}
+
 	raw(input,XeenSaveFormat::encode(s));
 	for(unsigned slot:{0u,11u,999u})rejects([&]{exportDosSave(installation,input,absent,slot,"Good");},"1..10");
 	rejects([&]{exportDosSave(installation,input,absent,1," bad");},"name");
-	auto bad=s;bad.camera.mapId.side=XeenSide::Darkside;rejects([&]{projectDosSave(installation,bad,"Good");},"Darkside");
+	auto bad=s;bad.questItems[84]=256;rejects([&]{projectDosSave(installation,bad,"Good");},"one byte");
 	bad=s;bad.insideInn=true;rejects([&]{projectDosSave(installation,bad,"Good");},"Inn");
 	bad=s;bad.camera.mapId.number=0;rejects([&]{projectDosSave(installation,bad,"Good");},"Inn");
 	bad=s;++bad.resources.clouds.crc32;raw(input,XeenSaveFormat::encode(bad));

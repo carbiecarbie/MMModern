@@ -31,8 +31,8 @@ void mapTravel() {
             check(same.destination && !same.reload && same.destination->direction==here.direction,"Same map Return never reloads or turns");
             const auto cross=R::travel(w,{28,18,4,XeenDirection::South},spell,2,&caster,false);
             check(cross.destination && cross.reload && cross.destination->direction==XeenDirection::South,"Cross map Return loads and keeps facing");
-            for(unsigned side:{0u,1u}) {caster.lloydMap=side?23:99;caster.lloydSide=side;
-                check(R::travel(w,here,spell,2,&caster,false).unsupported,"Absent or Darkside beacon must refuse before payment");}
+            caster.lloydMap=99;caster.lloydSide=0;
+            check(R::travel(w,here,spell,2,&caster,false).unsupported,"Absent beacon must refuse before payment");
         } else {
             const auto town=R::travel(w,here,spell,1,&caster,false);
             const auto same=R::travel(w,{28,18,4,XeenDirection::East},spell,1,&caster,false);
@@ -47,6 +47,28 @@ void mapTravel() {
     for(auto pair:{std::pair{28,S::LloydsBeacon},{55,S::TownPortal}}) {
         check(xeenItemUseSpell(pair.first)==pair.second,"Travel item exploration dispatch");
         check(bool(xeenItemUseSpell(pair.first,true))==(pair.second==S::TownPortal),"Combat item travel admission (Portal continues, Beacon refuses)");
+    }
+}
+void sideTravel() {
+    XeenWorld world([](auto id){auto m=map();m.side=id.side;m.geometry.id=id.number;m.geometry.flags=0;
+        m.geometry.flags2=0;m.geometry.neighbors.fill(0);return m;},
+        [](auto id){return XeenObjectFile{id,"synthetic.mob",true,{}};});
+    world.markEncounterSession(XeenEncounterEntry::Journey);
+    const XeenCamera dark{{XeenSide::Darkside,29},14,4,XeenDirection::East};
+    XeenCharacter caster;
+    const auto defaults=R::travel(world,dark,S::LloydsBeacon,0,&caster,false);
+    check(defaults.beacon==std::array<std::uint8_t,4>{29,25,21,1},"Darkside Beacon default");
+    caster.lloydMap=29;caster.lloydX=3;caster.lloydY=4;caster.lloydSide=0;
+    const auto cross=R::travel(world,dark,S::LloydsBeacon,2,&caster,false);
+    check(cross.reload && cross.destination && cross.destination->mapId==XeenMapIdentity(29) &&
+        cross.destination->direction==dark.direction,"Same-number cross-side Beacon reloads and preserves facing");
+    constexpr unsigned maps[]{4,19,22,6,98},x[]{14,5,2,8,2},y[]{11,12,15,11,6},facing[]{2,3,1,0,0};
+    for(unsigned town=1;town<=5;++town) {
+        check(R::townPortalMap(XeenSide::Darkside,town)==XeenMapIdentity(XeenSide::Darkside,27+2*town),"Portal names use the town table");
+        const auto to=R::travel(world,dark,S::TownPortal,town,&caster,false);
+        check(to.reload && to.destination && to.destination->mapId==XeenMapIdentity(XeenSide::Darkside,maps[town-1]) &&
+            to.destination->x==x[town-1] && to.destination->y==y[town-1] && unsigned(XeenDirection(to.destination->direction))==facing[town-1],
+            "CD Darkside Portal uses its doubled table stride and fixed arrival");
     }
 }
 void handlers() {
@@ -118,4 +140,4 @@ void runDestinations() {
     }
 }
 }
-int main(){try{mapTravel();handlers();runDestinations();std::cout<<"M76 shelter and travel handler rules passed\n";return 0;}catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}
+int main(){try{mapTravel();sideTravel();handlers();runDestinations();std::cout<<"M76 shelter and travel handler rules passed\n";return 0;}catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}

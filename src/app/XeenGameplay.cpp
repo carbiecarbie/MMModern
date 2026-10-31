@@ -207,6 +207,7 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
    auto value = seed ? *seed : (services.sampleJourneySeed ? services.sampleJourneySeed() : std::random_device{}());
    if (!value) value = 1;
    journeySetup.emplace(XeenJourneySetup{journeyCharacters,services.resources.loadInitialContext(),journeyStatistics,encounterEvents,value});
+   if(services.resources.loadMonsterStatisticsForSide)journeySetup->darksideStatistics=services.resources.monsterStatistics(XeenSide::Darkside);
    journeySetup->regionalManifest=services.resources.regionalManifest;
    journeySetup->start=services.journeyStart;
    journeySetup->eventFixture=services.eventFixture;
@@ -280,6 +281,7 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
   };
   if (services.configureFlow) services.configureFlow(flow, camera);
   handoff.verify();
+  if(flow.partyDeathRequired()) {flow.refresh();handoff.retain();}
   if(!flow.writeWon)flow.writeWon=[&] {
    const bool written=_settingsFile && xeenWriteWon(*_settingsFile);
    services.program.cloudsWon=written || services.program.cloudsWon;
@@ -378,7 +380,6 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
     if(toggle==0 && value.efx)audio->effect(20,flow.presentationNow());
    }
   };
-  const auto refusedDefeat=[&] {return camera.mapId.side==XeenSide::Darkside && flow.partyDeathRequired();};
   const auto panelAction=[&](const PlayerAction &action,const IndexedFrame::Presentation &origin) -> std::optional<IndexedFrame> {
    if(!panel->acceptsInput(origin))return {};
    checkPanel();
@@ -431,7 +432,7 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
       }
      }
     } else if(request.kind==XeenSessionEntry::Kind::Load) {
-     if((!flow.canSave() && !refusedDefeat()) || !flow.journey())throw std::logic_error("Panel load authorization changed");
+     if(!flow.canSave() || !flow.journey())throw std::logic_error("Panel load authorization changed");
      struct CheckScope {
       std::function<void()> &slot,previous;
       ~CheckScope(){slot=std::move(previous);}
@@ -509,13 +510,12 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
     const auto context=flow.inputContext(inputFrame?inputFrame:flow.frame().presentation());
     const bool developerQuiet=services.eventFixture && flow.encounter() && flow.encounterFrameCurrent() &&
         flow.encounter()->journeyQuiet() && !flow.blocksGameplay() && !flow.inventoryOpen();
-    if(!flow.canSave() && !refusedDefeat() && !developerQuiet && !(combat && context.readyForAction && !context.dialog &&
+    if(!flow.canSave() && !developerQuiet && !(combat && context.readyForAction && !context.dialog &&
        flow.encounter()->combat()->phase()==XeenCombatPhase::PlayerReady))return {};
     panelOrigin=inputFrame?inputFrame:flow.frame().presentation();retainPanel();
     {XeenRestoreGuard::Providers providers(*panelGuard,world);
      panel=services.panel(flow.frame(),combat,bool(world.map(camera.mapId).geometry.flags&0x8000),
       flow.journey() && !services.saveUnavailable,services.currentSlot,services.saveName.value_or(""));
-     if(refusedDefeat())panel->loadOnly();
      panelGuard->check();}
     panel->clocks([&] {
      const auto now=services.program.wallClock.now();

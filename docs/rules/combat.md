@@ -719,8 +719,9 @@ delivery does not increment the counter again.
 Ice Trolls (species 53) on Clouds return to maximum HP at each new combat round,
 after round setup and before the next opportunity (`0x2ea4a..0x2ea85`). The
 MOB-count loop covers maps 8 and 63 with the same rule. Removed monsters stay
-removed. Darkside-specific branches and reachability remain **Unknown/deferred**;
-Darkside gameplay is not supported.
+removed. Darkside-specific branches of these monster exceptions and their
+reachability remain **Unknown/deferred**. Ordinary Darkside combat uses the
+shared rules; unsupported abilities refuse with the existing notice.
 
 ## Level thresholds
 
@@ -792,3 +793,23 @@ No DOS-width, overflow or malformed-resource behavior beyond the retained
 findings is inferred from ScummVM's wider host integers. Exact timing, monster
 movement geometry beyond the terrain test, all spell effects and item generation
 tables are outside this chapter's verified coverage.
+
+## Defeat on Darkside
+
+**DOS static, high confidence:** the ordinary death sequence selects the
+current side's fire/death art. Darkside uses Alamar and `laff1.voc`
+(`0xb260..0xb279`), ten laugh images with two restarts, and no Clouds
+FX33/34 (`0xb2dc..0xb359`). The sequence leaves gameplay time and RNG
+unchanged. Darkside skips the Clouds-only hands/marble closing scroll
+(`0xad12..0xad2a`, caller `0xb38c..0xb394`), then fades to the World title
+through the existing recovery path, where Load and Quit work normally. There is no intermediate recovery
+refusal panel or new defeat message. The pin's `WorldOfXeenEngine::death`
+confirms the side-specific art/sample/loop; frame timing follows the existing
+DOS presentation clock.
+
+Mr Wizard still returns a World of Xeen party to Clouds/Vertigo, facing
+East at `(18,4)`, even when invoked on Darkside. It clears gems without
+charging time or a monster turn; the combat exit tail retains its existing
+caller order. **DOS static, high:** `0x1f24f..0x1f290`,
+`0x2ec48..0x2ec7e`; the pin agrees. See the
+[original quirk](../original-quirks.md#dos-world-wizard-darkside).

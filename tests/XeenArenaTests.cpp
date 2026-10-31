@@ -40,7 +40,8 @@ void rules() {
         check(!xeenArenaNumber("123",limit) && !xeenArenaNumber("a",limit),"Numeric input shape");
     }
     check(xeenTownServiceKnown(85,6) && !xeenTownServiceKnown(28,6),"Arena map admission");
-    for(unsigned action:{12u,13u})check(!xeenTownServiceKnown(85,action),"Deferred actions admitted");
+    check(!xeenTownServiceKnown(85,13),"Deferred action admitted");
+    check(xeenTownServiceKnown(85,12),"Generic Pyramid action refused");
 }
 void generation() {
     std::vector<XeenMonsterRecord> stats(70);

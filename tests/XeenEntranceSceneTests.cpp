@@ -66,7 +66,7 @@ void sites() {
     }
     check(dark==4 && dwarf==5,"Darkside/Dwarf branch coverage");
     check(!xeenEntranceSite(8,{28,10,9,D::North}) && !xeenTownServiceKnown(28,8),"Unknown map admitted");
-    for(unsigned action:{6u,12u,13u})check(!xeenTownServiceKnown(24,action),"Out-of-scope scene admitted");
+    for(unsigned action:{6u,13u})check(!xeenTownServiceKnown(24,action),"Out-of-scope scene admitted");
     check(!xeenEntranceSite(8,{{XeenSide::Darkside,24},10,9,D::North}),"Darkside scene assets admitted");
     // Destination constants are independent of iteration over the implementation table.
     const XeenCamera expected[]{ {55,3,8,D::East},{59,11,8,D::West},{51,7,12,D::South},
