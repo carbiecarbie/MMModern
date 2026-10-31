@@ -332,15 +332,26 @@ XeenEventDecodeResult XeenEventDecoder::decode(const XeenEventRecord &record,
 	case 0x2f:
 		return decodeEmpty(record,context,XeenEventProtectionCheck{});
 	case 0x2c: {
-		// MMModern's bounded envelope, not the original permissive iterator.
 		if (record.parameters.size() < 2) return wrongSize(record, context, 2);
 		if (record.parameters.size() > 4) return wrongSize(record, context, 4);
 		const auto code = record.parameters[0], id = record.parameters[1];
-		if ((code != 70 && code != 71) || id < 1 || id > 73)
-			return makeError(record, context, XeenEventDecodeErrorKind::UnsupportedOperand,
-				"GiveEnchanted supports item codes 70/71 and special IDs 1..73");
+		if ((code < 60 || code >= 82) && record.parameters.size() < 3)
+			return wrongSize(record, context, 3);
 		return instruction(record, context, XeenEventGiveEnchanted{code, id,
 			{record.parameters.begin() + 2, record.parameters.end()}});
+	}
+	case 0x33:
+		if(record.parameters.size()!=2)return wrongSize(record,context,2);
+		return instruction(record,context,XeenEventExchangeObjects{record.parameters[0],record.parameters[1]});
+	case 0x38: {
+		if(record.parameters.empty())return wrongSize(record,context,1);
+		const unsigned count=record.parameters[0];
+		if(!count)return makeError(record,context,XeenEventDecodeErrorKind::UnsupportedOperand,
+			"GotoRandom count zero is not supported yet");
+		if(record.parameters.size()!=count+1)return wrongSize(record,context,count+1);
+		XeenEventGotoRandom op;
+		for(unsigned i=1;i<=count;++i)op.lines.push_back(static_cast<std::int8_t>(record.parameters[i]));
+		return instruction(record,context,std::move(op));
 	}
 	case 0x05:
 		if (record.parameters.size()==4 && record.parameters[3]==2)

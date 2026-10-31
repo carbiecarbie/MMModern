@@ -361,13 +361,13 @@ against the pin; master was not rechecked.
 
 - **Darkside object exchanges.** DOS exchanges the objects' positions; the
   pin changes a copy and leaves the map unchanged.
-  [Evidence](original-quirks.md#sv-darkside-exchange-objects). M103 Part 0
-  finding, not implemented coverage; pin: differs; master not rechecked.
+  [Evidence](original-quirks.md#sv-darkside-exchange-objects). MMModern exchanges
+  positions through its saved object overrides; pin: differs; master not rechecked.
 - **Enchanted reward records.** DOS identifies empty Misc staging slots by
   container, clears their broken/cursed flags when assigning charges, and
   treats high item codes as signed. The pin differs at these record edges.
-  [Evidence](original-quirks.md#sv-darkside-enchanted-record). M103 Part 0
-  finding; pin: differs; master not rechecked.
+  [Evidence](original-quirks.md#sv-darkside-enchanted-record). MMModern retains the
+  DOS record writes and category split; pin: differs; master not rechecked.
 - **Numbered choices.** DOS ignores Escape: the last numbered choice cancels.
   Compact Text-off NPC choices move down; the pin keeps the normal layout.
   [Evidence](original-quirks.md#sv-darkside-numeric-choice). M103 Part 0

@@ -255,6 +255,92 @@ Run run(XeenWorld &w,XeenPartyState &p,XeenGameFlags &flags,const std::vector<Xe
 bool completed(const Run &r) {return std::holds_alternative<XeenEventExecutionCompleted>(r.result);}
 XeenGameFlags finalFlags(const Run &r) {return std::get<XeenEventExecutionCompleted>(r.result).finalGameFlags;}
 
+// M103 Part A: DOS category boundaries, whole-state writes and single-draw jumps.
+void darksidePartA() {
+ const XeenMapIdentity id{XeenSide::Darkside,47};
+ const XeenCamera camera{id,5,5,XeenDirection::North};
+ for(unsigned code=0;code<256;++code)for(bool full:{false,true}) {
+  World f(id,code+1);auto p=party();XeenGameFlags flags;
+  const auto category=code>=60 && code<82?XeenRewardCategory::Miscellaneous:
+   code>=49 && code<60?XeenRewardCategory::Accessories:code>=35 && code<49?XeenRewardCategory::Armor:XeenRewardCategory::Weapons;
+  XeenTreasureStaging initial;auto &items=initial.items(category);
+  // Occupied prefix, then a stale empty record with nonzero state and frame.
+  items[0]={3,1,7,9};for(unsigned n=1;n<10;++n)items[n]={std::uint8_t(full?3:0),std::uint8_t(full?1:0),255,17};
+  f.w->treasureStaging().publish(initial);
+  XeenQuestItems::Counts counts{};if(code>=82 && code<128)counts[code-82]=255;p.questItems=XeenQuestItems(counts);
+  const auto before=*f.w->sessionState().journeyRandom();XeenCombatRandom expected(before);
+  const bool misc=category==XeenRewardCategory::Miscellaneous;
+  const auto charge=misc && !full && code!=70 && code!=71?expected.range(1,8)+2:1;
+  bool inspected=false;
+  const auto result=run(*f.w,p,flags,{row(0,44,{std::uint8_t(code),57,193,255}),row(1,1,{0}),row(2,18)}, {},camera,{},
+   [&](auto &state,const auto &) {
+    if(inspected || state.reward.phase!=XeenRewardPhase::Running)return;
+    inspected=true;const auto &staged=state.treasure.items(category);const auto &item=staged[1];
+    check(staged[0].material==3 && staged[0].id==1 && staged[0].frame==9,"GiveEnchanted overwrote occupied prefix");
+    if(full)check(state.treasure==initial,"Full enchanted category did not drop silently");
+    else {
+     const auto expectedId=misc?57:code-(category==XeenRewardCategory::Armor?35:category==XeenRewardCategory::Accessories?49:0);
+     check(item.id==expectedId && item.material==(misc?code-60:57) && item.state==(misc?charge:193) && item.frame==17 && state.treasure.ready,
+      "GiveEnchanted category, whole state, first empty slot or retained frame");
+     for(unsigned c=0;c<4;++c)if(c!=unsigned(category))check(!state.treasure.full(XeenRewardCategory(c)),"GiveEnchanted touched another category");
+    }
+    if(code>=82 && code<128)check(p.questItems.at(code-82)==0,"Quest enchanted counter must wrap even with full staging");
+    else check(p.questItems.counts()==counts,"Signed high code changed quest counters");
+    check(*f.w->sessionState().journeyRandom()==expected.continuation(),"GiveEnchanted charge draw count/range or full-category draw");
+   });
+  check(completed(result) && inspected,"GiveEnchanted matrix failed");
+ }
+ for(unsigned count:{1u,7u,9u,127u,255u}) {
+  std::vector<bool> seen(count);
+  for(unsigned seed=1;seed<=600;++seed) {
+   World f(id,seed);auto p=party();XeenGameFlags flags;
+   const auto before=*f.w->sessionState().journeyRandom();XeenCombatRandom expected(before);
+   const auto selected=expected.range(1,count);
+   std::vector<std::uint8_t> table{std::uint8_t(count)};
+   for(unsigned n=0;n<count;++n)table.push_back(2*(n%63+1));
+   std::vector<XeenEventRecord> records{row(0,56,table),row(1,255)};
+   for(unsigned n=1;n<=std::min(count,63u);++n) {
+    records.push_back(row(2*n,12,{0,0,20,std::uint8_t(n)}));records.push_back(row(2*n+1,18));
+   }
+   const auto result=run(*f.w,p,flags,records,{},camera);
+   check(completed(result) && *f.w->sessionState().journeyRandom()==expected.continuation() && expected.continuation().count==before.count+1,
+    "GotoRandom inclusive range must consume exactly one draw and never fall through");
+   for(unsigned n=1;n<=std::min(count,63u);++n)
+    check(finalFlags(result).isSet(XeenSide::Darkside,n)==(n==(selected-1)%63+1),"GotoRandom did not jump to the selected numbered parameter");
+   seen[selected-1]=true;
+  }
+  check(seen.front() && seen.back(),"GotoRandom must reach both inclusive endpoints");
+ }
+ // One range request uses the shared converter, including its rejection sampling.
+ {
+  std::uint32_t seed=1;
+  for(unsigned shift:{5u,17u,13u}) {const auto value=seed;for(unsigned n=shift;n<32;n+=shift)seed^=(shift==17?value>>n:value<<n);}
+  World f(id,seed);auto p=party();XeenGameFlags flags;
+  XeenCombatRandom expected(*f.w->sessionState().journeyRandom());expected.range(1,7);
+  auto result=run(*f.w,p,flags,{row(0,56,{7,255,128,255,255,255,255,255}),row(128,255),row(255,255)}, {},camera);
+  check(completed(result) &&
+   *f.w->sessionState().journeyRandom()==expected.continuation() && expected.continuation().count==2,
+   "GotoRandom signed negative target or continuation differs from the shared range helper");
+ }
+ {
+  World f(id);auto p=party();XeenGameFlags flags;unsigned draws=0;
+  f.w->applyMoveObject({id,0},3,4);f.w->applyMoveObject({id,0},3,4); // Retain flipped=true.
+  const auto flip=f.w->effectiveObjectFlip({id,0});const auto random=f.w->sessionState().journeyRandom();
+  const auto before0=f.w->effectiveObject({id,0}),before1=f.w->effectiveObject({id,1});
+  const auto result=run(*f.w,p,flags,{row(0,51,{0,1}),row(1,18)}, {},camera,[&](auto &,const auto &,bool){++draws;});
+  const auto a=f.w->effectiveObject({id,0}),b=f.w->effectiveObject({id,1});
+  check(completed(result) && a.x==before1.x && a.y==before1.y && b.x==3 && b.y==4 &&
+   a.resourceId==before0.resourceId && b.resourceId==before1.resourceId && a.direction==before0.direction &&
+   f.w->effectiveObjectFlip({id,0})==flip && draws==1 && f.w->sessionState().journeyRandom()==random,
+   "ExchObj must exchange only position without flipping, drawing or RNG");
+  const auto overrides=f.w->sessionState().objectOverrides();
+  check(completed(run(*f.w,p,flags,{row(0,51,{0,0})},{},camera)) &&
+   overrides==f.w->sessionState().objectOverrides(),"ExchObj self swap changed overrides");
+  const auto bad=run(*f.w,p,flags,{row(0,51,{0,2})},{},camera);
+  check(std::get<XeenEventExecutionError>(bad.result).message.find("not supported yet")!=std::string::npos,"ExchObj live count refusal");
+ }
+}
+
 void randomOperations() {
  // JumpRnd (maze0035.evt @2109: 1..10, jump on 10): exactly one draw, bounds and equality.
  unsigned jumps=0;
@@ -546,12 +632,25 @@ void chestRule() {
   check(completed(r) && overrides(*f.w).size()==1 && overrides(*f.w)[0].id==chest &&
    overrides(*f.w)[0].tableIndex==std::uint8_t(2),"a run ending inside a call did not open the chest");
  }
- // A refused run never reaches the rule: Remove, any MoveObj, ExchObj (outside
- // the decoder subset), another teleport, a map change or a service while the
+ // ExchObj after a picked lock keeps the counter and selection until an ordinary draw.
+ {
+  World f(47,seed,chests);auto p=party();XeenGameFlags flags;bool checked=false;
+  const auto r=run(*f.w,p,flags,{at(give,6,6),at(row(1,51,{1,4}),6,6),at(row(2,1,{0}),6,6)},
+   {},cell(6,6),{},[&](auto &state,const auto &request) {
+    if(request.kind==XeenPresentationKind::CenteredMessage && state.logicalAddress.line==3) {
+     checked=true;check(state.scriptValues.lockCounter>0 && state.selectedObject==chest &&
+      f.w->effectiveObject(chest).x==10 && f.w->effectiveObject(other).x==6,
+      "ExchObj changed the picked-lock counter/selection or failed to swap");
+    }
+   });
+  check(completed(r) && checked,"ExchObj after a picked lock did not continue");
+ }
+ // A refused run never reaches the rule: Remove, any MoveObj,
+ // another teleport, a map change or a service while the
  // counter is positive.
  const std::vector<std::pair<XeenEventRecord,const char *>> refusals{
   {row(1,14),"Remove after a picked lock"},{row(1,11,{1,3,3}),"MoveObj after a picked lock"},
-  {row(1,11,{0,3,3}),"MoveObj after a picked lock"},{row(1,51,{0,1}),"opcode 51"},
+  {row(1,11,{0,3,3}),"MoveObj after a picked lock"},
   {row(1,7,{47,2,2}),"Teleport after a picked lock"},{row(1,31,{48,2,2}),"Teleport after a picked lock"},
   {row(1,17,{1}),"Town service after a picked lock"}};
  for(const auto &refusal:refusals) {
@@ -696,7 +795,7 @@ int main(int argc,char **argv) {
  try {
   if(argc==2 && std::string(argv[1])=="b5") {miscMaterial();return 0;}
   if(argc!=1)throw std::runtime_error("Unknown Event value test mode");
-  twoSidedValues();widths();probes();writes();prefixLightWrites();randomOperations();flowOperations();lockPicking();chestRule();specialItem();miscMaterial();wordDraws();
+  darksidePartA();twoSidedValues();widths();probes();writes();prefixLightWrites();randomOperations();flowOperations();lockPicking();chestRule();specialItem();miscMaterial();wordDraws();
  } catch(const std::exception &e) {std::cerr<<"Event value tests failed: "<<e.what()<<'\n';return 1;}
  std::cout<<"Event value tests passed\n";
  return 0;

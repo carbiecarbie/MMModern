@@ -29,6 +29,12 @@ bool XeenTreasureStaging::insert(XeenRewardCategory category, const XeenItem &it
 		if (emptySlot(entry, category)) { entry = item; ready = true; return true; }
 	return false;
 }
+bool XeenTreasureStaging::insertEnchanted(XeenRewardCategory category, const XeenItem &item) noexcept {
+	for(auto &entry:items(category))if(emptySlot(entry,category)) {
+		entry.material=item.material;entry.id=item.id;entry.state=item.state;ready=true;return true;
+	}
+	return false;
+}
 bool XeenTreasureStaging::storedItems() const noexcept {
 	for (const auto category : kCategories)
 		for (const auto &item : items(category)) if (!emptySlot(item, category)) return true;

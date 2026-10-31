@@ -28,6 +28,9 @@ using namespace training_test;
 namespace mmodern {
 struct XeenEventDispatchTestAccess {
  static bool inputPassPending(const XeenEventFlow &f){return f._encounter->_journeyCapture->inputPassPending;}
+ static bool livePublication(const XeenEventFlow &f){return f._eventPublication!=nullptr;}
+ static bool candidateWorldFlags(const XeenEventFlow &f){return f._transition && f._transition->world->detachedEventCandidate() && bool(f._transition->party.worldFlags);}
+
 };
 struct XeenRestTestAccess {
  static bool fatal(const XeenEventFlow &f){return f._fatal;}
@@ -294,6 +297,111 @@ void refusals(Inputs &in,const XeenSaveSnapshot &source,const std::filesystem::p
 }
 // Original records are loaded from the installation, then isolated from their
 // unrelated suffix. Both physical sides exercise the regional preflight.
+// Execute unedited original records through the live detached Event boundary.
+// Inert exits isolate the three rules from later milestone opcodes.
+void partAEvents(Inputs &in,const XeenSaveSnapshot &source,const std::filesystem::path &out) {
+ for(unsigned opcode:{51u,56u,44u}) {
+  std::optional<XeenEventRecord> found;XeenMapIdentity id;
+  for(unsigned map=1;map<=112 && !found;++map) {
+   const XeenMapIdentity current{XeenSide::Darkside,std::uint16_t(map)};
+   for(const auto &r:in.events.load(current).records)if(r.opcode==opcode &&
+      (opcode!=44 || (r.parameters[0]>0 && r.parameters[0]<35))) {found=r;id=current;break;}
+  }
+  check(bool(found),"Missing original Part A Event");const auto original=*found;
+  std::cout<<"M103 opcode "<<opcode<<" map "<<id.number<<" EVT @"<<original.fileOffset<<'\n';
+  XeenEventFile isolated{id,"isolated original Part A Event",true,{original}};
+  const auto end=[&](unsigned line) {
+   if(line==original.line)return;
+   auto r=original;r.line=line;r.opcode=18;r.parameters.clear();r.lengthField=5;isolated.records.push_back(r);
+  };
+  if(opcode==56)for(unsigned n=1;n<original.parameters.size();++n)end(original.parameters[n]);
+  else end(original.line+1);
+  // Keep the original instruction's coordinates, line, facing, offset and bytes.
+  // A synthetic physical caller reaches it even when it is a logical subroutine.
+  XeenEventRecord call;call.x=14;call.y=14;call.direction=4;call.line=0;call.opcode=25;call.lengthField=8;
+  call.parameters={original.x,original.y,original.line};isolated.records.push_back(call);
+  auto s=at(in,source,{id,14,14,original.direction<4?XeenDirection(original.direction):XeenDirection::North});
+  Live live(in,s,&isolated);const auto before=live.snapshot();
+  const auto a=opcode==51?live.w.effectiveObject({id,original.parameters[0]}):XeenMapEntity{};
+  const auto b=opcode==51?live.w.effectiveObject({id,original.parameters[1]}):XeenMapEntity{};
+  std::string failure;unsigned runs=0;XeenCombatRandom expected(*before.journey->random);
+  live.flow->reportManual=[&](const auto &result){
+   if(const auto *e=std::get_if<XeenEventExecutionError>(&result))failure=e->message;
+   if(std::holds_alternative<XeenManualEventCompleted>(result)) {
+    ++runs;
+    if(opcode==56) {
+     expected.range(1,original.parameters[0]);
+     check(live.w.sessionState().journeyRandom()==expected.continuation(),"Original GotoRandom dispatch consumed more than one draw");
+    }
+   }
+  };
+  live.act(InteractionAction{false});auto saved=live.snapshot();check(failure.empty(),failure.c_str());
+  if(opcode==51) {
+   const auto afterA=live.w.effectiveObject({id,original.parameters[0]}),afterB=live.w.effectiveObject({id,original.parameters[1]});
+   check(afterA.x==b.x && afterA.y==b.y && afterB.x==a.x && afterB.y==a.y && afterA.resourceId==a.resourceId && afterB.resourceId==b.resourceId,
+    "Original ExchObj positions did not exchange through live publication");
+  } else if(opcode==56) {
+   check(runs && saved.journey->random==expected.continuation(),"Original GotoRandom did not consume exactly one Journey draw");
+  } else {
+   unsigned beforeCount=0,afterCount=0;
+   for(auto owner:saved.activeRosterIds) {
+    for(const auto &item:before.characters[owner].weapons)beforeCount+=item.id==original.parameters[0] && item.material==original.parameters[1];
+    for(const auto &item:saved.characters[owner].weapons)afterCount+=item.id==original.parameters[0] && item.material==original.parameters[1];
+   }
+   check(runs && afterCount==beforeCount+runs,"Original enchanted weapon reward did not reach inventory once per dispatch");
+  }
+  const auto path=out/("m103-part-a-"+std::to_string(opcode)+".mmsave");XeenSaveFile::write(path,saved);
+  const auto wire=XeenSaveFile::read(path);Live restored(in,wire,&isolated);
+  check(XeenSaveFormat::encode(restored.snapshot())==XeenSaveFormat::encode(saved),"Part A save/load replayed or lost object/reward/RNG state");
+ }
+}
+
+// Ordinary Journey rewards execute detached, then publish through the live guard.
+// worldFlags is present in both owners; per-instruction publication is absent.
+void enchantedLivePublication(Inputs &in,const XeenSaveSnapshot &source,const std::filesystem::path &out) {
+ const XeenMapIdentity id{XeenSide::Darkside,30};
+ XeenEventFile file{id,"enchanted live publication",true,{}};
+ const auto row=[&](unsigned line,unsigned opcode,std::vector<std::uint8_t> parameters) {
+  XeenEventRecord r;r.x=14;r.y=14;r.direction=4;r.line=line;r.opcode=opcode;
+  r.parameters=std::move(parameters);r.lengthField=5+r.parameters.size();file.records.push_back(r);
+ };
+ row(0,1,{0});row(1,44,{12,20,0,0});row(2,44,{66,57,255,255});row(3,1,{0});row(4,18,{});
+ auto s=at(in,source,{id,14,14,XeenDirection::North});Live live(in,s,&file);
+ check(bool(live.p.worldFlags),"Live GiveEnchanted fixture omitted worldFlags");
+ const auto before=live.snapshot();XeenCombatRandom expected(*before.journey->random);
+ const auto charges=expected.range(1,8)+2;unsigned legacyStagingCalls=0,inspected=0,completed=0;
+ live.flow->beforeRewardStaging=[&]{++legacyStagingCalls;};
+ live.flow->reportManual=[&](const auto &result) {
+  check(XeenEventDispatchTestAccess::livePublication(*live.flow),"GiveEnchanted lost the live publication guard");
+  check(bool(live.p.worldFlags),"Live GiveEnchanted lost worldFlags");
+  if(const auto *e=std::get_if<XeenEventExecutionError>(&result))throw std::runtime_error(e->message);
+  if(const auto *pending=std::get_if<XeenEventExecutionSuspended>(&result)) {
+   check(XeenEventDispatchTestAccess::candidateWorldFlags(*live.flow),"Detached reward candidate omitted worldFlags");
+   if(pending->state.logicalAddress.line==4 && pending->request.kind==XeenPresentationKind::CenteredMessage) {
+    ++inspected;const auto &treasure=pending->state.treasure;
+    check(treasure.weapons[0].id==12 && treasure.weapons[0].material==20 && treasure.weapons[0].state==0 &&
+     treasure.miscellaneous[0].material==6 && treasure.miscellaneous[0].id==57 && treasure.miscellaneous[0].state==charges,
+     "Live publication staged the wrong equipment or charged Misc record");
+   }
+  }
+  if(std::holds_alternative<XeenManualEventCompleted>(result))++completed;
+ };
+ live.act(InteractionAction{false});const auto saved=live.snapshot();
+ check(inspected==1 && completed==1 && !legacyStagingCalls,"Ordinary reward dispatch used per-instruction publication or replayed");
+ check(saved.journey->random==expected.continuation(),"Live charged Misc reward changed the shared RNG continuation");
+ unsigned weapons=0,misc=0;
+ for(auto owner:saved.activeRosterIds) {
+  for(const auto &item:saved.characters[owner].weapons)weapons+=item.id==12 && item.material==20 && item.state==0;
+  for(const auto &item:before.characters[owner].weapons)weapons-=item.id==12 && item.material==20 && item.state==0;
+  for(const auto &item:saved.characters[owner].miscellaneous)misc+=item.material==6 && item.id==57 && item.state==charges;
+  for(const auto &item:before.characters[owner].miscellaneous)misc-=item.material==6 && item.id==57 && item.state==charges;
+ }
+ check(weapons==1 && misc==1,"Live equipment and charged Misc rewards did not each publish exactly once");
+ const auto path=out/"m103-enchanted-live-publication.mmsave";XeenSaveFile::write(path,saved);
+ Live restored(in,XeenSaveFile::read(path),&file);
+ check(XeenSaveFormat::encode(restored.snapshot())==XeenSaveFormat::encode(saved),"Live enchanted publication failed exact save/load");
+}
+
 void characterEvents(Inputs &in,const XeenSaveSnapshot &source) {
  std::optional<XeenEventRecord> condition,give;unsigned allMemberSites=0;
  for(unsigned n=1;n<=129;++n) {
@@ -688,7 +796,7 @@ int main(int argc,char **argv) {
   std::cout<<"Preset: "<<save<<'\n';
   developer::generateTestSave(*installation,"m101-castleview",save);Inputs in(*installation);const auto preset=XeenSaveFile::read(save);
   check(preset.camera.mapId==XeenMapIdentity(XeenSide::Darkside,29),"Wrong Castleview preset");
-  characterEvents(in,quiet(in,preset));resources(in);std::cout<<"Resources verified\n";const auto s=quiet(in,preset);music(in,*installation,s);std::cout<<"Music verified\n";refusals(in,s,out);forcedText(in,s,out);
+  enchantedLivePublication(in,quiet(in,preset),out);partAEvents(in,quiet(in,preset),out);characterEvents(in,quiet(in,preset));resources(in);std::cout<<"Resources verified\n";const auto s=quiet(in,preset);music(in,*installation,s);std::cout<<"Music verified\n";refusals(in,s,out);forcedText(in,s,out);
   pyramid(in,*installation,s,out);saveExport(in,*installation,s,out);originalRoute(in,*installation,out);pyramidCombatAudio(in,*installation,out);
   panelAndDefeat(in,*installation,s,out,4);
   for(unsigned mode=0;mode<3;++mode)panelAndDefeat(in,*installation,s,out,mode);

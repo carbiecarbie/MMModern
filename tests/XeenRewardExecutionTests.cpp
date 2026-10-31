@@ -32,7 +32,7 @@ void continuations(){
 	check(xeenPrepareRewardReceipt(s.treasure).count==1&&s.reward.phase==XeenRewardPhase::Running&&s.callStack.empty()&&s.instructionCount==4,"Call/Return delivered early or lost staging");
 	s=pending(e.resume(s));check(s.reward.receipt.delivered==1&&s.instructionCount==5,"Call/Return finalization count");
 	for(auto bad:std::vector<XeenEventRecord>{record(1,1,1,0x1a),
-		record(1,1,1,0x2c,{69,37,0,1}),record(1,1,1,12,{21,167,0,0}),
+		record(1,1,1,0x2c,{70}),record(1,1,1,12,{21,167,0,0}),
 		record(1,1,1,12,{104,30,0,0})}){
 		Execution x;auto state=x.seed({pause(),bad});state.workingGameFlags.set(7);
 		auto result=x.resume(state);const auto &error=std::get<XeenEventExecutionError>(result);
@@ -82,12 +82,12 @@ void production(){
 		check(done.instructionCount==n+1 && xeenInventoryInspection(e.f.initial)==inventory,"receipt ACK replayed/count changed");
 	}
 	// Fullness must not bypass decoder errors; failed decoding adds no dispatch.
-	for(const auto &bytes : std::vector<Bytes>{{70},{70,37,1,2,3},{69,37},{70,0},{71,74}}) {
+	for(const auto &bytes : std::vector<Bytes>{{70},{70,37,1,2,3},{34,37}}) {
 		Execution e;std::vector<XeenEventRecord> records;
 		for(int i=0;i<10;++i)records.push_back(record(1,1,i,0x2c,{70,37}));
 		records.push_back(record(1,1,10,0x2c,bytes));
 		const auto failure=std::get<XeenEventExecutionError>(begin(e,records));
-		check(failure.kind==(bytes.size()<2 || bytes.size()>4?XeenEventExecutionErrorKind::MalformedInstruction:XeenEventExecutionErrorKind::UnsupportedOperand) &&
+		check(failure.kind==(XeenEventExecutionErrorKind::MalformedInstruction) &&
 			failure.instructionCount==10 && failure.source && failure.source->line==10 && failure.rewards.discarded==10 &&
 			!e.f.initial.roster.at(0).miscellaneous[0].id,"full staging operand validation/accounting");
 	}

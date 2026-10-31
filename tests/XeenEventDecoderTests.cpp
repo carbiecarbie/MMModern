@@ -311,14 +311,18 @@ void testGiveEnchanted() {
 		check(e.actualParameterSize==bytes.size() && e.expectedParameterSize==(bytes.size()<2?2U:4U),"length validation precedence");
 		checkSource(e.source,true,0x2c);
 	}
-	for(std::uint8_t code : {0,69,70,71,72,82,255}) for(std::uint8_t id : {0,1,73,74,255}) {
-		if((code==70 || code==71) && id>=1 && id<=73)continue;
-		for(int length : {2,3,4}) {
-			auto input=record(0x2c,{code,id});input.parameters.resize(length,255);
-			const auto r=XeenEventDecoder::decode(input);
-			checkSource(failure(r,XeenEventDecodeErrorKind::UnsupportedOperand).source,false,0x2c);
-		}
+	for(unsigned code=0;code<256;++code) {
+		const auto result=XeenEventDecoder::decode(record(44,{std::uint8_t(code),255,193,7}));
+		const auto &op=operation<XeenEventGiveEnchanted>(result);
+		check(op.itemCode==code && op.specialId==255 && op.suffix==std::vector<std::uint8_t>({193,7}),"all enchanted categories decode");
 	}
+	check(operation<XeenEventExchangeObjects>(XeenEventDecoder::decode(record(51,{0,37}))).second==37,"ExchObj zero-based indices");
+	check(operation<XeenEventGotoRandom>(XeenEventDecoder::decode(record(56,{3,2,128,255}))).lines==std::vector<int>({2,-128,-1}),"GotoRandom signed targets");
+	failure(XeenEventDecoder::decode(record(56,{0})),XeenEventDecodeErrorKind::UnsupportedOperand);
+	for(const auto &bytes:std::vector<std::vector<std::uint8_t>>{{},{2,1},{1,2,3}})
+		failure(XeenEventDecoder::decode(record(56,bytes)),XeenEventDecodeErrorKind::MalformedInstruction);
+	failure(XeenEventDecoder::decode(record(44,{34,1})),XeenEventDecodeErrorKind::MalformedInstruction);
+	failure(XeenEventDecoder::decode(record(51,{0})),XeenEventDecodeErrorKind::MalformedInstruction);
 }
 
 void testOwnedResultLifetime() {

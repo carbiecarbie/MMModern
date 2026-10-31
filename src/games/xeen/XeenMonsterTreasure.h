@@ -46,6 +46,8 @@ struct XeenTreasureStaging {
 	// The first empty slot of the category receives the item and readiness is set;
 	// a full category refuses it (monster 0x2c402..0x2c540, Event 0x287f9..0x28925).
 	bool insert(XeenRewardCategory, const XeenItem &) noexcept;
+	// GiveEnchanted writes only material, ID and whole state, retaining the slot's frame.
+	bool insertEnchanted(XeenRewardCategory, const XeenItem &) noexcept;
 	// DOS delivery and Event stash trigger (0x2412e..0x24149): currency or readiness.
 	bool pending() const noexcept { return ready || gold || gems; }
 	bool dormant() const noexcept { return storedItems() && !pending(); }

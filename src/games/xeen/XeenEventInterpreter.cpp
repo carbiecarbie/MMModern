@@ -184,6 +184,10 @@ std::optional<XeenEventExecutionError> preflightEvent(XeenWorld &world,
 		if(const auto *call=std::get_if<XeenEventCallEvent>(&op)) {
 			path.emplace_back(x,y,line+1);enqueue(call->x,call->y,call->line);continue;
 		}
+		if(const auto *randomGoto=std::get_if<XeenEventGotoRandom>(&op)) {
+			for(const auto target:randomGoto->lines)if(target>=0)enqueue(x,y,target);
+			continue; // No sequential fallthrough.
+		}
 		if(const auto *jump=std::get_if<XeenEventJumpRandom>(&op))enqueue(x,y,jump->line);
 		if(const auto *flag=std::get_if<XeenEventIfMapFlag>(&op))enqueue(x,y,flag->line);
 		if(const auto *set=std::get_if<XeenEventSetCharacter>(&op))
@@ -216,6 +220,11 @@ std::optional<XeenEventExecutionError> preflightEvent(XeenWorld &world,
 		if(const auto *move=std::get_if<XeenEventMoveObject>(&op)) {
 			try {static_cast<void>(world.effectiveObject({camera.mapId,move->record}));}
 			catch(const std::exception &) {return unsupported("MoveObj original record is unavailable");}
+		}
+		if(const auto *exchange=std::get_if<XeenEventExchangeObjects>(&op)) {
+			const auto &objects=world.objectFile(camera.mapId);
+			if(!objects.resourcePresent || exchange->first>=objects.entities.objects.size() || exchange->second>=objects.entities.objects.size())
+				return unsupported("ExchObj index outside the live object count is not supported yet");
 		}
 		if(const auto *spawn=std::get_if<XeenEventSpawn>(&op)) {
 			if(spawn->slot>=XeenActorApproach::kCapacity)
@@ -1053,27 +1062,6 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 			return XeenEventExecutionSuspended{state,request};
 		}
 
-		if (const auto *enchanted = std::get_if<XeenEventGiveEnchanted>(&decoded.operation)) {
-			if (logical.mapId.side != XeenSide::Clouds || workingCamera.mapId.side != XeenSide::Clouds)
-				return error(XeenEventExecutionErrorKind::UnsupportedExecutionContext,
-					"GiveEnchanted requires Clouds logical and physical context", instructionCount, logical, decoded.source);
-			if (!partyState.party.size())
-				return error(XeenEventExecutionErrorKind::EmptyParty,
-					"GiveEnchanted requires an active party member", instructionCount, logical, decoded.source);
-			if (logical.line == 255)
-				return error(XeenEventExecutionErrorKind::LineOverflow,
-					"GiveEnchanted sequential line overflow", instructionCount, logical, decoded.source);
-			XeenItem item{};
-			item.material = enchanted->itemCode - 60;
-			item.id = enchanted->specialId;
-			item.state = 1;
-			if (publication && partyState.worldFlags) publication->prepareRewardStaging(state,item);
-			// 0x287f9..0x28925: the first empty Misc slot, monster items included.
-			state.treasure.insert(XeenRewardCategory::Miscellaneous,item);
-			++logical.line;
-			missingPolicy = MissingInstructionPolicy::NaturalCompletion;
-			continue;
-		}
 
   if(const auto *heads=std::get_if<XeenEventAlterHeads>(&decoded.operation)) {
    world.alterHeads(workingCamera,{heads->left,heads->right});
@@ -1212,6 +1200,56 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 			return value;
 		};
 		const auto canDraw=[&] {return world.detachedEventCandidate() && world.sessionState().journeyRandom();};
+
+		if (const auto *enchanted=std::get_if<XeenEventGiveEnchanted>(&decoded.operation)) {
+			if(sideMismatch)return refuse(K::UnsupportedExecutionContext,"GiveEnchanted requires matching logical and physical sides");
+			if(!partyState.party.size())return refuse(K::EmptyParty,"GiveEnchanted requires an active party member");
+			if(const auto e=lastLine("GiveEnchanted"))return *e;
+			const auto code=enchanted->itemCode;
+			const auto category=code>=60 && code<82?XeenRewardCategory::Miscellaneous:
+				code>=49 && code<60?XeenRewardCategory::Accessories:
+				code>=35 && code<49?XeenRewardCategory::Armor:XeenRewardCategory::Weapons;
+			// DOS signed comparisons put 128..255 on the weapon path, not quest.
+			if(code>=82 && code<128)partyState.questItems.eventGrant(code-82);
+			if(!state.treasure.full(category)) {
+				XeenItem item{};
+				if(category==XeenRewardCategory::Miscellaneous) {
+					item.material=code-60;item.id=enchanted->specialId;
+					if(item.material==10 || item.material==11)item.state=1;
+					else {
+						if(!canDraw())return refuse(K::UnsupportedExecutionContext,"GiveEnchanted charges require a detached Journey RNG");
+						item.state=randomDraw(1,8)+2;
+					}
+				} else {
+					item.material=enchanted->specialId;
+					item.id=code-(category==XeenRewardCategory::Armor?35:category==XeenRewardCategory::Accessories?49:0);
+					item.state=enchanted->suffix.at(0);
+				}
+				if(publication && partyState.worldFlags)publication->prepareRewardStaging(state,item);
+				state.treasure.insertEnchanted(category,item);
+			}
+			if(const auto e=advance("GiveEnchanted"))return *e;
+			continue;
+		}
+		if(const auto *exchange=std::get_if<XeenEventExchangeObjects>(&decoded.operation)) {
+			if(!world.detachedEventCandidate())return refuse(K::UnsupportedExecutionContext,"ExchObj requires a detached Event");
+			if(const auto e=lastLine("ExchObj"))return *e;
+			const auto &objects=world.objectFile(logical.mapId);
+			if(!objects.resourcePresent || exchange->first>=objects.entities.objects.size() || exchange->second>=objects.entities.objects.size())
+				return refuse(K::UnsupportedOperand,"ExchObj index outside the live object count is not supported yet");
+			world.applyExchangeObjects(logical.mapId,exchange->first,exchange->second);
+			if(const auto e=advance("ExchObj"))return *e;
+			continue;
+		}
+		if(const auto *randomGoto=std::get_if<XeenEventGotoRandom>(&decoded.operation)) {
+			if(!canDraw())return refuse(K::UnsupportedExecutionContext,"GotoRandom requires a detached Journey RNG");
+			const auto count=static_cast<std::uint32_t>(randomGoto->lines.size());
+			const auto selected=randomDraw(1,count);
+			jump(randomGoto->lines.at(selected-1));
+			// Signed negative lines match no byte-sized record in DOS's scan.
+			if(logical.line<0)return finalize();
+			continue;
+		}
 
 		if (const auto *setVar=std::get_if<XeenEventSetVar>(&decoded.operation)) {
 			// setValue (0x23945) for the selection; mode 84 writes the facing.

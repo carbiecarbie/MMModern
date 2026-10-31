@@ -106,9 +106,11 @@ struct XeenEventConditional {
 struct XeenEventGiveEnchanted {
 	std::uint8_t itemCode = 0;
 	std::uint8_t specialId = 0;
-	// Owned diagnostic bytes; no gameplay meaning in the bounded misc branch.
+	// Parameter 2 is the whole equipment state; Misc ignores it and later bytes.
 	std::vector<std::uint8_t> suffix;
 };
+struct XeenEventExchangeObjects { std::uint8_t first=0, second=0; };
+struct XeenEventGotoRandom { std::vector<int> lines; };
 struct XeenEventVoiceCue { std::uint8_t index = 0; };
 struct XeenEventSoundCue { std::uint8_t index = 0; };
 // Presentation-only CD speech operands; the DOS encoding is MMSSFF (75 Hz).
@@ -172,6 +174,8 @@ using XeenDecodedEventOperation = std::variant<
 	XeenEventMoveObject,
 	XeenEventSetCharacter,
 	XeenEventGiveEnchanted,
+	XeenEventExchangeObjects,
+	XeenEventGotoRandom,
 	XeenEventVoiceCue,
 	XeenEventSoundCue,
 	XeenEventCdSpeech,
@@ -217,7 +221,7 @@ using XeenEventDecodeResult = std::variant<
 
 // Strictly decodes the supported MMModern subset. Unlike the original runtime,
 // supported direct forms account for all bytes in record.parameters. The bounded
-// GiveEnchanted form owns up to two unused suffix bytes for diagnostics.
+// GiveEnchanted form retains the equipment state and unused suffix bytes.
 class XeenEventDecoder {
 public:
 	static XeenEventDecodeResult decode(const XeenEventRecord &record,

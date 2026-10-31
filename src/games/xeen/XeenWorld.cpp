@@ -292,6 +292,34 @@ void XeenWorld::applyMoveObject(XeenObjectIdentity id,int x,int y) {
 	if(removed)state.removedObjects.erase(id);
 }
 
+void XeenWorld::applyExchangeObjects(XeenMapIdentity mapId,unsigned first,unsigned second) {
+	if(!detachedEventCandidate())throw std::invalid_argument("ExchObj requires a detached Event");
+	const auto &file=objectFile(mapId);
+	if(!file.resourcePresent || first>=file.entities.objects.size() || second>=file.entities.objects.size())
+		throw std::invalid_argument("ExchObj index outside the live object count is not supported yet");
+	if(first==second)return;
+	// DOS 0x28a86..0x28ad6: exchange the stored positions, before map rules.
+	// MoveObj's self-move flip and its draw are deliberately absent here.
+	auto &state=_sessionState._mapStates.state(mapId);
+	auto prepared=state.objectOverrides;
+	const auto retain=[&](unsigned index) -> XeenObjectOverride {
+		const XeenObjectIdentity id{mapId,index};
+		for(const auto &v:prepared)if(v.id==id)return v;
+		const auto &record=file.entities.objects[index];
+		return {id,_sessionState.isObjectDisabled(id)?-128:int(record.x),
+			_sessionState.isObjectDisabled(id)?-128:int(record.y),effectiveObjectFlip(id)};
+	};
+	auto a=retain(first),b=retain(second);std::swap(a.x,b.x);std::swap(a.y,b.y);
+	for(const auto &value:{a,b}) {
+		const auto at=std::lower_bound(prepared.begin(),prepared.end(),value.id,[](const auto &v,auto id){return v.id<id;});
+		if(at!=prepared.end() && at->id==value.id)*at=value;else prepared.insert(at,value);
+	}
+	if(_sessionState.objectOverrides().size()-state.objectOverrides.size()+prepared.size()>65536)
+		throw std::invalid_argument("Too many object overrides");
+	XeenMutationWatch::write(this);state.objectOverrides.swap(prepared);
+	state.removedObjects.erase({mapId,first});state.removedObjects.erase({mapId,second});
+}
+
 XeenObjectFile XeenWorld::originalObjects(XeenMapIdentity mapId) const {
 	const auto found=_objects.find(mapId);
 	if(found!=_objects.end())return found->second;

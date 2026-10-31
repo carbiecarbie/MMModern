@@ -187,7 +187,7 @@ public:
 		check();
 		const auto operation=decodedOperation();
 		const auto *effect=std::get_if<XeenEventGiveEnchanted>(&operation);
-		if(!effect || item.material!=effect->itemCode-60 || item.id!=effect->specialId || item.state!=1 || item.frame!=0 ||
+		if(!effect || item.material!=effect->itemCode-60 || item.id!=effect->specialId || item.state!=1 ||
 			state.reward.phase!=XeenRewardPhase::Running || dispatchedRecords.empty())
 			integrity("Regional reward production changed");
 		validateRewardPrefix(state,dispatchedRecords.size()-1);
@@ -279,7 +279,7 @@ private:
 			const bool quest=give && neutral(give->first) && give->second.mode==21 &&
 				give->second.value>=82 && neutral(give->third);
 			if(quest)expected.insert(XeenRewardCategory::Weapons,{0,static_cast<std::uint8_t>(give->second.value),0,0});
-			else if(effect)expected.insert(XeenRewardCategory::Miscellaneous,
+			else if(effect)expected.insertEnchanted(XeenRewardCategory::Miscellaneous,
 				{static_cast<std::uint8_t>(effect->itemCode-60),effect->specialId,1,0});
 		}
 		expected.gold=state.treasure.gold;expected.gems=state.treasure.gems;

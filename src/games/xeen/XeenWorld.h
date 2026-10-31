@@ -190,6 +190,7 @@ public:
 	XeenMapEntity effectiveObject(XeenObjectIdentity id);
 	bool effectiveObjectFlip(XeenObjectIdentity id) const;
 	void applyMoveObject(XeenObjectIdentity id,int x,int y);
+	void applyExchangeObjects(XeenMapIdentity mapId,unsigned first,unsigned second);
 	// The end-of-run chest rule (DOS 0x28d92..0x28e87) on a detached Event:
 	// the selected closed chest takes its map's open chest. False without one.
 	bool applyOpenChest(XeenObjectIdentity id);
