@@ -148,19 +148,36 @@ this order; steps are direction, not approved plans.
    [census](coverage.md#darkside-largest-gaps) impact.
    Started: [M101](milestone-101-plan.md) added both sides' state, save
    v23, the Darkside export and the original Pyramid between the sides, so
-   that Darkside is reached in ordinary play. The Darkside towns' services
-   (Bank, Smithy, Guild, Tavern and Inn, Temple, Training and the Dwarf
-   town) are proposed next, as M102.
+   that Darkside is reached in ordinary play. The [Darkside arc](#darkside-arc)
+   continues it.
 
-## Medium term: Darkside and World of Xeen
+## Darkside arc
 
-After the next arc's Darkside start:
+<a id="medium-term-darkside-and-world-of-xeen"></a>
 
-1. **Darkside:** finish Darkside on the shared engine, with its own content,
-   balance and exceptions. Resource access alone does not make it playable.
-2. **World of Xeen:** connect both sides with the rest of the original
-   travel (the Darkside-key entrances and FlipWorld), shared state and the
-   integrated objectives and endings (`showdown`, `genesis`).
+A research pass (2026-10-31) compared every remaining Darkside gap in the
+[census](coverage.md#darkside-largest-gaps) and the World of Xeen connections
+with the pinned reference; its findings were checked against the code. Its
+small defects were fixed at once (Temple Heal, Training, flag 118 falls, drop
+field 7, missing Event lines, self-transfer). The rest is this order; steps
+are direction, not approved plans. Each starts with a Part 0 of DOS program
+analysis, because the reference was wrong in comparable Clouds cases (M80).
+
+| Step | Scope | Tier | Notes |
+| --- | --- | --- | --- |
+| 0. Maintenance | Spawn onto Darkside outdoor maps and Skyroads (24 maps), refused by MMModern's own reachability check for slots parked off the map; outdoor wall 5 needs Mountaineer on Darkside, as DOS already showed; Ali Baba's chest lock recorded as a reference difference | B | Then DOS checks: indoor ground beyond the map edge and the horizon, the Detect Monster picture, the Darkside mirror range and sound |
+| 1. Darkside towns (M102) | Bank, Smithy, Guild, Tavern and Inn, Temple and Training in the towns and Castle Kalindra 3 (map 43); the Tower, Dungeon and Dwarf town scenes (town actions 8, 9 and 13) | B | One gate admits Clouds only; values, pictures, voices and music per side |
+| 2. Darkside Events | ExchObj, GotoRandom and GiveEnchanted for every item category; then ChooseNumeric and FallToMap; then ConfirmWord_2, MoveWallObj beyond the wall-item count and the map-29 IfMapFlag | B | GotoRandom adds one draw through the existing mechanism; FallToMap starts a fall inside an Event; the pinned ExchObj changes a copy and does nothing |
+| 3. Mixed World of Xeen maps | Darkside maps 113-128 (Darkstone Tower, Dragon Tower, Dungeon of Death, Southern Sphinx, Dragon Clouds), FlipWorld, the Darkside-key entrances and Town Portal from them | A | Monster statistics and art chosen per map, not per side; no music draw on 125-127; a save version; rerun the runtime-refusal sweep |
+| 4. Darkside and World endings | Opcodes 57 and 58, the ending mirror words on both sides, completion words, won flags and title replays; then the two presentations | A, then B | Needs analysis of `XEEN.EXE` and uninterrupted DOSBox captures, as M92 did |
+
+Two Tier A items wait for a fitting milestone. A runtime refusal after an
+Event has shown a reward keeps that reward but drops the flags that stop a
+repeat; DOS never stops mid-Event, so the whole Event should be discarded
+(maintainer, 2026-10-31). A sweep of the original data found no Event that
+reaches this today. And after a Xeen Slayer Sword attack, DOS lets the next
+physical spell ignore physical resistance through the unsaved weapon
+selector; MMModern does not yet.
 
 ## Later goals
 
@@ -169,6 +186,9 @@ Roughly in this order, each with its own decision and plan:
 1. Automated builds and tests on GitHub.
 2. An open beta and a "Clouds complete" announcement.
 3. Steam Deck through Proton, then a native Linux build and its distribution.
+   A first attempt (2026-10-31) found that the build needs a POSIX platform
+   layer (saves, settings, paths), a portable item-catalog generator and
+   Linux object filtering for the ScummVM parts, not only narrow guards.
 4. Saves that survive updates, when compatibility is revisited for 1.0.
 5. A study of the community MM3 conversion
    ([mm345-conversion](https://github.com/hooby3dfx/mm345-conversion)), then
