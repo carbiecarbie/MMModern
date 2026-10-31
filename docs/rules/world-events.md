@@ -885,6 +885,35 @@ speech iterations for Dwarf/Sphinx. Sample durations and acquisition cadence
 determine those iterations; ordinary map-load draws remain additional.
 The cursor, screens and speech intervals are transient and never saved.
 
+### Darkside entrance rules
+
+**Calibrated DOS static, high confidence (M102 Part 0, 2026-10-31).**
+Darkside scenes remain unsupported at this baseline. The complete
+[site and presentation tables](evidence.md#darkside-towns-m102-part-0)
+settle action 8 on maps 3/13/16/23/29, action 9 on 12/22, and action 13
+on 4/6/19/22/98. Keys and destinations agree with the pin; Dungeon rows
+14 (key 49 -> 83) and 19 (key 50 -> 121) also exist in DOS but are unused
+by the plan's original Event sites. Their presence is not new content scope.
+
+Tower retreats only after refusal, Dungeon likewise, and Dwarf town has no
+retreat. Refusals still reload the source map at its original position and
+facing, rebuild runtime actors and set stepped, without a service-day charge.
+Resources use DARK.CC: `tower1/2.zom`, `dung1/2/3.zom`,
+`town1/2/3.zom`, `special.bin` and `box.vga`. The Tower slide and Dwarf
+approach use frame `2+night`, unlike the pin's day-only frame at those sites.
+Night is the cached sky value set by map load and `changeTime` refresh,
+not recomputed by the entrance scene; its clock boundaries are 05:00/21:00.
+Dungeon's resting dung3 frame is 0 (its slide uses 1), agreeing with the pin.
+
+Zooms are Tower 13..0, Dungeon 8..0, Dwarf town 10..0 then rise 15..0.
+Tower/Dungeon slide from -200 through -8 by 16. Speech draws once per
+iteration: Tower `R(0,4)` shared by halves 0..4/5..9, Dungeon `R(0,6)`
+shared by both halves, Dwarf town `R(0,8)`. Explicit speech waits are
+2/1/2 BIOS ticks; pauses are 7/10/7. Dungeon's ten-tick wait is not
+key-skippable. Captions and mixer calls follow [audio](audio.md#darkside-town-sound-and-captions).
+Effective cadence of the loops without explicit BIOS waits remains a
+DOSBox question; the Clouds two-retrace capture does not certify Darkside.
+
 ## Quests and Awards screens
 
 **Evidence: DOS static (2026-10-18), high confidence**; offsets and

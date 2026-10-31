@@ -27,6 +27,18 @@ unchanged apart from its version number, so the earlier entries are marked
 intro at startup. Ordinary Darkside play uses the shared World state; its
 services remain deferred; the Pyramid and travel spells cross sides.
 
+The following Darkside presentation differences are established DOS rules
+from M102 Part 0; these services/scenes are **not yet implemented**. For
+each item, pin: differs; master not rechecked.
+
+- **Bank animation.** [The banker finishes frames 11 through 0 once](original-quirks.md#sv-darkside-bank-animation); the pin repeatedly resets that sequence and has a separate frame-bound error.
+- **Guild speech.** [The parrot/skull moves during its voice](original-quirks.md#sv-darkside-guild-animation); the pin animates it when the voice is idle. Refusal frames 4/5 are valid.
+- **Training speech.** [The trainer uses the speaking mouth overlay while talking](original-quirks.md#sv-darkside-training-animation); the pin reverses the speaking and idle pictures.
+- **Night entrances.** [The Tower slide and town approach retain their night art](original-quirks.md#sv-darkside-entrance-night); the pin draws day art at those points.
+- **Entrance sequence.** [Tower retreats after refusal and speaks at two-tick intervals; Dungeon's pause cannot be skipped](original-quirks.md#sv-darkside-entrance-control). The pin reverses the retreat, shortens Tower's interval and permits a key skip; its subtitle/mixer substitutes also differ.
+
+Other recorded differences:
+
 - **Ali Baba's chest.** [The password does not bypass its lock](original-quirks.md#sv-ali-baba-lock); the pin skips lock-picking on Darkside map 63 object 15. Pin: differs; master not rechecked.
 - **Darkside indoor edges.** [Skyroads 89..112 use surface slot 0 beyond the map edge](original-quirks.md#sv-darkside-edge-surface); the pin uses slot 6. Pin: differs; master not rechecked.
 - **Mirror sound.** [A matching name plays FM effect 51 on either side](original-quirks.md#sv-darkside-mirror-sound); the pin uses 35 on Darkside and 61 on Clouds. Pin: differs; master not rechecked.

@@ -696,6 +696,13 @@ make Training from 12 to 13 free. Vertigo's existing cap 10 supplies the
 gameplay calibration.
 [Offsets and comparison](evidence.md#other-town-services-2026-10-20).
 
+**Darkside caps: calibrated DOS static, high confidence (2026-10-31).**
+Castleview 29 permits level 30, Sandcaster 31 level 50, Olympus 37 level
+200; the default, including Castle Kalindra 43, is 100. This is the only
+map-dependent Training value; the shared quote, payment, XP and condition
+rules above still apply. The pin's caps agree (`0x1c86e..0x1c8cb`).
+Darkside services remain unsupported at the M102 Part 0 baseline.
+
 ## Tavern Food
 
 **DOS static (2026-10-20), high confidence for the tabled Clouds maps.**
@@ -720,6 +727,21 @@ values, and the automatic text selector has not been initialized on this
 path. **Reference only** for a usable fallback: the pin explicitly supplies
 15 / 10 / 75, but an exact DOS text index is not established. No original
 Clouds Tavern uses this path. [Evidence and limits](evidence.md#other-town-services-2026-10-20).
+
+**Darkside Food: calibrated DOS static, high confidence (2026-10-31).**
+The same target/Full/payment rules apply:
+
+| Darkside map | Food per active member | Gold per refill | DARK.CC `tavern.bin` record |
+| --- | --- | --- | --- |
+| 29 Castleview | 15 | 10 | 60 |
+| 31 Sandcaster | 60 | 100 | 61 |
+| 37 Olympus; default Darkside | 120 | 250 | 62 |
+
+The original offers describe five, twenty and forty days respectively.
+Read those records rather than duplicating their text. Unlike the untabled
+Clouds path, Darkside has an explicit default. These values agree with the
+pin; they are rules for the deferred services, not new playable coverage.
+[M102 offsets and evidence](evidence.md#darkside-towns-m102-part-0).
 
 ## Temple Heal price
 

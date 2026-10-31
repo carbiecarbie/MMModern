@@ -116,6 +116,31 @@ Pinned `dialogs/dialogs_spells.cpp::setSpellText`,
 `character.cpp::guildMember` and `locations.cpp::GuildLocation::doOptions`
 agree. [Offsets and table comparison](evidence.md#other-town-services-2026-10-20).
 
+## Darkside Guild catalogues and membership
+
+**Calibrated DOS static, high confidence (2026-10-31).** This records the
+original rules; Darkside Guilds remain unsupported at the M102 Part 0 baseline.
+
+| Map | Ordered catalogue | Membership award |
+| --- | --- | --- |
+| 29 Castleview | Group 0 | 83 |
+| 31 Sandcaster | Group 1 | 84 |
+| 33 Lakeside | Group 2 | 85 |
+| 35 Necropolis | Group 3 | 86 |
+| 37 Olympus | All class-allowed global IDs 0..75, ascending | 87 |
+
+Groups scan `DARK_SPELL_OFFSETS[category]` in stored order within
+`DARK_SPELL_RANGES[category*4+group]`, a half-open range, then filter against
+the existing class book. All 117 order entries and 24 endpoints match the
+pin. Categories 0/2 use `[0,20)`, `[16,35)`, `[27,37)`, `[29,39)`;
+category 1 uses `[0,17)`, `[14,34)`, `[26,37)`, `[29,39)`.
+Category 2's stored list is IDs 0..38, still class-filtered; it does not
+inherit category 0's spell order. Buy removes learned spells; Info uses
+the same catalogue including learned spells. Both require membership.
+Untabled Darkside membership takes award 87, but is not an additional
+resource-backed Guild site. `spldesc.bin` uses DARK.CC.
+[Offsets and comparison](evidence.md#darkside-towns-m102-part-0).
+
 ## Admission, targeting and cancellation
 
 **Evidence: Reference only**, except the explicitly marked DOS corrections.

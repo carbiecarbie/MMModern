@@ -34,6 +34,42 @@ Journey. Load validates its row against the camera map and replays it with
 zero draws. DOS and the pin select anew on Load; this approved exact-restore
 difference is recorded in [original quirks](../original-quirks.md#dev-darkside-load-music).
 
+## Darkside town sound and captions
+
+**Calibrated DOS static, high confidence (M102 Part 0, 2026-10-31).**
+These are original rules; Darkside services/scenes remain unsupported at
+this baseline. [The complete voice and presentation tables](evidence.md#darkside-towns-m102-part-0)
+give each greeting, action, refusal, farewell, resource and call site.
+
+Bank/Smith/Guild/Tavern/Temple/Training songs are `bank.m`, `sf09.m`,
+`guild.m`, `tavern.m`, `temple.m`, `smith.m` (fade 223). The Inn uses
+`newbrigh.m` (fade 128), not the Clouds `inn.m`. All named voices use the
+active Darkside archive. Smith/Tavern departures drain `come1.voc` /
+`gdluck1.voc` while retaining the last frame; the other four services have
+no farewell voice. Guild's `skull1.voc` refusal uses frames 4/5 while busy,
+and `parrot2.voc` purchase resets its speaking selector. Training uses
+`gtlost.voc` for all three gold/cap/XP refusals and starts `spit1.voc` when
+its logical base index reaches 23. These busy tests use Efx, not Speech.
+
+Tower plays keyed `howdid1.voc` then `goin1.voc`; refusal leaves the first
+speech loop silent, then plays `needkey1.voc`. Dungeon uses `what2.voc`,
+then `go2.voc` / `key2.voc`; Dwarf town uses `pass2.voc`, then `ok2.voc` /
+`back2.voc`. Their mixer requests are raw 48 then 95, with the ordering
+already described in [Card mixer](#card-mixer), not percentage 38/75.
+The Dungeon's extra pre-slide 48 and growl are Clouds-only.
+
+DARK.CC `special.bin` records and lengths (including padding, excluding
+NUL) are Tower 2/3 (71/42), Dungeon 5/4 (50/84), Dwarf town 7/8 (57/52),
+in success/refusal order. The existing Efx/driver caption gate and
+one-character cursor apply; Text/Speech do not select these captions.
+Tower/Dungeon call the caption renderer only in their first speech loop;
+that loop waits on audio or the cursor, their second on audio alone.
+Dwarf town stops its later sample phases in text mode. Fixed pauses remain:
+Tower/Dwarf town seven BIOS ticks, Dungeon ten, with no Dungeon key skip.
+The first text timer mark precedes zoom. Actual Darkside retrace cadence,
+caption-erasure pixels and audible equivalence still require DOSBox;
+the static rules do not establish those runtime measurements.
+
 ## CD FM driver hardware
 
 **DOS static, high confidence (2026-10-21):** the CD `INTRO.CC` resource

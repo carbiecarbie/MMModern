@@ -1268,6 +1268,206 @@ read-only against the same identified DAT; the star branch is `0x2476e`.
 Derived bounds/identity are retained in the external Part B
 `quest-name-metadata.json`; original names remain loaded from the installation.
 
+## Darkside towns (M102 Part 0)
+
+**Calibrated DOS static, high confidence for the rules below (2026-10-31).**
+Baseline: `main` / `origin/main` at
+`5e4f685584b99b500d1877611ce5c13f760c04d4`, with only the approved M102 plan
+and roadmap edits. Those files were left untouched. The installed
+`WORLD/XEEN.DAT` matches [Exact baseline](#exact-baseline). This is research,
+not implemented coverage or milestone acceptance. No game execution, build,
+test, save conversion or original-data modification was performed.
+
+REA/Ghidra 12.1.4 supplied initialized-memory reads and decoded branch
+checks; Capstone 5.0.7 supplied bounded 16-bit file-offset disassemblies.
+Ghidra's aggregate function request timed out; no aggregate decompilation
+was used to infer a handler boundary. Its later bounded queries succeeded.
+MZ relocation changes far-call segments in Ghidra's memory; file-offset
+citations below refer to the original, unrelocated DAT. Calibration reproduced
+Clouds Food 15/60/120, membership 0..5, Smith stock maps 28/30/73/49,
+Smith speaking frames 5..7, Training's positive busy test, Reaper's two-tick
+speech and keyless retreat. These are the settled M79/M80 paths, not new
+claims based on matching reference names.
+
+External reproducible material is in
+`D:/Projetos/MModern/MModern-re/m102-part0/`: `query.py`, bounded `.dis`
+files, `tables.py`, `verify.py`, `resources.py`, `resource-metadata.json`
+and `rea-evidence.json`. Work products and original text remain outside the
+repository. The CD resource check reads ISO9660 sectors from `GAME1.GOG`
+and `GAME2.GOG`, following their MODE1/2352 descriptors; both have identical
+archive/member identities. The separate root-level floppy CC files were
+not used as the Darkside resource oracle.
+
+### Values, catalogues and archives
+
+| Question | DOS result | File offsets and comparison with pin `6814ee9b` |
+| --- | --- | --- |
+| Smithy stock | Darkside 29/31/37/43 select stock slots 0/1/2/3; a missed map falls back to slot 0. | Side-indexed eight-byte map table `0x4d6d0`, selectors `0x326c0..0x32709` and `0x32944..0x32985`. Same as pin; existing prices remain shared. |
+| Guild membership | 29/31/33/35/37 require awards 83/84/85/86/87. Other Darkside IDs take award 87; no membership purchase is added by the service. | `0x1aaac..0x1aaf3`, switch `0x1ab16..0x1ab24`; same as pin. |
+| Guild order | Maps 29/31/33/35 use group `(map-29)/2`. For class-book categories 0/1/2, scan the corresponding ordered 39-entry list within its half-open range, then filter against the existing 40-entry class book. Buy omits learned entries; Info keeps them. Olympus scans global IDs 0..75 in ascending order, class-filtered. | Darkside builder `0x344d2..0x345c6`; all-spell branch `0x342ff..0x343ce`; order table `[0x4f839,0x4f8ae)`, ranges `[0x546c2,0x546da)`, class books `[0x4f8ae,0x4f926)`. All 117 order entries and 24 range endpoints match `DARK_SPELL_OFFSETS` / `DARK_SPELL_RANGES`; class tables were already calibrated in M79. |
+| Food | 29: target `15*N`, 10 gold, record 60; 31: `60*N`, 100 gold, record 61; 37 (and default Darkside): `120*N`, 250 gold, record 62. `N` is active count, without condition filtering. | `0x1b1ac..0x1b28b`, settlement `0x1b2be..0x1b2e8`. Same as pin. Text describes respectively five, twenty and forty days; price is per refill, and payment replaces the food total only if it is below target. |
+| Training | 29 -> 30; 31 -> 50; 37 -> 200; default, including 43 -> 100. | `0x1c86e..0x1c8cb`, unsigned level comparison `0x1c8e6..0x1c935`. Same caps as pin; shared DOS XP/cost corrections still apply. |
+| Inn doors | 29 `(17,24)` W; 31 `(14,13)` E; 37 `(9,4)` S. Sign In lodges active characters with current town and side before the existing day/save/Inn transition. | Table `0x50706`, `0x50708`, `0x5070e`; indexing/facing `0x1b6b0..0x1b74e`, lodging `0x1b74e..0x1b786`. Same Darkside doors as pin; retain the separately settled Clouds Shangri-La override. |
+| Inn song | Darkside `newbrigh.m`, fade 128, only when the Inn song-entry flag is clear; Clouds `inn.m`. | `0x394cb..0x394f4`, names `0x55448` / `0x55453`. Same Darkside name as pin, confirmed for this World CD. |
+| Location songs | Bank/Smith/Guild/Tavern/Temple/Training: `bank.m`, `sf09.m`, `guild.m`, `tavern.m`, `temple.m`, `smith.m`, requested with 223. | Darkside pointer row `0x4f12c..0x4f144`, selector `0x1d433..0x1d456`; same as pin. Return music remains the settled restore-then-map-reload path. |
+| Resource side | Shop `.twn` pictures, `tavern.bin`, `spldesc.bin`, entrance `.zom`, `special.bin` and `box.vga` use the current side, hence DARK.CC on these visits. | Service temporarily selects side 1 for shared names, then restores entry side at `0x1d021..0x1d029`; selected-side reads at `0x1d1d9`, `0x1d267`, `0x1d47c..0x1d4ac`. Scene loaders `0x2a688`, `0x29acf`, `0x2b06b`, box `0x2a855`, `0x29b3c`, `0x2b254` do not force Clouds. Archive switch is `0xe89e..0xe936`; caption loader `0x20cf2..0x20d88`. |
+
+The four Guild ranges by category are: 0 and 2 use
+`[0,20)`, `[16,35)`, `[27,37)`, `[29,39)`; category 1 uses
+`[0,17)`, `[14,34)`, `[26,37)`, `[29,39)`. Category 2's order table is
+the IDs 0..38, **still class-filtered**, not a second clerical catalogue.
+No per-town book or membership value absent from the current save was found.
+
+CD DARK.CC contains `tavern.bin` at archive offset `0x4129e4` (63 records),
+`special.bin` at `0x41028b` (32), `spldesc.bin` at `0x41092a` (82), and
+`box.vga` at `0x832dcd` (one frame). These are archive offsets, not DAT
+offsets. Names/record numbers describe resources to read, not text to embed.
+
+### Service voices and animation
+
+All names here are requested from the active Darkside archive and exist in
+the CD DARK.CC. Starts and busy tests use the existing Efx-gated VOC wrapper
+`0xdea9`; Speech/Text do not substitute for Efx. Shared refusal/payment
+dialogs and their FM effects remain the existing routines.
+
+| Service | Greeting | Actions, refusals and departure | DAT locators |
+| --- | --- | --- | --- |
+| Bank | `bank1.voc` | `coina.voc` for the transfer; no farewell VOC. | Greeting `0x1d362..0x1d383`; transfer `0x1c662`, `0x1c7cb`. |
+| Smith | `see2.voc` | Successful purchase `choice2.voc`; departure stops the previous sample, starts `come1.voc` and drains busy without animating the screen. | `0x1d134..0x1d148`, `0x319c7..0x319f7`, `0x1d6d3..0x1d716`. |
+| Guild | `parrot1.voc` | Nonmember selection/dialog refusal `skull1.voc`, setting speaking selector 5; successful purchase `parrot2.voc`, resetting it to 0. No farewell. | `0x1d2e0..0x1d2f6`, `0x1b887..0x1b8dc`, `0x34846..0x34889`, `0x34ced..0x34d37`. |
+| Tavern | `hello1.voc` | Drink `gulp.voc`; successful Food/paid Tip `thanks2.voc`; departure `gdluck1.voc`, draining busy while retaining the last screen. | `0x1d23f..0x1d253`, `0x1b0b8..0x1b0c9`, `0x1b304..0x1b31e`, `0x1b44f..0x1b469`, `0x1d67c..0x1d6d1`. |
+| Temple | `help2.voc` | Heal/Uncurse and the blessing path use `ahh.voc`; Donation uses `coina.voc`. No farewell. | `0x1d1b1..0x1d1c5`, `0x1ae89`, `0x1aecb..0x1aedc`, `0x1af43..0x1af54`. |
+| Training | `youtrn1.voc` | Successful training `prtygd.voc`; insufficient gold, cap and insufficient XP all choose `gtlost.voc`. Reaching logical animation index 23 requests `spit1.voc`. No farewell. | `0x1d0b3..0x1d0d1`, `0x1abbc..0x1abfc`, `0x1ac98..0x1ad08`, `0x1c4d9..0x1c505`. |
+
+Farewell table `0x1d7d4..0x1d7e2` proves only Smith/Tavern have voiced
+departure branches. The pin agrees on these names and action selectors.
+Three-tick input-interruptible service waits are `0x1c520..0x1c54f`.
+
+| Art | Base cycle / loaded files | Overlays and branch behavior |
+| --- | --- | --- |
+| Bank `bnkr` | 26 / 5 | Base 0..25. File 5 at `(8,30)` chooses `R(13,18)` while busy or selector=1. After greeting, selector starts at 2; when idle it draws `13-selector`, increments, and clears after 13: frames **11..0**, never -1. Setup has two random overlay draws before greeting. |
+| Smith `blck` | 19 / 3 | Base 0..18 always. File 3 at `(34,33)` chooses 9 if `R(0,11)==1`, else 10, on every draw. While busy, a second draw chooses 3..8 at `(34,54)`. Advancing base index to 4/13 requests FM 45. |
+| Guild `gild` | 48 / 7 | Base 0..47 always. **While busy**, selector 0 draws file 7 frame `R(0,3)` at `(161,48)`; nonzero selector toggles its low bit and draws at `(8,106)`. Refusal sets 5, so its frames alternate 4/5. Purchase resets 0. No idle overlay. |
+| Tavern `tvrn` | 27 / 5 | Base 0..26; while busy file 5 frame `R(0,7)` at `(153,49)`. |
+| Temple `tmpl` | 26 / 4 | Base 0..25; while busy file 4 frame `R(2,4)` at `(8,8)`. Unlike Clouds, wrap returns to 0, not 20. |
+| Training `trng` | 37 / 6 | Idle uses base 0..36. **While busy**, increment speaking selector and draw file 1 frame `selector%8`, plus file 6 `R(0,5)` at `(61,74)`. The logical base index still advances and can start `spit1.voc`. |
+
+Tables `0x508a8..0x508b6` / `0x508b6..0x508cc` match all 14 file counts
+and 22 moduli in the pin. CD frame headers validate every selected frame:
+base files have eight frames except the final partial file; overlays have
+19/11/6/10/5/6 frames respectively. All Darkside base cycles wrap to zero;
+the Clouds 17/20 loop-back exceptions are side-gated (`0x1c45e..0x1c4d8`).
+Sprite selection and drawing are `0x1c038..0x1c3fc`.
+
+**Reference differences:** Bank clears after selector 13, not 14, and sets
+selector 2 **once after entry drawing** (`0x1d5b4..0x1d5c1`), not after
+every animation call. The pin's repeated reset normally traps its idle
+overlay at 11; its separate upper-bound error would allow -1 if reached.
+Guild and Training busy predicates are reversed in the pin. Guild's 4/5
+refusal frames themselves are valid: the CD file has six frames. No clamp,
+invented idle motion, or new random draw should repair the reference.
+
+### Entrance sites and presentation
+
+Action 13 shares the Dwarf handler with 10 in dispatch
+`0x1d7e2..0x1d7fe`. Site coordinates below are `(x,y)` and all destinations
+stay on Darkside. Quest counters are indexed from DS `f077`.
+
+| Action / source | Key | Destination | DAT dispatch / branch |
+| --- | --- | --- | --- |
+| Tower 8 / 3 | 40 | 57 `(11,8)` W | `0x2b03e..0x2b052`; `0x2a6c6..0x2a6e7` |
+| Tower 8 / 13 | 43 | 69 `(7,4)` N | `0x2a6ea..0x2a708` |
+| Tower 8 / 16 | 41 | 61 `(7,12)` S | `0x2a70a..0x2a725` |
+| Tower 8 / 23 | 42 | 65 `(3,8)` E | `0x2a727..0x2a733`, `0x2a7e7..0x2a7f6` |
+| Tower 8 / 29 | 44 | 53 `(11,8)` W | `0x2a736..0x2a742`, `0x2a6d5..0x2a6e7` |
+| Dungeon 9 / 12 | 47 | 73 `(0,7)` E | `0x2a654..0x2a66a`; `0x29b70..0x29b91` |
+| Dungeon 9 / 22 | 48 | 78 `(8,14)` S | `0x29b94..0x29bb2` |
+| Dungeon 9 / 14 (unused row) | 49 | 83 `(11,1)` N | `0x29bb4..0x29bcd`, `0x29c09` |
+| Dungeon 9 / 19 (unused row) | 50 | 121 `(18,0)` N | `0x29bcf..0x29bd6`, `0x29bfa..0x29c0e` |
+| Dwarf town 13 / 4 | 35 | 29 `(15,31)` S | `0x2b770..0x2b784`; `0x2b120..0x2b13c` |
+| Dwarf town 13 / 6 | 38 | 35 `(15,8)` W | `0x2b16f..0x2b188` |
+| Dwarf town 13 / 19 | 36 | 31 `(31,16)` W | `0x2b13e..0x2b152`, `0x2b183` |
+| Dwarf town 13 / 22 | 37 | 33 `(0,3)` E | `0x2b154..0x2b16d` |
+| Dwarf town 13 / 98 | 39 | 37 `(7,0)` N | `0x2b18a..0x2b1a3` |
+
+These rows agree with the pin, including its two unused Dungeon rows.
+Their presence in code does not add Event sites to the plan's resource
+census or authorize the deferred Clouds cross-side entrances. Failed keys
+retain the current map, position and facing (`0x2a783`, `0x29c48`,
+`0x2b1aa`). Tower retreats 0..13 only on refusal (`0x2ae50..0x2afa7`),
+Dungeon 0..8 only on refusal (`0x2a453..0x2a586`); Dwarf has no reverse
+approach on either outcome. The pin reverses Tower's retreat condition.
+All outcomes use the ordinary map loader, including refusals, and the Event
+caller sets stepped. No service-day charge is added. M80's reload/monster
+and lighting conclusions therefore apply, with the existing Darkside map
+song draw on reload.
+
+| Scene | Pictures and frames | Voice, pace and caption records |
+| --- | --- | --- |
+| Tower | `tower1.zom` (4 frames), `tower2.zom` (10); zoom 13..0, slide -200..-8 by 16; paired mouth frame `R(0,4)` and that frame+5 at x=160. Background frames 0/1 and `2+night` throughout approach, slide, speech setup and retreat. | Keyed: `howdid1.voc`, then `goin1.voc`; refusal: silent first speech loop, then `needkey1.voc`. Caption record 2/3, lengths 71/42. Zoom/slide explicit 1 tick; both speech loops 2 ticks; pause 7 ticks. |
+| Dungeon | `dung1.zom` (2), `dung2.zom` (7), `dung3.zom` (7); zoom 8..0, slide -200..-8 by 16. Slide draws dung2 frame 0 and dung3 frame 1. Rest draws **dung3 frame 0** at x=160. Each speech iteration draws one `R(0,6)` and uses it on both halves. No day/night choice or Clouds jitter/growl. | `what2.voc`, then keyed `go2.voc` or refused `key2.voc`; caption 5/4, lengths 50/84. Zoom/slide/speech explicit 1 tick; intermediate pause **10 ticks, no input poll or key-skip branch**. |
+| Dwarf town | `town1.zom` (4), `town2.zom` (1), `town3.zom` (9); zoom 10..0 with background 0/1/`2+night`, then rise 15..0. Speaking body is town2 frame 0 plus town3 `R(0,8)`. Final body redraw does not draw a separate town3 frame. | `pass2.voc`, then keyed `ok2.voc` or refused `back2.voc`; caption 7/8, lengths 57/52. Speech waits 2 ticks; between samples an explicit 7-tick pause. The 3-tick phase check uses the phase-start mark, not a new post-speech delay. |
+
+Resource pointers are `0x53c56..0x53c8e` plus `0x53e40` (`dung3.zom`).
+Coordinate tables, including their Darkside rows, were completely compared
+in [M80](#3-presentation-and-random-draws); no replacement geometry is inferred.
+Tower frame choices: `0x2aa56`, `0x2aad2`, `0x2abe0`, `0x2af82`; speech,
+pause and retreat: `0x2ac05..0x2afbc`. Dungeon rest: `0x29ff9..0x2a020`,
+`0x2a1c6..0x2a1ed`, `0x2a3ec..0x2a413`; pause `0x2a21d..0x2a240`;
+speech `0x2a075..0x2a17d`, `0x2a2aa..0x2a3a3`. Dwarf night frame
+`0x2b437`, phase sequence `0x2b533..0x2b6ad`. The pin uses day frame 2
+during the Tower slide and Dwarf approach, and makes the Dungeon pause
+skippable. Its resting dung3 frame 0 is **correct**.
+
+`night` is cached DS `8c92`, assigned by `0x1f7bb..0x1f7d2`: minutes below
+300 or at least 1260. Map load calls it at `0x1076c`; `changeTime` refreshes
+it if necessary at `0x256a7..0x256c4`. The scene handlers read this value;
+they do not recompute it from the clock during the approach or on a key.
+An `addTime`-only path must not silently become a scene-time night refresh.
+
+Mixer requests are raw arguments **48 then 95**, using the already calibrated
+driver command, not percentages 38/75: Tower `0x2ab98`, `0x2afd2`; Dungeon
+`0x2a060`, `0x2a453`; Dwarf `0x2b4fd`, `0x2b702`. Tower restores after
+retreat, Dungeon before retreat. The extra Dungeon request at `0x29e92`
+and `ogre.voc` belong only to Clouds.
+
+Captions use the existing Efx/driver gate, not Text/Speech. Record setup:
+Tower `0x2a8ec..0x2a922`, Dungeon `0x29d09..0x29d3f`, Dwarf
+`0x2b265..0x2b2c8`. The first speech loop follows audio **or** caption
+cursor; Tower/Dungeon second loops follow audio only and do not redraw the
+caption. Dwarf exits its later sample phases in text mode. The existing
+one-character, greater-than-one-tick cursor and pre-zoom timer mark apply.
+In particular the Tower's refusal caption runs in its initially silent
+first loop; do not move it to the later voice to imitate the pin.
+
+### Static boundary and DOSBox remainder
+
+The explicit waits, branches, resources, valid frames, random ranges, text
+records and mixer commands above are settled. No new durable value or
+save-layout change was identified; animation selectors, cursor, resource
+handles and sound intervals are visit-local presentation state. This is
+not a compatibility certification of the future implementation.
+
+Only runtime equivalence remains: effective retrace counts in Darkside's
+unpaced Dwarf zoom/rise and Tower/Dungeon retreats (drawing can miss VGA
+retraces); exact pixels and the frame when each caption strip is erased;
+and audible/visible pacing against DOS with the installed driver. Static
+control flow cannot measure those. The Clouds two-retrace capture is not
+a measurement of these larger Darkside sprites. No key-skip experiment is
+needed to settle the Dungeon pause's code path, and no new economy,
+catalogue, door, frame-bound or voice-name play-test is required.
+
+Representative retained REA records: calibration
+`ev_ed1f6b3a96038a94185748fea10dd109032e34ea98b32bff007566f603cebceb`;
+service animation read
+`ev_63700f6bd6e4fd451a0f95b19be1f88d65d7a794ed4f1d96547b5e1407592f8d`;
+Guild order
+`ev_4f2886cfcb5de1915f2a3c32a777724420506525fcd39e5af2c5d6d1745e84d9`;
+Dungeon pause
+`ev_fe1d4fc3d85cefb214d99b3ce14c84a79c5553c2280aabb87cd921c087af82d6`;
+Dwarf site rows
+`ev_b5fab8f057640b56dfd92943dc5d1b86a4f82aa251d3c85f556c304dbec08e87`.
+
 ## Other town services (2026-10-20)
 
 **DOS static, high confidence for the stated paths.** MMModern baseline

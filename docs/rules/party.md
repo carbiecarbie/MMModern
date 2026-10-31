@@ -94,7 +94,7 @@ lanes do not imply six active characters; the consumer bounds are below.
 ## Sign In and time
 
 **Resource inspection + DOS static, high confidence:** these are the Tavern
-action-3 placements and their Sign In exits. Maps 29, 31, 32, 73 and 74 have
+action-3 placements on Clouds and their Sign In exits. Clouds maps 29, 31, 32, 73 and 74 have
 no Tavern placement; unused exit-table entries are not additional taverns.
 
 | Map | Tavern Event cell | Exit cell | Facing | Evidence |
@@ -222,6 +222,18 @@ though they eventually share gameplay-entry machinery. **Reference comparison:**
 the pin has no corresponding Sign In/Exit slot writes and reloads only a
 different map on return (`locations.cpp:973`). Its Sign In exit lookup also
 lacks the DOS Shangri-La correction.
+
+**Darkside Sign In: calibrated DOS static, high confidence (2026-10-31).**
+Castleview 29 returns at `(17,24)` West, Sandcaster 31 at `(14,13)` East,
+Olympus 37 at `(9,4)` South. DOS indexes the side-1 Tavern row with
+`(map-29)/2` and then chooses those facings (`0x1b6b0..0x1b74e`; table
+`0x50706/0x50708/0x5070e`). It lodges each active character with the current
+town and side before the existing Sign In transition. The World CD Inn
+requests `newbrigh.m` with fade 128 when its entry flag is clear
+(`0x394cb..0x394f4`). The pin agrees on these doors and song name.
+Darkside Inn access remains deferred at the M102 Part 0 baseline; these
+findings do not change the shared saved roster/lodging semantics.
+[Evidence](evidence.md#darkside-towns-m102-part-0).
 
 ## Inn input and refusals
 
