@@ -41,8 +41,8 @@ void arrays() {
 }
 void refusals() {
 	Fixture f;auto &p=f.initial;
-	refused(p,Status::SameOwner,0,0,static_cast<Category>(255),99);
-	p.party=XeenParty::fromRosterIds({0,0,1});refused(p,Status::SameOwner);
+	refused(p,Status::InvalidCategory,0,0,static_cast<Category>(255),99);
+	p.party=XeenParty::fromRosterIds({0,0,1});refused(p,Status::EmptySource);
 	p.party=XeenParty::fromRosterIds({0,1});
 	refused(p,Status::InvalidParticipant,0,29);refused(p,Status::InvalidParticipant,9,0);
 	refused(p,Status::InvalidCategory,0,1,static_cast<Category>(255));
@@ -52,6 +52,15 @@ void refusals() {
 	p.roster.at(0).weapons[0].state=128;refused(p,Status::DestinationFull);
 	p.roster.at(1).rosterId=29;refused(p,Status::InvalidOwner);p.roster.at(1).rosterId=1;
 	p.party=XeenParty::fromRosterIds({});refused(p,Status::EmptyParty);
+}
+void ownOwner() {
+	Fixture f;auto &p=f.initial;auto &weapons=p.roster.at(0).weapons;
+	weapons[0]={0,6,0,1};weapons[1]={0,7,0,0};
+	const auto moved=xeenTransferItem(p,0,0,Category::Weapons,0);
+	check(moved.status==Status::Success && moved.destinationSlot==1 && weapons[0].id==7 && weapons[1].id==6 && weapons[1].frame==0,
+		"self-transfer moves and unequips the weapon");
+	for(unsigned i=0;i<9;++i)weapons[i]={0,6,0,0};
+	refused(p,Status::DestinationFull,0,0,Category::Weapons,0);
 }
 void conditions() {
 	for(unsigned condition=0;condition<=16;++condition) for(bool recipient:{false,true}) for(int hp:{-32768,0,32767}) {
@@ -105,4 +114,4 @@ void rules() {
 	}
 }
 }
-int main(){try{arrays();refusals();conditions();rules();std::cout<<"Item transfer arrays, precedence, conditions and independent rules passed\n";return 0;}catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}
+int main(){try{arrays();refusals();ownOwner();conditions();rules();std::cout<<"Item transfer arrays, precedence, conditions and independent rules passed\n";return 0;}catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}

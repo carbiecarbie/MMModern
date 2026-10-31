@@ -33,7 +33,7 @@ XeenTransferResult xeenTransferItem(XeenPartyState &party, std::size_t source,
 	auto &src = party.roster.at(ids[source]);
 	auto &dst = party.roster.at(ids[destination]);
 	if (src.rosterId != ids[source] || dst.rosterId != ids[destination]) return {Status::InvalidOwner};
-	if (ids[source] == ids[destination]) return {Status::SameOwner};
+	const bool sameOwner = ids[source] == ids[destination];
 	auto *sourceItems = xeenInventoryItems(src, category);
 	auto *destinationItems = xeenInventoryItems(dst, category);
 	if (!sourceItems) return {Status::InvalidCategory};
@@ -45,23 +45,24 @@ XeenTransferResult xeenTransferItem(XeenPartyState &party, std::size_t source,
 	auto candidateSource = src;
 	auto candidateDestination = dst;
 	auto &s = *xeenInventoryItems(candidateSource, category);
-	auto &d = *xeenInventoryItems(candidateDestination, category);
+	auto &d = *xeenInventoryItems(sameOwner ? candidateSource : candidateDestination, category);
 	d.back() = item;
 	s[slot] = {};
 	d.back().frame = 0;
 	xeenCompactItems(s);
-	xeenCompactItems(d);
+	if (!sameOwner) xeenCompactItems(d);
 	try {
 		XeenCharacterRules::validateForUse(candidateSource, {party.encounterContext ? std::uint32_t(party.encounterContext->year) : kCloudsInitialYear});
-		XeenCharacterRules::validateForUse(candidateDestination, {party.encounterContext ? std::uint32_t(party.encounterContext->year) : kCloudsInitialYear});
+		if (!sameOwner) XeenCharacterRules::validateForUse(candidateDestination, {party.encounterContext ? std::uint32_t(party.encounterContext->year) : kCloudsInitialYear});
 	} catch (const std::invalid_argument &) { return {Status::UnsafeRules}; }
 	XeenTransferResult result{Status::Success, ids[source], ids[destination], 0, item};
 	for (const auto &record : *destinationItems) if (record.id) ++result.destinationSlot;
+	if (sameOwner) --result.destinationSlot;
 	static_assert(std::is_nothrow_copy_assignable_v<XeenItemCategory>);
 	static_assert(std::is_nothrow_copy_constructible_v<XeenTransferResult>);
 	// Unobservable publication segment. The second assignment is the commit point.
 	*sourceItems = s;
-	*destinationItems = d;
+	if (!sameOwner) *destinationItems = d;
 	return result;
 }
 const char *xeenTransferMessage(XeenTransferStatus status) noexcept {
