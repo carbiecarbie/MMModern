@@ -548,6 +548,19 @@ Validation of the pinned commit completed with:
 Real-data smoke tests require a legally obtained World of Xeen installation;
 original game data is never part of MMModern or its dependency checkout.
 
+### Configuration without original data
+
+`-DMMODERN_WITHOUT_ORIGINAL_DATA=ON` (off by default) configures without
+`MMODERN_XEEN_DATA_DIR`, `MMODERN_XEEN_AUDIO_DIR`, `MMODERN_XEEN_UI_DATA`, the
+capture directories and the MT-32 ROM directory; any such value given is
+ignored. Every test whose command line needs one of them is not registered;
+the remaining tests register exactly as in a default configuration, which
+`cmake/MMModernWithoutOriginalData.cmake` implements by filtering `add_test`
+and `set_tests_properties`. With the option off nothing changes. It only
+removes the data requirement: the toolchain above, the pinned ScummVM
+artifacts and the PowerShell catalog generator are still required, and the
+complete suite still needs the original data.
+
 ## Release packaging
 
 A release zip is built from the tested `build-rel` executable after the complete
