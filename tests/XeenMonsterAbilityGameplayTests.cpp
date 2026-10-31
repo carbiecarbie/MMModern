@@ -245,6 +245,7 @@ void publishedEffects() {
 		h.run([&](const auto &handler,const auto &idle) {
 			waitAndSettle(h,handler,idle);
 			check(h.flow->encounter()->state().phase()==XeenEncounterPhase::SupportStopped && h.flow->encounter()->state().reason()==XeenEncounterStop::Defeat,"Eradicating the whole party ends the Journey");
+			check(h.flow->encounter()->playerNotice().empty(),"Defeat does not display an unsupported-action notice");
 			for (unsigned i=0;i<6;++i) {
 				const auto &c=h.member(i);
 				check(c.conditions[15]==1 && c.currentHp<=0 && c.weapons[0].state==0x80 && c.weapons[0].frame==0 && c.weapons[5].state==0x80 && c.armor[0].state==0x80 && c.accessories[0].state==0x80 && c.miscellaneous[0].state==0x80,"Eradication published to every inventory byte");

@@ -179,7 +179,7 @@ std::string XeenEncounterFlow::playerNotice() const {
         if(_combat->phase()==XeenCombatPhase::SupportStopped)return "This combat action is not supported yet.";
         return _combatCastRefusal;
     }
-    if(_state.phase()==XeenEncounterPhase::SupportStopped)return "This action is not supported yet.";
+    if(_state.phase()==XeenEncounterPhase::SupportStopped && _state.reason()!=XeenEncounterStop::Defeat)return "This action is not supported yet.";
     return _journeyRefusal;
 }
 
