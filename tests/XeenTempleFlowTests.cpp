@@ -299,6 +299,18 @@ void revisionLimits(Inputs &in) {
         "Temple publication capacity failure lost unpaid exit reservation");
 }
 void quotePreview(Inputs &in) {
+    {
+        auto source=injured(in);
+        auto &i=source.journey->supplements[6].inputs;
+        i.resistances->fireTemporary=i.resistances->coldTemporary=i.resistances->electricalTemporary=5;
+        i.resistances->energyTemporary=i.resistances->magicTemporary=i.poisonResistance->temporary=5;
+        TempleFixture fixture(in,source);
+        const auto heal=xeenPrepareTempleHeal(fixture.p,6,*fixture.p.encounterContext,XeenMapIdentity(28));
+        const auto &r=*heal.inputs.resistances;
+        check(heal.result.outcome==XeenTempleHealOutcome::Healed && !r.fireTemporary && !r.coldTemporary &&
+            !r.electricalTemporary && !r.energyTemporary && !r.magicTemporary && !heal.inputs.poisonResistance->temporary,
+            "Paid Temple Heal must clear all six temporary resistances");
+    }
     for(unsigned scenario=0;scenario<4;++scenario) {
         auto source=injured(in);auto &c=source.characters[6];
         c.conditions.fill(0);c.currentHp=1;c.endurance.permanent=13;

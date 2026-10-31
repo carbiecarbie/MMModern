@@ -718,6 +718,9 @@ Clouds Tavern uses this path. [Evidence and limits](evidence.md#other-town-servi
 
 ## Temple Heal price
 
+Paid Heal clears all six temporary resistances (`0x1ade7..0x1ae00`), as well
+as temporary attributes and level before assigning HP.
+
 **DOS static (2026-10-16), high confidence.** Price routine
 `WORLD/XEEN.DAT` `0x1c9ce..0x1cd3e`, calibrated against the reference
 formula it shares and against the Vertigo prices of the original-data Temple

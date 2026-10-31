@@ -116,6 +116,7 @@ XeenTempleHealCandidate xeenPrepareTempleHeal(const XeenPartyState &party,std::u
     c.temporaryLevel=0;
     i.might.temporary=0;i.speed.temporary=0;i.accuracy.temporary=0;i.temporaryAc=0;
     i.luck->temporary=0;i.resistances->coldTemporary=0;i.resistances->electricalTemporary=0;
+    i.resistances->fireTemporary=0;i.resistances->energyTemporary=0;i.resistances->magicTemporary=0;
     i.poisonResistance->temporary=0;
     // The reference assigns HP before clearing conditions. Disease can therefore
     // leave current HP below the final healthy maximum.
