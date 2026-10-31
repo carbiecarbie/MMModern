@@ -31,8 +31,8 @@ void continuations(){
 	auto r=e.resume(s);s=pending(r);
 	check(xeenPrepareRewardReceipt(s.treasure).count==1&&s.reward.phase==XeenRewardPhase::Running&&s.callStack.empty()&&s.instructionCount==4,"Call/Return delivered early or lost staging");
 	s=pending(e.resume(s));check(s.reward.receipt.delivered==1&&s.instructionCount==5,"Call/Return finalization count");
-	for(auto bad:std::vector<XeenEventRecord>{record(1,1,1,0x1a),record(1,1,1,0x19,{99,99,0}),
-		record(1,1,1,9,{20,7,99}),record(1,1,1,0x2c,{69,37,0,1}),record(1,1,1,12,{21,167,0,0}),
+	for(auto bad:std::vector<XeenEventRecord>{record(1,1,1,0x1a),
+		record(1,1,1,0x2c,{69,37,0,1}),record(1,1,1,12,{21,167,0,0}),
 		record(1,1,1,12,{104,30,0,0})}){
 		Execution x;auto state=x.seed({pause(),bad});state.workingGameFlags.set(7);
 		auto result=x.resume(state);const auto &error=std::get<XeenEventExecutionError>(result);

@@ -57,6 +57,16 @@ void finish(Fixture &f,bool answer=false) {
 }
 void pass(Fixture &f){f.present(f.flow->completeExplorationInput());finish(f,true);}
 int health(const Fixture &f){int hp=0;for(auto owner:f.p.party.activeRosterIds())hp+=f.p.roster.at(owner).currentHp;return hp;}
+void missingJump(Inputs &in) {
+ auto source=at(in,66,8,1,XeenDirection::North);source.gameFlags[26]=true;
+ Fixture f(in,source);auto candidate=f.w.transitionCandidate();XeenPartyState party;
+ candidate->copyEventParty(f.p,party);
+ const auto script=[&](auto id){return XeenEventScript(in.events.load(id));};
+ const auto text=[&](auto id){return in.texts.load(id);};XeenEventInterpreter vm;
+ const auto result=vm.begin(f.c,party,f.f,*candidate,script,text);
+ const auto *completed=std::get_if<XeenEventExecutionCompleted>(&result);
+ check(completed && completed->instructionCount==2,"Clouds 66 missing line 200 quietly ends the Event");
+}
 void trap(Inputs &in) {
  const auto source=at(in,26,8,3,XeenDirection::North);
  for(unsigned kind=0;kind<4;++kind) {
@@ -648,7 +658,7 @@ int main(int argc,char **argv){try {
  if(argc==3) {if(std::string(argv[2])=="border")pendingBorder(in);else skullCase(in,argv[2]);return 0;}
  locationArtPendingScene(in);damagePendingScene(in);damagePendingScene(in,true);damagePendingScene(in,true,true);
  cartographerEvents(in);skullCase(in,"fresh");skullCase(in,"explored");skullCase(in,"eye");pendingBorder(in);
- trap(in);rubble(in);for(unsigned variant=0;variant<3;++variant)rubbleFlow(in,variant);trapScene(in,55,7,8,5,87);trapScene(in,33,3,15,0,89);manualRefusalScene(in);outdoorScene(in);darkPendingScene(in);label(in);guardedNpc(in);combatLabels(in);combatTrap(in);std::cout<<"M84 original-data Event passes OK\n";return 0;
+ missingJump(in);trap(in);rubble(in);for(unsigned variant=0;variant<3;++variant)rubbleFlow(in,variant);trapScene(in,55,7,8,5,87);trapScene(in,33,3,15,0,89);manualRefusalScene(in);outdoorScene(in);darkPendingScene(in);label(in);guardedNpc(in);combatLabels(in);combatTrap(in);std::cout<<"M84 original-data Event passes OK\n";return 0;
 }catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}
 
 

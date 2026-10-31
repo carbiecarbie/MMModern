@@ -137,6 +137,9 @@ The Event tail has two alternatives, for manual and automatic calls alike:
 The window does not require Space and does not test the Event flag. Sound 21
 is suppressed on a flagged cell. An other-facing candidate must match the
 current script position and requested line; an unrelated record is insufficient.
+An explicit jump or CallEvent whose target has no record reaches the same normal
+Event tail (`0x26afa..0x26b1f`, `0x28d41..0x28d50`); a missing call does not
+resume its caller. **Evidence: DOS static, high confidence.**
 The marker persists across scans. The executed marker is set by instruction
 paths, not merely by finding a record: even a failed If sets it, and CallEvent
 sets it before its target scan (`0x283c0`, `0x28a2b`, `0x28b2b`). Zero opcodes,

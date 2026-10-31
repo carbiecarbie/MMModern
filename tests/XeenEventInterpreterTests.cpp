@@ -266,8 +266,8 @@ void testConditions() {
 	missingJump.scripts.emplace(1, script(1, {
 		record(1, 1, 0, 0x09, {9, 2, 8})
 	}));
-	failure(missingJump.execute(camera, party, flags),
-		XeenEventExecutionErrorKind::InvalidJumpTarget);
+	check(success(missingJump.execute(camera, party, flags)).instructionCount == 1,
+		"taken jump to a missing line completes the Event");
 
 	Fixture untakenMissingJump;
 	untakenMissingJump.scripts.emplace(1, script(1, {
@@ -316,10 +316,15 @@ void testCallsReturnsAndStack() {
 	missingTarget.scripts.emplace(1, script(1, {
 		record(1, 1, 0, 0x19, {75, 102, 9})
 	}));
-	const auto missing = failure(missingTarget.execute(camera, party, flags),
-		XeenEventExecutionErrorKind::InvalidCallTarget);
-	check(missing.requestedTarget && missing.requestedTarget->x == 75 &&
-		missing.requestedTarget->y == 102, "missing CallEvent target metadata");
+	check(success(missingTarget.execute(camera, party, flags)).instructionCount == 1,
+		"call to a missing line completes the Event");
+	Fixture missingNested;
+	missingNested.scripts.emplace(1, script(1, {
+		record(1, 1, 0, 0x19, {75, 75, 0}), record(1, 1, 1, 0xff),
+		record(75, 75, 0, 0x19, {76, 76, 0}), record(75, 75, 1, 0xff)
+	}));
+	check(success(missingNested.execute(camera, party, flags)).instructionCount == 2,
+		"missing nested call ends the Event without returning to either caller");
 
 	Fixture negative;
 	negative.scripts.emplace(1, script(1, {record(1, 1, 0, 0x19, {0xff, 1, 0})}));

@@ -710,18 +710,9 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 			static_cast<std::uint8_t>(logical.x),
 			static_cast<std::uint8_t>(logical.y), state.lookupDirection,
 			static_cast<std::uint8_t>(logical.line));
-		if (!recordIndex) {
-			if (missingPolicy == MissingInstructionPolicy::NaturalCompletion)
-				return finalize();
-			const auto kind = missingPolicy == MissingInstructionPolicy::ExplicitCall ?
-				XeenEventExecutionErrorKind::InvalidCallTarget :
-				XeenEventExecutionErrorKind::InvalidJumpTarget;
-			return error(kind,
-				missingPolicy == MissingInstructionPolicy::ExplicitCall ?
-					"explicit CallEvent target does not exist" :
-					"explicit conditional jump target does not exist",
-				instructionCount, logical, pendingTransferSource, logical);
-		}
+		// DOS exhausts the line scan and completes the Event even after a jump
+		// or call to a missing record (0x26afa..0x26b1f, 0x28d41..0x28d50).
+		if (!recordIndex) return finalize();
 		pendingTransferSource.reset();
 
 		const XeenEventRecord effective = world.effectiveEvent(

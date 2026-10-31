@@ -218,8 +218,9 @@ void errorsAndRemove() {
 		check(f.world.isObjectDisabled({2,0})==(mode==2) && !f.world.isObjectDisabled({2,1}) &&
 			f.world.sessionState().disabledEventCount()==(mode==2?2:0),"Remove persistence/failure scope");}
 	Fixture invalid;invalid.scriptAt({set(),set(1,30)});error(invalid.begin(),Kind::InvalidFlagIndex);check(invalid.members.questFlags.isSet(2),"later invalid set rolled back earlier set");
-	Fixture target;target.scriptAt({set(),record(1,1,1,0x19,{7,8,9})});error(target.begin(),Kind::InvalidCallTarget);
-	check(target.members.questFlags.isSet(2),"bad target rolled back prior set");
+	Fixture target;target.scriptAt({set(),record(1,1,1,0x19,{7,8,9})});
+	check(std::holds_alternative<XeenEventExecutionCompleted>(target.begin()),"missing call target completes");
+	check(target.members.questFlags.isSet(2),"missing target keeps prior set");
 }
 }
 int main(){try{valuesAndLoading();validation();clearing();lifetimeAndCancellation();errorsAndRemove();
