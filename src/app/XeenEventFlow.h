@@ -431,8 +431,8 @@ private:
     std::optional<IndexedFrame> advancePortraitSequence();
     bool portraitSequenceActive() const noexcept {return _portraitSequence.has_value();}
     struct FallSequence {
-        IndexedFrame top,bottom,art;
-        unsigned image=0;
+        IndexedFrame top,bottom,art,first; // first: image 0 behind "Oops..."
+        unsigned image=0,oops=0;
         std::uint64_t deadline=0;
         bool acquired=false;
         std::uint64_t eventGeneration=0;
@@ -440,6 +440,7 @@ private:
     std::optional<FallSequence> _fallSequence;
     void beginFall(const IndexedFrame &,const IndexedFrame &,std::uint64_t eventGeneration=0);
     void drawFallImage(FallSequence &);
+    void startFallCry();
     std::optional<IndexedFrame> advanceFall();
 
     struct NpcSequence {

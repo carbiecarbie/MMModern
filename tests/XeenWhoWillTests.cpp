@@ -284,9 +284,10 @@ void directResponses() {
         a.updatePresentation();b.updatePresentation();
 		check(completed && !a.blocksGameplay() && !b.blocksGameplay() && !a.respond(generation,response),"direct completion/replay");
 		check(a.frame().pixels==b.frame().pixels,"direct response left different presentation");
-		check((mode==3 || mode==2 || mode==0 || mode==1)?a.frame().pixels==before.pixels:a.frame().pixels!=before.pixels,"sprite-free synthetic confirmations must not paint substitute controls");
+		check((mode==2 || mode==0 || mode==1)?a.frame().pixels==before.pixels:a.frame().pixels!=before.pixels,"sprite-free synthetic confirmations must not paint substitute controls");
 		check(a.frame().pixels!=direct.base.pixels,"passive text lost on response");
-		if(mode!=3)check(a.frame().pixels==sign.pixels,"consumed UI did not restore exact retained sign");
+		// The run's CloseAll removes the bottom window (mode 3) but keeps the sign label.
+		check(a.frame().pixels==sign.pixels,"consumed UI did not restore exact retained sign");
 		direct.base.pixels.assign(64000,3);input.base=direct.base;
 		check(a.refresh(true).pixels==b.refresh(true).pixels,"direct response rebase restored consumed layer");
 	}

@@ -637,6 +637,10 @@ from the original source/destination views. Source offsets are
 scene. Each waits one 70-Hz VGA retrace; the enclosing full draw also has its
 two-BIOS-tick minimum. Scream stops after offset 132, before the four impact
 images; [audio](audio.md#voc-inventory-boundaries) gives the cue sites.
+Before them, the destination load shows "Oops..." in window 9 over the
+unchanged source view; MMModern keeps it for four retraces
+([approved deviation](../original-quirks.md#dev-fall-oops)), then starts FM 11,
+the scream and the scared portraits with image 0.
 `XeenEventFlow::beginFall` is the single presentation entry used by terrain
 transitions (including the manual-step path) and scripted falls. Input follows
 the existing blocking-presentation policy; repaint and unacquired frames do

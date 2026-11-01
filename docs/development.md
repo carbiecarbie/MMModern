@@ -173,6 +173,14 @@ only its site's key, except that refused Tower is at 21:00, and keyed town
 is at 21:00 with Efx off to show its caption. Other variants start at 10:00.
 The generator prints each exact coordinate and facing.
 
+`m103-choice` and `m103-fall` use the same party and start on the cells of
+Darkside map 31 `EVT @2362` (an NPC's numbered choice) and map 8 `EVT @503`
+(a scripted fall to map 40). `m103-fall` empties every member's spell points,
+which sends that Event to its fall. `m103-enter-vertigo`, `m103-dragon-cave`
+and `m103-dwarf-mine` use the level-30 `m78-playtest` party on the cells of
+Clouds map 23 `EVT @1207`, map 17 `@39` and map 34 `@0`, Events whose
+question stays open when answered N; the starting map's monsters are defeated.
+
 ```powershell
 .\build-rel\mmodern_test_save.exe m102-playtest "F:/Games/gog/Might and Magic 4-5" "D:/Projetos/MModern/MModern-playtest/m102/m102-playtest.mmsave"
 ```

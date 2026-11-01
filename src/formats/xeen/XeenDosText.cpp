@@ -71,6 +71,7 @@ const std::vector<XeenDosText::Field> &XeenDosText::layout() {
   {"WARZONE_SUFFIXES",0x53c8e,0x53cb6,10,true,""},
   {"WHATS_THE_PASSWORD",0x53c0a,0x53c1f,1,false,""},
   {"NOTHING_HERE",0x53c47,0x53c55,1,false,""},
+  {"OOPS",0x52714,0x52726,1,false,""},
   {"WORD_INPUT_WINDOW",0x539ce,0x539dc,1,false,"s"},
   {"CAST_SPELL_DETAILS",0x546da,0x54760,1,false,"s,s,u,u,u"},
   {"DETECT_MONSTERS",0x5424b,0x5425d,1,false,""},

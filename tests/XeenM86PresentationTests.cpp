@@ -18,6 +18,7 @@ extern "C" void __wrap__ZN7mmodern9XeenAudio11stopDigitalEy(XeenAudio *audio,std
 namespace mmodern {
 struct XeenRestTestAccess {
  static std::optional<unsigned> fall(const XeenEventFlow &f) {return f._fallSequence?std::optional<unsigned>{f._fallSequence->image}:std::nullopt;}
+ static unsigned oops(const XeenEventFlow &f) {return f._fallSequence?f._fallSequence->oops:0;}
  static void compose(XeenEventFlow &f,XeenEventFlow::EncounterCompose scene,XeenEventFlow::TransitionCompose arrival) {
   f._encounterCompose=std::move(scene);f._transitionCompose=std::move(arrival);
  }
@@ -111,6 +112,15 @@ std::vector<std::uint8_t> fall(Inputs &in,const GameInstallation &installation,b
  observedAudio=enabled?f.programState.audio.get():nullptr;digitalCommands=&cues;
  f.act(WaitAction{});
  for(unsigned n=0;!XeenRestTestAccess::fall(*f.flow);++n){check(n<200,"Cloud fall never started");tick(f);}
+ // The destination load's "Oops..." window precedes the cry for four retraces.
+ unsigned oops=0;
+ for(;XeenRestTestAccess::oops(*f.flow);++oops) {
+  check(oops<4 && cues.empty() && f.c.mapId==s.camera.mapId,"Oops window timing, early cry or early arrival");
+  const auto retained=f.flow->frame().pixels;f.present(f.flow->refresh(true));
+  check(f.flow->frame().pixels==retained,"Oops repaint advanced the fall");
+  tick(f);
+ }
+ check(oops==4,"Oops window must last four retraces");
  check(enabled?cues==std::vector<std::string>{"11","scream.voc"}:cues.empty(),"Fall start cue order/Efx gate");
  std::vector<unsigned> images;
  for(unsigned n=0;XeenRestTestAccess::fall(*f.flow);++n) {

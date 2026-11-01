@@ -611,8 +611,9 @@ void testCombinedIndoorRemoveLifecycle(const GameInstallation &installation) {
 			check(postRemove.pixels[static_cast<std::size_t>(y) * 320 + x] ==
 				postBase.pixels[static_cast<std::size_t>(y) * 320 + x],
 				"removed indoor object left ghost pixels beneath retained presentation");
-	check(postRemove.pixels != postBase.pixels,
-		"indoor Remove completion discarded the retained bottom presentation");
+	// The run ends with CloseAll (DAT 0x28e92), closing the bottom window too.
+	check(postRemove.pixels == postBase.pixels,
+		"indoor Remove completion kept its closed bottom window");
 
 	const int oldMaps = sources.maps, oldObjects = sources.objects,
 		oldScripts = sources.scripts;

@@ -880,12 +880,24 @@ void XeenEventFlow::retainManualPrefix(bool party,std::optional<std::uint16_t> p
 void XeenEventFlow::beginFall(const IndexedFrame &top,const IndexedFrame &bottom,std::uint64_t eventGeneration) {
  if(_fallSequence || !_transition)throw std::logic_error("Falling presentation is unavailable");
  FallSequence sequence;sequence.top=top;sequence.bottom=bottom;sequence.eventGeneration=eventGeneration;
+ const auto source=top;
  if(drawDialogSprite)for(const auto &portrait:CloudsUiComposer::buildPortraitPlacements(_party,_party.party.activeOrder().mask()))
   drawDialogSprite(sequence.top,portrait.resourceName.c_str(),4,portrait.x,portrait.y);
  // Keep a failed first composition retryable before installing either fall owner.
  drawFallImage(sequence);
+ if(dialogText) {
+  // The destination load shows "Oops..." in window 9 over the source view
+  // (maintainer, 2026-11-01: kept for four retraces as in the DOSBox capture).
+  XeenTextRenderOptions options;options.drawWindow=true;options.originalControls=true;
+  options.windowBounds={103,156,217,186};options.bounds={111,164,209,178};options.x=111;options.y=164;
+  sequence.first=std::move(sequence.art);sequence.oops=4;
+  sequence.art=XeenTextRenderer(_inventoryFont).render(source,std::string(dosText().scalar("OOPS")),options).pages.at(0);
+ }
  _presenter.clear();_journeyEventLayers=false;
  _fallSequence=std::move(sequence);
+ if(!_fallSequence->oops)startFallCry();
+}
+void XeenEventFlow::startFallCry() {
  const auto now=presentationNow();_encounter->_lastNanoseconds=now;_encounter->_lastTime=now/1000000;
  _encounter->fmEffect(11);
  _encounter->digitalSample("scream.voc",XeenSceneArchive::Clouds,now);
@@ -902,6 +914,12 @@ std::optional<IndexedFrame> XeenEventFlow::advanceFall() {
  const auto now=presentationNow();if(now<_fallSequence->deadline)return {};
  DispatchScope dispatch(_dispatching);
  return journeyEventWork([&] {
+  if(_fallSequence->oops) {
+   // Window 9 closes after the load; then the cry and the scared portraits.
+   _fallSequence->acquired=false;
+   if(--_fallSequence->oops)return;
+   _fallSequence->art=std::move(_fallSequence->first);startFallCry();return;
+  }
   if(_fallSequence->image+1==XeenScenePresentation::fallOffsets.size()) {
    if(const auto generation=_fallSequence->eventGeneration) {
     _fallSequence.reset();
@@ -1749,9 +1767,10 @@ template<class Result> IndexedFrame XeenEventFlow::drive(Result result, bool aut
 
 		// Adopt ownership before composition, reporting or presentation can fail.
 		auto *suspended = std::get_if<XeenEventExecutionSuspended>(&result);
-        if(!suspended && _presenter.hasNpcOffer()) {
-            // DAT 0x28e92 -> CloseAll closes window 11, without Stop Audio.
-            _presenter.closeNpcOffers();_npcSequence.reset();reconstruct=true;
+        if(!suspended && _presenter.hasEventWindows()) {
+            // DAT 0x28e92 -> CloseAll closes every Event window (11, 12, 38,
+            // 40), without Stop Audio; door/sign labels stay until movement.
+            _presenter.closeEventWindows();_npcSequence.reset();reconstruct=true;
         }
 		if (suspended && journey() && (suspended->request.kind==XeenPresentationKind::ArmorRepairService ||
 			 suspended->request.kind==XeenPresentationKind::TempleService ||

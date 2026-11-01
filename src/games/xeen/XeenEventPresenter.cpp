@@ -173,7 +173,8 @@ int XeenEventPresenter::numericY(unsigned index) const {
 IndexedFrame XeenEventPresenter::drawNumeric(const IndexedFrame &base,const XeenPresentationRequest &request) const {
     if(!_spriteDraw || !request.numeric)throw std::invalid_argument("Numeric choices require original sprites and targets");
     auto frame=base;
-    _spriteDraw(frame,"choose.icn",7,232,74);
+    // Global frame 7 covers the command icons, as for Yes/No (0x24c71).
+    _spriteDraw(frame,"global.icn",7,232,74);
     // DOS refreshes compact window 40 after the background, before the numbers.
     for(const auto &layer:_layers)if(layer.request.npc && layer.request.npcBodyHidden) {
         frame=layoutCompactNpc(frame,layer.request).pages.front();
@@ -243,9 +244,22 @@ bool XeenEventPresenter::hasNpcOffer() const {
 	});
 }
 
-void XeenEventPresenter::closeNpcOffers() {
+namespace {
+// Door/sign labels are redrawn by the scene until the party moves; every
+// other Event window closes with the run (DAT 0x28e92 -> 0x0dd80).
+bool sceneLabel(XeenPresentationKind kind) {
+    return kind==XeenPresentationKind::SceneLabelReduced || kind==XeenPresentationKind::SceneLabelNormal ||
+        kind==XeenPresentationKind::SceneLabelSign || kind==XeenPresentationKind::SceneLabelSignReduced;
+}
+}
+
+bool XeenEventPresenter::hasEventWindows() const {
+    return std::any_of(_layers.begin(),_layers.end(),[](const auto &layer){return !sceneLabel(layer.request.kind);});
+}
+
+void XeenEventPresenter::closeEventWindows() {
     _layers.erase(std::remove_if(_layers.begin(),_layers.end(),[](const auto &layer) {
-        return layer.request.npc && layer.request.npc->confirmationMode==2;
+        return !sceneLabel(layer.request.kind);
     }),_layers.end());
     _npcTiming={};
 }

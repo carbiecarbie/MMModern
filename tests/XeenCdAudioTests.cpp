@@ -174,9 +174,10 @@ void fallbackAndReaders(const GameInstallation &installation,XeenAssetSource &as
   check(!program.audio->cdBusy(now) && program.audio->retainedCdCue().has_value(),"NPC dismissal must stop without clearing operands");
   // Event messages retain their text independently of the NPC Text-off byte.
   for(unsigned retry=0;retry<4 && flow.blocksGameplay() && !flow.presentationGeneration();++retry){flow.framePresented(flow.frame().presentation());flow.updatePresentation();} // Retire the previous input pass.
-  script=remove_test::script(1,{remove_test::record(1,1,0,0x35,{1}),remove_test::record(1,1,1,0x12)});
+  // A Yes/No keeps the run open: its CloseAll would otherwise remove the text.
+  script=remove_test::script(1,{remove_test::record(1,1,0,0x35,{1}),remove_test::record(1,1,1,0x09,{44,0,2}),remove_test::record(1,1,2,0x12)});
    events.discardScriptCache();flow.handle(InteractionAction{false}); // Part 0: click preserves passive text; Space continues as Wait.
-  check(flow.frame().pixels!=base.pixels,"Text off hid an ordinary Event message");
+  check(flow.blocksGameplay() && flow.frame().pixels!=base.pixels,"Text off hid an ordinary Event message");
  }
 }
 void npcGeometry(XeenAssetSource &assets) {

@@ -933,7 +933,18 @@ stays documented here and in the plan that implements it.
   MMModern loads maps without delay and shows no box, so map changes are
   about that much faster than in DOS; the load itself, its timing in game
   time and every other effect are unchanged. **ScummVM:** approved
-  deviation; the pin loads the string but never shows it either.
+  deviation; the pin loads the string but never shows it either. The falling
+  variant, "Oops...", is kept ([fixed time](#dev-fall-oops)).
+
+- <a id="dev-fall-oops"></a> **"Oops..." for a fixed four retraces**
+  (maintainer, 2026-11-01). When a fall loads its destination, DOS shows
+  "Oops..." (DAT `0x52714`) in window 9 instead of "Please Wait...", for as
+  long as the load takes: four 70-Hz frames in the maintainer's DOSBox capture
+  of Darkside map 8 `EVT @503`. MMModern keeps this box for its narrative role
+  and shows it for those four retraces over the source view, before the cry
+  and the scared portraits, in terrain and Event falls alike
+  (`XeenEventFlow::beginFall`). **ScummVM:** approved deviation; the pin
+  shows the box only while its instant load runs.
 
 - <a id="dev-no-disc-prompt"></a> **No disc-change prompt** (maintainer,
   2026-10-30, approved deviation). The DOS Pyramid crossing shows

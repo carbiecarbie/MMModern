@@ -249,7 +249,7 @@ void numericChoices() {
     q.numeric=XeenEventChooseNumeric{{2,3,4,5,6,7,8,9}};
     for(bool compact:{false,true,false}) {
         presenter.clear();q.numeric->lines.resize(compact?2:8);q.npcBodyHidden=compact;sprites.clear();presenter.present(frame(),q);
-        check(sprites.front()==std::make_tuple(std::string("choose.icn"),7u,232,74),"numeric background frame/position");
+        check(sprites.front()==std::make_tuple(std::string("global.icn"),7u,232,74),"numeric background frame/position");
         const auto input=presenter.input();
         for(unsigned i=0;i<=q.numeric->lines.size();++i) {
             const auto &h=input.hits[i];const int y=compact && i<3?101:75+21*int(i/3);

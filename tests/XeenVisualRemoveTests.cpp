@@ -157,7 +157,9 @@ void presentation(XeenAssetSource &assets,const std::filesystem::path &out) {
 		visual_remove_test::save(f.flow.frame(),out/"synthetic-presentation.bmp");
 		yes?f.flow.handle(YesAction{}):f.flow.handle(NoAction{});
 		check(!f.flow.blocksGameplay() && f.flags.isSet(5),"choice did not complete transaction");
-		check(f.flow.frame().pixels!=effective.pixels,"completion erased valid text");
+		// The run ends with CloseAll (DAT 0x28e92): the scene returns without the text.
+		for(int y=8;y<140;++y)for(int x=8;x<223;++x)
+			check(f.flow.frame().pixels[y*320+x]==effective.pixels[y*320+x],"completion kept the closed Event text");
 		f.flow.handle(NavigationAction::TurnRight);check(f.camera.direction==XeenDirection::East,"navigation did not resume");
 	}
 }

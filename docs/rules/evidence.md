@@ -1836,6 +1836,30 @@ the plan before any implementation that requires one. Actual input feel,
 rendered timing and audio equivalence remain runtime checks, not new static
 claims or reasons to repeat already settled rule tests.
 
+### Event run end closes every window
+
+**Status: DOS static, high confidence; matches the maintainer's DOSBox
+play-test (2026-11-01).** Same DAT hash. A Darkside numbered choice left its
+text on screen in MMModern but not in DOS. ChooseNumeric's exit does not
+cause it: `0x24e9a..0x24ee9` pops the text-writer state, restores the button
+Y values, mode byte and button sprites, then runs the main-icon print
+`0x1e440` (closes windows 38 and 12, draws global frame 7 and the buttons,
+refreshes compact window 40, updates window 34). It leaves window 11 open.
+The run's end clears it: Exit (dispatch index 17) and the natural end reach
+cleanup `0x28d50`, then CloseAll `0x28e92 -> 0x0dd80`. CloseAll walks the
+window stack (`DS:0x9843`, open flags `DS:0x986c+id`) and closes each open
+window through `0x44c3b`, which copies back the area saved at open (`0x44961`)
+and updates it at once (`0x44daf`, page flip `0x44663..0x44678`). DisplayMain
+(`0x26d8b`) leaves window 11 open until then; Display0x01 uses window 38.
+Door/sign labels (opcodes 2, 3, 4, 39, `0x26f48..0x26f86`) instead set flag
+`0x3066`, and draw3d redraws their text into window 3 until exploration
+clears it (`0x117b6..0x117cf`; clears at `0xc930`, `0xd023`, `0xd448`,
+`0xd472`). Calibration: the NPC Text-off close at `0x257ae` uses the same
+close routine and the open-flag array the window-11 scene gate reads
+(`0x9877`). The pin agrees (`windows.closeAll()` at the end of
+`checkEvents`). The maintainer's DOSBox comparisons on Clouds maps 23, 17
+and 34 (a Yes/No question answered N) show the same.
+
 ## Other town services (2026-10-20)
 
 **DOS static, high confidence for the stated paths.** MMModern baseline

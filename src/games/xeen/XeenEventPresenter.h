@@ -49,7 +49,8 @@ public:
 
 	bool hasNpcOffer() const;
  bool forcedText() const {return _request.forceText;}
-	void closeNpcOffers();
+	bool hasEventWindows() const;
+	void closeEventWindows(); // Keeps scene labels.
     bool window11Enabled() const;
     void restoreNpcText(const std::string &notice);
     void closeWindow12();

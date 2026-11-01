@@ -233,6 +233,15 @@ also draws before acknowledgement and restores saved treasure afterward.
 window and finishes the call before starting combat, for automatic and manual
 calls alike. The nested-stash outcome is deliberately outside this evidence.
 
+Every Event run ends by closing all open windows (DOS static, high
+confidence, 2026-11-01): Exit and the natural end reach cleanup `0x28d50`, whose
+CloseAll `0x28e92 -> 0x0dd80` restores each window's saved background at once.
+Main (11), bottom (12), message (38) and compact NPC (40) text therefore
+disappear when the run ends, after any acknowledgement or answer, not when the
+party next moves. Only the door/sign labels below survive, because the scene
+redraws them. The pin agrees (`windows.closeAll()` in `checkEvents`).
+[Evidence](evidence.md#event-run-end-closes-every-window).
+
 Door text is set by label opcodes 2, 3, 4 and 39. Its drawing requires the flag
 and an empty slot 0. Movement/turn completion, Wait, gameplay entry and combat
 entry clear it. Text and numeric input temporarily clear it and restore the

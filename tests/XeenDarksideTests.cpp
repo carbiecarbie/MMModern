@@ -28,6 +28,7 @@ using namespace training_test;
 namespace mmodern {
 struct XeenEventDispatchTestAccess {
  static std::optional<unsigned> fallImage(const XeenEventFlow &f){return f._fallSequence?std::optional<unsigned>{f._fallSequence->image}:std::nullopt;}
+ static unsigned fallOops(const XeenEventFlow &f){return f._fallSequence?f._fallSequence->oops:0;}
  static std::optional<int> fallDamage(const XeenEventFlow &f){return f._pending && f._pending->state.pendingPresentation->request.fall?std::optional<int>{f._pending->state.pendingPresentation->request.fall->damage}:std::nullopt;}
  static bool inputPassPending(const XeenEventFlow &f){return f._encounter->_journeyCapture->inputPassPending;}
  static bool livePublication(const XeenEventFlow &f){return f._eventPublication!=nullptr;}
@@ -465,6 +466,12 @@ void partBEvents(Inputs &in,const XeenSaveSnapshot &source,const std::filesystem
   fall.tick();
  }
  check(XeenEventDispatchTestAccess::fallImage(*fall.flow)==0 && XeenEventDispatchTestAccess::fallDamage(*fall.flow)==7,"Live original fall did not enter M86 presentation with base damage 7");
+ // Four retraces of the destination load's "Oops..." window come first.
+ for(unsigned oops=0;oops<4;++oops) {
+  check(XeenEventDispatchTestAccess::fallOops(*fall.flow)==4-oops && fall.c.mapId==from,"Oops window order differs");
+  if(!failFirst && !oops)picture(fall.flow->frame(),out/"m103b-fall-oops.ppm");
+  fall.now+=15;fall.flow->beginCycle(++fall.cycle);if(auto next=fall.flow->updatePresentation())fall.present(*next);
+ }
  for(unsigned image=0;image<19;++image) {
   check(XeenEventDispatchTestAccess::fallImage(*fall.flow)==image && !fall.flow->canSave(),"Fall image order or save exclusion differs");
   check(fall.c.mapId==from && fall.p.roster.at(s.activeRosterIds[0]).currentHp==100,"Fall published arrival or damage ahead of final impact");
