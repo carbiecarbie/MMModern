@@ -1,80 +1,62 @@
 # Milestone 103 plan - Darkside Events
 
-**Tier B. Status: planned; not started.** Step 2 of the
-[Darkside arc](roadmap.md#darkside-arc).
+**Tier B. Status: completed and accepted by the maintainer (2026-11-01)**
+after the play-test. Plan `c78ed94`, DOS check (Part 0) `324c41b` and its
+fall-damage follow-up `cb64313`, exchanges, random jumps and enchanted
+rewards (Part A) `a3119e5`, numbered choices and scripted falls (Part B)
+`f136b72`, second password, unused wall slots and signed map-flag jumps
+(Part C) `db9c2c8`, play-test fixes `27eefe2`, and the closure commit. Step 2
+of the [Darkside arc](roadmap.md#darkside-arc).
 
-## Goal
+## Scope
 
-Every Event opcode that the ordinary Darkside maps (1-112) still refuse runs
-as the original does, on the existing Event decoder, interpreter, world and
-EventFlow owners, so that the census lists none of them as unsupported or
-partial on those maps. The mixed World of Xeen maps 113-128, FlipWorld (59)
-and the ending opcodes (57, 58) stay out (steps 3 and 4).
+Every Event opcode the ordinary Darkside maps (1-112) still refused, on the
+existing Event decoder, interpreter, world and EventFlow owners:
 
-| Opcode | Darkside gap today (census) |
+| Opcode | Darkside uses |
 | --- | --- |
-| 51 ExchObj | 68 uses on maps 30, 45-47, 53, 73-75, 77; outside the decoder subset |
-| 56 GotoRandom | 9 uses on maps 3, 7, 33; outside the decoder subset |
-| 44 GiveEnchanted | 92 rows: weapons, armor, accessories and quest items; only miscellaneous codes 70/71 are decoded |
-| 48 ChooseNumeric | 61 uses on 31 maps; outside the decoder subset |
-| 52 FallToMap | destinations 40, 49, 61, 62, 63 and 89 on 13 maps; outside the decoder subset |
-| 55 ConfirmWord_2 | 1 use on map 72; outside the decoder subset |
-| 34 MoveWallObj | maps 54, 55: the wall item named is beyond the map's wall-item count |
-| 42 IfMapFlag | map 29, monster 31: the Event preflight refuses it |
+| 51 ExchObj | 48 on nine maps |
+| 56 GotoRandom | 9 on maps 3, 7, 33 |
+| 44 GiveEnchanted | weapons, armor, accessories, Misc and quest codes |
+| 48 ChooseNumeric | 61 on 31 maps |
+| 52 FallToMap | 220 on 21 maps |
+| 55 ConfirmWord_2 | 1 on map 72 |
+| 34 MoveWallObj | 7 writes beyond the wall-item count on maps 54, 55 |
+| 42 IfMapFlag | map 29's signed jump lines |
 
-## Tasks
+The mixed World of Xeen maps 113-128, FlipWorld and the ending opcodes 57
+and 58 stayed out (steps 3 and 4).
 
-- [ ] **Part 0 - DOS check.** Calibrated static analysis of
-  `WORLD/XEEN.DAT` for each opcode above, against the pinned reference:
-  ExchObj (the reference changes a copy and does nothing; DOS writes object
-  x and y at `0x28a86..0x28ad6`, [evidence](rules/evidence.md)), the
-  GotoRandom draw and its range, the GiveEnchanted category split and
-  record fields, the ChooseNumeric prompt, keys and line table, FallToMap's
-  destination, position, Event end and fall presentation, ConfirmWord_2
-  against ConfirmWord, MoveWallObj on a slot beyond the count, and what
-  IfMapFlag does on map 29. Record the findings in
-  `docs/rules/evidence.md` and each difference from the reference in
-  `docs/original-quirks.md` before Part A. Questions DOS cannot settle go
-  to the maintainer, except condition-counter cases, which follow ScummVM.
-- [ ] **Part A - ExchObj, GotoRandom, GiveEnchanted.** ExchObj exchanges two
-  objects' positions as DOS does, through the object overrides MoveObj
-  already saves. GotoRandom draws once through the Journey RNG and jumps.
-  GiveEnchanted accepts every item category DOS accepts and writes the item
-  through the existing treasure arrays.
-- [ ] **Part B - ChooseNumeric and FallToMap.** ChooseNumeric shows the
-  original choice with the existing blocking-presentation policy (mouse and
-  keys) and jumps to the chosen line. FallToMap ends the Event and starts
-  the fall through `XeenEventFlow::beginFall`, reusing the M86 presentation
-  and arrival rules
-  ([time and conditions](rules/time-and-conditions.md)). Damage is the byte
-  DOS reads after the record; the three records that read past their Event
-  resource use 0 ([approved deviation](original-quirks.md#dev-fall-damage-zero)).
-- [ ] **Part C - ConfirmWord_2, MoveWallObj, map-29 IfMapFlag.** Each as
-  Part 0 settles it, on the existing ConfirmWord, wall-item and IfMapFlag
-  paths.
-- [ ] Regenerate `docs/coverage.md` with `mmodern_census` after each part.
+## Key decisions
 
-## Decisions and risks
+- **DOS check first** (Part 0, calibrated static analysis of
+  `WORLD/XEEN.DAT`; [evidence](rules/evidence.md#darkside-events-m103-part-0)).
+  DOS differs from the reference in ExchObj (DOS moves the live objects),
+  GiveEnchanted's Misc test and high codes, ChooseNumeric (Escape ignored,
+  last number cancels, compact Text-off layout), FallToMap damage, unused
+  wall slots and signed jump lines; each is in
+  [original quirks](original-quirks.md#darkside-event-rules-established-from-dos).
+- **Fall damage** is the byte DOS reads after the three-parameter record,
+  usually the next record's length (217 of 220 falls). The three records at
+  the end of their Event resource use 0
+  ([approved deviation](original-quirks.md#dev-fall-damage-zero)).
+- **Event windows close when the run ends** (play-test, 2026-11-01): DOS's
+  CloseAll removes every Event window, not only NPC windows; door and sign
+  labels stay until the party moves. This replaces the text retention
+  accepted in M18, for Clouds too
+  ([rule](rules/world-events.md#event-dispatch)).
+- **"Oops..." while falling** (maintainer, 2026-11-01): the falling variant
+  of the loading box is kept for four retraces, in terrain and Event falls
+  ([approved deviation](original-quirks.md#dev-fall-oops)).
+- **Save v23 unchanged** (schema 9, content 14): exchanged objects use the
+  saved object overrides, and unused wall slots need no saved state.
 
-- **Save v23 unchanged** (schema 9, content 14) is expected: object and
-  wall-item positions, treasure and fall destinations already have saved
-  owners, and no Event pauses across a save. If Part 0 finds state that must
-  be saved, stop and amend the plan first (a format change is Tier A).
-- GotoRandom adds one draw; the M44 digests must stay unchanged because no
-  Clouds Event uses opcode 56. Any digest change is a defect to explain.
-- A pick that leaves the plan's scope (a new presentation owner, a monster
-  or map rule the mixed maps need) stops the part and goes to the maintainer.
+## Results
 
-## Tests and acceptance
-
-- Unit tests for each opcode's rule as Part 0 settles it, including
-  GotoRandom's range and draw count, every GiveEnchanted category, and
-  ChooseNumeric's cancel and each choice.
-- A few original-data tests on Darkside maps: an ExchObj, a ChooseNumeric
-  choice, a FallToMap fall to its destination, and a GiveEnchanted weapon or
-  armor reward, each surviving a save and load round trip.
-- The census lists none of the opcodes above as refused on maps 1-112.
-- Complete suite passes on `build-rel`.
-- One maintainer play-test after Part C (`docs/playtests.md`), only for
-  what nothing cheaper settles: the ChooseNumeric prompt and its input feel,
-  and the FallToMap presentation against DOSBox.
+- The census lists none of the eight opcodes as unsupported or partial on
+  maps 1-112. M44 digests unchanged in every part and after the fixes.
+- Complete suite 392/392 after each part and after the play-test fixes.
+- The maintainer play-tested a numbered choice with Text on and off and the
+  map 8 fall against DOSBox. The choice background (global frame 7 hides the
+  command icons), the window close and the "Oops..." box were fixed; the
+  retest and three Clouds window-close comparisons passed.

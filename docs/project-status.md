@@ -1,9 +1,11 @@
 # MMModern - Project Status
 
-This describes what can be played and done now. M102 is the latest
-completed and accepted milestone (2026-10-31; [plan](milestone-102-plan.md)):
-the Darkside towns. Every Darkside town service and the Tower, Dungeon and
-Dwarf town entrance scenes work as on the World of Xeen CD. Before it, M101
+This describes what can be played and done now. M103 is the latest
+completed and accepted milestone (2026-11-01; [plan](milestone-103-plan.md)):
+the Darkside Events. Every Event instruction of the ordinary Darkside maps
+runs as on the World of Xeen CD, and every Event now closes its windows when
+it ends, as DOS does. Before it, M102 made every Darkside town service and
+entrance scene work as on the CD, M101
 let a party cross to Darkside through the Pyramids and back, play its
 ordinary maps and save and load on either side, M100 gave the release a launcher
 window with the sound devices and a log, M99 gave the picture the 4:3 shape of the original's monitors, M98 made a party with a
@@ -25,8 +27,8 @@ approved deviations are listed in
 them yet. A new game of Might and Magic IV: Clouds of Xeen, read from the
 World of Xeen two-CD talkie edition, starts as in the original, and every
 Clouds map is playable. Darkside is reached through the Pyramids, as in the
-CD; its ordinary maps, town services and entrance scenes play, while the
-mechanics only Darkside uses say "not supported yet".
+CD; its ordinary maps, town services, entrance scenes and Events play, while
+the mixed World of Xeen maps 113-128 and the endings say "not supported yet".
 
 ## What can be played
 
@@ -75,6 +77,14 @@ game from the same slot list.
   quest item and refuse it otherwise. Night in these scenes follows the
   clock, as the sky does
   ([approved deviation](original-quirks.md#dev-current-clock-night)).
+- Darkside Events exchange objects, jump at random, give enchanted items of
+  every kind, offer numbered choices, ask the second kind of password and
+  drop the party through the floor to another map with the original fall,
+  its "Oops..." box ([approved deviation](original-quirks.md#dev-fall-oops))
+  and the damage the DOS program reads
+  ([approved deviation](original-quirks.md#dev-fall-damage-zero) for three
+  falls). On both sides an Event's windows close when it ends; door and sign
+  labels stay until the party moves.
 - The Pyramids join the two sides as in the World of Xeen CD, without the
   CD's disc-change prompt
   ([approved deviation](original-quirks.md#dev-no-disc-prompt)). Every
@@ -346,7 +356,7 @@ the original data uses and its support status.
   omitted by maintainer decision. SDL's resampler plays FM and CD audio up
   to about 0.07% fast, which is inaudible
   ([audio rules](rules/audio.md#sdl-resampler-rate-limitation)).
-- Darkside: the mechanics in the
+- Darkside: the remaining
   [census's Darkside gaps](coverage.md#darkside-largest-gaps), the Clouds
   entrances that need Darkside keys (the mixed maps 113-128), FlipWorld and
   the endings say "not supported yet".

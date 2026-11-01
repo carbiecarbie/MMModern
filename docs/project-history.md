@@ -320,3 +320,12 @@ pictures, voices, animations and music by side and town, from a DOS program
 check made first. The Tower, Dungeon and Dwarf town entrance scenes admit
 the party with the right quest item and refuse it otherwise. Save v23
 unchanged. [Plan](milestone-102-plan.md).
+
+**M103 - Darkside Events** (`a3119e5`, `f136b72`, `db9c2c8`, `27eefe2`).
+Every Event instruction of the ordinary Darkside maps runs as on the CD,
+from a DOS program check made first: object exchanges, random jumps,
+enchanted items of every kind, numbered choices, the second password,
+unused wall slots, signed map-flag jumps and falls to another map with the
+damage DOS reads. The play-test made every Event close its windows when it
+ends, on both sides, and kept the original "Oops..." box while falling.
+Save v23 unchanged. [Plan](milestone-103-plan.md).
