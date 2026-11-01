@@ -39,7 +39,7 @@ inline void compare(const DosExportPair &pair,const DosExportPair &base,const Xe
 	check(pty[14]==s.soundOptions.efx && pty[15]==s.soundOptions.music && pty[1528]==!s.soundOptions.text && pty[1529]==s.soundOptions.speech,"Sound options");
 	const auto word=[&](unsigned off){return unsigned(pty[off])|(unsigned(pty[off+1])<<8);};
 	const auto dword=[&](unsigned off){return std::uint32_t(word(off))|(std::uint32_t(word(off+2))<<16);};
-	check(word(618)==s.food && word(604)==s.journey->cloudsCompleted && dword(654)==s.journey->playTimeSeconds,"Food, completion, play time");
+	check(word(618)==s.food && word(604)==s.journey->cloudsCompleted && word(606)==s.journey->darksideCompleted && word(608)==s.journey->worldCompleted && dword(654)==s.journey->playTimeSeconds,"Food, completion, play time");
 	for(unsigned side=0;side<2;++side)for(unsigned shop=0;shop<4;++shop)for(unsigned category=0;category<4;++category)for(unsigned item=0;item<9;++item) {
 		const unsigned at=(side?832:28)+((category*9+item)*4+shop)*4;
 		const auto &v=s.journey->serviceEconomy->wares[side][shop][category][item];

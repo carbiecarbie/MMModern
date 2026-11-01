@@ -22,7 +22,7 @@ public:
   std::optional<std::filesystem::path> settingsFile = {},std::filesystem::path cfg = {})
   : _program(program), _uiData(std::move(uiData)), _settingsFile(std::move(settingsFile)), _cfg(std::move(cfg)) {
   const auto settings=_settingsFile?xeenReadSettings(*_settingsFile):XeenSettings{};
-  _program.cloudsWon=settings.won;_program.darksideIntroSeen=settings.darksideIntroSeen;
+  _program.cloudsWon=settings.won;_program.darksideWon=settings.darksideWon;_program.worldWon=settings.worldWon;_program.darksideIntroSeen=settings.darksideIntroSeen;
  }
 	int run(const std::filesystem::path &gameDirectory) const;
  int runTitleForTest(const std::filesystem::path &gameDirectory) const {return runTitle(gameDirectory);}
@@ -55,7 +55,7 @@ public:
 		const std::optional<std::filesystem::path> &target, bool resume,
 		XeenEncounterEntry entry = XeenEncounterEntry::Ordinary, std::optional<std::uint32_t> seed = {}) const;
 private:
- int runTitle(const std::filesystem::path &,std::optional<std::uint32_t> endingScore={},bool startup=false) const;
+ int runTitle(const std::filesystem::path &,std::optional<std::uint32_t> endingScore={},bool startup=false,XeenSessionOutcome::Kind endingKind=XeenSessionOutcome::Kind::CloudsEnding) const;
  using InitialPublication=std::function<bool(const XeenSaveSnapshot &,const std::function<void()> &)>;
  XeenProgramState &_program;
  std::filesystem::path _uiData;

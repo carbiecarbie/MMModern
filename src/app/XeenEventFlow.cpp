@@ -1834,7 +1834,8 @@ template<class Result> IndexedFrame XeenEventFlow::drive(Result result, bool aut
         if(!suspended && ending && !journey()) {
             XeenPresentationRequest request;request.kind=XeenPresentationKind::CenteredMessage;
             request.response=XeenPresentationResponseRequirement::Acknowledgment;
-            request.mapId=_camera.mapId;request.text="Clouds ending: not supported in this mode";
+            request.mapId=_camera.mapId;request.text=(*ending==XeenEndingRequest::Darkside || *ending==XeenEndingRequest::Showdown)?"Darkside ending: not supported in this mode":
+                (*ending==XeenEndingRequest::World || *ending==XeenEndingRequest::Genesis)?"World ending: not supported in this mode":"Clouds ending: not supported in this mode";
             _presenter.clear();_frame=_presenter.present(_frame,request).frame;
             if(reportText)reportText(request.text);
             requireCurrentOwners();return frameCopy();

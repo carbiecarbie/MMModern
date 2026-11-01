@@ -1,5 +1,12 @@
 #include "SdlMouseTestSupport.h"
 #include "app/XeenTitleFlow.h"
+#include "app/Application.h"
+#include <fstream>
+#include "TestTreeRemoval.h"
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
 #include "app/XeenCutsceneFlow.h"
 #include "games/xeen/XeenWallClock.h"
 #include "formats/xeen/XeenAssetSource.h"
@@ -368,6 +375,40 @@ int main(int argc,char **argv){try {
   check(!missingClouds.flow.inputContext(missingClouds.flow.frame().presentation()).dialog->key('v'),"V without XEEN.CC");
   auto prewinServices=services();Driver prewin(prewinServices);prewin.key(27);prewin.key('o');
   check(!prewin.flow.inputContext(prewin.flow.frame().presentation()).dialog->key('v'),"V before win");
+ }
+ {
+  namespace fs=std::filesystem;
+  const auto directory=fs::temp_directory_path()/("mmodern-m106-title-"+std::to_string(GetCurrentProcessId()));fs::create_directories(directory);
+  const auto length=GetEnvironmentVariableW(L"MMODERN_SETTINGS_FILE",nullptr,0);std::wstring old(length,L'\0');
+  if(length){GetEnvironmentVariableW(L"MMODERN_SETTINGS_FILE",old.data(),length);old.resize(length-1);}
+  struct Cleanup {fs::path path;std::wstring old;~Cleanup(){SetEnvironmentVariableW(L"MMODERN_SETTINGS_FILE",old.empty()?nullptr:old.c_str());removeTestTree(path);}} cleanup{directory,old};
+  for(unsigned mask=0;mask<8;++mask) {
+   const auto path=directory/(std::to_string(mask)+".ini");
+   {std::ofstream out(path);out<<"won="<<bool(mask&1)<<"\ndarkside_intro_seen=1\ndarkside_won="<<bool(mask&2)<<"\nworld_won="<<bool(mask&4)<<"\n";}
+   check(SetEnvironmentVariableW(L"MMODERN_SETTINGS_FILE",path.c_str()),"Isolated title settings override");
+   XeenProgramState program{XeenWallClock::fixed(0)};Application app(program,{},xeenSettingsFile());
+   auto s=services();s.cloudsWon=program.cloudsWon;s.darksideWon=program.darksideWon;s.worldWon=program.worldWon;
+   for(unsigned requested=0;requested<3;++requested) {
+    Driver title(s);title.key(27);title.key('o');if(!requested)titlePreview(title.flow.frame(),"m106-wins-"+std::to_string(mask));auto dialog=title.flow.inputContext(title.flow.frame().presentation()).dialog;
+    const unsigned bits[]{2,1,4},keys[]{'e','v','w'},frames[]{4,6,8};
+    const XeenSessionEntry::Kind kinds[]{XeenSessionEntry::Kind::DarksideEnding,XeenSessionEntry::Kind::CloudsEnding,XeenSessionEntry::Kind::WorldEnding};
+    unsigned row=2;
+    for(unsigned n=0;n<3;++n) {
+     check(bool(dialog->key(keys[n]))==bool(mask&bits[n]),"Absent ending has no hotkey");
+     if(mask&bits[n]) {
+      const auto &hit=dialog->hits.at(row++);
+      check(hit.key==keys[n] && hit.left==93 && hit.top==103+25*int(row-3) && hit.button && hit.button->frame==frames[n],"All eight E/V/W packed row positions and sprite frames");
+     }
+    }
+    check(dialog->hits.size()==row,"Only won ending rows present");
+    if(mask&bits[requested]) {
+     title.key(keys[requested]);
+     check(title.flow.entry() && title.flow.entry()->kind==kinds[requested] && title.flow.entry()->score==1234567890,"Every eligible replay has the fixed score and kind");
+     const auto settings=xeenReadSettings(path);
+     check(settings.won==bool(mask&1) && settings.darksideWon==bool(mask&2) && settings.worldWon==bool(mask&4) && settings.darksideIntroSeen,"Replay preserves isolated settings");
+    }
+   }
+  }
  }
  d.key('d');check(d.flow.screen()==Screen::Notice,"deferred intro did not report refusal");d.key(27);d.key(27);
  {

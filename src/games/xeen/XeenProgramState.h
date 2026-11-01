@@ -17,6 +17,7 @@ struct XeenProgramState {
     std::uint32_t playTime(std::uint32_t saved) const {return wallClock.now()-playTimeMark+saved;}
     void resetPlayTime() {playTimeMark=wallClock.now();}
     bool darksideIntroSeen=false;
+    bool darksideWon=false, worldWon=false;
     bool cloudsWon=false; // Title gate only; never a party completion source.
     bool eventCallSkipped=false; // DOS DS:9756: process lifetime, never saved.
     bool innSongStarted=false; // DOS DS:8d28: process lifetime, never saved.

@@ -183,6 +183,9 @@ Support eventSupport(const XeenEventRecord &original,const XeenEventFile &origin
     const auto decoded=XeenEventDecoder::decode(original,{id,{}, {},true});
     if(const auto *bad=std::get_if<XeenEventDecodeError>(&decoded))
         return {bad->kind==XeenEventDecodeErrorKind::MalformedInstruction?Status::Unclassified:Status::Unsupported,bad->message};
+    if(original.opcode==57 || original.opcode==58)
+        return {Status::Partial,original.opcode==57?"Darkside win tail and forced save implemented; ending presentation not supported yet":
+            "World win tail and forced save implemented; ending presentation not supported yet"};
     try {
         auto world=source.transitionCandidate();XeenPartyState party;
         world->copyEventParty(initial,party);
@@ -474,7 +477,7 @@ std::string report(const Census &clouds,const Census &darkside) {
         "Original quest-counter refusals, proficiency and equipment conflicts are gameplay rules, not missing implementation. "
         "When the same mechanic is admitted elsewhere, its engine refusal is partial in that context instead of a globally missing mechanic. "
         "CD speech uses the installed tracks with visible text on unavailable audio. Records rejected as malformed and evidence not classifiable by engine checks remain unclassified.\n\n"
-        "Clouds Event exclusions: untabled town sites (17), and ConfirmWord ending keywords 60/61. Opcode 30 requests the supported Clouds ending tail, which plays the original ending. "
+        "Clouds Event exclusions: untabled town sites (17). Opcode 30 plays the Clouds ending; opcodes 57/58 and mirror showdown/genesis save then report the missing Darkside/World presentations. "
         "Both sides use their own game/quest flag banks and the shared quest counters and roster flags. Destination-map admission is separate: deferred travel refusals preserve candidate state and RNG. "
         "Residual census limits are off-map records without a discovered physical caller, real isolated self-loops (1024 dispatches), and mirror transfers without a local ConfirmWord prefix. "
         "No unresolved in-scope Clouds Event mechanic is accepted as an exclusion.\n\n"

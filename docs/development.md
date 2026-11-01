@@ -706,7 +706,7 @@ prepared level-30 party and a saved indoor song. Generate it with
 `build-rel/mmodern_test_save.exe m101-castleview <game-dir> <output>`.
 Ordinary maps, movement, dialogue, combat, travel spells, defeat and town
 services use Darkside resources. Mixed World maps load their separate resource
-families and save in the current v24 format. The four Darkside-key Clouds
+families and save in the current save format. The four Darkside-key Clouds
 entrances and their FlipWorld returns work. Darkside/World endings still say
 "not supported yet".
 
@@ -741,7 +741,8 @@ with quest item 78 (Soul Box with Corak inside). Face North to reach the
 original confrontation Event and opcode 57. That Event has no playable fight;
 the confrontation continues in the ending. `m106-world` starts on Darkside
 map 129 `(13,14)` North with quests 8/53 and awards 61..64 on every member;
-walk to `(13,15)` to reach opcode 58. `m106-mirror` starts at Darkside map 53
+walk North to `(13,15)`, then press Space to invoke the Event and opcode 58.
+`m106-mirror` starts at Darkside map 53
 `(9,8)` East, with flag 115 activating its mirror; face West.
 `m106-clouds-mirror` starts at Vertigo, Clouds map 28 `(14,10)` East;
 face West for the mirror.
@@ -749,7 +750,7 @@ face West for the mirror.
 All four use level 200, full computed HP/SP checked against 32767, attributes
 100, the M78 equipped Obsidian inventory and learned spells. Levitation and
 light are supplied for the capture routes; neither completion nor ending
-implementation is fabricated. Current ending opcodes/words may still report
-"not supported yet". These are developer fixtures, not earned play-throughs.
-Export omits Darkside/World completion, monster HP/status, extra Spawn slots
+implementation is fabricated. The win tails and ending words save as in DOS;
+Darkside/World presentation reports "not supported yet". These are developer fixtures, not earned play-throughs.
+Export carries all three completions and omits monster HP/status, extra Spawn slots
 and RNG; native DOS play supplies any post-win state needed for comparison.

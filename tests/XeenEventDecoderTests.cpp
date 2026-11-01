@@ -261,13 +261,17 @@ void checkSource(const XeenEventSourceLocation &source, bool withContext,
 }
 
 void testErrorsMetadataAndPurity() {
-	const auto unsupportedKnown = XeenEventDecoder::decode(record(0x39, {1, 2}),
+	const auto malformedKnown = XeenEventDecoder::decode(record(0x39, {1, 2}),
 		{42, std::string("maze0042.evt")});
-	const auto &opcodeError = failure(unsupportedKnown,
-		XeenEventDecodeErrorKind::UnsupportedOpcode);
+	const auto &opcodeError = failure(malformedKnown,
+		XeenEventDecodeErrorKind::MalformedInstruction);
 	checkSource(opcodeError.source, true, 0x39);
-	check(!opcodeError.expectedParameterSize && opcodeError.actualParameterSize == 2,
-		"unsupported opcode does not parse parameters");
+	check(opcodeError.expectedParameterSize==0 && opcodeError.actualParameterSize == 2,
+		"known ending opcode requires zero parameters");
+ const auto unsupported=XeenEventDecoder::decode(record(0xff,{1,2}),{42,std::string("maze0042.evt")});
+ const auto unsupportedError=failure(unsupported,XeenEventDecodeErrorKind::UnsupportedOpcode);
+ checkSource(unsupportedError.source,true,0xff);
+ check(!unsupportedError.expectedParameterSize && unsupportedError.actualParameterSize==2,"Unsupported opcode retains context without parsing operands");
 	checkSource(failure(XeenEventDecoder::decode(record(0xff)),
 		XeenEventDecodeErrorKind::UnsupportedOpcode).source, false, 0xff);
 	checkSource(failure(XeenEventDecoder::decode(record(0x12, {1})),
@@ -407,6 +411,9 @@ int main() {
 		check(multi.first.value==0x12345678 && multi.second.value==0xabcd && multi.third.mode==0,"GiveMulti ordered 32/16/8-bit values");
 		testErrorsMetadataAndPurity();
 		testOwnedResultLifetime();
+        operation<XeenEventEndDarkside>(XeenEventDecoder::decode(record(57,{})));
+        operation<XeenEventEndWorld>(XeenEventDecoder::decode(record(58,{})));
+        for(unsigned opcode:{57u,58u})failure(XeenEventDecoder::decode(record(opcode,{1})),XeenEventDecodeErrorKind::MalformedInstruction);
 		testGiveEnchanted();
 		const auto second=operation<XeenEventConfirmWord>(XeenEventDecoder::decode(record(55,{3,10,4,16})));
 		check(second.inputType==3 && second.targetLine==10 && second.alternateText==4 && second.alternateLine==16 &&

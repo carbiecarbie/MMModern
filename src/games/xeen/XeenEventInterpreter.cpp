@@ -671,12 +671,15 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
                     }
                 }
             }
-            if(!word.inputType && workingCamera.mapId.side==XeenSide::Clouds &&
-                (result==60 || result==61))
-                return error(XeenEventExecutionErrorKind::UnsupportedOperand,"Ending mirror code is not supported yet",instructionCount,logical,pending.request.source);
-            if(!word.inputType && workingCamera.mapId.side==XeenSide::Clouds && (result==40 || result==62)) {
-                if(result==40)state.ending=XeenEndingRequest::Showtime;
-                return finalize();
+            if(!word.inputType) {
+                const bool clouds=workingCamera.mapId.side==XeenSide::Clouds;
+                const auto showdown=clouds?60:33, genesis=clouds?61:34, showtime=clouds?40:35, bloopers=clouds?62:36;
+                // DAT 0x27fe4..0x28076: skip all victory stores, or just exit for Bloopers.
+                if(result==showdown || result==genesis || result==showtime || result==bloopers) {
+                    if(result!=bloopers)state.ending=result==showdown?XeenEndingRequest::Showdown:
+                        result==genesis?XeenEndingRequest::Genesis:XeenEndingRequest::Showtime;
+                    return finalize();
+                }
             }
             // 0x2808a..0x280bb: weapon 34 in the first empty weapon slot, when one is free.
             if(!word.inputType && workingCamera.mapId.side==XeenSide::Clouds && result==59 &&
@@ -881,7 +884,7 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
         {
             const auto &op=decoded.operation;
             const bool never=std::holds_alternative<XeenEventNone>(op) || std::holds_alternative<XeenEventExit>(op) ||
-                std::holds_alternative<XeenEventEndClouds>(op) || std::holds_alternative<XeenEventProtectionCheck>(op) ||
+                std::holds_alternative<XeenEventEndClouds>(op) || std::holds_alternative<XeenEventEndDarkside>(op) || std::holds_alternative<XeenEventEndWorld>(op) || std::holds_alternative<XeenEventProtectionCheck>(op) ||
                 std::holds_alternative<XeenEventCdSpeech>(op);
             const bool deferred=std::holds_alternative<XeenEventTakeOrGive>(op) ||
                 std::holds_alternative<XeenEventTakeOrGiveTest>(op) || std::holds_alternative<XeenEventConfirmWord>(op) ||
@@ -890,8 +893,10 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
             if(!never && !deferred && (!set || static_cast<std::int8_t>(set->selector)<=7))state.scriptExecuted=true;
         }
 
-        if(std::holds_alternative<XeenEventEndClouds>(decoded.operation)) {
-            state.ending=XeenEndingRequest::Clouds;
+        if(std::holds_alternative<XeenEventEndClouds>(decoded.operation) ||
+            std::holds_alternative<XeenEventEndDarkside>(decoded.operation) || std::holds_alternative<XeenEventEndWorld>(decoded.operation)) {
+            state.ending=std::holds_alternative<XeenEventEndClouds>(decoded.operation)?XeenEndingRequest::Clouds:
+                std::holds_alternative<XeenEventEndDarkside>(decoded.operation)?XeenEndingRequest::Darkside:XeenEndingRequest::World;
             return finalize();
         }
 		if (std::holds_alternative<XeenEventExit>(decoded.operation))

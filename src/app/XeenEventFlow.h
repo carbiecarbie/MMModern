@@ -73,7 +73,8 @@ public:
     // The session supplies the panel Save transaction and current selected slot.
     std::function<void()> saveInn;
     std::function<void(std::optional<XeenSaveSnapshot> *)> saveForced;
-    std::function<bool()> writeWon;
+    std::function<bool(XeenEndingRequest)> writeWon;
+    std::optional<XeenEndingRequest> endingRequest() const noexcept {return _ending;}
     std::optional<std::uint32_t> endingScore() const noexcept {return _endingScore;}
     IndexedFrame openInn(bool closing=false);
     bool innOpen() const noexcept { return bool(_innUi); }

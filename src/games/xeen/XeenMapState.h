@@ -48,6 +48,8 @@ struct XeenMapState {
 	XeenMutable<std::uint16_t> originalMonsterCount=0;
 	// Geometry of the map the monster table belongs to, bound at staging.
 	XeenMutable<bool> outdoors=false;
+	// Runtime reconstruction of an omitted camera table is not a saved visit.
+	XeenMutable<bool> originalMonstersFromRestore=false;
 	std::set<XeenObjectIdentity> removedObjects;
 	std::set<XeenEventIdentity> disabledEvents;
 	// Resource-relative object positions and effective flips, by record.
@@ -72,6 +74,7 @@ struct XeenMapState {
 		const std::uint16_t count=originalMonsterCount;originalMonsterCount=std::uint16_t(other.originalMonsterCount);
 		other.originalMonsterCount=count;
 		const bool open=outdoors;outdoors=bool(other.outdoors);other.outdoors=open;
+		const bool original=originalMonstersFromRestore;originalMonstersFromRestore=bool(other.originalMonstersFromRestore);other.originalMonstersFromRestore=original;
 		removedObjects.swap(other.removedObjects);disabledEvents.swap(other.disabledEvents);
 		objectOverrides.swap(other.objectOverrides);cells.swap(other.cells);explored.swap(other.explored);
 		wallItemOverrides.swap(other.wallItemOverrides);eventOverrides.swap(other.eventOverrides);
@@ -144,6 +147,7 @@ public:
 			target->monsters.swap(entry.second.monsters);
 			target->originalMonsterCount=std::uint16_t(entry.second.originalMonsterCount);
 			target->outdoors=bool(entry.second.outdoors);
+			target->originalMonstersFromRestore=bool(entry.second.originalMonstersFromRestore);
 		}
 	}
 	// Exchanges every entry's content. Common entries swap in place; an entry

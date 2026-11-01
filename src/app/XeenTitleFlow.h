@@ -26,7 +26,7 @@ public:
   std::string currentName;
   XeenSoundOptions soundOptions;
   bool cloudsContext=true; // DAT DS:0095: readable XEEN.CC in installed CD World.
-  bool cloudsWon=false;
+  bool cloudsWon=false, darksideWon=false, worldWon=false;
   std::function<std::string()> cloudsIntroCheck;
   std::function<std::string()> darksideIntroCheck;
   std::function<std::pair<std::uint32_t,std::uint32_t>()> clocks;
@@ -97,6 +97,7 @@ private:
  bool _closed=false;
  IndexedFrame _frame;
  IndexedFrame::Presentation _inputFrame;
+ std::vector<XeenSessionEntry::Kind> endingRows() const;
  DialogInput dialog() const;
  void render(bool semantic=true);
  void notice(std::string message,Screen back);

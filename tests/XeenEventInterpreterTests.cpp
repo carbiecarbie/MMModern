@@ -421,7 +421,7 @@ void testTeleportsAndTransactionalResult() {
 		XeenEventExecutionErrorKind::MalformedInstruction);
 
 	Fixture unsupported;
-	unsupported.scripts.emplace(1, script(1, {record(1, 1, 0, 0x39)}));
+	unsupported.scripts.emplace(1, script(1, {record(1, 1, 0, 0xff)}));
 	failure(unsupported.execute(camera, party, flags),
 		XeenEventExecutionErrorKind::UnsupportedOpcode);
 }
@@ -599,7 +599,7 @@ void testTakeOrGiveRollback() {
 
 	Fixture unsupportedOpcode;
 	unsupportedOpcode.scripts.emplace(1, script(1, {
-		record(1, 1, 0, 0x0c, setFlag(25)), record(1, 1, 1, 0x39)
+		record(1, 1, 0, 0x0c, setFlag(25)), record(1, 1, 1, 0xff)
 	}));
 	failure(unsupportedOpcode.execute(camera, party, clearInput),
 		XeenEventExecutionErrorKind::UnsupportedOpcode);
@@ -713,7 +713,7 @@ XeenEventExecutionError makeOwnedDiagnostic() {
 	auto party = partyWithSp(2);
 	Fixture fixture;
 	fixture.scripts.emplace(1, script(1, {
-		record(1, 1, 0, 0x39, {}, kXeenEventDirectionAll, 987)
+		record(1, 1, 0, 0xff, {}, kXeenEventDirectionAll, 987)
 	}));
 	return failure(fixture.execute({1, 1, 1, XeenDirection::North},
 		party, XeenGameFlags{}),

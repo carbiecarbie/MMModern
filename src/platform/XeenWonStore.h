@@ -5,10 +5,11 @@
 namespace mmodern {
 // Resolved once at application entry. Tests override MMODERN_SETTINGS_FILE.
 std::optional<std::filesystem::path> xeenSettingsFile();
-struct XeenSettings { bool won=false; bool darksideIntroSeen=false; };
+struct XeenSettings { bool won=false; bool darksideIntroSeen=false; bool darksideWon=false; bool worldWon=false; };
 XeenSettings xeenReadSettings(const std::filesystem::path &) noexcept;
 bool xeenWriteSeen(const std::filesystem::path &, bool) noexcept;
 bool xeenReadWon(const std::filesystem::path &) noexcept;
-bool xeenWriteWon(const std::filesystem::path &) noexcept;
+enum class XeenWonKind { Clouds, Darkside, World };
+bool xeenWriteWon(const std::filesystem::path &,XeenWonKind = XeenWonKind::Clouds) noexcept;
 }
 #endif

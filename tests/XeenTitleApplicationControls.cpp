@@ -62,7 +62,10 @@ struct State {
  bool panelMode=false,failPreflight=false,failWrite=false;
  bool retainedIdle=false;
  bool endingMode=false,endingReturned=false,endingNotice=false,endingPlayed=false;
+ std::string endingNoticeText;
  bool endingReplay=false;unsigned endingExeFailure=0;
+ bool endingLoadRequested=false,endingLoaded=false;
+ XeenSessionOutcome::Kind endingKind=XeenSessionOutcome::Kind::CloudsEnding;
  bool endingOriginal=false;
  bool startupMode=false,startupMissing=false,startupFailure=false,startupEscaped=false,startupAfterSeen=false;
  bool startupDigitalNotice=false;unsigned startupExeStarts=0;
@@ -316,7 +319,9 @@ extern "C" XeenTextRenderResult wrappedTitleText(const XeenTextRenderer *rendere
  if(state.enabled && state.startupMode && text.find("Digital device ")!=std::string::npos && text.find("not supported yet")!=std::string::npos)state.startupDigitalNotice=true;
  if(state.enabled && state.introMode && text.find("Darkside intro unavailable")!=std::string::npos)state.introNotice=true;
  if(state.enabled && state.introMode && text.find("Clouds intro unavailable")!=std::string::npos)state.introCloudsNotice=true;
- if(state.enabled && state.endingMode && text.find("Clouds ending unavailable")!=std::string::npos)state.endingNotice=true;
+ if(state.enabled && state.endingMode && (text.find("ending unavailable")!=std::string::npos || text.find("not supported yet")!=std::string::npos)) {
+  state.endingNotice=true;state.endingNoticeText=text;
+ }
  if(state.enabled && state.panelMode && !state.notice.empty() && text==state.notice) {
   ++state.noticeAttempts;
   check(options.windowBounds.left==99 && options.windowBounds.top==59 && options.windowBounds.right==237 &&
@@ -333,6 +338,15 @@ extern "C" int wrappedTitlePlay(const Application *app,const XeenGameplayService
  const std::optional<fs::path> &target,bool resume,XeenEncounterEntry entry,std::optional<std::uint32_t> seed) {
  if(!state.enabled)return realTitlePlay(app,original,camera,target,resume,entry,seed);
  if(state.endingMode) {
+  if(state.endingLoadRequested) {
+   check(resume && target && *target==state.slot && original.restoreSnapshot,"Post-notice Load selects the retained slot snapshot");
+   auto services=original;
+   services.show=[&](const auto &visible,const auto &h,const auto &,const auto &,const auto &) {
+    h.framePresented(visible.presentation());h.completeInputHandoff(visible.presentation());
+    state.endingLoaded=true;h.closed();return true;
+   };
+   return realTitlePlay(app,services,camera,target,resume,entry,seed);
+  }
   check(!state.endingReplay,"V executed gameplay or the ending tail");
   if(state.endingOriginal) {
    auto services=original;services.clock=[] {return state.introNow/1000000;};services.presentationClock=[] {return state.introNow;};
@@ -357,7 +371,7 @@ extern "C" int wrappedTitlePlay(const Application *app,const XeenGameplayService
    state.introNow=realTitleClock();state.endingReturned=true;return result;
   }
   check(original.outcome,"Outer gameplay wrapper must retain the outcome sink");
-  *original.outcome={XeenSessionOutcome::Kind::CloudsEnding,0,{},71001722};
+  *original.outcome={state.endingKind,0,{},71001722};
   state.wallNow+=100;state.introNow=realTitleClock();state.endingReturned=true;return 0;
  }
  check(resume==state.loading && target.has_value() && !seed,"title session entry");
@@ -367,7 +381,7 @@ extern "C" int wrappedTitlePlay(const Application *app,const XeenGameplayService
  auto services=original;
  if(!resume && !state.panelMode) {
   const auto load=services.resources.loadInitialParty;
-  services.resources.loadInitialParty=[load]{auto p=load();p.playTimeSeconds=888;p.cloudsCompleted=true;return p;};
+  services.resources.loadInitialParty=[load]{auto p=load();p.playTimeSeconds=888;p.cloudsCompleted=true;p.darksideCompleted=true;p.worldCompleted=true;return p;};
  }
  state.font=&services.font;
  const auto configure=services.configureFlow;
@@ -447,7 +461,7 @@ extern "C" bool wrappedTitleShow(const SdlWindow *window,const IndexedFrame &fir
    const auto action=handler.inputContext(visible.presentation()).dialog->key(k);check(bool(action),"V not visible after won store");
    if(auto f=handler.withPresentedInput(*action,1,visible.presentation())){visible=*f;present();}
   };
-  key(27);key('o');key('v');state.endingReturned=true;return true;
+  key(27);key('o');key(state.endingKind==XeenSessionOutcome::Kind::DarksideEnding?'e':state.endingKind==XeenSessionOutcome::Kind::WorldEnding?'w':'v');state.endingReturned=true;return true;
  }
  if(state.endingMode && state.endingReturned) {
   if(handler.cutsceneControlQuit) {
@@ -469,7 +483,7 @@ extern "C" bool wrappedTitleShow(const SdlWindow *window,const IndexedFrame &fir
    check(state.introNow-began>50000000000ULL,"Ending input bypassed stages 1 and 2");
    state.endingPlayed=true;return true;
   }
-  check(state.endingExeFailure?state.endingNotice:state.endingPlayed,"Ending did not reach the expected fresh title");
+  check(state.endingExeFailure || state.endingKind!=XeenSessionOutcome::Kind::CloudsEnding?state.endingNotice:state.endingPlayed,"Ending did not reach the expected fresh title");
   check(!handler.cutsceneControlQuit,"Ending Ctrl-Q leaked into fresh DAT title");
   check(state.program->playTimeMark==state.wallNow,"Ending return did not reset the DAT play-time mark");
   IndexedFrame visible=first;
@@ -483,11 +497,31 @@ extern "C" bool wrappedTitleShow(const SdlWindow *window,const IndexedFrame &fir
    if(auto next=idle()){visible=*next;present();}
   }
   if(state.endingNotice) {
+   if(state.endingExeFailure) {
+    check(state.endingNoticeText.find("Check XEEN.EXE")!=std::string::npos && state.endingNoticeText.find("not supported yet")==std::string::npos,"Absent/different EXE must show the executable-check notice");
+   }else {
+    const auto name=state.endingKind==XeenSessionOutcome::Kind::DarksideEnding?"Darkside":"World";
+    check(state.endingNoticeText.find(std::string(name)+" ending: not supported yet")!=std::string::npos && state.endingNoticeText.find("Check XEEN.EXE")==std::string::npos,"Interim notice must name its ending and unsupported presentation");
+   }
    const auto action=handler.inputContext(visible.presentation()).dialog->key(InputKey::Enter);check(bool(action),"Ending notice missing acknowledgement");
    if(auto next=handler.withPresentedInput(*action,1,visible.presentation())){visible=*next;present();}
   }
   check(handler.inputContext(visible.presentation()).dialog->hits.empty(),"Ending must return to a fresh World title with its menu hidden");
-  handler.closed();state.shown=true;return true;
+  if(state.endingKind!=XeenSessionOutcome::Kind::CloudsEnding) {
+   const auto key=[&](unsigned k) {
+    while(!handler.inputContext(visible.presentation()).readyForAction) {
+     check(++cycle<10000,"Fresh-title Load did not acquire input");const auto deadline=handler.nextPresentationDeadline();
+     state.introNow=deadline && *deadline>state.introNow?*deadline:state.introNow+17000000;handler.beginCycle(cycle);
+     if(auto next=idle()){visible=*next;present();}
+    }
+    const auto action=handler.inputContext(visible.presentation()).dialog->key(k);check(bool(action),"Fresh-title Load key");
+    if(auto next=handler.withPresentedInput(*action,1,visible.presentation())){visible=*next;if(!handler.finished())present();}
+   };
+   unsigned slot=10;for(unsigned n=0;n<10;++n)if(XeenSaveFile::slotPath(state.slot.parent_path(),n)==state.slot)slot=n;
+   check(slot<10,"Fresh-title slot number");key(27);key('l');key('0'+(slot+1)%10);key(InputKey::Enter);
+   check(handler.finished(),"Fresh-title Load entry published");state.endingLoadRequested=true;
+  }else handler.closed();
+  state.shown=true;return true;
  }
  const bool title=!status; // Only gameplay supplies a status line.
  check(!handler.cutsceneControlQuit,"DAT title/gameplay enabled EXE Ctrl-Q");
@@ -536,7 +570,7 @@ extern "C" bool wrappedTitleShow(const SdlWindow *window,const IndexedFrame &fir
    }
    else {
     check(snapshot.journey->context->difficulty==state.difficulty && state.seeds==1,"New sampled seed/difficulty");
-    check(snapshot.journey->playTimeSeconds==37 && !snapshot.journey->cloudsCompleted && state.program->playTimeMark==47,"New must zero saved time/completion and include title time before its first snapshot");
+    check(snapshot.journey->playTimeSeconds==37 && !snapshot.journey->cloudsCompleted && !snapshot.journey->darksideCompleted && !snapshot.journey->worldCompleted && state.program->playTimeMark==47,"New must zero saved time/completion and include title time before its first snapshot");
     check(raw==wire,"New save must contain its prepared arrival frame state");state.saved=raw;
    }
    preview(*frame,state.loading?"load-first":"new-first");
@@ -587,7 +621,7 @@ void endingControls(const char *game,const char *endingPreset) {
  for(bool developer:{false,true}) {
   XeenSaveFile::write(state.slot,XeenSaveFormat::decode(state.saved),{},true);
   state.wallNow=10;XeenProgramState endingProgram{XeenWallClock([]{return state.wallNow;})};state.program=&endingProgram;
-  state.endingMode=true;state.endingReturned=state.endingNotice=state.endingPlayed=state.shown=false;
+  state.endingMode=true;state.endingNoticeText.clear();state.endingReturned=state.endingNotice=state.endingPlayed=state.shown=false;
   state.loading=true;state.retainedIdle=false;state.templePrices=&endingProgram.templePrices;
   const auto result=developer?Application(endingProgram).loadGame(game,state.slot):runWithoutStartup(Application(endingProgram),game);
   check(result==0 && state.endingReturned && state.endingPlayed && !state.endingNotice && state.shown,"CloudsEnding program/title handoff for player and developer entries");
@@ -600,18 +634,31 @@ void endingControls(const char *game,const char *endingPreset) {
   if(!replay && !failure)continue; // Both successful gameplay entry modes above.
   XeenSaveFile::write(state.slot,XeenSaveFormat::decode(state.saved),{},true);const auto saved=readFile(state.slot),won=readFile(settings);
   state.wallNow=10;XeenProgramState p{XeenWallClock([]{return state.wallNow;})};state.program=&p;
-  state.endingMode=true;state.endingReplay=replay;state.endingExeFailure=failure;state.endingReturned=state.endingNotice=state.endingPlayed=state.shown=false;
+  state.endingMode=true;state.endingReplay=replay;state.endingExeFailure=failure;state.endingNoticeText.clear();state.endingReturned=state.endingNotice=state.endingPlayed=state.shown=false;
   state.introNow=realTitleClock();state.loading=true;state.templePrices=&p.templePrices;
   const auto result=replay?runWithoutStartup(Application(p,{},settings),game):Application(p,{},settings).loadGame(game,state.slot);
   check(result==0 && state.shown && state.endingNotice==bool(failure) && state.endingPlayed==!failure,"V/ending missing or different EXE path");
   check(readFile(state.slot)==saved && readFile(settings)==won && p.cloudsWon,"V changed saved state, play time or won store");
  }
+ // Interim Darkside/World handoffs and E/W replays always notice, then a fresh title.
+ for(const auto kind:{XeenSessionOutcome::Kind::DarksideEnding,XeenSessionOutcome::Kind::WorldEnding})for(bool replay:{false,true})for(unsigned failure=0;failure<3;++failure) {
+  XeenSaveFile::write(state.slot,XeenSaveFormat::decode(state.saved),{},true);
+  check(xeenWriteWon(settings,XeenWonKind::Darkside) && xeenWriteWon(settings,XeenWonKind::World),"All title wins isolated");
+  const auto saved=readFile(state.slot),won=readFile(settings);
+  state.wallNow=10;XeenProgramState p{XeenWallClock([]{return state.wallNow;})};state.program=&p;
+  state.endingLoadRequested=state.endingLoaded=false;state.endingKind=kind;state.endingMode=true;state.endingReplay=replay;state.endingExeFailure=failure;
+  state.endingNoticeText.clear();state.endingReturned=state.endingNotice=state.endingPlayed=state.shown=false;state.introNow=realTitleClock();state.loading=true;state.templePrices=&p.templePrices;
+  const auto result=replay?runWithoutStartup(Application(p,{},settings),game):Application(p,{},settings).loadGame(game,state.slot);
+  check(result==0 && state.shown && state.endingNotice && !state.endingPlayed && state.endingLoaded,"Interim ending notices then fresh hidden-menu title, including absent/different EXE");
+  check(readFile(state.slot)==saved && readFile(settings)==won && p.cloudsWon && p.darksideWon && p.worldWon,"Interim handoff/replay changes no save, settings or won state");
+ }
+ state.endingLoadRequested=state.endingLoaded=false;state.endingKind=XeenSessionOutcome::Kind::CloudsEnding;
  state.endingMode=state.endingReplay=false;state.endingExeFailure=0;
  if(endingPreset) {
   // Explicit local witness, reusing the maintainer's current-format preset without writing it.
   fs::copy_file(fs::path(endingPreset),state.slot,fs::copy_options::overwrite_existing);
   state.wallNow=10;XeenProgramState p{XeenWallClock([]{return state.wallNow;})};state.program=&p;
-  state.endingMode=state.endingOriginal=true;state.endingReturned=state.endingNotice=state.endingPlayed=state.shown=false;
+  state.endingMode=state.endingOriginal=true;state.endingNoticeText.clear();state.endingReturned=state.endingNotice=state.endingPlayed=state.shown=false;
   state.introNow=realTitleClock();state.templePrices=&p.templePrices;
   const auto originalSettings=state.base/"original-ending-settings.ini";
   check(Application(p,{},originalSettings).loadGame(game,state.slot)==0 && state.endingPlayed && state.shown && !state.endingNotice && p.cloudsWon,"Original preset to fresh World title");

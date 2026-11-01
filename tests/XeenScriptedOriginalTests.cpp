@@ -66,7 +66,7 @@ void lord(Inputs &in,XeenSaveSnapshot snapshot) {
  Fixture f(in,snapshot);Directory output;const auto target=output.path/"ending.mmsave";
  XeenGameplayServices services{f.programState,in.resources(),{},in.mapLoader(),in.objectLoader(),{},in.font};
  unsigned wonWrites=0,saveWrites=0;
- f.flow->writeWon=[&]{++wonWrites;check(f.p.cloudsCompleted && !f.f.isSet(75) && f.c.mapId==78,"DOS completion before marker, flags and relocation");return true;};
+ f.flow->writeWon=[&](auto){++wonWrites;check(f.p.cloudsCompleted && !f.f.isSet(75) && f.c.mapId==78,"DOS completion before marker, flags and relocation");return true;};
  f.flow->saveForced=[&](auto *captured){
   xeenSaveGameplay(services,f.w,f.p,f.c,f.f,*f.flow,target,[](auto &,const auto &,const auto &,const auto &){},nullptr,
    [&](const auto &value,const auto &checkSource){++saveWrites;checkSource();XeenSaveFile::write(target,value);},captured);

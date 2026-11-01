@@ -6,7 +6,7 @@
 namespace mmodern {
 // Values crossing Application's outer loop; never borrowed gameplay owners.
 struct XeenSessionEntry {
- enum class Kind { Title, New, Load, Exit, Retry, CancelNew, Save, MrWizard, CloudsIntro, CloudsEnding, DarksideIntro };
+ enum class Kind { Title, New, Load, Exit, Retry, CancelNew, Save, MrWizard, CloudsIntro, CloudsEnding, DarksideEnding, WorldEnding, DarksideIntro };
  Kind kind=Kind::Title;
  unsigned slot=0;
  std::filesystem::path path;
@@ -16,7 +16,7 @@ struct XeenSessionEntry {
  std::uint32_t score=0;
 };
 struct XeenSessionOutcome {
- enum class Kind { Title, Exit, Failure, Load, CloudsEnding };
+ enum class Kind { Title, Exit, Failure, Load, CloudsEnding, DarksideEnding, WorldEnding };
  Kind kind=Kind::Exit;
  int status=0;
  XeenSessionEntry entry;

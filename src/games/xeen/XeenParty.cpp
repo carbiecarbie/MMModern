@@ -39,7 +39,7 @@ XeenPartyState::XeenPartyState(const XeenPartyState &p) {
 	roster = p.roster; encounterContext = p.encounterContext; party = p.party;
 	questItems = p.questItems; questFlags = p.questFlags; worldFlags = p.worldFlags; purse = p.purse;
 	serviceEconomy = p.serviceEconomy;
-    playTimeSeconds=p.playTimeSeconds;cloudsCompleted=p.cloudsCompleted;
+    playTimeSeconds=p.playTimeSeconds;cloudsCompleted=p.cloudsCompleted;darksideCompleted=p.darksideCompleted;worldCompleted=p.worldCompleted;
 	insideInn=p.insideInn;food = p.food; soundOptions = p.soundOptions;
 	firstSerializedCount = p.firstSerializedCount; effectiveSerializedCount = p.effectiveSerializedCount;
 	diagnostics = p.diagnostics;
@@ -53,7 +53,7 @@ void XeenPartyState::swapOrdinary(XeenPartyState &p) noexcept {
 	roster.swapOrdinary(p.roster); swap(encounterContext,p.encounterContext); swap(party,p.party);
 	swap(questItems,p.questItems); swap(questFlags,p.questFlags); swap(worldFlags,p.worldFlags); swap(purse,p.purse);
 	swap(serviceEconomy,p.serviceEconomy);
-    swap(playTimeSeconds,p.playTimeSeconds);swap(cloudsCompleted,p.cloudsCompleted);
+    swap(playTimeSeconds,p.playTimeSeconds);swap(cloudsCompleted,p.cloudsCompleted);swap(darksideCompleted,p.darksideCompleted);swap(worldCompleted,p.worldCompleted);
 	swap(insideInn,p.insideInn);swap(food,p.food); swap(soundOptions,p.soundOptions);
 	swap(firstSerializedCount,p.firstSerializedCount); swap(effectiveSerializedCount,p.effectiveSerializedCount);
 	diagnostics.swap(p.diagnostics);

@@ -395,6 +395,26 @@ XeenSaveMonsterTable mobTable(unsigned monsters) {
  for(unsigned i=0;i<monsters;++i){table.slots[i].x=int(i%16);table.slots[i].y=int(1+i/16);}
  return table;
 }
+void retainedMapSongs() {
+ const XeenMapIdentity camera{XeenSide::Darkside,23},retained{XeenSide::Darkside,28};
+ for(unsigned mode=0;mode<3;++mode) {
+  auto saved=currentSnapshot();saved.camera.mapId=camera;
+  const auto cameraTable=saved.map(23).monsters;saved.map(camera).monsters=cameraTable;
+  saved.darksideSong=7; // Row 1: camera is outdoor row 0, retained map is indoor row 1.
+  if(mode==0)saved.map(retained).monsters=mobTable(4);
+  else if(mode==1)saved.map(retained).explored.emplace();
+  const auto wire=XeenSaveFormat::encode(saved);
+  CurrentDestination destination;usePerMapResources(destination,4);
+  check(xeenMapMusicRow(destination.mapProvider(camera).geometry)==0 && xeenMapMusicRow(destination.mapProvider(retained).geometry)==1,"Song boundary fixture uses different camera and retained rows");
+  if(mode==0) {
+   destination.restore(XeenSaveFormat::decode(wire));destination.bind();
+   check(destination.world.sessionState().darksideSong()==saved.darksideSong && XeenSaveFormat::encode(destination.capture())==wire,"A matching non-camera Darkside monster table admits the saved song without changing bytes");
+  }else {
+   rejects([&]{destination.restore(XeenSaveFormat::decode(wire));},"retained map table");
+   check(!destination.world.hasEncounterState() && !destination.preflights,"An explored-only or absent matching map cannot authorize a song or publish restore");
+  }
+ }
+}
 // M69 decision 5: capture, encode, decode, restore, capture again. Both the
 // mainland and the city hold state in every table restore accepts: monster
 // tables (a defeated, accounted record), moved and removed objects, indoor and
@@ -1311,6 +1331,7 @@ void monsterProviderAgreement() {
 int main() {
 	try {
         const auto run=[](const char *name,auto function) {try {function();}catch(const std::exception &e){throw std::runtime_error(std::string(name)+": "+e.what());}};
+        run("retainedMapSongs",retainedMapSongs);
 		run("monsterProviderAgreement",monsterProviderAgreement); run("liveStatusRoundTrip",liveStatusRoundTrip); run("fullRestoration",fullRestoration); run("explicitItems",explicitItems); run("invalidResourceAndState",invalidResourceAndState); run("characterPreflight",characterPreflight); run("mutationPolicies",mutationPolicies); run("journeyBorrowRefusal",journeyBorrowRefusal);
 		run("genericRoundTrip",genericRoundTrip); run("replacedOpcodePublication",replacedOpcodePublication); run("mapEventRoundTrips",mapEventRoundTrips); run("removeThenMoveRoundTrip",removeThenMoveRoundTrip); run("hiddenMoveRoundTrip",hiddenMoveRoundTrip); run("openedChestRoundTrips",openedChestRoundTrips); run("travelRoundTrips",travelRoundTrips); run("valueRoundTrips",valueRoundTrips); run("unsupportedMapState",unsupportedMapState); run("warzoneLifetime",warzoneLifetime); run("allCloudsMaps",allCloudsMaps);
 		std::cout << "Current save state: atomic preparation, resource identities, rules and owner/flow lifetimes passed\n";

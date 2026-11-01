@@ -761,6 +761,6 @@ script's XP/award/item changes, then `0x1ed29` flushes the loaded map before
 `0x1ed2e` snapshots the party. Darkside's saved camera is map 29 `(25,21)`
 North while the flushed map is still 51. World keeps its camera. Ending mirror
 words skip completion stores and movement but still save; title replays do not
-save. These rules require the planned v25 completion fields; the current v24
-export still leaves PTY 606..609 at New Game values. No additional saved World
+save. Save v25 carries the two completion fields and the DOS exporter writes
+PTY 606..609 from them. No additional saved World
 ending argument is needed: every scoped DOS entry chooses state zero.

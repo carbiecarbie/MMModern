@@ -39,6 +39,8 @@ struct XeenEventNone {};
 struct XeenEventRemove {};
 struct XeenEventExit {};
 struct XeenEventEndClouds {};
+struct XeenEventEndDarkside {};
+struct XeenEventEndWorld {};
 struct XeenEventTownService { std::uint8_t action = 0; };
 struct XeenEventReturn {};
 struct XeenEventNpc {
@@ -171,7 +173,7 @@ using XeenDecodedEventOperation = std::variant<
 	XeenEventNone,
 	XeenEventRemove,
 	XeenEventExit,
-	XeenEventEndClouds,
+	XeenEventEndClouds, XeenEventEndDarkside, XeenEventEndWorld,
 	XeenEventTownService,
 	XeenEventReturn,
 	XeenEventNpc,

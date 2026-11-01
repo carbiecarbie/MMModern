@@ -9,7 +9,7 @@ void put(Bytes &b,std::uint64_t v,unsigned n){for(unsigned i=0;i<n;++i)b.push_ba
 std::size_t baseSize(const XeenSaveSnapshot &s){
  // Header 20, fingerprints 25, Inn flag 1, camera 6, member and roster counts 2, then the
  // members, expanded quest/game arrays, four options, 960 roster flags and
- // the selected map-song byte. v24 keeps the Journey suffix unchanged.
+ // the selected map-song byte. v25 keeps the Journey suffix unchanged.
  std::size_t n=20+25+1+6+2+s.activeRosterIds.size()+4*s.questItems.size()+s.questFlags.size()+s.gameFlags.size()+4+960+1;
  // v19 adds seven roster bytes after the four mutable beacon bytes per character before the Journey block.
  for(const auto &c:s.characters)n+=239+c.name.size();return n;
@@ -25,7 +25,7 @@ Bytes suffix(const XeenSaveSnapshot &s){
  // v17: the purse alone; pending treasure is never saved.
  put(b,j.purse->gold,4);put(b,j.purse->gems,4);
  // Independent v21 play-time/completion bytes after the purse.
- put(b,0xfedcba98u,4);b.push_back(1);
+ put(b,0xfedcba98u,4);b.push_back(1);b.push_back(j.darksideCompleted);b.push_back(j.worldCompleted);
  for(bool flag:j.worldFlags->values)b.push_back(flag);b.push_back(30);
  for(unsigned owner=0;owner<30;++owner){b.push_back(owner);for(unsigned slot=0;slot<39;++slot)b.push_back(owner==2?0:owner==29&&slot==38?255:std::uint8_t(owner*7+slot*3));}
  b.push_back(30);for(unsigned owner=0;owner<30;++owner)b.insert(b.end(),{std::uint8_t(owner),std::uint8_t(owner),std::uint8_t(255-owner)});
@@ -68,7 +68,7 @@ void defeat(XeenSaveSnapshot &s,unsigned record){auto &a=s.map(23).monsters->slo
 void verify(const XeenSaveSnapshot &fixture,bool exhaustive=false){
  const auto &s=fixture;
  const auto bytes=XeenSaveFormat::encode(s),expected=suffix(s);const auto offset=baseSize(s);
- check(bytes.size()==offset+expected.size()&&std::equal(expected.begin(),expected.end(),bytes.begin()+offset),"Independent complete v24 schema9/content14 suffix and absent name");
+ check(bytes.size()==offset+expected.size()&&std::equal(expected.begin(),expected.end(),bytes.begin()+offset),"Independent complete v25 schema9/content14 suffix and absent name");
  sameSnapshot(s,XeenSaveFormat::decode(bytes));check(XeenSaveFormat::encode(XeenSaveFormat::decode(bytes))==bytes,"Exact current byte continuation");
  const std::size_t stride=exhaustive?1:97;
  for(std::size_t size=offset;size<bytes.size();size+=stride){auto b=bytes;b.resize(size);fixIndependentEnvelope(b);rejects([&]{XeenSaveFormat::decode(b);});}
@@ -83,7 +83,7 @@ int main(){try{
  populated.characters[0].conditions[3]=2;populated.characters[1].conditions[8]=1;verify(populated,true);
  // Literal v21 purse (gold, then gems), play time/completion and world flags.
  {const auto wire=XeenSaveFormat::encode(populated);const auto at=baseSize(populated)+1616;
-  const Bytes literal{0x78,0x56,0x34,0x12, 0x21,0x43,0x65,0x87, 0x98,0xba,0xdc,0xfe,1,0};
+  const Bytes literal{0x78,0x56,0x34,0x12, 0x21,0x43,0x65,0x87, 0x98,0xba,0xdc,0xfe,1,0,0,0};
   check(std::equal(literal.begin(),literal.end(),wire.begin()+at),"Literal v21 purse, play time and completion without pending treasure");}
  // Delivered items and the credited purse survive the round-trip without replay.
  auto delivered=populated;std::array<XeenCharacter,6> recipients;
@@ -111,17 +111,20 @@ int main(){try{
  }
  auto flagged=populated;flagged.journey->worldFlags->values[16]=true;verify(flagged);
  const auto bytes=XeenSaveFormat::encode(populated);const auto offset=baseSize(populated);
- const auto badByte=[&](unsigned at,unsigned value){auto b=bytes;b[offset+at]=value;fixIndependentEnvelope(b);rejects([&]{XeenSaveFormat::decode(b);});};
- // Literal v21 suffix offsets for `populated`: context marker 5, profile 6,
+ const auto badByte=[&](unsigned at,unsigned value){auto b=bytes;b[offset+at+(at>=1629?2:0)]=value;fixIndependentEnvelope(b);rejects([&]{XeenSaveFormat::decode(b);});};
+ // Literal v25 suffix offsets for `populated`: context marker 5, profile 6,
  // difficulty 7, rested/newDay 37-38, supplement count 41 and owners at
  // 42+41*i, RNG algorithm 1272, resistance count 1285 and owner 1286, purse
+ // Pre-v25 offsets below: add 2 from 1629 onward for the new completion bytes.
  // 1616, play time 1624, completion 1628, world flags 1629, learned spells
  // 1757, poison 2958, economy 3049, awards 4213 and the per-map table at
  // 8084 (map 23's slots from 8094).
  for(unsigned at:{5u,37u,38u})badByte(at,2);badByte(6,1);badByte(7,2);badByte(41,29);badByte(1272,2);badByte(1285,1);badByte(1286,20);
  for(unsigned i=0;i<30;++i){badByte(42+41*i,31);badByte(42+41*i+34,1);}
  for(unsigned at:{1285u,1286u})badByte(at,31);
- badByte(1628,2);badByte(1629,2);badByte(1757,29);badByte(1758,1);badByte(1798,0);badByte(2958,29);badByte(2959,1);badByte(2962,0);badByte(3049,3);
+ badByte(1628,2);
+ {auto b=bytes;b[offset+1629]=2;fixIndependentEnvelope(b);rejects([&]{XeenSaveFormat::decode(b);});}
+ {auto b=bytes;b[offset+1630]=2;fixIndependentEnvelope(b);rejects([&]{XeenSaveFormat::decode(b);});}badByte(1629,2);badByte(1757,29);badByte(1758,1);badByte(1798,0);badByte(2958,29);badByte(2959,1);badByte(2962,0);badByte(3049,3);
  badByte(8084,2);badByte(8087,0);badByte(8089,2);badByte(8090,20);badByte(8092,108);
  for(unsigned i=0;i<19;++i){const auto at=8094+7*i;badByte(at+2,4);badByte(at+3,2);badByte(at+4,2);badByte(at+5,0);if(i!=3 && i!=9)badByte(at+4,1);}
  for(unsigned mode=0;mode<9;++mode){auto bad=populated;auto &j=*bad.journey;

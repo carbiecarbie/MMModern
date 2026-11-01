@@ -702,14 +702,14 @@ A map Run threshold of 128 or more, which no installed map uses
 Deliberate differences from the original, approved by the maintainer and kept
 apart from the fidelity differences above.
 
-- **Clouds won marker and Darkside seen state in MMModern settings.** A boolean in
-  `%LOCALAPPDATA%\MMModern\settings.ini` gates the title independently of the
+- **Title won markers and Darkside seen state in MMModern settings.** Three win booleans in
+  `%LOCALAPPDATA%\MMModern\settings.ini` gate the title independently of the
   saved party. Failed publication shows a notice and keeps the previous won value;
   no score, original CFG bytes or byte-18 CPU-option overlap is written. Since
-  M93 a second boolean beside it records whether the Darkside intro was seen,
+  M93 another boolean records whether the Darkside intro was seen,
   instead of the original `XEEN.CFG`.
   Master not rechecked. [Details](original-quirks.md#dev-clouds-won-store)
-- **Recoverable Inn and Clouds ending save failures.** Sign In, Exit, a confirmed Delete and the
+- **Recoverable Inn and ending save failures.** Sign In, Exit, a confirmed Delete and the
   Create return show an error and allow retry, retaining the paid day, the
   edited party, the deletion or the advanced rolls; quitting stays possible.
   The ending retries its first captured bytes and score without repeating
@@ -746,7 +746,7 @@ apart from the fidelity differences above.
   before acknowledgment, allowing combat inside that unfinished call.
   [Details](original-quirks.md#dev-skipped-window-first)
 
-- **Darkside music.** [Load replays the saved song without drawing](original-quirks.md#dev-darkside-load-music), preserving gameplay RNG; the pin selects anew. This Load difference is approved by the maintainer. Outdoors follows DOS row 0; the pin indexes by wall kind. Pin: differs; master not rechecked.
+- **Darkside music.** [Load replays the saved song without drawing](original-quirks.md#dev-darkside-load-music), preserving gameplay RNG; the pin selects anew. The original approval is dated 2026-10-30. The maintainer approved the M106 extension on 2026-11-01: a Darkside win save keeps map 51's song in Castleview until the next arrival, whereas DOS draws from the camera row on Load. Outdoors follows DOS row 0; the pin indexes by wall kind. Pin: differs; master not rechecked.
 - **Castleview text.** [The Event at `(30,20)` temporarily forces text](original-quirks.md#sv-castleview-force-text), as DOS does even with Text off. The pin has no corresponding override. Pin: differs; master not rechecked.
 
 ## What ScummVM has that MMModern does not yet

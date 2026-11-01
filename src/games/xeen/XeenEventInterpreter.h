@@ -34,7 +34,7 @@ struct XeenEventExecutionAddress {
 	int line = 0;
 };
 
-enum class XeenEndingRequest { Clouds, Showtime };
+enum class XeenEndingRequest { Clouds, Darkside, World, Showtime, Showdown, Genesis };
 struct XeenEventExecutionCompleted {
 	XeenCamera finalCamera;
 	XeenGameFlags finalGameFlags;

@@ -663,11 +663,18 @@ award-selected variants are not needed for these entry contracts.
 
 ## Other Options ending rows
 
-**DOS static, high, installed World CD.** At x=93 the fixed rows are D at
+**DOS static, high, installed World CD with XEEN.CC present.** At x=93 the fixed rows are D at
 y=53 and C at y=78. Present ending rows are packed in the order E, V, W,
 each 25 pixels below the preceding row (`0xc2bf..0xc37d`); absent rows have
 no hotkey. Rendering uses the matching even sprite frames 0/2/4/6/8
 (`0xc4c3..0xc500`). Height is 100 plus 25 for each win (`0xc1eb..0xc238`).
+
+The DOS E row does not depend on XEEN.CC: height `0xc209`, construction
+`0xc2f9` and hotkey `0xc5b3` test only the Darkside won byte `DS:8d4e`.
+C, V and W also require the Clouds context `DS:0095`. Without XEEN.CC,
+C is absent and E, when won, is at y=78. MMModern currently gates every
+ending row on the Clouds context and still draws C without it; that
+missing-XEEN.CC title case remains a gap.
 
 | Clouds / Darkside / World won | Ending rows (hotkey, top y) |
 | --- | --- |

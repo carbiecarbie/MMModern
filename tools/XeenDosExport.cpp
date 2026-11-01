@@ -279,7 +279,7 @@ void placeDosParty(const GameInstallation &installation,const XeenSaveSnapshot &
 }
 std::string dosProjectionSummary() {
 	return "New Game projection: XEEN party replica; prior map, PTY16, unused party-ID suffix, "
-        "unmodeled counters/completion, quest-flag padding and CHR name padding; DAT seen bits.\n"
+        "unmodeled counters, quest-flag padding and CHR name padding; DAT seen bits.\n"
 		"DOS does not store monster HP/status, Spawn types/extra slots, object flips, head cache, MMModern RNG or process state.\n";
 }
 void exportDosSave(const GameInstallation &installation,const fs::path &input,const fs::path &requested,

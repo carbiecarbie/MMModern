@@ -1,6 +1,17 @@
 #include "XeenRegionalCombatTestSupport.h"
 #include "games/xeen/XeenStateEquality.h"
 #include <iostream>
+namespace mmodern {
+struct XeenCombatRotationTestAccess {
+ static void candidate(XeenCombat &combat,unsigned mask) {
+  bool called=false;
+  combat.changeInventory(combat.ticket(),[&](auto &party) {
+   called=true;save_test::check(party.cloudsCompleted==bool(mask&1) && party.darksideCompleted==bool(mask&2) && party.worldCompleted==bool(mask&4),"Combat inventory candidate keeps every completion combination");return false;
+  });
+  save_test::check(called,"Combat inventory candidate callback reached");
+ }
+};
+}
 using namespace regional_combat_test;
 using regional_combat_test::RegionalCombatFixture;
 namespace {
@@ -10,6 +21,17 @@ void end(RegionalCombatFixture &f){
     f.enter();f.action(Command::Attack);f.action(Command::Attack);
     check(f.combat->phase()==Phase::VictoryAwaitingEnd,"lethal remains distinct from End");
     check(f.service().status==Status::Victory&&f.p.encounterContext->minutes==491,"End charges exactly once");
+}
+void completionPropagation() {
+ for(unsigned mask=0;mask<8;++mask) {
+  auto source=combatSnapshot(XeenCombatRandom(1));source.journey->cloudsCompleted=mask&1;source.journey->darksideCompleted=mask&2;source.journey->worldCompleted=mask&4;
+  regional_test::Fixture f(source);
+  f.action(XeenEncounterAction::Wait);
+  for(unsigned n=0;n<20 && f.flow->state().phase()!=XeenEncounterPhase::Engaged;++n)f.pulse();
+  check(f.flow->attachJourney(f.flow->ticket(),[]{}),"Completion combat attachment");
+  auto &combat=*f.flow->combat();XeenCombatRotationTestAccess::candidate(combat,mask);
+  check(f.p.cloudsCompleted==bool(mask&1) && f.p.darksideCompleted==bool(mask&2) && f.p.worldCompleted==bool(mask&4),"Combat candidate preserves live completions");
+ }
 }
 void combatSoundOptions() {
     RegionalCombatFixture f{XeenCombatRandom(victoryTape())};f.enter();
@@ -44,7 +66,7 @@ void captureBoundaries(){
     auto saved=f.snapshot();tape=prior;
     check(saved.journey&&saved.map(23).monsters->slots[5].accounted&&saved.journey->context==f.p.encounterContext,"current capture fields");
     for(unsigned i=0;i<30;++i)check(saved.journey->supplements[i].owner==i&&xeen_state::sameInputs(saved.journey->supplements[i].inputs,*f.p.roster.combatInputs(i)),"all supplements captured");
-    const auto bytes=XeenSaveFormat::encode(saved);check(bytes[8]==24,"current envelope");
+    const auto bytes=XeenSaveFormat::encode(saved);check(bytes[8]==25,"current envelope");
     check(XeenSaveFormat::encode(XeenSaveFormat::decode(bytes))==bytes,"current encode/decode exactness");
     auto detached=XeenPartyLoader().loadFromResources(chr(),pty());auto copied=f.camera;
     check(!XeenSaveState::canCapture(detached,f.camera,f.w)&&!XeenSaveState::canCapture(f.p,copied,f.w)&&XeenSaveState::canCapture(f.p,f.camera,f.w),"capture bound to exact owners");
@@ -95,4 +117,4 @@ void overlayCallbackGuards(){
     check(calls==0,"detached destination marker refuses before providers");
 }
 }
-int main(){probe_fired::expect("XeenCombatRandom::draw");try{combatSoundOptions();captureBoundaries();retirementAndIntegrity();overlayCallbackGuards();std::cout<<"Regional combat capture and restore guards passed\n";return 0;}catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}
+int main(){probe_fired::expect("XeenCombatRandom::draw");try{completionPropagation();combatSoundOptions();captureBoundaries();retirementAndIntegrity();overlayCallbackGuards();std::cout<<"Regional combat capture and restore guards passed\n";return 0;}catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}

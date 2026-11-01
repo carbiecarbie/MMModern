@@ -85,6 +85,14 @@ meets, which keeps its census row and notice.
   the audit protocol in `tools/AGENTS.md`: every new byte explained and the
   replacement approved by the maintainer. Restore stays exact: no replayed
   Event, reward, time or RNG.
+  **M106 extension approved by the maintainer on 2026-11-01:** the
+  camera-only Darkside win save keeps map 51's song in Castleview until the
+  next arrival draws one. Restore validates against the camera or a retained
+  map's music table without a draw; DOS draws from the camera row on Load.
+  This is a separate extension of the saved-song approval of 2026-10-30.
+  An omitted camera monster table reconstructed on restore stays transient
+  while pristine, so immediate re-save preserves its absence. Neither rule
+  adds a serialized field.
 - **Playable by default.** Between Part A and Part B the Darkside hand-off,
   and until step 5 the World hand-off, show "not supported yet" after the
   save and return to the title; a missing or different `XEEN.EXE` does the

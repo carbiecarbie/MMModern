@@ -176,6 +176,7 @@ struct XeenPartyState {
 	XeenMutableOptional<XeenPurse> purse;
     XeenMutable<std::uint32_t> playTimeSeconds=0;
     XeenMutable<bool> cloudsCompleted=false;
+    XeenMutable<bool> darksideCompleted=false, worldCompleted=false;
 	// The fresh Journey lifecycle installs merchant stock/shared bank.
 	XeenMutableOptional<XeenServiceEconomy> serviceEconomy;
 	XeenRoster roster;

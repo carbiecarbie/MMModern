@@ -67,7 +67,7 @@ XeenCutscene titleExit() {
 }
 }
 int Application::run(const std::filesystem::path &gameDirectory) const {return runTitle(gameDirectory,{},true);}
-int Application::runTitle(const std::filesystem::path &gameDirectory,std::optional<std::uint32_t> endingScore,bool startup) const {
+int Application::runTitle(const std::filesystem::path &gameDirectory,std::optional<std::uint32_t> endingScore,bool startup,XeenSessionOutcome::Kind endingKind) const {
  try {
   const auto installation=XeenInstallationDetector(_uiData,_cfg).detect(gameDirectory);
   if(!installation) {std::cerr<<"No Xeen installation found: "<<gameDirectory.u8string()<<'\n';return 2;}
@@ -92,7 +92,7 @@ int Application::runTitle(const std::filesystem::path &gameDirectory,std::option
   const auto makeTitle=[&](XeenSoundOptions options=XeenSoundOptions{}) {
    auto services=XeenTitleFlow::original(assets,font,rows,path);services.soundOptions=options;
    services.cloudsContext=installation->hasXeen();
-   services.cloudsWon=_program.cloudsWon;
+   services.cloudsWon=_program.cloudsWon;services.darksideWon=_program.darksideWon;services.worldWon=_program.worldWon;
    services.cloudsIntroCheck=[&] {
     try {introData=XeenCutsceneData::installed(*installation);return std::string{};}
     catch(const std::exception &e){introData.reset();return std::string(e.what());}
@@ -141,7 +141,8 @@ int Application::runTitle(const std::filesystem::path &gameDirectory,std::option
   }
   auto title=makeTitle();
   XeenSessionEntry entry;
-  if(endingScore){entry.kind=XeenSessionEntry::Kind::CloudsEnding;entry.score=*endingScore;}
+  if(endingScore){entry.kind=endingKind==XeenSessionOutcome::Kind::DarksideEnding?XeenSessionEntry::Kind::DarksideEnding:
+   endingKind==XeenSessionOutcome::Kind::WorldEnding?XeenSessionEntry::Kind::WorldEnding:XeenSessionEntry::Kind::CloudsEnding;entry.score=*endingScore;}
   bool inGameLoad=false;
   for(;;) {
    if(entry.kind==XeenSessionEntry::Kind::Title) {
@@ -150,13 +151,21 @@ int Application::runTitle(const std::filesystem::path &gameDirectory,std::option
     if(!selected)return 0;entry=*selected;inGameLoad=false;
    }
    if(entry.kind==XeenSessionEntry::Kind::Exit)return 0;
-   if(entry.kind==XeenSessionEntry::Kind::CloudsEnding) {
+   if(entry.kind==XeenSessionEntry::Kind::CloudsEnding || entry.kind==XeenSessionEntry::Kind::DarksideEnding || entry.kind==XeenSessionEntry::Kind::WorldEnding) {
     auto &audio=*_program.audio;const auto options=audio.soundOptions();
     const auto clock=[] {return SdlWindow::presentationNanoseconds();};
     audio.stopDigital(clock());audio.fadeSong(0,clock());audio.observeOptions({});
     std::string notice;
     bool resourcesLoaded=false;
-    if(audio.startProgram(clock(),XeenAudioProgram::Exe))try {
+    if(entry.kind!=XeenSessionEntry::Kind::CloudsEnding) {
+     const auto name=entry.kind==XeenSessionEntry::Kind::DarksideEnding?"Darkside":"World";
+     try {(void)XeenCutsceneData::installed(*installation);notice=std::string(name)+" ending: not supported yet";}
+     catch(const std::exception &e) {
+      std::cerr<<name<<" ending unavailable: "<<e.what()<<'\n';
+      notice=std::string(name)+" ending unavailable\nCheck XEEN.EXE / XEEN.CFG";
+     }
+    }
+    else if(audio.startProgram(clock(),XeenAudioProgram::Exe))try {
      const auto data=XeenCutsceneData::installed(*installation);
      const auto captions=XeenCutsceneData::captions(assets.readArchiveResource(data.resources[XeenCutsceneData::Caption],XeenSceneArchive::CloudsEnding));
      resourcesLoaded=true;
@@ -231,8 +240,9 @@ int Application::runTitle(const std::filesystem::path &gameDirectory,std::option
    const int status=gameplay(gameDirectory,{},entry.path,!fresh,
     fresh?XeenEncounterEntry::Journey:XeenEncounterEntry::Ordinary,{},
     fresh?std::optional<XeenDifficulty>{entry.difficulty}:std::nullopt,&entry,&assets,fresh?publish:InitialPublication{},&outcome);
-   if(status==0 && outcome.kind==XeenSessionOutcome::Kind::CloudsEnding) {
-    entry={};entry.kind=XeenSessionEntry::Kind::CloudsEnding;entry.score=outcome.score;inGameLoad=false;continue;
+   if(status==0 && (outcome.kind==XeenSessionOutcome::Kind::CloudsEnding || outcome.kind==XeenSessionOutcome::Kind::DarksideEnding || outcome.kind==XeenSessionOutcome::Kind::WorldEnding)) {
+    entry={};entry.kind=outcome.kind==XeenSessionOutcome::Kind::DarksideEnding?XeenSessionEntry::Kind::DarksideEnding:
+     outcome.kind==XeenSessionOutcome::Kind::WorldEnding?XeenSessionEntry::Kind::WorldEnding:XeenSessionEntry::Kind::CloudsEnding;entry.score=outcome.score;inGameLoad=false;continue;
    }
    if(status==0 && outcome.kind==XeenSessionOutcome::Kind::Load){entry=std::move(outcome.entry);inGameLoad=true;continue;}
    if(status==0 && outcome.kind==XeenSessionOutcome::Kind::Title){title->returnToTitle();entry={};inGameLoad=false;continue;}

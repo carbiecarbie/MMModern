@@ -66,7 +66,7 @@ inline void sameSnapshot(const XeenSaveSnapshot &a, const XeenSaveSnapshot &b) {
 		const auto &x=*a.journey,&y=*b.journey;
 		check(x.entry==y.entry&&x.schema==y.schema&&x.content==y.content&&x.context==y.context&&
 			x.skeletonSeed==y.skeletonSeed && x.random==y.random && x.purse==y.purse &&
-			x.playTimeSeconds==y.playTimeSeconds && x.cloudsCompleted==y.cloudsCompleted && x.worldFlags==y.worldFlags && x.serviceEconomy==y.serviceEconomy,"Journey header/economy values changed");
+			x.playTimeSeconds==y.playTimeSeconds && x.cloudsCompleted==y.cloudsCompleted && x.darksideCompleted==y.darksideCompleted && x.worldCompleted==y.worldCompleted && x.worldFlags==y.worldFlags && x.serviceEconomy==y.serviceEconomy,"Journey header/economy values changed");
 		for(unsigned i=0;i<30;++i) check(x.supplements[i].owner==y.supplements[i].owner&&
 			sameInputs(x.supplements[i].inputs,y.supplements[i].inputs),"Journey supplements changed");
 	}

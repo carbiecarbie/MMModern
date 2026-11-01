@@ -835,13 +835,17 @@ stays documented here and in the plan that implements it.
   disk-error/recovery path. Master not rechecked. The policy belongs to
   [M94](milestone-94-plan.md); it does not assert these devices are implemented.
 
-- <a id="dev-clouds-won-store"></a> **Clouds title won marker and Darkside seen state in MMModern settings**
+- <a id="dev-clouds-won-store"></a> **Title won markers and Darkside seen state in MMModern settings**
   (maintainer confirmation, 2026-10-26). `%LOCALAPPDATA%\MMModern\settings.ini`
-  contains a won boolean, independently of saved party completion, and since
+  contains the Clouds `won` boolean, independently of saved party completion, and since
   M93 the Darkside intro seen boolean `darkside_intro_seen` (maintainer,
   2026-10-26), which replaces DOS's `XEEN.CFG` seen word
   ([startup](#sv-darkside-startup-seen)); the reader still accepts M92's
-  won-only file. Missing or malformed files mean not won and not seen. Each
+  won-only file. M106 adds `darkside_won` and `world_won` (maintainer approval,
+  2026-11-01), replacing DOS CFG bytes 22 and 23. The old one/two-key files
+  default both new wins to false. Every win or intro write preserves the
+  other three values, including after a failed replacement. Missing or malformed
+  files mean no wins and not seen. Each
   write uses a temporary sibling and atomic replacement. On a failed won write
   a notice appears, the ending continues and the running title gate keeps its
   previous value (maintainer, 2026-10-26). Like DOS's CFG write, the seen
@@ -857,7 +861,7 @@ stays documented here and in the plan that implements it.
   and failure policy are approved application deviations. Master not rechecked.
   [Evidence](rules/cutscenes.md#clouds-ending-entry-and-save).
 
-- <a id="dev-inn-save-recovery"></a> **Inn and Clouds ending write failures remain recoverable**
+- <a id="dev-inn-save-recovery"></a> **Inn and ending write failures remain recoverable**
   (maintainer, 2026-10-24). A failed Sign In, Exit, confirmed Delete or Create-return save
   shows the existing panel Save error handling and permits retry; quitting
   remains possible. Sign In retains the already paid day, and Exit stays in
@@ -1777,6 +1781,16 @@ without a draw, then makes an ordinary map-load selection
 Darkside entry outside Journey. Exact restore validates it against the
 camera map and plays it without drawing, preserving gameplay continuation.
 DOS draws again on Load as part of its clock-mixed RNG.
+
+**M106 extension, approved by the maintainer on 2026-11-01:** a save from
+the camera-only Darkside win keeps map 51's selected song in Castleview
+until the next arrival draws one. Restore accepts the song of a retained
+loaded map without drawing; DOS instead draws from the camera map's row
+on Load. This cross-row result extends the 2026-10-30 approval.
+
+A pristine camera monster table reconstructed from an omitted save entry
+remains transient until a retained map value changes, so immediate re-save
+preserves the omission.
 **ScummVM:** the pin's `SavesManager::loadGameState` calls `Map::load`
 (`saves.cpp:206`), whose Darkside music selection draws anew
 (`map.cpp:902..945`). MMModern follows the approved saved-song rule on Load.

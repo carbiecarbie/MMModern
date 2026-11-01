@@ -8,14 +8,17 @@ namespace mmodern {
 void XeenEventFlow::startEnding(XeenEndingRequest kind) {
  if(_endingTailApplied)return;
  if(!journey() || !_encounter->journeyEvent() || _transition || _pending)
-  throw std::logic_error("Clouds ending requires a published terminal Event");
+  throw std::logic_error("Ending requires a published terminal Event");
  auto &guard=_encounter->journeySavePreimage();guard.check();
+ const auto markWon=[&] {
+  bool won=false;
+  try {won=writeWon && writeWon(kind);}catch(const std::exception &) {won=false;}
+  guard.check();_endingWonNotice=!won;
+ };
  if(kind==XeenEndingRequest::Clouds) {
   // DAT 0x28b98..0x28c0d. The marker precedes flag 75 and relocation.
   guard.cloudsCompleted=true;_party.cloudsCompleted=true;guard.adoptMutationBoundary();
-  bool won=false;
-  try {won=writeWon && writeWon();}catch(const std::exception &) {won=false;}
-  guard.check();_endingWonNotice=!won;
+  markWon();
   auto camera=_camera;camera.mapId=28;camera.x=18;camera.y=4;
   auto flags=_flags;flags.set(75);
   guard.cameraValue=camera;guard.flagValues=flags.values();
@@ -24,6 +27,21 @@ void XeenEventFlow::startEnding(XeenEndingRequest kind) {
   // Derived load-rule view only: no map-28 resource, actor or visit is loaded.
   _world.applyMainMapRules(_camera.mapId,_flags,true);
   guard.adoptMutationBoundary();guard.check();
+ } else if(kind==XeenEndingRequest::Darkside) {
+  // DAT 0x28b6f..0x28b8f: quest 53, won marker, completion, camera only.
+  guard.quests[53]=1;_party.questItems=XeenQuestItems(guard.quests);guard.adoptMutationBoundary();
+  markWon();
+  guard.darksideCompleted=true;_party.darksideCompleted=true;
+  guard.adoptMutationBoundary();
+  auto camera=_camera;camera.mapId={XeenSide::Darkside,29};camera.x=25;camera.y=21;camera.direction=XeenDirection::North;
+  guard.cameraValue=camera;_camera=camera;
+  // Keep map 51 loaded for the forced save's flush, as with Clouds map 78.
+  _world.applyMainMapRules(_camera.mapId,_flags,_party.cloudsCompleted);
+  guard.adoptMutationBoundary();guard.check();
+ } else if(kind==XeenEndingRequest::World) {
+  // DAT 0x28b5d..0x28b6d: won marker precedes completion; no movement.
+  markWon();
+  guard.worldCompleted=true;_party.worldCompleted=true;guard.adoptMutationBoundary();guard.check();
  }
  _endingTailApplied=true;_encounterFrame=_encounter->ticket();
 }

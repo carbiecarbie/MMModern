@@ -47,7 +47,7 @@ inline bool sameActor(const XeenActor &a, const XeenActor &b) {
 
 // Absent and empty entries are equivalent; reserving an entry is unobservable.
 inline bool sameMapState(const XeenMapState &a, const XeenMapState &b) {
-	if (bool(a.monsters) != bool(b.monsters)) return false;
+	if (bool(a.monsters) != bool(b.monsters) || a.originalMonstersFromRestore!=b.originalMonstersFromRestore) return false;
 	if (a.monsters) {
 		if (a.monsters->size() != b.monsters->size() || a.originalMonsterCount != b.originalMonsterCount ||
 			a.outdoors != b.outdoors) return false;

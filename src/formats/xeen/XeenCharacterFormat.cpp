@@ -267,7 +267,7 @@ void XeenCharacterFormat::writeDosParty(std::vector<std::uint8_t> &p, const Xeen
 			p[off++]=v.material; p[off++]=v.id; p[off++]=v.state; p[off++]=v.frame;
 		}
 	}
-	word(604,j.cloudsCompleted); word(618,s.food);
+	word(604,j.cloudsCompleted); word(606,j.darksideCompleted); word(608,j.worldCompleted); word(618,s.food);
 	dword(638,j.purse->gold); dword(642,j.purse->gems); dword(646,e.bank.gold); dword(650,e.bank.gems); dword(654,j.playTimeSeconds);
 	// Both game banks are contiguous; the second quest bank starts at bit 30,
 	// leaving the last four padding bits of the packed field untouched.

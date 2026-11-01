@@ -53,8 +53,12 @@ void xeenSaveGameplay(const XeenGameplayServices &services, XeenWorld &world, Xe
     const auto *cameraMap=snapshot.find(camera.mapId);
     if((!cameraMap || !cameraMap->monsters) &&
        (world.sessionState().mapState(camera.mapId) ||
-        (world.sessionState().headCache() && world.sessionState().headCache()->mapId==camera.mapId)))
-        throw std::logic_error("Save camera-map monster table is missing for a retained map");
+        (world.sessionState().headCache() && world.sessionState().headCache()->mapId==camera.mapId))) {
+        const auto current=XeenSaveState::capture(services.resources.signature,party,camera,flags,world);
+        // A pristine camera table reconstructed by Load is canonically omitted.
+        // A cached retry may omit it only while the live capture does too.
+        if(current.find(camera.mapId))throw std::logic_error("Save camera-map monster table is missing for a retained map");
+    }
 	snapshot.name=services.saveName;
 	XeenRestoreGuard before(world,party,camera,flags);
 	before.check();
@@ -191,7 +195,7 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
    encounter = entry != XeenEncounterEntry::Ordinary;
   } else {
    party = services.resources.loadInitialParty();
-   party.playTimeSeconds=0;party.cloudsCompleted=false;
+   party.playTimeSeconds=0;party.cloudsCompleted=false;party.darksideCompleted=false;party.worldCompleted=false;
    flags = services.initialFlags();
   }
   for (const auto &diagnostic : party.diagnostics) std::cerr << "Party warning: " << diagnostic << '\n';
@@ -284,9 +288,16 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
   if (services.configureFlow) services.configureFlow(flow, camera);
   handoff.verify();
   if(flow.partyDeathRequired()) {flow.refresh();handoff.retain();}
-  if(!flow.writeWon)flow.writeWon=[&] {
-   const bool written=_settingsFile && xeenWriteWon(*_settingsFile);
-   services.program.cloudsWon=written || services.program.cloudsWon;
+  const auto endingOutcome=[&] {
+   const auto kind=flow.endingRequest();
+   return kind==XeenEndingRequest::Darkside || kind==XeenEndingRequest::Showdown?XeenSessionOutcome::Kind::DarksideEnding:
+    kind==XeenEndingRequest::World || kind==XeenEndingRequest::Genesis?XeenSessionOutcome::Kind::WorldEnding:XeenSessionOutcome::Kind::CloudsEnding;
+  };
+  if(!flow.writeWon)flow.writeWon=[&](XeenEndingRequest kind) {
+   const auto wonKind=kind==XeenEndingRequest::Darkside?XeenWonKind::Darkside:kind==XeenEndingRequest::World?XeenWonKind::World:XeenWonKind::Clouds;
+   const bool written=_settingsFile && xeenWriteWon(*_settingsFile,wonKind);
+   auto &won=kind==XeenEndingRequest::Darkside?services.program.darksideWon:kind==XeenEndingRequest::World?services.program.worldWon:services.program.cloudsWon;
+   won=written || won;
    return written;
   };
   flow.saveForced=[&](std::optional<XeenSaveSnapshot> *captured) {
@@ -560,7 +571,7 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
    auto next = flow.handle(mapped,input,inputFrame);
    handoff.retain();
    if(const auto score=flow.endingScore()) {
-    if(services.outcome)*services.outcome={XeenSessionOutcome::Kind::CloudsEnding,0,{},*score};
+    if(services.outcome)*services.outcome={endingOutcome(),0,{},*score};
     finished=true;
    }
    return next;
@@ -667,7 +678,7 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
   handler.finished=[&,alive]{
    if(!*alive)return true;
    if(const auto score=flow.endingScore()) {
-    if(services.outcome)*services.outcome={XeenSessionOutcome::Kind::CloudsEnding,0,{},*score};
+    if(services.outcome)*services.outcome={endingOutcome(),0,{},*score};
     finished=true;
    }
    if(!finished)return false;
@@ -699,7 +710,7 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
     }
     auto next=flow.updatePresentation();handoff.retain();
     if(const auto score=flow.endingScore()) {
-     if(services.outcome)*services.outcome={XeenSessionOutcome::Kind::CloudsEnding,0,{},*score};
+     if(services.outcome)*services.outcome={endingOutcome(),0,{},*score};
      finished=true;
     }
     if(flow.partyDeathComplete()) {

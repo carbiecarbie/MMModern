@@ -3262,7 +3262,7 @@ matches the static rules above.
 | Map 129 win, walking North onto `(13,15)` | Completion word 608 = 1, CFG byte 23 = 1, camera and facing unchanged (`(13,15)` North). A first run that had turned around saved South, as the party faced. |
 | Darkside mirror `showdown` (map 53) | Forced save at the mirror cell, facing West; no completion word, no CFG won byte, no move; CFG rewritten with unchanged values. |
 | Darkside mirror `bloopers` | No film; slot 01 identical to the seed. |
-| Clouds mirror `showdown` (Vertigo) | Same as the Darkside word; one Clouds game-flag byte (PTY 687) also changed. No ending tail stores a game flag; the mirror cell's line 0 (CallEvent) runs before the prompt and is the likely writer, to be confirmed by Part A's mirror test. |
+| Clouds mirror `showdown` (Vertigo) | Same as the Darkside word; PTY 687 changes 0 -> 1 (Clouds game flag 231, MSB-first). Part A's original-data mirror test confirms that line 0's CallEvent sets flag 231 in the suspended Event before ConfirmWord. The saved PTY byte is 1 afterwards; the ending tail writes no game flag. The DOS comparison is `m106-clouds-mirror-dos/evidence/20261101-121601-8064079-after/comparison.txt`, offset 687. |
 | Title replay `E` with all three wins | No file written. |
 
 Besides these, each save changed only the ordinary time fields (PTY 610,

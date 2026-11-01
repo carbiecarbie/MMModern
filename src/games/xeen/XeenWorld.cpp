@@ -103,6 +103,7 @@ void XeenSessionWorldState::stageMonsters(XeenMapIdentity mapId, std::vector<Xee
 	auto &state=_mapStates.state(mapId);
 	state.monsters.emplace(std::move(actors));
 	state.originalMonsterCount=static_cast<std::uint16_t>(originalCount);state.outdoors=outdoors;
+	state.originalMonstersFromRestore=false;
 }
 void XeenSessionWorldState::reserveTiles(const std::vector<XeenExploredTile> &values) {
 	for (const auto &tile:values) static_cast<void>(_mapStates.state(tile.mapId));
@@ -721,7 +722,7 @@ void XeenWorld::copyEventParty(const XeenPartyState &source, XeenPartyState &can
 	candidate.serviceEconomy=source.serviceEconomy;candidate.questItems=source.questItems;
 	candidate.questFlags=source.questFlags;candidate.worldFlags=source.worldFlags;
 	candidate.food=source.food;candidate.soundOptions=source.soundOptions;
-    candidate.playTimeSeconds=source.playTimeSeconds;candidate.cloudsCompleted=source.cloudsCompleted;
+    candidate.playTimeSeconds=source.playTimeSeconds;candidate.cloudsCompleted=source.cloudsCompleted;candidate.darksideCompleted=source.darksideCompleted;candidate.worldCompleted=source.worldCompleted;
 	candidate.insideInn=source.insideInn;candidate.firstSerializedCount=source.firstSerializedCount;candidate.effectiveSerializedCount=source.effectiveSerializedCount;
 	candidate.diagnostics=source.diagnostics;
 }

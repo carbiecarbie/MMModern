@@ -328,7 +328,7 @@
 #include <array>
 #include <cstdint>
 namespace m44_baseline {
-inline constexpr const char *revision = "M104 Part A (save v24), baseline 0484419";
+inline constexpr const char *revision = "M106 Part A (save v25), baseline dc76db6";
 struct Scenario { const char *name; std::uint32_t seed; const char *sha256; };
 // M101 Part A: maintainer approved the four v23 replacements on 2026-10-30.
 // v23 adds only the widened party state and saved map song (1447 bytes);
@@ -347,16 +347,23 @@ struct Scenario { const char *name; std::uint32_t seed; const char *sha256; };
 // native reload/resave and both roundtrip checkpoint resumes are exact.
 // Local evidence: D:/Projetos/MModern/MModern-re/m104/part-a/
 // v23-baseline/, v24-comparison/digest-audit.json and m44-explanation.md.
+// M106 Part A: maintainer approved all four v25 replacements on 2026-11-01.
+// All 14 checkpoints equal the independent v24-to-v25 projection: two false
+// completion bytes after cloudsCompleted, plus envelope version/length/CRC.
+// Schema9/content14, common/per-map fields and all four traces are unchanged.
+// Native reload/resave and roundtrip resumes A/B are exact. Evidence:
+// build-rel/m106-v25-final-audit/{digest-audit.json,summary.txt} and
+// D:/Projetos/MModern/MModern-re/m106/part-a-byte-audit.{md,json}.
 inline constexpr std::array<Scenario,4> scenarios{{
-    {"mainland-combat-myra-phirna",3626689381u,"695d3d60456a4fcbf322ae7b7cd71d4e62ad4aff706951f2fbc1e709381ac548"},
+    {"mainland-combat-myra-phirna",3626689381u,"20c732527cc4724eb6ed90276415f71865942d3134fab1118bba6fef50fc2a26"},
     // M75: a member woken after its skipped slot waits for the next round (DOS turn order).
     // M78 Part A: maintainer approved the services replacement on 2026-10-20.
     // Pathfinder wall 3 reroutes the one-holder party; time/exploration and an
     // extra merchant generation explain all fields. Native reload/re-save is exact.
     // Local audit: build-rel/m78-digest-comparison and m78-services-causal-audit.json.
-    {"vertigo-buy-repair-training",7u,"fef226c85025406f92d54fc02e465d11ceda8e31195745f590b4dd9a378df5d8"},
-    {"temple-recovery",3626689381u,"a39f49839bb3cbae7b909cf71f101d8770ce428e158741da3e2fa48ebbe56acf"},
-    {"vertigo-f3-roundtrip",3626689381u,"3a1dd6bfb7ebb6f2293dcbc44e577fcfb08dc3c00897fed97bbe72fb7322f0f3"}
+    {"vertigo-buy-repair-training",7u,"357ab35fd53ac63eeb9af1107fd504288f77be7ceb1c6d1b7fff50d7957fa08e"},
+    {"temple-recovery",3626689381u,"281f464fc1e6904513cac53d88b867077f4b4e6819a9343a22f5348c3b45f244"},
+    {"vertigo-f3-roundtrip",3626689381u,"30aa5b3e2d981818d7bfb098f048bd5f93b918dede10dd5a7504a84073cf800a"}
 }};
 }
 #endif

@@ -118,7 +118,7 @@ void XeenSaveState::restoreJourney(const XeenSaveSnapshot &source, const Resourc
 	p.encounterContext = snapshot.journey->context;
 	// Pending treasure is running-program state: restore grants and draws nothing.
 	p.purse=snapshot.journey->purse;
-    p.playTimeSeconds=snapshot.journey->playTimeSeconds;p.cloudsCompleted=snapshot.journey->cloudsCompleted;
+    p.playTimeSeconds=snapshot.journey->playTimeSeconds;p.cloudsCompleted=snapshot.journey->cloudsCompleted;p.darksideCompleted=snapshot.journey->darksideCompleted;p.worldCompleted=snapshot.journey->worldCompleted;
 	p.serviceEconomy=snapshot.journey->serviceEconomy;
 	p.roster._combatMarked = true;
 	for (const auto &r : snapshot.journey->supplements) p.roster._combatInputs[r.owner] = r.inputs;
@@ -190,9 +190,18 @@ void XeenSaveState::restoreJourney(const XeenSaveSnapshot &source, const Resourc
 		w.setTavernTipIndex(m.id,*m.tavernTips);adopt();
 	}
 	w.restoreHeads(snapshot.headCache,c);adopt();
-	if (xeenMapResources(c.mapId).music==XeenMapMusic::DarksideRandom && (!snapshot.darksideSong ||
-		unsigned(*snapshot.darksideSong)/7!=xeenMapMusicRow(w.map(c.mapId).geometry)))
-		throw std::invalid_argument("Saved Darkside song does not belong to camera map table");
+	if (xeenMapResources(c.mapId).music==XeenMapMusic::DarksideRandom) {
+		// A camera-only ending move saves the loaded map's song, without loading
+		// the destination or drawing again. The song must belong to the camera
+		// or a retained loaded map; restore keeps that exact saved selection.
+		const auto matches=[&](XeenMapIdentity id) {
+			return snapshot.darksideSong && xeenMapResources(id).music==XeenMapMusic::DarksideRandom &&
+				unsigned(*snapshot.darksideSong)/7==xeenMapMusicRow(w.map(id).geometry);
+		};
+		bool valid=matches(c.mapId);
+		for(const auto &map:snapshot.maps)if(!valid && map.monsters)valid=matches(map.id);
+		if(!valid)throw std::invalid_argument("Saved Darkside song does not belong to camera map table or retained map table");
+	}
 	auto statistics = callback([&]{return resources.monsterStatistics(xeenMapResources(c.mapId).monsterTable);});
 	std::array<std::optional<std::vector<XeenMonsterRecord>>,2> statisticsByTable;
 	statisticsByTable[static_cast<unsigned>(xeenMapResources(c.mapId).monsterTable)]=statistics;
@@ -274,6 +283,7 @@ void XeenSaveState::restoreJourney(const XeenSaveSnapshot &source, const Resourc
         const bool outdoors=callback([&]{return w.map(c.mapId).geometry.isOutdoors();});
         const auto count=actors.size();
         s.stageMonsters(c.mapId,std::move(actors),count,outdoors);
+        s._mapStates.state(c.mapId).originalMonstersFromRestore=true;
         adopt();
         XeenActorApproach::validateEnvironment(w,s.mutableMonsters(c.mapId),evt);
         adopt();
@@ -434,6 +444,20 @@ XeenSaveSnapshot XeenSaveState::captureImpl(const XeenSaveResourceSignature &res
 		for (const auto &v:events) saved.events.push_back({record(v.first),v.second});
 		saved.explored=live.explored;
 		if(live.tavernTips)saved.tavernTips=std::uint8_t(*live.tavernTips);
+		if(live.originalMonstersFromRestore && saved.monsters && (!snapshot.headCache || snapshot.headCache->mapId!=saved.id)) {
+			bool original=true;
+			for(unsigned i=0;i<live.monsters->size();++i) {
+				const auto &actor=live.monsters->at(i);const auto &slot=saved.monsters->slots[i];
+				const auto lifecycle=actor.original.isDisabled()?XeenActorLifecycle::Disabled:
+					actor.original.hasResource()?XeenActorLifecycle::Present:XeenActorLifecycle::Unresolved;
+				if(slot.x!=actor.original.x || slot.y!=actor.original.y || slot.lifecycle!=lifecycle || slot.accounted)original=false;
+			}
+			if(original) {
+				auto table=std::move(saved.monsters);saved.monsters.reset();
+				// Once gameplay changes any retained map value, its table is saved normally.
+				if(!saved.empty())saved.monsters=std::move(table);
+			}
+		}
 		if (!saved.empty()) snapshot.maps.push_back(std::move(saved));
 	}
 
@@ -442,7 +466,7 @@ XeenSaveSnapshot XeenSaveState::captureImpl(const XeenSaveResourceSignature &res
 		XeenSaveJourney j;
 		j.context = party.encounterContext; j.skeletonSeed = state.skeletonSeed();
 		j.content=XeenSaveFormat::kJourneyContent; j.schema=XeenSaveFormat::kJourneySchema; j.random=state.journeyRandom();j.purse=party.purse;j.worldFlags=party.worldFlags;
-        j.playTimeSeconds=party.playTimeSeconds;j.cloudsCompleted=party.cloudsCompleted;
+        j.playTimeSeconds=party.playTimeSeconds;j.cloudsCompleted=party.cloudsCompleted;j.darksideCompleted=party.darksideCompleted;j.worldCompleted=party.worldCompleted;
 		j.serviceEconomy=party.serviceEconomy;
 		for (unsigned i = 0; i < 30; ++i) j.supplements[i] = {static_cast<std::uint8_t>(i), *party.roster.combatInputs(i)};
 		snapshot.journey = std::move(j);

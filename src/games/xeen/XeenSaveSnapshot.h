@@ -158,6 +158,7 @@ struct XeenSaveJourney {
 	std::optional<XeenPurse> purse;
     std::uint32_t playTimeSeconds=0;
     bool cloudsCompleted=false;
+    bool darksideCompleted=false, worldCompleted=false;
 	std::optional<XeenWorldFlags> worldFlags;
 	std::optional<XeenServiceEconomy> serviceEconomy;
 };

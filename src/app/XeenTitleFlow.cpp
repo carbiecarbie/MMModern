@@ -122,6 +122,15 @@ void XeenTitleFlow::panelResult(std::string message,bool success) {
  _notice=std::move(message);_noticeReturn=_saveAs?Screen::SaveSlots:Screen::Panel;
  setScreen(success?Screen::SavedNotice:Screen::Notice);
 }
+std::vector<XeenSessionEntry::Kind> XeenTitleFlow::endingRows() const {
+ std::vector<XeenSessionEntry::Kind> rows;
+ if(_services.cloudsContext) {
+  if(_services.darksideWon)rows.push_back(XeenSessionEntry::Kind::DarksideEnding);
+  if(_services.cloudsWon)rows.push_back(XeenSessionEntry::Kind::CloudsEnding);
+  if(_services.worldWon)rows.push_back(XeenSessionEntry::Kind::WorldEnding);
+ }
+ return rows;
+}
 DialogInput XeenTitleFlow::dialog() const {
  DialogInput input;input.keys.push_back(InputKey::Escape);
  const auto add=[&](const XeenDosText::Button &button,unsigned key,const char *resource,unsigned frame) {
@@ -132,8 +141,15 @@ DialogInput XeenTitleFlow::dialog() const {
   const bool other=_screen==Screen::Other;const auto &buttons=_services.text.buttons(other?"OTHER":"TITLE");
   const char *resource=_services.text.scalar(other?"OTHER_BUTTONS":"TITLE_BUTTONS").data();
   for(unsigned i=0;i<buttons.size();++i)add(buttons[i],lower(buttons[i].key),resource,i*2);
-  if(other && _services.cloudsContext && _services.cloudsWon) {
-   const auto &b=_services.text.buttons("OTHER_ENDING").front();add(b,lower(b.key),resource,6);
+  if(other) {
+   unsigned y=103;
+   // DAT 0xc2bf..0xc37d: E, V, W packed after fixed D/C, sprite frames 4/6/8.
+   for(const auto kind:endingRows()) {
+    auto b=_services.text.buttons("OTHER_ENDING").front();b.y=y;y+=25;
+    const bool darkside=kind==XeenSessionEntry::Kind::DarksideEnding, world=kind==XeenSessionEntry::Kind::WorldEnding;
+    if(darkside)b.key='e';else if(world)b.key='w';
+    add(b,lower(b.key),resource,darkside?4:world?8:6);
+   }
   }
  } else if(_screen==Screen::Panel) {
   // DAT 0x1f006..0x1f047: every key and every click reaches the key switch;
@@ -164,9 +180,9 @@ void XeenTitleFlow::render(bool semantic) {
  const auto &dos=_services.text;const auto &font=_services.font;
  if(_screen==Screen::Menu || _screen==Screen::Other) {
   const bool other=_screen==Screen::Other;
-  const auto label=other?xeenDialogFormat(dos.scalar("OPTIONS_TEMPLATE"),{str(dos.scalar("WORLD_LABEL")),_services.cloudsContext && _services.cloudsWon?"92":"67"}):str(dos.scalar("WORLD_MENU"));
-  const bool won=other && _services.cloudsContext && _services.cloudsWon;
-  frame=text(frame,font,label,{72,25,248,other?(won?150:125):175},{80,33,240,other?(won?142:117):167},true);
+  const auto count=endingRows().size();
+  const auto label=other?xeenDialogFormat(dos.scalar("OPTIONS_TEMPLATE"),{str(dos.scalar("WORLD_LABEL")),std::to_string(67+25*count)}):str(dos.scalar("WORLD_MENU"));
+  frame=text(frame,font,label,{72,25,248,other?125+int(25*count):175},{80,33,240,other?117+int(25*count):167},true);
   for(const auto &hit:dialog().hits)if(hit.button){const auto &b=*hit.button;_services.draw(frame,b.resource,b.frame,b.x,b.y);}
  } else if(_screen==Screen::Panel) {
   // DOS window 23: code-segment arrays at 0x3dc2c/8c/ec, 0x3dd4c (80,28,176,140).
@@ -291,8 +307,11 @@ std::optional<IndexedFrame> XeenTitleFlow::handle(const PlayerAction &action,con
   setScreen(Screen::Menu);break;
  case Screen::Other:
   if(escape)setScreen(Screen::Menu);
-  else if(_services.cloudsWon && _services.cloudsContext && key==lower(_services.text.buttons("OTHER_ENDING").front().key)) {
-   XeenSessionEntry entry;entry.kind=XeenSessionEntry::Kind::CloudsEnding;entry.score=1234567890;_entry=std::move(entry);
+  else if((key=='e' && _services.darksideWon && _services.cloudsContext) ||
+          (key=='v' && _services.cloudsWon && _services.cloudsContext) ||
+          (key=='w' && _services.worldWon && _services.cloudsContext)) {
+   XeenSessionEntry entry;entry.kind=key=='e'?XeenSessionEntry::Kind::DarksideEnding:key=='w'?XeenSessionEntry::Kind::WorldEnding:XeenSessionEntry::Kind::CloudsEnding;
+   entry.score=1234567890;_entry=std::move(entry);
   }
   else if(const auto button=buttonIndex(_services.text,"OTHER",key)) {
    if(*button==0 && _services.darksideIntroCheck) {

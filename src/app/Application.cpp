@@ -643,9 +643,9 @@ int Application::gameplay(const std::filesystem::path &gameDirectory, XeenCamera
                 if(outcome){*outcome=std::move(result);return 0;}
                 return run(gameDirectory);
             }
-            if(result.kind==XeenSessionOutcome::Kind::CloudsEnding) {
+            if(result.kind==XeenSessionOutcome::Kind::CloudsEnding || result.kind==XeenSessionOutcome::Kind::DarksideEnding || result.kind==XeenSessionOutcome::Kind::WorldEnding) {
                 if(outcome){*outcome=std::move(result);return 0;}
-                return runTitle(gameDirectory,result.score);
+                return runTitle(gameDirectory,result.score,false,result.kind);
             }
             if(result.kind!=XeenSessionOutcome::Kind::Load)return status;
             if(outcome){*outcome=std::move(result);return 0;}
