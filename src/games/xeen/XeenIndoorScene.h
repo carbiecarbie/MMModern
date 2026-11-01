@@ -19,12 +19,6 @@ namespace mmodern {
 
 class XeenWorld;
 
-// Map::_sidePictures: Clouds art is also used by these World of Xeen mazes.
-inline XeenSceneArchive xeenPictureArchive(XeenMapIdentity map) {
-	return map.side==XeenSide::Clouds || (map.number>=125 && map.number<=127)
-		? XeenSceneArchive::Clouds : XeenSceneArchive::Darkside;
-}
-
 struct XeenIndoorWallSample {
 	std::size_t queryIndex = 0;
 	XeenMapIdentity sourceMapId = 0;
@@ -103,6 +97,7 @@ struct XeenIndoorDrawCommand {
 			XeenSpriteDrawOptions result;
 			result.scaleIndex = draw->scaleIndex;
 			result.horizontalFlip = draw->visual.horizontalFlip;
+			result.archive = xeenMapResources(draw->visual.identity.mapId).objectArt;
 			result.sceneClipped = true;
 			result.bottomClipped = draw->bottomClipped;
 			return result;

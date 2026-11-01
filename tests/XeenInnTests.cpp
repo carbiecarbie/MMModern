@@ -855,7 +855,7 @@ void productionLoad(Inputs &in,const GameInstallation &installation,const XeenSa
         [](auto &,const auto &,const auto &,auto){return XeenEventFlow::Composition{frame(),false};},{},{},{}};
     services.restoreSnapshot=std::make_shared<XeenSaveSnapshot>(saved);services.initialSlot=4;
     services.composeEncounter=[](auto &,const auto &,const auto &,auto,auto){return XeenEventFlow::Composition{frame(),false};};
-    services.clock=[&]{return now;};services.validateEncounterSprite=[](auto){};services.validateCombatSprite=[](auto){};
+    services.clock=[&]{return now;};services.validateEncounterSprite=[](auto,auto){};services.validateCombatSprite=[](auto,auto){};
     services.configureFlow=[&](auto &flow,const auto &){flow.dialogText=&in.assets.uiText();flow.drawDialogSprite=[&](auto &f,const char *n,unsigned i,int x,int y){in.assets.drawDialogSprite(f,n,i,x,y);};flow.loadInnScreen=[](const auto &){return frame();};};
     services.observeGameplay=[&](auto &,auto &,const auto &p,auto &,const auto &){check(p.insideInn && *p.encounterContext==*saved.journey->context,"production Load publishes Inn without time");};
     services.show=[&](const auto &first,const auto &handler,const auto &,const auto &idle,const auto &){
@@ -877,7 +877,7 @@ void cartographerArrival(Inputs &in) {
    [](auto &,const auto &,const auto &,auto){return XeenEventFlow::Composition{frame(),false};},{},{},{}};
   services.restoreSnapshot=std::make_shared<XeenSaveSnapshot>(saved);
   services.composeEncounter=[](auto &,const auto &,const auto &,auto,auto){return XeenEventFlow::Composition{frame(),false};};
-  services.clock=[]{return 0u;};services.validateEncounterSprite=[](auto){};services.validateCombatSprite=[](auto){};
+  services.clock=[]{return 0u;};services.validateEncounterSprite=[](auto,auto){};services.validateCombatSprite=[](auto,auto){};
   std::function<void()> verify;
   services.show=[&](const auto &first,const auto &handler,const auto &,const auto &,const auto &) {
    handler.framePresented(first.presentation());verify();++shown;return true;
@@ -953,7 +953,7 @@ void productionNoTarget(Inputs &in) {
     services.resources.loadInitialBankBalances=[&]{return XeenCharacterFormat::parseBankBalances(in.pty);};
     services.resources.loadInitialWorldFlags=[&]{return XeenQuestFlagFormat::parseWorldFlags(in.pty);};
     services.composeEncounter=[](auto &,const auto &,const auto &,auto,auto){return XeenEventFlow::Composition{frame(),false};};
-    services.clock=[&]{return now;};services.validateEncounterSprite=[](auto){};services.validateCombatSprite=[](auto){};
+    services.clock=[&]{return now;};services.validateEncounterSprite=[](auto,auto){};services.validateCombatSprite=[](auto,auto){};
     services.observeSaveStage=[&](auto){++writes;};
     services.configureFlow=[&](auto &f,const auto &){
         flow=&f;f.dialogText=&in.assets.uiText();

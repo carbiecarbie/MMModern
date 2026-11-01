@@ -75,6 +75,7 @@ struct XeenOutdoorDrawCommand {
 			XeenSpriteDrawOptions result;
 			result.scaleIndex = o->scaleIndex;
 			result.horizontalFlip = o->visual.horizontalFlip;
+			result.archive = xeenMapResources(o->visual.identity.mapId).objectArt;
 			result.sceneClipped = true;
 			result.bottomClipped = o->bottomClipped;
 			return result;

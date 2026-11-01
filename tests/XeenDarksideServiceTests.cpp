@@ -43,16 +43,16 @@ struct Visit:Fixture {
     std::vector<XeenSaveSnapshot> saves;
     std::vector<std::string> samples;
     Visit(Inputs &in,const XeenSaveSnapshot &s,const XeenItemCatalog &catalog):Fixture(in,s,false,nullptr,{}, {},{},&catalog) {
-        flow->drawDialogSprite=[&](auto &image,const char *name,unsigned index,int x,int y){in.assets.drawDialogSprite(image,name,index,x,y,xeenPictureArchive(c.mapId));};
-        flow->drawSmithArt=[&](auto &image){in.assets.drawSmith(image,xeenPictureArchive(c.mapId));};
-        flow->drawTrainingArt=[&](auto &image){in.assets.drawTraining(image,xeenPictureArchive(c.mapId));};
-        flow->drawTempleArt=[&](auto &image){in.assets.drawTemple(image,xeenPictureArchive(c.mapId));};
-        flow->drawBankArt=[&](auto &image){in.assets.drawBank(image,xeenPictureArchive(c.mapId));};
-        flow->drawGuildArt=[&](auto &image){in.assets.drawGuild(image,xeenPictureArchive(c.mapId));};
-        flow->drawTavernArt=[&](auto &image){in.assets.drawTavern(image,xeenPictureArchive(c.mapId));};
-        flow->tavernFoodOffer=[&](unsigned n){return in.assets.tavernFoodOffer(n,xeenPictureArchive(c.mapId));};
-        flow->tavernString=[&](std::size_t n){return in.assets.tavernString(n,xeenPictureArchive(c.mapId));};
-        flow->loadSpellDescriptions=[&]{return in.assets.readArchiveResource("spldesc.bin",xeenPictureArchive(c.mapId));};
+        flow->drawDialogSprite=[&](auto &image,const char *name,unsigned index,int x,int y){in.assets.drawDialogSprite(image,name,index,x,y,xeenMapResources(c.mapId).ambient);};
+        flow->drawSmithArt=[&](auto &image){in.assets.drawSmith(image,xeenMapResources(c.mapId).ambient);};
+        flow->drawTrainingArt=[&](auto &image){in.assets.drawTraining(image,xeenMapResources(c.mapId).ambient);};
+        flow->drawTempleArt=[&](auto &image){in.assets.drawTemple(image,xeenMapResources(c.mapId).ambient);};
+        flow->drawBankArt=[&](auto &image){in.assets.drawBank(image,xeenMapResources(c.mapId).ambient);};
+        flow->drawGuildArt=[&](auto &image){in.assets.drawGuild(image,xeenMapResources(c.mapId).ambient);};
+        flow->drawTavernArt=[&](auto &image){in.assets.drawTavern(image,xeenMapResources(c.mapId).ambient);};
+        flow->tavernFoodOffer=[&](unsigned n){return in.assets.tavernFoodOffer(n,xeenMapResources(c.mapId).ambient);};
+        flow->tavernString=[&](std::size_t n){return in.assets.tavernString(n,xeenMapResources(c.mapId).ambient);};
+        flow->loadSpellDescriptions=[&]{return in.assets.readArchiveResource("spldesc.bin",xeenMapResources(c.mapId).ambient);};
         flow->loadSampleDuration=[&](const char *name,XeenSceneArchive side){
             check(side==XeenSceneArchive::Darkside || side==archive,"Darkside voice requested from Clouds");
             samples.emplace_back(name);return xeenVocDurationNanoseconds(in.assets.readArchiveResource(name,side));

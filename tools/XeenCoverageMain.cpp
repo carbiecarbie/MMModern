@@ -135,7 +135,7 @@ void events(Census &c,const std::vector<XeenEventRecord> &records,XeenMapIdentit
     // remain visible evidence rather than relabeling the Clouds installation.
     std::unique_ptr<OriginalContext> fixture;
     std::optional<std::string> fixtureFailure;
-    if(!(id.side==XeenSide::Darkside && id.number>=113 && id.number<=128)) {
+    {
         // Session entry forbids immediate monster contact. Choose a repeatable
         // empty physical cell from the primary DAT, without removing any actor.
         XeenCamera start{id,0,0,XeenDirection::North};
@@ -327,7 +327,7 @@ Census census(const GameInstallation &original,XeenSide side,OriginalContext &co
             catch(const std::exception &e) {c.add("Unclassified","MOB decode",rejected(e),number);}
         }
         // World CD's Darkside 117..120 and 124 intentionally use xeen.mon.
-        const bool usesClouds=side==XeenSide::Clouds || (number>=117 && number<=120) || number==124;
+        const bool usesClouds=xeenMapResources(id).monsterTable==XeenSide::Clouds;
         const auto &statistics=usesClouds?cloudsMonsters:darkMonsters;
         if(mobDecoded)for(const auto type:entities.monsterTable)if(type!=255 && type<statistics.size())
             monster(c,statistics[type],type,number,0,std::string(usesClouds?"xeen.mon ":"dark.mon ")+std::to_string(type)+" "+statistics[type].name());

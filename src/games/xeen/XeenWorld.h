@@ -180,7 +180,7 @@ public:
 	using EventLoader = std::function<XeenEventFile(XeenMapIdentity)>;
 	explicit XeenWorld(MapLoader loader, ObjectLoader objectLoader = {});
 	const XeenObjectFile &objectFile(XeenMapIdentity mapId);
- const std::vector<XeenMonsterRecord> &monsterStatistics(XeenSide side) const {return side==XeenSide::Clouds?_cityStatistics:_darksideStatistics;}
+ const std::vector<XeenMonsterRecord> &monsterStatistics(XeenSide table) const {return table==XeenSide::Clouds?_cityStatistics:_darksideStatistics;}
 	// Resource observations for presentation. Live session actors take precedence;
 	// fallback collections never enter combat/session state or simulation.
 	std::vector<XeenActor> sceneActors(XeenMapIdentity,
@@ -374,7 +374,7 @@ private:
 	XeenTreasureStagingState *_treasureStaging = &_ownTreasureStaging;
 	std::uint64_t _transitionTreasureBase = 0, _transitionTreasureCopy = 0;
 	XeenTreasureStaging _transitionTreasureSnapshot;
-	// Immutable loaded MON catalog for mainland, original city and script-created city slots.
+	// Immutable MON catalogs keyed by table identity (xeen.mon / dark.mon), not map side.
 	std::vector<XeenMonsterRecord> _cityStatistics,_darksideStatistics;
 	// Derived from checked immutable city resources; never gameplay authority.
 	bool _detachedEventCandidate = false;

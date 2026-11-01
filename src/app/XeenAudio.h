@@ -54,6 +54,8 @@ public:
  std::uint64_t digitalDuration(const std::string &,XeenSceneArchive);
  void startDigital(const RetainedDigital &,std::uint64_t now);
  void requestMap(const XeenMapGeometry &,std::uint64_t now);
+ // World load has already selected any random song. Audio is only a consumer.
+ void requestMap(XeenMapIdentity,const XeenMapGeometry &,std::optional<std::uint8_t>,std::uint64_t now,unsigned fade=207);
  void requestLocation(unsigned action,std::uint64_t now, XeenSide side=XeenSide::Clouds);
  void requestInn(std::uint64_t now, XeenSide side=XeenSide::Clouds);
  void enterTitle(std::uint64_t now);

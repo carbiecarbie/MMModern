@@ -136,7 +136,7 @@ int main(int argc,char **argv) {
         require(waterDragon==2 && vultureRoc==2,"Species 59 species and movement rows are missing from the census");
         require(movement>=4,"Monster movement rows are missing from the census");
         require(lightingRows.size()==3 && skillWalls.size()==7,"Lighting/traversal consumer census rows are missing");
-        require(darkMaps==113 && mixedMaps==16,"Ordinary/mixed Darkside admission inventory changed");
+        require(darkMaps==129 && mixedMaps==0,"Ordinary/mixed Darkside admission inventory changed");
         std::cout<<"Vertigo calibration: "<<gaps<<" documented gap rows; "<<unused<<" unresolved-subroutine exceptions; accepted effects and services supported\n";
         return 0;
     }catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}

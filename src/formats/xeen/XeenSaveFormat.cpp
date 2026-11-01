@@ -21,7 +21,7 @@ void require(bool value, const char *message) {
 	if (!value) throw std::runtime_error(std::string("MMModern save: ") + message);
 }
 
-// Darkside identities are representable; the Clouds-only restore rejects them.
+// Resource-independent identity bounds; restoration binds each map to its resources.
 void validateMap(XeenMapIdentity id) {
 	require((id.side == XeenSide::Clouds || id.side == XeenSide::Darkside) && id.number >= 1 && id.number <= 9999,
 		"invalid map identity");
@@ -322,12 +322,17 @@ void XeenSaveFormat::validateCharacter(const XeenCharacter &c,std::size_t roster
 	for(unsigned award=0;award<128;++award)
 		require(award==9 || c.awards[award]<=15,"award count exceeds CHR representation");
 	require(c.rosterId==rosterId,"character identity differs from roster slot");
+	require(c.lloydSide<=1,"invalid Beacon side");
+	if(c.lloydMap) {
+		validateMap({static_cast<XeenSide>(c.lloydSide),c.lloydMap});
+		require(c.lloydX<32 && c.lloydY<32,"invalid Beacon cell");
+	}
 	require(c.name.size()<=16 && c.name.find('\0')==std::string::npos,"invalid character name");
 	require(c.learnedSpells.has_value(), "Journey learned-spell presence mismatch");
 	require(c.quickOption<=3 && (c.currentSpell<39 || c.currentSpell==255), "invalid Quick Fight setting");
 }
 void XeenSaveFormat::validate(const XeenSaveSnapshot &s) {
-	require(s.camera.mapId.side==XeenSide::Clouds ? !s.darksideSong : s.darksideSong && *s.darksideSong<42,
+	require(xeenMapResources(s.camera.mapId).music==XeenMapMusic::Clouds ? !s.darksideSong : s.darksideSong && *s.darksideSong<42,
 		"Saved map music side/table mismatch");
 	require(!s.name || validName(*s.name), "invalid save name");
 	if (!s.journey) throw XeenUnsupportedSave(XeenUnsupportedSave::Kind::Older);

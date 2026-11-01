@@ -382,7 +382,7 @@ void XeenEventFlow::beginDeath(const IndexedFrame &base) {
         DeathContinuation candidate;candidate.gameplay=base;
         const bool digital=XeenSoundOptions(_party.soundOptions).efx && (!_program.audio || _program.audio->hasDmaDigital());
         const bool dark=_camera.mapId.side==XeenSide::Darkside;
-        const auto archive=xeenPictureArchive(_camera.mapId);
+        const auto archive=xeenMapResources(_camera.mapId).voices;
         const auto fireDuration=digital?loadSampleDuration("fire.voc",archive):0;
         candidate.laughDuration=digital?loadSampleDuration(dark?"laff1.voc":"xeenlaff.voc",archive):0;
         if(digital && (!fireDuration || !candidate.laughDuration))throw std::invalid_argument("Invalid original death sample duration");
@@ -456,7 +456,7 @@ bool XeenEventFlow::advanceDeath() {
         break;
     case P::Final:
         death.phase=P::Laugh;death.laughEnd=PresentationClock::checkedAdd(now,death.laughDuration);
-        _encounter->digitalSample(dark?"laff1.voc":"xeenlaff.voc",xeenPictureArchive(_camera.mapId));break;
+        _encounter->digitalSample(dark?"laff1.voc":"xeenlaff.voc",xeenMapResources(_camera.mapId).voices);break;
     case P::Laugh:
         // DAT 0x0b2f7..0x0b346: sample status is sampled after the two-tick
         // draw hold, with one restart at index 10 and no final sound tail.
@@ -1057,7 +1057,7 @@ void XeenEventFlow::framePresented(const IndexedFrame::Presentation &presented, 
     if(_entranceUi) {
         const auto now=presentationNow();
         if(const auto *sample=_entranceUi->animation.acquired(now))
-            _encounter->digitalSample(sample,xeenPictureArchive(_pending->state.workingCamera.mapId),now);
+            _encounter->digitalSample(sample,xeenMapResources(_pending->state.workingCamera.mapId).voices,now);
     }
     if(_smithUi && (_smithUi->animation.awaitingFrame || _smithUi->animation.resetAfterFrame)) {
         _smithUi->animation.deadline=PresentationClock::after(presentationNow(),3);
@@ -2118,7 +2118,8 @@ void XeenEventFlow::prepareDetachedResult(const XeenManualEventResult &result) t
 			xeenValidateIndoorActors(*work.world,mapId,work.world->sessionState().regionalActors(mapId));
 		if(!sameMap) {
 			if (!work.world->sessionState().hasRegionalActors(work.camera.mapId))
-				work.world->stageMapMonsters(work.world->objectFile(work.camera.mapId),_encounter->_journeyStatistics);
+				work.world->stageMapMonsters(work.world->objectFile(work.camera.mapId),
+                    work.world->monsterStatistics(xeenMapResources(work.camera.mapId).monsterTable));
 			// Teleport dispatch already applied map-load lifetimes before destination Events.
 		}
 		return work.world->prepareTransitionArrival(work.camera);
@@ -2755,7 +2756,7 @@ void XeenEventFlow::prepareEntrance() {
         caption=loadEntranceCaption(action,keyed);_eventPublication->check();checkTransitionCandidate();
     }
     XeenEntranceAnimation animation(action,keyed,[&](const char *name) {
-        const auto value=loadSampleDuration(name,xeenPictureArchive(_pending->state.workingCamera.mapId));
+        const auto value=loadSampleDuration(name,xeenMapResources(_pending->state.workingCamera.mapId).voices);
         _eventPublication->check();checkTransitionCandidate();return value;
     },efx,caption.size(),captions && efx,silentDigital,site->side,
         _transition->party.encounterContext && xeenNight(_transition->party.encounterContext->minutes));
@@ -2811,9 +2812,9 @@ void XeenEventFlow::startServiceSample(ServiceArtState &state,const char *name,b
     // A missing provider models the original sound-unavailable status (zero).
     std::uint64_t duration=0;
     if(XeenSoundOptions(_party.soundOptions).efx && (!_program.audio || _program.audio->hasDmaDigital()) && loadSampleDuration)
-        _encounter->guardCallback(_encounter->ticket(),[&]{duration=loadSampleDuration(name,xeenPictureArchive(_camera.mapId));});
+        _encounter->guardCallback(_encounter->ticket(),[&]{duration=loadSampleDuration(name,xeenMapResources(_camera.mapId).voices);});
     const auto now=presentationNow();state.sample.start(now,duration);
-    _encounter->digitalSample(name,xeenPictureArchive(_camera.mapId),now);
+    _encounter->digitalSample(name,xeenMapResources(_camera.mapId).voices,now);
     if(resetIndex)state.index=XeenServiceAnimation::modulus(state.kind,_camera.mapId.side)-1;
 }
 void XeenEventFlow::serviceVoice(ServiceArtState &state,XeenServiceVoice action,bool resetIndex) {

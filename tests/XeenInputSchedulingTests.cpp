@@ -73,8 +73,8 @@ struct Harness {
    }
    return result;
   };
-  s.validateEncounterSprite=[&](auto image){in.assets.validateNormalMonster(image);};
-  s.validateCombatSprite=[&](auto image){in.assets.validateAttackMonster(image);};
+  s.validateEncounterSprite=[&](auto image,auto archive){in.assets.validateNormalMonster(image,archive);};
+  s.validateCombatSprite=[&](auto image,auto archive){in.assets.validateAttackMonster(image,archive);};
   return s;
  }
  int run(XeenGameplayServices &s,const XeenSaveSnapshot &source,const std::string &name) {

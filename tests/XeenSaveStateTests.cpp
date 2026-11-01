@@ -385,8 +385,8 @@ void usePerMapResources(CurrentDestination &f,unsigned monsters) {
  f.mapProvider=[](auto id){auto m=indoorMap(XeenMapIdentity(id.number));m.side=id.side;return m;};
  f.objectProvider=[monsters](auto id){auto o=indoorObjects(XeenMapIdentity(id.number),monsters);o.mapId=id;return o;};
  f.resources.loadEvents=[&f](auto id){++f.events;auto e=indoorEvents(XeenMapIdentity(id.number));e.mapId=id;return e;};
- f.resources.loadRegionalText=[](auto id){auto t=regional_test::texts(XeenMapIdentity(id.number));t.mapId=id;return t;};
- f.resources.loadMonsterStatisticsForSide=[&f](XeenSide){++f.monsters;auto s=regional_test::statistics();s[0]=s[8];return s;};
+ f.resources.loadRegionalText=[](auto id){auto t=regional_test::texts(XeenMapIdentity(id.number));t.mapId=id;t.resourceName=XeenEventTextLoader::resourceNameForMap(id);return t;};
+ f.resources.loadMonsterStatisticsForSide=[&f](XeenSide table){++f.monsters;auto s=regional_test::statistics();s[0]=s[8];if(table==XeenSide::Darkside)s[8].raw[0]^=1;return s;};
  f.resources.loadMonsterStatistics=[&f]{++f.monsters;auto s=regional_test::statistics();s[0]=s[8];return s;};
 }
 // A map table saved as restore stages it: every MOB record Present at its MOB cell.
@@ -431,10 +431,15 @@ void genericRoundTrip(){
  s.map(37).wallItems={{1,-1,-2}};s.map(37).events={{1,255}};
  city.explored=std::array<std::uint8_t,32>{};(*city.explored)[31]=0x80;
  city.tavernTips=0;
+ s.map({XeenSide::Darkside,113}).monsters=mobTable(4);
+ s.map({XeenSide::Darkside,117}).monsters=mobTable(4);
+ s.characters[0].lloydSide=1;s.characters[0].lloydMap=125;s.characters[0].lloydX=9;s.characters[0].lloydY=11;
  s.headCache=XeenHeadCache{23,{}};s.headCache->overrides[9]=XeenHeadIndicators{1,2};
  const auto bytes=XeenSaveFormat::encode(s);
  CurrentDestination live;usePerMapResources(live,4);live.restore(XeenSaveFormat::decode(bytes));live.bind();
  check(XeenSoundOptions(live.party.soundOptions)==s.soundOptions,"Sound options restored exactly");
+ check(live.world.sessionState().monsters({XeenSide::Darkside,113})[0].statistics->raw!=
+  live.world.sessionState().monsters({XeenSide::Darkside,117})[0].statistics->raw,"Mixed history rebound both maps to one MON table");
  const auto &state=live.world.sessionState();
  check(state.mapState(28)->cells.size()==2 && state.mapState(28)->cells[0].mask==2 && state.mapState(28)->cells[1].mask==8 &&
   state.mapState(28)->cells[0].unlocked && state.isObjectDisabled({28,2}) && !state.isObjectDisabled({28,1}) &&
@@ -464,14 +469,32 @@ void genericRoundTrip(){
  const auto wire=XeenSaveFormat::encode(captured);check(wire==bytes,"Capture after restore writes the restored bytes");
  CurrentDestination again;usePerMapResources(again,4);again.restore(XeenSaveFormat::decode(wire));again.bind();
  check(XeenSaveFormat::encode(again.capture())==bytes,"Generic per-map round trip is exact");
- {
-  auto dark=s;dark.camera={{XeenSide::Darkside,28},9,11,XeenDirection::North};dark.headCache.reset();
-  dark.darksideSong=static_cast<std::uint8_t>(7*xeenMapMusicRow(indoorMap(28).geometry)+6);
+ for(unsigned cameraMap:{113u,117u,124u,125u,126u,127u,128u}) {
+  auto dark=s;dark.camera={{XeenSide::Darkside,static_cast<std::uint16_t>(cameraMap)},9,11,XeenDirection::North};dark.headCache.reset();
+  dark.darksideSong.reset();
+  if(xeenMapResources(dark.camera.mapId).music==XeenMapMusic::DarksideRandom)
+   dark.darksideSong=static_cast<std::uint8_t>(7*xeenMapMusicRow(indoorMap(28).geometry)+6);
   dark.map(dark.camera.mapId).monsters=mobTable(4);
   const auto darkBytes=XeenSaveFormat::encode(dark);
   CurrentDestination running;usePerMapResources(running,4);running.restore(dark);running.bind();
   check(XeenSaveFormat::encode(running.capture())==darkBytes && running.world.sessionState().journeyRandom()==dark.journey->random,"Darkside restore changed state/RNG/song");
+  check(running.party.encounterContext==dark.journey->context && running.party.purse==dark.journey->purse &&
+   running.flags.values()==dark.gameFlags && running.party.questItems.counts()==dark.questItems,"Mixed restore replayed time/reward/flags");
   const auto saved=running.capture();CurrentDestination resumed;usePerMapResources(resumed,4);resumed.restore(saved);resumed.bind();
+  for(unsigned mismatch=0;mismatch<4;++mismatch) {
+   CurrentDestination failed;usePerMapResources(failed,4);
+   auto bad=dark;
+   if(mismatch==0)bad.darksideSong=dark.darksideSong?std::nullopt:std::optional<std::uint8_t>{0};
+   if(mismatch==1 && dark.darksideSong)bad.darksideSong=0;
+   if(mismatch==1 && !dark.darksideSong)bad.darksideSong=21;
+   if(mismatch==2)bad.characters[0].lloydSide=2;
+   if(mismatch==3) {
+    auto envelope=darkBytes;envelope[10]=0;
+    rejects([&]{failed.restore(XeenSaveFormat::decode(envelope));});
+   } else rejects([&]{failed.restore(bad);});
+   check(!failed.world.hasEncounterState() && !failed.party.encounterContext && failed.camera.mapId==XeenMapIdentity(23) &&
+    failed.world.cachedMapCount()==0 && failed.world.cachedObjectFileCount()==0,"Invalid mixed save published partial owners/caches");
+  }
   for(auto *f:{&running,&resumed}) {
    f->flow->journeyAction(f->flow->ticket(),XeenEncounterAction::Right);
    check(f->flow->prepareJourneyFrame(f->flow->ticket(),[]{}) && f->flow->presentJourney(f->flow->ticket()),"Darkside next action did not settle");
@@ -1151,14 +1174,14 @@ void unsupportedMapState(){
  for(unsigned mode=0;mode<6;++mode){
   auto s=good;const char *message="";
   switch(mode){
-  case 0:s.map({XeenSide::Darkside,113}).explored.emplace();message="not supported yet";break;
+  case 0:s.characters[0].lloydSide=2;message="Beacon side";break;
   case 1:{s.camera.mapId.side=XeenSide::Darkside;const auto table=s.map(23).monsters;s.map({XeenSide::Darkside,23}).monsters=table;s.darksideSong=7;message="camera map table";break;}
   case 2:s.map(28).wallItems={{3,1,1}};message="wall-item identity does not exist";break;
   case 3:s.map(37).events={{4,0x2a}};message="Event identity does not exist";break;
   case 4:s.map(28).cells={{17,0,0x40,0,0}};message="cell flag change is not supported yet";break;
   case 5:s.map(23).cells={{17,0x0901,0x80,2,0}};message="original resource mismatch";break; // Wrong outdoor preimage.
   }
-  XeenSaveFormat::encode(s); // The format represents every one of them.
+  if(mode)XeenSaveFormat::encode(s); // Resource mismatches remain wire-representable.
   CurrentDestination f;usePerMapResources(f,4);rejects([&]{f.restore(s);},message);
   check(!f.world.hasEncounterState(),"Rejected map state was published");
  }

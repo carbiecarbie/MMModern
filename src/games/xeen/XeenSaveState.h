@@ -24,6 +24,7 @@ public:
 		std::function<XeenWorldFlags()> loadInitialWorldFlags;
 		std::function<XeenEventTextFile(XeenMapIdentity)> loadRegionalText;
 		std::function<XeenLearnedSpellNames()> loadLearnedSpellNames;
+		// The argument identifies xeen.mon or dark.mon, not the logical map side.
 		std::function<std::vector<XeenMonsterRecord>(XeenSide)> loadMonsterStatisticsForSide;
 		// A Clouds override must agree with the side-taking provider. Never
 		// silently shadow a fixture or production binding with a second table.

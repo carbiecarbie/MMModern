@@ -66,7 +66,7 @@ void XeenSaveState::validateJourneyValues(const XeenSaveSnapshot &s) {
 		xeenValidateCurrentServiceEconomy(*j.serviceEconomy);
 	}
 	require(bool(s.resources.darkside));
-	// Ordinary maps on either side are admitted; mixed Darkside maps wait.
+	// Primary and retained auxiliary identities stay logical on both sides.
 	requireXeenMap(s.camera.mapId);
 	for (const auto &m:s.maps) requireXeenMap(m.id);
 	// Decision 2: the Warzone (Clouds 85) is never written back.
@@ -189,17 +189,17 @@ void XeenSaveState::restoreJourney(const XeenSaveSnapshot &source, const Resourc
 		w.setTavernTipIndex(m.id,*m.tavernTips);adopt();
 	}
 	w.restoreHeads(snapshot.headCache,c);adopt();
-	if (c.mapId.side==XeenSide::Darkside && (!snapshot.darksideSong ||
+	if (xeenMapResources(c.mapId).music==XeenMapMusic::DarksideRandom && (!snapshot.darksideSong ||
 		unsigned(*snapshot.darksideSong)/7!=xeenMapMusicRow(w.map(c.mapId).geometry)))
 		throw std::invalid_argument("Saved Darkside song does not belong to camera map table");
-	auto statistics = callback([&]{return resources.monsterStatistics(c.mapId.side);});
-	std::array<std::optional<std::vector<XeenMonsterRecord>>,2> statisticsBySide;
-	statisticsBySide[static_cast<unsigned>(static_cast<XeenSide>(c.mapId.side))]=statistics;
+	auto statistics = callback([&]{return resources.monsterStatistics(xeenMapResources(c.mapId).monsterTable);});
+	std::array<std::optional<std::vector<XeenMonsterRecord>>,2> statisticsByTable;
+	statisticsByTable[static_cast<unsigned>(xeenMapResources(c.mapId).monsterTable)]=statistics;
 	// A first crossing needs the other side's MON even when its history has
 	// never been staged. These immutable resources are not save fields.
 	if(resources.loadMonsterStatisticsForSide) {
-		const auto other=c.mapId.side==XeenSide::Clouds?XeenSide::Darkside:XeenSide::Clouds;
-		statisticsBySide[static_cast<unsigned>(other)]=callback([&]{return resources.monsterStatistics(other);});
+		const auto other=xeenMapResources(c.mapId).monsterTable==XeenSide::Clouds?XeenSide::Darkside:XeenSide::Clouds;
+		statisticsByTable[static_cast<unsigned>(other)]=callback([&]{return resources.monsterStatistics(other);});
 	}
 	auto evt = events(c.mapId);
 	{
@@ -222,8 +222,8 @@ void XeenSaveState::restoreJourney(const XeenSaveSnapshot &source, const Resourc
 	}
 	static_cast<void>(CloudsUiComposer::buildPortraitPlacements(p));
 	auto &s = w._sessionState;
-    if(statisticsBySide[0])w._cityStatistics=*statisticsBySide[0];
-    if(statisticsBySide[1])w._darksideStatistics=*statisticsBySide[1];
+    if(statisticsByTable[0])w._cityStatistics=*statisticsByTable[0];
+    if(statisticsByTable[1])w._darksideStatistics=*statisticsByTable[1];
 	s._entry = XeenEncounterEntry::Journey;
 	s._encounterMarked = s._encounterInitialized = true; s._encounterRevision = 1;
 	s._skeletonSeed = snapshot.journey->skeletonSeed;
@@ -239,13 +239,13 @@ void XeenSaveState::restoreJourney(const XeenSaveSnapshot &source, const Resourc
 		if (!admitted) throw std::invalid_argument("Saved actor table is not a primary gameplay map");
 		auto mob=callback([&] { return w.objectFile(m.id); });
 		const bool outdoors=callback([&] { return w.map(m.id).geometry.isOutdoors(); });
-		auto &mon=statisticsBySide[static_cast<unsigned>(static_cast<XeenSide>(m.id.side))];
-		if (!mon) mon=callback([&]{return resources.monsterStatistics(m.id.side);});
+		auto &mon=statisticsByTable[static_cast<unsigned>(xeenMapResources(m.id).monsterTable)];
+		if (!mon) mon=callback([&]{return resources.monsterStatistics(xeenMapResources(m.id).monsterTable);});
 		tables.push_back({&m,std::move(mob),outdoors,*mon});
 	}
 	for (const auto &table:tables) {
 		const auto &m=*table.saved;
-		(m.id.side==XeenSide::Clouds?w._cityStatistics:w._darksideStatistics)=table.statistics;
+		// The immutable catalogs were loaded above by table identity.
 		auto actors=XeenActorApproach::actorsFromResources(table.mob,table.statistics);
 		if (actors.size()!=m.monsters->originalCount)
 			throw std::invalid_argument("Saved original monster count differs from MOB");

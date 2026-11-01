@@ -31,7 +31,7 @@ XeenObjectVisual XeenObjectVisualResolver::resolve(const XeenObjectFile &objects
 		result.diagnostic = "object visual: invalid map, missing MOB, or original record index";
 		return result;
 	}
-	const auto &metadata=_metadata.at(static_cast<unsigned>(static_cast<XeenSide>(objects.mapId.side)));
+	const auto &metadata=_metadata.at(static_cast<unsigned>(xeenMapResources(objects.mapId).animationTable));
 	const auto &object = objects.entities.objects[recordIndex];
 	const auto camera = static_cast<unsigned>(cameraDirection);
 	if (object.direction >= 4 || camera >= 4) {

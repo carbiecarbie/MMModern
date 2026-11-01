@@ -128,7 +128,7 @@ void presentation(Inputs &in) {
         auto info=*R::information(XeenLearnedSpell::DetectMonster,{{side,29},8,8,XeenDirection::West},{},{});
         check(info.side==side,"Detection information lost its gameplay side");info.grid=detect.grid;sprites.clear();
         const XeenDialogSpriteDraw sideDraw=[&](auto &frame,const char *name,unsigned index,int x,int y) {
-            sprites.emplace_back(name,index,x,y);in.assets.drawDialogSprite(frame,name,index,x,y,xeenPictureArchive({side,29}));
+            sprites.emplace_back(name,index,x,y);in.assets.drawDialogSprite(frame,name,index,x,y,xeenMapResources({side,29}).ambient);
         };
         (void)drawXeenSpellInformation(in.assets.uiText(),base,in.font,info,sideDraw);
         const std::string picture=side==XeenSide::Darkside?"detectmn.icn":"detctmon.icn";

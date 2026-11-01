@@ -163,8 +163,8 @@ XeenGameplayServices disengagementServices(Source &source,combat_gameplay_test::
  services.resources.regionalManifest=source.manifest();
  services.maps=[&](auto id){return source.maps.loadGeometryMap(source.assets,id);};
  services.objects=[&](auto id){return source.maps.loadObjects(source.assets,id);};
- services.validateEncounterSprite=[&](std::uint8_t image){source.assets.validateNormalMonster(image);};
- services.validateCombatSprite=[&](std::uint8_t image){source.assets.validateAttackMonster(image);};
+ services.validateEncounterSprite=[&](std::uint8_t image,XeenSceneArchive archive){source.assets.validateNormalMonster(image,archive);};
+ services.validateCombatSprite=[&](std::uint8_t image,XeenSceneArchive archive){source.assets.validateAttackMonster(image,archive);};
  services.composeEncounter=[&](auto &w,const auto &party,const auto &camera,auto phase,auto appearance){
   XeenEventFlow::Composition result;
   result.frame=CloudsMapComposer().compose(source.assets,w,party,camera,{610},nullptr,phase,&result.containsOrdinaryAnimation,appearance);

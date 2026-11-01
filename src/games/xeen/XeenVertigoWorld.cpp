@@ -51,8 +51,7 @@ XeenTransitionResult XeenWorld::prepareEventTransition(const XeenCamera &request
 	// mazexNNN resources are physical extensions reached through a logical map.
 	// This Journey admission rule does not restrict generic World clients.
 	if (!destination.mapId || (regionalJourney() &&
-		((destination.mapId.side==XeenSide::Clouds && destination.mapId.number>=100 && destination.mapId!=_developerEventMap) ||
-		(destination.mapId.side==XeenSide::Darkside && destination.mapId.number>=113 && destination.mapId.number<=128))))
+		(destination.mapId.side==XeenSide::Clouds && destination.mapId.number>=100 && destination.mapId!=_developerEventMap)))
 		return {XeenTransitionResult::Status::Unavailable,destination,"Destination map is not supported yet"};
 	const XeenMap *loaded=nullptr;
 	try { loaded=&map(destination.mapId); }
@@ -81,7 +80,7 @@ XeenGameFlags XeenWorld::loadEventDestination(XeenMapIdentity from,XeenMapIdenti
     if(!_detachedEventCandidate)throw std::logic_error("Event map load requires a detached candidate");
     if(clearKeyboard && _inputMapLoadGeneration==std::numeric_limits<std::uint64_t>::max())
         throw std::overflow_error("Map input generation exhausted");
-    if(!sessionState().hasRegionalActors(to))stageMapMonsters(objectFile(to),monsterStatistics(to.side));
+    if(!sessionState().hasRegionalActors(to))stageMapMonsters(objectFile(to),monsterStatistics(xeenMapResources(to).monsterTable));
     auto flags=before;
     leaveMap(from,&flags);
     reloadMapMonsters(to);
@@ -161,7 +160,7 @@ void XeenWorld::stageMapMonsters(const XeenObjectFile &mob,
 		_sessionState.hasRegionalActors(mob.mapId))
 		throw std::logic_error("Indoor monster staging is unavailable");
 	auto actors=XeenActorApproach::actorsFromResources(mob,statistics);
-	(mob.mapId.side==XeenSide::Clouds?_cityStatistics:_darksideStatistics)=statistics;
+	(xeenMapResources(mob.mapId).monsterTable==XeenSide::Clouds?_cityStatistics:_darksideStatistics)=statistics;
 	xeenValidateIndoorActors(*this,mob.mapId,actors);
 	if(mob.mapId==XeenMapIdentity(85))actors.clear();
 	const bool outdoors=map(mob.mapId).geometry.isOutdoors();
@@ -193,7 +192,7 @@ void XeenWorld::applySpawn(XeenMapIdentity mapId, std::uint8_t slot, int x, int 
 	auto *state=_sessionState._mapStates.find(mapId);
 	if (!_detachedEventCandidate || _sessionState._entry!=XeenEncounterEntry::Ordinary ||
 		!state || !state->monsters || x<-128 || x>127 || y<-128 || y>127 ||
-		slot>=XeenActorApproach::kCapacity || monsterStatistics(mapId.side).empty())
+		slot>=XeenActorApproach::kCapacity || monsterStatistics(xeenMapResources(mapId).monsterTable).empty())
 		throw std::invalid_argument("Invalid Spawn operands or owner");
 	auto &actors=*state->monsters;
 	// DOS bounds every monster loop, the MOB writer and map load by the MOB
@@ -204,9 +203,9 @@ void XeenWorld::applySpawn(XeenMapIdentity mapId, std::uint8_t slot, int x, int 
 	auto &a=actors.at(slot);
 	// cmdSpawn reuses the sprite ID; an unbound record uses type zero.
 	const auto type=a.original.hasResource()?int(a.original.resourceId):0;
-	if(unsigned(type)>=monsterStatistics(mapId.side).size()) throw std::invalid_argument("Spawn monster type is absent");
+	if(unsigned(type)>=monsterStatistics(xeenMapResources(mapId).monsterTable).size()) throw std::invalid_argument("Spawn monster type is absent");
 	if(!a.original.hasResource()) a.original.resourceId=type;
-	a.statistics=monsterStatistics(mapId.side)[type];
+	a.statistics=monsterStatistics(xeenMapResources(mapId).monsterTable)[type];
 	a.x=x;a.y=y;a.hp=a.statistics->baseHp();a.activated=false;
 	a.lifecycle=XeenActorLifecycle::Present;a.status=XeenActorStatus::Physical;
 	_sessionState._accountedMonsters.erase(a.id);
@@ -236,7 +235,7 @@ void xeenValidateIndoorActors(XeenWorld &world,XeenMapIdentity mapId,const std::
     const bool arena=mapId==XeenMapIdentity(85) && world.sessionState().hasRegionalActors(mapId);
 	if(!world.regionalJourney() || mob.mapId!=mapId ||
 		(!arena && actors.size()!=mob.entities.monsters.size()) || actors.size()>XeenActorApproach::kCapacity ||
-		world.monsterStatistics(mapId.side).empty()) throw std::invalid_argument("Invalid resource-bound city actor collection");
+		world.monsterStatistics(xeenMapResources(mapId).monsterTable).empty()) throw std::invalid_argument("Invalid resource-bound city actor collection");
 	for(unsigned i=0;i<actors.size();++i) {
 		const auto &a=actors[i];
 		if(!(a.id==XeenMonsterIdentity{mapId,i}) || !xeenActorStatusSupported(a.status))
@@ -266,8 +265,8 @@ void xeenValidateIndoorActors(XeenWorld &world,XeenMapIdentity mapId,const std::
 		if (a.lifecycle==XeenActorLifecycle::Present &&
 			(!xeenMonsterMovementSupported(*a.statistics,a.original.resourceId) || !a.statistics->supportsRendering()))
 			throw std::invalid_argument("Map actor mechanics are unavailable");
-		if(!a.original.hasResource() || unsigned(a.original.resourceId)>=world.monsterStatistics(mapId.side).size() ||
-			a.statistics->raw!=world.monsterStatistics(mapId.side)[a.original.resourceId].raw)
+		if(!a.original.hasResource() || unsigned(a.original.resourceId)>=world.monsterStatistics(xeenMapResources(mapId).monsterTable).size() ||
+			a.statistics->raw!=world.monsterStatistics(xeenMapResources(mapId).monsterTable)[a.original.resourceId].raw)
 			throw std::invalid_argument("City actor MON resource binding changed");
 		const bool accounted=world.sessionState().accountedMonsters().count(a.id)!=0;
 		// Original MOBs also contain off-map parking slots for later Spawn, and
@@ -301,7 +300,7 @@ void xeenValidateIndoorActors(XeenWorld &world,XeenMapIdentity mapId,const std::
 }
 
 void XeenWorld::selectMapMusic(XeenMapIdentity id) {
-	if (id.side == XeenSide::Clouds) {
+	if (xeenMapResources(id).music == XeenMapMusic::Clouds) {
 		_sessionState._darksideSong.reset();
 		return;
 	}

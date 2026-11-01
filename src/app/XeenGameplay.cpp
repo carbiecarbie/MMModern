@@ -203,7 +203,7 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
    if (!services.resources.loadInitialCharacters || !services.resources.loadInitialContext || !services.resources.loadMonsterStatistics)
     throw std::invalid_argument("Missing Journey initialization providers");
    journeyCharacters = services.resources.loadInitialCharacters();
-   journeyStatistics = services.resources.monsterStatistics(camera.mapId.side);
+   journeyStatistics = services.resources.monsterStatistics(XeenSide::Clouds);
    auto value = seed ? *seed : (services.sampleJourneySeed ? services.sampleJourneySeed() : std::random_device{}());
    if (!value) value = 1;
    journeySetup.emplace(XeenJourneySetup{journeyCharacters,services.resources.loadInitialContext(),journeyStatistics,encounterEvents,value});
@@ -273,9 +273,10 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
      continue;
     }
     const auto image = actors[i].statistics->image();
-    services.validateEncounterSprite(image);
+    const auto archive=xeenMonsterArt(camera.mapId,actors[i].original.resourceId);
+    services.validateEncounterSprite(image,archive);
     if (!flow.encounter()->current(ticket)) throw std::logic_error("Stale Journey normal sprite preparation");
-    services.validateCombatSprite(image);
+    services.validateCombatSprite(image,archive);
     if (!flow.encounter()->current(ticket)) throw std::logic_error("Stale Journey attack sprite preparation");
    }
   };
@@ -602,12 +603,7 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
      if(!services.program.innSongStarted) {audio->requestInn(now,camera.mapId.side);services.program.innSongStarted=true;}
     }
     else if(location)audio->requestLocation(*location,now,camera.mapId.side);
-    else if(camera.mapId.side==XeenSide::Darkside) {
-     if(!world.sessionState().darksideSong())throw std::logic_error("Darkside map song is absent");
-     audio->requestSong(audio->darksideMapSong(*world.sessionState().darksideSong()),XeenSceneArchive::DarksideOnly,soundLocation?223:207,now);
-    }
-    else if(soundLocation)audio->requestSong(audio->mapSong(world.map(camera.mapId).geometry),XeenSceneArchive::Clouds,223,now);
-    else audio->requestMap(world.map(camera.mapId).geometry,now);
+    else audio->requestMap(camera.mapId,world.map(camera.mapId).geometry,world.sessionState().darksideSong(),now,soundLocation?223:207);
     soundLocation=location;soundMap=camera.mapId;soundSong=world.sessionState().darksideSong();
    }
   };

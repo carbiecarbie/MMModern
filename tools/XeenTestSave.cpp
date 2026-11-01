@@ -193,7 +193,16 @@ const M103TextSpot *m103TextSpot(const std::string &preset) {
     for(const auto &spot:spots)if(preset==spot.name)return &spot;
     return nullptr;
 }
+std::optional<std::uint16_t> mixedMapPreset(const std::string &preset) {
+    for(unsigned n=113;n<=128;++n)if(preset=="m104-map-"+std::to_string(n))return static_cast<std::uint16_t>(n);
+    return {};
+}
+
 void prepare(XeenSaveSnapshot &snapshot,const std::string &preset) {
+    if(const auto map=mixedMapPreset(preset)) {
+        prepare(snapshot,"m78-playtest");snapshot.camera={{XeenSide::Darkside,*map},0,0,XeenDirection::North};
+        snapshot.headCache.reset();snapshot.darksideSong.reset();return;
+    }
     if(const auto *spot=m103TextSpot(preset)) {
         prepare(snapshot,"m78-playtest");
         snapshot.camera={spot->map,0,0,XeenDirection::North};snapshot.headCache.reset();
@@ -699,7 +708,7 @@ void prepare(XeenSaveSnapshot &snapshot,const std::string &preset) {
 
 void generateTestSave(const GameInstallation &installation,const std::string &preset,
         const std::filesystem::path &output) {
-    if (preset!="m102-playtest" && !m102Spot(preset) && !m103TextSpot(preset) && preset!="m101-pyramid-clouds" && preset!="m101-pyramid-darkside" && preset!="m101-castleview" && preset!="m98-load" && preset!="m98-inn" && preset!="m97-open-chest" && preset!="m96-chest" && preset!="m95-witch-skull" && preset!="m92-lord-xeen" && preset!="m92-sixth-mirror" && !m90Spot(preset) && preset!="m89-lord-xeen" && preset!="m89-clan-king" && preset!="m89-draco" && preset!="m89-dragons" && preset!="m89-trolls" && preset!="m88-roster" && preset!="m87-inn" && preset!="m87-three" && preset!="m87-shangrila" && preset!="broken-armor" && preset!="train-ready" && preset!="injured-dead" && preset!="poisoned" && preset!="monster-control" && preset!="monster-damage" && preset!="party-healing" && preset!="m76-spells" && preset!="combat-items" && preset!="m78-playtest" && preset!="m78-one-holder" && preset!="m79-playtest" && preset!="m80-playtest" && preset!="m80-arena" && preset!="m80-arena-maxed" && preset!="m81-drops" && preset!="m81-fullpacks" && preset!="m81-event" && preset!="m84-playtest-trap" && preset!="m84-playtest-label" && preset!="m84-playtest-save" && preset!="m85-playtest-label" && preset!="m85-playtest-run" && preset!="m85-playtest-trap" && preset!="m86-playtest-fall" && preset!="m86-playtest-moon-ray" && preset!="m86-playtest-border")
+    if (!mixedMapPreset(preset) && preset!="m102-playtest" && !m102Spot(preset) && !m103TextSpot(preset) && preset!="m101-pyramid-clouds" && preset!="m101-pyramid-darkside" && preset!="m101-castleview" && preset!="m98-load" && preset!="m98-inn" && preset!="m97-open-chest" && preset!="m96-chest" && preset!="m95-witch-skull" && preset!="m92-lord-xeen" && preset!="m92-sixth-mirror" && !m90Spot(preset) && preset!="m89-lord-xeen" && preset!="m89-clan-king" && preset!="m89-draco" && preset!="m89-dragons" && preset!="m89-trolls" && preset!="m88-roster" && preset!="m87-inn" && preset!="m87-three" && preset!="m87-shangrila" && preset!="broken-armor" && preset!="train-ready" && preset!="injured-dead" && preset!="poisoned" && preset!="monster-control" && preset!="monster-damage" && preset!="party-healing" && preset!="m76-spells" && preset!="combat-items" && preset!="m78-playtest" && preset!="m78-one-holder" && preset!="m79-playtest" && preset!="m80-playtest" && preset!="m80-arena" && preset!="m80-arena-maxed" && preset!="m81-drops" && preset!="m81-fullpacks" && preset!="m81-event" && preset!="m84-playtest-trap" && preset!="m84-playtest-label" && preset!="m84-playtest-save" && preset!="m85-playtest-label" && preset!="m85-playtest-run" && preset!="m85-playtest-trap" && preset!="m86-playtest-fall" && preset!="m86-playtest-moon-ray" && preset!="m86-playtest-border")
         throw std::invalid_argument("Unknown test-save preset: "+preset);
     const auto target=XeenSaveFile::resolve(output,installation);
     // Reuse the native alias/reparse-aware path guard for the repository too.
@@ -852,6 +861,32 @@ void generateTestSave(const GameInstallation &installation,const std::string &pr
         if(!best)throw std::runtime_error("Map 3 has no quiet approach to its Barbarians and Ninja");
         candidate.camera={3,best->first+2,best->second,XeenDirection::West};
         for(auto slot:group){table->slots[slot].x=best->first;table->slots[slot].y=best->second;}
+    }
+    if(mixedMapPreset(preset)) {
+        const auto id=candidate.camera.mapId;const auto resources=xeenMapResources(id);
+        const auto mob=inputs.maps.loadObjects(inputs.assets,id);
+        const auto geometry=inputs.maps.loadGeometryMap(inputs.assets,id).geometry;
+        const auto events=inputs.events.load(id);
+        // A quiet original floor, without deleting actors or suppressing Events.
+        // Dragon Clouds may need the ordinary Levitate effect on cloud ground.
+        bool found=false;
+        for(unsigned pass=0;pass<2 && !found;++pass)for(int cell=0;cell<256 && !found;++cell) {
+            const int x=cell%16,y=cell/16;
+            const auto type=geometry.surfaceTypes[geometry.cells[cell].surfaceIndex];
+            if(type==10 || type==15 || type==5 || (type==13 && !pass))continue;
+            found=std::none_of(mob.entities.monsters.begin(),mob.entities.monsters.end(),[&](const auto &a){return a.isActive() && a.x==x && a.y==y;}) &&
+                std::none_of(events.records.begin(),events.records.end(),[&](const auto &e){return e.x==x && e.y==y;});
+            if(found) {
+                candidate.camera.x=x;candidate.camera.y=y;
+                if(type==13)candidate.journey->context->effects[XeenPartyEffect::Levitate]=1;
+            }
+        }
+        if(!found)throw std::runtime_error("Mixed-map preset has no quiet primary floor");
+        if(resources.music==XeenMapMusic::DarksideRandom) {
+            XeenCombatRandom random(*candidate.journey->random);
+            candidate.darksideSong=static_cast<std::uint8_t>(7*xeenMapMusicRow(inputs.maps.loadGeometryMap(inputs.assets,id).geometry)+random.range(0,6));
+            candidate.journey->random=random.continuation();
+        }
     }
     if(preset=="m101-castleview")candidate.darksideSong=static_cast<std::uint8_t>(xeenMapMusicRow(inputs.maps.loadGeometryMap(inputs.assets,candidate.camera.mapId).geometry)*7+*candidate.darksideSong%7);
     // Publish only a snapshot recaptured from restored, validated current owners.

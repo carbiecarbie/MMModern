@@ -119,7 +119,7 @@ struct Harness {
 				f.loadSampleDuration=[](const char *,XeenSceneArchive){return std::uint64_t(1000000);};}, {},
 			[&](auto &w,auto &,const auto &p,auto &c,const auto &g){world=&w;party=&p;camera=&c;flags=&g;}};
 		s.composeEncounter=[&](auto &,const auto &,const auto &,auto,auto){return XeenEventFlow::Composition{IndexedFrame{320,200,Bytes(64000)},true};};
-		s.clock=[&]{return now;};s.catalog=&catalog;s.validateEncounterSprite=[](auto){};s.validateCombatSprite=[](auto){};
+		s.clock=[&]{return now;};s.catalog=&catalog;s.validateEncounterSprite=[](auto,auto){};s.validateCombatSprite=[](auto,auto){};
 		return s;
 	}
 	void present(const SdlWindow::FrameUpdateHandler &h) { h.framePresented(flow->frame().presentation()); }

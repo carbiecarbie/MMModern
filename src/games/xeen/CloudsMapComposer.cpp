@@ -79,19 +79,21 @@ IndexedFrame CloudsMapComposer::compose(XeenAssetSource &assets,
 		std::vector<XeenObjectVisual> *objectDiagnostics,
 		std::optional<std::uint64_t> ordinaryPhase, bool *containsOrdinaryAnimation,
 		std::optional<XeenMonsterAppearance> actorFrame) const {
-	const auto archive=xeenPictureArchive(camera.mapId);
+	// Geometry, objects, monsters and pictures carry their own archive.
+	// Projectiles and charpow remain active-side resources (pin Interface::setup / Combat::shoot).
+	const auto archive=xeenMapResources(camera.mapId).ambient;
 	if (containsOrdinaryAnimation) *containsOrdinaryAnimation = false;
 	bool emittedAnimation = false;
 	if (objectDiagnostics) objectDiagnostics->clear();
 	const auto actors=world.sceneActors(camera.mapId,[&] {
-		const auto bytes=assets.readMonsterStatistics(camera.mapId.side);
+		const auto bytes=assets.readMonsterStatistics(xeenMapResources(camera.mapId).monsterTable);
 		if (!bytes) throw std::runtime_error("Missing DARK.CC/xeen.mon for scene actors");
 		return XeenMonsterFormat::parse(*bytes);
 	});
 	for (const auto &actor:actors) if (actor.statistics) {
 		actor.statistics->validatePresentation();
-		assets.validateNormalMonster(actor.statistics->image(),actor.original.resourceId==91?XeenSceneArchive::Clouds:archive);
-		assets.validateAttackMonster(actor.statistics->image(),actor.original.resourceId==91?XeenSceneArchive::Clouds:archive);
+		assets.validateNormalMonster(actor.statistics->image(),xeenMonsterArt(camera.mapId,actor.original.resourceId));
+		assets.validateAttackMonster(actor.statistics->image(),xeenMonsterArt(camera.mapId,actor.original.resourceId));
 	}
 	CloudsUiComposer().loadBackground(assets,archive);
 
@@ -107,7 +109,7 @@ IndexedFrame CloudsMapComposer::compose(XeenAssetSource &assets,
 		const auto resolver = XeenObjectVisualResolver::load(assets);
 		const auto commands = XeenIndoorScene().build(
 			world, camera, &resolver, objectDiagnostics,ordinaryPhase,actorFrame,night,
-			[&](const auto &name) {return assets.spriteFrameCount(name,xeenPictureArchive(camera.mapId));});
+			[&](const auto &name) {return assets.spriteFrameCount(name,xeenMapResources(camera.mapId).pictures);});
 		emittedAnimation=std::any_of(commands.begin(),commands.end(),[](const auto &command) {
 			if(command.actor()) return true;
 			if(const auto *wall=command.wallItem()) return wall->animated;
@@ -128,7 +130,7 @@ IndexedFrame CloudsMapComposer::compose(XeenAssetSource &assets,
 	auto result = drawXeenMinimap(world,camera,drawDirectionSense(assets,assets.snapshot(),partyState,camera,indicators),
         partyState.encounterContext && partyState.encounterContext->effects[XeenPartyEffect::AutomapOn]!=0,
         [&](IndexedFrame &frame,const char *name,unsigned index,int x,int y) {
-            assets.drawDialogSprite(frame,name,index,x,y,xeenPictureArchive(camera.mapId));
+            assets.drawDialogSprite(frame,name,index,x,y,xeenDialogSpriteArchive(camera.mapId,name));
         },ordinaryPhase.value_or(0),
         partyState.encounterContext && partyState.encounterContext->effects[XeenPartyEffect::WizardEye]!=0);
 	if (containsOrdinaryAnimation) *containsOrdinaryAnimation = emittedAnimation;

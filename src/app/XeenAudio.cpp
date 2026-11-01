@@ -386,6 +386,13 @@ std::uint64_t XeenAudio::digitalDuration(const std::string &name,XeenSceneArchiv
  return xeenVocDurationNanoseconds(_impl->loader(name,archive),_impl->config.digital==6?XeenDmaDigital::Blast:XeenDmaDigital::Pro);
 }
 void XeenAudio::requestMap(const XeenMapGeometry &map,std::uint64_t now) {const auto name=mapSong(map);_impl->mapName=name;requestSong(name,XeenSceneArchive::Clouds,207,now);}
+void XeenAudio::requestMap(XeenMapIdentity id,const XeenMapGeometry &map,std::optional<std::uint8_t> selected,std::uint64_t now,unsigned fade) {
+ const auto resources=xeenMapResources(id);
+ const bool random=resources.music==XeenMapMusic::DarksideRandom;
+ if(random?!selected:bool(selected))throw std::logic_error("Map song selection disagrees with music class");
+ const auto name=random?darksideMapSong(*selected):mapSong(map);
+ _impl->mapName=name;requestSong(name,resources.musicArchive,fade,now);
+}
 void XeenAudio::requestLocation(unsigned action,std::uint64_t now,XeenSide side) {requestSong(locationSong(action,side),side==XeenSide::Darkside?XeenSceneArchive::DarksideOnly:XeenSceneArchive::Clouds,223,now);}
 void XeenAudio::requestInn(std::uint64_t now,XeenSide side) {requestSong(side==XeenSide::Darkside?"newbrigh.m":"inn.m",side==XeenSide::Darkside?XeenSceneArchive::DarksideOnly:XeenSceneArchive::Clouds,128,now);}
 void XeenAudio::enterTitle(std::uint64_t now) {advance(now);_impl->pending.reset();_impl->afterTitle.reset();_impl->titleExit=false;_impl->load({"newbrigh.m",XeenSceneArchive::DarksideOnly,0},_impl->options.music);}

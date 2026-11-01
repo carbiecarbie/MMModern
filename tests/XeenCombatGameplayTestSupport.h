@@ -71,8 +71,8 @@ struct Harness {
   s.resources.loadMonsterStatistics=[&]{return assets?XeenMonsterFormat::parse(*assets->readMonsterStatistics()):statistics();};
   s.clock=[&]{return now;};
 
-  s.validateEncounterSprite=[&](std::uint8_t image){if(assets)assets->validateNormalMonster(image);};
-  s.validateCombatSprite=[&](std::uint8_t image){if(assets)assets->validateAttackMonster(image);};
+  s.validateEncounterSprite=[&](std::uint8_t image,XeenSceneArchive archive){if(assets)assets->validateNormalMonster(image,archive);};
+  s.validateCombatSprite=[&](std::uint8_t image,XeenSceneArchive archive){if(assets)assets->validateAttackMonster(image,archive);};
   s.composeEncounter=[&](XeenWorld &w,const XeenPartyState &p,const XeenCamera &c,std::uint64_t ordinary,XeenMonsterAppearance actor){
    ++compositions;
    observedOrdinary=ordinary;

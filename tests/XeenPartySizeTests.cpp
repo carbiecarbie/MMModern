@@ -136,7 +136,7 @@ void savesAndCombat() {
         regional_journey_test::Fixture f(bytes,[&](auto &f){f.p.party=XeenParty::fromRosterIds({ids.begin(),ids.begin()+count});});
         auto before=XeenSaveState::capture(regional_test::signature(),f.p,f.camera,f.flags,f.w);
         runAndDefeat(before,count);
-        const auto wire=XeenSaveFormat::encode(before);check(wire[8]==23,"v23 envelope byte");
+        const auto wire=XeenSaveFormat::encode(before);check(wire[8]==24,"v24 envelope byte");
         auto decoded=XeenSaveFormat::decode(wire);save_test::sameSnapshot(before,decoded);
         check(XeenSaveFormat::encode(decoded)==wire,"byte-exact one-to-six round trip");
         for(unsigned id=0;id<30;++id)check(decoded.characters[id].savedMaze==561 && decoded.characters[id].townUnknown==173 &&
@@ -218,7 +218,7 @@ void dismissedF9Save(training_test::Inputs &in,XeenSaveSnapshot source) {
         [&](auto &,auto &,const auto &p,auto &camera,const auto &){live=&p;liveCamera=&camera;}};
     services.clock=[&]{return now;};services.observeSaveStage=[&](auto){++stages;};
     services.composeEncounter=[](auto &,const auto &,const auto &,auto,auto){return XeenEventFlow::Composition{training_test::frame(),false};};
-    services.validateEncounterSprite=[](auto){};services.validateCombatSprite=[](auto){};
+    services.validateEncounterSprite=[](auto,auto){};services.validateCombatSprite=[](auto,auto){};
     services.show=[&](const auto &,const auto &handler,const auto &,const auto &idle,const auto &status){
         const auto present=[&]{const auto frame=flow->frame().presentation();handler.framePresented(frame);if(handler.completeInputHandoff)handler.completeInputHandoff(frame);};
         const auto send=[&](PlayerAction action){present();now+=125;handler.beginCycle(++cycle);

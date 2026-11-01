@@ -32,8 +32,8 @@ struct XeenGameplayServices {
  XeenEventPresenter::Clock clock = {};
  PresentationClock::Source presentationClock = {};
  const XeenItemCatalog *catalog = nullptr;
- std::function<void(std::uint8_t)> validateEncounterSprite;
- std::function<void(std::uint8_t)> validateCombatSprite;
+ std::function<void(std::uint8_t,XeenSceneArchive)> validateEncounterSprite;
+ std::function<void(std::uint8_t,XeenSceneArchive)> validateCombatSprite;
  std::function<XeenEventFlow::Composition(XeenWorld &, const XeenPartyState &, const XeenCamera &,
    std::uint64_t, XeenMonsterAppearance)> composeEncounter;
  enum class SaveStage { Capture, Preflight, Write };

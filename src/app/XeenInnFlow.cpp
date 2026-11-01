@@ -132,8 +132,8 @@ void XeenEncounterFlow::reloadServiceMap() {
     auto prepared=std::make_shared<XeenRestoreGuard>(_world,_party,_camera,_flags);
     prepared->retainResources(*_journeyPreimage);prepared->prepareSpellMapPublication(*candidate);prepared->flagValues=flags.values();
     _world.checkTransitionTreasure(*candidate);_journeyPreimage->check();
-    if(_program.audio)_program.audio->requestSong(_program.audio->darksideMapSong(*_world.sessionState().darksideSong()),
-        xeenPictureArchive(camera.mapId),223,_nanosecondClock?(*_nanosecondClock)():PresentationClock::fromMilliseconds(_clock()));
+    if(_program.audio)_program.audio->requestMap(camera.mapId,candidate->map(camera.mapId).geometry,candidate->sessionState().darksideSong(),
+        _nanosecondClock?(*_nanosecondClock)():PresentationClock::fromMilliseconds(_clock()),223);
     _flags=flags;_world.publishTransition(*candidate);visit.swap(departure);
     if(_smith) {*_smith->binding=SmithDepartureBinding(*visit);_smith->mapReloaded=true;}
     else _training->mapReloaded=true;
@@ -170,9 +170,7 @@ IndexedFrame XeenEventFlow::finishSignIn() {
     if(!_smithUi || !_smithUi->signIn || !_smithSettlement)throw std::logic_error("Sign In settlement unavailable");
     if(!_signInSaveDone) {
         if(_program.audio) {
-            const bool dark=_camera.mapId.side==XeenSide::Darkside;
-            _program.audio->requestSong(dark?_program.audio->darksideMapSong(*_world.sessionState().darksideSong()):
-                _program.audio->mapSong(_world.map(_camera.mapId).geometry),xeenPictureArchive(_camera.mapId),223,presentationNow());
+            _program.audio->requestMap(_camera.mapId,_world.map(_camera.mapId).geometry,_world.sessionState().darksideSong(),presentationNow(),223);
         }
         try {forcedInnSave();_signInSaveDone=true;}
         catch(const std::exception &e) {

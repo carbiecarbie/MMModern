@@ -198,7 +198,7 @@ void applicationOutcome(Inputs &in,const GameInstallation &installation) {
  services.clock=[&]{return now;};services.outcome=&outcome;
  services.currentSlot=0;services.writeManaged=[](auto,const auto &,const auto &){throw std::runtime_error("Title drain reached the F9 save provider");};
  services.composeEncounter=[](auto &,const auto &,const auto &,auto,auto){return XeenEventFlow::Composition{frame(),false};};
- services.validateEncounterSprite=[](auto){};services.validateCombatSprite=[](auto){};
+ services.validateEncounterSprite=[](auto,auto){};services.validateCombatSprite=[](auto,auto){};
  services.restoreSnapshot=std::make_shared<const XeenSaveSnapshot>(conditionDeathSource(in));
  const auto status=Application(services.program).playGameplay(services,{},std::filesystem::path("synthetic-death-slot"),true);
  check(status==0 && outcome.kind==XeenSessionOutcome::Kind::Title,"Completed death must emit Title outcome instead of Exit/Load");

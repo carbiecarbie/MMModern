@@ -36,7 +36,7 @@ XeenEventTextFile XeenEventTextLoader::load(XeenMapIdentity mapId) const {
 	XeenEventTextFile result;
 	result.mapId = mapId;
 	result.resourceName = resourceNameForMap(mapId);
-	const std::optional<std::vector<std::uint8_t>> bytes = (_sideReader?_sideReader(result.resourceName,mapId.side):_resourceReader(result.resourceName));
+	const std::optional<std::vector<std::uint8_t>> bytes = (_sideReader?_sideReader(result.resourceName,xeenMapResources(mapId).mapArchive):_resourceReader(result.resourceName));
 	if (!bytes)
 		return result;
 	result.resourcePresent = true;

@@ -50,7 +50,7 @@ void restore(const GameInstallation &installation,const XeenSaveSnapshot &s) {
 	r.loadInitialWorldFlags=[&]{return XeenQuestFlagFormat::parseWorldFlags(assets.readInitialResource("maze.pty"));};
 	r.loadEvents=[&](auto id){return events.load(id);};
     r.loadRegionalText=[&](auto id){
-        const auto archive=xeenPictureArchive(id);
+        const auto archive=xeenMapResources(id).ambient;
         XeenEventTextLoader loader([&](const std::string &name)->std::optional<DosBytes> {
             if(!assets.hasSceneResource(name,archive))return {};return assets.readArchiveResource(name,archive);
         });return loader.load(id);
@@ -217,21 +217,18 @@ void placeDosParty(const GameInstallation &installation,const XeenSaveSnapshot &
 	std::snprintf(mapname,sizeof(mapname),place.map>=100?(place.side==XeenSide::Clouds?"xeenx%03u.txt":"darkx%03u.txt"):(place.side==XeenSide::Clouds?"xeen%04u.txt":"dark%04u.txt"),place.map);
 	require(txt,side);require(hed,side);require(mapname,XeenSceneArchive::Darkside);
 	const bool dark=place.side==XeenSide::Darkside;
-	const bool cloudObjects=!dark || (place.map>=113 && place.map<=120) || (place.map>=124 && place.map<=128);
-	const bool cloudMonsters=!dark || (place.map>=117 && place.map<=120) || place.map==124;
-	const bool cloudPictures=!dark || (place.map>=125 && place.map<=127);
-	const auto objectSide=cloudObjects?XeenSceneArchive::Clouds:XeenSceneArchive::Darkside;
-	const auto pictureSide=cloudPictures?XeenSceneArchive::Clouds:XeenSceneArchive::Darkside;
-	require(cloudObjects?"clouds.dat":"dark.dat",XeenSceneArchive::Darkside);
-	require(cloudPictures?"xeenpic.dat":"darkpic.dat",XeenSceneArchive::Darkside);
-	const auto monName=cloudMonsters?"xeen.mon":"dark.mon";
+	const auto resources=xeenMapResources({place.side,place.map});
+	const auto objectSide=resources.objectArt,pictureSide=resources.pictures;
+	require(resources.animationTable==XeenSide::Clouds?"clouds.dat":"dark.dat",XeenSceneArchive::Darkside);
+	require(resources.pictureMetadata==XeenSide::Clouds?"xeenpic.dat":"darkpic.dat",XeenSceneArchive::Darkside);
+	const auto monName=resources.monsterTable==XeenSide::Clouds?"xeen.mon":"dark.mon";
 	require(monName,XeenSceneArchive::Darkside);
 	const auto monsters=XeenMonsterFormat::parse(bridge.readArchiveResource(monName,XeenSceneArchive::Darkside));
 	for(auto id:entities.objectTable) if(id!=255) require(number(id,id>=100?"0bj":"obj"),objectSide);
 	for(auto id:entities.wallItemTable) if(id!=255) require(number(id,"pic"),pictureSide);
 	for(auto id:entities.monsterTable) if(id!=255) {
 		if(id>=monsters.size()) throw std::invalid_argument("Destination monster index outside statistics");
-		const auto selection=(id==91 || cloudMonsters)?XeenSceneArchive::Clouds:XeenSceneArchive::Darkside;
+		const auto selection=xeenMonsterArt({place.side,place.map},id);
 		require(number(monsters[id].image(),"mon"),selection);require(number(monsters[id].image(),"att"),selection);
 	}
 	// Names and selection follow the pinned Xeen Map::load and resource tables.
@@ -246,15 +243,15 @@ void placeDosParty(const GameInstallation &installation,const XeenSaveSnapshot &
 		{"dngon1.m","dngon2.m","dngon3.m","dngon1.m","dngon2.m","dngon3.m","dngon1.m"},
 		{"cstl1rev.m","cstl2rev.m","cstl3rev.m","cstl1rev.m","cstl2rev.m","cstl3rev.m","cstl1rev.m"},
 		{"sf05.m","sf05.m","sf05.m","sf05.m","sf05.m","sf05.m","sf05.m"}};
-	const bool cloudMusic=!dark || (!main.isOutdoors() && place.map>=125 && place.map<=127);
+	const bool cloudMusic=resources.music==XeenMapMusic::Clouds;
 	static const unsigned musicIndex[]={1,2,3,4,3,5};
 	static const char *const cloudSongs[]={"outdoors.m","town.m","cavern.m","dungeon.m","castle.m"};
 	const unsigned mi=main.isOutdoors()?(dark?unsigned(main.wallKind):0):musicIndex[unsigned(main.wallKind)];
 	if(cloudMusic) {if(mi>=5)throw std::invalid_argument("Destination music index outside Clouds table");require(cloudSongs[mi],XeenSceneArchive::Clouds);}
 	else for(const auto *song:music[mi]) require(song,XeenSceneArchive::Darkside);
-	const auto terrainSide=dark && !main.isOutdoors() && place.map>=125 && place.map<=127?XeenSceneArchive::Clouds:side;
+	const auto terrainSide=resources.surfaces;
 	const auto minutes=s.journey->context->minutes;
-	const bool forcedDay=(place.map>=89 && place.map<=112) || place.map==128 || place.map==129;
+	const bool forcedDay=resources.alwaysDay;
 	require(forcedDay || (minutes>=300 && minutes<1260)?"sky.sky":"night.sky",terrainSide);
 	if(main.isOutdoors()) {
 		require("water.out",side);require("outdoor.til",side);
@@ -272,8 +269,8 @@ void placeDosParty(const GameInstallation &installation,const XeenSaveSnapshot &
 			if(index>=16)throw std::invalid_argument("Destination surface index outside table");
 			if(index || i==4)require(surfaces[index],terrainSide);
 		}
-		for(unsigned i=1;i<=4;++i)require("f"+t+std::to_string(i)+".fwl",pictureSide);
-		require("s"+t+".swl",pictureSide);
+		for(unsigned i=1;i<=4;++i)require("f"+t+std::to_string(i)+".fwl",resources.walls);
+		require("s"+t+".swl",resources.walls);
 	}
 	if(!dark) {auto placed=s;placed.camera={place.map,int(place.x),int(place.y),place.facing};restore(installation,placed);}
 	for(auto *m:{&pair.clouds,&pair.darkside}) member(*m,"maze.nam").bytes.at(29)=dark?1:0;

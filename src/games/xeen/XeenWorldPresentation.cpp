@@ -29,7 +29,7 @@ std::vector<XeenActor> XeenWorld::sceneActors(XeenMapIdentity mapId,
 	const auto file=objectFile(mapId);
 	std::vector<XeenActor> actors;
 	if (!file.entities.monsters.empty()) {
-		auto &statistics=_sceneStatistics.at(static_cast<unsigned>(static_cast<XeenSide>(mapId.side)));
+		auto &statistics=_sceneStatistics.at(static_cast<unsigned>(xeenMapResources(mapId).monsterTable));
 		if (!statistics) statistics=loadStatistics();
 		for (std::size_t i=0;i<file.entities.monsters.size();++i) {
 			const auto &record=file.entities.monsters[i];

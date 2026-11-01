@@ -236,8 +236,8 @@ void queuedInput(Inputs &in,unsigned mode) {
    {party.encounterContext?unsigned(party.encounterContext->year):0u},nullptr,phase,&animated,appearance);
   return XeenEventFlow::Composition{std::move(image),animated};
  };
- services.validateEncounterSprite=[&](auto image){in.assets.validateNormalMonster(image);};
- services.validateCombatSprite=[&](auto image){in.assets.validateAttackMonster(image);};
+ services.validateEncounterSprite=[&](auto image,auto archive){in.assets.validateNormalMonster(image,archive);};
+ services.validateCombatSprite=[&](auto image,auto archive){in.assets.validateAttackMonster(image,archive);};
  const auto tap=[](SDL_Keycode code){SDL_Event e{};e.type=SDL_KEYDOWN;e.key.keysym.sym=code;e.key.keysym.scancode=SDL_GetScancodeFromKey(code);
   check(SDL_PushEvent(&e)==1,"B1/B2 key enqueue failed");e.type=SDL_KEYUP;check(SDL_PushEvent(&e)==1,"B1/B2 key-up enqueue failed");};
  const auto click=[](){SDL_Event e{};e.type=SDL_MOUSEBUTTONDOWN;e.button.button=SDL_BUTTON_LEFT;sdl_mouse_test::position(e.button,261,118);

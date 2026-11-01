@@ -48,7 +48,7 @@ std::string XeenAssetSource::mapName(XeenMapIdentity mapId) {
  if(!mapId || mapId.number>9999)throw std::invalid_argument("Invalid map name identity");
  char name[16];
  std::snprintf(name,sizeof(name),mapId.number>=100?"%sx%03u.txt":"%s%04u.txt",
-     mapId.side==XeenSide::Clouds?"xeen":"dark",unsigned(mapId.number));
+     xeenMapResources(mapId).mapArchive==XeenSide::Clouds?"xeen":"dark",unsigned(mapId.number));
  const auto bytes=readArchiveResource(name,XeenSceneArchive::DarksideOnly);
  const auto limit=bytes.begin()+std::min<std::size_t>(bytes.size(),32);
  const auto end=std::find(bytes.begin(),limit,0);

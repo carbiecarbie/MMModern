@@ -25,7 +25,7 @@ struct Fixture {
    f.pixels[4]=p.questItems.at(17);f.pixels[6]=p.roster.at(0).currentHp;
    f.pixels[10]=w.isObjectDisabled({23,0});f.pixels[20]=phase%251;
    return XeenEventFlow::Composition{f,true};};
-  s.clock=[&]{return now;};s.catalog=&catalog;s.validateEncounterSprite=[](auto){};s.validateCombatSprite=[](auto){};return s;
+  s.clock=[&]{return now;};s.catalog=&catalog;s.validateEncounterSprite=[](auto,auto){};s.validateCombatSprite=[](auto,auto){};return s;
  }
  void present(const SdlWindow::FrameUpdateHandler &h){h.framePresented(flow->frame().presentation());}
  void send(const SdlWindow::FrameUpdateHandler &h,const PlayerAction &a){present(h);h.beginCycle(++cycle);const auto token=h.displayedInput();check(token.has_value(),"regional displayed input");h.withDisplayedInput(a,*token);present(h);}

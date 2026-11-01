@@ -28,7 +28,9 @@ OriginalContext::OriginalContext(const GameInstallation &installation, std::opti
     if(fixture && fixture->mapId.side==XeenSide::Darkside) {
         OriginalContext base(installation);bindResources();
         auto saved=*base.initial;saved.camera=*fixture;saved.headCache.reset();
-        saved.darksideSong=static_cast<std::uint8_t>(7*xeenMapMusicRow(maps.loadGeometryMap(assets,fixture->mapId).geometry));
+        if(xeenMapResources(fixture->mapId).music==XeenMapMusic::DarksideRandom)
+            saved.darksideSong=static_cast<std::uint8_t>(7*xeenMapMusicRow(maps.loadGeometryMap(assets,fixture->mapId).geometry));
+        else saved.darksideSong.reset();
         XeenSaveState::restoreBeforeGameplay(saved,resources,party,camera,flags,world,[](auto &,const auto &,const auto &,const auto &){});
         flow=std::make_unique<XeenEncounterFlow>(program,world,party,camera,flags,clock,XeenJourneyRestoreTag{});
         if(!flow->prepareJourneyFrame(flow->ticket(),[]{}) || !flow->presentJourney(flow->ticket()))throw std::runtime_error("Census Darkside presentation boundary failed");
@@ -92,16 +94,16 @@ Support OriginalContext::replayRoot(XeenCamera entry) {
             {},[&]{return now;},{},&catalogue.catalog,[&](auto,auto){return XeenEventFlow::Composition{blank(),false};},
             nullptr,[&](auto &,const auto &,const auto &,auto,auto){return XeenEventFlow::Composition{blank(),false};});
         session.dialogText=&assets.uiText();
-        session.drawDialogSprite=[this,&c](auto &frame,const char *name,unsigned id,int x,int y){assets.drawDialogSprite(frame,name,id,x,y,xeenPictureArchive(c.mapId));};
-        session.drawTrainingArt=[this,&c](auto &frame){assets.drawTraining(frame,xeenPictureArchive(c.mapId));};
-        session.drawSmithArt=[this,&c](auto &frame){assets.drawSmith(frame,xeenPictureArchive(c.mapId));};
-        session.drawTempleArt=[this,&c](auto &frame){assets.drawTemple(frame,xeenPictureArchive(c.mapId));};
-        session.drawTavernArt=[this,&c](auto &frame){assets.drawTavern(frame,xeenPictureArchive(c.mapId));};
-        session.drawBankArt=[this,&c](auto &frame){assets.drawBank(frame,xeenPictureArchive(c.mapId));};
-        session.drawGuildArt=[this,&c](auto &frame){assets.drawGuild(frame,xeenPictureArchive(c.mapId));};
-        session.tavernFoodOffer=[this,&c](unsigned index){return assets.tavernFoodOffer(index,xeenPictureArchive(c.mapId));};
+        session.drawDialogSprite=[this,&c](auto &frame,const char *name,unsigned id,int x,int y){assets.drawDialogSprite(frame,name,id,x,y,xeenDialogSpriteArchive(c.mapId,name));};
+        session.drawTrainingArt=[this,&c](auto &frame){assets.drawTraining(frame,xeenMapResources(c.mapId).ambient);};
+        session.drawSmithArt=[this,&c](auto &frame){assets.drawSmith(frame,xeenMapResources(c.mapId).ambient);};
+        session.drawTempleArt=[this,&c](auto &frame){assets.drawTemple(frame,xeenMapResources(c.mapId).ambient);};
+        session.drawTavernArt=[this,&c](auto &frame){assets.drawTavern(frame,xeenMapResources(c.mapId).ambient);};
+        session.drawBankArt=[this,&c](auto &frame){assets.drawBank(frame,xeenMapResources(c.mapId).ambient);};
+        session.drawGuildArt=[this,&c](auto &frame){assets.drawGuild(frame,xeenMapResources(c.mapId).ambient);};
+        session.tavernFoodOffer=[this,&c](unsigned index){return assets.tavernFoodOffer(index,xeenMapResources(c.mapId).ambient);};
         session.loadSampleDuration=[this](const char *name,XeenSceneArchive archive){return xeenVocDurationNanoseconds(assets.readArchiveResource(name,archive));};
-        session.loadSpellDescriptions=[this,&c]{return assets.readArchiveResource("spldesc.bin",xeenPictureArchive(c.mapId));};
+        session.loadSpellDescriptions=[this,&c]{return assets.readArchiveResource("spldesc.bin",xeenMapResources(c.mapId).ambient);};
         std::optional<Support> result;std::optional<XeenPresentationResponseRequirement> request;
         session.reportManual=[&](const XeenManualEventResult &value) {
             if(const auto *error=std::get_if<XeenEventExecutionError>(&value))result=Support{Status::Partial,error->message};

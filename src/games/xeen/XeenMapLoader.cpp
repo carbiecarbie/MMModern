@@ -12,8 +12,8 @@ XeenObjectFile XeenMapLoader::loadObjects(XeenAssetSource &assets,
 		XeenMapIdentity mapId) const {
 	return loadObjects([&assets,mapId](const std::string &name)
 			-> std::optional<std::vector<std::uint8_t>> {
-		if (!assets.hasInitialResource(name,mapId.side)) return std::nullopt;
-		return assets.readInitialResource(name,mapId.side);
+		if (!assets.hasInitialResource(name,xeenMapResources(mapId).mapArchive)) return std::nullopt;
+		return assets.readInitialResource(name,xeenMapResources(mapId).mapArchive);
 	}, mapId);
 }
 
@@ -49,15 +49,15 @@ XeenMap XeenMapLoader::loadGeometryMap(XeenAssetSource &assets,
 		std::snprintf(resourceName, sizeof(resourceName), "maze%04u.dat",
 			static_cast<unsigned>(mapId.number));
 	XeenMap map;
-	map.geometry = XeenMapFormat::parseDat(assets.readInitialResource(resourceName,mapId.side));
+	map.geometry = XeenMapFormat::parseDat(assets.readInitialResource(resourceName,xeenMapResources(mapId).mapArchive));
 	map.side = mapId.side;
 	if (map.identity() != mapId)
 		throw std::runtime_error(std::string(resourceName) + " has an unexpected internal ID");
  char headName[13];
  std::snprintf(headName,sizeof(headName),mapId.number>=100?"aazex%03u.hed":"aaze%04u.hed",unsigned(mapId.number));
  // Indoor neighbor tiles may have geometry without a primary-map HED resource.
- if(assets.hasSceneResource(headName,mapId.side==XeenSide::Clouds?XeenSceneArchive::Clouds:XeenSceneArchive::DarksideOnly)) {
-  const auto heads=assets.readArchiveResource(headName,mapId.side==XeenSide::Clouds?XeenSceneArchive::Clouds:XeenSceneArchive::DarksideOnly);
+ if(assets.hasSceneResource(headName,xeenMapResources(mapId).mapArchive==XeenSide::Clouds?XeenSceneArchive::Clouds:XeenSceneArchive::DarksideOnly)) {
+  const auto heads=assets.readArchiveResource(headName,xeenMapResources(mapId).mapArchive==XeenSide::Clouds?XeenSceneArchive::Clouds:XeenSceneArchive::DarksideOnly);
   // The reference reads 256 pairs; the original archive retains trailing bytes.
   if(heads.size()<512)throw std::runtime_error(std::string(headName)+": expected at least 512 HED bytes");
   map.heads.emplace();

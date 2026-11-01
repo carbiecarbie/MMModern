@@ -82,8 +82,7 @@ std::vector<XeenOutdoorDrawCommand> XeenOutdoorScene::build(
 		commands.push_back(std::move(command));
 	};
 	// Map::loadSky's original permanently daylight resource exceptions.
-	const auto root=camera.mapId.number;
-	const bool alwaysDay=(root>=89 && root<=112) || root==128 || root==129;
+	const bool alwaysDay=xeenMapResources(camera.mapId).alwaysDay;
 	const char *sky=night && !alwaysDay ? "night.sky" : "sky.sky";
 	addFixed(0, sky, 0, 8, 8);
 	addFixed(1, sky, 1, 8, 25);
@@ -262,7 +261,7 @@ std::vector<XeenOutdoorDrawCommand> XeenOutdoorScene::actorCommands(
 			XeenOutdoorActorDraw draw{actor.id,actor.statistics->image(),
 				static_cast<std::uint8_t>(special || appearance.kind==XeenMonsterSpriteKind::Normal ? appearance.frame : 0),
 				special ? XeenMonsterSpriteKind::Attack : XeenMonsterSpriteKind::Normal};
-			draw.archive=actor.original.resourceId==91?XeenSceneArchive::Clouds:XeenSceneArchive::Current;
+			draw.archive=xeenMonsterArt(camera.mapId,actor.original.resourceId);
             draw.selectedSlot=g.slots[i]; draw.scaleIndex=g.scale; draw.bottomClipped=g.query==2;
 			if (presentation) {
 				if (const auto *animation=presentation->animation(actor.id)) {

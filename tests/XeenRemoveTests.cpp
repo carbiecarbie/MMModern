@@ -69,7 +69,7 @@ void loadingAndSelection() {
 	int reads = 0;
 	try { loader.loadObjects([&](const std::string &) { ++reads; return mob(); }, {XeenSide::Darkside,113}); }
 	catch (const std::invalid_argument &) { rejected = true; }
-	check(malformed && rejected && reads == 0, "MOB failure or side handling");
+	check(malformed && !rejected && reads == 1, "MOB failure or mixed-map admission");
 	Fixture f;
 	f.world.map(23); f.world.map(24);
 	check(f.objectLoads == 0, "geometry eagerly loaded objects");

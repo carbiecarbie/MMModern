@@ -306,7 +306,7 @@ void captions() {
 }
 void original(training_test::Inputs &in,const GameInstallation &installation,XeenCamera camera,unsigned action,bool keyed,bool wounded=false,bool efx=true,bool device=false,bool drain=false) {
     auto save=entranceSave(in,camera,keyed,action);save.soundOptions.efx=efx;
-    const bool dark=camera.mapId.side==XeenSide::Darkside;const auto archive=xeenPictureArchive(camera.mapId);
+    const bool dark=camera.mapId.side==XeenSide::Darkside;const auto archive=xeenMapResources(camera.mapId).ambient;
     save.characters[save.activeRosterIds[0]].skills[4]=1;
     for(auto &m:save.maps)m.explored.reset();
     if(drain)save.journey->context->lightAndResistances[0]=5;

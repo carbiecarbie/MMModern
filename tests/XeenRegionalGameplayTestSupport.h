@@ -29,7 +29,7 @@ struct Harness {
    [](auto &,const auto &,const auto &,auto){return XeenEventFlow::Composition{IndexedFrame{320,200,Bytes(64000)},true};}, {},
    [&](auto &f,const auto &){flow=&f;f.dialogText=&dos_test::text();combatBoundary=&const_cast<XeenEncounterFlow *>(f.encounter())->boundary();}, {},
    [&](auto &w,auto &e,const auto &p,auto &c,const auto &f){world=&w;eventSystem=&e;party=&p;camera=&c;flags=&f;}};
-  s.clock=[&]{return now;};s.validateEncounterSprite=[](auto){};s.validateCombatSprite=[](auto){};
+  s.clock=[&]{return now;};s.validateEncounterSprite=[](auto,auto){};s.validateCombatSprite=[](auto,auto){};
   s.composeEncounter=[&](auto &,const auto &,const auto &,auto ordinary,auto actor){
    ++compositions;observedOrdinary=ordinary;observedAppearance=actor;
    base=IndexedFrame{320,200,Bytes(64000)};return XeenEventFlow::Composition{base,true};};

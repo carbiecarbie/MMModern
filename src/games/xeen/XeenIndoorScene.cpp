@@ -272,8 +272,8 @@ std::vector<XeenIndoorDrawCommand> XeenIndoorScene::build(
 	// Pinned Map::cellFlagLookup/loadSky: bit 0x08 selects the terrain
 	// ceiling; otherwise both sky layers use the open day/night resource.
 	// Resolve the logical camera through the same tile sampler as the walls.
-	const auto root = camera.mapId.number;
-	const bool alwaysDay = (root >= 89 && root <= 112) || root == 128 || root == 129;
+	const auto resources=xeenMapResources(camera.mapId);
+	const bool alwaysDay = resources.alwaysDay;
 	const std::string sky = (cameraCell->cell->flags & 0x08) ? terrain + ".sky" :
 		(night && !alwaysDay ? "night.sky" : "sky.sky");
 	const std::string ground = terrain + ".gnd";
@@ -306,7 +306,9 @@ std::vector<XeenIndoorDrawCommand> XeenIndoorScene::build(
 		command.geometry().options.sceneClipped = true;
 		command.geometry().options.bottomClipped = false;
 		if(resource==fwl1 || resource==fwl2 || resource==fwl3 || resource==fwl4 || resource==swl)
-			command.geometry().options.archive=xeenPictureArchive(camera.mapId);
+			command.geometry().options.archive=resources.walls;
+		else command.geometry().options.archive=resource==ground?resources.ground:
+			(resource==sky || resource=="sky.sky" || resource=="night.sky")?resources.sky:resources.surfaces;
 		if (sampleIndex) {
 			const auto &source = samples.at(*sampleIndex);
 			command.sourceMapId = source.sourceMapId;
@@ -340,8 +342,7 @@ std::vector<XeenIndoorDrawCommand> XeenIndoorScene::build(
 	add(1, presentation.openDoor?(night && !alwaysDay?"night.sky":"sky.sky"):sky, 1, 8, 25, presentation.sky);
 	add(2, ground, 0, 8, 67, presentation.defaultGround);
 	// DOS 0x10725..0x1076c clears this entry's sprite for these maps.
-	const bool hideHorizon=map.side==XeenSide::Darkside?
-		(root>=89 && root<=112) || root==128 || root==129:root>=25 && root<=27;
+	const bool hideHorizon=resources.hideHorizon;
 	if(!hideHorizon)add(28, fwl1, 7, 8, 64, false);
 	// Map::load skips empty surface slots; slot 4 is water even when type=0.
 	for (std::size_t i=0;i<25;++i) {
@@ -355,9 +356,7 @@ std::vector<XeenIndoorDrawCommand> XeenIndoorScene::build(
 		// DOS getCell's three tables (0x11b72/0x11c0c/0x11ca6) use
 		// slot 0 on Skyroads 89..112, unlike the pinned reference's slot 6.
 		// This is presentation only; missing cells still cannot be entered.
-		const unsigned missingSlot=map.side==XeenSide::Clouds?(root>=25 && root<=27?7u:0u):
-			((root>=53 && root<=88 && root!=73) || (root>=113 && root<=120) ||
-			root==125 || root==126 || root==128 || root==129?6u:0u);
+		const unsigned missingSlot=resources.missingCellSlot;
 		const auto slot=cell?unsigned(cell->cell->surfaceIndex):missingSlot;
 		const auto type=unsigned(map.geometry.surfaceTypes[slot]);
 		if (!type && slot!=4) continue;
@@ -596,7 +595,7 @@ std::vector<XeenIndoorDrawCommand> XeenIndoorScene::build(
 				if (!count) throw std::invalid_argument("Empty wall-item sprite: "+resource);
 				XeenIndoorDrawCommand c;c.originalOrder=p.order;c.x=p.x;c.y=p.y;
 				c.sourceMapId=camera.mapId;c.sourceX=item.x;c.sourceY=item.y;c.queryIndex=p.query;c.sourceFace=camera.direction;
-				c.content=XeenWallItemDraw{i,presentation.wallFrame(count),resource,p.scale,count>1,xeenPictureArchive(camera.mapId)};chosen=std::move(c);
+				c.content=XeenWallItemDraw{i,presentation.wallFrame(count),resource,p.scale,count>1,resources.pictures};chosen=std::move(c);
 				if (!p.last) break;
 			}
 			if (chosen) commands.push_back(std::move(*chosen));
@@ -686,7 +685,7 @@ std::vector<XeenIndoorDrawCommand> XeenIndoorScene::buildActors(
 				command.sourceMapId=a.id.mapId;command.sourceX=a.x;command.sourceY=a.y;command.queryIndex=g.query;
 				XeenIndoorActorDraw draw{a.id,a.statistics->image(),appearance.frame,
 					attacking?XeenMonsterSpriteKind::Attack:XeenMonsterSpriteKind::Normal};
-				draw.archive=a.original.resourceId==91?XeenSceneArchive::Clouds:XeenSceneArchive::Current;
+				draw.archive=xeenMonsterArt(camera.mapId,a.original.resourceId);
                 draw.selectedSlot=g.slots[i];draw.scaleIndex=g.scale;draw.bottomClipped=g.query==2;
 				if (const auto *animation=world.scenePresentation().drawingState().animation(a.id)) {
 					if (!attacking) {draw.kind=animation->frame>=8?XeenMonsterSpriteKind::Attack:XeenMonsterSpriteKind::Normal;draw.frame=animation->frame%8;}

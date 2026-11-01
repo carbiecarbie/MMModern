@@ -26,7 +26,7 @@ struct Run {
 };
 bool veinDrawn(combat_gameplay_test::Harness &h,const Vein &vein,const XeenCamera &camera) {
 	const auto commands=XeenIndoorScene().build(*h.world,camera,nullptr,nullptr,{},{},false,
-		[&](const std::string &name){return h.assets->spriteFrameCount(name,xeenPictureArchive(camera.mapId));});
+		[&](const std::string &name){return h.assets->spriteFrameCount(name,xeenMapResources(camera.mapId).ambient);});
 	return std::any_of(commands.begin(),commands.end(),[&](const auto &c) {
 		const auto *wall=c.wallItem();return wall && wall->recordIndex==vein.wallItem;});
 }

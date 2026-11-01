@@ -69,7 +69,7 @@ struct Live {
  std::function<void(XeenMapIdentity)> beforeCompose;
  Live(Inputs &in,const XeenSaveSnapshot &s,const XeenEventFile *eventOverride=nullptr,const XeenEventFile *destinationOverride=nullptr):in(in),catalogue(loadXeenItemCatalog(in.assets)),w(in.mapLoader(),in.objectLoader()),
   events([&in,eventOverride,destinationOverride](auto id){return XeenEventScript(eventOverride && eventOverride->mapId==id?*eventOverride:destinationOverride && destinationOverride->mapId==id?*destinationOverride:in.events.load(id));},[&](auto id){return in.texts.load(id);}) {
-  in.assets.loadPalette("mm4.pal",xeenPictureArchive(s.camera.mapId));in.assets.loadRawFramebuffer("back.raw",xeenPictureArchive(s.camera.mapId));
+  in.assets.loadPalette("mm4.pal",xeenMapResources(s.camera.mapId).ambient);in.assets.loadRawFramebuffer("back.raw",xeenMapResources(s.camera.mapId).ambient);
   auto resources=in.resources();if(eventOverride)resources.loadEvents=[&in,eventOverride,destinationOverride](auto id){return eventOverride->mapId==id?*eventOverride:destinationOverride && destinationOverride->mapId==id?*destinationOverride:in.events.load(id);};
   XeenSaveState::restoreBeforeGameplay(s,resources,p,c,f,w,[](auto &,const auto &,const auto &,const auto &){});
   const auto compose=[&](XeenWorld &world,const XeenPartyState &party,const XeenCamera &camera,std::uint64_t phase) {
@@ -78,23 +78,23 @@ struct Live {
    return XeenEventFlow::Composition{std::move(image),animated};
   };
   flow=std::make_unique<XeenEventFlow>(program,w,events,p,c,f,in.font,
-   [&,compose](auto phase){return compose(w,p,c,phase);},XeenEventPresenter::NpcDraw{[&](auto &frame,auto id,auto phase){in.assets.drawNpc(frame,id,phase,xeenPictureArchive(c.mapId));}},
+   [&,compose](auto phase){return compose(w,p,c,phase);},XeenEventPresenter::NpcDraw{[&](auto &frame,auto id,auto phase){in.assets.drawNpc(frame,id,phase,xeenMapResources(c.mapId).ambient);}},
    [this]{return now;},XeenEventPresenter::RandomFrame{},&catalogue.catalog,
    [&,compose](auto phase,auto){return compose(w,p,c,phase);},nullptr,
    [compose](auto &world,const auto &party,const auto &camera,auto phase,auto){return compose(world,party,camera,phase);});
   flow->dialogText=&in.assets.uiText();
-  flow->drawDialogSprite=[&](auto &frame,const char *name,unsigned index,int x,int y){in.assets.drawDialogSprite(frame,name,index,x,y,xeenPictureArchive(c.mapId));};
+  flow->drawDialogSprite=[&](auto &frame,const char *name,unsigned index,int x,int y){in.assets.drawDialogSprite(frame,name,index,x,y,xeenDialogSpriteArchive(c.mapId,name));};
   flow->loadSampleDuration=[&](const char *name,XeenSceneArchive archive){return xeenVocDurationNanoseconds(in.assets.readArchiveResource(name,archive));};
   flow->mapName=[&](auto id){return in.assets.mapName(id);};
-  flow->loadSpellDescriptions=[&]{return in.assets.readArchiveResource("spldesc.bin",xeenPictureArchive(c.mapId));};
-  flow->drawSmithArt=[&](auto &image){in.assets.drawSmith(image,xeenPictureArchive(c.mapId));};
-  flow->drawTrainingArt=[&](auto &image){in.assets.drawTraining(image,xeenPictureArchive(c.mapId));};
-  flow->drawTempleArt=[&](auto &image){in.assets.drawTemple(image,xeenPictureArchive(c.mapId));};
-  flow->drawBankArt=[&](auto &image){in.assets.drawBank(image,xeenPictureArchive(c.mapId));};
-  flow->drawGuildArt=[&](auto &image){in.assets.drawGuild(image,xeenPictureArchive(c.mapId));};
-  flow->drawTavernArt=[&](auto &image){in.assets.drawTavern(image,xeenPictureArchive(c.mapId));};
-  flow->tavernFoodOffer=[&](unsigned n){return in.assets.tavernFoodOffer(n,xeenPictureArchive(c.mapId));};
-  flow->tavernString=[&](std::size_t n){return in.assets.tavernString(n,xeenPictureArchive(c.mapId));};
+  flow->loadSpellDescriptions=[&]{return in.assets.readArchiveResource("spldesc.bin",xeenMapResources(c.mapId).ambient);};
+  flow->drawSmithArt=[&](auto &image){in.assets.drawSmith(image,xeenMapResources(c.mapId).ambient);};
+  flow->drawTrainingArt=[&](auto &image){in.assets.drawTraining(image,xeenMapResources(c.mapId).ambient);};
+  flow->drawTempleArt=[&](auto &image){in.assets.drawTemple(image,xeenMapResources(c.mapId).ambient);};
+  flow->drawBankArt=[&](auto &image){in.assets.drawBank(image,xeenMapResources(c.mapId).ambient);};
+  flow->drawGuildArt=[&](auto &image){in.assets.drawGuild(image,xeenMapResources(c.mapId).ambient);};
+  flow->drawTavernArt=[&](auto &image){in.assets.drawTavern(image,xeenMapResources(c.mapId).ambient);};
+  flow->tavernFoodOffer=[&](unsigned n){return in.assets.tavernFoodOffer(n,xeenMapResources(c.mapId).ambient);};
+  flow->tavernString=[&](std::size_t n){return in.assets.tavernString(n,xeenMapResources(c.mapId).ambient);};
   present(flow->frame());
   beforeMaps=w.sessionState().mapStates();
  }
@@ -120,7 +120,7 @@ struct Live {
  }
 };
 XeenSaveSnapshot quiet(Inputs &in,XeenSaveSnapshot s) {
- const auto id=s.camera.mapId;const auto mon=XeenMonsterFormat::parse(*in.assets.readMonsterStatistics(id.side));
+ const auto id=s.camera.mapId;const auto mon=XeenMonsterFormat::parse(*in.assets.readMonsterStatistics(xeenMapResources(id).monsterTable));
  const auto actors=XeenActorApproach::actorsFromResources(in.maps.loadObjects(in.assets,id),mon);
  auto &table=s.map(id).monsters;table=XeenSaveMonsterTable{std::uint16_t(actors.size()),{}};
  for(const auto &a:actors) {if(a.lifecycle==XeenActorLifecycle::Present)table->slots.push_back({-128,-128,XeenActorLifecycle::Defeated,XeenActorStatus::Physical,true,-1});else table->slots.push_back({a.x,a.y,a.lifecycle,a.status,false,-1});}
@@ -128,7 +128,7 @@ XeenSaveSnapshot quiet(Inputs &in,XeenSaveSnapshot s) {
 }
 XeenSaveSnapshot at(Inputs &in,XeenSaveSnapshot s,const XeenCamera &camera) {
  s.camera=camera;s.darksideSong.reset();
- if(camera.mapId.side==XeenSide::Darkside)s.darksideSong=static_cast<std::uint8_t>(7*xeenMapMusicRow(in.maps.loadGeometryMap(in.assets,camera.mapId).geometry));
+ if(xeenMapResources(camera.mapId).music==XeenMapMusic::DarksideRandom)s.darksideSong=static_cast<std::uint8_t>(7*xeenMapMusicRow(in.maps.loadGeometryMap(in.assets,camera.mapId).geometry));
  return quiet(in,std::move(s));
 }
 void arrivalMusic(Live &live,const XeenJourneyRandomState &before) {
@@ -255,11 +255,10 @@ void resources(Inputs &in) {
  unsigned admitted=0;
  for(unsigned n=1;n<=129;++n) {
   const XeenMapIdentity id{XeenSide::Darkside,std::uint16_t(n)};
-  if(n>=113 && n<=128) {bool refused=false;try{in.maps.loadGeometryMap(in.assets,id);}catch(const std::invalid_argument &e){refused=std::string(e.what()).find("not supported yet")!=std::string::npos;}check(refused,"Mixed map admitted");continue;}
   const auto map=in.maps.loadGeometryMap(in.assets,id);const auto mob=in.maps.loadObjects(in.assets,id);const auto evt=in.events.load(id);
   check(map.identity()==id && mob.mapId==id && evt.mapId==id && mob.resourcePresent && evt.resourcePresent,"Ordinary Darkside resource identity/presence");++admitted;
  }
- check(admitted==113,"Ordinary Darkside main map inventory changed");
+ check(admitted==129,"Darkside main map inventory changed");
 }
 void music(Inputs &in,const GameInstallation &installation,const XeenSaveSnapshot &source) {
  for(unsigned mode=0;mode<3;++mode) {
@@ -419,8 +418,8 @@ void partBEvents(Inputs &in,const XeenSaveSnapshot &source,const std::filesystem
   check(XeenSaveFormat::encode(restored.snapshot())==XeenSaveFormat::encode(saved),"Numeric choice replayed through save/load");
   if(choice==1) {
    // Render the original compact NPC window/art and this same choice with Text off.
-   XeenEventPresenter presenter(in.font,[&](auto &image,auto portrait,auto frame){in.assets.drawNpc(image,portrait,frame,xeenPictureArchive(id));});
-   presenter.originalAssets(&in.assets.uiText(),[&](auto &image,const char *name,unsigned frame,int x,int y){in.assets.drawDialogSprite(image,name,frame,x,y,xeenPictureArchive(id));});
+   XeenEventPresenter presenter(in.font,[&](auto &image,auto portrait,auto frame){in.assets.drawNpc(image,portrait,frame,xeenMapResources(id).ambient);});
+   presenter.originalAssets(&in.assets.uiText(),[&](auto &image,const char *name,unsigned frame,int x,int y){in.assets.drawDialogSprite(image,name,frame,x,y,xeenMapResources(id).ambient);});
    XeenPresentationRequest npc;npc.kind=XeenPresentationKind::NpcAcknowledgment;npc.npc=XeenEventNpc{0,0,0,2,0};
    for(const auto &e:originalFile.records)if(e.opcode==5){const auto decoded=XeenEventDecoder::decode(e);if(const auto *op=std::get_if<XeenDecodedEventInstruction>(&decoded))if(const auto *n=std::get_if<XeenEventNpc>(&op->operation)){npc.npc=*n;npc.npc->confirmationMode=2;break;}}
    const auto texts=in.texts.load(id);npc.title=texts.strings.at(npc.npc->titleTextIndex);npc.text=texts.strings.at(npc.npc->bodyTextIndex);npc.npcBodyHidden=true;
@@ -783,11 +782,14 @@ XeenSaveSnapshot combat(Inputs &in,const XeenSaveSnapshot &source,const std::fil
 }
 
 
-void combatPortal(Inputs &in,const GameInstallation &installation,const XeenSaveSnapshot &source) {
+void combatPortal(Inputs &in,const GameInstallation &installation,const XeenSaveSnapshot &source,bool contactMove=false) {
  check(!XeenLearnedSpellRules::supportedIn(unsigned(S::TownPortal),true) &&
      !XeenLearnedSpellRules::supportedIn(unsigned(S::LloydsBeacon),true) && !xeenItemUseSpell(28,true),
      "A previously forbidden combat travel path now requires a candidate-RNG witness");
- const XeenCamera destination{{XeenSide::Darkside,4},14,11,XeenDirection::South};
+ const auto portalSide=xeenMapResources(source.camera.mapId).townPortal;
+ const auto clouds=in.maps.loadGeometryMap(in.assets,28).geometry;
+ const XeenCamera destination=portalSide==XeenSide::Clouds?XeenCamera{28,int(clouds.runX),int(clouds.runY),source.camera.direction}:
+  XeenCamera{{XeenSide::Darkside,4},14,11,XeenDirection::South};
  for(unsigned mode=0;mode<3;++mode) {
   auto s=at(in,source,destination);s.camera=source.camera;s.darksideSong=source.darksideSong;
   s.soundOptions={mode!=1,mode!=1,true,false};
@@ -795,10 +797,10 @@ void combatPortal(Inputs &in,const GameInstallation &installation,const XeenSave
   Live live(in,s);
   if(mode<2){live.program.audio=XeenAudio::installed(installation,in.assets,0,false);live.program.audio->observeOptions(s.soundOptions);}
   const auto tick=[&]{live.now+=16;live.flow->beginCycle(++live.cycle);if(auto frame=live.flow->updatePresentation())live.present(*frame);};
-  live.act(WaitAction{});
+  if(contactMove)live.act(NavigationAction::MoveForward);else live.act(WaitAction{});
   for(unsigned n=0;n<2000 && (!live.flow->encounter()->combat() || live.flow->encounter()->combat()->phase()!=XeenCombatPhase::PlayerReady);++n)tick();
   check(live.flow->encounter()->combat() && live.flow->encounter()->combat()->phase()==XeenCombatPhase::PlayerReady,"Darkside Portal item witness did not enter Castleview combat");
-  const auto random=*live.w.sessionState().journeyRandom();
+  const auto contactCamera=live.c;const auto random=*live.w.sessionState().journeyRandom();
   std::cout<<"Combat Portal audio "<<mode<<std::endl;
   const auto portal=[&]{live.act(UseItemAction{});live.key('1');live.key('u');
    live.act(AcknowledgeAction{});live.key('1');live.key(InputKey::Enter);};
@@ -810,7 +812,7 @@ void combatPortal(Inputs &in,const GameInstallation &installation,const XeenSave
    check(interrupted && !XeenRestTestAccess::fatal(*live.flow) && fight->cast() && !fight->cast()->committed,"Portal preparation did not fail recoverably");
    check(*live.w.sessionState().journeyRandom()==random && fight->random().continuation()==random,"Uncommitted Portal advanced the combat RNG");
    for(unsigned n=0;n<3 && fight->cast();++n)live.key(InputKey::Escape);
-   check(!fight->cast() && xeen_state::sameCamera(live.c,source.camera) && xeenSameItem(live.p.roster.at(owner).miscellaneous[0],item),"Canceled Portal changed its source or item");
+   check(!fight->cast() && xeen_state::sameCamera(live.c,contactCamera) && xeenSameItem(live.p.roster.at(owner).miscellaneous[0],item),"Canceled Portal changed its source or item");
   }
   portal();
   check(!XeenRestTestAccess::fatal(*live.flow),"Darkside combat Portal caused an integrity failure");
@@ -901,8 +903,8 @@ void panelAndDefeat(Inputs &in,const GameInstallation &installation,XeenSaveSnap
   [&](auto id){return in.texts.load(id);},in.font,
   [&](auto &w,const auto &p,const auto &c,auto phase){bool animated=false;return XeenEventFlow::Composition{composer.compose(in.assets,w,p,c,{p.encounterContext->year},nullptr,phase,&animated),animated};},{},
   [&](auto &f,const auto &position){flow=&f;camera=&position;f.dialogText=&in.assets.uiText();
-   f.drawDialogSprite=[&](auto &frame,const char *n,unsigned i,int x,int y){try{in.assets.drawDialogSprite(frame,n,i,x,y,xeenPictureArchive(camera->mapId));}catch(const std::exception &e){std::cerr<<"Dialog "<<n<<" frame "<<i<<": "<<e.what()<<std::endl;throw;}};
-   f.drawCombatButtons=[&](auto &frame){CloudsUiComposer().drawCombatButtons(in.assets,frame,xeenPictureArchive(camera->mapId));};
+   f.drawDialogSprite=[&](auto &frame,const char *n,unsigned i,int x,int y){try{in.assets.drawDialogSprite(frame,n,i,x,y,xeenMapResources(camera->mapId).ambient);}catch(const std::exception &e){std::cerr<<"Dialog "<<n<<" frame "<<i<<": "<<e.what()<<std::endl;throw;}};
+   f.drawCombatButtons=[&](auto &frame){CloudsUiComposer().drawCombatButtons(in.assets,frame,xeenMapResources(camera->mapId).ambient);};
    f.loadSampleDuration=[&](const char *n,XeenSceneArchive a){try{return xeenVocDurationNanoseconds(in.assets.readArchiveResource(n,a));}catch(const std::exception &e){std::cerr<<"Sample "<<n<<": "<<e.what()<<std::endl;throw;}};
   },{},[&](auto &w,auto &,const auto &p,auto &c,const auto &f){world=&w;party=&p;camera=&c;flags=&f;}};
  services.clock=[&]{return now;};services.outcome=&outcome;
@@ -913,7 +915,7 @@ void panelAndDefeat(Inputs &in,const GameInstallation &installation,XeenSaveSnap
   services.resources.loadInitialWorldFlags=[&]{return XeenQuestFlagFormat::parseWorldFlags(in.pty);};
  }
  else services.restoreSnapshot=std::make_shared<const XeenSaveSnapshot>(source);
- services.catalog=&catalogue.catalog;services.validateEncounterSprite=[](auto){};services.validateCombatSprite=[](auto){};
+ services.catalog=&catalogue.catalog;services.validateEncounterSprite=[](auto,auto){};services.validateCombatSprite=[](auto,auto){};
  services.composeEncounter=[&](auto &w,const auto &p,const auto &c,auto phase,auto actor){bool animated=false;return XeenEventFlow::Composition{composer.compose(in.assets,w,p,c,{p.encounterContext->year},nullptr,phase,&animated,actor),animated};};
  services.panel=[&](const auto &base,bool combat,bool restricted,bool saveable,auto slot,const auto &name){
   auto panel=XeenTitleFlow::original(in.assets,in.font,[]{return std::array<XeenSaveFile::Slot,10>{};},[](unsigned){return std::filesystem::path("unused");});
@@ -1022,15 +1024,221 @@ void pyramidCombatAudio(Inputs &in,const GameInstallation &installation,const st
  }
 }
 
+void mixedApplicationAudio(Inputs &in,const GameInstallation &installation,const XeenSaveSnapshot &s,unsigned mode) {
+ XeenProgramState program{XeenWallClock::fixed(0)};if(mode<2)program.audio=XeenAudio::installed(installation,in.assets,0,false);
+ CloudsMapComposer composer;std::uint64_t now=0;XeenWorld *world=nullptr;const XeenPartyState *party=nullptr;const XeenCamera *camera=nullptr;unsigned shows=0,validated=0,expectedValidation=0;XeenEventFlow *flow=nullptr;
+ XeenGameplayServices services{program,in.resources(),[]{return XeenGameFlags{};},in.mapLoader(),in.objectLoader(),
+  [&](auto id){return in.texts.load(id);},in.font,
+  [&](auto &w,const auto &p,const auto &c,auto phase){bool animated=false;return XeenEventFlow::Composition{composer.compose(in.assets,w,p,c,{p.encounterContext->year},nullptr,phase,&animated),animated};},{},
+  [&](auto &f,const auto &c){flow=&f;f.dialogText=&in.assets.uiText();f.drawDialogSprite=[&,id=c.mapId](auto &frame,const char *name,unsigned index,int x,int y){in.assets.drawDialogSprite(frame,name,index,x,y,xeenDialogSpriteArchive(id,name));};},
+  {},[&](auto &w,auto &,const auto &p,auto &c,const auto &){world=&w;party=&p;camera=&c;}};
+ services.clock=[&]{return now;};services.restoreSnapshot=std::make_shared<const XeenSaveSnapshot>(s);
+ const auto catalogue=loadXeenItemCatalog(in.assets);services.catalog=&catalogue.catalog;
+ services.validateEncounterSprite=[&](auto image,auto archive){++validated;in.assets.validateNormalMonster(image,archive);};
+ services.validateCombatSprite=[&](auto image,auto archive){++validated;in.assets.validateAttackMonster(image,archive);};
+ services.composeEncounter=[&](auto &w,const auto &p,const auto &c,auto phase,auto actor){bool animated=false;return XeenEventFlow::Composition{composer.compose(in.assets,w,p,c,{p.encounterContext->year},nullptr,phase,&animated,actor),animated};};
+ services.show=[&](const auto &,const auto &,const auto &,const auto &idle,const auto &){
+  ++shows;check(world && party && camera && camera->mapId==s.camera.mapId,"Mixed Application camera absent");
+  for(const auto &actor:world->sessionState().monsters(camera->mapId))if(actor.statistics)expectedValidation+=2;
+  flow->prepareJourneySprites();
+  for(unsigned repeat=0;repeat<3;++repeat){now+=1000;static_cast<void>(idle());}
+  check(world->sessionState().journeyRandom()==s.journey->random && party->encounterContext==s.journey->context &&
+   world->sessionState().darksideSong()==s.darksideSong,"Application audio/idle replayed mixed load work");return true;
+ };
+ check(Application(program).playGameplay(services,s.camera,std::filesystem::path("unused"),true)==0 && shows==1 && validated==expectedValidation,
+  "Mixed Application audio startup/preflight failed");
+}
+
+// M104 Part A: root-selected resource families, load draws, exact restores and
+// live input. The expected table is independent of the production resolver.
+void mixedMaps(Inputs &in,const GameInstallation &installation,const XeenSaveSnapshot &source,const std::filesystem::path &out) {
+ using A=XeenSceneArchive;using Side=XeenSide;
+ struct Expected {bool cloudsMonsters,cloudsObjects,cloudsPictures,cloudsScenery;unsigned missing;bool hide,day;};
+ const std::array<Expected,16> expected{{
+  {false,true,false,false,6,false,false},{false,true,false,false,6,false,false},
+  {false,true,false,false,6,false,false},{false,true,false,false,6,false,false},
+  {true,true,false,false,6,false,false},{true,true,false,false,6,false,false},
+  {true,true,false,false,6,false,false},{true,true,false,false,6,false,false},
+  {false,false,false,false,0,false,false},{false,false,false,false,0,false,false},
+  {false,false,false,false,0,false,false},{true,true,false,false,0,false,false},
+  {false,true,true,true,6,false,false},{false,true,true,true,6,false,false},
+  {false,true,true,true,0,false,false},{false,true,false,false,6,true,true}}};
+ const std::set<unsigned> render{113,117,121,124,125,127,128};
+ const auto art=[](bool clouds){return clouds?A::Clouds:A::Darkside;};
+ const auto table=[](bool clouds){return clouds?Side::Clouds:Side::Darkside;};
+ // Ordinary map choices must remain identical, including the existing sky exceptions.
+ for(auto side:{Side::Clouds,Side::Darkside})for(unsigned n=1;n<=129;++n) {
+  if(side==Side::Darkside && n>=113 && n<=128)continue;
+  const auto r=xeenMapResources({side,static_cast<std::uint16_t>(n)});const auto a=art(side==Side::Clouds);
+  check(r.mapArchive==side && r.monsterTable==side && r.animationTable==side && r.pictureMetadata==side &&
+   r.monsterArt==a && r.objectArt==a && r.pictures==a && r.walls==a && r.sky==a && r.ground==a && r.tiles==a &&
+   r.surfaces==a && r.voices==a && r.ambient==a && r.townPortal==side,"Ordinary map selector changed");
+ }
+ for(unsigned n=113;n<=128;++n) {
+  const XeenMapIdentity id{Side::Darkside,static_cast<std::uint16_t>(n)};const auto &e=expected[n-113];const auto r=xeenMapResources(id);
+  std::cout<<"M104 map "<<n<<std::endl;
+  check(r.mapArchive==Side::Darkside && r.monsterTable==table(e.cloudsMonsters) &&
+   r.monsterArt==art(e.cloudsMonsters) && r.objectArt==art(e.cloudsObjects) &&
+   r.animationTable==table(e.cloudsObjects) && r.pictures==art(e.cloudsPictures) && r.pictureMetadata==table(e.cloudsPictures) &&
+   r.walls==art(e.cloudsScenery) && r.sky==art(e.cloudsScenery) && r.ground==art(e.cloudsScenery) &&
+   r.tiles==art(e.cloudsScenery) && r.surfaces==art(e.cloudsScenery) && r.missingCellSlot==e.missing &&
+   r.hideHorizon==e.hide && r.alwaysDay==e.day && r.voices==A::Darkside && r.ambient==A::Darkside &&
+   r.townPortal==(n==128?Side::Darkside:Side::Clouds) &&
+   r.music==(e.cloudsScenery?XeenMapMusic::Clouds:XeenMapMusic::DarksideRandom) &&
+   r.musicArchive==(e.cloudsScenery?A::Clouds:A::DarksideOnly),"Mixed root selector mismatch");
+  check(xeenMonsterArt(id,91)==A::Clouds && xeenMonsterArt(id,0)==r.monsterArt,"Species 91 changed another selector");
+  check(xeenDialogSpriteArchive(id,"dung.til")==r.tiles && xeenDialogSpriteArchive(id,"global.icn")==r.ambient,"Minimap/map tile used ambient UI archive");
+  const auto &map=in.maps.loadGeometryMap(in.assets,id);const auto mob=in.maps.loadObjects(in.assets,id);
+  const auto events=in.events.load(id);const auto texts=in.texts.load(id);
+  check(map.identity()==id && mob.mapId==id && events.mapId==id && texts.mapId==id &&
+   mob.resourcePresent && events.resourcePresent && texts.resourcePresent && !in.assets.mapName(id).empty(),"Logical mixed resources missing");
+  check(!map.geometry.isOutdoors() && !(map.geometry.flags2&0x900),"Mixed geometry or Portal/Beacon restrictions changed");
+  const auto mon=XeenMonsterFormat::parse(*in.assets.readMonsterStatistics(table(e.cloudsMonsters)));
+  const auto meta=XeenCloudsVisualMetadata::parse(*in.assets.readObjectVisualMetadata(table(e.cloudsObjects)));
+  auto resolver=XeenObjectVisualResolver::load(in.assets);
+  for(unsigned i=0;i<mob.entities.objects.size();++i)if(mob.entities.objects[i].hasResource()) {
+   const auto visual=resolver.resolve(mob,i,XeenDirection::North,0);const auto &entry=meta.at(mob.entities.objects[i].resourceId);
+   const auto facing=(4-mob.entities.objects[i].direction)%4;
+   check(visual.initialFrame==entry.initialFrames[facing] && visual.endFrame==entry.frameLimits[facing],"Mixed animation table mismatch");
+  }
+  const auto presetPath=out/("preset-"+std::to_string(n)+".mmsave");std::filesystem::remove(presetPath);
+  developer::generateTestSave(installation,"m104-map-"+std::to_string(n),presetPath);
+  const auto preset=XeenSaveFile::read(presetPath);check(preset.camera.mapId==id,"Mixed preset lost map identity");
+  // All three output states: audio enabled, muted, and no audio owner.
+  for(unsigned mode=0;mode<3;++mode) {
+   auto s=at(in,source,preset.camera);s.soundOptions.music=mode!=1;Live live(in,s);
+   const auto before=*live.w.sessionState().journeyRandom();
+   const auto admitted=live.w.prepareEventTransition(preset.camera);check(bool(admitted),"Production mixed admission refused");
+   check(!XeenLearnedSpellRules::travel(live.w,live.c,S::TownPortal,0,nullptr,false).failed &&
+    !XeenLearnedSpellRules::travel(live.w,live.c,S::LloydsBeacon,0,&live.p.roster.at(s.activeRosterIds[0]),false).failed,"Mixed spell restrictions disagree");
+   for(const auto &actor:live.w.sessionState().monsters(id))if(actor.statistics)
+    check(actor.statistics->raw==mon.at(actor.original.resourceId).raw,"Mixed actors bound to wrong MON");
+   Live origin(in,quiet(in,source));auto candidate=origin.w.transitionCandidate();XeenCombatRandom random(before);
+   const auto load=[&](XeenMapIdentity from,XeenMapIdentity to) {
+    candidate->loadEventDestination(from,to,true,live.f);
+    const bool draws=xeenMapResources(to).music==XeenMapMusic::DarksideRandom;
+    std::optional<std::uint8_t> song;
+    if(draws)song=static_cast<std::uint8_t>(7*xeenMapMusicRow(candidate->map(to).geometry)+random.range(0,6));
+    check(candidate->sessionState().darksideSong()==song && candidate->sessionState().journeyRandom()==random.continuation(),"Map load song/draw order mismatch");
+    XeenCombatRandom actual(*candidate->sessionState().journeyRandom()),next(random.continuation());
+    check(actual.range(1,100000)==next.range(1,100000),"Next Journey draw shifted");
+   };
+   load(origin.c.mapId,id); // First entry stages the original MOB with its own MON.
+   load(id,{Side::Darkside,29});load({Side::Darkside,29},id); // Actual leave and revisit.
+   load(id,id); // Same-map reload, which still draws on a drawing map.
+   const auto retained=*candidate->sessionState().journeyRandom();
+   for(unsigned repeat=0;repeat<3;++repeat) {
+    static_cast<void>(xeenMapResources(id));check(bool(candidate->prepareEventTransition(preset.camera)),"Mixed preflight failed");
+    live.composer.compose(in.assets,*candidate,live.p,preset.camera,{610},nullptr,repeat);
+   }
+   if(mode<2) {
+    auto audio=XeenAudio::installed(installation,in.assets,0,false);audio->observeOptions(s.soundOptions);
+    if(e.cloudsScenery)check(audio->mapSong(map.geometry)=="dungeon.m","Sphinx did not use Clouds dungeon.m");
+    else {
+     const auto ordinal=*candidate->sessionState().darksideSong();const auto name=audio->darksideMapSong(ordinal);
+     check(ordinal/7==(n==124?5u:3u) && name==in.assets.uiText().table("DARKSIDE_MUSIC").at(ordinal),"Mixed music row/song mismatch");
+    }
+    for(unsigned repeat=0;repeat<3;++repeat){audio->requestMap(id,map.geometry,candidate->sessionState().darksideSong(),repeat*1000);audio->advance(repeat*1000+900);}
+   }
+   check(candidate->sessionState().journeyRandom()==retained && live.w.sessionState().journeyRandom()==before,"Lookup/preflight/render/audio consumed Journey RNG");
+   mixedApplicationAudio(in,installation,s,mode);
+   const auto bytes=XeenSaveFormat::encode(live.snapshot());Live restored(in,XeenSaveFormat::decode(bytes));
+   check(XeenSaveFormat::encode(restored.snapshot())==bytes && restored.w.sessionState().journeyRandom()==before,"Mixed exact restore consumed RNG/time/rewards");
+  }
+  if(n==113 || n==117 || n==125) {
+   // A real walk in unchanged geometry. No Event, actor or wall is removed.
+   auto s=at(in,source,preset.camera);XeenWorld query(in.mapLoader(),in.objectLoader());bool found=false;
+   for(int y=1;y<15 && !found;++y)for(int x=1;x<15 && !found;++x)for(unsigned d=0;d<4 && !found;++d) {
+    const XeenCamera c{id,x,y,XeenDirection(d)};auto destination=c;const auto moved=XeenMovement().apply(query,destination,NavigationAction::MoveForward);
+    if(moved!=XeenMovementResult::Moved || destination.mapId!=id)continue;
+    if(std::any_of(events.records.begin(),events.records.end(),[&](const auto &e){return (e.x==x && e.y==y) || (e.x==destination.x && e.y==destination.y);}))continue;
+    const auto cell=query.sampleCell(id,destination.x,destination.y);
+    if(!cell || map.geometry.surfaceTypes[cell->cell->surfaceIndex]==10 || map.geometry.surfaceTypes[cell->cell->surfaceIndex]==13)continue;
+    s.camera=c;Live live(in,s);const auto time=live.p.encounterContext->minutes;
+    live.act(NavigationAction::MoveForward);live.settle();
+    check(xeen_state::sameCamera(live.c,destination) && live.p.encounterContext->minutes!=time,"Mixed live walk did not settle time/position");
+    found=true;
+   }
+   check(found,"Mixed map has no ordinary walking witness");
+  }
+  if(n==113 || n==117 || n==121 || n==125) {
+   const auto flip=std::find_if(events.records.begin(),events.records.end(),[](const auto &r){return r.opcode==59;});
+   check(flip!=events.records.end(),"Original mixed FlipWorld absent");
+   auto s=at(in,source,{id,flip->x,flip->y,XeenDirection::South});
+   Live live(in,s);std::string refusal;
+   live.flow->reportManual=[&](const auto &result){if(const auto *error=std::get_if<XeenEventExecutionError>(&result))refusal=error->message;};
+   live.act(InteractionAction{false});live.act(YesAction{});live.settle();
+   std::cout<<"Flip "<<n<<": "<<refusal<<std::endl;
+   check(refusal.find("opcode 59")!=std::string::npos && live.c.mapId==id,"Part A implemented or hid the original FlipWorld refusal");
+  }
+  if(n==113 || n==124 || n==125) {
+   auto s=preset;bool found=false;XeenWorld query(in.mapLoader(),in.objectLoader());
+   for(const auto &a:mob.entities.monsters)if(!found && a.isActive())for(unsigned d=0;d<4 && !found;++d) {
+    constexpr int dx[]{0,1,0,-1},dy[]{1,0,-1,0};
+    const int x=a.x-dx[d],y=a.y-dy[d];if(x<0 || x>=32 || y<0 || y>=32)continue;
+    if(std::any_of(mob.entities.monsters.begin(),mob.entities.monsters.end(),[&](const auto &m){return m.isActive() && m.x==x && m.y==y;}))continue;
+    if(std::any_of(events.records.begin(),events.records.end(),[&](const auto &e){return (e.x==x && e.y==y) || (e.x==a.x && e.y==a.y);} ))continue;
+    const auto startCell=query.sampleCell(id,x,y),targetCell=query.sampleCell(id,a.x,a.y);
+    if(!startCell || !targetCell)continue;
+    const auto safe=[&](const auto &cell){const auto type=map.geometry.surfaceTypes[cell->cell->surfaceIndex];return type!=10 && type!=13 && type!=15;};
+    if(!safe(startCell) || !safe(targetCell))continue;
+    XeenCamera c{id,x,y,XeenDirection(d)};auto moved=c;
+    if(XeenMovement().apply(query,moved,NavigationAction::MoveForward)!=XeenMovementResult::Moved)continue;
+    s.camera=c;s.headCache.reset();Live live(in,s);bool fought=false;
+    std::cout<<"Fight candidate "<<n<<" ("<<x<<','<<y<<") target "<<a.resourceId<<" at "<<a.x<<','<<a.y<<std::endl;
+    live.act(NavigationAction::MoveForward);
+    for(unsigned tick=0;tick<200 && !fought;++tick) {
+      fought=live.flow->encounter()->combat() && live.flow->encounter()->combat()->phase()==XeenCombatPhase::PlayerReady;
+      if(!fought)live.tick();
+    }
+    if(!fought) {XeenRestTestAccess::state(*live.flow);std::cout<<"fight camera "<<live.c.mapId<<' '<<live.c.x<<','<<live.c.y<<std::endl;}
+    check(fought,"Original mixed contact did not reach PlayerReady");
+    for(const auto &actor:live.w.sessionState().monsters(id))if(actor.statistics)
+     check(actor.statistics->raw==mon.at(actor.original.resourceId).raw,"Mixed live fight used the logical-side table");
+    // Exercise a round through presented input; a fight is not a save boundary.
+    for(unsigned turn=0;turn<12;++turn) {
+     const auto *combat=live.flow->encounter()->combat();
+     if(combat && combat->phase()==XeenCombatPhase::PlayerReady) {
+      if(turn==0)live.act(AttackAction{});else live.act(BlockAction{});
+     }
+     live.tick();
+    }
+    check(!(live.w.sessionState().journeyRandom()==s.journey->random) &&
+     !(live.p.encounterContext==s.journey->context),"Mixed live fight did not advance RNG/time");
+    combatPortal(in,installation,s,true);
+    found=true;std::cout<<"Fight "<<n<<" from ("<<x<<','<<y<<") "<<d<<std::endl;
+   }
+   check(found,"No original mixed-map fight reached live input");
+  }
+  if(render.count(n)) {
+   // Original positions and actors, facing the most populated composed view.
+   auto s=preset;s.journey->context->lightAndResistances[0]=200;XeenWorld query(in.mapLoader(),in.objectLoader());int best=-1;
+   for(int y=1;y<15;++y)for(int x=1;x<15;++x)for(unsigned d=0;d<4;++d) {
+    if(std::any_of(mob.entities.monsters.begin(),mob.entities.monsters.end(),[&](const auto &a){return a.isActive() && a.x==x && a.y==y;}))continue;
+    const auto cell=query.sampleCell(id,x,y);if(!cell)continue;
+    const auto type=map.geometry.surfaceTypes[cell->cell->surfaceIndex];if(type==10 || type==15)continue;
+    const XeenCamera c{id,x,y,XeenDirection(d)};query.sceneActors(id,[&]{return mon;});
+    const auto commands=XeenIndoorScene().build(query,c,&resolver,nullptr,0);
+    int score=0;for(const auto &command:commands)score+=command.actor()?100:command.object()?30:command.wallItem()?10:0;
+    if(score>best){best=score;s.camera=c;}
+   }
+   s.headCache.reset();Live live(in,s);picture(live.flow->frame(),out/("mixed-"+std::to_string(n)+".ppm"));
+   std::cout<<"Frame "<<n<<" ("<<live.c.x<<','<<live.c.y<<") "<<unsigned(XeenDirection(live.c.direction))<<" score="<<best<<'\n';
+  }
+ }
+ std::cout<<"M104: all 16 selectors/admissions/presets, boundary cases, load/revisit/reload music, audio gates and exact restores passed\n";
+}
+
 }
 int main(int argc,char **argv) {
  try {
-  check(argc==3 || (argc==4 && (std::string(argv[3])=="partb" || std::string(argv[3])=="partc")),"usage: darkside-tests <installation> <output-directory> [partb|partc]");const auto installation=xeenTestInstallationDetector().detect(argv[1]);check(bool(installation),"Missing original installation");
-  const std::filesystem::path out=argv[2];std::filesystem::create_directories(out);const auto save=std::filesystem::temp_directory_path()/("mmodern-m101-"+std::to_string(std::chrono::steady_clock::now().time_since_epoch().count())+".mmsave");
+  check(argc==3 || (argc==4 && (std::string(argv[3])=="partb" || std::string(argv[3])=="partc" || std::string(argv[3])=="mixed")),"usage: darkside-tests <installation> <output-directory> [partb|partc]");const auto installation=xeenTestInstallationDetector().detect(argv[1]);check(bool(installation),"Missing original installation");
+  const std::filesystem::path out=std::string(argv[2])=="temporary"?std::filesystem::temp_directory_path()/"mmodern-m104-frames":std::filesystem::path(argv[2]);std::filesystem::create_directories(out);const auto save=std::filesystem::temp_directory_path()/("mmodern-m101-"+std::to_string(std::chrono::steady_clock::now().time_since_epoch().count())+".mmsave");
   std::cout<<"Preset: "<<save<<'\n';
   developer::generateTestSave(*installation,"m101-castleview",save);Inputs in(*installation);const auto preset=XeenSaveFile::read(save);
   check(preset.camera.mapId==XeenMapIdentity(XeenSide::Darkside,29),"Wrong Castleview preset");
   if(argc==4 && std::string(argv[3])=="partc"){partCEvents(in,quiet(in,preset),out);return 0;}
+  if(argc==4 && std::string(argv[3])=="mixed"){mixedMaps(in,*installation,preset,out);return 0;}
   partBEvents(in,quiet(in,preset),out);if(argc==4)return 0;
   partCEvents(in,quiet(in,preset),out);
   enchantedLivePublication(in,quiet(in,preset),out);partAEvents(in,quiet(in,preset),out);characterEvents(in,quiet(in,preset));resources(in);std::cout<<"Resources verified\n";const auto s=quiet(in,preset);music(in,*installation,s);std::cout<<"Music verified\n";refusals(in,s,out);forcedText(in,s,out);

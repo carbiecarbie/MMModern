@@ -42,8 +42,8 @@ XeenSpellTravel XeenLearnedSpellRules::travel(XeenWorld &world,const XeenCamera 
         } else {
             if(!distance)return result;
             if(distance>5) {result.unsupported=true;return result;}
-            to.mapId=townPortalMap(camera.mapId.side,distance);result.reload=true;
-            if(camera.mapId.side==XeenSide::Darkside) {
+            to.mapId=townPortalMap(xeenMapResources(camera.mapId).townPortal,distance);result.reload=true;
+            if(xeenMapResources(camera.mapId).townPortal==XeenSide::Darkside) {
                 // CD DAT 0x30779..0x30798 doubles the side's table stride.
                 // The dialog names towns, but travel reads the following five
                 // bytes as map IDs. Castleview -> Area A4 is confirmed in DOS.
@@ -55,7 +55,7 @@ XeenSpellTravel XeenLearnedSpellRules::travel(XeenWorld &world,const XeenCamera 
                 to.x=x[distance-1];to.y=y[distance-1];to.direction=facing[distance-1];
             }
         }
-        const auto admitted=world.prepareEventTransition(to,spell==XeenLearnedSpell::TownPortal && camera.mapId.side==XeenSide::Clouds);
+        const auto admitted=world.prepareEventTransition(to,spell==XeenLearnedSpell::TownPortal && xeenMapResources(camera.mapId).townPortal==XeenSide::Clouds);
         result.unsupported=!admitted;to=admitted.destination;
         if(!result.unsupported)result.destination=to;
         return result;
