@@ -30,14 +30,37 @@ and from there it plays like the original. Every Clouds map is open, and
 combat, spells, items and town services follow the original rules. The Inn
 lets you sign in, recruit and remove members, and create and delete
 characters. The Clouds story has been verified through Lord Xeen and the
-Sixth Mirror, and the original ending and score are playable.
-The Pyramids lead to Darkside, whose ordinary maps play with everything
-MMModern already has; its town services and its Tower, Dungeon and Dwarf town
-entrances work as in the original, and saves work on either side. The original Clouds and
-Darkside intros can also be watched.
+Sixth Mirror, and the original ending and score are playable. The original
+Clouds and Darkside intros can also be watched.
 
 The original interface is close to complete, with mouse and keyboard.
 [What is missing](#what-is-missing) lists the rest.
+
+### Darkside of Xeen
+
+Most of Darkside can now be explored and played:
+
+- **Getting there.** Walk into a Clouds Pyramid to cross to Darkside, and
+  back, as on the World of Xeen CD (without its disc-change prompt). Each side
+  keeps its own game and quest flags; quest items and character flags are
+  shared, as in the original, and you can save and load on either side.
+- **The world.** Every ordinary Darkside map plays: the outdoor areas, the
+  Skyroads, the towers, dungeons, castles and caves, with their own monsters,
+  pictures, text and music.
+- **Towns.** Castleview, Sandcaster, Lakeside, Necropolis, Olympus and Castle
+  Kalindra offer their original services (Bank, Smithy, Guild, Tavern and
+  Inn, Temple and Training), with Darkside's own prices, stock, spells,
+  pictures, voices and music.
+- **Entrances.** The Tower, Dungeon and Dwarf town entrance scenes play their
+  original animations and speech, and admit the party with the right key.
+- **Events.** Every Event of those maps runs as in the original: puzzles,
+  passwords, numbered choices, rewards, and pits that drop the party to the
+  level below.
+- **Travel.** Town Portal, Lloyd's Beacon and Mr Wizard work on Darkside.
+
+Darkside cannot be finished yet: the World of Xeen areas that join both sides
+(Darkstone Tower, Dragon Tower, Dungeon of Death, Southern Sphinx and the
+Dragon Clouds) and the Darkside and World endings are still missing.
 
 ## Download and play
 
@@ -138,8 +161,10 @@ covers the character sheet, Items, Quick Fight and every service.
 
 ## What is missing
 
-- Darkside of Xeen cannot be finished: the mechanics only Darkside uses
-  say "not supported yet".
+- Darkside of Xeen cannot be finished yet. The World of Xeen areas that join
+  both sides (Darkstone Tower, Dragon Tower, Dungeon of Death, Southern
+  Sphinx and the Dragon Clouds), the Clouds entrances that need Darkside keys
+  and the world flip say "not supported yet".
 - The mirror words `showdown` and `genesis` (the Darkside and World endings)
   say "not supported yet".
 
