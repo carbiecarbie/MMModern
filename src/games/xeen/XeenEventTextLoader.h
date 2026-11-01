@@ -27,7 +27,12 @@ struct XeenEventTextFile {
 	std::vector<std::string> strings;
 
 	std::vector<XeenMirrorDestination> mirrors;
+	// DisplayLarge's aaze2NNN.txt, read from the same archive (DOS 0x26cf3).
+	std::string largeResourceName;
+	bool largeResourcePresent = false;
+	std::vector<std::string> largeStrings;
 	const std::string *stringAt(std::size_t index) const;
+	const std::string *largeStringAt(std::size_t index) const;
 };
 
 class XeenEventTextLoader {
@@ -40,6 +45,7 @@ public:
 	explicit XeenEventTextLoader(ResourceReader resourceReader,ResourceReader mirrorReader={});
 
 	static std::string resourceNameForMap(XeenMapIdentity mapId);
+	static std::string largeResourceNameForMap(XeenMapIdentity mapId);
 	static std::vector<XeenMirrorDestination> parseMirrors(const std::vector<std::uint8_t> &);
 	XeenEventTextFile load(XeenMapIdentity mapId) const;
 

@@ -193,8 +193,17 @@ const M103TextSpot *m103TextSpot(const std::string &preset) {
     for(const auto &spot:spots)if(preset==spot.name)return &spot;
     return nullptr;
 }
+// M105 play-test: one step before the Dungeon of Death book and the fourth
+// Darkstone Tower head, otherwise prepared as the m104-map presets.
+struct M105Spot { const char *name; std::uint16_t map; int x, y; XeenDirection facing; };
+const M105Spot *m105Spot(const std::string &preset) {
+    static const M105Spot spots[]{{"m105-book",121,21,2,XeenDirection::South},{"m105-head",116,9,6,XeenDirection::East}};
+    for(const auto &spot:spots)if(preset==spot.name)return &spot;
+    return nullptr;
+}
 std::optional<std::uint16_t> mixedMapPreset(const std::string &preset) {
     for(unsigned n=113;n<=128;++n)if(preset=="m104-map-"+std::to_string(n))return static_cast<std::uint16_t>(n);
+    if(const auto *spot=m105Spot(preset))return spot->map;
     return {};
 }
 
@@ -909,6 +918,7 @@ void generateTestSave(const GameInstallation &installation,const std::string &pr
             }
         }
         if(!found)throw std::runtime_error("Mixed-map preset has no quiet primary floor");
+        if(const auto *spot=m105Spot(preset)) {candidate.camera.x=spot->x;candidate.camera.y=spot->y;candidate.camera.direction=spot->facing;}
         if(resources.music==XeenMapMusic::DarksideRandom) {
             XeenCombatRandom random(*candidate.journey->random);
             candidate.darksideSong=static_cast<std::uint8_t>(7*xeenMapMusicRow(inputs.maps.loadGeometryMap(inputs.assets,id).geometry)+random.range(0,6));

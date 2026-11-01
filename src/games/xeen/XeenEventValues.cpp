@@ -159,6 +159,27 @@ XeenEventWrite unsupported(std::string reason, XeenEventRefusal refusal = XeenEv
 	return result;
 }
 constexpr auto kIndex = XeenEventRefusal::Index;
+
+// Mode 103 addresses one MSB-first bit array at DS:f05f with no side or bound
+// (0x21b08, 0x2264d, 0x232d4, helper 0x24fb3): bits 128-187 are the quest
+// flags that follow it, Clouds then Darkside. Higher bits (padding, quest
+// counters) have no original use.
+struct WorldBit { bool quest; XeenSide side; std::size_t index; };
+std::optional<WorldBit> worldBit(const XeenEventValueOwners &o, std::uint32_t value) {
+	if (value < XeenWorldFlags::kCount) {
+		if (!o.party.worldFlags) return std::nullopt;
+		return WorldBit{false, XeenSide::Clouds, value};
+	}
+	const auto bit = value - XeenWorldFlags::kCount;
+	if (bit >= XeenQuestFlags::kStorageCount) return std::nullopt;
+	return WorldBit{true, bit < XeenQuestFlags::kCount ? XeenSide::Clouds : XeenSide::Darkside, bit % XeenQuestFlags::kCount};
+}
+
+void writeWorldBit(const XeenEventValueOwners &o, const WorldBit &bit, bool set) {
+	if (!bit.quest) o.party.worldFlags->values[bit.index] = set;
+	else if (set) o.party.questFlags.set(bit.side, static_cast<std::int64_t>(bit.index));
+	else o.party.questFlags.clear(bit.side, static_cast<std::int64_t>(bit.index));
+}
 constexpr auto kContext = XeenEventRefusal::Context;
 
 XeenEventWrite applied(bool sparkle = false) {
@@ -346,10 +367,13 @@ std::optional<XeenEventProbe> xeenEventProbe(const XeenEventValueOwners &o, unsi
 		if (value >= 18) return refuse("Event skill index is outside the skills", kIndex);
 		return known(xeenPartyHasSkill(o.party, value) ? value : kNone);
 	case 102: return known(signedWord(XeenCharacterRules::thievery(character(o, member))));
-	case 103:
-		if (!o.party.worldFlags || value >= XeenWorldFlags::kCount)
-			return refuse("Event world flag is outside the world bank", kIndex);
-		return known(o.party.worldFlags->values[value] ? value : kNone);
+	case 103: {
+		const auto bit = worldBit(o, value);
+		if (!bit) return refuse("Event world flag is outside the world and quest banks", kIndex);
+		const bool set = bit->quest ? o.party.questFlags.isSet(bit->side, static_cast<std::int64_t>(bit->index)) :
+			bool(o.party.worldFlags->values[bit->index]);
+		return known(set ? value : kNone);
+	}
 	case 104:
 		if (!XeenQuestFlags::validIndex(value))
 			return refuse("Event quest flag is outside its side bank", kIndex);
@@ -563,9 +587,11 @@ XeenEventWrite xeenEventTake(const XeenEventValueOwners &o, unsigned mode, std::
 		if (amount < value) return short_;
 		amount = amount - value; return applied();
 	}
-	case 103:
-		if (!o.party.worldFlags || value >= XeenWorldFlags::kCount) return unsupported("Event world flag is outside the world bank", kIndex);
-		o.party.worldFlags->values[value] = false; return applied();
+	case 103: {
+		const auto bit = worldBit(o, value);
+		if (!bit) return unsupported("Event world flag is outside the world and quest banks", kIndex);
+		writeWorldBit(o, *bit, false); return applied();
+	}
 	case 104:
 		if (!XeenQuestFlags::validIndex(value))
 			return unsupported("Event quest flag is outside its side bank", kIndex);
@@ -679,9 +705,11 @@ XeenEventWrite xeenEventGive(const XeenEventValueOwners &o, unsigned mode, std::
 		else c.currentSp = static_cast<std::int16_t>(XeenCharacterRules::maxSp(c, {ctx->year}));
 		return applied(true);
 	}
-	case 103:
-		if (!o.party.worldFlags || value >= XeenWorldFlags::kCount) return unsupported("Event world flag is outside the world bank", kIndex);
-		o.party.worldFlags->values[value] = true; return applied();
+	case 103: {
+		const auto bit = worldBit(o, value);
+		if (!bit) return unsupported("Event world flag is outside the world and quest banks", kIndex);
+		writeWorldBit(o, *bit, true); return applied();
+	}
 	case 104:
 		if (!XeenQuestFlags::validIndex(value))
 			return unsupported("Event quest flag is outside its side bank", kIndex);

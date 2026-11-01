@@ -1,6 +1,6 @@
 # MMModern - Roadmap
 
-**M104 is the latest completed and accepted milestone.**
+**M105 is the latest completed and accepted milestone.**
 [Project status](project-status.md) describes what is playable now;
 [project history](project-history.md) records each completed milestone.
 Reference provenance belongs to [dependencies](dependencies.md).
@@ -35,7 +35,8 @@ shape of the original's monitors, and M100 added the launcher window, the
 installer's sound setup, a log file and an issue template. M101 then started
 Darkside: both sides' state, save v23 and the Pyramids between the sides.
 The [Darkside arc](#darkside-arc) followed with its towns (M102), Events
-(M103) and the mixed World of Xeen maps (M104, save v24).
+(M103), the mixed World of Xeen maps (M104, save v24) and their last three
+Events (M105).
 
 ## Completed arc: closing Vertigo and the first release
 
@@ -170,7 +171,8 @@ analysis, because the reference was wrong in comparable Clouds cases (M80).
 | 0. Maintenance | Spawn onto Darkside outdoor maps and Skyroads (24 maps), refused by MMModern's own reachability check for slots parked off the map; outdoor wall 5 needs Mountaineer on Darkside, as DOS already showed; Ali Baba's chest lock recorded as a reference difference | B | Done (`5e4f685`), with DOS checks of the indoor ground beyond the map edge and the horizon, the Detect Monster picture and the Darkside mirror range and sound |
 | 1. Darkside towns ([M102](milestone-102-plan.md)) | Bank, Smithy, Guild, Tavern and Inn, Temple and Training in the towns and Castle Kalindra 3 (map 43); the Tower, Dungeon and Dwarf town scenes (town actions 8, 9 and 13) | B | Done 2026-10-31 |
 | 2. Darkside Events ([M103](milestone-103-plan.md)) | ExchObj, GotoRandom and GiveEnchanted for every item category; then ChooseNumeric and FallToMap; then ConfirmWord_2, MoveWallObj beyond the wall-item count and the map-29 IfMapFlag | B | Done 2026-11-01, with Event windows now closing at the end of every Event |
-| 3. Mixed World of Xeen maps ([M104](milestone-104-plan.md)) | Darkside maps 113-128 (Darkstone Tower, Dragon Tower, Dungeon of Death, Southern Sphinx, Dragon Clouds), FlipWorld, the Darkside-key entrances and Town Portal from them | A | Done 2026-11-01, save v24; three Events on maps 116 and 121 still refuse |
+| 3. Mixed World of Xeen maps ([M104](milestone-104-plan.md)) | Darkside maps 113-128 (Darkstone Tower, Dragon Tower, Dungeon of Death, Southern Sphinx, Dragon Clouds), FlipWorld, the Darkside-key entrances and Town Portal from them | A | Done 2026-11-01, save v24 |
+| 3a. Last mixed-map Events ([M105](milestone-105-plan.md)) | World flag 128 on map 116 and DisplayLarge on map 121 | B | Done 2026-11-01 |
 | 4. Darkside and World endings | Opcodes 57 and 58, the ending mirror words on both sides, completion words, won flags and title replays; then the two presentations | A, then B | Needs analysis of `XEEN.EXE` and uninterrupted DOSBox captures, as M92 did |
 
 Three Tier A items wait for a fitting milestone. A runtime refusal after an

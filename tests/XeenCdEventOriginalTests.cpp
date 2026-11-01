@@ -211,7 +211,7 @@ int main(int argc,char **argv) try {
  const auto installation=xeenTestInstallationDetector().detect(argv[1]);check(bool(installation),"Missing CD source");
  XeenAssetSource assets(*installation);
  const auto initial=[&](const std::string &n)->std::optional<std::vector<std::uint8_t>>{return assets.readInitialResource(n);};
- const auto archive=[&](const std::string &n)->std::optional<std::vector<std::uint8_t>>{return assets.readArchiveResource(n);};
+ const auto archive=[&](const std::string &n)->std::optional<std::vector<std::uint8_t>>{if(!assets.hasArchiveResource(n))return std::nullopt;return assets.readArchiveResource(n);};
  XeenFontFormat font(assets.readArchiveResource("fnt"));
  unsigned speech=0,records=0,fourOperand=0;
  for(const auto &expected:cd_event_oracle::maps) {

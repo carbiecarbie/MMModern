@@ -49,6 +49,7 @@ struct XeenTextRenderResult {
  int writeX = 0, writeY = 0;
  XeenFontSize writeSize = XeenFontSize::Normal;
  std::uint8_t writeColor = 0;
+ XeenTextAlignment writeAlignment = XeenTextAlignment::Left;
 	std::vector<IndexedFrame> pages;
 	std::vector<std::string> diagnostics;
 	// Exclusive raw source end for each page, including intervening whitespace.

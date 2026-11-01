@@ -68,6 +68,18 @@ where applicable. This evidence does not record milestone acceptance. Pin `6814e
 | <a id="sv-darkside-unused-wall-slots"></a> MoveWallObj writes unused allocated wall slots without creating visible or saved wall items. | `0x2860e..0x2863a` writes x/y at `DS:dd28 + 8*index`. Map 54's indices 21..25 exceed its count 21; map 55's 4/5 exceed count 4. All seven writes are `(100,100)`, inside the 91-slot allocation. Count-bounded animation/render/save (`0x10b8a..0x10bbd`, `0x160c2..0x16918`, `0x26723..0x2675c`) ignore them; load clears them (`0x0f5e0..0x0f5e9`). No saved override is needed. | **ScummVM:** directly indexes the live-sized wall array; its array operator asserts on these indices with assertions enabled. This is not a defined inert-slot implementation. MMModern accepts unused slots inside the 91-slot allocation in `XeenWorld::applyMoveWallObject`, without visible or saved state. |
 | <a id="sv-darkside-mapflag-lines"></a> IfMapFlag tests position, and its jump line is signed. A cleared, untouched monster slot beyond the live count tests as present at `(0,0)`; map 29's actual slot 31 is live. | `0x28765..0x287d5`, clearing `0x0f5be..0x0f5cc`. Map 29 has 96 records; slot 31 starts at `(31,0)`. Spawn to `(100,100)` makes its test jump. Four targets 182/238/150/206 become negative lines and match no record, ending the scan. The current preflight refusal is a negative-address refusal, not an absent-monster refusal. GotoRandom/ChooseNumeric also sign-extend target bytes at `0x28a2b`; their actual tables use low targets. | **ScummVM:** target lines are unsigned; it also indexes its live-sized monster array directly for a specified absent slot. No out-of-count map-29 state needs to be invented or saved. MMModern ends negative-target scans in `XeenEventInterpreter` and skips those branches in `preflightEvent`. |
 
+## Last mixed-map Event rules established from DOS
+
+Calibrated static evidence for the World CD, 2026-11-01,
+[M105 Part 0](rules/evidence.md#last-mixed-map-events-m105-part-0). The
+existing Event value, interpreter and presenter owners implement these rules.
+Pin `6814ee9b`; master was not rechecked.
+
+| Rule | Evidence and consequence |
+| --- | --- |
+| <a id="sv-world-flag-quest-alias"></a> Event world flags 128-187 are the quest-flag bits; Darkstone Tower's fourth head sets Clouds quest flag 0. | Modes 103 test, take and give (`0x21b08`, `0x2264d`, `0x232d4`) address `DS:f05f` + operand bit, MSB first, with no bound or side, so bit `128+k` is quest bit `k` (Clouds 0-29, then Darkside 0-29), on both sides. The only original use is map 116 `EVT @361`, world flag 128, whose Auto Note 128 reads the same bit. `XeenEventValues` maps 128-187 onto the saved quest flags and refuses 188-255 (padding and quest-item counter bits, no original use). **ScummVM:** differs; the pin writes a 129th world flag that is never saved, so the note is lost on reload. |
+| <a id="dos-display-large-continues"></a> A DisplayLarge that finds window 11 open continues at the previous text's cursor. | The writer's cursor and font state are global and only a window open or `"\r"` resets them (`0x44c16..0x44c27`, `0x43be6..0x43bf8`). Map 121's book is two lines, 5 and 189, written back to back: the second half starts right after the first half's last line, on its last page. Agrees with the pin (`Scripts::display(true)`, shared `_writePos`). A line number beyond the file would show line 0 in DOS; no original record does this and MMModern refuses it. |
+
 ## Original behavior reproduced on purpose
 
 | Behavior | Evidence | Where | Notes |

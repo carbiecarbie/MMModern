@@ -57,7 +57,9 @@ enum class XeenEventDisplayKind {
 	SignLabelReduced,
 	BottomWindow,
 	BottomWindowTwoLines,
-	MainWindow
+	MainWindow,
+	// DisplayLarge (50): a line of the map's aaze2 text, written in window 11.
+	MainWindowLarge
 };
 
 struct XeenEventDisplay {

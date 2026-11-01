@@ -48,7 +48,7 @@ XeenTextRenderOptions XeenEventPresenter::optionsFor(
 }
 
 XeenTextRenderResult XeenEventPresenter::drawText(const IndexedFrame &base,
-        const XeenPresentationRequest &request) const {
+        const XeenPresentationRequest &request, const std::optional<TextCursor> &start) const {
     const bool label=request.kind==XeenPresentationKind::SceneLabelReduced || request.kind==XeenPresentationKind::SceneLabelNormal ||
         request.kind==XeenPresentationKind::SceneLabelSign || request.kind==XeenPresentationKind::SceneLabelSignReduced;
     if(label && sceneLabelsVisible && !sceneLabelsVisible()) {
@@ -87,8 +87,15 @@ XeenTextRenderResult XeenEventPresenter::drawText(const IndexedFrame &base,
     case XeenPresentationKind::CenteredMessage:
     case XeenPresentationKind::BottomWindowMessage:
     case XeenPresentationKind::MainWindowMessage:
-        prefix="\r\3c";break;
+        // DisplayLarge writes its line as is and clears with a bare "\r"
+        // between pages (DS:62fa, 630e, 6310).
+        if(!request.largeText)prefix="\r\3c";break;
     default:break;
+    }
+    if(start) {
+        // Window 11 is already open: no frame, the writer continues in place.
+        o.drawWindow=false;o.x=start->x;o.y=start->y;o.size=start->size;
+        o.colorIndex=start->color;o.alignment=start->alignment;
     }
     XeenTextRenderResult result;
     std::size_t offset=0;
@@ -101,9 +108,12 @@ XeenTextRenderResult XeenEventPresenter::drawText(const IndexedFrame &base,
         result.pages.insert(result.pages.end(),page.pages.begin(),page.pages.end());
         result.diagnostics.insert(result.diagnostics.end(),page.diagnostics.begin(),page.diagnostics.end());
         result.pageSourceEnds.push_back(next);
+        result.writeX=page.writeX;result.writeY=page.writeY;result.writeSize=page.writeSize;
+        result.writeColor=page.writeColor;result.writeAlignment=page.writeAlignment;
         if(!o.originalControls || !o.stopAtBottom || next==request.text.size())break;
         if(next==offset)throw std::runtime_error("Event window writer made no progress");
-        o.size=page.writeSize;o.colorIndex=page.writeColor;
+        o.size=page.writeSize;o.colorIndex=page.writeColor;o.alignment=page.writeAlignment;
+        if(request.largeText)prefix="\r";
         offset=next;
     } while(offset<request.text.size());
     return result;
@@ -277,9 +287,23 @@ XeenPresentationUpdate XeenEventPresenter::present(const IndexedFrame &base,
 		const XeenPresentationRequest &request, std::size_t retainedNpcPage) {
 	if (!base.isValid())
 		throw std::invalid_argument("invalid frame base for Xeen presentation");
+	std::optional<TextCursor> start;
+	if (request.largeText && window11Enabled()) {
+		// The interpreter refuses a DisplayLarge after any other presentation;
+		// the passive audio notice in window 6 is not an Event write.
+		auto layer = _layers.rbegin();
+		while (layer != _layers.rend() && layer->request.kind == XeenPresentationKind::DeferredAudio) ++layer;
+		if (layer == _layers.rend())
+			throw std::logic_error("DisplayLarge continuation without a window-11 text");
+		const auto &previous = *layer;
+		if (previous.request.kind != XeenPresentationKind::MainWindowMessage)
+			throw std::logic_error("DisplayLarge continuation without a window-11 text");
+		const auto end = drawText(base, previous.request, previous.start);
+		start = TextCursor{end.writeX, end.writeY, end.writeSize, end.writeColor, end.writeAlignment};
+	}
 	_underlay = base;
 	_request = request;
-	_layers.push_back({request, retainedNpcPage});
+	_layers.push_back({request, retainedNpcPage, start});
 	_page = retainedNpcPage;
 	_diagnostics.clear();
 	if(request.kind==XeenPresentationKind::NumericChoice) {
@@ -297,7 +321,7 @@ XeenPresentationUpdate XeenEventPresenter::present(const IndexedFrame &base,
 	} else if (request.kind == XeenPresentationKind::Confirmation) {
 		_pages = {drawConfirmation(base, request)};
 	} else {
-		const auto rendered = drawText(base, request);
+		const auto rendered = drawText(base, request, start);
 		_pages = rendered.pages;
 		_diagnostics = rendered.diagnostics;
 	}
@@ -488,7 +512,7 @@ IndexedFrame XeenEventPresenter::rebase(const IndexedFrame &base) {
 		else if (layer.request.kind == XeenPresentationKind::Confirmation)
 			_pages = {drawConfirmation(current, layer.request)};
 		else
-			_pages = drawText(current, layer.request).pages;
+			_pages = drawText(current, layer.request, layer.start).pages;
 		current = _pages.at(layer.page);
 	}
 	_frame = overlayNotices(std::move(current));

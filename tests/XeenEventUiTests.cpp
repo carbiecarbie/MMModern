@@ -239,6 +239,39 @@ void testPagingAndInputProtocol() {
 		"No mapping failed");
 }
 
+// M105 Part 0: DisplayLarge writes its line as is in window 11, clears with
+// a bare "\r" between pages and, over an open window-11 text, continues at the
+// writer's cursor (0x26cf3, 0x43a4c, 0x44c16).
+void largeText() {
+	const XeenFontFormat font(fontBytes());
+	XeenEventPresenter presenter(font);
+	const auto base = frame();
+	XeenTextRenderOptions o;o.originalControls=true;o.stopAtBottom=true;
+	o.bounds={16,16,216,132};o.windowBounds={8,8,224,140};o.x=16;o.y=16;
+	const auto large=[&](std::string text){auto r=request(XeenPresentationKind::MainWindowMessage,
+		XeenPresentationResponseRequirement::Presented,std::move(text));r.largeText=true;return r;};
+	auto opened=o;opened.drawWindow=true;
+	const auto first=presenter.present(base,large("AA"));
+	check(first.response && first.frame.pixels==XeenTextRenderer(font).render(base,"AA",opened).pages.front().pixels,
+		"DisplayLarge added a prefix or missed window 11");
+	const auto second=presenter.present(presenter.frame(),large("\f09BB"));
+	check(second.frame.pixels==XeenTextRenderer(font).render(base,"AA\f09BB",opened).pages.front().pixels,
+		"DisplayLarge did not continue at the open window's cursor");
+	check(presenter.rebase(base).pixels==second.frame.pixels,"rebase lost the DisplayLarge continuation");
+	presenter.closeEventWindows();
+	std::string longText="\3c";
+	for(int i=0;i<400;++i)longText+="AAAA ";
+	const auto paged=presenter.present(base,large(longText));
+	check(!paged.response && presenter.pageCount()>1,"long DisplayLarge did not page");
+	const auto page1=XeenTextRenderer(font).render(base,longText,opened);
+	const auto rest=longText.substr(page1.pageSourceEnds.front());
+	auto next=o;next.colorIndex=page1.writeColor;next.size=page1.writeSize;next.alignment=page1.writeAlignment;
+	const auto page2=XeenTextRenderer(font).render(page1.pages.front(),"\r"+rest,next).pages.front();
+	presenter.handle(AcknowledgeAction{});
+	check(presenter.frame().pixels==page2.pixels,"DisplayLarge page did not start with a bare clear");
+	presenter.clear();
+}
+
 } // namespace
 
 void numericChoices() {
@@ -276,6 +309,7 @@ int main() {
 		testFormattingWrappingAndClipping();
 		testPresentationComposition();
 		testPagingAndInputProtocol();
+		largeText();
 		std::cout << "Xeen event UI presentation, layout, and input protocol OK\n";
 		return 0;
 	} catch (const std::exception &error) {

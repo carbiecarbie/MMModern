@@ -715,6 +715,9 @@ original cell of that Darkside map, with its actors and selected music intact
 and Light 200 for inspecting the scenery.
 The first member has Town Portal selected (`C`, `F1`, `C`, town 1-5, Enter).
 Generate one with `build-rel/mmodern_test_save.exe m104-map-125 <game-dir> <output>`.
+`m105-book` starts the same way on Darkside 121 at `(21,2)` facing South, one
+step before the Dungeon of Death book at `(21,1)`; `m105-head` on Darkside 116
+at `(9,6)` facing East, one step before the fourth head at `(10,6)`.
 The generator validates it through the same admission, restore and scene path
 as an ordinary save. It does not bypass an entrance or enable FlipWorld.
 

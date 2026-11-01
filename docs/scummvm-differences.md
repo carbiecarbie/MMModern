@@ -35,6 +35,7 @@ four original mixed-map FlipWorld runs. Pin: differs; master not rechecked.
 - **Same-map Beacon Return.** [DOS replaces a pending side even without reloading](original-quirks.md#sv-mixed-beacon-pending-reset); the pin assigns it only when the destination needs a reload.
 - **Saving after a pending side change.** [DOS selects the pending side before saving](original-quirks.md#sv-mixed-save-pending-side); the pin saves the active side without that switch. The original four flip runs leave no such pending state.
 - **Pending-side Save refusal.** [MMModern refuses this unreachable save state](original-quirks.md#dev-pending-side-save) with a "not supported yet" notice, keeping v24 and the running game. The pin saves the active side; DOS promotes the pending side.
+- **World flag 128.** [DOS's world flags 128-187 are the quest-flag bits](original-quirks.md#sv-world-flag-quest-alias), so Darkstone Tower's fourth head is kept as Auto Note 128; the pin stores it in an extra flag that its save drops. Pin: differs; master not rechecked.
 
 The following Darkside presentation differences follow the DOS rules
 established in M102 Part 0. Service animations and entrance scenes are implemented in Parts A/B. For

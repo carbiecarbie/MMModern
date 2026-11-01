@@ -175,7 +175,8 @@ public:
 			throw std::invalid_argument("Map text resource identity changed");
 		}
 		if (found!=eventTexts.end() && (found->second.resourceName!=value.resourceName ||
-			found->second.resourcePresent!=value.resourcePresent || found->second.strings!=value.strings || found->second.mirrors!=value.mirrors)) {
+			found->second.resourcePresent!=value.resourcePresent || found->second.strings!=value.strings || found->second.mirrors!=value.mirrors ||
+			found->second.largeResourcePresent!=value.largeResourcePresent || found->second.largeStrings!=value.largeStrings)) {
 			failed=true;throw std::logic_error("Map text resource changed");
 		}
 		eventTexts.emplace(value.mapId,value);

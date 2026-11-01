@@ -32,7 +32,7 @@ public:
 			a.rewardPair==b.rewardPair && a.generatingReward==b.generatingReward &&
 			a.inputClearCount==b.inputClearCount && a.inputClearSite==b.inputClearSite && a.pyramidCrossed==b.pyramidCrossed &&
             a.scriptExecuted==b.scriptExecuted && a.otherFacing==b.otherFacing && a.tailDone==b.tailDone &&
-            a.redrawDone==b.redrawDone &&
+            a.redrawDone==b.redrawDone && a.window11Text==b.window11Text &&
             a.prefixLight==b.prefixLight &&
 			address(a.logicalAddress,b.logicalAddress) &&
 			a.lookupDirection==b.lookupDirection && xeen_state::sameCamera(a.workingCamera,b.workingCamera) &&
@@ -87,7 +87,7 @@ private:
 		const auto &x=a.request;const auto &y=b.request;
 		if(x.fallDestination!=y.fallDestination || !optional(x.numeric,y.numeric,[](const auto &p,const auto &q){return p==q;}) ||
 			!optional(x.fall,y.fall,[](const auto &p,const auto &q){return p==q;}))return false;
-		if(x.forceText!=y.forceText || x.entranceAction!=y.entranceAction || x.arena!=y.arena)return false;
+		if(x.forceText!=y.forceText || x.largeText!=y.largeText || x.entranceAction!=y.entranceAction || x.arena!=y.arena)return false;
 		if(x.mirrors!=y.mirrors || x.alternate!=y.alternate || !optional(x.word,y.word,[](const auto &p,const auto &q){return std::tie(p.inputType,p.targetLine,p.alternateText,p.titleText,p.marker,p.alternateLine)==std::tie(q.inputType,q.targetLine,q.alternateText,q.titleText,q.marker,q.alternateLine);}) || a.continuation!=b.continuation || x.rewardWaitTicks!=y.rewardWaitTicks || !optional(x.portrait,y.portrait,[](const auto &p,const auto &q){return p==q;}) || !optional(a.conditional,b.conditional,conditional) ||
 			!optional(x.cdSpeech,y.cdSpeech,speech) ||
 			std::tie(x.kind,x.response,x.mapId,x.textIndex,x.text,x.layoutValue,x.verbIndex,x.refusal,x.title,x.notEnough,x.lockPicked)!=

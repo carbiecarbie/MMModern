@@ -338,3 +338,10 @@ its monsters, objects, walls, scenery and music on its own, FlipWorld returns
 the party to Clouds, and Town Portal, Lloyd's Beacon, Teleport, Jump and falls
 work from every one of them. Save v24 refuses 0.13.0 saves.
 [Plan](milestone-104-plan.md).
+
+**M105 - The last mixed-map Event refusals**. Darkstone Tower's fourth head
+and the Dungeon of Death's book run as on the CD, from a DOS program check
+made first: world flags beyond 127 are the quest-flag bits that follow them,
+and DisplayLarge shows a line of the map's large text in the main window,
+continuing an open window's text. Darkside now plays up to its ending. Save
+v24 unchanged. [Plan](milestone-105-plan.md).

@@ -1,3 +1,4 @@
+#include "games/xeen/XeenDialogView.h"
 #include "games/xeen/XeenWorld.h"
 #include "games/xeen/XeenEventInterpreter.h"
 #include "games/xeen/XeenEventContinuation.h"
@@ -70,6 +71,26 @@ void twoSidedValues() {
  check(o.p.questItems.at(26)==2 && probe(o,105,0).value==2 && !o.c(1).characterFlags[0],"shared state followed side or touched another member");
  o.p.party=XeenParty::fromRosterIds({1,0,2,3,4,5});check(probe(o,107,31,1).value==31 && !o.c(1).characterFlags[31],"character flags followed party slot");
  check(xeenEventGive(o.owners(),107,32,1).status==XeenEventWriteStatus::Unsupported,"character flag boundary");
+}
+// M105 Part 0: mode 103 addresses DS:f05f + operand with no side or bound;
+// bits 128-187 are the quest flags (Clouds 0-29, then Darkside 0-29).
+void worldFlagBits() {
+ for(auto side:{XeenSide::Clouds,XeenSide::Darkside}) {
+  Owners o;o.camera.mapId.side=side;const auto w=o.owners();
+  check(xeenEventGive(w,103,127,0).status==XeenEventWriteStatus::Applied && o.p.worldFlags->values[127],"world flag 127");
+  check(xeenEventGive(w,103,128,0).status==XeenEventWriteStatus::Applied,"world flag 128 refused");
+  check(o.p.questFlags.isSet(XeenSide::Clouds,0) && !o.p.questFlags.isSet(XeenSide::Darkside,0),"world flag 128 is not Clouds quest flag 0 on either side");
+  check(probe(o,103,128).value==128 && xeenQuestDisplay(o.p).notes[128],"world flag 128 test or Auto Note 128");
+  check(xeenEventGive(w,103,158,0).status==XeenEventWriteStatus::Applied && o.p.questFlags.isSet(XeenSide::Darkside,0),"world flag 158 is not Darkside quest flag 0");
+  check(xeenEventGive(w,103,187,0).status==XeenEventWriteStatus::Applied && o.p.questFlags.isSet(XeenSide::Darkside,29),"world flag 187 is not Darkside quest flag 29");
+  check(xeenEventTake(w,103,128,0).status==XeenEventWriteStatus::Applied && !o.p.questFlags.isSet(XeenSide::Clouds,0),"world flag 128 take");
+  check(probe(o,103,128).value!=128 && probe(o,103,158).value==158,"world flag test after take");
+  for(unsigned v:{188u,191u,192u,255u}) {
+   std::string reason;check(!xeenEventProbe(w,103,v,0,reason) && xeenEventGive(w,103,v,0).status==XeenEventWriteStatus::Unsupported &&
+    xeenEventTake(w,103,v,0).status==XeenEventWriteStatus::Unsupported,"world flag beyond the quest bits was not refused");
+  }
+  for(unsigned i=0;i<127;++i)check(!o.p.worldFlags->values[i],"quest-bit alias touched a world flag");
+ }
 }
 void widths() {
  const auto decode=[](std::uint8_t op,std::vector<std::uint8_t> p) {
@@ -889,7 +910,7 @@ int main(int argc,char **argv) {
  try {
   if(argc==2 && std::string(argv[1])=="b5") {miscMaterial();return 0;}
   if(argc!=1)throw std::runtime_error("Unknown Event value test mode");
-  darksidePartB();darksidePartA();twoSidedValues();widths();probes();writes();prefixLightWrites();randomOperations();flowOperations();lockPicking();chestRule();specialItem();miscMaterial();wordDraws();
+  darksidePartB();darksidePartA();twoSidedValues();worldFlagBits();widths();probes();writes();prefixLightWrites();randomOperations();flowOperations();lockPicking();chestRule();specialItem();miscMaterial();wordDraws();
  } catch(const std::exception &e) {std::cerr<<"Event value tests failed: "<<e.what()<<'\n';return 1;}
  std::cout<<"Event value tests passed\n";
  return 0;

@@ -1,11 +1,13 @@
 # MMModern - Project Status
 
-This describes what can be played and done now. M104 is the latest
-completed and accepted milestone (2026-11-01; [plan](milestone-104-plan.md)):
-the mixed World of Xeen maps. Darkstone Tower, Dragon Tower, the Dungeon of
-Death, the Southern Sphinx and the Dragon Clouds (Darkside maps 113-128) open
-from their Clouds entrances with the Darkside keys and play with the
-resources, music and travel rules of the CD. Before it, M103 ran every Event
+This describes what can be played and done now. M105 is the latest
+completed and accepted milestone (2026-11-01; [plan](milestone-105-plan.md)):
+the last three Events of the mixed World of Xeen maps, Darkstone Tower's
+fourth head and the Dungeon of Death's book, now run as on the CD, so
+Darkside plays up to its ending. Before it, M104 opened Darkstone Tower,
+Dragon Tower, the Dungeon of Death, the Southern Sphinx and the Dragon Clouds
+(Darkside maps 113-128) from their Clouds entrances with the Darkside keys,
+with the resources, music and travel rules of the CD, M103 ran every Event
 instruction of the ordinary Darkside maps as on the CD, M102 made every Darkside town service and
 entrance scene work as on the CD, M101
 let a party cross to Darkside through the Pyramids and back, play its
@@ -106,6 +108,9 @@ game from the same slot list.
   FlipWorld has chosen a side the party has not loaded yet says "not
   supported yet"; no original Event leaves the game in that state
   ([approved deviation](original-quirks.md#dev-pending-side-save)).
+  Darkstone Tower's four heads leave their Auto Notes, the fourth in the bit
+  DOS shares with Clouds quest flag 0, and the Dungeon of Death's statue shows
+  its long book in the main window, its two halves written as one text.
 - In the Warzone Arena the Battle Master offers fights of a chosen level and
   size. Each win adds to every member's Warzone award, up to 99, and the game
   cannot be saved in the Warzone.
@@ -370,9 +375,8 @@ the original data uses and its support status.
   omitted by maintainer decision. SDL's resampler plays FM and CD audio up
   to about 0.07% fast, which is inaudible
   ([audio rules](rules/audio.md#sdl-resampler-rate-limitation)).
-- Darkside: the remaining
-  [census's Darkside gaps](coverage.md#darkside-largest-gaps), among them a
-  world flag on map 116 and two DisplayLarge Events on map 121, and the
-  endings say "not supported yet".
+- Darkside: the endings (opcodes 57 and 58, the only
+  [census Darkside gaps](coverage.md#darkside-largest-gaps)) say "not
+  supported yet".
 
 Next steps are in the [roadmap](roadmap.md).

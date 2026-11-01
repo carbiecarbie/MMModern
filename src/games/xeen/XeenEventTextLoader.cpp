@@ -18,6 +18,12 @@ const std::string *XeenEventTextFile::stringAt(std::size_t index) const {
 	return &strings[index];
 }
 
+const std::string *XeenEventTextFile::largeStringAt(std::size_t index) const {
+	if (index >= largeStrings.size())
+		return nullptr;
+	return &largeStrings[index];
+}
+
 XeenEventTextLoader::XeenEventTextLoader(ResourceReader resourceReader,ResourceReader mirrorReader) :
 	_resourceReader(std::move(resourceReader)),_mirrorReader(std::move(mirrorReader)) {
 	if (!_resourceReader)
@@ -32,13 +38,29 @@ std::string XeenEventTextLoader::resourceNameForMap(XeenMapIdentity mapId) {
 	return name.str();
 }
 
+std::string XeenEventTextLoader::largeResourceNameForMap(XeenMapIdentity mapId) {
+	requireXeenMap(mapId);
+	std::ostringstream name;
+	name << "aaze2" << std::setfill('0') << std::setw(3) << mapId.number << ".txt";
+	return name.str();
+}
+
 XeenEventTextFile XeenEventTextLoader::load(XeenMapIdentity mapId) const {
 	XeenEventTextFile result;
 	result.mapId = mapId;
 	result.resourceName = resourceNameForMap(mapId);
-	const std::optional<std::vector<std::uint8_t>> bytes = (_sideReader?_sideReader(result.resourceName,xeenMapResources(mapId).mapArchive):_resourceReader(result.resourceName));
+	result.largeResourceName = largeResourceNameForMap(mapId);
+	const auto read=[&](const std::string &name) {
+		return _sideReader?_sideReader(name,xeenMapResources(mapId).mapArchive):_resourceReader(name);
+	};
+	const std::optional<std::vector<std::uint8_t>> bytes = read(result.resourceName);
 	if (!bytes)
 		return result;
+	// Line N follows the N-th NUL, as the line table 0x21d21 builds it.
+	if (const auto large = read(result.largeResourceName)) {
+		result.largeResourcePresent = true;
+		result.largeStrings = XeenEventTextFormat::parse(*large);
+	}
 	result.resourcePresent = true;
 	result.strings = XeenEventTextFormat::parse(*bytes);
     if (_mirrorReader) if (const auto mirrors=_mirrorReader(mapId.side==XeenSide::Clouds?"xeenmirr.txt":"darkmirr.txt"))

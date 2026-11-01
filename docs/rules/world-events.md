@@ -291,6 +291,7 @@ They establish code paths, not a claim of DOSBox observation.
 | AlterMap (19, census name AfterMap) | Signed x/y, direction, wall nibble. Directions 0–3 select north/east/south/west. Direction 4 writes all four faces of that cell; no opposite face is implicitly changed. Resolve the physical DAT first. `0x27b41..0x27ba3`, helper `0x234dd..0x23550`. |
 | AlterCellFlag (35) | Signed x/y and surface. Outdoors replace the low four wall-word bits; indoors replace the low three attribute bits, preserving the other bits. Indoor coordinates are masked to 0–15 after neighbour selection, so logical `(25,5)` aliases physical `(9,5)` in the east DAT. `0x2863d..0x28721`. |
 | AlterEvent (24, census name AfterEvent) | Scan physical cell, current/all direction and selected line, replacing every matching opcode, including with a nonzero value. No match is a no-op. The line operand is sign-extended against lines stored zero-extended (`0x2827f..0x28287`; index builder `0x21e75..0x21e7e`), so operands 128-255 never match. If the effective matched opcode is PlayCD (60), also replace the next record in storage order. `0x28189..0x28356`, paired-record branch `0x282c0..0x28304`. The reference lacks that paired-record branch. |
+| DisplayLarge (50) | Shows line N of the map's `aaze2NNN.txt` (the map number in three digits; NUL-separated lines from 0) in window 11, through DisplayMain's path: same initial redraw, the same page waits and no wait after the last page. The text is written without DisplayMain's centring prefix and each further page starts with a plain clear. When window 11 is already open the text continues at the previous text's cursor, alignment, font and colour; opening the window starts at its inner top-left, left-aligned. No sound, speech or Text-off test. `0x26cf3..0x26e8d`, [M105 Part 0](evidence.md#last-mixed-map-events-m105-part-0). |
 | Spawn (16) | For a slot below the map's MOB monster count: reuse the slot's type and bind its MON statistics; write coordinates, physical damage status, asleep/not attacking and full MON HP. A revived slot loses its defeated/accounted state. `0x27a59..0x27b1c`; random animation-frame draw `0x27a85..0x27aa1`; no 3D draw is issued. A slot at or beyond the count is written in DOS but stays inert, as described below. |
 
 AlterCellFlag's outdoor branch does **not** mask x/y after lookup, unlike its
@@ -983,6 +984,12 @@ counters. Megacredits is counter 26. Mode 107 addresses 32 flags on the
 selected roster record, shared across sides and independent of party order.
 The annual reset always clears Clouds game flags 55, 155, 222 and 231.
 The 128 world flags remain shared, including the Auto Notes 128 alias above.
+Event mode 103 addresses one bit array with no side and no bound: operands
+128-187 are the 60 quest-flag bits (Clouds 0-29, then Darkside 0-29), so
+Darkstone Tower's fourth head (map 116, world flag 128) sets Clouds quest
+flag 0 on either side, which the Auto Notes show as note 128; operands
+188-255 would reach padding and quest-item counter bits and are refused
+([M105 Part 0](evidence.md#last-mixed-map-events-m105-part-0)).
 
 **Calibrated DOS static, high confidence (2026-10-30):** ordinary Darkside
 maps select `dark.dat`, `dark.mon` and `darkpic.dat` at `WORLD/XEEN.DAT`

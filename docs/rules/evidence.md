@@ -1476,6 +1476,79 @@ Dungeon pause
 Dwarf site rows
 `ev_b5fab8f057640b56dfd92943dc5d1b86a4f82aa251d3c85f556c304dbec08e87`.
 
+## Last mixed-map Events (M105 Part 0)
+
+**Calibrated DOS static, high confidence (2026-11-01).** Baseline: clean
+`main` / `origin/main` `81f72eea4f10962c7cb31401f1890e3580367fc3`; pin
+`6814ee9ba54582f5b5adcffab49efbbd8f589edd`. DAT size/hash and address mapping
+match [Exact baseline](#exact-baseline). Windows REA opened the DAT as DOS MZ
+with the same SHA-256 but has no DOS-MZ analysis provider on that host, so
+bounded WSL Python3 / Capstone 5.0.7 x86-16 reads settle the branches, as in
+[M104](#mixed-world-of-xeen-maps-m104-part-0). Resources come from the same
+CD `GAME/DARK.CC` and initial CUR as M104. Scripts and disassembly stay in
+`D:/Projetos/MModern/MModern-re/m105/`; no original bytes are copied here.
+
+Calibration: dispatch `0x26c50..0x26c66` (opcode - 1, code-segment file base
+`0x26770`, table `0x29320`) resolves opcode 59 to the known FlipWorld handler
+`0x28b32`, opcodes 12/28/29/38 to one TakeOrGive handler `0x27322`, opcode 41
+to `0x26d9c` and opcode 53 to `0x26d8b` (the established DisplayBottom and
+DisplayMain entries), and opcode 50 to `0x26cf3`. The map byte `DS:ed99` is
+the one calibrated by the Arena and fall tables.
+
+**1. World flags beyond 127 (mode 103).** Test `0x21b08..0x21b1b`, take
+`0x2264d..0x22656` and give `0x232d4..0x232dd` all pass the raw operand to the
+shared bit helpers at `DS:f05f`, with no bound and no side term (unlike game
+flags, `side*256`, and quest flags, `side*30`). Bit `n` is byte `n>>3`, mask
+`0x80>>(n&7)` (`0x24fb3..0x24fee`). The 128 world flags end at `DS:f06e`, so
+operands 128-187 address the 60 quest-flag bits at `DS:f06f` (bit `128+k` is
+quest bit `k`: Clouds 0-29, then Darkside 0-29), the same alias the Auto
+Notes loop already reads for note 128. Operands 188-191 reach the four unused
+low bits of `DS:f076`, and 192-255 the quest-item counters from `DS:f077`.
+Both sides behave the same. The only original operand above 127 is map 116's
+give of 128 (`EVT @361`), so on either side it sets Clouds quest flag 0. No
+original Event tests or takes a world flag above 127. The pin gives
+`_worldFlags[128]`, a 129th element that its save never stores.
+
+**2. DisplayLarge (opcode 50).** `0x26cf3..0x26d89` formats `aaze2%03u.txt`
+(`DS:6300`) with `DS:ed99`, opens it from the active archive (`0xdff1`),
+copies it to the scratch buffer `[f42c]:0` (`0x3f877`), temporarily replaces
+the Event text pointer and length (`DS:9c5c/9c5e/9c52`) and rebuilds the line
+table (`0x21d21`: entry 0 is offset 0, entry `k` follows the `k`-th NUL, every
+other entry of the 280-word table stays zero). The record's byte at `+6` is
+the line number, so a number beyond the last line would select offset 0.
+It then joins DisplayMain's shared path at `0x26dab` with window 11: the
+same initial redraw, window 38 close and window-11 open, the same page loop
+(writer `0x43a4c`, update `0x462b6`, page wait `0x26e41..0x26e6a` with scene
+redraw) and the same return without a wait after the final page. Only three
+things differ: the text is written as is, without DisplayMain's
+`"\r\x03c%s"` (`DS:62fa`); each further page starts with `"\r"` (`DS:630e`)
+instead of `"\r\x03c"` (`DS:6310`); and the buffer is re-copied before every
+page (`0x26e04..0x26e16`), then the map's text pointer, length and line table
+are restored and the handle freed (`0x26e9d..0x26eb8`). It has no sound,
+speech, font or Text-off test of its own; the text's own controls set
+alignment and colour.
+
+The writer's cursor and font state are global (`cs:0be4/0be6`, alignment
+`cs:0c0c`); selecting a window's bounds (`0x4487e`) does not move it. Only
+opening a window resets it, to the inner top-left with left alignment and
+normal font (`0x44c16..0x44c27`), and `"\r"` clears and returns to the inner
+top-left (`0x43be6..0x43bf8`). So a DisplayLarge that finds window 11
+already open (no open, no `"\r"`) continues writing at the previous text's
+cursor with its alignment, font and colour. The pin agrees: window 11, line
+numbers, no prefix, `"\r"` between pages and the shared `_writePos`.
+
+**3. The three records in context** (hypotheses confirmed by the
+original-data tests). Map 116 `(4,6)`, `(4,10)`, `(10,10)` and `(10,6)`, any
+facing: each shows one of four "Head" lines in the bottom window, waits for a
+key (If2 mode 44 value 1) and gives world flag 125, 126, 127 or 128, the
+Auto Notes of the four heads. Map 121 `(21,1)`, any facing: WhoWill, then
+DisplayLarge line 5 and DisplayLarge line 189, then a key wait to a missing
+line that ends the run. `aaze2121.txt` has 191 lines; only 5 (9,721 bytes,
+left-aligned by its own first control, ending with two line feeds) and 189
+(1,093 bytes, no alignment control) are not single spaces. They are the two
+halves of one long in-game book: the second continues on the first's last
+page.
+
 ## Mixed World of Xeen maps (M104 Part 0)
 
 **Calibrated DOS static, high confidence for the eight questions below

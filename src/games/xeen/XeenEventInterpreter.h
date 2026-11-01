@@ -166,6 +166,9 @@ struct XeenPresentationRequest {
 	std::string alternate;
 	std::vector<XeenMirrorDestination> mirrors;
  bool forceText=false;
+	// DisplayLarge: written as is in window 11, "\r" between pages; when the
+	// window is already open it continues at the previous text's cursor.
+	bool largeText=false;
 };
 
 enum class XeenEventMissingInstructionPolicy {
@@ -229,6 +232,7 @@ struct XeenEventExecutionState {
     // DOS Event-local markers, independent of instruction count.
     bool scriptExecuted=false, otherFacing=false, tailDone=false;
     bool redrawDone=false; // Shared initial text/damage draw, reset on Continue.
+    bool window11Text=false; // The latest presentation was window-11 text (DisplayMain/DisplayLarge).
     // Event-owned light changes eligible for partial publication, without scene drains.
     std::optional<std::uint16_t> prefixLight;
     std::optional<XeenEventPortraitProgress> portraitProgress;

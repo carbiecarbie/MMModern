@@ -50,23 +50,27 @@ void testNaming() {
 }
 
 void testLoadingAndLookup() {
-	std::string requestedName;
-	const XeenEventTextLoader loader([&requestedName](const std::string &name) {
-		requestedName = name;
+	std::vector<std::string> requested;
+	const XeenEventTextLoader loader([&requested](const std::string &name) {
+		requested.push_back(name);
 		return std::optional<Bytes>{Bytes{'o', 'n', 'e', 0, 0, 't', 'w', 'o', 0}};
 	});
 	const XeenEventTextFile text = loader.load(31);
-	check(requestedName == "aaze0031.txt", "requested correct resource");
+	// The map's text, then DisplayLarge's aaze2 lines from the same archive.
+	check(requested == std::vector<std::string>{"aaze0031.txt", "aaze2031.txt"}, "requested correct resources");
 	check(text.mapId == 31 && text.resourcePresent &&
-		text.resourceName == requestedName, "identity and presence");
+		text.resourceName == requested[0], "identity and presence");
+	check(text.largeResourcePresent && text.largeResourceName == requested[1] &&
+		text.largeStrings == text.strings && text.largeStringAt(3) == nullptr, "large text lines");
+	check(XeenEventTextLoader::largeResourceNameForMap(121) == "aaze2121.txt", "map 121 large text name");
 	check(text.strings.size() == 3 && *text.stringAt(0) == "one" &&
 		text.stringAt(1)->empty() && *text.stringAt(2) == "two", "zero based lookup");
 	check(text.stringAt(3) == nullptr, "invalid index distinct from empty string");
 
 	const XeenEventTextFile missing = XeenEventTextLoader([](const std::string &)
 			-> std::optional<Bytes> { return std::nullopt; }).load(42);
-	check(!missing.resourcePresent && missing.strings.empty() && missing.stringAt(0) == nullptr,
-		"missing resource");
+	check(!missing.resourcePresent && missing.strings.empty() && missing.stringAt(0) == nullptr &&
+		!missing.largeResourcePresent && missing.largeStringAt(0) == nullptr, "missing resource");
 	const XeenEventTextFile empty = XeenEventTextLoader([](const std::string &) {
 		return std::optional<Bytes>{Bytes{}};
 	}).load(42);

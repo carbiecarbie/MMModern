@@ -76,7 +76,15 @@ public:
 
 private:
 	XeenTextRenderOptions optionsFor(const XeenPresentationRequest &request) const;
-	XeenTextRenderResult drawText(const IndexedFrame &, const XeenPresentationRequest &) const;
+	// The writer's state a window-11 text continues from (DOS's global cursor).
+	struct TextCursor {
+		int x = 0, y = 0;
+		XeenFontSize size = XeenFontSize::Normal;
+		std::uint8_t color = 0;
+		XeenTextAlignment alignment = XeenTextAlignment::Left;
+	};
+	XeenTextRenderResult drawText(const IndexedFrame &, const XeenPresentationRequest &,
+		const std::optional<TextCursor> &start = std::nullopt) const;
 	IndexedFrame overlayNotices(IndexedFrame) const;
 	IndexedFrame drawWord(const IndexedFrame &) const;
 	IndexedFrame drawNumeric(const IndexedFrame &,const XeenPresentationRequest &) const;
@@ -109,6 +117,7 @@ private:
 	struct Layer {
 		XeenPresentationRequest request;
 		std::size_t page;
+		std::optional<TextCursor> start;
 	};
 	std::vector<Layer> _layers;
 };

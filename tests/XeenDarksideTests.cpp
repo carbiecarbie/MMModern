@@ -1044,38 +1044,85 @@ void pyramidCombatAudio(Inputs &in,const GameInstallation &installation,const st
  }
 }
 
-void mixedRefusals(Inputs &in,const XeenSaveSnapshot &source) {
+// M105: the three Events M104's refusal sweep left, with live input.
+// Darkstone Tower's four heads give world flags 125-128; flag 128 is DOS's
+// Clouds quest flag 0 (Part 0). The Dungeon of Death's book is two
+// DisplayLarge lines written back to back in window 11.
+void mixedEvents(Inputs &in,const XeenSaveSnapshot &source,const std::filesystem::path &out) {
  using Side=XeenSide;using D=XeenDirection;
- unsigned refusals=0;
- for(unsigned map=113;map<=128;++map)for(const auto &r:in.events.load({Side::Darkside,std::uint16_t(map)}).records) {
-  if(r.opcode!=50 && !(map==116 && r.opcode==12 && r.parameters.size()>2 && r.parameters[2]==103))continue;
-  if(r.opcode==12) {
-   const auto decoded=std::get<XeenDecodedEventInstruction>(XeenEventDecoder::decode(r));
-   if(std::get<XeenEventTakeOrGive>(decoded.operation).second.value<XeenWorldFlags::kCount)continue;
-  }
-  const XeenMapIdentity id{Side::Darkside,std::uint16_t(map)};XeenWorld query(in.mapLoader(),in.objectLoader());
-  const auto mob=in.maps.loadObjects(in.assets,id);std::optional<XeenCamera> floor;
-  for(int y=1;y<15 && !floor;++y)for(int x=1;x<15 && !floor;++x)for(unsigned d=0;d<4 && !floor;++d) {
-   const auto cell=query.sampleCell(id,x,y);if(!cell || unsupportedManualSpecialInteraction(*cell->cell,D(d)))continue;
-   const auto surface=cell->geometry->surfaceTypes[cell->cell->surfaceIndex];
-   if((cell->cell->rawAttributes&kXeenAutomaticEventFlag) || cell->cell->rawWord==0x8888 || surface==10 || surface==13 || surface==15)continue;
-   if(std::any_of(mob.entities.objects.begin(),mob.entities.objects.end(),[&](const auto &o){return o.x==x && o.y==y;}))continue;
-   floor=XeenCamera{id,x,y,D(d)};
-  }
-  check(bool(floor),"No ordinary floor for the refusal notice probe");const auto c=*floor;
-  // Keep the original opcode/operands/map. Isolate this capability on an
-  // ordinary floor so a door/grate cannot swallow the manual input first.
-  auto record=r;record.direction=4;record.x=c.x;record.y=c.y;record.line=0;
-  XeenEventFile script{c.mapId,"original mixed refusal probe",true,{record}};
-  const auto s=at(in,source,c);Live f(in,s,&script);std::string reason;
-  f.flow->reportManual=[&](const auto &result){if(const auto *error=std::get_if<XeenEventExecutionError>(&result))reason=error->message;};
-  f.act(InteractionAction{false});
-  if(reason.empty())std::cerr<<"Missing refusal map="<<map<<" EVT @"<<r.fileOffset<<" cell="<<unsigned(r.x)<<','<<unsigned(r.y)<<" line="<<unsigned(r.line)<<'\n';
-  check(!reason.empty(),"Census refusal disappeared without classification");
-  notice(f.flow->frame(),in.font,"This Event is not supported yet");f.settle();f.unchanged(s);
-  std::cout<<"Refusal map="<<map<<" EVT @"<<r.fileOffset<<" opcode="<<unsigned(r.opcode)<<": "<<reason<<'\n';++refusals;
+ const XeenMapIdentity tower{Side::Darkside,116},death{Side::Darkside,121};
+ const std::array<std::tuple<int,int,unsigned>,4> heads{{{4,6,125},{4,10,126},{10,10,127},{10,6,128}}};
+ for(const auto &[x,y,flag]:heads) {
+  const auto s=at(in,source,{tower,x,y,D::North});Live f(in,s);
+  check(flag==128?!f.p.questFlags.isSet(Side::Clouds,0):!f.p.worldFlags->values[flag],"Head preset already holds its note");
+  f.act(InteractionAction{});
+  if(flag==128)picture(f.flow->frame(),out/"m105-head-16.ppm");
+  f.settle();
+  for(unsigned n=0;n<128;++n)check(f.p.worldFlags->values[n]==(n==flag || s.journey->worldFlags->values[n]),"Head gave the wrong world flag");
+  check(f.p.questFlags.isSet(Side::Clouds,0)==(flag==128) && !f.p.questFlags.isSet(Side::Darkside,0),"Head 16 did not set DOS's flag-128 bit");
+  check(xeenQuestDisplay(f.p).notes[flag],"Head note missing from Auto Notes");
+  const auto saved=f.snapshot();Live restored(in,saved);
+  check(XeenSaveFormat::encode(restored.snapshot())==XeenSaveFormat::encode(saved) && xeenQuestDisplay(restored.p).notes[flag],"Head note lost or replayed on reload");
  }
- check(refusals==3,"Mixed runtime-refusal census changed");
+ const auto texts=in.texts.load(death);
+ check(texts.largeResourcePresent && texts.largeStrings.size()>189,"Dungeon of Death large text missing");
+ // Independent oracle: the two lines written back to back are one stream.
+ XeenTextRenderOptions o;o.originalControls=true;o.stopAtBottom=true;
+ o.bounds={16,16,216,132};o.windowBounds={8,8,224,140};o.x=16;o.y=16;o.drawWindow=true;
+ const auto window=[](const IndexedFrame &f) {std::vector<std::uint8_t> r;for(int y=8;y<140;++y)r.insert(r.end(),f.pixels.begin()+y*f.width+8,f.pixels.begin()+y*f.width+224);return r;};
+ std::vector<std::vector<std::uint8_t>> runs[2];
+ for(const bool text:{true,false}) {
+  auto s=at(in,source,{death,21,1,D::North});s.soundOptions.text=text;
+  Live f(in,s);std::vector<IndexedFrame> pages;
+  f.act(InteractionAction{});
+  for(unsigned n=0;n<200;++n) {
+   const auto input=f.flow->inputContext(f.flow->frame().presentation()).dialog;
+   if(!input)break;
+   if(!input->anyKey) {check(bool(input->key(InputKey::F1)),"Dungeon book expected WhoWill");f.act(SelectMemberAction{0});f.tick();continue;}
+   pages.push_back(f.flow->frame());f.act(AcknowledgeAction{});f.tick();
+  }
+  f.settle();
+  std::vector<IndexedFrame> oracle;std::string rest=texts.largeStrings[5]+texts.largeStrings[189];
+  std::size_t boundary=0,written=0;auto options=o;
+  for(IndexedFrame base=pages.at(0);;) {
+   const auto prefix=oracle.empty()?std::string():std::string("\r");
+   const auto page=XeenTextRenderer(in.font).render(base,prefix+rest,options);
+   oracle.push_back(page.pages.front());
+   const auto consumed=std::min(rest.size(),page.pageSourceEnds.back()-prefix.size());
+   written+=consumed;if(!boundary && written>texts.largeStrings[5].size())boundary=oracle.size();
+   if(consumed==rest.size())break;
+   rest=rest.substr(consumed);base=oracle.back();options.drawWindow=false;
+   options.size=page.writeSize;options.colorIndex=page.writeColor;options.alignment=page.writeAlignment;
+  }
+  if(pages.size()!=oracle.size())std::cerr<<"Book pages live="<<pages.size()<<" oracle="<<oracle.size()<<'\n';
+  check(pages.size()==oracle.size() && pages.size()>2 && boundary>1,"Dungeon book page count differs from the back-to-back writer");
+  for(std::size_t n=0;n<pages.size();++n) {
+   if(window(pages[n])!=window(oracle[n])) {picture(pages[n],out/"m105-book-live.ppm");picture(oracle[n],out/"m105-book-oracle.ppm");
+    std::cerr<<"Book page "<<n<<" differs\n";}
+   check(window(pages[n])==window(oracle[n]),"Dungeon book page differs from DOS's writer");
+   runs[text].push_back(window(pages[n]));
+  }
+  if(text) {picture(pages.front(),out/"m105-book-first.ppm");picture(pages[boundary-1],out/"m105-book-join.ppm");picture(pages.back(),out/"m105-book-last.ppm");
+   std::cout<<"Dungeon book: "<<pages.size()<<" pages, line 189 joins page "<<boundary<<'\n';}
+  check(!f.flow->presenter().hasEventWindows(),"Dungeon book left window 11 open after the run");
+  f.unchanged(s);
+  const auto saved=f.snapshot();Live restored(in,saved);
+  check(XeenSaveFormat::encode(restored.snapshot())==XeenSaveFormat::encode(saved),"Dungeon book reload replayed state");
+ }
+ check(runs[0]==runs[1],"Text off changed the Dungeon book");
+ // Window 11 holding DisplayMain's text, then a bottom-window text: DOS's
+ // writer cursor would sit in window 12, which is not modeled.
+ const XeenCamera c{death,21,1,D::North};
+ const auto row=[&](unsigned line,unsigned op,std::vector<std::uint8_t> p) {
+  XeenEventRecord r;r.x=c.x;r.y=c.y;r.direction=4;r.line=line;r.opcode=op;r.parameters=std::move(p);r.lengthField=5+r.parameters.size();return r;
+ };
+ XeenEventFile script{death,"DisplayLarge after window 12",true,{row(0,53,{3}),row(1,41,{3}),row(2,50,{5})}};
+ const auto s=at(in,source,c);Live f(in,s,&script);std::string reason;
+ f.flow->reportManual=[&](const auto &result){if(const auto *error=std::get_if<XeenEventExecutionError>(&result))reason=error->message;};
+ f.act(InteractionAction{false});for(unsigned n=0;n<8 && reason.empty();++n){const auto input=f.flow->inputContext(f.flow->frame().presentation()).dialog;if(input && input->anyKey)f.act(AcknowledgeAction{});f.tick();}
+ check(reason.find("not supported yet")!=std::string::npos,"DisplayLarge after another window was not refused");
+ notice(f.flow->frame(),in.font,"This Event is not supported yet");f.settle();f.unchanged(s);
+ std::cout<<"M105 Darkstone heads, Dungeon of Death book and DisplayLarge refusal passed\n";
 }
 
 // Original maps and live input; synthetic Event rows only exercise pending states
@@ -1294,7 +1341,7 @@ void mixedTravel(Inputs &in,const GameInstallation &installation,const XeenSaveS
   Live f(in,save,&script);f.act(InteractionAction{false});f.settle();const auto random=*f.w.sessionState().journeyRandom();f.act(NavigationAction::MoveForward);f.settle();
   check(xeen_state::sameCamera(f.c,to) && f.w.pendingLoadSide()==Side::Clouds,"Boundary ignored pending side");arrivalMusic(f,random);
  }
- mixedRefusals(in,source);
+ mixedEvents(in,source,out);
  std::cout<<"M104 Part B entrances, returns, Portal, Beacon and pending-side cases passed\n";
 }
 

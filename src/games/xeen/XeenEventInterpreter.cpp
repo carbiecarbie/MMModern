@@ -115,6 +115,7 @@ XeenPresentationKind presentationKind(XeenEventDisplayKind kind) {
 	case XeenEventDisplayKind::BottomWindowTwoLines:
 		return XeenPresentationKind::BottomWindowTwoLines;
 	case XeenEventDisplayKind::MainWindow:
+	case XeenEventDisplayKind::MainWindowLarge:
 		return XeenPresentationKind::MainWindowMessage;
 	}
 	return XeenPresentationKind::CenteredMessage;
@@ -523,6 +524,7 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 				"response does not match the pending presentation request",
 				instructionCount, logical, pending.request.source);
 		}
+		state.window11Text = pending.request.kind == XeenPresentationKind::MainWindowMessage;
 		if (pending.continuation == XeenEventPendingContinuation::RewardFinalization) return finalize();
         if(pending.continuation==XeenEventPendingContinuation::FallToMap) {
             const auto &fall=*pending.request.fall;
@@ -1063,10 +1065,25 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 					"event text resource is missing", instructionCount, logical,
 					decoded.source);
 			}
-			const std::string *text = textFile.stringAt(textIndex);
+			const bool large = display && display->kind == XeenEventDisplayKind::MainWindowLarge;
+			if (large && !textFile.largeResourcePresent) {
+				return error(XeenEventExecutionErrorKind::MissingTextResource,
+					"DisplayLarge text resource is missing", instructionCount, logical,
+					decoded.source);
+			}
+			// DOS's zeroed line table would show line 0 beyond the last line;
+			// no original record does, so that variant stays refused.
+			const std::string *text = large ? textFile.largeStringAt(textIndex) : textFile.stringAt(textIndex);
 			if (!text) {
 				return error(XeenEventExecutionErrorKind::InvalidTextIndex,
 					"event text index is outside the map text table", instructionCount,
+					logical, decoded.source);
+			}
+			// An open window 11 keeps the writer's global cursor (0x43a4c); only
+			// a window-11 text's own end position is modeled.
+			if (large && !state.window11Text && sceneWindow11Open && sceneWindow11Open()) {
+				return error(XeenEventExecutionErrorKind::UnsupportedExecutionContext,
+					"DisplayLarge after another window's text is not supported yet", instructionCount,
 					logical, decoded.source);
 			}
 
@@ -1096,6 +1113,7 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 				request.title = *title;
 			}
 			if (display) request.layoutValue = display->layoutValue;
+			request.largeText = large;
 			if (who) {
 				request.verbIndex = who->verbIndex;
 				for (std::size_t i = 0; i < partyState.party.size(); ++i) {

@@ -464,6 +464,8 @@ XeenEventDecodeResult XeenEventDecoder::decode(const XeenEventRecord &record,
 		return decodeDisplay(record, context, XeenEventDisplayKind::BottomWindowTwoLines);
 	case 0x35:
 		return decodeDisplay(record, context, XeenEventDisplayKind::MainWindow);
+	case 0x32:
+		return decodeDisplay(record, context, XeenEventDisplayKind::MainWindowLarge);
 	default: {
 		std::ostringstream message;
 		message << "opcode " << static_cast<unsigned int>(record.opcode)
