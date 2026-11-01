@@ -101,7 +101,7 @@ bool XeenEncounterFlow::initializeBeacon(std::uint8_t owner) {
 }
 XeenEncounterFlow::SpellMapWork XeenEncounterFlow::prepareSpellMap(const XeenSpellTravel &travel) {
     SpellMapWork result;
-    if(!travel.reload || !travel.destination)return result;
+    if(!travel.destination || (!travel.reload && (!travel.pendingSide || _world.pendingLoadSide()==*travel.pendingSide)))return result;
     result.world=_world.transitionCandidate();
     XeenPartyState party;result.world->copyEventParty(_party,party);
     auto camera=_camera;auto flags=_flags;
@@ -109,6 +109,10 @@ XeenEncounterFlow::SpellMapWork XeenEncounterFlow::prepareSpellMap(const XeenSpe
     const auto entry=ticket();
     const auto check=[&] {if(_combat) {if(!current(entry))throw std::logic_error("Stale combat map preparation");}else _journeyPreimage->check();};
     XeenRestoreGuard::EventProviders providers(*result.world,party,camera,flags,guard,check,[&]{_journeyPreimage->failed=true;});
+    if(!travel.reload) {
+        result.world->stageLoadSide(travel.destination->mapId.side);
+        result.flags=_flags;result.events=_journeyEvents;return result;
+    }
     result.flags=result.world->loadEventDestination(_camera.mapId,travel.destination->mapId,true,_flags);
     result.events=_travelEventsProvider(travel.destination->mapId);
     check();

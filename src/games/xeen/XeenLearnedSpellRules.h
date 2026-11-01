@@ -65,6 +65,7 @@ class XeenWorld;
 // publish the camera or run Rest after the spell has been paid.
 struct XeenSpellTravel {
     bool failed=false, unsupported=false, shelter=false, reload=false;
+    std::optional<XeenSide> pendingSide; // Accepted Portal/Beacon Return, including same-map Return.
     std::optional<std::array<std::uint8_t,4>> beacon;
     void applyBeacon(XeenCharacter &caster) const {
         if(!beacon)return;

@@ -1028,6 +1028,18 @@ committed source. No disc-change prompt or wait is shown (approved
 service owners, including Sign In. Actions 8, 9 and 13 remain refused for
 Part B.
 
+## Mixed-map side changes
+
+**DOS static, high confidence:** FlipWorld (59) writes its one-byte side operand
+to the world's pending load side without changing the camera, flag banks, UI or
+music. A different-number Event teleport, boundary, reload or fall uses that
+side; a same-number Event teleport does not reload. Portal, every accepted
+Beacon Return and keyed entrances overwrite it. Roster filtering reads it.
+The four original mixed-map return Events immediately load Clouds. Saving a
+synthetic persistent pending side is refused without ending play, per the
+[approved exception](../original-quirks.md#dev-pending-side-save). See the
+[M104 Part 0 offsets](evidence.md#mixed-world-of-xeen-maps-m104-part-0).
+
 ## Opening doors and service borders
 
 **DOS static, high confidence for control flow (2026-10-23):** an admitted

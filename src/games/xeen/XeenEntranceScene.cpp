@@ -43,8 +43,7 @@ const XeenEntranceSite *xeenEntranceSite(unsigned action,const XeenCamera &camer
     return nullptr;
 }
 bool xeenEntranceKey(const XeenEntranceSite &site,const XeenQuestItems &items) {
-    // Only Clouds cross-side entrances retain the M80 admission rule.
-    return site.quest<0 || ((site.side==XeenSide::Darkside || unsigned(site.quest)<35) && items.at(site.quest)!=0);
+    return site.quest<0 || items.at(site.quest)!=0;
 }
 XeenCamera xeenEntranceDestination(const XeenEntranceSite &site,const XeenCamera &camera,const XeenQuestItems &items) {
     return xeenEntranceKey(site,items)?site.destination:camera;

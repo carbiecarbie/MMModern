@@ -13,7 +13,7 @@ for players in [ScummVM differences](scummvm-differences.md).
 
 Calibrated static evidence for the World CD, 2026-11-01,
 [M104 Part 0](rules/evidence.md#mixed-world-of-xeen-maps-m104-part-0).
-These are original rules, not a claim that mixed-map gameplay is implemented.
+The map selectors and travel owners implement these rules.
 Pin `6814ee9b`; master was not rechecked.
 
 | Rule | Evidence and consequence |
@@ -701,6 +701,15 @@ original post-dream poll.
 
 Deliberate differences from the original that the maintainer approved; each
 stays documented here and in the plan that implements it.
+
+- <a id="dev-pending-side-save"></a> **Saving a pending FlipWorld side is refused**
+  (maintainer, 2026-11-01; M104 decision 4). Normal original Events immediately
+  load the other side. For a synthetic persistent pending side, MMModern shows
+  "Saving with a pending world side is not supported yet" and preserves the
+  running game, without a new save field (v24). DOS instead promotes the pending
+  side before saving ([evidence](#sv-mixed-save-pending-side)); **ScummVM:** the
+  pin saves the active side without that promotion. Implemented in
+  `XeenSaveState::capture`/`captureImpl` and `xeenSaveGameplay`; master not rechecked.
 
 - <a id="sv-combat-xp-overflow"></a> **Combat XP overflow fails closed**
   (maintainer, 2026-10-31). DOS adds combat XP with carry and wraps modulo

@@ -61,7 +61,7 @@ void sites() {
         const XeenQuestItems items(counts);
         const auto destination=xeenEntranceDestination(site,camera,items);
         if(site.quest>=35) {
-            ++dark;check(!xeenEntranceKey(site,items) && xeen_state::sameCamera(destination,camera),"Darkside key must be never held");
+            ++dark;check(xeenEntranceKey(site,items) && xeen_state::sameCamera(destination,site.destination),"Shared Darkside key must admit its destination");
             check(site.destination.mapId.side==XeenSide::Darkside,"Darkside row lost its destination archive");
         } else check(xeenEntranceKey(site,items) && xeen_state::sameCamera(destination,site.destination),"Nonzero whole quest counter check");
         dwarf+=site.action==10;

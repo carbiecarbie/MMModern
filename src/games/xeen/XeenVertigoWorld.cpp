@@ -34,6 +34,14 @@ void XeenWorld::publishTerrainArrival(XeenPartyState &party,const XeenTerrainArr
  party.encounterContext=arrival.context;party.serviceEconomy=arrival.economy;retainEventRandom(random);
 }
 
+XeenCamera XeenWorld::terrainFallDestination(const XeenCamera &camera) const {
+ auto to=xeenTerrainFallDestination(camera);
+ // Only the Dragon Clouds exit explicitly overwrites the pending side.
+ if(!(camera.mapId.side==XeenSide::Darkside && (camera.mapId.number==128 || camera.mapId.number==129)))
+  to.mapId=nextLoadMap(to.mapId.number);
+ return to;
+}
+
 XeenTerrainArrival XeenWorld::prepareTerrainArrival(const XeenCamera &camera,
  const XeenConsequenceCharacters &characters,const XeenGameplayContext &context,bool darksideFlag118) {
  const auto cell=sampleCell(camera.mapId,camera.x,camera.y);
@@ -41,7 +49,7 @@ XeenTerrainArrival XeenWorld::prepareTerrainArrival(const XeenCamera &camera,
  const auto &primary=map(camera.mapId).geometry;
  bool navigator=false;for(const auto &c:characters)navigator=navigator || c.skills[10]!=0;
  auto rule=xeenTerrainArrival(primary.surfaceTypes[cell->cell->surfaceIndex],primary.isOutdoors(),navigator,context.effects[XeenPartyEffect::Levitate]!=0,camera,darksideFlag118);
- if(rule.falling)rule.transition=prepareEventTransition(rule.transition.destination);
+ if(rule.falling)rule.transition=prepareEventTransition(terrainFallDestination(camera));
  return rule;
 }
 
@@ -81,6 +89,7 @@ XeenGameFlags XeenWorld::loadEventDestination(XeenMapIdentity from,XeenMapIdenti
     if(clearKeyboard && _inputMapLoadGeneration==std::numeric_limits<std::uint64_t>::max())
         throw std::overflow_error("Map input generation exhausted");
     if(!sessionState().hasRegionalActors(to))stageMapMonsters(objectFile(to),monsterStatistics(xeenMapResources(to).monsterTable));
+    _pendingLoadSide=to.side;
     auto flags=before;
     leaveMap(from,&flags);
     reloadMapMonsters(to);

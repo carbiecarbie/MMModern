@@ -10,6 +10,12 @@
 
 using namespace mmodern;
 
+namespace mmodern {
+struct XeenTrainingTestAccess {
+ static void initialSide(XeenWorld &world,XeenSide side) {world._pendingLoadSide=side;}
+};
+}
+
 namespace {
 void check(bool value, const char *message) {
 	if (!value) throw std::runtime_error(message);
@@ -114,6 +120,7 @@ void eventCachesCallsAndResume() {
 	});
 	for (auto side : {XeenSide::Clouds, XeenSide::Darkside}) {
 		const XeenMapIdentity id{side, 1};
+		XeenTrainingTestAccess::initialSide(world,side);
 		XeenCamera camera{id, 1, 1, XeenDirection::North};
 		XeenGameFlags flags;
 		auto start = events.runManualEvent(world, party, camera, flags);
@@ -166,6 +173,7 @@ void rejectionAndRollback() {
 	XeenPartyState party;
 	const XeenMapIdentity dark{XeenSide::Darkside, 1};
 	XeenWorld world([](XeenMapIdentity id) { return map(id); });
+	XeenTrainingTestAccess::initialSide(world,dark.side);
 	XeenCamera camera{dark, 1, 1, XeenDirection::North};
 	XeenGameFlags flags;
 	XeenEventSystem wrong([](XeenMapIdentity id) {

@@ -208,6 +208,7 @@ void XeenWorld::swapPreparedState(XeenWorld &candidate) noexcept {
 	_scenePresentation.objectFlips.swap(candidate._scenePresentation.objectFlips);
 	_scenePresentation.objectFrames.swap(candidate._scenePresentation.objectFrames);
     std::swap(_mapRuleView,candidate._mapRuleView);
+    std::swap(_pendingLoadSide,candidate._pendingLoadSide);
 	_maps.swap(candidate._maps);
 	_objects.swap(candidate._objects);
 	++_ownerRevision; ++candidate._ownerRevision;
@@ -693,6 +694,7 @@ std::unique_ptr<XeenWorld> XeenWorld::transitionCandidate() const {
 	candidate->_detachedEventCandidate=true;
 	candidate->_developerEventMap=_developerEventMap;
     candidate->_inputMapLoadGeneration=_inputMapLoadGeneration;
+    candidate->_pendingLoadSide=_pendingLoadSide;
 	candidate->_maps=_maps;candidate->_objects=_objects;
 	candidate->_cityStatistics=_cityStatistics;candidate->_darksideStatistics=_darksideStatistics;
 	candidate->_scenePresentation=_scenePresentation;candidate->_mapRuleView=_mapRuleView;
@@ -844,6 +846,7 @@ void XeenWorld::publishTransition(XeenWorld &candidate) noexcept {
  _scenePresentation.lightingPrepared=candidate._scenePresentation.lightingPrepared;
 	XeenMutationWatch::write(this);XeenMutationWatch::write(&candidate);
     _mapRuleView=candidate._mapRuleView;
+    _pendingLoadSide=candidate._pendingLoadSide;
     _inputMapLoadGeneration=candidate._inputMapLoadGeneration;
 	_sessionState._journeyRandom.swap(candidate._sessionState._journeyRandom);
 	_sessionState._darksideSong.swap(candidate._sessionState._darksideSong);

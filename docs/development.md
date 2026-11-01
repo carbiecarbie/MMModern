@@ -706,14 +706,24 @@ prepared level-30 party and a saved indoor song. Generate it with
 `build-rel/mmodern_test_save.exe m101-castleview <game-dir> <output>`.
 Ordinary maps, movement, dialogue, combat, travel spells, defeat and town
 services use Darkside resources. Mixed World maps load their separate resource
-families and save in the current v24 format. The Darkside-key Clouds entrances,
-FlipWorld and Darkside/World endings still say "not supported yet".
+families and save in the current v24 format. The four Darkside-key Clouds
+entrances and their FlipWorld returns work. Darkside/World endings still say
+"not supported yet".
 
 `m104-map-113` through `m104-map-128` start the prepared party on an empty
-original cell of that Darkside map, with its actors and selected music intact.
+original cell of that Darkside map, with its actors and selected music intact
+and Light 200 for inspecting the scenery.
+The first member has Town Portal selected (`C`, `F1`, `C`, town 1-5, Enter).
 Generate one with `build-rel/mmodern_test_save.exe m104-map-125 <game-dir> <output>`.
 The generator validates it through the same admission, restore and scene path
 as an ordinary save. It does not bypass an entrance or enable FlipWorld.
+
+`m104-entrance` starts the level-30 party at the original Southern Sphinx
+entrance in Clouds map 2, facing its Event, carrying shared key 51. Space plays
+the keyed scene and arrives on Darkside 125 `(7,6)`, North. For the original
+return, reach `(7,5)` facing South and answer Yes. The preset defeats the
+monsters of those two maps so the route is short; geometry and Events stay
+original. It is intended for the M104 input/appearance/music play-test.
 
 `m101-pyramid-clouds` starts the same level-30 party at Clouds map 23
 `(8,10)`, North. Space enters the original Pyramid and arrives at Castleview

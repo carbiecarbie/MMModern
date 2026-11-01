@@ -69,11 +69,11 @@ std::string xeenCreateDetails(const XeenDosText &text,unsigned id,const XeenCrea
     args.push_back(xeenDialogFormat(text.scalar("CREATE_CLASS"),{committed?text.table("CLASS_NAMES").at(*committed):""}));
     return xeenDialogFormat(text.scalar("CREATE_DETAILS"),args);
 }
-std::vector<std::uint8_t> xeenInnList(const XeenPartyState &party,XeenMapIdentity town,bool townOnly) {
+std::vector<std::uint8_t> xeenInnList(const XeenPartyState &party,XeenMapIdentity town,bool townOnly,std::optional<XeenSide> pendingSide) {
     std::vector<std::uint8_t> ids;
     for(unsigned id=0;id<24;++id) {
         const auto &c=party.roster.at(id);
-        if(!c.name.empty() && (townOnly || c.xeenSide==unsigned(town.side)) && c.savedMaze==town.number)ids.push_back(id);
+        if(!c.name.empty() && (townOnly || c.xeenSide==unsigned(pendingSide.value_or(town.side))) && c.savedMaze==town.number)ids.push_back(id);
     }
     return ids;
 }

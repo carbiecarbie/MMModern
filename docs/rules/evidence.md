@@ -2189,10 +2189,10 @@ destination; the loader also branches on installation state
 override (`0xe89e..0xe8b0`). MMModern's reference is the World of Xeen CD,
 where both archives are installed, and Clouds Events never grant these keys
 (quest items 45, 46, 50 and 51 come only from Darkside Events), so the
-Clouds-only failure does not bound M80. MMModern's party saves only the
-Clouds quest counters 0-34, so those keys are never held and the four sites
-always play the keyless refusal; the keyed outcome waits for the Darkside
-arc.
+Clouds-only failure does not bound M80. MMModern saves all 85 shared quest
+counters and reads these four keys for the original keyed outcomes. Their
+mixed-map arrivals and FlipWorld returns follow the
+[M104 Part 0 rules](#mixed-world-of-xeen-maps-m104-part-0).
 
 ### 3. Presentation and random draws
 

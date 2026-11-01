@@ -59,7 +59,7 @@ std::string_view xeenDialogText(const XeenDosText &text,XeenDialogText);
 std::string xeenDialogFormat(std::string_view,const std::vector<std::string> &);
 std::string xeenCreateDetails(const XeenDosText &,unsigned rosterId,const std::array<int,7> &,
     std::optional<unsigned> committedClass);
-std::vector<std::uint8_t> xeenInnList(const XeenPartyState &,XeenMapIdentity,bool townOnly=false);
+std::vector<std::uint8_t> xeenInnList(const XeenPartyState &,XeenMapIdentity,bool townOnly=false,std::optional<XeenSide> pendingSide={});
 DialogInput xeenInnInput(std::size_t rows,std::size_t members,bool remove=false);
 IndexedFrame drawXeenInn(const XeenDosText &,const IndexedFrame &,const XeenFontFormat &,
     const XeenPartyState &,const std::vector<std::uint8_t> &,std::size_t,const XeenDialogSpriteDraw &);

@@ -527,8 +527,8 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
         if(pending.continuation==XeenEventPendingContinuation::FallToMap) {
             const auto &fall=*pending.request.fall;
             if(!pending.request.fallDestination) {
-                auto destination=fall.map?XeenCamera{{workingCamera.mapId.side,static_cast<std::uint16_t>(fall.map)},
-                    fall.x,fall.y,workingCamera.direction}:xeenTerrainFallDestination(workingCamera);
+                auto destination=fall.map?XeenCamera{world.nextLoadMap(static_cast<std::uint16_t>(fall.map)),
+                    fall.x,fall.y,workingCamera.direction}:world.terrainFallDestination(workingCamera);
                 try {
                     // Load first, then the DOS bit-4 outdoor edge adjustments: Y before X.
                     // The neutral cell admits the map without treating edge operands as a teleport.
@@ -901,9 +901,6 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 			const bool smith=service->action==1,training=service->action==5,temple=service->action==4;
 			const bool tavern=service->action==3,bank=service->action==0,guild=service->action==2;
             const auto *entrance=xeenEntranceSite(service->action,workingCamera);
-            if(entrance && entrance->side==XeenSide::Clouds && entrance->quest>=35 && partyState.questItems.at(entrance->quest))
-                return error(XeenEventExecutionErrorKind::UnsupportedOperand,
-                    "Darkside-key entrance is not supported yet",instructionCount,logical,decoded.source);
             const bool arena=service->action==6 && workingCamera.mapId==XeenMapIdentity(85);
             const bool pyramid=service->action==12;
 			if ((!publication && !world.detachedEventCandidate()) || (!pyramid && !arena && !entrance && !smith && !training && !temple && !tavern && !bank && !guild) ||
@@ -1945,6 +1942,13 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 			continue;
 		}
 
+        if(const auto *flip=std::get_if<XeenEventFlipWorld>(&decoded.operation)) {
+            if(!world.detachedEventCandidate())return error(XeenEventExecutionErrorKind::UnsupportedExecutionContext,
+                "FlipWorld requires a detached world",instructionCount,logical,decoded.source);
+            world.stageLoadSide(static_cast<XeenSide>(flip->side));
+            ++logical.line;missingPolicy=MissingInstructionPolicy::NaturalCompletion;continue;
+        }
+
         const auto executeTeleport = [&](std::uint8_t mapId,int x,int y,bool continueExecution) -> std::optional<XeenEventExecutionError> {
             // Every teleport here resets the selection, which DOS keeps on the same map
             // (0x270be..0x270c6, 0x2711c) and zeroes on a map load (0xf59a). Only a
@@ -1963,6 +1967,7 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
                 if(!destination.x && !destination.y)destination.x=-1;
                 emitFmEffect(publication,51);
             }
+            if(destination.mapId.number!=workingCamera.mapId.number)destination.mapId=world.nextLoadMap(destination.mapId.number);
             try {
                 const auto transition=world.prepareEventTransition(destination,destination.x==-1);
                 if(!transition)return error(XeenEventExecutionErrorKind::UnsupportedTeleportDestination,transition.reason,instructionCount,logical,decoded.source,

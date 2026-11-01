@@ -38,6 +38,7 @@ XeenJumpPreflight xeenJumpPreflight(XeenWorld &world,const XeenCamera &camera) {
         if(!xeenIndoorCoordinate(x,y))return result;
         result.destination.x=x;result.destination.y=y;
     }
+    if(result.destination.mapId!=camera.mapId)result.destination.mapId=world.nextLoadMap(result.destination.mapId.number);
     if(!world.prepareEventTransition(result.destination))return result;
     result.admission=XeenJumpAdmission::Ready;
     return result;

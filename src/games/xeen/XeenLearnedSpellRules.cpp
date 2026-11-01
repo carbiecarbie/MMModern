@@ -57,7 +57,7 @@ XeenSpellTravel XeenLearnedSpellRules::travel(XeenWorld &world,const XeenCamera 
         }
         const auto admitted=world.prepareEventTransition(to,spell==XeenLearnedSpell::TownPortal && xeenMapResources(camera.mapId).townPortal==XeenSide::Clouds);
         result.unsupported=!admitted;to=admitted.destination;
-        if(!result.unsupported)result.destination=to;
+        if(!result.unsupported) {result.destination=to;result.pendingSide=to.mapId.side;}
         return result;
     }
     if(spell==XeenLearnedSpell::SuperShelter) {result.shelter=true;return result;}
@@ -82,6 +82,7 @@ XeenSpellTravel XeenLearnedSpellRules::travel(XeenWorld &world,const XeenCamera 
     if(map.geometry.isOutdoors()) {
         if(cell) {to.mapId=cell->mapId;to.x=cell->x;to.y=cell->y;}
     } else if(!xeenIndoorCoordinate(to.x,to.y))result.unsupported=true;
+    if(to.mapId!=camera.mapId)to.mapId=world.nextLoadMap(to.mapId.number);
     if(!result.unsupported)result.unsupported=!world.prepareEventTransition(to);
     result.reload=to.mapId!=camera.mapId;
     if(!result.unsupported)result.destination=to;

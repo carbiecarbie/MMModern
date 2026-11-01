@@ -121,6 +121,7 @@ struct XeenEventFallToMap {
 	int map=0,x=0,y=0,damage=0;
 	bool operator==(const XeenEventFallToMap &o) const {return map==o.map && x==o.x && y==o.y && damage==o.damage;}
 };
+struct XeenEventFlipWorld { std::uint8_t side=0; };
 struct XeenEventVoiceCue { std::uint8_t index = 0; };
 struct XeenEventSoundCue { std::uint8_t index = 0; };
 // Presentation-only CD speech operands; the DOS encoding is MMSSFF (75 Hz).
@@ -188,6 +189,7 @@ using XeenDecodedEventOperation = std::variant<
 	XeenEventGotoRandom,
 	XeenEventChooseNumeric,
 	XeenEventFallToMap,
+	XeenEventFlipWorld,
 	XeenEventVoiceCue,
 	XeenEventSoundCue,
 	XeenEventCdSpeech,

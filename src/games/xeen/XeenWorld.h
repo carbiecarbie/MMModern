@@ -256,6 +256,14 @@ public:
 	// Transient developer admission; never serialized or offered by the title.
 	std::optional<XeenMapIdentity> developerEventMap() const noexcept { return _developerEventMap; }
 	bool eventCameraAdmitted(const XeenCamera &) const noexcept;
+	// DOS FlipWorld changes only the side used by the next map load.
+	XeenSide pendingLoadSide() const noexcept { return _pendingLoadSide; }
+	void stageLoadSide(XeenSide side) {
+		if(!detachedEventCandidate() || unsigned(side)>1)throw std::logic_error("Pending side requires a detached world");
+		_pendingLoadSide=side;
+	}
+	XeenMapIdentity nextLoadMap(std::uint16_t number) const noexcept { return {pendingLoadSide(),number}; }
+	XeenCamera terrainFallDestination(const XeenCamera &) const;
 	XeenTransitionResult prepareEventTransition(const XeenCamera &,bool runLocation=false);
 	XeenTerrainArrival prepareTerrainArrival(const XeenCamera &,const XeenPartyLanes<XeenCharacter> &,const XeenGameplayContext &,bool darksideFlag118=false);
 	void publishTerrainArrival(XeenPartyState &,const XeenTerrainArrivalCandidate &,const XeenJourneyRandomState &);
@@ -360,6 +368,7 @@ private:
 	const std::uint64_t _incarnation;
 	std::uint64_t _ownerRevision = 0;
 	std::uint64_t _cacheRevision = 0;
+    XeenMutable<XeenSide> _pendingLoadSide=XeenSide::Clouds; // Transient; normal routes load immediately.
     XeenMutable<std::uint16_t> _mapRuleView=0; // Derived at main-map load; never saved.
 	std::uint64_t _inputMapLoadGeneration = 0; // Platform input only; never saved.
 	XeenGameplayBorrowOwner _gameplayBorrow;

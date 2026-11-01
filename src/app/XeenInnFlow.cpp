@@ -100,14 +100,17 @@ void XeenEncounterFlow::innReturn() {
         XeenRestoreGuard guard(*candidate,p,camera,flags);
         XeenRestoreGuard::EventProviders providers(*candidate,p,camera,flags,guard,[&]{_journeyPreimage->check();},[&]{_journeyPreimage->failed=true;});
         candidate->discardMapCache();
-        flags=candidate->loadEventDestination(camera.mapId,camera.mapId,true,flags);
+        const auto from=camera.mapId;camera.mapId=candidate->nextLoadMap(from.number);
+        const auto admitted=candidate->prepareEventTransition(camera);
+        if(!admitted)throw std::runtime_error(admitted.reason);
+        flags=candidate->loadEventDestination(from,camera.mapId,true,flags);
         events=_travelEventsProvider(camera.mapId);_journeyPreimage->check();
         arrival=candidate->prepareTransitionArrival(camera);
     }
     auto prepared=std::make_shared<XeenRestoreGuard>(_world,_party,_camera,_flags);
-    prepared->retainResources(*_journeyPreimage);prepared->prepareSpellMapPublication(*candidate);prepared->flagValues=flags.values();
+    prepared->retainResources(*_journeyPreimage);prepared->prepareSpellMapPublication(*candidate);prepared->flagValues=flags.values();prepared->cameraValue=camera;
     _world.checkTransitionTreasure(*candidate);_journeyPreimage->check();
-    _flags=flags;_world.publishTransition(*candidate);_journeyEvents=std::move(events);
+    _flags=flags;_world.publishTransition(*candidate);_camera=camera;_journeyEvents=std::move(events);
     ++_generation;prepared->adoptMutationBoundary();_journeyPreimage.swap(prepared);
     auto cleared=_world.treasureStaging().value();cleared.clearPending();
     _journeyPreimage->prepareStagingPublication(cleared);
@@ -120,21 +123,27 @@ void XeenEncounterFlow::reloadServiceMap() {
     if(_camera.mapId.side!=XeenSide::Darkside)return;
     _journeyPreimage->check();
     auto candidate=_world.transitionCandidate();XeenPartyState party;candidate->copyEventParty(_party,party);
-    auto camera=_camera;auto flags=_flags;
+    auto camera=_camera;auto flags=_flags;XeenEventFile events;
     {
         XeenRestoreGuard guard(*candidate,party,camera,flags);
         XeenRestoreGuard::EventProviders providers(*candidate,party,camera,flags,guard,[&]{_journeyPreimage->check();},[&]{_journeyPreimage->failed=true;});
         candidate->discardMapCache();
-        flags=candidate->loadEventDestination(camera.mapId,camera.mapId,true,flags);
+        const auto from=camera.mapId;camera.mapId=candidate->nextLoadMap(from.number);
+        const auto admitted=candidate->prepareEventTransition(camera);
+        if(!admitted)throw std::runtime_error(admitted.reason);
+        flags=candidate->loadEventDestination(from,camera.mapId,true,flags);
+        if(camera.mapId!=_camera.mapId) {events=_travelEventsProvider(camera.mapId);_journeyPreimage->check();}
     }
     auto &visit=_smith?_smith->departure:_training->departure;
     auto departure=std::make_unique<XeenServiceDayCandidate>(visit->rebindRandom(*candidate->sessionState().journeyRandom()));
     auto prepared=std::make_shared<XeenRestoreGuard>(_world,_party,_camera,_flags);
-    prepared->retainResources(*_journeyPreimage);prepared->prepareSpellMapPublication(*candidate);prepared->flagValues=flags.values();
+    prepared->retainResources(*_journeyPreimage);prepared->prepareSpellMapPublication(*candidate);prepared->flagValues=flags.values();prepared->cameraValue=camera;
     _world.checkTransitionTreasure(*candidate);_journeyPreimage->check();
     if(_program.audio)_program.audio->requestMap(camera.mapId,candidate->map(camera.mapId).geometry,candidate->sessionState().darksideSong(),
         _nanosecondClock?(*_nanosecondClock)():PresentationClock::fromMilliseconds(_clock()),223);
-    _flags=flags;_world.publishTransition(*candidate);visit.swap(departure);
+    _flags=flags;_world.publishTransition(*candidate);
+    if(camera.mapId!=_camera.mapId)_journeyEvents=std::move(events);
+    _camera=camera;visit.swap(departure);
     if(_smith) {*_smith->binding=SmithDepartureBinding(*visit);_smith->mapReloaded=true;}
     else _training->mapReloaded=true;
     ++_generation;prepared->adoptMutationBoundary();_journeyPreimage.swap(prepared);
@@ -211,7 +220,7 @@ std::shared_ptr<const DialogInput> XeenEventFlow::innInput() const {
     if(_innUi->phase==InnUi::Phase::Closing || _innUi->phase==InnUi::Phase::Opening)
         input.anyKey=input.anyClick=input.keyMouseWait=true;
     else if(_innUi->phase==InnUi::Phase::Menu) {
-        const auto ids=xeenInnList(_party,_camera.mapId,_innUi->townOnly);
+        const auto ids=xeenInnList(_party,_camera.mapId,_innUi->townOnly,_world.pendingLoadSide());
         const auto rows=ids.size()-std::min(ids.size(),_innUi->top);
         if(_innUi->edit==InnUi::Edit::DeleteSelect)input=xeenInnDeleteInput(rows);
         else if(_innUi->edit==InnUi::Edit::DeleteConfirm)input=xeenConfirmInput(false);
@@ -230,7 +239,7 @@ IndexedFrame XeenEventFlow::renderInn(bool cosmetic) {
         const bool closing=ui.phase==InnUi::Phase::Closing || ui.phase==InnUi::Phase::Closed;
         auto frame=closing?ui.closing:ui.opening.isValid()?ui.opening:loadInnScreen(_party);
         if(ui.phase==InnUi::Phase::Menu || (opening && !ui.opening.isValid())) {
-            const auto ids=xeenInnList(_party,_camera.mapId,ui.townOnly);
+            const auto ids=xeenInnList(_party,_camera.mapId,ui.townOnly,_world.pendingLoadSide());
             if(!ui.opening.isValid())frame=drawXeenInn(dosText(),frame,_inventoryFont,_party,ids,ui.top,drawDialogSprite);
             if(opening)ui.opening=frame;
             else ui.opening={};
@@ -322,7 +331,7 @@ IndexedFrame XeenEventFlow::handleInn(const PlayerAction &action) {
     if(ui.edit==InnUi::Edit::DeleteSelect) {
         if(key==InputKey::Escape)ui.edit=InnUi::Edit::None;
         else if(key>='1' && key<='4') {
-            const auto list=xeenInnList(_party,_camera.mapId,ui.townOnly);const auto row=ui.top+key-'1';
+            const auto list=xeenInnList(_party,_camera.mapId,ui.townOnly,_world.pendingLoadSide());const auto row=ui.top+key-'1';
             if(row>=list.size())return frameCopy();
             ui.selected=list[row];const auto &c=_party.roster.at(*ui.selected);
             ui.edit=InnUi::Edit::None;
@@ -350,18 +359,18 @@ IndexedFrame XeenEventFlow::handleInn(const PlayerAction &action) {
         handleInventory(InspectInventoryAction{});_inventory.source=key-InputKey::F1;_inventory.sourceOwner=ids[_inventory.source];
         _sheet.emplace();_sheet->deadline=PresentationClock::afterMilliseconds(_clock(),4);_itemsVisible=false;
     } else if(key>='1' && key<='4') {
-        const auto list=xeenInnList(_party,_camera.mapId,_innUi->townOnly);const auto row=ui.top+key-'1';
+        const auto list=xeenInnList(_party,_camera.mapId,_innUi->townOnly,_world.pendingLoadSide());const auto row=ui.top+key-'1';
         if(row>=list.size() || std::find(ids.begin(),ids.end(),list[row])!=ids.end())return frameCopy();
         if(ids.size()==6){_encounter->fmEffect(21);ui.feedback=dosText().scalar("INN_FULL");}
         else {ids.push_back(list[row]);if(_encounter->innMembership(_encounter->ticket(),ids))changed();}
     } else if(key==InputKey::Up) {if(ui.top>=4)ui.top-=4;}
-    else if(key==InputKey::Down) {if(ui.top+4<xeenInnList(_party,_camera.mapId,ui.townOnly).size())ui.top+=4;}
+    else if(key==InputKey::Down) {if(ui.top+4<xeenInnList(_party,_camera.mapId,ui.townOnly,_world.pendingLoadSide()).size())ui.top+=4;}
     else if(key=='r')ui.remove=!ids.empty();
     else if(key=='c') {
-        if(xeenInnList(_party,_camera.mapId,ui.townOnly).size()>=24)ui.feedback=dosText().scalar("CREATE_ROSTER_FULL");
+        if(xeenInnList(_party,_camera.mapId,ui.townOnly,_world.pendingLoadSide()).size()>=24)ui.feedback=dosText().scalar("CREATE_ROSTER_FULL");
         else return beginCreate();
     }
-    else if(key=='d') {if(!xeenInnList(_party,_camera.mapId,ui.townOnly).empty())ui.edit=InnUi::Edit::DeleteSelect;}
+    else if(key=='d') {if(!xeenInnList(_party,_camera.mapId,ui.townOnly,_world.pendingLoadSide()).empty())ui.edit=InnUi::Edit::DeleteSelect;}
     else if(key=='e' || key=='x' || key==InputKey::Escape || key==InputKey::Space) {
         if(ids.empty())ui.feedback=dosText().scalar("INN_NO_MEMBERS");
         else {

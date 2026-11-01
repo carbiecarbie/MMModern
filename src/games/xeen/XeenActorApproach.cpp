@@ -553,6 +553,7 @@ XeenEncounterResult XeenActorApproach::regionalTransition(XeenWorld &world,XeenP
                         result=XeenMovement().apply(world,c.camera,navigation,XeenMovement::capabilities(party));
                         if(door && result==XeenMovementResult::Moved) {xeenEmitFmEffect(effect,47);c.openDoor=true;}
                         if(c.camera.mapId!=camera.mapId) {
+                            c.camera.mapId=world.nextLoadMap(c.camera.mapId.number);
                             const auto admitted=world.prepareEventTransition(c.camera);check();
                             if(!admitted) {refused.arrivalRefusal="Destination is not supported yet";return refused;}
                             c.destinationWorld=world.transitionCandidate();

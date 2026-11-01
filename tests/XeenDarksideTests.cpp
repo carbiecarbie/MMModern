@@ -23,10 +23,15 @@
 #include <map>
 #include "games/xeen/XeenMovement.h"
 #include "games/xeen/XeenJourneyCapture.h"
+#include "games/xeen/XeenJumpRules.h"
+#include "games/xeen/XeenTerrainRules.h"
+#include "games/xeen/XeenEventTrigger.h"
 
 using namespace training_test;
 namespace mmodern {
 struct XeenEventDispatchTestAccess {
+ static std::string travelName(const XeenEventFlow &f,unsigned i){return f._travelUi->names.at(i);}
+ static void reload(XeenEventFlow &f){f._encounter->innReturn();f._encounterFrame=f._encounter->ticket();}
  static std::optional<unsigned> fallImage(const XeenEventFlow &f){return f._fallSequence?std::optional<unsigned>{f._fallSequence->image}:std::nullopt;}
  static unsigned fallOops(const XeenEventFlow &f){return f._fallSequence?f._fallSequence->oops:0;}
  static std::optional<int> fallDamage(const XeenEventFlow &f){return f._pending && f._pending->state.pendingPresentation->request.fall?std::optional<int>{f._pending->state.pendingPresentation->request.fall->damage}:std::nullopt;}
@@ -85,6 +90,18 @@ struct Live {
   flow->dialogText=&in.assets.uiText();
   flow->drawDialogSprite=[&](auto &frame,const char *name,unsigned index,int x,int y){in.assets.drawDialogSprite(frame,name,index,x,y,xeenDialogSpriteArchive(c.mapId,name));};
   flow->loadSampleDuration=[&](const char *name,XeenSceneArchive archive){return xeenVocDurationNanoseconds(in.assets.readArchiveResource(name,archive));};
+  flow->drawEntranceSprite=[&](auto &frame,const char *name,unsigned index,int x,int y,int scale){in.assets.drawDialogSprite(frame,name,index,x,y,xeenMapResources(c.mapId).ambient,scale);};
+  flow->loadEntranceCaption=[&](unsigned action,bool keyed){
+   const auto bytes=in.assets.readArchiveResource("special.bin",xeenMapResources(c.mapId).ambient);
+   const auto record=xeenEntranceCaptionRecord(action,keyed,c.mapId.side);std::size_t start=0;
+   for(unsigned i=0;i<record;++i){while(bytes.at(start))++start;++start;}
+   auto end=start;while(bytes.at(end))++end;return std::string(bytes.begin()+start,bytes.begin()+end);
+  };
+  flow->drawEntranceCaption=[&](auto &frame,const std::string &text){
+   in.assets.drawDialogSprite(frame,"box.vga",0,36,189,xeenMapResources(c.mapId).ambient);
+   XeenTextRenderOptions options;options.originalControls=true;options.bounds={0,0,320,200};
+   frame=XeenTextRenderer(in.font).render(frame,std::string("\f35\3c\v190\t000")+text,options).pages.front();
+  };
   flow->mapName=[&](auto id){return in.assets.mapName(id);};
   flow->loadSpellDescriptions=[&]{return in.assets.readArchiveResource("spldesc.bin",xeenMapResources(c.mapId).ambient);};
   flow->drawSmithArt=[&](auto &image){in.assets.drawSmith(image,xeenMapResources(c.mapId).ambient);};
@@ -133,11 +150,13 @@ XeenSaveSnapshot at(Inputs &in,XeenSaveSnapshot s,const XeenCamera &camera) {
 }
 void arrivalMusic(Live &live,const XeenJourneyRandomState &before) {
  XeenCombatRandom expected(before);
- if(live.c.mapId.side==XeenSide::Darkside) {
+ if(xeenMapResources(live.c.mapId).music==XeenMapMusic::DarksideRandom) {
   const auto song=7*xeenMapMusicRow(live.w.map(live.c.mapId).geometry)+expected.range(0,6);
   check(live.w.sessionState().darksideSong()==song,"Arrival picked the wrong DOS music row/column");
- }else check(!live.w.sessionState().darksideSong(),"Clouds arrival retained Darkside song");
+ }else check(!live.w.sessionState().darksideSong(),"Fixed-song arrival retained Darkside song");
  check(live.w.sessionState().journeyRandom()==expected.continuation(),"Arrival music draw count/state differs");
+ XeenCombatRandom next(*live.w.sessionState().journeyRandom());
+ check(next.range(1,100)==expected.range(1,100) && next.continuation()==expected.continuation(),"Crossing shifted the next Journey draw");
 }
 void pyramid(Inputs &in,const GameInstallation &installation,const XeenSaveSnapshot &source,const std::filesystem::path &out) {
  const std::array<XeenCamera,8> sites{{{3,5,8,XeenDirection::North},{10,10,11,XeenDirection::North},
@@ -281,20 +300,21 @@ void music(Inputs &in,const GameInstallation &installation,const XeenSaveSnapsho
   }
  }
 }
-void refusals(Inputs &in,const XeenSaveSnapshot &source,const std::filesystem::path &out) {
- unsigned deferredKeys=0;
+void keyedEntrances(Inputs &in,const XeenSaveSnapshot &source,const std::filesystem::path &out) {
+ unsigned heldKeys=0;
  for(const auto &site:xeenEntranceSites())if(site.side==XeenSide::Clouds && site.quest>=35) {
   bool found=false;
   for(const auto &e:in.events.load(site.map).records)if(e.opcode==17 && e.line==0 && e.parameters==std::vector<std::uint8_t>{std::uint8_t(site.action)}) {
    XeenCamera at{site.map,e.x,e.y,e.direction<4?XeenDirection(e.direction):XeenDirection::North};
    if(xeenEntranceSite(site.action,at)!=&site)continue;
    auto s=source;s.camera=at;s.darksideSong.reset();s.questItems[site.quest]=1;s=quiet(in,s);
-   std::cout<<"Refusal site "<<s.camera.x<<','<<s.camera.y<<'\n';Live live(in,s);std::string reason;live.flow->reportManual=[&](const auto &r){if(const auto *error=std::get_if<XeenEventExecutionError>(&r))reason=error->message;};
-   live.act(InteractionAction{});check(reason.find("not supported yet")!=std::string::npos,"Held Darkside key did not refuse before its scene");live.unchanged(s);found=true;break;
+   std::cout<<"Keyed entrance site "<<s.camera.x<<','<<s.camera.y<<'\n';Live live(in,s);std::string reason;live.flow->reportManual=[&](const auto &r){if(const auto *error=std::get_if<XeenEventExecutionError>(&r))reason=error->message;};
+   live.act(InteractionAction{});live.settle();check(reason.empty(),reason.c_str());
+   check(xeen_state::sameCamera(live.c,site.destination),"Held shared key did not enter its mixed map");found=true;break;
   }
-  check(found,"Missing original Darkside-key entrance site");++deferredKeys;
+  check(found,"Missing original Darkside-key entrance site");++heldKeys;
  }
- check(deferredKeys==4,"Deferred key entrance inventory changed");
+ check(heldKeys==4,"Shared key entrance inventory changed");
 
 }
 // Original records are loaded from the installation, then isolated from their
@@ -1024,6 +1044,260 @@ void pyramidCombatAudio(Inputs &in,const GameInstallation &installation,const st
  }
 }
 
+void mixedRefusals(Inputs &in,const XeenSaveSnapshot &source) {
+ using Side=XeenSide;using D=XeenDirection;
+ unsigned refusals=0;
+ for(unsigned map=113;map<=128;++map)for(const auto &r:in.events.load({Side::Darkside,std::uint16_t(map)}).records) {
+  if(r.opcode!=50 && !(map==116 && r.opcode==12 && r.parameters.size()>2 && r.parameters[2]==103))continue;
+  if(r.opcode==12) {
+   const auto decoded=std::get<XeenDecodedEventInstruction>(XeenEventDecoder::decode(r));
+   if(std::get<XeenEventTakeOrGive>(decoded.operation).second.value<XeenWorldFlags::kCount)continue;
+  }
+  const XeenMapIdentity id{Side::Darkside,std::uint16_t(map)};XeenWorld query(in.mapLoader(),in.objectLoader());
+  const auto mob=in.maps.loadObjects(in.assets,id);std::optional<XeenCamera> floor;
+  for(int y=1;y<15 && !floor;++y)for(int x=1;x<15 && !floor;++x)for(unsigned d=0;d<4 && !floor;++d) {
+   const auto cell=query.sampleCell(id,x,y);if(!cell || unsupportedManualSpecialInteraction(*cell->cell,D(d)))continue;
+   const auto surface=cell->geometry->surfaceTypes[cell->cell->surfaceIndex];
+   if((cell->cell->rawAttributes&kXeenAutomaticEventFlag) || cell->cell->rawWord==0x8888 || surface==10 || surface==13 || surface==15)continue;
+   if(std::any_of(mob.entities.objects.begin(),mob.entities.objects.end(),[&](const auto &o){return o.x==x && o.y==y;}))continue;
+   floor=XeenCamera{id,x,y,D(d)};
+  }
+  check(bool(floor),"No ordinary floor for the refusal notice probe");const auto c=*floor;
+  // Keep the original opcode/operands/map. Isolate this capability on an
+  // ordinary floor so a door/grate cannot swallow the manual input first.
+  auto record=r;record.direction=4;record.x=c.x;record.y=c.y;record.line=0;
+  XeenEventFile script{c.mapId,"original mixed refusal probe",true,{record}};
+  const auto s=at(in,source,c);Live f(in,s,&script);std::string reason;
+  f.flow->reportManual=[&](const auto &result){if(const auto *error=std::get_if<XeenEventExecutionError>(&result))reason=error->message;};
+  f.act(InteractionAction{false});
+  if(reason.empty())std::cerr<<"Missing refusal map="<<map<<" EVT @"<<r.fileOffset<<" cell="<<unsigned(r.x)<<','<<unsigned(r.y)<<" line="<<unsigned(r.line)<<'\n';
+  check(!reason.empty(),"Census refusal disappeared without classification");
+  notice(f.flow->frame(),in.font,"This Event is not supported yet");f.settle();f.unchanged(s);
+  std::cout<<"Refusal map="<<map<<" EVT @"<<r.fileOffset<<" opcode="<<unsigned(r.opcode)<<": "<<reason<<'\n';++refusals;
+ }
+ check(refusals==3,"Mixed runtime-refusal census changed");
+}
+
+// Original maps and live input; synthetic Event rows only exercise pending states
+// the four original FlipWorld routes cannot leave behind (Part 0 evidence).
+void mixedTravel(Inputs &in,const GameInstallation &installation,const XeenSaveSnapshot &source,const std::filesystem::path &out) {
+ using D=XeenDirection;using Side=XeenSide;using R=XeenLearnedSpellRules;
+ const auto row=[](const XeenCamera &c,unsigned line,unsigned op,std::vector<std::uint8_t> p={}) {
+  XeenEventRecord r;r.x=c.x;r.y=c.y;r.direction=4;r.line=line;r.opcode=op;r.parameters=std::move(p);r.lengthField=5+r.parameters.size();return r;
+ };
+ const auto audio=[&](Live &f,unsigned mode) {if(mode<2){f.program.audio=XeenAudio::installed(installation,in.assets,0,false);f.program.audio->observeOptions(f.p.soundOptions);}};
+ const auto cast=[](Live &f,S spell) {f.act(CastSpellAction{});f.act(SelectMemberAction{0});f.key('c');};
+ const auto mage=[](XeenSaveSnapshot &s,S spell) {s.journey->context->effects[XeenPartyEffect::Levitate]=200;auto &c=s.characters[s.activeRosterIds[0]];c.weapons={};c.armor={};c.accessories={};c.characterClass=spell==S::TownPortal?XeenCharacterClass::Cleric:XeenCharacterClass::Sorcerer;c.hasSpells=true;c.currentSp=1000;c.permanentLevel=50;c.learnedSpells.emplace();c.learnedSpells->fill(0);c.currentSpell=*R::slotForSpell(spell==S::TownPortal?XeenSpellCategory::Clerical:XeenSpellCategory::Wizardry,unsigned(spell));c.learnedSpells->at(c.currentSpell)=1;};
+ const auto saved=[&](const XeenCamera &c) {return at(in,source,c);};
+ const auto exact=[&](Live &f) {const auto s=f.snapshot();Live restored(in,s);check(XeenSaveFormat::encode(restored.snapshot())==XeenSaveFormat::encode(s),"Mixed travel exact restore replayed state");};
+ for(unsigned side=0;side<2;++side) {const auto decoded=XeenEventDecoder::decode(row({28,5,5,D::North},0,59,{std::uint8_t(side)}));check(std::get<XeenEventFlipWorld>(std::get<XeenDecodedEventInstruction>(decoded).operation).side==side,"FlipWorld operand decoded as a toggle");}
+ for(const auto &parameters:std::vector<std::vector<std::uint8_t>>{{},{0,1},{2}})check(std::holds_alternative<XeenEventDecodeError>(XeenEventDecoder::decode(row({28,5,5,D::North},0,59,parameters))),"Invalid FlipWorld operand admitted");
+ // All original keyed entrance rows, both outcomes and all audio states.
+ for(const auto &site:xeenEntranceSites())if(site.side==Side::Clouds && site.quest>=35) {
+  const auto events=in.events.load(site.map);
+  const auto e=std::find_if(events.records.begin(),events.records.end(),[&](const auto &r){return r.opcode==17 && r.line==0 && r.parameters==std::vector<std::uint8_t>{std::uint8_t(site.action)};});
+  check(e!=events.records.end(),"Missing original cross-side entrance");
+  const XeenCamera start{site.map,e->x,e->y,e->direction<4?D(e->direction):D::North};
+  for(bool keyed:{false,true})for(unsigned mode=0;mode<3;++mode) {
+   std::cout<<"Entrance "<<site.map<<" key="<<keyed<<" audio="<<mode<<std::endl;
+   auto s=at(in,saved(site.destination),start);s.questItems[site.quest]=keyed?256:0;s.soundOptions.music=mode!=1;s.soundOptions.efx=mode==0;s.journey->context->lightAndResistances[0]=200;
+   Live f(in,s);audio(f,mode);unsigned loads=0,settlements=0;
+   f.flow->observeEventInputClear=[&](auto pc,const auto &){if(pc==0xf590)++loads;};
+   f.flow->reportManual=[&](const auto &r){if(const auto *e=std::get_if<XeenEventExecutionError>(&r))throw std::runtime_error(e->message);if(std::holds_alternative<XeenManualEventCompleted>(r))++settlements;};
+   f.act(InteractionAction{false});f.settle();
+   check(xeen_state::sameCamera(f.c,keyed?site.destination:start) && loads==1 && settlements==1,"Keyed entrance outcome/load/settlement differs");
+   check(f.w.pendingLoadSide()==f.c.mapId.side && !XeenEventDispatchTestAccess::inputPassPending(*f.flow),"Entrance did not reset pending side/input");
+   check(f.p.encounterContext->minutes==s.journey->context->minutes && f.p.encounterContext->day==s.journey->context->day && f.p.encounterContext->year==s.journey->context->year,"Entrance charged game/service time");
+   if(keyed && mode==2)picture(f.flow->frame(),out/("m104b-entrance-"+std::to_string(site.map)+".ppm"));
+   exact(f);
+   if(keyed) {
+    const auto backEvents=in.events.load(site.destination.mapId);
+    const auto flip=std::find_if(backEvents.records.begin(),backEvents.records.end(),[](const auto &r){return r.opcode==59;});
+    check(flip!=backEvents.records.end(),"Keyed entrance has no original return");
+    auto returning=at(in,f.snapshot(),{site.destination.mapId,flip->x,flip->y,D::South});
+    Live back(in,returning);audio(back,mode);const auto random=*back.w.sessionState().journeyRandom();
+    unsigned clears=0;back.flow->observeEventInputClear=[&](auto pc,const auto &){if(pc==0xf590)++clears;};
+    back.act(InteractionAction{false});back.act(YesAction{});back.settle();
+    const auto n=site.destination.mapId.number;
+    const XeenCamera expected=n==113?XeenCamera{7,11,0,D::South}:n==117?XeenCamera{13,10,5,D::East}:n==121?XeenCamera{19,3,4,D::South}:XeenCamera{2,11,9,D::South};
+    check(xeen_state::sameCamera(back.c,expected) && clears==1,"Original mixed return/input clear differs");
+    arrivalMusic(back,random);exact(back);
+   }
+  }
+ }
+ // The unused Darkside map-19 row is a table rule, never an invented live route.
+ const auto *unused=xeenEntranceSite(9,{{Side::Darkside,19},3,4,D::North});
+ XeenQuestItems::Counts keys{};keys[50]=1;
+ check(unused && xeenEntranceDestination(*unused,{{Side::Darkside,19},3,4,D::North},XeenQuestItems(keys)).mapId==XeenMapIdentity(Side::Darkside,121),"Unused generic entrance row changed");
+ // Original Portal names and every target from each Portal selector.
+ for(unsigned map:{125u,128u})for(unsigned town=1;town<=5;++town)for(unsigned mode=0;mode<3;++mode) {
+  std::cout<<"Portal "<<map<<" town="<<town<<" audio="<<mode<<std::endl;
+  const Side side=map==125?Side::Clouds:Side::Darkside;
+  constexpr unsigned maps[]{4,19,22,6,98};constexpr int xs[]{14,5,2,8,2},ys[]{11,12,15,11,6};constexpr D ds[]{D::South,D::West,D::East,D::North,D::North};
+  XeenCamera to=map==125?XeenCamera{27+town,0,0,D::West}:XeenCamera{{side,std::uint16_t(maps[town-1])},xs[town-1],ys[town-1],ds[town-1]};
+  if(map==125) {const auto g=in.maps.loadGeometryMap(in.assets,to.mapId).geometry;to.x=std::int8_t(g.runX);to.y=std::int8_t(g.runY);}
+  auto s=at(in,saved(to),{{Side::Darkside,std::uint16_t(map)},map==125?5:3,map==125?9:13,D::West});mage(s,S::TownPortal);s.soundOptions.music=mode!=1;
+  Live f(in,s);audio(f,mode);const auto inputGeneration=f.w.inputMapLoadGeneration();
+  cast(f,S::TownPortal);
+  for(unsigned i=1;i<=5;++i)check(XeenEventDispatchTestAccess::travelName(*f.flow,i-1)==in.assets.mapName(R::townPortalMap(side,i)),"Portal dialog names/selector differ");
+  const auto random=*f.w.sessionState().journeyRandom();f.key('0'+town);f.key(InputKey::Enter);f.settle();
+  check(xeen_state::sameCamera(f.c,to) && f.w.inputMapLoadGeneration()==inputGeneration+1,"Mixed Portal arrival/input clear differs");arrivalMusic(f,random);
+  check(f.p.encounterContext->minutes==s.journey->context->minutes+(f.w.map(to.mapId).geometry.isOutdoors()?10:1),"Portal elapsed time differs");exact(f);
+ }
+ // Beacon Set/default/Return retains the actual side, including fixed-song maps.
+ for(unsigned n=113;n<=128;++n) {
+  const XeenCamera start{{Side::Darkside,std::uint16_t(n)},n==128?3:5,n==128?13:5,D::North};
+  auto s=saved(start);s.gameFlags[256+118]=true;mage(s,S::LloydsBeacon);auto &caster=s.characters[s.activeRosterIds[0]];caster.lloydMap=0;
+  Live f(in,s);cast(f,S::LloydsBeacon);check(f.p.roster.at(s.activeRosterIds[0]).lloydMap==29 && f.p.roster.at(s.activeRosterIds[0]).lloydSide==1,"Mixed Beacon default used Portal/art side");f.key('s');f.settle();
+  const auto &c=f.p.roster.at(s.activeRosterIds[0]);check(c.lloydSide==1 && c.lloydMap==n && c.lloydX==start.x && c.lloydY==start.y,"Mixed Beacon Set stored the art/Portal side");
+  const auto random=*f.w.sessionState().journeyRandom();const auto generation=f.w.inputMapLoadGeneration();
+  cast(f,S::LloydsBeacon);f.key('r');f.settle();check(xeen_state::sameCamera(f.c,start) && f.w.inputMapLoadGeneration()==generation && f.w.sessionState().journeyRandom()==random,"Same-map Beacon reloaded/drew music");
+  // Pure admission probes cover restrictions for every original map.
+  const auto &g=f.w.map(start.mapId).geometry;
+  check(!R::travel(f.w,f.c,S::TownPortal,0,nullptr,false).failed && !R::travel(f.w,f.c,S::LloydsBeacon,0,&c,false).failed,"Mixed Portal/Beacon restriction");
+  if(g.flags&0x1000)check(R::travel(f.w,f.c,S::Teleport,1,nullptr,false).failed,"Mixed Teleport restriction differs");
+  const auto expected=xeenTerrainFallDestination(start);
+  check(expected.mapId==(n==128?XeenMapIdentity(8):XeenMapIdentity(Side::Darkside,29)) && expected.x==(n==128?11:25) && expected.y==(n==128?15:21) && expected.direction==D::North,"Mixed terrain fall table differs");
+  check(!xeenTerrainArrival(10,false,false,false,start,true).falling,"Flag118 did not suppress mixed fall");
+ }
+ // The initial Beacon dialog installs the actual-side default. Return from the
+ // other side must reload the mixed map, with its own music selector.
+ for(unsigned map:{125u,128u})for(unsigned mode=0;mode<3;++mode) {
+  const XeenCamera target{{Side::Darkside,std::uint16_t(map)},map==125?5:3,map==125?9:13,D::East};
+  auto s=at(in,saved(target),{28,20,20,D::East});mage(s,S::LloydsBeacon);s.soundOptions.music=mode!=1;
+  auto &c=s.characters[s.activeRosterIds[0]];c.lloydMap=map;c.lloydSide=1;c.lloydX=target.x;c.lloydY=target.y;
+  Live f(in,s);audio(f,mode);const auto random=*f.w.sessionState().journeyRandom();cast(f,S::LloydsBeacon);f.key('r');f.settle();
+  check(xeen_state::sameCamera(f.c,target) && f.w.pendingLoadSide()==Side::Darkside,"Cross-side mixed Beacon Return failed");arrivalMusic(f,random);exact(f);
+ }
+ // Every mixed map's Teleport flag and Jump wall checks through live casting.
+ for(unsigned n=113;n<=128;++n) {
+  const XeenMapIdentity id{Side::Darkside,std::uint16_t(n)};XeenWorld query(in.mapLoader(),in.objectLoader());const auto &g=query.map(id).geometry;const auto events=in.events.load(id);
+  std::optional<XeenCamera> from;XeenCamera to;
+  for(int y=1;y<14 && !from;++y)for(int x=1;x<14 && !from;++x)for(unsigned d=0;d<4 && !from;++d) {
+   const XeenCamera c{id,x,y,D(d)};const auto jump=xeenJumpPreflight(query,c);
+   if(jump.admission!=XeenJumpAdmission::Ready)continue;
+   if(std::any_of(events.records.begin(),events.records.end(),[&](const auto &r){return (r.x==x && r.y==y) || (r.x==jump.destination.x && r.y==jump.destination.y);}))continue;
+   from=c;to=jump.destination;
+  }
+  check(bool(from),"Mixed map has no original open Jump corridor");
+  for(S spell:{S::Jump,S::Teleport}) {
+   auto s=saved(*from);s.gameFlags[256+118]=true;mage(s,spell);Live f(in,s);const auto random=*f.w.sessionState().journeyRandom();cast(f,spell);
+   const bool blocked=spell==S::Teleport && (g.flags&0x1000);
+   if(spell==S::Teleport && !blocked){f.key('2');f.key(InputKey::Enter);}f.settle();
+   check(xeen_state::sameCamera(f.c,blocked?*from:to),"Mixed Teleport/Jump live restriction/destination differs");
+   check(f.p.encounterContext->minutes==s.journey->context->minutes+1 && f.w.sessionState().journeyRandom()==random,"Same-map spell elapsed time/RNG differs");
+  }
+ }
+ // No mixed EVT contains FallToMap. Synthetic rows therefore prove its generic
+ // table selection, damage/Oops presentation and flag118 without inventing a route.
+ unsigned terrainWitnesses=0;
+ for(unsigned n=113;n<=128;++n) {
+  const XeenCamera start{{Side::Darkside,std::uint16_t(n)},5,5,D::West};const auto expected=xeenTerrainFallDestination(start);
+  std::optional<std::vector<std::uint8_t>> fallBaseline;
+  for(bool suppress:{false,true})for(unsigned mode=0;mode<(suppress?1u:3u);++mode) {
+   auto s=at(in,saved(expected),start);s.gameFlags[256+118]=suppress;s.journey->context->effects[XeenPartyEffect::PowerShield]=0;
+   s.soundOptions.music=mode!=1;
+   // A suppressed Fall restarts at line zero too. Guard this synthetic probe
+   // once, as a real conditional script would, rather than constructing a loop.
+   s.gameFlags[256+200]=false;
+   XeenEventFile script{start.mapId,"mixed scripted fall table",true,{row(start,0,9,{20,200,3}),row(start,1,12,{0,0,20,200}),row(start,2,52,{0,0,0,7}),row(start,3,18)}};
+   Live f(in,s,&script);audio(f,mode);std::string reason;f.flow->reportManual=[&](const auto &r){if(const auto *e=std::get_if<XeenEventExecutionError>(&r))reason=e->message;};
+   f.act(InteractionAction{false});if(!suppress)check(XeenEventDispatchTestAccess::fallOops(*f.flow)==4,"Scripted mixed fall omitted Oops");f.settle();
+   check(reason.empty(),reason.c_str());check(xeen_state::sameCamera(f.c,suppress?start:expected),"Mixed scripted fall table/flag118 differs");
+   if(!suppress)check(f.p.roster.at(s.activeRosterIds[0]).currentHp<s.characters[s.activeRosterIds[0]].currentHp,"Scripted mixed fall omitted damage");
+   if(!suppress) {auto final=f.snapshot();final.soundOptions=s.soundOptions;final.soundOptions.music=true;const auto bytes=XeenSaveFormat::encode(final);
+    if(fallBaseline)check(bytes==*fallBaseline,"Mixed fall audio changed Journey draws/time/damage");else fallBaseline=bytes;}
+  }
+  const auto g=in.maps.loadGeometryMap(in.assets,start.mapId).geometry;const auto events=in.events.load(start.mapId);
+  for(unsigned cell=0;cell<256;++cell) {
+   const auto type=g.surfaceTypes[g.cells[cell].surfaceIndex];if(type!=10 && type!=13)continue;
+   if(std::any_of(events.records.begin(),events.records.end(),[&](const auto &r){return r.x==cell%16 && r.y==cell/16;}))continue;
+   const XeenCamera floor{start.mapId,int(cell%16),int(cell/16),D::West};
+   for(bool suppress:{false,true}) {
+    auto s=at(in,saved(expected),floor);s.gameFlags[256+118]=suppress;s.journey->context->effects[XeenPartyEffect::Levitate]=0;s.journey->context->effects[XeenPartyEffect::PowerShield]=0;
+    Live f(in,s);f.act(WaitAction{});f.settle();check(xeen_state::sameCamera(f.c,suppress?floor:expected),"Original mixed terrain fall/flag118 differs");
+   }
+   ++terrainWitnesses;break;
+  }
+ }
+ check(terrainWitnesses>0,"No original mixed terrain-fall witness");
+ // Traced pending states are synthetic, running through the ordinary Event owner.
+ const XeenCamera start{{Side::Darkside,29},14,4,D::North};
+ XeenEventFile flip{start.mapId,"pending-side cases",true,{row(start,0,59,{0}),row(start,1,12,{0,0,20,255}),row(start,2,24,{0,0}),row(start,3,7,{29,14,4})}};
+ auto s=saved(start);mage(s,S::LloydsBeacon);auto &c=s.characters[s.activeRosterIds[0]];c.lloydMap=29;c.lloydX=14;c.lloydY=4;c.lloydSide=1;
+ Live pending(in,s,&flip);const auto random=*pending.w.sessionState().journeyRandom();const auto generation=pending.w.inputMapLoadGeneration();
+ std::string pendingError;pending.flow->reportManual=[&](const auto &r){if(const auto *e=std::get_if<XeenEventExecutionError>(&r))pendingError=e->message;};
+ pending.act(InteractionAction{false});pending.settle();
+ check(pendingError.empty(),pendingError.c_str());
+ check(pending.w.pendingLoadSide()==Side::Clouds,"FlipWorld pending side was not published");
+ check(pending.c.mapId==start.mapId,"Same-number pending teleport changed logical camera");
+ check(pending.f.isSet(Side::Darkside,255) && pending.f.isSet(Side::Clouds,255)==s.gameFlags[255],"FlipWorld changed logical flag bank");
+ check(pending.w.sessionState().journeyRandom()==random && pending.w.inputMapLoadGeneration()==generation,"Same-number Event teleport loaded/drew music");
+ bool refused=false;try{XeenSaveState::capture(in.signature,pending.p,pending.c,pending.f,pending.w);}catch(const std::logic_error &e){refused=std::string(e.what()).find("not supported yet")!=std::string::npos;}
+ check(refused && pending.flow->canSave(),"Pending Save was not safely refused");
+ XeenGameplayServices saveServices{pending.program,{}, {},{}, {},{},in.font,{},{},{},{}};
+ bool wrote=false;refused=false;
+ try {xeenSaveGameplay(saveServices,pending.w,pending.p,pending.c,pending.f,*pending.flow,out/"pending-must-not-save.mmsave",
+  [](auto &,const auto &,const auto &,const auto &){throw std::runtime_error("Pending Save reached preflight");},nullptr,
+  [&](const auto &,const auto &){wrote=true;});}
+ catch(const std::logic_error &e){refused=std::string(e.what()).find("not supported yet")!=std::string::npos;}
+ check(refused && !wrote && pending.flow->canSave() && pending.w.pendingLoadSide()==Side::Clouds,"Gameplay Save failed to preserve the running pending state");
+ cast(pending,S::LloydsBeacon);pending.key('r');pending.settle();
+ check(pending.w.pendingLoadSide()==Side::Darkside && pending.w.inputMapLoadGeneration()==generation,"Same-map Beacon failed to overwrite pending side without loading");
+ // A refused destination discards the complete pending-side candidate.
+ auto bad=flip;bad.records.back()=row(start,3,7,{200,1,1});Live rejected(in,s,&bad);std::string reason;
+ rejected.flow->reportManual=[&](const auto &r){if(const auto *e=std::get_if<XeenEventExecutionError>(&r))reason=e->message;};
+ rejected.act(InteractionAction{false});rejected.settle();check(reason.find("not supported yet")!=std::string::npos && rejected.w.pendingLoadSide()==Side::Darkside,"Refused transition published pending side");rejected.unchanged(s);
+ // The next real same-map reload uses P and resets it on the destination side.
+ Live reload(in,s,&flip);reload.act(InteractionAction{false});reload.settle();XeenEventDispatchTestAccess::reload(*reload.flow);
+ check(reload.c.mapId==XeenMapIdentity(29) && reload.w.pendingLoadSide()==Side::Clouds,"Reload ignored pending side");
+ // Roster filtering reads P while lodging still uses the current map number.
+ XeenPartyState roster;for(unsigned i=0;i<2;++i){auto &c=roster.roster.at(i);c.name="Lodged";c.savedMaze=29;c.xeenSide=i;}
+ check(xeenInnList(roster,start.mapId,false,Side::Clouds)==std::vector<std::uint8_t>{0} && xeenInnList(roster,start.mapId,false,Side::Darkside)==std::vector<std::uint8_t>{1},"Roster did not filter on pending side");
+ // Accepted Portal and entrance outcomes explicitly overwrite P.
+ {
+  auto portalSave=s;mage(portalSave,S::TownPortal);portalSave=at(in,portalSave,{{Side::Darkside,4},14,11,D::South});portalSave=at(in,portalSave,start);
+  Live f(in,portalSave,&flip);f.act(InteractionAction{false});f.settle();check(f.w.pendingLoadSide()==Side::Clouds,"Portal precondition lost pending flip");
+  cast(f,S::TownPortal);f.key('1');f.key(InputKey::Enter);f.settle();check(f.c.mapId==XeenMapIdentity(Side::Darkside,4) && f.w.pendingLoadSide()==Side::Darkside,"Portal did not overwrite pending side");
+ }
+ for(bool keyed:{false,true}) {
+  const auto original=in.events.load(2);const auto e=std::find_if(original.records.begin(),original.records.end(),[](const auto &r){return r.opcode==17 && r.parameters==std::vector<std::uint8_t>{11};});check(e!=original.records.end(),"Missing Sphinx entrance");
+  const XeenCamera from{2,e->x,e->y,e->direction<4?D(e->direction):D::North};auto entrance=*e;entrance.line=1;
+  XeenEventFile script{from.mapId,"pending entrance override",true,{row(from,0,59,{std::uint8_t(keyed?0:1)}),entrance}};
+  auto save=at(in,saved({{Side::Darkside,125},7,6,D::North}),from);save.questItems[51]=keyed?1:0;
+  Live f(in,save,&script);f.act(InteractionAction{false});f.settle();check(f.w.pendingLoadSide()==(keyed?Side::Darkside:Side::Clouds) && f.c.mapId==(keyed?XeenMapIdentity(Side::Darkside,125):XeenMapIdentity(2)),"Entrance did not overwrite pending side");
+ }
+ // A subsequent scripted fall uses P, retaining the nonzero-map facing.
+ {
+  auto save=at(in,saved({29,5,5,D::North}),start);
+  XeenEventFile script{start.mapId,"pending fall",true,{row(start,0,59,{0}),row(start,1,52,{29,5,5,7})}};
+  Live f(in,save,&script);f.act(InteractionAction{false});f.settle();check(xeen_state::sameCamera(f.c,{29,5,5,D::North}) && f.w.pendingLoadSide()==Side::Clouds,"Scripted fall ignored pending side/facing");
+ }
+ // Original outdoor neighbor numbers are resolved on the current map; the
+ // next main-map load selects that number from the pending archive.
+ {
+  XeenWorld query(in.mapLoader(),in.objectLoader());std::optional<XeenCamera> from;XeenCamera to;
+  for(unsigned map=1;map<=24 && !from;++map)for(unsigned d=0;d<4 && !from;++d)for(int cell=1;cell<15 && !from;++cell) {
+   XeenCamera c{{Side::Darkside,std::uint16_t(map)},d==1?15:d==3?0:cell,d==0?15:d==2?0:cell,D(d)};if(!query.map(c.mapId).geometry.isOutdoors())continue;
+   auto target=c;XeenMovement::Capabilities skills;skills.swimming=skills.walkOnWater=skills.mountaineer=skills.pathfinder=true;
+   if(XeenMovement().apply(query,target,NavigationAction::MoveForward,skills)!=XeenMovementResult::Moved || target.mapId==c.mapId)continue;
+   target.mapId={Side::Clouds,target.mapId.number};
+   try {
+    const auto a=query.sampleCell(c.mapId,c.x,c.y),b=query.sampleCell(target.mapId,target.x,target.y);if(!a || !b)continue;
+    const auto safe=[](auto cell){const auto t=cell->geometry->surfaceTypes[cell->cell->surfaceIndex];return t!=10 && t!=13 && t!=15;};if(!safe(a) || !safe(b))continue;
+    const auto events=in.events.load(target.mapId);if(std::any_of(events.records.begin(),events.records.end(),[&](const auto &r){return r.x==target.x && r.y==target.y;}))continue;
+    from=c;to=target;
+   }catch(const std::runtime_error &){}
+  }
+  check(bool(from),"No original cross-archive boundary witness");auto save=at(in,saved(to),*from);for(auto owner:save.activeRosterIds)save.characters[owner].skills.fill(1);
+  XeenEventFile script{from->mapId,"pending boundary",true,{row(*from,0,59,{0}),row(*from,1,24,{0,0}),row(*from,2,18)}};
+  Live f(in,save,&script);f.act(InteractionAction{false});f.settle();const auto random=*f.w.sessionState().journeyRandom();f.act(NavigationAction::MoveForward);f.settle();
+  check(xeen_state::sameCamera(f.c,to) && f.w.pendingLoadSide()==Side::Clouds,"Boundary ignored pending side");arrivalMusic(f,random);
+ }
+ mixedRefusals(in,source);
+ std::cout<<"M104 Part B entrances, returns, Portal, Beacon and pending-side cases passed\n";
+}
+
 void mixedApplicationAudio(Inputs &in,const GameInstallation &installation,const XeenSaveSnapshot &s,unsigned mode) {
  XeenProgramState program{XeenWallClock::fixed(0)};if(mode<2)program.audio=XeenAudio::installed(installation,in.assets,0,false);
  CloudsMapComposer composer;std::uint64_t now=0;XeenWorld *world=nullptr;const XeenPartyState *party=nullptr;const XeenCamera *camera=nullptr;unsigned shows=0,validated=0,expectedValidation=0;XeenEventFlow *flow=nullptr;
@@ -1169,7 +1443,10 @@ void mixedMaps(Inputs &in,const GameInstallation &installation,const XeenSaveSna
    live.flow->reportManual=[&](const auto &result){if(const auto *error=std::get_if<XeenEventExecutionError>(&result))refusal=error->message;};
    live.act(InteractionAction{false});live.act(YesAction{});live.settle();
    std::cout<<"Flip "<<n<<": "<<refusal<<std::endl;
-   check(refusal.find("opcode 59")!=std::string::npos && live.c.mapId==id,"Part A implemented or hid the original FlipWorld refusal");
+   const XeenCamera expected=n==113?XeenCamera{7,11,0,XeenDirection::South}:n==117?XeenCamera{13,10,5,XeenDirection::East}:
+    n==121?XeenCamera{19,3,4,XeenDirection::South}:XeenCamera{2,11,9,XeenDirection::South};
+   check(refusal.empty() && xeen_state::sameCamera(live.c,expected),"Original FlipWorld return failed");
+   check(live.w.pendingLoadSide()==XeenSide::Clouds,"FlipWorld return retained the wrong pending side");
   }
   if(n==113 || n==124 || n==125) {
    auto s=preset;bool found=false;XeenWorld query(in.mapLoader(),in.objectLoader());
@@ -1232,16 +1509,17 @@ void mixedMaps(Inputs &in,const GameInstallation &installation,const XeenSaveSna
 }
 int main(int argc,char **argv) {
  try {
-  check(argc==3 || (argc==4 && (std::string(argv[3])=="partb" || std::string(argv[3])=="partc" || std::string(argv[3])=="mixed")),"usage: darkside-tests <installation> <output-directory> [partb|partc]");const auto installation=xeenTestInstallationDetector().detect(argv[1]);check(bool(installation),"Missing original installation");
+  check(argc==3 || (argc==4 && (std::string(argv[3])=="partb" || std::string(argv[3])=="partc" || std::string(argv[3])=="mixed" || std::string(argv[3])=="mixed-travel")),"usage: darkside-tests <installation> <output-directory> [partb|partc]");const auto installation=xeenTestInstallationDetector().detect(argv[1]);check(bool(installation),"Missing original installation");
   const std::filesystem::path out=std::string(argv[2])=="temporary"?std::filesystem::temp_directory_path()/"mmodern-m104-frames":std::filesystem::path(argv[2]);std::filesystem::create_directories(out);const auto save=std::filesystem::temp_directory_path()/("mmodern-m101-"+std::to_string(std::chrono::steady_clock::now().time_since_epoch().count())+".mmsave");
   std::cout<<"Preset: "<<save<<'\n';
   developer::generateTestSave(*installation,"m101-castleview",save);Inputs in(*installation);const auto preset=XeenSaveFile::read(save);
   check(preset.camera.mapId==XeenMapIdentity(XeenSide::Darkside,29),"Wrong Castleview preset");
   if(argc==4 && std::string(argv[3])=="partc"){partCEvents(in,quiet(in,preset),out);return 0;}
+  if(argc==4 && std::string(argv[3])=="mixed-travel"){mixedTravel(in,*installation,preset,out);return 0;}
   if(argc==4 && std::string(argv[3])=="mixed"){mixedMaps(in,*installation,preset,out);return 0;}
   partBEvents(in,quiet(in,preset),out);if(argc==4)return 0;
   partCEvents(in,quiet(in,preset),out);
-  enchantedLivePublication(in,quiet(in,preset),out);partAEvents(in,quiet(in,preset),out);characterEvents(in,quiet(in,preset));resources(in);std::cout<<"Resources verified\n";const auto s=quiet(in,preset);music(in,*installation,s);std::cout<<"Music verified\n";refusals(in,s,out);forcedText(in,s,out);
+  enchantedLivePublication(in,quiet(in,preset),out);partAEvents(in,quiet(in,preset),out);characterEvents(in,quiet(in,preset));resources(in);std::cout<<"Resources verified\n";const auto s=quiet(in,preset);music(in,*installation,s);std::cout<<"Music verified\n";keyedEntrances(in,s,out);forcedText(in,s,out);
   pyramid(in,*installation,s,out);saveExport(in,*installation,s,out);originalRoute(in,*installation,out);pyramidCombatAudio(in,*installation,out);
   panelAndDefeat(in,*installation,s,out,4);
   for(unsigned mode=0;mode<3;++mode)panelAndDefeat(in,*installation,s,out,mode);
@@ -1253,6 +1531,6 @@ int main(int argc,char **argv) {
   Live castleview(in,s);picture(castleview.flow->frame(),out/"castleview.ppm");
   auto outdoors=s;outdoors.camera={{XeenSide::Darkside,1},8,8,XeenDirection::North};outdoors.darksideSong=0;outdoors=quiet(in,outdoors);
   Live landscape(in,outdoors);picture(landscape.flow->frame(),out/"darkside-outdoors.ppm");
-  std::cout<<"113 ordinary Darkside maps, Pyramid and side travel, exact save/DOS export, Wizard/defeat and deferred-entrance refusals passed\n";return 0;
+  std::cout<<"113 ordinary Darkside maps, Pyramid and side travel, exact save/DOS export, Wizard/defeat and shared-key entrances passed\n";return 0;
  }catch(const std::exception &e){std::cerr<<"Darkside tests: "<<e.what()<<'\n';return 1;}
 }

@@ -108,6 +108,7 @@ void XeenSaveState::restoreJourney(const XeenSaveSnapshot &source, const Resourc
 	XeenCamera c = snapshot.camera;
 	XeenGameFlags f(snapshot.gameFlags);
 	XeenWorld w(world._baseLoader,world._baseObjectLoader);
+    w._pendingLoadSide=c.mapId.side;
 	for (unsigned i = 0; i < 30; ++i) p.roster.at(i) = snapshot.characters[i];
 	p.party = XeenParty::fromRosterIds(snapshot.activeRosterIds);
 	p.insideInn=snapshot.insideInn;p.food=snapshot.food; p.soundOptions=snapshot.soundOptions;
@@ -324,6 +325,7 @@ XeenSaveSnapshot XeenSaveState::capture(const XeenSaveResourceSignature &resourc
 		XeenPartyState &party, const XeenCamera &camera,
 		const XeenGameFlags &flags, const XeenWorld &world) {
     if(!canCapture(party,camera,world))throw std::logic_error("MMModern save: encounter sessions cannot be captured");
+    if(world.pendingLoadSide()!=camera.mapId.side)throw std::logic_error("Saving with a pending world side is not supported yet");
     settleDismissedLodging(party,camera,flags,world);
     return captureImpl(resources,party,camera,flags,world,false);
 }
@@ -362,6 +364,7 @@ XeenSaveSnapshot XeenSaveState::captureInitialized(const XeenSaveResourceSignatu
 XeenSaveSnapshot XeenSaveState::captureImpl(const XeenSaveResourceSignature &resources,
 		const XeenPartyState &party, const XeenCamera &camera,
 		const XeenGameFlags &flags, const XeenWorld &world, bool initializing) {
+	if(world.pendingLoadSide()!=camera.mapId.side)throw std::logic_error("Saving with a pending world side is not supported yet");
 	if (world.developerEventMap()) throw std::logic_error("Saving is disabled in the Event developer session");
 	// Reject an unrelated flag owner before observing the bound graph's integrity.
 	const auto authority = world._journeyCapture.lock();

@@ -170,7 +170,7 @@ std::optional<IndexedFrame> XeenEventFlow::updateCreate() {
     } else if(ui.phase==InnUi::Phase::FadeFromCreate) {
         if(!_encounter->prepareJourneyFrame(_encounter->ticket(),[&] {
             ui.opening=loadInnScreen(_party);
-            ui.opening=drawXeenInn(dosText(),ui.opening,_inventoryFont,_party,xeenInnList(_party,_camera.mapId),0,drawDialogSprite);
+            ui.opening=drawXeenInn(dosText(),ui.opening,_inventoryFont,_party,xeenInnList(_party,_camera.mapId,false,_world.pendingLoadSide()),0,drawDialogSprite);
         }))throw std::runtime_error("Create return preparation failed");
         ui.phase=InnUi::Phase::FadeInInn;ui.fade=0;
     } else if(ui.phase==InnUi::Phase::FadeInCreate) {ui.phase=InnUi::Phase::Create;}
@@ -195,7 +195,7 @@ IndexedFrame XeenEventFlow::handleCreate(const PlayerAction &action) {
         if(key==8 || key==InputKey::Left){c.name.backspace();c.name.keyRedraw();return renderCreate();}
         if(key!=InputKey::Enter && key!=InputKey::Escape)return frameCopy();
         if(key==InputKey::Enter && !c.name.value().empty()) {
-            auto record=xeenCreatedCharacter(c.slots.at(c.slot),c.name.value(),*c.committed,c.attributes,_camera.mapId,*_party.encounterContext);
+            auto record=xeenCreatedCharacter(c.slots.at(c.slot),c.name.value(),*c.committed,c.attributes,{_world.pendingLoadSide(),_camera.mapId.number},*_party.encounterContext);
             if(!_encounter->innRecord(*_encounterFrame,std::move(record.first),std::move(record.second),_party.party.activeRosterIds()))return frameCopy();
             _encounterFrame=_encounter->ticket();
             if(!restartCreate()){saveCreateReturn();return renderCreate();}

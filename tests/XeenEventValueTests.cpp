@@ -216,7 +216,7 @@ struct World {
  XeenObjectFile (*objects)(XeenMapIdentity);XeenWorld source;std::unique_ptr<XeenWorld> w;
  World(XeenMapIdentity id=47,std::uint32_t seed=7,XeenObjectFile (*o)(XeenMapIdentity)=mob):objects(o),source{tile,o} {
   source.markEncounterSession(XeenEncounterEntry::Journey);XeenTrainingTestAccess::seed(source,seed);
-  w=source.transitionCandidate();std::vector<XeenMonsterRecord> stats(9);
+  w=source.transitionCandidate();w->stageLoadSide(id.side);std::vector<XeenMonsterRecord> stats(9);
   for(auto &s:stats){s.raw[20]=20;s.raw[24]=1;s.raw[25]=16;s.raw[26]=1;s.raw[28]=2;}
   w->stageMapMonsters(objects(id),stats);
  }
@@ -311,7 +311,7 @@ void darksidePartB() {
   };
   const auto objects=[](XeenMapIdentity map){return XeenObjectFile{map,"empty.mob",true,{}};};
   XeenWorld source(maps,objects);source.markEncounterSession(XeenEncounterEntry::Journey);XeenTrainingTestAccess::seed(source);
-  auto world=source.transitionCandidate();world->stageMapMonsters(objects(id),std::vector<XeenMonsterRecord>(1));
+  auto world=source.transitionCandidate();world->stageLoadSide(id.side);world->stageMapMonsters(objects(id),std::vector<XeenMonsterRecord>(1));
   auto p=party();XeenGameFlags flags;
   XeenEventFile start{id,"edge fall",true,{row(0,52,{49,std::uint8_t(negative?255:17),std::uint8_t(negative?255:16),0})}};
   const XeenMapIdentity to{XeenSide::Darkside,51};

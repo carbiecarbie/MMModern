@@ -48,6 +48,7 @@ void xeenSaveGameplay(const XeenGameplayServices &services, XeenWorld &world, Xe
  const std::function<void(const XeenSaveSnapshot &,const std::function<void()> &)> &writer, std::optional<XeenSaveSnapshot> *captured) {
 	if (!flow.canSave() || !XeenSaveState::canCapture(party,camera,world))
 		throw std::logic_error("Save boundary is unavailable");
+	if(world.pendingLoadSide()!=camera.mapId.side)throw std::logic_error("Saving with a pending world side is not supported yet");
 	auto snapshot = captured && *captured ? **captured : XeenSaveState::capture(services.resources.signature,party,camera,flags,world);
     const auto *cameraMap=snapshot.find(camera.mapId);
     if((!cameraMap || !cameraMap->monsters) &&
@@ -531,6 +532,7 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
     if (flow.inventoryOpen()) message = "Cannot save while inventory is open. Close it and press F9 again.";
     else if (!flow.canSave()) message = "Cannot save while an interaction is pending.";
     else if (!flow.journey()) message = "Map exploration cannot save.";
+    else if(world.pendingLoadSide()!=camera.mapId.side) message="Saving with a pending world side is not supported yet";
     else if (services.saveUnavailable) message = std::string("Saving is ") + services.saveUnavailable + ".";
     else if (!looseTarget) message = "No developer save target configured. Use --save-file <path>.";
     else try {

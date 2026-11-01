@@ -191,7 +191,7 @@ void events(Census &c,const std::vector<XeenEventRecord> &records,XeenMapIdentit
             const auto site=xeenEntranceSite(r.parameters[0],{id,r.x,r.y,XeenDirection::North});
             if(site && site->quest>=35)
                 c.add("Map features","Entrance action="+std::to_string(site->action)+" keyed quest item="+std::to_string(site->quest),
-                    {Status::Partial,"Event quest item is outside the Clouds items"},id.number);
+                    support,id.number);
         }
         if(support.service)for(const auto key:xeenLocationInput(*support.service).keys) {
             if(const auto refusal=xeenLocationUnsupportedAction(*support.service,key))

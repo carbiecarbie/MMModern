@@ -350,6 +350,11 @@ XeenEventDecodeResult XeenEventDecoder::decode(const XeenEventRecord &record,
 		for(unsigned i=1;i<count;++i)op.lines.push_back(static_cast<std::int8_t>(record.parameters[i]));
 		return instruction(record,context,std::move(op));
 	}
+	case 59:
+		if(record.parameters.size()!=1)return wrongSize(record,context,1);
+		if(record.parameters[0]>1)return makeError(record,context,XeenEventDecodeErrorKind::UnsupportedOperand,
+			"FlipWorld side outside 0..1 is not supported yet");
+		return instruction(record,context,XeenEventFlipWorld{record.parameters[0]});
 	case 52: {
 		if(record.parameters.size()<3)return wrongSize(record,context,3);
 		if(record.parameters.size()>4)return wrongSize(record,context,4);

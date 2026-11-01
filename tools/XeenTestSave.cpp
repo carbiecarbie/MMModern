@@ -199,8 +199,13 @@ std::optional<std::uint16_t> mixedMapPreset(const std::string &preset) {
 }
 
 void prepare(XeenSaveSnapshot &snapshot,const std::string &preset) {
+    if(preset=="m104-entrance") {
+        prepare(snapshot,"m78-playtest");snapshot.camera={2,0,0,XeenDirection::North};
+        snapshot.questItems[51]=1;snapshot.journey->context->lightAndResistances[0]=200;snapshot.headCache.reset();snapshot.darksideSong.reset();return;
+    }
     if(const auto map=mixedMapPreset(preset)) {
         prepare(snapshot,"m78-playtest");snapshot.camera={{XeenSide::Darkside,*map},0,0,XeenDirection::North};
+        snapshot.journey->context->lightAndResistances[0]=200;
         snapshot.headCache.reset();snapshot.darksideSong.reset();return;
     }
     if(const auto *spot=m103TextSpot(preset)) {
@@ -708,7 +713,7 @@ void prepare(XeenSaveSnapshot &snapshot,const std::string &preset) {
 
 void generateTestSave(const GameInstallation &installation,const std::string &preset,
         const std::filesystem::path &output) {
-    if (!mixedMapPreset(preset) && preset!="m102-playtest" && !m102Spot(preset) && !m103TextSpot(preset) && preset!="m101-pyramid-clouds" && preset!="m101-pyramid-darkside" && preset!="m101-castleview" && preset!="m98-load" && preset!="m98-inn" && preset!="m97-open-chest" && preset!="m96-chest" && preset!="m95-witch-skull" && preset!="m92-lord-xeen" && preset!="m92-sixth-mirror" && !m90Spot(preset) && preset!="m89-lord-xeen" && preset!="m89-clan-king" && preset!="m89-draco" && preset!="m89-dragons" && preset!="m89-trolls" && preset!="m88-roster" && preset!="m87-inn" && preset!="m87-three" && preset!="m87-shangrila" && preset!="broken-armor" && preset!="train-ready" && preset!="injured-dead" && preset!="poisoned" && preset!="monster-control" && preset!="monster-damage" && preset!="party-healing" && preset!="m76-spells" && preset!="combat-items" && preset!="m78-playtest" && preset!="m78-one-holder" && preset!="m79-playtest" && preset!="m80-playtest" && preset!="m80-arena" && preset!="m80-arena-maxed" && preset!="m81-drops" && preset!="m81-fullpacks" && preset!="m81-event" && preset!="m84-playtest-trap" && preset!="m84-playtest-label" && preset!="m84-playtest-save" && preset!="m85-playtest-label" && preset!="m85-playtest-run" && preset!="m85-playtest-trap" && preset!="m86-playtest-fall" && preset!="m86-playtest-moon-ray" && preset!="m86-playtest-border")
+    if (preset!="m104-entrance" && !mixedMapPreset(preset) && preset!="m102-playtest" && !m102Spot(preset) && !m103TextSpot(preset) && preset!="m101-pyramid-clouds" && preset!="m101-pyramid-darkside" && preset!="m101-castleview" && preset!="m98-load" && preset!="m98-inn" && preset!="m97-open-chest" && preset!="m96-chest" && preset!="m95-witch-skull" && preset!="m92-lord-xeen" && preset!="m92-sixth-mirror" && !m90Spot(preset) && preset!="m89-lord-xeen" && preset!="m89-clan-king" && preset!="m89-draco" && preset!="m89-dragons" && preset!="m89-trolls" && preset!="m88-roster" && preset!="m87-inn" && preset!="m87-three" && preset!="m87-shangrila" && preset!="broken-armor" && preset!="train-ready" && preset!="injured-dead" && preset!="poisoned" && preset!="monster-control" && preset!="monster-damage" && preset!="party-healing" && preset!="m76-spells" && preset!="combat-items" && preset!="m78-playtest" && preset!="m78-one-holder" && preset!="m79-playtest" && preset!="m80-playtest" && preset!="m80-arena" && preset!="m80-arena-maxed" && preset!="m81-drops" && preset!="m81-fullpacks" && preset!="m81-event" && preset!="m84-playtest-trap" && preset!="m84-playtest-label" && preset!="m84-playtest-save" && preset!="m85-playtest-label" && preset!="m85-playtest-run" && preset!="m85-playtest-trap" && preset!="m86-playtest-fall" && preset!="m86-playtest-moon-ray" && preset!="m86-playtest-border")
         throw std::invalid_argument("Unknown test-save preset: "+preset);
     const auto target=XeenSaveFile::resolve(output,installation);
     // Reuse the native alias/reparse-aware path guard for the repository too.
@@ -718,6 +723,27 @@ void generateTestSave(const GameInstallation &installation,const std::string &pr
     Inputs inputs(installation);
     auto candidate=inputs.fresh();
     prepare(candidate,preset);
+    if(preset=="m104-entrance" || mixedMapPreset(preset)) {
+        // The first original member is a Paladin with the full clerical book.
+        // Select Portal so the maintainer can check it with C, F1, C.
+        candidate.characters[candidate.activeRosterIds[0]].currentSpell=
+            *XeenLearnedSpellRules::slotForSpell(XeenSpellCategory::Clerical,unsigned(XeenLearnedSpell::TownPortal));
+    }
+    if(preset=="m104-entrance") {
+        bool found=false;
+        for(const auto &e:inputs.events.load(2).records)if(e.opcode==17 && e.parameters==std::vector<std::uint8_t>{11}) {
+            candidate.camera={2,e.x,e.y,e.direction<4?XeenDirection(e.direction):XeenDirection::North};found=true;break;
+        }
+        if(!found)throw std::runtime_error("Missing original Southern Sphinx entrance");
+        for(auto id:{XeenMapIdentity(2),XeenMapIdentity(XeenSide::Darkside,125)}) {
+            const auto actors=XeenActorApproach::actorsFromResources(inputs.maps.loadObjects(inputs.assets,id),inputs.resources.monsterStatistics(xeenMapResources(id).monsterTable));
+            auto &table=candidate.map(id).monsters;table=XeenSaveMonsterTable{std::uint16_t(actors.size()),{}};
+            for(const auto &a:actors) {
+                if(a.lifecycle==XeenActorLifecycle::Present)table->slots.push_back({-128,-128,XeenActorLifecycle::Defeated,XeenActorStatus::Physical,true,-1});
+                else table->slots.push_back({a.x,a.y,a.lifecycle,a.status,false,-1});
+            }
+        }
+    }
     if((preset=="monster-control" || preset=="monster-damage" || preset=="party-healing" || preset=="m76-spells")) {
         const auto actors=XeenActorApproach::actorsFromResources(inputs.maps.loadObjects(inputs.assets,28),inputs.resources.loadMonsterStatistics());
         auto &table=candidate.map(28).monsters;
@@ -873,6 +899,7 @@ void generateTestSave(const GameInstallation &installation,const std::string &pr
         for(unsigned pass=0;pass<2 && !found;++pass)for(int cell=0;cell<256 && !found;++cell) {
             const int x=cell%16,y=cell/16;
             const auto type=geometry.surfaceTypes[geometry.cells[cell].surfaceIndex];
+            if(geometry.cells[cell].rawWord==0x8888)continue; // Solid indoor sentinel is not a preset floor.
             if(type==10 || type==15 || type==5 || (type==13 && !pass))continue;
             found=std::none_of(mob.entities.monsters.begin(),mob.entities.monsters.end(),[&](const auto &a){return a.isActive() && a.x==x && a.y==y;}) &&
                 std::none_of(events.records.begin(),events.records.end(),[&](const auto &e){return e.x==x && e.y==y;});
