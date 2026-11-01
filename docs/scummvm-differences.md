@@ -27,6 +27,16 @@ unchanged apart from its version number, so the earlier entries are marked
 intro at startup. Ordinary Darkside play uses the shared World state; its
 town services work; the Pyramid and travel spells cross sides.
 
+M106 Part 0 establishes these additional DOS contracts; implementation is
+pending Parts A/B. Pin: differs; master not rechecked. These static
+findings are confirmed by a DOSBox capture.
+
+- **Ending mirror words.** [Preserve completion and position](original-quirks.md#sv-m106-mirror-completion), while still saving before hand-off; the pin marks Clouds/Darkside complete.
+- **World ending variant.** [Always state zero for the win and mirror](original-quirks.md#sv-m106-world-state); the pin chooses from the first qualifying member's awards.
+- **Ending saves.** [One save before playback, none on the Darkside score page](original-quirks.md#sv-m106-save-boundary); the pin saves on that page.
+- **Darkside movie input and timing.** [No animation skipping, keyboard-only score pages](original-quirks.md#sv-m106-ending-input-timing), with original BIOS waits; the pin accepts mouse/skipping and changes some waits.
+- **Darkside speaking mouths.** [EXE random draws](original-quirks.md#sv-m106-ending-mouths), rather than the pin's host-time cycle.
+
 Two additional DOS state rules were established by
 [M104 Part 0](rules/evidence.md#mixed-world-of-xeen-maps-m104-part-0).
 The travel owners follow these rules. Neither state persists through the

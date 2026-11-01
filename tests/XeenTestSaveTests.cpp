@@ -15,6 +15,7 @@
 #include <fstream>
 #include <iostream>
 #include "TestTreeRemoval.h"
+#include "tools/XeenDosExport.h"
 
 using namespace mmodern;
 using save_test::check;
@@ -67,6 +68,52 @@ void preset(const GameInstallation &installation,const std::string &name,const f
     check(flow.prepareJourneyFrame(flow.ticket(),[]{}) && flow.presentJourney(flow.ticket()),"restored preset is not quiet");
     const auto captured=XeenSaveState::capture(inputs.signature,party,camera,flags,world);
     check(XeenSaveFormat::encode(saved)==XeenSaveFormat::encode(captured),"restore replayed or changed state");
+    if(name.rfind("m106-",0)==0) {
+        const auto expected=name=="m106-alamar"?XeenCamera{{XeenSide::Darkside,51},2,13,XeenDirection::South}:
+            name=="m106-world"?XeenCamera{{XeenSide::Darkside,129},13,14,XeenDirection::North}:
+            name=="m106-clouds-mirror"?XeenCamera{28,14,10,XeenDirection::East}:XeenCamera{{XeenSide::Darkside,53},9,8,XeenDirection::East};
+        check(save_test::sameCamera(camera,expected),"M106 capture start");
+        const auto exported=developer::projectDosSave(installation,saved,"M106 capture");
+        const auto member=[&](const char *resource)->const std::vector<std::uint8_t>& {
+            for(const auto &m:exported.darkside)if(m.name==resource)return m.bytes;
+            throw std::runtime_error("Missing exported member");
+        };
+        const auto &chr=member("maze.chr"),&pty=member("maze.pty");
+        const auto roster=XeenCharacterFormat::parseRoster(chr);
+        auto dosCamera=XeenCharacterFormat::parsePartyLocation(pty);
+        dosCamera.mapId.side=XeenSide(member("maze.nam")[29]);
+        check(save_test::sameCamera(dosCamera,expected),"M106 exported placement");
+        check(pty[606]==0 && pty[607]==0 && pty[608]==0 && pty[609]==0,"M106 export cannot claim either completion");
+        check(saved.gameFlags[256+115]==(name=="m106-mirror") &&
+            bool(pty[691+115/8]&(0x80>>(115%8)))==(name=="m106-mirror"),"M106 mirror activation flag in saved/exported party");
+        for(auto owner:party.party.activeRosterIds()) {
+            const auto &c=party.roster.at(owner),&d=roster.at(owner);
+            const XeenCharacterRulesContext rules{party.encounterContext->year};
+            const int hp=XeenCharacterRules::maxHp(c,rules),sp=XeenCharacterRules::maxSp(c,rules);
+            check(c.permanentLevel==200 && c.temporaryLevel==0 && c.canAct(),"M106 healthy level-200 party");
+            check(hp>0 && hp<=32767 && sp>=0 && sp<=32767 && c.currentHp==hp && c.currentSp==sp,"M106 full representable HP/SP");
+            check(d.permanentLevel==200 && d.currentHp==hp && d.currentSp==sp &&
+                XeenCharacterRules::maxHp(d,rules)==hp && XeenCharacterRules::maxSp(d,rules)==sp,"M106 DOS decoded maxima and current HP/SP");
+            check(d.weapons[0].material==58 && d.armor[0].material==58 &&
+                d.weapons[0].frame!=0 && d.armor[0].frame!=0,"M106 exported equipped Obsidian gear");
+            const auto combat=XeenCharacterFormat::parseCombatInputs(chr,owner,true,true,true);
+            check(combat.might.permanent==100 && combat.speed.permanent==100 && combat.accuracy.permanent==100 &&
+                d.intellect.permanent==100 && d.personality.permanent==100 && d.endurance.permanent==100,"M106 byte attributes survive DOS projection");
+            for(unsigned award=61;award<=64;++award)check(d.awards[award]==(name=="m106-world"?1:0),"M106 exported Sleeper awards");
+            std::cout<<"M106 member "<<unsigned(owner)<<" level "<<d.permanentLevel<<" HP "<<hp<<" SP "<<sp<<'\n';
+        }
+        for(unsigned item=0;item<85;++item) {
+            const unsigned value=(name=="m106-alamar" && item==78) || (name=="m106-world" && (item==8 || item==53));
+            check(saved.questItems[item]==value && pty[747+item]==value,"M106 stored/exported route quest counters");
+        }
+        const auto events=inputs.events.load(expected.mapId);
+        check(std::any_of(events.records.begin(),events.records.end(),[&](const auto &e) {
+            return name=="m106-alamar"?(e.x==2 && e.y==13 && e.direction==0 && e.opcode==57):
+                name=="m106-world"?(e.x==13 && e.y==15 && e.opcode==58):
+                (e.x==(name=="m106-clouds-mirror"?14:9) && e.y==(name=="m106-clouds-mirror"?10:8) && e.direction==3 && e.opcode==21 && e.parameters[0]==0);
+        }),"M106 original ending/mirror Event exists at the capture destination");
+        return;
+    }
     if(name.rfind("m102-",0)==0) {
         check(camera.mapId.side==XeenSide::Darkside && saved.darksideSong.has_value(),"M102 side and selected song");
         check(party.purse->gold==5000000 && party.purse->gems==50000 && party.food==1,"M102 service purse and Food deficit");

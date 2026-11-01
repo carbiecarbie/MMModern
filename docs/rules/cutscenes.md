@@ -551,3 +551,215 @@ The complete-program timing test answers page one at capture-aligned 252.0 s
 and page two at 255.7 s. These are fixed test inputs, not claims about the
 recorded player's exact key-down timestamps. The final numeric field is
 formatted to ten characters from the outcome; title replay supplies 1234567890.
+
+## Darkside and World win entry and save
+
+**DOS static, high within the cited paths (M106 Part 0, 2026-11-01).**
+Same installed CD hashes and M92 calibration; [evidence](evidence.md#m106-part-0).
+The maintainer's DOSBox capture (2026-11-01) confirms the saved state below
+([capture](evidence.md#m106-dosbox-capture)). These are original rules, not
+claims that the current engine implements these endings.
+
+Original map 51 (`maze0051.evt`) reaches opcode 57 at `(2,13)` North,
+record `@378`, line 16. The approach at `(2,5)` clears levitation (SetVar 84),
+changes its line 0 to DoNothing, then TeleportAndContinue chains up `(2,6)`
+through `(2,13)` (`@126..236`). At the destination, SetChar 0 selects everyone;
+If2 item ID 160 tests quest counter 78, **Soul Box with Corak inside**
+(`@245..252`). Without it, the text/voice "You Fools!" path gives Dead (13)
+to everyone and exits (`@261..316`). With it, lines 1 and 2 become DoNothing,
+every member gets 5,000,000 raw XP and award 75, and the Soul Box counter is
+taken before opcode 57 (`@322..378`). No battle or Spawn appears in this run;
+the original MOB has one monster parked at `(100,100)`. The confrontation is
+the ending presentation. This corrects the plan's former "defeating Alamar"
+wording; a combat reward must not be invented here.
+
+Map 129 (`mazex129.evt`) uses `(13,15)`, any facing. Its initial selector is
+member 1. Lines 0..11 require item 90 (quest 8, Xeen's Scepter of Temporal
+Distortion), item 135 (quest 53, Cube of Power), and awards 61, 62, 63, 64
+on that member (`@39..146`). Missing any requirement jumps to line 13's
+CD speech/NPC explanation. Passing reaches opcode 58 at `@147`, line 12;
+no reward, item consumption, movement or flag write precedes it on that path.
+These are the direct admission tests, not an assertion about all earlier
+quests needed to acquire the objects. The XP, item and award semantics reuse
+[settled Event rules](world-events.md#script-values-conditions-writes-and-random-draws).
+
+Dispatch `0x26c50..0x26c66`, table `0x29320` (indexed by opcode minus one),
+selects these tails:
+
+| Entry | Stores, in instruction order |
+| --- | --- |
+| 57, `0x28b6f..0x28b8f` | Quest counter 53 = 1 (`DS:f0ac`, PTY 800); CFG byte 22 = 1 (`DS:8d4e`); Darkside completion word = 1 (`DS:efea`, PTY 606..607); map 29, x 25, y 21, facing North. Then select `ENDGAME2`. No game/quest flag store in the tail. |
+| 58, `0x28b5d..0x28b6d` | CFG byte 23 = 1 (`DS:8d4f`); World completion word = 1 (`DS:efec`, PTY 608..609); select `WORLDEND`. No move, quest-item or flag store. |
+
+Both join Clouds at `0x28bd8`. In order: open/write/close **30 bytes of CFG**
+(`0x28bde..0x28c0a`), forced Save(1) to the current slot (`0x28c0b..0x28c12`),
+song command 207, Efx and Music = 1 (`0x28c13..0x28c21`), then the exact
+[M92 score loop](#clouds-ending-score) (`0x28c24..0x28cea`). Save preserves the
+**live party and roster**, including the Event's XP, award and consumed item;
+its audio switches are the values before forced-on. Map flushing uses the old
+loaded map, so Darkside does not load Castleview before saving. See
+[party completion](party.md#darkside-and-world-completion) and M92's established
+Save(1) merge, rather than reconstructing a pre-Event party.
+
+Strings at `0x53b70`, `0x53b79` and format `0x53c28` produce
+`XEENCOMMAND=WORLDEND,<ten-digit score>,0` or
+`XEENCOMMAND=ENDGAME2,<ten-digit score>,0`. At `0x28d26..0x28d2b` the
+interpreter marks the ending exit and sets line 256; the original script does
+not execute its ordinary next line. Normal hand-off and a fresh World title
+follow the [shared lifecycle](#hand-off-and-title-return).
+
+The completion-word address sweep found **no gameplay decision readers** for
+Darkside or World, unlike Clouds' Castle Xeen/Beacon readers. They persist
+through bulk party copies; they do not enable title rows. The only DAT tests
+of the Darkside/World won bytes are the three Other Options tests per byte:
+height, row construction and hotkey admission (`0xc209`, `0xc213`, `0xc2f9`,
+`0xc34f`, `0xc5b3`, `0xc5d5`). No further map or Beacon change is justified by
+these words. Search coverage and indirect-access limits are in the evidence.
+
+## Ending mirror results
+
+**DOS static and installed-resource inspection, high.** The 36-record
+`darkmirr.txt` and 62-record `xeenmirr.txt` in CD DARK.CC contain all the words
+below. Search bounds and the approved exclusion of stale out-of-resource rows
+remain as [already settled](world-events.md#travel-and-typed-input).
+Darkside starts at record 0; Clouds starts at 0 or 38 depending on map number,
+so its ending records remain reachable on either side of that threshold.
+There is no completion or won-marker prerequisite for these words.
+
+| Side / result | Word | DOS dispatch and effects |
+| --- | --- | --- |
+| Darkside 33; Clouds 60 | `showdown` | `0x27fe4..0x27ff1`, `0x2802d..0x2803c` -> `0x28b8f`. Select Darkside ending; **skip** quest 53, won byte, completion and move. |
+| Darkside 34; Clouds 61 | `genesis` | `0x27ff4..0x28001`, `0x28064..0x28073` -> `0x28b66`. Select World ending; **skip** won byte and completion. |
+| Darkside 35 (World installation); Clouds 40 | `showtime` | `0x28004..0x2802a` -> `0x28bd1`. Select Clouds ending; skip its victory stores. |
+| Darkside 36; Clouds 62 | `bloopers` | `0x2803f..0x28061` -> empty far return `0x26773`, then Event exit `0x28d50`. No ending, CFG write or forced Save. |
+
+Every actual ending word still writes CFG once, forces Save once, turns sound
+on and computes the real score through the shared tail. It preserves the
+previous completion and camera; even a Darkside `showdown` from Clouds does
+not move the party to Castleview. The score page's generic Castleview message
+does not change that fact. These words terminate the Event via the ending
+exit; `bloopers` exits the Event without hand-off or its next script line.
+The pin's `doDarkSideEnding` and `doCloudsEnding` instead set completion on
+mirror entry; see [quirks](../original-quirks.md#sv-m106-mirror-completion).
+
+## World ending state argument
+
+**DOS static, high.** `0x28c33` clears the state byte before the common score
+loop; `0x28cfa..0x28d12` formats that unchanged byte. Both wins and every
+ending mirror send **0**, irrespective of Goober or Super Goober awards or
+member order. There is no member-precedence rule in these DOS paths.
+The pin's first qualifying member, with Super Goober checked before Goober,
+is not followed ([difference](../original-quirks.md#sv-m106-world-state)).
+
+Title replay omits the third field altogether. EXE startup zeros
+`DS:417e..5791` (`0x2e30..0x2eee`); the command copy ends at `DS:4a8f`, leaving
+`DS:4a90` zero. World dispatch `0x7ad5..0x7b22` reads it and selects the
+zero/default state. Explicit ASCII 1/2 have separate branches, but no scoped
+DAT win, mirror or title replay supplies them. The World presentation starts
+at EXE `0xfbc9`, main return `0x11467`, with final helper `0x11468..0x11864`
+and shared text helpers `0xfadf..0xfbc8`: roughly 7.3 KiB of main/final-helper
+code, plus shared primitives/resources. Step 5 should retain that scope;
+award-selected variants are not needed for these entry contracts.
+
+## Other Options ending rows
+
+**DOS static, high, installed World CD.** At x=93 the fixed rows are D at
+y=53 and C at y=78. Present ending rows are packed in the order E, V, W,
+each 25 pixels below the preceding row (`0xc2bf..0xc37d`); absent rows have
+no hotkey. Rendering uses the matching even sprite frames 0/2/4/6/8
+(`0xc4c3..0xc500`). Height is 100 plus 25 for each win (`0xc1eb..0xc238`).
+
+| Clouds / Darkside / World won | Ending rows (hotkey, top y) |
+| --- | --- |
+| 0 / 0 / 0 | none |
+| 0 / 0 / 1 | W 103 |
+| 0 / 1 / 0 | E 103 |
+| 0 / 1 / 1 | E 103, W 128 |
+| 1 / 0 / 0 | V 103 |
+| 1 / 0 / 1 | V 103, W 128 |
+| 1 / 1 / 0 | E 103, V 128 |
+| 1 / 1 / 1 | E 103, V 128, W 153 |
+
+Hotkey paths `0xc5b3..0xc5ef` use literal command strings at `0x521fe`,
+`0x5221e`, `0x5223d`: respectively `ENDGAME2`, `ENDGAME`, `WORLDEND`, all
+with fixed score **1234567890**, and all without a third field. They write
+no CFG, completion, party or roster. The pin agrees on row order, eligibility
+and score. The title replay never invokes the gameplay win tail.
+
+## Darkside ending presentation
+
+**DOS static, high for the stated sequence and primitives; the maintainer's
+uninterrupted capture ([evidence](evidence.md#m106-dosbox-capture)) is the
+audiovisual and wall-time reference for Part B.** EXE
+`0x7abb..0x7ad3` parses the score and calls `0xd64e`; the ending returns at
+`0xfade`. The pin's four functions are a useful division of the single DOS
+routine, not separate DOS entry points. Its main span is about 9.1 KiB.
+The external M106 findings retain the ordered resource references, complete
+bounded instruction trace, tick thresholds and caption-selection sites.
+
+| Approximate pin part / EXE range | DOS sequence and resource families |
+| --- | --- |
+| 1, `0xd64e..0xdffe` | Load `special.bin` and `box.vga`; `dngon3.m` from DARK.CC; `scene1.raw`/`endgame.pal`; throne `scene2-b.raw` + `face.end`; `come2`, doors in `mainback.raw` (`sc03a..c.end`); `scene4.raw`/`scene4-1.raw` with `disk.end`; `sc050001.raw`, `diska..e.end`, `sc06a/b.end`; Corak materializes against `sc070001.raw` with `sc07a..h.end`. Door, whoosh, thud, click, explosion, alien and wind effects are preloaded/reused around their frame triggers. |
+| 2, `0xdfff..0xe73c` | `corak2`, `yes1` (`sc08.end`), `nowre1` (`sc090001.raw`, `sc09.end`), `nordo2` (`sc10.end`); switch to `dngon2.m`, blank room and `sc11.end`, `scene12.raw`, `ready2`/`sc13.end`, `fight2`/`sc14.end`. |
+| 3, `0xe73d..0xf176` | `mainback.raw`/`sc15.end` fight; `fail1`, split scene4 background/`sc16.end`; sc17 pair, sc18 quartet, sc19, `sf17.m`, blank/sc20, mainback/sc21, split scene4/sc22, sc23 pair. `disint`, explosion, alien, thud, gas compression, cast, laugh and `padspell` cues follow fixed frame conditions. |
+| 4, `0xf177..0xfa62` | Ricochet `sc24a/b.end`; `admit2` over sc25, `ido2` over sc26 quartet, `what3` over sc27; `dungeon2.m`, mainback with 11 sc28 sprites, then `sc290001.raw` and six sc29 sprites. Castle: frames 0..53, then four repeats of 49..53, all three BIOS ticks. |
+| Score/return, `0xfa63..0xfade` | Mixer 95, `outday3.m`, score format at `0xfa87..0xfaa0`, then two Pharaoh pages through `0x6c91`; release caption buffer, closing-scroll helper, shared shutdown and fresh DAT title. |
+
+Timing uses the calibrated BIOS counters, with reset before composition and
+publication/retrace inside the measured interval. Initial scene holds 30 ticks
+(`0xd714`); throne rise y=74 down to 22 by two uses **one** tick (`0xd84e`),
+not the pin's two. `come2` waits at least 27 ticks and caption completion
+(`0xd869..0xd891`); the full room holds 30. Most following fixed frames use
+2, 3 or 4 ticks; disk movement has one-tick steps and a ten-tick tail, and
+sc05 holds 20 (`0xdb09`, `0xdb52`, `0xdbc8`). Corak's 45 arrival frames use
+two ticks, enabling the prepared caption after frame 40. `ido2` repeats
+frames 22..31 after reaching 31 until voice/caption completion at two ticks
+(`0xf500..0xf57a`). Exact waits and sound-gated tails, not a single constant
+movie duration, govern playback. Do not transfer the pin's timing unchanged.
+
+Caption records 21..31 come from the same every-NUL `special.bin` loader and
+hardware predicate as M93 (digital device 0/1 enables captions). Record 21 is
+selected before the throne-rise loop (`0xd7c0..0xd7ef`); record 22 is prepared
+at `0xdf26..0xdf55` but enabled only after arrival frame 40 (`0xdfc1..0xdfc6`).
+Records 23..31 are selected at `0xe068`, `0xe17d`, `0xe25c`, `0xe533`,
+`0xe695`, `0xe90e`, `0xf33c`, `0xf476`, `0xf5c0`. The 40-character strip
+retains the calibrated counter-three cadence; voice tails can keep it active.
+
+The animation's 39 keyboard polls ignore the returned key: Escape, ordinary
+keys and clicks do not skip it. Ctrl-Q follows the existing EXE quit path
+`0x11aa2..0x11afc`; long unpolled inner waits can delay it. The two score
+pages use `claw.int`, `dragon1.int`, `3room.raw`, `dark.pal` and the existing
+32-position Pharaoh animation (`0x6ccf..0x6ef5`). They show the supplied score
+as `%010lu`, the original mailing-address text, then the Castleview/load-game
+message. Every page frame waits **three** ticks (`0x6eff..0x6f07`); a keyboard
+result, including Escape, advances the page (`0x6f09..0x6f19`). Mouse does not.
+The pin uses a one-tick wait and accepts mouse. No score-digit random reveal
+occurs here. The closing-scroll key behavior remains the calibrated EXE helper.
+
+Four callsites use the EXE's time-mixed random helper `0x1cbdc`: `0xe0cd`
+0..2 (only while `yes1` is busy, otherwise frame zero), `0xe1d8` 0..8,
+`0xe2ad` 0..1 and `0xe5a7` 0..3. They animate mouths, independently of Journey
+RNG. The pin's `getSpeakingFrame` cycles with host time instead. Full resource
+and cue-site detail remains outside the repository; the M106 capture supplies
+the audible, wall-time and frame references for Part B's comparison.
+
+## Ending write boundary
+
+**DOS static, high for traced file paths; confirmed by the maintainer's
+DOSBox before/after captures ([evidence](evidence.md#m106-dosbox-capture)).** Win opcodes and the three actual ending mirror words perform one
+CFG rewrite and one forced Save **before** EXE hand-off. Save merges live
+characters, flushes the loaded map, then snapshots NAM/CHR/PTY and copies the
+working archive pair to the selected numbered slot (M92 evidence). A replay
+from Other Options performs neither operation. `bloopers` performs neither.
+These counts are logical save/CFG operations, not the number of buffered DOS
+write syscalls or map-member writes.
+
+Neither Darkside's score return nor the World ending's traced calls reach a
+slot save or CFG writer. EXE's known 30-byte CFG writer is in the **intro**
+(`0xd345..0xd374`), not the ending. M106's whole-image direct-call/write-wrapper
+inventory and the residual indirect-call coverage limit are recorded in
+[evidence](evidence.md#m106-part-0). No second gameplay save is justified by
+the EXE score page; the pin's `showDarkSideScore` late save is not copied.
+Successful completion returns with `XEENCOMMAND=MAINGAME`, so the fresh title
+does not run the intro's seen-state write. Ctrl-Q during the movie leaves the
+already-saved DAT result intact.

@@ -11,8 +11,9 @@ step 5 (Tier B).
 
 ## Goal
 
-Darkside of Xeen and World of Xeen can be won as in DOS. Defeating Alamar in
-Castle Alamar (Darkside map 51) reaches opcode 57 (CutsceneEndDarkside),
+Darkside of Xeen and World of Xeen can be won as in DOS. Bringing the Soul
+Box with Corak inside to Alamar at map 51 `(2,13)` North reaches opcode 57
+(CutsceneEndDarkside),
 which records the Darkside win, saves the party and plays the original
 Darkside ending with the party's score, then returns to a fresh World title.
 Opcode 58 (CutsceneEndWorld, Darkside map 129, Clouds of the Ancients)
@@ -120,7 +121,8 @@ difference from the pin, [original quirks](original-quirks.md) and
   first member with the Goober or Super Goober award, and 0 from the title
   replay; Part 0 settles DOS's argument and member precedence for the win,
   the mirror and the replay, as a contract for step 5;
-- a DOSBox capture (maintainer, one session): the final fight and the whole
+- a DOSBox capture (maintainer, one session): the Alamar confrontation and
+  the whole
   Darkside ending uninterrupted, the slot and CFG before and after, the
   World win's save, `showdown`, and the title rows. The agent prepares the
   DOSBox saves for it (see Play-test). Today's export cannot write Darkside
@@ -130,6 +132,21 @@ difference from the pin, [original quirks](original-quirks.md) and
   maintainer's own save; it adds no production code. Each preset names
   what DOS cannot carry (monster HP and status, extra Spawn slots, RNG), so
   fight rolls are not expected to match.
+
+Part 0 static evidence establishes the following contracts before Part A:
+
+- Map 51 gives 5,000,000 XP and award 75, then consumes quest item 78 before
+  the win. The confrontation is cinematic; no playable fight occurs there.
+- Both wins and ending mirrors use one pre-handoff forced Save of live state;
+  mirrors skip victory/completion stores and movement. The traced EXE endings
+  do not save again. The DOSBox capture confirmed every saved value
+  ([capture](rules/evidence.md#m106-dosbox-capture)).
+- World win/mirror/replay state is always zero; no award-precedence rule or
+  additional saved ending argument is needed. v25 still adds only the two
+  completion fields; schema 9 and content 14 remain unchanged.
+- Darkside timing, keyboard-only score pages and EXE random mouth frames
+  follow the [DOS rules](rules/cutscenes.md#darkside-ending-presentation), not
+  an unchanged translation of the pin.
 
 Part 0 ends with a short findings list; a finding that changes this plan's
 scope or the save decision amends the plan before Part A.
@@ -179,13 +196,15 @@ play-test). Prepared as [play-tests](playtests.md) describes, with these
 additions requested by the maintainer (2026-11-01):
 
 - **A party of level 200 or more** (200..255, since DOS stores the level
-  in one byte), with full HP and SP and strong equipment, because a
-  level-30 party cannot win the final fights. The preset computes each
+  in one byte), with full HP and SP and strong equipment, for any combat
+  met on the approach; the map-51 ending Event itself starts a cinematic
+  confrontation. The preset computes each
   maximum before storing it and keeps it within the signed 16-bit HP and SP
   fields, keeps attributes, resistances and counters within their byte
   limits, and a test asserts the exported and reloaded values: a successful
   export alone does not prove a full, usable party. New presets start it in
-  Castle Alamar Level 3 before the fight (`m106-alamar`), before the World
+  Castle Alamar Level 3 before the confrontation (`m106-alamar`), before
+  the World
   win on map 129 (`m106-world`) and at a mirror (`m106-mirror`); each
   carries the progress its route needs.
 - **Title items** use a separate settings file per item through
@@ -199,7 +218,7 @@ additions requested by the maintainer (2026-11-01):
   cannot represent a state an item needs, Part 0 or Part A says so before
   the session, and the guide says how to reach it in DOSBox instead.
 
-Items, in route order: the Alamar fight and the Darkside win; the save
+Items, in route order: the Alamar confrontation and the Darkside win; the save
 afterwards (load it at the cell and facing from Part 0); the Darkside ending
 and its score page against DOSBox; the World win and its save; the ending
 mirror words; the title rows. Each says what only play settles (input feel

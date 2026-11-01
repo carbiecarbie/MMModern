@@ -3206,3 +3206,64 @@ These are evidence gaps, not instructions to broaden an active milestone.
 Normal DOS play or calibrated static analysis should settle reachable disputes;
 only the condition-counter fallback explicitly authorized in
 [AGENTS.md](../../AGENTS.md) bypasses an otherwise unverifiable case.
+
+## M106 Part 0
+
+**Calibrated DOS static and original-resource inspection, 2026-11-01.**
+Baseline `2cdba88a1efe64da2df05452fdf2c1080c2ce247`, clean `main`; pin
+`6814ee9ba54582f5b5adcffab49efbbd8f589edd` verified. DAT/EXE sizes and SHA-256
+match [cutscene calibration](cutscenes.md#evidence-and-calibration). WSL Python
+3 / Capstone 5.0.7 x86-16; DAT file = `0x56c0 + segment*16 + offset`, data
+base `0x4d890`; EXE header `0x2e30`, data base `0x1d880`. Ghidra DAT import at
+load segment `0x1000` would map linear = file + `0xa940`; no new REA import
+was needed. Instruction reads were calibrated first against the M92 Clouds
+tail `0x28b98..0x28d23`, Save(1) and EXE command dispatch. Static decoding is
+not an observed DOSBox run.
+
+| Question | Evidence and boundary |
+| --- | --- |
+| Original routes | CD GAME1.GOG ISO DARK.CC, decoded New Game CC members `maze0051.evt` @245..378 and `mazex129.evt` @39..174. Map 51's sole monster is parked at (100,100), MOB @56; the winning Event tests quest 78, gives 5,000,000 XP/award 75, takes quest 78. Map 129 tests quests 8/53 and first-member awards 61..64. Existing mode/selection evidence is reused. |
+| Opcode identity | `0x26c50..0x26c66` subtracts one and indexes CS table `0x29320`; entries 30/57/58 resolve to `0x28b98/0x28b6f/0x28b5d`, calibrating the new tails against Clouds. |
+| Stores/save/score | `0x28b5d..0x28d2b`; M92's live-record merge and save audit apply to the identical common tail. CFG starts at DS:8d38, PTY at DS:ed8c. Completion words, markers and quest53 are distinct. Format `0x53c28`; ending-name literals `0x53b70/79/82`. No runtime archive comparison is claimed for the new wins. |
+| Completion readers | Every byte position in DAT code `[0x56c0,0x4d890)` was a candidate decode start for absolute memory operands overlapping DS:efe8..efed and DS:8d4e..8d4f; raw little-endian address occurrences across the entire image were also searched for address-taking. efea/efec occur only as the two stores in code; other hits are MZ-header bytes. The Clouds readers at `0xff1c`, `0x2fed7` supply positive calibration. Bulk PTY persistence remains a reader, not a gameplay test. This is not a proof against arbitrary computed pointers; the known generic Event value tables have no completion-word mode. |
+| Won readers | All six tests are in Other Options: `0xc209/213`, `0xc2f9/34f`, `0xc5b3/5d5`. Overlapping operand sweep also finds a word read at DS:8d4c (`0xdf1d`), which ends before the markers. No additional post-win map/Beacon rule follows from these words. |
+| Mirrors | Case branches `0x27fe4..0x28076`; lookup `0x23fa5..0x24127`; CD DARK.CC's 36 and 62 records establish actual reachability, excluding already-documented stale scratch. Darkside 36 is Bloopers. No ending word sets completion. |
+| Title | Height `0xc1eb..0xc238`; rows/hotkeys `0xc2bf..0xc37d`, draw `0xc4c3..0xc500`, command gates `0xc5b3..0xc5ef`. Eight combinations are derived from the three independent branches, not eight manual screenshots. |
+| World argument | Common-tail zero at `0x28c33`, unchanged read at `0x28cfa`; no award loop. Title strings omit the field; EXE CRT zero range DS:417e..5791 and dispatch `0x7ad5..0x7b22` establish deterministic default zero. |
+| Darkside movie | EXE `0xd64e..0xfade`, shared score `0x6c91..0x6f21`. Ordered resource/call inventory and bounded instruction trace support the sequence, timing, caption selectors, four random sites and key gates in the cutscene chapter. World main/final helper `0xfbc9..0x11864` provides the step-5 size estimate. |
+| EXE writes | Intro CFG write `0xd345..0xd374` calibrates open `0x5d9c`, write `0x6c25` and close; only that application path calls the buffered 30-byte writer. Three direct open callers: `0x750c` probe, `0xd355` intro write, `0x11dd5` CFG read. Whole-code wrapper call inventory and traced ending resource/audio/UI paths find no ending write. Raw AH=40 sites include stderr and unused resource helpers (`0x1d1e8`, `0x1d5d3`). High for identified direct paths; an absolute negative over arbitrary indirect driver/runtime dispatch remains limited. Before/after slots and CFG in the requested capture corroborate that boundary. |
+
+All analysis scripts, resource extracts, disassembly and detailed findings
+remain under `D:/Projetos/MModern/MModern-re/m106/`; the durable external
+summary is `part0-findings.md`, with `exe-sweep/report.md` and
+`exe-sweep/write-audit.md`. Nothing original-derived was added as repo assets.
+
+Capture preparation is `D:/Projetos/MModern/MModern-playtest/m106-part0/`.
+Level-200 presets compute and range-check full HP/SP, use byte-sized
+attributes/counters and equipped Obsidian gear. Fast preset tests restore the
+current save exactly and check independently decoded DOS roster/party values.
+The current export cannot carry Darkside/World completion, wounds/status of
+monsters, extra Spawn slots or RNG; the capture guide names those limitations
+and obtains completed states by native wins. Isolated CFG/settings seeds
+protect the installed configuration. The capture is evidence, not milestone
+acceptance. No save-format change is made in Part 0.
+
+### M106 DOSBox capture
+
+**Maintainer DOSBox Staging run, CD edition, 2026-11-01**, from the Part 0
+presets exported with `mmodern_dos_export --dosbox`; before/after copies of
+the overlay `WORLD` and their comparisons are kept under
+`D:/Projetos/MModern/MModern-playtest/m106-part0/*/evidence/`. Every result
+matches the static rules above.
+
+| Run | Observed |
+| --- | --- |
+| Map 51 win, uninterrupted video (`video0004.avi`, DOSBox ZMBV 320x200, 164.3 s from the turn North to the World title) | Whole Darkside ending, both score pages (score `1992200000` for the level-200 party, then the Castleview save message) and a fresh World title. Slot 01: PTY 10..13 North, (25,21), map 29; completion word 606 = 1; quest 53 0 -> 1, quest 78 1 -> 0; every member +5,000,000 XP and award 75; CFG rewritten to 30 bytes with byte 22 = 1. Loading slot 01 afterwards placed the party at Castleview `(25,21)` North. |
+| Map 129 win, walking North onto `(13,15)` | Completion word 608 = 1, CFG byte 23 = 1, camera and facing unchanged (`(13,15)` North). A first run that had turned around saved South, as the party faced. |
+| Darkside mirror `showdown` (map 53) | Forced save at the mirror cell, facing West; no completion word, no CFG won byte, no move; CFG rewritten with unchanged values. |
+| Darkside mirror `bloopers` | No film; slot 01 identical to the seed. |
+| Clouds mirror `showdown` (Vertigo) | Same as the Darkside word; one Clouds game-flag byte (PTY 687) also changed. No ending tail stores a game flag; the mirror cell's line 0 (CallEvent) runs before the prompt and is the likely writer, to be confirmed by Part A's mirror test. |
+| Title replay `E` with all three wins | No file written. |
+
+Besides these, each save changed only the ordinary time fields (PTY 610,
+616, 654) and the visited map's own state.

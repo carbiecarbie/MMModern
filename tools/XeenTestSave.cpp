@@ -208,6 +208,35 @@ std::optional<std::uint16_t> mixedMapPreset(const std::string &preset) {
 }
 
 void prepare(XeenSaveSnapshot &snapshot,const std::string &preset) {
+    if(preset=="m106-alamar" || preset=="m106-world" || preset=="m106-mirror" || preset=="m106-clouds-mirror") {
+        prepare(snapshot,"m78-playtest");
+        snapshot.camera=preset=="m106-alamar"?XeenCamera{{XeenSide::Darkside,51},2,13,XeenDirection::South}:
+            preset=="m106-world"?XeenCamera{{XeenSide::Darkside,129},13,14,XeenDirection::North}:
+            preset=="m106-clouds-mirror"?XeenCamera{28,14,10,XeenDirection::East}:XeenCamera{{XeenSide::Darkside,53},9,8,XeenDirection::East};
+        snapshot.headCache.reset();snapshot.darksideSong.reset();
+        snapshot.questItems.fill(0);snapshot.questFlags.fill(false);
+        snapshot.food=200;snapshot.journey->purse->gems=50000;
+        snapshot.journey->context->lightAndResistances[0]=200;
+        snapshot.journey->context->effects[XeenPartyEffect::Levitate]=1;
+        const XeenCharacterRulesContext rules{snapshot.journey->context->year};
+        for(auto owner:snapshot.activeRosterIds) {
+            auto &c=snapshot.characters[owner];c.permanentLevel=200;c.temporaryLevel=0;
+            c.intellect={100,0};c.personality={100,0};c.endurance={100,0};
+            auto &combat=snapshot.journey->supplements[owner].inputs;
+            combat.might={100,0};combat.speed={100,0};combat.accuracy={100,0};combat.luck=XeenAttributeValue{100,0};
+            c.awards.fill(0);
+            const int hp=XeenCharacterRules::maxHp(c,rules),sp=XeenCharacterRules::maxSp(c,rules);
+            if(hp<=0 || hp>32767 || sp<0 || sp>32767)throw std::runtime_error("M106 party exceeds DOS HP/SP limits");
+            c.currentHp=static_cast<std::int16_t>(hp);c.currentSp=static_cast<std::int16_t>(sp);
+            if(preset=="m106-world")for(unsigned award=61;award<=64;++award)c.awards[award]=1;
+        }
+        // Map 51 tests item ID 160 (quest 78); map 129 tests IDs 90/135
+        // (quests 8/53) and the four Sleeper awards on member 1.
+        if(preset=="m106-alamar")snapshot.questItems[78]=1;
+        if(preset=="m106-world")snapshot.questItems[8]=snapshot.questItems[53]=1;
+        if(preset=="m106-mirror")snapshot.gameFlags[256+115]=true;
+        return;
+    }
     if(preset=="m104-entrance") {
         prepare(snapshot,"m78-playtest");snapshot.camera={2,0,0,XeenDirection::North};
         snapshot.questItems[51]=1;snapshot.journey->context->lightAndResistances[0]=200;snapshot.headCache.reset();snapshot.darksideSong.reset();return;
@@ -722,7 +751,7 @@ void prepare(XeenSaveSnapshot &snapshot,const std::string &preset) {
 
 void generateTestSave(const GameInstallation &installation,const std::string &preset,
         const std::filesystem::path &output) {
-    if (preset!="m104-entrance" && !mixedMapPreset(preset) && preset!="m102-playtest" && !m102Spot(preset) && !m103TextSpot(preset) && preset!="m101-pyramid-clouds" && preset!="m101-pyramid-darkside" && preset!="m101-castleview" && preset!="m98-load" && preset!="m98-inn" && preset!="m97-open-chest" && preset!="m96-chest" && preset!="m95-witch-skull" && preset!="m92-lord-xeen" && preset!="m92-sixth-mirror" && !m90Spot(preset) && preset!="m89-lord-xeen" && preset!="m89-clan-king" && preset!="m89-draco" && preset!="m89-dragons" && preset!="m89-trolls" && preset!="m88-roster" && preset!="m87-inn" && preset!="m87-three" && preset!="m87-shangrila" && preset!="broken-armor" && preset!="train-ready" && preset!="injured-dead" && preset!="poisoned" && preset!="monster-control" && preset!="monster-damage" && preset!="party-healing" && preset!="m76-spells" && preset!="combat-items" && preset!="m78-playtest" && preset!="m78-one-holder" && preset!="m79-playtest" && preset!="m80-playtest" && preset!="m80-arena" && preset!="m80-arena-maxed" && preset!="m81-drops" && preset!="m81-fullpacks" && preset!="m81-event" && preset!="m84-playtest-trap" && preset!="m84-playtest-label" && preset!="m84-playtest-save" && preset!="m85-playtest-label" && preset!="m85-playtest-run" && preset!="m85-playtest-trap" && preset!="m86-playtest-fall" && preset!="m86-playtest-moon-ray" && preset!="m86-playtest-border")
+    if (preset!="m106-alamar" && preset!="m106-world" && preset!="m106-mirror" && preset!="m106-clouds-mirror" && preset!="m104-entrance" && !mixedMapPreset(preset) && preset!="m102-playtest" && !m102Spot(preset) && !m103TextSpot(preset) && preset!="m101-pyramid-clouds" && preset!="m101-pyramid-darkside" && preset!="m101-castleview" && preset!="m98-load" && preset!="m98-inn" && preset!="m97-open-chest" && preset!="m96-chest" && preset!="m95-witch-skull" && preset!="m92-lord-xeen" && preset!="m92-sixth-mirror" && !m90Spot(preset) && preset!="m89-lord-xeen" && preset!="m89-clan-king" && preset!="m89-draco" && preset!="m89-dragons" && preset!="m89-trolls" && preset!="m88-roster" && preset!="m87-inn" && preset!="m87-three" && preset!="m87-shangrila" && preset!="broken-armor" && preset!="train-ready" && preset!="injured-dead" && preset!="poisoned" && preset!="monster-control" && preset!="monster-damage" && preset!="party-healing" && preset!="m76-spells" && preset!="combat-items" && preset!="m78-playtest" && preset!="m78-one-holder" && preset!="m79-playtest" && preset!="m80-playtest" && preset!="m80-arena" && preset!="m80-arena-maxed" && preset!="m81-drops" && preset!="m81-fullpacks" && preset!="m81-event" && preset!="m84-playtest-trap" && preset!="m84-playtest-label" && preset!="m84-playtest-save" && preset!="m85-playtest-label" && preset!="m85-playtest-run" && preset!="m85-playtest-trap" && preset!="m86-playtest-fall" && preset!="m86-playtest-moon-ray" && preset!="m86-playtest-border")
         throw std::invalid_argument("Unknown test-save preset: "+preset);
     const auto target=XeenSaveFile::resolve(output,installation);
     // Reuse the native alias/reparse-aware path guard for the repository too.
@@ -926,6 +955,8 @@ void generateTestSave(const GameInstallation &installation,const std::string &pr
         }
     }
     if(preset=="m101-castleview")candidate.darksideSong=static_cast<std::uint8_t>(xeenMapMusicRow(inputs.maps.loadGeometryMap(inputs.assets,candidate.camera.mapId).geometry)*7+*candidate.darksideSong%7);
+    if(preset.rfind("m106-",0)==0 && xeenMapResources(candidate.camera.mapId).music==XeenMapMusic::DarksideRandom)
+        candidate.darksideSong=7*xeenMapMusicRow(inputs.maps.loadGeometryMap(inputs.assets,candidate.camera.mapId).geometry);
     // Publish only a snapshot recaptured from restored, validated current owners.
     const auto snapshot=inputs.validated(candidate);
     XeenSaveFile::write(target,snapshot);

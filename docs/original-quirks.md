@@ -9,6 +9,24 @@ become opt-in quality-of-life fixes (always off by default) are marked
 such a behavior, with its evidence. Entries tagged **ScummVM:** are summarized
 for players in [ScummVM differences](scummvm-differences.md).
 
+## Darkside and World ending contracts (M106)
+
+Calibrated original-program evidence, 2026-11-01; implementation belongs to
+M106 Parts A/B. [Evidence](rules/evidence.md#m106-part-0) and
+[cutscene rules](rules/cutscenes.md#darkside-and-world-win-entry-and-save)
+separate static conclusions from the maintainer's DOSBox capture, which
+confirmed them ([capture](rules/evidence.md#m106-dosbox-capture)). Pin `6814ee9b`;
+master was not rechecked.
+
+| Rule | Evidence and consequence |
+| --- | --- |
+| <a id="dos-m106-win-tail"></a> Completion is distinct from title won state; both wins save the live state before playing. | DAT 57 `0x28b6f` writes quest 53, CFG22, completion PTY606, map29 (25,21) North; 58 `0x28b5d` writes CFG23 and PTY608, with no move. Shared tail `0x28bd8..0x28d23` writes CFG, calls Save(1), forces sound on, then calculates the M92 score. The live XP/award/item changes survive. No Darkside/World gameplay decision reader of those completion words was found; title readers use the CFG bytes. Title E/V/W packing and fixed score 1234567890 agree with the pin. |
+| <a id="sv-m106-mirror-completion"></a> Ending mirror words preserve the prior completion and location; Bloopers only exits the Event. **ScummVM:** differs. | `0x27fe4..0x28076` skips victory stores for Darkside33/Clouds60, Darkside34/Clouds61, Darkside35/Clouds40, then joins the shared CFG+Save tail. Darkside36/Clouds62 call empty `0x26773` and exit. The pin sets Darkside/Clouds completion in `doDarkSideEnding`/`doCloudsEnding`; DOS does not. The score page can claim Castleview even after a mirror entry that never moved there. |
+| <a id="sv-m106-world-state"></a> World win, mirror and replay use state zero regardless of awards. **ScummVM:** differs for win/mirror. | DAT `0x28c33` clears the formatted byte; `0x28cfa` reads it unchanged. The title omits the field; EXE startup clears its buffer and `0x7aed..0x7b22` selects zero. The pin scans active members for the first Goober/Super Goober award; DOS never scans them here. No precedence or extra persistent state is needed. |
+| <a id="sv-m106-save-boundary"></a> One pre-handoff gameplay save; no late Darkside score-page save. **ScummVM:** differs. | Common Save(1) `0x28c0d`, live merge `0x1ecee..0x1ed11`; EXE score/return `0xfa63..0xfade`, shared pages `0x6c91..0x6f21`. Traced ending file paths do not call a writer; the EXE CFG writer `0xd345..0xd374` belongs to the intro. The pin calls `saveGame()` in `showDarkSideScore`. The static negative's indirect-call limit is explicit in the evidence; the DOSBox capture taken after the title return shows nothing beyond the pre-hand-off save (an identical rewrite could not be seen in files). |
+| <a id="sv-m106-ending-input-timing"></a> Darkside animations ignore skip keys/clicks; score pages use keyboard and three-tick frames. **ScummVM:** differs. | All 39 animation polls ignore their return; `0x6eff..0x6f19` waits three BIOS ticks and advances on a keyboard result only. Ctrl-Q retains the shared EXE quit behavior. The pin's WAIT/subtitle gates accept key/mouse skipping; its score waits one tick and accepts mouse. Throne-rise steps at `0xd84e` use one tick instead of the pin's two. Follow the original stage waits and caption selections, not those substitutions. |
+| <a id="sv-m106-ending-mouths"></a> Darkside speaking mouths use time-mixed EXE random draws. **ScummVM:** differs. | `0xe0cd` 0..2 while the voice is busy; `0xe1d8` 0..8; `0xe2ad` 0..1; `0xe5a7` 0..3. All call `0x1cbdc`, independent of Journey RNG. The pin cycles with host time through `getSpeakingFrame`. The score has no random-digit reveal. |
+
 ## Mixed World map rules established from DOS
 
 Calibrated static evidence for the World CD, 2026-11-01,

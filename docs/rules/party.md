@@ -745,3 +745,22 @@ program. Combat count can be smaller than active count after Run.
 The Dismiss-to-Save tail read above is the established inactive-character
 exception. Preserve its data provenance separately from ordinary active-member
 access and from unrelated fixed-size tables.
+
+## Darkside and World completion
+
+**DOS static, high (M106 Part 0).** The live DARK PTY has three independent
+little-endian completion words: Clouds at 604, Darkside at 606, World at 608
+(`DS:efe8/efea/efec`). Darkside opcode 57 stores 1 at DAT `0x28b78`, World
+opcode 58 at `0x28b63`. Whole-party load/save copies preserve them. No
+Darkside/World completion-word gameplay decision reader was found in the
+calibrated DAT audit; their separate CFG bytes 22/23 control title replays.
+
+The [win tails](cutscenes.md#darkside-and-world-win-entry-and-save) call the
+same Save(1) as Clouds. The live roster merge at `0x1ecee..0x1ed11` saves the
+script's XP/award/item changes, then `0x1ed29` flushes the loaded map before
+`0x1ed2e` snapshots the party. Darkside's saved camera is map 29 `(25,21)`
+North while the flushed map is still 51. World keeps its camera. Ending mirror
+words skip completion stores and movement but still save; title replays do not
+save. These rules require the planned v25 completion fields; the current v24
+export still leaves PTY 606..609 at New Game values. No additional saved World
+ending argument is needed: every scoped DOS entry chooses state zero.
