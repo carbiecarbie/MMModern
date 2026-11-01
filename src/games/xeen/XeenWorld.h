@@ -158,6 +158,7 @@ private:
 
 class XeenWorld {
 public:
+	static constexpr unsigned kWallItemCapacity=91;
 	class GameplayBorrow {
 	public:
 		~GameplayBorrow() { for (const auto &state : owners) { --state->references; ++state->revision; } }

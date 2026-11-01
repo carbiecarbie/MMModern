@@ -82,6 +82,7 @@ struct XeenEventTeleportAndContinue {
 
 struct XeenEventConfirmWord {
 	std::uint8_t inputType=0, targetLine=0, alternateText=0, titleText=0;
+	std::uint8_t marker=21, alternateLine=0;
 };
 
 struct XeenEventCallEvent {

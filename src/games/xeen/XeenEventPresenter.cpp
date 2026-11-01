@@ -158,7 +158,7 @@ IndexedFrame XeenEventPresenter::drawWord(const IndexedFrame &base) const {
     XeenTextRenderOptions o;o.originalControls=true;o.drawWindow=true;
     // Original window 6: a 200-pixel input field within the dialog's inner margins.
     o.windowBounds={52,149,268,198};o.bounds={60,157,260,190};o.x=60;o.y=157;
-    const auto title=_request.word->titleText?_request.title:std::string(_dosText->scalar("WHATS_THE_PASSWORD"));
+    const auto title=_request.word->marker==55 || _request.word->titleText?_request.title:std::string(_dosText->scalar("WHATS_THE_PASSWORD"));
     const auto prompt=xeenDialogFormat(_dosText->scalar("WORD_INPUT_WINDOW"),{title})+"\3l\t000\4" "200\3c";
     return _wordInput.render(base,_font,prompt,o);
 }

@@ -760,6 +760,12 @@ void XeenWorld::applyAlterEvent(const XeenCamera &physical, std::uint8_t line,
 void XeenWorld::applyMoveWallObject(XeenWallItemIdentity id,int x,int y) {
 	if(!detachedEventCandidate() || x<-128 || x>127 || y<-128 || y>127)
 		throw std::invalid_argument("MoveWallObj requires a detached Event and signed-byte coordinates");
+	const auto &file=objectFile(id.mapId);
+	if(!file.resourcePresent || id.recordIndex>=kWallItemCapacity)
+		throw std::invalid_argument("MoveWallObj index is outside the allocated wall slots");
+	// DOS writes allocated but unused slots. Rendering, animation and saves
+	// stop at the live count, and map load clears these slots (0x2860e).
+	if(id.recordIndex>=file.entities.wallItems.size())return;
 	static_cast<void>(effectiveWallItem(id));
 	auto &values=_sessionState._mapStates.state(id.mapId).wallItemOverrides;
 	auto at=std::lower_bound(values.begin(),values.end(),id,[](const auto &v,auto key){return v.id<key;});

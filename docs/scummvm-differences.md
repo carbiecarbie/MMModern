@@ -382,13 +382,15 @@ against the pin; master was not rechecked.
   master not rechecked.
 - **Unused wall slots.** Seven Darkside Events write invisible, unsaved DOS
   slots; the pin instead indexes beyond its live-sized wall array.
-  [Evidence](original-quirks.md#sv-darkside-unused-wall-slots). M103 Part 0
-  finding; pin: differs; master not rechecked.
+  [Evidence](original-quirks.md#sv-darkside-unused-wall-slots). MMModern accepts
+  allocated unused slots without visible or saved state in `XeenWorld::applyMoveWallObject`;
+  pin: differs; master not rechecked.
 - **Map-29 monster branches.** Four absent-monster branches end without a
   matching line in DOS because their targets are signed; the pin uses
   positive target lines. Monster 31 itself is in range.
-  [Evidence](original-quirks.md#sv-darkside-mapflag-lines). M103 Part 0
-  finding; pin: differs; master not rechecked.
+  [Evidence](original-quirks.md#sv-darkside-mapflag-lines). MMModern ends the signed
+  negative-target scan and omits its preflight branch in `XeenEventInterpreter`;
+  pin: differs; master not rechecked.
 
 - Flags and the stepped-cell bitmap are packed most-significant bit first,
   as DOS reads them; the pin uses least-significant bit first. The original

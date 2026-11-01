@@ -535,6 +535,100 @@ void enchantedLivePublication(Inputs &in,const XeenSaveSnapshot &source,const st
  check(XeenSaveFormat::encode(restored.snapshot())==XeenSaveFormat::encode(saved),"Live enchanted publication failed exact save/load");
 }
 
+void partCEvents(Inputs &in,const XeenSaveSnapshot &source,const std::filesystem::path &out) {
+ const auto row=[](unsigned x,unsigned y,unsigned line,unsigned opcode,std::vector<std::uint8_t> p={}) {
+  XeenEventRecord r;r.x=x;r.y=y;r.direction=4;r.line=line;r.opcode=opcode;r.parameters=std::move(p);r.lengthField=5+r.parameters.size();return r;
+ };
+ const auto roundTrip=[&](Live &live,const XeenEventFile &file,const std::string &name) {
+  const auto saved=live.snapshot();const auto bytes=XeenSaveFormat::encode(saved);
+  const auto path=out/("m103c-"+name+".mmsave");XeenSaveFile::write(path,saved);
+  Live restored(in,XeenSaveFile::read(path),&file);
+  check(XeenSaveFormat::encode(restored.snapshot())==bytes,"Part C exact save/load lost or replayed state");
+ };
+ const XeenMapIdentity id{XeenSide::Darkside,72};const auto original=in.events.load(id);
+ const auto found=std::find_if(original.records.begin(),original.records.end(),[](const auto &r){return r.fileOffset==208;});
+ check(found!=original.records.end() && found->opcode==55 && found->parameters==std::vector<std::uint8_t>({3,10,4,16}),"Original second password row changed");
+ // Retain the original prompt's DisplayMain and password bytes. Marker suffixes
+ // expose each branch without conflating it with the answers' later rewards.
+ XeenEventFile password{id,"original second password branches",true,{*found}};
+ for(const auto &r:original.records)if(r.x==found->x && r.y==found->y && r.line<found->line)password.records.push_back(r);
+ for(unsigned n=0;n<3;++n) {
+  const unsigned line=n==0?10:n==1?16:6;
+  password.records.push_back(row(found->x,found->y,line,12,{0,0,20,std::uint8_t(200+n)}));
+  password.records.push_back(row(found->x,found->y,line+1,18));
+ }
+ const auto texts=in.texts.load(id);
+ for(unsigned answer=0;answer<3;++answer) {
+  auto s=at(in,source,{id,found->x,found->y,XeenDirection::South});Live live(in,s,&password);
+  std::string failure;unsigned completed=0;
+  live.flow->reportManual=[&](const auto &r){if(const auto *e=std::get_if<XeenEventExecutionError>(&r))failure=e->message;if(std::holds_alternative<XeenManualEventCompleted>(r))++completed;};
+  live.act(InteractionAction{false});
+  for(unsigned n=0;;++n) {
+   const auto input=live.flow->inputContext(live.flow->frame().presentation()).dialog;if(input && input->textEntry)break;
+   check(n<20 && failure.empty(),"Original password prefix did not reach text entry");live.act(AcknowledgeAction{});live.tick();
+  }
+  if(answer==0)picture(live.flow->frame(),out/"m103c-confirmword2-blank-title.ppm");
+  live.act(TextInputAction{answer<2?texts.strings.at(answer==0?3:4):"wrong"});live.act(DialogKeyAction{13});
+  live.settle();check(failure.empty(),failure.c_str());check(completed>0,"Original second password did not complete");
+  for(unsigned n=0;n<3;++n)check(live.f.isSet(XeenSide::Darkside,200+n)==(n==answer),"Original second password took the wrong branch");
+  roundTrip(live,password,"password-"+std::to_string(answer));
+ }
+ unsigned walls=0;
+ for(unsigned map:{54u,55u}) {
+  const XeenMapIdentity current{XeenSide::Darkside,std::uint16_t(map)};const auto file=in.events.load(current);
+  const auto count=in.maps.loadObjects(in.assets,current).entities.wallItems.size();
+  check(count==(map==54?21:4),"Original wall-item live count changed");
+  for(const auto &r:file.records)if(r.opcode==34 && r.parameters[0]>=count) {
+   check(r.parameters[0]<91 && r.parameters[1]==100 && r.parameters[2]==100,"Unused wall row changed");
+   // Call the original row and run its complete original suffix. A free
+   // physical cell keeps this wrapper out of all original record addresses.
+   auto called=file;unsigned x=15,y=15;
+   while(std::any_of(file.records.begin(),file.records.end(),[&](const auto &e){return e.x==x && e.y==y;})) {
+    check(x || y,"No physical caller for original wall Event");if(x)--x;else {x=15;--y;}
+   }
+   called.records.push_back(row(x,y,0,25,{r.x,r.y,r.line}));called.records.push_back(row(x,y,1,18));
+   auto s=at(in,source,{current,int(x),int(y),r.direction<4?XeenDirection(r.direction):XeenDirection::North});Live live(in,s,&called);
+   const auto before=live.snapshot();std::vector<XeenMapEntity> items;
+   for(unsigned i=0;i<count;++i)items.push_back(live.w.effectiveWallItem({current,i}));
+   std::string failure;unsigned completed=0;
+   live.flow->reportManual=[&](const auto &result){if(const auto *e=std::get_if<XeenEventExecutionError>(&result))failure=e->message;if(std::holds_alternative<XeenManualEventCompleted>(result))++completed;};
+   live.act(InteractionAction{false});const auto saved=live.snapshot();check(failure.empty(),failure.c_str());check(completed>0,"Original wall Event did not complete");
+   check(live.w.objectFile(current).entities.wallItems.size()==count &&
+    saved.map(current).wallItems==before.map(current).wallItems,"Unused original wall slot changed saved or visible count");
+   for(unsigned i=0;i<count;++i) {
+    const auto item=live.w.effectiveWallItem({current,i});const auto &b=items[i];
+    check(item.x==b.x && item.y==b.y && item.direction==b.direction && item.resourceId==b.resourceId,"Unused original wall write changed a visible item");
+   }
+   std::cout<<"M103 Part C map "<<map<<" MoveWallObj EVT @"<<r.fileOffset<<" completed\n";
+   roundTrip(live,called,"wall-"+std::to_string(map)+"-"+std::to_string(r.fileOffset));++walls;
+  }
+ }
+ check(walls==7,"Did not execute all seven unused-wall rows");
+ const XeenMapIdentity castle{XeenSide::Darkside,29};const auto castleFile=in.events.load(castle);
+ const auto branch=std::find_if(castleFile.records.begin(),castleFile.records.end(),[](const auto &r){return r.fileOffset==6240;});
+ const auto spawn=std::find_if(castleFile.records.begin(),castleFile.records.end(),[](const auto &r){return r.fileOffset==6427;});
+ check(branch!=castleFile.records.end() && branch->opcode==42 && branch->parameters==std::vector<std::uint8_t>({31,182}) &&
+  spawn!=castleFile.records.end() && spawn->opcode==16 && spawn->parameters[0]==31,"Original map-29 negative branch/spawn changed");
+ XeenEventFile negative{castle,"original map-29 spawn and negative branch",true,{*spawn,*branch}};
+ negative.records.push_back(row(14,14,0,25,{spawn->x,spawn->y,spawn->line}));
+ // The original Spawn falls through into unrelated logic; return from it here.
+ negative.records.push_back(row(spawn->x,spawn->y,spawn->line+1,26));
+ negative.records.push_back(row(14,14,1,25,{branch->x,branch->y,branch->line}));
+ // Neither the caller's suffix nor the raw unsigned target may execute.
+ negative.records.push_back(row(14,14,2,12,{0,0,20,203}));
+ negative.records.push_back(row(branch->x,branch->y,182,12,{0,0,20,204}));
+ auto s=at(in,source,{castle,14,14,branch->direction<4?XeenDirection(branch->direction):XeenDirection::North});Live live(in,s,&negative);
+ check(live.w.sessionState().monsters(castle).size()==96,"Map-29 monster 31 is no longer live");
+ std::string failure;unsigned completed=0;
+ live.flow->reportManual=[&](const auto &r){if(const auto *e=std::get_if<XeenEventExecutionError>(&r))failure=e->message;if(std::holds_alternative<XeenManualEventCompleted>(r))++completed;};
+ live.act(InteractionAction{false});live.settle();check(failure.empty(),failure.c_str());
+ const auto &monster=live.w.sessionState().monsters(castle).at(31);
+ check(completed && monster.x==100 && monster.y==100 && !live.f.isSet(XeenSide::Darkside,203) && !live.f.isSet(XeenSide::Darkside,204),
+  "Original signed map-29 branch executed another line or failed to publish Spawn");
+ roundTrip(live,negative,"map29-negative");
+ std::cout<<"M103 Part C: original passwords, all seven unused wall slots and signed map-29 branch passed exact save/load\n";
+}
+
 void characterEvents(Inputs &in,const XeenSaveSnapshot &source) {
  std::optional<XeenEventRecord> condition,give;unsigned allMemberSites=0;
  for(unsigned n=1;n<=129;++n) {
@@ -924,12 +1018,14 @@ void pyramidCombatAudio(Inputs &in,const GameInstallation &installation,const st
 }
 int main(int argc,char **argv) {
  try {
-  check(argc==3 || (argc==4 && std::string(argv[3])=="partb"),"usage: darkside-tests <installation> <output-directory> [partb]");const auto installation=xeenTestInstallationDetector().detect(argv[1]);check(bool(installation),"Missing original installation");
+  check(argc==3 || (argc==4 && (std::string(argv[3])=="partb" || std::string(argv[3])=="partc")),"usage: darkside-tests <installation> <output-directory> [partb|partc]");const auto installation=xeenTestInstallationDetector().detect(argv[1]);check(bool(installation),"Missing original installation");
   const std::filesystem::path out=argv[2];std::filesystem::create_directories(out);const auto save=std::filesystem::temp_directory_path()/("mmodern-m101-"+std::to_string(std::chrono::steady_clock::now().time_since_epoch().count())+".mmsave");
   std::cout<<"Preset: "<<save<<'\n';
   developer::generateTestSave(*installation,"m101-castleview",save);Inputs in(*installation);const auto preset=XeenSaveFile::read(save);
   check(preset.camera.mapId==XeenMapIdentity(XeenSide::Darkside,29),"Wrong Castleview preset");
+  if(argc==4 && std::string(argv[3])=="partc"){partCEvents(in,quiet(in,preset),out);return 0;}
   partBEvents(in,quiet(in,preset),out);if(argc==4)return 0;
+  partCEvents(in,quiet(in,preset),out);
   enchantedLivePublication(in,quiet(in,preset),out);partAEvents(in,quiet(in,preset),out);characterEvents(in,quiet(in,preset));resources(in);std::cout<<"Resources verified\n";const auto s=quiet(in,preset);music(in,*installation,s);std::cout<<"Music verified\n";refusals(in,s,out);forcedText(in,s,out);
   pyramid(in,*installation,s,out);saveExport(in,*installation,s,out);originalRoute(in,*installation,out);pyramidCombatAudio(in,*installation,out);
   panelAndDefeat(in,*installation,s,out,4);

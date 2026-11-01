@@ -422,6 +422,9 @@ XeenEventDecodeResult XeenEventDecoder::decode(const XeenEventRecord &record,
 	case 0x15:
 		if(record.parameters.size()!=4)return wrongSize(record,context,4);
 		return instruction(record,context,XeenEventConfirmWord{record.parameters[0],record.parameters[1],record.parameters[2],record.parameters[3]});
+	case 55:
+		if(record.parameters.size()!=4)return wrongSize(record,context,4);
+		return instruction(record,context,XeenEventConfirmWord{record.parameters[0],record.parameters[1],record.parameters[2],0,55,record.parameters[3]});
 	case 0x19:
 		return decodeCallEvent(record, context);
 	case 0x1a:

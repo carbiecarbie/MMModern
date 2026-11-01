@@ -261,11 +261,11 @@ void checkSource(const XeenEventSourceLocation &source, bool withContext,
 }
 
 void testErrorsMetadataAndPurity() {
-	const auto unsupportedKnown = XeenEventDecoder::decode(record(0x37, {1, 2}),
+	const auto unsupportedKnown = XeenEventDecoder::decode(record(0x39, {1, 2}),
 		{42, std::string("maze0042.evt")});
 	const auto &opcodeError = failure(unsupportedKnown,
 		XeenEventDecodeErrorKind::UnsupportedOpcode);
-	checkSource(opcodeError.source, true, 0x37);
+	checkSource(opcodeError.source, true, 0x39);
 	check(!opcodeError.expectedParameterSize && opcodeError.actualParameterSize == 2,
 		"unsupported opcode does not parse parameters");
 	checkSource(failure(XeenEventDecoder::decode(record(0xff)),
@@ -408,6 +408,12 @@ int main() {
 		testErrorsMetadataAndPurity();
 		testOwnedResultLifetime();
 		testGiveEnchanted();
+		const auto second=operation<XeenEventConfirmWord>(XeenEventDecoder::decode(record(55,{3,10,4,16})));
+		check(second.inputType==3 && second.targetLine==10 && second.alternateText==4 && second.alternateLine==16 &&
+			second.marker==55 && !second.titleText,"ConfirmWord_2 operand roles");
+		const auto first=operation<XeenEventConfirmWord>(XeenEventDecoder::decode(record(21,{3,10,4,16})));
+		check(first.marker==21 && first.titleText==16 && !first.alternateLine,"ConfirmWord operand roles changed");
+		for(unsigned size:{0u,1u,2u,3u,5u})failure(XeenEventDecoder::decode(record(55,std::vector<std::uint8_t>(size))),XeenEventDecodeErrorKind::MalformedInstruction);
 		check(operation<XeenEventDisplay>(XeenEventDecoder::decode(record(0x27,{3}))).kind==
 			XeenEventDisplayKind::SignLabelReduced,"Small sign decoder kind");
 		failure(XeenEventDecoder::decode(record(0x27,{})),XeenEventDecodeErrorKind::MalformedInstruction);

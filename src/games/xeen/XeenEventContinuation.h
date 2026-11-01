@@ -88,7 +88,7 @@ private:
 		if(x.fallDestination!=y.fallDestination || !optional(x.numeric,y.numeric,[](const auto &p,const auto &q){return p==q;}) ||
 			!optional(x.fall,y.fall,[](const auto &p,const auto &q){return p==q;}))return false;
 		if(x.forceText!=y.forceText || x.entranceAction!=y.entranceAction || x.arena!=y.arena)return false;
-		if(x.mirrors!=y.mirrors || x.alternate!=y.alternate || !optional(x.word,y.word,[](const auto &p,const auto &q){return std::tie(p.inputType,p.targetLine,p.alternateText,p.titleText)==std::tie(q.inputType,q.targetLine,q.alternateText,q.titleText);}) || a.continuation!=b.continuation || x.rewardWaitTicks!=y.rewardWaitTicks || !optional(x.portrait,y.portrait,[](const auto &p,const auto &q){return p==q;}) || !optional(a.conditional,b.conditional,conditional) ||
+		if(x.mirrors!=y.mirrors || x.alternate!=y.alternate || !optional(x.word,y.word,[](const auto &p,const auto &q){return std::tie(p.inputType,p.targetLine,p.alternateText,p.titleText,p.marker,p.alternateLine)==std::tie(q.inputType,q.targetLine,q.alternateText,q.titleText,q.marker,q.alternateLine);}) || a.continuation!=b.continuation || x.rewardWaitTicks!=y.rewardWaitTicks || !optional(x.portrait,y.portrait,[](const auto &p,const auto &q){return p==q;}) || !optional(a.conditional,b.conditional,conditional) ||
 			!optional(x.cdSpeech,y.cdSpeech,speech) ||
 			std::tie(x.kind,x.response,x.mapId,x.textIndex,x.text,x.layoutValue,x.verbIndex,x.refusal,x.title,x.notEnough,x.lockPicked)!=
 			std::tie(y.kind,y.response,y.mapId,y.textIndex,y.text,y.layoutValue,y.verbIndex,y.refusal,y.title,y.notEnough,y.lockPicked) ||

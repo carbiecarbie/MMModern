@@ -525,6 +525,16 @@ void flowOperations() {
   const auto absent=run(*f.w,p,flags,{row(0,42,{1,15}),row(1,12,{0,0,20,1}),row(15,12,{0,0,20,2})});
   check(completed(absent) && finalFlags(absent).isSet(2),"parked monster jumps");
  }
+ // Signed IfMapFlag targets end the complete scan, including a caller's suffix.
+ for(unsigned target:{128u,182u,238u,150u,206u,255u})for(bool present:{false,true}) {
+  const XeenMapIdentity id{XeenSide::Darkside,47};World f(id);auto p=party();XeenGameFlags flags;
+  check(f.w->regionalJourney(),"Signed IfMapFlag fixture bypassed preflight");
+  const auto result=run(*f.w,p,flags,{row(0,42,{std::uint8_t(present?0:1),std::uint8_t(target)}),
+    row(1,12,{0,0,20,1}),row(2,18),row(target,12,{0,0,20,2})},{},{id,5,5,XeenDirection::West});
+  check(completed(result) && finalFlags(result).isSet(XeenSide::Darkside,1)==present &&
+    !finalFlags(result).isSet(XeenSide::Darkside,2),"Signed IfMapFlag followed an unsigned target or failed preflight");
+  if(!present)check(std::get<XeenEventExecutionCompleted>(result.result).instructionCount==1,"Negative IfMapFlag executed another line");
+ }
  // NPC mode 0 (maze0027.evt @3096): Yes jumps, No continues.
  for(const bool yes:{true,false}) {
   World f;auto p=party();XeenGameFlags flags;

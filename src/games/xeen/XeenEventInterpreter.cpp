@@ -183,7 +183,10 @@ std::optional<XeenEventExecutionError> preflightEvent(XeenWorld &world,
 				return unsupported("Event condition operand is not supported yet");
 			enqueue(x,y,condition->targetLine);
 		}
-		if(const auto *word=std::get_if<XeenEventConfirmWord>(&op))enqueue(x,y,word->targetLine);
+		if(const auto *word=std::get_if<XeenEventConfirmWord>(&op)) {
+			enqueue(x,y,word->targetLine);
+			if(word->marker==55)enqueue(x,y,word->alternateLine);
+		}
 		if(const auto *choice=std::get_if<XeenEventChooseNumeric>(&op))
 			for(const auto target:choice->lines)if(target>=0)enqueue(x,y,target);
 		if(std::holds_alternative<XeenEventFallToMap>(op))continue;
@@ -195,7 +198,7 @@ std::optional<XeenEventExecutionError> preflightEvent(XeenWorld &world,
 			continue; // No sequential fallthrough.
 		}
 		if(const auto *jump=std::get_if<XeenEventJumpRandom>(&op))enqueue(x,y,jump->line);
-		if(const auto *flag=std::get_if<XeenEventIfMapFlag>(&op))enqueue(x,y,flag->line);
+		if(const auto *flag=std::get_if<XeenEventIfMapFlag>(&op))if(flag->line>=0)enqueue(x,y,flag->line);
 		if(const auto *set=std::get_if<XeenEventSetCharacter>(&op))
 			if(static_cast<std::int8_t>(set->selector)>7)return unsupported("SetChar character selection is not supported yet");
 		// Statically refused value modes (see the runtime giveTake owners).
@@ -643,14 +646,17 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
                 for(std::size_t i=0;i<a.size();++i)if(upper(a[i])!=upper(b[i]))return false;
                 return true;
             };
-            unsigned result=0;
+            int result=0;
             state.mirrorDestination.reset();
             if(!input.empty()) {
                 // Maintainer decision, 2026-10-16: opcode 21 alternate-only
                 // matches take ordinary success. DOS passes an uninitialized
                 // scratch marker here; residue 55 instead selects operand 3.
                 // See docs/original-quirks.md (ConfirmWord marker).
-                if(word.inputType)result=equal(input,pending.request.text) || equal(input,pending.request.alternate);
+                if(word.inputType) {
+                    if(equal(input,pending.request.text))result=1;
+                    else if(equal(input,pending.request.alternate))result=word.marker==55?-1:1;
+                }
                 else {
                     const unsigned first=workingCamera.mapId.side==XeenSide::Clouds && workingCamera.mapId.number>32?0x26:0;
                     // DOS 0x24104..0x24118 includes index 36 on Darkside,
@@ -678,7 +684,8 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
             state.scriptExecuted=true;
             state.pendingPresentation.reset();
             if(result) {
-                logical.line=word.targetLine;missingPolicy=MissingInstructionPolicy::ExplicitJump;
+                logical.line=result<0?word.alternateLine:word.targetLine;
+                missingPolicy=MissingInstructionPolicy::ExplicitJump;
                 pendingTransferSource=pending.request.source;
             } else {
                 if(logical.line==255)return error(XeenEventExecutionErrorKind::LineOverflow,"ConfirmWord fallthrough line overflow",instructionCount,logical,pending.request.source);
@@ -1265,6 +1272,8 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 			++logical.line;missingPolicy=MissingInstructionPolicy::NaturalCompletion;continue;
 		}
 		if(const auto *move=std::get_if<XeenEventMoveWallObject>(&decoded.operation)) {
+			if(move->record>=XeenWorld::kWallItemCapacity)
+				return error(XeenEventExecutionErrorKind::UnsupportedOperand,"MoveWallObj index outside the allocated wall slots is not supported yet",instructionCount,logical,decoded.source);
 			world.applyMoveWallObject({logical.mapId,move->record},move->x,move->y);
 			++logical.line;missingPolicy=MissingInstructionPolicy::NaturalCompletion;continue;
 		}
@@ -1468,7 +1477,11 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 				found=present(table[mapFlag->monster]);
 			}
 			if(found) {if(const auto e=advance("IfMapFlag"))return *e;}
-			else jump(mapFlag->line);
+			else {
+				jump(mapFlag->line);
+				// DOS sign-extends the target; no byte-sized record can match it.
+				if(logical.line<0)return finalize();
+			}
 			continue;
 		}
 		// giveTake (0x2200c..0x23315) for one member. Returns a step result to

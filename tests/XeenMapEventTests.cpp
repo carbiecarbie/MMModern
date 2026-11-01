@@ -69,7 +69,23 @@ void operations(XeenSide side) {
  const auto item=f.w->effectiveWallItem({id,4});
  check(item.x==13 && item.y==13 && item.direction==3 && item.resourceId==7 &&
   f.w->objectFile(id).entities.wallItems[4].x==4,"MoveWallObj changed metadata, flipped or edited MOB");
- rejects([&]{f.w->applyMoveWallObject({id,5},1,1);});
+ const auto saved=f.w->sessionState().mapStates();
+ for(unsigned slot=5;slot<XeenWorld::kWallItemCapacity;++slot)f.w->applyMoveWallObject({id,slot},100,100);
+ check(xeen_state::sameMapStates(saved,f.w->sessionState().mapStates()) &&
+  f.w->objectFile(id).entities.wallItems.size()==5,"Unused wall slots created visible or saved items");
+ check(f.w->effectiveWallItem({id,4}).x==13 && f.w->effectiveWallItem({id,0}).x==-128,"Unused writes changed live wall items");
+ for(unsigned slot:{91u,255u})rejects([&]{f.w->applyMoveWallObject({id,slot},1,1);});
+ XeenPartyState party;XeenEventInterpreter vm;
+ const auto run=[&](std::vector<XeenEventRecord> records) {
+  XeenEventFile file{id,"unused wall slots",true,std::move(records)};
+  return vm.execute({id,5,5,XeenDirection::North},party,{},*f.w,[&](auto){return XeenEventScript(file);});
+ };
+ const auto unused=run({row(5,5,0,34,{5,100,100}),row(5,5,1,34,{90,100,100})});
+ check(std::holds_alternative<XeenEventExecutionCompleted>(unused) && xeen_state::sameMapStates(saved,f.w->sessionState().mapStates()),
+  "Unused MoveWallObj did not finish without saved effects");
+ const auto invalid=run({row(5,5,0,34,{91,100,100})});
+ const auto *refused=std::get_if<XeenEventExecutionError>(&invalid);
+ check(refused && refused->kind==XeenEventExecutionErrorKind::UnsupportedOperand,"Wall slot beyond allocation did not refuse");
  // maze0054.evt @701: neighbour DAT cell (25,5), west wall 8.
  f.w->applyAlterMap(id,25,5,3,8);
  check(f.w->sampleCell(id,25,5)->mapId==XeenMapIdentity(side,48) &&
