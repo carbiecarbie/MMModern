@@ -1,9 +1,25 @@
 # Milestone 104 plan - Mixed World of Xeen maps
 
 **Tier A. Status: plan (2026-11-01); decisions approved by the maintainer,
-independent plan review applied.** Step 3 of the
-[Darkside arc](roadmap.md#darkside-arc). Save v23 -> v24 expected (decision
-3); Journey schema 9 and content 14 unchanged.
+independent plan review applied; Part 0 done, decisions 2, 3, 4 and 6
+amended from its results.** Step 3 of the
+[Darkside arc](roadmap.md#darkside-arc). Save v23 -> v24 (decision 3);
+Journey schema 9 and content 14 unchanged.
+
+## Part 0 results
+
+DOS agrees with the reference on every per-map selector, the 125-127 scenery
+and music (Clouds `dungeon.m`, no draw; 124 draws although its seven choices
+are the same song), the 128 horizon and day sky, falls (113-127 to Darkside
+29, 128 to Clouds 8) and Town Portal (Clouds from 113-127, Darkside from
+128). Mixed-map gameplay, voices and the saved side are Darkside, 125-127
+included. All sixteen maps allow Town Portal and Beacon. DOS differs from the
+reference in two pending-side rules: a successful same-map Beacon Return
+overwrites a pending side, and Save first makes the pending side active. The
+four original FlipWorld runs cross to Clouds at once, so normal play never
+keeps a pending side. Rules and offsets:
+[evidence](rules/evidence.md#mixed-world-of-xeen-maps-m104-part-0) and
+[original quirks](original-quirks.md#mixed-world-map-rules-established-from-dos).
 
 ## Goal
 
@@ -82,8 +98,8 @@ adopted before Part 0.
    surface slot, horizon and always-day sky, music class, monster and defeat
    voices, ambient UI/NPC/dialog resources, and Town Portal side. The
    logical map identity, its archive and the gameplay rule side (flag and
-   quest banks, roster filter, combat, movement, terrain, chests, services,
-   object anchors) stay distinct from the art selectors and change only where
+   quest banks, combat, movement, terrain, chests, services, voices, object
+   anchors; Darkside on every mixed map, per Part 0) stay distinct from the art selectors and change only where
    Part 0 shows DOS changes them. A single substituted side cannot work:
    113 needs Clouds objects with Darkside monsters, 117 Clouds monsters with
    Darkside wall pictures, 125 Darkside monsters with Clouds scenery. The
@@ -91,36 +107,41 @@ adopted before Part 0.
    125-127 and is reused for voices, defeat, dialogs and combat validation,
    is split by consumer. The two monster tables are immutable and cached by
    table identity, never by the last map's side; species 91 keeps its
-   override only for its established art. The review's
+   override only for its established art. The roster filter follows the
+   pending side (decision 4). The review's
    [caller inventory](#caller-checklist) is the required checklist. No new
    owner: the selectors live with the map identity and are read by the
    existing world, scene, combat, audio and save owners; nothing derived is
    serialized.
-3. **Save v24.** A mixed map is saved with its side and number as today; the
+3. **Save v24, no new field.** A mixed map is saved with its side and
+   number as today, always Darkside (125-127 included, as DOS writes); the
    valid states widen and their validation changes:
-   - maps DOS gives a fixed song require an absent song byte and derive the
-     song without drawing; drawing maps require a saved song in the correct
-     geometry row;
-   - the envelope side stays equal to the camera's logical archive side;
-     the Beacon's side and map stay independent and validated;
+   - 125-127, where DOS plays a fixed song, require an absent song byte and
+     derive the song without drawing; the drawing maps (124 included)
+     require a saved song in the correct geometry row;
+   - the envelope side stays equal to the camera's side; the Beacon's side
+     and map stay independent and validated;
    - every saved map's actors are rebound to that map's monster table, so a
-     history holding both 113 and 117 restores;
-   - a pending FlipWorld side is saved only if Part 0 shows normal play
-     reaches a persistent pending state.
-   v24 is sound under the 0.x policy because validation and meaning change,
-   even without new bytes; v23 saves are refused with the usual message. If
-   Part 0 finds neither new state nor new meaning, the plan is amended to
-   keep v23 before Part A.
-4. **FlipWorld as DOS does it.** Part 0 settles the current versus pending
-   load side across every load path (question 7). A pending side, if any, is
-   staged with the existing detached world and Event candidates and
-   published once, and belongs to the world owner beside the camera. Adding
-   the side to the teleport's whole-identity comparison must not turn a
-   same-number teleport into a reload or a music draw. If DOS drops the
-   pending side on Load, that result is reconciled explicitly with the
-   exact-restore policy. If DOS cannot represent a retained pending side,
-   the DOS export refuses or documents the limitation; an MMModern side byte
-   never silently changes DOS's side byte.
+     history holding both 113 and 117 restores.
+   Normal play never keeps a pending side (Part 0), so none is saved. v24 is
+   sound under the 0.x policy because validation and meaning change, even
+   without new bytes; v23 saves are refused with the usual message.
+4. **FlipWorld and the pending side as DOS does it.** FlipWorld writes its
+   operand to a pending load side and changes nothing else. The pending side
+   belongs to the world owner beside the camera, is staged with the
+   existing detached world and Event candidates and published once (a
+   refused transition discards it with the candidate), and is used by the
+   next map load: Event teleport to a different map number, boundary,
+   reload and fall. A same-number teleport does not reload and draws no
+   music. Town Portal, every successful Beacon Return (same map included,
+   [DOS](original-quirks.md#sv-mixed-beacon-pending-reset)) and the keyed
+   entrances overwrite it; the roster filter reads it, as DOS does. DOS
+   Save would first make a pending side active
+   ([quirk](original-quirks.md#sv-mixed-save-pending-side)); no original
+   Event leaves one, so MMModern's Save with a pending side different from
+   the camera's shows "not supported yet" and keeps the game running,
+   instead of saving a state DOS and the format cannot both express. The
+   DOS export therefore never meets a pending side.
 5. **Entrance keys.** The M80 rule that treats Clouds keys 35 and above as
    absent existed because only counters 0-34 were saved; since M101 all 85
    are. Part B removes it, so the four sites (Clouds maps 2, 7, 13, 19 with
@@ -128,9 +149,9 @@ adopted before Part 0.
    counters. The counters and destinations are already calibrated
    ([evidence](rules/evidence.md#entrance-scenes-and-the-arena-2026-10-20)); Part 0 only adds the
    side and load behavior.
-6. **Town Portal from 128** follows DOS whichever way Part 0 finds; if DOS
-   differs from the reference it gets an original-quirks entry with a
-   `**ScummVM:**` tag.
+6. **Town Portal from 128** goes to the Darkside towns with the existing
+   [Darkside arrivals](original-quirks.md#sv-darkside-town-portal-stride),
+   and from 113-127 to the Clouds towns, as DOS and the reference do.
 
 ## Part 0 - DOS analysis
 
@@ -190,7 +211,7 @@ unresolved ones. Answers that change a decision amend this plan first.
   witness gains a history holding both monster tables, a 125-127 camera
   without a song, a drawing camera with one, nonzero values in both flag
   banks and a mixed-map Beacon; re-save is byte-identical, restore replays no
-  RNG, time or reward, and a mismatched envelope, song or pending side is
+  RNG, time or reward, and a mismatched envelope or song is
   rejected without publishing partial state. The DOS export writes the mixed
   maps from the shared selectors instead of its own table.
 - Census: the sixteen maps admitted through real engine admission, the
@@ -228,8 +249,8 @@ unresolved ones. Answers that change a decision amend this plan first.
 - **RNG order.** A skipped or added music draw shifts the Journey tape; the
   draw's place follows Part 0 and is tested together with the next Journey
   draw.
-- **Pending FlipWorld side** can be lost or wrongly kept by a save, a
-  reload or a failed load; covered by decisions 3 and 4 and their tests.
+- **Pending FlipWorld side** can be applied by the wrong load or survive a
+  refused one; covered by decision 4 and its tests.
 - **Content the maps use that is still missing** (monster abilities,
   Events); the refusal sweep bounds it before the play-test.
 
@@ -253,7 +274,10 @@ unresolved ones. Answers that change a decision amend this plan first.
   return, same-map and cross-side; Teleport and Jump restrictions; terrain
   and scripted falls (flag 118 included) and 128's Clouds exit.
 - FlipWorld: flags before the load, same-number teleport without a load,
-  replacement and cancellation, save continuation and failed-load rollback.
+  the next boundary, reload or fall using the pending side, Town Portal,
+  same-map Beacon Return and entrance overwriting it, the roster filter
+  reading it, Save refused with a pending side, and a refused transition
+  discarding it.
 - The save witness of Part A; ordinary-map traces unchanged and the
   replacement M44 digests approved; census regenerated.
 - Independent reviews of this plan and of each part's implementation.

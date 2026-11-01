@@ -27,6 +27,15 @@ unchanged apart from its version number, so the earlier entries are marked
 intro at startup. Ordinary Darkside play uses the shared World state; its
 town services work; the Pyramid and travel spells cross sides.
 
+Two additional DOS state rules were established by
+[M104 Part 0](rules/evidence.md#mixed-world-of-xeen-maps-m104-part-0).
+Mixed-map gameplay remains unsupported; these entries record the reference
+differences, not implemented coverage. Neither state persists through the
+four original mixed-map FlipWorld runs. Pin: differs; master not rechecked.
+
+- **Same-map Beacon Return.** [DOS replaces a pending side even without reloading](original-quirks.md#sv-mixed-beacon-pending-reset); the pin assigns it only when the destination needs a reload.
+- **Saving after a pending side change.** [DOS selects the pending side before saving](original-quirks.md#sv-mixed-save-pending-side); the pin saves the active side without that switch. The original four flip runs leave no such pending state.
+
 The following Darkside presentation differences follow the DOS rules
 established in M102 Part 0. Service animations and entrance scenes are implemented in Parts A/B. For
 each item, pin: differs; master not rechecked.

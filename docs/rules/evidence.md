@@ -1476,6 +1476,195 @@ Dungeon pause
 Dwarf site rows
 `ev_b5fab8f057640b56dfd92943dc5d1b86a4f82aa251d3c85f556c304dbec08e87`.
 
+## Mixed World of Xeen maps (M104 Part 0)
+
+**Calibrated DOS static, high confidence for the eight questions below
+(2026-11-01).** Baseline: clean `main` / `origin/main`
+`06ddf1da772d27746b60d5ba7658dffe3042ff77`; pin
+`6814ee9ba54582f5b5adcffab49efbbd8f589edd`. DAT size/hash and address mapping
+match [Exact baseline](#exact-baseline). This records rules, not implemented
+coverage or milestone acceptance; no game, build or tests ran.
+
+REA through Ubuntu WSL opened the DOS MZ with Ghidra 12.1.4. Its loader
+pseudocode has overlapping-instruction, stack and jump-table warnings and
+is not authority for the detailed branches; bounded WSL Python3 / Capstone
+5.0.7 x86-16 reads settle those. Calibration reproduced the ordinary Darkside
+selection `0xf6fd..0xf778` and species-91 switch `0xffeb..0x10010`.
+The separate Ghidra Save decompilation agrees with the direct store below.
+External full findings, scripts, disassembly and REA records:
+`D:/Projetos/MModern/MModern-re/m104/part0/`, chiefly `findings.md`,
+`validated-data.json` and `resources/m104-dark-maps-113-128.json`.
+REA loader record `ev_882885120aa9f904158c353895b665a240438b0df3038a391ca120e1f9b71e30`;
+Save `ev_5ed206131c3938be27b64c0565af8f1dcc97d20cfe0fe278ee16bbe9362e6561`.
+The native session was closed. No original bytes or disassembly were copied here.
+
+Original resources were decoded from CD `GAME1.GOG`, `GAME/DARK.CC` at
+LBA 41, 11,288,403 bytes, SHA-256
+`e3a39812ed90ae83bab962f58f1abaa5f79d701ebfcb9dcb2561d1f3dd679389`.
+Its six New Game blocks give the same 386,264-byte initial CUR and hash as
+[M103](#darkside-events-m103-part-0). Mutable installed CUR and loose floppy
+archives were not used. Addresses below are DAT file offsets; `EVT @n`
+means decoded member offset. `A` = active archive byte `DS:94`, `P` = pending
+load byte `DS:96e2`, `T` = Portal selector `DS:fb00`.
+
+**1. Resource families — agrees with the pin.** World-mode Darkside loading
+dispatches on the **root map number**, not a flag: `0xf62a..0xf644`, table
+`0x10796..0x107b5`. The branches are `0xf649`, `0xf684`, `0xf6fd`, `0xf6c1`:
+
+| Maps | Monster table / art | Object art | Pictures / metadata | Animation |
+| --- | --- | --- | --- | --- |
+| 113-116, 128 | dark.mon / Darkside | Clouds | Darkside / darkpic.dat | clouds.dat |
+| 117-120, 124 | xeen.mon / Clouds | Clouds | Darkside / darkpic.dat | clouds.dat |
+| 121-123 | dark.mon / Darkside | Darkside | Darkside / darkpic.dat | dark.dat |
+| 125-127 | dark.mon / Darkside | Clouds | Clouds / xeenpic.dat | clouds.dat |
+
+Metadata files are fetched while Darkside is selected; table identity and
+physical archive are distinct. Object, monster and picture art use the three
+independent words at `DS:8c4e/8c50/8c4c` (`0xff10`, `0x10004`, `0x10216`).
+Species 91 overrides only monster art. Root side is captured at `0xf77b`;
+the nine-tile DAT loop `0xf78e..0xfd1c` retains it. The root-only gate
+`0xf864..0xf86d` prevents neighboring tiles from choosing new tables or names.
+
+**2. Scenery and names — agrees with the pin.** `0x10408..0x1042c` switches
+indoor 125-127 to Clouds for terrain sky, ground, tiles, surfaces and walls
+(`0x104ff..0x10684`); final sky refresh `0x1076c -> 0x1f7bb..0x1f811`
+also uses Clouds, replacing an earlier Darkside primary-sky preload.
+Other mixed roots use Darkside scenery. Horizon selection happens before
+restoration (`0x10725..0x1076c`): 125-127 keep it; 128 hides it.
+`0x1f7d9..0x1f7fc` forces day sky on 128 (also 89-112 and 129), independently
+of side. Reuse the [settled missing-cell tables](#darkside-maintenance-checks):
+slot 6 on 113-120, 125, 126, 128; slot 0 on 121-124, 127. Those queries see
+the restored Darkside archive, independently of the scenery selector.
+
+Names are selected before that temporary switch (`0xf870..0xf8cd`):
+`darkx125/126/127.txt` name Southern Sphinx Levels 1/2/3; 128 is Dragon Clouds.
+The pin's surrounding-map-120 workaround touches no installed mixed path:
+113-120,126,127 have no neighbors; 121-124 use auxiliary groups 165-167,
+168-170,171-173,174-176; 125 uses 177; 128 uses 178-180. All sixteen
+filename-based neighbor graphs were checked. Root 120 is not a surrounding tile.
+
+**3. Music — agrees with the pin on these installed maps.** All sixteen
+DATs are indoor. Wall kind 4 on 125-127 selects Clouds `dungeon.m`, with
+**no music draw** (`0x10425..0x10488`, filename pointer `0x4f05a`).
+The music archive is retained separately in `DS:f61d` (`0x10432`, consumer
+`0xe5ac`). All other mixed maps draw once from `0..6` (`0x1048d..0x10499`).
+113-123/128 use row 3: dngon1, dngon2, dngon3, dngon1, dngon2, dngon3,
+dngon1; 124 uses row 5, **seven copies of sf05.m but still one draw**.
+Table `0x4f062..0x4f109`; wall-row selector `0x4f10a..0x4f10f`.
+The draw follows monster/effect frames (`0xfab0`, `0xfb3d`) and art loads,
+precedes scenery and the current-song comparison, and is not mute-gated.
+Keep the existing cosmetic-frame/Journey split and
+[exact-restore music policy](../original-quirks.md#dev-darkside-load-music).
+
+**4. Ambient side — active Darkside, with a pending-side roster filter.**
+The loader restores `A=1` at `0x10775..0x1077d`, including 125-127.
+Game flags use `A*256` (`0x2178f..0x217a3`); quest flags use `A*30`
+(`0x21b1f..0x21b33`); quest item counters remain shared. Object anchors
+(`0x1578f..0x157be`, `0x1712a`), chest opening (`0x235d9..0x235e5`)
+and combat side rules (`0x2be03..0x2be7a`) use A, not art side.
+Monster voice loading uses the selected monster table's attack name and
+active archive (`0x2d7d5..0x2d7f4`); species 91 has no voice-side override.
+Defeat uses Darkside laff1.voc/art (`0xb260..0xb279`, `0xb2dc..0xb359`).
+FlipWorld refreshes no UI or dialog resource: ordinary later loads still use A.
+The **roster filter uses P**, comparing character byte 18 at
+`0x395af..0x395b7`; creation also stamps P (`0x35680`). The pin agrees
+(`dialogs_party.cpp:305-306`), so the plan's blanket logical-side classification
+needs correction. Existing active characters are not reassigned by a flip.
+
+Save writes side **1 on every ordinary mixed arrival**, including 125-127.
+Normal Save/Save As callers `0x1f1e6`/`0x20a24` enter `0x1ebc2`: it preserves
+P, reads canonical saved records, restores P and **selects A=P**
+(`0x1ec4c..0x1ec60`), restores the live party, then flushes and saves
+(`0x1ed29..0x1ed2e`). Only then does writer `0xe938..0xe93b` set P=A and
+write `maze.nam` (`0xe951..0xe959`, DS `96c5`, 31 bytes; side at byte 29).
+Thus Save applies a hypothetical pending side, rather than discarding it;
+a missing resource under that side can terminate instead of completing.
+**Pin difference:** it saves active side without that promotion; see
+[Save side](../original-quirks.md#sv-mixed-save-pending-side).
+
+**5. Portal and Beacon — 128 uses Darkside Portal.** `0xf5fd..0xf613`
+sets T=0 on inclusive 113-127, otherwise P. Portal names at
+`0x30691..0x306e8` are Vertigo/Nightshadow/Rivercity/Asp/Winterkill there;
+128 lists Castleview/Sandcaster/Lakeside/Necropolis/Olympus. Accepted travel
+overwrites P and A with T (`0x30779..0x30798`); cancel does not. The already
+calibrated [Darkside destination-stride difference](../original-quirks.md#sv-darkside-town-portal-stride)
+applies on 128: maps 4/19/22/6/98 at (14,11)S/(5,12)W/(2,15)E/(8,11)N/(2,6)N.
+No new Portal-128 difference was found.
+
+Beacon defaults use A (`0x2fcce..0x2fd05`), Set stores A/map/x/y
+(`0x2ff6b..0x2ff8a`), and the displayed name uses its saved side/map
+(`0x2fd17..0x2fd7f`). Thus a mixed Beacon is Darkside even on 125-127.
+Return **always** writes P from the Beacon (`0x2ff05`), then reloads only
+if map or A differs (`0x2ff08..0x2ff35`); direction is preserved.
+**Pin difference:** its pending assignment is inside the reload branch.
+See [same-map Beacon](../original-quirks.md#sv-mixed-beacon-pending-reset).
+Set/cancel leave P alone. Original DAT offset 778 is `0x1000` on
+113-120,122-126 and zero on 121,127,128: all permit Portal and Beacon
+(DOS masks `0x100` at `0x30659`, `0x800` at `0x2fc9f`).
+
+**6. Falls — reuse the DOS bounds, including the known 113 difference.**
+Table `0xcd22` maps every 113-127 entry to `0xcc7d`, ordinary Darkside 29
+(25,21) North. The pin instead sends 113 to 25; see
+[fall bounds](../original-quirks.md#sv-darkside-fall-bounds).
+128 selects `0xcc67`: P=0, map 8, (11,15), North, then loader `0xccc2`.
+This is its terrain-fall exit; EVT Exit is only an Event terminator.
+Active Darkside flag 118 suppresses both fall paths (`0xca68..0xca87`);
+the established outer terrain check also suppresses damage. Nonzero scripted
+destinations preserve facing and use P (`0xcca5..0xccc2`); Darkside map 0
+uses the terrain table (`0xcc93..0xcca2`). Only 128 explicitly overwrites P.
+There are **no FallToMap records** in these sixteen original EVT members,
+so no new missing-damage edge needs a decision.
+
+**7. FlipWorld — no persistent pending state in these original routes.**
+Dispatch subtracts one from opcode (`0x26c59`); entry 58 at `0x29320`
+reaches `0x28b32..0x28b3d`. It copies the raw operand at EVT+6 to P,
+without toggling A, loading, drawing or changing T/music. All four operands
+are zero. Their complete runs are:
+
+| Source cell (South) | Before the flip | Flip / next record | Clouds arrival |
+| --- | --- | --- | --- |
+| 113 (7,4) | Bottom text 0; confirmation; Exit if refused | EVT @22 / @29 | 7 (11,0) South |
+| 117 (7,4) | Text 4; confirmation; Exit if refused; SetVar(84,1) turns East | @251 / @258, both any-direction | 13 (10,5) East |
+| 121 (18,0) | Text 0; confirmation; Exit if refused | @22 / @29 | 19 (3,4) South |
+| 125 (7,5) | Bottom text 3; confirmation; Exit if refused | @22 / @29 | 2 (11,9) South |
+
+SetVar84 reaches the facing store `0x23c7f` through table entry `0x23d37`.
+Each flip immediately precedes a different-number teleport, with no intervening
+prompt/draw/wait that could change the Event interruption selector. The loop's
+check is `0x26abd..0x26acc`. Hence these successful runs load Clouds before
+returning control; refusals occur before FlipWorld.
+
+The traced general semantics still matter: Event end does not reset P
+(`0x28d30..0x29280`); a same-number teleport compares only number and keeps P
+without loading (`0x270be..0x270f9`). Boundary loads use P (`0xf533..0xf53d`),
+as do ordinary entrance reloads and falls, except explicit overrides above.
+A replaced flip takes its last operand. Cancelled Portal/Beacon leaves P;
+accepted Portal/Beacon overwrites it; Save's wrapper selects A=P before its
+writer copies A to P. Load reads
+the saved P (`0xf03b..0xf075`) before gameplay loads the map (`0xd08c`).
+Missing-resource loads have **no DOS rollback**: map/buffers change first
+(`0xf59f..0xf5ee`), then a missing archive member terminates DOS
+(`0x45f93..0x45fa8 -> 0x45c8a -> 0x45cfd`). They do not yield a resumed
+pending state. This is evidence, not a request to replace MMModern's safe refusal.
+
+**8. Keyed entrances — agrees with the pin.** Reuse
+[M80](#entrance-scenes-and-the-arena-2026-10-20), shared counters DS:f077:
+Clouds 2/key51 ->125 (7,6)N (`0x2972e..0x29749`);
+7/key46 ->113 (7,4)N (`0x2a7a5..0x2a7b6`);
+13/key45 ->117 (7,4)N (`0x2a7b8..0x2a7d8`);
+19/key50 ->121 (18,0)N (`0x29bee..0x29c0e`). Successful checks set P=1;
+A becomes Darkside through the ordinary loader. They do not consume keys or
+rewrite character side. Keyless paths retain their Clouds target and reload.
+
+**Decision consequences.** Resource selectors stand; roster filtering needs
+P rather than a blanket logical side. Save v24 remains justified by mixed-map
+admission and Darkside 125-127's absent selected-song byte; no serialized
+pending side is justified by these routes. Decision 4 needs the Save-wrapper side application,
+unconditional Beacon Return assignment and number-only Event teleport rule.
+Portal 128 is Darkside. No unresolved DOS rule remains in these eight scoped
+questions; plan amendments belong before dependent implementation. The plan
+was not edited, and no save-policy deviation is approved by this research.
+
 ## Darkside Events (M103 Part 0)
 
 **Status: calibrated DOS static, high confidence within the boundaries below;
