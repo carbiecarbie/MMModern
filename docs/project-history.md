@@ -329,3 +329,12 @@ unused wall slots, signed map-flag jumps and falls to another map with the
 damage DOS reads. The play-test made every Event close its windows when it
 ends, on both sides, and kept the original "Oops..." box while falling.
 Save v23 unchanged. [Plan](milestone-103-plan.md).
+
+**M104 - Mixed World of Xeen maps** (`dc88cd2`, `0c91498`). Darkstone
+Tower, Dragon Tower, the Dungeon of Death, the Southern Sphinx and the
+Dragon Clouds (Darkside 113-128) open from the four keyed Clouds entrances
+and play as on the CD, from a DOS program check made first: each map chooses
+its monsters, objects, walls, scenery and music on its own, FlipWorld returns
+the party to Clouds, and Town Portal, Lloyd's Beacon, Teleport, Jump and falls
+work from every one of them. Save v24 refuses 0.13.0 saves.
+[Plan](milestone-104-plan.md).

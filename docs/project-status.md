@@ -1,10 +1,12 @@
 # MMModern - Project Status
 
-This describes what can be played and done now. M103 is the latest
-completed and accepted milestone (2026-11-01; [plan](milestone-103-plan.md)):
-the Darkside Events. Every Event instruction of the ordinary Darkside maps
-runs as on the World of Xeen CD, and every Event now closes its windows when
-it ends, as DOS does. Before it, M102 made every Darkside town service and
+This describes what can be played and done now. M104 is the latest
+completed and accepted milestone (2026-11-01; [plan](milestone-104-plan.md)):
+the mixed World of Xeen maps. Darkstone Tower, Dragon Tower, the Dungeon of
+Death, the Southern Sphinx and the Dragon Clouds (Darkside maps 113-128) open
+from their Clouds entrances with the Darkside keys and play with the
+resources, music and travel rules of the CD. Before it, M103 ran every Event
+instruction of the ordinary Darkside maps as on the CD, M102 made every Darkside town service and
 entrance scene work as on the CD, M101
 let a party cross to Darkside through the Pyramids and back, play its
 ordinary maps and save and load on either side, M100 gave the release a launcher
@@ -27,8 +29,8 @@ approved deviations are listed in
 them yet. A new game of Might and Magic IV: Clouds of Xeen, read from the
 World of Xeen two-CD talkie edition, starts as in the original, and every
 Clouds map is playable. Darkside is reached through the Pyramids, as in the
-CD; its ordinary maps, town services, entrance scenes and Events play, while
-the mixed World of Xeen maps 113-128 and the endings say "not supported yet".
+CD; its maps, the mixed World of Xeen maps 113-128 included, town services,
+entrance scenes and Events play, while the endings say "not supported yet".
 
 ## What can be played
 
@@ -68,8 +70,8 @@ game from the same slot list.
 - The Reaper, Golem, Dwarf Mine and Sphinx entrance scenes play their
   original animations and speech, with captions when Efx is off. The Dwarf
   Mine always admits the party, the others need the right quest item. The
-  four Clouds entrances whose keys only Darkside gives refuse without the key
-  and say "not supported yet" with it (they lead to maps 113-128).
+  four Clouds entrances whose keys only Darkside gives admit a party
+  carrying the key to the mixed maps below.
 - On Darkside, the Bank, Smithy, Guild, Tavern and Inn, Temple and Training
   of Castleview, Sandcaster, Lakeside, Necropolis, Olympus and Castle
   Kalindra work with Darkside's own values, pictures, voices and music, and
@@ -94,6 +96,16 @@ game from the same slot list.
   Wizard follow the side, Town Portal on Darkside with the CD's
   [fixed arrivals](original-quirks.md#sv-darkside-town-portal-stride), and a
   party defeated on Darkside hears Alamar laugh and returns to the title.
+- The mixed World of Xeen maps 113-128 (Darkstone Tower, Dragon Tower, the
+  Dungeon of Death, the Southern Sphinx and the Dragon Clouds) are Darkside
+  maps that borrow Clouds monsters, objects, walls or scenery map by map, as
+  the CD does; the Sphinx plays the Clouds dungeon song and the Dragon Clouds
+  always show the day sky. Their exit Events return the party to Clouds
+  (FlipWorld), Town Portal leads to the Clouds towns, from the Dragon Clouds
+  to the Darkside towns, and falls land on the side DOS chooses. Saving while
+  FlipWorld has chosen a side the party has not loaded yet says "not
+  supported yet"; no original Event leaves the game in that state
+  ([approved deviation](original-quirks.md#dev-pending-side-save)).
 - In the Warzone Arena the Battle Master offers fights of a chosen level and
   size. Each win adds to every member's Warzone award, up to 99, and the game
   cannot be saved in the Warzone.
@@ -278,10 +290,12 @@ directories.
 
 ## Save format
 
-There is one current save format, v23. It holds the party with every roster
+There is one current save format, v24 (saves from 0.13.0 and older are
+refused). It holds the party with every roster
 record in full, both sides' flags, its sound options, play time and Clouds
 completion, the selected Darkside song (Load replays it without a draw,
-an [approved deviation](original-quirks.md#dev-darkside-load-music)), whether
+an [approved deviation](original-quirks.md#dev-darkside-load-music); the
+Sphinx's fixed Clouds song is not stored), whether
 the party is inside the Inn (where it may be empty), the world, and one state
 per visited map: monster positions and lifecycle, moved and opened objects,
 changed cells, disabled Events, explored cells and the Tavern tip index.
@@ -357,8 +371,8 @@ the original data uses and its support status.
   to about 0.07% fast, which is inaudible
   ([audio rules](rules/audio.md#sdl-resampler-rate-limitation)).
 - Darkside: the remaining
-  [census's Darkside gaps](coverage.md#darkside-largest-gaps), the Clouds
-  entrances that need Darkside keys (the mixed maps 113-128), FlipWorld and
-  the endings say "not supported yet".
+  [census's Darkside gaps](coverage.md#darkside-largest-gaps), among them a
+  world flag on map 116 and two DisplayLarge Events on map 121, and the
+  endings say "not supported yet".
 
 Next steps are in the [roadmap](roadmap.md).
