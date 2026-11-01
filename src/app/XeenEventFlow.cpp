@@ -877,20 +877,20 @@ void XeenEventFlow::retainManualPrefix(bool party,std::optional<std::uint16_t> p
  _eventPublication->check();
 }
 
-void XeenEventFlow::beginFall(const IndexedFrame &top,const IndexedFrame &bottom) {
+void XeenEventFlow::beginFall(const IndexedFrame &top,const IndexedFrame &bottom,std::uint64_t eventGeneration) {
  if(_fallSequence || !_transition)throw std::logic_error("Falling presentation is unavailable");
- FallSequence sequence;sequence.top=top;sequence.bottom=bottom;
+ FallSequence sequence;sequence.top=top;sequence.bottom=bottom;sequence.eventGeneration=eventGeneration;
  if(drawDialogSprite)for(const auto &portrait:CloudsUiComposer::buildPortraitPlacements(_party,_party.party.activeOrder().mask()))
   drawDialogSprite(sequence.top,portrait.resourceName.c_str(),4,portrait.x,portrait.y);
+ // Keep a failed first composition retryable before installing either fall owner.
+ drawFallImage(sequence);
  _presenter.clear();_journeyEventLayers=false;
  _fallSequence=std::move(sequence);
- drawFallImage();
  const auto now=presentationNow();_encounter->_lastNanoseconds=now;_encounter->_lastTime=now/1000000;
  _encounter->fmEffect(11);
  _encounter->digitalSample("scream.voc",XeenSceneArchive::Clouds,now);
 }
-void XeenEventFlow::drawFallImage() {
- auto &fall=*_fallSequence;
+void XeenEventFlow::drawFallImage(FallSequence &fall) {
  fall.art=XeenScenePresentation::fallFrame(fall.top,fall.bottom,fall.image);
  if(drawDialogSprite)CloudsUiComposer::drawBorder(_party,[&](const char *name,unsigned frame,int x,int y) {
   drawDialogSprite(fall.art,name,frame,x,y);
@@ -903,6 +903,12 @@ std::optional<IndexedFrame> XeenEventFlow::advanceFall() {
  DispatchScope dispatch(_dispatching);
  return journeyEventWork([&] {
   if(_fallSequence->image+1==XeenScenePresentation::fallOffsets.size()) {
+   if(const auto generation=_fallSequence->eventGeneration) {
+    _fallSequence.reset();
+    _transition->fallTop.reset();
+    resumePending(generation,XeenPresentationResponse::Presented);
+    return;
+   }
    const auto completed=*_transition->completion;
    _transition->fallPresented=true;
    drive(XeenManualEventResult{completed},false);
@@ -915,7 +921,7 @@ std::optional<IndexedFrame> XeenEventFlow::advanceFall() {
    _encounter->digitalSample("unnh.voc",XeenSceneArchive::Clouds,now);
    _encounter->fmEffect(31);
   }
-  drawFallImage();
+  drawFallImage(*_fallSequence);
  });
 }
 void XeenEventFlow::publishManualPrefix() {
@@ -1570,7 +1576,7 @@ XeenEventFlow::Composition XeenEventFlow::composeJourneyScene(bool reconstruct) 
             sceneDraw=!reconstruct && !text && request.npc && request.npc->confirmationMode!=2;
         // An NPC offer retains location artwork even with Text off. Prompt
         // polling animates that artwork; WhoWill still uses its window gate.
-        if(_presenter.hasNpcOffer() && (request.kind==Kind::Confirmation ||
+        if(_presenter.hasNpcOffer() && (request.kind==Kind::NumericChoice || request.kind==Kind::Confirmation ||
                 request.kind==Kind::BottomWindowTwoLines))sceneDraw=false;
         // Text/label writes have their initial check in the interpreter. Only
         // bottom-window page waits can add another one; window 11 never can.
@@ -1585,7 +1591,7 @@ XeenEventFlow::Composition XeenEventFlow::composeJourneyScene(bool reconstruct) 
             sceneDraw=!reconstruct;
         if(request.kind==Kind::EntranceScene || request.kind==Kind::ArenaNumber ||
             request.kind==Kind::ArenaPreparation || request.kind==Kind::DeferredAudio ||
-            request.kind==Kind::RewardGeneration)sceneDraw=false;
+            request.kind==Kind::RewardGeneration || request.kind==Kind::Falling)sceneDraw=false;
         // Text input draws only on an idle iteration, never ahead of an early key.
         if(request.kind==Kind::WordInput && !_sceneAdvancePending)sceneDraw=false;
         if(request.kind==Kind::PortraitEffect && request.portrait &&
@@ -2373,6 +2379,25 @@ IndexedFrame XeenEventFlow::presentationFailed(const std::exception &exception) 
 XeenPresentationUpdate XeenEventFlow::presentPendingEvent() {
     _presenter.originalAssets(dialogText,drawDialogSprite);
 	auto request=_pending->state.pendingPresentation->request;
+    if(request.kind==XeenPresentationKind::Falling) {
+        if(!_transition || !_transitionCompose)throw std::invalid_argument("Event fall presentation requires a detached Journey");
+        auto &work=*_transition;
+        checkTransitionCandidate();
+        XeenRestoreGuard candidate(*work.world,work.party,_pending->state.workingCamera,work.flags);
+        candidate.retainResources(*work.guard);
+        XeenRestoreGuard::Providers providers(candidate,*work.world,[&]{_eventPublication->check();checkTransitionCandidate();});
+        auto view=_transitionCompose(*work.world,work.party,_pending->state.workingCamera,_ordinary.phase,XeenMonsterAppearance{0}).frame;
+        candidate.check();checkTransitionCandidate();
+        if(!request.fallDestination) {
+            work.fallTop=std::move(view);
+            return {_frame,XeenPresentationResponse::Presented,true};
+        }
+        if(!work.fallTop)throw std::logic_error("Event fall lost its source view");
+        if(!_fallSequence) {
+            beginFall(*work.fallTop,view,_pending->generation);
+        }
+        return {_fallSequence->art,std::nullopt,true};
+    }
     if(request.notEnough && _fmPresentationGeneration!=_pending->generation) {
         _fmPresentationGeneration=_pending->generation;_encounter->fmEffect(21);
     }
@@ -2465,6 +2490,10 @@ XeenPresentationUpdate XeenEventFlow::presentPendingEvent() {
     }
     if(request.response==XeenPresentationResponseRequirement::YesNo && _npcSequence)
         request.npcBodyHidden=_npcSequence->bodyHidden;
+    if(request.kind==XeenPresentationKind::NumericChoice && _npcSequence && _presenter.hasNpcOffer()) {
+        request.npcBodyHidden=_npcSequence->bodyHidden;
+        _npcSequence->textOffLoop=false; // ChooseNumeric's location-art wait is always three ticks.
+    }
     auto presented=_presenter.present(_frame,request,retainedPage);
     syncDoorTextInput(textPromptOpen());
     clearManualPresentationInput();
@@ -3151,7 +3180,7 @@ std::optional<std::uint64_t> XeenEventFlow::presentationGeneration() const {
 }
 bool XeenEventFlow::respond(std::uint64_t generation, XeenPresentationResponse response) {
 	requireCurrentOwners();
-    if(_portraitSequence || !_whoWillRefusal.empty())return false;
+    if(_portraitSequence || _fallSequence || !_whoWillRefusal.empty())return false;
 	if (journey()) {
 		if (_smithUi || _trainingUi) return false;
 		if (_transition && _transition->presentationRetry) return false;
@@ -3161,6 +3190,8 @@ bool XeenEventFlow::respond(std::uint64_t generation, XeenPresentationResponse r
 		if (_presenter.pageIndex()+1<_presenter.pageCount()) return false;
 		if (const auto *selected=std::get_if<SelectedCharacter>(&response.value))
 			if (selected->partyIndex>=_pending->state.pendingPresentation->request.members.size()) return false;
+        if(const auto *choice=std::get_if<XeenNumericChoice>(&response.value))
+            if(!choice->choice || choice->choice>_pending->state.pendingPresentation->request.numeric->lines.size()+1)return false;
 		DispatchScope dispatch(_dispatching);
 		journeyEventWork([&] { resumePending(generation,response); });
 		return true;

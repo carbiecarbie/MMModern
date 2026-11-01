@@ -218,7 +218,7 @@ public:
 	void alterHeads(const XeenCamera &,XeenHeadIndicators);
 	void reloadHeads(XeenMapIdentity);
 	void restoreHeads(const std::optional<XeenHeadCache> &,const XeenCamera &);
-    XeenTypedDamageCandidate prepareEventDamage(const XeenPartyState &,unsigned,XeenDamageType,std::optional<std::size_t>,bool) const;
+    XeenTypedDamageCandidate prepareEventDamage(const XeenPartyState &,int,XeenDamageType,std::optional<std::size_t>,bool) const;
     void publishEventDamagePrefix(XeenPartyState &,const XeenTypedDamageCandidate &,const XeenJourneyRandomState &,bool feedback=false);
 	void applyEventDamage(XeenPartyState &,unsigned,XeenDamageType,std::optional<std::size_t>,bool,bool feedback=true);
 	void applyEventYear(XeenPartyState &,XeenGameFlags &,unsigned);

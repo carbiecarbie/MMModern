@@ -78,12 +78,15 @@ private:
 	XeenTextRenderResult drawText(const IndexedFrame &, const XeenPresentationRequest &) const;
 	IndexedFrame overlayNotices(IndexedFrame) const;
 	IndexedFrame drawWord(const IndexedFrame &) const;
+	IndexedFrame drawNumeric(const IndexedFrame &,const XeenPresentationRequest &) const;
+	int numericY(unsigned index) const;
 	XeenTextInput _wordInput;
 	IndexedFrame drawConfirmation(const IndexedFrame &base, const XeenPresentationRequest &) const;
 	XeenTextRenderResult drawSelection(const IndexedFrame &base,
 		const XeenPresentationRequest &request) const;
 	bool isAcknowledge(const PlayerAction &action) const;
 	void layoutNpc(const IndexedFrame &base, const XeenPresentationRequest &request);
+    XeenTextRenderResult layoutCompactNpc(const IndexedFrame &,const XeenPresentationRequest &) const;
 	IndexedFrame drawNpcPage(const XeenPresentationRequest &, std::size_t page) const;
 	void drawNpcPortrait(IndexedFrame &,const XeenPresentationRequest &) const;
 	void startNpcPage();

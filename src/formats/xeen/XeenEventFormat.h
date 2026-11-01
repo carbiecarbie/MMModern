@@ -3,6 +3,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <vector>
 
 namespace mmodern {
@@ -17,6 +18,9 @@ struct XeenEventRecord {
 	std::uint8_t line = 0;
 	std::uint8_t opcode = 0;
 	std::vector<std::uint8_t> parameters;
+	// DOS FallToMap reads beyond its operands into the following record length.
+	// Absent at the end of the resource (dev-fall-damage-zero).
+	std::optional<std::uint8_t> followingByte;
 
 	std::size_t totalSerializedSize() const {
 		return static_cast<std::size_t>(lengthField) + 1;

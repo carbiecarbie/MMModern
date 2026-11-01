@@ -88,7 +88,7 @@ public:
 			integrity("Journey event topology changed");
 		for (std::size_t i=0;i<file.records.size();++i) {
 			const auto &a=file.records[i]; const auto &b=original.records[i];
-			if (a.x!=b.x || a.y!=b.y || a.direction!=b.direction || a.line!=b.line || a.opcode!=b.opcode || a.parameters!=b.parameters || a.fileOffset!=b.fileOffset || a.lengthField!=b.lengthField)
+			if (a.x!=b.x || a.y!=b.y || a.direction!=b.direction || a.line!=b.line || a.opcode!=b.opcode || a.parameters!=b.parameters || a.fileOffset!=b.fileOffset || a.lengthField!=b.lengthField || a.followingByte!=b.followingByte)
 				integrity("Journey event record changed");
 		}
 	}

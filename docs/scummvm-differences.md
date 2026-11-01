@@ -370,15 +370,16 @@ against the pin; master was not rechecked.
   DOS record writes and category split; pin: differs; master not rechecked.
 - **Numbered choices.** DOS ignores Escape: the last numbered choice cancels.
   Compact Text-off NPC choices move down; the pin keeps the normal layout.
-  [Evidence](original-quirks.md#sv-darkside-numeric-choice). M103 Part 0
-  finding; pin: differs; master not rechecked.
+  [Evidence](original-quirks.md#sv-darkside-numeric-choice). MMModern retains the
+  DOS input, layout and signed target lines; pin: differs; master not rechecked.
 - **Scripted fall damage.** DOS reads past the CD's three-parameter records,
   usually taking the next record's length as damage; the pin supplies zero.
   Three end-of-resource reads take a history-dependent byte in DOS;
   MMModern uses zero there, as the pin does
   ([approved deviation](original-quirks.md#dev-fall-damage-zero)).
-  [Evidence](original-quirks.md#sv-darkside-fall-damage). M103 Part 0
-  finding; pin: differs for the settled reads; master not rechecked.
+  [Evidence](original-quirks.md#sv-darkside-fall-damage). MMModern retains the
+  in-resource reads and signed damage; pin: differs for the settled reads;
+  master not rechecked.
 - **Unused wall slots.** Seven Darkside Events write invisible, unsaved DOS
   slots; the pin instead indexes beyond its live-sized wall array.
   [Evidence](original-quirks.md#sv-darkside-unused-wall-slots). M103 Part 0

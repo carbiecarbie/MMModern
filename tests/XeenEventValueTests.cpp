@@ -255,6 +255,90 @@ Run run(XeenWorld &w,XeenPartyState &p,XeenGameFlags &flags,const std::vector<Xe
 bool completed(const Run &r) {return std::holds_alternative<XeenEventExecutionCompleted>(r.result);}
 XeenGameFlags finalFlags(const Run &r) {return std::get<XeenEventExecutionCompleted>(r.result).finalGameFlags;}
 
+void darksidePartB() {
+ const XeenMapIdentity id{XeenSide::Darkside,47};
+ for(unsigned choice:{1u,2u,3u}) {
+  World w(id);auto p=party();XeenGameFlags flags;
+  const auto result=run(*w.w,p,flags,{row(0,48,{3,5,8}),row(1,12,{0,0,20,1}),row(2,18),
+    row(5,12,{0,0,20,5}),row(6,18),row(8,12,{0,0,20,8}),row(9,18)},
+    [=](const auto &){return XeenNumericChoice{choice};},{id,5,5,XeenDirection::West});
+  check(completed(result) && finalFlags(result).isSet(XeenSide::Darkside,choice==1?5:choice==2?8:1),
+    "Numeric choices jump by signed line; last choice advances rather than exits");
+ }
+ for(unsigned target:{128u,255u}) {
+  World w(id);auto p=party();XeenGameFlags flags;
+  const auto result=run(*w.w,p,flags,{row(0,48,{2,std::uint8_t(target)}),row(1,12,{0,0,20,1})},
+    [](const auto &){return XeenNumericChoice{1};},{id,5,5,XeenDirection::North});
+  check(completed(result) && !finalFlags(result).isSet(XeenSide::Darkside,1),"Negative numeric target ends the scan");
+ }
+ for(int damage:{7,0,-7})for(unsigned shield:{0u,3u})for(bool surface:{false,true}) {
+  const XeenMapIdentity from{XeenSide::Darkside,std::uint16_t(surface?89:47)},to{XeenSide::Darkside,std::uint16_t(surface?1:49)};
+  World w(from);auto p=party();XeenGameFlags flags;
+  p.encounterContext->effects[XeenPartyEffect::PowerShield]=shield;
+  for(auto owner:p.party.activeRosterIds())p.roster.at(owner).conditions[unsigned(XeenCondition::Asleep)]=1;
+  std::vector<XeenMonsterRecord> stats(9);
+  for(auto &s:stats){s.raw[20]=20;s.raw[24]=1;s.raw[25]=16;s.raw[26]=1;s.raw[28]=2;}
+  w.w->stageMapMonsters(mob(to),stats);
+  XeenEventFile source{from,"fall source",true,{row(0,52,{std::uint8_t(surface?0:49),5,5,std::uint8_t(damage)})}};
+  XeenEventFile destination{to,"fall destination",true,{row(0,12,{0,0,20,90}),row(1,18)}};
+  const auto scripts=[&](XeenMapIdentity map){return XeenEventScript(map==from?source:destination);};
+  const auto texts=[](XeenMapIdentity map){return XeenEventTextFile{map,"",true,{}};};
+  XeenEventInterpreter vm;auto result=vm.begin({from,5,5,XeenDirection::West},p,flags,*w.w,scripts,texts);
+  unsigned phases=0;
+  while(auto *s=std::get_if<XeenEventExecutionSuspended>(&result)) {
+   check(s->request.kind==XeenPresentationKind::Falling && s->request.fallDestination==(phases==1),"Fall source/destination suspension order");
+   check(p.roster.at(0).currentHp==20,"Fall damage precedes its last impact image");
+   XeenEventContinuation guard(s->state);auto changed=s->state;changed.pendingPresentation->request.fall->damage++;
+   bool refused=false;try {guard.check(changed);}catch(const std::logic_error &){refused=true;}
+   check(refused,"Fall continuation protects the signed base damage");
+   ++phases;check(phases<=2,"Fall source instruction replayed");
+   result=vm.resume(std::move(s->state),XeenPresentationResponse::Presented,p,*w.w,scripts,texts);
+  }
+  if(const auto *bad=std::get_if<XeenEventExecutionError>(&result))throw std::runtime_error(bad->message);
+  const auto &done=std::get<XeenEventExecutionCompleted>(result);
+  check(phases==2 && done.finalCamera.mapId==to && done.finalCamera.direction==XeenDirection::West &&
+    done.finalGameFlags.isSet(XeenSide::Darkside,90),"Fall preserves facing, dispatches surface map zero and restarts destination line zero");
+  for(auto owner:p.party.activeRosterIds())check(p.roster.at(owner).currentHp==20-std::max(damage-int(shield),0) &&
+    !p.roster.at(owner).conditions[unsigned(XeenCondition::Asleep)],"Fall shared physical damage/protection must start afresh per member");
+ }
+ for(bool negative:{false,true}) {
+  const auto maps=[](XeenMapIdentity map) {
+   auto m=tile(map);
+   if(map.number>=49){m.geometry.flags2=0x8000;for(auto &c:m.geometry.cells)c.geometry=XeenOutdoorLayers{};}
+   m.geometry.neighbors[unsigned(XeenDirection::North)]=m.geometry.neighbors[unsigned(XeenDirection::South)]=50;
+   if(map.number==50)m.geometry.neighbors[unsigned(XeenDirection::East)]=m.geometry.neighbors[unsigned(XeenDirection::West)]=51;
+   return m;
+  };
+  const auto objects=[](XeenMapIdentity map){return XeenObjectFile{map,"empty.mob",true,{}};};
+  XeenWorld source(maps,objects);source.markEncounterSession(XeenEncounterEntry::Journey);XeenTrainingTestAccess::seed(source);
+  auto world=source.transitionCandidate();world->stageMapMonsters(objects(id),std::vector<XeenMonsterRecord>(1));
+  auto p=party();XeenGameFlags flags;
+  XeenEventFile start{id,"edge fall",true,{row(0,52,{49,std::uint8_t(negative?255:17),std::uint8_t(negative?255:16),0})}};
+  const XeenMapIdentity to{XeenSide::Darkside,51};
+  XeenEventFile end{to,"normalized restart",true,{row(0,18)}};end.records[0].x=negative?15:1;end.records[0].y=negative?15:0;
+  const auto scripts=[&](auto map){return XeenEventScript(map==id?start:end);};
+  XeenEventInterpreter vm;auto result=vm.begin({id,5,5,XeenDirection::South},p,flags,*world,scripts,{});
+  for(unsigned phases=0;auto *q=std::get_if<XeenEventExecutionSuspended>(&result);++phases) {
+   check(phases<2,"Edge fall did not finish its two presentation phases");
+   result=vm.resume(std::move(q->state),XeenPresentationResponse::Presented,p,*world,scripts,{});
+  }
+  if(const auto *e=std::get_if<XeenEventExecutionError>(&result))throw std::runtime_error(e->message);
+  const auto &camera=std::get<XeenEventExecutionCompleted>(result).finalCamera;
+  check(camera.mapId==to && camera.x==(negative?15:1) && camera.y==(negative?15:0) && camera.direction==XeenDirection::South,
+   "Outdoor fall adjusts Y then X through that neighbour, once per flagged axis, preserving facing");
+ }
+
+ {
+  World w(id);auto p=party();XeenGameFlags flags;flags.set(XeenSide::Darkside,118);
+  XeenEventFile file{id,"suppressed fall",true,{row(0,18),row(1,52,{49,1,1,7})}};
+  const auto scripts=[&](auto){return XeenEventScript(file);};const auto before=w.w->sessionState().journeyRandom();
+  auto result=XeenEventInterpreter().begin({id,5,5,XeenDirection::East},p,flags,*w.w,scripts,{},1);
+  const auto *done=std::get_if<XeenEventExecutionCompleted>(&result);
+  check(done && done->instructionCount==2 && done->finalCamera.mapId==id && p.roster.at(0).currentHp==20 &&
+    w.w->sessionState().journeyRandom()==before,"Flag 118 suppresses presentation/load/damage but still restarts at line zero");
+ }
+}
+
 // M103 Part A: DOS category boundaries, whole-state writes and single-draw jumps.
 void darksidePartA() {
  const XeenMapIdentity id{XeenSide::Darkside,47};
@@ -795,7 +879,7 @@ int main(int argc,char **argv) {
  try {
   if(argc==2 && std::string(argv[1])=="b5") {miscMaterial();return 0;}
   if(argc!=1)throw std::runtime_error("Unknown Event value test mode");
-  darksidePartA();twoSidedValues();widths();probes();writes();prefixLightWrites();randomOperations();flowOperations();lockPicking();chestRule();specialItem();miscMaterial();wordDraws();
+  darksidePartB();darksidePartA();twoSidedValues();widths();probes();writes();prefixLightWrites();randomOperations();flowOperations();lockPicking();chestRule();specialItem();miscMaterial();wordDraws();
  } catch(const std::exception &e) {std::cerr<<"Event value tests failed: "<<e.what()<<'\n';return 1;}
  std::cout<<"Event value tests passed\n";
  return 0;

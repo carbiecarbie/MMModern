@@ -35,7 +35,7 @@ struct Fixture {
 void teleports() {
  for(unsigned opcode:{7,31})for(bool same:{false,true})for(bool run:{false,true}) {
   Fixture f;const unsigned target=same?28:23;
-  f.script(28,{record(1,1,0,opcode,{std::uint8_t(target),std::uint8_t(run?255:4),5}),record(1,1,1,0x30)});
+  f.script(28,{record(1,1,0,opcode,{std::uint8_t(target),std::uint8_t(run?255:4),5}),record(1,1,1,0x37)});
   const auto r=f.begin();const auto *done=std::get_if<XeenEventExecutionCompleted>(&r);
   check(done && done->finalCamera.mapId==XeenMapIdentity(target) && done->finalCamera.x==(run?7:4) &&
    done->finalCamera.y==(run?8:5) && done->finalCamera.direction==XeenDirection::West,"Direct/run teleport");
@@ -45,7 +45,7 @@ void teleports() {
  f.party.roster.at(0).currentHp=f.party.roster.at(1).currentHp=10;
  f.objects={{1,1,0,0,1},{3,4,0,0,2}};
  f.script(28,{record(1,1,0,32,{0,0}),record(1,1,1,15,{0}),record(1,1,2,27,{83,5}),record(1,1,3,1,{1}),
-  record(1,1,4,25,{100,100,0}),record(1,1,5,0x30),record(100,100,0,31,{28,3,4}),
+  record(1,1,4,25,{100,100,0}),record(1,1,5,0x37),record(100,100,0,31,{28,3,4}),
   record(3,4,0,1,{1})});
  auto selection=f.begin();auto *choose=std::get_if<XeenEventExecutionSuspended>(&selection);
  check(choose && choose->request.kind==XeenPresentationKind::CharacterSelection,"Continue reset needs a member selection");
@@ -102,7 +102,7 @@ void words() {
  Fixture vow;vow.texts.strings[1]="iieeeoeeeouie";vow.script(28,{record(1,1,0,21,{1,3,0,0}),record(1,1,1,18),record(1,1,3,1,{3})});
  check(std::holds_alternative<XeenEventExecutionCompleted>(vow.answer(vow.begin(),"iieeeoeeaouie")),"Reference answer rewrite leaked into DOS comparison");
  Fixture sword;sword.texts.mirrors.resize(62);sword.texts.mirrors[58].name="Sword";
- sword.script(28,{record(1,1,0,21,{0,2,0,0}),record(1,1,1,18),record(1,1,2,0x30)});
+ sword.script(28,{record(1,1,0,21,{0,2,0,0}),record(1,1,1,18),record(1,1,2,0x37)});
  const auto reward=sword.answer(sword.begin(),"sword");const auto *pending=std::get_if<XeenEventExecutionSuspended>(&reward);
  check(pending && pending->state.reward.receipt.count==1 && pending->state.reward.receipt.entries[0].item.id==34,"Sword must enter ordinary treasure delivery and exit");
 }

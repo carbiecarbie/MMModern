@@ -27,6 +27,8 @@
 using namespace training_test;
 namespace mmodern {
 struct XeenEventDispatchTestAccess {
+ static std::optional<unsigned> fallImage(const XeenEventFlow &f){return f._fallSequence?std::optional<unsigned>{f._fallSequence->image}:std::nullopt;}
+ static std::optional<int> fallDamage(const XeenEventFlow &f){return f._pending && f._pending->state.pendingPresentation->request.fall?std::optional<int>{f._pending->state.pendingPresentation->request.fall->damage}:std::nullopt;}
  static bool inputPassPending(const XeenEventFlow &f){return f._encounter->_journeyCapture->inputPassPending;}
  static bool livePublication(const XeenEventFlow &f){return f._eventPublication!=nullptr;}
  static bool candidateWorldFlags(const XeenEventFlow &f){return f._transition && f._transition->world->detachedEventCandidate() && bool(f._transition->party.worldFlags);}
@@ -64,10 +66,10 @@ struct Live {
  std::unique_ptr<XeenEventFlow> flow;std::uint64_t now=0,cycle=0;CloudsMapComposer composer;
  XeenMapTable beforeMaps;
  std::function<void(XeenMapIdentity)> beforeCompose;
- Live(Inputs &in,const XeenSaveSnapshot &s,const XeenEventFile *eventOverride=nullptr):in(in),catalogue(loadXeenItemCatalog(in.assets)),w(in.mapLoader(),in.objectLoader()),
-  events([&in,eventOverride](auto id){return XeenEventScript(eventOverride && eventOverride->mapId==id?*eventOverride:in.events.load(id));},[&](auto id){return in.texts.load(id);}) {
+ Live(Inputs &in,const XeenSaveSnapshot &s,const XeenEventFile *eventOverride=nullptr,const XeenEventFile *destinationOverride=nullptr):in(in),catalogue(loadXeenItemCatalog(in.assets)),w(in.mapLoader(),in.objectLoader()),
+  events([&in,eventOverride,destinationOverride](auto id){return XeenEventScript(eventOverride && eventOverride->mapId==id?*eventOverride:destinationOverride && destinationOverride->mapId==id?*destinationOverride:in.events.load(id));},[&](auto id){return in.texts.load(id);}) {
   in.assets.loadPalette("mm4.pal",xeenPictureArchive(s.camera.mapId));in.assets.loadRawFramebuffer("back.raw",xeenPictureArchive(s.camera.mapId));
-  auto resources=in.resources();if(eventOverride)resources.loadEvents=[&in,eventOverride](auto id){return eventOverride->mapId==id?*eventOverride:in.events.load(id);};
+  auto resources=in.resources();if(eventOverride)resources.loadEvents=[&in,eventOverride,destinationOverride](auto id){return eventOverride->mapId==id?*eventOverride:destinationOverride && destinationOverride->mapId==id?*destinationOverride:in.events.load(id);};
   XeenSaveState::restoreBeforeGameplay(s,resources,p,c,f,w,[](auto &,const auto &,const auto &,const auto &){});
   const auto compose=[&](XeenWorld &world,const XeenPartyState &party,const XeenCamera &camera,std::uint64_t phase) {
    if(beforeCompose)beforeCompose(camera.mapId);
@@ -354,6 +356,137 @@ void partAEvents(Inputs &in,const XeenSaveSnapshot &source,const std::filesystem
   const auto wire=XeenSaveFile::read(path);Live restored(in,wire,&isolated);
   check(XeenSaveFormat::encode(restored.snapshot())==XeenSaveFormat::encode(saved),"Part A save/load replayed or lost object/reward/RNG state");
  }
+}
+
+// Original Part B operands run through the live Flow. Inert suffixes/marker
+// writes isolate dispatch decisions from unrelated later milestone mechanics.
+void partBEvents(Inputs &in,const XeenSaveSnapshot &source,const std::filesystem::path &out) {
+ std::optional<XeenEventRecord> numeric;XeenEventFile originalFile;
+ unsigned fallRows=0,zeroRows=0;
+ for(unsigned map=1;map<=112;++map) {
+  const auto file=in.events.load({XeenSide::Darkside,std::uint16_t(map)});
+  for(const auto &r:file.records) {
+   if(r.opcode==48 && !numeric){numeric=r;originalFile=file;}
+   if(r.opcode==52) {
+    ++fallRows;const auto decoded=XeenEventDecoder::decode(r);
+    const auto &fall=std::get<XeenEventFallToMap>(std::get<XeenDecodedEventInstruction>(decoded).operation);
+    if(!r.followingByte) {
+     ++zeroRows;check((map==51 && r.fileOffset==1050) || (map==89 && r.fileOffset==235) || (map==92 && r.fileOffset==274),"Unexpected end-of-resource fall");
+     check(fall.damage==0,"Approved end-of-resource fall must use zero");
+    }else check(fall.damage==*r.followingByte,"Original omitted damage must use next record length");
+   }
+  }
+ }
+ check(numeric && fallRows==220 && zeroRows==3,"Part B original operand inventory differs");
+ const auto r=*numeric;const auto id=originalFile.mapId;
+ std::cout<<"Numeric cell "<<unsigned(r.x)<<","<<unsigned(r.y)<<" params";for(auto b:r.parameters)std::cout<<' '<<unsigned(b);std::cout<<std::endl;
+ std::cout<<"M103 ChooseNumeric map "<<id.number<<" EVT @"<<r.fileOffset<<" line "<<unsigned(r.line)<<std::endl;
+ const auto row=[](unsigned x,unsigned y,unsigned line,unsigned opcode,std::vector<std::uint8_t> p={}) {
+  XeenEventRecord e;e.x=x;e.y=y;e.line=line;e.direction=4;e.opcode=opcode;e.parameters=std::move(p);e.lengthField=5+e.parameters.size();return e;
+ };
+ XeenEventFile isolated{id,"isolated original numbered choice",true,{r}};
+ for(unsigned choice=1;choice<=r.parameters[0];++choice) {
+  const unsigned line=choice==r.parameters[0]?r.line+1:r.parameters[choice];
+  isolated.records.push_back(row(r.x,r.y,line,12,{0,0,20,std::uint8_t(200+choice)}));
+  isolated.records.push_back(row(r.x,r.y,line+1,18));
+ }
+ unsigned promptText=0;
+ const auto mapText=in.texts.load(id);
+ for(const auto &e:originalFile.records)if(e.x==r.x && e.y==r.y && e.line<r.line) {
+  const auto decoded=XeenEventDecoder::decode(e);
+  if(const auto *op=std::get_if<XeenDecodedEventInstruction>(&decoded))if(const auto *display=std::get_if<XeenEventDisplay>(&op->operation))
+   if(display->textIndex<mapText.strings.size() && !mapText.strings[display->textIndex].empty())promptText=display->textIndex;
+ }
+ if(mapText.strings.at(promptText).empty())for(unsigned i=0;i<mapText.strings.size();++i)if(!mapText.strings[i].empty()){promptText=i;break;}
+ std::cout<<"Numeric retained text "<<promptText<<" length "<<mapText.strings.at(promptText).size()<<std::endl;
+ isolated.records.push_back(row(14,14,0,53,{std::uint8_t(promptText)}));
+ isolated.records.push_back(row(14,14,1,24,{0,18}));
+ isolated.records.push_back(row(14,14,2,25,{r.x,r.y,r.line}));
+ for(unsigned choice:{1u,unsigned(r.parameters[0])}) {
+  auto s=at(in,source,{id,14,14,r.direction<4?XeenDirection(r.direction):XeenDirection::North});
+  Live live(in,s,&isolated);std::string failure;
+  live.flow->reportManual=[&](const auto &result){if(const auto *e=std::get_if<XeenEventExecutionError>(&result))failure=e->message;};
+  live.act(InteractionAction{false});
+  check(!live.flow->canSave() && live.flow->inputContext(live.flow->frame().presentation()).dialog->key('1'),"Original numeric choice did not block in live Flow");
+  picture(live.flow->frame(),out/"m103b-choice-normal.ppm");
+  const auto before=live.flow->frame();live.act(CancelInteractionAction{});
+  check(!live.flow->canSave() && live.flow->frame().pixels==before.pixels,"Escape canceled or rewrote the numeric prompt");
+  if(choice==1) {const auto input=live.flow->inputContext(live.flow->frame().presentation()).dialog;const auto &hit=input->hits.front();live.act(*input->click(hit.left+1,hit.top+1));}else live.key('0'+choice);const auto saved=live.snapshot();check(failure.empty(),failure.c_str());
+  for(unsigned n=1;n<=r.parameters[0];++n)check(live.f.isSet(XeenSide::Darkside,200+n)==(n==choice),"Live choice/cancel dispatch selected the wrong line");
+  const auto path=out/("m103b-choice-"+std::to_string(choice)+".mmsave");XeenSaveFile::write(path,saved);
+  Live restored(in,XeenSaveFile::read(path),&isolated);
+  check(XeenSaveFormat::encode(restored.snapshot())==XeenSaveFormat::encode(saved),"Numeric choice replayed through save/load");
+  if(choice==1) {
+   // Render the original compact NPC window/art and this same choice with Text off.
+   XeenEventPresenter presenter(in.font,[&](auto &image,auto portrait,auto frame){in.assets.drawNpc(image,portrait,frame,xeenPictureArchive(id));});
+   presenter.originalAssets(&in.assets.uiText(),[&](auto &image,const char *name,unsigned frame,int x,int y){in.assets.drawDialogSprite(image,name,frame,x,y,xeenPictureArchive(id));});
+   XeenPresentationRequest npc;npc.kind=XeenPresentationKind::NpcAcknowledgment;npc.npc=XeenEventNpc{0,0,0,2,0};
+   for(const auto &e:originalFile.records)if(e.opcode==5){const auto decoded=XeenEventDecoder::decode(e);if(const auto *op=std::get_if<XeenDecodedEventInstruction>(&decoded))if(const auto *n=std::get_if<XeenEventNpc>(&op->operation)){npc.npc=*n;npc.npc->confirmationMode=2;break;}}
+   const auto texts=in.texts.load(id);npc.title=texts.strings.at(npc.npc->titleTextIndex);npc.text=texts.strings.at(npc.npc->bodyTextIndex);npc.npcBodyHidden=true;
+   presenter.present(before,npc);
+   XeenPresentationRequest q;q.kind=XeenPresentationKind::NumericChoice;q.response=XeenPresentationResponseRequirement::NumericChoice;
+   q.numeric=std::get<XeenEventChooseNumeric>(std::get<XeenDecodedEventInstruction>(XeenEventDecoder::decode(r)).operation);
+   presenter.present(presenter.frame(),q);check(presenter.input().hits.front().top==101,"Compact original NPC choice did not move to Y=101");
+   picture(presenter.frame(),out/"m103b-choice-compact.ppm");
+   const auto first=presenter.frame();XeenEventPresenter::NpcTiming timing;timing.displayedFrame=1;
+   const auto animated=presenter.updateNpc(timing);
+   check(animated && animated->pixels!=first.pixels && presenter.input().hits.front().top==101,"Retained location art stopped animating while a compact numeric choice waits");
+   presenter.finishPresentation();presenter.clear();presenter.present(before,q);
+   check(presenter.input().hits.front().top==75,"Leaving compact NPC did not restore normal numeric Y");
+  }
+ }
+ std::optional<XeenSaveSnapshot> fallBaseline;
+ for(bool failFirst:{false,true}) {
+ const XeenMapIdentity from{XeenSide::Darkside,8},to{XeenSide::Darkside,40};
+ const auto sourceFile=in.events.load(from);const auto found=std::find_if(sourceFile.records.begin(),sourceFile.records.end(),[](const auto &e){return e.fileOffset==503;});
+ check(found!=sourceFile.records.end() && found->opcode==52 && found->parameters==std::vector<std::uint8_t>({40,3,3}) && found->followingByte==7,"Map 8 @503 fall witness differs");
+ XeenEventFile fallFile{from,"original map 8 scripted fall",true,{*found,row(14,14,0,25,{found->x,found->y,found->line})}};
+ XeenEventFile arrival{to,"fall restart marker",true,{row(3,3,0,12,{0,0,20,203}),row(3,3,1,18)}};
+ auto s=at(in,at(in,source,{to,3,3,XeenDirection::West}),{from,14,14,XeenDirection::West});
+ for(auto owner:s.activeRosterIds)s.characters[owner].currentHp=100;
+ s.journey->context->effects[XeenPartyEffect::PowerShield]=0;
+ s.journey->context->lightAndResistances[0]=30;
+ Live fall(in,s,&fallFile,&arrival);std::string failure;fall.flow->reportManual=[&](const auto &result){if(const auto *e=std::get_if<XeenEventExecutionError>(&result))failure=e->message;};
+ bool threw=false,scared=false;
+ if(failFirst) {
+  const auto draw=fall.flow->drawDialogSprite;
+  fall.flow->drawDialogSprite=[&,draw](auto &frame,const char *name,unsigned image,int x,int y) {
+   if(!threw && XeenEventDispatchTestAccess::fallDamage(*fall.flow)==7) {
+    if(image==4 && std::string(name).find(".fac")!=std::string::npos)scared=true;
+    if(scared && std::string(name)=="global.icn" && x==8 && y==8){threw=true;throw std::runtime_error("Injected first fall image failure");}
+   }
+   draw(frame,name,image,x,y);
+  };
+ }
+ fall.act(InteractionAction{false});
+ if(failFirst) {
+  check(threw && !XeenEventDispatchTestAccess::fallImage(*fall.flow) && !fall.flow->canSave() && fall.c.mapId==from,
+   "Failed first fall composition installed an incomplete animation or published arrival");
+  fall.tick();
+ }
+ check(XeenEventDispatchTestAccess::fallImage(*fall.flow)==0 && XeenEventDispatchTestAccess::fallDamage(*fall.flow)==7,"Live original fall did not enter M86 presentation with base damage 7");
+ for(unsigned image=0;image<19;++image) {
+  check(XeenEventDispatchTestAccess::fallImage(*fall.flow)==image && !fall.flow->canSave(),"Fall image order or save exclusion differs");
+  check(fall.c.mapId==from && fall.p.roster.at(s.activeRosterIds[0]).currentHp==100,"Fall published arrival or damage ahead of final impact");
+  if(!failFirst && (image==0 || image==14 || image==15 || image==18))picture(fall.flow->frame(),out/("m103b-fall-"+std::to_string(image)+".ppm"));
+  fall.now+=15;fall.flow->beginCycle(++fall.cycle);if(auto next=fall.flow->updatePresentation()) {
+   if(image<18) {
+    const auto waiting=XeenEventDispatchTestAccess::fallImage(*fall.flow);
+    fall.now+=15;fall.flow->beginCycle(++fall.cycle);
+    check(!fall.flow->updatePresentation() && XeenEventDispatchTestAccess::fallImage(*fall.flow)==waiting,"Unacquired fall frame advanced");
+   }
+   fall.present(*next);
+  }
+ }
+ const auto saved=fall.snapshot();check(failure.empty(),failure.c_str());
+ if(fallBaseline)check(XeenSaveFormat::encode(saved)==XeenSaveFormat::encode(*fallBaseline),"Fall presentation retry replayed load, damage or RNG");
+ else fallBaseline=saved;
+ check(fall.c.mapId==to && fall.c.x==3 && fall.c.y==3 && fall.c.direction==XeenDirection::West && fall.f.isSet(XeenSide::Darkside,203),"Original fall failed to preserve facing or restart destination at line zero");
+ for(auto owner:s.activeRosterIds)check(fall.p.roster.at(owner).currentHp==93,"Original fall did not apply base damage 7 per member");
+ const auto path=out/(failFirst?"m103b-fall-retry.mmsave":"m103b-fall.mmsave");XeenSaveFile::write(path,saved);Live restored(in,XeenSaveFile::read(path),&fallFile,&arrival);
+ check(XeenSaveFormat::encode(restored.snapshot())==XeenSaveFormat::encode(saved),"Scripted fall replayed after exact save/load");
+ }
+ std::cout<<"M103 Part B original choices/cancel, 220 damage operands, M86 fall and exact round trips verified\n";
 }
 
 // Ordinary Journey rewards execute detached, then publish through the live guard.
@@ -791,11 +924,12 @@ void pyramidCombatAudio(Inputs &in,const GameInstallation &installation,const st
 }
 int main(int argc,char **argv) {
  try {
-  check(argc==3,"usage: darkside-tests <installation> <output-directory>");const auto installation=xeenTestInstallationDetector().detect(argv[1]);check(bool(installation),"Missing original installation");
+  check(argc==3 || (argc==4 && std::string(argv[3])=="partb"),"usage: darkside-tests <installation> <output-directory> [partb]");const auto installation=xeenTestInstallationDetector().detect(argv[1]);check(bool(installation),"Missing original installation");
   const std::filesystem::path out=argv[2];std::filesystem::create_directories(out);const auto save=std::filesystem::temp_directory_path()/("mmodern-m101-"+std::to_string(std::chrono::steady_clock::now().time_since_epoch().count())+".mmsave");
   std::cout<<"Preset: "<<save<<'\n';
   developer::generateTestSave(*installation,"m101-castleview",save);Inputs in(*installation);const auto preset=XeenSaveFile::read(save);
   check(preset.camera.mapId==XeenMapIdentity(XeenSide::Darkside,29),"Wrong Castleview preset");
+  partBEvents(in,quiet(in,preset),out);if(argc==4)return 0;
   enchantedLivePublication(in,quiet(in,preset),out);partAEvents(in,quiet(in,preset),out);characterEvents(in,quiet(in,preset));resources(in);std::cout<<"Resources verified\n";const auto s=quiet(in,preset);music(in,*installation,s);std::cout<<"Music verified\n";refusals(in,s,out);forcedText(in,s,out);
   pyramid(in,*installation,s,out);saveExport(in,*installation,s,out);originalRoute(in,*installation,out);pyramidCombatAudio(in,*installation,out);
   panelAndDefeat(in,*installation,s,out,4);

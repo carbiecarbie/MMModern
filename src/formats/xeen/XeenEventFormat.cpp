@@ -46,6 +46,7 @@ std::vector<XeenEventRecord> XeenEventFormat::parse(
 		record.parameters.insert(record.parameters.end(), bytes.begin() + offset,
 			bytes.begin() + offset + parameterCount);
 		offset += parameterCount;
+		if(offset<bytes.size())record.followingByte=bytes[offset];
 		records.push_back(std::move(record));
 	}
 

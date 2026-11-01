@@ -68,6 +68,8 @@ enum class XeenPresentationKind {
 	RewardGeneration,
 	PortraitEffect,
 	WordInput,
+    NumericChoice,
+    Falling,
     EntranceScene,
     ArenaNumber,
     ArenaPreparation,
@@ -79,12 +81,14 @@ enum class XeenPresentationResponseRequirement {
 	Acknowledgment,
 	YesNo,
 	CharacterSelection,
-	WordInput
+	WordInput,
+    NumericChoice
 };
 
 struct SelectedCharacter { std::size_t partyIndex; };
 struct CharacterSelectionCancelled {};
 struct XeenWordInput { std::string text; };
+struct XeenNumericChoice { unsigned choice; }; // 1..N, including the numbered cancel.
 
 struct XeenPresentationResponse {
 	enum Signal {
@@ -93,11 +97,12 @@ struct XeenPresentationResponse {
 		Yes,
 		No
 	};
-	std::variant<Signal, SelectedCharacter, CharacterSelectionCancelled, XeenWordInput> value;
+	std::variant<Signal, SelectedCharacter, CharacterSelectionCancelled, XeenWordInput, XeenNumericChoice> value;
 	XeenPresentationResponse(Signal signal) : value(signal) {}
 	XeenPresentationResponse(SelectedCharacter selection) : value(selection) {}
 	XeenPresentationResponse(CharacterSelectionCancelled cancel) : value(cancel) {}
 	XeenPresentationResponse(XeenWordInput input) : value(std::move(input)) {}
+	XeenPresentationResponse(XeenNumericChoice input) : value(input) {}
 	bool operator==(Signal signal) const {
 		const auto *actual = std::get_if<Signal>(&value);
 		return actual && *actual == signal;
@@ -129,6 +134,9 @@ struct XeenEventPortraitProgress {
 };
 
 struct XeenPresentationRequest {
+    std::optional<XeenEventChooseNumeric> numeric;
+    std::optional<XeenEventFallToMap> fall;
+    bool fallDestination=false;
     std::optional<XeenArenaPrompt> arena;
     std::optional<std::uint8_t> entranceAction;
 	XeenPresentationKind kind = XeenPresentationKind::CenteredMessage;
@@ -175,7 +183,8 @@ enum class XeenEventPendingContinuation {
 	GiveMulti,
 	PortraitEffect,
 	NpcChoice,
-	ConfirmWord
+	ConfirmWord,
+    NumericChoice, FallToMap
 };
 
 struct XeenEventPendingPresentation {

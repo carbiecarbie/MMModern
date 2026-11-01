@@ -4,6 +4,7 @@
 #include <tuple>
 
 #include <algorithm>
+#include <array>
 #include <cstdint>
 #include <iostream>
 #include <stdexcept>
@@ -240,8 +241,37 @@ void testPagingAndInputProtocol() {
 
 } // namespace
 
+void numericChoices() {
+    const XeenFontFormat font(fontBytes());XeenEventPresenter presenter(font);
+    std::vector<std::tuple<std::string,unsigned,int,int>> sprites;
+    presenter.originalAssets(nullptr,[&](auto &,const char *r,unsigned f,int x,int y){sprites.emplace_back(r,f,x,y);});
+    auto q=request(XeenPresentationKind::NumericChoice,XeenPresentationResponseRequirement::NumericChoice,"");
+    q.numeric=XeenEventChooseNumeric{{2,3,4,5,6,7,8,9}};
+    for(bool compact:{false,true,false}) {
+        presenter.clear();q.numeric->lines.resize(compact?2:8);q.npcBodyHidden=compact;sprites.clear();presenter.present(frame(),q);
+        check(sprites.front()==std::make_tuple(std::string("choose.icn"),7u,232,74),"numeric background frame/position");
+        const auto input=presenter.input();
+        for(unsigned i=0;i<=q.numeric->lines.size();++i) {
+            const auto &h=input.hits[i];const int y=compact && i<3?101:75+21*int(i/3);
+            check(h.left==std::array<int,3>{235,260,286}[i%3] && h.top==y && h.right-h.left==24 && h.bottom-h.top==20,
+                "numbered layout, compact first row or restored normal row");
+            check(sprites[i+1]==std::make_tuple(std::string("choose.icn"),2*i,h.left,h.top),"numbered sprite frame/position");
+            const auto click=input.click(h.left+1,h.top+1);check(bool(click),"numeric coordinate-only mouse hit");
+            const auto response=presenter.handle(*click,false).response;
+            check(response && std::get<XeenNumericChoice>(response->value).choice==i+1,"numeric mouse mapping");
+            check(presenter.handle(*input.key('1'+i),false).response.has_value(),"numeric digit accepted");
+        }
+        for(unsigned key:{InputKey::Escape,InputKey::Enter,unsigned('0'),unsigned('a')}) {
+            check(!input.key(key) && !presenter.handle(DialogKeyAction{key},false).response,"Escape and unrelated keys ignored");
+        }
+        check(!presenter.handle(CancelInteractionAction{},false).response && !input.click(10,10),"numeric has no generic cancel or outside click");
+        check(presenter.finishPresentation().pixels==frame().pixels,"numeric exit restores displayed Event text");
+    }
+}
+
 int main() {
 	try {
+		numericChoices();
 		testFontFormatAndRasterization();
 		testFormattingWrappingAndClipping();
 		testPresentationComposition();

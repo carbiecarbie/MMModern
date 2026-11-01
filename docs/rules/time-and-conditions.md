@@ -637,15 +637,26 @@ from the original source/destination views. Source offsets are
 scene. Each waits one 70-Hz VGA retrace; the enclosing full draw also has its
 two-BIOS-tick minimum. Scream stops after offset 132, before the four impact
 images; [audio](audio.md#voc-inventory-boundaries) gives the cue sites.
-`XeenEventFlow::beginFall` is the single presentation entry used by the
-existing terrain transition, including its manual-step path. Input follows
+`XeenEventFlow::beginFall` is the single presentation entry used by terrain
+transitions (including the manual-step path) and scripted falls. Input follows
 the existing blocking-presentation policy; repaint and unacquired frames do
 not advance it. No save fields or gameplay clock ticks are added.
 [Original offsets and pin difference](../original-quirks.md#sv-fall-presentation).
 
-M86 covers terrain falls only. The original Clouds Events do not use
-`FallToMap` (opcode 52); its Darkside uses remain unsupported. A future caller
-can reuse the presentation without changing these terrain rules.
+`FallToMap` (opcode 52) retains the source draw, loads and normalizes its
+destination, then waits for this same presentation before applying its signed
+base damage through the shared physical-damage path. Each member starts from
+that base, including zero; Power Shield still subtracts and clamps at zero.
+An explicit map preserves facing; map zero uses the surface-fall dispatch.
+Darkside flag 118 suppresses the fall. In either case Event dispatch restarts
+at line zero at the resulting party position. The original Clouds Events use
+neither this opcode nor the numbered choice (48), so terrain rules are unchanged.
+
+The CD's 220 ordinary Darkside falls omit their fourth operand. The decoder
+retains the next byte in file order: 217 falls use the following record's
+length as signed base damage. The final records on maps 51, 89 and 92 use
+zero ([approved deviation](../original-quirks.md#dev-fall-damage-zero));
+the [DOS evidence](evidence.md#falltomap-52) explains the reads.
 
 ## Calendar economy and direct year changes
 

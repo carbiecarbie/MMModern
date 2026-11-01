@@ -141,6 +141,8 @@ XeenEventFile isolatedEventProbe(const XeenEventRecord &original,XeenMapIdentity
     if(const auto *word=std::get_if<XeenEventConfirmWord>(&operation))exitLines.insert(word->targetLine);
     if(const auto *randomGoto=std::get_if<XeenEventGotoRandom>(&operation))
         for(const auto line:randomGoto->lines)if(line>=0)exitLines.insert(unsigned(line));
+    if(const auto *choice=std::get_if<XeenEventChooseNumeric>(&operation))
+        for(const auto line:choice->lines)if(line>=0)exitLines.insert(unsigned(line));
     if(const auto *jump=std::get_if<XeenEventJumpRandom>(&operation))if(jump->line>=0)exitLines.insert(unsigned(jump->line));
     if(const auto *flag=std::get_if<XeenEventIfMapFlag>(&operation))if(flag->line>=0)exitLines.insert(unsigned(flag->line));
     if(const auto *call=std::get_if<XeenEventCallEvent>(&operation))
@@ -285,6 +287,7 @@ Support eventSupport(const XeenEventRecord &original,const XeenEventFile &origin
             }
             // A legitimate question/selection is supported input, not absent ownership.
             if(pending->request.response==XeenPresentationResponseRequirement::YesNo ||
+                    pending->request.response==XeenPresentationResponseRequirement::NumericChoice ||
                     pending->request.response==XeenPresentationResponseRequirement::CharacterSelection ||
                     pending->request.response==XeenPresentationResponseRequirement::WordInput)
                 return {Status::Supported,"Original Event input admitted with Journey owners"};

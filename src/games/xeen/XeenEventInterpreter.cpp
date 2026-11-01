@@ -7,6 +7,7 @@
 #include "games/xeen/XeenSkills.h"
 #include "games/xeen/XeenCombatRules.h"
 #include "games/xeen/XeenEntranceScene.h"
+#include "games/xeen/XeenTerrainRules.h"
 
 #include <limits>
 #include <algorithm>
@@ -79,6 +80,8 @@ bool compare(std::uint32_t actual, std::uint32_t expected,
 bool responseMatches(XeenPresentationResponseRequirement requirement,
 		XeenPresentationResponse response) {
 	switch (requirement) {
+	case XeenPresentationResponseRequirement::NumericChoice:
+		return std::holds_alternative<XeenNumericChoice>(response.value);
 	case XeenPresentationResponseRequirement::WordInput:
 		return std::holds_alternative<XeenWordInput>(response.value);
 	case XeenPresentationResponseRequirement::CharacterSelection:
@@ -181,6 +184,9 @@ std::optional<XeenEventExecutionError> preflightEvent(XeenWorld &world,
 			enqueue(x,y,condition->targetLine);
 		}
 		if(const auto *word=std::get_if<XeenEventConfirmWord>(&op))enqueue(x,y,word->targetLine);
+		if(const auto *choice=std::get_if<XeenEventChooseNumeric>(&op))
+			for(const auto target:choice->lines)if(target>=0)enqueue(x,y,target);
+		if(std::holds_alternative<XeenEventFallToMap>(op))continue;
 		if(const auto *call=std::get_if<XeenEventCallEvent>(&op)) {
 			path.emplace_back(x,y,line+1);enqueue(call->x,call->y,call->line);continue;
 		}
@@ -477,6 +483,36 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 		return XeenEventExecutionSuspended{state, std::move(request)};
 	};
 
+    // SCRIPT_RESET resets Event-local dispatch; continuing teleports redraw first.
+    const auto restartDestination=[&](const XeenEventSourceLocation &source,bool redraw=true) -> std::optional<XeenEventExecutionError> {
+        callStack.clear();state.scriptValues.damageType=0;state.redrawDone=false;
+        state.entireParty=false;state.lookupDirection=workingCamera.direction;
+        state.activeCharacterIndex=partyState.party.size()?std::optional<std::size_t>{0}:std::nullopt;
+        state.continuedAtDestination=true;
+        if(redraw) {
+            if(eventDraw)eventDraw(world,workingCamera,false);
+            auto scene=world.lightAfterScenePreparation(partyState,workingCamera);
+            world.recordExploration(scene.exploration);
+            if(partyState.encounterContext)partyState.encounterContext->lightAndResistances[0]=scene.light;
+            world.scenePresentation().completeLightingDraw();
+        }
+        state.selectedObject=world.selectObject(workingCamera);
+        // Both handlers restart through 0x26a8e, zeroing the picked-lock counter.
+        if(state.scriptValues.lockCounter){state.scriptValues.lockCounter=0;world.objectFrameLocked(std::nullopt);}
+        logical={workingCamera.mapId,workingCamera.x,workingCamera.y,0};
+        try {script.emplace(scriptProvider(logical.mapId));}
+        catch(const std::exception &e) {
+            return error(XeenEventExecutionErrorKind::ScriptLoadFailed,
+                std::string("failed to load destination event script: ")+e.what(),instructionCount,logical,source,logical);
+        }
+        if(script->file().mapId!=logical.mapId)return error(XeenEventExecutionErrorKind::ScriptMapMismatch,
+            "destination event script map ID differs from requested map",instructionCount,logical,source,logical);
+        if(world.regionalJourney())if(const auto refused=preflightEvent(world,*script,workingCamera,0,instructionCount))return *refused;
+        missingPolicy=MissingInstructionPolicy::NaturalCompletion;pendingTransferSource.reset();
+        return {};
+    };
+
+
 	if (state.pendingPresentation) {
 		const XeenEventPendingPresentation pending = *state.pendingPresentation;
 		if (!response || !responseMatches(pending.request.response, *response)) {
@@ -485,6 +521,62 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 				instructionCount, logical, pending.request.source);
 		}
 		if (pending.continuation == XeenEventPendingContinuation::RewardFinalization) return finalize();
+        if(pending.continuation==XeenEventPendingContinuation::FallToMap) {
+            const auto &fall=*pending.request.fall;
+            if(!pending.request.fallDestination) {
+                auto destination=fall.map?XeenCamera{{workingCamera.mapId.side,static_cast<std::uint16_t>(fall.map)},
+                    fall.x,fall.y,workingCamera.direction}:xeenTerrainFallDestination(workingCamera);
+                try {
+                    // Load first, then the DOS bit-4 outdoor edge adjustments: Y before X.
+                    // The neutral cell admits the map without treating edge operands as a teleport.
+                    auto admission=destination;admission.x=0;admission.y=0;
+                    const auto admitted=world.prepareEventTransition(admission);
+                    if(!admitted)return error(XeenEventExecutionErrorKind::UnsupportedTeleportDestination,
+                        admitted.reason,instructionCount,logical,pending.request.source);
+                    workingGameFlags=world.loadEventDestination(workingCamera.mapId,destination.mapId,true,workingGameFlags);
+                    ++state.inputClearCount;state.inputClearSite=0xf590;
+                    if(world.map(destination.mapId).geometry.isOutdoors()) {
+                        const auto loaded=destination.mapId;
+                        if(int(destination.y)&16) {
+                            const bool south=destination.y<0;
+                            const auto next=world.map(destination.mapId).geometry.neighbors[unsigned(south?XeenDirection::South:XeenDirection::North)];
+                            if(!next)throw std::runtime_error("Fall outdoor Y neighbour is not supported yet");
+                            destination.y+=south?16:-16;destination.mapId.number=next;
+                        }
+                        if(int(destination.x)&16) {
+                            const bool west=destination.x<0;
+                            const auto next=world.map(destination.mapId).geometry.neighbors[unsigned(west?XeenDirection::West:XeenDirection::East)];
+                            if(!next)throw std::runtime_error("Fall outdoor X neighbour is not supported yet");
+                            destination.x+=west?16:-16;destination.mapId.number=next;
+                        }
+                        if(destination.mapId!=loaded)
+                            workingGameFlags=world.loadEventDestination(loaded,destination.mapId,true,workingGameFlags);
+                    }
+                    const auto transition=world.prepareEventTransition(destination);
+                    if(!transition)return error(XeenEventExecutionErrorKind::UnsupportedTeleportDestination,
+                        transition.reason,instructionCount,logical,pending.request.source);
+                    workingCamera=transition.destination;state.selectedObject.reset();
+                    sceneCheck(true);
+                    if(eventDraw)eventDraw(world,workingCamera,false);
+                } catch(const std::exception &e) {
+                    return error(XeenEventExecutionErrorKind::MapLoadFailed,
+                        std::string("Failed fall destination: ")+e.what(),instructionCount,logical,pending.request.source);
+                }
+                auto request=pending.request;request.fallDestination=true;
+                state.pendingPresentation=XeenEventPendingPresentation{request,XeenEventPendingContinuation::FallToMap,{}};
+                return XeenEventExecutionSuspended{state,request};
+            }
+            // giveCharDamage restores the signed base for each member, as terrain falls do.
+            for(unsigned member=0;member<partyState.party.size();++member) {
+                auto injury=world.prepareEventDamage(partyState,fall.damage,XeenDamageType::Physical,member,false);
+                XeenCombatRandom random(*world.sessionState().journeyRandom());
+                XeenConsequenceDraw draw{random,64,{},[&](unsigned id){emitFmEffect(publication,id);}};
+                if(!injury.service(draw))throw std::logic_error("Physical fall requested random continuation");
+                world.publishEventDamagePrefix(partyState,injury,random.continuation(),true);
+            }
+            state.scriptExecuted=true;
+            if(const auto e=restartDestination(pending.request.source,false))return *e;
+        }
         if(pending.request.arena) {
             auto prompt=*pending.request.arena;
             using P=XeenArenaPhase;
@@ -662,6 +754,21 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 				missingPolicy = MissingInstructionPolicy::NaturalCompletion;
 			}
 		}
+		if(pending.continuation==XeenEventPendingContinuation::NumericChoice) {
+			const auto choice=std::get<XeenNumericChoice>(response->value).choice;
+			const auto &lines=pending.request.numeric->lines;
+			if(!choice || choice>lines.size()+1)return error(XeenEventExecutionErrorKind::InvalidPresentationResponse,
+				"Numeric choice is outside the prompt",instructionCount,logical,pending.request.source);
+			if(choice<=lines.size()) {
+				logical.line=lines[choice-1];missingPolicy=MissingInstructionPolicy::ExplicitJump;
+				pendingTransferSource=pending.request.source;
+				if(logical.line<0)return finalize();
+			} else {
+				if(logical.line==255)return error(XeenEventExecutionErrorKind::LineOverflow,
+					"ChooseNumeric fallthrough line overflow",instructionCount,logical,pending.request.source);
+				++logical.line;missingPolicy=MissingInstructionPolicy::NaturalCompletion;
+			}
+		}
 		if (pending.continuation == XeenEventPendingContinuation::ConditionalAction44) {
 			const std::uint32_t actual = pending.request.response ==
 				XeenPresentationResponseRequirement::Acknowledgment ? 1 :
@@ -768,7 +875,8 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
                 std::holds_alternative<XeenEventEndClouds>(op) || std::holds_alternative<XeenEventProtectionCheck>(op) ||
                 std::holds_alternative<XeenEventCdSpeech>(op);
             const bool deferred=std::holds_alternative<XeenEventTakeOrGive>(op) ||
-                std::holds_alternative<XeenEventTakeOrGiveTest>(op) || std::holds_alternative<XeenEventConfirmWord>(op);
+                std::holds_alternative<XeenEventTakeOrGiveTest>(op) || std::holds_alternative<XeenEventConfirmWord>(op) ||
+                std::holds_alternative<XeenEventFallToMap>(op);
             const auto *set=std::get_if<XeenEventSetCharacter>(&op);
             if(!never && !deferred && (!set || static_cast<std::int8_t>(set->selector)<=7))state.scriptExecuted=true;
         }
@@ -846,6 +954,31 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 			return XeenEventExecutionSuspended{state,request};
 		}
 
+        if(const auto *fall=std::get_if<XeenEventFallToMap>(&decoded.operation)) {
+            if(!world.detachedEventCandidate() || !partyState.encounterContext || !world.sessionState().journeyRandom())
+                return error(XeenEventExecutionErrorKind::UnsupportedExecutionContext,
+                    "FallToMap requires a detached Event and party context",instructionCount,logical,decoded.source);
+            if(workingCamera.mapId.side==XeenSide::Darkside && workingGameFlags.isSet(XeenSide::Darkside,118)) {
+                state.scriptExecuted=true;
+                if(const auto e=restartDestination(decoded.source,false))return *e;
+                continue;
+            }
+            sceneCheck(true);
+            if(eventDraw)eventDraw(world,workingCamera,false);
+            XeenPresentationRequest request;request.kind=XeenPresentationKind::Falling;
+            request.response=XeenPresentationResponseRequirement::Presented;
+            request.mapId=workingCamera.mapId;request.source=decoded.source;request.fall=*fall;
+            state.pendingPresentation=XeenEventPendingPresentation{request,XeenEventPendingContinuation::FallToMap,{}};
+            return XeenEventExecutionSuspended{state,request};
+        }
+        if(const auto *choice=std::get_if<XeenEventChooseNumeric>(&decoded.operation)) {
+            XeenPresentationRequest request;request.kind=XeenPresentationKind::NumericChoice;
+            request.response=XeenPresentationResponseRequirement::NumericChoice;
+            request.mapId=workingCamera.mapId;request.source=decoded.source;request.numeric=*choice;
+            request.forceText=state.forceText;
+            state.pendingPresentation=XeenEventPendingPresentation{request,XeenEventPendingContinuation::NumericChoice,{}};
+            return XeenEventExecutionSuspended{state,request};
+        }
         if(const auto *word=std::get_if<XeenEventConfirmWord>(&decoded.operation)) {
             if(!textProvider)return error(XeenEventExecutionErrorKind::MissingTextResource,"Word input text provider is absent",instructionCount,logical,decoded.source);
             const auto texts=textProvider(logical.mapId);
@@ -1853,38 +1986,7 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 			if (const auto teleportError = executeTeleport(teleport->mapId,
 					teleport->x, teleport->y, true))
 				return *teleportError;
-   callStack.clear();state.scriptValues.damageType=0;state.redrawDone=false;
-   state.entireParty=false;state.lookupDirection=workingCamera.direction;
-   state.activeCharacterIndex = partyState.party.size() ? std::optional<std::size_t>{0} : std::nullopt;
-			state.continuedAtDestination=true; // DAT 0x2711f..0x27127: redraw, then restart.
-            if(eventDraw)eventDraw(world,workingCamera,false);
-            // Continue prepares each intermediate scene before restarting its
-            // Event chain, even when no text suspends there for a visible frame.
-            auto scene=world.lightAfterScenePreparation(partyState,workingCamera);
-            world.recordExploration(scene.exploration);
-            if(partyState.encounterContext)
-                partyState.encounterContext->lightAndResistances[0]=scene.light;
-            world.scenePresentation().completeLightingDraw();
-            // The restart zeroes the lock counter (0x27127 -> 0x26a8e, 0x26a96).
-            if(state.scriptValues.lockCounter) {state.scriptValues.lockCounter=0;world.objectFrameLocked(std::nullopt);}
-			logical = {workingCamera.mapId, workingCamera.x, workingCamera.y, 0};
-			try {
-				script.emplace(scriptProvider(logical.mapId));
-			} catch (const std::exception &exception) {
-				return error(XeenEventExecutionErrorKind::ScriptLoadFailed,
-					std::string("failed to load destination event script: ") +
-						exception.what(), instructionCount, logical, decoded.source,
-					logical);
-			}
-			if (script->file().mapId != logical.mapId) {
-				return error(XeenEventExecutionErrorKind::ScriptMapMismatch,
-					"destination event script map ID differs from requested map",
-					instructionCount, logical, decoded.source, logical);
-			}
-			if(world.regionalJourney())
-				if(const auto refused=preflightEvent(world,*script,workingCamera,0,instructionCount))return *refused;
-			missingPolicy = MissingInstructionPolicy::NaturalCompletion;
-			pendingTransferSource.reset();
+            if(const auto e=restartDestination(decoded.source))return *e;
 			continue;
 		}
 
@@ -1917,7 +2019,7 @@ void XeenWorld::publishEventTime(XeenPartyState &party,const XeenConditionTimeCa
  *party.encounterContext=time.context;
  if(time.economy && party.serviceEconomy)*party.serviceEconomy=*time.economy;
 }
-XeenTypedDamageCandidate XeenWorld::prepareEventDamage(const XeenPartyState &party,unsigned damage,XeenDamageType type,
+XeenTypedDamageCandidate XeenWorld::prepareEventDamage(const XeenPartyState &party,int damage,XeenDamageType type,
  std::optional<std::size_t> member,bool entireParty) const {
  if(!detachedEventCandidate() || !party.encounterContext || !_sessionState._journeyRandom ||
   !party.party.size() || (!entireParty && (!member || *member>=party.party.size())))

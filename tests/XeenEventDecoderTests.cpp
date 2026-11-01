@@ -261,11 +261,11 @@ void checkSource(const XeenEventSourceLocation &source, bool withContext,
 }
 
 void testErrorsMetadataAndPurity() {
-	const auto unsupportedKnown = XeenEventDecoder::decode(record(0x30, {1, 2}),
+	const auto unsupportedKnown = XeenEventDecoder::decode(record(0x37, {1, 2}),
 		{42, std::string("maze0042.evt")});
 	const auto &opcodeError = failure(unsupportedKnown,
 		XeenEventDecodeErrorKind::UnsupportedOpcode);
-	checkSource(opcodeError.source, true, 0x30);
+	checkSource(opcodeError.source, true, 0x37);
 	check(!opcodeError.expectedParameterSize && opcodeError.actualParameterSize == 2,
 		"unsupported opcode does not parse parameters");
 	checkSource(failure(XeenEventDecoder::decode(record(0xff)),
@@ -337,10 +337,29 @@ void testOwnedResultLifetime() {
 		"source context survives input destruction");
 }
 
+void numericAndFallOperands() {
+    check(operation<XeenEventChooseNumeric>(XeenEventDecoder::decode(record(48,{3,128,255}))).lines==
+        std::vector<int>({-128,-1}),"ChooseNumeric signed lines and no cancel target");
+    check(operation<XeenEventChooseNumeric>(XeenEventDecoder::decode(record(48,{1}))).lines.empty(),"single numbered cancel");
+    for(const auto &p:std::vector<std::vector<std::uint8_t>>{{},{3,1},{2,1,2}})
+        failure(XeenEventDecoder::decode(record(48,p)),XeenEventDecodeErrorKind::MalformedInstruction);
+    for(unsigned count:{0u,10u})failure(XeenEventDecoder::decode(record(48,{std::uint8_t(count)})),XeenEventDecodeErrorKind::UnsupportedOperand);
+    auto followed=record(52,{40,3,3});followed.followingByte=7;
+    check(operation<XeenEventFallToMap>(XeenEventDecoder::decode(followed)).damage==7,"Fall damage is next record length");
+    auto last=record(52,{49,9,6});
+    check(operation<XeenEventFallToMap>(XeenEventDecoder::decode(last)).damage==0,"end-of-resource approved zero");
+    last.parameters={255,128,254,249};last.followingByte=10;
+    const auto f=operation<XeenEventFallToMap>(XeenEventDecoder::decode(last));
+    check(f.map==-1 && f.x==-128 && f.y==-2 && f.damage==-7,"explicit signed fall operands override following byte");
+    failure(XeenEventDecoder::decode(record(52,{1,2})),XeenEventDecodeErrorKind::MalformedInstruction);
+    failure(XeenEventDecoder::decode(record(52,{1,2,3,4,5})),XeenEventDecodeErrorKind::MalformedInstruction);
+}
+
 } // namespace
 
 int main() {
 	try {
+		numericAndFallOperands();
 		testEmptyOperationsAndStrictSizes();
 		testTownService();
 		check(operation<XeenEventSoundCue>(XeenEventDecoder::decode(record(0x06,{19}))).index==19,"PlayFX operand");

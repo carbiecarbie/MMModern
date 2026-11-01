@@ -435,10 +435,11 @@ private:
         unsigned image=0;
         std::uint64_t deadline=0;
         bool acquired=false;
+        std::uint64_t eventGeneration=0;
     };
     std::optional<FallSequence> _fallSequence;
-    void beginFall(const IndexedFrame &,const IndexedFrame &);
-    void drawFallImage();
+    void beginFall(const IndexedFrame &,const IndexedFrame &,std::uint64_t eventGeneration=0);
+    void drawFallImage(FallSequence &);
     std::optional<IndexedFrame> advanceFall();
 
     struct NpcSequence {

@@ -340,6 +340,25 @@ XeenEventDecodeResult XeenEventDecoder::decode(const XeenEventRecord &record,
 		return instruction(record, context, XeenEventGiveEnchanted{code, id,
 			{record.parameters.begin() + 2, record.parameters.end()}});
 	}
+	case 48: {
+		if(record.parameters.empty())return wrongSize(record,context,1);
+		const unsigned count=record.parameters[0];
+		if(count<1 || count>9)return makeError(record,context,XeenEventDecodeErrorKind::UnsupportedOperand,
+			"ChooseNumeric count outside 1..9 is not supported yet");
+		if(record.parameters.size()!=count)return wrongSize(record,context,count);
+		XeenEventChooseNumeric op;
+		for(unsigned i=1;i<count;++i)op.lines.push_back(static_cast<std::int8_t>(record.parameters[i]));
+		return instruction(record,context,std::move(op));
+	}
+	case 52: {
+		if(record.parameters.size()<3)return wrongSize(record,context,3);
+		if(record.parameters.size()>4)return wrongSize(record,context,4);
+		// DOS 0x28af5 reads the next byte even when it is outside this record.
+		const auto damage=record.parameters.size()==4?record.parameters[3]:record.followingByte.value_or(0);
+		return instruction(record,context,XeenEventFallToMap{static_cast<std::int8_t>(record.parameters[0]),
+			static_cast<std::int8_t>(record.parameters[1]),static_cast<std::int8_t>(record.parameters[2]),
+			static_cast<std::int8_t>(damage)});
+	}
 	case 0x33:
 		if(record.parameters.size()!=2)return wrongSize(record,context,2);
 		return instruction(record,context,XeenEventExchangeObjects{record.parameters[0],record.parameters[1]});

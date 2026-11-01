@@ -55,6 +55,9 @@ void testVariableRecordsAndOffsets() {
 	check(records[2].fileOffset == 14 && records[2].lengthField == 6 &&
 		records[2].x == 102 && records[2].y == 102 &&
 		records[2].parameters == Bytes{0xcc}, "third record offset and parameters");
+ const auto falls=XeenEventFormat::parse({8,5,5,4,0,52,40,3,3,7,5,5,4,1,0,9,10});
+ check(falls[0].followingByte==7 && !falls[1].followingByte,"Follow-on byte is the next record length in file order; absent at resource end");
+
 }
 
 void testDirectionBytesRemainOpaque() {

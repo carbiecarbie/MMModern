@@ -111,6 +111,15 @@ struct XeenEventGiveEnchanted {
 };
 struct XeenEventExchangeObjects { std::uint8_t first=0, second=0; };
 struct XeenEventGotoRandom { std::vector<int> lines; };
+// The final numbered choice cancels; only the preceding choices have targets.
+struct XeenEventChooseNumeric {
+	std::vector<int> lines;
+	bool operator==(const XeenEventChooseNumeric &o) const {return lines==o.lines;}
+};
+struct XeenEventFallToMap {
+	int map=0,x=0,y=0,damage=0;
+	bool operator==(const XeenEventFallToMap &o) const {return map==o.map && x==o.x && y==o.y && damage==o.damage;}
+};
 struct XeenEventVoiceCue { std::uint8_t index = 0; };
 struct XeenEventSoundCue { std::uint8_t index = 0; };
 // Presentation-only CD speech operands; the DOS encoding is MMSSFF (75 Hz).
@@ -176,6 +185,8 @@ using XeenDecodedEventOperation = std::variant<
 	XeenEventGiveEnchanted,
 	XeenEventExchangeObjects,
 	XeenEventGotoRandom,
+	XeenEventChooseNumeric,
+	XeenEventFallToMap,
 	XeenEventVoiceCue,
 	XeenEventSoundCue,
 	XeenEventCdSpeech,
