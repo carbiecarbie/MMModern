@@ -124,7 +124,10 @@ Floppy-bound saves are rejected before restoration with a data-edition diagnosti
 
 Every CTest entry is labelled `fast` or `process`. `process` tests take 30 seconds
 or more or drive child processes. Configuring the tests requires the original
-installation.
+installation, unless `-DMMODERN_ORIGINAL_DATA_TESTS=OFF` registers only the
+tests that need no original data, captures, ROMs or CD audio; the GitHub
+Actions run uses that switch and never replaces the complete local suite
+([continuous integration](dependencies.md#continuous-integration)).
 Tests are independent, so run them in parallel; the few that assert real-clock
 behavior or open a native window are marked to run alone.
 

@@ -1,0 +1,297 @@
+# Builds MMModern on a clean Windows machine from the repository and
+# docs/dependencies.md alone, and runs the tests that need no original data
+# (MMODERN_ORIGINAL_DATA_TESTS=OFF). It never replaces the complete local
+# suite. The pinned toolchain is .github/ci/msys2-packages.txt and the
+# expected ScummVM configuration .github/ci/scummvm-use.txt; change them and
+# docs/dependencies.md together.
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+
+# A newer push cancels the older run of the same branch; on main every commit
+# gets its own group, so each keeps its own result.
+concurrency:
+  group: ci-${{ github.ref == 'refs/heads/main' && github.sha || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  SCUMMVM_COMMIT: 6814ee9ba54582f5b5adcffab49efbbd8f589edd
+  MSYS2_REPO: https://repo.msys2.org
+
+jobs:
+  build-and-test:
+    # Branches of this repository already run on push; pull requests run
+    # only when they come from a fork.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
+    runs-on: windows-2025
+    timeout-minutes: 150
+    steps:
+      - name: Check out MMModern
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up MSYS2
+        id: msys2
+        uses: msys2/setup-msys2@ec48f7c5447b3140e2b088413ae3a55687bccb6e # v2.33.0
+        with:
+          msystem: UCRT64
+          update: false
+          path-type: minimal
+
+      - name: Set paths
+        shell: pwsh
+        run: |
+          $msys = '${{ steps.msys2.outputs.msys2-location }}'
+          $temp = '${{ runner.temp }}'
+          $git = 'C:\Program Files\Git\cmd'
+          "MSYS2_ROOT=$msys" >> $env:GITHUB_ENV
+          "PKG_DIR=$temp\msys2-pkgs" >> $env:GITHUB_ENV
+          "SCUMMVM_SOURCE=$temp\scummvm-src" >> $env:GITHUB_ENV
+          "SCUMMVM_BUILD=$temp\scummvm-build" >> $env:GITHUB_ENV
+          "GIT_FOR_WINDOWS=$git\git.exe" >> $env:GITHUB_ENV
+          # The PATH of the MMModern steps: the UCRT64 toolchain first, as in
+          # docs/dependencies.md, then Git for Windows and Windows itself, so
+          # the image's other MinGW DLLs are never found.
+          "MMODERN_CI_PATH=$msys\ucrt64\bin;$git;C:\Windows\System32;C:\Windows;C:\Windows\System32\Wbem;C:\Windows\System32\WindowsPowerShell\v1.0" >> $env:GITHUB_ENV
+
+      - name: Restore pinned package files
+        id: pkg-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ env.PKG_DIR }}
+          key: msys2-pkgs-${{ hashFiles('.github/ci/msys2-packages.txt') }}
+
+      - name: Download and verify pinned package files
+        shell: msys2 {0}
+        run: |
+          set -eu
+          dir=$(cygpath -u "$PKG_DIR")
+          mkdir -p "$dir"
+          grep -v '^#' .github/ci/msys2-packages.txt | while read -r sum file stage; do
+            case "$file" in
+              mingw-w64-ucrt-x86_64-*) url="$MSYS2_REPO/mingw/ucrt64/$file" ;;
+              *) url="$MSYS2_REPO/msys/x86_64/$file" ;;
+            esac
+            [ -f "$dir/$file" ] || curl -fsSL --retry 3 -o "$dir/$file" "$url"
+            echo "$sum  $dir/$file" | sha256sum -c --quiet
+          done
+          echo "All $(grep -vc '^#' .github/ci/msys2-packages.txt) package files match their SHA-256."
+
+      - name: Save pinned package files
+        if: steps.pkg-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ env.PKG_DIR }}
+          key: ${{ steps.pkg-cache.outputs.cache-primary-key }}
+
+      - name: Install the pinned toolchain (before ScummVM's configure)
+        shell: msys2 {0}
+        run: |
+          set -eu
+          dir=$(cygpath -u "$PKG_DIR")
+          files=$(grep -v '^#' .github/ci/msys2-packages.txt | awk -v d="$dir" '$3 != "after-scummvm" { print d "/" $2 }')
+          pacman -U --noconfirm $files
+          # Nothing beyond the pinned files may be installed into UCRT64.
+          expected=$(for f in $files; do pacman -Qp "$f"; done | grep '^mingw-w64-ucrt-x86_64-' | sort)
+          actual=$(pacman -Q | grep '^mingw-w64-ucrt-x86_64-' | sort)
+          if [ "$expected" != "$actual" ]; then
+            echo "$expected" > /tmp/expected.txt
+            echo "$actual" > /tmp/actual.txt
+            diff -u /tmp/expected.txt /tmp/actual.txt || true
+            echo "::error::The installed UCRT64 packages differ from the pinned set."
+            exit 1
+          fi
+
+      - name: Check that docs/dependencies.md lists every pinned package
+        shell: msys2 {0}
+        run: |
+          set -eu
+          dir=$(cygpath -u "$PKG_DIR")
+          missing=0
+          for file in $(grep -v '^#' .github/ci/msys2-packages.txt | awk '{ print $2 }'); do
+            entry=$(pacman -Qp "$dir/$file")
+            if ! grep -qxF -- "$entry" docs/dependencies.md; then
+              echo "::error::docs/dependencies.md does not list '$entry'."
+              missing=1
+            fi
+          done
+          exit $missing
+
+      - name: Fetch ScummVM at the pinned commit
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          $git = $env:GIT_FOR_WINDOWS
+          & $git init --quiet $env:SCUMMVM_SOURCE
+          & $git -C $env:SCUMMVM_SOURCE remote add origin https://github.com/scummvm/scummvm.git
+          & $git -C $env:SCUMMVM_SOURCE fetch --depth 1 --no-tags origin $env:SCUMMVM_COMMIT
+          & $git -C $env:SCUMMVM_SOURCE checkout --quiet --detach FETCH_HEAD
+          $head = & $git -C $env:SCUMMVM_SOURCE rev-parse HEAD
+          $status = & $git -C $env:SCUMMVM_SOURCE status --porcelain
+          "ScummVM HEAD: $head"
+          "ScummVM status --porcelain: $(if ($status) { $status } else { '(empty)' })"
+          if ($head -ne $env:SCUMMVM_COMMIT) { throw "ScummVM HEAD is not the pinned commit." }
+          if ($status) { throw 'The ScummVM checkout is not clean.' }
+
+      - name: Restore the ScummVM build
+        id: scummvm-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ env.SCUMMVM_BUILD }}
+          key: scummvm-${{ env.SCUMMVM_COMMIT }}-${{ hashFiles('.github/ci/msys2-packages.txt', '.github/ci/scummvm-use.txt') }}
+
+      - name: Configure ScummVM
+        if: steps.scummvm-cache.outputs.cache-hit != 'true'
+        shell: msys2 {0}
+        run: |
+          set -eu
+          mkdir -p "$(cygpath -u "$SCUMMVM_BUILD")"
+          cd "$(cygpath -u "$SCUMMVM_BUILD")"
+          SDL_CONFIG=/ucrt64/bin/sdl2-config \
+            "$(cygpath -u "$SCUMMVM_SOURCE")/configure" \
+            --backend=sdl \
+            --disable-all-engines \
+            --disable-detection-full
+
+      - name: Check the ScummVM USE_ set
+        shell: msys2 {0}
+        run: |
+          set -eu
+          build=$(cygpath -u "$SCUMMVM_BUILD")
+          actual=$( { grep -E 'USE_' "$build/config.h"; grep -E 'USE_' "$build/config.mk"; } )
+          expected=$(grep -v '^##' .github/ci/scummvm-use.txt)
+          if [ "$expected" != "$actual" ]; then
+            echo "$expected" > /tmp/expected.txt
+            echo "$actual" > /tmp/actual.txt
+            diff -u /tmp/expected.txt /tmp/actual.txt || true
+            echo "::error::ScummVM's USE_ set differs from .github/ci/scummvm-use.txt."
+            exit 1
+          fi
+          echo "ScummVM's USE_ set matches the recorded set; defined:"
+          grep -E '^#define USE_' "$build/config.h"
+
+      - name: Build the four ScummVM artifacts
+        if: steps.scummvm-cache.outputs.cache-hit != 'true'
+        shell: msys2 {0}
+        run: |
+          set -eu
+          cd "$(cygpath -u "$SCUMMVM_BUILD")"
+          make -j4 \
+            image/libimage.a \
+            graphics/libgraphics.a \
+            common/formats/po_parser.o \
+            common/libcommon.a
+
+      - name: Save the ScummVM build
+        if: steps.scummvm-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ env.SCUMMVM_BUILD }}
+          key: ${{ steps.scummvm-cache.outputs.cache-primary-key }}
+
+      - name: Install the packages that follow ScummVM's configure
+        shell: msys2 {0}
+        run: |
+          set -eu
+          dir=$(cygpath -u "$PKG_DIR")
+          files=$(grep -v '^#' .github/ci/msys2-packages.txt | awk -v d="$dir" '{ print d "/" $2 }')
+          late=$(grep -v '^#' .github/ci/msys2-packages.txt | awk -v d="$dir" '$3 == "after-scummvm" { print d "/" $2 }')
+          pacman -U --noconfirm $late
+          expected=$(for f in $files; do pacman -Qp "$f"; done | grep '^mingw-w64-ucrt-x86_64-' | sort)
+          actual=$(pacman -Q | grep '^mingw-w64-ucrt-x86_64-' | sort)
+          if [ "$expected" != "$actual" ]; then
+            echo "$expected" > /tmp/expected.txt
+            echo "$actual" > /tmp/actual.txt
+            diff -u /tmp/expected.txt /tmp/actual.txt || true
+            echo "::error::The installed UCRT64 packages differ from the pinned set."
+            exit 1
+          fi
+
+      - name: Show the toolchain
+        shell: msys2 {0}
+        run: |
+          set -eu
+          echo '--- pinned packages installed'
+          pacman -Q | grep '^mingw-w64-ucrt-x86_64-'
+          pacman -Q make msys2-runtime
+          echo '--- tool versions'
+          gcc --version | head -1
+          ld --version | head -1
+          objcopy --version | head -1
+          cmake --version | head -1
+          echo "ninja $(ninja --version)"
+          make --version | head -1
+          echo "SDL2 $(sdl2-config --version)"
+          "$(cygpath -u "$GIT_FOR_WINDOWS")" --version
+
+      - name: Free disk before the MMModern build
+        shell: pwsh
+        run: Get-PSDrive -PSProvider FileSystem | Format-Table Name, @{n='Free GB';e={[math]::Round($_.Free / 1GB, 1)}}, @{n='Used GB';e={[math]::Round($_.Used / 1GB, 1)}}
+
+      - name: Configure MMModern (as build-rel, without original data)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          $env:PATH = $env:MMODERN_CI_PATH
+          cmake -S . -B build-rel -G Ninja `
+            -DCMAKE_BUILD_TYPE=RelWithDebInfo `
+            "-DCMAKE_CXX_FLAGS_RELWITHDEBINFO=-O2 -g" `
+            "-DSCUMMVM_SOURCE_DIR=$($env:SCUMMVM_SOURCE -replace '\\','/')" `
+            "-DSCUMMVM_BUILD_DIR=$($env:SCUMMVM_BUILD -replace '\\','/')" `
+            "-DGIT_EXECUTABLE=$($env:GIT_FOR_WINDOWS -replace '\\','/')" `
+            -DMMODERN_ORIGINAL_DATA_TESTS=OFF
+          if (Select-String -Path build-rel/build.ninja -Pattern 'NDEBUG' -SimpleMatch -Quiet) {
+            throw 'build-rel/build.ninja contains NDEBUG.'
+          }
+          'build-rel/build.ninja contains no NDEBUG.'
+
+      - name: Build MMModern
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          $env:PATH = $env:MMODERN_CI_PATH
+          cmake --build build-rel
+          # The EXCLUDE_FROM_ALL targets, so every documented target compiles.
+          cmake --build build-rel --target mmodern_test_save mmodern_dos_export mmodern_m44_baseline_witness mmodern_m44_baseline_restart
+
+      - name: Free disk after the MMModern build
+        shell: pwsh
+        run: Get-PSDrive -PSProvider FileSystem | Format-Table Name, @{n='Free GB';e={[math]::Round($_.Free / 1GB, 1)}}, @{n='Used GB';e={[math]::Round($_.Used / 1GB, 1)}}
+
+      - name: Show the DLLs found first on PATH
+        shell: pwsh
+        run: |
+          $env:PATH = $env:MMODERN_CI_PATH
+          foreach ($dll in 'libstdc++-6.dll', 'SDL2.dll') {
+            $found = @(where.exe $dll 2>$null)
+            if (-not $found) { throw "$dll is not on PATH." }
+            "$dll -> $($found[0])"
+          }
+
+      - name: Run the tests
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          $env:PATH = $env:MMODERN_CI_PATH
+          ctest --test-dir build-rel --output-on-failure --no-tests=error -j $env:NUMBER_OF_PROCESSORS
+
+      - name: Upload the CTest logs
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ctest-logs
+          path: build-rel/Testing/Temporary/
+          retention-days: 7
+          if-no-files-found: ignore

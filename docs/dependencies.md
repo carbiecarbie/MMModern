@@ -42,9 +42,11 @@ The final status command must produce no output before validation begins.
 The pinned revision was validated with:
 
 - MSYS2 UCRT64 on Windows x86-64
-- GCC/G++ 16.2.0, MSYS2 Rev3
-- GNU Make 4.4.1
-- CMake 4.4.2 with the `MSYS Makefiles` generator
+- GCC/G++ 16.2.0, MSYS2 Rev3, with binutils 2.47 (its `objcopy` does the
+  [sprite filtering](#revision-sensitive-sprite-filtering))
+- GNU Make 4.4.1, the MSYS `make` package, which runs ScummVM's `make -j4`
+- CMake 4.4.2 with the `MSYS Makefiles` generator, and Ninja 1.13.2 for
+  `build-rel`
 - SDL2 2.32.10, linked through the shared `SDL2::SDL2` CMake target and
   `libSDL2.dll.a`; `SDL2.dll` is required at runtime
 - zlib 1.3.2, linked through `ZLIB::ZLIB` and `libz.dll.a`
@@ -60,6 +62,81 @@ CD audio tests require `MMODERN_XEEN_AUDIO_DIR` (defaulting to
 Configuration rejects an absent source. Validation decodes every audio track;
 missing or malformed tracks fail rather than skip. Runtime still accepts a
 plain CD `GAME` copy, with timed speech and visible text when tracks are absent.
+
+### Pinned MSYS2 package set
+
+The validated toolchain is exactly this package set, as `pacman -Q` prints it:
+every UCRT64 package the builds use, with their dependencies, plus the MSYS
+`make`. [Continuous integration](#continuous-integration) installs these files
+from `repo.msys2.org` by name and SHA-256
+(`.github/ci/msys2-packages.txt`), so a toolchain update changes this list,
+that file and the cached builds together. The maintainer's machine has
+`msys2-runtime 3.6.10-3`; the run uses the MSYS2 base installation of its
+image and logs its `msys2-runtime`.
+
+```text
+mingw-w64-ucrt-x86_64-SDL2 2.32.10-1
+mingw-w64-ucrt-x86_64-binutils 2.47-3
+mingw-w64-ucrt-x86_64-brotli 1.2.0-1
+mingw-w64-ucrt-x86_64-bzip2 1.0.8-4
+mingw-w64-ucrt-x86_64-c-ares 1.34.8-1
+mingw-w64-ucrt-x86_64-ca-certificates 20260816-1
+mingw-w64-ucrt-x86_64-cmake 4.4.2-2
+mingw-w64-ucrt-x86_64-cppdap 1.65.r11.g6464cd7-1
+mingw-w64-ucrt-x86_64-crt 14.0.0.r353.g6df76fa52-4
+mingw-w64-ucrt-x86_64-curl 8.22.0-1
+mingw-w64-ucrt-x86_64-expat 2.8.4-2
+mingw-w64-ucrt-x86_64-gcc 16.2.0-3
+mingw-w64-ucrt-x86_64-gcc-libs 16.2.0-3
+mingw-w64-ucrt-x86_64-gettext-runtime 1.0-1
+mingw-w64-ucrt-x86_64-gmp 6.3.0-2
+mingw-w64-ucrt-x86_64-gnutls 3.8.13-3
+mingw-w64-ucrt-x86_64-headers 14.0.0.r353.g6df76fa52-2
+mingw-w64-ucrt-x86_64-isl 0.28-1
+mingw-w64-ucrt-x86_64-jsoncpp 1.9.8-1
+mingw-w64-ucrt-x86_64-libarchive 3.8.9-5
+mingw-w64-ucrt-x86_64-libb2 0.98.1-3
+mingw-w64-ucrt-x86_64-libffi 3.8.0-1
+mingw-w64-ucrt-x86_64-libiconv 1.19-1
+mingw-w64-ucrt-x86_64-libidn2 2.3.8-4
+mingw-w64-ucrt-x86_64-libogg 1.3.6-1
+mingw-w64-ucrt-x86_64-libpsl 0.21.5-3
+mingw-w64-ucrt-x86_64-libssh2 1.11.1-2
+mingw-w64-ucrt-x86_64-libtasn1 4.21.0-1
+mingw-w64-ucrt-x86_64-libunistring 1.4.2-1
+mingw-w64-ucrt-x86_64-libuv 1.52.1-1
+mingw-w64-ucrt-x86_64-libvorbis 1.3.7-3
+mingw-w64-ucrt-x86_64-libwinpthread 14.0.0.r353.g6df76fa52-2
+mingw-w64-ucrt-x86_64-lz4 1.10.0-1
+mingw-w64-ucrt-x86_64-mpc 1.4.1-1
+mingw-w64-ucrt-x86_64-mpfr 4.2.2-3
+mingw-w64-ucrt-x86_64-nettle 4.0-1
+mingw-w64-ucrt-x86_64-nghttp2 1.70.0-1
+mingw-w64-ucrt-x86_64-nghttp3 1.18.0-1
+mingw-w64-ucrt-x86_64-ngtcp2 1.25.0-1
+mingw-w64-ucrt-x86_64-ninja 1.13.2-1
+mingw-w64-ucrt-x86_64-openssl 3.6.4-1
+mingw-w64-ucrt-x86_64-p11-kit 0.26.5-1
+mingw-w64-ucrt-x86_64-pcre2 10.48-3
+mingw-w64-ucrt-x86_64-pkgconf 1~3.0.5-1
+mingw-w64-ucrt-x86_64-rhash 1.4.6-1
+mingw-w64-ucrt-x86_64-tzdata 2026c-1
+mingw-w64-ucrt-x86_64-vulkan-loader 1~1.4.357.0-1
+mingw-w64-ucrt-x86_64-windows-default-manifest 20260815-1
+mingw-w64-ucrt-x86_64-wineditline 2.208-1
+mingw-w64-ucrt-x86_64-winpthreads 14.0.0.r353.g6df76fa52-2
+mingw-w64-ucrt-x86_64-xz 5.8.3-1
+mingw-w64-ucrt-x86_64-zlib 1.3.2-2
+mingw-w64-ucrt-x86_64-zstd 1.5.7-2
+make 4.4.1-3
+```
+
+ScummVM's `configure` enables whatever optional libraries it finds. The
+pinned build was configured before `libvorbis` and `libogg` were installed,
+so its configuration has no Ogg or Vorbis support; install those two packages
+only after configuring ScummVM, or reconfigure without them, to reproduce it.
+Other UCRT64 packages on a development machine (for example the PNG, JPEG,
+FreeType or FriBidi libraries) change that configuration the same way.
 
 The ScummVM build uses GNU++11. MMModern uses GNU++17 and must use an
 ABI-compatible compiler/toolchain when compiling ScummVM source directly and
@@ -547,6 +624,55 @@ Validation of the pinned commit completed with:
 
 Real-data smoke tests require a legally obtained World of Xeen installation;
 original game data is never part of MMModern or its dependency checkout.
+
+## Continuous integration
+
+`.github/workflows/ci.yml` is the executable form of this document. Every push
+to a branch of `carbiecarbie/MMModern`, every pull request from a fork and a
+manual dispatch start a run on a clean hosted `windows-2025` machine. It:
+
+- sets up MSYS2 UCRT64 (`update: false`, `path-type: minimal`) and installs
+  the [pinned package set](#pinned-msys2-package-set) from verified, cached
+  package files, then checks that nothing else is installed and that this
+  document lists every pinned package;
+- fetches the pinned ScummVM commit at depth 1 with Git for Windows, requires
+  it as a detached HEAD with an empty `git status --porcelain`, configures it
+  with the command above before installing `libvorbis` and `libogg`, compares
+  the `USE_` lines of its `config.h` and `config.mk` with the recorded set in
+  `.github/ci/scummvm-use.txt`, builds the four artifacts and caches that
+  build under the commit and the pins (a cache hit skips only configure and
+  build; the checkout and the `USE_` check always run);
+- configures MMModern as [`build-rel`](#optimized-test-build-build-rel) with
+  `-DMMODERN_ORIGINAL_DATA_TESTS=OFF` and `-DGIT_EXECUTABLE` set to Git for
+  Windows, checks that `build.ninja` has no `NDEBUG`, builds every target
+  including the four EXCLUDE_FROM_ALL ones, logs the free disk and the
+  `libstdc++-6.dll` and `SDL2.dll` found first on `PATH`, and runs `ctest`
+  once with `--output-on-failure` at the machine's processor count, with no
+  retries. A failed run uploads the CTest logs for seven days.
+
+The recorded configuration defines `USE_RGB_COLOR`, `USE_HIGHRES`,
+`USE_SAVEGAME_TIMESTAMP`, `USE_SCALERS`, `USE_HQ_SCALERS`, `USE_EDGE_SCALERS`,
+`USE_ASPECT`, `USE_ZLIB`, `USE_LIBCURL`, `USE_BASIC_NET`, `USE_HTTP`,
+`USE_OPENGL`, `USE_GLAD`, `USE_OPENGL_GAME`, `USE_OPENGL_SHADERS`, `USE_CURL`,
+`USE_TRANSLATION`, `USE_DETECTLANG`, `USE_TASKBAR`, `USE_SYSTEM_PRINTING`,
+`USE_SYSDIALOGS`, `USE_TTS`, `USE_BINK` and `USE_CLOUD` in `config.h`, and
+`USE_SDL2` with the same set except `USE_DETECTLANG` in `config.mk`; every
+other `USE_` option is off.
+
+`MMODERN_ORIGINAL_DATA_TESTS` (default `ON`) selects the tests. `ON`, the
+local setting, requires the data paths above and registers every test. `OFF`
+needs no data path and registers only the tests that need nothing outside the
+repository, the build tree, the pinned ScummVM checkout and temporary folders;
+the tests that need original data, DOSBox captures, MT-32 ROMs or CD audio
+are registered through `mmodern_data_test()` and left out. Configuration
+prints both counts. Both settings build the same targets. The run therefore
+never replaces the complete local suite.
+
+The workflow, `.github/ci/` and this document change together: a toolchain,
+ScummVM or configuration change that is not made in all of them makes the run
+fail. The token is read-only, no secret is used and every action is pinned by
+full commit SHA. A newer push cancels the older run of the same branch, except
+on `main`, where every commit keeps its own result.
 
 ## Release packaging
 

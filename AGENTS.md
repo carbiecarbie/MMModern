@@ -160,6 +160,11 @@ recurring, stop and propose a milestone instead.
   run `ctest --test-dir build-rel -L fast -j 8` (the declared `RUN_SERIAL`
   and `RESOURCE_LOCK` properties keep it safe). Keep a helper used by one
   test file inside that file rather than in a shared test header.
+- The GitHub Actions run never replaces the complete local suite; a red run
+  on `main` is a defect, fixed as a maintenance task.
+- Register a test that needs original data, DOSBox captures, MT-32 ROMs or CD
+  audio through `mmodern_data_test()`, and its named property calls through
+  `mmodern_test_properties()`, or the run fails without that material.
 - **Documentation-only changes** (no production code or tests changed): check
   the diff and links and run `git diff --check`; do not build or run CTest.
 

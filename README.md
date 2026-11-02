@@ -1,5 +1,6 @@
 # MMModern
 
+[![CI](https://github.com/carbiecarbie/MMModern/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/carbiecarbie/MMModern/actions/workflows/ci.yml?query=branch%3Amain)
 [![Latest release](https://img.shields.io/github/v/release/carbiecarbie/MMModern)](https://github.com/carbiecarbie/MMModern/releases)
 [![License: GPL-3.0-or-later](https://img.shields.io/github/license/carbiecarbie/MMModern)](LICENSE)
 

@@ -17,6 +17,11 @@ rerunning its failed tests, and when acting as its test runner. The root
 - Do not run redundant complete suites. Run it again only when a later
   production-code change invalidates the previous result, or failures require
   it (see Failures and reruns).
+- The GitHub Actions run ([continuous integration](../docs/dependencies.md#continuous-integration))
+  builds from a clean machine and runs only the tests that need no original
+  data; it never replaces the complete local suite. A red run on `main` is a
+  defect, handled as a maintenance task like any other; a red run on a work
+  branch is a defect of that branch.
 - Batch fixes: collect the review and play-test fixes of one round and run one
   complete suite for the whole batch, not one per fix. Each fix still gets its
   affected tests and `ctest -L fast` while iterating; no fix of the batch is
