@@ -1,6 +1,6 @@
 # MMModern - Roadmap
 
-**M107 is the latest completed and accepted milestone.**
+**M108 is the latest completed and accepted milestone.**
 [Project status](project-status.md) describes what is playable now;
 [project history](project-history.md) records each completed milestone.
 Reference provenance belongs to [dependencies](dependencies.md).
@@ -211,7 +211,7 @@ are direction, not approved plans.
    Darkside Events request, which the reference shifts by 30; and, in its
    play-test, a DOSBox check of the Quests screen's order when only Darkside
    items are held.
-2. **Audit invariants as tests (M108, Tier B), implemented:** falls with a
+2. **Audit invariants as tests (M108, Tier B), done 2026-11-02:** falls with a
    dead member, a defeat on a flagged cell, bounded repeats, exact restores,
    the crossing between the sides, loads after both wins, continuation keys
    after an Event and interrupted Event chains

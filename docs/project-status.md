@@ -1,10 +1,11 @@
 # MMModern - Project Status
 
-This describes what can be played and done now. M107 is the latest
-completed and accepted milestone (2026-11-02; [plan](milestone-107-plan.md)):
-the original World of Xeen ending plays after the World win, the `genesis`
-mirror word and the title's W row, so every ending of the CD now plays.
-Before it, M106 made Darkside of Xeen and World of Xeen winnable as in DOS,
+This describes what can be played and done now. M108 is the latest
+completed and accepted milestone (2026-11-02; [plan](milestone-108-plan.md)):
+the invariants of the Darkside audit are now original-data tests. Before it,
+M107 played the original World of Xeen ending after the World win, the
+`genesis` mirror word and the title's W row, so every ending of the CD now
+plays, and M106 made Darkside of Xeen and World of Xeen winnable as in DOS,
 with the original Darkside ending and the title's replay rows, M105 ran
 the last three Events of the mixed World of Xeen maps, so Darkside plays up
 to its ending, M104 opened Darkstone Tower,

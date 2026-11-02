@@ -1,6 +1,7 @@
 # Milestone 108 plan - Darkside audit invariants as tests
 
-**Tier B. Status: implemented; awaiting the maintainer's acceptance.**
+**Tier B. Status: completed and accepted by the maintainer (2026-11-02)**,
+without a play-test (tests only). Commit `cdc48e8`.
 Step 2 of [After the Darkside audit](roadmap.md#after-the-darkside-audit).
 Tests only; save v25 unchanged.
 
