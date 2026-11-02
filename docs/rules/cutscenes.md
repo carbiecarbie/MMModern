@@ -158,6 +158,30 @@ and redraw counts at the maintainer's chosen cycle setting. The formula is known
 a fixed stride or a pin timing is not an evidentiary substitute. See the
 [reference differences](../original-quirks.md#sv-clouds-intro-presentation).
 
+## First-frame fade order
+
+**Calibrated DOS static, high (M106 review).** A segment normally completes
+its first tick wait before starting its first-frame fade (`AfterHold`, the
+M91-M93 presenter default). `AfterPublish` starts the fade immediately after
+publishing the first image, without an intervening tick wait. Stride sampling
+and scene bookkeeping still occur in their original order. These are stage
+properties, not a generic change to every fade. Existing calibrated listings
+settle all the sites below; no new binary scan was needed.
+
+| Scene | First publication / fade / first tick wait | Order |
+| --- | --- | --- |
+| Clouds intro stars descent | `0x80be`; fade `0x8100..0x8107`; wait `0x8115..0x811d` (M91 `clouds-annotated.dis`) | AfterPublish |
+| Clouds ending throne reveal | `0x9230..0x9237`; fade `0x927b..0x9289`; no tick wait between them (M92 `ending-all.dis`) | AfterPublish; correction to the accepted M92 scene |
+| Darkside intro pyramid approach | `0xae05..0xae0c`; wait `0xae3e..0xae46`; fade `0xae55..0xae63` (M93 `darkside.dis`) | AfterHold |
+| Darkside intro ball rub | `0xb5ab..0xb5b2`; fade `0xb5b7..0xb5be`; wait `0xb5cc..0xb5d4` (M93 `darkside.dis`) | AfterPublish |
+| Darkside ending helmet closeup | `0xe3f0..0xe3f7`; fade `0xe3fc..0xe403`; wait `0xe409..0xe411` | AfterPublish |
+| Darkside ending helmet rise | `0xe4ae..0xe4b5`; fade `0xe4bb..0xe4c2`; wait `0xe4c8..0xe4d0` | AfterPublish |
+| Darkside ending ready | draw `0xe599..0xe5c6`; fade `0xe5cd..0xe5d4`; wait `0xe5da..0xe5e2` | AfterPublish |
+
+The ending offsets use M106 `exe-sweep/darkside-ending-complete.dis`.
+Clouds' opening scroll retains its separate hold-before-publication scroll
+protocol; this property does not change it.
+
 ## Settings and input
 
 Implementation: `games/xeen/XeenCutscene` describes ordered compositions and
@@ -724,6 +748,48 @@ frames 22..31 after reaching 31 until voice/caption completion at two ticks
 (`0xf500..0xf57a`). Exact waits and sound-gated tails, not a single constant
 movie duration, govern playback. Do not transfer the pin's timing unchanged.
 
+**Capture timing at Admit / I do / What no (M106, 2026-11-01).**
+Admit draws an initial pose (`0xf387..0xf3a6`), then two nine-frame passes,
+each frame waiting three BIOS ticks (`0xf3ab..0xf41f`); its tail waits for
+captions only (`0xf423..0xf435`). I do loads its RAW, voice and four sprite
+pages (`0xf442..0xf4e0`), publishes, then starts the voice (`0xf4e3..0xf4fd`).
+Its two-tick loop checks sound busy and caption completion after the wait
+(`0xf500..0xf57a`). Next, the EXE reads `sc270001.raw`, copies the page,
+rechecks sound busy, reads `what3.voc` and `sc27.end`, and publishes
+(`0xf57c..0xf604`). That second busy check is not a new timed hold: the
+preceding loop has already observed idle. What no has twelve three-tick
+frames, starting voice at index one, then a caption-only tail
+(`0xf607..0xf678`). No palette fade or additional BIOS-tick pause occurs
+between Admit, I do and What no. The next fade follows the `dungeon2.m`
+load/start and uses step four (`0xf67a..0xf69d`).
+
+RAW/VOC/sprite members on this path are read from INTRO.CC by the shared
+loader: member seek/read `0x1d301..0x1d335`, XOR decode
+`0x1d3ec..0x1d410`. These members have no archive decompression; sprite
+RLE decoding occurs when drawn. Reads, memory copies and drawing have
+machine-dependent cost; the BIOS waits, sound-done predicate and retrace
+fade count are game-defined. Digital command one returns the installed
+driver's busy flag through `0x11b42..0x11b5f` and `0x1d49f..0x1d4a8`;
+the existing [driver completion rule](audio.md#installed-digital-driver-command-and-length-rules)
+applies without a second timer or an added silence tail.
+
+**Approved timing approximation, maintainer decision 2026-11-01:**
+the [80000/40000-cycle capture pair](evidence.md#m106-part-b-capture)
+measures I do image to What no image at 3.852393 / 3.838125 seconds.
+This game-defined DOS boundary is accepted against MMModern's modeled
+4.500000-second interval under
+[dev-m106-ido-boundary](../original-quirks.md#dev-m106-ido-boundary).
+The pictures leave I do before its reconstructed audio ends by about
+0.12 / 0.76 seconds; video0004 has a 0.982-second internal discontinuity
+in the speech-template alignment, consistent with allocation-dependent
+driver idle timing. No direct busy-flag measurement is claimed.
+Keep the existing unsplit deadline; do not invent a wait or copy an offset
+into production. Capture tests allow only this boundary and realign at
+What no, preserving strict +/-0.4-second checks before it and strict
+re-anchored cadence checks after it, plus 18 Admit / 12 What no frames.
+DMA page-split investigation remains closed. The linked decision records
+why non-reproducible DOS sample placement is an accepted approximation.
+
 Caption records 21..31 come from the same every-NUL `special.bin` loader and
 hardware predicate as M93 (digital device 0/1 enables captions). Record 21 is
 selected before the throne-rise loop (`0xd7c0..0xd7ef`); record 22 is prepared
@@ -740,8 +806,12 @@ pages use `claw.int`, `dragon1.int`, `3room.raw`, `dark.pal` and the existing
 as `%010lu`, the original mailing-address text, then the Castleview/load-game
 message. Every page frame waits **three** ticks (`0x6eff..0x6f07`); a keyboard
 result, including Escape, advances the page (`0x6f09..0x6f19`). Mouse does not.
+The clear at `0x6dbf` precedes the entire page loop; `0x6f15..0x6f1b`
+does not clear between pages, so queued/repeating keys retain their context.
 The pin uses a one-tick wait and accepts mouse. No score-digit random reveal
-occurs here. The closing-scroll key behavior remains the calibrated EXE helper.
+occurs here. The ending disables the shared scroll at `0xd696`, as the
+Darkside intro does. The call at `0xfad3` passes a zero second argument and
+returns through `0x6f28..0x6f35`: no closing parchment or scene-final fade.
 
 Four callsites use the EXE's time-mixed random helper `0x1cbdc`: `0xe0cd`
 0..2 (only while `yes1` is busy, otherwise frame zero), `0xe1d8` 0..8,
@@ -749,6 +819,69 @@ Four callsites use the EXE's time-mixed random helper `0x1cbdc`: `0xe0cd`
 RNG. The pin's `getSpeakingFrame` cycles with host time instead. Full resource
 and cue-site detail remains outside the repository; the M106 capture supplies
 the audible, wall-time and frame references for Part B's comparison.
+
+**Additional calibrated detail (M106 Part B, 2026-11-01).** After the disk
+flight's newly reset ten-tick pause and unpolled thud completion, the
+20-tick hold starts before loading the next background (`0xdb81..0xdbcb`).
+The old image stays visible until fade-out. After publishing/fading in the
+new background, a separate 30-tick minimum includes the sprite loads
+(`0xdbef..0xdc7a`). Corak's question has another newly reset 30-tick minimum
+and caption tail (`0xdffa..0xe022`); the voice stops before the two silent
+sc08 prelude frames. Record 23 is selected before that prelude. Ready draws
+**15** mouth frames (`0xe5e5..0xe5e8`), and the five sc22 formation frames
+wait **four** ticks (`0xefce..0xefd6`); the pin uses 16 and three. Speaking
+caption tails do not extend digital speech. The laugh at `0xee82..0xee9f`
+finishes in the unpolled loop `0xef48..0xef56`, before the next cast.
+Vortex slot 9 loads `scj28.end` (`0xf7a4`); the pin repeats `sck28.end`.
+The castle's six explosion triggers use `explosio.voc`; the separately
+retained `crash.voc` (`0xf8c1`) plays once between the initial 54 frames and
+the four smoke repeats (`0xf9d8..0xf9e2`), which the pin omits. Ctrl-Q waits for
+the next reached keyboard poll, including across fades and unpolled tails.
+
+Pharaoh window 39 has zero margin: `(12,8)..(162,198)`. The formats at
+`0x1efb6/0x1efdb` draw offset shadow and foreground, with the prompt at
+relative y 180. Initial claw 6 is at `(149,184)`; page frames use `(145,185)`
+(`0x6d3e..0x6d4a`, `0x6e08..0x6e14`), and phase continues across pages.
+Frame comparisons use the original six-bit VGA colors, removing only
+DOSBox's 6-to-8-bit expansion versus MMModern's left shift, without masking
+or spatial resampling.
+
+The unscaled program mode-8 drawer has a top-clipping oddity.
+`0x17e42..0x17e70` calls `0x18062..0x18091` for negative component Y.
+The skip loop decrements height and increments Y before consuming a row;
+the last clipped row remains in the stream. A component starting at -3
+therefore skips two source rows, draws from screen row zero, and retains
+the original reduced height. A transparent skip in that prefix consumes
+only one iteration of the clipping counter. The program sprite adapter
+preserves this per component and keeps the pinned RLE/color decoder.
+This applies to every unscaled mode-8 program-archive component at negative
+Y, including the Darkside intro Pharaoh (the same ball coordinate tables as
+the score pages), not just the ending. Clouds lake descent/flight also use
+this adapter if their computed Y becomes negative. Clouds Crodo at Y -5 uses
+the normal drawer (flags zero), not mode 8; scaled draws likewise keep their
+existing drawer. The intro's ball-rub phase 1 has a native-frame Pharaoh head
+pixel assertion in `XeenCutsceneTests`.
+
+**Explicit implementation limit:** if a transparent skip in the clipped
+prefix would make `sourceRow + height - clipped` exceed component height,
+`ScummVmXeenBridge` throws `Program sprite top clip exceeds component` rather
+than reading beyond its decoded surface. The presentation stops and the
+player sees the intro/ending unavailable notice, `Resource error (see log)`,
+then returns to the title. No tested original intro/score pose reaches this
+limit; behavior for such an overrun is not claimed as DOS-equivalent.
+
+Both score pages match captured frames pixel for pixel with this rule;
+without it the Pharaoh's head differs. Calibrated disassembly and pixel
+comparisons remain in `D:/Projetos/MModern/MModern-re/m106/part-b-*` and
+`score-frame-comparison.json`. This is original-program evidence
+corroborated by the capture, not a scene-specific one-pixel adjustment.
+
+The `face.end` bottom clip at 171 is **not cited by EXE evidence**. It comes
+from `Sprite::bottom=171` in MMModern's Darkside ending throne-face and Alamar
+rise compositions, applied by the presenter's row restoration. The existing
+listing's draw at `0xd834` does not establish that bound. Compared complete
+Alamar-rise capture frames agree (including the frame at 8.617723 s); this
+pixel agreement is not an EXE-offset citation for the clipping rule.
 
 ## Ending write boundary
 

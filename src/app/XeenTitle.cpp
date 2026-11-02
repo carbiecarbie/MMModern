@@ -43,6 +43,7 @@ bool showCutscene(XeenCutsceneFlow &flow,XeenAssetSource &assets,XeenAudio &audi
  h.withPresentedInput=[&](const auto &a,auto,const auto &p){return flow.handle(a,p);};
  h.displayedInput=[] {return std::optional<std::uint64_t>{1};};h.protectAllKeys=true;h.ignoreMouse=true;
  h.cutsceneControlQuit=controlQuit;
+ if(flow.cutscene().timedControlQuit)h.cutsceneControlQuitReady=[&]{return flow.controlQuitReady();};
  h.acceptsFrame=[&](const auto &p){return flow.acceptsFrame(p);};h.acceptsInputFrame=[&](const auto &p){return flow.acceptsInput(p);};
  h.inputContext=[&](const auto &p){return flow.inputContext(p);};h.framePresented=[&](const auto &p){flow.presented(p);};
  h.completeInputHandoff=[&](const auto &p){flow.completeInput(p);};h.frameCurrent=[&]{return flow.current();};h.finished=[&]{return flow.done();};
@@ -157,8 +158,9 @@ int Application::runTitle(const std::filesystem::path &gameDirectory,std::option
     audio.stopDigital(clock());audio.fadeSong(0,clock());audio.observeOptions({});
     std::string notice;
     bool resourcesLoaded=false;
-    if(entry.kind!=XeenSessionEntry::Kind::CloudsEnding) {
-     const auto name=entry.kind==XeenSessionEntry::Kind::DarksideEnding?"Darkside":"World";
+    const bool darkside=entry.kind==XeenSessionEntry::Kind::DarksideEnding;
+    const auto name=darkside?"Darkside":entry.kind==XeenSessionEntry::Kind::WorldEnding?"World":"Clouds";
+    if(entry.kind==XeenSessionEntry::Kind::WorldEnding) {
      try {(void)XeenCutsceneData::installed(*installation);notice=std::string(name)+" ending: not supported yet";}
      catch(const std::exception &e) {
       std::cerr<<name<<" ending unavailable: "<<e.what()<<'\n';
@@ -167,14 +169,16 @@ int Application::runTitle(const std::filesystem::path &gameDirectory,std::option
     }
     else if(audio.startProgram(clock(),XeenAudioProgram::Exe))try {
      const auto data=XeenCutsceneData::installed(*installation);
-     const auto captions=XeenCutsceneData::captions(assets.readArchiveResource(data.resources[XeenCutsceneData::Caption],XeenSceneArchive::CloudsEnding));
+     const auto archive=darkside?XeenSceneArchive::DarksideProgram:XeenSceneArchive::CloudsEnding;
+     const auto captionResource=darkside?data.darkside.resources[XeenCutsceneData::Darkside::Caption]:data.resources[XeenCutsceneData::Caption];
+     const auto captions=XeenCutsceneData::captions(assets.readArchiveResource(captionResource,archive));
      resourcesLoaded=true;
-     XeenCutsceneFlow ending(XeenCutscene::cloudsEnding(data,captions,_program.wallClock,entry.score),
-      XeenCutsceneFlow::original(assets,font,audio,clock,data.digitalDevice>=2,XeenSceneArchive::CloudsEnding));
+     auto scene=darkside?XeenCutscene::darksideEnding(data,captions,_program.wallClock,entry.score):XeenCutscene::cloudsEnding(data,captions,_program.wallClock,entry.score);
+     XeenCutsceneFlow ending(std::move(scene),XeenCutsceneFlow::original(assets,font,audio,clock,data.digitalDevice>=2,archive));
      if(!showCutscene(ending,assets,audio)){audio.observeOptions(options);return 0;}
     }catch(const std::exception &e) {
-     std::cerr<<"Clouds ending unavailable: "<<e.what()<<'\n';
-     notice=resourcesLoaded?"Clouds ending unavailable\nResource error (see log)":"Clouds ending unavailable\nCheck XEEN.EXE / XEEN.CFG";
+     std::cerr<<name<<" ending unavailable: "<<e.what()<<'\n';
+     notice=std::string(name)+(resourcesLoaded?" ending unavailable\nResource error (see log)":" ending unavailable\nCheck XEEN.EXE / XEEN.CFG");
     }
     // No mixer command: the fresh DAT driver init rewrites the init levels.
     audio.stopDigital(clock());audio.fadeSong(0,clock());audio.observeOptions(options);

@@ -3267,3 +3267,77 @@ matches the static rules above.
 
 Besides these, each save changed only the ordinary time fields (PTY 610,
 616, 654) and the visited map's own state.
+
+### M106 Part B capture
+
+**Maintainer DOSBox Staging recordings, 2026-11-01; measured native video
+and PCM.** `m106-part0/video0004.avi` is the gameplay hand-off at reported
+`cpu_cycles = 80000`; `m106-partb-capture/video0005.avi` is the E title
+replay at reported `40000`, with the same other settings and a Darkside-only
+won seed. Paths are relative to `D:/Projetos/MModern/MModern-playtest/`.
+The cycle settings are maintainer provenance, not embedded AVI metadata.
+The second file also contains the castle and both score pages (1234567890),
+although the supplied stop description was the fully bright vortex.
+
+Both are native 320x200 ZMBV, constant `2190197/31250` fps, with stereo
+48 kHz signed-16 PCM. Durations are 164.297435 / 153.496466 seconds.
+Independent anchors use the first full Alamar rise pose 11, at
+8.575142 / 6.149561 seconds; the gameplay hand-off/title lead-ins are not
+compared. Full-frame matches use six-bit VGA RGB, without masks or spatial
+resampling. Video precision is one frame, 14.268 ms; a partially changed
+scanout can precede the first completely matched image.
+
+| Point, native AVI seconds | 80000 cycles, video0004 | 40000 cycles, video0005 |
+| --- | ---: | ---: |
+| A: first complete Admit pose / matched voice prefix | 116.912999 / 117.286812 | 114.658636 / 115.613812 |
+| B: first complete I do image / matched voice prefix | 119.852232 / 120.371813 | 117.612137 / 117.757854 |
+| C: last complete I do image / PCM end inferred from matching tail | 123.690358 / 123.812819 | 121.421726 / 122.180882 |
+| D: first complete What no image / matched voice onset | 123.704626 / 124.061896 | 121.450262 / not established reliably |
+| E: first reduced fade level / fully bright vortex | 125.687895 / 126.643859 | 123.433531 / 124.418032 |
+
+Audio entries locate matching template content, not the driver command or
+busy-clear instant. In video0004 the I do prefix has correlation 0.978 and
+infers start 120.371813, while two tail chunks have correlations 0.989/0.992
+and infer starts about 119.390031: the inferred origins differ by 0.982 s.
+A single time translation therefore does not align that complete voice.
+In video0005 I do has full-template correlation 0.902 and consistent
+non-silent chunk origins near 117.758 s. Conversely What no's prefix in
+video0005 has no reliable match; its tail matches strongly. Do not label
+these inferred PCM ends as measured busy-clear times. Re-extracting the
+first recording reproduced the existing WAV's PCM SHA-256 exactly.
+
+The visual A-to-B intervals are 2.939233 / 2.953501 s; B-to-D intervals
+are 3.852393 / 3.838125 s. Against the presenter's 4.500000 s B-to-D
+interval, the local steps are 0.647607 / 0.661875 s: a one-frame change,
+not clear growth at half the CPU cycles. Selected pre-boundary residuals
+remain within +/-0.4 s with each capture's own anchor. The total offset at
+What no against the earlier common anchor is about 0.96 s: about 0.65 s is
+the documented I do allowance and about 0.3 s accumulates before it, likely
+in the voice-gated laugh tail. That earlier accumulation remains within the
+plan's brackets; it is not a second unexplained 0.96-second delay.
+**Maintainer decision, 2026-11-01:** accept and close this timing
+requirement under
+[dev-m106-ido-boundary](../original-quirks.md#dev-m106-ido-boundary).
+The stable 3.838..3.852-second visual interval is game-defined. The last
+complete I do pictures precede the reconstructed audio ends by about
+0.12 / 0.76 seconds; the 0.982-second internal speech discontinuity is
+consistent with allocation-dependent driver idle timing. This is an
+accepted interpretation of the capture evidence, not a direct busy-flag
+measurement or a reopened DMA investigation.
+MMModern retains its modeled 4.500-second unsplit interval, about 0.65 s
+longer, and the capture comparison realigns at What no. Only this boundary
+is exempted from a common timing origin; strict +/-0.4-second regional
+checks and the 18 Admit / 12 What no frames remain. No duration is invented,
+no wait is added, and the existing DMA decision stays closed.
+
+Evidence under `D:/Projetos/MModern/MModern-re/m106/`:
+`part-b-two-capture-measurements.json` (hashes, anchors, points and intervals),
+`part-b-capture-points-audio.json`, `part-b-capture-points-visual.json`,
+and inspected `two-captures-AE-proof.png` (rows: 80000/40000; columns:
+A, B, last I do, D, fade start, bright vortex). The report distinguishes
+these refined first-image measurements from the earlier sparse pose samples.
+
+SHA-256: video0004
+`c4cbfe82937f2ddbd4e1f86c8556464a1fdb30081b83febe8d3b2ed782756660`;
+video0005
+`55499f354033ecbf4c5327fda4eacd28a5514ccd4b39d3ff8ef42cecf3a007bd`.

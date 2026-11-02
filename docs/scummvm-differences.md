@@ -36,6 +36,9 @@ findings are confirmed by a DOSBox capture.
 - **Ending saves.** [One save before playback, none on the Darkside score page](original-quirks.md#sv-m106-save-boundary); the pin saves on that page.
 - **Darkside movie input and timing.** [No animation skipping, keyboard-only score pages](original-quirks.md#sv-m106-ending-input-timing), with original BIOS waits; the pin accepts mouse/skipping and changes some waits.
 - **Darkside speaking mouths.** [EXE random draws](original-quirks.md#sv-m106-ending-mouths), rather than the pin's host-time cycle.
+- **Program sprite top clipping.** [Keep the original extra source row](original-quirks.md#sv-m106-mode8-top-clip) when an unscaled mode-8 component starts above the screen; the pin clips normally.
+- **Darkside ending details.** [Original frame counts, effect files and score claw](original-quirks.md#sv-m106-ending-composition), including the missing vortex sprite and the castle crash sound.
+- **I do timing approximation.** [Approved unsplit sound deadline at this boundary](original-quirks.md#dev-m106-ido-boundary): MMModern's modeled visual interval is about 0.65 s longer than DOS; the pin gates on mixer/VOC completion. Pin: differs; master not rechecked.
 
 Two additional DOS state rules were established by
 [M104 Part 0](rules/evidence.md#mixed-world-of-xeen-maps-m104-part-0).

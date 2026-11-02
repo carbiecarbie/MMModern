@@ -119,6 +119,19 @@ XeenCutsceneData XeenCutsceneData::parse(const std::vector<std::uint8_t> &b,cons
   const auto stem=token(b,target,std::min<std::size_t>(b.size(),target+32));
   actor.voice=voc;actor.voice.replace(actor.voice.find("%s"),2,stem);
  }
+ auto &de=d.darksideEnding;
+ for(std::size_t p=0x203da;p<0x208c2;) {
+  auto name=token(b,p,0x208c2);if(name.empty())bad();p+=name.size()+1;de.resources.push_back(std::move(name));
+ }
+ if(de.resources.size()!=121)bad();
+ for(unsigned i=0;i<2;++i) {
+  const auto p=0x2023e + 4*i;
+  const auto target=0x2e30+16*word(b,p+2)+word(b,p);
+  if(target<0x20246 || target>=0x203da)bad();
+  de.scorePages[i]=token(b,target,0x203da);XeenDosText::validateControls(de.scorePages[i]);
+  de.scoreFormats[i]=token(b,i?0x1efdb:0x1efb6,i?0x1f003:0x1efdb);
+  XeenDosText::validateControls(de.scoreFormats[i]);
+ }
  auto &dark=d.darkside;
  std::size_t name=0x1feb8;
  for(auto &resource:dark.resources) {
@@ -171,6 +184,11 @@ std::string XeenCutsceneData::firstCaption(const std::vector<std::uint8_t> &b) {
 std::string XeenCutsceneData::hand(unsigned n) const {if(n>15)bad();return numbered(handPattern,n);}
 std::string XeenCutsceneData::marble(unsigned n) const {if(n<1 || n>4)bad();return numbered(marblePattern,n);}
 std::string XeenCutsceneData::Darkside::bird(unsigned n) const {if(n<1 || n>11)bad();return numbered(resources[BirdPattern],n);}
+const std::string &XeenCutsceneData::DarksideEnding::resource(const char *name) const {
+ const auto i=std::find(resources.begin(),resources.end(),name);
+ if(i==resources.end())throw std::runtime_error(std::string("Missing Darkside ending resource: ")+name);
+ return *i;
+}
 std::string XeenCutsceneData::Darkside::drop(unsigned n) const {if(n<1 || n>4)bad();return numbered(resources[DropPattern],n);}
 std::string XeenCutsceneData::Darkside::fire(unsigned n) const {if(n<1 || n>7)bad();return numbered(resources[FirePattern],n);}
 }

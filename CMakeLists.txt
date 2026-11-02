@@ -62,6 +62,7 @@ add_library(mmodern_xeen STATIC
  src/games/xeen/XeenCutscene.cpp
  src/games/xeen/XeenPresentationRandom.cpp
  src/games/xeen/XeenCloudsEnding.cpp
+ src/games/xeen/XeenDarksideEnding.cpp
    src/games/xeen/XeenDarksideIntro.cpp
 	src/formats/xeen/XeenMonsterFormat.cpp
 	src/formats/xeen/XeenGameplayContextFormat.cpp
@@ -788,7 +789,7 @@ if(BUILD_TESTING)
     add_test(NAME xeen_wall_clock COMMAND mmodern_wall_clock_tests)
     add_executable(mmodern_title_resource_tests tests/XeenTitleResourceTests.cpp)
     add_executable(mmodern_title_flow_tests tests/XeenTitleFlowTests.cpp tests/XeenTitleApplicationControls.cpp)
-    target_link_libraries(mmodern_title_flow_tests PRIVATE mmodern_app mmodern_xeen SDL2::SDL2)
+    target_link_libraries(mmodern_title_flow_tests PRIVATE mmodern_app mmodern_xeen mmodern_test_save_support SDL2::SDL2 shell32 ole32 uuid)
     target_link_options(mmodern_title_flow_tests PRIVATE
       "LINKER:--wrap,_ZN7mmodern16XeenCutsceneData9installedERKNS_16GameInstallationE"
       "LINKER:--wrap,_ZN7mmodern9SdlWindow23presentationNanosecondsEv"
@@ -801,9 +802,11 @@ if(BUILD_TESTING)
     add_test(NAME xeen_title_flow COMMAND mmodern_title_flow_tests "${MMODERN_XEEN_DATA_DIR}" "${MMODERN_M92_TITLE_PRESET}" --serial)
     add_test(NAME xeen_title_flow_intros COMMAND mmodern_title_flow_tests "${MMODERN_XEEN_DATA_DIR}" "" --intros)
     add_test(NAME xeen_title_flow_endings COMMAND mmodern_title_flow_tests "${MMODERN_XEEN_DATA_DIR}" "${MMODERN_M92_TITLE_PRESET}" --endings)
+    add_test(NAME xeen_title_flow_darkside_endings COMMAND mmodern_title_flow_tests "${MMODERN_XEEN_DATA_DIR}" "${MMODERN_M92_TITLE_PRESET}" --darkside-endings)
     set_tests_properties(xeen_title_flow xeen_title_flow_endings PROPERTIES FIXTURES_REQUIRED m92_title_preset)
     set_tests_properties(xeen_title_flow xeen_title_flow_intros xeen_title_flow_endings PROPERTIES LABELS "fast")
     set_tests_properties(xeen_title_flow xeen_title_flow_intros xeen_title_flow_endings PROPERTIES ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_RENDER_DRIVER=software")
+    set_tests_properties(xeen_title_flow_darkside_endings PROPERTIES ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_RENDER_DRIVER=software")
     target_link_libraries(mmodern_title_resource_tests PRIVATE mmodern_xeen)
     add_test(NAME xeen_title_resources COMMAND mmodern_title_resource_tests "${MMODERN_XEEN_DATA_DIR}")
     set_tests_properties(xeen_title_resources PROPERTIES LABELS "fast")
@@ -1119,6 +1122,11 @@ if(BUILD_TESTING)
  add_executable(mmodern_digital_sites_tests tests/XeenDigitalSitesTests.cpp)
  add_executable(mmodern_cutscene_tests tests/XeenCutsceneTests.cpp)
  add_executable(mmodern_ending_presentation_tests tests/XeenEndingPresentationTests.cpp)
+ add_executable(mmodern_darkside_ending_tests tests/XeenDarksideEndingTests.cpp)
+ target_link_libraries(mmodern_darkside_ending_tests PRIVATE mmodern_app mmodern_xeen mmodern_scummvm_xeen)
+ add_test(NAME xeen_darkside_ending COMMAND mmodern_darkside_ending_tests "${MMODERN_XEEN_DATA_DIR}" "${CMAKE_CURRENT_BINARY_DIR}/darkside-ending-tests" --main)
+ add_test(NAME xeen_darkside_ending_captions COMMAND mmodern_darkside_ending_tests "${MMODERN_XEEN_DATA_DIR}" "${CMAKE_CURRENT_BINARY_DIR}/darkside-ending-tests" --captions)
+ set_tests_properties(xeen_darkside_ending xeen_darkside_ending_captions PROPERTIES ENVIRONMENT "SDL_AUDIODRIVER=dummy")
  target_link_libraries(mmodern_ending_presentation_tests PRIVATE mmodern_app mmodern_xeen mmodern_scummvm_xeen bcrypt)
  # Five whole ending playbacks in three processes; only --main writes files.
  add_test(NAME xeen_ending_presentation COMMAND mmodern_ending_presentation_tests "${MMODERN_XEEN_DATA_DIR}" "${CMAKE_CURRENT_BINARY_DIR}/ending-presentation-tests" --main)
@@ -1423,7 +1431,7 @@ if(BUILD_TESTING)
 		xeen_combat_gameplay xeen_equipment_gameplay xeen_inventory_gameplay
 		xeen_m44_scenario_mainland xeen_m44_scenario_services xeen_m44_scenario_temple
 		xeen_m44_scenario_roundtrip
-		xeen_title_flow_endings xeen_ending_presentation)
+		xeen_title_flow_endings xeen_title_flow_darkside_endings xeen_ending_presentation)
 	get_property(xeen_all_tests DIRECTORY PROPERTY TESTS)
 	foreach(xeen_test IN LISTS xeen_process_tests)
 		if(NOT xeen_test IN_LIST xeen_all_tests)
@@ -1457,7 +1465,8 @@ if(BUILD_TESTING)
 			xeen_training_original=47 xeen_combat_casting_faults=42 xeen_cutscene=41
 			xeen_purchase_process=37 xeen_vertigo_process=32 xeen_m44_scenario_mainland=31
 			xeen_ending_presentation_stride=27 xeen_ending_presentation_captions=27
-			xeen_scene_inventory_original=27 xeen_party_interface_original=25 xeen_m61_part_b=21
+			xeen_scene_inventory_original=27 xeen_title_flow_darkside_endings=26
+			xeen_party_interface_original=25 xeen_m61_part_b=21
 			xeen_combat_casting_effects=20 xeen_new_game_process=18 xeen_myra_original=17
 			xeen_cd_audio=17 xeen_combat_casting_process=17 xeen_item_catalog_generation=16
 			xeen_temple_depleted_process=16 xeen_temple_process=13 xeen_m44_scenario_roundtrip=12

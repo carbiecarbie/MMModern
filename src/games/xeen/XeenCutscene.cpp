@@ -67,7 +67,7 @@ XeenCutscene XeenCutscene::clouds(const XeenCutsceneData &data,std::string capti
     f.push_back(sprite(R::Xeen));if(++state->burst<14)f.push_back(sprite(R::Burst,unsigned(state->burst)));
    }return f;
   },0,1);
- stars.fadeAfterFirst=4;
+ stars.fadeAfterFirst=4;stars.firstFadeOrder=Segment::FirstFadeOrder::AfterPublish;
  stars.published=[=](const Context &c) {
   // 0x7fc1..0x80d9: measure before the first fade, then latch, never tune.
   if(c.iteration==0)observed->panStride=stride(c.elapsed);

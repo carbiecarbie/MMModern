@@ -41,8 +41,8 @@ extern "C" void __wrap_SDL_RenderPresent(SDL_Renderer *renderer){
 namespace {
 
 void cutsceneControlQuit() {
- for(unsigned mode=0;mode<4;++mode) { // Intro, ending, DAT title, DAT gameplay.
- const bool cutscene=mode<2;
+ for(unsigned mode=0;mode<5;++mode) { // Intro, ending, DAT title/gameplay, deferred EXE poll.
+ const bool cutscene=mode<2 || mode==4;
  IndexedFrame frame{1,1,{0}};unsigned cycles=0,delivered=0;bool closed=false;
  SdlWindow::FrameUpdateHandler h=[&](const PlayerAction &a)->std::optional<IndexedFrame>{
   const auto key=std::get_if<DialogKeyAction>(&a);const auto event=std::get_if<ExplorationKeyAction>(&a);
@@ -51,16 +51,18 @@ void cutsceneControlQuit() {
  };
  h.protectAllKeys=true;h.ignoreMouse=true;h.closed=[&]{closed=true;};
  h.cutsceneControlQuit=cutscene;
+ if(mode==4)h.cutsceneControlQuitReady=[&]{return cycles>=3;};
  h.inputContext=[mode](const auto &){InputContext c;c.readyForAction=true;
   if(mode!=3){auto d=std::make_shared<DialogInput>();d->anyKey=true;d->retainKey=true;c.dialog=d;}
   else {c.mainScreen=MainScreen::Exploration;c.retainEventKeys=true;}return c;};
  const auto ok=SdlWindow().showInteractive(frame,"Scoped EXE Ctrl-Q",h,{},[&]()->std::optional<IndexedFrame>{
   ++cycles;SDL_Event event{};
   if(cycles==1){event.type=SDL_KEYDOWN;event.key.keysym.sym=SDLK_q;event.key.keysym.mod=KMOD_CTRL;}
+  else if(mode==4){if(cycles>3)throw std::runtime_error("Deferred Ctrl-Q missed its EXE poll");return {};}
   else {if(cutscene || cycles>2)throw std::runtime_error("Ctrl-Q did not quit the EXE presentation");event.type=SDL_QUIT;}
   SDL_PushEvent(&event);return {};
  });
- if(!ok || !closed || (cutscene && (cycles!=1 || delivered)) || (!cutscene && (cycles!=2 || delivered!=1)))throw std::runtime_error("Ctrl-Q escaped its EXE presentation scope");
+ if(!ok || !closed || (cutscene && (cycles!=(mode==4?3u:1u) || delivered)) || (!cutscene && (cycles!=2 || delivered!=1)))throw std::runtime_error("Ctrl-Q escaped its EXE presentation scope");
  }
 }
 void semanticBoundaryKeys() {

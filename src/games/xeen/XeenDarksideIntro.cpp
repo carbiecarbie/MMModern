@@ -113,7 +113,7 @@ XeenCutscene XeenCutscene::darkside(const XeenCutsceneData &data,const XeenCutsc
    f.push_back(sprite(D::Pharaoh,t[1][p],139,t[0][p],0,0x800));
    f.push_back(sprite(D::Claw,p%5,t[rubbing?6:4][p],t[rubbing?7:5][p],0,0x800));return f;
   };
-  auto &rub=add("ball rub",std::move(ballLoads),[=](const Context &c)->Frame{auto f=ball(true);caption(f,c);return f;},32,3);rub.fadeAfterFirst=4;
+  auto &rub=add("ball rub",std::move(ballLoads),[=](const Context &c)->Frame{auto f=ball(true);caption(f,c);return f;},32,3);rub.fadeAfterFirst=4;rub.firstFadeOrder=Segment::FirstFadeOrder::AfterPublish;
   auto &queenIn=add("queen fizzle",{A{A::Fm,{},42}},[=](const Context &c)->Frame {
    auto f=ball(false);if(c.iteration>3)f.push_back(sprite(D::Queen,0,9,57));f.push_back(sprite(D::Fizzle,c.iteration,9,57));
    if(c.iteration==6){f.push_back(A{A::Digital,name(D::Pharaoh3)});f.push_back(A{A::Fm,{},0});}if(c.iteration>6)caption(f,c);return f;

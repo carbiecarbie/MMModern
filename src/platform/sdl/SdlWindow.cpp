@@ -403,6 +403,7 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
 	};
 	success = upload(suppliedInitial);
 	bool running = success;
+ bool cutsceneQuitPending=false;
     unsigned mouseButtons=0;
 	if (running && uploaded && accepts(uploadedFrame)) {
 		present();
@@ -582,7 +583,9 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
         }
         // XEEN.EXE 0x11ab9..0x11af8; not the DAT's title/gameplay input.
         if(handler.cutsceneControlQuit && event.type==SDL_KEYDOWN && event.key.keysym.sym==SDLK_q && (event.key.keysym.mod & KMOD_CTRL)) {
-            pendingActions.clear();running=false;return;
+            pendingActions.clear();cutsceneQuitPending=true;
+            if(!handler.cutsceneControlQuitReady || handler.cutsceneControlQuitReady())running=false;
+            return;
         }
         if(event.type==SDL_WINDOWEVENT && event.window.event==SDL_WINDOWEVENT_SIZE_CHANGED)recordWindowedSize(window);
         if(handler.finished && handler.finished())return;
@@ -829,6 +832,7 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
 			} while (running && SDL_PollEvent(&event));
 		}
 		if (!running) break;
+        if(cutsceneQuitPending && (!handler.cutsceneControlQuitReady || handler.cutsceneControlQuitReady()))break;
         if(handler.finished && handler.finished())break;
         const auto drainContext = contextFor(presentedFrame);
         synchronizeQueue(drainContext);

@@ -37,6 +37,7 @@ public:
  bool acceptsFrame(const IndexedFrame::Presentation &p) const {return !_closed && p && p==_frame.presentation();}
  bool acceptsInput(const IndexedFrame::Presentation &p) const {return !_closed && p && p==_input;}
  InputContext inputContext(const IndexedFrame::Presentation &) const;
+ bool controlQuitReady() const;
  void presented(const IndexedFrame::Presentation &);
  void completeInput(const IndexedFrame::Presentation &p) {if(acceptsFrame(p))_input=p;}
  std::optional<IndexedFrame> handle(const PlayerAction &,const IndexedFrame::Presentation &);
@@ -58,6 +59,7 @@ private:
  std::map<std::string,std::vector<std::uint8_t>> _compressed;
  bool _acknowledged=false;
  bool _holdPublication=false;
+ bool _held=false;
  std::vector<XeenCutscene::Audio> _after;
  IndexedFrame::Presentation _input;
  XeenCutscene::Context context(std::uint64_t) const;

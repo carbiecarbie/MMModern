@@ -21,6 +21,8 @@
 #include <cstdlib>
 #include "TestTreeRemoval.h"
 #include "formats/xeen/XeenCutsceneData.h"
+#include "tools/XeenTestSave.h"
+#include "XeenTestInstallation.h"
 #include <fstream>
 #include <sstream>
 #include <iostream>
@@ -363,7 +365,8 @@ extern "C" int wrappedTitlePlay(const Application *app,const XeenGameplayService
     check(h.finished(),"Original Sixth Mirror did not finish");return true;
    };
    const auto result=realTitlePlay(app,services,camera,target,resume,entry,seed);
-   check(original.outcome && original.outcome->kind==XeenSessionOutcome::Kind::CloudsEnding,"Original mirror did not produce the presentation outcome");
+   check(original.outcome && original.outcome->kind==state.endingKind,"Original Event did not produce its ending outcome");
+   if(state.endingKind==XeenSessionOutcome::Kind::DarksideEnding)check(original.outcome->score==1992200000,"Live Alamar score differs from DOS capture");
    // Gameplay close rebased audio onto the real window clock; the wrapped
    // window clock switches to introNow below, so restart it from real time.
    // Keeping the session's fake time fails under load once real time has
@@ -466,6 +469,8 @@ extern "C" bool wrappedTitleShow(const SdlWindow *window,const IndexedFrame &fir
  if(state.endingMode && state.endingReturned) {
   if(handler.cutsceneControlQuit) {
    check(handler.cutsceneControlQuit,"Clouds ending did not enable EXE Ctrl-Q");
+   if(state.endingKind==XeenSessionOutcome::Kind::DarksideEnding)
+    check(bool(handler.cutsceneControlQuitReady) && !handler.cutsceneControlQuitReady(),"Darkside ending lost its deferred Ctrl-Q readiness wiring");
    check(!state.endingPlayed,"Ending program repeated before the title notice");
    IndexedFrame visible=first;unsigned cycles=0;const auto began=state.introNow;
    const auto present=[&]{handler.framePresented(visible.presentation());handler.completeInputHandoff(visible.presentation());};present();
@@ -483,7 +488,7 @@ extern "C" bool wrappedTitleShow(const SdlWindow *window,const IndexedFrame &fir
    check(state.introNow-began>50000000000ULL,"Ending input bypassed stages 1 and 2");
    state.endingPlayed=true;return true;
   }
-  check(state.endingExeFailure || state.endingKind!=XeenSessionOutcome::Kind::CloudsEnding?state.endingNotice:state.endingPlayed,"Ending did not reach the expected fresh title");
+  check(state.endingExeFailure || state.endingKind==XeenSessionOutcome::Kind::WorldEnding?state.endingNotice:state.endingPlayed,"Ending did not reach the expected fresh title");
   check(!handler.cutsceneControlQuit,"Ending Ctrl-Q leaked into fresh DAT title");
   check(state.program->playTimeMark==state.wallNow,"Ending return did not reset the DAT play-time mark");
   IndexedFrame visible=first;
@@ -615,10 +620,10 @@ extern "C" bool wrappedTitleShow(const SdlWindow *window,const IndexedFrame &fir
 int runWithoutStartup(const Application &app,const char *game) {return app.runTitleForTest(game);}
 // Four whole Clouds ending playbacks: CPU-bound on the fake clock, after the
 // New/Load routes that create the slot they load.
-void endingControls(const char *game,const char *endingPreset) {
+void endingControls(const char *game,const char *endingPreset,bool darksideOnly=false) {
  // A transport control crosses gameplay(), unlike direct playGameplay tests.
  // Gameplay ending content itself is exercised by the original Lord/Mirror test.
- for(bool developer:{false,true}) {
+ if(!darksideOnly)for(bool developer:{false,true}) {
   XeenSaveFile::write(state.slot,XeenSaveFormat::decode(state.saved),{},true);
   state.wallNow=10;XeenProgramState endingProgram{XeenWallClock([]{return state.wallNow;})};state.program=&endingProgram;
   state.endingMode=true;state.endingNoticeText.clear();state.endingReturned=state.endingNotice=state.endingPlayed=state.shown=false;
@@ -630,7 +635,10 @@ void endingControls(const char *game,const char *endingPreset) {
  // V reads the won store, plays the same program, and leaves save/store bytes intact.
  const auto readFile=[](const fs::path &p){std::ifstream f(p,std::ios::binary);return std::vector<std::uint8_t>((std::istreambuf_iterator<char>(f)),{});};
  const auto settings=state.base/"ending-settings.ini";{std::ofstream f(settings);f<<"won=1\n";}
- for(bool replay:{false,true})for(unsigned failure=0;failure<3;++failure) {
+ const auto previousSettings=xeenSettingsFile();
+ struct RestoreSettings {std::optional<fs::path> previous;~RestoreSettings(){if(previous)SetEnvironmentVariableW(L"MMODERN_SETTINGS_FILE",previous->c_str());else SetEnvironmentVariableW(L"MMODERN_SETTINGS_FILE",nullptr);}} restoreSettings{previousSettings};
+ if(darksideOnly)check(SetEnvironmentVariableW(L"MMODERN_SETTINGS_FILE",settings.c_str())!=0 && xeenSettingsFile()==std::optional<fs::path>(settings),"Isolated replay settings environment");
+ if(!darksideOnly)for(bool replay:{false,true})for(unsigned failure=0;failure<3;++failure) {
   if(!replay && !failure)continue; // Both successful gameplay entry modes above.
   XeenSaveFile::write(state.slot,XeenSaveFormat::decode(state.saved),{},true);const auto saved=readFile(state.slot),won=readFile(settings);
   state.wallNow=10;XeenProgramState p{XeenWallClock([]{return state.wallNow;})};state.program=&p;
@@ -640,21 +648,24 @@ void endingControls(const char *game,const char *endingPreset) {
   check(result==0 && state.shown && state.endingNotice==bool(failure) && state.endingPlayed==!failure,"V/ending missing or different EXE path");
   check(readFile(state.slot)==saved && readFile(settings)==won && p.cloudsWon,"V changed saved state, play time or won store");
  }
- // Interim Darkside/World handoffs and E/W replays always notice, then a fresh title.
- for(const auto kind:{XeenSessionOutcome::Kind::DarksideEnding,XeenSessionOutcome::Kind::WorldEnding})for(bool replay:{false,true})for(unsigned failure=0;failure<3;++failure) {
+ // Darkside presents, World still notices; E/W and failure paths never write.
+ if(darksideOnly)for(const auto kind:{XeenSessionOutcome::Kind::DarksideEnding,XeenSessionOutcome::Kind::WorldEnding})for(bool replay:{false,true})for(unsigned failure=0;failure<3;++failure) {
   XeenSaveFile::write(state.slot,XeenSaveFormat::decode(state.saved),{},true);
   check(xeenWriteWon(settings,XeenWonKind::Darkside) && xeenWriteWon(settings,XeenWonKind::World),"All title wins isolated");
   const auto saved=readFile(state.slot),won=readFile(settings);
+  const auto saveTime=fs::last_write_time(state.slot),settingsTime=fs::last_write_time(settings);
   state.wallNow=10;XeenProgramState p{XeenWallClock([]{return state.wallNow;})};state.program=&p;
   state.endingLoadRequested=state.endingLoaded=false;state.endingKind=kind;state.endingMode=true;state.endingReplay=replay;state.endingExeFailure=failure;
   state.endingNoticeText.clear();state.endingReturned=state.endingNotice=state.endingPlayed=state.shown=false;state.introNow=realTitleClock();state.loading=true;state.templePrices=&p.templePrices;
-  const auto result=replay?runWithoutStartup(Application(p,{},settings),game):Application(p,{},settings).loadGame(game,state.slot);
-  check(result==0 && state.shown && state.endingNotice && !state.endingPlayed && state.endingLoaded,"Interim ending notices then fresh hidden-menu title, including absent/different EXE");
+  const auto result=replay?runWithoutStartup(Application(p,{},xeenSettingsFile()),game):Application(p,{},settings).loadGame(game,state.slot);
+  const bool presents=kind==XeenSessionOutcome::Kind::DarksideEnding && !failure;
+  check(result==0 && state.shown && state.endingNotice==!presents && state.endingPlayed==presents && state.endingLoaded,"Ending then fresh hidden-menu title, including absent/different EXE");
   check(readFile(state.slot)==saved && readFile(settings)==won && p.cloudsWon && p.darksideWon && p.worldWon,"Interim handoff/replay changes no save, settings or won state");
+  check(fs::last_write_time(state.slot)==saveTime && fs::last_write_time(settings)==settingsTime,"Ending/replay rewrote unchanged save or settings bytes");
  }
  state.endingLoadRequested=state.endingLoaded=false;state.endingKind=XeenSessionOutcome::Kind::CloudsEnding;
  state.endingMode=state.endingReplay=false;state.endingExeFailure=0;
- if(endingPreset) {
+ if(!darksideOnly && endingPreset) {
   // Explicit local witness, reusing the maintainer's current-format preset without writing it.
   fs::copy_file(fs::path(endingPreset),state.slot,fs::copy_options::overwrite_existing);
   state.wallNow=10;XeenProgramState p{XeenWallClock([]{return state.wallNow;})};state.program=&p;
@@ -665,11 +676,31 @@ void endingControls(const char *game,const char *endingPreset) {
   check(XeenSaveFile::read(state.slot).journey->cloudsCompleted && xeenReadWon(originalSettings),"Original ending did not save the win");
   state.endingMode=state.endingOriginal=false;
  }
+ if(darksideOnly) {
+  // The real level-200 Alamar preset, original Event and forced save, followed
+  // by the entire EXE presentation and a fresh DAT title in the same process.
+  const auto installation=*xeenTestInstallationDetector().detect(game);
+  const auto preset=state.base/"m106-alamar.mmsave";developer::generateTestSave(installation,"m106-alamar",preset);
+  auto snapshot=XeenSaveFile::read(preset);snapshot.camera.direction=XeenDirection::North;snapshot.name="Alamar";
+  XeenSaveFile::write(state.slot,snapshot,{},true);
+  state.wallNow=10;XeenProgramState p{XeenWallClock([]{return state.wallNow;})};state.program=&p;
+  state.endingKind=XeenSessionOutcome::Kind::DarksideEnding;state.endingMode=state.endingOriginal=true;
+  state.endingNoticeText.clear();state.endingReturned=state.endingNotice=state.endingPlayed=state.shown=false;
+  state.endingLoadRequested=state.endingLoaded=false;
+  state.introNow=realTitleClock();state.templePrices=&p.templePrices;
+  const auto settings=state.base/"alamar-ending-settings.ini";
+  check(Application(p,{},settings).loadGame(game,state.slot)==0 && state.endingPlayed && state.endingLoaded && state.shown && !state.endingNotice,"Original Alamar Event to fresh World title and Load");
+  const auto saved=XeenSaveFile::read(state.slot);
+  check(saved.journey->darksideCompleted && saved.questItems[53]==1 && saved.questItems[78]==0 && saved.camera.mapId==XeenMapIdentity(XeenSide::Darkside,29) && saved.camera.x==25 && saved.camera.y==21 && saved.camera.direction==XeenDirection::North,"Darkside ending forced save boundary");
+  check(p.darksideWon && xeenReadSettings(settings).darksideWon,"Darkside win marker");
+  state.endingMode=state.endingOriginal=state.endingLoadRequested=state.endingLoaded=false;
+  state.endingKind=XeenSessionOutcome::Kind::CloudsEnding;
+ }
 }
 void titleApplicationControls(const char *game,const char *endingPreset,const std::string &part) {
  state.enabled=true;
  state.introsOnly=part=="--intros";
- const bool native=part!="--intros",intros=part!="--serial" && part!="--endings";
+ const bool native=part!="--intros",intros=part!="--serial" && part!="--endings" && part!="--darkside-endings";
  state.base=fs::temp_directory_path()/("mmodern-m54-title-"+std::to_string(GetCurrentProcessId())+"-"+std::to_string(GetTickCount64()));
  fs::create_directory(state.base);
  struct Cleanup {~Cleanup(){state.enabled=false;removeTestTree(state.base);}} cleanup;
@@ -701,6 +732,7 @@ void titleApplicationControls(const char *game,const char *endingPreset,const st
  // clock only, so they need not wait for the serial xeen_title_flow.
  if(part.empty() || part=="--endings")endingControls(game,endingPreset);
  if(part=="--endings")return;
+ if(part=="--darkside-endings"){endingControls(game,nullptr,true);return;}
  if(intros) {
  // Player startup uses the same presenter on a fake clock, with private settings.
  for(unsigned route=0;route<4;++route) {

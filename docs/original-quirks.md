@@ -25,7 +25,10 @@ master was not rechecked.
 | <a id="sv-m106-world-state"></a> World win, mirror and replay use state zero regardless of awards. **ScummVM:** differs for win/mirror. | DAT `0x28c33` clears the formatted byte; `0x28cfa` reads it unchanged. The title omits the field; EXE startup clears its buffer and `0x7aed..0x7b22` selects zero. The pin scans active members for the first Goober/Super Goober award; DOS never scans them here. No precedence or extra persistent state is needed. |
 | <a id="sv-m106-save-boundary"></a> One pre-handoff gameplay save; no late Darkside score-page save. **ScummVM:** differs. | Common Save(1) `0x28c0d`, live merge `0x1ecee..0x1ed11`; EXE score/return `0xfa63..0xfade`, shared pages `0x6c91..0x6f21`. Traced ending file paths do not call a writer; the EXE CFG writer `0xd345..0xd374` belongs to the intro. The pin calls `saveGame()` in `showDarkSideScore`. The static negative's indirect-call limit is explicit in the evidence; the DOSBox capture taken after the title return shows nothing beyond the pre-hand-off save (an identical rewrite could not be seen in files). |
 | <a id="sv-m106-ending-input-timing"></a> Darkside animations ignore skip keys/clicks; score pages use keyboard and three-tick frames. **ScummVM:** differs. | All 39 animation polls ignore their return; `0x6eff..0x6f19` waits three BIOS ticks and advances on a keyboard result only. Ctrl-Q retains the shared EXE quit behavior. The pin's WAIT/subtitle gates accept key/mouse skipping; its score waits one tick and accepts mouse. Throne-rise steps at `0xd84e` use one tick instead of the pin's two. Follow the original stage waits and caption selections, not those substitutions. |
+| <a id="dos-m106-capture-timing"></a> I do retains an approved timing approximation. | The 80000/40000-cycle captures show a game-defined 3.838..3.852 s visual interval; MMModern retains its modeled 4.500 s unsplit deadline and realigns capture checks at What no. This one boundary is [accepted and closed](#dev-m106-ido-boundary), with strict regional checks and 18 Admit / 12 What no frames retained. No wait is added; DMA remains closed. [Measurements](rules/evidence.md#m106-part-b-capture). |
 | <a id="sv-m106-ending-mouths"></a> Darkside speaking mouths use time-mixed EXE random draws. **ScummVM:** differs. | `0xe0cd` 0..2 while the voice is busy; `0xe1d8` 0..8; `0xe2ad` 0..1; `0xe5a7` 0..3. All call `0x1cbdc`, independent of Journey RNG. The pin cycles with host time through `getSpeakingFrame`. The score has no random-digit reveal. |
+| <a id="sv-m106-mode8-top-clip"></a> Program mode-8 sprites retain an extra source row when clipped above the screen. **ScummVM:** differs. | EXE `0x17e42..0x17e70` and `0x18062..0x18091`: height/Y advance before reading the clipped row. At Y -3, two rows are consumed while three are deducted from height. Applies per component in the program sprite adapter, not by moving a particular actor. This includes the Darkside intro Pharaoh using the same ball tables, the score Pharaoh, and any other negative-Y unscaled mode-8 program component (including computed negative lake descent/flight positions); normal and scaled sprite drawers are unchanged. A transparent skip that overruns the decoded component is an explicit unsupported limit: the presentation stops with an unavailable / Resource error notice and returns to the title; see the rules. Original score frames corroborate the complete resulting pixels; the pin clips normally. [Rules](rules/cutscenes.md#darkside-ending-presentation). |
+| <a id="sv-m106-ending-composition"></a> Darkside presentation keeps the original frame counts, effect files and score composition. **ScummVM:** differs. | Ready has 15 random-mouth frames (`0xe5e5..0xe5e8`), not 16; sc22 formation holds four ticks (`0xefce..0xefd6`), not three. Vortex slot 9 uses `scj28.end` (`0xf7a4`), not a second `sck28.end`. The six castle explosions still use `explosio.voc`; DOS also plays retained `crash.voc` (`0xf8c1`) once before the smoke repeats (`0xf9d8..0xf9e2`), omitted by the pin. Speaking caption tails do not wait for VOC completion (`0xe104..0xe12e`, `0xe20f..0xe22b`, `0xe2e4..0xe30e`), unlike the pin's voice-or-caption waits. Score claw 6 moves from initial (149,184) to page (145,185) (`0x6d3e..0x6d4a`, `0x6e08..0x6e14`); the pin retains (149,184). |
 
 ## Mixed World map rules established from DOS
 
@@ -1194,7 +1197,12 @@ PCM layout using its transfer count, with the count-plus-one interpretation
 supported by the DSP/DMA path (medium confidence). Ignore allocation-dependent
 DMA page splitting: MMModern cannot reproduce DOS sample placement, and the
 remaining sub-millisecond difference is an approved timing approximation.
-Do not investigate those splits further. The programmed count is established
+Do not investigate those splits further. Reaffirmed by the maintainer on
+2026-11-01: the approximately 0.9-second M106 capture offset cannot be
+explained by the sub-millisecond approximation covered by this decision.
+The larger presentation discrepancy is covered separately by the
+[approved I do boundary](#dev-m106-ido-boundary), without changing this rule.
+The programmed count is established
 at `prosnd 0x15b..0x165`, `0x21a..0x220`, `0x336..0x34c`; see the
 [rules and limits](rules/audio.md#installed-digital-driver-command-and-length-rules).
 **Extension approved 2026-10-27:** INTRO `blastsnd` (digital 6) uses the same
@@ -1207,6 +1215,38 @@ Playback and logical waits use that count-plus-one model. Part A1 applies the
 two counts to their selected drivers. **ScummVM:** approved approximation to DOS; the pin's generic
 VOC decoder instead follows header blocks and rates. Pin `6814ee9b`;
 master not rechecked.
+
+<a id="dev-m106-ido-boundary"></a>
+### I do keeps the modeled sound deadline at an approved visual boundary
+
+**Maintainer decision, 2026-11-01:** accept the Darkside ending's I do
+boundary as a timing approximation; do not add a wait or reopen DMA.
+The DOS visual stage lasts 3.838..3.852 seconds at both 80,000 and 40,000
+cycles, establishing a game-defined boundary rather than a CPU-scaled
+load delay. The last complete I do picture precedes the reconstructed
+ido2 audio end by about 0.12 / 0.76 seconds in the two captures.
+Video0004 also contains a 0.982-second internal discontinuity in the
+ido2 template alignment. These observations are consistent with
+allocation-dependent driver idle timing; they do not measure the driver's
+busy flag directly. The [capture table](rules/evidence.md#m106-part-b-capture)
+retains the separate visual and audio measurements.
+
+MMModern holds the stage for the modeled 4.500-second interval from the
+existing unsplit transfer-count deadline and BIOS frame waits, about
+0.65 seconds longer than DOS. Capture comparisons then realign at What no,
+keeping strict +/-0.4-second checks before the boundary and re-anchored
+cadence checks after it. This is the only approved boundary allowance;
+the 18 Admit and 12 What no frames remain unchanged. No duration is
+invented or copied into the movie as a compensating wait.
+
+DOS sample placement is not reproducible under the existing
+[unsplit timing decision](#dev-prosnd-dma-timing), so this presentation
+difference is accepted and closed. The unsplit model and the prohibition
+on investigating DMA page splits remain unchanged.
+**ScummVM:** pin `6814ee9b` gates this stage on mixer-backed
+`isSoundPlaying()` / subtitles in `DarkSideCutscenes::showDarkSideEnding4`;
+`Sound::playVoice` uses the generic VOC block/header decoder, rather than
+MMModern's unsplit transfer-count clock. Master not rechecked.
 
 ### CD options and requests do not guarantee a new busy interval
 

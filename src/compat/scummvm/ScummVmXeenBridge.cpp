@@ -87,6 +87,40 @@ public:
 		SpriteResource::load(stream);
 		return !empty() && !stream.err();
 	}
+	// EXE mode 8 top clipping (0x17e42..0x17e70, 0x18062..0x18091).
+	// Its skip loop decrements height and increments Y BEFORE consuming a
+	// row, leaving the last clipped row in the source stream. Keep the pinned
+	// decoder for colors/RLE, then select the rows the original publishes.
+	void drawProgramClipped(XSurface &dest,int frame,const Common::Point &position,uint flags) {
+		const auto first=_index[frame]._offset1,second=_index[frame]._offset2;
+		struct Restore {IndexEntry &entry;uint16 a,b;~Restore(){entry._offset1=a;entry._offset2=b;}} restore{_index[frame],first,second};
+		const auto word=[&](unsigned p){if(p+2>_filesize)throw std::runtime_error("Truncated program sprite component");return unsigned(_data[p])|(unsigned(_data[p+1])<<8);};
+		for(unsigned component=0;component<(second?2u:1u);++component) {
+			const auto offset=component?second:first;
+			_index[frame]._offset1=offset;_index[frame]._offset2=0;
+			const auto headerY=word(offset+4),height=word(offset+6);
+			const int top=position.y+int(headerY);
+			if(top>=0){SpriteResource::draw(dest,frame,position,flags,0);continue;}
+			const auto clipped=unsigned(-top);if(clipped>=height)continue;
+			unsigned sourceRow=0,p=offset+8;
+			for(unsigned row=1;row<clipped;++row) {
+				if(p>=_filesize)throw std::runtime_error("Truncated program sprite clip row");
+				const unsigned length=_data[p++];
+				if(length){p+=length;++sourceRow;}
+				else {if(p>=_filesize)throw std::runtime_error("Truncated program sprite clip skip");sourceRow+=unsigned(_data[p++])+1;}
+				if(p>_filesize)throw std::runtime_error("Program sprite clip row exceeds resource");
+			}
+			if(sourceRow+height-clipped>height)throw std::runtime_error("Program sprite top clip exceeds component");
+			XSurface black(dest.w,height),white(dest.w,height);
+			for(unsigned y=0;y<height;++y){std::fill_n(static_cast<byte *>(black.getBasePtr(0,y)),dest.w,0);std::fill_n(static_cast<byte *>(white.getBasePtr(0,y)),dest.w,255);}
+			const Common::Point origin(position.x,-int(headerY));
+			SpriteResource::draw(black,frame,origin,flags,0);SpriteResource::draw(white,frame,origin,flags,0);
+			for(unsigned y=0;y<height-clipped && y<unsigned(dest.h);++y)for(int x=0;x<dest.w;++x) {
+				const auto pixel=*static_cast<const byte *>(black.getBasePtr(x,sourceRow+y));
+				if(pixel==*static_cast<const byte *>(white.getBasePtr(x,sourceRow+y)))*static_cast<byte *>(dest.getBasePtr(x,y))=pixel;
+			}
+		}
+	}
 	// Adapted from the pinned sprites.cpp drawPixel2/3/5 helpers (ScummVM
 	// developers, GPL-3.0-or-later). Those upstream modes require g_engine or
 	// g_system. Reuse the native decoder/scaler for each component and apply
@@ -702,7 +736,9 @@ void ScummVmXeenBridge::drawDialogSprite(IndexedFrame &frame,const char *name,un
 	auto &sprite=_impl->sprite(name,index,0,selection!=XeenSceneArchive::Current,selection);
 	XSurface surface;surface.create(320,200);
 	for(int row=0;row<200;++row) std::copy_n(frame.pixels.data()+row*320,320,static_cast<std::uint8_t *>(surface.getBasePtr(0,row)));
-	sprite.draw(surface,index,Common::Point(x,y),flags,scale);
+	if(xeenProgramArchive(selection) && flags==0x800 && scale==0 && y<0)
+		sprite.drawProgramClipped(surface,index,Common::Point(x,y),flags);
+	else sprite.draw(surface,index,Common::Point(x,y),flags,scale);
 	for(int row=0;row<200;++row) std::copy_n(static_cast<const std::uint8_t *>(surface.getBasePtr(0,row)),320,frame.pixels.data()+row*320);
 }
 

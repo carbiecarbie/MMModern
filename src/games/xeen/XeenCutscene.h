@@ -17,7 +17,7 @@ struct XeenCutscene {
  struct Palette {std::string resource;};
  struct Restore {std::string slot;};
  struct Store {std::string slot;};
- struct Sprite {std::string resource;unsigned frame=0;int x=0,y=0,scale=0;unsigned flags=0;};
+ struct Sprite {std::string resource;unsigned frame=0;int x=0,y=0,scale=0;unsigned flags=0;unsigned bottom=200;};
  struct Merge {std::string first,second;unsigned offset=0;}; // Vertical, 320x200 pages.
  struct HorizontalMerge {std::string first,second;unsigned offset=0;};
  struct Rotate {std::string slot;unsigned columns=0;};
@@ -39,13 +39,17 @@ struct XeenCutscene {
   Frame enter;
   std::function<Frame(const Context &)> compose;
   std::function<Frame(const Context &)> duringHold;
+  std::function<Frame(const Context &)> afterHold;
   unsigned holdInterval=0;
   enum class Reset {BeforeCompose,AfterFlip,Entry,Previous} reset=Reset::BeforeCompose;
   enum class Input {Ignore,Unpolled,Escape,Scroll,Keyboard,BoundaryHold} input=Input::Escape;
   unsigned frames=1,ticks=0;
   unsigned fadeAfterFirst=0;
+  enum class FirstFadeOrder {AfterHold,AfterPublish} firstFadeOrder=FirstFadeOrder::AfterHold;
   bool holdBeforeFlip=false,resetBeforeEnter=false,untilDigitalIdle=false,pollAfterHold=false;
   bool audioBeforeFlip=false;
+  bool continuousKeyPoll=false;
+  unsigned keyboardGroup=0; // Nonzero groups retain keys/repeats between pages.
   unsigned totalTicks=0;
   std::function<unsigned(const Context &)> threshold;
   std::function<bool(const Context &)> finished;
@@ -61,13 +65,16 @@ struct XeenCutscene {
   std::vector<std::array<unsigned,10>> scoreFrames;
   bool darksideSeenPoint=false;
   std::vector<unsigned> darksideQueenFrames,darksideLordFrames,darksideWizardFrames;
+  std::array<std::vector<unsigned>,4> endingMouths;
  };
  std::vector<Segment> segments;
  std::size_t closing=0;
  Frame completion; // On natural arrival at closing only; Escape bypasses it.
+ bool timedControlQuit=false;
  std::shared_ptr<Observations> observations=std::make_shared<Observations>();
  static XeenCutscene clouds(const XeenCutsceneData &,std::string caption);
  static XeenCutscene cloudsEnding(const XeenCutsceneData &,const XeenCutsceneData::Captions &,XeenWallClock,std::uint32_t score);
+ static XeenCutscene darksideEnding(const XeenCutsceneData &,const XeenCutsceneData::Captions &,XeenWallClock,std::uint32_t score);
  enum class DarksidePath {Full,Short};
  static XeenCutscene darkside(const XeenCutsceneData &,const XeenCutsceneData::Captions &,XeenWallClock,DarksidePath);
  static bool elapsed(std::uint64_t captured,std::uint64_t current,unsigned count) {return current>=captured && current-captured>=count;}

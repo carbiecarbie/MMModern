@@ -293,9 +293,9 @@ int main(int argc,char **argv){try {
  // run. CTest isolates native/real-clock checks with --serial and runs the
  // fake-clock --intros and --endings separately.
  const std::string part=argc>3?argv[3]:"";
- check(part.empty() || part=="--without-endings" || part=="--serial" || part=="--intros" || part=="--endings",
+ check(part.empty() || part=="--without-endings" || part=="--serial" || part=="--intros" || part=="--endings" || part=="--darkside-endings",
   "Title flow part is --without-endings, --serial, --intros or --endings");
- if(part!="--endings" && part!="--intros") {
+ if(part!="--endings" && part!="--intros" && part!="--darkside-endings") {
  const auto installation=XeenInstallationDetector().detect(argv[1]);check(bool(installation),"missing CD installation");
  XeenAssetSource assets(*installation,320,200);const XeenFontFormat font(assets.readArchiveResource("fnt",XeenSceneArchive::DarksideOnly));
  std::array<XeenSaveFile::Slot,10> slots;

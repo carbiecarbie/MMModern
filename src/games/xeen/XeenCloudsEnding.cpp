@@ -118,7 +118,7 @@ XeenCutscene XeenCutscene::cloudsEnding(const XeenCutsceneData &data,const XeenC
    Frame f{HorizontalMerge{"throne0","throne1",state->offset},sprite(E::People,0,state->people,68,0,0x800)};
    if(state->offset>250)f.push_back(sprite(E::Crodo,0,state->crodo,68,0,0x800));return f;
   },0);
- throne.fadeAfterFirst=4;
+ throne.fadeAfterFirst=4;throne.firstFadeOrder=Segment::FirstFadeOrder::AfterPublish;
  throne.published=[=](const Context &c) {
   if(c.iteration==0){state->stride=stride(c.elapsed);observed->panStride=state->stride;}
   if(state->offset>250)state->crodo=std::max(181,state->crodo-int(2*state->stride));

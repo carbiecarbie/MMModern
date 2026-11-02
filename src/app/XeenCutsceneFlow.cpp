@@ -61,7 +61,13 @@ void XeenCutsceneFlow::execute(const XeenCutscene::Frame &operations,bool deferA
    for(unsigned i=0;i<768;++i)_palette[i]=b[i]<<2;
   }else if constexpr(std::is_same_v<T,C::Restore>)_canvas.pixels=_slots.at(value.slot).pixels;
   else if constexpr(std::is_same_v<T,C::Store>)_slots[value.slot]=_canvas;
-  else if constexpr(std::is_same_v<T,C::Sprite>)_services.draw(_canvas,value);
+  else if constexpr(std::is_same_v<T,C::Sprite>) {
+   if(value.bottom>200)throw std::invalid_argument("Cutscene sprite clipping boundary");
+   const auto first=_canvas.pixels.begin()+320*value.bottom;
+   std::vector<std::uint8_t> clipped(first,_canvas.pixels.end());
+   _services.draw(_canvas,value);
+   std::copy(clipped.begin(),clipped.end(),_canvas.pixels.begin()+320*value.bottom);
+  }
   else if constexpr(std::is_same_v<T,C::Prepare>) {if(_services.prepare)_services.prepare(value.resource);}
   else if constexpr(std::is_same_v<T,C::Load>) {(void)_services.read(value.resource);}
   else if constexpr(std::is_same_v<T,C::Archive>) {if(_services.archive)_services.archive(value.selection);}
@@ -105,7 +111,9 @@ void XeenCutsceneFlow::begin() {
  while(_segment<_scene.segments.size() && !_scene.segments[_segment].compose)++_segment;
  if(_segment==_scene.segments.size()){_done=true;return;}
  const auto &s=_scene.segments[_segment];_iteration=0;_terminal=false;_fade=false;_fadePending=false;_afterSent=false;_after.clear();
- _acknowledged=false;if(s.input==XeenCutscene::Segment::Input::Keyboard)_keys.clear();
+ _acknowledged=false;
+ if(s.input==XeenCutscene::Segment::Input::Keyboard &&
+    (!_segment || !s.keyboardGroup || _scene.segments[_segment-1].keyboardGroup!=s.keyboardGroup))_keys.clear();
  _input.reset();
  if(s.reset!=XeenCutscene::Segment::Reset::Previous)_reset=PresentationClock::tick(_services.clock());
  if(s.entering)s.entering(context(_services.clock()));
@@ -117,7 +125,7 @@ void XeenCutsceneFlow::compose() {
  const auto &s=_scene.segments[_segment];const auto now=_services.clock();
  if(s.reset==XeenCutscene::Segment::Reset::BeforeCompose)_reset=PresentationClock::tick(now);
  trace("compose");auto c=context(now);_after.clear();_afterSent=false;
- _holdUpdateTick=c.tick;_holdPublication=false;
+ _holdUpdateTick=c.tick;_holdPublication=false;_held=false;
  execute(s.compose(c),!s.audioBeforeFlip);
  _holdTicks=s.threshold?s.threshold(c):s.ticks;
  if(_iteration==0 && s.fadeAfterFirst)_level=0;
@@ -145,9 +153,18 @@ void XeenCutsceneFlow::presented(const IndexedFrame::Presentation &p) {
 InputContext XeenCutsceneFlow::inputContext(const IndexedFrame::Presentation &p) const {
  InputContext c;c.contextId=1;c.acceptsQueuedInput=true;c.readyForAction=acceptsInput(p) && !_done;c.hideCursor=true;
  if(!_done && _scene.segments[_segment].input==XeenCutscene::Segment::Input::Keyboard) {
-  c.contextId=_segment+2;c.acceptsQueuedInput=false;
+  const auto group=_scene.segments[_segment].keyboardGroup;
+  c.contextId=group?group:_segment+2;c.acceptsQueuedInput=false;
  }
  auto d=std::make_shared<DialogInput>();d->anyKey=true;d->retainKey=true;c.dialog=std::move(d);return c;
+}
+bool XeenCutsceneFlow::controlQuitReady() const {
+ if(_done || _closed || !_acquired || _fade)return false;
+ const auto &s=_scene.segments[_segment];using I=XeenCutscene::Segment::Input;
+ if(s.input==I::Unpolled)return false;
+ if(s.continuousKeyPoll)return true;
+ if(s.input==I::Keyboard)return context(_services.clock()).elapsed>=_holdTicks;
+ return !_polled;
 }
 std::optional<IndexedFrame> XeenCutsceneFlow::handle(const PlayerAction &action,const IndexedFrame::Presentation &p) {
  if(!acceptsInput(p) || _done)return {};
@@ -193,7 +210,7 @@ std::optional<IndexedFrame> XeenCutsceneFlow::update() {
  if((!_polled || s.input==XeenCutscene::Segment::Input::Keyboard || s.input==XeenCutscene::Segment::Input::BoundaryHold) && (!s.pollAfterHold || !waiting)) {
   _polled=true;if(poll())return {}; // Scroll endpoint/closing publishes on its next retrace.
  }
- if(_fadePending){_fadePending=false;_fade=true;_deadline=PresentationClock::retraceAfter(now);return {};}
+ if(_fadePending && (s.firstFadeOrder==XeenCutscene::Segment::FirstFadeOrder::AfterPublish || !waiting)){_fadePending=false;_fade=true;_deadline=PresentationClock::retraceAfter(now);return {};}
  if(!_afterSent){for(const auto &a:_after)_services.audio(a,now);_afterSent=true;}
  c=context(now);
  if(s.input==XeenCutscene::Segment::Input::Keyboard && !_acknowledged && s.frames)return {};
@@ -202,6 +219,7 @@ std::optional<IndexedFrame> XeenCutsceneFlow::update() {
   _acquired=false;_publicationReady=false;_deadline=PresentationClock::retraceAfter(now);return {};
  }
  if(waiting && !(s.input==XeenCutscene::Segment::Input::BoundaryHold && _acknowledged))return {};
+ if(!_held){_held=true;if(s.afterHold)execute(s.afterHold(c));}
  const bool ended=_terminal || (s.input==XeenCutscene::Segment::Input::Keyboard && _acknowledged) || (s.frames && _iteration+1>=s.frames) || (s.totalTicks && c.elapsed>=s.totalTicks) ||
   (s.finished && s.finished(c)) || (s.untilDigitalIdle && !s.finished && !c.digitalBusy);
  if(ended) {
@@ -213,6 +231,9 @@ std::optional<IndexedFrame> XeenCutsceneFlow::update() {
 std::optional<std::uint64_t> XeenCutsceneFlow::nextPresentationDeadline() const {
  if(_done || _closed)return {};
  const auto now=_services.clock();if(!_acquired || _fade)return _deadline;
+ // Only evidence-selected stages fade immediately after publication.
+ // Other stages complete their first hold before starting the fade.
+ if(_fadePending && _scene.segments[_segment].firstFadeOrder==XeenCutscene::Segment::FirstFadeOrder::AfterPublish)return now;
  const auto &s=_scene.segments[_segment];const auto c=context(now);
  if(s.input==XeenCutscene::Segment::Input::BoundaryHold && !_keys.empty())return now;
  if(s.input==XeenCutscene::Segment::Input::Keyboard && s.frames && !_acknowledged && _keys.empty())return {};

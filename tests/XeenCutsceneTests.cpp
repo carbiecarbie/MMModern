@@ -10,6 +10,7 @@
 #include <fstream>
 #include <iostream>
 #include <set>
+#include <zlib.h>
 using namespace mmodern;
 namespace {
 void check(bool ok,const char *message){if(!ok)throw std::runtime_error(message);}
@@ -24,7 +25,7 @@ struct Run {
  std::vector<XeenCutscene::Audio> requests;
  std::vector<std::string> heard;
  std::vector<std::uint8_t> worldBackground;std::optional<std::uint64_t> worldFirstVisible;
- bool slow=false;unsigned prepareCost=0;
+ bool slow=false;unsigned prepareCost=0;bool clippedIntroVerified=false;
  std::filesystem::path pictures;std::set<std::string> pictured;
  Run(const GameInstallation &installation,XeenAssetSource &a,const XeenFontFormat &f,const XeenCutsceneData &data,bool slowPublication=false,unsigned loadCost=0,bool darkside=false,bool shortPath=false,std::uint32_t wall=17000000):assets(a),font(f),slow(slowPublication),prepareCost(loadCost) {
   audio=XeenAudio::installed(installation,assets,now,false,std::filesystem::path("mmodern-nonexistent-rom-fixture"));
@@ -45,6 +46,13 @@ struct Run {
  void acquire() {
   flow->presented(flow->frame().presentation());flow->completeInput(flow->frame().presentation());
   const auto name=flow->segmentName();
+  if(name=="ball rub" && !trace.empty() && trace.back().iteration==1) {
+   // Pharaoh phase 1, y=-3: native score capture 148.040 s uses the same
+   // ball table/head. Crop excludes the score text and the differing hands.
+   std::vector<std::uint8_t> head;const auto &f=flow->frame();
+   for(unsigned y=0;y<20;++y)for(unsigned x=170;x<300;++x)for(unsigned c=0;c<3;++c)head.push_back(f.palette[3*f.pixels[y*320+x]+c]/4);
+   check(crc32(0,head.data(),head.size())==1966331974u,"Clipped intro Pharaoh differs from native head frame");clippedIntroVerified=true;
+  }
   if(name=="World first hold")worldBackground=flow->frame().pixels;
   if(name=="World reveal" && !worldFirstVisible && !worldBackground.empty() && flow->frame().pixels!=worldBackground)worldFirstVisible=now;
   if(!pictures.empty() && (name=="narration 0" || name=="lake flight" || name=="wizard") && pictured.insert(name).second) {
@@ -217,7 +225,7 @@ int main(int argc,char **argv) {try {
  check(argc==3,"cutscene test paths");model();auto installation=*xeenTestInstallationDetector().detect(argv[1]);
  auto data=XeenCutsceneData::installed(installation);XeenAssetSource assets(installation,320,200);
  const XeenFontFormat font(assets.readArchiveResource("fnt",XeenSceneArchive::DarksideOnly));resourceAudit(assets,data); darksideResourceAudit(assets,data);
- {Run dark(installation,assets,font,data,false,0,true,false);dark.finish();check(dark.flow->cutscene().observations->darksideSeenPoint,"full Darkside seen");
+ {Run dark(installation,assets,font,data,false,0,true,false);dark.finish();check(dark.clippedIntroVerified,"Clipped intro phase was not checked");check(dark.flow->cutscene().observations->darksideSeenPoint,"full Darkside seen");
  std::ofstream out(std::filesystem::path(argv[2])/"m93-full-trace.tsv");for(const auto &e:dark.trace)out<<e.event<<'\t'<<e.segment<<'\t'<<e.iteration<<'\t'<<e.nanoseconds<<'\t'<<e.tick<<'\t'<<e.reset<<'\n';
  std::ofstream sounds(std::filesystem::path(argv[2])/"m93-audio.tsv");for(const auto &a:dark.requests)sounds<<int(a.kind)<<'\t'<<a.resource<<'\t'<<a.value<<'\n';
  check(dark.worldFirstVisible.has_value(),"World reveal never changed the background");

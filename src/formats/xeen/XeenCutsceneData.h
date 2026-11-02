@@ -70,6 +70,11 @@ struct XeenCutsceneData {
   };
   std::array<Actor,73> parade;
  } ending;
+ struct DarksideEnding {
+  std::vector<std::string> resources;
+  std::array<std::string,2> scorePages,scoreFormats;
+  const std::string &resource(const char *) const;
+ } darksideEnding;
  struct Captions {
   std::vector<std::uint16_t> offsets;
   std::vector<std::string> records;
