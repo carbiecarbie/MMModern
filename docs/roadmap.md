@@ -208,6 +208,16 @@ Roughly in this order, each with its own decision and plan:
 6. The opt-in extras the README lists: game controller support, graphics
    filters and switching sound devices while playing.
 7. Other language editions of the original.
+8. **To evaluate:** whether to support Swords of Xeen, a standalone game on
+   the same engine, made by the fan group Catware and later distributed by
+   New World Computing. The maintainer decides whether it is included
+   (2026-11-02). It keeps Darkside's formats in one archive (`swrd.cc`), and
+   the pinned reference supports it as its own game type with about 70
+   differences (item and quest tables, quest flags, the year, Town Portal,
+   some spells and services, logo and credits). It would need a game profile
+   and a save format change (Tier A), and its own analysis of `swords.exe`
+   and its `xeen.dat`, which replace `WORLD/XEEN.EXE` and `XEEN.DAT` as DOS
+   evidence.
 
 ## Review cadence
 
