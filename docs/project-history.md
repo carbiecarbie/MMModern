@@ -352,3 +352,10 @@ Castleview and the original Darkside ending plays with its score. The World
 win saves as in DOS and says its ending is not supported yet. The ending
 mirror words and the title's E, V and W replay rows follow DOS, and both
 wins are remembered in `settings.ini`. Save v25. [Plan](milestone-106-plan.md).
+
+**M107 - World ending presentation**. The original World of Xeen ending
+plays after the World win, the `genesis` mirror word and the title's W row,
+from a DOS program check made first and confirmed frame for frame by a
+DOSBox capture: the unification ceremony, three CD animations the reference
+omits, the score and a fresh title. Every ending of the CD now plays. Save
+v25 unchanged. [Plan](milestone-107-plan.md).

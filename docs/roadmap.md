@@ -1,6 +1,6 @@
 # MMModern - Roadmap
 
-**M106 is the latest completed and accepted milestone.**
+**M107 is the latest completed and accepted milestone.**
 [Project status](project-status.md) describes what is playable now;
 [project history](project-history.md) records each completed milestone.
 Reference provenance belongs to [dependencies](dependencies.md).
@@ -37,7 +37,8 @@ Darkside: both sides' state, save v23 and the Pyramids between the sides.
 The [Darkside arc](#darkside-arc) followed with its towns (M102), Events
 (M103), the mixed World of Xeen maps (M104, save v24), their last three
 Events (M105), and the Darkside and World wins with the Darkside ending
-(M106, save v25).
+(M106, save v25). The World ending's presentation (M107) completed the arc:
+every ending of the CD now plays.
 
 ## Completed arc: closing Vertigo and the first release
 
@@ -175,7 +176,7 @@ analysis, because the reference was wrong in comparable Clouds cases (M80).
 | 3. Mixed World of Xeen maps ([M104](milestone-104-plan.md)) | Darkside maps 113-128 (Darkstone Tower, Dragon Tower, Dungeon of Death, Southern Sphinx, Dragon Clouds), FlipWorld, the Darkside-key entrances and Town Portal from them | A | Done 2026-11-01, save v24 |
 | 3a. Last mixed-map Events ([M105](milestone-105-plan.md)) | World flag 128 on map 116 and DisplayLarge on map 121 | B | Done 2026-11-01 |
 | 4. Darkside and World wins, Darkside ending ([M106](milestone-106-plan.md)) | Opcodes 57 and 58, the ending mirror words on both sides, the Darkside and World completion words and won states, the title replay rows, and the Darkside presentation | A | Done 2026-11-02 |
-| 5. World ending presentation ([M107](milestone-107-plan.md)) | The `XEEN.EXE` World ending after the win, `genesis` and the W replay | B | Planned |
+| 5. World ending presentation ([M107](milestone-107-plan.md)) | The `XEEN.EXE` World ending after the win, `genesis` and the W replay | B | Done 2026-11-02 |
 
 Three Tier A items wait for a fitting milestone. A runtime refusal after an
 Event has shown a reward keeps that reward but drops the flags that stop a
