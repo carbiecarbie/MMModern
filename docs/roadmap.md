@@ -38,7 +38,8 @@ The [Darkside arc](#darkside-arc) followed with its towns (M102), Events
 (M103), the mixed World of Xeen maps (M104, save v24), their last three
 Events (M105), and the Darkside and World wins with the Darkside ending
 (M106, save v25). The World ending's presentation (M107) completed the arc:
-every ending of the CD now plays.
+every ending of the CD now plays. A Darkside audit followed; its
+[follow-up steps](#after-the-darkside-audit) come next.
 
 ## Completed arc: closing Vertigo and the first release
 
@@ -190,6 +191,33 @@ advances, where MMModern reads the clock
 ([approved for M102](original-quirks.md#dev-current-clock-night)); the fix
 starts by finding which time advances skip the refresh and whether play
 reaches a scene or a sky redraw after one.
+
+## After the Darkside audit
+
+A Darkside fidelity and integration audit (2026-11-02) ran every Darkside
+Event cell twice, with saves, loads, trips away and keys pressed during
+waits. It found two hangs, fixed in `a6949b7` (a fall with a dead member and
+a Space defeat on a flagged cell), and stale or missing documentation, fixed
+in `8e52743`. The maintainer set this order for the rest (2026-11-02); steps
+are direction, not approved plans.
+
+1. **Maintenance round:** Darkside Create gives level 5, as DOS does (Tier B);
+   a presentation error that cannot recover ends with a notice instead of
+   blocking input (Tier A); the Event interpreter's instruction limit counts
+   only since the last wait for the player, so the dials of maps 50, 76, 80
+   and 122 turn as often as in DOS (Tier A); a check of the CD tracks that
+   Darkside Events request, which the reference shifts by 30; and, in its
+   play-test, a DOSBox check of the Quests screen's order when only Darkside
+   items are held.
+2. **Audit invariants as tests (M108, Tier B):** falls with a dead member, a
+   defeat on a flagged cell, bounded repeats, exact restores, the crossing
+   between the sides, loads after both wins, continuation keys after an
+   Event and interrupted Event chains.
+3. **Desert Paladin stone copies:** DOS program analysis of whether DOS
+   hides the distant copies of a used stone on Darkside, which the reference
+   does and MMModern does not ([details](original-quirks.md#sv-pin-data-patches)).
+4. **Release** with all of the above; the maintainer sees no need for an
+   earlier one.
 
 ## Later goals
 
