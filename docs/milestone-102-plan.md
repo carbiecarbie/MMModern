@@ -39,9 +39,8 @@ Events and the endings stayed out.
 - **Night from the clock** (maintainer, 2026-10-31): DOS draws the sky and
   these scenes from a night flag cached at map load and full time advances.
   The scenes share the sky's current-clock rule instead
-  ([approved deviation](original-quirks.md#dev-current-clock-night)); a
-  Tier A item in the [roadmap](roadmap.md#darkside-arc) waits for the
-  cached flag.
+  ([approved deviation](original-quirks.md#dev-current-clock-night)), kept
+  permanently by the maintainer on 2026-11-02.
 - **Following the reference, unconfirmed in DOS:** the Darkside Inn omits
   the Clouds scroll, and a character created there lodges on Darkside.
 - **Save v23 unchanged** (schema 9, content 14). Darkside shop stock was

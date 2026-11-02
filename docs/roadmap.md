@@ -179,7 +179,7 @@ analysis, because the reference was wrong in comparable Clouds cases (M80).
 | 4. Darkside and World wins, Darkside ending ([M106](milestone-106-plan.md)) | Opcodes 57 and 58, the ending mirror words on both sides, the Darkside and World completion words and won states, the title replay rows, and the Darkside presentation | A | Done 2026-11-02 |
 | 5. World ending presentation ([M107](milestone-107-plan.md)) | The `XEEN.EXE` World ending after the win, `genesis` and the W replay | B | Done 2026-11-02 |
 
-Three Tier A items wait for a fitting milestone. A runtime refusal after an
+Two Tier A items wait for a fitting milestone. A runtime refusal after an
 Event has shown a reward keeps that reward but drops the flags that stop a
 repeat; DOS never stops mid-Event, so the whole Event should be discarded
 (maintainer, 2026-10-31). A permanently failing Event presentation follows
@@ -187,12 +187,11 @@ the same interim rule ([approved deviation](original-quirks.md#dev-event-present
 neither discards the whole Event yet. A sweep of the original data found no Event that
 reaches this today. And after a Xeen Slayer Sword attack, DOS lets the next
 physical spell ignore physical resistance through the unsaved weapon
-selector; MMModern does not yet. Finally, DOS draws the sky and the
-Darkside entrance scenes from a night flag cached at map load and full time
-advances, where MMModern reads the clock
-([approved for M102](original-quirks.md#dev-current-clock-night)); the fix
-starts by finding which time advances skip the refresh and whether play
-reaches a scene or a sky redraw after one.
+selector; MMModern does not yet. The sky and the Darkside entrance scenes
+reading night from the clock, where DOS caches it, is no longer pending: the
+maintainer kept it as an
+[accepted difference](original-quirks.md#dev-current-clock-night) on
+2026-11-02.
 
 ## After the Darkside audit
 
