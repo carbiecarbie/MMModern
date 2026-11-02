@@ -1,6 +1,7 @@
 # MMModern - Roadmap
 
-**M108 is the latest completed and accepted milestone.**
+**M108 is the latest completed and accepted milestone.** M109, automated
+builds and tests on GitHub, is planned ([plan](milestone-109-plan.md)).
 [Project status](project-status.md) describes what is playable now;
 [project history](project-history.md) records each completed milestone.
 Reference provenance belongs to [dependencies](dependencies.md).
@@ -230,7 +231,7 @@ Roughly in this order, each with its own decision and plan:
    machine and runs the tests that need no original data, which also proves
    that the repository and [dependencies](dependencies.md) alone rebuild the
    project. Tests on the original data stay local, because that data cannot
-   be published.
+   be published. Planned as M109 (Tier A, [plan](milestone-109-plan.md)).
 2. Optionally, a public announcement that World of Xeen plays from start to
    end, inviting players to report defects with the launcher's diagnostics
    and the issue template. The releases are already public.
