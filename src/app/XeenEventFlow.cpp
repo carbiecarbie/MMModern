@@ -727,6 +727,12 @@ bool XeenEventFlow::prepareExplorationPass() {
  const auto sample=_world.sampleCell(_camera.mapId,_camera.x,_camera.y);
  const bool flagged=sample && (sample->cell->rawAttributes&kXeenAutomaticEventFlag);
  if(journey()) {
+  // A defeated input leaves the main loop before its pass (DOS 0xd2cd,
+  // 0xd5d5..0xd5e3), as a Space Event's defeat on a flagged cell does.
+  if(_encounter->state().reason()==XeenEncounterStop::Defeat) {
+   _explorationPass=false;_encounter->_journeyCapture->inputPassPending=false;
+   return false;
+  }
   if(flagged) {
    _encounter->_regionalAutomatic=true;
    _encounter->_regionalAutomaticKind=XeenEncounterFlow::EventCallKind::Pass;
@@ -881,8 +887,8 @@ void XeenEventFlow::beginFall(const IndexedFrame &top,const IndexedFrame &bottom
  if(_fallSequence || !_transition)throw std::logic_error("Falling presentation is unavailable");
  FallSequence sequence;sequence.top=top;sequence.bottom=bottom;sequence.eventGeneration=eventGeneration;
  const auto source=top;
- if(drawDialogSprite)for(const auto &portrait:CloudsUiComposer::buildPortraitPlacements(_party,_party.party.activeOrder().mask()))
-  drawDialogSprite(sequence.top,portrait.resourceName.c_str(),4,portrait.x,portrait.y);
+ if(drawDialogSprite)for(const auto &portrait:CloudsUiComposer::buildFallPortraitPlacements(_party))
+  drawDialogSprite(sequence.top,portrait.resourceName.c_str(),unsigned(portrait.frame),portrait.x,portrait.y);
  // Keep a failed first composition retryable before installing either fall owner.
  drawFallImage(sequence);
  if(dialogText) {

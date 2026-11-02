@@ -641,6 +641,10 @@ Before them, the destination load shows "Oops..." in window 9 over the
 unchanged source view; MMModern keeps it for four retraces
 ([approved deviation](../original-quirks.md#dev-fall-oops)), then starts FM 11,
 the scream and the scared portraits with image 0.
+The scared portraits are every active member's own face at frame 4, without a
+condition test (`0x11656..0x11684`): a Dead, Stoned or Eradicated member also
+screams, and the fall presents and damages the party as usual
+([quirk](../original-quirks.md#dos-fall-scared-faces)).
 `XeenEventFlow::beginFall` is the single presentation entry used by terrain
 transitions (including the manual-step path) and scripted falls. Input follows
 the existing blocking-presentation policy; repaint and unacquired frames do

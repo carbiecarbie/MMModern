@@ -306,11 +306,18 @@ void testPortraitLayoutAndConditions() {
 	placements = CloudsUiComposer::buildPortraitPlacements(state);
 	check(placements[0].resourceName == "dse.fac" && placements[0].frame == 1,
 		"stoned face selection");
+	placements = CloudsUiComposer::buildFallPortraitPlacements(state);
+	check(placements[0].resourceName == "char01.fac" && placements[0].frame == 4,
+		"stoned fall face ignores the condition");
 	state.roster.at(0).conditions.fill(0);
 	state.roster.at(0).conditions[15] = 1;
 	placements = CloudsUiComposer::buildPortraitPlacements(state);
 	check(placements[0].resourceName == "dse.fac" && placements[0].frame == 2,
 		"eradicated face selection");
+	placements = CloudsUiComposer::buildFallPortraitPlacements(state);
+	check(placements.size() == 2 && placements[0].resourceName == "char01.fac" && placements[0].frame == 4 &&
+		placements[1].resourceName == "char19.fac" && placements[1].frame == 4 && placements[1].x == 45 &&
+		placements[0].y == 150, "fall faces ignore the condition");
 
 	setName(roster, 24, "Unsupported");
 	state = XeenPartyLoader().loadFromResources(roster, partyFixture(1, 1, {24}));

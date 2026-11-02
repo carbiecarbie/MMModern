@@ -1704,13 +1704,64 @@ void questChains(Inputs &in,const XeenSaveSnapshot &source,const XeenSaveSnapsho
  }
  std::cout<<"Darkside quest chains passed\n";
 }
+// Terrain and scripted FallToMap falls draw each member's own scared face
+// whatever its condition (Dead, Stoned and Eradicated faces once failed that
+// draw and hung the fall), then damage every member. A Space Event that defeats
+// the party on a flagged cell ends its input before the cell's pass and starts
+// the death sequence.
+void fallAndSpaceDefeat(Inputs &in,const XeenSaveSnapshot &source) {
+ using D=XeenDirection;const auto dark=[](unsigned n){return XeenMapIdentity{XeenSide::Darkside,std::uint16_t(n)};};
+ const auto ack=[](Live &live){const auto d=live.flow->inputContext(live.flow->frame().presentation()).dialog;if(d && d->anyKey)live.act(AcknowledgeAction{});live.tick();};
+ struct Fall {XeenCamera camera;XeenCondition condition;};
+ for(const auto &fall:{Fall{{dark(128),5,5,D::North},XeenCondition::Dead},Fall{{dark(98),8,8,D::North},XeenCondition::Dead},
+     Fall{{XeenMapIdentity(25),5,5,D::North},XeenCondition::Dead},Fall{{dark(128),5,5,D::North},XeenCondition::Eradicated},
+     Fall{{dark(98),8,8,D::North},XeenCondition::Stoned}}) {
+  auto s=at(in,source,fall.camera);const auto owner=s.activeRosterIds[0];
+  s.characters[owner].conditions[unsigned(fall.condition)]=1;s.characters[owner].currentHp=0;
+  Live live(in,s);const auto destination=live.w.terrainFallDestination(live.c);
+  std::string face;const auto draw=live.flow->drawDialogSprite;
+  live.flow->drawDialogSprite=[&,draw](auto &frame,const char *name,unsigned image,int x,int y){if(image==4 && x==10 && y==150)face=name;draw(frame,name,image,x,y);};
+  live.act(NavigationAction::TurnLeft);
+  for(unsigned n=0;!live.flow->canSave();++n){check(n<100,"Fall with an incapacitated member never reached Quiet");ack(live);}
+  check(face==*live.p.roster.at(owner).portraitResourceName(),"Fall did not draw the member's own scared face");
+  check(live.c.mapId==destination.mapId && live.c.x==destination.x && live.c.y==destination.y,"Fall with an incapacitated member missed its destination");
+  check(live.p.roster.at(owner).conditions[unsigned(fall.condition)],"Fall cleared the member's condition");
+  for(auto other:s.activeRosterIds)if(other!=owner)check(live.p.roster.at(other).currentHp<s.characters[other].currentHp,"Fall skipped a member's damage");
+ }
+ {
+  // Original map 8 @503 FallToMap (Darkside 40 (3,3), base damage 7), called from the party's cell.
+  const auto row=[](unsigned x,unsigned y,unsigned line,unsigned opcode,std::vector<std::uint8_t> p={}) {
+   XeenEventRecord e;e.x=x;e.y=y;e.line=line;e.direction=4;e.opcode=opcode;e.parameters=std::move(p);e.lengthField=5+e.parameters.size();return e;
+  };
+  const auto sourceFile=in.events.load(dark(8));const auto found=std::find_if(sourceFile.records.begin(),sourceFile.records.end(),[](const auto &e){return e.fileOffset==503;});
+  check(found!=sourceFile.records.end() && found->opcode==52 && found->parameters==std::vector<std::uint8_t>({40,3,3}),"Map 8 @503 fall witness differs");
+  XeenEventFile fallFile{dark(8),"original map 8 scripted fall",true,{*found,row(14,14,0,25,{found->x,found->y,found->line})}};
+  auto s=at(in,at(in,source,{dark(40),3,3,D::West}),{dark(8),14,14,D::West});const auto owner=s.activeRosterIds[0];
+  s.characters[owner].conditions[unsigned(XeenCondition::Dead)]=1;s.characters[owner].currentHp=0;
+  Live live(in,s,&fallFile);std::string face;const auto draw=live.flow->drawDialogSprite;
+  live.flow->drawDialogSprite=[&,draw](auto &frame,const char *name,unsigned image,int x,int y){if(image==4 && x==10 && y==150)face=name;draw(frame,name,image,x,y);};
+  live.act(InteractionAction{});
+  for(unsigned n=0;!live.flow->canSave();++n){check(n<100,"Scripted fall with a Dead member never reached Quiet");ack(live);}
+  check(face==*live.p.roster.at(owner).portraitResourceName(),"Scripted fall did not draw the Dead member's own scared face");
+  check(live.c.mapId==dark(40) && live.c.x==3 && live.c.y==3 && live.p.roster.at(owner).conditions[unsigned(XeenCondition::Dead)],"Scripted fall with a Dead member missed its destination");
+  for(auto other:s.activeRosterIds)if(other!=owner)check(live.p.roster.at(other).currentHp<s.characters[other].currentHp,"Scripted fall skipped a member's damage");
+ }
+ auto s=at(in,source,{dark(124),2,4,D::North});Live live(in,s);
+ const auto cell=live.w.sampleCell(live.c.mapId,live.c.x,live.c.y);
+ check(cell && (cell->cell->rawAttributes&kXeenAutomaticEventFlag),"Map 124 (2,4) is not a flagged cell");
+ live.act(InteractionAction{});
+ for(unsigned n=0;!XeenRestTestAccess::death(*live.flow);++n){check(n<100,"Space defeat on a flagged cell never started the death sequence");ack(live);}
+ check(live.flow->encounter()->state().reason()==XeenEncounterStop::Defeat && !live.flow->canSave(),"Space defeat did not end the session");
+ std::cout<<"Falls with incapacitated members and the flagged Space defeat passed\n";
+}
 int main(int argc,char **argv) {
  try {
-  check(argc==3 || (argc==4 && (std::string(argv[3])=="partb" || std::string(argv[3])=="partc" || std::string(argv[3])=="mixed" || std::string(argv[3])=="mixed-travel" || std::string(argv[3])=="quests")),"usage: darkside-tests <installation> <output-directory> [partb|partc|mixed|mixed-travel|quests]");const auto installation=xeenTestInstallationDetector().detect(argv[1]);check(bool(installation),"Missing original installation");
+  check(argc==3 || (argc==4 && (std::string(argv[3])=="partb" || std::string(argv[3])=="partc" || std::string(argv[3])=="mixed" || std::string(argv[3])=="mixed-travel" || std::string(argv[3])=="quests" || std::string(argv[3])=="fall-defeat")),"usage: darkside-tests <installation> <output-directory> [partb|partc|mixed|mixed-travel|quests|fall-defeat]");const auto installation=xeenTestInstallationDetector().detect(argv[1]);check(bool(installation),"Missing original installation");
   const std::filesystem::path out=std::string(argv[2])=="temporary"?std::filesystem::temp_directory_path()/"mmodern-m104-frames":std::filesystem::path(argv[2]);std::filesystem::create_directories(out);const auto save=std::filesystem::temp_directory_path()/("mmodern-m101-"+std::to_string(std::chrono::steady_clock::now().time_since_epoch().count())+".mmsave");
   std::cout<<"Preset: "<<save<<'\n';
   developer::generateTestSave(*installation,"m101-castleview",save);Inputs in(*installation);const auto preset=XeenSaveFile::read(save);
   check(preset.camera.mapId==XeenMapIdentity(XeenSide::Darkside,29),"Wrong Castleview preset");
+  if(argc==4 && std::string(argv[3])=="fall-defeat"){fallAndSpaceDefeat(in,quiet(in,preset));return 0;}
   if(argc==4 && std::string(argv[3])=="partc"){partCEvents(in,quiet(in,preset),out);return 0;}
   if(argc==4 && std::string(argv[3])=="mixed-travel"){mixedTravel(in,*installation,preset,out);return 0;}
   if(argc==4 && std::string(argv[3])=="quests") {

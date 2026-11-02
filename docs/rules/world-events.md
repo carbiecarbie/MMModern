@@ -76,6 +76,10 @@ input or clearing, Space waits and a 3D click does not: both can run a flagged
 cell twice. Teleport can clear Space; a dialog can replace it. A click followed
 by a Space or W acknowledgement can consequently wait. The original does not
 preserve an unconditional Space-versus-click continuation across every script.
+A manual Event that defeats the party leaves the loop at the death check
+(`0xd5d5..0xd5e3`; manual terminal result `0xd2cd`) without the flagged-cell
+pass, so the death sequence follows as it does after a lethal step. The pin's
+`gameLoop` likewise breaks on `_dead` before its next `checkEvents`.
 
 Wait advances time and monsters and clears door text. The monster step moves
 actors; a draw rebuilds attack slots. An Event call tests the most recently

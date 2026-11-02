@@ -79,6 +79,18 @@ std::vector<CloudsUiComposer::PortraitPlacement> CloudsUiComposer::buildPortrait
 	return placements;
 }
 
+std::vector<CloudsUiComposer::PortraitPlacement> CloudsUiComposer::buildFallPortraitPlacements(
+		const XeenPartyState &partyState) {
+	// DOS 0x11656..0x11684 draws each slot's own face sprite with frame 4 and
+	// no condition test, so dse.fac never replaces a Dead, Stone or Eradicated face.
+	auto placements=buildPortraitPlacements(partyState);
+	for (std::size_t i = 0; i < placements.size(); ++i) {
+		placements[i].resourceName = *partyState.party.member(partyState.roster, i).portraitResourceName();
+		placements[i].frame = 4;
+	}
+	return placements;
+}
+
 std::vector<CloudsUiComposer::HpPlacement> CloudsUiComposer::buildHpPlacements(
 		const XeenPartyState &partyState,
 		const XeenCharacterRulesContext &context, unsigned memberMask) {

@@ -41,6 +41,8 @@ public:
 	static std::vector<PortraitPlacement> buildPortraitPlacements(
 		const XeenPartyState &partyState, unsigned memberMask);
     static std::vector<PortraitPlacement> buildPortraitPlacements(const XeenPartyState &p) {return buildPortraitPlacements(p,p.party.activeOrder().mask());}
+	// Every active member's own face, frame 4, whatever its condition: the fall's scared faces.
+	static std::vector<PortraitPlacement> buildFallPortraitPlacements(const XeenPartyState &partyState);
 	static std::vector<HpPlacement> buildHpPlacements(
 		const XeenPartyState &partyState,
 		const XeenCharacterRulesContext &context, unsigned memberMask);
