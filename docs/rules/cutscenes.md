@@ -876,12 +876,76 @@ comparisons remain in `D:/Projetos/MModern/MModern-re/m106/part-b-*` and
 `score-frame-comparison.json`. This is original-program evidence
 corroborated by the capture, not a scene-specific one-pixel adjustment.
 
-The `face.end` bottom clip at 171 is **not cited by EXE evidence**. It comes
-from `Sprite::bottom=171` in MMModern's Darkside ending throne-face and Alamar
-rise compositions, applied by the presenter's row restoration. The existing
-listing's draw at `0xd834` does not establish that bound. Compared complete
-Alamar-rise capture frames agree (including the frame at 8.617723 s); this
-pixel agreement is not an EXE-offset citation for the clipping rule.
+The `face.end` bottom clip at 171 is `Sprite::bottom=171` in MMModern's
+Darkside ending throne-face and Alamar rise compositions, applied by the
+presenter's row restoration. **EXE evidence (M107 Part 0):** startup sets the
+bottom-clip word to 171 (`0x789a..0x789d` -> setter `0x1d571`), the Darkside
+ending never changes it, and its `face.end` draws (`0xd79e`, `0xd834`) use
+flag `0x4000`, which applies that row window ([World rules](#world-ending-presentation)).
+Compared complete Alamar-rise capture frames agree (including the frame at
+8.617723 s).
+
+## World ending presentation
+
+**DOS static, high for the sequence, resources, waits, input and drawing
+primitives (M107 Part 0, 2026-11-02); the maintainer's uninterrupted W
+replay capture is the audiovisual and wall-time reference still to record**
+([evidence](evidence.md#m107-part-0)). The primitives are the ones the
+Darkside ending uses and that M106 calibrated against two captures. EXE
+dispatch `0x7ad5..0x7b22` passes the score and the zero state to `0xfbc9`;
+the main routine returns at `0x11467` and the shared exit `0x7b27` leads to a
+fresh World title as for the other endings. The final helper
+`0x11468..0x11864` runs the last three scenes and the score page; text
+helpers `0xfb54` (colors 38/39) and `0xfadf` (colors 5/11, last caption only)
+draw a shadow at window 28 `(2,157)` and the text at `(1,156)`, centered,
+318 pixels wide.
+
+**Archive and media.** INTRO.CC serves every load. DARK.CC is opened only for
+`elect.voc` and `photon.voc`, and INTRO.CC is reopened at once. The first
+`elect.voc` load only reserves the shared sound buffer, as `ido2.voc` does in
+the Darkside ending. Songs are `outday3.m` (both Pharaoh pages) and
+`nwblksmt.m` (the film). There are **no voices, no `special.bin` caption
+records, no mixer commands and no random draws**; captions are the EXE's
+own texts, drawn whatever the Text setting or sound device. Effects are
+`whoosh`, `cast`, `click`, `padspell`, `elect`, `explosio`, `gascompr`,
+`photon`, `comet` and `rumble`. Every resource exists in the CD archives.
+
+| Stage, EXE range | Sequence |
+| --- | --- |
+| Opening, `0xfbc9..0xfd94` | `outday3.m`; one Pharaoh page with "Congratulations Adventurers! / Let the unification ceremony begin!" through `0x6c91`. Song fade 223; load sky, tower and dragon art; fade out; **wait until the song fade has ended** (command `0xffe0` returns zero, no key poll). `nwblksmt.m`; sky with the first caption; fade in; 60-tick hold. |
+| Tower, `0xfd94..0x1001a` | Dragon approach, 50 frames at 2 ticks, `whoosh` at 9/22/33/44. Landing, 40 frames at 2. Crowd scroll: x 0..315 in steps of 5, **one** tick per frame, second caption from x 125; then the remaining 29 crowd frames at 2 ticks over the merge at the **last scroll offset**. |
+| CD animations, `0x10015..0x102be` | Three full-screen animations absent from the pin: `cd10001` with `cd1a1..cd1d1` (59 frames), `cd2orig` with `cd2a1..cd2z1`, `cd2a2..cd2h2`, `cd2i2` (273 frames), and `cd30001` with `cd3a1..cd3o3` drawn at (101,0) without restoring the background (268 frames; every fourth frame loads the next member before its tick reset). Each fades in with step `0x81` (one full-palette write) while the previous image is still shown; the new image follows at the next publish, for the third only after its first member load. All frames hold 2 ticks. Fade out after the third. |
+| Ceremony, `0x102be..0x10d32` | Crowd sits (`foura`, `sc06`, 26 frames at **3**). Dragon Pharaoh (`eg140001`, `sc14`, 2x15 at **3**); the fade shows the bare background. Queen Kalindra (`eg100001`, `sc13`, **3x6** at 2); the Cube rises (`sc17`, 39 steps of 3 rows from y 185, then 17 frames at y 68, all **17** frames cycled), `cast` replayed whenever idle. Pharaoh (2x15 at 3). Prince Roland (`sc10`, 3x5 at **2**), staff rises 29 steps of 6 rows, 30-tick hold. Pharaoh (2x15 at 3). Table (`tablmain`): cube and hands, cube lowers 71 rows, `padspell` at frame 10 of the 14- and 17-frame loops and **once more** before the six 4-tick frames; 30-tick hold. |
+| Altar to globe, `0x10d32..0x11454` | Sceptre placed (`sc22a/b`, 35 frames at 3, `click`/`elect`/`explosio`). Light (`eg23prt2`, `sc23a..h`, 61 frames at 4, no background restore). Tower beam (`skymain`, `sc24`, 35 + 15 frames at 3). Power lines (`eg250001`, `sc25`, 52 at 2). Collectors (`blank`, four sprites, fade `0x81`, 78 frames at 2 with the pin's frame rules). |
+| Final helper, `0x11468..0x11864` | Arcs (`eg270001`, `sc27`, 89 at 2). Globe (`eg280001`, `sc28a..n`, 138 at 2, `rumble` when idle after frame 98). `white.pal` flash with `explosio`, **10 ticks without a key poll**, fade out. Last caption over `sc30`, 20x4 frames at 2, fade in after the first publish, song fade 207 in round 17. Fade out, **wait for the song fade**, `outday3.m`, score page. |
+
+**Clipping.** Flag `0x4000` draws (Cube, staff, table cube) use the
+bottom-clip word (185, then 118 from the table; startup leaves 171) and also
+skip every row **above y 17** (`0x1509c..0x150ba`, `0x152ae..0x152ba`);
+other draws use rows 0..199. Flag `0x800` draws (tower scroll at negative x)
+take the program mode-8 path, which clips each pixel against the window
+horizontally; its [top-row quirk](#darkside-ending-presentation) applies only
+at negative y, which no World `0x800` draw uses.
+
+**Score and return.** The final page formats the score with the **same EXE
+format as the Darkside first score page** (DS `0x29be`, leading blank line,
+`%010lu`). A second "But wait..." page exists only for the Goober states, which
+no DOS path sends ([state rule](#world-ending-state-argument)), so exactly one
+score page is shown. Both Pharaoh pages behave as the
+[Darkside score pages](#darkside-ending-presentation): three-tick frames,
+keyboard advance, no mouse. `0x6f22(1,0)` returns without a closing parchment
+or final fade; then the shared exit.
+
+**Input.** The film's 34 keyboard polls (31 main, 3 helper) ignore their
+result: no key or click skips it. Ctrl-Q follows the shared EXE quit path at
+the next reached poll; the holds poll continuously, other frames once after
+publishing, and the two song-fade waits and the white flash do not poll.
+
+**Open for the capture.** `sc17.eg2` frame 16's first component offset points
+into frame 15's line data (its header would be x 22019, height 7936); the
+second component is valid. DOS draws it at rise steps 16 and 33 and on the
+last of the 17 frames; what it shows is not settled statically. The pin
+skips that frame as malformed.
 
 ## Ending write boundary
 

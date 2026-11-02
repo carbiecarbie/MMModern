@@ -40,6 +40,17 @@ findings are confirmed by a DOSBox capture.
 - **Darkside ending details.** [Original frame counts, effect files and score claw](original-quirks.md#sv-m106-ending-composition), including the missing vortex sprite and the castle crash sound.
 - **I do timing approximation.** [Approved unsplit sound deadline at this boundary](original-quirks.md#dev-m106-ido-boundary): MMModern's modeled visual interval is about 0.65 s longer than DOS; the pin gates on mixer/VOC completion. Pin: differs; master not rechecked.
 
+M107 Part 0 establishes the World ending presentation from the original
+program; its implementation follows in Part A. Pin: differs; master not
+rechecked.
+
+- **World ending CD animations.** [Three full-screen animations](original-quirks.md#sv-m107-cd-animations) play after the crowd scroll; the pin omits them.
+- **World ending waits.** [Original stage waits, repeats, scroll merge and song-fade waits](original-quirks.md#sv-m107-stage-waits), where the pin changes several.
+- **Rising Cube frames.** [All 17 frames, including the malformed last one](original-quirks.md#sv-m107-cube-frames); the pin skips it.
+- **Bottom-clipped ending sprites.** [Rows above y 17 are hidden too](original-quirks.md#sv-m107-clip-top); the pin clips only the bottom.
+- **Table sound.** [One more padspell before the last frames](original-quirks.md#sv-m107-table-padspell), omitted by the pin.
+- **World ending texts.** [Original caption and score-page text, no final fade](original-quirks.md#sv-m107-texts).
+
 Two additional DOS state rules were established by
 [M104 Part 0](rules/evidence.md#mixed-world-of-xeen-maps-m104-part-0).
 The travel owners follow these rules. Neither state persists through the

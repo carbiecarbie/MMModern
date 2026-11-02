@@ -3341,3 +3341,35 @@ SHA-256: video0004
 `c4cbfe82937f2ddbd4e1f86c8556464a1fdb30081b83febe8d3b2ed782756660`;
 video0005
 `55499f354033ecbf4c5327fda4eacd28a5514ccd4b39d3ff8ef42cecf3a007bd`.
+
+## M107 Part 0
+
+**Calibrated DOS static and original-resource inspection, 2026-11-02.**
+Baseline `73019b3`, clean `main`; same installed CD hashes, EXE mapping
+(header `0x2e30`, DS base `0x1d880`) and WSL Python 3 / Capstone 5.0.7 x86-16
+as [M106 Part 0](#m106-part-0). A recursive-descent dump of
+`0xfadf..0x11864` from the entries `0xfadf`, `0xfb54`, `0xfbc9` and `0x11468`
+covers the range without gaps. Calibration: every primitive the World ending
+calls (resource loads, draw, publish, fades, BIOS counter, key poll, digital
+and song commands, page save/restore) is used identically by the Darkside
+ending, whose sequence M106 matched against two captures. Static decoding is
+not an observed DOSBox run.
+
+| Question | Evidence and boundary |
+| --- | --- |
+| Entry and return | Dispatch `0x7ad5..0x7b22` (state 0 stores a null second-page pointer at `0x7b16..0x7b1c`); main `0xfbc9..0x11467`, helper `0x11468..0x11864`; `0x6f22(1,0)` at `0x1145c` as Darkside `0xfad3`; shared exit `0x7b27`. |
+| Archives and resources | Open `0x11865`: DARK.CC slot 3 only around `elect.voc` (`0xfbd4`, `0x10d5c`) and `photon.voc` (`0x10fd3`, `0x1124b`), INTRO.CC slot 4 otherwise. Every literal and formatted name (`cd1%c1`, `cd2%c1`, `cd2%c2`, `cd3%c%d`) was checked in the CD archives inside GAME1.GOG: all present in INTRO.CC, the two effects in DARK.CC; sprite frame counts equal the loop bounds. |
+| Waits and polls | 34 polls, 35 reset/elapsed pairs, thresholds 1 (`0xff71`), 2, 3, 4, 10 (`0x1174c`, unpolled), 30 (`0x1086f`, `0x10d2d`) and 60 (`0xfd8f`). Song-fade waits `0xfd14..0xfd1e`, `0x117dd..0x117e7` poll command `0xffe0` ([audio](audio.md#promus-commands-and-voices)). |
+| Fades | `0x14a69`/`0x14a74`; step `0x81` (`0x14a97..0x14aa3`) writes the full palette once; palette loads (`0x14bc6`) fill the buffer only. |
+| Clipping | `0x1d571` sets the bottom word (startup `0x789a` 171; ending 185 at `0xfc51`/`0x107fe`, 118 at `0x108f0`); `0x4000` selects rows 17..bottom (`0x1509c..0x150ba`, compare `0x152ae..0x152ba`). |
+| Score | Format pointer DS `0x29be` -> `0x29c6`, the Darkside first-page format; one page via `0x6c91` (`0x11854`). Opening page DS `0x30a7` (`0xfc34`). |
+| Texts | Captions DS `0x3169..0x362a`; helper formats DS `0x3042..0x3072`. Drawn every caption frame, independent of the sound device. |
+| Random | No call to `0x1cbdc` in the range. |
+
+Open for the capture: `sc17.eg2` frame 16 has a malformed first component
+(offset 22332 inside frame 15's data); DOS draws it three times. Scripts,
+listings and the detailed sequence remain under
+`D:/Projetos/MModern/MModern-re/m107/` (`part0-findings.md`); nothing
+original-derived was added to the repository. The DOSBox seed for one
+uninterrupted W replay at the M106 settings (80000 cycles, World won only,
+CFG byte 23 = 1) is `D:/Projetos/MModern/MModern-playtest/m107-part0/`.
