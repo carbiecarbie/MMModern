@@ -92,7 +92,7 @@ Other recorded differences:
 - **Ice Troll regeneration.** [The full heal at each new combat round is Clouds-only](original-quirks.md#sv-clouds-ice-troll); the pin omits that side test. Pin: differs; master not rechecked.
 - **Lake monsters quest.** [All three Water Dragons must be gone when leaving map 15](original-quirks.md#sv-lake-dragons-away); loading it clears the flag. The pin sets it on load and on save with different tests. Pin: differs; master not rechecked.
 - **Drained caves.** [Flag 25 applies to maps 42, 43 and 44](original-quirks.md#sv-drained-cave-maps); the pin uses 4 instead of 44. Pin: differs; master not rechecked.
-- **Completed quest objects.** [Nine quest flags hide neighbouring-map object copies](original-quirks.md#sv-quest-done-objects). The first matching flag/map entry wins; the pin omits this table. Pin: differs; master not rechecked.
+- **Completed quest objects.** [Nine quest flags hide neighbouring-map object copies on Clouds](original-quirks.md#sv-quest-done-objects). The first matching flag/map entry wins; the pin omits this table. Pin: differs; master not rechecked.
 - **Monster target draws.** The [initial target draw depends on party size](original-quirks.md#sv-monster-target-count-draws): none for one combat participant, one for two to five, and one or two for six. The pin always draws once. Pin: differs; master not rechecked.
 - **Dismiss lodging.** [Dismiss keeps departed characters until the next Save](original-quirks.md#sv-dismiss-deferred-lodging), which lodges them in Vertigo on Clouds. The pin removes them without that deferred lodging pass. Pin: differs; master not rechecked.
 - **Saved lodging map.** The [CHR lodging map is a 16-bit word at bytes 340–341](original-quirks.md#sv-chr-lodging-layout); byte 339 is separate. The pin starts the unknown field one byte earlier and reads only byte 341 as the map. Pin: differs; master not rechecked.
@@ -397,7 +397,7 @@ The DOS dispatch comparisons below specify the faithful per-input rule;
 implemented coverage remains in project status. These entries were checked
 against the pin; master was not rechecked.
 
-- **Original map data.** [MMModern plays the installed Events and objects without the pin's data patches](original-quirks.md#sv-pin-data-patches): the Ellinger's Tower curtain slot, the two map-62 pit landings, the distant Clouds 24 statue and the Desert Paladin stone copies. Pin: differs; master not rechecked.
+- **Original map data.** [MMModern plays the installed Events and objects without the pin's data patches](original-quirks.md#sv-pin-data-patches): the Ellinger's Tower curtain slot, the two map-62 pit landings, the distant Clouds 24 statue and the Desert Paladin stone copies, which DOS also leaves in view after a stone is used. Pin: differs; master not rechecked.
 - **Darkside object exchanges.** DOS exchanges the objects' positions; the
   pin changes a copy and leaves the map unchanged.
   [Evidence](original-quirks.md#sv-darkside-exchange-objects). MMModern exchanges

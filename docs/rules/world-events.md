@@ -403,6 +403,9 @@ recorded with their evidence in original quirks: the
 [quest-completed object hides](../original-quirks.md#sv-quest-done-objects),
 Newcastle's castle graphics in the same table, and
 [Castle Xeen's removal after a win](../original-quirks.md#sv-clouds-castle-removal).
+No such rule hides object copies on Darkside: the distant copies of a used
+Desert Paladin stone on maps 10, 11 and 15 stay in view, as in DOS
+([original bug kept](../original-quirks.md#sv-pin-data-patches)).
 
 ## Worked resource examples
 

@@ -216,9 +216,10 @@ are direction, not approved plans.
    the crossing between the sides, loads after both wins, continuation keys
    after an Event and interrupted Event chains
    ([plan](milestone-108-plan.md)).
-3. **Desert Paladin stone copies:** DOS program analysis of whether DOS
-   hides the distant copies of a used stone on Darkside, which the reference
-   does and MMModern does not ([details](original-quirks.md#sv-pin-data-patches)).
+3. **Desert Paladin stone copies, settled 2026-11-02:** DOS program analysis
+   shows that DOS, like MMModern, leaves the distant copies of a used stone
+   in view on Darkside; the reference hides them. Kept as an original bug,
+   with no code change ([details](original-quirks.md#sv-pin-data-patches)).
 4. **Release** with all of the above; the maintainer sees no need for an
    earlier one.
 
