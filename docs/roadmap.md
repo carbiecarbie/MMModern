@@ -195,8 +195,14 @@ reaches a scene or a sky redraw after one.
 
 Roughly in this order, each with its own decision and plan:
 
-1. Automated builds and tests on GitHub.
-2. An open beta and a "Clouds complete" announcement.
+1. Automated builds and tests on GitHub: every push builds on a clean
+   machine and runs the tests that need no original data, which also proves
+   that the repository and [dependencies](dependencies.md) alone rebuild the
+   project. Tests on the original data stay local, because that data cannot
+   be published.
+2. Optionally, a public announcement that World of Xeen plays from start to
+   end, inviting players to report defects with the launcher's diagnostics
+   and the issue template. The releases are already public.
 3. Steam Deck through Proton, then a native Linux build and its distribution.
    A first attempt (2026-10-31) found that the build needs a POSIX platform
    layer (saves, settings, paths), a portable item-catalog generator and
