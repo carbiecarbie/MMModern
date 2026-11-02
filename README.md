@@ -22,12 +22,18 @@ page lists the known cases.
 
 ## What works today
 
-Clouds of Xeen is complete: every map, the story through Lord Xeen and the
-ending play as in the original. Darkside is nearly complete, with its maps,
-towns, Events and the World of Xeen areas that join the two sides. Still
-missing are the Darkside and World endings and three Events (one in Darkstone
-Tower, two in the Dungeon of Death), which say "not supported yet". The 0.x
-releases are early versions and don't replace the original games yet.
+Clouds of Xeen is complete. Every map plays as in the original, and the story
+has been checked from the start through Lord Xeen to the ending.
+
+Darkside of Xeen now has every map, town and Event, the World of Xeen areas
+that join the two sides, and its ending. Winning World of Xeen plays its own
+ending too. Darkside has had much less real play than Clouds, though. Each
+part was checked with automated tests on the original data and short
+play-tests from prepared saves, but it hasn't been played through from start
+to finish yet, so expect more bugs there. Reports are very welcome (see
+[Reporting a problem](#reporting-a-problem)).
+
+The 0.x releases are early versions and don't replace the original games yet.
 
 ## Download and play
 
