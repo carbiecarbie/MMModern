@@ -19,7 +19,7 @@ public:
 			state.reward.phase!=XeenRewardPhase::Running || state.reward.receipt.count ||
 			state.reward.receipt.delivered || state.reward.receipt.lost || state.reward.receipt.discarded ||
 			state.reward.receipt.discardReason!=XeenRewardDiscard::None)) ||
-			state.instructionCount>XeenEventInterpreter::kMaximumInstructions ||
+			state.instructionsSinceInput>XeenEventInterpreter::kMaximumInstructions ||
 			state.callStack.size()>XeenEventInterpreter::kMaximumCallDepth)
 			throw std::logic_error("Unsupported detached Event continuation");
 	}
@@ -40,7 +40,8 @@ public:
 			a.selectedObject==b.selectedObject && a.activeCharacterIndex==b.activeCharacterIndex && a.entireParty==b.entireParty &&
 			a.mirrorDestination==b.mirrorDestination && a.scriptValues==b.scriptValues && a.giveTake==b.giveTake && a.lock==b.lock &&
 			a.workingGameFlags.values()==b.workingGameFlags.values() &&
-			a.instructionCount==b.instructionCount && a.missingInstructionPolicy==b.missingInstructionPolicy &&
+			a.instructionCount==b.instructionCount && a.instructionsSinceInput==b.instructionsSinceInput &&
+			a.missingInstructionPolicy==b.missingInstructionPolicy &&
 			optional(a.pendingTransferSource,b.pendingTransferSource,source) &&
 			a.currentScript && sameScript(a.currentScript->file(),b.currentScript->file()) &&
 			a.callStack.size()==b.callStack.size() &&

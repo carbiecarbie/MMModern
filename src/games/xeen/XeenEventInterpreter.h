@@ -98,6 +98,9 @@ struct XeenPresentationResponse {
 		No
 	};
 	std::variant<Signal, SelectedCharacter, CharacterSelectionCancelled, XeenWordInput, XeenNumericChoice> value;
+	// False when Flow answers on the player's behalf (a timed reward hold expiring).
+	bool fromPlayer = true;
+	static XeenPresentationResponse timed(Signal signal) { XeenPresentationResponse r(signal); r.fromPlayer = false; return r; }
 	XeenPresentationResponse(Signal signal) : value(signal) {}
 	XeenPresentationResponse(SelectedCharacter selection) : value(selection) {}
 	XeenPresentationResponse(CharacterSelectionCancelled cancel) : value(cancel) {}
@@ -270,7 +273,9 @@ struct XeenEventExecutionState {
 	XeenGameFlags workingGameFlags;
 	std::optional<XeenEventScript> currentScript;
 	std::vector<XeenEventCallFrame> callStack;
-	std::size_t instructionCount = 0;
+	std::size_t instructionCount = 0; // Every dispatch of this Event.
+	// Dispatches since the last player response; kMaximumInstructions bounds it.
+	std::size_t instructionsSinceInput = 0;
 	XeenEventMissingInstructionPolicy missingInstructionPolicy =
 		XeenEventMissingInstructionPolicy::NaturalCompletion;
 	std::optional<XeenEventSourceLocation> pendingTransferSource;

@@ -310,7 +310,7 @@ if(BUILD_TESTING)
 
  set(MMODERN_M92_TITLE_PRESET "${CMAKE_CURRENT_BINARY_DIR}/title-flow-preset/m92-sixth-mirror.mmsave")
  file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/title-flow-preset")
-	foreach(preset m106-alamar m106-world m106-mirror m106-clouds-mirror m102-playtest m102-bank m102-smithy m102-guild m102-tavern m102-temple m102-training m102-inn m102-tower-refused m102-tower-keyed m102-dungeon-refused m102-dungeon-keyed m102-town-refused m102-town-keyed m92-lord-xeen m92-sixth-mirror broken-armor train-ready injured-dead poisoned monster-control monster-damage party-healing m76-spells combat-items m78-playtest m78-one-holder m79-playtest m80-playtest m80-arena m80-arena-maxed m81-drops m81-fullpacks m81-event m84-playtest-trap m84-playtest-label m84-playtest-save m85-playtest-label m85-playtest-run m85-playtest-trap m86-playtest-fall m86-playtest-moon-ray m86-playtest-border m87-inn m87-three m87-shangrila m88-roster m89-lord-xeen m89-clan-king m89-draco m89-dragons m89-trolls m90-newcastle m90-golem m90-illusion m90-high-magic m90-darzog m90-clouds m90-castle m90-winterkill m90-emerson-short m90-emerson-walls m90-taxman-walls m90-emerson-keep m90-taxman-keep m90-artemus m90-emerson-dungeon m90-taxman-dungeon m90-laboratory m90-sword m90-mirabeth m90-mirabeth-elixir m90-elixir m90-credit-yak m90-golem-terrors m90-credit-terrors m90-golem-stone m90-credit-golem m90-darzog-key m90-crodo m90-slick m90-slick-trade m90-generator m90-winterkill-gong m90-winterkill-wave2 m90-winterkill-wave3 m90-winterkill-final m95-witch-skull paths)
+	foreach(preset m106-alamar m106-world m106-mirror m106-clouds-mirror m102-playtest m102-bank m102-smithy m102-guild m102-tavern m102-temple m102-training m102-inn m102-tower-refused m102-tower-keyed m102-dungeon-refused m102-dungeon-keyed m102-town-refused m102-town-keyed m92-lord-xeen m92-sixth-mirror broken-armor train-ready injured-dead poisoned monster-control monster-damage party-healing m76-spells combat-items m78-playtest m78-one-holder m79-playtest m80-playtest m80-arena m80-arena-maxed m81-drops m81-fullpacks m81-event m84-playtest-trap m84-playtest-label m84-playtest-save m85-playtest-label m85-playtest-run m85-playtest-trap m86-playtest-fall m86-playtest-moon-ray m86-playtest-border m87-inn m87-three m87-shangrila m88-roster m89-lord-xeen m89-clan-king m89-draco m89-dragons m89-trolls m90-newcastle m90-golem m90-illusion m90-high-magic m90-darzog m90-clouds m90-castle m90-winterkill m90-emerson-short m90-emerson-walls m90-taxman-walls m90-emerson-keep m90-taxman-keep m90-artemus m90-emerson-dungeon m90-taxman-dungeon m90-laboratory m90-sword m90-mirabeth m90-mirabeth-elixir m90-elixir m90-credit-yak m90-golem-terrors m90-credit-terrors m90-golem-stone m90-credit-golem m90-darzog-key m90-crodo m90-slick m90-slick-trade m90-generator m90-winterkill-gong m90-winterkill-wave2 m90-winterkill-wave3 m90-winterkill-final m95-witch-skull ellinger-speech paths)
   if(preset STREQUAL "m92-sixth-mirror")
    add_test(NAME xeen_test_save_${preset} COMMAND mmodern_test_save_tests
     "${MMODERN_XEEN_DATA_DIR}" ${preset} "${CMAKE_CURRENT_SOURCE_DIR}" --export "${MMODERN_M92_TITLE_PRESET}")
@@ -898,6 +898,8 @@ if(BUILD_TESTING)
 		add_test(NAME xeen_mixed_travel_original COMMAND mmodern_darkside_tests "${MMODERN_XEEN_DATA_DIR}" temporary mixed-travel)
 		add_test(NAME xeen_darkside_quests_original COMMAND mmodern_darkside_tests "${MMODERN_XEEN_DATA_DIR}" temporary quests)
 		add_test(NAME xeen_fall_defeat_original COMMAND mmodern_darkside_tests "${MMODERN_XEEN_DATA_DIR}" temporary fall-defeat)
+		add_test(NAME xeen_dial_original COMMAND mmodern_darkside_tests "${MMODERN_XEEN_DATA_DIR}" temporary dial)
+		add_test(NAME xeen_darkside_cd_disc_original COMMAND mmodern_darkside_tests "${MMODERN_XEEN_DATA_DIR}" temporary cd-disc)
 	endif()
 	add_executable(mmodern_save_state_tests tests/XeenSaveStateTests.cpp)
 	target_link_libraries(mmodern_save_state_tests PRIVATE mmodern_app mmodern_xeen ZLIB::ZLIB)
@@ -1477,7 +1479,8 @@ if(BUILD_TESTING)
 			xeen_combat_casting_effects=20 xeen_new_game_process=18 xeen_myra_original=17
 			xeen_cd_audio=17 xeen_combat_casting_process=17 xeen_item_catalog_generation=16
 			xeen_temple_depleted_process=16 xeen_temple_process=13 xeen_m44_scenario_roundtrip=12
-			xeen_m44_scenario_temple=12 xeen_m60_exploration_original=10 xeen_title_flow_intros=10)
+			xeen_m44_scenario_temple=12 xeen_m60_exploration_original=10 xeen_title_flow_intros=10
+			xeen_dial_original=17)
 		string(REPLACE "=" ";" xeen_cost "${xeen_cost}")
 		list(GET xeen_cost 0 xeen_test)
 		list(GET xeen_cost 1 xeen_seconds)

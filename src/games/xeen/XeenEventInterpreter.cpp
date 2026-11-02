@@ -342,6 +342,12 @@ XeenEventExecutionStepResult XeenEventInterpreter::resume(
 		const ScriptProvider &scriptProvider, const TextProvider &textProvider, const XeenEventPublication *publication) const {
 	if (world.sessionState().journey() && !publication) throw std::logic_error("Journey event requires live continuation authority");
 	if (publication) publication->check();
+	// DOS has no dispatch cap. The guard bounds a run without player input, so
+	// the player's answer to a prompt starts a new run (maintainer decision,
+	// 2026-11-02); Presented resumes and expiring timed holds do not.
+	if (state.pendingPresentation && response.fromPlayer &&
+		state.pendingPresentation->request.response != XeenPresentationResponseRequirement::Presented)
+		state.instructionsSinceInput = 0;
 	return run(std::move(state), response, partyState, world,
 		scriptProvider, textProvider, publication);
 }
@@ -862,9 +868,9 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 		}
 		const auto &decoded = std::get<XeenDecodedEventInstruction>(decodedResult);
 		const bool resumedEffect=state.generatingReward || state.portraitProgress || state.giveTake || state.lock;
-		if (!resumedEffect && instructionCount >= kMaximumInstructions) {
+		if (!resumedEffect && state.instructionsSinceInput >= kMaximumInstructions) {
 			return error(XeenEventExecutionErrorKind::InstructionLimitExceeded,
-				"event execution exceeded 1024 dispatched instructions",
+				"event execution exceeded 1024 instructions without player input",
 				instructionCount, logical, decoded.source);
 		}
 		// Journey Events run on a detached candidate. The live Journey world only
@@ -873,7 +879,7 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 			return error(XeenEventExecutionErrorKind::UnsupportedExecutionContext,
 				"Live Journey Event dispatch is not supported",instructionCount,logical,decoded.source);
 		if(!resumedEffect) {
-			++instructionCount;
+			++instructionCount;++state.instructionsSinceInput;
 			if(publication)publication->dispatched(state,decoded);
 		}
         // The executed marker follows each DOS handler. Most end through 0x28b2b,

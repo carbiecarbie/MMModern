@@ -248,7 +248,7 @@ void testLimitsCallsAndRollback() {
 		XeenPresentationResponse::Presented),
 		XeenEventExecutionErrorKind::InstructionLimitExceeded);
 	check(limitError.instructionCount == XeenEventInterpreter::kMaximumInstructions,
-		"instruction limit remains cumulative after suspension");
+		"instruction limit stays cumulative across a suspension without player input");
 
 	Fixture calls;
 	calls.maps.emplace(1, map(1));

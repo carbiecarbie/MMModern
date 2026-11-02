@@ -605,7 +605,7 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
    const auto &audio=services.program.audio;if(!audio)return;
    audio->observeOptions(party.soundOptions);
    const auto now=flow.presentationNow();
-   audio->selectCdDisc(camera.mapId.side==XeenSide::Clouds?1:2,now);
+   audio->selectCdDisc(xeenCdDisc(camera.mapId),now);
    audio->advance(now);
    // Ending notices/retries retain the old loaded world until the forced
    // snapshot. Ordinary map-song selection would load the relocated map.

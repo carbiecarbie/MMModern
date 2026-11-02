@@ -5,7 +5,7 @@
 namespace mmodern {
 namespace {
 [[noreturn]] void fail(const char *message) {
-	throw std::runtime_error(std::string("M16 sprite preflight: ") + message);
+	throw XeenSpritePreflightError(std::string("M16 sprite preflight: ") + message);
 }
 std::size_t word(const std::vector<std::uint8_t> &b, std::size_t at) {
 	if (at > b.size() || b.size() - at < 2) fail("truncated word/header");

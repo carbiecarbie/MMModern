@@ -487,7 +487,7 @@ to that byte record and stays the same. Byte offsets here are within CHR:
 | Side 18; lodging word 340–341 | Current side (Clouds 0); prior town map; `0x35673..0x35683` |
 | Seven attribute pairs 20–33 | Rolled permanent values, zero temporaries; `0x3569c..0x356f8` |
 | Temporary AC 34, level temporary 36, temporary age 38 | Zero |
-| Permanent level 35 | 1 on Clouds; `0x356fc..0x3570c`. Nonzero archive side gives 5: Darkside-only, out of scope |
+| Permanent level 35 | 1 on Clouds, 5 on Darkside: `0x356fc..0x3570c` tests the side byte `DS:94`. `xeenCreatedCharacter` uses the Inn's side |
 | Birthday 37; birth year 346–347 | Low byte of current day; current year minus 18; `0x35782..0x35790` |
 | Skills 39–56 | Zero except class/race assignments below, set to 1; `0x35851..0x3589c` |
 | Awards 57–120 | All zero (including both packed nibbles) |
@@ -539,7 +539,7 @@ a zeroed 14-byte buffer (`0x35acd..0x35b28`); race slicing is
 
 Those five-entry tables start at `0x4f926` (Magic), `0x4f92b` (Fire),
 `0x4f930` (Electricity), `0x4f935` (Cold), `0x4f93a` (Energy),
-`0x4f93f` (Poison). The initialized character is age 18, level 1, without
+`0x4f93f` (Poison). The initialized character is age 18, level 1 (5 on Darkside), without
 equipment, conditions, temporary bonuses or HP/SP skills. The DOS capacity
 functions (`0x20182..0x20255`, `0x3bb30..0x3bcce`) match the existing
 `XeenCharacterRules::maxHp/maxSp` level-1 formulas:

@@ -11,7 +11,7 @@ struct XeenEntranceSite {
     unsigned action, map;
     enum class Position { Any, EqualX, OtherX } position;
     int branchX;
-    int quest; // -1: no item; Clouds cross-side keyed branches remain deferred.
+    int quest; // -1: no item; otherwise the quest item that selects the keyed branch.
     XeenCamera destination;
     XeenSide side=XeenSide::Clouds;
 };

@@ -115,6 +115,11 @@ M83 follows the installed digital driver and CD rules:
   The pin's direct track playback does not generate that DOS request.
   [Evidence and decision](original-quirks.md#sv-cd-failed-start).
   M83 Part B; pin: differs; master not rechecked.
+- **Darkside speech from the Clouds disc.** On Darkside maps 53-56, 73-77,
+  83-88, 125-127 and 129 the original keeps the Clouds disc, so Ellinger and
+  a few other Darkside speakers use its tracks; the pin plays the Darkside
+  disc for those cues except Ellinger's track 31.
+  [Evidence](original-quirks.md#sv-darkside-cd-disc). Pin: differs; master not rechecked.
 - **Cross-file CD preroll.** Map 49 starts in the tail of track 2 and
   continues into track 3 in the installed DOSBox; the pin's direct track
   request omits that preceding-file tail.
@@ -531,6 +536,7 @@ against the pin; master was not rechecked.
 
 ## Presentation
 
+- **Quest Items titles.** [The Darkside title comes first when only Darkside items are held](original-quirks.md#sv-quests-darkside-title), as DOSBox play shows; the pin lists one item before it. Pin: differs; master not rechecked.
 - **CD FM driver.** The maintainer chose
   INTRO.CC `promus` on pinned Nuked in OPL3 stereo on 2026-10-21. DOS uses two patches/banks per voice,
   22-byte FX definitions and its own FX dispatch/cache quirks. The pin uses
@@ -759,6 +765,16 @@ apart from the fidelity differences above.
   and finishes the skipped Event before combat attaches. DOS and the pin draw
   before acknowledgment, allowing combat inside that unfinished call.
   [Details](original-quirks.md#dev-skipped-window-first)
+- **Endless Event loops stop.** An Event that runs 1,024 instructions
+  without asking the player anything stops with a notice; ScummVM, like the
+  original, has no limit. Answering a prompt starts a new count, so the
+  Darkside dials turn as often as the player likes. Master not rechecked.
+  [Details](original-quirks.md#dev-event-dispatch-cap)
+- **Broken Event pictures end the Event.** If an Event's picture can never be
+  drawn, MMModern ends the Event with a "not supported yet" notice and keeps
+  what the player already saw; ScummVM has no such failure path. Interim
+  rule. Master not rechecked.
+  [Details](original-quirks.md#dev-event-presentation-abandon)
 
 - **Darkside music.** [Load replays the saved song without drawing](original-quirks.md#dev-darkside-load-music), preserving gameplay RNG; the pin selects anew. The original approval is dated 2026-10-30. The maintainer approved the M106 extension on 2026-11-01: a Darkside win save keeps map 51's song in Castleview until the next arrival, whereas DOS draws from the camera row on Load. Outdoors follows DOS row 0; the pin indexes by wall kind. Pin: differs; master not rechecked.
 - **Castleview text.** [The Event at `(30,20)` temporarily forces text](original-quirks.md#sv-castleview-force-text), as DOS does even with Text off. The pin has no corresponding override. Pin: differs; master not rechecked.

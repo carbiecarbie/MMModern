@@ -701,6 +701,10 @@ Its New Game item uses the New Game entry and checks Vertigo `(18,4)`, West.
 
 ### Darkside start
 
+`ellinger-speech` puts the level-30 `m78-playtest` party at Darkside map 56
+`(4,8)` facing West, Speech on and Text off: Space starts Ellinger, whose
+speech plays from disc 1 track 31.
+
 `m101-castleview` starts at Darkside map 29 `(14,4)`, North, with the
 prepared level-30 party and a saved indoor song. Generate it with
 `build-rel/mmodern_test_save.exe m101-castleview <game-dir> <output>`.

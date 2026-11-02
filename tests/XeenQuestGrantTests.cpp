@@ -139,7 +139,11 @@ void consumption() {
 		if(fault==0)s.logicalAddress.mapId.side=XeenSide::Darkside;
 		if(fault==1)s.workingCamera.mapId.side=XeenSide::Darkside;
 		if(fault==2){f.members.party=XeenParty::fromRosterIds({});kind=XeenEventExecutionErrorKind::EmptyParty;}
-		if(fault==3){s.instructionCount=1024;kind=XeenEventExecutionErrorKind::InstructionLimitExceeded;}
+		if(fault==3) {
+			// The answer to the prompt starts a new dispatch run: the take still runs.
+			s.instructionCount=s.instructionsSinceInput=1024;const auto r=f.resume(s);const auto *c=std::get_if<XeenEventExecutionCompleted>(&r);
+			check(c && c->instructionCount==1025 && f.members.questItems.at(17)==0,"an answered prompt kept the old dispatch budget");continue;
+		}
 		if(fault==4){s.logicalAddress.line=254;s.pendingPresentation->conditional->targetLine=255;s.currentScript=script(1,{record(1,1,255,12,{21,99})});kind=XeenEventExecutionErrorKind::LineOverflow;}
 		error(f.resume(s),kind);check(f.members.questItems.at(17)==1,"take guard mutated");
 	}
@@ -160,7 +164,11 @@ void prevalidationAndVisibility() {
 		if(mode==0)s.logicalAddress.mapId.side=XeenSide::Darkside;
 		if(mode==1)s.workingCamera.mapId.side=XeenSide::Darkside;
 		if(mode==2){f.members=party(0);kind=XeenEventExecutionErrorKind::EmptyParty;}
-		if(mode==3){s.instructionCount=1024;kind=XeenEventExecutionErrorKind::InstructionLimitExceeded;}
+		if(mode==3) {
+			s.instructionCount=s.instructionsSinceInput=1024;const auto r=f.resume(s);const auto *p=std::get_if<XeenEventExecutionSuspended>(&r);
+			// The grant runs and waits for its quest receipt.
+			check(p && p->state.instructionCount==1025 && f.members.questItems.at(17)==1,"an answered prompt kept the old dispatch budget");continue;
+		}
 		if(mode==4){s.selectedObject.reset();s.logicalAddress.line=254;s.pendingPresentation->conditional->targetLine=255;
 			s.currentScript=script(1,{record(1,1,255,0x0c,{0,0,21,99})});kind=XeenEventExecutionErrorKind::LineOverflow;}
 		if(mode==5){s.pendingPresentation->conditional->targetLine=2;s.currentScript=script(1,{record(1,1,2,0x0c,{0,0,21,167})});kind=XeenEventExecutionErrorKind::UnsupportedOperationMode;}

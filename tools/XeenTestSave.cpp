@@ -287,6 +287,11 @@ void prepare(XeenSaveSnapshot &snapshot,const std::string &preset) {
             XeenCamera{{XeenSide::Darkside,29},26,24,XeenDirection::North};
         snapshot.headCache.reset();return;
     }
+    if(preset=="ellinger-speech") {
+        // Ellinger's 15 PlayCD cues at this cell and facing use disc 1 track 31.
+        prepare(snapshot,"m78-playtest");snapshot.camera={{XeenSide::Darkside,56},4,8,XeenDirection::West};
+        snapshot.headCache.reset();snapshot.darksideSong.reset();snapshot.soundOptions.speech=true;snapshot.soundOptions.text=false;return;
+    }
     if(preset=="m101-castleview") {
         prepare(snapshot,"m78-playtest");snapshot.camera={{XeenSide::Darkside,29},14,4,XeenDirection::North};
         XeenCombatRandom random(*snapshot.journey->random);snapshot.darksideSong=static_cast<std::uint8_t>(7+random.range(0,6));snapshot.journey->random=random.continuation();
@@ -751,7 +756,7 @@ void prepare(XeenSaveSnapshot &snapshot,const std::string &preset) {
 
 void generateTestSave(const GameInstallation &installation,const std::string &preset,
         const std::filesystem::path &output) {
-    if (preset!="m106-alamar" && preset!="m106-world" && preset!="m106-mirror" && preset!="m106-clouds-mirror" && preset!="m104-entrance" && !mixedMapPreset(preset) && preset!="m102-playtest" && !m102Spot(preset) && !m103TextSpot(preset) && preset!="m101-pyramid-clouds" && preset!="m101-pyramid-darkside" && preset!="m101-castleview" && preset!="m98-load" && preset!="m98-inn" && preset!="m97-open-chest" && preset!="m96-chest" && preset!="m95-witch-skull" && preset!="m92-lord-xeen" && preset!="m92-sixth-mirror" && !m90Spot(preset) && preset!="m89-lord-xeen" && preset!="m89-clan-king" && preset!="m89-draco" && preset!="m89-dragons" && preset!="m89-trolls" && preset!="m88-roster" && preset!="m87-inn" && preset!="m87-three" && preset!="m87-shangrila" && preset!="broken-armor" && preset!="train-ready" && preset!="injured-dead" && preset!="poisoned" && preset!="monster-control" && preset!="monster-damage" && preset!="party-healing" && preset!="m76-spells" && preset!="combat-items" && preset!="m78-playtest" && preset!="m78-one-holder" && preset!="m79-playtest" && preset!="m80-playtest" && preset!="m80-arena" && preset!="m80-arena-maxed" && preset!="m81-drops" && preset!="m81-fullpacks" && preset!="m81-event" && preset!="m84-playtest-trap" && preset!="m84-playtest-label" && preset!="m84-playtest-save" && preset!="m85-playtest-label" && preset!="m85-playtest-run" && preset!="m85-playtest-trap" && preset!="m86-playtest-fall" && preset!="m86-playtest-moon-ray" && preset!="m86-playtest-border")
+    if (preset!="m106-alamar" && preset!="m106-world" && preset!="m106-mirror" && preset!="m106-clouds-mirror" && preset!="m104-entrance" && !mixedMapPreset(preset) && preset!="m102-playtest" && !m102Spot(preset) && !m103TextSpot(preset) && preset!="m101-pyramid-clouds" && preset!="m101-pyramid-darkside" && preset!="m101-castleview" && preset!="ellinger-speech" && preset!="m98-load" && preset!="m98-inn" && preset!="m97-open-chest" && preset!="m96-chest" && preset!="m95-witch-skull" && preset!="m92-lord-xeen" && preset!="m92-sixth-mirror" && !m90Spot(preset) && preset!="m89-lord-xeen" && preset!="m89-clan-king" && preset!="m89-draco" && preset!="m89-dragons" && preset!="m89-trolls" && preset!="m88-roster" && preset!="m87-inn" && preset!="m87-three" && preset!="m87-shangrila" && preset!="broken-armor" && preset!="train-ready" && preset!="injured-dead" && preset!="poisoned" && preset!="monster-control" && preset!="monster-damage" && preset!="party-healing" && preset!="m76-spells" && preset!="combat-items" && preset!="m78-playtest" && preset!="m78-one-holder" && preset!="m79-playtest" && preset!="m80-playtest" && preset!="m80-arena" && preset!="m80-arena-maxed" && preset!="m81-drops" && preset!="m81-fullpacks" && preset!="m81-event" && preset!="m84-playtest-trap" && preset!="m84-playtest-label" && preset!="m84-playtest-save" && preset!="m85-playtest-label" && preset!="m85-playtest-run" && preset!="m85-playtest-trap" && preset!="m86-playtest-fall" && preset!="m86-playtest-moon-ray" && preset!="m86-playtest-border")
         throw std::invalid_argument("Unknown test-save preset: "+preset);
     const auto target=XeenSaveFile::resolve(output,installation);
     // Reuse the native alias/reparse-aware path guard for the repository too.
@@ -955,7 +960,7 @@ void generateTestSave(const GameInstallation &installation,const std::string &pr
         }
     }
     if(preset=="m101-castleview")candidate.darksideSong=static_cast<std::uint8_t>(xeenMapMusicRow(inputs.maps.loadGeometryMap(inputs.assets,candidate.camera.mapId).geometry)*7+*candidate.darksideSong%7);
-    if(preset.rfind("m106-",0)==0 && xeenMapResources(candidate.camera.mapId).music==XeenMapMusic::DarksideRandom)
+    if((preset.rfind("m106-",0)==0 || preset=="ellinger-speech") && xeenMapResources(candidate.camera.mapId).music==XeenMapMusic::DarksideRandom)
         candidate.darksideSong=7*xeenMapMusicRow(inputs.maps.loadGeometryMap(inputs.assets,candidate.camera.mapId).geometry);
     // Publish only a snapshot recaptured from restored, validated current owners.
     const auto snapshot=inputs.validated(candidate);

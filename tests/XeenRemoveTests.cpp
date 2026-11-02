@@ -189,7 +189,7 @@ void callsTransfersAndLimits() {
 	Fixture budget;
 	budget.scripts.emplace(23,script(23,{record(8,2,0,0x01,{0}),record(8,2,1,0x0e)}));
 	auto nearLimit=std::get<XeenEventExecutionSuspended>(budget.begin());
-	nearLimit.state.instructionCount=1022;
+	nearLimit.state.instructionCount=nearLimit.state.instructionsSinceInput=1022;
 	const auto limited=std::get<XeenEventExecutionError>(budget.resume(nearLimit.state));
 	check(limited.kind==XeenEventExecutionErrorKind::InstructionLimitExceeded &&
 		limited.instructionCount==1024 && budget.world.sessionState().disabledEventCount()==2,

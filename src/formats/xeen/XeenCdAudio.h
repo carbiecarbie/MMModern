@@ -23,6 +23,9 @@ struct XeenCdRequest {
  std::string error;
 };
 std::vector<XeenCdExtent> inspectXeenCdTracks(const std::vector<XeenCdTrack> &);
+// Disc the map's PlayCD tracks address (1 or 2). DOS 0xf383 requires disc 1 on
+// Clouds and on Darkside maps 53-56, 73-77, 83-88, 125-127 and 129; disc 2 otherwise.
+unsigned xeenCdDisc(XeenMapIdentity);
 XeenCdRequest mapXeenCdCue(const std::vector<XeenCdExtent> &,unsigned disc,const XeenEventCdSpeech &);
 // Decode just the bounded cue window, outside the callback. Stereo 44100 Hz.
 std::vector<std::int16_t> decodeXeenCdCue(const XeenCdRequest &);

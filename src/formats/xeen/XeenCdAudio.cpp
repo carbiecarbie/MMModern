@@ -54,6 +54,13 @@ std::vector<XeenCdExtent> inspectXeenCdTracks(const std::vector<XeenCdTrack> &tr
  }
  return result;
 }
+unsigned xeenCdDisc(XeenMapIdentity id) {
+ // 0xf383..0xf40e switches on map byte DS:ed99 when side DS:96e2 is nonzero;
+ // targets 0xf3e6 use disc 1 (jump tables at CS file base 0xf380 + 0x90/0x9a/0xa2).
+ if(id.side==XeenSide::Clouds)return 1;
+ const auto n=id.number;
+ return (n>=53 && n<=56) || (n>=73 && n<=77) || (n>=83 && n<=88) || (n>=125 && n<=127) || n==129?1:2;
+}
 XeenCdRequest mapXeenCdCue(const std::vector<XeenCdExtent> &tracks,unsigned disc,const XeenEventCdSpeech &cue) {
  XeenCdRequest result;result.duration=xeenCdSpeechDurationNanoseconds(cue);
  if(!result.duration)return result;

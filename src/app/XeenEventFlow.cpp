@@ -6,6 +6,7 @@
 #include "games/xeen/CloudsUiComposer.h"
 #include "games/xeen/XeenCharacterRules.h"
 #include "games/xeen/XeenCdSpeechTiming.h"
+#include "formats/xeen/XeenObjectSpriteSafety.h"
 #include <type_traits>
 #include <utility>
 #include <iostream>
@@ -33,6 +34,11 @@ std::optional<unsigned> XeenEventFlow::audioLocation() const {
  return {};
 }
 namespace {
+// A drawing provider's logic_error (for example an out-of-range frame) over
+// owners that still verify: deterministic, so retrying cannot clear it.
+struct PresentationDefect : std::runtime_error {
+	using std::runtime_error::runtime_error;
+};
 const XeenItemCatalog &fallbackCatalog() {
 	static const auto catalog = XeenItemCatalog::unavailable();
 	return catalog;
@@ -1805,10 +1811,9 @@ template<class Result> IndexedFrame XeenEventFlow::drive(Result result, bool aut
             suspended->request.source.opcode==60) {
             // Op60 retains its operands even when the speech wrapper does
             // nothing. Consume it without a notice, scene draw or clock wait.
-            const auto side=suspended->request.mapId.side;
             if(_program.audio && _pending->state.cdSpeech) {
                 _program.audio->observeOptions(_party.soundOptions);
-                _program.audio->selectCdDisc(side==XeenSide::Clouds?1:2,presentationNow());
+                _program.audio->selectCdDisc(xeenCdDisc(suspended->request.mapId),presentationNow());
                 _program.audio->retainCdCue(*_pending->state.cdSpeech);
             }
             auto pending=std::move(*_pending);_pending.reset();
@@ -2162,7 +2167,15 @@ void XeenEventFlow::prepareDetachedResult(const XeenManualEventResult &result) t
     if(work.falling && !work.fallPresented) {
         // One presentation entry for every terrain caller. Damage and the
         // destination remain detached until its last impact image is acquired.
-        if(!_fallSequence)beginFall(*work.fallTop,composed.frame);
+        if(!_fallSequence) {
+            // Only drawing runs here. Owner changes stay owner failures below; an
+            // error over verified owners is a presentation defect, not corruption.
+            try {beginFall(*work.fallTop,composed.frame);}
+            catch(const std::logic_error &error) {
+                candidateGuard.check();checkTransitionCandidate();_encounter->journeySavePreimage().check();
+                throw PresentationDefect(error.what());
+            }
+        }
         return;
     }
     work.world->scenePresentation().completeLightingDraw();candidateGuard.adoptMutationBoundary();work.guard->adoptMutationBoundary();
@@ -2245,6 +2258,14 @@ IndexedFrame XeenEventFlow::journeyEventWork(const std::function<void()> &operat
              if(publication.damageEffects[owner])_world.scenePresentation().portraitDamage(owner,*publication.damageEffects[owner],_encounter->_lastTime);
             }
         }
+		catch (const std::exception &error) {
+			// End a permanently failing detached Event while this publication can
+			// still project its observed prefix; other failures take the paths below.
+			bool abandoned=false;
+			try {abandoned=!_fatal && !_smithSettlement && !_trainingSettlement && _encounter->current(entry) && abandonDetachedPresentation(error);}
+			catch (...) {_eventPublication=nullptr;throw;}
+			if(!abandoned){_eventPublication=nullptr;throw;}
+		}
 		catch (...) { _eventPublication=nullptr; throw; }
 		_eventPublication=nullptr;
 	} catch (const std::exception &error) {
@@ -2377,10 +2398,31 @@ void XeenEventFlow::abandonPresentation() {
 		if (reportText) reportText(message);
 	}
 }
+bool XeenEventFlow::abandonDetachedPresentation(const std::exception &error) {
+	// A retry repeats the same presentation work over the same retained candidate
+	// and installed resources. A broken invariant or out-of-range request
+	// (logic_error) or an original sprite the drawer rejects therefore fails on
+	// every retry: end the Event like an unsupported tail instead of blocking
+	// input. Allocation, I/O and provider failures can clear and keep retrying.
+	if(!_transition || !(_transition->completion || _pending) ||
+		!(dynamic_cast<const std::logic_error *>(&error) || dynamic_cast<const XeenSpritePreflightError *>(&error) ||
+		dynamic_cast<const PresentationDefect *>(&error)))return false;
+	_encounter->journeySavePreimage().check();checkTransitionCandidate();
+	if(_eventPublication)publishManualPrefix();
+	// Only already-published effects survive; the candidate and staged rewards go.
+	const auto outcome=cleanup(XeenRewardDiscard::PresentationFailure);
+	_fallSequence.reset();_regionalEventContinuation.reset();_transition.reset();_manualInput.reset();
+	_encounter->_journeyRefusal="Unable to display this Event: not supported yet";
+	_candidateResultRefused=true;
+	std::cerr<<"Event presentation abandoned: "<<error.what()<<'\n';
+	if(outcome.discarded)std::cerr<<"Rewards discarded on presentation failure: "<<outcome.discarded<<'\n';
+	return true;
+}
 IndexedFrame XeenEventFlow::presentationFailed(const std::exception &exception) {
 	if(_transition) {
 		_encounter->journeySavePreimage().check();checkTransitionCandidate();
 		if(_transition->continuation)_transition->continuation->check(_pending->state);
+		if(!_fatal && abandonDetachedPresentation(exception))return frameCopy();
 		_transition->presentationRetry=true;
 		if(!_portraitSequence)_presenter.discardTransient();
 		if(pendingNpc() && _npcSequence)_npcSequence->acquired=false;
@@ -2450,7 +2492,7 @@ XeenPresentationUpdate XeenEventFlow::presentPendingEvent() {
     }
     if(_program.audio) {
         _program.audio->observeOptions(_party.soundOptions);
-        _program.audio->selectCdDisc(request.mapId.side==XeenSide::Clouds?1:2,presentationNow());
+        _program.audio->selectCdDisc(xeenCdDisc(request.mapId),presentationNow());
     }
 	if(request.kind==XeenPresentationKind::NpcAcknowledgment && !request.cdSpeech && !request.arena)
         request.cdSpeech=_program.audio?_program.audio->retainedCdCue():std::nullopt;
@@ -2585,8 +2627,9 @@ std::optional<IndexedFrame> XeenEventFlow::advanceTreasureWait() {
 		return renderEncounter();
 	}
 	if(!_pending || _pending->generation!=wait.generation)throw std::logic_error("Stale Event treasure hold");
-	if(journey())return journeyEventWork([&]{resumePending(wait.generation,XeenPresentationResponse::Acknowledged);});
-	resumePending(wait.generation,XeenPresentationResponse::Acknowledged);return frameCopy();
+	const auto expired=XeenPresentationResponse::timed(XeenPresentationResponse::Acknowledged);
+	if(journey())return journeyEventWork([&]{resumePending(wait.generation,expired);});
+	resumePending(wait.generation,expired);return frameCopy();
 }
 bool XeenEventFlow::drawPendingHeads(IndexedFrame &frame) {
  if(!_pending || !_pending->state.pendingPresentation || !_presenter.blocksGameplay())return false;

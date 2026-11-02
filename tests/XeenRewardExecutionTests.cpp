@@ -97,7 +97,12 @@ void production(){
 		if(fault==0)s.logicalAddress.mapId.side=XeenSide::Darkside;
 		if(fault==1)s.workingCamera.mapId.side=XeenSide::Darkside;
 		if(fault==2){e.f.initial.party=XeenParty::fromRosterIds({});kind=XeenEventExecutionErrorKind::EmptyParty;}
-		if(fault==3){s.instructionCount=1024;kind=XeenEventExecutionErrorKind::InstructionLimitExceeded;}
+		if(fault==3) {
+			// The answer to the prompt starts a new dispatch run: the give still stages.
+			s.instructionCount=s.instructionsSinceInput=1024;const auto r=e.resume(s);const auto *p=std::get_if<XeenEventExecutionSuspended>(&r);
+			check(p && p->state.instructionCount==1025 && p->state.reward.phase==XeenRewardPhase::Receipt && p->state.reward.receipt.delivered==1,
+				"an answered prompt kept the old dispatch budget");continue;
+		}
 		if(fault==4){s.logicalAddress.line=254;s.pendingPresentation->conditional->targetLine=255;s.currentScript=script(1,{record(1,1,255,0x2c,{70,37})});kind=XeenEventExecutionErrorKind::LineOverflow;}
 		const auto failure=std::get<XeenEventExecutionError>(e.resume(s));
 		check(failure.kind==kind && failure.rewards.discarded==0 && !e.f.initial.roster.at(0).miscellaneous[0].id,"production guard staged");
@@ -267,4 +272,15 @@ void sharedStaging(){
 			e.world.treasureStaging().revision()==revision && !weapons30(e.f.initial),"An aborted Event did not restore its snapshot");
 	}
 }
-int main(){try{terminals();sharedStaging();continuations();production();publication();individualPublication();std::cout<<"Reward interpreter individual publication matrix passed\n";return 0;}catch(const std::exception&e){std::cerr<<e.what()<<'\n';return 1;}}
+// A timed reward hold that Flow answers on expiry is not player input.
+void timedHoldBudget(){
+	Execution e;auto s=pending(e.resumeOne(e.seed({pause(),record(1,1,1,0x12)})));
+	check(s.pendingPresentation->request.rewardWaitTicks>0,"expected a timed reward hold");
+	s.instructionCount=s.instructionsSinceInput=900;
+	const auto timed=pending(e.resumeOne(s,XeenPresentationResponse::timed(XeenPresentationResponse::Acknowledged)));
+	check(timed.instructionCount==900 && timed.instructionsSinceInput==900,"an expiring timed hold reset the dispatch budget");
+	Execution answered;auto t=pending(answered.resumeOne(answered.seed({pause(),record(1,1,1,0x12)})));
+	t.instructionCount=t.instructionsSinceInput=900;
+	check(pending(answered.resumeOne(t)).instructionsSinceInput==0,"a player answer kept the dispatch budget");
+}
+int main(){try{timedHoldBudget();terminals();sharedStaging();continuations();production();publication();individualPublication();std::cout<<"Reward interpreter individual publication matrix passed\n";return 0;}catch(const std::exception&e){std::cerr<<e.what()<<'\n';return 1;}}

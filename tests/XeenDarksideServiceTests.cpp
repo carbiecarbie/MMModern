@@ -16,6 +16,8 @@ using namespace training_test;
 namespace mmodern {
 struct XeenInnTestAccess {
     static unsigned trainingIndex(const XeenEventFlow &flow) {return flow._trainingUi->animation.index;}
+    static bool creating(const XeenEventFlow &f){return f._innUi && f._innUi->phase==XeenEventFlow::InnUi::Phase::Create;}
+    static bool menu(const XeenEventFlow &f){return f._innUi && f._innUi->phase==XeenEventFlow::InnUi::Phase::Menu;}
 };
 }
 namespace {
@@ -62,6 +64,7 @@ struct Visit:Fixture {
             CloudsUiComposer::drawBorder(party,[&](const char *name,unsigned index,int x,int y){in.assets.drawSprite(name,index,x,y);});
             return in.assets.snapshot();
         };
+        flow->loadCreateScreen=[&]{in.assets.loadPalette("mm4.pal",archive);in.assets.loadRawFramebuffer("create.raw",archive);return in.assets.snapshot();};
         flow->saveInn=[&]{
             XeenGameplayServices services{programState,in.resources(),{},in.mapLoader(),in.objectLoader(),{},in.font,{},{},{}};
             xeenSaveGameplay(services,w,p,c,f,*flow,{},[](auto &,const auto &,const auto &,const auto &){},nullptr,
@@ -159,6 +162,7 @@ void rules(Inputs &in,const GameInstallation &installation) {
         XeenGameplayContext context;context.year=610;
         const auto created=xeenCreatedCharacter(0,"New",0,{{16,16,16,16,16,16,16}},{side,29},context);
         check(created.first.xeenSide==unsigned(side) && created.first.savedMaze==29,"Created Inn character lodging side");
+        check(created.first.permanentLevel==(side==dark?5:1) && created.first.currentHp==XeenCharacterRules::maxHp(created.first,{610}),"Created level follows the DOS side byte");
     }
 }
 void depletion(Inputs &in,const XeenItemCatalog &catalog) {
@@ -218,6 +222,24 @@ void animation(Inputs &in) {
         const auto name=XeenServiceAnimation::voice(std::get<0>(voice),std::get<1>(voice),dark);
         check(std::string(name)==std::get<2>(voice) && xeenVocDurationNanoseconds(in.assets.readArchiveResource(name,archive))>0,"Darkside action/refusal voice");
     }
+}
+void createAtCastleview(Inputs &in,const XeenItemCatalog &catalog) {
+    // DOS writes level 5 for a character created on a nonzero side (0x356fc..0x3570c).
+    auto s=town(in,29,3);std::uint8_t slot=23;
+    s.characters[slot]=xeenDeletedCharacter(slot);s.journey->supplements[slot].inputs=xeenDeletedCombatInputs();
+    for(unsigned id=0;id<slot;++id)if(s.characters[id].name.empty()) {
+        auto record=xeenCreatedCharacter(id,"Lodged",0,{{15,15,15,15,15,15,15}},{dark,29},*s.journey->context);
+        s.characters[id]=std::move(record.first);s.journey->supplements[id].inputs=std::move(record.second);
+    }
+    Visit live(in,s,catalog);live.enter();live.key('s');live.until([&]{return XeenInnTestAccess::menu(*live.flow);});
+    live.key('c');live.until([&]{return XeenInnTestAccess::creating(*live.flow);});
+    live.key(InputKey::Enter);live.key('c');live.act(TextInputAction{"Darkborn"});live.key(InputKey::Enter);
+    const auto &c=live.p.roster.at(slot);
+    check(c.name=="Darkborn" && c.permanentLevel==5 && c.xeenSide==1 && c.savedMaze==29,"Castleview Create writes a level-5 Darkside character");
+    auto levelOne=c;levelOne.permanentLevel=1;const XeenCharacterRulesContext year{live.p.encounterContext->year};
+    check(c.currentHp==XeenCharacterRules::maxHp(c,year) && c.currentHp>XeenCharacterRules::maxHp(levelOne,year),"Castleview Create HP is the level-5 maximum");
+    live.until([&]{return XeenInnTestAccess::menu(*live.flow);});
+    check(live.saves.size()==2 && live.saves.back().characters[slot].permanentLevel==5,"Castleview Create return saves the level-5 character");
 }
 void visits(Inputs &in,const XeenItemCatalog &catalog) {
     // Every resource-backed DoTownEvent 0-5 site enters the existing live owner.
@@ -288,7 +310,7 @@ void visits(Inputs &in,const XeenItemCatalog &catalog) {
 int main(int argc,char **argv) {
     try {
         check(argc==2,"usage: darkside-service-tests <installation>");const auto install=xeenTestInstallationDetector().detect(argv[1]);check(bool(install),"Missing original installation");
-        Inputs in(*install);const auto catalog=loadXeenItemCatalog(in.assets);rules(in,*install);animation(in);depletion(in,catalog.catalog);visits(in,catalog.catalog);
+        Inputs in(*install);const auto catalog=loadXeenItemCatalog(in.assets);rules(in,*install);animation(in);depletion(in,catalog.catalog);visits(in,catalog.catalog);createAtCastleview(in,catalog.catalog);
         std::cout<<"Darkside service rules, original town visits/purchases, Inn lodging and exact restoration passed\n";return 0;
     } catch(const std::exception &e){std::cerr<<"Darkside services: "<<e.what()<<'\n';return 1;}
 }

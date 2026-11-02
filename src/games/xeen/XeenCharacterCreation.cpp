@@ -37,7 +37,9 @@ std::pair<XeenCharacter,XeenCombatInputs> xeenCreatedCharacter(std::uint8_t id,
         throw std::invalid_argument("Invalid created character");
     auto c=xeenDeletedCharacter(id);auto inputs=xeenDeletedCombatInputs();
     c.name=name;c.sex=xeenCreateSex(id);c.race=xeenCreateRace(id);c.characterClass=XeenCharacterClass(cls);
-    c.savedMaze=town.number;c.xeenSide=static_cast<unsigned>(town.side);c.permanentLevel=1;c.birthDay=std::uint8_t(context.day);c.birthYear=std::uint16_t(context.year-18);
+    c.savedMaze=town.number;c.xeenSide=static_cast<unsigned>(town.side);
+    // DOS 0x356fc..0x3570c: a nonzero side byte creates level 5, Clouds level 1.
+    c.permanentLevel=town.side==XeenSide::Clouds?1:5;c.birthDay=std::uint8_t(context.day);c.birthYear=std::uint16_t(context.year-18);
     inputs.might.permanent=a[0];c.intellect.permanent=a[1];c.personality.permanent=a[2];c.endurance.permanent=a[3];
     inputs.speed.permanent=a[4];inputs.accuracy.permanent=a[5];inputs.luck->permanent=a[6];
     const auto classSkill=kXeenCreateClassSkills[cls].id;

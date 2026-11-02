@@ -1045,6 +1045,44 @@ stays documented here and in the plan that implements it.
   also supplies 0, so this is a DOS deviation, not a difference from
   ScummVM. A constant needs no saved state; save v23 is unchanged.
 
+- <a id="dev-event-dispatch-cap"></a> **An Event refuses after 1,024
+  dispatches without player input** (maintainer, 2026-11-02). DOS and the pin
+  have no cap: a script that loops without a prompt never returns. MMModern
+  keeps its 1,024-dispatch guard against such loops, but counts only the
+  dispatches since the last player answer (acknowledgment, Yes/No, member,
+  word or number). Presentations that need no answer, and a timed reward hold
+  that expires before the player answers it, do not reset it. The
+  Darkside dials on maps 50, 76, 80 and 122 ask Yes/No every few lines, so
+  they turn indefinitely, as in DOS; a cumulative count would refuse them
+  after about 110 turns. Implemented in `XeenEventInterpreter::resume`
+  (`instructionsSinceInput`, `XeenPresentationResponse::fromPlayer`); the
+  total `instructionCount` is unchanged and nothing is saved. Tested by
+  `xeen_dial_original` (150 turns at map 122 (2,30) East) and the reward
+  hold case in `xeen_reward_execution`. **ScummVM:** differs; the pin has no cap. Master not rechecked.
+
+- <a id="dev-event-presentation-abandon"></a> **A permanently failing Event
+  presentation ends the Event** (maintainer, 2026-11-02, interim). DOS has no
+  such failure path. When a detached Event's presentation fails in a way a
+  retry cannot clear (a logic error over verified owners, or an original
+  sprite the drawer rejects), MMModern ends the Event with "Unable to display
+  this Event: not supported yet" and returns to input; other failures keep
+  retrying. Effects the player already observed are kept: party, quest
+  items, quest flags and the RNG prefix. The rest of the candidate is
+  discarded, including deferred game flags, so a failure right after a
+  displayed grant can leave the grant without its repeat-prevention flag.
+  This matches the existing runtime-refusal behavior; the 2026-10-31 decision
+  to discard the whole Event stays open as a waiting Tier A item in the
+  [roadmap](roadmap.md). Implemented in
+  `XeenEventFlow::abandonDetachedPresentation`. The fault tests in
+  `xeen_fall_defeat_original` cover a terrain fall's first scared-face draw
+  (the real `dse.fac` rejection and an out-of-range error, Darkside 128
+  (5,5)), the pending presentation of the original map 8 FallToMap, and a
+  transient failure retried to completion. NPC, numeric and WhoWill waits, a
+  failure after a displayed reward, combat-interrupted Events, later fall
+  images and cross-side transitions are not fault-tested.
+  **ScummVM:** differs; the pin has no corresponding failure path. Master not
+  rechecked.
+
 ## Reference behavior not reproduced
 
 Places where the pinned ScummVM code differs from the DOS original or contains
@@ -1074,6 +1112,17 @@ a port defect; MMModern follows the original instead.
     is not settled.
 
   **ScummVM:** differs; master not rechecked.
+
+- <a id="sv-quests-darkside-title"></a> **The Quest Items page puts the
+  "Darkside of Xeen" title before the first Darkside item even when no
+  Clouds item is held.** DOS chooses the title line by the first held
+  item's index ([evidence](rules/evidence.md), Quest Items page
+  `0x33a4f..0x33c4a`). Maintainer DOSBox play, 2026-11-02: a party holding
+  only Darkside items 35, 41 and 48 in Castleview shows the title first, as
+  MMModern does. **ScummVM:** the pin's first-line branch writes only the
+  Clouds title, so with only Darkside items it lists the first item, then
+  the Darkside title, then the rest (`QuestsDialog::execute`); master not
+  rechecked.
 
 - <a id="sv-darkside-town-portal-stride"></a> **The World CD's Darkside Town
   Portal names towns but travels to five fixed outdoor arrivals.** DOSBox recording, maintainer,
@@ -1320,6 +1369,23 @@ centiseconds and without DOS's 25-sector preroll. Encoded 24 becomes
 positive track-relative frame 18, so it does not reproduce this data-track
 refusal. Master not rechecked. The text fallback is the approved delivery
 policy, not a claim that DOS restores text on this failure.
+
+<a id="sv-darkside-cd-disc"></a>
+### Some Darkside maps play their speech from the Clouds disc
+
+**DOS static/resource, high (2026-11-02):** `0xf383` requires disc 1 on
+Darkside maps 53-56, 73-77, 83-88, 125-127 and 129 and disc 2 on every other
+Darkside map; PlayCD keeps its raw track byte on that disc. Ellinger's 15 cues
+at map 56 `(4,8)` West use track 31, which only disc 1 has; maps 73, 75, 86,
+87, 126 and 129 use the unused tails of disc-1 tracks. The
+[disc selection rule](rules/audio.md#cd-disc-addressing-and-boundary-failures)
+gives the offsets and the resource census. `xeenCdDisc` in
+`XeenCdAudio.cpp`, used by map arrival and both PlayCD presentation paths;
+tested by `xeen_darkside_cd_disc_original`.
+**ScummVM:** differs; pin `6814ee9b` `Scripts::cmdPlayCD` adds 30 to tracks
+below 31 on Darkside, so it plays disc 2 for the 29 cues below track 31 on
+those maps (maps 73, 75, 86, 87, 126, 129) and disc 1 only for Ellinger's
+track 31. Master not rechecked.
 
 <a id="sv-cd-cross-file-preroll"></a>
 ### CD preroll can start in the preceding audio file

@@ -846,9 +846,24 @@ absolute MSF address. `0x3da0d..0x3da73` converts MSF to sectors;
 from the end. Packet `0x3d9b4..0x3d9e8` uses mode 0, absolute sectors,
 not track-relative addresses. For track start LBA T and decoded cue times
 S and E in sectors, the request is `[T+S-25, T+E)`. The 150-sector MSF
-bias cancels; the extra 25 sectors are the game's preroll. Ordinary Clouds
-selects disc 1 (`0xf383`, `0x3d63f..0x3d806`). Track numbers alone do not
-identify a file across both discs.
+bias cancels; the extra 25 sectors are the game's preroll. Track numbers
+alone do not identify a file across both discs.
+
+**Disc selection, DOS static, high (2026-11-02):** opcode 60 retains the
+raw track byte (`0x28b40..0x28b57`); the play helper addresses the disc in
+the drive. Map load (`0x10772`) and panel exit (`0x1f31b`) call `0xf383`,
+which requires disc 1 on Clouds. On Darkside (side `DS:96e2` nonzero) it
+switches on map byte `DS:ed99`: maps 53-56, 73-77, 83-88, 125-127 and 129
+reach `0xf3e6` and require disc 1; all others require disc 2 (jump tables
+at CS file base `0xf380` + `0x90`/`0x9a`/`0xa2`; disc comparison `0xf3f2`,
+change `0x3d63f..0x3d806`). With Speech off the check is skipped. Resources
+agree: of the 419 Darkside PlayCD rows, the 375 on disc-2 maps all fit disc 2;
+on disc-1 maps Ellinger 56 `(4,8)` uses track 31 (disc 1 only), map 86
+`(6,9)` ends past disc 2's track 30, map 129 `(13,15)` starts in disc 1's
+track 30 and runs into 31, and the map 73, 75, 87 and 126 windows start just
+after the last Clouds cue of their disc-1 track. `xeenCdDisc` applies the
+table at every disc selection
+([quirk](../original-quirks.md#sv-darkside-cd-disc)).
 
 **Installed-emulator source, high:** DOSBox Staging reports 0.83.0
 (`7b400`), matching release commit `7b40053b7ac580843d0461eba8c36a47a990e66c`.

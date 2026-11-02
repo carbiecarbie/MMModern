@@ -138,6 +138,10 @@ void preset(const GameInstallation &installation,const std::string &name,const f
         if(name=="m102-playtest")check(save_test::sameCamera(camera,{{XeenSide::Darkside,29},14,4,XeenDirection::North}),"M102 Castleview start");
         return;
     }
+    if(name=="ellinger-speech") {
+        check(save_test::sameCamera(camera,{{XeenSide::Darkside,56},4,8,XeenDirection::West}),"Ellinger speech start");
+        return;
+    }
     if(name=="m95-witch-skull") {
         check(save_test::sameCamera(camera,{54,10,6,XeenDirection::North}),"M95 start at the Witch Tower skull");
         check(!party.encounterContext->effects[XeenPartyEffect::WizardEye] && xeenPartyHasSkill(party,4),

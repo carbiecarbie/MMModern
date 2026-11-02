@@ -118,7 +118,11 @@ void validation() {
 		if(fault==0)s.logicalAddress.mapId.side=XeenSide::Darkside;
 		if(fault==1)s.workingCamera.mapId.side=XeenSide::Darkside;
 		if(fault==2){f.members=party(0);kind=Kind::EmptyParty;}
-		if(fault==3){s.instructionCount=1024;kind=Kind::InstructionLimitExceeded;}
+		if(fault==3) {
+			// The answer to the prompt starts a new dispatch run: the set still runs.
+			s.instructionCount=s.instructionsSinceInput=1024;const auto r=f.resume(s);const auto *c=std::get_if<XeenEventExecutionCompleted>(&r);
+			check(c && c->instructionCount==1025 && f.members.questFlags.isSet(2),"an answered prompt kept the old dispatch budget");continue;
+		}
 		if(fault==4){s.logicalAddress.line=254;s.pendingPresentation->conditional->targetLine=255;s.currentScript=script(1,{set(255)});kind=Kind::LineOverflow;}
 		error(f.resume(s),kind);checkPartyQuestState(f.members,{},{});}
 	Fixture condition;condition.scriptAt({record(1,1,0,9,{107,2,1})});complete(condition.begin());
@@ -155,7 +159,10 @@ void clearing() {
 		if(fault==0)s.logicalAddress.mapId.side=XeenSide::Darkside;
 		if(fault==1)s.workingCamera.mapId.side=XeenSide::Darkside;
 		if(fault==2){f.members.party=XeenParty::fromRosterIds({});kind=Kind::EmptyParty;}
-		if(fault==3){s.instructionCount=1024;kind=Kind::InstructionLimitExceeded;}
+		if(fault==3) {
+			s.instructionCount=s.instructionsSinceInput=1024;const auto r=f.resume(s);const auto *c=std::get_if<XeenEventExecutionCompleted>(&r);
+			check(c && c->instructionCount==1025 && !f.members.questFlags.isSet(2),"an answered prompt kept the old dispatch budget");continue;
+		}
 		if(fault==4){s.logicalAddress.line=254;s.pendingPresentation->conditional->targetLine=255;s.currentScript=script(1,{record(1,1,255,12,{104,2})});kind=Kind::LineOverflow;}
 		error(f.resume(s),kind);check(f.members.questFlags.isSet(2),"clear guard mutated");
 	}

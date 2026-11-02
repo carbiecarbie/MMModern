@@ -123,7 +123,7 @@ public:
                 if(!xeen_state::sameCamera(state.workingCamera,guard.cameraValue) ||
                     state.workingGameFlags.values()!=guard.flagValues || address.mapId!=guard.cameraValue.mapId ||
                     !state.instructionCount ||
-                    state.instructionCount>XeenEventInterpreter::kMaximumInstructions || state.treasureChanged() ||
+                    state.instructionsSinceInput>XeenEventInterpreter::kMaximumInstructions || state.treasureChanged() ||
                     (state.pendingPresentation && state.pendingPresentation->continuation!=XeenEventPendingContinuation::Terminate))
                     integrity("Service terminal continuation changed");
                 script(state.currentScript->file());currentSite=terminalSite;return;
@@ -132,7 +132,7 @@ public:
 				state.workingGameFlags.values()!=guard.flagValues || state.logicalAddress.mapId!=original.mapId ||
 				state.logicalAddress.x!=guard.cameraValue.x || state.logicalAddress.y!=guard.cameraValue.y ||
 				state.logicalAddress.line<0 || state.logicalAddress.line>255 ||
-				state.lookupDirection!=guard.cameraValue.direction || state.instructionCount>XeenEventInterpreter::kMaximumInstructions ||
+				state.lookupDirection!=guard.cameraValue.direction || state.instructionsSinceInput>XeenEventInterpreter::kMaximumInstructions ||
 				state.instructionCount!=dispatchedRecords.size() || !state.callStack.empty() ||
 				!(state.selectedObject==selectedObject) || !state.currentScript)
 				integrity("Regional event continuation changed");
@@ -151,7 +151,7 @@ public:
 	void dispatched(const XeenEventExecutionState &state,const XeenDecodedEventInstruction &decoded) const {
 		check();
 		if(!currentSite || decoded.source.recordIndex!=currentSite || state.instructionCount!=dispatchedRecords.size()+1 ||
-			state.instructionCount>XeenEventInterpreter::kMaximumInstructions)
+			state.instructionsSinceInput>XeenEventInterpreter::kMaximumInstructions)
 			integrity("Event dispatch history changed");
 		// Retain the effective dispatch, before a later Remove can disable its
 		// resource record. A None dispatch contributes to instruction count only.

@@ -182,7 +182,9 @@ analysis, because the reference was wrong in comparable Clouds cases (M80).
 Three Tier A items wait for a fitting milestone. A runtime refusal after an
 Event has shown a reward keeps that reward but drops the flags that stop a
 repeat; DOS never stops mid-Event, so the whole Event should be discarded
-(maintainer, 2026-10-31). A sweep of the original data found no Event that
+(maintainer, 2026-10-31). A permanently failing Event presentation follows
+the same interim rule ([approved deviation](original-quirks.md#dev-event-presentation-abandon));
+neither discards the whole Event yet. A sweep of the original data found no Event that
 reaches this today. And after a Xeen Slayer Sword attack, DOS lets the next
 physical spell ignore physical resistance through the unsaved weapon
 selector; MMModern does not yet. Finally, DOS draws the sky and the

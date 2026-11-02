@@ -227,8 +227,8 @@ void contextLifetime() {
 	for (auto response : {XeenPresentationResponse{SelectedCharacter{0}},XeenPresentationResponse{CharacterSelectionCancelled{}}})
 		error(acknowledgment.resume(pending(acknowledgment.begin()),response),Kind::InvalidPresentationResponse);
 	limit.set({record(1,1,0,0x20,{0,0}),record(1,1,1,0x12)});
-	auto state=pending(limit.begin());state.instructionCount=XeenEventInterpreter::kMaximumInstructions;
-	error(limit.resume(state,SelectedCharacter{0}),Kind::InstructionLimitExceeded);
+	auto state=pending(limit.begin());state.instructionCount=state.instructionsSinceInput=XeenEventInterpreter::kMaximumInstructions;
+	complete(limit.resume(state,SelectedCharacter{0})); // A selection starts a new dispatch run.
 }
 
 void integratedTextErrors() {

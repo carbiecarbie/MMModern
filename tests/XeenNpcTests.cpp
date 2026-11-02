@@ -165,7 +165,8 @@ void decoderAndExecution() {
 	check(std::get<XeenEventExecutionCompleted>(f.resume(s)).instructionCount==2,"mode1 used absent target instead of fallthrough");
 	f.set({npc()});check(std::get<XeenEventExecutionCompleted>(f.resume(pending(f.begin()))).instructionCount==1,"natural successor completion");
 	f.set({npc(255)});error(f.begin(255),Kind::LineOverflow);
-	f.set({npc(),record(1,1,1,0x12)});s=pending(f.begin());s.instructionCount=1024;error(f.resume(s),Kind::InstructionLimitExceeded);
+	f.set({npc(),record(1,1,1,0x12)});s=pending(f.begin());s.instructionCount=s.instructionsSinceInput=1024;
+	check(std::holds_alternative<XeenEventExecutionCompleted>(f.resume(s)),"an answered NPC kept the old dispatch budget");
 	f.camera.mapId={XeenSide::Darkside,1};f.text.mapId=f.camera.mapId;f.scripts.emplace(f.camera.mapId,script(f.camera.mapId,{npc()}));
 	check(std::holds_alternative<XeenEventExecutionSuspended>(f.begin()),"Darkside NPC presentation refused");
 	Fixture empty;empty.members={};empty.text.strings={"",""};check(std::holds_alternative<XeenEventExecutionSuspended>(empty.begin()),"empty NPC presentation unnecessarily rejected");

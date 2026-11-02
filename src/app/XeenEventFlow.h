@@ -644,6 +644,7 @@ private:
 	template<class Result> IndexedFrame drive(Result result, bool automatic, bool reconstruct = false,
 		OrdinaryCause cause = OrdinaryCause::None, bool committedTransition = false);
 	IndexedFrame presentationFailed(const std::exception &exception);
+	bool abandonDetachedPresentation(const std::exception &);
 	bool pendingNpc() const;
 	struct Pending { XeenEventExecutionState state; bool automatic; std::uint64_t generation; };
 	std::uint64_t _generation = 0;

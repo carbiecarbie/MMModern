@@ -2,9 +2,15 @@
 #define MMODERN_XEEN_OBJECT_SPRITE_SAFETY_H
 #include <cstddef>
 #include <cstdint>
+#include <stdexcept>
 #include <vector>
 
 namespace mmodern {
+// The preflight is a pure function of the resource bytes and the frame: the
+// same request is rejected on every retry.
+struct XeenSpritePreflightError : std::runtime_error {
+	using std::runtime_error::runtime_error;
+};
 // Structural preflight for the normal M16 drawer only. No pixels are decoded.
 // Validates the complete frame directory and the requested frame's row streams.
 void validateXeenObjectSprite(const std::vector<std::uint8_t> &bytes, std::size_t frame, bool programRows = false);

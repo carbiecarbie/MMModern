@@ -166,7 +166,11 @@ void acknowledgmentBoundaries() {
 		auto p=pending(f.begin());
 		if(op==0 || op==0x12) check(done(f.resume(p)).instructionCount==2,"present successor skipped");
 		else failed(f.resume(p),op==0x01?XeenEventExecutionErrorKind::MalformedInstruction:XeenEventExecutionErrorKind::UnsupportedOpcode);
-		if(op==0) { p.instructionCount=1024; failed(f.resume(p),XeenEventExecutionErrorKind::InstructionLimitExceeded); }
+		if(op==0) {
+			// The cap bounds dispatches since the last player answer; this answer starts a new run.
+			p.instructionCount=1024;p.instructionsSinceInput=1024;
+			check(done(f.resume(p)).instructionCount==1025,"an answered prompt did not restart the dispatch budget");
+		}
 	}
 	Fixture effective;
 	effective.scripts.emplace(1,script(1,{record(1,1,0,9,{44,1,1}),record(1,1,1,0x0c,{0,0,21,99})}));

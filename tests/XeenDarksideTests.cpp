@@ -1754,14 +1754,146 @@ void fallAndSpaceDefeat(Inputs &in,const XeenSaveSnapshot &source) {
  check(live.flow->encounter()->state().reason()==XeenEncounterStop::Defeat && !live.flow->canSave(),"Space defeat did not end the session");
  std::cout<<"Falls with incapacitated members and the flagged Space defeat passed\n";
 }
+// Presentation failures inside a detached fall: a permanent one ends the Event
+// with a notice after one attempt per input; a transient one retries.
+void presentationFailures(Inputs &in,const XeenSaveSnapshot &source) {
+ using D=XeenDirection;const auto dark=[](unsigned n){return XeenMapIdentity{XeenSide::Darkside,std::uint16_t(n)};};
+ const auto ack=[](Live &live){const auto d=live.flow->inputContext(live.flow->frame().presentation()).dialog;if(d && d->anyKey)live.act(AcknowledgeAction{});live.tick();};
+ const auto quietAfter=[&](Live &live,const char *message){for(unsigned n=0;!live.flow->canSave();++n){check(n<40,message);ack(live);}};
+ const auto scared=[](unsigned image,int x,int y){return image==4 && x==10 && y==150;};
+ const auto unharmed=[](Live &live,const XeenSaveSnapshot &s,const XeenCamera &at) {
+  check(live.c.mapId==at.mapId && live.c.x==at.x && live.c.y==at.y,"Abandoned fall published its destination");
+  for(unsigned i=0;i<30;++i)check(xeen_state::sameCharacter(live.p.roster.at(i),s.characters[i]),"Abandoned fall changed a roster record");
+  check(live.w.sessionState().journeyRandom()==s.journey->random && live.f.values()==s.gameFlags,"Abandoned fall published RNG or flags");
+  check(!XeenRestTestAccess::fatal(*live.flow) && !XeenEventDispatchTestAccess::fallImage(*live.flow),"Abandoned fall left a fatal state or a fall owner");
+  check(live.flow->encounter()->journeyRefusal()=="Unable to display this Event: not supported yet","Abandoned fall gave no notice");
+ };
+ const XeenCamera edge{dark(128),5,5,D::North};
+ for(bool logic:{false,true}) {
+  // The real preflight rejects dse.fac frame 4 (three frames), or a drawing provider
+  // throws a logic error while the fall is prepared: every retry would fail.
+  const auto s=at(in,source,edge);Live live(in,s);unsigned failures=0;const auto draw=live.flow->drawDialogSprite;
+  live.flow->drawDialogSprite=[&,draw,logic](auto &frame,const char *name,unsigned image,int x,int y){
+   if(!scared(image,x,y))draw(frame,name,image,x,y);
+   else if(++failures,logic)throw std::out_of_range("Injected out-of-range terrain fall portrait");
+   else draw(frame,"dse.fac",4,x,y);
+  };
+  live.act(NavigationAction::TurnLeft);quietAfter(live,"Permanent terrain fall failure blocked input");
+  check(failures==1,"Permanent terrain fall failure was retried");unharmed(live,s,edge);
+  live.act(NavigationAction::TurnLeft);quietAfter(live,"Second permanent terrain fall failure blocked input");
+  check(failures==2,"A new input did not make exactly one new attempt");unharmed(live,s,edge);
+  const auto bytes=XeenSaveFormat::encode(live.snapshot());Live restored(in,XeenSaveFormat::decode(bytes),nullptr);
+  check(XeenSaveFormat::encode(restored.snapshot())==bytes,"Abandoned fall did not restore exactly");
+ }
+ {
+  // Original map 8 @503 FallToMap: an out-of-range request in its pending presentation.
+  const auto row=[](unsigned x,unsigned y,unsigned line,unsigned opcode,std::vector<std::uint8_t> p={}) {
+   XeenEventRecord e;e.x=x;e.y=y;e.line=line;e.direction=4;e.opcode=opcode;e.parameters=std::move(p);e.lengthField=5+e.parameters.size();return e;
+  };
+  const auto sourceFile=in.events.load(dark(8));const auto found=std::find_if(sourceFile.records.begin(),sourceFile.records.end(),[](const auto &e){return e.fileOffset==503;});
+  check(found!=sourceFile.records.end() && found->opcode==52,"Map 8 @503 fall witness differs");
+  XeenEventFile fallFile{dark(8),"original map 8 scripted fall",true,{*found,row(14,14,0,25,{found->x,found->y,found->line})}};
+  const XeenCamera from{dark(8),14,14,D::West};const auto s=at(in,at(in,source,{dark(40),3,3,D::West}),from);
+  Live live(in,s,&fallFile);unsigned failures=0;const auto draw=live.flow->drawDialogSprite;
+  live.flow->drawDialogSprite=[&,draw](auto &frame,const char *name,unsigned image,int x,int y){
+   if(scared(image,x,y)){++failures;throw std::out_of_range("Injected out-of-range fall portrait");}
+   draw(frame,name,image,x,y);
+  };
+  live.act(InteractionAction{});quietAfter(live,"Permanent scripted fall failure blocked input");
+  check(failures==1,"Permanent scripted fall failure was retried");unharmed(live,s,from);
+ }
+ {
+  // A runtime failure that persists for several updates is retried, then the fall
+  // completes once, exactly as an unfailed fall.
+  const auto plain=[&]{const auto s=at(in,source,edge);Live live(in,s);live.act(NavigationAction::TurnLeft);quietAfter(live,"Plain terrain fall did not settle");return live.snapshot();}();
+  const auto s=at(in,source,edge);Live live(in,s);unsigned failures=0;const auto draw=live.flow->drawDialogSprite;
+  live.flow->drawDialogSprite=[&,draw](auto &frame,const char *name,unsigned image,int x,int y){
+   if(scared(image,x,y) && failures<5){++failures;throw std::runtime_error("Injected transient fall portrait failure");}
+   draw(frame,name,image,x,y);
+  };
+  live.act(NavigationAction::TurnLeft);quietAfter(live,"Transient terrain fall failure never completed");
+  check(failures==5 && live.c.mapId!=edge.mapId,"Transient terrain fall failure was not retried to completion");
+  check(XeenSaveFormat::encode(live.snapshot())==XeenSaveFormat::encode(plain),"Transient retry replayed damage, RNG or arrival");
+ }
+ std::cout<<"Permanent and transient fall presentation failures passed\n";
+}
+// DOS has no dispatch cap: a dial turned far past 1024 dispatches keeps prompting
+// (map 122 (2,30) E asks Yes/No every eight instructions; the old cap refused at 111).
+void dialBeyondDispatchCap(Inputs &in,const XeenSaveSnapshot &source) {
+ const XeenCamera dial{{XeenSide::Darkside,122},2,30,XeenDirection::East};
+ Live live(in,at(in,source,dial));std::string failure;
+ live.flow->reportManual=[&](const auto &r){if(const auto *e=std::get_if<XeenEventExecutionError>(&r))failure=e->message;};
+ live.act(InteractionAction{});
+ unsigned turns=0;
+ for(unsigned n=0;turns<150;++n) {
+  check(n<20000 && failure.empty() && live.flow->encounter()->journeyRefusal().empty(),("Dial refused after "+std::to_string(turns)+" turns: "+failure).c_str());
+  const auto input=live.flow->inputContext(live.flow->frame().presentation()).dialog;
+  if(input && input->key('y')){live.key('y');++turns;}else live.tick();
+ }
+ for(unsigned n=0;!live.flow->canSave();++n) {
+  check(n<2000 && failure.empty(),"Dial did not close after No");
+  const auto input=live.flow->inputContext(live.flow->frame().presentation()).dialog;
+  if(input && input->key('n'))live.key('n');else if(input && input->anyKey)live.act(AcknowledgeAction{});else live.tick();
+ }
+ check(failure.empty() && live.flow->encounter()->journeyRefusal().empty(),"Dial ended with a refusal");
+ std::cout<<"Dial turned "<<turns<<" times without a dispatch cap refusal\n";
+}
+// DOS 0xf383 keeps the Clouds disc on some Darkside maps; their PlayCD tracks
+// address disc 1 (Ellinger's track 31 exists only there).
+void cdDiscSelection(Inputs &in,const GameInstallation &installation) {
+ const auto dark=[](unsigned n){return XeenMapIdentity{XeenSide::Darkside,std::uint16_t(n)};};
+ for(unsigned n=1;n<=129;++n) {
+  const bool first=(n>=53 && n<=56) || (n>=73 && n<=77) || (n>=83 && n<=88) || (n>=125 && n<=127) || n==129;
+  check(xeenCdDisc(dark(n))==(first?1u:2u),("Darkside map "+std::to_string(n)+" disc differs from DOS 0xf383").c_str());
+  check(xeenCdDisc(XeenMapIdentity(std::uint16_t(n)))==1,"Clouds selected disc 2");
+ }
+ const auto extents=inspectXeenCdTracks(installation.cdTracks);
+ const auto cues=[&](XeenMapIdentity id,unsigned x,unsigned y) {
+  std::vector<XeenEventCdSpeech> found;
+  for(const auto &r:in.events.load(id).records)if(r.opcode==0x3c && r.x==x && r.y==y && r.parameters.size()==5)
+   found.push_back({r.parameters[0],std::uint16_t(r.parameters[1]|r.parameters[2]<<8),std::uint16_t(r.parameters[3]|r.parameters[4]<<8)});
+  return found;
+ };
+ const auto file=[](const XeenCdRequest &r,std::size_t i){return r.windows.at(i).file.filename().string();};
+ // Ellinger 56 (4,8) West: 15 cues on track 31, absent from disc 2.
+ const auto ellinger=cues(dark(56),4,8);
+ check(ellinger.size()==15,"Ellinger PlayCD rows differ from DARK.CUR");
+ for(const auto &cue:ellinger) {
+  check(cue.track==31,"Ellinger cue is not on track 31");
+  const auto played=mapXeenCdCue(extents,xeenCdDisc(dark(56)),cue);
+  check(played.error.empty() && !played.refused && played.windows.size()==1 && file(played,0)=="xeen31.ogg","Ellinger cue missed disc 1 track 31");
+  const auto other=mapXeenCdCue(extents,2,cue);
+  check(other.refused || !other.error.empty(),"Disc 2 unexpectedly holds track 31");
+ }
+ // Map 73 (9,3): track 13 at 49.9 s follows the last Clouds cue on disc 1.
+ const auto tower=cues(dark(73),9,3);
+ check(tower.size()==1 && tower[0].track==13 && tower[0].start==4971 && tower[0].finish==5564,"Map 73 (9,3) cue differs from DARK.CUR");
+ const auto towerCue=mapXeenCdCue(extents,xeenCdDisc(dark(73)),tower[0]);
+ check(towerCue.error.empty() && !towerCue.refused && file(towerCue,0)=="xeen13.ogg","Map 73 cue did not play disc 1 track 13");
+ // Map 129 (13,15): track 30 from 6:00.35 runs past disc 1 track 30 into 31;
+ // on disc 2 it would start past lead-out.
+ const auto last=cues(dark(129),13,15);
+ check(last.size()==1 && last[0].track==30,"Map 129 (13,15) cue differs from DARK.CUR");
+ const auto lastCue=mapXeenCdCue(extents,xeenCdDisc(dark(129)),last[0]);
+ check(lastCue.error.empty() && !lastCue.refused && lastCue.windows.size()==2 && file(lastCue,0)=="xeen30.ogg" && file(lastCue,1)=="xeen31.ogg",
+  "Map 129 cue did not resolve on disc 1");
+ check(mapXeenCdCue(extents,2,last[0]).refused,"Map 129 cue started on disc 2");
+ // An ordinary disc-2 map keeps the Darkside disc.
+ const auto castleview=cues(dark(29),17,10);check(!castleview.empty(),"Castleview (17,10) has no PlayCD rows");
+ for(const auto &cue:castleview)check(file(mapXeenCdCue(extents,xeenCdDisc(dark(29)),cue),0)==
+  "xeen"+std::to_string(cue.track+30)+".ogg","Castleview cue left disc 2");
+ std::cout<<"Darkside CD disc selection follows DOS 0xf383\n";
+}
 int main(int argc,char **argv) {
  try {
-  check(argc==3 || (argc==4 && (std::string(argv[3])=="partb" || std::string(argv[3])=="partc" || std::string(argv[3])=="mixed" || std::string(argv[3])=="mixed-travel" || std::string(argv[3])=="quests" || std::string(argv[3])=="fall-defeat")),"usage: darkside-tests <installation> <output-directory> [partb|partc|mixed|mixed-travel|quests|fall-defeat]");const auto installation=xeenTestInstallationDetector().detect(argv[1]);check(bool(installation),"Missing original installation");
+  check(argc==3 || (argc==4 && (std::string(argv[3])=="partb" || std::string(argv[3])=="partc" || std::string(argv[3])=="mixed" || std::string(argv[3])=="mixed-travel" || std::string(argv[3])=="quests" || std::string(argv[3])=="fall-defeat" || std::string(argv[3])=="dial" || std::string(argv[3])=="cd-disc")),"usage: darkside-tests <installation> <output-directory> [partb|partc|mixed|mixed-travel|quests|fall-defeat|dial|cd-disc]");const auto installation=xeenTestInstallationDetector().detect(argv[1]);check(bool(installation),"Missing original installation");
   const std::filesystem::path out=std::string(argv[2])=="temporary"?std::filesystem::temp_directory_path()/"mmodern-m104-frames":std::filesystem::path(argv[2]);std::filesystem::create_directories(out);const auto save=std::filesystem::temp_directory_path()/("mmodern-m101-"+std::to_string(std::chrono::steady_clock::now().time_since_epoch().count())+".mmsave");
   std::cout<<"Preset: "<<save<<'\n';
   developer::generateTestSave(*installation,"m101-castleview",save);Inputs in(*installation);const auto preset=XeenSaveFile::read(save);
   check(preset.camera.mapId==XeenMapIdentity(XeenSide::Darkside,29),"Wrong Castleview preset");
-  if(argc==4 && std::string(argv[3])=="fall-defeat"){fallAndSpaceDefeat(in,quiet(in,preset));return 0;}
+  if(argc==4 && std::string(argv[3])=="fall-defeat"){fallAndSpaceDefeat(in,quiet(in,preset));presentationFailures(in,quiet(in,preset));return 0;}
+  if(argc==4 && std::string(argv[3])=="dial"){dialBeyondDispatchCap(in,quiet(in,preset));return 0;}
+  if(argc==4 && std::string(argv[3])=="cd-disc"){cdDiscSelection(in,*installation);return 0;}
   if(argc==4 && std::string(argv[3])=="partc"){partCEvents(in,quiet(in,preset),out);return 0;}
   if(argc==4 && std::string(argv[3])=="mixed-travel"){mixedTravel(in,*installation,preset,out);return 0;}
   if(argc==4 && std::string(argv[3])=="quests") {

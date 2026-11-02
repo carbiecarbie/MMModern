@@ -445,8 +445,8 @@ XeenEventDecodeResult XeenEventDecoder::decode(const XeenEventRecord &record,
 		reader.readUint8(speech.track);
 		reader.readUint16LE(speech.start);
 		reader.readUint16LE(speech.finish);
-		// Retain the operand bound; the installed disc table resolves playback.
-		// Clouds uses disc 1. Darkside presentation remains outside scope.
+		// Retain the operand bound; the installed disc table resolves playback
+		// on the disc xeenCdDisc selects for the map.
 		if (speech.track>60)
 			return makeError(record,context,XeenEventDecodeErrorKind::UnsupportedOperand,
 				"CD speech track is outside 0..60");
