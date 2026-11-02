@@ -21,6 +21,7 @@
 #include <set>
 #include <queue>
 #include <map>
+#include <numeric>
 #include "games/xeen/XeenMovement.h"
 #include "games/xeen/XeenJourneyCapture.h"
 #include "games/xeen/XeenJumpRules.h"
@@ -1554,15 +1555,169 @@ void mixedMaps(Inputs &in,const GameInstallation &installation,const XeenSaveSna
 }
 
 }
+// Original Darkside quest chains, run end to end through their own scripts:
+// Ellinger's Energy Disk stages (map 56), the mirror switch (map 43) and a
+// mirror (map 53), the Temple of Bark pool (map 76) and the Dungeon of Death
+// gongs (map 123). Each step crosses an exact save/load.
+void questChains(Inputs &in,const XeenSaveSnapshot &source,const XeenSaveSnapshot &alamar,const XeenSaveSnapshot &world) {
+ using D=XeenDirection;const auto dark=[](unsigned n){return XeenMapIdentity{XeenSide::Darkside,std::uint16_t(n)};};
+ struct Run {std::string failure;bool textEntry=false;};
+ // Yes/No prompts take `yes`, WhoWill takes `member`, a typed prompt takes `word`.
+ const auto interact=[](Live &live,bool yes,unsigned member,const std::string &word={}) {
+  Run run;live.flow->reportManual=[&](const auto &r){if(const auto *e=std::get_if<XeenEventExecutionError>(&r))run.failure=e->message;};
+  live.act(InteractionAction{});
+  for(unsigned n=0;!live.flow->canSave();++n) {
+   check(n<2000,"Quest Event did not settle");
+   const auto dialog=live.flow->inputContext(live.flow->frame().presentation()).dialog;
+   if(dialog && dialog->textEntry){run.textEntry=true;live.act(TextInputAction{word});live.act(DialogKeyAction{13});}
+   else if(dialog && dialog->key(yes?'y':'n'))live.key(yes?'y':'n');
+   else if(dialog && dialog->key(InputKey::F1+member))live.act(SelectMemberAction{member});
+   else if(dialog && dialog->anyKey)live.act(AcknowledgeAction{});
+   live.tick();
+  }
+  live.flow->reportManual={};check(run.failure.empty(),run.failure.c_str());return run;
+ };
+ // Save, reload and require the reloaded state to re-save byte-identically.
+ const auto reload=[&](Live &live){
+  const auto saved=live.snapshot();const auto bytes=XeenSaveFormat::encode(saved);
+  auto restored=XeenSaveFormat::decode(bytes);Live again(in,restored);
+  check(XeenSaveFormat::encode(again.snapshot())==bytes,"Quest chain save/load lost or replayed state");return restored;
+ };
+ const auto slot=[](const XeenSaveSnapshot &s,XeenMapIdentity id,unsigned n){const auto &m=s.map(id).monsters->slots.at(n);return std::uint8_t(m.x)<32 && std::uint8_t(m.y)<32;};
+ // quiet() parks every live monster; return the listed marker slots to their
+ // MOB places, or place them as Spawn does: (0,0) present, (100,100) absent.
+ const auto restoreSlots=[&](XeenSaveSnapshot s,XeenMapIdentity id,std::vector<unsigned> slots,std::optional<bool> present={}){
+  const auto mon=XeenMonsterFormat::parse(*in.assets.readMonsterStatistics(xeenMapResources(id).monsterTable));
+  const auto actors=XeenActorApproach::actorsFromResources(in.maps.loadObjects(in.assets,id),mon);
+  for(auto n:slots) {
+   const auto &a=actors.at(n);const int x=present?(*present?0:100):int(a.x),y=present?x:int(a.y);
+   s.map(id).monsters->slots.at(n)={x,y,a.lifecycle,a.status,false,-1};
+  }
+  return s;
+ };
+ const auto activeIds=[](const XeenSaveSnapshot &s){return s.activeRosterIds;};
+
+ {std::cout<<"Ellinger's Energy Disks"<<std::endl;
+  auto s=at(in,source,{dark(56),4,8,D::West});const auto ids=activeIds(s);std::vector<std::uint32_t> xp;
+  for(auto id:ids)xp.push_back(s.journey->supplements[id].inputs.experience);
+  Live intro(in,s);interact(intro,true,0);
+  check(intro.p.questFlags.isSet(XeenSide::Darkside,23) && intro.f.isSet(XeenSide::Darkside,114),"Ellinger's first visit did not give the quest");
+  s=reload(intro);
+  for(unsigned i=0;i<ids.size();++i)check(s.journey->supplements[ids[i]].inputs.experience==xp[i]+250000,"Ellinger's 250,000 XP is per member, once");
+  // Lines 1..4 take five disks or return every disk taken; each stage then
+  // switches its own line off, so the next visit reaches the next stage.
+  const unsigned stage[]{168,153,154,155};
+  for(unsigned n=0;n<4;++n) {
+   s.questItems[84]=4;Live short_(in,s);interact(short_,true,0);
+   check(short_.p.questItems.at(84)==4 && !short_.f.isSet(XeenSide::Darkside,stage[n]),"Four disks advanced a Kalindra stage");
+   s.questItems[84]=7;Live enough(in,s);interact(enough,true,0);
+   check(enough.p.questItems.at(84)==2 && enough.f.isSet(XeenSide::Darkside,stage[n]),"Five disks did not restore the next Kalindra stage");
+   for(unsigned later=n+1;later<4;++later)check(!enough.f.isSet(XeenSide::Darkside,stage[later]),"A Kalindra stage was skipped");
+   check(enough.p.questFlags.isSet(XeenSide::Darkside,23)==(n<3),"Ellinger's quest flag is kept until the last stage");
+   for(auto id:ids)check(enough.p.roster.at(id).awards[74]==(n==3?1:0),"Ellinger's award is given only by the last stage");
+   s=reload(enough);
+  }
+  s.questItems[84]=9;Live done(in,s);interact(done,true,0);done.unchanged(s);
+ }
+ {std::cout<<"Mirror switch"<<std::endl;
+  const auto destination=in.texts.load(dark(53)).mirrors.at(0);
+  for(bool active:{false,true}) {
+   auto s=at(in,source,{dark(43),1,1,D::North});Live sw(in,s);interact(sw,active,0);
+   check(sw.f.isSet(XeenSide::Darkside,115)==active,"Mirror switch answer chose the wrong state");
+   s=at(in,reload(sw),{dark(53),9,8,D::West});Live mirror(in,s);const auto run=interact(mirror,true,0,destination.name);
+   check(run.textEntry==active,"Mirror asked for a word with the portals off, or ignored them on");
+   check(active?mirror.c.mapId==dark(destination.map) && mirror.c.x==destination.x && mirror.c.y==destination.y:xeen_state::sameCamera(mirror.c,s.camera),"Mirror moved the party wrongly");
+  }
+ }
+ {std::cout<<"Temple of Bark pool"<<std::endl;
+  const auto id=dark(76);auto s=at(in,source,{id,8,7,D::North});const auto ids=activeIds(s);
+  check(ids.size()>=3,"Bark pool needs three members");
+  const auto stats=[](Live &live,unsigned owner){const auto &c=live.p.roster.at(owner);const auto &i=*live.p.roster.combatInputs(owner);
+   return std::array<int,7>{int(i.might.permanent),int(c.intellect.permanent),int(c.personality.permanent),int(c.endurance.permanent),int(i.speed.permanent),int(i.accuracy.permanent),int(i.luck->permanent)};};
+  // Lever (15,14) parks marker 0. Each dial owns four markers and reads the
+  // one that is off the map; the pool needs markers 1, 5, 10, 14, 19 and 23
+  // off (dials 1, 1, 2, 2, 3, 3). The MOB starts at 1, 1, 1, 1, 1, 1.
+  std::vector<unsigned> markers(25);std::iota(markers.begin(),markers.end(),0u);
+  const auto original=restoreSlots(s,id,markers);
+  const auto pulled=restoreSlots(original,id,{0},false);
+  s=restoreSlots(restoreSlots(pulled,id,{9,13,17,21},true),id,{10,14,19,23},false);
+  {Live stagnant(in,original);check(slot(original,id,0),"Bark lever marker starts pulled");interact(stagnant,true,0);stagnant.unchanged(original);}
+  {Live wrong(in,pulled);interact(wrong,true,1);
+   check(wrong.p.roster.at(ids[1]).conditions[unsigned(XeenCondition::Dead)] && !wrong.p.roster.at(ids[1]).awards[46],"Wrong dials did not poison only the drinker");
+   check(!wrong.p.roster.at(ids[0]).conditions[unsigned(XeenCondition::Dead)],"Wrong dials poisoned another member");}
+  Live first(in,s);const auto a=stats(first,ids[0]),b=stats(first,ids[1]);interact(first,true,0);
+  const auto boosted=[](std::array<int,7> v){for(auto &x:v)x+=19;return v;};
+  check(first.p.roster.at(ids[0]).awards[46]==1 && stats(first,ids[0])==boosted(a),"Disciple of Bark did not raise the drinker's seven statistics by 19");
+  check(!first.p.roster.at(ids[1]).awards[46] && stats(first,ids[1])==b,"Bark pool changed a member who did not drink");
+  interact(first,true,0);check(stats(first,ids[0])==boosted(a),"A Disciple of Bark drank a second boost");
+  // The award lives on the character: move the Disciple to third place.
+  s=reload(first);std::swap(s.activeRosterIds[0],s.activeRosterIds[2]);
+  Live moved(in,s);const auto c=stats(moved,ids[2]);
+  interact(moved,true,2);check(stats(moved,ids[0])==boosted(a),"Bark pool counted the place, not the character");
+  interact(moved,true,0);check(moved.p.roster.at(ids[2]).awards[46]==1 && stats(moved,ids[2])==boosted(c),"New first member was refused the pool");
+  reload(moved);
+ }
+ {std::cout<<"Dungeon of Death gongs"<<std::endl;
+  const auto id=dark(123);const XeenCamera gongs[]{{id,2,3,D::East},{id,2,28,D::East},{id,27,30,D::North},{id,29,4,D::West}};
+  const XeenCamera lever{id,17,3,D::North},treasure{id,5,4,D::North};
+  auto s=restoreSlots(at(in,source,lever),id,{0,1,2,3,4});
+  for(unsigned n=0;n<5;++n)check(slot(s,id,n),"Gong marker does not start on the map");
+  const auto word=[](Live &live,int x,int y){const auto cell=live.w.sampleCell(live.c.mapId,x,y);return cell->effectiveCell?cell->effectiveCell->rawWord:cell->cell->rawWord;};
+  const auto visit=[&](const XeenCamera &camera){s.camera=camera;Live live(in,s);interact(live,true,0);s=reload(live);};
+  std::uint16_t closed[3];{Live look(in,s);for(int x=18;x<=20;++x)closed[x-18]=word(look,x,1);}
+  for(unsigned n=0;n<3;++n)visit(gongs[n]);
+  for(unsigned n=0;n<4;++n)check(slot(s,id,n)==(n==3),"A gong did not silence its own marker");
+  visit(lever);check(slot(s,id,4),"Lever opened with three gongs");
+  visit(gongs[3]);visit(treasure);
+  for(unsigned n=0;n<4;++n)check(slot(s,id,n),"Touching treasure did not reset the gongs");
+  check(s.camera.x==18 && s.camera.y==1,"Touching treasure did not send the party back");
+  visit(lever);check(slot(s,id,4),"Lever opened after touching treasure");
+  for(const auto &g:gongs)visit(g);visit(lever);
+  check(!slot(s,id,4),"Four gongs and the lever did not open the way");
+  {Live opened(in,s);for(int x=18;x<=20;++x)check(word(opened,x,1)!=closed[x-18],"Lever did not alter the walls");}
+  visit(lever);check(!slot(s,id,4),"Lever reset after its success");
+ }
+ {std::cout<<"Alamar without Corak"<<std::endl;
+  // Map 51 (2,13) North tests quest counter 78, the Soul Box with Corak
+  // inside; an ordinary Soul Box kills everyone instead of winning.
+  auto s=alamar;check(s.questItems[78]==1,"Alamar preset lacks the Soul Box with Corak");s.questItems[78]=0;
+  s=at(in,s,{dark(51),2,13,D::North});Live live(in,s);live.act(InteractionAction{});
+  for(unsigned n=0;n<2000 && !XeenRestTestAccess::death(*live.flow) && !live.flow->canSave();++n) {
+   const auto dialog=live.flow->inputContext(live.flow->frame().presentation()).dialog;
+   if(dialog && dialog->anyKey)live.act(AcknowledgeAction{});live.tick();
+  }
+  check(XeenRestTestAccess::death(*live.flow) && !live.flow->endingScore() && !live.p.darksideCompleted,"Alamar without Corak did not defeat the party");
+  check(live.p.questItems.at(53)==s.questItems[53],"Alamar without Corak gave the Cube of Power");
+  for(auto id:s.activeRosterIds)check(live.p.roster.at(id).conditions[unsigned(XeenCondition::Dead)] && !live.p.roster.at(id).awards[75],"Alamar without Corak spared or rewarded a member");
+ }
+ {std::cout<<"World altar with the awards on member 2"<<std::endl;
+  // Map 129 (13,15) tests awards 61..64 on member 1 only; on member 2 the
+  // altar explains itself and takes nothing.
+  auto s=world;const auto first=s.activeRosterIds.at(0),second=s.activeRosterIds.at(1);
+  for(unsigned award=61;award<=64;++award) {
+   check(s.characters[first].awards[award],"World preset lacks a required award");
+   s.characters[first].awards[award]=0;s.characters[second].awards[award]=1;
+  }
+  s=at(in,s,{dark(129),13,15,D::North});Live live(in,s);interact(live,false,0);
+  check(!live.flow->endingScore() && !live.p.worldCompleted,"Awards on member 2 won World of Xeen");
+  live.unchanged(s);
+ }
+ std::cout<<"Darkside quest chains passed\n";
+}
 int main(int argc,char **argv) {
  try {
-  check(argc==3 || (argc==4 && (std::string(argv[3])=="partb" || std::string(argv[3])=="partc" || std::string(argv[3])=="mixed" || std::string(argv[3])=="mixed-travel")),"usage: darkside-tests <installation> <output-directory> [partb|partc]");const auto installation=xeenTestInstallationDetector().detect(argv[1]);check(bool(installation),"Missing original installation");
+  check(argc==3 || (argc==4 && (std::string(argv[3])=="partb" || std::string(argv[3])=="partc" || std::string(argv[3])=="mixed" || std::string(argv[3])=="mixed-travel" || std::string(argv[3])=="quests")),"usage: darkside-tests <installation> <output-directory> [partb|partc|mixed|mixed-travel|quests]");const auto installation=xeenTestInstallationDetector().detect(argv[1]);check(bool(installation),"Missing original installation");
   const std::filesystem::path out=std::string(argv[2])=="temporary"?std::filesystem::temp_directory_path()/"mmodern-m104-frames":std::filesystem::path(argv[2]);std::filesystem::create_directories(out);const auto save=std::filesystem::temp_directory_path()/("mmodern-m101-"+std::to_string(std::chrono::steady_clock::now().time_since_epoch().count())+".mmsave");
   std::cout<<"Preset: "<<save<<'\n';
   developer::generateTestSave(*installation,"m101-castleview",save);Inputs in(*installation);const auto preset=XeenSaveFile::read(save);
   check(preset.camera.mapId==XeenMapIdentity(XeenSide::Darkside,29),"Wrong Castleview preset");
   if(argc==4 && std::string(argv[3])=="partc"){partCEvents(in,quiet(in,preset),out);return 0;}
   if(argc==4 && std::string(argv[3])=="mixed-travel"){mixedTravel(in,*installation,preset,out);return 0;}
+  if(argc==4 && std::string(argv[3])=="quests") {
+   auto alamar=save,world=save;alamar.replace_filename(save.stem().string()+"-alamar.mmsave");world.replace_filename(save.stem().string()+"-world.mmsave");
+   developer::generateTestSave(*installation,"m106-alamar",alamar);developer::generateTestSave(*installation,"m106-world",world);
+   questChains(in,quiet(in,preset),XeenSaveFile::read(alamar),XeenSaveFile::read(world));return 0;
+  }
   if(argc==4 && std::string(argv[3])=="mixed"){mixedMaps(in,*installation,preset,out);return 0;}
   partBEvents(in,quiet(in,preset),out);if(argc==4)return 0;
   partCEvents(in,quiet(in,preset),out);
