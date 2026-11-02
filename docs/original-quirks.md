@@ -222,7 +222,7 @@ Pin `6814ee9b`; master was not rechecked.
 | Learned Jump applies terrain through the successful-cast suffix; item Jump does not. | Calibrated DOS static analysis, 2026-10-17: all direct shared-arrival callers are `0x0d411`, `0x0d5ba`, `0x1e7df`; the item-use dispatch `0x39e4b` returns through its ordinary monster response without that suffix. The pin's `jump` handler only moves and sets stepped. | Existing learned-cast and item-use continuations, shared arrival owner. | Neither an ordinary monster response nor the ten sleeping Rest opportunities invents an arrival call. |
 | Ordinary manual Space, including an empty cell, charges time and runs a monster opportunity before arrival; a terminal service does not repeat that suffix. | Calibrated DOS static analysis, 2026-10-17: Space dispatch `0x0d468..0x0d482`; common service farewell `0x1d782..0x1d79d` and current-key clear `0x1d7c8` before return `0x1d7ce..0x1d7d3`. | Existing Event, regional opportunity and service farewell owners. | The entire manual Event chain finishes first. Service farewell remains its original separate charge, without an extra minute/opportunity/hazard on return. |
 | Space that handles a door or grate does not run the ordinary Space arrival suffix. | Calibrated DOS static analysis, 2026-10-17: openGrate starts at `0x0c794`, clears the current key at `0x0c911`, then returns at `0x0c917..0x0c91a`; outer dispatch tests that key at `0x0d263`. | Existing barrier owner retains its own effects, with no extra Space charge, monster opportunity or terrain arrival. | Bash pass-through still reaches charged movement and arrival; blocked Bash does not. |
-| <a id="sv-darkside-fall-bounds"></a> Darkside surface falls use the DOS dispatch bounds, which differ from the pin at maps 113 and 130-132. | Calibrated DOS static analysis, 2026-10-17: `WORLD/XEEN.DAT` `0x0cb70..0x0cb86` maps 89-112 to map minus 88; dispatch `0x0cb93..0x0cb98` includes only 25-129, table `0x0cd22`. | `xeenTerrainFallDestination` uses these original bounds; other maps use Darkside 29 `(25,21)` North. | The pin includes 113 in the subtraction range and 130-132 in later special cases. Darkside gameplay remains unadmitted. **ScummVM:** differs. |
+| <a id="sv-darkside-fall-bounds"></a> Darkside surface falls use the DOS dispatch bounds, which differ from the pin at maps 113 and 130-132. | Calibrated DOS static analysis, 2026-10-17: `WORLD/XEEN.DAT` `0x0cb70..0x0cb86` maps 89-112 to map minus 88; dispatch `0x0cb93..0x0cb98` includes only 25-129, table `0x0cd22`. | `xeenTerrainFallDestination` uses these original bounds; other maps use Darkside 29 `(25,21)` North. | The pin includes 113 in the subtraction range and 130-132 in later special cases. **ScummVM:** differs. |
 | <a id="sv-spell-row-height"></a> Spell list rows are nine lines tall, so a click anywhere between two spells selects one of them; the reference's eight-line rows leave a dead line under each spell. | Calibrated static `WORLD/XEEN.DAT` analysis, 2026-10-18: the spell dialog button table at `0x4f19a` stores x words, then y, width, height and key bytes, for 16 buttons; the ten rows have x 40, y 28 + 9k, width 147, height 9. The mouse decoder `0x0e32b..0x0e396` tests `x0 <= x < x0 + width` and `y0 <= y < y0 + height`; its portrait test `0x0e2d8..0x0e301` (`[150,182)` by `[face, face + 32)`) calibrates the half-open rule against the known party buttons. Pinned `SpellsDialog::loadButtons` uses `Rect(40, 28 + 9k, 187, 36 + 9k)`. | `xeenSpellListInput` (Cast New, Guild and combat spell lists); `XeenServiceDialogTests.cpp` | The scroll, page, Select and Exit buttons in the same table match the pin. **ScummVM:** differs. |
 | Item list rows are eight lines tall at a nine-line pitch and service rows (Tavern and similar) eight lines tall at a ten-line pitch, so a click on the line between two rows selects nothing. | Same static analysis, 2026-10-18: the item dialog table at `0x4f4ca` stores the nine rows as x 8, y 20 + 9k, width 255, height 8; the Tavern table at `0x4f2dc` stores x 234, y 54/64/74/84, width 74, height 8. The pin's rectangles are equivalent. | `xeenItemsInput`, `xeenLocationInput`; `XeenServiceDialogTests.cpp` | **QoL candidate:** close the gaps as an opt-in. |
 
@@ -743,12 +743,6 @@ original post-dream poll.
   Master not rechecked. Part A1 implements this restriction.
   [M94 scope](milestone-94-plan.md).
 
-- Jump destinations on an unadmitted map (including mixed Darkside maps) remain
-  refused before charge. M72 applies the original surface effects to admitted
-  destinations; a fall to an unadmitted map is also refused before
-  publication. This retains the area restriction approved on 2026-10-12,
-  without the old blanket refusal of hazardous surfaces.
-
 ## Approved deviations
 
 Deliberate differences from the original that the maintainer approved; each
@@ -758,7 +752,7 @@ stays documented here and in the plan that implements it.
   (maintainer, 2026-11-01; M104 decision 4). Normal original Events immediately
   load the other side. For a synthetic persistent pending side, MMModern shows
   "Saving with a pending world side is not supported yet" and preserves the
-  running game, without a new save field (v24). DOS instead promotes the pending
+  running game, without a new save field. DOS instead promotes the pending
   side before saving ([evidence](#sv-mixed-save-pending-side)); **ScummVM:** the
   pin saves the active side without that promotion. Implemented in
   `XeenSaveState::capture`/`captureImpl` and `xeenSaveGameplay`; master not rechecked.
@@ -1056,6 +1050,31 @@ stays documented here and in the plan that implements it.
 Places where the pinned ScummVM code differs from the DOS original or contains
 a port defect; MMModern follows the original instead.
 
+- <a id="sv-pin-data-patches"></a> **MMModern plays the installed Event and
+  object data without the pin's data patches.** The pin's `Patcher`
+  (`patcher.cpp`) rewrites some Events and hides some object copies when a
+  map loads; MMModern loads the CD data unchanged, as DOS does. Event records
+  read from the installed CD data, 2026-11-02 (Darkside audit):
+  - Darkside 54 `(10,10)` East, line 8 (Ellinger's Tower, level 2): the
+    original moves wall object slot 25 to `(100,100)`; the pin moves slot 20
+    ("Fix curtain").
+  - Darkside 62 `(11,8)` and `(7,4)`, line 4: both original pits fall to map
+    61 `(3,8)`; the pin lands at map 61 on the pit's own position.
+  - Darkside 116 `(10,6)`, line 2: the pin's replacement equals the installed
+    record (TakeOrGive mode 103, world flag 128), so it changes nothing on
+    this edition; for the flag's meaning see
+    [world flag 128](#sv-world-flag-quest-alias).
+  - Objects: the pin always hides Clouds 24 object 15, a statue seen beyond
+    the map edge, and hides Darkside copies of the Desert Paladin stones
+    (map 10 slots 9 and 10, map 11 slot 5, map 15 slots 5 and 6) once the
+    matching map-14 object is gone. MMModern hides object copies only
+    through the [DOS quest-flag table](#sv-quest-done-objects), which it
+    applies on Clouds and which lists no Clouds 24 slot. Whether DOS hides
+    the Darkside stone copies is **Unknown**: the table's reach on Darkside
+    is not settled.
+
+  **ScummVM:** differs; master not rechecked.
+
 - <a id="sv-darkside-town-portal-stride"></a> **The World CD's Darkside Town
   Portal names towns but travels to five fixed outdoor arrivals.** DOSBox recording, maintainer,
   2026-10-30: `MModern-playtest/m101/captures-town-portal/video0001.avi`,
@@ -1132,8 +1151,8 @@ stepped (`0xf58b`), redraw consumes it (`0x1184f`), and the Event caller
 sets it again (`0x27b32`). The scenes bypass the town-service day charge.
 Preserve the reload and lighting behavior. High confidence; the reference
 also reloads. Darkside Events can grant the four cross-side entrance keys;
-those keyed branches remain deferred, with an early "not supported yet"
-notice when a key is held. Their keyless Clouds scenes remain original.
+with a key held, the Clouds scenes take their keyed branch to Darkside maps
+113, 117, 121 and 125 (`xeenEntranceSites`).
 
 <a id="sv-arena-species-pool"></a>
 ### The Arena chooses five species before choosing monsters

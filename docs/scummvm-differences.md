@@ -22,14 +22,13 @@ rechecked against ScummVM master `55895ab0` on 2026-10-16, except entries
 explicitly marked "pin: differs; master not rechecked". At that check, since the pin the
 Xeen engine has had only a code-style edit and the Xeen data in `mm.dat` is
 unchanged apart from its version number, so the earlier entries are marked
-"master: differs". MMModern plays Clouds of Xeen, apart from the
-[gaps below](#what-scummvm-has-that-mmmodern-does-not-yet), and the Darkside
-intro at startup. Ordinary Darkside play uses the shared World state; its
-town services work; the Pyramid and travel spells cross sides.
+"master: differs". MMModern plays World of Xeen, Clouds and Darkside, from
+the intros to every ending, apart from the
+[gaps below](#what-scummvm-has-that-mmmodern-does-not-yet).
 
-M106 Part 0 establishes these additional DOS contracts; implementation is
-pending Parts A/B. Pin: differs; master not rechecked. These static
-findings are confirmed by a DOSBox capture.
+M106 established these additional DOS contracts and implements them. Pin:
+differs; master not rechecked. These static findings are confirmed by a
+DOSBox capture.
 
 - **Ending mirror words.** [Preserve completion and position](original-quirks.md#sv-m106-mirror-completion), while still saving before hand-off; the pin marks Clouds/Darkside complete.
 - **World ending variant.** [Always state zero for the win and mirror](original-quirks.md#sv-m106-world-state); the pin chooses from the first qualifying member's awards.
@@ -58,7 +57,7 @@ four original mixed-map FlipWorld runs. Pin: differs; master not rechecked.
 
 - **Same-map Beacon Return.** [DOS replaces a pending side even without reloading](original-quirks.md#sv-mixed-beacon-pending-reset); the pin assigns it only when the destination needs a reload.
 - **Saving after a pending side change.** [DOS selects the pending side before saving](original-quirks.md#sv-mixed-save-pending-side); the pin saves the active side without that switch. The original four flip runs leave no such pending state.
-- **Pending-side Save refusal.** [MMModern refuses this unreachable save state](original-quirks.md#dev-pending-side-save) with a "not supported yet" notice, keeping v24 and the running game. The pin saves the active side; DOS promotes the pending side.
+- **Pending-side Save refusal.** [MMModern refuses this unreachable save state](original-quirks.md#dev-pending-side-save) with a "not supported yet" notice, keeping the save format and the running game. The pin saves the active side; DOS promotes the pending side.
 - **World flag 128.** [DOS's world flags 128-187 are the quest-flag bits](original-quirks.md#sv-world-flag-quest-alias), so Darkstone Tower's fourth head is kept as Auto Note 128; the pin stores it in an extra flag that its save drops. Pin: differs; master not rechecked.
 
 The following Darkside presentation differences follow the DOS rules
@@ -279,7 +278,7 @@ M83 follows the installed digital driver and CD rules:
   [Evidence](original-quirks.md#sv-terrain-damage-start). Pin: differs; master not rechecked.
 - **Darkside fall boundaries.** The original uses the direct map-minus-88
   fall only for maps 89-112 and excludes 130-132 from its special dispatch.
-  MMModern keeps these bounds; Darkside play remains outside the admitted area.
+  MMModern keeps these bounds.
   [Evidence](original-quirks.md#sv-darkside-fall-bounds). Pin: differs; master not rechecked.
 - **First save against poison and other elements.** The original's first save
   against a monster's non-physical attack (such as the poison of Vertigo's
@@ -393,6 +392,7 @@ The DOS dispatch comparisons below specify the faithful per-input rule;
 implemented coverage remains in project status. These entries were checked
 against the pin; master was not rechecked.
 
+- **Original map data.** [MMModern plays the installed Events and objects without the pin's data patches](original-quirks.md#sv-pin-data-patches): the Ellinger's Tower curtain slot, the two map-62 pit landings, the distant Clouds 24 statue and the Desert Paladin stone copies. Pin: differs; master not rechecked.
 - **Darkside object exchanges.** DOS exchanges the objects' positions; the
   pin changes a copy and leaves the map unchanged.
   [Evidence](original-quirks.md#sv-darkside-exchange-objects). MMModern exchanges
@@ -768,11 +768,6 @@ apart from the fidelity differences above.
 ScummVM plays the whole game today; MMModern is young. The full list of gaps is
 in [project status](project-status.md#known-gaps):
 
-- **The whole game:** Clouds of Xeen is playable from its intro to its
-  ending, except the mirror words `showdown` and `genesis` (the Darkside
-  and World endings). Darkside is reached through the Pyramids and its
-  ordinary maps and town services play; entrance scenes and many of its
-  mechanics remain deferred.
 - **Sound:** CD `promus` and the mono `admus`, `blastmus` and authenticated
   INTRO `specmus` OPL profiles are supported, as is MT-32 `rolmus` with the
   player's 1.07 control and PCM ROMs. Music 5/7/8/9 and digital 1/2/5/8/9 use
