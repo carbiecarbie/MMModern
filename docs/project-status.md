@@ -1,10 +1,12 @@
 # MMModern - Project Status
 
-This describes what can be played and done now. M105 is the latest
-completed and accepted milestone (2026-11-01; [plan](milestone-105-plan.md)):
-the last three Events of the mixed World of Xeen maps, Darkstone Tower's
-fourth head and the Dungeon of Death's book, now run as on the CD, so
-Darkside plays up to its ending. Before it, M104 opened Darkstone Tower,
+This describes what can be played and done now. M106 is the latest
+completed and accepted milestone (2026-11-02; [plan](milestone-106-plan.md)):
+Darkside of Xeen and World of Xeen can be won as in DOS, the original
+Darkside ending plays with the party's score, and the title replays each
+won ending; the World ending's presentation still says "not supported yet".
+Before it, M105 ran the last three Events of the mixed World of Xeen maps,
+so Darkside plays up to its ending, M104 opened Darkstone Tower,
 Dragon Tower, the Dungeon of Death, the Southern Sphinx and the Dragon Clouds
 (Darkside maps 113-128) from their Clouds entrances with the Darkside keys,
 with the resources, music and travel rules of the CD, M103 ran every Event
@@ -32,7 +34,8 @@ them yet. A new game of Might and Magic IV: Clouds of Xeen, read from the
 World of Xeen two-CD talkie edition, starts as in the original, and every
 Clouds map is playable. Darkside is reached through the Pyramids, as in the
 CD; its maps, the mixed World of Xeen maps 113-128 included, town services,
-entrance scenes and Events play, while the endings say "not supported yet".
+entrance scenes and Events play, and it can be won with its original
+ending; the World ending's presentation says "not supported yet".
 
 ## What can be played
 
@@ -41,8 +44,10 @@ story until it has been watched to its end, then only the logos and the World
 of Xeen title. Escape skips the story. The original title screen follows:
 Escape shows or hides the menu, Credits shows the four original pages, and
 Other Options plays the Clouds intro with its music and Crodo's narration,
-`D` forgets that the Darkside story was watched, and after a win `V` replays
-the Clouds ending. The watched state and the win are kept in `settings.ini`.
+`D` forgets that the Darkside story was watched, and after each win `E`, `V`
+or `W` replays the Darkside, Clouds or World ending, packed in that order as
+in DOS (`W` says "not supported yet"). The watched state and the wins are
+kept in `settings.ini`.
 New asks for a save slot, a name and the difficulty: Adventurer (weapons hit
 harder) or Warrior. As in the original, the six level-1 Clouds characters
 then stand in Vertigo at `(18,4)` facing West at 08:00 on day 1 of year 610,
@@ -155,6 +160,23 @@ win is remembered outside the save
 Castle Xeen is gone and Lloyd's Beacon cannot return there. The mirror word
 `showtime` plays the ending without winning, and `bloopers` does nothing, as
 in DOS ([ending rules](rules/cutscenes.md#clouds-ending-entry-and-save)).
+
+### The Darkside and World endings
+
+Bringing the Soul Box with Corak inside to Alamar, at Castle Alamar Level 3
+`(2,13)` facing North, wins Darkside of Xeen as in DOS: the confrontation is
+cinematic, the party is saved at Castleview `(25,21)` facing North, and the
+original Darkside ending plays with the score, then a fresh World title.
+Animations ignore keys and clicks, the score pages advance by key only, and
+Ctrl-Q quits at the original's keyboard checks. Bringing Xeen's Scepter to
+the altar of the Clouds of the Ancients, with the awards DOS requires, wins
+World of Xeen and saves as in DOS;
+its ending says "not supported yet". The mirror words `showdown`, `genesis`
+and `showtime` play an ending without winning, as in DOS, and `bloopers`
+does nothing ([win rules](rules/cutscenes.md#darkside-and-world-win-entry-and-save)).
+After the Darkside win, a loaded save keeps Alamar's music in Castleview
+until the next map
+([approved deviation](original-quirks.md#dev-darkside-load-music)).
 
 ### Magic
 
@@ -338,7 +360,8 @@ linked ScummVM components).
 - Events: `XeenEventSystem` decodes and runs the original Event scripts;
   unsupported effects refuse visibly without publishing anything partial.
 - Cutscenes: `XeenCutscene` and `XeenCutsceneFlow` play the Darkside intro
-  and the Clouds intro and ending of `WORLD/XEEN.EXE`, with tables, frames
+  and the Clouds intro and ending and the Darkside ending of
+  `WORLD/XEEN.EXE`, with tables, frames
   and a presentation random source read from it at run time.
 - Flows (`app`): `XeenEventFlow` coordinates the gameplay session, input,
   dialogs, inventory and the Inn; `XeenEncounterFlow` hosts encounters,
@@ -366,8 +389,8 @@ the original data uses and its support status.
 
 ## Known gaps
 
-- Scenes and commands: the mirror words `showdown` and `genesis` (the
-  Darkside and World endings) say "not supported yet".
+- Scenes and commands: the World ending's presentation (the World win, the
+  mirror word `genesis` and the title's `W`) says "not supported yet".
 - Sound: the Canvas/GS, PC speaker, Wave Blaster and TAP-10 music
   drivers, and the PC speaker, AdLib, Disney Sound Source, Pro Audio
   Spectrum and Covox digital drivers, are silent with a notice.
@@ -375,8 +398,8 @@ the original data uses and its support status.
   omitted by maintainer decision. SDL's resampler plays FM and CD audio up
   to about 0.07% fast, which is inaudible
   ([audio rules](rules/audio.md#sdl-resampler-rate-limitation)).
-- Darkside: the endings (opcodes 57 and 58, the only
-  [census Darkside gaps](coverage.md#darkside-largest-gaps)) say "not
-  supported yet".
+- Darkside: the [census](coverage.md#darkside-largest-gaps) lists no
+  Darkside gap; opcode 58 stays partial until the World ending's
+  presentation.
 
 Next steps are in the [roadmap](roadmap.md).

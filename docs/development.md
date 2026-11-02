@@ -751,6 +751,7 @@ All four use level 200, full computed HP/SP checked against 32767, attributes
 100, the M78 equipped Obsidian inventory and learned spells. Levitation and
 light are supplied for the capture routes; neither completion nor ending
 implementation is fabricated. The win tails and ending words save as in DOS;
-Darkside/World presentation reports "not supported yet". These are developer fixtures, not earned play-throughs.
+the Darkside ending plays, and the World presentation reports "not supported
+yet". These are developer fixtures, not earned play-throughs.
 Export carries all three completions and omits monster HP/status, extra Spawn slots
 and RNG; native DOS play supplies any post-win state needed for comparison.

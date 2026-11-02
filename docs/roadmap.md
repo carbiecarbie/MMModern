@@ -35,8 +35,9 @@ shape of the original's monitors, and M100 added the launcher window, the
 installer's sound setup, a log file and an issue template. M101 then started
 Darkside: both sides' state, save v23 and the Pyramids between the sides.
 The [Darkside arc](#darkside-arc) followed with its towns (M102), Events
-(M103), the mixed World of Xeen maps (M104, save v24) and their last three
-Events (M105).
+(M103), the mixed World of Xeen maps (M104, save v24), their last three
+Events (M105), and the Darkside and World wins with the Darkside ending
+(M106, save v25).
 
 ## Completed arc: closing Vertigo and the first release
 
@@ -173,7 +174,7 @@ analysis, because the reference was wrong in comparable Clouds cases (M80).
 | 2. Darkside Events ([M103](milestone-103-plan.md)) | ExchObj, GotoRandom and GiveEnchanted for every item category; then ChooseNumeric and FallToMap; then ConfirmWord_2, MoveWallObj beyond the wall-item count and the map-29 IfMapFlag | B | Done 2026-11-01, with Event windows now closing at the end of every Event |
 | 3. Mixed World of Xeen maps ([M104](milestone-104-plan.md)) | Darkside maps 113-128 (Darkstone Tower, Dragon Tower, Dungeon of Death, Southern Sphinx, Dragon Clouds), FlipWorld, the Darkside-key entrances and Town Portal from them | A | Done 2026-11-01, save v24 |
 | 3a. Last mixed-map Events ([M105](milestone-105-plan.md)) | World flag 128 on map 116 and DisplayLarge on map 121 | B | Done 2026-11-01 |
-| 4. Darkside and World wins, Darkside ending ([M106](milestone-106-plan.md)) | Opcodes 57 and 58, the ending mirror words on both sides, the Darkside and World completion words and won states, the title replay rows, and the Darkside presentation | A | Needs analysis of `XEEN.EXE` and an uninterrupted DOSBox capture, as M92 did |
+| 4. Darkside and World wins, Darkside ending ([M106](milestone-106-plan.md)) | Opcodes 57 and 58, the ending mirror words on both sides, the Darkside and World completion words and won states, the title replay rows, and the Darkside presentation | A | Done 2026-11-02 |
 | 5. World ending presentation | The `XEEN.EXE` World ending and its replay | B | After M106 |
 
 Three Tier A items wait for a fitting milestone. A runtime refusal after an

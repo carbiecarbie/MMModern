@@ -345,3 +345,10 @@ made first: world flags beyond 127 are the quest-flag bits that follow them,
 and DisplayLarge shows a line of the map's large text in the main window,
 continuing an open window's text. Darkside now plays up to its ending. Save
 v24 unchanged. [Plan](milestone-105-plan.md).
+
+**M106 - Darkside and World wins, Darkside ending** (Tier A). Bringing the
+Soul Box to Alamar wins Darkside as in DOS: the party is saved at
+Castleview and the original Darkside ending plays with its score. The World
+win saves as in DOS and says its ending is not supported yet. The ending
+mirror words and the title's E, V and W replay rows follow DOS, and both
+wins are remembered in `settings.ini`. Save v25. [Plan](milestone-106-plan.md).
