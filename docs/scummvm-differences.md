@@ -40,9 +40,9 @@ findings are confirmed by a DOSBox capture.
 - **Darkside ending details.** [Original frame counts, effect files and score claw](original-quirks.md#sv-m106-ending-composition), including the missing vortex sprite and the castle crash sound.
 - **I do timing approximation.** [Approved unsplit sound deadline at this boundary](original-quirks.md#dev-m106-ido-boundary): MMModern's modeled visual interval is about 0.65 s longer than DOS; the pin gates on mixer/VOC completion. Pin: differs; master not rechecked.
 
-M107 Part 0 establishes the World ending presentation from the original
-program; its implementation follows in Part A. Pin: differs; master not
-rechecked.
+M107 established the World ending presentation from the original program
+and implements it; a DOSBox capture confirms it frame for frame. Pin:
+differs; master not rechecked.
 
 - **World ending CD animations.** [Three full-screen animations](original-quirks.md#sv-m107-cd-animations) play after the crowd scroll; the pin omits them.
 - **World ending waits.** [Original stage waits, repeats, scroll merge and song-fade waits](original-quirks.md#sv-m107-stage-waits), where the pin changes several.

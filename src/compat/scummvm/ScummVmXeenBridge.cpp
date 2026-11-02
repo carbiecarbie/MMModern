@@ -121,6 +121,21 @@ public:
 			}
 		}
 	}
+	// EXE normal drawer: a program component whose rows can never be drawn is
+	// read and discarded (sc17.eg2 frame 16, hands.eg2 frames 1..15).
+	bool invisibleProgramComponent(int frame) const {
+		for(const auto offset:{_index[frame]._offset1,_index[frame]._offset2})
+			if((offset || offset==_index[frame]._offset1) && xeenProgramComponentInvisible(_data,_filesize,offset))return true;
+		return false;
+	}
+	void drawVisibleComponents(XSurface &dest,int frame,const Common::Point &position,uint flags,int scale) {
+		const auto first=_index[frame]._offset1,second=_index[frame]._offset2;
+		struct Restore {IndexEntry &entry;uint16 a,b;~Restore(){entry._offset1=a;entry._offset2=b;}} restore{_index[frame],first,second};
+		for(const auto offset:{first,second}) {
+			if((!offset && offset!=first) || xeenProgramComponentInvisible(_data,_filesize,offset))continue;
+			_index[frame]._offset1=offset;_index[frame]._offset2=0;SpriteResource::draw(dest,frame,position,flags,scale);
+		}
+	}
 	// Adapted from the pinned sprites.cpp drawPixel2/3/5 helpers (ScummVM
 	// developers, GPL-3.0-or-later). Those upstream modes require g_engine or
 	// g_system. Reuse the native decoder/scaler for each component and apply
@@ -386,7 +401,7 @@ struct ScummVmXeenBridge::Impl {
 				if (bytes.size() < 2 || bytes[0] != monsterFrames || bytes[1] != 0)
 					throw std::runtime_error("Unexpected monster sprite frame count");
 				for (std::size_t i = 0; i < monsterFrames; ++i) validateXeenObjectSprite(bytes, i);
-			} else if (checkedFrame) validateXeenObjectSprite(bytes, *checkedFrame);
+			} else if (checkedFrame) validateXeenObjectSprite(bytes, *checkedFrame, xeenProgramArchive(selection));
 		};
 		const auto existing = sprites.find(key);
 		if (existing != sprites.end()) {
@@ -738,6 +753,8 @@ void ScummVmXeenBridge::drawDialogSprite(IndexedFrame &frame,const char *name,un
 	for(int row=0;row<200;++row) std::copy_n(frame.pixels.data()+row*320,320,static_cast<std::uint8_t *>(surface.getBasePtr(0,row)));
 	if(xeenProgramArchive(selection) && flags==0x800 && scale==0 && y<0)
 		sprite.drawProgramClipped(surface,index,Common::Point(x,y),flags);
+	else if(xeenProgramArchive(selection) && sprite.invisibleProgramComponent(index))
+		sprite.drawVisibleComponents(surface,index,Common::Point(x,y),flags,scale);
 	else sprite.draw(surface,index,Common::Point(x,y),flags,scale);
 	for(int row=0;row<200;++row) std::copy_n(static_cast<const std::uint8_t *>(surface.getBasePtr(0,row)),320,frame.pixels.data()+row*320);
 }

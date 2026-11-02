@@ -158,22 +158,20 @@ int Application::runTitle(const std::filesystem::path &gameDirectory,std::option
     audio.stopDigital(clock());audio.fadeSong(0,clock());audio.observeOptions({});
     std::string notice;
     bool resourcesLoaded=false;
-    const bool darkside=entry.kind==XeenSessionEntry::Kind::DarksideEnding;
-    const auto name=darkside?"Darkside":entry.kind==XeenSessionEntry::Kind::WorldEnding?"World":"Clouds";
-    if(entry.kind==XeenSessionEntry::Kind::WorldEnding) {
-     try {(void)XeenCutsceneData::installed(*installation);notice=std::string(name)+" ending: not supported yet";}
-     catch(const std::exception &e) {
-      std::cerr<<name<<" ending unavailable: "<<e.what()<<'\n';
-      notice=std::string(name)+" ending unavailable\nCheck XEEN.EXE / XEEN.CFG";
-     }
-    }
-    else if(audio.startProgram(clock(),XeenAudioProgram::Exe))try {
+    const bool darkside=entry.kind==XeenSessionEntry::Kind::DarksideEnding,world=entry.kind==XeenSessionEntry::Kind::WorldEnding;
+    const auto name=darkside?"Darkside":world?"World":"Clouds";
+    if(audio.startProgram(clock(),XeenAudioProgram::Exe))try {
      const auto data=XeenCutsceneData::installed(*installation);
-     const auto archive=darkside?XeenSceneArchive::DarksideProgram:XeenSceneArchive::CloudsEnding;
-     const auto captionResource=darkside?data.darkside.resources[XeenCutsceneData::Darkside::Caption]:data.resources[XeenCutsceneData::Caption];
-     const auto captions=XeenCutsceneData::captions(assets.readArchiveResource(captionResource,archive));
+     // The World ending reads INTRO.CC like Darkside's and has no caption records.
+     const auto archive=darkside || world?XeenSceneArchive::DarksideProgram:XeenSceneArchive::CloudsEnding;
+     std::optional<XeenCutsceneData::Captions> captions;
+     if(!world) {
+      const auto captionResource=darkside?data.darkside.resources[XeenCutsceneData::Darkside::Caption]:data.resources[XeenCutsceneData::Caption];
+      captions=XeenCutsceneData::captions(assets.readArchiveResource(captionResource,archive));
+     }
      resourcesLoaded=true;
-     auto scene=darkside?XeenCutscene::darksideEnding(data,captions,_program.wallClock,entry.score):XeenCutscene::cloudsEnding(data,captions,_program.wallClock,entry.score);
+     auto scene=world?XeenCutscene::worldEnding(data,entry.score):darkside?XeenCutscene::darksideEnding(data,*captions,_program.wallClock,entry.score):
+      XeenCutscene::cloudsEnding(data,*captions,_program.wallClock,entry.score);
      XeenCutsceneFlow ending(std::move(scene),XeenCutsceneFlow::original(assets,font,audio,clock,data.digitalDevice>=2,archive));
      if(!showCutscene(ending,assets,audio)){audio.observeOptions(options);return 0;}
     }catch(const std::exception &e) {

@@ -355,6 +355,7 @@ void XeenAudio::fadeSong(unsigned command,std::uint64_t now) {
  _impl->command(command);
  if(command==0)_impl->current.clear(); // A later explicit start of this song must reload it.
 }
+bool XeenAudio::songFading(std::uint64_t now) {advance(now);return _impl->clockDriver && _impl->clockDriver->fadeSpeed()!=0;}
 void XeenAudio::mixer(unsigned level,std::uint64_t now) {
  if(level>255)throw std::invalid_argument("Invalid EXE music mixer level");
  advance(now);_impl->command(0x100,level);

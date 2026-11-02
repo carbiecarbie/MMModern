@@ -39,7 +39,8 @@ struct XeenTextRenderOptions {
 	bool originalControls = false;
 	// FontSurface::setTextColor uses the original startup table at the title.
 	bool startupColors = false;
- // XEEN.EXE 0x18813..0x18818 uses SHR/ADC for centered runs.
+ // XEEN.EXE 0x18813..0x18818 uses SHR/ADC for centered runs, and its
+ // trailing-space deduction is one less than the DAT (0x187c4..0x187d4).
  bool exeCenterRounding = false;
  // Original Window::writeString may return the remaining text at its bottom.
  bool stopAtBottom = false;

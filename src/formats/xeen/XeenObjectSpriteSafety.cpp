@@ -67,7 +67,7 @@ void cell(const std::vector<std::uint8_t> &b, std::size_t offset) {
 }
 } // namespace
 
-void validateXeenObjectSprite(const std::vector<std::uint8_t> &bytes, std::size_t frame) {
+void validateXeenObjectSprite(const std::vector<std::uint8_t> &bytes, std::size_t frame, bool programRows) {
 	if (bytes.empty()) fail("empty resource");
 	const auto count = word(bytes, 0);
 	if (!count) fail("empty frame directory");
@@ -78,9 +78,10 @@ void validateXeenObjectSprite(const std::vector<std::uint8_t> &bytes, std::size_
 		for (std::size_t c = 0; c < 2; ++c) {
 			const auto offset = word(bytes, 2 + i * 4 + c * 2);
 			if (!offset && c == 1) continue;
-			if (offset < directoryEnd || offset > bytes.size() || bytes.size() - offset < 8)
-				fail("invalid cell offset/header");
-			if (i == frame) cell(bytes, offset);
+			if (offset > bytes.size() || bytes.size() - offset < 8) fail("invalid cell offset/header");
+			const bool invisible = programRows && xeenProgramComponentInvisible(bytes.data(), bytes.size(), offset);
+			if (offset < directoryEnd && !invisible) fail("invalid cell offset/header");
+			if (i == frame && !invisible) cell(bytes, offset);
 		}
 }
 } // namespace mmodern

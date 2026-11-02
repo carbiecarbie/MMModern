@@ -469,8 +469,8 @@ extern "C" bool wrappedTitleShow(const SdlWindow *window,const IndexedFrame &fir
  if(state.endingMode && state.endingReturned) {
   if(handler.cutsceneControlQuit) {
    check(handler.cutsceneControlQuit,"Clouds ending did not enable EXE Ctrl-Q");
-   if(state.endingKind==XeenSessionOutcome::Kind::DarksideEnding)
-    check(bool(handler.cutsceneControlQuitReady) && !handler.cutsceneControlQuitReady(),"Darkside ending lost its deferred Ctrl-Q readiness wiring");
+   if(state.endingKind!=XeenSessionOutcome::Kind::CloudsEnding)
+    check(bool(handler.cutsceneControlQuitReady) && !handler.cutsceneControlQuitReady(),"Darkside/World ending lost its deferred Ctrl-Q readiness wiring");
    check(!state.endingPlayed,"Ending program repeated before the title notice");
    IndexedFrame visible=first;unsigned cycles=0;const auto began=state.introNow;
    const auto present=[&]{handler.framePresented(visible.presentation());handler.completeInputHandoff(visible.presentation());};present();
@@ -488,7 +488,7 @@ extern "C" bool wrappedTitleShow(const SdlWindow *window,const IndexedFrame &fir
    check(state.introNow-began>50000000000ULL,"Ending input bypassed stages 1 and 2");
    state.endingPlayed=true;return true;
   }
-  check(state.endingExeFailure || state.endingKind==XeenSessionOutcome::Kind::WorldEnding?state.endingNotice:state.endingPlayed,"Ending did not reach the expected fresh title");
+  check(state.endingExeFailure?state.endingNotice:state.endingPlayed,"Ending did not reach the expected fresh title");
   check(!handler.cutsceneControlQuit,"Ending Ctrl-Q leaked into fresh DAT title");
   check(state.program->playTimeMark==state.wallNow,"Ending return did not reset the DAT play-time mark");
   IndexedFrame visible=first;
@@ -502,12 +502,7 @@ extern "C" bool wrappedTitleShow(const SdlWindow *window,const IndexedFrame &fir
    if(auto next=idle()){visible=*next;present();}
   }
   if(state.endingNotice) {
-   if(state.endingExeFailure) {
-    check(state.endingNoticeText.find("Check XEEN.EXE")!=std::string::npos && state.endingNoticeText.find("not supported yet")==std::string::npos,"Absent/different EXE must show the executable-check notice");
-   }else {
-    const auto name=state.endingKind==XeenSessionOutcome::Kind::DarksideEnding?"Darkside":"World";
-    check(state.endingNoticeText.find(std::string(name)+" ending: not supported yet")!=std::string::npos && state.endingNoticeText.find("Check XEEN.EXE")==std::string::npos,"Interim notice must name its ending and unsupported presentation");
-   }
+   check(state.endingExeFailure && state.endingNoticeText.find("Check XEEN.EXE")!=std::string::npos && state.endingNoticeText.find("not supported yet")==std::string::npos,"Only an absent/different EXE shows an ending notice");
    const auto action=handler.inputContext(visible.presentation()).dialog->key(InputKey::Enter);check(bool(action),"Ending notice missing acknowledgement");
    if(auto next=handler.withPresentedInput(*action,1,visible.presentation())){visible=*next;present();}
   }
@@ -648,7 +643,7 @@ void endingControls(const char *game,const char *endingPreset,bool darksideOnly=
   check(result==0 && state.shown && state.endingNotice==bool(failure) && state.endingPlayed==!failure,"V/ending missing or different EXE path");
   check(readFile(state.slot)==saved && readFile(settings)==won && p.cloudsWon,"V changed saved state, play time or won store");
  }
- // Darkside presents, World still notices; E/W and failure paths never write.
+ // Darkside and World present; E/W and failure paths never write.
  if(darksideOnly)for(const auto kind:{XeenSessionOutcome::Kind::DarksideEnding,XeenSessionOutcome::Kind::WorldEnding})for(bool replay:{false,true})for(unsigned failure=0;failure<3;++failure) {
   XeenSaveFile::write(state.slot,XeenSaveFormat::decode(state.saved),{},true);
   check(xeenWriteWon(settings,XeenWonKind::Darkside) && xeenWriteWon(settings,XeenWonKind::World),"All title wins isolated");
@@ -658,7 +653,7 @@ void endingControls(const char *game,const char *endingPreset,bool darksideOnly=
   state.endingLoadRequested=state.endingLoaded=false;state.endingKind=kind;state.endingMode=true;state.endingReplay=replay;state.endingExeFailure=failure;
   state.endingNoticeText.clear();state.endingReturned=state.endingNotice=state.endingPlayed=state.shown=false;state.introNow=realTitleClock();state.loading=true;state.templePrices=&p.templePrices;
   const auto result=replay?runWithoutStartup(Application(p,{},xeenSettingsFile()),game):Application(p,{},settings).loadGame(game,state.slot);
-  const bool presents=kind==XeenSessionOutcome::Kind::DarksideEnding && !failure;
+  const bool presents=!failure;
   check(result==0 && state.shown && state.endingNotice==!presents && state.endingPlayed==presents && state.endingLoaded,"Ending then fresh hidden-menu title, including absent/different EXE");
   check(readFile(state.slot)==saved && readFile(settings)==won && p.cloudsWon && p.darksideWon && p.worldWon,"Interim handoff/replay changes no save, settings or won state");
   check(fs::last_write_time(state.slot)==saveTime && fs::last_write_time(settings)==settingsTime,"Ending/replay rewrote unchanged save or settings bytes");
@@ -693,6 +688,20 @@ void endingControls(const char *game,const char *endingPreset,bool darksideOnly=
   const auto saved=XeenSaveFile::read(state.slot);
   check(saved.journey->darksideCompleted && saved.questItems[53]==1 && saved.questItems[78]==0 && saved.camera.mapId==XeenMapIdentity(XeenSide::Darkside,29) && saved.camera.x==25 && saved.camera.y==21 && saved.camera.direction==XeenDirection::North,"Darkside ending forced save boundary");
   check(p.darksideWon && xeenReadSettings(settings).darksideWon,"Darkside win marker");
+  state.endingMode=state.endingOriginal=state.endingLoadRequested=state.endingLoaded=false;
+  // The map 129 altar, its original opcode 58 and forced save, then the whole
+  // World presentation and a fresh title (M107).
+  const auto worldPreset=state.base/"m106-world.mmsave";developer::generateTestSave(installation,"m106-world",worldPreset);
+  auto world=XeenSaveFile::read(worldPreset);world.camera.y=15;world.name="Altar";XeenSaveFile::write(state.slot,world,{},true);
+  XeenProgramState q{XeenWallClock([]{return state.wallNow;})};state.wallNow=10;state.program=&q;
+  state.endingKind=XeenSessionOutcome::Kind::WorldEnding;state.endingMode=state.endingOriginal=true;
+  state.endingNoticeText.clear();state.endingReturned=state.endingNotice=state.endingPlayed=state.shown=false;
+  state.introNow=realTitleClock();state.templePrices=&q.templePrices;
+  const auto worldSettings=state.base/"world-ending-settings.ini";
+  check(Application(q,{},worldSettings).loadGame(game,state.slot)==0 && state.endingPlayed && state.endingLoaded && state.shown && !state.endingNotice,"Original map 129 Event to World ending, fresh title and Load");
+  const auto altar=XeenSaveFile::read(state.slot);
+  check(altar.journey->worldCompleted && altar.camera.mapId==XeenMapIdentity(XeenSide::Darkside,129) && altar.camera.x==13 && altar.camera.y==15 && altar.camera.direction==XeenDirection::North,"World ending forced save boundary");
+  check(q.worldWon && xeenReadSettings(worldSettings).worldWon,"World win marker");
   state.endingMode=state.endingOriginal=state.endingLoadRequested=state.endingLoaded=false;
   state.endingKind=XeenSessionOutcome::Kind::CloudsEnding;
  }

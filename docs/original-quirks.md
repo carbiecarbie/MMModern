@@ -35,14 +35,15 @@ master was not rechecked.
 Calibrated original-program evidence, 2026-11-02, from `WORLD/XEEN.EXE`
 `0xfbc9..0x11864` ([evidence](rules/evidence.md#m107-part-0),
 [rules](rules/cutscenes.md#world-ending-presentation)); the maintainer's W
-replay capture is still to be recorded. Pin `6814ee9b`; master was not
+replay capture confirms them frame for frame
+([capture](rules/evidence.md#m107-capture)). Pin `6814ee9b`; master was not
 rechecked.
 
 | Rule | Evidence and consequence |
 | --- | --- |
 | <a id="sv-m107-cd-animations"></a> The World ending includes three CD full-screen animations after the crowd scroll. **ScummVM:** differs. | `0x10015..0x102be`: `cd10001` + `cd1a1..cd1d1` (59 frames), `cd2orig` + 35 `cd2*` members (273), `cd30001` + `cd3a1..cd3o3` loaded every fourth frame and drawn at (101,0) without restoring (268), two ticks each, fades with step `0x81`. All members are in CD INTRO.CC. The pin goes straight from the crowd to the seated crowd. |
 | <a id="sv-m107-stage-waits"></a> World stages keep the EXE's waits, repeats and scroll merge. **ScummVM:** differs. | Crowd scroll waits one tick (`0xff71`), pin two; its remainder merges at the last scroll offset (`0xff85`), the pin passes the dragon frame. Crowd sitting and the first Pharaoh wait three ticks (`0x1043a`, `0x104c6`), pin two; Roland waits two (`0x107d0`), pin three. Queen Kalindra repeats three times (`0x10548`), pin twice. The opening and final song-fade waits poll promus command `0xffe0` until the fade ends (`0xfd14`, `0x117dd`); the pin waits on digital sound. |
-| <a id="sv-m107-cube-frames"></a> The rising Cube cycles all 17 `sc17` frames, including malformed frame 16. **ScummVM:** differs. | `0x10624..0x1062d` takes the frame modulo 17 and `0x106bd` runs 17 frames. Frame 16's first component offset points into frame 15's data; the second is valid. The pin skips frame 16 as malformed. What DOS shows for it awaits the capture. |
+| <a id="sv-m107-cube-frames"></a> The rising Cube cycles all 17 `sc17` frames, including malformed frame 16. **ScummVM:** differs. | `0x10624..0x1062d` takes the frame modulo 17 and `0x106bd` runs 17 frames. Frame 16's first component offset points into frame 15's data; the second is valid. The pin skips frame 16 as malformed. DOS publishes only the valid second component, as the capture shows; MMModern applies that drawer rule to every such program component. |
 | <a id="sv-m107-clip-top"></a> Bottom-clipped ending draws also hide rows above y 17. **ScummVM:** differs. | Flag `0x4000` sets the drawer's row window to 17..bottom (`0x1509c..0x150ba`, `0x152ae..0x152ba`); bottom is 185, then 118 (`0x1d571`). The Cube on the table starts at y 11 and loses its top rows until y 17. The pin clips only the bottom. |
 | <a id="sv-m107-table-padspell"></a> The table plays `padspell.voc` once more before its last six frames. **ScummVM:** differs. | `0x10c95..0x10ca0`, after the 17-frame loop that already played it at frame 10. The pin omits it. |
 | <a id="sv-m107-texts"></a> World captions and the score page keep the EXE texts and layout. **ScummVM:** differs. | Score format DS `0x29be` is the Darkside first-page format with a leading blank line; the pin's World text lacks it. "They came..." and "With the prophecy complete..." begin with a line break, and the latter ends with a period (DS `0x31d7`, `0x362a`). The pin fades out after the score page; DOS returns without a fade (`0x6f22(1,0)`). |

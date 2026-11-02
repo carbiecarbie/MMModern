@@ -32,7 +32,7 @@ services and entrance scenes included. Dialog identifiers below are reference id
 | Arena | supported | Battle Master level entry, Warzone, reward and exit | XeenEventFlow |
 | PyramidLocation | supported | Switch sides both ways through normal arrival; no scene, time charge or disc-change prompt | XeenEventInterpreter / XeenEventFlow |
 | Reaper / Golem / Dwarf / Sphinx locations | supported | Keyed/refusal sequences, VOC speech and Effects-off captions | XeenEventFlow / XeenEntranceScene |
-| OtherOptions / endings | partial | Clouds intro (C), Darkside intro (D), Clouds ending (V after a win), Escape; Darkside and World endings unavailable | XeenTitleFlow / XeenCutsceneFlow |
+| OtherOptions / endings | partial | Clouds intro (C), Darkside intro (D), Darkside, Clouds and World ending replays (E, V, W after their wins), Escape; without XEEN.CC, C still shows and E stays hidden (DOS hides C and moves E to y=78) | XeenTitleFlow / XeenCutsceneFlow |
 | Exploration main screen | supported | Movement, strafe, Shoot, Cast, Rest, Bash, Dismiss, Quests, Map, Info, Quick Ref, gem, portraits, Danger Sense/Spot Secret Doors/Direction Sense indicators | XeenEventFlow |
 | Combat main screen | supported | Attack, Block, Run, Shoot effects, Cast, charged-item Use (including Town Portal), Quick Fight/options, targets, turns, Info, Quick Ref, skill indicators; Run uses the original map run position, including automatic Events after combat | XeenEncounterFlow |
 | CharacterInfo | supported | Stats and popups, Items, Awards, Quick Ref, Exchange, Exit; original combat Exchange refusal | XeenCharacterDialogFlow |

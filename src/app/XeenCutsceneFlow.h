@@ -5,6 +5,7 @@
 #include "core/InputContext.h"
 #include "core/PresentationClock.h"
 #include "formats/xeen/XeenFontFormat.h"
+#include "games/xeen/XeenTextRenderer.h"
 #include "formats/xeen/XeenSpriteDrawOptions.h"
 #include <map>
 #include <deque>
@@ -22,6 +23,7 @@ public:
   std::function<void(IndexedFrame &,const XeenCutscene::Sprite &)> draw;
   std::function<void(const XeenCutscene::Audio &,std::uint64_t)> audio;
   std::function<bool(std::uint64_t)> digitalBusy;
+  std::function<bool(std::uint64_t)> songFading; // Optional; absent means no fade remains.
   std::function<std::optional<std::uint64_t>(std::uint64_t)> digitalDeadline;
   const XeenFontFormat *font=nullptr;
   std::optional<IndexedFrame> initial;
@@ -48,6 +50,8 @@ public:
 private:
  XeenCutscene _scene;Services _services;
  std::size_t _segment=0;unsigned _iteration=0,_level=128,_holdTicks=0;
+ // EXE writer state cs:0xc08 persists between writes (0x188a7..0x188b8).
+ XeenTextAlignment _textAlignment=XeenTextAlignment::Left;
  std::uint64_t _reset=0,_deadline=0;
  std::uint64_t _holdUpdateTick=0;
  bool _done=false,_closed=false,_acquired=false,_terminal=false,_fade=false,_fadePending=false,_afterSent=false,_polled=false,_publicationReady=false;

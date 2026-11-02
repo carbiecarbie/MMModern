@@ -12,7 +12,7 @@ XeenCutscene XeenCutscene::darksideEnding(const XeenCutsceneData &data,const Xee
  auto d=std::make_shared<XeenCutsceneData>(data);
  auto lines=std::make_shared<XeenCutsceneData::Captions>(captions);
  auto random=std::make_shared<XeenPresentationRandom>(std::move(clock),data.ending.randomWords);
- struct State {unsigned cursor=0,phase=0;std::uint64_t captionTick=0;bool captionEnabled=true;std::string caption,strip;};
+ struct State {unsigned cursor=0;std::uint64_t captionTick=0;bool captionEnabled=true;std::string caption,strip;};
  auto state=std::make_shared<State>();XeenCutscene scene;scene.timedControlQuit=true;auto observed=scene.observations;
  const bool digital=data.digitalDevice>=2;
  const auto name=[d](const char *s)->const std::string &{return d->darksideEnding.resource(s);};
@@ -215,32 +215,46 @@ XeenCutscene XeenCutscene::darksideEnding(const XeenCutsceneData &data,const Xee
  castle.compose=[=](const Context &c){const auto i=c.iteration<54?c.iteration:49+(c.iteration-54)%5;const char *r[]{"sc29a.end","sc29b.end","sc29c.end","sc29d.end","sc29e.end","sc29f.end"};Frame f{Restore{"background"},sprite(r[i/10],i%10,92,10)};if(c.iteration==40)f.insert(f.begin(),A{A::FadeSong,{},207});return f;};
  castle.afterHold=[=](const Context &c)->Frame {for(auto i:{1u,5u,11u,19u,34u,35u})if(c.iteration==i)return audio("explosio.voc");if(c.iteration==53)return audio("crash.voc");return {};};
  fade("castle final fade out",false,{A{A::FadeSong,{},0}});
- // Shared Pharaoh pages, EXE 0x6c91. The eight 32-word tables already
- // belong to the installed Darkside data; the score has no random reveal.
- const auto pharaoh=[=]()->Frame {
-  const auto p=state->phase;state->phase=(p+1)%32;const auto &t=d->darkside.ball;
-  const auto &claw=d->darkside.resources[D::Claw];const auto &dragon=d->darkside.resources[D::Pharaoh];
-  return {Restore{"score-room"},Sprite{claw,5,t[2][p],t[3][p],0,0x800},Sprite{claw,6,145,185},
-   Sprite{dragon,unsigned(t[1][p]),139,t[0][p],0,0x800},Sprite{claw,p%5,t[4][p],t[5][p],0,0x800}};
- };
  Frame scoreEnter{A{A::Mixer,{},95}};append(scoreEnter,song("outday3.m"));
- append(scoreEnter,{Palette{d->darkside.resources[D::Palette]},Raw{d->darkside.resources[D::Room3]},Store{"score-room"}});
- auto &scoreRoom=add("Darkside score room",std::move(scoreEnter),[=](const Context &)->Frame {
-  // Initial composition uses the same tables but fixed claw 6 at (149,184).
-  auto f=pharaoh();std::get<Sprite>(f[2]).x=149;std::get<Sprite>(f[2]).y=184;return f;
- });(void)scoreRoom;fade("score fade in",true);
- char digits[11];std::snprintf(digits,sizeof(digits),"%010u",unsigned(score));
- auto page1=d->darksideEnding.scorePages[0];const auto format=page1.find("%010lu");
- if(format==std::string::npos)throw std::runtime_error("Invalid Darkside score format");page1.replace(format,6,digits);
- for(unsigned page=0;page<2;++page) {
-  const auto text=page?d->darksideEnding.scorePages[1]:page1;
-  auto &s=add("Darkside score page "+std::to_string(page+1),{},[=](const Context &){auto f=pharaoh();
-   for(const auto &format:d->darksideEnding.scoreFormats)f.push_back(Text{xeenDialogFormat(format,{text}),12,8,12,8,162,198});return f;
-  },0,3);s.input=I::Keyboard;s.pollAfterHold=true;s.keyboardGroup=2;
- }
+ pharaohPages(scene,d,std::move(scoreEnter),"Darkside score",{endingScore(d->darksideEnding.scorePages[0],score),d->darksideEnding.scorePages[1]});
  // 0xd696 disables the shared scroll, just like Darkside startup. The
  // final call at 0xfad3 returns through 0x6f28..0x6f35 without drawing.
  add("Darkside ending shutdown",{A{A::StopDigital},A{A::FadeSong,{},0}},[](const Context &)->Frame{return {Level{0}};});
  scene.closing=scene.segments.size();return scene;
+}
+std::string XeenCutscene::endingScore(std::string format,std::uint32_t score) {
+ char digits[11];std::snprintf(digits,sizeof(digits),"%010u",unsigned(score));
+ const auto at=format.find("%010lu");
+ if(at==std::string::npos)throw std::runtime_error("Invalid ending score format");format.replace(at,6,digits);return format;
+}
+void XeenCutscene::pharaohPages(XeenCutscene &scene,std::shared_ptr<const XeenCutsceneData> d,Frame enter,const std::string &stage,const std::vector<std::string> &pages) {
+ // EXE 0x6c91..0x6f21. The eight 32-word tables already belong to the
+ // installed Darkside data; the score has no random reveal. The phase
+ // continues across pages, and only the keyboard advances a page.
+ using D=XeenCutsceneData::Darkside;using I=Segment::Input;
+ auto phase=std::make_shared<unsigned>(0);
+ const auto pharaoh=[=]()->Frame {
+  const auto p=*phase;*phase=(p+1)%32;const auto &t=d->darkside.ball;
+  const auto &claw=d->darkside.resources[D::Claw];const auto &dragon=d->darkside.resources[D::Pharaoh];
+  return {Restore{"score-room"},Sprite{claw,5,t[2][p],t[3][p],0,0x800},Sprite{claw,6,145,185},
+   Sprite{dragon,unsigned(t[1][p]),139,t[0][p],0,0x800},Sprite{claw,p%5,t[4][p],t[5][p],0,0x800}};
+ };
+ const auto add=[&](std::string name,Frame first,std::function<Frame(const Context &)> compose,unsigned frames,unsigned ticks)->Segment & {
+  scene.segments.push_back({});auto &s=scene.segments.back();s.name=std::move(name);s.enter=std::move(first);s.compose=std::move(compose);
+  s.frames=frames;s.ticks=ticks;s.input=frames==1 && !ticks?I::Unpolled:I::Ignore;s.audioBeforeFlip=true;return s;
+ };
+ enter.push_back(Palette{d->darkside.resources[D::Palette]});enter.push_back(Raw{d->darkside.resources[D::Room3]});enter.push_back(Store{"score-room"});
+ add(stage+" room",std::move(enter),[=](const Context &)->Frame {
+  // Initial composition uses the same tables but fixed claw 6 at (149,184).
+  auto f=pharaoh();std::get<Sprite>(f[2]).x=149;std::get<Sprite>(f[2]).y=184;return f;
+ },1,0);
+ auto &fade=add(stage+" fade in",{Store{"fade"}},[](const Context &c)->Frame{return {Restore{"fade"},Level{c.iteration*4}};},33,0);
+ fade.reset=Segment::Reset::Entry;fade.input=I::Unpolled;
+ for(unsigned page=0;page<pages.size();++page) {
+  const auto text=pages[page];
+  auto &s=add(stage+" page "+std::to_string(page+1),{},[=](const Context &){auto f=pharaoh();
+   for(const auto &format:d->darksideEnding.scoreFormats)f.push_back(Text{xeenDialogFormat(format,{text}),12,8,12,8,162,198});return f;
+  },0,3);s.input=I::Keyboard;s.pollAfterHold=true;s.keyboardGroup=2;
+ }
 }
 }

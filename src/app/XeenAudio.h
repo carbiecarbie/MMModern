@@ -37,6 +37,8 @@ public:
  void requestSong(std::string,XeenSceneArchive,unsigned fade,std::uint64_t now);
  // EXE presentation commands; a fade does not queue or reload a song.
  void fadeSong(unsigned command,std::uint64_t now);
+ // EXE song command 0xffe0 (0x11c48): true while a promus fade remains.
+ bool songFading(std::uint64_t now);
  void mixer(unsigned level,std::uint64_t now);
  // Card mixer, docs/rules/audio.md. A fresh process starts at the SB16 reset
  // levels and runs one program start with the installed XEEN.CFG +0x14 flag.

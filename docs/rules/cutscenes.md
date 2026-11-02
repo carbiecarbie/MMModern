@@ -888,9 +888,9 @@ Compared complete Alamar-rise capture frames agree (including the frame at
 ## World ending presentation
 
 **DOS static, high for the sequence, resources, waits, input and drawing
-primitives (M107 Part 0, 2026-11-02); the maintainer's uninterrupted W
-replay capture is the audiovisual and wall-time reference still to record**
-([evidence](evidence.md#m107-part-0)). The primitives are the ones the
+primitives (M107 Part 0, 2026-11-02), confirmed frame for frame by the
+maintainer's uninterrupted W replay capture** ([static evidence](evidence.md#m107-part-0),
+[capture](evidence.md#m107-capture)). The primitives are the ones the
 Darkside ending uses and that M106 calibrated against two captures. EXE
 dispatch `0x7ad5..0x7b22` passes the score and the zero state to `0xfbc9`;
 the main routine returns at `0x11467` and the shared exit `0x7b27` leads to a
@@ -898,7 +898,8 @@ fresh World title as for the other endings. The final helper
 `0x11468..0x11864` runs the last three scenes and the score page; text
 helpers `0xfb54` (colors 38/39) and `0xfadf` (colors 5/11, last caption only)
 draw a shadow at window 28 `(2,157)` and the text at `(1,156)`, centered,
-318 pixels wide.
+318 pixels wide with an 8-pixel margin (window table `cs:0x1ea`, loader
+`0x19540`), so lines wrap within 302 pixels.
 
 **Archive and media.** INTRO.CC serves every load. DARK.CC is opened only for
 `elect.voc` and `photon.voc`, and INTRO.CC is reopened at once. The first
@@ -916,7 +917,7 @@ own texts, drawn whatever the Text setting or sound device. Effects are
 | Tower, `0xfd94..0x1001a` | Dragon approach, 50 frames at 2 ticks, `whoosh` at 9/22/33/44. Landing, 40 frames at 2. Crowd scroll: x 0..315 in steps of 5, **one** tick per frame, second caption from x 125; then the remaining 29 crowd frames at 2 ticks over the merge at the **last scroll offset**. |
 | CD animations, `0x10015..0x102be` | Three full-screen animations absent from the pin: `cd10001` with `cd1a1..cd1d1` (59 frames), `cd2orig` with `cd2a1..cd2z1`, `cd2a2..cd2h2`, `cd2i2` (273 frames), and `cd30001` with `cd3a1..cd3o3` drawn at (101,0) without restoring the background (268 frames; every fourth frame loads the next member before its tick reset). Each fades in with step `0x81` (one full-palette write) while the previous image is still shown; the new image follows at the next publish, for the third only after its first member load. All frames hold 2 ticks. Fade out after the third. |
 | Ceremony, `0x102be..0x10d32` | Crowd sits (`foura`, `sc06`, 26 frames at **3**). Dragon Pharaoh (`eg140001`, `sc14`, 2x15 at **3**); the fade shows the bare background. Queen Kalindra (`eg100001`, `sc13`, **3x6** at 2); the Cube rises (`sc17`, 39 steps of 3 rows from y 185, then 17 frames at y 68, all **17** frames cycled), `cast` replayed whenever idle. Pharaoh (2x15 at 3). Prince Roland (`sc10`, 3x5 at **2**), staff rises 29 steps of 6 rows, 30-tick hold. Pharaoh (2x15 at 3). Table (`tablmain`): cube and hands, cube lowers 71 rows, `padspell` at frame 10 of the 14- and 17-frame loops and **once more** before the six 4-tick frames; 30-tick hold. |
-| Altar to globe, `0x10d32..0x11454` | Sceptre placed (`sc22a/b`, 35 frames at 3, `click`/`elect`/`explosio`). Light (`eg23prt2`, `sc23a..h`, 61 frames at 4, no background restore). Tower beam (`skymain`, `sc24`, 35 + 15 frames at 3). Power lines (`eg250001`, `sc25`, 52 at 2). Collectors (`blank`, four sprites, fade `0x81`, 78 frames at 2 with the pin's frame rules). |
+| Altar to globe, `0x10d32..0x11454` | Sceptre placed (`sc22a/b`, 35 frames at 3, `click`/`elect`/`explosio`). Light (`eg23prt2`, `sc23a..h`, 61 frames at 4, no background restore). Tower beam (`skymain`, `sc24`, 35 + 15 frames at 3). Power lines (`eg250001`, `sc25`, 52 at 2). Collectors (`blank`, four sprites, 78 frames at 2 with the pin's frame rules); here step `0x81` follows the publication, and the capture shows no frame in the old palette. |
 | Final helper, `0x11468..0x11864` | Arcs (`eg270001`, `sc27`, 89 at 2). Globe (`eg280001`, `sc28a..n`, 138 at 2, `rumble` when idle after frame 98). `white.pal` flash with `explosio`, **10 ticks without a key poll**, fade out. Last caption over `sc30`, 20x4 frames at 2, fade in after the first publish, song fade 207 in round 17. Fade out, **wait for the song fade**, `outday3.m`, score page. |
 
 **Clipping.** Flag `0x4000` draws (Cube, staff, table cube) use the
@@ -941,11 +942,33 @@ result: no key or click skips it. Ctrl-Q follows the shared EXE quit path at
 the next reached poll; the holds poll continuously, other frames once after
 publishing, and the two song-fade waits and the white flash do not poll.
 
-**Open for the capture.** `sc17.eg2` frame 16's first component offset points
-into frame 15's line data (its header would be x 22019, height 7936); the
-second component is valid. DOS draws it at rise steps 16 and 33 and on the
-last of the 17 frames; what it shows is not settled statically. The pin
-skips that frame as malformed.
+**Components that publish nothing.** `sc17.eg2` frame 16's first component
+offset points into frame 15's line data (its header reads y 22023, height
+7936); `hands.eg2` frames 1..15 have first-component offset 0, so the header
+is read from the frame directory (height 0). The EXE normal drawer has no
+horizontal clip and publishes a row only inside its row window, whose
+unsigned row counter starts at header y plus the draw y and cannot wrap
+within the component (`0x1525a..0x152ba`); a zero height ends the component
+at once. Both draw only their valid second component, as the capture shows
+pixel for pixel at rise steps 16 and 33, the last of the 17 Cube frames and
+every hands frame. The program sprite adapter applies this to every program
+component with header y of at least `0x4000` or zero height, not to these
+names. The pin skips `sc17` frame 16 as malformed.
+
+**EXE text writer.** Calibrated against the capture's caption frames. The
+writer's alignment byte `cs:0xc08` persists from one write to the next; the
+`\x03c` handler only sets it and continues drawing the run already measured
+(`0x1889c..0x188bc`). An empty run while centered moves the cursor to the
+window centre, and a line that starts away from the left edge is centered
+around that cursor, `ceil((2x - width)/2)` (`0x187f8..0x18818`). The caption
+format's `\f38` run before `\x03c` is such a run, so the first caption line
+is placed this way while later lines use the window bounds. The EXE draws
+the first caption at `0xfd4f` before restoring the sky at `0xfd59`, which
+leaves the state centered for the visible draw at `0xfd64`. A measured run
+ends at its last non-space character (`0x1875c..0x1879f`); a run ending in a
+space deducts 4, 3 in the reduced font (`0x187c4..0x187d4`), one less than
+the DAT writer. MMModern's cutscene presenter carries the alignment between
+its text operations and applies the EXE deduction to EXE text only.
 
 ## Ending write boundary
 

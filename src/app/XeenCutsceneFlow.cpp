@@ -31,6 +31,7 @@ XeenCutsceneFlow::Services XeenCutsceneFlow::original(XeenAssetSource &assets,co
   }
  };
  s.digitalBusy=[&audio,digital](auto now){return digital && audio.digitalBusy(now);};
+ s.songFading=[&audio](auto now){return audio.songFading(now);};
  s.digitalDeadline=[&audio,digital](auto now){return digital?audio.digitalDeadline(now):std::nullopt;};return s;
 }
 XeenCutsceneFlow::XeenCutsceneFlow(XeenCutscene scene,Services services):_scene(std::move(scene)),_services(std::move(services)) {
@@ -40,7 +41,9 @@ XeenCutsceneFlow::XeenCutsceneFlow(XeenCutscene scene,Services services):_scene(
  begin();publish();
 }
 XeenCutscene::Context XeenCutsceneFlow::context(std::uint64_t now) const {
- const auto tick=PresentationClock::tick(now);return {_iteration,tick,tick-_reset,_services.digitalBusy(now)};
+ const auto tick=PresentationClock::tick(now);
+ const bool song=_segment<_scene.segments.size() && _scene.segments[_segment].songFadeWait && _services.songFading && _services.songFading(now);
+ return {_iteration,tick,tick-_reset,_services.digitalBusy(now),song};
 }
 void XeenCutsceneFlow::trace(const char *event) {
  if(_services.trace){const auto now=_services.clock();_services.trace({event,_segment<_scene.segments.size()?segmentName():"",_iteration,now,PresentationClock::tick(now),_reset});}
@@ -62,11 +65,12 @@ void XeenCutsceneFlow::execute(const XeenCutscene::Frame &operations,bool deferA
   }else if constexpr(std::is_same_v<T,C::Restore>)_canvas.pixels=_slots.at(value.slot).pixels;
   else if constexpr(std::is_same_v<T,C::Store>)_slots[value.slot]=_canvas;
   else if constexpr(std::is_same_v<T,C::Sprite>) {
-   if(value.bottom>200)throw std::invalid_argument("Cutscene sprite clipping boundary");
+   if(value.bottom>200 || value.top>value.bottom)throw std::invalid_argument("Cutscene sprite clipping boundary");
    const auto first=_canvas.pixels.begin()+320*value.bottom;
-   std::vector<std::uint8_t> clipped(first,_canvas.pixels.end());
+   std::vector<std::uint8_t> clipped(first,_canvas.pixels.end()),above(_canvas.pixels.begin(),_canvas.pixels.begin()+320*value.top);
    _services.draw(_canvas,value);
    std::copy(clipped.begin(),clipped.end(),_canvas.pixels.begin()+320*value.bottom);
+   std::copy(above.begin(),above.end(),_canvas.pixels.begin());
   }
   else if constexpr(std::is_same_v<T,C::Prepare>) {if(_services.prepare)_services.prepare(value.resource);}
   else if constexpr(std::is_same_v<T,C::Load>) {(void)_services.read(value.resource);}
@@ -91,9 +95,10 @@ void XeenCutsceneFlow::execute(const XeenCutscene::Frame &operations,bool deferA
    });
   }else if constexpr(std::is_same_v<T,C::Text>) {
    if(!_services.font)throw std::logic_error("Cutscene text needs a font");
-   XeenTextRenderOptions o;o.bounds={value.left,value.top,value.right,value.bottom};o.originalControls=true;o.startupColors=true;o.exeCenterRounding=true;o.x=value.x;o.y=value.y;
+   XeenTextRenderOptions o;o.bounds={value.left,value.top,value.right,value.bottom};o.originalControls=true;o.startupColors=true;o.exeCenterRounding=true;o.x=value.x;o.y=value.y;o.alignment=_textAlignment;
    auto rendered=XeenTextRenderer(*_services.font).render(_canvas,value.value,o);
    if(rendered.pages.size()!=1 || !rendered.diagnostics.empty())throw std::runtime_error("Cutscene text layout: "+(rendered.diagnostics.empty()?std::string("multiple pages"):rendered.diagnostics.front()));
+   _textAlignment=rendered.writeAlignment;
    _canvas=std::move(rendered.pages.front());
   }else if constexpr(std::is_same_v<T,C::Level>)_level=value.value;
   else if constexpr(std::is_same_v<T,C::Audio>) {

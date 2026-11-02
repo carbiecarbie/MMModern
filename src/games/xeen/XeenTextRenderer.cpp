@@ -175,7 +175,8 @@ XeenTextRenderResult renderOriginal(const IndexedFrame &base, const std::string 
                 else if(c==8 && scan<text.size() && text[scan]==' ') {--width;++scan;}
                 else break;
             }
-            if(end<text.size() && text[end]==' ') width-=size==XeenFontSize::Reduced?4:5;
+            // EXE 0x187c4..0x187d4 deducts 4 (reduced 3) for the trailing space.
+            if(end<text.size() && text[end]==' ') width-=(size==XeenFontSize::Reduced?4:5)-int(o.exeCenterRounding);
             if(alignment==XeenTextAlignment::Right) x=(x==o.bounds.left?o.bounds.right:x)-width-1;
             else x=x==o.bounds.left?(o.bounds.left+o.bounds.right+1-width+int(o.exeCenterRounding))/2:(x*2-width+int(o.exeCenterRounding))/2;
         }

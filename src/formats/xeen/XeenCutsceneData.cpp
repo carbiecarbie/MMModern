@@ -132,6 +132,19 @@ XeenCutsceneData XeenCutsceneData::parse(const std::vector<std::uint8_t> &b,cons
   de.scoreFormats[i]=token(b,i?0x1efdb:0x1efb6,i?0x1f003:0x1efdb);
   XeenDosText::validateControls(de.scoreFormats[i]);
  }
+ auto &we=d.worldEnding;
+ for(std::size_t p=0x208c2;p<0x20f60 && we.strings.size()<106;) {
+  auto value=token(b,p,0x20f60);if(value.empty())bad();p+=value.size()+1;
+  we.strings.push_back(std::move(value));
+ }
+ if(we.strings.size()!=106 || we.strings[24]!="cd1%c1.eg2" || we.strings[27]!="cd2%c1.eg2" ||
+    we.strings[28]!="cd2%c2.eg2" || we.strings[34]!="cd3%c%d.eg2" || we.strings[103]!="white.pal")bad();
+ for(unsigned i=0;i<4;++i){we.formats[i]=we.strings[i];if(we.formats[i].find("%s")==std::string::npos)bad();}
+ we.opening=we.strings[8];
+ constexpr unsigned captionTokens[]{21,22,51,53,55,57,61,104};
+ for(unsigned i=0;i<8;++i)we.captions[i]=we.strings[captionTokens[i]];
+ for(const auto *text:{&we.opening,&we.formats[0],&we.formats[1],&we.formats[2],&we.formats[3]})XeenDosText::validateControls(*text);
+ for(const auto &text:we.captions)XeenDosText::validateControls(text);
  auto &dark=d.darkside;
  std::size_t name=0x1feb8;
  for(auto &resource:dark.resources) {
@@ -188,6 +201,23 @@ const std::string &XeenCutsceneData::DarksideEnding::resource(const char *name) 
  const auto i=std::find(resources.begin(),resources.end(),name);
  if(i==resources.end())throw std::runtime_error(std::string("Missing Darkside ending resource: ")+name);
  return *i;
+}
+const std::string &XeenCutsceneData::WorldEnding::resource(const char *name) const {
+ const auto i=std::find(strings.begin(),strings.end(),name);
+ if(i==strings.end())throw std::runtime_error(std::string("Missing World ending resource: ")+name);
+ return *i;
+}
+std::string XeenCutsceneData::WorldEnding::cd(unsigned scene,unsigned index) const {
+ // 0x10033..0x10063, 0x100fb..0x1015f, 0x1022f..0x1026d: letters a..z,
+ // then cd2i2 and the cd3 member number after each alphabet.
+ char name[32];
+ if(scene==1 && index<4)std::snprintf(name,sizeof(name),strings.at(24).c_str(),'a'+int(index));
+ else if(scene==2 && index<26)std::snprintf(name,sizeof(name),strings.at(27).c_str(),'a'+int(index));
+ else if(scene==2 && index<34)std::snprintf(name,sizeof(name),strings.at(28).c_str(),'a'+int(index-26));
+ else if(scene==2 && index==34)return strings.at(29);
+ else if(scene==3 && index<67)std::snprintf(name,sizeof(name),strings.at(34).c_str(),'a'+int(index%26),int(index/26+1));
+ else bad();
+ return name;
 }
 std::string XeenCutsceneData::Darkside::drop(unsigned n) const {if(n<1 || n>4)bad();return numbered(resources[DropPattern],n);}
 std::string XeenCutsceneData::Darkside::fire(unsigned n) const {if(n<1 || n>7)bad();return numbered(resources[FirePattern],n);}

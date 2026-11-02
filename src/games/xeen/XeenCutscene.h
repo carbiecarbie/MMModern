@@ -17,7 +17,7 @@ struct XeenCutscene {
  struct Palette {std::string resource;};
  struct Restore {std::string slot;};
  struct Store {std::string slot;};
- struct Sprite {std::string resource;unsigned frame=0;int x=0,y=0,scale=0;unsigned flags=0;unsigned bottom=200;};
+ struct Sprite {std::string resource;unsigned frame=0;int x=0,y=0,scale=0;unsigned flags=0;unsigned bottom=200,top=0;};
  struct Merge {std::string first,second;unsigned offset=0;}; // Vertical, 320x200 pages.
  struct HorizontalMerge {std::string first,second;unsigned offset=0;};
  struct Rotate {std::string slot;unsigned columns=0;};
@@ -33,7 +33,7 @@ struct XeenCutscene {
  };
  using Operation=std::variant<Raw,Compressed,PrepareCompressed,Palette,Restore,Store,Sprite,Merge,HorizontalMerge,Rotate,Scroll,Text,Level,Prepare,Load,Archive,Audio>;
  using Frame=std::vector<Operation>;
- struct Context {unsigned iteration;std::uint64_t tick,elapsed;bool digitalBusy;};
+ struct Context {unsigned iteration;std::uint64_t tick,elapsed;bool digitalBusy,songFading=false;};
  struct Segment {
   std::string name;
   Frame enter;
@@ -49,6 +49,7 @@ struct XeenCutscene {
   bool holdBeforeFlip=false,resetBeforeEnter=false,untilDigitalIdle=false,pollAfterHold=false;
   bool audioBeforeFlip=false;
   bool continuousKeyPoll=false;
+  bool songFadeWait=false; // Context reports the song command 0xffe0 fade state.
   unsigned keyboardGroup=0; // Nonzero groups retain keys/repeats between pages.
   unsigned totalTicks=0;
   std::function<unsigned(const Context &)> threshold;
@@ -75,6 +76,10 @@ struct XeenCutscene {
  static XeenCutscene clouds(const XeenCutsceneData &,std::string caption);
  static XeenCutscene cloudsEnding(const XeenCutsceneData &,const XeenCutsceneData::Captions &,XeenWallClock,std::uint32_t score);
  static XeenCutscene darksideEnding(const XeenCutsceneData &,const XeenCutsceneData::Captions &,XeenWallClock,std::uint32_t score);
+ static XeenCutscene worldEnding(const XeenCutsceneData &,std::uint32_t score);
+ // Shared EXE Pharaoh pages 0x6c91..0x6f21: room, fade in and one keyboard page per text.
+ static std::string endingScore(std::string format,std::uint32_t score);
+ static void pharaohPages(XeenCutscene &,std::shared_ptr<const XeenCutsceneData>,Frame enter,const std::string &stage,const std::vector<std::string> &pages);
  enum class DarksidePath {Full,Short};
  static XeenCutscene darkside(const XeenCutsceneData &,const XeenCutsceneData::Captions &,XeenWallClock,DarksidePath);
  static bool elapsed(std::uint64_t captured,std::uint64_t current,unsigned count) {return current>=captured && current-captured>=count;}

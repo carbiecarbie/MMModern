@@ -3366,10 +3366,71 @@ not an observed DOSBox run.
 | Texts | Captions DS `0x3169..0x362a`; helper formats DS `0x3042..0x3072`. Drawn every caption frame, independent of the sound device. |
 | Random | No call to `0x1cbdc` in the range. |
 
-Open for the capture: `sc17.eg2` frame 16 has a malformed first component
-(offset 22332 inside frame 15's data); DOS draws it three times. Scripts,
+`sc17.eg2` frame 16 has a malformed first component (offset 22332 inside
+frame 15's data); the capture below settles what DOS draws. Scripts,
 listings and the detailed sequence remain under
 `D:/Projetos/MModern/MModern-re/m107/` (`part0-findings.md`); nothing
 original-derived was added to the repository. The DOSBox seed for one
 uninterrupted W replay at the M106 settings (80000 cycles, World won only,
 CFG byte 23 = 1) is `D:/Projetos/MModern/MModern-playtest/m107-part0/`.
+
+### M107 capture
+
+**Maintainer DOSBox Staging recording, CD edition, 2026-11-02; measured native
+video and PCM.** `m107-part0/worldending.avi` under
+`D:/Projetos/MModern/MModern-playtest/` is one uninterrupted W title replay
+from the Part 0 seed and launcher (80000 cycles, World won only). The cycle
+setting is maintainer provenance, not AVI metadata. Native 320x200 ZMBV at
+`2190197/31250` fps, 17,340 frames (2,343 distinct six-bit images),
+247.409 s, stereo 48 kHz signed-16 PCM. SHA-256
+`18cdccc42fe02b6c9219af9c628a33e070c94479400bbc3e384602236e9a39e9`.
+
+Comparison uses six-bit VGA RGB (DOSBox's 6-to-8-bit expansion removed),
+whole frames, no masks or resampling. Every one of the 2,681 frames the
+fake-clock presenter publishes, from the opening Pharaoh page to the final
+black frame, equals a captured frame exactly, including the fades, the three
+CD animations, all caption frames and both Pharaoh pages. Conversely, every
+captured frame from the opening page to the World title is a model frame
+except three partial scanouts at cuts (32.974, 136.432 and 173.943 s, rows of
+the next image mixed with the previous one). The video shows one score page
+(235.766..241.702 s) with no "But wait..." page, then the title; its only
+long still is the 60-tick sky hold, so no focus pause interrupted it. The model's
+Pharaoh poses at the two key presses match the capture's (frames 58 and 36
+of the pages, phases 25 and 3), so the fades after them match too. The
+opening page fades out in the sky palette loaded before it, as the static
+sequence predicts.
+
+| Point | Capture, s | Model residual, s |
+| --- | ---: | ---: |
+| Opening page acknowledged, first fade-out frame | 11.586 | origin of the next row |
+| First complete landing frame (timing origin) | 21.873 | 0 |
+| Page fade-out to landing, including the song-fade wait | 10.287 | +0.016 |
+| CD 1 first frame / CD 2 frame 150 / CD 3 frame 267 | 33.002 / 55.974 / 98.807 | +0.001 / +0.044 / +0.034 |
+| Cube rise step 33 / table glow 16 / light 60 | 115.672 / 150.728 / 173.729 | +0.099 / +0.113 / +0.098 |
+| Globe last frame / final caption frame 79 / score page first frame | 224.109 / 231.186 / 235.766 | +0.108 / +0.099 / +0.079 |
+
+Residuals stay within -0.01..+0.12 s through the whole film, without drift
+after the CD animations; the step after them is consistent with their member
+loads. The opening song-fade wait (command `0xffe0`) lasts 40 captured frames
+against 39 modeled. Results settled by the capture:
+
+- `sc17.eg2` frame 16 and `hands.eg2` frames 1..15 publish only their second
+  component ([rule](cutscenes.md#world-ending-presentation)).
+- `0x4000` draws hide rows above y 17: the table Cube frames at y 11..16
+  match only with that clip.
+- Caption window 28 has an 8-pixel margin; the EXE writer's persistent
+  alignment, empty-run centering and trailing-space deduction place every
+  caption line exactly.
+- Step `0x81` before a publish shows the previous image in the new palette
+  for one frame (CD 2, CD 3; CD 1's mixed frame equals the last crowd frame in
+  six bits); after a publish (collectors) no old-palette frame appears.
+
+**PCM limitation.** VOC templates of the ten effects were correlated with the
+captured PCM after 1.5..7 kHz band-pass filtering. The effects sit under the
+FM music; correlations range 0.05..0.87 and inferred onsets scatter by up to
+±0.6 s even for the same effect, so no effect onset is claimed from the
+audio. Effect cues follow the EXE frame conditions, whose frames are timed
+above. Scripts and outputs (`decode.py`, `match.py`, `timing.py`,
+`audio.py`, `model-matches.json`, `timing.json`, `audio-onsets*.txt`) remain
+under `D:/Projetos/MModern/MModern-re/m107/capture/`; no image or audio
+derived from the capture is in the repository.

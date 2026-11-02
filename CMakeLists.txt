@@ -63,6 +63,7 @@ add_library(mmodern_xeen STATIC
  src/games/xeen/XeenPresentationRandom.cpp
  src/games/xeen/XeenCloudsEnding.cpp
  src/games/xeen/XeenDarksideEnding.cpp
+ src/games/xeen/XeenWorldEnding.cpp
    src/games/xeen/XeenDarksideIntro.cpp
 	src/formats/xeen/XeenMonsterFormat.cpp
 	src/formats/xeen/XeenGameplayContextFormat.cpp
@@ -1127,6 +1128,10 @@ if(BUILD_TESTING)
  add_test(NAME xeen_darkside_ending COMMAND mmodern_darkside_ending_tests "${MMODERN_XEEN_DATA_DIR}" "${CMAKE_CURRENT_BINARY_DIR}/darkside-ending-tests" --main)
  add_test(NAME xeen_darkside_ending_captions COMMAND mmodern_darkside_ending_tests "${MMODERN_XEEN_DATA_DIR}" "${CMAKE_CURRENT_BINARY_DIR}/darkside-ending-tests" --captions)
  set_tests_properties(xeen_darkside_ending xeen_darkside_ending_captions PROPERTIES ENVIRONMENT "SDL_AUDIODRIVER=dummy")
+ add_executable(mmodern_world_ending_tests tests/XeenWorldEndingTests.cpp)
+ target_link_libraries(mmodern_world_ending_tests PRIVATE mmodern_app mmodern_xeen mmodern_scummvm_xeen)
+ add_test(NAME xeen_world_ending COMMAND mmodern_world_ending_tests "${MMODERN_XEEN_DATA_DIR}" "${CMAKE_CURRENT_BINARY_DIR}/world-ending-tests" --main)
+ set_tests_properties(xeen_world_ending PROPERTIES ENVIRONMENT "SDL_AUDIODRIVER=dummy")
  target_link_libraries(mmodern_ending_presentation_tests PRIVATE mmodern_app mmodern_xeen mmodern_scummvm_xeen bcrypt)
  # Five whole ending playbacks in three processes; only --main writes files.
  add_test(NAME xeen_ending_presentation COMMAND mmodern_ending_presentation_tests "${MMODERN_XEEN_DATA_DIR}" "${CMAKE_CURRENT_BINARY_DIR}/ending-presentation-tests" --main)

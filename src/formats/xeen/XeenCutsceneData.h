@@ -75,6 +75,16 @@ struct XeenCutsceneData {
   std::array<std::string,2> scorePages,scoreFormats;
   const std::string &resource(const char *) const;
  } darksideEnding;
+ // EXE 0x208c2..0x20f60 (DS 0x3042..0x36e0), the World ending's literals in
+ // EXE order: caption formats, names, patterns and texts.
+ struct WorldEnding {
+  std::vector<std::string> strings;
+  std::array<std::string,4> formats; // Final shadow/text, then ordinary shadow/text.
+  std::string opening;
+  std::array<std::string,8> captions;
+  const std::string &resource(const char *) const;
+  std::string cd(unsigned scene,unsigned index) const; // cd1 0..3, cd2 0..34, cd3 0..66.
+ } worldEnding;
  struct Captions {
   std::vector<std::uint16_t> offsets;
   std::vector<std::string> records;
