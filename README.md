@@ -25,15 +25,11 @@ page lists the known cases.
 Clouds of Xeen is complete. Every map plays as in the original, and the story
 has been checked from the start through Lord Xeen to the ending.
 
-Darkside of Xeen now has every map, town and Event, the World of Xeen areas
-that join the two sides, and its ending. Winning World of Xeen plays its own
-ending too. Darkside has had much less real play than Clouds, though. Each
-part was checked with automated tests on the original data and short
-play-tests from prepared saves, but it hasn't been played through from start
-to finish yet, so expect more bugs there. Reports are very welcome (see
-[Reporting a problem](#reporting-a-problem)).
-
-The 0.x releases are early versions and don't replace the original games yet.
+Darkside of Xeen is complete too: every map, town and Event, the World of
+Xeen areas that join the two sides, and its ending. Winning World of Xeen
+plays its own ending as well. Darkside hasn't been played through from start
+to finish yet, so expect more bugs there than in Clouds. Reports are very
+welcome (see [Reporting a problem](#reporting-a-problem)).
 
 ## Download and play
 
