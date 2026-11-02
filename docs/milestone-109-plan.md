@@ -157,8 +157,12 @@ At `58352f9`:
    full pinned package set. `development.md`'s Tests section names the
    switch. `tools/AGENTS.md` says the run never replaces the complete local
    suite and that a red run on `main` is a defect handled as a maintenance
-   task. The root `AGENTS.md` gets one line to the same effect (it is at 229
-   of 240 lines), and `README.md` gets the run's status badge.
+   task. The root `AGENTS.md` gets two short rules (it is at 229 of 240
+   lines): the same point about a red `main`, and that a test needing
+   original data, captures, ROMs or CD audio is registered through
+   `mmodern_data_test()` (and its named property calls through
+   `mmodern_test_properties()`), or the run fails without that material
+   (maintainer, 2026-11-02). `README.md` gets the run's status badge.
 10. **Pushes during implementation.** The workflow can only be proven on
     GitHub. Part B works on branch `m109-ci`; when starting the milestone the
     maintainer is asked to authorize pushes of that branch and of a
@@ -203,7 +207,9 @@ mandatory independent review.
   and passes, and the complete local suite on `build-rel`.
 - **Part B - the workflow.** The workflow on `m109-ci`, green from a cold
   and from a warm cache; one deliberately failing data-free test on
-  `m109-ci-red` turns its run red; the documentation.
+  `m109-ci-red` turns its run red; the documentation. The Part A review's
+  wording note goes in too: the configure summary says "data tests left
+  out", since the group also covers captures, ROMs and CD audio.
 
 One maintainer check after Part B.
 
@@ -212,9 +218,10 @@ One maintainer check after Part B.
 - With the option ON, the registered tests are identical before and after
   by the comparison under Risks, and the complete local suite passes on
   `build-rel`.
-- A fresh clone, configured OFF by following `dependencies.md` alone and
-  without data, builds and passes every registered test locally with
-  redirected user folders.
+- Configured OFF without data, the project builds and passes every
+  registered test: locally with redirected user folders (Part A), and from
+  the runner's fresh checkout by following `dependencies.md` alone
+  (Part B).
 - The run on `m109-ci` is green from a cold and from a warm cache. Its log
   shows the pinned package versions, the ScummVM HEAD equal to the pinned
   commit with a clean status, the expected `USE_*` set, no `NDEBUG`, the
