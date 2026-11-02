@@ -211,10 +211,11 @@ are direction, not approved plans.
    Darkside Events request, which the reference shifts by 30; and, in its
    play-test, a DOSBox check of the Quests screen's order when only Darkside
    items are held.
-2. **Audit invariants as tests (M108, Tier B):** falls with a dead member, a
-   defeat on a flagged cell, bounded repeats, exact restores, the crossing
-   between the sides, loads after both wins, continuation keys after an
-   Event and interrupted Event chains.
+2. **Audit invariants as tests (M108, Tier B), implemented:** falls with a
+   dead member, a defeat on a flagged cell, bounded repeats, exact restores,
+   the crossing between the sides, loads after both wins, continuation keys
+   after an Event and interrupted Event chains
+   ([plan](milestone-108-plan.md)).
 3. **Desert Paladin stone copies:** DOS program analysis of whether DOS
    hides the distant copies of a used stone on Darkside, which the reference
    does and MMModern does not ([details](original-quirks.md#sv-pin-data-patches)).

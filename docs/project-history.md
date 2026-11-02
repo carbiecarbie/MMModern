@@ -359,3 +359,14 @@ from a DOS program check made first and confirmed frame for frame by a
 DOSBox capture: the unification ceremony, three CD animations the reference
 omits, the score and a fresh title. Every ending of the CD now plays. Save
 v25 unchanged. [Plan](milestone-107-plan.md).
+
+**M108 - Darkside audit invariants as tests**. The invariants that the
+Darkside audit checked across every Event are now original-data tests:
+rewarding Events pay a bounded number of times, with purchases, the
+unguarded skill grants and the six-stage statue as the original exceptions;
+saves after an Event restore exactly; a game crossing both sides keeps each
+side's progress through six save/load round trips; a loaded win accepts the
+next step; the key that ends an Event's last wait runs after it; keys during
+a fall change nothing; and an Event chain interrupted by saves and trips ends
+as an uninterrupted one. Tests only; save v25 unchanged.
+[Plan](milestone-108-plan.md).

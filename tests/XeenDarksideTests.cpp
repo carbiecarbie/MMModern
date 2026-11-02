@@ -27,6 +27,7 @@
 #include "games/xeen/XeenJumpRules.h"
 #include "games/xeen/XeenTerrainRules.h"
 #include "games/xeen/XeenEventTrigger.h"
+#include "games/xeen/XeenRestoreGuard.h"
 
 using namespace training_test;
 namespace mmodern {
@@ -39,7 +40,26 @@ struct XeenEventDispatchTestAccess {
  static bool inputPassPending(const XeenEventFlow &f){return f._encounter->_journeyCapture->inputPassPending;}
  static bool livePublication(const XeenEventFlow &f){return f._eventPublication!=nullptr;}
  static bool candidateWorldFlags(const XeenEventFlow &f){return f._transition && f._transition->world->detachedEventCandidate() && bool(f._transition->party.worldFlags);}
-
+ static std::optional<XeenPresentationRequest> request(const XeenEventFlow &f){return f._pending && f._pending->state.pendingPresentation?std::optional<XeenPresentationRequest>(f._pending->state.pendingPresentation->request):std::nullopt;}
+};
+struct XeenMonsterTestAccess {
+ // A World-owner map load from a Quiet party, as the audit's departures and
+ // returns did (the Clouds invariant tests use the same load).
+ template<class Live> static void relocate(Live &f,XeenCamera destination) {
+  auto &flow=*f.flow;auto &encounter=*flow._encounter;
+  check(encounter.journeyQuiet(),"Relocation requires Quiet");
+  encounter.journeySavePreimage().check();auto candidate=f.w.transitionCandidate();
+  XeenPartyState party;candidate->copyEventParty(f.p,party);
+  const auto flags=candidate->loadEventDestination(f.c.mapId,destination.mapId,true,f.f);
+  auto events=f.in.events.load(destination.mapId);const auto arrival=candidate->prepareTransitionArrival(destination);
+  auto prepared=std::make_shared<XeenRestoreGuard>(f.w,f.p,f.c,f.f);
+  prepared->retainResources(encounter.journeySavePreimage());prepared->prepareSpellMapPublication(*candidate);
+  prepared->cameraValue=destination;prepared->flagValues=flags.values();
+  encounter.journeySavePreimage().check();f.w.checkTransitionTreasure(*candidate);
+  f.w.publishTransition(*candidate);f.c=destination;f.f=flags;encounter._journeyEvents=std::move(events);
+  encounter._journeyPreimage.swap(prepared);++encounter._generation;encounter._journeyPreimage->adoptMutationBoundary();
+  encounter.publishArrival(arrival);encounter.holdJourneyFrame();flow._encounterFrame=encounter.ticket();f.present(flow.refresh(true));
+ }
 };
 struct XeenRestTestAccess {
  static bool fatal(const XeenEventFlow &f){return f._fatal;}
@@ -1884,15 +1904,211 @@ void cdDiscSelection(Inputs &in,const GameInstallation &installation) {
   "xeen"+std::to_string(cue.track+30)+".ogg","Castleview cue left disc 2");
  std::cout<<"Darkside CD disc selection follows DOS 0xf383\n";
 }
+// M108: invariants the Darkside audit (2026-11-02) checked across every Event.
+std::string where(const XeenCamera &c){return std::to_string(unsigned(c.mapId.side))+":"+std::to_string(c.mapId.number)+" ("+std::to_string(c.x)+","+std::to_string(c.y)+")";}
+// Uses the Event in front of the party: `yes` at confirmations, `member` at
+// WhoWill, Attack in combat. `atWait` may answer an any-key wait itself.
+void use(Live &live,bool yes=true,unsigned member=0,const std::function<bool(Live &)> &atWait={}) {
+ std::string failure;live.flow->reportManual=[&](const auto &r){if(const auto *e=std::get_if<XeenEventExecutionError>(&r))failure=e->message;};
+ live.act(InteractionAction{});
+ for(unsigned n=0;!live.flow->canSave();++n) {
+  check(n<3000 && failure.empty() && !XeenRestTestAccess::death(*live.flow),("Event at "+where(live.c)+" did not settle: "+failure).c_str());
+  const auto dialog=live.flow->inputContext(live.flow->frame().presentation()).dialog;
+  if(const auto *combat=live.flow->encounter()->combat()){if(combat->phase()==XeenCombatPhase::PlayerReady)live.act(AttackAction{});}
+  else if(dialog && dialog->anyKey){if(!atWait || !atWait(live))live.act(AcknowledgeAction{});}
+  else if(dialog && dialog->key(yes?'y':'n'))live.key(yes?'y':'n');
+  else if(dialog && dialog->key(InputKey::F1+member))live.act(SelectMemberAction{member});
+  live.tick();
+ }
+ live.flow->reportManual={};check(failure.empty(),failure.c_str());
+}
+// Everything a repeated Event must not pay again: money, food, counters and
+// each active member's experience, level, attributes, skills, awards, spells and items.
+std::vector<std::int64_t> rewards(const Live &live) {
+ std::vector<std::int64_t> r;const auto put=[&](std::int64_t v){r.push_back(v);};
+ const auto add=[&](const auto &values){for(const auto &v:values)put(v);};
+ put(live.p.purse->gold);put(live.p.purse->gems);put(live.p.food);add(live.p.questItems.counts());
+ for(auto owner:live.p.party.activeRosterIds()) {
+  const auto &c=live.p.roster.at(owner);const auto &i=*live.p.roster.combatInputs(owner);
+  put(i.experience);put(c.permanentLevel);put(i.might.permanent);put(c.intellect.permanent);put(c.personality.permanent);
+  put(c.endurance.permanent);put(i.speed.permanent);put(i.accuracy.permanent);put(i.luck?std::int64_t(i.luck->permanent):-1);
+  add(c.skills);add(c.awards);if(c.learnedSpells)add(*c.learnedSpells);
+  const auto items=[&](const auto &list){for(const auto &item:list){put(item.material);put(item.id);put(item.state);put(item.frame);}};
+  items(c.weapons);items(c.armor);items(c.accessories);items(c.miscellaneous);
+ }
+ return r;
+}
+bool sameProgress(const Live &a,const Live &b){return a.f.values()==b.f.values() && a.p.questFlags.values()==b.p.questFlags.values() && rewards(a)==rewards(b);}
+const XeenCharacter &first(const Live &live){return live.p.roster.at(live.p.party.activeRosterIds()[0]);}
+const XeenCombatInputs &firstInputs(const Live &live){return *live.p.roster.combatInputs(live.p.party.activeRosterIds()[0]);}
+// I1: a rewarding Event pays a bounded number of times; purchases, the
+// unguarded skill grants and the six-stage statue are the original exceptions.
+void boundedRepeats(Inputs &in,const XeenSaveSnapshot &source) {
+ using D=XeenDirection;const auto dark=[](unsigned n){return XeenMapIdentity{XeenSide::Darkside,std::uint16_t(n)};};
+ const auto stages=[&](const XeenCamera &camera,unsigned paid,unsigned uses,const std::function<void(Live &,unsigned)> &each) {
+  Live live(in,at(in,source,camera));
+  for(unsigned n=0;n<uses;++n) {
+   const auto before=rewards(live);use(live);
+   check(xeen_state::sameCamera(live.c,camera),("Repeated Event moved the party at "+where(camera)).c_str());
+   check((rewards(live)!=before)==(n<paid),("Use "+std::to_string(n+1)+" at "+where(camera)+" broke the bound of "+std::to_string(paid)).c_str());
+   if(each)each(live,n);
+  }
+ };
+ const auto speed=at(in,source,{dark(31),1,10,D::North}).journey->supplements[source.activeRosterIds[0]].inputs.speed.permanent;
+ stages({dark(31),1,10,D::North},3,5,[&](Live &l,unsigned n){check(firstInputs(l).speed.permanent==speed+10*std::min(n+1,3u),"31 (1,10) speed stages differ");});
+ stages({dark(39),4,3,D::East},2,4,[](Live &l,unsigned n){check(l.p.questItems.at(79)==(n>=1),"39 (4,3) gave its item at the wrong use");});
+ const auto intellect=source.characters[source.activeRosterIds[0]].intellect.permanent;
+ stages({dark(74),10,15,D::West},3,5,[&](Live &l,unsigned n){check(first(l).intellect.permanent==intellect+5*std::min(n+1,3u),"74 (10,15) intellect stages differ");});
+ // The six-stage statue raises Might six times.
+ const auto might=source.journey->supplements[source.activeRosterIds[0]].inputs.might.permanent;
+ stages({dark(32),30,4,D::East},6,7,[&](Live &l,unsigned n){check(firstInputs(l).might.permanent==might+10*std::min(n+1,6u),"32 (30,4) statue stages differ");});
+ // A purchase pays whenever it is paid for: 1,000 gold per item 35.
+ stages({dark(4),15,12,D::North},4,4,[&](Live &l,unsigned n){check(l.p.questItems.at(35)==source.questItems[35]+n+1 && l.p.purse->gold==source.journey->purse->gold-1000*(n+1),"4 (15,12) purchase differs");});
+ // WhoWill skill grants with no guard increment the skill byte at every use,
+ // and 255 wraps to 0 (sv-skill-byte-wrap).
+ for(const auto &camera:{XeenCamera{dark(32),27,3,D::South},XeenCamera{dark(41),8,6,D::West},XeenCamera{dark(41),8,8,D::West},XeenCamera{dark(42),3,6,D::South}}) {
+  const auto skills=source.characters[source.activeRosterIds[0]].skills;std::optional<unsigned> granted;
+  stages(camera,4,4,[&](Live &l,unsigned n){
+   const auto now=first(l).skills;if(!granted)for(unsigned k=0;k<now.size();++k)if(now[k]!=skills[k])granted=k;
+   check(granted && now[*granted]==std::uint8_t(skills[*granted]+n+1),("Skill grant at "+where(camera)+" did not add one per use").c_str());
+   for(unsigned k=0;k<now.size();++k)check(k==*granted || now[k]==skills[k],"Skill grant changed another skill");
+  });
+  auto s=at(in,source,camera);s.characters[s.activeRosterIds[0]].skills[*granted]=255;Live wrap(in,s);use(wrap);
+  check(first(wrap).skills[*granted]==0,("Skill grant at "+where(camera)+" did not wrap 255 to 0").c_str());
+ }
+ std::cout<<"Darkside repeats stay bounded, with the original exceptions\n";
+}
+// The bounded chain at 31 (1,10) N gives the same result when each use is
+// followed by a save/load and a departure and return.
+void interleavedChain(Inputs &in,const XeenSaveSnapshot &source) {
+ const XeenCamera cell{{XeenSide::Darkside,31},1,10,XeenDirection::North},away{{XeenSide::Darkside,29},25,21,XeenDirection::North};
+ Live row(in,at(in,source,cell));auto broken=std::make_unique<Live>(in,at(in,source,cell));
+ for(unsigned n=0;n<3;++n) {
+  use(row);use(*broken);
+  const auto bytes=XeenSaveFormat::encode(broken->snapshot());broken=std::make_unique<Live>(in,XeenSaveFormat::decode(bytes));
+  check(XeenSaveFormat::encode(broken->snapshot())==bytes,"Interrupted chain save/load changed bytes");
+  XeenMonsterTestAccess::relocate(*broken,away);broken->settle();
+  XeenMonsterTestAccess::relocate(*broken,cell);broken->settle();
+  check(sameProgress(row,*broken),("Interrupted chain differs after use "+std::to_string(n+1)).c_str());
+ }
+ use(row);use(*broken);
+ // Only the return marks the Cartographer's arrival cell (M98); the fixture's
+ // first placement does not, so explored bits are left out.
+ auto a=*row.w.sessionState().mapState(cell.mapId),b=*broken->w.sessionState().mapState(cell.mapId);a.explored.reset();b.explored.reset();
+ check(sameProgress(row,*broken) && xeen_state::sameMapState(a,b),"Interrupted chain differs from three uses in a row");
+ std::cout<<"Interleaved chain equals three uses in a row\n";
+}
+// I3: a save after an Event restores byte for byte, and the next use behaves
+// as on the live game (exception: a use after a Spawn fight, whose monster HP
+// and wake state are not saved).
+void exactRestores(Inputs &in,const XeenSaveSnapshot &source) {
+ using D=XeenDirection;const auto dark=[](unsigned n){return XeenMapIdentity{XeenSide::Darkside,std::uint16_t(n)};};
+ for(const auto &camera:{XeenCamera{dark(74),6,3,D::North},XeenCamera{dark(47),12,0,D::North},XeenCamera{dark(116),10,6,D::North}}) {
+  std::cout<<"Exact restore at "<<where(camera)<<std::endl;
+  Live live(in,at(in,source,camera));const auto maps=live.w.sessionState().mapStates();const auto paid=rewards(live);use(live);
+  if(camera.mapId==dark(74))check(!xeen_state::sameMapStates(maps,live.w.sessionState().mapStates()),"74 (6,3) altered no wall");
+  if(camera.mapId==dark(47))check(rewards(live)!=paid,"47 (12,0) gave nothing");
+  if(camera.mapId==dark(116))check(live.p.questFlags.isSet(XeenSide::Clouds,0) && !live.p.questFlags.isSet(XeenSide::Darkside,0),"116 (10,6) did not set Clouds quest flag 0");
+  const auto bytes=XeenSaveFormat::encode(live.snapshot());Live restored(in,XeenSaveFormat::decode(bytes));
+  const auto sameOwners=[&]{return live.w.sessionState().journeyRandom()==restored.w.sessionState().journeyRandom() &&
+   live.w.sessionState().skeletonSeed()==restored.w.sessionState().skeletonSeed();};
+  check(XeenSaveFormat::encode(restored.snapshot())==bytes && sameOwners(),"Restore changed bytes or RNG");
+  use(live);use(restored);
+  check(XeenSaveFormat::encode(live.snapshot())==XeenSaveFormat::encode(restored.snapshot()) && sameOwners(),"Second use differs after the restore");
+ }
+ std::cout<<"Darkside Events restore exactly\n";
+}
+// Both sides in one game: a Clouds Event, the Pyramids both ways, Ellinger,
+// the Clouds repeat and the fourth head, with an exact round trip after each.
+void crossing(Inputs &in,const XeenSaveSnapshot &start) {
+ using D=XeenDirection;const auto dark=[](unsigned n){return XeenMapIdentity{XeenSide::Darkside,std::uint16_t(n)};};
+ const auto C=XeenSide::Clouds,DS=XeenSide::Darkside;
+ const auto bank=[](const XeenGameFlags &f,XeenSide side){std::vector<bool> v;for(unsigned i=0;i<256;++i)v.push_back(f.isSet(side,i));return v;};
+ const auto quests=[](const XeenQuestFlags &f,XeenSide side){std::vector<bool> v;for(unsigned i=0;i<30;++i)v.push_back(f.isSet(side,i));return v;};
+ auto live=std::make_unique<Live>(in,at(in,start,{1,0,15,D::North}));
+ const auto roundTrip=[&](const char *step){
+  const auto bytes=XeenSaveFormat::encode(live->snapshot());auto restored=std::make_unique<Live>(in,XeenSaveFormat::decode(bytes));
+  check(XeenSaveFormat::encode(restored->snapshot())==bytes && restored->w.sessionState().journeyRandom()==live->w.sessionState().journeyRandom(),
+   (std::string("Crossing round trip changed the game after ")+step).c_str());
+  live=std::move(restored);
+ };
+ const auto travel=[&](const XeenCamera &to){XeenMonsterTestAccess::relocate(*live,to);live->settle();check(xeen_state::sameCamera(live->c,to),"Relocation missed its camera");};
+ const auto counters=live->p.questItems.counts();
+ use(*live);check(live->f.isSet(C,35) && !live->f.isSet(DS,35),"Clouds 1 (0,15) did not write only the Clouds bank");roundTrip("the Clouds Event");
+ auto c=bank(live->f,C),d=bank(live->f,DS);auto qc=quests(live->p.questFlags,C),qd=quests(live->p.questFlags,DS);
+ const auto unchanged=[&]{return bank(live->f,C)==c && bank(live->f,DS)==d && quests(live->p.questFlags,C)==qc && quests(live->p.questFlags,DS)==qd;};
+ travel({23,8,10,D::North});use(*live);
+ check(xeen_state::sameCamera(live->c,{dark(29),25,21,D::North}) && unchanged(),"Clouds Pyramid crossing differs");roundTrip("the Clouds Pyramid");
+ travel({dark(56),4,8,D::West});use(*live);
+ check(live->p.questFlags.isSet(DS,23) && live->f.isSet(DS,114) && bank(live->f,C)==c && quests(live->p.questFlags,C)==qc,"Ellinger wrote the wrong banks");
+ roundTrip("Ellinger");
+ c=bank(live->f,C);d=bank(live->f,DS);qc=quests(live->p.questFlags,C);qd=quests(live->p.questFlags,DS);const auto items=live->p.questItems.counts();
+ travel({dark(29),26,24,D::North});use(*live);
+ check(xeen_state::sameCamera(live->c,{23,8,10,D::North}) && unchanged() && live->p.questItems.counts()==items,"Darkside Pyramid crossing differs");roundTrip("the Darkside Pyramid");
+ travel({1,0,15,D::North});const auto paid=rewards(*live);use(*live);
+ check(rewards(*live)==paid && unchanged(),"Clouds 1 (0,15) paid again after the round trip");roundTrip("the Clouds repeat");
+ travel({dark(116),10,6,D::North});use(*live);
+ check(live->p.questFlags.isSet(C,0) && !live->p.questFlags.isSet(DS,0),"Fourth head did not set Clouds quest flag 0");roundTrip("the fourth head");
+ travel({23,8,10,D::North});check(live->p.questFlags.isSet(C,0) && live->p.questItems.counts()[0]==counters[0],"Clouds quest flag 0 or counter 0 lost on the Clouds side");
+ roundTrip("the return to Clouds");
+ std::cout<<"Crossing between the sides restores exactly after every step\n";
+}
+// The key left by an Event's last NPC wait runs after the Event
+// (sv-event-key-continuation), and keys pressed during a fall change nothing.
+void continuationKeys(Inputs &in,const XeenSaveSnapshot &source) {
+ using D=XeenDirection;const XeenCamera ellinger{{XeenSide::Darkside,56},4,8,D::West};
+ const auto npc=[](Live &l){const auto r=XeenEventDispatchTestAccess::request(*l.flow);return r && r->npc;};
+ unsigned waits=0;std::uint32_t minutes=0;
+ // The plain Event followed by the continuation as an ordinary command.
+ const auto plain=[&](PlayerAction next){
+  auto live=std::make_unique<Live>(in,at(in,source,ellinger));use(*live,true,0,[&](Live &l){waits+=npc(l);return false;});
+  minutes=live->p.encounterContext->minutes;live->act(next);live->settle();return live;
+ };
+ for(const auto &[key,next]:{std::pair<unsigned,PlayerAction>{InputKey::Up,NavigationAction::MoveForward},std::pair<unsigned,PlayerAction>{InputKey::Space,WaitAction{}}}) {
+  waits=0;const auto expected=plain(next);check(waits>1,"Ellinger has no NPC waits");
+  Live live(in,at(in,source,ellinger));unsigned seen=0;
+  use(live,true,0,[&,key=key](Live &l){if(!npc(l) || ++seen<waits)return false;l.key(key);return true;});live.settle();
+  check(seen==waits && XeenSaveFormat::encode(live.snapshot())==XeenSaveFormat::encode(expected->snapshot()),
+   ("Key "+std::to_string(key)+" at Ellinger's last NPC wait did not run after the Event").c_str());
+  if(key==InputKey::Up)check(live.c.mapId==ellinger.mapId && live.c.x==3 && live.c.y==8,"Up did not end one step West");
+  else check(live.c.x==4 && live.p.encounterContext->minutes>minutes,"Space did not end with a Wait");
+ }
+ // Keys at every tick of a fall with a Dead member, delivered without the
+ // window's readiness checks, leave the plain fall's arrival and damage.
+ auto s=at(in,source,{{XeenSide::Darkside,128},5,5,D::North});const auto owner=s.activeRosterIds[0];
+ s.characters[owner].conditions[unsigned(XeenCondition::Dead)]=1;s.characters[owner].currentHp=0;
+ const std::vector<PlayerAction> keys{NavigationAction::MoveForward,NavigationAction::TurnLeft,InteractionAction{},WaitAction{},NavigationAction::TurnRight,
+  RestAction{},BashAction{},DialogKeyAction{'~'},SaveGameAction{},QuestsAction{},MapAction{},NavigationAction::MoveBackward,ControlPanelAction{}};
+ const auto fall=[&](bool noisy){
+  auto live=std::make_unique<Live>(in,s);live->act(NavigationAction::TurnLeft);
+  for(unsigned n=0;!live->flow->canSave();++n) {
+   check(n<200,"Fall with a Dead member never reached Quiet");if(noisy)live->act(keys[n%keys.size()]);
+   const auto d=live->flow->inputContext(live->flow->frame().presentation()).dialog;if(d && d->anyKey)live->act(AcknowledgeAction{});live->tick();
+  }
+  return live;
+ };
+ const auto calm=fall(false),noisy=fall(true);
+ check(noisy->c.mapId==XeenMapIdentity(8) && noisy->c.x==11 && noisy->c.y==15,"Noisy fall missed Clouds 8 (11,15)");
+ check(XeenSaveFormat::encode(noisy->snapshot())==XeenSaveFormat::encode(calm->snapshot()),"Keys during the fall changed its outcome");
+ std::cout<<"Continuation keys and keys during a fall passed\n";
+}
 int main(int argc,char **argv) {
  try {
-  check(argc==3 || (argc==4 && (std::string(argv[3])=="partb" || std::string(argv[3])=="partc" || std::string(argv[3])=="mixed" || std::string(argv[3])=="mixed-travel" || std::string(argv[3])=="quests" || std::string(argv[3])=="fall-defeat" || std::string(argv[3])=="dial" || std::string(argv[3])=="cd-disc")),"usage: darkside-tests <installation> <output-directory> [partb|partc|mixed|mixed-travel|quests|fall-defeat|dial|cd-disc]");const auto installation=xeenTestInstallationDetector().detect(argv[1]);check(bool(installation),"Missing original installation");
+  const std::set<std::string> modes{"partb","partc","mixed","mixed-travel","quests","fall-defeat","dial","cd-disc","repeats","restores","crossing","keys"};
+  check(argc==3 || (argc==4 && modes.count(argv[3])),"usage: darkside-tests <installation> <output-directory> [partb|partc|mixed|mixed-travel|quests|fall-defeat|dial|cd-disc|repeats|restores|crossing|keys]");const auto installation=xeenTestInstallationDetector().detect(argv[1]);check(bool(installation),"Missing original installation");
   const std::filesystem::path out=std::string(argv[2])=="temporary"?std::filesystem::temp_directory_path()/"mmodern-m104-frames":std::filesystem::path(argv[2]);std::filesystem::create_directories(out);const auto save=std::filesystem::temp_directory_path()/("mmodern-m101-"+std::to_string(std::chrono::steady_clock::now().time_since_epoch().count())+".mmsave");
   std::cout<<"Preset: "<<save<<'\n';
   developer::generateTestSave(*installation,"m101-castleview",save);Inputs in(*installation);const auto preset=XeenSaveFile::read(save);
   check(preset.camera.mapId==XeenMapIdentity(XeenSide::Darkside,29),"Wrong Castleview preset");
   if(argc==4 && std::string(argv[3])=="fall-defeat"){fallAndSpaceDefeat(in,quiet(in,preset));presentationFailures(in,quiet(in,preset));return 0;}
   if(argc==4 && std::string(argv[3])=="dial"){dialBeyondDispatchCap(in,quiet(in,preset));return 0;}
+  if(argc==4 && std::string(argv[3])=="repeats"){boundedRepeats(in,quiet(in,preset));interleavedChain(in,quiet(in,preset));return 0;}
+  if(argc==4 && std::string(argv[3])=="restores"){exactRestores(in,quiet(in,preset));return 0;}
+  if(argc==4 && std::string(argv[3])=="keys"){continuationKeys(in,quiet(in,preset));return 0;}
+  if(argc==4 && std::string(argv[3])=="crossing") {
+   auto clouds=save;clouds.replace_filename(save.stem().string()+"-clouds.mmsave");developer::generateTestSave(*installation,"m101-pyramid-clouds",clouds);
+   const auto start=XeenSaveFile::read(clouds);std::filesystem::remove(clouds);crossing(in,start);return 0;
+  }
   if(argc==4 && std::string(argv[3])=="cd-disc"){cdDiscSelection(in,*installation);return 0;}
   if(argc==4 && std::string(argv[3])=="partc"){partCEvents(in,quiet(in,preset),out);return 0;}
   if(argc==4 && std::string(argv[3])=="mixed-travel"){mixedTravel(in,*installation,preset,out);return 0;}

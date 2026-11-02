@@ -412,6 +412,15 @@ void newWin(Inputs &in,const GameInstallation &installation,const fs::path &dire
  save_test::sameSnapshot(saved,again);
  const auto reencoded=XeenSaveFormat::encode(again);
  check(reencoded==attempts.back(),"Original win reload and re-save are byte-identical");
+ if(!retry && !wonFailure) {
+  // Play goes on from the loaded win: an ordinary step settles (Darkside audit R09).
+  const auto from=reload.c;reload.act(NavigationAction::MoveForward);
+  for(unsigned n=0;n<1000 && !reload.flow->canSave();++n) {
+   reload.now+=125;reload.flow->beginCycle(++reload.cycle);if(auto image=reload.flow->updatePresentation())reload.present(*image);
+   const auto input=reload.flow->inputContext(reload.flow->frame().presentation());if(input.dialog && input.dialog->anyKey)reload.act(AcknowledgeAction{});
+  }
+  check(reload.flow->canSave() && !save_test::sameCamera(reload.c,from),"Loaded win save refused an ordinary step");
+ }
  const auto exported=developer::projectDosSave(installation,saved,"M106 result");
  for(const auto &m:exported.darkside)if(m.name=="maze.pty") {
   check(m.bytes[606]==!world && m.bytes[607]==0 && m.bytes[608]==world && m.bytes[609]==0,"DOS PTY 606/608 completion words match capture");
