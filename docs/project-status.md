@@ -1,9 +1,10 @@
 # MMModern - Project Status
 
-This describes what can be played and done now. M108 is the latest
-completed and accepted milestone (2026-11-02; [plan](milestone-108-plan.md)):
-the invariants of the Darkside audit are now original-data tests. Before it,
-M107 played the original World of Xeen ending after the World win, the
+This describes what can be played and done now. M110 is the latest
+completed and accepted milestone (2026-11-03; [plan](milestone-110-plan.md)):
+with the old-games.ru fan translation installed beside the CD, the game
+plays in Russian. Before it, M108 turned the invariants of the Darkside
+audit into original-data tests, M107 played the original World of Xeen ending after the World win, the
 `genesis` mirror word and the title's W row, so every ending of the CD now
 plays, and M106 made Darkside of Xeen and World of Xeen winnable as in DOS,
 with the original Darkside ending and the title's replay rows, M105 ran
@@ -261,7 +262,8 @@ Quit. Saving is refused in combat, during service visits and on maps that
 forbid it. Sign In, leaving the Inn, Delete, Create and the ending save
 automatically, as in DOS; a failed write shows the error and retries
 ([approved deviation](original-quirks.md#dev-inn-save-recovery)). Play time
-follows the system clock, as in DOS; typing G, O, B, R in the panel shows it.
+follows the system clock, as in DOS; in English, typing G, O, B, R in the
+panel shows it.
 Mr Wizard returns the party to Vertigo and takes all its gems. Sound and text
 settings are saved with the party. Slots live under Local AppData
 (`MMModern/Saves/`), and a damaged or foreign slot is never overwritten.
@@ -300,6 +302,21 @@ held keys repeat as the keyboard does. A held movement key steps about nine
 times a second and adds no step after release, an approved deviation.
 Services, dialogs, inventory and casting accept only fresh presses.
 
+## Russian
+
+With the identified old-games.ru World of Xeen fan translation in its own
+folder, chosen in the launcher's Language window, the game plays in Russian
+([development guide](development.md)). The archives' texts and pictures, the
+font and the program text come from the translation; maps, rules,
+statistics, timing, music and the CD's English recorded speech stay those of
+the CD ([approved deviation](original-quirks.md#dev-russian-layer)). The
+keyboard, hotkeys, item descriptions, combat rows and caption strip follow
+the Russian Darkside program, including its key defects
+([controls](controls.md),
+[Russian keyboard](original-quirks.md#ru-keyboard)). Any other translation
+is refused, naming the file, and English plays. Project text (launcher,
+diagnostics, notices) stays English.
+
 ## Entry modes
 
 `mmodern <game-dir>` is the player's entry; the release launcher opens it
@@ -321,8 +338,9 @@ directories.
 
 ## Save format
 
-There is one current save format, v24 (saves from 0.13.0 and older are
-refused). It holds the party with every roster
+There is one current save format, v26 (saves from older builds are
+refused). Save names may hold Cyrillic bytes, and Russian and English games
+share the save folder and load in either language. A save holds the party with every roster
 record in full, both sides' flags, its sound options, play time and Clouds
 completion, the selected Darkside song (Load replays it without a draw,
 an [approved deviation](original-quirks.md#dev-darkside-load-music); the
@@ -402,5 +420,6 @@ the original data uses and its support status.
   ([audio rules](rules/audio.md#sdl-resampler-rate-limitation)).
 - Darkside: the [census](coverage.md#darkside-largest-gaps) lists no
   Darkside gap.
+- Russian: a reader of Russian has not yet checked the text in play.
 
 Next steps are in the [roadmap](roadmap.md).

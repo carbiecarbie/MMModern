@@ -370,3 +370,11 @@ next step; the key that ends an Event's last wait runs after it; keys during
 a fall change nothing; and an Event chain interrupted by saves and trips ends
 as an uninterrupted one. Tests only; save v25 unchanged.
 [Plan](milestone-108-plan.md).
+
+**M110 - Russian language layer over the CD edition** (Tier A). With the
+old-games.ru fan translation installed beside the World of Xeen CD, the game
+plays in Russian: the translation's texts, pictures, font and program text
+over the CD's maps, rules, timing, music and English speech, an approved
+deviation. The keyboard, hotkeys, item descriptions, combat rows and caption
+strip follow the Russian Darkside program, its key defects included. Save
+v26 admits Cyrillic names. [Plan](milestone-110-plan.md).
