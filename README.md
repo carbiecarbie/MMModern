@@ -32,6 +32,9 @@ plays its own ending as well. Darkside hasn't been played through from start
 to finish yet, so expect more bugs there than in Clouds. Reports are very
 welcome (see [Reporting a problem](#reporting-a-problem)).
 
+The game can also be played in Russian with the old-games.ru fan
+translation (see [Russian](#russian)).
+
 ## Download and play
 
 You need Windows 10 or 11 (64-bit) and a legally obtained English
@@ -50,6 +53,25 @@ World of Xeen CD edition. MMModern never copies or modifies your game files.
 The launcher stays open while you play. The game opens in front without a
 console window. If it fails, the launcher shows the error and offers to open
 its log.
+
+## Russian
+
+MMModern can show the old-games.ru Russian fan translation (Clouds of Xeen
+RUS and Darkside of Xeen RUS 1.2) over your English CD game. Put these five
+files from the translation in one folder: `xeen.cc` from Clouds of Xeen RUS,
+and `dark.cc`, `intro.cc`, `xeen.dat` and `xeen.exe` from Darkside of Xeen
+RUS 1.2. In the launcher, click **Language**, choose Russian and pick that
+folder. MMModern reads those files and never changes them; other versions of
+the translation are refused, and the game plays in English.
+
+Texts, pictures and the font come from the translation, while maps, rules,
+music and the recorded speech, which stays English, come from the CD. The
+keyboard follows the Russian program: letters type Cyrillic by their position
+on a Russian keyboard, whatever your Windows layout, and Shift gives capitals.
+The Russian program's own key oddities are kept; the
+[controls](https://github.com/carbiecarbie/MMModern/blob/main/docs/controls.md)
+page lists them. The translation's text hasn't been checked in play by a
+Russian reader yet, so reports are welcome.
 
 ## Display and sound
 
