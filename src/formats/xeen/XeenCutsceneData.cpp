@@ -177,12 +177,12 @@ XeenCutsceneData XeenCutsceneData::parse(const std::vector<std::uint8_t> &b,cons
  for(const auto &c:dark.nwcCues)if(c.target!=0xab2e && c.target!=0xab35 && c.target!=0xab3d)bad();
  return d;
 }
-XeenCutsceneData::Captions XeenCutsceneData::captions(const std::vector<std::uint8_t> &b) {
+XeenCutsceneData::Captions XeenCutsceneData::captions(const std::vector<std::uint8_t> &b,XeenLanguage language) {
  if(b.empty() || b.size()>65535 || b.back()!=0)throw std::runtime_error("Malformed cutscene captions");
  Captions result;std::size_t start=0;
  for(std::size_t i=0;i<b.size();++i)if(b[i]==0) {
   result.offsets.push_back(std::uint16_t(start));result.records.emplace_back(b.begin()+start,b.begin()+i);
-  XeenDosText::validateControls(result.records.back());start=i+1;
+  XeenDosText::validateControls(result.records.back(),language);start=i+1;
  }
  return result;
 }
@@ -190,9 +190,9 @@ const std::string &XeenCutsceneData::Captions::record(unsigned index,unsigned bo
  if(index>=records.size() || records[index].empty() || records[index].size()+1>bound)throw std::runtime_error("Invalid cutscene caption record");
  return records[index];
 }
-std::string XeenCutsceneData::firstCaption(const std::vector<std::uint8_t> &b) {
+std::string XeenCutsceneData::firstCaption(const std::vector<std::uint8_t> &b,XeenLanguage language) {
  auto text=token(b,0,std::min<std::size_t>(800,b.size()));
- if(text.empty())throw std::runtime_error("Empty Clouds intro caption record");XeenDosText::validateControls(text);return text;
+ if(text.empty())throw std::runtime_error("Empty Clouds intro caption record");XeenDosText::validateControls(text,language);return text;
 }
 std::string XeenCutsceneData::hand(unsigned n) const {if(n>15)bad();return numbered(handPattern,n);}
 std::string XeenCutsceneData::marble(unsigned n) const {if(n<1 || n>4)bad();return numbered(marblePattern,n);}

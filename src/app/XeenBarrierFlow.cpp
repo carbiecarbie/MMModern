@@ -175,7 +175,7 @@ IndexedFrame XeenEventFlow::handleBarrier(const PlayerAction &action) {
 		if(selected->partyIndex>=_barrier->rule->characters.size())return frameCopy();
 		if(!_barrier->rule->characters[selected->partyIndex].canAct()) {
 			_whoWillRefusal=xeenDialogFormat(dosText().scalar("IN_NO_CONDITION"),
-                {std::string(_barrier->characters[selected->partyIndex].name)});
+                {xeenLiteralText(_barrier->characters[selected->partyIndex].name)});
             return renderEncounter();
 		}
 		_barrier->rule->choose(selected->partyIndex);_presenter.clear();_journeyEventLayers=false;

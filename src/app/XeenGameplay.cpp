@@ -434,7 +434,7 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
       status="MMModern - Game saved.";
       try {
        XeenRestoreGuard::Providers providers(*panelGuard,world,checkPanel);
-       panel->panelResult(xeenDialogFormat(flow.dosText().scalar("SAVED_NOTICE"),{request.name}),true);
+       panel->panelResult(xeenDialogFormat(flow.dosText().scalar("SAVED_NOTICE"),{xeenLiteralText(request.name)}),true);
        checkPanel();
       }catch(const std::exception &e) {
        checkPanel();

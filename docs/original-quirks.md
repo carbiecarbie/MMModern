@@ -748,6 +748,43 @@ original post-dream poll.
 Deliberate differences from the original that the maintainer approved; each
 stays documented here and in the plan that implements it.
 
+- <a id="dev-russian-layer"></a> **Russian text over the CD edition**
+  (maintainer, 2026-11-03; [M110](milestone-110-plan.md) decisions 1-5 and 10).
+  No Russian CD edition exists. With `language=russian` in `settings.ini` (or
+  the developer option `--russian <folder>`), MMModern layers the old-games.ru
+  World of Xeen translation (Clouds of Xeen RUS and Darkside of Xeen RUS 1.2,
+  made for the floppy editions) over the English CD: archive text, translated
+  pictures and the two-bank font come from the translation, while maps,
+  rules, timing, music and recorded speech stay the CD's, so speech (Crodo's
+  narration, the intros and endings) stays English under Russian text. The
+  five translation files are identified by size and CRC-32; anything else is
+  refused naming the file, and English plays. A fixed list of 105/379/7
+  substituted entries (`XeenRussianEntries.inc`, derived once from the
+  English floppy and Russian archives) tags each with its format:
+  text and pictures substitute once their structure matches the CD (string
+  counts, frame counts, the font's English bank); the New Game containers,
+  `xeen.mon`/`dark.mon` and the mirror lists keep the CD's bytes and take only
+  roster names, monster names and mirror words, so the CD's maps, statistics,
+  destinations and its added Bloopers record are kept (the translation's
+  changed Dragon Tower destination is not used). Five entries stay CD: the
+  string tables no reader names (`0x9848` in both archives, `0x4b0d`, `0x8bb8`)
+  and `mae.xen`, whose reader needs ASCII material names until Russian item
+  descriptions are settled (decision 8). With Russian active, bytes `0x80-0xff` draw from the
+  second font bank and only `0x20` is a space, as the pinned `font.cpp`
+  does; English drawing is unchanged. A player-entered name is always drawn as
+  literal characters: in English a byte `0x80-0xff` draws the glyph of its low
+  7 bits and never acts as a command (so a Russian New Game's roster stays
+  drawable in English, though not legible); there is no original counterpart. Program text stays English until
+  Part B (intro and ending captions, which are archive text, are Russian), and
+  Cyrillic entry (riddle and mirror answers are now Russian words) is Part C. Saves are unchanged and load in either language. Implemented in
+  `XeenRussianTranslation`, `CheckedInstalledArchive::createReadStreamForMember`
+  (`ScummVmRuntime` refuses raw archive opens while Russian is active),
+  `XeenFontFormat`, `XeenTextRenderer` (`xeenLiteralText`) and
+  `XeenDosText::validateControls`. **ScummVM:** the pin supports only the
+  Russian Clouds of Xeen, as its own floppy game, with Russian program text
+  in its tables; it has no layer over the CD and no literal-name drawing.
+  Pin: differs; master not rechecked.
+
 - <a id="dev-pending-side-save"></a> **Saving a pending FlipWorld side is refused**
   (maintainer, 2026-11-01; M104 decision 4). Normal original Events immediately
   load the other side. For a synthetic persistent pending side, MMModern shows

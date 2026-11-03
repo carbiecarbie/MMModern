@@ -19,6 +19,7 @@ set(MMODERN_PROMUS_CAPTURES_DIR "" CACHE PATH "External DOSBox DRO v2 promus cap
 set(MMODERN_M94_CAPTURES_DIR "" CACHE PATH "External DOSBox M94 OPL and MIDI captures")
 set(MMODERN_MT32_ROM_DIR "" CACHE PATH "External MT-32 control 1.07 and PCM ROMs for tests")
 set(MMODERN_XEEN_AUDIO_DIR "${MMODERN_XEEN_DATA_DIR}" CACHE PATH "Required GOG cue sheets and MUSIC directory for CD audio validation")
+set(MMODERN_RU_DATA_DIR "" CACHE PATH "Optional Russian World of Xeen translation folder for the M110 language layer tests")
 
 find_package(SDL2 CONFIG REQUIRED)
 find_package(ZLIB REQUIRED)
@@ -227,6 +228,8 @@ option(MMODERN_ORIGINAL_DATA_TESTS
 #   MMODERN_M94_CAPTURES_DIR);
 # - ROMs: the MT-32 control and PCM ROMs (MMODERN_MT32_ROM_DIR);
 # - CD audio: the GOG cue sheets and MUSIC tracks (MMODERN_XEEN_AUDIO_DIR).
+# - translation: the Russian World of Xeen translation (MMODERN_RU_DATA_DIR),
+#   registered only when that variable is set.
 # A command that runs data-free and data cases together is a data test.
 # Arguments are forwarded as bracket arguments: ${ARGV} would drop empty ones
 # and split those holding semicolons.
@@ -723,6 +726,22 @@ if(BUILD_TESTING)
     add_test(NAME xeen_journal COMMAND mmodern_journal_tests)
     mmodern_data_test(NAME xeen_journal_original COMMAND mmodern_journal_tests "${MMODERN_XEEN_DATA_DIR}")
     mmodern_test_properties(xeen_journal xeen_journal_original PROPERTIES LABELS "fast")
+    # M110: the Russian language layer. The data test needs the Russian World
+    # of Xeen translation (MMODERN_RU_DATA_DIR) and is left out without it.
+    add_executable(mmodern_language_layer_tests tests/XeenLanguageLayerTests.cpp)
+    target_link_libraries(mmodern_language_layer_tests PRIVATE mmodern_xeen)
+    add_test(NAME xeen_language_layer COMMAND mmodern_language_layer_tests)
+    set_tests_properties(xeen_language_layer PROPERTIES LABELS "fast")
+    add_executable(mmodern_russian_layer_data_tests tests/XeenRussianLayerDataTests.cpp)
+    target_link_libraries(mmodern_russian_layer_data_tests PRIVATE mmodern_test_save_support mmodern_xeen mmodern_scummvm_xeen)
+    target_include_directories(mmodern_russian_layer_data_tests PRIVATE
+        "${SCUMMVM_BUILD_DIR}" "${SCUMMVM_SOURCE_DIR}" "${SCUMMVM_SOURCE_DIR}/engines")
+    target_compile_definitions(mmodern_russian_layer_data_tests PRIVATE WIN32 UNICODE _UNICODE)
+    if(MMODERN_RU_DATA_DIR)
+        mmodern_data_test(NAME xeen_russian_layer_original COMMAND mmodern_russian_layer_data_tests
+            "${MMODERN_XEEN_DATA_DIR}" "${MMODERN_RU_DATA_DIR}")
+        mmodern_test_properties(xeen_russian_layer_original PROPERTIES LABELS "fast")
+    endif()
     add_executable(mmodern_inn_tests tests/XeenInnTests.cpp)
     target_link_libraries(mmodern_inn_tests PRIVATE mmodern_app mmodern_xeen)
     mmodern_data_test(NAME xeen_inn COMMAND mmodern_inn_tests "${MMODERN_XEEN_DATA_DIR}")

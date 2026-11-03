@@ -8,6 +8,7 @@
 #include "games/xeen/XeenMonsterFixture.h"
 
 #include <filesystem>
+#include <memory>
 #include <cstdint>
 #include <optional>
 #include <utility>
@@ -16,11 +17,14 @@ namespace mmodern {
 
 struct XeenGameplayServices;
 class XeenAssetSource;
+class XeenRussianTranslation;
 class Application {
 public:
  explicit Application(XeenProgramState &program, std::filesystem::path uiData = {},
-  std::optional<std::filesystem::path> settingsFile = {},std::filesystem::path cfg = {})
-  : _program(program), _uiData(std::move(uiData)), _settingsFile(std::move(settingsFile)), _cfg(std::move(cfg)) {
+  std::optional<std::filesystem::path> settingsFile = {},std::filesystem::path cfg = {},
+  std::shared_ptr<const XeenRussianTranslation> translation = {})
+  : _program(program), _uiData(std::move(uiData)), _settingsFile(std::move(settingsFile)), _cfg(std::move(cfg)),
+   _translation(std::move(translation)) {
   const auto settings=_settingsFile?xeenReadSettings(*_settingsFile):XeenSettings{};
   _program.cloudsWon=settings.won;_program.darksideWon=settings.darksideWon;_program.worldWon=settings.worldWon;_program.darksideIntroSeen=settings.darksideIntroSeen;
  }
@@ -61,6 +65,8 @@ private:
  std::filesystem::path _uiData;
  std::optional<std::filesystem::path> _settingsFile;
  std::filesystem::path _cfg;
+ // M110: fixed for the process; null plays English.
+ std::shared_ptr<const XeenRussianTranslation> _translation;
 	int gameplay(const std::filesystem::path &, XeenCamera,
 		const std::optional<std::filesystem::path> &, bool resume,
 		XeenEncounterEntry entry = XeenEncounterEntry::Ordinary, std::optional<std::uint32_t> seed = {},

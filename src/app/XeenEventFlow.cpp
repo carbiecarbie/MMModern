@@ -2529,7 +2529,7 @@ XeenPresentationUpdate XeenEventFlow::presentPendingEvent() {
 	if(request.kind==XeenPresentationKind::CenteredMessage && request.notEnough && request.text.empty())
 		request.text=xeenNotEnough(dosText(),*request.notEnough);
 	if(request.kind==XeenPresentationKind::CenteredMessage && request.lockPicked && request.text.empty())
-		request.text=xeenDialogFormat(dosText().scalar(*request.lockPicked?"PICKS_THE_LOCK":"UNABLE_TO_PICK_LOCK"),{request.title});
+		request.text=xeenDialogFormat(dosText().scalar(*request.lockPicked?"PICKS_THE_LOCK":"UNABLE_TO_PICK_LOCK"),{xeenLiteralText(request.title)});
 	const auto retainedPage=request.kind==XeenPresentationKind::NpcAcknowledgment && _npcSequence &&
         _npcSequence->generation==_pending->generation?_npcSequence->page:0;
     // Op60 only changes retained command operands. Playing/stopping does not
@@ -3522,7 +3522,7 @@ IndexedFrame XeenEventFlow::handleExplorationAction(const PlayerAction &physical
             const auto &party=_transition?_transition->party:_party;
             if(selected->partyIndex<party.party.size()) {
                 const auto &member=party.party.member(party.roster,selected->partyIndex);
-                if(!member.canAct()) {_whoWillRefusal=xeenDialogFormat(dosText().scalar("IN_NO_CONDITION"),{member.name});redraw=true;}
+                if(!member.canAct()) {_whoWillRefusal=xeenDialogFormat(dosText().scalar("IN_NO_CONDITION"),{xeenLiteralText(member.name)});redraw=true;}
             }
         }
         if(redraw) {

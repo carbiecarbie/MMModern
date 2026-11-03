@@ -550,7 +550,7 @@ std::string XeenEncounterFlow::combatNotice() const {
 	const auto phase = _combat->phase();
 	const auto &r = _combatObservation;
 	std::string text = (_combatCastRefusal.empty() ? "T=" : _combatCastRefusal+"\nT=") + std::to_string(_combat->result().minutes) + " | Unsaveable | Esc exits\n";
-	auto name = [&](unsigned owner) { return _party.roster.at(owner).name; };
+	auto name = [&](unsigned owner) { return xeenLiteralText(_party.roster.at(owner).name); };
 	if (phase == P::Victory) text += "VICTORY\n";
 	else if (phase == P::Defeat) text += "DEFEAT - no healing or XP\n";
 	else if (phase == P::Failed) text += "FAILED - encounter cannot continue\n";

@@ -328,9 +328,10 @@ const std::vector<XeenDosText::ButtonLayout> &XeenDosText::buttonLayouts() {
   {"PANEL",0x4f45e,0x4f472,0x4f47b,0x4f484,0x4f48d,0x4f496,9}
  };return layouts;
 }
-void XeenDosText::validateControls(std::string_view text) {
+void XeenDosText::validateControls(std::string_view text, XeenLanguage language) {
  for(std::size_t i=0;i<text.size();) {
-  const unsigned c=static_cast<unsigned char>(text[i++])&127;
+  const unsigned raw=static_cast<unsigned char>(text[i++]);
+  const unsigned c=language==XeenLanguage::Russian?raw:raw&127;
   if(c>=32 || c==1 || c==2 || c==5 || c==6 || c==10 || c==13)continue;
   if(c==3 || c==8) {
    if(i==text.size())malformed("truncated alignment/outline");

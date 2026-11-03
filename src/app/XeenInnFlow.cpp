@@ -248,7 +248,7 @@ IndexedFrame XeenEventFlow::renderInn(bool cosmetic) {
             if(ui.edit==InnUi::Edit::DeleteConfirm) {
                 const auto &c=_party.roster.at(*ui.selected);
                 frame=drawXeenConfirm(frame,_inventoryFont,xeenDialogFormat(dosText().scalar("INN_DELETE_CONFIRM"),
-                    {std::string(c.name),dosText().table("CLASS_NAMES").at(unsigned(c.characterClass))}),false,drawDialogSprite);
+                    {xeenLiteralText(c.name),dosText().table("CLASS_NAMES").at(unsigned(c.characterClass))}),false,drawDialogSprite);
             }
             _inventoryUnderlay=frame;
             if(inventoryOpen())frame=drawCharacterDialog(frame);

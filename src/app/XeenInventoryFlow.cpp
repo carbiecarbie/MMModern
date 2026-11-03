@@ -225,7 +225,7 @@ void XeenEventFlow::transferInventory(std::size_t destination) {
  if(authority && !_encounter->current(*authority)) {_fatal=true;throw std::runtime_error("Stale transfer reporting");}
  if(_transferResult.status==XeenTransferStatus::Cursed) dialogError(std::string(xeenDialogText(dosText(),XeenDialogText::CursedItem)));
  else if(_transferResult.status==XeenTransferStatus::DestinationFull)
-  dialogError(xeenBackpackFull(dosText(),certificate->category,_party.party.member(_party.roster,destination).name));
+  dialogError(xeenBackpackFull(dosText(),certificate->category,xeenLiteralText(_party.party.member(_party.roster,destination).name)));
  if(_transferResult.status==XeenTransferStatus::Success) refreshScene(true,OrdinaryCause::None);
 }
 IndexedFrame XeenEventFlow::handleInventory(const PlayerAction &action) {

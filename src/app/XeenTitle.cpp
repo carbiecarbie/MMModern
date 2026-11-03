@@ -70,14 +70,14 @@ XeenCutscene titleExit() {
 int Application::run(const std::filesystem::path &gameDirectory) const {return runTitle(gameDirectory,{},true);}
 int Application::runTitle(const std::filesystem::path &gameDirectory,std::optional<std::uint32_t> endingScore,bool startup,XeenSessionOutcome::Kind endingKind) const {
  try {
-  const auto installation=XeenInstallationDetector(_uiData,_cfg).detect(gameDirectory);
+  const auto installation=XeenInstallationDetector(_uiData,_cfg,_translation).detect(gameDirectory);
   if(!installation) {std::cerr<<"No Xeen installation found: "<<gameDirectory.u8string()<<'\n';return 2;}
   const std::filesystem::path repository=MMODERN_REPOSITORY_ROOT;
   const auto directory=XeenSaveFile::createSlotDirectory(*installation,repository);
   const auto signature=XeenSaveFile::fingerprint(*installation);
   XeenAssetSource assets(*installation,320,200);
   if(!_program.audio)_program.audio=XeenAudio::installed(*installation,assets,SdlWindow::presentationNanoseconds());
-  const XeenFontFormat font(assets.readArchiveResource("fnt",XeenSceneArchive::DarksideOnly));
+  const XeenFontFormat font(assets.readArchiveResource("fnt",XeenSceneArchive::DarksideOnly),assets.language());
   const auto path=[&](unsigned slot) {
    return XeenSaveFile::resolve(XeenSaveFile::resolve(XeenSaveFile::slotPath(directory,slot),*installation),repository);
   };
@@ -114,7 +114,7 @@ int Application::runTitle(const std::filesystem::path &gameDirectory,std::option
    };return std::make_unique<XeenTitleFlow>(std::move(services));
   };
   const auto darksideScene=[&](XeenCutscene::DarksidePath path) {
-   auto scene=XeenCutscene::darkside(*introData,XeenCutsceneData::captions(assets.readArchiveResource(introData->darkside.resources[XeenCutsceneData::Darkside::Caption],XeenSceneArchive::DarksideProgram)),_program.wallClock,path);
+   auto scene=XeenCutscene::darkside(*introData,XeenCutsceneData::captions(assets.readArchiveResource(introData->darkside.resources[XeenCutsceneData::Darkside::Caption],XeenSceneArchive::DarksideProgram),assets.language()),_program.wallClock,path);
    for(auto &segment:scene.segments) if(segment.name=="seen point") {
     auto entering=segment.entering;
     segment.entering=[&,entering](const XeenCutscene::Context &context) {
@@ -167,7 +167,7 @@ int Application::runTitle(const std::filesystem::path &gameDirectory,std::option
      std::optional<XeenCutsceneData::Captions> captions;
      if(!world) {
       const auto captionResource=darkside?data.darkside.resources[XeenCutsceneData::Darkside::Caption]:data.resources[XeenCutsceneData::Caption];
-      captions=XeenCutsceneData::captions(assets.readArchiveResource(captionResource,archive));
+      captions=XeenCutsceneData::captions(assets.readArchiveResource(captionResource,archive),assets.language());
      }
      resourcesLoaded=true;
      auto scene=world?XeenCutscene::worldEnding(data,entry.score):darkside?XeenCutscene::darksideEnding(data,*captions,_program.wallClock,entry.score):
@@ -204,7 +204,7 @@ int Application::runTitle(const std::filesystem::path &gameDirectory,std::option
     try {
      if(!introData)throw std::runtime_error(darkside?"Darkside intro unavailable: missing or different WORLD/XEEN.EXE":"Clouds intro unavailable: missing or different WORLD/XEEN.EXE");
      auto scene=darkside?darksideScene(XeenCutscene::DarksidePath::Full):
-      XeenCutscene::clouds(*introData,XeenCutsceneData::firstCaption(assets.readArchiveResource(introData->resources[XeenCutsceneData::Caption],XeenSceneArchive::CloudsProgram)));
+      XeenCutscene::clouds(*introData,XeenCutsceneData::firstCaption(assets.readArchiveResource(introData->resources[XeenCutsceneData::Caption],XeenSceneArchive::CloudsProgram),assets.language()));
      XeenCutsceneFlow intro(std::move(scene),XeenCutsceneFlow::original(assets,font,audio,clock,introData->digitalDevice>=2,darkside?XeenSceneArchive::DarksideProgram:XeenSceneArchive::CloudsProgram));
      if(!showCutscene(intro,assets,audio)){audio.observeOptions(options);return 0;}
      audio.observeOptions(options);audio.startProgram(clock());title=makeTitle(options);

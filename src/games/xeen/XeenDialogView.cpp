@@ -114,7 +114,7 @@ IndexedFrame drawXeenInn(const XeenDosText &text,const IndexedFrame &base,const 
     for(unsigned n=0;n<4 && top+n<ids.size();++n) {
         const auto id=ids[top+n];const auto &c=party.roster.at(id);
         const auto &active=party.party.activeRosterIds();
-        fields[n*4]=std::find(active.begin(),active.end(),id)!=active.end()?str(text.scalar("INN_IN_PARTY")):std::string(c.name);
+        fields[n*4]=std::find(active.begin(),active.end(),id)!=active.end()?str(text.scalar("INN_IN_PARTY")):xeenLiteralText(c.name);
         fields[n*4+1]=text.table("RACE_NAMES").at(unsigned(c.race));
         fields[n*4+2]=text.table("SEX_NAMES").at(unsigned(c.sex));
         fields[n*4+3]=text.table("CLASS_NAMES").at(unsigned(c.characterClass));
@@ -178,7 +178,7 @@ std::string xeenTreasureText(const XeenDosText &text,const XeenTreasureDisplay &
         const auto &line=treasure.items[std::min(page,treasure.items.size()-1)];
         const auto name=line.quest?xeenDialogFormat(text.scalar("QUEST_FOUND_PREFIX"),{line.itemName}):line.itemName;
         result+=text.scalar("GIVE_TREASURE_FORMATTING");
-        result+=xeenDialogFormat(text.scalar("X_FOUND_Y"),{line.recipient,name});
+        result+=xeenDialogFormat(text.scalar("X_FOUND_Y"),{xeenLiteralText(line.recipient),name});
     }
     if(treasure.stage==XeenTreasureDisplay::Stage::Final ||
         (treasure.stage==XeenTreasureDisplay::Stage::Pages && page==treasure.items.size()))result+=text.scalar("HIT_A_KEY");
@@ -231,7 +231,8 @@ std::string xeenDialogFormat(std::string_view format,const std::vector<std::stri
         if(args[index].size()>16384)throw std::length_error("Original dialog argument exceeds bound");
         auto value=args[index++];if(format[i]=='c' && value.size()!=1)throw std::invalid_argument("Original dialog character argument mismatch");++i;
         if(signedValue && !value.empty() && value.front()!='-' && value.front()!='+')value.insert(value.begin(),'+');
-        if(value.size()<width) value.insert(0,width-value.size(),zero?'0':' ');
+        // A literal name byte (decision 10) shows as one character.
+        if(const auto shown=xeenVisibleLength(value);shown<width) value.insert(0,width-shown,zero?'0':' ');
         result+=value;
         if(result.size()>16384) throw std::length_error("Original dialog text exceeds bound");
     }
@@ -292,7 +293,7 @@ IndexedFrame drawXeenExchange(const XeenDosText &text,const IndexedFrame &base,c
 }
 IndexedFrame drawXeenQuickFight(const XeenDosText &text,const IndexedFrame &base,const XeenFontFormat &font,
         const XeenCharacter &c,std::size_t slot,const XeenDialogSpriteDraw &draw) {
-    auto frame=render(base,font,xeenDialogFormat(text.scalar("QUICK_FIGHT_TEXT"),{c.name,str(text.table("QUICK_FIGHT_OPTIONS").at(c.quickOption))}),{226,0,320,146},{234,8,312,138});
+    auto frame=render(base,font,xeenDialogFormat(text.scalar("QUICK_FIGHT_TEXT"),{xeenLiteralText(c.name),str(text.table("QUICK_FIGHT_OPTIONS").at(c.quickOption))}),{226,0,320,146},{234,8,312,138});
     if(draw) {draw(frame,"train.icn",0,242,108);draw(frame,"train.icn",2,281,108);}
     highlight(frame,slot,draw);return frame;
 }
@@ -360,7 +361,7 @@ IndexedFrame drawXeenCast(const XeenDosText &text,const IndexedFrame &base,const
     const auto category=XeenLearnedSpellRules::categoryForClass(c.characterClass);
     const auto id=category?XeenLearnedSpellRules::spellForSlot(*category,c.currentSpell):std::nullopt;
     const auto cost=XeenLearnedSpellRules::cost(id.value_or(76),c.currentLevel());
-    auto frame=render(base,font,xeenDialogFormat(text.scalar("CAST_SPELL_DETAILS"),{c.name,names.names[id.value_or(76)],n(cost.sp),n(cost.gems),n(c.currentSp)}),{226,0,320,146},{234,8,312,138});
+    auto frame=render(base,font,xeenDialogFormat(text.scalar("CAST_SPELL_DETAILS"),{xeenLiteralText(c.name),names.names[id.value_or(76)],n(cost.sp),n(cost.gems),n(c.currentSp)}),{226,0,320,146},{234,8,312,138});
     if(draw)for(const auto &hit:xeenCastInput().hits)if(hit.button) {const auto &b=*hit.button;draw(frame,b.resource,b.frame,b.x,b.y);}
     if(draw)draw(frame,"border.icn",52,215,32); // Window 10 covers the right statue.
     highlight(frame,member,draw);return frame;
@@ -372,7 +373,7 @@ IndexedFrame drawXeenSpellList(const XeenDosText &text,const IndexedFrame &base,
     const bool noncaster=R::maxSp(c,{year})==0;
     const auto error=noncaster?text.scalar("NOT_A_SPELL_CASTER"):text.scalar(guild?"SPELLS_LEARNED_ALL":"NO_KNOWN_SPELLS");
     const bool empty=rows.empty() || (noncaster && !guild);
-    auto frame=render(base,font,xeenDialogFormat(text.scalar("SPELLS_FOR"),{empty || noncaster?"":str(text.scalar("SPELL_LINES_0_TO_9")),c.name}),{27,6,207,142},{35,14,199,134});
+    auto frame=render(base,font,xeenDialogFormat(text.scalar("SPELLS_FOR"),{empty || noncaster?"":str(text.scalar("SPELL_LINES_0_TO_9")),xeenLiteralText(c.name)}),{27,6,207,142},{35,14,199,134});
     std::vector<std::string> args;
     for(unsigned i=0;i<10;++i) {
         const auto position=ui.top+i;std::string name;
@@ -397,13 +398,13 @@ IndexedFrame drawXeenSpellConfirm(const IndexedFrame &base,const XeenFontFormat 
 IndexedFrame drawXeenSpellTarget(const XeenDosText &text,const IndexedFrame &base,const XeenFontFormat &font) {
     return render(base,font,str(text.scalar("ON_WHO")),{228,106,320,146},{236,114,312,138});
 }
-std::vector<std::string> xeenSpellDescriptions(const std::vector<std::uint8_t> &bytes) {
+std::vector<std::string> xeenSpellDescriptions(const std::vector<std::uint8_t> &bytes,XeenLanguage language) {
     if(bytes.empty() || bytes.size()>65535)throw std::invalid_argument("Invalid spldesc.bin size");
     std::vector<std::string> result;std::size_t start=0;
     for(std::size_t i=0;i<bytes.size();++i)if(!bytes[i]) {
         if(i-start>2048 || result.size()==256)throw std::invalid_argument("Invalid spldesc.bin entry");
         result.emplace_back(reinterpret_cast<const char *>(bytes.data()+start),i-start);
-        XeenDosText::validateControls(result.back());start=i+1;
+        XeenDosText::validateControls(result.back(),language);start=i+1;
     }
     if(start!=bytes.size() || result.size()<76)throw std::invalid_argument("Truncated spldesc.bin");
     return result;
@@ -579,7 +580,7 @@ std::string xeenTempleText(const XeenDosText &text,const XeenPartyState &p,std::
     const auto purse=gold(p);const auto money=purse>=1000000?n(purse/1000000)+" mil":n(purse);
     const auto heal=xeenQuoteTempleHeal(c,purse,*p.encounterContext,prices);
     const auto uncurse=xeenTempleUncurseCost(c,prices);
-    return xeenDialogFormat(text.scalar("TEMPLE_TEXT"),{c.name,n(heal.price),n(templeBlessed?0:prices.donation),uncurse>9999?n(uncurse/1000)+"k":n(uncurse),money});
+    return xeenDialogFormat(text.scalar("TEMPLE_TEXT"),{xeenLiteralText(c.name),n(heal.price),n(templeBlessed?0:prices.donation),uncurse>9999?n(uncurse/1000)+"k":n(uncurse),money});
 }
 std::string xeenLocationText(const XeenDosText &text,XeenLocationDialog location,const XeenPartyState &p,std::size_t member,
         XeenMapIdentity map,bool templeBlessed,std::string_view tavernStatus) {
@@ -589,19 +590,19 @@ std::string xeenLocationText(const XeenDosText &text,XeenLocationDialog location
         const auto money=[](std::uint32_t value) {return value>=1000000?n(value/1000000)+" mil":n(value);};
         return xeenDialogFormat(text.scalar("BANK_TEXT"),{money(p.serviceEconomy->bank.gold),money(p.serviceEconomy->bank.gems),money(gold(p)),money(gems(p))});
     }
-    if(location==XeenLocationDialog::Tavern) return xeenDialogFormat(text.scalar("TAVERN_TEXT"),{c.name,tavernStatus.empty()?str(text.scalar("FOOD_AND_DRINK")):str(tavernStatus),money});
+    if(location==XeenLocationDialog::Tavern) return xeenDialogFormat(text.scalar("TAVERN_TEXT"),{xeenLiteralText(c.name),tavernStatus.empty()?str(text.scalar("FOOD_AND_DRINK")):str(tavernStatus),money});
     if(location==XeenLocationDialog::Guild) {
-        const auto description=xeenGuildMember(p,member,map)?xeenDialogFormat(text.scalar("GUILD_TEXT"),{c.name}):str(text.scalar("GUILD_NOT_MEMBER_TEXT"));
+        const auto description=xeenGuildMember(p,member,map)?xeenDialogFormat(text.scalar("GUILD_TEXT"),{xeenLiteralText(c.name)}):str(text.scalar("GUILD_NOT_MEMBER_TEXT"));
         return xeenDialogFormat(text.scalar("GUILD_OPTIONS"),{description,money});
     }
-    if(location==XeenLocationDialog::Smith) return xeenDialogFormat(text.scalar("BLACKSMITH_TEXT"),{c.name,money});
+    if(location==XeenLocationDialog::Smith) return xeenDialogFormat(text.scalar("BLACKSMITH_TEXT"),{xeenLiteralText(c.name),money});
     if(location==XeenLocationDialog::Temple)
         return xeenTempleText(text,p,member,xeenTempleSurcharges(map),templeBlessed);
     const auto r=xeenQuoteTraining(c,*p.roster.combatInputs(c.rosterId),purse,*p.encounterContext,map);
     std::string message;
-    if(r.outcome==XeenTrainingOutcome::Cap) message=xeenDialogFormat(text.scalar("TRAINING_LEARNED_ALL"),{c.name});
-    else if(r.missing) message=xeenDialogFormat(text.scalar("EXPERIENCE_FOR_LEVEL"),{c.name,n(r.missing),n(c.permanentLevel+1)});
-    else message=xeenDialogFormat(text.scalar("ELIGIBLE_FOR_LEVEL"),{c.name,n(c.permanentLevel+1),n(r.cost)});
+    if(r.outcome==XeenTrainingOutcome::Cap) message=xeenDialogFormat(text.scalar("TRAINING_LEARNED_ALL"),{xeenLiteralText(c.name)});
+    else if(r.missing) message=xeenDialogFormat(text.scalar("EXPERIENCE_FOR_LEVEL"),{xeenLiteralText(c.name),n(r.missing),n(c.permanentLevel+1)});
+    else message=xeenDialogFormat(text.scalar("ELIGIBLE_FOR_LEVEL"),{xeenLiteralText(c.name),n(c.permanentLevel+1),n(r.cost)});
     return xeenDialogFormat(text.scalar("TRAINING_TEXT"),{message,money});
 }
 IndexedFrame drawXeenLocation(const XeenDosText &text,const IndexedFrame &base,const IndexedFrame &art,const XeenFontFormat &font,
@@ -631,7 +632,7 @@ IndexedFrame drawXeenBuy(const XeenDosText &text,const IndexedFrame &base,const 
     auto frame=render(base,font,xeenDialogFormat(text.scalar("ITEMS_DIALOG_TEXT1"),{str(text.scalar("BTN_BUY")),str(text.scalar("BTN_SELL")),str(text.scalar("BTN_IDENTIFY")),str(text.scalar("BTN_FIX"))}),{0,101,320,146},{8,109,312,138});
     const auto &c=p.party.member(p.roster,selection.source);
     const auto &items=repair?*xeenInventoryItems(c,selection.category):p.serviceEconomy->wares[static_cast<unsigned>(map.side)][xeenIronworksShop(map)][static_cast<unsigned>(selection.category)];
-    std::vector<std::string> args{str(text.table("CATEGORY_NAMES")[static_cast<unsigned>(selection.category)]),repair?std::string(c.name):n(gold(p))};
+    std::vector<std::string> args{str(text.table("CATEGORY_NAMES")[static_cast<unsigned>(selection.category)]),repair?xeenLiteralText(c.name):n(gold(p))};
     if(repair) args.push_back(str(text.scalar("COST")));
     else args.insert(args.begin()+1,"");
     for(unsigned i=0;i<9;++i) {
@@ -736,7 +737,7 @@ IndexedFrame drawXeenSheet(const XeenDosText &text,const IndexedFrame &base,cons
     const auto condition=static_cast<unsigned>(c.worstCondition());
     const auto food=p.party.size()?std::uint16_t(p.food)/p.party.size()/3:0;
     const auto details=xeenDialogFormat(text.scalar("CHARACTER_DETAILS"),{
-        str(text.scalar("PARTY_GOLD")),c.name,str(text.table("SEX_NAMES").at(static_cast<unsigned>(c.sex))),str(text.table("RACE_NAMES").at(static_cast<unsigned>(c.race))),str(text.table("CLASS_NAMES").at(static_cast<unsigned>(c.characterClass))),
+        str(text.scalar("PARTY_GOLD")),xeenLiteralText(c.name),str(text.table("SEX_NAMES").at(static_cast<unsigned>(c.sex))),str(text.table("RACE_NAMES").at(static_cast<unsigned>(c.race))),str(text.table("CLASS_NAMES").at(static_cast<unsigned>(c.characterClass))),
         n(color(0)),n(stat(0)),n(color(5)),n(stat(5)),n(R::statColor(c.currentHp,maxHp)),n(int(c.currentHp)),n(R::currentExperience(c,in)),
         n(color(1)),n(stat(1)),n(color(6)),n(stat(6)),n(R::statColor(c.currentSp,maxSp)),n(int(c.currentSp)),n(gold(p)),
         n(color(2)),n(stat(2)),n(R::statColor(R::sheetAge(c,ctx),R::sheetAge(c,ctx,true))),n(R::sheetAge(c,ctx)),n(totalResistance),n(gems(p)),
@@ -769,7 +770,7 @@ std::string xeenQuickReferenceText(const XeenDosText &text,const XeenPartyState 
         if(name.size()<3 || status.size()<4)throw std::invalid_argument("Short Quick Reference abbreviation");
         const auto ac=R::sheetArmorClass(c,in,ctx);
         args[row]=xeenDialogFormat(text.scalar("QUICK_REF_LINE"),{
-            n(row*10+24),n(row+1),c.name,name.substr(0,1),name.substr(1,1),name.substr(2,1),
+            n(row*10+24),n(row+1),xeenLiteralText(c.name),name.substr(0,1),name.substr(1,1),name.substr(2,1),
             n(R::statColor(c.currentLevel(),c.permanentLevel)),n(unsigned(c.permanentLevel)),
             n(R::statColor(c.currentHp,R::maxHp(c,ctx))),n(int(c.currentHp)),
             n(R::statColor(c.currentSp,R::maxSp(c,ctx))),n(int(c.currentSp)),
@@ -890,7 +891,7 @@ IndexedFrame drawXeenItems(const XeenDosText &text,const IndexedFrame &base,cons
     auto frame=render(base,font,mode?xeenDialogFormat(text.scalar("ITEMS_DIALOG_TEXT2"),{str(text.scalar(mode==6?"BTN_ENCHANT":mode==4?"BTN_RECHARGE":"BTN_GOLD"))}):xeenDialogFormat(text.scalar("ITEMS_DIALOG_TEXT1"),{str(misc?text.scalar("BTN_USE"):text.scalar("BTN_EQUIP")),str(text.scalar("BTN_REMOVE")),str(text.scalar("BTN_DISCARD")),str(text.scalar("BTN_QUEST"))}),{0,101,320,146},{8,109,312,138});
     const auto &c=p.party.member(p.roster,selection.source);
     const auto &items=*xeenInventoryItems(c,selection.category);
-    std::vector<std::string> args{misc?"\x03l":"\x03" "c",str(text.table("CATEGORY_NAMES")[static_cast<unsigned>(selection.category)]),c.name,str(text.table("CLASS_NAMES")[static_cast<unsigned>(c.characterClass)]),misc?str(text.scalar("FMT_CHARGES")):" "};
+    std::vector<std::string> args{misc?"\x03l":"\x03" "c",str(text.table("CATEGORY_NAMES")[static_cast<unsigned>(selection.category)]),xeenLiteralText(c.name),str(text.table("CLASS_NAMES")[static_cast<unsigned>(c.characterClass)]),misc?str(text.scalar("FMT_CHARGES")):" "};
     for(unsigned i=0;i<9;++i) {
         const auto description=catalog.describe(selection.category,items[i]);
         if(description.empty) args.push_back(i==0?str(text.scalar("NO_ITEMS_AVAILABLE")):"");
@@ -903,7 +904,7 @@ IndexedFrame drawXeenItems(const XeenDosText &text,const IndexedFrame &base,cons
     }
     if(mode) {
         args.erase(args.begin(),args.begin()+5);
-        args.insert(args.begin(),{str(text.table("CATEGORY_NAMES")[static_cast<unsigned>(selection.category)]),c.name,str(text.scalar(mode==11?"COST":"CHARGES"))});
+        args.insert(args.begin(),{str(text.table("CATEGORY_NAMES")[static_cast<unsigned>(selection.category)]),xeenLiteralText(c.name),str(text.scalar(mode==11?"COST":"CHARGES"))});
     }
     frame=render(frame,font,xeenDialogFormat(text.scalar(mode?"X_FOR_Y":"X_FOR_THE_Y"),args),{0,0,320,108},{8,8,312,100});
     if(draw) {

@@ -4,6 +4,8 @@
 #include "common/stream.h"
 #include <cstdio>
 #include <limits>
+#include <stdexcept>
+#include <string>
 #include <vector>
 namespace MM {class MMEngine;MMEngine *g_engine=nullptr;}
 namespace mmodern {
@@ -27,8 +29,11 @@ public:
 private:std::unique_ptr<ReadOnlyDataStream> _input;bool _error=false;
 };
 struct Entry{Common::String name;ReadOnlyDataFile file;};
+// M110 decision 4: while Russian is active, the raw archive files registered
+// here would bypass the language layer, so opening one is refused.
 class SourceArchive final:public Common::Archive {
 public:
+ explicit SourceArchive(bool refuse):_refuse(refuse){}
  void add(const char *name,const ReadOnlyDataFile &file){_entries.push_back({Common::String(name),file});}
  bool hasFile(const Common::Path &path) const override{return find(path)!=nullptr;}
  int listMembers(Common::ArchiveMemberList &list) const override {
@@ -39,18 +44,21 @@ public:
   return hasFile(path)?Common::ArchiveMemberPtr(new Common::GenericArchiveMember(path,*this)):Common::ArchiveMemberPtr();
  }
  Common::SeekableReadStream *createReadStreamForMember(const Common::Path &path) const override {
-  const auto *entry=find(path);return entry?new SourceReadStream(entry->file):nullptr;
+  const auto *entry=find(path);if(!entry)return nullptr;
+  if(_refuse)throw std::runtime_error("Raw archive "+std::string(entry->name.c_str())+" is not readable while Russian is active");
+  return new SourceReadStream(entry->file);
  }
 private:
  const Entry *find(const Common::Path &path) const {
   auto name=path.baseName();name.toLowercase();for(const auto &entry:_entries)if(entry.name==name)return &entry;return nullptr;
  }
  std::vector<Entry> _entries;
+ bool _refuse;
 };
 }
 struct ScummVmRuntime::Impl {
  SourceArchive files;
- explicit Impl(const GameInstallation &installation){
+ explicit Impl(const GameInstallation &installation):files(installation.translation!=nullptr){
   if(installation.hasXeen())files.add("xeen.cc",archiveDataFile(installation,XeenArchiveRole::Clouds));
   if(installation.hasDarkside())files.add("dark.cc",archiveDataFile(installation,XeenArchiveRole::Darkside));
   if(installation.introData)files.add("intro.cc",*installation.introData);

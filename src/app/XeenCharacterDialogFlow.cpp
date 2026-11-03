@@ -28,7 +28,7 @@ IndexedFrame XeenEventFlow::handleQuickFightOptions(const PlayerAction &action) 
 void XeenEventFlow::openJournal(bool awards) {
     if(!loadJournalText)throw std::logic_error("Journal text provider is missing");
     std::vector<std::string> strings;
-    const auto load=[&]{strings=xeenJournalStrings(loadJournalText(awards),awards);};
+    const auto load=[&]{strings=xeenJournalStrings(loadJournalText(awards),awards,_inventoryFont.language());};
     if(_encounter)_encounter->guardCallback(_encounter->ticket(),load);else load();
     _journalStrings=std::move(strings);
     _journalUi={awards?XeenJournalPage::Awards:XeenJournalPage::Items,0};
@@ -170,7 +170,7 @@ void XeenEventFlow::performItemOption(unsigned option) {
     const auto admission=xeenItemUseAdmission(_inventory.category,_inventory.record,!xeenDosMapZero(_party,_camera),c.canAct());
     if(admission==XeenItemUseAdmission::InvalidCategory)return;
     if(admission==XeenItemUseAdmission::NoWorld) {dialogError(std::string(xeenDialogText(dosText(),XeenDialogText::Hurry)));return;}
-    if(admission==XeenItemUseAdmission::CannotAct) {dialogError(xeenDialogFormat(xeenDialogText(dosText(),XeenDialogText::InNoCondition),{c.name}));return;}
+    if(admission==XeenItemUseAdmission::CannotAct) {dialogError(xeenDialogFormat(xeenDialogText(dosText(),XeenDialogText::InNoCondition),{xeenLiteralText(c.name)}));return;}
     if(_encounter && _encounter->combat() && !_combatItems) {
         dialogError(std::string(xeenDialogText(dosText(),XeenDialogText::UseInCombat)));return;
     }

@@ -15,11 +15,11 @@ XeenQuestDisplay xeenQuestDisplay(const XeenPartyState &p) {
     result.notes[128]=p.questFlags.isSet(0);
     return result;
 }
-std::vector<std::string> xeenJournalStrings(const std::vector<std::uint8_t> &bytes,bool awards) {
+std::vector<std::string> xeenJournalStrings(const std::vector<std::uint8_t> &bytes,bool awards,XeenLanguage language) {
     if(bytes.empty() || bytes.back()!=0)throw std::invalid_argument("Unterminated journal text resource");
     auto strings=XeenEventTextFormat::parse(bytes);
     if(strings.size()<(awards?88u:184u))throw std::invalid_argument("Incomplete journal text resource");
-    for(const auto &s:strings)XeenDosText::validateControls(s);
+    for(const auto &s:strings)XeenDosText::validateControls(s,language);
     return strings;
 }
 void XeenJournalUi::key(unsigned key,std::size_t count) {
@@ -89,7 +89,7 @@ std::string xeenJournalText(const XeenDosText &text,const XeenJournalUi &ui,
     std::vector<std::string> args;
     if(awards) {
         if(!member)throw std::invalid_argument("Awards requires a member");
-        args={member->name,text.table("CLASS_NAMES").at(unsigned(member->characterClass))};
+        args={xeenLiteralText(member->name),text.table("CLASS_NAMES").at(unsigned(member->characterClass))};
     }
     if(ui.page==XeenJournalPage::Items && lines.empty())return std::string(text.scalar("NO_QUEST_ITEMS"));
     const auto visible=ui.page==XeenJournalPage::Quests?3u:9u;

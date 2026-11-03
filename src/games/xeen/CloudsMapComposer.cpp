@@ -64,7 +64,7 @@ IndexedFrame CloudsMapComposer::drawDirectionSense(XeenAssetSource &assets,Index
 	if(presentation.textPrompt || !xeenPartyHasSkill(partyState,6))return frame;
 	const auto direction=static_cast<unsigned>(camera.direction);
 	if(direction>3)throw std::invalid_argument("Invalid Direction Sense facing");
-	if(!_font)_font=std::make_shared<const XeenFontFormat>(assets.readArchiveResource("fnt"));
+	if(!_font)_font=std::make_shared<const XeenFontFormat>(assets.readArchiveResource("fnt"),assets.language());
 	XeenTextRenderOptions options;options.originalControls=true;options.bounds={0,0,320,200};
 	const std::string text=std::string("\x02\f08\x03" "c\v139\t116")+"NESW"[direction]+"\fd\x01";
 	auto rendered=XeenTextRenderer(*_font).render(frame,text,options);

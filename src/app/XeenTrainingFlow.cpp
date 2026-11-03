@@ -280,7 +280,7 @@ IndexedFrame XeenEventFlow::handleTraining(const PlayerAction &action,std::uint6
                     serviceVoice(ui.animation,quote.outcome==XeenTrainingOutcome::Cap?XeenServiceVoice::TrainingCap:XeenServiceVoice::TrainingExperience,true);
                 else if(quote.outcome==XeenTrainingOutcome::InsufficientGold) {ui.feedback=serviceNotEnoughGold();ui.goldRefusalVoicePending=true;}
                 else if(quote.outcome==XeenTrainingOutcome::CannotAct)
-                    ui.feedback=xeenDialogFormat(xeenDialogText(dosText(),XeenDialogText::InNoCondition),{c.name});
+                    ui.feedback=xeenDialogFormat(xeenDialogText(dosText(),XeenDialogText::InNoCondition),{xeenLiteralText(c.name)});
                 else if(quote.outcome==XeenTrainingOutcome::Quoted) {
                     if(!_encounter->_training->quoted) _encounter->quoteTraining(ui.member);
                     if(_encounter->_training->quoted) {

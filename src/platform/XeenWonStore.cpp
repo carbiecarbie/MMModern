@@ -24,13 +24,24 @@ XeenSettings xeenReadSettings(const std::filesystem::path &path) noexcept {
   std::ifstream input(path,std::ios::binary);if(!input)return {};
   const std::string text((std::istreambuf_iterator<char>(input)),{});
   if(input.bad())return {};
-  // Accept the legacy one/two-key files and the complete current four-key file.
+  // Accept the legacy one/two/four-key files and the complete current six-key file.
   XeenSettings settings;unsigned seen=0;std::size_t at=0;
   while(at<text.size()) {
    const auto end=text.find('\n',at);if(end==std::string::npos)return {};
    auto line=text.substr(at,end-at);at=end+1;if(!line.empty() && line.back()=='\r')line.pop_back();
    const auto eq=line.find('=');if(eq==std::string::npos)return {};
    const auto key=line.substr(0,eq), value=line.substr(eq+1);
+   if(key=="language" || key=="russian_translation") {
+    const unsigned bit=key=="language"?16:32;if(seen&bit)return {};seen|=bit;
+    if(key=="language") {
+     if(value=="english")settings.language=XeenLanguage::English;
+     else if(value=="russian")settings.language=XeenLanguage::Russian;
+     else return {};
+    } else if(!value.empty()) {
+     settings.translation=std::filesystem::u8path(value);if(!settings.translation.is_absolute())return {};
+    }
+    continue;
+   }
    if(value!="0" && value!="1")return {};
    bool *target=nullptr;unsigned bit=0;
    if(key=="won"){target=&settings.won;bit=1;}
@@ -40,7 +51,8 @@ XeenSettings xeenReadSettings(const std::filesystem::path &path) noexcept {
    else return {};
    if(seen&bit)return {};seen|=bit;*target=value=="1";
   }
-  if(seen==1 || seen==3 || seen==15)return settings;
+  if(settings.language==XeenLanguage::Russian && settings.translation.empty())return {};
+  if(seen==1 || seen==3 || seen==15 || seen==63)return settings;
  } catch(...) {}
  return {};
 }
@@ -51,7 +63,8 @@ bool writeSettings(const std::filesystem::path &path,XeenSettings settings) noex
   auto temporary=path;temporary+=".tmp";
   {
    std::ofstream output(temporary,std::ios::binary|std::ios::trunc);
-   output<<"won="<<(settings.won?1:0)<<"\ndarkside_intro_seen="<<(settings.darksideIntroSeen?1:0)<<"\ndarkside_won="<<(settings.darksideWon?1:0)<<"\nworld_won="<<(settings.worldWon?1:0)<<"\n";
+   output<<"won="<<(settings.won?1:0)<<"\ndarkside_intro_seen="<<(settings.darksideIntroSeen?1:0)<<"\ndarkside_won="<<(settings.darksideWon?1:0)<<"\nworld_won="<<(settings.worldWon?1:0)
+    <<"\nlanguage="<<(settings.language==XeenLanguage::Russian?"russian":"english")<<"\nrussian_translation="<<settings.translation.u8string()<<"\n";
    if(!output.flush()){output.close();std::filesystem::remove(temporary,error);return false;}
   }
   if(MoveFileExW(temporary.c_str(),path.c_str(),MOVEFILE_REPLACE_EXISTING|MOVEFILE_WRITE_THROUGH))return true;
@@ -66,4 +79,13 @@ bool xeenWriteWon(const std::filesystem::path &path,XeenWonKind kind) noexcept {
  return writeSettings(path,s);
 }
 bool xeenWriteSeen(const std::filesystem::path &path,bool seen) noexcept {auto s=xeenReadSettings(path);s.darksideIntroSeen=seen;return writeSettings(path,s);}
+bool xeenWriteLanguage(const std::filesystem::path &path,XeenLanguage language,const std::filesystem::path &translation) noexcept {
+ try {
+  // The parser's rules: one line per key, so the folder holds no line break.
+  const auto text=translation.u8string();
+  if(text.find_first_of("\r\n")!=std::string::npos || (!translation.empty() && !translation.is_absolute()) ||
+   (language==XeenLanguage::Russian && translation.empty()))return false;
+  auto s=xeenReadSettings(path);s.language=language;s.translation=translation;return writeSettings(path,s);
+ } catch(...) {return false;}
+}
 }

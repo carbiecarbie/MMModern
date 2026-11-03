@@ -1,5 +1,6 @@
 #ifndef MMODERN_XEEN_CUTSCENE_DATA_H
 #define MMODERN_XEEN_CUTSCENE_DATA_H
+#include "formats/xeen/XeenLanguage.h"
 #include "core/GameInstallation.h"
 #include <array>
 #include <string>
@@ -92,8 +93,10 @@ struct XeenCutsceneData {
  };
  static XeenCutsceneData installed(const GameInstallation &);
  static XeenCutsceneData parse(const std::vector<std::uint8_t> &exe,const std::vector<std::uint8_t> &cfg);
- static std::string firstCaption(const std::vector<std::uint8_t> &);
- static Captions captions(const std::vector<std::uint8_t> &);
+ // Caption records are archive text (special.bin), so they follow the
+ // archive language (M110); the program's labels and formats stay English.
+ static std::string firstCaption(const std::vector<std::uint8_t> &,XeenLanguage language=XeenLanguage::English);
+ static Captions captions(const std::vector<std::uint8_t> &,XeenLanguage language=XeenLanguage::English);
  std::string hand(unsigned) const;
  std::string marble(unsigned) const;
 };

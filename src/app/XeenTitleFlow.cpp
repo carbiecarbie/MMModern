@@ -65,7 +65,7 @@ XeenTitleFlow::Services XeenTitleFlow::original(XeenAssetSource &assets,const Xe
  for(unsigned i=0;i<bytes.size();++i)if(!bytes[i]) {
   if(page==4 || begin==i)throw std::runtime_error("Malformed CD credits page boundaries");
   std::string value(reinterpret_cast<const char *>(bytes.data()+begin),i-begin);
-  XeenDosText::validateControls(value);
+  XeenDosText::validateControls(value,font.language());
   credits[page++]=text(background,font,value,{0,0,320,200},{0,0,320,200},false);begin=i+1;
  }
  if(page!=4 || begin!=bytes.size())throw std::runtime_error("CD credits require four terminated pages");
@@ -190,11 +190,11 @@ void XeenTitleFlow::render(bool semantic) {
   const auto label=[&](bool on){return str(dos.scalar(on?"PANEL_ON":"PANEL_OFF"));};
   const auto o=_services.soundOptions;
   const auto buttons=xeenDialogFormat(dos.scalar("PANEL_BUTTON_TEXT"),{label(o.efx),label(o.music),label(o.text),label(o.speech)});
-  frame=text(frame,font,xeenDialogFormat(dos.scalar("PANEL_TEXT"),{buttons,_services.currentName}),
+  frame=text(frame,font,xeenDialogFormat(dos.scalar("PANEL_TEXT"),{buttons,xeenLiteralText(_services.currentName)}),
    {80,28,256,168},{88,36,248,160},true,false,true);
   for(const auto &hit:dialog().hits)if(hit.button){const auto &b=*hit.button;_services.draw(frame,b.resource,b.frame,b.x,b.y);}
   // DOS draws button backgrounds before its labels.
-  frame=text(frame,font,xeenDialogFormat(dos.scalar("PANEL_TEXT"),{buttons,_services.currentName}),
+  frame=text(frame,font,xeenDialogFormat(dos.scalar("PANEL_TEXT"),{buttons,xeenLiteralText(_services.currentName)}),
    {80,28,256,168},{88,36,248,160},false,false,true);
   if(_showClocks) {
    if(!_services.clocks)throw std::logic_error("Missing panel wall clock");
@@ -207,7 +207,7 @@ void XeenTitleFlow::render(bool semantic) {
   for(unsigned i=0;i<10;++i) {
    const auto &slot=_slots[i];args.push_back(_selected==i?"15":"0");
    if(slot.state==XeenSaveFile::Slot::State::Available && slot.snapshot && slot.snapshot->name) {
-    args.push_back(*slot.snapshot->name);
+    args.push_back(xeenLiteralText(*slot.snapshot->name));
     std::uint64_t level=0;
     // DOS slot metadata calls the current-level getter (file 0xf16f/0x21fc9).
     // Use a wide sum while inspecting untrusted snapshots, before restore.
@@ -230,7 +230,7 @@ void XeenTitleFlow::render(bool semantic) {
   const auto &slot=_slots.at(*_selected);
   const auto name=slot.snapshot && slot.snapshot->name?*slot.snapshot->name:"older MMModern save";
   // The native window 21 writer stops before a newline exceeds its bottom.
-  frame=drawXeenConfirm(frame,font,xeenDialogFormat(dos.scalar("OVERWRITE_CONFIRM"),{name}),false,_services.draw,!_services.panel,true);
+  frame=drawXeenConfirm(frame,font,xeenDialogFormat(dos.scalar("OVERWRITE_CONFIRM"),{xeenLiteralText(name)}),false,_services.draw,!_services.panel,true);
  } else if(_screen==Screen::Name) {
   XeenTextRenderOptions options;options.originalControls=true;options.startupColors=!_services.panel;
   options.bounds={60,157,260,190};options.x=60;options.y=157;

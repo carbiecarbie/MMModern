@@ -2,9 +2,11 @@
 #define MMODERN_CORE_GAME_INSTALLATION_H
 #include "core/ReadOnlyData.h"
 #include <filesystem>
+#include <memory>
 #include <optional>
 #include <vector>
 namespace mmodern {
+class XeenRussianTranslation;
 enum class GameEdition { CloudsOfXeen, DarksideOfXeen, WorldOfXeen };
 enum class XeenArchiveRole { Clouds, Darkside, Intro };
 struct XeenCdTrack {
@@ -21,6 +23,9 @@ struct GameInstallation {
  std::string sourceOrigin;
  std::vector<std::filesystem::path> protectedDirectories;
  std::vector<XeenCdTrack> cdTracks;
+ // M110: the identified Russian translation layered over the CD archives, or
+ // null for English. Fixed for the lifetime of every bridge built from this.
+ std::shared_ptr<const XeenRussianTranslation> translation;
  bool hasXeen() const { return cloudsData.has_value() || !xeenArchive.empty(); }
  bool hasDarkside() const { return darksideData.has_value() || !darkArchive.empty(); }
 };
