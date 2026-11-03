@@ -2,8 +2,10 @@
 
 **Tier A. Status: planned (not started).**
 [Later goal 1](roadmap.md#later-goals) of the roadmap. Baseline: `58352f9`,
-equal to `origin/main`. No game behavior changes; save v25, Journey schema
-and content unchanged.
+equal to `origin/main`. No game behavior changes; Journey schema and
+content unchanged. The save is v26 since `main` brought in M110 (merged
+into `m109-ci` on 2026-11-03), which also adds the data-free tests
+`xeen_language_layer` and `xeen_russian_rules` to the run.
 
 ## Goal and scope
 
