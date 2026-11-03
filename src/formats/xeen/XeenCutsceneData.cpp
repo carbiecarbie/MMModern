@@ -48,6 +48,7 @@ void XeenCutsceneData::applyRussianText(const std::vector<std::uint8_t> &b) {
   return value;
  };
  labels=text(0x1e8c6,labels);captionFormat=text(0x1fcca,captionFormat);
+ russianCaptions=true;
  ending.scorePages[0]=text(0x1f861,ending.scorePages[0]);ending.scorePages[1]=text(0x1e84d,ending.scorePages[1]);
  auto &de=darksideEnding;
  constexpr std::size_t pages[]{0x1f038,0x1f123};

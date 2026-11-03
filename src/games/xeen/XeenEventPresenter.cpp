@@ -209,7 +209,7 @@ DialogInput XeenEventPresenter::input() const {
         return input;
     }
     if(wordInputActive()) {
-        input.textEntry=true;input.keys={8,127,InputKey::Escape,InputKey::Enter};
+        input.textEntry=input.stringEntry=true;input.keys={8,127,InputKey::Escape,InputKey::Enter};
         // Both mouse buttons are swallowed during text entry (DOS coordinate-only input).
         return input;
     }
@@ -218,7 +218,7 @@ DialogInput XeenEventPresenter::input() const {
         _request.response==XeenPresentationResponseRequirement::Presented) {
         input.anyKey=input.anyClick=input.keyMouseWait=true;
     } else if(_request.response==XeenPresentationResponseRequirement::YesNo) {
-        input.keys={'y','n',InputKey::Escape};
+        input.keySet="YESNO";input.keys={'y','n',InputKey::Escape};
         const auto y=_request.npcBodyHidden?101:75;
         input.hits={{235,y,259,y+20,'y',InputButton{"confirm.icn",0,235,y}},
             {260,y,284,y+20,'n',InputButton{"confirm.icn",2,260,y}}};

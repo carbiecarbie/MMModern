@@ -127,7 +127,22 @@ XeenCutscene XeenCutscene::clouds(const XeenCutsceneData &data,std::string capti
    f.push_back(sprite(R::Crodo,mouth?state->mouth:0,0,-5));
    if(mouth){state->lookup=std::min(30u,state->lookup);state->mouth=d->mouths[d->rows[slot]*31+state->lookup];}
    f.push_back(Text{d->labels});
-   if(d->digitalDevice<2) {
+   if(d->russianCaptions) {
+    // RU 0x112cb: the strip runs from position 1 until it wraps, through
+    // every slot and with speech too; at 0 it stays off.
+    if(state->cursor) {
+     if(!state->captionTick)state->captionTick=c.tick;
+     if(c.tick-*state->captionTick>1) {
+      state->captionTick=c.tick;state->cursor=(state->cursor+1)%story->size();
+      observed->captionAdvances.push_back(c.tick);
+      const auto begin=state->cursor>40?state->cursor-40:0;
+      state->captionText=xeenDialogFormat(d->captionFormat,{story->substr(begin,state->cursor-begin)});
+     }
+     const auto begin=state->cursor>40?state->cursor-40:0;
+     observed->captionWidths.push_back(state->cursor-begin);
+     f.push_back(sprite(R::Box,0,36,189));f.push_back(Text{state->captionText});
+    }
+   }else if(d->digitalDevice<2) {
     if(!state->captionTick)state->captionTick=c.tick;
     if(c.tick-*state->captionTick>1) {
      state->captionTick=c.tick;state->cursor=(state->cursor+1)%story->size();
@@ -146,8 +161,11 @@ XeenCutscene XeenCutscene::clouds(const XeenCutsceneData &data,std::string capti
   voice.threshold=[=](const Context &){return mouth?unsigned(d->waits[d->rows[slot]*31+state->lookup]):0u;};
   voice.published=[=](const Context &) {if(mouth){++state->lookup;if(d->digitalDevice<2 && state->lookup>30)state->lookup=0;}};
   voice.finished=[=](const Context &c){return !c.digitalBusy && state->cursor==0;};
+  // RU 0x8548: slots 0-12 end on speech idle, slot 13 also waits for the
+  // wrap, and all 14 run without speech (no forced step 20).
+  if(d->russianCaptions && slot<13)voice.finished=[](const Context &c){return !c.digitalBusy;};
   // No-digital configurations finish the single caption record in slot zero.
-  if(slot>0 && d->digitalDevice<2)voice.compose={};
+  if(slot>0 && d->digitalDevice<2 && !d->russianCaptions)voice.compose={};
  }
  result.closing=result.segments.size();
  result.completion={Audio{Audio::Mixer,{},95}}; // 0x88c2; Escape enters at 0x88ca.

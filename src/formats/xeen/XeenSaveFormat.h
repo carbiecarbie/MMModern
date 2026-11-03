@@ -25,8 +25,9 @@ class XeenSaveFormat {
 public:
 	static void validateCharacter(const XeenCharacter &,std::size_t rosterId);
 	// M101: both flag banks, 85 shared counters, roster flags and map song.
-	// Journey layout/schema/content remain unchanged.
-	static constexpr std::uint16_t kJourneyVersion = 25;
+	// Journey layout/schema/content remain unchanged. M110 (v26): save names
+	// also admit bytes 0x80-0xff (cp866 in Russian), with the same layout.
+	static constexpr std::uint16_t kJourneyVersion = 26;
 	static constexpr std::uint16_t kJourneySchema = 9;
 	static constexpr std::uint16_t kJourneyContent = 14;
 	static constexpr std::size_t kHeaderSize = 20;
@@ -43,6 +44,7 @@ public:
 	static std::vector<std::uint8_t> encode(const XeenSaveSnapshot &snapshot);
 	// Resource identity, active-character safety and composition are separate.
 	static void validate(const XeenSaveSnapshot &snapshot);
+	// 1-20 bytes, no leading space; each 0x20-0x7e or 0x80-0xff (v26).
 	static bool validName(std::string_view name) noexcept;
 
 	// Reads from the caller's current position to EOF in bounded chunks. The

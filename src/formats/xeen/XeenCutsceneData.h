@@ -19,6 +19,10 @@ struct XeenCutsceneData {
  std::array<std::uint8_t,16> towerLeft,towerRight,towerY;
  std::string labels,captionFormat,handPattern,marblePattern;
  unsigned digitalDevice=0,musicDevice=0;
+ // M110 Part C: the Russian XEEN.EXE caption helper (RU 0x112cb) runs the
+ // strip whenever its position is at least 1, with speech too (CD 0x1191b:
+ // only below digital device 2, else it clears the position).
+ bool russianCaptions=false;
  struct Darkside {
   enum Resource {Palette,Caption,Box,Nwc1,Nwc2,Nwc3,Nwc4,Dragon1,Dragon2,Dragon3,
    NwcRaw1,NwcRaw2,Jvc,PyramidRaw2,PyramidRaw3,Title,PyramidTop,Pyramid,

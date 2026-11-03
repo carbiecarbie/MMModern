@@ -288,6 +288,11 @@ static constexpr XeenDosRussianField kRussianFields[]{
  {"MILLIONS_FORMAT",0x0,"lu",777,1},
  // Russian only: the one credits page pushed at 0xb8fc in place of credits.bin.
  {"CREDITS_TEXT",0x0,"",778,1},
+ // Russian only (Part C): the item words pushed at 0x3c1bb..0x3c4bf, where
+ // the English ones come from the build catalog ("of" is a single space).
+ {"ITEM_BROKEN",0x0,"",779,1},
+ {"ITEM_CURSED",0x0,"",780,1},
+ {"ITEM_OF",0x0,"",781,1},
 };
 static constexpr std::pair<std::size_t,std::size_t> kRussianEntries[]{
  {0x4f9a4,0x4f9b6},{0x52043,0x52063},{0x4f6d0,0x4f6ea},{0x53a08,0x53a13},{0x53a13,0x53b74},{0x53b99,0x53c53},
@@ -421,6 +426,7 @@ static constexpr std::pair<std::size_t,std::size_t> kRussianEntries[]{
  {0x50161,0x5016c},{0x549c9,0x549d9},{0x549d9,0x549e9},{0x5017f,0x50188},{0x54957,0x54968},{0x50196,0x5019c},
  {0x51821,0x51825},{0x51098,0x5109a},{0x510a3,0x510a5},
  {0x4f599,0x4f5a1},{0x5463e,0x54867},
+ {0x50bec,0x50bf8},{0x50b42,0x50b4f},{0x54a84,0x54a86},
 };
 // English fields the Russian program does not have (CD-only text): they keep
 // the CD value. Evidence per field is in docs/original-quirks.md.

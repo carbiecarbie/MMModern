@@ -7,7 +7,9 @@ maintainer on 2026-11-03 in parallel with M109. Baseline: `0494175`, equal to
 Tier A because it changes how every archive resource and every program text
 is read (ownership/architecture), and possibly the save format (decision 11).
 Revised after the independent plan review of 2026-11-03; the maintainer
-approved the revised plan, decision 10 included, the same day.
+approved the revised plan, decision 10 included, the same day. Amended
+after Part C's evidence (decisions 3 and 11, Part C's settled rules); the
+maintainer approved the amendment on 2026-11-03.
 
 ## Goal and scope
 
@@ -160,7 +162,13 @@ copies and scripts are outside the repository in
    that also carries gameplay data (New Game containers, Event scripts, maps,
    monster records) keeps the CD's gameplay fields and record identities and
    takes only its text, through a structured merge; anything unclassified
-   stays CD. Cutscene timing, coordinates and sound tables always stay CD.
+   stays CD. Cutscene timing, coordinates and sound tables always stay CD,
+   with one Russian-only exception from the Russian programs: in every
+   scene that uses the caption strip the strip runs during speech and the
+   scene waits for it, as Part C lists (maintainer, 2026-11-03: intros,
+   endings and the `xeen.dat` entrance scenes, Sphinx, Golem/Dungeon,
+   Reaper/Tower and Dwarf, which carry the same patch). English cutscene timing stays exactly
+   the CD's.
    A test proves, per substituted entry, that the non-text content equals
    the CD's, which is what makes this a language layer.
 4. **One substitution point.** Installed-archive reads go through
@@ -232,12 +240,26 @@ copies and scripts are outside the repository in
     Russian, the Cyrillic glyph. This cross-language display has no
     original counterpart and is part of the approved deviation, subject to
     the maintainer's confirmation (given 2026-11-03).
-11. **Saves.** Save v25, Journey schema 9 and content 14 stay as long as
-    the layer leaves gameplay identities unchanged, which decision 3's test
-    proves. If the Russian program accepts Cyrillic save names, v26 becomes
-    the single current format for both languages, with cp866 save names;
-    the plan is amended first. English and Russian games share one save
-    folder and load in either language.
+11. **Saves.** The Russian program accepts Cyrillic save names: its
+    save-name prompt (`0xb7b1`) uses the shared text entry, whose character
+    test the translators widened from `0x7f` to `0xff` (`0x1dc86`; CD
+    `0x1e123`), and its keyboard types only Cyrillic letters, digits and
+    symbols. So save v26 becomes the single current format for both
+    languages (approved by the maintainer, 2026-11-03): a save name is 1-20 bytes, does not start with a space, and
+    each byte is `0x20-0x7e` or `0x80-0xff` (cp866 in Russian). The layout,
+    Journey schema 9 and content 14 do not change; v25 saves are rejected
+    with the existing older-format message, as the 0.x policy says. The M44
+    digests change once, after a byte audit the maintainer approves
+    (envelope version only). The other consumers handle bytes
+    `0x80-0xff`: the title slot list and the panel draw the name
+    literally, Save As entry admits it, the `Resumed` console line and
+    `mmodern_save_dump` keep the bytes. The DOS export writes its own ASCII
+    `--name`, not the save's name, and stays as it is; the archive
+    fingerprint hashes only the archives. English entry keeps the CD's `0x20-0x7f`, so English play never
+    creates such a name; a Russian-named save loads in English and draws as
+    decision 10 says. English and Russian games share one save folder and
+    load in either language. Gameplay identities stay unchanged, as
+    decision 3's test proves.
 
 ## Parts
 
@@ -272,6 +294,96 @@ copies and scripts are outside the repository in
     into a space, which becomes a word-break point
     (`XeenTextRenderer.cpp:263`): a literal must never be a break point, as in
     `renderOriginal`.
+
+  Settled from the Russian programs before implementation (2026-11-03;
+  offsets in the Part C evidence notes, recorded in the quirks when
+  implemented):
+  - **Keyboard.** The Russian program reads keys with the CD's own INT 9
+    handler and one scancode table whose letter rows are lowercase ЙЦУКЕН
+    cp866 (`0x44176`). There is no second table and no switch, so Latin
+    letters cannot be typed; F11 and F12 do nothing. Shift uppercases
+    Cyrillic and leaves other keys unchanged; Ctrl gives the symbols the CD
+    gives with Shift; Ctrl+Alt+Del no longer quits. MMModern maps physical
+    key positions (scancodes, independent of the host layout) to these
+    bytes in Russian, for hotkeys and text entry alike, and takes Russian
+    text from key events, not from host text input. `KSR.COM` and the
+    F11/F12 switch belong to the Russian Clouds program only (calibrated:
+    its F11/F12 switch at `0x5f76c`), which World of Xeen does not use.
+    Consequences that change behavior: the H key gives `0xe0` (`р`), which
+    is also the CD's Ins code; Shift+digit stays a digit; Ctrl+Left/Right
+    become plain turns, because the Ctrl codes are gone; in text entry
+    Left (`0xf0`) deletes, Right (`0xf1`) types `ё` and F1-F10 type
+    `0xc9-0xd2`, so a save name can hold such bytes, which v26 admits. The
+    `XEEN.EXE` presentations keep the CD's keyboard table and Ctrl rule
+    (`0x1928f`), so their keys, Ctrl-Q included, are unchanged in Russian.
+  - **Hotkeys.** Every Russian key comes from the program's 26 button
+    tables, its static main-screen, combat and bank tables, the keys it
+    writes into the item tables at run time, and its switch and compare
+    sites, by index against the CD's. Keys the translators left Latin (an
+    `E` exit in the Inn and Item to Gold's `G`) stay mouse-only in Russian,
+    as in the program (maintainer, 2026-11-03); where there is no button,
+    the path is unreachable, and another key still serves it (the Inn's
+    Escape, Space and `ы`). The reverse case follows the program too: in
+    Create's attribute exchange the buttons keep Latin values while the
+    dispatch expects Cyrillic, so the keys work and clicking a row does
+    nothing. Strafing moves from Ctrl+Left/Right to the `х` and `ъ` keys.
+  - **Control panel and keyboard-only keys.** The Russian panel dispatch
+    (`0x1ea78`, 23 entries at `cs:19eb`) gives: `а` Save, `о` and `и` Save
+    As, `з` Load, `в` Quit, `е` and `к` Efx, `м` Music, `п` Mr Wizard; `ж` is
+    the clock gate's G stage, `б` its B stage and `0xb1` its R stage. The O
+    stage has no entry and `0xb1` cannot be typed, so the hidden panel clock
+    cannot be opened in Russian: `ж` alone does nothing visible and `б`
+    after `ж` closes the panel, as the CD's B without O does. The CD's W
+    (Wait) test stays `W` in the Russian program (`0xcff0`), so W-Wait
+    cannot be typed; Space keeps its path. These are reported, not
+    replaced by invented keys.
+  - **Kept Russian-program defects** (maintainer, 2026-11-03): the hidden
+    panel clock cannot be opened; W-Wait cannot be typed (Space still
+    works); in Create's attribute exchange clicking a row does nothing and
+    only the keys work; the Latin `E` (Inn) and `G` (Item to Gold) keys are
+    mouse-only. Part C records each as a kept original error in
+    `original-quirks.md`.
+  - **Text entry and answers.** Entry accepts `0x20-0xff` in Russian; word
+    capitalization never changes Cyrillic. Mirror and riddle answers compare
+    Cyrillic exactly (the program's case folding covers `a-z` only), and the
+    Russian mirror words are capitalized, so Shift matters.
+  - **Items.** Weapons, armor and accessories read name, broken, cursed,
+    then material and suffix; miscellaneous items keep the CD order. The
+    words are "сломано" and "проклято" with a leading space, and "of" is a
+    space. `mae.xen` becomes a translated entry (entry zero is a space):
+    decision 3's per-entry non-text proof and the material parser test
+    cover it in the Russian data test.
+  - **Not in this program:** plurals and gender (Part B), the Bank's
+    gold/gem swap (its keys and dispatch keep the CD order) and the
+    subtitle split at periods. If the translated `bank2.icn` frames turn
+    out to show gems before gold, the program's order still stays and the
+    mismatch is recorded as a quirk.
+  - **Caption strip, every scene** (maintainer, 2026-11-03: the rule covers
+    every scene that uses the strip, intros and endings alike; decision 3).
+    The strip still scrolls 40 characters with the CD cadence, but the
+    Russian programs run it whenever its position is at least 1, with
+    speech and Efx too (`XEEN.EXE` helper `0x112ce`, CD gate "digital device
+    below 2"; `xeen.dat` entrance renderer `0xd826`, CD gate "Efx off or
+    digital device below 2"). Rules, per scene in the evidence table:
+    - With speech, every strip wait (29 in `XEEN.EXE`, four entrance
+      scenes in `xeen.dat`) ends when the speech has ended and the strip
+      has wrapped; that is the Clouds intro, the Clouds ending (Alamar and
+      the king speeches), the Darkside intro speeches and the Darkside
+      ending speeches.
+    - Without speech, the waits stay the CD's, and so do the device gates
+      beside them (Alamar plays one clip, the king's skip, the room's
+      0xdc-tick hold), except: the Clouds intro runs all 14 narration slots,
+      without the CD's forced step 20; its slots 0-12 end on speech idle
+      and slot 13 waits for the wrap (also with speech).
+    - In both cases: a scene that clears the position to 0 keeps the strip
+      off (later queen clips, pharoh9a); the Release creature caption starts
+      at position 1 (CD 0); the Clouds ending's Alamar start marks the strip
+      timer; the entrance scenes start their cursor at 1 (CD 0) and keep the
+      CD's text-mode phase rules.
+    - English keeps the CD gates and timing exactly.
+  - **N3.** The program draws the `\n` in monster names as a line break in
+    both places; it spaces the combat rows 18 pixels apart (y 2/20/38) and
+    moves their three hit rows to y 10, 28 and 46, 18 high.
 - **Release notes.** The M110 release notes say that going back to an older
   build rejects the six-key `settings.ini` (decision 1) and so loses the
   won-ending flags, because release and development builds share the save
@@ -314,8 +426,9 @@ material variable:
 - intro, ending and score frames in Russian, rendered and inspected by the
   agent.
 One final maintainer session covers only what the above cannot: Cyrillic
-entry feel, hotkeys and the Bank by mouse and keyboard together, a mirror
-answer, clipping in a full session and the audiovisual presentation of an
-intro with English speech under Russian text; the guide says why for each
+entry feel (Shift capitals, a Cyrillic save name), hotkeys and the Bank by
+mouse and keyboard together, a mirror answer with capitals, clipping in a
+full session and the audiovisual presentation of an intro with English
+speech under the scrolling Russian strip; the guide says why for each
 item. If the maintainer wants, a Russian reader checks the text. Independent
 reviews of the plan and of the implementation, as Tier A requires.

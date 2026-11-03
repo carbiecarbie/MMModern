@@ -37,8 +37,12 @@ public:
     };
     using Duration=std::function<std::uint64_t(const char *)>;
     using Draw=std::function<unsigned(unsigned,unsigned)>;
+    // `russianCaption` (M110 Part C): the Russian xeen.dat renderer (RU
+    // 0xd819) shows the caption from cursor 1 whenever the cursor is at
+    // least 1, with Efx and speech too; the CD's text-mode phase rules stay.
     XeenEntranceAnimation(unsigned action,bool keyed,const Duration &,bool efx=true,unsigned captionLength=0,
-        bool captionWhenEfx=false,bool silentDigital=false,XeenSide side=XeenSide::Clouds,bool night=false);
+        bool captionWhenEfx=false,bool silentDigital=false,XeenSide side=XeenSide::Clouds,bool night=false,
+        bool russianCaption=false);
     // Once per acquired iteration; a late wake advances only one iteration.
     std::optional<Frame> advance(std::uint64_t now,const Draw &);
     const char *acquired(std::uint64_t now);
@@ -52,6 +56,7 @@ private:
     XeenSide _side;
     bool _night;
     bool _efx=true,_captions=false,_digitalActive=true,_captionComplete=false,_clockMarked=false;
+    bool _russianCaption=false,_shown=false; // _captions keeps the CD's text-mode gate.
     unsigned _captionLength=0,_cursor=0;
     std::uint64_t _captionMark=0;
     std::size_t _firstSpeech=0,_slide=0,_restore=0;

@@ -3,6 +3,7 @@
 #include "platform/sdl/SdlAudioDevice.h"
 #include "platform/sdl/SdlWindowPlacement.h"
 #include "platform/sdl/XeenMainScreenInput.h"
+#include "platform/sdl/XeenRussianKeys.h"
 #include "core/PresentationClock.h"
 
 #define SDL_MAIN_HANDLED
@@ -78,11 +79,36 @@ bool uploadFrame(SDL_Texture *texture, const IndexedFrame &frame,
 	return true;
 }
 
+SDL_Scancode physicalScan(const SDL_KeyboardEvent &key) {
+    // A modifier/layout change can change keysym between make and break.
+    // Synthetic clients may omit scancode; native SDL always supplies it.
+    return key.keysym.scancode>SDL_SCANCODE_UNKNOWN && key.keysym.scancode<SDL_NUM_SCANCODES ?
+        key.keysym.scancode:SDL_GetScancodeFromKey(key.keysym.sym);
+}
+// M110 Part C: the Russian xeen.dat keyboard of the running loop, or null.
+const XeenKeyboard *russianKeyboard=nullptr;
+// The CD's Shift list: the shifted symbol of a plain code.
+unsigned shiftedSymbol(unsigned code,SDL_Keycode symbol) {
+    if(code>='0' && code<='9')return unsigned(")!@#$%^&*("[code-'0']);
+    switch(symbol) {
+    case SDLK_EQUALS:return '+';
+    case SDLK_LEFTBRACKET:return '{';case SDLK_RIGHTBRACKET:return '}';
+    case SDLK_BACKSLASH:return '|';case SDLK_SEMICOLON:return ':';
+    case SDLK_QUOTE:return '"';case SDLK_BACKQUOTE:return '~';
+    case SDLK_COMMA:return '<';case SDLK_PERIOD:return '>';
+    case SDLK_SLASH:return '?';
+    default:return code; // Shift-minus stays minus in the DOS inverse lookup.
+    }
+}
 // DOS Set-1 translation, documented in rules/world-events.md#event-dispatch.
 // Translate the plain code before applying Ctrl (which overrides Shift).
-unsigned inputKey(const SDL_KeyboardEvent &key) {
+// The program's code (zero for none), before InputKey symbols.
+unsigned dosCode(const SDL_KeyboardEvent &key) {
     const auto symbol=key.keysym.sym;
     unsigned code=0;
+    // Printable Russian keys by position, from the Russian table.
+    if(russianKeyboard)if(const auto russian=xeenRussianKeyCode(*russianKeyboard,unsigned(physicalScan(key)),
+        key.keysym.mod & KMOD_SHIFT,key.keysym.mod & KMOD_CTRL))return russian;
     if(symbol>=SDLK_a && symbol<=SDLK_z)code='A'+symbol-SDLK_a;
     else if(symbol>=SDLK_0 && symbol<=SDLK_9)code=unsigned(symbol);
     else if(symbol>=SDLK_F1 && symbol<=SDLK_F10)code=0xc9+symbol-SDLK_F1;
@@ -115,19 +141,18 @@ unsigned inputKey(const SDL_KeyboardEvent &key) {
     case SDLK_COMMA:case SDLK_PERIOD:case SDLK_SLASH:code=unsigned(symbol);break;
     default:return 0; // Includes Delete, keypad decimal, F11/F12 and modifiers.
     }
-    if(key.keysym.mod & KMOD_CTRL) {if(code>=0x40)code-=0x40;}
-    else if(key.keysym.mod & KMOD_SHIFT) {
-        if(code>='0' && code<='9')code=")!@#$%^&*("[code-'0'];
-        else switch(symbol) {
-        case SDLK_EQUALS:code='+';break;
-        case SDLK_LEFTBRACKET:code='{';break;case SDLK_RIGHTBRACKET:code='}';break;
-        case SDLK_BACKSLASH:code='|';break;case SDLK_SEMICOLON:code=':';break;
-        case SDLK_QUOTE:code='"';break;case SDLK_BACKQUOTE:code='~';break;
-        case SDLK_COMMA:code='<';break;case SDLK_PERIOD:code='>';break;
-        case SDLK_SLASH:code='?';break;
-        default:break; // Shift-minus stays minus in the DOS inverse lookup.
-        }
+    if(russianKeyboard) {
+        // The Russian Ctrl codes are gone (Ctrl+Left/Right are plain turns);
+        // Shift and Ctrl keep these codes, except keypad 5's listed '%'.
+        if(!(key.keysym.mod & KMOD_SHIFT) && (key.keysym.mod & KMOD_CTRL) && symbol==SDLK_KP_5)return '%';
+        return code;
     }
+    if(key.keysym.mod & KMOD_CTRL) {if(code>=0x40)code-=0x40;}
+    else if(key.keysym.mod & KMOD_SHIFT)code=shiftedSymbol(code,symbol);
+    return code;
+}
+unsigned inputKey(const SDL_KeyboardEvent &key) {
+    const auto code=dosCode(key);
     if(code==0xd2)return 0; // F10's DOS-prompt wrapper consumes it.
     if(code>=0xc9 && code<=0xd1)return InputKey::F1+code-0xc9;
     switch(code) {
@@ -138,8 +163,15 @@ unsigned inputKey(const SDL_KeyboardEvent &key) {
     default:return code>='A' && code<='Z'?code+('a'-'A'):code;
     }
 }
-std::optional<PlayerAction> playerAction(const SDL_KeyboardEvent &key, MainScreen screen) {
-    const auto code=inputKey(key);
+// The internal key of a Russian program key in this context's key set.
+unsigned contextKey(unsigned code,const InputContext &context) {
+    if(!russianKeyboard || !code)return code;
+    if(context.dialog)return context.dialog->keySet?russianKeyboard->key(context.dialog->keySet,code):code;
+    return russianKeyboard->key(context.mainScreen==MainScreen::Combat?"COMBAT":
+        context.mainScreen==MainScreen::Exploration?"MAIN":"YESNO",code);
+}
+unsigned inputKey(const SDL_KeyboardEvent &key,const InputContext &context) {return contextKey(inputKey(key),context);}
+std::optional<PlayerAction> playerAction(unsigned code, MainScreen screen) {
     if(!code)return {};
     const bool combat=screen==MainScreen::Combat;
     if(code>=InputKey::F1 && code<InputKey::F1+6)return xeenMainScreenMemberKey(code);
@@ -177,20 +209,29 @@ std::optional<PlayerAction> playerAction(const SDL_KeyboardEvent &key, MainScree
     return screen==MainScreen::Exploration?std::optional<PlayerAction>{ExplorationKeyAction{code}}:std::nullopt;
 }
 std::optional<PlayerAction> keyAction(const SDL_KeyboardEvent &key,const InputContext &context) {
-    const auto code=inputKey(key);
+    if(russianKeyboard && context.dialog && context.dialog->textEntry) {
+        // Russian text comes from key events, never host text input. The
+        // shared getString (RU 0x1db72..) types 0x20-0xff and deletes on
+        // Backspace and Left; numeric entries take their printable keys.
+        const auto raw=dosCode(key);
+        if(raw==13 || raw==27 || raw==8)return context.dialog->key(raw==13?InputKey::Enter:raw==27?InputKey::Escape:8);
+        if(context.dialog->stringEntry) {
+            if(raw==0xf0)return context.dialog->key(8);
+            if(raw>=0x20 && raw<=0xff)return TextInputAction{std::string(1,char(raw))};
+            return {};
+        }
+        if(raw>=0x20 && raw<=0x7e)return TextInputAction{std::string(1,char(raw))};
+        const auto code=inputKey(key);
+        return code?context.dialog->key(code):std::nullopt;
+    }
+    const auto code=inputKey(key,context);
     if(!code)return {};
-    if(!context.dialog)return playerAction(key,context.mainScreen);
+    if(!context.dialog)return playerAction(code,context.mainScreen);
     // DOS text readers consume the same FIFO. A key typed before a prompt
     // opens has no SDL_TEXTINPUT packet, so retained Event keys supply text.
     if(context.retainEventKeys && context.dialog->textEntry && code>=32 && code<=126)
         return TextInputAction{std::string(1,char(code))};
     return context.dialog->key(code);
-}
-SDL_Scancode physicalScan(const SDL_KeyboardEvent &key) {
-    // A modifier/layout change can change keysym between make and break.
-    // Synthetic clients may omit scancode; native SDL always supplies it.
-    return key.keysym.scancode>SDL_SCANCODE_UNKNOWN && key.keysym.scancode<SDL_NUM_SCANCODES ?
-        key.keysym.scancode:SDL_GetScancodeFromKey(key.keysym.sym);
 }
 
 bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
@@ -209,6 +250,12 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
 			try { if (handler.closed) handler.closed(); } catch (...) {}
 		}
 	} close{handler, success};
+	// The keyboard of this loop; nested loops restore their caller's.
+	struct KeyboardScope {
+		const XeenKeyboard *saved=russianKeyboard;
+		~KeyboardScope() {russianKeyboard=saved;}
+	} keyboardScope;
+	russianKeyboard=handler.keyboard.get();
 	try {
 	if (!initialFrame.isValid()) {
 		std::cerr << "Invalid indexed framebuffer.\n";
@@ -622,7 +669,7 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
                     auto resolved=keyAction(key,context);
                     if(!resolved && context.retainEventKeys && inputKey(key))resolved=ExplorationKeyAction{inputKey(key)};
                     held.action=resolved;
-                    held.button=xeenMainScreenKeyButton(held.action,inputKey(key),context.mainScreen);
+                    held.button=xeenMainScreenKeyButton(held.action,inputKey(key,context),context.mainScreen);
                 }
             }
             if (event.key.keysym.sym == SDLK_SPACE) spaceDown = false;
@@ -631,7 +678,8 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
             if (event.key.keysym.sym == SDLK_i) inspectDown = false;
         } else if(event.type==SDL_TEXTINPUT) {
             const auto context=contextFor(batchFrame);
-            if(context.dialog && context.dialog->textEntry && !context.retainEventKeys && context.readyForAction && inputCurrent(batchFrame) &&
+            // Russian text comes from key events (keyAction).
+            if(!russianKeyboard && context.dialog && context.dialog->textEntry && !context.retainEventKeys && context.readyForAction && inputCurrent(batchFrame) &&
                 context.contextId==batchContext.contextId && static_cast<std::int32_t>(event.text.timestamp-readyAt)>=0)
                 deliver(TextInputAction{event.text.text},batchInput,batchFrame,{});
         } else if (event.type == SDL_KEYDOWN || event.type == SDL_MOUSEBUTTONDOWN) {
@@ -651,7 +699,7 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
                     auto resolved=keyAction(key,context);
                     if(!resolved && context.retainEventKeys && inputKey(key))resolved=ExplorationKeyAction{inputKey(key)};
                     held.action=resolved;
-                    held.button=xeenMainScreenKeyButton(held.action,inputKey(key),context.mainScreen);
+                    held.button=xeenMainScreenKeyButton(held.action,inputKey(key,context),context.mainScreen);
                 }
                 return;
             default:break;
@@ -664,15 +712,20 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
             // SDL maps events in square mode; corrected mode maps native window
             // coordinates through the same drawable rectangle used to present.
             auto action = mouse ? (context.dialog?context.dialog->click(mouseX,mouseY):
-                xeenMainScreenClick(mouseX,mouseY,context.mainScreen)):keyAction(event.key,context);
+                xeenMainScreenClick(mouseX,mouseY,context.mainScreen,russianKeyboard)):keyAction(event.key,context);
             if(!context.dialog && action)if(const auto *member=std::get_if<SelectMemberAction>(&*action))
                 if(member->partyIndex>=context.partySize)action.reset();
             if(!mouse && !action && context.retainEventKeys && inputKey(event.key))action=ExplorationKeyAction{inputKey(event.key)};
             auto button=context.dialog ?
                 (action && std::get_if<DialogKeyAction>(&*action) ? context.dialog->button(std::get<DialogKeyAction>(*action).key) : std::nullopt) :
                 mouse ? xeenMainScreenButtonAt(mouseX,mouseY,context.mainScreen) :
-                    xeenMainScreenKeyButton(action,inputKey(event.key),context.mainScreen);
-            if(!mouse && !context.dialog && (event.key.keysym.mod & KMOD_CTRL)) {
+                    xeenMainScreenKeyButton(action,inputKey(event.key,context),context.mainScreen);
+            // A Russian button whose value no dispatch case matches shows its
+            // press, then does nothing.
+            if(mouse && russianKeyboard && context.dialog && context.dialog->keySet && action)
+                if(auto *clicked=std::get_if<DialogKeyAction>(&*action))
+                    clicked->key=russianKeyboard->click(context.dialog->keySet,clicked->key);
+            if(!mouse && !context.dialog && !russianKeyboard && (event.key.keysym.mod & KMOD_CTRL)) {
                 button=event.key.keysym.sym==SDLK_LEFT ? xeenMainScreenButtonAt(235,169,context.mainScreen) :
                     event.key.keysym.sym==SDLK_RIGHT ? xeenMainScreenButtonAt(286,169,context.mainScreen) : std::nullopt;
             }
@@ -799,7 +852,7 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
 		const auto batchInput = displayedInput;
 		const auto batchFrame = presentedFrame;
 		const auto batchContext = contextFor(batchFrame);
-		if(batchContext.dialog && batchContext.dialog->textEntry)SDL_StartTextInput();else SDL_StopTextInput();
+		if(batchContext.dialog && batchContext.dialog->textEntry && !russianKeyboard)SDL_StartTextInput();else SDL_StopTextInput();
 		synchronizeQueue(batchContext);
         const auto actionReady=[&](const PlayerAction &a,const InputContext &c) {
             return c.readyForAction || (std::holds_alternative<NavigationAction>(a) && c.readyForNavigation) ||
@@ -853,7 +906,7 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
             if(next.key) {
                 const auto translated=keyAction(*next.key,drainContext);
                 if(translated)deliver(*translated,displayedInput,presentedFrame,
-                    drainContext.dialog?drainContext.dialog->button(inputKey(*next.key)):xeenMainScreenKeyButton(translated,inputKey(*next.key),drainContext.mainScreen));
+                    drainContext.dialog?drainContext.dialog->button(inputKey(*next.key,drainContext)):xeenMainScreenKeyButton(translated,inputKey(*next.key,drainContext),drainContext.mainScreen));
             } else deliver(next.action,displayedInput,presentedFrame,next.button);
         } else if(hasHeldRepeat && !mouseButtons && !actionUsed && handler && pendingActions.empty() && (drainContext.acceptsQueuedInput || drainContext.retainEventKeys) && inputCurrent(presentedFrame)) {
             HeldKey *selected=nullptr,*first=nullptr;
@@ -873,7 +926,7 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
                     SDL_KeyboardEvent key{};key.keysym.sym=selected->key;key.keysym.mod=heldModifiers;
                     const auto translated=keyAction(key,drainContext);
                     if(translated)deliver(*translated,displayedInput,presentedFrame,
-                        drainContext.dialog?drainContext.dialog->button(inputKey(key)):xeenMainScreenKeyButton(translated,inputKey(key),drainContext.mainScreen));
+                        drainContext.dialog?drainContext.dialog->button(inputKey(key,drainContext)):xeenMainScreenKeyButton(translated,inputKey(key,drainContext),drainContext.mainScreen));
                 } else deliver(*selected->action,displayedInput,presentedFrame,selected->button);
             }
         }

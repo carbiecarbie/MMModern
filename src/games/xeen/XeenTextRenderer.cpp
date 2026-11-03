@@ -17,7 +17,11 @@ struct GlyphAtom {
 	XeenFontSize size = XeenFontSize::Normal;
 	std::uint8_t colorIndex = 0;
 	std::size_t sourceOffset = 0;
+	// A player-entered byte (xeenLiteralText): never a break point or a
+	// trailing space, as in renderOriginal (M110 Part C, N1).
+	bool literal = false;
 };
+bool breakSpace(const GlyphAtom &glyph) { return glyph.character == ' ' && !glyph.literal; }
 
 struct TextLine {
 	std::vector<GlyphAtom> glyphs;
@@ -260,7 +264,7 @@ std::vector<GlyphAtom> parseText(XeenLanguage language, const std::string &text,
 	alignments.push_back(alignment);
 	for (std::size_t i = 0; i < text.size();) {
 		if (literalAt(text, i)) {
-			glyphs.push_back({textCode(language, text[i + 2]), size, color, i});
+			glyphs.push_back({textCode(language, text[i + 2]), size, color, i, true});
 			i += 3;
 			continue;
 		}
@@ -420,20 +424,20 @@ XeenTextRenderResult XeenTextRenderer::render(const IndexedFrame &base,
 		}
 		const GlyphAtom atom = glyphs[i];
 		const int advance = _font.advance(atom.character, atom.size);
-		const bool wordStart = atom.character != ' ' &&
-			(i == 0 || glyphs[i - 1].character == ' ' ||
+		const bool wordStart = !breakSpace(atom) &&
+			(i == 0 || breakSpace(glyphs[i - 1]) ||
 				std::find(explicitBreaks.begin(), explicitBreaks.end(), i) != explicitBreaks.end());
 		if (wordStart && !lines.back().glyphs.empty()) {
 			int wordWidth = 0;
 			for (std::size_t word = i; word < glyphs.size() &&
-					glyphs[word].character != ' ' &&
+					!breakSpace(glyphs[word]) &&
 					std::find(explicitBreaks.begin(), explicitBreaks.end(), word) ==
 						explicitBreaks.end(); ++word) {
 				wordWidth += _font.advance(glyphs[word].character, glyphs[word].size);
 			}
 			if (lines.back().width + wordWidth > availableWidth) {
 				while (!lines.back().glyphs.empty() &&
-						lines.back().glyphs.back().character == ' ') {
+						breakSpace(lines.back().glyphs.back())) {
 					lines.back().width -= _font.advance(' ', lines.back().glyphs.back().size);
 					lines.back().glyphs.pop_back();
 				}
@@ -443,13 +447,13 @@ XeenTextRenderResult XeenTextRenderer::render(const IndexedFrame &base,
 		}
 		if (!lines.back().glyphs.empty() && lines.back().width + advance > availableWidth) {
 			while (!lines.back().glyphs.empty() &&
-					lines.back().glyphs.back().character == ' ') {
+					breakSpace(lines.back().glyphs.back())) {
 				lines.back().width -= _font.advance(' ', lines.back().glyphs.back().size);
 				lines.back().glyphs.pop_back();
 			}
 			lines.emplace_back();
 			lines.back().alignment = lines[lines.size() - 2].alignment;
-			if (atom.character == ' ')
+			if (breakSpace(atom))
 				continue;
 		}
 		lines.back().glyphs.push_back(atom);

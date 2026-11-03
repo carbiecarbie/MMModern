@@ -68,6 +68,10 @@ struct XeenItemDescription {
 	bool truncated = false;
 	// End of the "broken " and "cursed " prefixes within displayName.
 	std::size_t brokenEnd = 0, cursedEnd = 0;
+	// Russian equipment (M110 Part C) puts the words after the name: they
+	// start at this index, in line color before it.
+	std::size_t decorationBegin = 0;
+	bool russianOrder = false;
 	// The pin's getFullDescription: "broken" in color 32, "cursed" in color
 	// 09, the rest in the given color (the list line's, 4 in the Discard
 	// prompt, 15 in the other item prompts; DOS shows the same).
@@ -79,6 +83,11 @@ struct XeenItemDescription {
 // names ids 35-40, which keep the catalog's names.
 struct XeenItemNames {
 	std::vector<std::string> weapons, armor, accessories, misc, special, bonus;
+	// The Russian program's words and order (Part C): weapons, armor and
+	// accessories read name, broken, cursed, then material and suffix
+	// (RU 0x3c1bb..0x3c4bf against CD 0x3cd00..0x3d004).
+	std::string broken, cursed, of;
+	bool russian = false;
 };
 
 class XeenItemCatalog {
@@ -121,7 +130,7 @@ XeenItemCatalog loadXeenItemCatalogWithMaterials(
 	const XeenMaterialNameParseResult &materials);
 XeenItemCatalogLoadResult loadXeenItemCatalog(XeenAssetSource &assets);
 XeenItemCatalogLoadResult loadXeenItemCatalogFromReader(
-	const XeenMaterialResourceReader &reader);
+	const XeenMaterialResourceReader &reader, XeenLanguage language = XeenLanguage::English);
 
 // Smoke-only source-provenance helper. It parses only the reviewed bounded
 // catalog block and compares every token with the embedded generated tables.

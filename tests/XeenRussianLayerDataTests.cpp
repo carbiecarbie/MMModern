@@ -168,7 +168,8 @@ void perEntry(const GameInstallation &english, const GameInstallation &russian, 
 				<< " translated=" << translated.size() << " merged=" << merged.size() << '\n';
 		}
 	}
-	check(kept == 5 && formats[XeenLayerFormat::NewGameContainer] == 2 && formats[XeenLayerFormat::MirrorList] == 2 &&
+	// Part C translates mae.xen; four entries stay CD.
+	check(kept == 4 && formats[XeenLayerFormat::NewGameContainer] == 2 && formats[XeenLayerFormat::MirrorList] == 2 &&
 		formats[XeenLayerFormat::MonsterTable] == 2 && formats[XeenLayerFormat::Font] == 3 && kept_cd_fields == 4,
 		"format census");
 }

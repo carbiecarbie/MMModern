@@ -3,6 +3,7 @@
 
 #include "core/InputContext.h"
 #include "core/PlayerAction.h"
+#include "core/XeenKeyboard.h"
 #include <optional>
 #include <cstring>
 
@@ -16,7 +17,9 @@ inline std::optional<PlayerAction> xeenMainScreenMemberKey(unsigned key) {
 // dialogs/dialogs.cpp ButtonContainer::addPartyButtons/setWaitBounds.
 // GPL-3.0-or-later; ScummVM developers (upstream COPYRIGHT).
 // Coordinates are SDL's logical 320x200 coordinates; right/bottom are exclusive.
-inline std::optional<PlayerAction> xeenMainScreenClick(int x, int y, MainScreen screen) {
+// `keyboard` (M110 Part C) supplies the Russian program's combat target rows.
+inline std::optional<PlayerAction> xeenMainScreenClick(int x, int y, MainScreen screen,
+        const XeenKeyboard *keyboard = nullptr) {
     if (screen == MainScreen::None || x < 0 || y < 0 || x >= 320 || y >= 200) return {};
     const auto contains = [=](int l, int t, int r, int b) { return x >= l && x < r && y >= t && y < b; };
     const bool combat = screen == MainScreen::Combat;
@@ -61,8 +64,10 @@ inline std::optional<PlayerAction> xeenMainScreenClick(int x, int y, MainScreen 
     }
     // DOS button tables at 0x4f20c/236/24a/25e, entries 17..19;
     // shared hit decoder 0x0e32d..0x0e396 is lower-inclusive/upper-exclusive.
+    const int top=keyboard?int(keyboard->targetTop):27, stride=keyboard?int(keyboard->targetStride):10;
+    const int height=keyboard?int(keyboard->targetHeight):10;
     if (combat) for (unsigned row=0; row<3; ++row)
-        if (contains(239,27+10*row,312,37+10*row)) return SelectInventorySlotAction{row}; // 1-3
+        if (contains(239,top+stride*int(row),312,top+stride*int(row)+height)) return SelectInventorySlotAction{row}; // 1-3
     constexpr int faces[] = {10,45,81,117,153,189};
     for (unsigned index=0;index<6;++index) if (contains(faces[index],150,faces[index]+32,182))
         return SelectMemberAction{index};

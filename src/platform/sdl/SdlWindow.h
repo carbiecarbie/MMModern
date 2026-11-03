@@ -4,9 +4,11 @@
 #include "core/IndexedFrame.h"
 #include "core/PlayerAction.h"
 #include "core/InputContext.h"
+#include "core/XeenKeyboard.h"
 
 #include <filesystem>
 #include <functional>
+#include <memory>
 #include <optional>
 #include <string>
 #include <utility>
@@ -57,6 +59,9 @@ public:
         // XEEN.EXE keyboard poll only; DAT title/gameplay retain control keys.
         bool cutsceneControlQuit = false;
         std::function<bool()> cutsceneControlQuitReady;
+        // M110 Part C: the Russian xeen.dat keyboard for DAT title and
+        // gameplay input; XEEN.EXE scenes keep the CD keyboard (null).
+        std::shared_ptr<const XeenKeyboard> keyboard;
 		std::function<std::optional<std::uint64_t>()> displayedInput;
 		std::function<std::optional<IndexedFrame>(const PlayerAction &,std::uint64_t)> withDisplayedInput;
 		// Native responses retain the concrete frame sampled with their semantic input.

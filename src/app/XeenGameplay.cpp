@@ -650,6 +650,7 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
    if(panel){checkPanel();panel->completeInput(frame);}else {flow.completeInputHandoff(frame);handoff.retain();}
   };
   handler.protectAllKeys = flow.journey();
+  if(flow.dialogText)handler.keyboard=flow.dialogText->keyboard();
   handler.nextPresentationDeadline=[&,alive]() -> std::optional<std::uint64_t> {
    if(!*alive)return {};
    if(finished && services.outcome && services.outcome->kind==XeenSessionOutcome::Kind::Title && services.program.audio)

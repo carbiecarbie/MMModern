@@ -1,8 +1,7 @@
 // Generated once from the English floppy and Russian World of Xeen archives
 // (entries whose bytes differ); metadata only. Do not edit by hand, except a
-// classification decision: mae.xen stays CD (M110 Part A review B2: its
-// reader requires an empty entry zero and ASCII names; Russian item
-// descriptions, decision 8, settle its use).
+// classification decision: mae.xen is a translated string table (M110 Part
+// C: the Russian item descriptions read it, its entry zero a space).
 constexpr XeenLayerEntry kCloudsEntries[]={
  {0x1196,XeenLayerFormat::StringTable,"spldesc.bin"},
  {0x190e,XeenLayerFormat::StringTable,"award.bin"},
@@ -164,7 +163,7 @@ constexpr XeenLayerEntry kDarksideEntries[]={
  {0x230a,XeenLayerFormat::MapName,"dark0058.txt"},
  {0x231a,XeenLayerFormat::MapName,"dark0059.txt"},
  {0x2a0c,XeenLayerFormat::NewGameContainer,"2a0c"},
- {0x3348,XeenLayerFormat::KeptCd,"mae.xen"},
+ {0x3348,XeenLayerFormat::StringTable,"mae.xen"},
  {0x3610,XeenLayerFormat::MapName,"xeen0050.txt"},
  {0x3620,XeenLayerFormat::MapName,"xeen0051.txt"},
  {0x3630,XeenLayerFormat::MapName,"xeen0052.txt"},

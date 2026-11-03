@@ -24,9 +24,14 @@ public:
   *_deadline=PresentationClock::afterMilliseconds(now,1);
   _phase=(_phase+5)%6;return true; // One observed wait, never catch up.
  }
+ // getString accepts 0x20-0x7f on the CD; the Russian program widened its
+ // test to 0xff (RU 0x1dc86, CD 0x1e123), so with the Russian font every
+ // byte 0x20-0xff is a character, drawn or not. Word capitalization changes
+ // ASCII letters only, as the Russian C runtime's ctype table does.
  bool type(const std::string &packet,const XeenFontFormat &font,std::size_t limit=20,bool wordCase=false) {
-  if(packet.empty() || packet.size()>limit || !std::all_of(packet.begin(),packet.end(),[](unsigned char c){return c>=0x20 && c<=0x7f;}))return false;
-  for(unsigned char c:packet)if(!font.advance(c,XeenFontSize::Normal))return false;
+  const bool russian=font.language()==XeenLanguage::Russian;
+  if(packet.empty() || packet.size()>limit || !std::all_of(packet.begin(),packet.end(),[&](unsigned char c){return c>=0x20 && (russian || c<=0x7f);}))return false;
+  if(!russian)for(unsigned char c:packet)if(!font.advance(c,XeenFontSize::Normal))return false;
   // getString ignores spaces while the line is empty, including batched keys.
   const auto first=_value.empty()?packet.find_first_not_of(' '):0;
   if(first==std::string::npos)return false;

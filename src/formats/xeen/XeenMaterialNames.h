@@ -6,6 +6,8 @@
 #include <string>
 #include <vector>
 
+#include "formats/xeen/XeenLanguage.h"
+
 namespace mmodern {
 
 enum class XeenMaterialAvailability {
@@ -23,8 +25,10 @@ struct XeenMaterialNameParseResult {
 	bool ready() const { return availability == XeenMaterialAvailability::Ready; }
 };
 
+// Russian (M110 Part C): entry zero is one space and names are cp866, kept
+// as bytes; English requires an empty entry zero and shows ASCII only.
 XeenMaterialNameParseResult parseXeenMaterialNames(
-	const std::vector<std::uint8_t> &bytes);
+	const std::vector<std::uint8_t> &bytes, XeenLanguage language = XeenLanguage::English);
 
 } // namespace mmodern
 

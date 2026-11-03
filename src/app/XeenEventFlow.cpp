@@ -185,7 +185,7 @@ InputContext XeenEventFlow::inputContext(const IndexedFrame::Presentation &origi
     if(_travelUi) {
         DialogInput input;input.textEntry=true;input.keys={InputKey::Enter,InputKey::Escape,8,'0','1','2','3','4','5','6','7','8','9'};
         if(_travelUi->spell==XeenLearnedSpell::LloydsBeacon) {
-            input.textEntry=false;input.keys={InputKey::Escape,'s','t','r'};
+            input.textEntry=false;input.keySet="LLOYD";input.keys={InputKey::Escape,'s','t','r'};
             input.hits={{242,108,266,128,'t',InputButton{"lloyds.icn",2,242,108}},
                 {281,108,305,128,'r',InputButton{"lloyds.icn",0,281,108}}};
         }
@@ -241,7 +241,7 @@ InputContext XeenEventFlow::inputContext(const IndexedFrame::Presentation &origi
     if(!_whoWillRefusal.empty()) {DialogInput input;input.anyKey=input.anyClick=input.keyMouseWait=true;dialog=std::make_shared<const DialogInput>(std::move(input));}
     if(_encounter && _encounter->_needsRestNotice) {DialogInput input;input.anyKey=true;input.anyClick=true;dialog=std::make_shared<const DialogInput>(std::move(input));}
     if(_encounter && !_encounter->_combatCastRefusal.empty()) {
-        DialogInput input;input.keys={'c'};input.anyKey=input.anyClick=input.keyMouseWait=true;
+        DialogInput input;input.keySet="COMBAT";input.keys={'c'};input.anyKey=input.anyClick=input.keyMouseWait=true;
         dialog=std::make_shared<const DialogInput>(std::move(input));
     }
     bool hideCursor=false;
@@ -2800,8 +2800,10 @@ void XeenEventFlow::prepareEntrance() {
     const bool efx=XeenSoundOptions(_transition->party.soundOptions).efx;
     const bool captions=_program.audio?_program.audio->entranceCaptions(efx):!efx;
     const bool silentDigital=_program.audio && !_program.audio->hasDmaDigital();
+    // The Russian program shows every entrance caption (M110 Part C).
+    const bool russian=dialogText && dialogText->language()==XeenLanguage::Russian;
     std::string caption;
-    if(captions) {
+    if(captions || russian) {
         if(!loadEntranceCaption || !drawEntranceCaption)throw std::invalid_argument("Original caption providers are absent");
         caption=loadEntranceCaption(action,keyed);_eventPublication->check();checkTransitionCandidate();
     }
@@ -2809,7 +2811,7 @@ void XeenEventFlow::prepareEntrance() {
         const auto value=loadSampleDuration(name,xeenMapResources(_pending->state.workingCamera.mapId).voices);
         _eventPublication->check();checkTransitionCandidate();return value;
     },efx,caption.size(),captions && efx,silentDigital,site->side,
-        _transition->party.encounterContext && xeenNight(_transition->party.encounterContext->minutes));
+        _transition->party.encounterContext && xeenNight(_transition->party.encounterContext->minutes),russian);
     _entranceUi.emplace(std::move(animation),_frame);
     _entranceUi->caption=std::move(caption);
     _presenter.clear();_journeyEventLayers=false;

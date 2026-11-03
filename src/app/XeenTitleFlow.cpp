@@ -161,7 +161,7 @@ DialogInput XeenTitleFlow::dialog() const {
  } else if(_screen==Screen::Panel) {
   // DAT 0x1f006..0x1f047: every key and every click reaches the key switch;
   // a click outside the buttons arrives as zero (0x0e2cc..0x0e533).
-  input.anyKey=input.retainKey=true;input.missKey=0;
+  input.anyKey=input.retainKey=true;input.missKey=0;input.keySet="PANEL";
   for(const auto &button:_services.text.buttons("PANEL"))
    add(button,lower(button.key),_services.text.scalar("PANEL_SPRITES").data(),0);
  } else if(_screen==Screen::NewSlots || _screen==Screen::LoadSlots || _screen==Screen::SaveSlots) {
@@ -176,7 +176,7 @@ DialogInput XeenTitleFlow::dialog() const {
   const auto &buttons=_services.text.buttons("DIFFICULTY");
   for(unsigned i=0;i<buttons.size();++i)add(buttons[i],lower(buttons[i].key),_services.text.scalar("DIFFICULTY_BUTTONS").data(),i*2);
  } else if(_screen==Screen::Overwrite || _screen==Screen::Quit || _screen==Screen::Wizard)input=xeenConfirmInput();
- else if(_screen==Screen::Name) {input.textEntry=true;input.keys.insert(input.keys.end(),{8,InputKey::Enter});}
+ else if(_screen==Screen::Name) {input.textEntry=input.stringEntry=true;input.keys.insert(input.keys.end(),{8,InputKey::Enter});}
  else {input.anyKey=input.anyClick=input.keyMouseWait=true;}
  return input;
 }

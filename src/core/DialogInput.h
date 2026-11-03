@@ -30,6 +30,13 @@ struct DialogInput {
     bool anyKey=false, anyClick=false;
     bool retainKey=false; // Event continuations dispatch the actual acknowledged key.
     bool textEntry=false;
+    // The shared getString entry (save name, character name, Event word),
+    // as opposed to numeric entry. Russian getString accepts 0x20-0xff and
+    // deletes on Left (M110 Part C).
+    bool stringEntry=false;
+    // The Russian program key set of this dialog (XeenKeyboard); English
+    // ignores it.
+    const char *keySet=nullptr;
     // Original Events::isKeyMousePressed waits accept either mouse button
     // and ignore modifier-only keys. Opt in for dialogs using that wait.
     bool keyMouseWait=false;

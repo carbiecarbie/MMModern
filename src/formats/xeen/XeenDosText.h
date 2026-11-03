@@ -4,12 +4,14 @@
 #include <cstddef>
 #include <array>
 #include <cstdint>
+#include <memory>
 #include <string>
 #include <string_view>
 #include <unordered_map>
 #include <utility>
 #include <vector>
 
+#include "core/XeenKeyboard.h"
 #include "formats/xeen/XeenLanguage.h"
 
 namespace mmodern {
@@ -75,12 +77,20 @@ public:
  static void validateControls(std::string_view text, XeenLanguage language = XeenLanguage::English);
  // The printf conversions of a text, as layout signatures name them ("s,lu").
  static std::string formatSignature(std::string_view text);
+ // M110 Part C: the Russian program's keyboard and key sets; null in English.
+ const std::shared_ptr<const XeenKeyboard> &keyboard() const {return _keyboard;}
+ // The combat target rows and highlight (CD 0x2e777: row*10+27, height 10).
+ struct TargetRows {unsigned top=27,stride=10,height=10;};
+ TargetRows combatTargets() const {
+  return _keyboard?TargetRows{_keyboard->targetTop,_keyboard->targetStride,_keyboard->targetHeight}:TargetRows{};
+ }
 private:
  XeenLanguage _language=XeenLanguage::English;
  std::unordered_map<std::string,std::vector<std::string>> _fields;
  std::unordered_map<std::string,std::string> _arguments,_characters;
  std::unordered_map<std::string,std::vector<Button>> _buttons;
  std::vector<Window> _windows;
+ std::shared_ptr<const XeenKeyboard> _keyboard;
 };
 }
 #endif

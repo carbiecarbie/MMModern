@@ -160,7 +160,7 @@ void mergeRules() {
 
 void entryLists() {
 	const std::map<XeenArchiveRole, std::pair<std::size_t, std::size_t>> expected{
-		{XeenArchiveRole::Clouds, {105, 1}}, {XeenArchiveRole::Darkside, {379, 4}}, {XeenArchiveRole::Intro, {7, 0}}};
+		{XeenArchiveRole::Clouds, {105, 1}}, {XeenArchiveRole::Darkside, {379, 3}}, {XeenArchiveRole::Intro, {7, 0}}};
 	for (const auto &[role, counts] : expected) {
 		const auto &entries = xeenRussianEntries(role);
 		std::set<std::uint16_t> ids;

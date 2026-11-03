@@ -750,6 +750,16 @@ if(BUILD_TESTING)
             "${MMODERN_XEEN_DATA_DIR}" "${MMODERN_RU_DATA_DIR}")
         mmodern_test_properties(xeen_russian_program_text_original PROPERTIES LABELS "fast")
     endif()
+    # M110 Part C: Russian rules and input; the data test reads both programs.
+    add_executable(mmodern_russian_rules_tests tests/XeenRussianRulesTests.cpp)
+    target_link_libraries(mmodern_russian_rules_tests PRIVATE mmodern_app mmodern_xeen mmodern_scummvm_xeen)
+    add_test(NAME xeen_russian_rules COMMAND mmodern_russian_rules_tests)
+    set_tests_properties(xeen_russian_rules PROPERTIES LABELS "fast")
+    if(MMODERN_RU_DATA_DIR)
+        # Runs four cutscenes in two languages at two devices (about two minutes).
+        mmodern_data_test(NAME xeen_russian_rules_original COMMAND mmodern_russian_rules_tests
+            "${MMODERN_XEEN_DATA_DIR}" "${MMODERN_RU_DATA_DIR}")
+    endif()
     add_executable(mmodern_inn_tests tests/XeenInnTests.cpp)
     target_link_libraries(mmodern_inn_tests PRIVATE mmodern_app mmodern_xeen)
     mmodern_data_test(NAME xeen_inn COMMAND mmodern_inn_tests "${MMODERN_XEEN_DATA_DIR}")

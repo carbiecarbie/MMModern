@@ -11,11 +11,12 @@ class XeenBoundedText {
 public:
 	explicit XeenBoundedText(std::size_t limit) : _limit(limit) {}
 
-	void append(std::string_view token) {
+	// `raw` joins without the separating space (a program's %s%s).
+	void append(std::string_view token, bool raw = false) {
 		if (token.empty() || _truncated)
 			return;
 		std::string addition;
-		if (!_value.empty())
+		if (!_value.empty() && !raw)
 			addition.push_back(' ');
 		addition.append(token.data(), token.size());
 		if (_value.size() + addition.size() <= _limit) {
@@ -46,6 +47,11 @@ public:
 			if ((c >= 'A' && c <= 'Z'))
 				return;
 		}
+	}
+
+	void capitalizeFirstByte() {
+		if (!_value.empty() && _value.front() >= 'a' && _value.front() <= 'z')
+			_value.front() = static_cast<char>(_value.front() - 'a' + 'A');
 	}
 
 	const std::string &value() const { return _value; }

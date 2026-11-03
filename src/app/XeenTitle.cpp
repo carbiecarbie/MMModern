@@ -31,6 +31,7 @@ std::optional<XeenSessionEntry> showTitle(XeenTitleFlow &flow,XeenAssetSource &a
  handler.beginCycle=[&](auto){audio.advance(SdlWindow::presentationNanoseconds());};
  handler.failed=[&]{flow.close();};handler.closed=[&]{flow.close();};
  handler.protectAllKeys=true;handler.cursorImage=[&]{return assets.cursorImage(XeenSceneArchive::DarksideOnly);};
+ handler.keyboard=assets.uiText().keyboard();
  handler.nextPresentationDeadline=[&]{auto next=flow.nextPresentationDeadline();const auto sound=audio.deadline();if(sound && (!next||*sound<*next))next=sound;return next;};
  handler.drawButton=[&](IndexedFrame &frame,const InputButton &button){flow.drawButton(frame,button);};
  if(!SdlWindow().showInteractive(flow.frame(),"MMModern",handler,[]{return true;},

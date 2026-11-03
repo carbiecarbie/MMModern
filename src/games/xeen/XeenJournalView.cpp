@@ -72,7 +72,7 @@ std::vector<std::string> xeenAwardLines(const XeenDosText &text,const XeenCharac
     return lines;
 }
 DialogInput xeenJournalInput(bool awards) {
-    DialogInput input;
+    DialogInput input;input.keySet="QUESTS";
     constexpr int xs[]{12,80,148,216,250,284};
     constexpr unsigned keys[]{'i','q','a',InputKey::Up,InputKey::Down,InputKey::Escape};
     for(unsigned i=awards?3:0;i<6;++i) {

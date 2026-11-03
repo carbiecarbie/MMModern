@@ -92,7 +92,7 @@ IndexedFrame drawXeenInnDelete(const XeenDosText &text,const IndexedFrame &base,
     return frame;
 }
 DialogInput xeenInnInput(std::size_t rows,std::size_t members,bool remove) {
-    DialogInput input;
+    DialogInput input;input.keySet="INN";
     if(remove)button(input,225,84,249,104,InputKey::Escape,"esc.icn",0);
     else {
         constexpr unsigned keys[]{InputKey::Up,InputKey::Down,'d','r','c','x'};
@@ -278,7 +278,7 @@ DialogInput xeenExchangeInput() {
     button(input,225,120,249,140,InputKey::Escape,"esc.icn");return input;
 }
 DialogInput xeenQuickFightInput() {
-    DialogInput input;partyButtons(input);
+    DialogInput input;input.keySet="QUICK_FIGHT";partyButtons(input);
     button(input,242,108,266,128,'n',"train.icn",0);
     button(input,281,108,305,128,InputKey::Escape,"train.icn",2);
     input.keys.push_back(InputKey::Enter);return input;
@@ -312,13 +312,14 @@ std::optional<std::size_t> XeenSpellListUi::row(unsigned key,std::size_t count) 
     return index<count?std::optional<std::size_t>{index}:std::nullopt;
 }
 DialogInput xeenCastInput(bool switching) {
-    DialogInput input;if(switching)partyButtons(input);
+    DialogInput input;input.keySet="CAST";if(switching)partyButtons(input);
     button(input,234,108,259,128,'c',"cast.icn",0);
     button(input,261,108,285,128,'n',"cast.icn",2);
     button(input,288,108,312,128,InputKey::Escape,"cast.icn",4);return input;
 }
 DialogInput xeenSpellListInput(bool selecting,bool switching) {
-    DialogInput input;
+    // Its select key is the chooser's (one DOS button table).
+    DialogInput input;input.keySet="CHOOSER";
     button(input,187,26,198,36,InputKey::Up,"scroll.icn",0);
     button(input,187,111,198,121,InputKey::Down,"scroll.icn",2);
     // DOS stores these rows with height 9 (DAT button table 0x4f19a), so they
@@ -337,7 +338,7 @@ IndexedFrame drawXeenProtectionCorners(const IndexedFrame &base,const XeenGamepl
     return frame;
 }
 DialogInput xeenElementInput() {
-    DialogInput input;constexpr unsigned keys[]{'f','e','c','a'};
+    DialogInput input;input.keySet="ELEMENT";constexpr unsigned keys[]{'f','e','c','a'};
     for(unsigned i=0;i<4;++i)button(input,60+30*i,92,84+30*i,112,keys[i],"element.icn",2*i);
     input.keys.push_back(InputKey::Escape);return input;
 }
@@ -351,7 +352,7 @@ IndexedFrame drawXeenElement(const XeenDosText &text,const IndexedFrame &base,co
     return frame;
 }
 DialogInput xeenSpellConfirmInput(bool info) {
-    DialogInput input;
+    DialogInput input;input.keySet="YESNO";
     if(info)input.anyKey=input.anyClick=true;
     else {button(input,120,133,144,153,'y',"confirm.icn",0);button(input,176,133,200,153,'n',"confirm.icn",2);input.keys.push_back(InputKey::Escape);}
     return input;
@@ -410,7 +411,7 @@ std::vector<std::string> xeenSpellDescriptions(const std::vector<std::uint8_t> &
     return result;
 }
 DialogInput xeenSheetInput() {
-    DialogInput input;constexpr int x[]{10,61,112,177};
+    DialogInput input;input.keySet="SHEET";constexpr int x[]{10,61,112,177};
     for(unsigned col=0;col<4;++col) for(unsigned row=0;row<5;++row)
         button(input,x[col],24+23*row,x[col]+24,44+23*row,1001+col*5+row,"view.icn",(col*5+row)*2);
     button(input,285,11,309,31,'i',"view.icn",40);button(input,285,43,309,63,'q',"view.icn",42);
@@ -419,7 +420,7 @@ DialogInput xeenSheetInput() {
     partyButtons(input);return input;
 }
 DialogInput xeenItemsInput(bool misc,bool selection) {
-    DialogInput input;
+    DialogInput input;input.keySet="ITEMS";
     if(selection) button(input,235,111,259,131,InputKey::Escape,"esc.icn");
     else {
         constexpr unsigned keys[]{'w','a','c','m','e','r','d','q',InputKey::Escape};
@@ -430,7 +431,7 @@ DialogInput xeenItemsInput(bool misc,bool selection) {
     return input;
 }
 DialogInput xeenItemSpellInput(unsigned mode,bool selection) {
-    DialogInput input;
+    DialogInput input;input.keySet="ITEMS";
     if(selection)button(input,235,111,259,131,InputKey::Escape,"esc.icn");
     else {
         const unsigned keys[]{'w','a','c','m',unsigned(mode==6?'e':mode==4?'r':'g'),InputKey::Escape};
@@ -471,6 +472,9 @@ std::optional<std::string> xeenLocationUnsupportedAction(XeenLocationDialog,unsi
 }
 DialogInput xeenLocationInput(XeenLocationDialog location) {
     DialogInput input;
+    input.keySet=location==XeenLocationDialog::Bank?"BANK":location==XeenLocationDialog::Tavern?"TAVERN":
+        location==XeenLocationDialog::Training?"TRAINING":location==XeenLocationDialog::Smith?"SMITH":
+        location==XeenLocationDialog::Guild?"GUILD":"TEMPLE";
     if(location==XeenLocationDialog::Bank) {
         button(input,234,108,259,128,'d',"bank.icn",0);
         button(input,261,108,285,128,'w',"bank.icn",2);
@@ -501,14 +505,14 @@ DialogInput xeenLocationInput(XeenLocationDialog location) {
     button(input,8,8,224,140,InputKey::Space);return input;
 }
 DialogInput xeenBankInput() {
-    DialogInput input;
+    DialogInput input;input.keySet="BANK_AMOUNT";
     button(input,234,108,259,128,'o',"bank2.icn",0);
     button(input,261,108,285,128,'e',"bank2.icn",2);
     button(input,288,108,312,128,InputKey::Escape,"bank2.icn",4);
     return input;
 }
 DialogInput xeenFoodConfirmInput() {
-    DialogInput input;
+    DialogInput input;input.keySet="YESNO";
     button(input,235,75,259,95,'y',"confirm.icn",0);
     button(input,260,75,284,95,'n',"confirm.icn",2);
     input.keys.push_back(InputKey::Escape);return input;
@@ -674,11 +678,12 @@ std::string xeenCombatPanelText(const XeenDosText &text,const std::array<XeenCom
 IndexedFrame drawXeenCombatPanel(const XeenDosText &text,const IndexedFrame &base,const XeenFontFormat &font,
         const std::array<XeenCombatPanelRow,3> &rows,std::optional<unsigned> selected,const XeenDialogSpriteDraw &draw) {
     auto frame=render(base,font,xeenCombatPanelText(text,rows),{225,1,320,73},{233,9,312,65});
-    if(selected && *selected<3 && draw)draw(frame,"combat.icn",32,233,27+10*int(*selected));
+    const auto targets=text.combatTargets();
+    if(selected && *selected<3 && draw)draw(frame,"combat.icn",32,233,int(targets.top+targets.stride**selected));
     return frame;
 }
 DialogInput xeenConfirmInput(bool large) {
-    DialogInput input;
+    DialogInput input;input.keySet="YESNO";
     button(input,large?120:129,large?133:112,large?144:153,large?153:132,'y',"confirm.icn",0);
     button(input,large?176:185,large?133:112,large?200:209,large?153:132,'n',"confirm.icn",2);
     input.keys.push_back(InputKey::Escape);return input;
