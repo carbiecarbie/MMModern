@@ -10,6 +10,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace mmodern {
@@ -73,6 +74,13 @@ struct XeenItemDescription {
 	std::string coloredName(unsigned lineColor) const;
 };
 
+// Item names read from the Russian program (M110 Part B); the English names
+// are the build-time catalog. Russian weapons stop at id 34: neither program
+// names ids 35-40, which keep the catalog's names.
+struct XeenItemNames {
+	std::vector<std::string> weapons, armor, accessories, misc, special, bonus;
+};
+
 class XeenItemCatalog {
 public:
 	XeenItemCatalog();
@@ -86,6 +94,7 @@ public:
 	// item/container name, without the inventory description's material,
 	// power or condition decorations.
 	std::string foundName(XeenInventoryCategory,const XeenItem &) const;
+	void setNames(std::shared_ptr<const XeenItemNames> names) { _names = std::move(names); }
 
 private:
 	friend struct XeenItemCatalogLoadResult;
@@ -95,6 +104,9 @@ private:
 	XeenCatalogAvailability _availability = XeenCatalogAvailability::Available;
 	XeenMaterialAvailability _materialAvailability = XeenMaterialAvailability::Missing;
 	std::shared_ptr<const std::array<std::string, 131>> _materials;
+	std::shared_ptr<const XeenItemNames> _names;
+	enum class Names { Weapons, Armor, Accessories, Misc, Special, Bonus };
+	std::string_view name(Names table, unsigned index) const;
 };
 
 struct XeenItemCatalogLoadResult {

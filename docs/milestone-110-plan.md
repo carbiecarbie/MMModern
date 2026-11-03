@@ -216,10 +216,11 @@ copies and scripts are outside the repository in
    hotkeys and prompts alike. Part C settles from evidence how the DOS
    Russian programs received Cyrillic input (the Clouds translation ships a
    keyboard driver, `KSR.COM`; the Darkside one has none), and the layout
-   and switch that follow from it. A CD button with no Russian counterpart
-   (the panel's text and speech toggles) keeps its CD key and label, per
-   decision 6, unless that key collides with a Russian one; a collision is
-   reported to the maintainer.
+   and switch that follow from it. The Russian control panel follows the
+   Russian program: it has seven buttons and no Text and Speech toggles,
+   whose row holds its Mr Wizard button, so those toggles are absent in
+   Russian and speech cannot be switched off from the panel there (amended
+   by the maintainer, 2026-11-03, after Part B found the Russian panel).
 9. **Game text in code moves to the programs.** Condition names, the combat
    roster words and any other player-visible game text MMModern still writes
    in code are read from the program, in both languages.
@@ -263,7 +264,18 @@ copies and scripts are outside the repository in
   test; game text moved out of code.
 - **Part C - Russian rules and input.** Decision 8, the keyboard mapping
   for Cyrillic hotkeys and prompts, mirror answers, and decision 11's save
-  names.
+  names. Also, from the Part A review (maintainer, 2026-11-03):
+  - the Russian monster names in `xeen.mon`/`dark.mon` contain `\n` (for
+    example "Сточный\nохотник"): find in the Russian program how it lays these
+    names out in the combat rows and in `MONSTER_DETAILS`, and reproduce that;
+  - in the non-original `render()` path, `parseText` turns a literal `0xa0`
+    into a space, which becomes a word-break point
+    (`XeenTextRenderer.cpp:263`): a literal must never be a break point, as in
+    `renderOriginal`.
+- **Release notes.** The M110 release notes say that going back to an older
+  build rejects the six-key `settings.ini` (decision 1) and so loses the
+  won-ending flags, because release and development builds share the save
+  folder (maintainer, 2026-11-03).
 
 ## Risks
 
@@ -282,7 +294,10 @@ copies and scripts are outside the repository in
 
 The complete CTest suite passes with and without the Russian material.
 English behavior is unchanged; English tests change only where a deliberate
-version-policy assertion changes (decision 11). Automated evidence, with
+version-policy assertion changes (decision 11), and where decision 1's
+six-key `settings.ini` changes the expected settings bytes in
+`tests/XeenEndingTests.cpp`, a deliberate settings-format change (maintainer,
+2026-11-03). Automated evidence, with
 Russian-data tests registered through `mmodern_data_test()` under a new
 material variable:
 - per substituted entry, its non-text content equals the CD's, with

@@ -1,5 +1,6 @@
 #include "formats/xeen/XeenCutsceneData.h"
 #include "formats/xeen/XeenDosText.h"
+#include "formats/xeen/XeenRussianTranslation.h"
 #include <algorithm>
 #include <cstdio>
 #include <stdexcept>
@@ -30,7 +31,40 @@ XeenCutsceneData XeenCutsceneData::installed(const GameInstallation &installatio
   auto name=entry.path().filename().u8string();for(auto &c:name)if(c>='A'&&c<='Z')c+=32;
   if(name=="xeen.exe") {if(!exe.empty() || !entry.is_regular_file())bad();exe=entry.path();}
  }
- if(exe.empty())bad();return parse(read(ReadOnlyDataFile::plain(exe)),read(*installation.configuration));
+ if(exe.empty())bad();auto data=parse(read(ReadOnlyDataFile::plain(exe)),read(*installation.configuration));
+ if(installation.translation)data.applyRussianText(read(ReadOnlyDataFile::plain(installation.translation->program(true))));
+ return data;
+}
+void XeenCutsceneData::applyRussianText(const std::vector<std::uint8_t> &b) {
+ // Darkside of Xeen RUS 1.2 XEEN.EXE: data segment 0x19af at file 0x1c6d0.
+ // Each text is named by the push the CD names its counterpart with.
+ if(b.size()!=142257 || word(b,0)!=0x5a4d || word(b,8)*16!=0x2be0 ||
+    crc32(0,b.data(),static_cast<uInt>(b.size()))!=0x52021807UL)
+  throw std::runtime_error("Russian cutscene text unavailable: different translated XEEN.EXE");
+ constexpr auto ru=XeenLanguage::Russian;
+ const auto text=[&](std::size_t p,const std::string &english) {
+  auto value=token(b,p,std::min<std::size_t>(b.size(),p+1024));XeenDosText::validateControls(value,ru);
+  if(value.empty() || XeenDosText::formatSignature(value)!=XeenDosText::formatSignature(english))bad();
+  return value;
+ };
+ labels=text(0x1e8c6,labels);captionFormat=text(0x1fcca,captionFormat);
+ ending.scorePages[0]=text(0x1f861,ending.scorePages[0]);ending.scorePages[1]=text(0x1e84d,ending.scorePages[1]);
+ auto &de=darksideEnding;
+ constexpr std::size_t pages[]{0x1f038,0x1f123};
+ for(unsigned i=0;i<2;++i) {
+  const auto p=0x1f030+4*i;
+  if(word(b,p+2)!=0x19af || 0x1c6d0+word(b,p)!=pages[i])bad();
+  de.scorePages[i]=text(pages[i],de.scorePages[i]);
+ }
+ de.scoreFormats[0]=text(0x1f965,de.scoreFormats[0]);de.scoreFormats[1]=text(0x1e926,de.scoreFormats[1]);
+ auto &we=worldEnding;
+ constexpr std::size_t formats[]{0x1f6b4,0x1f6c4,0x1f6d4,0x1f6e4};
+ for(unsigned i=0;i<4;++i)we.formats[i]=text(formats[i],we.formats[i]);
+ we.opening=text(0x1f719,we.opening);
+ // CD tokens 21, 22, 51, 53, 55, 57, 61 and 104; the second is pushed past a
+ // reassembler mark that overlays the start of its string.
+ constexpr std::size_t captions[]{0x1e54b,0x217b1,0x1f8e3,0x1f99e,0x1f9d9,0x1fa2c,0x1de54,0x1ddc6};
+ for(unsigned i=0;i<8;++i)we.captions[i]=text(captions[i],we.captions[i]);
 }
 XeenCutsceneData XeenCutsceneData::parse(const std::vector<std::uint8_t> &b,const std::vector<std::uint8_t> &cfg) {
  // Part 0 identity plus MZ, pointer and bounded table checks. CRC refuses any

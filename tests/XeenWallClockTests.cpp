@@ -37,11 +37,11 @@ void rules() {
   check(back.year==t.year && back.month==t.month && back.day==t.day && back.hour==t.hour &&
    back.minute==t.minute && back.second==t.second,"DOS civil inverse");
  }
- check(xeenPanelCivilTime(xeenDosTime({2026,1,1,0,1,2}))=="12:01:02a","midnight");
- check(xeenPanelCivilTime(xeenDosTime({2026,7,1,12,1,2}))=="12:01:02p","noon");
- check(xeenPanelCivilTime(xeenDosTime({2026,7,1,9,1,2}))==" 9:01:02a","leading blank and lower-case morning");
- check(xeenPanelCivilTime(0)=="12:00:00a" && xeenPanelCivilTime(18000)=="12:00:00a","DOS signed-negative local calendar clamp");
- check(xeenPanelCivilTime(18000u+0x80000000u)=="12:00:00a","DOS high-bit local calendar clamp");
+ check(xeenPanelCivilTime(xeenDosTime({2026,1,1,0,1,2}),"a","p")=="12:01:02a","midnight");
+ check(xeenPanelCivilTime(xeenDosTime({2026,7,1,12,1,2}),"a","p")=="12:01:02p","noon");
+ check(xeenPanelCivilTime(xeenDosTime({2026,7,1,9,1,2}),"a","p")==" 9:01:02a","leading blank and lower-case morning");
+ check(xeenPanelCivilTime(0,"a","p")=="12:00:00a" && xeenPanelCivilTime(18000,"a","p")=="12:00:00a","DOS signed-negative local calendar clamp");
+ check(xeenPanelCivilTime(18000u+0x80000000u,"a","p")=="12:00:00a","DOS high-bit local calendar clamp");
  check(xeenPanelPlayTime(62545)=="17:22:25","calibrated elapsed seconds");
  check(xeenPanelPlayTime(68400)=="19:1092:16","DOS low-word product");
  check(xeenPanelPlayTime(0xfffffff9u)=="13398:16412:09","DOS minutes local also narrows to 16 bits after rollback");

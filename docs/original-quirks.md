@@ -774,9 +774,12 @@ stays documented here and in the plan that implements it.
   does; English drawing is unchanged. A player-entered name is always drawn as
   literal characters: in English a byte `0x80-0xff` draws the glyph of its low
   7 bits and never acts as a command (so a Russian New Game's roster stays
-  drawable in English, though not legible); there is no original counterpart. Program text stays English until
-  Part B (intro and ending captions, which are archive text, are Russian), and
-  Cyrillic entry (riddle and mirror answers are now Russian words) is Part C. Saves are unchanged and load in either language. Implemented in
+  drawable in English, though not legible); there is no original counterpart. Program text
+  comes from the Russian programs ([below](#ru-program-text)), and
+  Cyrillic entry (riddle and mirror answers are now Russian words) is Part C.
+  The Russian control panel is the Russian program's, without the CD's Text
+  and Speech toggles, so in Russian the English speech cannot be switched
+  off from the panel (it keeps the stored setting). Saves are unchanged and load in either language. Implemented in
   `XeenRussianTranslation`, `CheckedInstalledArchive::createReadStreamForMember`
   (`ScummVmRuntime` refuses raw archive opens while Russian is active),
   `XeenFontFormat`, `XeenTextRenderer` (`xeenLiteralText`) and
@@ -784,6 +787,59 @@ stays documented here and in the plan that implements it.
   Russian Clouds of Xeen, as its own floppy game, with Russian program text
   in its tables; it has no layer over the CD and no literal-name drawing.
   Pin: differs; master not rechecked.
+
+- <a id="ru-program-text"></a> **Russian program text follows the Russian Darkside program**
+  ([M110](milestone-110-plan.md) decisions 6, 7 and 9; calibrated static
+  analysis of the identified Russian `xeen.dat`/`xeen.exe` against the CD
+  `WORLD/XEEN.DAT`/`XEEN.EXE`, 2026-11-03). The Russian `xeen.dat` is the
+  floppy build, reassembled by its translators: data segment `0x46e2` (file
+  `0x4c290`), with an overflow segment from `0x56ea` (file `0x5c310`) that
+  only far pointers reach; `xeen.exe` has its data segment at `0x19af` (file
+  `0x1c6d0`). Its code aligns with the CD's at 64,810 unique ten-byte anchors
+  (89% of the CD code at a constant offset); each field is the string the
+  aligned instruction names (`push ds; push offset` and its kin), or the
+  entry of the far-pointer table at the same position in the identical
+  sequence of pointer runs. Of the 275 `XeenDosText` fields, 271 are mapped
+  and four are CD-only and keep the CD value: `NPC_TITLE_ONLY` (the Russian
+  code at `0x24faa` pushes only `NPC_DIALOG`), `CREDITS_RESOURCE` (the
+  Russian credits at `0xb8fc` draw one page from a program string instead of
+  `credits.bin`), and `TITLE_ANIMATIONS`/`MENU_SPRITE` (it names the floppy
+  `world.int`, not the CD's `world0`-`world2.int`). In Russian the credits are
+  that one page (`CREDITS_TEXT`, `0x5463e`), drawn on `marb.raw` by the same
+  writer, fade and show routines as each CD page (aligned exactly), and one
+  input returns to the menu. The panel window (23) is the Russian program's,
+  20 pixels shorter (`0x3c728`: 80,28,176,120); of its other windows only 36
+  (moved up) and 40 (zero in Russian: the CD-only title-only NPC window, which
+  the Russian program does not use and nothing in MMModern reads) differ. Every argument signature equals the English one except
+  `PANEL_BUTTON_TEXT`: the Russian control panel (`0x1e8d7`..`0x1e990`) has
+  seven buttons, without the CD's Text and Speech toggles, so its button
+  text takes the Efx and Music states only and the toggles are absent in
+  Russian. Kept as the program has them: `MONSTER_SPECIAL_ATTACKS` 1 and 2
+  point at "Удача" and at the Tavern's "Недурно" text instead of Magic and
+  Fire, `RATING_TEXT` 2 and 4 point into "Мизерный" and "от Грома" and so
+  draw "ный" and "ома" for Poor and Low (the English "Very Poor"/"Very Low"
+  suffix sharing kept by the reassembly), `WHO_ACTIONS` 31 reads `tr2` and
+  `DOS_FILE_PATTERN` names `.SAV` files. Other strings start inside another
+  without a visible effect: `MONSTER_SPECIAL_ATTACKS` 1 (the Luck string of
+  `STAT_NAMES` 6), `NOTHING_HERE` (after its control prefix, as on the CD),
+  `CAST_SPELL_DETAILS`, `NAME_PROMPT`, `NOT_RECHARGABLE` and the World
+  ending's crowd caption behind a reassembler's `github.com/excitoo` mark.
+  The program does not inflect:
+  its day and attack suffixes (`DAY_PLURAL`, `DAY_SINGULAR`) are empty, the
+  food and quest-item suffix characters are spaces (`0x3b31e`/`0x3b323`,
+  `0x32fb1`/`0x32fb6`), and gendered verbs carry both endings
+  ("взломал(а)", "не смог(ла)"), so no field takes the sex. Item names come
+  from its name table (`0x4e606`); weapon ids 35-40 are in neither program
+  and keep the build catalog's names. Implemented in `XeenDosText`
+  (`XeenDosTextRussian.inc`), `XeenCutsceneData::applyRussianText` and
+  `XeenItemNames`. Game text MMModern wrote in code (thousands `%uk`, the
+  clocks' `a`/`p`, millions `%lu mil`, the suffix and difficulty characters)
+  is now read from either program; the English values are unchanged.
+  **ScummVM:** the pin's Russian tables are for its own Russian Clouds of
+  Xeen and inflect where this program does not (three-form day and food
+  plurals, a gendered three-argument `X_FOUND_Y`, `ru_constants.h:1641`);
+  MMModern follows this program instead. Pin: differs; master not
+  rechecked.
 
 - <a id="dev-pending-side-save"></a> **Saving a pending FlipWorld side is refused**
   (maintainer, 2026-11-01; M104 decision 4). Normal original Events immediately

@@ -54,10 +54,10 @@ XeenCivilTime xeenDosLocalTime(std::uint32_t seconds) {
  auto t=civil(standard);
  return xeenDosDaylightTime(t)?civil(standard+3600):t;
 }
-std::string xeenPanelCivilTime(std::uint32_t seconds) {
+std::string xeenPanelCivilTime(std::uint32_t seconds,std::string_view am,std::string_view pm) {
  const auto t=xeenDosLocalTime(seconds);char text[32];
- std::snprintf(text,sizeof(text),"%2d:%02d:%02d%c",t.hour%12?t.hour%12:12,t.minute,t.second,t.hour>=12?'p':'a');
- return text;
+ std::snprintf(text,sizeof(text),"%2d:%02d:%02d",t.hour%12?t.hour%12:12,t.minute,t.second);
+ return text+std::string(t.hour>=12?pm:am);
 }
 std::string xeenPanelPlayTime(std::uint32_t seconds) {
  // DAT 0xf286..0xf2e8: only the low word of hours*3600 is subtracted.

@@ -51,7 +51,7 @@ std::vector<std::string> xeenQuestLines(const XeenDosText &text,const XeenQuestD
             title(i>=35);
             const auto &name=text.table("QUEST_ITEM_NAMES").at(i);
             lines.push_back(i==17 || i==26 || i>=79?
-                xeenDialogFormat(text.scalar("QUEST_ITEM_COUNT"),{std::to_string(p.items[i]),name,p.items[i]>1?"s":" "}):name);
+                xeenDialogFormat(text.scalar("QUEST_ITEM_COUNT"),{std::to_string(p.items[i]),name,std::string(1,text.characters("QUEST_ITEM_SUFFIX")[p.items[i]>1?1:0])}):name);
         }
     } else if(page==XeenJournalPage::Quests) {
         for(unsigned flag=1;flag<=56;++flag)if(p.quests[flag]) {title(flag>=30);lines.push_back(notes.at(flag-1));}

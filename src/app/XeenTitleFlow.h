@@ -16,7 +16,8 @@ public:
   const XeenFontFormat &font;
   IndexedFrame background;
   std::vector<IndexedFrame> animation;
-  std::array<IndexedFrame,4> credits;
+  // The CD's four credits.bin pages; the Russian program's one page.
+  std::vector<IndexedFrame> credits;
   XeenDialogSpriteDraw draw;
   std::function<std::array<XeenSaveFile::Slot,10>()> slots;
   std::function<std::filesystem::path(unsigned)> path;

@@ -157,7 +157,7 @@ Configure `MMODERN_XEEN_DATA_DIR` explicitly for required CD validation,
 `MMODERN_PROMUS_CAPTURES_DIR` for the six DOSBox music captures `xeen_promus`
 needs, `MMODERN_M94_CAPTURES_DIR` for the three mono OPL takes and the rolmus
 MIDI capture, `MMODERN_MT32_ROM_DIR` for the MT-32 test ROMs,
-`MMODERN_RU_DATA_DIR` for the Russian translation folder (its test is left out
+`MMODERN_RU_DATA_DIR` for the Russian translation folder (its tests are left out
 when unset), and, when needed,
 `MMODERN_XEEN_UI_DATA` for its installed UI module. See the [MT-32 and capture
 requirements](dependencies.md#mt-32-core-and-player-roms) for details.
@@ -170,6 +170,10 @@ score pages, using the production segments and installed EXE text:
 A key (including Escape) advances a page; clicks are ignored. It writes PPM
 snapshots to the output directory and changes no saves or settings.
 `--score-pictures` writes the same snapshots without opening a window.
+With the Russian translation,
+`build-rel/mmodern_russian_program_text_tests <game-directory> <russian-folder> <output-directory>`
+also writes the last frame of every segment of the two intros, the three
+endings and their score pages in Russian, as PPM.
 
 The `m102-playtest` preset starts in Castleview, Darkside map 29 `(14,4)`
 facing North. Its six members are level 29/49/99/199/29/29, with one billion

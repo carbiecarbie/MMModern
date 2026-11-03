@@ -165,7 +165,7 @@ IndexedFrame drawXeenSpellInformation(const XeenDosText &text,const IndexedFrame
     std::vector<std::string> rows(3);
     for(unsigned i=0;i<3;++i)if(info.monsters[i]) {
         const auto &m=*info.monsters[i];
-        const auto hp=m.hp>999?n(m.hp/1000)+"k":n(m.hp);
+        const auto hp=m.hp>999?xeenDialogFormat(text.scalar("THOUSANDS_FORMAT"),{n(m.hp/1000)}):n(m.hp);
         rows[i]=xeenDialogFormat(text.scalar("MONSTER_DETAILS"),{m.name,hp,n(m.ac),n(m.attacks),text.table("MONSTER_SPECIAL_ATTACKS").at(m.special)});
     }
     return render(base,font,xeenDialogFormat(text.scalar("IDENTIFY_MONSTERS"),rows),{20,142,290,199},{28,150,282,191});
@@ -514,7 +514,7 @@ DialogInput xeenFoodConfirmInput() {
     input.keys.push_back(InputKey::Escape);return input;
 }
 std::string xeenBankText(const XeenDosText &text,const XeenPartyState &p,bool withdrawal,bool refresh) {
-    const auto money=[](std::uint32_t value) {return value>=1000000?n(value/1000000)+" mil":n(value);};
+    const auto money=[&](std::uint32_t value) {return value>=1000000?xeenDialogFormat(text.scalar("MILLIONS_FORMAT"),{n(value/1000000)}):n(value);};
     return xeenDialogFormat(text.scalar(refresh?"GOLD_GEMS_2":"GOLD_GEMS"),{
         text.table("DEPOSIT_WITHDRAWL").at(withdrawal?1:0),
         money(withdrawal?std::uint32_t(p.serviceEconomy->bank.gold):gold(p)),
@@ -577,17 +577,17 @@ std::string xeenServiceConfirm(const XeenDosText &text,XeenItemService action,co
 std::string xeenTempleText(const XeenDosText &text,const XeenPartyState &p,std::size_t member,
         const XeenTempleSurcharges &prices,bool templeBlessed) {
     const auto &c=p.party.member(p.roster,member);
-    const auto purse=gold(p);const auto money=purse>=1000000?n(purse/1000000)+" mil":n(purse);
+    const auto purse=gold(p);const auto money=purse>=1000000?xeenDialogFormat(text.scalar("MILLIONS_FORMAT"),{n(purse/1000000)}):n(purse);
     const auto heal=xeenQuoteTempleHeal(c,purse,*p.encounterContext,prices);
     const auto uncurse=xeenTempleUncurseCost(c,prices);
-    return xeenDialogFormat(text.scalar("TEMPLE_TEXT"),{xeenLiteralText(c.name),n(heal.price),n(templeBlessed?0:prices.donation),uncurse>9999?n(uncurse/1000)+"k":n(uncurse),money});
+    return xeenDialogFormat(text.scalar("TEMPLE_TEXT"),{xeenLiteralText(c.name),n(heal.price),n(templeBlessed?0:prices.donation),uncurse>9999?xeenDialogFormat(text.scalar("THOUSANDS_FORMAT"),{n(uncurse/1000)}):n(uncurse),money});
 }
 std::string xeenLocationText(const XeenDosText &text,XeenLocationDialog location,const XeenPartyState &p,std::size_t member,
         XeenMapIdentity map,bool templeBlessed,std::string_view tavernStatus) {
     const auto &c=p.party.member(p.roster,member);
-    const auto purse=gold(p);const auto money=purse>=1000000?n(purse/1000000)+" mil":n(purse);
+    const auto purse=gold(p);const auto money=purse>=1000000?xeenDialogFormat(text.scalar("MILLIONS_FORMAT"),{n(purse/1000000)}):n(purse);
     if(location==XeenLocationDialog::Bank) {
-        const auto money=[](std::uint32_t value) {return value>=1000000?n(value/1000000)+" mil":n(value);};
+        const auto money=[&](std::uint32_t value) {return value>=1000000?xeenDialogFormat(text.scalar("MILLIONS_FORMAT"),{n(value/1000000)}):n(value);};
         return xeenDialogFormat(text.scalar("BANK_TEXT"),{money(p.serviceEconomy->bank.gold),money(p.serviceEconomy->bank.gems),money(gold(p)),money(gems(p))});
     }
     if(location==XeenLocationDialog::Tavern) return xeenDialogFormat(text.scalar("TAVERN_TEXT"),{xeenLiteralText(c.name),tavernStatus.empty()?str(text.scalar("FOOD_AND_DRINK")):str(tavernStatus),money});
@@ -741,7 +741,7 @@ IndexedFrame drawXeenSheet(const XeenDosText &text,const IndexedFrame &base,cons
         n(color(0)),n(stat(0)),n(color(5)),n(stat(5)),n(R::statColor(c.currentHp,maxHp)),n(int(c.currentHp)),n(R::currentExperience(c,in)),
         n(color(1)),n(stat(1)),n(color(6)),n(stat(6)),n(R::statColor(c.currentSp,maxSp)),n(int(c.currentSp)),n(gold(p)),
         n(color(2)),n(stat(2)),n(R::statColor(R::sheetAge(c,ctx),R::sheetAge(c,ctx,true))),n(R::sheetAge(c,ctx)),n(totalResistance),n(gems(p)),
-        n(color(3)),n(stat(3)),n(R::statColor(c.currentLevel(),c.permanentLevel)),n(c.currentLevel()),n(R::skillCount(c)),n(food),food==1?" ":str(text.scalar("DAY_PLURAL")),
+        n(color(3)),n(stat(3)),n(R::statColor(c.currentLevel(),c.permanentLevel)),n(c.currentLevel()),n(R::skillCount(c)),n(food),std::string(1,text.characters("FOOD_DAY_SUFFIX")[food==1?0:1]),
         n(color(4)),n(stat(4)),n(R::statColor(R::sheetArmorClass(c,in,ctx),R::sheetArmorClass(c,in,ctx,true))),n(R::sheetArmorClass(c,in,ctx)),n(R::awardCount(c)),
         n(condition<8?9:condition<12?32:condition<16?6:15),str(conditions(text,c)[condition]),
         condition==16 && p.encounterContext && p.encounterContext->effects[XeenPartyEffect::Bless]?str(text.scalar("PLUS_14")):"",
@@ -806,7 +806,7 @@ XeenDialogPopup xeenInfoPopup(const XeenDosText &text,const XeenGameplayContext 
     const unsigned hour=ctx.minutes/60;
     return {xeenDialogFormat(text.scalar("GAME_INFORMATION"),{str(text.scalar("WORLD_GAME_TEXT")),
         text.table("WEEK_DAY_STRINGS").at(ctx.day%10),n(hour>12?hour-12:hour?hour:12),n(ctx.minutes%60),
-        hour>11?"p":"a",n(unsigned(ctx.day)),n(unsigned(ctx.year)),effects}),
+        std::string(1,text.characters("CLOCK_MERIDIEM")[hour>11?1:0]),n(unsigned(ctx.day)),n(unsigned(ctx.year)),effects}),
         {88,20,248,112+(rows?int(rows)*9+13:0)}};
 }
 XeenDialogPopup xeenSheetPopup(const XeenDosText &text,const XeenPartyState &p,std::size_t member,unsigned cell) {
@@ -821,7 +821,7 @@ XeenDialogPopup xeenSheetPopup(const XeenDosText &text,const XeenPartyState &p,s
         popup.text=xeenDialogFormat(text.scalar("CURRENT_MAXIMUM_RATING_TEXT"),{name,n(value),n(R::sheetStat(c,in,cell,ctx,true)),str(text.table("RATING_TEXT")[rating])});
     } else if(cell==7) popup.text=xeenDialogFormat(text.scalar("AGE_TEXT"),{name,n(R::sheetAge(c,ctx)),n(R::sheetAge(c,ctx,true)),n(unsigned(c.birthDay)),n(unsigned(c.birthYear))});
     else if(cell==8) { constexpr unsigned gains[]{5,6,6,7,8,6,5,4,7,6};const unsigned attacks=c.currentLevel()/gains[static_cast<unsigned>(c.characterClass)]+1;
-        popup.text=xeenDialogFormat(text.scalar("LEVEL_TEXT"),{name,n(c.currentLevel()),n(int(c.permanentLevel)),n(attacks),attacks>1?"s":""}); }
+        popup.text=xeenDialogFormat(text.scalar("LEVEL_TEXT"),{name,n(c.currentLevel()),n(int(c.permanentLevel)),n(attacks),str(text.scalar(attacks>1?"DAY_PLURAL":"DAY_SINGULAR"))}); }
     else if(cell<=11) {
         const int current=cell==9?R::sheetArmorClass(c,in,ctx):cell==10?int(c.currentHp):int(c.currentSp);
         const int max=cell==9?R::sheetArmorClass(c,in,ctx,true):cell==10?R::maxHp(c,ctx):R::maxSp(c,ctx);
