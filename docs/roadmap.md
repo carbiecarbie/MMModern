@@ -245,7 +245,10 @@ Roughly in this order, each with its own decision and plan:
    mod support and modding tools.
 6. The opt-in extras the README lists: game controller support, graphics
    filters and switching sound devices while playing.
-7. Other language editions of the original.
+7. Other language editions of the original. Russian started on 2026-11-03,
+   in parallel with M109, as a language layer over the CD edition with the
+   old-games.ru fan translation: planned as M110 (Tier A,
+   [plan](milestone-110-plan.md)).
 8. **To evaluate:** whether to support Swords of Xeen, a standalone game on
    the same engine, made by the fan group Catware and later distributed by
    New World Computing. The maintainer decides whether it is included
