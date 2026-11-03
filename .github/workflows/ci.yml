@@ -112,7 +112,11 @@ jobs:
           if [ "$expected" != "$actual" ]; then
             echo "$expected" > /tmp/expected.txt
             echo "$actual" > /tmp/actual.txt
-            diff -u /tmp/expected.txt /tmp/actual.txt || true
+            # MSYS2's base has no diff; comm (coreutils) lists the differing lines.
+            sort /tmp/expected.txt > /tmp/expected.sorted
+            sort /tmp/actual.txt > /tmp/actual.sorted
+            echo 'Only expected (left), only found (right):'
+            comm -3 /tmp/expected.sorted /tmp/actual.sorted || true
             echo "::error::The installed UCRT64 packages differ from the pinned set."
             exit 1
           fi
@@ -129,7 +133,9 @@ jobs:
           awk '/^### Pinned MSYS2 package set/ { section = 1; next }
             section && /^```/ { if (inside) exit; inside = 1; next }
             inside { print }' docs/dependencies.md | sort > /tmp/documented.txt
-          if ! diff -u /tmp/pinned.txt /tmp/documented.txt; then
+          if [ "$(cat /tmp/pinned.txt)" != "$(cat /tmp/documented.txt)" ]; then
+            echo 'Only pinned (left), only documented (right):'
+            comm -3 /tmp/pinned.txt /tmp/documented.txt || true
             echo "::error::The package list in docs/dependencies.md differs from .github/ci/msys2-packages.txt."
             exit 1
           fi
@@ -174,7 +180,11 @@ jobs:
           if [ "$expected" != "$actual" ]; then
             echo "$expected" > /tmp/expected.txt
             echo "$actual" > /tmp/actual.txt
-            diff -u /tmp/expected.txt /tmp/actual.txt || true
+            # MSYS2's base has no diff; comm (coreutils) lists the differing lines.
+            sort /tmp/expected.txt > /tmp/expected.sorted
+            sort /tmp/actual.txt > /tmp/actual.sorted
+            echo 'Only expected (left), only found (right):'
+            comm -3 /tmp/expected.sorted /tmp/actual.sorted || true
             echo "::error::ScummVM's USE_ set differs from .github/ci/scummvm-use.txt."
             exit 1
           fi
@@ -210,7 +220,11 @@ jobs:
           if [ "$expected" != "$actual" ]; then
             echo "$expected" > /tmp/expected.txt
             echo "$actual" > /tmp/actual.txt
-            diff -u /tmp/expected.txt /tmp/actual.txt || true
+            # MSYS2's base has no diff; comm (coreutils) lists the differing lines.
+            sort /tmp/expected.txt > /tmp/expected.sorted
+            sort /tmp/actual.txt > /tmp/actual.sorted
+            echo 'Only expected (left), only found (right):'
+            comm -3 /tmp/expected.sorted /tmp/actual.sorted || true
             echo "::error::The installed UCRT64 packages differ from the pinned set."
             exit 1
           fi
