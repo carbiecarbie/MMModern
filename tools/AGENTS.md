@@ -14,6 +14,12 @@ rerunning its failed tests, and when acting as its test runner. The root
   play-tests, so no separate Debug (`build-m44`) run is required at milestone
   closure or before a release (maintainer, 2026-10-16). Use `build-m44` only to
   debug, for example when a test behaves differently between the two builds.
+- Where the Russian World of Xeen translation is installed, `build-rel` is
+  configured with `MMODERN_RU_DATA_DIR` (the maintainer's machine:
+  `D:/Projetos/MModern/ru-translation/world-ru`; see
+  [tests](../docs/development.md)). The one complete suite then covers both
+  languages, and no separate run without the translation is needed; the
+  GitHub Actions run has no translation (maintainer, 2026-11-03).
 - Do not run redundant complete suites. Run it again only when a later
   production-code change invalidates the previous result, or failures require
   it (see Failures and reruns).
