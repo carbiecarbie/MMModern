@@ -56,6 +56,12 @@ The pinned revision was validated with:
   `MMODERN_VORBIS_INCLUDE_DIR` and the three `MMODERN_*_LIBRARY` cache
   paths select these static artifacts through `find_library`; normal toolchain
   search paths apply, with no hard-coded MSYS2 installation directory.
+- Git for Windows 2.56.0 and the inbox Windows PowerShell 5.1, which generate
+  the [item catalog](#build-generated-english-item-catalog) and the dialog
+  drawing include during configuration and every build (`find_package(Git)`
+  and `find_program(powershell)` are required). The generator passes Windows
+  paths to Git, so when another `git` (for example MSYS2's) would be found
+  first, set `-DGIT_EXECUTABLE` to Git for Windows' `git.exe`.
 
 CD audio tests require `MMODERN_XEEN_AUDIO_DIR` (defaulting to
 `MMODERN_XEEN_DATA_DIR`) with `GAME1.INS`, `GAME2.INS` and `MUSIC/`.
@@ -71,8 +77,9 @@ every UCRT64 package the builds use, with their dependencies, plus the MSYS
 from `repo.msys2.org` by name and SHA-256
 (`.github/ci/msys2-packages.txt`), so a toolchain update changes this list,
 that file and the cached builds together. The maintainer's machine has
-`msys2-runtime 3.6.10-3`; the run uses the MSYS2 base installation of its
-image and logs its `msys2-runtime`.
+`msys2-runtime 3.6.10-3`. The run's MSYS2 base comes from the installer that
+its `msys2/setup-msys2` version pins (v2.33.0: the 2026-09-27 base, checked
+by SHA-256); the run logs that base's `msys2-runtime`.
 
 ```text
 mingw-w64-ucrt-x86_64-SDL2 2.32.10-1
@@ -566,6 +573,9 @@ cmake --build build-rel --target mmodern_test_save   # optional tool, not built 
 ctest --test-dir build-rel -L fast -j 8 --output-on-failure
 ```
 
+Add `-DGIT_EXECUTABLE=<path-to-Git-for-Windows>/cmd/git.exe` when another
+`git` comes first on `PATH`, as described under the toolchain above.
+
 `build-rel/build.ninja` must not contain `NDEBUG`. Outside Debug builds, test
 and tool executables are linked with `-Wl,--strip-debug`: debug information is
 about 97% of each one, and writing it dominated incremental builds (one source
@@ -634,10 +644,11 @@ manual dispatch start a run on a clean hosted `windows-2025` machine. It:
 - sets up MSYS2 UCRT64 (`update: false`, `path-type: minimal`) and installs
   the [pinned package set](#pinned-msys2-package-set) from verified, cached
   package files, then checks that nothing else is installed and that this
-  document lists every pinned package;
+  document lists exactly the pinned packages;
 - fetches the pinned ScummVM commit at depth 1 with Git for Windows, requires
   it as a detached HEAD with an empty `git status --porcelain`, configures it
-  with the command above before installing `libvorbis` and `libogg`, compares
+  with the command above (`.github/ci/scummvm.sh` holds it and the artifact
+  build) before installing `libvorbis` and `libogg`, compares
   the `USE_` lines of its `config.h` and `config.mk` with the recorded set in
   `.github/ci/scummvm-use.txt`, builds the four artifacts and caches that
   build under the commit and the pins (a cache hit skips only configure and
@@ -672,7 +683,7 @@ The workflow, `.github/ci/` and this document change together: a toolchain,
 ScummVM or configuration change that is not made in all of them makes the run
 fail. The token is read-only, no secret is used and every action is pinned by
 full commit SHA. A newer push cancels the older run of the same branch, except
-on `main`, where every commit keeps its own result.
+on `main`, where nothing is cancelled and every commit keeps its own result.
 
 ## Release packaging
 

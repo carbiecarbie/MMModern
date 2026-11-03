@@ -304,6 +304,7 @@ add_library(mmodern_test_save_support STATIC EXCLUDE_FROM_ALL tools/XeenTestSave
 target_include_directories(mmodern_test_save_support PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_compile_definitions(mmodern_test_save_support PRIVATE MMODERN_TEST_SAVE_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
 target_link_libraries(mmodern_test_save_support PUBLIC mmodern_app mmodern_xeen)
+# EXCLUDE_FROM_ALL: .github/workflows/ci.yml builds it by name; keep that list in step.
 add_executable(mmodern_test_save EXCLUDE_FROM_ALL tools/GenerateTestSave.cpp)
 target_link_libraries(mmodern_test_save PRIVATE mmodern_test_save_support shell32)
 add_library(mmodern_dos_export_support STATIC EXCLUDE_FROM_ALL tools/XeenDosArchive.cpp tools/XeenDosExport.cpp tools/XeenDosDiff.cpp)
@@ -311,6 +312,7 @@ target_include_directories(mmodern_dos_export_support PUBLIC "${CMAKE_CURRENT_SO
  PRIVATE "${SCUMMVM_BUILD_DIR}" "${SCUMMVM_SOURCE_DIR}" "${SCUMMVM_SOURCE_DIR}/engines")
 target_compile_definitions(mmodern_dos_export_support PRIVATE WIN32 UNICODE _UNICODE)
 target_link_libraries(mmodern_dos_export_support PUBLIC mmodern_app mmodern_xeen mmodern_scummvm_xeen)
+# EXCLUDE_FROM_ALL: .github/workflows/ci.yml builds it by name; keep that list in step.
 add_executable(mmodern_dos_export EXCLUDE_FROM_ALL tools/ExportDosSave.cpp)
 target_link_libraries(mmodern_dos_export PRIVATE mmodern_dos_export_support shell32)
 add_executable(mmodern_regional_original tests/XeenRegionalOriginal.cpp)
@@ -1445,9 +1447,11 @@ if(BUILD_TESTING)
 		mmodern_data_test(NAME xeen_${xeen_smoke}_original COMMAND mmodern_${xeen_smoke}_smoke "${MMODERN_XEEN_DATA_DIR}")
 	endforeach()
 	# M44 original-data scenarios; digests and regeneration are in tests/XeenM44BaselineDigests.h.
+	# EXCLUDE_FROM_ALL: .github/workflows/ci.yml builds it by name; keep that list in step.
 	add_executable(mmodern_m44_baseline_witness EXCLUDE_FROM_ALL src/main.cpp tests/XeenM44BaselineWitness.cpp)
 	target_link_libraries(mmodern_m44_baseline_witness PRIVATE mmodern_app mmodern_xeen mmodern_platform_sdl SDL2::SDL2 shell32 bcrypt)
 	target_link_options(mmodern_m44_baseline_witness PRIVATE "LINKER:--wrap,_ZNK7mmodern11Application12playGameplayERKNS_20XeenGameplayServicesENS_10XeenCameraERKSt8optionalINSt10filesystem7__cxx114pathEEbNS_18XeenEncounterEntryES5_IjE" "LINKER:--wrap,_ZN7mmodern16XeenCombatRandom4drawEjj")
+	# EXCLUDE_FROM_ALL: .github/workflows/ci.yml builds it by name; keep that list in step.
 	add_executable(mmodern_m44_baseline_restart EXCLUDE_FROM_ALL tests/XeenM44BaselineRestart.cpp)
 	add_executable(mmodern_m44_scenario_tests tests/XeenM44ScenarioTests.cpp)
 	target_link_libraries(mmodern_m44_scenario_tests PRIVATE mmodern_app mmodern_xeen mmodern_platform_sdl bcrypt)

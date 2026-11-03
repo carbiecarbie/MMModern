@@ -1,8 +1,9 @@
 # Builds MMModern on a clean Windows machine from the repository and
 # docs/dependencies.md alone, and runs the tests that need no original data
 # (MMODERN_ORIGINAL_DATA_TESTS=OFF). It never replaces the complete local
-# suite. The pinned toolchain is .github/ci/msys2-packages.txt and the
-# expected ScummVM configuration .github/ci/scummvm-use.txt; change them and
+# suite. The pinned toolchain is .github/ci/msys2-packages.txt, the ScummVM
+# configure and build commands .github/ci/scummvm.sh and the expected ScummVM
+# configuration .github/ci/scummvm-use.txt; change them and
 # docs/dependencies.md together.
 name: CI
 
@@ -12,11 +13,11 @@ on:
   pull_request:
   workflow_dispatch:
 
-# A newer push cancels the older run of the same branch; on main every commit
-# gets its own group, so each keeps its own result.
+# A newer push cancels the older run of the same branch. On main every commit
+# gets its own group and nothing is cancelled, so each keeps its own result.
 concurrency:
   group: ci-${{ github.ref == 'refs/heads/main' && github.sha || github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 permissions:
   contents: read
@@ -75,15 +76,21 @@ jobs:
           set -eu
           dir=$(cygpath -u "$PKG_DIR")
           mkdir -p "$dir"
-          grep -v '^#' .github/ci/msys2-packages.txt | while read -r sum file stage; do
+          grep -vE '^(#|$)' .github/ci/msys2-packages.txt | while read -r sum file stage; do
             case "$file" in
               mingw-w64-ucrt-x86_64-*) url="$MSYS2_REPO/mingw/ucrt64/$file" ;;
               *) url="$MSYS2_REPO/msys/x86_64/$file" ;;
             esac
-            [ -f "$dir/$file" ] || curl -fsSL --retry 3 -o "$dir/$file" "$url"
-            echo "$sum  $dir/$file" | sha256sum -c --quiet
+            if [ ! -f "$dir/$file" ] && ! curl -fsSL --retry 3 -o "$dir/$file" "$url"; then
+              echo "::error::Could not download $file from $url."
+              exit 1
+            fi
+            if ! echo "$sum  $dir/$file" | sha256sum -c --quiet; then
+              echo "::error::$file does not match its pinned SHA-256."
+              exit 1
+            fi
           done
-          echo "All $(grep -vc '^#' .github/ci/msys2-packages.txt) package files match their SHA-256."
+          echo "All $(grep -vcE '^(#|$)' .github/ci/msys2-packages.txt) package files match their SHA-256."
 
       - name: Save pinned package files
         if: steps.pkg-cache.outputs.cache-hit != 'true'
@@ -97,7 +104,7 @@ jobs:
         run: |
           set -eu
           dir=$(cygpath -u "$PKG_DIR")
-          files=$(grep -v '^#' .github/ci/msys2-packages.txt | awk -v d="$dir" '$3 != "after-scummvm" { print d "/" $2 }')
+          files=$(grep -vE '^(#|$)' .github/ci/msys2-packages.txt | awk -v d="$dir" '$3 != "after-scummvm" { print d "/" $2 }')
           pacman -U --noconfirm $files
           # Nothing beyond the pinned files may be installed into UCRT64.
           expected=$(for f in $files; do pacman -Qp "$f"; done | grep '^mingw-w64-ucrt-x86_64-' | sort)
@@ -110,20 +117,23 @@ jobs:
             exit 1
           fi
 
-      - name: Check that docs/dependencies.md lists every pinned package
+      - name: Check that docs/dependencies.md lists exactly the pinned packages
         shell: msys2 {0}
         run: |
           set -eu
           dir=$(cygpath -u "$PKG_DIR")
-          missing=0
-          for file in $(grep -v '^#' .github/ci/msys2-packages.txt | awk '{ print $2 }'); do
-            entry=$(pacman -Qp "$dir/$file")
-            if ! grep -qxF -- "$entry" docs/dependencies.md; then
-              echo "::error::docs/dependencies.md does not list '$entry'."
-              missing=1
-            fi
-          done
-          exit $missing
+          for file in $(grep -vE '^(#|$)' .github/ci/msys2-packages.txt | awk '{ print $2 }'); do
+            pacman -Qp "$dir/$file"
+          done | sort > /tmp/pinned.txt
+          # The first fenced block after the "Pinned MSYS2 package set" heading.
+          awk '/^### Pinned MSYS2 package set/ { section = 1; next }
+            section && /^```/ { if (inside) exit; inside = 1; next }
+            inside { print }' docs/dependencies.md | sort > /tmp/documented.txt
+          if ! diff -u /tmp/pinned.txt /tmp/documented.txt; then
+            echo "::error::The package list in docs/dependencies.md differs from .github/ci/msys2-packages.txt."
+            exit 1
+          fi
+          echo "docs/dependencies.md lists the $(wc -l < /tmp/pinned.txt) pinned packages."
 
       - name: Fetch ScummVM at the pinned commit
         shell: pwsh
@@ -147,20 +157,12 @@ jobs:
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ env.SCUMMVM_BUILD }}
-          key: scummvm-${{ env.SCUMMVM_COMMIT }}-${{ hashFiles('.github/ci/msys2-packages.txt', '.github/ci/scummvm-use.txt') }}
+          key: scummvm-${{ env.SCUMMVM_COMMIT }}-${{ hashFiles('.github/ci/msys2-packages.txt', '.github/ci/scummvm.sh', '.github/ci/scummvm-use.txt') }}
 
       - name: Configure ScummVM
         if: steps.scummvm-cache.outputs.cache-hit != 'true'
         shell: msys2 {0}
-        run: |
-          set -eu
-          mkdir -p "$(cygpath -u "$SCUMMVM_BUILD")"
-          cd "$(cygpath -u "$SCUMMVM_BUILD")"
-          SDL_CONFIG=/ucrt64/bin/sdl2-config \
-            "$(cygpath -u "$SCUMMVM_SOURCE")/configure" \
-            --backend=sdl \
-            --disable-all-engines \
-            --disable-detection-full
+        run: bash .github/ci/scummvm.sh configure "$(cygpath -u "$SCUMMVM_SOURCE")" "$(cygpath -u "$SCUMMVM_BUILD")"
 
       - name: Check the ScummVM USE_ set
         shell: msys2 {0}
@@ -182,14 +184,7 @@ jobs:
       - name: Build the four ScummVM artifacts
         if: steps.scummvm-cache.outputs.cache-hit != 'true'
         shell: msys2 {0}
-        run: |
-          set -eu
-          cd "$(cygpath -u "$SCUMMVM_BUILD")"
-          make -j4 \
-            image/libimage.a \
-            graphics/libgraphics.a \
-            common/formats/po_parser.o \
-            common/libcommon.a
+        run: bash .github/ci/scummvm.sh build "$(cygpath -u "$SCUMMVM_SOURCE")" "$(cygpath -u "$SCUMMVM_BUILD")"
 
       - name: Save the ScummVM build
         if: steps.scummvm-cache.outputs.cache-hit != 'true'
@@ -203,8 +198,12 @@ jobs:
         run: |
           set -eu
           dir=$(cygpath -u "$PKG_DIR")
-          files=$(grep -v '^#' .github/ci/msys2-packages.txt | awk -v d="$dir" '{ print d "/" $2 }')
-          late=$(grep -v '^#' .github/ci/msys2-packages.txt | awk -v d="$dir" '$3 == "after-scummvm" { print d "/" $2 }')
+          files=$(grep -vE '^(#|$)' .github/ci/msys2-packages.txt | awk -v d="$dir" '{ print d "/" $2 }')
+          late=$(grep -vE '^(#|$)' .github/ci/msys2-packages.txt | awk -v d="$dir" '$3 == "after-scummvm" { print d "/" $2 }')
+          if [ -z "$late" ]; then
+            echo "::error::.github/ci/msys2-packages.txt marks no package after-scummvm; libvorbis and libogg must follow ScummVM's configure."
+            exit 1
+          fi
           pacman -U --noconfirm $late
           expected=$(for f in $files; do pacman -Qp "$f"; done | grep '^mingw-w64-ucrt-x86_64-' | sort)
           actual=$(pacman -Q | grep '^mingw-w64-ucrt-x86_64-' | sort)
@@ -262,7 +261,8 @@ jobs:
           $PSNativeCommandUseErrorActionPreference = $true
           $env:PATH = $env:MMODERN_CI_PATH
           cmake --build build-rel
-          # The EXCLUDE_FROM_ALL targets, so every documented target compiles.
+          # The EXCLUDE_FROM_ALL targets, so every documented target compiles;
+          # CMakeLists.txt points here where it defines them.
           cmake --build build-rel --target mmodern_test_save mmodern_dos_export mmodern_m44_baseline_witness mmodern_m44_baseline_restart
 
       - name: Free disk after the MMModern build
