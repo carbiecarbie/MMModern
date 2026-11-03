@@ -1516,10 +1516,12 @@ if(BUILD_TESTING)
 			set_tests_properties(${xeen_test} PROPERTIES LABELS fast TIMEOUT 300)
 		endif()
 	endforeach()
-	# Serial group: tests that assert real-clock scheduling or drive a native
-	# window never share the machine with another test.
+	# Serial group: tests that assert real-clock scheduling or elapsed time, or
+	# drive a native window, never share the machine with another test.
+	# xeen_save_state bounds the all-maps restore at one second: about 0.4 s on the
+	# development machine, 1.0-1.4 s beside three other tests on a 4-processor CI runner.
 	mmodern_test_properties(xeen_input_scheduling xeen_main_screen xeen_native_responsiveness
-		xeen_title_flow xeen_myra_original_sdl xeen_save_cli xeen_combat_cli
+		xeen_title_flow xeen_myra_original_sdl xeen_save_cli xeen_combat_cli xeen_save_state
 		sdl_input sdl_main_screen sdl_motion sdl_window_placement xeen_member_prompt_click PROPERTIES RUN_SERIAL TRUE)
 	# CTest starts the costliest tests first. CTestCostData.txt is not reliable
 	# for that: a run without -j (`ctest -R name`) divides the test's average by
