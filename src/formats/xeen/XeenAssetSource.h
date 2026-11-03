@@ -1,6 +1,7 @@
 #ifndef MMODERN_FORMATS_XEEN_ASSET_SOURCE_H
 #define MMODERN_FORMATS_XEEN_ASSET_SOURCE_H
 
+#include "formats/xeen/XeenLanguage.h"
 #include "core/GameInstallation.h"
 #include "core/IndexedFrame.h"
 #include "formats/xeen/XeenSpriteDrawOptions.h"
@@ -20,6 +21,8 @@ struct XeenObjectVisual;
 
 class XeenAssetSource {
 public:
+	// M110: the language of archive text and of the font, fixed by the installation.
+	XeenLanguage language() const;
 	explicit XeenAssetSource(const GameInstallation &installation);
 	XeenAssetSource(const GameInstallation &installation, int width, int height);
 	~XeenAssetSource();

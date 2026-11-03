@@ -516,12 +516,12 @@ void won(const fs::path &directory) {
  }
  {std::ofstream out(path);out<<"won=1\n";}check(xeenReadSettings(path).won && !xeenReadSettings(path).darksideIntroSeen,"M92 settings");
  check(xeenWriteSeen(path,true) && xeenReadSettings(path).won && xeenReadSettings(path).darksideIntroSeen,"Seen preserves win");
- check(xeenWriteWon(path) && bytes(path)=="won=1\ndarkside_intro_seen=1\ndarkside_won=0\nworld_won=0\n" && xeenReadWon(path) && !fs::exists(path.string()+".tmp"),"Atomic settings publication");
+ check(xeenWriteWon(path) && bytes(path)=="won=1\ndarkside_intro_seen=1\ndarkside_won=0\nworld_won=0\nlanguage=english\nrussian_translation=\n" && xeenReadWon(path) && !fs::exists(path.string()+".tmp"),"Atomic settings publication");
  check(xeenWriteSeen(path,false) && xeenReadWon(path) && !xeenReadSettings(path).darksideIntroSeen,"Clear seen preserves win");
  check(xeenWriteSeen(path,true),"Restore seen");
  const auto handle=CreateFileW(path.c_str(),GENERIC_READ,FILE_SHARE_READ,nullptr,OPEN_EXISTING,FILE_ATTRIBUTE_NORMAL,nullptr);
  check(handle!=INVALID_HANDLE_VALUE,"Lock settings replacement");
- check(!xeenWriteWon(path) && bytes(path)=="won=1\ndarkside_intro_seen=1\ndarkside_won=0\nworld_won=0\n" && !fs::exists(path.string()+".tmp"),"Failed publication preserves old complete file and cleans temporary");
+ check(!xeenWriteWon(path) && bytes(path)=="won=1\ndarkside_intro_seen=1\ndarkside_won=0\nworld_won=0\nlanguage=english\nrussian_translation=\n" && !fs::exists(path.string()+".tmp"),"Failed publication preserves old complete file and cleans temporary");
  CloseHandle(handle);check(xeenWriteWon(path),"Atomic replacement of an existing file");
  for(unsigned mask=0;mask<16;++mask) {
   const auto seed=[&] {std::ofstream out(path);out<<"world_won="<<bool(mask&4)<<"\nwon="<<bool(mask&1)<<"\ndarkside_won="<<bool(mask&2)<<"\ndarkside_intro_seen="<<bool(mask&8)<<"\n";};

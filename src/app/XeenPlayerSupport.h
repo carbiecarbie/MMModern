@@ -15,6 +15,11 @@ void xeenWriteOwnedCfg(const std::filesystem::path &,const std::vector<std::uint
 void xeenResetOwnedCfg(const std::filesystem::path &);
 std::string xeenDiagnostics(const std::filesystem::path &,const std::optional<std::filesystem::path> &cfg={},const std::filesystem::path &ui={});
 int xeenSoundSetupCommand(const std::vector<std::string> &);
+class XeenRussianTranslation;
+// M110: the translation settings.ini selects, or null for English; a refused
+// translation leaves English and reports why.
+std::shared_ptr<const XeenRussianTranslation> xeenPlayerTranslation(std::string *refusal = nullptr);
+int xeenLanguageSetupCommand(const std::vector<std::string> &);
 class XeenPlayerLog {
 public:
  XeenPlayerLog();

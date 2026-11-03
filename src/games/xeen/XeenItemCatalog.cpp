@@ -124,6 +124,31 @@ bool readScalar(const std::vector<std::uint8_t> &bytes, std::size_t &position,
 
 XeenItemCatalog::XeenItemCatalog() = default;
 
+std::string_view XeenItemCatalog::name(Names table, unsigned index) const {
+	if (_names) {
+		const std::vector<std::string> *names = nullptr;
+		switch (table) {
+		case Names::Weapons: names = &_names->weapons; break;
+		case Names::Armor: names = &_names->armor; break;
+		case Names::Accessories: names = &_names->accessories; break;
+		case Names::Misc: names = &_names->misc; break;
+		case Names::Special: names = &_names->special; break;
+		case Names::Bonus: names = &_names->bonus; break;
+		}
+		if (index < names->size())
+			return (*names)[index];
+	}
+	switch (table) {
+	case Names::Weapons: return at(kWeaponNames, index);
+	case Names::Armor: return at(kArmorNames, index);
+	case Names::Accessories: return at(kAccessoryNames, index);
+	case Names::Misc: return at(kMiscNames, index);
+	case Names::Special: return at(kSpecialNames, index);
+	case Names::Bonus: return at(kBonusNames, index);
+	}
+	return {};
+}
+
 XeenItemCatalog XeenItemCatalog::unavailable() {
 	XeenItemCatalog result;
 	result._availability = XeenCatalogAvailability::Unavailable;
@@ -165,14 +190,36 @@ XeenItemDescription XeenItemCatalog::describe(XeenInventoryCategory category,
 	}
 
 	detail::XeenBoundedText text(kDescriptionLimit);
-	if (result.broken) {
-		text.append(decoration(kItemBroken, "\f32"));
-		result.brokenEnd = text.value().size();
-	}
-	if (result.cursed) {
-		text.append(decoration(kItemCursed, "\f09"));
-		result.cursedEnd = text.value().size();
-	}
+	const bool russian = _names && _names->russian;
+	const std::string_view brokenWord = russian ? std::string_view(_names->broken) : kItemBroken;
+	const std::string_view cursedWord = russian ? std::string_view(_names->cursed) : kItemCursed;
+	const bool reordered = russian && category != XeenInventoryCategory::Miscellaneous;
+	// Russian miscellaneous items keep the program's raw "%s%s\f%02u%s": each
+	// word keeps its leading space and runs into the container name (a kept
+	// translator defect, RU 0x3c1bb..0x3c4bf).
+	const bool raw = russian && !reordered;
+	const auto words = [&] {
+		const auto word = [&](std::string_view value, std::string_view directive) {
+			if (!raw)
+				return decoration(value, directive);
+			if (value.substr(0, directive.size()) == directive)
+				value.remove_prefix(directive.size());
+			return std::string(value);
+		};
+		// coloredName then draws "\f%02u\f32 broken\f09 cursed\f%02u" and the name.
+		if (raw)
+			result.russianOrder = result.broken || result.cursed;
+		if (result.broken) {
+			text.append(word(brokenWord, "\f32"), raw);
+			result.brokenEnd = text.value().size();
+		}
+		if (result.cursed) {
+			text.append(word(cursedWord, "\f09"), raw);
+			result.cursedEnd = text.value().size();
+		}
+	};
+	if (!reordered)
+		words();
 
 	if (category == XeenInventoryCategory::Miscellaneous) {
 		const bool containerKnown = item.material >= 1 && item.material <= 11;
@@ -182,11 +229,11 @@ XeenItemDescription XeenItemCatalog::describe(XeenInventoryCategory category,
 		if (!specialKnown)
 			result.unsupportedFields.add(XeenUnsupportedItemField::Id);
 		if (containerKnown)
-			text.append(trim(kMiscNames[item.material]));
+			text.append(trim(name(Names::Misc, item.material)), raw && (result.broken || result.cursed));
 		if (!result.broken && !result.cursed && specialKnown) {
 			if (containerKnown)
-				text.append(trim(kItemOf));
-			text.append(trim(kSpecialNames[item.id]));
+				text.append(trim(russian ? std::string_view(_names->of) : kItemOf));
+			text.append(trim(name(Names::Special, item.id)));
 		}
 		if (!containerKnown && (result.broken || result.cursed || !specialKnown))
 			text.append("Unknown item");
@@ -199,11 +246,11 @@ XeenItemDescription XeenItemCatalog::describe(XeenInventoryCategory category,
 		unsigned maximumId = 0;
 		switch (category) {
 		case XeenInventoryCategory::Weapons:
-			base = at(kWeaponNames, item.id); maximumId = 40; break;
+			base = name(Names::Weapons, item.id); maximumId = 40; break;
 		case XeenInventoryCategory::Armor:
-			base = at(kArmorNames, item.id); maximumId = 13; break;
+			base = name(Names::Armor, item.id); maximumId = 13; break;
 		case XeenInventoryCategory::Accessories:
-			base = at(kAccessoryNames, item.id); maximumId = 10; break;
+			base = name(Names::Accessories, item.id); maximumId = 10; break;
 		case XeenInventoryCategory::Miscellaneous:
 			break;
 		}
@@ -213,13 +260,23 @@ XeenItemDescription XeenItemCatalog::describe(XeenInventoryCategory category,
 		const bool materialInRange = item.material <= 130;
 		if (!materialInRange)
 			result.unsupportedFields.add(XeenUnsupportedItemField::Material);
-		if (!result.broken && !result.cursed && item.material != 0 && materialInRange &&
-				_materialAvailability == XeenMaterialAvailability::Ready && _materials)
-			text.append((*_materials)[item.material]);
+		const auto material = [&] {
+			if (!result.broken && !result.cursed && item.material != 0 && materialInRange &&
+					_materialAvailability == XeenMaterialAvailability::Ready && _materials)
+				text.append((*_materials)[item.material]);
+		};
+		if (!reordered)
+			material();
 		if (baseKnown)
 			text.append(trim(base));
 		else
 			text.append("Unknown item");
+		if (reordered) {
+			result.russianOrder = true;
+			result.decorationBegin = text.value().size();
+			words();
+			material();
+		}
 		if (!result.broken && !result.cursed && item.material != 0) {
 			if (!materialInRange)
 				text.append(numeric("unknown material", item.material));
@@ -230,14 +287,18 @@ XeenItemDescription XeenItemCatalog::describe(XeenInventoryCategory category,
 			text.append(numeric("unknown ID", item.id));
 		if (category == XeenInventoryCategory::Weapons && result.counter != 0 && !result.broken && !result.cursed) {
 			if (result.counter <= 6)
-				text.append(trim(kBonusNames[result.counter]));
+				text.append(trim(name(Names::Bonus, result.counter)));
 			else {
 				result.unsupportedFields.add(XeenUnsupportedItemField::Counter);
 				text.append(numeric("unknown suffix", result.counter));
 			}
 		}
 	}
-	text.capitalizeFirstAsciiLetter();
+	// The Russian C runtime's toupper changes ASCII only, at the first byte.
+	if (russian)
+		text.capitalizeFirstByte();
+	else
+		text.capitalizeFirstAsciiLetter();
 	result.displayName = text.value();
 	result.truncated = text.truncated();
 	return result;
@@ -250,6 +311,23 @@ std::string XeenItemDescription::coloredName(unsigned lineColor) const {
 	code += char('0' + color % 10);
 	if (!brokenEnd && !cursedEnd)
 		return code + displayName;
+	if (russianOrder) {
+		// "\f%02u%s%s%s\f%02u%s%s%s": name, broken, cursed, then the line color.
+		const auto end = [&](std::size_t value) { return std::min(value, displayName.size()); };
+		std::string result = code + displayName.substr(0, end(decorationBegin));
+		std::size_t at = end(decorationBegin);
+		if (brokenEnd) {
+			result += "\f32";
+			result.append(displayName, at, end(brokenEnd) - at);
+			at = end(brokenEnd);
+		}
+		if (end(cursedEnd) > at) {
+			result += "\f09";
+			result.append(displayName, at, end(cursedEnd) - at);
+			at = end(cursedEnd);
+		}
+		return result + code + displayName.substr(at);
+	}
 	// Each original prefix keeps its trailing space ("\f32broken ").
 	const auto end = [&](std::size_t value) {
 		value = std::min(value, displayName.size());
@@ -275,10 +353,10 @@ std::string XeenItemDescription::coloredName(unsigned lineColor) const {
 std::string XeenItemCatalog::foundName(XeenInventoryCategory category,const XeenItem &item) const {
 	std::string_view name;
 	switch(category) {
-	case XeenInventoryCategory::Weapons:name=at(kWeaponNames,item.id);break;
-	case XeenInventoryCategory::Armor:name=at(kArmorNames,item.id);break;
-	case XeenInventoryCategory::Accessories:name=at(kAccessoryNames,item.id);break;
-	case XeenInventoryCategory::Miscellaneous:name=at(kMiscNames,item.material);break;
+	case XeenInventoryCategory::Weapons:name=this->name(Names::Weapons,item.id);break;
+	case XeenInventoryCategory::Armor:name=this->name(Names::Armor,item.id);break;
+	case XeenInventoryCategory::Accessories:name=this->name(Names::Accessories,item.id);break;
+	case XeenInventoryCategory::Miscellaneous:name=this->name(Names::Misc,item.material);break;
 	}
 	return name.empty()?"Item not supported yet":std::string(name);
 }
@@ -292,7 +370,7 @@ XeenItemCatalog loadXeenItemCatalogWithMaterials(
 }
 
 XeenItemCatalogLoadResult loadXeenItemCatalogFromReader(
-		const XeenMaterialResourceReader &reader) {
+		const XeenMaterialResourceReader &reader, XeenLanguage language) {
 	try {
 		const auto bytes = reader();
 		if (!bytes) {
@@ -301,7 +379,7 @@ XeenItemCatalogLoadResult loadXeenItemCatalogFromReader(
 			return {loadXeenItemCatalogWithMaterials(missing),
 				"Material names unavailable: DARK.CC/mae.xen is missing"};
 		}
-		auto parsed = parseXeenMaterialNames(*bytes);
+		auto parsed = parseXeenMaterialNames(*bytes, language);
 		if (parsed.ready())
 			return {loadXeenItemCatalogWithMaterials(parsed), {}};
 		return {loadXeenItemCatalogWithMaterials(parsed),
@@ -320,9 +398,25 @@ XeenItemCatalogLoadResult loadXeenItemCatalogFromReader(
 }
 
 XeenItemCatalogLoadResult loadXeenItemCatalog(XeenAssetSource &assets) {
-	return loadXeenItemCatalogFromReader([&assets] {
+	auto result = loadXeenItemCatalogFromReader([&assets] {
 		return assets.readItemMaterialNamesFromDarkArchive();
-	});
+	}, assets.language());
+	if (assets.language() == XeenLanguage::Russian) {
+		const auto &text = assets.uiText();
+		auto names = std::make_shared<XeenItemNames>();
+		names->weapons = text.table("WEAPON_NAMES");
+		names->armor = text.table("ARMOR_NAMES");
+		names->accessories = text.table("ACCESSORY_NAMES");
+		names->misc = text.table("MISC_NAMES");
+		names->special = text.table("SPECIAL_NAMES");
+		names->bonus = text.table("BONUS_NAMES");
+		names->broken = std::string(text.scalar("ITEM_BROKEN"));
+		names->cursed = std::string(text.scalar("ITEM_CURSED"));
+		names->of = std::string(text.scalar("ITEM_OF"));
+		names->russian = true;
+		result.catalog.setNames(std::move(names));
+	}
+	return result;
 }
 
 bool xeenVerifyItemCatalogReferenceBlock(const std::vector<std::uint8_t> &constants,

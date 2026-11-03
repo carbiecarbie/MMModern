@@ -748,6 +748,231 @@ original post-dream poll.
 Deliberate differences from the original that the maintainer approved; each
 stays documented here and in the plan that implements it.
 
+- <a id="dev-russian-layer"></a> **Russian text over the CD edition**
+  (maintainer, 2026-11-03; [M110](milestone-110-plan.md) decisions 1-5 and 10).
+  No Russian CD edition exists. With `language=russian` in `settings.ini` (or
+  the developer option `--russian <folder>`), MMModern layers the old-games.ru
+  World of Xeen translation (Clouds of Xeen RUS and Darkside of Xeen RUS 1.2,
+  made for the floppy editions) over the English CD: archive text, translated
+  pictures and the two-bank font come from the translation, while maps,
+  rules, timing, music and recorded speech stay the CD's, so speech (Crodo's
+  narration, the intros and endings) stays English under Russian text. The
+  five translation files are identified by size and CRC-32; anything else is
+  refused naming the file, and English plays. A fixed list of 105/379/7
+  substituted entries (`XeenRussianEntries.inc`, derived once from the
+  English floppy and Russian archives) tags each with its format:
+  text and pictures substitute once their structure matches the CD (string
+  counts, frame counts, the font's English bank); the New Game containers,
+  `xeen.mon`/`dark.mon` and the mirror lists keep the CD's bytes and take only
+  roster names, monster names and mirror words, so the CD's maps, statistics,
+  destinations and its added Bloopers record are kept (the translation's
+  changed Dragon Tower destination is not used). Four entries stay CD: the
+  string tables no reader names (`0x9848` in both archives, `0x4b0d`, `0x8bb8`);
+  `mae.xen` is a translated string table, read by the
+  [Russian item descriptions](#ru-item-order) (Part C). With Russian active, bytes `0x80-0xff` draw from the
+  second font bank and only `0x20` is a space, as the pinned `font.cpp`
+  does; English drawing is unchanged. A player-entered name is always drawn as
+  literal characters: in English a byte `0x80-0xff` draws the glyph of its low
+  7 bits and never acts as a command or, in either renderer, as a word-break
+  point (so a Russian New Game's roster stays
+  drawable in English, though not legible); there is no original counterpart. Program text
+  comes from the Russian programs ([below](#ru-program-text)), and
+  Russian input follows the Russian program ([keyboard](#ru-keyboard)).
+  The Russian control panel is the Russian program's, without the CD's Text
+  and Speech toggles, so in Russian the English speech cannot be switched
+  off from the panel (it keeps the stored setting). Save names (save v26) admit
+  bytes `0x80-0xff`, so a Russian game's Cyrillic name is kept; saves load in
+  either language. Implemented in
+  `XeenRussianTranslation`, `CheckedInstalledArchive::createReadStreamForMember`
+  (`ScummVmRuntime` refuses raw archive opens while Russian is active),
+  `XeenFontFormat`, `XeenTextRenderer` (`xeenLiteralText`) and
+  `XeenDosText::validateControls`. **ScummVM:** the pin supports only the
+  Russian Clouds of Xeen, as its own floppy game, with Russian program text
+  in its tables; it has no layer over the CD and no literal-name drawing.
+  Pin: differs; master not rechecked.
+
+- <a id="dev-ru-quick-fight-next"></a> **Russian Quick Fight's Next button works**
+  (maintainer, 2026-11-03; approved deviation, [M110](milestone-110-plan.md)
+  Part C). In the Russian program the button shares the Training button array
+  (DS `0x1a48`, value `у`), while Quick Fight's dispatch (RU `0x336cd`; CD
+  `0x34221` N and T) expects `о` and `с`, so clicking Next does nothing and
+  only those keys advance the option. MMModern dispatches the click from the
+  button itself, as Next, the way the Russian ending rows are dispatched by
+  slot; the keys `о` and `с` stay as the program has them, and no key is
+  added. English is unchanged. Implemented in `XeenDosText::keyboard`
+  (`QUICK_FIGHT` has no dead click). **ScummVM:** the pin's Russian Clouds of
+  Xeen uses its own key constant for this button, so its click works there
+  too; the pin has no Darkside Russian program. Pin: differs; master not
+  rechecked.
+
+- <a id="ru-program-text"></a> **Russian program text follows the Russian Darkside program**
+  ([M110](milestone-110-plan.md) decisions 6, 7 and 9; calibrated static
+  analysis of the identified Russian `xeen.dat`/`xeen.exe` against the CD
+  `WORLD/XEEN.DAT`/`XEEN.EXE`, 2026-11-03). The Russian `xeen.dat` is the
+  floppy build, reassembled by its translators: data segment `0x46e2` (file
+  `0x4c290`), with an overflow segment from `0x56ea` (file `0x5c310`) that
+  only far pointers reach; `xeen.exe` has its data segment at `0x19af` (file
+  `0x1c6d0`). Its code aligns with the CD's at 64,810 unique ten-byte anchors
+  (89% of the CD code at a constant offset); each field is the string the
+  aligned instruction names (`push ds; push offset` and its kin), or the
+  entry of the far-pointer table at the same position in the identical
+  sequence of pointer runs. Of the 275 `XeenDosText` fields, 271 are mapped
+  and four are CD-only and keep the CD value: `NPC_TITLE_ONLY` (the Russian
+  code at `0x24faa` pushes only `NPC_DIALOG`), `CREDITS_RESOURCE` (the
+  Russian credits at `0xb8fc` draw one page from a program string instead of
+  `credits.bin`), and `TITLE_ANIMATIONS`/`MENU_SPRITE` (it names the floppy
+  `world.int`, not the CD's `world0`-`world2.int`). In Russian the credits are
+  that one page (`CREDITS_TEXT`, `0x5463e`), drawn on `marb.raw` by the same
+  writer, fade and show routines as each CD page (aligned exactly), and one
+  input returns to the menu. The panel window (23) is the Russian program's,
+  20 pixels shorter (`0x3c728`: 80,28,176,120); of its other windows only 36
+  (moved up) and 40 (zero in Russian: the CD-only title-only NPC window, which
+  the Russian program does not use and nothing in MMModern reads) differ. Every argument signature equals the English one except
+  `PANEL_BUTTON_TEXT`: the Russian control panel (`0x1e8d7`..`0x1e990`) has
+  seven buttons, without the CD's Text and Speech toggles, so its button
+  text takes the Efx and Music states only and the toggles are absent in
+  Russian. Kept as the program has them: `MONSTER_SPECIAL_ATTACKS` 1 and 2
+  point at "Удача" and at the Tavern's "Недурно" text instead of Magic and
+  Fire, `RATING_TEXT` 2 and 4 point into "Мизерный" and "от Грома" and so
+  draw "ный" and "ома" for Poor and Low (the English "Very Poor"/"Very Low"
+  suffix sharing kept by the reassembly), `WHO_ACTIONS` 31 reads `tr2` and
+  `DOS_FILE_PATTERN` names `.SAV` files. Other strings start inside another
+  without a visible effect: `MONSTER_SPECIAL_ATTACKS` 1 (the Luck string of
+  `STAT_NAMES` 6), `NOTHING_HERE` (after its control prefix, as on the CD),
+  `CAST_SPELL_DETAILS`, `NAME_PROMPT`, `NOT_RECHARGABLE` and the World
+  ending's crowd caption behind a reassembler's `github.com/excitoo` mark.
+  The program does not inflect:
+  its day and attack suffixes (`DAY_PLURAL`, `DAY_SINGULAR`) are empty, the
+  food and quest-item suffix characters are spaces (`0x3b31e`/`0x3b323`,
+  `0x32fb1`/`0x32fb6`), and gendered verbs carry both endings
+  ("взломал(а)", "не смог(ла)"), so no field takes the sex. Item names come
+  from its name table (`0x4e606`); weapon ids 35-40 are in neither program
+  and keep the build catalog's names. Implemented in `XeenDosText`
+  (`XeenDosTextRussian.inc`), `XeenCutsceneData::applyRussianText` and
+  `XeenItemNames`. Game text MMModern wrote in code (thousands `%uk`, the
+  clocks' `a`/`p`, millions `%lu mil`, the suffix and difficulty characters)
+  is now read from either program; the English values are unchanged. The
+  item words (`ITEM_BROKEN` " сломано", `ITEM_CURSED` " проклято" and
+  `ITEM_OF`, one space) are Russian-only fields, pushed by the item
+  description code (RU `0x3c1bb..0x3c4bf`), where the English words come from
+  the build catalog.
+  **ScummVM:** the pin's Russian tables are for its own Russian Clouds of
+  Xeen and inflect where this program does not (three-form day and food
+  plurals, a gendered three-argument `X_FOUND_Y`, `ru_constants.h:1641`);
+  MMModern follows this program instead. Pin: differs; master not
+  rechecked.
+
+- <a id="ru-keyboard"></a> **Russian keys follow the Russian Darkside program**
+  ([M110](milestone-110-plan.md) decision 8, Part C; calibrated static analysis
+  of the identified Russian `xeen.dat` against the CD's, 2026-11-03). The
+  program reads keys with the CD's own INT 9 handler and one scancode table
+  (RU `0x44176`, CD `0x456e8`) whose three letter rows are lowercase ЙЦУКЕН
+  cp866: there is no second table and no switch, so Latin letters cannot be
+  typed and F11/F12 give no code. Its read routine (RU `0x43f2a..0x43fd7`)
+  tests Shift first and uppercases Cyrillic only (`0x43ee5`: `0xa0-0xaf` and
+  `0xe0-0xef`; Shift+digit stays a digit); Ctrl gives the CD's shifted symbols
+  of the same key, and the CD's Ctrl codes are gone, so Ctrl+Left/Right are
+  plain turns and strafing moves to the `х` and `ъ` keys (RU `0xca39/0xca3e`,
+  CD `0xce7b/0xce80` compare `0xb0/0xb1`). The H key gives `0xe0` (`р`), the
+  CD's Ins code. MMModern maps physical key positions, whatever the host
+  layout, and takes Russian text from key events. Every Russian hotkey is
+  read from the program at the same index as the CD key MMModern's dialog
+  uses: its button arrays, switch value tables, `CMP AX` compares and the
+  control panel's jump table (RU `0x1ea78`, 23 targets at `0x1ed4b`; CD
+  `0x1f036`), where `о`/`и` both mean Save As and `е`/`к` Efx. The shared
+  getString (RU `0x1db72..`, character test `0x1dc86` against CD `0x1e123`)
+  types `0x20-0xff`: Left deletes, Right types `ё` and F1-F10 type
+  `0xc9-0xd2`, so a save name can hold those bytes. Word capitalization
+  changes ASCII only (the Russian C runtime's ctype table has no flags for
+  `0x80-0xff`), and mirror and riddle answers compare Cyrillic exactly
+  (`stricmp`, RU `0:0x4cc7`, folds `a-z` only), so the capitalized Russian
+  mirror words need Shift. The `XEEN.EXE` presentations keep the CD keyboard
+  (RU EXE `0x1928f`), Ctrl-Q included. Implemented in `XeenDosText::keyboard`
+  (`XeenKeyboard`), `SdlWindow` (`dosCode`, `contextKey`), `DialogInput::keySet`
+  and `XeenTextInput::type`. **ScummVM:** the pin's Russian Clouds of Xeen
+  switches to Cyrillic with F11 and back with F12 in text entry only, keeps
+  Latin hotkeys through its own key constants and strafes on Ctrl+arrows;
+  MMModern follows the Russian Darkside program. Pin: differs; master not
+  rechecked.
+
+- <a id="ru-kept-key-defects"></a> **The Russian program's key defects are kept**
+  (maintainer, 2026-11-03; [M110](milestone-110-plan.md) Part C). These are
+  errors of the translated program, reproduced as it behaves rather than
+  replaced by invented keys:
+  - The hidden panel clocks cannot be opened: the panel dispatch has no key
+    for the O stage (RU `0x1ecd9`), and its R stage needs `0xb1`, which no
+    key types; `ж` (G) alone does nothing visible and `б` (B) after it closes
+    the panel, as the CD's B without O does.
+  - W-Wait cannot be typed: the Wait test stays `W` (RU `0xcff0`, CD
+    `0xd42d`); Space still waits.
+  - In Create's attribute exchange only the keys work: its buttons keep the
+    Latin values (DS `0x1de2`) while its dispatch expects Cyrillic (RU
+    `0x3465f`), so clicking a row does nothing.
+  - Keys the translators left Latin cannot be typed: the Inn's E exit (switch
+    RU `0x39110`; Escape, Space and `ы` still exit), Item to Gold's G (RU
+    `0x3a85d`, switch `0x3addc`; its button works by mouse) and Lloyd's
+    Beacon's T (RU `0x2f452`; `у` sets the beacon).
+  Quick Fight's Next button is not among them: MMModern
+  [fixes it](#dev-ru-quick-fight-next).
+  **ScummVM:** the pin's Russian Clouds of Xeen has none of these. Pin:
+  differs; master not rechecked.
+
+- <a id="ru-item-order"></a> **Russian item descriptions follow the Russian program**
+  ([M110](milestone-110-plan.md) decision 8, Part C). The Russian item code
+  (RU `0x3c1bb..0x3c4bf`) uses the CD's four formats (CD `0x3cd00..0x3d004`)
+  with reordered arguments: weapons, armor and accessories read name, broken,
+  cursed, then material and suffix, and both programs omit the material of a
+  broken or cursed item; miscellaneous items keep the CD order (broken,
+  cursed, container, "of", special), "of" being a single space. Kept as a
+  translator defect (maintainer, 2026-11-03): the miscellaneous format joins
+  its words with no separator (`\f%02u%s%s\f%02u%s%s%s%s`), and the Russian
+  words have a leading space and no trailing one while the container names
+  have none, so a broken or cursed item reads " сломаноСкипетр", indented by
+  one space with the word running into the name (the program's raw
+  concatenation, reproduced). The material
+  names come from the translated `mae.xen` (entry zero one space, names
+  cp866 with a space on each side). The first letter is capitalized only when
+  it is ASCII, as the Russian C runtime's `toupper` does. Implemented in
+  `XeenItemCatalog::describe` and `parseXeenMaterialNames`. **ScummVM:** the
+  pin's Russian order is broken, cursed, name, material (`item.cpp:358`).
+  Pin: differs; master not rechecked.
+
+- <a id="ru-caption-strip"></a> **The Russian caption strip runs with speech**
+  (maintainer, 2026-11-03; [M110](milestone-110-plan.md) decision 3). The CD's
+  `XEEN.EXE` caption helper (`0x1191b`) runs the 40-character strip only below
+  digital device 2 and otherwise clears its position; the Russian helper (RU
+  `0x112cb`) runs it whenever its position is at least 1, with speech too, and
+  draws nothing at 0. With speech, every strip wait (29 in `XEEN.EXE`) then
+  ends when the speech has ended and the strip has wrapped: the Clouds intro,
+  the Clouds ending, the Darkside intro and the Darkside ending. Without
+  speech the waits and the device gates beside them stay the CD's (Alamar's
+  single clip, the king's skip, the room's 0xdc-tick hold), except that the
+  Clouds intro runs all 14 narration slots (RU `0x8548`; the CD forces step
+  20 at `0x886a`): slots 0-12 end on speech idle and slot 13 waits for the
+  wrap. A scene that clears the position keeps the strip off; the Release
+  creature caption starts at 1 (RU `0xca98`, CD `0xcdb6` at 0). The four
+  `xeen.dat` entrance scenes (renderer RU `0xd819`, CD `0xdca3` "Efx off or
+  digital device below 2") show their caption from cursor 1 with Efx and
+  speech too (starts RU `0x28b13`, `0x28f53`, `0x29b0c`, `0x2a4f2`) and keep
+  the CD's text-mode phase rules. Whether the English floppy program already
+  had this gate is unknown. English keeps the CD's gates and timing.
+  Implemented in `XeenCutsceneData::russianCaptions`, the scene builders and
+  `XeenEntranceAnimation`. **ScummVM:** the pin shows its subtitles by its
+  own subtitle option and splits the Russian Clouds intro at periods. Pin:
+  differs; master not rechecked.
+
+- <a id="ru-combat-rows"></a> **Russian combat rows are 18 pixels apart**
+  ([M110](milestone-110-plan.md) Part C, N3). The Russian combat strings put
+  the three target rows at y 2/20/38 (CD 20/30/40), the main-screen table
+  moves their hit rows to y 10, 28 and 46, 18 high (entries 17-19; CD 27, 37,
+  47, 10 high), and the selected-target mark follows (RU `0x2dc07`
+  `row*18+10`, CD `0x2e770` `row*10+27`). The drawing code is the CD's, so a
+  monster name's `\n` ("Сточный\nохотник") is a line break there and in
+  `MONSTER_DETAILS`. Implemented in `XeenDosText::combatTargets`,
+  `drawXeenCombatPanel` and `xeenMainScreenClick`. **ScummVM:** the pin draws
+  the mark at `row*10+27` in every language (`interface.cpp:1666`). Pin:
+  differs; master not rechecked.
+
 - <a id="dev-pending-side-save"></a> **Saving a pending FlipWorld side is refused**
   (maintainer, 2026-11-01; M104 decision 4). Normal original Events immediately
   load the other side. For a synthetic persistent pending side, MMModern shows

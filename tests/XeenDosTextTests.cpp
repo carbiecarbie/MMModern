@@ -72,6 +72,16 @@ void original(const char *root,const char *ui) {
    if(!f.pointers)at=end+1;
   }
  }
+ // M110 decision 9: the CD program's values equal the literals they replaced.
+ check(text.characters("FOOD_DAY_SUFFIX")==" s" && text.characters("QUEST_ITEM_SUFFIX")==" s" &&
+  text.characters("SLOT_DIFFICULTY")=="AW" && text.characters("CLOCK_MERIDIEM")=="ap","English characters");
+ check(text.scalar("THOUSANDS_FORMAT")=="%uk" && text.scalar("MILLIONS_FORMAT")=="%lu mil" && text.scalar("CLOCK_AM")=="a" &&
+  text.scalar("CLOCK_PM")=="p" && text.scalar("DAY_PLURAL")=="s" && text.scalar("DAY_SINGULAR").empty(),"English program strings");
+ const auto &endings=text.buttons("OTHER_ENDING");
+ check(endings.size()==3 && endings[0].key=='E' && endings[1].key=='V' && endings[2].key=='W',"English ending keys");
+ for(unsigned i=0;i<text.buttons("PANEL").size();++i)check(text.buttons("PANEL")[i].slot==i,"English panel slots");
+ const auto &panel=text.window(23);
+ check(panel.x==80 && panel.y==28 && panel.width==176 && panel.height==140,"English panel window");
  const auto charges=text.scalar("FMT_CHARGES");
  check(charges.size()>3 && charges[0]==3 && charges[1]=='r' && charges[2]==9,"DOS Charges alignment must be single r");
 }

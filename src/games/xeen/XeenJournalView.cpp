@@ -15,11 +15,11 @@ XeenQuestDisplay xeenQuestDisplay(const XeenPartyState &p) {
     result.notes[128]=p.questFlags.isSet(0);
     return result;
 }
-std::vector<std::string> xeenJournalStrings(const std::vector<std::uint8_t> &bytes,bool awards) {
+std::vector<std::string> xeenJournalStrings(const std::vector<std::uint8_t> &bytes,bool awards,XeenLanguage language) {
     if(bytes.empty() || bytes.back()!=0)throw std::invalid_argument("Unterminated journal text resource");
     auto strings=XeenEventTextFormat::parse(bytes);
     if(strings.size()<(awards?88u:184u))throw std::invalid_argument("Incomplete journal text resource");
-    for(const auto &s:strings)XeenDosText::validateControls(s);
+    for(const auto &s:strings)XeenDosText::validateControls(s,language);
     return strings;
 }
 void XeenJournalUi::key(unsigned key,std::size_t count) {
@@ -51,7 +51,7 @@ std::vector<std::string> xeenQuestLines(const XeenDosText &text,const XeenQuestD
             title(i>=35);
             const auto &name=text.table("QUEST_ITEM_NAMES").at(i);
             lines.push_back(i==17 || i==26 || i>=79?
-                xeenDialogFormat(text.scalar("QUEST_ITEM_COUNT"),{std::to_string(p.items[i]),name,p.items[i]>1?"s":" "}):name);
+                xeenDialogFormat(text.scalar("QUEST_ITEM_COUNT"),{std::to_string(p.items[i]),name,std::string(1,text.characters("QUEST_ITEM_SUFFIX")[p.items[i]>1?1:0])}):name);
         }
     } else if(page==XeenJournalPage::Quests) {
         for(unsigned flag=1;flag<=56;++flag)if(p.quests[flag]) {title(flag>=30);lines.push_back(notes.at(flag-1));}
@@ -72,7 +72,7 @@ std::vector<std::string> xeenAwardLines(const XeenDosText &text,const XeenCharac
     return lines;
 }
 DialogInput xeenJournalInput(bool awards) {
-    DialogInput input;
+    DialogInput input;input.keySet="QUESTS";
     constexpr int xs[]{12,80,148,216,250,284};
     constexpr unsigned keys[]{'i','q','a',InputKey::Up,InputKey::Down,InputKey::Escape};
     for(unsigned i=awards?3:0;i<6;++i) {
@@ -89,7 +89,7 @@ std::string xeenJournalText(const XeenDosText &text,const XeenJournalUi &ui,
     std::vector<std::string> args;
     if(awards) {
         if(!member)throw std::invalid_argument("Awards requires a member");
-        args={member->name,text.table("CLASS_NAMES").at(unsigned(member->characterClass))};
+        args={xeenLiteralText(member->name),text.table("CLASS_NAMES").at(unsigned(member->characterClass))};
     }
     if(ui.page==XeenJournalPage::Items && lines.empty())return std::string(text.scalar("NO_QUEST_ITEMS"));
     const auto visible=ui.page==XeenJournalPage::Quests?3u:9u;

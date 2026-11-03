@@ -1,3 +1,4 @@
+#include "formats/xeen/XeenRussianTranslation.h"
 #include "app/XeenPlayerSupport.h"
 #include "MMModernVersion.h"
 #include "compat/scummvm/XeenMt32.h"
@@ -153,9 +154,47 @@ std::string xeenDiagnostics(const Path &root,const std::optional<Path> &explicit
   const auto roms=XeenMt32::identify(environment(L"MMODERN_MT32_ROM_DIR"));
   line("roms.folder",roms.directory.u8string());line("roms.control",roms.control);line("roms.pcm",roms.pcm);
  }catch(const std::exception &e){line("roms.error",e.what());}
+ {
+  std::string refusal;const auto translation=xeenPlayerTranslation(&refusal);
+  const auto file=xeenSettingsFile();const auto settings=file?xeenReadSettings(*file):XeenSettings{};
+  line("language",translation?"Russian":"English");
+  if(!settings.translation.empty())line("language.translation",settings.translation.u8string());
+  if(!refusal.empty())line("language.error",refusal);
+ }
  line("settings.file",xeenSettingsFile().value_or(Path{}).u8string());
  line("window.file",windowPlacementFile().value_or(Path{}).u8string());line("log.file",xeenLogFile().u8string());
  return xeenPrivatePaths(out.str());
+}
+std::shared_ptr<const XeenRussianTranslation> xeenPlayerTranslation(std::string *refusal) {
+ const auto file=xeenSettingsFile();if(!file)return {};
+ const auto settings=xeenReadSettings(*file);if(settings.language!=XeenLanguage::Russian)return {};
+ try {return XeenRussianTranslation::open(settings.translation);}
+ catch(const std::exception &e) {if(refusal)*refusal=e.what();return {};}
+}
+int xeenLanguageSetupCommand(const std::vector<std::string> &args) {
+ const auto file=xeenSettingsFile();
+ if(!file)throw std::runtime_error("No settings file location");
+ auto settings=xeenReadSettings(*file);
+ if(args.size()>2) {
+  std::optional<XeenLanguage> language;std::optional<Path> folder;
+  for(std::size_t n=2;n<args.size();n+=2) {
+   if(n+1==args.size())throw std::runtime_error("Usage: mmodern --language-setup [--language english|russian] [--translation <folder>]");
+   if(args[n]=="--language" && !language) {
+    if(args[n+1]=="english")language=XeenLanguage::English;else if(args[n+1]=="russian")language=XeenLanguage::Russian;
+    else throw std::runtime_error("Unknown language: "+args[n+1]);
+   } else if(args[n]=="--translation" && !folder && !args[n+1].empty())folder=std::filesystem::absolute(std::filesystem::u8path(args[n+1]));
+   else throw std::runtime_error("Unknown or duplicate language option: "+args[n]);
+  }
+  if(!language)throw std::runtime_error("--language is required");
+  const auto chosen=folder.value_or(settings.translation);
+  // Without a valid translation Russian cannot be selected (decision 1).
+  if(*language==XeenLanguage::Russian)XeenRussianTranslation::open(chosen);
+  if(!xeenWriteLanguage(*file,*language,chosen))throw std::runtime_error("Cannot write settings: "+file->u8string());
+  settings=xeenReadSettings(*file);
+ }
+ std::cout<<"language: "<<(settings.language==XeenLanguage::Russian?"russian":"english")<<'\n';
+ std::cout<<"language.translation: "<<settings.translation.u8string()<<'\n';
+ return 0;
 }
 int xeenSoundSetupCommand(const std::vector<std::string> &args) {
  if(args.size()<3)throw std::runtime_error("Usage: mmodern --sound-setup <game-dir> [--reset | --speech <key> --music <key> [--digital-port <n>] [--music-port <n>] [--irq <n>] [--dma <n>] [--volume 0|1]]");

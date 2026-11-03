@@ -16,12 +16,16 @@ std::vector<XeenCdTrack> readXeenCdTracks(const std::filesystem::path &cue,unsig
 
 class XeenInstallationDetector {
 public:
- explicit XeenInstallationDetector(std::filesystem::path uiData = {},std::filesystem::path cfg = {})
-  : _uiData(std::move(uiData)),_cfg(std::move(cfg)) {}
+ // M110: a non-null translation makes every detected installation Russian.
+ explicit XeenInstallationDetector(std::filesystem::path uiData = {},std::filesystem::path cfg = {},
+  std::shared_ptr<const XeenRussianTranslation> translation = {})
+  : _uiData(std::move(uiData)),_cfg(std::move(cfg)),_translation(std::move(translation)) {}
 	std::optional<GameInstallation> detect(const std::filesystem::path &root) const;
 private:
+ std::optional<GameInstallation> detectCd(const std::filesystem::path &root) const;
  std::filesystem::path _uiData;
  std::filesystem::path _cfg;
+ std::shared_ptr<const XeenRussianTranslation> _translation;
 };
 
 } // namespace mmodern

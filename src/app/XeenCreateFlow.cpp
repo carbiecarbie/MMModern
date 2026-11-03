@@ -77,8 +77,9 @@ std::shared_ptr<const DialogInput> XeenEventFlow::createInput() const {
     if(!ui.feedback.empty()){input.anyKey=input.anyClick=input.keyMouseWait=true;}
     else if(ui.phase==InnUi::Phase::Create) {
         const auto &c=*ui.create;
-        if(c.naming) {input.textEntry=true;input.keys={InputKey::Escape,InputKey::Enter,8,InputKey::Left};}
+        if(c.naming) {input.textEntry=input.stringEntry=true;input.keys={InputKey::Escape,InputKey::Enter,8,InputKey::Left};}
         else {
+            input.keySet=c.exchange?"CREATE_EXCHANGE":"CREATE";
             const auto button=[&](int x,int y,int width,int height,unsigned key,const char *resource=nullptr,unsigned frame=0) {
                 input.hits.push_back({x,y,x+width,y+height,key,resource?std::optional<InputButton>{{resource,frame,x,y}}:std::nullopt});input.keys.push_back(key);
             };

@@ -62,6 +62,17 @@ button has the same effect at the same position; use Escape to cancel.
 | Digits, Backspace, Enter in Bank amount entry | Enter up to ten digits, edit, confirm; Escape cancels |
 | Alt+Enter | Switch between window and fullscreen; no gameplay pass |
 
+With Russian selected, the keyboard is the Russian program's: the letter keys
+type lowercase Cyrillic by their position on the keyboard (ЙЦУКЕН, whatever the
+host layout), Shift types capitals and Ctrl the symbols that Shift gives in
+English; Latin letters cannot be typed. Every hotkey is the Russian program's
+letter for the same button, strafing moves to the х and ъ keys ([ and ]), and
+Ctrl+Left/Right turn. In text entry Left deletes. As in the Russian program,
+Wait has only Space, the Inn's E exit, Item to Gold's G and Lloyd's Beacon's T
+keys cannot be typed (у sets the beacon),
+Create's attribute-exchange rows work by key only, and the hidden panel clocks
+cannot be opened. Cutscenes keep the CD keys.
+
 At launch, the Darkside intro plays the full story the first time and a shorter
 sequence on later launches. Escape ends the story at its input polls; any key
 shortens the World-logo boundary holds. Ctrl-Q quits.

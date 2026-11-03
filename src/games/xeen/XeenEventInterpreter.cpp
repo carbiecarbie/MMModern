@@ -646,7 +646,8 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
         if(pending.continuation==XeenEventPendingContinuation::ConfirmWord) {
             const auto &word=*pending.request.word;
             const auto &input=std::get<XeenWordInput>(response->value).text;
-            if(input.size()>30 || !std::all_of(input.begin(),input.end(),[](unsigned char c){return c>=32 && c<=127;}))
+            // English entry types 0x20-0x7f; the Russian getString 0x20-0xff (M110).
+            if(input.size()>30 || !std::all_of(input.begin(),input.end(),[](unsigned char c){return c>=32;}))
                 return error(XeenEventExecutionErrorKind::InvalidPresentationResponse,"Invalid word input",instructionCount,logical,pending.request.source);
             const auto equal=[](const std::string &a,const std::string &b) {
                 if(a.size()!=b.size())return false;

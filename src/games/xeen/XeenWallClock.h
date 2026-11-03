@@ -4,6 +4,7 @@
 #include <functional>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 #include <utility>
 namespace mmodern {
 struct XeenCivilTime { int year,month,day,hour,minute,second; };
@@ -11,7 +12,8 @@ struct XeenCivilTime { int year,month,day,hour,minute,second; };
 bool xeenDosDaylightTime(XeenCivilTime);
 std::uint32_t xeenDosTime(XeenCivilTime);
 XeenCivilTime xeenDosLocalTime(std::uint32_t);
-std::string xeenPanelCivilTime(std::uint32_t);
+// The meridiem strings are the program's (CLOCK_AM, CLOCK_PM).
+std::string xeenPanelCivilTime(std::uint32_t,std::string_view am,std::string_view pm);
 std::string xeenPanelPlayTime(std::uint32_t);
 class XeenWallClock {
 public:

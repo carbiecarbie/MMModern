@@ -855,7 +855,7 @@ IndexedFrame XeenEventFlow::handleSmith(const PlayerAction &action,std::uint64_t
                     _encounter->quoteSmithBuy(ui.member,ui.category,ui.slot);
                     const auto outcome=_encounter->_smith->purchase->result.outcome;
                     if(_encounter->_smith->quoted) ui.phase=SmithUi::Phase::Confirm;
-                    else if(outcome==XeenEquipmentPurchaseOutcome::DestinationFull) ui.feedback=xeenBackpackFull(dosText(),ui.category,c.name);
+                    else if(outcome==XeenEquipmentPurchaseOutcome::DestinationFull) ui.feedback=xeenBackpackFull(dosText(),ui.category,xeenLiteralText(c.name));
                     else ui.feedback="Buy: not supported yet";
                 } else {
                     if(ui.mode==SmithUi::Mode::Identify) {
@@ -940,11 +940,11 @@ IndexedFrame XeenEventFlow::handleFoodBank(const PlayerAction &action,std::uint6
             }
             else if(guild) {
                 if(xeenGuildMember(_party,ui.member,_camera.mapId)) {
-                    if(key=='b' && !_party.party.member(_party.roster,ui.member).canAct())ui.feedback=xeenDialogFormat(dosText().scalar("IN_NO_CONDITION"),{_party.party.member(_party.roster,ui.member).name});
+                    if(key=='b' && !_party.party.member(_party.roster,ui.member).canAct())ui.feedback=xeenDialogFormat(dosText().scalar("IN_NO_CONDITION"),{xeenLiteralText(_party.party.member(_party.roster,ui.member).name)});
                     if(key=='s' || (key=='b' && _party.party.member(_party.roster,ui.member).canAct())) {
                         if(ui.descriptions.empty()) {
                             if(!loadSpellDescriptions)throw std::runtime_error("Missing spell descriptions provider");
-                            ui.descriptions=xeenSpellDescriptions(loadSpellDescriptions());
+                            ui.descriptions=xeenSpellDescriptions(loadSpellDescriptions(),_inventoryFont.language());
                         }
                         ui.spellInfo=key=='s';ui.spells={};ui.phase=SmithUi::Phase::Browse;
                     }
@@ -961,7 +961,7 @@ IndexedFrame XeenEventFlow::handleFoodBank(const PlayerAction &action,std::uint6
                         popup=xeenDialogFormat(dosText().scalar("TAVERN_RUMOR_FORMAT"),{tavernString(xeenTavernTipText(_camera.mapId,_world.tavernTipIndex(_camera.mapId)))});
                     }
                     const auto result=_encounter->simpleService(ui.member,static_cast<char>(key));
-                    if(result==XeenSimpleServiceOutcome::NoAction && !c.canAct())ui.feedback=xeenDialogFormat(dosText().scalar("IN_NO_CONDITION"),{c.name});
+                    if(result==XeenSimpleServiceOutcome::NoAction && !c.canAct())ui.feedback=xeenDialogFormat(dosText().scalar("IN_NO_CONDITION"),{xeenLiteralText(c.name)});
                     else if(result==XeenSimpleServiceOutcome::InsufficientGold)ui.feedback=serviceNotEnoughGold();
                     else if(result==XeenSimpleServiceOutcome::HaveDrink)ui.tavernStatus=dosText().scalar("TAVERN_HAVE_A_DRINK");
                     else if(result==XeenSimpleServiceOutcome::Drunk)ui.tavernStatus=dosText().scalar("TAVERN_YOURE_DRUNK");

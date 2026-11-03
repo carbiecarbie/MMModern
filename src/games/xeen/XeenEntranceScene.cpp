@@ -116,10 +116,11 @@ const Art &art(unsigned action,XeenSide side) {
     return entries[action-8];
 }
 }
-XeenEntranceAnimation::XeenEntranceAnimation(unsigned action,bool keyed,const Duration &duration,bool efx,unsigned captionLength,bool captionWhenEfx,bool silentDigital,XeenSide side,bool night):
-    _action(action),_side(side),_night(night),_efx(efx),_captions(!efx || captionWhenEfx),_digitalActive(efx && !silentDigital),_captionLength(captionLength) {
+XeenEntranceAnimation::XeenEntranceAnimation(unsigned action,bool keyed,const Duration &duration,bool efx,unsigned captionLength,bool captionWhenEfx,bool silentDigital,XeenSide side,bool night,bool russianCaption):
+    _action(action),_side(side),_night(night),_efx(efx),_captions(!efx || captionWhenEfx),_digitalActive(efx && !silentDigital),
+    _russianCaption(russianCaption),_shown(_captions || russianCaption),_captionLength(captionLength),_cursor(russianCaption?1:0) {
     const auto &a=art(action,side);
-    if(_captions && !_captionLength)throw std::invalid_argument("Missing entrance caption record");
+    if(_shown && !_captionLength)throw std::invalid_argument("Missing entrance caption record");
     const auto add=[&](Phase phase,unsigned count,unsigned ticks,const char *sample=nullptr) {
         const auto length=sample && _digitalActive?duration(sample):0;
         if(sample && _digitalActive && !length)throw std::invalid_argument("Invalid entrance sample duration");
@@ -172,7 +173,7 @@ std::optional<XeenEntranceAnimation::Frame> XeenEntranceAnimation::advance(std::
     if(_started) {
         const auto &step=_phases[_phase];
         const bool speech=step.kind==Phase::Speech;
-        const bool captionBusy=_captions && _phase==_firstSpeech && !_captionComplete;
+        const bool captionBusy=_shown && _phase==_firstSpeech && !_captionComplete;
         if(speech && !captionBusy && now>=_sampleEnd && now<_minimumEnd){_deadline=_minimumEnd;return {};}
         if(speech?(!captionBusy && now>=std::max(_sampleEnd,_minimumEnd)):++_iteration>=step.count) {
             ++_phase;_iteration=0;_started=false;
@@ -182,7 +183,7 @@ std::optional<XeenEntranceAnimation::Frame> XeenEntranceAnimation::advance(std::
     // Skip an already elapsed growl tail without inventing an extra wait.
     if(_phases[_phase].kind==Phase::EntryTail && now>=_entryEnd){++_phase;_iteration=0;_started=false;}
     auto frame=compose(draw);
-    if(_captions && _phase==_firstSpeech) {
+    if(_shown && _phase==_firstSpeech && (!_russianCaption || _cursor)) {
         const auto tick=PresentationClock::tick(now);
         if(tick-_captionMark>1) {
             _cursor=(_cursor+1)%_captionLength;_captionMark=tick;

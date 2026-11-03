@@ -1,5 +1,6 @@
 #include "formats/xeen/XeenCutsceneData.h"
 #include "formats/xeen/XeenDosText.h"
+#include "formats/xeen/XeenRussianTranslation.h"
 #include <algorithm>
 #include <cstdio>
 #include <stdexcept>
@@ -30,7 +31,41 @@ XeenCutsceneData XeenCutsceneData::installed(const GameInstallation &installatio
   auto name=entry.path().filename().u8string();for(auto &c:name)if(c>='A'&&c<='Z')c+=32;
   if(name=="xeen.exe") {if(!exe.empty() || !entry.is_regular_file())bad();exe=entry.path();}
  }
- if(exe.empty())bad();return parse(read(ReadOnlyDataFile::plain(exe)),read(*installation.configuration));
+ if(exe.empty())bad();auto data=parse(read(ReadOnlyDataFile::plain(exe)),read(*installation.configuration));
+ if(installation.translation)data.applyRussianText(read(ReadOnlyDataFile::plain(installation.translation->program(true))));
+ return data;
+}
+void XeenCutsceneData::applyRussianText(const std::vector<std::uint8_t> &b) {
+ // Darkside of Xeen RUS 1.2 XEEN.EXE: data segment 0x19af at file 0x1c6d0.
+ // Each text is named by the push the CD names its counterpart with.
+ if(b.size()!=142257 || word(b,0)!=0x5a4d || word(b,8)*16!=0x2be0 ||
+    crc32(0,b.data(),static_cast<uInt>(b.size()))!=0x52021807UL)
+  throw std::runtime_error("Russian cutscene text unavailable: different translated XEEN.EXE");
+ constexpr auto ru=XeenLanguage::Russian;
+ const auto text=[&](std::size_t p,const std::string &english) {
+  auto value=token(b,p,std::min<std::size_t>(b.size(),p+1024));XeenDosText::validateControls(value,ru);
+  if(value.empty() || XeenDosText::formatSignature(value)!=XeenDosText::formatSignature(english))bad();
+  return value;
+ };
+ labels=text(0x1e8c6,labels);captionFormat=text(0x1fcca,captionFormat);
+ russianCaptions=true;
+ ending.scorePages[0]=text(0x1f861,ending.scorePages[0]);ending.scorePages[1]=text(0x1e84d,ending.scorePages[1]);
+ auto &de=darksideEnding;
+ constexpr std::size_t pages[]{0x1f038,0x1f123};
+ for(unsigned i=0;i<2;++i) {
+  const auto p=0x1f030+4*i;
+  if(word(b,p+2)!=0x19af || 0x1c6d0+word(b,p)!=pages[i])bad();
+  de.scorePages[i]=text(pages[i],de.scorePages[i]);
+ }
+ de.scoreFormats[0]=text(0x1f965,de.scoreFormats[0]);de.scoreFormats[1]=text(0x1e926,de.scoreFormats[1]);
+ auto &we=worldEnding;
+ constexpr std::size_t formats[]{0x1f6b4,0x1f6c4,0x1f6d4,0x1f6e4};
+ for(unsigned i=0;i<4;++i)we.formats[i]=text(formats[i],we.formats[i]);
+ we.opening=text(0x1f719,we.opening);
+ // CD tokens 21, 22, 51, 53, 55, 57, 61 and 104; the second is pushed past a
+ // reassembler mark that overlays the start of its string.
+ constexpr std::size_t captions[]{0x1e54b,0x217b1,0x1f8e3,0x1f99e,0x1f9d9,0x1fa2c,0x1de54,0x1ddc6};
+ for(unsigned i=0;i<8;++i)we.captions[i]=text(captions[i],we.captions[i]);
 }
 XeenCutsceneData XeenCutsceneData::parse(const std::vector<std::uint8_t> &b,const std::vector<std::uint8_t> &cfg) {
  // Part 0 identity plus MZ, pointer and bounded table checks. CRC refuses any
@@ -177,12 +212,12 @@ XeenCutsceneData XeenCutsceneData::parse(const std::vector<std::uint8_t> &b,cons
  for(const auto &c:dark.nwcCues)if(c.target!=0xab2e && c.target!=0xab35 && c.target!=0xab3d)bad();
  return d;
 }
-XeenCutsceneData::Captions XeenCutsceneData::captions(const std::vector<std::uint8_t> &b) {
+XeenCutsceneData::Captions XeenCutsceneData::captions(const std::vector<std::uint8_t> &b,XeenLanguage language) {
  if(b.empty() || b.size()>65535 || b.back()!=0)throw std::runtime_error("Malformed cutscene captions");
  Captions result;std::size_t start=0;
  for(std::size_t i=0;i<b.size();++i)if(b[i]==0) {
   result.offsets.push_back(std::uint16_t(start));result.records.emplace_back(b.begin()+start,b.begin()+i);
-  XeenDosText::validateControls(result.records.back());start=i+1;
+  XeenDosText::validateControls(result.records.back(),language);start=i+1;
  }
  return result;
 }
@@ -190,9 +225,9 @@ const std::string &XeenCutsceneData::Captions::record(unsigned index,unsigned bo
  if(index>=records.size() || records[index].empty() || records[index].size()+1>bound)throw std::runtime_error("Invalid cutscene caption record");
  return records[index];
 }
-std::string XeenCutsceneData::firstCaption(const std::vector<std::uint8_t> &b) {
+std::string XeenCutsceneData::firstCaption(const std::vector<std::uint8_t> &b,XeenLanguage language) {
  auto text=token(b,0,std::min<std::size_t>(800,b.size()));
- if(text.empty())throw std::runtime_error("Empty Clouds intro caption record");XeenDosText::validateControls(text);return text;
+ if(text.empty())throw std::runtime_error("Empty Clouds intro caption record");XeenDosText::validateControls(text,language);return text;
 }
 std::string XeenCutsceneData::hand(unsigned n) const {if(n>15)bad();return numbered(handPattern,n);}
 std::string XeenCutsceneData::marble(unsigned n) const {if(n<1 || n>4)bad();return numbered(marblePattern,n);}

@@ -4,6 +4,7 @@
 
 #include "compat/scummvm/ScummVmRuntime.h"
 #include "formats/xeen/XeenObjectSpriteSafety.h"
+#include "formats/xeen/XeenRussianTranslation.h"
 
 #include "common/file.h"
 #include "common/path.h"
@@ -200,9 +201,12 @@ public:
 
 // All installed archive roles use the pinned BaseCCArchive name/index decoder.
 // Validate its preconditions first, so malformed resources never reach error().
+// M110: this is the one substitution point of the language layer; every
+// installed-archive read, New Game block and metadata read passes through it.
 class CheckedInstalledArchive : public MM::Shared::Xeen::BaseCCArchive {
 public:
- explicit CheckedInstalledArchive(ReadOnlyDataFile file):_file(std::move(file)) {
+ CheckedInstalledArchive(ReadOnlyDataFile file,XeenArchiveRole role,std::shared_ptr<const XeenRussianTranslation> translation):
+  _file(std::move(file)),_role(role),_translation(std::move(translation)) {
   auto source=_file.open();_indexBytes.resize(2);
   if(source->read(_indexBytes.data(),2)!=2)throw std::runtime_error("Truncated CC count: "+_file.identity());
   const unsigned count=_indexBytes[0]|unsigned(_indexBytes[1])<<8;
@@ -231,20 +235,32 @@ public:
   std::vector<std::uint8_t> bytes(entry._size);
   if(source->read(bytes.data(),bytes.size())!=bytes.size())throw std::runtime_error("Short CC member read: "+_file.identity());
   for(auto &byte:bytes)byte^=0x35;
+  if(_translation) {
+   auto cached=_substituted.find(entry._id);
+   if(cached==_substituted.end())cached=_substituted.emplace(entry._id,_translation->substitute(_role,entry._id,bytes)).first;
+   if(cached->second)bytes=*cached->second;
+  }
   if(bytes.empty())return new Common::MemoryReadStream(nullptr,0);
   Common::MemoryReadStream input(bytes.data(),static_cast<uint32>(bytes.size()));return input.readStream(bytes.size());
  }
  std::optional<std::vector<std::uint8_t>> readMetadataChecked(const char *name,std::size_t limit) const {
   const Common::Path member(name,Common::Path::kNoSeparator);MM::Shared::Xeen::CCEntry entry;
   if(!getHeaderEntry(member,entry))return std::nullopt;
-  if(entry._size>limit)throw std::runtime_error(std::string("Oversized DARK.CC/")+name);
-  std::unique_ptr<Common::SeekableReadStream> stream(createReadStreamForMember(member));return readBytes(*stream,name);
+  // The limit checks the bytes the layer substitutes, not the CD index size.
+  std::unique_ptr<Common::SeekableReadStream> stream(createReadStreamForMember(member));
+  if(stream->size()<0 || static_cast<std::uint64_t>(stream->size())>limit)throw std::runtime_error(std::string("Oversized DARK.CC/")+name);
+  return readBytes(*stream,name);
  }
-private:ReadOnlyDataFile _file;std::vector<std::uint8_t> _indexBytes;
+private:
+ ReadOnlyDataFile _file;std::vector<std::uint8_t> _indexBytes;
+ XeenArchiveRole _role;std::shared_ptr<const XeenRussianTranslation> _translation;
+ // The language is fixed for the archive's lifetime, so merged entries are kept.
+ mutable std::unordered_map<std::uint16_t,std::optional<std::vector<std::uint8_t>>> _substituted;
 };
 class DarkMetadataArchive final:public CheckedInstalledArchive {
 public:
- explicit DarkMetadataArchive(ReadOnlyDataFile file):CheckedInstalledArchive(std::move(file)){}
+ DarkMetadataArchive(ReadOnlyDataFile file,std::shared_ptr<const XeenRussianTranslation> translation):
+  CheckedInstalledArchive(std::move(file),XeenArchiveRole::Darkside,std::move(translation)){}
  std::optional<std::vector<std::uint8_t>> readItemMaterialNamesChecked() const{return readMetadataChecked("mae.xen",8192);}
  std::optional<std::vector<std::uint8_t>> readLearnedSpellNamesChecked() const{return readMetadataChecked("spells.xen",77*64);}
  std::optional<std::vector<std::uint8_t>> readMonsterStatisticsChecked() const{return readMetadataChecked("xeen.mon",65535);}
@@ -264,6 +280,7 @@ std::unique_ptr<Common::SeekableReadStream> openResource(
 
 struct ScummVmXeenBridge::Impl {
 	ScummVmRuntime runtime;
+	std::shared_ptr<const XeenRussianTranslation> translation;
 	CheckedInstalledArchive archive;
 	bool darkAvailable = false;
 	std::unique_ptr<DarkMetadataArchive> darkMetadataArchive;
@@ -284,8 +301,8 @@ struct ScummVmXeenBridge::Impl {
 	std::unique_ptr<InitialCloudsArchive> initialDarkArchive;
 
 	explicit Impl(const GameInstallation &installation) :
-		runtime(installation),
-		archive(archiveDataFile(installation,XeenArchiveRole::Clouds)) {
+		runtime(installation),translation(installation.translation),
+		archive(archiveDataFile(installation,XeenArchiveRole::Clouds),XeenArchiveRole::Clouds,translation) {
 		darkAvailable = installation.hasDarkside();
 		sceneIntroPath = installation.introData;
   if(installation.uiModule)programFolder=installation.uiModule->physicalPath.parent_path();
@@ -320,7 +337,7 @@ struct ScummVmXeenBridge::Impl {
 	InitialCloudsArchive &initialDark() {
 		if (!sceneDarkPath) throw std::runtime_error("Missing DARK New Game archive");
 		if (!initialDarkArchive) {
-			if (!sceneDark) sceneDark.reset(new SceneInstalledArchive(*sceneDarkPath));
+			if (!sceneDark) sceneDark.reset(new SceneInstalledArchive(*sceneDarkPath,XeenArchiveRole::Darkside,translation));
 			// engines/mm/xeen/files.cpp:167, SaveArchive::reset, same as Clouds.
 			const char *const blocks[]{"2a0c", "2a1c", "2a2c", "2a3c", "284c", "2a5c"};
 			std::vector<std::uint8_t> data;
@@ -358,7 +375,7 @@ struct ScummVmXeenBridge::Impl {
     const bool dark=selection==XeenSceneArchive::DarksideProgramDark;
     auto &pathToArchive=dark?sceneDarkPath:sceneIntroPath;
     auto &selected=dark?sceneDark:sceneIntro;
-    if(pathToArchive && !selected)selected.reset(new SceneInstalledArchive(*pathToArchive));
+    if(pathToArchive && !selected)selected.reset(new SceneInstalledArchive(*pathToArchive,dark?XeenArchiveRole::Darkside:XeenArchiveRole::Intro,translation));
     if(selected && selected->hasFile(path))return {selected.get(),dark?"dark.cc":"intro.cc"};
     if(programLoose(name))return {&archive,dark?"dark.cc":"intro.cc"};
     return {nullptr,{}};
@@ -370,13 +387,13 @@ struct ScummVmXeenBridge::Impl {
 		// sources (INTRO). DARK is an archive selection, never a search source.
 		if (selection == XeenSceneArchive::Darkside || selection == XeenSceneArchive::DarksideOnly) {
 			if (sceneDarkPath.has_value()) {
-				if (!sceneDark) sceneDark.reset(new SceneInstalledArchive(*sceneDarkPath));
+				if (!sceneDark) sceneDark.reset(new SceneInstalledArchive(*sceneDarkPath,XeenArchiveRole::Darkside,translation));
 				if (sceneDark->hasFile(path)) return {sceneDark.get(), "dark.cc"};
 			}
 		} else if (selection != XeenSceneArchive::IntroOnly && archive.hasFile(path)) return {&archive, "xeen.cc"};
 		if (selection == XeenSceneArchive::DarksideOnly) return {nullptr, {}};
 		if (sceneIntroPath.has_value()) {
-			if (!sceneIntro) sceneIntro.reset(new SceneInstalledArchive(*sceneIntroPath));
+			if (!sceneIntro) sceneIntro.reset(new SceneInstalledArchive(*sceneIntroPath,XeenArchiveRole::Intro,translation));
 			if (sceneIntro->hasFile(path)) return {sceneIntro.get(), "intro.cc"};
 		}
 		return {nullptr, {}};
@@ -477,7 +494,7 @@ void ScummVmXeenBridge::validateAttackMonster(const std::string &resourceName,Xe
 std::optional<std::vector<std::uint8_t>> ScummVmXeenBridge::readObjectVisualMetadata(XeenSide side) {
 	if (!_impl->darkAvailable) return std::nullopt;
 	if (!_impl->darkMetadataArchive)
-		_impl->darkMetadataArchive.reset(new DarkMetadataArchive(*_impl->sceneDarkPath));
+		_impl->darkMetadataArchive.reset(new DarkMetadataArchive(*_impl->sceneDarkPath,_impl->translation));
 	const Common::Path path(side==XeenSide::Clouds?"clouds.dat":"dark.dat", Common::Path::kNoSeparator);
 	std::unique_ptr<Common::SeekableReadStream> stream(_impl->darkMetadataArchive->createReadStreamForMember(path));
 	if (!stream) return std::nullopt;
@@ -488,21 +505,21 @@ std::optional<std::vector<std::uint8_t>> ScummVmXeenBridge::readItemMaterialName
 	if (!_impl->darkAvailable)
 		return std::nullopt;
 	if (!_impl->darkMetadataArchive)
-		_impl->darkMetadataArchive.reset(new DarkMetadataArchive(*_impl->sceneDarkPath));
+		_impl->darkMetadataArchive.reset(new DarkMetadataArchive(*_impl->sceneDarkPath,_impl->translation));
 	return _impl->darkMetadataArchive->readItemMaterialNamesChecked();
 }
 
 std::optional<std::vector<std::uint8_t>> ScummVmXeenBridge::readLearnedSpellNamesFromDarkArchive() {
 	if (!_impl->darkAvailable) return std::nullopt;
 	if (!_impl->darkMetadataArchive)
-		_impl->darkMetadataArchive.reset(new DarkMetadataArchive(*_impl->sceneDarkPath));
+		_impl->darkMetadataArchive.reset(new DarkMetadataArchive(*_impl->sceneDarkPath,_impl->translation));
 	return _impl->darkMetadataArchive->readLearnedSpellNamesChecked();
 }
 
 std::optional<std::vector<std::uint8_t>> ScummVmXeenBridge::readMonsterStatistics(XeenSide side) {
 	if (!_impl->darkAvailable) return std::nullopt;
 	if (!_impl->darkMetadataArchive)
-		_impl->darkMetadataArchive.reset(new DarkMetadataArchive(*_impl->sceneDarkPath));
+		_impl->darkMetadataArchive.reset(new DarkMetadataArchive(*_impl->sceneDarkPath,_impl->translation));
 	if(side==XeenSide::Clouds)return _impl->darkMetadataArchive->readMonsterStatisticsChecked();
  const auto source=_impl->sceneResource("dark.mon",XeenSceneArchive::DarksideOnly);
  if(!source.archive)return std::nullopt;auto stream=openResource(*source.archive,"dark.mon",source.origin);return readBytes(*stream,"DARK.CC/dark.mon");

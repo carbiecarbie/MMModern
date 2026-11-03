@@ -1,5 +1,6 @@
 #ifndef MMODERN_XEEN_CUTSCENE_DATA_H
 #define MMODERN_XEEN_CUTSCENE_DATA_H
+#include "formats/xeen/XeenLanguage.h"
 #include "core/GameInstallation.h"
 #include <array>
 #include <string>
@@ -18,6 +19,10 @@ struct XeenCutsceneData {
  std::array<std::uint8_t,16> towerLeft,towerRight,towerY;
  std::string labels,captionFormat,handPattern,marblePattern;
  unsigned digitalDevice=0,musicDevice=0;
+ // M110 Part C: the Russian XEEN.EXE caption helper (RU 0x112cb) runs the
+ // strip whenever its position is at least 1, with speech too (CD 0x1191b:
+ // only below digital device 2, else it clears the position).
+ bool russianCaptions=false;
  struct Darkside {
   enum Resource {Palette,Caption,Box,Nwc1,Nwc2,Nwc3,Nwc4,Dragon1,Dragon2,Dragon3,
    NwcRaw1,NwcRaw2,Jvc,PyramidRaw2,PyramidRaw3,Title,PyramidTop,Pyramid,
@@ -92,8 +97,15 @@ struct XeenCutsceneData {
  };
  static XeenCutsceneData installed(const GameInstallation &);
  static XeenCutsceneData parse(const std::vector<std::uint8_t> &exe,const std::vector<std::uint8_t> &cfg);
- static std::string firstCaption(const std::vector<std::uint8_t> &);
- static Captions captions(const std::vector<std::uint8_t> &);
+ // M110 Part B: the text fields (labels, caption format, score pages and
+ // formats, World ending texts) from the identified Russian Darkside
+ // XEEN.EXE. Timing, coordinates, cues and actor data stay the CD's.
+ void applyRussianText(const std::vector<std::uint8_t> &russianExe);
+ // Caption records are archive text (special.bin), so they follow the
+ // archive language (M110); the program's labels and formats are the
+ // Russian program's through applyRussianText.
+ static std::string firstCaption(const std::vector<std::uint8_t> &,XeenLanguage language=XeenLanguage::English);
+ static Captions captions(const std::vector<std::uint8_t> &,XeenLanguage language=XeenLanguage::English);
  std::string hand(unsigned) const;
  std::string marble(unsigned) const;
 };

@@ -6,9 +6,23 @@
 
 #include <cstdint>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace mmodern {
+
+// M110 decision 10: a player-entered name (save slot, character) is literal
+// text in both languages. xeenLiteralText prefixes each byte outside
+// 0x20-0x7e with this private marker twice, a pair no original text contains
+// (a single 0x1f stays an unsupported control); the renderer then draws that
+// byte as a glyph and never reads it as formatting. In English the glyph is
+// the one of its low 7 bits, in Russian its own.
+inline constexpr char kXeenLiteralMarker = '\x1f';
+std::string xeenLiteralText(std::string_view bytes);
+inline std::string xeenLiteralText(const std::string &bytes) { return xeenLiteralText(std::string_view(bytes)); }
+inline std::string xeenLiteralText(const char *bytes) { return xeenLiteralText(std::string_view(bytes)); }
+// Characters a text shows: a marked byte counts once.
+std::size_t xeenVisibleLength(std::string_view text);
 
 struct XeenTextRect {
 	int left = 0;

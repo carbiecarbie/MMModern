@@ -213,6 +213,11 @@ std::vector<XeenCdTrack> readXeenCdTracks(const Path &cue,unsigned disc) {
  return tracks;
 }
 std::optional<GameInstallation> XeenInstallationDetector::detect(const Path &root) const {
+ auto result=detectCd(root);
+ if(result)result->translation=_translation;
+ return result;
+}
+std::optional<GameInstallation> XeenInstallationDetector::detectCd(const Path &root) const {
  if(!std::filesystem::is_directory(root))return std::nullopt;
  struct Candidate {std::string origin;std::array<ReadOnlyDataFile,3> files;}; std::vector<Candidate> candidates;
  std::vector<Path> cues;

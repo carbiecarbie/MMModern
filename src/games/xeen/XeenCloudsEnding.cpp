@@ -6,6 +6,8 @@ namespace mmodern {
 XeenCutscene XeenCutscene::cloudsEnding(const XeenCutsceneData &data,const XeenCutsceneData::Captions &captions,XeenWallClock clock,std::uint32_t score) {
  using E=XeenCutsceneData::Ending;using Reset=Segment::Reset;using Input=Segment::Input;
  auto d=std::make_shared<XeenCutsceneData>(data);const bool digital=data.digitalDevice>=2;
+ // The strip runs: CD without speech, Russian always (M110 Part C).
+ const bool strip=!digital || data.russianCaptions;
  auto random=std::make_shared<XeenPresentationRandom>(std::move(clock),d->ending.randomWords);
  struct State {
   unsigned vortex=1,offset=0,stride=1,cursor=0;
@@ -77,11 +79,13 @@ XeenCutscene XeenCutscene::cloudsEnding(const XeenCutsceneData &data,const XeenC
  auto &appearing=add("Alamar appears",{},[=](const Context &c){auto f=vortex(1);f.push_back(alamar(c.iteration));return f;},16,3);
  appearing.holdBeforeFlip=true;
  const auto startCaption=[=](unsigned record,const std::string &text,const Context &c) {
-  state->caption=text;state->captionTick=c.tick;state->cursor=!digital?1:0;state->strip.clear();
+  state->caption=text;state->captionTick=c.tick;state->cursor=strip?1:0;state->strip.clear();
   if(state->cursor)observed->captionRecords.push_back(record);
  };
  const auto caption=[=](Frame &f,const Context &c) {
-  if(digital)return;
+  if(digital && !d->russianCaptions)return;
+  // RU 0x112cb draws nothing once the position is 0.
+  if(d->russianCaptions && !state->cursor)return;
   if(state->cursor && c.tick-state->captionTick>=2) {
    state->captionTick=c.tick;state->cursor=(state->cursor+1)%state->caption.size();
    observed->captionAdvances.push_back(c.tick);

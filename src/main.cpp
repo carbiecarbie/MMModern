@@ -1,5 +1,6 @@
 #include "app/Application.h"
 #include "app/XeenPlayerSupport.h"
+#include "formats/xeen/XeenRussianTranslation.h"
 #include "MMModernVersion.h"
 #include "platform/sdl/SdlWindow.h"
 #include "platform/sdl/SdlWindowPlacement.h"
@@ -24,6 +25,7 @@ void newGameUsage() {
 		"Plain launch opens the original title menu.\n"
 		"Developer --new-game defaults to Adventurer. F9 requires an explicit save target.\n"
         "Developer modes use a fixed DOS wall clock (0); --wall-clock <u32> overrides it.\n"
+		"--russian <folder> plays the identified Russian translation over the CD; plain launch uses settings.ini.\n"
 		"--combat-seed is accepted only by --journey-region, --event-fixture and --monster-fixture.\n";
 }
 
@@ -117,6 +119,15 @@ int main(int argc, char *argv[]) {
   }
   cfg=std::filesystem::u8path(arguments[i+1]);arguments.erase(arguments.begin()+i,arguments.begin()+i+2);
  }
+ // M110: the Russian translation folder, a global source option like --ui-data.
+ std::optional<std::filesystem::path> russian;
+ for(std::size_t i=1;i<arguments.size();) {
+  if(arguments[i]!="--russian") {++i;continue;}
+  if(russian || i+1>=arguments.size() || arguments[i+1].empty() || arguments[i+1].rfind("--",0)==0) {
+   std::cerr<<"--russian requires one nonempty Russian translation folder\n";return 1;
+  }
+  russian=std::filesystem::u8path(arguments[i+1]);arguments.erase(arguments.begin()+i,arguments.begin()+i+2);
+ }
  std::optional<std::uint32_t> wallClock;
  for(std::size_t i=1;i<arguments.size();) {
   if(arguments[i]!="--wall-clock"){++i;continue;}
@@ -139,6 +150,7 @@ int main(int argc, char *argv[]) {
  try {
  if(argc==2 && arguments[1]=="--version"){std::cout<<"MMModern "<<MMODERN_VERSION<<'\n';return 0;}
  if(arguments.size()>=2 && arguments[1]=="--sound-setup")return mmodern::xeenSoundSetupCommand(arguments);
+ if(arguments.size()>=2 && arguments[1]=="--language-setup")return mmodern::xeenLanguageSetupCommand(arguments);
  if(arguments.size()>=2 && arguments[1]=="--diagnostics") {
   if(argc!=3)throw std::runtime_error("Usage: mmodern --diagnostics <game-dir>");
   std::cout<<mmodern::xeenDiagnostics(std::filesystem::u8path(arguments[2]),cfg,uiData.value_or(std::filesystem::path{}));return 0;
@@ -149,7 +161,12 @@ int main(int argc, char *argv[]) {
  }
  mmodern::XeenProgramState program{playerTitle?mmodern::xeenSystemWallClock():mmodern::XeenWallClock::fixed(wallClock.value_or(0))};
  if(!playerTitle && wallClock)std::cout<<"Wall clock: fixed "<<*wallClock<<'\n';
- const mmodern::Application application(program,uiData.value_or(std::filesystem::path{}),mmodern::xeenSettingsFile(),cfg.value_or(std::filesystem::path{}));
+ // The option names a folder that must be valid; the setting falls back to
+ // English with the refusal in the diagnostics above. Fixed for the process.
+ const auto translation=russian?mmodern::XeenRussianTranslation::open(*russian):
+  playerTitle?mmodern::xeenPlayerTranslation():nullptr;
+ if(translation && !playerTitle)std::cout<<"Language: Russian ("<<translation->folder().u8string()<<")\n";
+ const mmodern::Application application(program,uiData.value_or(std::filesystem::path{}),mmodern::xeenSettingsFile(),cfg.value_or(std::filesystem::path{}),translation);
 	// Plain launch enters the original title. Overrides require developer entry.
 	if (argc >= 2 && (std::string(argv[1]) == "--new-game" ||
 			std::string(argv[1]).rfind("--", 0) != 0)) {

@@ -6,6 +6,8 @@ XeenCutscene XeenCutscene::darkside(const XeenCutsceneData &data,const XeenCutsc
  using D=XeenCutsceneData::Darkside;using A=Audio;using I=Segment::Input;using R=Segment::Reset;
  auto d=std::make_shared<XeenCutsceneData>(data);auto lines=std::make_shared<XeenCutsceneData::Captions>(captions);auto random=std::make_shared<XeenPresentationRandom>(std::move(clock),d->ending.randomWords);
  const bool digital=d->digitalDevice>=2;XeenCutscene scene;auto observed=scene.observations;
+ // The strip runs: CD without speech, Russian always (M110 Part C).
+ const bool russian=d->russianCaptions,strip=!digital || russian;
  struct State {unsigned frame=0,offset=0,stride=1,phase=0,pos=0,lookup=0,sub=0,voice=0,cursor=0;std::uint64_t captionTick=0,roomTick=0;bool captionStartsAtZero=false,roomDone=false;std::string caption,strip;};
  auto state=std::make_shared<State>();
  const auto name=[d](D::Resource id){return d->darkside.resources[id];};
@@ -21,10 +23,12 @@ XeenCutscene XeenCutscene::darkside(const XeenCutsceneData &data,const XeenCutsc
  };
  const auto selectCaption=[=](unsigned index,unsigned seed,const Context &c) {
   state->caption=lines->record(index,1000);if(seed>=state->caption.size())throw std::runtime_error("Invalid Darkside caption seed");
-  state->cursor=digital?0:seed;state->captionStartsAtZero=!digital && !seed;state->captionTick=c.tick;state->strip.clear();observed->captionRecords.push_back(index);
+  state->cursor=strip?seed:0;state->captionStartsAtZero=!digital && !seed && !russian;state->captionTick=c.tick;state->strip.clear();observed->captionRecords.push_back(index);
  };
  const auto caption=[=](Frame &f,const Context &c) {
-  if(digital)return;
+  if(digital && !russian)return;
+  // RU 0x112cb draws nothing once the position is 0 (also a cleared clip).
+  if(russian && !state->cursor)return;
   if((state->cursor || state->captionStartsAtZero) && c.tick-state->captionTick>=2) {
    state->captionStartsAtZero=false;state->captionTick=c.tick;state->cursor=(state->cursor+1)%state->caption.size();
    auto begin=state->cursor>40?state->cursor-40:0;
@@ -81,7 +85,7 @@ XeenCutscene XeenCutscene::darkside(const XeenCutsceneData &data,const XeenCutsc
    Frame f{Restore{"pyramid"},sprite(D::Pyramid,c.iteration,132,62)};caption(f,c);
    if(!state->voice && !c.digitalBusy){state->voice=1;f.push_back(A{A::Digital,name(D::Pharaoh1b)});}return f;
   },19,4);speech.entering=[=](const Context &c){selectCaption(0,8,c);};
-  if(!digital){speech.holdInterval=2;speech.duringHold=[=](const Context &c)->Frame{Frame f;caption(f,c);return f;};}
+  if(strip){speech.holdInterval=2;speech.duringHold=[=](const Context &c)->Frame{Frame f;caption(f,c);return f;};}
   auto &speechTail=add("pyramid voice tail",{},[=](const Context &c)->Frame{Frame f;caption(f,c);return f;},0);
   speechTail.input=I::Unpolled;speechTail.finished=[=](const Context &c){return !c.digitalBusy && !state->cursor;};
   fade("room transition",false);
@@ -183,7 +187,8 @@ XeenCutscene XeenCutscene::darkside(const XeenCutsceneData &data,const XeenCutsc
   Frame flyLoads{Palette{name(D::FlyPalette)},Raw{name(D::FlyRaw)},Store{"fly"},Prepare{name(D::Fly)},A{A::RetainDigital,name(D::Pharaoh11)}};
   auto &flyBackground=add("release background",std::move(flyLoads),[=](const Context &c)->Frame {
    Frame f{Restore{"fly"},Level{0}};caption(f,c);return f;
-  });flyBackground.entering=[=](const Context &c){selectCaption(6,0,c);};
+  // CD 0xcdb6 starts record 6 at 0; RU 0xca98 at 1.
+  });flyBackground.entering=[=](const Context &c){selectCaption(6,russian?1:0,c);};
   fade("release fade in",true);
   auto &fly=add("release",{A{A::Digital,name(D::Pharaoh11)}},[=](const Context &c)->Frame {
    Frame f{Restore{"fly"},sprite(D::Fly,c.iteration)};caption(f,c);

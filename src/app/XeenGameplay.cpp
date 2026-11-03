@@ -434,7 +434,7 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
       status="MMModern - Game saved.";
       try {
        XeenRestoreGuard::Providers providers(*panelGuard,world,checkPanel);
-       panel->panelResult(xeenDialogFormat(flow.dosText().scalar("SAVED_NOTICE"),{request.name}),true);
+       panel->panelResult(xeenDialogFormat(flow.dosText().scalar("SAVED_NOTICE"),{xeenLiteralText(request.name)}),true);
        checkPanel();
       }catch(const std::exception &e) {
        checkPanel();
@@ -650,6 +650,7 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
    if(panel){checkPanel();panel->completeInput(frame);}else {flow.completeInputHandoff(frame);handoff.retain();}
   };
   handler.protectAllKeys = flow.journey();
+  if(flow.dialogText)handler.keyboard=flow.dialogText->keyboard();
   handler.nextPresentationDeadline=[&,alive]() -> std::optional<std::uint64_t> {
    if(!*alive)return {};
    if(finished && services.outcome && services.outcome->kind==XeenSessionOutcome::Kind::Title && services.program.audio)

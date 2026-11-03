@@ -31,10 +31,19 @@ Check ((ConvertTo-MMArgument 'a"b') -eq '"a\"b"') 'Quote escaping'
 $facts=@{ 'game.status'='usable'; 'game.edition'='World of Xeen (CD)'; 'game.folder'='F:\G'; 'game.exe'='usable for intros and Clouds ending'; 'cfg.source'='owned'
     'sound.music'='Roland LAPC-1 / MT-32; played'; 'sound.speech'='PC Speaker; silent'; 'roms.control'='missing'; 'roms.pcm'='missing'; 'roms.folder'='%LOCALAPPDATA%\MMModern\roms'; 'saves.used-slots'='0' }
 $status=@(Get-MMStatusRows $facts)
-Check (($status | ForEach-Object Title) -join ',' -eq 'Game,Music,Speech,MT-32 ROMs,Saves') 'Status rows'
+Check (($status | ForEach-Object Title) -join ',' -eq 'Game,Music,Speech,MT-32 ROMs,Language,Saves') 'Status rows'
 Check ($status[1].Level -eq 'warn' -and $status[1].Detail -eq 'Needs your MT-32 ROMs') 'MT-32 without ROMs warns'
 Check ($status[2].Level -eq 'warn' -and $status[2].Value -eq 'PC Speaker' -and $status[2].Detail -eq 'No sound in MMModern yet') 'Silent device warns by name'
-Check ($status[3].Level -eq 'info' -and $status[4].Value -eq 'No saves yet') 'Missing ROMs are only information'
+Check ($status[3].Level -eq 'info' -and $status[5].Value -eq 'No saves yet') 'Missing ROMs are only information'
+Check ($status[4].Level -eq 'info' -and $status[4].Value -eq 'English') 'English is the default language'
+$russianRow=@(Get-MMStatusRows @{ 'game.status'='usable'; 'language'='Russian'; 'language.translation'='D:\RU' }) | Where-Object Title -eq 'Language'
+Check ($russianRow.Level -eq 'ok' -and $russianRow.Value -eq 'Russian' -and $russianRow.Detail -eq 'D:\RU') 'Russian language row'
+$refusedRow=@(Get-MMStatusRows @{ 'game.status'='usable'; 'language'='English'; 'language.error'='Unknown file' }) | Where-Object Title -eq 'Language'
+Check ($refusedRow.Level -eq 'warn' -and $refusedRow.Value -eq 'English' -and $refusedRow.Detail -like '*Unknown file') 'Refused translation plays English'
+Check ((Get-MMLanguageArguments 'Russian' 'D:\RU') -join '|' -eq '--language-setup|--language|russian|--translation|D:\RU') 'Language arguments'
+Check ((Get-MMLanguageArguments 'English' '') -join '|' -eq '--language-setup|--language|english') 'English arguments'
+Check ((Expand-MMReportPath '%USERPROFILE%\Downloads\world-ru') -eq (Join-Path $env:USERPROFILE 'Downloads\world-ru')) 'Reported translation folder is expanded'
+Check ((Expand-MMReportPath '') -eq '') 'No reported translation folder'
 $facts['roms.control']='identified (MT-32 control 1.07)'; $facts['roms.pcm']='identified (MT-32 PCM)'; $facts['sound.speech']='None; silent'
 $status=@(Get-MMStatusRows $facts)
 Check ($status[1].Level -eq 'ok' -and $status[1].Detail -eq 'Chosen in Sound setup' -and $status[2].Level -eq 'ok' -and $status[3].Value -eq 'Found') 'Played devices and found ROMs'
@@ -56,6 +65,16 @@ Check (Test-Path -LiteralPath $saveRoot -PathType Container) 'Existing original-
 $raw=Invoke-MMCommand $Exe @('--diagnostics',$GameDir)
 Check (-not $raw.Contains($env:USERPROFILE)) 'Report profile redaction'
 Check ($report['settings.file'] -eq $env:MMODERN_SETTINGS_FILE) 'Settings override'
+Check ($report['language'] -eq 'English' -and -not $report['language.error']) 'English without a language setting'
+$languageOut=ConvertFrom-MMReport (Invoke-MMCommand $Exe @('--language-setup'))
+Check ($languageOut['language'] -eq 'english') 'Language setup reports English'
+$missingTranslation=Join-Path $TestRoot 'no translation'
+$refused=$false; try { [void](Invoke-MMCommand $Exe @('--language-setup','--language','russian','--translation',$missingTranslation)) } catch { $refused=$_.Exception.Message -like '*not found*' }
+Check $refused 'Russian without the translation is refused'
+Check ((ConvertFrom-MMReport (Invoke-MMCommand $Exe @('--language-setup')))['language'] -eq 'english') 'Refusal keeps English'
+[void](Invoke-MMCommand $Exe @('--language-setup','--language','english','--translation',$missingTranslation))
+$kept=ConvertFrom-MMReport (Invoke-MMCommand $Exe @('--diagnostics',$GameDir))
+Check ($kept['language'] -eq 'English' -and $kept['language.translation'] -eq $missingTranslation) 'English keeps the chosen folder'
 $rules=ConvertFrom-MMReport (Invoke-MMCommand $Exe @('--sound-setup',$GameDir))
 Check ($rules['speech.0.id'] -eq '6') 'PAS Alt writes digital 6'
 $music=@(Get-MMDeviceChoices $rules 'music')

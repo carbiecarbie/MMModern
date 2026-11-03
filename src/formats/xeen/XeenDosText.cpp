@@ -1,5 +1,7 @@
 #include "formats/xeen/XeenDosText.h"
 #include <algorithm>
+#include <map>
+#include <optional>
 #include <set>
 #include <stdexcept>
 
@@ -7,31 +9,266 @@ namespace mmodern {
 namespace {
 constexpr std::size_t kLoadBase=0x56c0, kDataBase=0x4d890;
 constexpr unsigned kDataSegment=0x481d;
+// Russian Darkside program (identified by size and CRC-32): its data segment
+// and the overflow segments its translators appended after the load image's
+// data, which only far pointers reach.
+constexpr std::size_t kRussianLoadBase=0x5470, kRussianDataBase=0x4c290;
+constexpr unsigned kRussianDataSegment=0x46e2, kRussianOverflowSegment=0x56ea;
 constexpr std::size_t kTokenLimit=512, kOutputLimit=65536;
-[[noreturn]] void malformed(const std::string &detail) {
- throw std::invalid_argument("Unsupported or malformed English DOS UI module: "+detail);
+[[noreturn]] void malformed(const std::string &detail,XeenLanguage language=XeenLanguage::English) {
+ throw std::invalid_argument(std::string("Unsupported or malformed ")+(language==XeenLanguage::Russian?"Russian":"English")+" DOS UI module: "+detail);
 }
-unsigned word(const std::vector<std::uint8_t> &b,std::size_t at) {
- if(at>b.size() || b.size()-at<2)malformed("truncated word");
+unsigned word(const std::vector<std::uint8_t> &b,std::size_t at,XeenLanguage language=XeenLanguage::English) {
+ if(at>b.size() || b.size()-at<2)malformed("truncated word",language);
  return b[at]|(unsigned(b[at+1])<<8);
 }
-std::string arguments(std::string_view text) {
+std::string formatArguments(std::string_view text,XeenLanguage language=XeenLanguage::English) {
  std::string result;
  for(std::size_t i=0;i<text.size();++i)if(text[i]=='%') {
-  if(++i==text.size())malformed("truncated format argument");
+  if(++i==text.size())malformed("truncated format argument",language);
   if(text[i]=='%')continue;
   const auto begin=i;
   if(text[i]=='+')++i;
   unsigned width=0;
   while(i<text.size() && text[i]>='0' && text[i]<='9') {
-   width=width*10+unsigned(text[i++]-'0');if(width>32)malformed("format width");
+   width=width*10+unsigned(text[i++]-'0');if(width>32)malformed("format width",language);
   }
   if(i<text.size() && text[i]=='l')++i;
-  if(i==text.size() || std::string_view("sduic").find(text[i])==std::string_view::npos)malformed("format conversion");
+  if(i==text.size() || std::string_view("sduic").find(text[i])==std::string_view::npos)malformed("format conversion",language);
   if(!result.empty())result+=',';
   result+=text.substr(begin,i-begin+1);
  }
  return result;
+}
+struct LoadImage {std::size_t size;std::set<std::size_t> relocated;};
+LoadImage loadImage(const std::vector<std::uint8_t> &bytes,std::size_t loadBase,XeenLanguage language) {
+ if(bytes.size()<28 || bytes.size()>1024*1024 || word(bytes,0,language)!=0x5a4d)malformed("MZ header",language);
+ const auto last=word(bytes,2,language),pages=word(bytes,4,language),relocations=word(bytes,6,language);
+ const std::size_t load=std::size_t(word(bytes,8,language))*16,relocationTable=word(bytes,24,language);
+ if(!pages || last>511)malformed("MZ image length",language);
+ const std::size_t image=std::size_t(pages)*512-(last?512-last:0);
+ if(image!=bytes.size() || load!=loadBase || load>=image ||
+    relocationTable<28 || relocationTable>load || relocations>(load-relocationTable)/4)
+  malformed("packed or incompatible MZ load image/relocations",language);
+ const std::size_t loaded=image-load;
+ const unsigned minimum=word(bytes,10,language),maximum=word(bytes,12,language);
+ const std::size_t entry=std::size_t(word(bytes,22,language))*16+word(bytes,20,language);
+ // SS may refer to allocated memory beyond the load image; no module is run.
+ const std::size_t allocation=(loaded+15)/16*16+std::size_t(maximum)*16;
+ const std::size_t stack=std::size_t(word(bytes,14,language))*16+word(bytes,16,language);
+ if(minimum>maximum || entry>=loaded || stack>allocation)malformed("MZ entry/allocated stack bounds",language);
+ LoadImage result{image,{}};
+ for(unsigned i=0;i<relocations;++i) {
+  const auto at=relocationTable+i*4;
+  const std::size_t target=load+std::size_t(word(bytes,at+2,language))*16+word(bytes,at,language);
+  if(target<load || target>image || image-target<2 || !result.relocated.insert(target).second)malformed("relocation extent/duplicate",language);
+ }
+ return result;
+}
+// Button tables share one check in both programs.
+std::vector<XeenDosText::Button> buttonTable(const std::vector<std::uint8_t> &bytes,std::size_t image,
+  const XeenDosText::ButtonLayout &layout,XeenLanguage language) {
+ std::vector<XeenDosText::Button> buttons;
+ for(unsigned i=0;i<layout.count;++i) {
+  for(const auto at:{layout.y,layout.width,layout.height,layout.key,layout.painted})
+   if(at+i>=image)malformed("button table extent",language);
+  XeenDosText::Button button{word(bytes,layout.x+i*2,language),bytes[layout.y+i],bytes[layout.width+i],bytes[layout.height+i],bytes[layout.key+i],bytes[layout.painted+i]!=0,i};
+  if(button.x>=320 || button.y>=200 || !button.width || !button.height || button.x+button.width>320 || button.y+button.height>200 || !button.key || bytes[layout.painted+i]>1)
+   malformed(std::string(layout.name)+" button bounds/key/paint",language);
+  buttons.push_back(button);
+ }
+ // Title has a second non-World table following its terminator; the other
+ // admitted tables end exactly at their sentinel.
+ if(word(bytes,layout.x+layout.count*2,language)!=65535)malformed("button table sentinel",language);
+ return buttons;
+}
+// Other Options: MOV byte [BP-0x10+row], key.
+unsigned scriptKey(const std::vector<std::uint8_t> &bytes,std::size_t at,unsigned row,XeenLanguage language) {
+ if(at<3 || at>=bytes.size() || bytes[at-3]!=0xc6 || bytes[at-2]!=0x46 || bytes[at-1]!=0xf0+row || !bytes[at])
+  malformed("Other Options button key script",language);
+ return bytes[at];
+}
+std::vector<XeenDosText::Window> windows(const std::vector<std::uint8_t> &bytes,std::size_t base,XeenLanguage language) {
+ std::vector<XeenDosText::Window> result;
+ for(unsigned i=0;i<48;++i) {
+  const XeenDosText::Window window{word(bytes,base+2*i,language),word(bytes,base+0x60+2*i,language),
+   word(bytes,base+0xc0+2*i,language),word(bytes,base+0x120+2*i,language)};
+  if(window.x+window.width>320 || window.y+window.height>200)malformed("window table bounds",language);
+  result.push_back(window);
+ }
+ return result;
+}
+std::string characters(const std::vector<std::uint8_t> &bytes,const XeenDosText::Characters &layout,XeenLanguage language) {
+ std::string value;
+ for(const auto at:layout.at) {
+  if(at<1 || at+1>=bytes.size() || bytes[at-1]!=0xb8 || bytes[at+1]!=0 || !bytes[at])
+   malformed(std::string(layout.name)+" character immediate",language);
+  value+=char(bytes[at]);
+ }
+ return value;
+}
+#include "formats/xeen/XeenDosTextRussian.inc"
+// M110 Part C: a key the program compares, at the same instruction or table
+// index in both programs. Width 1 is a button-array byte, 2 a switch value
+// word and 3 the word immediate of CMP AX. `internal` names MMModern's key
+// when it is not the CD letter in lower case.
+struct KeySlot {std::size_t cd,ru;unsigned width;unsigned internal=0;};
+std::vector<KeySlot> keyRun(std::size_t cd,std::size_t ru,unsigned count,unsigned width) {
+ std::vector<KeySlot> slots;
+ for(unsigned i=0;i<count;++i)slots.push_back({cd+i*width,ru+i*width,width});
+ return slots;
+}
+unsigned keyValue(const std::vector<std::uint8_t> &bytes,const KeySlot &slot,bool russian) {
+ const auto language=russian?XeenLanguage::Russian:XeenLanguage::English;
+ const auto at=russian?slot.ru:slot.cd;
+ if(at<1 || at+2>bytes.size())malformed("key extent",language);
+ if(slot.width==3 && bytes[at-1]!=0x3d)malformed("key compare",language);
+ if(slot.width>1 && bytes[at+1])malformed("key word",language);
+ return bytes[at];
+}
+bool latinKey(unsigned key){return key>='A' && key<='Z';}
+bool cyrillicKey(unsigned key){return (key>=0xa0 && key<=0xaf) || (key>=0xe0 && key<=0xef);}
+// Each CD letter is a Cyrillic key in Russian, or stays Latin (and then
+// cannot be typed there); strafe 0xb0/0xb1 became keys in the main table;
+// every other key is the same in both programs.
+XeenKeyboard::Keys keySet(const std::vector<std::uint8_t> &cd,const std::vector<std::uint8_t> &ru,const std::vector<KeySlot> &dispatch,
+  const std::vector<KeySlot> &buttons={}) {
+ constexpr auto language=XeenLanguage::Russian;
+ XeenKeyboard::Keys keys;std::set<unsigned> cases;
+ for(const auto &slot:dispatch) {
+  const auto c=keyValue(cd,slot,false),r=keyValue(ru,slot,true);cases.insert(r);
+  if(r==c)continue;
+  const bool strafe=(c==0xb0 || c==0xb1) && slot.width==1;
+  if(!cyrillicKey(r) || (!latinKey(c) && !strafe))malformed("key correspondence",language);
+  const unsigned internal=slot.internal?slot.internal:strafe?c:c+('a'-'A');
+  const auto same=std::find_if(keys.aliases.begin(),keys.aliases.end(),[&](const auto &a){return a.first==r;});
+  if(same!=keys.aliases.end()){if(same->second!=internal)malformed("ambiguous key",language);continue;}
+  keys.aliases.emplace_back(r,internal);
+ }
+ // A click delivers the button's value to the same dispatch.
+ for(const auto &slot:buttons) {
+  const auto c=keyValue(cd,slot,false),r=keyValue(ru,slot,true);
+  if(cases.count(r))continue;
+  if(!latinKey(c) || (r!=c && !cyrillicKey(r)))malformed("button key correspondence",language);
+  keys.clicks.emplace_back(slot.internal?slot.internal:c+('a'-'A'),r);
+ }
+ return keys;
+}
+std::shared_ptr<const XeenKeyboard> russianKeyboard(const std::vector<std::uint8_t> &cd,const std::vector<std::uint8_t> &ru,
+  const std::vector<XeenDosText::Button> &cdChooser,const std::vector<XeenDosText::Button> &ruChooser,
+  const std::vector<XeenDosText::Button> &ruPanel) {
+ constexpr auto language=XeenLanguage::Russian;
+ auto keyboard=std::make_shared<XeenKeyboard>();
+ // Scancode tables, CD 0x456e8 and RU 0x44176: the Russian letter rows.
+ constexpr std::size_t cdScan=0x456e8,ruScan=0x44176;
+ if(cd.size()<cdScan+128 || ru.size()<ruScan+128)malformed("scancode table extent",language);
+ for(unsigned scan=0;scan<128;++scan) {
+  const auto c=cd[cdScan+scan],r=ru[ruScan+scan];
+  if(c==r)continue;
+  const bool row=(scan>=0x10 && scan<=0x1b) || (scan>=0x1e && scan<=0x28) || (scan>=0x2c && scan<=0x34);
+  if(!row || !cyrillicKey(r) || !(latinKey(c) || std::string_view("[];',.").find(char(c))!=std::string_view::npos))
+   malformed("scancode table",language);
+  keyboard->letters[scan]=r;
+ }
+ const auto cdData=[](std::size_t offset){return kDataBase+offset;};
+ const auto ruData=[](std::size_t offset){return kRussianDataBase+offset;};
+ const auto compare=[](std::initializer_list<std::pair<std::size_t,std::size_t>> sites) {
+  std::vector<KeySlot> slots;for(const auto &[c,r]:sites)slots.push_back({c,r,3});return slots;
+ };
+ auto &sets=keyboard->sets;
+ // Location buttons and switches (CD 0x1b8e1..0x1d314, RU 0x1b478..0x1ce7f).
+ // Training T and Smith B, each followed by F1-F3 in its switch.
+ sets["TRAINING"]=keySet(cd,ru,keyRun(0x1b99c,0x1b533,4,2));
+ sets["SMITH"]=keySet(cd,ru,keyRun(0x1b980,0x1b517,4,2));
+ sets["TEMPLE"]=keySet(cd,ru,keyRun(0x1b95c,0x1b4f3,3,2));
+ sets["TAVERN"]=keySet(cd,ru,keyRun(0x1b930,0x1b4c7,5,2));
+ sets["GUILD"]=keySet(cd,ru,keyRun(0x1b910,0x1b4a7,2,2));
+ sets["BANK"]=keySet(cd,ru,compare({{0x1b8e2,0x1b479},{0x1b8e7,0x1b47e}}));
+ sets["BANK_AMOUNT"]=keySet(cd,ru,compare({{0x1c674,0x1c1de},{0x1c679,0x1c1e3}}));
+ // The three Yes/No compare chains.
+ sets["YESNO"]=keySet(cd,ru,compare({{0x1eb82,0x1e64b},{0x1eb87,0x1e650},{0x24c2a,0x24567},{0x24c2f,0x2456c},{0x25be3,0x25199},{0x25be8,0x2519e}}));
+ sets["ELEMENT"]=keySet(cd,ru,keyRun(0x2f0a6,0x2e541,5,2));
+ sets["CAST"]=keySet(cd,ru,keyRun(0x338c3,0x32d70,3,2));
+ sets["QUESTS"]=keySet(cd,ru,keyRun(0x3402e,0x334da,10,2));
+ // Quick Fight accepts N and T for Next (MMModern's n). Its button shares
+ // the Training array (DS 0x1a48), whose Russian key matches neither case;
+ // the click still dispatches its own Next (approved deviation, 2026-11-03).
+ auto quick=keyRun(0x34223,0x336cf,4,2);quick[3].internal='n';
+ sets["QUICK_FIGHT"]=keySet(cd,ru,quick);
+ // Lloyd's Beacon: Return, Set (S and T); T stays Latin in Russian.
+ sets["LLOYD"]=keySet(cd,ru,keyRun(0x2ffb3,0x2f452,4,2));
+ // Create's attribute exchange: Latin buttons (DS 0x1df0/0x1de2) against a
+ // Cyrillic dispatch, so only its keys work in Russian.
+ sets["CREATE_EXCHANGE"]=keySet(cd,ru,keyRun(0x351b0,0x34661,8,2),keyRun(cdData(0x1df0),ruData(0x1de2),8,1));
+ sets["CREATE"]=keySet(cd,ru,keyRun(0x368e7,0x35d9e,12,2));
+ sets["INN"]=keySet(cd,ru,keyRun(0x39c59,0x39112,11,2));
+ sets["SHEET"]=keySet(cd,ru,keyRun(0x3a5c2,0x39a7c,4,2));
+ // Items, Smith buying and the item spells share one dispatch.
+ sets["ITEMS"]=keySet(cd,ru,keyRun(0x3b921,0x3addc,24,2));
+ // Main screen and combat: the static exploration table (strafe included)
+ // and the combat switch.
+ sets["MAIN"]=keySet(cd,ru,keyRun(0x4f272,0x4dc72,20,1));
+ sets["COMBAT"]=keySet(cd,ru,keyRun(0x2ecad,0x2e147,21,2));
+ // The chooser's select key, shared by the spell list.
+ if(cdChooser.size()!=ruChooser.size())malformed("chooser keys",language);
+ auto &chooser=sets["CHOOSER"];
+ for(unsigned i=0;i<cdChooser.size();++i)if(cdChooser[i].key!=ruChooser[i].key) {
+  if(!latinKey(cdChooser[i].key) || !cyrillicKey(ruChooser[i].key))malformed("chooser key correspondence",language);
+  chooser.aliases.emplace_back(ruChooser[i].key,cdChooser[i].key+('a'-'A'));
+ }
+ // Control panel dispatch RU 0x1ea78: key minus 0xa0 through 23 targets at
+ // file 0x1ed4b (CD 0x1f036: key minus 'A' at 0x1f332). A key sharing a
+ // button's target is that button; the clock stages keep the CD's relative
+ // order and spacing (G, then B and R at +0x0e and +0x1d; O has no key).
+ constexpr std::size_t cdPanel=0x1f332,ruPanelTable=0x1ed4b;
+ std::array<unsigned,23> targets{},cdTargets{};
+ for(unsigned i=0;i<23;++i){targets[i]=word(ru,ruPanelTable+2*i,language);cdTargets[i]=word(cd,cdPanel+2*i);}
+ // SUB BX,0A0h; NOP; CMP BX,16h at 0x1ea7c (CD 0x1f03a: SUB BX,41h).
+ constexpr std::uint8_t dispatch[]{0x81,0xeb,0xa0,0x00,0x90,0x83,0xfb,0x16};
+ if(ru.size()<0x1ea7c+sizeof dispatch || !std::equal(std::begin(dispatch),std::end(dispatch),ru.begin()+0x1ea7c))
+  malformed("panel dispatch",language);
+ const auto cdStage=[&](char key){return cdTargets[unsigned(key-'A')];};
+ auto &panel=sets["PANEL"];
+ std::map<unsigned,unsigned> buttonTarget;
+ for(const auto &button:ruPanel) {
+  if(button.key<0xa0 || button.key>=0xa0+23)malformed("panel button key",language);
+  buttonTarget[targets[button.key-0xa0]]=button.key;
+ }
+ for(unsigned i=0;i<23;++i)
+  if(const auto it=buttonTarget.find(targets[i]);it!=buttonTarget.end() && it->second!=0xa0+i)panel.aliases.emplace_back(0xa0+i,it->second);
+ // The G stage is the one non-button target with single keys at the CD's
+ // B and R spacing; no key reaches the O stage.
+ const unsigned g=cdStage('G');
+ const auto keysFor=[&](unsigned target){return unsigned(std::count(targets.begin(),targets.end(),target));};
+ std::optional<unsigned> stageG;
+ for(unsigned i=0;i<23;++i) {
+  const auto base=targets[i];
+  if(buttonTarget.count(base) || keysFor(base)!=1 || keysFor(base+cdStage('B')-g)!=1 || keysFor(base+cdStage('R')-g)!=1)continue;
+  if(stageG || keysFor(base+cdStage('O')-g))malformed("panel clock stages",language);
+  stageG=base;
+ }
+ if(!stageG)malformed("panel clock stages",language);
+ for(unsigned i=0;i<23;++i)for(const char stage:{'G','B','R'})
+  if(targets[i]==*stageG+cdStage(stage)-g)panel.aliases.emplace_back(0xa0+i,unsigned(stage+('a'-'A')));
+ // N3: the main-screen table's target rows (y at 0x4dc47.., height at
+ // 0x4dc6f..; CD 0x4f247/0x4f26f) and the highlight IMUL/ADD at RU 0x2dc07
+ // (CD 0x2e770: row*10+27), which the Russian program moved to match.
+ constexpr std::size_t ruRows=0x4dc0c,cdRows=0x4f20c,ruHighlight=0x2dc07,cdHighlight=0x2e770;
+ const auto highlight=[&](const std::vector<std::uint8_t> &b,std::size_t at,XeenLanguage l) {
+  if(b.size()<at+8 || b[at]!=0x6b || b[at+1]!=0xc0 || b[at+3]!=0x05 || b[at+5] || b[at+6]!=0x50 || b[at+7]!=0x68)
+   malformed("combat target highlight",l);
+  return std::pair<unsigned,unsigned>{b[at+2],b[at+4]};
+ };
+ const auto [cdStride,cdTop]=highlight(cd,cdHighlight,XeenLanguage::English);
+ const auto [stride,top]=highlight(ru,ruHighlight,language);
+ for(unsigned row=0;row<3;++row) {
+  const auto y=ru[ruRows+0x2a+17+row],height=ru[ruRows+0x52+17+row];
+  if(cdStride!=10 || cdTop!=27 || cd[cdRows+0x2a+17+row]!=cdTop+cdStride*row || cd[cdRows+0x52+17+row]!=10 ||
+     y!=top+stride*row || height!=ru[ruRows+0x52+17] || word(ru,ruRows+2*(17+row),language)!=word(cd,cdRows+2*(17+row)))
+   malformed("combat target rows",language);
+ }
+ keyboard->targetTop=top;keyboard->targetStride=stride;keyboard->targetHeight=ru[ruRows+0x52+17];
+ return keyboard;
 }
 }
 const std::vector<XeenDosText::Field> &XeenDosText::layout() {
@@ -313,7 +550,15 @@ const std::vector<XeenDosText::Field> &XeenDosText::layout() {
   {"NO_LOADING_IN_COMBAT",0x534bd,0x534db,1,false,""},
   {"NO_SAVING_IN_COMBAT",0x534e6,0x53503,1,false,""},
   {"CONFIRM_QUIT",0x53503,0x53522,1,false,""},
-  {"MR_WIZARD",0x53522,0x5354b,1,false,""}
+  {"MR_WIZARD",0x53522,0x5354b,1,false,""},
+  // M110 decision 9: game text MMModern wrote in code. The monster and Temple
+  // number writers at 0x1bfb6/0x1c000 print thousands with this format; the
+  // panel clock writer at 0xf219/0xf25f appends these meridiem strings.
+  {"THOUSANDS_FORMAT",0x52ab8,0x52abc,1,false,"u"},
+  {"CLOCK_AM",0x52456,0x52458,1,false,""},
+  {"CLOCK_PM",0x52461,0x52463,1,false,""},
+  // Gold of a million or more in the Bank, Temple and services (0x1bf7f).
+  {"MILLIONS_FORMAT",0x52aac,0x52ab4,1,false,"lu"}
  };
  return fields;
 }
@@ -328,9 +573,10 @@ const std::vector<XeenDosText::ButtonLayout> &XeenDosText::buttonLayouts() {
   {"PANEL",0x4f45e,0x4f472,0x4f47b,0x4f484,0x4f48d,0x4f496,9}
  };return layouts;
 }
-void XeenDosText::validateControls(std::string_view text) {
+void XeenDosText::validateControls(std::string_view text, XeenLanguage language) {
  for(std::size_t i=0;i<text.size();) {
-  const unsigned c=static_cast<unsigned char>(text[i++])&127;
+  const unsigned raw=static_cast<unsigned char>(text[i++]);
+  const unsigned c=language==XeenLanguage::Russian?raw:raw&127;
   if(c>=32 || c==1 || c==2 || c==5 || c==6 || c==10 || c==13)continue;
   if(c==3 || c==8) {
    if(i==text.size())malformed("truncated alignment/outline");
@@ -356,27 +602,8 @@ void XeenDosText::validateControls(std::string_view text) {
  }
 }
 XeenDosText::XeenDosText(const std::vector<std::uint8_t> &bytes) {
- if(bytes.size()<28 || bytes.size()>1024*1024 || word(bytes,0)!=0x5a4d)malformed("MZ header");
- const auto last=word(bytes,2),pages=word(bytes,4),relocations=word(bytes,6);
- const std::size_t load=std::size_t(word(bytes,8))*16,relocationTable=word(bytes,24);
- if(!pages || last>511)malformed("MZ image length");
- const std::size_t image=std::size_t(pages)*512-(last?512-last:0);
- if(image!=bytes.size() || load!=kLoadBase || load>=image ||
-    relocationTable<28 || relocationTable>load || relocations>(load-relocationTable)/4)
-  malformed("packed or incompatible MZ load image/relocations");
- const std::size_t loaded=image-load;
- const unsigned minimum=word(bytes,10),maximum=word(bytes,12);
- const std::size_t entry=std::size_t(word(bytes,22))*16+word(bytes,20);
- // SS may refer to allocated memory beyond the load image; no module is run.
- const std::size_t allocation=(loaded+15)/16*16+std::size_t(maximum)*16;
- const std::size_t stack=std::size_t(word(bytes,14))*16+word(bytes,16);
- if(minimum>maximum || entry>=loaded || stack>allocation)malformed("MZ entry/allocated stack bounds");
- std::set<std::size_t> relocated;
- for(unsigned i=0;i<relocations;++i) {
-  const auto at=relocationTable+i*4;
-  const std::size_t target=load+std::size_t(word(bytes,at+2))*16+word(bytes,at);
-  if(target<load || target>image || image-target<2 || !relocated.insert(target).second)malformed("relocation extent/duplicate");
- }
+ const auto loaded=loadImage(bytes,kLoadBase,XeenLanguage::English);
+ const auto image=loaded.size;const auto &relocated=loaded.relocated;
  std::size_t total=0;
  const auto token=[&](std::size_t at,std::size_t end,const Field &field,unsigned index) {
   if(at<kDataBase || at>=end || end>image)malformed(std::string(field.name)+" field extent");
@@ -388,7 +615,7 @@ XeenDosText::XeenDosText(const std::vector<std::uint8_t> &bytes) {
    (std::string_view(field.name)=="CLASS_NAMES" && index==10) ||
    (std::string_view(field.name)=="EFFECTIVENESS_NAMES" && index==0);
   if(value.empty() && !emptyAllowed)malformed(std::string(field.name)+" empty field");
-  if(arguments(value)!=field.arguments)malformed(std::string(field.name)+" format arguments");
+  if(formatArguments(value)!=field.arguments)malformed(std::string(field.name)+" format arguments");
   validateControls(value);total+=value.size();if(total>kOutputLimit)malformed("aggregate output bound");
   return std::pair<std::string,std::size_t>{std::move(value),at+1};
  };
@@ -411,36 +638,93 @@ XeenDosText::XeenDosText(const std::vector<std::uint8_t> &bytes) {
   }
   if(at!=field.end)malformed(std::string(field.name)+" ambiguous/trailing field bytes");
   if(!_fields.emplace(field.name,std::move(values)).second)malformed("duplicate named field");
+  _arguments.emplace(field.name,field.arguments);
  }
- for(const auto &layout:buttonLayouts()) {
-  std::vector<Button> buttons;
-  for(unsigned i=0;i<layout.count;++i) {
-   for(const auto at:{layout.y,layout.width,layout.height,layout.key,layout.painted})
-    if(at+i>=image)malformed("button table extent");
-   Button button{word(bytes,layout.x+i*2),bytes[layout.y+i],bytes[layout.width+i],bytes[layout.height+i],bytes[layout.key+i],bytes[layout.painted+i]!=0};
-   if(button.x>=320 || button.y>=200 || !button.width || !button.height || button.x+button.width>320 || button.y+button.height>200 || !button.key || bytes[layout.painted+i]>1)
-    malformed(std::string(layout.name)+" button bounds/key/paint");
-   buttons.push_back(button);
-  }
-  // Title has a second non-World table following its terminator; the other
-  // admitted tables end exactly at their sentinel.
-  if(word(bytes,layout.x+layout.count*2)!=65535)malformed("button table sentinel");
-  _buttons.emplace(layout.name,std::move(buttons));
- }
+ for(const auto &layout:buttonLayouts())_buttons.emplace(layout.name,buttonTable(bytes,image,layout,XeenLanguage::English));
  // DOS Other Options reuses the title's first two positions, but constructs
  // its hotkey array on the stack at 0xc2ce/0xc2e7 rather than in a data table.
  auto other=_buttons.at("TITLE");other.resize(2);
- for(unsigned i=0;i<other.size();++i) {
-  const auto at=kOtherButtonKeyOffsets[i];
-  if(at>=image || bytes[at-3]!=0xc6 || bytes[at-2]!=0x46 || bytes[at-1]!=0xf0+i || !bytes[at])
-   malformed("Other Options button key script");
-  other[i].key=bytes[at];
- }
+ for(unsigned i=0;i<other.size();++i)other[i].key=scriptKey(bytes,kOtherButtonKeyOffsets[i],i,XeenLanguage::English);
  _buttons.emplace("OTHER",std::move(other));
- // Won Clouds ending: the fourth stack entry, after the absent Darkside E.
- if(bytes.at(0xc33d)!=0xc6 || bytes.at(0xc33e)!=0x46 || bytes.at(0xc33f)!=0xf3 || !bytes.at(0xc340))malformed("Other Options ending key script");
- auto ending=_buttons.at("TITLE").at(2);ending.key=bytes.at(0xc340);
- _buttons.emplace("OTHER_ENDING",std::vector<Button>{ending});
+ // Ending rows at the title's third position, keys for a won Darkside (E),
+ // Clouds (V) and World (W) ending.
+ std::vector<Button> endings;
+ for(unsigned i=0;i<kEndingButtonKeyOffsets.size();++i) {
+  auto ending=_buttons.at("TITLE").at(2);ending.key=scriptKey(bytes,kEndingButtonKeyOffsets[i],2+i,XeenLanguage::English);ending.slot=i;
+  endings.push_back(ending);
+ }
+ _buttons.emplace("OTHER_ENDING",std::move(endings));
+ for(const auto &layout:characterLayout())_characters.emplace(layout.name,mmodern::characters(bytes,layout,XeenLanguage::English));
+ _windows=windows(bytes,0x3dbfe,XeenLanguage::English);
+}
+XeenDosText::XeenDosText(const std::vector<std::uint8_t> &cd,const std::vector<std::uint8_t> &russian):XeenDosText(cd) {
+ constexpr auto ru=XeenLanguage::Russian;
+ _language=ru;
+ const auto loaded=loadImage(russian,kRussianLoadBase,ru);
+ const auto image=loaded.size;const auto &relocated=loaded.relocated;
+ const auto &entries=russianEntries();
+ std::size_t total=0;
+ std::set<std::string_view> seen;
+ for(const auto &field:russianLayout()) {
+  const std::string_view name(field.name);
+  // The item name tables exist only in the Russian layout (the English names
+  // come from the build-time catalog), and so does its one-page credits text.
+  const bool item=!_fields.count(field.name) && name.size()>6 && name.substr(name.size()-6)=="_NAMES";
+  const bool credits=(name=="CREDITS_TEXT" || name=="ITEM_BROKEN" || name=="ITEM_CURSED" || name=="ITEM_OF") && !_fields.count(field.name);
+  if(!seen.insert(name).second || (!item && !credits && !_fields.count(field.name)) || !field.count || field.count>85 ||
+     field.first>entries.size() || entries.size()-field.first<field.count)
+   malformed(std::string(field.name)+" Russian field identity/extent",ru);
+  std::vector<std::string> values;
+  for(unsigned i=0;i<field.count;++i) {
+   const auto [begin,end]=entries[field.first+i];
+   if(begin<kRussianDataBase || begin>=end || end>image || end-begin-1>(credits?2*kTokenLimit:kTokenLimit) ||
+      std::find(russian.begin()+begin,russian.begin()+end,0)!=russian.begin()+(end-1))
+    malformed(std::string(field.name)+" field extent/terminator",ru);
+   std::string value(reinterpret_cast<const char *>(russian.data()+begin),end-begin-1);
+   const bool emptyAllowed=name=="DAY_SINGULAR" || name=="DAY_PLURAL" || (item && i==0) ||
+    (name=="CLASS_NAMES" && i==10) || (name=="EFFECTIVENESS_NAMES" && i==0);
+   if(value.empty() && !emptyAllowed)malformed(std::string(field.name)+" empty field",ru);
+   if(formatArguments(value,ru)!=field.arguments)malformed(std::string(field.name)+" format arguments",ru);
+   validateControls(value,ru);total+=value.size();if(total>kOutputLimit)malformed("aggregate output bound",ru);
+   if(field.table) {
+    // A far pointer into the data segment or into the overflow segments.
+    const auto at=field.table+i*4;const auto segment=word(russian,at+2,ru);
+    if(!relocated.count(at+2) || (segment!=kRussianDataSegment &&
+       (segment<kRussianOverflowSegment || segment>=kRussianOverflowSegment+0x100)) ||
+       kRussianLoadBase+std::size_t(segment)*16+word(russian,at,ru)!=begin)
+     malformed(std::string(field.name)+" table pointer",ru);
+   }
+   values.push_back(std::move(value));
+  }
+  _fields[field.name]=std::move(values);_arguments[field.name]=field.arguments;
+ }
+ // Every English field is either replaced above or listed as CD-only.
+ for(const auto &field:layout()) {
+  const bool absent=std::find(russianAbsent().begin(),russianAbsent().end(),std::string_view(field.name))!=russianAbsent().end();
+  if(absent==(seen.count(field.name)!=0))malformed(std::string(field.name)+" neither Russian nor CD-only",ru);
+ }
+ const auto englishChooser=_buttons.at("CHOOSER");
+ for(const auto &layout:russianButtonLayouts()) {
+  auto buttons=buttonTable(russian,image,layout,ru);
+  // The panel's seven buttons stand for CD buttons 0-5 and 8 (Mr Wizard):
+  // it has no Text and Speech toggles.
+  if(std::string_view(layout.name)=="PANEL")buttons.back().slot=8;
+  _buttons[layout.name]=std::move(buttons);
+ }
+ // Other Options at 0xbee4..0xbf8a, as the CD's at 0xc2c8..0xc36e.
+ constexpr std::array<std::size_t,2> other{0xbeed,0xbf06};
+ constexpr std::array<std::size_t,3> ending{0xbf2d,0xbf5c,0xbf8a};
+ auto &others=_buttons.at("OTHER");
+ for(unsigned i=0;i<others.size();++i){others[i]=_buttons.at("TITLE").at(i);others[i].key=scriptKey(russian,other[i],i,ru);}
+ auto &endings=_buttons.at("OTHER_ENDING");
+ for(unsigned i=0;i<endings.size();++i) {
+  endings[i]=_buttons.at("TITLE").at(2);endings[i].key=scriptKey(russian,ending[i],2+i,ru);endings[i].slot=i;
+ }
+ for(const auto &layout:characterLayout(ru))_characters[layout.name]=mmodern::characters(russian,layout,ru);
+ // Calibrated against the CD's: windows 0-22, 24-35, 37-39 and 41-47 are
+ // equal; the panel (23) is 20 pixels shorter, 36 moved up and 40 is unused.
+ _windows=windows(russian,0x3c6fa,ru);
+ _keyboard=russianKeyboard(cd,russian,englishChooser,_buttons.at("CHOOSER"),_buttons.at("PANEL"));
 }
 const std::vector<XeenDosText::Button> &XeenDosText::buttons(std::string_view name) const {
  const auto it=_buttons.find(std::string(name));if(it==_buttons.end())throw std::out_of_range("Unknown DOS button table");return it->second;
@@ -448,6 +732,53 @@ const std::vector<XeenDosText::Button> &XeenDosText::buttons(std::string_view na
 const std::vector<std::string> &XeenDosText::table(std::string_view name) const {
  const auto it=_fields.find(std::string(name));if(it==_fields.end())throw std::out_of_range("Unknown DOS UI field");
  return it->second;
+}
+std::string XeenDosText::formatSignature(std::string_view text) {return formatArguments(text);}
+const XeenDosText::Window &XeenDosText::window(unsigned index) const {
+ if(index>=_windows.size())throw std::out_of_range("Unknown DOS window");
+ return _windows[index];
+}
+std::string_view XeenDosText::arguments(std::string_view name) const {
+ const auto it=_arguments.find(std::string(name));if(it==_arguments.end())throw std::out_of_range("Unknown DOS UI field");
+ return it->second;
+}
+const std::string &XeenDosText::characters(std::string_view name) const {
+ const auto it=_characters.find(std::string(name));if(it==_characters.end())throw std::out_of_range("Unknown DOS characters");
+ return it->second;
+}
+const std::vector<XeenDosText::Characters> &XeenDosText::characterLayout(XeenLanguage language) {
+ // CD file offsets of the immediates, read at their call sites.
+ static const std::vector<Characters> english{
+  {"FOOD_DAY_SUFFIX",{0x3be63,0x3be68}},   // singular, plural: CHARACTER_DETAILS food
+  {"QUEST_ITEM_SUFFIX",{0x33b09,0x33b04}}, // singular, plural: QUEST_ITEM_COUNT
+  {"SLOT_DIFFICULTY",{0x20540,0x20545}},   // Adventurer, Warrior: SLOT_DETAILS
+  {"CLOCK_MERIDIEM",{0x1f600,0x1f5fb}}     // am, pm: GAME_INFORMATION
+ };
+ // The same instructions in the Russian program.
+ static const std::vector<Characters> russian{
+  {"FOOD_DAY_SUFFIX",{0x3b31e,0x3b323}},{"QUEST_ITEM_SUFFIX",{0x32fb6,0x32fb1}},
+  {"SLOT_DIFFICULTY",{0x1ff59,0x1ff5e}},{"CLOCK_MERIDIEM",{0x1f019,0x1f014}}
+ };
+ return language==XeenLanguage::Russian?russian:english;
+}
+const std::vector<XeenDosRussianField> &XeenDosText::russianLayout() {
+ static const std::vector<XeenDosRussianField> fields(std::begin(kRussianFields),std::end(kRussianFields));return fields;
+}
+const std::vector<std::pair<std::size_t,std::size_t>> &XeenDosText::russianEntries() {
+ static const std::vector<std::pair<std::size_t,std::size_t>> entries(std::begin(kRussianEntries),std::end(kRussianEntries));return entries;
+}
+const std::vector<std::string_view> &XeenDosText::russianAbsent() {
+ static const std::vector<std::string_view> names(std::begin(kRussianAbsent),std::end(kRussianAbsent));return names;
+}
+const std::vector<XeenDosText::ButtonLayout> &XeenDosText::russianButtonLayouts() {
+ // Russian call sites: title 0xb84e (the CD's data offsets), chooser
+ // 0x1fe72, difficulty 0x20477, panel 0x1e915 (seven buttons).
+ static const std::vector<ButtonLayout> layouts{
+  {"TITLE",0x4db62,0x4db76,0x4db7e,0x4db86,0x4db8e,0x4db92,4},
+  {"CHOOSER",0x4db9a,0x4dbbc,0x4dbcc,0x4dbdc,0x4dbec,0x4dbfc,16},
+  {"DIFFICULTY",0x4e082,0x4e088,0x4e08a,0x4e08c,0x4e08e,0x4e090,2},
+  {"PANEL",0x4de5e,0x4de6e,0x4de75,0x4de7c,0x4de83,0x4de8a,7}
+ };return layouts;
 }
 std::string_view XeenDosText::scalar(std::string_view name) const {
  const auto &values=table(name);if(values.size()!=1)throw std::invalid_argument("DOS UI field is a table");

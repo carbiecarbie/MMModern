@@ -52,7 +52,7 @@ void playTimeWire() {
   }
  }
  const auto bytes=XeenSaveFormat::encode(s);auto bad=bytes;
- for(unsigned version:{20u,21u,22u,23u,24u}) {
+ for(unsigned version:{20u,21u,22u,23u,24u,25u}) {
   bad=bytes;bad[8]=std::uint8_t(version);fixIndependentEnvelope(bad);
   try {XeenSaveFormat::decode(bad);throw std::runtime_error("v20/v21 accepted");}
   catch(const XeenUnsupportedSave &e){check(e.recognizableOlder,"v20/v21 not classified as older");}
@@ -160,7 +160,8 @@ void saveNames() {
  auto s=currentWireSnapshot();roundTrip(s);
  for(unsigned c=0;c<256;++c) {
   s.name=std::string(1,char(c));
-  if(c>=0x21 && c<=0x7e)roundTrip(s);
+  // v26: bytes 0x80-0xff are name characters too (cp866 in Russian).
+  if(c>=0x21 && c!=0x7f)roundTrip(s);
   else rejects([&]{XeenSaveFormat::encode(s);},"name");
  }
  for(const auto &name:std::vector<std::string>{""," leading",std::string(20,' '),std::string(21,'a')}) {
@@ -168,10 +169,19 @@ void saveNames() {
  }
  s.name="Case + spaces ! ~  ";roundTrip(s);
  s.name=std::string(20,'a');auto wire=XeenSaveFormat::encode(s);roundTrip(s);
- for(unsigned c:{0u,31u,127u,128u,255u}) {
+ for(unsigned c:{0u,31u,127u}) {
   auto bad=wire;bad.back()=c;fixIndependentEnvelope(bad);
   rejects([&]{XeenSaveFormat::decode(bad);},"name");
  }
+ for(unsigned c:{0x80u,0xa0u,0xc9u,0xf1u,0xffu}) {
+  auto good=wire;good.back()=c;fixIndependentEnvelope(good);
+  check(XeenSaveFormat::decode(good).name->back()==char(c),"v26 decodes a name byte 0x80-0xff");
+ }
+ // A Russian name (cp866 "Игра ёж 1") and an English one, both at full length.
+ s.name="\x88\xa3\xe0\xa0 \xf1\xa6 1";roundTrip(s);
+ check(XeenSaveFormat::decode(XeenSaveFormat::encode(s)).name==s.name,"Russian name bytes kept");
+ s.name=std::string(20,'\xe1');roundTrip(s);s.name="English name 20 char";roundTrip(s);
+ s.name=std::string(20,'a');
  auto leading=wire;leading[leading.size()-20]=' ';fixIndependentEnvelope(leading);
  rejects([&]{XeenSaveFormat::decode(leading);},"name");
  std::fill(leading.end()-20,leading.end(),' ');fixIndependentEnvelope(leading);
@@ -209,10 +219,10 @@ Bytes golden() { auto s=currentWireSnapshot(); s.resources.clouds={0x08070605040
 void wireContract() {
     auto s=currentWireSnapshot();s.resources.clouds={0x0807060504030201ULL,0x0c0b0a09U};
     s.camera={23,0,15,XeenDirection::West};
-    // Independent v25 prefix: 60 header/location/member bytes, thirty 245-byte
+    // Independent v26 prefix: 60 header/location/member bytes, thirty 245-byte
     // named records, 912 quest/game bytes, four options, 960 roster flags and song.
     Bytes expected(9287,0);const auto old=legacyGolden();std::copy_n(old.begin(),45,expected.begin());
-    expected[8]=25;expected[47]=23;expected[50]=15;expected[51]=3;expected[52]=6;
+    expected[8]=26;expected[47]=23;expected[50]=15;expected[51]=3;expected[52]=6;
     const unsigned ids[]{0,18,14,11,1,6};for(unsigned n=0;n<6;++n)expected[53+n]=ids[n];expected[59]=30;
     for(unsigned n=0;n<30;++n) {
         const auto at=60+245*n;expected[at]=n;expected[at+1]=6;
@@ -220,9 +230,9 @@ void wireContract() {
         expected[at+233]=255; // currentSpell follows quickOption; seven new roster bytes follow the beacon.
     }
     expected[8322]=expected[8323]=expected[8325]=1;
-    const auto current=XeenSaveFormat::encode(s);check(current[9287]==3,"Journey domain byte follows v25 party prefix");
+    const auto current=XeenSaveFormat::encode(s);check(current[9287]==3,"Journey domain byte follows v26 party prefix");
     expected.insert(expected.end(),current.begin()+9287,current.end());fixIndependentEnvelope(expected);
-    check(current==expected,"encoder differs from independent v25 prefix");sameSnapshot(s,XeenSaveFormat::decode(expected));
+    check(current==expected,"encoder differs from independent v26 prefix");sameSnapshot(s,XeenSaveFormat::decode(expected));
     auto named=s;named.characters[0].name="X";named.characters[0].intellect={-1,std::numeric_limits<int>::min()};
     named.characters[0].currentHp=-32768;named.characters[0].currentSp=32767;named.characters[0].conditions[15]=255;named.characters[0].birthYear=65535;
     const auto bytes=XeenSaveFormat::encode(named);
@@ -233,7 +243,7 @@ void wireContract() {
 void asymmetricBase() {
 	// Independent offsets: three distinct members, 19 name bytes, 239 fixed bytes/character.
 	Bytes bytes(9101 + 3 + 19, 0);
-	const Bytes prefix{'M','M','M','S','A','V','E',0,25,0,0,0};
+	const Bytes prefix{'M','M','M','S','A','V','E',0,26,0,0,0};
 	std::copy(prefix.begin(), prefix.end(), bytes.begin());
 	bytes[20] = 99; bytes[28] = 88; bytes[47] = 23;
 	bytes[52] = 3; bytes[53] = 18; bytes[54] = 0; bytes[55] = 14; bytes[56] = 30;
@@ -280,7 +290,7 @@ void asymmetricBase() {
 	const auto current=XeenSaveFormat::encode(expected);
 	bytes.insert(bytes.end(),current.begin()+bytes.size(),current.end());
 	fixIndependentEnvelope(bytes);
-	check(XeenSaveFormat::encode(expected) == bytes, "asymmetric independent v25 byte order");
+	check(XeenSaveFormat::encode(expected) == bytes, "asymmetric independent v26 byte order");
 	sameSnapshot(expected, XeenSaveFormat::decode(bytes));
 	check(bytes == XeenSaveFormat::encode(XeenSaveFormat::decode(bytes)), "v21 deterministic oracle");
 	// Each legal item byte can change without becoming structural corruption.
@@ -395,7 +405,7 @@ void malformedBytes() {
     rejects([&]{XeenSaveFormat::decode(v14);},"This save was created by an older MMModern build and is no longer supported.");
     auto bad = good;
 	bad[0] ^= 1; rejects([&] { XeenSaveFormat::decode(bad); }, "unrecognized format");
-	bad = good; bad[8] = 26; rejects([&] { XeenSaveFormat::decode(bad); }, "newer or unsupported");
+	bad = good; bad[8] = 27; rejects([&] { XeenSaveFormat::decode(bad); }, "newer or unsupported");
 	bad = good; bad[8] = 3; rejects([&] { XeenSaveFormat::decode(bad); }); // v1 payload is not v3.
 	bad = good; bad[8] = 2; rejects([&] { XeenSaveFormat::decode(bad); }); // v1 payload is not v2.
 	bad = good; bad[8] = 0; rejects([&] { XeenSaveFormat::decode(bad); }, "newer or unsupported");
@@ -550,10 +560,10 @@ XeenSaveMonsterTable cityTable(unsigned count) {
 void rejectedVersions() {
  // v18 and every earlier envelope are recognizable older formats: no legacy
  // reader, the existing clear rejection.
- for(unsigned version:{0u,1u,2u,3u,4u,5u,6u,7u,8u,9u,10u,11u,12u,13u,14u,15u,16u,17u,18u,19u,20u,21u,22u,23u,24u,26u,65535u}) {
+ for(unsigned version:{0u,1u,2u,3u,4u,5u,6u,7u,8u,9u,10u,11u,12u,13u,14u,15u,16u,17u,18u,19u,20u,21u,22u,23u,24u,25u,27u,65535u}) {
   auto bytes=golden();bytes[8]=version;bytes[9]=version>>8;
   // Only recognizable earlier envelopes are "older"; others may be newer builds.
-  rejects([&]{XeenSaveFormat::decode(bytes);},version>=1 && version<=24?"no longer supported":"newer or unsupported");
+  rejects([&]{XeenSaveFormat::decode(bytes);},version>=1 && version<=25?"no longer supported":"newer or unsupported");
  }
  {
   auto v12=golden();v12[8]=12;fixIndependentEnvelope(v12);
@@ -645,7 +655,7 @@ void serviceEconomyWireContract() {
 		s.journey->supplements[owner].inputs.poisonResistance=XeenAttributeValue{int(owner),int(255-owner)};
 	}
 	const auto bytes=XeenSaveFormat::encode(s);const auto start=bytes.size()-kMinimalSuffix;
-	check(bytes[8]==25 && bytes[start+1]==9 && bytes[start+3]==content,"exact v25/schema9/content selectors");
+	check(bytes[8]==26 && bytes[start+1]==9 && bytes[start+3]==content,"exact v26/schema9/content selectors");
 	auto expected=bytes;expected.resize(expected.size()-kMinimalEconomyTail);
 	expected.insert(expected.end(),{2,4,4,9});
 	// Literal wire recipe is independent of the production encoder and validator.
@@ -738,7 +748,7 @@ void purchaseDepletedWireContract() {
 	// The city entry follows map 23's at the end of the payload.
 	const auto economyOffset=complete.size()-(kMinimalEconomyTail+mapEntryBytes(46));
 	const auto start=complete.size()-(kMinimalSuffix+mapEntryBytes(46));
-	check(complete[8]==25 && complete[start+1]==9 && complete[start+3]==14,"purchase selector/extent differs");
+	check(complete[8]==26 && complete[start+1]==9 && complete[start+3]==14,"purchase selector/extent differs");
 	// Literal eight L1 Weapon source from twenty Weapon calls. Removing one
 	// inserted plain record leaves seven; old generated-only meaning rejects it.
 	state.journey->serviceEconomy->wares[0][0][0][7]={};

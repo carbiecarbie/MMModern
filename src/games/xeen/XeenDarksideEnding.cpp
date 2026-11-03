@@ -15,6 +15,8 @@ XeenCutscene XeenCutscene::darksideEnding(const XeenCutsceneData &data,const Xee
  struct State {unsigned cursor=0;std::uint64_t captionTick=0;bool captionEnabled=true;std::string caption,strip;};
  auto state=std::make_shared<State>();XeenCutscene scene;scene.timedControlQuit=true;auto observed=scene.observations;
  const bool digital=data.digitalDevice>=2;
+ // The strip runs: CD without speech, Russian always (M110 Part C).
+ const bool russian=data.russianCaptions,strip=!digital || russian;
  const auto name=[d](const char *s)->const std::string &{return d->darksideEnding.resource(s);};
  const auto sprite=[name](const char *s,unsigned frame=0,int x=0,int y=0,unsigned flags=0)->Sprite{return {name(s),frame,x,y,0,flags};};
  Frame pending;
@@ -36,12 +38,14 @@ XeenCutscene XeenCutscene::darksideEnding(const XeenCutsceneData &data,const Xee
  };
  const auto append=[](Frame &f,Frame tail){f.insert(f.end(),tail.begin(),tail.end());};
  const auto select=[=](unsigned record,const Context &c,bool enabled=true) {
-  state->caption=lines->record(record,1000);state->cursor=(digital || state->caption.empty())?0:1;state->captionTick=c.tick;state->strip.clear();state->captionEnabled=enabled;
+  state->caption=lines->record(record,1000);state->cursor=(!strip || state->caption.empty())?0:1;state->captionTick=c.tick;state->strip.clear();state->captionEnabled=enabled;
   observed->captionRecords.push_back(record);
  };
  const auto caption=[=](Frame &f,const Context &c) {
   if(state->caption.empty()){state->cursor=0;return;}
-  if(digital || !state->captionEnabled)return;
+  if((digital && !russian) || !state->captionEnabled)return;
+  // RU 0x112cb draws nothing once the position is 0.
+  if(russian && !state->cursor)return;
   if(state->cursor && c.tick-state->captionTick>=2) {
    state->captionTick=c.tick;state->cursor=(state->cursor+1)%state->caption.size();
    const auto begin=state->cursor>40?state->cursor-40:0;
@@ -155,7 +159,7 @@ XeenCutscene XeenCutscene::darksideEnding(const XeenCutsceneData &data,const Xee
  fade("fight fade out",false);background("fight background","blank.raw",false);
  add("fight first",{Prepare{name("sc14.end")}},[=](const Context &)->Frame{return {sprite("sc14.end",0,37,37)};});fade("fight fade in",true);
  auto &fight=add("fight challenge",{},[=](const Context &c){Frame f{Restore{"background"}};if(c.iteration==3)append(f,audio("fight2.voc"));f.push_back(sprite("sc14.end",c.iteration%10,37,37));caption(f,c);return f;},20,3);
- fight.entering=[=](const Context &c){select(27,c);};auto &fightTail=tail("fight challenge tail",false);if(digital)fightTail.compose={};
+ fight.entering=[=](const Context &c){select(27,c);};auto &fightTail=tail("fight challenge tail",false);if(!strip)fightTail.compose={};
  background("fight room","mainback.raw");
  auto &battle=loop("fight",{"sc15.end"},21,21,3,52,84);
  battle.afterHold=[=](const Context &c)->Frame {if(c.iteration==4)return audio("disint.voc",XeenSceneArchive::DarksideProgramDark);if(c.iteration==12)return audio("explosio.voc");return {};};
@@ -195,7 +199,7 @@ XeenCutscene XeenCutscene::darksideEnding(const XeenCutsceneData &data,const Xee
  defeatBackground.compose=[=](const Context &)->Frame{return {sprite("sc25a.end",0,27,30)};};
  auto &defeat=add("admit defeat",{},[=](const Context &c){Frame f{Restore{"background"}};if(c.iteration==2)f.push_back(A{A::Digital,name("admit2.voc")});f.push_back(sprite("sc25a.end",c.iteration%9,27,30));caption(f,c);return f;},18,3);
  defeat.entering=[=](const Context &c){select(29,c);};
- auto &defeatTail=tail("admit defeat tail",false);if(digital)defeatTail.compose={};
+ auto &defeatTail=tail("admit defeat tail",false);if(!strip)defeatTail.compose={};
  background("I do background","sc260001.raw");
  // 0xf462..0xf4f8: retain voice, read all four pages, publish, start voice.
  append(scene.segments.back().enter,{A{A::RetainDigital,name("ido2.voc")},Prepare{name("sc26a.end")},Prepare{name("sc26b.end")},Prepare{name("sc26c.end")},Prepare{name("sc26d.end")}});
@@ -205,7 +209,7 @@ XeenCutscene XeenCutscene::darksideEnding(const XeenCutsceneData &data,const Xee
  append(scene.segments.back().enter,{A{A::RetainDigital,name("what3.voc")},Prepare{name("sc27.end")}});
  auto &what=add("what no",{},[=](const Context &c){Frame f{Restore{"background"}};if(c.iteration==1)f.push_back(A{A::Digital,name("what3.voc")});f.push_back(sprite("sc27.end",c.iteration,65,22));caption(f,c);return f;},12,3);
  what.entering=[=](const Context &c){select(31,c);};
- auto &whatTail=tail("what tail",false);if(digital)whatTail.compose={};
+ auto &whatTail=tail("what tail",false);if(!strip)whatTail.compose={};
  fade("vortex fade out",false,song("dungeon2.m"));background("vortex room","mainback.raw",false);
  add("vortex first",{},[=](const Context &)->Frame{return {sprite("sca28.end",0,74)};});fade("vortex fade in",true);
  auto &vortex=loop("vortex",{"sca28.end","scb28.end","scc28.end","scd28.end","sce28.end","scf28.end","scg28.end","sch28.end","sci28.end","scj28.end","sck28.end"},4,44,3,74,0);

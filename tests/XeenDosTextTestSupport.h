@@ -26,7 +26,19 @@ inline std::vector<std::uint8_t> fixture() {
   }
  }
  std::set<std::size_t> patches;
- b[0xc33d]=0xc6;b[0xc33e]=0x46;b[0xc33f]=0xf3;b[0xc340]='V';
+ for(unsigned i=0;i<XeenDosText::kEndingButtonKeyOffsets.size();++i) {
+  const auto at=XeenDosText::kEndingButtonKeyOffsets[i];
+  b[at-3]=0xc6;b[at-2]=0x46;b[at-1]=0xf2+i;b[at]="EVW"[i];
+ }
+ // The control panel's window (23) in the window table at 0x3dbfe.
+ const unsigned panel[]{80,28,176,140};
+ for(unsigned i=0;i<4;++i)u16(b,0x3dbfe + 0x60*i + 2*23,panel[i]);
+ // MOV AX,immediate characters, with the values the CD program passes.
+ const char *characters[]{" s"," s","AW","ap"};unsigned c=0;
+ for(const auto &layout:XeenDosText::characterLayout()) {
+  for(unsigned i=0;i<2;++i){b[layout.at[i]-1]=0xb8;b[layout.at[i]]=characters[c][i];b[layout.at[i]+1]=0;}
+  ++c;
+ }
  for(unsigned i=0;i<XeenDosText::kOtherButtonKeyOffsets.size();++i) {
   const auto at=XeenDosText::kOtherButtonKeyOffsets[i];
   b[at-3]=0xc6;b[at-2]=0x46;b[at-1]=0xf0+i;b[at]='j'+i;

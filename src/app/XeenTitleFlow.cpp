@@ -14,7 +14,7 @@ bool animating(XeenTitleFlow::Screen screen) {
 }
 std::optional<unsigned> buttonIndex(const XeenDosText &text,const char *table,unsigned key) {
  const auto &buttons=text.buttons(table);
- for(unsigned i=0;i<buttons.size();++i)if(lower(buttons[i].key)==key)return i;
+ for(unsigned i=0;i<buttons.size();++i)if(lower(buttons[i].key)==key)return buttons[i].slot;
  return {};
 }
 IndexedFrame text(const IndexedFrame &base,const XeenFontFormat &font,const std::string &value,
@@ -59,16 +59,23 @@ XeenTitleFlow::Services XeenTitleFlow::original(XeenAssetSource &assets,const Xe
  if(assets.spriteFrameCount("confirm.icn",dark)!=4)throw std::runtime_error("Unexpected CD confirmation frames");
  assets.loadRawFramebuffer(str(dos.scalar("CREDITS_BACKGROUND")),dark);
  const auto background=assets.snapshot();
- const auto bytes=assets.readArchiveResource(str(dos.scalar("CREDITS_RESOURCE")),dark);
- if(bytes.empty() || bytes.size()>65535)throw std::runtime_error("Malformed CD credits extent");
- std::array<IndexedFrame,4> credits;unsigned page=0;std::size_t begin=0;
- for(unsigned i=0;i<bytes.size();++i)if(!bytes[i]) {
-  if(page==4 || begin==i)throw std::runtime_error("Malformed CD credits page boundaries");
-  std::string value(reinterpret_cast<const char *>(bytes.data()+begin),i-begin);
-  XeenDosText::validateControls(value);
-  credits[page++]=text(background,font,value,{0,0,320,200},{0,0,320,200},false);begin=i+1;
+ std::vector<IndexedFrame> credits;
+ if(dos.language()==XeenLanguage::Russian) {
+  // Russian 0xb8ee..0xb94a: one page, its program string, through the same
+  // writer, fade and show calls as each CD page (0xbb88..0xbccd).
+  credits.push_back(text(background,font,str(dos.scalar("CREDITS_TEXT")),{0,0,320,200},{0,0,320,200},false));
+ } else {
+  const auto bytes=assets.readArchiveResource(str(dos.scalar("CREDITS_RESOURCE")),dark);
+  if(bytes.empty() || bytes.size()>65535)throw std::runtime_error("Malformed CD credits extent");
+  std::size_t begin=0;
+  for(unsigned i=0;i<bytes.size();++i)if(!bytes[i]) {
+   if(credits.size()==4 || begin==i)throw std::runtime_error("Malformed CD credits page boundaries");
+   std::string value(reinterpret_cast<const char *>(bytes.data()+begin),i-begin);
+   XeenDosText::validateControls(value,font.language());
+   credits.push_back(text(background,font,value,{0,0,320,200},{0,0,320,200},false));begin=i+1;
+  }
+  if(credits.size()!=4 || begin!=bytes.size())throw std::runtime_error("CD credits require four terminated pages");
  }
- if(page!=4 || begin!=bytes.size())throw std::runtime_error("CD credits require four terminated pages");
  return Services{dos,font,base,std::move(animation),std::move(credits),
   [&assets](IndexedFrame &frame,const char *resource,unsigned index,int x,int y){assets.drawDialogSprite(frame,resource,index,x,y,dark);},
   std::move(slots),std::move(path)};
@@ -80,6 +87,7 @@ XeenTitleFlow::XeenTitleFlow(Services services):_services(std::move(services)) {
  if(_services.panel){_screen=Screen::Panel;_fadeLevel=128;_firstTitle=false;}
  else _phase%=_services.animation.size();
  for(const auto &frame:_services.animation)if(!frame.isValid())throw std::invalid_argument("Invalid title animation frame");
+ if(!_services.panel && _services.credits.empty())throw std::invalid_argument("Missing credits pages");
  if(!_services.panel)for(const auto &frame:_services.credits)if(!frame.isValid())throw std::invalid_argument("Invalid credits page");
  render();
 }
@@ -145,16 +153,15 @@ DialogInput XeenTitleFlow::dialog() const {
    unsigned y=103;
    // DAT 0xc2bf..0xc37d: E, V, W packed after fixed D/C, sprite frames 4/6/8.
    for(const auto kind:endingRows()) {
-    auto b=_services.text.buttons("OTHER_ENDING").front();b.y=y;y+=25;
     const bool darkside=kind==XeenSessionEntry::Kind::DarksideEnding, world=kind==XeenSessionEntry::Kind::WorldEnding;
-    if(darkside)b.key='e';else if(world)b.key='w';
+    auto b=_services.text.buttons("OTHER_ENDING").at(darkside?0:world?2:1);b.y=y;y+=25;
     add(b,lower(b.key),resource,darkside?4:world?8:6);
    }
   }
  } else if(_screen==Screen::Panel) {
   // DAT 0x1f006..0x1f047: every key and every click reaches the key switch;
   // a click outside the buttons arrives as zero (0x0e2cc..0x0e533).
-  input.anyKey=input.retainKey=true;input.missKey=0;
+  input.anyKey=input.retainKey=true;input.missKey=0;input.keySet="PANEL";
   for(const auto &button:_services.text.buttons("PANEL"))
    add(button,lower(button.key),_services.text.scalar("PANEL_SPRITES").data(),0);
  } else if(_screen==Screen::NewSlots || _screen==Screen::LoadSlots || _screen==Screen::SaveSlots) {
@@ -169,7 +176,7 @@ DialogInput XeenTitleFlow::dialog() const {
   const auto &buttons=_services.text.buttons("DIFFICULTY");
   for(unsigned i=0;i<buttons.size();++i)add(buttons[i],lower(buttons[i].key),_services.text.scalar("DIFFICULTY_BUTTONS").data(),i*2);
  } else if(_screen==Screen::Overwrite || _screen==Screen::Quit || _screen==Screen::Wizard)input=xeenConfirmInput();
- else if(_screen==Screen::Name) {input.textEntry=true;input.keys.insert(input.keys.end(),{8,InputKey::Enter});}
+ else if(_screen==Screen::Name) {input.textEntry=input.stringEntry=true;input.keys.insert(input.keys.end(),{8,InputKey::Enter});}
  else {input.anyKey=input.anyClick=input.keyMouseWait=true;}
  return input;
 }
@@ -185,29 +192,37 @@ void XeenTitleFlow::render(bool semantic) {
   frame=text(frame,font,label,{72,25,248,other?125+int(25*count):175},{80,33,240,other?117+int(25*count):167},true);
   for(const auto &hit:dialog().hits)if(hit.button){const auto &b=*hit.button;_services.draw(frame,b.resource,b.frame,b.x,b.y);}
  } else if(_screen==Screen::Panel) {
-  // DOS window 23: code-segment arrays at 0x3dc2c/8c/ec, 0x3dd4c (80,28,176,140).
+  // DOS window 23: code-segment arrays at 0x3dc2c/8c/ec, 0x3dd4c (80,28,176,140);
+  // the Russian program's is 20 pixels shorter (0x3c728: 80,28,176,120).
+  const auto &w=dos.window(23);
+  const XeenTextRect outer{int(w.x),int(w.y),int(w.x+w.width),int(w.y+w.height)},inner{outer.left+8,outer.top+8,outer.right-8,outer.bottom-8};
   _services.soundOptions.panelRedraw();
   const auto label=[&](bool on){return str(dos.scalar(on?"PANEL_ON":"PANEL_OFF"));};
   const auto o=_services.soundOptions;
-  const auto buttons=xeenDialogFormat(dos.scalar("PANEL_BUTTON_TEXT"),{label(o.efx),label(o.music),label(o.text),label(o.speech)});
-  frame=text(frame,font,xeenDialogFormat(dos.scalar("PANEL_TEXT"),{buttons,_services.currentName}),
-   {80,28,256,168},{88,36,248,160},true,false,true);
+  // The Russian panel has no Text and Speech toggles: its button text takes
+  // only the Efx and Music states (M110 decision 7).
+  std::vector<std::string> states{label(o.efx),label(o.music),label(o.text),label(o.speech)};
+  const auto signature=dos.arguments("PANEL_BUTTON_TEXT");
+  states.resize(signature.empty()?0:std::count(signature.begin(),signature.end(),',')+1);
+  const auto buttons=xeenDialogFormat(dos.scalar("PANEL_BUTTON_TEXT"),states);
+  frame=text(frame,font,xeenDialogFormat(dos.scalar("PANEL_TEXT"),{buttons,xeenLiteralText(_services.currentName)}),
+   outer,inner,true,false,true);
   for(const auto &hit:dialog().hits)if(hit.button){const auto &b=*hit.button;_services.draw(frame,b.resource,b.frame,b.x,b.y);}
   // DOS draws button backgrounds before its labels.
-  frame=text(frame,font,xeenDialogFormat(dos.scalar("PANEL_TEXT"),{buttons,_services.currentName}),
-   {80,28,256,168},{88,36,248,160},false,false,true);
+  frame=text(frame,font,xeenDialogFormat(dos.scalar("PANEL_TEXT"),{buttons,xeenLiteralText(_services.currentName)}),
+   outer,inner,false,false,true);
   if(_showClocks) {
    if(!_services.clocks)throw std::logic_error("Missing panel wall clock");
    const auto value=_services.clocks();
    frame=text(frame,font,xeenDialogFormat(dos.scalar("PANEL_CLOCKS"),
-    {xeenPanelCivilTime(value.first),xeenPanelPlayTime(value.second)}),{0,0,320,200},{0,0,320,200},false);
+    {xeenPanelCivilTime(value.first,dos.scalar("CLOCK_AM"),dos.scalar("CLOCK_PM")),xeenPanelPlayTime(value.second)}),{0,0,320,200},{0,0,320,200},false);
   }
  } else if(_screen==Screen::NewSlots || _screen==Screen::LoadSlots || _screen==Screen::SaveSlots) {
   std::vector<std::string> args{str(dos.scalar(_screen==Screen::NewSlots?"START_LABEL":_screen==Screen::SaveSlots?"SAVE_LABEL":"LOAD_LABEL"))};
   for(unsigned i=0;i<10;++i) {
    const auto &slot=_slots[i];args.push_back(_selected==i?"15":"0");
    if(slot.state==XeenSaveFile::Slot::State::Available && slot.snapshot && slot.snapshot->name) {
-    args.push_back(*slot.snapshot->name);
+    args.push_back(xeenLiteralText(*slot.snapshot->name));
     std::uint64_t level=0;
     // DOS slot metadata calls the current-level getter (file 0xf16f/0x21fc9).
     // Use a wide sum while inspecting untrusted snapshots, before restore.
@@ -216,7 +231,7 @@ void XeenTitleFlow::render(bool semantic) {
      const auto current=std::max<std::int64_t>(0,std::int64_t(character.permanentLevel)+character.temporaryLevel);
      level=std::max(level,static_cast<std::uint64_t>(current));
     }
-    args.push_back(xeenDialogFormat(dos.scalar("SLOT_DETAILS"),{slot.snapshot->journey->context->difficulty==XeenDifficulty::Adventurer?"A":"W",std::to_string(level)}));
+    args.push_back(xeenDialogFormat(dos.scalar("SLOT_DETAILS"),{std::string(1,dos.characters("SLOT_DIFFICULTY")[slot.snapshot->journey->context->difficulty==XeenDifficulty::Adventurer?0:1]),std::to_string(level)}));
    } else {args.push_back(slot.state==XeenSaveFile::Slot::State::Empty?str(dos.scalar("EMPTY_SLOT")):"Unavailable");args.emplace_back();}
   }
   args.push_back(_selected?xeenDialogFormat(dos.scalar("DOS_FILE_PATTERN"),{std::to_string(*_selected+1)}):"");
@@ -230,7 +245,7 @@ void XeenTitleFlow::render(bool semantic) {
   const auto &slot=_slots.at(*_selected);
   const auto name=slot.snapshot && slot.snapshot->name?*slot.snapshot->name:"older MMModern save";
   // The native window 21 writer stops before a newline exceeds its bottom.
-  frame=drawXeenConfirm(frame,font,xeenDialogFormat(dos.scalar("OVERWRITE_CONFIRM"),{name}),false,_services.draw,!_services.panel,true);
+  frame=drawXeenConfirm(frame,font,xeenDialogFormat(dos.scalar("OVERWRITE_CONFIRM"),{xeenLiteralText(name)}),false,_services.draw,!_services.panel,true);
  } else if(_screen==Screen::Name) {
   XeenTextRenderOptions options;options.originalControls=true;options.startupColors=!_services.panel;
   options.bounds={60,157,260,190};options.x=60;options.y=157;
@@ -307,10 +322,10 @@ std::optional<IndexedFrame> XeenTitleFlow::handle(const PlayerAction &action,con
   setScreen(Screen::Menu);break;
  case Screen::Other:
   if(escape)setScreen(Screen::Menu);
-  else if((key=='e' && _services.darksideWon && _services.cloudsContext) ||
-          (key=='v' && _services.cloudsWon && _services.cloudsContext) ||
-          (key=='w' && _services.worldWon && _services.cloudsContext)) {
-   XeenSessionEntry entry;entry.kind=key=='e'?XeenSessionEntry::Kind::DarksideEnding:key=='w'?XeenSessionEntry::Kind::WorldEnding:XeenSessionEntry::Kind::CloudsEnding;
+  else if(const auto ending=buttonIndex(_services.text,"OTHER_ENDING",key); ending && _services.cloudsContext &&
+          ((*ending==0 && _services.darksideWon) || (*ending==1 && _services.cloudsWon) || (*ending==2 && _services.worldWon))) {
+   // The rows' program keys: Darkside, Clouds and World (E, V, W on the CD).
+   XeenSessionEntry entry;entry.kind=*ending==0?XeenSessionEntry::Kind::DarksideEnding:*ending==2?XeenSessionEntry::Kind::WorldEnding:XeenSessionEntry::Kind::CloudsEnding;
    entry.score=1234567890;_entry=std::move(entry);
   }
   else if(const auto button=buttonIndex(_services.text,"OTHER",key)) {
@@ -327,7 +342,7 @@ std::optional<IndexedFrame> XeenTitleFlow::handle(const PlayerAction &action,con
   break;
  case Screen::Credits:
   // DOS 0x0bb62..0x0bccd: any accepted input, Escape included, advances exactly one page.
-  if(_page==3)setScreen(Screen::Menu);else {++_page;render();}break;
+  if(_page+1>=_services.credits.size())setScreen(Screen::Menu);else {++_page;render();}break;
  case Screen::Panel: {
   const auto button=buttonIndex(_services.text,"PANEL",key);
   if(!keyAction && !escape)return {};

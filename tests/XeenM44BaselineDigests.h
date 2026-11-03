@@ -328,7 +328,7 @@
 #include <array>
 #include <cstdint>
 namespace m44_baseline {
-inline constexpr const char *revision = "M106 Part A (save v25), baseline dc76db6";
+inline constexpr const char *revision = "M110 Part C (save v26), baseline efd7d3a";
 struct Scenario { const char *name; std::uint32_t seed; const char *sha256; };
 // M101 Part A: maintainer approved the four v23 replacements on 2026-10-30.
 // v23 adds only the widened party state and saved map song (1447 bytes);
@@ -354,16 +354,27 @@ struct Scenario { const char *name; std::uint32_t seed; const char *sha256; };
 // Native reload/resave and roundtrip resumes A/B are exact. Evidence:
 // build-rel/m106-v25-final-audit/{digest-audit.json,summary.txt} and
 // D:/Projetos/MModern/MModern-re/m106/part-a-byte-audit.{md,json}.
+// M110 Part C: maintainer approved all four v26 replacements on 2026-11-03.
+// v26 admits save-name bytes 0x80-0xff with the same layout. The
+// preserved v25 binaries (efd7d3a) reproduce their four approved hashes. All 14
+// paired checkpoints differ only at envelope byte 8 (25 -> 26); all traces,
+// common/per-map decoded fields, native reload/resave and both roundtrip
+// resumes are exact. Evidence: D:/Projetos/MModern/M44-audits/m110c-v25-baseline/
+// and build-rel/m110c-digest-comparison/{digest-audit.json,summary.txt}.
+// Mainland old (v25): 20c732527cc4724eb6ed90276415f71865942d3134fab1118bba6fef50fc2a26
+// Services old (v25): 357ab35fd53ac63eeb9af1107fd504288f77be7ceb1c6d1b7fff50d7957fa08e
+// Temple old (v25): 281f464fc1e6904513cac53d88b867077f4b4e6819a9343a22f5348c3b45f244
+// Roundtrip old (v25): 30aa5b3e2d981818d7bfb098f048bd5f93b918dede10dd5a7504a84073cf800a
 inline constexpr std::array<Scenario,4> scenarios{{
-    {"mainland-combat-myra-phirna",3626689381u,"20c732527cc4724eb6ed90276415f71865942d3134fab1118bba6fef50fc2a26"},
+    {"mainland-combat-myra-phirna",3626689381u,"05fa513cbb0a31b5531f1e376b72fcc3ac14620f9e284851369edf9f4ac4f919"},
     // M75: a member woken after its skipped slot waits for the next round (DOS turn order).
     // M78 Part A: maintainer approved the services replacement on 2026-10-20.
     // Pathfinder wall 3 reroutes the one-holder party; time/exploration and an
     // extra merchant generation explain all fields. Native reload/re-save is exact.
     // Local audit: build-rel/m78-digest-comparison and m78-services-causal-audit.json.
-    {"vertigo-buy-repair-training",7u,"357ab35fd53ac63eeb9af1107fd504288f77be7ceb1c6d1b7fff50d7957fa08e"},
-    {"temple-recovery",3626689381u,"281f464fc1e6904513cac53d88b867077f4b4e6819a9343a22f5348c3b45f244"},
-    {"vertigo-f3-roundtrip",3626689381u,"30aa5b3e2d981818d7bfb098f048bd5f93b918dede10dd5a7504a84073cf800a"}
+    {"vertigo-buy-repair-training",7u,"b7eb41d6caa55046f32d98b730bfe77bce9fea3260ded6b6bc6f7ada260a7dad"},
+    {"temple-recovery",3626689381u,"6ec95058b3953573a64bc2cb102ea4bc6aad49278ce166a80e08d0c88055e0f7"},
+    {"vertigo-f3-roundtrip",3626689381u,"110cf2d0a41087a48a7c5b1a8c39a883b3294a5b8cf8ca2b553b991462a7e433"}
 }};
 }
 #endif

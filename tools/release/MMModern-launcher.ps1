@@ -74,10 +74,25 @@ function Get-MMStatusRows([hashtable]$Facts) {
     elseif ($Facts['roms.control'] -eq 'missing' -and $Facts['roms.pcm'] -eq 'missing') {
         $rows += & $row 'info' 'MT-32 ROMs' 'Not found' "Only needed for MT-32 music.`n$($Facts['roms.folder'])"
     } else { $rows += & $row 'warn' 'MT-32 ROMs' 'Not recognized' "Needs the MT-32 1.07 control ROM and the MT-32 PCM ROM.`n$($Facts['roms.folder'])" }
+    if ($Facts['language.error']) { $rows += & $row 'warn' 'Language' 'English' "Russian translation refused: $($Facts['language.error'])" }
+    elseif ($Facts['language'] -eq 'Russian') { $rows += & $row 'ok' 'Language' 'Russian' $Facts['language.translation'] }
+    else { $rows += & $row 'info' 'Language' 'English' '' }
     $used = 0; [void][int]::TryParse([string]$Facts['saves.used-slots'], [ref]$used)
     $saves = if ($used -eq 0) { 'No saves yet' } else { "$used of 10 slots used" }
     $rows += & $row 'info' 'Saves' $saves $Facts['saves.folder']
     return $rows
+}
+# Reports abbreviate profile folders (%USERPROFILE%, %LOCALAPPDATA%); expand a
+# reported path before passing it back to mmodern.
+function Expand-MMReportPath([string]$Value) {
+    if (-not $Value) { return '' }
+    return [Environment]::ExpandEnvironmentVariables($Value)
+}
+# mmodern --language-setup arguments for the Language window's choice (M110).
+function Get-MMLanguageArguments([string]$Language, [string]$Folder) {
+    $arguments = @('--language-setup', '--language', $Language.ToLowerInvariant())
+    if ($Folder) { $arguments += @('--translation', $Folder) }
+    return $arguments
 }
 function Get-MMGameWindowHandle($Process) {
     if ($Process.HasExited) { return [IntPtr]::Zero }
@@ -241,9 +256,10 @@ $script:MMMainXaml = @'
     </Border>
     <Button x:Name="Play" Style="{StaticResource Accent}" Content="Play" IsDefault="True" FontSize="17" Height="50" Margin="0,20,0,0"/>
     <Grid Margin="0,10,0,0">
-      <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="10"/><ColumnDefinition/></Grid.ColumnDefinitions>
+      <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="10"/><ColumnDefinition/><ColumnDefinition Width="10"/><ColumnDefinition/></Grid.ColumnDefinitions>
       <Button x:Name="SoundSetup" Grid.Column="0" Content="Sound setup"/>
-      <Button x:Name="ChangeFolder" Grid.Column="2" Content="Change game folder"/>
+      <Button x:Name="Language" Grid.Column="2" Content="Language"/>
+      <Button x:Name="ChangeFolder" Grid.Column="4" Content="Change game folder"/>
     </Grid>
     <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,14,0,0">
       <Button x:Name="CopyDiagnostics" Style="{StaticResource Link}" Content="Copy diagnostics"/>
@@ -289,6 +305,33 @@ $script:MMSoundXaml = @'
     </Expander>
     <DockPanel Margin="0,20,0,0" LastChildFill="False">
       <Button x:Name="Reset" DockPanel.Dock="Left" Content="Reset to installed"/>
+      <Button x:Name="Save" DockPanel.Dock="Right" Style="{StaticResource Accent}" Content="Save" IsDefault="True" MinWidth="110" Margin="8,0,0,0"/>
+      <Button x:Name="Cancel" DockPanel.Dock="Right" Content="Cancel" IsCancel="True" MinWidth="110"/>
+    </DockPanel>
+  </StackPanel>
+</Window>
+'@
+$script:MMLanguageXaml = @'
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Language" Width="560" SizeToContent="Height" ResizeMode="NoResize" ShowInTaskbar="False"
+        WindowStartupLocation="CenterOwner" Background="#F3F3F3" FontFamily="Segoe UI" FontSize="14"
+        UseLayoutRounding="True" SnapsToDevicePixels="True">
+  <!--STYLES-->
+  <StackPanel Margin="28,24,28,20">
+    <TextBlock Text="Language" FontSize="22" FontWeight="SemiBold" Foreground="#1A1A1A"/>
+    <TextBlock Style="{StaticResource Note}" FontSize="14" Margin="0,4,0,0"
+               Text="Russian shows the old-games.ru World of Xeen translation (Clouds of Xeen RUS and Darkside of Xeen RUS 1.2) over your CD game. Its files are read, never changed; recorded speech stays English."/>
+    <Border Style="{StaticResource Card}" Margin="0,16,0,0" Padding="18,16">
+      <StackPanel>
+        <TextBlock Text="Game language" FontWeight="SemiBold"/>
+        <ComboBox x:Name="Choice" Margin="0,6,0,0" Padding="8,6"/>
+        <TextBlock Text="Russian translation folder" FontWeight="SemiBold" Margin="0,16,0,0"/>
+        <TextBlock x:Name="Folder" Style="{StaticResource Note}" Margin="0,6,0,0"/>
+        <Button x:Name="ChooseFolder" Style="{StaticResource Link}" Content="Choose the folder with xeen.cc, dark.cc, intro.cc, xeen.dat and xeen.exe" HorizontalAlignment="Left" Margin="-6,2,0,0"/>
+      </StackPanel>
+    </Border>
+    <DockPanel Margin="0,20,0,0" LastChildFill="False">
       <Button x:Name="Save" DockPanel.Dock="Right" Style="{StaticResource Accent}" Content="Save" IsDefault="True" MinWidth="110" Margin="8,0,0,0"/>
       <Button x:Name="Cancel" DockPanel.Dock="Right" Content="Cancel" IsCancel="True" MinWidth="110"/>
     </DockPanel>
@@ -441,9 +484,39 @@ function Show-MMSoundSetup {
     [void]$dialog.ShowDialog()
     Update-MMReport
 }
+# The game reads the choice at its next start; mmodern refuses a folder that
+# is not the identified translation and then keeps the previous setting.
+function Show-MMLanguageSetup {
+    $app=$script:MMState
+    $dialog = New-MMWindow $script:MMLanguageXaml
+    $dialog.Owner = $app.Window
+    $script:MMLanguage = @{ Window=$dialog; Folder=(Expand-MMReportPath $app.Facts['language.translation']) }
+    $choice = $dialog.FindName('Choice')
+    foreach ($name in 'English','Russian') { [void]$choice.Items.Add($name) }
+    $choice.SelectedItem = if ($app.Facts['language'] -eq 'Russian' -or $app.Facts['language.error']) { 'Russian' } else { 'English' }
+    $show = { $script:MMLanguage.Window.FindName('Folder').Text = if ($script:MMLanguage.Folder) { $script:MMLanguage.Folder } else { 'Not chosen' } }
+    & $show
+    $script:MMLanguage.Show = $show
+    $dialog.FindName('ChooseFolder').Add_Click({
+        $picker = New-Object Windows.Forms.FolderBrowserDialog
+        $picker.Description = 'Choose the folder of the Russian World of Xeen translation.'
+        $picker.ShowNewFolderButton = $false
+        try { if ($picker.ShowDialog() -eq 'OK') { $script:MMLanguage.Folder = $picker.SelectedPath; & $script:MMLanguage.Show } }
+        finally { $picker.Dispose() }
+    })
+    $dialog.FindName('Save').Add_Click({
+        $language = $script:MMLanguage
+        try {
+            [void](Invoke-MMCommand $script:MMState.Exe (Get-MMLanguageArguments ([string]$language.Window.FindName('Choice').SelectedItem) $language.Folder))
+            $language.Window.DialogResult = $true
+        } catch { [void][Windows.MessageBox]::Show($language.Window,$_.Exception.Message,'Language','OK','Error') }
+    })
+    [void]$dialog.ShowDialog()
+    Update-MMReport
+}
 function Set-MMRunning([bool]$Running) {
     $w=$script:MMState.Window
-    foreach ($name in 'Play','SoundSetup','ChangeFolder','CopyDiagnostics','OpenSaves','OpenLog') { $w.FindName($name).IsEnabled = -not $Running }
+    foreach ($name in 'Play','SoundSetup','Language','ChangeFolder','CopyDiagnostics','OpenSaves','OpenLog') { $w.FindName($name).IsEnabled = -not $Running }
     $w.FindName('Play').Content = if ($Running) { 'Playing...' } else { 'Play' }
 }
 function Start-MMLauncher {
@@ -472,6 +545,7 @@ function Start-MMLauncher {
     $app.Window = $w
     Update-MMReport
     $w.FindName('SoundSetup').Add_Click({ Show-MMSoundSetup })
+    $w.FindName('Language').Add_Click({ Show-MMLanguageSetup })
     $w.FindName('ChangeFolder').Add_Click({
         $chosen=Select-GameFolder
         if ($chosen) { $script:MMState.Folder=$chosen; & $script:MMState.Remember; Update-MMReport }

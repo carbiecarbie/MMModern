@@ -22,6 +22,15 @@ read, never run, for the Clouds and Darkside intros and the Clouds ending; if
 it is missing or different, they do not play and the game continues.
 Reading Darkside metadata does not enable Darkside gameplay.
 
+Russian ([M110](milestone-110-plan.md), an
+[approved deviation](original-quirks.md#dev-russian-layer)) layers the
+identified old-games.ru World of Xeen translation over the CD: a folder with
+its `xeen.cc`, `dark.cc`, `intro.cc`, `xeen.dat` and `xeen.exe`, recognized by
+size and checksum and never written. Normal play reads `language` and
+`russian_translation` from `settings.ini`; a refused folder plays English and
+`--diagnostics` reports `language.error`. Developer modes take
+`--russian <folder>` instead and stop on a refused folder.
+
 ## Entry modes
 
 Run from a terminal to see diagnostics, and quote paths containing spaces:
@@ -47,6 +56,7 @@ mmodern --version
 mmodern --diagnostics <game-directory>
 mmodern --sound-setup <game-directory> [--reset]
 mmodern --sound-setup <game-directory> --speech <key> --music <key> [--digital-port <n>] [--music-port <n>] [--irq <n>] [--dma <n>] [--volume 0|1]
+mmodern --language-setup [--language english|russian] [--translation <folder>]
 mmodern --new-game <game-directory> [--difficulty adventurer|warrior] [--save-file <path.mmsave>]
 mmodern --journey-region [--combat-seed <nonzero-u32>] <game-directory> [--save-file <path.mmsave>]
 mmodern --load-game <game-directory> <path.mmsave>
@@ -70,6 +80,9 @@ mmodern --inspect-map|--inspect-party|--inspect-events <game-directory> ...
   `MMODERN_PLAYER_DIR` is an absolute test override for the owned CFG and
   remembered launcher folder; `MMODERN_MT32_ROM_DIR` overrides report ROM
   inspection for tests, without selecting the game's ROM directory.
+- `--language-setup` prints the language setting; with `--language` it writes
+  it, keeping the folder when `--translation` is omitted. Russian is written
+  only for a folder the translation check accepts.
 - `mmodern <game-directory>` plays the Darkside intro (the full story the first
   time, a shorter sequence on later launches), then opens the original title
   screen (normal play).
@@ -146,7 +159,9 @@ Configure `MMODERN_XEEN_DATA_DIR` explicitly for required CD validation,
 `MMODERN_XEEN_AUDIO_DIR` when the CD audio tracks are elsewhere,
 `MMODERN_PROMUS_CAPTURES_DIR` for the six DOSBox music captures `xeen_promus`
 needs, `MMODERN_M94_CAPTURES_DIR` for the three mono OPL takes and the rolmus
-MIDI capture, `MMODERN_MT32_ROM_DIR` for the MT-32 test ROMs, and, when needed,
+MIDI capture, `MMODERN_MT32_ROM_DIR` for the MT-32 test ROMs,
+`MMODERN_RU_DATA_DIR` for the Russian translation folder (its tests are left out
+when unset), and, when needed,
 `MMODERN_XEEN_UI_DATA` for its installed UI module. See the [MT-32 and capture
 requirements](dependencies.md#mt-32-core-and-player-roms) for details.
 The development machine's M94 capture directory is
@@ -158,6 +173,10 @@ score pages, using the production segments and installed EXE text:
 A key (including Escape) advances a page; clicks are ignored. It writes PPM
 snapshots to the output directory and changes no saves or settings.
 `--score-pictures` writes the same snapshots without opening a window.
+With the Russian translation,
+`build-rel/mmodern_russian_program_text_tests <game-directory> <russian-folder> <output-directory>`
+also writes the last frame of every segment of the two intros, the three
+endings and their score pages in Russian, as PPM.
 
 The `m102-playtest` preset starts in Castleview, Darkside map 29 `(14,4)`
 facing North. Its six members are level 29/49/99/199/29/29, with one billion

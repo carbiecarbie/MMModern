@@ -20,7 +20,7 @@ bool trimByte(std::uint8_t byte) {
 	return byte == ' ' || byte == '\t' || byte == '\r' || byte == '\n';
 }
 
-std::string sanitize(const std::uint8_t *data, std::size_t size) {
+std::string sanitize(const std::uint8_t *data, std::size_t size, bool russian) {
 	std::size_t first = 0;
 	while (first < size && trimByte(data[first]))
 		++first;
@@ -30,7 +30,7 @@ std::string sanitize(const std::uint8_t *data, std::size_t size) {
 	result.reserve(size - first);
 	for (std::size_t i = first; i < size; ++i) {
 		const std::uint8_t byte = data[i];
-		result.push_back(byte >= 32 && byte <= 126 ? static_cast<char>(byte) : '?');
+		result.push_back((byte >= 32 && byte <= 126) || (russian && byte >= 0x80) ? static_cast<char>(byte) : '?');
 	}
 	return result;
 }
@@ -38,7 +38,8 @@ std::string sanitize(const std::uint8_t *data, std::size_t size) {
 } // namespace
 
 XeenMaterialNameParseResult parseXeenMaterialNames(
-		const std::vector<std::uint8_t> &bytes) {
+		const std::vector<std::uint8_t> &bytes, XeenLanguage language) {
+	const bool russian = language == XeenLanguage::Russian;
 	if (bytes.size() > kMaximumBytes)
 		return malformed("mae.xen exceeds the 8,192-byte material-name limit");
 
@@ -53,9 +54,9 @@ XeenMaterialNameParseResult parseXeenMaterialNames(
 		}
 		if (position == bytes.size())
 			return malformed("mae.xen is truncated before its 131st terminator");
-		if (index == 0 && position != start)
+		if (index == 0 && position != start && !(russian && position == start + 1 && bytes[start] == ' '))
 			return malformed("mae.xen entry zero must be structurally empty");
-		candidate[index] = sanitize(bytes.data() + start, position - start);
+		candidate[index] = sanitize(bytes.data() + start, position - start, russian);
 		++position;
 	}
 	if (position != bytes.size())

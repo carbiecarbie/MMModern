@@ -1,5 +1,6 @@
 #include "formats/xeen/XeenAssetSource.h"
 
+#include "formats/xeen/XeenRussianTranslation.h"
 #include "compat/scummvm/ScummVmXeenBridge.h"
 #include "games/xeen/XeenObjectVisual.h"
 #include <stdexcept>
@@ -39,11 +40,19 @@ const XeenDosText &XeenAssetSource::uiText() {
   if(stream->size()>1024*1024)throw std::runtime_error("DOS UI module exceeds bounded reader capacity");
   std::vector<std::uint8_t> bytes(static_cast<std::size_t>(stream->size()));
   if(stream->read(bytes.data(),bytes.size())!=bytes.size())throw std::runtime_error("Incomplete DOS UI module read");
-  auto parsed=std::make_unique<XeenDosText>(bytes);
-  _impl->text=std::move(parsed);
+  // M110 Part B: program text comes from the identified Russian program, over
+  // the CD program for the CD-only fields.
+  if(const auto &translation=_impl->installation.translation) {
+   const auto russian=ReadOnlyDataFile::plain(translation->program(false)).open();
+   if(russian->size()>1024*1024)throw std::runtime_error("Russian DOS UI module exceeds bounded reader capacity");
+   std::vector<std::uint8_t> program(static_cast<std::size_t>(russian->size()));
+   if(russian->read(program.data(),program.size())!=program.size())throw std::runtime_error("Incomplete Russian DOS UI module read");
+   _impl->text=std::make_unique<XeenDosText>(bytes,program);
+  } else _impl->text=std::make_unique<XeenDosText>(bytes);
  }
  return *_impl->text;
 }
+XeenLanguage XeenAssetSource::language() const { return xeenLanguage(_impl->installation); }
 std::string XeenAssetSource::mapName(XeenMapIdentity mapId) {
  if(!mapId || mapId.number>9999)throw std::invalid_argument("Invalid map name identity");
  char name[16];
@@ -203,7 +212,7 @@ std::string XeenAssetSource::tavernString(std::size_t wanted, XeenSceneArchive a
   if(end==bytes.size())throw std::runtime_error("Missing or unterminated Tavern string");
   if(index==wanted) {
    if(end-begin>4096)throw std::runtime_error("Tavern string exceeds bounded reader capacity");
-   std::string offer(bytes.begin()+begin,bytes.begin()+end);XeenDosText::validateControls(offer);return offer;
+   std::string offer(bytes.begin()+begin,bytes.begin()+end);XeenDosText::validateControls(offer,language());return offer;
   }
   begin=end+1;
  }

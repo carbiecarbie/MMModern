@@ -124,7 +124,7 @@ unsigned castKey(const PlayerAction &action) {
     return 0;
 }
 std::string refusal(const XeenDosText &text,const XeenCharacter &c,const XeenLearnedSpellNames &names,const std::string &code) {
-    if(code=="disabled")return xeenDialogFormat(text.scalar("IN_NO_CONDITION"),{c.name});
+    if(code=="disabled")return xeenDialogFormat(text.scalar("IN_NO_CONDITION"),{xeenLiteralText(c.name)});
     const auto category=XeenLearnedSpellRules::categoryForClass(c.characterClass);
     const auto id=category?XeenLearnedSpellRules::spellForSlot(*category,c.currentSpell):std::nullopt;
     const auto &name=names.names[id.value_or(76)];

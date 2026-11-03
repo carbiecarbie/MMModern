@@ -81,7 +81,7 @@ struct XeenJournalUi {
     std::size_t top=0;
     void key(unsigned,std::size_t count);
 };
-std::vector<std::string> xeenJournalStrings(const std::vector<std::uint8_t> &,bool awards);
+std::vector<std::string> xeenJournalStrings(const std::vector<std::uint8_t> &,bool awards,XeenLanguage language=XeenLanguage::English);
 std::vector<std::string> xeenQuestLines(const XeenDosText &,const XeenQuestDisplay &,
     XeenJournalPage,const std::vector<std::string> &notes);
 std::vector<std::string> xeenAwardLines(const XeenDosText &,const XeenCharacter &,
@@ -116,7 +116,7 @@ IndexedFrame drawXeenSpellList(const XeenDosText &,const IndexedFrame &,const Xe
     bool guild,bool info,const XeenDialogSpriteDraw &,std::uint32_t year,XeenMapIdentity map);
 IndexedFrame drawXeenSpellConfirm(const IndexedFrame &,const XeenFontFormat &,const std::string &,bool info,const XeenDialogSpriteDraw &);
 IndexedFrame drawXeenSpellTarget(const XeenDosText &,const IndexedFrame &,const XeenFontFormat &);
-std::vector<std::string> xeenSpellDescriptions(const std::vector<std::uint8_t> &);
+std::vector<std::string> xeenSpellDescriptions(const std::vector<std::uint8_t> &,XeenLanguage language=XeenLanguage::English);
 IndexedFrame drawXeenExchange(const XeenDosText &,const IndexedFrame &,const XeenFontFormat &,const XeenDialogSpriteDraw &);
 IndexedFrame drawXeenQuickFight(const XeenDosText &,const IndexedFrame &,const XeenFontFormat &,const XeenCharacter &,std::size_t,const XeenDialogSpriteDraw &);
 DialogInput xeenItemsInput(bool misc,bool selection=false);

@@ -17,7 +17,11 @@ struct GlyphAtom {
 	XeenFontSize size = XeenFontSize::Normal;
 	std::uint8_t colorIndex = 0;
 	std::size_t sourceOffset = 0;
+	// A player-entered byte (xeenLiteralText): never a break point or a
+	// trailing space, as in renderOriginal (M110 Part C, N1).
+	bool literal = false;
 };
+bool breakSpace(const GlyphAtom &glyph) { return glyph.character == ' ' && !glyph.literal; }
 
 struct TextLine {
 	std::vector<GlyphAtom> glyphs;
@@ -109,8 +113,35 @@ void originalWindow(IndexedFrame &frame, const XeenTextRect &b) {
 	fillRect(frame,{b.left+8,b.top+8,b.right-8,b.bottom-8},0x99);
 }
 
+// M110: English masks every byte to 7 bits; Russian keeps bytes 0x80-0xff as
+// characters and only 0x20 is a space (pinned FontSurface::getNextChar/isSpace).
+unsigned char textCode(XeenLanguage language, char ch) {
+    const auto raw=static_cast<unsigned char>(ch);
+    return language==XeenLanguage::Russian?raw:static_cast<unsigned char>(raw&0x7f);
+}
+
+bool literalAt(const std::string &text, std::size_t at) {
+    return at+2<text.size() && text[at]==kXeenLiteralMarker && text[at+1]==kXeenLiteralMarker;
+}
+
+// Marks the literal-name markers (decision 10): marker[i] when text[i] starts
+// a literal byte, so scans never read a literal's payload as a command.
+std::vector<char> literalMarkers(const std::string &text) {
+    std::vector<char> marker(text.size());
+    for(std::size_t i=0;i<text.size();) {
+        if(literalAt(text,i)) {marker[i]=1;i+=3;}
+        else ++i;
+    }
+    return marker;
+}
+
 XeenTextRenderResult renderOriginal(const IndexedFrame &base, const std::string &text,
         const XeenTextRenderOptions &o, const XeenFontFormat &font) {
+    const auto language=font.language();
+    const auto marker=literalMarkers(text);
+    const auto code=[&](std::size_t at){return textCode(language,text[at]);};
+    const auto literal=[&](std::size_t at){return textCode(language,text[at+2]);};
+    const auto space=[&](std::size_t at){return !(at>=2 && marker[at-2]) && !marker[at] && code(at)==' ';};
     XeenTextRenderResult result;
     IndexedFrame frame=base;
     if(o.drawWindow) originalWindow(frame,o.windowBounds);
@@ -123,7 +154,7 @@ XeenTextRenderResult renderOriginal(const IndexedFrame &base, const std::string 
         // after the first non-digit (including the default-color 'd').
         for(int n=0;n<digits;++n) {
             if(i==text.size()) return -1;
-            const unsigned char c=text[i++]&0x7f;
+            const unsigned char c=code(i++);
             const int digit=c==' '?0:int(c)-'0';
             if(digit<0 || digit>9) return -1;
             value=value*10+digit;
@@ -142,7 +173,7 @@ XeenTextRenderResult renderOriginal(const IndexedFrame &base, const std::string 
         x+=font.advance(c,size);
     };
     const auto newline=[&] {
-        while(i<text.size() && (text[i]&0x7f)==' ') ++i;
+        while(i<text.size() && space(i)) ++i;
         x=o.bounds.left;y+=size==XeenFontSize::Reduced?9:10;
         if(o.stopAtBottom && y+(size==XeenFontSize::Reduced?9:10)-1>o.bounds.bottom)stopped=true;
     };
@@ -153,35 +184,39 @@ XeenTextRenderResult renderOriginal(const IndexedFrame &base, const std::string 
         int xp=alignment==XeenTextAlignment::Center?o.bounds.left:x;
         bool wraps=false;
         for(;end<text.size();) {
-            const auto c=static_cast<unsigned char>(text[end])&0x7f;
-            if(c>=32) {xp+=c==' '?4:font.advance(c,size);++end;}
+            const auto first=end;
+            const auto c=code(end);
+            if(marker[end]) {xp+=font.advance(literal(end),size);end+=3;}
+            else if(c>=32) {xp+=c==' '?4:font.advance(c,size);++end;}
             else if(c==12) {end+=end+1<text.size() && text[end+1]=='d'?2:3;continue;}
             else if(c==8 && end+1<text.size() && text[end+1]==' ') {xp-=2;end+=2;continue;}
             else break;
-            if(xp>=o.bounds.right) {--end;wraps=true;break;}
+            if(xp>=o.bounds.right) {end=first;wraps=true;break;}
         }
         if(wraps && alignment!=XeenTextAlignment::Right) {
-            auto space=end;while(space>start && (text[space]&0x7f)!=' ') --space;
-            if(space>start) end=space;
+            auto at=end;while(at>start && !space(at)) --at;
+            if(at>start) end=at;
             else if(alignment==XeenTextAlignment::Left && x!=o.bounds.left) {newline();continue;}
             else if(end>start) --end;
         }
         if(alignment!=XeenTextAlignment::Left) {
             int width=0;
             for(auto scan=start;scan<text.size() && scan<=end;) {
-                const auto c=static_cast<unsigned char>(text[scan++])&0x7f;
+                if(marker[scan]) {width+=font.advance(literal(scan),size);scan+=3;continue;}
+                const auto c=code(scan++);
                 if(c>=32) width+=c==' '?4:font.advance(c,size);
                 else if(c==12) {scan+=scan<text.size() && text[scan]=='d'?1:2;}
                 else if(c==8 && scan<text.size() && text[scan]==' ') {--width;++scan;}
                 else break;
             }
             // EXE 0x187c4..0x187d4 deducts 4 (reduced 3) for the trailing space.
-            if(end<text.size() && text[end]==' ') width-=(size==XeenFontSize::Reduced?4:5)-int(o.exeCenterRounding);
+            if(end<text.size() && text[end]==' ' && !(end>=2 && marker[end-2])) width-=(size==XeenFontSize::Reduced?4:5)-int(o.exeCenterRounding);
             if(alignment==XeenTextAlignment::Right) x=(x==o.bounds.left?o.bounds.right:x)-width-1;
             else x=x==o.bounds.left?(o.bounds.left+o.bounds.right+1-width+int(o.exeCenterRounding))/2:(x*2-width+int(o.exeCenterRounding))/2;
         }
         while(i<text.size() && i<=end) {
-            const unsigned char c=text[i++]&0x7f;
+            if(marker[i]) {glyph(literal(i));i+=3;continue;}
+            const unsigned char c=code(i++);
             if(c>=32) {if(c==' ') x+=font.advance(c,size);else glyph(c);continue;}
             switch(c) {
             case 1:size=XeenFontSize::Normal;break;
@@ -195,7 +230,7 @@ XeenTextRenderResult renderOriginal(const IndexedFrame &base, const std::string 
             case 7:bg=number(3);if(bg>255)bg=0x99;break;
             case 8:{
                 if(i==text.size()) throw std::invalid_argument("Truncated original outline");
-                unsigned char ch=text[i++]&0x7f;
+                unsigned char ch=code(i++);
                 if(ch==' ') x=std::max(o.bounds.left,x-3);
                 else {if(ch==6)ch=' ';x=std::max(o.bounds.left,x-font.advance(ch,size));const int old=x;glyph(ch,true);x=old;}
                 break;
@@ -219,7 +254,7 @@ XeenTextRenderResult renderOriginal(const IndexedFrame &base, const std::string 
     result.pages.push_back(std::move(frame));result.pageSourceEnds.push_back(i);return result;
 }
 
-std::vector<GlyphAtom> parseText(const std::string &text,
+std::vector<GlyphAtom> parseText(XeenLanguage language, const std::string &text,
 		const XeenTextRenderOptions &options, std::vector<std::string> &diagnostics,
 		std::vector<std::size_t> &breaks, std::vector<XeenTextAlignment> &alignments) {
 	std::vector<GlyphAtom> glyphs;
@@ -228,8 +263,13 @@ std::vector<GlyphAtom> parseText(const std::string &text,
 	XeenTextAlignment alignment = options.alignment;
 	alignments.push_back(alignment);
 	for (std::size_t i = 0; i < text.size();) {
+		if (literalAt(text, i)) {
+			glyphs.push_back({textCode(language, text[i + 2]), size, color, i, true});
+			i += 3;
+			continue;
+		}
 		const unsigned char raw = static_cast<unsigned char>(text[i++]);
-		const unsigned char c = raw & 0x7f;
+		const unsigned char c = textCode(language, static_cast<char>(raw));
 		if (c >= ' ') {
 			glyphs.push_back({c, size, color, i - 1});
 			continue;
@@ -242,7 +282,7 @@ std::vector<GlyphAtom> parseText(const std::string &text,
 				diagnostics.push_back("Truncated Xeen alignment control");
 				break;
 			}
-			switch (text[i++] & 0x7f) {
+			switch (textCode(language, text[i++])) {
 			case 'c': alignment = XeenTextAlignment::Center; break;
 			case 'r': alignment = XeenTextAlignment::Right; break;
 			default: alignment = XeenTextAlignment::Left; break;
@@ -274,7 +314,7 @@ std::vector<GlyphAtom> parseText(const std::string &text,
 			break;
 		}
 		case 12:
-			if (i < text.size() && (text[i] & 0x7f) == 'd') {
+			if (i < text.size() && textCode(language, text[i]) == 'd') {
 				++i;
 				color = 0;
 			} else {
@@ -307,6 +347,24 @@ std::vector<GlyphAtom> parseText(const std::string &text,
 
 } // namespace
 
+std::string xeenLiteralText(std::string_view bytes) {
+	std::string result;
+	for (const char ch : bytes) {
+		const auto c = static_cast<unsigned char>(ch);
+		if (c < 0x20 || c > 0x7e)
+			result.append(2, kXeenLiteralMarker);
+		result += ch;
+	}
+	return result;
+}
+
+std::size_t xeenVisibleLength(std::string_view text) {
+	std::size_t length = 0;
+	for (std::size_t i = 0; i < text.size(); ++length)
+		i += i + 2 < text.size() && text[i] == kXeenLiteralMarker && text[i + 1] == kXeenLiteralMarker ? 3 : 1;
+	return length;
+}
+
 XeenTextRenderer::XeenTextRenderer(const XeenFontFormat &font) : _font(font) {
 }
 
@@ -317,7 +375,7 @@ int XeenTextRenderer::textWidth(const std::string &text, XeenFontSize size,
 	std::vector<std::string> localDiagnostics;
 	std::vector<std::size_t> breaks;
 	std::vector<XeenTextAlignment> alignments;
-	const auto glyphs = parseText(text, options, localDiagnostics, breaks, alignments);
+	const auto glyphs = parseText(_font.language(), text, options, localDiagnostics, breaks, alignments);
 	int width = 0;
 	int maximum = 0;
 	std::size_t breakIndex = 0;
@@ -350,7 +408,7 @@ XeenTextRenderResult XeenTextRenderer::render(const IndexedFrame &base,
 	XeenTextRenderResult result;
 	std::vector<std::size_t> explicitBreaks;
 	std::vector<XeenTextAlignment> alignments;
-	const auto glyphs = parseText(text, options, result.diagnostics,
+	const auto glyphs = parseText(_font.language(), text, options, result.diagnostics,
 		explicitBreaks, alignments);
 	const int availableWidth = options.bounds.right - options.bounds.left;
 	std::vector<TextLine> lines(1);
@@ -366,20 +424,20 @@ XeenTextRenderResult XeenTextRenderer::render(const IndexedFrame &base,
 		}
 		const GlyphAtom atom = glyphs[i];
 		const int advance = _font.advance(atom.character, atom.size);
-		const bool wordStart = atom.character != ' ' &&
-			(i == 0 || glyphs[i - 1].character == ' ' ||
+		const bool wordStart = !breakSpace(atom) &&
+			(i == 0 || breakSpace(glyphs[i - 1]) ||
 				std::find(explicitBreaks.begin(), explicitBreaks.end(), i) != explicitBreaks.end());
 		if (wordStart && !lines.back().glyphs.empty()) {
 			int wordWidth = 0;
 			for (std::size_t word = i; word < glyphs.size() &&
-					glyphs[word].character != ' ' &&
+					!breakSpace(glyphs[word]) &&
 					std::find(explicitBreaks.begin(), explicitBreaks.end(), word) ==
 						explicitBreaks.end(); ++word) {
 				wordWidth += _font.advance(glyphs[word].character, glyphs[word].size);
 			}
 			if (lines.back().width + wordWidth > availableWidth) {
 				while (!lines.back().glyphs.empty() &&
-						lines.back().glyphs.back().character == ' ') {
+						breakSpace(lines.back().glyphs.back())) {
 					lines.back().width -= _font.advance(' ', lines.back().glyphs.back().size);
 					lines.back().glyphs.pop_back();
 				}
@@ -389,13 +447,13 @@ XeenTextRenderResult XeenTextRenderer::render(const IndexedFrame &base,
 		}
 		if (!lines.back().glyphs.empty() && lines.back().width + advance > availableWidth) {
 			while (!lines.back().glyphs.empty() &&
-					lines.back().glyphs.back().character == ' ') {
+					breakSpace(lines.back().glyphs.back())) {
 				lines.back().width -= _font.advance(' ', lines.back().glyphs.back().size);
 				lines.back().glyphs.pop_back();
 			}
 			lines.emplace_back();
 			lines.back().alignment = lines[lines.size() - 2].alignment;
-			if (atom.character == ' ')
+			if (breakSpace(atom))
 				continue;
 		}
 		lines.back().glyphs.push_back(atom);
