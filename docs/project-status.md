@@ -1,9 +1,11 @@
 # MMModern - Project Status
 
-This describes what can be played and done now. M110 is the latest
-completed and accepted milestone (2026-11-03; [plan](milestone-110-plan.md)):
-with the old-games.ru fan translation installed beside the CD, the game
-plays in Russian. Before it, M108 turned the invariants of the Darkside
+This describes what can be played and done now. M109 is the latest
+completed and accepted milestone (2026-11-03; [plan](milestone-109-plan.md)):
+every push builds the project on a clean machine on GitHub and runs the
+tests that need no original data. Before it, M110 made the game playable in
+Russian with the old-games.ru fan translation installed beside the CD
+([plan](milestone-110-plan.md)), M108 turned the invariants of the Darkside
 audit into original-data tests, M107 played the original World of Xeen ending after the World win, the
 `genesis` mirror word and the title's W row, so every ending of the CD now
 plays, and M106 made Darkside of Xeen and World of Xeen winnable as in DOS,
@@ -407,7 +409,11 @@ process tests that need a legally obtained installation. Tests are labelled
 suite before closing a milestone. Four original-data scenarios compare their
 final saves with approved digests and re-save byte-identically after a
 reload. The generated [coverage report](coverage.md) counts every mechanic
-the original data uses and its support status.
+the original data uses and its support status. Every push also runs on
+GitHub Actions: a clean Windows machine installs the pinned toolchain,
+builds the pinned ScummVM and MMModern and runs the tests that need no
+original data; it never replaces the complete local suite
+([continuous integration](dependencies.md#continuous-integration)).
 
 ## Known gaps
 

@@ -378,3 +378,11 @@ over the CD's maps, rules, timing, music and English speech, an approved
 deviation. The keyboard, hotkeys, item descriptions, combat rows and caption
 strip follow the Russian Darkside program, its key defects included. Save
 v26 admits Cyrillic names. [Plan](milestone-110-plan.md).
+
+**M109 - Automated builds and tests on GitHub** (Tier A). Every push builds
+the project on a clean Windows machine on GitHub Actions, with the documented
+MSYS2 packages pinned by checksum and the pinned ScummVM revision, and runs
+the tests that need no original data. A new switch,
+`MMODERN_ORIGINAL_DATA_TESTS`, leaves the data tests out there, while the
+local default keeps every test. No game behavior changes.
+[Plan](milestone-109-plan.md).
